@@ -276,6 +276,9 @@ function adminMerchantCard(m){
   const anpId='anp-'+m.id;
   const refId='anpref-'+m.id;
   const notesId='notes-'+m.id;
+  const mixed=(m.deliveryCapabilities||[]).find(x=>x.capability_code==='regulated_glp_mixed_load_verified');
+  const mixedId='mixed-'+m.id;
+  const mixedNotesId='mixednotes-'+m.id;
   return `<article class="order-card">
     <div class="order-head"><div><div class="order-id">${esc(m.name)}</div><div class="tiny muted">${esc(m.cnpj)}</div></div>${adminStatusPill(m.status)}</div>
     <div class="order-line">Online: <strong>${m.online?'sim':'não'}</strong> • Trust: ${Number(m.trust_score||0)}/100</div>
@@ -285,7 +288,10 @@ function adminMerchantCard(m){
     </div>
     <div class="input-wrap"><label for="${refId}">Referência ANP</label><input id="${refId}" class="input" maxlength="240" value="${esc(c.anp_reference||'')}" placeholder="Número/consulta/evidência"></div>
     <div class="input-wrap"><label for="${notesId}">Observações</label><input id="${notesId}" class="input" maxlength="1000" value="${esc(c.notes||'')}" placeholder="Observações de validação"></div>
-    <div class="order-actions"><button class="secondary small" onclick="adminSaveCompliance('${m.id}')">Salvar validação</button>${active?`<button class="danger-btn small" onclick="adminSetMerchantStatus('${m.id}','suspend-merchant')">Suspender</button>`:`<button class="primary small" onclick="adminSetMerchantStatus('${m.id}','activate-merchant')">Ativar</button>`}</div>
+    <div class="divider"></div>
+    <label class="check-row"><input id="${mixedId}" type="checkbox" ${mixed?.active?'checked':''}><span><strong>Capacidade logística verificada para cesta mista com GLP</strong><small>Ative somente após validação operacional específica. CNPJ e ANP precisam estar verificados.</small></span></label>
+    <div class="input-wrap"><label for="${mixedNotesId}">Evidência / observação logística</label><input id="${mixedNotesId}" class="input" maxlength="1000" value="${esc(mixed?.notes||'')}" placeholder="Veículo, procedimento, evidência ou referência da validação"></div>
+    <div class="order-actions"><button class="secondary small" onclick="adminSaveCompliance('${m.id}')">Salvar validação</button><button class="secondary small" onclick="adminSaveDeliveryCapability('${m.id}')">Salvar capacidade logística</button>${active?`<button class="danger-btn small" onclick="adminSetMerchantStatus('${m.id}','suspend-merchant')">Suspender</button>`:`<button class="primary small" onclick="adminSetMerchantStatus('${m.id}','activate-merchant')">Ativar</button>`}</div>
   </article>`;
 }
 
@@ -369,6 +375,15 @@ async function adminSaveCompliance(id){
   try{
     await adminPerform('verify-merchant',{merchantId:id,cnpjStatus,anpStatus,anpReference,notes});
     toast('Validação salva');
+  }catch(e){toast(String(e?.message||e))}
+}
+async function adminSaveDeliveryCapability(id){
+  const active=document.getElementById('mixed-'+id)?.checked===true;
+  const notes=document.getElementById('mixednotes-'+id)?.value.trim()||'';
+  if(active&&!confirm('Confirma que esta revenda foi validada operacionalmente para cesta mista com GLP?'))return;
+  try{
+    await adminPerform('set-delivery-capability',{merchantId:id,active,notes});
+    toast(active?'Capacidade logística verificada':'Capacidade logística revogada');
   }catch(e){toast(String(e?.message||e))}
 }
 async function adminSetMerchantStatus(id,action){
