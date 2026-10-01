@@ -90,6 +90,7 @@ Deno.serve(async(req:Request)=>{
     const now=new Date().toISOString();
 
     if(action==="heartbeat"){
+      if(!canOperate(role))throw new DomainError("MERCHANT_ACCESS_DENIED","Seu papel não pode manter a operação ativa.",403);
       const {error}=await admin.from("merchants").update({last_seen_at:now}).eq("id",merchantId);
       if(error)throw error;
       return json({ok:true,lastSeenAt:now},200,origin);
