@@ -177,6 +177,7 @@ ${o.riskReason&&o.status!=='CANCELLED'?`<div class="notice danger" style="margin
 <section class="section"><div class="section-head"><div><h2>Linha do tempo</h2><p>Eventos registrados pelo backend.</p></div><button class="ghost small" onclick="liveGetOrder().catch(()=>{})">Atualizar</button></div><div class="card flat timeline">${liveEventTimeline(o)}</div></section>
 ${o.deliveryPin&&['OUT_FOR_DELIVERY','ARRIVING'].includes(o.status)?`<div class="notice success"><strong>PIN de recebimento: ${esc(o.deliveryPin)}</strong><br>Informe este código somente quando o pedido estiver na sua frente.</div>`:''}
 ${active&&['OFFERED_TO_MERCHANT','REQUOTE_REQUIRED'].includes(o.status)?`<button class="ghost full" style="margin-top:10px" onclick="cancelPending('${o.orderId}')" ${liveRuntime.actionPending?'disabled':''}>Cancelar antes do aceite</button>`:''}
+${active&&['PREPARING','AT_RISK'].includes(o.status)?`<button class="danger-btn full" style="margin-top:10px" onclick="cancelBeforeDispatch('${o.orderId}')" ${liveRuntime.actionPending?'disabled':''}>Cancelar antes da saída</button>`:''}
 <div class="card flat" style="margin-top:14px"><strong>Suporte do piloto</strong><p class="muted tiny">O pedido real já é auditável; o canal humano de incidentes será conectado antes da abertura pública.</p></div>
 </section>`);
 }
@@ -207,6 +208,7 @@ ${o.riskReason&&o.status!=='CANCELLED'?`<div class="notice danger" style="margin
 ${['OUT_FOR_DELIVERY','ARRIVING'].includes(o.status)?`<div class="notice success"><strong>PIN de recebimento: ${esc(o.pin)}</strong><br>Informe este código somente quando o pedido estiver na sua frente.</div>`:''}
 ${o.status==='SETTLED'&&o.cashbackEarned?`<div class="notice success" style="margin-top:14px"><strong>+${BRL.format(o.cashbackEarned)} de cashback</strong><br>Crédito já disponível para uma próxima compra.</div>`:''}
 ${live&&['OFFERED_TO_MERCHANT','REQUOTE_REQUIRED'].includes(o.status)?`<button class="ghost full" style="margin-top:10px" onclick="cancelPending('${o.id}')">Cancelar antes do aceite</button>`:''}
+${live&&['PREPARING','AT_RISK'].includes(o.status)?`<button class="danger-btn full" style="margin-top:10px" onclick="cancelBeforeDispatch('${o.id}')">Cancelar antes da saída</button>`:''}
 <div class="card flat" style="margin-top:14px"><strong>Precisa de ajuda?</strong><p class="muted tiny">Preço diferente, atraso, problema com produto ou entrega contestada viram incidentes rastreáveis.</p><button class="secondary full" onclick="toast('Suporte do pedido aberto — demonstração')">Abrir suporte</button></div>
 </section>`)
 }
@@ -221,6 +223,15 @@ async function confirmRequote(id){
     return;
   }
   const r=acceptRequote(id);toast(r.ok?'Nova cotação enviada à revenda':r.error);render();
+}
+async function cancelBeforeDispatch(id){
+  if(globalThis.liveRequested?.()){
+    await liveCustomerAction('cancel-before-dispatch');
+    return;
+  }
+  const r=customerCancel(id);
+  toast(r.ok?'Pedido cancelado antes da saída':r.error);
+  render();
 }
 async function cancelPending(id){
   if(globalThis.liveRequested?.()){
