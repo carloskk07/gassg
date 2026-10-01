@@ -16,7 +16,7 @@ Durante o piloto existem três entradas protegidas por parâmetros:
 
 O modo padrão continua sendo demonstração. Nenhum preço ou revenda fictícia é apresentado como dado real no modo live.
 
-## Estado atual — v1.7.2
+## Estado atual — hardening candidate
 
 **Demonstração:** funcional.
 
@@ -32,7 +32,9 @@ Antes de liberar usuários reais em volume, devem ser comprovados com contas rea
 4. primeiro fluxo em dois dispositivos: cliente → revenda → entrega → pagamento + PIN → benefícios;
 5. criar o primeiro administrador permanente pelo bootstrap server-side descrito abaixo;
 6. processo operacional de cobrança/reembolso entre plataforma e revenda;
-7. usar origem dedicada/custom domain antes de escalar sessões privilegiadas além do piloto protegido.
+7. publicar cliente, revenda e admin em **três origens HTTPS distintas**;
+8. configurar Cloudflare Turnstile e habilitar CAPTCHA/Turnstile no Supabase Auth antes de aceitar novas sessões;
+9. comprovar os redirect URLs de magic link das origens de revenda e admin.
 
 ## O que já existe
 
@@ -56,7 +58,7 @@ Antes de liberar usuários reais em volume, devem ser comprovados com contas rea
 
 - portal real separado da sessão do cliente;
 - login passwordless por e-mail;
-- sessão permanente da revenda limitada ao `sessionStorage` da aba no GitHub Pages;
+- sessão da revenda limitada ao `sessionStorage` da aba e aceita somente na origem dedicada configurada;
 - somente `owner`, `manager` e `operator` podem operar pedidos no piloto;
 - papel `driver` permanece bloqueado até existir atribuição por pedido;
 - endereço do cliente oculto antes do aceite;
@@ -109,8 +111,12 @@ Proteções implementadas:
 - rescue centralizado;
 - preço, taxa e itens congelados em re-cotação;
 - PIN com `pgcrypto`, cinco tentativas e retenção curta;
-- service worker network-first com cache `v1.16`;
-- sessões de cliente/revenda/admin isoladas por aba com `sessionStorage`; os modos reais permanecem bloqueados no origin compartilhado do GitHub Pages e exigem origens dedicadas.
+- service worker network-first com cache `v1.18`;
+- estado live com endereço/carrinho permanece em `sessionStorage`;
+- identidade anônima do cliente + ID do pedido ativo persistem na **origem dedicada do cliente**, permitindo recuperar uma entrega após fechar o navegador;
+- revenda e admin continuam tab-scoped em `sessionStorage`;
+- os modos reais permanecem bloqueados na origem compartilhada do GitHub Pages e exigem origens HTTPS dedicadas;
+- novas identidades anônimas e magic links passam por Cloudflare Turnstile antes de chamar o Supabase Auth.
 
 ## Confirmações de credibilidade do pedido
 
@@ -171,7 +177,7 @@ Usuários anônimos só são eliminados após 45 dias se não possuírem pedido,
 O CI executa:
 
 - sintaxe/checagem das Edge Functions;
-- **34 simulações de domínio e falhas**;
+- simulações de domínio, concorrência e falhas;
 - auditoria estática;
 - contratos SQL/migrations;
 - contratos de runtime;
@@ -198,8 +204,10 @@ Ainda não são considerados concluídos:
 - PSP/split/Pix payout automatizado;
 - saque real de comissão;
 - atribuição individual de motorista;
-- bootstrap do primeiro administrador e validação das configurações de Auth;
-- origem dedicada/custom domain para sessões privilegiadas antes de escalar o piloto;
+- bootstrap do primeiro administrador;
+- configuração externa do Auth: Anonymous Sign-Ins, CAPTCHA Turnstile com secret, Site URL e redirect URLs;
+- configuração de `CHAMA_CUSTOMER_ORIGIN`, `CHAMA_MERCHANT_ORIGIN`, `CHAMA_ADMIN_ORIGIN` e `CHAMA_TURNSTILE_SITE_KEY`;
+- origens dedicadas/custom domains para cliente, revenda e admin antes de escalar o piloto;
 - WhatsApp/push de produção;
 - contratos, termos, privacidade e procedimento operacional final.
 
