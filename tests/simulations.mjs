@@ -348,4 +348,21 @@ test('CNPJ alfanumérico atual é aceito sem quebrar cadastros novos',()=>{
   assert.equal(T.isValidCnpjShape('00.000.000/E08G-AA'),false);
 });
 
+
+test('re-cotação que fica indisponível volta ao matching pela máquina de estados',()=>{
+  reset(x=>{x.address='Rua Teste, 230';x.cart=cart(['P13',1])});
+  const o=T.createOrderForMerchant('A').order;
+  const rr=T.rejectOrder(o.id);
+  assert.equal(rr.ok,true);
+  let order=T.getState().orders[0];
+  assert.equal(order.status,'REQUOTE_REQUIRED');
+  const proposed=order.proposedMerchantId;
+  T.getState().merchants.find(m=>m.id===proposed).online=false;
+  const ar=T.acceptRequote(o.id);
+  assert.equal(ar.ok,false);
+  order=T.getState().orders[0];
+  assert.ok(['REQUOTE_REQUIRED','CANCELLED'].includes(order.status));
+  assert.ok(order.events.some(e=>e.status==='REASSIGNING'&&/indisponível/i.test(e.title)));
+});
+
 console.log(`\n${passed} simulações passaram.`);
