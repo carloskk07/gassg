@@ -65,7 +65,7 @@ assert.ok(backend.includes("chamaTurnstile.challenge"),'nova identidade anônima
 assert.ok(backend.includes("options:{captchaToken}"),'token Turnstile deve ser entregue ao Auth do Supabase');
 const turnstile=read('js/turnstile.js');
 assert.ok(turnstile.includes('https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit'),'Turnstile deve carregar a API oficial em modo explícito');
-assert.ok(turnstile.includes("action:'anonymous_signin'"),'desafio deve possuir action específica');
+assert.ok(turnstile.includes('action:safeAction'),'helper Turnstile deve validar e encaminhar action específica');
 assert.ok(turnstile.includes('CHAMA_TURNSTILE_SITE_KEY'),'helper deve depender da site key pública de runtime');
 
 assert.ok(backend.includes("get-offers")&&backend.includes("create-order")&&backend.includes("get-order"),'runtime live precisa usar Edge Functions seguras');
@@ -119,6 +119,11 @@ assert.ok(admin.includes("storageKey:'chama-sg-admin-auth-v1'"),'sessão admin d
 assert.ok(backend.includes("storage:sessionStorage")&&backend.includes("storageKey:'chama-sg-merchant-auth-v1'"),'sessão da revenda deve ser tab-scoped em sessionStorage');
 assert.ok(admin.includes("storage:sessionStorage")&&admin.includes("storageKey:'chama-sg-admin-auth-v1'"),'sessão admin privilegiada deve ser tab-scoped em sessionStorage');
 assert.ok(admin.includes("shouldCreateUser:false"),'login admin não deve criar contas automaticamente');
+assert.ok(backend.includes("challenge('merchant_login')"),'login da revenda deve resolver Turnstile antes do magic link');
+assert.ok(backend.includes('shouldCreateUser:true,captchaToken'),'magic link da revenda deve enviar captchaToken ao Supabase');
+assert.ok(admin.includes("challenge('admin_login')"),'login admin deve resolver Turnstile antes do magic link');
+assert.ok(admin.includes('shouldCreateUser:false,captchaToken'),'magic link admin deve enviar captchaToken sem criar conta');
+
 assert.ok(admin.includes("/functions/v1/admin-ops"),'admin deve operar somente pela Edge Function protegida');
 assert.ok(!admin.includes("service_role")&&!admin.includes("sb_secret_"),'frontend admin jamais pode conter autoridade server-side');
 assert.ok(read('supabase/functions/admin-ops/index.ts').includes('platform_admins'),'Edge admin deve exigir allowlist server-side');
