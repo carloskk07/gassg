@@ -29,6 +29,7 @@ const adminIdem=fs.readFileSync(new URL('../supabase/migrations/20261001121000_a
 const cashbackRestore=fs.readFileSync(new URL('../supabase/migrations/20261001122000_restore_spent_cashback_on_reversal.sql',import.meta.url),'utf8');
 const rewardRetry=fs.readFileSync(new URL('../supabase/migrations/20261001123000_fault_tolerant_reward_processing.sql',import.meta.url),'utf8');
 const adminState=fs.readFileSync(new URL('../supabase/migrations/20261001124000_admin_state_transition_hardening.sql',import.meta.url),'utf8');
+const complianceContinuity=fs.readFileSync(new URL('../supabase/migrations/20261001125000_continuous_compliance_enforcement.sql',import.meta.url),'utf8');
 const r=repricing.replace(/--.*$/gm,'').replace(/\s+/g,' ').toLowerCase();
 const w=watchdog.replace(/--.*$/gm,'').replace(/\s+/g,' ').toLowerCase();
 const h=hardening.replace(/--.*$/gm,'').replace(/\s+/g,' ').toLowerCase();
@@ -57,6 +58,7 @@ const adm=adminIdem.replace(/--.*$/gm,'').replace(/\s+/g,' ').toLowerCase();
 const cr=cashbackRestore.replace(/--.*$/gm,'').replace(/\s+/g,' ').toLowerCase();
 const fr=rewardRetry.replace(/--.*$/gm,'').replace(/\s+/g,' ').toLowerCase();
 const ast=adminState.replace(/--.*$/gm,'').replace(/\s+/g,' ').toLowerCase();
+const cc=complianceContinuity.replace(/--.*$/gm,'').replace(/\s+/g,' ').toLowerCase();
 
 assert.match(r,/create table if not exists public\.order_requote_items/,'re-cotação precisa congelar preços por item');
 assert.match(r,/revoke all on table public\.order_requote_items from anon, authenticated/,'snapshot de re-cotação deve ser server-only');
@@ -230,4 +232,11 @@ assert.match(ast,/alreadyinstate/,'ativação ou suspensão repetida não pode a
 assert.match(ast,/if v_merchant\.status=p_status then[\s\S]*online',/,'estado repetido deve preservar flag online');
 assert.match(ast,/invalid_merchant_status_transition/,'transições administrativas inválidas precisam falhar');
 
-console.log('Requote + watchdog + hardening v1.7.6 contract passou.');
+assert.match(cc,/enforce_compliance_continuity/,'compliance deve ser reavaliado depois da ativação');
+assert.match(cc,/v_cnpj_status<>'verified'/,'CNPJ não verificado deve suspender revenda ativa');
+assert.match(cc,/v_has_active_p13 and v_anp_status<>'verified'/,'P13 ativo exige ANP continuamente verificada');
+assert.match(cc,/set status='suspended',[\s\S]*online=false/,'perda de compliance precisa derrubar operação imediatamente');
+assert.match(cc,/before delete[\s\S]*merchant_compliance/,'remoção da validação também deve suspender operação');
+assert.doesNotMatch(cc,/set status='active'/,'recuperar compliance não pode reativar automaticamente');
+
+console.log('Requote + watchdog + hardening v1.7.7 contract passou.');
