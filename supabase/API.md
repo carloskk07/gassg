@@ -1,216 +1,228 @@
-# Chama — Edge Function contract v1.2
+# Chama — Edge Function contract v1.6.7
 
-As funções abaixo serão a única superfície de escrita do piloto real. O browser usa somente publishable key + JWT do usuário. A secret/service key fica apenas no ambiente server-side.
+O browser usa publishable key + JWT. Dados reais da aplicação não são lidos/escritos diretamente pelo Data API.
 
 ## Auth boundary
 
-- a publishable key identifica o componente público do app; ela não prova identidade do usuário;
-- toda Edge Function extrai o Bearer JWT e valida a sessão com Supabase Auth antes de usar privilégios server-side;
-- Anonymous Auth é aceito somente nos fluxos de cliente e deve usar CAPTCHA/rate limiting quando habilitado;
-- ações de revenda rejeitam usuários com identidade anônima e exigem membership ativo;
-- autorização nunca usa `user_metadata`; vínculo operacional vem de tabelas server-side como `merchant_members`;
-- configuração de JWT/API key da Edge Function deve seguir a documentação vigente do Supabase no momento do deploy; a função continua fazendo validação explícita do usuário mesmo que a plataforma faça verificação adicional.
+- publishable key não prova identidade;
+- toda Edge Function valida Bearer JWT;
+- cliente pode ser Anonymous Auth;
+- revenda precisa ser identidade permanente;
+- autorização de revenda vem de `merchant_members`;
+- `driver` não possui acesso operacional até existir assignment;
+- service role fica somente no runtime Edge;
+- payload JSON máximo: 16 KB;
+- quotas são consumidas atomicamente no Postgres.
 
-## 1. get-offers
+## get-offers
 
-**Quem chama:** cliente autenticado, inclusive Anonymous Auth.
-
-**Entrada**
+Cliente autenticado envia:
 
 ```json
 {
   "address": "Rua ...",
   "items": [
-    {"productCode":"P13","quantity":1},
-    {"productCode":"WATER20","quantity":1}
-  ],
-  "priority": "recommended"
-}
-```
-
-**Autoridade server-side**
-
-- normaliza e valida endereço;
-- valida quantidades e produtos;
-- filtra somente revendas `active + online`;
-- valida estoque;
-- usa preços confirmados e ainda válidos;
-- calcula distância/ETA no servidor;
-- cria `quotes` e `quote_items`;
-- quote expira rapidamente;
-- não devolve nome, CNPJ, endereço, telefone nem `merchant_id`.
-
-**Saída**
-
-```json
-{
-  "offers": [
-    {
-      "quoteId": "opaque-uuid",
-      "label": "recommended",
-      "totalCents": 11990,
-      "etaMinMinutes": 18,
-      "etaMaxMinutes": 25,
-      "trustScore": 97,
-      "expiresAt": "..."
-    }
+    {"productCode":"P13","quantity":1}
   ]
 }
 ```
 
-## 2. create-order
+A função:
 
-**Cabeçalhos**
+- normaliza endereço/cesta;
+- filtra revendas online/ativas/frescas;
+- revalida preço e estoque;
+- persiste quote + itens atomicamente;
+- reutiliza snapshot idêntico ainda válido;
+- limita requisições por minuto e hora;
+- devolve no máximo opções anonimizadas;
+- nunca devolve `merchant_id`, nome, CNPJ, telefone ou endereço da revenda.
 
-- JWT do usuário
-- `Idempotency-Key` obrigatório
+## create-order
 
-**Entrada**
+Header obrigatório:
+
+`Idempotency-Key`
+
+Body:
 
 ```json
 {
-  "quoteId": "opaque-uuid",
+  "quoteId": "uuid",
   "paymentMethod": "pix",
   "useCashback": true,
   "referralCode": "ABC123"
 }
 ```
 
-**Regras**
+Regras:
 
-- quote precisa pertencer a `auth.uid()`;
-- quote não pode estar vencido nem consumido;
-- o servidor relê estoque antes de criar;
-- preço vem de `quote_items`, nunca do payload;
-- cashback disponível é calculado do ledger;
-- reserva de cashback gera entrada idempotente;
-- quote é consumido na mesma transação lógica;
-- cria `orders`, `order_items` e `order_events`;
-- apenas um pedido ativo por cliente;
-- resposta repetida com a mesma idempotency key retorna o mesmo resultado;
-- mesma key com payload diferente é rejeitada.
+- quote pertence ao usuário;
+- quote válido e não consumido;
+- estoque revalidado;
+- preço vem do snapshot;
+- um pedido ativo por cliente;
+- referral novo somente antes do primeiro pedido;
+- cashback calculado do ledger;
+- economia da plataforma é snapshotada na criação;
+- corrida de pedido duplicado retorna conflito.
 
-## 3. merchant-action
+## get-order
 
-**Quem chama:** usuário permanente vinculado à revenda.
+Projeção mínima para cliente ou membro operacional da revenda.
 
-**Entrada**
+Cliente recebe:
+- endereço próprio;
+- itens/totais;
+- fornecedor somente após aceite;
+- eventos;
+- PIN apenas após dispatch;
+- estado financeiro e reversão, quando aplicável.
 
-```json
-{
-  "orderId": "...",
-  "action": "accept",
-  "expectedVersion": 4,
-  "idempotencyKey": "..."
-}
-```
+Revenda:
+- precisa ser `owner/manager/operator`;
+- não recebe endereço em `OFFERED_TO_MERCHANT`.
 
-Ações iniciais:
+## customer-action
+
+Ações:
+
+- `cancel-before-accept`
+- `accept-requote`
+
+Requote:
+- itens + taxa congelados;
+- validade de 5 minutos;
+- aumento exige aceite explícito.
+
+## customer-summary
+
+Retorna apenas agregado:
+
+- referral code;
+- cashback;
+- comissão pending;
+- comissão available;
+- compras liquidadas válidas;
+- quantidade revertida;
+- elegibilidade para comissão em dinheiro;
+- tipo de identidade.
+
+Nunca devolve ledger bruto.
+
+## merchant-orders
+
+Somente identidade permanente com membership operacional.
+
+Retorna:
+- perfil operacional da revenda;
+- memberships operacionais;
+- catálogo autorizado;
+- pedidos ativos;
+- endereço mascarado antes do aceite.
+
+## merchant-ops
+
+Ações:
+
+- `heartbeat`
+- `set-online`
+- `update-product`
+- `update-logistics`
+
+`heartbeat/set-online`: owner/manager/operator.
+
+Alteração de catálogo/logística: owner/manager.
+
+## merchant-action
+
+Ações:
 
 - `accept`
 - `reject`
 - `dispatch`
 - `arriving`
+- `cannot-fulfill`
 
-**Regras**
+Todas exigem owner/manager/operator e `expectedVersion`.
 
-- vínculo em `merchant_members` é obrigatório;
-- pedido precisa estar atribuído à revenda;
-- `expectedVersion` impede concorrência silenciosa;
-- aceite reserva estoque de todos os itens de forma atômica;
-- ao aceitar, grava `supplier_name_snapshot`;
-- recusa reabre matching sem revelar a revenda recusada ao cliente;
-- se nova opção for mais cara, status vira `REQUOTE_REQUIRED`;
-- `dispatch` é o único caminho que produz “A caminho”;
-- cada transição grava `order_events`.
+`cannot-fulfill` só é permitido antes do dispatch e usa motivo operacional restrito. O banco recompõe estoque e chama rescue central.
 
-## 4. customer-action
+## complete-delivery
 
-Ações iniciais:
-
-- `cancel-before-accept`
-- `accept-requote`
-
-**Regras**
-
-- cliente só age em pedidos próprios;
-- cancelamento simples deixa de ser permitido após compromisso da revenda;
-- aceite de re-cotação troca preço/fornecedor apenas após confirmação explícita;
-- cashback reservado é recalculado e diferença devolvida pelo ledger.
-
-## 5. complete-delivery
-
-**Entrada**
+Body:
 
 ```json
 {
   "orderId": "...",
   "pin": "1234",
   "expectedVersion": 8,
-  "idempotencyKey": "..."
+  "paymentConfirmed": true
 }
 ```
 
-**Regras**
+Header:
 
-- revenda/entregador precisa pertencer ao merchant do pedido;
-- status precisa ser `ARRIVING`;
-- comparar PIN com hash server-side;
-- máximo de cinco falhas;
-- PIN correto faz `DELIVERED -> SETTLED`;
-- cashback entra uma única vez no bucket `cashback`;
-- comissão de indicação só nasce após settlement real no bucket `commission_pending`;
-- após o prazo antifraude, a liberação move valor de `commission_pending` para `commission_available` com duas entradas compensatórias;
-- estoque e financeiro nunca são recalculados pelo browser.
+`Idempotency-Key`
 
-## 6. update-catalog
+Regras:
 
-- somente owner/manager;
-- preço em centavos inteiros;
-- estoque inteiro não negativo;
-- atualização renova `price_confirmed_at`;
-- mudança não altera pedidos/quotes já protegidos.
+- owner/manager/operator;
+- status `ARRIVING`;
+- pagamento precisa estar explicitamente confirmado;
+- PIN de quatro dígitos comparado com hash;
+- máximo cinco falhas;
+- sucesso grava PAYMENT_CONFIRMED, DELIVERED e SETTLED;
+- trigger gera rewards/receivables apenas após settlement.
 
-## 7. submit-merchant-application
+## submit-merchant-application
 
-- aceita CNPJ numérico e alfanumérico no formato atual;
-- normaliza CNPJ antes de persistir;
-- impede aplicação pendente/aprovada duplicada;
-- validação documental/regulatória ocorre antes de `status=active`.
+Exige identidade permanente.
 
-## Concurrency e idempotência
+Valida:
+- CNPJ numérico/alfanumérico;
+- empresa;
+- responsável;
+- WhatsApp;
+- endereço.
 
-Toda função mutável recebe idempotency key. O servidor grava `action_requests` com:
+Cadastro fica pendente. Nunca ativa revenda automaticamente.
 
-- usuário;
-- nome da ação;
-- hash do payload canônico;
-- resultado final.
+## Idempotência e concorrência
 
-Se uma requisição repetir por timeout/retry, o servidor devolve o resultado já produzido. Se a mesma chave vier com payload diferente, retorna conflito.
+Mutações usam:
+- `Idempotency-Key`;
+- request fingerprint;
+- `action_requests`;
+- `orders.version`;
+- locks transacionais quando há dinheiro/estoque.
 
-Pedidos usam `version` para optimistic concurrency. Uma ação baseada em versão antiga deve falhar e obrigar o cliente a recarregar o estado.
+A mesma key + mesmo payload retorna resultado anterior. Mesma key + payload diferente falha.
 
-## Realtime
+## Financeiro server-only
 
-No piloto de São Gabriel, o frontend pode assinar `orders` e `order_events` via Postgres Changes porque o volume inicial é pequeno e a configuração é simples. Se o produto crescer, migramos a entrega de eventos para Broadcast privado sem mudar a autoridade transacional do banco.
+Autoridades não expostas ao browser:
 
-## Ledger financeiro
+- `grant_order_rewards`
+- `process_reward_maturation`
+- `reverse_settled_order_financials`
+- `merchant_financial_position`
+- `process_data_retention`
+- `process_anonymous_user_cleanup`
 
-O saldo não é uma coluna mutável. Ele é derivado das entradas imutáveis por `bucket`:
+### Buckets do wallet ledger
 
-- `cashback`: crédito para novas compras;
-- `commission_pending`: comissão ainda sujeita a validação/cooldown;
-- `commission_available`: comissão apta a saque quando Pix real estiver habilitado.
+- `cashback`
+- `commission_pending`
+- `commission_available`
 
-Movimentos de saída são negativos; entradas são positivas. Saque futuro é `commission_withdrawal`. Reversões possuem tipos próprios e nunca apagam histórico.
+### Contas entre plataforma e revenda
 
-## Segurança
+- `platform_receivables`: taxa da plataforma;
+- `merchant_cashback_reimbursements`: cashback usado pelo cliente a reembolsar à revenda;
+- `platform_settlement_adjustments`: ajustes após reversões;
+- `merchant_financial_position`: posição líquida server-side.
 
-- publishable key pode existir no frontend;
-- secret/service key jamais pode existir no GitHub Pages;
-- RLS continua habilitado mesmo com Edge Functions;
-- funções server-side validam JWT antes de usar privilégios elevados;
-- nenhum dado de outra revenda deve ser retornado por erro, log ou payload;
-- endereço do cliente só é entregue à revenda após o pedido estar atribuído;
-- logs não devem registrar PIN, token, JWT ou endereço completo.
+## Polling
+
+O frontend piloto usa polling por Edge Function. Não depende de SELECT direto ou Realtime público em `orders`.

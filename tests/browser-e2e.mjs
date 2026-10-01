@@ -137,10 +137,10 @@ const pin=(body.match(/PIN de recebimento:\s*(\d{4})/)||[])[1];
 assert.ok(pin,'PIN não encontrado');
 
 await evaluate("setMode('merchant')");
-await waitFor("document.querySelector('.pin-input')","merchant PIN input");
-await evaluate("document.querySelector('.pin-input').value='0000'; [...document.querySelectorAll('button')].find(b=>b.textContent.includes('Confirmar entrega')).click()");
+await waitFor("document.querySelector('.pin-input') && document.querySelector('input[id^=paid-]')","merchant PIN and payment confirmation");
+await evaluate("document.querySelector('input[id^=paid-]').checked=true; document.querySelector('.pin-input').value='0000'; [...document.querySelectorAll('button')].find(b=>b.textContent.includes('Confirmar entrega')).click()");
 await waitFor("document.querySelector('.pin-input')","wrong PIN keeps order open");
-await evaluate("document.querySelector('.pin-input').value="+JSON.stringify(pin)+"; [...document.querySelectorAll('button')].find(b=>b.textContent.includes('Confirmar entrega')).click()");
+await evaluate("document.querySelector('input[id^=paid-]').checked=true; document.querySelector('.pin-input').value="+JSON.stringify(pin)+"; [...document.querySelectorAll('button')].find(b=>b.textContent.includes('Confirmar entrega')).click()");
 await waitFor("document.body.innerText.includes('Nenhum pedido ativo')","merchant order closes");
 
 await evaluate("setMode('customer'); go('tracking')");
@@ -151,10 +151,10 @@ assert.match(body,/cashback/i);
 await evaluate("go('club')");
 await waitFor("document.body.innerText.includes('Clube Chama')","club route");
 body=await text();
-assert.match(body,/R\$\s*8,75/);
+assert.match(body,/R\$\s*7,65/);
 await auditDom('club');
 
 assert.deepEqual(pageErrors,[],`Chrome registrou erros: ${pageErrors.join(' | ')}`);
 
-console.log('E2E Chrome passou: água sem P13 → aceite → saída → chegada → PIN → cashback.');
+console.log('E2E Chrome passou: água sem P13 → aceite → saída → chegada → pagamento + PIN → cashback.');
 ws.close();

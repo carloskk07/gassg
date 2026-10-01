@@ -3,8 +3,46 @@ import fs from 'node:fs';
 
 const repricing=fs.readFileSync(new URL('../supabase/migrations/20261001071000_freeze_requote_item_prices.sql',import.meta.url),'utf8');
 const watchdog=fs.readFileSync(new URL('../supabase/migrations/20261001072000_add_order_timeout_watchdog.sql',import.meta.url),'utf8');
+const hardening=fs.readFileSync(new URL('../supabase/migrations/20261001090000_hardening_v1_5.sql',import.meta.url),'utf8');
+const requote=fs.readFileSync(new URL('../supabase/migrations/20261001093000_requote_contract_hardening.sql',import.meta.url),'utf8');
+const anonRls=fs.readFileSync(new URL('../supabase/migrations/20261001091500_anonymous_auth_rls_hardening.sql',import.meta.url),'utf8');
+const summary=fs.readFileSync(new URL('../supabase/migrations/20261001094500_customer_summary_authority.sql',import.meta.url),'utf8');
+const settlement=fs.readFileSync(new URL('../supabase/migrations/20261001094700_settlement_payment_confirmation.sql',import.meta.url),'utf8');
+const rewards=fs.readFileSync(new URL('../supabase/migrations/20261001100000_reward_engine.sql',import.meta.url),'utf8');
+const rejectRescue=fs.readFileSync(new URL('../supabase/migrations/20261001101000_unify_merchant_reject_rescue.sql',import.meta.url),'utf8');
+const lockdown=fs.readFileSync(new URL('../supabase/migrations/20261001102000_browser_data_plane_lockdown.sql',import.meta.url),'utf8');
+const atomicQuotes=fs.readFileSync(new URL('../supabase/migrations/20261001103000_atomic_quote_snapshots.sql',import.meta.url),'utf8');
+const finance=fs.readFileSync(new URL('../supabase/migrations/20261001105000_financial_unit_economics_v1_6.sql',import.meta.url),'utf8');
+const retention=fs.readFileSync(new URL('../supabase/migrations/20261001104000_ephemeral_data_minimization.sql',import.meta.url),'utf8');
+const roleAuth=fs.readFileSync(new URL('../supabase/migrations/20261001110000_merchant_role_authorization.sql',import.meta.url),'utf8');
+const cashIdentity=fs.readFileSync(new URL('../supabase/migrations/20261001111000_cash_commission_identity_gate.sql',import.meta.url),'utf8');
+const anonCleanup=fs.readFileSync(new URL('../supabase/migrations/20261001112000_safe_anonymous_user_cleanup.sql',import.meta.url),'utf8');
+const reversal=fs.readFileSync(new URL('../supabase/migrations/20261001113000_post_settlement_financial_reversal.sql',import.meta.url),'utf8');
+const reversalSummary=fs.readFileSync(new URL('../supabase/migrations/20261001114000_reversal_aware_customer_summary.sql',import.meta.url),'utf8');
+const merchantCashback=fs.readFileSync(new URL('../supabase/migrations/20261001115000_merchant_cashback_reimbursement.sql',import.meta.url),'utf8');
+const referralGate=fs.readFileSync(new URL('../supabase/migrations/20261001116000_referral_acquisition_gate.sql',import.meta.url),'utf8');
+const settlementIndex=fs.readFileSync(new URL('../supabase/migrations/20261001117000_settlement_adjustment_merchant_index.sql',import.meta.url),'utf8');
 const r=repricing.replace(/--.*$/gm,'').replace(/\s+/g,' ').toLowerCase();
 const w=watchdog.replace(/--.*$/gm,'').replace(/\s+/g,' ').toLowerCase();
+const h=hardening.replace(/--.*$/gm,'').replace(/\s+/g,' ').toLowerCase();
+const q=requote.replace(/--.*$/gm,'').replace(/\s+/g,' ').toLowerCase();
+const a=anonRls.replace(/--.*$/gm,'').replace(/\s+/g,' ').toLowerCase();
+const s=summary.replace(/--.*$/gm,'').replace(/\s+/g,' ').toLowerCase();
+const st=settlement.replace(/--.*$/gm,'').replace(/\s+/g,' ').toLowerCase();
+const rw=rewards.replace(/--.*$/gm,'').replace(/\s+/g,' ').toLowerCase();
+const rr=rejectRescue.replace(/--.*$/gm,'').replace(/\s+/g,' ').toLowerCase();
+const ld=lockdown.replace(/--.*$/gm,'').replace(/\s+/g,' ').toLowerCase();
+const aq=atomicQuotes.replace(/--.*$/gm,'').replace(/\s+/g,' ').toLowerCase();
+const fn=finance.replace(/--.*$/gm,'').replace(/\s+/g,' ').toLowerCase();
+const rt=retention.replace(/--.*$/gm,'').replace(/\s+/g,' ').toLowerCase();
+const ra=roleAuth.replace(/--.*$/gm,'').replace(/\s+/g,' ').toLowerCase();
+const ci=cashIdentity.replace(/--.*$/gm,'').replace(/\s+/g,' ').toLowerCase();
+const ac=anonCleanup.replace(/--.*$/gm,'').replace(/\s+/g,' ').toLowerCase();
+const rv=reversal.replace(/--.*$/gm,'').replace(/\s+/g,' ').toLowerCase();
+const rs=reversalSummary.replace(/--.*$/gm,'').replace(/\s+/g,' ').toLowerCase();
+const mc=merchantCashback.replace(/--.*$/gm,'').replace(/\s+/g,' ').toLowerCase();
+const rg=referralGate.replace(/--.*$/gm,'').replace(/\s+/g,' ').toLowerCase();
+const si=settlementIndex.replace(/--.*$/gm,'').replace(/\s+/g,' ').toLowerCase();
 
 assert.match(r,/create table if not exists public\.order_requote_items/,'re-cotação precisa congelar preços por item');
 assert.match(r,/revoke all on table public\.order_requote_items from anon, authenticated/,'snapshot de re-cotação deve ser server-only');
@@ -25,4 +63,113 @@ assert.match(w,/revoke all on function public\.system_reassign_expired_order\(uu
 assert.match(w,/revoke all on function public\.process_order_timeouts\(\)[\s\S]*from public, anon, authenticated/,'watchdog não pode ser chamado pelo browser');
 assert.match(w,/to postgres, service_role/,'watchdog precisa ser restrito a autoridade server-side');
 
-console.log('Requote + watchdog contract passou.');
+assert.match(h,/create table if not exists public\.api_rate_limits/,'rate limiter precisa persistir buckets server-side');
+assert.match(h,/revoke all on table public\.api_rate_limits from anon, authenticated/,'rate buckets não podem ser expostos ao browser');
+assert.match(h,/consume_api_quota/,'quota precisa ser atômica no Postgres');
+assert.match(h,/grant execute on function public\.consume_api_quota\(uuid,text,integer,integer\)[\s\S]*to service_role/,'quota só pode ser consumida pelo server');
+assert.match(h,/alter function public\.merchant_order_action[\s\S]*set search_path to pg_catalog, extensions/,'dispatch precisa resolver pgcrypto em extensions');
+assert.match(h,/alter function public\.complete_order_delivery[\s\S]*set search_path to pg_catalog, extensions/,'validação do PIN precisa resolver pgcrypto em extensions');
+assert.match(h,/encode\(extensions\.gen_random_bytes\(10\),'hex'\)/,'referral code precisa ser aleatório e independente do UUID');
+assert.doesNotMatch(h,/referral_code[\s\S]{0,180}replace\(new\.id::text/,'referral code não pode derivar do auth UUID');
+assert.match(h,/status not in \('reassigning','requote_required'\)/,'RLS deve revogar acesso da revenda antiga durante rescue/requote');
+assert.match(h,/create or replace function public\.system_rescue_order/,'rescue genérico server-side precisa existir');
+assert.match(h,/create or replace function public\.merchant_fail_before_dispatch/,'revenda precisa conseguir falhar com segurança antes do despacho');
+assert.match(h,/available_stock=available_stock\+v_item\.quantity/,'falha pós-aceite precisa devolver estoque');
+assert.match(h,/merchant_cannot_fulfill/,'rescue precisa registrar motivo operacional');
+assert.match(h,/create or replace function public\.process_data_retention/,'dados efêmeros precisam de retenção');
+assert.match(h,/chama-data-retention/,'retenção precisa ser agendada');
+assert.match(h,/order_delivery_secrets[\s\S]*interval '24 hours'/,'PIN bruto consumido precisa expirar');
+assert.match(h,/public\.quotes[\s\S]*interval '24 hours'/,'quotes expirados precisam ser limpos');
+
+assert.match(q,/proposed_delivery_fee_cents/,'re-cotação precisa congelar taxa de entrega');
+assert.match(q,/interval '5 minutes'/,'re-cotação precisa ter validade limitada');
+assert.match(q,/requote_expired/,'aceite de re-cotação expirada precisa ser bloqueado');
+assert.match(q,/system_expire_requote/,'watchdog precisa encerrar re-cotação abandonada');
+assert.match(q,/expiredrequotesprocessed/,'watchdog precisa reportar re-cotações expiradas');
+assert.match(q,/old\.proposed_delivery_fee_cents/,'troca de fornecedor deve validar taxa congelada, não taxa atual');
+
+assert.match(a,/revoke select on table public\.orders, public\.order_items, public\.order_events from authenticated/,'pedidos reais devem ser lidos apenas por Edge Function');
+assert.match(a,/auth\.jwt\(\)->>'is_anonymous'/,'RLS de revenda deve distinguir identidade permanente');
+assert.match(s,/customer_financial_summary/,'resumo financeiro mínimo precisa existir');
+assert.match(s,/grant execute on function public\.customer_financial_summary\(uuid\) to service_role/,'resumo financeiro deve ser server-only');
+assert.match(st,/payment_confirmed_at/,'settlement precisa registrar confirmação de pagamento');
+assert.match(st,/payment_confirmation_method='merchant_attestation'/,'piloto deve registrar origem da confirmação de pagamento');
+assert.match(st,/status <> 'settled'[\s\S]*payment_confirmed_at is not null/,'constraint deve impedir SETTLED sem pagamento confirmado');
+assert.match(st,/payment_confirmed[\s\S]*delivered[\s\S]*settled/,'eventos financeiros e de entrega precisam ser auditáveis');
+
+assert.match(rw,/create table if not exists public\.reward_policy/,'política de recompensa deve ser configurável');
+assert.match(rw,/create table if not exists public\.order_reward_grants/,'grant por pedido precisa ter registro auditável');
+assert.match(rw,/cashback_cents \+ referral_pending_cents <= reward_budget_cents/,'recompensas não podem exceder orçamento do pedido');
+assert.match(rw,/grant_order_rewards/,'settlement precisa possuir autoridade de rewards');
+assert.match(rw,/grant_rewards_after_settlement/,'rewards devem nascer automaticamente do SETTLED');
+assert.match(rw,/on conflict\(idempotency_key\) do nothing/,'ledger de reward precisa ser idempotente');
+assert.match(rw,/commission_hold_hours/,'comissão deve ter janela de validação');
+assert.match(rw,/process_reward_maturation/,'comissão pendente precisa de autoridade de maturação');
+assert.match(rw,/chama-reward-maturation/,'maturação precisa ser agendada');
+assert.match(rr,/v_result:=public\.system_rescue_order\(v_order\.id,'merchant_rejected'\)/,'recusa da revenda deve usar rescue central');
+assert.doesNotMatch(rr,/v_candidate_gross/,'merchant_order_action não deve duplicar ranking de rescue');
+assert.match(rr,/extensions\.gen_random_bytes\(2\)/,'PIN deve usar uma única amostra criptográfica de dois bytes');
+
+assert.match(ld,/revoke all on table public\.merchants,[\s\S]*public\.wallet_entries from anon, authenticated/,'browser deve perder acesso direto ao data-plane');
+assert.match(aq,/create or replace function public\.create_quote_snapshot/,'snapshot de quote precisa ser transação server-side');
+assert.match(aq,/pg_advisory_xact_lock/,'quotes idênticas concorrentes precisam de serialização');
+assert.match(aq,/snapshot_fingerprint/,'quotes devem possuir identidade reutilizável');
+assert.match(aq,/quote_source_stale/,'snapshot precisa revalidar preço estoque e revenda no banco');
+assert.match(aq,/v_gross:=\(v_subtotal\+p_delivery_fee_cents\)::integer/,'total da quote deve ser recalculado no banco');
+assert.match(aq,/grant execute on function public\.create_quote_snapshot[\s\S]*to service_role/,'autoridade de quote deve ser server-only');
+
+assert.match(fn,/platform_fee_bps integer not null default 750/,'taxa da plataforma precisa ser explícita e versionada');
+assert.match(fn,/variable_cost_bps integer not null default 75/,'custos variáveis precisam de reserva explícita');
+assert.match(fn,/minimum_contribution_bps integer not null default 250/,'pedido precisa preservar contribuição mínima');
+assert.match(fn,/cashback_bps integer not null default 100/,'cashback deve ser percentual da operação');
+assert.match(fn,/direct_referral_bps integer not null default 200/,'indicação precisa ter teto percentual explícito');
+assert.match(fn,/snapshot_order_economics_before_insert/,'economia deve ser congelada na criação do pedido');
+assert.match(fn,/platform_fee_cents[\s\S]*variable_cost_reserve_cents[\s\S]*cashback_cents[\s\S]*referral_pending_cents[\s\S]*platform_contribution_cents/,'identidade financeira precisa fechar no banco');
+assert.match(fn,/platform_contribution_cents >= minimum_contribution_cents/,'benefícios não podem romper contribuição mínima');
+assert.match(fn,/create table if not exists public\.platform_receivables/,'receita da plataforma precisa virar recebível auditável');
+assert.match(fn,/basis','platform_revenue'/,'ledger de benefícios deve registrar fonte econômica');
+
+assert.match(rt,/status in \('settled','cancelled'\)[\s\S]*interval '1 hour'/,'PIN bruto encerrado deve expirar em 1 hora');
+assert.match(rt,/expires_at<clock_timestamp\(\)-interval '2 hours'/,'quotes expiradas devem ser removidas em 2 horas');
+assert.match(ra,/v_member_role not in \('owner','manager','operator'\)/,'mutações do pedido devem exigir papel operacional');
+assert.doesNotMatch(ra,/v_member_role not in \('owner','manager','operator','driver'\)/,'driver não pode ser liberado sem assignment por pedido');
+assert.match(ci,/join auth\.users u on u\.id=g\.referrer_user_id/,'maturação de comissão deve consultar identidade real');
+assert.match(ci,/u\.is_anonymous is false/,'comissão sacável exige identidade permanente');
+
+assert.match(ac,/process_anonymous_user_cleanup/,'contas anônimas descartáveis precisam de limpeza segura');
+assert.match(ac,/not exists\( select 1 from auth\.identities/,'limpeza não pode remover usuário em vinculação de identidade');
+assert.match(ac,/not exists\( select 1 from public\.orders/,'limpeza não pode remover usuário com pedido');
+assert.match(ac,/not exists\( select 1 from public\.wallet_entries/,'limpeza não pode remover usuário com saldo ou histórico financeiro');
+assert.match(ac,/chama-anonymous-cleanup/,'limpeza anônima precisa de cron dedicado');
+
+assert.match(rv,/financial_state text not null default 'pending'/,'pedido precisa separar estado financeiro do estado operacional');
+assert.match(rv,/sync_order_financial_state_before_status/,'SETTLED operacional deve sincronizar settlement financeiro no mesmo commit');
+assert.match(rv,/create table if not exists public\.order_financial_reversals/,'reversão financeira precisa de registro idempotente por pedido');
+assert.match(rv,/cashback_reversal/,'reversão precisa estornar cashback');
+assert.match(rv,/referral_pending_release/,'reversão antes da maturação precisa retirar comissão pendente');
+assert.match(rv,/referral_reversal/,'reversão depois da maturação precisa retirar comissão disponível');
+assert.match(rv,/platform_fee_refund_due/,'taxa já recebida precisa gerar ajuste a devolver à revenda');
+assert.match(rv,/pg_advisory_xact_lock[\s\S]*reward:/,'maturação e reversão precisam compartilhar lock por pedido');
+assert.match(rv,/g\.reversed_at is null/,'comissão revertida nunca pode amadurecer');
+assert.match(rv,/v_order\.financial_state<>'settled'/,'maturação precisa bloquear qualquer settlement financeiro diferente de settled');
+assert.match(rv,/grant execute on function public\.reverse_settled_order_financials[\s\S]*to postgres, service_role/,'reversão deve ser server-only');
+
+assert.match(rs,/financial_state='settled'/,'compras válidas devem contar apenas settlements financeiros ativos');
+assert.match(rs,/financial_state='reversed'/,'resumo precisa rastrear compras financeiramente revertidas');
+
+assert.match(mc,/create table if not exists public\.merchant_cashback_reimbursements/,'cashback usado precisa gerar obrigação a reembolsar a revenda');
+assert.match(mc,/v_order\.cashback_reserved_cents/,'reembolso deve usar exatamente o cashback consumido no pedido');
+assert.match(mc,/cashback_reimbursement_recovery_due/,'reversão após reembolso pago precisa gerar recuperação a receber');
+assert.match(mc,/merchant_financial_position/,'financeiro precisa calcular posição líquida por revenda');
+assert.match(mc,/netduetoplatformcents/,'posição financeira deve distinguir quem deve para quem');
+assert.match(mc,/revoke all on table public\.merchant_cashback_reimbursements from anon, authenticated/,'reembolso de cashback deve ser server-only');
+
+assert.match(rg,/v_prior_order_count integer:=0/,'atribuição de indicação precisa conhecer histórico anterior');
+assert.match(rg,/and v_prior_order_count=0/,'novo referral só pode nascer antes do primeiro pedido');
+assert.match(rg,/insert into public\.referrals[\s\S]*on conflict\(referred_user_id\) do nothing/,'relação de referral deve permanecer única por cliente');
+assert.match(rg,/grant execute on function public\.create_order_from_quote[\s\S]*to service_role/,'gate de aquisição deve permanecer server-only');
+
+assert.match(si,/platform_settlement_adjustments_merchant_idx/,'ajustes financeiros precisam de índice por revenda');
+assert.match(si,/merchant_id,status,created_at/,'índice de ajuste deve começar pela FK merchant_id');
+
+console.log('Requote + watchdog + hardening v1.6.8 contract passou.');

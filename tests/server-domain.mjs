@@ -5,7 +5,7 @@ import {
   canonicalJson,requestFingerprint,assertIdempotentReplay,assertPermanentMerchantUser,
   assertMerchantMembership,assertCatalogWriteMembership,anonymizeOffer,hasMerchantLeak,
   computeCashbackReservation,cashbackReservationEntries,cashbackReleaseEntries,
-  referralPendingToAvailableEntries,validateDeliveryPin,shouldLockPin
+  referralPendingToAvailableEntries,validateDeliveryPin,shouldLockPin,readJsonBody,enforceApiQuota
 } from '../supabase/functions/_shared/domain.js';
 
 let passed=0;
@@ -21,6 +21,50 @@ function test(name,fn){
 function throwsCode(fn,code){
   assert.throws(fn,e=>e instanceof DomainError&&e.code===code);
 }
+
+await test('parser JSON limita tamanho e rejeita formas inválidas',async()=>{
+  const req={
+    headers:{get:()=>null},
+    text:async()=>JSON.stringify({ok:true})
+  };
+  assert.deepEqual(await readJsonBody(req),{ok:true});
+
+  await assert.rejects(
+    ()=>readJsonBody({headers:{get:()=>String(20000)},text:async()=>''}),
+    e=>e instanceof DomainError&&e.code==='PAYLOAD_TOO_LARGE'&&e.status===413
+  );
+
+  await assert.rejects(
+    ()=>readJsonBody(new Request('https://example.test',{
+      method:'POST',
+      body:'{"x":"'+('a'.repeat(17000))+'"}',
+      headers:{'content-type':'application/json'}
+    })),
+    e=>e instanceof DomainError&&e.code==='PAYLOAD_TOO_LARGE'&&e.status===413
+  );
+
+  await assert.rejects(
+    ()=>readJsonBody({headers:{get:()=>null},text:async()=>'[]'}),
+    e=>e instanceof DomainError&&e.code==='INVALID_JSON'
+  );
+});
+
+await test('quota server-side bloqueia excesso e falha fechada quando backend quebra',async()=>{
+  const okAdmin={rpc:async()=>({data:{allowed:true,count:2,limit:10},error:null})};
+  assert.equal((await enforceApiQuota(okAdmin,{userId:'u1',actionName:'get-order',limit:10,windowSeconds:60})).allowed,true);
+
+  const limited={rpc:async()=>({data:{allowed:false,count:11,limit:10},error:null})};
+  await assert.rejects(
+    ()=>enforceApiQuota(limited,{userId:'u1',actionName:'get-order',limit:10,windowSeconds:60}),
+    e=>e instanceof DomainError&&e.code==='RATE_LIMITED'&&e.status===429
+  );
+
+  const broken={rpc:async()=>({data:null,error:{message:'db unavailable'}})};
+  await assert.rejects(
+    ()=>enforceApiQuota(broken,{userId:'u1',actionName:'get-order',limit:10,windowSeconds:60}),
+    e=>e instanceof DomainError&&e.code==='RATE_LIMIT_BACKEND_FAILED'&&e.status===503
+  );
+});
 
 test('normaliza endereço sem aceitar vazio',()=>{
   assert.equal(normalizeAddress('  Rua   General Câmara, 123  '),'Rua General Câmara, 123');

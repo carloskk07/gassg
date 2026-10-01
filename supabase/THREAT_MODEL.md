@@ -1,171 +1,271 @@
-# Chama — Threat model v1.2
+# Chama — Threat model v1.6.7
 
-Este documento define riscos obrigatórios do piloto real e a mitigação mínima antes de liberar usuários fora da demonstração.
+Este documento define os principais riscos do piloto real e as mitigações já implementadas ou ainda obrigatórias.
 
-## T1 — Cliente altera preço ou fornecedor no navegador
+## T1 — Cliente altera preço, cesta ou fornecedor
 
-**Ataque:** editar JavaScript/local storage/payload e enviar total menor ou outra revenda.
-
-**Mitigação:**
-- ofertas vêm de `get-offers`;
-- quote é opaco, server-side e expira;
-- `create-order` ignora preços enviados pelo cliente;
-- itens/preços vêm de `quote_items`;
-- cliente não lê `merchants`, `catalog_items`, `quotes` nem `quote_items`.
-
-**Gate:** nenhuma escrita direta do browser em `orders`.
-
-## T2 — Duplo clique / timeout cria dois pedidos ou dois cashbacks
-
-**Ataque:** retry de rede, clique repetido, refresh ou automação envia a mesma ação múltiplas vezes.
+**Risco:** manipular JavaScript/payload para pagar menos ou trocar revenda.
 
 **Mitigação:**
-- `Idempotency-Key` obrigatória;
-- `action_requests` grava chave + hash do payload + resultado;
-- mesma chave e mesmo payload retorna o resultado anterior;
-- mesma chave com payload diferente retorna conflito;
-- ledger financeiro também possui `idempotency_key` única.
+- ofertas criadas server-side;
+- quote opaca;
+- preço/itens/taxa persistidos em snapshot;
+- criação do pedido ignora valores enviados pelo browser;
+- data-plane não é legível diretamente pelo cliente.
+
+## T2 — Retry ou clique duplo duplica pedido/dinheiro
+
+**Mitigação:**
+- idempotency key;
+- fingerprint canônico;
+- `action_requests`;
+- unique index de um pedido ativo por cliente;
+- conflito concorrente mapeado para 409;
+- ledger com `idempotency_key` única.
 
 ## T3 — Corrida de estoque
 
-**Ataque:** dois clientes compram a última unidade quase ao mesmo tempo.
+**Mitigação:**
+- estoque revalidado no quote;
+- revalidado novamente antes do aceite;
+- reserva atômica por item;
+- rollback transacional;
+- rescue recompõe estoque quando a revenda falha antes da saída.
+
+## T4 — Revenda opera pedido alheio
 
 **Mitigação:**
-- validação final de estoque no servidor;
-- reserva de todos os itens em transação;
-- pedido usa `version` para optimistic concurrency;
-- estoque nunca fica negativo;
-- aceite só confirma depois da reserva.
+- identidade permanente;
+- membership server-side;
+- pedido precisa pertencer ao merchant;
+- owner/manager/operator são os únicos papéis operacionais no piloto;
+- Edge e RPC repetem a autorização.
 
-## T4 — Revenda tenta operar pedido de outra revenda
+## T5 — Driver vê/opera qualquer pedido
 
-**Ataque:** operador altera `orderId` no request.
+**Risco:** papel `driver` sem assignment individual poderia acessar endereço ou alterar status.
 
-**Mitigação:**
-- usuário permanente;
-- vínculo ativo em `merchant_members`;
-- Edge Function verifica merchant atribuído;
-- RLS impede leitura de pedido alheio;
-- toda ação grava actor/user no evento.
+**Mitigação atual:**
+- `driver` é rejeitado por `merchant-orders`, `get-order` e RPCs de mutação;
+- futura liberação exige tabela de assignment por pedido/driver.
 
-## T5 — Cliente descobre identidade da revenda antes do aceite
-
-**Ataque:** enumera tabela de revendas, catálogo ou relaciona quote com merchant.
+## T6 — Identidade da revenda vaza antes do aceite
 
 **Mitigação:**
-- clientes não têm policy para ler cadastro/catálogo;
-- `get-offers` devolve somente oferta anonimizada;
-- quote token não expõe merchant;
-- nome entra em `supplier_name_snapshot` após aceite real.
+- browser não enumera merchants/catalog;
+- `get-offers` anonimiza;
+- `merchant_id` nunca aparece na oferta;
+- fornecedor só é mostrado ao cliente após aceite.
 
-## T6 — Falsa entrega para liberar cashback/comissão
-
-**Ataque:** revenda marca entregue sem estar no local ou repete settlement.
+## T7 — Endereço do cliente vaza antes da necessidade
 
 **Mitigação:**
-- status precisa chegar a `ARRIVING`;
-- PIN mostrado apenas quando entrega está em andamento;
-- banco armazena somente hash do PIN;
-- máximo de cinco tentativas;
-- settlement idempotente;
-- cashback/referral só após settlement.
+- oferta não devolve endereço a revenda;
+- merchant queue mascara endereço em `OFFERED_TO_MERCHANT`;
+- get-order aplica a mesma regra;
+- browser não tem acesso direto a `orders`.
 
-## T7 — Cliente compartilha PIN antecipadamente
+## T8 — Status falso para criar confiança artificial
 
-**Risco:** fraude social, não apenas técnica.
-
-**Mitigação:**
-- UI: “informe somente com o pedido na sua frente”;
-- PIN aparece somente em `OUT_FOR_DELIVERY/ARRIVING`;
-- suporte pode bloquear disputa;
-- fase futura: geofence/entregador autenticado como evidência adicional.
-
-## T8 — Cashback/referral farming
-
-**Ataque:** múltiplos usuários anônimos, autoindicação, pedidos simulados, cancelamentos coordenados.
-
-**Mitigação:**
-- `referred_user_id <> referrer_user_id`;
-- comissão só em pedido real `SETTLED`;
-- ledger permite reversão auditável;
-- Anonymous Auth protegido por CAPTCHA/rate limit;
-- limites financeiros e regras antifraude server-side antes de habilitar saque real;
-- contas de revenda nunca podem gerar comissão pela própria venda sem regra explícita.
-
-## T9 — Exposição de endereço do cliente
-
-**Ataque:** revenda ou log acessa endereço sem necessidade.
-
-**Mitigação:**
-- RLS mostra pedido somente ao cliente e revenda atribuída;
-- nenhuma listagem pública de pedidos;
-- logs não registram endereço completo;
-- suporte/admin deve usar acesso auditado;
-- retenção de endereço será definida antes do go-live.
-
-## T10 — Chave privilegiada vaza no frontend
-
-**Ataque:** secret/service key é publicada no GitHub Pages.
-
-**Mitigação:**
-- frontend recebe apenas publishable key;
-- secret/service key existe apenas em Edge Function;
-- CI procura padrões de secret no repositório;
-- RLS permanece ativo como defesa adicional.
-
-## T11 — Cadastro de revenda falso ou duplicado
-
-**Ataque:** terceiros registram CNPJ de outra empresa ou inundam onboarding.
-
-**Mitigação:**
-- CNPJ normalizado, inclusive formato alfanumérico;
-- índice único para aplicação pendente/aprovada;
-- ativação não é automática;
-- verificação documental e regulatória antes de `merchant.status=active`.
-
-## T12 — Estado de pedido fora de ordem
-
-**Ataque/falha:** “A caminho” antes do aceite, entrega antes da chegada, requote silencioso.
+**Risco:** UI afirmar “aceito”, “a caminho” ou “entregue” sem confirmação real.
 
 **Mitigação:**
 - máquina de estados server-side;
-- `expectedVersion`;
-- toda transição gera evento;
-- aumento de preço exige `REQUOTE_REQUIRED` e aceite do cliente;
-- `dispatch` é o único comando que produz `OUT_FOR_DELIVERY`.
+- `version` para concorrência;
+- `dispatch` é o único caminho para OUT_FOR_DELIVERY;
+- `arriving` exige OUT_FOR_DELIVERY;
+- cada transição gera evento.
 
-## T13 — Scraping/abuso do comparador
-
-**Ataque:** bot consulta ofertas continuamente para mapear preços/revendas ou gerar carga.
+## T9 — Falsa entrega libera benefícios
 
 **Mitigação:**
-- ofertas anonimizadas;
-- quote curto;
-- rate limiting por usuário/sessão/IP no edge;
-- CAPTCHA quando o padrão for abusivo;
-- nenhuma identidade comercial exposta pelo endpoint de ofertas.
+- status precisa chegar a ARRIVING;
+- PIN só nasce no dispatch;
+- PIN bruto isolado e retido por tempo curto;
+- hash SHA-256 no pedido;
+- cinco falhas;
+- settlement exige **PIN correto + pagamento confirmado**.
 
-## T14 — Falha de rede durante uma transição
-
-**Risco:** usuário não sabe se a ação ocorreu e repete.
+## T10 — PIN bruto permanece tempo demais
 
 **Mitigação:**
-- idempotência;
-- resposta recuperável por chave;
-- Realtime atualiza o estado depois;
-- UI nunca assume sucesso antes de resposta/estado confirmado.
+- segredo separado do pedido;
+- consumido no settlement;
+- retenção elimina segredo de pedido encerrado após 1 hora.
 
-## Requisitos antes de dinheiro sacável
+## T11 — Requote muda preço silenciosamente
 
-Saque Pix de comissão não deve ser ativado antes de existirem:
+**Mitigação:**
+- snapshot de itens;
+- taxa de entrega congelada;
+- proposta expira em 5 minutos;
+- qualquer aumento exige ação explícita do cliente;
+- watchdog cancela proposta abandonada.
 
-- ledger imutável;
-- KYC/regra jurídica compatível com o modelo real;
+## T12 — Resposta assíncrona antiga sobrescreve nova
+
+**Mitigação:**
+- sequência de requests no frontend;
+- snapshot de endereço/cesta;
+- versão do pedido;
+- polling pausa durante mutações.
+
+## T13 — Bot cria quotes e cresce banco/endereço
+
+**Mitigação:**
+- quota por minuto;
+- quota por hora;
+- body limitado;
+- snapshot idêntico reutilizado por fingerprint;
+- advisory lock evita quote duplicada concorrente;
+- quote expirada removida em 2 horas.
+
+## T14 — Anonymous Auth é usado para farming
+
+**Mitigação:**
+- rate limit server-side;
+- referral nunca paga apenas por cadastro;
+- comissão nasce somente de settlement;
+- comissão sacável exige identidade permanente;
+- referral novo só pode ser ligado antes do primeiro pedido;
+- usuários anônimos antigos sem histórico são eliminados após 45 dias.
+
+**Pendente antes de abertura ampla:** CAPTCHA/Turnstile no fluxo de criação anônima.
+
+## T15 — Autoindicação ou referral tardio vira custo de retenção
+
+**Mitigação:**
+- `referred_user_id <> referrer_user_id`;
+- nova relação de referral somente quando ainda não existe pedido anterior;
+- relação é única por cliente;
+- comissão direta somente no primeiro settlement elegível.
+
+## T16 — Rewards consomem toda a margem
+
+**Mitigação:**
+- taxa da plataforma snapshotada;
+- reserva variável;
+- contribuição mínima;
+- cashback/referral limitados por reward budget;
+- constraint de identidade financeira;
+- nenhum reward calculado pelo browser.
+
+## T17 — Cashback usado deixa a revenda recebendo menos
+
+**Mitigação:**
+- customer paga `gross - cashback_reserved`;
+- cashback resgatado gera `merchant_cashback_reimbursements`;
+- taxa a receber e cashback a pagar são registrados separadamente;
+- posição líquida da revenda é calculável server-side.
+
+## T18 — Venda é revertida depois que benefícios foram liberados
+
+**Mitigação:**
+- status operacional e `financial_state` são separados;
+- `reverse_settled_order_financials` é idempotente e server-only;
+- cashback é estornado;
+- comissão pending/available é revertida;
+- referral pode voltar a ficar elegível;
+- receivable da plataforma é revertido;
+- dinheiro já liquidado vira ajuste financeiro explícito;
+- maturação e reversão compartilham lock por pedido.
+
+## T19 — Comissão amadurece durante reversão
+
+**Mitigação:**
+- advisory lock por pedido;
+- order + reward grant são rechecados sob lock;
+- maturação exige `financial_state=settled`;
+- grant revertido não amadurece.
+
+## T20 — Comissão em dinheiro vai para identidade descartável
+
+**Mitigação:**
+- pending pode preservar atribuição;
+- `process_reward_maturation` exige `auth.users.is_anonymous=false`;
+- cliente pode vincular e-mail mantendo o mesmo `user_id`.
+
+**Dependência operacional:** Manual Linking precisa estar habilitado no Supabase Auth.
+
+## T21 — Chave privilegiada aparece no GitHub Pages
+
+**Mitigação:**
+- frontend contém apenas publishable key;
+- CI procura padrões proibidos;
+- secrets usados apenas por Edge Functions;
+- browser não possui grants de tabelas nem EXECUTE de autoridades privilegiadas.
+
+## T22 — Payload grande ou loop derruba Edge Functions
+
+**Mitigação:**
+- JSON máximo de 16 KB;
+- leitura streaming com limite;
+- quota server-side fail-closed;
+- dependências fixadas.
+
+## T23 — Cadastro falso de revenda
+
+**Mitigação:**
+- CNPJ normalizado;
+- duplicidade bloqueada;
+- aplicação fica `pending`;
+- cadastro nunca ativa merchant;
+- ativação exige validação operacional/regulatória fora do formulário público.
+
+## T24 — Papel operacional permanece online sem operador elegível
+
+**Mitigação:**
+- heartbeat exige owner/manager/operator;
+- merchant stale deixa de ser elegível;
+- preço também expira;
+- estoque precisa estar disponível para ficar online.
+
+## T25 — Exclusão automática apaga histórico legítimo
+
+**Mitigação:**
+`process_anonymous_user_cleanup` só remove Anonymous Auth antigo se não existir:
+
+- identity;
+- e-mail/telefone;
+- pedido;
+- wallet;
+- referral;
+- merchant application;
+- merchant membership.
+
+## T26 — Dados sensíveis em log
+
+**Regra:**
+- nunca registrar JWT;
+- PIN;
+- secret key;
+- endereço completo;
+- dados financeiros desnecessários.
+
+Edge Functions devem logar erro técnico mínimo e devolver mensagens sanitizadas.
+
+## Dependências ainda abertas antes do go-live público
+
+- CAPTCHA/Turnstile;
+- PSP/split/payout;
+- KYC/regra jurídica para saque;
+- painel admin auditado;
+- assignment de motorista;
+- geocodificação/ETA de produção;
+- monitoramento/alertas;
+- LGPD/termos/contratos;
+- primeiro E2E multi-dispositivo com parceiro real.
+
+## Gate de dinheiro sacável
+
+Saque Pix continua bloqueado até existirem, juntos:
+
+- identidade permanente;
+- PSP adequado;
 - antifraude;
 - reconciliação;
-- limites e cooldown;
-- reversão/disputa;
-- observabilidade e alertas;
-- trilha de auditoria de decisões financeiras.
-
-O sistema pode demonstrar benefícios antes disso, mas não deve simular que existe um saldo sacável real em produção.
+- limite/cooldown;
+- reversão;
+- procedimento de disputa;
+- trilha auditável;
+- operação financeira validada.

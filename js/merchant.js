@@ -1,4 +1,156 @@
+function merchantLiveLoginView(){
+  const rt=globalThis.merchantRuntime||{};
+  return shell(`<section class="page">
+    <span class="eyebrow">PAINEL REAL DA REVENDA</span>
+    <h1 class="page-title">Acessar operação</h1>
+    <p class="muted">Use o e-mail vinculado à sua revenda. O acesso é separado da sessão do cliente.</p>
+    ${rt.notice?`<div class="notice success" style="margin-top:14px">${esc(rt.notice)}</div>`:''}
+    ${rt.error?`<div class="notice danger" style="margin-top:14px">${esc(rt.error)}</div>`:''}
+    <div class="card flat form-stack" style="margin-top:16px">
+      <div class="input-wrap"><label for="merchant-email">E-mail</label><input id="merchant-email" type="email" autocomplete="email" class="input" maxlength="160" placeholder="voce@empresa.com"></div>
+      <button class="primary" onclick="merchantLoginFromUi()">Enviar link de acesso</button>
+    </div>
+    <div class="notice" style="margin-top:14px">Somente contas permanentes podem operar revendas. Cadastro de empresa e acesso operacional são aprovados separadamente.</div>
+  </section>`);
+}
+
+function merchantLiveNoAccess(){
+  const email=globalThis.merchantRuntime?.session?.user?.email||'conta autenticada';
+  return shell(`<section class="page">
+    <span class="eyebrow">CONTA AUTENTICADA</span>
+    <h1 class="page-title">Revenda ainda não vinculada</h1>
+    <p class="muted">Você entrou como ${esc(email)}, mas esta conta ainda não possui uma operação ativa.</p>
+    <div class="card flat" style="margin-top:16px"><h3>Quer participar?</h3><p class="muted tiny">Envie o cadastro da empresa. A operação só entra no pool depois de validação e vínculo da conta.</p><button class="primary full" onclick="go('merchant-join')">Cadastrar empresa</button></div>
+    <button class="ghost full" style="margin-top:12px" onclick="merchantLiveLogout()">Sair desta conta</button>
+  </section>`);
+}
+
+function merchantLiveProduct(code){
+  return (globalThis.merchantRuntime?.catalog||[]).find(x=>x.productCode===code)||null;
+}
+
+function merchantLivePage(){
+  const rt=globalThis.merchantRuntime||{};
+  if(['disabled','loading'].includes(rt.status)){
+    return shell('<section class="page"><h1 class="page-title">Painel da revenda</h1><div class="empty card">Conectando à operação real…</div></section>');
+  }
+  if(rt.status==='unauthenticated')return merchantLiveLoginView();
+  if(rt.status==='no-access')return merchantLiveNoAccess();
+  if(rt.status!=='ready'||!rt.merchant){
+    return shell(`<section class="page"><h1 class="page-title">Painel da revenda</h1><div class="notice danger"><strong>Não foi possível carregar a operação.</strong><br>${esc(rt.error||'Tente novamente.')}</div><button class="secondary full" style="margin-top:12px" onclick="merchantLiveRefresh()">Tentar novamente</button></section>`);
+  }
+
+  const m=rt.merchant;
+  const manage=['owner','manager'].includes(m.memberRole);
+  const operate=['owner','manager','operator'].includes(m.memberRole);
+  const p13=merchantLiveProduct('P13');
+  const memberships=rt.memberships||[];
+  const orders=rt.orders||[];
+  const priceFresh=Number.isFinite(Date.parse(m.priceConfirmedAt||''))&&Date.now()-Date.parse(m.priceConfirmedAt)<=24*60*60*1000;
+
+  return shell(`<section class="page">
+    <div class="status-bar"><div><div class="tiny muted">PAINEL REAL • ${esc(String(m.memberRole||'').toUpperCase())}</div><h1 class="page-title" style="margin-bottom:2px">${esc(m.name)}</h1></div><span class="status-pill ${m.online?'online':'offline'}">${m.online?'● ONLINE':'OFFLINE'}</span></div>
+
+    ${rt.error?`<div class="notice danger" style="margin-top:12px">${esc(rt.error)}</div>`:''}
+    ${!priceFresh?'<div class="notice danger" style="margin-top:12px"><strong>Preços precisam ser reconfirmados.</strong> A revenda não deve ficar visível nas ofertas com preço vencido.</div>':''}
+
+    <div class="card flat form-stack" style="margin-top:14px">
+      ${memberships.length>1?`<div class="input-wrap"><label for="merchant-live-select">Operação</label><select id="merchant-live-select" class="input" onchange="merchantLiveSelect(this.value)">${memberships.map(x=>`<option value="${esc(x.merchantId)}" ${x.merchantId===m.merchantId?'selected':''}>${esc(x.name)} • ${esc(x.memberRole)}</option>`).join('')}</select></div>`:''}
+      <div class="order-actions"><button class="secondary small" onclick="merchantLiveRefresh()">Atualizar</button>${operate?`<button class="${m.online?'danger-btn':'primary'} small" onclick="merchantLiveToggleOnline(${m.online?'false':'true'})">${m.online?'Pausar novos pedidos':'Ficar online'}</button>`:''}<button class="ghost small" onclick="merchantLiveLogout()">Sair</button></div>
+    </div>
+
+    <section class="section"><div class="merchant-kpis">
+      <div class="kpi"><span class="label">Preço P13</span><strong>${p13?BRL.format(Number(p13.priceCents||0)/100):'—'}</strong></div>
+      <div class="kpi"><span class="label">Estoque P13</span><strong>${p13?Number(p13.availableStock||0):'—'}</strong></div>
+      <div class="kpi"><span class="label">Trust</span><strong>${Number(m.trustScore||0)}/100</strong></div>
+      <div class="kpi"><span class="label">Pedidos ativos</span><strong>${orders.length}</strong></div>
+    </div></section>
+
+    ${manage?`<div class="card flat form-stack">
+      <h3>Preço e estoque P13</h3>
+      <div class="field-row"><div class="input-wrap"><label for="live-p13-price">Preço</label><input id="live-p13-price" inputmode="decimal" type="number" min="0.01" max="999999" step="0.10" class="input" value="${p13?(Number(p13.priceCents||0)/100).toFixed(2):''}"></div><div class="input-wrap"><label for="live-p13-stock">Estoque disponível</label><input id="live-p13-stock" inputmode="numeric" type="number" min="0" max="100000" class="input" value="${p13?Number(p13.availableStock||0):0}"></div></div>
+      <button class="secondary" onclick="merchantLiveSaveP13()">Confirmar preço e estoque</button>
+      <div class="divider"></div>
+      <h3>Entrega</h3>
+      <div class="field-row"><div class="input-wrap"><label for="live-delivery-fee">Taxa de entrega</label><input id="live-delivery-fee" inputmode="decimal" type="number" min="0" max="1000" step="0.10" class="input" value="${(Number(m.deliveryFeeCents||0)/100).toFixed(2)}"></div><div class="input-wrap"><label for="live-eta">ETA base (min)</label><input id="live-eta" inputmode="numeric" type="number" min="5" max="180" class="input" value="${Number(m.baseEtaMinutes||30)}"></div></div>
+      <label class="check-row"><input id="live-citywide" type="checkbox" ${m.acceptsCitywide!==false?'checked':''}><span><strong>Atende São Gabriel</strong><small>Usado no filtro de ofertas do piloto.</small></span></label>
+      <button class="secondary" onclick="merchantLiveSaveLogistics()">Salvar logística</button>
+    </div>`:''}
+
+    <section class="section"><div class="section-head"><div><h2>Pedidos que exigem ação</h2><p>Dados vêm do backend real. Status só muda depois de confirmação server-side.</p></div></div>${orders.length?orders.map(merchantLiveOrder).join(''):'<div class="empty card">Nenhum pedido ativo para esta revenda.</div>'}</section>
+  </section>`);
+}
+
+function merchantLiveOrder(o){
+  const items=(o.items||[]).map(i=>`${Number(i.quantity)}× ${esc(i.productName||i.productCode||'Item')}`).join(' • ');
+  const total=BRL.format(Number(o.totalCents||0)/100);
+  const copy=statusCopy[o.status]||[o.status,''];
+  const address=o.addressVisible&&o.address?'📍 '+esc(o.address):'📍 Endereço protegido até o aceite';
+  let actions='';
+
+  if(o.status==='OFFERED_TO_MERCHANT'){
+    const secs=o.offerExpiresAt?Math.max(0,Math.ceil((Date.parse(o.offerExpiresAt)-Date.now())/1000)):0;
+    actions=`<button class="primary small" onclick="merchantLiveAction('${o.orderId}','accept')">Aceitar pedido</button><button class="danger-btn small" onclick="merchantLiveAction('${o.orderId}','reject')">Não consigo atender</button><span class="tiny muted">Prazo ~${secs}s</span>`;
+  }else if(['PREPARING','AT_RISK','MERCHANT_ACCEPTED'].includes(o.status)){
+    actions=`<button class="primary small" onclick="merchantLiveAction('${o.orderId}','dispatch')">Confirmar saída</button><select id="reason-${o.orderId}" class="input" style="max-width:220px;height:40px"><option value="stock_issue">Problema de estoque</option><option value="vehicle_issue">Problema no veículo</option><option value="staffing_issue">Equipe indisponível</option><option value="other_operational">Outro problema operacional</option></select><button class="danger-btn small" onclick="merchantLiveCannotFulfill('${o.orderId}')">Não consigo concluir</button>`;
+  }else if(o.status==='OUT_FOR_DELIVERY'){
+    actions=`<button class="secondary small" onclick="merchantLiveAction('${o.orderId}','arriving')">Estou chegando</button>`;
+  }else if(o.status==='ARRIVING'){
+    actions=`<label class="sr-only" for="live-pin-${o.orderId}">PIN de entrega</label><input id="live-pin-${o.orderId}" inputmode="numeric" maxlength="4" class="input pin-input" placeholder="PIN"><label class="check-row"><input id="live-paid-${o.orderId}" type="checkbox"><span><strong>Pagamento recebido</strong><small>Obrigatório para liquidar o pedido.</small></span></label><button class="primary small" onclick="merchantLiveDeliver('${o.orderId}')">Confirmar entrega</button>`;
+  }
+
+  return `<article class="order-card ${o.status==='OFFERED_TO_MERCHANT'?'new':''}">
+    <div class="order-head"><div><div class="order-id">${esc(o.publicCode||o.orderId)}</div><div class="order-line">${items||'Itens do pedido'}</div></div><div style="text-align:right"><strong>${total}</strong><div class="tiny muted">${esc(copy[0])}</div></div></div>
+    <div class="order-line">${address}</div><div class="order-line">Pagamento: ${esc(paymentLabel(o.paymentMethod))}</div>
+    ${o.riskReason?`<div class="notice danger" style="margin-top:10px">${esc(o.riskReason)}</div>`:''}
+    <div class="order-actions">${actions}</div>
+  </article>`;
+}
+
+async function merchantLoginFromUi(){
+  const email=document.querySelector('#merchant-email')?.value.trim()||'';
+  try{await merchantSendLogin(email);toast('Link de acesso enviado')}catch(e){toast(String(e?.message||e))}
+}
+async function merchantLiveRefresh(){
+  try{await merchantRefresh();toast('Operação atualizada')}catch(e){toast(String(e?.message||e))}
+}
+async function merchantLiveSelect(id){
+  try{await merchantSelectLive(id)}catch(e){toast(String(e?.message||e))}
+}
+async function merchantLiveToggleOnline(online){
+  try{await merchantSetOnlineLive(online);toast(online?'Revenda online':'Novos pedidos pausados')}catch(e){toast(String(e?.message||e))}
+}
+async function merchantLiveSaveP13(){
+  const price=Number(document.querySelector('#live-p13-price')?.value);
+  const stock=Number(document.querySelector('#live-p13-stock')?.value);
+  if(!Number.isFinite(price)||price<=0||!Number.isInteger(stock)||stock<0)return toast('Revise preço e estoque');
+  try{await merchantUpdateProductLive('P13',Math.round(price*100),stock,true);toast('Preço e estoque confirmados')}catch(e){toast(String(e?.message||e))}
+}
+async function merchantLiveSaveLogistics(){
+  const fee=Number(document.querySelector('#live-delivery-fee')?.value);
+  const eta=Number(document.querySelector('#live-eta')?.value);
+  const citywide=document.querySelector('#live-citywide')?.checked===true;
+  if(!Number.isFinite(fee)||fee<0||!Number.isInteger(eta)||eta<5||eta>180)return toast('Revise taxa e ETA');
+  try{await merchantUpdateLogisticsLive(Math.round(fee*100),eta,citywide);toast('Logística atualizada')}catch(e){toast(String(e?.message||e))}
+}
+async function merchantLiveAction(id,action){
+  try{await merchantPerformAction(id,action);toast(action==='accept'?'Pedido aceito':action==='reject'?'Pedido devolvido ao matching':action==='dispatch'?'Saída confirmada':'Chegada confirmada')}catch(e){toast(String(e?.message||e))}
+}
+async function merchantLiveCannotFulfill(id){
+  const reason=document.getElementById('reason-'+id)?.value||'other_operational';
+  try{await merchantPerformAction(id,'cannot-fulfill',reason);toast('Pedido devolvido ao matching com estoque recomposto')}catch(e){toast(String(e?.message||e))}
+}
+async function merchantLiveDeliver(id){
+  const pin=document.getElementById('live-pin-'+id)?.value.trim()||'';
+  const paid=document.getElementById('live-paid-'+id)?.checked===true;
+  try{await merchantCompleteDeliveryLive(id,pin,paid);toast('Entrega e pagamento confirmados')}catch(e){toast(String(e?.message||e))}
+}
+async function merchantLiveLogout(){
+  await merchantSignOut();toast('Sessão encerrada');
+}
+
 function merchantPage(){
+  if(globalThis.merchantPortalRequested?.())return merchantLivePage();
   const m=merchantById(state.selectedMerchant)||state.merchants[0];
   const orders=state.orders.filter(o=>o.merchantId===m.id&&['OFFERED_TO_MERCHANT','MERCHANT_ACCEPTED','PREPARING','AT_RISK','OUT_FOR_DELIVERY','ARRIVING'].includes(o.status));
   const fresh=isPriceFresh(m);
@@ -17,13 +169,14 @@ function merchantOrder(o){
     const secs=Math.max(0,Math.ceil((Date.parse(o.offerExpiresAt)-Date.now())/1000));
     actions=`<button class="primary small" onclick="merchantAction('${o.id}','accept')">Aceitar pedido</button><button class="danger-btn small" onclick="merchantAction('${o.id}','reject')">Não consigo atender</button><span class="tiny muted">Prazo: ~${secs}s</span>`;
   }else if(['MERCHANT_ACCEPTED','PREPARING','AT_RISK'].includes(o.status)){
-    actions=`<button class="primary small" onclick="merchantAction('${o.id}','dispatch')">Confirmar saída</button>`;
+    actions=`<button class="primary small" onclick="merchantAction('${o.id}','dispatch')">Confirmar saída</button><button class="danger-btn small" onclick="merchantAction('${o.id}','cannot-fulfill')">Não consigo concluir</button>`;
   }else if(o.status==='OUT_FOR_DELIVERY'){
     actions=`<button class="secondary small" onclick="merchantAction('${o.id}','arriving')">Estou chegando</button>`;
   }else if(o.status==='ARRIVING'){
-    actions=`<label class="sr-only" for="pin-${o.id}">PIN de entrega</label><input id="pin-${o.id}" inputmode="numeric" maxlength="4" class="input pin-input" placeholder="PIN"><button class="primary small" onclick="merchantAction('${o.id}','deliver')">Confirmar entrega</button>`;
+    actions=`<label class="sr-only" for="pin-${o.id}">PIN de entrega</label><input id="pin-${o.id}" inputmode="numeric" maxlength="4" class="input pin-input" placeholder="PIN"><label class="check-row"><input id="paid-${o.id}" type="checkbox"><span><strong>Pagamento recebido</strong><small>Obrigatório para concluir o pedido.</small></span></label><button class="primary small" onclick="merchantAction('${o.id}','deliver')">Confirmar entrega</button>`;
   }
-  return `<article class="order-card ${o.status==='OFFERED_TO_MERCHANT'?'new':''}"><div class="order-head"><div><div class="order-id">${esc(o.id)}</div><div class="order-line">${items}</div></div><div style="text-align:right"><strong>${BRL.format(o.total)}</strong><div class="tiny muted">${esc(copy[0])}</div></div></div><div class="order-line">📍 ${esc(o.address)}</div><div class="order-line">Pagamento: ${esc(paymentLabel(o.paymentMethod))}</div><div class="order-actions">${actions}</div></article>`;
+  const addressLine=o.status==='OFFERED_TO_MERCHANT'?'📍 Endereço protegido até o aceite':'📍 '+esc(o.address);
+  return `<article class="order-card ${o.status==='OFFERED_TO_MERCHANT'?'new':''}"><div class="order-head"><div><div class="order-id">${esc(o.id)}</div><div class="order-line">${items}</div></div><div style="text-align:right"><strong>${BRL.format(o.total)}</strong><div class="tiny muted">${esc(copy[0])}</div></div></div><div class="order-line">${addressLine}</div><div class="order-line">Pagamento: ${esc(paymentLabel(o.paymentMethod))}</div><div class="order-actions">${actions}</div></article>`;
 }
 function selectMerchant(id){if(merchantById(id)){state.selectedMerchant=id;save();render()}}
 function toggleOnline(id){
@@ -43,21 +196,34 @@ function merchantAction(id,action){
   if(action==='accept')r=acceptOrder(id);
   if(action==='reject')r=rejectOrder(id);
   if(action==='dispatch')r=dispatchOrder(id);
+  if(action==='cannot-fulfill')r=failAcceptedOrder(id,'A revenda informou uma falha operacional antes da saída.');
   if(action==='arriving')r=arrivingOrder(id);
   if(action==='deliver'){
     const pin=document.querySelector('#pin-'+CSS.escape(id))?.value.trim()||'';
-    r=deliverOrder(id,pin);
+    const paid=document.querySelector('#paid-'+CSS.escape(id))?.checked===true;
+    r=deliverOrder(id,pin,paid);
   }
-  const successMessages={accept:'Pedido aceito e estoque reservado',reject:'Pedido recusado; o sistema buscou alternativa',dispatch:'Saída confirmada — o cliente agora vê “A caminho”',arriving:'Chegada confirmada',deliver:'Entrega comprovada e benefícios processados'};
+  const successMessages={accept:'Pedido aceito e estoque reservado',reject:'Pedido recusado; o sistema buscou alternativa','cannot-fulfill':'Estoque devolvido; o sistema buscou outra revenda',dispatch:'Saída confirmada — o cliente agora vê “A caminho”',arriving:'Chegada confirmada',deliver:'Entrega e pagamento confirmados; benefícios processados'};
   toast(r.ok?successMessages[action]:r.error);
   render();
 }
-function merchantOrders(){state.mode='merchant';save();return merchantPage()}
+function merchantOrders(){
+  if(globalThis.merchantPortalRequested?.())return merchantLivePage();
+  state.mode='merchant';save();return merchantPage()
+}
 function catalog(){
+  if(globalThis.merchantPortalRequested?.())return merchantLiveCatalog();
   const m=merchantById(state.selectedMerchant)||state.merchants[0];
   return shell(`<section class="page"><h1 class="page-title">Meu catálogo</h1><p class="muted">A revenda não fica limitada ao P13. Cada produto tem preço e disponibilidade próprios.</p><div class="list">${Object.entries(products).map(([k,p])=>{const price=productPrice(m,k);const stock=inventoryFor(m,k);return `<div class="list-row"><div class="product-left"><div class="product-icon">${p.icon}</div><div><strong>${esc(p.name)}</strong><br><small>${price==null?'Não oferecido':`${BRL.format(price)} • estoque ${stock}`}</small></div></div><span class="status-pill ${price==null||stock<=0?'offline':'online'}">${price==null?'INATIVO':stock<=0?'SEM ESTOQUE':'ATIVO'}</span></div>`}).join('')}</div><div class="notice" style="margin-top:14px">No produto real, cada categoria terá regras de compatibilidade logística e conformidade próprias.</div></section>`)
 }
+function merchantLiveCatalog(){
+  const rt=globalThis.merchantRuntime||{};
+  if(rt.status!=='ready')return merchantLivePage();
+  const rows=(rt.catalog||[]).map(item=>`<div class="list-row"><div class="product-left"><div class="product-icon">${products[item.productCode]?.icon||'📦'}</div><div><strong>${esc(item.productName||item.productCode)}</strong><br><small>${BRL.format(Number(item.priceCents||0)/100)} • estoque ${Number(item.availableStock||0)}</small></div></div><span class="status-pill ${item.active&&Number(item.availableStock)>0?'online':'offline'}">${item.active?(Number(item.availableStock)>0?'ATIVO':'SEM ESTOQUE'):'INATIVO'}</span></div>`).join('');
+  return shell(`<section class="page"><button class="back" onclick="go('merchant')">← Operação</button><h1 class="page-title">Catálogo real</h1><p class="muted">Produtos cadastrados para ${esc(rt.merchant?.name||'sua revenda')}.</p><div class="list" style="margin-top:16px">${rows||'<div class="empty card">Nenhum produto cadastrado.</div>'}</div><div class="notice" style="margin-top:14px">A edição completa multiproduto será aberta por categoria. O P13 já pode ser atualizado na tela Operação.</div></section>`);
+}
 function merchantMetrics(){
+  if(globalThis.merchantPortalRequested?.())return merchantLivePage();
   const m=merchantById(state.selectedMerchant)||state.merchants[0];
   const accepted=Math.max(0,Number(m.accepted)||0),delivered=Math.max(0,Number(m.delivered)||0);
   const completion=accepted?delivered/accepted:0;

@@ -15,7 +15,9 @@ const liveRuntime={
   loadingOffers:false,
   actionPending:false,
   error:null,
-  lastSyncAt:null
+  lastSyncAt:null,
+  offerRequestSeq:0,
+  orderRequestSeq:0
 };
 
 function liveRequested(){return liveRuntime.requested}
@@ -38,7 +40,7 @@ function loadSupabaseBrowser(){
       return;
     }
     const script=document.createElement('script');
-    script.src='https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2';
+    script.src='https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.2';
     script.async=true;
     script.dataset.chamaSupabase='1';
     script.crossOrigin='anonymous';
@@ -171,29 +173,45 @@ function liveScheduleOfferRefresh(delay=350){
 }
 
 async function liveRefreshOffers({silent=false}={}){
+  const seq=++liveRuntime.offerRequestSeq;
   if(!liveReady()||!state.address||!hasCartItems()){
     liveRuntime.offers=[];
+    liveRuntime.loadingOffers=false;
+    if(!silent)render();
     return [];
   }
+  const addressSnapshot=state.address;
+  const itemsSnapshot=liveCartItems();
+  liveRuntime.offers=[];
   liveRuntime.loadingOffers=true;
   liveRuntime.error=null;
   if(!silent)render();
   try{
     const data=await liveInvoke('get-offers',{
-      address:state.address,
-      items:liveCartItems(),
+      address:addressSnapshot,
+      items:itemsSnapshot,
       priority:'recommended'
     });
-    liveRuntime.offers=(data?.offers||[]).map(liveOfferView);
+    if(seq!==liveRuntime.offerRequestSeq)return liveRuntime.offers;
+    if(state.address!==addressSnapshot||JSON.stringify(liveCartItems())!==JSON.stringify(itemsSnapshot)){
+      return liveRuntime.offers;
+    }
+    liveRuntime.offers=(data?.offers||[])
+      .map(liveOfferView)
+      .filter(o=>Number.isFinite(Date.parse(o.expiresAt))&&Date.parse(o.expiresAt)>Date.now());
     liveRuntime.lastSyncAt=new Date().toISOString();
     return liveRuntime.offers;
   }catch(error){
-    liveRuntime.offers=[];
-    liveRuntime.error=String(error?.message||error);
+    if(seq===liveRuntime.offerRequestSeq){
+      liveRuntime.offers=[];
+      liveRuntime.error=String(error?.message||error);
+    }
     throw error;
   }finally{
-    liveRuntime.loadingOffers=false;
-    if(!silent)render();
+    if(seq===liveRuntime.offerRequestSeq){
+      liveRuntime.loadingOffers=false;
+      if(!silent)render();
+    }
   }
 }
 
@@ -204,6 +222,12 @@ function liveIdempotency(prefix){
 
 async function liveCreateOrder(quoteId){
   if(liveRuntime.actionPending)return;
+  const selected=liveRuntime.offers.find(o=>o.quoteId===quoteId);
+  if(!selected||!Number.isFinite(Date.parse(selected.expiresAt))||Date.parse(selected.expiresAt)<=Date.now()+1000){
+    try{await liveRefreshOffers()}catch{}
+    toast('A oferta expirou. Atualizamos os preços disponíveis.');
+    return;
+  }
   liveRuntime.actionPending=true;
   liveRuntime.error=null;
   render();
@@ -234,7 +258,11 @@ async function liveCreateOrder(quoteId){
 
 async function liveGetOrder(orderId=liveRuntime.orderId,{silent=false}={}){
   if(!liveReady()||!orderId)return null;
+  const seq=++liveRuntime.orderRequestSeq;
   const order=await liveInvoke('get-order',{orderId});
+  const current=liveRuntime.order;
+  if(current?.orderId===order.orderId&&Number(current.version)>Number(order.version))return current;
+  if(seq<liveRuntime.orderRequestSeq&&current?.orderId===order.orderId&&Number(current.version)>=Number(order.version))return current;
   liveRuntime.order=order;
   liveRuntime.orderId=order.orderId;
   liveRuntime.lastSyncAt=new Date().toISOString();
@@ -270,26 +298,44 @@ async function liveCustomerAction(action){
 }
 
 async function liveSyncFinancialProfile(){
-  if(!liveReady()||!liveRuntime.client)return;
+  if(!liveReady())return;
   try{
-    const [{data:profile},{data:wallet}]=await Promise.all([
-      liveRuntime.client.from('profiles').select('referral_code').maybeSingle(),
-      liveRuntime.client.from('wallet_entries').select('bucket,amount_cents')
-    ]);
-    if(profile?.referral_code)state.user.referralCode=profile.referral_code;
-    const rows=wallet||[];
-    const balance=(bucket)=>rows.filter(x=>x.bucket===bucket).reduce((sum,x)=>sum+Number(x.amount_cents||0),0)/100;
-    state.user.cashback=Math.max(0,balance('cashback'));
-    state.user.commissionPending=Math.max(0,balance('commission_pending'));
-    state.user.commissionAvailable=Math.max(0,balance('commission_available'));
+    const summary=await liveInvoke('customer-summary',{});
+    if(summary?.referralCode)state.user.referralCode=String(summary.referralCode).slice(0,40);
+    state.user.cashback=Math.max(0,Number(summary?.cashbackCents||0)/100);
+    state.user.commissionPending=Math.max(0,Number(summary?.commissionPendingCents||0)/100);
+    state.user.commissionAvailable=Math.max(0,Number(summary?.commissionAvailableCents||0)/100);
+    state.user.purchases=Math.max(0,Number(summary?.settledOrders||0));
+    state.user.reversedPurchases=Math.max(0,Number(summary?.reversedOrders||0));
+    state.user.cashEarningEligible=summary?.cashEarningEligible===true;
+    state.user.identityType=String(summary?.identityType||'anonymous');
     save();
   }catch(error){
-    console.warn('Não foi possível sincronizar carteira live',error);
+    console.warn('Não foi possível sincronizar o resumo financeiro live',error);
   }
 }
 
+async function liveUpgradeAccount(email){
+  if(!liveReady())throw new Error('Modo live não está pronto');
+  const value=String(email||'').trim().toLowerCase();
+  if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value))throw new Error('Informe um e-mail válido');
+  const {data:{session},error:sessionError}=await liveRuntime.client.auth.getSession();
+  if(sessionError||!session?.user)throw sessionError||new Error('Sessão indisponível');
+  if(session.user.is_anonymous!==true){
+    state.user.cashEarningEligible=true;
+    state.user.identityType='permanent';
+    save();
+    return {alreadyPermanent:true};
+  }
+  const {data,error}=await liveRuntime.client.auth.updateUser({email:value});
+  if(error)throw error;
+  liveRuntime.identityUpgradePending=value;
+  return {pending:true,email:value,user:data?.user??null};
+}
+
 async function livePoll(){
-  if(!liveReady()||!liveRuntime.orderId||document.visibilityState==='hidden')return;
+  if(!liveReady()||!liveRuntime.orderId||liveRuntime.actionPending||document.visibilityState==='hidden')return;
+  if(["SETTLED","CANCELLED"].includes(liveRuntime.order?.status))return;
   try{await liveGetOrder(liveRuntime.orderId,{silent:true});render()}catch(error){
     if(error?.status===404){
       localStorage.removeItem(CHAMA_BACKEND.orderStorageKey);
@@ -298,6 +344,319 @@ async function livePoll(){
       render();
     }
   }
+}
+
+
+const merchantRuntime={
+  requested:new URLSearchParams(location.search).get('merchant')==='1',
+  status:'disabled',
+  client:null,
+  session:null,
+  merchant:null,
+  memberships:[],
+  catalog:[],
+  orders:[],
+  selectedMerchantId:localStorage.getItem('chama-merchant-selected-v1')||null,
+  actionPending:false,
+  error:null,
+  notice:null,
+  lastSyncAt:null,
+  lastHeartbeatAt:0
+};
+
+function merchantPortalRequested(){return merchantRuntime.requested}
+function merchantReady(){return merchantRuntime.requested&&merchantRuntime.status==='ready'}
+
+async function merchantBackendInit(){
+  if(!merchantRuntime.requested){
+    merchantRuntime.status='disabled';
+    return false;
+  }
+  if(['ready','no-access','unauthenticated'].includes(merchantRuntime.status)&&merchantRuntime.client)return merchantRuntime.status==='ready';
+  merchantRuntime.status='loading';
+  merchantRuntime.error=null;
+  try{
+    const lib=await loadSupabaseBrowser();
+    const client=lib.createClient(CHAMA_BACKEND.url,CHAMA_BACKEND.publishableKey,{
+      auth:{
+        persistSession:true,
+        autoRefreshToken:true,
+        detectSessionInUrl:true,
+        storageKey:'chama-sg-merchant-auth-v1'
+      }
+    });
+    merchantRuntime.client=client;
+
+    const {data:{session},error}=await client.auth.getSession();
+    if(error)throw error;
+    merchantRuntime.session=session??null;
+
+    if(!session?.access_token){
+      merchantRuntime.status='unauthenticated';
+      return false;
+    }
+
+    if(session.user?.is_anonymous===true){
+      await client.auth.signOut().catch(()=>{});
+      merchantRuntime.session=null;
+      merchantRuntime.status='unauthenticated';
+      merchantRuntime.error='A área da revenda exige uma conta permanente.';
+      return false;
+    }
+
+    await merchantRefresh({silent:true});
+    return merchantRuntime.status==='ready';
+  }catch(error){
+    merchantRuntime.status='unavailable';
+    merchantRuntime.error=String(error?.message||error||'Painel indisponível');
+    return false;
+  }
+}
+
+async function merchantAccessToken(){
+  if(!merchantRuntime.client)throw new Error('Cliente da revenda indisponível');
+  const {data:{session},error}=await merchantRuntime.client.auth.getSession();
+  if(error||!session?.access_token)throw error||new Error('Sessão da revenda expirada');
+  if(session.user?.is_anonymous===true)throw new Error('Conta permanente obrigatória');
+  merchantRuntime.session=session;
+  return session.access_token;
+}
+
+async function merchantInvoke(name,body={},options={}){
+  const token=await merchantAccessToken();
+  const headers={
+    'Content-Type':'application/json',
+    'apikey':CHAMA_BACKEND.publishableKey,
+    'Authorization':'Bearer '+token
+  };
+  if(options.idempotencyKey)headers['Idempotency-Key']=options.idempotencyKey;
+  const response=await fetch(CHAMA_BACKEND.url+'/functions/v1/'+encodeURIComponent(name),{
+    method:'POST',
+    headers,
+    body:JSON.stringify(body),
+    cache:'no-store'
+  });
+  let data=null;
+  try{data=await response.json()}catch{}
+  if(!response.ok){
+    const err=new Error(data?.message||data?.error||('HTTP '+response.status));
+    err.code=data?.error||'HTTP_'+response.status;
+    err.status=response.status;
+    err.data=data;
+    throw err;
+  }
+  return data;
+}
+
+async function merchantSendLogin(email){
+  if(!merchantRuntime.client)await merchantBackendInit();
+  const value=String(email||'').trim().toLowerCase();
+  if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value))throw new Error('Informe um e-mail válido');
+  const redirect=new URL(location.origin+location.pathname);
+  redirect.searchParams.set('merchant','1');
+  redirect.hash='merchant';
+  const {error}=await merchantRuntime.client.auth.signInWithOtp({
+    email:value,
+    options:{emailRedirectTo:redirect.toString(),shouldCreateUser:true}
+  });
+  if(error)throw error;
+  merchantRuntime.notice='Enviamos um link de acesso para '+value+'. Abra-o neste navegador.';
+  merchantRuntime.status='unauthenticated';
+  render();
+}
+
+async function merchantSignOut(){
+  if(merchantRuntime.client)await merchantRuntime.client.auth.signOut().catch(()=>{});
+  merchantRuntime.session=null;
+  merchantRuntime.merchant=null;
+  merchantRuntime.memberships=[];
+  merchantRuntime.catalog=[];
+  merchantRuntime.orders=[];
+  merchantRuntime.status='unauthenticated';
+  merchantRuntime.error=null;
+  merchantRuntime.notice=null;
+  render();
+}
+
+async function merchantRefresh({silent=false}={}){
+  if(!merchantRuntime.client)return null;
+  if(!silent)render();
+  try{
+    const body={};
+    if(merchantRuntime.selectedMerchantId)body.merchantId=merchantRuntime.selectedMerchantId;
+    const data=await merchantInvoke('merchant-orders',body);
+    merchantRuntime.merchant=data.merchant??null;
+    merchantRuntime.memberships=data.memberships??[];
+    merchantRuntime.catalog=data.catalog??[];
+    merchantRuntime.orders=data.orders??[];
+    merchantRuntime.selectedMerchantId=data.merchant?.merchantId??merchantRuntime.selectedMerchantId;
+    if(merchantRuntime.selectedMerchantId)localStorage.setItem('chama-merchant-selected-v1',merchantRuntime.selectedMerchantId);
+    merchantRuntime.status='ready';
+    merchantRuntime.error=null;
+    merchantRuntime.lastSyncAt=new Date().toISOString();
+    return data;
+  }catch(error){
+    if(error?.code==='NO_MERCHANT_ACCESS'||error?.status===403&&error?.code==='MERCHANT_ACCESS_DENIED'){
+      merchantRuntime.status='no-access';
+      merchantRuntime.merchant=null;
+      merchantRuntime.orders=[];
+      merchantRuntime.catalog=[];
+      merchantRuntime.error=null;
+      return null;
+    }
+    if(error?.status===401){
+      merchantRuntime.status='unauthenticated';
+      merchantRuntime.session=null;
+      merchantRuntime.error='Sua sessão expirou. Entre novamente.';
+      return null;
+    }
+    merchantRuntime.status='unavailable';
+    merchantRuntime.error=String(error?.message||error);
+    throw error;
+  }finally{
+    if(!silent)render();
+  }
+}
+
+async function merchantSelectLive(merchantId){
+  merchantRuntime.selectedMerchantId=String(merchantId||'');
+  localStorage.setItem('chama-merchant-selected-v1',merchantRuntime.selectedMerchantId);
+  await merchantRefresh();
+}
+
+async function merchantPerformAction(orderId,action,reason='other_operational'){
+  if(merchantRuntime.actionPending)return;
+  const order=merchantRuntime.orders.find(o=>o.orderId===orderId);
+  if(!order)throw new Error('Pedido não encontrado no painel');
+  merchantRuntime.actionPending=true;
+  merchantRuntime.error=null;
+  render();
+  try{
+    const body={orderId,action,expectedVersion:order.version};
+    if(action==='cannot-fulfill')body.reason=reason;
+    await merchantInvoke('merchant-action',body,{idempotencyKey:liveIdempotency('merchant-action')});
+    await merchantRefresh({silent:true});
+  }catch(error){
+    merchantRuntime.error=String(error?.message||error);
+    try{await merchantRefresh({silent:true})}catch{}
+    throw error;
+  }finally{
+    merchantRuntime.actionPending=false;
+    render();
+  }
+}
+
+async function merchantCompleteDeliveryLive(orderId,pin,paymentConfirmed){
+  if(merchantRuntime.actionPending)return;
+  const order=merchantRuntime.orders.find(o=>o.orderId===orderId);
+  if(!order)throw new Error('Pedido não encontrado no painel');
+  if(paymentConfirmed!==true)throw new Error('Confirme o recebimento do pagamento');
+  if(!/^\d{4}$/.test(String(pin||'')))throw new Error('Informe o PIN de 4 dígitos');
+  merchantRuntime.actionPending=true;
+  merchantRuntime.error=null;
+  render();
+  try{
+    const result=await merchantInvoke('complete-delivery',{
+      orderId,
+      pin:String(pin),
+      expectedVersion:order.version,
+      paymentConfirmed:true
+    },{idempotencyKey:liveIdempotency('complete-delivery')});
+    if(result?.ok===false)throw Object.assign(new Error(result.error==='PIN_LOCKED'?'PIN bloqueado. Abra suporte.':'PIN incorreto.'),{code:result.error});
+    await merchantRefresh({silent:true});
+  }catch(error){
+    merchantRuntime.error=String(error?.message||error);
+    try{await merchantRefresh({silent:true})}catch{}
+    throw error;
+  }finally{
+    merchantRuntime.actionPending=false;
+    render();
+  }
+}
+
+async function merchantSetOnlineLive(online){
+  const merchantId=merchantRuntime.merchant?.merchantId;
+  if(!merchantId)throw new Error('Revenda não selecionada');
+  merchantRuntime.actionPending=true;render();
+  try{
+    await merchantInvoke('merchant-ops',{merchantId,action:'set-online',online:online===true});
+    await merchantRefresh({silent:true});
+  }finally{
+    merchantRuntime.actionPending=false;render();
+  }
+}
+
+async function merchantUpdateProductLive(productCode,priceCents,availableStock,active=true){
+  const merchantId=merchantRuntime.merchant?.merchantId;
+  if(!merchantId)throw new Error('Revenda não selecionada');
+  merchantRuntime.actionPending=true;render();
+  try{
+    await merchantInvoke('merchant-ops',{
+      merchantId,action:'update-product',productCode,
+      priceCents:Number(priceCents),availableStock:Number(availableStock),active:active!==false
+    });
+    await merchantRefresh({silent:true});
+  }finally{
+    merchantRuntime.actionPending=false;render();
+  }
+}
+
+async function merchantUpdateLogisticsLive(deliveryFeeCents,baseEtaMinutes,acceptsCitywide){
+  const merchantId=merchantRuntime.merchant?.merchantId;
+  if(!merchantId)throw new Error('Revenda não selecionada');
+  merchantRuntime.actionPending=true;render();
+  try{
+    await merchantInvoke('merchant-ops',{
+      merchantId,action:'update-logistics',
+      deliveryFeeCents:Number(deliveryFeeCents),
+      baseEtaMinutes:Number(baseEtaMinutes),
+      acceptsCitywide:acceptsCitywide===true
+    });
+    await merchantRefresh({silent:true});
+  }finally{
+    merchantRuntime.actionPending=false;render();
+  }
+}
+
+async function merchantSubmitApplicationLive(payload){
+  if(!merchantRuntime.session?.access_token)throw new Error('Entre com seu e-mail antes de enviar o cadastro');
+  return merchantInvoke('submit-merchant-application',payload);
+}
+
+async function merchantHeartbeat(){
+  if(!merchantReady()||merchantRuntime.actionPending||!merchantRuntime.merchant)return;
+  const now=Date.now();
+  if(now-merchantRuntime.lastHeartbeatAt<60000)return;
+  merchantRuntime.lastHeartbeatAt=now;
+  try{
+    await merchantInvoke('merchant-ops',{
+      merchantId:merchantRuntime.merchant.merchantId,
+      action:'heartbeat'
+    });
+  }catch{}
+}
+
+async function merchantPoll(){
+  if(!merchantReady()||merchantRuntime.actionPending||document.visibilityState==='hidden')return;
+  try{
+    await merchantRefresh({silent:true});
+    await merchantHeartbeat();
+    render();
+  }catch{}
+}
+
+function openMerchantPortal(){
+  const url=new URL(location.href);
+  url.search='';
+  url.searchParams.set('merchant','1');
+  url.hash='merchant';
+  location.href=url.toString();
+}
+function openCustomerPortal(){
+  const url=new URL(location.href);
+  url.search='';
+  url.hash='home';
+  location.href=url.toString();
 }
 
 globalThis.liveRuntime=liveRuntime;
@@ -310,4 +669,22 @@ globalThis.liveScheduleOfferRefresh=liveScheduleOfferRefresh;
 globalThis.liveCreateOrder=liveCreateOrder;
 globalThis.liveGetOrder=liveGetOrder;
 globalThis.liveCustomerAction=liveCustomerAction;
+globalThis.liveUpgradeAccount=liveUpgradeAccount;
 globalThis.livePoll=livePoll;
+globalThis.merchantRuntime=merchantRuntime;
+globalThis.merchantPortalRequested=merchantPortalRequested;
+globalThis.merchantReady=merchantReady;
+globalThis.merchantBackendInit=merchantBackendInit;
+globalThis.merchantSendLogin=merchantSendLogin;
+globalThis.merchantSignOut=merchantSignOut;
+globalThis.merchantRefresh=merchantRefresh;
+globalThis.merchantSelectLive=merchantSelectLive;
+globalThis.merchantPerformAction=merchantPerformAction;
+globalThis.merchantCompleteDeliveryLive=merchantCompleteDeliveryLive;
+globalThis.merchantSetOnlineLive=merchantSetOnlineLive;
+globalThis.merchantUpdateProductLive=merchantUpdateProductLive;
+globalThis.merchantUpdateLogisticsLive=merchantUpdateLogisticsLive;
+globalThis.merchantSubmitApplicationLive=merchantSubmitApplicationLive;
+globalThis.merchantPoll=merchantPoll;
+globalThis.openMerchantPortal=openMerchantPortal;
+globalThis.openCustomerPortal=openCustomerPortal;

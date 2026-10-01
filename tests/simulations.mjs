@@ -123,29 +123,52 @@ test('cashback reservado volta ao cliente se cancelar antes do aceite',()=>{
   assert.equal(T.getState().user.cashback,7.5);
 });
 
-test('fluxo completo exige PIN e recompensa uma única vez',()=>{
+test('fluxo completo exige pagamento + PIN e recompensa uma única vez',()=>{
   reset(x=>{x.address='Rua Teste, 90';x.cart=cart(['P13',1]);x.user.cashback=0;x.user.purchases=0});
   const o=T.createOrderForMerchant('B').order;
   assert.equal(T.acceptOrder(o.id).ok,true);
   assert.equal(T.dispatchOrder(o.id).ok,true);
   assert.equal(T.arrivingOrder(o.id).ok,true);
-  assert.equal(T.deliverOrder(o.id,'0000').ok,false);
+
+  const noPayment=T.deliverOrder(o.id,o.pin,false);
+  assert.equal(noPayment.ok,false);
+  assert.match(noPayment.error,/pagamento/i);
   assert.equal(T.getState().orders[0].status,'ARRIVING');
-  assert.equal(T.deliverOrder(o.id,o.pin).ok,true);
+  assert.equal(T.getState().user.purchases,0);
+  assert.equal(T.getState().user.cashback,0);
+
+  assert.equal(T.deliverOrder(o.id,'0000',true).ok,false);
+  assert.equal(T.getState().orders[0].status,'ARRIVING');
+
+  assert.equal(T.deliverOrder(o.id,o.pin,true).ok,true);
   const after=T.getState();
   assert.equal(after.orders[0].status,'SETTLED');
+  assert.ok(after.orders[0].paymentConfirmedAt);
   assert.equal(after.user.purchases,1);
-  assert.equal(after.user.cashback,1.25);
-  assert.equal(T.deliverOrder(o.id,o.pin).ok,false);
-  assert.equal(T.getState().user.cashback,1.25);
+  assert.equal(after.user.cashback,1.19);
+
+  assert.equal(T.deliverOrder(o.id,o.pin,true).ok,false);
+  assert.equal(T.getState().user.cashback,1.19);
+});
+
+test('economia do pedido preserva contribuição mínima antes de benefícios',()=>{
+  reset(x=>{x.address='Rua Teste, 95';x.cart=cart(['P13',1]);x.user.cashback=0;x.user.purchases=0});
+  const o=T.createOrderForMerchant('B').order;
+  T.acceptOrder(o.id);T.dispatchOrder(o.id);T.arrivingOrder(o.id);
+  assert.equal(T.deliverOrder(o.id,o.pin,true).ok,true);
+  const order=T.getState().orders[0];
+  const economics=order.rewardEconomics;
+  assert.ok(economics);
+  assert.equal(order.cashbackEarned,1.19);
+  assert.ok(economics.platformFee>=economics.variableReserve+economics.minimumContribution+order.cashbackEarned);
 });
 
 test('PIN bloqueia após cinco tentativas incorretas',()=>{
   reset(x=>{x.address='Rua Teste, 100';x.cart=cart(['P13',1])});
   const o=T.createOrderForMerchant('C').order;
   T.acceptOrder(o.id);T.dispatchOrder(o.id);T.arrivingOrder(o.id);
-  for(let i=0;i<5;i++)T.deliverOrder(o.id,'0000');
-  const r=T.deliverOrder(o.id,o.pin);
+  for(let i=0;i<5;i++)T.deliverOrder(o.id,'0000',true);
+  const r=T.deliverOrder(o.id,o.pin,true);
   assert.equal(r.ok,false);
   assert.match(r.error,/bloqueado/i);
   assert.equal(T.getState().orders[0].status,'ARRIVING');
@@ -299,6 +322,23 @@ test('timestamp de preço muito no futuro é tratado como inválido',()=>{
   assert.ok(!T.offersForCart(T.getState().cart).some(o=>o.id==='A'));
 });
 
+
+test('falha da revenda depois do aceite devolve estoque e inicia rescue',()=>{
+  reset(x=>{x.address='Rua Teste, 195';x.cart=cart(['P13',1],['WATER20',1])});
+  const before=T.getState().merchants.find(m=>m.id==='B').inventory.P13;
+  const o=T.createOrderForMerchant('B').order;
+  assert.equal(T.acceptOrder(o.id).ok,true);
+  assert.equal(T.getState().merchants.find(m=>m.id==='B').inventory.P13,before-1);
+
+  const r=T.failAcceptedOrder(o.id,'Falha operacional simulada');
+  assert.equal(r.ok,true);
+  assert.equal(T.getState().merchants.find(m=>m.id==='B').inventory.P13,before);
+
+  const order=T.getState().orders[0];
+  assert.ok(['OFFERED_TO_MERCHANT','REQUOTE_REQUIRED'].includes(order.status));
+  assert.notEqual(order.merchantId==='B'&&order.status==='OFFERED_TO_MERCHANT',true);
+  assert.ok(order.events.some(e=>e.status==='REASSIGNING'));
+});
 
 test('preparação vencida entra em AT_RISK sem fingir saída',()=>{
   reset(x=>{x.address='Rua Teste, 200';x.cart=cart(['P13',1])});

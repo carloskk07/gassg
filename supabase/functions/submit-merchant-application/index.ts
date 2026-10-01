@@ -1,11 +1,14 @@
-import "jsr:@supabase/functions-js/edge-runtime.d.ts";
-import { createClient } from "npm:@supabase/supabase-js@2";
+import "jsr:@supabase/functions-js@2.117.2/edge-runtime.d.ts";
+import {
+  createClient } from "npm:@supabase/supabase-js@2.117.2";
 import {
   DomainError,
   assertPermanentMerchantUser,
   normalizeAddress,
   normalizeCnpj,
-  isValidCnpj
+  isValidCnpj,
+  readJsonBody,
+  enforceApiQuota
 } from "../_shared/domain.js";
 
 const SUPABASE_URL=Deno.env.get("SUPABASE_URL")??"";
@@ -53,7 +56,7 @@ Deno.serve(async(req:Request)=>{
 
   try{
     const user=await authenticatedUser(req);
-    const body=await req.json().catch(()=>({}));
+    const body=await readJsonBody(req);
 
     const cnpj=normalizeCnpj(body.cnpj);
     if(!isValidCnpj(cnpj))throw new DomainError("INVALID_CNPJ","CNPJ inválido no formato atual.",400);
@@ -68,6 +71,7 @@ Deno.serve(async(req:Request)=>{
     if(phone.length<10||phone.length>13)throw new DomainError("INVALID_PHONE","WhatsApp inválido.",400);
 
     const admin=createClient(SUPABASE_URL,SECRET_KEY,{auth:{persistSession:false,autoRefreshToken:false}});
+    await enforceApiQuota(admin,{userId:user.id,actionName:"submit-merchant-application",limit:5,windowSeconds:3600});
     const {data,error}=await admin
       .from("merchant_applications")
       .insert({

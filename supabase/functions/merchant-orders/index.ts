@@ -1,6 +1,11 @@
-import "jsr:@supabase/functions-js/edge-runtime.d.ts";
-import { createClient } from "npm:@supabase/supabase-js@2";
-import { DomainError, assertPermanentMerchantUser } from "../_shared/domain.js";
+import "jsr:@supabase/functions-js@2.117.2/edge-runtime.d.ts";
+import {
+  createClient } from "npm:@supabase/supabase-js@2.117.2";
+import { DomainError,
+  assertPermanentMerchantUser,
+  readJsonBody,
+  enforceApiQuota
+} from "../_shared/domain.js";
 
 const SUPABASE_URL=Deno.env.get("SUPABASE_URL")??"";
 const publishableKeys=JSON.parse(Deno.env.get("SUPABASE_PUBLISHABLE_KEYS")??"{}");
@@ -52,13 +57,14 @@ Deno.serve(async(req:Request)=>{
 
   try{
     const user=await authenticatedUser(req);
-    const body=await req.json().catch(()=>({}));
+    const body=await readJsonBody(req);
     const requestedMerchantId=body.merchantId==null?null:String(body.merchantId);
     if(requestedMerchantId&&!UUID_RE.test(requestedMerchantId)){
       throw new DomainError("INVALID_MERCHANT","Revenda inválida.",400);
     }
 
     const admin=createClient(SUPABASE_URL,SECRET_KEY,{auth:{persistSession:false,autoRefreshToken:false}});
+    await enforceApiQuota(admin,{userId:user.id,actionName:"merchant-orders",limit:120,windowSeconds:60});
     const {data:memberships,error:membershipError}=await admin
       .from("merchant_members")
       .select("merchant_id,member_role,active")
@@ -71,14 +77,34 @@ Deno.serve(async(req:Request)=>{
       ? memberships.find((m)=>m.merchant_id===requestedMerchantId)
       : memberships[0];
     if(!selected)return json({error:"MERCHANT_ACCESS_DENIED",message:"Você não possui acesso a esta revenda."},403,origin);
+    if(!["owner","manager","operator"].includes(selected.member_role)){
+      return json({error:"MERCHANT_ROLE_NOT_ENABLED",message:"Este papel ainda não possui painel operacional no piloto."},403,origin);
+    }
+
+    const membershipMerchantIds=memberships
+      .filter((m)=>["owner","manager","operator"].includes(m.member_role))
+      .map((m)=>m.merchant_id);
+    const {data:membershipMerchants,error:membershipMerchantsError}=await admin
+      .from("merchants")
+      .select("id,name")
+      .in("id",membershipMerchantIds);
+    if(membershipMerchantsError)throw membershipMerchantsError;
+    const merchantNames=new Map((membershipMerchants??[]).map((m)=>[m.id,m.name]));
 
     const {data:merchant,error:merchantError}=await admin
       .from("merchants")
-      .select("id,name,status,online,trust_score,delivery_fee_cents,base_eta_minutes,price_confirmed_at,last_seen_at")
+      .select("id,name,status,online,trust_score,delivery_fee_cents,base_eta_minutes,accepts_citywide,price_confirmed_at,last_seen_at")
       .eq("id",selected.merchant_id)
       .maybeSingle();
     if(merchantError)throw merchantError;
     if(!merchant)return json({error:"MERCHANT_NOT_FOUND"},404,origin);
+
+    const {data:catalog,error:catalogError}=await admin
+      .from("catalog_items")
+      .select("product_code,product_name,price_cents,available_stock,active,updated_at")
+      .eq("merchant_id",selected.merchant_id)
+      .order("product_code");
+    if(catalogError)throw catalogError;
 
     const {data:orders,error:ordersError}=await admin
       .from("orders")
@@ -123,15 +149,31 @@ Deno.serve(async(req:Request)=>{
         trustScore:merchant.trust_score,
         deliveryFeeCents:merchant.delivery_fee_cents,
         baseEtaMinutes:merchant.base_eta_minutes,
+        acceptsCitywide:merchant.accepts_citywide,
         priceConfirmedAt:merchant.price_confirmed_at,
         lastSeenAt:merchant.last_seen_at
       },
-      memberships:memberships.map((m)=>({merchantId:m.merchant_id,memberRole:m.member_role})),
+      memberships:memberships
+        .filter((m)=>["owner","manager","operator"].includes(m.member_role))
+        .map((m)=>({
+          merchantId:m.merchant_id,
+          memberRole:m.member_role,
+          name:merchantNames.get(m.merchant_id)??"Revenda"
+        })),
+      catalog:(catalog??[]).map((item)=>({
+        productCode:item.product_code,
+        productName:item.product_name,
+        priceCents:item.price_cents,
+        availableStock:item.available_stock,
+        active:item.active,
+        updatedAt:item.updated_at
+      })),
       orders:(orders??[]).map((o)=>({
         orderId:o.id,
         publicCode:o.public_code,
         status:o.status,
-        address:o.address_text,
+        address:o.status==="OFFERED_TO_MERCHANT"?null:o.address_text,
+        addressVisible:o.status!=="OFFERED_TO_MERCHANT",
         paymentMethod:o.payment_method,
         grossTotalCents:o.gross_total_cents,
         cashbackReservedCents:o.cashback_reserved_cents,

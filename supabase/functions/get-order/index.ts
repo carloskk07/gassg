@@ -1,6 +1,10 @@
-import "jsr:@supabase/functions-js/edge-runtime.d.ts";
-import { createClient } from "npm:@supabase/supabase-js@2";
-import { DomainError } from "../_shared/domain.js";
+import "jsr:@supabase/functions-js@2.117.2/edge-runtime.d.ts";
+import {
+  createClient } from "npm:@supabase/supabase-js@2.117.2";
+import { DomainError,
+  readJsonBody,
+  enforceApiQuota
+} from "../_shared/domain.js";
 
 const SUPABASE_URL=Deno.env.get("SUPABASE_URL")??"";
 const publishableKeys=JSON.parse(Deno.env.get("SUPABASE_PUBLISHABLE_KEYS")??"{}");
@@ -48,14 +52,15 @@ Deno.serve(async(req:Request)=>{
 
   try{
     const user=await authenticatedUser(req);
-    const body=await req.json().catch(()=>({}));
+    const body=await readJsonBody(req);
     const orderId=String(body.orderId??"");
     if(!UUID_RE.test(orderId))throw new DomainError("INVALID_ORDER","Pedido inválido.",400);
 
     const admin=createClient(SUPABASE_URL,SECRET_KEY,{auth:{persistSession:false,autoRefreshToken:false}});
+    await enforceApiQuota(admin,{userId:user.id,actionName:"get-order",limit:120,windowSeconds:60});
     const {data:order,error:orderError}=await admin
       .from("orders")
-      .select("id,public_code,customer_id,merchant_id,status,address_text,payment_method,gross_total_cents,cashback_reserved_cents,total_cents,proposed_total_cents,supplier_name_snapshot,risk_reason,offer_expires_at,accepted_at,dispatch_due_at,dispatched_at,arriving_at,promised_by,delivered_at,settled_at,pin_failures,version,created_at,updated_at")
+      .select("id,public_code,customer_id,merchant_id,status,financial_state,financial_reversed_at,financial_reversal_reason,address_text,payment_method,gross_total_cents,cashback_reserved_cents,total_cents,proposed_total_cents,supplier_name_snapshot,risk_reason,offer_expires_at,accepted_at,dispatch_due_at,dispatched_at,arriving_at,promised_by,delivered_at,settled_at,payment_confirmed_at,pin_failures,version,created_at,updated_at")
       .eq("id",orderId)
       .maybeSingle();
 
@@ -67,7 +72,7 @@ Deno.serve(async(req:Request)=>{
 
     if(order.customer_id===user.id){
       role="customer";
-    }else if(order.merchant_id){
+    }else if(order.merchant_id&&!["REASSIGNING","REQUOTE_REQUIRED","CANCELLED"].includes(order.status)){
       const {data:membership,error:membershipError}=await admin
         .from("merchant_members")
         .select("member_role,active")
@@ -76,7 +81,7 @@ Deno.serve(async(req:Request)=>{
         .eq("active",true)
         .maybeSingle();
       if(membershipError)throw membershipError;
-      if(membership){
+      if(membership&&["owner","manager","operator"].includes(membership.member_role)){
         role="merchant";
         memberRole=membership.member_role;
       }
@@ -122,8 +127,12 @@ Deno.serve(async(req:Request)=>{
       role,
       memberRole:role==="merchant"?memberRole:null,
       status:order.status,
+      financialState:order.financial_state,
+      financialReversedAt:role==="customer"?order.financial_reversed_at:null,
+      financialReversalReason:role==="customer"?order.financial_reversal_reason:null,
       version:order.version,
-      address:order.address_text,
+      address:role==="customer"||order.status!=="OFFERED_TO_MERCHANT"?order.address_text:null,
+      addressVisible:role==="customer"||order.status!=="OFFERED_TO_MERCHANT",
       paymentMethod:order.payment_method,
       grossTotalCents:order.gross_total_cents,
       cashbackReservedCents:order.cashback_reserved_cents,
@@ -139,6 +148,7 @@ Deno.serve(async(req:Request)=>{
       promisedBy:order.promised_by,
       deliveredAt:order.delivered_at,
       settledAt:order.settled_at,
+      paymentConfirmedAt:order.payment_confirmed_at,
       pinFailures:role==="merchant"?order.pin_failures:null,
       deliveryPin,
       items:items??[],

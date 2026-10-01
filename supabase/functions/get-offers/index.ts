@@ -1,11 +1,15 @@
-import "jsr:@supabase/functions-js/edge-runtime.d.ts";
-import { createClient } from "npm:@supabase/supabase-js@2";
+import "jsr:@supabase/functions-js@2.117.2/edge-runtime.d.ts";
+import {
+  createClient } from "npm:@supabase/supabase-js@2.117.2";
 import {
   DomainError,
   normalizeAddress,
   normalizeItems,
   anonymizeOffer,
-  hasMerchantLeak
+  hasMerchantLeak,
+  requestFingerprint,
+  readJsonBody,
+  enforceApiQuota
 } from "../_shared/domain.js";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
@@ -147,7 +151,7 @@ Deno.serve(async (req: Request) => {
 
   try {
     const user = await authenticatedUser(req);
-    const body = await req.json().catch(() => ({}));
+    const body = await readJsonBody(req);
     const address = normalizeAddress(body.address);
     const items = normalizeItems(body.items);
 
@@ -158,6 +162,8 @@ Deno.serve(async (req: Request) => {
     const admin = createClient(SUPABASE_URL, SECRET_KEY, {
       auth: { persistSession: false, autoRefreshToken: false }
     });
+    await enforceApiQuota(admin,{userId:user.id,actionName:"get-offers",limit:20,windowSeconds:60});
+    await enforceApiQuota(admin,{userId:user.id,actionName:"get-offers-hour",limit:120,windowSeconds:3600});
 
     const { data: merchants, error: merchantError } = await admin
       .from("merchants")
@@ -241,46 +247,53 @@ Deno.serve(async (req: Request) => {
     const publicOffers: unknown[] = [];
 
     for (const { candidate, label } of chosen) {
-      const { data: quote, error: quoteError } = await admin
-        .from("quotes")
-        .insert({
-          customer_id: user.id,
-          merchant_id: candidate.merchantId,
-          address_text: address,
-          gross_total_cents: candidate.totalCents,
-          delivery_fee_cents: candidate.deliveryFeeCents,
-          eta_min_minutes: candidate.etaMinMinutes,
-          eta_max_minutes: candidate.etaMaxMinutes,
-          expires_at: expiresAt
-        })
-        .select("id,gross_total_cents,eta_min_minutes,eta_max_minutes,expires_at")
-        .single();
-
-      if (quoteError || !quote) throw quoteError ?? new Error("Quote insert failed");
-
-      const quoteItems = candidate.items.map((item) => ({
-        quote_id: quote.id,
-        product_code: item.productCode,
-        product_name: item.productName,
-        quantity: item.quantity,
-        unit_price_cents: item.unitPriceCents,
-        line_total_cents: item.lineTotalCents
-      }));
-
-      const { error: itemError } = await admin.from("quote_items").insert(quoteItems);
-      if (itemError) {
-        await admin.from("quotes").delete().eq("id", quote.id);
-        throw itemError;
-      }
-
-      const safe = anonymizeOffer({
-        ...quote,
-        label,
-        total_cents: candidate.totalCents,
-        trust_score: candidate.trustScore
+      const fingerprint=await requestFingerprint("quote-snapshot",{
+        address,
+        merchantId:candidate.merchantId,
+        deliveryFeeCents:candidate.deliveryFeeCents,
+        etaMinMinutes:candidate.etaMinMinutes,
+        etaMaxMinutes:candidate.etaMaxMinutes,
+        items:candidate.items.map((item)=>({
+          productCode:item.productCode,
+          quantity:item.quantity,
+          unitPriceCents:item.unitPriceCents
+        }))
       });
 
-      if (hasMerchantLeak(safe)) throw new Error("Merchant identity leak detected");
+      const {data:quote,error:quoteError}=await admin.rpc("create_quote_snapshot",{
+        p_user_id:user.id,
+        p_merchant_id:candidate.merchantId,
+        p_address:address,
+        p_delivery_fee_cents:candidate.deliveryFeeCents,
+        p_eta_min_minutes:candidate.etaMinMinutes,
+        p_eta_max_minutes:candidate.etaMaxMinutes,
+        p_expires_at:expiresAt,
+        p_items:candidate.items.map((item)=>({
+          product_code:item.productCode,
+          quantity:item.quantity,
+          unit_price_cents:item.unitPriceCents
+        })),
+        p_fingerprint:fingerprint
+      });
+
+      if(quoteError){
+        const message=String(quoteError.message??"");
+        if(message.includes("QUOTE_SOURCE_STALE"))continue;
+        throw quoteError;
+      }
+      if(!quote)throw new Error("Quote snapshot failed");
+
+      const safe=anonymizeOffer({
+        id:quote.quoteId,
+        label,
+        total_cents:Number(quote.grossTotalCents),
+        eta_min_minutes:Number(quote.etaMinMinutes),
+        eta_max_minutes:Number(quote.etaMaxMinutes),
+        expires_at:quote.expiresAt,
+        trust_score:candidate.trustScore
+      });
+
+      if(hasMerchantLeak(safe))throw new Error("Merchant identity leak detected");
       publicOffers.push(safe);
     }
 

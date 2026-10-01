@@ -48,7 +48,7 @@ function freshSeed(){
   return {
     version:STATE_VERSION,
     mode:'customer',
-    user:{name:'Carlos',cashback:7.50,purchases:4,referralCode:'CARLOS27',commissionAvailable:0,commissionPending:0,referredBy:null},
+    user:{name:'Carlos',cashback:7.50,purchases:4,referralCode:'CARLOS27',commissionAvailable:0,commissionPending:0,referredBy:null,cashEarningEligible:true,identityType:'demo'},
     address:'',
     cart:{P13:0,WATER20:0,CHARCOAL4:0,WOOD:0,ICE5:0},
     checkout:{paymentMethod:'pix',useCashback:false},
@@ -98,6 +98,8 @@ function normalizeState(raw){
   merged.user.commissionAvailable=Math.max(0,roundMoney(Number(merged.user.commissionAvailable)||0));
   merged.user.commissionPending=Math.max(0,roundMoney(Number(merged.user.commissionPending)||0));
   merged.user.referralCode=String(merged.user.referralCode||base.user.referralCode).slice(0,40);
+  merged.user.cashEarningEligible=merged.user.cashEarningEligible!==false;
+  merged.user.identityType=String(merged.user.identityType||base.user.identityType).slice(0,24);
   merged.checkout={...base.checkout,...(raw.checkout||{})};
   merged.checkout.paymentMethod=['pix','card','cash'].includes(merged.checkout.paymentMethod)?merged.checkout.paymentMethod:'pix';
   merged.checkout.useCashback=Boolean(merged.checkout.useCashback);
@@ -244,7 +246,7 @@ function appendEvent(o,status,title,desc){
 const ALLOWED={
   OFFERED_TO_MERCHANT:new Set(['MERCHANT_ACCEPTED','REASSIGNING','CANCELLED']),
   MERCHANT_ACCEPTED:new Set(['PREPARING','CANCELLED']),
-  PREPARING:new Set(['OUT_FOR_DELIVERY','AT_RISK','CANCELLED']),
+  PREPARING:new Set(['OUT_FOR_DELIVERY','AT_RISK','REASSIGNING','CANCELLED']),
   AT_RISK:new Set(['OUT_FOR_DELIVERY','REASSIGNING','CANCELLED']),
   OUT_FOR_DELIVERY:new Set(['ARRIVING','CANCELLED']),
   ARRIVING:new Set(['DELIVERED','CANCELLED']),
@@ -322,7 +324,7 @@ function chooseRescue(order){
   return noIncrease||candidates[0];
 }
 function reassignOrder(order,reason='A revenda não conseguiu atender.'){
-  if(!order||!['OFFERED_TO_MERCHANT','AT_RISK'].includes(order.status))return {ok:false,error:'Pedido não pode ser reatribuído neste estado'};
+  if(!order||!['OFFERED_TO_MERCHANT','PREPARING','AT_RISK'].includes(order.status))return {ok:false,error:'Pedido não pode ser reatribuído neste estado'};
   const current=merchantById(order.merchantId);
   if(order.inventoryReserved){releaseInventory(current,order.cart);order.inventoryReserved=false}
   const r=transition(order,'REASSIGNING','Buscando outra revenda',reason);if(!r.ok)return r;
@@ -397,6 +399,11 @@ function rejectOrder(id){
   const o=orderById(id);if(!o||o.status!=='OFFERED_TO_MERCHANT')return {ok:false,error:'Pedido não está aguardando resposta'};
   return reassignOrder(o,'A revenda recusou antes do aceite.');
 }
+function failAcceptedOrder(id,reason='A revenda não consegue concluir a preparação.'){
+  const o=orderById(id);
+  if(!o||!['PREPARING','AT_RISK'].includes(o.status))return {ok:false,error:'Pedido não pode ser resgatado neste estado'};
+  return reassignOrder(o,reason);
+}
 function dispatchOrder(id){
   const o=orderById(id);if(!o)return {ok:false,error:'Pedido não encontrado'};
   const r=transition(o,'OUT_FOR_DELIVERY','Saiu para entrega ✓','A revenda confirmou explicitamente a saída do pedido.');
@@ -410,23 +417,33 @@ function arrivingOrder(id){
 function grantRewards(o){
   if(o.rewardsGranted)return;
   o.rewardsGranted=true;
-  const earned=1.25;
+  const grossCents=Math.max(0,Math.round((Number(o.grossTotal)||0)*100));
+  const earnedCents=Math.floor((grossCents*100)/10000);
+  const earned=earnedCents/100;
   state.user.purchases=(Number(state.user.purchases)||0)+1;
   state.user.cashback=roundMoney((Number(state.user.cashback)||0)+earned);
   o.cashbackEarned=earned;
+  o.rewardEconomics={
+    platformFee:Math.floor((grossCents*750)/10000)/100,
+    variableReserve:Math.ceil((grossCents*75)/10000)/100,
+    minimumContribution:Math.ceil((grossCents*250)/10000)/100
+  };
 }
-function deliverOrder(id,pin){
+function deliverOrder(id,pin,paymentConfirmed=false){
   const o=orderById(id);if(!o||o.status!=='ARRIVING')return {ok:false,error:'Pedido ainda não está pronto para confirmação de entrega'};
+  if(paymentConfirmed!==true)return {ok:false,error:'Confirme o recebimento do pagamento antes de concluir'};
   if(o.pinFailures>=MAX_PIN_FAILURES)return {ok:false,error:'PIN bloqueado após muitas tentativas. Abra suporte.'};
   if(String(pin||'').trim()!==o.pin){
     o.pinFailures=(o.pinFailures||0)+1;
     appendEvent(o,'PIN_FAILED','PIN incorreto',`Tentativa ${o.pinFailures} de ${MAX_PIN_FAILURES}.`);
     save();return {ok:false,error:o.pinFailures>=MAX_PIN_FAILURES?'PIN bloqueado. Abra suporte.':'PIN incorreto — entrega não concluída'};
   }
+  o.paymentConfirmedAt=nowIso();
+  appendEvent(o,'PAYMENT_CONFIRMED','Pagamento confirmado','A revenda confirmou o recebimento do pagamento.');
   let r=transition(o,'DELIVERED','Entregue ✓','PIN validado com sucesso.');if(!r.ok)return r;
   o.deliveredAt=nowIso();
   const m=merchantById(o.merchantId);if(m)m.delivered++;
-  r=transition(o,'SETTLED','Pedido concluído','Entrega conciliada na demonstração; benefícios foram processados.');
+  r=transition(o,'SETTLED','Pedido concluído','Entrega e pagamento conciliados na demonstração; benefícios foram processados.');
   if(r.ok){o.settledAt=nowIso();grantRewards(o);save()}
   return r;
 }
@@ -478,38 +495,61 @@ function housekeeping(){
 }
 
 function runtimeStrip(){
+  if(globalThis.merchantPortalRequested?.()){
+    const status=globalThis.merchantRuntime?.status||'loading';
+    if(status==='ready'){
+      return '<div class="demo-strip live-strip"><span>● PAINEL REAL DA REVENDA • operações gravadas no Supabase</span><button onclick="openCustomerPortal()">Sair do painel</button></div>';
+    }
+    if(status==='loading'||status==='disabled'){
+      return '<div class="demo-strip live-strip"><span>Conectando ao painel real da revenda…</span></div>';
+    }
+    if(status==='unauthenticated'){
+      return '<div class="demo-strip"><span>Painel da revenda • autenticação permanente necessária</span><button onclick="openCustomerPortal()">Voltar ao site</button></div>';
+    }
+    if(status==='no-access'){
+      return '<div class="demo-strip blocked-strip"><span>Conta autenticada, mas ainda sem revenda vinculada</span><button onclick="openCustomerPortal()">Voltar ao site</button></div>';
+    }
+    return '<div class="demo-strip blocked-strip"><span>Painel da revenda indisponível no momento</span><button onclick="openCustomerPortal()">Voltar ao site</button></div>';
+  }
   if(!globalThis.liveRequested?.()){
     return '<div class="demo-strip"><span>Ambiente de demonstração • preços e revendas ilustrativos</span><button onclick="reset()">Reiniciar</button></div>';
   }
   const mode=globalThis.liveBanner?.()||'connecting';
   if(mode==='live'){
-    return '<div class="demo-strip live-strip"><span>● PILOTO CONECTADO • dados e pedidos vêm do Supabase gassg</span><button onclick="location.href=location.pathname+\'#home\'">Voltar à demonstração</button></div>';
+    return '<div class="demo-strip live-strip"><span>● PILOTO CONECTADO • dados e pedidos vêm do Supabase gassg</span><button onclick="openCustomerPortal()">Voltar à demonstração</button></div>';
   }
   if(mode==='connecting'){
     return '<div class="demo-strip live-strip"><span>Conectando ao backend real do piloto…</span></div>';
   }
-  return '<div class="demo-strip blocked-strip"><span>Modo live solicitado, mas o Auth do piloto ainda não está disponível</span><button onclick="location.href=location.pathname+\'#home\'">Abrir demonstração</button></div>';
+  return '<div class="demo-strip blocked-strip"><span>Modo live solicitado, mas o Auth do piloto ainda não está disponível</span><button onclick="openCustomerPortal()">Abrir demonstração</button></div>';
 }
 function shell(content){
   const r=route();
-  const merchantAction=globalThis.liveRequested?.()
-    ? "toast('A área real da revenda exige login permanente; integração em próxima etapa')"
-    : "setMode('merchant')";
+  const merchantPortal=globalThis.merchantPortalRequested?.()===true;
+  const merchantAction=merchantPortal?"go('merchant')":globalThis.liveRequested?.()?"openMerchantPortal()":"setMode('merchant')";
+  const customerAction=merchantPortal?"openCustomerPortal()":"setMode('customer')";
+  const brandAction=merchantPortal?"go('merchant')":"go('home')";
+  const desktopNav=merchantPortal
+    ? '<button onclick="go(\'merchant\')">Operação</button><button onclick="go(\'catalog\')">Catálogo</button><button onclick="go(\'merchants\')">Parceiros</button>'
+    : '<button onclick="go(\'home\')">Início</button><button onclick="go(\'club\')">Clube</button><button onclick="go(\'refer\')">Indique e ganhe</button><button onclick="go(\'merchants\')">Para revendas</button>';
   return `<div class="app">
   ${runtimeStrip()}
   <header class="topbar"><div class="shell topbar-inner">
-    <button class="brand brand-button" onclick="go('home')" aria-label="Ir para o início"><div class="brandmark"><span>🔥</span></div><div>Chama<small>São Gabriel</small></div></button>
-    <div class="desktop-only desktop-nav"><button onclick="go('home')">Início</button><button onclick="go('club')">Clube</button><button onclick="go('refer')">Indique e ganhe</button><button onclick="go('merchants')">Para revendas</button></div>
-    <div class="mode-pill" aria-label="Alternar modo"><button class="${state.mode==='customer'?'active':''}" onclick="setMode('customer')">Cliente</button><button class="${state.mode==='merchant'?'active':''}" onclick="${merchantAction}">Revenda</button></div>
+    <button class="brand brand-button" onclick="${brandAction}" aria-label="Ir para o início"><div class="brandmark"><span>🔥</span></div><div>Chama<small>São Gabriel</small></div></button>
+    <div class="desktop-only desktop-nav">${desktopNav}</div>
+    <div class="mode-pill" aria-label="Alternar modo"><button class="${!merchantPortal&&state.mode==='customer'?'active':''}" onclick="${customerAction}">Cliente</button><button class="${merchantPortal||state.mode==='merchant'?'active':''}" onclick="${merchantAction}">Revenda</button></div>
   </div></header>
   <main class="shell">${content}</main>
   ${bottomNav(r)}
   </div>`;
 }
 function bottomNav(r){
-  const items=state.mode==='merchant'
-    ?[['merchant','🏪','Operação','go'],['merchant-orders','📦','Pedidos','go'],['catalog','🧺','Catálogo','go'],['merchant-metrics','📊','Desempenho','go'],['merchants','➕','Parceiros','go']]
-    :[['home','⌂','Início','go'],['order','🔥','Pedir','start'],['tracking','📍','Pedido','go'],['club','★','Clube','go'],['refer','🤝','Indique','go']];
+  const merchantPortal=globalThis.merchantPortalRequested?.()===true;
+  const items=merchantPortal
+    ?[['merchant','🏪','Operação','go'],['merchant-orders','📦','Pedidos','go'],['catalog','🧺','Catálogo','go'],['merchants','➕','Parceiros','go']]
+    :state.mode==='merchant'
+      ?[['merchant','🏪','Operação','go'],['merchant-orders','📦','Pedidos','go'],['catalog','🧺','Catálogo','go'],['merchant-metrics','📊','Desempenho','go'],['merchants','➕','Parceiros','go']]
+      :[['home','⌂','Início','go'],['order','🔥','Pedir','start'],['tracking','📍','Pedido','go'],['club','★','Clube','go'],['refer','🤝','Indique','go']];
   return `<nav class="bottom-nav" aria-label="Navegação principal">${items.map(([id,ic,l,act])=>`<button class="nav-btn ${r===id?'active':''}" ${r===id?'aria-current="page"':''} onclick="${act==='start'?"startOrder('P13')":`go('${id}')`}"><span aria-hidden="true">${ic}</span><span>${l}</span></button>`).join('')}</nav>`;
 }
 function setMode(m){state.mode=m==='merchant'?'merchant':'customer';save();go(state.mode==='merchant'?'merchant':'home');render()}
@@ -519,7 +559,7 @@ parseReferral();
 if(globalThis.__CHAMA_TEST__){
   globalThis.ChamaTest={
     freshSeed,normalizeState,normalizeCart,cartAvailableFor,cartTotalFor,offersForCart,isPriceFresh,minPrice,
-    createOrderForMerchant,acceptOrder,rejectOrder,dispatchOrder,arrivingOrder,deliverOrder,customerCancel,
+    createOrderForMerchant,acceptOrder,rejectOrder,failAcceptedOrder,dispatchOrder,arrivingOrder,deliverOrder,customerCancel,
     reassignOrder,acceptRequote,transition,updateMerchant,pauseMerchant,resumeMerchant,setCartProduct,grantRewards,
     hasCartItems,esc,housekeeping,normalizeCnpj,isValidCnpjShape,
     getState:()=>state,setState:s=>{state=normalizeState(s);save();}

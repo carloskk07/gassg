@@ -1,10 +1,13 @@
-import "jsr:@supabase/functions-js/edge-runtime.d.ts";
-import { createClient } from "npm:@supabase/supabase-js@2";
+import "jsr:@supabase/functions-js@2.117.2/edge-runtime.d.ts";
+import {
+  createClient } from "npm:@supabase/supabase-js@2.117.2";
 import {
   DomainError,
   asPositiveInt,
   validateIdempotencyKey,
-  requestFingerprint
+  requestFingerprint,
+  readJsonBody,
+  enforceApiQuota
 } from "../_shared/domain.js";
 
 const SUPABASE_URL=Deno.env.get("SUPABASE_URL")??"";
@@ -51,6 +54,7 @@ function mapRpcError(error:{message?:string}|null){
     VERSION_CONFLICT:[409,"O pedido mudou. Atualize antes de agir."],
     INVALID_TRANSITION:[409,"Esta ação não é válida no estado atual."],
     PROPOSED_OFFER_STALE:[409,"A alternativa ficou indisponível. Atualize o pedido."],
+    REQUOTE_EXPIRED:[409,"A nova cotação expirou. O sistema atualizará o pedido."],
     IDEMPOTENCY_CONFLICT:[409,"A mesma chave foi usada para outra requisição."]
   };
   for(const [code,[status,text]] of Object.entries(map)){
@@ -68,7 +72,7 @@ Deno.serve(async(req:Request)=>{
   try{
     const user=await authenticatedUser(req);
     const idempotencyKey=validateIdempotencyKey(req.headers.get("Idempotency-Key"));
-    const body=await req.json().catch(()=>({}));
+    const body=await readJsonBody(req);
     const orderId=String(body.orderId??"");
     if(!UUID_RE.test(orderId))throw new DomainError("INVALID_ORDER","Pedido inválido.",400);
 
@@ -81,6 +85,7 @@ Deno.serve(async(req:Request)=>{
     const requestHash=await requestFingerprint("customer-action:"+action,{orderId,action,expectedVersion});
 
     const admin=createClient(SUPABASE_URL,SECRET_KEY,{auth:{persistSession:false,autoRefreshToken:false}});
+    await enforceApiQuota(admin,{userId:user.id,actionName:"customer-action",limit:40,windowSeconds:60});
     const {data,error}=await admin.rpc("customer_order_action",{
       p_user_id:user.id,
       p_order_id:orderId,

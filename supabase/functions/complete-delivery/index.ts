@@ -1,12 +1,15 @@
-import "jsr:@supabase/functions-js/edge-runtime.d.ts";
-import { createClient } from "npm:@supabase/supabase-js@2";
+import "jsr:@supabase/functions-js@2.117.2/edge-runtime.d.ts";
+import {
+  createClient } from "npm:@supabase/supabase-js@2.117.2";
 import {
   DomainError,
   assertPermanentMerchantUser,
   asPositiveInt,
   validateDeliveryPin,
   validateIdempotencyKey,
-  requestFingerprint
+  requestFingerprint,
+  readJsonBody,
+  enforceApiQuota
 } from "../_shared/domain.js";
 
 const SUPABASE_URL=Deno.env.get("SUPABASE_URL")??"";
@@ -72,15 +75,19 @@ Deno.serve(async(req:Request)=>{
   try{
     const user=await authenticatedUser(req);
     const idempotencyKey=validateIdempotencyKey(req.headers.get("Idempotency-Key"));
-    const body=await req.json().catch(()=>({}));
+    const body=await readJsonBody(req);
     const orderId=String(body.orderId??"");
     if(!UUID_RE.test(orderId))throw new DomainError("INVALID_ORDER","Pedido inválido.",400);
 
     const pin=validateDeliveryPin(body.pin);
+    if(body.paymentConfirmed!==true){
+      throw new DomainError("PAYMENT_CONFIRMATION_REQUIRED","Confirme o recebimento do pagamento antes de concluir.",400);
+    }
     const expectedVersion=asPositiveInt(body.expectedVersion,"expectedVersion",{min:1,max:Number.MAX_SAFE_INTEGER});
-    const requestHash=await requestFingerprint("complete-delivery",{orderId,pin,expectedVersion});
+    const requestHash=await requestFingerprint("complete-delivery",{orderId,pin,expectedVersion,paymentConfirmed:true});
 
     const admin=createClient(SUPABASE_URL,SECRET_KEY,{auth:{persistSession:false,autoRefreshToken:false}});
+    await enforceApiQuota(admin,{userId:user.id,actionName:"complete-delivery",limit:20,windowSeconds:60});
     const {data,error}=await admin.rpc("complete_order_delivery",{
       p_user_id:user.id,
       p_order_id:orderId,
