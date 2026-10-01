@@ -38,6 +38,7 @@ const deliveryEnforcement=fs.readFileSync(new URL('../supabase/migrations/202610
 const deliveryAdmin=fs.readFileSync(new URL('../supabase/migrations/20261001132000_admin_delivery_capability_control.sql',import.meta.url),'utf8');
 const deliveryIndexes=fs.readFileSync(new URL('../supabase/migrations/20261001133000_delivery_capability_index_hygiene.sql',import.meta.url),'utf8');
 const referralRisk=fs.readFileSync(new URL('../supabase/migrations/20261001134000_referral_fraud_review_authority.sql',import.meta.url),'utf8');
+const acceptRace=fs.readFileSync(new URL('../supabase/migrations/20261001135000_accept_time_race_rescue.sql',import.meta.url),'utf8');
 const r=repricing.replace(/--.*$/gm,'').replace(/\s+/g,' ').toLowerCase();
 const w=watchdog.replace(/--.*$/gm,'').replace(/\s+/g,' ').toLowerCase();
 const h=hardening.replace(/--.*$/gm,'').replace(/\s+/g,' ').toLowerCase();
@@ -75,6 +76,7 @@ const de=deliveryEnforcement.replace(/--.*$/gm,'').replace(/\s+/g,' ').toLowerCa
 const da=deliveryAdmin.replace(/--.*$/gm,'').replace(/\s+/g,' ').toLowerCase();
 const di=deliveryIndexes.replace(/--.*$/gm,'').replace(/\s+/g,' ').toLowerCase();
 const rf=referralRisk.replace(/--.*$/gm,'').replace(/\s+/g,' ').toLowerCase();
+const xr=acceptRace.replace(/--.*$/gm,'').replace(/\s+/g,' ').toLowerCase();
 
 assert.match(r,/create table if not exists public\.order_requote_items/,'re-cotação precisa congelar preços por item');
 assert.match(r,/revoke all on table public\.order_requote_items from anon, authenticated/,'snapshot de re-cotação deve ser server-only');
@@ -309,4 +311,14 @@ assert.match(rf,/platform_contribution_cents=platform_contribution_cents\+v_amou
 assert.match(rf,/admin_referral_review_action/,'decisão admin de referral precisa ser idempotente');
 assert.match(rf,/platform_admin_audit/,'review de referral precisa deixar trilha administrativa');
 
-console.log('Requote + watchdog + hardening v1.9 contract passou.');
+assert.match(xr,/create or replace function public\.rescue_offered_order_now/,'aceite deve possuir autoridade única de rescue imediato');
+assert.match(xr,/for update/,'aceite concorrente precisa bloquear estoque antes da reserva');
+assert.match(xr,/stock_changed_before_accept/,'mudança de estoque no instante do aceite deve acionar rescue');
+assert.match(xr,/delivery_capability_changed_before_accept/,'mudança de capability logística deve acionar rescue');
+assert.match(xr,/merchant_unavailable_before_accept/,'revenda indisponível no aceite deve acionar rescue');
+assert.match(xr,/accepted',false/,'rescue deve retornar resultado explícito de não aceite');
+assert.match(xr,/autorescued',true/,'cliente operacional precisa distinguir rescue automático');
+assert.match(xr,/public\.system_rescue_order\(v_order\.id,p_reason\)/,'rescue imediato deve reutilizar ranking central');
+assert.doesNotMatch(xr,/raise exception 'insufficient_stock'/,'corrida de estoque no aceite não deve deixar pedido parado por erro');
+
+console.log('Requote + watchdog + hardening v1.9.2 contract passou.');
