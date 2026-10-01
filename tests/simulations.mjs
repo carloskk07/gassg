@@ -145,10 +145,22 @@ test('fluxo completo exige pagamento + PIN e recompensa uma única vez',()=>{
   assert.equal(after.orders[0].status,'SETTLED');
   assert.ok(after.orders[0].paymentConfirmedAt);
   assert.equal(after.user.purchases,1);
-  assert.equal(after.user.cashback,1.25);
+  assert.equal(after.user.cashback,1.19);
 
   assert.equal(T.deliverOrder(o.id,o.pin,true).ok,false);
-  assert.equal(T.getState().user.cashback,1.25);
+  assert.equal(T.getState().user.cashback,1.19);
+});
+
+test('economia do pedido preserva contribuição mínima antes de benefícios',()=>{
+  reset(x=>{x.address='Rua Teste, 95';x.cart=cart(['P13',1]);x.user.cashback=0;x.user.purchases=0});
+  const o=T.createOrderForMerchant('B').order;
+  T.acceptOrder(o.id);T.dispatchOrder(o.id);T.arrivingOrder(o.id);
+  assert.equal(T.deliverOrder(o.id,o.pin,true).ok,true);
+  const order=T.getState().orders[0];
+  const economics=order.rewardEconomics;
+  assert.ok(economics);
+  assert.equal(order.cashbackEarned,1.19);
+  assert.ok(economics.platformFee>=economics.variableReserve+economics.minimumContribution+order.cashbackEarned);
 });
 
 test('PIN bloqueia após cinco tentativas incorretas',()=>{
