@@ -205,4 +205,97 @@ test('validação numérica rejeita preço infinito e estoque negativo',()=>{
   assert.equal(T.updateMerchant('A',{priceP13:120,stockP13:-1}).ok,false);
 });
 
+
+test('aceite vencido é recusado mesmo se o botão ainda estiver visível',()=>{
+  reset(x=>{x.address='Rua Teste, 130';x.cart=cart(['P13',1])});
+  const o=T.createOrderForMerchant('C').order;
+  o.offerExpiresAt=new Date(Date.now()-1000).toISOString();
+  const before=T.getState().merchants.find(m=>m.id==='C').inventory.P13;
+  const r=T.acceptOrder(o.id);
+  assert.equal(r.ok,false);
+  assert.equal(T.getState().merchants.find(m=>m.id==='C').inventory.P13,before);
+  assert.notEqual(T.getState().orders[0].merchantId,'C');
+});
+
+test('cesta multiproduto só mostra revenda capaz de atender tudo',()=>{
+  const s=reset(x=>{x.address='Rua Teste, 140';x.cart=cart(['WATER20',1],['WOOD',1])});
+  const offers=T.offersForCart(s.cart);
+  assert.deepEqual(offers.map(o=>o.id),['A']);
+});
+
+test('estoque complementar é reservado junto com o P13',()=>{
+  const s=reset(x=>{x.address='Rua Teste, 150';x.cart=cart(['P13',1],['WATER20',2],['ICE5',1])});
+  const m=s.merchants.find(x=>x.id==='B');
+  const before={...m.inventory};
+  const o=T.createOrderForMerchant('B').order;
+  assert.equal(T.acceptOrder(o.id).ok,true);
+  const after=T.getState().merchants.find(x=>x.id==='B').inventory;
+  assert.equal(after.P13,before.P13-1);
+  assert.equal(after.WATER20,before.WATER20-2);
+  assert.equal(after.ICE5,before.ICE5-1);
+  assert.ok(Object.values(after).every(v=>v>=0));
+});
+
+test('cancelamento simples deixa de ser permitido depois do aceite',()=>{
+  reset(x=>{x.address='Rua Teste, 160';x.cart=cart(['P13',1])});
+  const o=T.createOrderForMerchant('A').order;
+  T.acceptOrder(o.id);
+  const r=T.customerCancel(o.id);
+  assert.equal(r.ok,false);
+  assert.equal(T.getState().orders[0].status,'PREPARING');
+});
+
+test('cashback não pode ser restaurado duas vezes pelo mesmo cancelamento',()=>{
+  reset(x=>{x.address='Rua Teste, 170';x.cart=cart(['P13',1]);x.user.cashback=10;x.checkout.useCashback=true});
+  const o=T.createOrderForMerchant('A').order;
+  assert.equal(T.customerCancel(o.id).ok,true);
+  const balance=T.getState().user.cashback;
+  assert.equal(T.customerCancel(o.id).ok,false);
+  assert.equal(T.getState().user.cashback,balance);
+});
+
+test('re-cotação maior só altera total após aceite explícito do cliente',()=>{
+  reset(x=>{x.address='Rua Teste, 180';x.cart=cart(['WATER20',1])});
+  const o=T.createOrderForMerchant('B').order;
+  const old=o.total;
+  const rr=T.rejectOrder(o.id);
+  assert.equal(rr.ok,true);
+  let order=T.getState().orders[0];
+  assert.equal(order.status,'REQUOTE_REQUIRED');
+  assert.equal(order.total,old);
+  const proposed=order.proposedTotal;
+  assert.ok(proposed>old);
+  const ar=T.acceptRequote(o.id);
+  assert.equal(ar.ok,true);
+  order=T.getState().orders[0];
+  assert.equal(order.status,'OFFERED_TO_MERCHANT');
+  assert.equal(order.total,proposed);
+  assert.notEqual(order.merchantId,'B');
+});
+
+test('normalização corrige valores persistidos corrompidos',()=>{
+  const bad=T.normalizeState({
+    mode:'hacker',
+    address:'x'.repeat(500),
+    user:{cashback:-10,purchases:-3,commissionAvailable:'abc'},
+    checkout:{paymentMethod:'bitcoin',useCashback:'yes'},
+    merchants:[{id:'A',priceP13:-1,deliveryFee:-5,products:{WATER20:-9},inventory:{P13:-2}}]
+  });
+  assert.equal(bad.mode,'customer');
+  assert.equal(bad.address.length,160);
+  assert.equal(bad.user.cashback,0);
+  assert.equal(bad.user.purchases,0);
+  assert.equal(bad.checkout.paymentMethod,'pix');
+  assert.equal(bad.merchants.find(m=>m.id==='A').deliveryFee,0);
+  assert.equal(bad.merchants.find(m=>m.id==='A').products.WATER20,null);
+  assert.equal(bad.merchants.find(m=>m.id==='A').inventory.P13,0);
+});
+
+test('timestamp de preço muito no futuro é tratado como inválido',()=>{
+  const s=reset(x=>{x.address='Rua Teste, 190';x.cart=cart(['P13',1])});
+  s.merchants.find(m=>m.id==='A').priceConfirmedAt=new Date(Date.now()+60*60*1000).toISOString();
+  T.setState(s);
+  assert.ok(!T.offersForCart(T.getState().cart).some(o=>o.id==='A'));
+});
+
 console.log(`\n${passed} simulações passaram.`);
