@@ -14,18 +14,35 @@ function referralUrl(){
 }
 function refer(){
   const url=referralUrl();
-  return shell(`<section class="page"><h1 class="page-title">Indique e ganhe</h1><p class="muted">Compartilhe seu link pessoal. Comissão só nasce quando existe uma venda válida e entregue.</p><div class="card flat"><div class="tiny muted">SEU LINK PESSOAL</div><div class="share-box">${esc(url)}</div><button class="primary full" style="margin-top:12px" onclick="shareReferral()">Compartilhar</button></div>
-<section class="section"><div class="section-head"><div><h2>Como funciona</h2></div></div><div class="steps">${[['1','Compartilhe seu link','Cadastro sozinho não gera comissão.'],['2','A pessoa compra','O pedido precisa ser real.'],['3','A revenda entrega','A entrega precisa ser comprovada.'],['4','A comissão é validada','Só então entra no saldo disponível para Pix.']].map(x=>`<div class="step"><div class="step-num">${x[0]}</div><div><strong>${x[1]}</strong><p>${x[2]}</p></div></div>`).join('')}</div></section><div class="card flat"><div class="merchant-kpis"><div class="kpi"><span class="label">Disponível</span><strong>${BRL.format(state.user.commissionAvailable)}</strong></div><div class="kpi"><span class="label">A liberar</span><strong>${BRL.format(state.user.commissionPending)}</strong></div></div><button class="secondary full" style="margin-top:12px" onclick="toast('Saque Pix será ativado com PSP real')">Sacar via Pix</button></div><div class="notice" style="margin-top:14px">Não há pagamento por mero recrutamento. Benefícios sacáveis são vinculados a vendas reais, entregues e validadas.</div></section>`)
+  const live=globalThis.liveRequested?.()===true;
+  const permanent=state.user.cashEarningEligible===true;
+  const identityCard=live&&!permanent
+    ? `<div class="notice" style="margin-top:14px"><strong>Comissão em dinheiro exige conta permanente.</strong><br>Suas indicações podem ficar registradas como “a liberar”, mas o saldo só se torna sacável depois que você vincular e confirmar um e-mail.</div><div class="card flat form-stack" style="margin-top:14px"><div class="input-wrap"><label for="cash-email">Seu e-mail</label><input id="cash-email" type="email" autocomplete="email" maxlength="160" class="input" placeholder="voce@email.com"></div><button class="primary" onclick="activateCashAccount()">Ativar minha conta</button><div class="tiny muted">A ativação mantém o mesmo usuário, pedidos, cashback e histórico.</div></div>`
+    : live&&permanent
+      ? '<div class="notice success" style="margin-top:14px"><strong>Conta habilitada para comissão.</strong><br>Comissões elegíveis passam pela janela de validação antes de ficarem disponíveis.</div>'
+      : '';
+
+  return shell(`<section class="page"><h1 class="page-title">Indique e ganhe</h1><p class="muted">Compartilhe seu link pessoal. Comissão só nasce quando existe uma venda válida, entregue e com pagamento confirmado.</p><div class="card flat"><div class="tiny muted">SEU LINK PESSOAL</div><div class="share-box">${esc(url)}</div><button class="primary full" style="margin-top:12px" onclick="shareReferral()">Compartilhar</button></div>
+${identityCard}
+<section class="section"><div class="section-head"><div><h2>Como funciona</h2></div></div><div class="steps">${[['1','Compartilhe seu link','Cadastro sozinho não gera comissão.'],['2','A pessoa compra','O pedido precisa ser real.'],['3','A revenda entrega e confirma o pagamento','A operação precisa ser comprovada.'],['4','A comissão entra em validação','Depois da janela de segurança e com conta permanente, ela pode ficar disponível.']].map(x=>`<div class="step"><div class="step-num">${x[0]}</div><div><strong>${x[1]}</strong><p>${x[2]}</p></div></div>`).join('')}</div></section><div class="card flat"><div class="merchant-kpis"><div class="kpi"><span class="label">Disponível</span><strong>${BRL.format(state.user.commissionAvailable)}</strong></div><div class="kpi"><span class="label">A liberar</span><strong>${BRL.format(state.user.commissionPending)}</strong></div></div><button class="secondary full" style="margin-top:12px" onclick="toast('Saque Pix será ativado com PSP real')" ${live&&!permanent?'disabled':''}>Sacar via Pix</button></div><div class="notice" style="margin-top:14px">Não há pagamento por mero recrutamento. Benefícios sacáveis são vinculados a vendas reais, entregues, pagas e validadas.</div></section>`)
 }
-async function shareReferral(){
-  const url=referralUrl();
-  const text=`Use o Chama para consultar preço e pedir gás e outros itens em São Gabriel: ${url}`;
+
+async function activateCashAccount(){
+  const email=document.querySelector('#cash-email')?.value.trim()||'';
   try{
-    if(navigator.share){await navigator.share({title:'Chama São Gabriel',text,url});return}
-    if(navigator.clipboard?.writeText){await navigator.clipboard.writeText(text);toast('Link copiado');return}
-    toast('Copie o link exibido acima');
+    const result=await liveUpgradeAccount(email);
+    if(result?.alreadyPermanent){
+      state.user.cashEarningEligible=true;
+      state.user.identityType='permanent';
+      save();render();toast('Sua conta já está habilitada');
+      return;
+    }
+    toast('Enviamos a confirmação para seu e-mail');
+    const el=document.querySelector('#cash-email');
+    if(el)el.value='';
   }catch(e){
-    if(e?.name!=='AbortError')toast('Não foi possível compartilhar automaticamente');
+    const msg=String(e?.message||e);
+    toast(/manual linking|identity linking/i.test(msg)?'Ativação por e-mail ainda precisa ser habilitada no Auth do piloto':msg);
   }
 }
 
