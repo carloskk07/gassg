@@ -226,7 +226,7 @@ function adminMerchantName(id){
   return m?.name||String(id||'Revenda');
 }
 function adminStatusPill(status){
-  const good=['active','verified','paid','offset'].includes(status);
+  const good=['active','verified','paid'].includes(status);
   const bad=['rejected','suspended','reversed'].includes(status);
   return '<span class="status-pill '+(good?'online':bad?'offline':'')+'">'+esc(String(status||'—').toUpperCase())+'</span>';
 }
@@ -320,7 +320,7 @@ function adminReceivableRow(x){
   return `<div class="list-row"><div><strong>${esc(adminMerchantName(x.merchant_id))}</strong><br><small>Taxa da plataforma • pedido ${esc(x.order_id)}</small></div><div style="text-align:right"><strong>${adminMoney(x.platform_fee_cents)}</strong><div class="order-actions"><button class="secondary small" onclick="adminFinancial('platform_receivable','${x.order_id}','paid')">Pago</button><button class="ghost small" onclick="adminFinancial('platform_receivable','${x.order_id}','waived')">Abonar</button></div></div></div>`;
 }
 function adminReimbursementRow(x){
-  return `<div class="list-row"><div><strong>${esc(adminMerchantName(x.merchant_id))}</strong><br><small>Reembolso de cashback • pedido ${esc(x.order_id)}</small></div><div style="text-align:right"><strong>${adminMoney(x.cashback_cents)}</strong><div class="order-actions"><button class="secondary small" onclick="adminFinancial('cashback_reimbursement','${x.order_id}','paid')">Pago</button><button class="ghost small" onclick="adminFinancial('cashback_reimbursement','${x.order_id}','offset')">Compensado</button></div></div></div>`;
+  return `<div class="list-row"><div><strong>${esc(adminMerchantName(x.merchant_id))}</strong><br><small>Reembolso de cashback • pedido ${esc(x.order_id)}</small></div><div style="text-align:right"><strong>${adminMoney(x.cashback_cents)}</strong><div class="order-actions"><button class="secondary small" onclick="adminFinancial('cashback_reimbursement','${x.order_id}','paid')">Pago</button></div></div></div>`;
 }
 function adminAdjustmentRow(x){
   const direction=x.direction==='merchant_owes_platform'?'Revenda → plataforma':'Plataforma → revenda';
