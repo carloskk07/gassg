@@ -10,6 +10,8 @@ const summary=fs.readFileSync(new URL('../supabase/migrations/20261001094500_cus
 const settlement=fs.readFileSync(new URL('../supabase/migrations/20261001094700_settlement_payment_confirmation.sql',import.meta.url),'utf8');
 const rewards=fs.readFileSync(new URL('../supabase/migrations/20261001100000_reward_engine.sql',import.meta.url),'utf8');
 const rejectRescue=fs.readFileSync(new URL('../supabase/migrations/20261001101000_unify_merchant_reject_rescue.sql',import.meta.url),'utf8');
+const lockdown=fs.readFileSync(new URL('../supabase/migrations/20261001102000_browser_data_plane_lockdown.sql',import.meta.url),'utf8');
+const atomicQuotes=fs.readFileSync(new URL('../supabase/migrations/20261001103000_atomic_quote_snapshots.sql',import.meta.url),'utf8');
 const r=repricing.replace(/--.*$/gm,'').replace(/\s+/g,' ').toLowerCase();
 const w=watchdog.replace(/--.*$/gm,'').replace(/\s+/g,' ').toLowerCase();
 const h=hardening.replace(/--.*$/gm,'').replace(/\s+/g,' ').toLowerCase();
@@ -19,6 +21,8 @@ const s=summary.replace(/--.*$/gm,'').replace(/\s+/g,' ').toLowerCase();
 const st=settlement.replace(/--.*$/gm,'').replace(/\s+/g,' ').toLowerCase();
 const rw=rewards.replace(/--.*$/gm,'').replace(/\s+/g,' ').toLowerCase();
 const rr=rejectRescue.replace(/--.*$/gm,'').replace(/\s+/g,' ').toLowerCase();
+const ld=lockdown.replace(/--.*$/gm,'').replace(/\s+/g,' ').toLowerCase();
+const aq=atomicQuotes.replace(/--.*$/gm,'').replace(/\s+/g,' ').toLowerCase();
 
 assert.match(r,/create table if not exists public\.order_requote_items/,'re-cotação precisa congelar preços por item');
 assert.match(r,/revoke all on table public\.order_requote_items from anon, authenticated/,'snapshot de re-cotação deve ser server-only');
@@ -85,5 +89,13 @@ assert.match(rw,/chama-reward-maturation/,'maturação precisa ser agendada');
 assert.match(rr,/v_result:=public\.system_rescue_order\(v_order\.id,'merchant_rejected'\)/,'recusa da revenda deve usar rescue central');
 assert.doesNotMatch(rr,/v_candidate_gross/,'merchant_order_action não deve duplicar ranking de rescue');
 assert.match(rr,/extensions\.gen_random_bytes\(2\)/,'PIN deve usar uma única amostra criptográfica de dois bytes');
+
+assert.match(ld,/revoke all on table public\.merchants,[\s\S]*public\.wallet_entries from anon, authenticated/,'browser deve perder acesso direto ao data-plane');
+assert.match(aq,/create or replace function public\.create_quote_snapshot/,'snapshot de quote precisa ser transação server-side');
+assert.match(aq,/pg_advisory_xact_lock/,'quotes idênticas concorrentes precisam de serialização');
+assert.match(aq,/snapshot_fingerprint/,'quotes devem possuir identidade reutilizável');
+assert.match(aq,/quote_source_stale/,'snapshot precisa revalidar preço estoque e revenda no banco');
+assert.match(aq,/v_gross:=\(v_subtotal\+p_delivery_fee_cents\)::integer/,'total da quote deve ser recalculado no banco');
+assert.match(aq,/grant execute on function public\.create_quote_snapshot[\s\S]*to service_role/,'autoridade de quote deve ser server-only');
 
 console.log('Requote + watchdog + hardening v1.5 contract passou.');
