@@ -163,7 +163,20 @@ async function merchantLiveSaveLogistics(){
   try{await merchantUpdateLogisticsLive(Math.round(fee*100),eta,citywide);toast('Logística atualizada')}catch(e){toast(String(e?.message||e))}
 }
 async function merchantLiveAction(id,action){
-  try{await merchantPerformAction(id,action);toast(action==='accept'?'Pedido aceito':action==='reject'?'Pedido devolvido ao matching':action==='dispatch'?'Saída confirmada':'Chegada confirmada')}catch(e){toast(String(e?.message||e))}
+  try{
+    const result=await merchantPerformAction(id,action);
+    if(action==='accept'&&result?.autoRescued){
+      const messages={
+        stock_changed_before_accept:'O estoque mudou; o pedido foi redirecionado automaticamente.',
+        delivery_capability_changed_before_accept:'A capacidade logística mudou; o pedido foi redirecionado automaticamente.',
+        merchant_unavailable_before_accept:'A operação ficou indisponível; o pedido foi redirecionado automaticamente.',
+        offer_expired:'O prazo expirou; o sistema já buscou outra opção.'
+      };
+      toast(messages[result.rescueReason]||'O aceite não pôde ser concluído; o pedido foi redirecionado automaticamente.');
+      return;
+    }
+    toast(action==='accept'?'Pedido aceito':action==='reject'?'Pedido devolvido ao matching':action==='dispatch'?'Saída confirmada':'Chegada confirmada');
+  }catch(e){toast(String(e?.message||e))}
 }
 async function merchantLiveCannotFulfill(id){
   const reason=document.getElementById('reason-'+id)?.value||'other_operational';
