@@ -45,6 +45,9 @@ function merchantLivePage(){
   if(['disabled','loading'].includes(rt.status)){
     return shell('<section class="page"><h1 class="page-title">Painel da revenda</h1><div class="empty card">Conectando à operação real…</div></section>');
   }
+  if(rt.status==='unsafe-origin'){
+    return shell('<section class="page"><span class="eyebrow">PAINEL REAL BLOQUEADO</span><h1 class="page-title">Origem da revenda não isolada</h1><div class="notice danger"><strong>Não autenticamos operações da revenda em uma origem compartilhada.</strong><br>Use localhost para desenvolvimento ou uma origem dedicada configurada para o painel da revenda.</div></section>');
+  }
   if(rt.status==='unauthenticated')return merchantLiveLoginView();
   if(rt.status==='no-access')return merchantLiveNoAccess();
   if(rt.status!=='ready'||!rt.merchant){
