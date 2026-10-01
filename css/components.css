@@ -21,3 +21,8 @@
 .demo-strip button{border:0;background:transparent;color:#76590f;text-decoration:underline;font-size:11px;font-weight:800;padding:0}
 .order-actions .tiny{align-self:center}
 @media(max-width:380px){.mode-pill button{padding:7px 7px}.offer-main{align-items:flex-start;flex-direction:column}.hero-price{align-items:flex-start;flex-direction:column}.hero-price .from{margin-bottom:0}}
+
+button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible,a:focus-visible{outline:3px solid rgba(11,107,69,.32);outline-offset:2px}
+.qty button{min-width:40px;min-height:40px}
+.mode-pill button{min-height:38px}
+@media(prefers-reduced-motion:reduce){html{scroll-behavior:auto}*,*::before,*::after{scroll-behavior:auto!important;transition-duration:.001ms!important;animation-duration:.001ms!important;animation-iteration-count:1!important}}
