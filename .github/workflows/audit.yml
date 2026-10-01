@@ -23,6 +23,18 @@ jobs:
             echo "Checking $f"
             node --check "$f"
           done
+      - name: Edge Functions type and secret audit
+        run: |
+          if find supabase/functions -type f -name '*.ts' | grep -q .; then
+            deno check $(find supabase/functions -type f -name '*.ts' | sort)
+          fi
+          if grep -RInE 'sb_secret_[A-Za-z0-9_-]+|SUPABASE_SERVICE_ROLE_KEY[[:space:]]*=[[:space:]]*["'\'' ]*[A-Za-z0-9._-]+' supabase/functions --include='*.ts' --include='*.js'; then
+            echo "Secret-like value detected in Edge Function source"
+            exit 1
+          fi
+          for f in $(find supabase/functions -mindepth 2 -maxdepth 2 -name 'index.ts' | sort); do
+            grep -q 'auth.getUser' "$f" || { echo "$f missing explicit JWT user validation"; exit 1; }
+          done
       - name: Marketplace simulations
         run: node tests/simulations.mjs
       - name: Static trust and asset audit
