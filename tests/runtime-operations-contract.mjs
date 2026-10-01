@@ -16,6 +16,9 @@ const finance=fs.readFileSync(new URL('../supabase/migrations/20261001105000_fin
 const retention=fs.readFileSync(new URL('../supabase/migrations/20261001104000_ephemeral_data_minimization.sql',import.meta.url),'utf8');
 const roleAuth=fs.readFileSync(new URL('../supabase/migrations/20261001110000_merchant_role_authorization.sql',import.meta.url),'utf8');
 const cashIdentity=fs.readFileSync(new URL('../supabase/migrations/20261001111000_cash_commission_identity_gate.sql',import.meta.url),'utf8');
+const anonCleanup=fs.readFileSync(new URL('../supabase/migrations/20261001112000_safe_anonymous_user_cleanup.sql',import.meta.url),'utf8');
+const reversal=fs.readFileSync(new URL('../supabase/migrations/20261001113000_post_settlement_financial_reversal.sql',import.meta.url),'utf8');
+const reversalSummary=fs.readFileSync(new URL('../supabase/migrations/20261001114000_reversal_aware_customer_summary.sql',import.meta.url),'utf8');
 const r=repricing.replace(/--.*$/gm,'').replace(/\s+/g,' ').toLowerCase();
 const w=watchdog.replace(/--.*$/gm,'').replace(/\s+/g,' ').toLowerCase();
 const h=hardening.replace(/--.*$/gm,'').replace(/\s+/g,' ').toLowerCase();
@@ -31,6 +34,9 @@ const fn=finance.replace(/--.*$/gm,'').replace(/\s+/g,' ').toLowerCase();
 const rt=retention.replace(/--.*$/gm,'').replace(/\s+/g,' ').toLowerCase();
 const ra=roleAuth.replace(/--.*$/gm,'').replace(/\s+/g,' ').toLowerCase();
 const ci=cashIdentity.replace(/--.*$/gm,'').replace(/\s+/g,' ').toLowerCase();
+const ac=anonCleanup.replace(/--.*$/gm,'').replace(/\s+/g,' ').toLowerCase();
+const rv=reversal.replace(/--.*$/gm,'').replace(/\s+/g,' ').toLowerCase();
+const rs=reversalSummary.replace(/--.*$/gm,'').replace(/\s+/g,' ').toLowerCase();
 
 assert.match(r,/create table if not exists public\.order_requote_items/,'re-cotação precisa congelar preços por item');
 assert.match(r,/revoke all on table public\.order_requote_items from anon, authenticated/,'snapshot de re-cotação deve ser server-only');
@@ -124,4 +130,25 @@ assert.doesNotMatch(ra,/v_member_role not in \('owner','manager','operator','dri
 assert.match(ci,/join auth\.users u on u\.id=g\.referrer_user_id/,'maturação de comissão deve consultar identidade real');
 assert.match(ci,/u\.is_anonymous is false/,'comissão sacável exige identidade permanente');
 
-console.log('Requote + watchdog + hardening v1.6 contract passou.');
+assert.match(ac,/process_anonymous_user_cleanup/,'contas anônimas descartáveis precisam de limpeza segura');
+assert.match(ac,/not exists\( select 1 from auth\.identities/,'limpeza não pode remover usuário em vinculação de identidade');
+assert.match(ac,/not exists\( select 1 from public\.orders/,'limpeza não pode remover usuário com pedido');
+assert.match(ac,/not exists\( select 1 from public\.wallet_entries/,'limpeza não pode remover usuário com saldo ou histórico financeiro');
+assert.match(ac,/chama-anonymous-cleanup/,'limpeza anônima precisa de cron dedicado');
+
+assert.match(rv,/financial_state text not null default 'pending'/,'pedido precisa separar estado financeiro do estado operacional');
+assert.match(rv,/sync_order_financial_state_before_status/,'SETTLED operacional deve sincronizar settlement financeiro no mesmo commit');
+assert.match(rv,/create table if not exists public\.order_financial_reversals/,'reversão financeira precisa de registro idempotente por pedido');
+assert.match(rv,/cashback_reversal/,'reversão precisa estornar cashback');
+assert.match(rv,/referral_pending_release/,'reversão antes da maturação precisa retirar comissão pendente');
+assert.match(rv,/referral_reversal/,'reversão depois da maturação precisa retirar comissão disponível');
+assert.match(rv,/platform_fee_refund_due/,'taxa já recebida precisa gerar ajuste a devolver à revenda');
+assert.match(rv,/pg_advisory_xact_lock[\s\S]*reward:/,'maturação e reversão precisam compartilhar lock por pedido');
+assert.match(rv,/g\.reversed_at is null/,'comissão revertida nunca pode amadurecer');
+assert.match(rv,/o\.financial_state='settled'/,'maturação só pode ocorrer em settlement financeiro válido');
+assert.match(rv,/grant execute on function public\.reverse_settled_order_financials[\s\S]*to postgres, service_role/,'reversão deve ser server-only');
+
+assert.match(rs,/financial_state='settled'/,'compras válidas devem contar apenas settlements financeiros ativos');
+assert.match(rs,/financial_state='reversed'/,'resumo precisa rastrear compras financeiramente revertidas');
+
+console.log('Requote + watchdog + hardening v1.6.5 contract passou.');
