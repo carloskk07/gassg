@@ -42,6 +42,8 @@ const acceptRace=fs.readFileSync(new URL('../supabase/migrations/20261001135000_
 const referralReversalGuard=fs.readFileSync(new URL('../supabase/migrations/20261001136000_referral_review_reversal_guard.sql',import.meta.url),'utf8');
 const referralConcurrency=fs.readFileSync(new URL('../supabase/migrations/20261001137000_referral_risk_concurrency_lock.sql',import.meta.url),'utf8');
 const atomicRescue=fs.readFileSync(new URL('../supabase/migrations/20261001138000_atomic_rescue_candidate_locking.sql',import.meta.url),'utf8');
+const rewardDeadLetter=fs.readFileSync(new URL('../supabase/migrations/20261001139000_reward_retry_dead_letter.sql',import.meta.url),'utf8');
+const adminRewardRecovery=fs.readFileSync(new URL('../supabase/migrations/20261001140000_admin_reward_recovery.sql',import.meta.url),'utf8');
 const r=repricing.replace(/--.*$/gm,'').replace(/\s+/g,' ').toLowerCase();
 const w=watchdog.replace(/--.*$/gm,'').replace(/\s+/g,' ').toLowerCase();
 const h=hardening.replace(/--.*$/gm,'').replace(/\s+/g,' ').toLowerCase();
@@ -83,6 +85,8 @@ const xr=acceptRace.replace(/--.*$/gm,'').replace(/\s+/g,' ').toLowerCase();
 const rrg=referralReversalGuard.replace(/--.*$/gm,'').replace(/\s+/g,' ').toLowerCase();
 const rc=referralConcurrency.replace(/--.*$/gm,'').replace(/\s+/g,' ').toLowerCase();
 const arc=atomicRescue.replace(/--.*$/gm,'').replace(/\s+/g,' ').toLowerCase();
+const rdl=rewardDeadLetter.replace(/--.*$/gm,'').replace(/\s+/g,' ').toLowerCase();
+const arr=adminRewardRecovery.replace(/--.*$/gm,'').replace(/\s+/g,' ').toLowerCase();
 
 assert.match(r,/create table if not exists public\.order_requote_items/,'re-cotação precisa congelar preços por item');
 assert.match(r,/revoke all on table public\.order_requote_items from anon, authenticated/,'snapshot de re-cotação deve ser server-only');
@@ -344,4 +348,16 @@ assert.match(arc,/price_confirmed_at<clock_timestamp\(\)-interval '24 hours'/,'r
 assert.match(arc,/delivery_fee_confirmed_at<clock_timestamp\(\)-interval '24 hours'/,'rescue deve revalidar taxa sob lock');
 assert.match(arc,/price and stock were revalidated|preço e estoque foram revalidados/,'evento de rescue deve registrar revalidação atômica');
 
-console.log('Requote + watchdog + hardening v1.9.5 contract passou.');
+assert.match(rdl,/dead_lettered_at/,'falha de reward precisa possuir estado dead-letter');
+assert.match(rdl,/attempts>=8/,'retry automático precisa ter limite de tentativas');
+assert.match(rdl,/record_reward_processing_failure/,'registro de falha deve ser autoridade única');
+assert.match(rdl,/when 1 then 5[\s\S]*when 6 then 240[\s\S]*else 360/,'retry deve usar backoff progressivo');
+assert.match(rdl,/dead_lettered_at is null[\s\S]*next_retry_at is not null/,'worker não pode reprocessar dead-letter automaticamente');
+assert.match(arr,/admin_retry_order_reward/,'admin precisa de recuperação manual de reward');
+assert.match(arr,/pg_advisory_xact_lock[\s\S]*reward:/,'retry manual deve serializar com grant e reversal');
+assert.match(arr,/record_reward_processing_failure/,'retry manual falho precisa retornar à autoridade de falha');
+assert.match(arr,/reward_retry_succeeded/,'sucesso manual precisa deixar auditoria');
+assert.match(arr,/reward_retry_failed/,'falha manual precisa deixar auditoria');
+assert.match(arr,/admin_reward_retry_action/,'retry manual precisa ser idempotente');
+
+console.log('Requote + watchdog + hardening v1.9.7 contract passou.');
