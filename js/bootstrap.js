@@ -9,6 +9,7 @@ function render(){
     const app=document.querySelector('#app');
     if(app)app.innerHTML=(pages[r]||home)();
   }catch(e){
+    globalThis.__lastRenderError=String(e?.stack||e?.message||e);
     console.error('Falha de renderização',e);
     const app=document.querySelector('#app');
     if(app)app.innerHTML='<main class="shell page"><div class="notice danger"><strong>Não foi possível carregar esta tela.</strong><br>Recarregue a página. Se o problema continuar, reinicie a demonstração.</div></main>';
