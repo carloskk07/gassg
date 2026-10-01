@@ -55,6 +55,7 @@ function mapRpcError(error:{message?:string}|null){
     INVALID_TRANSITION:[409,"Esta ação não é válida no estado atual."],
     PROPOSED_OFFER_STALE:[409,"A alternativa ficou indisponível. Atualize o pedido."],
     REQUOTE_EXPIRED:[409,"A nova cotação expirou. O sistema atualizará o pedido."],
+    DELIVERY_INCOMPATIBLE:[409,"A alternativa não possui mais a capacidade logística necessária para esta cesta."],
     IDEMPOTENCY_CONFLICT:[409,"A mesma chave foi usada para outra requisição."]
   };
   for(const [code,[status,text]] of Object.entries(map)){

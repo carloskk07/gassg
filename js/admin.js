@@ -10,12 +10,22 @@ const adminRuntime={
   lastSyncAt:null
 };
 
+function adminOriginSafe(){
+  if(['localhost','127.0.0.1'].includes(location.hostname))return true;
+  const configured=String(globalThis.CHAMA_ADMIN_ORIGIN||'').trim();
+  return configured.length>0&&location.origin===configured;
+}
 function adminPortalRequested(){return adminRuntime.requested}
-function adminReady(){return adminRuntime.requested&&adminRuntime.status==='ready'}
+function adminReady(){return adminRuntime.requested&&adminOriginSafe()&&adminRuntime.status==='ready'}
 
 async function adminBackendInit(){
   if(!adminRuntime.requested){
     adminRuntime.status='disabled';
+    return false;
+  }
+  if(!adminOriginSafe()){
+    adminRuntime.status='unsafe-origin';
+    adminRuntime.error='O painel administrativo exige uma origem dedicada e isolada.';
     return false;
   }
   if(['ready','no-access','unauthenticated'].includes(adminRuntime.status)&&adminRuntime.client){
@@ -71,15 +81,22 @@ async function adminAccessToken(){
   return session.access_token;
 }
 
-async function adminInvoke(body={}){
+function adminIdempotency(prefix='admin'){
+  const uuid=globalThis.crypto?.randomUUID?.()||Math.random().toString(36).slice(2)+Date.now().toString(36);
+  return prefix+':'+uuid;
+}
+
+async function adminInvoke(body={},options={}){
   const token=await adminAccessToken();
+  const headers={
+    'Content-Type':'application/json',
+    'apikey':CHAMA_BACKEND.publishableKey,
+    'Authorization':'Bearer '+token
+  };
+  if(options.idempotencyKey)headers['Idempotency-Key']=options.idempotencyKey;
   const response=await fetch(CHAMA_BACKEND.url+'/functions/v1/admin-ops',{
     method:'POST',
-    headers:{
-      'Content-Type':'application/json',
-      'apikey':CHAMA_BACKEND.publishableKey,
-      'Authorization':'Bearer '+token
-    },
+    headers,
     body:JSON.stringify(body),
     cache:'no-store'
   });
@@ -160,7 +177,10 @@ async function adminPerform(action,payload={}){
   adminRuntime.error=null;
   render();
   try{
-    const result=await adminInvoke({action,...payload});
+    const result=await adminInvoke(
+      {action,...payload},
+      {idempotencyKey:adminIdempotency('admin-'+action)}
+    );
     await adminRefresh({silent:true});
     return result;
   }catch(error){
@@ -182,6 +202,10 @@ async function adminPoll(){
 }
 
 function openAdminPortal(){
+  if(!adminOriginSafe()){
+    toast('Admin exige uma origem dedicada; GitHub Pages fica bloqueado por segurança');
+    return;
+  }
   const url=new URL(location.href);
   url.search='';
   url.searchParams.set('admin','1');
@@ -252,6 +276,9 @@ function adminMerchantCard(m){
   const anpId='anp-'+m.id;
   const refId='anpref-'+m.id;
   const notesId='notes-'+m.id;
+  const mixed=(m.deliveryCapabilities||[]).find(x=>x.capability_code==='regulated_glp_mixed_load_verified');
+  const mixedId='mixed-'+m.id;
+  const mixedNotesId='mixednotes-'+m.id;
   return `<article class="order-card">
     <div class="order-head"><div><div class="order-id">${esc(m.name)}</div><div class="tiny muted">${esc(m.cnpj)}</div></div>${adminStatusPill(m.status)}</div>
     <div class="order-line">Online: <strong>${m.online?'sim':'não'}</strong> • Trust: ${Number(m.trust_score||0)}/100</div>
@@ -261,7 +288,30 @@ function adminMerchantCard(m){
     </div>
     <div class="input-wrap"><label for="${refId}">Referência ANP</label><input id="${refId}" class="input" maxlength="240" value="${esc(c.anp_reference||'')}" placeholder="Número/consulta/evidência"></div>
     <div class="input-wrap"><label for="${notesId}">Observações</label><input id="${notesId}" class="input" maxlength="1000" value="${esc(c.notes||'')}" placeholder="Observações de validação"></div>
-    <div class="order-actions"><button class="secondary small" onclick="adminSaveCompliance('${m.id}')">Salvar validação</button>${active?`<button class="danger-btn small" onclick="adminSetMerchantStatus('${m.id}','suspend-merchant')">Suspender</button>`:`<button class="primary small" onclick="adminSetMerchantStatus('${m.id}','activate-merchant')">Ativar</button>`}</div>
+    <div class="divider"></div>
+    <label class="check-row"><input id="${mixedId}" type="checkbox" ${mixed?.active?'checked':''}><span><strong>Capacidade logística verificada para cesta mista com GLP</strong><small>Ative somente após validação operacional específica. CNPJ e ANP precisam estar verificados.</small></span></label>
+    <div class="input-wrap"><label for="${mixedNotesId}">Evidência / observação logística</label><input id="${mixedNotesId}" class="input" maxlength="1000" value="${esc(mixed?.notes||'')}" placeholder="Veículo, procedimento, evidência ou referência da validação"></div>
+    <div class="order-actions"><button class="secondary small" onclick="adminSaveCompliance('${m.id}')">Salvar validação</button><button class="secondary small" onclick="adminSaveDeliveryCapability('${m.id}')">Salvar capacidade logística</button>${active?`<button class="danger-btn small" onclick="adminSetMerchantStatus('${m.id}','suspend-merchant')">Suspender</button>`:`<button class="primary small" onclick="adminSetMerchantStatus('${m.id}','activate-merchant')">Ativar</button>`}</div>
+  </article>`;
+}
+
+function adminReferralReasonLabel(code){
+  const map={
+    same_delivery_address_as_referrer:'Mesmo endereço de entrega do indicador',
+    high_referral_velocity_24h:'Volume alto de indicações em 24h',
+    multiple_referred_accounts_same_address:'Múltiplas contas indicadas no mesmo endereço'
+  };
+  return map[String(code||'')]||String(code||'Sinal de risco');
+}
+function adminReferralReviewCard(x){
+  const pending=x.risk_status==='review_required';
+  const reasons=Array.isArray(x.risk_reasons)?x.risk_reasons:[];
+  return `<article class="order-card">
+    <div class="order-head"><div><div class="order-id">Pedido ${esc(x.order_id)}</div><div class="tiny muted">Indicador ${esc(x.referrer_user_id)} • comprador ${esc(x.referred_user_id)}</div></div>${adminStatusPill(x.risk_status)}</div>
+    <div class="order-line"><strong>Sinais:</strong> ${reasons.length?reasons.map(r=>esc(adminReferralReasonLabel(r))).join(' • '):'Nenhum sinal automático'}</div>
+    <div class="tiny muted">Criado em ${new Date(x.created_at).toLocaleString('pt-BR')}</div>
+    ${x.review_notes?`<div class="order-line"><strong>Revisão:</strong> ${esc(x.review_notes)}</div>`:''}
+    ${pending?`<div class="order-actions"><button class="primary small" onclick="adminReviewReferral('${x.order_id}','approved')">Aprovar comissão</button><button class="danger-btn small" onclick="adminReviewReferral('${x.order_id}','rejected')">Rejeitar comissão</button></div>`:''}
   </article>`;
 }
 
@@ -283,6 +333,9 @@ function adminPage(){
   if(['disabled','loading'].includes(adminRuntime.status)){
     return shell('<section class="page"><h1 class="page-title">Administração</h1><div class="empty card">Conectando ao control plane…</div></section>');
   }
+  if(adminRuntime.status==='unsafe-origin'){
+    return shell('<section class="page"><span class="eyebrow">CONTROL PLANE BLOQUEADO</span><h1 class="page-title">Origem administrativa não isolada</h1><div class="notice danger">Por segurança, o painel admin não autentica em uma origem compartilhada como GitHub Pages. Use localhost para desenvolvimento ou configure uma origem dedicada para administração.</div></section>');
+  }
   if(adminRuntime.status==='unauthenticated')return adminLoginView();
   if(adminRuntime.status==='no-access')return adminNoAccessView();
   if(adminRuntime.status!=='ready'||!adminRuntime.data){
@@ -292,6 +345,8 @@ function adminPage(){
   const d=adminRuntime.data;
   const pending=(d.applications||[]).filter(x=>x.status==='pending');
   const active=(d.merchants||[]).filter(x=>x.status==='active');
+  const referralReviews=d.referralReviews||[];
+  const pendingReferralReviews=referralReviews.filter(x=>x.risk_status==='review_required');
   const receivables=d.finance?.receivables||[];
   const reimbursements=d.finance?.cashbackReimbursements||[];
   const adjustments=d.finance?.adjustments||[];
@@ -312,7 +367,9 @@ function adminPage(){
 
     <section class="section"><div class="section-head"><div><h2>Cadastros de parceiros</h2><p>Aprovação cria a revenda como pendente e vincula o solicitante como owner. Não coloca a operação online.</p></div></div>${(d.applications||[]).length?(d.applications||[]).map(adminApplicationCard).join(''):'<div class="empty card">Nenhum cadastro recebido.</div>'}</section>
 
-    <section class="section"><div class="section-head"><div><h2>Validação e ativação</h2><p>CNPJ é obrigatório para toda revenda ativa. P13 ativo exige também validação ANP.</p></div></div>${(d.merchants||[]).length?(d.merchants||[]).map(adminMerchantCard).join(''):'<div class="empty card">Nenhuma revenda criada.</div>'}</section>
+    <section class="section"><div class="section-head"><div><h2>Validação e ativação</h2><p>CNPJ é obrigatório para toda revenda ativa. Qualquer produto GLP ativo exige também validação ANP.</p></div></div>${(d.merchants||[]).length?(d.merchants||[]).map(adminMerchantCard).join(''):'<div class="empty card">Nenhuma revenda criada.</div>'}</section>
+
+    <section class="section"><div class="section-head"><div><h2>Revisão de indicações</h2><p>Comissões suspeitas não amadurecem automaticamente. Aprovação ainda exige identidades permanentes e fim da quarentena.</p></div><span class="status-pill ${pendingReferralReviews.length?'offline':'online'}">${pendingReferralReviews.length} pendente(s)</span></div>${referralReviews.length?referralReviews.map(adminReferralReviewCard).join(''):'<div class="empty card">Nenhuma indicação exige revisão.</div>'}</section>
 
     <section class="section"><div class="section-head"><div><h2>Conciliação financeira</h2><p>Taxa da plataforma, cashback usado e ajustes são contas separadas.</p></div></div>
       <div class="card flat"><h3>Taxas da plataforma</h3><div class="list">${receivables.length?receivables.map(adminReceivableRow).join(''):'<div class="tiny muted">Nenhuma taxa em aberto.</div>'}</div></div>
@@ -344,10 +401,28 @@ async function adminSaveCompliance(id){
     toast('Validação salva');
   }catch(e){toast(String(e?.message||e))}
 }
+async function adminSaveDeliveryCapability(id){
+  const active=document.getElementById('mixed-'+id)?.checked===true;
+  const notes=document.getElementById('mixednotes-'+id)?.value.trim()||'';
+  if(active&&!confirm('Confirma que esta revenda foi validada operacionalmente para cesta mista com GLP?'))return;
+  try{
+    await adminPerform('set-delivery-capability',{merchantId:id,active,notes});
+    toast(active?'Capacidade logística verificada':'Capacidade logística revogada');
+  }catch(e){toast(String(e?.message||e))}
+}
 async function adminSetMerchantStatus(id,action){
   const label=action==='activate-merchant'?'ativar':'suspender';
   if(!confirm('Confirma '+label+' esta revenda?'))return;
   try{await adminPerform(action,{merchantId:id});toast('Status atualizado')}catch(e){toast(String(e?.message||e))}
+}
+async function adminReviewReferral(orderId,decision){
+  const notes=prompt(decision==='approved'?'Observação da aprovação (opcional):':'Motivo da rejeição / evidência:')||'';
+  if(decision==='rejected'&&!notes.trim())return toast('Informe o motivo da rejeição');
+  if(!confirm(decision==='approved'?'Aprovar esta comissão após a revisão de risco?':'Rejeitar esta comissão? O pedido e cashback do comprador continuarão válidos.'))return;
+  try{
+    await adminPerform('review-referral',{orderId,decision,notes});
+    toast(decision==='approved'?'Comissão aprovada para continuar na validação':'Comissão rejeitada e saldo pendente ajustado');
+  }catch(e){toast(String(e?.message||e))}
 }
 async function adminFinancial(kind,targetId,financialAction){
   const reference=prompt('Referência da conciliação (opcional):')||'';

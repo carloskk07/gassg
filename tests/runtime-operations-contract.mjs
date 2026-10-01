@@ -25,6 +25,20 @@ const settlementIndex=fs.readFileSync(new URL('../supabase/migrations/2026100111
 const adminControl=fs.readFileSync(new URL('../supabase/migrations/20261001118000_admin_control_plane.sql',import.meta.url),'utf8');
 const adminReversal=fs.readFileSync(new URL('../supabase/migrations/20261001119000_admin_reversal_authority.sql',import.meta.url),'utf8');
 const adminIndexes=fs.readFileSync(new URL('../supabase/migrations/20261001120000_admin_compliance_fk_indexes.sql',import.meta.url),'utf8');
+const adminIdem=fs.readFileSync(new URL('../supabase/migrations/20261001121000_admin_action_idempotency.sql',import.meta.url),'utf8');
+const cashbackRestore=fs.readFileSync(new URL('../supabase/migrations/20261001122000_restore_spent_cashback_on_reversal.sql',import.meta.url),'utf8');
+const rewardRetry=fs.readFileSync(new URL('../supabase/migrations/20261001123000_fault_tolerant_reward_processing.sql',import.meta.url),'utf8');
+const adminState=fs.readFileSync(new URL('../supabase/migrations/20261001124000_admin_state_transition_hardening.sql',import.meta.url),'utf8');
+const complianceContinuity=fs.readFileSync(new URL('../supabase/migrations/20261001125000_continuous_compliance_enforcement.sql',import.meta.url),'utf8');
+const glpGate=fs.readFileSync(new URL('../supabase/migrations/20261001126000_generalize_glp_regulatory_gate.sql',import.meta.url),'utf8');
+const rewardLifecycle=fs.readFileSync(new URL('../supabase/migrations/20261001127000_reward_retry_lifecycle_cleanup.sql',import.meta.url),'utf8');
+const skuFresh=fs.readFileSync(new URL('../supabase/migrations/20261001128000_per_sku_price_freshness.sql',import.meta.url),'utf8');
+const deliveryCompatibility=fs.readFileSync(new URL('../supabase/migrations/20261001130000_delivery_compatibility_authority.sql',import.meta.url),'utf8');
+const deliveryEnforcement=fs.readFileSync(new URL('../supabase/migrations/20261001131000_enforce_delivery_compatibility.sql',import.meta.url),'utf8');
+const deliveryAdmin=fs.readFileSync(new URL('../supabase/migrations/20261001132000_admin_delivery_capability_control.sql',import.meta.url),'utf8');
+const deliveryIndexes=fs.readFileSync(new URL('../supabase/migrations/20261001133000_delivery_capability_index_hygiene.sql',import.meta.url),'utf8');
+const referralRisk=fs.readFileSync(new URL('../supabase/migrations/20261001134000_referral_fraud_review_authority.sql',import.meta.url),'utf8');
+const acceptRace=fs.readFileSync(new URL('../supabase/migrations/20261001135000_accept_time_race_rescue.sql',import.meta.url),'utf8');
 const r=repricing.replace(/--.*$/gm,'').replace(/\s+/g,' ').toLowerCase();
 const w=watchdog.replace(/--.*$/gm,'').replace(/\s+/g,' ').toLowerCase();
 const h=hardening.replace(/--.*$/gm,'').replace(/\s+/g,' ').toLowerCase();
@@ -49,6 +63,20 @@ const si=settlementIndex.replace(/--.*$/gm,'').replace(/\s+/g,' ').toLowerCase()
 const ad=adminControl.replace(/--.*$/gm,'').replace(/\s+/g,' ').toLowerCase();
 const ar=adminReversal.replace(/--.*$/gm,'').replace(/\s+/g,' ').toLowerCase();
 const ai=adminIndexes.replace(/--.*$/gm,'').replace(/\s+/g,' ').toLowerCase();
+const adm=adminIdem.replace(/--.*$/gm,'').replace(/\s+/g,' ').toLowerCase();
+const cr=cashbackRestore.replace(/--.*$/gm,'').replace(/\s+/g,' ').toLowerCase();
+const fr=rewardRetry.replace(/--.*$/gm,'').replace(/\s+/g,' ').toLowerCase();
+const ast=adminState.replace(/--.*$/gm,'').replace(/\s+/g,' ').toLowerCase();
+const cc=complianceContinuity.replace(/--.*$/gm,'').replace(/\s+/g,' ').toLowerCase();
+const gg=glpGate.replace(/--.*$/gm,'').replace(/\s+/g,' ').toLowerCase();
+const rl=rewardLifecycle.replace(/--.*$/gm,'').replace(/\s+/g,' ').toLowerCase();
+const pf=skuFresh.replace(/--.*$/gm,'').replace(/\s+/g,' ').toLowerCase();
+const dc=deliveryCompatibility.replace(/--.*$/gm,'').replace(/\s+/g,' ').toLowerCase();
+const de=deliveryEnforcement.replace(/--.*$/gm,'').replace(/\s+/g,' ').toLowerCase();
+const da=deliveryAdmin.replace(/--.*$/gm,'').replace(/\s+/g,' ').toLowerCase();
+const di=deliveryIndexes.replace(/--.*$/gm,'').replace(/\s+/g,' ').toLowerCase();
+const rf=referralRisk.replace(/--.*$/gm,'').replace(/\s+/g,' ').toLowerCase();
+const xr=acceptRace.replace(/--.*$/gm,'').replace(/\s+/g,' ').toLowerCase();
 
 assert.match(r,/create table if not exists public\.order_requote_items/,'re-cotação precisa congelar preços por item');
 assert.match(r,/revoke all on table public\.order_requote_items from anon, authenticated/,'snapshot de re-cotação deve ser server-only');
@@ -195,4 +223,102 @@ assert.match(ar,/platform_admin_audit/,'reversão e auditoria precisam ocorrer n
 assert.match(ai,/merchant_compliance_verified_by_idx/,'FK verified_by do compliance precisa de índice');
 assert.match(ai,/platform_admins_created_by_idx/,'FK created_by da allowlist admin precisa de índice');
 
-console.log('Requote + watchdog + hardening v1.7.2 contract passou.');
+assert.match(adm,/create or replace function public\.admin_execute_action/,'mutações admin precisam de autoridade idempotente única');
+assert.match(adm,/insert into public\.action_requests/,'admin deve registrar chave idempotente');
+assert.match(adm,/idempotency_conflict/,'reuso de chave com payload diferente precisa falhar');
+assert.match(adm,/grant execute on function public\.admin_execute_action[\s\S]*to postgres, service_role/,'autoridade idempotente admin deve ser server-only');
+
+assert.match(cr,/restore_spent_cashback_on_financial_reversal/,'reversão deve devolver cashback usado no pedido');
+assert.match(cr,/cashback_reserved_cents/,'devolução deve usar exatamente o cashback consumido');
+assert.match(cr,/cashback-spent-return/,'devolução de cashback deve ser idempotente por pedido');
+assert.match(cr,/after insert on public\.order_financial_reversals/,'cashback gasto deve voltar na mesma transação da reversão');
+
+assert.match(fr,/v_order\.financial_state<>'settled'/,'reward grant precisa rejeitar pedido financeiramente revertido');
+assert.match(fr,/financial_reversed_at is not null/,'reward grant precisa bloquear reversão financeira já registrada');
+assert.match(fr,/create table if not exists public\.reward_processing_failures/,'falhas de reward precisam ser persistidas server-side');
+assert.match(fr,/exception when others[\s\S]*reward_processing_failures/,'falha de reward não pode derrubar settlement operacional');
+assert.match(fr,/process_deferred_order_rewards/,'rewards adiados precisam de retry idempotente');
+assert.match(fr,/o\.financial_state='settled'/,'retry só pode atuar em settlement financeiro válido');
+assert.match(fr,/g\.order_id is null/,'retry não pode duplicar reward já concedido');
+assert.match(fr,/chama-reward-retry/,'retry de rewards precisa de cron dedicado');
+
+assert.match(ast,/merchant_applications_one_live_cnpj_idx/,'deve existir apenas uma aplicação viva por CNPJ');
+assert.match(ast,/merchant_ownership_conflict/,'aprovação deve bloquear owner conflitante');
+assert.match(ast,/alreadyapproved/,'aprovação repetida precisa ser idempotente por estado');
+assert.match(ast,/alreadyrejected/,'rejeição repetida precisa ser idempotente por estado');
+assert.match(ast,/alreadyinstate/,'ativação ou suspensão repetida não pode alterar operação');
+assert.match(ast,/if v_merchant\.status=p_status then[\s\S]*online',/,'estado repetido deve preservar flag online');
+assert.match(ast,/invalid_merchant_status_transition/,'transições administrativas inválidas precisam falhar');
+
+assert.match(cc,/enforce_compliance_continuity/,'compliance deve ser reavaliado depois da ativação');
+assert.match(cc,/v_cnpj_status<>'verified'/,'CNPJ não verificado deve suspender revenda ativa');
+assert.match(cc,/v_has_active_p13 and v_anp_status<>'verified'/,'P13 ativo exige ANP continuamente verificada');
+assert.match(cc,/set status='suspended',[\s\S]*online=false/,'perda de compliance precisa derrubar operação imediatamente');
+assert.match(cc,/before delete[\s\S]*merchant_compliance/,'remoção da validação também deve suspender operação');
+assert.doesNotMatch(cc,/set status='active'/,'recuperar compliance não pode reativar automaticamente');
+
+assert.match(gg,/is_glp_product_code/,'gate regulatório deve identificar semanticamente qualquer SKU GLP');
+assert.match(gg,/between 1 and 90/,'convenção de GLP deve cobrir recipientes P1 até P90');
+assert.match(gg,/enforce_glp_catalog_compliance_trg/,'catálogo deve bloquear GLP irregular independentemente do tamanho');
+assert.match(gg,/glp_regulatory_verification_required/,'falha regulatória genérica de GLP precisa existir');
+assert.match(gg,/public\.is_glp_product_code\(ci\.product_code\)/,'ativação e continuidade devem detectar qualquer produto GLP ativo');
+assert.match(gg,/drop function if exists public\.enforce_p13_catalog_compliance/,'gate antigo P13-only deve ser removido');
+assert.doesNotMatch(gg,/ci\.product_code='p13'/,'gate atual não pode voltar a depender exclusivamente do P13');
+
+assert.match(rl,/resolve_reward_processing_failure/,'fila de reward precisa limpar falha já resolvida');
+assert.match(rl,/after insert on public\.order_reward_grants/,'grant bem-sucedido precisa encerrar falha pendente');
+assert.match(rl,/new\.financial_state='reversed'/,'reversão financeira precisa encerrar retry inviável');
+assert.match(rl,/resolved_at=coalesce\(resolved_at,clock_timestamp\(\)\)/,'resolução da fila precisa ser idempotente');
+
+assert.match(pf,/alter table public\.catalog_items[\s\S]*price_confirmed_at timestamptz/,'cada SKU precisa de relógio de confirmação próprio');
+assert.match(pf,/alter table public\.merchants[\s\S]*delivery_fee_confirmed_at timestamptz/,'taxa de entrega precisa de relógio independente');
+assert.match(pf,/for share of ci/,'snapshot de cotação precisa bloquear SKUs durante a captura');
+assert.match(pf,/ci\.price_confirmed_at>=clock_timestamp\(\)-interval '24 hours'/,'quote e rescue só podem usar SKU fresco');
+assert.match(pf,/m\.delivery_fee_confirmed_at>=clock_timestamp\(\)-interval '24 hours'/,'rescue só pode usar taxa de entrega fresca');
+assert.match(pf,/v_merchant\.delivery_fee_confirmed_at<clock_timestamp\(\)-interval '24 hours'/,'quote precisa validar freshness da taxa no banco');
+assert.doesNotMatch(pf,/v_merchant\.price_confirmed_at<clock_timestamp\(\)-interval '24 hours'/,'quote atual não pode depender do relógio global legado');
+
+assert.match(dc,/create table if not exists public\.product_delivery_profiles/,'produtos precisam de perfil logístico server-side');
+assert.match(dc,/requires_isolated_delivery/,'perfil logístico precisa suportar carga que exige isolamento');
+assert.match(dc,/regulated_glp_mixed_load_verified/,'cesta GLP mista precisa de capability explícita');
+assert.match(dc,/v_profiled<>v_requested/,'produto sem perfil logístico deve falhar fechado');
+assert.match(dc,/filter_delivery_compatible_merchants/,'matching precisa de filtro bulk de compatibilidade');
+assert.match(de,/quote_delivery_compatibility_guard/,'quote_items precisam de constraint trigger de compatibilidade');
+assert.match(de,/order_item_delivery_compatibility_guard/,'order_items precisam de constraint trigger de compatibilidade');
+assert.match(de,/order_delivery_transition_compatibility_guard/,'troca de fornecedor e despacho precisam revalidar compatibilidade');
+assert.match(de,/new\.status in \('preparing','out_for_delivery'\)/,'aceite e saída precisam revalidar capacidade logística');
+assert.match(de,/public\.merchant_cart_delivery_compatible[\s\S]*m\.id/,'rescue precisa pular revenda incompatível');
+assert.match(de,/delivery_incompatible/,'falha de compatibilidade deve ter erro semântico próprio');
+assert.match(da,/admin_set_delivery_capability/,'capacidade logística precisa de autoridade admin');
+assert.match(da,/v_compliance\.cnpj_status<>'verified'/,'capability exige CNPJ verificado');
+assert.match(da,/v_compliance\.anp_status<>'verified'/,'capability GLP exige ANP verificada');
+assert.match(da,/admin_delivery_capability_action/,'alteração de capability precisa ser idempotente');
+assert.match(da,/platform_admin_audit/,'capability precisa deixar trilha de auditoria');
+
+assert.match(di,/merchant_delivery_capabilities_verified_by_idx/,'FK verified_by da capability precisa de índice');
+assert.match(di,/drop index if exists public\.merchant_applications_live_cnpj_idx/,'índice CNPJ duplicado precisa permanecer removido');
+
+assert.match(rf,/create table if not exists public\.referral_reward_reviews/,'comissões de indicação precisam de review server-side');
+assert.match(rf,/same_delivery_address_as_referrer/,'mesmo endereço do indicador precisa gerar sinal de risco');
+assert.match(rf,/high_referral_velocity_24h/,'alta velocidade de indicações precisa gerar sinal');
+assert.match(rf,/multiple_referred_accounts_same_address/,'múltiplas contas no mesmo endereço precisam de sinal');
+assert.match(rf,/risk_status not in \('clear','approved'\)/,'maturação deve falhar fechada sem review elegível');
+assert.match(rf,/v_referrer_is_anonymous is true/,'indicador anônimo não pode receber comissão disponível');
+assert.match(rf,/v_referred_is_anonymous is true/,'comprador anônimo não pode liberar comissão ao indicador');
+assert.match(rf,/referral_pending_rejected/,'rejeição antes da maturação precisa estornar saldo pendente');
+assert.match(rf,/referral_available_rejected/,'rejeição posterior precisa permitir clawback do disponível');
+assert.match(rf,/platform_contribution_cents=platform_contribution_cents\+v_amount/,'comissão rejeitada deve voltar para contribuição');
+assert.match(rf,/admin_referral_review_action/,'decisão admin de referral precisa ser idempotente');
+assert.match(rf,/platform_admin_audit/,'review de referral precisa deixar trilha administrativa');
+
+assert.match(xr,/create or replace function public\.rescue_offered_order_now/,'aceite deve possuir autoridade única de rescue imediato');
+assert.match(xr,/for update/,'aceite concorrente precisa bloquear estoque antes da reserva');
+assert.match(xr,/stock_changed_before_accept/,'mudança de estoque no instante do aceite deve acionar rescue');
+assert.match(xr,/delivery_capability_changed_before_accept/,'mudança de capability logística deve acionar rescue');
+assert.match(xr,/merchant_unavailable_before_accept/,'revenda indisponível no aceite deve acionar rescue');
+assert.match(xr,/accepted',false/,'rescue deve retornar resultado explícito de não aceite');
+assert.match(xr,/autorescued',true/,'cliente operacional precisa distinguir rescue automático');
+assert.match(xr,/public\.system_rescue_order\(v_order\.id,p_reason\)/,'rescue imediato deve reutilizar ranking central');
+assert.doesNotMatch(xr,/raise exception 'insufficient_stock'/,'corrida de estoque no aceite não deve deixar pedido parado por erro');
+
+console.log('Requote + watchdog + hardening v1.9.2 contract passou.');

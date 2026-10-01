@@ -58,7 +58,7 @@ Object.assign(window,{
   confirmRequote,cancelPending,shareReferral,activateCashAccount,joinMerchant,selectMerchant,toggleOnline,
   merchantUpdate,merchantAction,reset,
   merchantLoginFromUi,merchantLiveRefresh,merchantLiveSelect,merchantLiveToggleOnline,
-  merchantLiveSaveP13,merchantLiveSaveLogistics,merchantLiveAction,merchantLiveCannotFulfill,
+  merchantLiveSaveP13,merchantLiveSaveProduct,merchantLiveSaveLogistics,merchantLiveAction,merchantLiveCannotFulfill,
   merchantLiveDeliver,merchantLiveLogout,
   adminLoginFromUi,adminRefresh,adminSignOut,adminApproveApplication,adminRejectApplication,
   adminSaveCompliance,adminSetMerchantStatus,adminFinancial,adminReverseOrder

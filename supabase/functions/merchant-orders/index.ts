@@ -93,7 +93,7 @@ Deno.serve(async(req:Request)=>{
 
     const {data:merchant,error:merchantError}=await admin
       .from("merchants")
-      .select("id,name,status,online,trust_score,delivery_fee_cents,base_eta_minutes,accepts_citywide,price_confirmed_at,last_seen_at")
+      .select("id,name,status,online,trust_score,delivery_fee_cents,delivery_fee_confirmed_at,base_eta_minutes,accepts_citywide,last_seen_at")
       .eq("id",selected.merchant_id)
       .maybeSingle();
     if(merchantError)throw merchantError;
@@ -101,7 +101,7 @@ Deno.serve(async(req:Request)=>{
 
     const {data:catalog,error:catalogError}=await admin
       .from("catalog_items")
-      .select("product_code,product_name,price_cents,available_stock,active,updated_at")
+      .select("product_code,product_name,price_cents,available_stock,active,price_confirmed_at,updated_at")
       .eq("merchant_id",selected.merchant_id)
       .order("product_code");
     if(catalogError)throw catalogError;
@@ -150,7 +150,7 @@ Deno.serve(async(req:Request)=>{
         deliveryFeeCents:merchant.delivery_fee_cents,
         baseEtaMinutes:merchant.base_eta_minutes,
         acceptsCitywide:merchant.accepts_citywide,
-        priceConfirmedAt:merchant.price_confirmed_at,
+        deliveryFeeConfirmedAt:merchant.delivery_fee_confirmed_at,
         lastSeenAt:merchant.last_seen_at
       },
       memberships:memberships
@@ -166,6 +166,7 @@ Deno.serve(async(req:Request)=>{
         priceCents:item.price_cents,
         availableStock:item.available_stock,
         active:item.active,
+        priceConfirmedAt:item.price_confirmed_at,
         updatedAt:item.updated_at
       })),
       orders:(orders??[]).map((o)=>({

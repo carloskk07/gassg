@@ -117,21 +117,49 @@ function normalizeState(raw){
 }
 
 let storageHealthy=true;
+function isLiveStateScope(){
+  return new URLSearchParams(location.search).get('live')==='1';
+}
+function appStateStorage(){
+  return isLiveStateScope()?sessionStorage:localStorage;
+}
+function freshLiveSeed(){
+  const seed=freshSeed();
+  seed.user={
+    ...seed.user,
+    name:'',
+    cashback:0,
+    purchases:0,
+    referralCode:'',
+    commissionAvailable:0,
+    commissionPending:0,
+    referredBy:null,
+    cashEarningEligible:false,
+    identityType:'anonymous'
+  };
+  seed.address='';
+  seed.cart=normalizeCart({});
+  seed.orders=[];
+  seed.onboarding=[];
+  return seed;
+}
 function load(){
   try{
-    const raw=localStorage.getItem(STORAGE)??localStorage.getItem(LEGACY_STORAGE);
+    const storage=appStateStorage();
+    const raw=storage.getItem(STORAGE)??(!isLiveStateScope()?localStorage.getItem(LEGACY_STORAGE):null);
+    if(!raw&&isLiveStateScope())return freshLiveSeed();
     return normalizeState(raw?JSON.parse(raw):null);
   }catch(e){
     storageHealthy=false;
     console.warn('Falha ao carregar estado local',e);
-    return freshSeed();
+    return isLiveStateScope()?freshLiveSeed():freshSeed();
   }
 }
 let state=load();
 
 function save(){
   try{
-    localStorage.setItem(STORAGE,JSON.stringify(state));
+    appStateStorage().setItem(STORAGE,JSON.stringify(state));
     storageHealthy=true;
     return true;
   }catch(e){

@@ -103,26 +103,37 @@ Deno.serve(async(req:Request)=>{
       if(online){
         const {data:merchant,error:merchantError}=await admin
           .from("merchants")
-          .select("status,price_confirmed_at")
+          .select("status,delivery_fee_confirmed_at")
           .eq("id",merchantId)
           .maybeSingle();
         if(merchantError)throw merchantError;
         if(!merchant||merchant.status!=="active"){
           throw new DomainError("MERCHANT_NOT_ACTIVE","A revenda ainda não está ativa.",409);
         }
-        const confirmedAt=Date.parse(merchant.price_confirmed_at??"");
-        if(!Number.isFinite(confirmedAt)||Date.now()-confirmedAt>24*60*60*1000){
-          throw new DomainError("PRICE_CONFIRMATION_REQUIRED","Confirme os preços antes de ficar online.",409);
+        const feeConfirmedAt=Date.parse(merchant.delivery_fee_confirmed_at??"");
+        if(!Number.isFinite(feeConfirmedAt)||Date.now()-feeConfirmedAt>24*60*60*1000){
+          throw new DomainError("DELIVERY_FEE_CONFIRMATION_REQUIRED","Confirme a taxa de entrega antes de ficar online.",409);
         }
 
-        const {count,error:countError}=await admin
+        const {data:available,error:availableError}=await admin
           .from("catalog_items")
-          .select("*",{count:"exact",head:true})
+          .select("product_code,price_confirmed_at")
           .eq("merchant_id",merchantId)
           .eq("active",true)
           .gt("available_stock",0);
-        if(countError)throw countError;
-        if(!count)throw new DomainError("NO_AVAILABLE_STOCK","Nenhum produto possui estoque disponível.",409);
+        if(availableError)throw availableError;
+        if(!available?.length)throw new DomainError("NO_AVAILABLE_STOCK","Nenhum produto possui estoque disponível.",409);
+        const stale=available.filter((item)=>{
+          const ts=Date.parse(item.price_confirmed_at??"");
+          return !Number.isFinite(ts)||Date.now()-ts>24*60*60*1000;
+        });
+        if(stale.length){
+          throw new DomainError(
+            "PRICE_CONFIRMATION_REQUIRED",
+            "Confirme o preço de todos os produtos com estoque antes de ficar online.",
+            409
+          );
+        }
       }
 
       const {data,error}=await admin
@@ -152,6 +163,7 @@ Deno.serve(async(req:Request)=>{
           price_cents:priceCents,
           available_stock:availableStock,
           active,
+          price_confirmed_at:now,
           updated_at:now
         },{onConflict:"merchant_id,product_code"})
         .select("product_code,product_name,price_cents,available_stock,active,updated_at")
@@ -160,7 +172,7 @@ Deno.serve(async(req:Request)=>{
 
       const {error:merchantUpdateError}=await admin
         .from("merchants")
-        .update({price_confirmed_at:now,last_seen_at:now})
+        .update({last_seen_at:now})
         .eq("id",merchantId);
       if(merchantUpdateError)throw merchantUpdateError;
 
@@ -189,12 +201,13 @@ Deno.serve(async(req:Request)=>{
         .from("merchants")
         .update({
           delivery_fee_cents:deliveryFeeCents,
+          delivery_fee_confirmed_at:now,
           base_eta_minutes:baseEtaMinutes,
           accepts_citywide:acceptsCitywide,
           last_seen_at:now
         })
         .eq("id",merchantId)
-        .select("delivery_fee_cents,base_eta_minutes,accepts_citywide,last_seen_at")
+        .select("delivery_fee_cents,delivery_fee_confirmed_at,base_eta_minutes,accepts_citywide,last_seen_at")
         .single();
       if(error)throw error;
       return json({ok:true,...data},200,origin);

@@ -15,6 +15,7 @@ const liveRuntime={
   loadingOffers:false,
   actionPending:false,
   error:null,
+  deliveryCompatibilityBlocked:false,
   lastSyncAt:null,
   offerRequestSeq:0,
   orderRequestSeq:0
@@ -65,6 +66,7 @@ async function backendInit(){
         persistSession:true,
         autoRefreshToken:true,
         detectSessionInUrl:true,
+        storage:sessionStorage,
         storageKey:'chama-sg-auth-v1'
       }
     });
@@ -82,7 +84,7 @@ async function backendInit(){
 
     liveRuntime.session=session;
     liveRuntime.status='ready';
-    liveRuntime.orderId=localStorage.getItem(CHAMA_BACKEND.orderStorageKey)||null;
+    liveRuntime.orderId=sessionStorage.getItem(CHAMA_BACKEND.orderStorageKey)||null;
 
     await liveSyncFinancialProfile();
 
@@ -90,7 +92,7 @@ async function backendInit(){
       try{await liveGetOrder(liveRuntime.orderId,{silent:true})}
       catch(e){
         console.warn('Pedido live anterior não pôde ser restaurado',e);
-        localStorage.removeItem(CHAMA_BACKEND.orderStorageKey);
+        sessionStorage.removeItem(CHAMA_BACKEND.orderStorageKey);
         liveRuntime.orderId=null;
         liveRuntime.order=null;
       }
@@ -176,6 +178,7 @@ async function liveRefreshOffers({silent=false}={}){
   const seq=++liveRuntime.offerRequestSeq;
   if(!liveReady()||!state.address||!hasCartItems()){
     liveRuntime.offers=[];
+    liveRuntime.deliveryCompatibilityBlocked=false;
     liveRuntime.loadingOffers=false;
     if(!silent)render();
     return [];
@@ -183,6 +186,7 @@ async function liveRefreshOffers({silent=false}={}){
   const addressSnapshot=state.address;
   const itemsSnapshot=liveCartItems();
   liveRuntime.offers=[];
+  liveRuntime.deliveryCompatibilityBlocked=false;
   liveRuntime.loadingOffers=true;
   liveRuntime.error=null;
   if(!silent)render();
@@ -196,6 +200,7 @@ async function liveRefreshOffers({silent=false}={}){
     if(state.address!==addressSnapshot||JSON.stringify(liveCartItems())!==JSON.stringify(itemsSnapshot)){
       return liveRuntime.offers;
     }
+    liveRuntime.deliveryCompatibilityBlocked=data?.deliveryCompatibilityBlocked===true;
     liveRuntime.offers=(data?.offers||[])
       .map(liveOfferView)
       .filter(o=>Number.isFinite(Date.parse(o.expiresAt))&&Date.parse(o.expiresAt)>Date.now());
@@ -204,6 +209,7 @@ async function liveRefreshOffers({silent=false}={}){
   }catch(error){
     if(seq===liveRuntime.offerRequestSeq){
       liveRuntime.offers=[];
+      liveRuntime.deliveryCompatibilityBlocked=false;
       liveRuntime.error=String(error?.message||error);
     }
     throw error;
@@ -240,7 +246,7 @@ async function liveCreateOrder(quoteId){
     },{idempotencyKey:liveIdempotency('create-order')});
 
     liveRuntime.orderId=result.orderId;
-    localStorage.setItem(CHAMA_BACKEND.orderStorageKey,result.orderId);
+    sessionStorage.setItem(CHAMA_BACKEND.orderStorageKey,result.orderId);
     state.cart=normalizeCart({});
     state.checkout.useCashback=false;
     save();
@@ -266,7 +272,7 @@ async function liveGetOrder(orderId=liveRuntime.orderId,{silent=false}={}){
   liveRuntime.order=order;
   liveRuntime.orderId=order.orderId;
   liveRuntime.lastSyncAt=new Date().toISOString();
-  localStorage.setItem(CHAMA_BACKEND.orderStorageKey,order.orderId);
+  sessionStorage.setItem(CHAMA_BACKEND.orderStorageKey,order.orderId);
   if(['SETTLED','CANCELLED'].includes(order.status)){
     await liveSyncFinancialProfile();
   }
@@ -338,7 +344,7 @@ async function livePoll(){
   if(["SETTLED","CANCELLED"].includes(liveRuntime.order?.status))return;
   try{await liveGetOrder(liveRuntime.orderId,{silent:true});render()}catch(error){
     if(error?.status===404){
-      localStorage.removeItem(CHAMA_BACKEND.orderStorageKey);
+      sessionStorage.removeItem(CHAMA_BACKEND.orderStorageKey);
       liveRuntime.orderId=null;
       liveRuntime.order=null;
       render();
@@ -535,8 +541,9 @@ async function merchantPerformAction(orderId,action,reason='other_operational'){
   try{
     const body={orderId,action,expectedVersion:order.version};
     if(action==='cannot-fulfill')body.reason=reason;
-    await merchantInvoke('merchant-action',body,{idempotencyKey:liveIdempotency('merchant-action')});
+    const result=await merchantInvoke('merchant-action',body,{idempotencyKey:liveIdempotency('merchant-action')});
     await merchantRefresh({silent:true});
+    return result;
   }catch(error){
     merchantRuntime.error=String(error?.message||error);
     try{await merchantRefresh({silent:true})}catch{}

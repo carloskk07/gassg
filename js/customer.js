@@ -48,6 +48,8 @@ function orderPage(){
       offerBlock=`<div class="notice danger"><strong>Não foi possível atualizar as ofertas.</strong><br>${esc(liveRuntime.error)}<br><button class="secondary small" style="margin-top:10px" onclick="liveRefreshOffers().catch(()=>{})">Tentar novamente</button></div>`;
     }else if(os.length){
       offerBlock=`<div class="offer-stack">${os.map(offerCard).join('')}</div>`;
+    }else if(liveMode&&ready&&liveRuntime.deliveryCompatibilityBlocked){
+      offerBlock='<div class="notice"><strong>Esta combinação precisa de uma entrega logisticamente verificada.</strong><br>No piloto, tente pedir o GLP separado dos outros itens ou aguarde uma revenda habilitada para a cesta mista.</div>';
     }else if(liveMode&&ready&&liveRuntime.lastSyncAt){
       offerBlock='<div class="empty card">Nenhuma revenda real cadastrada consegue atender esta cesta agora.</div>';
     }else if(liveMode&&ready){
@@ -95,7 +97,10 @@ async function setAddress(){
 }
 function qty(k,d){
   setCartProduct(k,(state.cart[k]||0)+d);
-  if(globalThis.liveRequested?.())liveRuntime.offers=[];
+  if(globalThis.liveRequested?.()){
+    liveRuntime.offers=[];
+    liveRuntime.deliveryCompatibilityBlocked=false;
+  }
   save();
   render();
   globalThis.liveScheduleOfferRefresh?.();
