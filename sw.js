@@ -1,5 +1,5 @@
-const CACHE='chama-sg-v1.17';
-const ASSETS=['./','./index.html','./css/base.css','./css/components.css','./js/runtime-config.js','./js/backend.js','./js/core.js','./js/customer.js','./js/growth.js','./js/merchant.js','./js/admin.js','./js/bootstrap.js','./manifest.webmanifest','./icons/icon.svg'];
+const CACHE='chama-sg-v1.18';
+const ASSETS=['./','./index.html','./css/base.css','./css/components.css','./js/runtime-config.js','./js/turnstile.js','./js/backend.js','./js/core.js','./js/customer.js','./js/growth.js','./js/merchant.js','./js/admin.js','./js/bootstrap.js','./manifest.webmanifest','./icons/icon.svg'];
 
 self.addEventListener('install',event=>{
   event.waitUntil(caches.open(CACHE).then(cache=>cache.addAll(ASSETS)).then(()=>self.skipWaiting()));
