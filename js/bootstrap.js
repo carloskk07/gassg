@@ -55,7 +55,7 @@ window.addEventListener('load',async()=>{
 
 Object.assign(window,{
   go,setMode,startOrder,quickProduct,setAddress,qty,checkout,setPaymentMethod,toggleCashback,
-  confirmRequote,cancelPending,shareReferral,activateCashAccount,joinMerchant,selectMerchant,toggleOnline,
+  confirmRequote,cancelBeforeDispatch,cancelPending,shareReferral,activateCashAccount,joinMerchant,selectMerchant,toggleOnline,
   merchantUpdate,merchantAction,reset,
   merchantLoginFromUi,merchantLiveRefresh,merchantLiveSelect,merchantLiveToggleOnline,
   merchantLiveSaveP13,merchantLiveSaveProduct,merchantLiveSaveLogistics,merchantLiveAction,merchantLiveCannotFulfill,
