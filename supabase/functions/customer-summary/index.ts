@@ -79,7 +79,9 @@ Deno.serve(async(req:Request)=>{
       cashbackCents:Number(data?.cashbackCents??0),
       commissionPendingCents:Number(data?.commissionPendingCents??0),
       commissionAvailableCents:Number(data?.commissionAvailableCents??0),
-      settledOrders:Number(data?.settledOrders??0)
+      settledOrders:Number(data?.settledOrders??0),
+      cashEarningEligible:user.is_anonymous!==true,
+      identityType:user.is_anonymous===true?"anonymous":"permanent"
     },200,origin);
   }catch(error){
     if(error instanceof DomainError){
