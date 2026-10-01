@@ -50,6 +50,7 @@ const noUnsafeOffset=fs.readFileSync(new URL('../supabase/migrations/20261001143
 const customerCancel=fs.readFileSync(new URL('../supabase/migrations/20261001144000_customer_cancel_before_dispatch.sql',import.meta.url),'utf8');
 const adminBootstrap=fs.readFileSync(new URL('../supabase/migrations/20261001145000_admin_bootstrap_continuity.sql',import.meta.url),'utf8');
 const adminMgmtIdem=fs.readFileSync(new URL('../supabase/migrations/20261001146000_admin_management_idempotency.sql',import.meta.url),'utf8');
+const strictOrderState=fs.readFileSync(new URL('../supabase/migrations/20261001147000_strict_order_state_invariants.sql',import.meta.url),'utf8');
 const r=repricing.replace(/--.*$/gm,'').replace(/\s+/g,' ').toLowerCase();
 const w=watchdog.replace(/--.*$/gm,'').replace(/\s+/g,' ').toLowerCase();
 const h=hardening.replace(/--.*$/gm,'').replace(/\s+/g,' ').toLowerCase();
@@ -99,6 +100,7 @@ const nuo=noUnsafeOffset.replace(/--.*$/gm,'').replace(/\s+/g,' ').toLowerCase()
 const cnc=customerCancel.replace(/--.*$/gm,'').replace(/\s+/g,' ').toLowerCase();
 const ab=adminBootstrap.replace(/--.*$/gm,'').replace(/\s+/g,' ').toLowerCase();
 const ami=adminMgmtIdem.replace(/--.*$/gm,'').replace(/\s+/g,' ').toLowerCase();
+const sos=strictOrderState.replace(/--.*$/gm,'').replace(/\s+/g,' ').toLowerCase();
 
 assert.match(r,/create table if not exists public\.order_requote_items/,'re-cotação precisa congelar preços por item');
 assert.match(r,/revoke all on table public\.order_requote_items from anon, authenticated/,'snapshot de re-cotação deve ser server-only');
@@ -401,4 +403,12 @@ assert.match(ab,/pg_advisory_xact_lock[\s\S]*platform-admin-management/,'mudanç
 assert.match(ami,/admin_platform_admin_action/,'gestão de admin precisa ser idempotente');
 assert.match(ami,/admin-ops:set-platform-admin/,'idempotência deve ter namespace administrativo próprio');
 
-console.log('Requote + watchdog + hardening v1.14.4 contract passou.');
+assert.match(sos,/orders_payment_confirmation_pair/,'pagamento precisa manter timestamp e método em par');
+assert.match(sos,/payment_confirmed_at is null or status='settled'/,'pagamento confirmado só pode existir em pedido liquidado');
+assert.match(sos,/delivered_at is null or status in \('delivered','settled'\)/,'timestamp de entrega não pode sobreviver em estado anterior');
+assert.match(sos,/dispatched_at is null or status in \('out_for_delivery','arriving','delivered','settled'\)/,'timestamp de saída não pode existir antes do despacho');
+assert.match(sos,/status='requote_required'[\s\S]*proposed_merchant_id is not null[\s\S]*status<>'requote_required'[\s\S]*proposed_merchant_id is null/,'proposal de re-cotação precisa existir somente no estado correto');
+assert.match(sos,/status in \('offered_to_merchant','requote_required'\)[\s\S]*offer_expires_at is not null/,'ofertas pendentes precisam sempre ter expiração');
+assert.match(sos,/orders_post_accept_requires_accepted_at/,'estados pós-aceite precisam de timestamp de aceite');
+
+console.log('Requote + watchdog + hardening v1.14.5 contract passou.');
