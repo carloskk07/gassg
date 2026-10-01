@@ -25,6 +25,8 @@ const settlementIndex=fs.readFileSync(new URL('../supabase/migrations/2026100111
 const adminControl=fs.readFileSync(new URL('../supabase/migrations/20261001118000_admin_control_plane.sql',import.meta.url),'utf8');
 const adminReversal=fs.readFileSync(new URL('../supabase/migrations/20261001119000_admin_reversal_authority.sql',import.meta.url),'utf8');
 const adminIndexes=fs.readFileSync(new URL('../supabase/migrations/20261001120000_admin_compliance_fk_indexes.sql',import.meta.url),'utf8');
+const adminIdem=fs.readFileSync(new URL('../supabase/migrations/20261001121000_admin_action_idempotency.sql',import.meta.url),'utf8');
+const cashbackRestore=fs.readFileSync(new URL('../supabase/migrations/20261001122000_restore_spent_cashback_on_reversal.sql',import.meta.url),'utf8');
 const r=repricing.replace(/--.*$/gm,'').replace(/\s+/g,' ').toLowerCase();
 const w=watchdog.replace(/--.*$/gm,'').replace(/\s+/g,' ').toLowerCase();
 const h=hardening.replace(/--.*$/gm,'').replace(/\s+/g,' ').toLowerCase();
@@ -49,6 +51,8 @@ const si=settlementIndex.replace(/--.*$/gm,'').replace(/\s+/g,' ').toLowerCase()
 const ad=adminControl.replace(/--.*$/gm,'').replace(/\s+/g,' ').toLowerCase();
 const ar=adminReversal.replace(/--.*$/gm,'').replace(/\s+/g,' ').toLowerCase();
 const ai=adminIndexes.replace(/--.*$/gm,'').replace(/\s+/g,' ').toLowerCase();
+const adm=adminIdem.replace(/--.*$/gm,'').replace(/\s+/g,' ').toLowerCase();
+const cr=cashbackRestore.replace(/--.*$/gm,'').replace(/\s+/g,' ').toLowerCase();
 
 assert.match(r,/create table if not exists public\.order_requote_items/,'re-cotação precisa congelar preços por item');
 assert.match(r,/revoke all on table public\.order_requote_items from anon, authenticated/,'snapshot de re-cotação deve ser server-only');
