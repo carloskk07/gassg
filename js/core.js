@@ -553,6 +553,9 @@ function runtimeStrip(){
     if(status==='no-access'){
       return '<div class="demo-strip blocked-strip"><span>Conta autenticada, mas ainda sem revenda vinculada</span><button onclick="openCustomerPortal()">Voltar ao site</button></div>';
     }
+    if(status==='unsafe-origin'){
+      return '<div class="demo-strip blocked-strip"><span>Painel real bloqueado nesta origem compartilhada</span><button onclick="openCustomerPortal()">Voltar ao site</button></div>';
+    }
     return '<div class="demo-strip blocked-strip"><span>Painel da revenda indisponível no momento</span><button onclick="openCustomerPortal()">Voltar ao site</button></div>';
   }
   if(!globalThis.liveRequested?.()){
@@ -565,7 +568,10 @@ function runtimeStrip(){
   if(mode==='connecting'){
     return '<div class="demo-strip live-strip"><span>Conectando ao backend real do piloto…</span></div>';
   }
-  return '<div class="demo-strip blocked-strip"><span>Modo live solicitado, mas o Auth do piloto ainda não está disponível</span><button onclick="openCustomerPortal()">Abrir demonstração</button></div>';
+  if(globalThis.liveRuntime?.status==='unsafe-origin'){
+    return '<div class="demo-strip blocked-strip"><span>Piloto real bloqueado nesta origem compartilhada • use uma origem dedicada</span><button onclick="openCustomerPortal()">Abrir demonstração</button></div>';
+  }
+  return '<div class="demo-strip blocked-strip"><span>Modo live solicitado, mas o backend do piloto não está disponível</span><button onclick="openCustomerPortal()">Abrir demonstração</button></div>';
 }
 function shell(content){
   const r=route();
