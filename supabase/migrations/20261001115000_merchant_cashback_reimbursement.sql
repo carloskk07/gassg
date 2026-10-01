@@ -121,6 +121,7 @@ begin
       'cashbackCents',v_existing.cashback_cents,
       'referralPendingCents',v_existing.referral_pending_cents,
       'platformContributionCents',v_existing.platform_contribution_cents,
+      'cashbackReimbursementCents',v_order.cashback_reserved_cents,
       'commissionAvailableAt',v_existing.commission_available_at,
       'alreadyGranted',true
     );
@@ -434,7 +435,7 @@ begin
   if found then
     if v_receivable.status='paid' and v_receivable.platform_fee_cents>0 then
       insert into public.platform_settlement_adjustments(
-        order_id,merchant_id,adjustment_type,amount_cents,status,reason,reference
+        order_id,merchant_id,adjustment_type,direction,amount_cents,status,reason,reference
       )
       values(
         v_order.id,v_receivable.merchant_id,'platform_fee_refund_due',
