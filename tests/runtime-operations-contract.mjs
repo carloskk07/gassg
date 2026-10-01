@@ -51,6 +51,7 @@ const customerCancel=fs.readFileSync(new URL('../supabase/migrations/20261001144
 const adminBootstrap=fs.readFileSync(new URL('../supabase/migrations/20261001145000_admin_bootstrap_continuity.sql',import.meta.url),'utf8');
 const adminMgmtIdem=fs.readFileSync(new URL('../supabase/migrations/20261001146000_admin_management_idempotency.sql',import.meta.url),'utf8');
 const strictOrderState=fs.readFileSync(new URL('../supabase/migrations/20261001147000_strict_order_state_invariants.sql',import.meta.url),'utf8');
+const noLegacyOffsetReversal=fs.readFileSync(new URL('../supabase/migrations/20261001148000_remove_legacy_offset_reversal.sql',import.meta.url),'utf8');
 const r=repricing.replace(/--.*$/gm,'').replace(/\s+/g,' ').toLowerCase();
 const w=watchdog.replace(/--.*$/gm,'').replace(/\s+/g,' ').toLowerCase();
 const h=hardening.replace(/--.*$/gm,'').replace(/\s+/g,' ').toLowerCase();
@@ -101,6 +102,7 @@ const cnc=customerCancel.replace(/--.*$/gm,'').replace(/\s+/g,' ').toLowerCase()
 const ab=adminBootstrap.replace(/--.*$/gm,'').replace(/\s+/g,' ').toLowerCase();
 const ami=adminMgmtIdem.replace(/--.*$/gm,'').replace(/\s+/g,' ').toLowerCase();
 const sos=strictOrderState.replace(/--.*$/gm,'').replace(/\s+/g,' ').toLowerCase();
+const nlor=noLegacyOffsetReversal.replace(/--.*$/gm,'').replace(/\s+/g,' ').toLowerCase();
 
 assert.match(r,/create table if not exists public\.order_requote_items/,'re-cotação precisa congelar preços por item');
 assert.match(r,/revoke all on table public\.order_requote_items from anon, authenticated/,'snapshot de re-cotação deve ser server-only');
@@ -411,4 +413,7 @@ assert.match(sos,/status='requote_required'[\s\S]*proposed_merchant_id is not nu
 assert.match(sos,/status in \('offered_to_merchant','requote_required'\)[\s\S]*offer_expires_at is not null/,'ofertas pendentes precisam sempre ter expiração');
 assert.match(sos,/orders_post_accept_requires_accepted_at/,'estados pós-aceite precisam de timestamp de aceite');
 
-console.log('Requote + watchdog + hardening v1.14.5 contract passou.');
+assert.match(nlor,/v_reimbursement\.status='paid'/,'reversal só pode recuperar reembolso de cashback efetivamente pago');
+assert.doesNotMatch(nlor,/status in \('paid','offset'\)/,'reversal não pode reconhecer status offset legado');
+
+console.log('Requote + watchdog + hardening v1.14.6 contract passou.');
