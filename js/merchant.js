@@ -69,15 +69,28 @@ function merchantLivePage(){
     ? '<div class="notice danger" style="margin-top:12px"><strong>Confirmação comercial incompleta.</strong><br>'+esc(freshnessProblems.join(' • '))+'. A revenda só participa das ofertas com taxa e SKUs ofertáveis confirmados.</div>'
     : '';
 
+  const compliance=m.compliance||{};
+  const hasGlp=(rt.catalog||[]).some(item=>item.active&&/^P([1-9][0-9]?)$/.test(String(item.productCode||''))&&Number(String(item.productCode).slice(1))<=90);
+  const cnpjCurrent=compliance.cnpjCurrent===true;
+  const anpCurrent=compliance.anpCurrent===true;
+  const complianceReady=cnpjCurrent&&anpCurrent;
+  const cnpjWhen=compliance.cnpjVerifiedAt?formatDateTime(compliance.cnpjVerifiedAt):'nunca';
+  const anpWhen=compliance.anpVerifiedAt?formatDateTime(compliance.anpVerifiedAt):(hasGlp?'nunca':'não exigida para o catálogo atual');
+  const complianceNotice=complianceReady
+    ? `<div class="notice success" style="margin-top:12px"><strong>Compliance vigente.</strong><br>CNPJ: ${esc(cnpjWhen)} • janela operacional ${Number(compliance.cnpjMaxAgeDays||30)} dias. ${hasGlp?`ANP: ${esc(anpWhen)} • janela operacional ${Number(compliance.anpMaxAgeDays||7)} dias.`:'Sem GLP ativo no catálogo; ANP não é exigida para a operação atual.'}</div>`
+    : `<div class="notice danger" style="margin-top:12px"><strong>Revalidação necessária antes de operar.</strong><br>${!cnpjCurrent?`CNPJ: última verificação ${esc(cnpjWhen)}; revalidar a cada ${Number(compliance.cnpjMaxAgeDays||30)} dias. `:''}${!anpCurrent?`ANP: última verificação ${esc(anpWhen)}; revalidar a cada ${Number(compliance.anpMaxAgeDays||7)} dias para GLP.`:''}</div>`;
+  const canGoOnline=m.status==='active'&&complianceReady&&freshness.allFresh;
+
   return shell(`<section class="page">
     <div class="status-bar"><div><div class="tiny muted">PAINEL REAL • ${esc(String(m.memberRole||'').toUpperCase())}</div><h1 class="page-title" style="margin-bottom:2px">${esc(m.name)}</h1></div><span class="status-pill ${m.online?'online':'offline'}">${m.online?'● ONLINE':'OFFLINE'}</span></div>
 
     ${rt.error?`<div class="notice danger" style="margin-top:12px">${esc(rt.error)}</div>`:''}
+    ${complianceNotice}
     ${freshnessNotice}
 
     <div class="card flat form-stack" style="margin-top:14px">
       ${memberships.length>1?`<div class="input-wrap"><label for="merchant-live-select">Operação</label><select id="merchant-live-select" class="input" onchange="merchantLiveSelect(this.value)">${memberships.map(x=>`<option value="${esc(x.merchantId)}" ${x.merchantId===m.merchantId?'selected':''}>${esc(x.name)} • ${esc(x.memberRole)}</option>`).join('')}</select></div>`:''}
-      <div class="order-actions"><button class="secondary small" onclick="merchantLiveRefresh()">Atualizar</button>${operate?`<button class="${m.online?'danger-btn':'primary'} small" onclick="merchantLiveToggleOnline(${m.online?'false':'true'})">${m.online?'Pausar novos pedidos':'Ficar online'}</button>`:''}<button class="ghost small" onclick="merchantLiveLogout()">Sair</button></div>
+      <div class="order-actions"><button class="secondary small" onclick="merchantLiveRefresh()">Atualizar</button>${operate?`<button class="${m.online?'danger-btn':'primary'} small" onclick="merchantLiveToggleOnline(${m.online?'false':'true'})" ${!m.online&&!canGoOnline?'disabled title="Regularize compliance, preços e logística antes de ficar online"':''}>${m.online?'Pausar novos pedidos':'Ficar online'}</button>`:''}<button class="ghost small" onclick="merchantLiveLogout()">Sair</button></div>
     </div>
 
     <section class="section"><div class="merchant-kpis">
