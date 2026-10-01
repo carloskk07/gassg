@@ -1,11 +1,14 @@
-import "jsr:@supabase/functions-js/edge-runtime.d.ts";
-import { createClient } from "npm:@supabase/supabase-js@2";
+import "jsr:@supabase/functions-js@2.117.2/edge-runtime.d.ts";
+import {
+  createClient } from "npm:@supabase/supabase-js@2.117.2";
 import {
   DomainError,
   normalizeAddress,
   normalizeItems,
   anonymizeOffer,
-  hasMerchantLeak
+  hasMerchantLeak,
+  readJsonBody,
+  enforceApiQuota
 } from "../_shared/domain.js";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
@@ -147,7 +150,7 @@ Deno.serve(async (req: Request) => {
 
   try {
     const user = await authenticatedUser(req);
-    const body = await req.json().catch(() => ({}));
+    const body = await readJsonBody(req);
     const address = normalizeAddress(body.address);
     const items = normalizeItems(body.items);
 
@@ -158,6 +161,7 @@ Deno.serve(async (req: Request) => {
     const admin = createClient(SUPABASE_URL, SECRET_KEY, {
       auth: { persistSession: false, autoRefreshToken: false }
     });
+    await enforceApiQuota(admin,{userId:user.id,actionName:"get-offers",limit:24,windowSeconds:60});
 
     const { data: merchants, error: merchantError } = await admin
       .from("merchants")
