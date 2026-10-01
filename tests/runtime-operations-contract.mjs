@@ -78,7 +78,7 @@ const da=deliveryAdmin.replace(/--.*$/gm,'').replace(/\s+/g,' ').toLowerCase();
 const di=deliveryIndexes.replace(/--.*$/gm,'').replace(/\s+/g,' ').toLowerCase();
 const rf=referralRisk.replace(/--.*$/gm,'').replace(/\s+/g,' ').toLowerCase();
 const xr=acceptRace.replace(/--.*$/gm,'').replace(/\s+/g,' ').toLowerCase();
-const rg=referralReversalGuard.replace(/--.*$/gm,'').replace(/\s+/g,' ').toLowerCase();
+const rrg=referralReversalGuard.replace(/--.*$/gm,'').replace(/\s+/g,' ').toLowerCase();
 
 assert.match(r,/create table if not exists public\.order_requote_items/,'re-cotação precisa congelar preços por item');
 assert.match(r,/revoke all on table public\.order_requote_items from anon, authenticated/,'snapshot de re-cotação deve ser server-only');
@@ -323,9 +323,9 @@ assert.match(xr,/autorescued',true/,'cliente operacional precisa distinguir resc
 assert.match(xr,/public\.system_rescue_order\(v_order\.id,p_reason\)/,'rescue imediato deve reutilizar ranking central');
 assert.doesNotMatch(xr,/raise exception 'insufficient_stock'/,'corrida de estoque no aceite não deve deixar pedido parado por erro');
 
-assert.match(rg,/v_grant\.reversed_at is not null and p_decision='approved'/,'reward revertido não pode ser aprovado depois da reversão');
-assert.match(rg,/referral_reward_already_reversed/,'aprovação tardia precisa falhar semanticamente');
-assert.match(rg,/if v_grant\.reversed_at is not null then[\s\S]*v_amount:=0/,'rejeição tardia não pode debitar comissão novamente');
-assert.match(rg,/rewardalreadyreversed/,'auditoria precisa registrar que o reward já estava revertido');
+assert.match(rrg,/v_grant\.reversed_at is not null and p_decision='approved'/,'reward revertido não pode ser aprovado depois da reversão');
+assert.match(rrg,/referral_reward_already_reversed/,'aprovação tardia precisa falhar semanticamente');
+assert.match(rrg,/if v_grant\.reversed_at is not null then[\s\S]*v_amount:=0/,'rejeição tardia não pode debitar comissão novamente');
+assert.match(rrg,/rewardalreadyreversed/,'auditoria precisa registrar que o reward já estava revertido');
 
 console.log('Requote + watchdog + hardening v1.9.3 contract passou.');
