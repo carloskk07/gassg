@@ -304,17 +304,18 @@ function adminReferralReasonLabel(code){
   return map[String(code||'')]||String(code||'Sinal de risco');
 }
 function adminReferralReviewCard(x){
-  const pending=x.risk_status==='review_required';
+  const financiallyReversed=x.financialState==='reversed'||!!x.financialReversedAt;
+  const pending=x.risk_status==='review_required'&&!financiallyReversed;
   const reasons=Array.isArray(x.risk_reasons)?x.risk_reasons:[];
   return `<article class="order-card">
     <div class="order-head"><div><div class="order-id">Pedido ${esc(x.order_id)}</div><div class="tiny muted">Indicador ${esc(x.referrer_user_id)} • comprador ${esc(x.referred_user_id)}</div></div>${adminStatusPill(x.risk_status)}</div>
     <div class="order-line"><strong>Sinais:</strong> ${reasons.length?reasons.map(r=>esc(adminReferralReasonLabel(r))).join(' • '):'Nenhum sinal automático'}</div>
     <div class="tiny muted">Criado em ${new Date(x.created_at).toLocaleString('pt-BR')}</div>
     ${x.review_notes?`<div class="order-line"><strong>Revisão:</strong> ${esc(x.review_notes)}</div>`:''}
+    ${financiallyReversed?'<div class="notice danger" style="margin-top:10px"><strong>Pedido financeiramente revertido.</strong><br>A comissão já foi estornada; nenhuma nova ação financeira deve ser aplicada.</div>':''}
     ${pending?`<div class="order-actions"><button class="primary small" onclick="adminReviewReferral('${x.order_id}','approved')">Aprovar comissão</button><button class="danger-btn small" onclick="adminReviewReferral('${x.order_id}','rejected')">Rejeitar comissão</button></div>`:''}
   </article>`;
 }
-
 function adminReceivableRow(x){
   return `<div class="list-row"><div><strong>${esc(adminMerchantName(x.merchant_id))}</strong><br><small>Taxa da plataforma • pedido ${esc(x.order_id)}</small></div><div style="text-align:right"><strong>${adminMoney(x.platform_fee_cents)}</strong><div class="order-actions"><button class="secondary small" onclick="adminFinancial('platform_receivable','${x.order_id}','paid')">Pago</button><button class="ghost small" onclick="adminFinancial('platform_receivable','${x.order_id}','waived')">Abonar</button></div></div></div>`;
 }
@@ -346,7 +347,7 @@ function adminPage(){
   const pending=(d.applications||[]).filter(x=>x.status==='pending');
   const active=(d.merchants||[]).filter(x=>x.status==='active');
   const referralReviews=d.referralReviews||[];
-  const pendingReferralReviews=referralReviews.filter(x=>x.risk_status==='review_required');
+  const pendingReferralReviews=referralReviews.filter(x=>x.risk_status==='review_required'&&x.financialState!=='reversed'&&!x.financialReversedAt);
   const receivables=d.finance?.receivables||[];
   const reimbursements=d.finance?.cashbackReimbursements||[];
   const adjustments=d.finance?.adjustments||[];
