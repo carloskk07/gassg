@@ -60,6 +60,14 @@ assert.ok(!backend.includes(".from('wallet_entries')"),'frontend não pode ler l
 assert.ok(!backend.includes(".from('profiles')"),'frontend não pode ler tabela de perfis diretamente');
 assert.ok(merchant.includes('Pagamento recebido'),'painel precisa exigir confirmação explícita de pagamento');
 assert.ok(core.includes('paymentConfirmed!==true'),'autoridade demo deve bloquear settlement sem pagamento');
+assert.ok(backend.includes("storageKey:'chama-sg-merchant-auth-v1'"),'sessão da revenda deve usar storage separado do cliente');
+assert.ok(backend.includes('signInWithOtp'),'revenda deve usar login permanente por e-mail');
+assert.ok(backend.includes("merchant-orders")&&backend.includes("merchant-action")&&backend.includes("merchant-ops"),'portal real deve operar somente pelas Edge Functions');
+assert.ok(merchant.includes('merchantLivePage'),'UI deve possuir painel real da revenda');
+assert.ok(merchant.includes('Endereço protegido até o aceite'),'painel real não pode expor endereço antes do aceite');
+assert.ok(merchant.includes('Pagamento recebido'),'painel real deve exigir confirmação de pagamento');
+assert.ok(core.includes('grossCents*100'),'demo deve calcular cashback proporcional ao pedido');
+
 
 
 const functionRoot=path.join(root,'supabase/functions');
