@@ -170,7 +170,7 @@ test('pausar loja reatribui pedido ainda não aceito',()=>{
   const o=T.createOrderForMerchant('C').order;
   assert.equal(T.pauseMerchant('C').ok,true);
   const order=T.getState().orders[0];
-  assert.notEqual(order.status,'OFFERED_TO_MERCHANT' && order.merchantId==='C');
+  assert.ok(!(order.status==='OFFERED_TO_MERCHANT' && order.merchantId==='C'));
   assert.notEqual(order.merchantId,'C');
 });
 
