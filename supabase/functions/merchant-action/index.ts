@@ -58,6 +58,8 @@ function mapRpcError(error:{message?:string}|null){
     OFFER_EXPIRED:[409,"O prazo para aceitar este pedido expirou."],
     MERCHANT_UNAVAILABLE:[409,"A revenda está indisponível para aceitar novos pedidos."],
     INSUFFICIENT_STOCK:[409,"O estoque mudou antes do aceite."],
+    STOCK_RESTORE_FAILED:[409,"Não foi possível recompor o estoque reservado com segurança."],
+    INVALID_RESCUE_STATE:[409,"O pedido não está em estado seguro para reatribuição."],
     IDEMPOTENCY_CONFLICT:[409,"A mesma chave foi usada para outra requisição."]
   };
   for(const [code,[status,text]] of Object.entries(map)){
@@ -80,22 +82,38 @@ Deno.serve(async(req:Request)=>{
     if(!UUID_RE.test(orderId))throw new DomainError("INVALID_ORDER","Pedido inválido.",400);
 
     const action=String(body.action??"");
-    if(!["accept","reject","dispatch","arriving"].includes(action)){
+    if(!["accept","reject","dispatch","arriving","cannot-fulfill"].includes(action)){
       throw new DomainError("INVALID_ACTION","Ação inválida.",400);
     }
     const expectedVersion=asPositiveInt(body.expectedVersion,"expectedVersion",{min:1,max:Number.MAX_SAFE_INTEGER});
-    const requestHash=await requestFingerprint("merchant-action:"+action,{orderId,action,expectedVersion});
+    const failureReasons=new Set(["stock_issue","vehicle_issue","staffing_issue","other_operational"]);
+    const reason=action==="cannot-fulfill"?String(body.reason??"other_operational"):"";
+    if(action==="cannot-fulfill"&&!failureReasons.has(reason)){
+      throw new DomainError("INVALID_FAILURE_REASON","Motivo operacional inválido.",400);
+    }
+    const requestHash=await requestFingerprint("merchant-action:"+action,{orderId,action,expectedVersion,reason});
 
     const admin=createClient(SUPABASE_URL,SECRET_KEY,{auth:{persistSession:false,autoRefreshToken:false}});
     await enforceApiQuota(admin,{userId:user.id,actionName:"merchant-action",limit:80,windowSeconds:60});
-    const {data,error}=await admin.rpc("merchant_order_action",{
-      p_user_id:user.id,
-      p_order_id:orderId,
-      p_action:action,
-      p_expected_version:expectedVersion,
-      p_idempotency_key:idempotencyKey,
-      p_request_hash:requestHash
-    });
+    const rpcName=action==="cannot-fulfill"?"merchant_fail_before_dispatch":"merchant_order_action";
+    const rpcArgs=action==="cannot-fulfill"
+      ? {
+          p_user_id:user.id,
+          p_order_id:orderId,
+          p_expected_version:expectedVersion,
+          p_idempotency_key:idempotencyKey,
+          p_request_hash:requestHash,
+          p_reason:reason
+        }
+      : {
+          p_user_id:user.id,
+          p_order_id:orderId,
+          p_action:action,
+          p_expected_version:expectedVersion,
+          p_idempotency_key:idempotencyKey,
+          p_request_hash:requestHash
+        };
+    const {data,error}=await admin.rpc(rpcName,rpcArgs);
 
     if(error){
       const mapped=mapRpcError(error);
