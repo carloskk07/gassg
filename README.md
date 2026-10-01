@@ -30,7 +30,7 @@ Antes de liberar usuários reais em volume, devem ser comprovados com contas rea
 2. URLs de redirecionamento do Supabase Auth;
 3. conversão de cliente anônimo para conta permanente por e-mail;
 4. primeiro fluxo em dois dispositivos: cliente → revenda → entrega → pagamento + PIN → benefícios;
-5. criar o primeiro administrador permanente na allowlist `platform_admins`;
+5. criar o primeiro administrador permanente pelo bootstrap server-side descrito abaixo;
 6. processo operacional de cobrança/reembolso entre plataforma e revenda;
 7. usar origem dedicada/custom domain antes de escalar sessões privilegiadas além do piloto protegido.
 
@@ -109,8 +109,8 @@ Proteções implementadas:
 - rescue centralizado;
 - preço, taxa e itens congelados em re-cotação;
 - PIN com `pgcrypto`, cinco tentativas e retenção curta;
-- service worker network-first com cache `v1.7.1`;
-- sessões de revenda/admin isoladas por aba enquanto o piloto ainda usa o origin compartilhado do GitHub Pages.
+- service worker network-first com cache `v1.16`;
+- sessões de cliente/revenda/admin isoladas por aba com `sessionStorage`; os modos reais permanecem bloqueados no origin compartilhado do GitHub Pages e exigem origens dedicadas.
 
 ## Confirmações de credibilidade do pedido
 
@@ -180,6 +180,14 @@ O CI executa:
 - validação do manifest/PWA.
 
 Nenhuma mudança deve ir para `main` com gate vermelho.
+
+### Bootstrap do primeiro administrador
+
+O banco começa deliberadamente com zero administradores. Depois que a primeira conta permanente de administração existir no Supabase Auth, execute **uma única vez**, pelo SQL Editor/service role:
+
+`select public.bootstrap_first_platform_admin('<UUID-DA-CONTA-PERMANENTE>'::uuid);`
+
+A função falha se a conta for anônima e fecha automaticamente assim que existir um administrador ativo. A partir daí, novos administradores são gerenciados pelo próprio control plane; o banco impede desativar o último administrador ativo.
 
 ## Limites deliberados do piloto
 
