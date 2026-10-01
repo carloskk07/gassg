@@ -40,7 +40,7 @@ assert.ok(core.includes('isValidCnpjShape'),'core precisa suportar validação e
 assert.ok(!merchant.includes('.stock'),'UI da revenda não deve depender do campo legado stock');
 assert.ok(growth.includes('referralCode'),'link de indicação deve usar código pessoal');
 assert.ok(!growth.includes('inputmode="numeric" maxlength="18"'),'campo CNPJ não pode forçar teclado somente numérico após adoção do CNPJ alfanumérico');
-assert.ok(sw.includes("CACHE='chama-sg-v1.5'"),'cache do service worker precisa estar versionado');
+assert.ok(sw.includes("CACHE='chama-sg-v1.6'"),'cache do service worker precisa estar versionado');
 assert.ok(sw.includes("./js/backend.js"),'runtime live precisa estar no cache da PWA');
 assert.ok(backend.includes("sb_publishable_"),'frontend live deve usar publishable key explícita');
 assert.ok(!backend.includes("sb_secret_"),'frontend jamais pode conter secret key');
@@ -67,6 +67,12 @@ assert.ok(merchant.includes('merchantLivePage'),'UI deve possuir painel real da 
 assert.ok(merchant.includes('Endereço protegido até o aceite'),'painel real não pode expor endereço antes do aceite');
 assert.ok(merchant.includes('Pagamento recebido'),'painel real deve exigir confirmação de pagamento');
 assert.ok(core.includes('grossCents*100'),'demo deve calcular cashback proporcional ao pedido');
+assert.ok(backend.includes('liveUpgradeAccount'),'cliente anônimo precisa poder vincular identidade permanente sem trocar de usuário');
+assert.ok(growth.includes('Comissão em dinheiro exige conta permanente'),'UI deve explicar o gate de identidade para saque');
+assert.ok(read('supabase/functions/customer-summary/index.ts').includes('cashEarningEligible'),'resumo financeiro precisa expor elegibilidade de comissão');
+assert.ok(read('supabase/functions/merchant-ops/index.ts').includes('Seu papel não pode manter a operação ativa.'),'heartbeat não pode ser mantido por papel não operacional');
+assert.ok(read('supabase/functions/merchant-orders/index.ts').includes('MERCHANT_ROLE_NOT_ENABLED'),'driver sem assignment não pode abrir painel operacional');
+
 
 
 
