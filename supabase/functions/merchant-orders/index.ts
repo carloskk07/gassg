@@ -106,6 +106,30 @@ Deno.serve(async(req:Request)=>{
       .order("product_code");
     if(catalogError)throw catalogError;
 
+    const [
+      {data:compliance,error:complianceError},
+      {data:compliancePolicy,error:compliancePolicyError},
+      {data:cnpjCurrent,error:cnpjCurrentError},
+      {data:anpCurrent,error:anpCurrentError}
+    ]=await Promise.all([
+      admin
+        .from("merchant_compliance")
+        .select("cnpj_status,anp_status,cnpj_verified_at,anp_verified_at")
+        .eq("merchant_id",selected.merchant_id)
+        .maybeSingle(),
+      admin
+        .from("merchant_compliance_policy")
+        .select("cnpj_max_age_days,anp_max_age_days")
+        .eq("policy_key","default")
+        .maybeSingle(),
+      admin.rpc("merchant_cnpj_compliance_current",{p_merchant_id:selected.merchant_id}),
+      admin.rpc("merchant_anp_compliance_current",{p_merchant_id:selected.merchant_id})
+    ]);
+    if(complianceError)throw complianceError;
+    if(compliancePolicyError)throw compliancePolicyError;
+    if(cnpjCurrentError)throw cnpjCurrentError;
+    if(anpCurrentError)throw anpCurrentError;
+
     const {data:orders,error:ordersError}=await admin
       .from("orders")
       .select("id,public_code,status,address_text,payment_method,gross_total_cents,cashback_reserved_cents,total_cents,supplier_name_snapshot,risk_reason,offer_expires_at,accepted_at,dispatch_due_at,dispatched_at,arriving_at,promised_by,pin_failures,version,created_at,updated_at")
@@ -151,7 +175,17 @@ Deno.serve(async(req:Request)=>{
         baseEtaMinutes:merchant.base_eta_minutes,
         acceptsCitywide:merchant.accepts_citywide,
         deliveryFeeConfirmedAt:merchant.delivery_fee_confirmed_at,
-        lastSeenAt:merchant.last_seen_at
+        lastSeenAt:merchant.last_seen_at,
+        compliance:{
+          cnpjStatus:compliance?.cnpj_status??"pending",
+          anpStatus:compliance?.anp_status??"pending",
+          cnpjVerifiedAt:compliance?.cnpj_verified_at??null,
+          anpVerifiedAt:compliance?.anp_verified_at??null,
+          cnpjCurrent:cnpjCurrent===true,
+          anpCurrent:anpCurrent===true,
+          cnpjMaxAgeDays:Number(compliancePolicy?.cnpj_max_age_days??30),
+          anpMaxAgeDays:Number(compliancePolicy?.anp_max_age_days??7)
+        }
       },
       memberships:memberships
         .filter((m)=>["owner","manager","operator"].includes(m.member_role))
