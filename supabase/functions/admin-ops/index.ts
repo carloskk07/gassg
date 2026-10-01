@@ -117,6 +117,15 @@ async function summary(admin:any){
   for(const result of [apps,merchants,compliance,capabilities,referralReviews,receivables,reimbursements,adjustments,audit]){
     if(result.error)throw result.error;
   }
+  const referralOrderIds=(referralReviews.data??[]).map((x:any)=>x.order_id).filter(Boolean);
+  const referralOrderStates=referralOrderIds.length
+    ? await admin.from("orders")
+        .select("id,financial_state,financial_reversed_at")
+        .in("id",referralOrderIds)
+    : {data:[],error:null};
+  if(referralOrderStates.error)throw referralOrderStates.error;
+  const referralStateByOrder=new Map((referralOrderStates.data??[]).map((x:any)=>[x.id,x]));
+
   const byMerchant=new Map((compliance.data??[]).map((x:any)=>[x.merchant_id,x]));
   const capabilitiesByMerchant=new Map<string,any[]>();
   for(const cap of capabilities.data??[]){
@@ -135,7 +144,14 @@ async function summary(admin:any){
       cashbackReimbursements:reimbursements.data??[],
       adjustments:adjustments.data??[]
     },
-    referralReviews:referralReviews.data??[],
+    referralReviews:(referralReviews.data??[]).map((x:any)=>{
+      const state:any=referralStateByOrder.get(x.order_id);
+      return {
+        ...x,
+        financialState:state?.financial_state??null,
+        financialReversedAt:state?.financial_reversed_at??null
+      };
+    }),
     recentAudit:audit.data??[]
   };
 }
@@ -304,6 +320,9 @@ Deno.serve(async(req:Request)=>{
     }
     if(message.includes("REFERRAL_REVIEW_ALREADY_FINAL")){
       return json({error:"REFERRAL_REVIEW_ALREADY_FINAL",message:"Esta revisão de indicação já possui decisão final."},409,origin);
+    }
+    if(message.includes("REFERRAL_REWARD_ALREADY_REVERSED")){
+      return json({error:"REFERRAL_REWARD_ALREADY_REVERSED",message:"A liquidação financeira deste pedido já foi revertida; a comissão não pode ser aprovada."},409,origin);
     }
     if(message.includes("MERCHANT_OWNERSHIP_CONFLICT")){
       return json({error:"MERCHANT_OWNERSHIP_CONFLICT",message:"Este CNPJ já possui outro owner ativo. Use um fluxo explícito de transferência de propriedade."},409,origin);
