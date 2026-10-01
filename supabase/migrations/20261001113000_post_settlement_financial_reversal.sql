@@ -43,7 +43,7 @@ returns trigger
 language plpgsql
 security definer
 set search_path = pg_catalog
-as $
+as $$
 begin
   if new.status='SETTLED'
      and old.status is distinct from new.status
@@ -52,7 +52,7 @@ begin
   end if;
   return new;
 end;
-$;
+$$;
 
 revoke all on function public.sync_order_financial_state()
 from public, anon, authenticated;
@@ -306,7 +306,7 @@ returns jsonb
 language plpgsql
 security definer
 set search_path = pg_catalog
-as $
+as $$
 declare
   v_order_id uuid;
   v_order public.orders%rowtype;
@@ -406,7 +406,7 @@ begin
 
   return jsonb_build_object('maturedCommissions',v_count);
 end;
-$;
+$$;
 
 revoke all on function public.process_reward_maturation()
 from public, anon, authenticated;
