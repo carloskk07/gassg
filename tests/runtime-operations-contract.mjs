@@ -40,6 +40,7 @@ const deliveryIndexes=fs.readFileSync(new URL('../supabase/migrations/2026100113
 const referralRisk=fs.readFileSync(new URL('../supabase/migrations/20261001134000_referral_fraud_review_authority.sql',import.meta.url),'utf8');
 const acceptRace=fs.readFileSync(new URL('../supabase/migrations/20261001135000_accept_time_race_rescue.sql',import.meta.url),'utf8');
 const referralReversalGuard=fs.readFileSync(new URL('../supabase/migrations/20261001136000_referral_review_reversal_guard.sql',import.meta.url),'utf8');
+const referralConcurrency=fs.readFileSync(new URL('../supabase/migrations/20261001137000_referral_risk_concurrency_lock.sql',import.meta.url),'utf8');
 const r=repricing.replace(/--.*$/gm,'').replace(/\s+/g,' ').toLowerCase();
 const w=watchdog.replace(/--.*$/gm,'').replace(/\s+/g,' ').toLowerCase();
 const h=hardening.replace(/--.*$/gm,'').replace(/\s+/g,' ').toLowerCase();
@@ -79,6 +80,7 @@ const di=deliveryIndexes.replace(/--.*$/gm,'').replace(/\s+/g,' ').toLowerCase()
 const rf=referralRisk.replace(/--.*$/gm,'').replace(/\s+/g,' ').toLowerCase();
 const xr=acceptRace.replace(/--.*$/gm,'').replace(/\s+/g,' ').toLowerCase();
 const rrg=referralReversalGuard.replace(/--.*$/gm,'').replace(/\s+/g,' ').toLowerCase();
+const rc=referralConcurrency.replace(/--.*$/gm,'').replace(/\s+/g,' ').toLowerCase();
 
 assert.match(r,/create table if not exists public\.order_requote_items/,'re-cotação precisa congelar preços por item');
 assert.match(r,/revoke all on table public\.order_requote_items from anon, authenticated/,'snapshot de re-cotação deve ser server-only');
@@ -328,4 +330,8 @@ assert.match(rrg,/referral_reward_already_reversed/,'aprovação tardia precisa 
 assert.match(rrg,/if v_grant\.reversed_at is not null then[\s\S]*v_amount:=0/,'rejeição tardia não pode debitar comissão novamente');
 assert.match(rrg,/rewardalreadyreversed/,'auditoria precisa registrar que o reward já estava revertido');
 
-console.log('Requote + watchdog + hardening v1.9.3 contract passou.');
+assert.match(rc,/pg_advisory_xact_lock[\s\S]*referral-risk:/,'grant de referral precisa serializar por indicador');
+assert.match(rc,/v_referrer is not null and v_referral_amount>0/,'lock de referral só deve ocorrer quando existe comissão');
+assert.match(rc,/insert into public\.order_reward_grants/,'lock precisa anteceder a inserção que dispara análise de risco');
+
+console.log('Requote + watchdog + hardening v1.9.4 contract passou.');
