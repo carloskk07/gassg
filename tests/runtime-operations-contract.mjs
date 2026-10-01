@@ -25,6 +25,7 @@ const settlementIndex=fs.readFileSync(new URL('../supabase/migrations/2026100111
 const adminControl=fs.readFileSync(new URL('../supabase/migrations/20261001118000_admin_control_plane.sql',import.meta.url),'utf8');
 const adminReversal=fs.readFileSync(new URL('../supabase/migrations/20261001119000_admin_reversal_authority.sql',import.meta.url),'utf8');
 const adminIndexes=fs.readFileSync(new URL('../supabase/migrations/20261001120000_admin_compliance_fk_indexes.sql',import.meta.url),'utf8');
+const adminIdempotency=fs.readFileSync(new URL('../supabase/migrations/20261001121000_admin_action_idempotency.sql',import.meta.url),'utf8');
 const r=repricing.replace(/--.*$/gm,'').replace(/\s+/g,' ').toLowerCase();
 const w=watchdog.replace(/--.*$/gm,'').replace(/\s+/g,' ').toLowerCase();
 const h=hardening.replace(/--.*$/gm,'').replace(/\s+/g,' ').toLowerCase();
@@ -49,6 +50,7 @@ const si=settlementIndex.replace(/--.*$/gm,'').replace(/\s+/g,' ').toLowerCase()
 const ad=adminControl.replace(/--.*$/gm,'').replace(/\s+/g,' ').toLowerCase();
 const ar=adminReversal.replace(/--.*$/gm,'').replace(/\s+/g,' ').toLowerCase();
 const ai=adminIndexes.replace(/--.*$/gm,'').replace(/\s+/g,' ').toLowerCase();
+const ax=adminIdempotency.replace(/--.*$/gm,'').replace(/\s+/g,' ').toLowerCase();
 
 assert.match(r,/create table if not exists public\.order_requote_items/,'re-cotação precisa congelar preços por item');
 assert.match(r,/revoke all on table public\.order_requote_items from anon, authenticated/,'snapshot de re-cotação deve ser server-only');
@@ -195,4 +197,12 @@ assert.match(ar,/platform_admin_audit/,'reversão e auditoria precisam ocorrer n
 assert.match(ai,/merchant_compliance_verified_by_idx/,'FK verified_by do compliance precisa de índice');
 assert.match(ai,/platform_admins_created_by_idx/,'FK created_by da allowlist admin precisa de índice');
 
-console.log('Requote + watchdog + hardening v1.7.2 contract passou.');
+assert.match(ax,/create or replace function public\.admin_execute_action/,'admin mutável precisa de autoridade idempotente central');
+assert.match(ax,/insert into public\.action_requests/,'admin idempotente deve reutilizar action_requests');
+assert.match(ax,/on conflict\(idempotency_key\) do nothing/,'retry admin precisa serializar pela chave');
+assert.match(ax,/v_action\.request_hash<>p_request_hash/,'mesma chave com payload diferente deve falhar');
+assert.match(ax,/if v_action\.completed_at is not null then return v_action\.result_json/,'retry concluído deve devolver exatamente o resultado anterior');
+assert.match(ax,/update public\.action_requests set result_json=v_result,[\s\S]*completed_at=clock_timestamp\(\)/,'resultado admin precisa ser confirmado na mesma transação');
+assert.match(ax,/revoke all on function public\.admin_execute_action\(uuid,text,jsonb,text,text\)[\s\S]*from public, anon, authenticated/,'RPC idempotente admin deve ser server-only');
+
+console.log('Requote + watchdog + hardening v1.7.3 contract passou.');
