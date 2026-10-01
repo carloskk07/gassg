@@ -48,7 +48,7 @@ function freshSeed(){
   return {
     version:STATE_VERSION,
     mode:'customer',
-    user:{name:'Carlos',cashback:7.50,purchases:4,referralCode:'CARLOS27',commissionAvailable:0,commissionPending:0,referredBy:null},
+    user:{name:'Carlos',cashback:7.50,purchases:4,referralCode:'CARLOS27',commissionAvailable:0,commissionPending:0,referredBy:null,cashEarningEligible:true,identityType:'demo'},
     address:'',
     cart:{P13:0,WATER20:0,CHARCOAL4:0,WOOD:0,ICE5:0},
     checkout:{paymentMethod:'pix',useCashback:false},
@@ -98,6 +98,8 @@ function normalizeState(raw){
   merged.user.commissionAvailable=Math.max(0,roundMoney(Number(merged.user.commissionAvailable)||0));
   merged.user.commissionPending=Math.max(0,roundMoney(Number(merged.user.commissionPending)||0));
   merged.user.referralCode=String(merged.user.referralCode||base.user.referralCode).slice(0,40);
+  merged.user.cashEarningEligible=merged.user.cashEarningEligible!==false;
+  merged.user.identityType=String(merged.user.identityType||base.user.identityType).slice(0,24);
   merged.checkout={...base.checkout,...(raw.checkout||{})};
   merged.checkout.paymentMethod=['pix','card','cash'].includes(merged.checkout.paymentMethod)?merged.checkout.paymentMethod:'pix';
   merged.checkout.useCashback=Boolean(merged.checkout.useCashback);
