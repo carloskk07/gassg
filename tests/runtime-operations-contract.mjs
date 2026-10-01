@@ -46,6 +46,7 @@ const rewardDeadLetter=fs.readFileSync(new URL('../supabase/migrations/202610011
 const adminRewardRecovery=fs.readFileSync(new URL('../supabase/migrations/20261001140000_admin_reward_recovery.sql',import.meta.url),'utf8');
 const settlementAccounting=fs.readFileSync(new URL('../supabase/migrations/20261001141000_settlement_accounting_decoupling.sql',import.meta.url),'utf8');
 const strictAccountingReward=fs.readFileSync(new URL('../supabase/migrations/20261001150000_strict_accounting_reward_separation.sql',import.meta.url),'utf8');
+const deterministicClocks=fs.readFileSync(new URL('../supabase/migrations/20261001151000_deterministic_settlement_clocks.sql',import.meta.url),'utf8');
 const adminAccountingRecovery=fs.readFileSync(new URL('../supabase/migrations/20261001142000_admin_settlement_accounting_recovery.sql',import.meta.url),'utf8');
 const noUnsafeOffset=fs.readFileSync(new URL('../supabase/migrations/20261001143000_disable_unsafe_cashback_offset.sql',import.meta.url),'utf8');
 const customerCancel=fs.readFileSync(new URL('../supabase/migrations/20261001144000_customer_cancel_before_dispatch.sql',import.meta.url),'utf8');
@@ -98,6 +99,7 @@ const rdl=rewardDeadLetter.replace(/--.*$/gm,'').replace(/\s+/g,' ').toLowerCase
 const arr=adminRewardRecovery.replace(/--.*$/gm,'').replace(/\s+/g,' ').toLowerCase();
 const sa=settlementAccounting.replace(/--.*$/gm,'').replace(/\s+/g,' ').toLowerCase();
 const sar=strictAccountingReward.replace(/--.*$/gm,'').replace(/\s+/g,' ').toLowerCase();
+const dsc=deterministicClocks.replace(/--.*$/gm,'').replace(/\s+/g,' ').toLowerCase();
 const aar=adminAccountingRecovery.replace(/--.*$/gm,'').replace(/\s+/g,' ').toLowerCase();
 const nuo=noUnsafeOffset.replace(/--.*$/gm,'').replace(/\s+/g,' ').toLowerCase();
 const cnc=customerCancel.replace(/--.*$/gm,'').replace(/\s+/g,' ').toLowerCase();
@@ -425,4 +427,10 @@ assert.doesNotMatch(sar,/cashbackreimbursementcents/,'reward engine não deve ex
 assert.match(sa,/ensure_order_settlement_accounting[\s\S]*insert into public\.platform_receivables/,'recebível deve pertencer à autoridade contábil');
 assert.match(sa,/ensure_order_settlement_accounting[\s\S]*insert into public\.merchant_cashback_reimbursements/,'reembolso deve pertencer à autoridade contábil');
 
-console.log('Requote + watchdog + hardening v1.14.7 contract passou.');
+assert.match(dsc,/coalesce\(v_order\.settled_at,v_order\.payment_confirmed_at,v_order\.delivered_at,clock_timestamp\(\)\)\+interval '7 days'/,'vencimentos contábeis precisam nascer do settlement original');
+assert.match(dsc,/v_available_at:=coalesce\(v_order\.settled_at,v_order\.payment_confirmed_at,v_order\.delivered_at,clock_timestamp\(\)\)/,'hold de comissão deve usar settlement original');
+assert.match(dsc,/platform_contribution_cents,created_at/,'reward grant precisa persistir timestamp econômico explícito');
+assert.doesNotMatch(dsc,/v_available_at:=clock_timestamp\(\)/,'retry não pode reiniciar janela de comissão');
+assert.doesNotMatch(dsc,/['"]open['"],clock_timestamp\(\)\+interval '7 days'/,'retry não pode empurrar vencimento financeiro');
+
+console.log('Requote + watchdog + hardening v1.14.8 contract passou.');
