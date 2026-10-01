@@ -33,6 +33,9 @@ const complianceContinuity=fs.readFileSync(new URL('../supabase/migrations/20261
 const glpGate=fs.readFileSync(new URL('../supabase/migrations/20261001126000_generalize_glp_regulatory_gate.sql',import.meta.url),'utf8');
 const rewardLifecycle=fs.readFileSync(new URL('../supabase/migrations/20261001127000_reward_retry_lifecycle_cleanup.sql',import.meta.url),'utf8');
 const skuFresh=fs.readFileSync(new URL('../supabase/migrations/20261001128000_per_sku_price_freshness.sql',import.meta.url),'utf8');
+const deliveryCompatibility=fs.readFileSync(new URL('../supabase/migrations/20261001130000_delivery_compatibility_authority.sql',import.meta.url),'utf8');
+const deliveryEnforcement=fs.readFileSync(new URL('../supabase/migrations/20261001131000_enforce_delivery_compatibility.sql',import.meta.url),'utf8');
+const deliveryAdmin=fs.readFileSync(new URL('../supabase/migrations/20261001132000_admin_delivery_capability_control.sql',import.meta.url),'utf8');
 const r=repricing.replace(/--.*$/gm,'').replace(/\s+/g,' ').toLowerCase();
 const w=watchdog.replace(/--.*$/gm,'').replace(/\s+/g,' ').toLowerCase();
 const h=hardening.replace(/--.*$/gm,'').replace(/\s+/g,' ').toLowerCase();
@@ -65,6 +68,9 @@ const cc=complianceContinuity.replace(/--.*$/gm,'').replace(/\s+/g,' ').toLowerC
 const gg=glpGate.replace(/--.*$/gm,'').replace(/\s+/g,' ').toLowerCase();
 const rl=rewardLifecycle.replace(/--.*$/gm,'').replace(/\s+/g,' ').toLowerCase();
 const pf=skuFresh.replace(/--.*$/gm,'').replace(/\s+/g,' ').toLowerCase();
+const dc=deliveryCompatibility.replace(/--.*$/gm,'').replace(/\s+/g,' ').toLowerCase();
+const de=deliveryEnforcement.replace(/--.*$/gm,'').replace(/\s+/g,' ').toLowerCase();
+const da=deliveryAdmin.replace(/--.*$/gm,'').replace(/\s+/g,' ').toLowerCase();
 
 assert.match(r,/create table if not exists public\.order_requote_items/,'re-cotação precisa congelar preços por item');
 assert.match(r,/revoke all on table public\.order_requote_items from anon, authenticated/,'snapshot de re-cotação deve ser server-only');
@@ -265,5 +271,22 @@ assert.match(pf,/ci\.price_confirmed_at>=clock_timestamp\(\)-interval '24 hours'
 assert.match(pf,/m\.delivery_fee_confirmed_at>=clock_timestamp\(\)-interval '24 hours'/,'rescue só pode usar taxa de entrega fresca');
 assert.match(pf,/v_merchant\.delivery_fee_confirmed_at<clock_timestamp\(\)-interval '24 hours'/,'quote precisa validar freshness da taxa no banco');
 assert.doesNotMatch(pf,/v_merchant\.price_confirmed_at<clock_timestamp\(\)-interval '24 hours'/,'quote atual não pode depender do relógio global legado');
+
+assert.match(dc,/create table if not exists public\.product_delivery_profiles/,'produtos precisam de perfil logístico server-side');
+assert.match(dc,/requires_isolated_delivery/,'perfil logístico precisa suportar carga que exige isolamento');
+assert.match(dc,/regulated_glp_mixed_load_verified/,'cesta GLP mista precisa de capability explícita');
+assert.match(dc,/v_profiled<>v_requested/,'produto sem perfil logístico deve falhar fechado');
+assert.match(dc,/filter_delivery_compatible_merchants/,'matching precisa de filtro bulk de compatibilidade');
+assert.match(de,/quote_delivery_compatibility_guard/,'quote_items precisam de constraint trigger de compatibilidade');
+assert.match(de,/order_item_delivery_compatibility_guard/,'order_items precisam de constraint trigger de compatibilidade');
+assert.match(de,/order_delivery_transition_compatibility_guard/,'troca de fornecedor e despacho precisam revalidar compatibilidade');
+assert.match(de,/new\.status in \('preparing','out_for_delivery'\)/,'aceite e saída precisam revalidar capacidade logística');
+assert.match(de,/public\.merchant_cart_delivery_compatible[\s\S]*m\.id/,'rescue precisa pular revenda incompatível');
+assert.match(de,/delivery_incompatible/,'falha de compatibilidade deve ter erro semântico próprio');
+assert.match(da,/admin_set_delivery_capability/,'capacidade logística precisa de autoridade admin');
+assert.match(da,/v_compliance\.cnpj_status<>'verified'/,'capability exige CNPJ verificado');
+assert.match(da,/v_compliance\.anp_status<>'verified'/,'capability GLP exige ANP verificada');
+assert.match(da,/admin_delivery_capability_action/,'alteração de capability precisa ser idempotente');
+assert.match(da,/platform_admin_audit/,'capability precisa deixar trilha de auditoria');
 
 console.log('Requote + watchdog + hardening v1.8 contract passou.');
