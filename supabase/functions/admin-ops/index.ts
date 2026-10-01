@@ -235,8 +235,12 @@ Deno.serve(async(req:Request)=>{
     if(message.includes("CNPJ_VERIFICATION_REQUIRED")){
       return json({error:"CNPJ_VERIFICATION_REQUIRED",message:"Valide o CNPJ antes de ativar a revenda."},409,origin);
     }
-    if(message.includes("ANP_VERIFICATION_REQUIRED")||message.includes("P13_REGULATORY_VERIFICATION_REQUIRED")){
-      return json({error:"ANP_VERIFICATION_REQUIRED",message:"Revenda com P13 exige validação ANP antes da ativação."},409,origin);
+    if(
+      message.includes("ANP_VERIFICATION_REQUIRED")
+      || message.includes("GLP_REGULATORY_VERIFICATION_REQUIRED")
+      || message.includes("P13_REGULATORY_VERIFICATION_REQUIRED")
+    ){
+      return json({error:"ANP_VERIFICATION_REQUIRED",message:"Revenda com produto GLP ativo exige validação ANP antes da operação."},409,origin);
     }
     if(message.includes("FINANCIAL_ITEM_NOT_OPEN")){
       return json({error:"FINANCIAL_ITEM_NOT_OPEN",message:"Este item financeiro já foi processado."},409,origin);
