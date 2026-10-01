@@ -306,10 +306,30 @@ async function liveSyncFinancialProfile(){
     state.user.commissionPending=Math.max(0,Number(summary?.commissionPendingCents||0)/100);
     state.user.commissionAvailable=Math.max(0,Number(summary?.commissionAvailableCents||0)/100);
     state.user.purchases=Math.max(0,Number(summary?.settledOrders||0));
+    state.user.cashEarningEligible=summary?.cashEarningEligible===true;
+    state.user.identityType=String(summary?.identityType||'anonymous');
     save();
   }catch(error){
     console.warn('Não foi possível sincronizar o resumo financeiro live',error);
   }
+}
+
+async function liveUpgradeAccount(email){
+  if(!liveReady())throw new Error('Modo live não está pronto');
+  const value=String(email||'').trim().toLowerCase();
+  if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value))throw new Error('Informe um e-mail válido');
+  const {data:{session},error:sessionError}=await liveRuntime.client.auth.getSession();
+  if(sessionError||!session?.user)throw sessionError||new Error('Sessão indisponível');
+  if(session.user.is_anonymous!==true){
+    state.user.cashEarningEligible=true;
+    state.user.identityType='permanent';
+    save();
+    return {alreadyPermanent:true};
+  }
+  const {data,error}=await liveRuntime.client.auth.updateUser({email:value});
+  if(error)throw error;
+  liveRuntime.identityUpgradePending=value;
+  return {pending:true,email:value,user:data?.user??null};
 }
 
 async function livePoll(){
@@ -648,6 +668,7 @@ globalThis.liveScheduleOfferRefresh=liveScheduleOfferRefresh;
 globalThis.liveCreateOrder=liveCreateOrder;
 globalThis.liveGetOrder=liveGetOrder;
 globalThis.liveCustomerAction=liveCustomerAction;
+globalThis.liveUpgradeAccount=liveUpgradeAccount;
 globalThis.livePoll=livePoll;
 globalThis.merchantRuntime=merchantRuntime;
 globalThis.merchantPortalRequested=merchantPortalRequested;
