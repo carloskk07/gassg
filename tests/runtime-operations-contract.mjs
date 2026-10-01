@@ -41,6 +41,7 @@ const referralRisk=fs.readFileSync(new URL('../supabase/migrations/2026100113400
 const acceptRace=fs.readFileSync(new URL('../supabase/migrations/20261001135000_accept_time_race_rescue.sql',import.meta.url),'utf8');
 const referralReversalGuard=fs.readFileSync(new URL('../supabase/migrations/20261001136000_referral_review_reversal_guard.sql',import.meta.url),'utf8');
 const referralConcurrency=fs.readFileSync(new URL('../supabase/migrations/20261001137000_referral_risk_concurrency_lock.sql',import.meta.url),'utf8');
+const atomicRescue=fs.readFileSync(new URL('../supabase/migrations/20261001138000_atomic_rescue_candidate_locking.sql',import.meta.url),'utf8');
 const r=repricing.replace(/--.*$/gm,'').replace(/\s+/g,' ').toLowerCase();
 const w=watchdog.replace(/--.*$/gm,'').replace(/\s+/g,' ').toLowerCase();
 const h=hardening.replace(/--.*$/gm,'').replace(/\s+/g,' ').toLowerCase();
@@ -81,6 +82,7 @@ const rf=referralRisk.replace(/--.*$/gm,'').replace(/\s+/g,' ').toLowerCase();
 const xr=acceptRace.replace(/--.*$/gm,'').replace(/\s+/g,' ').toLowerCase();
 const rrg=referralReversalGuard.replace(/--.*$/gm,'').replace(/\s+/g,' ').toLowerCase();
 const rc=referralConcurrency.replace(/--.*$/gm,'').replace(/\s+/g,' ').toLowerCase();
+const arc=atomicRescue.replace(/--.*$/gm,'').replace(/\s+/g,' ').toLowerCase();
 
 assert.match(r,/create table if not exists public\.order_requote_items/,'re-cotação precisa congelar preços por item');
 assert.match(r,/revoke all on table public\.order_requote_items from anon, authenticated/,'snapshot de re-cotação deve ser server-only');
@@ -334,4 +336,12 @@ assert.match(rc,/pg_advisory_xact_lock[\s\S]*referral-risk:/,'grant de referral 
 assert.match(rc,/v_referrer is not null and v_referral_amount>0/,'lock de referral só deve ocorrer quando existe comissão');
 assert.match(rc,/insert into public\.order_reward_grants/,'lock precisa anteceder a inserção que dispara análise de risco');
 
-console.log('Requote + watchdog + hardening v1.9.4 contract passou.');
+assert.match(arc,/for update skip locked/,'rescue precisa bloquear candidata sem esperar indefinidamente');
+assert.match(arc,/from public\.merchants[\s\S]*for update skip locked/,'merchant candidato precisa ser travado antes da troca');
+assert.match(arc,/from public\.catalog_items[\s\S]*for update skip locked/,'SKUs candidatos precisam ser travados antes do snapshot');
+assert.match(arc,/v_locked_items<>v_expected_items/,'rescue deve rejeitar snapshot parcial');
+assert.match(arc,/price_confirmed_at<clock_timestamp\(\)-interval '24 hours'/,'rescue deve revalidar freshness de SKU sob lock');
+assert.match(arc,/delivery_fee_confirmed_at<clock_timestamp\(\)-interval '24 hours'/,'rescue deve revalidar taxa sob lock');
+assert.match(arc,/price and stock were revalidated|preço e estoque foram revalidados/,'evento de rescue deve registrar revalidação atômica');
+
+console.log('Requote + watchdog + hardening v1.9.5 contract passou.');
