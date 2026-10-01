@@ -89,7 +89,7 @@ async function backendInit(){
       if(!globalThis.chamaTurnstile?.challenge){
         throw new Error('Proteção anti-bot indisponível');
       }
-      const captchaToken=await globalThis.chamaTurnstile.challenge();
+      const captchaToken=await globalThis.chamaTurnstile.challenge('anonymous_signin');
       if(!captchaToken)throw new Error('Token anti-bot ausente');
       const response=await client.auth.signInAnonymously({
         options:{captchaToken}
