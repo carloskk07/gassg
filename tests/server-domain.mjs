@@ -35,6 +35,15 @@ await test('parser JSON limita tamanho e rejeita formas inválidas',async()=>{
   );
 
   await assert.rejects(
+    ()=>readJsonBody(new Request('https://example.test',{
+      method:'POST',
+      body:'{"x":"'+('a'.repeat(17000))+'"}',
+      headers:{'content-type':'application/json'}
+    })),
+    e=>e instanceof DomainError&&e.code==='PAYLOAD_TOO_LARGE'&&e.status===413
+  );
+
+  await assert.rejects(
     ()=>readJsonBody({headers:{get:()=>null},text:async()=>'[]'}),
     e=>e instanceof DomainError&&e.code==='INVALID_JSON'
   );
