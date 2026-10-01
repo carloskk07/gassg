@@ -339,7 +339,7 @@ function adminPage(){
 
     <section class="section"><div class="section-head"><div><h2>Cadastros de parceiros</h2><p>Aprovação cria a revenda como pendente e vincula o solicitante como owner. Não coloca a operação online.</p></div></div>${(d.applications||[]).length?(d.applications||[]).map(adminApplicationCard).join(''):'<div class="empty card">Nenhum cadastro recebido.</div>'}</section>
 
-    <section class="section"><div class="section-head"><div><h2>Validação e ativação</h2><p>CNPJ é obrigatório para toda revenda ativa. P13 ativo exige também validação ANP.</p></div></div>${(d.merchants||[]).length?(d.merchants||[]).map(adminMerchantCard).join(''):'<div class="empty card">Nenhuma revenda criada.</div>'}</section>
+    <section class="section"><div class="section-head"><div><h2>Validação e ativação</h2><p>CNPJ é obrigatório para toda revenda ativa. Qualquer produto GLP ativo exige também validação ANP.</p></div></div>${(d.merchants||[]).length?(d.merchants||[]).map(adminMerchantCard).join(''):'<div class="empty card">Nenhuma revenda criada.</div>'}</section>
 
     <section class="section"><div class="section-head"><div><h2>Conciliação financeira</h2><p>Taxa da plataforma, cashback usado e ajustes são contas separadas.</p></div></div>
       <div class="card flat"><h3>Taxas da plataforma</h3><div class="list">${receivables.length?receivables.map(adminReceivableRow).join(''):'<div class="tiny muted">Nenhuma taxa em aberto.</div>'}</div></div>
