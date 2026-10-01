@@ -86,7 +86,7 @@ assert.match(
 
 assert.match(
   normalized,
-  /grant select on table public\.profiles, public\.merchants, public\.catalog_items to authenticated/,
+  /grant select on table public\.profiles, public\.merchants, public\.merchant_members, public\.catalog_items, public\.orders, public\.order_items, public\.order_events, public\.wallet_entries, public\.referrals, public\.merchant_applications to authenticated/,
   'leituras autenticadas precisam ser explícitas'
 );
 
