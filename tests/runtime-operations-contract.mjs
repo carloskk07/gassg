@@ -31,6 +31,7 @@ const rewardRetry=fs.readFileSync(new URL('../supabase/migrations/20261001123000
 const adminState=fs.readFileSync(new URL('../supabase/migrations/20261001124000_admin_state_transition_hardening.sql',import.meta.url),'utf8');
 const complianceContinuity=fs.readFileSync(new URL('../supabase/migrations/20261001125000_continuous_compliance_enforcement.sql',import.meta.url),'utf8');
 const glpGate=fs.readFileSync(new URL('../supabase/migrations/20261001126000_generalize_glp_regulatory_gate.sql',import.meta.url),'utf8');
+const rewardLifecycle=fs.readFileSync(new URL('../supabase/migrations/20261001127000_reward_retry_lifecycle_cleanup.sql',import.meta.url),'utf8');
 const r=repricing.replace(/--.*$/gm,'').replace(/\s+/g,' ').toLowerCase();
 const w=watchdog.replace(/--.*$/gm,'').replace(/\s+/g,' ').toLowerCase();
 const h=hardening.replace(/--.*$/gm,'').replace(/\s+/g,' ').toLowerCase();
@@ -61,6 +62,7 @@ const fr=rewardRetry.replace(/--.*$/gm,'').replace(/\s+/g,' ').toLowerCase();
 const ast=adminState.replace(/--.*$/gm,'').replace(/\s+/g,' ').toLowerCase();
 const cc=complianceContinuity.replace(/--.*$/gm,'').replace(/\s+/g,' ').toLowerCase();
 const gg=glpGate.replace(/--.*$/gm,'').replace(/\s+/g,' ').toLowerCase();
+const rl=rewardLifecycle.replace(/--.*$/gm,'').replace(/\s+/g,' ').toLowerCase();
 
 assert.match(r,/create table if not exists public\.order_requote_items/,'re-cotação precisa congelar preços por item');
 assert.match(r,/revoke all on table public\.order_requote_items from anon, authenticated/,'snapshot de re-cotação deve ser server-only');
@@ -249,4 +251,9 @@ assert.match(gg,/public\.is_glp_product_code\(ci\.product_code\)/,'ativação e 
 assert.match(gg,/drop function if exists public\.enforce_p13_catalog_compliance/,'gate antigo P13-only deve ser removido');
 assert.doesNotMatch(gg,/ci\.product_code='p13'/,'gate atual não pode voltar a depender exclusivamente do P13');
 
-console.log('Requote + watchdog + hardening v1.7.8 contract passou.');
+assert.match(rl,/resolve_reward_processing_failure/,'fila de reward precisa limpar falha já resolvida');
+assert.match(rl,/after insert on public\.order_reward_grants/,'grant bem-sucedido precisa encerrar falha pendente');
+assert.match(rl,/new\.financial_state='reversed'/,'reversão financeira precisa encerrar retry inviável');
+assert.match(rl,/resolved_at=coalesce\(resolved_at,clock_timestamp\(\)\)/,'resolução da fila precisa ser idempotente');
+
+console.log('Requote + watchdog + hardening v1.7.9 contract passou.');
