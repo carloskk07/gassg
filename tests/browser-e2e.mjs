@@ -61,7 +61,7 @@ async function waitFor(expression,label,timeout=7000){
   }
   let debug={};
   try{
-    debug=JSON.parse(await evaluate(`JSON.stringify({hash:location.hash,href:location.href,text:document.body.innerText.slice(0,1600)})`));
+    debug=JSON.parse(await evaluate(`JSON.stringify({hash:location.hash,href:location.href,text:document.body.innerText.slice(0,1600),renderError:window.__lastRenderError||null})`));
   }catch{}
   throw new Error('Timeout: '+label+' | '+JSON.stringify({debug,lastEvalError,pageErrors}));
 }
