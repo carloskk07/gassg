@@ -74,7 +74,7 @@ async function requireAdmin(admin:any,userId:string){
   if(!data)throw new DomainError("ADMIN_ACCESS_DENIED","Esta conta não possui acesso administrativo.",403);
 }
 async function summary(admin:any){
-  const [apps,merchants,compliance,capabilities,referralReviews,receivables,reimbursements,adjustments,audit]=await Promise.all([
+  const [apps,merchants,compliance,capabilities,referralReviews,rewardFailures,receivables,reimbursements,adjustments,audit]=await Promise.all([
     admin.from("merchant_applications")
       .select("id,applicant_user_id,cnpj,company_name,responsible_name,phone,address_text,status,created_at,updated_at")
       .order("created_at",{ascending:false})
@@ -93,6 +93,11 @@ async function summary(admin:any){
       .select("order_id,referrer_user_id,referred_user_id,risk_status,risk_reasons,reviewed_at,reviewed_by,review_notes,created_at,updated_at")
       .in("risk_status",["review_required","approved","rejected"])
       .order("created_at",{ascending:false})
+      .limit(100),
+    admin.from("reward_processing_failures")
+      .select("order_id,attempts,last_sqlstate,last_error,next_retry_at,last_attempt_at,dead_lettered_at,resolved_at,created_at,updated_at")
+      .is("resolved_at",null)
+      .order("updated_at",{ascending:false})
       .limit(100),
     admin.from("platform_receivables")
       .select("order_id,merchant_id,gross_total_cents,platform_fee_bps,platform_fee_cents,status,due_at,paid_at,waived_at,reversed_at,created_at")
@@ -114,7 +119,7 @@ async function summary(admin:any){
       .order("created_at",{ascending:false})
       .limit(50)
   ]);
-  for(const result of [apps,merchants,compliance,capabilities,referralReviews,receivables,reimbursements,adjustments,audit]){
+  for(const result of [apps,merchants,compliance,capabilities,referralReviews,rewardFailures,receivables,reimbursements,adjustments,audit]){
     if(result.error)throw result.error;
   }
   const referralOrderIds=(referralReviews.data??[]).map((x:any)=>x.order_id).filter(Boolean);
@@ -144,6 +149,7 @@ async function summary(admin:any){
       cashbackReimbursements:reimbursements.data??[],
       adjustments:adjustments.data??[]
     },
+    rewardFailures:rewardFailures.data??[],
     referralReviews:(referralReviews.data??[]).map((x:any)=>{
       const state:any=referralStateByOrder.get(x.order_id);
       return {
@@ -231,6 +237,8 @@ Deno.serve(async(req:Request)=>{
         decision,
         notes:body.notes==null?null:(cleanText(body.notes,{min:0,max:1000,name:"observações"})||null)
       };
+    }else if(action==="retry-reward"){
+      payload={orderId:uuid(body.orderId,"order")};
     }else if(action==="reverse-order"){
       payload={
         orderId:uuid(body.orderId,"order"),
@@ -284,6 +292,14 @@ Deno.serve(async(req:Request)=>{
         p_order_id:payload.orderId,
         p_decision:payload.decision,
         p_notes:payload.notes,
+        p_idempotency_key:idempotencyKey,
+        p_request_hash:requestHash
+      };
+    }else if(action==="retry-reward"){
+      rpcName="admin_reward_retry_action";
+      rpcArgs={
+        p_actor_user_id:user.id,
+        p_order_id:payload.orderId,
         p_idempotency_key:idempotencyKey,
         p_request_hash:requestHash
       };
