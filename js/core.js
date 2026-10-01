@@ -495,6 +495,22 @@ function housekeeping(){
 }
 
 function runtimeStrip(){
+  if(globalThis.adminPortalRequested?.()){
+    const status=globalThis.adminRuntime?.status||'loading';
+    if(status==='ready'){
+      return '<div class="demo-strip live-strip"><span>● ADMIN PROTEGIDO • control plane server-side</span><button onclick="openCustomerPortal()">Sair do admin</button></div>';
+    }
+    if(status==='loading'||status==='disabled'){
+      return '<div class="demo-strip live-strip"><span>Conectando ao control plane administrativo…</span></div>';
+    }
+    if(status==='unauthenticated'){
+      return '<div class="demo-strip"><span>Administração • conta permanente e autorização explícita</span><button onclick="openCustomerPortal()">Voltar ao site</button></div>';
+    }
+    if(status==='no-access'){
+      return '<div class="demo-strip blocked-strip"><span>Conta autenticada sem permissão administrativa</span><button onclick="openCustomerPortal()">Voltar ao site</button></div>';
+    }
+    return '<div class="demo-strip blocked-strip"><span>Control plane administrativo indisponível</span><button onclick="openCustomerPortal()">Voltar ao site</button></div>';
+  }
   if(globalThis.merchantPortalRequested?.()){
     const status=globalThis.merchantRuntime?.status||'loading';
     if(status==='ready'){
@@ -525,29 +541,38 @@ function runtimeStrip(){
 }
 function shell(content){
   const r=route();
-  const merchantPortal=globalThis.merchantPortalRequested?.()===true;
+  const adminPortal=globalThis.adminPortalRequested?.()===true;
+  const merchantPortal=!adminPortal&&globalThis.merchantPortalRequested?.()===true;
   const merchantAction=merchantPortal?"go('merchant')":globalThis.liveRequested?.()?"openMerchantPortal()":"setMode('merchant')";
-  const customerAction=merchantPortal?"openCustomerPortal()":"setMode('customer')";
-  const brandAction=merchantPortal?"go('merchant')":"go('home')";
-  const desktopNav=merchantPortal
-    ? '<button onclick="go(\'merchant\')">Operação</button><button onclick="go(\'catalog\')">Catálogo</button><button onclick="go(\'merchants\')">Parceiros</button>'
-    : '<button onclick="go(\'home\')">Início</button><button onclick="go(\'club\')">Clube</button><button onclick="go(\'refer\')">Indique e ganhe</button><button onclick="go(\'merchants\')">Para revendas</button>';
+  const customerAction=(adminPortal||merchantPortal)?"openCustomerPortal()":"setMode('customer')";
+  const brandAction=adminPortal?"go('admin')":merchantPortal?"go('merchant')":"go('home')";
+  const desktopNav=adminPortal
+    ? '<button onclick="go(\'admin\')">Control plane</button>'
+    :merchantPortal
+      ? '<button onclick="go(\'merchant\')">Operação</button><button onclick="go(\'catalog\')">Catálogo</button><button onclick="go(\'merchants\')">Parceiros</button>'
+      : '<button onclick="go(\'home\')">Início</button><button onclick="go(\'club\')">Clube</button><button onclick="go(\'refer\')">Indique e ganhe</button><button onclick="go(\'merchants\')">Para revendas</button>';
+  const switcher=adminPortal
+    ? '<div class="mode-pill" aria-label="Alternar ambiente"><button onclick="openCustomerPortal()">Site</button><button class="active" onclick="go(\'admin\')">Admin</button></div>'
+    : `<div class="mode-pill" aria-label="Alternar modo"><button class="${!merchantPortal&&state.mode==='customer'?'active':''}" onclick="${customerAction}">Cliente</button><button class="${merchantPortal||state.mode==='merchant'?'active':''}" onclick="${merchantAction}">Revenda</button></div>`;
   return `<div class="app">
   ${runtimeStrip()}
   <header class="topbar"><div class="shell topbar-inner">
     <button class="brand brand-button" onclick="${brandAction}" aria-label="Ir para o início"><div class="brandmark"><span>🔥</span></div><div>Chama<small>São Gabriel</small></div></button>
     <div class="desktop-only desktop-nav">${desktopNav}</div>
-    <div class="mode-pill" aria-label="Alternar modo"><button class="${!merchantPortal&&state.mode==='customer'?'active':''}" onclick="${customerAction}">Cliente</button><button class="${merchantPortal||state.mode==='merchant'?'active':''}" onclick="${merchantAction}">Revenda</button></div>
+    ${switcher}
   </div></header>
   <main class="shell">${content}</main>
   ${bottomNav(r)}
   </div>`;
 }
 function bottomNav(r){
-  const merchantPortal=globalThis.merchantPortalRequested?.()===true;
-  const items=merchantPortal
-    ?[['merchant','🏪','Operação','go'],['merchant-orders','📦','Pedidos','go'],['catalog','🧺','Catálogo','go'],['merchants','➕','Parceiros','go']]
-    :state.mode==='merchant'
+  const adminPortal=globalThis.adminPortalRequested?.()===true;
+  const merchantPortal=!adminPortal&&globalThis.merchantPortalRequested?.()===true;
+  const items=adminPortal
+    ?[['admin','🛡️','Admin','go']]
+    :merchantPortal
+      ?[['merchant','🏪','Operação','go'],['merchant-orders','📦','Pedidos','go'],['catalog','🧺','Catálogo','go'],['merchants','➕','Parceiros','go']]
+      :state.mode==='merchant'
       ?[['merchant','🏪','Operação','go'],['merchant-orders','📦','Pedidos','go'],['catalog','🧺','Catálogo','go'],['merchant-metrics','📊','Desempenho','go'],['merchants','➕','Parceiros','go']]
       :[['home','⌂','Início','go'],['order','🔥','Pedir','start'],['tracking','📍','Pedido','go'],['club','★','Clube','go'],['refer','🤝','Indique','go']];
   return `<nav class="bottom-nav" aria-label="Navegação principal">${items.map(([id,ic,l,act])=>`<button class="nav-btn ${r===id?'active':''}" ${r===id?'aria-current="page"':''} onclick="${act==='start'?"startOrder('P13')":`go('${id}')`}"><span aria-hidden="true">${ic}</span><span>${l}</span></button>`).join('')}</nav>`;

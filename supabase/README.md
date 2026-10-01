@@ -1,4 +1,4 @@
-# Chama — Supabase backend v1.6.7
+# Chama — Supabase backend v1.7.2
 
 Backend multiusuário do Chama São Gabriel, isolado em projeto Supabase próprio.
 
@@ -6,6 +6,7 @@ Backend multiusuário do Chama São Gabriel, isolado em projeto Supabase própri
 
 - Cliente pode iniciar com **Anonymous Auth**.
 - Revenda usa identidade permanente.
+- Administração usa identidade permanente + allowlist explícita em `platform_admins`.
 - Cliente anônimo pode vincular e-mail posteriormente sem trocar o `user_id`.
 - Publishable key pode existir no frontend.
 - Secret/service role nunca existe no navegador.
@@ -56,6 +57,20 @@ O runtime atual usa polling protegido em vez de assinatura direta de tabelas.
 9. `dispatch` cria PIN e autoriza “A caminho”.
 10. `arriving` confirma aproximação.
 11. `complete-delivery` exige pagamento confirmado + PIN.
+
+## Control plane administrativo
+
+1. Admin abre `?admin=1#admin`.
+2. Login passwordless não cria novas contas automaticamente.
+3. `admin-ops` valida JWT, identidade permanente e allowlist `platform_admins`.
+4. Aprovação da aplicação cria/vincula merchant como `pending`, nunca online.
+5. `merchant_compliance` registra CNPJ e ANP.
+6. Trigger impede merchant `active/online` sem CNPJ verificado.
+7. Se P13 estiver ativo, ANP precisa estar `verified`.
+8. Admin concilia receivables, reembolso de cashback e ajustes.
+9. Reversão financeira + admin audit ocorrem na mesma transação.
+
+Enquanto o piloto usa GitHub Pages, sessões de revenda/admin usam `sessionStorage` por aba. Antes de escalar acessos privilegiados, usar origem dedicada/custom domain para não compartilhar o origin `carloskk07.github.io` com outros projetos.
 
 ## Rescue
 
@@ -141,7 +156,8 @@ Antes do primeiro E2E real:
 - Anonymous Sign-Ins habilitado;
 - Site URL/Redirect URL do GitHub Pages;
 - Manual Linking habilitado para upgrade anônimo → permanente;
-- entrega de e-mail funcionando para magic link/confirmação.
+- entrega de e-mail funcionando para magic link/confirmação;
+- conta permanente do primeiro administrador criada e incluída manualmente em `platform_admins`.
 
 ## Regras inegociáveis
 
@@ -153,4 +169,7 @@ Antes do primeiro E2E real:
 - nenhum aumento de preço sem novo aceite;
 - nenhuma conclusão apenas por ação de UI;
 - nenhuma identidade de revenda antes do aceite;
-- nenhum driver operando pedido sem assignment individual.
+- nenhum driver operando pedido sem assignment individual;
+- nenhuma ativação de revenda sem CNPJ verificado;
+- nenhum P13 em merchant ativo sem ANP verificada;
+- nenhuma autoelevação administrativa.

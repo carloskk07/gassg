@@ -3,9 +3,9 @@ function render(){
   if(renderLock)return;
   renderLock=true;
   try{
-    housekeeping();
+    if(!globalThis.adminPortalRequested?.())housekeeping();
     const r=route();
-    const pages={home,order:orderPage,tracking,club,refer,merchants:merchantsLanding,'merchant-join':merchantJoin,merchant:merchantPage,'merchant-orders':merchantOrders,catalog,'merchant-metrics':merchantMetrics};
+    const pages={home,order:orderPage,tracking,club,refer,merchants:merchantsLanding,'merchant-join':merchantJoin,merchant:merchantPage,'merchant-orders':merchantOrders,catalog,'merchant-metrics':merchantMetrics,admin:adminPage};
     const app=document.querySelector('#app');
     if(app)app.innerHTML=(pages[r]||home)();
   }catch(e){
@@ -24,7 +24,11 @@ window.addEventListener('unhandledrejection',e=>console.error('Promise rejeitada
 
 window.addEventListener('load',async()=>{
   render();
-  if(globalThis.merchantPortalRequested?.()){
+  if(globalThis.adminPortalRequested?.()){
+    await adminBackendInit();
+    if(route()!=='admin')go('admin');
+    render();
+  }else if(globalThis.merchantPortalRequested?.()){
     await merchantBackendInit();
     if(!['merchant','merchant-orders','catalog','merchant-metrics','merchants','merchant-join'].includes(route()))go('merchant');
     render();
@@ -42,9 +46,10 @@ window.addEventListener('load',async()=>{
     }catch(e){console.warn('Service worker indisponível',e)}
   }
   setInterval(()=>{
-    if(!globalThis.liveRequested?.()&&!globalThis.merchantPortalRequested?.()&&housekeeping())render();
+    if(!globalThis.liveRequested?.()&&!globalThis.merchantPortalRequested?.()&&!globalThis.adminPortalRequested?.()&&housekeeping())render();
     if(globalThis.liveReady?.())livePoll().catch(()=>{});
     if(globalThis.merchantReady?.())merchantPoll().catch(()=>{});
+    if(globalThis.adminReady?.())adminPoll().catch(()=>{});
   },5000);
 });
 
@@ -54,5 +59,7 @@ Object.assign(window,{
   merchantUpdate,merchantAction,reset,
   merchantLoginFromUi,merchantLiveRefresh,merchantLiveSelect,merchantLiveToggleOnline,
   merchantLiveSaveP13,merchantLiveSaveLogistics,merchantLiveAction,merchantLiveCannotFulfill,
-  merchantLiveDeliver,merchantLiveLogout
+  merchantLiveDeliver,merchantLiveLogout,
+  adminLoginFromUi,adminRefresh,adminSignOut,adminApproveApplication,adminRejectApplication,
+  adminSaveCompliance,adminSetMerchantStatus,adminFinancial,adminReverseOrder
 });
