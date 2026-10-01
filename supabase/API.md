@@ -149,8 +149,9 @@ Ações iniciais:
 - comparar PIN com hash server-side;
 - máximo de cinco falhas;
 - PIN correto faz `DELIVERED -> SETTLED`;
-- cashback entra uma única vez no ledger;
-- comissão de indicação só nasce após settlement real;
+- cashback entra uma única vez no bucket `cashback`;
+- comissão de indicação só nasce após settlement real no bucket `commission_pending`;
+- após o prazo antifraude, a liberação move valor de `commission_pending` para `commission_available` com duas entradas compensatórias;
 - estoque e financeiro nunca são recalculados pelo browser.
 
 ## 6. update-catalog
@@ -184,6 +185,16 @@ Pedidos usam `version` para optimistic concurrency. Uma ação baseada em versã
 ## Realtime
 
 No piloto de São Gabriel, o frontend pode assinar `orders` e `order_events` via Postgres Changes porque o volume inicial é pequeno e a configuração é simples. Se o produto crescer, migramos a entrega de eventos para Broadcast privado sem mudar a autoridade transacional do banco.
+
+## Ledger financeiro
+
+O saldo não é uma coluna mutável. Ele é derivado das entradas imutáveis por `bucket`:
+
+- `cashback`: crédito para novas compras;
+- `commission_pending`: comissão ainda sujeita a validação/cooldown;
+- `commission_available`: comissão apta a saque quando Pix real estiver habilitado.
+
+Movimentos de saída são negativos; entradas são positivas. Saque futuro é `commission_withdrawal`. Reversões possuem tipos próprios e nunca apagam histórico.
 
 ## Segurança
 
