@@ -382,6 +382,7 @@ async function merchantBackendInit(){
         persistSession:true,
         autoRefreshToken:true,
         detectSessionInUrl:true,
+        storage:sessionStorage,
         storageKey:'chama-sg-merchant-auth-v1'
       }
     });
