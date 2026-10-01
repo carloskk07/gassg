@@ -256,6 +256,13 @@ function restoreCashback(o){
     o.cashbackRestored=true;
   }
 }
+function rebalanceReservedCashback(o,newGross){
+  const allowed=roundMoney(Math.min(Number(o.cashbackReserved)||0,Math.max(0,Number(newGross)||0)));
+  const refund=roundMoney((Number(o.cashbackReserved)||0)-allowed);
+  if(refund>0)state.user.cashback=roundMoney(state.user.cashback+refund);
+  o.cashbackReserved=allowed;
+  return allowed;
+}
 function snapshotItems(m,cart){
   return Object.entries(cart).filter(([,q])=>q>0).map(([k,q])=>({key:k,name:products[k].name,qty:q,unitPrice:Number(productPrice(m,k)),lineTotal:roundMoney(q*Number(productPrice(m,k)))}));
 }
@@ -319,6 +326,7 @@ function reassignOrder(order,reason='A revenda não conseguiu atender.'){
   }
   order.merchantId=rescue.m.id;
   order.grossTotal=rescue.gross;
+  rebalanceReservedCashback(order,rescue.gross);
   order.total=roundMoney(Math.max(0,rescue.gross-order.cashbackReserved));
   order.lockedTotal=order.total;
   order.items=snapshotItems(rescue.m,order.cart);
