@@ -166,6 +166,8 @@ assert.ok(admin.includes('DEAD LETTER'),'painel admin precisa distinguir retry i
 assert.ok(admin.includes('adminRetryReward'),'painel admin precisa permitir recuperação auditada');
 assert.ok(adminOpsSource.includes('settlement_accounting_failures'),'admin precisa carregar dívida contábil de settlement');
 assert.ok(adminOpsSource.includes('admin_settlement_accounting_retry_action'),'retry contábil deve usar autoridade idempotente');
+assert.ok(!adminOpsSource.includes('cashback_reimbursement:["paid","offset"]'),'Edge admin não pode permitir offset sem autoridade de netting');
+assert.ok(!admin.includes('>Compensado</button>'),'UI admin não pode oferecer compensação opaca de cashback');
 assert.ok(admin.includes('Fila contábil de settlement'),'painel admin precisa exibir falhas contábeis');
 assert.ok(admin.includes('adminRetryAccounting'),'painel admin precisa permitir retry contábil auditado');
 
