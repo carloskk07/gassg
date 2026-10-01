@@ -12,7 +12,7 @@ function assertSqlBalanced(source){
     if(!single&&!dollar&&ch==='-'&&next==='-'){lineComment=true;i++;continue}
     if(!single&&ch==='
 const tables=[
-  'merchants','merchant_members','catalog_items','quotes','quote_items','orders','order_items',
+  'profiles','merchants','merchant_members','catalog_items','quotes','quote_items','orders','order_items',
   'order_events','wallet_entries','referrals','merchant_applications','action_requests'
 ];
 
@@ -27,6 +27,9 @@ assert.doesNotMatch(normalized,/grant\s+(insert|update|delete|all)[\s\S]{0,200}\
 assert.doesNotMatch(normalized,/security definer/,'schema inicial não deve introduzir SECURITY DEFINER');
 assert.doesNotMatch(sql,/sb_secret_|service_role\s*[:=]\s*['"][a-z0-9._-]+/i,'nenhuma chave secreta pode estar no repositório');
 
+assert.match(normalized,/create table if not exists public\.profiles/,'perfil mínimo por usuário precisa existir');
+assert.match(normalized,/referral_code text not null unique/,'código de indicação precisa ser único e server-side');
+assert.match(normalized,/merchant_applications_live_cnpj_idx/,'CNPJ não pode ter aplicações pendentes/ativas duplicadas');
 assert.match(normalized,/create table if not exists public\.quotes/,'cotação server-side precisa existir');
 assert.match(normalized,/expires_at timestamptz not null/,'cotação precisa expirar');
 assert.match(normalized,/consumed_at timestamptz/,'cotação precisa ser consumível uma única vez');
