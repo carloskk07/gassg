@@ -23,6 +23,16 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v6
+      - name: Syntax check
+        run: |
+          for f in js/*.js tests/*.mjs; do
+            echo "Checking $f"
+            node --check "$f"
+          done
+      - name: Marketplace simulations
+        run: node tests/simulations.mjs
+      - name: Validate manifest
+        run: node -e "JSON.parse(require('fs').readFileSync('manifest.webmanifest','utf8')); console.log('manifest OK')"
       - name: Configure Pages
         uses: actions/configure-pages@v5
       - name: Upload static site
