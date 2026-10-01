@@ -151,6 +151,20 @@ test('PIN bloqueia após cinco tentativas incorretas',()=>{
   assert.equal(T.getState().orders[0].status,'ARRIVING');
 });
 
+test('resgate mais barato devolve cashback reservado em excesso',()=>{
+  reset(x=>{x.address='Rua Teste, 105';x.cart=cart(['P13',1]);x.user.cashback=200;x.checkout.useCashback=true});
+  const o=T.createOrderForMerchant('C').order;
+  assert.equal(o.cashbackReserved,122.9);
+  assert.equal(T.rejectOrder(o.id).ok,true);
+  const after=T.getState();
+  const order=after.orders[0];
+  assert.equal(order.status,'OFFERED_TO_MERCHANT');
+  assert.equal(order.merchantId,'B');
+  assert.equal(order.cashbackReserved,119.9);
+  assert.equal(order.total,0);
+  assert.equal(after.user.cashback,80.1);
+});
+
 test('preço expirado remove revenda das ofertas',()=>{
   const s=reset(x=>{x.address='Rua Teste, 110';x.cart=cart(['P13',1])});
   s.merchants.find(m=>m.id==='A').priceConfirmedAt=new Date(Date.now()-25*60*60*1000).toISOString();
