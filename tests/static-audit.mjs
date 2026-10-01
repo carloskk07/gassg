@@ -33,8 +33,7 @@ assert.ok(merchant.includes('esc(o.address)'),'endereço no painel da revenda de
 assert.ok(customer.includes('esc(o.supplierSnapshot.name)'),'nome do fornecedor deve ser escapado');
 assert.ok(merchant.includes('esc(m.name)'),'nome da revenda deve ser escapado');
 assert.ok(core.includes("const STORAGE='chama-sg-state-v2'"),'versão nova do storage deve estar ativa');
-assert.ok(core.includes("return liveStateCanPersist()?localStorage:sessionStorage"),'estado live só pode persistir quando a origem dedicada do cliente foi validada');
-assert.ok(core.includes("const LIVE_STORAGE='chama-sg-live-state-v2'"),'estado live deve usar chave separada da demonstração');
+assert.ok(core.includes("return isLiveStateScope()?sessionStorage:localStorage"),'endereço/carrinho live devem permanecer tab-scoped em sessionStorage');
 assert.ok(core.includes('freshLiveSeed'),'modo live não pode herdar carteira/endereço demonstrativo do localStorage');
 assert.ok(backend.includes("storage:localStorage")&&backend.includes("storageKey:'chama-sg-customer-auth-v2'"),'cliente live deve persistir identidade anônima somente na origem dedicada');
 assert.ok(backend.includes("localStorage.getItem(CHAMA_BACKEND.orderStorageKey)"),'pedido live precisa ser recuperável depois de fechar e reabrir o navegador');
