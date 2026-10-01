@@ -82,6 +82,7 @@ type CatalogRow = {
   product_name: string;
   price_cents: number;
   available_stock: number;
+  price_confirmed_at: string | null;
 };
 
 type Candidate = {
@@ -171,7 +172,7 @@ Deno.serve(async (req: Request) => {
       .eq("status", "active")
       .eq("online", true)
       .eq("accepts_citywide", true)
-      .gte("price_confirmed_at", priceCutoff)
+      .gte("delivery_fee_confirmed_at", priceCutoff)
       .gte("last_seen_at", heartbeatCutoff)
       .limit(40);
 
@@ -183,10 +184,11 @@ Deno.serve(async (req: Request) => {
 
     const { data: catalog, error: catalogError } = await admin
       .from("catalog_items")
-      .select("merchant_id,product_code,product_name,price_cents,available_stock")
+      .select("merchant_id,product_code,product_name,price_cents,available_stock,price_confirmed_at")
       .in("merchant_id", merchantIds)
       .in("product_code", productCodes)
-      .eq("active", true);
+      .eq("active", true)
+      .gte("price_confirmed_at", priceCutoff);
 
     if (catalogError) throw catalogError;
 
