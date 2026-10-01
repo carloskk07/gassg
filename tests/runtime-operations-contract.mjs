@@ -195,4 +195,14 @@ assert.match(ar,/platform_admin_audit/,'reversão e auditoria precisam ocorrer n
 assert.match(ai,/merchant_compliance_verified_by_idx/,'FK verified_by do compliance precisa de índice');
 assert.match(ai,/platform_admins_created_by_idx/,'FK created_by da allowlist admin precisa de índice');
 
-console.log('Requote + watchdog + hardening v1.7.2 contract passou.');
+assert.match(adm,/create or replace function public\.admin_execute_action/,'mutações admin precisam de autoridade idempotente única');
+assert.match(adm,/insert into public\.action_requests/,'admin deve registrar chave idempotente');
+assert.match(adm,/idempotency_conflict/,'reuso de chave com payload diferente precisa falhar');
+assert.match(adm,/grant execute on function public\.admin_execute_action[\s\S]*to postgres, service_role/,'autoridade idempotente admin deve ser server-only');
+
+assert.match(cr,/restore_spent_cashback_on_financial_reversal/,'reversão deve devolver cashback usado no pedido');
+assert.match(cr,/cashback_reserved_cents/,'devolução deve usar exatamente o cashback consumido');
+assert.match(cr,/cashback-spent-return/,'devolução de cashback deve ser idempotente por pedido');
+assert.match(cr,/after insert on public\.order_financial_reversals/,'cashback gasto deve voltar na mesma transação da reversão');
+
+console.log('Requote + watchdog + hardening v1.7.4 contract passou.');
