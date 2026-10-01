@@ -38,21 +38,46 @@ export function invariant(condition,code,message,status=400){
 }
 
 export async function readJsonBody(req,{maxBytes=16384}={}){
-  invariant(req&&typeof req.text==='function','INVALID_REQUEST','Requisição inválida',400);
-  const declared=Number(req.headers?.get?.('content-length')||0);
+  invariant(req&&req.headers,'INVALID_REQUEST','Requisição inválida',400);
+  const declared=Number(req.headers.get?.('content-length')||0);
   if(Number.isFinite(declared)&&declared>maxBytes){
     throw new DomainError('PAYLOAD_TOO_LARGE','Payload excede o limite permitido',413);
   }
-  const text=await req.text();
-  const bytes=new TextEncoder().encode(text).byteLength;
-  invariant(bytes<=maxBytes,'PAYLOAD_TOO_LARGE','Payload excede o limite permitido',413);
-  if(!text.trim()) return {};
+
+  let text='';
+  if(req.body&&typeof req.body.getReader==='function'){
+    const reader=req.body.getReader();
+    const decoder=new TextDecoder();
+    let total=0;
+    try{
+      while(true){
+        const {done,value}=await reader.read();
+        if(done)break;
+        total+=value?.byteLength||0;
+        if(total>maxBytes){
+          try{await reader.cancel()}catch{}
+          throw new DomainError('PAYLOAD_TOO_LARGE','Payload excede o limite permitido',413);
+        }
+        text+=decoder.decode(value,{stream:true});
+      }
+      text+=decoder.decode();
+    }finally{
+      try{reader.releaseLock()}catch{}
+    }
+  }else{
+    invariant(typeof req.text==='function','INVALID_REQUEST','Requisição inválida',400);
+    text=await req.text();
+    const bytes=new TextEncoder().encode(text).byteLength;
+    invariant(bytes<=maxBytes,'PAYLOAD_TOO_LARGE','Payload excede o limite permitido',413);
+  }
+
+  if(!text.trim())return {};
   try{
     const parsed=JSON.parse(text);
     invariant(parsed&&typeof parsed==='object'&&!Array.isArray(parsed),'INVALID_JSON','JSON precisa ser um objeto');
     return parsed;
   }catch(error){
-    if(error instanceof DomainError) throw error;
+    if(error instanceof DomainError)throw error;
     throw new DomainError('INVALID_JSON','JSON inválido',400);
   }
 }
