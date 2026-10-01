@@ -541,8 +541,9 @@ async function merchantPerformAction(orderId,action,reason='other_operational'){
   try{
     const body={orderId,action,expectedVersion:order.version};
     if(action==='cannot-fulfill')body.reason=reason;
-    await merchantInvoke('merchant-action',body,{idempotencyKey:liveIdempotency('merchant-action')});
+    const result=await merchantInvoke('merchant-action',body,{idempotencyKey:liveIdempotency('merchant-action')});
     await merchantRefresh({silent:true});
+    return result;
   }catch(error){
     merchantRuntime.error=String(error?.message||error);
     try{await merchantRefresh({silent:true})}catch{}
