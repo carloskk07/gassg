@@ -250,7 +250,7 @@ const ALLOWED={
   ARRIVING:new Set(['DELIVERED','CANCELLED']),
   DELIVERED:new Set(['SETTLED']),
   REASSIGNING:new Set(['OFFERED_TO_MERCHANT','REQUOTE_REQUIRED','CANCELLED']),
-  REQUOTE_REQUIRED:new Set(['OFFERED_TO_MERCHANT','CANCELLED'])
+  REQUOTE_REQUIRED:new Set(['OFFERED_TO_MERCHANT','REASSIGNING','CANCELLED'])
 };
 function transition(o,next,title,desc){
   if(!o||!ALLOWED[o.status]?.has(next)) return {ok:false,error:`Transição inválida: ${o?.status||'null'} → ${next}`};
@@ -361,7 +361,8 @@ function acceptRequote(id){
   save();return {ok:true};
 }
 function reassignOrderAfterRequoteLoss(o){
-  o.status='REASSIGNING';appendEvent(o,'REASSIGNING','Oferta ficou indisponível','Estamos buscando outra alternativa.');
+  const moved=transition(o,'REASSIGNING','Oferta ficou indisponível','Estamos buscando outra alternativa.');
+  if(!moved.ok)return moved;
   const rescue=chooseRescue(o);
   if(!rescue){transition(o,'CANCELLED','Pedido cancelado','Nenhuma alternativa disponível.');restoreCashback(o);save();return {ok:false,error:'Oferta indisponível'};}
   o.proposedMerchantId=rescue.m.id;o.proposedGrossTotal=rescue.gross;o.proposedTotal=roundMoney(Math.max(0,rescue.gross-o.cashbackReserved));
