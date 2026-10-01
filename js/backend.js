@@ -15,6 +15,7 @@ const liveRuntime={
   loadingOffers:false,
   actionPending:false,
   error:null,
+  deliveryCompatibilityBlocked:false,
   lastSyncAt:null,
   offerRequestSeq:0,
   orderRequestSeq:0
@@ -176,6 +177,7 @@ async function liveRefreshOffers({silent=false}={}){
   const seq=++liveRuntime.offerRequestSeq;
   if(!liveReady()||!state.address||!hasCartItems()){
     liveRuntime.offers=[];
+    liveRuntime.deliveryCompatibilityBlocked=false;
     liveRuntime.loadingOffers=false;
     if(!silent)render();
     return [];
@@ -183,6 +185,7 @@ async function liveRefreshOffers({silent=false}={}){
   const addressSnapshot=state.address;
   const itemsSnapshot=liveCartItems();
   liveRuntime.offers=[];
+  liveRuntime.deliveryCompatibilityBlocked=false;
   liveRuntime.loadingOffers=true;
   liveRuntime.error=null;
   if(!silent)render();
@@ -196,6 +199,7 @@ async function liveRefreshOffers({silent=false}={}){
     if(state.address!==addressSnapshot||JSON.stringify(liveCartItems())!==JSON.stringify(itemsSnapshot)){
       return liveRuntime.offers;
     }
+    liveRuntime.deliveryCompatibilityBlocked=data?.deliveryCompatibilityBlocked===true;
     liveRuntime.offers=(data?.offers||[])
       .map(liveOfferView)
       .filter(o=>Number.isFinite(Date.parse(o.expiresAt))&&Date.parse(o.expiresAt)>Date.now());
@@ -204,6 +208,7 @@ async function liveRefreshOffers({silent=false}={}){
   }catch(error){
     if(seq===liveRuntime.offerRequestSeq){
       liveRuntime.offers=[];
+      liveRuntime.deliveryCompatibilityBlocked=false;
       liveRuntime.error=String(error?.message||error);
     }
     throw error;
