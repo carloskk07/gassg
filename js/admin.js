@@ -71,15 +71,22 @@ async function adminAccessToken(){
   return session.access_token;
 }
 
-async function adminInvoke(body={}){
+function adminIdempotency(prefix='admin'){
+  const uuid=globalThis.crypto?.randomUUID?.()||Math.random().toString(36).slice(2)+Date.now().toString(36);
+  return prefix+':'+uuid;
+}
+
+async function adminInvoke(body={},options={}){
   const token=await adminAccessToken();
+  const headers={
+    'Content-Type':'application/json',
+    'apikey':CHAMA_BACKEND.publishableKey,
+    'Authorization':'Bearer '+token
+  };
+  if(options.idempotencyKey)headers['Idempotency-Key']=options.idempotencyKey;
   const response=await fetch(CHAMA_BACKEND.url+'/functions/v1/admin-ops',{
     method:'POST',
-    headers:{
-      'Content-Type':'application/json',
-      'apikey':CHAMA_BACKEND.publishableKey,
-      'Authorization':'Bearer '+token
-    },
+    headers,
     body:JSON.stringify(body),
     cache:'no-store'
   });
@@ -160,7 +167,10 @@ async function adminPerform(action,payload={}){
   adminRuntime.error=null;
   render();
   try{
-    const result=await adminInvoke({action,...payload});
+    const result=await adminInvoke(
+      {action,...payload},
+      {idempotencyKey:adminIdempotency('admin-'+action)}
+    );
     await adminRefresh({silent:true});
     return result;
   }catch(error){
