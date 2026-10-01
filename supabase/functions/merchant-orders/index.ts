@@ -77,8 +77,13 @@ Deno.serve(async(req:Request)=>{
       ? memberships.find((m)=>m.merchant_id===requestedMerchantId)
       : memberships[0];
     if(!selected)return json({error:"MERCHANT_ACCESS_DENIED",message:"Você não possui acesso a esta revenda."},403,origin);
+    if(!["owner","manager","operator"].includes(selected.member_role)){
+      return json({error:"MERCHANT_ROLE_NOT_ENABLED",message:"Este papel ainda não possui painel operacional no piloto."},403,origin);
+    }
 
-    const membershipMerchantIds=memberships.map((m)=>m.merchant_id);
+    const membershipMerchantIds=memberships
+      .filter((m)=>["owner","manager","operator"].includes(m.member_role))
+      .map((m)=>m.merchant_id);
     const {data:membershipMerchants,error:membershipMerchantsError}=await admin
       .from("merchants")
       .select("id,name")
@@ -148,11 +153,13 @@ Deno.serve(async(req:Request)=>{
         priceConfirmedAt:merchant.price_confirmed_at,
         lastSeenAt:merchant.last_seen_at
       },
-      memberships:memberships.map((m)=>({
-        merchantId:m.merchant_id,
-        memberRole:m.member_role,
-        name:merchantNames.get(m.merchant_id)??"Revenda"
-      })),
+      memberships:memberships
+        .filter((m)=>["owner","manager","operator"].includes(m.member_role))
+        .map((m)=>({
+          merchantId:m.merchant_id,
+          memberRole:m.member_role,
+          name:merchantNames.get(m.merchant_id)??"Revenda"
+        })),
       catalog:(catalog??[]).map((item)=>({
         productCode:item.product_code,
         productName:item.product_name,
