@@ -60,6 +60,7 @@ function mapRpcError(error:{message?:string}|null){
     INSUFFICIENT_STOCK:[409,"O estoque mudou antes do aceite."],
     STOCK_RESTORE_FAILED:[409,"Não foi possível recompor o estoque reservado com segurança."],
     INVALID_RESCUE_STATE:[409,"O pedido não está em estado seguro para reatribuição."],
+    DELIVERY_INCOMPATIBLE:[409,"Esta cesta exige uma capacidade logística que a revenda não possui ou não está mais verificada."],
     IDEMPOTENCY_CONFLICT:[409,"A mesma chave foi usada para outra requisição."]
   };
   for(const [code,[status,text]] of Object.entries(map)){
