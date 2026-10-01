@@ -51,6 +51,8 @@ jobs:
         run: node tests/static-audit.mjs
       - name: Backend security contract
         run: node tests/backend-contract.mjs
+      - name: Runtime migration contract
+        run: node tests/runtime-migration-contract.mjs
       - name: Server domain simulations
         run: node tests/server-domain.mjs
       - name: Browser smoke — mobile routes
