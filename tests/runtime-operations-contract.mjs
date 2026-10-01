@@ -19,6 +19,8 @@ const cashIdentity=fs.readFileSync(new URL('../supabase/migrations/2026100111100
 const anonCleanup=fs.readFileSync(new URL('../supabase/migrations/20261001112000_safe_anonymous_user_cleanup.sql',import.meta.url),'utf8');
 const reversal=fs.readFileSync(new URL('../supabase/migrations/20261001113000_post_settlement_financial_reversal.sql',import.meta.url),'utf8');
 const reversalSummary=fs.readFileSync(new URL('../supabase/migrations/20261001114000_reversal_aware_customer_summary.sql',import.meta.url),'utf8');
+const merchantCashback=fs.readFileSync(new URL('../supabase/migrations/20261001115000_merchant_cashback_reimbursement.sql',import.meta.url),'utf8');
+const referralGate=fs.readFileSync(new URL('../supabase/migrations/20261001116000_referral_acquisition_gate.sql',import.meta.url),'utf8');
 const r=repricing.replace(/--.*$/gm,'').replace(/\s+/g,' ').toLowerCase();
 const w=watchdog.replace(/--.*$/gm,'').replace(/\s+/g,' ').toLowerCase();
 const h=hardening.replace(/--.*$/gm,'').replace(/\s+/g,' ').toLowerCase();
@@ -37,6 +39,8 @@ const ci=cashIdentity.replace(/--.*$/gm,'').replace(/\s+/g,' ').toLowerCase();
 const ac=anonCleanup.replace(/--.*$/gm,'').replace(/\s+/g,' ').toLowerCase();
 const rv=reversal.replace(/--.*$/gm,'').replace(/\s+/g,' ').toLowerCase();
 const rs=reversalSummary.replace(/--.*$/gm,'').replace(/\s+/g,' ').toLowerCase();
+const mc=merchantCashback.replace(/--.*$/gm,'').replace(/\s+/g,' ').toLowerCase();
+const rg=referralGate.replace(/--.*$/gm,'').replace(/\s+/g,' ').toLowerCase();
 
 assert.match(r,/create table if not exists public\.order_requote_items/,'re-cotação precisa congelar preços por item');
 assert.match(r,/revoke all on table public\.order_requote_items from anon, authenticated/,'snapshot de re-cotação deve ser server-only');
@@ -151,4 +155,16 @@ assert.match(rv,/grant execute on function public\.reverse_settled_order_financi
 assert.match(rs,/financial_state='settled'/,'compras válidas devem contar apenas settlements financeiros ativos');
 assert.match(rs,/financial_state='reversed'/,'resumo precisa rastrear compras financeiramente revertidas');
 
-console.log('Requote + watchdog + hardening v1.6.5 contract passou.');
+assert.match(mc,/create table if not exists public\.merchant_cashback_reimbursements/,'cashback usado precisa gerar obrigação a reembolsar a revenda');
+assert.match(mc,/v_order\.cashback_reserved_cents/,'reembolso deve usar exatamente o cashback consumido no pedido');
+assert.match(mc,/cashback_reimbursement_recovery_due/,'reversão após reembolso pago precisa gerar recuperação a receber');
+assert.match(mc,/merchant_financial_position/,'financeiro precisa calcular posição líquida por revenda');
+assert.match(mc,/netduetoplatformcents/,'posição financeira deve distinguir quem deve para quem');
+assert.match(mc,/revoke all on table public\.merchant_cashback_reimbursements from anon, authenticated/,'reembolso de cashback deve ser server-only');
+
+assert.match(rg,/v_prior_order_count integer:=0/,'atribuição de indicação precisa conhecer histórico anterior');
+assert.match(rg,/and v_prior_order_count=0/,'novo referral só pode nascer antes do primeiro pedido');
+assert.match(rg,/insert into public\.referrals[\s\S]*on conflict\(referred_user_id\) do nothing/,'relação de referral deve permanecer única por cliente');
+assert.match(rg,/grant execute on function public\.create_order_from_quote[\s\S]*to service_role/,'gate de aquisição deve permanecer server-only');
+
+console.log('Requote + watchdog + hardening v1.6.7 contract passou.');
