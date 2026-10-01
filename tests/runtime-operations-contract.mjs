@@ -44,6 +44,8 @@ const referralConcurrency=fs.readFileSync(new URL('../supabase/migrations/202610
 const atomicRescue=fs.readFileSync(new URL('../supabase/migrations/20261001138000_atomic_rescue_candidate_locking.sql',import.meta.url),'utf8');
 const rewardDeadLetter=fs.readFileSync(new URL('../supabase/migrations/20261001139000_reward_retry_dead_letter.sql',import.meta.url),'utf8');
 const adminRewardRecovery=fs.readFileSync(new URL('../supabase/migrations/20261001140000_admin_reward_recovery.sql',import.meta.url),'utf8');
+const settlementAccounting=fs.readFileSync(new URL('../supabase/migrations/20261001141000_settlement_accounting_decoupling.sql',import.meta.url),'utf8');
+const adminAccountingRecovery=fs.readFileSync(new URL('../supabase/migrations/20261001142000_admin_settlement_accounting_recovery.sql',import.meta.url),'utf8');
 const r=repricing.replace(/--.*$/gm,'').replace(/\s+/g,' ').toLowerCase();
 const w=watchdog.replace(/--.*$/gm,'').replace(/\s+/g,' ').toLowerCase();
 const h=hardening.replace(/--.*$/gm,'').replace(/\s+/g,' ').toLowerCase();
@@ -87,6 +89,8 @@ const rc=referralConcurrency.replace(/--.*$/gm,'').replace(/\s+/g,' ').toLowerCa
 const arc=atomicRescue.replace(/--.*$/gm,'').replace(/\s+/g,' ').toLowerCase();
 const rdl=rewardDeadLetter.replace(/--.*$/gm,'').replace(/\s+/g,' ').toLowerCase();
 const arr=adminRewardRecovery.replace(/--.*$/gm,'').replace(/\s+/g,' ').toLowerCase();
+const sa=settlementAccounting.replace(/--.*$/gm,'').replace(/\s+/g,' ').toLowerCase();
+const aar=adminAccountingRecovery.replace(/--.*$/gm,'').replace(/\s+/g,' ').toLowerCase();
 
 assert.match(r,/create table if not exists public\.order_requote_items/,'re-cotação precisa congelar preços por item');
 assert.match(r,/revoke all on table public\.order_requote_items from anon, authenticated/,'snapshot de re-cotação deve ser server-only');
@@ -360,4 +364,17 @@ assert.match(arr,/reward_retry_succeeded/,'sucesso manual precisa deixar auditor
 assert.match(arr,/reward_retry_failed/,'falha manual precisa deixar auditoria');
 assert.match(arr,/admin_reward_retry_action/,'retry manual precisa ser idempotente');
 
-console.log('Requote + watchdog + hardening v1.9.7 contract passou.');
+assert.match(sa,/ensure_order_settlement_accounting/,'contabilidade de settlement precisa de autoridade própria');
+assert.match(sa,/insert into public\.platform_receivables/,'taxa da plataforma deve nascer fora do reward engine');
+assert.match(sa,/insert into public\.merchant_cashback_reimbursements/,'reembolso de cashback deve nascer fora do reward engine');
+assert.match(sa,/settlement_accounting_failures/,'falha contábil precisa de fila própria');
+assert.match(sa,/process_deferred_settlement_accounting/,'contabilidade precisa de retry independente');
+assert.match(sa,/dead_lettered_at/,'retry contábil precisa de dead-letter');
+assert.match(sa,/chama-settlement-accounting-retry/,'retry contábil precisa de cron próprio');
+assert.match(sa,/perform public\.ensure_order_settlement_accounting\(new\.id\)[\s\S]*perform public\.grant_order_rewards\(new\.id\)/,'settlement deve processar contabilidade antes de rewards em blocos independentes');
+assert.match(aar,/admin_retry_settlement_accounting/,'admin precisa recuperar dívida contábil');
+assert.match(aar,/settlement_accounting_retry_succeeded/,'sucesso contábil manual precisa de auditoria');
+assert.match(aar,/settlement_accounting_retry_failed/,'falha contábil manual precisa de auditoria');
+assert.match(aar,/admin_settlement_accounting_retry_action/,'retry contábil manual precisa ser idempotente');
+
+console.log('Requote + watchdog + hardening v1.9.9 contract passou.');
