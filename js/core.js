@@ -12,6 +12,8 @@ const hhmm=(d=new Date())=>d.toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'
 const clamp=(n,min,max)=>Math.min(max,Math.max(min,n));
 const roundMoney=n=>Math.round((Number(n)+Number.EPSILON)*100)/100;
 const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const normalizeCnpj=v=>String(v||'').toUpperCase().replace(/[^0-9A-Z]/g,'');
+const isValidCnpjShape=v=>/^[0-9A-Z]{12}[0-9]{2}$/.test(normalizeCnpj(v));
 const uid=()=>{
   if(globalThis.crypto?.randomUUID) return globalThis.crypto.randomUUID().split('-')[0].toUpperCase();
   const a=new Uint32Array(2); globalThis.crypto?.getRandomValues?.(a);
@@ -497,9 +499,12 @@ function setMode(m){state.mode=m==='merchant'?'merchant':'customer';save();go(st
 
 parseReferral();
 
-globalThis.ChamaTest={
-  freshSeed,normalizeState,normalizeCart,cartAvailableFor,cartTotalFor,offersForCart,isPriceFresh,minPrice,
-  createOrderForMerchant,acceptOrder,rejectOrder,dispatchOrder,arrivingOrder,deliverOrder,customerCancel,
-  reassignOrder,acceptRequote,transition,updateMerchant,pauseMerchant,resumeMerchant,setCartProduct,grantRewards,
-  hasCartItems,esc,housekeeping,getState:()=>state,setState:s=>{state=normalizeState(s);save();}
-};
+if(globalThis.__CHAMA_TEST__){
+  globalThis.ChamaTest={
+    freshSeed,normalizeState,normalizeCart,cartAvailableFor,cartTotalFor,offersForCart,isPriceFresh,minPrice,
+    createOrderForMerchant,acceptOrder,rejectOrder,dispatchOrder,arrivingOrder,deliverOrder,customerCancel,
+    reassignOrder,acceptRequote,transition,updateMerchant,pauseMerchant,resumeMerchant,setCartProduct,grantRewards,
+    hasCartItems,esc,housekeeping,normalizeCnpj,isValidCnpjShape,
+    getState:()=>state,setState:s=>{state=normalizeState(s);save();}
+  };
+}
