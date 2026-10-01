@@ -26,3 +26,7 @@ button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-vis
 .qty button{min-width:40px;min-height:40px}
 .mode-pill button{min-height:38px}
 @media(prefers-reduced-motion:reduce){html{scroll-behavior:auto}*,*::before,*::after{scroll-behavior:auto!important;transition-duration:.001ms!important;animation-duration:.001ms!important;animation-iteration-count:1!important}}
+
+.live-strip{background:#eaf7f0;border-bottom-color:#c7e8d5;color:#0b6b45}
+.blocked-strip{background:#fff0ee;border-bottom-color:#ffd2cc;color:#842014}
+.live-strip button,.blocked-strip button{color:inherit}
