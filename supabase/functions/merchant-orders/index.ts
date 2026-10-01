@@ -88,7 +88,7 @@ Deno.serve(async(req:Request)=>{
 
     const {data:merchant,error:merchantError}=await admin
       .from("merchants")
-      .select("id,name,status,online,trust_score,delivery_fee_cents,base_eta_minutes,price_confirmed_at,last_seen_at")
+      .select("id,name,status,online,trust_score,delivery_fee_cents,base_eta_minutes,accepts_citywide,price_confirmed_at,last_seen_at")
       .eq("id",selected.merchant_id)
       .maybeSingle();
     if(merchantError)throw merchantError;
@@ -144,6 +144,7 @@ Deno.serve(async(req:Request)=>{
         trustScore:merchant.trust_score,
         deliveryFeeCents:merchant.delivery_fee_cents,
         baseEtaMinutes:merchant.base_eta_minutes,
+        acceptsCitywide:merchant.accepts_citywide,
         priceConfirmedAt:merchant.price_confirmed_at,
         lastSeenAt:merchant.last_seen_at
       },
