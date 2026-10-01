@@ -1,79 +1,156 @@
-# Chama — Supabase backend v1.2
+# Chama — Supabase backend v1.6.7
 
-Este diretório contém a base do backend multiusuário do Chama. **Não deve ser aplicado ao projeto Reward Pulse.** O Chama precisa de um projeto Supabase próprio para manter dados, chaves, logs, quotas e RLS isolados.
+Backend multiusuário do Chama São Gabriel, isolado em projeto Supabase próprio.
 
-## Decisões de arquitetura
+## Princípios de autoridade
 
-- Clientes podem começar com **Supabase Anonymous Auth** para reduzir atrito no primeiro pedido.
-- Revendas devem usar identidade permanente antes de operar pedidos reais.
-- O frontend usa somente **publishable key**. Nunca existe `service_role`/secret key no navegador.
-- Tabelas expostas usam **RLS em todas as superfícies**.
-- O navegador tem acesso de leitura; mutações críticas serão realizadas por Edge Functions server-side.
-- Valores monetários são inteiros em centavos.
-- Cashback e comissões usam ledger imutável com `idempotency_key`.
-- O PIN de entrega será armazenado apenas como hash.
-- Para o primeiro piloto local, `orders` e `order_events` ficam preparados para Postgres Changes. Broadcast pode substituir a estratégia depois se o volume justificar.
+- Cliente pode iniciar com **Anonymous Auth**.
+- Revenda usa identidade permanente.
+- Cliente anônimo pode vincular e-mail posteriormente sem trocar o `user_id`.
+- Publishable key pode existir no frontend.
+- Secret/service role nunca existe no navegador.
+- O browser **não possui SELECT direto nas tabelas da aplicação**.
+- RLS permanece habilitado como defesa adicional, mas o data-plane do piloto é server-only.
+- Todas as projeções e mutações reais passam por Edge Functions autenticadas.
+- Valores monetários usam centavos inteiros.
+- Ledger financeiro é append-only com idempotency key.
+- Estados de pedido e estado financeiro são separados.
 
-## Por que não gravar pedidos diretamente do browser
+## Por que o browser não lê tabelas diretamente
 
-Preço, cashback, estoque, status e comissões precisam de uma autoridade única. Permitir `INSERT/UPDATE` do cliente diretamente em `orders` abriria espaço para:
+Mesmo leitura direta criava superfícies desnecessárias:
 
-- alterar preço protegido;
-- simular entrega;
-- gerar cashback duplicado;
-- reduzir ou aumentar estoque incorretamente;
-- assumir pedido de outra revenda;
-- forçar transições de estado inválidas.
+- enumeração de revendas e catálogo;
+- endereço do cliente antes da necessidade operacional;
+- ledger financeiro linha a linha;
+- dependência de policies complexas para Anonymous Auth;
+- risco de regressão ao adicionar uma coluna sensível.
 
-Por isso o schema concede apenas `SELECT` ao papel `authenticated` nas tabelas críticas.
+O navegador recebe apenas projeções mínimas por Edge Function.
 
-## Fluxo proposto
+## Fluxo do cliente
 
-### Cliente
+1. `signInAnonymously()`.
+2. `get-offers` recebe endereço + cesta.
+3. Servidor filtra revendas elegíveis.
+4. `create_quote_snapshot` revalida preço/estoque e cria quote atômica.
+5. Cliente escolhe quote opaca.
+6. `create-order` cria pedido em transação idempotente.
+7. `get-order` devolve projeção segura.
+8. `customer-action` trata cancelamento/requote.
+9. `customer-summary` devolve apenas saldos agregados + código de indicação.
+10. Cliente pode converter a conta anônima em permanente via `auth.updateUser({email})`.
 
-1. App inicia Anonymous Auth.
-2. Consulta a Edge Function `get-offers`, que devolve preço/ETA/quote **sem identidade da revenda**.
-3. Envia o quote escolhido para Edge Function `create-order`.
-4. Função recalcula valores no servidor, escolhe/valida a revenda, reserva cashback e cria pedido/eventos.
-5. Nome da revenda só é copiado para `supplier_name_snapshot` quando a revenda aceita.
-6. Cliente assina mudanças do próprio pedido.
+O runtime atual usa polling protegido em vez de assinatura direta de tabelas.
 
-### Revenda
+## Fluxo da revenda
 
-1. Operador autentica com conta permanente.
-2. RLS comprova vínculo em `merchant_members`.
-3. Painel lê apenas pedidos da própria revenda.
-4. Aceite, recusa, saída, chegada e conclusão passam por Edge Function `merchant-action`.
-5. Função valida versão/status, estoque e idempotência antes de alterar qualquer linha.
+1. Operador abre `?merchant=1#merchant`.
+2. Login passwordless por e-mail.
+3. Edge Function exige usuário permanente.
+4. `merchant-orders` valida `merchant_members`.
+5. Somente `owner/manager/operator` operam no piloto.
+6. `driver` permanece bloqueado até assignment por pedido.
+7. Antes do aceite, endereço completo é oculto.
+8. Aceite reserva estoque.
+9. `dispatch` cria PIN e autoriza “A caminho”.
+10. `arriving` confirma aproximação.
+11. `complete-delivery` exige pagamento confirmado + PIN.
 
-### Entrega
+## Rescue
 
-1. Cliente vê o PIN somente após `OUT_FOR_DELIVERY`.
-2. O servidor armazena somente hash.
-3. Revenda envia o PIN para `complete-delivery`.
-4. A função limita tentativas, verifica hash e faz settlement uma única vez.
-5. Cashback/referral entram no ledger com chaves idempotentes.
+`merchant_fail_before_dispatch` recompõe estoque reservado e chama `system_rescue_order`.
 
-## Aplicação do schema
+Toda troca de fornecedor:
 
-O arquivo [schema.sql](./schema.sql) é um **bootstrap revisável**, não uma migration aplicada. Quando existir o projeto Supabase exclusivo do Chama:
+- usa a cesta congelada;
+- revalida estoque/atividade;
+- congela preços e taxa;
+- não aumenta preço silenciosamente;
+- usa `REQUOTE_REQUIRED` quando necessário.
 
-1. habilitar Anonymous Sign-Ins com proteção antiabuso;
-2. confirmar publishable key e URL do projeto;
-3. aplicar o schema em ambiente de desenvolvimento;
-4. rodar Security e Performance Advisors;
-5. verificar cada policy com usuários de cliente, revenda e usuário sem vínculo;
-6. somente depois gerar a migration canônica pelo fluxo oficial do Supabase;
-7. implementar/deployar Edge Functions;
-8. conectar o frontend e executar o E2E em dois navegadores/dispositivos distintos.
+## Financeiro
+
+### Cashback
+
+Cashback é crédito fechado para compras futuras.
+
+Ao ganhar cashback:
+- o custo entra no orçamento daquele pedido;
+- o ledger registra `cashback_earn`.
+
+Ao usar cashback:
+- `cashback_reserve` consome o saldo;
+- cliente paga `gross - cashback`;
+- revenda mantém direito ao valor bruto;
+- `merchant_cashback_reimbursements` registra quanto a plataforma deve repassar à revenda.
+
+### Referral
+
+- relação nova só nasce antes do primeiro pedido;
+- autoindicação é proibida;
+- pagamento nasce somente em settlement válido;
+- comissão fica em `commission_pending`;
+- só amadurece depois do hold e quando o referrer é identidade permanente;
+- reversão estorna pending/available sem apagar histórico.
+
+### Receita da plataforma
+
+Cada pedido congela:
+
+- taxa da plataforma;
+- reserva de custo variável;
+- contribuição mínima;
+- cashback;
+- referral;
+- hold.
+
+A identidade financeira do reward grant garante:
+
+`platform fee = variable reserve + cashback + referral + platform contribution`
+
+A contribuição nunca pode ficar abaixo do piso configurado.
+
+## Reversão pós-venda
+
+`reverse_settled_order_financials` é server-only e idempotente.
+
+Ela não apaga a entrega. Em vez disso:
+
+- mantém `status=SETTLED`;
+- muda `financial_state` para `reversed`;
+- estorna cashback;
+- estorna comissão;
+- reverte taxa da plataforma;
+- cria ajustes se dinheiro já tiver sido liquidado;
+- reverte/reconcilia reembolso de cashback à revenda.
+
+## Jobs
+
+- `chama-order-watchdog`
+- `chama-reward-maturation`
+- `chama-data-retention`
+- `chama-anonymous-cleanup`
+
+A limpeza de Anonymous Auth exige idade mínima e ausência total de histórico de negócio.
+
+## Auth que precisa ser verificado no dashboard
+
+Antes do primeiro E2E real:
+
+- Anonymous Sign-Ins habilitado;
+- Site URL/Redirect URL do GitHub Pages;
+- Manual Linking habilitado para upgrade anônimo → permanente;
+- entrega de e-mail funcionando para magic link/confirmação.
 
 ## Regras inegociáveis
 
-- nenhuma secret key no GitHub Pages;
-- nenhuma policy baseada em `user_metadata`;
-- nenhuma tabela pública sem RLS;
-- cliente não enumera nomes/endereço/catálogo de revendas antes do aceite;
-- nenhuma escrita financeira sem idempotência;
-- nenhuma transição de pedido aceita apenas porque o frontend pediu;
-- nenhuma recompensa por recrutamento sem venda real validada;
-- nenhum dado real de revenda misturado ao projeto Reward Pulse.
+- nenhuma secret key no frontend;
+- nenhum acesso direto às tabelas pelo browser;
+- nenhuma função privilegiada executável por `anon/authenticated`;
+- nenhuma recompensa sem settlement;
+- nenhuma comissão sacável para identidade anônima;
+- nenhum aumento de preço sem novo aceite;
+- nenhuma conclusão apenas por ação de UI;
+- nenhuma identidade de revenda antes do aceite;
+- nenhum driver operando pedido sem assignment individual.
