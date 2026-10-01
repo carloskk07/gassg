@@ -23,13 +23,23 @@ window.addEventListener('unhandledrejection',e=>console.error('Promise rejeitada
 
 window.addEventListener('load',async()=>{
   render();
+  if(globalThis.liveRequested?.()){
+    await backendInit();
+    if(globalThis.liveReady?.()&&route()==='order'&&state.address&&hasCartItems()){
+      try{await liveRefreshOffers({silent:true})}catch{}
+    }
+    render();
+  }
   if('serviceWorker'in navigator&&location.protocol.startsWith('http')){
     try{
       const reg=await navigator.serviceWorker.register('./sw.js');
       reg.update().catch(()=>{});
     }catch(e){console.warn('Service worker indisponível',e)}
   }
-  setInterval(()=>{if(housekeeping())render()},5000);
+  setInterval(()=>{
+    if(!globalThis.liveRequested?.()&&housekeeping())render();
+    if(globalThis.liveReady?.())livePoll().catch(()=>{});
+  },5000);
 });
 
 Object.assign(window,{
