@@ -46,7 +46,7 @@ assert.ok(core.includes('isValidCnpjShape'),'core precisa suportar validação e
 assert.ok(!merchant.includes('.stock'),'UI da revenda não deve depender do campo legado stock');
 assert.ok(growth.includes('referralCode'),'link de indicação deve usar código pessoal');
 assert.ok(!growth.includes('inputmode="numeric" maxlength="18"'),'campo CNPJ não pode forçar teclado somente numérico após adoção do CNPJ alfanumérico');
-assert.ok(sw.includes("CACHE='chama-sg-v1.15'"),'cache do service worker precisa estar versionado');
+assert.ok(sw.includes("CACHE='chama-sg-v1.16'"),'cache do service worker precisa estar versionado');
 assert.ok(sw.includes("./js/backend.js"),'runtime live precisa estar no cache da PWA');
 assert.ok(backend.includes("sb_publishable_"),'frontend live deve usar publishable key explícita');
 assert.ok(!backend.includes("sb_secret_"),'frontend jamais pode conter secret key');
@@ -175,6 +175,11 @@ assert.ok(!adminOpsSource.includes('cashback_reimbursement:["paid","offset"]'),'
 assert.ok(!admin.includes('>Compensado</button>'),'UI admin não pode oferecer compensação opaca de cashback');
 assert.ok(admin.includes('Fila contábil de settlement'),'painel admin precisa exibir falhas contábeis');
 assert.ok(admin.includes('adminRetryAccounting'),'painel admin precisa permitir retry contábil auditado');
+assert.ok(adminOpsSource.includes('platform_admins'),'resumo admin precisa listar continuidade administrativa');
+assert.ok(adminOpsSource.includes('admin_platform_admin_action'),'gestão de admin deve usar autoridade idempotente dedicada');
+assert.ok(adminOpsSource.includes('LAST_ADMIN_CANNOT_BE_REMOVED'),'Edge deve traduzir proteção do último admin');
+assert.ok(admin.includes('Administradores da plataforma'),'painel admin precisa mostrar administradores');
+assert.ok(admin.includes('adminSetPlatformAdmin'),'painel admin precisa permitir gestão protegida de admins');
 
 
 
