@@ -206,12 +206,11 @@ begin
     'cashbackCents',v_cashback,
     'referralPendingCents',v_referral_amount,
     'platformContributionCents',v_platform_contribution,
-    'cashbackReimbursementCents',v_order.cashback_reserved_cents,
     'commissionAvailableAt',v_available_at,
     'alreadyGranted',false
   );
 end;
-$func
+$func$;
 
 revoke all on function public.grant_order_rewards(uuid)
 from public, anon, authenticated;
