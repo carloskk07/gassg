@@ -148,7 +148,7 @@ Deno.serve(async (req: Request) => {
   try {
     const user = await authenticatedUser(req);
     const body = await req.json().catch(() => ({}));
-    normalizeAddress(body.address);
+    const address = normalizeAddress(body.address);
     const items = normalizeItems(body.items);
 
     const now = Date.now();
@@ -246,6 +246,7 @@ Deno.serve(async (req: Request) => {
         .insert({
           customer_id: user.id,
           merchant_id: candidate.merchantId,
+          address_text: address,
           gross_total_cents: candidate.totalCents,
           delivery_fee_cents: candidate.deliveryFeeCents,
           eta_min_minutes: candidate.etaMinMinutes,
