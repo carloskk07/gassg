@@ -60,7 +60,7 @@ Deno.serve(async(req:Request)=>{
     await enforceApiQuota(admin,{userId:user.id,actionName:"get-order",limit:120,windowSeconds:60});
     const {data:order,error:orderError}=await admin
       .from("orders")
-      .select("id,public_code,customer_id,merchant_id,status,address_text,payment_method,gross_total_cents,cashback_reserved_cents,total_cents,proposed_total_cents,supplier_name_snapshot,risk_reason,offer_expires_at,accepted_at,dispatch_due_at,dispatched_at,arriving_at,promised_by,delivered_at,settled_at,pin_failures,version,created_at,updated_at")
+      .select("id,public_code,customer_id,merchant_id,status,address_text,payment_method,gross_total_cents,cashback_reserved_cents,total_cents,proposed_total_cents,supplier_name_snapshot,risk_reason,offer_expires_at,accepted_at,dispatch_due_at,dispatched_at,arriving_at,promised_by,delivered_at,settled_at,payment_confirmed_at,pin_failures,version,created_at,updated_at")
       .eq("id",orderId)
       .maybeSingle();
 
@@ -145,6 +145,7 @@ Deno.serve(async(req:Request)=>{
       promisedBy:order.promised_by,
       deliveredAt:order.delivered_at,
       settledAt:order.settled_at,
+      paymentConfirmedAt:order.payment_confirmed_at,
       pinFailures:role==="merchant"?order.pin_failures:null,
       deliveryPin,
       items:items??[],
