@@ -489,9 +489,11 @@ async function merchantSendLogin(email){
   const redirect=new URL(location.origin+location.pathname);
   redirect.searchParams.set('merchant','1');
   redirect.hash='merchant';
+  if(!globalThis.chamaTurnstile?.challenge)throw new Error('Proteção anti-bot indisponível');
+  const captchaToken=await globalThis.chamaTurnstile.challenge('merchant_login');
   const {error}=await merchantRuntime.client.auth.signInWithOtp({
     email:value,
-    options:{emailRedirectTo:redirect.toString(),shouldCreateUser:true}
+    options:{emailRedirectTo:redirect.toString(),shouldCreateUser:true,captchaToken}
   });
   if(error)throw error;
   merchantRuntime.notice='Enviamos um link de acesso para '+value+'. Abra-o neste navegador.';
