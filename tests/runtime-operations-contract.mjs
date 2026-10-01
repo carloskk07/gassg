@@ -45,6 +45,7 @@ const atomicRescue=fs.readFileSync(new URL('../supabase/migrations/2026100113800
 const rewardDeadLetter=fs.readFileSync(new URL('../supabase/migrations/20261001139000_reward_retry_dead_letter.sql',import.meta.url),'utf8');
 const adminRewardRecovery=fs.readFileSync(new URL('../supabase/migrations/20261001140000_admin_reward_recovery.sql',import.meta.url),'utf8');
 const settlementAccounting=fs.readFileSync(new URL('../supabase/migrations/20261001141000_settlement_accounting_decoupling.sql',import.meta.url),'utf8');
+const strictAccountingReward=fs.readFileSync(new URL('../supabase/migrations/20261001150000_strict_accounting_reward_separation.sql',import.meta.url),'utf8');
 const adminAccountingRecovery=fs.readFileSync(new URL('../supabase/migrations/20261001142000_admin_settlement_accounting_recovery.sql',import.meta.url),'utf8');
 const noUnsafeOffset=fs.readFileSync(new URL('../supabase/migrations/20261001143000_disable_unsafe_cashback_offset.sql',import.meta.url),'utf8');
 const customerCancel=fs.readFileSync(new URL('../supabase/migrations/20261001144000_customer_cancel_before_dispatch.sql',import.meta.url),'utf8');
@@ -96,6 +97,7 @@ const arc=atomicRescue.replace(/--.*$/gm,'').replace(/\s+/g,' ').toLowerCase();
 const rdl=rewardDeadLetter.replace(/--.*$/gm,'').replace(/\s+/g,' ').toLowerCase();
 const arr=adminRewardRecovery.replace(/--.*$/gm,'').replace(/\s+/g,' ').toLowerCase();
 const sa=settlementAccounting.replace(/--.*$/gm,'').replace(/\s+/g,' ').toLowerCase();
+const sar=strictAccountingReward.replace(/--.*$/gm,'').replace(/\s+/g,' ').toLowerCase();
 const aar=adminAccountingRecovery.replace(/--.*$/gm,'').replace(/\s+/g,' ').toLowerCase();
 const nuo=noUnsafeOffset.replace(/--.*$/gm,'').replace(/\s+/g,' ').toLowerCase();
 const cnc=customerCancel.replace(/--.*$/gm,'').replace(/\s+/g,' ').toLowerCase();
@@ -416,4 +418,11 @@ assert.match(sos,/orders_post_accept_requires_accepted_at/,'estados pós-aceite 
 assert.match(nlor,/v_reimbursement\.status='paid'/,'reversal só pode recuperar reembolso de cashback efetivamente pago');
 assert.doesNotMatch(nlor,/status in \('paid','offset'\)/,'reversal não pode reconhecer status offset legado');
 
-console.log('Requote + watchdog + hardening v1.14.6 contract passou.');
+assert.match(sar,/create or replace function public\.grant_order_rewards/,'reward engine atual precisa ser versionado');
+assert.doesNotMatch(sar,/insert into public\.platform_receivables/,'reward engine não pode criar recebível da plataforma');
+assert.doesNotMatch(sar,/insert into public\.merchant_cashback_reimbursements/,'reward engine não pode criar reembolso ao lojista');
+assert.doesNotMatch(sar,/cashbackreimbursementcents/,'reward engine não deve expor efeito contábil removido');
+assert.match(sa,/ensure_order_settlement_accounting[\s\S]*insert into public\.platform_receivables/,'recebível deve pertencer à autoridade contábil');
+assert.match(sa,/ensure_order_settlement_accounting[\s\S]*insert into public\.merchant_cashback_reimbursements/,'reembolso deve pertencer à autoridade contábil');
+
+console.log('Requote + watchdog + hardening v1.14.7 contract passou.');
