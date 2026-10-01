@@ -47,6 +47,7 @@ create table if not exists public.orders (
   customer_id uuid not null references auth.users(id) on delete restrict,
   merchant_id uuid references public.merchants(id) on delete restrict,
   proposed_merchant_id uuid references public.merchants(id) on delete restrict,
+  supplier_name_snapshot text,
   status text not null check (status in (
     'OFFERED_TO_MERCHANT',
     'MERCHANT_ACCEPTED',
@@ -205,14 +206,13 @@ to service_role;
 
 grant usage, select on all sequences in schema public to service_role;
 
-drop policy if exists "active merchants or own merchant" on public.merchants;
-create policy "active merchants or own merchant"
+drop policy if exists "read own merchant profile" on public.merchants;
+create policy "read own merchant profile"
 on public.merchants
 for select
 to authenticated
 using (
-  status = 'active'
-  or exists (
+  exists (
     select 1
     from public.merchant_members mm
     where mm.merchant_id = merchants.id
@@ -228,25 +228,18 @@ for select
 to authenticated
 using (user_id = (select auth.uid()));
 
-drop policy if exists "read available catalog" on public.catalog_items;
-create policy "read available catalog"
+drop policy if exists "read own merchant catalog" on public.catalog_items;
+create policy "read own merchant catalog"
 on public.catalog_items
 for select
 to authenticated
 using (
   exists (
     select 1
-    from public.merchants m
-    where m.id = catalog_items.merchant_id
-      and (
-        (m.status = 'active' and m.online)
-        or exists (
-          select 1 from public.merchant_members mm
-          where mm.merchant_id = m.id
-            and mm.user_id = (select auth.uid())
-            and mm.active
-        )
-      )
+    from public.merchant_members mm
+    where mm.merchant_id = catalog_items.merchant_id
+      and mm.user_id = (select auth.uid())
+      and mm.active
   )
 );
 
@@ -335,6 +328,10 @@ on public.merchant_applications
 for select
 to authenticated
 using (applicant_user_id = (select auth.uid()));
+
+-- Customer-facing discovery MUST go through a server-side get-offers function.
+-- It may read merchants/catalog with a server secret and return only anonymized price/ETA/quote data.
+-- Customer clients must not be able to enumerate merchant identity or catalog rows before acceptance.
 
 -- Postgres Changes is sufficient for the first São Gabriel pilot.
 -- Broadcast can replace it later if scale or stricter Realtime authorization warrants it.
