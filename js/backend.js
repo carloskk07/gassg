@@ -15,7 +15,9 @@ const liveRuntime={
   loadingOffers:false,
   actionPending:false,
   error:null,
-  lastSyncAt:null
+  lastSyncAt:null,
+  offerRequestSeq:0,
+  orderRequestSeq:0
 };
 
 function liveRequested(){return liveRuntime.requested}
@@ -38,7 +40,7 @@ function loadSupabaseBrowser(){
       return;
     }
     const script=document.createElement('script');
-    script.src='https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2';
+    script.src='https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.2';
     script.async=true;
     script.dataset.chamaSupabase='1';
     script.crossOrigin='anonymous';
@@ -171,29 +173,45 @@ function liveScheduleOfferRefresh(delay=350){
 }
 
 async function liveRefreshOffers({silent=false}={}){
+  const seq=++liveRuntime.offerRequestSeq;
   if(!liveReady()||!state.address||!hasCartItems()){
     liveRuntime.offers=[];
+    liveRuntime.loadingOffers=false;
+    if(!silent)render();
     return [];
   }
+  const addressSnapshot=state.address;
+  const itemsSnapshot=liveCartItems();
+  liveRuntime.offers=[];
   liveRuntime.loadingOffers=true;
   liveRuntime.error=null;
   if(!silent)render();
   try{
     const data=await liveInvoke('get-offers',{
-      address:state.address,
-      items:liveCartItems(),
+      address:addressSnapshot,
+      items:itemsSnapshot,
       priority:'recommended'
     });
-    liveRuntime.offers=(data?.offers||[]).map(liveOfferView);
+    if(seq!==liveRuntime.offerRequestSeq)return liveRuntime.offers;
+    if(state.address!==addressSnapshot||JSON.stringify(liveCartItems())!==JSON.stringify(itemsSnapshot)){
+      return liveRuntime.offers;
+    }
+    liveRuntime.offers=(data?.offers||[])
+      .map(liveOfferView)
+      .filter(o=>Number.isFinite(Date.parse(o.expiresAt))&&Date.parse(o.expiresAt)>Date.now());
     liveRuntime.lastSyncAt=new Date().toISOString();
     return liveRuntime.offers;
   }catch(error){
-    liveRuntime.offers=[];
-    liveRuntime.error=String(error?.message||error);
+    if(seq===liveRuntime.offerRequestSeq){
+      liveRuntime.offers=[];
+      liveRuntime.error=String(error?.message||error);
+    }
     throw error;
   }finally{
-    liveRuntime.loadingOffers=false;
-    if(!silent)render();
+    if(seq===liveRuntime.offerRequestSeq){
+      liveRuntime.loadingOffers=false;
+      if(!silent)render();
+    }
   }
 }
 
@@ -204,6 +222,12 @@ function liveIdempotency(prefix){
 
 async function liveCreateOrder(quoteId){
   if(liveRuntime.actionPending)return;
+  const selected=liveRuntime.offers.find(o=>o.quoteId===quoteId);
+  if(!selected||!Number.isFinite(Date.parse(selected.expiresAt))||Date.parse(selected.expiresAt)<=Date.now()+1000){
+    try{await liveRefreshOffers()}catch{}
+    toast('A oferta expirou. Atualizamos os preços disponíveis.');
+    return;
+  }
   liveRuntime.actionPending=true;
   liveRuntime.error=null;
   render();
@@ -234,7 +258,11 @@ async function liveCreateOrder(quoteId){
 
 async function liveGetOrder(orderId=liveRuntime.orderId,{silent=false}={}){
   if(!liveReady()||!orderId)return null;
+  const seq=++liveRuntime.orderRequestSeq;
   const order=await liveInvoke('get-order',{orderId});
+  const current=liveRuntime.order;
+  if(current?.orderId===order.orderId&&Number(current.version)>Number(order.version))return current;
+  if(seq<liveRuntime.orderRequestSeq&&current?.orderId===order.orderId&&Number(current.version)>=Number(order.version))return current;
   liveRuntime.order=order;
   liveRuntime.orderId=order.orderId;
   liveRuntime.lastSyncAt=new Date().toISOString();
@@ -289,7 +317,8 @@ async function liveSyncFinancialProfile(){
 }
 
 async function livePoll(){
-  if(!liveReady()||!liveRuntime.orderId||document.visibilityState==='hidden')return;
+  if(!liveReady()||!liveRuntime.orderId||liveRuntime.actionPending||document.visibilityState==='hidden')return;
+  if(["SETTLED","CANCELLED"].includes(liveRuntime.order?.status))return;
   try{await liveGetOrder(liveRuntime.orderId,{silent:true});render()}catch(error){
     if(error?.status===404){
       localStorage.removeItem(CHAMA_BACKEND.orderStorageKey);
