@@ -340,6 +340,19 @@ function adminRewardFailureCard(x){
   </article>`;
 }
 
+function adminAccountingFailureCard(x){
+  const dead=!!x.dead_lettered_at;
+  const next=x.next_retry_at?new Date(x.next_retry_at).toLocaleString('pt-BR'):'—';
+  const last=x.last_attempt_at?new Date(x.last_attempt_at).toLocaleString('pt-BR'):new Date(x.updated_at||x.created_at).toLocaleString('pt-BR');
+  return `<article class="order-card">
+    <div class="order-head"><div><div class="order-id">Pedido ${esc(x.order_id)}</div><div class="tiny muted">Tentativas: ${Number(x.attempts||0)} • última: ${esc(last)}</div></div><span class="status-pill ${dead?'offline':''}">${dead?'DEAD LETTER':'RETRY'}</span></div>
+    <div class="order-line"><strong>Falha contábil:</strong> ${esc(x.last_error||'Falha ao registrar settlement')}</div>
+    ${x.last_sqlstate?`<div class="tiny muted">SQLSTATE: ${esc(x.last_sqlstate)}</div>`:''}
+    <div class="tiny muted">${dead?'Retry automático interrompido; exige revisão administrativa.':'Próxima tentativa automática: '+esc(next)}</div>
+    <div class="order-actions"><button class="${dead?'primary':'secondary'} small" onclick="adminRetryAccounting('${x.order_id}')">Reprocessar contabilidade</button></div>
+  </article>`;
+}
+
 function adminPage(){
   if(!adminPortalRequested()){
     return shell('<section class="page"><div class="notice danger">Administração só está disponível no portal protegido.</div></section>');
@@ -363,6 +376,8 @@ function adminPage(){
   const pendingReferralReviews=referralReviews.filter(x=>x.risk_status==='review_required'&&x.financialState!=='reversed'&&!x.financialReversedAt);
   const rewardFailures=d.rewardFailures||[];
   const deadRewardFailures=rewardFailures.filter(x=>!!x.dead_lettered_at);
+  const accountingFailures=d.accountingFailures||[];
+  const deadAccountingFailures=accountingFailures.filter(x=>!!x.dead_lettered_at);
   const receivables=d.finance?.receivables||[];
   const reimbursements=d.finance?.cashbackReimbursements||[];
   const adjustments=d.finance?.adjustments||[];
@@ -388,6 +403,8 @@ function adminPage(){
     <section class="section"><div class="section-head"><div><h2>Revisão de indicações</h2><p>Comissões suspeitas não amadurecem automaticamente. Aprovação ainda exige identidades permanentes e fim da quarentena.</p></div><span class="status-pill ${pendingReferralReviews.length?'offline':'online'}">${pendingReferralReviews.length} pendente(s)</span></div>${referralReviews.length?referralReviews.map(adminReferralReviewCard).join(''):'<div class="empty card">Nenhuma indicação exige revisão.</div>'}</section>
 
     <section class="section"><div class="section-head"><div><h2>Fila de benefícios</h2><p>Falhas transitórias usam backoff. Dead-letter exige revisão manual; a entrega do pedido permanece concluída.</p></div><span class="status-pill ${deadRewardFailures.length?'offline':'online'}">${deadRewardFailures.length} dead-letter</span></div>${rewardFailures.length?rewardFailures.map(adminRewardFailureCard).join(''):'<div class="empty card">Nenhuma dívida de processamento de benefícios.</div>'}</section>
+
+    <section class="section"><div class="section-head"><div><h2>Fila contábil de settlement</h2><p>Taxa da plataforma e reembolso de cashback são processados independentemente dos benefícios.</p></div><span class="status-pill ${deadAccountingFailures.length?'offline':'online'}">${deadAccountingFailures.length} dead-letter</span></div>${accountingFailures.length?accountingFailures.map(adminAccountingFailureCard).join(''):'<div class="empty card">Nenhuma dívida contábil de settlement.</div>'}</section>
 
     <section class="section"><div class="section-head"><div><h2>Conciliação financeira</h2><p>Taxa da plataforma, cashback usado e ajustes são contas separadas.</p></div></div>
       <div class="card flat"><h3>Taxas da plataforma</h3><div class="list">${receivables.length?receivables.map(adminReceivableRow).join(''):'<div class="tiny muted">Nenhuma taxa em aberto.</div>'}</div></div>
@@ -454,6 +471,18 @@ async function adminRetryReward(orderId){
   }catch(e){toast(String(e?.message||e))}
 }
 
+async function adminRetryAccounting(orderId){
+  if(!confirm('Reprocessar a contabilidade deste pedido agora? A entrega e os benefícios não serão alterados.'))return;
+  try{
+    const result=await adminPerform('retry-accounting',{orderId});
+    if(result?.ok){
+      toast(result?.alreadyResolved?'A dívida contábil já estava resolvida':'Contabilidade reprocessada com sucesso');
+    }else{
+      toast('A contabilidade continuou em falha e permaneceu registrada');
+    }
+  }catch(e){toast(String(e?.message||e))}
+}
+
 async function adminFinancial(kind,targetId,financialAction){
   const reference=prompt('Referência da conciliação (opcional):')||'';
   try{
@@ -483,4 +512,5 @@ globalThis.adminRefresh=adminRefresh;
 globalThis.adminPoll=adminPoll;
 globalThis.adminPage=adminPage;
 globalThis.adminRetryReward=adminRetryReward;
+globalThis.adminRetryAccounting=adminRetryAccounting;
 globalThis.openAdminPortal=openAdminPortal;
