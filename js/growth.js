@@ -46,6 +46,25 @@ async function activateCashAccount(){
   }
 }
 
+async function shareReferral(){
+  const url=referralUrl();
+  const text=`Use o Chama para consultar preço e pedir gás e outros itens em São Gabriel: ${url}`;
+  try{
+    if(navigator.share){
+      await navigator.share({title:'Chama São Gabriel',text,url});
+      return;
+    }
+    if(navigator.clipboard?.writeText){
+      await navigator.clipboard.writeText(text);
+      toast('Link copiado');
+      return;
+    }
+    toast('Copie o link exibido acima');
+  }catch(e){
+    if(e?.name!=='AbortError')toast('Não foi possível compartilhar automaticamente');
+  }
+}
+
 function merchantsLanding(){
   const portal=globalThis.merchantPortalRequested?.()===true;
   return shell(`<section class="page"><span class="eyebrow">PARCEIROS LOCAIS</span><h1 class="page-title">Mais pedidos para sua operação.</h1><p class="muted">Você define seus preços, sua disponibilidade e seu catálogo. A plataforma ajuda clientes próximos a encontrarem quem consegue atendê-los melhor.</p><div class="grid cards-3" style="margin-top:20px"><div class="card"><div class="feature-icon">📦</div><h3>Venda incremental</h3><p class="muted tiny">Receba pedidos novos sem abrir outra loja.</p></div><div class="card"><div class="feature-icon">🎛️</div><h3>Controle total</h3><p class="muted tiny">Fique online, ajuste preço, estoque e área atendida.</p></div><div class="card"><div class="feature-icon">✅</div><h3>Confiança</h3><p class="muted tiny">Aceite real, saída confirmada e entrega comprovada.</p></div></div><div class="card flat" style="margin-top:16px"><h3>Quer participar do pool de São Gabriel?</h3><p class="muted">Comece com um cadastro curto. A ativação ocorre após validação operacional e, para GLP, verificação regulatória.</p><button class="primary full" onclick="${portal?"go('merchant-join')":"openMerchantPortal()"}">${portal?'Cadastrar minha empresa':'Acessar / cadastrar revenda'}</button></div></section>`)
