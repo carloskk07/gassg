@@ -36,6 +36,7 @@ const skuFresh=fs.readFileSync(new URL('../supabase/migrations/20261001128000_pe
 const deliveryCompatibility=fs.readFileSync(new URL('../supabase/migrations/20261001130000_delivery_compatibility_authority.sql',import.meta.url),'utf8');
 const deliveryEnforcement=fs.readFileSync(new URL('../supabase/migrations/20261001131000_enforce_delivery_compatibility.sql',import.meta.url),'utf8');
 const deliveryAdmin=fs.readFileSync(new URL('../supabase/migrations/20261001132000_admin_delivery_capability_control.sql',import.meta.url),'utf8');
+const deliveryIndexes=fs.readFileSync(new URL('../supabase/migrations/20261001133000_delivery_capability_index_hygiene.sql',import.meta.url),'utf8');
 const r=repricing.replace(/--.*$/gm,'').replace(/\s+/g,' ').toLowerCase();
 const w=watchdog.replace(/--.*$/gm,'').replace(/\s+/g,' ').toLowerCase();
 const h=hardening.replace(/--.*$/gm,'').replace(/\s+/g,' ').toLowerCase();
@@ -71,6 +72,7 @@ const pf=skuFresh.replace(/--.*$/gm,'').replace(/\s+/g,' ').toLowerCase();
 const dc=deliveryCompatibility.replace(/--.*$/gm,'').replace(/\s+/g,' ').toLowerCase();
 const de=deliveryEnforcement.replace(/--.*$/gm,'').replace(/\s+/g,' ').toLowerCase();
 const da=deliveryAdmin.replace(/--.*$/gm,'').replace(/\s+/g,' ').toLowerCase();
+const di=deliveryIndexes.replace(/--.*$/gm,'').replace(/\s+/g,' ').toLowerCase();
 
 assert.match(r,/create table if not exists public\.order_requote_items/,'re-cotação precisa congelar preços por item');
 assert.match(r,/revoke all on table public\.order_requote_items from anon, authenticated/,'snapshot de re-cotação deve ser server-only');
@@ -288,5 +290,8 @@ assert.match(da,/v_compliance\.cnpj_status<>'verified'/,'capability exige CNPJ v
 assert.match(da,/v_compliance\.anp_status<>'verified'/,'capability GLP exige ANP verificada');
 assert.match(da,/admin_delivery_capability_action/,'alteração de capability precisa ser idempotente');
 assert.match(da,/platform_admin_audit/,'capability precisa deixar trilha de auditoria');
+
+assert.match(di,/merchant_delivery_capabilities_verified_by_idx/,'FK verified_by da capability precisa de índice');
+assert.match(di,/drop index if exists public\.merchant_applications_live_cnpj_idx/,'índice CNPJ duplicado precisa permanecer removido');
 
 console.log('Requote + watchdog + hardening v1.8 contract passou.');
