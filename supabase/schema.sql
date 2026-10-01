@@ -177,20 +177,35 @@ create table if not exists public.wallet_entries (
   id uuid primary key default gen_random_uuid(),
   user_id uuid not null references auth.users(id) on delete cascade,
   order_id uuid references public.orders(id) on delete set null,
+  bucket text not null check (bucket in ('cashback','commission_pending','commission_available')),
   entry_type text not null check (entry_type in (
     'cashback_seed',
     'cashback_reserve',
     'cashback_release',
     'cashback_earn',
+    'cashback_reversal',
     'referral_pending',
-    'referral_release',
+    'referral_pending_release',
+    'referral_available',
     'referral_reversal',
+    'commission_withdrawal',
     'manual_adjustment'
   )),
   amount_cents integer not null check (amount_cents <> 0),
   idempotency_key text not null unique,
   metadata jsonb not null default '{}'::jsonb,
-  created_at timestamptz not null default now()
+  created_at timestamptz not null default now(),
+  check (
+    entry_type = 'manual_adjustment'
+    or (entry_type like 'cashback_%' and bucket = 'cashback')
+    or (entry_type in ('referral_pending','referral_pending_release') and bucket = 'commission_pending')
+    or (entry_type in ('referral_available','referral_reversal','commission_withdrawal') and bucket = 'commission_available')
+  ),
+  check (
+    entry_type = 'manual_adjustment'
+    or (entry_type in ('cashback_seed','cashback_release','cashback_earn','referral_pending','referral_available') and amount_cents > 0)
+    or (entry_type in ('cashback_reserve','cashback_reversal','referral_pending_release','referral_reversal','commission_withdrawal') and amount_cents < 0)
+  )
 );
 
 create table if not exists public.referrals (
