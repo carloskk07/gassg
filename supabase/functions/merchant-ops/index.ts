@@ -1,10 +1,13 @@
-import "jsr:@supabase/functions-js/edge-runtime.d.ts";
-import { createClient } from "npm:@supabase/supabase-js@2";
+import "jsr:@supabase/functions-js@2.117.2/edge-runtime.d.ts";
+import {
+  createClient } from "npm:@supabase/supabase-js@2.117.2";
 import {
   DomainError,
   assertPermanentMerchantUser,
   asNonNegativeCents,
-  asPositiveInt
+  asPositiveInt,
+  readJsonBody,
+  enforceApiQuota
 } from "../_shared/domain.js";
 
 const SUPABASE_URL=Deno.env.get("SUPABASE_URL")??"";
@@ -63,7 +66,7 @@ Deno.serve(async(req:Request)=>{
 
   try{
     const user=await authenticatedUser(req);
-    const body=await req.json().catch(()=>({}));
+    const body=await readJsonBody(req);
     const merchantId=String(body.merchantId??"");
     const action=String(body.action??"");
     if(!UUID_RE.test(merchantId))throw new DomainError("INVALID_MERCHANT","Revenda inválida.",400);
@@ -72,6 +75,7 @@ Deno.serve(async(req:Request)=>{
     }
 
     const admin=createClient(SUPABASE_URL,SECRET_KEY,{auth:{persistSession:false,autoRefreshToken:false}});
+    await enforceApiQuota(admin,{userId:user.id,actionName:"merchant-ops",limit:180,windowSeconds:60});
     const {data:membership,error:membershipError}=await admin
       .from("merchant_members")
       .select("member_role,active")
