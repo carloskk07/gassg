@@ -258,7 +258,7 @@ Deno.serve(async(req:Request)=>{
       const financialAction=String(body.financialAction??"");
       const allowed:Record<string,string[]>={
         platform_receivable:["paid","waived"],
-        cashback_reimbursement:["paid","offset"],
+        cashback_reimbursement:["paid"],
         settlement_adjustment:["paid","waived"]
       };
       if(!allowed[kind]?.includes(financialAction)){
