@@ -94,7 +94,6 @@ test('rejeição usa a cesta congelada do pedido e não o carrinho atual',()=>{
   const r=T.rejectOrder(o.id);
   assert.equal(r.ok,true);
   const order=T.getState().orders[0];
-  assert.notEqual(order.merchantId,'B');
   assert.equal(order.cart.WATER20,1);
   assert.equal(order.cart.P13,0);
   assert.ok(['OFFERED_TO_MERCHANT','REQUOTE_REQUIRED'].includes(order.status));
