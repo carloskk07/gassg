@@ -434,7 +434,7 @@ function deliverOrder(id,pin,paymentConfirmed=false){
   let r=transition(o,'DELIVERED','Entregue ✓','PIN validado com sucesso.');if(!r.ok)return r;
   o.deliveredAt=nowIso();
   const m=merchantById(o.merchantId);if(m)m.delivered++;
-  r=transition(o,'SETTLED','Pedido concluído','Entrega conciliada na demonstração; benefícios foram processados.');
+  r=transition(o,'SETTLED','Pedido concluído','Entrega e pagamento conciliados na demonstração; benefícios foram processados.');
   if(r.ok){o.settledAt=nowIso();grantRewards(o);save()}
   return r;
 }
@@ -527,7 +527,7 @@ parseReferral();
 if(globalThis.__CHAMA_TEST__){
   globalThis.ChamaTest={
     freshSeed,normalizeState,normalizeCart,cartAvailableFor,cartTotalFor,offersForCart,isPriceFresh,minPrice,
-    createOrderForMerchant,acceptOrder,rejectOrder,dispatchOrder,arrivingOrder,deliverOrder,customerCancel,
+    createOrderForMerchant,acceptOrder,rejectOrder,failAcceptedOrder,dispatchOrder,arrivingOrder,deliverOrder,customerCancel,
     reassignOrder,acceptRequote,transition,updateMerchant,pauseMerchant,resumeMerchant,setCartProduct,grantRewards,
     hasCartItems,esc,housekeeping,normalizeCnpj,isValidCnpjShape,
     getState:()=>state,setState:s=>{state=normalizeState(s);save();}
