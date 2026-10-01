@@ -49,6 +49,7 @@ const strictAccountingReward=fs.readFileSync(new URL('../supabase/migrations/202
 const deterministicClocks=fs.readFileSync(new URL('../supabase/migrations/20261001151000_deterministic_settlement_clocks.sql',import.meta.url),'utf8');
 const impossibleStates=fs.readFileSync(new URL('../supabase/migrations/20261001152000_impossible_order_states.sql',import.meta.url),'utf8');
 const generalizedGlpDelivery=fs.readFileSync(new URL('../supabase/migrations/20261001153000_generalized_glp_delivery_compatibility.sql',import.meta.url),'utf8');
+const complianceFreshness=fs.readFileSync(new URL('../supabase/migrations/20261001154000_compliance_freshness_authority.sql',import.meta.url),'utf8');
 const adminAccountingRecovery=fs.readFileSync(new URL('../supabase/migrations/20261001142000_admin_settlement_accounting_recovery.sql',import.meta.url),'utf8');
 const noUnsafeOffset=fs.readFileSync(new URL('../supabase/migrations/20261001143000_disable_unsafe_cashback_offset.sql',import.meta.url),'utf8');
 const customerCancel=fs.readFileSync(new URL('../supabase/migrations/20261001144000_customer_cancel_before_dispatch.sql',import.meta.url),'utf8');
@@ -104,6 +105,7 @@ const sar=strictAccountingReward.replace(/--.*$/gm,'').replace(/\s+/g,' ').toLow
 const dsc=deterministicClocks.replace(/--.*$/gm,'').replace(/\s+/g,' ').toLowerCase();
 const ios=impossibleStates.replace(/--.*$/gm,'').replace(/\s+/g,' ').toLowerCase();
 const ggd=generalizedGlpDelivery.replace(/--.*$/gm,'').replace(/\s+/g,' ').toLowerCase();
+const cf=complianceFreshness.replace(/--.*$/gm,'').replace(/\s+/g,' ').toLowerCase();
 const aar=adminAccountingRecovery.replace(/--.*$/gm,'').replace(/\s+/g,' ').toLowerCase();
 const nuo=noUnsafeOffset.replace(/--.*$/gm,'').replace(/\s+/g,' ').toLowerCase();
 const cnc=customerCancel.replace(/--.*$/gm,'').replace(/\s+/g,' ').toLowerCase();
@@ -450,4 +452,14 @@ console.log('Requote + watchdog + hardening v1.14.9 contract passou.');
 assert.match(ggd,/public\.is_glp_product_code\(r\.product_code\)/,'delivery deve herdar semântica GLP para P1..P90 sem perfil explícito');
 assert.match(ggd,/v_covered<>v_requested/,'SKU desconhecido fora do perfil deve continuar fail-closed');
 assert.match(ggd,/regulated_glp_mixed_load_verified/,'cesta mista com GLP deve exigir capability verificada');
+assert.match(cf,/cnpj_verified_at timestamptz/,'CNPJ precisa de relógio próprio');
+assert.match(cf,/anp_verified_at timestamptz/,'ANP precisa de relógio próprio');
+assert.match(cf,/cnpj_max_age_days integer not null default 30/,'política operacional de CNPJ precisa ser configurável');
+assert.match(cf,/anp_max_age_days integer not null default 7/,'política operacional de ANP precisa ser configurável');
+assert.match(cf,/merchant_cnpj_compliance_current/,'compliance CNPJ deve ser consultável como autoridade');
+assert.match(cf,/merchant_anp_compliance_current/,'compliance ANP deve ser consultável como autoridade');
+assert.match(cf,/public\.is_glp_product_code\(ci\.product_code\)/,'freshness ANP deve valer para todo GLP P1..P90');
+assert.doesNotMatch(cf,/ci\.product_code='p13'/,'trigger novo não pode voltar a hardcode P13');
+assert.match(cf,/chama-compliance-expiry/,'evidência vencida precisa de watchdog');
+assert.match(cf,/merchant_compliance_events/,'suspensão automática precisa de trilha de auditoria');
 
