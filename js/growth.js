@@ -33,10 +33,9 @@ function merchantsLanding(){
   return shell(`<section class="page"><span class="eyebrow">PARCEIROS LOCAIS</span><h1 class="page-title">Mais pedidos para sua operação.</h1><p class="muted">Você define seus preços, sua disponibilidade e seu catálogo. A plataforma ajuda clientes próximos a encontrarem quem consegue atendê-los melhor.</p><div class="grid cards-3" style="margin-top:20px"><div class="card"><div class="feature-icon">📦</div><h3>Venda incremental</h3><p class="muted tiny">Receba pedidos novos sem abrir outra loja.</p></div><div class="card"><div class="feature-icon">🎛️</div><h3>Controle total</h3><p class="muted tiny">Fique online, ajuste preço, estoque e área atendida.</p></div><div class="card"><div class="feature-icon">✅</div><h3>Confiança</h3><p class="muted tiny">Aceite real, saída confirmada e entrega comprovada.</p></div></div><div class="card flat" style="margin-top:16px"><h3>Quer participar do pool de São Gabriel?</h3><p class="muted">Comece com um cadastro curto. A ativação ocorre após validação operacional e, para GLP, verificação regulatória.</p><button class="primary full" onclick="go('merchant-join')">Cadastrar minha empresa</button></div></section>`)
 }
 function merchantJoin(){
-  return shell(`<section class="page"><button class="back" onclick="go('merchants')">← Para revendas</button><h1 class="page-title">Quero ser parceiro</h1><div class="card flat form-stack"><div class="field-row"><div class="input-wrap"><label for="j-cnpj">CNPJ</label><input id="j-cnpj" inputmode="numeric" maxlength="18" class="input" placeholder="00.000.000/0000-00"></div><div class="input-wrap"><label for="j-name">Nome da empresa</label><input id="j-name" maxlength="90" class="input" placeholder="Nome da revenda"></div></div><div class="field-row"><div class="input-wrap"><label for="j-owner">Responsável</label><input id="j-owner" maxlength="90" class="input" placeholder="Nome do responsável"></div><div class="input-wrap"><label for="j-phone">WhatsApp</label><input id="j-phone" inputmode="tel" maxlength="20" class="input" placeholder="(55) 99999-9999"></div></div><div class="input-wrap"><label for="j-address">Endereço</label><input id="j-address" maxlength="160" class="input" placeholder="Endereço da empresa"></div><button class="primary" onclick="joinMerchant()">Enviar para análise</button></div><div class="notice" style="margin-top:14px">O cadastro não coloca a empresa online automaticamente. GLP exige validação da revenda e teste completo do fluxo antes do go-live.</div></section>`)
+  return shell(`<section class="page"><button class="back" onclick="go('merchants')">← Para revendas</button><h1 class="page-title">Quero ser parceiro</h1><div class="card flat form-stack"><div class="field-row"><div class="input-wrap"><label for="j-cnpj">CNPJ</label><input id="j-cnpj" autocapitalize="characters" maxlength="18" class="input" placeholder="00.000.000/0000-00 ou alfanumérico"></div><div class="input-wrap"><label for="j-name">Nome da empresa</label><input id="j-name" maxlength="90" class="input" placeholder="Nome da revenda"></div></div><div class="field-row"><div class="input-wrap"><label for="j-owner">Responsável</label><input id="j-owner" maxlength="90" class="input" placeholder="Nome do responsável"></div><div class="input-wrap"><label for="j-phone">WhatsApp</label><input id="j-phone" inputmode="tel" maxlength="20" class="input" placeholder="(55) 99999-9999"></div></div><div class="input-wrap"><label for="j-address">Endereço</label><input id="j-address" maxlength="160" class="input" placeholder="Endereço da empresa"></div><button class="primary" onclick="joinMerchant()">Enviar para análise</button></div><div class="notice" style="margin-top:14px">O cadastro não coloca a empresa online automaticamente. GLP exige validação da revenda e teste completo do fluxo antes do go-live.</div></section>`)
 }
 function onlyDigits(v){return String(v||'').replace(/\D/g,'')}
-function isValidCnpjShape(v){return onlyDigits(v).length===14}
 function isValidPhoneShape(v){const n=onlyDigits(v);return n.length===10||n.length===11}
 function joinMerchant(){
   const cnpj=document.querySelector('#j-cnpj')?.value.trim()||'';
@@ -44,11 +43,11 @@ function joinMerchant(){
   const owner=document.querySelector('#j-owner')?.value.trim()||'';
   const phone=document.querySelector('#j-phone')?.value.trim()||'';
   const address=document.querySelector('#j-address')?.value.trim()||'';
-  if(!isValidCnpjShape(cnpj))return toast('Informe um CNPJ com 14 dígitos');
+  if(!isValidCnpjShape(cnpj))return toast('Informe um CNPJ válido no formato atual');
   if(name.length<2||owner.length<2||address.length<5)return toast('Revise os dados da empresa');
   if(!isValidPhoneShape(phone))return toast('Informe um WhatsApp válido');
-  const normalized=onlyDigits(cnpj);
-  if(state.onboarding.some(x=>onlyDigits(x.cnpj)===normalized))return toast('Este CNPJ já foi enviado para análise');
+  const normalized=normalizeCnpj(cnpj);
+  if(state.onboarding.some(x=>normalizeCnpj(x.cnpj)===normalized))return toast('Este CNPJ já foi enviado para análise');
   state.onboarding.push({cnpj:normalized,name:name.slice(0,90),owner:owner.slice(0,90),phone:onlyDigits(phone),address:address.slice(0,160),status:'Em análise',createdAt:nowIso()});
   save();toast('Cadastro enviado para análise');go('merchants');
 }
