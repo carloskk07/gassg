@@ -72,7 +72,7 @@ Deno.serve(async(req:Request)=>{
 
     if(order.customer_id===user.id){
       role="customer";
-    }else if(order.merchant_id){
+    }else if(order.merchant_id&&!["REASSIGNING","REQUOTE_REQUIRED","CANCELLED"].includes(order.status)){
       const {data:membership,error:membershipError}=await admin
         .from("merchant_members")
         .select("member_role,active")
@@ -128,7 +128,8 @@ Deno.serve(async(req:Request)=>{
       memberRole:role==="merchant"?memberRole:null,
       status:order.status,
       version:order.version,
-      address:order.address_text,
+      address:role==="customer"||order.status!=="OFFERED_TO_MERCHANT"?order.address_text:null,
+      addressVisible:role==="customer"||order.status!=="OFFERED_TO_MERCHANT",
       paymentMethod:order.payment_method,
       grossTotalCents:order.gross_total_cents,
       cashbackReservedCents:order.cashback_reserved_cents,
