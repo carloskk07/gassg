@@ -60,6 +60,9 @@ function mapRpcError(error: { message?: string; code?: string } | null) {
   for (const [code, meta] of Object.entries(known)) {
     if (message.includes(code)) return { code, ...meta };
   }
+  if (message.includes("orders_one_active_per_customer_idx")) {
+    return { code: "ACTIVE_ORDER_EXISTS", status: 409, message: "Você já possui um pedido em andamento." };
+  }
   return { code: "CREATE_ORDER_FAILED", status: 500, message: "Não foi possível criar o pedido." };
 }
 
