@@ -400,9 +400,22 @@ function reassignOrderAfterRequoteLoss(o){
 }
 function customerCancel(id){
   const o=orderById(id);
-  if(!o||!['OFFERED_TO_MERCHANT','REQUOTE_REQUIRED'].includes(o.status))return {ok:false,error:'Este pedido já avançou e precisa de suporte para cancelamento'};
-  transition(o,'CANCELLED','Cancelado pelo cliente','O pedido foi cancelado antes do compromisso de entrega.');
-  restoreCashback(o);save();return {ok:true};
+  if(!o)return {ok:false,error:'Pedido não encontrado'};
+  if(['OFFERED_TO_MERCHANT','REQUOTE_REQUIRED'].includes(o.status)){
+    transition(o,'CANCELLED','Cancelado pelo cliente','O pedido foi cancelado antes do compromisso de entrega.');
+    restoreCashback(o);save();return {ok:true};
+  }
+  if(['PREPARING','AT_RISK'].includes(o.status)&&!o.dispatchedAt){
+    const m=merchantById(o.merchantId);
+    if(o.inventoryReserved){
+      releaseInventory(m,o.cart);
+      o.inventoryReserved=false;
+    }
+    const r=transition(o,'CANCELLED','Cancelado antes da saída','O estoque reservado foi devolvido antes da saída.');
+    if(!r.ok)return r;
+    restoreCashback(o);save();return {ok:true};
+  }
+  return {ok:false,error:'A entrega já saiu; o cancelamento automático não é mais permitido'};
 }
 function acceptOrder(id){
   const o=orderById(id); if(!o||o.status!=='OFFERED_TO_MERCHANT')return {ok:false,error:'Pedido não está aguardando aceite'};
