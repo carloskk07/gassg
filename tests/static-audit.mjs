@@ -46,7 +46,7 @@ assert.ok(core.includes('isValidCnpjShape'),'core precisa suportar validação e
 assert.ok(!merchant.includes('.stock'),'UI da revenda não deve depender do campo legado stock');
 assert.ok(growth.includes('referralCode'),'link de indicação deve usar código pessoal');
 assert.ok(!growth.includes('inputmode="numeric" maxlength="18"'),'campo CNPJ não pode forçar teclado somente numérico após adoção do CNPJ alfanumérico');
-assert.ok(sw.includes("CACHE='chama-sg-v1.12'"),'cache do service worker precisa estar versionado');
+assert.ok(sw.includes("CACHE='chama-sg-v1.13'"),'cache do service worker precisa estar versionado');
 assert.ok(sw.includes("./js/backend.js"),'runtime live precisa estar no cache da PWA');
 assert.ok(backend.includes("sb_publishable_"),'frontend live deve usar publishable key explícita');
 assert.ok(!backend.includes("sb_secret_"),'frontend jamais pode conter secret key');
@@ -88,6 +88,16 @@ for(const fn of ['merchant-orders','merchant-action','merchant-ops','complete-de
 assert.ok(read('supabase/functions/get-order/index.ts').includes('MERCHANT_ORIGIN_REQUIRED'),'leitura individual da revenda deve exigir origem dedicada');
 assert.ok(read('supabase/functions/get-order/index.ts').includes('merchantOriginAllowed'),'get-order precisa distinguir origem cliente de origem merchant');
 assert.ok(merchant.includes('Origem da revenda não isolada'),'UI deve explicar o bloqueio de origem da revenda');
+assert.ok(backend.includes('customerOriginSafe'),'frontend cliente live precisa bloquear origem compartilhada');
+assert.ok(backend.includes('CHAMA_CUSTOMER_ORIGIN'),'origem dedicada do cliente precisa ser configurável');
+for(const fn of ['get-offers','create-order','customer-action','customer-summary','submit-merchant-application']){
+  const source=read('supabase/functions/'+fn+'/index.ts');
+  assert.ok(source.includes('CUSTOMER_ALLOWED_ORIGIN'),fn+' precisa exigir origem dedicada do cliente');
+  assert.ok(!source.includes('carloskk07.github.io'),fn+' não pode confiar na origem compartilhada do GitHub Pages');
+}
+assert.ok(read('supabase/functions/get-order/index.ts').includes('CUSTOMER_ORIGIN_REQUIRED'),'get-order precisa exigir origem dedicada para papel customer');
+assert.ok(read('supabase/functions/get-order/index.ts').includes('CUSTOMER_ALLOWED_ORIGIN'),'get-order precisa separar origem customer de merchant');
+assert.ok(core.includes('Piloto real bloqueado nesta origem compartilhada'),'UI deve explicar que GitHub Pages é apenas demonstração');
 assert.ok(sw.includes("./js/admin.js"),'runtime admin precisa estar no cache da PWA');
 assert.ok(admin.includes("storageKey:'chama-sg-admin-auth-v1'"),'sessão admin deve ser isolada das sessões cliente/revenda');
 assert.ok(backend.includes("storage:sessionStorage")&&backend.includes("storageKey:'chama-sg-merchant-auth-v1'"),'sessão da revenda deve ser tab-scoped em sessionStorage');
