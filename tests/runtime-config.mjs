@@ -25,7 +25,7 @@ execFileSync(process.execPath,['scripts/generate-runtime-config.mjs'],{
   stdio:'pipe'
 });
 const generated=fs.readFileSync(tmp,'utf8');
-assert.ok(generated.includes("globalThis.CHAMA_ADMIN_ORIGIN='https://admin.example.com'"));
+assert.ok(generated.includes('globalThis.CHAMA_ADMIN_ORIGIN="https://admin.example.com";'));
 fs.rmSync(tmp,{force:true});
 
 console.log('Runtime config contract passou.');
