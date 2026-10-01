@@ -34,8 +34,11 @@ assert.ok(core.includes("const STORAGE='chama-sg-state-v2'"),'versão nova do st
 assert.ok(core.includes('ALLOWED='),'máquina de estados deve possuir autoridade explícita');
 assert.ok(core.includes('MAX_PIN_FAILURES'),'PIN precisa de limite de tentativas');
 assert.ok(core.includes('PRICE_FRESH_MS'),'preço precisa de validade explícita');
+assert.ok(core.includes('if(globalThis.__CHAMA_TEST__)'),'API de testes precisa estar protegida no site público');
+assert.ok(core.includes('isValidCnpjShape'),'core precisa suportar validação estrutural do CNPJ atual');
 assert.ok(!merchant.includes('.stock'),'UI da revenda não deve depender do campo legado stock');
 assert.ok(growth.includes('referralCode'),'link de indicação deve usar código pessoal');
+assert.ok(!growth.includes('inputmode="numeric" maxlength="18"'),'campo CNPJ não pode forçar teclado somente numérico após adoção do CNPJ alfanumérico');
 assert.ok(sw.includes("CACHE='chama-sg-v1.1'"),'cache do service worker precisa estar versionado');
 
 console.log(`${refs.length} assets do index validados.`);
