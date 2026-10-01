@@ -298,4 +298,41 @@ test('timestamp de preço muito no futuro é tratado como inválido',()=>{
   assert.ok(!T.offersForCart(T.getState().cart).some(o=>o.id==='A'));
 });
 
+
+test('preparação vencida entra em AT_RISK sem fingir saída',()=>{
+  reset(x=>{x.address='Rua Teste, 200';x.cart=cart(['P13',1])});
+  const o=T.createOrderForMerchant('B').order;
+  assert.equal(T.acceptOrder(o.id).ok,true);
+  T.getState().orders[0].dispatchDueAt=new Date(Date.now()-1000).toISOString();
+  assert.equal(T.housekeeping(),true);
+  const order=T.getState().orders[0];
+  assert.equal(order.status,'AT_RISK');
+  assert.match(order.riskReason,/saída/i);
+  assert.equal(order.dispatchedAt,undefined);
+});
+
+test('pedido em risco pode sair e recuperar o fluxo real',()=>{
+  reset(x=>{x.address='Rua Teste, 210';x.cart=cart(['P13',1])});
+  const o=T.createOrderForMerchant('B').order;
+  T.acceptOrder(o.id);
+  T.getState().orders[0].dispatchDueAt=new Date(Date.now()-1000).toISOString();
+  T.housekeeping();
+  assert.equal(T.dispatchOrder(o.id).ok,true);
+  assert.equal(T.getState().orders[0].status,'OUT_FOR_DELIVERY');
+});
+
+test('ETA vencido gera um único alerta sem alterar artificialmente o status',()=>{
+  reset(x=>{x.address='Rua Teste, 220';x.cart=cart(['P13',1])});
+  const o=T.createOrderForMerchant('B').order;
+  T.acceptOrder(o.id);T.dispatchOrder(o.id);
+  T.getState().orders[0].promisedBy=new Date(Date.now()-1000).toISOString();
+  assert.equal(T.housekeeping(),true);
+  const first=T.getState().orders[0];
+  assert.equal(first.status,'OUT_FOR_DELIVERY');
+  assert.ok(first.etaRiskNotifiedAt);
+  const count=first.events.filter(e=>e.status==='ETA_RISK').length;
+  T.housekeeping();
+  assert.equal(T.getState().orders[0].events.filter(e=>e.status==='ETA_RISK').length,count);
+});
+
 console.log(`\n${passed} simulações passaram.`);
