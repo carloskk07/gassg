@@ -93,6 +93,7 @@ function tracking(){
 ${o.status==='OFFERED_TO_MERCHANT'?`<div class="notice" style="margin-top:14px"><strong>Aguardando aceite real.</strong><br>Se a revenda não responder em até 3 minutos, o sistema tenta outra automaticamente. ${deadline!=null?`Prazo restante aproximado: ${deadline}s.`:''}</div>`:''}
 ${o.status==='REQUOTE_REQUIRED'?`<div class="notice" style="margin-top:14px"><strong>Encontramos outra opção.</strong><br>Novo total: ${BRL.format(o.proposedTotal)}. Nada muda sem sua autorização.<div class="order-actions"><button class="primary small" onclick="confirmRequote('${o.id}')">Aceitar novo total</button><button class="secondary small" onclick="cancelPending('${o.id}')">Cancelar pedido</button></div></div>`:''}
 ${o.status==='CANCELLED'?`<div class="notice danger" style="margin-top:14px">Este pedido foi encerrado. Cashback reservado, se houver, foi devolvido.</div>`:''}
+${o.riskReason&&o.status!=='CANCELLED'?`<div class="notice danger" style="margin-top:14px"><strong>Acompanhamento prioritário.</strong><br>${esc(o.riskReason)}. O status só muda quando houver nova confirmação real.</div>`:''}
 
 <section class="section"><div class="section-head"><div><h2>Linha do tempo</h2><p>Eventos reais e auditáveis do pedido.</p></div></div><div class="card flat timeline">${eventTimeline(o)}</div></section>
 ${['OUT_FOR_DELIVERY','ARRIVING'].includes(o.status)?`<div class="notice success"><strong>PIN de recebimento: ${esc(o.pin)}</strong><br>Informe este código somente quando o pedido estiver na sua frente.</div>`:''}
