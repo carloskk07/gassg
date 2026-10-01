@@ -22,6 +22,8 @@ const reversalSummary=fs.readFileSync(new URL('../supabase/migrations/2026100111
 const merchantCashback=fs.readFileSync(new URL('../supabase/migrations/20261001115000_merchant_cashback_reimbursement.sql',import.meta.url),'utf8');
 const referralGate=fs.readFileSync(new URL('../supabase/migrations/20261001116000_referral_acquisition_gate.sql',import.meta.url),'utf8');
 const settlementIndex=fs.readFileSync(new URL('../supabase/migrations/20261001117000_settlement_adjustment_merchant_index.sql',import.meta.url),'utf8');
+const adminControl=fs.readFileSync(new URL('../supabase/migrations/20261001118000_admin_control_plane.sql',import.meta.url),'utf8');
+const adminReversal=fs.readFileSync(new URL('../supabase/migrations/20261001119000_admin_reversal_authority.sql',import.meta.url),'utf8');
 const r=repricing.replace(/--.*$/gm,'').replace(/\s+/g,' ').toLowerCase();
 const w=watchdog.replace(/--.*$/gm,'').replace(/\s+/g,' ').toLowerCase();
 const h=hardening.replace(/--.*$/gm,'').replace(/\s+/g,' ').toLowerCase();
@@ -43,6 +45,8 @@ const rs=reversalSummary.replace(/--.*$/gm,'').replace(/\s+/g,' ').toLowerCase()
 const mc=merchantCashback.replace(/--.*$/gm,'').replace(/\s+/g,' ').toLowerCase();
 const rg=referralGate.replace(/--.*$/gm,'').replace(/\s+/g,' ').toLowerCase();
 const si=settlementIndex.replace(/--.*$/gm,'').replace(/\s+/g,' ').toLowerCase();
+const ad=adminControl.replace(/--.*$/gm,'').replace(/\s+/g,' ').toLowerCase();
+const ar=adminReversal.replace(/--.*$/gm,'').replace(/\s+/g,' ').toLowerCase();
 
 assert.match(r,/create table if not exists public\.order_requote_items/,'re-cotação precisa congelar preços por item');
 assert.match(r,/revoke all on table public\.order_requote_items from anon, authenticated/,'snapshot de re-cotação deve ser server-only');
@@ -172,4 +176,18 @@ assert.match(rg,/grant execute on function public\.create_order_from_quote[\s\S]
 assert.match(si,/platform_settlement_adjustments_merchant_idx/,'ajustes financeiros precisam de índice por revenda');
 assert.match(si,/merchant_id,status,created_at/,'índice de ajuste deve começar pela FK merchant_id');
 
-console.log('Requote + watchdog + hardening v1.6.8 contract passou.');
+assert.match(ad,/create table if not exists public\.platform_admins/,'admin deve usar allowlist explícita no banco');
+assert.match(ad,/join auth\.users u on u\.id=a\.user_id[\s\S]*u\.is_anonymous is false/,'admin precisa exigir identidade permanente');
+assert.match(ad,/revoke all on table public\.platform_admins from anon, authenticated/,'allowlist admin deve ser server-only');
+assert.match(ad,/create table if not exists public\.merchant_compliance/,'compliance de revenda precisa ser persistido');
+assert.match(ad,/cnpj_status in \('pending','verified','rejected'\)/,'compliance precisa versionar estado do CNPJ');
+assert.match(ad,/anp_status in \('pending','verified','not_required','rejected'\)/,'compliance precisa versionar estado ANP');
+assert.match(ad,/enforce_active_merchant_compliance_trg/,'ativação de revenda precisa ter gate no banco');
+assert.match(ad,/enforce_p13_catalog_compliance_trg/,'P13 em revenda ativa precisa ter gate regulatório');
+assert.match(ad,/admin_approve_merchant_application/,'aprovação de parceiro precisa ter autoridade transacional');
+assert.match(ad,/member_role='owner',active=true/,'aprovação deve vincular solicitante como owner sem liberar operação automaticamente');
+assert.match(ad,/admin_financial_action/,'conciliação financeira precisa de autoridade admin no banco');
+assert.match(ar,/admin_reverse_settled_order/,'reversão administrativa precisa de wrapper atômico');
+assert.match(ar,/platform_admin_audit/,'reversão e auditoria precisam ocorrer na mesma transação');
+
+console.log('Requote + watchdog + hardening v1.7 contract passou.');
