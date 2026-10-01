@@ -381,6 +381,7 @@ function adminPage(){
   const receivables=d.finance?.receivables||[];
   const reimbursements=d.finance?.cashbackReimbursements||[];
   const adjustments=d.finance?.adjustments||[];
+  const platformAdmins=d.platformAdmins||[];
   const openFees=receivables.reduce((s,x)=>s+Number(x.platform_fee_cents||0),0);
   const openCashback=reimbursements.reduce((s,x)=>s+Number(x.cashback_cents||0),0);
   const openAdjustments=adjustments.reduce((s,x)=>s+Number(x.amount_cents||0),0);
@@ -395,6 +396,15 @@ function adminPage(){
       <div class="kpi"><span class="label">Taxas a receber</span><strong>${adminMoney(openFees)}</strong></div>
       <div class="kpi"><span class="label">Cashback a reembolsar</span><strong>${adminMoney(openCashback)}</strong></div>
     </div></section>
+
+    <section class="section"><div class="section-head"><div><h2>Administradores da plataforma</h2><p>O primeiro admin é criado somente por bootstrap server-side. Depois disso, esta tela mantém redundância operacional sem permitir remover o último admin ativo.</p></div><span class="status-pill online">${platformAdmins.filter(x=>x.active).length} ativo(s)</span></div>
+      <div class="card flat form-stack">
+        <div class="list">${platformAdmins.length?platformAdmins.map(x=>`<div class="list-row"><div><strong>${esc(x.user_id)}</strong><br><small>${x.active?'Administrador ativo':'Acesso administrativo suspenso'}</small></div><div class="order-actions"><span class="status-pill ${x.active?'online':'offline'}">${x.active?'ATIVO':'INATIVO'}</span><button class="${x.active?'danger-btn':'secondary'} small" onclick="adminSetPlatformAdmin('${x.user_id}',${x.active?'false':'true'})">${x.active?'Desativar':'Ativar'}</button></div></div>`).join(''):'<div class="tiny muted">Nenhum administrador bootstrapado ainda.</div>'}</div>
+        <div class="divider"></div>
+        <div class="input-wrap"><label for="admin-new-user-id">UUID de uma conta permanente</label><input id="admin-new-user-id" class="input" maxlength="36" placeholder="00000000-0000-0000-0000-000000000000"></div>
+        <button class="secondary" onclick="adminAddPlatformAdmin()">Adicionar administrador</button>
+      </div>
+    </section>
 
     <section class="section"><div class="section-head"><div><h2>Cadastros de parceiros</h2><p>Aprovação cria a revenda como pendente e vincula o solicitante como owner. Não coloca a operação online.</p></div></div>${(d.applications||[]).length?(d.applications||[]).map(adminApplicationCard).join(''):'<div class="empty card">Nenhum cadastro recebido.</div>'}</section>
 
@@ -483,6 +493,21 @@ async function adminRetryAccounting(orderId){
   }catch(e){toast(String(e?.message||e))}
 }
 
+async function adminSetPlatformAdmin(targetUserId,active){
+  if(active!==true&&!confirm('Desativar este administrador? O último admin ativo nunca pode ser removido.'))return;
+  try{
+    await adminPerform('set-platform-admin',{targetUserId,active:active===true});
+    toast(active?'Administrador ativado':'Administrador desativado');
+  }catch(e){toast(String(e?.message||e))}
+}
+async function adminAddPlatformAdmin(){
+  const targetUserId=document.querySelector('#admin-new-user-id')?.value.trim()||'';
+  if(!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(targetUserId)){
+    return toast('Informe um UUID válido de conta permanente');
+  }
+  await adminSetPlatformAdmin(targetUserId,true);
+}
+
 async function adminFinancial(kind,targetId,financialAction){
   const reference=prompt('Referência da conciliação (opcional):')||'';
   try{
@@ -513,4 +538,6 @@ globalThis.adminPoll=adminPoll;
 globalThis.adminPage=adminPage;
 globalThis.adminRetryReward=adminRetryReward;
 globalThis.adminRetryAccounting=adminRetryAccounting;
+globalThis.adminSetPlatformAdmin=adminSetPlatformAdmin;
+globalThis.adminAddPlatformAdmin=adminAddPlatformAdmin;
 globalThis.openAdminPortal=openAdminPortal;
