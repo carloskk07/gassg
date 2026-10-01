@@ -138,6 +138,12 @@ assert.doesNotMatch(
 assert.match(normalized,/create policy "read own merchant profile"/,'revenda só pode ler o próprio cadastro');
 assert.match(normalized,/create policy "read own merchant catalog"/,'revenda só pode ler o próprio catálogo');
 
+assert.match(normalized,/status <> 'requote_required'[\s\S]*proposed_merchant_id is not null[\s\S]*proposed_total_cents is not null/,'requote precisa ter proposta completa');
+assert.match(normalized,/status not in \('out_for_delivery','arriving','delivered','settled'\)[\s\S]*dispatched_at is not null/,'status de rota exige saída confirmada');
+assert.match(normalized,/status not in \('delivered','settled'\)[\s\S]*delivered_at is not null/,'entrega exige timestamp real');
+assert.match(normalized,/status <> 'settled'[\s\S]*settled_at is not null/,'settlement exige timestamp real');
+assert.match(normalized,/orders_one_active_per_customer_idx/,'banco precisa impedir dois pedidos ativos por cliente');
+assert.match(normalized,/total_cents = gross_total_cents - cashback_reserved_cents/,'banco precisa garantir total líquido');
 assert.match(normalized,/version integer not null default 1/,'pedido precisa suportar concorrência otimista');
 
 assert.match(normalized,/publication supabase_realtime add table public\.orders/,'orders precisa estar preparado para Realtime');
