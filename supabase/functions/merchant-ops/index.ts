@@ -227,7 +227,17 @@ Deno.serve(async(req:Request)=>{
     return json({error:"INVALID_ACTION"},400,origin);
   }catch(error){
     if(error instanceof DomainError)return json({error:error.code,message:error.message},error.status,origin);
-    console.error("merchant-ops failed",error instanceof Error?error.message:String(error));
+    const message=error instanceof Error?error.message:String(error);
+    if(message.includes("CNPJ_REVERIFICATION_REQUIRED")){
+      return json({error:"CNPJ_REVERIFICATION_REQUIRED",message:"A verificação de CNPJ venceu. Solicite nova validação antes de ficar online."},409,origin);
+    }
+    if(message.includes("ANP_REVERIFICATION_REQUIRED")){
+      return json({error:"ANP_REVERIFICATION_REQUIRED",message:"A verificação ANP do GLP venceu. Solicite nova validação antes de ficar online."},409,origin);
+    }
+    if(message.includes("GLP_REGULATORY_VERIFICATION_REQUIRED")){
+      return json({error:"ANP_VERIFICATION_REQUIRED",message:"Este produto GLP exige validação ANP válida."},409,origin);
+    }
+    console.error("merchant-ops failed",message);
     return json({error:"INTERNAL_ERROR",message:"Não foi possível atualizar a operação."},500,origin);
   }
 });
