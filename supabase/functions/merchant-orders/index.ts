@@ -78,6 +78,14 @@ Deno.serve(async(req:Request)=>{
       : memberships[0];
     if(!selected)return json({error:"MERCHANT_ACCESS_DENIED",message:"Você não possui acesso a esta revenda."},403,origin);
 
+    const membershipMerchantIds=memberships.map((m)=>m.merchant_id);
+    const {data:membershipMerchants,error:membershipMerchantsError}=await admin
+      .from("merchants")
+      .select("id,name")
+      .in("id",membershipMerchantIds);
+    if(membershipMerchantsError)throw membershipMerchantsError;
+    const merchantNames=new Map((membershipMerchants??[]).map((m)=>[m.id,m.name]));
+
     const {data:merchant,error:merchantError}=await admin
       .from("merchants")
       .select("id,name,status,online,trust_score,delivery_fee_cents,base_eta_minutes,price_confirmed_at,last_seen_at")
@@ -85,6 +93,13 @@ Deno.serve(async(req:Request)=>{
       .maybeSingle();
     if(merchantError)throw merchantError;
     if(!merchant)return json({error:"MERCHANT_NOT_FOUND"},404,origin);
+
+    const {data:catalog,error:catalogError}=await admin
+      .from("catalog_items")
+      .select("product_code,product_name,price_cents,available_stock,active,updated_at")
+      .eq("merchant_id",selected.merchant_id)
+      .order("product_code");
+    if(catalogError)throw catalogError;
 
     const {data:orders,error:ordersError}=await admin
       .from("orders")
@@ -132,7 +147,19 @@ Deno.serve(async(req:Request)=>{
         priceConfirmedAt:merchant.price_confirmed_at,
         lastSeenAt:merchant.last_seen_at
       },
-      memberships:memberships.map((m)=>({merchantId:m.merchant_id,memberRole:m.member_role})),
+      memberships:memberships.map((m)=>({
+        merchantId:m.merchant_id,
+        memberRole:m.member_role,
+        name:merchantNames.get(m.merchant_id)??"Revenda"
+      })),
+      catalog:(catalog??[]).map((item)=>({
+        productCode:item.product_code,
+        productName:item.product_name,
+        priceCents:item.price_cents,
+        availableStock:item.available_stock,
+        active:item.active,
+        updatedAt:item.updated_at
+      })),
       orders:(orders??[]).map((o)=>({
         orderId:o.id,
         publicCode:o.public_code,
