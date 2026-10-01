@@ -477,14 +477,30 @@ function housekeeping(){
   return changed;
 }
 
+function runtimeStrip(){
+  if(!globalThis.liveRequested?.()){
+    return '<div class="demo-strip"><span>Ambiente de demonstração • preços e revendas ilustrativos</span><button onclick="reset()">Reiniciar</button></div>';
+  }
+  const mode=globalThis.liveBanner?.()||'connecting';
+  if(mode==='live'){
+    return '<div class="demo-strip live-strip"><span>● PILOTO CONECTADO • dados e pedidos vêm do Supabase gassg</span><button onclick="location.href=location.pathname+\'#home\'">Voltar à demonstração</button></div>';
+  }
+  if(mode==='connecting'){
+    return '<div class="demo-strip live-strip"><span>Conectando ao backend real do piloto…</span></div>';
+  }
+  return '<div class="demo-strip blocked-strip"><span>Modo live solicitado, mas o Auth do piloto ainda não está disponível</span><button onclick="location.href=location.pathname+\'#home\'">Abrir demonstração</button></div>';
+}
 function shell(content){
   const r=route();
+  const merchantAction=globalThis.liveRequested?.()
+    ? "toast('A área real da revenda exige login permanente; integração em próxima etapa')"
+    : "setMode('merchant')";
   return `<div class="app">
-  <div class="demo-strip"><span>Ambiente de demonstração • preços e revendas ilustrativos</span><button onclick="reset()">Reiniciar</button></div>
+  ${runtimeStrip()}
   <header class="topbar"><div class="shell topbar-inner">
     <button class="brand brand-button" onclick="go('home')" aria-label="Ir para o início"><div class="brandmark"><span>🔥</span></div><div>Chama<small>São Gabriel</small></div></button>
     <div class="desktop-only desktop-nav"><button onclick="go('home')">Início</button><button onclick="go('club')">Clube</button><button onclick="go('refer')">Indique e ganhe</button><button onclick="go('merchants')">Para revendas</button></div>
-    <div class="mode-pill" aria-label="Alternar modo de demonstração"><button class="${state.mode==='customer'?'active':''}" onclick="setMode('customer')">Cliente</button><button class="${state.mode==='merchant'?'active':''}" onclick="setMode('merchant')">Revenda</button></div>
+    <div class="mode-pill" aria-label="Alternar modo"><button class="${state.mode==='customer'?'active':''}" onclick="setMode('customer')">Cliente</button><button class="${state.mode==='merchant'?'active':''}" onclick="${merchantAction}">Revenda</button></div>
   </div></header>
   <main class="shell">${content}</main>
   ${bottomNav(r)}
