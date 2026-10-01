@@ -486,38 +486,61 @@ function housekeeping(){
 }
 
 function runtimeStrip(){
+  if(globalThis.merchantPortalRequested?.()){
+    const status=globalThis.merchantRuntime?.status||'loading';
+    if(status==='ready'){
+      return '<div class="demo-strip live-strip"><span>● PAINEL REAL DA REVENDA • operações gravadas no Supabase</span><button onclick="openCustomerPortal()">Sair do painel</button></div>';
+    }
+    if(status==='loading'||status==='disabled'){
+      return '<div class="demo-strip live-strip"><span>Conectando ao painel real da revenda…</span></div>';
+    }
+    if(status==='unauthenticated'){
+      return '<div class="demo-strip"><span>Painel da revenda • autenticação permanente necessária</span><button onclick="openCustomerPortal()">Voltar ao site</button></div>';
+    }
+    if(status==='no-access'){
+      return '<div class="demo-strip blocked-strip"><span>Conta autenticada, mas ainda sem revenda vinculada</span><button onclick="openCustomerPortal()">Voltar ao site</button></div>';
+    }
+    return '<div class="demo-strip blocked-strip"><span>Painel da revenda indisponível no momento</span><button onclick="openCustomerPortal()">Voltar ao site</button></div>';
+  }
   if(!globalThis.liveRequested?.()){
     return '<div class="demo-strip"><span>Ambiente de demonstração • preços e revendas ilustrativos</span><button onclick="reset()">Reiniciar</button></div>';
   }
   const mode=globalThis.liveBanner?.()||'connecting';
   if(mode==='live'){
-    return '<div class="demo-strip live-strip"><span>● PILOTO CONECTADO • dados e pedidos vêm do Supabase gassg</span><button onclick="location.href=location.pathname+\'#home\'">Voltar à demonstração</button></div>';
+    return '<div class="demo-strip live-strip"><span>● PILOTO CONECTADO • dados e pedidos vêm do Supabase gassg</span><button onclick="openCustomerPortal()">Voltar à demonstração</button></div>';
   }
   if(mode==='connecting'){
     return '<div class="demo-strip live-strip"><span>Conectando ao backend real do piloto…</span></div>';
   }
-  return '<div class="demo-strip blocked-strip"><span>Modo live solicitado, mas o Auth do piloto ainda não está disponível</span><button onclick="location.href=location.pathname+\'#home\'">Abrir demonstração</button></div>';
+  return '<div class="demo-strip blocked-strip"><span>Modo live solicitado, mas o Auth do piloto ainda não está disponível</span><button onclick="openCustomerPortal()">Abrir demonstração</button></div>';
 }
 function shell(content){
   const r=route();
-  const merchantAction=globalThis.liveRequested?.()
-    ? "toast('A área real da revenda exige login permanente; integração em próxima etapa')"
-    : "setMode('merchant')";
+  const merchantPortal=globalThis.merchantPortalRequested?.()===true;
+  const merchantAction=merchantPortal?"go('merchant')":globalThis.liveRequested?.()?"openMerchantPortal()":"setMode('merchant')";
+  const customerAction=merchantPortal?"openCustomerPortal()":"setMode('customer')";
+  const brandAction=merchantPortal?"go('merchant')":"go('home')";
+  const desktopNav=merchantPortal
+    ? '<button onclick="go(\'merchant\')">Operação</button><button onclick="go(\'catalog\')">Catálogo</button><button onclick="go(\'merchants\')">Parceiros</button>'
+    : '<button onclick="go(\'home\')">Início</button><button onclick="go(\'club\')">Clube</button><button onclick="go(\'refer\')">Indique e ganhe</button><button onclick="go(\'merchants\')">Para revendas</button>';
   return `<div class="app">
   ${runtimeStrip()}
   <header class="topbar"><div class="shell topbar-inner">
-    <button class="brand brand-button" onclick="go('home')" aria-label="Ir para o início"><div class="brandmark"><span>🔥</span></div><div>Chama<small>São Gabriel</small></div></button>
-    <div class="desktop-only desktop-nav"><button onclick="go('home')">Início</button><button onclick="go('club')">Clube</button><button onclick="go('refer')">Indique e ganhe</button><button onclick="go('merchants')">Para revendas</button></div>
-    <div class="mode-pill" aria-label="Alternar modo"><button class="${state.mode==='customer'?'active':''}" onclick="setMode('customer')">Cliente</button><button class="${state.mode==='merchant'?'active':''}" onclick="${merchantAction}">Revenda</button></div>
+    <button class="brand brand-button" onclick="${brandAction}" aria-label="Ir para o início"><div class="brandmark"><span>🔥</span></div><div>Chama<small>São Gabriel</small></div></button>
+    <div class="desktop-only desktop-nav">${desktopNav}</div>
+    <div class="mode-pill" aria-label="Alternar modo"><button class="${!merchantPortal&&state.mode==='customer'?'active':''}" onclick="${customerAction}">Cliente</button><button class="${merchantPortal||state.mode==='merchant'?'active':''}" onclick="${merchantAction}">Revenda</button></div>
   </div></header>
   <main class="shell">${content}</main>
   ${bottomNav(r)}
   </div>`;
 }
 function bottomNav(r){
-  const items=state.mode==='merchant'
-    ?[['merchant','🏪','Operação','go'],['merchant-orders','📦','Pedidos','go'],['catalog','🧺','Catálogo','go'],['merchant-metrics','📊','Desempenho','go'],['merchants','➕','Parceiros','go']]
-    :[['home','⌂','Início','go'],['order','🔥','Pedir','start'],['tracking','📍','Pedido','go'],['club','★','Clube','go'],['refer','🤝','Indique','go']];
+  const merchantPortal=globalThis.merchantPortalRequested?.()===true;
+  const items=merchantPortal
+    ?[['merchant','🏪','Operação','go'],['merchant-orders','📦','Pedidos','go'],['catalog','🧺','Catálogo','go'],['merchants','➕','Parceiros','go']]
+    :state.mode==='merchant'
+      ?[['merchant','🏪','Operação','go'],['merchant-orders','📦','Pedidos','go'],['catalog','🧺','Catálogo','go'],['merchant-metrics','📊','Desempenho','go'],['merchants','➕','Parceiros','go']]
+      :[['home','⌂','Início','go'],['order','🔥','Pedir','start'],['tracking','📍','Pedido','go'],['club','★','Clube','go'],['refer','🤝','Indique','go']];
   return `<nav class="bottom-nav" aria-label="Navegação principal">${items.map(([id,ic,l,act])=>`<button class="nav-btn ${r===id?'active':''}" ${r===id?'aria-current="page"':''} onclick="${act==='start'?"startOrder('P13')":`go('${id}')`}"><span aria-hidden="true">${ic}</span><span>${l}</span></button>`).join('')}</nav>`;
 }
 function setMode(m){state.mode=m==='merchant'?'merchant':'customer';save();go(state.mode==='merchant'?'merchant':'home');render()}
