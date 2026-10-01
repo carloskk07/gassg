@@ -473,3 +473,20 @@ assert.match(rtc,/create or replace function public\.process_order_timeouts[\s\S
 assert.match(rtc,/create or replace function public\.enforce_glp_catalog_compliance[\s\S]*anp_verified_at/,'novo GLP deve usar relógio ANP atual');
 assert.match(rtc,/admin_set_delivery_capability[\s\S]*merchant_anp_compliance_current/,'capability mista só pode ser validada com ANP vigente');
 
+
+const stableCompliance2=fs.readFileSync(new URL('../supabase/migrations/20261001156000_stable_compliance_and_strict_glp_capability.sql',import.meta.url),'utf8')
+  .replace(/--.*$/gm,'').replace(/\s+/g,' ').toLowerCase();
+const createOrderEligibility=fs.readFileSync(new URL('../supabase/migrations/20261001157000_create_order_eligibility_revalidation.sql',import.meta.url),'utf8')
+  .replace(/--.*$/gm,'').replace(/\s+/g,' ').toLowerCase();
+
+assert.match(stableCompliance2,/statement_timestamp\(\)/,'helpers STABLE devem usar relógio estável por statement');
+assert.doesNotMatch(stableCompliance2,/stable security definer[\s\S]{0,900}clock_timestamp\(\)/,'helper STABLE não pode depender de clock_timestamp volátil');
+assert.match(stableCompliance2,/merchant_anp_verification_current/,'ANP vigente deve existir separada da exigência por catálogo');
+assert.match(stableCompliance2,/admin_set_delivery_capability[\s\S]*merchant_anp_verification_current/,'capability GLP mista deve exigir ANP vigente mesmo antes de ativar GLP');
+assert.match(stableCompliance2,/enforce_glp_catalog_compliance[\s\S]*merchant_anp_verification_current/,'ativação de novo GLP deve exigir ANP vigente');
+
+assert.match(createOrderEligibility,/create_order_from_quote[\s\S]*merchant_operational_compliance_current/,'criação de pedido deve revalidar compliance');
+assert.match(createOrderEligibility,/create_order_from_quote[\s\S]*merchant_cart_delivery_compatible/,'criação de pedido deve revalidar compatibilidade logística');
+assert.match(createOrderEligibility,/raise exception 'quote_stale'/,'perda de elegibilidade deve invalidar quote sem criar pedido');
+
+console.log('Compliance clock + create-order eligibility contracts passaram.');
