@@ -28,6 +28,7 @@ const adminIndexes=fs.readFileSync(new URL('../supabase/migrations/2026100112000
 const adminIdem=fs.readFileSync(new URL('../supabase/migrations/20261001121000_admin_action_idempotency.sql',import.meta.url),'utf8');
 const cashbackRestore=fs.readFileSync(new URL('../supabase/migrations/20261001122000_restore_spent_cashback_on_reversal.sql',import.meta.url),'utf8');
 const rewardRetry=fs.readFileSync(new URL('../supabase/migrations/20261001123000_fault_tolerant_reward_processing.sql',import.meta.url),'utf8');
+const adminState=fs.readFileSync(new URL('../supabase/migrations/20261001124000_admin_state_transition_hardening.sql',import.meta.url),'utf8');
 const r=repricing.replace(/--.*$/gm,'').replace(/\s+/g,' ').toLowerCase();
 const w=watchdog.replace(/--.*$/gm,'').replace(/\s+/g,' ').toLowerCase();
 const h=hardening.replace(/--.*$/gm,'').replace(/\s+/g,' ').toLowerCase();
@@ -55,6 +56,7 @@ const ai=adminIndexes.replace(/--.*$/gm,'').replace(/\s+/g,' ').toLowerCase();
 const adm=adminIdem.replace(/--.*$/gm,'').replace(/\s+/g,' ').toLowerCase();
 const cr=cashbackRestore.replace(/--.*$/gm,'').replace(/\s+/g,' ').toLowerCase();
 const fr=rewardRetry.replace(/--.*$/gm,'').replace(/\s+/g,' ').toLowerCase();
+const ast=adminState.replace(/--.*$/gm,'').replace(/\s+/g,' ').toLowerCase();
 
 assert.match(r,/create table if not exists public\.order_requote_items/,'re-cotação precisa congelar preços por item');
 assert.match(r,/revoke all on table public\.order_requote_items from anon, authenticated/,'snapshot de re-cotação deve ser server-only');
@@ -220,4 +222,12 @@ assert.match(fr,/o\.financial_state='settled'/,'retry só pode atuar em settleme
 assert.match(fr,/g\.order_id is null/,'retry não pode duplicar reward já concedido');
 assert.match(fr,/chama-reward-retry/,'retry de rewards precisa de cron dedicado');
 
-console.log('Requote + watchdog + hardening v1.7.5 contract passou.');
+assert.match(ast,/merchant_applications_one_live_cnpj_idx/,'deve existir apenas uma aplicação viva por CNPJ');
+assert.match(ast,/merchant_ownership_conflict/,'aprovação deve bloquear owner conflitante');
+assert.match(ast,/alreadyapproved/,'aprovação repetida precisa ser idempotente por estado');
+assert.match(ast,/alreadyrejected/,'rejeição repetida precisa ser idempotente por estado');
+assert.match(ast,/alreadyinstate/,'ativação ou suspensão repetida não pode alterar operação');
+assert.match(ast,/if v_merchant\.status=p_status then[\s\S]*online',/,'estado repetido deve preservar flag online');
+assert.match(ast,/invalid_merchant_status_transition/,'transições administrativas inválidas precisam falhar');
+
+console.log('Requote + watchdog + hardening v1.7.6 contract passou.');
