@@ -1,35 +1,47 @@
 # Chama São Gabriel — MVP PWA
 
-Marketplace local de gás e abastecimento para São Gabriel/RS.
+Marketplace hiperlocal de gás e abastecimento para São Gabriel/RS.
 
-## Status
+## Online
 
-- Código publicado na branch `main`.
-- PWA estática pronta para GitHub Pages.
-- Workflow automático em `.github/workflows/pages.yml`.
-- URL esperada após habilitar Pages: `https://carloskk07.github.io/gassg/`.
+**https://carloskk07.github.io/gassg/**
 
-## Ativar o site online uma única vez
+A aplicação é publicada automaticamente pela branch `main` via GitHub Pages. O deploy só acontece depois que os gates automatizados passam.
 
-No GitHub: **Settings → Pages → Build and deployment → Source → GitHub Actions**.
+## Estado atual
 
-Depois, execute novamente o workflow **Deploy to GitHub Pages**. Os próximos pushes para `main` serão publicados automaticamente.
+**Online demo:** funcional.
 
-## O que já funciona
+**Piloto multiusuário real:** ainda bloqueado até existir backend compartilhado, autenticação e dados reais das revendas.
 
-- Preço Agora e comparação de ofertas por endereço.
+A auditoria técnica completa está em [AUDIT.md](./AUDIT.md).
+
+## Fluxos implementados
+
+- Preço Agora e comparação de ofertas.
 - Mais barato, Recomendado e Mais rápido.
-- Carrinho multiproduto: P13, água, carvão, lenha e gelo.
-- Pedido com preço protegido.
-- Revenda precisa aceitar antes de o pedido aparecer como confirmado.
+- Carrinho multiproduto sem obrigar P13.
+- P13, água, carvão, lenha e gelo.
+- Preço protegido.
+- Aceite explícito da revenda.
+- Prazo de aceite e reatribuição.
+- Preparação com deadline operacional.
 - Confirmação explícita de saída antes de exibir “A caminho”.
-- PIN de quatro dígitos para comprovar entrega.
-- Reatribuição automática quando uma revenda recusa.
-- Cashback, Clube, indicação e área de parceiro.
-- Cadastro de novas revendas.
-- Painel de revenda com preço, estoque, pedidos e Trust Score.
-- Manifest + service worker para instalação como PWA.
+- Risco de atraso visível ao cliente.
+- PIN de quatro dígitos para prova de entrega.
+- Cashback e Clube.
+- Indicação com link pessoal.
+- Cadastro de novas revendas, inclusive CNPJ alfanumérico.
+- Painel de revenda, estoque e Trust Score.
+- PWA instalável com service worker.
 
-## Importante
+## Testes de release
 
-Os nomes de revendas e preços atuais são demonstrativos até cadastrarmos os três parceiros reais. A versão atual usa `localStorage`, portanto serve para validar UX e fluxo em um único navegador. O próximo estágio é backend compartilhado para cliente e revendas em dispositivos diferentes.
+- testes de sintaxe;
+- simulações de domínio/falhas;
+- auditoria estática;
+- smoke em Chrome móvel;
+- E2E completo em Chrome;
+- validação do manifest PWA.
+
+> Nomes, preços, distâncias e ETAs atuais são demonstrativos até conectarmos os três parceiros reais.
