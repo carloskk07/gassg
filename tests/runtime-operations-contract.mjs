@@ -13,6 +13,9 @@ const rejectRescue=fs.readFileSync(new URL('../supabase/migrations/2026100110100
 const lockdown=fs.readFileSync(new URL('../supabase/migrations/20261001102000_browser_data_plane_lockdown.sql',import.meta.url),'utf8');
 const atomicQuotes=fs.readFileSync(new URL('../supabase/migrations/20261001103000_atomic_quote_snapshots.sql',import.meta.url),'utf8');
 const finance=fs.readFileSync(new URL('../supabase/migrations/20261001105000_financial_unit_economics_v1_6.sql',import.meta.url),'utf8');
+const retention=fs.readFileSync(new URL('../supabase/migrations/20261001104000_ephemeral_data_minimization.sql',import.meta.url),'utf8');
+const roleAuth=fs.readFileSync(new URL('../supabase/migrations/20261001110000_merchant_role_authorization.sql',import.meta.url),'utf8');
+const cashIdentity=fs.readFileSync(new URL('../supabase/migrations/20261001111000_cash_commission_identity_gate.sql',import.meta.url),'utf8');
 const r=repricing.replace(/--.*$/gm,'').replace(/\s+/g,' ').toLowerCase();
 const w=watchdog.replace(/--.*$/gm,'').replace(/\s+/g,' ').toLowerCase();
 const h=hardening.replace(/--.*$/gm,'').replace(/\s+/g,' ').toLowerCase();
@@ -25,6 +28,9 @@ const rr=rejectRescue.replace(/--.*$/gm,'').replace(/\s+/g,' ').toLowerCase();
 const ld=lockdown.replace(/--.*$/gm,'').replace(/\s+/g,' ').toLowerCase();
 const aq=atomicQuotes.replace(/--.*$/gm,'').replace(/\s+/g,' ').toLowerCase();
 const fn=finance.replace(/--.*$/gm,'').replace(/\s+/g,' ').toLowerCase();
+const rt=retention.replace(/--.*$/gm,'').replace(/\s+/g,' ').toLowerCase();
+const ra=roleAuth.replace(/--.*$/gm,'').replace(/\s+/g,' ').toLowerCase();
+const ci=cashIdentity.replace(/--.*$/gm,'').replace(/\s+/g,' ').toLowerCase();
 
 assert.match(r,/create table if not exists public\.order_requote_items/,'re-cotação precisa congelar preços por item');
 assert.match(r,/revoke all on table public\.order_requote_items from anon, authenticated/,'snapshot de re-cotação deve ser server-only');
@@ -111,4 +117,11 @@ assert.match(fn,/platform_contribution_cents >= minimum_contribution_cents/,'ben
 assert.match(fn,/create table if not exists public\.platform_receivables/,'receita da plataforma precisa virar recebível auditável');
 assert.match(fn,/basis','platform_revenue'/,'ledger de benefícios deve registrar fonte econômica');
 
-console.log('Requote + watchdog + hardening v1.5 contract passou.');
+assert.match(rt,/status in \('settled','cancelled'\)[\s\S]*interval '1 hour'/,'PIN bruto encerrado deve expirar em 1 hora');
+assert.match(rt,/expires_at<clock_timestamp\(\)-interval '2 hours'/,'quotes expiradas devem ser removidas em 2 horas');
+assert.match(ra,/v_member_role not in \('owner','manager','operator'\)/,'mutações do pedido devem exigir papel operacional');
+assert.doesNotMatch(ra,/v_member_role not in \('owner','manager','operator','driver'\)/,'driver não pode ser liberado sem assignment por pedido');
+assert.match(ci,/join auth\.users u on u\.id=g\.referrer_user_id/,'maturação de comissão deve consultar identidade real');
+assert.match(ci,/u\.is_anonymous is false/,'comissão sacável exige identidade permanente');
+
+console.log('Requote + watchdog + hardening v1.6 contract passou.');
