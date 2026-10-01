@@ -58,12 +58,19 @@ function merchantLivePage(){
   const memberships=rt.memberships||[];
   const orders=rt.orders||[];
   const freshness=merchantLiveFreshness();
+  const freshnessProblems=[];
+  if(!freshness.deliveryFresh)freshnessProblems.push('taxa de entrega vencida');
+  if(freshness.staleProducts.length)freshnessProblems.push('preço vencido: '+freshness.staleProducts.map(x=>x.productName||x.productCode).join(', '));
+  if(!freshness.offerable.length)freshnessProblems.push('nenhum produto ativo com estoque');
+  const freshnessNotice=!freshness.allFresh
+    ? '<div class="notice danger" style="margin-top:12px"><strong>Confirmação comercial incompleta.</strong><br>'+esc(freshnessProblems.join(' • '))+'. A revenda só participa das ofertas com taxa e SKUs ofertáveis confirmados.</div>'
+    : '';
 
   return shell(`<section class="page">
     <div class="status-bar"><div><div class="tiny muted">PAINEL REAL • ${esc(String(m.memberRole||'').toUpperCase())}</div><h1 class="page-title" style="margin-bottom:2px">${esc(m.name)}</h1></div><span class="status-pill ${m.online?'online':'offline'}">${m.online?'● ONLINE':'OFFLINE'}</span></div>
 
     ${rt.error?`<div class="notice danger" style="margin-top:12px">${esc(rt.error)}</div>`:''}
-    ${!freshness.allFresh?'<div class="notice danger" style="margin-top:12px"><strong>Preços precisam ser reconfirmados.</strong> A revenda não deve ficar visível nas ofertas com preço vencido.</div>':''}
+    ${freshnessNotice}
 
     <div class="card flat form-stack" style="margin-top:14px">
       ${memberships.length>1?`<div class="input-wrap"><label for="merchant-live-select">Operação</label><select id="merchant-live-select" class="input" onchange="merchantLiveSelect(this.value)">${memberships.map(x=>`<option value="${esc(x.merchantId)}" ${x.merchantId===m.merchantId?'selected':''}>${esc(x.name)} • ${esc(x.memberRole)}</option>`).join('')}</select></div>`:''}
