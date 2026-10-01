@@ -46,8 +46,13 @@ assert.ok(core.includes('isValidCnpjShape'),'core precisa suportar validação e
 assert.ok(!merchant.includes('.stock'),'UI da revenda não deve depender do campo legado stock');
 assert.ok(growth.includes('referralCode'),'link de indicação deve usar código pessoal');
 assert.ok(!growth.includes('inputmode="numeric" maxlength="18"'),'campo CNPJ não pode forçar teclado somente numérico após adoção do CNPJ alfanumérico');
-assert.ok(sw.includes("CACHE='chama-sg-v1.16'"),'cache do service worker precisa estar versionado');
+assert.ok(sw.includes("CACHE='chama-sg-v1.17'"),'cache do service worker precisa estar versionado');
 assert.ok(sw.includes("./js/backend.js"),'runtime live precisa estar no cache da PWA');
+assert.ok(sw.includes("./js/runtime-config.js"),'configuração pública de origins precisa estar no cache da PWA');
+assert.ok(html.indexOf('./js/runtime-config.js')<html.indexOf('./js/backend.js'),'runtime-config.js deve carregar antes do backend');
+const runtimeConfig=read('js/runtime-config.js');
+assert.ok(runtimeConfig.includes("CHAMA_CUSTOMER_ORIGIN=''")&&runtimeConfig.includes("CHAMA_MERCHANT_ORIGIN=''")&&runtimeConfig.includes("CHAMA_ADMIN_ORIGIN=''"),'GitHub Pages deve falhar fechado sem origins privilegiadas');
+assert.ok(!runtimeConfig.includes('github.io'),'config padrão não pode autorizar origin compartilhada');
 assert.ok(backend.includes("sb_publishable_"),'frontend live deve usar publishable key explícita');
 assert.ok(!backend.includes("sb_secret_"),'frontend jamais pode conter secret key');
 assert.ok(!backend.includes("service_role"),'frontend jamais pode depender de service_role');
