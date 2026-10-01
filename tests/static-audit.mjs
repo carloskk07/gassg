@@ -113,6 +113,16 @@ assert.ok(merchantOrdersSource.includes('priceConfirmedAt:item.price_confirmed_a
 assert.ok(merchantOrdersSource.includes('deliveryFeeConfirmedAt:merchant.delivery_fee_confirmed_at'),'painel precisa receber freshness da taxa');
 assert.ok(merchant.includes('merchantLiveSaveProduct'),'painel live precisa editar/reconfirmar múltiplos SKUs');
 assert.ok(merchant.includes('Cada SKU possui sua própria confirmação de preço'),'UI precisa explicar freshness independente');
+assert.ok(offerSource.includes('filter_delivery_compatible_merchants'),'matching live deve filtrar revendas por compatibilidade logística');
+assert.ok(offerSource.includes('deliveryCompatibilityBlocked:true'),'matching deve distinguir bloqueio logístico de indisponibilidade comum');
+assert.ok(read('supabase/functions/merchant-action/index.ts').includes('DELIVERY_INCOMPATIBLE'),'revenda deve receber conflito logístico sem erro genérico');
+assert.ok(read('supabase/functions/customer-action/index.ts').includes('DELIVERY_INCOMPATIBLE'),'cliente deve receber conflito logístico sem erro genérico');
+assert.ok(backend.includes('deliveryCompatibilityBlocked'),'runtime cliente precisa transportar o motivo de bloqueio');
+assert.ok(customer.includes('cesta mista'),'UI cliente deve explicar alternativa de entrega separada');
+assert.ok(adminOpsSource.includes('merchant_delivery_capabilities'),'resumo admin precisa expor capabilities logísticas');
+assert.ok(adminOpsSource.includes('admin_delivery_capability_action'),'Edge admin deve usar autoridade idempotente de capability');
+assert.ok(admin.includes('Capacidade logística verificada para cesta mista com GLP'),'painel admin precisa mostrar capability GLP mista');
+
 
 
 
