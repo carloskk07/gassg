@@ -295,6 +295,26 @@ function adminMerchantCard(m){
   </article>`;
 }
 
+function adminReferralReasonLabel(code){
+  const map={
+    same_delivery_address_as_referrer:'Mesmo endereço de entrega do indicador',
+    high_referral_velocity_24h:'Volume alto de indicações em 24h',
+    multiple_referred_accounts_same_address:'Múltiplas contas indicadas no mesmo endereço'
+  };
+  return map[String(code||'')]||String(code||'Sinal de risco');
+}
+function adminReferralReviewCard(x){
+  const pending=x.risk_status==='review_required';
+  const reasons=Array.isArray(x.risk_reasons)?x.risk_reasons:[];
+  return `<article class="order-card">
+    <div class="order-head"><div><div class="order-id">Pedido ${esc(x.order_id)}</div><div class="tiny muted">Indicador ${esc(x.referrer_user_id)} • comprador ${esc(x.referred_user_id)}</div></div>${adminStatusPill(x.risk_status)}</div>
+    <div class="order-line"><strong>Sinais:</strong> ${reasons.length?reasons.map(r=>esc(adminReferralReasonLabel(r))).join(' • '):'Nenhum sinal automático'}</div>
+    <div class="tiny muted">Criado em ${new Date(x.created_at).toLocaleString('pt-BR')}</div>
+    ${x.review_notes?`<div class="order-line"><strong>Revisão:</strong> ${esc(x.review_notes)}</div>`:''}
+    ${pending?`<div class="order-actions"><button class="primary small" onclick="adminReviewReferral('${x.order_id}','approved')">Aprovar comissão</button><button class="danger-btn small" onclick="adminReviewReferral('${x.order_id}','rejected')">Rejeitar comissão</button></div>`:''}
+  </article>`;
+}
+
 function adminReceivableRow(x){
   return `<div class="list-row"><div><strong>${esc(adminMerchantName(x.merchant_id))}</strong><br><small>Taxa da plataforma • pedido ${esc(x.order_id)}</small></div><div style="text-align:right"><strong>${adminMoney(x.platform_fee_cents)}</strong><div class="order-actions"><button class="secondary small" onclick="adminFinancial('platform_receivable','${x.order_id}','paid')">Pago</button><button class="ghost small" onclick="adminFinancial('platform_receivable','${x.order_id}','waived')">Abonar</button></div></div></div>`;
 }
@@ -325,6 +345,8 @@ function adminPage(){
   const d=adminRuntime.data;
   const pending=(d.applications||[]).filter(x=>x.status==='pending');
   const active=(d.merchants||[]).filter(x=>x.status==='active');
+  const referralReviews=d.referralReviews||[];
+  const pendingReferralReviews=referralReviews.filter(x=>x.risk_status==='review_required');
   const receivables=d.finance?.receivables||[];
   const reimbursements=d.finance?.cashbackReimbursements||[];
   const adjustments=d.finance?.adjustments||[];
@@ -346,6 +368,8 @@ function adminPage(){
     <section class="section"><div class="section-head"><div><h2>Cadastros de parceiros</h2><p>Aprovação cria a revenda como pendente e vincula o solicitante como owner. Não coloca a operação online.</p></div></div>${(d.applications||[]).length?(d.applications||[]).map(adminApplicationCard).join(''):'<div class="empty card">Nenhum cadastro recebido.</div>'}</section>
 
     <section class="section"><div class="section-head"><div><h2>Validação e ativação</h2><p>CNPJ é obrigatório para toda revenda ativa. Qualquer produto GLP ativo exige também validação ANP.</p></div></div>${(d.merchants||[]).length?(d.merchants||[]).map(adminMerchantCard).join(''):'<div class="empty card">Nenhuma revenda criada.</div>'}</section>
+
+    <section class="section"><div class="section-head"><div><h2>Revisão de indicações</h2><p>Comissões suspeitas não amadurecem automaticamente. Aprovação ainda exige identidades permanentes e fim da quarentena.</p></div><span class="status-pill ${pendingReferralReviews.length?'offline':'online'}">${pendingReferralReviews.length} pendente(s)</span></div>${referralReviews.length?referralReviews.map(adminReferralReviewCard).join(''):'<div class="empty card">Nenhuma indicação exige revisão.</div>'}</section>
 
     <section class="section"><div class="section-head"><div><h2>Conciliação financeira</h2><p>Taxa da plataforma, cashback usado e ajustes são contas separadas.</p></div></div>
       <div class="card flat"><h3>Taxas da plataforma</h3><div class="list">${receivables.length?receivables.map(adminReceivableRow).join(''):'<div class="tiny muted">Nenhuma taxa em aberto.</div>'}</div></div>
@@ -390,6 +414,15 @@ async function adminSetMerchantStatus(id,action){
   const label=action==='activate-merchant'?'ativar':'suspender';
   if(!confirm('Confirma '+label+' esta revenda?'))return;
   try{await adminPerform(action,{merchantId:id});toast('Status atualizado')}catch(e){toast(String(e?.message||e))}
+}
+async function adminReviewReferral(orderId,decision){
+  const notes=prompt(decision==='approved'?'Observação da aprovação (opcional):':'Motivo da rejeição / evidência:')||'';
+  if(decision==='rejected'&&!notes.trim())return toast('Informe o motivo da rejeição');
+  if(!confirm(decision==='approved'?'Aprovar esta comissão após a revisão de risco?':'Rejeitar esta comissão? O pedido e cashback do comprador continuarão válidos.'))return;
+  try{
+    await adminPerform('review-referral',{orderId,decision,notes});
+    toast(decision==='approved'?'Comissão aprovada para continuar na validação':'Comissão rejeitada e saldo pendente ajustado');
+  }catch(e){toast(String(e?.message||e))}
 }
 async function adminFinancial(kind,targetId,financialAction){
   const reference=prompt('Referência da conciliação (opcional):')||'';
