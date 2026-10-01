@@ -210,7 +210,7 @@ begin
     'alreadyGranted',false
   );
 end;
-$func$;
+$function$;
 
 revoke all on function public.grant_order_rewards(uuid)
 from public, anon, authenticated;
