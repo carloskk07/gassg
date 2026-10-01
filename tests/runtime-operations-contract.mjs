@@ -37,6 +37,7 @@ const deliveryCompatibility=fs.readFileSync(new URL('../supabase/migrations/2026
 const deliveryEnforcement=fs.readFileSync(new URL('../supabase/migrations/20261001131000_enforce_delivery_compatibility.sql',import.meta.url),'utf8');
 const deliveryAdmin=fs.readFileSync(new URL('../supabase/migrations/20261001132000_admin_delivery_capability_control.sql',import.meta.url),'utf8');
 const deliveryIndexes=fs.readFileSync(new URL('../supabase/migrations/20261001133000_delivery_capability_index_hygiene.sql',import.meta.url),'utf8');
+const referralRisk=fs.readFileSync(new URL('../supabase/migrations/20261001134000_referral_fraud_review_authority.sql',import.meta.url),'utf8');
 const r=repricing.replace(/--.*$/gm,'').replace(/\s+/g,' ').toLowerCase();
 const w=watchdog.replace(/--.*$/gm,'').replace(/\s+/g,' ').toLowerCase();
 const h=hardening.replace(/--.*$/gm,'').replace(/\s+/g,' ').toLowerCase();
@@ -73,6 +74,7 @@ const dc=deliveryCompatibility.replace(/--.*$/gm,'').replace(/\s+/g,' ').toLower
 const de=deliveryEnforcement.replace(/--.*$/gm,'').replace(/\s+/g,' ').toLowerCase();
 const da=deliveryAdmin.replace(/--.*$/gm,'').replace(/\s+/g,' ').toLowerCase();
 const di=deliveryIndexes.replace(/--.*$/gm,'').replace(/\s+/g,' ').toLowerCase();
+const rf=referralRisk.replace(/--.*$/gm,'').replace(/\s+/g,' ').toLowerCase();
 
 assert.match(r,/create table if not exists public\.order_requote_items/,'re-cotação precisa congelar preços por item');
 assert.match(r,/revoke all on table public\.order_requote_items from anon, authenticated/,'snapshot de re-cotação deve ser server-only');
@@ -294,4 +296,17 @@ assert.match(da,/platform_admin_audit/,'capability precisa deixar trilha de audi
 assert.match(di,/merchant_delivery_capabilities_verified_by_idx/,'FK verified_by da capability precisa de índice');
 assert.match(di,/drop index if exists public\.merchant_applications_live_cnpj_idx/,'índice CNPJ duplicado precisa permanecer removido');
 
-console.log('Requote + watchdog + hardening v1.8 contract passou.');
+assert.match(rf,/create table if not exists public\.referral_reward_reviews/,'comissões de indicação precisam de review server-side');
+assert.match(rf,/same_delivery_address_as_referrer/,'mesmo endereço do indicador precisa gerar sinal de risco');
+assert.match(rf,/high_referral_velocity_24h/,'alta velocidade de indicações precisa gerar sinal');
+assert.match(rf,/multiple_referred_accounts_same_address/,'múltiplas contas no mesmo endereço precisam de sinal');
+assert.match(rf,/risk_status not in \('clear','approved'\)/,'maturação deve falhar fechada sem review elegível');
+assert.match(rf,/v_referrer_is_anonymous is true/,'indicador anônimo não pode receber comissão disponível');
+assert.match(rf,/v_referred_is_anonymous is true/,'comprador anônimo não pode liberar comissão ao indicador');
+assert.match(rf,/referral_pending_rejected/,'rejeição antes da maturação precisa estornar saldo pendente');
+assert.match(rf,/referral_available_rejected/,'rejeição posterior precisa permitir clawback do disponível');
+assert.match(rf,/platform_contribution_cents=platform_contribution_cents\+v_amount/,'comissão rejeitada deve voltar para contribuição');
+assert.match(rf,/admin_referral_review_action/,'decisão admin de referral precisa ser idempotente');
+assert.match(rf,/platform_admin_audit/,'review de referral precisa deixar trilha administrativa');
+
+console.log('Requote + watchdog + hardening v1.9 contract passou.');
