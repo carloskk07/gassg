@@ -8,6 +8,8 @@ const requote=fs.readFileSync(new URL('../supabase/migrations/20261001093000_req
 const anonRls=fs.readFileSync(new URL('../supabase/migrations/20261001091500_anonymous_auth_rls_hardening.sql',import.meta.url),'utf8');
 const summary=fs.readFileSync(new URL('../supabase/migrations/20261001094500_customer_summary_authority.sql',import.meta.url),'utf8');
 const settlement=fs.readFileSync(new URL('../supabase/migrations/20261001094700_settlement_payment_confirmation.sql',import.meta.url),'utf8');
+const rewards=fs.readFileSync(new URL('../supabase/migrations/20261001100000_reward_engine.sql',import.meta.url),'utf8');
+const rejectRescue=fs.readFileSync(new URL('../supabase/migrations/20261001101000_unify_merchant_reject_rescue.sql',import.meta.url),'utf8');
 const r=repricing.replace(/--.*$/gm,'').replace(/\s+/g,' ').toLowerCase();
 const w=watchdog.replace(/--.*$/gm,'').replace(/\s+/g,' ').toLowerCase();
 const h=hardening.replace(/--.*$/gm,'').replace(/\s+/g,' ').toLowerCase();
@@ -15,6 +17,8 @@ const q=requote.replace(/--.*$/gm,'').replace(/\s+/g,' ').toLowerCase();
 const a=anonRls.replace(/--.*$/gm,'').replace(/\s+/g,' ').toLowerCase();
 const s=summary.replace(/--.*$/gm,'').replace(/\s+/g,' ').toLowerCase();
 const st=settlement.replace(/--.*$/gm,'').replace(/\s+/g,' ').toLowerCase();
+const rw=rewards.replace(/--.*$/gm,'').replace(/\s+/g,' ').toLowerCase();
+const rr=rejectRescue.replace(/--.*$/gm,'').replace(/\s+/g,' ').toLowerCase();
 
 assert.match(r,/create table if not exists public\.order_requote_items/,'re-cotação precisa congelar preços por item');
 assert.match(r,/revoke all on table public\.order_requote_items from anon, authenticated/,'snapshot de re-cotação deve ser server-only');
@@ -68,5 +72,18 @@ assert.match(st,/payment_confirmed_at/,'settlement precisa registrar confirmaç�
 assert.match(st,/payment_confirmation_method='merchant_attestation'/,'piloto deve registrar origem da confirmação de pagamento');
 assert.match(st,/status <> 'settled'[\s\S]*payment_confirmed_at is not null/,'constraint deve impedir SETTLED sem pagamento confirmado');
 assert.match(st,/payment_confirmed[\s\S]*delivered[\s\S]*settled/,'eventos financeiros e de entrega precisam ser auditáveis');
+
+assert.match(rw,/create table if not exists public\.reward_policy/,'política de recompensa deve ser configurável');
+assert.match(rw,/create table if not exists public\.order_reward_grants/,'grant por pedido precisa ter registro auditável');
+assert.match(rw,/cashback_cents \+ referral_pending_cents <= reward_budget_cents/,'recompensas não podem exceder orçamento do pedido');
+assert.match(rw,/grant_order_rewards/,'settlement precisa possuir autoridade de rewards');
+assert.match(rw,/grant_rewards_after_settlement/,'rewards devem nascer automaticamente do SETTLED');
+assert.match(rw,/on conflict\(idempotency_key\) do nothing/,'ledger de reward precisa ser idempotente');
+assert.match(rw,/commission_hold_hours/,'comissão deve ter janela de validação');
+assert.match(rw,/process_reward_maturation/,'comissão pendente precisa de autoridade de maturação');
+assert.match(rw,/chama-reward-maturation/,'maturação precisa ser agendada');
+assert.match(rr,/v_result:=public\.system_rescue_order\(v_order\.id,'merchant_rejected'\)/,'recusa da revenda deve usar rescue central');
+assert.doesNotMatch(rr,/v_candidate_gross/,'merchant_order_action não deve duplicar ranking de rescue');
+assert.match(rr,/extensions\.gen_random_bytes\(2\)/,'PIN deve usar uma única amostra criptográfica de dois bytes');
 
 console.log('Requote + watchdog + hardening v1.5 contract passou.');
