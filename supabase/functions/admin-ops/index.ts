@@ -74,7 +74,7 @@ async function requireAdmin(admin:any,userId:string){
   if(!data)throw new DomainError("ADMIN_ACCESS_DENIED","Esta conta não possui acesso administrativo.",403);
 }
 async function summary(admin:any){
-  const [apps,merchants,compliance,capabilities,receivables,reimbursements,adjustments,audit]=await Promise.all([
+  const [apps,merchants,compliance,capabilities,referralReviews,receivables,reimbursements,adjustments,audit]=await Promise.all([
     admin.from("merchant_applications")
       .select("id,applicant_user_id,cnpj,company_name,responsible_name,phone,address_text,status,created_at,updated_at")
       .order("created_at",{ascending:false})
@@ -89,6 +89,11 @@ async function summary(admin:any){
     admin.from("merchant_delivery_capabilities")
       .select("merchant_id,capability_code,active,verified_at,verified_by,notes,updated_at")
       .limit(200),
+    admin.from("referral_reward_reviews")
+      .select("order_id,referrer_user_id,referred_user_id,risk_status,risk_reasons,reviewed_at,reviewed_by,review_notes,created_at,updated_at")
+      .in("risk_status",["review_required","approved","rejected"])
+      .order("created_at",{ascending:false})
+      .limit(100),
     admin.from("platform_receivables")
       .select("order_id,merchant_id,gross_total_cents,platform_fee_bps,platform_fee_cents,status,due_at,paid_at,waived_at,reversed_at,created_at")
       .eq("status","open")
@@ -109,7 +114,7 @@ async function summary(admin:any){
       .order("created_at",{ascending:false})
       .limit(50)
   ]);
-  for(const result of [apps,merchants,compliance,capabilities,receivables,reimbursements,adjustments,audit]){
+  for(const result of [apps,merchants,compliance,capabilities,referralReviews,receivables,reimbursements,adjustments,audit]){
     if(result.error)throw result.error;
   }
   const byMerchant=new Map((compliance.data??[]).map((x:any)=>[x.merchant_id,x]));
@@ -130,6 +135,7 @@ async function summary(admin:any){
       cashbackReimbursements:reimbursements.data??[],
       adjustments:adjustments.data??[]
     },
+    referralReviews:referralReviews.data??[],
     recentAudit:audit.data??[]
   };
 }
@@ -199,6 +205,16 @@ Deno.serve(async(req:Request)=>{
         active:body.active===true,
         notes:body.notes==null?null:(cleanText(body.notes,{min:0,max:1000,name:"observações"})||null)
       };
+    }else if(action==="review-referral"){
+      const decision=String(body.decision??"");
+      if(!["approved","rejected"].includes(decision)){
+        throw new DomainError("INVALID_REFERRAL_REVIEW_DECISION","Decisão de revisão inválida.",400);
+      }
+      payload={
+        orderId:uuid(body.orderId,"order"),
+        decision,
+        notes:body.notes==null?null:(cleanText(body.notes,{min:0,max:1000,name:"observações"})||null)
+      };
     }else if(action==="reverse-order"){
       payload={
         orderId:uuid(body.orderId,"order"),
@@ -227,25 +243,35 @@ Deno.serve(async(req:Request)=>{
     }
 
     const requestHash=await requestFingerprint("admin-ops:"+action,payload);
-    const rpcName=action==="set-delivery-capability"
-      ?"admin_delivery_capability_action"
-      :"admin_execute_action";
-    const rpcArgs=action==="set-delivery-capability"
-      ?{
-          p_actor_user_id:user.id,
-          p_merchant_id:payload.merchantId,
-          p_active:payload.active,
-          p_notes:payload.notes,
-          p_idempotency_key:idempotencyKey,
-          p_request_hash:requestHash
-        }
-      :{
-          p_actor_user_id:user.id,
-          p_action_name:action,
-          p_payload:payload,
-          p_idempotency_key:idempotencyKey,
-          p_request_hash:requestHash
-        };
+    let rpcName="admin_execute_action";
+    let rpcArgs:any={
+      p_actor_user_id:user.id,
+      p_action_name:action,
+      p_payload:payload,
+      p_idempotency_key:idempotencyKey,
+      p_request_hash:requestHash
+    };
+    if(action==="set-delivery-capability"){
+      rpcName="admin_delivery_capability_action";
+      rpcArgs={
+        p_actor_user_id:user.id,
+        p_merchant_id:payload.merchantId,
+        p_active:payload.active,
+        p_notes:payload.notes,
+        p_idempotency_key:idempotencyKey,
+        p_request_hash:requestHash
+      };
+    }else if(action==="review-referral"){
+      rpcName="admin_referral_review_action";
+      rpcArgs={
+        p_actor_user_id:user.id,
+        p_order_id:payload.orderId,
+        p_decision:payload.decision,
+        p_notes:payload.notes,
+        p_idempotency_key:idempotencyKey,
+        p_request_hash:requestHash
+      };
+    }
     const {data,error}=await admin.rpc(rpcName,rpcArgs);
     if(error)throw error;
     return json(data,200,origin);
@@ -272,6 +298,12 @@ Deno.serve(async(req:Request)=>{
     }
     if(message.includes("FINANCIAL_ITEM_NOT_OPEN")){
       return json({error:"FINANCIAL_ITEM_NOT_OPEN",message:"Este item financeiro já foi processado."},409,origin);
+    }
+    if(message.includes("REFERRAL_REVIEW_NOT_FOUND")){
+      return json({error:"REFERRAL_REVIEW_NOT_FOUND",message:"A revisão de indicação não foi encontrada."},404,origin);
+    }
+    if(message.includes("REFERRAL_REVIEW_ALREADY_FINAL")){
+      return json({error:"REFERRAL_REVIEW_ALREADY_FINAL",message:"Esta revisão de indicação já possui decisão final."},409,origin);
     }
     if(message.includes("MERCHANT_OWNERSHIP_CONFLICT")){
       return json({error:"MERCHANT_OWNERSHIP_CONFLICT",message:"Este CNPJ já possui outro owner ativo. Use um fluxo explícito de transferência de propriedade."},409,origin);
