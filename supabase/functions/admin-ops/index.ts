@@ -74,7 +74,7 @@ async function requireAdmin(admin:any,userId:string){
   if(!data)throw new DomainError("ADMIN_ACCESS_DENIED","Esta conta não possui acesso administrativo.",403);
 }
 async function summary(admin:any){
-  const [apps,merchants,compliance,capabilities,referralReviews,rewardFailures,accountingFailures,receivables,reimbursements,adjustments,audit]=await Promise.all([
+  const [apps,merchants,compliance,capabilities,referralReviews,rewardFailures,accountingFailures,receivables,reimbursements,adjustments,platformAdmins,audit]=await Promise.all([
     admin.from("merchant_applications")
       .select("id,applicant_user_id,cnpj,company_name,responsible_name,phone,address_text,status,created_at,updated_at")
       .order("created_at",{ascending:false})
@@ -119,12 +119,16 @@ async function summary(admin:any){
       .eq("status","open")
       .order("created_at",{ascending:true})
       .limit(100),
+    admin.from("platform_admins")
+      .select("user_id,active,created_by,created_at")
+      .order("created_at",{ascending:true})
+      .limit(100),
     admin.from("platform_admin_audit")
       .select("id,actor_user_id,action,target_type,target_id,metadata,created_at")
       .order("created_at",{ascending:false})
       .limit(50)
   ]);
-  for(const result of [apps,merchants,compliance,capabilities,referralReviews,rewardFailures,accountingFailures,receivables,reimbursements,adjustments,audit]){
+  for(const result of [apps,merchants,compliance,capabilities,referralReviews,rewardFailures,accountingFailures,receivables,reimbursements,adjustments,platformAdmins,audit]){
     if(result.error)throw result.error;
   }
   const referralOrderIds=(referralReviews.data??[]).map((x:any)=>x.order_id).filter(Boolean);
@@ -154,6 +158,7 @@ async function summary(admin:any){
       cashbackReimbursements:reimbursements.data??[],
       adjustments:adjustments.data??[]
     },
+    platformAdmins:platformAdmins.data??[],
     rewardFailures:rewardFailures.data??[],
     accountingFailures:accountingFailures.data??[],
     referralReviews:(referralReviews.data??[]).map((x:any)=>{
@@ -253,6 +258,11 @@ Deno.serve(async(req:Request)=>{
         reason:cleanText(body.reason,{min:3,max:240,name:"motivo"}),
         reference:body.reference==null?null:(cleanText(body.reference,{min:0,max:120,name:"referência"})||null)
       };
+    }else if(action==="set-platform-admin"){
+      payload={
+        targetUserId:uuid(body.targetUserId,"targetUser"),
+        active:body.active===true
+      };
     }else if(action==="financial-action"){
       const kind=String(body.kind??"");
       const financialAction=String(body.financialAction??"");
@@ -320,6 +330,16 @@ Deno.serve(async(req:Request)=>{
         p_request_hash:requestHash
       };
     }
+    else if(action==="set-platform-admin"){
+      rpcName="admin_platform_admin_action";
+      rpcArgs={
+        p_actor_user_id:user.id,
+        p_target_user_id:payload.targetUserId,
+        p_active:payload.active,
+        p_idempotency_key:idempotencyKey,
+        p_request_hash:requestHash
+      };
+    }
     const {data,error}=await admin.rpc(rpcName,rpcArgs);
     if(error)throw error;
     return json(data,200,origin);
@@ -333,6 +353,15 @@ Deno.serve(async(req:Request)=>{
     const message=error instanceof Error?error.message:String(error);
     if(message.includes("ADMIN_ACCESS_DENIED")){
       return json({error:"ADMIN_ACCESS_DENIED",message:"Esta conta não possui acesso administrativo."},403,origin);
+    }
+    if(message.includes("ADMIN_USER_NOT_FOUND")){
+      return json({error:"ADMIN_USER_NOT_FOUND",message:"Usuário permanente não encontrado."},404,origin);
+    }
+    if(message.includes("PERMANENT_IDENTITY_REQUIRED")){
+      return json({error:"PERMANENT_IDENTITY_REQUIRED",message:"Administrador precisa usar uma conta permanente."},409,origin);
+    }
+    if(message.includes("LAST_ADMIN_CANNOT_BE_REMOVED")){
+      return json({error:"LAST_ADMIN_CANNOT_BE_REMOVED",message:"O último administrador ativo não pode ser removido."},409,origin);
     }
     if(message.includes("CNPJ_VERIFICATION_REQUIRED")){
       return json({error:"CNPJ_VERIFICATION_REQUIRED",message:"Valide o CNPJ antes de ativar a revenda."},409,origin);
