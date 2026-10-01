@@ -2,8 +2,8 @@ name: Audit
 
 on:
   push:
-    branches:
-      - audit-v1.1
+    branches-ignore:
+      - main
   pull_request:
     branches:
       - main
@@ -27,6 +27,8 @@ jobs:
         run: node tests/simulations.mjs
       - name: Static trust and asset audit
         run: node tests/static-audit.mjs
+      - name: Backend security contract
+        run: node tests/backend-contract.mjs
       - name: Browser smoke — mobile routes
         run: |
           python3 -m http.server 4173 >/tmp/chama-http.log 2>&1 &
