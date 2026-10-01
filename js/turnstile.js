@@ -27,8 +27,9 @@
     return scriptPromise;
   }
 
-  async function challenge(){
+  async function challenge(action='auth'){
     const key=siteKey();
+    const safeAction=/^[A-Za-z0-9_-]{1,32}$/.test(String(action))?String(action):'auth';
     if(!key)throw new Error('Proteção anti-bot do piloto não configurada');
     const api=await loadApi();
 
@@ -67,7 +68,7 @@
           sitekey:key,
           theme:'auto',
           size:'flexible',
-          action:'anonymous_signin',
+          action:safeAction,
           callback:(token)=>finish(true,String(token||'')),
           'error-callback':()=>finish(false,new Error('A verificação de segurança falhou')),
           'expired-callback':()=>{ try{api.reset(widgetId)}catch{} }
