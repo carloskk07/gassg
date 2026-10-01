@@ -1,6 +1,5 @@
 const BRL = new Intl.NumberFormat('pt-BR',{style:'currency',currency:'BRL'});
 const STORAGE='chama-sg-state-v2';
-const LIVE_STORAGE='chama-sg-live-state-v2';
 const LEGACY_STORAGE='chama-sg-state-v1';
 const STATE_VERSION=2;
 const OFFER_TIMEOUT_MS=180000;
@@ -121,15 +120,8 @@ let storageHealthy=true;
 function isLiveStateScope(){
   return new URLSearchParams(location.search).get('live')==='1';
 }
-function liveStateCanPersist(){
-  return isLiveStateScope()&&globalThis.customerOriginSafe?.()===true;
-}
 function appStateStorage(){
-  if(!isLiveStateScope())return localStorage;
-  return liveStateCanPersist()?localStorage:sessionStorage;
-}
-function appStateKey(){
-  return isLiveStateScope()?LIVE_STORAGE:STORAGE;
+  return isLiveStateScope()?sessionStorage:localStorage;
 }
 function freshLiveSeed(){
   const seed=freshSeed();
@@ -154,7 +146,7 @@ function freshLiveSeed(){
 function load(){
   try{
     const storage=appStateStorage();
-    const raw=storage.getItem(appStateKey())??(!isLiveStateScope()?localStorage.getItem(LEGACY_STORAGE):null);
+    const raw=storage.getItem(STORAGE)??(!isLiveStateScope()?localStorage.getItem(LEGACY_STORAGE):null);
     if(!raw&&isLiveStateScope())return freshLiveSeed();
     return normalizeState(raw?JSON.parse(raw):null);
   }catch(e){
@@ -167,7 +159,7 @@ let state=load();
 
 function save(){
   try{
-    appStateStorage().setItem(appStateKey(),JSON.stringify(state));
+    appStateStorage().setItem(STORAGE,JSON.stringify(state));
     storageHealthy=true;
     return true;
   }catch(e){
