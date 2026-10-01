@@ -28,6 +28,8 @@ const makePin=()=>{
 
 const products={
   P13:{name:'Gás P13',icon:'🔥'},
+  P20:{name:'Gás P20',icon:'🔥'},
+  P45:{name:'Gás P45',icon:'🔥'},
   WATER20:{name:'Água 20 L',icon:'💧'},
   CHARCOAL4:{name:'Carvão 4 kg',icon:'⚫'},
   WOOD:{name:'Lenha',icon:'🪵'},
@@ -39,7 +41,7 @@ function freshMerchant(id,name,priceP13,eta,distance,trust,inventory,prices){
   return {
     id,name,priceP13,deliveryFee:0,eta,distance,online:true,trust,
     accepted:0,delivered:0,priceConfirmedAt:ts,lastSeenAt:ts,
-    inventory:{P13:inventory.P13??0,WATER20:inventory.WATER20??0,CHARCOAL4:inventory.CHARCOAL4??0,WOOD:inventory.WOOD??0,ICE5:inventory.ICE5??0},
+    inventory:{P13:inventory.P13??0,P20:inventory.P20??0,P45:inventory.P45??0,WATER20:inventory.WATER20??0,CHARCOAL4:inventory.CHARCOAL4??0,WOOD:inventory.WOOD??0,ICE5:inventory.ICE5??0},
     products:{WATER20:prices.WATER20??null,CHARCOAL4:prices.CHARCOAL4??null,WOOD:prices.WOOD??null,ICE5:prices.ICE5??null}
   };
 }
@@ -50,7 +52,7 @@ function freshSeed(){
     mode:'customer',
     user:{name:'Carlos',cashback:7.50,purchases:4,referralCode:'CARLOS27',commissionAvailable:0,commissionPending:0,referredBy:null,cashEarningEligible:true,identityType:'demo'},
     address:'',
-    cart:{P13:0,WATER20:0,CHARCOAL4:0,WOOD:0,ICE5:0},
+    cart:{P13:0,P20:0,P45:0,WATER20:0,CHARCOAL4:0,WOOD:0,ICE5:0},
     checkout:{paymentMethod:'pix',useCashback:false},
     merchants:[
       freshMerchant('A','Revenda Parceira A',116.90,34,3.8,94,{P13:24,WATER20:18,CHARCOAL4:12,WOOD:8,ICE5:14},{WATER20:15.90,CHARCOAL4:19.90,WOOD:24.90,ICE5:12.00}),
