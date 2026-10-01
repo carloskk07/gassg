@@ -107,6 +107,11 @@ assert.ok(read('supabase/functions/merchant-ops/index.ts').includes('return "Gá
 assert.ok(core.includes("P20:{name:'Gás P20'")&&core.includes("P45:{name:'Gás P45'"),'cliente deve expor P20/P45 sem inventar oferta');
 assert.ok(merchant.includes('merchantLiveAddGlp'),'painel real deve permitir adicionar cilindro GLP válido');
 assert.ok(merchant.includes('serverOnly'),'catálogo real deve renderizar SKUs vindos do servidor além do mapa local');
+assert.ok(read('supabase/functions/admin-ops/index.ts').includes('cnpj_verified_at')&&read('supabase/functions/admin-ops/index.ts').includes('anp_verified_at'),'admin deve projetar relógios independentes de compliance');
+assert.ok(read('supabase/functions/merchant-ops/index.ts').includes('CNPJ_REVERIFICATION_REQUIRED'),'merchant ops deve traduzir CNPJ vencido');
+assert.ok(read('supabase/functions/merchant-ops/index.ts').includes('ANP_REVERIFICATION_REQUIRED'),'merchant ops deve traduzir ANP vencida');
+assert.ok(admin.includes('Última verificação:'),'admin UI deve exibir idade das evidências');
+
 
 assert.ok(backend.includes('merchantOriginSafe'),'frontend da revenda precisa bloquear origem compartilhada');
 assert.ok(backend.includes('CHAMA_MERCHANT_ORIGIN'),'origem dedicada da revenda precisa ser configurável');
