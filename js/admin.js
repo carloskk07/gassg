@@ -71,15 +71,17 @@ async function adminAccessToken(){
   return session.access_token;
 }
 
-async function adminInvoke(body={}){
+async function adminInvoke(body={},options={}){
   const token=await adminAccessToken();
+  const headers={
+    'Content-Type':'application/json',
+    'apikey':CHAMA_BACKEND.publishableKey,
+    'Authorization':'Bearer '+token
+  };
+  if(options.idempotencyKey)headers['Idempotency-Key']=options.idempotencyKey;
   const response=await fetch(CHAMA_BACKEND.url+'/functions/v1/admin-ops',{
     method:'POST',
-    headers:{
-      'Content-Type':'application/json',
-      'apikey':CHAMA_BACKEND.publishableKey,
-      'Authorization':'Bearer '+token
-    },
+    headers,
     body:JSON.stringify(body),
     cache:'no-store'
   });
@@ -159,8 +161,19 @@ async function adminPerform(action,payload={}){
   adminRuntime.actionPending=true;
   adminRuntime.error=null;
   render();
+
+  const idempotencyKey='admin-'+action+'-'+crypto.randomUUID();
+  const invoke=()=>adminInvoke({action,...payload},{idempotencyKey});
+
   try{
-    const result=await adminInvoke({action,...payload});
+    let result;
+    try{
+      result=await invoke();
+    }catch(error){
+      const retryable=!error?.status||[502,503,504].includes(error.status);
+      if(!retryable)throw error;
+      result=await invoke();
+    }
     await adminRefresh({silent:true});
     return result;
   }catch(error){
