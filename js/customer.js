@@ -146,7 +146,7 @@ function liveTracking(){
 
   const copy=statusCopy[o.status]||[o.status,''];
   const active=!['SETTLED','CANCELLED'].includes(o.status);
-  const deadline=o.status==='OFFERED_TO_MERCHANT'&&o.offerExpiresAt
+  const deadline=['OFFERED_TO_MERCHANT','REQUOTE_REQUIRED'].includes(o.status)&&o.offerExpiresAt
     ? Math.max(0,Math.ceil((Date.parse(o.offerExpiresAt)-Date.now())/1000))
     : null;
   const total=Number(o.totalCents||0)/100;
@@ -164,7 +164,7 @@ function liveTracking(){
 ${items?'<div class="divider"></div>'+items:''}</div>
 
 ${o.status==='OFFERED_TO_MERCHANT'?`<div class="notice" style="margin-top:14px"><strong>Aguardando aceite real.</strong><br>A revenda tem até 3 minutos para responder. ${deadline!=null?`Prazo restante aproximado: ${deadline}s.`:''}</div>`:''}
-${o.status==='REQUOTE_REQUIRED'&&proposed!=null?`<div class="notice" style="margin-top:14px"><strong>Encontramos outra opção.</strong><br>Novo total: ${BRL.format(proposed)}. Nada muda sem sua autorização.<div class="order-actions"><button class="primary small" onclick="confirmRequote('${o.orderId}')" ${liveRuntime.actionPending?'disabled':''}>Aceitar novo total</button><button class="secondary small" onclick="cancelPending('${o.orderId}')" ${liveRuntime.actionPending?'disabled':''}>Cancelar pedido</button></div></div>`:''}
+${o.status==='REQUOTE_REQUIRED'&&proposed!=null?`<div class="notice" style="margin-top:14px"><strong>Encontramos outra opção.</strong><br>Novo total: ${BRL.format(proposed)}. Nada muda sem sua autorização. ${deadline!=null?`Esta condição expira em aproximadamente ${deadline}s.`:''}<div class="order-actions"><button class="primary small" onclick="confirmRequote('${o.orderId}')" ${liveRuntime.actionPending?'disabled':''}>Aceitar novo total</button><button class="secondary small" onclick="cancelPending('${o.orderId}')" ${liveRuntime.actionPending?'disabled':''}>Cancelar pedido</button></div></div>`:''}
 ${o.status==='CANCELLED'?'<div class="notice danger" style="margin-top:14px">Este pedido foi encerrado. Cashback reservado, se houver, é devolvido pelo ledger.</div>':''}
 ${o.riskReason&&o.status!=='CANCELLED'?`<div class="notice danger" style="margin-top:14px"><strong>Acompanhamento prioritário.</strong><br>${esc(o.riskReason)}</div>`:''}
 
