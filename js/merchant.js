@@ -264,7 +264,8 @@ function catalog(){
 function merchantLiveCatalog(){
   const rt=globalThis.merchantRuntime||{};
   if(rt.status!=='ready')return merchantLivePage();
-  const known=Object.entries(products).map(([code,p])=>{
+
+  const local=Object.entries(products).map(([code,p])=>{
     const current=(rt.catalog||[]).find(x=>x.productCode===code);
     return {
       productCode:code,
@@ -275,18 +276,68 @@ function merchantLiveCatalog(){
       priceConfirmedAt:current?.priceConfirmedAt||null
     };
   });
+
+  const localCodes=new Set(local.map(x=>x.productCode));
+  const serverOnly=(rt.catalog||[])
+    .filter(item=>!localCodes.has(item.productCode))
+    .map(item=>({
+      productCode:String(item.productCode||'').toUpperCase(),
+      productName:item.productName||item.productCode||'Produto',
+      priceCents:Number(item.priceCents||0),
+      availableStock:Number(item.availableStock||0),
+      active:item.active===true,
+      priceConfirmedAt:item.priceConfirmedAt||null
+    }));
+
+  const known=[...local,...serverOnly]
+    .sort((a,b)=>{
+      const ag=/^P([1-9][0-9]?)$/.exec(a.productCode);
+      const bg=/^P([1-9][0-9]?)$/.exec(b.productCode);
+      if(ag&&bg)return Number(ag[1])-Number(bg[1]);
+      if(ag)return -1;
+      if(bg)return 1;
+      return a.productName.localeCompare(b.productName,'pt-BR');
+    });
+
   const rows=known.map(item=>{
     const fresh=merchantTimestampFresh(item.priceConfirmedAt);
     const status=!item.active?'INATIVO':item.availableStock<=0?'SEM ESTOQUE':fresh?'CONFIRMADO':'PREÇO VENCIDO';
     const statusClass=item.active&&item.availableStock>0&&fresh?'online':item.active&&item.availableStock>0?'risk':'offline';
+    const icon=products[item.productCode]?.icon||(/^P([1-9][0-9]?)$/.test(item.productCode)?'🔥':'📦');
     return `<div class="card flat form-stack" style="margin-bottom:12px">
-      <div class="status-bar"><div class="product-left"><div class="product-icon">${products[item.productCode]?.icon||'📦'}</div><div><strong>${esc(item.productName)}</strong><br><small>${esc(item.productCode)} • ${item.priceConfirmedAt?'confirmado '+new Date(item.priceConfirmedAt).toLocaleString('pt-BR'):'nunca confirmado'}</small></div></div><span class="status-pill ${statusClass}">${status}</span></div>
+      <div class="status-bar"><div class="product-left"><div class="product-icon">${icon}</div><div><strong>${esc(item.productName)}</strong><br><small>${esc(item.productCode)} • ${item.priceConfirmedAt?'confirmado '+new Date(item.priceConfirmedAt).toLocaleString('pt-BR'):'nunca confirmado'}</small></div></div><span class="status-pill ${statusClass}">${status}</span></div>
       <div class="field-row"><div class="input-wrap"><label for="live-price-${item.productCode}">Preço</label><input id="live-price-${item.productCode}" inputmode="decimal" type="number" min="0.01" max="999999" step="0.10" class="input" value="${item.priceCents>0?(item.priceCents/100).toFixed(2):''}"></div><div class="input-wrap"><label for="live-stock-${item.productCode}">Estoque</label><input id="live-stock-${item.productCode}" inputmode="numeric" type="number" min="0" max="100000" class="input" value="${item.availableStock}"></div></div>
       <label class="check-row"><input id="live-active-${item.productCode}" type="checkbox" ${item.active?'checked':''}><span><strong>Produto ativo</strong><small>Somente itens ativos e com estoque participam das ofertas.</small></span></label>
       <button class="secondary" onclick="merchantLiveSaveProduct('${item.productCode}')">Salvar e confirmar este preço</button>
     </div>`;
   }).join('');
-  return shell(`<section class="page"><button class="back" onclick="go('merchant')">← Operação</button><h1 class="page-title">Catálogo real</h1><p class="muted">Cada SKU possui sua própria confirmação de preço. Atualizar um produto não renova os demais.</p><div style="margin-top:16px">${rows}</div></section>`);
+
+  const addGlp=`<div class="card flat form-stack" style="margin-bottom:16px">
+    <h3>Adicionar cilindro GLP</h3>
+    <p class="muted tiny">Códigos P1 a P90 seguem automaticamente as regras regulatórias e logísticas de GLP.</p>
+    <div class="field-row">
+      <div class="input-wrap"><label for="live-new-glp-code">Código</label><input id="live-new-glp-code" class="input" maxlength="3" placeholder="P20"></div>
+      <div class="input-wrap"><label for="live-new-glp-price">Preço</label><input id="live-new-glp-price" inputmode="decimal" type="number" min="0.01" max="999999" step="0.10" class="input" placeholder="0,00"></div>
+      <div class="input-wrap"><label for="live-new-glp-stock">Estoque</label><input id="live-new-glp-stock" inputmode="numeric" type="number" min="0" max="100000" class="input" value="0"></div>
+    </div>
+    <button class="primary" onclick="merchantLiveAddGlp()">Adicionar e confirmar</button>
+  </div>`;
+
+  return shell(`<section class="page"><button class="back" onclick="go('merchant')">← Operação</button><h1 class="page-title">Catálogo real</h1><p class="muted">Cada SKU possui sua própria confirmação de preço. Atualizar um produto não renova os demais.</p><div style="margin-top:16px">${addGlp}${rows}</div></section>`);
+}
+
+async function merchantLiveAddGlp(){
+  const code=String(document.getElementById('live-new-glp-code')?.value||'').trim().toUpperCase();
+  const match=/^P([1-9][0-9]?)$/.exec(code);
+  const kg=match?Number(match[1]):NaN;
+  const price=Number(document.getElementById('live-new-glp-price')?.value);
+  const stock=Number(document.getElementById('live-new-glp-stock')?.value);
+  if(!Number.isInteger(kg)||kg<1||kg>90)return toast('Use um código GLP entre P1 e P90');
+  if(!Number.isFinite(price)||price<=0||!Number.isInteger(stock)||stock<0)return toast('Revise preço e estoque');
+  try{
+    await merchantUpdateProductLive(code,Math.round(price*100),stock,true);
+    toast('Gás P'+kg+' adicionado ao catálogo');
+  }catch(e){toast(String(e?.message||e))}
 }
 
 function merchantMetrics(){
