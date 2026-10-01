@@ -12,12 +12,19 @@ const secretKeys=JSON.parse(Deno.env.get("SUPABASE_SECRET_KEYS")??"{}");
 const PUBLISHABLE_KEY=publishableKeys.default??Deno.env.get("SUPABASE_ANON_KEY")??"";
 const SECRET_KEY=secretKeys.default??Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")??"";
 const PROD_ORIGIN="https://carloskk07.github.io";
+const MERCHANT_ALLOWED_ORIGIN=(Deno.env.get("MERCHANT_ALLOWED_ORIGIN")??"").trim();
 const UUID_RE=/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
+function merchantOriginAllowed(origin:string|null){
+  if(!origin)return true;
+  if(/^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(origin))return true;
+  return MERCHANT_ALLOWED_ORIGIN.length>0&&origin===MERCHANT_ALLOWED_ORIGIN;
+}
 function originAllowed(origin:string|null){
   if(!origin)return true;
   if(origin===PROD_ORIGIN)return true;
-  return /^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(origin);
+  if(merchantOriginAllowed(origin))return true;
+  return false;
 }
 function cors(origin:string|null){
   const allowed=origin&&originAllowed(origin)?origin:PROD_ORIGIN;
@@ -88,6 +95,9 @@ Deno.serve(async(req:Request)=>{
     }
 
     if(!role)return json({error:"ACCESS_DENIED",message:"Você não possui acesso a este pedido."},403,origin);
+    if(role==="merchant"&&!merchantOriginAllowed(origin)){
+      return json({error:"MERCHANT_ORIGIN_REQUIRED",message:"O acesso operacional da revenda exige uma origem dedicada."},403,origin);
+    }
 
     const [{data:items,error:itemError},{data:events,error:eventError}]=await Promise.all([
       admin.from("order_items")
