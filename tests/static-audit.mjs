@@ -53,6 +53,14 @@ assert.ok(sw.includes("./js/runtime-config.js"),'configuração pública de orig
 assert.ok(sw.includes("./js/turnstile.js"),'helper local do Turnstile precisa estar no cache da PWA');
 assert.ok(html.indexOf('./js/turnstile.js')<html.indexOf('./js/backend.js'),'helper Turnstile deve carregar antes do backend');
 assert.ok(html.indexOf('./js/runtime-config.js')<html.indexOf('./js/backend.js'),'runtime-config.js deve carregar antes do backend');
+assert.ok(html.includes('http-equiv="Content-Security-Policy"'),'PWA precisa declarar CSP explícita');
+assert.ok(html.includes("script-src-elem 'self' https://cdn.jsdelivr.net https://challenges.cloudflare.com"),'CSP deve bloquear script element inline e limitar origens');
+assert.ok(html.includes("script-src-attr 'unsafe-inline'"),'CSP precisa preservar handlers legados até a refatoração');
+assert.ok(html.includes("connect-src 'self' https://lgugwujpunhslavewffd.supabase.co"),'CSP deve limitar conexão ao backend Supabase conhecido');
+assert.ok(html.includes("frame-src https://challenges.cloudflare.com"),'CSP deve permitir somente iframe Turnstile');
+assert.ok(html.includes("object-src 'none'"),'CSP deve bloquear plugins/objetos');
+assert.ok(html.includes("base-uri 'self'"),'CSP deve impedir base URL externa');
+assert.ok(html.includes('name="referrer" content="strict-origin-when-cross-origin"'),'PWA precisa de política de referrer explícita');
 const runtimeConfig=read('js/runtime-config.js');
 assert.ok(runtimeConfig.includes("CHAMA_CUSTOMER_ORIGIN=''")&&runtimeConfig.includes("CHAMA_MERCHANT_ORIGIN=''")&&runtimeConfig.includes("CHAMA_ADMIN_ORIGIN=''"),'GitHub Pages deve falhar fechado sem origins privilegiadas');
 assert.ok(runtimeConfig.includes("CHAMA_TURNSTILE_SITE_KEY=''"),'GitHub Pages não pode embutir site key de Turnstile do portal real');
