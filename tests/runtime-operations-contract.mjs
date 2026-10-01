@@ -32,6 +32,7 @@ const adminState=fs.readFileSync(new URL('../supabase/migrations/20261001124000_
 const complianceContinuity=fs.readFileSync(new URL('../supabase/migrations/20261001125000_continuous_compliance_enforcement.sql',import.meta.url),'utf8');
 const glpGate=fs.readFileSync(new URL('../supabase/migrations/20261001126000_generalize_glp_regulatory_gate.sql',import.meta.url),'utf8');
 const rewardLifecycle=fs.readFileSync(new URL('../supabase/migrations/20261001127000_reward_retry_lifecycle_cleanup.sql',import.meta.url),'utf8');
+const skuFresh=fs.readFileSync(new URL('../supabase/migrations/20261001128000_per_sku_price_freshness.sql',import.meta.url),'utf8');
 const r=repricing.replace(/--.*$/gm,'').replace(/\s+/g,' ').toLowerCase();
 const w=watchdog.replace(/--.*$/gm,'').replace(/\s+/g,' ').toLowerCase();
 const h=hardening.replace(/--.*$/gm,'').replace(/\s+/g,' ').toLowerCase();
@@ -63,6 +64,7 @@ const ast=adminState.replace(/--.*$/gm,'').replace(/\s+/g,' ').toLowerCase();
 const cc=complianceContinuity.replace(/--.*$/gm,'').replace(/\s+/g,' ').toLowerCase();
 const gg=glpGate.replace(/--.*$/gm,'').replace(/\s+/g,' ').toLowerCase();
 const rl=rewardLifecycle.replace(/--.*$/gm,'').replace(/\s+/g,' ').toLowerCase();
+const pf=skuFresh.replace(/--.*$/gm,'').replace(/\s+/g,' ').toLowerCase();
 
 assert.match(r,/create table if not exists public\.order_requote_items/,'re-cotação precisa congelar preços por item');
 assert.match(r,/revoke all on table public\.order_requote_items from anon, authenticated/,'snapshot de re-cotação deve ser server-only');
@@ -256,4 +258,12 @@ assert.match(rl,/after insert on public\.order_reward_grants/,'grant bem-sucedid
 assert.match(rl,/new\.financial_state='reversed'/,'reversão financeira precisa encerrar retry inviável');
 assert.match(rl,/resolved_at=coalesce\(resolved_at,clock_timestamp\(\)\)/,'resolução da fila precisa ser idempotente');
 
-console.log('Requote + watchdog + hardening v1.7.9 contract passou.');
+assert.match(pf,/alter table public\.catalog_items[\s\S]*price_confirmed_at timestamptz/,'cada SKU precisa de relógio de confirmação próprio');
+assert.match(pf,/alter table public\.merchants[\s\S]*delivery_fee_confirmed_at timestamptz/,'taxa de entrega precisa de relógio independente');
+assert.match(pf,/for share of ci/,'snapshot de cotação precisa bloquear SKUs durante a captura');
+assert.match(pf,/ci\.price_confirmed_at>=clock_timestamp\(\)-interval '24 hours'/,'quote e rescue só podem usar SKU fresco');
+assert.match(pf,/m\.delivery_fee_confirmed_at>=clock_timestamp\(\)-interval '24 hours'/,'rescue só pode usar taxa de entrega fresca');
+assert.match(pf,/v_merchant\.delivery_fee_confirmed_at<clock_timestamp\(\)-interval '24 hours'/,'quote precisa validar freshness da taxa no banco');
+assert.doesNotMatch(pf,/v_merchant\.price_confirmed_at<clock_timestamp\(\)-interval '24 hours'/,'quote atual não pode depender do relógio global legado');
+
+console.log('Requote + watchdog + hardening v1.8 contract passou.');
