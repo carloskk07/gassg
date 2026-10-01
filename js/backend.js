@@ -306,6 +306,7 @@ async function liveSyncFinancialProfile(){
     state.user.commissionPending=Math.max(0,Number(summary?.commissionPendingCents||0)/100);
     state.user.commissionAvailable=Math.max(0,Number(summary?.commissionAvailableCents||0)/100);
     state.user.purchases=Math.max(0,Number(summary?.settledOrders||0));
+    state.user.reversedPurchases=Math.max(0,Number(summary?.reversedOrders||0));
     state.user.cashEarningEligible=summary?.cashEarningEligible===true;
     state.user.identityType=String(summary?.identityType||'anonymous');
     save();
