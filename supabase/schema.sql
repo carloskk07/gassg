@@ -41,6 +41,30 @@ create table if not exists public.catalog_items (
   primary key (merchant_id,product_code)
 );
 
+create table if not exists public.quotes (
+  id uuid primary key default gen_random_uuid(),
+  customer_id uuid not null references auth.users(id) on delete cascade,
+  merchant_id uuid not null references public.merchants(id) on delete cascade,
+  gross_total_cents integer not null check (gross_total_cents >= 0),
+  delivery_fee_cents integer not null default 0 check (delivery_fee_cents >= 0),
+  eta_min_minutes smallint not null check (eta_min_minutes > 0),
+  eta_max_minutes smallint not null check (eta_max_minutes >= eta_min_minutes),
+  expires_at timestamptz not null,
+  consumed_at timestamptz,
+  created_at timestamptz not null default now(),
+  check (expires_at > created_at)
+);
+
+create table if not exists public.quote_items (
+  quote_id uuid not null references public.quotes(id) on delete cascade,
+  product_code text not null check (product_code in ('P13','WATER20','CHARCOAL4','WOOD','ICE5')),
+  product_name text not null,
+  quantity integer not null check (quantity between 1 and 99),
+  unit_price_cents integer not null check (unit_price_cents > 0),
+  line_total_cents integer not null check (line_total_cents = quantity * unit_price_cents),
+  primary key (quote_id,product_code)
+);
+
 create table if not exists public.orders (
   id uuid primary key default gen_random_uuid(),
   public_code text not null unique check (char_length(public_code) between 6 and 32),
@@ -139,7 +163,227 @@ create table if not exists public.referrals (
 create table if not exists public.merchant_applications (
   id uuid primary key default gen_random_uuid(),
   applicant_user_id uuid not null references auth.users(id) on delete cascade,
-  cnpj text not null check (cnpj ~ '^[0-9A-Z]{12}[0-9]{2}$'),
+  cnpj text not null check (cnpj ~ '^[0-9A-Z]{12}[0-9]{2}create index if not exists merchants_status_online_idx on public.merchants(status,online);
+create index if not exists quotes_customer_expiry_idx on public.quotes(customer_id,expires_at desc);
+create index if not exists quotes_merchant_expiry_idx on public.quotes(merchant_id,expires_at desc);
+create index if not exists action_requests_user_created_idx on public.action_requests(user_id,created_at desc);
+create index if not exists catalog_active_idx on public.catalog_items(merchant_id,active);
+create index if not exists orders_customer_created_idx on public.orders(customer_id,created_at desc);
+create index if not exists orders_merchant_status_idx on public.orders(merchant_id,status,created_at desc);
+create index if not exists order_events_order_created_idx on public.order_events(order_id,created_at);
+create index if not exists wallet_entries_user_created_idx on public.wallet_entries(user_id,created_at desc);
+create index if not exists referrals_referrer_idx on public.referrals(referrer_user_id,created_at desc);
+
+alter table public.merchants enable row level security;
+alter table public.merchant_members enable row level security;
+alter table public.catalog_items enable row level security;
+alter table public.quotes enable row level security;
+alter table public.quote_items enable row level security;
+alter table public.orders enable row level security;
+alter table public.order_items enable row level security;
+alter table public.order_events enable row level security;
+alter table public.wallet_entries enable row level security;
+alter table public.referrals enable row level security;
+alter table public.merchant_applications enable row level security;
+alter table public.action_requests enable row level security;
+
+-- Explicit grants are required for new Supabase projects when automatic Data API exposure is disabled.
+revoke all on table
+  public.merchants,
+  public.merchant_members,
+  public.catalog_items,
+  public.quotes,
+  public.quote_items,
+  public.orders,
+  public.order_items,
+  public.order_events,
+  public.wallet_entries,
+  public.referrals,
+  public.merchant_applications,
+  public.action_requests
+from anon, authenticated;
+
+grant select on table public.merchants, public.catalog_items to authenticated;
+grant select on table
+  public.merchant_members,
+  public.orders,
+  public.order_items,
+  public.order_events,
+  public.wallet_entries,
+  public.referrals,
+  public.merchant_applications
+to authenticated;
+
+grant all on table
+  public.merchants,
+  public.merchant_members,
+  public.catalog_items,
+  public.quotes,
+  public.quote_items,
+  public.orders,
+  public.order_items,
+  public.order_events,
+  public.wallet_entries,
+  public.referrals,
+  public.merchant_applications,
+  public.action_requests
+to service_role;
+
+grant usage, select on all sequences in schema public to service_role;
+
+drop policy if exists "read own merchant profile" on public.merchants;
+create policy "read own merchant profile"
+on public.merchants
+for select
+to authenticated
+using (
+  exists (
+    select 1
+    from public.merchant_members mm
+    where mm.merchant_id = merchants.id
+      and mm.user_id = (select auth.uid())
+      and mm.active
+  )
+);
+
+drop policy if exists "read own merchant memberships" on public.merchant_members;
+create policy "read own merchant memberships"
+on public.merchant_members
+for select
+to authenticated
+using (user_id = (select auth.uid()));
+
+drop policy if exists "read own merchant catalog" on public.catalog_items;
+create policy "read own merchant catalog"
+on public.catalog_items
+for select
+to authenticated
+using (
+  exists (
+    select 1
+    from public.merchant_members mm
+    where mm.merchant_id = catalog_items.merchant_id
+      and mm.user_id = (select auth.uid())
+      and mm.active
+  )
+);
+
+drop policy if exists "read own or assigned orders" on public.orders;
+create policy "read own or assigned orders"
+on public.orders
+for select
+to authenticated
+using (
+  customer_id = (select auth.uid())
+  or exists (
+    select 1
+    from public.merchant_members mm
+    where mm.merchant_id = orders.merchant_id
+      and mm.user_id = (select auth.uid())
+      and mm.active
+  )
+);
+
+drop policy if exists "read visible order items" on public.order_items;
+create policy "read visible order items"
+on public.order_items
+for select
+to authenticated
+using (
+  exists (
+    select 1
+    from public.orders o
+    where o.id = order_items.order_id
+      and (
+        o.customer_id = (select auth.uid())
+        or exists (
+          select 1
+          from public.merchant_members mm
+          where mm.merchant_id = o.merchant_id
+            and mm.user_id = (select auth.uid())
+            and mm.active
+        )
+      )
+  )
+);
+
+drop policy if exists "read visible order events" on public.order_events;
+create policy "read visible order events"
+on public.order_events
+for select
+to authenticated
+using (
+  exists (
+    select 1
+    from public.orders o
+    where o.id = order_events.order_id
+      and (
+        o.customer_id = (select auth.uid())
+        or exists (
+          select 1
+          from public.merchant_members mm
+          where mm.merchant_id = o.merchant_id
+            and mm.user_id = (select auth.uid())
+            and mm.active
+        )
+      )
+  )
+);
+
+drop policy if exists "read own wallet ledger" on public.wallet_entries;
+create policy "read own wallet ledger"
+on public.wallet_entries
+for select
+to authenticated
+using (user_id = (select auth.uid()));
+
+drop policy if exists "read own referral relationships" on public.referrals;
+create policy "read own referral relationships"
+on public.referrals
+for select
+to authenticated
+using (
+  referred_user_id = (select auth.uid())
+  or referrer_user_id = (select auth.uid())
+);
+
+drop policy if exists "read own merchant applications" on public.merchant_applications;
+create policy "read own merchant applications"
+on public.merchant_applications
+for select
+to authenticated
+using (applicant_user_id = (select auth.uid()));
+
+-- Quotes and action_requests intentionally have no authenticated policies.
+-- They are server-only state used by Edge Functions with the service role.
+-- A quote token is opaque: the customer receives the token plus anonymized offer data,
+-- while merchant identity and frozen item prices remain authoritative in the database.
+
+-- Customer-facing discovery MUST go through a server-side get-offers function.
+-- It may read merchants/catalog with a server secret and return only anonymized price/ETA/quote data.
+-- Customer clients must not be able to enumerate merchant identity or catalog rows before acceptance.
+
+-- Postgres Changes is sufficient for the first São Gabriel pilot.
+-- Broadcast can replace it later if scale or stricter Realtime authorization warrants it.
+do $$
+begin
+  if exists (select 1 from pg_publication where pubname = 'supabase_realtime') then
+    if not exists (
+      select 1 from pg_publication_tables
+      where pubname = 'supabase_realtime' and schemaname = 'public' and tablename = 'orders'
+    ) then
+      execute 'alter publication supabase_realtime add table public.orders';
+    end if;
+    if not exists (
+      select 1 from pg_publication_tables
+      where pubname = 'supabase_realtime' and schemaname = 'public' and tablename = 'order_events'
+    ) then
+      execute 'alter publication supabase_realtime add table public.order_events';
+    end if;
+  end if;
+end
+$$;
+),
   company_name text not null check (char_length(company_name) between 2 and 120),
   responsible_name text not null check (char_length(responsible_name) between 2 and 120),
   phone text not null check (char_length(phone) between 10 and 20),
@@ -148,6 +392,16 @@ create table if not exists public.merchant_applications (
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
   unique (applicant_user_id,cnpj)
+);
+
+create table if not exists public.action_requests (
+  idempotency_key text primary key check (char_length(idempotency_key) between 12 and 120),
+  user_id uuid not null references auth.users(id) on delete cascade,
+  action_name text not null,
+  request_hash text not null,
+  result_json jsonb,
+  completed_at timestamptz,
+  created_at timestamptz not null default now()
 );
 
 create index if not exists merchants_status_online_idx on public.merchants(status,online);
