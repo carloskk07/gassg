@@ -74,7 +74,7 @@ async function requireAdmin(admin:any,userId:string){
   if(!data)throw new DomainError("ADMIN_ACCESS_DENIED","Esta conta não possui acesso administrativo.",403);
 }
 async function summary(admin:any){
-  const [apps,merchants,compliance,receivables,reimbursements,adjustments,audit]=await Promise.all([
+  const [apps,merchants,compliance,capabilities,receivables,reimbursements,adjustments,audit]=await Promise.all([
     admin.from("merchant_applications")
       .select("id,applicant_user_id,cnpj,company_name,responsible_name,phone,address_text,status,created_at,updated_at")
       .order("created_at",{ascending:false})
@@ -86,6 +86,9 @@ async function summary(admin:any){
     admin.from("merchant_compliance")
       .select("merchant_id,cnpj_status,anp_status,anp_reference,notes,verified_at,verified_by,updated_at")
       .limit(100),
+    admin.from("merchant_delivery_capabilities")
+      .select("merchant_id,capability_code,active,verified_at,verified_by,notes,updated_at")
+      .limit(200),
     admin.from("platform_receivables")
       .select("order_id,merchant_id,gross_total_cents,platform_fee_bps,platform_fee_cents,status,due_at,paid_at,waived_at,reversed_at,created_at")
       .eq("status","open")
@@ -106,15 +109,21 @@ async function summary(admin:any){
       .order("created_at",{ascending:false})
       .limit(50)
   ]);
-  for(const result of [apps,merchants,compliance,receivables,reimbursements,adjustments,audit]){
+  for(const result of [apps,merchants,compliance,capabilities,receivables,reimbursements,adjustments,audit]){
     if(result.error)throw result.error;
   }
   const byMerchant=new Map((compliance.data??[]).map((x:any)=>[x.merchant_id,x]));
+  const capabilitiesByMerchant=new Map<string,any[]>();
+  for(const cap of capabilities.data??[]){
+    if(!capabilitiesByMerchant.has(cap.merchant_id))capabilitiesByMerchant.set(cap.merchant_id,[]);
+    capabilitiesByMerchant.get(cap.merchant_id)!.push(cap);
+  }
   return {
     applications:apps.data??[],
     merchants:(merchants.data??[]).map((m:any)=>({
       ...m,
-      compliance:byMerchant.get(m.id)??null
+      compliance:byMerchant.get(m.id)??null,
+      deliveryCapabilities:capabilitiesByMerchant.get(m.id)??[]
     })),
     finance:{
       receivables:receivables.data??[],
@@ -184,6 +193,12 @@ Deno.serve(async(req:Request)=>{
       };
     }else if(action==="activate-merchant"||action==="suspend-merchant"){
       payload={merchantId:uuid(body.merchantId,"merchant")};
+    }else if(action==="set-delivery-capability"){
+      payload={
+        merchantId:uuid(body.merchantId,"merchant"),
+        active:body.active===true,
+        notes:body.notes==null?null:(cleanText(body.notes,{min:0,max:1000,name:"observações"})||null)
+      };
     }else if(action==="reverse-order"){
       payload={
         orderId:uuid(body.orderId,"order"),
@@ -212,13 +227,26 @@ Deno.serve(async(req:Request)=>{
     }
 
     const requestHash=await requestFingerprint("admin-ops:"+action,payload);
-    const {data,error}=await admin.rpc("admin_execute_action",{
-      p_actor_user_id:user.id,
-      p_action_name:action,
-      p_payload:payload,
-      p_idempotency_key:idempotencyKey,
-      p_request_hash:requestHash
-    });
+    const rpcName=action==="set-delivery-capability"
+      ?"admin_delivery_capability_action"
+      :"admin_execute_action";
+    const rpcArgs=action==="set-delivery-capability"
+      ?{
+          p_actor_user_id:user.id,
+          p_merchant_id:payload.merchantId,
+          p_active:payload.active,
+          p_notes:payload.notes,
+          p_idempotency_key:idempotencyKey,
+          p_request_hash:requestHash
+        }
+      :{
+          p_actor_user_id:user.id,
+          p_action_name:action,
+          p_payload:payload,
+          p_idempotency_key:idempotencyKey,
+          p_request_hash:requestHash
+        };
+    const {data,error}=await admin.rpc(rpcName,rpcArgs);
     if(error)throw error;
     return json(data,200,origin);
 
