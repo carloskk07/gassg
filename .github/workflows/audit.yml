@@ -25,5 +25,22 @@ jobs:
           done
       - name: Marketplace simulations
         run: node tests/simulations.mjs
+      - name: Browser smoke — mobile routes
+        run: |
+          python3 -m http.server 4173 >/tmp/chama-http.log 2>&1 &
+          SERVER_PID=$!
+          trap 'kill $SERVER_PID' EXIT
+          sleep 1
+          CHROME="$(command -v google-chrome || command -v chromium || command -v chromium-browser)"
+          test -n "$CHROME"
+          for route in home order club refer merchants merchant; do
+            "$CHROME" --headless=new --no-sandbox --disable-gpu --window-size=360,800 --virtual-time-budget=1200 --user-data-dir="/tmp/chrome-$route" --dump-dom "http://127.0.0.1:4173/#$route" > "/tmp/$route.html"
+          done
+          grep -q "Seu gás" /tmp/home.html
+          grep -q "Pedir agora" /tmp/order.html
+          grep -q "Clube Chama" /tmp/club.html
+          grep -q "Indique e ganhe" /tmp/refer.html
+          grep -q "Mais pedidos para sua operação" /tmp/merchants.html
+          grep -q "PAINEL DA REVENDA" /tmp/merchant.html
       - name: Validate manifest JSON
         run: node -e "JSON.parse(require('fs').readFileSync('manifest.webmanifest','utf8')); console.log('manifest OK')"
