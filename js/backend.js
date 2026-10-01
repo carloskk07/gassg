@@ -159,6 +159,17 @@ function liveOfferView(raw){
   };
 }
 
+let liveOfferTimer=null;
+function liveScheduleOfferRefresh(delay=350){
+  if(!liveReady())return;
+  clearTimeout(liveOfferTimer);
+  liveOfferTimer=setTimeout(()=>{
+    if(state.address&&hasCartItems()){
+      liveRefreshOffers().catch(()=>{});
+    }
+  },delay);
+}
+
 async function liveRefreshOffers({silent=false}={}){
   if(!liveReady()||!state.address||!hasCartItems()){
     liveRuntime.offers=[];
@@ -295,6 +306,7 @@ globalThis.liveRequested=liveRequested;
 globalThis.liveReady=liveReady;
 globalThis.liveBanner=liveBanner;
 globalThis.liveRefreshOffers=liveRefreshOffers;
+globalThis.liveScheduleOfferRefresh=liveScheduleOfferRefresh;
 globalThis.liveCreateOrder=liveCreateOrder;
 globalThis.liveGetOrder=liveGetOrder;
 globalThis.liveCustomerAction=liveCustomerAction;
