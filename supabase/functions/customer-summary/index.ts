@@ -80,6 +80,7 @@ Deno.serve(async(req:Request)=>{
       commissionPendingCents:Number(data?.commissionPendingCents??0),
       commissionAvailableCents:Number(data?.commissionAvailableCents??0),
       settledOrders:Number(data?.settledOrders??0),
+      reversedOrders:Number(data?.reversedOrders??0),
       cashEarningEligible:user.is_anonymous!==true,
       identityType:user.is_anonymous===true?"anonymous":"permanent"
     },200,origin);
