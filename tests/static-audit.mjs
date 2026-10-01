@@ -51,6 +51,12 @@ assert.ok(backend.includes('@supabase/supabase-js@2.117.2'),'browser deve fixar 
 assert.ok(!backend.includes('@supabase/supabase-js@2\''),'browser não pode usar major flutuante do supabase-js');
 assert.ok(backend.includes('offerRequestSeq')&&backend.includes('orderRequestSeq'),'runtime live precisa bloquear respostas assíncronas obsoletas');
 assert.ok(backend.includes('liveRuntime.actionPending'),'polling precisa respeitar ação em andamento');
+assert.ok(backend.includes("customer-summary"),'frontend live deve usar projeção financeira mínima');
+assert.ok(!backend.includes(".from('wallet_entries')"),'frontend não pode ler ledger financeiro bruto');
+assert.ok(!backend.includes(".from('profiles')"),'frontend não pode ler tabela de perfis diretamente');
+assert.ok(merchant.includes('Pagamento recebido'),'painel precisa exigir confirmação explícita de pagamento');
+assert.ok(core.includes('paymentConfirmed!==true'),'autoridade demo deve bloquear settlement sem pagamento');
+
 
 const functionRoot=path.join(root,'supabase/functions');
 for(const entry of fs.readdirSync(functionRoot,{withFileTypes:true})){
@@ -62,6 +68,11 @@ for(const entry of fs.readdirSync(functionRoot,{withFileTypes:true})){
   assert.ok(source.includes('npm:@supabase/supabase-js@2.117.2'),entry.name+' precisa fixar supabase-js');
   assert.ok(source.includes('readJsonBody(req)'),entry.name+' precisa limitar JSON');
   assert.ok(source.includes('enforceApiQuota(admin'),entry.name+' precisa aplicar quota server-side');
+  if(entry.name==='complete-delivery'){
+    assert.ok(source.includes('body.paymentConfirmed!==true'),'complete-delivery deve exigir confirmação de pagamento');
+    assert.ok(source.includes('paymentConfirmed:true'),'fingerprint idempotente deve incluir confirmação de pagamento');
+  }
+
 }
 
 
