@@ -12,16 +12,16 @@ const publishableKeys=JSON.parse(Deno.env.get("SUPABASE_PUBLISHABLE_KEYS")??"{}"
 const secretKeys=JSON.parse(Deno.env.get("SUPABASE_SECRET_KEYS")??"{}");
 const PUBLISHABLE_KEY=publishableKeys.default??Deno.env.get("SUPABASE_ANON_KEY")??"";
 const SECRET_KEY=secretKeys.default??Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")??"";
-const PROD_ORIGIN="https://carloskk07.github.io";
+const ADMIN_ALLOWED_ORIGIN=(Deno.env.get("ADMIN_ALLOWED_ORIGIN")??"").trim();
 const UUID_RE=/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 function originAllowed(origin:string|null){
   if(!origin)return true;
-  if(origin===PROD_ORIGIN)return true;
-  return /^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(origin);
+  if(/^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(origin))return true;
+  return ADMIN_ALLOWED_ORIGIN.length>0&&origin===ADMIN_ALLOWED_ORIGIN;
 }
 function cors(origin:string|null){
-  const allowed=origin&&originAllowed(origin)?origin:PROD_ORIGIN;
+  const allowed=origin&&originAllowed(origin)?origin:(ADMIN_ALLOWED_ORIGIN||"null");
   return {
     "Access-Control-Allow-Origin":allowed,
     "Access-Control-Allow-Headers":"authorization, apikey, content-type, idempotency-key",
