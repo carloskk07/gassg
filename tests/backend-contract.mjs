@@ -5,8 +5,8 @@ const sql=fs.readFileSync(new URL('../supabase/schema.sql',import.meta.url),'utf
 const normalized=sql.replace(/--.*$/gm,'').replace(/\s+/g,' ').toLowerCase();
 
 const tables=[
-  'merchants','merchant_members','catalog_items','orders','order_items',
-  'order_events','wallet_entries','referrals','merchant_applications'
+  'merchants','merchant_members','catalog_items','quotes','quote_items','orders','order_items',
+  'order_events','wallet_entries','referrals','merchant_applications','action_requests'
 ];
 
 for(const table of tables){
@@ -19,6 +19,16 @@ assert.match(normalized,/grant select on table public\.merchants, public\.catalo
 assert.doesNotMatch(normalized,/grant\s+(insert|update|delete|all)[\s\S]{0,200}\bto authenticated\b/,'frontend não pode escrever diretamente nas tabelas críticas');
 assert.doesNotMatch(normalized,/security definer/,'schema inicial não deve introduzir SECURITY DEFINER');
 assert.doesNotMatch(sql,/sb_secret_|service_role\s*[:=]\s*['"][a-z0-9._-]+/i,'nenhuma chave secreta pode estar no repositório');
+
+assert.match(normalized,/create table if not exists public\.quotes/,'cotação server-side precisa existir');
+assert.match(normalized,/expires_at timestamptz not null/,'cotação precisa expirar');
+assert.match(normalized,/consumed_at timestamptz/,'cotação precisa ser consumível uma única vez');
+assert.match(normalized,/create table if not exists public\.action_requests/,'requisições idempotentes precisam existir');
+assert.match(normalized,/idempotency_key text primary key/,'ação server-side precisa de chave idempotente');
+assert.match(normalized,/request_hash text not null/,'reuso de chave com payload diferente precisa ser detectável');
+assert.doesNotMatch(normalized,/create policy[^;]+on public\.quotes/,'clientes não podem consultar a tabela de quotes diretamente');
+assert.doesNotMatch(normalized,/create policy[^;]+on public\.quote_items/,'clientes não podem consultar preços congelados diretamente');
+assert.doesNotMatch(normalized,/create policy[^;]+on public\.action_requests/,'clientes não podem consultar tabela de idempotência');
 
 assert.match(normalized,/gross_total_cents integer/,'total bruto precisa ser inteiro em centavos');
 assert.match(normalized,/cashback_reserved_cents integer/,'cashback reservado precisa ser inteiro em centavos');
