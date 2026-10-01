@@ -30,6 +30,7 @@ const cashbackRestore=fs.readFileSync(new URL('../supabase/migrations/2026100112
 const rewardRetry=fs.readFileSync(new URL('../supabase/migrations/20261001123000_fault_tolerant_reward_processing.sql',import.meta.url),'utf8');
 const adminState=fs.readFileSync(new URL('../supabase/migrations/20261001124000_admin_state_transition_hardening.sql',import.meta.url),'utf8');
 const complianceContinuity=fs.readFileSync(new URL('../supabase/migrations/20261001125000_continuous_compliance_enforcement.sql',import.meta.url),'utf8');
+const glpGate=fs.readFileSync(new URL('../supabase/migrations/20261001126000_generalize_glp_regulatory_gate.sql',import.meta.url),'utf8');
 const r=repricing.replace(/--.*$/gm,'').replace(/\s+/g,' ').toLowerCase();
 const w=watchdog.replace(/--.*$/gm,'').replace(/\s+/g,' ').toLowerCase();
 const h=hardening.replace(/--.*$/gm,'').replace(/\s+/g,' ').toLowerCase();
@@ -59,6 +60,7 @@ const cr=cashbackRestore.replace(/--.*$/gm,'').replace(/\s+/g,' ').toLowerCase()
 const fr=rewardRetry.replace(/--.*$/gm,'').replace(/\s+/g,' ').toLowerCase();
 const ast=adminState.replace(/--.*$/gm,'').replace(/\s+/g,' ').toLowerCase();
 const cc=complianceContinuity.replace(/--.*$/gm,'').replace(/\s+/g,' ').toLowerCase();
+const gg=glpGate.replace(/--.*$/gm,'').replace(/\s+/g,' ').toLowerCase();
 
 assert.match(r,/create table if not exists public\.order_requote_items/,'re-cotação precisa congelar preços por item');
 assert.match(r,/revoke all on table public\.order_requote_items from anon, authenticated/,'snapshot de re-cotação deve ser server-only');
@@ -239,4 +241,12 @@ assert.match(cc,/set status='suspended',[\s\S]*online=false/,'perda de complianc
 assert.match(cc,/before delete[\s\S]*merchant_compliance/,'remoção da validação também deve suspender operação');
 assert.doesNotMatch(cc,/set status='active'/,'recuperar compliance não pode reativar automaticamente');
 
-console.log('Requote + watchdog + hardening v1.7.7 contract passou.');
+assert.match(gg,/is_glp_product_code/,'gate regulatório deve identificar semanticamente qualquer SKU GLP');
+assert.match(gg,/between 1 and 90/,'convenção de GLP deve cobrir recipientes P1 até P90');
+assert.match(gg,/enforce_glp_catalog_compliance_trg/,'catálogo deve bloquear GLP irregular independentemente do tamanho');
+assert.match(gg,/glp_regulatory_verification_required/,'falha regulatória genérica de GLP precisa existir');
+assert.match(gg,/public\.is_glp_product_code\(ci\.product_code\)/,'ativação e continuidade devem detectar qualquer produto GLP ativo');
+assert.match(gg,/drop function if exists public\.enforce_p13_catalog_compliance/,'gate antigo P13-only deve ser removido');
+assert.doesNotMatch(gg,/ci\.product_code='p13'/,'gate atual não pode voltar a depender exclusivamente do P13');
+
+console.log('Requote + watchdog + hardening v1.7.8 contract passou.');
