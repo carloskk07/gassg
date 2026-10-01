@@ -163,7 +163,28 @@ create table if not exists public.referrals (
 create table if not exists public.merchant_applications (
   id uuid primary key default gen_random_uuid(),
   applicant_user_id uuid not null references auth.users(id) on delete cascade,
-  cnpj text not null check (cnpj ~ '^[0-9A-Z]{12}[0-9]{2}create index if not exists merchants_status_online_idx on public.merchants(status,online);
+  cnpj text not null check (cnpj ~ '^[0-9A-Z]{12}[0-9]{2}$'),
+  company_name text not null check (char_length(company_name) between 2 and 120),
+  responsible_name text not null check (char_length(responsible_name) between 2 and 120),
+  phone text not null check (char_length(phone) between 10 and 20),
+  address_text text not null check (char_length(address_text) between 5 and 240),
+  status text not null default 'pending' check (status in ('pending','approved','rejected')),
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  unique (applicant_user_id,cnpj)
+);
+
+create table if not exists public.action_requests (
+  idempotency_key text primary key check (char_length(idempotency_key) between 12 and 120),
+  user_id uuid not null references auth.users(id) on delete cascade,
+  action_name text not null,
+  request_hash text not null,
+  result_json jsonb,
+  completed_at timestamptz,
+  created_at timestamptz not null default now()
+);
+
+create index if not exists merchants_status_online_idx on public.merchants(status,online);
 create index if not exists quotes_customer_expiry_idx on public.quotes(customer_id,expires_at desc);
 create index if not exists quotes_merchant_expiry_idx on public.quotes(merchant_id,expires_at desc);
 create index if not exists action_requests_user_created_idx on public.action_requests(user_id,created_at desc);
