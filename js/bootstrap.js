@@ -24,7 +24,11 @@ window.addEventListener('unhandledrejection',e=>console.error('Promise rejeitada
 
 window.addEventListener('load',async()=>{
   render();
-  if(globalThis.liveRequested?.()){
+  if(globalThis.merchantPortalRequested?.()){
+    await merchantBackendInit();
+    if(!['merchant','merchant-orders','catalog','merchant-metrics','merchants','merchant-join'].includes(route()))go('merchant');
+    render();
+  }else if(globalThis.liveRequested?.()){
     await backendInit();
     if(globalThis.liveReady?.()&&route()==='order'&&state.address&&hasCartItems()){
       try{await liveRefreshOffers({silent:true})}catch{}
@@ -38,13 +42,17 @@ window.addEventListener('load',async()=>{
     }catch(e){console.warn('Service worker indisponível',e)}
   }
   setInterval(()=>{
-    if(!globalThis.liveRequested?.()&&housekeeping())render();
+    if(!globalThis.liveRequested?.()&&!globalThis.merchantPortalRequested?.()&&housekeeping())render();
     if(globalThis.liveReady?.())livePoll().catch(()=>{});
+    if(globalThis.merchantReady?.())merchantPoll().catch(()=>{});
   },5000);
 });
 
 Object.assign(window,{
   go,setMode,startOrder,quickProduct,setAddress,qty,checkout,setPaymentMethod,toggleCashback,
   confirmRequote,cancelPending,shareReferral,joinMerchant,selectMerchant,toggleOnline,
-  merchantUpdate,merchantAction,reset
+  merchantUpdate,merchantAction,reset,
+  merchantLoginFromUi,merchantLiveRefresh,merchantLiveSelect,merchantLiveToggleOnline,
+  merchantLiveSaveP13,merchantLiveSaveLogistics,merchantLiveAction,merchantLiveCannotFulfill,
+  merchantLiveDeliver,merchantLiveLogout
 });
