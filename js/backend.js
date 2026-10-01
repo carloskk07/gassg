@@ -86,7 +86,14 @@ async function backendInit(){
     if(error)throw error;
 
     if(!session){
-      const response=await client.auth.signInAnonymously();
+      if(!globalThis.chamaTurnstile?.challenge){
+        throw new Error('Proteção anti-bot indisponível');
+      }
+      const captchaToken=await globalThis.chamaTurnstile.challenge();
+      if(!captchaToken)throw new Error('Token anti-bot ausente');
+      const response=await client.auth.signInAnonymously({
+        options:{captchaToken}
+      });
       if(response.error)throw response.error;
       session=response.data.session;
     }
