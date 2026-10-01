@@ -10,12 +10,22 @@ const adminRuntime={
   lastSyncAt:null
 };
 
+function adminOriginSafe(){
+  if(['localhost','127.0.0.1'].includes(location.hostname))return true;
+  const configured=String(globalThis.CHAMA_ADMIN_ORIGIN||'').trim();
+  return configured.length>0&&location.origin===configured;
+}
 function adminPortalRequested(){return adminRuntime.requested}
-function adminReady(){return adminRuntime.requested&&adminRuntime.status==='ready'}
+function adminReady(){return adminRuntime.requested&&adminOriginSafe()&&adminRuntime.status==='ready'}
 
 async function adminBackendInit(){
   if(!adminRuntime.requested){
     adminRuntime.status='disabled';
+    return false;
+  }
+  if(!adminOriginSafe()){
+    adminRuntime.status='unsafe-origin';
+    adminRuntime.error='O painel administrativo exige uma origem dedicada e isolada.';
     return false;
   }
   if(['ready','no-access','unauthenticated'].includes(adminRuntime.status)&&adminRuntime.client){
@@ -192,6 +202,10 @@ async function adminPoll(){
 }
 
 function openAdminPortal(){
+  if(!adminOriginSafe()){
+    toast('Admin exige uma origem dedicada; GitHub Pages fica bloqueado por segurança');
+    return;
+  }
   const url=new URL(location.href);
   url.search='';
   url.searchParams.set('admin','1');
@@ -292,6 +306,9 @@ function adminPage(){
   }
   if(['disabled','loading'].includes(adminRuntime.status)){
     return shell('<section class="page"><h1 class="page-title">Administração</h1><div class="empty card">Conectando ao control plane…</div></section>');
+  }
+  if(adminRuntime.status==='unsafe-origin'){
+    return shell('<section class="page"><span class="eyebrow">CONTROL PLANE BLOQUEADO</span><h1 class="page-title">Origem administrativa não isolada</h1><div class="notice danger">Por segurança, o painel admin não autentica em uma origem compartilhada como GitHub Pages. Use localhost para desenvolvimento ou configure uma origem dedicada para administração.</div></section>');
   }
   if(adminRuntime.status==='unauthenticated')return adminLoginView();
   if(adminRuntime.status==='no-access')return adminNoAccessView();
