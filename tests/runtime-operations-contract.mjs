@@ -47,6 +47,7 @@ const adminRewardRecovery=fs.readFileSync(new URL('../supabase/migrations/202610
 const settlementAccounting=fs.readFileSync(new URL('../supabase/migrations/20261001141000_settlement_accounting_decoupling.sql',import.meta.url),'utf8');
 const adminAccountingRecovery=fs.readFileSync(new URL('../supabase/migrations/20261001142000_admin_settlement_accounting_recovery.sql',import.meta.url),'utf8');
 const noUnsafeOffset=fs.readFileSync(new URL('../supabase/migrations/20261001143000_disable_unsafe_cashback_offset.sql',import.meta.url),'utf8');
+const customerCancel=fs.readFileSync(new URL('../supabase/migrations/20261001144000_customer_cancel_before_dispatch.sql',import.meta.url),'utf8');
 const r=repricing.replace(/--.*$/gm,'').replace(/\s+/g,' ').toLowerCase();
 const w=watchdog.replace(/--.*$/gm,'').replace(/\s+/g,' ').toLowerCase();
 const h=hardening.replace(/--.*$/gm,'').replace(/\s+/g,' ').toLowerCase();
@@ -93,6 +94,7 @@ const arr=adminRewardRecovery.replace(/--.*$/gm,'').replace(/\s+/g,' ').toLowerC
 const sa=settlementAccounting.replace(/--.*$/gm,'').replace(/\s+/g,' ').toLowerCase();
 const aar=adminAccountingRecovery.replace(/--.*$/gm,'').replace(/\s+/g,' ').toLowerCase();
 const nuo=noUnsafeOffset.replace(/--.*$/gm,'').replace(/\s+/g,' ').toLowerCase();
+const cnc=customerCancel.replace(/--.*$/gm,'').replace(/\s+/g,' ').toLowerCase();
 
 assert.match(r,/create table if not exists public\.order_requote_items/,'re-cotação precisa congelar preços por item');
 assert.match(r,/revoke all on table public\.order_requote_items from anon, authenticated/,'snapshot de re-cotação deve ser server-only');
@@ -379,4 +381,12 @@ assert.match(aar,/settlement_accounting_retry_succeeded/,'sucesso contábil manu
 assert.match(aar,/settlement_accounting_retry_failed/,'falha contábil manual precisa de auditoria');
 assert.match(aar,/admin_settlement_accounting_retry_action/,'retry contábil manual precisa ser idempotente');
 
-console.log('Requote + watchdog + hardening v1.9.9 contract passou.');
+assert.match(cnc,/cancel-before-dispatch/,'cliente precisa poder cancelar antes da saída');
+assert.match(cnc,/where id=p_order_id[\s\S]*for update/,'cancelamento deve serializar no row lock do pedido');
+assert.match(cnc,/status not in \('preparing','at_risk'\)[\s\S]*dispatched_at is not null/,'cancelamento automático deve parar na saída');
+assert.match(cnc,/available_stock=available_stock\+v_item\.quantity/,'cancelamento pós-aceite precisa devolver estoque');
+assert.match(cnc,/v_restored_items<>v_expected_items/,'cancelamento deve falhar fechado se estoque não puder ser recomposto');
+assert.match(cnc,/customer_cancelled_before_dispatch/,'ledger e pedido precisam registrar motivo de cancelamento pré-saída');
+assert.match(cnc,/stockrestoreditems/,'resultado precisa comprovar quantidade de SKUs restaurados');
+
+console.log('Requote + watchdog + hardening v1.14.2 contract passou.');
