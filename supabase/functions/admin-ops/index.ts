@@ -3,7 +3,9 @@ import { createClient } from "npm:@supabase/supabase-js@2.117.2";
 import {
   DomainError,
   readJsonBody,
-  enforceApiQuota
+  enforceApiQuota,
+  validateIdempotencyKey,
+  requestFingerprint
 } from "../_shared/domain.js";
 
 const SUPABASE_URL=Deno.env.get("SUPABASE_URL")??"";
@@ -71,6 +73,19 @@ async function requireAdmin(admin:any,userId:string){
     .maybeSingle();
   if(error)throw error;
   if(!data)throw new DomainError("ADMIN_ACCESS_DENIED","Esta conta não possui acesso administrativo.",403);
+}
+
+async function executeAdminMutation(admin:any,userId:string,action:string,payload:Record<string,unknown>,idempotencyKey:string){
+  const requestHash=await requestFingerprint("admin-ops:"+action,payload);
+  const {data,error}=await admin.rpc("admin_execute_action",{
+    p_actor_user_id:userId,
+    p_action_name:action,
+    p_payload:payload,
+    p_idempotency_key:idempotencyKey,
+    p_request_hash:requestHash
+  });
+  if(error)throw error;
+  return data;
 }
 async function summary(admin:any){
   const [apps,merchants,compliance,receivables,reimbursements,adjustments,audit]=await Promise.all([
@@ -151,25 +166,18 @@ Deno.serve(async(req:Request)=>{
       return json(await summary(admin),200,origin);
     }
 
+    const idempotencyKey=validateIdempotencyKey(req.headers.get("Idempotency-Key"));
+
     if(action==="approve-application"){
       const applicationId=uuid(body.applicationId,"application");
-      const {data,error}=await admin.rpc("admin_approve_merchant_application",{
-        p_actor_user_id:user.id,
-        p_application_id:applicationId
-      });
-      if(error)throw error;
+      const data=await executeAdminMutation(admin,user.id,action,{applicationId},idempotencyKey);
       return json(data,200,origin);
     }
 
     if(action==="reject-application"){
       const applicationId=uuid(body.applicationId,"application");
       const reason=cleanText(body.reason,{min:3,max:240,name:"motivo"});
-      const {data,error}=await admin.rpc("admin_reject_merchant_application",{
-        p_actor_user_id:user.id,
-        p_application_id:applicationId,
-        p_reason:reason
-      });
-      if(error)throw error;
+      const data=await executeAdminMutation(admin,user.id,action,{applicationId,reason},idempotencyKey);
       return json(data,200,origin);
     }
 
@@ -185,26 +193,17 @@ Deno.serve(async(req:Request)=>{
       }
       const anpReference=body.anpReference==null?null:cleanText(body.anpReference,{min:0,max:240,name:"referência ANP"});
       const notes=body.notes==null?null:cleanText(body.notes,{min:0,max:1000,name:"observações"});
-      const {data,error}=await admin.rpc("admin_verify_merchant",{
-        p_actor_user_id:user.id,
-        p_merchant_id:merchantId,
-        p_cnpj_status:cnpjStatus,
-        p_anp_status:anpStatus,
-        p_anp_reference:anpReference||null,
-        p_notes:notes||null
-      });
-      if(error)throw error;
+      const data=await executeAdminMutation(admin,user.id,action,{
+        merchantId,cnpjStatus,anpStatus,
+        anpReference:anpReference||null,
+        notes:notes||null
+      },idempotencyKey);
       return json(data,200,origin);
     }
 
     if(action==="activate-merchant"||action==="suspend-merchant"){
       const merchantId=uuid(body.merchantId,"merchant");
-      const {data,error}=await admin.rpc("admin_set_merchant_status",{
-        p_actor_user_id:user.id,
-        p_merchant_id:merchantId,
-        p_status:action==="activate-merchant"?"active":"suspended"
-      });
-      if(error)throw error;
+      const data=await executeAdminMutation(admin,user.id,action,{merchantId},idempotencyKey);
       return json(data,200,origin);
     }
 
@@ -212,13 +211,9 @@ Deno.serve(async(req:Request)=>{
       const orderId=uuid(body.orderId,"order");
       const reason=cleanText(body.reason,{min:3,max:240,name:"motivo"});
       const reference=body.reference==null?null:cleanText(body.reference,{min:0,max:120,name:"referência"});
-      const {data,error}=await admin.rpc("admin_reverse_settled_order",{
-        p_actor_user_id:user.id,
-        p_order_id:orderId,
-        p_reason:reason,
-        p_reference:reference||null
-      });
-      if(error)throw error;
+      const data=await executeAdminMutation(admin,user.id,action,{
+        orderId,reason,reference:reference||null
+      },idempotencyKey);
       return json(data,200,origin);
     }
 
@@ -227,14 +222,9 @@ Deno.serve(async(req:Request)=>{
       const targetId=uuid(body.targetId,"target");
       const financialAction=String(body.financialAction??"");
       const reference=body.reference==null?null:cleanText(body.reference,{min:0,max:240,name:"referência"});
-      const {data,error}=await admin.rpc("admin_financial_action",{
-        p_actor_user_id:user.id,
-        p_kind:kind,
-        p_target_id:targetId,
-        p_action:financialAction,
-        p_reference:reference||null
-      });
-      if(error)throw error;
+      const data=await executeAdminMutation(admin,user.id,action,{
+        kind,targetId,financialAction,reference:reference||null
+      },idempotencyKey);
       return json(data,200,origin);
     }
 
@@ -256,6 +246,9 @@ Deno.serve(async(req:Request)=>{
     }
     if(message.includes("FINANCIAL_ITEM_NOT_OPEN")){
       return json({error:"FINANCIAL_ITEM_NOT_OPEN",message:"Este item financeiro já foi processado."},409,origin);
+    }
+    if(message.includes("IDEMPOTENCY_CONFLICT")){
+      return json({error:"IDEMPOTENCY_CONFLICT",message:"A mesma chave administrativa foi usada para outra operação."},409,origin);
     }
 
     console.error("admin-ops failed",message);
