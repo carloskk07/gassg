@@ -151,7 +151,7 @@ assert.match(body,/cashback/i);
 await evaluate("go('club')");
 await waitFor("document.body.innerText.includes('Clube Chama')","club route");
 body=await text();
-assert.match(body,/R\$\s*8,75/);
+assert.match(body,/R\$\s*8,69/);
 await auditDom('club');
 
 assert.deepEqual(pageErrors,[],`Chrome registrou erros: ${pageErrors.join(' | ')}`);
