@@ -82,6 +82,11 @@ assert.ok(admin.includes("/functions/v1/admin-ops"),'admin deve operar somente p
 assert.ok(!admin.includes("service_role")&&!admin.includes("sb_secret_"),'frontend admin jamais pode conter autoridade server-side');
 assert.ok(read('supabase/functions/admin-ops/index.ts').includes('platform_admins'),'Edge admin deve exigir allowlist server-side');
 assert.ok(read('supabase/functions/admin-ops/index.ts').includes('ADMIN_ACCESS_DENIED'),'Edge admin deve negar conta fora da allowlist');
+assert.ok(admin.includes("headers['Idempotency-Key']"),'frontend admin precisa enviar chave idempotente nas mutações');
+assert.ok(admin.includes("const idempotencyKey='admin-'+action+'-'+crypto.randomUUID()"),'admin deve gerar uma chave por operação iniciada');
+assert.ok(admin.includes("const invoke=()=>adminInvoke({action,...payload},{idempotencyKey})"),'retry admin precisa reutilizar a mesma chave');
+assert.ok(read('supabase/functions/admin-ops/index.ts').includes('validateIdempotencyKey(req.headers.get("Idempotency-Key"))'),'Edge admin precisa exigir chave idempotente nas mutações');
+assert.ok(read('supabase/functions/admin-ops/index.ts').includes('admin_execute_action'),'Edge admin mutável deve usar autoridade transacional central');
 
 const getOrderSource=read('supabase/functions/get-order/index.ts');
 assert.ok(getOrderSource.includes('["owner","manager","operator"].includes(membership.member_role)'),'driver sem assignment não pode ler pedido individual');
