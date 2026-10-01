@@ -415,10 +415,17 @@ function arrivingOrder(id){
 function grantRewards(o){
   if(o.rewardsGranted)return;
   o.rewardsGranted=true;
-  const earned=1.25;
+  const grossCents=Math.max(0,Math.round((Number(o.grossTotal)||0)*100));
+  const earnedCents=Math.floor((grossCents*100)/10000);
+  const earned=earnedCents/100;
   state.user.purchases=(Number(state.user.purchases)||0)+1;
   state.user.cashback=roundMoney((Number(state.user.cashback)||0)+earned);
   o.cashbackEarned=earned;
+  o.rewardEconomics={
+    platformFee:Math.floor((grossCents*750)/10000)/100,
+    variableReserve:Math.ceil((grossCents*75)/10000)/100,
+    minimumContribution:Math.ceil((grossCents*250)/10000)/100
+  };
 }
 function deliverOrder(id,pin,paymentConfirmed=false){
   const o=orderById(id);if(!o||o.status!=='ARRIVING')return {ok:false,error:'Pedido ainda não está pronto para confirmação de entrega'};
