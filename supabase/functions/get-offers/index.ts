@@ -18,19 +18,19 @@ const secretKeys = JSON.parse(Deno.env.get("SUPABASE_SECRET_KEYS") ?? "{}");
 const PUBLISHABLE_KEY = publishableKeys.default ?? Deno.env.get("SUPABASE_ANON_KEY") ?? "";
 const SECRET_KEY = secretKeys.default ?? Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
 
-const PROD_ORIGIN = "https://carloskk07.github.io";
+const CUSTOMER_ALLOWED_ORIGIN=(Deno.env.get("CUSTOMER_ALLOWED_ORIGIN")??"").trim();
 const QUOTE_TTL_MS = 5 * 60 * 1000;
 const PRICE_FRESH_MS = 24 * 60 * 60 * 1000;
 const HEARTBEAT_FRESH_MS = 10 * 60 * 1000;
 
 function originAllowed(origin: string | null) {
   if (!origin) return true;
-  if (origin === PROD_ORIGIN) return true;
-  return /^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(origin);
+  if (/^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(origin)) return true;
+  return CUSTOMER_ALLOWED_ORIGIN.length>0&&origin===CUSTOMER_ALLOWED_ORIGIN;
 }
 
 function cors(origin: string | null) {
-  const allowed = origin && originAllowed(origin) ? origin : PROD_ORIGIN;
+  const allowed = origin && originAllowed(origin) ? origin : (CUSTOMER_ALLOWED_ORIGIN||"null");
   return {
     "Access-Control-Allow-Origin": allowed,
     "Access-Control-Allow-Headers": "authorization, apikey, content-type",
