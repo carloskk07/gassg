@@ -244,7 +244,7 @@ function appendEvent(o,status,title,desc){
 const ALLOWED={
   OFFERED_TO_MERCHANT:new Set(['MERCHANT_ACCEPTED','REASSIGNING','CANCELLED']),
   MERCHANT_ACCEPTED:new Set(['PREPARING','CANCELLED']),
-  PREPARING:new Set(['OUT_FOR_DELIVERY','AT_RISK','CANCELLED']),
+  PREPARING:new Set(['OUT_FOR_DELIVERY','AT_RISK','REASSIGNING','CANCELLED']),
   AT_RISK:new Set(['OUT_FOR_DELIVERY','REASSIGNING','CANCELLED']),
   OUT_FOR_DELIVERY:new Set(['ARRIVING','CANCELLED']),
   ARRIVING:new Set(['DELIVERED','CANCELLED']),
@@ -322,7 +322,7 @@ function chooseRescue(order){
   return noIncrease||candidates[0];
 }
 function reassignOrder(order,reason='A revenda não conseguiu atender.'){
-  if(!order||!['OFFERED_TO_MERCHANT','AT_RISK'].includes(order.status))return {ok:false,error:'Pedido não pode ser reatribuído neste estado'};
+  if(!order||!['OFFERED_TO_MERCHANT','PREPARING','AT_RISK'].includes(order.status))return {ok:false,error:'Pedido não pode ser reatribuído neste estado'};
   const current=merchantById(order.merchantId);
   if(order.inventoryReserved){releaseInventory(current,order.cart);order.inventoryReserved=false}
   const r=transition(order,'REASSIGNING','Buscando outra revenda',reason);if(!r.ok)return r;
@@ -396,6 +396,11 @@ function acceptOrder(id){
 function rejectOrder(id){
   const o=orderById(id);if(!o||o.status!=='OFFERED_TO_MERCHANT')return {ok:false,error:'Pedido não está aguardando resposta'};
   return reassignOrder(o,'A revenda recusou antes do aceite.');
+}
+function failAcceptedOrder(id,reason='A revenda não consegue concluir a preparação.'){
+  const o=orderById(id);
+  if(!o||!['PREPARING','AT_RISK'].includes(o.status))return {ok:false,error:'Pedido não pode ser resgatado neste estado'};
+  return reassignOrder(o,reason);
 }
 function dispatchOrder(id){
   const o=orderById(id);if(!o)return {ok:false,error:'Pedido não encontrado'};
