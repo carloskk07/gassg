@@ -327,6 +327,19 @@ function adminAdjustmentRow(x){
   return `<div class="list-row"><div><strong>${esc(adminMerchantName(x.merchant_id))}</strong><br><small>${esc(direction)} • ${esc(x.adjustment_type)} • pedido ${esc(x.order_id)}</small></div><div style="text-align:right"><strong>${adminMoney(x.amount_cents)}</strong><div class="order-actions"><button class="secondary small" onclick="adminFinancial('settlement_adjustment','${x.id}','paid')">Liquidado</button><button class="ghost small" onclick="adminFinancial('settlement_adjustment','${x.id}','waived')">Abonar</button></div></div></div>`;
 }
 
+function adminRewardFailureCard(x){
+  const dead=!!x.dead_lettered_at;
+  const next=x.next_retry_at?new Date(x.next_retry_at).toLocaleString('pt-BR'):'—';
+  const last=x.last_attempt_at?new Date(x.last_attempt_at).toLocaleString('pt-BR'):new Date(x.updated_at||x.created_at).toLocaleString('pt-BR');
+  return `<article class="order-card">
+    <div class="order-head"><div><div class="order-id">Pedido ${esc(x.order_id)}</div><div class="tiny muted">Tentativas: ${Number(x.attempts||0)} • última: ${esc(last)}</div></div><span class="status-pill ${dead?'offline':''}">${dead?'DEAD LETTER':'RETRY'}</span></div>
+    <div class="order-line"><strong>Último erro:</strong> ${esc(x.last_error||'Falha de processamento')}</div>
+    ${x.last_sqlstate?`<div class="tiny muted">SQLSTATE: ${esc(x.last_sqlstate)}</div>`:''}
+    <div class="tiny muted">${dead?'Retry automático interrompido para evitar loop infinito.':'Próxima tentativa automática: '+esc(next)}</div>
+    <div class="order-actions"><button class="${dead?'primary':'secondary'} small" onclick="adminRetryReward('${x.order_id}')">Reprocessar agora</button></div>
+  </article>`;
+}
+
 function adminPage(){
   if(!adminPortalRequested()){
     return shell('<section class="page"><div class="notice danger">Administração só está disponível no portal protegido.</div></section>');
@@ -348,6 +361,8 @@ function adminPage(){
   const active=(d.merchants||[]).filter(x=>x.status==='active');
   const referralReviews=d.referralReviews||[];
   const pendingReferralReviews=referralReviews.filter(x=>x.risk_status==='review_required'&&x.financialState!=='reversed'&&!x.financialReversedAt);
+  const rewardFailures=d.rewardFailures||[];
+  const deadRewardFailures=rewardFailures.filter(x=>!!x.dead_lettered_at);
   const receivables=d.finance?.receivables||[];
   const reimbursements=d.finance?.cashbackReimbursements||[];
   const adjustments=d.finance?.adjustments||[];
@@ -371,6 +386,8 @@ function adminPage(){
     <section class="section"><div class="section-head"><div><h2>Validação e ativação</h2><p>CNPJ é obrigatório para toda revenda ativa. Qualquer produto GLP ativo exige também validação ANP.</p></div></div>${(d.merchants||[]).length?(d.merchants||[]).map(adminMerchantCard).join(''):'<div class="empty card">Nenhuma revenda criada.</div>'}</section>
 
     <section class="section"><div class="section-head"><div><h2>Revisão de indicações</h2><p>Comissões suspeitas não amadurecem automaticamente. Aprovação ainda exige identidades permanentes e fim da quarentena.</p></div><span class="status-pill ${pendingReferralReviews.length?'offline':'online'}">${pendingReferralReviews.length} pendente(s)</span></div>${referralReviews.length?referralReviews.map(adminReferralReviewCard).join(''):'<div class="empty card">Nenhuma indicação exige revisão.</div>'}</section>
+
+    <section class="section"><div class="section-head"><div><h2>Fila de benefícios</h2><p>Falhas transitórias usam backoff. Dead-letter exige revisão manual; a entrega do pedido permanece concluída.</p></div><span class="status-pill ${deadRewardFailures.length?'offline':'online'}">${deadRewardFailures.length} dead-letter</span></div>${rewardFailures.length?rewardFailures.map(adminRewardFailureCard).join(''):'<div class="empty card">Nenhuma dívida de processamento de benefícios.</div>'}</section>
 
     <section class="section"><div class="section-head"><div><h2>Conciliação financeira</h2><p>Taxa da plataforma, cashback usado e ajustes são contas separadas.</p></div></div>
       <div class="card flat"><h3>Taxas da plataforma</h3><div class="list">${receivables.length?receivables.map(adminReceivableRow).join(''):'<div class="tiny muted">Nenhuma taxa em aberto.</div>'}</div></div>
@@ -425,6 +442,18 @@ async function adminReviewReferral(orderId,decision){
     toast(decision==='approved'?'Comissão aprovada para continuar na validação':'Comissão rejeitada e saldo pendente ajustado');
   }catch(e){toast(String(e?.message||e))}
 }
+async function adminRetryReward(orderId){
+  if(!confirm('Reprocessar os benefícios deste pedido agora? A entrega não será alterada.'))return;
+  try{
+    const result=await adminPerform('retry-reward',{orderId});
+    if(result?.ok){
+      toast(result?.alreadyResolved?'A dívida já estava resolvida':'Benefícios reprocessados com sucesso');
+    }else{
+      toast('O reprocessamento falhou e permaneceu registrado para revisão');
+    }
+  }catch(e){toast(String(e?.message||e))}
+}
+
 async function adminFinancial(kind,targetId,financialAction){
   const reference=prompt('Referência da conciliação (opcional):')||'';
   try{
@@ -453,4 +482,5 @@ globalThis.adminSignOut=adminSignOut;
 globalThis.adminRefresh=adminRefresh;
 globalThis.adminPoll=adminPoll;
 globalThis.adminPage=adminPage;
+globalThis.adminRetryReward=adminRetryReward;
 globalThis.openAdminPortal=openAdminPortal;
