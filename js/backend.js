@@ -76,8 +76,8 @@ async function backendInit(){
         persistSession:true,
         autoRefreshToken:true,
         detectSessionInUrl:true,
-        storage:sessionStorage,
-        storageKey:'chama-sg-auth-v1'
+        storage:localStorage,
+        storageKey:'chama-sg-customer-auth-v2'
       }
     });
     liveRuntime.client=client;
@@ -94,7 +94,7 @@ async function backendInit(){
 
     liveRuntime.session=session;
     liveRuntime.status='ready';
-    liveRuntime.orderId=sessionStorage.getItem(CHAMA_BACKEND.orderStorageKey)||null;
+    liveRuntime.orderId=localStorage.getItem(CHAMA_BACKEND.orderStorageKey)||null;
 
     await liveSyncFinancialProfile();
 
@@ -102,7 +102,7 @@ async function backendInit(){
       try{await liveGetOrder(liveRuntime.orderId,{silent:true})}
       catch(e){
         console.warn('Pedido live anterior não pôde ser restaurado',e);
-        sessionStorage.removeItem(CHAMA_BACKEND.orderStorageKey);
+        localStorage.removeItem(CHAMA_BACKEND.orderStorageKey);
         liveRuntime.orderId=null;
         liveRuntime.order=null;
       }
@@ -256,7 +256,7 @@ async function liveCreateOrder(quoteId){
     },{idempotencyKey:liveIdempotency('create-order')});
 
     liveRuntime.orderId=result.orderId;
-    sessionStorage.setItem(CHAMA_BACKEND.orderStorageKey,result.orderId);
+    localStorage.setItem(CHAMA_BACKEND.orderStorageKey,result.orderId);
     state.cart=normalizeCart({});
     state.checkout.useCashback=false;
     save();
@@ -282,7 +282,7 @@ async function liveGetOrder(orderId=liveRuntime.orderId,{silent=false}={}){
   liveRuntime.order=order;
   liveRuntime.orderId=order.orderId;
   liveRuntime.lastSyncAt=new Date().toISOString();
-  sessionStorage.setItem(CHAMA_BACKEND.orderStorageKey,order.orderId);
+  localStorage.setItem(CHAMA_BACKEND.orderStorageKey,order.orderId);
   if(['SETTLED','CANCELLED'].includes(order.status)){
     await liveSyncFinancialProfile();
   }
@@ -354,7 +354,7 @@ async function livePoll(){
   if(["SETTLED","CANCELLED"].includes(liveRuntime.order?.status))return;
   try{await liveGetOrder(liveRuntime.orderId,{silent:true});render()}catch(error){
     if(error?.status===404){
-      sessionStorage.removeItem(CHAMA_BACKEND.orderStorageKey);
+      localStorage.removeItem(CHAMA_BACKEND.orderStorageKey);
       liveRuntime.orderId=null;
       liveRuntime.order=null;
       render();
