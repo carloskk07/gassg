@@ -12,6 +12,7 @@ const rewards=fs.readFileSync(new URL('../supabase/migrations/20261001100000_rew
 const rejectRescue=fs.readFileSync(new URL('../supabase/migrations/20261001101000_unify_merchant_reject_rescue.sql',import.meta.url),'utf8');
 const lockdown=fs.readFileSync(new URL('../supabase/migrations/20261001102000_browser_data_plane_lockdown.sql',import.meta.url),'utf8');
 const atomicQuotes=fs.readFileSync(new URL('../supabase/migrations/20261001103000_atomic_quote_snapshots.sql',import.meta.url),'utf8');
+const finance=fs.readFileSync(new URL('../supabase/migrations/20261001105000_financial_unit_economics_v1_6.sql',import.meta.url),'utf8');
 const r=repricing.replace(/--.*$/gm,'').replace(/\s+/g,' ').toLowerCase();
 const w=watchdog.replace(/--.*$/gm,'').replace(/\s+/g,' ').toLowerCase();
 const h=hardening.replace(/--.*$/gm,'').replace(/\s+/g,' ').toLowerCase();
@@ -23,6 +24,7 @@ const rw=rewards.replace(/--.*$/gm,'').replace(/\s+/g,' ').toLowerCase();
 const rr=rejectRescue.replace(/--.*$/gm,'').replace(/\s+/g,' ').toLowerCase();
 const ld=lockdown.replace(/--.*$/gm,'').replace(/\s+/g,' ').toLowerCase();
 const aq=atomicQuotes.replace(/--.*$/gm,'').replace(/\s+/g,' ').toLowerCase();
+const fn=finance.replace(/--.*$/gm,'').replace(/\s+/g,' ').toLowerCase();
 
 assert.match(r,/create table if not exists public\.order_requote_items/,'re-cotação precisa congelar preços por item');
 assert.match(r,/revoke all on table public\.order_requote_items from anon, authenticated/,'snapshot de re-cotação deve ser server-only');
@@ -97,5 +99,16 @@ assert.match(aq,/snapshot_fingerprint/,'quotes devem possuir identidade reutiliz
 assert.match(aq,/quote_source_stale/,'snapshot precisa revalidar preço estoque e revenda no banco');
 assert.match(aq,/v_gross:=\(v_subtotal\+p_delivery_fee_cents\)::integer/,'total da quote deve ser recalculado no banco');
 assert.match(aq,/grant execute on function public\.create_quote_snapshot[\s\S]*to service_role/,'autoridade de quote deve ser server-only');
+
+assert.match(fn,/platform_fee_bps integer not null default 750/,'taxa da plataforma precisa ser explícita e versionada');
+assert.match(fn,/variable_cost_bps integer not null default 75/,'custos variáveis precisam de reserva explícita');
+assert.match(fn,/minimum_contribution_bps integer not null default 250/,'pedido precisa preservar contribuição mínima');
+assert.match(fn,/cashback_bps integer not null default 100/,'cashback deve ser percentual da operação');
+assert.match(fn,/direct_referral_bps integer not null default 200/,'indicação precisa ter teto percentual explícito');
+assert.match(fn,/snapshot_order_economics_before_insert/,'economia deve ser congelada na criação do pedido');
+assert.match(fn,/platform_fee_cents[\s\S]*variable_cost_reserve_cents[\s\S]*cashback_cents[\s\S]*referral_pending_cents[\s\S]*platform_contribution_cents/,'identidade financeira precisa fechar no banco');
+assert.match(fn,/platform_contribution_cents >= minimum_contribution_cents/,'benefícios não podem romper contribuição mínima');
+assert.match(fn,/create table if not exists public\.platform_receivables/,'receita da plataforma precisa virar recebível auditável');
+assert.match(fn,/basis','platform_revenue'/,'ledger de benefícios deve registrar fonte econômica');
 
 console.log('Requote + watchdog + hardening v1.5 contract passou.');
