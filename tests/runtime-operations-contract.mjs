@@ -48,6 +48,8 @@ const settlementAccounting=fs.readFileSync(new URL('../supabase/migrations/20261
 const adminAccountingRecovery=fs.readFileSync(new URL('../supabase/migrations/20261001142000_admin_settlement_accounting_recovery.sql',import.meta.url),'utf8');
 const noUnsafeOffset=fs.readFileSync(new URL('../supabase/migrations/20261001143000_disable_unsafe_cashback_offset.sql',import.meta.url),'utf8');
 const customerCancel=fs.readFileSync(new URL('../supabase/migrations/20261001144000_customer_cancel_before_dispatch.sql',import.meta.url),'utf8');
+const adminBootstrap=fs.readFileSync(new URL('../supabase/migrations/20261001145000_admin_bootstrap_continuity.sql',import.meta.url),'utf8');
+const adminMgmtIdem=fs.readFileSync(new URL('../supabase/migrations/20261001146000_admin_management_idempotency.sql',import.meta.url),'utf8');
 const r=repricing.replace(/--.*$/gm,'').replace(/\s+/g,' ').toLowerCase();
 const w=watchdog.replace(/--.*$/gm,'').replace(/\s+/g,' ').toLowerCase();
 const h=hardening.replace(/--.*$/gm,'').replace(/\s+/g,' ').toLowerCase();
@@ -95,6 +97,8 @@ const sa=settlementAccounting.replace(/--.*$/gm,'').replace(/\s+/g,' ').toLowerC
 const aar=adminAccountingRecovery.replace(/--.*$/gm,'').replace(/\s+/g,' ').toLowerCase();
 const nuo=noUnsafeOffset.replace(/--.*$/gm,'').replace(/\s+/g,' ').toLowerCase();
 const cnc=customerCancel.replace(/--.*$/gm,'').replace(/\s+/g,' ').toLowerCase();
+const ab=adminBootstrap.replace(/--.*$/gm,'').replace(/\s+/g,' ').toLowerCase();
+const ami=adminMgmtIdem.replace(/--.*$/gm,'').replace(/\s+/g,' ').toLowerCase();
 
 assert.match(r,/create table if not exists public\.order_requote_items/,'re-cotação precisa congelar preços por item');
 assert.match(r,/revoke all on table public\.order_requote_items from anon, authenticated/,'snapshot de re-cotação deve ser server-only');
@@ -389,4 +393,12 @@ assert.match(cnc,/v_restored_items<>v_expected_items/,'cancelamento deve falhar 
 assert.match(cnc,/customer_cancelled_before_dispatch/,'ledger e pedido precisam registrar motivo de cancelamento pré-saída');
 assert.match(cnc,/stockrestoreditems/,'resultado precisa comprovar quantidade de SKUs restaurados');
 
-console.log('Requote + watchdog + hardening v1.14.2 contract passou.');
+assert.match(ab,/bootstrap_first_platform_admin/,'primeiro admin precisa de bootstrap server-side explícito');
+assert.match(ab,/v_active_admins>0[\s\S]*admin_bootstrap_closed/,'bootstrap deve fechar após o primeiro admin ativo');
+assert.match(ab,/v_user\.is_anonymous is true/,'admin precisa de identidade permanente');
+assert.match(ab,/last_admin_cannot_be_removed/,'último admin ativo não pode ser removido');
+assert.match(ab,/pg_advisory_xact_lock[\s\S]*platform-admin-management/,'mudanças de admin precisam serializar');
+assert.match(ami,/admin_platform_admin_action/,'gestão de admin precisa ser idempotente');
+assert.match(ami,/admin-ops:set-platform-admin/,'idempotência deve ter namespace administrativo próprio');
+
+console.log('Requote + watchdog + hardening v1.14.4 contract passou.');
