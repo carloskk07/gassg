@@ -46,6 +46,7 @@ const rewardDeadLetter=fs.readFileSync(new URL('../supabase/migrations/202610011
 const adminRewardRecovery=fs.readFileSync(new URL('../supabase/migrations/20261001140000_admin_reward_recovery.sql',import.meta.url),'utf8');
 const settlementAccounting=fs.readFileSync(new URL('../supabase/migrations/20261001141000_settlement_accounting_decoupling.sql',import.meta.url),'utf8');
 const adminAccountingRecovery=fs.readFileSync(new URL('../supabase/migrations/20261001142000_admin_settlement_accounting_recovery.sql',import.meta.url),'utf8');
+const noUnsafeOffset=fs.readFileSync(new URL('../supabase/migrations/20261001143000_disable_unsafe_cashback_offset.sql',import.meta.url),'utf8');
 const r=repricing.replace(/--.*$/gm,'').replace(/\s+/g,' ').toLowerCase();
 const w=watchdog.replace(/--.*$/gm,'').replace(/\s+/g,' ').toLowerCase();
 const h=hardening.replace(/--.*$/gm,'').replace(/\s+/g,' ').toLowerCase();
@@ -91,6 +92,7 @@ const rdl=rewardDeadLetter.replace(/--.*$/gm,'').replace(/\s+/g,' ').toLowerCase
 const arr=adminRewardRecovery.replace(/--.*$/gm,'').replace(/\s+/g,' ').toLowerCase();
 const sa=settlementAccounting.replace(/--.*$/gm,'').replace(/\s+/g,' ').toLowerCase();
 const aar=adminAccountingRecovery.replace(/--.*$/gm,'').replace(/\s+/g,' ').toLowerCase();
+const nuo=noUnsafeOffset.replace(/--.*$/gm,'').replace(/\s+/g,' ').toLowerCase();
 
 assert.match(r,/create table if not exists public\.order_requote_items/,'re-cotação precisa congelar preços por item');
 assert.match(r,/revoke all on table public\.order_requote_items from anon, authenticated/,'snapshot de re-cotação deve ser server-only');
