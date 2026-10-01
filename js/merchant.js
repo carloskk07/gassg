@@ -17,13 +17,14 @@ function merchantOrder(o){
     const secs=Math.max(0,Math.ceil((Date.parse(o.offerExpiresAt)-Date.now())/1000));
     actions=`<button class="primary small" onclick="merchantAction('${o.id}','accept')">Aceitar pedido</button><button class="danger-btn small" onclick="merchantAction('${o.id}','reject')">Não consigo atender</button><span class="tiny muted">Prazo: ~${secs}s</span>`;
   }else if(['MERCHANT_ACCEPTED','PREPARING','AT_RISK'].includes(o.status)){
-    actions=`<button class="primary small" onclick="merchantAction('${o.id}','dispatch')">Confirmar saída</button>`;
+    actions=`<button class="primary small" onclick="merchantAction('${o.id}','dispatch')">Confirmar saída</button><button class="danger-btn small" onclick="merchantAction('${o.id}','cannot-fulfill')">Não consigo concluir</button>`;
   }else if(o.status==='OUT_FOR_DELIVERY'){
     actions=`<button class="secondary small" onclick="merchantAction('${o.id}','arriving')">Estou chegando</button>`;
   }else if(o.status==='ARRIVING'){
-    actions=`<label class="sr-only" for="pin-${o.id}">PIN de entrega</label><input id="pin-${o.id}" inputmode="numeric" maxlength="4" class="input pin-input" placeholder="PIN"><button class="primary small" onclick="merchantAction('${o.id}','deliver')">Confirmar entrega</button>`;
+    actions=`<label class="sr-only" for="pin-${o.id}">PIN de entrega</label><input id="pin-${o.id}" inputmode="numeric" maxlength="4" class="input pin-input" placeholder="PIN"><label class="check-row"><input id="paid-${o.id}" type="checkbox"><span><strong>Pagamento recebido</strong><small>Obrigatório para concluir o pedido.</small></span></label><button class="primary small" onclick="merchantAction('${o.id}','deliver')">Confirmar entrega</button>`;
   }
-  return `<article class="order-card ${o.status==='OFFERED_TO_MERCHANT'?'new':''}"><div class="order-head"><div><div class="order-id">${esc(o.id)}</div><div class="order-line">${items}</div></div><div style="text-align:right"><strong>${BRL.format(o.total)}</strong><div class="tiny muted">${esc(copy[0])}</div></div></div><div class="order-line">📍 ${esc(o.address)}</div><div class="order-line">Pagamento: ${esc(paymentLabel(o.paymentMethod))}</div><div class="order-actions">${actions}</div></article>`;
+  const addressLine=o.status==='OFFERED_TO_MERCHANT'?'📍 Endereço protegido até o aceite':'📍 '+esc(o.address);
+  return `<article class="order-card ${o.status==='OFFERED_TO_MERCHANT'?'new':''}"><div class="order-head"><div><div class="order-id">${esc(o.id)}</div><div class="order-line">${items}</div></div><div style="text-align:right"><strong>${BRL.format(o.total)}</strong><div class="tiny muted">${esc(copy[0])}</div></div></div><div class="order-line">${addressLine}</div><div class="order-line">Pagamento: ${esc(paymentLabel(o.paymentMethod))}</div><div class="order-actions">${actions}</div></article>`;
 }
 function selectMerchant(id){if(merchantById(id)){state.selectedMerchant=id;save();render()}}
 function toggleOnline(id){
@@ -43,12 +44,15 @@ function merchantAction(id,action){
   if(action==='accept')r=acceptOrder(id);
   if(action==='reject')r=rejectOrder(id);
   if(action==='dispatch')r=dispatchOrder(id);
+  if(action==='cannot-fulfill')r=failAcceptedOrder(id,'A revenda informou uma falha operacional antes da saída.');
   if(action==='arriving')r=arrivingOrder(id);
   if(action==='deliver'){
     const pin=document.querySelector('#pin-'+CSS.escape(id))?.value.trim()||'';
-    r=deliverOrder(id,pin);
+    const paid=document.querySelector('#paid-'+CSS.escape(id))?.checked===true;
+    if(!paid)r={ok:false,error:'Confirme o recebimento do pagamento antes de concluir'};
+    else r=deliverOrder(id,pin);
   }
-  const successMessages={accept:'Pedido aceito e estoque reservado',reject:'Pedido recusado; o sistema buscou alternativa',dispatch:'Saída confirmada — o cliente agora vê “A caminho”',arriving:'Chegada confirmada',deliver:'Entrega comprovada e benefícios processados'};
+  const successMessages={accept:'Pedido aceito e estoque reservado',reject:'Pedido recusado; o sistema buscou alternativa','cannot-fulfill':'Estoque devolvido; o sistema buscou outra revenda',dispatch:'Saída confirmada — o cliente agora vê “A caminho”',arriving:'Chegada confirmada',deliver:'Entrega e pagamento confirmados; benefícios processados'};
   toast(r.ok?successMessages[action]:r.error);
   render();
 }
