@@ -241,6 +241,19 @@ Deno.serve(async(req:Request)=>{
     if(message.includes("FINANCIAL_ITEM_NOT_OPEN")){
       return json({error:"FINANCIAL_ITEM_NOT_OPEN",message:"Este item financeiro já foi processado."},409,origin);
     }
+    if(message.includes("MERCHANT_OWNERSHIP_CONFLICT")){
+      return json({error:"MERCHANT_OWNERSHIP_CONFLICT",message:"Este CNPJ já possui outro owner ativo. Use um fluxo explícito de transferência de propriedade."},409,origin);
+    }
+    if(message.includes("MERCHANT_REJECTED_EXISTS")){
+      return json({error:"MERCHANT_REJECTED_EXISTS",message:"Já existe uma revenda rejeitada com este CNPJ. Revise o histórico antes de aprovar."},409,origin);
+    }
+    if(message.includes("INVALID_MERCHANT_STATUS_TRANSITION")){
+      return json({error:"INVALID_MERCHANT_STATUS_TRANSITION",message:"A mudança de status solicitada não é válida para o estado atual da revenda."},409,origin);
+    }
+    if(message.includes("APPLICATION_ALREADY_APPROVED")){
+      return json({error:"APPLICATION_ALREADY_APPROVED",message:"Esta aplicação já foi aprovada e não pode ser rejeitada."},409,origin);
+    }
+
     if(message.includes("IDEMPOTENCY_CONFLICT")){
       return json({error:"IDEMPOTENCY_CONFLICT",message:"A chave desta operação já foi usada com outro conteúdo."},409,origin);
     }
