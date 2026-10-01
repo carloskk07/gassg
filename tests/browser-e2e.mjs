@@ -25,8 +25,15 @@ await new Promise((resolve,reject)=>{
 });
 let seq=0;
 const pending=new Map();
+const pageErrors=[];
 ws.addEventListener('message',ev=>{
   const msg=JSON.parse(String(ev.data));
+  if(msg.method==='Runtime.exceptionThrown'){
+    pageErrors.push(msg.params?.exceptionDetails?.exception?.description||msg.params?.exceptionDetails?.text||'Runtime exception');
+  }
+  if(msg.method==='Log.entryAdded'&&['error','warning'].includes(msg.params?.entry?.level)){
+    pageErrors.push(msg.params.entry.text||'Browser log error');
+  }
   if(msg.id&&pending.has(msg.id)){
     const {resolve,reject,t}=pending.get(msg.id);clearTimeout(t);pending.delete(msg.id);
     if(msg.error)reject(new Error(JSON.stringify(msg.error)));else resolve(msg.result);
@@ -59,9 +66,18 @@ async function navigate(url){
   await waitFor("document.querySelector('#app') && document.querySelector('#app').innerText.length>20","app render");
 }
 const text=()=>evaluate("document.body.innerText");
+async function auditDom(label){
+  const raw=await evaluate("JSON.stringify((()=>{const ids=[...document.querySelectorAll('[id]')].map(e=>e.id).filter(Boolean);const dup=ids.filter((id,i)=>ids.indexOf(id)!==i);const controls=[...document.querySelectorAll('input,select,textarea')].filter(e=>e.type!=='hidden');const unlabeled=controls.filter(e=>!(e.getAttribute('aria-label')||e.getAttribute('aria-labelledby')||e.closest('label')||(e.id&&document.querySelector('label[for=\\"'+CSS.escape(e.id)+'\\"]')))).map(e=>e.id||e.outerHTML.slice(0,80));const buttons=[...document.querySelectorAll('button')].filter(b=>!(b.textContent.trim()||b.getAttribute('aria-label')||b.title)).length;return {overflow:document.documentElement.scrollWidth-window.innerWidth,dup:[...new Set(dup)],unlabeled,buttons};})())");
+  const a=JSON.parse(raw);
+  assert.ok(a.overflow<=1,label+' tem overflow horizontal de '+a.overflow+'px');
+  assert.deepEqual(a.dup,[],label+' tem IDs duplicados');
+  assert.deepEqual(a.unlabeled,[],label+' tem controles sem label');
+  assert.equal(a.buttons,0,label+' tem botões sem nome acessível');
+}
 
 await send('Page.enable');
 await send('Runtime.enable');
+await send('Log.enable');
 await navigate(BASE+'#home');
 await evaluate("localStorage.clear(); location.reload()");
 await waitFor("document.body.innerText.includes('Seu gás')","home after reset");
@@ -69,11 +85,13 @@ await waitFor("document.body.innerText.includes('Seu gás')","home after reset")
 let body=await text();
 assert.match(body,/Seu gás/);
 assert.match(body,/Ambiente de demonstração/);
+await auditDom('home');
 
 await evaluate("quickProduct('WATER20')");
 await waitFor("location.hash==='#order'","order route");
 await evaluate("document.querySelector('#address').value='Rua <img src=x onerror=window.__xss=1> Teste, 123'; setAddress()");
 await waitFor("document.querySelector('.offer-stack')","offers rendered");
+await auditDom('order');
 
 const basket=await evaluate("JSON.stringify([...document.querySelectorAll('.cart-item')].map(row=>({name:row.querySelector('.product-left strong').textContent,qty:Number(row.querySelector('.qty strong').textContent)})))");
 const parsed=JSON.parse(basket);
@@ -84,16 +102,19 @@ assert.equal(await evaluate("window.__xss===undefined"),true);
 await evaluate("checkout('A')");
 await waitFor("location.hash==='#tracking' && document.body.innerText.includes('Aguardando revenda')","tracking pending");
 assert.equal(await evaluate("window.__xss===undefined"),true);
+await auditDom('tracking pending');
 
 await evaluate("setMode('merchant')");
 await waitFor("location.hash==='#merchant' && document.querySelector('.order-card.new')","merchant pending card");
 await evaluate("document.querySelector('.order-card.new .primary').click()");
 await waitFor("document.body.innerText.includes('Confirmar saída')","merchant preparing");
+await auditDom('merchant preparing');
 
 await evaluate("setMode('customer'); go('tracking')");
 await waitFor("document.body.innerText.includes('Em preparação')","customer preparing");
 body=await text();
 assert.match(body,/Revenda Parceira A/);
+await auditDom('customer preparing');
 
 await evaluate("setMode('merchant')");
 await waitFor("document.body.innerText.includes('Confirmar saída')","merchant dispatch action");
@@ -126,6 +147,9 @@ await evaluate("go('club')");
 await waitFor("document.body.innerText.includes('Clube Chama')","club route");
 body=await text();
 assert.match(body,/R\$\s*8,75/);
+await auditDom('club');
+
+assert.deepEqual(pageErrors,[],`Chrome registrou erros: ${pageErrors.join(' | ')}`);
 
 console.log('E2E Chrome passou: água sem P13 → aceite → saída → chegada → PIN → cashback.');
 ws.close();
