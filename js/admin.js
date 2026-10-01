@@ -31,6 +31,7 @@ async function adminBackendInit(){
         persistSession:true,
         autoRefreshToken:true,
         detectSessionInUrl:true,
+        storage:sessionStorage,
         storageKey:'chama-sg-admin-auth-v1'
       }
     });
