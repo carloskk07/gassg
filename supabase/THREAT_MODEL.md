@@ -1,4 +1,4 @@
-# Chama — Threat model v1.6.7
+# Chama — Threat model v1.7.2
 
 Este documento define os principais riscos do piloto real e as mitigações já implementadas ou ainda obrigatórias.
 
@@ -203,14 +203,17 @@ Este documento define os principais riscos do piloto real e as mitigações já 
 - quota server-side fail-closed;
 - dependências fixadas.
 
-## T23 — Cadastro falso de revenda
+## T23 — Cadastro falso ou ativação prematura de revenda
 
 **Mitigação:**
 - CNPJ normalizado;
 - duplicidade bloqueada;
 - aplicação fica `pending`;
 - cadastro nunca ativa merchant;
-- ativação exige validação operacional/regulatória fora do formulário público.
+- aprovação administrativa apenas cria/vincula merchant `pending`;
+- CNPJ verificado é exigido por trigger para `active/online`;
+- P13 em merchant ativo exige ANP verificada por trigger independente da UI/Edge;
+- evidência de compliance fica em `merchant_compliance`.
 
 ## T24 — Papel operacional permanece online sem operador elegível
 
@@ -244,12 +247,42 @@ Este documento define os principais riscos do piloto real e as mitigações já 
 
 Edge Functions devem logar erro técnico mínimo e devolver mensagens sanitizadas.
 
+## T27 — Conta comum tenta virar administrador
+
+**Mitigação:**
+- login admin usa `shouldCreateUser:false`;
+- autenticação e autorização são separadas;
+- allowlist `platform_admins` é server-only;
+- admin exige identidade permanente;
+- nenhuma autoridade admin possui EXECUTE para `anon/authenticated`;
+- ações ficam em `platform_admin_audit`.
+
+## T28 — Origin compartilhado do GitHub Pages expõe sessão privilegiada
+
+**Risco:** projetos diferentes em `carloskk07.github.io` compartilham o mesmo web origin.
+
+**Mitigação atual do piloto:**
+- sessões de revenda/admin usam `sessionStorage`, não `localStorage` persistente;
+- storage keys são separadas por papel;
+- JWT continua revalidado na Edge e autorização permanece server-side.
+
+**Limite:** `sessionStorage` é contenção, não isolamento de origin. Antes de escalar acesso privilegiado, usar custom domain/origem dedicada.
+
+## T29 — Operação financeira administrativa duplica efeito ou perde auditoria
+
+**Mitigação:**
+- baixas financeiras só operam itens ainda `open`;
+- segunda tentativa de item processado falha;
+- reversão financeira já é idempotente por pedido;
+- `admin_reverse_settled_order` executa reversão + admin audit na mesma transação.
+
 ## Dependências ainda abertas antes do go-live público
 
 - CAPTCHA/Turnstile;
 - PSP/split/payout;
 - KYC/regra jurídica para saque;
-- painel admin auditado;
+- bootstrap seguro do primeiro admin e validação real do Auth;
+- origem dedicada/custom domain para sessões privilegiadas;
 - assignment de motorista;
 - geocodificação/ETA de produção;
 - monitoramento/alertas;
