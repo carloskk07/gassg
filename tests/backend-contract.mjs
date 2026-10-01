@@ -120,6 +120,11 @@ assert.match(normalized,/gross_total_cents integer/,'total bruto precisa ser int
 assert.match(normalized,/cashback_reserved_cents integer/,'cashback reservado precisa ser inteiro em centavos');
 assert.match(normalized,/amount_cents integer not null/,'ledger precisa usar centavos inteiros');
 assert.match(normalized,/idempotency_key text not null unique/,'ledger precisa de idempotência');
+assert.match(normalized,/bucket text not null check \(bucket in \('cashback','commission_pending','commission_available'\)\)/,'ledger precisa separar cashback e comissões');
+assert.match(normalized,/commission_withdrawal/,'ledger precisa suportar saque futuro como débito auditável');
+assert.match(normalized,/cashback_reversal/,'ledger precisa suportar reversão de cashback');
+assert.match(normalized,/referral_pending_release/,'movimento de comissão pendente precisa ter saída explícita');
+assert.match(normalized,/amount_cents < 0/,'débitos financeiros precisam ter sinal negativo obrigatório');
 
 assert.match(normalized,/pin_hash text not null/,'PIN não pode ser armazenado em texto puro');
 assert.doesNotMatch(normalized,/\bpin\s+text\b/,'PIN em texto puro é proibido');
