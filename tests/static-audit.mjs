@@ -33,6 +33,11 @@ assert.ok(merchant.includes('esc(o.address)'),'endereço no painel da revenda de
 assert.ok(customer.includes('esc(o.supplierSnapshot.name)'),'nome do fornecedor deve ser escapado');
 assert.ok(merchant.includes('esc(m.name)'),'nome da revenda deve ser escapado');
 assert.ok(core.includes("const STORAGE='chama-sg-state-v2'"),'versão nova do storage deve estar ativa');
+assert.ok(core.includes("return isLiveStateScope()?sessionStorage:localStorage"),'estado do cliente live deve usar sessionStorage em origem compartilhada');
+assert.ok(core.includes('freshLiveSeed'),'modo live não pode herdar carteira/endereço demonstrativo do localStorage');
+assert.ok(backend.includes("storage:sessionStorage")&&backend.includes("storageKey:'chama-sg-auth-v1'"),'token do cliente live deve ser tab-scoped em sessionStorage');
+assert.ok(!backend.includes("localStorage.getItem(CHAMA_BACKEND.orderStorageKey)"),'ID do pedido live não pode persistir no localStorage compartilhado');
+
 assert.ok(core.includes('ALLOWED='),'máquina de estados deve possuir autoridade explícita');
 assert.ok(core.includes('MAX_PIN_FAILURES'),'PIN precisa de limite de tentativas');
 assert.ok(core.includes('PRICE_FRESH_MS'),'preço precisa de validade explícita');
