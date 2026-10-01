@@ -8,3 +8,16 @@
 .toast{position:fixed;left:50%;bottom:100px;transform:translate(-50%,18px);background:#14231c;color:white;padding:11px 14px;border-radius:14px;font-size:13px;font-weight:800;opacity:0;pointer-events:none;transition:.22s;z-index:100;box-shadow:var(--shadow);width:max-content;max-width:calc(100% - 30px)}.toast.show{opacity:1;transform:translate(-50%,0)}
 .demo-strip{background:#fff8e7;border-bottom:1px solid #f3dfae;color:#76590f;font-size:11px;text-align:center;padding:6px 12px;font-weight:700}.merchant-name{font-weight:900}.list{display:grid;gap:10px}.list-row{display:flex;align-items:center;justify-content:space-between;gap:12px;background:white;border:1px solid var(--line);border-radius:16px;padding:13px}.list-row strong{font-size:14px}.list-row small{color:var(--muted)}
 @media(min-width:760px){.shell{padding:0 28px}.desktop-only{display:flex}.bottom-nav{display:none}.app{padding-bottom:30px}.topbar-inner{height:74px}.cards-3{grid-template-columns:repeat(3,1fr)}.quick-grid{grid-template-columns:repeat(6,1fr)}.field-row{grid-template-columns:1fr 1fr}.hero{padding:55px 0 28px}.hero-grid{display:grid;grid-template-columns:1.2fr .8fr;align-items:center;gap:40px}.merchant-kpis{grid-template-columns:repeat(4,1fr)}.offer-stack{grid-template-columns:repeat(3,1fr)}.desktop-nav{gap:6px;align-items:center}.desktop-nav button{border:0;background:transparent;padding:9px 11px;border-radius:11px;font-size:13px;font-weight:800;color:var(--muted)}.desktop-nav button:hover{background:white;color:var(--ink)}}
+/* Audit v1.1 — interaction, accessibility and state safety */
+.brand-button{border:0;background:transparent;padding:0;color:inherit;text-align:left}
+.primary:disabled,.secondary:disabled{opacity:.5;cursor:not-allowed;box-shadow:none}
+.check-row{display:flex;align-items:center;gap:11px;padding:12px 13px;border:1px solid var(--line);border-radius:14px;background:#f8faf9;cursor:pointer}
+.check-row input{width:20px;height:20px;accent-color:var(--brand)}
+.check-row span{display:flex;flex-direction:column;gap:2px}
+.check-row small{color:var(--muted)}
+.pin-input{height:40px;max-width:120px;letter-spacing:.18em;font-weight:900;text-align:center}
+.sr-only{position:absolute!important;width:1px!important;height:1px!important;padding:0!important;margin:-1px!important;overflow:hidden!important;clip:rect(0,0,0,0)!important;white-space:nowrap!important;border:0!important}
+.demo-strip{display:flex;align-items:center;justify-content:center;gap:10px;flex-wrap:wrap}
+.demo-strip button{border:0;background:transparent;color:#76590f;text-decoration:underline;font-size:11px;font-weight:800;padding:0}
+.order-actions .tiny{align-self:center}
+@media(max-width:380px){.mode-pill button{padding:7px 7px}.offer-main{align-items:flex-start;flex-direction:column}.hero-price{align-items:flex-start;flex-direction:column}.hero-price .from{margin-bottom:0}}
