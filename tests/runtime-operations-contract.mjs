@@ -39,6 +39,7 @@ const deliveryAdmin=fs.readFileSync(new URL('../supabase/migrations/202610011320
 const deliveryIndexes=fs.readFileSync(new URL('../supabase/migrations/20261001133000_delivery_capability_index_hygiene.sql',import.meta.url),'utf8');
 const referralRisk=fs.readFileSync(new URL('../supabase/migrations/20261001134000_referral_fraud_review_authority.sql',import.meta.url),'utf8');
 const acceptRace=fs.readFileSync(new URL('../supabase/migrations/20261001135000_accept_time_race_rescue.sql',import.meta.url),'utf8');
+const referralReversalGuard=fs.readFileSync(new URL('../supabase/migrations/20261001136000_referral_review_reversal_guard.sql',import.meta.url),'utf8');
 const r=repricing.replace(/--.*$/gm,'').replace(/\s+/g,' ').toLowerCase();
 const w=watchdog.replace(/--.*$/gm,'').replace(/\s+/g,' ').toLowerCase();
 const h=hardening.replace(/--.*$/gm,'').replace(/\s+/g,' ').toLowerCase();
@@ -77,6 +78,7 @@ const da=deliveryAdmin.replace(/--.*$/gm,'').replace(/\s+/g,' ').toLowerCase();
 const di=deliveryIndexes.replace(/--.*$/gm,'').replace(/\s+/g,' ').toLowerCase();
 const rf=referralRisk.replace(/--.*$/gm,'').replace(/\s+/g,' ').toLowerCase();
 const xr=acceptRace.replace(/--.*$/gm,'').replace(/\s+/g,' ').toLowerCase();
+const rg=referralReversalGuard.replace(/--.*$/gm,'').replace(/\s+/g,' ').toLowerCase();
 
 assert.match(r,/create table if not exists public\.order_requote_items/,'re-cotação precisa congelar preços por item');
 assert.match(r,/revoke all on table public\.order_requote_items from anon, authenticated/,'snapshot de re-cotação deve ser server-only');
@@ -321,4 +323,9 @@ assert.match(xr,/autorescued',true/,'cliente operacional precisa distinguir resc
 assert.match(xr,/public\.system_rescue_order\(v_order\.id,p_reason\)/,'rescue imediato deve reutilizar ranking central');
 assert.doesNotMatch(xr,/raise exception 'insufficient_stock'/,'corrida de estoque no aceite não deve deixar pedido parado por erro');
 
-console.log('Requote + watchdog + hardening v1.9.2 contract passou.');
+assert.match(rg,/v_grant\.reversed_at is not null and p_decision='approved'/,'reward revertido não pode ser aprovado depois da reversão');
+assert.match(rg,/referral_reward_already_reversed/,'aprovação tardia precisa falhar semanticamente');
+assert.match(rg,/if v_grant\.reversed_at is not null then[\s\S]*v_amount:=0/,'rejeição tardia não pode debitar comissão novamente');
+assert.match(rg,/rewardalreadyreversed/,'auditoria precisa registrar que o reward já estava revertido');
+
+console.log('Requote + watchdog + hardening v1.9.3 contract passou.');
