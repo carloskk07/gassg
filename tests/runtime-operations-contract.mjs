@@ -5,10 +5,16 @@ const repricing=fs.readFileSync(new URL('../supabase/migrations/20261001071000_f
 const watchdog=fs.readFileSync(new URL('../supabase/migrations/20261001072000_add_order_timeout_watchdog.sql',import.meta.url),'utf8');
 const hardening=fs.readFileSync(new URL('../supabase/migrations/20261001090000_hardening_v1_5.sql',import.meta.url),'utf8');
 const requote=fs.readFileSync(new URL('../supabase/migrations/20261001093000_requote_contract_hardening.sql',import.meta.url),'utf8');
+const anonRls=fs.readFileSync(new URL('../supabase/migrations/20261001091500_anonymous_auth_rls_hardening.sql',import.meta.url),'utf8');
+const summary=fs.readFileSync(new URL('../supabase/migrations/20261001094500_customer_summary_authority.sql',import.meta.url),'utf8');
+const settlement=fs.readFileSync(new URL('../supabase/migrations/20261001094700_settlement_payment_confirmation.sql',import.meta.url),'utf8');
 const r=repricing.replace(/--.*$/gm,'').replace(/\s+/g,' ').toLowerCase();
 const w=watchdog.replace(/--.*$/gm,'').replace(/\s+/g,' ').toLowerCase();
 const h=hardening.replace(/--.*$/gm,'').replace(/\s+/g,' ').toLowerCase();
 const q=requote.replace(/--.*$/gm,'').replace(/\s+/g,' ').toLowerCase();
+const a=anonRls.replace(/--.*$/gm,'').replace(/\s+/g,' ').toLowerCase();
+const s=summary.replace(/--.*$/gm,'').replace(/\s+/g,' ').toLowerCase();
+const st=settlement.replace(/--.*$/gm,'').replace(/\s+/g,' ').toLowerCase();
 
 assert.match(r,/create table if not exists public\.order_requote_items/,'re-cotação precisa congelar preços por item');
 assert.match(r,/revoke all on table public\.order_requote_items from anon, authenticated/,'snapshot de re-cotação deve ser server-only');
@@ -53,5 +59,14 @@ assert.match(q,/requote_expired/,'aceite de re-cotação expirada precisa ser bl
 assert.match(q,/system_expire_requote/,'watchdog precisa encerrar re-cotação abandonada');
 assert.match(q,/expiredrequotesprocessed/,'watchdog precisa reportar re-cotações expiradas');
 assert.match(q,/old\.proposed_delivery_fee_cents/,'troca de fornecedor deve validar taxa congelada, não taxa atual');
+
+assert.match(a,/revoke select on table public\.orders, public\.order_items, public\.order_events from authenticated/,'pedidos reais devem ser lidos apenas por Edge Function');
+assert.match(a,/auth\.jwt\(\)->>'is_anonymous'/,'RLS de revenda deve distinguir identidade permanente');
+assert.match(s,/customer_financial_summary/,'resumo financeiro mínimo precisa existir');
+assert.match(s,/grant execute on function public\.customer_financial_summary\(uuid\) to service_role/,'resumo financeiro deve ser server-only');
+assert.match(st,/payment_confirmed_at/,'settlement precisa registrar confirmação de pagamento');
+assert.match(st,/payment_confirmation_method='merchant_attestation'/,'piloto deve registrar origem da confirmação de pagamento');
+assert.match(st,/status <> 'settled'[\s\S]*payment_confirmed_at is not null/,'constraint deve impedir SETTLED sem pagamento confirmado');
+assert.match(st,/payment_confirmed[\s\S]*delivered[\s\S]*settled/,'eventos financeiros e de entrega precisam ser auditáveis');
 
 console.log('Requote + watchdog + hardening v1.5 contract passou.');
