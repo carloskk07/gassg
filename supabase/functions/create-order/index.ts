@@ -1,9 +1,12 @@
-import "jsr:@supabase/functions-js/edge-runtime.d.ts";
-import { createClient } from "npm:@supabase/supabase-js@2";
+import "jsr:@supabase/functions-js@2.117.2/edge-runtime.d.ts";
+import {
+  createClient } from "npm:@supabase/supabase-js@2.117.2";
 import {
   DomainError,
   validateIdempotencyKey,
-  requestFingerprint
+  requestFingerprint,
+  readJsonBody,
+  enforceApiQuota
 } from "../_shared/domain.js";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
@@ -91,7 +94,7 @@ Deno.serve(async (req: Request) => {
   try {
     const user = await authenticatedUser(req);
     const idempotencyKey = validateIdempotencyKey(req.headers.get("Idempotency-Key"));
-    const body = await req.json().catch(() => ({}));
+    const body = await readJsonBody(req);
 
     const quoteId = String(body.quoteId ?? "");
     if (!UUID_RE.test(quoteId)) {
@@ -119,6 +122,7 @@ Deno.serve(async (req: Request) => {
     const admin = createClient(SUPABASE_URL, SECRET_KEY, {
       auth: { persistSession: false, autoRefreshToken: false }
     });
+    await enforceApiQuota(admin,{userId:user.id,actionName:"create-order",limit:12,windowSeconds:600});
 
     const { data, error } = await admin.rpc("create_order_from_quote", {
       p_user_id: user.id,
