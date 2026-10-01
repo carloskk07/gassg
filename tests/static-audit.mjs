@@ -149,6 +149,11 @@ assert.ok(adminOpsSource.includes('financial_state'),'resumo admin de referral p
 assert.ok(admin.includes('Pedido financeiramente revertido.'),'painel admin deve sinalizar referral já revertido');
 assert.ok(admin.includes("x.financialState!=='reversed'"),'fila pendente não pode oferecer ação financeira em reward revertido');
 assert.ok(adminOpsSource.includes('REFERRAL_REWARD_ALREADY_REVERSED'),'Edge admin deve traduzir aprovação tardia de reward revertido');
+assert.ok(adminOpsSource.includes('reward_processing_failures'),'admin deve carregar dívida operacional de rewards');
+assert.ok(adminOpsSource.includes('admin_reward_retry_action'),'retry de reward deve usar autoridade idempotente');
+assert.ok(admin.includes('Fila de benefícios'),'painel admin precisa mostrar dívida de reward');
+assert.ok(admin.includes('DEAD LETTER'),'painel admin precisa distinguir retry interrompido');
+assert.ok(admin.includes('adminRetryReward'),'painel admin precisa permitir recuperação auditada');
 
 
 
