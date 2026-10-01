@@ -149,7 +149,7 @@ assert.match(rv,/referral_reversal/,'reversão depois da maturação precisa ret
 assert.match(rv,/platform_fee_refund_due/,'taxa já recebida precisa gerar ajuste a devolver à revenda');
 assert.match(rv,/pg_advisory_xact_lock[\s\S]*reward:/,'maturação e reversão precisam compartilhar lock por pedido');
 assert.match(rv,/g\.reversed_at is null/,'comissão revertida nunca pode amadurecer');
-assert.match(rv,/o\.financial_state='settled'/,'maturação só pode ocorrer em settlement financeiro válido');
+assert.match(rv,/v_order\.financial_state<>'settled'/,'maturação precisa bloquear qualquer settlement financeiro diferente de settled');
 assert.match(rv,/grant execute on function public\.reverse_settled_order_financials[\s\S]*to postgres, service_role/,'reversão deve ser server-only');
 
 assert.match(rs,/financial_state='settled'/,'compras válidas devem contar apenas settlements financeiros ativos');
