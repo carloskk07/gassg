@@ -116,7 +116,39 @@ create table if not exists public.orders (
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
   check (cashback_reserved_cents <= gross_total_cents),
-  check (total_cents = gross_total_cents - cashback_reserved_cents)
+  check (total_cents = gross_total_cents - cashback_reserved_cents),
+  check (
+    status in ('REASSIGNING','CANCELLED')
+    or merchant_id is not null
+  ),
+  check (
+    status <> 'REQUOTE_REQUIRED'
+    or (
+      proposed_merchant_id is not null
+      and proposed_gross_total_cents is not null
+      and proposed_total_cents is not null
+    )
+  ),
+  check (
+    status not in ('MERCHANT_ACCEPTED','PREPARING','AT_RISK','OUT_FOR_DELIVERY','ARRIVING','DELIVERED','SETTLED')
+    or supplier_name_snapshot is not null
+  ),
+  check (
+    status not in ('OUT_FOR_DELIVERY','ARRIVING','DELIVERED','SETTLED')
+    or dispatched_at is not null
+  ),
+  check (
+    status not in ('ARRIVING','DELIVERED','SETTLED')
+    or arriving_at is not null
+  ),
+  check (
+    status not in ('DELIVERED','SETTLED')
+    or delivered_at is not null
+  ),
+  check (
+    status <> 'SETTLED'
+    or settled_at is not null
+  )
 );
 
 create table if not exists public.order_items (
