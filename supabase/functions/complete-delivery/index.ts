@@ -80,8 +80,11 @@ Deno.serve(async(req:Request)=>{
     if(!UUID_RE.test(orderId))throw new DomainError("INVALID_ORDER","Pedido inválido.",400);
 
     const pin=validateDeliveryPin(body.pin);
+    if(body.paymentConfirmed!==true){
+      throw new DomainError("PAYMENT_CONFIRMATION_REQUIRED","Confirme o recebimento do pagamento antes de concluir.",400);
+    }
     const expectedVersion=asPositiveInt(body.expectedVersion,"expectedVersion",{min:1,max:Number.MAX_SAFE_INTEGER});
-    const requestHash=await requestFingerprint("complete-delivery",{orderId,pin,expectedVersion});
+    const requestHash=await requestFingerprint("complete-delivery",{orderId,pin,expectedVersion,paymentConfirmed:true});
 
     const admin=createClient(SUPABASE_URL,SECRET_KEY,{auth:{persistSession:false,autoRefreshToken:false}});
     await enforceApiQuota(admin,{userId:user.id,actionName:"complete-delivery",limit:20,windowSeconds:60});
