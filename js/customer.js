@@ -1,37 +1,111 @@
 function home(){
+  const p=minPrice();
+  const priceText=p==null?'Indisponível':BRL.format(p);
   return shell(`<section class="hero"><div class="hero-grid"><div>
     <span class="eyebrow">● Preços de parceiros ativos em São Gabriel</span>
     <h1>Seu gás.<br>Sem perder tempo.</h1>
     <p>Consulte o preço atual, informe seu endereço e deixe a plataforma encontrar uma opção rápida e confiável para você.</p>
-    <div class="hero-price"><span class="from">P13 a partir de</span><strong>${BRL.format(minPrice())}</strong></div><div class="freshness">Atualizado agora • referência pública recente: média local ${BRL.format(122.66)}</div>
-    <button class="primary full" onclick="go('order')">🔥 Ver preço para meu endereço</button>
-    <div class="trust-row"><span class="trust-chip">✓ Preço protegido</span><span class="trust-chip">✓ Revendas verificadas</span><span class="trust-chip">✓ Status confirmados</span></div>
-  </div><div class="card desktop-only" style="display:block"><div class="muted tiny">COMO FUNCIONA</div><h2 style="font-size:30px;margin-top:8px">Preço Agora + Entrega Inteligente</h2><div class="steps" style="margin-top:20px">${[['1','Informe seu endereço','Filtramos apenas parceiros que conseguem atender.'],['2','Escolha sua prioridade','Mais barato, recomendado ou mais rápido.'],['3','A revenda confirma','Nada de pedido “confirmado” sem aceite real.'],['4','Acompanhe a entrega','Saída e entrega têm confirmação própria.']].map(x=>`<div class="step"><div class="step-num">${x[0]}</div><div><strong>${x[1]}</strong><p>${x[2]}</p></div></div>`).join('')}</div></div></div></section>
+    <div class="hero-price"><span class="from">P13 a partir de</span><strong>${priceText}</strong></div><div class="freshness">Dados demonstrativos • referência ANP usada no protótipo (20–26/09/2026): ${BRL.format(122.66)}</div>
+    <button class="primary full" onclick="quickProduct('P13')" ${p==null?'disabled':''}>🔥 Ver preço para meu endereço</button>
+    <div class="trust-row"><span class="trust-chip">✓ Preço protegido</span><span class="trust-chip">✓ Validação de parceiros</span><span class="trust-chip">✓ Status confirmados</span></div>
+  </div><div class="card desktop-only"><div class="muted tiny">COMO FUNCIONA</div><h2 style="font-size:30px;margin-top:8px">Preço Agora + Entrega Inteligente</h2><div class="steps" style="margin-top:20px">${[['1','Informe seu endereço','Filtramos apenas parceiros que conseguem atender.'],['2','Escolha sua prioridade','Mais barato, recomendado ou mais rápido.'],['3','A revenda confirma','Nada de pedido “confirmado” sem aceite real.'],['4','Acompanhe a entrega','Saída e entrega têm confirmação própria.']].map(x=>`<div class="step"><div class="step-num">${x[0]}</div><div><strong>${x[1]}</strong><p>${x[2]}</p></div></div>`).join('')}</div></div></div></section>
 
-<section class="section"><div class="section-head"><div><h2>Mais que gás</h2><p>Uma entrega pode resolver várias necessidades.</p></div></div><div class="quick-grid">${Object.entries(products).map(([k,p])=>`<button class="quick-card" onclick="quickProduct('${k}')"><div class="quick-icon">${p.icon}</div><div class="quick-title">${p.name}</div><div class="quick-sub">Consultar agora</div></button>`).join('')}<button class="quick-card" onclick="go('merchants')"><div class="quick-icon">🏪</div><div class="quick-title">Sou revenda</div><div class="quick-sub">Quero participar</div></button></div></section>
+<section class="section"><div class="section-head"><div><h2>Mais que gás</h2><p>Você pode pedir somente água, carvão, lenha ou gelo — o P13 não é obrigatório.</p></div></div><div class="quick-grid">${Object.entries(products).map(([k,p])=>`<button class="quick-card" onclick="quickProduct('${k}')"><div class="quick-icon">${p.icon}</div><div class="quick-title">${p.name}</div><div class="quick-sub">Consultar agora</div></button>`).join('')}<button class="quick-card" onclick="go('merchants')"><div class="quick-icon">🏪</div><div class="quick-title">Sou revenda</div><div class="quick-sub">Quero participar</div></button></div></section>
 
 <section class="section"><div class="section-head"><div><h2>Benefícios que voltam para você</h2><p>O crescimento da plataforma também recompensa quem usa e compartilha.</p></div></div><div class="grid cards-3"><div class="card feature-card"><div class="feature-icon">💵</div><h3>Cashback</h3><p>Crédito para reduzir o valor das próximas compras dentro da plataforma.</p><button class="ghost small" onclick="go('club')">Ver meu saldo →</button></div><div class="card feature-card"><div class="feature-icon">🤝</div><h3>Indique e ganhe</h3><p>Vendas reais geradas pelo seu link podem liberar comissão e benefícios.</p><button class="ghost small" onclick="go('refer')">Conhecer programa →</button></div><div class="card feature-card"><div class="feature-icon">👑</div><h3>Clube Plus</h3><p>Plano opcional com benefícios ampliados, pensado para famílias recorrentes.</p><button class="ghost small" onclick="go('club')">Ver clube →</button></div></div></section>
 
 <section class="section"><div class="banner"><div class="tiny">PARA EMPRESAS LOCAIS</div><h2>Vende gás, água, carvão, lenha ou produtos relacionados?</h2><p>Cadastre sua operação, defina seus próprios preços e receba novos pedidos. A proposta inicial é simples: sem mensalidade para começar e cobrança quando houver venda concluída.</p><button class="secondary" onclick="go('merchant-join')">Quero ser parceiro</button></div></section>`)
 }
 
-function orderPage(){const hasAddress=!!state.address;const os=offers();return shell(`<section class="page"><button class="back" onclick="go('home')">← Voltar</button><h1 class="page-title">Pedir agora</h1><p class="muted">Primeiro confirmamos onde você está. Depois mostramos apenas ofertas que conseguem atender sua cesta.</p>
-<div class="card flat form-stack"><div class="input-wrap"><label>Endereço de entrega</label><input id="address" class="input" placeholder="Ex.: Rua General Câmara, 123" value="${state.address||''}"></div><button class="primary" onclick="setAddress()">${hasAddress?'Atualizar endereço':'Ver ofertas'}</button></div>
-${hasAddress?`<section class="section"><div class="section-head"><div><h2>Sua cesta</h2><p>O sistema tenta manter tudo em uma única entrega.</p></div></div><div class="card flat">${Object.entries(products).map(([k,p])=>cartRow(k,p)).join('')}</div></section>
-<section class="section"><div class="section-head"><div><h2>Melhores opções</h2><p>Preço, ETA, capacidade e histórico entram na seleção.</p></div></div>${os.length?`<div class="offer-stack">${os.map((o,i)=>offerCard(o,i)).join('')}</div>`:`<div class="empty card">Nenhum parceiro consegue atender toda essa cesta agora. Reduza algum item ou tente novamente.</div>`}</section>`:''}</section>`)}
-function cartRow(k,p){const q=state.cart[k]||0;return `<div class="cart-item"><div class="product-left"><div class="product-icon">${p.icon}</div><div><strong>${p.name}</strong><div class="tiny muted">${k==='P13'?'Produto âncora':'Produto complementar'}</div></div></div><div class="qty"><button onclick="qty('${k}',-1)">−</button><strong>${q}</strong><button onclick="qty('${k}',1)">+</button></div></div>`}
-function offerCard(o,i){return `<article class="offer ${o.label==='Recomendado'?'selected':''}">${o.label==='Recomendado'?'<div class="best-badge">MELHOR EQUILÍBRIO</div>':''}<div class="offer-label">${o.label}</div><div class="offer-main"><div><div class="offer-price">${BRL.format(o.total)}</div><div class="tiny muted">total entregue</div></div><div class="offer-eta">${o.eta}–${o.eta+7} min</div></div><div class="offer-meta"><span class="meta-chip">${o.distance.toFixed(1)} km</span><span class="meta-chip">Trust ${o.trust}/100</span><span class="meta-chip">Preço protegido</span></div><button class="${o.label==='Recomendado'?'primary':'secondary'} full" style="margin-top:13px" onclick="checkout('${o.id}')">Escolher esta opção</button></article>`}
-function setAddress(){const el=document.querySelector('#address');if(!el.value.trim())return toast('Informe um endereço');state.address=el.value.trim();save();render();setTimeout(()=>document.querySelector('.offer-stack')?.scrollIntoView({behavior:'smooth'}),100)}
-function qty(k,d){state.cart[k]=Math.max(k==='P13'?1:0,(state.cart[k]||0)+d);save();render()}
-function quickProduct(k){if(k!=='P13')state.cart[k]=Math.max(1,state.cart[k]||0);go('order')}
+function orderPage(){
+  const hasAddress=!!state.address;
+  const hasItems=hasCartItems();
+  const os=hasItems?offers():[];
+  const live=state.orders.find(isLiveOrder);
+  return shell(`<section class="page"><button class="back" onclick="go('home')">← Voltar</button><h1 class="page-title">Pedir agora</h1><p class="muted">Monte sua cesta. O sistema mostra somente parceiros capazes de atender todos os itens selecionados.</p>
+${live?`<div class="notice" style="margin-bottom:14px"><strong>Você já possui um pedido em andamento.</strong><br>Conclua ou cancele o pedido ${esc(live.id)} antes de criar outro.<br><button class="ghost small" onclick="go('tracking')">Acompanhar pedido →</button></div>`:''}
+<div class="card flat form-stack"><div class="input-wrap"><label for="address">Endereço de entrega</label><input id="address" class="input" autocomplete="street-address" maxlength="160" placeholder="Ex.: Rua General Câmara, 123" value="${esc(state.address||'')}"></div><button class="primary" onclick="setAddress()">${hasAddress?'Atualizar endereço':'Confirmar endereço'}</button></div>
 
-function checkout(mid){const m=state.merchants.find(x=>x.id===mid);const total=cartTotal(m);const id='SG-'+uid();const pin=String(Math.floor(1000+Math.random()*9000));const t=now().toISOString();const order={id,merchantId:mid,address:state.address,total,lockedTotal:total,status:'OFFERED_TO_MERCHANT',createdAt:t,pin,cart:structuredClone(state.cart),events:[{status:'CREATED',time:t,title:'Pedido recebido',desc:'Criamos seu pedido e validamos a cesta.'},{status:'QUOTE_LOCKED',time:t,title:'Preço protegido',desc:`Total protegido em ${BRL.format(total)}.`},{status:'OFFERED_TO_MERCHANT',time:t,title:'Aguardando confirmação da revenda',desc:'Ainda não exibimos seu pedido como confirmado.'}]};state.orders.push(order);save();go('tracking');toast('Pedido enviado para confirmação da revenda')}
+<section class="section"><div class="section-head"><div><h2>Sua cesta</h2><p>Adicione somente o que você precisa.</p></div></div><div class="card flat">${Object.entries(products).map(([k,p])=>cartRow(k,p)).join('')}</div></section>
 
-const statusCopy={CREATED:['Pedido recebido','Recebemos os dados do pedido.'],QUOTE_LOCKED:['Preço protegido','O total deste pedido foi congelado.'],OFFERED_TO_MERCHANT:['Aguardando revenda','A revenda precisa confirmar que realmente vai atender.'],MERCHANT_ACCEPTED:['Revenda confirmou ✓','O pedido agora possui compromisso real de atendimento.'],PREPARING:['Em preparação','Itens reservados e entrega sendo preparada.'],OUT_FOR_DELIVERY:['A caminho ✓','A revenda confirmou efetivamente a saída.'],ARRIVING:['Chegando','O entregador está próximo do endereço.'],DELIVERED:['Entregue ✓','Recebimento confirmado com prova de entrega.'],SETTLED:['Concluído','Pagamento, cashback e comissões foram conciliados.']};
-function tracking(){const o=activeOrder();if(!o)return shell(`<section class="page"><h1 class="page-title">Seu pedido</h1><div class="empty card">Você ainda não possui pedidos. <br><br><button class="primary" onclick="go('order')">Pedir gás</button></div></section>`);const m=state.merchants.find(x=>x.id===o.merchantId);const merchantVisible=['MERCHANT_ACCEPTED','PREPARING','OUT_FOR_DELIVERY','ARRIVING','DELIVERED','SETTLED'].includes(o.status);const current=timelineIndex(o.status);return shell(`<section class="page"><button class="back" onclick="go('home')">← Início</button><div class="status-bar"><div><div class="tiny muted">PEDIDO ${o.id}</div><h1 class="page-title" style="margin-bottom:3px">${statusCopy[o.status]?.[0]||o.status}</h1></div><span class="status-pill ${o.status==='OUT_FOR_DELIVERY'||o.status==='ARRIVING'?'online':'risk'}">${o.status==='DELIVERED'||o.status==='SETTLED'?'CONCLUÍDO':'AO VIVO'}</span></div>
-<div class="card flat"><div class="price-lock"><span>🔒</span><div><strong>Preço protegido: ${BRL.format(o.lockedTotal)}</strong><br>Qualquer alteração exige novo aceite seu.</div></div><div class="divider"></div><div class="list-row"><div><strong>${merchantVisible?m.name:'Fornecedor em confirmação'}</strong><br><small>${merchantVisible?'Parceiro verificado':'A identidade aparece após o aceite real'}</small></div><div style="text-align:right"><strong>${BRL.format(o.total)}</strong><br><small>${o.address}</small></div></div></div>
-<section class="section"><div class="section-head"><div><h2>Linha do tempo</h2><p>Só mostramos o que realmente foi confirmado.</p></div></div><div class="card flat timeline">${['CREATED','QUOTE_LOCKED','OFFERED_TO_MERCHANT','MERCHANT_ACCEPTED','PREPARING','OUT_FOR_DELIVERY','ARRIVING','DELIVERED'].map((s,i)=>eventHTML(s,i,current,o)).join('')}</div></section>
-${o.status==='OUT_FOR_DELIVERY'||o.status==='ARRIVING'?`<div class="notice success"><strong>PIN de recebimento: ${o.pin}</strong><br>Informe este código somente quando o pedido estiver na sua frente.</div>`:''}
+${hasItems&&hasAddress?`<section class="section"><div class="section-head"><div><h2>Pagamento e benefícios</h2><p>O meio de pagamento será confirmado com a revenda no piloto.</p></div></div>
+<div class="card flat form-stack"><div class="input-wrap"><label for="payment-method">Forma de pagamento</label><select id="payment-method" class="input" onchange="setPaymentMethod(this.value)"><option value="pix" ${state.checkout.paymentMethod==='pix'?'selected':''}>Pix</option><option value="card" ${state.checkout.paymentMethod==='card'?'selected':''}>Cartão</option><option value="cash" ${state.checkout.paymentMethod==='cash'?'selected':''}>Dinheiro</option></select></div>
+${state.user.cashback>0?`<label class="check-row"><input type="checkbox" ${state.checkout.useCashback?'checked':''} onchange="toggleCashback(this.checked)"><span><strong>Usar cashback</strong><small>Saldo disponível: ${BRL.format(state.user.cashback)}</small></span></label>`:''}</div></section>
+
+<section class="section"><div class="section-head"><div><h2>Melhores opções</h2><p>Preço, ETA, capacidade e histórico entram na seleção.</p></div></div>${os.length?`<div class="offer-stack">${os.map(offerCard).join('')}</div>`:`<div class="empty card">Nenhum parceiro consegue atender toda essa cesta agora. Reduza algum item ou tente novamente.</div>`}</section>`:hasItems&&!hasAddress?'<div class="notice">Confirme o endereço para calcular as opções disponíveis.</div>':!hasItems?'<div class="notice">Adicione pelo menos um produto para consultar ofertas.</div>':''}</section>`)
+}
+function cartRow(k,p){
+  const q=state.cart[k]||0;
+  return `<div class="cart-item"><div class="product-left"><div class="product-icon">${p.icon}</div><div><strong>${p.name}</strong><div class="tiny muted">${k==='P13'?'GLP':'Produto complementar'}</div></div></div><div class="qty" aria-label="Quantidade de ${esc(p.name)}"><button aria-label="Diminuir" onclick="qty('${k}',-1)">−</button><strong>${q}</strong><button aria-label="Aumentar" onclick="qty('${k}',1)">+</button></div></div>`
+}
+function offerCard(o){
+  const recommended=o.roles.includes('Recomendado');
+  const discount=state.checkout.useCashback?Math.min(state.user.cashback,o.total):0;
+  const payable=roundMoney(o.total-discount);
+  const labels=o.roles.join(' • ');
+  return `<article class="offer ${recommended?'selected':''}">${recommended?'<div class="best-badge">MELHOR EQUILÍBRIO</div>':''}<div class="offer-label">${esc(labels)}</div><div class="offer-main"><div><div class="offer-price">${BRL.format(payable)}</div><div class="tiny muted">${discount>0?`total após ${BRL.format(discount)} de cashback`:'total entregue'}</div></div><div class="offer-eta">${o.eta}–${o.eta+7} min</div></div><div class="offer-meta"><span class="meta-chip">${o.distance.toFixed(1)} km</span><span class="meta-chip">Trust ${o.trust}/100</span><span class="meta-chip">Preço protegido</span></div><button class="${recommended?'primary':'secondary'} full" style="margin-top:13px" onclick="checkout('${o.id}')">Escolher esta opção</button></article>`
+}
+function setAddress(){
+  const el=document.querySelector('#address');
+  const value=el?.value.trim()||'';
+  if(value.length<5)return toast('Informe um endereço válido');
+  state.address=value.slice(0,160);save();render();
+  setTimeout(()=>document.querySelector('.offer-stack')?.scrollIntoView({behavior:'smooth'}),100);
+}
+function qty(k,d){setCartProduct(k,(state.cart[k]||0)+d);render()}
+function quickProduct(k){state.cart=normalizeCart({});setCartProduct(k,1);go('order')}
+function setPaymentMethod(v){state.checkout.paymentMethod=['pix','card','cash'].includes(v)?v:'pix';save();render()}
+function toggleCashback(v){state.checkout.useCashback=Boolean(v);save();render()}
+
+function checkout(mid){
+  const result=createOrderForMerchant(mid);
+  if(!result.ok){toast(result.error);render();return}
+  go('tracking');
+  setTimeout(()=>toast('Pedido enviado para confirmação da revenda'),30);
+}
+
+const statusCopy={
+  CREATED:['Pedido recebido','Recebemos os dados do pedido.'],
+  QUOTE_LOCKED:['Preço protegido','O total deste pedido foi congelado.'],
+  OFFERED_TO_MERCHANT:['Aguardando revenda','A revenda precisa confirmar que realmente vai atender.'],
+  MERCHANT_ACCEPTED:['Revenda confirmou ✓','O pedido possui compromisso real de atendimento.'],
+  PREPARING:['Em preparação','Itens reservados e entrega sendo preparada.'],
+  AT_RISK:['Acompanhamento prioritário','Detectamos risco de atraso e estamos acompanhando.'],
+  REASSIGNING:['Buscando outra revenda','A primeira opção não conseguiu continuar.'],
+  REQUOTE_REQUIRED:['Sua confirmação é necessária','Encontramos outra opção com condição diferente.'],
+  OUT_FOR_DELIVERY:['A caminho ✓','A revenda confirmou efetivamente a saída.'],
+  ARRIVING:['Chegando','O entregador está próximo do endereço.'],
+  DELIVERED:['Entregue ✓','Recebimento confirmado com prova de entrega.'],
+  SETTLED:['Concluído','Pedido e benefícios foram conciliados.'],
+  CANCELLED:['Cancelado','O pedido não será entregue.']
+};
+
+function tracking(){
+  const o=activeOrder();
+  if(!o)return shell(`<section class="page"><h1 class="page-title">Seu pedido</h1><div class="empty card">Você ainda não possui pedidos. <br><br><button class="primary" onclick="quickProduct('P13')">Pedir gás</button></div></section>`);
+  const merchantVisible=Boolean(o.supplierSnapshot)&&['PREPARING','OUT_FOR_DELIVERY','ARRIVING','DELIVERED','SETTLED','AT_RISK'].includes(o.status);
+  const copy=statusCopy[o.status]||[o.status,''];
+  const live=isLiveOrder(o);
+  const deadline=o.status==='OFFERED_TO_MERCHANT'?Math.max(0,Math.ceil((Date.parse(o.offerExpiresAt)-Date.now())/1000)):null;
+  return shell(`<section class="page"><button class="back" onclick="go('home')">← Início</button><div class="status-bar"><div><div class="tiny muted">PEDIDO ${esc(o.id)}</div><h1 class="page-title" style="margin-bottom:3px">${esc(copy[0])}</h1></div><span class="status-pill ${['OUT_FOR_DELIVERY','ARRIVING','SETTLED','DELIVERED'].includes(o.status)?'online':o.status==='CANCELLED'?'offline':'risk'}">${['SETTLED','DELIVERED'].includes(o.status)?'CONCLUÍDO':o.status==='CANCELLED'?'ENCERRADO':'AO VIVO'}</span></div>
+<div class="card flat"><div class="price-lock"><span>🔒</span><div><strong>Preço protegido: ${BRL.format(o.lockedTotal)}</strong><br>${o.cashbackReserved>0?`Inclui ${BRL.format(o.cashbackReserved)} de cashback reservado. `:''}Qualquer aumento exige novo aceite seu.</div></div><div class="divider"></div><div class="list-row"><div><strong>${merchantVisible?esc(o.supplierSnapshot.name):'Fornecedor em confirmação'}</strong><br><small>${merchantVisible?'Parceiro confirmado':'A identidade aparece após o aceite real'}</small></div><div style="text-align:right"><strong>${BRL.format(o.total)}</strong><br><small>${esc(o.address)}</small></div></div><div class="list-row"><span>Pagamento</span><strong>${paymentLabel(o.paymentMethod)}</strong></div></div>
+
+${o.status==='OFFERED_TO_MERCHANT'?`<div class="notice" style="margin-top:14px"><strong>Aguardando aceite real.</strong><br>Se a revenda não responder em até 3 minutos, o sistema tenta outra automaticamente. ${deadline!=null?`Prazo restante aproximado: ${deadline}s.`:''}</div>`:''}
+${o.status==='REQUOTE_REQUIRED'?`<div class="notice" style="margin-top:14px"><strong>Encontramos outra opção.</strong><br>Novo total: ${BRL.format(o.proposedTotal)}. Nada muda sem sua autorização.<div class="order-actions"><button class="primary small" onclick="confirmRequote('${o.id}')">Aceitar novo total</button><button class="secondary small" onclick="cancelPending('${o.id}')">Cancelar pedido</button></div></div>`:''}
+${o.status==='CANCELLED'?`<div class="notice danger" style="margin-top:14px">Este pedido foi encerrado. Cashback reservado, se houver, foi devolvido.</div>`:''}
+${o.riskReason&&o.status!=='CANCELLED'?`<div class="notice danger" style="margin-top:14px"><strong>Acompanhamento prioritário.</strong><br>${esc(o.riskReason)}. O status só muda quando houver nova confirmação real.</div>`:''}
+
+<section class="section"><div class="section-head"><div><h2>Linha do tempo</h2><p>Eventos reais e auditáveis do pedido.</p></div></div><div class="card flat timeline">${eventTimeline(o)}</div></section>
+${['OUT_FOR_DELIVERY','ARRIVING'].includes(o.status)?`<div class="notice success"><strong>PIN de recebimento: ${esc(o.pin)}</strong><br>Informe este código somente quando o pedido estiver na sua frente.</div>`:''}
+${o.status==='SETTLED'&&o.cashbackEarned?`<div class="notice success" style="margin-top:14px"><strong>+${BRL.format(o.cashbackEarned)} de cashback</strong><br>Crédito já disponível para uma próxima compra.</div>`:''}
+${live&&['OFFERED_TO_MERCHANT','REQUOTE_REQUIRED'].includes(o.status)?`<button class="ghost full" style="margin-top:10px" onclick="cancelPending('${o.id}')">Cancelar antes do aceite</button>`:''}
 <div class="card flat" style="margin-top:14px"><strong>Precisa de ajuda?</strong><p class="muted tiny">Preço diferente, atraso, problema com produto ou entrega contestada viram incidentes rastreáveis.</p><button class="secondary full" onclick="toast('Suporte do pedido aberto — demonstração')">Abrir suporte</button></div>
-</section>`)}
-function eventHTML(s,i,current,o){const event=o.events.find(e=>e.status===s);const cls=i<current?'done':i===current?'current':'';const copy=statusCopy[s];return `<div class="event ${cls}"><div class="event-dot"><span class="dot"></span></div><div><div class="event-title">${copy[0]}</div><div class="event-time">${event?hhmm(new Date(event.time)):'—'}</div><div class="event-desc">${event?.desc||copy[1]}</div></div></div>`}
+</section>`)
+}
+function eventTimeline(o){
+  const events=(o.events||[]).filter((e,i,arr)=>i===0||e.status!==arr[i-1].status||e.title!==arr[i-1].title);
+  return events.map((e,i)=>`<div class="event ${i<events.length-1?'done':'current'}"><div class="event-dot"><span class="dot"></span></div><div><div class="event-title">${esc(e.title||statusCopy[e.status]?.[0]||e.status)}</div><div class="event-time">${hhmm(new Date(e.time))}</div><div class="event-desc">${esc(e.desc||'')}</div></div></div>`).join('');
+}
+function paymentLabel(v){return v==='card'?'Cartão':v==='cash'?'Dinheiro':'Pix'}
+function confirmRequote(id){const r=acceptRequote(id);toast(r.ok?'Nova cotação enviada à revenda':r.error);render()}
+function cancelPending(id){const r=customerCancel(id);toast(r.ok?'Pedido cancelado':r.error);render()}

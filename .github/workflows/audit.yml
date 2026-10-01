@@ -1,28 +1,22 @@
-name: Deploy to GitHub Pages
+name: Audit
 
 on:
   push:
-    branches: [main]
+    branches:
+      - audit-v1.1
+  pull_request:
+    branches:
+      - main
   workflow_dispatch:
 
 permissions:
   contents: read
-  pages: write
-  id-token: write
-
-concurrency:
-  group: pages
-  cancel-in-progress: true
 
 jobs:
-  deploy:
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
+  verify:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout
-        uses: actions/checkout@v6
+      - uses: actions/checkout@v6
       - name: Syntax check
         run: |
           for f in js/*.js tests/*.mjs; do
@@ -61,14 +55,5 @@ jobs:
           trap 'kill $CHROME_PID $SERVER_PID 2>/dev/null || true' EXIT
           sleep 2
           node tests/browser-e2e.mjs
-      - name: Validate manifest
+      - name: Validate manifest JSON
         run: node -e "JSON.parse(require('fs').readFileSync('manifest.webmanifest','utf8')); console.log('manifest OK')"
-      - name: Configure Pages
-        uses: actions/configure-pages@v5
-      - name: Upload static site
-        uses: actions/upload-pages-artifact@v4
-        with:
-          path: .
-      - name: Deploy to GitHub Pages
-        id: deployment
-        uses: actions/deploy-pages@v4
