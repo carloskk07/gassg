@@ -24,6 +24,7 @@ const referralGate=fs.readFileSync(new URL('../supabase/migrations/2026100111600
 const settlementIndex=fs.readFileSync(new URL('../supabase/migrations/20261001117000_settlement_adjustment_merchant_index.sql',import.meta.url),'utf8');
 const adminControl=fs.readFileSync(new URL('../supabase/migrations/20261001118000_admin_control_plane.sql',import.meta.url),'utf8');
 const adminReversal=fs.readFileSync(new URL('../supabase/migrations/20261001119000_admin_reversal_authority.sql',import.meta.url),'utf8');
+const adminIndexes=fs.readFileSync(new URL('../supabase/migrations/20261001120000_admin_compliance_fk_indexes.sql',import.meta.url),'utf8');
 const r=repricing.replace(/--.*$/gm,'').replace(/\s+/g,' ').toLowerCase();
 const w=watchdog.replace(/--.*$/gm,'').replace(/\s+/g,' ').toLowerCase();
 const h=hardening.replace(/--.*$/gm,'').replace(/\s+/g,' ').toLowerCase();
@@ -47,6 +48,7 @@ const rg=referralGate.replace(/--.*$/gm,'').replace(/\s+/g,' ').toLowerCase();
 const si=settlementIndex.replace(/--.*$/gm,'').replace(/\s+/g,' ').toLowerCase();
 const ad=adminControl.replace(/--.*$/gm,'').replace(/\s+/g,' ').toLowerCase();
 const ar=adminReversal.replace(/--.*$/gm,'').replace(/\s+/g,' ').toLowerCase();
+const ai=adminIndexes.replace(/--.*$/gm,'').replace(/\s+/g,' ').toLowerCase();
 
 assert.match(r,/create table if not exists public\.order_requote_items/,'re-cotação precisa congelar preços por item');
 assert.match(r,/revoke all on table public\.order_requote_items from anon, authenticated/,'snapshot de re-cotação deve ser server-only');
@@ -190,4 +192,7 @@ assert.match(ad,/admin_financial_action/,'conciliação financeira precisa de au
 assert.match(ar,/admin_reverse_settled_order/,'reversão administrativa precisa de wrapper atômico');
 assert.match(ar,/platform_admin_audit/,'reversão e auditoria precisam ocorrer na mesma transação');
 
-console.log('Requote + watchdog + hardening v1.7 contract passou.');
+assert.match(ai,/merchant_compliance_verified_by_idx/,'FK verified_by do compliance precisa de índice');
+assert.match(ai,/platform_admins_created_by_idx/,'FK created_by da allowlist admin precisa de índice');
+
+console.log('Requote + watchdog + hardening v1.7.2 contract passou.');
