@@ -54,11 +54,16 @@ async function evaluate(expression){
 }
 async function waitFor(expression,label,timeout=7000){
   const end=Date.now()+timeout;
+  let lastEvalError='';
   while(Date.now()<end){
-    try{if(await evaluate(expression))return}catch{}
+    try{if(await evaluate(expression))return}catch(e){lastEvalError=String(e?.message||e)}
     await sleep(100);
   }
-  throw new Error('Timeout: '+label);
+  let debug={};
+  try{
+    debug=JSON.parse(await evaluate(`JSON.stringify({hash:location.hash,href:location.href,text:document.body.innerText.slice(0,1600)})`));
+  }catch{}
+  throw new Error('Timeout: '+label+' | '+JSON.stringify({debug,lastEvalError,pageErrors}));
 }
 async function navigate(url){
   await send('Page.navigate',{url});
