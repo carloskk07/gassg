@@ -212,20 +212,13 @@ Deno.serve(async(req:Request)=>{
       const orderId=uuid(body.orderId,"order");
       const reason=cleanText(body.reason,{min:3,max:240,name:"motivo"});
       const reference=body.reference==null?null:cleanText(body.reference,{min:0,max:120,name:"referência"});
-      const {data,error}=await admin.rpc("reverse_settled_order_financials",{
+      const {data,error}=await admin.rpc("admin_reverse_settled_order",{
+        p_actor_user_id:user.id,
         p_order_id:orderId,
         p_reason:reason,
         p_reference:reference||null
       });
       if(error)throw error;
-      const {error:auditError}=await admin.from("platform_admin_audit").insert({
-        actor_user_id:user.id,
-        action:"order_financial_reversed",
-        target_type:"order",
-        target_id:orderId,
-        metadata:{reason,reference:reference||null}
-      });
-      if(auditError)throw auditError;
       return json(data,200,origin);
     }
 
