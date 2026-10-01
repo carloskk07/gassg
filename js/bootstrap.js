@@ -1,0 +1,4 @@
+function render(){const r=route();const pages={home,order:orderPage,tracking,club,refer,merchants:merchantsLanding,'merchant-join':merchantJoin,merchant:merchantPage,'merchant-orders':merchantOrders,catalog,'merchant-metrics':merchantMetrics};document.querySelector('#app').innerHTML=(pages[r]||home)()}
+window.addEventListener('hashchange',render);
+window.addEventListener('load',()=>{render();if('serviceWorker'in navigator&&location.protocol.startsWith('http'))navigator.serviceWorker.register('./sw.js').catch(()=>{})});
+Object.assign(window,{go,setMode,quickProduct,setAddress,qty,checkout,shareReferral,joinMerchant,selectMerchant,toggleOnline,merchantUpdate,merchantAction,reset});
