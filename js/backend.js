@@ -631,6 +631,12 @@ function openMerchantPortal(){
   url.hash='merchant';
   location.href=url.toString();
 }
+function openCustomerPortal(){
+  const url=new URL(location.href);
+  url.search='';
+  url.hash='home';
+  location.href=url.toString();
+}
 
 globalThis.liveRuntime=liveRuntime;
 globalThis.backendInit=backendInit;
@@ -659,3 +665,4 @@ globalThis.merchantUpdateLogisticsLive=merchantUpdateLogisticsLive;
 globalThis.merchantSubmitApplicationLive=merchantSubmitApplicationLive;
 globalThis.merchantPoll=merchantPoll;
 globalThis.openMerchantPortal=openMerchantPortal;
+globalThis.openCustomerPortal=openCustomerPortal;
