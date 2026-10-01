@@ -382,8 +382,12 @@ function acceptOrder(id){
   if(!reserveInventory(m,o.cart))return reassignOrder(o,'Não foi possível reservar os itens.');
   o.inventoryReserved=true;m.accepted++;
   o.supplierSnapshot={id:m.id,name:m.name};
+  o.acceptedAt=nowIso();
+  const dispatchWindowMin=Math.max(3,Math.min(10,Math.ceil(m.eta*0.35)));
+  o.dispatchDueAt=new Date(Date.now()+dispatchWindowMin*60*1000).toISOString();
+  o.promisedBy=new Date(Date.now()+(m.eta+7)*60*1000).toISOString();
   let r=transition(o,'MERCHANT_ACCEPTED','Revenda confirmou ✓','A revenda confirmou itens, preço e capacidade de entrega.');if(!r.ok)return r;
-  transition(o,'PREPARING','Em preparação','Itens reservados e entrega sendo preparada.');
+  transition(o,'PREPARING','Em preparação',`Itens reservados. A saída deve ser confirmada em até ${dispatchWindowMin} min.`);
   save();return {ok:true};
 }
 function rejectOrder(id){
@@ -453,7 +457,17 @@ function housekeeping(){
   let changed=false;
   for(const o of state.orders){
     if(o.status==='OFFERED_TO_MERCHANT'&&Date.parse(o.offerExpiresAt||'')<=Date.now()){
-      reassignOrder(o,'A revenda não respondeu dentro do prazo de confirmação.');changed=true;
+      reassignOrder(o,'A revenda não respondeu dentro do prazo de confirmação.');changed=true;continue;
+    }
+    if(o.status==='PREPARING'&&Date.parse(o.dispatchDueAt||'')<=Date.now()){
+      const r=transition(o,'AT_RISK','Saída ainda não confirmada','A revenda ultrapassou a janela de preparação. Estamos acompanhando antes de prometer que o pedido está a caminho.');
+      if(r.ok){o.riskReason='Saída ainda não confirmada';changed=true}
+    }
+    if(['OUT_FOR_DELIVERY','ARRIVING'].includes(o.status)&&!o.etaRiskNotifiedAt&&Date.parse(o.promisedBy||'')<=Date.now()){
+      o.etaRiskNotifiedAt=nowIso();
+      o.riskReason='Entrega fora da janela prevista';
+      appendEvent(o,'ETA_RISK','Entrega fora da janela prevista','O ETA máximo foi ultrapassado. O pedido continua ativo e deve receber atualização real, não um status artificial.');
+      changed=true;
     }
   }
   if(changed)save();
@@ -487,5 +501,5 @@ globalThis.ChamaTest={
   freshSeed,normalizeState,normalizeCart,cartAvailableFor,cartTotalFor,offersForCart,isPriceFresh,minPrice,
   createOrderForMerchant,acceptOrder,rejectOrder,dispatchOrder,arrivingOrder,deliverOrder,customerCancel,
   reassignOrder,acceptRequote,transition,updateMerchant,pauseMerchant,resumeMerchant,setCartProduct,grantRewards,
-  hasCartItems,esc,getState:()=>state,setState:s=>{state=normalizeState(s);save();}
+  hasCartItems,esc,housekeeping,getState:()=>state,setState:s=>{state=normalizeState(s);save();}
 };
