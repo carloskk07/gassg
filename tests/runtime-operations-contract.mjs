@@ -47,6 +47,7 @@ const adminRewardRecovery=fs.readFileSync(new URL('../supabase/migrations/202610
 const settlementAccounting=fs.readFileSync(new URL('../supabase/migrations/20261001141000_settlement_accounting_decoupling.sql',import.meta.url),'utf8');
 const strictAccountingReward=fs.readFileSync(new URL('../supabase/migrations/20261001150000_strict_accounting_reward_separation.sql',import.meta.url),'utf8');
 const deterministicClocks=fs.readFileSync(new URL('../supabase/migrations/20261001151000_deterministic_settlement_clocks.sql',import.meta.url),'utf8');
+const impossibleStates=fs.readFileSync(new URL('../supabase/migrations/20261001152000_impossible_order_states.sql',import.meta.url),'utf8');
 const adminAccountingRecovery=fs.readFileSync(new URL('../supabase/migrations/20261001142000_admin_settlement_accounting_recovery.sql',import.meta.url),'utf8');
 const noUnsafeOffset=fs.readFileSync(new URL('../supabase/migrations/20261001143000_disable_unsafe_cashback_offset.sql',import.meta.url),'utf8');
 const customerCancel=fs.readFileSync(new URL('../supabase/migrations/20261001144000_customer_cancel_before_dispatch.sql',import.meta.url),'utf8');
@@ -100,6 +101,7 @@ const arr=adminRewardRecovery.replace(/--.*$/gm,'').replace(/\s+/g,' ').toLowerC
 const sa=settlementAccounting.replace(/--.*$/gm,'').replace(/\s+/g,' ').toLowerCase();
 const sar=strictAccountingReward.replace(/--.*$/gm,'').replace(/\s+/g,' ').toLowerCase();
 const dsc=deterministicClocks.replace(/--.*$/gm,'').replace(/\s+/g,' ').toLowerCase();
+const ios=impossibleStates.replace(/--.*$/gm,'').replace(/\s+/g,' ').toLowerCase();
 const aar=adminAccountingRecovery.replace(/--.*$/gm,'').replace(/\s+/g,' ').toLowerCase();
 const nuo=noUnsafeOffset.replace(/--.*$/gm,'').replace(/\s+/g,' ').toLowerCase();
 const cnc=customerCancel.replace(/--.*$/gm,'').replace(/\s+/g,' ').toLowerCase();
@@ -433,4 +435,12 @@ assert.match(dsc,/platform_contribution_cents,created_at/,'reward grant precisa 
 assert.doesNotMatch(dsc,/v_available_at:=clock_timestamp\(\)/,'retry não pode reiniciar janela de comissão');
 assert.doesNotMatch(dsc,/['"]open['"],clock_timestamp\(\)\+interval '7 days'/,'retry não pode empurrar vencimento financeiro');
 
-console.log('Requote + watchdog + hardening v1.14.8 contract passou.');
+assert.match(ios,/\(status='settled'\) = \(financial_state in \('settled','reversed'\)\)/,'SETTLED precisa equivaler a estado financeiro final');
+assert.match(ios,/financial_state<>'reversed'[\s\S]*financial_reversal_reason is null[\s\S]*financial_reversal_reference is null/,'metadados de reversal não podem vazar para pedido não revertido');
+assert.match(ios,/proposed_total_cents = proposed_gross_total_cents - cashback_reserved_cents/,'re-cotação precisa fechar aritmeticamente');
+assert.match(ios,/proposed_merchant_id is distinct from merchant_id/,'re-cotação precisa apontar para outra revenda');
+assert.match(ios,/merchant_id=any\(attempted_merchant_ids\)/,'revenda atual precisa constar no histórico de tentativas');
+assert.match(ios,/not \(proposed_merchant_id=any\(attempted_merchant_ids\)\)/,'candidata de re-cotação não pode ter sido tentada antes');
+assert.match(ios,/cardinality\(attempted_merchant_ids\) between 0 and 100/,'histórico de matching precisa ser limitado');
+
+console.log('Requote + watchdog + hardening v1.14.9 contract passou.');
