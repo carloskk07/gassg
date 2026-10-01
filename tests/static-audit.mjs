@@ -47,17 +47,27 @@ assert.ok(core.includes('isValidCnpjShape'),'core precisa suportar validação e
 assert.ok(!merchant.includes('.stock'),'UI da revenda não deve depender do campo legado stock');
 assert.ok(growth.includes('referralCode'),'link de indicação deve usar código pessoal');
 assert.ok(!growth.includes('inputmode="numeric" maxlength="18"'),'campo CNPJ não pode forçar teclado somente numérico após adoção do CNPJ alfanumérico');
-assert.ok(sw.includes("CACHE='chama-sg-v1.17'"),'cache do service worker precisa estar versionado');
+assert.ok(sw.includes("CACHE='chama-sg-v1.18'"),'cache do service worker precisa estar versionado');
 assert.ok(sw.includes("./js/backend.js"),'runtime live precisa estar no cache da PWA');
 assert.ok(sw.includes("./js/runtime-config.js"),'configuração pública de origins precisa estar no cache da PWA');
+assert.ok(sw.includes("./js/turnstile.js"),'helper local do Turnstile precisa estar no cache da PWA');
+assert.ok(html.indexOf('./js/turnstile.js')<html.indexOf('./js/backend.js'),'helper Turnstile deve carregar antes do backend');
 assert.ok(html.indexOf('./js/runtime-config.js')<html.indexOf('./js/backend.js'),'runtime-config.js deve carregar antes do backend');
 const runtimeConfig=read('js/runtime-config.js');
 assert.ok(runtimeConfig.includes("CHAMA_CUSTOMER_ORIGIN=''")&&runtimeConfig.includes("CHAMA_MERCHANT_ORIGIN=''")&&runtimeConfig.includes("CHAMA_ADMIN_ORIGIN=''"),'GitHub Pages deve falhar fechado sem origins privilegiadas');
+assert.ok(runtimeConfig.includes("CHAMA_TURNSTILE_SITE_KEY=''"),'GitHub Pages não pode embutir site key de Turnstile do portal real');
 assert.ok(!runtimeConfig.includes('github.io'),'config padrão não pode autorizar origin compartilhada');
 assert.ok(backend.includes("sb_publishable_"),'frontend live deve usar publishable key explícita');
 assert.ok(!backend.includes("sb_secret_"),'frontend jamais pode conter secret key');
 assert.ok(!backend.includes("service_role"),'frontend jamais pode depender de service_role');
 assert.ok(backend.includes("signInAnonymously"),'modo live do cliente precisa de Auth anônimo');
+assert.ok(backend.includes("chamaTurnstile.challenge"),'nova identidade anônima deve exigir desafio Turnstile');
+assert.ok(backend.includes("options:{captchaToken}"),'token Turnstile deve ser entregue ao Auth do Supabase');
+const turnstile=read('js/turnstile.js');
+assert.ok(turnstile.includes('https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit'),'Turnstile deve carregar a API oficial em modo explícito');
+assert.ok(turnstile.includes("action:'anonymous_signin'"),'desafio deve possuir action específica');
+assert.ok(turnstile.includes('CHAMA_TURNSTILE_SITE_KEY'),'helper deve depender da site key pública de runtime');
+
 assert.ok(backend.includes("get-offers")&&backend.includes("create-order")&&backend.includes("get-order"),'runtime live precisa usar Edge Functions seguras');
 assert.ok(backend.includes('@supabase/supabase-js@2.117.2'),'browser deve fixar versão exata do supabase-js');
 assert.ok(!backend.includes('@supabase/supabase-js@2\''),'browser não pode usar major flutuante do supabase-js');
