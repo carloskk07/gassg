@@ -19,12 +19,22 @@ const MERCHANT_ALLOWED_ORIGIN=(Deno.env.get("MERCHANT_ALLOWED_ORIGIN")??"").trim
 const UUID_RE=/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 const PRODUCT_NAMES:Record<string,string>={
-  P13:"Gás P13",
   WATER20:"Água 20 L",
   CHARCOAL4:"Carvão 4 kg",
   WOOD:"Lenha",
   ICE5:"Gelo 5 kg"
 };
+function glpKgForCode(code:string){
+  const match=/^P([1-9][0-9]?)$/.exec(code);
+  if(!match)return null;
+  const kg=Number(match[1]);
+  return Number.isInteger(kg)&&kg>=1&&kg<=90?kg:null;
+}
+function productNameForCode(code:string){
+  const kg=glpKgForCode(code);
+  if(kg!==null)return "Gás P"+kg;
+  return PRODUCT_NAMES[code]??null;
+}
 
 function originAllowed(origin:string|null){
   if(!origin)return true;
@@ -148,8 +158,9 @@ Deno.serve(async(req:Request)=>{
 
     if(action==="update-product"){
       if(!canManage(role))throw new DomainError("MERCHANT_ACCESS_DENIED","Somente owner/manager pode alterar catálogo.",403);
-      const productCode=String(body.productCode??"").toUpperCase();
-      if(!PRODUCT_NAMES[productCode])throw new DomainError("INVALID_PRODUCT","Produto inválido.",400);
+      const productCode=String(body.productCode??"").trim().toUpperCase();
+      const productName=productNameForCode(productCode);
+      if(!productName)throw new DomainError("INVALID_PRODUCT","Produto inválido.",400);
       const priceCents=asPositiveInt(body.priceCents,"priceCents",{min:1,max:100000000});
       const availableStock=asPositiveInt(body.availableStock,"availableStock",{min:0,max:100000});
       const active=body.active!==false;
@@ -159,7 +170,7 @@ Deno.serve(async(req:Request)=>{
         .upsert({
           merchant_id:merchantId,
           product_code:productCode,
-          product_name:PRODUCT_NAMES[productCode],
+          product_name:productName,
           price_cents:priceCents,
           available_stock:availableStock,
           active,
