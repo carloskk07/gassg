@@ -82,6 +82,17 @@ assert.ok(admin.includes("/functions/v1/admin-ops"),'admin deve operar somente p
 assert.ok(!admin.includes("service_role")&&!admin.includes("sb_secret_"),'frontend admin jamais pode conter autoridade server-side');
 assert.ok(read('supabase/functions/admin-ops/index.ts').includes('platform_admins'),'Edge admin deve exigir allowlist server-side');
 assert.ok(read('supabase/functions/admin-ops/index.ts').includes('ADMIN_ACCESS_DENIED'),'Edge admin deve negar conta fora da allowlist');
+const adminOpsSource=read('supabase/functions/admin-ops/index.ts');
+assert.ok(adminOpsSource.includes('requestFingerprint'),'mutações admin devem possuir fingerprint canônico');
+assert.ok(adminOpsSource.includes('Idempotency-Key'),'Edge admin deve exigir chave idempotente');
+assert.ok(adminOpsSource.includes('admin_execute_action'),'Edge admin deve usar autoridade idempotente única');
+assert.ok(adminOpsSource.includes('idempotency-key'),'CORS admin precisa aceitar o header idempotente');
+assert.ok(!adminOpsSource.includes('.rpc("admin_financial_action"'),'Edge admin não pode contornar a autoridade idempotente financeira');
+assert.ok(!adminOpsSource.includes('.rpc("admin_reverse_settled_order"'),'Edge admin não pode contornar a autoridade idempotente de reversão');
+assert.ok(!adminOpsSource.includes('.rpc("admin_approve_merchant_application"'),'Edge admin não pode aprovar parceiro fora da autoridade idempotente');
+assert.ok(admin.includes("headers['Idempotency-Key']"),'frontend admin precisa enviar chave idempotente');
+assert.ok(admin.includes("adminIdempotency('admin-'+action)"),'cada mutação admin precisa criar uma chave própria');
+
 
 const getOrderSource=read('supabase/functions/get-order/index.ts');
 assert.ok(getOrderSource.includes('["owner","manager","operator"].includes(membership.member_role)'),'driver sem assignment não pode ler pedido individual');
