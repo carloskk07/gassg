@@ -4,9 +4,11 @@ import fs from 'node:fs';
 const repricing=fs.readFileSync(new URL('../supabase/migrations/20261001071000_freeze_requote_item_prices.sql',import.meta.url),'utf8');
 const watchdog=fs.readFileSync(new URL('../supabase/migrations/20261001072000_add_order_timeout_watchdog.sql',import.meta.url),'utf8');
 const hardening=fs.readFileSync(new URL('../supabase/migrations/20261001090000_hardening_v1_5.sql',import.meta.url),'utf8');
+const requote=fs.readFileSync(new URL('../supabase/migrations/20261001093000_requote_contract_hardening.sql',import.meta.url),'utf8');
 const r=repricing.replace(/--.*$/gm,'').replace(/\s+/g,' ').toLowerCase();
 const w=watchdog.replace(/--.*$/gm,'').replace(/\s+/g,' ').toLowerCase();
 const h=hardening.replace(/--.*$/gm,'').replace(/\s+/g,' ').toLowerCase();
+const q=requote.replace(/--.*$/gm,'').replace(/\s+/g,' ').toLowerCase();
 
 assert.match(r,/create table if not exists public\.order_requote_items/,'re-cotação precisa congelar preços por item');
 assert.match(r,/revoke all on table public\.order_requote_items from anon, authenticated/,'snapshot de re-cotação deve ser server-only');
@@ -44,5 +46,12 @@ assert.match(h,/create or replace function public\.process_data_retention/,'dado
 assert.match(h,/chama-data-retention/,'retenção precisa ser agendada');
 assert.match(h,/order_delivery_secrets[\s\S]*interval '24 hours'/,'PIN bruto consumido precisa expirar');
 assert.match(h,/public\.quotes[\s\S]*interval '24 hours'/,'quotes expirados precisam ser limpos');
+
+assert.match(q,/proposed_delivery_fee_cents/,'re-cotação precisa congelar taxa de entrega');
+assert.match(q,/interval '5 minutes'/,'re-cotação precisa ter validade limitada');
+assert.match(q,/requote_expired/,'aceite de re-cotação expirada precisa ser bloqueado');
+assert.match(q,/system_expire_requote/,'watchdog precisa encerrar re-cotação abandonada');
+assert.match(q,/expiredrequotesprocessed/,'watchdog precisa reportar re-cotações expiradas');
+assert.match(q,/old\.proposed_delivery_fee_cents/,'troca de fornecedor deve validar taxa congelada, não taxa atual');
 
 console.log('Requote + watchdog + hardening v1.5 contract passou.');
