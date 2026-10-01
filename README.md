@@ -1,90 +1,179 @@
 # Chama São Gabriel — MVP PWA
 
-Marketplace hiperlocal de gás e abastecimento para São Gabriel/RS.
+Marketplace hiperlocal de gás e abastecimento essencial para São Gabriel/RS.
 
 ## Online
 
-**https://carloskk07.github.io/gassg/**
+**Demonstração pública:** https://carloskk07.github.io/gassg/
 
-A aplicação é publicada automaticamente pela branch `main` via GitHub Pages. O deploy só acontece depois que os gates automatizados passam.
+A branch `main` é publicada no GitHub Pages somente depois dos gates automatizados.
 
-## Estado atual
+Durante o piloto existem duas entradas protegidas por parâmetros:
 
-**Online demo:** funcional.
+- Cliente real: `?live=1#home`
+- Revenda real: `?merchant=1#merchant`
 
-**Piloto multiusuário real:** ainda não está ativado. A arquitetura do backend já está preparada em `supabase/`, mas só será aplicada em um projeto Supabase exclusivo do Chama, separado do Reward Pulse.
+O modo padrão continua sendo demonstração. Nenhum preço ou revenda fictícia é apresentado como dado real no modo live.
 
-A auditoria técnica completa está em [AUDIT.md](./AUDIT.md). O contrato de backend está em [supabase/README.md](./supabase/README.md), [supabase/API.md](./supabase/API.md) e [supabase/THREAT_MODEL.md](./supabase/THREAT_MODEL.md).
+## Estado atual — v1.6.7
 
-## Fluxos implementados
+**Demonstração:** funcional.
 
-- Preço Agora e comparação de ofertas.
-- Mais barato, Recomendado e Mais rápido.
-- Carrinho multiproduto sem obrigar P13.
-- P13, água, carvão, lenha e gelo.
-- Preço protegido.
-- Aceite explícito da revenda.
-- Prazo de aceite e reatribuição.
-- Preparação com deadline operacional.
-- Confirmação explícita de saída antes de exibir “A caminho”.
-- Risco de atraso visível ao cliente.
-- PIN de quatro dígitos para prova de entrega.
-- Cashback e Clube.
-- Indicação com link pessoal.
-- Cadastro de novas revendas, inclusive CNPJ alfanumérico.
-- Painel de revenda, estoque e Trust Score.
-- PWA instalável com service worker.
+**Backend multiusuário:** aplicado no projeto Supabase exclusivo do Chama.
 
-## Testes de release
+**Piloto real:** tecnicamente preparado, mas ainda depende do onboarding e da validação ponta a ponta das primeiras revendas reais. O banco ainda não possui pedidos, revendas ou memberships de produção.
 
-- testes de sintaxe;
-- simulações de domínio/falhas;
-- auditoria estática;
-- smoke em Chrome móvel;
-- E2E completo em Chrome;
-- validação do manifest PWA.
+Antes de liberar usuários reais em volume, devem ser comprovados com contas reais:
 
-> Nomes, preços, distâncias e ETAs atuais são demonstrativos até conectarmos os três parceiros reais.
+1. login permanente da revenda e vínculo em `merchant_members`;
+2. URLs de redirecionamento do Supabase Auth;
+3. conversão de cliente anônimo para conta permanente por e-mail;
+4. primeiro fluxo em dois dispositivos: cliente → revenda → entrega → pagamento + PIN → benefícios;
+5. processo operacional de cobrança/reembolso entre plataforma e revenda.
 
+## O que já existe
 
-## Runtime v1.4 — piloto real protegido
+### Cliente
 
-O backend real já existe no projeto Supabase exclusivo do Chama (`lgugwujpunhslavewffd`) e não compartilha dados com Reward Pulse.
+- PWA mobile-first;
+- Anonymous Auth no piloto para reduzir atrito;
+- consulta de ofertas reais por Edge Function;
+- cesta multiproduto sem obrigar P13;
+- P13, água, carvão, lenha e gelo;
+- preço e itens congelados em quote server-side;
+- ofertas “Recomendado”, “Mais barato” e “Mais rápido” sem revelar a revenda;
+- apenas um pedido ativo por cliente;
+- re-cotação mais cara somente com aceite explícito;
+- tracking server-side;
+- PIN mostrado somente após saída real;
+- cashback, fidelidade e indicação;
+- conversão da conta anônima para identidade permanente sem trocar `user_id`.
 
-O site continua abrindo em **modo demonstração por padrão**. Para solicitar o runtime real durante o piloto, use:
+### Revenda
 
-`https://carloskk07.github.io/gassg/?live=1#home`
+- portal real separado da sessão do cliente;
+- login passwordless por e-mail;
+- somente `owner`, `manager` e `operator` podem operar pedidos no piloto;
+- papel `driver` permanece bloqueado até existir atribuição por pedido;
+- endereço do cliente oculto antes do aceite;
+- online/offline e heartbeat;
+- preço/estoque P13;
+- taxa de entrega e ETA;
+- aceite, recusa, rescue pós-aceite, saída, chegada e conclusão;
+- conclusão exige **pagamento confirmado + PIN correto**.
 
-O modo live:
-- tenta criar/restaurar uma sessão de cliente via Supabase Anonymous Auth;
-- consulta apenas ofertas reais do Supabase;
-- não usa os preços demonstrativos como se fossem reais;
-- cria pedidos por quote server-side e idempotência;
-- acompanha o pedido por uma projeção segura do backend;
-- não revela a identidade da revenda antes do aceite;
-- mostra o PIN somente quando o pedido realmente saiu para entrega;
-- mantém o demo intacto se o modo live não for solicitado.
+### Backend e segurança
 
-**Importante:** Anonymous Sign-Ins precisa estar habilitado no painel do Supabase antes de testar o cliente real. A área real da revenda exige identidade permanente e vínculo em `merchant_members`; ela ainda não é aberta automaticamente para parceiros sem aprovação.
+O navegador não possui acesso direto às tabelas da aplicação. RLS permanece ativo e os grants/policies de `anon/authenticated` foram removidos do data-plane; toda leitura/escrita real passa por projeções ou autoridades Edge server-side.
 
-### Autoridade operacional real
+Edge Functions atuais:
 
-O Supabase atualmente possui:
 - `get-offers`
 - `create-order`
 - `get-order`
 - `customer-action`
+- `customer-summary`
 - `merchant-orders`
 - `merchant-action`
 - `merchant-ops`
 - `complete-delivery`
 - `submit-merchant-application`
 
-Todas as funções acima exigem JWT. Mutações financeiras/status críticas chegam ao banco através de RPCs server-side restritos ao `service_role`.
+Proteções implementadas:
 
-O banco também executa `chama-order-watchdog` a cada minuto para:
-- resgatar pedidos sem aceite;
-- marcar preparação atrasada como `AT_RISK`;
-- registrar `ETA_RISK` quando a promessa máxima de entrega é ultrapassada.
+- JWT validado em todas as Edge Functions;
+- publishable key no browser; secret/service role nunca no frontend;
+- dependências fixadas em versão;
+- payload JSON limitado a 16 KB, inclusive streaming/chunked;
+- quotas atômicas por usuário;
+- idempotência de mutações;
+- optimistic concurrency por `version`;
+- snapshots atômicos de quote;
+- rescue centralizado;
+- preço, taxa e itens congelados em re-cotação;
+- PIN com `pgcrypto`, cinco tentativas e retenção curta;
+- service worker network-first com cache `v1.6`.
 
-Preços unitários são congelados também durante rescue/requote; uma troca de revenda não pode deixar `order_items` com preços da fornecedora anterior.
+## Confirmações de credibilidade do pedido
+
+O sistema não avança por inferência de interface:
+
+`OFFERED_TO_MERCHANT → PREPARING → OUT_FOR_DELIVERY → ARRIVING → SETTLED`
+
+Cada mudança exige autoridade server-side. “A caminho” só aparece depois de `dispatch`; “Concluído” exige pagamento confirmado e PIN correto.
+
+Se a revenda aceita e depois não consegue concluir, `cannot-fulfill` devolve o estoque reservado e inicia rescue atômico. Se a alternativa for mais cara, o cliente precisa aceitar a nova condição dentro da janela de re-cotação.
+
+## Modelo financeiro v1.6
+
+A unidade econômica é congelada na criação de cada pedido. Política inicial do piloto:
+
+- taxa da plataforma: **7,5%** do valor bruto;
+- reserva de custo variável: **0,75%**;
+- contribuição mínima da plataforma: **2,5%**;
+- cashback alvo: **1,0%**;
+- indicação direta alvo: **2,0%**, apenas para aquisição do cliente;
+- hold de comissão: **168 horas**.
+
+Cashback e comissão são limitados pela receita real da plataforma. O banco possui constraint que impede os benefícios de romperem a contribuição mínima.
+
+Quando cashback antigo é usado, o cliente paga menos, mas a revenda continua tendo direito ao valor cheio. Por isso o backend registra separadamente:
+
+- taxa da plataforma a receber;
+- cashback resgatado a reembolsar à revenda;
+- ajustes de reversão;
+- posição financeira líquida por revenda.
+
+Comissão pode ficar pendente para um usuário anônimo, mas só amadurece para saldo disponível depois que o mesmo `user_id` vira identidade permanente.
+
+## Reversões
+
+Entrega operacional e liquidação financeira são estados diferentes. Um pedido entregue pode permanecer no histórico como `SETTLED` e depois ter `financial_state=reversed`.
+
+Uma reversão server-side:
+
+- estorna cashback concedido;
+- retira comissão pendente ou disponível;
+- reabre a elegibilidade da indicação quando aplicável;
+- reverte a taxa da plataforma;
+- trata reembolso de cashback já pago à revenda;
+- mantém trilha de auditoria e é idempotente.
+
+## Jobs automáticos
+
+- `chama-order-watchdog`: a cada minuto;
+- `chama-reward-maturation`: a cada hora;
+- `chama-data-retention`: diariamente;
+- `chama-anonymous-cleanup`: diariamente.
+
+Usuários anônimos só são eliminados após 45 dias se não possuírem pedido, carteira, indicação, cadastro de revenda, membership ou identidade vinculada.
+
+## Gates de release
+
+O CI executa:
+
+- sintaxe/checagem das Edge Functions;
+- **34 simulações de domínio e falhas**;
+- auditoria estática;
+- contratos SQL/migrations;
+- contratos de runtime;
+- smoke em Chrome móvel;
+- E2E completo em Chrome;
+- validação do manifest/PWA.
+
+Nenhuma mudança deve ir para `main` com gate vermelho.
+
+## Limites deliberados do piloto
+
+Ainda não são considerados concluídos:
+
+- onboarding das três revendas reais e validação regulatória;
+- geocodificação/roteamento real por rua em vez do escopo cidade;
+- PSP/split/Pix payout automatizado;
+- saque real de comissão;
+- atribuição individual de motorista;
+- painel administrativo completo para aprovação, suporte, reversão e conciliação;
+- WhatsApp/push de produção;
+- contratos, termos, privacidade e procedimento operacional final.
+
+Veja também [AUDIT.md](./AUDIT.md), [supabase/README.md](./supabase/README.md), [supabase/API.md](./supabase/API.md) e [supabase/THREAT_MODEL.md](./supabase/THREAT_MODEL.md).
