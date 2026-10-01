@@ -182,10 +182,23 @@ Deno.serve(async (req: Request) => {
     const merchantIds = merchants.map((m) => m.id);
     const productCodes = items.map((x) => x.productCode);
 
+    const {data:compatibleMerchantIds,error:compatibilityError}=await admin.rpc(
+      "filter_delivery_compatible_merchants",
+      {p_merchant_ids:merchantIds,p_product_codes:productCodes}
+    );
+    if(compatibilityError)throw compatibilityError;
+
+    const compatibleSet=new Set((compatibleMerchantIds??[]) as string[]);
+    const compatibleMerchants=merchants.filter((m)=>compatibleSet.has(m.id));
+    if(!compatibleMerchants.length){
+      return json({offers:[],deliveryCompatibilityBlocked:true},200,origin);
+    }
+    const compatibleIds=compatibleMerchants.map((m)=>m.id);
+
     const { data: catalog, error: catalogError } = await admin
       .from("catalog_items")
       .select("merchant_id,product_code,product_name,price_cents,available_stock,price_confirmed_at")
-      .in("merchant_id", merchantIds)
+      .in("merchant_id", compatibleIds)
       .in("product_code", productCodes)
       .eq("active", true)
       .gte("price_confirmed_at", priceCutoff);
@@ -199,7 +212,7 @@ Deno.serve(async (req: Request) => {
     }
 
     const candidates: Candidate[] = [];
-    for (const merchant of merchants) {
+    for (const merchant of compatibleMerchants) {
       const merchantCatalog = byMerchant.get(merchant.id);
       if (!merchantCatalog) continue;
 
@@ -280,7 +293,7 @@ Deno.serve(async (req: Request) => {
 
       if(quoteError){
         const message=String(quoteError.message??"");
-        if(message.includes("QUOTE_SOURCE_STALE"))continue;
+        if(message.includes("QUOTE_SOURCE_STALE")||message.includes("DELIVERY_INCOMPATIBLE"))continue;
         throw quoteError;
       }
       if(!quote)throw new Error("Quote snapshot failed");
