@@ -27,6 +27,7 @@ const adminReversal=fs.readFileSync(new URL('../supabase/migrations/202610011190
 const adminIndexes=fs.readFileSync(new URL('../supabase/migrations/20261001120000_admin_compliance_fk_indexes.sql',import.meta.url),'utf8');
 const adminIdem=fs.readFileSync(new URL('../supabase/migrations/20261001121000_admin_action_idempotency.sql',import.meta.url),'utf8');
 const cashbackRestore=fs.readFileSync(new URL('../supabase/migrations/20261001122000_restore_spent_cashback_on_reversal.sql',import.meta.url),'utf8');
+const rewardRetry=fs.readFileSync(new URL('../supabase/migrations/20261001123000_fault_tolerant_reward_processing.sql',import.meta.url),'utf8');
 const r=repricing.replace(/--.*$/gm,'').replace(/\s+/g,' ').toLowerCase();
 const w=watchdog.replace(/--.*$/gm,'').replace(/\s+/g,' ').toLowerCase();
 const h=hardening.replace(/--.*$/gm,'').replace(/\s+/g,' ').toLowerCase();
@@ -53,6 +54,7 @@ const ar=adminReversal.replace(/--.*$/gm,'').replace(/\s+/g,' ').toLowerCase();
 const ai=adminIndexes.replace(/--.*$/gm,'').replace(/\s+/g,' ').toLowerCase();
 const adm=adminIdem.replace(/--.*$/gm,'').replace(/\s+/g,' ').toLowerCase();
 const cr=cashbackRestore.replace(/--.*$/gm,'').replace(/\s+/g,' ').toLowerCase();
+const fr=rewardRetry.replace(/--.*$/gm,'').replace(/\s+/g,' ').toLowerCase();
 
 assert.match(r,/create table if not exists public\.order_requote_items/,'re-cotação precisa congelar preços por item');
 assert.match(r,/revoke all on table public\.order_requote_items from anon, authenticated/,'snapshot de re-cotação deve ser server-only');
@@ -209,4 +211,13 @@ assert.match(cr,/cashback_reserved_cents/,'devolução deve usar exatamente o ca
 assert.match(cr,/cashback-spent-return/,'devolução de cashback deve ser idempotente por pedido');
 assert.match(cr,/after insert on public\.order_financial_reversals/,'cashback gasto deve voltar na mesma transação da reversão');
 
-console.log('Requote + watchdog + hardening v1.7.4 contract passou.');
+assert.match(fr,/v_order\.financial_state<>'settled'/,'reward grant precisa rejeitar pedido financeiramente revertido');
+assert.match(fr,/financial_reversed_at is not null/,'reward grant precisa bloquear reversão financeira já registrada');
+assert.match(fr,/create table if not exists public\.reward_processing_failures/,'falhas de reward precisam ser persistidas server-side');
+assert.match(fr,/exception when others[\s\S]*reward_processing_failures/,'falha de reward não pode derrubar settlement operacional');
+assert.match(fr,/process_deferred_order_rewards/,'rewards adiados precisam de retry idempotente');
+assert.match(fr,/o\.financial_state='settled'/,'retry só pode atuar em settlement financeiro válido');
+assert.match(fr,/g\.order_id is null/,'retry não pode duplicar reward já concedido');
+assert.match(fr,/chama-reward-retry/,'retry de rewards precisa de cron dedicado');
+
+console.log('Requote + watchdog + hardening v1.7.5 contract passou.');
