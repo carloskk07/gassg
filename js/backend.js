@@ -21,6 +21,11 @@ const liveRuntime={
   orderRequestSeq:0
 };
 
+function customerOriginSafe(){
+  if(['localhost','127.0.0.1'].includes(location.hostname))return true;
+  const configured=String(globalThis.CHAMA_CUSTOMER_ORIGIN||'').trim();
+  return configured.length>0&&location.origin===configured;
+}
 function liveRequested(){return liveRuntime.requested}
 function liveReady(){return liveRuntime.requested&&liveRuntime.status==='ready'}
 
@@ -54,6 +59,11 @@ function loadSupabaseBrowser(){
 async function backendInit(){
   if(!liveRuntime.requested){
     liveRuntime.status='disabled';
+    return false;
+  }
+  if(!customerOriginSafe()){
+    liveRuntime.status='unsafe-origin';
+    liveRuntime.error='O piloto real do cliente exige uma origem dedicada e isolada.';
     return false;
   }
   if(liveRuntime.status==='ready')return true;
@@ -678,6 +688,7 @@ function openCustomerPortal(){
 }
 
 globalThis.liveRuntime=liveRuntime;
+globalThis.customerOriginSafe=customerOriginSafe;
 globalThis.backendInit=backendInit;
 globalThis.liveRequested=liveRequested;
 globalThis.liveReady=liveReady;
