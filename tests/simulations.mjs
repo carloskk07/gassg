@@ -260,13 +260,28 @@ test('estoque complementar é reservado junto com o P13',()=>{
   assert.ok(Object.values(after).every(v=>v>=0));
 });
 
-test('cancelamento simples deixa de ser permitido depois do aceite',()=>{
-  reset(x=>{x.address='Rua Teste, 160';x.cart=cart(['P13',1])});
+test('cliente pode cancelar depois do aceite enquanto a saída não foi confirmada',()=>{
+  reset(x=>{x.address='Rua Teste, 160';x.cart=cart(['P13',1]);x.user.cashback=10;x.checkout.useCashback=true});
+  const before=T.getState().merchants.find(m=>m.id==='A').inventory.P13;
+  const o=T.createOrderForMerchant('A').order;
+  assert.equal(T.acceptOrder(o.id).ok,true);
+  assert.equal(T.getState().merchants.find(m=>m.id==='A').inventory.P13,before-1);
+  const r=T.customerCancel(o.id);
+  assert.equal(r.ok,true);
+  assert.equal(T.getState().orders[0].status,'CANCELLED');
+  assert.equal(T.getState().merchants.find(m=>m.id==='A').inventory.P13,before);
+  assert.equal(T.getState().user.cashback,10);
+});
+
+test('cancelamento automático é recusado depois que a entrega saiu',()=>{
+  reset(x=>{x.address='Rua Teste, 165';x.cart=cart(['P13',1])});
   const o=T.createOrderForMerchant('A').order;
   T.acceptOrder(o.id);
+  T.dispatchOrder(o.id);
   const r=T.customerCancel(o.id);
   assert.equal(r.ok,false);
-  assert.equal(T.getState().orders[0].status,'PREPARING');
+  assert.match(r.error,/já saiu/i);
+  assert.equal(T.getState().orders[0].status,'OUT_FOR_DELIVERY');
 });
 
 test('cashback não pode ser restaurado duas vezes pelo mesmo cancelamento',()=>{
