@@ -127,6 +127,11 @@ assert.ok(customer.includes('cesta mista'),'UI cliente deve explicar alternativa
 assert.ok(adminOpsSource.includes('merchant_delivery_capabilities'),'resumo admin precisa expor capabilities logísticas');
 assert.ok(adminOpsSource.includes('admin_delivery_capability_action'),'Edge admin deve usar autoridade idempotente de capability');
 assert.ok(admin.includes('Capacidade logística verificada para cesta mista com GLP'),'painel admin precisa mostrar capability GLP mista');
+assert.ok(adminOpsSource.includes('referral_reward_reviews'),'resumo admin precisa carregar fila de risco de indicação');
+assert.ok(adminOpsSource.includes('admin_referral_review_action'),'review de referral deve usar autoridade idempotente dedicada');
+assert.ok(admin.includes('Revisão de indicações'),'painel admin precisa mostrar fila de indicações suspeitas');
+assert.ok(admin.includes('adminReviewReferral'),'painel admin precisa permitir decisão auditada sobre referral');
+
 
 
 
