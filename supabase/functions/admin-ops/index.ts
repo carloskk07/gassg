@@ -62,7 +62,7 @@ function cleanText(value:unknown,{min=0,max=240,name="texto"}={}){
   if(v.length<min||v.length>max)throw new DomainError("INVALID_TEXT",name+" inválido.",400);
   return v;
 }
-async function requireAdmin(admin:ReturnType<typeof createClient>,userId:string){
+async function requireAdmin(admin:any,userId:string){
   const {data,error}=await admin
     .from("platform_admins")
     .select("user_id,active")
@@ -72,7 +72,7 @@ async function requireAdmin(admin:ReturnType<typeof createClient>,userId:string)
   if(error)throw error;
   if(!data)throw new DomainError("ADMIN_ACCESS_DENIED","Esta conta não possui acesso administrativo.",403);
 }
-async function summary(admin:ReturnType<typeof createClient>){
+async function summary(admin:any){
   const [apps,merchants,compliance,receivables,reimbursements,adjustments,audit]=await Promise.all([
     admin.from("merchant_applications")
       .select("id,applicant_user_id,cnpj,company_name,responsible_name,phone,address_text,status,created_at,updated_at")
