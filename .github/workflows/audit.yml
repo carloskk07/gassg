@@ -1,0 +1,29 @@
+name: Audit
+
+on:
+  push:
+    branches:
+      - audit-v1.1
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - name: Syntax check
+        run: |
+          for f in js/*.js tests/*.mjs; do
+            echo "Checking $f"
+            node --check "$f"
+          done
+      - name: Marketplace simulations
+        run: node tests/simulations.mjs
+      - name: Validate manifest JSON
+        run: node -e "JSON.parse(require('fs').readFileSync('manifest.webmanifest','utf8')); console.log('manifest OK')"
