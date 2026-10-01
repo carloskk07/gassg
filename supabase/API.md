@@ -2,6 +2,15 @@
 
 As funções abaixo serão a única superfície de escrita do piloto real. O browser usa somente publishable key + JWT do usuário. A secret/service key fica apenas no ambiente server-side.
 
+## Auth boundary
+
+- a publishable key identifica o componente público do app; ela não prova identidade do usuário;
+- toda Edge Function extrai o Bearer JWT e valida a sessão com Supabase Auth antes de usar privilégios server-side;
+- Anonymous Auth é aceito somente nos fluxos de cliente e deve usar CAPTCHA/rate limiting quando habilitado;
+- ações de revenda rejeitam usuários com identidade anônima e exigem membership ativo;
+- autorização nunca usa `user_metadata`; vínculo operacional vem de tabelas server-side como `merchant_members`;
+- configuração de JWT/API key da Edge Function deve seguir a documentação vigente do Supabase no momento do deploy; a função continua fazendo validação explícita do usuário mesmo que a plataforma faça verificação adicional.
+
 ## 1. get-offers
 
 **Quem chama:** cliente autenticado, inclusive Anonymous Auth.
