@@ -40,13 +40,30 @@ assert.ok(core.includes('isValidCnpjShape'),'core precisa suportar validação e
 assert.ok(!merchant.includes('.stock'),'UI da revenda não deve depender do campo legado stock');
 assert.ok(growth.includes('referralCode'),'link de indicação deve usar código pessoal');
 assert.ok(!growth.includes('inputmode="numeric" maxlength="18"'),'campo CNPJ não pode forçar teclado somente numérico após adoção do CNPJ alfanumérico');
-assert.ok(sw.includes("CACHE='chama-sg-v1.4'"),'cache do service worker precisa estar versionado');
+assert.ok(sw.includes("CACHE='chama-sg-v1.5'"),'cache do service worker precisa estar versionado');
 assert.ok(sw.includes("./js/backend.js"),'runtime live precisa estar no cache da PWA');
 assert.ok(backend.includes("sb_publishable_"),'frontend live deve usar publishable key explícita');
 assert.ok(!backend.includes("sb_secret_"),'frontend jamais pode conter secret key');
 assert.ok(!backend.includes("service_role"),'frontend jamais pode depender de service_role');
 assert.ok(backend.includes("signInAnonymously"),'modo live do cliente precisa de Auth anônimo');
 assert.ok(backend.includes("get-offers")&&backend.includes("create-order")&&backend.includes("get-order"),'runtime live precisa usar Edge Functions seguras');
+assert.ok(backend.includes('@supabase/supabase-js@2.117.2'),'browser deve fixar versão exata do supabase-js');
+assert.ok(!backend.includes('@supabase/supabase-js@2\''),'browser não pode usar major flutuante do supabase-js');
+assert.ok(backend.includes('offerRequestSeq')&&backend.includes('orderRequestSeq'),'runtime live precisa bloquear respostas assíncronas obsoletas');
+assert.ok(backend.includes('liveRuntime.actionPending'),'polling precisa respeitar ação em andamento');
+
+const functionRoot=path.join(root,'supabase/functions');
+for(const entry of fs.readdirSync(functionRoot,{withFileTypes:true})){
+  if(!entry.isDirectory()||entry.name==='_shared')continue;
+  const file=path.join(functionRoot,entry.name,'index.ts');
+  if(!fs.existsSync(file))continue;
+  const source=fs.readFileSync(file,'utf8');
+  assert.ok(source.includes('jsr:@supabase/functions-js@2.117.2/edge-runtime.d.ts'),entry.name+' precisa fixar functions-js');
+  assert.ok(source.includes('npm:@supabase/supabase-js@2.117.2'),entry.name+' precisa fixar supabase-js');
+  assert.ok(source.includes('readJsonBody(req)'),entry.name+' precisa limitar JSON');
+  assert.ok(source.includes('enforceApiQuota(admin'),entry.name+' precisa aplicar quota server-side');
+}
+
 
 console.log(`${refs.length} assets do index validados.`);
 console.log(`${swAssets.length} assets do service worker validados.`);
