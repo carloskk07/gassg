@@ -48,6 +48,17 @@ jobs:
           grep -q "Indique e ganhe" /tmp/refer.html
           grep -q "Mais pedidos para sua operação" /tmp/merchants.html
           grep -q "PAINEL DA REVENDA" /tmp/merchant.html
+      - name: Browser E2E — fluxo completo
+        run: |
+          python3 -m http.server 4173 >/tmp/chama-e2e-http.log 2>&1 &
+          SERVER_PID=$!
+          CHROME="$(command -v google-chrome || command -v chromium || command -v chromium-browser)"
+          test -n "$CHROME"
+          "$CHROME" --headless=new --no-sandbox --disable-gpu --window-size=390,844 --remote-debugging-port=9222 --user-data-dir=/tmp/chama-e2e-chrome about:blank >/tmp/chama-e2e-chrome.log 2>&1 &
+          CHROME_PID=$!
+          trap 'kill $CHROME_PID $SERVER_PID 2>/dev/null || true' EXIT
+          sleep 2
+          node tests/browser-e2e.mjs
       - name: Validate manifest
         run: node -e "JSON.parse(require('fs').readFileSync('manifest.webmanifest','utf8')); console.log('manifest OK')"
       - name: Configure Pages
