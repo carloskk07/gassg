@@ -370,12 +370,22 @@ const merchantRuntime={
   lastHeartbeatAt:0
 };
 
+function merchantOriginSafe(){
+  if(['localhost','127.0.0.1'].includes(location.hostname))return true;
+  const configured=String(globalThis.CHAMA_MERCHANT_ORIGIN||'').trim();
+  return configured.length>0&&location.origin===configured;
+}
 function merchantPortalRequested(){return merchantRuntime.requested}
 function merchantReady(){return merchantRuntime.requested&&merchantRuntime.status==='ready'}
 
 async function merchantBackendInit(){
   if(!merchantRuntime.requested){
     merchantRuntime.status='disabled';
+    return false;
+  }
+  if(!merchantOriginSafe()){
+    merchantRuntime.status='unsafe-origin';
+    merchantRuntime.error='O painel real da revenda exige uma origem dedicada e isolada.';
     return false;
   }
   if(['ready','no-access','unauthenticated'].includes(merchantRuntime.status)&&merchantRuntime.client)return merchantRuntime.status==='ready';
@@ -681,6 +691,7 @@ globalThis.liveUpgradeAccount=liveUpgradeAccount;
 globalThis.livePoll=livePoll;
 globalThis.merchantRuntime=merchantRuntime;
 globalThis.merchantPortalRequested=merchantPortalRequested;
+globalThis.merchantOriginSafe=merchantOriginSafe;
 globalThis.merchantReady=merchantReady;
 globalThis.merchantBackendInit=merchantBackendInit;
 globalThis.merchantSendLogin=merchantSendLogin;
