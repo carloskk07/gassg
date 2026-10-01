@@ -111,6 +111,12 @@ assert.ok(read('supabase/functions/admin-ops/index.ts').includes('cnpj_verified_
 assert.ok(read('supabase/functions/merchant-ops/index.ts').includes('CNPJ_REVERIFICATION_REQUIRED'),'merchant ops deve traduzir CNPJ vencido');
 assert.ok(read('supabase/functions/merchant-ops/index.ts').includes('ANP_REVERIFICATION_REQUIRED'),'merchant ops deve traduzir ANP vencida');
 assert.ok(admin.includes('Última verificação:'),'admin UI deve exibir idade das evidências');
+assert.ok(read('supabase/functions/merchant-orders/index.ts').includes('merchant_cnpj_compliance_current'),'painel da revenda deve receber compliance CNPJ vigente');
+assert.ok(read('supabase/functions/merchant-orders/index.ts').includes('merchant_anp_compliance_current'),'painel da revenda deve receber compliance ANP vigente');
+assert.ok(merchant.includes('Compliance vigente.'),'painel deve mostrar compliance vigente');
+assert.ok(merchant.includes('Revalidação necessária antes de operar.'),'painel deve explicar compliance vencido');
+assert.ok(merchant.includes('canGoOnline'),'botão online deve considerar compliance e confirmação comercial');
+
 
 
 assert.ok(backend.includes('merchantOriginSafe'),'frontend da revenda precisa bloquear origem compartilhada');
