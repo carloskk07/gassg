@@ -32,10 +32,11 @@ Por isso o schema concede apenas `SELECT` ao papel `authenticated` nas tabelas c
 ### Cliente
 
 1. App inicia Anonymous Auth.
-2. Consulta revendas e catálogo permitidos por RLS.
-3. Envia pedido para Edge Function `create-order`.
+2. Consulta a Edge Function `get-offers`, que devolve preço/ETA/quote **sem identidade da revenda**.
+3. Envia o quote escolhido para Edge Function `create-order`.
 4. Função recalcula valores no servidor, escolhe/valida a revenda, reserva cashback e cria pedido/eventos.
-5. Cliente assina mudanças do próprio pedido.
+5. Nome da revenda só é copiado para `supplier_name_snapshot` quando a revenda aceita.
+6. Cliente assina mudanças do próprio pedido.
 
 ### Revenda
 
@@ -71,6 +72,7 @@ O arquivo [schema.sql](./schema.sql) é um **bootstrap revisável**, não uma mi
 - nenhuma secret key no GitHub Pages;
 - nenhuma policy baseada em `user_metadata`;
 - nenhuma tabela pública sem RLS;
+- cliente não enumera nomes/endereço/catálogo de revendas antes do aceite;
 - nenhuma escrita financeira sem idempotência;
 - nenhuma transição de pedido aceita apenas porque o frontend pediu;
 - nenhuma recompensa por recrutamento sem venda real validada;
