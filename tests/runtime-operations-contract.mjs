@@ -48,6 +48,7 @@ const settlementAccounting=fs.readFileSync(new URL('../supabase/migrations/20261
 const strictAccountingReward=fs.readFileSync(new URL('../supabase/migrations/20261001150000_strict_accounting_reward_separation.sql',import.meta.url),'utf8');
 const deterministicClocks=fs.readFileSync(new URL('../supabase/migrations/20261001151000_deterministic_settlement_clocks.sql',import.meta.url),'utf8');
 const impossibleStates=fs.readFileSync(new URL('../supabase/migrations/20261001152000_impossible_order_states.sql',import.meta.url),'utf8');
+const generalizedGlpDelivery=fs.readFileSync(new URL('../supabase/migrations/20261001153000_generalized_glp_delivery_compatibility.sql',import.meta.url),'utf8');
 const adminAccountingRecovery=fs.readFileSync(new URL('../supabase/migrations/20261001142000_admin_settlement_accounting_recovery.sql',import.meta.url),'utf8');
 const noUnsafeOffset=fs.readFileSync(new URL('../supabase/migrations/20261001143000_disable_unsafe_cashback_offset.sql',import.meta.url),'utf8');
 const customerCancel=fs.readFileSync(new URL('../supabase/migrations/20261001144000_customer_cancel_before_dispatch.sql',import.meta.url),'utf8');
@@ -102,6 +103,7 @@ const sa=settlementAccounting.replace(/--.*$/gm,'').replace(/\s+/g,' ').toLowerC
 const sar=strictAccountingReward.replace(/--.*$/gm,'').replace(/\s+/g,' ').toLowerCase();
 const dsc=deterministicClocks.replace(/--.*$/gm,'').replace(/\s+/g,' ').toLowerCase();
 const ios=impossibleStates.replace(/--.*$/gm,'').replace(/\s+/g,' ').toLowerCase();
+const ggd=generalizedGlpDelivery.replace(/--.*$/gm,'').replace(/\s+/g,' ').toLowerCase();
 const aar=adminAccountingRecovery.replace(/--.*$/gm,'').replace(/\s+/g,' ').toLowerCase();
 const nuo=noUnsafeOffset.replace(/--.*$/gm,'').replace(/\s+/g,' ').toLowerCase();
 const cnc=customerCancel.replace(/--.*$/gm,'').replace(/\s+/g,' ').toLowerCase();
@@ -444,3 +446,8 @@ assert.match(ios,/not \(proposed_merchant_id=any\(attempted_merchant_ids\)\)/,'c
 assert.match(ios,/cardinality\(attempted_merchant_ids\) between 0 and 100/,'histórico de matching precisa ser limitado');
 
 console.log('Requote + watchdog + hardening v1.14.9 contract passou.');
+
+assert.match(ggd,/public\.is_glp_product_code\(r\.product_code\)/,'delivery deve herdar semântica GLP para P1..P90 sem perfil explícito');
+assert.match(ggd,/v_covered<>v_requested/,'SKU desconhecido fora do perfil deve continuar fail-closed');
+assert.match(ggd,/regulated_glp_mixed_load_verified/,'cesta mista com GLP deve exigir capability verificada');
+
