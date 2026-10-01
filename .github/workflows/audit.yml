@@ -17,6 +17,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
+      - name: Setup Deno
+        uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.x
       - name: Syntax check
         run: |
           for f in js/*.js tests/*.mjs $(find supabase/functions -type f -name '*.js' 2>/dev/null); do
