@@ -164,6 +164,10 @@ assert.ok(adminOpsSource.includes('admin_reward_retry_action'),'retry de reward 
 assert.ok(admin.includes('Fila de benefícios'),'painel admin precisa mostrar dívida de reward');
 assert.ok(admin.includes('DEAD LETTER'),'painel admin precisa distinguir retry interrompido');
 assert.ok(admin.includes('adminRetryReward'),'painel admin precisa permitir recuperação auditada');
+assert.ok(adminOpsSource.includes('settlement_accounting_failures'),'admin precisa carregar dívida contábil de settlement');
+assert.ok(adminOpsSource.includes('admin_settlement_accounting_retry_action'),'retry contábil deve usar autoridade idempotente');
+assert.ok(admin.includes('Fila contábil de settlement'),'painel admin precisa exibir falhas contábeis');
+assert.ok(admin.includes('adminRetryAccounting'),'painel admin precisa permitir retry contábil auditado');
 
 
 
