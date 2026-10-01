@@ -12,9 +12,9 @@ A aplicação é publicada automaticamente pela branch `main` via GitHub Pages. 
 
 **Online demo:** funcional.
 
-**Piloto multiusuário real:** ainda bloqueado até existir backend compartilhado, autenticação e dados reais das revendas.
+**Piloto multiusuário real:** ainda não está ativado. A arquitetura do backend já está preparada em `supabase/`, mas só será aplicada em um projeto Supabase exclusivo do Chama, separado do Reward Pulse.
 
-A auditoria técnica completa está em [AUDIT.md](./AUDIT.md).
+A auditoria técnica completa está em [AUDIT.md](./AUDIT.md). O contrato de backend está em [supabase/README.md](./supabase/README.md), [supabase/API.md](./supabase/API.md) e [supabase/THREAT_MODEL.md](./supabase/THREAT_MODEL.md).
 
 ## Fluxos implementados
 
