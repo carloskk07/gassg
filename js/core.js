@@ -70,8 +70,12 @@ function normalizeMerchant(raw,base){
   m.inventory={...base.inventory,...(raw?.inventory||{}),P13:raw?.inventory?.P13??legacyP13};
   for(const k of Object.keys(m.inventory)) m.inventory[k]=Math.max(0,Math.trunc(Number(m.inventory[k])||0));
   m.products={...base.products,...(raw?.products||{})};
-  m.deliveryFee=roundMoney(Number(m.deliveryFee)||0);
-  m.priceP13=roundMoney(Number(m.priceP13)||base.priceP13);
+  for(const k of Object.keys(m.products)){
+    const v=m.products[k];
+    m.products[k]=v==null?null:(Number.isFinite(Number(v))&&Number(v)>0?roundMoney(Number(v)):null);
+  }
+  m.deliveryFee=Math.max(0,roundMoney(Number(m.deliveryFee)||0));
+  m.priceP13=Number.isFinite(Number(m.priceP13))&&Number(m.priceP13)>0?roundMoney(Number(m.priceP13)):base.priceP13;
   m.eta=Math.max(1,Math.trunc(Number(m.eta)||base.eta));
   m.distance=Math.max(0,Number(m.distance)||base.distance);
   m.trust=clamp(Number(m.trust)||base.trust,0,100);
@@ -87,10 +91,19 @@ function normalizeState(raw){
   const merged={...base,...raw};
   merged.version=STATE_VERSION;
   merged.user={...base.user,...(raw.user||{})};
+  merged.user.cashback=Math.max(0,roundMoney(Number(merged.user.cashback)||0));
+  merged.user.purchases=Math.max(0,Math.trunc(Number(merged.user.purchases)||0));
+  merged.user.commissionAvailable=Math.max(0,roundMoney(Number(merged.user.commissionAvailable)||0));
+  merged.user.commissionPending=Math.max(0,roundMoney(Number(merged.user.commissionPending)||0));
+  merged.user.referralCode=String(merged.user.referralCode||base.user.referralCode).slice(0,40);
   merged.checkout={...base.checkout,...(raw.checkout||{})};
+  merged.checkout.paymentMethod=['pix','card','cash'].includes(merged.checkout.paymentMethod)?merged.checkout.paymentMethod:'pix';
+  merged.checkout.useCashback=Boolean(merged.checkout.useCashback);
+  merged.address=String(raw.address||'').slice(0,160);
+  merged.mode=raw.mode==='merchant'?'merchant':'customer';
   merged.cart=normalizeCart(raw.cart);
-  merged.onboarding=Array.isArray(raw.onboarding)?raw.onboarding:[];
-  merged.orders=Array.isArray(raw.orders)?raw.orders:[];
+  merged.onboarding=Array.isArray(raw.onboarding)?raw.onboarding.slice(0,100):[];
+  merged.orders=Array.isArray(raw.orders)?raw.orders.slice(-100):[];
   merged.merchants=base.merchants.map(b=>{
     const found=(Array.isArray(raw.merchants)?raw.merchants:[]).find(x=>x?.id===b.id);
     return normalizeMerchant(found||{},b);
@@ -148,7 +161,7 @@ function parseReferral(){
 
 function isPriceFresh(m,at=Date.now()){
   const ts=Date.parse(m.priceConfirmedAt||'');
-  return Number.isFinite(ts)&&(at-ts)<=PRICE_FRESH_MS;
+  return Number.isFinite(ts)&&ts<=at+5*60*1000&&(at-ts)<=PRICE_FRESH_MS;
 }
 function productPrice(m,k){
   if(k==='P13') return m.priceP13;
@@ -360,6 +373,10 @@ function customerCancel(id){
 }
 function acceptOrder(id){
   const o=orderById(id); if(!o||o.status!=='OFFERED_TO_MERCHANT')return {ok:false,error:'Pedido não está aguardando aceite'};
+  if(Date.parse(o.offerExpiresAt||'')<=Date.now()){
+    reassignOrder(o,'O prazo para confirmar este pedido expirou.');
+    return {ok:false,error:'Prazo de aceite expirou; o pedido foi reavaliado'};
+  }
   const m=merchantById(o.merchantId);
   if(!cartAvailableFor(m,o.cart))return reassignOrder(o,'Estoque ou disponibilidade mudaram antes do aceite.');
   if(!reserveInventory(m,o.cart))return reassignOrder(o,'Não foi possível reservar os itens.');
