@@ -46,7 +46,7 @@ assert.ok(core.includes('isValidCnpjShape'),'core precisa suportar validação e
 assert.ok(!merchant.includes('.stock'),'UI da revenda não deve depender do campo legado stock');
 assert.ok(growth.includes('referralCode'),'link de indicação deve usar código pessoal');
 assert.ok(!growth.includes('inputmode="numeric" maxlength="18"'),'campo CNPJ não pode forçar teclado somente numérico após adoção do CNPJ alfanumérico');
-assert.ok(sw.includes("CACHE='chama-sg-v1.14'"),'cache do service worker precisa estar versionado');
+assert.ok(sw.includes("CACHE='chama-sg-v1.15'"),'cache do service worker precisa estar versionado');
 assert.ok(sw.includes("./js/backend.js"),'runtime live precisa estar no cache da PWA');
 assert.ok(backend.includes("sb_publishable_"),'frontend live deve usar publishable key explícita');
 assert.ok(!backend.includes("sb_secret_"),'frontend jamais pode conter secret key');
@@ -146,6 +146,11 @@ assert.ok(offerSource.includes('filter_delivery_compatible_merchants'),'matching
 assert.ok(offerSource.includes('deliveryCompatibilityBlocked:true'),'matching deve distinguir bloqueio logístico de indisponibilidade comum');
 assert.ok(read('supabase/functions/merchant-action/index.ts').includes('DELIVERY_INCOMPATIBLE'),'revenda deve receber conflito logístico sem erro genérico');
 assert.ok(read('supabase/functions/customer-action/index.ts').includes('DELIVERY_INCOMPATIBLE'),'cliente deve receber conflito logístico sem erro genérico');
+assert.ok(read('supabase/functions/customer-action/index.ts').includes('cancel-before-dispatch'),'Edge cliente precisa expor cancelamento antes da saída');
+assert.ok(read('supabase/functions/customer-action/index.ts').includes('TOO_LATE_TO_CANCEL'),'Edge cliente precisa traduzir corrida perdida para o despacho');
+assert.ok(read('supabase/functions/customer-action/index.ts').includes('STOCK_RESTORE_FAILED'),'Edge cliente precisa falhar fechado se a recomposição do estoque falhar');
+assert.ok(customer.includes('Cancelar antes da saída'),'acompanhamento precisa oferecer cancelamento apenas antes do despacho');
+assert.ok(customer.includes('cancelBeforeDispatch'),'UI precisa usar ação específica de cancelamento pré-saída');
 assert.ok(backend.includes('deliveryCompatibilityBlocked'),'runtime cliente precisa transportar o motivo de bloqueio');
 assert.ok(customer.includes('cesta mista'),'UI cliente deve explicar alternativa de entrega separada');
 assert.ok(adminOpsSource.includes('merchant_delivery_capabilities'),'resumo admin precisa expor capabilities logísticas');
