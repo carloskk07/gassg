@@ -1,4 +1,4 @@
-# Auditoria v1.6.7 — Chama São Gabriel
+# Auditoria v1.7.2 — Chama São Gabriel
 
 Data: 01/10/2026
 
@@ -10,7 +10,7 @@ O runtime multiusuário, o banco e as Edge Functions estão implantados e os gat
 
 **NOT_YET_APPROVED_FOR_PUBLIC_REAL-MONEY LAUNCH**
 
-O bloqueio atual não é mais a arquitetura básica. Falta validar configuração de Auth e executar o primeiro E2E real com revenda/cliente em dispositivos separados, além do onboarding regulatório e do procedimento de conciliação financeira.
+O bloqueio atual não é mais a arquitetura básica. Existe control plane administrativo, mas ainda falta validar a configuração de Auth, criar o primeiro admin permanente, executar o primeiro E2E real em dispositivos separados e concluir o onboarding das primeiras revendas reais.
 
 Na última verificação o banco de produção do Chama possuía **0 pedidos, 0 revendas, 0 memberships e 0 aplicações reais**, portanto não houve migração destrutiva de dados operacionais.
 
@@ -37,7 +37,21 @@ Na última verificação o banco de produção do Chama possuía **0 pedidos, 0 
 - rate limit atômico server-side;
 - dependências fixadas;
 - referral code aleatório, não derivado do UUID;
-- Anonymous Auth antigo limpo somente com critérios conservadores.
+- Anonymous Auth antigo limpo somente com critérios conservadores;
+- sessões de revenda/admin usam `sessionStorage` por aba como contenção no origin compartilhado do GitHub Pages;
+- admin usa allowlist server-side e não pode autoelevar privilégio.
+
+### Administração e compliance
+
+- `admin-ops` exige identidade permanente + allowlist `platform_admins`;
+- tabelas/admin RPCs não possuem grants para `anon/authenticated`;
+- aprovação de parceiro é transacional e não ativa automaticamente a revenda;
+- CNPJ verificado é gate obrigatório para ativação;
+- P13 ativo exige ANP verificada;
+- triggers no banco repetem os gates mesmo se a UI/Edge falhar;
+- simulação transacional no Supabase real comprovou bloqueio sem CNPJ, bloqueio sem ANP e ativação apenas após ambos verificados;
+- reversão financeira administrativa e trilha de auditoria ocorrem na mesma transação;
+- advisor de performance teve as duas novas FKs administrativas indexadas.
 
 ### Pedido e concorrência
 
@@ -97,16 +111,18 @@ Os avisos atuais são índices ainda não utilizados. Isso é esperado com banco
 
 ## Dependências operacionais antes do primeiro pedido real
 
-1. cadastrar uma revenda real e validar CNPJ/ANP;
-2. criar conta permanente do operador;
-3. vincular essa conta em `merchant_members`;
-4. confirmar no Supabase Auth o Site URL/Redirect URL do GitHub Pages;
-5. confirmar que Manual Linking está habilitado para converter Anonymous Auth em conta permanente;
-6. cadastrar catálogo/estoque/ETA/taxa reais;
-7. executar teste em dois aparelhos;
-8. conferir no banco order events, ledger, receivable e cashback reimbursement;
-9. documentar como a plataforma cobrará a taxa e reembolsará cashback usado;
-10. só então ativar mais parceiros.
+1. criar uma conta permanente para o primeiro administrador e incluí-la em `platform_admins`;
+2. cadastrar uma revenda real pelo fluxo normal e validar CNPJ/ANP;
+3. criar conta permanente do operador;
+4. aprovar o cadastro pelo admin, que fará o vínculo inicial de owner;
+5. confirmar no Supabase Auth o Site URL/Redirect URL do GitHub Pages;
+6. confirmar que Manual Linking está habilitado para converter Anonymous Auth em conta permanente;
+7. cadastrar catálogo/estoque/ETA/taxa reais;
+8. executar teste em dois aparelhos;
+9. conferir no banco order events, ledger, receivable, cashback reimbursement e admin audit;
+10. documentar como a plataforma cobrará a taxa e reembolsará cashback usado;
+11. migrar acessos privilegiados para origem dedicada/custom domain antes de escalar;
+12. só então ativar mais parceiros.
 
 ## O que ainda não existe de propósito
 
@@ -114,7 +130,7 @@ Os avisos atuais são índices ainda não utilizados. Isso é esperado com banco
 - PSP/split automático;
 - assignment de motorista;
 - geofence/prova GPS;
-- painel admin completo;
+- bootstrap do primeiro admin e configuração Auth comprovada;
 - automação WhatsApp/push;
 - Trust Score alimentado por volume real;
 - contrato/termos/política LGPD final.

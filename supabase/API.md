@@ -1,4 +1,4 @@
-# Chama — Edge Function contract v1.6.7
+# Chama — Edge Function contract v1.7.2
 
 O browser usa publishable key + JWT. Dados reais da aplicação não são lidos/escritos diretamente pelo Data API.
 
@@ -188,6 +188,32 @@ Valida:
 
 Cadastro fica pendente. Nunca ativa revenda automaticamente.
 
+## admin-ops
+
+Exige:
+
+- Bearer JWT válido;
+- identidade permanente;
+- entrada ativa em `platform_admins`;
+- quota server-side.
+
+O login da interface administrativa usa `shouldCreateUser:false`; autenticar não concede privilégio.
+
+Ações:
+
+- `summary`: aplicações, merchants + compliance, contas financeiras em aberto e auditoria recente;
+- `approve-application`: cria/vincula merchant como `pending` e applicant como owner;
+- `reject-application`;
+- `verify-merchant`: CNPJ/ANP + evidência/notas;
+- `activate-merchant` / `suspend-merchant`;
+- `financial-action`: baixa/compensação/waiver das contas server-side;
+- `reverse-order`: chama autoridade atômica que reverte finanças e grava auditoria.
+
+Gates de banco independentes da Edge/UI:
+
+- merchant ativo/online exige CNPJ `verified`;
+- P13 ativo em merchant ativo exige ANP `verified`.
+
 ## Idempotência e concorrência
 
 Mutações usam:
@@ -209,6 +235,12 @@ Autoridades não expostas ao browser:
 - `merchant_financial_position`
 - `process_data_retention`
 - `process_anonymous_user_cleanup`
+- `require_platform_admin`
+- `admin_approve_merchant_application`
+- `admin_verify_merchant`
+- `admin_set_merchant_status`
+- `admin_financial_action`
+- `admin_reverse_settled_order`
 
 ### Buckets do wallet ledger
 

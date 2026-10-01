@@ -65,7 +65,7 @@ jobs:
           sleep 1
           CHROME="$(command -v google-chrome || command -v chromium || command -v chromium-browser)"
           test -n "$CHROME"
-          for route in home order club refer merchants merchant; do
+          for route in home order club refer merchants merchant admin; do
             "$CHROME" --headless=new --no-sandbox --disable-gpu --window-size=360,800 --virtual-time-budget=1200 --user-data-dir="/tmp/chrome-$route" --dump-dom "http://127.0.0.1:4173/#$route" > "/tmp/$route.html"
           done
           grep -q "Seu gás" /tmp/home.html
@@ -74,6 +74,7 @@ jobs:
           grep -q "Indique e ganhe" /tmp/refer.html
           grep -q "Mais pedidos para sua operação" /tmp/merchants.html
           grep -q "PAINEL DA REVENDA" /tmp/merchant.html
+          grep -q "Administração só está disponível" /tmp/admin.html
       - name: Browser E2E — fluxo completo
         run: |
           python3 -m http.server 4173 >/tmp/chama-e2e-http.log 2>&1 &

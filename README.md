@@ -8,14 +8,15 @@ Marketplace hiperlocal de gás e abastecimento essencial para São Gabriel/RS.
 
 A branch `main` é publicada no GitHub Pages somente depois dos gates automatizados.
 
-Durante o piloto existem duas entradas protegidas por parâmetros:
+Durante o piloto existem três entradas protegidas por parâmetros:
 
 - Cliente real: `?live=1#home`
 - Revenda real: `?merchant=1#merchant`
+- Administração protegida: `?admin=1#admin`
 
 O modo padrão continua sendo demonstração. Nenhum preço ou revenda fictícia é apresentado como dado real no modo live.
 
-## Estado atual — v1.6.7
+## Estado atual — v1.7.2
 
 **Demonstração:** funcional.
 
@@ -29,7 +30,9 @@ Antes de liberar usuários reais em volume, devem ser comprovados com contas rea
 2. URLs de redirecionamento do Supabase Auth;
 3. conversão de cliente anônimo para conta permanente por e-mail;
 4. primeiro fluxo em dois dispositivos: cliente → revenda → entrega → pagamento + PIN → benefícios;
-5. processo operacional de cobrança/reembolso entre plataforma e revenda.
+5. criar o primeiro administrador permanente na allowlist `platform_admins`;
+6. processo operacional de cobrança/reembolso entre plataforma e revenda;
+7. usar origem dedicada/custom domain antes de escalar sessões privilegiadas além do piloto protegido.
 
 ## O que já existe
 
@@ -53,6 +56,7 @@ Antes de liberar usuários reais em volume, devem ser comprovados com contas rea
 
 - portal real separado da sessão do cliente;
 - login passwordless por e-mail;
+- sessão permanente da revenda limitada ao `sessionStorage` da aba no GitHub Pages;
 - somente `owner`, `manager` e `operator` podem operar pedidos no piloto;
 - papel `driver` permanece bloqueado até existir atribuição por pedido;
 - endereço do cliente oculto antes do aceite;
@@ -61,6 +65,18 @@ Antes de liberar usuários reais em volume, devem ser comprovados com contas rea
 - taxa de entrega e ETA;
 - aceite, recusa, rescue pós-aceite, saída, chegada e conclusão;
 - conclusão exige **pagamento confirmado + PIN correto**.
+
+### Administração
+
+- control plane real em `?admin=1#admin`;
+- sessão própria, separada de cliente e revenda;
+- login não cria conta automaticamente;
+- autorização por allowlist `platform_admins`, nunca por `user_metadata`;
+- aprovação de cadastro cria merchant `pending` e vincula o solicitante como `owner`, sem ativação automática;
+- CNPJ verificado é obrigatório para ativação;
+- P13 ativo exige também ANP verificada;
+- conciliação de taxa, cashback e ajustes de reversão;
+- reversão financeira e auditoria são atômicas no Postgres.
 
 ### Backend e segurança
 
@@ -78,6 +94,7 @@ Edge Functions atuais:
 - `merchant-ops`
 - `complete-delivery`
 - `submit-merchant-application`
+- `admin-ops`
 
 Proteções implementadas:
 
@@ -92,7 +109,8 @@ Proteções implementadas:
 - rescue centralizado;
 - preço, taxa e itens congelados em re-cotação;
 - PIN com `pgcrypto`, cinco tentativas e retenção curta;
-- service worker network-first com cache `v1.6`.
+- service worker network-first com cache `v1.7.1`;
+- sessões de revenda/admin isoladas por aba enquanto o piloto ainda usa o origin compartilhado do GitHub Pages.
 
 ## Confirmações de credibilidade do pedido
 
@@ -172,7 +190,8 @@ Ainda não são considerados concluídos:
 - PSP/split/Pix payout automatizado;
 - saque real de comissão;
 - atribuição individual de motorista;
-- painel administrativo completo para aprovação, suporte, reversão e conciliação;
+- bootstrap do primeiro administrador e validação das configurações de Auth;
+- origem dedicada/custom domain para sessões privilegiadas antes de escalar o piloto;
 - WhatsApp/push de produção;
 - contratos, termos, privacidade e procedimento operacional final.
 
