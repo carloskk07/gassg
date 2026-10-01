@@ -50,6 +50,7 @@ const deterministicClocks=fs.readFileSync(new URL('../supabase/migrations/202610
 const impossibleStates=fs.readFileSync(new URL('../supabase/migrations/20261001152000_impossible_order_states.sql',import.meta.url),'utf8');
 const generalizedGlpDelivery=fs.readFileSync(new URL('../supabase/migrations/20261001153000_generalized_glp_delivery_compatibility.sql',import.meta.url),'utf8');
 const complianceFreshness=fs.readFileSync(new URL('../supabase/migrations/20261001154000_compliance_freshness_authority.sql',import.meta.url),'utf8');
+const realtimeCompliance=fs.readFileSync(new URL('../supabase/migrations/20261001155000_realtime_compliance_eligibility.sql',import.meta.url),'utf8');
 const adminAccountingRecovery=fs.readFileSync(new URL('../supabase/migrations/20261001142000_admin_settlement_accounting_recovery.sql',import.meta.url),'utf8');
 const noUnsafeOffset=fs.readFileSync(new URL('../supabase/migrations/20261001143000_disable_unsafe_cashback_offset.sql',import.meta.url),'utf8');
 const customerCancel=fs.readFileSync(new URL('../supabase/migrations/20261001144000_customer_cancel_before_dispatch.sql',import.meta.url),'utf8');
@@ -106,6 +107,7 @@ const dsc=deterministicClocks.replace(/--.*$/gm,'').replace(/\s+/g,' ').toLowerC
 const ios=impossibleStates.replace(/--.*$/gm,'').replace(/\s+/g,' ').toLowerCase();
 const ggd=generalizedGlpDelivery.replace(/--.*$/gm,'').replace(/\s+/g,' ').toLowerCase();
 const cf=complianceFreshness.replace(/--.*$/gm,'').replace(/\s+/g,' ').toLowerCase();
+const rtc=realtimeCompliance.replace(/--.*$/gm,'').replace(/\s+/g,' ').toLowerCase();
 const aar=adminAccountingRecovery.replace(/--.*$/gm,'').replace(/\s+/g,' ').toLowerCase();
 const nuo=noUnsafeOffset.replace(/--.*$/gm,'').replace(/\s+/g,' ').toLowerCase();
 const cnc=customerCancel.replace(/--.*$/gm,'').replace(/\s+/g,' ').toLowerCase();
@@ -462,4 +464,12 @@ assert.match(cf,/public\.is_glp_product_code\(ci\.product_code\)/,'freshness ANP
 assert.doesNotMatch(cf,/ci\.product_code='p13'/,'trigger novo não pode voltar a hardcode P13');
 assert.match(cf,/chama-compliance-expiry/,'evidência vencida precisa de watchdog');
 assert.match(cf,/merchant_compliance_events/,'suspensão automática precisa de trilha de auditoria');
+assert.match(rtc,/merchant_operational_compliance_current/,'deve existir autoridade única de compliance operacional');
+assert.match(rtc,/create or replace function public\.create_quote_snapshot[\s\S]*merchant_operational_compliance_current/,'quote não pode nascer com compliance vencido');
+assert.match(rtc,/create or replace function public\.system_rescue_order[\s\S]*merchant_operational_compliance_current/,'rescue não pode escolher revenda com compliance vencido');
+assert.match(rtc,/merchant_compliance_expired_before_accept/,'aceite deve rescatar automaticamente quando compliance vencer');
+assert.match(rtc,/merchant_compliance_expired_before_dispatch/,'despacho deve rescatar automaticamente quando compliance vencer');
+assert.match(rtc,/create or replace function public\.process_order_timeouts[\s\S]*merchant_operational_compliance_current/,'watchdog deve detectar compliance vencido durante preparação');
+assert.match(rtc,/create or replace function public\.enforce_glp_catalog_compliance[\s\S]*anp_verified_at/,'novo GLP deve usar relógio ANP atual');
+assert.match(rtc,/admin_set_delivery_capability[\s\S]*merchant_anp_compliance_current/,'capability mista só pode ser validada com ANP vigente');
 
