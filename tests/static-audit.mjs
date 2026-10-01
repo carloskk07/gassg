@@ -24,6 +24,7 @@ const customer=read('js/customer.js');
 const merchant=read('js/merchant.js');
 const growth=read('js/growth.js');
 const core=read('js/core.js');
+const backend=read('js/backend.js');
 
 assert.ok(!customer.includes('desktop-only" style="display:block"'),'desktop-only não pode ser forçado a display:block no mobile');
 assert.ok(customer.includes('esc(o.address)'),'endereço do pedido deve ser escapado antes de entrar no HTML');
@@ -39,7 +40,13 @@ assert.ok(core.includes('isValidCnpjShape'),'core precisa suportar validação e
 assert.ok(!merchant.includes('.stock'),'UI da revenda não deve depender do campo legado stock');
 assert.ok(growth.includes('referralCode'),'link de indicação deve usar código pessoal');
 assert.ok(!growth.includes('inputmode="numeric" maxlength="18"'),'campo CNPJ não pode forçar teclado somente numérico após adoção do CNPJ alfanumérico');
-assert.ok(sw.includes("CACHE='chama-sg-v1.1'"),'cache do service worker precisa estar versionado');
+assert.ok(sw.includes("CACHE='chama-sg-v1.4'"),'cache do service worker precisa estar versionado');
+assert.ok(sw.includes("./js/backend.js"),'runtime live precisa estar no cache da PWA');
+assert.ok(backend.includes("sb_publishable_"),'frontend live deve usar publishable key explícita');
+assert.ok(!backend.includes("sb_secret_"),'frontend jamais pode conter secret key');
+assert.ok(!backend.includes("service_role"),'frontend jamais pode depender de service_role');
+assert.ok(backend.includes("signInAnonymously"),'modo live do cliente precisa de Auth anônimo');
+assert.ok(backend.includes("get-offers")&&backend.includes("create-order")&&backend.includes("get-order"),'runtime live precisa usar Edge Functions seguras');
 
 console.log(`${refs.length} assets do index validados.`);
 console.log(`${swAssets.length} assets do service worker validados.`);
