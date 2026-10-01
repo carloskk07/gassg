@@ -119,9 +119,11 @@ async function adminSendLogin(email){
   const redirect=new URL(location.origin+location.pathname);
   redirect.searchParams.set('admin','1');
   redirect.hash='admin';
+  if(!globalThis.chamaTurnstile?.challenge)throw new Error('Proteção anti-bot indisponível');
+  const captchaToken=await globalThis.chamaTurnstile.challenge('admin_login');
   const {error}=await adminRuntime.client.auth.signInWithOtp({
     email:value,
-    options:{emailRedirectTo:redirect.toString(),shouldCreateUser:false}
+    options:{emailRedirectTo:redirect.toString(),shouldCreateUser:false,captchaToken}
   });
   if(error)throw error;
   adminRuntime.notice='Enviamos um link de acesso para '+value+'.';
