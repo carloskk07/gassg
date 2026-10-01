@@ -49,8 +49,7 @@ function merchantAction(id,action){
   if(action==='deliver'){
     const pin=document.querySelector('#pin-'+CSS.escape(id))?.value.trim()||'';
     const paid=document.querySelector('#paid-'+CSS.escape(id))?.checked===true;
-    if(!paid)r={ok:false,error:'Confirme o recebimento do pagamento antes de concluir'};
-    else r=deliverOrder(id,pin);
+    r=deliverOrder(id,pin,paid);
   }
   const successMessages={accept:'Pedido aceito e estoque reservado',reject:'Pedido recusado; o sistema buscou alternativa','cannot-fulfill':'Estoque devolvido; o sistema buscou outra revenda',dispatch:'Saída confirmada — o cliente agora vê “A caminho”',arriving:'Chegada confirmada',deliver:'Entrega e pagamento confirmados; benefícios processados'};
   toast(r.ok?successMessages[action]:r.error);
