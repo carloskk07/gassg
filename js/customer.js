@@ -115,7 +115,58 @@ async function checkout(mid){
   go('tracking');
   setTimeout(()=>toast('Pedido enviado para confirmação da revenda'),30);
 }
+function liveTracking(){
+  if(!globalThis.liveReady?.()){
+    const message=liveRuntime?.status==='loading'
+      ? 'Conectando ao backend real…'
+      : 'O backend real ainda não possui uma sessão de cliente disponível.';
+    return shell(`<section class="page"><h1 class="page-title">Seu pedido</h1><div class="notice ${liveRuntime?.status==='unavailable'?'danger':''}">${esc(message)}</div></section>`);
+  }
+
+  const o=liveRuntime.order;
+  if(!o){
+    return shell(`<section class="page"><h1 class="page-title">Seu pedido</h1><div class="empty card">Você ainda não possui um pedido real neste navegador.<br><br><button class="primary" onclick="quickProduct('P13')">Consultar ofertas</button></div></section>`);
+  }
+
+  const copy=statusCopy[o.status]||[o.status,''];
+  const active=!['SETTLED','CANCELLED'].includes(o.status);
+  const deadline=o.status==='OFFERED_TO_MERCHANT'&&o.offerExpiresAt
+    ? Math.max(0,Math.ceil((Date.parse(o.offerExpiresAt)-Date.now())/1000))
+    : null;
+  const total=Number(o.totalCents||0)/100;
+  const cashbackReserved=Number(o.cashbackReservedCents||0)/100;
+  const proposed=o.proposedTotalCents==null?null:Number(o.proposedTotalCents)/100;
+  const items=(o.items||[]).map(i=>`<div class="list-row"><span>${Number(i.quantity)}× ${esc(i.product_name||i.productName||i.product_code||'Item')}</span><strong>${BRL.format(Number(i.line_total_cents??i.lineTotalCents??0)/100)}</strong></div>`).join('');
+
+  return shell(`<section class="page"><button class="back" onclick="go('home')">← Início</button>
+<div class="status-bar"><div><div class="tiny muted">PEDIDO ${esc(o.publicCode||o.orderId)}</div><h1 class="page-title" style="margin-bottom:3px">${esc(copy[0])}</h1></div><span class="status-pill ${['OUT_FOR_DELIVERY','ARRIVING','SETTLED','DELIVERED'].includes(o.status)?'online':o.status==='CANCELLED'?'offline':'risk'}">${o.status==='SETTLED'?'CONCLUÍDO':o.status==='CANCELLED'?'ENCERRADO':'AO VIVO'}</span></div>
+
+<div class="card flat"><div class="price-lock"><span>🔒</span><div><strong>Preço protegido: ${BRL.format(total)}</strong><br>${cashbackReserved>0?`Inclui ${BRL.format(cashbackReserved)} de cashback reservado. `:''}O valor só muda com seu aceite explícito.</div></div>
+<div class="divider"></div>
+<div class="list-row"><div><strong>${o.supplierName?esc(o.supplierName):'Fornecedor em confirmação'}</strong><br><small>${o.supplierName?'Revenda que aceitou o pedido':'A identidade permanece oculta até o aceite real'}</small></div><div style="text-align:right"><strong>${BRL.format(total)}</strong><br><small>${esc(o.address||'')}</small></div></div>
+<div class="list-row"><span>Pagamento</span><strong>${paymentLabel(o.paymentMethod)}</strong></div>
+${items?'<div class="divider"></div>'+items:''}</div>
+
+${o.status==='OFFERED_TO_MERCHANT'?`<div class="notice" style="margin-top:14px"><strong>Aguardando aceite real.</strong><br>A revenda tem até 3 minutos para responder. ${deadline!=null?`Prazo restante aproximado: ${deadline}s.`:''}</div>`:''}
+${o.status==='REQUOTE_REQUIRED'&&proposed!=null?`<div class="notice" style="margin-top:14px"><strong>Encontramos outra opção.</strong><br>Novo total: ${BRL.format(proposed)}. Nada muda sem sua autorização.<div class="order-actions"><button class="primary small" onclick="confirmRequote('${o.orderId}')" ${liveRuntime.actionPending?'disabled':''}>Aceitar novo total</button><button class="secondary small" onclick="cancelPending('${o.orderId}')" ${liveRuntime.actionPending?'disabled':''}>Cancelar pedido</button></div></div>`:''}
+${o.status==='CANCELLED'?'<div class="notice danger" style="margin-top:14px">Este pedido foi encerrado. Cashback reservado, se houver, é devolvido pelo ledger.</div>':''}
+${o.riskReason&&o.status!=='CANCELLED'?`<div class="notice danger" style="margin-top:14px"><strong>Acompanhamento prioritário.</strong><br>${esc(o.riskReason)}</div>`:''}
+
+<section class="section"><div class="section-head"><div><h2>Linha do tempo</h2><p>Eventos registrados pelo backend.</p></div><button class="ghost small" onclick="liveGetOrder().catch(()=>{})">Atualizar</button></div><div class="card flat timeline">${liveEventTimeline(o)}</div></section>
+${o.deliveryPin&&['OUT_FOR_DELIVERY','ARRIVING'].includes(o.status)?`<div class="notice success"><strong>PIN de recebimento: ${esc(o.deliveryPin)}</strong><br>Informe este código somente quando o pedido estiver na sua frente.</div>`:''}
+${active&&['OFFERED_TO_MERCHANT','REQUOTE_REQUIRED'].includes(o.status)?`<button class="ghost full" style="margin-top:10px" onclick="cancelPending('${o.orderId}')" ${liveRuntime.actionPending?'disabled':''}>Cancelar antes do aceite</button>`:''}
+<div class="card flat" style="margin-top:14px"><strong>Suporte do piloto</strong><p class="muted tiny">O pedido real já é auditável; o canal humano de incidentes será conectado antes da abertura pública.</p></div>
+</section>`);
+}
+
+function liveEventTimeline(o){
+  const events=o.events||[];
+  if(!events.length)return '<div class="muted tiny">Nenhum evento registrado.</div>';
+  return events.map((e,i)=>`<div class="event ${i<events.length-1?'done':'current'}"><div class="event-dot"><span class="dot"></span></div><div><div class="event-title">${esc(e.title||e.type||'Evento')}</div><div class="event-time">${e.createdAt?hhmm(new Date(e.createdAt)):'—'}</div><div class="event-desc">${esc(e.detail||'')}</div></div></div>`).join('');
+}
+
 function tracking(){
+  if(globalThis.liveRequested?.())return liveTracking();
   const o=activeOrder();
   if(!o)return shell(`<section class="page"><h1 class="page-title">Seu pedido</h1><div class="empty card">Você ainda não possui pedidos. <br><br><button class="primary" onclick="quickProduct('P13')">Pedir gás</button></div></section>`);
   const merchantVisible=Boolean(o.supplierSnapshot)&&['PREPARING','OUT_FOR_DELIVERY','ARRIVING','DELIVERED','SETTLED','AT_RISK'].includes(o.status);
@@ -142,5 +193,17 @@ function eventTimeline(o){
   return events.map((e,i)=>`<div class="event ${i<events.length-1?'done':'current'}"><div class="event-dot"><span class="dot"></span></div><div><div class="event-title">${esc(e.title||statusCopy[e.status]?.[0]||e.status)}</div><div class="event-time">${hhmm(new Date(e.time))}</div><div class="event-desc">${esc(e.desc||'')}</div></div></div>`).join('');
 }
 function paymentLabel(v){return v==='card'?'Cartão':v==='cash'?'Dinheiro':'Pix'}
-function confirmRequote(id){const r=acceptRequote(id);toast(r.ok?'Nova cotação enviada à revenda':r.error);render()}
-function cancelPending(id){const r=customerCancel(id);toast(r.ok?'Pedido cancelado':r.error);render()}
+async function confirmRequote(id){
+  if(globalThis.liveRequested?.()){
+    await liveCustomerAction('accept-requote');
+    return;
+  }
+  const r=acceptRequote(id);toast(r.ok?'Nova cotação enviada à revenda':r.error);render();
+}
+async function cancelPending(id){
+  if(globalThis.liveRequested?.()){
+    await liveCustomerAction('cancel-before-accept');
+    return;
+  }
+  const r=customerCancel(id);toast(r.ok?'Pedido cancelado':r.error);render();
+}
