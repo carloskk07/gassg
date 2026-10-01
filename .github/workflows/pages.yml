@@ -25,7 +25,7 @@ jobs:
         uses: actions/checkout@v6
       - name: Syntax check
         run: |
-          for f in js/*.js tests/*.mjs; do
+          for f in js/*.js tests/*.mjs $(find supabase/functions -type f -name '*.js' 2>/dev/null); do
             echo "Checking $f"
             node --check "$f"
           done
@@ -35,6 +35,8 @@ jobs:
         run: node tests/static-audit.mjs
       - name: Backend security contract
         run: node tests/backend-contract.mjs
+      - name: Server domain simulations
+        run: node tests/server-domain.mjs
       - name: Browser smoke — mobile routes
         run: |
           python3 -m http.server 4173 >/tmp/chama-http.log 2>&1 &
