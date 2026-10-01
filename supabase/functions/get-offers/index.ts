@@ -276,7 +276,12 @@ Deno.serve(async (req: Request) => {
         p_fingerprint:fingerprint
       });
 
-      if(quoteError||!quote)throw quoteError??new Error("Quote snapshot failed");
+      if(quoteError){
+        const message=String(quoteError.message??"");
+        if(message.includes("QUOTE_SOURCE_STALE"))continue;
+        throw quoteError;
+      }
+      if(!quote)throw new Error("Quote snapshot failed");
 
       const safe=anonymizeOffer({
         id:quote.quoteId,
