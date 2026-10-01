@@ -29,6 +29,9 @@ assert.doesNotMatch(normalized,/\bpin\s+text\b/,'PIN em texto puro é proibido')
 
 assert.match(normalized,/cnpj ~ '\^\[0-9a-z\]\{12\}\[0-9\]\{2\}\$'/,'CNPJ alfanumérico atual precisa ser aceito');
 assert.match(normalized,/attempted_merchant_ids uuid\[\]/,'matching precisa registrar revendas já tentadas');
+assert.match(normalized,/supplier_name_snapshot text/,'identidade confirmada da revenda precisa ser snapshot do pedido');
+assert.doesNotMatch(normalized,/status = 'active' or exists \( select 1 from public\.merchant_members/,'cliente não pode ganhar acesso genérico ao cadastro de revendas');
+assert.match(normalized,/customer-facing discovery must go through a server-side get-offers function/,'descoberta de ofertas precisa ser server-side e anonimizada');
 assert.match(normalized,/version integer not null default 1/,'pedido precisa suportar concorrência otimista');
 
 assert.match(normalized,/publication supabase_realtime add table public\.orders/,'orders precisa estar preparado para Realtime');
