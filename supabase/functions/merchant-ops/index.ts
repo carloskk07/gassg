@@ -172,7 +172,7 @@ Deno.serve(async(req:Request)=>{
 
       const {error:merchantUpdateError}=await admin
         .from("merchants")
-        .update({price_confirmed_at:now,last_seen_at:now})
+        .update({last_seen_at:now})
         .eq("id",merchantId);
       if(merchantUpdateError)throw merchantUpdateError;
 
