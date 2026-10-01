@@ -41,7 +41,7 @@ assert.ok(core.includes('isValidCnpjShape'),'core precisa suportar validação e
 assert.ok(!merchant.includes('.stock'),'UI da revenda não deve depender do campo legado stock');
 assert.ok(growth.includes('referralCode'),'link de indicação deve usar código pessoal');
 assert.ok(!growth.includes('inputmode="numeric" maxlength="18"'),'campo CNPJ não pode forçar teclado somente numérico após adoção do CNPJ alfanumérico');
-assert.ok(sw.includes("CACHE='chama-sg-v1.7.5'"),'cache do service worker precisa estar versionado');
+assert.ok(sw.includes("CACHE='chama-sg-v1.8'"),'cache do service worker precisa estar versionado');
 assert.ok(sw.includes("./js/backend.js"),'runtime live precisa estar no cache da PWA');
 assert.ok(backend.includes("sb_publishable_"),'frontend live deve usar publishable key explícita');
 assert.ok(!backend.includes("sb_secret_"),'frontend jamais pode conter secret key');
@@ -100,6 +100,20 @@ assert.ok(adminOpsSource.includes('INVALID_MERCHANT_STATUS_TRANSITION'),'Edge ad
 assert.ok(adminOpsSource.includes('GLP_REGULATORY_VERIFICATION_REQUIRED'),'Edge admin precisa reconhecer gate regulatório genérico de GLP');
 assert.ok(adminOpsSource.includes('produto GLP ativo exige validação ANP'),'mensagem administrativa deve cobrir todos os produtos GLP');
 assert.ok(admin.includes('Qualquer produto GLP ativo exige também validação ANP.'),'UI admin deve explicar gate ANP genérico');
+const offerSource=read('supabase/functions/get-offers/index.ts');
+const merchantOpsSource=read('supabase/functions/merchant-ops/index.ts');
+const merchantOrdersSource=read('supabase/functions/merchant-orders/index.ts');
+assert.ok(offerSource.includes('.gte("delivery_fee_confirmed_at", priceCutoff)'),'matching deve exigir taxa de entrega fresca');
+assert.ok(offerSource.includes('.gte("price_confirmed_at", priceCutoff)'),'matching deve exigir preço fresco por SKU');
+assert.ok(!offerSource.includes('.gte("price_confirmed_at", priceCutoff)\n      .gte("last_seen_at"'),'merchant global price clock não pode voltar a governar matching');
+assert.ok(merchantOpsSource.includes('price_confirmed_at:now'),'edição de produto deve confirmar somente o SKU alterado');
+assert.ok(merchantOpsSource.includes('delivery_fee_confirmed_at:now'),'edição logística deve confirmar a taxa separadamente');
+assert.ok(!merchantOpsSource.includes('.update({price_confirmed_at:now,last_seen_at:now})'),'SKU não pode renovar relógio global da revenda');
+assert.ok(merchantOrdersSource.includes('priceConfirmedAt:item.price_confirmed_at'),'painel precisa receber freshness por SKU');
+assert.ok(merchantOrdersSource.includes('deliveryFeeConfirmedAt:merchant.delivery_fee_confirmed_at'),'painel precisa receber freshness da taxa');
+assert.ok(merchant.includes('merchantLiveSaveProduct'),'painel live precisa editar/reconfirmar múltiplos SKUs');
+assert.ok(merchant.includes('Cada SKU possui sua própria confirmação de preço'),'UI precisa explicar freshness independente');
+
 
 
 assert.ok(!adminOpsSource.includes('const PROD_ORIGIN="https://carloskk07.github.io"'),'Edge admin não pode confiar no origin compartilhado do GitHub Pages');
