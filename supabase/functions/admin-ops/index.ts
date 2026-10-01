@@ -84,7 +84,7 @@ async function summary(admin:any){
       .order("created_at",{ascending:false})
       .limit(100),
     admin.from("merchant_compliance")
-      .select("merchant_id,cnpj_status,anp_status,anp_reference,notes,verified_at,verified_by,updated_at")
+      .select("merchant_id,cnpj_status,anp_status,anp_reference,notes,verified_at,cnpj_verified_at,anp_verified_at,verified_by,updated_at")
       .limit(100),
     admin.from("merchant_delivery_capabilities")
       .select("merchant_id,capability_code,active,verified_at,verified_by,notes,updated_at")
@@ -365,6 +365,12 @@ Deno.serve(async(req:Request)=>{
     }
     if(message.includes("CNPJ_VERIFICATION_REQUIRED")){
       return json({error:"CNPJ_VERIFICATION_REQUIRED",message:"Valide o CNPJ antes de ativar a revenda."},409,origin);
+    }
+    if(message.includes("CNPJ_REVERIFICATION_REQUIRED")){
+      return json({error:"CNPJ_REVERIFICATION_REQUIRED",message:"A verificação de CNPJ está ausente ou venceu e precisa ser refeita."},409,origin);
+    }
+    if(message.includes("ANP_REVERIFICATION_REQUIRED")){
+      return json({error:"ANP_REVERIFICATION_REQUIRED",message:"A verificação ANP do GLP está ausente ou venceu e precisa ser refeita."},409,origin);
     }
     if(
       message.includes("ANP_VERIFICATION_REQUIRED")
