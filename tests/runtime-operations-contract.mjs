@@ -21,6 +21,7 @@ const reversal=fs.readFileSync(new URL('../supabase/migrations/20261001113000_po
 const reversalSummary=fs.readFileSync(new URL('../supabase/migrations/20261001114000_reversal_aware_customer_summary.sql',import.meta.url),'utf8');
 const merchantCashback=fs.readFileSync(new URL('../supabase/migrations/20261001115000_merchant_cashback_reimbursement.sql',import.meta.url),'utf8');
 const referralGate=fs.readFileSync(new URL('../supabase/migrations/20261001116000_referral_acquisition_gate.sql',import.meta.url),'utf8');
+const settlementIndex=fs.readFileSync(new URL('../supabase/migrations/20261001117000_settlement_adjustment_merchant_index.sql',import.meta.url),'utf8');
 const r=repricing.replace(/--.*$/gm,'').replace(/\s+/g,' ').toLowerCase();
 const w=watchdog.replace(/--.*$/gm,'').replace(/\s+/g,' ').toLowerCase();
 const h=hardening.replace(/--.*$/gm,'').replace(/\s+/g,' ').toLowerCase();
@@ -41,6 +42,7 @@ const rv=reversal.replace(/--.*$/gm,'').replace(/\s+/g,' ').toLowerCase();
 const rs=reversalSummary.replace(/--.*$/gm,'').replace(/\s+/g,' ').toLowerCase();
 const mc=merchantCashback.replace(/--.*$/gm,'').replace(/\s+/g,' ').toLowerCase();
 const rg=referralGate.replace(/--.*$/gm,'').replace(/\s+/g,' ').toLowerCase();
+const si=settlementIndex.replace(/--.*$/gm,'').replace(/\s+/g,' ').toLowerCase();
 
 assert.match(r,/create table if not exists public\.order_requote_items/,'re-cotação precisa congelar preços por item');
 assert.match(r,/revoke all on table public\.order_requote_items from anon, authenticated/,'snapshot de re-cotação deve ser server-only');
@@ -167,4 +169,7 @@ assert.match(rg,/and v_prior_order_count=0/,'novo referral só pode nascer antes
 assert.match(rg,/insert into public\.referrals[\s\S]*on conflict\(referred_user_id\) do nothing/,'relação de referral deve permanecer única por cliente');
 assert.match(rg,/grant execute on function public\.create_order_from_quote[\s\S]*to service_role/,'gate de aquisição deve permanecer server-only');
 
-console.log('Requote + watchdog + hardening v1.6.7 contract passou.');
+assert.match(si,/platform_settlement_adjustments_merchant_idx/,'ajustes financeiros precisam de índice por revenda');
+assert.match(si,/merchant_id,status,created_at/,'índice de ajuste deve começar pela FK merchant_id');
+
+console.log('Requote + watchdog + hardening v1.6.8 contract passou.');
