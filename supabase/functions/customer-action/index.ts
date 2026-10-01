@@ -55,6 +55,9 @@ function mapRpcError(error:{message?:string}|null){
     INVALID_TRANSITION:[409,"Esta ação não é válida no estado atual."],
     PROPOSED_OFFER_STALE:[409,"A alternativa ficou indisponível. Atualize o pedido."],
     REQUOTE_EXPIRED:[409,"A nova cotação expirou. O sistema atualizará o pedido."],
+    TOO_LATE_TO_CANCEL:[409,"A entrega já saiu. O cancelamento automático não é mais permitido."],
+    STOCK_RESTORE_FAILED:[409,"Não foi possível devolver o estoque reservado com segurança."],
+    IDEMPOTENCY_STATE_INVALID:[409,"Não foi possível confirmar o estado idempotente da operação."],
     DELIVERY_INCOMPATIBLE:[409,"A alternativa não possui mais a capacidade logística necessária para esta cesta."],
     IDEMPOTENCY_CONFLICT:[409,"A mesma chave foi usada para outra requisição."]
   };
@@ -78,7 +81,7 @@ Deno.serve(async(req:Request)=>{
     if(!UUID_RE.test(orderId))throw new DomainError("INVALID_ORDER","Pedido inválido.",400);
 
     const action=String(body.action??"");
-    if(!["cancel-before-accept","accept-requote"].includes(action)){
+    if(!["cancel-before-accept","cancel-before-dispatch","accept-requote"].includes(action)){
       throw new DomainError("INVALID_ACTION","Ação inválida.",400);
     }
 
