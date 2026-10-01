@@ -298,21 +298,17 @@ async function liveCustomerAction(action){
 }
 
 async function liveSyncFinancialProfile(){
-  if(!liveReady()||!liveRuntime.client)return;
+  if(!liveReady())return;
   try{
-    const [{data:profile},{data:wallet}]=await Promise.all([
-      liveRuntime.client.from('profiles').select('referral_code').maybeSingle(),
-      liveRuntime.client.from('wallet_entries').select('bucket,amount_cents')
-    ]);
-    if(profile?.referral_code)state.user.referralCode=profile.referral_code;
-    const rows=wallet||[];
-    const balance=(bucket)=>rows.filter(x=>x.bucket===bucket).reduce((sum,x)=>sum+Number(x.amount_cents||0),0)/100;
-    state.user.cashback=Math.max(0,balance('cashback'));
-    state.user.commissionPending=Math.max(0,balance('commission_pending'));
-    state.user.commissionAvailable=Math.max(0,balance('commission_available'));
+    const summary=await liveInvoke('customer-summary',{});
+    if(summary?.referralCode)state.user.referralCode=String(summary.referralCode).slice(0,40);
+    state.user.cashback=Math.max(0,Number(summary?.cashbackCents||0)/100);
+    state.user.commissionPending=Math.max(0,Number(summary?.commissionPendingCents||0)/100);
+    state.user.commissionAvailable=Math.max(0,Number(summary?.commissionAvailableCents||0)/100);
+    state.user.purchases=Math.max(0,Number(summary?.settledOrders||0));
     save();
   }catch(error){
-    console.warn('Não foi possível sincronizar carteira live',error);
+    console.warn('Não foi possível sincronizar o resumo financeiro live',error);
   }
 }
 
