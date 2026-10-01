@@ -14,6 +14,7 @@ globalThis.location={hash:'',search:'',origin:'https://example.test',pathname:'/
 globalThis.document={querySelector:()=>null};
 globalThis.render=()=>{};
 globalThis.toast=()=>{};
+globalThis.__CHAMA_TEST__=true;
 
 vm.runInThisContext(fs.readFileSync(new URL('../js/core.js',import.meta.url),'utf8'),{filename:'js/core.js'});
 const T=globalThis.ChamaTest;
@@ -333,6 +334,18 @@ test('ETA vencido gera um único alerta sem alterar artificialmente o status',()
   const count=first.events.filter(e=>e.status==='ETA_RISK').length;
   T.housekeeping();
   assert.equal(T.getState().orders[0].events.filter(e=>e.status==='ETA_RISK').length,count);
+});
+
+
+test('CNPJ numérico legado continua aceito',()=>{
+  assert.equal(T.isValidCnpjShape('12.345.678/0001-95'),true);
+  assert.equal(T.normalizeCnpj('12.345.678/0001-95'),'12345678000195');
+});
+
+test('CNPJ alfanumérico atual é aceito sem quebrar cadastros novos',()=>{
+  assert.equal(T.isValidCnpjShape('00.000.000/E08G-12'),true);
+  assert.equal(T.normalizeCnpj('00.000.000/E08G-12'),'00000000E08G12');
+  assert.equal(T.isValidCnpjShape('00.000.000/E08G-AA'),false);
 });
 
 console.log(`\n${passed} simulações passaram.`);
