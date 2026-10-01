@@ -420,14 +420,17 @@ function grantRewards(o){
   state.user.cashback=roundMoney((Number(state.user.cashback)||0)+earned);
   o.cashbackEarned=earned;
 }
-function deliverOrder(id,pin){
+function deliverOrder(id,pin,paymentConfirmed=false){
   const o=orderById(id);if(!o||o.status!=='ARRIVING')return {ok:false,error:'Pedido ainda não está pronto para confirmação de entrega'};
+  if(paymentConfirmed!==true)return {ok:false,error:'Confirme o recebimento do pagamento antes de concluir'};
   if(o.pinFailures>=MAX_PIN_FAILURES)return {ok:false,error:'PIN bloqueado após muitas tentativas. Abra suporte.'};
   if(String(pin||'').trim()!==o.pin){
     o.pinFailures=(o.pinFailures||0)+1;
     appendEvent(o,'PIN_FAILED','PIN incorreto',`Tentativa ${o.pinFailures} de ${MAX_PIN_FAILURES}.`);
     save();return {ok:false,error:o.pinFailures>=MAX_PIN_FAILURES?'PIN bloqueado. Abra suporte.':'PIN incorreto — entrega não concluída'};
   }
+  o.paymentConfirmedAt=nowIso();
+  appendEvent(o,'PAYMENT_CONFIRMED','Pagamento confirmado','A revenda confirmou o recebimento do pagamento.');
   let r=transition(o,'DELIVERED','Entregue ✓','PIN validado com sucesso.');if(!r.ok)return r;
   o.deliveredAt=nowIso();
   const m=merchantById(o.merchantId);if(m)m.delivered++;
