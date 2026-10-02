@@ -1,4 +1,4 @@
-# Auditoria v1.22 — Chama São Gabriel
+# Auditoria v1.23 — Chama São Gabriel
 
 Data: 01/10/2026
 
@@ -16,12 +16,31 @@ Na verificação desta rodada, o banco de produção permanecia com **0 usuário
 
 ## Release auditado
 
-- SHA canônico: `42c7b6b8f0e7fcf5c0507ff3d818159d31118802`;
-- PR #10 integrada por squash;
+- SHA funcional da v1.23: `2f9dec02b73f04d674554679d82114249df7221a`;
+- PR #12 integrada por squash;
 - workflow **Audit** executado também no SHA final de `main` e aprovado;
 - workflow **Deploy to GitHub Pages** aprovado no mesmo SHA;
 - `get-offers` publicado no Supabase como **v11**, ACTIVE, com `verify_jwt=true`;
 - migration `generalized_product_code_contract` aplicada em produção.
+
+## Evolução de experiência v1.23
+
+A rodada v1.23 olhou o produto como três usuários diferentes: quem quer comprar, quem quer entender e quem quer gerar renda.
+
+Mudanças comprovadas:
+
+- home reorganizada em **Comprar / Entender / Gerar renda**;
+- nova rota `#learn` com passo a passo, confiança e FAQ;
+- nova rota `#earn` distinguindo indicação pessoal de parceria comercial;
+- programa de indicação com regra do piloto explicada e exemplos marcados como não garantidos;
+- saque Pix inexistente removido como ação aparentemente disponível e mantido desabilitado;
+- landing de revenda refeita para aquisição, autonomia operacional e requisitos;
+- navegação desktop e mobile atualizadas para tornar “Ganhe” uma jornada de primeira classe;
+- linguagem técnica de backend/origem removida das principais superfícies do comprador;
+- nova linguagem visual com cards de intenção, resumo do fluxo, oportunidades e FAQ;
+- service worker atualizado para cache v1.23.
+
+Os gates de browser passaram a cobrir também `home`, `learn`, `earn`, compra, clube, indicação e revendas em viewport móvel. O E2E continua provando o fluxo operacional completo depois da mudança de UX.
 
 ## Evidência automatizada
 
