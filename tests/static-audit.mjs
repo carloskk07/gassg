@@ -312,6 +312,11 @@ assert.ok(offerSource.includes('filter_delivery_compatible_merchants'),'matching
 assert.ok(offerSource.includes('deliveryCompatibilityBlocked:true'),'matching deve distinguir bloqueio logístico de indisponibilidade comum');
 assert.ok(offerSource.includes('merchant_offer_load'),'matching deve considerar carga operacional recente sem expor isso ao cliente');
 assert.ok(!offerSource.includes('.limit(40)'),'matching não pode eliminar revendas arbitrariamente antes de calcular elegibilidade e ranking');
+const moneySafetyMigration=read('supabase/migrations/20261002202113_int4_cart_money_safety.sql').toLowerCase();
+assert.ok(moneySafetyMigration.includes('price_cents between 1 and 1000000'),'catálogo precisa limitar preço unitário ao teto int4 seguro');
+assert.ok(moneySafetyMigration.includes('unit_price_cents between 1 and 1000000'),'snapshots de cotação/pedido precisam preservar o mesmo teto monetário');
+assert.ok(read('supabase/functions/merchant-ops/index.ts').includes('{min:1,max:1000000}'),'API de catálogo deve rejeitar preço acima do teto seguro antes do banco');
+assert.ok(merchant.includes('max="10000"')&&merchant.includes('price>10000'),'UI da revenda deve refletir e validar o teto seguro de R$ 10 mil por unidade');
 assert.ok(offerSource.includes('marketMode:candidates.length===1?"single_supplier":"marketplace"'),'Edge deve declarar explicitamente fornecedor único vs marketplace');
 assert.ok(offerSource.includes('distributionPolicy:candidates.length===1?"single_supplier":"quality_first_balanced"'),'resposta deve declarar política de distribuição aplicada');
 const offerRanking=read('supabase/functions/_shared/offer-ranking.js');
