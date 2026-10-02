@@ -27,7 +27,7 @@ Esses exemplos:
 
 A suíte de testes mantém um marketplace sintético completo apenas quando injeta `globalThis.__CHAMA_TEST__=true`. A build normal não oferece esse caminho.
 
-## Estado atual — v1.22 auditado
+## Estado atual — v1.23 customer & growth UX
 
 **Backend multiusuário:** aplicado no projeto Supabase exclusivo do Chama.
 
@@ -46,6 +46,18 @@ Antes de liberar usuários reais em volume, devem ser comprovados com contas rea
 7. publicar cliente, revenda e admin em **três origens HTTPS distintas**;
 8. configurar Cloudflare Turnstile e habilitar CAPTCHA/Turnstile no Supabase Auth antes de aceitar novas sessões;
 9. comprovar os redirect URLs de magic link das origens de revenda e admin.
+
+## Experiência pública v1.23
+
+A interface pública foi reorganizada em torno de três intenções de usuário:
+
+- **Comprar:** consulta, cesta, comparação, aceite real da revenda e acompanhamento;
+- **Entender:** rota `#learn` com funcionamento, segurança e perguntas frequentes;
+- **Ganhar:** rota `#earn` separando indicação de compradores de venda por empresa/revenda.
+
+A home agora apresenta essas três portas logo no início, explica o fluxo em quatro passos também no mobile e reduz jargão de infraestrutura. O programa de indicação mostra a regra atual do piloto de forma explícita e deixa claro que exemplos não são promessa de renda. O saque Pix ainda inexistente permanece desabilitado na interface.
+
+A landing de revendas foi redesenhada para explicar autonomia comercial, catálogo multiproduto, online/offline, aceite por pedido, requisitos de cadastro e validação regulatória para GLP.
 
 ## O que já existe
 
@@ -124,7 +136,7 @@ Proteções implementadas:
 - rescue centralizado;
 - preço, taxa e itens congelados em re-cotação;
 - PIN com `pgcrypto`, cinco tentativas e retenção curta;
-- service worker network-first com cache `v1.22`;
+- service worker network-first com cache `v1.23`;
 - estado live com endereço/carrinho permanece em `sessionStorage`;
 - identidade anônima do cliente + ID do pedido ativo persistem na **origem dedicada do cliente**, permitindo recuperar uma entrega após fechar o navegador;
 - revenda e admin continuam tab-scoped em `sessionStorage`;
