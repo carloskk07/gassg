@@ -20,6 +20,10 @@ globalThis.__CHAMA_TEST__=true;
 
 vm.runInThisContext(fs.readFileSync(new URL('../js/core.js',import.meta.url),'utf8'),{filename:'js/core.js'});
 vm.runInThisContext(fs.readFileSync(new URL('../js/growth.js',import.meta.url),'utf8'),{filename:'js/growth.js'});
+const marginFn=globalThis.merchantMarginExample;
+const moneyRound=globalThis.roundMoney;
+assert.equal(typeof marginFn,'function');
+assert.equal(typeof moneyRound,'function');
 
 let seed=0xC1A031;
 function rnd(){
@@ -98,15 +102,15 @@ for(let k=0;k<3000;k++){
   const deliveryCost=Math.round(rnd()*10000)/100;
   const paymentCost=Math.round(rnd()*3000)/100;
   const taxRate=Math.round(rnd()*1000)/10;
-  const e=merchantMarginExample({salePrice,orders,productCost,deliveryCost,paymentCost,taxRate});
+  const e=marginFn({salePrice,orders,productCost,deliveryCost,paymentCost,taxRate});
 
   for(const value of Object.values(e))assert.ok(Number.isFinite(value));
   assert.ok(e.gross>=0);
   assert.ok(e.chamaFee>=0);
   assert.ok(e.knownCosts>=0);
-  assert.equal(e.contribution,roundMoney(e.gross-e.chamaFee-e.knownCosts));
-  assert.equal(e.chamaFee,roundMoney(e.gross*MERCHANT_PILOT_FEE_RATE));
-  assert.equal(e.unitContribution,roundMoney(e.contribution/orders));
+  assert.equal(e.contribution,moneyRound(e.gross-e.chamaFee-e.knownCosts));
+  assert.equal(e.chamaFee,moneyRound(e.gross*0.075));
+  assert.equal(e.unitContribution,moneyRound(e.contribution/orders));
   marginCases++;
 }
 
