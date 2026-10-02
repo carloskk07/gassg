@@ -258,18 +258,18 @@ async function checkout(mid){
   const result=createOrderForMerchant(mid);
   if(!result.ok){toast(result.error);render();return}
   go('tracking');
-  setTimeout(()=>toast('Pedido enviado para confirmação da revenda'),30);
+  setTimeout(()=>toast('Pedido enviado para confirmação do parceiro'),30);
 }
 const statusCopy={
   CREATED:['Pedido recebido','Recebemos os dados do pedido.'],
   QUOTE_LOCKED:['Preço protegido','O total deste pedido foi congelado.'],
-  OFFERED_TO_MERCHANT:['Aguardando revenda','A revenda precisa confirmar que realmente vai atender.'],
-  MERCHANT_ACCEPTED:['Revenda confirmou ✓','O pedido possui compromisso real de atendimento.'],
+  OFFERED_TO_MERCHANT:['Aguardando parceiro','O parceiro precisa confirmar que realmente vai atender.'],
+  MERCHANT_ACCEPTED:['Parceiro confirmou ✓','O pedido possui compromisso real de atendimento.'],
   PREPARING:['Em preparação','Itens reservados e entrega sendo preparada.'],
   AT_RISK:['Acompanhamento prioritário','Detectamos risco de atraso e estamos acompanhando.'],
-  REASSIGNING:['Buscando outra revenda','A primeira opção não conseguiu continuar.'],
+  REASSIGNING:['Buscando outra opção','A primeira opção não conseguiu continuar.'],
   REQUOTE_REQUIRED:['Sua confirmação é necessária','Encontramos outra opção com condição diferente.'],
-  OUT_FOR_DELIVERY:['A caminho ✓','A revenda confirmou efetivamente a saída.'],
+  OUT_FOR_DELIVERY:['A caminho ✓','O parceiro confirmou efetivamente a saída.'],
   ARRIVING:['Chegando','O entregador está próximo do endereço.'],
   DELIVERED:['Entregue ✓','Recebimento confirmado com prova de entrega.'],
   SETTLED:['Concluído','Pedido e benefícios foram conciliados.'],
