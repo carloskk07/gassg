@@ -94,6 +94,11 @@ for(let k=0;k<1000;k++){
   rankingCases++;
 }
 
+const MAX_INT4=2147483647;
+const maxSupportedCart=20*99*1000000+100000;
+assert.ok(maxSupportedCart<MAX_INT4,'teto novo deve caber em int4 mesmo na cesta máxima');
+assert.ok(20*99*100000000+100000>MAX_INT4,'teto antigo reproduz risco de overflow int4');
+
 let marginCases=0;
 for(let k=0;k<3000;k++){
   const orders=int(1,10000);
@@ -114,4 +119,4 @@ for(let k=0;k<3000;k++){
   marginCases++;
 }
 
-console.log(`Expert fuzz passou: ${rankingCases} cenários de ranking + ${marginCases} cenários de margem.`);
+console.log(`Expert fuzz passou: ${rankingCases} cenários de ranking + ${marginCases} cenários de margem + limites int4.`);
