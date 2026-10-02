@@ -27,6 +27,27 @@ Esses exemplos:
 
 A suíte de testes mantém um marketplace sintético completo apenas quando injeta `globalThis.__CHAMA_TEST__=true`. A build normal não oferece esse caminho.
 
+## Estado atual — v1.31 reliability, concurrency & boundary hardening
+
+A v1.31 faz uma segunda auditoria de produção sobre segurança, concorrência, rede, matching e limites do banco.
+
+Principais correções:
+
+- sequências públicas antigas também são revogadas de `anon/authenticated`; o modelo server-only passa a cobrir tabelas, funções **e sequências**;
+- a FK `pilot_partner_drafts.merchant_id` recebe índice de cobertura;
+- cadastro de parceiro rejeitado pode ser corrigido e reenviado; cadastro aprovado não pode ser reaberto por corrida entre usuário e administrador;
+- `submit-merchant-application` usa a origem dedicada da revenda;
+- retries de falha ambígua reutilizam a mesma idempotency key em create-order, ações de cliente/revenda, entrega e admin; escritas de configuração repetíveis também recebem retry seguro;
+- polling de cliente, revenda e admin é single-flight e descarta respostas obsoletas;
+- desligar o atendimento em São Gabriel pausa a revenda; não existe mais estado visual ONLINE enquanto o matching a exclui;
+- o matching deixa de cortar arbitrariamente as primeiras 40 revendas antes do ranking;
+- preço unitário máximo fica em **R$ 10.000** nas camadas UI/API/Postgres para manter a maior cesta suportada dentro do `integer` de 32 bits;
+- o simulador comercial não exibe contribuição/margem até o parceiro informar o custo do produto;
+- o CI executa fuzz determinístico adicional e retry de CDN sem relaxar o SHA-384 exigido do Supabase JS;
+- cache PWA sobe para `chama-sg-v1.31`.
+
+No Supabase real, continuam existindo **0 merchants reais, 0 pedidos e 0 admins**, além de **1 rascunho comercial server-only** do primeiro parceiro. O GitHub Pages permanece laboratório interno; comércio real continua bloqueado até as origens dedicadas, Auth/Turnstile, primeiro admin, dados jurídicos/compliance do parceiro e E2E real multi-dispositivo serem comprovados.
+
 ## Estado atual — v1.30 merchant conversion
 
 A v1.30 transforma a experiência de parceria de uma explicação de funcionalidades em uma proposta econômica para donos de revenda.
