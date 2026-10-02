@@ -49,7 +49,9 @@ assert.ok(core.includes('isValidCnpjShape'),'core precisa suportar validação e
 assert.ok(!merchant.includes('.stock'),'UI da revenda não deve depender do campo legado stock');
 assert.ok(growth.includes('referralCode'),'link de indicação deve usar código pessoal');
 assert.ok(bootstrap.includes('home,learn,earn'),'router público precisa expor jornadas de descoberta e renda');
-assert.ok(customer.includes('Quero pedir agora')&&customer.includes('Quero economizar')&&customer.includes('Quero ganhar ou vender'),'home precisa separar compra, economia e oportunidade');
+assert.ok(customer.includes('Quero pedir agora')&&customer.includes('Quero entender melhor')&&customer.includes('Quero ganhar ou vender'),'home precisa priorizar compra e separar entendimento de oportunidades');
+assert.ok(customer.includes('Botijão de cozinha 13 kg')&&customer.includes('startHomeOrder'),'home precisa iniciar a compra em linguagem humana sem depender de P13 como rótulo principal');
+assert.ok(customer.includes('PROTEÇÃO CHAMA')&&customer.includes('qualquer alternativa mais cara'),'home precisa explicar rescue e requote como proteção compreensível ao cliente');
 assert.ok(customer.includes("go('learn')")&&customer.includes("go('earn')"),'home precisa possuir CTAs claros para descoberta e renda');
 assert.ok(growth.includes('function learn()'),'jornada Saiba mais precisa existir');
 assert.ok(growth.includes('function earn()'),'hub Ganhe com o Chama precisa existir');
@@ -69,7 +71,7 @@ assert.ok(growth.includes('Saque Pix ainda não disponível')&&growth.includes('
 assert.ok(growth.includes('Você continua no controle'),'landing de revenda deve enfatizar autonomia operacional');
 assert.ok(core.includes("['earn','💰','Ganhe','go']"),'navegação móvel precisa dar acesso direto ao hub de renda');
 assert.ok(!growth.includes('inputmode="numeric" maxlength="18"'),'campo CNPJ não pode forçar teclado somente numérico após adoção do CNPJ alfanumérico');
-assert.ok(sw.includes("CACHE='chama-sg-v1.25'"),'cache do service worker precisa estar versionado');
+assert.ok(sw.includes("CACHE='chama-sg-v1.26'"),'cache do service worker precisa estar versionado');
 assert.ok(sw.includes("./js/backend.js"),'runtime live precisa estar no cache da PWA');
 assert.ok(sw.includes("./js/runtime-config.js"),'configuração pública de origins precisa estar no cache da PWA');
 assert.ok(sw.includes("./js/turnstile.js"),'helper local do Turnstile precisa estar no cache da PWA');
