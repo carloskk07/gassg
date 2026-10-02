@@ -75,7 +75,9 @@ jobs:
           grep -q "Clube Chama" /tmp/club.html
           grep -q "Indique e ganhe" /tmp/refer.html
           grep -q "Mais pedidos para sua operação" /tmp/merchants.html
-          grep -q "PAINEL DA REVENDA" /tmp/merchant.html
+          grep -q "Acesso operacional real" /tmp/merchant.html
+          ! grep -q "PAINEL DA REVENDA — DEMONSTRAÇÃO" /tmp/merchant.html
+          ! grep -q "Revenda Parceira A" /tmp/merchant.html
           grep -q "Administração só está disponível" /tmp/admin.html
       - name: Browser E2E — fluxo completo
         run: |
