@@ -27,7 +27,7 @@ Esses exemplos:
 
 A suíte de testes mantém um marketplace sintético completo apenas quando injeta `globalThis.__CHAMA_TEST__=true`. A build normal não oferece esse caminho.
 
-## Estado atual — v1.23 customer & growth UX
+## Estado atual — v1.24 resilience hardening
 
 **Backend multiusuário:** aplicado no projeto Supabase exclusivo do Chama.
 
@@ -58,6 +58,21 @@ A interface pública foi reorganizada em torno de três intenções de usuário:
 A home agora apresenta essas três portas logo no início, explica o fluxo em quatro passos também no mobile e reduz jargão de infraestrutura. O programa de indicação mostra a regra atual do piloto de forma explícita e deixa claro que exemplos não são promessa de renda. O saque Pix ainda inexistente permanece desabilitado na interface.
 
 A landing de revendas foi redesenhada para explicar autonomia comercial, catálogo multiproduto, online/offline, aceite por pedido, requisitos de cadastro e validação regulatória para GLP.
+
+## Resiliência operacional v1.24
+
+A auditoria v1.24 endureceu superfícies que só aparecem fora do fluxo feliz:
+
+- navegação entre cliente, revenda e admin usa explicitamente as três origins configuradas, em vez de reutilizar a origin atual;
+- contas vinculadas a várias revendas escolhem por padrão uma membership operacional (`owner`, `manager` ou `operator`);
+- seleção de revenda persistida é apagada no logout e recuperada automaticamente quando ficou obsoleta ou pertenceu a outra conta;
+- o papel `driver` continua bloqueado sem assignment, mas agora recebe uma explicação específica na UI;
+- cashback e comissões são resincronizados periodicamente mesmo sem pedido ativo, com throttle de 60 segundos;
+- falha temporária do `market-status` não é apresentada como falsa ausência de parceiros;
+- a revenda deixa de aparecer como **ONLINE** quando o heartbeat já ficou velho;
+- indicação foi alinhada ao contrato financeiro: uma comissão de aquisição sobre a **primeira compra qualificada de cada novo cliente elegível**; compras repetidas do mesmo indicado não geram nova comissão.
+
+O programa de indicação continua usando a política inicial de **2%**, respeitando hold, validação de risco e os gates de identidade permanente definidos no backend.
 
 ## O que já existe
 
@@ -136,7 +151,7 @@ Proteções implementadas:
 - rescue centralizado;
 - preço, taxa e itens congelados em re-cotação;
 - PIN com `pgcrypto`, cinco tentativas e retenção curta;
-- service worker network-first com cache `v1.23`;
+- service worker network-first com cache `v1.24`;
 - estado live com endereço/carrinho permanece em `sessionStorage`;
 - identidade anônima do cliente + ID do pedido ativo persistem na **origem dedicada do cliente**, permitindo recuperar uma entrega após fechar o navegador;
 - revenda e admin continuam tab-scoped em `sessionStorage`;

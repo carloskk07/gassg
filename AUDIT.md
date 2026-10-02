@@ -1,6 +1,6 @@
-# Auditoria v1.23 — Chama São Gabriel
+# Auditoria v1.24 — Chama São Gabriel
 
-Data: 01/10/2026
+Data: 02/10/2026
 
 ## Status
 
@@ -16,12 +16,13 @@ Na verificação desta rodada, o banco de produção permanecia com **0 usuário
 
 ## Release auditado
 
-- SHA funcional da v1.23: `2f9dec02b73f04d674554679d82114249df7221a`;
-- PR #12 integrada por squash;
-- workflow **Audit** executado também no SHA final de `main` e aprovado;
+- SHA funcional da v1.24: `5808c18032c8608707a5ccd966fa04bbbc7dca01`;
+- PR #14 integrada por squash;
+- workflow **Audit** aprovado no SHA final de `main`;
 - workflow **Deploy to GitHub Pages** aprovado no mesmo SHA;
-- `get-offers` publicado no Supabase como **v11**, ACTIVE, com `verify_jwt=true`;
-- migration `generalized_product_code_contract` aplicada em produção.
+- `merchant-orders` publicado no Supabase como **v11**, ACTIVE, com `verify_jwt=true`;
+- os **12 entrypoints** Edge publicados correspondem aos entrypoints do `main`;
+- esta rodada não exigiu migration/DDL.
 
 ## Evolução de experiência v1.23
 
@@ -42,6 +43,92 @@ Mudanças comprovadas:
 
 Os gates de browser passaram a cobrir também `home`, `learn`, `earn`, compra, clube, indicação e revendas em viewport móvel. O E2E continua provando o fluxo operacional completo depois da mudança de UX.
 
+## Hardening de resiliência v1.24
+
+A rodada atacou estados que normalmente escapam do E2E feliz.
+
+### 1. Portais em origins dedicadas
+
+Os botões de navegação construíam `?merchant=1` e `?admin=1` sobre a origin atual. Em produção isso podia enviar o usuário para o portal privilegiado na origin do cliente, que era corretamente rejeitada pelo próprio fail-closed.
+
+Correção:
+
+- autoridade única `buildPortalHref()`;
+- cliente → revenda usa `CHAMA_MERCHANT_ORIGIN`;
+- revenda/admin → cliente usa `CHAMA_CUSTOMER_ORIGIN`;
+- entrada admin usa `CHAMA_ADMIN_ORIGIN`;
+- localhost continua suportado para desenvolvimento;
+- E2E prova as quatro combinações relevantes de routing.
+
+### 2. Conta multi-revenda e seleção persistida
+
+`merchant-orders` usava a primeira membership retornada pelo banco. Uma conta com `driver` em uma revenda e `owner/manager/operator` em outra podia receber 403 dependendo da ordem da consulta.
+
+Além disso, o merchant selecionado ficava no `localStorage` depois do logout e podia bloquear a conta seguinte.
+
+Correção:
+
+- seleção default prefere membership operacional;
+- seleção explícita continua respeitada e pode ser negada semanticamente;
+- logout limpa a seleção persistida;
+- seleção obsoleta/sem autorização é apagada e resolvida novamente uma única vez;
+- UI distingue `MERCHANT_ROLE_NOT_ENABLED` de “revenda ainda não vinculada”.
+
+### 3. Estado financeiro vivo
+
+O resumo financeiro só era sincronizado no bootstrap e ao terminar um pedido. Cashback/comissão podiam permanecer stale se uma chamada falhasse ou se uma comissão amadurecesse pelo job enquanto a PWA permanecia aberta.
+
+Correção:
+
+- polling financeiro periódico com throttle de 60 s;
+- sincronização forçada após `SETTLED/CANCELLED`;
+- atualização funciona mesmo sem pedido ativo;
+- quota server-side permanece muito acima da frequência utilizada.
+
+### 4. Estado de mercado desconhecido
+
+Falha temporária de `market-status` podia ser mostrada como “Chegando em breve”, confundindo “não consegui consultar” com “não existem parceiros”.
+
+Correção:
+
+- estado `ready + marketStatus=null` é tratado como disponibilidade desconhecida;
+- usuário continua podendo consultar diretamente pelo endereço;
+- exemplos de pré-lançamento continuam exigindo prova explícita de `realSupplyConfigured=false`.
+
+### 5. Heartbeat verdadeiro da revenda
+
+Uma operação marcada `online=true` podia continuar exibindo “ONLINE” mesmo quando `last_seen_at` já estava velho o suficiente para o matching parar de enviar pedidos.
+
+Correção:
+
+- falha de heartbeat é preservada no runtime;
+- polling renova heartbeat antes de atualizar a projeção;
+- painel exibe **SEM CONEXÃO** quando a presença já não é recente;
+- novos pedidos continuam protegidos pelo gate server-side de `last_seen_at`.
+
+### 6. Contrato de indicação
+
+A UX v1.23 dizia “10 compras de R$ 120”, o que podia sugerir comissão recorrente sobre compras repetidas do mesmo indicado. O backend, porém, usa indicação como aquisição: a relação nasce antes do primeiro pedido e qualifica uma primeira compra elegível.
+
+Correção:
+
+- exemplos agora usam “novos clientes / 1ª compra”;
+- compras repetidas do mesmo indicado são explicitamente excluídas de nova comissão de aquisição;
+- UX registra que maturação exige as identidades permanentes previstas no backend;
+- testes ligam o texto público ao `direct_referral_bps=200`, ao acquisition gate e ao risk/identity gate.
+
+## Prova transacional v1.24
+
+Foi executado cenário no Postgres real dentro de `BEGIN ... ROLLBACK`:
+
+- revenda sintética não-GLP com CNPJ vigente e ANP pendente;
+- `merchant_anp_compliance_current()` retornou verdadeiro enquanto não havia GLP;
+- operação não-GLP pôde ficar ativa;
+- tentativa de P20 ativo sem ANP foi bloqueada por `ANP_REVERIFICATION_REQUIRED`;
+- após ANP verificada com referência, P20 foi aceito;
+- CNPJ e ANP ficaram vigentes no cenário válido;
+- rollback posterior confirmou **0 merchants, 0 catálogo e 0 compliance sintéticos persistidos**.
+
 ## Evidência automatizada
 
 A suíte verde cobre:
@@ -57,7 +144,7 @@ A suíte verde cobre:
 - manifest e service worker;
 - verificação SHA-384 do SDK browser do Supabase antes do release.
 
-## Achados eliminados nesta rodada
+## Achados históricos v1.22 preservados
 
 ### 1. Divergência crítica de produtos GLP
 
@@ -113,7 +200,7 @@ Foi executado um cenário dentro de transação com rollback:
 
 ## Segurança do banco
 
-Estado pós-v1.22:
+Estado pós-v1.24:
 
 - 32 tabelas públicas da aplicação com RLS ativo;
 - 0 policies nessas tabelas de data-plane;
@@ -126,13 +213,19 @@ Estado pós-v1.22:
 
 Os 32 avisos `RLS Enabled No Policy` do Security Advisor continuam sendo **INFO intencional**: o browser não possui grants e a arquitetura é server-only. Os dois warnings do schema `cron` são do `pg_cron` gerenciado.
 
-## Logs pós-deploy
+## Evidência operacional pós-deploy
 
-Na janela imediatamente posterior à migration/deploy:
+Após o deploy v1.24:
 
-- Postgres/PostgREST/PgBouncer operaram normalmente;
-- não foram encontrados eventos contendo error/failed/exception/panic;
-- o projeto permaneceu ACTIVE_HEALTHY.
+- `merchant-orders` v11 permaneceu **ACTIVE** e com JWT obrigatório;
+- os três arquivos do bundle v11 foram comparados byte a byte com o `main` e coincidiram;
+- os 12 entrypoints Edge ativos foram comparados com o `main` e coincidiram;
+- não existiam falhas abertas em `reward_processing_failures` nem em `settlement_accounting_failures`;
+- não existiam reviews de indicação pendentes;
+- os jobs observados na janela de 24 h registraram somente execuções `succeeded`;
+- o banco permaneceu sem usuários, merchants, memberships, aplicações, pedidos ou administradores de produção.
+
+A consulta unificada de logs do provedor retornou erro do próprio endpoint nesta rodada; por isso a auditoria não usa ausência de linhas de log como prova de saúde. A evidência operacional acima vem de estado do banco, cron, filas e funções publicadas.
 
 ## Performance Advisor
 
