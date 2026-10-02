@@ -876,3 +876,234 @@ A suíte falha se:
 - Parceiro Fundador virar promessa de pedidos/renda;
 - o piloto interno voltar a apontar o CTA principal para um portal real ainda sem origem dedicada.
 
+---
+
+# Auditoria v1.31 — Reliability, Concurrency & Boundary Hardening
+
+## Escopo
+
+Rodada de auditoria pós-v1.30 com foco em falhas de produção que não dependem da jornada feliz:
+
+- segurança server-only residual;
+- concorrência e respostas assíncronas obsoletas;
+- retries e ACK perdido;
+- onboarding de revenda;
+- consistência entre estado visual e matching;
+- starvation de parceiros;
+- limites monetários do PostgreSQL;
+- robustez do CI;
+- fuzz determinístico de ranking e finanças;
+- invariantes do banco real, crons, advisors e logs.
+
+## Achados corrigidos
+
+### 1. Sequência pública antiga ainda utilizável pelo browser
+
+As tabelas e funções públicas já estavam fechadas, mas `order_events_id_seq` ainda conservava `USAGE` para `anon/authenticated`.
+
+Correção:
+
+- `revoke all on all sequences in schema public from anon, authenticated`;
+- baseline `schema.sql` atualizado;
+- gate de CI impede regressão;
+- defaults futuros continuam fechados.
+
+Prova no projeto real depois da correção:
+
+- grants de tabela para browser: **0**;
+- funções públicas executáveis por browser: **0**;
+- sequências públicas utilizáveis por browser: **0**.
+
+### 2. FK do staging do primeiro parceiro sem índice
+
+`pilot_partner_drafts.merchant_id` foi apontada pelo advisor de performance como FK sem índice de cobertura.
+
+Correção:
+
+- criado `pilot_partner_drafts_merchant_idx`;
+- advisor deixa de apontar FK sem cobertura.
+
+Os avisos restantes de performance são apenas `unused_index`, esperados enquanto o banco real ainda não possui tráfego de produção.
+
+### 3. Cadastro rejeitado não podia ser reenviado
+
+A unicidade por `(applicant_user_id, cnpj)` impedia um parceiro rejeitado de corrigir dados e enviar novamente.
+
+Correção:
+
+- registro rejeitado é atualizado e volta a `pending`;
+- retry após ACK perdido recupera o mesmo cadastro `pending`;
+- cadastro já aprovado retorna conflito sem duplicar operação;
+- atualização é condicionada a `status in ('pending','rejected')`, fechando corrida TOCTOU com aprovação administrativa;
+- mudança concorrente de estado retorna erro sem reabrir cadastro aprovado.
+
+### 4. Origem errada no onboarding real da revenda
+
+`submit-merchant-application` estava associada à origem do cliente embora o formulário live só exista no portal isolado da revenda.
+
+Correção:
+
+- Edge Function passa a exigir `MERCHANT_ALLOWED_ORIGIN`;
+- gate estático impede retorno ao contrato anterior.
+
+### 5. Estado “ONLINE” incompatível com matching
+
+Era possível desativar `accepts_citywide` e manter `online=true`. O parceiro via ONLINE, enquanto `get-offers` o excluía.
+
+Correção:
+
+- desligar atendimento em São Gabriel pausa novos pedidos na mesma operação;
+- tentativa de voltar online sem a área ativa é bloqueada;
+- UI passa a explicar o bloqueio comercial.
+
+### 6. Retries incompletos em falha ambígua
+
+`create-order` já tinha recuperação especial, mas outras mutações idempotentes podiam terminar no servidor e chegar como timeout/5xx ao navegador.
+
+Correção:
+
+- autoridade compartilhada `retryAmbiguousOnce()`;
+- mesma idempotency key reaproveitada em:
+  - create-order;
+  - customer-action;
+  - merchant-action;
+  - complete-delivery;
+  - ações administrativas;
+- escritas de configuração repetíveis da revenda recebem um retry em falha ambígua;
+- cadastro de parceiro também sobrevive a ACK perdido sem duplicar candidatura.
+
+### 7. Polling concorrente e resposta velha sobrescrevendo estado novo
+
+O timer global roda a cada 5 s e uma requisição pode durar até 15 s. Sem single-flight, ciclos podiam se sobrepor.
+
+Correção:
+
+- cliente, revenda e admin ganham `pollPending`;
+- refresh financeiro/mercado/merchant/admin recebe sequência monotônica;
+- resposta obsoleta é descartada;
+- polling administrativo completo é limitado a aproximadamente 15 s.
+
+### 8. Starvation de revendas antes do ranking
+
+`get-offers` aplicava `.limit(40)` antes de catálogo, elegibilidade e ranking. Com mais de 40 operações elegíveis, a ordem física do banco poderia impedir parceiros de participar da disputa.
+
+Correção:
+
+- removido o corte arbitrário pré-ranking;
+- teste de regressão proíbe `.limit(40)` nessa etapa;
+- futura expansão geográfica deve usar filtro de área explícito, não truncamento não determinístico.
+
+### 9. Overflow monetário possível apesar de inputs “válidos”
+
+A API aceitava preço unitário de até 100.000.000 centavos e quantidade de até 99, enquanto `line_total_cents`, `gross_total_cents` e correlatos são `integer` de 32 bits.
+
+Correção:
+
+- preço unitário máximo: **1.000.000 centavos (R$ 10.000)**;
+- constraint no catálogo, quote item e order item;
+- Edge Function e UI usam o mesmo teto;
+- com 20 linhas × 99 unidades × 1.000.000 centavos + taxa máxima de entrega, a cesta extrema suportada fica em **1.980.100.000 centavos**, abaixo de `2.147.483.647`;
+- fuzz prova que o teto antigo ultrapassaria `int4`.
+
+### 10. Simulador podia sugerir margem antes dos custos
+
+A v1.30 iniciava custo do produto em zero. Mesmo com aviso textual, a interface podia mostrar uma margem alta antes do parceiro informar o principal custo.
+
+Correção:
+
+- custo do produto começa vazio;
+- bruto e taxa continuam calculáveis;
+- contribuição, contribuição unitária e margem ficam como `—` até o custo do produto ser informado;
+- gate E2E impede regressão.
+
+### 11. CI vulnerável a falha transitória do CDN
+
+Durante a própria auditoria, o download usado para conferir o SHA-384 do Supabase JS falhou com `Recv failure: Connection reset by peer`.
+
+Correção:
+
+- `curl` recebe retry, retry-all-errors, connect timeout e max-time;
+- SHA-384 esperado permanece idêntico;
+- resiliência de rede sem relaxar integridade.
+
+## Simulações e gates
+
+Além das 35 simulações existentes, a v1.31 adiciona fuzz determinístico:
+
+- **6.000 cenários de ranking**;
+- **3.000 cenários de margem**;
+- prova explícita do limite `int4`;
+- forte dominância não pode ser derrubada por balanceamento de carga;
+- cheapest e fastest continuam presentes entre as ofertas escolhidas quando distintos;
+- single supplier continua recebendo rótulo `available`.
+
+Audit/CI também prova:
+
+- retry apenas em falha ambígua;
+- mesma idempotency key no retry;
+- polling single-flight;
+- descarte de resposta stale;
+- reenvio seguro de aplicação;
+- área de atendimento coerente com ONLINE;
+- ausência do corte pré-ranking de 40 merchants;
+- constraints monetárias nas três tabelas;
+- cache PWA `chama-sg-v1.31`.
+
+## Supabase real
+
+Estado observado nesta rodada:
+
+- profiles: **0**;
+- merchants reais: **0**;
+- pilot partner drafts: **1**;
+- orders: **0**;
+- quotes: **0**;
+- wallet entries: **0**;
+- applications: **0**;
+- platform admins: **0**.
+
+Invariantes consultadas diretamente retornaram zero para:
+
+- cliente com múltiplos pedidos ativos;
+- autoindicação;
+- settlement sem pagamento;
+- settlement sem entrega;
+- entrega/settlement sem dispatch;
+- valores negativos;
+- cashback acima do bruto;
+- `total != gross - cashback`;
+- itens/eventos/ledger órfãos;
+- draft apontando para merchant inexistente.
+
+Crons nas últimas 24 h:
+
+- **2.043 execuções succeeded**;
+- nenhum status de falha encontrado.
+
+Os dois erros PostgreSQL inicialmente encontrados na busca de logs são eventos históricos de `application_name=mgmt-api` durante tentativas antigas de aplicar migration; não são tráfego da aplicação.
+
+Security advisor:
+
+- 33 avisos `RLS Enabled No Policy` são intencionais no data-plane server-only;
+- warnings de anonymous policy pertencem às tabelas gerenciadas pelo `pg_cron`, não às tabelas públicas da aplicação.
+
+Performance advisor:
+
+- apenas `unused_index` permanece;
+- não remover índices com banco sem tráfego real, pois ausência de uso ainda não é evidência de redundância.
+
+## Estado operacional
+
+A v1.31 reduz bugs de concorrência, rede, onboarding, matching e limites de banco, mas **não libera lançamento público em dinheiro real**.
+
+Ainda precisam de prova operacional antes do go-live:
+
+- três origens HTTPS distintas;
+- Supabase Auth/redirect URLs;
+- Turnstile;
+- primeiro administrador permanente;
+- cadastro jurídico/compliance do primeiro parceiro real;
+- catálogo/estoque/taxa/ETA reais;
+- cobrança/conciliação/repasse;
+- E2E multi-dispositivo real até pagamento + PIN + settlement + benefícios.
+
