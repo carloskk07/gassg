@@ -79,9 +79,7 @@ function freshSeed(){
     merchants:testDemo
       ? internalPilot
         ? [
-            // Only the P13 price comes from the commercial conversation.
-            // Stock, ETA, distance and trust are explicitly simulated pilot inputs.
-            freshMerchant('JR-PILOT','Gas e Lenheira do JR — SIMULAÇÃO',115.90,30,2.0,90,{P13:20},{})
+            (()=>{const m=freshMerchant('JR-PILOT','Gas e Lenheira do JR — SIMULAÇÃO',120.00,30,2.0,90,{P13:20},{});m.pricingP13={mode:'range',min:115.90,preferred:120.00,max:125.00,strategy:'balanced'};return m})()
           ]
         : [
             freshMerchant('A','Revenda Parceira A',116.90,34,3.8,94,{P13:24,WATER20:18,CHARCOAL4:12,WOOD:8,ICE5:14},{WATER20:15.90,CHARCOAL4:19.90,WOOD:24.90,ICE5:12.00}),
