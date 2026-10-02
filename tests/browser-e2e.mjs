@@ -116,7 +116,7 @@ assert.equal(
 );
 
 assert.equal(
-  await evaluate(`(async()=>{const original=window.fetch;window.fetch=()=>new Promise(()=>{});try{await chamaFetch('/timeout-probe',{},25);return 'NO_TIMEOUT'}catch(error){return error?.code||error?.name||String(error)}finally{window.fetch=original}})()`),
+  await evaluate(`(async()=>{const original=window.fetch;window.fetch=(_input,init={})=>new Promise((_resolve,reject)=>{const signal=init.signal;if(signal?.aborted)return reject(signal.reason||new DOMException('Aborted','AbortError'));signal?.addEventListener('abort',()=>reject(signal.reason||new DOMException('Aborted','AbortError')),{once:true})});try{await chamaFetch('/timeout-probe',{},25);return 'NO_TIMEOUT'}catch(error){return error?.code||error?.name||String(error)}finally{window.fetch=original}})()`),
   'NETWORK_TIMEOUT'
 );
 
