@@ -329,6 +329,8 @@ grant all on table
   public.action_requests
 to service_role;
 
+-- Close sequences that may have been created before the default-ACL lockdown.
+revoke all on all sequences in schema public from anon, authenticated;
 grant usage, select on all sequences in schema public to service_role;
 
 -- Future public objects must fail closed as well. PostgreSQL 17 includes MAINTAIN
