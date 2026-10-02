@@ -27,6 +27,63 @@ Esses exemplos:
 
 A suíte de testes mantém um marketplace sintético completo apenas quando injeta `globalThis.__CHAMA_TEST__=true`. A build normal não oferece esse caminho.
 
+## Estado atual — v1.30 merchant conversion
+
+A v1.30 transforma a experiência de parceria de uma explicação de funcionalidades em uma proposta econômica para donos de revenda.
+
+### Proposta comercial
+
+A landing agora começa por **faturamento incremental**, sem sugerir exclusividade:
+
+- Chama como canal adicional a telefone, WhatsApp, balcão e canais próprios;
+- sem obrigação de aceitar todo pedido;
+- online/offline sob decisão da empresa;
+- preço, estoque, taxa de entrega e catálogo controlados pela revenda;
+- multiproduto apresentado como oportunidade de aumentar ticket por entrega.
+
+### Simulador de margem incremental
+
+O simulador antigo de “bruto - taxa” foi substituído por um modelo que recebe:
+
+- pedidos adicionais;
+- preço médio;
+- custo do produto;
+- custo médio de entrega;
+- custo do meio de pagamento;
+- tributos percentuais.
+
+A saída separa vendas brutas, taxa Chama, custos informados, contribuição total, contribuição por pedido e margem estimada. A interface deixa explícito que **receita não é lucro** e que o cálculo não conhece custos fixos nem promete rentabilidade.
+
+### Distribuição de pedidos
+
+A landing explica a política já implementada no backend:
+
+- preço total, ETA e confiança operacional são sinais principais;
+- menor carga não vence automaticamente;
+- carga atual e volume recente só ajudam a distribuir entre parceiros de qualidade próxima;
+- a revenda não precisa ser sempre a mais barata para participar.
+
+### Financeiro e operação
+
+A parceria passa a explicar:
+
+- pedido, pagamento, conclusão e conciliação como etapas distintas;
+- repasse ainda em validação operacional;
+- recusar antes do aceite é permitido;
+- aceitar e falhar depois é operacionalmente diferente;
+- cashback, taxa da plataforma e ajustes são contas separadas.
+
+### Parceiro Fundador
+
+Foi criada a proposta **Parceiro Fundador — São Gabriel**, sem promessa de demanda ou renda:
+
+- onboarding acompanhado;
+- acesso antecipado às ferramentas;
+- feedback direto nas melhorias;
+- histórico de participação no piloto.
+
+No GitHub Pages interno, o CTA principal é **Experimentar painel da revenda** e abre diretamente o cenário JR simulado, evitando um portal live ainda sem domínio.
+
 ## Estado atual — v1.29 internal full pilot
 
 Como o Chama ainda não está sendo divulgado e não possui domínio próprio, o GitHub Pages passou a funcionar como **laboratório interno completo**, sem abrir comércio real.

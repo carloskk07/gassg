@@ -161,3 +161,43 @@ button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-vis
   .merchant-home-card{padding:16px}
   .offer-main{gap:12px}
 }
+
+
+/* v1.30 — merchant conversion & unit economics */
+.merchant-value-strip strong{font-weight:950}
+.merchant-no-lockin{display:grid;grid-template-columns:1fr;gap:8px;margin-top:14px}
+.merchant-no-lockin span{background:#f4f8f6;border:1px solid var(--line);border-radius:13px;padding:10px 12px;font-size:12px;font-weight:850;color:#2f4b3d}
+.merchant-margin-inputs{grid-template-columns:1fr}
+.merchant-margin-inputs .input-wrap small{display:block;color:var(--muted);font-size:10px;margin-top:5px}
+.merchant-margin-results{grid-template-columns:1fr}
+.distribution-grid{display:grid;grid-template-columns:1fr;gap:10px}
+.distribution-card{background:white;border:1px solid var(--line);border-radius:18px;padding:15px;box-shadow:0 8px 24px rgba(20,45,34,.04)}
+.distribution-card>span{display:inline-grid;place-items:center;width:30px;height:30px;border-radius:50%;background:#edf8f2;color:var(--brand);font-weight:950;margin-bottom:10px}
+.distribution-card strong{display:block;font-size:15px;margin-bottom:5px}
+.distribution-card p{margin:0;color:var(--muted);font-size:12px;line-height:1.5}
+.ticket-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.ticket-product{background:white;border:1px solid var(--line);border-radius:17px;padding:14px;display:grid;grid-template-columns:auto 1fr;column-gap:8px;align-items:center;font-size:21px}
+.ticket-product strong{font-size:13px}
+.ticket-product span{grid-column:1/-1;color:var(--muted);font-size:10px;margin-top:5px;line-height:1.4}
+.money-flow{display:grid;grid-template-columns:1fr;gap:9px}
+.money-flow>b{display:none}
+.money-flow>div{background:white;border:1px solid var(--line);border-radius:17px;padding:14px}
+.money-flow>div>span{display:inline-grid;place-items:center;width:27px;height:27px;border-radius:50%;background:#10251b;color:white;font-size:11px;font-weight:950;margin-right:7px}
+.money-flow strong{font-size:13px}
+.money-flow small{display:block;color:var(--muted);font-size:10px;line-height:1.45;margin-top:6px}
+.founder-band{background:linear-gradient(135deg,#10251b,#174d37);color:white;border-radius:27px;padding:22px;display:grid;gap:18px}
+.founder-band h2{margin:4px 0 8px;letter-spacing:-.035em}
+.founder-band p{margin:0;color:#cfe2d8;line-height:1.55}
+.founder-points{display:grid;gap:8px}
+.founder-points span{background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.10);border-radius:12px;padding:10px 12px;font-size:12px;font-weight:800}
+
+@media (min-width:720px){
+  .merchant-no-lockin{grid-template-columns:repeat(2,1fr)}
+  .merchant-margin-inputs{grid-template-columns:repeat(3,1fr)}
+  .merchant-margin-results{grid-template-columns:repeat(3,1fr)}
+  .distribution-grid{grid-template-columns:repeat(4,1fr)}
+  .ticket-grid{grid-template-columns:repeat(5,1fr)}
+  .money-flow{grid-template-columns:1fr auto 1fr auto 1fr auto 1fr;align-items:center}
+  .money-flow>b{display:block;color:var(--muted);text-align:center}
+  .founder-band{grid-template-columns:1.15fr .85fr;align-items:center;padding:28px}
+}

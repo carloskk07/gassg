@@ -785,3 +785,94 @@ O Chrome E2E agora executa o fluxo padrão e, em seguida, ativa o cenário JR e 
 - cashback final de R$ 1,15.
 
 Esse modo pode ser removido ou convertido em staging dedicado quando os domínios/origens reais forem criados.
+
+
+---
+
+# Auditoria v1.30 — Merchant Conversion
+
+## Objetivo
+
+Revisar o Chama do ponto de vista de um proprietário de revenda que precisa responder quatro perguntas antes de entrar:
+
+1. isso pode trazer pedidos novos?
+2. quanto custa?
+3. quanto pode sobrar depois dos meus próprios custos?
+4. quanto controle e risco operacional eu assumo?
+
+## Problema identificado
+
+A experiência anterior explicava muito bem catálogo, aceite, online/offline e taxa de 7,5%, mas colocava o custo da plataforma antes de demonstrar de forma concreta o valor econômico recebido pelo parceiro.
+
+O simulador anterior mostrava apenas:
+
+`vendas brutas - taxa Chama`.
+
+Esse valor não é lucro e poderia ser interpretado dessa forma por um parceiro menos atento.
+
+## Correções
+
+### Margem incremental
+
+`merchantMarginExample()` agora calcula:
+
+- vendas brutas;
+- taxa Chama de 7,5%;
+- custo do produto informado;
+- custo de entrega informado;
+- custo de pagamento informado;
+- tributos informados;
+- contribuição estimada;
+- contribuição unitária;
+- margem percentual estimada.
+
+Nenhum custo desconhecido é inventado. O preço de R$ 115,90 do cenário JR aparece como preço de venda do exemplo, enquanto custos próprios começam em zero e são explicitamente solicitados ao parceiro.
+
+### Sem exclusividade
+
+A landing declara que o Chama é um canal adicional. Telefone, WhatsApp, balcão e demais canais próprios continuam fazendo parte da operação.
+
+### Distribuição
+
+O parceiro passa a receber explicação comercial da autoridade `offer-ranking` sem exposição da fórmula interna detalhada:
+
+- preço;
+- ETA;
+- confiança;
+- carga apenas entre opções próximas.
+
+A interface explicita que uma revenda não precisa ser sempre a mais barata e que menor carga não promove uma opção claramente pior.
+
+### Multiproduto
+
+O catálogo deixa de ser apresentado apenas como capacidade técnica e passa a ser explicado como aumento de ticket por deslocamento: GLP, água, lenha, carvão e gelo podem compartilhar a mesma oportunidade comercial quando a logística permitir.
+
+### Dinheiro
+
+A landing ganhou um fluxo de quatro estados:
+
+`Pedido → Pagamento → Conclusão → Conciliação`.
+
+Nenhum prazo de repasse foi inventado. A abertura pública continua bloqueada até validar cobrança, Pix/dinheiro/cartão, cashback, estorno e conciliação ponta a ponta.
+
+### Parceiro Fundador
+
+A proposta de entrada antecipada é apresentada sem prometer volume, preferência algorítmica ou renda. Os benefícios divulgados são participação, onboarding, acesso antecipado e feedback.
+
+### Piloto interno
+
+No host de laboratório, o CTA de aquisição muda para **Experimentar painel da revenda** e abre o painel JR local. O E2E comprova que essa rota não depende do portal live e não cria transação real.
+
+## Gates
+
+A suíte falha se:
+
+- o simulador voltar a chamar receita de lucro;
+- custos próprios deixarem de entrar no cálculo;
+- a landing remover a mensagem de não exclusividade;
+- distribuição deixar de ser explicada;
+- multiproduto deixar de ser associado a ticket;
+- o fluxo financeiro esconder a condição de repasse ainda não validada;
+- Parceiro Fundador virar promessa de pedidos/renda;
+- o piloto interno voltar a apontar o CTA principal para um portal real ainda sem origem dedicada.
+

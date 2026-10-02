@@ -131,18 +131,24 @@ await evaluate("go('earn')");
 await waitFor("document.body.innerText.includes('Comissão por indicação para pessoas')","earn route");
 body=await text();
 assert.match(body,/Indique quem realmente pode comprar/);
-assert.match(body,/Venda mais sem perder o controle/);
+assert.match(body,/Transforme pedidos adicionais em faturamento incremental/);
 assert.match(body,/2%/);
 assert.match(body,/Taxa Chama: 7,5% por pedido concluído/);
 await auditDom('earn');
 
 await evaluate("go('merchants')");
-await waitFor("document.body.innerText.includes('SIMULADOR COMERCIAL')","merchant commercial route");
+await waitFor("document.body.innerText.includes('SIMULADOR DE MARGEM INCREMENTAL')","merchant commercial route");
 body=await text();
 assert.match(body,/7,5%/);
-await evaluate("document.querySelector('#merchant-sim-orders').value='20'; document.querySelector('#merchant-sim-ticket').value='150'; updateMerchantSimulator()");
+assert.match(body,/Sem exclusividade/);
+assert.match(body,/Você não precisa ser sempre o mais barato/);
+assert.match(body,/PARCEIRO FUNDADOR/);
+await evaluate("document.querySelector('#merchant-sim-orders').value='20'; document.querySelector('#merchant-sim-ticket').value='150'; document.querySelector('#merchant-sim-product-cost').value='100'; document.querySelector('#merchant-sim-delivery-cost').value='5'; document.querySelector('#merchant-sim-payment-cost').value='2'; document.querySelector('#merchant-sim-tax-rate').value='0'; updateMerchantSimulator()");
+assert.match(await evaluate("document.querySelector('#merchant-sim-gross').textContent"),/3\.000,00/);
 assert.match(await evaluate("document.querySelector('#merchant-sim-fee').textContent"),/225,00/);
-assert.match(await evaluate("document.querySelector('#merchant-sim-net').textContent"),/2\.775,00/);
+assert.match(await evaluate("document.querySelector('#merchant-sim-costs').textContent"),/2\.140,00/);
+assert.match(await evaluate("document.querySelector('#merchant-sim-contribution').textContent"),/635,00/);
+assert.match(await evaluate("document.querySelector('#merchant-sim-unit').textContent"),/31,75/);
 await auditDom('merchant acquisition');
 
 await evaluate("go('home')");
@@ -231,6 +237,15 @@ assert.match(body,/SEM PEDIDOS REAIS/);
 assert.equal(await evaluate("state.merchants.length"),1);
 assert.equal(await evaluate("state.merchants[0].id"),'JR-PILOT');
 assert.equal(await evaluate("state.merchants[0].priceP13"),115.9);
+
+await evaluate("go('merchants')");
+await waitFor("document.body.innerText.includes('Experimentar painel da revenda') && document.body.innerText.includes('PARCEIRO FUNDADOR')","pilot merchant conversion landing");
+body=await text();
+assert.match(body,/Sem exclusividade/);
+assert.match(body,/SIMULADOR DE MARGEM INCREMENTAL/);
+await evaluate("[...document.querySelectorAll('button')].find(b=>b.textContent.includes('Experimentar painel da revenda')).click()");
+await waitFor("location.hash==='#merchant' && document.body.innerText.includes('PAINEL DA REVENDA — PILOTO INTERNO')","pilot merchant CTA");
+await evaluate("setMode('customer'); go('home')");
 
 await evaluate("quickProduct('P13')");
 await waitFor("location.hash==='#order'","pilot order route");
