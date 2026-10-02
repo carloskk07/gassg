@@ -490,3 +490,24 @@ assert.match(createOrderEligibility,/create_order_from_quote[\s\S]*merchant_cart
 assert.match(createOrderEligibility,/raise exception 'quote_stale'/,'perda de elegibilidade deve invalidar quote sem criar pedido');
 
 console.log('Compliance clock + create-order eligibility contracts passaram.');
+
+
+const financialIntegrityV120=fs.readFileSync(
+  new URL('../supabase/migrations/20261001158000_financial_fact_integrity.sql',import.meta.url),
+  'utf8'
+).replace(/--.*$/gm,'').replace(/\s+/g,' ').toLowerCase();
+
+assert.match(financialIntegrityV120,/financial_fact_immutable/,'fatos econômicos não podem ser alterados após criação');
+assert.match(financialIntegrityV120,/platform_receivable_mismatch/,'recebível deve conferir com o pedido de origem');
+assert.match(financialIntegrityV120,/cashback_reimbursement_mismatch/,'reembolso de cashback deve conferir com o pedido');
+assert.match(financialIntegrityV120,/platform_fee_adjustment_mismatch/,'ajuste de taxa deve conferir com recebível');
+assert.match(financialIntegrityV120,/cashback_recovery_adjustment_mismatch/,'recuperação de cashback deve conferir com reembolso');
+assert.match(financialIntegrityV120,/financial_reference_required/,'baixa financeira deve exigir referência de conciliação');
+assert.match(financialIntegrityV120,/resolved_by=p_actor_user_id/,'baixa financeira deve registrar admin responsável');
+assert.match(financialIntegrityV120,/platform_receivables_resolution_lifecycle/,'recebível precisa de lifecycle auditável');
+assert.match(financialIntegrityV120,/merchant_cashback_resolution_lifecycle/,'reembolso de cashback precisa de lifecycle auditável');
+assert.match(financialIntegrityV120,/platform_adjustment_resolution_lifecycle/,'ajuste financeiro precisa de lifecycle auditável');
+assert.match(financialIntegrityV120,/before insert or update of order_id,merchant_id,gross_total_cents,platform_fee_bps,platform_fee_cents,due_at/,'fatos do recebível devem ser protegidos por trigger');
+assert.match(financialIntegrityV120,/before insert or update of order_id,merchant_id,cashback_cents,due_at/,'fatos do reembolso devem ser protegidos por trigger');
+
+console.log('Financial fact integrity v1.20 contract passou.');
