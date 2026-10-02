@@ -7,9 +7,9 @@ export function clamp01(value){
 export function effectiveUnitPrice({
   pricingMode='fixed',
   pricingStrategy='balanced',
-  minPriceCents,
-  preferredPriceCents,
-  maxPriceCents,
+  minPriceCents=0,
+  preferredPriceCents=0,
+  maxPriceCents=0,
   availableStock=0,
   requestedQuantity=1,
   activeOrders=0,
