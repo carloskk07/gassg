@@ -40,7 +40,7 @@ create table if not exists public.merchant_members (
 
 create table if not exists public.catalog_items (
   merchant_id uuid not null references public.merchants(id) on delete cascade,
-  product_code text not null check (product_code in ('P13','WATER20','CHARCOAL4','WOOD','ICE5')),
+  product_code text not null check (product_code in ('WATER20','CHARCOAL4','WOOD','ICE5') or product_code ~ '^P([1-9]|[1-8][0-9]|90)$'),
   product_name text not null,
   price_cents integer not null check (price_cents > 0),
   available_stock integer not null default 0 check (available_stock >= 0),
@@ -65,7 +65,7 @@ create table if not exists public.quotes (
 
 create table if not exists public.quote_items (
   quote_id uuid not null references public.quotes(id) on delete cascade,
-  product_code text not null check (product_code in ('P13','WATER20','CHARCOAL4','WOOD','ICE5')),
+  product_code text not null check (product_code in ('WATER20','CHARCOAL4','WOOD','ICE5') or product_code ~ '^P([1-9]|[1-8][0-9]|90)$'),
   product_name text not null,
   quantity integer not null check (quantity between 1 and 99),
   unit_price_cents integer not null check (unit_price_cents > 0),
@@ -153,7 +153,7 @@ create table if not exists public.orders (
 
 create table if not exists public.order_items (
   order_id uuid not null references public.orders(id) on delete cascade,
-  product_code text not null check (product_code in ('P13','WATER20','CHARCOAL4','WOOD','ICE5')),
+  product_code text not null check (product_code in ('WATER20','CHARCOAL4','WOOD','ICE5') or product_code ~ '^P([1-9]|[1-8][0-9]|90)$'),
   product_name text not null,
   quantity integer not null check (quantity between 1 and 99),
   unit_price_cents integer not null check (unit_price_cents > 0),
