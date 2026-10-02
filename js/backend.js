@@ -605,7 +605,7 @@ async function merchantSignOut(){
   render();
 }
 
-async function merchantRefresh({silent=false}={}){
+async function merchantRefresh({silent=false,recoverSelection=true}={}){
   if(!merchantRuntime.client)return null;
   if(!silent)render();
   try{
@@ -620,21 +620,35 @@ async function merchantRefresh({silent=false}={}){
     if(merchantRuntime.selectedMerchantId)localStorage.setItem('chama-merchant-selected-v1',merchantRuntime.selectedMerchantId);
     merchantRuntime.status='ready';
     merchantRuntime.error=null;
+    merchantRuntime.accessReason=null;
     merchantRuntime.lastSyncAt=new Date().toISOString();
     return data;
   }catch(error){
-    if(error?.code==='NO_MERCHANT_ACCESS'||error?.status===403&&error?.code==='MERCHANT_ACCESS_DENIED'){
+    const staleSelected=Boolean(merchantRuntime.selectedMerchantId)
+      && error?.status===403
+      && ['MERCHANT_ACCESS_DENIED','MERCHANT_ROLE_NOT_ENABLED'].includes(error?.code);
+    if(staleSelected&&recoverSelection){
+      merchantRuntime.selectedMerchantId=null;
+      localStorage.removeItem('chama-merchant-selected-v1');
+      return merchantRefresh({silent:true,recoverSelection:false});
+    }
+    if(
+      error?.code==='NO_MERCHANT_ACCESS'
+      || error?.status===403&&['MERCHANT_ACCESS_DENIED','MERCHANT_ROLE_NOT_ENABLED'].includes(error?.code)
+    ){
       merchantRuntime.status='no-access';
       merchantRuntime.merchant=null;
       merchantRuntime.orders=[];
       merchantRuntime.catalog=[];
       merchantRuntime.error=null;
+      merchantRuntime.accessReason=error?.code||'NO_MERCHANT_ACCESS';
       return null;
     }
     if(error?.status===401){
       merchantRuntime.status='unauthenticated';
       merchantRuntime.session=null;
       merchantRuntime.error='Sua sessão expirou. Entre novamente.';
+      merchantRuntime.accessReason=null;
       return null;
     }
     merchantRuntime.status='unavailable';
