@@ -245,7 +245,7 @@ function merchantsLanding(){
   return shell(`<section class="page merchant-landing">
     <span class="eyebrow">PARA EMPRESAS LOCAIS</span>
     <h1 class="page-title">Transforme capacidade de entrega em novas vendas — sem perder o controle da sua operação.</h1>
-    <p class="muted page-lead">O Chama foi desenhado como um canal adicional: você continua vendendo por telefone, WhatsApp, balcão e seus próprios canais. Aqui, recebe novas oportunidades e decide quando e o que quer atender.</p>
+    <p class="muted page-lead">O Chama foi desenhado como um canal adicional: você continua vendendo por telefone, WhatsApp, balcão e seus próprios canais. <strong>Você continua no controle</strong> e decide quando e o que quer atender.</p>
 
     <div class="merchant-commercial-strip merchant-value-strip">
       <div><small>POLÍTICA INICIAL DO PILOTO</small><strong>7,5%</strong><span>sobre o valor bruto de cada pedido concluído</span></div>
