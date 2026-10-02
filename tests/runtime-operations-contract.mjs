@@ -528,6 +528,11 @@ assert.match(closedWorldWallet,/wallet_entries_sign_check/,'sinal do lançamento
 console.log('Closed-world wallet ledger contract passou.');
 
 
+
+const prelaunchSupply=fs.readFileSync(
+  new URL('../supabase/migrations/20261001161000_prelaunch_example_supply_status.sql',import.meta.url),
+  'utf8'
+).replace(/--.*$/gm,'').replace(/\s+/g,' ').toLowerCase();
 const cashbackOffset=fs.readFileSync(
   new URL('../supabase/migrations/20261001160000_cashback_reversal_offset.sql',import.meta.url),
   'utf8'
@@ -545,3 +550,16 @@ assert.doesNotMatch(cashbackOffset,/'cashback','cashback_reversal'/,'nova revers
 assert.match(cashbackOffset,/cashbackclawbackmode','effective_balance_offset'/,'evento de reversão deve registrar modo de clawback');
 
 console.log('Cashback reversal offset v1.20.2 contract passou.');
+
+assert.match(prelaunchSupply,/create or replace function public\.market_supply_status\(\)/,'pré-lançamento precisa de autoridade server-side');
+assert.match(prelaunchSupply,/m\.status='active'/,'exemplos só devem sumir após revenda real ativa');
+assert.match(prelaunchSupply,/merchant_operational_compliance_current\(m\.id\)/,'revenda que desliga exemplos precisa ter compliance vigente');
+assert.match(prelaunchSupply,/ci\.active[\s\S]*ci\.price_cents>0/,'revenda real precisa possuir catálogo ativo e precificado');
+assert.match(prelaunchSupply,/'realsupplyconfigured',v_configured>0/,'status precisa separar supply configurado');
+assert.match(prelaunchSupply,/'availablenow',v_available>0/,'status precisa separar disponibilidade momentânea');
+assert.match(prelaunchSupply,/m\.online[\s\S]*m\.last_seen_at>=statement_timestamp\(\)-interval '10 minutes'/,'disponibilidade momentânea precisa de loja online e heartbeat fresco');
+assert.match(prelaunchSupply,/revoke all on function public\.market_supply_status\(\)[\s\S]*from public, anon, authenticated/,'market status não pode ser RPC direto do browser');
+assert.match(prelaunchSupply,/grant execute on function public\.market_supply_status\(\)[\s\S]*to postgres, service_role/,'market status deve ser server-only');
+
+console.log('Prelaunch supply authority v1.21 contract passou.');
+
