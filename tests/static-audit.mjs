@@ -269,8 +269,12 @@ console.log('Auditoria estática passou.');
 
 
 const adminFinanceSource=read('supabase/functions/admin-ops/index.ts');
-assert.ok(adminFinanceSource.includes('referência de conciliação'),'ação financeira admin deve exigir referência de conciliação no boundary HTTP');
+const adminFinancialStart=adminFinanceSource.indexOf('}else if(action==="financial-action"){');
+const adminFinancialEnd=adminFinanceSource.indexOf('}else{',adminFinancialStart+1);
+assert.ok(adminFinancialStart>=0&&adminFinancialEnd>adminFinancialStart,'bloco financial-action precisa existir');
+const adminFinancialBlock=adminFinanceSource.slice(adminFinancialStart,adminFinancialEnd);
+assert.ok(adminFinancialBlock.includes('referência de conciliação'),'ação financeira admin deve exigir referência de conciliação no boundary HTTP');
 assert.ok(adminFinanceSource.includes('FINANCIAL_REFERENCE_REQUIRED'),'admin-ops deve mapear falta de referência sem erro 500');
-assert.ok(!adminFinanceSource.includes('reference:body.reference==null?null'),'ação financeira não pode aceitar baixa sem evidência');
+assert.ok(!adminFinancialBlock.includes('reference:body.reference==null?null'),'financial-action não pode aceitar baixa sem evidência');
 
 console.log('Admin financial reconciliation boundary passou.');
