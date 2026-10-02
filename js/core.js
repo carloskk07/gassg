@@ -50,7 +50,7 @@ function freshSeed(){
   return {
     version:STATE_VERSION,
     mode:'customer',
-    user:{name:'Carlos',cashback:7.50,purchases:4,referralCode:'CARLOS27',commissionAvailable:0,commissionPending:0,referredBy:null,cashEarningEligible:true,identityType:'demo'},
+    user:{name:'Carlos',cashback:7.50,cashbackDebt:0,purchases:4,referralCode:'CARLOS27',commissionAvailable:0,commissionPending:0,referredBy:null,cashEarningEligible:true,identityType:'demo'},
     address:'',
     cart:{P13:0,P20:0,P45:0,WATER20:0,CHARCOAL4:0,WOOD:0,ICE5:0},
     checkout:{paymentMethod:'pix',useCashback:false},
@@ -96,6 +96,7 @@ function normalizeState(raw){
   merged.version=STATE_VERSION;
   merged.user={...base.user,...(raw.user||{})};
   merged.user.cashback=Math.max(0,roundMoney(Number(merged.user.cashback)||0));
+  merged.user.cashbackDebt=Math.max(0,roundMoney(Number(merged.user.cashbackDebt)||0));
   merged.user.purchases=Math.max(0,Math.trunc(Number(merged.user.purchases)||0));
   merged.user.commissionAvailable=Math.max(0,roundMoney(Number(merged.user.commissionAvailable)||0));
   merged.user.commissionPending=Math.max(0,roundMoney(Number(merged.user.commissionPending)||0));
