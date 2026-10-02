@@ -13,6 +13,7 @@ import {
   selectMerchantMembership
 } from '../supabase/functions/_shared/merchant-membership.js';
 import {chooseOffers} from '../supabase/functions/_shared/offer-ranking.js';
+import {effectiveUnitPrice} from '../supabase/functions/_shared/pricing-policy.js';
 
 let passed=0;
 function test(name,fn){
@@ -186,6 +187,50 @@ test('seleção explícita preserva revenda pedida e permite negar papel sem tro
   assert.equal(isOperationalMerchantRole(selected?.member_role),false);
   assert.equal(isOperationalMerchantRole('operator'),true);
   assert.equal(selectMerchantMembership(memberships,'m-inexistente'),null);
+});
+
+test('preço fixo ignora pressão operacional',()=>{
+  assert.equal(effectiveUnitPrice({
+    pricingMode:'fixed',preferredPriceCents:12000,minPriceCents:11590,maxPriceCents:12500,
+    availableStock:1,requestedQuantity:1,activeOrders:99,recentOrders7d:999
+  }),12000);
+});
+
+test('faixa automática nunca sai dos limites autorizados',()=>{
+  for(const pricingStrategy of ['volume','balanced','margin']){
+    for(const activeOrders of [0,1,5,20]){
+      for(const stock of [1,2,5,20,100]){
+        const price=effectiveUnitPrice({
+          pricingMode:'range',pricingStrategy,
+          minPriceCents:11590,preferredPriceCents:12000,maxPriceCents:12500,
+          availableStock:stock,requestedQuantity:1,activeOrders,recentOrders7d:activeOrders*10
+        });
+        assert.ok(price>=11590&&price<=12500);
+      }
+    }
+  }
+});
+
+test('estratégia volume fica abaixo de equilibrado e margem em condições iguais',()=>{
+  const base={
+    pricingMode:'range',minPriceCents:11590,preferredPriceCents:12000,maxPriceCents:12500,
+    availableStock:20,requestedQuantity:1,activeOrders:1,recentOrders7d:10
+  };
+  const volume=effectiveUnitPrice({...base,pricingStrategy:'volume'});
+  const balanced=effectiveUnitPrice({...base,pricingStrategy:'balanced'});
+  const margin=effectiveUnitPrice({...base,pricingStrategy:'margin'});
+  assert.ok(volume<=balanced&&balanced<=margin);
+});
+
+test('mais pressão da própria operação nunca reduz o preço automático',()=>{
+  const base={
+    pricingMode:'range',pricingStrategy:'balanced',
+    minPriceCents:11590,preferredPriceCents:12000,maxPriceCents:12500,
+    requestedQuantity:1
+  };
+  const quiet=effectiveUnitPrice({...base,availableStock:50,activeOrders:0,recentOrders7d:0});
+  const busy=effectiveUnitPrice({...base,availableStock:2,activeOrders:5,recentOrders7d:80});
+  assert.ok(busy>=quiet);
 });
 
 test('marketplace com um único fornecedor gera somente opção disponível',()=>{
