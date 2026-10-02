@@ -313,7 +313,7 @@ assert.ok(offerSource.includes('deliveryCompatibilityBlocked:true'),'matching de
 assert.ok(offerSource.includes('merchant_offer_load'),'matching deve considerar carga operacional recente sem expor isso ao cliente');
 assert.ok(!offerSource.includes('.limit(40)'),'matching não pode eliminar revendas arbitrariamente antes de calcular elegibilidade e ranking');
 const pricingPolicy=read('supabase/functions/_shared/pricing-policy.js');
-const authorizedPricingMigration=read('supabase/migrations/20261002205000_authorized_price_ranges.sql');
+const authorizedPricingMigration=read('supabase/migrations/20261002214500_authorized_price_ranges.sql');
 assert.ok(offerSource.includes('effectiveUnitPrice')&&offerSource.includes('pricing_mode')&&offerSource.includes('pricing_strategy'),'matching deve calcular preço efetivo a partir da política autorizada');
 assert.ok(pricingPolicy.includes("pricingStrategy==='volume'")&&pricingPolicy.includes("pricingStrategy==='margin'"),'autoridade de preço deve distinguir volume/equilibrado/margem');
 assert.ok(pricingPolicy.includes('activeOrders')&&pricingPolicy.includes('availableStock')&&pricingPolicy.includes('recentOrders7d'),'preço automático deve usar sinais da própria operação');
