@@ -405,3 +405,189 @@ Esta rodada **não altera o readiness operacional**:
 - origens dedicadas, Auth/Turnstile e onboarding da primeira revenda continuam sendo blockers do go-live.
 
 A regra permanece: UX mais convincente não pode ser usada para mascarar ausência de operação real.
+
+
+---
+
+# Auditoria v1.27 — Reliability & Security Hardening
+
+## Escopo
+
+Auditoria pós-v1.26 com foco em falhas difíceis de reproduzir na jornada feliz:
+
+- rede lenta ou pendurada;
+- ACK perdido após mutação já confirmada pelo servidor;
+- reload durante/apos pedido;
+- drift entre Edge Functions publicadas e módulos compartilhados;
+- privilégios futuros do Data API;
+- PostgreSQL 17;
+- PWA offline/degradação de origem;
+- cron/retries;
+- invariantes de dados e contabilidade;
+- segurança de rendering e portais dedicados.
+
+## Falhas e riscos encontrados
+
+### 1. Privilégios padrão futuros ainda permissivos
+
+As 32 tabelas da aplicação estavam corretamente fechadas para browser, mas o default ACL de `postgres` ainda poderia conceder privilégios automaticamente a `anon/authenticated` em novos objetos.
+
+Correção aplicada no Supabase real e versionada:
+
+- revogar CRUD/REFERENCES/TRIGGER de novas tabelas;
+- revogar USAGE/SELECT/UPDATE de novas sequences;
+- revogar EXECUTE de novas funções;
+- manter `service_role` explícito;
+- revogar também `MAINTAIN`, privilégio distinto do PostgreSQL 17.
+
+A primeira tentativa também tentou alterar defaults de `supabase_admin` e foi corretamente recusada pelo provedor. A inspeção de ownership confirmou que os objetos Chama em `public` pertencem a `postgres`, então a migration final atua apenas sobre a autoridade correta.
+
+### 2. Baseline `schema.sql` contradizia o runtime atual
+
+O baseline ainda criava grants SELECT/policies de leitura e publicação Realtime, embora o produto atual declare data-plane server-only e use polling por Edge Functions.
+
+Correção:
+
+- baseline não concede acesso direto a `anon/authenticated`;
+- nenhuma policy browser-facing é recriada;
+- Realtime publication não é reaberta pelo baseline;
+- defaults fail-closed passam a fazer parte do contrato inicial.
+
+### 3. Requisições poderiam ficar penduradas indefinidamente
+
+`fetch` das Edge Functions e o fetch interno do Supabase JS não tinham deadline explícito.
+
+Correção:
+
+- `chamaFetch` com timeout de 15 s;
+- `AbortController`;
+- erro explícito `NETWORK_TIMEOUT`;
+- cliente, revenda e admin usam o mesmo contrato;
+- o E2E simula uma rede que só rejeita quando recebe `AbortSignal`.
+
+### 4. Loaders externos podiam ficar permanentemente quebrados
+
+Uma falha inicial ao carregar Supabase JS ou Turnstile deixava a Promise rejeitada em cache.
+
+Correção:
+
+- timeout do loader;
+- limpeza do script falho;
+- reset da Promise;
+- nova tentativa posterior permitida.
+
+### 5. ACK perdido em create-order
+
+Cenário: banco cria o pedido, mas o navegador perde a resposta. Sem recuperação, o cliente poderia acreditar que falhou e tentar novamente.
+
+Correção:
+
+- chave idempotente criada antes da primeira tentativa;
+- timeout, falha de transporte e 5xx repetem uma vez com a mesma chave;
+- se ainda falhar, `customer-summary` procura o pedido ativo do próprio usuário;
+- o cliente restaura `orderId` e abre tracking;
+- nenhuma leitura direta de `orders` foi reintroduzida no browser.
+
+### 6. Persistência do último pedido terminal
+
+Durante a implementação da recuperação, um teste de revisão encontrou uma regressão antes do merge: a sincronização financeira limparia o último pedido ao não haver ativo.
+
+Correção:
+
+- pedido ativo do servidor substitui o ID local quando existe;
+- ausência de ativo não apaga o último SETTLED/CANCELLED;
+- isso preserva reload, comprovante e suporte;
+- um novo pedido posteriormente substitui a referência normalmente.
+
+### 7. Navegação cross-origin herdava path
+
+Ao sair de um host em `/gassg/`, cliente/revenda/admin podiam herdar esse path em um custom domain que serve o app na raiz.
+
+Correção:
+
+- produção sempre começa em `/` da origem dedicada;
+- localhost continua preservando o path de desenvolvimento;
+- testes cobrem as três direções.
+
+### 8. Service Worker não usava cache em HTTP 5xx
+
+O network-first anterior só fazia fallback se `fetch` rejeitasse. Um 500/503 same-origin era devolvido mesmo se houvesse versão válida em cache.
+
+Correção:
+
+- `networkFirst()`;
+- resposta `!ok` consulta cache antes de propagar o erro;
+- falha de rede consulta cache;
+- se ambos falharem, retorna `Response.error()`, nunca `undefined`.
+
+### 9. Drift de bundle entre Edge Functions
+
+Comparação da implantação mostrou que `get-offers` já carregava o `_shared/domain.js` canônico, enquanto várias outras funções tinham entrypoint correto, mas bundle compartilhado antigo. `customer-summary` também precisa do novo entrypoint desta versão.
+
+Release gate:
+
+- após merge, redeploy das funções afetadas com os módulos compartilhados do mesmo SHA;
+- manter `verify_jwt=true`;
+- comparar novamente entrypoint + shared bundle após deploy.
+
+## Verificação do banco real
+
+No momento desta auditoria:
+
+- 0 merchants;
+- 0 pedidos;
+- 0 quotes;
+- 0 wallet entries;
+- 0 referrals;
+- 0 aplicações;
+- 0 admins;
+- 0 estados impossíveis;
+- 0 pedidos ativos duplicados;
+- 0 órfãos em items/events/wallet;
+- 0 settlements sem pagamento;
+- 0 settlements sem entrega;
+- 0 requotes incompletos.
+
+As funções `SECURITY DEFINER` possuem `search_path` configurado de forma restrita. As 12 Edge Functions ativas exigem JWT.
+
+## Runtime e cron
+
+Na janela analisada de 24 h:
+
+- erros Postgres de aplicação fora de `mgmt-api`: **0**;
+- erros observados em `mgmt-api` foram gerados pelas próprias auditorias/migrations transacionais;
+- jobs `chama-*`: **2.033 execuções succeeded** no período observado;
+- nenhuma execução não-succeeded foi encontrada na consulta;
+- retries de reward e settlement são limitados e possuem dead-letter.
+
+## Advisors
+
+Security Advisor:
+
+- `RLS Enabled No Policy` permanece INFO intencional para as tabelas server-only;
+- warnings do schema `cron` pertencem ao `pg_cron` gerenciado.
+
+Performance Advisor:
+
+- índices marcados como unused não são removidos enquanto o banco estiver sem tráfego real;
+- ausência de uso em banco vazio não prova desperdício.
+
+## Resultado de CI
+
+O branch v1.27 executa:
+
+- syntax;
+- integridade SHA-384 do Supabase JS;
+- type/secret audit das Edge Functions;
+- marketplace simulations;
+- static trust/security audit;
+- runtime origin config;
+- backend security contract;
+- runtime migration contract;
+- runtime operations contract;
+- server-domain simulations;
+- mobile smoke;
+- Chrome E2E completo;
+- manifest.
+
+A regra continua: nenhum merge com gate vermelho. O go-live continua bloqueado até origens dedicadas, Auth/Turnstile, primeira revenda real e E2E multi-dispositivo com dinheiro/entrega reais.

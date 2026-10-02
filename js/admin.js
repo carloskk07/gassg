@@ -43,7 +43,8 @@ async function adminBackendInit(){
         detectSessionInUrl:true,
         storage:sessionStorage,
         storageKey:'chama-sg-admin-auth-v1'
-      }
+      },
+      global:{fetch:globalThis.chamaFetch}
     });
     adminRuntime.client=client;
 
@@ -94,7 +95,7 @@ async function adminInvoke(body={},options={}){
     'Authorization':'Bearer '+token
   };
   if(options.idempotencyKey)headers['Idempotency-Key']=options.idempotencyKey;
-  const response=await fetch(CHAMA_BACKEND.url+'/functions/v1/admin-ops',{
+  const response=await globalThis.chamaFetch(CHAMA_BACKEND.url+'/functions/v1/admin-ops',{
     method:'POST',
     headers,
     body:JSON.stringify(body),

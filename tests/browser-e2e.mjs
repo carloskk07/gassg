@@ -100,19 +100,24 @@ await auditDom('home');
 
 assert.equal(
   await evaluate("buildPortalHref('https://revenda.example.com','merchant',{origin:'https://app.example.com',hostname:'app.example.com',pathname:'/gassg/'})"),
-  'https://revenda.example.com/gassg/?merchant=1#merchant'
+  'https://revenda.example.com/?merchant=1#merchant'
 );
 assert.equal(
   await evaluate("buildPortalHref('https://admin.example.com','admin',{origin:'https://app.example.com',hostname:'app.example.com',pathname:'/gassg/'})"),
-  'https://admin.example.com/gassg/?admin=1#admin'
+  'https://admin.example.com/?admin=1#admin'
 );
 assert.equal(
   await evaluate("buildPortalHref('https://app.example.com','customer',{origin:'https://revenda.example.com',hostname:'revenda.example.com',pathname:'/gassg/'})"),
-  'https://app.example.com/gassg/#home'
+  'https://app.example.com/#home'
 );
 assert.equal(
   await evaluate("buildPortalHref('https://revenda.example.com','merchant',{origin:'http://127.0.0.1:4173',hostname:'127.0.0.1',pathname:'/'})"),
   'http://127.0.0.1:4173/?merchant=1#merchant'
+);
+
+assert.equal(
+  await evaluate(`(async()=>{const original=window.fetch;window.fetch=(_input,init={})=>new Promise((_resolve,reject)=>{const signal=init.signal;if(signal?.aborted)return reject(signal.reason||new DOMException('Aborted','AbortError'));signal?.addEventListener('abort',()=>reject(signal.reason||new DOMException('Aborted','AbortError')),{once:true})});try{await chamaFetch('/timeout-probe',{},25);return 'NO_TIMEOUT'}catch(error){return error?.code||error?.name||String(error)}finally{window.fetch=original}})()`),
+  'NETWORK_TIMEOUT'
 );
 
 await evaluate("go('learn')");

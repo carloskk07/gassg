@@ -71,10 +71,12 @@ assert.ok(growth.includes('Saque Pix ainda não disponível')&&growth.includes('
 assert.ok(growth.includes('Você continua no controle'),'landing de revenda deve enfatizar autonomia operacional');
 assert.ok(core.includes("['earn','💰','Ganhe','go']"),'navegação móvel precisa dar acesso direto ao hub de renda');
 assert.ok(!growth.includes('inputmode="numeric" maxlength="18"'),'campo CNPJ não pode forçar teclado somente numérico após adoção do CNPJ alfanumérico');
-assert.ok(sw.includes("CACHE='chama-sg-v1.26'"),'cache do service worker precisa estar versionado');
+assert.ok(sw.includes("CACHE='chama-sg-v1.27'"),'cache do service worker precisa estar versionado');
 assert.ok(sw.includes("./js/backend.js"),'runtime live precisa estar no cache da PWA');
 assert.ok(sw.includes("./js/runtime-config.js"),'configuração pública de origins precisa estar no cache da PWA');
 assert.ok(sw.includes("./js/turnstile.js"),'helper local do Turnstile precisa estar no cache da PWA');
+assert.ok(sw.includes('async function networkFirst')&&sw.includes("return (await cache.match(cacheKey))||res"),'PWA deve usar cache também quando servidor same-origin responde erro');
+assert.ok(sw.includes("return (await cache.match(cacheKey))||Response.error()"),'PWA precisa responder de forma definida quando rede e cache falham');
 assert.ok(html.indexOf('./js/turnstile.js')<html.indexOf('./js/backend.js'),'helper Turnstile deve carregar antes do backend');
 assert.ok(html.indexOf('./js/runtime-config.js')<html.indexOf('./js/backend.js'),'runtime-config.js deve carregar antes do backend');
 assert.ok(html.includes('http-equiv="Content-Security-Policy"'),'PWA precisa declarar CSP explícita');
@@ -112,6 +114,16 @@ assert.ok(turnstile.includes('action:safeAction'),'helper Turnstile deve validar
 assert.ok(turnstile.includes('CHAMA_TURNSTILE_SITE_KEY'),'helper deve depender da site key pública de runtime');
 
 assert.ok(backend.includes("get-offers")&&backend.includes("create-order")&&backend.includes("get-order"),'runtime live precisa usar Edge Functions seguras');
+assert.ok(backend.includes('CHAMA_NETWORK_TIMEOUT_MS=15000')&&backend.includes("timeoutError.code='NETWORK_TIMEOUT'"),'requisições do frontend precisam de deadline explícito');
+assert.ok(backend.includes('global:{fetch:chamaFetch}')&&admin.includes('global:{fetch:globalThis.chamaFetch}'),'Supabase Auth/SDK também precisa respeitar o fetch com timeout');
+assert.ok(backend.includes('supabaseLoadPromise=null')&&backend.includes("Tempo limite ao carregar Supabase JS"),'loader do SDK precisa poder se recuperar de falha e timeout');
+assert.ok(turnstile.includes('scriptPromise=null')&&turnstile.includes("Tempo limite ao carregar a verificação anti-bot"),'loader Turnstile não pode ficar permanentemente rejeitado após falha');
+assert.ok(backend.includes("const pathname=local?")&&backend.includes(":'/'"),'navegação cross-origin deve começar na raiz da origem dedicada, sem herdar path do site atual');
+assert.ok(backend.includes("const idempotencyKey=liveIdempotency('create-order')"),'criação de pedido precisa fixar a chave idempotente antes da primeira tentativa');
+assert.ok(backend.includes("liveInvoke('create-order',payload,{idempotencyKey})"),'retry de create-order precisa reutilizar a mesma chave idempotente');
+assert.ok(backend.includes("toast('Pedido recuperado com segurança após uma falha de conexão.')"),'frontend precisa recuperar pedido após ACK perdido');
+assert.ok(backend.includes("Number(firstError?.status)>=500"),'create-order idempotente deve repetir uma vez também em erro transitório 5xx');
+assert.ok(!backend.includes('}else if(liveRuntime.order&&["SETTLED","CANCELLED"].includes(liveRuntime.order.status)){'),'sincronização financeira não pode apagar o último pedido terminal necessário para reload/suporte');
 assert.ok(backend.includes("SUPABASE_BROWSER_URL='https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.2/dist/umd/supabase.js'"),'browser deve fixar arquivo exato do supabase-js');
 assert.ok(backend.includes("SUPABASE_BROWSER_SRI='sha384-Rj26LVGvoeRVR6+mwQmFfcR3QOBEwT+ZmuCWpuiqeTzJpCs0ER4ITAWGb4Hiy3Ok'"),'browser deve fixar integridade SHA384 do SDK');
 assert.ok(backend.includes('script.integrity=SUPABASE_BROWSER_SRI'),'loader dinâmico precisa aplicar SRI antes de anexar o script');
@@ -139,6 +151,9 @@ assert.ok(core.includes('grossCents*100'),'demo deve calcular cashback proporcio
 assert.ok(backend.includes('liveUpgradeAccount'),'cliente anônimo precisa poder vincular identidade permanente sem trocar de usuário');
 assert.ok(growth.includes('Vincule um e-mail à sua conta')&&growth.includes('Conta habilitada para comissão.'),'UI deve explicar o gate de identidade para comissão disponível');
 assert.ok(read('supabase/functions/customer-summary/index.ts').includes('cashEarningEligible'),'resumo financeiro precisa expor elegibilidade de comissão');
+assert.ok(read('supabase/functions/customer-summary/index.ts').includes('ACTIVE_ORDER_STATUSES'),'customer-summary precisa recuperar pedido ativo server-side');
+assert.ok(read('supabase/functions/customer-summary/index.ts').includes('activeOrderId'),'projeção mínima precisa devolver o pedido ativo para recuperação após ACK perdido');
+assert.ok(backend.includes('summary?.activeOrderId')&&backend.includes('localStorage.setItem(CHAMA_BACKEND.orderStorageKey,liveRuntime.orderId)'),'cliente deve persistir pedido ativo recuperado pelo servidor');
 assert.ok(read('supabase/functions/merchant-ops/index.ts').includes('Seu papel não pode manter a operação ativa.'),'heartbeat não pode ser mantido por papel não operacional');
 assert.ok(backend.includes('merchantRuntime.heartbeatError')&&backend.includes('await merchantHeartbeat();\n    await merchantRefresh({silent:true});'),'polling da revenda deve confirmar presença antes de projetar o estado atualizado');
 assert.ok(merchant.includes('heartbeatFresh')&&merchant.includes('SEM CONEXÃO'),'painel não pode exibir ONLINE quando heartbeat já ficou velho');
@@ -363,3 +378,11 @@ assert.ok(growth.includes('em compensação.'),'Clube deve explicar cashback rev
 assert.ok(growth.includes('Novos créditos reduzem essa compensação'),'UI deve explicar amortização futura sem esconder o passivo');
 
 console.log('Cashback compensation projection audit passou.');
+
+const defaultPrivilegeLock=read('supabase/migrations/20261002173404_lock_default_data_api_privileges.sql').toLowerCase();
+const maintainLock=read('supabase/migrations/20261002173435_revoke_default_maintain_privilege.sql').toLowerCase();
+assert.ok(defaultPrivilegeLock.includes('alter default privileges for role postgres in schema public'),'migration precisa governar privilégios padrão do owner real');
+assert.ok(defaultPrivilegeLock.includes('revoke execute on functions from public, anon, authenticated'),'funções futuras devem nascer server-only');
+assert.ok(defaultPrivilegeLock.includes('to service_role'),'service_role precisa manter autoridade explícita');
+assert.ok(maintainLock.includes('revoke maintain on tables from anon, authenticated'),'PostgreSQL 17 MAINTAIN precisa ser removido dos defaults do browser');
+console.log('Default Data API privilege audit passou.');

@@ -5,6 +5,34 @@ const CHAMA_BACKEND={
 };
 const SUPABASE_BROWSER_URL='https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.2/dist/umd/supabase.js';
 const SUPABASE_BROWSER_SRI='sha384-Rj26LVGvoeRVR6+mwQmFfcR3QOBEwT+ZmuCWpuiqeTzJpCs0ER4ITAWGb4Hiy3Ok';
+const CHAMA_NETWORK_TIMEOUT_MS=15000;
+let supabaseLoadPromise=null;
+
+async function chamaFetch(input,init={},timeoutMs=CHAMA_NETWORK_TIMEOUT_MS){
+  const controller=new AbortController();
+  const externalSignal=init?.signal;
+  let timeoutId=null;
+  let abortListener=null;
+  if(externalSignal?.aborted)controller.abort(externalSignal.reason);
+  else if(externalSignal){
+    abortListener=()=>controller.abort(externalSignal.reason);
+    externalSignal.addEventListener('abort',abortListener,{once:true});
+  }
+  timeoutId=setTimeout(()=>controller.abort(new DOMException('Tempo limite de rede excedido','TimeoutError')),Math.max(1,Number(timeoutMs)||CHAMA_NETWORK_TIMEOUT_MS));
+  try{
+    return await fetch(input,{...init,signal:controller.signal});
+  }catch(error){
+    if(controller.signal.aborted&&!externalSignal?.aborted){
+      const timeoutError=new Error('A conexão demorou demais. Verifique sua internet e tente novamente.');
+      timeoutError.code='NETWORK_TIMEOUT';
+      throw timeoutError;
+    }
+    throw error;
+  }finally{
+    clearTimeout(timeoutId);
+    if(abortListener)externalSignal.removeEventListener('abort',abortListener);
+  }
+}
 
 const customerPortalParams=new URLSearchParams(location.search);
 const liveRuntime={
@@ -57,7 +85,7 @@ function buildPortalHref(configuredOrigin,portal,current=location){
   try{originUrl=new URL(targetOrigin)}catch{return null}
   if(!local&&originUrl.origin!==targetOrigin)return null;
 
-  const pathname=String(current?.pathname||'/')||'/';
+  const pathname=local?(String(current?.pathname||'/')||'/'):'/';
   const url=new URL(pathname,originUrl.origin);
   url.search='';
   if(portal==='merchant'){
@@ -76,23 +104,41 @@ function buildPortalHref(configuredOrigin,portal,current=location){
 
 function loadSupabaseBrowser(){
   if(globalThis.supabase?.createClient)return Promise.resolve(globalThis.supabase);
-  return new Promise((resolve,reject)=>{
-    const existing=document.querySelector('script[data-chama-supabase]');
-    if(existing){
-      existing.addEventListener('load',()=>resolve(globalThis.supabase),{once:true});
-      existing.addEventListener('error',()=>reject(new Error('Falha ao carregar Supabase JS')),{once:true});
-      return;
-    }
+  if(supabaseLoadPromise)return supabaseLoadPromise;
+
+  supabaseLoadPromise=new Promise((resolve,reject)=>{
+    document.querySelectorAll('script[data-chama-supabase]').forEach(node=>node.remove());
     const script=document.createElement('script');
+    let settled=false;
+    const timer=setTimeout(()=>finish(false,new Error('Tempo limite ao carregar Supabase JS')),12000);
+
+    function finish(ok,value){
+      if(settled)return;
+      settled=true;
+      clearTimeout(timer);
+      script.onload=null;
+      script.onerror=null;
+      if(!ok){
+        script.remove();
+        supabaseLoadPromise=null;
+        reject(value);
+        return;
+      }
+      resolve(value);
+    }
+
     script.src=SUPABASE_BROWSER_URL;
     script.integrity=SUPABASE_BROWSER_SRI;
     script.async=true;
     script.dataset.chamaSupabase='1';
     script.crossOrigin='anonymous';
-    script.onload=()=>globalThis.supabase?.createClient?resolve(globalThis.supabase):reject(new Error('Supabase JS não inicializou'));
-    script.onerror=()=>reject(new Error('Falha ao carregar Supabase JS'));
+    script.onload=()=>globalThis.supabase?.createClient
+      ?finish(true,globalThis.supabase)
+      :finish(false,new Error('Supabase JS não inicializou'));
+    script.onerror=()=>finish(false,new Error('Falha ao carregar Supabase JS'));
     document.head.appendChild(script);
   });
+  return supabaseLoadPromise;
 }
 
 async function backendInit(){
@@ -117,7 +163,8 @@ async function backendInit(){
         detectSessionInUrl:true,
         storage:localStorage,
         storageKey:'chama-sg-customer-auth-v2'
-      }
+      },
+      global:{fetch:chamaFetch}
     });
     liveRuntime.client=client;
 
@@ -182,7 +229,7 @@ async function liveInvoke(name,body={},options={}){
   };
   if(options.idempotencyKey)headers['Idempotency-Key']=options.idempotencyKey;
 
-  const response=await fetch(CHAMA_BACKEND.url+'/functions/v1/'+encodeURIComponent(name),{
+  const response=await chamaFetch(CHAMA_BACKEND.url+'/functions/v1/'+encodeURIComponent(name),{
     method:'POST',
     headers,
     body:JSON.stringify(body),
@@ -295,13 +342,23 @@ async function liveCreateOrder(quoteId){
   liveRuntime.actionPending=true;
   liveRuntime.error=null;
   render();
+  const idempotencyKey=liveIdempotency('create-order');
+  const payload={
+    quoteId,
+    paymentMethod:state.checkout.paymentMethod,
+    useCashback:state.checkout.useCashback===true,
+    referralCode:state.user.referredBy||null
+  };
   try{
-    const result=await liveInvoke('create-order',{
-      quoteId,
-      paymentMethod:state.checkout.paymentMethod,
-      useCashback:state.checkout.useCashback===true,
-      referralCode:state.user.referredBy||null
-    },{idempotencyKey:liveIdempotency('create-order')});
+    let result;
+    try{
+      result=await liveInvoke('create-order',payload,{idempotencyKey});
+    }catch(firstError){
+      const ambiguous=firstError?.code==='NETWORK_TIMEOUT'||firstError instanceof TypeError||Number(firstError?.status)>=500;
+      if(!ambiguous)throw firstError;
+      await new Promise(resolve=>setTimeout(resolve,250));
+      result=await liveInvoke('create-order',payload,{idempotencyKey});
+    }
 
     liveRuntime.orderId=result.orderId;
     localStorage.setItem(CHAMA_BACKEND.orderStorageKey,result.orderId);
@@ -310,10 +367,26 @@ async function liveCreateOrder(quoteId){
     save();
     await liveGetOrder(result.orderId,{silent:true});
     go('tracking');
-    toast('Pedido real enviado para confirmação da revenda');
+    toast('Pedido real enviado para confirmação do parceiro');
   }catch(error){
-    liveRuntime.error=String(error?.message||error);
-    toast(liveRuntime.error);
+    let recovered=false;
+    try{
+      await liveSyncFinancialProfile({force:true});
+      if(liveRuntime.orderId){
+        await liveGetOrder(liveRuntime.orderId,{silent:true});
+        recovered=true;
+      }
+    }catch{}
+    if(recovered){
+      state.cart=normalizeCart({});
+      state.checkout.useCashback=false;
+      save();
+      go('tracking');
+      toast('Pedido recuperado com segurança após uma falha de conexão.');
+    }else{
+      liveRuntime.error=String(error?.message||error);
+      toast(liveRuntime.error);
+    }
   }finally{
     liveRuntime.actionPending=false;
     render();
@@ -390,6 +463,10 @@ async function liveSyncFinancialProfile({force=false}={}){
     state.user.reversedPurchases=Math.max(0,Number(summary?.reversedOrders||0));
     state.user.cashEarningEligible=summary?.cashEarningEligible===true;
     state.user.identityType=String(summary?.identityType||'anonymous');
+    if(summary?.activeOrderId){
+      liveRuntime.orderId=String(summary.activeOrderId);
+      localStorage.setItem(CHAMA_BACKEND.orderStorageKey,liveRuntime.orderId);
+    }
     liveRuntime.lastFinancialSyncAt=Date.now();
     save();
     const after=JSON.stringify({
@@ -539,7 +616,8 @@ async function merchantBackendInit(){
         detectSessionInUrl:true,
         storage:sessionStorage,
         storageKey:'chama-sg-merchant-auth-v1'
-      }
+      },
+      global:{fetch:chamaFetch}
     });
     merchantRuntime.client=client;
 
@@ -586,7 +664,7 @@ async function merchantInvoke(name,body={},options={}){
     'Authorization':'Bearer '+token
   };
   if(options.idempotencyKey)headers['Idempotency-Key']=options.idempotencyKey;
-  const response=await fetch(CHAMA_BACKEND.url+'/functions/v1/'+encodeURIComponent(name),{
+  const response=await chamaFetch(CHAMA_BACKEND.url+'/functions/v1/'+encodeURIComponent(name),{
     method:'POST',
     headers,
     body:JSON.stringify(body),
@@ -848,6 +926,7 @@ function openCustomerPortal(){
   location.href=href;
 }
 
+globalThis.chamaFetch=chamaFetch;
 globalThis.buildPortalHref=buildPortalHref;
 globalThis.liveRuntime=liveRuntime;
 globalThis.customerOriginSafe=customerOriginSafe;

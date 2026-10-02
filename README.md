@@ -27,6 +27,23 @@ Esses exemplos:
 
 A suíte de testes mantém um marketplace sintético completo apenas quando injeta `globalThis.__CHAMA_TEST__=true`. A build normal não oferece esse caminho.
 
+## Estado atual — v1.27 reliability & security hardening
+
+A v1.27 ataca falhas que aparecem principalmente em produção, mesmo quando a jornada feliz já passa no navegador:
+
+- todas as chamadas do frontend para Supabase/Edge Functions passam a ter **deadline de rede**;
+- carregamento dinâmico do Supabase JS e Cloudflare Turnstile tem timeout e pode se recuperar de falha anterior;
+- `create-order` reaproveita a **mesma chave idempotente** em retry de timeout/falha de transporte/5xx e tenta recuperar o pedido pelo servidor se o ACK se perder;
+- `customer-summary` projeta o pedido ativo do próprio usuário para reconstruir a sessão sem consultar tabelas diretamente;
+- o último pedido terminal continua persistido para reload, comprovante e suporte;
+- navegação entre cliente/revenda/admin usa a raiz de cada origem HTTPS dedicada em vez de herdar o path do host anterior;
+- o Service Worker usa cache também quando a origem same-origin responde erro e nunca resolve a resposta offline como `undefined`;
+- `schema.sql` foi alinhado à arquitetura atual **server-only**, removendo grants/policies/Reatime legados que poderiam reabrir acesso direto ao browser em um bootstrap novo;
+- defaults do PostgreSQL foram endurecidos para que novas tabelas, sequências e funções de `public` não nasçam acessíveis a `anon/authenticated`; PostgreSQL 17 `MAINTAIN` é revogado explicitamente;
+- os gates passaram a provar essas propriedades e o E2E inclui timeout de rede com `AbortSignal`.
+
+No banco real, os objetos atuais continuam com RLS e apenas `service_role` possui privilégios nas tabelas da aplicação. Os avisos `RLS Enabled No Policy` permanecem intencionais porque a arquitetura do piloto não usa PostgREST direto no browser.
+
 ## Estado atual — v1.26 human conversion & trust
 
 A v1.26 reorganiza a experiência pública a partir da decisão real do usuário: **comprar primeiro, entender a confiança depois e só então explorar benefícios e oportunidades**. Nenhuma capacidade financeira ou operacional inexistente foi promovida como pronta.

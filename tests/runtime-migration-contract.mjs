@@ -3,6 +3,8 @@ import fs from 'node:fs';
 
 const sql=fs.readFileSync(new URL('../supabase/migrations/20261001070000_reconcile_runtime_v1_4.sql',import.meta.url),'utf8');
 const n=sql.replace(/--.*$/gm,'').replace(/\s+/g,' ').toLowerCase();
+const defaultPrivileges=fs.readFileSync(new URL('../supabase/migrations/20261002173404_lock_default_data_api_privileges.sql',import.meta.url),'utf8').replace(/--.*$/gm,'').replace(/\s+/g,' ').toLowerCase();
+const maintainPrivileges=fs.readFileSync(new URL('../supabase/migrations/20261002173435_revoke_default_maintain_privilege.sql',import.meta.url),'utf8').replace(/--.*$/gm,'').replace(/\s+/g,' ').toLowerCase();
 
 for(const fn of ['create_order_from_quote','merchant_order_action','customer_order_action','complete_order_delivery']){
   assert.match(n,new RegExp('create or replace function public\\.'+fn+'\\b'),fn+' precisa estar versionada');
@@ -20,5 +22,10 @@ assert.match(n,/on_auth_user_created_chama/,'Auth precisa gerar perfil/referral 
 assert.match(n,/security definer[\s\S]*set search_path = pg_catalog/,'funções privilegiadas precisam fixar search_path');
 
 assert.doesNotMatch(sql,/sb_secret_[A-Za-z0-9_-]+/,'migration não pode conter secret key');
+
+assert.match(defaultPrivileges,/revoke select, insert, update, delete, truncate, references, trigger on tables from anon, authenticated/,'defaults de tabelas precisam nascer sem autoridade do browser');
+assert.match(defaultPrivileges,/revoke execute on functions from public, anon, authenticated/,'funções futuras não podem nascer públicas');
+assert.match(defaultPrivileges,/grant execute on functions to service_role/,'funções futuras precisam preservar autoridade server-side');
+assert.match(maintainPrivileges,/revoke maintain on tables from anon, authenticated/,'PG17 MAINTAIN precisa ser revogado explicitamente');
 
 console.log('Runtime migration contract passou.');
