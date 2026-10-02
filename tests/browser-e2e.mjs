@@ -116,17 +116,17 @@ assert.equal(
 );
 
 await evaluate("go('learn')");
-await waitFor("document.body.innerText.includes('Entenda o Chama')","learn route");
+await waitFor("document.body.innerText.includes('Antes de pedir, veja quanto custa')","learn route");
 body=await text();
 assert.match(body,/DÚVIDAS FREQUENTES/);
 assert.match(body,/Parceiro precisa confirmar/);
 await auditDom('learn');
 
 await evaluate("go('earn')");
-await waitFor("document.body.innerText.includes('Benefícios por indicar')","earn route");
+await waitFor("document.body.innerText.includes('Comissão por indicação para pessoas')","earn route");
 body=await text();
-assert.match(body,/Indique novos compradores/);
-assert.match(body,/Venda pelo Chama/);
+assert.match(body,/Indique quem realmente pode comprar/);
+assert.match(body,/Venda mais sem perder o controle/);
 assert.match(body,/2%/);
 assert.match(body,/Taxa Chama: 7,5% por pedido concluído/);
 await auditDom('earn');
