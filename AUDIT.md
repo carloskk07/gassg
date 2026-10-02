@@ -1,4 +1,4 @@
-# Auditoria v1.7.2 — Chama São Gabriel
+# Auditoria v1.22 — Chama São Gabriel
 
 Data: 01/10/2026
 
@@ -6,135 +6,188 @@ Data: 01/10/2026
 
 **READY_FOR_PROTECTED_ONLINE_PILOT**
 
-O runtime multiusuário, o banco e as Edge Functions estão implantados e os gates automatizados passam. O modo live permanece escondido atrás de parâmetros de piloto.
+A arquitetura multiusuário, o banco, as Edge Functions, os jobs e os gates de release estão implantados. O GitHub Pages continua sendo somente a prévia de pré-lançamento e falha fechado para transações reais.
 
 **NOT_YET_APPROVED_FOR_PUBLIC_REAL-MONEY LAUNCH**
 
-O bloqueio atual não é mais a arquitetura básica. Existe control plane administrativo, mas ainda falta validar a configuração de Auth, criar o primeiro admin permanente, executar o primeiro E2E real em dispositivos separados e concluir o onboarding das primeiras revendas reais.
+O bloqueio restante é operacional, não uma falha arquitetural já conhecida: ainda não existem administrador permanente, revenda real, usuário real, pedido real nem um E2E multi-dispositivo de produção. Cliente, revenda e admin também precisam das três origens HTTPS dedicadas e da configuração externa de Auth/Turnstile antes do go-live.
 
-Na última verificação o banco de produção do Chama possuía **0 pedidos, 0 revendas, 0 memberships e 0 aplicações reais**, portanto não houve migração destrutiva de dados operacionais.
+Na verificação desta rodada, o banco de produção permanecia com **0 usuários, 0 pedidos, 0 revendas, 0 memberships, 0 aplicações e 0 administradores reais**.
+
+## Release auditado
+
+- SHA canônico: `42c7b6b8f0e7fcf5c0507ff3d818159d31118802`;
+- PR #10 integrada por squash;
+- workflow **Audit** executado também no SHA final de `main` e aprovado;
+- workflow **Deploy to GitHub Pages** aprovado no mesmo SHA;
+- `get-offers` publicado no Supabase como **v11**, ACTIVE, com `verify_jwt=true`;
+- migration `generalized_product_code_contract` aplicada em produção.
 
 ## Evidência automatizada
 
-- 34 simulações de domínio/falhas;
-- auditoria estática de assets e superfícies de confiança;
-- contratos de schema/migrations/runtime;
-- Deno check das Edge Functions;
-- smoke em Chrome móvel;
-- E2E em Chrome cobrindo cesta → pedido → aceite → saída → chegada → pagamento + PIN → cashback;
-- validações de acessibilidade, XSS, IDs duplicados, overflow e erros de console;
-- service worker/manifest validados.
+A suíte verde cobre:
 
-## Achados críticos eliminados nesta rodada
+- sintaxe de JavaScript;
+- Deno check e auditoria de secrets das Edge Functions;
+- simulações de marketplace, concorrência e falhas;
+- auditoria estática de assets, confiança e superfícies privilegiadas;
+- contratos de schema, migrations e runtime;
+- simulações server-side;
+- smoke em Chrome mobile;
+- E2E em Chrome: cesta → pedido → aceite → saída → chegada → pagamento + PIN → cashback;
+- manifest e service worker;
+- verificação SHA-384 do SDK browser do Supabase antes do release.
 
-### Segurança e privacidade
+## Achados eliminados nesta rodada
 
-- Data API do browser fechado: zero grants diretos de tabelas para `anon/authenticated`;
-- zero `SECURITY DEFINER` da aplicação executável por browser;
-- endereço oculto da revenda antes do aceite;
-- papel `driver` bloqueado enquanto não existe assignment individual;
-- payload limitado a 16 KB;
-- rate limit atômico server-side;
-- dependências fixadas;
-- referral code aleatório, não derivado do UUID;
-- Anonymous Auth antigo limpo somente com critérios conservadores;
-- sessões de revenda/admin usam `sessionStorage` por aba como contenção no origin compartilhado do GitHub Pages;
-- admin usa allowlist server-side e não pode autoelevar privilégio.
+### 1. Divergência crítica de produtos GLP
 
-### Administração e compliance
+O portal da revenda aceitava conceitualmente cilindros **P1–P90**, enquanto três constraints antigas do Postgres e a normalização do `get-offers` ainda eram P13-only/fixed-list. Na prática, P20/P45 exibidos pela interface poderiam falhar no backend, e outros GLPs cadastráveis pela revenda ficariam incompráveis.
 
-- `admin-ops` exige identidade permanente + allowlist `platform_admins`;
-- tabelas/admin RPCs não possuem grants para `anon/authenticated`;
-- aprovação de parceiro é transacional e não ativa automaticamente a revenda;
-- CNPJ verificado é gate obrigatório para ativação;
-- P13 ativo exige ANP verificada;
-- triggers no banco repetem os gates mesmo se a UI/Edge falhar;
-- simulação transacional no Supabase real comprovou bloqueio sem CNPJ, bloqueio sem ANP e ativação apenas após ambos verificados;
-- reversão financeira administrativa e trilha de auditoria ocorrem na mesma transação;
-- advisor de performance teve as duas novas FKs administrativas indexadas.
+Correção v1.22:
 
-### Pedido e concorrência
+- `catalog_items`, `quote_items`, `order_items` e `order_requote_items` aceitam os SKUs fixos não-GLP e GLP **P1–P90**;
+- `normalizeItems()` usa uma autoridade explícita de SKU e rejeita P0/P91+;
+- o cliente materializa dinamicamente GLPs reais retornados por `market_supply_status()`;
+- P20/P45 continuam disponíveis no catálogo base;
+- os gates ANP e de compatibilidade logística continuam sendo aplicados a qualquer GLP, não apenas P13;
+- testes de regressão cobrem P1, P20, P45, P90 e rejeição de P91.
 
-- quote + itens gravados atomicamente e reutilizados por fingerprint;
-- resposta stale não sobrescreve pesquisa nova no frontend;
-- polling não disputa com mutação ativa;
-- índice único impede dois pedidos ativos do mesmo cliente;
-- corrida de índice vira 409, não 500;
-- rescue após aceite recompõe estoque;
-- recusa e falha pós-aceite usam uma única autoridade de rescue;
-- re-cotação congela itens + taxa, expira em 5 minutos e exige aceite;
-- watchdog trata aceite, requote, preparação e ETA.
+### 2. Integridade do SDK browser
 
-### Entrega
+A versão do `@supabase/supabase-js` estava fixada, mas o carregamento dinâmico pelo CDN não aplicava SRI.
 
-- geração/validação de PIN corrigida para o schema `extensions`;
-- PIN usa entropia criptográfica e hash SHA-256;
-- cinco falhas bloqueiam o PIN;
-- PIN bruto de pedido encerrado é apagado após 1 hora;
-- PIN correto não basta: settlement exige confirmação explícita de pagamento;
-- PAYMENT_CONFIRMED, DELIVERED e SETTLED são eventos distintos.
+Correção v1.22:
 
-### Financeiro
+- URL fixada no arquivo UMD exato `2.117.2/dist/umd/supabase.js`;
+- `integrity` SHA-384 é aplicado antes de anexar o script;
+- `crossOrigin=anonymous` permanece obrigatório;
+- CI baixa o arquivo real do CDN e compara o SHA-384 esperado;
+- o mesmo gate está presente no Audit e no deploy do Pages.
 
-- rewards nascem somente de SETTLED real;
-- unidade econômica congelada por pedido;
-- taxa 7,5%, reserva variável 0,75%, contribuição mínima 2,5%;
-- cashback alvo 1% e referral alvo 2%;
-- constraint impede benefícios acima do orçamento;
-- indicação nova só pode ser atribuída antes do primeiro pedido;
-- comissão fica pendente por 168h;
-- comissão não amadurece para identidade anônima;
-- cashback resgatado gera reembolso a pagar à revenda;
-- taxa da plataforma e reembolso de cashback são contas separadas;
-- reversão pós-settlement estorna ledger, comissão e recebíveis;
-- reversão e maturação usam lock comum para impedir corrida.
+### 3. Lacuna de governança do CI
 
-## Estado dos Advisors
+O workflow Audit não rodava em pushes para `main`; o Pages repetia a suíte, mas o SHA final de merge não recebia um status canônico do Audit.
 
-### Security Advisor
+Correção v1.22:
 
-Os avisos restantes são compatíveis com o desenho atual:
+- Audit agora roda também em push para `main`;
+- Pages mantém o gate completo antes do deploy;
+- o primeiro SHA pós-correção passou nos dois workflows.
 
-- `RLS enabled no policy` nas tabelas da aplicação é **intencional**, porque o browser não possui grants e o data-plane é server-only;
-- warnings em `cron.job` / `cron.job_run_details` pertencem ao `pg_cron` gerenciado.
+### 4. Documentação operacional desatualizada
 
-### Performance Advisor
+README/AUDIT ainda citavam P13-only, cache v1.21 e uma lista incompleta dos jobs. A documentação foi alinhada ao estado v1.22 para reduzir risco de operação/go-live baseada em premissas antigas.
 
-Os avisos atuais são índices ainda não utilizados. Isso é esperado com banco sem tráfego real; eles não devem ser removidos antes do piloto produzir evidência de uso.
+## Prova transacional no Supabase real
+
+Foi executado um cenário dentro de transação com rollback:
+
+- revenda sintética criada como `pending`;
+- compliance CNPJ/ANP válido exigido antes da ativação;
+- uma primeira tentativa sem `anp_reference` foi corretamente bloqueada pelo CHECK de compliance;
+- com evidência ANP válida, P20, P45 e P90 ativos foram aceitos;
+- P91 foi deliberadamente tentado e corretamente rejeitado pelo CHECK de `product_code`;
+- `is_glp_product_code()` foi validado nos limites P1/P20/P45/P90 vs. P0/P91;
+- a transação foi revertida;
+- verificação posterior confirmou **0 registros de auditoria persistidos**.
+
+## Segurança do banco
+
+Estado pós-v1.22:
+
+- 32 tabelas públicas da aplicação com RLS ativo;
+- 0 policies nessas tabelas de data-plane;
+- 0 grants diretos para `anon`, `authenticated` ou `public`;
+- 0 funções públicas da aplicação executáveis por browser;
+- funções `SECURITY DEFINER` protegidas e com `search_path` restrito;
+- todas as 12 Edge Functions ativas exigem JWT;
+- os 12 entrypoints publicados correspondem aos entrypoints do `main`;
+- nenhum `service_role`/secret é exposto no frontend.
+
+Os 32 avisos `RLS Enabled No Policy` do Security Advisor continuam sendo **INFO intencional**: o browser não possui grants e a arquitetura é server-only. Os dois warnings do schema `cron` são do `pg_cron` gerenciado.
+
+## Logs pós-deploy
+
+Na janela imediatamente posterior à migration/deploy:
+
+- Postgres/PostgREST/PgBouncer operaram normalmente;
+- não foram encontrados eventos contendo error/failed/exception/panic;
+- o projeto permaneceu ACTIVE_HEALTHY.
+
+## Performance Advisor
+
+Os avisos restantes são índices ainda não utilizados. Como o banco ainda não possui tráfego/pedidos reais, isso não é evidência para removê-los. A decisão deve ser tomada depois do piloto com estatísticas de uso.
 
 ## Jobs ativos
 
-- watchdog de pedido: 1 minuto;
-- maturação de comissão: horário;
-- retenção de dados efêmeros: diária;
-- limpeza segura de usuários anônimos: diária.
+- `chama-order-watchdog`: a cada minuto;
+- `chama-reward-retry`: a cada 5 minutos;
+- `chama-settlement-accounting-retry`: a cada 5 minutos;
+- `chama-reward-maturation`: horário;
+- `chama-data-retention`: diário;
+- `chama-anonymous-cleanup`: diário;
+- `chama-compliance-expiry`: diário.
+
+## Proteções críticas preservadas
+
+### Pedido e concorrência
+
+- quote + itens são snapshot atômico;
+- revalidação ocorre na criação do pedido;
+- preço/estoque/compliance/compatibilidade são rechecados;
+- idempotência e optimistic concurrency por `version`;
+- apenas um pedido ativo por cliente;
+- rescue recompõe estoque;
+- requote mais caro exige aceite explícito;
+- watchdog cobre offer timeout, requote, preparação e ETA.
+
+### Entrega
+
+- endereço protegido antes do aceite;
+- “saiu para entrega” exige ação explícita da revenda;
+- PIN criptograficamente aleatório, armazenado com hash;
+- cinco falhas bloqueiam o PIN;
+- settlement exige **pagamento confirmado + PIN correto**;
+- PAYMENT_CONFIRMED, DELIVERED e SETTLED continuam eventos distintos.
+
+### Financeiro
+
+- rewards nascem de SETTLED real;
+- economia do pedido é congelada em snapshots;
+- ledger possui tipos fechados;
+- cashback usado e taxa da plataforma são contas separadas;
+- reversões são idempotentes e auditadas;
+- comissão tem hold e identidade permanente para amadurecimento;
+- filas de retry e dead-letter existem para rewards e contabilidade de settlement.
 
 ## Dependências operacionais antes do primeiro pedido real
 
-1. criar uma conta permanente para o primeiro administrador e incluí-la em `platform_admins`;
-2. cadastrar uma revenda real pelo fluxo normal e validar CNPJ/ANP;
-3. criar conta permanente do operador;
-4. aprovar o cadastro pelo admin, que fará o vínculo inicial de owner;
-5. confirmar no Supabase Auth o Site URL/Redirect URL do GitHub Pages;
-6. confirmar que Manual Linking está habilitado para converter Anonymous Auth em conta permanente;
-7. cadastrar catálogo/estoque/ETA/taxa reais;
-8. executar teste em dois aparelhos;
-9. conferir no banco order events, ledger, receivable, cashback reimbursement e admin audit;
-10. documentar como a plataforma cobrará a taxa e reembolsará cashback usado;
-11. migrar acessos privilegiados para origem dedicada/custom domain antes de escalar;
-12. só então ativar mais parceiros.
+1. criar a primeira conta permanente de administrador e executar o bootstrap protegido;
+2. configurar as três origens HTTPS dedicadas para cliente, revenda e admin;
+3. configurar no Supabase Auth Site URL, redirect URLs, Anonymous Auth/Manual Linking e Turnstile;
+4. cadastrar e aprovar a primeira revenda real;
+5. validar CNPJ e ANP quando houver GLP;
+6. cadastrar catálogo, estoque, ETA e taxa reais;
+7. criar conta permanente do operador/owner;
+8. executar E2E real em pelo menos dois dispositivos;
+9. conferir order events, ledger, receivables, cashback reimbursement e admin audit;
+10. documentar o processo de cobrança da taxa da plataforma e reembolso de cashback;
+11. só então liberar usuários reais em volume.
 
-## O que ainda não existe de propósito
+## Limites deliberados do piloto
 
-- saque Pix efetivo;
-- PSP/split automático;
-- assignment de motorista;
-- geofence/prova GPS;
-- bootstrap do primeiro admin e configuração Auth comprovada;
+Ainda não são considerados concluídos:
+
+- PSP/split/Pix payout automatizado;
+- saque real de comissão;
+- assignment individual de motorista;
+- geocodificação/roteamento por rua;
 - automação WhatsApp/push;
-- Trust Score alimentado por volume real;
-- contrato/termos/política LGPD final.
+- Trust Score calibrado com tráfego real;
+- termos/contratos/política LGPD final;
+- E2E real multi-dispositivo e onboarding de revendas.
 
 ## Regra de release
 
-`main` só pode receber mudança com CI verde. O primeiro go-live real exige, além do CI, um E2E multiusuário com evidência do Supabase.
+Nenhuma mudança deve chegar a `main` com gate vermelho. O primeiro go-live de dinheiro real exige, além de CI verde, **origens dedicadas + Auth/Turnstile comprovados + revenda real + E2E multiusuário com evidência no Supabase**.
