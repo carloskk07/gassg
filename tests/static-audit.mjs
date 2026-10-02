@@ -123,7 +123,7 @@ assert.ok(backend.includes("const idempotencyKey=liveIdempotency('create-order')
 assert.ok(backend.includes("liveInvoke('create-order',payload,{idempotencyKey})"),'retry de create-order precisa reutilizar a mesma chave idempotente');
 assert.ok(backend.includes("toast('Pedido recuperado com segurança após uma falha de conexão.')"),'frontend precisa recuperar pedido após ACK perdido');
 assert.ok(backend.includes("Number(firstError?.status)>=500"),'create-order idempotente deve repetir uma vez também em erro transitório 5xx');
-assert.ok(!backend.includes('localStorage.removeItem(CHAMA_BACKEND.orderStorageKey);\n      liveRuntime.orderId=null;'),'sincronização financeira não pode apagar o último pedido terminal necessário para reload/suporte');
+assert.ok(!backend.includes('}else if(liveRuntime.order&&["SETTLED","CANCELLED"].includes(liveRuntime.order.status)){'),'sincronização financeira não pode apagar o último pedido terminal necessário para reload/suporte');
 assert.ok(backend.includes("SUPABASE_BROWSER_URL='https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.2/dist/umd/supabase.js'"),'browser deve fixar arquivo exato do supabase-js');
 assert.ok(backend.includes("SUPABASE_BROWSER_SRI='sha384-Rj26LVGvoeRVR6+mwQmFfcR3QOBEwT+ZmuCWpuiqeTzJpCs0ER4ITAWGb4Hiy3Ok'"),'browser deve fixar integridade SHA384 do SDK');
 assert.ok(backend.includes('script.integrity=SUPABASE_BROWSER_SRI'),'loader dinâmico precisa aplicar SRI antes de anexar o script');
