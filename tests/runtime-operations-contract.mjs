@@ -239,6 +239,10 @@ assert.match(mc,/revoke all on table public\.merchant_cashback_reimbursements fr
 assert.match(rg,/v_prior_order_count integer:=0/,'atribuição de indicação precisa conhecer histórico anterior');
 assert.match(rg,/and v_prior_order_count=0/,'novo referral só pode nascer antes do primeiro pedido');
 assert.match(rg,/insert into public\.referrals[\s\S]*on conflict\(referred_user_id\) do nothing/,'relação de referral deve permanecer única por cliente');
+assert.match(fn,/direct_referral_bps=200/,'política aplicada do piloto deve manter 2% para primeira aquisição elegível');
+assert.match(rf,/v_referrer_is_anonymous is true/,'maturação deve exigir indicador em identidade permanente');
+assert.match(rf,/v_referred_is_anonymous is true/,'maturação deve exigir cliente indicado em identidade permanente');
+assert.match(rf,/v_review\.risk_status not in \('clear','approved'\)/,'maturação deve respeitar revisão de risco da indicação');
 assert.match(rg,/grant execute on function public\.create_order_from_quote[\s\S]*to service_role/,'gate de aquisição deve permanecer server-only');
 
 assert.match(si,/platform_settlement_adjustments_merchant_idx/,'ajustes financeiros precisam de índice por revenda');
