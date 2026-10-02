@@ -266,3 +266,11 @@ for(const entry of fs.readdirSync(functionRoot,{withFileTypes:true})){
 console.log(`${refs.length} assets do index validados.`);
 console.log(`${swAssets.length} assets do service worker validados.`);
 console.log('Auditoria estática passou.');
+
+
+const adminFinanceSource=read('supabase/functions/admin-ops/index.ts');
+assert.ok(adminFinanceSource.includes('referência de conciliação'),'ação financeira admin deve exigir referência de conciliação no boundary HTTP');
+assert.ok(adminFinanceSource.includes('FINANCIAL_REFERENCE_REQUIRED'),'admin-ops deve mapear falta de referência sem erro 500');
+assert.ok(!adminFinanceSource.includes('reference:body.reference==null?null'),'ação financeira não pode aceitar baixa sem evidência');
+
+console.log('Admin financial reconciliation boundary passou.');
