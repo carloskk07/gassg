@@ -7,10 +7,11 @@ function club(){
   return shell(`<section class="page"><h1 class="page-title">Clube Chama</h1><div class="reward-hero"><div class="tiny" style="opacity:.75">SEU CASHBACK DISPONÍVEL</div><div class="balance">${BRL.format(state.user.cashback)}</div><div class="tiny">crédito para usar em novas compras</div><div class="progress"><div style="width:${pct}%"></div></div><strong>${esc(next)}</strong></div>
 ${debt>0?`<div class="notice" style="margin-top:14px"><strong>${BRL.format(debt)} em compensação.</strong><br>Esse valor corresponde a cashback de uma compra posteriormente revertida. Novos créditos reduzem essa compensação antes de ficarem disponíveis para uso.</div>`:''}
 <section class="section"><div class="grid cards-3"><div class="card"><div class="feature-icon">💵</div><h3>Cashback</h3><p class="muted tiny">Não é sacável. Ele reduz o valor de compras futuras dentro da plataforma.</p></div><div class="card"><div class="feature-icon">⭐</div><h3>Fidelidade</h3><p class="muted tiny">Compras e recorrência liberam benefícios progressivos.</p></div><div class="card"><div class="feature-icon">👑</div><h3>Plus</h3><p class="muted tiny">Assinatura opcional com vantagens ampliadas. Valores finais serão testados no piloto.</p></div></div></section>
-<div class="card flat"><h3>Clube Plus — prévia</h3><p class="muted">Cashback ampliado, ofertas exclusivas, benefícios familiares e vantagens em produtos complementares.</p><button class="primary full" onclick="toast('Lista de interesse Plus registrada — demonstração')">Quero ser avisado</button></div></section>`)
+<div class="card flat"><h3>Clube Plus — planejado</h3><p class="muted">Cashback ampliado, ofertas exclusivas e benefícios familiares serão ativados somente quando houver produto e cobrança reais.</p><button class="secondary full" disabled>Ainda não disponível</button></div></section>`)
 }
 
 function referralUrl(){
+  if(!state.user.referralCode)return '';
   const base=`${location.origin}${location.pathname}`;
   return `${base}?ref=${encodeURIComponent(state.user.referralCode)}#home`;
 }
@@ -18,13 +19,17 @@ function refer(){
   const url=referralUrl();
   const live=globalThis.liveRequested?.()===true;
   const permanent=state.user.cashEarningEligible===true;
+  const hasReferral=Boolean(state.user.referralCode);
+  const referralCard=hasReferral
+    ? `<div class="card flat"><div class="tiny muted">SEU LINK PESSOAL</div><div class="share-box">${esc(url)}</div><button class="primary full" style="margin-top:12px" onclick="shareReferral()">Compartilhar</button></div>`
+    : '<div class="notice"><strong>Link de indicação ainda indisponível.</strong><br>Ele será carregado somente de uma identidade real do backend.</div>';
   const identityCard=live&&!permanent
     ? `<div class="notice" style="margin-top:14px"><strong>Comissão em dinheiro exige conta permanente.</strong><br>Suas indicações podem ficar registradas como “a liberar”, mas o saldo só se torna sacável depois que você vincular e confirmar um e-mail.</div><div class="card flat form-stack" style="margin-top:14px"><div class="input-wrap"><label for="cash-email">Seu e-mail</label><input id="cash-email" type="email" autocomplete="email" maxlength="160" class="input" placeholder="voce@email.com"></div><button class="primary" onclick="activateCashAccount()">Ativar minha conta</button><div class="tiny muted">A ativação mantém o mesmo usuário, pedidos, cashback e histórico.</div></div>`
     : live&&permanent
       ? '<div class="notice success" style="margin-top:14px"><strong>Conta habilitada para comissão.</strong><br>Comissões elegíveis passam pela janela de validação antes de ficarem disponíveis.</div>'
       : '';
 
-  return shell(`<section class="page"><h1 class="page-title">Indique e ganhe</h1><p class="muted">Compartilhe seu link pessoal. Comissão só nasce quando existe uma venda válida, entregue e com pagamento confirmado.</p><div class="card flat"><div class="tiny muted">SEU LINK PESSOAL</div><div class="share-box">${esc(url)}</div><button class="primary full" style="margin-top:12px" onclick="shareReferral()">Compartilhar</button></div>
+  return shell(`<section class="page"><h1 class="page-title">Indique e ganhe</h1><p class="muted">Compartilhe seu link pessoal. Comissão só nasce quando existe uma venda válida, entregue e com pagamento confirmado.</p>${referralCard}
 ${identityCard}
 <section class="section"><div class="section-head"><div><h2>Como funciona</h2></div></div><div class="steps">${[['1','Compartilhe seu link','Cadastro sozinho não gera comissão.'],['2','A pessoa compra','O pedido precisa ser real.'],['3','A revenda entrega e confirma o pagamento','A operação precisa ser comprovada.'],['4','A comissão entra em validação','Depois da janela de segurança e com conta permanente, ela pode ficar disponível.']].map(x=>`<div class="step"><div class="step-num">${x[0]}</div><div><strong>${x[1]}</strong><p>${x[2]}</p></div></div>`).join('')}</div></section><div class="card flat"><div class="merchant-kpis"><div class="kpi"><span class="label">Disponível</span><strong>${BRL.format(state.user.commissionAvailable)}</strong></div><div class="kpi"><span class="label">A liberar</span><strong>${BRL.format(state.user.commissionPending)}</strong></div></div><button class="secondary full" style="margin-top:12px" onclick="toast('Saque Pix será ativado com PSP real')" ${live&&!permanent?'disabled':''}>Sacar via Pix</button></div><div class="notice" style="margin-top:14px">Não há pagamento por mero recrutamento. Benefícios sacáveis são vinculados a vendas reais, entregues, pagas e validadas.</div></section>`)
 }
@@ -50,6 +55,7 @@ async function activateCashAccount(){
 
 async function shareReferral(){
   const url=referralUrl();
+  if(!url)return toast('Link real de indicação ainda indisponível');
   const text=`Use o Chama para consultar preço e pedir gás e outros itens em São Gabriel: ${url}`;
   try{
     if(navigator.share){
@@ -79,7 +85,8 @@ function merchantJoin(){
     }
     if(rt.status==='unauthenticated')return merchantLiveLoginView();
   }
-  return shell(`<section class="page"><button class="back" onclick="go('merchants')">← Para revendas</button><h1 class="page-title">Quero ser parceiro</h1><p class="muted">${globalThis.merchantPortalRequested?.()?'Este cadastro será enviado ao backend real do piloto.':'Demonstração do cadastro de parceiros.'}</p><div class="card flat form-stack"><div class="field-row"><div class="input-wrap"><label for="j-cnpj">CNPJ</label><input id="j-cnpj" autocapitalize="characters" maxlength="18" class="input" placeholder="00.000.000/0000-00 ou alfanumérico"></div><div class="input-wrap"><label for="j-name">Nome da empresa</label><input id="j-name" maxlength="90" class="input" placeholder="Nome da revenda"></div></div><div class="field-row"><div class="input-wrap"><label for="j-owner">Responsável</label><input id="j-owner" maxlength="90" class="input" placeholder="Nome do responsável"></div><div class="input-wrap"><label for="j-phone">WhatsApp</label><input id="j-phone" inputmode="tel" maxlength="20" class="input" placeholder="(55) 99999-9999"></div></div><div class="input-wrap"><label for="j-address">Endereço</label><input id="j-address" maxlength="160" class="input" placeholder="Endereço da empresa"></div><button class="primary" onclick="joinMerchant()">Enviar para análise</button></div><div class="notice" style="margin-top:14px">O cadastro não coloca a empresa online automaticamente. GLP exige validação da revenda e teste completo do fluxo antes do go-live.</div></section>`)
+  if(globalThis.__CHAMA_TEST__!==true&&!globalThis.merchantPortalRequested?.())return merchantRealPortalRequired();
+  return shell(`<section class="page"><button class="back" onclick="go('merchants')">← Para revendas</button><h1 class="page-title">Quero ser parceiro</h1><p class="muted">${globalThis.merchantPortalRequested?.()?'Este cadastro será enviado ao backend real.':'Ambiente isolado de teste.'}</p><div class="card flat form-stack"><div class="field-row"><div class="input-wrap"><label for="j-cnpj">CNPJ</label><input id="j-cnpj" autocapitalize="characters" maxlength="18" class="input" placeholder="00.000.000/0000-00 ou alfanumérico"></div><div class="input-wrap"><label for="j-name">Nome da empresa</label><input id="j-name" maxlength="90" class="input" placeholder="Nome da revenda"></div></div><div class="field-row"><div class="input-wrap"><label for="j-owner">Responsável</label><input id="j-owner" maxlength="90" class="input" placeholder="Nome do responsável"></div><div class="input-wrap"><label for="j-phone">WhatsApp</label><input id="j-phone" inputmode="tel" maxlength="20" class="input" placeholder="(55) 99999-9999"></div></div><div class="input-wrap"><label for="j-address">Endereço</label><input id="j-address" maxlength="160" class="input" placeholder="Endereço da empresa"></div><button class="primary" onclick="joinMerchant()">Enviar para análise</button></div><div class="notice" style="margin-top:14px">O cadastro não coloca a empresa online automaticamente. GLP exige validação da revenda e teste completo do fluxo antes do go-live.</div></section>`)
 }
 function onlyDigits(v){return String(v||'').replace(/\D/g,'')}
 function isValidPhoneShape(v){const n=onlyDigits(v);return n.length===10||n.length===11}
@@ -112,6 +119,11 @@ async function joinMerchant(){
       toast(String(e?.message||e));
       return;
     }
+  }
+
+  if(globalThis.__CHAMA_TEST__!==true){
+    openMerchantPortal();
+    return;
   }
 
   const normalized=normalizeCnpj(cnpj);
