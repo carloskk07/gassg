@@ -892,15 +892,22 @@ async function merchantSetOnlineLive(online){
   }
 }
 
-async function merchantUpdateProductLive(productCode,priceCents,availableStock,active=true){
+async function merchantUpdateProductLive(productCode,priceCents,availableStock,active=true,pricing={}){
   const merchantId=merchantRuntime.merchant?.merchantId;
   if(!merchantId)throw new Error('Revenda não selecionada');
   merchantRuntime.actionPending=true;render();
   try{
-    await retryAmbiguousOnce(()=>merchantInvoke('merchant-ops',{
+    const body={
       merchantId,action:'update-product',productCode,
       priceCents:Number(priceCents),availableStock:Number(availableStock),active:active!==false
-    }));
+    };
+    if(pricing&&typeof pricing==='object'){
+      if(pricing.pricingMode!=null)body.pricingMode=String(pricing.pricingMode);
+      if(pricing.minPriceCents!=null)body.minPriceCents=Number(pricing.minPriceCents);
+      if(pricing.maxPriceCents!=null)body.maxPriceCents=Number(pricing.maxPriceCents);
+      if(pricing.pricingStrategy!=null)body.pricingStrategy=String(pricing.pricingStrategy);
+    }
+    await retryAmbiguousOnce(()=>merchantInvoke('merchant-ops',body));
     await merchantRefresh({silent:true});
   }finally{
     merchantRuntime.actionPending=false;render();
