@@ -149,8 +149,8 @@ function earn(){
         <div class="opportunity-example"><small>Exemplo matemático</small><strong>R$ 120 × 2% = ${BRL.format(referralExample(120))}</strong><span>Não é promessa de renda; a venda precisa cumprir todos os gates.</span></div>
         <button class="primary full" onclick="go('refer')">Simular minha indicação</button>
       </article>
-      <article class="opportunity-card business-opportunity"><div class="opportunity-icon">🏪</div><span class="section-kicker">PARA EMPRESAS</span><h2>Venda mais sem perder o controle</h2><p>Use a plataforma como um canal adicional para gás, água e outros itens da sua operação, mantendo preço, estoque, disponibilidade e aceite sob sua decisão.</p>
-        <ul class="clean-list"><li>Você define preços, estoque e taxa de entrega</li><li>Escolhe quando ficar online</li><li>Decide se aceita cada pedido</li><li>Pode vender vários tipos de produto</li></ul>
+      <article class="opportunity-card business-opportunity"><div class="opportunity-icon">🏪</div><span class="section-kicker">PARA EMPRESAS</span><h2>Transforme pedidos adicionais em faturamento incremental</h2><p>Use o Chama como um canal adicional para gás, água e outros itens, sem abandonar telefone, WhatsApp, balcão ou sua base atual de clientes.</p>
+        <ul class="clean-list"><li>Você define preços, estoque e taxa de entrega</li><li>Escolhe quando ficar online</li><li>Decide se aceita cada pedido</li><li>Pode aumentar o ticket com vários produtos na mesma entrega</li></ul>
         <div class="opportunity-example"><small>Política inicial do piloto</small><strong>Taxa Chama: 7,5% por pedido concluído</strong><span>Ex.: R$ 120 bruto → ${BRL.format(merchantSample.fee)} de taxa → ${BRL.format(merchantSample.merchantNet)} antes dos custos próprios e impostos.</span></div>
         <button class="primary full" onclick="go('merchants')">Ver parceria e simulador</button>
       </article>
