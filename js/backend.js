@@ -468,6 +468,8 @@ const merchantRuntime={
   actionPending:false,
   error:null,
   notice:null,
+  accessReason:null,
+  heartbeatError:null,
   lastSyncAt:null,
   lastHeartbeatAt:0
 };
@@ -593,9 +595,13 @@ async function merchantSignOut(){
   merchantRuntime.memberships=[];
   merchantRuntime.catalog=[];
   merchantRuntime.orders=[];
+  merchantRuntime.selectedMerchantId=null;
+  localStorage.removeItem('chama-merchant-selected-v1');
   merchantRuntime.status='unauthenticated';
   merchantRuntime.error=null;
   merchantRuntime.notice=null;
+  merchantRuntime.accessReason=null;
+  merchantRuntime.heartbeatError=null;
   render();
 }
 
@@ -640,8 +646,12 @@ async function merchantRefresh({silent=false}={}){
 }
 
 async function merchantSelectLive(merchantId){
-  merchantRuntime.selectedMerchantId=String(merchantId||'');
-  localStorage.setItem('chama-merchant-selected-v1',merchantRuntime.selectedMerchantId);
+  merchantRuntime.selectedMerchantId=String(merchantId||'')||null;
+  if(merchantRuntime.selectedMerchantId){
+    localStorage.setItem('chama-merchant-selected-v1',merchantRuntime.selectedMerchantId);
+  }else{
+    localStorage.removeItem('chama-merchant-selected-v1');
+  }
   await merchantRefresh();
 }
 
