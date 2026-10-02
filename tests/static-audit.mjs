@@ -53,7 +53,7 @@ assert.ok(customer.includes('Quero pedir agora')&&customer.includes('Quero enten
 assert.ok(customer.includes('Botijão de cozinha 13 kg')&&customer.includes('startHomeOrder'),'home precisa iniciar a compra em linguagem humana sem depender de P13 como rótulo principal');
 assert.ok(customer.includes('PROTEÇÃO CHAMA')&&customer.includes('qualquer alternativa mais cara'),'home precisa explicar rescue e requote como proteção compreensível ao cliente');
 assert.ok(customer.includes('PRIMEIRO PARCEIRO PILOTO')&&customer.includes('Gas e Lenheira do JR'),'pré-lançamento deve mostrar o primeiro parceiro piloto sem fingir operação ativa');
-assert.ok(customer.includes('PILOTO INTERNO — SEM PEDIDOS REAIS')&&customer.includes('R$ 115,90 entregue'),'GitHub Pages deve comunicar claramente o cenário interno do JR');
+assert.ok(customer.includes('PILOTO INTERNO — SEM PEDIDOS REAIS')&&customer.includes('R$ 115,90 mínimo')&&customer.includes('R$ 120,00 normal')&&customer.includes('R$ 125,00 máximo'),'GitHub Pages deve comunicar claramente a faixa comercial interna do JR');
 assert.ok(customer.includes('🧪 Simulação operacional')&&customer.includes('Sem validação jurídica nesta tela'),'oferta do piloto interno não pode fingir verificação regulatória');
 assert.ok(merchant.includes('PAINEL DA REVENDA — PILOTO INTERNO')&&merchant.includes('Nenhuma ação é real.'),'painel simulado da revenda deve ser inequivocamente não operacional');
 assert.ok(customer.includes('Há um parceiro elegível para esta cesta agora.')&&customer.includes('sem opções fictícias'),'modo single-supplier deve explicar ao cliente que existe apenas uma opção real');
@@ -89,7 +89,7 @@ assert.ok(growth.includes('Saque Pix ainda não disponível')&&growth.includes('
 assert.ok(growth.includes('Você continua no controle'),'landing de revenda deve enfatizar autonomia operacional');
 assert.ok(core.includes("['earn','💰','Ganhe','go']"),'navegação móvel precisa dar acesso direto ao hub de renda');
 assert.ok(!growth.includes('inputmode="numeric" maxlength="18"'),'campo CNPJ não pode forçar teclado somente numérico após adoção do CNPJ alfanumérico');
-assert.ok(sw.includes("CACHE='chama-sg-v1.32'"),'cache do service worker precisa estar versionado');
+assert.ok(sw.includes("CACHE='chama-sg-v1.33'"),'cache do service worker precisa estar versionado');
 assert.ok(sw.includes("./js/backend.js"),'runtime live precisa estar no cache da PWA');
 assert.ok(sw.includes("./js/runtime-config.js"),'configuração pública de origins precisa estar no cache da PWA');
 assert.ok(sw.includes("./js/turnstile.js"),'helper local do Turnstile precisa estar no cache da PWA');
@@ -124,7 +124,7 @@ assert.ok(customer.includes('EXEMPLO — NÃO COMPRÁVEL'),'exemplo visual preci
 assert.ok(customer.includes('disabled>Disponível quando houver parceiro real'),'exemplo jamais pode acionar checkout');
 assert.ok(customer.includes('prelaunchExamplesEnabled'),'cliente deve remover exemplos quando o backend indicar supply real');
 assert.ok(customer.includes('ready&&!market')&&customer.includes('Não foi possível confirmar o panorama geral agora'),'falha de market-status não pode ser apresentada como ausência de parceiros');
-assert.ok(core.includes('merchants:testDemo')&&core.includes("freshMerchant('JR-PILOT','Gas e Lenheira do JR — SIMULAÇÃO',115.90"),'revendas sintéticas devem existir somente no runtime de teste e o piloto interno deve usar o cenário JR');
+assert.ok(core.includes('merchants:testDemo')&&core.includes("freshMerchant('JR-PILOT','Gas e Lenheira do JR — SIMULAÇÃO',120.00")&&core.includes("min:115.90,preferred:120.00,max:125.00,strategy:'balanced'"),'revendas sintéticas devem existir somente no runtime de teste e o piloto interno deve usar a faixa comercial JR confirmada');
 assert.ok(core.includes("eligible[0].roles=['Disponível agora']"),'piloto interno com fornecedor único não pode criar concorrência fictícia');
 assert.ok(core.includes('Never hydrate those fields from browser storage'),'produção não pode restaurar autoridade financeira/merchant de storage');
 assert.ok(merchant.includes('A operação da revenda não possui modo fictício em produção.'),'rota merchant sem portal real deve falhar fechado');
@@ -283,6 +283,8 @@ assert.ok(adminOpsSource.includes('GLP_REGULATORY_VERIFICATION_REQUIRED'),'Edge 
 assert.ok(adminOpsSource.includes('produto GLP ativo exige validação ANP'),'mensagem administrativa deve cobrir todos os produtos GLP');
 assert.ok(admin.includes('Qualquer produto GLP ativo exige também validação ANP.'),'UI admin deve explicar gate ANP genérico');
 assert.ok(adminOpsSource.includes('pilot_partner_drafts'),'admin precisa projetar parceiros piloto ainda sem cadastro jurídico');
+assert.ok(adminOpsSource.includes('min_delivered_price_cents')&&adminOpsSource.includes('preferred_delivered_price_cents')&&adminOpsSource.includes('max_delivered_price_cents'),'admin precisa projetar mínimo/normal/máximo do parceiro piloto');
+assert.ok(admin.includes('Faixa comercial confirmada')&&admin.includes('Estratégia inicial'),'admin deve mostrar a faixa comercial confirmada sem confundir com preço único');
 assert.ok(admin.includes('AGUARDANDO DADOS REAIS')&&admin.includes('Gate de ativação preservado.'),'admin deve distinguir interesse comercial de merchant verificado');
 const offerSource=read('supabase/functions/get-offers/index.ts');
 const merchantOpsSource=read('supabase/functions/merchant-ops/index.ts');
@@ -314,12 +316,15 @@ assert.ok(offerSource.includes('merchant_offer_load'),'matching deve considerar 
 assert.ok(!offerSource.includes('.limit(40)'),'matching não pode eliminar revendas arbitrariamente antes de calcular elegibilidade e ranking');
 const pricingPolicy=read('supabase/functions/_shared/pricing-policy.js');
 const authorizedPricingMigration=read('supabase/migrations/20261002214500_authorized_price_ranges.sql');
+const jrCommercialRange=read('supabase/migrations/20261002235614_jr_confirmed_commercial_price_range.sql');
 const authorizedPricingFreshness=read('supabase/migrations/20261002215500_authorized_price_range_quote_freshness_fix.sql');
 assert.ok(offerSource.includes('effectiveUnitPrice')&&offerSource.includes('pricing_mode')&&offerSource.includes('pricing_strategy'),'matching deve calcular preço efetivo a partir da política autorizada');
 assert.ok(pricingPolicy.includes("pricingStrategy==='volume'")&&pricingPolicy.includes("pricingStrategy==='margin'"),'autoridade de preço deve distinguir volume/equilibrado/margem');
 assert.ok(pricingPolicy.includes('activeOrders')&&pricingPolicy.includes('availableStock')&&pricingPolicy.includes('recentOrders7d'),'preço automático deve usar sinais da própria operação');
 assert.ok(!pricingPolicy.includes('competitor')&&!pricingPolicy.includes('cheapest')&&!pricingPolicy.includes('otherMerchant'),'política de preço de uma revenda não pode depender do preço de concorrentes');
 assert.ok(authorizedPricingMigration.includes("pricing_mode in ('fixed','range')"),'banco deve restringir modos de preço');
+assert.ok(jrCommercialRange.includes('min_delivered_price_cents=11590')&&jrCommercialRange.includes('preferred_delivered_price_cents=12000')&&jrCommercialRange.includes('max_delivered_price_cents=12500'),'staging JR deve registrar a faixa comercial 115,90/120/125');
+assert.ok(jrCommercialRange.includes("price_status='confirmed'")&&jrCommercialRange.includes("pricing_mode='range'"),'faixa JR deve estar confirmada em staging sem virar merchant real');
 assert.ok(authorizedPricingMigration.includes("pricing_strategy in ('volume','balanced','margin')"),'banco deve restringir estratégias de preço');
 assert.ok(authorizedPricingMigration.includes('r.unit_price_cents between ci.min_price_cents and ci.max_price_cents'),'quote RPC deve validar faixa autorizada');
 assert.ok(authorizedPricingFreshness.includes('ci.price_confirmed_at is not null')&&authorizedPricingFreshness.includes("clock_timestamp()-interval '24 hours'"),'quote ranged não pode perder freshness por SKU');
