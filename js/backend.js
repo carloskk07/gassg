@@ -326,6 +326,7 @@ async function liveSyncFinancialProfile(){
     const summary=await liveInvoke('customer-summary',{});
     if(summary?.referralCode)state.user.referralCode=String(summary.referralCode).slice(0,40);
     state.user.cashback=Math.max(0,Number(summary?.cashbackCents||0)/100);
+    state.user.cashbackDebt=Math.max(0,Number(summary?.cashbackDebtCents||0)/100);
     state.user.commissionPending=Math.max(0,Number(summary?.commissionPendingCents||0)/100);
     state.user.commissionAvailable=Math.max(0,Number(summary?.commissionAvailableCents||0)/100);
     state.user.purchases=Math.max(0,Number(summary?.settledOrders||0));
