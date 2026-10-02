@@ -63,22 +63,33 @@ function freshMerchant(id,name,priceP13,eta,distance,trust,inventory,prices){
 
 function freshSeed(){
   const testDemo=globalThis.__CHAMA_TEST__===true;
+  const internalPilot=globalThis.CHAMA_INTERNAL_PILOT===true;
   return {
     version:STATE_VERSION,
     mode:'customer',
     user:testDemo
-      ? {name:'Carlos',cashback:7.50,cashbackDebt:0,purchases:4,referralCode:'CARLOS27',commissionAvailable:0,commissionPending:0,referredBy:null,cashEarningEligible:true,identityType:'test'}
+      ? internalPilot
+        ? {name:'Cliente piloto',cashback:0,cashbackDebt:0,purchases:0,referralCode:'PILOTOJR',commissionAvailable:0,commissionPending:0,referredBy:null,cashEarningEligible:true,identityType:'pilot'}
+        : {name:'Carlos',cashback:7.50,cashbackDebt:0,purchases:4,referralCode:'CARLOS27',commissionAvailable:0,commissionPending:0,referredBy:null,cashEarningEligible:true,identityType:'test'}
       : {name:'',cashback:0,cashbackDebt:0,purchases:0,referralCode:'',commissionAvailable:0,commissionPending:0,referredBy:null,cashEarningEligible:false,identityType:'uninitialized'},
     address:'',
     cart:{P13:0,P20:0,P45:0,WATER20:0,CHARCOAL4:0,WOOD:0,ICE5:0},
     checkout:{paymentMethod:'pix',useCashback:false},
-    merchants:testDemo?[
-      freshMerchant('A','Revenda Parceira A',116.90,34,3.8,94,{P13:24,WATER20:18,CHARCOAL4:12,WOOD:8,ICE5:14},{WATER20:15.90,CHARCOAL4:19.90,WOOD:24.90,ICE5:12.00}),
-      freshMerchant('B','Revenda Parceira B',119.90,19,1.9,97,{P13:31,WATER20:22,CHARCOAL4:10,WOOD:0,ICE5:16},{WATER20:14.90,CHARCOAL4:21.90,WOOD:null,ICE5:11.50}),
-      freshMerchant('C','Revenda Parceira C',122.90,13,1.1,98,{P13:18,WATER20:0,CHARCOAL4:20,WOOD:11,ICE5:9},{WATER20:null,CHARCOAL4:18.90,WOOD:22.90,ICE5:13.00})
-    ]:[],
+    merchants:testDemo
+      ? internalPilot
+        ? [
+            // Only the P13 price comes from the commercial conversation.
+            // Stock, ETA, distance and trust are explicitly simulated pilot inputs.
+            freshMerchant('JR-PILOT','Gas e Lenheira do JR — SIMULAÇÃO',115.90,30,2.0,90,{P13:20},{})
+          ]
+        : [
+            freshMerchant('A','Revenda Parceira A',116.90,34,3.8,94,{P13:24,WATER20:18,CHARCOAL4:12,WOOD:8,ICE5:14},{WATER20:15.90,CHARCOAL4:19.90,WOOD:24.90,ICE5:12.00}),
+            freshMerchant('B','Revenda Parceira B',119.90,19,1.9,97,{P13:31,WATER20:22,CHARCOAL4:10,WOOD:0,ICE5:16},{WATER20:14.90,CHARCOAL4:21.90,WOOD:null,ICE5:11.50}),
+            freshMerchant('C','Revenda Parceira C',122.90,13,1.1,98,{P13:18,WATER20:0,CHARCOAL4:20,WOOD:11,ICE5:9},{WATER20:null,CHARCOAL4:18.90,WOOD:22.90,ICE5:13.00})
+          ]
+      :[],
     orders:[],
-    selectedMerchant:testDemo?'A':null,
+    selectedMerchant:testDemo?(internalPilot?'JR-PILOT':'A'):null,
     onboarding:[]
   };
 }
@@ -211,7 +222,7 @@ function reset(){
   save();
   location.hash='#home';
   render();
-  toast('Demonstração reiniciada');
+  toast(globalThis.CHAMA_INTERNAL_PILOT===true?'Piloto interno reiniciado':'Demonstração reiniciada');
 }
 function route(){return (location.hash.replace('#','')||'home').split('?')[0]}
 function go(r){location.hash='#'+r}
@@ -282,6 +293,10 @@ function offersForCart(cart=state.cart){
     return {...m,total,score,roles:[]};
   });
   if(!eligible.length)return[];
+  if(globalThis.CHAMA_INTERNAL_PILOT===true&&eligible.length===1){
+    eligible[0].roles=['Disponível agora'];
+    return eligible;
+  }
   const cheapest=[...eligible].sort((a,b)=>a.total-b.total||a.eta-b.eta)[0];
   const fastest=[...eligible].sort((a,b)=>a.eta-b.eta||a.total-b.total)[0];
   const recommended=[...eligible].sort((a,b)=>a.score-b.score)[0];
@@ -594,6 +609,9 @@ function runtimeStrip(){
     return '<div class="demo-strip blocked-strip"><span>Painel da revenda indisponível no momento</span><button onclick="openCustomerPortal()">Voltar ao site</button></div>';
   }
   if(globalThis.__CHAMA_TEST__===true){
+    if(globalThis.CHAMA_INTERNAL_PILOT===true){
+      return '<div class="demo-strip"><span>🧪 PILOTO INTERNO • nenhum pedido, pagamento ou estoque desta tela é real</span><button onclick="reset()">Reiniciar piloto</button></div>';
+    }
     return '<div class="demo-strip"><span>Ambiente isolado de teste automatizado</span><button onclick="reset()">Reiniciar teste</button></div>';
   }
   const mode=globalThis.liveBanner?.()||'connecting';
