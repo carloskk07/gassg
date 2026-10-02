@@ -1,6 +1,7 @@
--- Chama São Gabriel — canonical backend schema draft v1.2
+-- Chama São Gabriel — baseline backend schema
 -- Intended for a dedicated Supabase project. Never apply this to Reward Pulse.
--- Critical writes are performed by server-side Edge Functions; browser clients are read-only on business tables.
+-- The current architecture is server-only for application data: browser clients do not read or write business tables directly.
+-- Production evolution is versioned in supabase/migrations; this baseline must never weaken that boundary.
 
 create extension if not exists pgcrypto;
 
@@ -293,8 +294,9 @@ alter table public.referrals enable row level security;
 alter table public.merchant_applications enable row level security;
 alter table public.action_requests enable row level security;
 
--- New Supabase projects may not expose new public tables to the Data API automatically.
--- Revoke first, then grant only the reads intentionally used by browser clients.
+-- Server-only Data API boundary.
+-- Browser roles keep zero table privileges; authenticated projections and mutations
+-- must go through authenticated Edge Functions.
 revoke all on table
   public.profiles,
   public.merchants,
@@ -310,19 +312,6 @@ revoke all on table
   public.merchant_applications,
   public.action_requests
 from anon, authenticated;
-
-grant select on table
-  public.profiles,
-  public.merchants,
-  public.merchant_members,
-  public.catalog_items,
-  public.orders,
-  public.order_items,
-  public.order_events,
-  public.wallet_entries,
-  public.referrals,
-  public.merchant_applications
-to authenticated;
 
 grant all on table
   public.profiles,
@@ -342,165 +331,27 @@ to service_role;
 
 grant usage, select on all sequences in schema public to service_role;
 
-drop policy if exists "read own profile" on public.profiles;
-create policy "read own profile"
-on public.profiles
-for select
-to authenticated
-using (user_id = (select auth.uid()));
+-- Future public objects must fail closed as well. PostgreSQL 17 includes MAINTAIN
+-- as a distinct table privilege, so revoke it explicitly.
+alter default privileges for role postgres in schema public
+  revoke select, insert, update, delete, truncate, references, trigger, maintain on tables from anon, authenticated;
 
-drop policy if exists "read own merchant profile" on public.merchants;
-create policy "read own merchant profile"
-on public.merchants
-for select
-to authenticated
-using (
-  exists (
-    select 1
-    from public.merchant_members mm
-    where mm.merchant_id = merchants.id
-      and mm.user_id = (select auth.uid())
-      and mm.active
-  )
-);
+alter default privileges for role postgres in schema public
+  revoke usage, select, update on sequences from anon, authenticated;
 
-drop policy if exists "read own merchant memberships" on public.merchant_members;
-create policy "read own merchant memberships"
-on public.merchant_members
-for select
-to authenticated
-using (user_id = (select auth.uid()));
+alter default privileges for role postgres in schema public
+  revoke execute on functions from public, anon, authenticated;
 
-drop policy if exists "read own merchant catalog" on public.catalog_items;
-create policy "read own merchant catalog"
-on public.catalog_items
-for select
-to authenticated
-using (
-  exists (
-    select 1
-    from public.merchant_members mm
-    where mm.merchant_id = catalog_items.merchant_id
-      and mm.user_id = (select auth.uid())
-      and mm.active
-  )
-);
+alter default privileges for role postgres in schema public
+  grant select, insert, update, delete, truncate, references, trigger, maintain on tables to service_role;
 
-drop policy if exists "read own or assigned orders" on public.orders;
-create policy "read own or assigned orders"
-on public.orders
-for select
-to authenticated
-using (
-  customer_id = (select auth.uid())
-  or exists (
-    select 1
-    from public.merchant_members mm
-    where mm.merchant_id = orders.merchant_id
-      and mm.user_id = (select auth.uid())
-      and mm.active
-  )
-);
+alter default privileges for role postgres in schema public
+  grant usage, select, update on sequences to service_role;
 
-drop policy if exists "read visible order items" on public.order_items;
-create policy "read visible order items"
-on public.order_items
-for select
-to authenticated
-using (
-  exists (
-    select 1
-    from public.orders o
-    where o.id = order_items.order_id
-      and (
-        o.customer_id = (select auth.uid())
-        or exists (
-          select 1
-          from public.merchant_members mm
-          where mm.merchant_id = o.merchant_id
-            and mm.user_id = (select auth.uid())
-            and mm.active
-        )
-      )
-  )
-);
+alter default privileges for role postgres in schema public
+  grant execute on functions to service_role;
 
-drop policy if exists "read visible order events" on public.order_events;
-create policy "read visible order events"
-on public.order_events
-for select
-to authenticated
-using (
-  exists (
-    select 1
-    from public.orders o
-    where o.id = order_events.order_id
-      and (
-        o.customer_id = (select auth.uid())
-        or exists (
-          select 1
-          from public.merchant_members mm
-          where mm.merchant_id = o.merchant_id
-            and mm.user_id = (select auth.uid())
-            and mm.active
-        )
-      )
-  )
-);
-
-drop policy if exists "read own wallet ledger" on public.wallet_entries;
-create policy "read own wallet ledger"
-on public.wallet_entries
-for select
-to authenticated
-using (user_id = (select auth.uid()));
-
-drop policy if exists "read own referral relationships" on public.referrals;
-create policy "read own referral relationships"
-on public.referrals
-for select
-to authenticated
-using (
-  referred_user_id = (select auth.uid())
-  or referrer_user_id = (select auth.uid())
-);
-
-drop policy if exists "read own merchant applications" on public.merchant_applications;
-create policy "read own merchant applications"
-on public.merchant_applications
-for select
-to authenticated
-using (applicant_user_id = (select auth.uid()));
-
--- quotes, quote_items and action_requests deliberately have no authenticated RLS policies.
--- They are server-only authority state used by Edge Functions.
--- Customer-facing discovery must go through get-offers, which returns anonymized offer data.
--- Merchant identity is copied to supplier_name_snapshot only after real acceptance.
-
--- For the small São Gabriel pilot, Postgres Changes is intentionally sufficient.
--- If the platform grows, migrate event delivery to private Broadcast channels.
-do $$
-begin
-  if exists (select 1 from pg_publication where pubname = 'supabase_realtime') then
-    if not exists (
-      select 1
-      from pg_publication_tables
-      where pubname = 'supabase_realtime'
-        and schemaname = 'public'
-        and tablename = 'orders'
-    ) then
-      execute 'alter publication supabase_realtime add table public.orders';
-    end if;
-
-    if not exists (
-      select 1
-      from pg_publication_tables
-      where pubname = 'supabase_realtime'
-        and schemaname = 'public'
-        and tablename = 'order_events'
-    ) then
-      execute 'alter publication supabase_realtime add table public.order_events';
-    end if;
-  end if;
-end
-$$;
+-- RLS remains enabled as defense in depth. No browser-facing RLS policies are
+-- created in the baseline because the current data plane is server-only.
+-- Realtime table publication is intentionally omitted: the current client uses
+-- authenticated polling through Edge Functions instead of direct Postgres Changes.
