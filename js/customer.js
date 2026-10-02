@@ -24,6 +24,8 @@ function exampleOfferCard(o){
 }
 
 function prelaunchExampleSection(cart={P13:1}){
+  return `<section class="section prelaunch-examples"><div class="section-head"><div><span class="section-kicker">DEMONSTRAÇÃO DO PRÉ-LANÇAMENTO</span><h2>Veja como será comparar as opções</h2><p>Os cards abaixo servem somente para mostrar a experiência. Não representam revendas nem preços reais e não podem gerar pedido.</p></div></div><div class="offer-stack">${prelaunchExampleOffers(cart).map(exampleOfferCard).join('')}</div></section>`;
+}){
   return `<section class="section prelaunch-examples"><div class="section-head"><div><h2>Como as ofertas aparecerão</h2><p>Exemplos visuais. Não representam preços ou revendas reais e não geram pedido.</p></div></div><div class="offer-stack">${prelaunchExampleOffers(cart).map(exampleOfferCard).join('')}</div></section>`;
 }
 
@@ -166,7 +168,7 @@ function orderPage(){
 
   let liveNotice='';
   if(!testDemo&&preview){
-    liveNotice='<div class="notice" style="margin-bottom:14px"><strong>Pré-lançamento.</strong><br>Os cards marcados como EXEMPLO servem apenas para visualizar o fluxo. Nenhum exemplo gera pedido, cobrança, cashback ou comissão.</div>';
+    liveNotice='<div class="notice" style="margin-bottom:14px"><strong>Pré-lançamento.</strong><br>Você pode percorrer a experiência, mas os cards marcados como EXEMPLO não criam pedido nem cobrança.</div>';
   }else if(!testDemo&&liveMode&&!ready){
     const message=liveRuntime?.status==='loading'
       ? 'Preparando a consulta…'
@@ -183,17 +185,17 @@ function orderPage(){
     }else if(testDemo&&os.length){
       offerBlock=`<div class="offer-stack">${os.map(offerCard).join('')}</div>`;
     }else if(ready&&liveRuntime.loadingOffers){
-      offerBlock='<div class="empty card">Consultando revendas reais…</div>';
+      offerBlock='<div class="empty card">Procurando opções para sua cesta…</div>';
     }else if(ready&&liveRuntime.error){
-      offerBlock=`<div class="notice danger"><strong>Não foi possível atualizar as ofertas.</strong><br>${esc(liveRuntime.error)}<br><button class="secondary small" style="margin-top:10px" onclick="liveRefreshOffers().catch(()=>{})">Tentar novamente</button></div>`;
+      offerBlock=`<div class="notice danger"><strong>Não foi possível atualizar as opções.</strong><br>${esc(liveRuntime.error)}<br><button class="secondary small" style="margin-top:10px" onclick="liveRefreshOffers().catch(()=>{})">Tentar novamente</button></div>`;
     }else if(ready&&os.length){
       offerBlock=`<div class="offer-stack">${os.map(offerCard).join('')}</div>`;
     }else if(ready&&liveRuntime.deliveryCompatibilityBlocked){
-      offerBlock='<div class="notice"><strong>Esta cesta mista precisa de uma entrega logisticamente verificada.</strong><br>Se precisar agora, tente pedir o GLP separado dos outros itens ou aguarde uma revenda habilitada para essa combinação.</div>';
+      offerBlock='<div class="notice"><strong>Não encontramos uma operação habilitada para entregar esta combinação de itens agora.</strong><br>Se precisar com urgência, tente separar o GLP dos demais produtos ou consulte novamente depois.</div>';
     }else if(ready&&liveRuntime.lastSyncAt){
-      offerBlock='<div class="empty card">Nenhuma revenda real consegue atender esta cesta agora.</div>';
+      offerBlock='<div class="empty card">Nenhum parceiro consegue atender esta cesta agora.</div>';
     }else if(ready){
-      offerBlock='<div class="empty card"><button class="primary" onclick="liveRefreshOffers().catch(()=>{})">Consultar revendas reais</button></div>';
+      offerBlock='<div class="empty card"><button class="primary" onclick="liveRefreshOffers().catch(()=>{})">Procurar opções</button></div>';
     }else{
       offerBlock='<div class="empty card">Não foi possível consultar as opções agora.</div>';
     }
@@ -201,18 +203,19 @@ function orderPage(){
 
   const paymentBlock=preview
     ? '<div class="notice">Forma de pagamento e cashback serão habilitados somente quando houver uma oferta real.</div>'
-    : `<div class="card flat form-stack"><div class="input-wrap"><label for="payment-method">Forma de pagamento</label><select id="payment-method" class="input" onchange="setPaymentMethod(this.value)"><option value="pix" ${state.checkout.paymentMethod==='pix'?'selected':''}>Pix</option><option value="card" ${state.checkout.paymentMethod==='card'?'selected':''}>Cartão</option><option value="cash" ${state.checkout.paymentMethod==='cash'?'selected':''}>Dinheiro</option></select></div>${state.user.cashback>0?`<label class="check-row"><input type="checkbox" ${state.checkout.useCashback?'checked':''} onchange="toggleCashback(this.checked)"><span><strong>Usar cashback</strong><small>Saldo disponível: ${BRL.format(state.user.cashback)}</small></span></label>`:''}</div>`;
+    : `<div class="card flat form-stack"><div class="input-wrap"><label for="payment-method">Como você pretende pagar?</label><select id="payment-method" class="input" onchange="setPaymentMethod(this.value)"><option value="pix" ${state.checkout.paymentMethod==='pix'?'selected':''}>Pix</option><option value="card" ${state.checkout.paymentMethod==='card'?'selected':''}>Cartão</option><option value="cash" ${state.checkout.paymentMethod==='cash'?'selected':''}>Dinheiro</option></select><small class="field-help">A forma escolhida aparece junto da opção antes de você confirmar.</small></div>${state.user.cashback>0?`<label class="check-row"><input type="checkbox" ${state.checkout.useCashback?'checked':''} onchange="toggleCashback(this.checked)"><span><strong>Usar cashback</strong><small>Saldo disponível: ${BRL.format(state.user.cashback)}</small></span></label>`:''}</div>`;
 
-  return shell(`<section class="page"><button class="back" onclick="go('home')">← Voltar</button><h1 class="page-title">Comprar agora</h1><p class="muted">Escolha os itens, confirme o endereço e compare as opções disponíveis para a sua cesta.</p>
+  return shell(`<section class="page"><button class="back" onclick="go('home')">← Voltar</button><span class="eyebrow">PEDIR AGORA</span><h1 class="page-title">O que você precisa e onde devemos entregar?</h1><p class="muted page-lead">Depois do endereço, você compara total e prazo antes de escolher.</p>
 ${liveNotice}
 ${pendingOrder?`<div class="notice" style="margin-bottom:14px"><strong>Você já possui um pedido em andamento.</strong><br>Conclua ou cancele o pedido ${esc(pendingOrder.publicCode||pendingOrder.id)} antes de criar outro.<br><button class="ghost small" onclick="go('tracking')">Acompanhar pedido →</button></div>`:''}
-<div class="card flat form-stack"><div class="input-wrap"><label for="address">Endereço de entrega</label><input id="address" class="input" autocomplete="street-address" maxlength="160" placeholder="Ex.: Rua General Câmara, 123" value="${esc(state.address||'')}"></div><button class="primary" onclick="setAddress()">${hasAddress?'Atualizar endereço':'Confirmar endereço'}</button></div>
-<section class="section"><div class="section-head"><div><h2>Sua cesta</h2><p>Adicione somente o que você precisa.</p></div></div><div class="card flat">${Object.entries(products).map(([k,p])=>cartRow(k,p)).join('')}</div></section>
-${hasItems&&hasAddress?`<section class="section"><div class="section-head"><div><h2>Pagamento e benefícios</h2><p>${preview?'Prévia visual sem cobrança.':'Preço e benefícios são conferidos novamente antes de você confirmar.'}</p></div></div>${paymentBlock}</section><section class="section"><div class="section-head"><div><h2>${preview?'Exemplos de oferta':'Melhores opções'}</h2><p>${preview?'Esses valores não representam o mercado real.':'Compare valor, tempo estimado e escolha a opção que combina com você.'}</p></div></div>${offerBlock}</section>`:hasItems&&!hasAddress?'<div class="notice">Confirme o endereço para continuar.</div>':!hasItems?'<div class="notice">Adicione pelo menos um produto para consultar ofertas.</div>':''}</section>`)
+<div class="card flat form-stack order-address-card"><div class="input-wrap"><label for="address">Endereço de entrega</label><input id="address" class="input" autocomplete="street-address" maxlength="160" placeholder="Ex.: Rua General Câmara, 123" value="${esc(state.address||'')}"></div><button class="primary" onclick="setAddress()">${hasAddress?'Atualizar endereço':'Usar este endereço'}</button><small class="field-help">Usamos o endereço para procurar quem consegue atender sua cesta.</small></div>
+<section class="section"><div class="section-head"><div><h2>Sua cesta</h2><p>Adicione somente o que você precisa. Gás não é obrigatório para comprar os demais itens.</p></div></div><div class="card flat">${Object.entries(products).map(([k,p])=>cartRow(k,p)).join('')}</div></section>
+${hasItems&&hasAddress?`<section class="section"><div class="section-head"><div><h2>Como pretende pagar</h2><p>${preview?'Prévia visual sem cobrança.':'Escolha a forma e confira novamente antes do pedido.'}</p></div></div>${paymentBlock}</section><section class="section"><div class="section-head"><div><span class="section-kicker">COMPARE ANTES DE PEDIR</span><h2>${preview?'Veja como as opções aparecerão':'Preço total e prazo lado a lado'}</h2><p>${preview?'Os valores abaixo são somente ilustrativos.':'Escolha a opção que faz mais sentido para você.'}</p></div></div><div class="mini-protection">🛡️ <strong>Proteção Chama:</strong> o parceiro precisa aceitar e qualquer alternativa mais cara depende da sua aprovação.</div>${offerBlock}</section>`:hasItems&&!hasAddress?'<div class="notice">Informe o endereço para ver preço e prazo.</div>':!hasItems?'<div class="notice">Adicione pelo menos um produto para consultar as opções.</div>':''}</section>`)
 }
 function cartRow(k,p){
   const q=state.cart[k]||0;
-  return `<div class="cart-item"><div class="product-left"><div class="product-icon">${p.icon}</div><div><strong>${p.name}</strong><div class="tiny muted">${k==='P13'?'GLP':'Produto complementar'}</div></div></div><div class="qty" aria-label="Quantidade de ${esc(p.name)}"><button aria-label="Diminuir" onclick="qty('${k}',-1)">−</button><strong>${q}</strong><button aria-label="Aumentar" onclick="qty('${k}',1)">+</button></div></div>`
+  const label=customerProductName(k,p);
+  return `<div class="cart-item"><div class="product-left"><div class="product-icon">${p.icon}</div><div><strong>${esc(label)}</strong><div class="tiny muted">${esc(customerProductMeta(k))}</div></div></div><div class="qty" aria-label="Quantidade de ${esc(label)}"><button aria-label="Diminuir" onclick="qty('${k}',-1)">−</button><strong>${q}</strong><button aria-label="Aumentar" onclick="qty('${k}',1)">+</button></div></div>`
 }
 function offerCard(o){
   const recommended=o.roles.includes('Recomendado');
@@ -221,7 +224,7 @@ function offerCard(o){
   const labels=o.roles.join(' • ');
   const etaEnd=o.etaMax??(o.eta+7);
   const distanceChip=o.distance!=null?`<span class="meta-chip">${Number(o.distance).toFixed(1)} km</span>`:'';
-  return `<article class="offer ${recommended?'selected':''}">${recommended?'<div class="best-badge">MELHOR EQUILÍBRIO</div>':''}<div class="offer-label">${esc(labels)}</div><div class="offer-main"><div><div class="offer-price">${BRL.format(payable)}</div><div class="tiny muted">${discount>0?`estimativa após ${BRL.format(discount)} de cashback`:'total entregue'}</div></div><div class="offer-eta">${o.eta}–${etaEnd} min</div></div><div class="offer-meta">${distanceChip}<span class="meta-chip">✓ Operação elegível</span><span class="meta-chip">Reputação ${o.trust}/100</span><span class="meta-chip">Preço protegido</span></div><button class="${recommended?'primary':'secondary'} full" style="margin-top:13px" onclick="checkout('${o.id}')" ${globalThis.liveRuntime?.actionPending?'disabled':''}>Escolher esta opção</button></article>`
+  return `<article class="offer ${recommended?'selected':''}">${recommended?'<div class="best-badge">MELHOR EQUILÍBRIO</div>':''}<div class="offer-label">${esc(labels)}</div><div class="offer-main"><div><div class="offer-price">${BRL.format(payable)}</div><div class="tiny muted">${discount>0?`estimativa após ${BRL.format(discount)} de cashback`:'total com entrega'}</div></div><div class="offer-eta"><strong>${o.eta}–${etaEnd} min</strong><small>previsão</small></div></div><div class="offer-meta">${distanceChip}<span class="meta-chip">✓ Operação elegível</span><span class="meta-chip">Parceiro local verificado</span><span class="meta-chip">Confiança ${o.trust}/100</span><span class="meta-chip">Pagamento: ${esc(paymentLabel(state.checkout.paymentMethod))}</span></div><div class="offer-assurance">🔒 O nome do parceiro aparece após o aceite real. Se for necessária uma alternativa mais cara, você decide antes.</div><button class="${recommended?'primary':'secondary'} full" style="margin-top:13px" onclick="checkout('${o.id}')" ${globalThis.liveRuntime?.actionPending?'disabled':''}>Pedir por ${BRL.format(payable)}</button></article>`
 }
 async function setAddress(){
   const el=document.querySelector('#address');
@@ -336,19 +339,19 @@ function tracking(){
   const live=isLiveOrder(o);
   const deadline=o.status==='OFFERED_TO_MERCHANT'?Math.max(0,Math.ceil((Date.parse(o.offerExpiresAt)-Date.now())/1000)):null;
   return shell(`<section class="page"><button class="back" onclick="go('home')">← Início</button><div class="status-bar"><div><div class="tiny muted">PEDIDO ${esc(o.id)}</div><h1 class="page-title" style="margin-bottom:3px">${esc(copy[0])}</h1></div><span class="status-pill ${['OUT_FOR_DELIVERY','ARRIVING','SETTLED','DELIVERED'].includes(o.status)?'online':o.status==='CANCELLED'?'offline':'risk'}">${['SETTLED','DELIVERED'].includes(o.status)?'CONCLUÍDO':o.status==='CANCELLED'?'ENCERRADO':'AO VIVO'}</span></div>
-<div class="card flat"><div class="price-lock"><span>🔒</span><div><strong>Preço protegido: ${BRL.format(o.lockedTotal)}</strong><br>${o.cashbackReserved>0?`Inclui ${BRL.format(o.cashbackReserved)} de cashback reservado. `:''}Qualquer aumento exige novo aceite seu.</div></div><div class="divider"></div><div class="list-row"><div><strong>${merchantVisible?esc(o.supplierSnapshot.name):'Fornecedor em confirmação'}</strong><br><small>${merchantVisible?'Parceiro confirmado':'A identidade aparece após o aceite real'}</small></div><div style="text-align:right"><strong>${BRL.format(o.total)}</strong><br><small>${esc(o.address)}</small></div></div><div class="list-row"><span>Pagamento</span><strong>${paymentLabel(o.paymentMethod)}</strong></div></div>
+<div class="card flat"><div class="price-lock"><span>🔒</span><div><strong>Total protegido: ${BRL.format(o.lockedTotal)}</strong><br>${o.cashbackReserved>0?`Inclui ${BRL.format(o.cashbackReserved)} de cashback reservado. `:''}Se for necessária uma opção mais cara, você precisa aprovar antes.</div></div><div class="divider"></div><div class="list-row"><div><strong>${merchantVisible?esc(o.supplierSnapshot.name):'Parceiro em confirmação'}</strong><br><small>${merchantVisible?'Parceiro confirmado':'O nome aparece depois que o pedido for aceito'}</small></div><div style="text-align:right"><strong>${BRL.format(o.total)}</strong><br><small>${esc(o.address)}</small></div></div><div class="list-row"><span>Pagamento</span><strong>${paymentLabel(o.paymentMethod)}</strong></div></div>
 
-${o.status==='OFFERED_TO_MERCHANT'?`<div class="notice" style="margin-top:14px"><strong>Aguardando aceite real.</strong><br>Se a revenda não responder em até 3 minutos, o sistema tenta outra automaticamente. ${deadline!=null?`Prazo restante aproximado: ${deadline}s.`:''}</div>`:''}
+${o.status==='OFFERED_TO_MERCHANT'?`<div class="notice" style="margin-top:14px"><strong>Aguardando o parceiro confirmar.</strong><br>Se não houver resposta dentro da janela do pedido, o Chama procura outra opção automaticamente. ${deadline!=null?`Tempo aproximado restante: ${deadline}s.`:''}</div>`:''}
 ${o.status==='REQUOTE_REQUIRED'?`<div class="notice" style="margin-top:14px"><strong>Encontramos outra opção.</strong><br>Novo total: ${BRL.format(o.proposedTotal)}. Nada muda sem sua autorização.<div class="order-actions"><button class="primary small" onclick="confirmRequote('${o.id}')">Aceitar novo total</button><button class="secondary small" onclick="cancelPending('${o.id}')">Cancelar pedido</button></div></div>`:''}
 ${o.status==='CANCELLED'?`<div class="notice danger" style="margin-top:14px">Este pedido foi encerrado. Cashback reservado, se houver, foi devolvido.</div>`:''}
-${o.riskReason&&o.status!=='CANCELLED'?`<div class="notice danger" style="margin-top:14px"><strong>Acompanhamento prioritário.</strong><br>${esc(o.riskReason)}. O status só muda quando houver nova confirmação real.</div>`:''}
+${o.riskReason&&o.status!=='CANCELLED'?`<div class="notice danger" style="margin-top:14px"><strong>Estamos acompanhando este pedido.</strong><br>${esc(o.riskReason)}. O status só muda quando houver uma nova confirmação.</div>`:''}
 
-<section class="section"><div class="section-head"><div><h2>Linha do tempo</h2><p>Eventos reais e auditáveis do pedido.</p></div></div><div class="card flat timeline">${eventTimeline(o)}</div></section>
-${['OUT_FOR_DELIVERY','ARRIVING'].includes(o.status)?`<div class="notice success"><strong>PIN de recebimento: ${esc(o.pin)}</strong><br>Informe este código somente quando o pedido estiver na sua frente.</div>`:''}
+<section class="section"><div class="section-head"><div><h2>Acompanhe a entrega</h2><p>Cada etapa aparece somente depois da respectiva confirmação.</p></div></div><div class="card flat timeline">${eventTimeline(o)}</div></section>
+${['OUT_FOR_DELIVERY','ARRIVING'].includes(o.status)?`<div class="notice success"><strong>Código de recebimento: ${esc(o.pin)}</strong><br>Informe este código somente quando o pedido estiver na sua frente.</div>`:''}
 ${o.status==='SETTLED'&&o.cashbackEarned?`<div class="notice success" style="margin-top:14px"><strong>+${BRL.format(o.cashbackEarned)} de cashback</strong><br>Crédito já disponível para uma próxima compra.</div>`:''}
 ${live&&['OFFERED_TO_MERCHANT','REQUOTE_REQUIRED'].includes(o.status)?`<button class="ghost full" style="margin-top:10px" onclick="cancelPending('${o.id}')">Cancelar antes do aceite</button>`:''}
 ${live&&['PREPARING','AT_RISK'].includes(o.status)?`<button class="danger-btn full" style="margin-top:10px" onclick="cancelBeforeDispatch('${o.id}')">Cancelar antes da saída</button>`:''}
-<div class="card flat" style="margin-top:14px"><strong>Precisa de ajuda?</strong><p class="muted tiny">Preço diferente, atraso, problema com produto ou entrega contestada viram incidentes rastreáveis.</p><button class="secondary full" onclick="toast('Suporte do pedido aberto — demonstração')">Abrir suporte</button></div>
+<div class="card flat support-card" style="margin-top:14px"><strong>Precisa de ajuda?</strong><p class="muted tiny">Atraso, diferença de preço, problema com o produto ou entrega contestada podem ser tratados a partir deste pedido.</p><button class="secondary full" onclick="toast('Suporte do pedido aberto — demonstração')">Pedir ajuda</button></div>
 </section>`)
 }
 function eventTimeline(o){
