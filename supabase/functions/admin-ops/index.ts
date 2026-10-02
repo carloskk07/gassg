@@ -131,6 +131,13 @@ async function summary(admin:any){
   for(const result of [apps,merchants,compliance,capabilities,referralReviews,rewardFailures,accountingFailures,receivables,reimbursements,adjustments,platformAdmins,audit]){
     if(result.error)throw result.error;
   }
+  const pilotPartners=await admin
+    .from("pilot_partner_drafts")
+    .select("id,display_name,proposed_product_code,proposed_delivered_price_cents,delivery_included,price_status,onboarding_status,merchant_id,notes,created_at,updated_at")
+    .order("created_at",{ascending:true})
+    .limit(50);
+  if(pilotPartners.error)throw pilotPartners.error;
+
   const referralOrderIds=(referralReviews.data??[]).map((x:any)=>x.order_id).filter(Boolean);
   const referralOrderStates=referralOrderIds.length
     ? await admin.from("orders")
@@ -148,6 +155,7 @@ async function summary(admin:any){
   }
   return {
     applications:apps.data??[],
+    pilotPartners:pilotPartners.data??[],
     merchants:(merchants.data??[]).map((m:any)=>({
       ...m,
       compliance:byMerchant.get(m.id)??null,
