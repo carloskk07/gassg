@@ -114,7 +114,7 @@ function orderPage(){
     }else if(ready&&os.length){
       offerBlock=`<div class="offer-stack">${os.map(offerCard).join('')}</div>`;
     }else if(ready&&liveRuntime.deliveryCompatibilityBlocked){
-      offerBlock='<div class="notice"><strong>Esta combinação precisa de uma entrega logisticamente verificada.</strong><br>Tente separar os itens ou aguarde uma revenda habilitada para essa cesta.</div>';
+      offerBlock='<div class="notice"><strong>Esta cesta mista precisa de uma entrega logisticamente verificada.</strong><br>Se precisar agora, tente pedir o GLP separado dos outros itens ou aguarde uma revenda habilitada para essa combinação.</div>';
     }else if(ready&&liveRuntime.lastSyncAt){
       offerBlock='<div class="empty card">Nenhuma revenda real consegue atender esta cesta agora.</div>';
     }else if(ready){
