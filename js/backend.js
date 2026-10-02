@@ -354,7 +354,7 @@ async function liveCreateOrder(quoteId){
     try{
       result=await liveInvoke('create-order',payload,{idempotencyKey});
     }catch(firstError){
-      const ambiguous=firstError?.code==='NETWORK_TIMEOUT'||firstError instanceof TypeError;
+      const ambiguous=firstError?.code==='NETWORK_TIMEOUT'||firstError instanceof TypeError||Number(firstError?.status)>=500;
       if(!ambiguous)throw firstError;
       await new Promise(resolve=>setTimeout(resolve,250));
       result=await liveInvoke('create-order',payload,{idempotencyKey});
