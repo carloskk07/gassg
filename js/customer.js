@@ -27,6 +27,27 @@ function prelaunchExampleSection(cart={P13:1}){
   return `<section class="section prelaunch-examples"><div class="section-head"><div><h2>Como as ofertas aparecerão</h2><p>Exemplos visuais. Não representam preços ou revendas reais e não geram pedido.</p></div></div><div class="offer-stack">${prelaunchExampleOffers(cart).map(exampleOfferCard).join('')}</div></section>`;
 }
 
+function customerProductName(code,p=products[code]){
+  const kg=glpKgForProductCode(code);
+  if(kg!==null)return kg===13?'Botijão de cozinha 13 kg':`Botijão de gás ${kg} kg`;
+  return p?.name||code;
+}
+function customerProductMeta(code){
+  const kg=glpKgForProductCode(code);
+  if(kg!==null)return `GLP • ${code}`;
+  return 'Item essencial';
+}
+async function startHomeOrder(){
+  const el=document.querySelector('#home-address');
+  const value=el?.value.trim()||'';
+  if(value&&value.length<5)return toast('Informe um endereço válido ou deixe em branco para preencher depois');
+  if(value)state.address=value.slice(0,160);
+  state.cart=normalizeCart({});
+  setCartProduct('P13',1);
+  save();
+  go('order');
+}
+
 function home(){
   const testDemo=globalThis.__CHAMA_TEST__===true;
   const ready=globalThis.liveReady?.()===true;
@@ -73,66 +94,63 @@ function home(){
   return shell(`<section class="hero marketing-hero"><div class="hero-grid"><div>
     <span class="eyebrow">${eyebrow}</span>
     <h1>Seu gás, com preço e prazo antes de confirmar.</h1>
-    <p>Compare opções para gás e itens essenciais, escolha pelo que importa para você e acompanhe a entrega sem depender de mensagens soltas.</p>
-    <div class="hero-price"><span class="from">P13</span><strong>${priceText}</strong></div><div class="freshness">${esc(freshness)}</div>
-    <div class="hero-actions">
-      <button class="primary" onclick="quickProduct('P13')" ${disabled?'disabled':''}>🔥 ${primaryLabel}</button>
-      <button class="secondary" onclick="go('club')">💵 Como economizar</button>
-      <button class="ghost" onclick="go('earn')">🤝 Ganhar ou vender</button>
+    <p>Informe onde quer receber, compare as opções disponíveis e acompanhe cada etapa até a entrega.</p>
+
+    <div class="purchase-starter" aria-label="Iniciar compra de gás">
+      <div class="starter-product"><div class="starter-product-icon">🔥</div><div><span class="starter-label">MAIS PROCURADO</span><strong>Botijão de cozinha 13 kg</strong><small>P13 • GLP</small></div><div class="starter-price"><small>CONSULTA</small><b>${priceText}</b></div></div>
+      <label class="starter-address" for="home-address"><span>Onde entregar?</span><div><span aria-hidden="true">📍</span><input id="home-address" autocomplete="street-address" maxlength="160" placeholder="Digite seu endereço" value="${esc(state.address||'')}" ${disabled?'disabled':''}></div></label>
+      <button class="primary starter-cta" onclick="startHomeOrder()" ${disabled?'disabled':''}>🔥 ${primaryLabel}</button>
+      <small class="starter-footnote">${esc(freshness)}</small>
     </div>
-    <div class="trust-row"><span class="trust-chip">✓ Total antes de confirmar</span><span class="trust-chip">✓ Operação precisa aceitar</span><span class="trust-chip">✓ Status confirmado por etapa</span></div>
+
+    <div class="trust-row"><span class="trust-chip">✓ Total antes de pedir</span><span class="trust-chip">✓ Parceiro precisa aceitar</span><span class="trust-chip">✓ Entrega acompanhada</span></div>
   </div>
   <div class="hero-visual" aria-label="Resumo visual dos benefícios do Chama">
-    <div class="visual-top"><span class="visual-dot"></span><strong>Escolha com clareza</strong><span class="visual-live">CHAMA</span></div>
-    <div class="visual-product"><div class="visual-icon">🔥</div><div><strong>Gás e essenciais</strong><small>Monte a cesta que realmente precisa</small></div></div>
+    <div class="visual-top"><span class="visual-dot"></span><strong>Compra sem adivinhação</strong><span class="visual-live">CHAMA</span></div>
+    <div class="visual-product"><div class="visual-icon">🔥</div><div><strong>Botijão 13 kg</strong><small>Veja o total antes de pedir</small></div></div>
     <div class="visual-choice"><span><strong>Mais econômico</strong><small>Compare pelo total</small></span><span><strong>Mais rápido</strong><small>Compare pelo prazo</small></span></div>
-    <div class="visual-status"><span class="visual-check">✓</span><div><strong>Parceiro confirmou</strong><small>“A caminho” só aparece depois da saída confirmada.</small></div></div>
+    <div class="visual-status"><span class="visual-check">✓</span><div><strong>Parceiro confirmou</strong><small>Você só vê “A caminho” depois da saída confirmada.</small></div></div>
   </div></div></section>
 
-<section class="section intent-section"><div class="section-head"><div><span class="section-kicker">O QUE VOCÊ QUER FAZER?</span><h2>Comece pelo benefício que importa para você.</h2></div></div>
+<section class="section intent-section"><div class="section-head"><div><span class="section-kicker">ESCOLHA SEU CAMINHO</span><h2>Comprar vem primeiro. Os benefícios aparecem depois.</h2></div></div>
 <div class="intent-grid">
-  <button class="intent-card" onclick="quickProduct('P13')" ${disabled?'disabled':''}><span class="intent-icon">🔥</span><span><strong>Quero pedir agora</strong><small>Consulte preço e previsão de entrega.</small></span><b>→</b></button>
-  <button class="intent-card" onclick="go('club')"><span class="intent-icon">💵</span><span><strong>Quero economizar</strong><small>Entenda cashback e benefícios de compra.</small></span><b>→</b></button>
-  <button class="intent-card" onclick="go('earn')"><span class="intent-icon">🤝</span><span><strong>Quero ganhar ou vender</strong><small>Indique novos compradores ou venda pela sua empresa.</small></span><b>→</b></button>
+  <button class="intent-card intent-primary" onclick="quickProduct('P13')" ${disabled?'disabled':''}><span class="intent-icon">🔥</span><span><strong>Quero pedir agora</strong><small>Compare preço total e prazo de entrega.</small></span><b>→</b></button>
+  <button class="intent-card" onclick="go('learn')"><span class="intent-icon">🛡️</span><span><strong>Quero entender melhor</strong><small>Veja como compra, pagamento e entrega funcionam.</small></span><b>→</b></button>
+  <button class="intent-card" onclick="go('earn')"><span class="intent-icon">🤝</span><span><strong>Quero ganhar ou vender</strong><small>Conheça indicação e parceria para empresas.</small></span><b>→</b></button>
 </div></section>
 
-<section class="section value-proof-section"><div class="section-head"><div><span class="section-kicker">POR QUE USAR O CHAMA</span><h2>Menos dúvida antes, durante e depois do pedido.</h2></div></div>
+<section class="section"><div class="protection-band"><div class="protection-icon">🛡️</div><div><span class="section-kicker light">PROTEÇÃO CHAMA</span><h2>Se uma entrega falhar antes de sair, o pedido não fica simplesmente abandonado.</h2><p>O Chama pode procurar outra opção elegível. Se a alternativa aumentar o total, você precisa aceitar o novo valor antes da troca.</p></div><button class="secondary dark-secondary" onclick="go('learn')">Como funciona</button></div></section>
+
+<section class="section value-proof-section"><div class="section-head"><div><span class="section-kicker">POR QUE USAR O CHAMA</span><h2>As respostas principais aparecem antes de você decidir.</h2></div></div>
 <div class="value-proof-grid">
-  <article class="value-proof"><span>01</span><div><strong>Compare antes de escolher</strong><p>Veja total e previsão de entrega das opções elegíveis antes de criar o pedido.</p></div></article>
-  <article class="value-proof"><span>02</span><div><strong>Pedido só é confirmado de verdade</strong><p>A revenda precisa aceitar itens, preço e capacidade de entrega.</p></div></article>
-  <article class="value-proof"><span>03</span><div><strong>Benefícios sobre compras elegíveis</strong><p>Cashback pode voltar como crédito para reduzir compras futuras no Chama.</p></div></article>
+  <article class="value-proof"><span>01</span><div><strong>Quanto vai custar?</strong><p>Veja o valor total da opção antes de criar o pedido.</p></div></article>
+  <article class="value-proof"><span>02</span><div><strong>Quanto vai demorar?</strong><p>Compare a previsão de entrega e escolha pelo que importa para você.</p></div></article>
+  <article class="value-proof"><span>03</span><div><strong>Quem confirmou?</strong><p>O parceiro precisa aceitar. Depois você acompanha preparação, saída e chegada.</p></div></article>
 </div></section>
 
-<section class="section"><div class="section-head"><div><span class="section-kicker">COMO FUNCIONA</span><h2>Da consulta até a sua porta</h2><p>Quatro etapas simples, com compromisso real antes de chamar um pedido de confirmado.</p></div><button class="ghost small desktop-only" onclick="go('learn')">Ver detalhes →</button></div>
+<section class="section"><div class="section-head"><div><span class="section-kicker">COMO FUNCIONA</span><h2>Da consulta até a sua porta</h2><p>Quatro passos claros, sem transformar um pedido enviado em entrega prometida.</p></div><button class="ghost small desktop-only" onclick="go('learn')">Ver detalhes →</button></div>
 <div class="how-grid">
   <div class="how-card"><span>1</span><div><strong>Escolha o que precisa</strong><p>Gás, água, carvão, lenha, gelo ou uma cesta com vários itens.</p></div></div>
-  <div class="how-card"><span>2</span><div><strong>Informe o endereço</strong><p>O Chama procura somente opções que possam atender sua cesta.</p></div></div>
-  <div class="how-card"><span>3</span><div><strong>Compare e escolha</strong><p>Veja valor e previsão de entrega antes de confirmar.</p></div></div>
-  <div class="how-card"><span>4</span><div><strong>Acompanhe a entrega</strong><p>Você vê quando a revenda aceita, prepara, sai e conclui a entrega.</p></div></div>
+  <div class="how-card"><span>2</span><div><strong>Informe onde entregar</strong><p>O Chama procura opções capazes de atender sua cesta.</p></div></div>
+  <div class="how-card"><span>3</span><div><strong>Compare e escolha</strong><p>Veja total e previsão de entrega antes de confirmar.</p></div></div>
+  <div class="how-card"><span>4</span><div><strong>Acompanhe até receber</strong><p>Você vê quando o parceiro aceita, prepara, sai e conclui a entrega.</p></div></div>
 </div></section>
 
-<section class="section"><div class="section-head"><div><span class="section-kicker">O QUE VOCÊ PODE PEDIR</span><h2>Mais que gás</h2><p>Peça apenas o que precisa. O gás não é obrigatório para comprar os outros itens.</p></div></div>
-<div class="quick-grid">${Object.entries(products).map(([k,p])=>`<button class="quick-card" onclick="quickProduct('${k}')" ${disabled?'disabled':''}><div class="quick-icon">${p.icon}</div><div class="quick-title">${p.name}</div><div class="quick-sub">${preview?'Ver experiência':'Consultar agora'}</div></button>`).join('')}</div></section>
+<section class="section"><div class="section-head"><div><span class="section-kicker">MAIS QUE GÁS</span><h2>Complete o que está faltando em casa.</h2><p>Você também pode pedir itens disponíveis sem colocar gás na cesta.</p></div></div>
+<div class="quick-grid">${Object.entries(products).map(([k,p])=>`<button class="quick-card" onclick="quickProduct('${k}')" ${disabled?'disabled':''}><div class="quick-icon">${p.icon}</div><div class="quick-title">${esc(customerProductName(k,p))}</div><div class="quick-sub">${preview?'Ver experiência':'Consultar agora'}</div></button>`).join('')}</div></section>
 
 ${preview?prelaunchExampleSection({P13:1}):''}
 
-<section class="section"><div class="section-head"><div><span class="section-kicker">CONFIANÇA OPERACIONAL</span><h2>Status que precisa de prova para avançar.</h2></div></div>
+<section class="section"><div class="section-head"><div><span class="section-kicker">CONFIANÇA NA ENTREGA</span><h2>O status só avança quando existe confirmação.</h2></div></div>
 <div class="grid cards-3">
-  <div class="card feature-card"><div class="feature-icon">🛡️</div><h3>Oferta elegível</h3><p>Uma oferta real só entra na consulta quando a operação atende os critérios aplicáveis ao produto e à entrega.</p></div>
-  <div class="card feature-card"><div class="feature-icon">📍</div><h3>“A caminho” significa saída</h3><p>O status só aparece depois que a operação confirma efetivamente a saída do pedido.</p></div>
-  <div class="card feature-card"><div class="feature-icon">🔐</div><h3>Entrega com confirmação</h3><p>A conclusão exige pagamento confirmado e o PIN do recebimento.</p></div>
+  <div class="card feature-card"><div class="feature-icon">🛡️</div><h3>Parceiro apto para a cesta</h3><p>Uma oferta real só aparece quando a operação atende os critérios aplicáveis aos produtos e à entrega.</p></div>
+  <div class="card feature-card"><div class="feature-icon">📍</div><h3>“A caminho” significa saída</h3><p>Esse status só aparece depois que o parceiro confirma que o pedido realmente saiu.</p></div>
+  <div class="card feature-card"><div class="feature-icon">🔐</div><h3>Entrega com código</h3><p>A conclusão exige pagamento confirmado e o código de recebimento do pedido.</p></div>
 </div></section>
 
-<section class="section"><div class="opportunity-band"><div><span class="section-kicker light">BENEFÍCIOS E OPORTUNIDADES</span><h2>Economize comprando. Ganhe indicando. Venda com sua empresa.</h2><p>O Chama separa claramente cashback para compradores, comissão de aquisição para indicações e um canal de vendas para empresas locais.</p></div><div class="opportunity-actions"><button class="primary light-primary" onclick="go('earn')">Ver como funciona</button><button class="secondary dark-secondary" onclick="go('merchants')">Tenho uma empresa</button></div></div></section>
+<section class="section"><div class="opportunity-band"><div><span class="section-kicker light">DEPOIS DA COMPRA</span><h2>Economize comprando. Receba comissão indicando. Venda com sua empresa.</h2><p>Cashback, comissão por indicação e receita da revenda são coisas diferentes — o Chama mostra cada uma separadamente.</p></div><div class="opportunity-actions"><button class="primary light-primary" onclick="go('club')">Ver benefícios de compra</button><button class="secondary dark-secondary" onclick="go('earn')">Indicação ou parceria</button></div></div></section>
 
-<section class="section"><div class="section-head"><div><span class="section-kicker">BENEFÍCIOS PARA QUEM COMPRA</span><h2>Parte do valor pode voltar para a próxima compra.</h2></div></div>
-<div class="grid cards-3">
-  <div class="card feature-card"><div class="feature-icon">💵</div><h3>Cashback</h3><p>Compras elegíveis podem gerar crédito para reduzir o valor de novas compras dentro do Chama.</p><button class="ghost small" onclick="go('club')">Entender cashback →</button></div>
-  <div class="card feature-card"><div class="feature-icon">🤝</div><h3>Indicação</h3><p>A primeira compra qualificada de um novo cliente indicado pode gerar comissão conforme a política vigente.</p><button class="ghost small" onclick="go('refer')">Ver regra atual →</button></div>
-  <div class="card feature-card"><div class="feature-icon">⭐</div><h3>Clube Chama</h3><p>Acompanhe cashback, recorrência e benefícios disponíveis na sua conta.</p><button class="ghost small" onclick="go('club')">Abrir Clube →</button></div>
-</div></section>
-
-<section class="section"><div class="banner merchant-banner"><div class="tiny">PARA EMPRESAS LOCAIS</div><h2>Já vende gás, água, carvão, lenha, gelo ou outros itens?</h2><p>Use o Chama como um novo canal de vendas. Você controla catálogo, preços, estoque, disponibilidade e a decisão de aceitar cada pedido.</p><div class="banner-actions"><button class="secondary" onclick="go('merchants')">Ver parceria e custos</button><button class="ghost banner-link" onclick="go('earn')">Comparar oportunidades →</button></div></div></section>`)
+<section class="section"><div class="section-head"><div><span class="section-kicker">PARA EMPRESAS LOCAIS</span><h2>Já vende gás, água, carvão, lenha, gelo ou outros itens?</h2><p>Use o Chama como um canal adicional de vendas sem abrir mão do controle da sua operação.</p></div></div><div class="merchant-home-card"><div><span class="merchant-home-rate">7,5%</span><small>taxa inicial do piloto por pedido concluído</small></div><div><strong>Você define preço, estoque e disponibilidade.</strong><p>Também decide se aceita cada pedido e pode ficar offline quando não quiser receber novas vendas.</p></div><button class="primary" onclick="go('merchants')">Ver parceria e custos</button></div></section>`)
 }
 function orderPage(){
   const testDemo=globalThis.__CHAMA_TEST__===true;
