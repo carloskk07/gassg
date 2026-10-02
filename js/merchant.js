@@ -31,7 +31,7 @@ function merchantLiveNoAccess(){
     ${rt.notice?`<div class="notice success" style="margin-top:16px"><strong>Cadastro recebido.</strong><br>${esc(rt.notice)}</div>`:''}
     ${roleBlocked
       ? '<div class="notice" style="margin-top:16px"><strong>Acesso operacional limitado.</strong><br>Owner, manager e operator podem usar o painel neste piloto. O papel de motorista permanece bloqueado até existir atribuição individual por pedido.</div>'
-      : '<div class="card flat" style="margin-top:16px"><h3>Quer participar?</h3><p class="muted tiny">Envie o cadastro da empresa. A operação só entra no pool depois de validação e vínculo da conta.</p><button class="primary full" onclick="go(\'merchant-join\')">Cadastrar empresa</button></div>'}
+      : '<div class="card flat" style="margin-top:16px"><h3>Quer participar?</h3><p class="muted tiny">Envie ou atualize o cadastro da empresa. Um cadastro rejeitado pode ser corrigido e reenviado para nova análise.</p><button class="primary full" onclick="go(\'merchant-join\')">Cadastrar / atualizar empresa</button></div>'}
     <button class="ghost full" style="margin-top:12px" onclick="merchantLiveLogout()">Sair desta conta</button>
   </section>`);
 }
@@ -79,8 +79,9 @@ function merchantLivePage(){
   if(m.acceptsCitywide===false)freshnessProblems.push('atendimento em São Gabriel desativado');
   if(freshness.staleProducts.length)freshnessProblems.push('preço vencido: '+freshness.staleProducts.map(x=>x.productName||x.productCode).join(', '));
   if(!freshness.offerable.length)freshnessProblems.push('nenhum produto ativo com estoque');
-  const freshnessNotice=!freshness.allFresh
-    ? '<div class="notice danger" style="margin-top:12px"><strong>Confirmação comercial incompleta.</strong><br>'+esc(freshnessProblems.join(' • '))+'. A revenda só participa das ofertas com taxa e SKUs ofertáveis confirmados.</div>'
+  const commercialReady=freshness.allFresh&&m.acceptsCitywide!==false;
+  const freshnessNotice=!commercialReady
+    ? '<div class="notice danger" style="margin-top:12px"><strong>Confirmação comercial incompleta.</strong><br>'+esc(freshnessProblems.join(' • '))+'. A revenda só participa das ofertas com área atendida, taxa e SKUs ofertáveis confirmados.</div>'
     : '';
 
   const compliance=m.compliance||{};
@@ -93,7 +94,7 @@ function merchantLivePage(){
   const complianceNotice=complianceReady
     ? `<div class="notice success" style="margin-top:12px"><strong>Compliance vigente.</strong><br>CNPJ: ${esc(cnpjWhen)} • janela operacional ${Number(compliance.cnpjMaxAgeDays||30)} dias. ${hasGlp?`ANP: ${esc(anpWhen)} • janela operacional ${Number(compliance.anpMaxAgeDays||7)} dias.`:'Sem GLP ativo no catálogo; ANP não é exigida para a operação atual.'}</div>`
     : `<div class="notice danger" style="margin-top:12px"><strong>Revalidação necessária antes de operar.</strong><br>${!cnpjCurrent?`CNPJ: última verificação ${esc(cnpjWhen)}; revalidar a cada ${Number(compliance.cnpjMaxAgeDays||30)} dias. `:''}${!anpCurrent?`ANP: última verificação ${esc(anpWhen)}; revalidar a cada ${Number(compliance.anpMaxAgeDays||7)} dias para GLP.`:''}</div>`;
-  const canGoOnline=m.status==='active'&&complianceReady&&freshness.allFresh&&m.acceptsCitywide!==false;
+  const canGoOnline=m.status==='active'&&complianceReady&&commercialReady;
   const connectionNotice=!connectionHealthy
     ? '<div class="notice danger" style="margin-top:12px"><strong>Conexão da operação sem confirmação recente.</strong><br>Enquanto a presença da revenda não for renovada, novos pedidos podem deixar de ser enviados para esta operação.</div>'
     : rt.heartbeatError
