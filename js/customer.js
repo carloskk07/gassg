@@ -25,8 +25,6 @@ function exampleOfferCard(o){
 
 function prelaunchExampleSection(cart={P13:1}){
   return `<section class="section prelaunch-examples"><div class="section-head"><div><span class="section-kicker">DEMONSTRAÇÃO DO PRÉ-LANÇAMENTO</span><h2>Veja como será comparar as opções</h2><p>Os cards abaixo servem somente para mostrar a experiência. Não representam revendas nem preços reais e não podem gerar pedido.</p></div></div><div class="offer-stack">${prelaunchExampleOffers(cart).map(exampleOfferCard).join('')}</div></section>`;
-}){
-  return `<section class="section prelaunch-examples"><div class="section-head"><div><h2>Como as ofertas aparecerão</h2><p>Exemplos visuais. Não representam preços ou revendas reais e não geram pedido.</p></div></div><div class="offer-stack">${prelaunchExampleOffers(cart).map(exampleOfferCard).join('')}</div></section>`;
 }
 
 function customerProductName(code,p=products[code]){
