@@ -115,7 +115,7 @@ function merchantLivePage(){
     </div>
 
     <section class="section"><div class="merchant-kpis">
-      <div class="kpi"><span class="label">Preço P13</span><strong>${p13?BRL.format(Number(p13.priceCents||0)/100):'—'}</strong></div>
+      <div class="kpi"><span class="label">${p13?.pricingMode==='range'?'Preço normal P13':'Preço P13'}</span><strong>${p13?BRL.format(Number(p13.priceCents||0)/100):'—'}</strong>${p13?.pricingMode==='range'?'<small>'+BRL.format(Number(p13.minPriceCents||0)/100)+'–'+BRL.format(Number(p13.maxPriceCents||0)/100)+'</small>':''}</div>
       <div class="kpi"><span class="label">Estoque P13</span><strong>${p13?Number(p13.availableStock||0):'—'}</strong></div>
       <div class="kpi"><span class="label">Trust</span><strong>${Number(m.trustScore||0)}/100</strong></div>
       <div class="kpi"><span class="label">Pedidos ativos</span><strong>${orders.length}</strong></div>
@@ -123,7 +123,8 @@ function merchantLivePage(){
 
     ${manage?`<div class="card flat form-stack">
       <h3>Preço e estoque P13</h3>
-      <div class="field-row"><div class="input-wrap"><label for="live-p13-price">Preço</label><input id="live-p13-price" inputmode="decimal" type="number" min="0.01" max="10000" step="0.10" class="input" value="${p13?(Number(p13.priceCents||0)/100).toFixed(2):''}"></div><div class="input-wrap"><label for="live-p13-stock">Estoque disponível</label><input id="live-p13-stock" inputmode="numeric" type="number" min="0" max="100000" class="input" value="${p13?Number(p13.availableStock||0):0}"></div></div>
+      ${p13?.pricingMode==='range'?'<div class="notice"><strong>Faixa automática ativa.</strong><br>Autorizada de '+BRL.format(Number(p13.minPriceCents||0)/100)+' a '+BRL.format(Number(p13.maxPriceCents||0)/100)+'. Este atalho altera o preço normal e o estoque; edite limites e estratégia no catálogo.</div>':''}
+      <div class="field-row"><div class="input-wrap"><label for="live-p13-price">${p13?.pricingMode==='range'?'Preço normal':'Preço'}</label><input id="live-p13-price" inputmode="decimal" type="number" min="0.01" max="10000" step="0.10" class="input" value="${p13?(Number(p13.priceCents||0)/100).toFixed(2):''}"></div><div class="input-wrap"><label for="live-p13-stock">Estoque disponível</label><input id="live-p13-stock" inputmode="numeric" type="number" min="0" max="100000" class="input" value="${p13?Number(p13.availableStock||0):0}"></div></div>
       <button class="secondary" onclick="merchantLiveSaveP13()">Confirmar preço e estoque P13</button><button class="ghost" onclick="go('catalog')">Editar todos os produtos</button>
       <div class="divider"></div>
       <h3>Entrega</h3>
@@ -179,11 +180,34 @@ async function merchantLiveSaveProduct(code){
   const price=Number(document.getElementById('live-price-'+code)?.value);
   const stock=Number(document.getElementById('live-stock-'+code)?.value);
   const active=document.getElementById('live-active-'+code)?.checked===true;
+  const pricingMode=String(document.getElementById('live-pricing-mode-'+code)?.value||'fixed');
+  const pricingStrategy=String(document.getElementById('live-pricing-strategy-'+code)?.value||'balanced');
+  const minPrice=Number(document.getElementById('live-min-price-'+code)?.value);
+  const maxPrice=Number(document.getElementById('live-max-price-'+code)?.value);
   if(!Number.isFinite(price)||price<=0||price>10000||!Number.isInteger(stock)||stock<0)return toast('Revise preço e estoque de '+code);
+  if(pricingMode==='range'){
+    if(!Number.isFinite(minPrice)||!Number.isFinite(maxPrice)||minPrice<=0||maxPrice>10000||minPrice>price||price>maxPrice){
+      return toast('Na faixa automática: mínimo ≤ preço normal ≤ máximo.');
+    }
+  }
   try{
-    await merchantUpdateProductLive(code,Math.round(price*100),stock,active);
-    toast('Preço de '+code+' confirmado');
+    await merchantUpdateProductLive(code,Math.round(price*100),stock,active,{
+      pricingMode,
+      minPriceCents:pricingMode==='range'?Math.round(minPrice*100):Math.round(price*100),
+      maxPriceCents:pricingMode==='range'?Math.round(maxPrice*100):Math.round(price*100),
+      pricingStrategy
+    });
+    toast(pricingMode==='range'?'Faixa de preço de '+code+' confirmada':'Preço fixo de '+code+' confirmado');
   }catch(e){toast(String(e?.message||e))}
+}
+
+function merchantPricingModeChanged(code){
+  const mode=String(document.getElementById('live-pricing-mode-'+code)?.value||'fixed');
+  const range=mode==='range';
+  for(const id of ['live-min-price-'+code,'live-max-price-'+code,'live-pricing-strategy-'+code]){
+    const el=document.getElementById(id);
+    if(el)el.disabled=!range;
+  }
 }
 
 async function merchantLiveSaveP13(){
@@ -310,6 +334,10 @@ function merchantLiveCatalog(){
       productCode:code,
       productName:current?.productName||p.name,
       priceCents:Number(current?.priceCents||0),
+      pricingMode:current?.pricingMode||'fixed',
+      minPriceCents:Number(current?.minPriceCents??current?.priceCents??0),
+      maxPriceCents:Number(current?.maxPriceCents??current?.priceCents??0),
+      pricingStrategy:current?.pricingStrategy||'balanced',
       availableStock:Number(current?.availableStock||0),
       active:current?.active===true,
       priceConfirmedAt:current?.priceConfirmedAt||null
@@ -323,6 +351,10 @@ function merchantLiveCatalog(){
       productCode:String(item.productCode||'').toUpperCase(),
       productName:item.productName||item.productCode||'Produto',
       priceCents:Number(item.priceCents||0),
+      pricingMode:item.pricingMode||'fixed',
+      minPriceCents:Number(item.minPriceCents??item.priceCents??0),
+      maxPriceCents:Number(item.maxPriceCents??item.priceCents??0),
+      pricingStrategy:item.pricingStrategy||'balanced',
       availableStock:Number(item.availableStock||0),
       active:item.active===true,
       priceConfirmedAt:item.priceConfirmedAt||null
@@ -343,11 +375,26 @@ function merchantLiveCatalog(){
     const status=!item.active?'INATIVO':item.availableStock<=0?'SEM ESTOQUE':fresh?'CONFIRMADO':'PREÇO VENCIDO';
     const statusClass=item.active&&item.availableStock>0&&fresh?'online':item.active&&item.availableStock>0?'risk':'offline';
     const icon=products[item.productCode]?.icon||(/^P([1-9][0-9]?)$/.test(item.productCode)?'🔥':'📦');
+    const range=item.pricingMode==='range';
+    const strategyLabel={volume:'Priorizar volume',balanced:'Equilibrado',margin:'Priorizar margem'}[item.pricingStrategy]||'Equilibrado';
+    const priceSummary=range
+      ? 'Faixa '+BRL.format(item.minPriceCents/100)+' – '+BRL.format(item.maxPriceCents/100)+' • normal '+BRL.format(item.priceCents/100)+' • '+strategyLabel
+      : 'Preço fixo '+(item.priceCents>0?BRL.format(item.priceCents/100):'—');
     return `<div class="card flat form-stack" style="margin-bottom:12px">
-      <div class="status-bar"><div class="product-left"><div class="product-icon">${icon}</div><div><strong>${esc(item.productName)}</strong><br><small>${esc(item.productCode)} • ${item.priceConfirmedAt?'confirmado '+new Date(item.priceConfirmedAt).toLocaleString('pt-BR'):'nunca confirmado'}</small></div></div><span class="status-pill ${statusClass}">${status}</span></div>
-      <div class="field-row"><div class="input-wrap"><label for="live-price-${item.productCode}">Preço</label><input id="live-price-${item.productCode}" inputmode="decimal" type="number" min="0.01" max="10000" step="0.10" class="input" value="${item.priceCents>0?(item.priceCents/100).toFixed(2):''}"></div><div class="input-wrap"><label for="live-stock-${item.productCode}">Estoque</label><input id="live-stock-${item.productCode}" inputmode="numeric" type="number" min="0" max="100000" class="input" value="${item.availableStock}"></div></div>
+      <div class="status-bar"><div class="product-left"><div class="product-icon">${icon}</div><div><strong>${esc(item.productName)}</strong><br><small>${esc(item.productCode)} • ${esc(priceSummary)} • ${item.priceConfirmedAt?'confirmado '+new Date(item.priceConfirmedAt).toLocaleString('pt-BR'):'nunca confirmado'}</small></div></div><span class="status-pill ${statusClass}">${status}</span></div>
+      <div class="field-row">
+        <div class="input-wrap"><label for="live-pricing-mode-${item.productCode}">Modo</label><select id="live-pricing-mode-${item.productCode}" class="input" onchange="merchantPricingModeChanged('${item.productCode}')"><option value="fixed" ${range?'':'selected'}>Preço fixo</option><option value="range" ${range?'selected':''}>Faixa automática</option></select></div>
+        <div class="input-wrap"><label for="live-price-${item.productCode}">Preço normal</label><input id="live-price-${item.productCode}" inputmode="decimal" type="number" min="0.01" max="10000" step="0.10" class="input" value="${item.priceCents>0?(item.priceCents/100).toFixed(2):''}"></div>
+        <div class="input-wrap"><label for="live-stock-${item.productCode}">Estoque</label><input id="live-stock-${item.productCode}" inputmode="numeric" type="number" min="0" max="100000" class="input" value="${item.availableStock}"></div>
+      </div>
+      <div class="field-row">
+        <div class="input-wrap"><label for="live-min-price-${item.productCode}">Mínimo autorizado</label><input id="live-min-price-${item.productCode}" inputmode="decimal" type="number" min="0.01" max="10000" step="0.10" class="input" value="${(item.minPriceCents/100).toFixed(2)}" ${range?'':'disabled'}></div>
+        <div class="input-wrap"><label for="live-max-price-${item.productCode}">Máximo autorizado</label><input id="live-max-price-${item.productCode}" inputmode="decimal" type="number" min="0.01" max="10000" step="0.10" class="input" value="${(item.maxPriceCents/100).toFixed(2)}" ${range?'':'disabled'}></div>
+        <div class="input-wrap"><label for="live-pricing-strategy-${item.productCode}">Estratégia</label><select id="live-pricing-strategy-${item.productCode}" class="input" ${range?'':'disabled'}><option value="volume" ${item.pricingStrategy==='volume'?'selected':''}>Priorizar volume</option><option value="balanced" ${item.pricingStrategy==='balanced'?'selected':''}>Equilibrado</option><option value="margin" ${item.pricingStrategy==='margin'?'selected':''}>Priorizar margem</option></select></div>
+      </div>
+      <div class="notice"><strong>${range?'Faixa autorizada':'Preço fixo'}.</strong><br>${range?'O Chama pode escolher um preço somente entre o mínimo e o máximo, usando estoque e carga da sua própria operação. O preço de concorrentes não define o seu valor.':'O Chama usa exatamente o preço normal informado neste SKU.'}</div>
       <label class="check-row"><input id="live-active-${item.productCode}" type="checkbox" ${item.active?'checked':''}><span><strong>Produto ativo</strong><small>Somente itens ativos e com estoque participam das ofertas.</small></span></label>
-      <button class="secondary" onclick="merchantLiveSaveProduct('${item.productCode}')">Salvar e confirmar este preço</button>
+      <button class="secondary" onclick="merchantLiveSaveProduct('${item.productCode}')">Salvar e confirmar política de preço</button>
     </div>`;
   }).join('');
 
@@ -362,7 +409,7 @@ function merchantLiveCatalog(){
     <button class="primary" onclick="merchantLiveAddGlp()">Adicionar e confirmar</button>
   </div>`;
 
-  return shell(`<section class="page"><button class="back" onclick="go('merchant')">← Operação</button><h1 class="page-title">Catálogo real</h1><p class="muted">Cada SKU possui sua própria confirmação de preço. Atualizar um produto não renova os demais.</p><div style="margin-top:16px">${addGlp}${rows}</div></section>`);
+  return shell(`<section class="page"><button class="back" onclick="go('merchant')">← Operação</button><h1 class="page-title">Catálogo real</h1><p class="muted">Cada SKU possui sua própria política e confirmação de preço. Em faixa automática, o Chama nunca oferece abaixo do mínimo nem acima do máximo autorizado.</p><div style="margin-top:16px">${addGlp}${rows}</div></section>`);
 }
 
 async function merchantLiveAddGlp(){
