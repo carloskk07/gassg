@@ -377,8 +377,12 @@ async function liveSyncMarketStatus({force=false}={}){
     configuredMerchantCount:Math.max(0,Number(data?.configuredMerchantCount||0)),
     availableNow:data?.availableNow===true,
     availableMerchantCount:Math.max(0,Number(data?.availableMerchantCount||0)),
-    productCodes:Array.isArray(data?.productCodes)?data.productCodes.map(String):[]
+    productCodes:Array.isArray(data?.productCodes)?data.productCodes.map(code=>String(code).trim().toUpperCase()):[]
   };
+  for(const code of liveRuntime.marketStatus.productCodes){
+    if(globalThis.ensureProductDefinition?.(code)&&!(code in state.cart))state.cart[code]=0;
+  }
+  save();
   liveRuntime.lastMarketStatusAt=now;
   return liveRuntime.marketStatus;
 }
