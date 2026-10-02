@@ -292,3 +292,12 @@ for(const forbidden of forbiddenWalletTypes){
 }
 
 console.log('Wallet runtime surface audit passou.');
+
+
+const customerSummarySource=read('supabase/functions/customer-summary/index.ts');
+assert.ok(customerSummarySource.includes('cashbackDebtCents'),'Edge summary deve expor dívida agregada de cashback');
+assert.ok(backend.includes('state.user.cashbackDebt='),'frontend deve persistir compensação separada do saldo gastável');
+assert.ok(growth.includes('em compensação.'),'Clube deve explicar cashback revertido em compensação');
+assert.ok(growth.includes('Novos créditos reduzem essa compensação'),'UI deve explicar amortização futura sem esconder o passivo');
+
+console.log('Cashback compensation projection audit passou.');
