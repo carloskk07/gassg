@@ -314,6 +314,7 @@ assert.ok(offerSource.includes('merchant_offer_load'),'matching deve considerar 
 assert.ok(!offerSource.includes('.limit(40)'),'matching não pode eliminar revendas arbitrariamente antes de calcular elegibilidade e ranking');
 const pricingPolicy=read('supabase/functions/_shared/pricing-policy.js');
 const authorizedPricingMigration=read('supabase/migrations/20261002214500_authorized_price_ranges.sql');
+const authorizedPricingFreshness=read('supabase/migrations/20261002215500_authorized_price_range_quote_freshness_fix.sql');
 assert.ok(offerSource.includes('effectiveUnitPrice')&&offerSource.includes('pricing_mode')&&offerSource.includes('pricing_strategy'),'matching deve calcular preço efetivo a partir da política autorizada');
 assert.ok(pricingPolicy.includes("pricingStrategy==='volume'")&&pricingPolicy.includes("pricingStrategy==='margin'"),'autoridade de preço deve distinguir volume/equilibrado/margem');
 assert.ok(pricingPolicy.includes('activeOrders')&&pricingPolicy.includes('availableStock')&&pricingPolicy.includes('recentOrders7d'),'preço automático deve usar sinais da própria operação');
@@ -321,6 +322,9 @@ assert.ok(!pricingPolicy.includes('competitor')&&!pricingPolicy.includes('cheape
 assert.ok(authorizedPricingMigration.includes("pricing_mode in ('fixed','range')"),'banco deve restringir modos de preço');
 assert.ok(authorizedPricingMigration.includes("pricing_strategy in ('volume','balanced','margin')"),'banco deve restringir estratégias de preço');
 assert.ok(authorizedPricingMigration.includes('r.unit_price_cents between ci.min_price_cents and ci.max_price_cents'),'quote RPC deve validar faixa autorizada');
+assert.ok(authorizedPricingFreshness.includes('ci.price_confirmed_at is not null')&&authorizedPricingFreshness.includes("clock_timestamp()-interval '24 hours'"),'quote ranged não pode perder freshness por SKU');
+assert.ok(authorizedPricingFreshness.includes('for share of ci'),'quote ranged precisa manter lock dos SKUs durante o snapshot');
+assert.ok(authorizedPricingFreshness.includes('delivery_fee_confirmed_at'),'quote ranged precisa preservar confirmação de taxa de entrega');
 assert.ok(merchant.includes('Faixa automática')&&merchant.includes('Mínimo autorizado')&&merchant.includes('Máximo autorizado'),'painel da revenda deve permitir configurar a faixa');
 assert.ok(merchant.includes('O preço de concorrentes não define o seu valor.'),'painel deve explicar independência de preços concorrentes');
 const moneySafetyMigration=read('supabase/migrations/20261002202113_int4_cart_money_safety.sql').toLowerCase();
