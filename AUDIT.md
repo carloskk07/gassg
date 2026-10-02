@@ -1,4 +1,4 @@
-# Auditoria v1.24 — Chama São Gabriel
+# Auditoria v1.25 — Chama São Gabriel
 
 Data: 02/10/2026
 
@@ -16,13 +16,12 @@ Na verificação desta rodada, o banco de produção permanecia com **0 usuário
 
 ## Release auditado
 
-- SHA funcional da v1.24: `5808c18032c8608707a5ccd966fa04bbbc7dca01`;
-- PR #14 integrada por squash;
-- workflow **Audit** aprovado no SHA final de `main`;
-- workflow **Deploy to GitHub Pages** aprovado no mesmo SHA;
-- `merchant-orders` publicado no Supabase como **v11**, ACTIVE, com `verify_jwt=true`;
-- os **12 entrypoints** Edge publicados correspondem aos entrypoints do `main`;
-- esta rodada não exigiu migration/DDL.
+- SHA funcional da v1.25: `cc7ba7f870e86e6d6d2c2a14b91af5aa86e89995`;
+- PR #16 integrada por squash;
+- workflow **Audit** aprovado no SHA funcional já integrado em `main`;
+- workflow **Deploy to GitHub Pages** aprovado no mesmo SHA, incluindo smoke mobile, E2E completo, manifest, staging, upload e deploy;
+- esta rodada não alterou schema, migration, Edge Function, RLS, grants ou configuração do Supabase;
+- a infraestrutura Supabase validada na v1.24 permanece como base operacional desta release.
 
 ## Evolução comercial v1.25
 
