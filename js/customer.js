@@ -37,7 +37,7 @@ function home(){
   const priceText=testDemo
     ? (p==null?'Indisponível':BRL.format(p))
     : preview
-      ? 'Conheça antes de lançar'
+      ? 'Veja a experiência'
       : ready&&!market
         ? 'Consultar preço'
         : ready&&market?.realSupplyConfigured
@@ -49,7 +49,7 @@ function home(){
   const freshness=testDemo
     ? 'Ambiente isolado de teste automatizado'
     : preview
-      ? 'Pré-lançamento: veja como comprar e como participar desde o início.'
+      ? 'Pré-lançamento em São Gabriel: conheça a experiência antes da abertura.'
       : ready&&!market
         ? 'Não foi possível confirmar o panorama geral agora. Informe seu endereço para consultar as opções diretamente.'
         : ready&&market?.realSupplyConfigured
@@ -68,35 +68,42 @@ function home(){
     : preview
       ? '● PRÉ-LANÇAMENTO EM SÃO GABRIEL'
       : '● CHAMA SÃO GABRIEL';
-  const primaryLabel=preview?'Explorar como vai funcionar':'Consultar preço agora';
+  const primaryLabel=preview?'Ver como vou comprar':'Ver preços e prazos';
 
   return shell(`<section class="hero marketing-hero"><div class="hero-grid"><div>
     <span class="eyebrow">${eyebrow}</span>
-    <h1>Peça gás.<br>Compare. Acompanhe.</h1>
-    <p>Gás e produtos essenciais em uma experiência simples: informe seu endereço, compare as opções e acompanhe o pedido até chegar.</p>
+    <h1>Seu gás, com preço e prazo antes de confirmar.</h1>
+    <p>Compare opções para gás e itens essenciais, escolha pelo que importa para você e acompanhe a entrega sem depender de mensagens soltas.</p>
     <div class="hero-price"><span class="from">P13</span><strong>${priceText}</strong></div><div class="freshness">${esc(freshness)}</div>
     <div class="hero-actions">
       <button class="primary" onclick="quickProduct('P13')" ${disabled?'disabled':''}>🔥 ${primaryLabel}</button>
-      <button class="secondary" onclick="go('learn')">Como funciona</button>
-      <button class="ghost" onclick="go('earn')">💰 Ganhe com o Chama</button>
+      <button class="secondary" onclick="go('club')">💵 Como economizar</button>
+      <button class="ghost" onclick="go('earn')">🤝 Ganhar ou vender</button>
     </div>
-    <div class="trust-row"><span class="trust-chip">✓ Veja o valor antes de confirmar</span><span class="trust-chip">✓ Revenda precisa aceitar</span><span class="trust-chip">✓ Acompanhe cada etapa</span></div>
+    <div class="trust-row"><span class="trust-chip">✓ Total antes de confirmar</span><span class="trust-chip">✓ Operação precisa aceitar</span><span class="trust-chip">✓ Status confirmado por etapa</span></div>
   </div>
-  <div class="hero-visual" aria-label="Resumo visual do fluxo de compra">
-    <div class="visual-top"><span class="visual-dot"></span><strong>Seu pedido no Chama</strong><span class="visual-live">SIMPLIFICADO</span></div>
-    <div class="visual-product"><div class="visual-icon">🔥</div><div><strong>Gás e essenciais</strong><small>Escolha só o que precisa</small></div></div>
-    <div class="visual-choice"><span><strong>Mais econômico</strong><small>Compare pelo valor</small></span><span><strong>Mais rápido</strong><small>Compare pelo tempo</small></span></div>
-    <div class="visual-status"><span class="visual-check">✓</span><div><strong>Revenda confirmou</strong><small>Depois disso você acompanha a saída e a entrega.</small></div></div>
+  <div class="hero-visual" aria-label="Resumo visual dos benefícios do Chama">
+    <div class="visual-top"><span class="visual-dot"></span><strong>Escolha com clareza</strong><span class="visual-live">CHAMA</span></div>
+    <div class="visual-product"><div class="visual-icon">🔥</div><div><strong>Gás e essenciais</strong><small>Monte a cesta que realmente precisa</small></div></div>
+    <div class="visual-choice"><span><strong>Mais econômico</strong><small>Compare pelo total</small></span><span><strong>Mais rápido</strong><small>Compare pelo prazo</small></span></div>
+    <div class="visual-status"><span class="visual-check">✓</span><div><strong>Parceiro confirmou</strong><small>“A caminho” só aparece depois da saída confirmada.</small></div></div>
   </div></div></section>
 
-<section class="section intent-section"><div class="section-head"><div><span class="section-kicker">COMECE PELO QUE VOCÊ QUER</span><h2>O Chama serve para comprar, entender e também gerar oportunidades.</h2></div></div>
+<section class="section intent-section"><div class="section-head"><div><span class="section-kicker">O QUE VOCÊ QUER FAZER?</span><h2>Comece pelo benefício que importa para você.</h2></div></div>
 <div class="intent-grid">
-  <button class="intent-card" onclick="quickProduct('P13')" ${disabled?'disabled':''}><span class="intent-icon">🔥</span><span><strong>Quero comprar</strong><small>Consultar preço e opções de entrega.</small></span><b>→</b></button>
-  <button class="intent-card" onclick="go('learn')"><span class="intent-icon">👀</span><span><strong>Quero entender</strong><small>Veja como funciona, pagamentos e segurança.</small></span><b>→</b></button>
-  <button class="intent-card" onclick="go('earn')"><span class="intent-icon">💰</span><span><strong>Quero gerar renda</strong><small>Indicação para pessoas e novas vendas para empresas.</small></span><b>→</b></button>
+  <button class="intent-card" onclick="quickProduct('P13')" ${disabled?'disabled':''}><span class="intent-icon">🔥</span><span><strong>Quero pedir agora</strong><small>Consulte preço e previsão de entrega.</small></span><b>→</b></button>
+  <button class="intent-card" onclick="go('club')"><span class="intent-icon">💵</span><span><strong>Quero economizar</strong><small>Entenda cashback e benefícios de compra.</small></span><b>→</b></button>
+  <button class="intent-card" onclick="go('earn')"><span class="intent-icon">🤝</span><span><strong>Quero ganhar ou vender</strong><small>Indique novos compradores ou venda pela sua empresa.</small></span><b>→</b></button>
 </div></section>
 
-<section class="section"><div class="section-head"><div><span class="section-kicker">COMO FUNCIONA</span><h2>Da consulta até a sua porta</h2><p>Sem precisar adivinhar se o pedido foi aceito ou se já saiu para entrega.</p></div><button class="ghost small desktop-only" onclick="go('learn')">Ver detalhes →</button></div>
+<section class="section value-proof-section"><div class="section-head"><div><span class="section-kicker">POR QUE USAR O CHAMA</span><h2>Menos dúvida antes, durante e depois do pedido.</h2></div></div>
+<div class="value-proof-grid">
+  <article class="value-proof"><span>01</span><div><strong>Compare antes de escolher</strong><p>Veja total e previsão de entrega das opções elegíveis antes de criar o pedido.</p></div></article>
+  <article class="value-proof"><span>02</span><div><strong>Pedido só é confirmado de verdade</strong><p>A revenda precisa aceitar itens, preço e capacidade de entrega.</p></div></article>
+  <article class="value-proof"><span>03</span><div><strong>Benefícios sobre compras elegíveis</strong><p>Cashback pode voltar como crédito para reduzir compras futuras no Chama.</p></div></article>
+</div></section>
+
+<section class="section"><div class="section-head"><div><span class="section-kicker">COMO FUNCIONA</span><h2>Da consulta até a sua porta</h2><p>Quatro etapas simples, com compromisso real antes de chamar um pedido de confirmado.</p></div><button class="ghost small desktop-only" onclick="go('learn')">Ver detalhes →</button></div>
 <div class="how-grid">
   <div class="how-card"><span>1</span><div><strong>Escolha o que precisa</strong><p>Gás, água, carvão, lenha, gelo ou uma cesta com vários itens.</p></div></div>
   <div class="how-card"><span>2</span><div><strong>Informe o endereço</strong><p>O Chama procura somente opções que possam atender sua cesta.</p></div></div>
@@ -109,23 +116,23 @@ function home(){
 
 ${preview?prelaunchExampleSection({P13:1}):''}
 
-<section class="section"><div class="section-head"><div><span class="section-kicker">POR QUE USAR</span><h2>Mais clareza em cada compra</h2></div></div>
+<section class="section"><div class="section-head"><div><span class="section-kicker">CONFIANÇA OPERACIONAL</span><h2>Status que precisa de prova para avançar.</h2></div></div>
 <div class="grid cards-3">
-  <div class="card feature-card"><div class="feature-icon">⚖️</div><h3>Escolha pelo que importa</h3><p>Compare opções de valor e tempo de entrega sem depender de uma única alternativa.</p></div>
-  <div class="card feature-card"><div class="feature-icon">📍</div><h3>Status que faz sentido</h3><p>“A caminho” só aparece depois que a saída é confirmada pela operação.</p></div>
-  <div class="card feature-card"><div class="feature-icon">💵</div><h3>Benefícios que voltam</h3><p>Compras elegíveis podem gerar cashback para economizar em novas compras.</p><button class="ghost small" onclick="go('club')">Conhecer o Clube →</button></div>
+  <div class="card feature-card"><div class="feature-icon">🛡️</div><h3>Oferta elegível</h3><p>Uma oferta real só entra na consulta quando a operação atende os critérios aplicáveis ao produto e à entrega.</p></div>
+  <div class="card feature-card"><div class="feature-icon">📍</div><h3>“A caminho” significa saída</h3><p>O status só aparece depois que a operação confirma efetivamente a saída do pedido.</p></div>
+  <div class="card feature-card"><div class="feature-icon">🔐</div><h3>Entrega com confirmação</h3><p>A conclusão exige pagamento confirmado e o PIN do recebimento.</p></div>
 </div></section>
 
-<section class="section"><div class="opportunity-band"><div><span class="section-kicker light">GANHE COM O CHAMA</span><h2>Você também pode participar do crescimento.</h2><p>Pessoas podem indicar novos compradores. Empresas podem transformar o Chama em um novo canal de vendas.</p></div><div class="opportunity-actions"><button class="primary light-primary" onclick="go('earn')">Ver formas de ganhar</button><button class="secondary dark-secondary" onclick="go('merchants')">Tenho uma empresa</button></div></div></section>
+<section class="section"><div class="opportunity-band"><div><span class="section-kicker light">BENEFÍCIOS E OPORTUNIDADES</span><h2>Economize comprando. Ganhe indicando. Venda com sua empresa.</h2><p>O Chama separa claramente cashback para compradores, comissão de aquisição para indicações e um canal de vendas para empresas locais.</p></div><div class="opportunity-actions"><button class="primary light-primary" onclick="go('earn')">Ver como funciona</button><button class="secondary dark-secondary" onclick="go('merchants')">Tenho uma empresa</button></div></div></section>
 
-<section class="section"><div class="section-head"><div><span class="section-kicker">BENEFÍCIOS</span><h2>Quanto mais você usa, mais o Chama pode devolver.</h2></div></div>
+<section class="section"><div class="section-head"><div><span class="section-kicker">BENEFÍCIOS PARA QUEM COMPRA</span><h2>Parte do valor pode voltar para a próxima compra.</h2></div></div>
 <div class="grid cards-3">
-  <div class="card feature-card"><div class="feature-icon">💵</div><h3>Cashback</h3><p>Crédito de compras elegíveis para reduzir o valor de novas compras dentro do Chama.</p><button class="ghost small" onclick="go('club')">Ver meu saldo →</button></div>
-  <div class="card feature-card"><div class="feature-icon">🤝</div><h3>Indique e ganhe</h3><p>Compartilhe seu link. Vendas elegíveis geradas pela indicação podem liberar comissão.</p><button class="ghost small" onclick="go('refer')">Ver meu programa →</button></div>
+  <div class="card feature-card"><div class="feature-icon">💵</div><h3>Cashback</h3><p>Compras elegíveis podem gerar crédito para reduzir o valor de novas compras dentro do Chama.</p><button class="ghost small" onclick="go('club')">Entender cashback →</button></div>
+  <div class="card feature-card"><div class="feature-icon">🤝</div><h3>Indicação</h3><p>A primeira compra qualificada de um novo cliente indicado pode gerar comissão conforme a política vigente.</p><button class="ghost small" onclick="go('refer')">Ver regra atual →</button></div>
   <div class="card feature-card"><div class="feature-icon">⭐</div><h3>Clube Chama</h3><p>Acompanhe cashback, recorrência e benefícios disponíveis na sua conta.</p><button class="ghost small" onclick="go('club')">Abrir Clube →</button></div>
 </div></section>
 
-<section class="section"><div class="banner merchant-banner"><div class="tiny">PARA EMPRESAS LOCAIS</div><h2>Já vende gás, água, carvão, lenha ou produtos relacionados?</h2><p>Use o Chama como um novo canal de vendas. Você controla catálogo, preços, estoque e quando quer receber pedidos.</p><div class="banner-actions"><button class="secondary" onclick="go('merchants')">Conhecer parceria</button><button class="ghost banner-link" onclick="go('earn')">Ver todas as oportunidades →</button></div></div></section>`)
+<section class="section"><div class="banner merchant-banner"><div class="tiny">PARA EMPRESAS LOCAIS</div><h2>Já vende gás, água, carvão, lenha, gelo ou outros itens?</h2><p>Use o Chama como um novo canal de vendas. Você controla catálogo, preços, estoque, disponibilidade e a decisão de aceitar cada pedido.</p><div class="banner-actions"><button class="secondary" onclick="go('merchants')">Ver parceria e custos</button><button class="ghost banner-link" onclick="go('earn')">Comparar oportunidades →</button></div></div></section>`)
 }
 function orderPage(){
   const testDemo=globalThis.__CHAMA_TEST__===true;
@@ -196,7 +203,7 @@ function offerCard(o){
   const labels=o.roles.join(' • ');
   const etaEnd=o.etaMax??(o.eta+7);
   const distanceChip=o.distance!=null?`<span class="meta-chip">${Number(o.distance).toFixed(1)} km</span>`:'';
-  return `<article class="offer ${recommended?'selected':''}">${recommended?'<div class="best-badge">MELHOR EQUILÍBRIO</div>':''}<div class="offer-label">${esc(labels)}</div><div class="offer-main"><div><div class="offer-price">${BRL.format(payable)}</div><div class="tiny muted">${discount>0?`estimativa após ${BRL.format(discount)} de cashback`:'total entregue'}</div></div><div class="offer-eta">${o.eta}–${etaEnd} min</div></div><div class="offer-meta">${distanceChip}<span class="meta-chip">Reputação ${o.trust}/100</span><span class="meta-chip">Preço protegido</span></div><button class="${recommended?'primary':'secondary'} full" style="margin-top:13px" onclick="checkout('${o.id}')" ${globalThis.liveRuntime?.actionPending?'disabled':''}>Escolher esta opção</button></article>`
+  return `<article class="offer ${recommended?'selected':''}">${recommended?'<div class="best-badge">MELHOR EQUILÍBRIO</div>':''}<div class="offer-label">${esc(labels)}</div><div class="offer-main"><div><div class="offer-price">${BRL.format(payable)}</div><div class="tiny muted">${discount>0?`estimativa após ${BRL.format(discount)} de cashback`:'total entregue'}</div></div><div class="offer-eta">${o.eta}–${etaEnd} min</div></div><div class="offer-meta">${distanceChip}<span class="meta-chip">✓ Operação elegível</span><span class="meta-chip">Reputação ${o.trust}/100</span><span class="meta-chip">Preço protegido</span></div><button class="${recommended?'primary':'secondary'} full" style="margin-top:13px" onclick="checkout('${o.id}')" ${globalThis.liveRuntime?.actionPending?'disabled':''}>Escolher esta opção</button></article>`
 }
 async function setAddress(){
   const el=document.querySelector('#address');

@@ -27,6 +27,7 @@ const bootstrap=read('js/bootstrap.js');
 const core=read('js/core.js');
 const backend=read('js/backend.js');
 const admin=read('js/admin.js');
+const financePolicy=read('supabase/migrations/20261001105000_financial_unit_economics_v1_6.sql');
 
 assert.ok(!customer.includes('desktop-only" style="display:block"'),'desktop-only não pode ser forçado a display:block no mobile');
 assert.ok(customer.includes('esc(o.address)'),'endereço do pedido deve ser escapado antes de entrar no HTML');
@@ -48,12 +49,19 @@ assert.ok(core.includes('isValidCnpjShape'),'core precisa suportar validação e
 assert.ok(!merchant.includes('.stock'),'UI da revenda não deve depender do campo legado stock');
 assert.ok(growth.includes('referralCode'),'link de indicação deve usar código pessoal');
 assert.ok(bootstrap.includes('home,learn,earn'),'router público precisa expor jornadas de descoberta e renda');
-assert.ok(customer.includes('Quero comprar')&&customer.includes('Quero entender')&&customer.includes('Quero gerar renda'),'home precisa separar as três intenções principais');
+assert.ok(customer.includes('Quero pedir agora')&&customer.includes('Quero economizar')&&customer.includes('Quero ganhar ou vender'),'home precisa separar compra, economia e oportunidade');
 assert.ok(customer.includes("go('learn')")&&customer.includes("go('earn')"),'home precisa possuir CTAs claros para descoberta e renda');
 assert.ok(growth.includes('function learn()'),'jornada Saiba mais precisa existir');
 assert.ok(growth.includes('function earn()'),'hub Ganhe com o Chama precisa existir');
 assert.ok(growth.includes('REFERRAL_PILOT_RATE=0.02'),'exemplo de indicação deve estar ancorado na política atual do piloto');
-assert.ok(growth.includes('Os exemplos não são promessa de renda'),'marketing de indicação precisa explicar que exemplo não é renda garantida');
+assert.ok(growth.includes('MERCHANT_PILOT_FEE_RATE=0.075'),'simulador comercial deve usar a taxa real da política inicial do piloto');
+assert.ok(financePolicy.includes('platform_fee_bps=750'),'backend financeiro deve manter 7,5% enquanto a UX publica essa taxa');
+assert.ok(financePolicy.includes('direct_referral_bps=200'),'backend financeiro deve manter 2% enquanto a UX publica essa comissão');
+assert.ok(financePolicy.includes('cashback_bps=100'),'backend financeiro deve manter 1% como política inicial de cashback');
+assert.ok(growth.includes('Taxa Chama: 7,5% por pedido concluído'),'landing de oportunidade deve expor o custo comercial do piloto');
+assert.ok(growth.includes('SIMULADOR COMERCIAL')&&growth.includes('merchant-sim-fee'),'revenda precisa visualizar economia unitária e por volume');
+assert.ok(customer.includes('✓ Operação elegível'),'oferta real deve comunicar elegibilidade operacional sem expor a revenda antes do aceite');
+assert.ok(growth.includes('Não é promessa de renda'),'marketing de indicação precisa explicar que simulação não é renda garantida');
 assert.ok(growth.includes('primeira compra qualificada de cada novo cliente indicado'),'marketing deve refletir aquisição apenas na primeira compra qualificada');
 assert.ok(growth.includes('Compras repetidas do mesmo cliente não geram novas comissões'),'marketing não pode sugerir comissão recorrente do mesmo indicado');
 assert.ok(growth.includes('indicador e cliente indicado em identidades permanentes'),'marketing deve expor o gate real de identidade para maturação');
@@ -61,7 +69,7 @@ assert.ok(growth.includes('Saque Pix ainda não disponível')&&growth.includes('
 assert.ok(growth.includes('Você continua no controle'),'landing de revenda deve enfatizar autonomia operacional');
 assert.ok(core.includes("['earn','💰','Ganhe','go']"),'navegação móvel precisa dar acesso direto ao hub de renda');
 assert.ok(!growth.includes('inputmode="numeric" maxlength="18"'),'campo CNPJ não pode forçar teclado somente numérico após adoção do CNPJ alfanumérico');
-assert.ok(sw.includes("CACHE='chama-sg-v1.24'"),'cache do service worker precisa estar versionado');
+assert.ok(sw.includes("CACHE='chama-sg-v1.25'"),'cache do service worker precisa estar versionado');
 assert.ok(sw.includes("./js/backend.js"),'runtime live precisa estar no cache da PWA');
 assert.ok(sw.includes("./js/runtime-config.js"),'configuração pública de origins precisa estar no cache da PWA');
 assert.ok(sw.includes("./js/turnstile.js"),'helper local do Turnstile precisa estar no cache da PWA');

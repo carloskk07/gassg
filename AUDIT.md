@@ -24,6 +24,25 @@ Na verificação desta rodada, o banco de produção permanecia com **0 usuário
 - os **12 entrypoints** Edge publicados correspondem aos entrypoints do `main`;
 - esta rodada não exigiu migration/DDL.
 
+## Evolução comercial v1.25
+
+A rodada v1.25 tratou a interface como uma superfície de decisão comercial, mantendo intactas as autoridades server-side de pedido, segurança e finanças.
+
+Mudanças:
+
+- home reposicionada para **preço + prazo + confiança**, em vez de explicação de produto como intenção principal;
+- portas principais alteradas para **Pedir agora / Economizar / Ganhar ou vender**;
+- ofertas reais comunicam **operação elegível**, preservando o sigilo da identidade da revenda antes do aceite;
+- indicação ganhou simulador interativo ancorado em `REFERRAL_PILOT_RATE=0.02`, sempre acompanhado de aviso de que não é promessa de renda;
+- landing de revenda passou a expor a política inicial de **7,5% por pedido concluído** e um simulador comercial de bruto, taxa e valor antes de custos/tributos próprios;
+- saque Pix continua visualmente e funcionalmente indisponível;
+- título/descrição SEO e cache da PWA foram alinhados à nova proposta;
+- smoke/E2E foram atualizados para provar as novas jornadas e simuladores em Chrome;
+- auditoria estática liga os números públicos de 2% e 7,5% à migration financeira `20261001105000_financial_unit_economics_v1_6.sql`, reduzindo risco de divergência futura entre marketing e backend.
+
+Não foram alterados nesta rodada: máquina de estados, matching, RLS, grants, política financeira do Postgres, pagamentos, payout ou privilégios administrativos.
+
+A captação pública de contatos de pré-lançamento continua deliberadamente bloqueada até existir proteção anti-bot/Turnstile e política de privacidade operacional. O GitHub Pages permanece uma origem visual fail-closed.
 ## Evolução de experiência v1.23
 
 A rodada v1.23 olhou o produto como três usuários diferentes: quem quer comprar, quem quer entender e quem quer gerar renda.

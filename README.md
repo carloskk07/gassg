@@ -27,7 +27,7 @@ Esses exemplos:
 
 A suíte de testes mantém um marketplace sintético completo apenas quando injeta `globalThis.__CHAMA_TEST__=true`. A build normal não oferece esse caminho.
 
-## Estado atual — v1.24 resilience hardening
+## Estado atual — v1.25 conversion & transparent economics
 
 **Backend multiusuário:** aplicado no projeto Supabase exclusivo do Chama.
 
@@ -47,6 +47,26 @@ Antes de liberar usuários reais em volume, devem ser comprovados com contas rea
 8. configurar Cloudflare Turnstile e habilitar CAPTCHA/Turnstile no Supabase Auth antes de aceitar novas sessões;
 9. comprovar os redirect URLs de magic link das origens de revenda e admin.
 
+## Experiência pública v1.25
+
+A camada comercial foi reorganizada para responder primeiro ao que o usuário precisa decidir:
+
+- **Pedir agora:** preço e previsão de entrega antes da confirmação;
+- **Economizar:** cashback e benefícios de compra separados de comissão;
+- **Ganhar ou vender:** indicação de novos compradores e canal de vendas para empresas como propostas distintas.
+
+A home agora prioriza preço, prazo, aceite real e rastreabilidade. Ofertas reais comunicam que a operação é elegível sem revelar a identidade da revenda antes do aceite. “A caminho” continua dependente de confirmação real de saída e a conclusão continua exigindo pagamento + PIN.
+
+A economia pública também ficou ligada ao contrato financeiro do backend:
+
+- indicação: simulador baseado na política inicial de **2% sobre a primeira compra qualificada de cada novo cliente elegível**;
+- revenda: política inicial de **7,5% sobre o valor bruto de cada pedido concluído**, com simulador de vendas brutas, taxa Chama e valor anterior aos custos/tributos próprios;
+- exemplos são explicitamente ilustrativos e não são promessa de renda;
+- saque Pix continua desabilitado até existir integração financeira real.
+
+Os gates agora falham se a UX publicar 2% ou 7,5% enquanto a migration financeira versionada deixar de conter `direct_referral_bps=200` ou `platform_fee_bps=750`.
+
+A prévia pública não ganhou formulário de captação aberto nesta rodada: o GitHub Pages continua fail-closed e o projeto exige proteção anti-bot/Turnstile e política de privacidade operacional antes de coletar contato real em uma origem pública.
 ## Experiência pública v1.23
 
 A interface pública foi reorganizada em torno de três intenções de usuário:
@@ -151,7 +171,7 @@ Proteções implementadas:
 - rescue centralizado;
 - preço, taxa e itens congelados em re-cotação;
 - PIN com `pgcrypto`, cinco tentativas e retenção curta;
-- service worker network-first com cache `v1.24`;
+- service worker network-first com cache `v1.25`;
 - estado live com endereço/carrinho permanece em `sessionStorage`;
 - identidade anônima do cliente + ID do pedido ativo persistem na **origem dedicada do cliente**, permitindo recuperar uma entrega após fechar o navegador;
 - revenda e admin continuam tab-scoped em `sessionStorage`;
