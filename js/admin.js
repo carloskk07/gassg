@@ -7,7 +7,10 @@ const adminRuntime={
   actionPending:false,
   error:null,
   notice:null,
-  lastSyncAt:null
+  lastSyncAt:null,
+  refreshSeq:0,
+  pollPending:false,
+  lastPollAt:0
 };
 
 function adminOriginSafe(){
@@ -144,15 +147,18 @@ async function adminSignOut(){
 
 async function adminRefresh({silent=false}={}){
   if(!adminRuntime.client)return null;
+  const seq=++adminRuntime.refreshSeq;
   if(!silent)render();
   try{
     const data=await adminInvoke({action:'summary'});
+    if(seq!==adminRuntime.refreshSeq)return data;
     adminRuntime.data=data;
     adminRuntime.status='ready';
     adminRuntime.error=null;
     adminRuntime.lastSyncAt=new Date().toISOString();
     return data;
   }catch(error){
+    if(seq!==adminRuntime.refreshSeq)return null;
     if(error?.code==='ADMIN_ACCESS_DENIED'||error?.status===403&&error?.code==='ADMIN_ACCESS_DENIED'){
       adminRuntime.status='no-access';
       adminRuntime.data=null;
@@ -200,11 +206,16 @@ async function adminPerform(action,payload={}){
 }
 
 async function adminPoll(){
-  if(!adminReady()||adminRuntime.actionPending||document.visibilityState==='hidden')return;
+  if(!adminReady()||adminRuntime.actionPending||adminRuntime.pollPending||document.visibilityState==='hidden')return;
+  const now=Date.now();
+  if(adminRuntime.lastPollAt&&now-adminRuntime.lastPollAt<15000)return;
+  adminRuntime.lastPollAt=now;
+  adminRuntime.pollPending=true;
   try{
     await adminRefresh({silent:true});
     render();
   }catch{}
+  finally{adminRuntime.pollPending=false}
 }
 
 function openAdminPortal(){
