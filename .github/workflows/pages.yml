@@ -80,12 +80,14 @@ jobs:
             "$CHROME" --headless=new --no-sandbox --disable-gpu --window-size=360,800 --virtual-time-budget=1200 --user-data-dir="/tmp/chrome-$route" --dump-dom "http://127.0.0.1:4173/#$route" > "/tmp/$route.html"
           done
           grep -q "Seu gás, com preço e prazo" /tmp/home.html
-          grep -q "Entenda o Chama" /tmp/learn.html
-          grep -q "Benefícios por indicar" /tmp/earn.html
-          grep -q "Comprar agora" /tmp/order.html
+          grep -q "PROTEÇÃO CHAMA" /tmp/home.html
+          grep -q "Botijão de cozinha 13 kg" /tmp/home.html
+          grep -q "Antes de pedir, veja quanto custa" /tmp/learn.html
+          grep -q "Comissão por indicação para pessoas" /tmp/earn.html
+          grep -q "O que você precisa e onde devemos entregar" /tmp/order.html
           grep -q "Clube Chama" /tmp/club.html
           grep -q "Indique um novo comprador" /tmp/refer.html
-          grep -q "Mais um canal de vendas, com custo visível" /tmp/merchants.html
+          grep -q "Mais um canal de vendas. Sua operação continua" /tmp/merchants.html
           grep -q "Acesso operacional real" /tmp/merchant.html
           ! grep -q "PAINEL DA REVENDA — DEMONSTRAÇÃO" /tmp/merchant.html
           ! grep -q "Revenda Parceira A" /tmp/merchant.html
