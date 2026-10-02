@@ -180,9 +180,12 @@ async function adminPerform(action,payload={}){
   adminRuntime.error=null;
   render();
   try{
-    const result=await adminInvoke(
-      {action,...payload},
-      {idempotencyKey:adminIdempotency('admin-'+action)}
+    const idempotencyKey=adminIdempotency('admin-'+action);
+    const result=await globalThis.retryAmbiguousOnce(
+      ()=>adminInvoke(
+        {action,...payload},
+        {idempotencyKey}
+      )
     );
     await adminRefresh({silent:true});
     return result;
