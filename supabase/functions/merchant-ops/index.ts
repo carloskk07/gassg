@@ -113,7 +113,7 @@ Deno.serve(async(req:Request)=>{
       if(online){
         const {data:merchant,error:merchantError}=await admin
           .from("merchants")
-          .select("status,delivery_fee_confirmed_at")
+          .select("status,delivery_fee_confirmed_at,accepts_citywide")
           .eq("id",merchantId)
           .maybeSingle();
         if(merchantError)throw merchantError;
@@ -123,6 +123,13 @@ Deno.serve(async(req:Request)=>{
         const feeConfirmedAt=Date.parse(merchant.delivery_fee_confirmed_at??"");
         if(!Number.isFinite(feeConfirmedAt)||Date.now()-feeConfirmedAt>24*60*60*1000){
           throw new DomainError("DELIVERY_FEE_CONFIRMATION_REQUIRED","Confirme a taxa de entrega antes de ficar online.",409);
+        }
+        if(merchant.accepts_citywide!==true){
+          throw new DomainError(
+            "DELIVERY_AREA_REQUIRED",
+            "Ative o atendimento em São Gabriel antes de ficar online neste piloto.",
+            409
+          );
         }
 
         const {data:available,error:availableError}=await admin
@@ -208,17 +215,23 @@ Deno.serve(async(req:Request)=>{
       const baseEtaMinutes=asPositiveInt(body.baseEtaMinutes,"baseEtaMinutes",{min:5,max:180});
       const acceptsCitywide=body.acceptsCitywide===true;
 
+      const logisticsPatch:Record<string,unknown>={
+        delivery_fee_cents:deliveryFeeCents,
+        delivery_fee_confirmed_at:now,
+        base_eta_minutes:baseEtaMinutes,
+        accepts_citywide:acceptsCitywide,
+        last_seen_at:now
+      };
+      // Current pilot matching only supports citywide São Gabriel coverage.
+      // Turning that capability off must also pause new orders so the panel
+      // cannot display a ghost ONLINE state while get-offers excludes it.
+      if(!acceptsCitywide)logisticsPatch.online=false;
+
       const {data,error}=await admin
         .from("merchants")
-        .update({
-          delivery_fee_cents:deliveryFeeCents,
-          delivery_fee_confirmed_at:now,
-          base_eta_minutes:baseEtaMinutes,
-          accepts_citywide:acceptsCitywide,
-          last_seen_at:now
-        })
+        .update(logisticsPatch)
         .eq("id",merchantId)
-        .select("delivery_fee_cents,delivery_fee_confirmed_at,base_eta_minutes,accepts_citywide,last_seen_at")
+        .select("delivery_fee_cents,delivery_fee_confirmed_at,base_eta_minutes,accepts_citywide,online,last_seen_at")
         .single();
       if(error)throw error;
       return json({ok:true,...data},200,origin);
