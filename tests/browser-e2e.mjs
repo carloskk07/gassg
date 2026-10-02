@@ -86,13 +86,13 @@ await send('Log.enable');
 await send('Page.addScriptToEvaluateOnNewDocument',{source:'globalThis.__CHAMA_TEST__=true;'});
 await navigate(BASE+'#home');
 await evaluate("localStorage.clear(); location.reload()");
-await waitFor("document.body.innerText.includes('Peça gás')","home after reset");
+await waitFor("document.body.innerText.includes('Seu gás, com preço e prazo')","home after reset");
 
 let body=await text();
-assert.match(body,/Peça gás/);
-assert.match(body,/Quero comprar/);
-assert.match(body,/Quero entender/);
-assert.match(body,/Quero gerar renda/);
+assert.match(body,/Seu gás, com preço e prazo/);
+assert.match(body,/Quero pedir agora/);
+assert.match(body,/Quero economizar/);
+assert.match(body,/Quero ganhar ou vender/);
 assert.match(body,/Ambiente isolado de teste automatizado/);
 await auditDom('home');
 
@@ -121,15 +121,16 @@ assert.match(body,/Aceite real da revenda/);
 await auditDom('learn');
 
 await evaluate("go('earn')");
-await waitFor("document.body.innerText.includes('Duas formas de participar')","earn route");
+await waitFor("document.body.innerText.includes('Benefícios por indicar')","earn route");
 body=await text();
 assert.match(body,/Indique novos compradores/);
 assert.match(body,/Venda pelo Chama/);
-assert.match(body,/2% sobre venda elegível/);
+assert.match(body,/2%/);
+assert.match(body,/Taxa Chama: 7,5% por pedido concluído/);
 await auditDom('earn');
 
 await evaluate("go('home')");
-await waitFor("document.body.innerText.includes('Peça gás')","return home");
+await waitFor("document.body.innerText.includes('Seu gás, com preço e prazo')","return home");
 await evaluate("quickProduct('WATER20')");
 await waitFor("location.hash==='#order'","order route");
 await evaluate("document.querySelector('#address').value='Rua <img src=x onerror=window.__xss=1> Teste, 123'; setAddress()");
@@ -193,12 +194,15 @@ assert.match(body,/R\$\s*7,65/);
 await auditDom('club');
 
 await evaluate("go('refer')");
-await waitFor("document.body.innerText.includes('Compartilhe. A pessoa compra')","referral route");
+await waitFor("document.body.innerText.includes('Indique um novo comprador')","referral route");
 body=await text();
-assert.match(body,/Pix está em preparação/);
+assert.match(body,/Saldo disponível e saque são coisas diferentes/);
+assert.match(body,/R\$\s*24,00/);
 assert.match(body,/primeira compra qualificada/i);
 assert.match(body,/Compras repetidas do mesmo cliente não geram novas comissões/i);
 assert.equal(await evaluate("[...document.querySelectorAll('button')].some(b=>b.textContent.includes('Saque Pix ainda não disponível')&&b.disabled)"),true);
+await evaluate("document.querySelector('#ref-sim-clients').value='25'; document.querySelector('#ref-sim-ticket').value='150'; updateReferralSimulator()");
+assert.equal(await evaluate("document.querySelector('#ref-sim-total').textContent"),"R$ 75,00");
 await auditDom('refer');
 
 assert.deepEqual(pageErrors,[],`Chrome registrou erros: ${pageErrors.join(' | ')}`);
