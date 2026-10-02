@@ -1,4 +1,4 @@
-# Chama — Supabase backend v1.7.2
+# Chama — Supabase backend v1.7.3
 
 Backend multiusuário do Chama São Gabriel, isolado em projeto Supabase próprio.
 
@@ -12,6 +12,7 @@ Backend multiusuário do Chama São Gabriel, isolado em projeto Supabase própri
 - Secret/service role nunca existe no navegador.
 - O browser **não possui SELECT direto nas tabelas da aplicação**.
 - RLS permanece habilitado como defesa adicional, mas o data-plane do piloto é server-only.
+- Privilégios padrão de objetos futuros em `public` falham fechados para `anon/authenticated`, incluindo `MAINTAIN` do PostgreSQL 17.
 - Todas as projeções e mutações reais passam por Edge Functions autenticadas.
 - Valores monetários usam centavos inteiros.
 - Ledger financeiro é append-only com idempotency key.
@@ -39,7 +40,7 @@ O navegador recebe apenas projeções mínimas por Edge Function.
 6. `create-order` cria pedido em transação idempotente.
 7. `get-order` devolve projeção segura.
 8. `customer-action` trata cancelamento/requote.
-9. `customer-summary` devolve apenas saldos agregados + código de indicação.
+9. `customer-summary` devolve saldos agregados + código de indicação + referência mínima do pedido ativo para recuperação após falha de conexão.
 10. Cliente pode converter a conta anônima em permanente via `auth.updateUser({email})`.
 
 O runtime atual usa polling protegido em vez de assinatura direta de tabelas.
