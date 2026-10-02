@@ -12,6 +12,7 @@ import {
   enforceApiQuota
 } from "../_shared/domain.js";
 import {chooseOffers} from "../_shared/offer-ranking.js";
+import {effectiveUnitPrice} from "../_shared/pricing-policy.js";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
 const publishableKeys = JSON.parse(Deno.env.get("SUPABASE_PUBLISHABLE_KEYS") ?? "{}");
@@ -82,6 +83,10 @@ type CatalogRow = {
   product_code: string;
   product_name: string;
   price_cents: number;
+  pricing_mode: "fixed"|"range";
+  min_price_cents: number;
+  max_price_cents: number;
+  pricing_strategy: "volume"|"balanced"|"margin";
   available_stock: number;
   price_confirmed_at: string | null;
 };
@@ -162,13 +167,22 @@ Deno.serve(async (req: Request) => {
 
     const { data: catalog, error: catalogError } = await admin
       .from("catalog_items")
-      .select("merchant_id,product_code,product_name,price_cents,available_stock,price_confirmed_at")
+      .select("merchant_id,product_code,product_name,price_cents,pricing_mode,min_price_cents,max_price_cents,pricing_strategy,available_stock,price_confirmed_at")
       .in("merchant_id", compatibleIds)
       .in("product_code", productCodes)
       .eq("active", true)
       .gte("price_confirmed_at", priceCutoff);
 
     if (catalogError) throw catalogError;
+
+    const {data:loadRows,error:loadError}=await admin.rpc("merchant_offer_load",{
+      p_merchant_ids:compatibleIds
+    });
+    if(loadError)throw loadError;
+    const loadByMerchant=new Map(
+      ((loadRows??[]) as Array<{merchant_id:string;active_orders:number;recent_orders_7d:number}>)
+        .map((row)=>[row.merchant_id,row])
+    );
 
     const byMerchant = new Map<string, Map<string, CatalogRow>>();
     for (const row of (catalog ?? []) as CatalogRow[]) {
@@ -180,6 +194,9 @@ Deno.serve(async (req: Request) => {
     for (const merchant of compatibleMerchants) {
       const merchantCatalog = byMerchant.get(merchant.id);
       if (!merchantCatalog) continue;
+      const load=loadByMerchant.get(merchant.id);
+      const activeOrders=Number(load?.active_orders??0);
+      const recentOrders7d=Number(load?.recent_orders_7d??0);
 
       const snapshotItems: Candidate["items"] = [];
       let subtotal = 0;
@@ -192,13 +209,24 @@ Deno.serve(async (req: Request) => {
           break;
         }
 
-        const lineTotal = row.price_cents * requested.quantity;
+        const unitPriceCents=effectiveUnitPrice({
+          pricingMode:row.pricing_mode,
+          pricingStrategy:row.pricing_strategy,
+          minPriceCents:row.min_price_cents,
+          preferredPriceCents:row.price_cents,
+          maxPriceCents:row.max_price_cents,
+          availableStock:row.available_stock,
+          requestedQuantity:requested.quantity,
+          activeOrders,
+          recentOrders7d
+        });
+        const lineTotal = unitPriceCents * requested.quantity;
         subtotal += lineTotal;
         snapshotItems.push({
           productCode: requested.productCode,
           productName: row.product_name,
           quantity: requested.quantity,
-          unitPriceCents: row.price_cents,
+          unitPriceCents,
           lineTotalCents: lineTotal
         });
       }
@@ -217,26 +245,10 @@ Deno.serve(async (req: Request) => {
         totalCents: subtotal + fee,
         items: snapshotItems,
         rankScore: 0,
-        activeOrders:0,
-        recentOrders7d:0,
+        activeOrders,
+        recentOrders7d,
         recommendationScore:0
       });
-    }
-
-    if(candidates.length){
-      const {data:loadRows,error:loadError}=await admin.rpc("merchant_offer_load",{
-        p_merchant_ids:candidates.map((candidate)=>candidate.merchantId)
-      });
-      if(loadError)throw loadError;
-      const loadByMerchant=new Map(
-        ((loadRows??[]) as Array<{merchant_id:string;active_orders:number;recent_orders_7d:number}>)
-          .map((row)=>[row.merchant_id,row])
-      );
-      for(const candidate of candidates){
-        const load=loadByMerchant.get(candidate.merchantId);
-        candidate.activeOrders=Number(load?.active_orders??0);
-        candidate.recentOrders7d=Number(load?.recent_orders_7d??0);
-      }
     }
 
     const chosen = chooseOffers(candidates) as Array<{candidate:Candidate;label:string}>;
