@@ -123,7 +123,7 @@ function merchantLivePage(){
 
     ${manage?`<div class="card flat form-stack">
       <h3>Preço e estoque P13</h3>
-      <div class="field-row"><div class="input-wrap"><label for="live-p13-price">Preço</label><input id="live-p13-price" inputmode="decimal" type="number" min="0.01" max="999999" step="0.10" class="input" value="${p13?(Number(p13.priceCents||0)/100).toFixed(2):''}"></div><div class="input-wrap"><label for="live-p13-stock">Estoque disponível</label><input id="live-p13-stock" inputmode="numeric" type="number" min="0" max="100000" class="input" value="${p13?Number(p13.availableStock||0):0}"></div></div>
+      <div class="field-row"><div class="input-wrap"><label for="live-p13-price">Preço</label><input id="live-p13-price" inputmode="decimal" type="number" min="0.01" max="10000" step="0.10" class="input" value="${p13?(Number(p13.priceCents||0)/100).toFixed(2):''}"></div><div class="input-wrap"><label for="live-p13-stock">Estoque disponível</label><input id="live-p13-stock" inputmode="numeric" type="number" min="0" max="100000" class="input" value="${p13?Number(p13.availableStock||0):0}"></div></div>
       <button class="secondary" onclick="merchantLiveSaveP13()">Confirmar preço e estoque P13</button><button class="ghost" onclick="go('catalog')">Editar todos os produtos</button>
       <div class="divider"></div>
       <h3>Entrega</h3>
@@ -179,7 +179,7 @@ async function merchantLiveSaveProduct(code){
   const price=Number(document.getElementById('live-price-'+code)?.value);
   const stock=Number(document.getElementById('live-stock-'+code)?.value);
   const active=document.getElementById('live-active-'+code)?.checked===true;
-  if(!Number.isFinite(price)||price<=0||!Number.isInteger(stock)||stock<0)return toast('Revise preço e estoque de '+code);
+  if(!Number.isFinite(price)||price<=0||price>10000||!Number.isInteger(stock)||stock<0)return toast('Revise preço e estoque de '+code);
   try{
     await merchantUpdateProductLive(code,Math.round(price*100),stock,active);
     toast('Preço de '+code+' confirmado');
@@ -189,7 +189,7 @@ async function merchantLiveSaveProduct(code){
 async function merchantLiveSaveP13(){
   const price=Number(document.querySelector('#live-p13-price')?.value);
   const stock=Number(document.querySelector('#live-p13-stock')?.value);
-  if(!Number.isFinite(price)||price<=0||!Number.isInteger(stock)||stock<0)return toast('Revise preço e estoque');
+  if(!Number.isFinite(price)||price<=0||price>10000||!Number.isInteger(stock)||stock<0)return toast('Revise preço e estoque');
   try{await merchantUpdateProductLive('P13',Math.round(price*100),stock,true);toast('Preço e estoque confirmados')}catch(e){toast(String(e?.message||e))}
 }
 async function merchantLiveSaveLogistics(){
@@ -345,7 +345,7 @@ function merchantLiveCatalog(){
     const icon=products[item.productCode]?.icon||(/^P([1-9][0-9]?)$/.test(item.productCode)?'🔥':'📦');
     return `<div class="card flat form-stack" style="margin-bottom:12px">
       <div class="status-bar"><div class="product-left"><div class="product-icon">${icon}</div><div><strong>${esc(item.productName)}</strong><br><small>${esc(item.productCode)} • ${item.priceConfirmedAt?'confirmado '+new Date(item.priceConfirmedAt).toLocaleString('pt-BR'):'nunca confirmado'}</small></div></div><span class="status-pill ${statusClass}">${status}</span></div>
-      <div class="field-row"><div class="input-wrap"><label for="live-price-${item.productCode}">Preço</label><input id="live-price-${item.productCode}" inputmode="decimal" type="number" min="0.01" max="999999" step="0.10" class="input" value="${item.priceCents>0?(item.priceCents/100).toFixed(2):''}"></div><div class="input-wrap"><label for="live-stock-${item.productCode}">Estoque</label><input id="live-stock-${item.productCode}" inputmode="numeric" type="number" min="0" max="100000" class="input" value="${item.availableStock}"></div></div>
+      <div class="field-row"><div class="input-wrap"><label for="live-price-${item.productCode}">Preço</label><input id="live-price-${item.productCode}" inputmode="decimal" type="number" min="0.01" max="10000" step="0.10" class="input" value="${item.priceCents>0?(item.priceCents/100).toFixed(2):''}"></div><div class="input-wrap"><label for="live-stock-${item.productCode}">Estoque</label><input id="live-stock-${item.productCode}" inputmode="numeric" type="number" min="0" max="100000" class="input" value="${item.availableStock}"></div></div>
       <label class="check-row"><input id="live-active-${item.productCode}" type="checkbox" ${item.active?'checked':''}><span><strong>Produto ativo</strong><small>Somente itens ativos e com estoque participam das ofertas.</small></span></label>
       <button class="secondary" onclick="merchantLiveSaveProduct('${item.productCode}')">Salvar e confirmar este preço</button>
     </div>`;
@@ -356,7 +356,7 @@ function merchantLiveCatalog(){
     <p class="muted tiny">Códigos P1 a P90 seguem automaticamente as regras regulatórias e logísticas de GLP.</p>
     <div class="field-row">
       <div class="input-wrap"><label for="live-new-glp-code">Código</label><input id="live-new-glp-code" class="input" maxlength="3" placeholder="P20"></div>
-      <div class="input-wrap"><label for="live-new-glp-price">Preço</label><input id="live-new-glp-price" inputmode="decimal" type="number" min="0.01" max="999999" step="0.10" class="input" placeholder="0,00"></div>
+      <div class="input-wrap"><label for="live-new-glp-price">Preço</label><input id="live-new-glp-price" inputmode="decimal" type="number" min="0.01" max="10000" step="0.10" class="input" placeholder="0,00"></div>
       <div class="input-wrap"><label for="live-new-glp-stock">Estoque</label><input id="live-new-glp-stock" inputmode="numeric" type="number" min="0" max="100000" class="input" value="0"></div>
     </div>
     <button class="primary" onclick="merchantLiveAddGlp()">Adicionar e confirmar</button>
