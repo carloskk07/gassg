@@ -526,3 +526,22 @@ assert.match(closedWorldWallet,/wallet_entries_bucket_entry_type_check/,'bucket 
 assert.match(closedWorldWallet,/wallet_entries_sign_check/,'sinal do lançamento precisa ser coerente com entry_type');
 
 console.log('Closed-world wallet ledger contract passou.');
+
+
+const cashbackOffset=fs.readFileSync(
+  new URL('../supabase/migrations/20261001160000_cashback_reversal_offset.sql',import.meta.url),
+  'utf8'
+).replace(/--.*$/gm,'').replace(/\s+/g,' ').toLowerCase();
+
+assert.match(cashbackOffset,/create or replace function public\.cashback_position/,'saldo efetivo de cashback precisa de autoridade única');
+assert.match(cashbackOffset,/entry_type<>'cashback_reversal'/,'posição deve ignorar reversals legados para não contar clawback duas vezes');
+assert.match(cashbackOffset,/g\.reversed_at is not null[\s\S]*g\.cashback_cents>0/,'dívida deve nascer de grants financeiramente revertidos');
+assert.match(cashbackOffset,/'spendablecents',greatest\(0,v_net\)/,'saldo gastável nunca pode ficar negativo');
+assert.match(cashbackOffset,/'debtcents',greatest\(0,-v_net\)/,'passivo de cashback deve ficar explícito');
+assert.match(cashbackOffset,/cashback-user:/,'uso e reversão de cashback precisam serializar por usuário');
+assert.match(cashbackOffset,/create_order_from_quote[\s\S]*public\.cashback_position\(p_user_id\)/,'checkout deve usar saldo efetivo, não saldo bruto do ledger');
+assert.match(cashbackOffset,/customer_financial_summary[\s\S]*cashbackdebtcents/,'resumo financeiro deve expor compensação agregada');
+assert.doesNotMatch(cashbackOffset,/'cashback','cashback_reversal'/,'nova reversão financeira não pode gerar saldo negativo no wallet');
+assert.match(cashbackOffset,/cashbackclawbackmode','effective_balance_offset'/,'evento de reversão deve registrar modo de clawback');
+
+console.log('Cashback reversal offset v1.20.2 contract passou.');
