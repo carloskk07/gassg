@@ -27,6 +27,23 @@ Esses exemplos:
 
 A suíte de testes mantém um marketplace sintético completo apenas quando injeta `globalThis.__CHAMA_TEST__=true`. A build normal não oferece esse caminho.
 
+## Estado atual — v1.29 internal full pilot
+
+Como o Chama ainda não está sendo divulgado e não possui domínio próprio, o GitHub Pages passou a funcionar como **laboratório interno completo**, sem abrir comércio real.
+
+- somente no host `carloskk07.github.io/gassg/`, o runtime ativa `CHAMA_INTERNAL_PILOT`;
+- esse modo usa o motor de simulação já auditado e **não chama create-order real**;
+- o único fornecedor do cenário é **Gas e Lenheira do JR — SIMULAÇÃO**;
+- P13 começa em **R$ 115,90 entregue**, único dado comercial carregado da conversa real;
+- estoque, ETA, distância e trust são marcados como simulados e editáveis;
+- cliente e revenda percorrem o fluxo inteiro: pedido → aceite → preparação → saída → chegada → pagamento → código → settlement → cashback;
+- com um único fornecedor, a UI mostra **Disponível agora** e não inventa concorrência;
+- a simulação não altera `merchants`, estoque, pedidos ou financeiro do Supabase real;
+- GitHub Pages permanece proibido como origem live de customer/merchant/admin;
+- a página recebe `noindex,nofollow,noarchive,nosnippet` e `robots.txt: Disallow: /` enquanto estiver em pré-lançamento.
+
+O CI possui um segundo E2E específico para esse cenário e prova o fluxo JR até settlement e cashback.
+
 ## Estado atual — v1.28 first real merchant pilot
 
 A v1.28 prepara a transição do pré-lançamento para o primeiro piloto operacional real.
