@@ -79,7 +79,9 @@ jobs:
           grep -q "O que você precisa e onde devemos entregar" /tmp/order.html
           grep -q "Clube Chama" /tmp/club.html
           grep -q "Indique um novo comprador" /tmp/refer.html
-          grep -q "Transforme capacidade de entrega em novas vendas" /tmp/merchants.html\n          grep -q "SIMULADOR DE MARGEM INCREMENTAL" /tmp/merchants.html\n          grep -q "PARCEIRO FUNDADOR" /tmp/merchants.html
+          grep -q "Transforme capacidade de entrega em novas vendas" /tmp/merchants.html
+          grep -q "SIMULADOR DE MARGEM INCREMENTAL" /tmp/merchants.html
+          grep -q "PARCEIRO FUNDADOR" /tmp/merchants.html
           grep -q "Acesso operacional real" /tmp/merchant.html
           ! grep -q "PAINEL DA REVENDA — DEMONSTRAÇÃO" /tmp/merchant.html
           ! grep -q "Revenda Parceira A" /tmp/merchant.html
