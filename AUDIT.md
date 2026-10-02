@@ -699,3 +699,89 @@ O server-domain possui simulações determinísticas para:
 A v1.28 prepara o piloto, mas a primeira compra real continua bloqueada até cadastrar e comprovar os dados reais do parceiro e as origens/Auth/Turnstile necessários.
 
 Nenhum dado jurídico ou regulatório foi inferido a partir da relação pessoal com o proprietário.
+
+
+---
+
+# Auditoria v1.29 — Internal Full Pilot
+
+## Objetivo
+
+Usar o GitHub Pages, ainda sem divulgação e sem domínio próprio, como ambiente de validação operacional completa sem transformar a prévia em comércio real.
+
+## Isolamento
+
+O modo interno é ativado apenas quando:
+
+- hostname = `carloskk07.github.io`;
+- path começa por `/gassg/`.
+
+Nesse ambiente:
+
+- `CHAMA_INTERNAL_PILOT=true`;
+- o motor de simulação é ativado;
+- customer live permanece desligado;
+- merchant/admin live continuam proibidos na origem compartilhada;
+- nenhuma Edge Function de criação de pedido é usada pelo fluxo simulado.
+
+## Cenário JR
+
+O seed interno possui apenas:
+
+- parceiro: `Gas e Lenheira do JR — SIMULAÇÃO`;
+- P13: R$ 115,90;
+- entrega: incluída;
+- demais parâmetros (estoque, ETA, distância, trust): explicitamente simulados.
+
+Nenhum CNPJ/ANP ou dado jurídico é inventado.
+
+## Fluxo testável
+
+A prévia permite exercitar ponta a ponta:
+
+1. cliente escolhe P13;
+2. informa endereço;
+3. recebe uma única opção “Disponível agora”;
+4. cria pedido local;
+5. alterna para painel da revenda;
+6. aceita;
+7. confirma saída;
+8. confirma chegada;
+9. cliente visualiza código;
+10. revenda confirma pagamento + código;
+11. pedido liquida;
+12. cashback simulado é creditado.
+
+## Anti-confusão
+
+A UX exibe em múltiplos pontos:
+
+- “PILOTO INTERNO — SEM PEDIDOS REAIS”;
+- “Simulação operacional”;
+- “Sem validação jurídica nesta tela”;
+- nome da revenda com sufixo “SIMULAÇÃO”;
+- aviso de que nenhuma ação gera venda, cobrança, entrega ou baixa de estoque real.
+
+## Não divulgação
+
+Enquanto o ambiente for interno:
+
+- meta robots = `noindex,nofollow,noarchive,nosnippet`;
+- `robots.txt` bloqueia todo crawling;
+- GitHub Pages não recebe customer/merchant/admin origin;
+- Turnstile/live auth continuam reservados para a futura origem dedicada.
+
+## Prova automatizada
+
+O Chrome E2E agora executa o fluxo padrão e, em seguida, ativa o cenário JR e prova:
+
+- exatamente 1 merchant simulado;
+- ID `JR-PILOT`;
+- preço P13 = 115.90;
+- uma única oferta;
+- role `Disponível agora`;
+- ausência do rótulo “Parceiro local verificado” no piloto;
+- aceite, despacho, chegada, PIN, pagamento e settlement;
+- cashback final de R$ 1,15.
+
+Esse modo pode ser removido ou convertido em staging dedicado quando os domínios/origens reais forem criados.
