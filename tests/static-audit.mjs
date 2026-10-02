@@ -87,7 +87,7 @@ assert.ok(growth.includes('Saque Pix ainda não disponível')&&growth.includes('
 assert.ok(growth.includes('Você continua no controle'),'landing de revenda deve enfatizar autonomia operacional');
 assert.ok(core.includes("['earn','💰','Ganhe','go']"),'navegação móvel precisa dar acesso direto ao hub de renda');
 assert.ok(!growth.includes('inputmode="numeric" maxlength="18"'),'campo CNPJ não pode forçar teclado somente numérico após adoção do CNPJ alfanumérico');
-assert.ok(sw.includes("CACHE='chama-sg-v1.30'"),'cache do service worker precisa estar versionado');
+assert.ok(sw.includes("CACHE='chama-sg-v1.31'"),'cache do service worker precisa estar versionado');
 assert.ok(sw.includes("./js/backend.js"),'runtime live precisa estar no cache da PWA');
 assert.ok(sw.includes("./js/runtime-config.js"),'configuração pública de origins precisa estar no cache da PWA');
 assert.ok(sw.includes("./js/turnstile.js"),'helper local do Turnstile precisa estar no cache da PWA');
@@ -209,6 +209,10 @@ assert.ok(read('supabase/functions/merchant-orders/index.ts').includes('merchant
 assert.ok(merchant.includes('Compliance vigente.'),'painel deve mostrar compliance vigente');
 assert.ok(merchant.includes('Revalidação necessária antes de operar.'),'painel deve explicar compliance vencido');
 assert.ok(merchant.includes('canGoOnline'),'botão online deve considerar compliance e confirmação comercial');
+assert.ok(merchant.includes("m.acceptsCitywide!==false"),'UI não pode permitir ONLINE quando a área atendida do piloto está desativada');
+assert.ok(merchant.includes('atendimento em São Gabriel desativado'),'painel deve explicar por que a operação não pode voltar online');
+assert.ok(merchantOpsSource.includes('DELIVERY_AREA_REQUIRED'),'backend deve bloquear ONLINE sem atendimento em São Gabriel no piloto');
+assert.ok(merchantOpsSource.includes('if(!acceptsCitywide)logisticsPatch.online=false'),'desativar a área do piloto deve pausar novos pedidos atomicamente');
 
 
 
@@ -219,17 +223,19 @@ assert.ok(backend.includes("buildPortalHref(globalThis.CHAMA_MERCHANT_ORIGIN,'me
 assert.ok(backend.includes("buildPortalHref(globalThis.CHAMA_CUSTOMER_ORIGIN,'customer')"),'retorno ao cliente precisa navegar para a origem dedicada configurada');
 assert.ok(admin.includes("buildPortalHref?.(globalThis.CHAMA_ADMIN_ORIGIN,'admin')"),'entrada administrativa precisa navegar para a origem dedicada configurada');
 assert.ok(!backend.includes("const url=new URL(location.href);\n  url.search='';\n  url.searchParams.set('merchant','1')"),'portal merchant não pode reutilizar cegamente a origem atual');
-for(const fn of ['merchant-orders','merchant-action','merchant-ops','complete-delivery']){
+for(const fn of ['merchant-orders','merchant-action','merchant-ops','complete-delivery','submit-merchant-application']){
   const source=read('supabase/functions/'+fn+'/index.ts');
   assert.ok(source.includes('MERCHANT_ALLOWED_ORIGIN'),fn+' precisa exigir origem dedicada');
   assert.ok(!source.includes('const PROD_ORIGIN="https://carloskk07.github.io"'),fn+' não pode confiar no GitHub Pages compartilhado');
 }
+assert.ok(read('supabase/functions/submit-merchant-application/index.ts').includes('MERCHANT_ALLOWED_ORIGIN'),'cadastro de empresa deve aceitar a origem dedicada da revenda, não a origem do cliente');
+assert.ok(!read('supabase/functions/submit-merchant-application/index.ts').includes('CUSTOMER_ALLOWED_ORIGIN'),'cadastro de empresa não pode ficar preso à origem do cliente');
 assert.ok(read('supabase/functions/get-order/index.ts').includes('MERCHANT_ORIGIN_REQUIRED'),'leitura individual da revenda deve exigir origem dedicada');
 assert.ok(read('supabase/functions/get-order/index.ts').includes('merchantOriginAllowed'),'get-order precisa distinguir origem cliente de origem merchant');
 assert.ok(merchant.includes('Origem da revenda não isolada'),'UI deve explicar o bloqueio de origem da revenda');
 assert.ok(backend.includes('customerOriginSafe'),'frontend cliente live precisa bloquear origem compartilhada');
 assert.ok(backend.includes('CHAMA_CUSTOMER_ORIGIN'),'origem dedicada do cliente precisa ser configurável');
-for(const fn of ['get-offers','create-order','customer-action','customer-summary','market-status','submit-merchant-application']){
+for(const fn of ['get-offers','create-order','customer-action','customer-summary','market-status']){
   const source=read('supabase/functions/'+fn+'/index.ts');
   assert.ok(source.includes('CUSTOMER_ALLOWED_ORIGIN'),fn+' precisa exigir origem dedicada do cliente');
   assert.ok(!source.includes('carloskk07.github.io'),fn+' não pode confiar na origem compartilhada do GitHub Pages');
@@ -285,6 +291,11 @@ assert.ok(merchantOrdersSource.includes('deliveryFeeConfirmedAt:merchant.deliver
 assert.ok(merchant.includes('merchantLiveSaveProduct'),'painel live precisa editar/reconfirmar múltiplos SKUs');
 assert.ok(merchant.includes('Cada SKU possui sua própria confirmação de preço'),'UI precisa explicar freshness independente');
 assert.ok(backend.includes('return result;'),'runtime da revenda precisa devolver o resultado real da ação');
+assert.ok(backend.includes('function retryAmbiguousOnce(operation)'),'runtime precisa centralizar retry de falhas de transporte ambíguas');
+assert.ok(backend.includes("const idempotencyKey=liveIdempotency('customer-action')")&&backend.includes("()=>liveInvoke('customer-action'"),'ação do cliente precisa reutilizar a mesma chave idempotente no retry');
+assert.ok(backend.includes("const idempotencyKey=liveIdempotency('merchant-action')")&&backend.includes("()=>merchantInvoke('merchant-action'"),'ação operacional da revenda precisa reutilizar a mesma chave idempotente no retry');
+assert.ok(backend.includes("const idempotencyKey=liveIdempotency('complete-delivery')"),'conclusão de entrega precisa fixar a chave antes do retry');
+assert.ok(admin.includes("const idempotencyKey=adminIdempotency('admin-'+action)")&&admin.includes('globalThis.retryAmbiguousOnce'),'mutações administrativas precisam reaproveitar a mesma chave no retry');
 assert.ok(merchant.includes('result?.autoRescued'),'UI da revenda precisa distinguir aceite real de rescue automático');
 assert.ok(merchant.includes('stock_changed_before_accept'),'UI deve explicar corrida de estoque sem falso aceite');
 
@@ -409,6 +420,11 @@ assert.ok(growth.includes('Novos créditos reduzem essa compensação'),'UI deve
 
 console.log('Cashback compensation projection audit passou.');
 
+const sequenceHardening=read('supabase/migrations/20261002200242_server_only_sequence_and_pilot_fk_hardening.sql').toLowerCase();
+assert.ok(sequenceHardening.includes('revoke all on all sequences in schema public from anon, authenticated'),'sequências existentes devem ser fechadas para browser');
+assert.ok(sequenceHardening.includes('pilot_partner_drafts_merchant_idx'),'FK do staging para merchant precisa de índice de cobertura');
+assert.ok(schema.includes('revoke all on all sequences in schema public from anon, authenticated'),'baseline deve fechar sequências legadas além dos defaults futuros');
+
 const pilotMigration=read('supabase/migrations/20261002183357_first_real_merchant_pilot.sql');
 assert.ok(pilotMigration.includes('create table if not exists public.pilot_partner_drafts'),'piloto precisa de staging server-only antes do cadastro real');
 assert.ok(pilotMigration.includes("'Gas e Lenheira do JR','P13',11590"),'rascunho do primeiro parceiro precisa registrar somente os dados comerciais informados');
@@ -416,6 +432,11 @@ assert.ok(pilotMigration.includes("'proposed','awaiting_legal_data'"),'preço in
 assert.ok(!pilotMigration.includes('insert into public.merchants('),'migration de staging não pode fabricar merchant/CNPJ');
 assert.ok(pilotMigration.includes('revoke all on table public.pilot_partner_drafts from public, anon, authenticated'),'rascunho comercial não pode ficar acessível no browser');
 assert.ok(pilotMigration.includes('revoke all on function public.merchant_offer_load(uuid[]) from public, anon, authenticated'),'sinal de distribuição deve permanecer server-only');
+const merchantApplicationSource=read('supabase/functions/submit-merchant-application/index.ts');
+assert.ok(merchantApplicationSource.includes('existing?.status==="approved"'),'cadastro aprovado não pode ser reaberto silenciosamente');
+assert.ok(merchantApplicationSource.includes('resubmitted:existing.status==="rejected"'),'cadastro rejeitado deve poder ser corrigido e reenviado');
+assert.ok(merchantApplicationSource.includes('retryExisting?.status==="pending"'),'retry após ACK perdido deve recuperar cadastro pendente do mesmo solicitante');
+assert.ok(merchant.includes('Cadastro recebido.')&&merchant.includes('Cadastrar / atualizar empresa'),'feedback de onboarding deve persistir após o toast');
 
 console.log('First merchant pilot safety audit passou.');
 
