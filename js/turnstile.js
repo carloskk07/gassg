@@ -12,16 +12,35 @@
     if(scriptPromise)return scriptPromise;
 
     scriptPromise=new Promise((resolve,reject)=>{
+      document.querySelectorAll('script[data-chama-turnstile-api]').forEach(node=>node.remove());
       const script=document.createElement('script');
+      let settled=false;
+      const timer=setTimeout(()=>finish(false,new Error('Tempo limite ao carregar a verificação anti-bot')),12000);
+
+      function finish(ok,value){
+        if(settled)return;
+        settled=true;
+        clearTimeout(timer);
+        script.onload=null;
+        script.onerror=null;
+        if(!ok){
+          script.remove();
+          scriptPromise=null;
+          reject(value);
+          return;
+        }
+        resolve(value);
+      }
+
       script.src='https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit';
       script.async=true;
       script.defer=true;
-      script.dataset.chamaTurnstile='1';
+      script.dataset.chamaTurnstileApi='1';
       script.onload=()=>{
-        if(globalThis.turnstile?.render)resolve(globalThis.turnstile);
-        else reject(new Error('Turnstile não inicializou'));
+        if(globalThis.turnstile?.render)finish(true,globalThis.turnstile);
+        else finish(false,new Error('Turnstile não inicializou'));
       };
-      script.onerror=()=>reject(new Error('Falha ao carregar a verificação anti-bot'));
+      script.onerror=()=>finish(false,new Error('Falha ao carregar a verificação anti-bot'));
       document.head.appendChild(script);
     });
     return scriptPromise;
