@@ -511,3 +511,18 @@ assert.match(financialIntegrityV120,/before insert or update of order_id,merchan
 assert.match(financialIntegrityV120,/before insert or update of order_id,merchant_id,cashback_cents,due_at/,'fatos do reembolso devem ser protegidos por trigger');
 
 console.log('Financial fact integrity v1.20 contract passou.');
+
+
+const closedWorldWallet=fs.readFileSync(
+  new URL('../supabase/migrations/20261001159000_closed_world_wallet_ledger.sql',import.meta.url),
+  'utf8'
+).replace(/--.*$/gm,'').replace(/\s+/g,' ').toLowerCase();
+
+assert.doesNotMatch(closedWorldWallet,/manual_adjustment/,'ledger não pode aceitar ajuste manual sem autoridade dedicada');
+assert.doesNotMatch(closedWorldWallet,/commission_withdrawal/,'ledger não pode aceitar saque sem autoridade dedicada');
+assert.match(closedWorldWallet,/wallet_entries_order_provenance_check/,'lançamento econômico precisa de vínculo com pedido');
+assert.match(closedWorldWallet,/entry_type='cashback_seed' or order_id is not null/,'somente seed pode existir sem pedido');
+assert.match(closedWorldWallet,/wallet_entries_bucket_entry_type_check/,'bucket precisa ser coerente com entry_type');
+assert.match(closedWorldWallet,/wallet_entries_sign_check/,'sinal do lançamento precisa ser coerente com entry_type');
+
+console.log('Closed-world wallet ledger contract passou.');
