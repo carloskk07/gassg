@@ -56,6 +56,8 @@ jobs:
           done
       - name: Marketplace simulations
         run: node tests/simulations.mjs
+      - name: Expert deterministic fuzz
+        run: node tests/expert-fuzz.mjs
       - name: Static trust and asset audit
         run: node tests/static-audit.mjs
       - name: Runtime origin config contract
