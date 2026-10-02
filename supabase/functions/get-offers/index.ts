@@ -139,8 +139,7 @@ Deno.serve(async (req: Request) => {
       .eq("online", true)
       .eq("accepts_citywide", true)
       .gte("delivery_fee_confirmed_at", priceCutoff)
-      .gte("last_seen_at", heartbeatCutoff)
-      .limit(40);
+      .gte("last_seen_at", heartbeatCutoff);
 
     if (merchantError) throw merchantError;
     if (!merchants?.length) return json({ offers: [] }, 200, origin);

@@ -43,7 +43,7 @@ create table if not exists public.catalog_items (
   merchant_id uuid not null references public.merchants(id) on delete cascade,
   product_code text not null check (product_code in ('WATER20','CHARCOAL4','WOOD','ICE5') or product_code ~ '^P([1-9]|[1-8][0-9]|90)$'),
   product_name text not null,
-  price_cents integer not null check (price_cents > 0),
+  price_cents integer not null check (price_cents between 1 and 1000000),
   available_stock integer not null default 0 check (available_stock >= 0),
   active boolean not null default true,
   updated_at timestamptz not null default now(),
@@ -69,7 +69,7 @@ create table if not exists public.quote_items (
   product_code text not null check (product_code in ('WATER20','CHARCOAL4','WOOD','ICE5') or product_code ~ '^P([1-9]|[1-8][0-9]|90)$'),
   product_name text not null,
   quantity integer not null check (quantity between 1 and 99),
-  unit_price_cents integer not null check (unit_price_cents > 0),
+  unit_price_cents integer not null check (unit_price_cents between 1 and 1000000),
   line_total_cents integer not null check (line_total_cents = quantity * unit_price_cents),
   primary key (quote_id,product_code)
 );
@@ -157,7 +157,7 @@ create table if not exists public.order_items (
   product_code text not null check (product_code in ('WATER20','CHARCOAL4','WOOD','ICE5') or product_code ~ '^P([1-9]|[1-8][0-9]|90)$'),
   product_name text not null,
   quantity integer not null check (quantity between 1 and 99),
-  unit_price_cents integer not null check (unit_price_cents > 0),
+  unit_price_cents integer not null check (unit_price_cents between 1 and 1000000),
   line_total_cents integer not null check (line_total_cents = quantity * unit_price_cents),
   primary key (order_id,product_code)
 );
@@ -329,6 +329,8 @@ grant all on table
   public.action_requests
 to service_role;
 
+-- Close sequences that may have been created before the default-ACL lockdown.
+revoke all on all sequences in schema public from anon, authenticated;
 grant usage, select on all sequences in schema public to service_role;
 
 -- Future public objects must fail closed as well. PostgreSQL 17 includes MAINTAIN

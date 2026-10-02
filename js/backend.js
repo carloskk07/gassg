@@ -34,6 +34,20 @@ async function chamaFetch(input,init={},timeoutMs=CHAMA_NETWORK_TIMEOUT_MS){
   }
 }
 
+function isAmbiguousTransportError(error){
+  return error?.code==='NETWORK_TIMEOUT'
+    || error instanceof TypeError
+    || (Number.isFinite(Number(error?.status))&&Number(error.status)>=500);
+}
+async function retryAmbiguousOnce(operation){
+  try{return await operation()}
+  catch(firstError){
+    if(!isAmbiguousTransportError(firstError))throw firstError;
+    await new Promise(resolve=>setTimeout(resolve,250));
+    return operation();
+  }
+}
+
 const customerPortalParams=new URLSearchParams(location.search);
 const liveRuntime={
   requested:globalThis.__CHAMA_TEST__===true
@@ -58,7 +72,10 @@ const liveRuntime={
   lastFinancialSyncAttemptAt:0,
   lastSyncAt:null,
   offerRequestSeq:0,
-  orderRequestSeq:0
+  orderRequestSeq:0,
+  financialSyncSeq:0,
+  marketStatusSeq:0,
+  pollPending:false
 };
 
 function customerOriginSafe(){
@@ -365,15 +382,9 @@ async function liveCreateOrder(quoteId){
     referralCode:state.user.referredBy||null
   };
   try{
-    let result;
-    try{
-      result=await liveInvoke('create-order',payload,{idempotencyKey});
-    }catch(firstError){
-      const ambiguous=firstError?.code==='NETWORK_TIMEOUT'||firstError instanceof TypeError||Number(firstError?.status)>=500;
-      if(!ambiguous)throw firstError;
-      await new Promise(resolve=>setTimeout(resolve,250));
-      result=await liveInvoke('create-order',payload,{idempotencyKey});
-    }
+    const result=await retryAmbiguousOnce(
+      ()=>liveInvoke('create-order',payload,{idempotencyKey})
+    );
 
     liveRuntime.orderId=result.orderId;
     localStorage.setItem(CHAMA_BACKEND.orderStorageKey,result.orderId);
@@ -432,11 +443,12 @@ async function liveCustomerAction(action){
   liveRuntime.actionPending=true;
   render();
   try{
-    await liveInvoke('customer-action',{
+    const idempotencyKey=liveIdempotency('customer-action');
+    await retryAmbiguousOnce(()=>liveInvoke('customer-action',{
       orderId:order.orderId,
       action,
       expectedVersion:order.version
-    },{idempotencyKey:liveIdempotency('customer-action')});
+    },{idempotencyKey}));
     await liveGetOrder(order.orderId,{silent:true});
     toast(action==='accept-requote'?'Nova condição aceita':'Pedido cancelado');
   }catch(error){
@@ -467,8 +479,10 @@ async function liveSyncFinancialProfile({force=false}={}){
     cashEarningEligible:state.user.cashEarningEligible,
     identityType:state.user.identityType
   });
+  const seq=++liveRuntime.financialSyncSeq;
   try{
     const summary=await liveInvoke('customer-summary',{});
+    if(seq!==liveRuntime.financialSyncSeq)return false;
     if(summary?.referralCode)state.user.referralCode=String(summary.referralCode).slice(0,40);
     state.user.cashback=Math.max(0,Number(summary?.cashbackCents||0)/100);
     state.user.cashbackDebt=Math.max(0,Number(summary?.cashbackDebtCents||0)/100);
@@ -524,7 +538,9 @@ async function liveSyncMarketStatus({force=false}={}){
   if(!liveReady())return null;
   const now=Date.now();
   if(!force&&liveRuntime.marketStatus&&now-liveRuntime.lastMarketStatusAt<60000)return liveRuntime.marketStatus;
+  const seq=++liveRuntime.marketStatusSeq;
   const data=await liveInvoke('market-status',{});
+  if(seq!==liveRuntime.marketStatusSeq)return liveRuntime.marketStatus;
   liveRuntime.marketStatus={
     realSupplyConfigured:data?.realSupplyConfigured===true,
     configuredMerchantCount:Math.max(0,Number(data?.configuredMerchantCount||0)),
@@ -548,36 +564,41 @@ function prelaunchExamplesEnabled(){
 }
 
 async function livePoll(){
-  if(!liveReady()||liveRuntime.actionPending||document.visibilityState==='hidden')return;
-  let changed=false;
+  if(!liveReady()||liveRuntime.actionPending||liveRuntime.pollPending||document.visibilityState==='hidden')return;
+  liveRuntime.pollPending=true;
   try{
-    const before=JSON.stringify(liveRuntime.marketStatus);
-    await liveSyncMarketStatus();
-    changed=before!==JSON.stringify(liveRuntime.marketStatus);
-  }catch{}
-  try{
-    changed=(await liveSyncFinancialProfile())||changed;
-  }catch{}
-  if(!liveRuntime.orderId){
-    if(changed)render();
-    return;
-  }
-  if(["SETTLED","CANCELLED"].includes(liveRuntime.order?.status)){
-    if(changed)render();
-    return;
-  }
-  try{
-    await liveGetOrder(liveRuntime.orderId,{silent:true});
-    render();
-  }catch(error){
-    if(error?.status===404){
-      localStorage.removeItem(CHAMA_BACKEND.orderStorageKey);
-      liveRuntime.orderId=null;
-      liveRuntime.order=null;
-      render();
-    }else if(changed){
-      render();
+    let changed=false;
+    try{
+      const before=JSON.stringify(liveRuntime.marketStatus);
+      await liveSyncMarketStatus();
+      changed=before!==JSON.stringify(liveRuntime.marketStatus);
+    }catch{}
+    try{
+      changed=(await liveSyncFinancialProfile())||changed;
+    }catch{}
+    if(!liveRuntime.orderId){
+      if(changed)render();
+      return;
     }
+    if(["SETTLED","CANCELLED"].includes(liveRuntime.order?.status)){
+      if(changed)render();
+      return;
+    }
+    try{
+      await liveGetOrder(liveRuntime.orderId,{silent:true});
+      render();
+    }catch(error){
+      if(error?.status===404){
+        localStorage.removeItem(CHAMA_BACKEND.orderStorageKey);
+        liveRuntime.orderId=null;
+        liveRuntime.order=null;
+        render();
+      }else if(changed){
+        render();
+      }
+    }
+  }finally{
+    liveRuntime.pollPending=false;
   }
 }
 
@@ -598,7 +619,9 @@ const merchantRuntime={
   accessReason:null,
   heartbeatError:null,
   lastSyncAt:null,
-  lastHeartbeatAt:0
+  lastHeartbeatAt:0,
+  refreshSeq:0,
+  pollPending:false
 };
 
 function merchantOriginSafe(){
@@ -735,11 +758,13 @@ async function merchantSignOut(){
 
 async function merchantRefresh({silent=false,recoverSelection=true}={}){
   if(!merchantRuntime.client)return null;
+  const seq=++merchantRuntime.refreshSeq;
   if(!silent)render();
   try{
     const body={};
     if(merchantRuntime.selectedMerchantId)body.merchantId=merchantRuntime.selectedMerchantId;
     const data=await merchantInvoke('merchant-orders',body);
+    if(seq!==merchantRuntime.refreshSeq)return data;
     merchantRuntime.merchant=data.merchant??null;
     merchantRuntime.memberships=data.memberships??[];
     merchantRuntime.catalog=data.catalog??[];
@@ -752,6 +777,7 @@ async function merchantRefresh({silent=false,recoverSelection=true}={}){
     merchantRuntime.lastSyncAt=new Date().toISOString();
     return data;
   }catch(error){
+    if(seq!==merchantRuntime.refreshSeq)return null;
     const staleSelected=Boolean(merchantRuntime.selectedMerchantId)
       && error?.status===403
       && ['MERCHANT_ACCESS_DENIED','MERCHANT_ROLE_NOT_ENABLED'].includes(error?.code);
@@ -807,7 +833,10 @@ async function merchantPerformAction(orderId,action,reason='other_operational'){
   try{
     const body={orderId,action,expectedVersion:order.version};
     if(action==='cannot-fulfill')body.reason=reason;
-    const result=await merchantInvoke('merchant-action',body,{idempotencyKey:liveIdempotency('merchant-action')});
+    const idempotencyKey=liveIdempotency('merchant-action');
+    const result=await retryAmbiguousOnce(
+      ()=>merchantInvoke('merchant-action',body,{idempotencyKey})
+    );
     await merchantRefresh({silent:true});
     return result;
   }catch(error){
@@ -830,12 +859,13 @@ async function merchantCompleteDeliveryLive(orderId,pin,paymentConfirmed){
   merchantRuntime.error=null;
   render();
   try{
-    const result=await merchantInvoke('complete-delivery',{
+    const idempotencyKey=liveIdempotency('complete-delivery');
+    const result=await retryAmbiguousOnce(()=>merchantInvoke('complete-delivery',{
       orderId,
       pin:String(pin),
       expectedVersion:order.version,
       paymentConfirmed:true
-    },{idempotencyKey:liveIdempotency('complete-delivery')});
+    },{idempotencyKey}));
     if(result?.ok===false)throw Object.assign(new Error(result.error==='PIN_LOCKED'?'PIN bloqueado. Abra suporte.':'PIN incorreto.'),{code:result.error});
     await merchantRefresh({silent:true});
   }catch(error){
@@ -853,7 +883,9 @@ async function merchantSetOnlineLive(online){
   if(!merchantId)throw new Error('Revenda não selecionada');
   merchantRuntime.actionPending=true;render();
   try{
-    await merchantInvoke('merchant-ops',{merchantId,action:'set-online',online:online===true});
+    await retryAmbiguousOnce(
+      ()=>merchantInvoke('merchant-ops',{merchantId,action:'set-online',online:online===true})
+    );
     await merchantRefresh({silent:true});
   }finally{
     merchantRuntime.actionPending=false;render();
@@ -865,10 +897,10 @@ async function merchantUpdateProductLive(productCode,priceCents,availableStock,a
   if(!merchantId)throw new Error('Revenda não selecionada');
   merchantRuntime.actionPending=true;render();
   try{
-    await merchantInvoke('merchant-ops',{
+    await retryAmbiguousOnce(()=>merchantInvoke('merchant-ops',{
       merchantId,action:'update-product',productCode,
       priceCents:Number(priceCents),availableStock:Number(availableStock),active:active!==false
-    });
+    }));
     await merchantRefresh({silent:true});
   }finally{
     merchantRuntime.actionPending=false;render();
@@ -880,12 +912,12 @@ async function merchantUpdateLogisticsLive(deliveryFeeCents,baseEtaMinutes,accep
   if(!merchantId)throw new Error('Revenda não selecionada');
   merchantRuntime.actionPending=true;render();
   try{
-    await merchantInvoke('merchant-ops',{
+    await retryAmbiguousOnce(()=>merchantInvoke('merchant-ops',{
       merchantId,action:'update-logistics',
       deliveryFeeCents:Number(deliveryFeeCents),
       baseEtaMinutes:Number(baseEtaMinutes),
       acceptsCitywide:acceptsCitywide===true
-    });
+    }));
     await merchantRefresh({silent:true});
   }finally{
     merchantRuntime.actionPending=false;render();
@@ -894,7 +926,7 @@ async function merchantUpdateLogisticsLive(deliveryFeeCents,baseEtaMinutes,accep
 
 async function merchantSubmitApplicationLive(payload){
   if(!merchantRuntime.session?.access_token)throw new Error('Entre com seu e-mail antes de enviar o cadastro');
-  return merchantInvoke('submit-merchant-application',payload);
+  return retryAmbiguousOnce(()=>merchantInvoke('submit-merchant-application',payload));
 }
 
 async function merchantHeartbeat(){
@@ -916,12 +948,14 @@ async function merchantHeartbeat(){
 }
 
 async function merchantPoll(){
-  if(!merchantReady()||merchantRuntime.actionPending||document.visibilityState==='hidden')return;
+  if(!merchantReady()||merchantRuntime.actionPending||merchantRuntime.pollPending||document.visibilityState==='hidden')return;
+  merchantRuntime.pollPending=true;
   try{
     await merchantHeartbeat();
     await merchantRefresh({silent:true});
     render();
   }catch{}
+  finally{merchantRuntime.pollPending=false}
 }
 
 function openMerchantPortal(){
@@ -942,6 +976,8 @@ function openCustomerPortal(){
 }
 
 globalThis.chamaFetch=chamaFetch;
+globalThis.isAmbiguousTransportError=isAmbiguousTransportError;
+globalThis.retryAmbiguousOnce=retryAmbiguousOnce;
 globalThis.buildPortalHref=buildPortalHref;
 globalThis.liveRuntime=liveRuntime;
 globalThis.customerOriginSafe=customerOriginSafe;

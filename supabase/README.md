@@ -1,4 +1,4 @@
-# Chama — Supabase backend v1.8.0
+# Chama — Supabase backend v1.8.1
 
 Backend multiusuário do Chama São Gabriel, isolado em projeto Supabase próprio.
 
@@ -13,8 +13,9 @@ Backend multiusuário do Chama São Gabriel, isolado em projeto Supabase própri
 - O browser **não possui SELECT direto nas tabelas da aplicação**.
 - RLS permanece habilitado como defesa adicional, mas o data-plane do piloto é server-only.
 - Privilégios padrão de objetos futuros em `public` falham fechados para `anon/authenticated`, incluindo `MAINTAIN` do PostgreSQL 17.
+- Sequências públicas já existentes também são explicitamente fechadas para `anon/authenticated`.
 - Todas as projeções e mutações reais passam por Edge Functions autenticadas.
-- Valores monetários usam centavos inteiros.
+- Valores monetários usam centavos inteiros; preço unitário de catálogo/snapshot é limitado a 1.000.000 centavos para manter a maior cesta suportada dentro de `int4`.
 - Ledger financeiro é append-only com idempotency key.
 - Estados de pedido e estado financeiro são separados.
 
@@ -77,7 +78,7 @@ O runtime atual usa polling protegido em vez de assinatura direta de tabelas.
 4. Aprovação da aplicação cria/vincula merchant como `pending`, nunca online.
 5. `merchant_compliance` registra CNPJ e ANP.
 6. Trigger impede merchant `active/online` sem CNPJ verificado.
-7. Se P13 estiver ativo, ANP precisa estar `verified`.
+7. Se qualquer GLP P1–P90 estiver ativo, ANP vigente precisa estar `verified`.
 8. Admin concilia receivables, reembolso de cashback e ajustes.
 9. Reversão financeira + admin audit ocorrem na mesma transação.
 
@@ -154,9 +155,12 @@ Ela não apaga a entrega. Em vez disso:
 ## Jobs
 
 - `chama-order-watchdog`
+- `chama-reward-retry`
+- `chama-settlement-accounting-retry`
 - `chama-reward-maturation`
 - `chama-data-retention`
 - `chama-anonymous-cleanup`
+- `chama-compliance-expiry`
 
 A limpeza de Anonymous Auth exige idade mínima e ausência total de histórico de negócio.
 
@@ -173,7 +177,7 @@ Antes do primeiro E2E real:
 ## Regras inegociáveis
 
 - nenhuma secret key no frontend;
-- nenhum acesso direto às tabelas pelo browser;
+- nenhum acesso direto às tabelas ou sequências pelo browser;
 - nenhuma função privilegiada executável por `anon/authenticated`;
 - nenhuma recompensa sem settlement;
 - nenhuma comissão sacável para identidade anônima;

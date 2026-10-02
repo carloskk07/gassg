@@ -70,7 +70,10 @@ function updateReferralSimulator(){
 function updateMerchantSimulator(){
   const orders=Math.min(10000,Math.max(1,Math.trunc(Number(document.querySelector('#merchant-sim-orders')?.value)||1)));
   const salePrice=Math.min(100000,Math.max(0.01,Number(document.querySelector('#merchant-sim-ticket')?.value)||0.01));
-  const productCost=Math.min(100000,Math.max(0,Number(document.querySelector('#merchant-sim-product-cost')?.value)||0));
+  const productCostRaw=String(document.querySelector('#merchant-sim-product-cost')?.value??'').trim();
+  const parsedProductCost=Number(productCostRaw);
+  const hasProductCost=productCostRaw!==''&&Number.isFinite(parsedProductCost)&&parsedProductCost>=0;
+  const productCost=hasProductCost?Math.min(100000,parsedProductCost):0;
   const deliveryCost=Math.min(100000,Math.max(0,Number(document.querySelector('#merchant-sim-delivery-cost')?.value)||0));
   const paymentCost=Math.min(100000,Math.max(0,Number(document.querySelector('#merchant-sim-payment-cost')?.value)||0));
   const taxRate=Math.min(100,Math.max(0,Number(document.querySelector('#merchant-sim-tax-rate')?.value)||0));
@@ -83,6 +86,13 @@ function updateMerchantSimulator(){
   const margin=document.querySelector('#merchant-sim-margin');
   if(gross)gross.textContent=BRL.format(e.gross);
   if(fee)fee.textContent=BRL.format(e.chamaFee);
+  if(!hasProductCost){
+    if(costs)costs.textContent='Informe o custo do produto';
+    if(contribution)contribution.textContent='—';
+    if(unit)unit.textContent='—';
+    if(margin)margin.textContent='—';
+    return;
+  }
   if(costs)costs.textContent=BRL.format(e.knownCosts);
   if(contribution)contribution.textContent=BRL.format(e.contribution);
   if(unit)unit.textContent=BRL.format(e.unitContribution);
@@ -273,7 +283,7 @@ function merchantsLanding(){
         <div class="calculator-inputs merchant-margin-inputs">
           <div class="input-wrap"><label for="merchant-sim-orders">Pedidos adicionais</label><input id="merchant-sim-orders" class="input" type="number" inputmode="numeric" min="1" max="10000" value="50" oninput="updateMerchantSimulator()"></div>
           <div class="input-wrap"><label for="merchant-sim-ticket">Preço médio por pedido (R$)</label><input id="merchant-sim-ticket" class="input" type="number" inputmode="decimal" min="0.01" step="0.01" value="115.90" oninput="updateMerchantSimulator()"></div>
-          <div class="input-wrap"><label for="merchant-sim-product-cost">Custo do produto por pedido (R$)</label><input id="merchant-sim-product-cost" class="input" type="number" inputmode="decimal" min="0" step="0.01" value="0" oninput="updateMerchantSimulator()"><small>Preencha com seu custo real.</small></div>
+          <div class="input-wrap"><label for="merchant-sim-product-cost">Custo do produto por pedido (R$)</label><input id="merchant-sim-product-cost" class="input" type="number" inputmode="decimal" min="0" step="0.01" placeholder="Informe seu custo real" oninput="updateMerchantSimulator()"><small>Obrigatório para estimar contribuição e margem.</small></div>
           <div class="input-wrap"><label for="merchant-sim-delivery-cost">Custo médio de entrega (R$)</label><input id="merchant-sim-delivery-cost" class="input" type="number" inputmode="decimal" min="0" step="0.01" value="0" oninput="updateMerchantSimulator()"></div>
           <div class="input-wrap"><label for="merchant-sim-payment-cost">Custo médio do pagamento (R$)</label><input id="merchant-sim-payment-cost" class="input" type="number" inputmode="decimal" min="0" step="0.01" value="0" oninput="updateMerchantSimulator()"></div>
           <div class="input-wrap"><label for="merchant-sim-tax-rate">Tributos sobre a venda (%)</label><input id="merchant-sim-tax-rate" class="input" type="number" inputmode="decimal" min="0" max="100" step="0.1" value="0" oninput="updateMerchantSimulator()"></div>
@@ -281,10 +291,10 @@ function merchantsLanding(){
         <div class="economics-results merchant-margin-results">
           <div><small>Vendas brutas</small><strong id="merchant-sim-gross">${BRL.format(initial.gross)}</strong></div>
           <div><small>Taxa Chama (7,5%)</small><strong id="merchant-sim-fee">${BRL.format(initial.chamaFee)}</strong></div>
-          <div><small>Custos próprios informados</small><strong id="merchant-sim-costs">${BRL.format(initial.knownCosts)}</strong></div>
-          <div class="highlight"><small>Contribuição estimada após os custos informados</small><strong id="merchant-sim-contribution">${BRL.format(initial.contribution)}</strong></div>
-          <div><small>Contribuição estimada por pedido</small><strong id="merchant-sim-unit">${BRL.format(initial.unitContribution)}</strong></div>
-          <div><small>Margem estimada sobre a venda</small><strong id="merchant-sim-margin">${initial.marginPct.toLocaleString('pt-BR',{maximumFractionDigits:1})}%</strong></div>
+          <div><small>Custos próprios informados</small><strong id="merchant-sim-costs">Informe o custo do produto</strong></div>
+          <div class="highlight"><small>Contribuição estimada após os custos informados</small><strong id="merchant-sim-contribution">—</strong></div>
+          <div><small>Contribuição estimada por pedido</small><strong id="merchant-sim-unit">—</strong></div>
+          <div><small>Margem estimada sobre a venda</small><strong id="merchant-sim-margin">—</strong></div>
         </div>
       </div>
       <div class="notice" style="margin-top:12px"><strong>Use os seus custos reais.</strong><br>O simulador não conhece seu custo de compra, folha, combustível, impostos, manutenção ou despesas fixas. Ele serve para testar cenários — não para prometer lucro.</div>

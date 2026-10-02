@@ -5,6 +5,8 @@ const sql=fs.readFileSync(new URL('../supabase/migrations/20261001070000_reconci
 const n=sql.replace(/--.*$/gm,'').replace(/\s+/g,' ').toLowerCase();
 const defaultPrivileges=fs.readFileSync(new URL('../supabase/migrations/20261002173404_lock_default_data_api_privileges.sql',import.meta.url),'utf8').replace(/--.*$/gm,'').replace(/\s+/g,' ').toLowerCase();
 const maintainPrivileges=fs.readFileSync(new URL('../supabase/migrations/20261002173435_revoke_default_maintain_privilege.sql',import.meta.url),'utf8').replace(/--.*$/gm,'').replace(/\s+/g,' ').toLowerCase();
+const sequenceHardening=fs.readFileSync(new URL('../supabase/migrations/20261002200242_server_only_sequence_and_pilot_fk_hardening.sql',import.meta.url),'utf8').replace(/--.*$/gm,'').replace(/\s+/g,' ').toLowerCase();
+const moneySafety=fs.readFileSync(new URL('../supabase/migrations/20261002202113_int4_cart_money_safety.sql',import.meta.url),'utf8').replace(/--.*$/gm,'').replace(/\s+/g,' ').toLowerCase();
 
 for(const fn of ['create_order_from_quote','merchant_order_action','customer_order_action','complete_order_delivery']){
   assert.match(n,new RegExp('create or replace function public\\.'+fn+'\\b'),fn+' precisa estar versionada');
@@ -27,5 +29,10 @@ assert.match(defaultPrivileges,/revoke select, insert, update, delete, truncate,
 assert.match(defaultPrivileges,/revoke execute on functions from public, anon, authenticated/,'funções futuras não podem nascer públicas');
 assert.match(defaultPrivileges,/grant execute on functions to service_role/,'funções futuras precisam preservar autoridade server-side');
 assert.match(maintainPrivileges,/revoke maintain on tables from anon, authenticated/,'PG17 MAINTAIN precisa ser revogado explicitamente');
+assert.match(sequenceHardening,/revoke all on all sequences in schema public from anon, authenticated/,'sequências existentes precisam ser fechadas para browser');
+assert.match(sequenceHardening,/create index if not exists pilot_partner_drafts_merchant_idx/,'FK do staging de parceiro precisa de índice');
+assert.match(moneySafety,/catalog_items_unit_price_int4_safe/,'catálogo precisa de constraint monetária explícita');
+assert.match(moneySafety,/quote_items_unit_price_int4_safe/,'cotação precisa de constraint monetária explícita');
+assert.match(moneySafety,/order_items_unit_price_int4_safe/,'pedido precisa de constraint monetária explícita');
 
 console.log('Runtime migration contract passou.');

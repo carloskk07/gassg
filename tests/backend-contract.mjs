@@ -98,6 +98,12 @@ assert.match(
 
 assert.match(
   normalized,
+  /revoke all on all sequences in schema public from anon, authenticated/,
+  'sequências existentes também precisam ficar fora do browser'
+);
+
+assert.match(
+  normalized,
   /alter default privileges for role postgres in schema public[\s\S]*revoke select, insert, update, delete, truncate, references, trigger, maintain on tables from anon, authenticated/,
   'objetos futuros precisam nascer fechados inclusive para MAINTAIN no PostgreSQL 17'
 );

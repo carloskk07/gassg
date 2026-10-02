@@ -120,6 +120,12 @@ assert.equal(
   'NETWORK_TIMEOUT'
 );
 
+const retryProbe=JSON.parse(await evaluate(`(async()=>{let attempts=0;const result=await retryAmbiguousOnce(async()=>{attempts++;if(attempts===1){const error=new Error('ACK perdido');error.code='NETWORK_TIMEOUT';throw error}return 'OK'});return JSON.stringify({attempts,result})})()`));
+assert.deepEqual(retryProbe,{attempts:2,result:'OK'});
+
+const noRetryProbe=JSON.parse(await evaluate(`(async()=>{let attempts=0;try{await retryAmbiguousOnce(async()=>{attempts++;const error=new Error('regra');error.code='INVALID_ACTION';error.status=400;throw error})}catch(error){return JSON.stringify({attempts,code:error.code})}})()`));
+assert.deepEqual(noRetryProbe,{attempts:1,code:'INVALID_ACTION'});
+
 await evaluate("go('learn')");
 await waitFor("document.body.innerText.includes('Antes de pedir, veja quanto custa')","learn route");
 body=await text();
@@ -143,6 +149,9 @@ assert.match(body,/7,5%/);
 assert.match(body,/Sem exclusividade/);
 assert.match(body,/Você não precisa ser sempre o mais barato/);
 assert.match(body,/PARCEIRO FUNDADOR/);
+assert.equal(await evaluate("document.querySelector('#merchant-sim-product-cost').value"),'');
+assert.equal(await evaluate("document.querySelector('#merchant-sim-contribution').textContent"),'—');
+assert.match(await evaluate("document.querySelector('#merchant-sim-costs').textContent"),/Informe o custo do produto/);
 await evaluate("document.querySelector('#merchant-sim-orders').value='20'; document.querySelector('#merchant-sim-ticket').value='150'; document.querySelector('#merchant-sim-product-cost').value='100'; document.querySelector('#merchant-sim-delivery-cost').value='5'; document.querySelector('#merchant-sim-payment-cost').value='2'; document.querySelector('#merchant-sim-tax-rate').value='0'; updateMerchantSimulator()");
 assert.match(await evaluate("document.querySelector('#merchant-sim-gross').textContent"),/3\.000,00/);
 assert.match(await evaluate("document.querySelector('#merchant-sim-fee').textContent"),/225,00/);

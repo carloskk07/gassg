@@ -29,6 +29,7 @@ jobs:
         run: |
           EXPECTED='sha384-Rj26LVGvoeRVR6+mwQmFfcR3QOBEwT+ZmuCWpuiqeTzJpCs0ER4ITAWGb4Hiy3Ok'
           curl --fail --silent --show-error --location \
+            --retry 4 --retry-all-errors --retry-delay 1 --connect-timeout 10 --max-time 60 \
             'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.2/dist/umd/supabase.js' \
             --output /tmp/supabase-browser.js
           ACTUAL="sha384-$(openssl dgst -sha384 -binary /tmp/supabase-browser.js | openssl base64 -A)"
@@ -48,6 +49,8 @@ jobs:
           done
       - name: Marketplace simulations
         run: node tests/simulations.mjs
+      - name: Expert deterministic fuzz
+        run: node tests/expert-fuzz.mjs
       - name: Static trust and asset audit
         run: node tests/static-audit.mjs
       - name: Runtime origin config contract

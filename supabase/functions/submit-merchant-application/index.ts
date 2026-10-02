@@ -16,15 +16,15 @@ const publishableKeys=JSON.parse(Deno.env.get("SUPABASE_PUBLISHABLE_KEYS")??"{}"
 const secretKeys=JSON.parse(Deno.env.get("SUPABASE_SECRET_KEYS")??"{}");
 const PUBLISHABLE_KEY=publishableKeys.default??Deno.env.get("SUPABASE_ANON_KEY")??"";
 const SECRET_KEY=secretKeys.default??Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")??"";
-const CUSTOMER_ALLOWED_ORIGIN=(Deno.env.get("CUSTOMER_ALLOWED_ORIGIN")??"").trim();
+const MERCHANT_ALLOWED_ORIGIN=(Deno.env.get("MERCHANT_ALLOWED_ORIGIN")??"").trim();
 
 function originAllowed(origin:string|null){
   if(!origin)return true;
   if(/^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(origin))return true;
-  return CUSTOMER_ALLOWED_ORIGIN.length>0&&origin===CUSTOMER_ALLOWED_ORIGIN;
+  return MERCHANT_ALLOWED_ORIGIN.length>0&&origin===MERCHANT_ALLOWED_ORIGIN;
 }
 function cors(origin:string|null){
-  const allowed=origin&&originAllowed(origin)?origin:(CUSTOMER_ALLOWED_ORIGIN||"null");
+  const allowed=origin&&originAllowed(origin)?origin:(MERCHANT_ALLOWED_ORIGIN||"null");
   return {
     "Access-Control-Allow-Origin":allowed,
     "Access-Control-Allow-Headers":"authorization, apikey, content-type",
@@ -72,6 +72,74 @@ Deno.serve(async(req:Request)=>{
 
     const admin=createClient(SUPABASE_URL,SECRET_KEY,{auth:{persistSession:false,autoRefreshToken:false}});
     await enforceApiQuota(admin,{userId:user.id,actionName:"submit-merchant-application",limit:5,windowSeconds:3600});
+    const {data:existing,error:existingError}=await admin
+      .from("merchant_applications")
+      .select("id,cnpj,company_name,status,created_at")
+      .eq("applicant_user_id",user.id)
+      .eq("cnpj",cnpj)
+      .maybeSingle();
+    if(existingError)throw existingError;
+
+    if(existing?.status==="approved"){
+      return json({
+        error:"APPLICATION_ALREADY_APPROVED",
+        message:"Este cadastro já foi aprovado. Use o painel da revenda ou solicite suporte para o vínculo."
+      },409,origin);
+    }
+
+    if(existing){
+      const {data,error}=await admin
+        .from("merchant_applications")
+        .update({
+          company_name:companyName,
+          responsible_name:responsibleName,
+          phone,
+          address_text:address,
+          status:"pending",
+          updated_at:new Date().toISOString()
+        })
+        .eq("id",existing.id)
+        .eq("applicant_user_id",user.id)
+        .in("status",["pending","rejected"])
+        .select("id,cnpj,company_name,status,created_at,updated_at")
+        .maybeSingle();
+
+      if(error){
+        if(String(error.code)==="23505"){
+          return json({error:"APPLICATION_EXISTS",message:"Este CNPJ já possui outro cadastro pendente ou aprovado."},409,origin);
+        }
+        throw error;
+      }
+
+      if(!data){
+        const {data:latest,error:latestError}=await admin
+          .from("merchant_applications")
+          .select("id,status")
+          .eq("id",existing.id)
+          .eq("applicant_user_id",user.id)
+          .maybeSingle();
+        if(latestError)throw latestError;
+        if(latest?.status==="approved"){
+          return json({
+            error:"APPLICATION_ALREADY_APPROVED",
+            message:"Este cadastro foi aprovado durante o envio. Use o painel da revenda ou solicite suporte para o vínculo."
+          },409,origin);
+        }
+        throw new DomainError("APPLICATION_STATE_CHANGED","O estado do cadastro mudou. Atualize a página e tente novamente.",409);
+      }
+
+      return json({
+        applicationId:data.id,
+        cnpj:data.cnpj,
+        companyName:data.company_name,
+        status:data.status,
+        createdAt:data.created_at,
+        updatedAt:data.updated_at,
+        reused:true,
+        resubmitted:existing.status==="rejected"
+      },200,origin);
+    }
+
     const {data,error}=await admin
       .from("merchant_applications")
       .insert({
@@ -88,6 +156,26 @@ Deno.serve(async(req:Request)=>{
 
     if(error){
       if(String(error.code)==="23505"){
+        // A retry can race with the first successful request. If the same
+        // applicant already owns the pending row, return it instead of turning
+        // a lost ACK into a false failure.
+        const {data:retryExisting}=await admin
+          .from("merchant_applications")
+          .select("id,cnpj,company_name,status,created_at")
+          .eq("applicant_user_id",user.id)
+          .eq("cnpj",cnpj)
+          .maybeSingle();
+        if(retryExisting?.status==="pending"){
+          return json({
+            applicationId:retryExisting.id,
+            cnpj:retryExisting.cnpj,
+            companyName:retryExisting.company_name,
+            status:retryExisting.status,
+            createdAt:retryExisting.created_at,
+            reused:true,
+            resubmitted:false
+          },200,origin);
+        }
         return json({error:"APPLICATION_EXISTS",message:"Este CNPJ já possui cadastro pendente ou aprovado."},409,origin);
       }
       throw error;
@@ -98,7 +186,9 @@ Deno.serve(async(req:Request)=>{
       cnpj:data.cnpj,
       companyName:data.company_name,
       status:data.status,
-      createdAt:data.created_at
+      createdAt:data.created_at,
+      reused:false,
+      resubmitted:false
     },201,origin);
   }catch(error){
     if(error instanceof DomainError)return json({error:error.code,message:error.message},error.status,origin);

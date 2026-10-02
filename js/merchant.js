@@ -28,9 +28,10 @@ function merchantLiveNoAccess(){
     <p class="muted">${roleBlocked
       ? 'Você entrou como '+esc(email)+', mas seu papel atual não possui acesso operacional neste piloto.'
       : 'Você entrou como '+esc(email)+', mas esta conta ainda não possui uma operação ativa.'}</p>
+    ${rt.notice?`<div class="notice success" style="margin-top:16px"><strong>Cadastro recebido.</strong><br>${esc(rt.notice)}</div>`:''}
     ${roleBlocked
       ? '<div class="notice" style="margin-top:16px"><strong>Acesso operacional limitado.</strong><br>Owner, manager e operator podem usar o painel neste piloto. O papel de motorista permanece bloqueado até existir atribuição individual por pedido.</div>'
-      : '<div class="card flat" style="margin-top:16px"><h3>Quer participar?</h3><p class="muted tiny">Envie o cadastro da empresa. A operação só entra no pool depois de validação e vínculo da conta.</p><button class="primary full" onclick="go(\'merchant-join\')">Cadastrar empresa</button></div>'}
+      : '<div class="card flat" style="margin-top:16px"><h3>Quer participar?</h3><p class="muted tiny">Envie ou atualize o cadastro da empresa. Um cadastro rejeitado pode ser corrigido e reenviado para nova análise.</p><button class="primary full" onclick="go(\'merchant-join\')">Cadastrar / atualizar empresa</button></div>'}
     <button class="ghost full" style="margin-top:12px" onclick="merchantLiveLogout()">Sair desta conta</button>
   </section>`);
 }
@@ -75,10 +76,12 @@ function merchantLivePage(){
   const freshness=merchantLiveFreshness();
   const freshnessProblems=[];
   if(!freshness.deliveryFresh)freshnessProblems.push('taxa de entrega vencida');
+  if(m.acceptsCitywide===false)freshnessProblems.push('atendimento em São Gabriel desativado');
   if(freshness.staleProducts.length)freshnessProblems.push('preço vencido: '+freshness.staleProducts.map(x=>x.productName||x.productCode).join(', '));
   if(!freshness.offerable.length)freshnessProblems.push('nenhum produto ativo com estoque');
-  const freshnessNotice=!freshness.allFresh
-    ? '<div class="notice danger" style="margin-top:12px"><strong>Confirmação comercial incompleta.</strong><br>'+esc(freshnessProblems.join(' • '))+'. A revenda só participa das ofertas com taxa e SKUs ofertáveis confirmados.</div>'
+  const commercialReady=freshness.allFresh&&m.acceptsCitywide!==false;
+  const freshnessNotice=!commercialReady
+    ? '<div class="notice danger" style="margin-top:12px"><strong>Confirmação comercial incompleta.</strong><br>'+esc(freshnessProblems.join(' • '))+'. A revenda só participa das ofertas com área atendida, taxa e SKUs ofertáveis confirmados.</div>'
     : '';
 
   const compliance=m.compliance||{};
@@ -91,7 +94,7 @@ function merchantLivePage(){
   const complianceNotice=complianceReady
     ? `<div class="notice success" style="margin-top:12px"><strong>Compliance vigente.</strong><br>CNPJ: ${esc(cnpjWhen)} • janela operacional ${Number(compliance.cnpjMaxAgeDays||30)} dias. ${hasGlp?`ANP: ${esc(anpWhen)} • janela operacional ${Number(compliance.anpMaxAgeDays||7)} dias.`:'Sem GLP ativo no catálogo; ANP não é exigida para a operação atual.'}</div>`
     : `<div class="notice danger" style="margin-top:12px"><strong>Revalidação necessária antes de operar.</strong><br>${!cnpjCurrent?`CNPJ: última verificação ${esc(cnpjWhen)}; revalidar a cada ${Number(compliance.cnpjMaxAgeDays||30)} dias. `:''}${!anpCurrent?`ANP: última verificação ${esc(anpWhen)}; revalidar a cada ${Number(compliance.anpMaxAgeDays||7)} dias para GLP.`:''}</div>`;
-  const canGoOnline=m.status==='active'&&complianceReady&&freshness.allFresh;
+  const canGoOnline=m.status==='active'&&complianceReady&&commercialReady;
   const connectionNotice=!connectionHealthy
     ? '<div class="notice danger" style="margin-top:12px"><strong>Conexão da operação sem confirmação recente.</strong><br>Enquanto a presença da revenda não for renovada, novos pedidos podem deixar de ser enviados para esta operação.</div>'
     : rt.heartbeatError
@@ -120,7 +123,7 @@ function merchantLivePage(){
 
     ${manage?`<div class="card flat form-stack">
       <h3>Preço e estoque P13</h3>
-      <div class="field-row"><div class="input-wrap"><label for="live-p13-price">Preço</label><input id="live-p13-price" inputmode="decimal" type="number" min="0.01" max="999999" step="0.10" class="input" value="${p13?(Number(p13.priceCents||0)/100).toFixed(2):''}"></div><div class="input-wrap"><label for="live-p13-stock">Estoque disponível</label><input id="live-p13-stock" inputmode="numeric" type="number" min="0" max="100000" class="input" value="${p13?Number(p13.availableStock||0):0}"></div></div>
+      <div class="field-row"><div class="input-wrap"><label for="live-p13-price">Preço</label><input id="live-p13-price" inputmode="decimal" type="number" min="0.01" max="10000" step="0.10" class="input" value="${p13?(Number(p13.priceCents||0)/100).toFixed(2):''}"></div><div class="input-wrap"><label for="live-p13-stock">Estoque disponível</label><input id="live-p13-stock" inputmode="numeric" type="number" min="0" max="100000" class="input" value="${p13?Number(p13.availableStock||0):0}"></div></div>
       <button class="secondary" onclick="merchantLiveSaveP13()">Confirmar preço e estoque P13</button><button class="ghost" onclick="go('catalog')">Editar todos os produtos</button>
       <div class="divider"></div>
       <h3>Entrega</h3>
@@ -176,7 +179,7 @@ async function merchantLiveSaveProduct(code){
   const price=Number(document.getElementById('live-price-'+code)?.value);
   const stock=Number(document.getElementById('live-stock-'+code)?.value);
   const active=document.getElementById('live-active-'+code)?.checked===true;
-  if(!Number.isFinite(price)||price<=0||!Number.isInteger(stock)||stock<0)return toast('Revise preço e estoque de '+code);
+  if(!Number.isFinite(price)||price<=0||price>10000||!Number.isInteger(stock)||stock<0)return toast('Revise preço e estoque de '+code);
   try{
     await merchantUpdateProductLive(code,Math.round(price*100),stock,active);
     toast('Preço de '+code+' confirmado');
@@ -186,7 +189,7 @@ async function merchantLiveSaveProduct(code){
 async function merchantLiveSaveP13(){
   const price=Number(document.querySelector('#live-p13-price')?.value);
   const stock=Number(document.querySelector('#live-p13-stock')?.value);
-  if(!Number.isFinite(price)||price<=0||!Number.isInteger(stock)||stock<0)return toast('Revise preço e estoque');
+  if(!Number.isFinite(price)||price<=0||price>10000||!Number.isInteger(stock)||stock<0)return toast('Revise preço e estoque');
   try{await merchantUpdateProductLive('P13',Math.round(price*100),stock,true);toast('Preço e estoque confirmados')}catch(e){toast(String(e?.message||e))}
 }
 async function merchantLiveSaveLogistics(){
@@ -194,7 +197,7 @@ async function merchantLiveSaveLogistics(){
   const eta=Number(document.querySelector('#live-eta')?.value);
   const citywide=document.querySelector('#live-citywide')?.checked===true;
   if(!Number.isFinite(fee)||fee<0||!Number.isInteger(eta)||eta<5||eta>180)return toast('Revise taxa e ETA');
-  try{await merchantUpdateLogisticsLive(Math.round(fee*100),eta,citywide);toast('Logística atualizada')}catch(e){toast(String(e?.message||e))}
+  try{await merchantUpdateLogisticsLive(Math.round(fee*100),eta,citywide);toast(citywide?'Logística atualizada':'Logística atualizada. Novos pedidos foram pausados até reativar São Gabriel.')}catch(e){toast(String(e?.message||e))}
 }
 async function merchantLiveAction(id,action){
   try{
@@ -342,7 +345,7 @@ function merchantLiveCatalog(){
     const icon=products[item.productCode]?.icon||(/^P([1-9][0-9]?)$/.test(item.productCode)?'🔥':'📦');
     return `<div class="card flat form-stack" style="margin-bottom:12px">
       <div class="status-bar"><div class="product-left"><div class="product-icon">${icon}</div><div><strong>${esc(item.productName)}</strong><br><small>${esc(item.productCode)} • ${item.priceConfirmedAt?'confirmado '+new Date(item.priceConfirmedAt).toLocaleString('pt-BR'):'nunca confirmado'}</small></div></div><span class="status-pill ${statusClass}">${status}</span></div>
-      <div class="field-row"><div class="input-wrap"><label for="live-price-${item.productCode}">Preço</label><input id="live-price-${item.productCode}" inputmode="decimal" type="number" min="0.01" max="999999" step="0.10" class="input" value="${item.priceCents>0?(item.priceCents/100).toFixed(2):''}"></div><div class="input-wrap"><label for="live-stock-${item.productCode}">Estoque</label><input id="live-stock-${item.productCode}" inputmode="numeric" type="number" min="0" max="100000" class="input" value="${item.availableStock}"></div></div>
+      <div class="field-row"><div class="input-wrap"><label for="live-price-${item.productCode}">Preço</label><input id="live-price-${item.productCode}" inputmode="decimal" type="number" min="0.01" max="10000" step="0.10" class="input" value="${item.priceCents>0?(item.priceCents/100).toFixed(2):''}"></div><div class="input-wrap"><label for="live-stock-${item.productCode}">Estoque</label><input id="live-stock-${item.productCode}" inputmode="numeric" type="number" min="0" max="100000" class="input" value="${item.availableStock}"></div></div>
       <label class="check-row"><input id="live-active-${item.productCode}" type="checkbox" ${item.active?'checked':''}><span><strong>Produto ativo</strong><small>Somente itens ativos e com estoque participam das ofertas.</small></span></label>
       <button class="secondary" onclick="merchantLiveSaveProduct('${item.productCode}')">Salvar e confirmar este preço</button>
     </div>`;
@@ -353,7 +356,7 @@ function merchantLiveCatalog(){
     <p class="muted tiny">Códigos P1 a P90 seguem automaticamente as regras regulatórias e logísticas de GLP.</p>
     <div class="field-row">
       <div class="input-wrap"><label for="live-new-glp-code">Código</label><input id="live-new-glp-code" class="input" maxlength="3" placeholder="P20"></div>
-      <div class="input-wrap"><label for="live-new-glp-price">Preço</label><input id="live-new-glp-price" inputmode="decimal" type="number" min="0.01" max="999999" step="0.10" class="input" placeholder="0,00"></div>
+      <div class="input-wrap"><label for="live-new-glp-price">Preço</label><input id="live-new-glp-price" inputmode="decimal" type="number" min="0.01" max="10000" step="0.10" class="input" placeholder="0,00"></div>
       <div class="input-wrap"><label for="live-new-glp-stock">Estoque</label><input id="live-new-glp-stock" inputmode="numeric" type="number" min="0" max="100000" class="input" value="0"></div>
     </div>
     <button class="primary" onclick="merchantLiveAddGlp()">Adicionar e confirmar</button>
