@@ -6,17 +6,22 @@ export function chooseOffers(candidates){
 
   const ranked=candidates.map((candidate)=>({...candidate}));
   const minTotal=Math.min(...ranked.map(x=>x.totalCents));
-  const maxTotal=Math.max(...ranked.map(x=>x.totalCents));
   const minEta=Math.min(...ranked.map(x=>x.etaMinMinutes));
-  const maxEta=Math.max(...ranked.map(x=>x.etaMinMinutes));
   const maxActive=Math.max(1,...ranked.map(x=>Number(x.activeOrders||0)));
   const maxRecent=Math.max(1,...ranked.map(x=>Number(x.recentOrders7d||0)));
 
+  // A difference only matters in proportion to a customer-meaningful threshold.
+  // ~10% above the cheapest reaches full price penalty; ~50%/10 min above the
+  // fastest reaches full ETA penalty. This avoids turning a R$1 or 1-minute
+  // delta between two merchants into an artificial 0-vs-1 cliff.
+  const priceMeaningfulDelta=Math.max(100,Math.round(minTotal*0.10));
+  const etaMeaningfulDelta=Math.max(10,Math.round(minEta*0.50));
+
   for(const c of ranked){
-    const priceNorm=maxTotal===minTotal?0:(c.totalCents-minTotal)/(maxTotal-minTotal);
-    const etaNorm=maxEta===minEta?0:(c.etaMinMinutes-minEta)/(maxEta-minEta);
+    const priceNorm=Math.min(1,Math.max(0,(c.totalCents-minTotal)/priceMeaningfulDelta));
+    const etaNorm=Math.min(1,Math.max(0,(c.etaMinMinutes-minEta)/etaMeaningfulDelta));
     const trustPenalty=(100-c.trustScore)/100;
-    c.rankScore=priceNorm*0.40+etaNorm*0.35+trustPenalty*0.25;
+    c.rankScore=priceNorm*0.45+etaNorm*0.35+trustPenalty*0.20;
 
     // Load is only a secondary tie-breaker. It can redistribute recommendation
     // among near-equivalent merchants, never promote a clearly worse offer.
