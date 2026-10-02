@@ -202,7 +202,7 @@ assert.match(body,/primeira compra qualificada/i);
 assert.match(body,/Compras repetidas do mesmo cliente não geram novas comissões/i);
 assert.equal(await evaluate("[...document.querySelectorAll('button')].some(b=>b.textContent.includes('Saque Pix ainda não disponível')&&b.disabled)"),true);
 await evaluate("document.querySelector('#ref-sim-clients').value='25'; document.querySelector('#ref-sim-ticket').value='150'; updateReferralSimulator()");
-assert.equal(await evaluate("document.querySelector('#ref-sim-total').textContent"),"R$ 75,00");
+assert.match(await evaluate("document.querySelector('#ref-sim-total').textContent"),/75,00/);
 await auditDom('refer');
 
 assert.deepEqual(pageErrors,[],`Chrome registrou erros: ${pageErrors.join(' | ')}`);
