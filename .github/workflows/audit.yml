@@ -68,14 +68,16 @@ jobs:
           sleep 1
           CHROME="$(command -v google-chrome || command -v chromium || command -v chromium-browser)"
           test -n "$CHROME"
-          for route in home order club refer merchants merchant admin; do
+          for route in home learn earn order club refer merchants merchant admin; do
             "$CHROME" --headless=new --no-sandbox --disable-gpu --window-size=360,800 --virtual-time-budget=1200 --user-data-dir="/tmp/chrome-$route" --dump-dom "http://127.0.0.1:4173/#$route" > "/tmp/$route.html"
           done
-          grep -q "Seu gás" /tmp/home.html
-          grep -q "Pedir agora" /tmp/order.html
+          grep -q "Peça gás" /tmp/home.html
+          grep -q "Entenda o Chama" /tmp/learn.html
+          grep -q "Duas formas de participar" /tmp/earn.html
+          grep -q "Comprar agora" /tmp/order.html
           grep -q "Clube Chama" /tmp/club.html
-          grep -q "Indique e ganhe" /tmp/refer.html
-          grep -q "Mais pedidos para sua operação" /tmp/merchants.html
+          grep -q "Compartilhe. A pessoa compra" /tmp/refer.html
+          grep -q "Transforme o Chama em um novo canal de vendas" /tmp/merchants.html
           grep -q "Acesso operacional real" /tmp/merchant.html
           ! grep -q "PAINEL DA REVENDA — DEMONSTRAÇÃO" /tmp/merchant.html
           ! grep -q "Revenda Parceira A" /tmp/merchant.html
