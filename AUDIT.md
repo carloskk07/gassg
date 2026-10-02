@@ -1,6 +1,6 @@
 # Auditoria v1.24 — Chama São Gabriel
 
-Data: 01/10/2026
+Data: 02/10/2026
 
 ## Status
 
@@ -144,7 +144,7 @@ A suíte verde cobre:
 - manifest e service worker;
 - verificação SHA-384 do SDK browser do Supabase antes do release.
 
-## Achados eliminados nesta rodada
+## Achados históricos v1.22 preservados
 
 ### 1. Divergência crítica de produtos GLP
 
@@ -213,13 +213,19 @@ Estado pós-v1.24:
 
 Os 32 avisos `RLS Enabled No Policy` do Security Advisor continuam sendo **INFO intencional**: o browser não possui grants e a arquitetura é server-only. Os dois warnings do schema `cron` são do `pg_cron` gerenciado.
 
-## Logs pós-deploy
+## Evidência operacional pós-deploy
 
-Na janela imediatamente posterior à migration/deploy:
+Após o deploy v1.24:
 
-- Postgres/PostgREST/PgBouncer operaram normalmente;
-- não foram encontrados eventos contendo error/failed/exception/panic;
-- o projeto permaneceu ACTIVE_HEALTHY.
+- `merchant-orders` v11 permaneceu **ACTIVE** e com JWT obrigatório;
+- os três arquivos do bundle v11 foram comparados byte a byte com o `main` e coincidiram;
+- os 12 entrypoints Edge ativos foram comparados com o `main` e coincidiram;
+- não existiam falhas abertas em `reward_processing_failures` nem em `settlement_accounting_failures`;
+- não existiam reviews de indicação pendentes;
+- os jobs observados na janela de 24 h registraram somente execuções `succeeded`;
+- o banco permaneceu sem usuários, merchants, memberships, aplicações, pedidos ou administradores de produção.
+
+A consulta unificada de logs do provedor retornou erro do próprio endpoint nesta rodada; por isso a auditoria não usa ausência de linhas de log como prova de saúde. A evidência operacional acima vem de estado do banco, cron, filas e funções publicadas.
 
 ## Performance Advisor
 
