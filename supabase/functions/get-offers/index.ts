@@ -11,6 +11,7 @@ import {
   readJsonBody,
   enforceApiQuota
 } from "../_shared/domain.js";
+import {chooseOffers} from "../_shared/offer-ranking.js";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
 const publishableKeys = JSON.parse(Deno.env.get("SUPABASE_PUBLISHABLE_KEYS") ?? "{}");
@@ -100,45 +101,10 @@ type Candidate = {
     lineTotalCents: number;
   }>;
   rankScore: number;
+  activeOrders: number;
+  recentOrders7d: number;
+  recommendationScore: number;
 };
-
-function chooseOffers(candidates: Candidate[]) {
-  if (!candidates.length) return [];
-
-  const minTotal = Math.min(...candidates.map((x) => x.totalCents));
-  const maxTotal = Math.max(...candidates.map((x) => x.totalCents));
-  const minEta = Math.min(...candidates.map((x) => x.etaMinMinutes));
-  const maxEta = Math.max(...candidates.map((x) => x.etaMinMinutes));
-
-  for (const c of candidates) {
-    const priceNorm = maxTotal === minTotal ? 0 : (c.totalCents - minTotal) / (maxTotal - minTotal);
-    const etaNorm = maxEta === minEta ? 0 : (c.etaMinMinutes - minEta) / (maxEta - minEta);
-    const trustPenalty = (100 - c.trustScore) / 100;
-    c.rankScore = priceNorm * 0.40 + etaNorm * 0.35 + trustPenalty * 0.25;
-  }
-
-  const recommended = [...candidates].sort((a, b) => a.rankScore - b.rankScore || a.totalCents - b.totalCents)[0];
-  const cheapest = [...candidates].sort((a, b) => a.totalCents - b.totalCents || a.etaMinMinutes - b.etaMinMinutes)[0];
-  const fastest = [...candidates].sort((a, b) => a.etaMinMinutes - b.etaMinMinutes || a.totalCents - b.totalCents)[0];
-
-  const selected: Array<{ candidate: Candidate; label: string }> = [];
-  const pushUnique = (candidate: Candidate | undefined, label: string) => {
-    if (candidate && !selected.some((x) => x.candidate.merchantId === candidate.merchantId)) {
-      selected.push({ candidate, label });
-    }
-  };
-
-  pushUnique(recommended, "recommended");
-  pushUnique(cheapest, "cheapest");
-  pushUnique(fastest, "fastest");
-
-  for (const candidate of [...candidates].sort((a, b) => a.rankScore - b.rankScore)) {
-    if (selected.length >= 3) break;
-    pushUnique(candidate, "alternative");
-  }
-
-  return selected.slice(0, 3);
-}
 
 Deno.serve(async (req: Request) => {
   const origin = req.headers.get("Origin");
@@ -251,11 +217,30 @@ Deno.serve(async (req: Request) => {
         etaMaxMinutes: eta + 7,
         totalCents: subtotal + fee,
         items: snapshotItems,
-        rankScore: 0
+        rankScore: 0,
+        activeOrders:0,
+        recentOrders7d:0,
+        recommendationScore:0
       });
     }
 
-    const chosen = chooseOffers(candidates);
+    if(candidates.length){
+      const {data:loadRows,error:loadError}=await admin.rpc("merchant_offer_load",{
+        p_merchant_ids:candidates.map((candidate)=>candidate.merchantId)
+      });
+      if(loadError)throw loadError;
+      const loadByMerchant=new Map(
+        ((loadRows??[]) as Array<{merchant_id:string;active_orders:number;recent_orders_7d:number}>)
+          .map((row)=>[row.merchant_id,row])
+      );
+      for(const candidate of candidates){
+        const load=loadByMerchant.get(candidate.merchantId);
+        candidate.activeOrders=Number(load?.active_orders??0);
+        candidate.recentOrders7d=Number(load?.recent_orders_7d??0);
+      }
+    }
+
+    const chosen = chooseOffers(candidates) as Array<{candidate:Candidate;label:string}>;
     if (!chosen.length) return json({ offers: [] }, 200, origin);
 
     const expiresAt = new Date(Date.now() + QUOTE_TTL_MS).toISOString();
@@ -312,7 +297,13 @@ Deno.serve(async (req: Request) => {
       publicOffers.push(safe);
     }
 
-    return json({ offers: publicOffers }, 200, origin);
+    return json({
+      offers:publicOffers,
+      marketMode:candidates.length===1?"single_supplier":"marketplace",
+      eligibleMerchantCount:candidates.length,
+      displayedOfferCount:publicOffers.length,
+      distributionPolicy:candidates.length===1?"single_supplier":"quality_first_balanced"
+    }, 200, origin);
   } catch (error) {
     return fail(error, origin);
   }

@@ -27,6 +27,45 @@ Esses exemplos:
 
 A suíte de testes mantém um marketplace sintético completo apenas quando injeta `globalThis.__CHAMA_TEST__=true`. A build normal não oferece esse caminho.
 
+## Estado atual — v1.28 first real merchant pilot
+
+A v1.28 prepara a transição do pré-lançamento para o primeiro piloto operacional real.
+
+### Primeiro parceiro em preparação
+
+Foi criado um staging server-only para **Gas e Lenheira do JR** com os únicos dados comerciais já informados:
+
+- produto inicial: P13;
+- preço comercial proposto: **R$ 115,90 entregue**;
+- preço ainda marcado como `proposed`;
+- onboarding: `awaiting_legal_data`;
+- nenhum CNPJ, ANP, owner, endereço ou dado jurídico foi inventado;
+- o staging não cria merchant, não entra no matching e não muda `realSupplyConfigured`.
+
+Enquanto os dados reais não forem cadastrados e validados, o mercado continua com **0 revendas reais** e os exemplos públicos permanecem não compráveis.
+
+### Fornecedor único sem concorrência fictícia
+
+Quando existir exatamente uma revenda elegível para uma cesta, `get-offers` devolve:
+
+- uma única oferta;
+- `marketMode=single_supplier`;
+- rótulo público **Disponível agora**;
+- nenhum card fictício de “mais barato/mais rápido” da mesma empresa.
+
+A interface explica que há um único parceiro elegível naquele momento.
+
+### Crescimento para várias revendas
+
+Com duas ou mais revendas, o ranking continua customer-first:
+
+1. preço total;
+2. ETA;
+3. trust;
+4. carga ativa e volume recente apenas como desempate entre opções de qualidade próxima.
+
+Carga não pode promover uma oferta claramente pior. O balanceamento só atua dentro de uma banda de qualidade de 0,10 do melhor score base. Isso permite dar oportunidade a parceiros novos sem sacrificar de forma artificial preço/prazo do comprador.
+
 ## Estado atual — v1.27 reliability & security hardening
 
 A v1.27 ataca falhas que aparecem principalmente em produção, mesmo quando a jornada feliz já passa no navegador:

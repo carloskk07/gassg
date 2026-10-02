@@ -12,6 +12,7 @@ import {
   operationalMerchantMemberships,
   selectMerchantMembership
 } from '../supabase/functions/_shared/merchant-membership.js';
+import {chooseOffers} from '../supabase/functions/_shared/offer-ranking.js';
 
 let passed=0;
 function test(name,fn){
@@ -185,6 +186,47 @@ test('seleção explícita preserva revenda pedida e permite negar papel sem tro
   assert.equal(isOperationalMerchantRole(selected?.member_role),false);
   assert.equal(isOperationalMerchantRole('operator'),true);
   assert.equal(selectMerchantMembership(memberships,'m-inexistente'),null);
+});
+
+test('marketplace com um único fornecedor gera somente opção disponível',()=>{
+  const selected=chooseOffers([{
+    merchantId:'m1',totalCents:11590,etaMinMinutes:20,trustScore:95,
+    activeOrders:0,recentOrders7d:0
+  }]);
+  assert.equal(selected.length,1);
+  assert.equal(selected[0].label,'available');
+  assert.equal(selected[0].candidate.merchantId,'m1');
+});
+
+test('balanceamento distribui recomendação apenas entre ofertas equivalentes',()=>{
+  const selected=chooseOffers([
+    {
+      merchantId:'m-loaded',totalCents:11590,etaMinMinutes:20,trustScore:95,
+      activeOrders:5,recentOrders7d:30
+    },
+    {
+      merchantId:'m-new',totalCents:11690,etaMinMinutes:21,trustScore:95,
+      activeOrders:0,recentOrders7d:0
+    }
+  ]);
+  assert.equal(selected[0].label,'recommended');
+  assert.equal(selected[0].candidate.merchantId,'m-new');
+  assert.ok(selected[0].candidate.rankScore<=0.10);
+});
+
+test('balanceamento nunca promove fornecedor claramente pior só por ter pouca carga',()=>{
+  const selected=chooseOffers([
+    {
+      merchantId:'m-quality',totalCents:11590,etaMinMinutes:20,trustScore:96,
+      activeOrders:8,recentOrders7d:60
+    },
+    {
+      merchantId:'m-poor',totalCents:13990,etaMinMinutes:40,trustScore:82,
+      activeOrders:0,recentOrders7d:0
+    }
+  ]);
+  assert.equal(selected[0].label,'recommended');
+  assert.equal(selected[0].candidate.merchantId,'m-quality');
 });
 
 test('oferta pública não contém identidade da revenda',()=>{

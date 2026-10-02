@@ -52,6 +52,9 @@ assert.ok(bootstrap.includes('home,learn,earn'),'router público precisa expor j
 assert.ok(customer.includes('Quero pedir agora')&&customer.includes('Quero entender melhor')&&customer.includes('Quero ganhar ou vender'),'home precisa priorizar compra e separar entendimento de oportunidades');
 assert.ok(customer.includes('Botijão de cozinha 13 kg')&&customer.includes('startHomeOrder'),'home precisa iniciar a compra em linguagem humana sem depender de P13 como rótulo principal');
 assert.ok(customer.includes('PROTEÇÃO CHAMA')&&customer.includes('qualquer alternativa mais cara'),'home precisa explicar rescue e requote como proteção compreensível ao cliente');
+assert.ok(customer.includes('PRIMEIRO PARCEIRO PILOTO')&&customer.includes('Gas e Lenheira do JR'),'pré-lançamento deve mostrar o primeiro parceiro piloto sem fingir operação ativa');
+assert.ok(customer.includes('Há um parceiro elegível para esta cesta agora.')&&customer.includes('sem opções fictícias'),'modo single-supplier deve explicar ao cliente que existe apenas uma opção real');
+assert.ok(backend.includes("available:'Disponível agora'")&&backend.includes("marketMode"),'runtime cliente precisa transportar e rotular mercado de fornecedor único');
 assert.ok(customer.includes("go('learn')")&&customer.includes("go('earn')"),'home precisa possuir CTAs claros para descoberta e renda');
 assert.ok(growth.includes('function learn()'),'jornada Saiba mais precisa existir');
 assert.ok(growth.includes('function earn()'),'hub Ganhe com o Chama precisa existir');
@@ -71,7 +74,7 @@ assert.ok(growth.includes('Saque Pix ainda não disponível')&&growth.includes('
 assert.ok(growth.includes('Você continua no controle'),'landing de revenda deve enfatizar autonomia operacional');
 assert.ok(core.includes("['earn','💰','Ganhe','go']"),'navegação móvel precisa dar acesso direto ao hub de renda');
 assert.ok(!growth.includes('inputmode="numeric" maxlength="18"'),'campo CNPJ não pode forçar teclado somente numérico após adoção do CNPJ alfanumérico');
-assert.ok(sw.includes("CACHE='chama-sg-v1.27'"),'cache do service worker precisa estar versionado');
+assert.ok(sw.includes("CACHE='chama-sg-v1.28'"),'cache do service worker precisa estar versionado');
 assert.ok(sw.includes("./js/backend.js"),'runtime live precisa estar no cache da PWA');
 assert.ok(sw.includes("./js/runtime-config.js"),'configuração pública de origins precisa estar no cache da PWA');
 assert.ok(sw.includes("./js/turnstile.js"),'helper local do Turnstile precisa estar no cache da PWA');
@@ -248,6 +251,8 @@ assert.ok(adminOpsSource.includes('INVALID_MERCHANT_STATUS_TRANSITION'),'Edge ad
 assert.ok(adminOpsSource.includes('GLP_REGULATORY_VERIFICATION_REQUIRED'),'Edge admin precisa reconhecer gate regulatório genérico de GLP');
 assert.ok(adminOpsSource.includes('produto GLP ativo exige validação ANP'),'mensagem administrativa deve cobrir todos os produtos GLP');
 assert.ok(admin.includes('Qualquer produto GLP ativo exige também validação ANP.'),'UI admin deve explicar gate ANP genérico');
+assert.ok(adminOpsSource.includes('pilot_partner_drafts'),'admin precisa projetar parceiros piloto ainda sem cadastro jurídico');
+assert.ok(admin.includes('AGUARDANDO DADOS REAIS')&&admin.includes('Gate de ativação preservado.'),'admin deve distinguir interesse comercial de merchant verificado');
 const offerSource=read('supabase/functions/get-offers/index.ts');
 const merchantOpsSource=read('supabase/functions/merchant-ops/index.ts');
 const merchantOrdersSource=read('supabase/functions/merchant-orders/index.ts');
@@ -267,6 +272,13 @@ assert.ok(merchant.includes('stock_changed_before_accept'),'UI deve explicar cor
 
 assert.ok(offerSource.includes('filter_delivery_compatible_merchants'),'matching live deve filtrar revendas por compatibilidade logística');
 assert.ok(offerSource.includes('deliveryCompatibilityBlocked:true'),'matching deve distinguir bloqueio logístico de indisponibilidade comum');
+assert.ok(offerSource.includes('merchant_offer_load'),'matching deve considerar carga operacional recente sem expor isso ao cliente');
+assert.ok(offerSource.includes('marketMode:candidates.length===1?"single_supplier":"marketplace"'),'Edge deve declarar explicitamente fornecedor único vs marketplace');
+assert.ok(offerSource.includes('distributionPolicy:candidates.length===1?"single_supplier":"quality_first_balanced"'),'resposta deve declarar política de distribuição aplicada');
+const offerRanking=read('supabase/functions/_shared/offer-ranking.js');
+assert.ok(offerRanking.includes("label:'available'"),'ranking com um fornecedor deve gerar somente opção disponível');
+assert.ok(offerRanking.includes('bestBase+0.10'),'balanceamento só pode operar dentro de faixa de qualidade próxima');
+assert.ok(offerRanking.includes('priceMeaningfulDelta')&&offerRanking.includes('etaMeaningfulDelta'),'ranking não pode transformar diferença mínima entre dois parceiros em extremos artificiais');
 assert.ok(read('supabase/functions/merchant-action/index.ts').includes('DELIVERY_INCOMPATIBLE'),'revenda deve receber conflito logístico sem erro genérico');
 assert.ok(read('supabase/functions/customer-action/index.ts').includes('DELIVERY_INCOMPATIBLE'),'cliente deve receber conflito logístico sem erro genérico');
 assert.ok(read('supabase/functions/customer-action/index.ts').includes('cancel-before-dispatch'),'Edge cliente precisa expor cancelamento antes da saída');
@@ -378,6 +390,17 @@ assert.ok(growth.includes('em compensação.'),'Clube deve explicar cashback rev
 assert.ok(growth.includes('Novos créditos reduzem essa compensação'),'UI deve explicar amortização futura sem esconder o passivo');
 
 console.log('Cashback compensation projection audit passou.');
+
+const pilotMigration=read('supabase/migrations/20261002183357_first_real_merchant_pilot.sql');
+assert.ok(pilotMigration.includes('create table if not exists public.pilot_partner_drafts'),'piloto precisa de staging server-only antes do cadastro real');
+assert.ok(pilotMigration.includes("'Gas e Lenheira do JR','P13',11590"),'rascunho do primeiro parceiro precisa registrar somente os dados comerciais informados');
+assert.ok(pilotMigration.includes("'proposed','awaiting_legal_data'"),'preço informado não pode nascer como confirmado nem como operação ativa');
+assert.ok(!pilotMigration.includes('insert into public.merchants('),'migration de staging não pode fabricar merchant/CNPJ');
+assert.ok(pilotMigration.includes('revoke all on table public.pilot_partner_drafts from public, anon, authenticated'),'rascunho comercial não pode ficar acessível no browser');
+assert.ok(pilotMigration.includes('revoke all on function public.merchant_offer_load(uuid[]) from public, anon, authenticated'),'sinal de distribuição deve permanecer server-only');
+
+console.log('First merchant pilot safety audit passou.');
+
 
 const defaultPrivilegeLock=read('supabase/migrations/20261002173404_lock_default_data_api_privileges.sql').toLowerCase();
 const maintainLock=read('supabase/migrations/20261002173435_revoke_default_maintain_privilege.sql').toLowerCase();

@@ -49,6 +49,9 @@ const liveRuntime={
   actionPending:false,
   error:null,
   deliveryCompatibilityBlocked:false,
+  marketMode:null,
+  eligibleMerchantCount:0,
+  displayedOfferCount:0,
   marketStatus:null,
   lastMarketStatusAt:0,
   lastFinancialSyncAt:0,
@@ -254,7 +257,7 @@ function liveCartItems(){
 }
 
 function liveOfferView(raw){
-  const roleMap={recommended:'Recomendado',cheapest:'Mais barato',fastest:'Mais rápido',alternative:'Alternativa'};
+  const roleMap={available:'Disponível agora',recommended:'Recomendado',cheapest:'Mais barato',fastest:'Mais rápido',alternative:'Alternativa'};
   return {
     id:raw.quoteId,
     quoteId:raw.quoteId,
@@ -284,6 +287,9 @@ async function liveRefreshOffers({silent=false}={}){
   if(!liveReady()||!state.address||!hasCartItems()){
     liveRuntime.offers=[];
     liveRuntime.deliveryCompatibilityBlocked=false;
+    liveRuntime.marketMode=null;
+    liveRuntime.eligibleMerchantCount=0;
+    liveRuntime.displayedOfferCount=0;
     liveRuntime.loadingOffers=false;
     if(!silent)render();
     return [];
@@ -292,6 +298,9 @@ async function liveRefreshOffers({silent=false}={}){
   const itemsSnapshot=liveCartItems();
   liveRuntime.offers=[];
   liveRuntime.deliveryCompatibilityBlocked=false;
+  liveRuntime.marketMode=null;
+  liveRuntime.eligibleMerchantCount=0;
+  liveRuntime.displayedOfferCount=0;
   liveRuntime.loadingOffers=true;
   liveRuntime.error=null;
   if(!silent)render();
@@ -306,6 +315,9 @@ async function liveRefreshOffers({silent=false}={}){
       return liveRuntime.offers;
     }
     liveRuntime.deliveryCompatibilityBlocked=data?.deliveryCompatibilityBlocked===true;
+    liveRuntime.marketMode=String(data?.marketMode||'')||null;
+    liveRuntime.eligibleMerchantCount=Math.max(0,Number(data?.eligibleMerchantCount||0));
+    liveRuntime.displayedOfferCount=Math.max(0,Number(data?.displayedOfferCount||0));
     liveRuntime.offers=(data?.offers||[])
       .map(liveOfferView)
       .filter(o=>Number.isFinite(Date.parse(o.expiresAt))&&Date.parse(o.expiresAt)>Date.now());
@@ -315,6 +327,9 @@ async function liveRefreshOffers({silent=false}={}){
     if(seq===liveRuntime.offerRequestSeq){
       liveRuntime.offers=[];
       liveRuntime.deliveryCompatibilityBlocked=false;
+      liveRuntime.marketMode=null;
+      liveRuntime.eligibleMerchantCount=0;
+      liveRuntime.displayedOfferCount=0;
       liveRuntime.error=String(error?.message||error);
     }
     throw error;

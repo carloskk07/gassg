@@ -75,7 +75,9 @@ function home(){
         ? 'Não foi possível confirmar o panorama geral agora. Informe seu endereço para consultar as opções diretamente.'
         : ready&&market?.realSupplyConfigured
           ? market?.availableNow
-            ? 'Há parceiros elegíveis para consulta agora.'
+            ? Number(market?.availableMerchantCount||0)===1
+              ? '1 parceiro elegível está disponível agora.'
+              : 'Há parceiros elegíveis para consulta agora.'
             : 'Parceiros cadastrados; a disponibilidade é confirmada a cada consulta.'
           : ready
             ? 'Estamos formando a primeira rede de parceiros locais.'
@@ -90,11 +92,15 @@ function home(){
       ? '● PRÉ-LANÇAMENTO EM SÃO GABRIEL'
       : '● CHAMA SÃO GABRIEL';
   const primaryLabel=preview?'Ver como vou comprar':'Ver preços e prazos';
+  const singleMarket=ready&&market?.availableNow&&Number(market?.availableMerchantCount||0)===1;
+  const heroJourney=singleMarket
+    ? 'Informe onde quer receber, veja o preço total e o prazo do parceiro disponível e acompanhe cada etapa até a entrega.'
+    : 'Informe onde quer receber, compare as opções disponíveis e acompanhe cada etapa até a entrega.';
 
   return shell(`<section class="hero marketing-hero"><div class="hero-grid"><div>
     <span class="eyebrow">${eyebrow}</span>
     <h1>Seu gás, com preço e prazo antes de confirmar.</h1>
-    <p>Informe onde quer receber, compare as opções disponíveis e acompanhe cada etapa até a entrega.</p>
+    <p>${esc(heroJourney)}</p>
 
     <div class="purchase-starter" aria-label="Iniciar compra de gás">
       <div class="starter-product"><div class="starter-product-icon">🔥</div><div><span class="starter-label">MAIS PROCURADO</span><strong>Botijão de cozinha 13 kg</strong><small>P13 • GLP</small></div><div class="starter-price"><small>CONSULTA</small><b>${priceText}</b></div></div>
@@ -114,7 +120,7 @@ function home(){
 
 <section class="section intent-section"><div class="section-head"><div><span class="section-kicker">ESCOLHA SEU CAMINHO</span><h2>Comprar vem primeiro. Os benefícios aparecem depois.</h2></div></div>
 <div class="intent-grid">
-  <button class="intent-card intent-primary" onclick="quickProduct('P13')" ${disabled?'disabled':''}><span class="intent-icon">🔥</span><span><strong>Quero pedir agora</strong><small>Compare preço total e prazo de entrega.</small></span><b>→</b></button>
+  <button class="intent-card intent-primary" onclick="quickProduct('P13')" ${disabled?'disabled':''}><span class="intent-icon">🔥</span><span><strong>Quero pedir agora</strong><small>Consulte preço total e prazo de entrega.</small></span><b>→</b></button>
   <button class="intent-card" onclick="go('learn')"><span class="intent-icon">🛡️</span><span><strong>Quero entender melhor</strong><small>Veja como compra, pagamento e entrega funcionam.</small></span><b>→</b></button>
   <button class="intent-card" onclick="go('earn')"><span class="intent-icon">🤝</span><span><strong>Quero ganhar ou vender</strong><small>Conheça indicação e parceria para empresas.</small></span><b>→</b></button>
 </div></section>
@@ -132,12 +138,14 @@ function home(){
 <div class="how-grid">
   <div class="how-card"><span>1</span><div><strong>Escolha o que precisa</strong><p>Gás, água, carvão, lenha, gelo ou uma cesta com vários itens.</p></div></div>
   <div class="how-card"><span>2</span><div><strong>Informe onde entregar</strong><p>O Chama procura opções capazes de atender sua cesta.</p></div></div>
-  <div class="how-card"><span>3</span><div><strong>Compare e escolha</strong><p>Veja total e previsão de entrega antes de confirmar.</p></div></div>
+  <div class="how-card"><span>3</span><div><strong>Confira e escolha</strong><p>Veja total e previsão de entrega antes de confirmar. Quando houver várias opções, compare entre elas.</p></div></div>
   <div class="how-card"><span>4</span><div><strong>Acompanhe até receber</strong><p>Você vê quando o parceiro aceita, prepara, sai e conclui a entrega.</p></div></div>
 </div></section>
 
 <section class="section"><div class="section-head"><div><span class="section-kicker">MAIS QUE GÁS</span><h2>Complete o que está faltando em casa.</h2><p>Você também pode pedir itens disponíveis sem colocar gás na cesta.</p></div></div>
 <div class="quick-grid">${Object.entries(products).map(([k,p])=>`<button class="quick-card" onclick="quickProduct('${k}')" ${disabled?'disabled':''}><div class="quick-icon">${p.icon}</div><div class="quick-title">${esc(customerProductName(k,p))}</div><div class="quick-sub">${preview?'Ver experiência':'Consultar agora'}</div></button>`).join('')}</div></section>
+
+${preview?`<section class="section"><div class="card flat"><span class="section-kicker">PRIMEIRO PARCEIRO PILOTO</span><h2 style="margin-top:6px">Gas e Lenheira do JR está em preparação para entrar no Chama.</h2><p class="muted">O interesse comercial já foi registrado. A operação só será liberada para pedidos depois do cadastro real, validações aplicáveis e configuração operacional da revenda.</p></div></section>`:''}
 
 ${preview?prelaunchExampleSection({P13:1}):''}
 
@@ -160,6 +168,7 @@ function orderPage(){
   const hasAddress=!!state.address;
   const hasItems=hasCartItems();
   const os=testDemo?(hasItems?offers():[]):(ready?(liveRuntime.offers||[]):[]);
+  const singleSupplier=!testDemo&&ready&&liveRuntime.marketMode==='single_supplier';
   const pendingOrder=testDemo
     ? state.orders.find(isLiveOrder)
     : (liveRuntime.order&&!['SETTLED','CANCELLED'].includes(liveRuntime.order.status)?liveRuntime.order:null);
@@ -208,7 +217,7 @@ ${liveNotice}
 ${pendingOrder?`<div class="notice" style="margin-bottom:14px"><strong>Você já possui um pedido em andamento.</strong><br>Conclua ou cancele o pedido ${esc(pendingOrder.publicCode||pendingOrder.id)} antes de criar outro.<br><button class="ghost small" onclick="go('tracking')">Acompanhar pedido →</button></div>`:''}
 <div class="card flat form-stack order-address-card"><div class="input-wrap"><label for="address">Endereço de entrega</label><input id="address" class="input" autocomplete="street-address" maxlength="160" placeholder="Ex.: Rua General Câmara, 123" value="${esc(state.address||'')}"></div><button class="primary" onclick="setAddress()">${hasAddress?'Atualizar endereço':'Usar este endereço'}</button><small class="field-help">Usamos o endereço para procurar quem consegue atender sua cesta.</small></div>
 <section class="section"><div class="section-head"><div><h2>Sua cesta</h2><p>Adicione somente o que você precisa. Gás não é obrigatório para comprar os demais itens.</p></div></div><div class="card flat">${Object.entries(products).map(([k,p])=>cartRow(k,p)).join('')}</div></section>
-${hasItems&&hasAddress?`<section class="section"><div class="section-head"><div><h2>Como pretende pagar</h2><p>${preview?'Prévia visual sem cobrança.':'Escolha a forma e confira novamente antes do pedido.'}</p></div></div>${paymentBlock}</section><section class="section"><div class="section-head"><div><span class="section-kicker">COMPARE ANTES DE PEDIR</span><h2>${preview?'Veja como as opções aparecerão':'Preço total e prazo lado a lado'}</h2><p>${preview?'Os valores abaixo são somente ilustrativos.':'Escolha a opção que faz mais sentido para você.'}</p></div></div><div class="mini-protection">🛡️ <strong>Proteção Chama:</strong> o parceiro precisa aceitar e qualquer alternativa mais cara depende da sua aprovação.</div>${offerBlock}</section>`:hasItems&&!hasAddress?'<div class="notice">Informe o endereço para ver preço e prazo.</div>':!hasItems?'<div class="notice">Adicione pelo menos um produto para consultar as opções.</div>':''}</section>`)
+${hasItems&&hasAddress?`<section class="section"><div class="section-head"><div><h2>Como pretende pagar</h2><p>${preview?'Prévia visual sem cobrança.':'Escolha a forma e confira novamente antes do pedido.'}</p></div></div>${paymentBlock}</section><section class="section"><div class="section-head"><div><span class="section-kicker">${singleSupplier?'OPÇÃO DISPONÍVEL':'COMPARE ANTES DE PEDIR'}</span><h2>${preview?'Veja como as opções aparecerão':singleSupplier?'Preço total e prazo do parceiro disponível':'Preço total e prazo lado a lado'}</h2><p>${preview?'Os valores abaixo são somente ilustrativos.':singleSupplier?'Há um parceiro elegível para esta cesta agora. Você vê a condição real sem opções fictícias.':'Escolha a opção que faz mais sentido para você.'}</p></div></div><div class="mini-protection">🛡️ <strong>Proteção Chama:</strong> ${singleSupplier?'o parceiro precisa aceitar. Se ele não puder atender e ainda não houver outra revenda elegível, o pedido é encerrado sem inventar uma alternativa.':'o parceiro precisa aceitar e qualquer alternativa mais cara depende da sua aprovação.'}</div>${offerBlock}</section>`:hasItems&&!hasAddress?'<div class="notice">Informe o endereço para ver preço e prazo.</div>':!hasItems?'<div class="notice">Adicione pelo menos um produto para consultar as opções.</div>':''}</section>`)
 }
 function cartRow(k,p){
   const q=state.cart[k]||0;
@@ -217,12 +226,14 @@ function cartRow(k,p){
 }
 function offerCard(o){
   const recommended=o.roles.includes('Recomendado');
+  const available=o.roles.includes('Disponível agora');
+  const featured=recommended||available;
   const discount=state.checkout.useCashback?Math.min(state.user.cashback,o.total):0;
   const payable=roundMoney(o.total-discount);
   const labels=o.roles.join(' • ');
   const etaEnd=o.etaMax??(o.eta+7);
   const distanceChip=o.distance!=null?`<span class="meta-chip">${Number(o.distance).toFixed(1)} km</span>`:'';
-  return `<article class="offer ${recommended?'selected':''}">${recommended?'<div class="best-badge">MELHOR EQUILÍBRIO</div>':''}<div class="offer-label">${esc(labels)}</div><div class="offer-main"><div><div class="offer-price">${BRL.format(payable)}</div><div class="tiny muted">${discount>0?`estimativa após ${BRL.format(discount)} de cashback`:'total com entrega'}</div></div><div class="offer-eta"><strong>${o.eta}–${etaEnd} min</strong><small>previsão</small></div></div><div class="offer-meta">${distanceChip}<span class="meta-chip">✓ Operação elegível</span><span class="meta-chip">Parceiro local verificado</span><span class="meta-chip">Confiança ${o.trust}/100</span><span class="meta-chip">Pagamento solicitado: ${esc(paymentLabel(state.checkout.paymentMethod))}</span></div><div class="offer-assurance">🔒 O nome do parceiro aparece após o aceite real. Se for necessária uma alternativa mais cara, você decide antes.</div><button class="${recommended?'primary':'secondary'} full" style="margin-top:13px" onclick="checkout('${o.id}')" ${globalThis.liveRuntime?.actionPending?'disabled':''}>Pedir por ${BRL.format(payable)}</button></article>`
+  return `<article class="offer ${featured?'selected':''}">${available?'<div class="best-badge">OPÇÃO DISPONÍVEL AGORA</div>':recommended?'<div class="best-badge">MELHOR EQUILÍBRIO</div>':''}<div class="offer-label">${esc(labels)}</div><div class="offer-main"><div><div class="offer-price">${BRL.format(payable)}</div><div class="tiny muted">${discount>0?`estimativa após ${BRL.format(discount)} de cashback`:'total com entrega'}</div></div><div class="offer-eta"><strong>${o.eta}–${etaEnd} min</strong><small>previsão</small></div></div><div class="offer-meta">${distanceChip}<span class="meta-chip">✓ Operação elegível</span><span class="meta-chip">Parceiro local verificado</span><span class="meta-chip">Confiança ${o.trust}/100</span><span class="meta-chip">Pagamento solicitado: ${esc(paymentLabel(state.checkout.paymentMethod))}</span></div><div class="offer-assurance">🔒 O nome do parceiro aparece após o aceite real. Se for necessária uma alternativa mais cara, você decide antes.</div><button class="${featured?'primary':'secondary'} full" style="margin-top:13px" onclick="checkout('${o.id}')" ${globalThis.liveRuntime?.actionPending?'disabled':''}>Pedir por ${BRL.format(payable)}</button></article>`
 }
 async function setAddress(){
   const el=document.querySelector('#address');
