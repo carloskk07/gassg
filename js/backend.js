@@ -72,7 +72,10 @@ const liveRuntime={
   lastFinancialSyncAttemptAt:0,
   lastSyncAt:null,
   offerRequestSeq:0,
-  orderRequestSeq:0
+  orderRequestSeq:0,
+  financialSyncSeq:0,
+  marketStatusSeq:0,
+  pollPending:false
 };
 
 function customerOriginSafe(){
@@ -476,8 +479,10 @@ async function liveSyncFinancialProfile({force=false}={}){
     cashEarningEligible:state.user.cashEarningEligible,
     identityType:state.user.identityType
   });
+  const seq=++liveRuntime.financialSyncSeq;
   try{
     const summary=await liveInvoke('customer-summary',{});
+    if(seq!==liveRuntime.financialSyncSeq)return false;
     if(summary?.referralCode)state.user.referralCode=String(summary.referralCode).slice(0,40);
     state.user.cashback=Math.max(0,Number(summary?.cashbackCents||0)/100);
     state.user.cashbackDebt=Math.max(0,Number(summary?.cashbackDebtCents||0)/100);
@@ -533,7 +538,9 @@ async function liveSyncMarketStatus({force=false}={}){
   if(!liveReady())return null;
   const now=Date.now();
   if(!force&&liveRuntime.marketStatus&&now-liveRuntime.lastMarketStatusAt<60000)return liveRuntime.marketStatus;
+  const seq=++liveRuntime.marketStatusSeq;
   const data=await liveInvoke('market-status',{});
+  if(seq!==liveRuntime.marketStatusSeq)return liveRuntime.marketStatus;
   liveRuntime.marketStatus={
     realSupplyConfigured:data?.realSupplyConfigured===true,
     configuredMerchantCount:Math.max(0,Number(data?.configuredMerchantCount||0)),
@@ -557,36 +564,41 @@ function prelaunchExamplesEnabled(){
 }
 
 async function livePoll(){
-  if(!liveReady()||liveRuntime.actionPending||document.visibilityState==='hidden')return;
-  let changed=false;
+  if(!liveReady()||liveRuntime.actionPending||liveRuntime.pollPending||document.visibilityState==='hidden')return;
+  liveRuntime.pollPending=true;
   try{
-    const before=JSON.stringify(liveRuntime.marketStatus);
-    await liveSyncMarketStatus();
-    changed=before!==JSON.stringify(liveRuntime.marketStatus);
-  }catch{}
-  try{
-    changed=(await liveSyncFinancialProfile())||changed;
-  }catch{}
-  if(!liveRuntime.orderId){
-    if(changed)render();
-    return;
-  }
-  if(["SETTLED","CANCELLED"].includes(liveRuntime.order?.status)){
-    if(changed)render();
-    return;
-  }
-  try{
-    await liveGetOrder(liveRuntime.orderId,{silent:true});
-    render();
-  }catch(error){
-    if(error?.status===404){
-      localStorage.removeItem(CHAMA_BACKEND.orderStorageKey);
-      liveRuntime.orderId=null;
-      liveRuntime.order=null;
-      render();
-    }else if(changed){
-      render();
+    let changed=false;
+    try{
+      const before=JSON.stringify(liveRuntime.marketStatus);
+      await liveSyncMarketStatus();
+      changed=before!==JSON.stringify(liveRuntime.marketStatus);
+    }catch{}
+    try{
+      changed=(await liveSyncFinancialProfile())||changed;
+    }catch{}
+    if(!liveRuntime.orderId){
+      if(changed)render();
+      return;
     }
+    if(["SETTLED","CANCELLED"].includes(liveRuntime.order?.status)){
+      if(changed)render();
+      return;
+    }
+    try{
+      await liveGetOrder(liveRuntime.orderId,{silent:true});
+      render();
+    }catch(error){
+      if(error?.status===404){
+        localStorage.removeItem(CHAMA_BACKEND.orderStorageKey);
+        liveRuntime.orderId=null;
+        liveRuntime.order=null;
+        render();
+      }else if(changed){
+        render();
+      }
+    }
+  }finally{
+    liveRuntime.pollPending=false;
   }
 }
 
@@ -607,7 +619,9 @@ const merchantRuntime={
   accessReason:null,
   heartbeatError:null,
   lastSyncAt:null,
-  lastHeartbeatAt:0
+  lastHeartbeatAt:0,
+  refreshSeq:0,
+  pollPending:false
 };
 
 function merchantOriginSafe(){
@@ -744,11 +758,13 @@ async function merchantSignOut(){
 
 async function merchantRefresh({silent=false,recoverSelection=true}={}){
   if(!merchantRuntime.client)return null;
+  const seq=++merchantRuntime.refreshSeq;
   if(!silent)render();
   try{
     const body={};
     if(merchantRuntime.selectedMerchantId)body.merchantId=merchantRuntime.selectedMerchantId;
     const data=await merchantInvoke('merchant-orders',body);
+    if(seq!==merchantRuntime.refreshSeq)return data;
     merchantRuntime.merchant=data.merchant??null;
     merchantRuntime.memberships=data.memberships??[];
     merchantRuntime.catalog=data.catalog??[];
@@ -761,6 +777,7 @@ async function merchantRefresh({silent=false,recoverSelection=true}={}){
     merchantRuntime.lastSyncAt=new Date().toISOString();
     return data;
   }catch(error){
+    if(seq!==merchantRuntime.refreshSeq)return null;
     const staleSelected=Boolean(merchantRuntime.selectedMerchantId)
       && error?.status===403
       && ['MERCHANT_ACCESS_DENIED','MERCHANT_ROLE_NOT_ENABLED'].includes(error?.code);
@@ -931,12 +948,14 @@ async function merchantHeartbeat(){
 }
 
 async function merchantPoll(){
-  if(!merchantReady()||merchantRuntime.actionPending||document.visibilityState==='hidden')return;
+  if(!merchantReady()||merchantRuntime.actionPending||merchantRuntime.pollPending||document.visibilityState==='hidden')return;
+  merchantRuntime.pollPending=true;
   try{
     await merchantHeartbeat();
     await merchantRefresh({silent:true});
     render();
   }catch{}
+  finally{merchantRuntime.pollPending=false}
 }
 
 function openMerchantPortal(){
