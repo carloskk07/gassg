@@ -4,27 +4,27 @@ function club(){
   const purchases=Math.max(0,Number(state.user.purchases)||0);
   const cycle=purchases===0?0:(purchases%5||5);
   const pct=cycle*20;
-  const next=purchases>0&&cycle===5?'Ciclo completo — a próxima compra inicia um novo ciclo':\`\${cycle} de 5 compras no ciclo atual\`;
+  const next=purchases>0&&cycle===5?'Ciclo completo — a próxima compra inicia um novo ciclo':`${cycle} de 5 compras no ciclo atual`;
   const debt=Math.max(0,Number(state.user.cashbackDebt)||0);
-  return shell(\`<section class="page">
+  return shell(`<section class="page">
     <span class="eyebrow">BENEFÍCIOS PARA QUEM COMPRA</span>
     <h1 class="page-title">Clube Chama</h1>
     <p class="muted page-lead">Acompanhe o que suas compras já devolveram para você e use o saldo disponível para economizar nas próximas.</p>
-    <div class="reward-hero"><div class="tiny" style="opacity:.75">SEU CASHBACK DISPONÍVEL</div><div class="balance">\${BRL.format(state.user.cashback)}</div><div class="tiny">crédito para usar em novas compras</div><div class="progress"><div style="width:\${pct}%"></div></div><strong>\${esc(next)}</strong></div>
-    \${debt>0?\`<div class="notice" style="margin-top:14px"><strong>\${BRL.format(debt)} em compensação.</strong><br>Esse valor corresponde a cashback de uma compra posteriormente revertida. Novos créditos reduzem essa compensação antes de ficarem disponíveis.</div>\`:''}
+    <div class="reward-hero"><div class="tiny" style="opacity:.75">SEU CASHBACK DISPONÍVEL</div><div class="balance">${BRL.format(state.user.cashback)}</div><div class="tiny">crédito para usar em novas compras</div><div class="progress"><div style="width:${pct}%"></div></div><strong>${esc(next)}</strong></div>
+    ${debt>0?`<div class="notice" style="margin-top:14px"><strong>${BRL.format(debt)} em compensação.</strong><br>Esse valor corresponde a cashback de uma compra posteriormente revertida. Novos créditos reduzem essa compensação antes de ficarem disponíveis.</div>`:''}
     <section class="section"><div class="grid cards-3">
       <div class="card"><div class="feature-icon">💵</div><h3>Cashback</h3><p class="muted tiny">Crédito para reduzir o valor de novas compras no Chama.</p></div>
       <div class="card"><div class="feature-icon">⭐</div><h3>Recorrência</h3><p class="muted tiny">Seu histórico ajuda a organizar benefícios e ciclos de fidelidade.</p></div>
       <div class="card"><div class="feature-icon">🤝</div><h3>Indicação</h3><p class="muted tiny">Além de economizar, você pode participar indicando novos compradores.</p><button class="ghost small" onclick="go('earn')">Ver como ganhar →</button></div>
     </div></section>
     <div class="card flat planned-card"><div><span class="section-kicker">EM EVOLUÇÃO</span><h3>Clube Plus</h3><p class="muted">Vantagens ampliadas estão em estudo para uma etapa futura. Nada é cobrado enquanto o produto não estiver ativo e claramente apresentado.</p></div><span class="status-pill offline">AINDA NÃO DISPONÍVEL</span></div>
-  </section>\`)
+  </section>`)
 }
 
 function referralUrl(){
   if(!state.user.referralCode)return '';
-  const base=\`\${location.origin}\${location.pathname}\`;
-  return \`\${base}?ref=\${encodeURIComponent(state.user.referralCode)}#home\`;
+  const base=`${location.origin}${location.pathname}`;
+  return `${base}?ref=${encodeURIComponent(state.user.referralCode)}#home`;
 }
 function referralExample(orderReais,count=1){
   const amount=Math.max(0,Number(orderReais)||0);
@@ -37,30 +37,30 @@ function refer(){
   const permanent=state.user.cashEarningEligible===true;
   const hasReferral=Boolean(state.user.referralCode);
   const referralCard=hasReferral
-    ? \`<div class="card flat referral-share-card"><div class="tiny muted">SEU LINK PESSOAL</div><div class="share-box">\${esc(url)}</div><button class="primary full" style="margin-top:12px" onclick="shareReferral()">Compartilhar meu link</button></div>\`
+    ? `<div class="card flat referral-share-card"><div class="tiny muted">SEU LINK PESSOAL</div><div class="share-box">${esc(url)}</div><button class="primary full" style="margin-top:12px" onclick="shareReferral()">Compartilhar meu link</button></div>`
     : '<div class="notice"><strong>Seu link ainda não está disponível.</strong><br>Ele aparece quando sua identidade real for carregada pelo serviço do Chama.</div>';
   const identityCard=live&&!permanent
-    ? \`<div class="notice" style="margin-top:14px"><strong>Quer transformar comissão em saldo disponível?</strong><br>Vincule um e-mail à sua conta. Seu histórico, pedidos e cashback continuam no mesmo usuário.</div><div class="card flat form-stack" style="margin-top:14px"><div class="input-wrap"><label for="cash-email">Seu e-mail</label><input id="cash-email" type="email" autocomplete="email" maxlength="160" class="input" placeholder="voce@email.com"></div><button class="primary" onclick="activateCashAccount()">Vincular meu e-mail</button></div>\`
+    ? `<div class="notice" style="margin-top:14px"><strong>Quer transformar comissão em saldo disponível?</strong><br>Vincule um e-mail à sua conta. Seu histórico, pedidos e cashback continuam no mesmo usuário.</div><div class="card flat form-stack" style="margin-top:14px"><div class="input-wrap"><label for="cash-email">Seu e-mail</label><input id="cash-email" type="email" autocomplete="email" maxlength="160" class="input" placeholder="voce@email.com"></div><button class="primary" onclick="activateCashAccount()">Vincular meu e-mail</button></div>`
     : live&&permanent
       ? '<div class="notice success" style="margin-top:14px"><strong>Conta habilitada para comissão.</strong><br>Vendas elegíveis ainda passam pela janela de validação antes de se tornarem saldo disponível.</div>'
       : '';
 
-  return shell(\`<section class="page">
+  return shell(`<section class="page">
     <button class="back" onclick="go('earn')">← Ganhe com o Chama</button>
     <span class="eyebrow">PARA PESSOAS</span>
     <h1 class="page-title">Compartilhe. A pessoa compra. Você pode ganhar.</h1>
     <p class="muted page-lead">Seu link identifica quem chegou por você. A comissão é vinculada a vendas elegíveis que realmente foram entregues, pagas e validadas.</p>
     <div class="earn-summary">
-      <div class="earn-balance-card"><span>Disponível</span><strong>\${BRL.format(state.user.commissionAvailable)}</strong><small>saldo já liberado</small></div>
-      <div class="earn-balance-card"><span>A liberar</span><strong>\${BRL.format(state.user.commissionPending)}</strong><small>em validação</small></div>
+      <div class="earn-balance-card"><span>Disponível</span><strong>${BRL.format(state.user.commissionAvailable)}</strong><small>saldo já liberado</small></div>
+      <div class="earn-balance-card"><span>A liberar</span><strong>${BRL.format(state.user.commissionPending)}</strong><small>em validação</small></div>
     </div>
-    \${referralCard}
-    \${identityCard}
+    ${referralCard}
+    ${identityCard}
 
     <section class="section"><div class="section-head"><div><span class="section-kicker">EXEMPLO SIMPLES</span><h2>Entenda a regra atual do piloto</h2><p>A política atual usa 2% sobre a venda elegível atribuída à indicação.</p></div></div>
       <div class="example-math">
-        <div><small>1 compra de R$ 120</small><strong>\${BRL.format(referralExample(120))}</strong><span>exemplo de comissão</span></div>
-        <div><small>10 compras de R$ 120</small><strong>\${BRL.format(referralExample(120,10))}</strong><span>exemplo acumulado</span></div>
+        <div><small>1 compra de R$ 120</small><strong>${BRL.format(referralExample(120))}</strong><span>exemplo de comissão</span></div>
+        <div><small>10 compras de R$ 120</small><strong>${BRL.format(referralExample(120,10))}</strong><span>exemplo acumulado</span></div>
       </div>
       <div class="notice" style="margin-top:12px">Os exemplos não são promessa de renda. Só contam vendas elegíveis atribuídas ao seu link e aprovadas pelas regras do programa.</div>
     </section>
@@ -73,11 +73,11 @@ function refer(){
     </div></section>
 
     <div class="card flat payout-card"><div><span class="section-kicker">SAQUE</span><h3>Pix está em preparação</h3><p class="muted">O saldo disponível já é separado do valor em validação. O saque só será habilitado quando a integração financeira real estiver pronta.</p></div><button class="secondary" disabled>Saque Pix ainda não disponível</button></div>
-  </section>\`)
+  </section>`)
 }
 
 function earn(){
-  return shell(\`<section class="page">
+  return shell(`<section class="page">
     <span class="eyebrow">GANHE COM O CHAMA</span>
     <h1 class="page-title">Duas formas de participar do crescimento.</h1>
     <p class="muted page-lead">Você pode gerar comissão indicando compradores ou usar sua empresa para conquistar novas vendas. São modelos diferentes, com regras claras e sem pagamento por simples recrutamento.</p>
@@ -85,7 +85,7 @@ function earn(){
     <div class="opportunity-grid main-opportunities">
       <article class="opportunity-card person-opportunity"><div class="opportunity-icon">🤝</div><span class="section-kicker">PARA PESSOAS</span><h2>Indique compradores</h2><p>Compartilhe seu link pessoal. Quando uma venda elegível atribuída a você é entregue, paga e validada, ela pode gerar comissão.</p>
         <ul class="clean-list"><li>Seu próprio link de indicação</li><li>Saldo “a liberar” separado do saldo disponível</li><li>Conta permanente para liberar comissão em dinheiro</li></ul>
-        <div class="opportunity-example"><small>Regra atual do piloto</small><strong>2% sobre venda elegível</strong><span>Ex.: R$ 120 → \${BRL.format(referralExample(120))}</span></div>
+        <div class="opportunity-example"><small>Regra atual do piloto</small><strong>2% sobre venda elegível</strong><span>Ex.: R$ 120 → ${BRL.format(referralExample(120))}</span></div>
         <button class="primary full" onclick="go('refer')">Abrir meu programa</button>
       </article>
       <article class="opportunity-card business-opportunity"><div class="opportunity-icon">🏪</div><span class="section-kicker">PARA EMPRESAS</span><h2>Venda pelo Chama</h2><p>Transforme a plataforma em mais um canal de vendas para gás, água e outros itens da sua operação.</p>
@@ -96,11 +96,11 @@ function earn(){
     </div>
 
     <section class="section"><div class="soft-band"><div><span class="section-kicker">TRANSPARÊNCIA</span><h2>Ganhar depende de atividade real.</h2><p>Indicação exige venda válida. Revenda ganha vendendo produtos. O Chama não paga por formar rede de pessoas nem promete renda fixa.</p></div><button class="secondary" onclick="go('learn')">Entender o Chama</button></div></section>
-  </section>\`)
+  </section>`)
 }
 
 function learn(){
-  return shell(\`<section class="page">
+  return shell(`<section class="page">
     <span class="eyebrow">SAIBA MAIS</span>
     <h1 class="page-title">Entenda o Chama antes de fazer seu primeiro pedido.</h1>
     <p class="muted page-lead">O objetivo é simples: facilitar a comparação, dar mais clareza sobre o aceite da revenda e permitir que você acompanhe a entrega.</p>
@@ -129,7 +129,7 @@ function learn(){
     </div></section>
 
     <div class="dual-cta"><button class="primary" onclick="quickProduct('P13')">🔥 Consultar uma compra</button><button class="secondary" onclick="go('earn')">💰 Ver como ganhar</button></div>
-  </section>\`)
+  </section>`)
 }
 
 async function activateCashAccount(){
@@ -174,11 +174,11 @@ async function shareReferral(){
 function merchantsLanding(){
   const portal=globalThis.merchantPortalRequested?.()===true;
   const cta=portal?"go('merchant-join')":"openMerchantPortal()";
-  return shell(\`<section class="page merchant-landing">
+  return shell(`<section class="page merchant-landing">
     <span class="eyebrow">PARA EMPRESAS LOCAIS</span>
     <h1 class="page-title">Transforme o Chama em um novo canal de vendas.</h1>
     <p class="muted page-lead">Receba oportunidades de pedidos sem abrir outra loja. Você mantém o controle do catálogo, preço, estoque, disponibilidade e da decisão de aceitar cada pedido.</p>
-    <div class="hero-actions merchant-hero-actions"><button class="primary" onclick="\${cta}">\${portal?'Cadastrar minha empresa':'Acessar / cadastrar revenda'}</button><button class="secondary" onclick="document.getElementById('merchant-how')?.scrollIntoView({behavior:'smooth'})">Como funciona</button></div>
+    <div class="hero-actions merchant-hero-actions"><button class="primary" onclick="${cta}">${portal?'Cadastrar minha empresa':'Acessar / cadastrar revenda'}</button><button class="secondary" onclick="document.getElementById('merchant-how')?.scrollIntoView({behavior:'smooth'})">Como funciona</button></div>
 
     <div class="grid cards-3 partner-benefits">
       <div class="card"><div class="feature-icon">📈</div><h3>Mais um canal de vendas</h3><p class="muted tiny">O Chama pode apresentar sua operação a clientes procurando exatamente o que você vende.</p></div>
@@ -206,10 +206,10 @@ function merchantsLanding(){
       <div class="requirement-list"><span>✓ CNPJ e dados da empresa</span><span>✓ Responsável e contato</span><span>✓ Endereço da operação</span><span>✓ Validação ANP quando houver GLP</span></div>
     </div></section>
 
-    <section class="section"><div class="soft-band"><div><span class="section-kicker">CONDIÇÕES COMERCIAIS</span><h2>Sem surpresa na ativação.</h2><p>As condições do piloto são apresentadas antes da operação entrar no ar. Enviar o cadastro não coloca a empresa online automaticamente e não cria cobrança por si só.</p></div><button class="primary" onclick="\${cta}">Começar cadastro</button></div></section>
+    <section class="section"><div class="soft-band"><div><span class="section-kicker">CONDIÇÕES COMERCIAIS</span><h2>Sem surpresa na ativação.</h2><p>As condições do piloto são apresentadas antes da operação entrar no ar. Enviar o cadastro não coloca a empresa online automaticamente e não cria cobrança por si só.</p></div><button class="primary" onclick="${cta}">Começar cadastro</button></div></section>
 
     <div class="notice"><strong>Por que existe validação?</strong><br>Para que clientes encontrem operações realmente aptas a atender. Isso protege a experiência do comprador e também a reputação das empresas parceiras.</div>
-  </section>\`)
+  </section>`)
 }
 function merchantJoin(){
   if(globalThis.merchantPortalRequested?.()){
