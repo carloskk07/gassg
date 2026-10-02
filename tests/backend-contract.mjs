@@ -84,16 +84,28 @@ assert.match(
   'anon/authenticated devem começar sem privilégios implícitos'
 );
 
-assert.match(
-  normalized,
-  /grant select on table public\.profiles, public\.merchants, public\.merchant_members, public\.catalog_items, public\.orders, public\.order_items, public\.order_events, public\.wallet_entries, public\.referrals, public\.merchant_applications to authenticated/,
-  'leituras autenticadas precisam ser explícitas'
-);
-
 assert.doesNotMatch(
   normalized,
-  /grant\s+(insert|update|delete|all)[\s\S]{0,240}\bto authenticated\b/,
-  'frontend não pode escrever diretamente nas tabelas críticas'
+  /grant\s+(select|insert|update|delete|truncate|references|trigger|maintain|all)[\s\S]{0,320}\bto (anon|authenticated)\b/,
+  'browser não pode receber privilégios diretos sobre tabelas da aplicação'
+);
+
+assert.match(
+  normalized,
+  /grant all on table[\s\S]*to service_role/,
+  'data-plane server-side precisa manter service_role explícito'
+);
+
+assert.match(
+  normalized,
+  /alter default privileges for role postgres in schema public[\s\S]*revoke select, insert, update, delete, truncate, references, trigger, maintain on tables from anon, authenticated/,
+  'objetos futuros precisam nascer fechados inclusive para MAINTAIN no PostgreSQL 17'
+);
+
+assert.match(
+  normalized,
+  /alter default privileges for role postgres in schema public[\s\S]*revoke execute on functions from public, anon, authenticated/,
+  'funções futuras não podem nascer executáveis pelo browser'
 );
 
 assert.doesNotMatch(normalized,/security definer/,'schema inicial não deve introduzir SECURITY DEFINER');
@@ -140,8 +152,7 @@ assert.doesNotMatch(
   'cliente não pode ganhar acesso genérico ao cadastro de revendas'
 );
 
-assert.match(normalized,/create policy "read own merchant profile"/,'revenda só pode ler o próprio cadastro');
-assert.match(normalized,/create policy "read own merchant catalog"/,'revenda só pode ler o próprio catálogo');
+assert.doesNotMatch(normalized,/create policy\b/,'baseline server-only não deve recriar policies de leitura direta no browser');
 
 assert.match(normalized,/status <> 'requote_required'[\s\S]*proposed_merchant_id is not null[\s\S]*proposed_total_cents is not null/,'requote precisa ter proposta completa');
 assert.match(normalized,/status not in \('out_for_delivery','arriving','delivered','settled'\)[\s\S]*dispatched_at is not null/,'status de rota exige saída confirmada');
@@ -151,7 +162,6 @@ assert.match(normalized,/orders_one_active_per_customer_idx/,'banco precisa impe
 assert.match(normalized,/total_cents = gross_total_cents - cashback_reserved_cents/,'banco precisa garantir total líquido');
 assert.match(normalized,/version integer not null default 1/,'pedido precisa suportar concorrência otimista');
 
-assert.match(normalized,/publication supabase_realtime add table public\.orders/,'orders precisa estar preparado para Realtime');
-assert.match(normalized,/publication supabase_realtime add table public\.order_events/,'order_events precisa estar preparado para Realtime');
+assert.doesNotMatch(normalized,/supabase_realtime/,'baseline não deve reabrir Postgres Changes quando o runtime usa polling protegido por Edge Functions');
 
-console.log('Backend contract passou: SQL íntegro, RLS, grants, ledger, quotes, PIN hash, centavos e Realtime verificados.');
+console.log('Backend contract passou: SQL íntegro, RLS server-only, defaults fail-closed, ledger, quotes, PIN hash e centavos verificados.');
