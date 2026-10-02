@@ -1,4 +1,5 @@
 const REFERRAL_PILOT_RATE=0.02;
+const MERCHANT_PILOT_FEE_RATE=0.075;
 
 function club(){
   const purchases=Math.max(0,Number(state.user.purchases)||0);
@@ -31,6 +32,33 @@ function referralExample(orderReais,count=1){
   const qty=Math.max(1,Math.trunc(Number(count)||1));
   return roundMoney(amount*REFERRAL_PILOT_RATE*qty);
 }
+function merchantEconomicsExample(orderReais,count=1){
+  const amount=Math.max(0,Number(orderReais)||0);
+  const qty=Math.max(1,Math.trunc(Number(count)||1));
+  const gross=roundMoney(amount*qty);
+  const fee=roundMoney(gross*MERCHANT_PILOT_FEE_RATE);
+  return {gross,fee,merchantNet:roundMoney(gross-fee)};
+}
+function updateReferralSimulator(){
+  const clients=Math.min(500,Math.max(1,Math.trunc(Number(document.querySelector('#ref-sim-clients')?.value)||1)));
+  const ticket=Math.min(100000,Math.max(1,Number(document.querySelector('#ref-sim-ticket')?.value)||1));
+  const total=referralExample(ticket,clients);
+  const out=document.querySelector('#ref-sim-total');
+  if(out)out.textContent=BRL.format(total);
+  const detail=document.querySelector('#ref-sim-detail');
+  if(detail)detail.textContent=clients+' novo'+(clients===1?' cliente':'s clientes')+' × '+BRL.format(ticket)+' × 2%';
+}
+function updateMerchantSimulator(){
+  const orders=Math.min(10000,Math.max(1,Math.trunc(Number(document.querySelector('#merchant-sim-orders')?.value)||1)));
+  const ticket=Math.min(100000,Math.max(1,Number(document.querySelector('#merchant-sim-ticket')?.value)||1));
+  const e=merchantEconomicsExample(ticket,orders);
+  const gross=document.querySelector('#merchant-sim-gross');
+  const fee=document.querySelector('#merchant-sim-fee');
+  const net=document.querySelector('#merchant-sim-net');
+  if(gross)gross.textContent=BRL.format(e.gross);
+  if(fee)fee.textContent=BRL.format(e.fee);
+  if(net)net.textContent=BRL.format(e.merchantNet);
+}
 function refer(){
   const url=referralUrl();
   const live=globalThis.liveRequested?.()===true;
@@ -46,10 +74,10 @@ function refer(){
       : '';
 
   return shell(`<section class="page">
-    <button class="back" onclick="go('earn')">← Ganhe com o Chama</button>
-    <span class="eyebrow">PARA PESSOAS</span>
-    <h1 class="page-title">Compartilhe. A pessoa compra. Você pode ganhar.</h1>
-    <p class="muted page-lead">Seu link identifica quem chegou por você. No piloto, a comissão pode nascer da primeira compra qualificada de cada novo cliente indicado, depois de entrega, pagamento e validação.</p>
+    <button class="back" onclick="go('earn')">← Ganhar ou vender</button>
+    <span class="eyebrow">INDICAÇÃO PARA PESSOAS</span>
+    <h1 class="page-title">Indique um novo comprador. A primeira compra elegível pode gerar comissão.</h1>
+    <p class="muted page-lead">O Chama usa indicação como aquisição de novos clientes: cadastro sozinho não gera valor e compras repetidas do mesmo indicado não criam uma nova comissão de aquisição.</p>
     <div class="earn-summary">
       <div class="earn-balance-card"><span>Disponível</span><strong>${BRL.format(state.user.commissionAvailable)}</strong><small>saldo já liberado</small></div>
       <div class="earn-balance-card"><span>A liberar</span><strong>${BRL.format(state.user.commissionPending)}</strong><small>em validação</small></div>
@@ -57,45 +85,49 @@ function refer(){
     ${referralCard}
     ${identityCard}
 
-    <section class="section"><div class="section-head"><div><span class="section-kicker">EXEMPLO SIMPLES</span><h2>Entenda a regra atual do piloto</h2><p>A política atual usa 2% sobre a primeira compra qualificada de cada novo cliente indicado.</p></div></div>
-      <div class="example-math">
-        <div><small>1 novo cliente • 1ª compra de R$ 120</small><strong>${BRL.format(referralExample(120))}</strong><span>exemplo de comissão</span></div>
-        <div><small>10 novos clientes • 1ª compra de R$ 120 cada</small><strong>${BRL.format(referralExample(120,10))}</strong><span>exemplo acumulado</span></div>
+    <section class="section"><div class="section-head"><div><span class="section-kicker">SIMULADOR DA POLÍTICA ATUAL</span><h2>Veja quanto a regra de 2% representa.</h2><p>Use quantidades e valores hipotéticos para entender a matemática — não como previsão de renda.</p></div></div>
+      <div class="calculator-card">
+        <div class="calculator-inputs">
+          <div class="input-wrap"><label for="ref-sim-clients">Novos clientes com 1ª compra qualificada</label><input id="ref-sim-clients" class="input" type="number" inputmode="numeric" min="1" max="500" value="10" oninput="updateReferralSimulator()"></div>
+          <div class="input-wrap"><label for="ref-sim-ticket">Valor médio da primeira compra (R$)</label><input id="ref-sim-ticket" class="input" type="number" inputmode="decimal" min="1" step="0.01" value="120" oninput="updateReferralSimulator()"></div>
+        </div>
+        <div class="calculator-result"><small>Comissão ilustrativa pela política atual</small><strong id="ref-sim-total">${BRL.format(referralExample(120,10))}</strong><span id="ref-sim-detail">10 novos clientes × ${BRL.format(120)} × 2%</span></div>
       </div>
-      <div class="notice" style="margin-top:12px">Os exemplos não são promessa de renda. Compras repetidas do mesmo cliente não geram novas comissões de aquisição. A liberação final também depende das regras de segurança e de identidade do programa.</div>
+      <div class="notice" style="margin-top:12px"><strong>Não é promessa de renda.</strong><br>O valor só pode nascer da primeira compra qualificada de cada novo cliente indicado e ainda depende de entrega, pagamento, validação de risco, janela de segurança e das identidades permanentes exigidas pelo programa. Compras repetidas do mesmo cliente não geram novas comissões de aquisição.</div>
     </section>
 
-    <section class="section"><div class="section-head"><div><h2>Como funciona</h2></div></div><div class="how-grid">
+    <section class="section"><div class="section-head"><div><h2>Como a comissão passa a existir</h2></div></div><div class="how-grid">
       <div class="how-card"><span>1</span><div><strong>Compartilhe seu link</strong><p>Envie para quem realmente possa se interessar pelo Chama.</p></div></div>
-      <div class="how-card"><span>2</span><div><strong>O novo cliente faz a primeira compra qualificada</strong><p>Cadastro sozinho e compras posteriores do mesmo cliente não criam nova comissão de aquisição.</p></div></div>
+      <div class="how-card"><span>2</span><div><strong>O novo cliente faz a primeira compra qualificada</strong><p>Cadastro sozinho e compras posteriores do mesmo cliente não criam nova comissão.</p></div></div>
       <div class="how-card"><span>3</span><div><strong>A venda é concluída</strong><p>A entrega e o pagamento precisam ser confirmados.</p></div></div>
       <div class="how-card"><span>4</span><div><strong>A comissão é validada</strong><p>Depois da janela de segurança e com indicador e cliente indicado em identidades permanentes, o valor elegível pode ficar disponível.</p></div></div>
     </div></section>
 
-    <div class="card flat payout-card"><div><span class="section-kicker">SAQUE</span><h3>Pix está em preparação</h3><p class="muted">O saldo disponível já é separado do valor em validação. O saque só será habilitado quando a integração financeira real estiver pronta.</p></div><button class="secondary" disabled>Saque Pix ainda não disponível</button></div>
+    <div class="card flat payout-card"><div><span class="section-kicker">RECEBIMENTO</span><h3>Saldo disponível e saque são coisas diferentes.</h3><p class="muted">O sistema já separa valor em validação de comissão disponível. A retirada em dinheiro só será apresentada como disponível quando a integração Pix real estiver pronta.</p></div><button class="secondary" disabled>Saque Pix ainda não disponível</button></div>
   </section>`)
 }
 
 function earn(){
+  const merchantSample=merchantEconomicsExample(120);
   return shell(`<section class="page">
-    <span class="eyebrow">GANHE COM O CHAMA</span>
-    <h1 class="page-title">Duas formas de participar do crescimento.</h1>
-    <p class="muted page-lead">Você pode gerar comissão indicando compradores ou usar sua empresa para conquistar novas vendas. São modelos diferentes, com regras claras e sem pagamento por simples recrutamento.</p>
+    <span class="eyebrow">GANHAR OU VENDER</span>
+    <h1 class="page-title">Benefícios por indicar. Novas vendas para sua empresa.</h1>
+    <p class="muted page-lead">São duas oportunidades diferentes. Pessoa física pode receber comissão de aquisição quando traz um novo comprador elegível; empresa ganha vendendo produtos pelo Chama.</p>
 
     <div class="opportunity-grid main-opportunities">
       <article class="opportunity-card person-opportunity"><div class="opportunity-icon">🤝</div><span class="section-kicker">PARA PESSOAS</span><h2>Indique novos compradores</h2><p>Compartilhe seu link pessoal. A primeira compra qualificada de cada novo cliente indicado pode gerar comissão depois de entregue, paga e validada.</p>
-        <ul class="clean-list"><li>Seu próprio link de indicação</li><li>Uma comissão de aquisição por novo cliente elegível</li><li>Saldo “a liberar” separado do saldo disponível</li><li>Identidades permanentes exigidas para a liberação final</li></ul>
-        <div class="opportunity-example"><small>Regra atual do piloto</small><strong>2% sobre venda elegível</strong><span>Ex.: R$ 120 → ${BRL.format(referralExample(120))}</span></div>
-        <button class="primary full" onclick="go('refer')">Abrir meu programa</button>
+        <ul class="clean-list"><li>Política atual do piloto: 2% da primeira compra qualificada</li><li>Uma comissão de aquisição por novo cliente elegível</li><li>Saldo “a liberar” separado do saldo disponível</li><li>Nenhum pagamento por simples recrutamento</li></ul>
+        <div class="opportunity-example"><small>Exemplo matemático</small><strong>R$ 120 × 2% = ${BRL.format(referralExample(120))}</strong><span>Não é promessa de renda; a venda precisa cumprir todos os gates.</span></div>
+        <button class="primary full" onclick="go('refer')">Simular minha indicação</button>
       </article>
       <article class="opportunity-card business-opportunity"><div class="opportunity-icon">🏪</div><span class="section-kicker">PARA EMPRESAS</span><h2>Venda pelo Chama</h2><p>Transforme a plataforma em mais um canal de vendas para gás, água e outros itens da sua operação.</p>
-        <ul class="clean-list"><li>Você define preços e estoque</li><li>Escolhe quando ficar online</li><li>Decide se aceita cada pedido</li><li>Pode vender vários tipos de produto</li></ul>
-        <div class="opportunity-example"><small>Você mantém o controle</small><strong>Catálogo + operação + pedidos</strong><span>Condições comerciais são apresentadas antes da ativação.</span></div>
-        <button class="primary full" onclick="go('merchants')">Quero vender pelo Chama</button>
+        <ul class="clean-list"><li>Você define preços, estoque e taxa de entrega</li><li>Escolhe quando ficar online</li><li>Decide se aceita cada pedido</li><li>Pode vender vários tipos de produto</li></ul>
+        <div class="opportunity-example"><small>Política inicial do piloto</small><strong>Taxa Chama: 7,5% por pedido concluído</strong><span>Ex.: R$ 120 bruto → ${BRL.format(merchantSample.fee)} de taxa → ${BRL.format(merchantSample.merchantNet)} antes dos custos próprios e impostos.</span></div>
+        <button class="primary full" onclick="go('merchants')">Ver parceria e simulador</button>
       </article>
     </div>
 
-    <section class="section"><div class="soft-band"><div><span class="section-kicker">TRANSPARÊNCIA</span><h2>Ganhar depende de atividade real.</h2><p>Indicação exige venda válida. Revenda ganha vendendo produtos. O Chama não paga por formar rede de pessoas nem promete renda fixa.</p></div><button class="secondary" onclick="go('learn')">Entender o Chama</button></div></section>
+    <section class="section"><div class="soft-band"><div><span class="section-kicker">TRANSPARÊNCIA</span><h2>Dinheiro só aparece quando existe atividade econômica real.</h2><p>Indicação exige venda válida. Revenda ganha vendendo produtos. O Chama não paga por formar rede de pessoas, não promete renda fixa e não apresenta saque como disponível antes da integração financeira.</p></div><button class="secondary" onclick="go('learn')">Entender compra e segurança</button></div></section>
   </section>`)
 }
 
@@ -174,17 +206,37 @@ async function shareReferral(){
 function merchantsLanding(){
   const portal=globalThis.merchantPortalRequested?.()===true;
   const cta=portal?"go('merchant-join')":"openMerchantPortal()";
+  const sample=merchantEconomicsExample(120,100);
   return shell(`<section class="page merchant-landing">
     <span class="eyebrow">PARA EMPRESAS LOCAIS</span>
-    <h1 class="page-title">Transforme o Chama em um novo canal de vendas.</h1>
-    <p class="muted page-lead">Receba oportunidades de pedidos sem abrir outra loja. Você mantém o controle do catálogo, preço, estoque, disponibilidade e da decisão de aceitar cada pedido.</p>
-    <div class="hero-actions merchant-hero-actions"><button class="primary" onclick="${cta}">${portal?'Cadastrar minha empresa':'Acessar / cadastrar revenda'}</button><button class="secondary" onclick="document.getElementById('merchant-how')?.scrollIntoView({behavior:'smooth'})">Como funciona</button></div>
+    <h1 class="page-title">Mais um canal de vendas, com custo visível antes de entrar.</h1>
+    <p class="muted page-lead">Receba oportunidades de pedidos sem abrir outra loja. Você continua controlando catálogo, preço, estoque, disponibilidade e a decisão de aceitar cada pedido.</p>
+    <div class="merchant-commercial-strip">
+      <div><small>POLÍTICA INICIAL DO PILOTO</small><strong>7,5%</strong><span>taxa da plataforma sobre o valor bruto de cada pedido concluído</span></div>
+      <p>Sem mensalidade apresentada no modelo atual. Custos próprios da revenda, tributos, meios de pagamento e entrega não estão incluídos nesta conta.</p>
+    </div>
+    <div class="hero-actions merchant-hero-actions"><button class="primary" onclick="${cta}">${portal?'Cadastrar minha empresa':'Acessar / cadastrar revenda'}</button><button class="secondary" onclick="document.getElementById('merchant-economics')?.scrollIntoView({behavior:'smooth'})">Simular custos</button></div>
 
     <div class="grid cards-3 partner-benefits">
-      <div class="card"><div class="feature-icon">📈</div><h3>Mais um canal de vendas</h3><p class="muted tiny">O Chama pode apresentar sua operação a clientes procurando exatamente o que você vende.</p></div>
+      <div class="card"><div class="feature-icon">📈</div><h3>Mais um canal de vendas</h3><p class="muted tiny">O Chama pode apresentar sua operação a clientes que já estão procurando os produtos que você vende.</p></div>
       <div class="card"><div class="feature-icon">🎛️</div><h3>Você continua no controle</h3><p class="muted tiny">Defina preço, estoque, taxa e disponibilidade. Fique offline quando não quiser receber novos pedidos.</p></div>
       <div class="card"><div class="feature-icon">🧺</div><h3>Venda além do P13</h3><p class="muted tiny">Cadastre outros tamanhos de GLP e produtos como água, carvão, lenha e gelo conforme sua operação.</p></div>
     </div>
+
+    <section class="section" id="merchant-economics"><div class="section-head"><div><span class="section-kicker">SIMULADOR COMERCIAL</span><h2>Veja a taxa antes de decidir.</h2><p>Simulação baseada na política inicial de 7,5% do piloto. Não inclui custos, impostos ou margem própria da empresa.</p></div></div>
+      <div class="calculator-card merchant-calculator">
+        <div class="calculator-inputs">
+          <div class="input-wrap"><label for="merchant-sim-orders">Pedidos concluídos</label><input id="merchant-sim-orders" class="input" type="number" inputmode="numeric" min="1" max="10000" value="100" oninput="updateMerchantSimulator()"></div>
+          <div class="input-wrap"><label for="merchant-sim-ticket">Valor médio por pedido (R$)</label><input id="merchant-sim-ticket" class="input" type="number" inputmode="decimal" min="1" step="0.01" value="120" oninput="updateMerchantSimulator()"></div>
+        </div>
+        <div class="economics-results">
+          <div><small>Vendas brutas</small><strong id="merchant-sim-gross">${BRL.format(sample.gross)}</strong></div>
+          <div><small>Taxa Chama (7,5%)</small><strong id="merchant-sim-fee">${BRL.format(sample.fee)}</strong></div>
+          <div class="highlight"><small>Antes dos seus custos e impostos</small><strong id="merchant-sim-net">${BRL.format(sample.merchantNet)}</strong></div>
+        </div>
+      </div>
+      <div class="notice" style="margin-top:12px">O Chama congela a política financeira no pedido. A automação de cobrança, conciliação e payout ainda faz parte da preparação operacional para abertura pública.</div>
+    </section>
 
     <section class="section" id="merchant-how"><div class="section-head"><div><span class="section-kicker">DO PEDIDO À ENTREGA</span><h2>Uma operação simples de entender</h2></div></div><div class="how-grid">
       <div class="how-card"><span>1</span><div><strong>Cliente consulta</strong><p>O Chama procura operações elegíveis para a cesta e o endereço.</p></div></div>
@@ -206,7 +258,7 @@ function merchantsLanding(){
       <div class="requirement-list"><span>✓ CNPJ e dados da empresa</span><span>✓ Responsável e contato</span><span>✓ Endereço da operação</span><span>✓ Validação ANP quando houver GLP</span></div>
     </div></section>
 
-    <section class="section"><div class="soft-band"><div><span class="section-kicker">CONDIÇÕES COMERCIAIS</span><h2>Sem surpresa na ativação.</h2><p>As condições do piloto são apresentadas antes da operação entrar no ar. Enviar o cadastro não coloca a empresa online automaticamente e não cria cobrança por si só.</p></div><button class="primary" onclick="${cta}">Começar cadastro</button></div></section>
+    <section class="section"><div class="soft-band"><div><span class="section-kicker">ENTRADA NO PILOTO</span><h2>Veja custo, requisitos e operação antes de ativar.</h2><p>Enviar o cadastro não coloca a empresa online automaticamente e não cria cobrança. A ativação depende da aprovação e, quando houver GLP, da validação regulatória aplicável.</p></div><button class="primary" onclick="${cta}">Começar cadastro</button></div></section>
 
     <div class="notice"><strong>Por que existe validação?</strong><br>Para que clientes encontrem operações realmente aptas a atender. Isso protege a experiência do comprador e também a reputação das empresas parceiras.</div>
   </section>`)
