@@ -866,7 +866,9 @@ async function merchantSetOnlineLive(online){
   if(!merchantId)throw new Error('Revenda não selecionada');
   merchantRuntime.actionPending=true;render();
   try{
-    await merchantInvoke('merchant-ops',{merchantId,action:'set-online',online:online===true});
+    await retryAmbiguousOnce(
+      ()=>merchantInvoke('merchant-ops',{merchantId,action:'set-online',online:online===true})
+    );
     await merchantRefresh({silent:true});
   }finally{
     merchantRuntime.actionPending=false;render();
@@ -878,10 +880,10 @@ async function merchantUpdateProductLive(productCode,priceCents,availableStock,a
   if(!merchantId)throw new Error('Revenda não selecionada');
   merchantRuntime.actionPending=true;render();
   try{
-    await merchantInvoke('merchant-ops',{
+    await retryAmbiguousOnce(()=>merchantInvoke('merchant-ops',{
       merchantId,action:'update-product',productCode,
       priceCents:Number(priceCents),availableStock:Number(availableStock),active:active!==false
-    });
+    }));
     await merchantRefresh({silent:true});
   }finally{
     merchantRuntime.actionPending=false;render();
@@ -893,12 +895,12 @@ async function merchantUpdateLogisticsLive(deliveryFeeCents,baseEtaMinutes,accep
   if(!merchantId)throw new Error('Revenda não selecionada');
   merchantRuntime.actionPending=true;render();
   try{
-    await merchantInvoke('merchant-ops',{
+    await retryAmbiguousOnce(()=>merchantInvoke('merchant-ops',{
       merchantId,action:'update-logistics',
       deliveryFeeCents:Number(deliveryFeeCents),
       baseEtaMinutes:Number(baseEtaMinutes),
       acceptsCitywide:acceptsCitywide===true
-    });
+    }));
     await merchantRefresh({silent:true});
   }finally{
     merchantRuntime.actionPending=false;render();
@@ -907,7 +909,7 @@ async function merchantUpdateLogisticsLive(deliveryFeeCents,baseEtaMinutes,accep
 
 async function merchantSubmitApplicationLive(payload){
   if(!merchantRuntime.session?.access_token)throw new Error('Entre com seu e-mail antes de enviar o cadastro');
-  return merchantInvoke('submit-merchant-application',payload);
+  return retryAmbiguousOnce(()=>merchantInvoke('submit-merchant-application',payload));
 }
 
 async function merchantHeartbeat(){
