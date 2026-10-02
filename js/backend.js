@@ -34,6 +34,20 @@ async function chamaFetch(input,init={},timeoutMs=CHAMA_NETWORK_TIMEOUT_MS){
   }
 }
 
+function isAmbiguousTransportError(error){
+  return error?.code==='NETWORK_TIMEOUT'
+    || error instanceof TypeError
+    || (Number.isFinite(Number(error?.status))&&Number(error.status)>=500);
+}
+async function retryAmbiguousOnce(operation){
+  try{return await operation()}
+  catch(firstError){
+    if(!isAmbiguousTransportError(firstError))throw firstError;
+    await new Promise(resolve=>setTimeout(resolve,250));
+    return operation();
+  }
+}
+
 const customerPortalParams=new URLSearchParams(location.search);
 const liveRuntime={
   requested:globalThis.__CHAMA_TEST__===true
@@ -365,15 +379,9 @@ async function liveCreateOrder(quoteId){
     referralCode:state.user.referredBy||null
   };
   try{
-    let result;
-    try{
-      result=await liveInvoke('create-order',payload,{idempotencyKey});
-    }catch(firstError){
-      const ambiguous=firstError?.code==='NETWORK_TIMEOUT'||firstError instanceof TypeError||Number(firstError?.status)>=500;
-      if(!ambiguous)throw firstError;
-      await new Promise(resolve=>setTimeout(resolve,250));
-      result=await liveInvoke('create-order',payload,{idempotencyKey});
-    }
+    const result=await retryAmbiguousOnce(
+      ()=>liveInvoke('create-order',payload,{idempotencyKey})
+    );
 
     liveRuntime.orderId=result.orderId;
     localStorage.setItem(CHAMA_BACKEND.orderStorageKey,result.orderId);
@@ -432,11 +440,12 @@ async function liveCustomerAction(action){
   liveRuntime.actionPending=true;
   render();
   try{
-    await liveInvoke('customer-action',{
+    const idempotencyKey=liveIdempotency('customer-action');
+    await retryAmbiguousOnce(()=>liveInvoke('customer-action',{
       orderId:order.orderId,
       action,
       expectedVersion:order.version
-    },{idempotencyKey:liveIdempotency('customer-action')});
+    },{idempotencyKey}));
     await liveGetOrder(order.orderId,{silent:true});
     toast(action==='accept-requote'?'Nova condição aceita':'Pedido cancelado');
   }catch(error){
@@ -807,7 +816,10 @@ async function merchantPerformAction(orderId,action,reason='other_operational'){
   try{
     const body={orderId,action,expectedVersion:order.version};
     if(action==='cannot-fulfill')body.reason=reason;
-    const result=await merchantInvoke('merchant-action',body,{idempotencyKey:liveIdempotency('merchant-action')});
+    const idempotencyKey=liveIdempotency('merchant-action');
+    const result=await retryAmbiguousOnce(
+      ()=>merchantInvoke('merchant-action',body,{idempotencyKey})
+    );
     await merchantRefresh({silent:true});
     return result;
   }catch(error){
@@ -830,12 +842,13 @@ async function merchantCompleteDeliveryLive(orderId,pin,paymentConfirmed){
   merchantRuntime.error=null;
   render();
   try{
-    const result=await merchantInvoke('complete-delivery',{
+    const idempotencyKey=liveIdempotency('complete-delivery');
+    const result=await retryAmbiguousOnce(()=>merchantInvoke('complete-delivery',{
       orderId,
       pin:String(pin),
       expectedVersion:order.version,
       paymentConfirmed:true
-    },{idempotencyKey:liveIdempotency('complete-delivery')});
+    },{idempotencyKey}));
     if(result?.ok===false)throw Object.assign(new Error(result.error==='PIN_LOCKED'?'PIN bloqueado. Abra suporte.':'PIN incorreto.'),{code:result.error});
     await merchantRefresh({silent:true});
   }catch(error){
@@ -942,6 +955,8 @@ function openCustomerPortal(){
 }
 
 globalThis.chamaFetch=chamaFetch;
+globalThis.isAmbiguousTransportError=isAmbiguousTransportError;
+globalThis.retryAmbiguousOnce=retryAmbiguousOnce;
 globalThis.buildPortalHref=buildPortalHref;
 globalThis.liveRuntime=liveRuntime;
 globalThis.customerOriginSafe=customerOriginSafe;
