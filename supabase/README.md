@@ -1,4 +1,4 @@
-# Chama — Supabase backend v1.8.1
+# Chama — Supabase backend v1.9.0
 
 Backend multiusuário do Chama São Gabriel, isolado em projeto Supabase próprio.
 
@@ -40,6 +40,21 @@ O primeiro registro atual é **Gas e Lenheira do JR**, P13 a R$ 115,90 entregue,
 Conversão para operação real continua exigindo o fluxo normal: identidade permanente, aplicação/cadastro, CNPJ, compliance aplicável, catálogo real, taxa/ETA, heartbeat e ativação administrativa.
 
 `merchant_offer_load(uuid[])` fornece ao servidor apenas carga ativa e volume de pedidos dos últimos 7 dias. Esses sinais não são expostos como identidade ou score interno ao cliente e só desempatem parceiros próximos em valor ao consumidor.
+
+## Política de preço por SKU
+
+`catalog_items.price_cents` continua sendo o **preço normal/preferencial**.
+
+Campos adicionais:
+
+- `pricing_mode`: `fixed` ou `range`;
+- `min_price_cents`: piso autorizado;
+- `max_price_cents`: teto autorizado;
+- `pricing_strategy`: `volume`, `balanced` ou `margin`.
+
+Em `fixed`, mínimo = normal = máximo.
+
+Em `range`, `get-offers` calcula um preço efetivo usando apenas sinais do próprio merchant. O preço de outras revendas não entra nessa função. O resultado precisa estar dentro da faixa; `create_quote_snapshot` revalida a autorização, freshness e estoque sob lock antes de congelar `quote_items.unit_price_cents`.
 
 ## Fluxo do cliente
 
