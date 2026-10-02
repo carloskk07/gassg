@@ -1,4 +1,4 @@
-const CACHE='chama-sg-v1.24';
+const CACHE='chama-sg-v1.25';
 const ASSETS=['./','./index.html','./css/base.css','./css/components.css','./js/runtime-config.js','./js/turnstile.js','./js/backend.js','./js/core.js','./js/customer.js','./js/growth.js','./js/merchant.js','./js/admin.js','./js/bootstrap.js','./manifest.webmanifest','./icons/icon.svg'];
 
 self.addEventListener('install',event=>{
