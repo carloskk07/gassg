@@ -28,6 +28,7 @@ function merchantLiveNoAccess(){
     <p class="muted">${roleBlocked
       ? 'Você entrou como '+esc(email)+', mas seu papel atual não possui acesso operacional neste piloto.'
       : 'Você entrou como '+esc(email)+', mas esta conta ainda não possui uma operação ativa.'}</p>
+    ${rt.notice?`<div class="notice success" style="margin-top:16px"><strong>Cadastro recebido.</strong><br>${esc(rt.notice)}</div>`:''}
     ${roleBlocked
       ? '<div class="notice" style="margin-top:16px"><strong>Acesso operacional limitado.</strong><br>Owner, manager e operator podem usar o painel neste piloto. O papel de motorista permanece bloqueado até existir atribuição individual por pedido.</div>'
       : '<div class="card flat" style="margin-top:16px"><h3>Quer participar?</h3><p class="muted tiny">Envie o cadastro da empresa. A operação só entra no pool depois de validação e vínculo da conta.</p><button class="primary full" onclick="go(\'merchant-join\')">Cadastrar empresa</button></div>'}
@@ -75,6 +76,7 @@ function merchantLivePage(){
   const freshness=merchantLiveFreshness();
   const freshnessProblems=[];
   if(!freshness.deliveryFresh)freshnessProblems.push('taxa de entrega vencida');
+  if(m.acceptsCitywide===false)freshnessProblems.push('atendimento em São Gabriel desativado');
   if(freshness.staleProducts.length)freshnessProblems.push('preço vencido: '+freshness.staleProducts.map(x=>x.productName||x.productCode).join(', '));
   if(!freshness.offerable.length)freshnessProblems.push('nenhum produto ativo com estoque');
   const freshnessNotice=!freshness.allFresh
@@ -91,7 +93,7 @@ function merchantLivePage(){
   const complianceNotice=complianceReady
     ? `<div class="notice success" style="margin-top:12px"><strong>Compliance vigente.</strong><br>CNPJ: ${esc(cnpjWhen)} • janela operacional ${Number(compliance.cnpjMaxAgeDays||30)} dias. ${hasGlp?`ANP: ${esc(anpWhen)} • janela operacional ${Number(compliance.anpMaxAgeDays||7)} dias.`:'Sem GLP ativo no catálogo; ANP não é exigida para a operação atual.'}</div>`
     : `<div class="notice danger" style="margin-top:12px"><strong>Revalidação necessária antes de operar.</strong><br>${!cnpjCurrent?`CNPJ: última verificação ${esc(cnpjWhen)}; revalidar a cada ${Number(compliance.cnpjMaxAgeDays||30)} dias. `:''}${!anpCurrent?`ANP: última verificação ${esc(anpWhen)}; revalidar a cada ${Number(compliance.anpMaxAgeDays||7)} dias para GLP.`:''}</div>`;
-  const canGoOnline=m.status==='active'&&complianceReady&&freshness.allFresh;
+  const canGoOnline=m.status==='active'&&complianceReady&&freshness.allFresh&&m.acceptsCitywide!==false;
   const connectionNotice=!connectionHealthy
     ? '<div class="notice danger" style="margin-top:12px"><strong>Conexão da operação sem confirmação recente.</strong><br>Enquanto a presença da revenda não for renovada, novos pedidos podem deixar de ser enviados para esta operação.</div>'
     : rt.heartbeatError
@@ -194,7 +196,7 @@ async function merchantLiveSaveLogistics(){
   const eta=Number(document.querySelector('#live-eta')?.value);
   const citywide=document.querySelector('#live-citywide')?.checked===true;
   if(!Number.isFinite(fee)||fee<0||!Number.isInteger(eta)||eta<5||eta>180)return toast('Revise taxa e ETA');
-  try{await merchantUpdateLogisticsLive(Math.round(fee*100),eta,citywide);toast('Logística atualizada')}catch(e){toast(String(e?.message||e))}
+  try{await merchantUpdateLogisticsLive(Math.round(fee*100),eta,citywide);toast(citywide?'Logística atualizada':'Logística atualizada. Novos pedidos foram pausados até reativar São Gabriel.')}catch(e){toast(String(e?.message||e))}
 }
 async function merchantLiveAction(id,action){
   try{
