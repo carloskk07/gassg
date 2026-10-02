@@ -140,11 +140,11 @@ function orderPage(){
     liveNotice='<div class="notice" style="margin-bottom:14px"><strong>Pré-lançamento.</strong><br>Os cards marcados como EXEMPLO servem apenas para visualizar o fluxo. Nenhum exemplo gera pedido, cobrança, cashback ou comissão.</div>';
   }else if(!testDemo&&liveMode&&!ready){
     const message=liveRuntime?.status==='loading'
-      ? 'Conectando ao backend real…'
+      ? 'Preparando a consulta…'
       : liveRuntime?.status==='unsafe-origin'
-        ? 'Transações reais estão bloqueadas nesta origem provisória.'
-        : 'O backend real está indisponível. Nenhum pedido será simulado.';
-    liveNotice=`<div class="notice ${liveRuntime?.status==='unavailable'?'danger':''}" style="margin-bottom:14px"><strong>Operação real</strong><br>${esc(message)}</div>`;
+        ? 'Compras reais ainda não estão liberadas nesta versão de pré-lançamento.'
+        : 'O serviço de pedidos está indisponível agora. Nenhum pedido foi criado.';
+    liveNotice=`<div class="notice ${liveRuntime?.status==='unavailable'?'danger':''}" style="margin-bottom:14px"><strong>Compra online</strong><br>${esc(message)}</div>`;
   }
 
   let offerBlock='';
@@ -166,7 +166,7 @@ function orderPage(){
     }else if(ready){
       offerBlock='<div class="empty card"><button class="primary" onclick="liveRefreshOffers().catch(()=>{})">Consultar revendas reais</button></div>';
     }else{
-      offerBlock='<div class="empty card">Não foi possível consultar o backend real.</div>';
+      offerBlock='<div class="empty card">Não foi possível consultar as opções agora.</div>';
     }
   }
 
@@ -221,7 +221,7 @@ function toggleCashback(v){state.checkout.useCashback=Boolean(v);save();render()
 
 async function checkout(mid){
   if(globalThis.liveRequested?.()){
-    if(!globalThis.liveReady?.())return toast('Backend real ainda não está disponível');
+    if(!globalThis.liveReady?.())return toast('O serviço de pedidos ainda não está disponível');
     await liveCreateOrder(mid);
     return;
   }
@@ -249,8 +249,8 @@ const statusCopy={
 function liveTracking(){
   if(!globalThis.liveReady?.()){
     const message=liveRuntime?.status==='loading'
-      ? 'Conectando ao backend real…'
-      : 'O backend real ainda não possui uma sessão de cliente disponível.';
+      ? 'Preparando a consulta…'
+      : 'Não foi possível abrir sua sessão de compra agora.';
     return shell(`<section class="page"><h1 class="page-title">Seu pedido</h1><div class="notice ${liveRuntime?.status==='unavailable'?'danger':''}">${esc(message)}</div></section>`);
   }
 
@@ -284,7 +284,7 @@ ${o.status==='CANCELLED'?'<div class="notice danger" style="margin-top:14px">Est
 ${o.financialState==='reversed'?'<div class="notice danger" style="margin-top:14px"><strong>Liquidação financeira revertida.</strong><br>A entrega permanece no histórico, mas cashback, comissão de indicação e recebível da plataforma foram estornados.'+(o.financialReversalReason?' Motivo: '+esc(o.financialReversalReason)+'.':'')+'</div>':''}
 ${o.riskReason&&o.status!=='CANCELLED'?`<div class="notice danger" style="margin-top:14px"><strong>Acompanhamento prioritário.</strong><br>${esc(o.riskReason)}</div>`:''}
 
-<section class="section"><div class="section-head"><div><h2>Linha do tempo</h2><p>Eventos registrados pelo backend.</p></div><button class="ghost small" onclick="liveGetOrder().catch(()=>{})">Atualizar</button></div><div class="card flat timeline">${liveEventTimeline(o)}</div></section>
+<section class="section"><div class="section-head"><div><h2>Linha do tempo</h2><p>Atualizações confirmadas da operação.</p></div><button class="ghost small" onclick="liveGetOrder().catch(()=>{})">Atualizar</button></div><div class="card flat timeline">${liveEventTimeline(o)}</div></section>
 ${o.deliveryPin&&['OUT_FOR_DELIVERY','ARRIVING'].includes(o.status)?`<div class="notice success"><strong>PIN de recebimento: ${esc(o.deliveryPin)}</strong><br>Informe este código somente quando o pedido estiver na sua frente.</div>`:''}
 ${active&&['OFFERED_TO_MERCHANT','REQUOTE_REQUIRED'].includes(o.status)?`<button class="ghost full" style="margin-top:10px" onclick="cancelPending('${o.orderId}')" ${liveRuntime.actionPending?'disabled':''}>Cancelar antes do aceite</button>`:''}
 ${active&&['PREPARING','AT_RISK'].includes(o.status)?`<button class="danger-btn full" style="margin-top:10px" onclick="cancelBeforeDispatch('${o.orderId}')" ${liveRuntime.actionPending?'disabled':''}>Cancelar antes da saída</button>`:''}
