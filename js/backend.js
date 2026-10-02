@@ -825,8 +825,8 @@ async function merchantHeartbeat(){
 async function merchantPoll(){
   if(!merchantReady()||merchantRuntime.actionPending||document.visibilityState==='hidden')return;
   try{
-    await merchantRefresh({silent:true});
     await merchantHeartbeat();
+    await merchantRefresh({silent:true});
     render();
   }catch{}
 }
