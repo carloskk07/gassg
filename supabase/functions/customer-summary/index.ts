@@ -74,6 +74,20 @@ Deno.serve(async(req:Request)=>{
     });
     if(error)throw error;
 
+    const ACTIVE_ORDER_STATUSES=[
+      "OFFERED_TO_MERCHANT","MERCHANT_ACCEPTED","PREPARING","OUT_FOR_DELIVERY",
+      "ARRIVING","AT_RISK","REASSIGNING","REQUOTE_REQUIRED"
+    ];
+    const {data:activeOrder,error:activeOrderError}=await admin
+      .from("orders")
+      .select("id,status,version,updated_at")
+      .eq("customer_id",user.id)
+      .in("status",ACTIVE_ORDER_STATUSES)
+      .order("created_at",{ascending:false})
+      .limit(1)
+      .maybeSingle();
+    if(activeOrderError)throw activeOrderError;
+
     return json({
       referralCode:data?.referralCode??null,
       cashbackCents:Number(data?.cashbackCents??0),
@@ -83,7 +97,10 @@ Deno.serve(async(req:Request)=>{
       settledOrders:Number(data?.settledOrders??0),
       reversedOrders:Number(data?.reversedOrders??0),
       cashEarningEligible:user.is_anonymous!==true,
-      identityType:user.is_anonymous===true?"anonymous":"permanent"
+      identityType:user.is_anonymous===true?"anonymous":"permanent",
+      activeOrderId:activeOrder?.id??null,
+      activeOrderStatus:activeOrder?.status??null,
+      activeOrderVersion:activeOrder?.version==null?null:Number(activeOrder.version)
     },200,origin);
   }catch(error){
     if(error instanceof DomainError){
