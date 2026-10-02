@@ -254,6 +254,17 @@ assert.match(body,/Sem exclusividade/);
 assert.match(body,/SIMULADOR DE MARGEM INCREMENTAL/);
 await evaluate("[...document.querySelectorAll('button')].find(b=>b.textContent.includes('Experimentar painel da revenda')).click()");
 await waitFor("location.hash==='#merchant' && document.body.innerText.includes('PAINEL DA REVENDA — PILOTO INTERNO')","pilot merchant CTA");
+
+// Simulate merchant consent to an automatic range. JR starts fixed; the test
+// explicitly authorizes the range and proves the customer quote stays inside it.
+await evaluate("document.querySelector('#m-pricing-mode').value='range'; merchantDemoPricingModeChanged(); document.querySelector('#m-price').value='120'; document.querySelector('#m-price-min').value='115.90'; document.querySelector('#m-price-max').value='125'; document.querySelector('#m-pricing-strategy').value='volume'; document.querySelector('#m-stock').value='20'; merchantUpdate('JR-PILOT')");
+await waitFor("document.body.innerText.includes('Faixa automática simulada')","pilot pricing range configured");
+assert.deepEqual(
+  JSON.parse(await evaluate("JSON.stringify(state.merchants[0].pricingP13)")),
+  {mode:'range',min:115.9,preferred:120,max:125,strategy:'volume'}
+);
+assert.equal(await evaluate("productPrice(state.merchants[0],'P13',1)"),115.9);
+
 await evaluate("setMode('customer'); go('home')");
 
 await evaluate("quickProduct('P13')");
@@ -298,5 +309,5 @@ assert.match(body,/R\$\s*1,15/);
 
 assert.deepEqual(pageErrors,[],`Chrome registrou erros: ${pageErrors.join(' | ')}`);
 
-console.log('E2E Chrome passou: fluxo padrão + piloto interno JR P13 R$ 115,90 até settlement e cashback.');
+console.log('E2E Chrome passou: fluxo padrão + faixa automática JR autorizada + P13 R$ 115,90 até settlement e cashback.');
 ws.close();

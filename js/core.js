@@ -55,6 +55,7 @@ function freshMerchant(id,name,priceP13,eta,distance,trust,inventory,prices){
   const ts=nowIso();
   return {
     id,name,priceP13,deliveryFee:0,eta,distance,online:true,trust,
+    pricingP13:{mode:'fixed',min:priceP13,preferred:priceP13,max:priceP13,strategy:'balanced'},
     accepted:0,delivered:0,priceConfirmedAt:ts,lastSeenAt:ts,
     inventory:{P13:inventory.P13??0,P20:inventory.P20??0,P45:inventory.P45??0,WATER20:inventory.WATER20??0,CHARCOAL4:inventory.CHARCOAL4??0,WOOD:inventory.WOOD??0,ICE5:inventory.ICE5??0},
     products:{WATER20:prices.WATER20??null,CHARCOAL4:prices.CHARCOAL4??null,WOOD:prices.WOOD??null,ICE5:prices.ICE5??null}
@@ -109,6 +110,15 @@ function normalizeMerchant(raw,base){
   }
   m.deliveryFee=Math.max(0,roundMoney(Number(m.deliveryFee)||0));
   m.priceP13=Number.isFinite(Number(m.priceP13))&&Number(m.priceP13)>0?roundMoney(Number(m.priceP13)):base.priceP13;
+  const rawPolicy=raw?.pricingP13||{};
+  const mode=rawPolicy.mode==='range'?'range':'fixed';
+  const strategy=['volume','balanced','margin'].includes(rawPolicy.strategy)?rawPolicy.strategy:'balanced';
+  let min=Number(rawPolicy.min),max=Number(rawPolicy.max);
+  if(!Number.isFinite(min)||min<=0)min=m.priceP13;
+  if(!Number.isFinite(max)||max<=0)max=m.priceP13;
+  min=roundMoney(min);max=roundMoney(max);
+  if(mode==='fixed'||min>m.priceP13||m.priceP13>max){min=m.priceP13;max=m.priceP13}
+  m.pricingP13={mode,min,preferred:m.priceP13,max,strategy};
   m.eta=Math.max(1,Math.trunc(Number(m.eta)||base.eta));
   m.distance=Math.max(0,Number(m.distance)||base.distance);
   m.trust=clamp(Number(m.trust)||base.trust,0,100);
@@ -244,8 +254,33 @@ function isPriceFresh(m,at=Date.now()){
   const ts=Date.parse(m.priceConfirmedAt||'');
   return Number.isFinite(ts)&&ts<=at+5*60*1000&&(at-ts)<=PRICE_FRESH_MS;
 }
-function productPrice(m,k){
-  if(k==='P13') return m.priceP13;
+function demoPricingPressure(m,k,qty=1){
+  const active=(state?.orders||[]).filter(o=>o.merchantId===m.id&&isLiveOrder(o)).length;
+  const recent=Math.max(0,Number(m.delivered)||0);
+  const stock=Math.max(Number(qty)||1,inventoryFor(m,k));
+  const requested=Math.max(1,Number(qty)||1);
+  const activePressure=clamp(active/5,0,1);
+  const coverage=stock/requested;
+  const stockPressure=clamp((5-coverage)/4,0,1);
+  const recentPressure=clamp(recent/100,0,1);
+  return clamp(activePressure*.55+stockPressure*.30+recentPressure*.15,0,1);
+}
+function demoRangePrice(m,k,qty=1){
+  if(k!=='P13')return m.products?.[k]??null;
+  const policy=m.pricingP13||{mode:'fixed',min:m.priceP13,preferred:m.priceP13,max:m.priceP13,strategy:'balanced'};
+  if(policy.mode!=='range')return m.priceP13;
+  const min=Number(policy.min),pref=Number(m.priceP13),max=Number(policy.max);
+  if(!Number.isFinite(min)||!Number.isFinite(pref)||!Number.isFinite(max)||min>pref||pref>max)return m.priceP13;
+  const pressure=demoPricingPressure(m,k,qty);
+  let position=policy.strategy==='volume'?pressure*.80:policy.strategy==='margin'?.50+pressure*.50:.25+pressure*.50;
+  position=clamp(position,0,1);
+  const target=position<=.5
+    ? min+(pref-min)*(position/.5)
+    : pref+(max-pref)*((position-.5)/.5);
+  return roundMoney(clamp(target,min,max));
+}
+function productPrice(m,k,qty=1){
+  if(k==='P13') return demoRangePrice(m,k,qty);
   return m.products?.[k]??null;
 }
 function inventoryFor(m,k){return Number(m.inventory?.[k]??0)}
@@ -255,7 +290,7 @@ function cartAvailableFor(m,cart){
   if(!m||!m.online||!isPriceFresh(m)||!hasCartItems(cart)) return false;
   return Object.entries(cart).every(([k,q])=>{
     q=Number(q)||0;if(q<=0)return true;
-    const price=productPrice(m,k);
+    const price=productPrice(m,k,q);
     return price!=null&&Number.isFinite(Number(price))&&inventoryFor(m,k)>=q;
   });
 }
@@ -264,7 +299,7 @@ function cartSubtotalFor(m,cart){
   let total=0;
   for(const [k,q] of Object.entries(cart)){
     if(q<=0)continue;
-    total+=q*Number(productPrice(m,k));
+    total+=q*Number(productPrice(m,k,q));
   }
   return roundMoney(total);
 }
@@ -362,7 +397,10 @@ function rebalanceReservedCashback(o,newGross){
   return allowed;
 }
 function snapshotItems(m,cart){
-  return Object.entries(cart).filter(([,q])=>q>0).map(([k,q])=>({key:k,name:(ensureProductDefinition(k)?.name||k),qty:q,unitPrice:Number(productPrice(m,k)),lineTotal:roundMoney(q*Number(productPrice(m,k)))}));
+  return Object.entries(cart).filter(([,q])=>q>0).map(([k,q])=>{
+    const unitPrice=Number(productPrice(m,k,q));
+    return {key:k,name:(ensureProductDefinition(k)?.name||k),qty:q,unitPrice,lineTotal:roundMoney(q*unitPrice)};
+  });
 }
 function createOrderForMerchant(mid){
   if(!state.address.trim()) return {ok:false,error:'Informe um endereço'};
@@ -549,12 +587,21 @@ function pauseMerchant(id){
   save();return {ok:true};
 }
 function resumeMerchant(id){const m=merchantById(id);if(!m)return {ok:false,error:'Revenda não encontrada'};m.online=true;m.lastSeenAt=nowIso();save();return {ok:true}}
-function updateMerchant(id,{priceP13,stockP13}){
+function updateMerchant(id,{priceP13,stockP13,pricingMode,pricingMin,pricingMax,pricingStrategy}){
   const m=merchantById(id);if(!m)return {ok:false,error:'Revenda não encontrada'};
   const price=Number(priceP13),stock=Number(stockP13);
   if(!Number.isFinite(price)||price<=0||price>9999)return {ok:false,error:'Preço inválido'};
   if(!Number.isFinite(stock)||stock<0||stock>9999)return {ok:false,error:'Estoque inválido'};
-  m.priceP13=roundMoney(price);m.inventory.P13=Math.trunc(stock);m.priceConfirmedAt=nowIso();m.lastSeenAt=nowIso();save();return {ok:true};
+  const mode=pricingMode==='range'?'range':'fixed';
+  const strategy=['volume','balanced','margin'].includes(pricingStrategy)?pricingStrategy:'balanced';
+  let min=mode==='range'?Number(pricingMin):price;
+  let max=mode==='range'?Number(pricingMax):price;
+  if(!Number.isFinite(min)||!Number.isFinite(max)||min<=0||max>9999||min>price||price>max){
+    return {ok:false,error:'Na faixa automática: mínimo ≤ preço normal ≤ máximo.'};
+  }
+  m.priceP13=roundMoney(price);
+  m.pricingP13={mode,min:roundMoney(min),preferred:roundMoney(price),max:roundMoney(max),strategy};
+  m.inventory.P13=Math.trunc(stock);m.priceConfirmedAt=nowIso();m.lastSeenAt=nowIso();save();return {ok:true};
 }
 function setCartProduct(k,qty){
   k=String(k||'').trim().toUpperCase();

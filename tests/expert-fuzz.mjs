@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import vm from 'node:vm';
 import {chooseOffers} from '../supabase/functions/_shared/offer-ranking.js';
+import {effectiveUnitPrice} from '../supabase/functions/_shared/pricing-policy.js';
 
 class StorageMock {
   constructor(){this.map=new Map()}
@@ -32,6 +33,26 @@ function rnd(){
 }
 function int(min,max){return Math.floor(rnd()*(max-min+1))+min}
 function cents(min,max){return int(min,max)}
+
+let pricingCases=0;
+for(let k=0;k<5000;k++){
+  const min=int(100,200000);
+  const pref=int(min,min+200000);
+  const max=int(pref,pref+200000);
+  const qty=int(1,20);
+  const stock=int(qty,Math.max(qty,qty*30));
+  const active=int(0,20);
+  const recent=int(0,300);
+  const strategy=['volume','balanced','margin'][int(0,2)];
+  const price=effectiveUnitPrice({
+    pricingMode:'range',pricingStrategy:strategy,
+    minPriceCents:min,preferredPriceCents:pref,maxPriceCents:max,
+    availableStock:stock,requestedQuantity:qty,activeOrders:active,recentOrders7d:recent
+  });
+  assert.ok(Number.isInteger(price));
+  assert.ok(price>=min&&price<=max);
+  pricingCases++;
+}
 
 let rankingCases=0;
 for(let k=0;k<5000;k++){
@@ -119,4 +140,4 @@ for(let k=0;k<3000;k++){
   marginCases++;
 }
 
-console.log(`Expert fuzz passou: ${rankingCases} cenários de ranking + ${marginCases} cenários de margem + limites int4.`);
+console.log(`Expert fuzz passou: ${pricingCases} preços automáticos + ${rankingCases} cenários de ranking + ${marginCases} cenários de margem + limites int4.`);

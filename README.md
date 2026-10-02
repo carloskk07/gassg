@@ -27,6 +27,33 @@ Esses exemplos:
 
 A suíte de testes mantém um marketplace sintético completo apenas quando injeta `globalThis.__CHAMA_TEST__=true`. A build normal não oferece esse caminho.
 
+## Estado atual — v1.32 merchant-authorized pricing range
+
+A v1.32 substitui o preço único opcional por uma política por SKU controlada pela própria revenda.
+
+Cada item pode operar em:
+
+- **Preço fixo** — o Chama usa exatamente o preço confirmado;
+- **Faixa automática** — a revenda define **mínimo autorizado**, **preço normal**, **máximo autorizado** e uma estratégia:
+  - Priorizar volume;
+  - Equilibrado;
+  - Priorizar margem.
+
+O preço automático é calculado somente com sinais da **própria operação**: estoque disponível, quantidade solicitada, pedidos ativos e volume recente. A política de uma revenda **não lê nem copia preços de concorrentes**. Depois de cada revenda produzir sua oferta independente, o ranking normal compara preço final, ETA, confiança e carga para escolher Melhor / Mais barato / Mais rápido.
+
+Invariantes:
+
+- nunca abaixo do mínimo autorizado;
+- nunca acima do máximo autorizado;
+- preço normal sempre dentro da faixa;
+- quote congela o preço efetivamente mostrado ao cliente;
+- freshness por SKU e por taxa de entrega continua obrigatória;
+- rows de catálogo são bloqueadas durante o snapshot;
+- preço fora da faixa é rejeitado pelo RPC;
+- P13 do JR continua **fixo em R$ 115,90 por padrão** no piloto; qualquer faixa mostrada no GitHub Pages é apenas simulação interna até autorização comercial real.
+
+O laboratório interno permite testar a faixa sem alterar a operação real do parceiro.
+
 ## Estado atual — v1.31 reliability, concurrency & boundary hardening
 
 A v1.31 faz uma segunda auditoria de produção sobre segurança, concorrência, rede, matching e limites do banco.

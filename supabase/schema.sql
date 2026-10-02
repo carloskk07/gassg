@@ -44,10 +44,16 @@ create table if not exists public.catalog_items (
   product_code text not null check (product_code in ('WATER20','CHARCOAL4','WOOD','ICE5') or product_code ~ '^P([1-9]|[1-8][0-9]|90)$'),
   product_name text not null,
   price_cents integer not null check (price_cents between 1 and 1000000),
+  pricing_mode text not null default 'fixed' check (pricing_mode in ('fixed','range')),
+  min_price_cents integer not null check (min_price_cents between 1 and 1000000),
+  max_price_cents integer not null check (max_price_cents between 1 and 1000000),
+  pricing_strategy text not null default 'balanced' check (pricing_strategy in ('volume','balanced','margin')),
   available_stock integer not null default 0 check (available_stock >= 0),
   active boolean not null default true,
   updated_at timestamptz not null default now(),
-  primary key (merchant_id,product_code)
+  primary key (merchant_id,product_code),
+  check (min_price_cents<=price_cents and price_cents<=max_price_cents),
+  check (pricing_mode='range' or (min_price_cents=price_cents and max_price_cents=price_cents))
 );
 
 create table if not exists public.quotes (

@@ -172,6 +172,46 @@ Deno.serve(async(req:Request)=>{
       const availableStock=asPositiveInt(body.availableStock,"availableStock",{min:0,max:100000});
       const active=body.active!==false;
 
+      const {data:existingCatalog,error:existingCatalogError}=await admin
+        .from("catalog_items")
+        .select("pricing_mode,min_price_cents,max_price_cents,pricing_strategy")
+        .eq("merchant_id",merchantId)
+        .eq("product_code",productCode)
+        .maybeSingle();
+      if(existingCatalogError)throw existingCatalogError;
+
+      const pricingMode=body.pricingMode==null
+        ? String(existingCatalog?.pricing_mode??"fixed")
+        : String(body.pricingMode).trim().toLowerCase();
+      if(!["fixed","range"].includes(pricingMode)){
+        throw new DomainError("INVALID_PRICING_MODE","Modo de preço inválido.",400);
+      }
+
+      const pricingStrategy=body.pricingStrategy==null
+        ? String(existingCatalog?.pricing_strategy??"balanced")
+        : String(body.pricingStrategy).trim().toLowerCase();
+      if(!["volume","balanced","margin"].includes(pricingStrategy)){
+        throw new DomainError("INVALID_PRICING_STRATEGY","Estratégia de preço inválida.",400);
+      }
+
+      let minPriceCents=priceCents;
+      let maxPriceCents=priceCents;
+      if(pricingMode==="range"){
+        minPriceCents=body.minPriceCents==null
+          ? asPositiveInt(existingCatalog?.min_price_cents??priceCents,"minPriceCents",{min:1,max:1000000})
+          : asPositiveInt(body.minPriceCents,"minPriceCents",{min:1,max:1000000});
+        maxPriceCents=body.maxPriceCents==null
+          ? asPositiveInt(existingCatalog?.max_price_cents??priceCents,"maxPriceCents",{min:1,max:1000000})
+          : asPositiveInt(body.maxPriceCents,"maxPriceCents",{min:1,max:1000000});
+        if(minPriceCents>priceCents||priceCents>maxPriceCents){
+          throw new DomainError(
+            "INVALID_PRICE_RANGE",
+            "O preço normal precisa ficar entre o mínimo e o máximo autorizados.",
+            400
+          );
+        }
+      }
+
       const {data,error}=await admin
         .from("catalog_items")
         .upsert({
@@ -179,12 +219,16 @@ Deno.serve(async(req:Request)=>{
           product_code:productCode,
           product_name:productName,
           price_cents:priceCents,
+          pricing_mode:pricingMode,
+          min_price_cents:minPriceCents,
+          max_price_cents:maxPriceCents,
+          pricing_strategy:pricingStrategy,
           available_stock:availableStock,
           active,
           price_confirmed_at:now,
           updated_at:now
         },{onConflict:"merchant_id,product_code"})
-        .select("product_code,product_name,price_cents,available_stock,active,updated_at")
+        .select("product_code,product_name,price_cents,pricing_mode,min_price_cents,max_price_cents,pricing_strategy,available_stock,active,updated_at")
         .single();
       if(error)throw error;
 

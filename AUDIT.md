@@ -1107,3 +1107,79 @@ Ainda precisam de prova operacional antes do go-live:
 - cobrança/conciliação/repasse;
 - E2E multi-dispositivo real até pagamento + PIN + settlement + benefícios.
 
+---
+
+# Auditoria v1.32 — Merchant-Authorized Pricing Range
+
+## Objetivo
+
+Permitir que a revenda autorize uma faixa de preço por SKU sem entregar ao marketplace autoridade ilimitada sobre sua margem.
+
+## Contrato
+
+Cada SKU possui:
+
+- modo fixo ou faixa automática;
+- preço mínimo;
+- preço normal;
+- preço máximo;
+- estratégia volume/equilibrado/margem;
+- confirmação independente de freshness.
+
+O banco impõe:
+
+`min <= normal <= max`
+
+e, no modo fixo:
+
+`min = normal = max`.
+
+## Autoridade automática
+
+`pricing-policy.js` usa somente:
+
+- estoque próprio;
+- quantidade pedida;
+- pedidos ativos próprios;
+- volume recente próprio;
+- estratégia escolhida pelo parceiro.
+
+Nenhum preço concorrente é entrada da função.
+
+Depois disso, o ranking compara as ofertas finais normalmente.
+
+## Segurança da cotação
+
+A primeira implementação da v1.32 foi deliberadamente auditada contra migrations históricas. Foi encontrada e corrigida uma regressão em que a adaptação inicial do RPC havia partido de uma definição antiga de `create_quote_snapshot`.
+
+O follow-up restaura explicitamente:
+
+- `delivery_fee_confirmed_at`;
+- `catalog_items.price_confirmed_at` por SKU;
+- lock `FOR SHARE` dos SKUs;
+- stock sob lock;
+- validação do preço efetivo dentro da faixa;
+- teto int4;
+- snapshot do preço realmente ofertado.
+
+Novo gate impede que uma futura migration perca essas autoridades.
+
+## Simulações
+
+A suíte cobre:
+
+- preço fixo invariável;
+- 5.000 combinações aleatórias de faixa automática;
+- mínimo/máximo nunca violados;
+- volume <= equilibrado <= margem em condições iguais;
+- maior pressão operacional nunca reduz preço;
+- 6.000 cenários de ranking já existentes;
+- 3.000 cenários de margem já existentes;
+- E2E do piloto JR ativando uma faixa simulada e obtendo oferta no piso autorizado.
+
+## Piloto JR
+
+O registro comercial real continua P13 = **R$ 115,90 entregue** e não recebe faixa real por inferência.
+
+No laboratório interno, JR começa em preço fixo. O E2E altera explicitamente para uma faixa simulada de R$ 115,90 / R$ 120,00 / R$ 125,00 apenas para provar a UX e a autoridade técnica.
+
