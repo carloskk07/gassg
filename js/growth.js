@@ -39,6 +39,25 @@ function merchantEconomicsExample(orderReais,count=1){
   const fee=roundMoney(gross*MERCHANT_PILOT_FEE_RATE);
   return {gross,fee,merchantNet:roundMoney(gross-fee)};
 }
+function merchantMarginExample({salePrice,orders=1,productCost=0,deliveryCost=0,paymentCost=0,taxRate=0}={}){
+  const price=Math.max(0,Number(salePrice)||0);
+  const qty=Math.min(10000,Math.max(1,Math.trunc(Number(orders)||1)));
+  const unitProductCost=Math.max(0,Number(productCost)||0);
+  const unitDeliveryCost=Math.max(0,Number(deliveryCost)||0);
+  const unitPaymentCost=Math.max(0,Number(paymentCost)||0);
+  const taxPct=Math.min(100,Math.max(0,Number(taxRate)||0));
+  const gross=roundMoney(price*qty);
+  const chamaFee=roundMoney(gross*MERCHANT_PILOT_FEE_RATE);
+  const productCosts=roundMoney(unitProductCost*qty);
+  const deliveryCosts=roundMoney(unitDeliveryCost*qty);
+  const paymentCosts=roundMoney(unitPaymentCost*qty);
+  const taxes=roundMoney(gross*(taxPct/100));
+  const knownCosts=roundMoney(productCosts+deliveryCosts+paymentCosts+taxes);
+  const contribution=roundMoney(gross-chamaFee-knownCosts);
+  const unitContribution=qty?roundMoney(contribution/qty):0;
+  const marginPct=gross>0?Math.round((contribution/gross)*1000)/10:0;
+  return {gross,chamaFee,productCosts,deliveryCosts,paymentCosts,taxes,knownCosts,contribution,unitContribution,marginPct};
+}
 function updateReferralSimulator(){
   const clients=Math.min(500,Math.max(1,Math.trunc(Number(document.querySelector('#ref-sim-clients')?.value)||1)));
   const ticket=Math.min(100000,Math.max(1,Number(document.querySelector('#ref-sim-ticket')?.value)||1));
@@ -50,14 +69,24 @@ function updateReferralSimulator(){
 }
 function updateMerchantSimulator(){
   const orders=Math.min(10000,Math.max(1,Math.trunc(Number(document.querySelector('#merchant-sim-orders')?.value)||1)));
-  const ticket=Math.min(100000,Math.max(1,Number(document.querySelector('#merchant-sim-ticket')?.value)||1));
-  const e=merchantEconomicsExample(ticket,orders);
+  const salePrice=Math.min(100000,Math.max(0.01,Number(document.querySelector('#merchant-sim-ticket')?.value)||0.01));
+  const productCost=Math.min(100000,Math.max(0,Number(document.querySelector('#merchant-sim-product-cost')?.value)||0));
+  const deliveryCost=Math.min(100000,Math.max(0,Number(document.querySelector('#merchant-sim-delivery-cost')?.value)||0));
+  const paymentCost=Math.min(100000,Math.max(0,Number(document.querySelector('#merchant-sim-payment-cost')?.value)||0));
+  const taxRate=Math.min(100,Math.max(0,Number(document.querySelector('#merchant-sim-tax-rate')?.value)||0));
+  const e=merchantMarginExample({salePrice,orders,productCost,deliveryCost,paymentCost,taxRate});
   const gross=document.querySelector('#merchant-sim-gross');
   const fee=document.querySelector('#merchant-sim-fee');
-  const net=document.querySelector('#merchant-sim-net');
+  const costs=document.querySelector('#merchant-sim-costs');
+  const contribution=document.querySelector('#merchant-sim-contribution');
+  const unit=document.querySelector('#merchant-sim-unit');
+  const margin=document.querySelector('#merchant-sim-margin');
   if(gross)gross.textContent=BRL.format(e.gross);
-  if(fee)fee.textContent=BRL.format(e.fee);
-  if(net)net.textContent=BRL.format(e.merchantNet);
+  if(fee)fee.textContent=BRL.format(e.chamaFee);
+  if(costs)costs.textContent=BRL.format(e.knownCosts);
+  if(contribution)contribution.textContent=BRL.format(e.contribution);
+  if(unit)unit.textContent=BRL.format(e.unitContribution);
+  if(margin)margin.textContent=(Number.isFinite(e.marginPct)?e.marginPct:0).toLocaleString('pt-BR',{maximumFractionDigits:1})+'%';
 }
 function refer(){
   const url=referralUrl();
@@ -207,45 +236,99 @@ async function shareReferral(){
 
 function merchantsLanding(){
   const portal=globalThis.merchantPortalRequested?.()===true;
-  const cta=portal?"go('merchant-join')":"openMerchantPortal()";
-  const sample=merchantEconomicsExample(120,100);
+  const internalPilot=globalThis.CHAMA_INTERNAL_PILOT===true;
+  const cta=internalPilot?"setMode('merchant')":portal?"go('merchant-join')":"openMerchantPortal()";
+  const ctaLabel=internalPilot?'Experimentar painel da revenda':portal?'Cadastrar minha empresa':'Acessar / cadastrar revenda';
+  const jrPrice=115.90;
+  const initial=merchantMarginExample({salePrice:jrPrice,orders:50});
+
   return shell(`<section class="page merchant-landing">
     <span class="eyebrow">PARA EMPRESAS LOCAIS</span>
-    <h1 class="page-title">Mais um canal de vendas. Sua operação continua sob seu controle.</h1>
-    <p class="muted page-lead">Receba oportunidades de pedidos sem abrir outra loja. Você continua no controle de catálogo, preço, estoque, taxa de entrega, disponibilidade e da decisão de aceitar cada pedido.</p>
-    <div class="merchant-commercial-strip">
-      <div><small>POLÍTICA INICIAL DO PILOTO</small><strong>7,5%</strong><span>taxa da plataforma sobre o valor bruto de cada pedido concluído</span></div>
-      <p>Sem mensalidade apresentada no modelo atual. Custos próprios da revenda, tributos, meios de pagamento e entrega não estão incluídos nesta conta.</p>
-    </div>
-    <div class="hero-actions merchant-hero-actions"><button class="primary" onclick="${cta}">${portal?'Cadastrar minha empresa':'Acessar / cadastrar revenda'}</button><button class="secondary" onclick="document.getElementById('merchant-economics')?.scrollIntoView({behavior:'smooth'})">Simular custos</button></div>
+    <h1 class="page-title">Transforme capacidade de entrega em novas vendas — sem perder o controle da sua operação.</h1>
+    <p class="muted page-lead">O Chama foi desenhado como um canal adicional: você continua vendendo por telefone, WhatsApp, balcão e seus próprios canais. Aqui, recebe novas oportunidades e decide quando e o que quer atender.</p>
 
-    <div class="grid cards-3 partner-benefits">
-      <div class="card"><div class="feature-icon">📈</div><h3>Mais um canal de vendas</h3><p class="muted tiny">O Chama pode apresentar sua operação a clientes que já estão procurando os produtos que você vende.</p></div>
-      <div class="card"><div class="feature-icon">🎛️</div><h3>Você continua no controle</h3><p class="muted tiny">Defina preço, estoque, taxa e disponibilidade. Fique offline quando não quiser receber novos pedidos.</p></div>
-      <div class="card"><div class="feature-icon">🧺</div><h3>Venda além do P13</h3><p class="muted tiny">Cadastre outros tamanhos de GLP e produtos como água, carvão, lenha e gelo conforme sua operação.</p></div>
+    <div class="merchant-commercial-strip merchant-value-strip">
+      <div><small>POLÍTICA INICIAL DO PILOTO</small><strong>7,5%</strong><span>sobre o valor bruto de cada pedido concluído</span></div>
+      <p><strong>Sem mensalidade apresentada no modelo atual.</strong> A taxa só nasce quando o pedido é concluído. Seus custos, tributos, pagamento e entrega continuam sendo parte da sua própria operação.</p>
     </div>
 
-    <section class="section" id="merchant-economics"><div class="section-head"><div><span class="section-kicker">SIMULADOR COMERCIAL</span><h2>Veja a taxa antes de decidir.</h2><p>Simulação baseada na política inicial de 7,5% do piloto. Não inclui custos, impostos ou margem própria da empresa.</p></div></div>
-      <div class="calculator-card merchant-calculator">
-        <div class="calculator-inputs">
-          <div class="input-wrap"><label for="merchant-sim-orders">Pedidos concluídos</label><input id="merchant-sim-orders" class="input" type="number" inputmode="numeric" min="1" max="10000" value="100" oninput="updateMerchantSimulator()"></div>
-          <div class="input-wrap"><label for="merchant-sim-ticket">Valor médio por pedido (R$)</label><input id="merchant-sim-ticket" class="input" type="number" inputmode="decimal" min="1" step="0.01" value="120" oninput="updateMerchantSimulator()"></div>
-        </div>
-        <div class="economics-results">
-          <div><small>Vendas brutas</small><strong id="merchant-sim-gross">${BRL.format(sample.gross)}</strong></div>
-          <div><small>Taxa Chama (7,5%)</small><strong id="merchant-sim-fee">${BRL.format(sample.fee)}</strong></div>
-          <div class="highlight"><small>Antes dos seus custos e impostos</small><strong id="merchant-sim-net">${BRL.format(sample.merchantNet)}</strong></div>
-        </div>
+    ${internalPilot?`<div class="notice success" style="margin-top:14px"><strong>Você está no laboratório interno do Chama.</strong><br>Abra o painel da Gas e Lenheira do JR, simule pedidos e veja a operação antes de qualquer cadastro real.</div>`:''}
+
+    <div class="hero-actions merchant-hero-actions">
+      <button class="primary" onclick="${cta}">${ctaLabel}</button>
+      <button class="secondary" onclick="document.getElementById('merchant-margin')?.scrollIntoView({behavior:'smooth'})">Simular margem</button>
+    </div>
+
+    <section class="section"><div class="section-head"><div><span class="section-kicker">O QUE VOCÊ ESTÁ COMPRANDO COM A TAXA</span><h2>Não é apenas um pedido. É aquisição, operação e recorrência em um único canal.</h2><p>O objetivo é trazer demanda incremental sem exigir que sua empresa abandone os canais que já funcionam.</p></div></div>
+      <div class="grid cards-3 partner-benefits">
+        <div class="card"><div class="feature-icon">📈</div><h3>Novos pedidos</h3><p class="muted tiny">Apareça para clientes que já estão procurando gás e itens relacionados na sua área de atendimento.</p></div>
+        <div class="card"><div class="feature-icon">🧺</div><h3>Mais itens por entrega</h3><p class="muted tiny">Use o mesmo deslocamento para vender GLP, água, carvão, lenha, gelo e outros itens do seu catálogo.</p></div>
+        <div class="card"><div class="feature-icon">🔁</div><h3>Mais chance de recompra</h3><p class="muted tiny">Cashback e histórico ajudam o Chama a estimular novas compras sem transformar a revenda em um programa de pontos manual.</p></div>
       </div>
-      <div class="notice" style="margin-top:12px"><strong>Repasse ainda em validação operacional.</strong><br>O Chama congela a política financeira no pedido, mas o fluxo real de cobrança, conciliação e repasse ainda precisa ser validado ponta a ponta antes da abertura pública. Nenhum prazo de repasse é prometido nesta fase.</div>
+      <div class="merchant-no-lockin"><span>✓ Sem exclusividade</span><span>✓ Sem obrigação de aceitar</span><span>✓ Online/offline quando quiser</span><span>✓ Preço e estoque sob seu controle</span></div>
     </section>
 
-    <section class="section" id="merchant-how"><div class="section-head"><div><span class="section-kicker">DO PEDIDO À ENTREGA</span><h2>Uma operação simples de entender</h2></div></div><div class="how-grid">
+    <section class="section" id="merchant-margin"><div class="section-head"><div><span class="section-kicker">SIMULADOR DE MARGEM INCREMENTAL</span><h2>Veja o que uma venda adicional deixa depois dos custos que você informar.</h2><p>Receita não é lucro. Por isso o Chama separa venda bruta, taxa da plataforma e custos próprios da sua empresa.</p></div></div>
+      <div class="calculator-card merchant-calculator merchant-margin-calculator">
+        <div class="calculator-inputs merchant-margin-inputs">
+          <div class="input-wrap"><label for="merchant-sim-orders">Pedidos adicionais</label><input id="merchant-sim-orders" class="input" type="number" inputmode="numeric" min="1" max="10000" value="50" oninput="updateMerchantSimulator()"></div>
+          <div class="input-wrap"><label for="merchant-sim-ticket">Preço médio por pedido (R$)</label><input id="merchant-sim-ticket" class="input" type="number" inputmode="decimal" min="0.01" step="0.01" value="115.90" oninput="updateMerchantSimulator()"></div>
+          <div class="input-wrap"><label for="merchant-sim-product-cost">Custo do produto por pedido (R$)</label><input id="merchant-sim-product-cost" class="input" type="number" inputmode="decimal" min="0" step="0.01" value="0" oninput="updateMerchantSimulator()"><small>Preencha com seu custo real.</small></div>
+          <div class="input-wrap"><label for="merchant-sim-delivery-cost">Custo médio de entrega (R$)</label><input id="merchant-sim-delivery-cost" class="input" type="number" inputmode="decimal" min="0" step="0.01" value="0" oninput="updateMerchantSimulator()"></div>
+          <div class="input-wrap"><label for="merchant-sim-payment-cost">Custo médio do pagamento (R$)</label><input id="merchant-sim-payment-cost" class="input" type="number" inputmode="decimal" min="0" step="0.01" value="0" oninput="updateMerchantSimulator()"></div>
+          <div class="input-wrap"><label for="merchant-sim-tax-rate">Tributos sobre a venda (%)</label><input id="merchant-sim-tax-rate" class="input" type="number" inputmode="decimal" min="0" max="100" step="0.1" value="0" oninput="updateMerchantSimulator()"></div>
+        </div>
+        <div class="economics-results merchant-margin-results">
+          <div><small>Vendas brutas</small><strong id="merchant-sim-gross">${BRL.format(initial.gross)}</strong></div>
+          <div><small>Taxa Chama (7,5%)</small><strong id="merchant-sim-fee">${BRL.format(initial.chamaFee)}</strong></div>
+          <div><small>Custos próprios informados</small><strong id="merchant-sim-costs">${BRL.format(initial.knownCosts)}</strong></div>
+          <div class="highlight"><small>Contribuição estimada após os custos informados</small><strong id="merchant-sim-contribution">${BRL.format(initial.contribution)}</strong></div>
+          <div><small>Contribuição estimada por pedido</small><strong id="merchant-sim-unit">${BRL.format(initial.unitContribution)}</strong></div>
+          <div><small>Margem estimada sobre a venda</small><strong id="merchant-sim-margin">${initial.marginPct.toLocaleString('pt-BR',{maximumFractionDigits:1})}%</strong></div>
+        </div>
+      </div>
+      <div class="notice" style="margin-top:12px"><strong>Use os seus custos reais.</strong><br>O simulador não conhece seu custo de compra, folha, combustível, impostos, manutenção ou despesas fixas. Ele serve para testar cenários — não para prometer lucro.</div>
+    </section>
+
+    <section class="section"><div class="section-head"><div><span class="section-kicker">COMO OS PEDIDOS SÃO DISTRIBUÍDOS</span><h2>Você não precisa ser sempre o mais barato para participar.</h2><p>O Chama tenta preservar valor para o cliente sem concentrar toda a operação em uma única revenda.</p></div></div>
+      <div class="distribution-grid">
+        <div class="distribution-card"><span>1</span><strong>Preço total</strong><p>O cliente precisa enxergar uma condição competitiva.</p></div>
+        <div class="distribution-card"><span>2</span><strong>Prazo real</strong><p>ETA e capacidade de entrega entram na escolha.</p></div>
+        <div class="distribution-card"><span>3</span><strong>Confiança operacional</strong><p>Estoque, consistência e cumprimento ajudam a construir reputação.</p></div>
+        <div class="distribution-card"><span>4</span><strong>Distribuição saudável</strong><p>Entre parceiros com condições próximas, carga atual e volume recente ajudam a evitar concentração desnecessária.</p></div>
+      </div>
+      <div class="notice" style="margin-top:12px"><strong>Regra importante:</strong> menor carga não transforma uma opção claramente pior em “recomendada”. O balanceamento só atua entre ofertas de qualidade próxima.</div>
+    </section>
+
+    <section class="section"><div class="section-head"><div><span class="section-kicker">AUMENTE O TICKET DA ENTREGA</span><h2>Uma corrida pode carregar mais que um botijão.</h2><p>O cliente pode chegar pelo gás e acrescentar produtos que sua empresa já vende.</p></div></div>
+      <div class="ticket-grid">
+        <div class="ticket-product">🔥 <strong>GLP</strong><span>P1 a P90 conforme catálogo e validação</span></div>
+        <div class="ticket-product">💧 <strong>Água</strong><span>Galões e outros formatos no catálogo</span></div>
+        <div class="ticket-product">🪵 <strong>Lenha</strong><span>Venda adicional na mesma entrega</span></div>
+        <div class="ticket-product">🔥 <strong>Carvão</strong><span>Complemento de cesta</span></div>
+        <div class="ticket-product">🧊 <strong>Gelo</strong><span>Mais ticket sem nova aquisição</span></div>
+      </div>
+    </section>
+
+    <section class="section" id="merchant-how"><div class="section-head"><div><span class="section-kicker">DO PEDIDO À ENTREGA</span><h2>Quatro decisões simples, com responsabilidade clara.</h2></div></div><div class="how-grid">
       <div class="how-card"><span>1</span><div><strong>Cliente consulta</strong><p>O Chama procura operações elegíveis para a cesta e o endereço.</p></div></div>
-      <div class="how-card"><span>2</span><div><strong>Você decide se aceita</strong><p>Nenhum pedido vira compromisso da revenda sem seu aceite.</p></div></div>
-      <div class="how-card"><span>3</span><div><strong>Prepare e confirme a saída</strong><p>O cliente só vê “A caminho” depois da sua confirmação.</p></div></div>
-      <div class="how-card"><span>4</span><div><strong>Conclua com prova</strong><p>Pagamento confirmado e PIN encerram a entrega com rastreabilidade.</p></div></div>
+      <div class="how-card"><span>2</span><div><strong>Você aceita ou recusa</strong><p>Recusar antes de aceitar é permitido. Se não puder atender, diga não ou fique offline.</p></div></div>
+      <div class="how-card"><span>3</span><div><strong>Prepare e confirme a saída</strong><p>Depois do aceite, assumir o pedido passa a ser compromisso operacional. O cliente só vê “A caminho” após sua confirmação.</p></div></div>
+      <div class="how-card"><span>4</span><div><strong>Conclua com prova</strong><p>Pagamento confirmado e código de recebimento encerram a entrega com rastreabilidade.</p></div></div>
     </div></section>
+
+    <section class="section"><div class="section-head"><div><span class="section-kicker">COMO O DINHEIRO FUNCIONA</span><h2>Venda, taxa e repasse são coisas diferentes.</h2><p>Antes da abertura pública, o fluxo financeiro real será validado ponta a ponta. O Chama não promete prazo de repasse antes dessa comprovação.</p></div></div>
+      <div class="money-flow">
+        <div><span>1</span><strong>Pedido</strong><small>Preço e política financeira ficam registrados.</small></div>
+        <b>→</b>
+        <div><span>2</span><strong>Pagamento</strong><small>A forma solicitada acompanha o pedido.</small></div>
+        <b>→</b>
+        <div><span>3</span><strong>Conclusão</strong><small>Pagamento + código confirmam a entrega.</small></div>
+        <b>→</b>
+        <div><span>4</span><strong>Conciliação</strong><small>Taxa Chama, cashback e ajustes ficam separados contabilmente.</small></div>
+      </div>
+      <div class="notice" style="margin-top:12px"><strong>Repasse ainda em validação operacional.</strong><br>Pix, dinheiro, cartão, cashback, estorno e conciliação precisam ser comprovados no piloto real antes de o Chama publicar um prazo de repasse.</div>
+    </section>
 
     <section class="section"><div class="section-head"><div><span class="section-kicker">O QUE VOCÊ CONTROLA</span><h2>Sua operação continua sendo sua.</h2></div></div>
       <div class="control-grid">
@@ -256,15 +339,24 @@ function merchantsLanding(){
       </div>
     </section>
 
-    <section class="section"><div class="merchant-requirements"><div><span class="section-kicker light">PARA COMEÇAR</span><h2>Cadastro curto, ativação responsável.</h2><p>Precisamos identificar a empresa e o responsável. Para vender GLP, a operação passa também pela verificação regulatória aplicável antes de entrar nas ofertas.</p></div>
+    <section class="section"><div class="founder-band"><div><span class="section-kicker light">PARCEIRO FUNDADOR — SÃO GABRIEL</span><h2>Entre cedo para ajudar a definir a operação antes da abertura pública.</h2><p>Os primeiros parceiros do piloto recebem onboarding acompanhado, acesso antecipado às ferramentas e canal direto de feedback. Isso não garante volume de pedidos nem renda; o objetivo é construir a operação junto com empresas locais.</p></div><div class="founder-points"><span>✓ Onboarding acompanhado</span><span>✓ Acesso antecipado ao painel</span><span>✓ Feedback direto nas melhorias</span><span>✓ Histórico de participação no piloto</span></div></div></section>
+
+    <section class="section"><div class="merchant-requirements"><div><span class="section-kicker light">PARA ATIVAR DE VERDADE</span><h2>Cadastro curto, ativação responsável.</h2><p>Para vender ao público, precisamos identificar a empresa e o responsável. Operação com GLP passa também pela validação regulatória aplicável.</p></div>
       <div class="requirement-list"><span>✓ CNPJ e dados da empresa</span><span>✓ Responsável e contato</span><span>✓ Endereço da operação</span><span>✓ Validação ANP quando houver GLP</span></div>
     </div></section>
 
-    <section class="section"><div class="section-head"><div><span class="section-kicker">DÚVIDAS DE QUEM VENDE</span><h2>Antes de entrar, saiba exatamente o que você controla.</h2></div></div><div class="faq-list"><details open><summary>Quando existe a taxa de 7,5%?</summary><p>Na política inicial do piloto, a taxa da plataforma incide sobre o valor bruto de cada pedido concluído. O simulador acima mostra a matemática antes dos custos e tributos próprios da empresa.</p></details><details><summary>Sou obrigado a aceitar todo pedido?</summary><p>Não. A revenda decide se aceita cada pedido e também pode ficar offline quando não quiser receber novas oportunidades.</p></details><details><summary>Quem define preço, estoque e entrega?</summary><p>A própria revenda controla preço por produto, estoque disponível, taxa de entrega e prazo operacional dentro das regras da plataforma.</p></details><details><summary>Quando o dinheiro é repassado?</summary><p>O fluxo real de cobrança, conciliação e repasse ainda está em validação para a abertura pública. O Chama não publica um prazo de repasse antes dessa comprovação.</p></details><details><summary>Posso vender outros itens além do P13?</summary><p>Sim. O catálogo suporta outros tamanhos de GLP e produtos como água, carvão, lenha e gelo, sujeitos às validações aplicáveis.</p></details></div></section>
+    <section class="section"><div class="section-head"><div><span class="section-kicker">DÚVIDAS DE QUEM VENDE</span><h2>As perguntas que um dono de revenda deveria fazer antes de entrar.</h2></div></div><div class="faq-list">
+      <details open><summary>Sou obrigado a aceitar todo pedido?</summary><p>Não. Você decide pedido por pedido e pode ficar offline. Recusar antes do aceite é melhor do que assumir uma entrega que já sabe que não conseguirá cumprir.</p></details>
+      <details><summary>Se eu não for o mais barato, fico sem pedidos?</summary><p>Não necessariamente. O Chama considera preço total, prazo e confiança. Entre parceiros próximos em qualidade, carga atual e volume recente ajudam a evitar concentração.</p></details>
+      <details><summary>Posso continuar vendendo pelo WhatsApp e telefone?</summary><p>Sim. A proposta atual não exige exclusividade. O Chama é um canal adicional.</p></details>
+      <details><summary>Quando existe a taxa de 7,5%?</summary><p>Na política inicial do piloto, a taxa da plataforma incide sobre o valor bruto de cada pedido concluído.</p></details>
+      <details><summary>Quem define preço, estoque e entrega?</summary><p>A própria revenda controla preço por produto, estoque, taxa de entrega, prazo operacional e disponibilidade.</p></details>
+      <details><summary>Quando o dinheiro é repassado?</summary><p>O fluxo real de cobrança, conciliação e repasse ainda está em validação. O Chama não publica prazo antes de comprovar o processo ponta a ponta.</p></details>
+      <details><summary>O que acontece se eu aceitar e depois não conseguir entregar?</summary><p>O sistema pode iniciar uma tentativa de rescue antes da saída. Falhas depois do aceite afetam a experiência e devem ser evitadas mantendo preço, estoque e disponibilidade atualizados.</p></details>
+      <details><summary>Posso vender além do P13?</summary><p>Sim. O catálogo suporta outros tamanhos de GLP e produtos como água, carvão, lenha e gelo, sujeitos às validações aplicáveis.</p></details>
+    </div></section>
 
-    <section class="section"><div class="soft-band"><div><span class="section-kicker">ENTRADA NO PILOTO</span><h2>Veja custo, requisitos e operação antes de ativar.</h2><p>Enviar o cadastro não coloca a empresa online automaticamente e não cria cobrança. A ativação depende da aprovação e, quando houver GLP, da validação regulatória aplicável.</p></div><button class="primary" onclick="${cta}">Começar cadastro</button></div></section>
-
-    <div class="notice"><strong>Por que existe validação?</strong><br>Para que clientes encontrem operações realmente aptas a atender. Isso protege a experiência do comprador e também a reputação das empresas parceiras.</div>
+    <section class="section"><div class="soft-band"><div><span class="section-kicker">${internalPilot?'TESTE ANTES DE CADASTRAR':'ENTRADA NO PILOTO'}</span><h2>${internalPilot?'Experimente a operação completa agora.':'Veja custo, requisitos e operação antes de ativar.'}</h2><p>${internalPilot?'O painel do JR neste laboratório é simulado e não cria venda real. Use-o para entender a rotina antes de cadastrar os dados definitivos.':'Enviar o cadastro não coloca a empresa online automaticamente e não cria cobrança. A ativação depende da aprovação e das validações aplicáveis.'}</p></div><button class="primary" onclick="${cta}">${ctaLabel}</button></div></section>
   </section>`)
 }
 function merchantJoin(){
