@@ -35,6 +35,21 @@ const products={
   WOOD:{name:'Lenha',icon:'🪵'},
   ICE5:{name:'Gelo 5 kg',icon:'🧊'}
 };
+function glpKgForProductCode(value){
+  const code=String(value??'').trim().toUpperCase();
+  const match=/^P([1-9][0-9]?)$/.exec(code);
+  if(!match)return null;
+  const kg=Number(match[1]);
+  return Number.isInteger(kg)&&kg>=1&&kg<=90?kg:null;
+}
+function ensureProductDefinition(value){
+  const code=String(value??'').trim().toUpperCase();
+  if(products[code])return products[code];
+  const kg=glpKgForProductCode(code);
+  if(kg===null)return null;
+  products[code]={name:'Gás P'+kg,icon:'🔥'};
+  return products[code];
+}
 
 function freshMerchant(id,name,priceP13,eta,distance,trust,inventory,prices){
   const ts=nowIso();
@@ -68,6 +83,7 @@ function freshSeed(){
   };
 }
 function normalizeCart(cart={}){
+  for(const code of Object.keys(cart||{}))ensureProductDefinition(code);
   return Object.fromEntries(Object.keys(products).map(k=>[k,clamp(Number.isFinite(Number(cart[k]))?Math.trunc(Number(cart[k])):0,0,99)]));
 }
 function normalizeMerchant(raw,base){
@@ -331,7 +347,7 @@ function rebalanceReservedCashback(o,newGross){
   return allowed;
 }
 function snapshotItems(m,cart){
-  return Object.entries(cart).filter(([,q])=>q>0).map(([k,q])=>({key:k,name:products[k].name,qty:q,unitPrice:Number(productPrice(m,k)),lineTotal:roundMoney(q*Number(productPrice(m,k)))}));
+  return Object.entries(cart).filter(([,q])=>q>0).map(([k,q])=>({key:k,name:(ensureProductDefinition(k)?.name||k),qty:q,unitPrice:Number(productPrice(m,k)),lineTotal:roundMoney(q*Number(productPrice(m,k)))}));
 }
 function createOrderForMerchant(mid){
   if(!state.address.trim()) return {ok:false,error:'Informe um endereço'};
@@ -526,11 +542,13 @@ function updateMerchant(id,{priceP13,stockP13}){
   m.priceP13=roundMoney(price);m.inventory.P13=Math.trunc(stock);m.priceConfirmedAt=nowIso();m.lastSeenAt=nowIso();save();return {ok:true};
 }
 function setCartProduct(k,qty){
-  if(!products[k])return;
+  k=String(k||'').trim().toUpperCase();
+  if(!ensureProductDefinition(k))return;
   state.cart[k]=clamp(Math.trunc(Number(qty)||0),0,99);save();
 }
 function startOrder(k='P13'){
-  if(!products[k])k='P13';
+  k=String(k||'').trim().toUpperCase();
+  if(!ensureProductDefinition(k))k='P13';
   if(!hasCartItems(state.cart))state.cart=normalizeCart({});
   if(state.cart[k]===0)state.cart[k]=1;
   save();go('order');
@@ -636,7 +654,7 @@ parseReferral();
 
 if(globalThis.__CHAMA_TEST__){
   globalThis.ChamaTest={
-    freshSeed,normalizeState,normalizeCart,cartAvailableFor,cartTotalFor,offersForCart,isPriceFresh,minPrice,
+    freshSeed,normalizeState,normalizeCart,ensureProductDefinition,glpKgForProductCode,cartAvailableFor,cartTotalFor,offersForCart,isPriceFresh,minPrice,
     createOrderForMerchant,acceptOrder,rejectOrder,failAcceptedOrder,dispatchOrder,arrivingOrder,deliverOrder,customerCancel,
     reassignOrder,acceptRequote,transition,updateMerchant,pauseMerchant,resumeMerchant,setCartProduct,grantRewards,
     hasCartItems,esc,housekeeping,normalizeCnpj,isValidCnpjShape,

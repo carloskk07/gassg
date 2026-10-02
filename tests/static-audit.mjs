@@ -47,7 +47,7 @@ assert.ok(core.includes('isValidCnpjShape'),'core precisa suportar validação e
 assert.ok(!merchant.includes('.stock'),'UI da revenda não deve depender do campo legado stock');
 assert.ok(growth.includes('referralCode'),'link de indicação deve usar código pessoal');
 assert.ok(!growth.includes('inputmode="numeric" maxlength="18"'),'campo CNPJ não pode forçar teclado somente numérico após adoção do CNPJ alfanumérico');
-assert.ok(sw.includes("CACHE='chama-sg-v1.21'"),'cache do service worker precisa estar versionado');
+assert.ok(sw.includes("CACHE='chama-sg-v1.22'"),'cache do service worker precisa estar versionado');
 assert.ok(sw.includes("./js/backend.js"),'runtime live precisa estar no cache da PWA');
 assert.ok(sw.includes("./js/runtime-config.js"),'configuração pública de origins precisa estar no cache da PWA');
 assert.ok(sw.includes("./js/turnstile.js"),'helper local do Turnstile precisa estar no cache da PWA');
@@ -87,7 +87,9 @@ assert.ok(turnstile.includes('action:safeAction'),'helper Turnstile deve validar
 assert.ok(turnstile.includes('CHAMA_TURNSTILE_SITE_KEY'),'helper deve depender da site key pública de runtime');
 
 assert.ok(backend.includes("get-offers")&&backend.includes("create-order")&&backend.includes("get-order"),'runtime live precisa usar Edge Functions seguras');
-assert.ok(backend.includes('@supabase/supabase-js@2.117.2'),'browser deve fixar versão exata do supabase-js');
+assert.ok(backend.includes("SUPABASE_BROWSER_URL='https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.2/dist/umd/supabase.js'"),'browser deve fixar arquivo exato do supabase-js');
+assert.ok(backend.includes("SUPABASE_BROWSER_SRI='sha384-Rj26LVGvoeRVR6+mwQmFfcR3QOBEwT+ZmuCWpuiqeTzJpCs0ER4ITAWGb4Hiy3Ok'"),'browser deve fixar integridade SHA384 do SDK');
+assert.ok(backend.includes('script.integrity=SUPABASE_BROWSER_SRI'),'loader dinâmico precisa aplicar SRI antes de anexar o script');
 assert.ok(!backend.includes('@supabase/supabase-js@2\''),'browser não pode usar major flutuante do supabase-js');
 assert.ok(backend.includes('offerRequestSeq')&&backend.includes('orderRequestSeq'),'runtime live precisa bloquear respostas assíncronas obsoletas');
 assert.ok(backend.includes('liveRuntime.actionPending'),'polling precisa respeitar ação em andamento');
@@ -115,7 +117,19 @@ assert.ok(read('supabase/functions/merchant-orders/index.ts').includes('MERCHANT
 assert.ok(read('supabase/functions/merchant-ops/index.ts').includes('function glpKgForCode'),'merchant API deve reconhecer semanticamente GLP P1..P90');
 assert.ok(read('supabase/functions/merchant-ops/index.ts').includes('return "Gás P"+kg'),'nome de cilindro GLP deve ser derivado do código validado');
 assert.ok(core.includes("P20:{name:'Gás P20'")&&core.includes("P45:{name:'Gás P45'"),'cliente deve expor P20/P45 sem inventar oferta');
+assert.ok(core.includes('function ensureProductDefinition'),'cliente precisa materializar dinamicamente SKUs GLP reais');
+assert.ok(core.includes("products[code]={name:'Gás P'+kg,icon:'🔥'}"),'cliente deve derivar nome de GLP P1..P90 sem hardcode');
+assert.ok(backend.includes('ensureProductDefinition?.(code)'),'market-status deve hidratar no cliente os GLPs configurados pelas revendas');
 assert.ok(merchant.includes('merchantLiveAddGlp'),'painel real deve permitir adicionar cilindro GLP válido');
+const sharedDomain=read('supabase/functions/_shared/domain.js');
+assert.ok(sharedDomain.includes('isSupportedProductCode'),'domínio server-side precisa de autoridade explícita de SKU suportado');
+assert.ok(sharedDomain.includes('kg>=1&&kg<=90'),'domínio server-side deve aceitar GLP P1..P90');
+assert.ok(sharedDomain.includes("invariant(isSupportedProductCode(code),'INVALID_PRODUCT'"),'normalização de itens deve usar a autoridade GLP generalizada');
+const generalizedProducts=read('supabase/migrations/20261001162000_generalized_product_code_contract.sql');
+for(const table of ['catalog_items','quote_items','order_items','order_requote_items']){
+  assert.ok(generalizedProducts.includes('alter table public.'+table),table+' precisa receber contrato generalizado de product_code');
+}
+assert.ok(generalizedProducts.includes("^P([1-9]|[1-8][0-9]|90)$"),'constraint deve aceitar exatamente GLP P1..P90');
 assert.ok(merchant.includes('serverOnly'),'catálogo real deve renderizar SKUs vindos do servidor além do mapa local');
 assert.ok(read('supabase/functions/admin-ops/index.ts').includes('cnpj_verified_at')&&read('supabase/functions/admin-ops/index.ts').includes('anp_verified_at'),'admin deve projetar relógios independentes de compliance');
 assert.ok(read('supabase/functions/merchant-ops/index.ts').includes('CNPJ_REVERIFICATION_REQUIRED'),'merchant ops deve traduzir CNPJ vencido');

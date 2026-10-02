@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import {
-  DomainError,normalizeAddress,normalizeCnpj,isValidCnpj,normalizeItems,
+  DomainError,normalizeAddress,normalizeCnpj,isValidCnpj,normalizeItems,isSupportedProductCode,
   assertTransition,merchantActionTarget,assertExpectedVersion,validateIdempotencyKey,
   canonicalJson,requestFingerprint,assertIdempotentReplay,assertPermanentMerchantUser,
   assertMerchantMembership,assertCatalogWriteMembership,anonymizeOffer,hasMerchantLeak,
@@ -84,8 +84,22 @@ test('itens repetidos são agregados e ordenados deterministicamente',()=>{
   );
 });
 
+test('GLP P1–P90 é aceito e limites são fail-closed',()=>{
+  assert.equal(isSupportedProductCode('P1'),true);
+  assert.equal(isSupportedProductCode('p20'),true);
+  assert.equal(isSupportedProductCode('P45'),true);
+  assert.equal(isSupportedProductCode('P90'),true);
+  assert.equal(isSupportedProductCode('P0'),false);
+  assert.equal(isSupportedProductCode('P91'),false);
+  assert.deepEqual(
+    normalizeItems([{productCode:'P45',quantity:1},{productCode:'p20',quantity:2}]),
+    [{productCode:'P20',quantity:2},{productCode:'P45',quantity:1}]
+  );
+});
+
 test('produto e quantidade inválidos são bloqueados',()=>{
   throwsCode(()=>normalizeItems([{productCode:'XYZ',quantity:1}]),'INVALID_PRODUCT');
+  throwsCode(()=>normalizeItems([{productCode:'P91',quantity:1}]),'INVALID_PRODUCT');
   throwsCode(()=>normalizeItems([{productCode:'P13',quantity:0}]),'INVALID_QUANTITY');
 });
 
