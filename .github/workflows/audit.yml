@@ -2,8 +2,6 @@ name: Audit
 
 on:
   push:
-    branches-ignore:
-      - main
   pull_request:
     branches:
       - main
@@ -27,14 +25,15 @@ jobs:
             echo "Checking $f"
             node --check "$f"
           done
-      - name: Browser SDK SHA384 probe
+      - name: Browser SDK integrity verify
         run: |
+          EXPECTED='sha384-Rj26LVGvoeRVR6+mwQmFfcR3QOBEwT+ZmuCWpuiqeTzJpCs0ER4ITAWGb4Hiy3Ok'
           curl --fail --silent --show-error --location \
             'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.2/dist/umd/supabase.js' \
             --output /tmp/supabase-browser.js
-          printf 'SUPABASE_BROWSER_SHA384=sha384-'
-          openssl dgst -sha384 -binary /tmp/supabase-browser.js | openssl base64 -A
-          printf '\n'
+          ACTUAL="sha384-$(openssl dgst -sha384 -binary /tmp/supabase-browser.js | openssl base64 -A)"
+          echo "SUPABASE_BROWSER_SHA384=$ACTUAL"
+          test "$ACTUAL" = "$EXPECTED"
       - name: Edge Functions type and secret audit
         run: |
           if find supabase/functions -type f -name '*.ts' | grep -q .; then
