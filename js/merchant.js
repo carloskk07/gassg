@@ -1,3 +1,7 @@
+function merchantRealPortalRequired(){
+  return shell('<section class="page"><span class="eyebrow">ÁREA DA REVENDA</span><h1 class="page-title">Acesso operacional real</h1><p class="muted">A operação da revenda não possui modo fictício em produção.</p><button class="primary full" onclick="openMerchantPortal()">Entrar / cadastrar revenda</button></section>');
+}
+
 function merchantLiveLoginView(){
   const rt=globalThis.merchantRuntime||{};
   return shell(`<section class="page">
@@ -209,6 +213,7 @@ async function merchantLiveLogout(){
 
 function merchantPage(){
   if(globalThis.merchantPortalRequested?.())return merchantLivePage();
+  if(globalThis.__CHAMA_TEST__!==true)return merchantRealPortalRequired();
   const m=merchantById(state.selectedMerchant)||state.merchants[0];
   const orders=state.orders.filter(o=>o.merchantId===m.id&&['OFFERED_TO_MERCHANT','MERCHANT_ACCEPTED','PREPARING','AT_RISK','OUT_FOR_DELIVERY','ARRIVING'].includes(o.status));
   const fresh=isPriceFresh(m);
@@ -267,10 +272,12 @@ function merchantAction(id,action){
 }
 function merchantOrders(){
   if(globalThis.merchantPortalRequested?.())return merchantLivePage();
+  if(globalThis.__CHAMA_TEST__!==true)return merchantRealPortalRequired();
   state.mode='merchant';save();return merchantPage()
 }
 function catalog(){
   if(globalThis.merchantPortalRequested?.())return merchantLiveCatalog();
+  if(globalThis.__CHAMA_TEST__!==true)return merchantRealPortalRequired();
   const m=merchantById(state.selectedMerchant)||state.merchants[0];
   return shell(`<section class="page"><h1 class="page-title">Meu catálogo</h1><p class="muted">A revenda não fica limitada ao P13. Cada produto tem preço e disponibilidade próprios.</p><div class="list">${Object.entries(products).map(([k,p])=>{const price=productPrice(m,k);const stock=inventoryFor(m,k);return `<div class="list-row"><div class="product-left"><div class="product-icon">${p.icon}</div><div><strong>${esc(p.name)}</strong><br><small>${price==null?'Não oferecido':`${BRL.format(price)} • estoque ${stock}`}</small></div></div><span class="status-pill ${price==null||stock<=0?'offline':'online'}">${price==null?'INATIVO':stock<=0?'SEM ESTOQUE':'ATIVO'}</span></div>`}).join('')}</div><div class="notice" style="margin-top:14px">No produto real, cada categoria terá regras de compatibilidade logística e conformidade próprias.</div></section>`)
 }
@@ -355,6 +362,7 @@ async function merchantLiveAddGlp(){
 
 function merchantMetrics(){
   if(globalThis.merchantPortalRequested?.())return merchantLivePage();
+  if(globalThis.__CHAMA_TEST__!==true)return merchantRealPortalRequired();
   const m=merchantById(state.selectedMerchant)||state.merchants[0];
   const accepted=Math.max(0,Number(m.accepted)||0),delivered=Math.max(0,Number(m.delivered)||0);
   const completion=accepted?delivered/accepted:0;

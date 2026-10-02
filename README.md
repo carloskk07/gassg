@@ -4,25 +4,36 @@ Marketplace hiperlocal de gás e abastecimento essencial para São Gabriel/RS.
 
 ## Online
 
-**Demonstração pública:** https://carloskk07.github.io/gassg/
+**Pré-lançamento visual:** https://carloskk07.github.io/gassg/
 
-A branch `main` é publicada no GitHub Pages somente depois dos gates automatizados.
+A branch `main` é publicada no GitHub Pages somente depois dos gates automatizados. Essa origem compartilhada não recebe credenciais/origins do ambiente real e, portanto, **não aceita transações reais**.
 
-Durante o piloto existem três entradas protegidas por parâmetros:
+Na origem dedicada do cliente, o modo padrão é real: não é necessário `?live=1`. Os portais privilegiados continuam separados:
 
-- Cliente real: `?live=1#home`
-- Revenda real: `?merchant=1#merchant`
-- Administração protegida: `?admin=1#admin`
+- Cliente real: `#home` na origem `CHAMA_CUSTOMER_ORIGIN`
+- Revenda real: `?merchant=1#merchant` na origem `CHAMA_MERCHANT_ORIGIN`
+- Administração protegida: `?admin=1#admin` na origem `CHAMA_ADMIN_ORIGIN`
 
-O modo padrão continua sendo demonstração. Nenhum preço ou revenda fictícia é apresentado como dado real no modo live.
+### Exemplos de pré-lançamento
+
+Enquanto o backend ainda não tiver nenhuma revenda real **ativa, com compliance operacional vigente e pelo menos um item de catálogo ativo e precificado**, o cliente pode ver cards visuais marcados **“EXEMPLO — NÃO COMPRÁVEL”**.
+
+Esses exemplos:
+- não existem como merchant/order no banco;
+- não podem acionar checkout, pagamento, cashback ou comissão;
+- não restauram saldo, pedido ou revenda via browser storage;
+- desaparecem automaticamente quando `market_supply_status()` detectar a primeira supply real configurada;
+- não reaparecem se uma revenda real ficar temporariamente offline.
+
+A suíte de testes mantém um marketplace sintético completo apenas quando injeta `globalThis.__CHAMA_TEST__=true`. A build normal não oferece esse caminho.
 
 ## Estado atual — hardening candidate
 
-**Demonstração:** funcional.
-
 **Backend multiusuário:** aplicado no projeto Supabase exclusivo do Chama.
 
-**Piloto real:** tecnicamente preparado, mas ainda depende do onboarding e da validação ponta a ponta das primeiras revendas reais. O banco ainda não possui pedidos, revendas ou memberships de produção.
+**Mercado real configurado neste momento:** 0 revendas. Por isso a prévia visual permanece ativa.
+
+**Operação real:** tecnicamente preparada, mas ainda depende do onboarding e da validação ponta a ponta das primeiras revendas reais. O banco ainda não possui pedidos ou merchants de produção.
 
 Antes de liberar usuários reais em volume, devem ser comprovados com contas reais:
 
@@ -91,6 +102,7 @@ Edge Functions atuais:
 - `get-order`
 - `customer-action`
 - `customer-summary`
+- `market-status`
 - `merchant-orders`
 - `merchant-action`
 - `merchant-ops`
@@ -111,11 +123,11 @@ Proteções implementadas:
 - rescue centralizado;
 - preço, taxa e itens congelados em re-cotação;
 - PIN com `pgcrypto`, cinco tentativas e retenção curta;
-- service worker network-first com cache `v1.18`;
+- service worker network-first com cache `v1.21`;
 - estado live com endereço/carrinho permanece em `sessionStorage`;
 - identidade anônima do cliente + ID do pedido ativo persistem na **origem dedicada do cliente**, permitindo recuperar uma entrega após fechar o navegador;
 - revenda e admin continuam tab-scoped em `sessionStorage`;
-- os modos reais permanecem bloqueados na origem compartilhada do GitHub Pages e exigem origens HTTPS dedicadas;
+- GitHub Pages funciona somente como pré-lançamento visual; transações reais exigem origens HTTPS dedicadas;
 - novas identidades anônimas e magic links passam por Cloudflare Turnstile antes de chamar o Supabase Auth.
 
 ## Confirmações de credibilidade do pedido

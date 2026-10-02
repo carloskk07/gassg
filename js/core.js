@@ -47,24 +47,26 @@ function freshMerchant(id,name,priceP13,eta,distance,trust,inventory,prices){
 }
 
 function freshSeed(){
+  const testDemo=globalThis.__CHAMA_TEST__===true;
   return {
     version:STATE_VERSION,
     mode:'customer',
-    user:{name:'Carlos',cashback:7.50,cashbackDebt:0,purchases:4,referralCode:'CARLOS27',commissionAvailable:0,commissionPending:0,referredBy:null,cashEarningEligible:true,identityType:'demo'},
+    user:testDemo
+      ? {name:'Carlos',cashback:7.50,cashbackDebt:0,purchases:4,referralCode:'CARLOS27',commissionAvailable:0,commissionPending:0,referredBy:null,cashEarningEligible:true,identityType:'test'}
+      : {name:'',cashback:0,cashbackDebt:0,purchases:0,referralCode:'',commissionAvailable:0,commissionPending:0,referredBy:null,cashEarningEligible:false,identityType:'uninitialized'},
     address:'',
     cart:{P13:0,P20:0,P45:0,WATER20:0,CHARCOAL4:0,WOOD:0,ICE5:0},
     checkout:{paymentMethod:'pix',useCashback:false},
-    merchants:[
+    merchants:testDemo?[
       freshMerchant('A','Revenda Parceira A',116.90,34,3.8,94,{P13:24,WATER20:18,CHARCOAL4:12,WOOD:8,ICE5:14},{WATER20:15.90,CHARCOAL4:19.90,WOOD:24.90,ICE5:12.00}),
       freshMerchant('B','Revenda Parceira B',119.90,19,1.9,97,{P13:31,WATER20:22,CHARCOAL4:10,WOOD:0,ICE5:16},{WATER20:14.90,CHARCOAL4:21.90,WOOD:null,ICE5:11.50}),
       freshMerchant('C','Revenda Parceira C',122.90,13,1.1,98,{P13:18,WATER20:0,CHARCOAL4:20,WOOD:11,ICE5:9},{WATER20:null,CHARCOAL4:18.90,WOOD:22.90,ICE5:13.00})
-    ],
+    ]:[],
     orders:[],
-    selectedMerchant:'A',
+    selectedMerchant:testDemo?'A':null,
     onboarding:[]
   };
 }
-
 function normalizeCart(cart={}){
   return Object.fromEntries(Object.keys(products).map(k=>[k,clamp(Number.isFinite(Number(cart[k]))?Math.trunc(Number(cart[k])):0,0,99)]));
 }
@@ -91,9 +93,29 @@ function normalizeMerchant(raw,base){
 }
 function normalizeState(raw){
   const base=freshSeed();
-  if(!raw||typeof raw!=='object') return base;
-  const merged={...base,...raw};
+  if(!raw||typeof raw!=='object')return base;
+  const testDemo=globalThis.__CHAMA_TEST__===true;
+  const merged=testDemo?{...base,...raw}:{...base};
+
   merged.version=STATE_VERSION;
+  merged.checkout={...base.checkout,...(raw.checkout||{})};
+  merged.checkout.paymentMethod=['pix','card','cash'].includes(merged.checkout.paymentMethod)?merged.checkout.paymentMethod:'pix';
+  merged.checkout.useCashback=Boolean(merged.checkout.useCashback);
+  merged.address=String(raw.address||'').slice(0,160);
+  merged.cart=normalizeCart(raw.cart);
+
+  if(!testDemo){
+    // Financial, merchant, order and onboarding state is server-authoritative.
+    // Never hydrate those fields from browser storage.
+    merged.user={...base.user};
+    merged.mode='customer';
+    merged.onboarding=[];
+    merged.orders=[];
+    merged.merchants=[];
+    merged.selectedMerchant=null;
+    return merged;
+  }
+
   merged.user={...base.user,...(raw.user||{})};
   merged.user.cashback=Math.max(0,roundMoney(Number(merged.user.cashback)||0));
   merged.user.cashbackDebt=Math.max(0,roundMoney(Number(merged.user.cashbackDebt)||0));
@@ -103,25 +125,22 @@ function normalizeState(raw){
   merged.user.referralCode=String(merged.user.referralCode||base.user.referralCode).slice(0,40);
   merged.user.cashEarningEligible=merged.user.cashEarningEligible!==false;
   merged.user.identityType=String(merged.user.identityType||base.user.identityType).slice(0,24);
-  merged.checkout={...base.checkout,...(raw.checkout||{})};
-  merged.checkout.paymentMethod=['pix','card','cash'].includes(merged.checkout.paymentMethod)?merged.checkout.paymentMethod:'pix';
-  merged.checkout.useCashback=Boolean(merged.checkout.useCashback);
-  merged.address=String(raw.address||'').slice(0,160);
   merged.mode=raw.mode==='merchant'?'merchant':'customer';
-  merged.cart=normalizeCart(raw.cart);
   merged.onboarding=Array.isArray(raw.onboarding)?raw.onboarding.slice(0,100):[];
   merged.orders=Array.isArray(raw.orders)?raw.orders.slice(-100):[];
   merged.merchants=base.merchants.map(b=>{
     const found=(Array.isArray(raw.merchants)?raw.merchants:[]).find(x=>x?.id===b.id);
     return normalizeMerchant(found||{},b);
   });
-  merged.selectedMerchant=merged.merchants.some(m=>m.id===raw.selectedMerchant)?raw.selectedMerchant:merged.merchants[0].id;
+  merged.selectedMerchant=merged.merchants.some(m=>m.id===raw.selectedMerchant)?raw.selectedMerchant:(merged.merchants[0]?.id??null);
   return merged;
 }
 
 let storageHealthy=true;
 function isLiveStateScope(){
-  return new URLSearchParams(location.search).get('live')==='1';
+  if(globalThis.__CHAMA_TEST__===true)return false;
+  const params=new URLSearchParams(location.search);
+  return params.get('merchant')!=='1'&&params.get('admin')!=='1';
 }
 function appStateStorage(){
   return isLiveStateScope()?sessionStorage:localStorage;
@@ -541,60 +560,43 @@ function housekeeping(){
 function runtimeStrip(){
   if(globalThis.adminPortalRequested?.()){
     const status=globalThis.adminRuntime?.status||'loading';
-    if(status==='ready'){
-      return '<div class="demo-strip live-strip"><span>● ADMIN PROTEGIDO • control plane server-side</span><button onclick="openCustomerPortal()">Sair do admin</button></div>';
-    }
-    if(status==='loading'||status==='disabled'){
-      return '<div class="demo-strip live-strip"><span>Conectando ao control plane administrativo…</span></div>';
-    }
-    if(status==='unauthenticated'){
-      return '<div class="demo-strip"><span>Administração • conta permanente e autorização explícita</span><button onclick="openCustomerPortal()">Voltar ao site</button></div>';
-    }
-    if(status==='no-access'){
-      return '<div class="demo-strip blocked-strip"><span>Conta autenticada sem permissão administrativa</span><button onclick="openCustomerPortal()">Voltar ao site</button></div>';
-    }
+    if(status==='ready')return '<div class="demo-strip live-strip"><span>● ADMIN PROTEGIDO • control plane server-side</span><button onclick="openCustomerPortal()">Sair do admin</button></div>';
+    if(status==='loading'||status==='disabled')return '<div class="demo-strip live-strip"><span>Conectando ao control plane administrativo…</span></div>';
+    if(status==='unauthenticated')return '<div class="demo-strip"><span>Administração • conta permanente e autorização explícita</span><button onclick="openCustomerPortal()">Voltar ao site</button></div>';
+    if(status==='no-access')return '<div class="demo-strip blocked-strip"><span>Conta autenticada sem permissão administrativa</span><button onclick="openCustomerPortal()">Voltar ao site</button></div>';
     return '<div class="demo-strip blocked-strip"><span>Control plane administrativo indisponível</span><button onclick="openCustomerPortal()">Voltar ao site</button></div>';
   }
   if(globalThis.merchantPortalRequested?.()){
     const status=globalThis.merchantRuntime?.status||'loading';
-    if(status==='ready'){
-      return '<div class="demo-strip live-strip"><span>● PAINEL REAL DA REVENDA • operações gravadas no Supabase</span><button onclick="openCustomerPortal()">Sair do painel</button></div>';
-    }
-    if(status==='loading'||status==='disabled'){
-      return '<div class="demo-strip live-strip"><span>Conectando ao painel real da revenda…</span></div>';
-    }
-    if(status==='unauthenticated'){
-      return '<div class="demo-strip"><span>Painel da revenda • autenticação permanente necessária</span><button onclick="openCustomerPortal()">Voltar ao site</button></div>';
-    }
-    if(status==='no-access'){
-      return '<div class="demo-strip blocked-strip"><span>Conta autenticada, mas ainda sem revenda vinculada</span><button onclick="openCustomerPortal()">Voltar ao site</button></div>';
-    }
-    if(status==='unsafe-origin'){
-      return '<div class="demo-strip blocked-strip"><span>Painel real bloqueado nesta origem compartilhada</span><button onclick="openCustomerPortal()">Voltar ao site</button></div>';
-    }
+    if(status==='ready')return '<div class="demo-strip live-strip"><span>● PAINEL REAL DA REVENDA • operações gravadas no Supabase</span><button onclick="openCustomerPortal()">Sair do painel</button></div>';
+    if(status==='loading'||status==='disabled')return '<div class="demo-strip live-strip"><span>Conectando ao painel real da revenda…</span></div>';
+    if(status==='unauthenticated')return '<div class="demo-strip"><span>Painel da revenda • autenticação permanente necessária</span><button onclick="openCustomerPortal()">Voltar ao site</button></div>';
+    if(status==='no-access')return '<div class="demo-strip blocked-strip"><span>Conta autenticada, mas ainda sem revenda vinculada</span><button onclick="openCustomerPortal()">Voltar ao site</button></div>';
+    if(status==='unsafe-origin')return '<div class="demo-strip blocked-strip"><span>Painel real bloqueado nesta origem compartilhada</span><button onclick="openCustomerPortal()">Voltar ao site</button></div>';
     return '<div class="demo-strip blocked-strip"><span>Painel da revenda indisponível no momento</span><button onclick="openCustomerPortal()">Voltar ao site</button></div>';
   }
-  if(!globalThis.liveRequested?.()){
-    return '<div class="demo-strip"><span>Ambiente de demonstração • preços e revendas ilustrativos</span><button onclick="reset()">Reiniciar</button></div>';
+  if(globalThis.__CHAMA_TEST__===true){
+    return '<div class="demo-strip"><span>Ambiente isolado de teste automatizado</span><button onclick="reset()">Reiniciar teste</button></div>';
   }
   const mode=globalThis.liveBanner?.()||'connecting';
+  const preview=globalThis.prelaunchExamplesEnabled?.()===true;
   if(mode==='live'){
-    return '<div class="demo-strip live-strip"><span>● PILOTO CONECTADO • dados e pedidos vêm do Supabase gassg</span><button onclick="openCustomerPortal()">Voltar à demonstração</button></div>';
+    if(preview)return '<div class="demo-strip"><span>PRÉ-LANÇAMENTO • exemplos visuais até a primeira revenda real ficar ativa</span></div>';
+    return '<div class="demo-strip live-strip"><span>● OPERAÇÃO REAL • dados, pedidos e saldos vêm do backend</span></div>';
   }
-  if(mode==='connecting'){
-    return '<div class="demo-strip live-strip"><span>Conectando ao backend real do piloto…</span></div>';
-  }
+  if(mode==='connecting')return '<div class="demo-strip live-strip"><span>Conectando ao backend real…</span></div>';
   if(globalThis.liveRuntime?.status==='unsafe-origin'){
-    return '<div class="demo-strip blocked-strip"><span>Piloto real bloqueado nesta origem compartilhada • use uma origem dedicada</span><button onclick="openCustomerPortal()">Abrir demonstração</button></div>';
+    return '<div class="demo-strip"><span>PRÉ-LANÇAMENTO • esta origem provisória mostra exemplos, mas não aceita transações reais</span></div>';
   }
-  return '<div class="demo-strip blocked-strip"><span>Modo live solicitado, mas o backend do piloto não está disponível</span><button onclick="openCustomerPortal()">Abrir demonstração</button></div>';
+  return '<div class="demo-strip blocked-strip"><span>Backend real indisponível • nenhuma transação foi simulada</span></div>';
 }
 function shell(content){
   const r=route();
   const adminPortal=globalThis.adminPortalRequested?.()===true;
   const merchantPortal=!adminPortal&&globalThis.merchantPortalRequested?.()===true;
-  const merchantAction=merchantPortal?"go('merchant')":globalThis.liveRequested?.()?"openMerchantPortal()":"setMode('merchant')";
-  const customerAction=(adminPortal||merchantPortal)?"openCustomerPortal()":"setMode('customer')";
+  const testDemo=globalThis.__CHAMA_TEST__===true;
+  const merchantAction=merchantPortal?"go('merchant')":testDemo?"setMode('merchant')":"openMerchantPortal()";
+  const customerAction=(adminPortal||merchantPortal)?"openCustomerPortal()":testDemo?"setMode('customer')":"go('home')";
   const brandAction=adminPortal?"go('admin')":merchantPortal?"go('merchant')":"go('home')";
   const desktopNav=adminPortal
     ? '<button onclick="go(\'admin\')">Control plane</button>'
@@ -603,7 +605,7 @@ function shell(content){
       : '<button onclick="go(\'home\')">Início</button><button onclick="go(\'club\')">Clube</button><button onclick="go(\'refer\')">Indique e ganhe</button><button onclick="go(\'merchants\')">Para revendas</button>';
   const switcher=adminPortal
     ? '<div class="mode-pill" aria-label="Alternar ambiente"><button onclick="openCustomerPortal()">Site</button><button class="active" onclick="go(\'admin\')">Admin</button></div>'
-    : `<div class="mode-pill" aria-label="Alternar modo"><button class="${!merchantPortal&&state.mode==='customer'?'active':''}" onclick="${customerAction}">Cliente</button><button class="${merchantPortal||state.mode==='merchant'?'active':''}" onclick="${merchantAction}">Revenda</button></div>`;
+    : `<div class="mode-pill" aria-label="Alternar modo"><button class="${!merchantPortal&&(!testDemo||state.mode==='customer')?'active':''}" onclick="${customerAction}">Cliente</button><button class="${merchantPortal||(testDemo&&state.mode==='merchant')?'active':''}" onclick="${merchantAction}">Revenda</button></div>`;
   return `<div class="app">
   ${runtimeStrip()}
   <header class="topbar"><div class="shell topbar-inner">
@@ -618,13 +620,14 @@ function shell(content){
 function bottomNav(r){
   const adminPortal=globalThis.adminPortalRequested?.()===true;
   const merchantPortal=!adminPortal&&globalThis.merchantPortalRequested?.()===true;
+  const testDemo=globalThis.__CHAMA_TEST__===true;
   const items=adminPortal
     ?[['admin','🛡️','Admin','go']]
     :merchantPortal
       ?[['merchant','🏪','Operação','go'],['merchant-orders','📦','Pedidos','go'],['catalog','🧺','Catálogo','go'],['merchants','➕','Parceiros','go']]
-      :state.mode==='merchant'
-      ?[['merchant','🏪','Operação','go'],['merchant-orders','📦','Pedidos','go'],['catalog','🧺','Catálogo','go'],['merchant-metrics','📊','Desempenho','go'],['merchants','➕','Parceiros','go']]
-      :[['home','⌂','Início','go'],['order','🔥','Pedir','start'],['tracking','📍','Pedido','go'],['club','★','Clube','go'],['refer','🤝','Indique','go']];
+      :testDemo&&state.mode==='merchant'
+        ?[['merchant','🏪','Operação','go'],['merchant-orders','📦','Pedidos','go'],['catalog','🧺','Catálogo','go'],['merchant-metrics','📊','Desempenho','go'],['merchants','➕','Parceiros','go']]
+        :[['home','⌂','Início','go'],['order','🔥','Pedir','start'],['tracking','📍','Pedido','go'],['club','★','Clube','go'],['refer','🤝','Indique','go']];
   return `<nav class="bottom-nav" aria-label="Navegação principal">${items.map(([id,ic,l,act])=>`<button class="nav-btn ${r===id?'active':''}" ${r===id?'aria-current="page"':''} onclick="${act==='start'?"startOrder('P13')":`go('${id}')`}"><span aria-hidden="true">${ic}</span><span>${l}</span></button>`).join('')}</nav>`;
 }
 function setMode(m){state.mode=m==='merchant'?'merchant':'customer';save();go(state.mode==='merchant'?'merchant':'home');render()}

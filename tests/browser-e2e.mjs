@@ -83,13 +83,14 @@ async function auditDom(label){
 await send('Page.enable');
 await send('Runtime.enable');
 await send('Log.enable');
+await send('Page.addScriptToEvaluateOnNewDocument',{source:'globalThis.__CHAMA_TEST__=true;'});
 await navigate(BASE+'#home');
 await evaluate("localStorage.clear(); location.reload()");
 await waitFor("document.body.innerText.includes('Seu gás')","home after reset");
 
 let body=await text();
 assert.match(body,/Seu gás/);
-assert.match(body,/Ambiente de demonstração/);
+assert.match(body,/Ambiente isolado de teste automatizado/);
 await auditDom('home');
 
 await evaluate("quickProduct('WATER20')");

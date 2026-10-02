@@ -4,8 +4,11 @@ const CHAMA_BACKEND={
   orderStorageKey:'chama-live-order-id-v1'
 };
 
+const customerPortalParams=new URLSearchParams(location.search);
 const liveRuntime={
-  requested:new URLSearchParams(location.search).get('live')==='1',
+  requested:globalThis.__CHAMA_TEST__===true
+    ? false
+    : customerPortalParams.get('merchant')!=='1'&&customerPortalParams.get('admin')!=='1',
   status:'disabled',
   client:null,
   session:null,
@@ -16,6 +19,8 @@ const liveRuntime={
   actionPending:false,
   error:null,
   deliveryCompatibilityBlocked:false,
+  marketStatus:null,
+  lastMarketStatusAt:0,
   lastSyncAt:null,
   offerRequestSeq:0,
   orderRequestSeq:0
@@ -104,6 +109,8 @@ async function backendInit(){
     liveRuntime.orderId=localStorage.getItem(CHAMA_BACKEND.orderStorageKey)||null;
 
     await liveSyncFinancialProfile();
+    try{await liveSyncMarketStatus({force:true})}
+    catch(e){console.warn('Estado do mercado real indisponível',e)}
 
     if(liveRuntime.orderId){
       try{await liveGetOrder(liveRuntime.orderId,{silent:true})}
@@ -357,14 +364,55 @@ async function liveUpgradeAccount(email){
   return {pending:true,email:value,user:data?.user??null};
 }
 
+async function liveSyncMarketStatus({force=false}={}){
+  if(!liveReady())return null;
+  const now=Date.now();
+  if(!force&&liveRuntime.marketStatus&&now-liveRuntime.lastMarketStatusAt<60000)return liveRuntime.marketStatus;
+  const data=await liveInvoke('market-status',{});
+  liveRuntime.marketStatus={
+    realSupplyConfigured:data?.realSupplyConfigured===true,
+    configuredMerchantCount:Math.max(0,Number(data?.configuredMerchantCount||0)),
+    availableNow:data?.availableNow===true,
+    availableMerchantCount:Math.max(0,Number(data?.availableMerchantCount||0)),
+    productCodes:Array.isArray(data?.productCodes)?data.productCodes.map(String):[]
+  };
+  liveRuntime.lastMarketStatusAt=now;
+  return liveRuntime.marketStatus;
+}
+
+function prelaunchExamplesEnabled(){
+  if(globalThis.__CHAMA_TEST__===true)return false;
+  if(liveRuntime.status==='unsafe-origin')return true;
+  return liveRuntime.status==='ready'
+    && liveRuntime.marketStatus?.realSupplyConfigured===false;
+}
+
 async function livePoll(){
-  if(!liveReady()||!liveRuntime.orderId||liveRuntime.actionPending||document.visibilityState==='hidden')return;
-  if(["SETTLED","CANCELLED"].includes(liveRuntime.order?.status))return;
-  try{await liveGetOrder(liveRuntime.orderId,{silent:true});render()}catch(error){
+  if(!liveReady()||liveRuntime.actionPending||document.visibilityState==='hidden')return;
+  let changed=false;
+  try{
+    const before=JSON.stringify(liveRuntime.marketStatus);
+    await liveSyncMarketStatus();
+    changed=before!==JSON.stringify(liveRuntime.marketStatus);
+  }catch{}
+  if(!liveRuntime.orderId){
+    if(changed)render();
+    return;
+  }
+  if(["SETTLED","CANCELLED"].includes(liveRuntime.order?.status)){
+    if(changed)render();
+    return;
+  }
+  try{
+    await liveGetOrder(liveRuntime.orderId,{silent:true});
+    render();
+  }catch(error){
     if(error?.status===404){
       localStorage.removeItem(CHAMA_BACKEND.orderStorageKey);
       liveRuntime.orderId=null;
       liveRuntime.order=null;
+      render();
+    }else if(changed){
       render();
     }
   }
@@ -710,6 +758,8 @@ globalThis.liveGetOrder=liveGetOrder;
 globalThis.liveCustomerAction=liveCustomerAction;
 globalThis.liveUpgradeAccount=liveUpgradeAccount;
 globalThis.livePoll=livePoll;
+globalThis.liveSyncMarketStatus=liveSyncMarketStatus;
+globalThis.prelaunchExamplesEnabled=prelaunchExamplesEnabled;
 globalThis.merchantRuntime=merchantRuntime;
 globalThis.merchantPortalRequested=merchantPortalRequested;
 globalThis.merchantOriginSafe=merchantOriginSafe;

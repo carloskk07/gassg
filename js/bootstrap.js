@@ -12,7 +12,7 @@ function render(){
     globalThis.__lastRenderError=String(e?.stack||e?.message||e);
     console.error('Falha de renderização',e);
     const app=document.querySelector('#app');
-    if(app)app.innerHTML='<main class="shell page"><div class="notice danger"><strong>Não foi possível carregar esta tela.</strong><br>Recarregue a página. Se o problema continuar, reinicie a demonstração.</div></main>';
+    if(app)app.innerHTML='<main class="shell page"><div class="notice danger"><strong>Não foi possível carregar esta tela.</strong><br>Recarregue a página. Se o problema continuar, tente novamente mais tarde.</div></main>';
   }finally{renderLock=false}
 }
 window.addEventListener('hashchange',render);
