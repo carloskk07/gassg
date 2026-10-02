@@ -96,6 +96,23 @@ assert.match(body,/Quero gerar renda/);
 assert.match(body,/Ambiente isolado de teste automatizado/);
 await auditDom('home');
 
+assert.equal(
+  await evaluate("buildPortalHref('https://revenda.example.com','merchant',{origin:'https://app.example.com',hostname:'app.example.com',pathname:'/gassg/'})"),
+  'https://revenda.example.com/gassg/?merchant=1#merchant'
+);
+assert.equal(
+  await evaluate("buildPortalHref('https://admin.example.com','admin',{origin:'https://app.example.com',hostname:'app.example.com',pathname:'/gassg/'})"),
+  'https://admin.example.com/gassg/?admin=1#admin'
+);
+assert.equal(
+  await evaluate("buildPortalHref('https://app.example.com','customer',{origin:'https://revenda.example.com',hostname:'revenda.example.com',pathname:'/gassg/'})"),
+  'https://app.example.com/gassg/#home'
+);
+assert.equal(
+  await evaluate("buildPortalHref('https://revenda.example.com','merchant',{origin:'http://127.0.0.1:4173',hostname:'127.0.0.1',pathname:'/'})"),
+  'http://127.0.0.1:4173/?merchant=1#merchant'
+);
+
 await evaluate("go('learn')");
 await waitFor("document.body.innerText.includes('Entenda o Chama')","learn route");
 body=await text();
@@ -106,7 +123,7 @@ await auditDom('learn');
 await evaluate("go('earn')");
 await waitFor("document.body.innerText.includes('Duas formas de participar')","earn route");
 body=await text();
-assert.match(body,/Indique compradores/);
+assert.match(body,/Indique novos compradores/);
 assert.match(body,/Venda pelo Chama/);
 assert.match(body,/2% sobre venda elegível/);
 await auditDom('earn');
@@ -179,6 +196,8 @@ await evaluate("go('refer')");
 await waitFor("document.body.innerText.includes('Compartilhe. A pessoa compra')","referral route");
 body=await text();
 assert.match(body,/Pix está em preparação/);
+assert.match(body,/primeira compra qualificada/i);
+assert.match(body,/Compras repetidas do mesmo cliente não geram novas comissões/i);
 assert.equal(await evaluate("[...document.querySelectorAll('button')].some(b=>b.textContent.includes('Saque Pix ainda não disponível')&&b.disabled)"),true);
 await auditDom('refer');
 

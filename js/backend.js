@@ -23,6 +23,8 @@ const liveRuntime={
   deliveryCompatibilityBlocked:false,
   marketStatus:null,
   lastMarketStatusAt:0,
+  lastFinancialSyncAt:0,
+  lastFinancialSyncAttemptAt:0,
   lastSyncAt:null,
   offerRequestSeq:0,
   orderRequestSeq:0
@@ -41,6 +43,35 @@ function liveBanner(){
   if(liveRuntime.status==='ready')return 'live';
   if(liveRuntime.status==='loading')return 'connecting';
   return 'blocked';
+}
+
+function buildPortalHref(configuredOrigin,portal,current=location){
+  const currentOrigin=String(current?.origin||'').trim();
+  const currentHostname=String(current?.hostname||'').trim().toLowerCase();
+  const configured=String(configuredOrigin||'').trim();
+  const local=['localhost','127.0.0.1'].includes(currentHostname);
+  const targetOrigin=local?currentOrigin:configured;
+  if(!targetOrigin)return null;
+
+  let originUrl;
+  try{originUrl=new URL(targetOrigin)}catch{return null}
+  if(!local&&originUrl.origin!==targetOrigin)return null;
+
+  const pathname=String(current?.pathname||'/')||'/';
+  const url=new URL(pathname,originUrl.origin);
+  url.search='';
+  if(portal==='merchant'){
+    url.searchParams.set('merchant','1');
+    url.hash='merchant';
+  }else if(portal==='admin'){
+    url.searchParams.set('admin','1');
+    url.hash='admin';
+  }else if(portal==='customer'){
+    url.hash='home';
+  }else{
+    return null;
+  }
+  return url.toString();
 }
 
 function loadSupabaseBrowser(){
@@ -301,7 +332,7 @@ async function liveGetOrder(orderId=liveRuntime.orderId,{silent=false}={}){
   liveRuntime.lastSyncAt=new Date().toISOString();
   localStorage.setItem(CHAMA_BACKEND.orderStorageKey,order.orderId);
   if(['SETTLED','CANCELLED'].includes(order.status)){
-    await liveSyncFinancialProfile();
+    await liveSyncFinancialProfile({force:true});
   }
   if(!silent)render();
   return order;
@@ -330,8 +361,24 @@ async function liveCustomerAction(action){
   }
 }
 
-async function liveSyncFinancialProfile(){
-  if(!liveReady())return;
+async function liveSyncFinancialProfile({force=false}={}){
+  if(!liveReady())return false;
+  const now=Date.now();
+  if(!force&&liveRuntime.lastFinancialSyncAttemptAt&&now-liveRuntime.lastFinancialSyncAttemptAt<60000){
+    return false;
+  }
+  liveRuntime.lastFinancialSyncAttemptAt=now;
+  const before=JSON.stringify({
+    referralCode:state.user.referralCode,
+    cashback:state.user.cashback,
+    cashbackDebt:state.user.cashbackDebt,
+    commissionPending:state.user.commissionPending,
+    commissionAvailable:state.user.commissionAvailable,
+    purchases:state.user.purchases,
+    reversedPurchases:state.user.reversedPurchases,
+    cashEarningEligible:state.user.cashEarningEligible,
+    identityType:state.user.identityType
+  });
   try{
     const summary=await liveInvoke('customer-summary',{});
     if(summary?.referralCode)state.user.referralCode=String(summary.referralCode).slice(0,40);
@@ -343,9 +390,23 @@ async function liveSyncFinancialProfile(){
     state.user.reversedPurchases=Math.max(0,Number(summary?.reversedOrders||0));
     state.user.cashEarningEligible=summary?.cashEarningEligible===true;
     state.user.identityType=String(summary?.identityType||'anonymous');
+    liveRuntime.lastFinancialSyncAt=Date.now();
     save();
+    const after=JSON.stringify({
+      referralCode:state.user.referralCode,
+      cashback:state.user.cashback,
+      cashbackDebt:state.user.cashbackDebt,
+      commissionPending:state.user.commissionPending,
+      commissionAvailable:state.user.commissionAvailable,
+      purchases:state.user.purchases,
+      reversedPurchases:state.user.reversedPurchases,
+      cashEarningEligible:state.user.cashEarningEligible,
+      identityType:state.user.identityType
+    });
+    return before!==after;
   }catch(error){
     console.warn('Não foi possível sincronizar o resumo financeiro live',error);
+    return false;
   }
 }
 
@@ -402,6 +463,9 @@ async function livePoll(){
     await liveSyncMarketStatus();
     changed=before!==JSON.stringify(liveRuntime.marketStatus);
   }catch{}
+  try{
+    changed=(await liveSyncFinancialProfile())||changed;
+  }catch{}
   if(!liveRuntime.orderId){
     if(changed)render();
     return;
@@ -439,6 +503,8 @@ const merchantRuntime={
   actionPending:false,
   error:null,
   notice:null,
+  accessReason:null,
+  heartbeatError:null,
   lastSyncAt:null,
   lastHeartbeatAt:0
 };
@@ -564,13 +630,17 @@ async function merchantSignOut(){
   merchantRuntime.memberships=[];
   merchantRuntime.catalog=[];
   merchantRuntime.orders=[];
+  merchantRuntime.selectedMerchantId=null;
+  localStorage.removeItem('chama-merchant-selected-v1');
   merchantRuntime.status='unauthenticated';
   merchantRuntime.error=null;
   merchantRuntime.notice=null;
+  merchantRuntime.accessReason=null;
+  merchantRuntime.heartbeatError=null;
   render();
 }
 
-async function merchantRefresh({silent=false}={}){
+async function merchantRefresh({silent=false,recoverSelection=true}={}){
   if(!merchantRuntime.client)return null;
   if(!silent)render();
   try{
@@ -585,21 +655,35 @@ async function merchantRefresh({silent=false}={}){
     if(merchantRuntime.selectedMerchantId)localStorage.setItem('chama-merchant-selected-v1',merchantRuntime.selectedMerchantId);
     merchantRuntime.status='ready';
     merchantRuntime.error=null;
+    merchantRuntime.accessReason=null;
     merchantRuntime.lastSyncAt=new Date().toISOString();
     return data;
   }catch(error){
-    if(error?.code==='NO_MERCHANT_ACCESS'||error?.status===403&&error?.code==='MERCHANT_ACCESS_DENIED'){
+    const staleSelected=Boolean(merchantRuntime.selectedMerchantId)
+      && error?.status===403
+      && ['MERCHANT_ACCESS_DENIED','MERCHANT_ROLE_NOT_ENABLED'].includes(error?.code);
+    if(staleSelected&&recoverSelection){
+      merchantRuntime.selectedMerchantId=null;
+      localStorage.removeItem('chama-merchant-selected-v1');
+      return merchantRefresh({silent:true,recoverSelection:false});
+    }
+    if(
+      error?.code==='NO_MERCHANT_ACCESS'
+      || error?.status===403&&['MERCHANT_ACCESS_DENIED','MERCHANT_ROLE_NOT_ENABLED'].includes(error?.code)
+    ){
       merchantRuntime.status='no-access';
       merchantRuntime.merchant=null;
       merchantRuntime.orders=[];
       merchantRuntime.catalog=[];
       merchantRuntime.error=null;
+      merchantRuntime.accessReason=error?.code||'NO_MERCHANT_ACCESS';
       return null;
     }
     if(error?.status===401){
       merchantRuntime.status='unauthenticated';
       merchantRuntime.session=null;
       merchantRuntime.error='Sua sessão expirou. Entre novamente.';
+      merchantRuntime.accessReason=null;
       return null;
     }
     merchantRuntime.status='unavailable';
@@ -611,8 +695,12 @@ async function merchantRefresh({silent=false}={}){
 }
 
 async function merchantSelectLive(merchantId){
-  merchantRuntime.selectedMerchantId=String(merchantId||'');
-  localStorage.setItem('chama-merchant-selected-v1',merchantRuntime.selectedMerchantId);
+  merchantRuntime.selectedMerchantId=String(merchantId||'')||null;
+  if(merchantRuntime.selectedMerchantId){
+    localStorage.setItem('chama-merchant-selected-v1',merchantRuntime.selectedMerchantId);
+  }else{
+    localStorage.removeItem('chama-merchant-selected-v1');
+  }
   await merchantRefresh();
 }
 
@@ -717,41 +805,50 @@ async function merchantSubmitApplicationLive(payload){
 }
 
 async function merchantHeartbeat(){
-  if(!merchantReady()||merchantRuntime.actionPending||!merchantRuntime.merchant)return;
+  if(!merchantReady()||merchantRuntime.actionPending||!merchantRuntime.merchant)return false;
   const now=Date.now();
-  if(now-merchantRuntime.lastHeartbeatAt<60000)return;
+  if(now-merchantRuntime.lastHeartbeatAt<60000)return null;
   merchantRuntime.lastHeartbeatAt=now;
   try{
     await merchantInvoke('merchant-ops',{
       merchantId:merchantRuntime.merchant.merchantId,
       action:'heartbeat'
     });
-  }catch{}
+    merchantRuntime.heartbeatError=null;
+    return true;
+  }catch(error){
+    merchantRuntime.heartbeatError=String(error?.message||error||'Falha ao confirmar presença');
+    return false;
+  }
 }
 
 async function merchantPoll(){
   if(!merchantReady()||merchantRuntime.actionPending||document.visibilityState==='hidden')return;
   try{
-    await merchantRefresh({silent:true});
     await merchantHeartbeat();
+    await merchantRefresh({silent:true});
     render();
   }catch{}
 }
 
 function openMerchantPortal(){
-  const url=new URL(location.href);
-  url.search='';
-  url.searchParams.set('merchant','1');
-  url.hash='merchant';
-  location.href=url.toString();
+  const href=buildPortalHref(globalThis.CHAMA_MERCHANT_ORIGIN,'merchant');
+  if(!href){
+    toast('O portal da revenda ainda não possui uma origem dedicada configurada');
+    return;
+  }
+  location.href=href;
 }
 function openCustomerPortal(){
-  const url=new URL(location.href);
-  url.search='';
-  url.hash='home';
-  location.href=url.toString();
+  const href=buildPortalHref(globalThis.CHAMA_CUSTOMER_ORIGIN,'customer');
+  if(!href){
+    toast('O site do cliente ainda não possui uma origem dedicada configurada');
+    return;
+  }
+  location.href=href;
 }
 
+globalThis.buildPortalHref=buildPortalHref;
 globalThis.liveRuntime=liveRuntime;
 globalThis.customerOriginSafe=customerOriginSafe;
 globalThis.backendInit=backendInit;

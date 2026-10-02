@@ -19,12 +19,18 @@ function merchantLiveLoginView(){
 }
 
 function merchantLiveNoAccess(){
-  const email=globalThis.merchantRuntime?.session?.user?.email||'conta autenticada';
+  const rt=globalThis.merchantRuntime||{};
+  const email=rt.session?.user?.email||'conta autenticada';
+  const roleBlocked=rt.accessReason==='MERCHANT_ROLE_NOT_ENABLED';
   return shell(`<section class="page">
     <span class="eyebrow">CONTA AUTENTICADA</span>
-    <h1 class="page-title">Revenda ainda não vinculada</h1>
-    <p class="muted">Você entrou como ${esc(email)}, mas esta conta ainda não possui uma operação ativa.</p>
-    <div class="card flat" style="margin-top:16px"><h3>Quer participar?</h3><p class="muted tiny">Envie o cadastro da empresa. A operação só entra no pool depois de validação e vínculo da conta.</p><button class="primary full" onclick="go('merchant-join')">Cadastrar empresa</button></div>
+    <h1 class="page-title">${roleBlocked?'Seu acesso ainda não habilita o painel':'Revenda ainda não vinculada'}</h1>
+    <p class="muted">${roleBlocked
+      ? 'Você entrou como '+esc(email)+', mas seu papel atual não possui acesso operacional neste piloto.'
+      : 'Você entrou como '+esc(email)+', mas esta conta ainda não possui uma operação ativa.'}</p>
+    ${roleBlocked
+      ? '<div class="notice" style="margin-top:16px"><strong>Acesso operacional limitado.</strong><br>Owner, manager e operator podem usar o painel neste piloto. O papel de motorista permanece bloqueado até existir atribuição individual por pedido.</div>'
+      : '<div class="card flat" style="margin-top:16px"><h3>Quer participar?</h3><p class="muted tiny">Envie o cadastro da empresa. A operação só entra no pool depois de validação e vínculo da conta.</p><button class="primary full" onclick="go(\'merchant-join\')">Cadastrar empresa</button></div>'}
     <button class="ghost full" style="margin-top:12px" onclick="merchantLiveLogout()">Sair desta conta</button>
   </section>`);
 }
@@ -59,6 +65,8 @@ function merchantLivePage(){
   }
 
   const m=rt.merchant;
+  const heartbeatFresh=merchantTimestampFresh(m.lastSeenAt,10/60);
+  const connectionHealthy=!m.online||heartbeatFresh;
   const manage=['owner','manager'].includes(m.memberRole);
   const operate=['owner','manager','operator'].includes(m.memberRole);
   const p13=merchantLiveProduct('P13');
@@ -84,11 +92,17 @@ function merchantLivePage(){
     ? `<div class="notice success" style="margin-top:12px"><strong>Compliance vigente.</strong><br>CNPJ: ${esc(cnpjWhen)} • janela operacional ${Number(compliance.cnpjMaxAgeDays||30)} dias. ${hasGlp?`ANP: ${esc(anpWhen)} • janela operacional ${Number(compliance.anpMaxAgeDays||7)} dias.`:'Sem GLP ativo no catálogo; ANP não é exigida para a operação atual.'}</div>`
     : `<div class="notice danger" style="margin-top:12px"><strong>Revalidação necessária antes de operar.</strong><br>${!cnpjCurrent?`CNPJ: última verificação ${esc(cnpjWhen)}; revalidar a cada ${Number(compliance.cnpjMaxAgeDays||30)} dias. `:''}${!anpCurrent?`ANP: última verificação ${esc(anpWhen)}; revalidar a cada ${Number(compliance.anpMaxAgeDays||7)} dias para GLP.`:''}</div>`;
   const canGoOnline=m.status==='active'&&complianceReady&&freshness.allFresh;
+  const connectionNotice=!connectionHealthy
+    ? '<div class="notice danger" style="margin-top:12px"><strong>Conexão da operação sem confirmação recente.</strong><br>Enquanto a presença da revenda não for renovada, novos pedidos podem deixar de ser enviados para esta operação.</div>'
+    : rt.heartbeatError
+      ? '<div class="notice" style="margin-top:12px"><strong>Reconectando presença da revenda.</strong><br>'+esc(rt.heartbeatError)+'</div>'
+      : '';
 
   return shell(`<section class="page">
-    <div class="status-bar"><div><div class="tiny muted">PAINEL REAL • ${esc(String(m.memberRole||'').toUpperCase())}</div><h1 class="page-title" style="margin-bottom:2px">${esc(m.name)}</h1></div><span class="status-pill ${m.online?'online':'offline'}">${m.online?'● ONLINE':'OFFLINE'}</span></div>
+    <div class="status-bar"><div><div class="tiny muted">PAINEL REAL • ${esc(String(m.memberRole||'').toUpperCase())}</div><h1 class="page-title" style="margin-bottom:2px">${esc(m.name)}</h1></div><span class="status-pill ${m.online?(heartbeatFresh?'online':'risk'):'offline'}">${m.online?(heartbeatFresh?'● ONLINE':'● SEM CONEXÃO'):'OFFLINE'}</span></div>
 
     ${rt.error?`<div class="notice danger" style="margin-top:12px">${esc(rt.error)}</div>`:''}
+    ${connectionNotice}
     ${complianceNotice}
     ${freshnessNotice}
 

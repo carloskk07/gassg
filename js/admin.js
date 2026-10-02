@@ -204,15 +204,12 @@ async function adminPoll(){
 }
 
 function openAdminPortal(){
-  if(!adminOriginSafe()){
-    toast('Admin exige uma origem dedicada; GitHub Pages fica bloqueado por segurança');
+  const href=globalThis.buildPortalHref?.(globalThis.CHAMA_ADMIN_ORIGIN,'admin');
+  if(!href){
+    toast('A administração ainda não possui uma origem dedicada configurada');
     return;
   }
-  const url=new URL(location.href);
-  url.search='';
-  url.searchParams.set('admin','1');
-  url.hash='admin';
-  location.href=url.toString();
+  location.href=href;
 }
 
 function adminLoginFromUi(){

@@ -38,23 +38,27 @@ function home(){
     ? (p==null?'Indisponível':BRL.format(p))
     : preview
       ? 'Conheça antes de lançar'
-      : ready&&market?.realSupplyConfigured
+      : ready&&!market
         ? 'Consultar preço'
-        : ready
-          ? 'Chegando em breve'
-          : 'Conectando…';
+        : ready&&market?.realSupplyConfigured
+          ? 'Consultar preço'
+          : ready
+            ? 'Chegando em breve'
+            : 'Conectando…';
 
   const freshness=testDemo
     ? 'Ambiente isolado de teste automatizado'
     : preview
       ? 'Pré-lançamento: veja como comprar e como participar desde o início.'
-      : ready&&market?.realSupplyConfigured
-        ? market?.availableNow
-          ? 'Há parceiros elegíveis para consulta agora.'
-          : 'Parceiros cadastrados; a disponibilidade é confirmada a cada consulta.'
-        : ready
-          ? 'Estamos formando a primeira rede de parceiros locais.'
-          : globalThis.liveRuntime?.status==='unsafe-origin'
+      : ready&&!market
+        ? 'Não foi possível confirmar o panorama geral agora. Informe seu endereço para consultar as opções diretamente.'
+        : ready&&market?.realSupplyConfigured
+          ? market?.availableNow
+            ? 'Há parceiros elegíveis para consulta agora.'
+            : 'Parceiros cadastrados; a disponibilidade é confirmada a cada consulta.'
+          : ready
+            ? 'Estamos formando a primeira rede de parceiros locais.'
+            : globalThis.liveRuntime?.status==='unsafe-origin'
             ? 'Pré-lançamento nesta origem provisória.'
             : 'Conectando ao serviço.';
 

@@ -6,6 +6,11 @@ import { DomainError,
   readJsonBody,
   enforceApiQuota
 } from "../_shared/domain.js";
+import {
+  isOperationalMerchantRole,
+  operationalMerchantMemberships,
+  selectMerchantMembership
+} from "../_shared/merchant-membership.js";
 
 const SUPABASE_URL=Deno.env.get("SUPABASE_URL")??"";
 const publishableKeys=JSON.parse(Deno.env.get("SUPABASE_PUBLISHABLE_KEYS")??"{}");
@@ -73,16 +78,13 @@ Deno.serve(async(req:Request)=>{
     if(membershipError)throw membershipError;
     if(!memberships?.length)return json({error:"NO_MERCHANT_ACCESS",message:"Sua conta ainda não está vinculada a uma revenda."},403,origin);
 
-    const selected=requestedMerchantId
-      ? memberships.find((m)=>m.merchant_id===requestedMerchantId)
-      : memberships[0];
+    const selected=selectMerchantMembership(memberships,requestedMerchantId);
     if(!selected)return json({error:"MERCHANT_ACCESS_DENIED",message:"Você não possui acesso a esta revenda."},403,origin);
-    if(!["owner","manager","operator"].includes(selected.member_role)){
+    if(!isOperationalMerchantRole(selected.member_role)){
       return json({error:"MERCHANT_ROLE_NOT_ENABLED",message:"Este papel ainda não possui painel operacional no piloto."},403,origin);
     }
 
-    const membershipMerchantIds=memberships
-      .filter((m)=>["owner","manager","operator"].includes(m.member_role))
+    const membershipMerchantIds=operationalMerchantMemberships(memberships)
       .map((m)=>m.merchant_id);
     const {data:membershipMerchants,error:membershipMerchantsError}=await admin
       .from("merchants")
