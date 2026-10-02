@@ -312,6 +312,17 @@ assert.ok(offerSource.includes('filter_delivery_compatible_merchants'),'matching
 assert.ok(offerSource.includes('deliveryCompatibilityBlocked:true'),'matching deve distinguir bloqueio logístico de indisponibilidade comum');
 assert.ok(offerSource.includes('merchant_offer_load'),'matching deve considerar carga operacional recente sem expor isso ao cliente');
 assert.ok(!offerSource.includes('.limit(40)'),'matching não pode eliminar revendas arbitrariamente antes de calcular elegibilidade e ranking');
+const pricingPolicy=read('supabase/functions/_shared/pricing-policy.js');
+const authorizedPricingMigration=read('supabase/migrations/20261002205000_authorized_price_ranges.sql');
+assert.ok(offerSource.includes('effectiveUnitPrice')&&offerSource.includes('pricing_mode')&&offerSource.includes('pricing_strategy'),'matching deve calcular preço efetivo a partir da política autorizada');
+assert.ok(pricingPolicy.includes("pricingStrategy==='volume'")&&pricingPolicy.includes("pricingStrategy==='margin'"),'autoridade de preço deve distinguir volume/equilibrado/margem');
+assert.ok(pricingPolicy.includes('activeOrders')&&pricingPolicy.includes('availableStock')&&pricingPolicy.includes('recentOrders7d'),'preço automático deve usar sinais da própria operação');
+assert.ok(!pricingPolicy.includes('competitor')&&!pricingPolicy.includes('cheapest')&&!pricingPolicy.includes('otherMerchant'),'política de preço de uma revenda não pode depender do preço de concorrentes');
+assert.ok(authorizedPricingMigration.includes("pricing_mode in ('fixed','range')"),'banco deve restringir modos de preço');
+assert.ok(authorizedPricingMigration.includes("pricing_strategy in ('volume','balanced','margin')"),'banco deve restringir estratégias de preço');
+assert.ok(authorizedPricingMigration.includes('r.unit_price_cents between ci.min_price_cents and ci.max_price_cents'),'quote RPC deve validar faixa autorizada');
+assert.ok(merchant.includes('Faixa automática')&&merchant.includes('Mínimo autorizado')&&merchant.includes('Máximo autorizado'),'painel da revenda deve permitir configurar a faixa');
+assert.ok(merchant.includes('O preço de concorrentes não define o seu valor.'),'painel deve explicar independência de preços concorrentes');
 const moneySafetyMigration=read('supabase/migrations/20261002202113_int4_cart_money_safety.sql').toLowerCase();
 assert.ok(moneySafetyMigration.includes('price_cents between 1 and 1000000'),'catálogo precisa limitar preço unitário ao teto int4 seguro');
 assert.ok(moneySafetyMigration.includes('unit_price_cents between 1 and 1000000'),'snapshots de cotação/pedido precisam preservar o mesmo teto monetário');
