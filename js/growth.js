@@ -49,7 +49,7 @@ function refer(){
     <button class="back" onclick="go('earn')">← Ganhe com o Chama</button>
     <span class="eyebrow">PARA PESSOAS</span>
     <h1 class="page-title">Compartilhe. A pessoa compra. Você pode ganhar.</h1>
-    <p class="muted page-lead">Seu link identifica quem chegou por você. A comissão é vinculada a vendas elegíveis que realmente foram entregues, pagas e validadas.</p>
+    <p class="muted page-lead">Seu link identifica quem chegou por você. No piloto, a comissão pode nascer da primeira compra qualificada de cada novo cliente indicado, depois de entrega, pagamento e validação.</p>
     <div class="earn-summary">
       <div class="earn-balance-card"><span>Disponível</span><strong>${BRL.format(state.user.commissionAvailable)}</strong><small>saldo já liberado</small></div>
       <div class="earn-balance-card"><span>A liberar</span><strong>${BRL.format(state.user.commissionPending)}</strong><small>em validação</small></div>
@@ -57,19 +57,19 @@ function refer(){
     ${referralCard}
     ${identityCard}
 
-    <section class="section"><div class="section-head"><div><span class="section-kicker">EXEMPLO SIMPLES</span><h2>Entenda a regra atual do piloto</h2><p>A política atual usa 2% sobre a venda elegível atribuída à indicação.</p></div></div>
+    <section class="section"><div class="section-head"><div><span class="section-kicker">EXEMPLO SIMPLES</span><h2>Entenda a regra atual do piloto</h2><p>A política atual usa 2% sobre a primeira compra qualificada de cada novo cliente indicado.</p></div></div>
       <div class="example-math">
-        <div><small>1 compra de R$ 120</small><strong>${BRL.format(referralExample(120))}</strong><span>exemplo de comissão</span></div>
-        <div><small>10 compras de R$ 120</small><strong>${BRL.format(referralExample(120,10))}</strong><span>exemplo acumulado</span></div>
+        <div><small>1 novo cliente • 1ª compra de R$ 120</small><strong>${BRL.format(referralExample(120))}</strong><span>exemplo de comissão</span></div>
+        <div><small>10 novos clientes • 1ª compra de R$ 120 cada</small><strong>${BRL.format(referralExample(120,10))}</strong><span>exemplo acumulado</span></div>
       </div>
-      <div class="notice" style="margin-top:12px">Os exemplos não são promessa de renda. Só contam vendas elegíveis atribuídas ao seu link e aprovadas pelas regras do programa.</div>
+      <div class="notice" style="margin-top:12px">Os exemplos não são promessa de renda. Compras repetidas do mesmo cliente não geram novas comissões de aquisição. A liberação final também depende das regras de segurança e de identidade do programa.</div>
     </section>
 
     <section class="section"><div class="section-head"><div><h2>Como funciona</h2></div></div><div class="how-grid">
       <div class="how-card"><span>1</span><div><strong>Compartilhe seu link</strong><p>Envie para quem realmente possa se interessar pelo Chama.</p></div></div>
-      <div class="how-card"><span>2</span><div><strong>A pessoa compra</strong><p>Cadastro sozinho não gera comissão.</p></div></div>
+      <div class="how-card"><span>2</span><div><strong>O novo cliente faz a primeira compra qualificada</strong><p>Cadastro sozinho e compras posteriores do mesmo cliente não criam nova comissão de aquisição.</p></div></div>
       <div class="how-card"><span>3</span><div><strong>A venda é concluída</strong><p>A entrega e o pagamento precisam ser confirmados.</p></div></div>
-      <div class="how-card"><span>4</span><div><strong>A comissão é validada</strong><p>Depois da janela de segurança, o valor elegível pode ficar disponível.</p></div></div>
+      <div class="how-card"><span>4</span><div><strong>A comissão é validada</strong><p>Depois da janela de segurança e com indicador e cliente indicado em identidades permanentes, o valor elegível pode ficar disponível.</p></div></div>
     </div></section>
 
     <div class="card flat payout-card"><div><span class="section-kicker">SAQUE</span><h3>Pix está em preparação</h3><p class="muted">O saldo disponível já é separado do valor em validação. O saque só será habilitado quando a integração financeira real estiver pronta.</p></div><button class="secondary" disabled>Saque Pix ainda não disponível</button></div>
@@ -83,8 +83,8 @@ function earn(){
     <p class="muted page-lead">Você pode gerar comissão indicando compradores ou usar sua empresa para conquistar novas vendas. São modelos diferentes, com regras claras e sem pagamento por simples recrutamento.</p>
 
     <div class="opportunity-grid main-opportunities">
-      <article class="opportunity-card person-opportunity"><div class="opportunity-icon">🤝</div><span class="section-kicker">PARA PESSOAS</span><h2>Indique compradores</h2><p>Compartilhe seu link pessoal. Quando uma venda elegível atribuída a você é entregue, paga e validada, ela pode gerar comissão.</p>
-        <ul class="clean-list"><li>Seu próprio link de indicação</li><li>Saldo “a liberar” separado do saldo disponível</li><li>Conta permanente para liberar comissão em dinheiro</li></ul>
+      <article class="opportunity-card person-opportunity"><div class="opportunity-icon">🤝</div><span class="section-kicker">PARA PESSOAS</span><h2>Indique novos compradores</h2><p>Compartilhe seu link pessoal. A primeira compra qualificada de cada novo cliente indicado pode gerar comissão depois de entregue, paga e validada.</p>
+        <ul class="clean-list"><li>Seu próprio link de indicação</li><li>Uma comissão de aquisição por novo cliente elegível</li><li>Saldo “a liberar” separado do saldo disponível</li><li>Identidades permanentes exigidas para a liberação final</li></ul>
         <div class="opportunity-example"><small>Regra atual do piloto</small><strong>2% sobre venda elegível</strong><span>Ex.: R$ 120 → ${BRL.format(referralExample(120))}</span></div>
         <button class="primary full" onclick="go('refer')">Abrir meu programa</button>
       </article>
@@ -124,7 +124,7 @@ function learn(){
       <details><summary>Como sei que a revenda realmente vai entregar?</summary><p>A revenda precisa aceitar o pedido. Depois, a saída também precisa ser confirmada antes de aparecer “A caminho”.</p></details>
       <details><summary>Como a entrega é concluída?</summary><p>A conclusão exige confirmação de pagamento e o PIN de recebimento do pedido.</p></details>
       <details><summary>Como funciona o cashback?</summary><p>Compras elegíveis podem gerar crédito para reduzir compras futuras dentro do Chama. O saldo aparece no Clube Chama.</p></details>
-      <details><summary>Também posso ganhar indicando pessoas?</summary><p>Sim. Vendas elegíveis atribuídas ao seu link podem gerar comissão após entrega, pagamento e validação. Veja a área “Ganhe”.</p></details>
+      <details><summary>Também posso ganhar indicando pessoas?</summary><p>Sim. No piloto, a primeira compra qualificada de cada novo cliente indicado pode gerar comissão após entrega, pagamento e validação. Compras posteriores do mesmo cliente não geram outra comissão de aquisição.</p></details>
       <details><summary>Tenho uma revenda. Posso vender outros produtos além de gás?</summary><p>Sim. A proposta inclui gás e produtos relacionados, com preço e estoque controlados por SKU. GLP exige a validação regulatória aplicável.</p></details>
     </div></section>
 
