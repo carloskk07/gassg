@@ -23,6 +23,8 @@ const liveRuntime={
   deliveryCompatibilityBlocked:false,
   marketStatus:null,
   lastMarketStatusAt:0,
+  lastFinancialSyncAt:0,
+  lastFinancialSyncAttemptAt:0,
   lastSyncAt:null,
   offerRequestSeq:0,
   orderRequestSeq:0
@@ -330,7 +332,7 @@ async function liveGetOrder(orderId=liveRuntime.orderId,{silent=false}={}){
   liveRuntime.lastSyncAt=new Date().toISOString();
   localStorage.setItem(CHAMA_BACKEND.orderStorageKey,order.orderId);
   if(['SETTLED','CANCELLED'].includes(order.status)){
-    await liveSyncFinancialProfile();
+    await liveSyncFinancialProfile({force:true});
   }
   if(!silent)render();
   return order;
@@ -359,8 +361,24 @@ async function liveCustomerAction(action){
   }
 }
 
-async function liveSyncFinancialProfile(){
-  if(!liveReady())return;
+async function liveSyncFinancialProfile({force=false}={}){
+  if(!liveReady())return false;
+  const now=Date.now();
+  if(!force&&liveRuntime.lastFinancialSyncAttemptAt&&now-liveRuntime.lastFinancialSyncAttemptAt<60000){
+    return false;
+  }
+  liveRuntime.lastFinancialSyncAttemptAt=now;
+  const before=JSON.stringify({
+    referralCode:state.user.referralCode,
+    cashback:state.user.cashback,
+    cashbackDebt:state.user.cashbackDebt,
+    commissionPending:state.user.commissionPending,
+    commissionAvailable:state.user.commissionAvailable,
+    purchases:state.user.purchases,
+    reversedPurchases:state.user.reversedPurchases,
+    cashEarningEligible:state.user.cashEarningEligible,
+    identityType:state.user.identityType
+  });
   try{
     const summary=await liveInvoke('customer-summary',{});
     if(summary?.referralCode)state.user.referralCode=String(summary.referralCode).slice(0,40);
@@ -372,9 +390,23 @@ async function liveSyncFinancialProfile(){
     state.user.reversedPurchases=Math.max(0,Number(summary?.reversedOrders||0));
     state.user.cashEarningEligible=summary?.cashEarningEligible===true;
     state.user.identityType=String(summary?.identityType||'anonymous');
+    liveRuntime.lastFinancialSyncAt=Date.now();
     save();
+    const after=JSON.stringify({
+      referralCode:state.user.referralCode,
+      cashback:state.user.cashback,
+      cashbackDebt:state.user.cashbackDebt,
+      commissionPending:state.user.commissionPending,
+      commissionAvailable:state.user.commissionAvailable,
+      purchases:state.user.purchases,
+      reversedPurchases:state.user.reversedPurchases,
+      cashEarningEligible:state.user.cashEarningEligible,
+      identityType:state.user.identityType
+    });
+    return before!==after;
   }catch(error){
     console.warn('Não foi possível sincronizar o resumo financeiro live',error);
+    return false;
   }
 }
 
@@ -430,6 +462,9 @@ async function livePoll(){
     const before=JSON.stringify(liveRuntime.marketStatus);
     await liveSyncMarketStatus();
     changed=before!==JSON.stringify(liveRuntime.marketStatus);
+  }catch{}
+  try{
+    changed=(await liveSyncFinancialProfile())||changed;
   }catch{}
   if(!liveRuntime.orderId){
     if(changed)render();
