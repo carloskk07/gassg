@@ -27,7 +27,7 @@ Esses exemplos:
 
 A suíte de testes mantém um marketplace sintético completo apenas quando injeta `globalThis.__CHAMA_TEST__=true`. A build normal não oferece esse caminho.
 
-## Estado atual — hardening candidate
+## Estado atual — v1.22 auditado
 
 **Backend multiusuário:** aplicado no projeto Supabase exclusivo do Chama.
 
@@ -55,7 +55,8 @@ Antes de liberar usuários reais em volume, devem ser comprovados com contas rea
 - Anonymous Auth no piloto para reduzir atrito;
 - consulta de ofertas reais por Edge Function;
 - cesta multiproduto sem obrigar P13;
-- P13, água, carvão, lenha e gelo;
+- GLP P1–P90 suportado server-side; P13/P20/P45 ficam no catálogo base e outros tamanhos configurados por revendas reais são materializados dinamicamente no cliente;
+- água, carvão, lenha e gelo como SKUs essenciais não-GLP;
 - preço e itens congelados em quote server-side;
 - ofertas “Recomendado”, “Mais barato” e “Mais rápido” sem revelar a revenda;
 - apenas um pedido ativo por cliente;
@@ -74,7 +75,7 @@ Antes de liberar usuários reais em volume, devem ser comprovados com contas rea
 - papel `driver` permanece bloqueado até existir atribuição por pedido;
 - endereço do cliente oculto antes do aceite;
 - online/offline e heartbeat;
-- preço/estoque P13;
+- preço/estoque por SKU, incluindo cilindros GLP P1–P90;
 - taxa de entrega e ETA;
 - aceite, recusa, rescue pós-aceite, saída, chegada e conclusão;
 - conclusão exige **pagamento confirmado + PIN correto**.
@@ -87,7 +88,7 @@ Antes de liberar usuários reais em volume, devem ser comprovados com contas rea
 - autorização por allowlist `platform_admins`, nunca por `user_metadata`;
 - aprovação de cadastro cria merchant `pending` e vincula o solicitante como `owner`, sem ativação automática;
 - CNPJ verificado é obrigatório para ativação;
-- P13 ativo exige também ANP verificada;
+- qualquer GLP ativo P1–P90 exige também ANP verificada;
 - conciliação de taxa, cashback e ajustes de reversão;
 - reversão financeira e auditoria são atômicas no Postgres.
 
@@ -123,7 +124,7 @@ Proteções implementadas:
 - rescue centralizado;
 - preço, taxa e itens congelados em re-cotação;
 - PIN com `pgcrypto`, cinco tentativas e retenção curta;
-- service worker network-first com cache `v1.21`;
+- service worker network-first com cache `v1.22`;
 - estado live com endereço/carrinho permanece em `sessionStorage`;
 - identidade anônima do cliente + ID do pedido ativo persistem na **origem dedicada do cliente**, permitindo recuperar uma entrega após fechar o navegador;
 - revenda e admin continuam tab-scoped em `sessionStorage`;
@@ -179,8 +180,11 @@ Uma reversão server-side:
 
 - `chama-order-watchdog`: a cada minuto;
 - `chama-reward-maturation`: a cada hora;
+- `chama-reward-retry`: a cada 5 minutos;
+- `chama-settlement-accounting-retry`: a cada 5 minutos;
 - `chama-data-retention`: diariamente;
-- `chama-anonymous-cleanup`: diariamente.
+- `chama-anonymous-cleanup`: diariamente;
+- `chama-compliance-expiry`: diariamente.
 
 Usuários anônimos só são eliminados após 45 dias se não possuírem pedido, carteira, indicação, cadastro de revenda, membership ou identidade vinculada.
 
@@ -189,6 +193,7 @@ Usuários anônimos só são eliminados após 45 dias se não possuírem pedido,
 O CI executa:
 
 - sintaxe/checagem das Edge Functions;
+- integridade SHA-384 do SDK browser do Supabase;
 - simulações de domínio, concorrência e falhas;
 - auditoria estática;
 - contratos SQL/migrations;
@@ -196,6 +201,8 @@ O CI executa:
 - smoke em Chrome móvel;
 - E2E completo em Chrome;
 - validação do manifest/PWA.
+
+O workflow **Audit** roda também no SHA final de `main`, e o deploy do Pages repete os gates antes de publicar.
 
 Nenhuma mudança deve ir para `main` com gate vermelho.
 
