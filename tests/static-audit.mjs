@@ -53,6 +53,9 @@ assert.ok(customer.includes('Quero pedir agora')&&customer.includes('Quero enten
 assert.ok(customer.includes('Botijão de cozinha 13 kg')&&customer.includes('startHomeOrder'),'home precisa iniciar a compra em linguagem humana sem depender de P13 como rótulo principal');
 assert.ok(customer.includes('PROTEÇÃO CHAMA')&&customer.includes('qualquer alternativa mais cara'),'home precisa explicar rescue e requote como proteção compreensível ao cliente');
 assert.ok(customer.includes('PRIMEIRO PARCEIRO PILOTO')&&customer.includes('Gas e Lenheira do JR'),'pré-lançamento deve mostrar o primeiro parceiro piloto sem fingir operação ativa');
+assert.ok(customer.includes('PILOTO INTERNO — SEM PEDIDOS REAIS')&&customer.includes('R$ 115,90 entregue'),'GitHub Pages deve comunicar claramente o cenário interno do JR');
+assert.ok(customer.includes('🧪 Simulação operacional')&&customer.includes('Sem validação jurídica nesta tela'),'oferta do piloto interno não pode fingir verificação regulatória');
+assert.ok(merchant.includes('PAINEL DA REVENDA — PILOTO INTERNO')&&merchant.includes('Nenhuma ação é real.'),'painel simulado da revenda deve ser inequivocamente não operacional');
 assert.ok(customer.includes('Há um parceiro elegível para esta cesta agora.')&&customer.includes('sem opções fictícias'),'modo single-supplier deve explicar ao cliente que existe apenas uma opção real');
 assert.ok(backend.includes("available:'Disponível agora'")&&backend.includes("marketMode"),'runtime cliente precisa transportar e rotular mercado de fornecedor único');
 assert.ok(customer.includes("go('learn')")&&customer.includes("go('earn')"),'home precisa possuir CTAs claros para descoberta e renda');
@@ -74,7 +77,7 @@ assert.ok(growth.includes('Saque Pix ainda não disponível')&&growth.includes('
 assert.ok(growth.includes('Você continua no controle'),'landing de revenda deve enfatizar autonomia operacional');
 assert.ok(core.includes("['earn','💰','Ganhe','go']"),'navegação móvel precisa dar acesso direto ao hub de renda');
 assert.ok(!growth.includes('inputmode="numeric" maxlength="18"'),'campo CNPJ não pode forçar teclado somente numérico após adoção do CNPJ alfanumérico');
-assert.ok(sw.includes("CACHE='chama-sg-v1.28'"),'cache do service worker precisa estar versionado');
+assert.ok(sw.includes("CACHE='chama-sg-v1.29'"),'cache do service worker precisa estar versionado');
 assert.ok(sw.includes("./js/backend.js"),'runtime live precisa estar no cache da PWA');
 assert.ok(sw.includes("./js/runtime-config.js"),'configuração pública de origins precisa estar no cache da PWA');
 assert.ok(sw.includes("./js/turnstile.js"),'helper local do Turnstile precisa estar no cache da PWA');
@@ -90,10 +93,14 @@ assert.ok(html.includes("frame-src https://challenges.cloudflare.com"),'CSP deve
 assert.ok(html.includes("object-src 'none'"),'CSP deve bloquear plugins/objetos');
 assert.ok(html.includes("base-uri 'self'"),'CSP deve impedir base URL externa');
 assert.ok(html.includes('name="referrer" content="strict-origin-when-cross-origin"'),'PWA precisa de política de referrer explícita');
+assert.ok(html.includes('name="robots" content="noindex,nofollow,noarchive,nosnippet"'),'pré-lançamento interno não deve ser indexado por buscadores');
+assert.ok(exists('robots.txt')&&read('robots.txt').includes('Disallow: /'),'pré-lançamento interno precisa bloquear crawling também por robots.txt');
+assert.ok(sw.includes("./robots.txt"),'PWA precisa conservar a política de robots offline');
 const runtimeConfig=read('js/runtime-config.js');
 assert.ok(runtimeConfig.includes("CHAMA_CUSTOMER_ORIGIN=''")&&runtimeConfig.includes("CHAMA_MERCHANT_ORIGIN=''")&&runtimeConfig.includes("CHAMA_ADMIN_ORIGIN=''"),'GitHub Pages deve falhar fechado sem origins privilegiadas');
 assert.ok(runtimeConfig.includes("CHAMA_TURNSTILE_SITE_KEY=''"),'GitHub Pages não pode embutir site key de Turnstile do portal real');
-assert.ok(!runtimeConfig.includes('github.io'),'config padrão não pode autorizar origin compartilhada');
+assert.ok(runtimeConfig.includes("CHAMA_INTERNAL_PILOT")&&runtimeConfig.includes("chamaHost==='carloskk07.github.io'"),'GitHub Pages deve ativar somente a simulação interna, nunca os portais live');
+assert.ok(!runtimeConfig.includes("CHAMA_CUSTOMER_ORIGIN='https://carloskk07.github.io'")&&!runtimeConfig.includes("CHAMA_MERCHANT_ORIGIN='https://carloskk07.github.io'")&&!runtimeConfig.includes("CHAMA_ADMIN_ORIGIN='https://carloskk07.github.io'"),'GitHub Pages jamais pode virar origem live/privilegiada');
 assert.ok(backend.includes("sb_publishable_"),'frontend live deve usar publishable key explícita');
 assert.ok(!backend.includes("sb_secret_"),'frontend jamais pode conter secret key');
 assert.ok(!backend.includes("service_role"),'frontend jamais pode depender de service_role');
@@ -105,7 +112,8 @@ assert.ok(customer.includes('EXEMPLO — NÃO COMPRÁVEL'),'exemplo visual preci
 assert.ok(customer.includes('disabled>Disponível quando houver parceiro real'),'exemplo jamais pode acionar checkout');
 assert.ok(customer.includes('prelaunchExamplesEnabled'),'cliente deve remover exemplos quando o backend indicar supply real');
 assert.ok(customer.includes('ready&&!market')&&customer.includes('Não foi possível confirmar o panorama geral agora'),'falha de market-status não pode ser apresentada como ausência de parceiros');
-assert.ok(core.includes("merchants:testDemo?["),'revendas sintéticas devem existir somente no runtime de teste');
+assert.ok(core.includes('merchants:testDemo')&&core.includes("freshMerchant('JR-PILOT','Gas e Lenheira do JR — SIMULAÇÃO',115.90"),'revendas sintéticas devem existir somente no runtime de teste e o piloto interno deve usar o cenário JR');
+assert.ok(core.includes("eligible[0].roles=['Disponível agora']"),'piloto interno com fornecedor único não pode criar concorrência fictícia');
 assert.ok(core.includes('Never hydrate those fields from browser storage'),'produção não pode restaurar autoridade financeira/merchant de storage');
 assert.ok(merchant.includes('A operação da revenda não possui modo fictício em produção.'),'rota merchant sem portal real deve falhar fechado');
 assert.ok(!growth.includes('Lista de interesse Plus registrada — demonstração'),'produção não pode fingir registro de benefício futuro');
