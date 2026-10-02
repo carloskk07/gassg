@@ -100,14 +100,32 @@ Deno.serve(async(req:Request)=>{
         })
         .eq("id",existing.id)
         .eq("applicant_user_id",user.id)
+        .in("status",["pending","rejected"])
         .select("id,cnpj,company_name,status,created_at,updated_at")
-        .single();
+        .maybeSingle();
 
       if(error){
         if(String(error.code)==="23505"){
           return json({error:"APPLICATION_EXISTS",message:"Este CNPJ já possui outro cadastro pendente ou aprovado."},409,origin);
         }
         throw error;
+      }
+
+      if(!data){
+        const {data:latest,error:latestError}=await admin
+          .from("merchant_applications")
+          .select("id,status")
+          .eq("id",existing.id)
+          .eq("applicant_user_id",user.id)
+          .maybeSingle();
+        if(latestError)throw latestError;
+        if(latest?.status==="approved"){
+          return json({
+            error:"APPLICATION_ALREADY_APPROVED",
+            message:"Este cadastro foi aprovado durante o envio. Use o painel da revenda ou solicite suporte para o vínculo."
+          },409,origin);
+        }
+        throw new DomainError("APPLICATION_STATE_CHANGED","O estado do cadastro mudou. Atualize a página e tente novamente.",409);
       }
 
       return json({
