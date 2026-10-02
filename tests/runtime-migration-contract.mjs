@@ -61,6 +61,6 @@ assert.match(jrCommercialRange,/min_delivered_price_cents=11590/,'JR precisa reg
 assert.match(jrCommercialRange,/preferred_delivered_price_cents=12000/,'JR precisa registrar preço normal confirmado');
 assert.match(jrCommercialRange,/max_delivered_price_cents=12500/,'JR precisa registrar máximo comercial confirmado');
 assert.match(jrCommercialRange,/price_status='confirmed'/,'faixa JR precisa estar marcada como confirmada');
-assert.match(jrCommercialRange,/onboarding_status/,'migration comercial não pode apagar o gate de onboarding');
+assert.doesNotMatch(jrCommercialRange,/onboarding_status\s*=/,'migration comercial não pode promover onboarding automaticamente');
 
 console.log('Runtime migration contract passou.');
