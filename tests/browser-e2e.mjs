@@ -238,6 +238,15 @@ assert.equal(await evaluate("state.merchants.length"),1);
 assert.equal(await evaluate("state.merchants[0].id"),'JR-PILOT');
 assert.equal(await evaluate("state.merchants[0].priceP13"),115.9);
 
+await evaluate("go('merchants')");
+await waitFor("document.body.innerText.includes('Experimentar painel da revenda') && document.body.innerText.includes('PARCEIRO FUNDADOR')","pilot merchant conversion landing");
+body=await text();
+assert.match(body,/Sem exclusividade/);
+assert.match(body,/SIMULADOR DE MARGEM INCREMENTAL/);
+await evaluate("[...document.querySelectorAll('button')].find(b=>b.textContent.includes('Experimentar painel da revenda')).click()");
+await waitFor("location.hash==='#merchant' && document.body.innerText.includes('PAINEL DA REVENDA — PILOTO INTERNO')","pilot merchant CTA");
+await evaluate("setMode('customer'); go('home')");
+
 await evaluate("quickProduct('P13')");
 await waitFor("location.hash==='#order'","pilot order route");
 await evaluate("document.querySelector('#address').value='Rua Piloto Interno, 100'; setAddress()");
