@@ -129,6 +129,15 @@ assert.match(body,/2%/);
 assert.match(body,/Taxa Chama: 7,5% por pedido concluído/);
 await auditDom('earn');
 
+await evaluate("go('merchants')");
+await waitFor("document.body.innerText.includes('SIMULADOR COMERCIAL')","merchant commercial route");
+body=await text();
+assert.match(body,/7,5%/);
+await evaluate("document.querySelector('#merchant-sim-orders').value='20'; document.querySelector('#merchant-sim-ticket').value='150'; updateMerchantSimulator()");
+assert.match(await evaluate("document.querySelector('#merchant-sim-fee').textContent"),/225,00/);
+assert.match(await evaluate("document.querySelector('#merchant-sim-net').textContent"),/2\.775,00/);
+await auditDom('merchant acquisition');
+
 await evaluate("go('home')");
 await waitFor("document.body.innerText.includes('Seu gás, com preço e prazo')","return home");
 await evaluate("quickProduct('WATER20')");
