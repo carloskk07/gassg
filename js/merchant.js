@@ -19,12 +19,18 @@ function merchantLiveLoginView(){
 }
 
 function merchantLiveNoAccess(){
-  const email=globalThis.merchantRuntime?.session?.user?.email||'conta autenticada';
+  const rt=globalThis.merchantRuntime||{};
+  const email=rt.session?.user?.email||'conta autenticada';
+  const roleBlocked=rt.accessReason==='MERCHANT_ROLE_NOT_ENABLED';
   return shell(`<section class="page">
     <span class="eyebrow">CONTA AUTENTICADA</span>
-    <h1 class="page-title">Revenda ainda não vinculada</h1>
-    <p class="muted">Você entrou como ${esc(email)}, mas esta conta ainda não possui uma operação ativa.</p>
-    <div class="card flat" style="margin-top:16px"><h3>Quer participar?</h3><p class="muted tiny">Envie o cadastro da empresa. A operação só entra no pool depois de validação e vínculo da conta.</p><button class="primary full" onclick="go('merchant-join')">Cadastrar empresa</button></div>
+    <h1 class="page-title">${roleBlocked?'Seu acesso ainda não habilita o painel':'Revenda ainda não vinculada'}</h1>
+    <p class="muted">${roleBlocked
+      ? 'Você entrou como '+esc(email)+', mas seu papel atual não possui acesso operacional neste piloto.'
+      : 'Você entrou como '+esc(email)+', mas esta conta ainda não possui uma operação ativa.'}</p>
+    ${roleBlocked
+      ? '<div class="notice" style="margin-top:16px"><strong>Acesso operacional limitado.</strong><br>Owner, manager e operator podem usar o painel neste piloto. O papel de motorista permanece bloqueado até existir atribuição individual por pedido.</div>'
+      : '<div class="card flat" style="margin-top:16px"><h3>Quer participar?</h3><p class="muted tiny">Envie o cadastro da empresa. A operação só entra no pool depois de validação e vínculo da conta.</p><button class="primary full" onclick="go(\'merchant-join\')">Cadastrar empresa</button></div>'}
     <button class="ghost full" style="margin-top:12px" onclick="merchantLiveLogout()">Sair desta conta</button>
   </section>`);
 }
