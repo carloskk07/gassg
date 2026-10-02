@@ -9,6 +9,10 @@ export function operationalMerchantMemberships(memberships=[]){
     .filter((membership)=>membership?.active!==false&&isOperationalMerchantRole(membership?.member_role));
 }
 
+/**
+ * @param {Array<{merchant_id:string,member_role:string,active?:boolean}>} memberships
+ * @param {string|null} [requestedMerchantId]
+ */
 export function selectMerchantMembership(memberships=[],requestedMerchantId=null){
   const active=(Array.isArray(memberships)?memberships:[])
     .filter((membership)=>membership?.active!==false);
