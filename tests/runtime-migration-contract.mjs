@@ -8,7 +8,7 @@ const maintainPrivileges=fs.readFileSync(new URL('../supabase/migrations/2026100
 const sequenceHardening=fs.readFileSync(new URL('../supabase/migrations/20261002200242_server_only_sequence_and_pilot_fk_hardening.sql',import.meta.url),'utf8').replace(/--.*$/gm,'').replace(/\s+/g,' ').toLowerCase();
 const moneySafety=fs.readFileSync(new URL('../supabase/migrations/20261002202113_int4_cart_money_safety.sql',import.meta.url),'utf8').replace(/--.*$/gm,'').replace(/\s+/g,' ').toLowerCase();
 const adminEmailBootstrap=fs.readFileSync(new URL('../supabase/migrations/20261002213038_platform_admin_email_bootstrap_reservation.sql',import.meta.url),'utf8').replace(/--.*$/gm,'').replace(/\s+/g,' ').toLowerCase();
-const authorizedPricing=fs.readFileSync(new URL('../supabase/migrations/20261002205000_authorized_price_ranges.sql',import.meta.url),'utf8').replace(/--.*$/gm,'').replace(/\s+/g,' ').toLowerCase();
+const authorizedPricing=fs.readFileSync(new URL('../supabase/migrations/20261002214500_authorized_price_ranges.sql',import.meta.url),'utf8').replace(/--.*$/gm,'').replace(/\s+/g,' ').toLowerCase();
 
 for(const fn of ['create_order_from_quote','merchant_order_action','customer_order_action','complete_order_delivery']){
   assert.match(n,new RegExp('create or replace function public\\.'+fn+'\\b'),fn+' precisa estar versionada');
