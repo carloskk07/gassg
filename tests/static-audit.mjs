@@ -260,7 +260,7 @@ assert.ok(read('supabase/functions/customer-action/index.ts').includes('STOCK_RE
 assert.ok(customer.includes('Cancelar antes da saída'),'acompanhamento precisa oferecer cancelamento apenas antes do despacho');
 assert.ok(customer.includes('cancelBeforeDispatch'),'UI precisa usar ação específica de cancelamento pré-saída');
 assert.ok(backend.includes('deliveryCompatibilityBlocked'),'runtime cliente precisa transportar o motivo de bloqueio');
-assert.ok(customer.includes('cesta mista'),'UI cliente deve explicar alternativa de entrega separada');
+assert.ok(customer.includes('combinação de itens'),'UI cliente deve explicar alternativa de entrega separada em linguagem humana');
 assert.ok(adminOpsSource.includes('merchant_delivery_capabilities'),'resumo admin precisa expor capabilities logísticas');
 assert.ok(adminOpsSource.includes('admin_delivery_capability_action'),'Edge admin deve usar autoridade idempotente de capability');
 assert.ok(admin.includes('Capacidade logística verificada para cesta mista com GLP'),'painel admin precisa mostrar capability GLP mista');
