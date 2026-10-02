@@ -262,7 +262,7 @@ function merchantPage(){
   const policy=m.pricingP13||{mode:'fixed',min:m.priceP13,preferred:m.priceP13,max:m.priceP13,strategy:'balanced'};
   const autoPrice=Number(productPrice(m,'P13',1));
   return shell(`<section class="page"><div class="status-bar"><div><div class="tiny muted">${internalPilot?'PAINEL DA REVENDA — PILOTO INTERNO':'PAINEL DA REVENDA — DEMONSTRAÇÃO'}</div><h1 class="page-title" style="margin-bottom:2px">${esc(m.name)}</h1></div><span class="status-pill ${m.online?'online':'offline'}">${m.online?'● ONLINE':'OFFLINE'}</span></div>
-${internalPilot?'<div class="notice" style="margin-top:12px"><strong>Operação simulada.</strong><br>Preço P13 inicial: R$ 115,90 conforme informado. Estoque, ETA, trust, aceite, pagamento e entrega desta tela são testes locais e não alteram a operação real do JR.</div>':''}
+${internalPilot?'<div class="notice" style="margin-top:12px"><strong>Operação simulada.</strong><br>Faixa comercial P13 confirmada: R$ 115,90 mínimo, R$ 120,00 normal e R$ 125,00 máximo, com entrega incluída. Estoque, ETA, trust, aceite, pagamento e entrega desta tela continuam sendo testes locais.</div>':''}
 <div class="card flat form-stack"><div class="input-wrap"><label for="merchant-select">Operação demonstrada</label><select id="merchant-select" class="input" onchange="selectMerchant(this.value)">${state.merchants.map(x=>`<option value="${x.id}" ${x.id===m.id?'selected':''}>${esc(x.name)}</option>`).join('')}</select></div><button class="${m.online?'secondary':'primary'}" onclick="toggleOnline('${m.id}')">${m.online?'Pausar novos pedidos':'Ficar online'}</button></div>
 ${!fresh?'<div class="notice danger" style="margin-top:12px"><strong>Preço expirado.</strong> A oferta não aparece ao cliente até ser reconfirmada.</div>':''}
 <section class="section"><div class="merchant-kpis"><div class="kpi"><span class="label">${policy.mode==='range'?'Preço automático agora':'Preço P13'}</span><strong>${BRL.format(autoPrice)}</strong>${policy.mode==='range'?'<small>normal '+BRL.format(m.priceP13)+'</small>':''}</div><div class="kpi"><span class="label">Estoque P13</span><strong>${m.inventory.P13}</strong></div><div class="kpi"><span class="label">${internalPilot?'Trust simulado':'Trust'}</span><strong>${m.trust}</strong></div><div class="kpi"><span class="label">Pedidos ativos</span><strong>${orders.length}</strong></div></div></section>
@@ -277,7 +277,7 @@ ${!fresh?'<div class="notice danger" style="margin-top:12px"><strong>Preço expi
   <div class="input-wrap"><label for="m-price-max">Máximo autorizado</label><input id="m-price-max" inputmode="decimal" type="number" min="0.01" max="9999" step="0.10" class="input" value="${policy.max}" ${policy.mode==='range'?'':'disabled'}></div>
   <div class="input-wrap"><label for="m-pricing-strategy">Estratégia</label><select id="m-pricing-strategy" class="input" ${policy.mode==='range'?'':'disabled'}><option value="volume" ${policy.strategy==='volume'?'selected':''}>Priorizar volume</option><option value="balanced" ${policy.strategy==='balanced'?'selected':''}>Equilibrado</option><option value="margin" ${policy.strategy==='margin'?'selected':''}>Priorizar margem</option></select></div>
 </div>
-<div class="notice"><strong>${policy.mode==='range'?'Faixa automática simulada':'Preço fixo'}.</strong><br>${policy.mode==='range'?'O Chama ajusta somente entre '+BRL.format(policy.min)+' e '+BRL.format(policy.max)+', usando estoque e carga desta revenda.':'O preço não muda automaticamente.'} ${internalPilot?'Nada nesta tela altera a condição comercial real do JR.':''}</div>
+<div class="notice"><strong>${policy.mode==='range'?'Faixa automática do piloto':'Preço fixo'}.</strong><br>${policy.mode==='range'?'O Chama ajusta somente entre '+BRL.format(policy.min)+' e '+BRL.format(policy.max)+', usando estoque e carga desta revenda.':'O preço não muda automaticamente.'} ${internalPilot?'Nada nesta tela altera a condição comercial real do JR.':''}</div>
 <button class="secondary" onclick="merchantUpdate('${m.id}')">Confirmar política e estoque</button><div class="tiny muted">Última confirmação: ${esc(formatDateTime(m.priceConfirmedAt))}</div></div>
 <section class="section"><div class="section-head"><div><h2>Pedidos que exigem ação</h2><p>${internalPilot?'Use estes pedidos para treinar aceite, saída, chegada e conclusão. Nenhuma ação é real.':'Aceitar significa assumir compromisso real de atendimento.'}</p></div></div>${orders.length?orders.map(merchantOrder).join(''):`<div class="empty card">Nenhum pedido ativo para esta revenda.</div>`}</section></section>`)
 }
@@ -319,7 +319,7 @@ function merchantUpdate(id){
   const pricingMax=document.querySelector('#m-price-max')?.value;
   const pricingStrategy=document.querySelector('#m-pricing-strategy')?.value||'balanced';
   const r=updateMerchant(id,{priceP13:price,stockP13:stock,pricingMode,pricingMin,pricingMax,pricingStrategy});
-  toast(r.ok?(pricingMode==='range'?'Faixa simulada confirmada':'Preço e estoque confirmados'):r.error);render();
+  toast(r.ok?(pricingMode==='range'?'Faixa do piloto confirmada':'Preço e estoque confirmados'):r.error);render();
 }
 function merchantAction(id,action){
   let r={ok:false,error:'Ação inválida'};
