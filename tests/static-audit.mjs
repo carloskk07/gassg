@@ -427,7 +427,7 @@ console.log('Cashback compensation projection audit passou.');
 const sequenceHardening=read('supabase/migrations/20261002200242_server_only_sequence_and_pilot_fk_hardening.sql').toLowerCase();
 assert.ok(sequenceHardening.includes('revoke all on all sequences in schema public from anon, authenticated'),'sequências existentes devem ser fechadas para browser');
 assert.ok(sequenceHardening.includes('pilot_partner_drafts_merchant_idx'),'FK do staging para merchant precisa de índice de cobertura');
-assert.ok(schema.includes('revoke all on all sequences in schema public from anon, authenticated'),'baseline deve fechar sequências legadas além dos defaults futuros');
+assert.ok(read('supabase/schema.sql').includes('revoke all on all sequences in schema public from anon, authenticated'),'baseline deve fechar sequências legadas além dos defaults futuros');
 
 const pilotMigration=read('supabase/migrations/20261002183357_first_real_merchant_pilot.sql');
 assert.ok(pilotMigration.includes('create table if not exists public.pilot_partner_drafts'),'piloto precisa de staging server-only antes do cadastro real');
