@@ -81,6 +81,7 @@ O runtime atual usa polling protegido em vez de assinatura direta de tabelas.
 7. Se qualquer GLP P1–P90 estiver ativo, ANP vigente precisa estar `verified`.
 8. Admin concilia receivables, reembolso de cashback e ajustes.
 9. Reversão financeira + admin audit ocorrem na mesma transação.
+10. O primeiro administrador pode ser reservado por **hash SHA-256 do e-mail**; a promoção só ocorre quando existir usuário Auth permanente e com e-mail confirmado.
 
 Enquanto o piloto usa GitHub Pages, sessões de revenda/admin usam `sessionStorage` por aba. Antes de escalar acessos privilegiados, usar origem dedicada/custom domain para não compartilhar o origin `carloskk07.github.io` com outros projetos.
 
@@ -161,6 +162,7 @@ Ela não apaga a entrega. Em vez disso:
 - `chama-data-retention`
 - `chama-anonymous-cleanup`
 - `chama-compliance-expiry`
+- `chama-first-admin-bootstrap`
 
 A limpeza de Anonymous Auth exige idade mínima e ausência total de histórico de negócio.
 
@@ -172,7 +174,7 @@ Antes do primeiro E2E real:
 - Site URL/Redirect URL do GitHub Pages;
 - Manual Linking habilitado para upgrade anônimo → permanente;
 - entrega de e-mail funcionando para magic link/confirmação;
-- conta permanente do primeiro administrador criada e incluída manualmente em `platform_admins`.
+- conta permanente do primeiro administrador criada e e-mail confirmado; quando existir uma reserva server-only correspondente, o job `chama-first-admin-bootstrap` conclui a inclusão em `platform_admins` automaticamente.
 
 ## Regras inegociáveis
 
