@@ -1,75 +1,139 @@
+const PRELAUNCH_EXAMPLE_PRICES={
+  P13:11990,P20:18990,P45:41990,WATER20:1590,CHARCOAL4:1990,WOOD:2490,ICE5:1250
+};
+
+function prelaunchExampleOffers(cart={P13:1}){
+  let subtotal=0;
+  for(const [code,qtyRaw] of Object.entries(cart||{})){
+    const qty=Math.max(0,Math.trunc(Number(qtyRaw)||0));
+    if(!qty)continue;
+    const unit=PRELAUNCH_EXAMPLE_PRICES[code];
+    if(!Number.isFinite(unit))continue;
+    subtotal+=unit*qty;
+  }
+  if(subtotal<=0)return[];
+  return [
+    {id:'example-recommended',roles:['EXEMPLO','Recomendado'],total:(subtotal+300)/100,eta:18,etaMax:25,trust:97,isExample:true},
+    {id:'example-cheapest',roles:['EXEMPLO','Mais barato'],total:subtotal/100,eta:30,etaMax:40,trust:94,isExample:true},
+    {id:'example-fastest',roles:['EXEMPLO','Mais rápido'],total:(subtotal+500)/100,eta:12,etaMax:18,trust:98,isExample:true}
+  ];
+}
+
+function exampleOfferCard(o){
+  return `<article class="offer example-offer"><div class="best-badge">EXEMPLO — NÃO COMPRÁVEL</div><div class="offer-label">${esc(o.roles.join(' • '))}</div><div class="offer-main"><div><div class="offer-price">${BRL.format(o.total)}</div><div class="tiny muted">valor ilustrativo para visualizar a interface</div></div><div class="offer-eta">${o.eta}–${o.etaMax} min</div></div><div class="offer-meta"><span class="meta-chip">Trust ${o.trust}/100</span><span class="meta-chip">Exemplo visual</span></div><button class="secondary full" style="margin-top:13px" disabled>Disponível quando houver parceiro real</button></article>`;
+}
+
+function prelaunchExampleSection(cart={P13:1}){
+  return `<section class="section prelaunch-examples"><div class="section-head"><div><h2>Como as ofertas aparecerão</h2><p>Exemplos visuais. Não representam preços ou revendas reais e não geram pedido.</p></div></div><div class="offer-stack">${prelaunchExampleOffers(cart).map(exampleOfferCard).join('')}</div></section>`;
+}
+
 function home(){
+  const testDemo=globalThis.__CHAMA_TEST__===true;
   const liveMode=globalThis.liveRequested?.()===true;
   const ready=globalThis.liveReady?.()===true;
-  const p=liveMode?null:minPrice();
-  const priceText=liveMode?(ready?'Consultar por endereço':'Conectando…'):(p==null?'Indisponível':BRL.format(p));
-  const freshness=liveMode
-    ? (ready?'Piloto conectado ao backend real • preços aparecem após informar o endereço':'Modo live solicitado • aguardando autenticação do piloto')
-    : `Dados demonstrativos • referência ANP usada no protótipo (20–26/09/2026): ${BRL.format(122.66)}`;
-  const disabled=liveMode&&!ready;
+  const preview=!testDemo&&globalThis.prelaunchExamplesEnabled?.()===true;
+  const market=globalThis.liveRuntime?.marketStatus||null;
+
+  const p=testDemo?minPrice():null;
+  const priceText=testDemo
+    ? (p==null?'Indisponível':BRL.format(p))
+    : preview
+      ? 'Pré-lançamento'
+      : ready&&market?.realSupplyConfigured
+        ? 'Consultar por endereço'
+        : ready
+          ? 'Aguardando parceiros'
+          : 'Conectando…';
+
+  const freshness=testDemo
+    ? 'Ambiente isolado de teste automatizado'
+    : preview
+      ? 'Os preços mostrados nos exemplos abaixo são ilustrativos e não podem ser comprados.'
+      : ready&&market?.realSupplyConfigured
+        ? `${Number(market.configuredMerchantCount||0)} parceiro(s) real(is) configurado(s) • preço calculado por endereço`
+        : ready
+          ? 'Ainda não há revenda real ativa e elegível para venda.'
+          : globalThis.liveRuntime?.status==='unsafe-origin'
+            ? 'Pré-lançamento nesta origem provisória. Transações reais permanecem bloqueadas.'
+            : 'Conectando ao backend real.';
+
+  const disabled=!testDemo&&!ready&&!preview;
+  const eyebrow=testDemo
+    ? '● TESTE AUTOMATIZADO'
+    : preview
+      ? '● PRÉ-LANÇAMENTO EM SÃO GABRIEL'
+      : '● OPERAÇÃO REAL EM SÃO GABRIEL';
+
   return shell(`<section class="hero"><div class="hero-grid"><div>
-    <span class="eyebrow">● ${liveMode?'Piloto conectado de São Gabriel':'Preços de parceiros ativos em São Gabriel'}</span>
+    <span class="eyebrow">${eyebrow}</span>
     <h1>Seu gás.<br>Sem perder tempo.</h1>
     <p>Consulte o preço atual, informe seu endereço e deixe a plataforma encontrar uma opção rápida e confiável para você.</p>
     <div class="hero-price"><span class="from">P13</span><strong>${priceText}</strong></div><div class="freshness">${esc(freshness)}</div>
-    <button class="primary full" onclick="quickProduct('P13')" ${disabled?'disabled':''}>🔥 Ver preço para meu endereço</button>
-    <div class="trust-row"><span class="trust-chip">✓ Preço protegido</span><span class="trust-chip">✓ Validação de parceiros</span><span class="trust-chip">✓ Status confirmados</span></div>
+    <button class="primary full" onclick="quickProduct('P13')" ${disabled?'disabled':''}>🔥 ${preview?'Ver exemplo do pedido':'Ver preço para meu endereço'}</button>
+    <div class="trust-row"><span class="trust-chip">✓ Preço protegido</span><span class="trust-chip">✓ Parceiros validados</span><span class="trust-chip">✓ Status confirmados</span></div>
   </div><div class="card desktop-only"><div class="muted tiny">COMO FUNCIONA</div><h2 style="font-size:30px;margin-top:8px">Preço Agora + Entrega Inteligente</h2><div class="steps" style="margin-top:20px">${[['1','Informe seu endereço','Filtramos apenas parceiros que conseguem atender.'],['2','Escolha sua prioridade','Mais barato, recomendado ou mais rápido.'],['3','A revenda confirma','Nada de pedido “confirmado” sem aceite real.'],['4','Acompanhe a entrega','Saída e entrega têm confirmação própria.']].map(x=>`<div class="step"><div class="step-num">${x[0]}</div><div><strong>${x[1]}</strong><p>${x[2]}</p></div></div>`).join('')}</div></div></div></section>
-
-<section class="section"><div class="section-head"><div><h2>Mais que gás</h2><p>Você pode pedir somente água, carvão, lenha ou gelo — o P13 não é obrigatório.</p></div></div><div class="quick-grid">${Object.entries(products).map(([k,p])=>`<button class="quick-card" onclick="quickProduct('${k}')" ${disabled?'disabled':''}><div class="quick-icon">${p.icon}</div><div class="quick-title">${p.name}</div><div class="quick-sub">Consultar agora</div></button>`).join('')}<button class="quick-card" onclick="go('merchants')"><div class="quick-icon">🏪</div><div class="quick-title">Sou revenda</div><div class="quick-sub">Quero participar</div></button></div></section>
-
-<section class="section"><div class="section-head"><div><h2>Benefícios que voltam para você</h2><p>O crescimento da plataforma também recompensa quem usa e compartilha.</p></div></div><div class="grid cards-3"><div class="card feature-card"><div class="feature-icon">💵</div><h3>Cashback</h3><p>Crédito para reduzir o valor das próximas compras dentro da plataforma.</p><button class="ghost small" onclick="go('club')">Ver meu saldo →</button></div><div class="card feature-card"><div class="feature-icon">🤝</div><h3>Indique e ganhe</h3><p>Vendas reais geradas pelo seu link podem liberar comissão e benefícios.</p><button class="ghost small" onclick="go('refer')">Conhecer programa →</button></div><div class="card feature-card"><div class="feature-icon">👑</div><h3>Clube Plus</h3><p>Plano opcional com benefícios ampliados, pensado para famílias recorrentes.</p><button class="ghost small" onclick="go('club')">Ver clube →</button></div></div></section>
-
-<section class="section"><div class="banner"><div class="tiny">PARA EMPRESAS LOCAIS</div><h2>Vende gás, água, carvão, lenha ou produtos relacionados?</h2><p>Cadastre sua operação, defina seus próprios preços e receba novos pedidos.</p><button class="secondary" onclick="go('merchant-join')">Quero ser parceiro</button></div></section>`)
+${preview?prelaunchExampleSection({P13:1}):''}
+<section class="section"><div class="section-head"><div><h2>Mais que gás</h2><p>Você pode pedir somente água, carvão, lenha ou gelo — o P13 não é obrigatório.</p></div></div><div class="quick-grid">${Object.entries(products).map(([k,p])=>`<button class="quick-card" onclick="quickProduct('${k}')" ${disabled?'disabled':''}><div class="quick-icon">${p.icon}</div><div class="quick-title">${p.name}</div><div class="quick-sub">${preview?'Ver exemplo':'Consultar agora'}</div></button>`).join('')}<button class="quick-card" onclick="go('merchants')"><div class="quick-icon">🏪</div><div class="quick-title">Sou revenda</div><div class="quick-sub">Quero participar</div></button></div></section>
+<section class="section"><div class="section-head"><div><h2>Benefícios que voltam para você</h2><p>Cashback e indicação só nascem de vendas reais, entregues e conciliadas pelo backend.</p></div></div><div class="grid cards-3"><div class="card feature-card"><div class="feature-icon">💵</div><h3>Cashback</h3><p>Crédito calculado server-side para reduzir compras futuras dentro da plataforma.</p><button class="ghost small" onclick="go('club')">Ver meu saldo →</button></div><div class="card feature-card"><div class="feature-icon">🤝</div><h3>Indique e ganhe</h3><p>Vendas reais geradas pelo seu link podem liberar comissão após validação.</p><button class="ghost small" onclick="go('refer')">Conhecer programa →</button></div><div class="card feature-card"><div class="feature-icon">👑</div><h3>Clube</h3><p>Benefícios progressivos ligados ao histórico real de compras.</p><button class="ghost small" onclick="go('club')">Ver clube →</button></div></div></section>
+<section class="section"><div class="banner"><div class="tiny">PARA EMPRESAS LOCAIS</div><h2>Vende gás, água, carvão, lenha ou produtos relacionados?</h2><p>Cadastre sua operação, defina seus próprios preços e receba novos pedidos após aprovação.</p><button class="secondary" onclick="go('merchants')">Quero ser parceiro</button></div></section>`)
 }
 function orderPage(){
+  const testDemo=globalThis.__CHAMA_TEST__===true;
   const liveMode=globalThis.liveRequested?.()===true;
   const ready=globalThis.liveReady?.()===true;
+  const preview=!testDemo&&globalThis.prelaunchExamplesEnabled?.()===true;
   const hasAddress=!!state.address;
   const hasItems=hasCartItems();
-  const os=liveMode?(ready?(liveRuntime.offers||[]):[]):(hasItems?offers():[]);
-  const pendingOrder=liveMode
-    ? (liveRuntime.order&&!['SETTLED','CANCELLED'].includes(liveRuntime.order.status)?liveRuntime.order:null)
-    : state.orders.find(isLiveOrder);
+  const os=testDemo?(hasItems?offers():[]):(ready?(liveRuntime.offers||[]):[]);
+  const pendingOrder=testDemo
+    ? state.orders.find(isLiveOrder)
+    : (liveRuntime.order&&!['SETTLED','CANCELLED'].includes(liveRuntime.order.status)?liveRuntime.order:null);
 
   let liveNotice='';
-  if(liveMode&&!ready){
+  if(!testDemo&&preview){
+    liveNotice='<div class="notice" style="margin-bottom:14px"><strong>Pré-lançamento.</strong><br>Os cards marcados como EXEMPLO servem apenas para visualizar o fluxo. Nenhum exemplo gera pedido, cobrança, cashback ou comissão.</div>';
+  }else if(!testDemo&&liveMode&&!ready){
     const message=liveRuntime?.status==='loading'
-      ? 'Conectando ao backend real do piloto…'
-      : 'O modo live ainda não conseguiu criar uma sessão. Habilite Anonymous Sign-Ins no Supabase para testar pedidos reais.';
-    liveNotice=`<div class="notice ${liveRuntime?.status==='unavailable'?'danger':''}" style="margin-bottom:14px"><strong>Backend do piloto</strong><br>${esc(message)}</div>`;
+      ? 'Conectando ao backend real…'
+      : liveRuntime?.status==='unsafe-origin'
+        ? 'Transações reais estão bloqueadas nesta origem provisória.'
+        : 'O backend real está indisponível. Nenhum pedido será simulado.';
+    liveNotice=`<div class="notice ${liveRuntime?.status==='unavailable'?'danger':''}" style="margin-bottom:14px"><strong>Operação real</strong><br>${esc(message)}</div>`;
   }
 
   let offerBlock='';
   if(hasItems&&hasAddress){
-    if(liveMode&&ready&&liveRuntime.loadingOffers){
-      offerBlock='<div class="empty card">Consultando revendas reais…</div>';
-    }else if(liveMode&&ready&&liveRuntime.error){
-      offerBlock=`<div class="notice danger"><strong>Não foi possível atualizar as ofertas.</strong><br>${esc(liveRuntime.error)}<br><button class="secondary small" style="margin-top:10px" onclick="liveRefreshOffers().catch(()=>{})">Tentar novamente</button></div>`;
-    }else if(os.length){
+    if(preview){
+      offerBlock=`<div class="offer-stack">${prelaunchExampleOffers(state.cart).map(exampleOfferCard).join('')}</div>`;
+    }else if(testDemo&&os.length){
       offerBlock=`<div class="offer-stack">${os.map(offerCard).join('')}</div>`;
-    }else if(liveMode&&ready&&liveRuntime.deliveryCompatibilityBlocked){
-      offerBlock='<div class="notice"><strong>Esta combinação precisa de uma entrega logisticamente verificada.</strong><br>No piloto, tente pedir o GLP separado dos outros itens ou aguarde uma revenda habilitada para a cesta mista.</div>';
-    }else if(liveMode&&ready&&liveRuntime.lastSyncAt){
-      offerBlock='<div class="empty card">Nenhuma revenda real cadastrada consegue atender esta cesta agora.</div>';
-    }else if(liveMode&&ready){
+    }else if(ready&&liveRuntime.loadingOffers){
+      offerBlock='<div class="empty card">Consultando revendas reais…</div>';
+    }else if(ready&&liveRuntime.error){
+      offerBlock=`<div class="notice danger"><strong>Não foi possível atualizar as ofertas.</strong><br>${esc(liveRuntime.error)}<br><button class="secondary small" style="margin-top:10px" onclick="liveRefreshOffers().catch(()=>{})">Tentar novamente</button></div>`;
+    }else if(ready&&os.length){
+      offerBlock=`<div class="offer-stack">${os.map(offerCard).join('')}</div>`;
+    }else if(ready&&liveRuntime.deliveryCompatibilityBlocked){
+      offerBlock='<div class="notice"><strong>Esta combinação precisa de uma entrega logisticamente verificada.</strong><br>Tente separar os itens ou aguarde uma revenda habilitada para essa cesta.</div>';
+    }else if(ready&&liveRuntime.lastSyncAt){
+      offerBlock='<div class="empty card">Nenhuma revenda real consegue atender esta cesta agora.</div>';
+    }else if(ready){
       offerBlock='<div class="empty card"><button class="primary" onclick="liveRefreshOffers().catch(()=>{})">Consultar revendas reais</button></div>';
     }else{
-      offerBlock='<div class="empty card">Nenhum parceiro consegue atender toda essa cesta agora. Reduza algum item ou tente novamente.</div>';
+      offerBlock='<div class="empty card">Não foi possível consultar o backend real.</div>';
     }
   }
 
-  return shell(`<section class="page"><button class="back" onclick="go('home')">← Voltar</button><h1 class="page-title">Pedir agora</h1><p class="muted">Monte sua cesta. O sistema mostra somente parceiros capazes de atender todos os itens selecionados.</p>
+  const paymentBlock=preview
+    ? '<div class="notice">Forma de pagamento e cashback serão habilitados somente quando houver uma oferta real.</div>'
+    : `<div class="card flat form-stack"><div class="input-wrap"><label for="payment-method">Forma de pagamento</label><select id="payment-method" class="input" onchange="setPaymentMethod(this.value)"><option value="pix" ${state.checkout.paymentMethod==='pix'?'selected':''}>Pix</option><option value="card" ${state.checkout.paymentMethod==='card'?'selected':''}>Cartão</option><option value="cash" ${state.checkout.paymentMethod==='cash'?'selected':''}>Dinheiro</option></select></div>${state.user.cashback>0?`<label class="check-row"><input type="checkbox" ${state.checkout.useCashback?'checked':''} onchange="toggleCashback(this.checked)"><span><strong>Usar cashback</strong><small>Saldo disponível: ${BRL.format(state.user.cashback)}</small></span></label>`:''}</div>`;
+
+  return shell(`<section class="page"><button class="back" onclick="go('home')">← Voltar</button><h1 class="page-title">Pedir agora</h1><p class="muted">Monte sua cesta. Em produção, o sistema mostra somente parceiros reais capazes de atender todos os itens selecionados.</p>
 ${liveNotice}
 ${pendingOrder?`<div class="notice" style="margin-bottom:14px"><strong>Você já possui um pedido em andamento.</strong><br>Conclua ou cancele o pedido ${esc(pendingOrder.publicCode||pendingOrder.id)} antes de criar outro.<br><button class="ghost small" onclick="go('tracking')">Acompanhar pedido →</button></div>`:''}
 <div class="card flat form-stack"><div class="input-wrap"><label for="address">Endereço de entrega</label><input id="address" class="input" autocomplete="street-address" maxlength="160" placeholder="Ex.: Rua General Câmara, 123" value="${esc(state.address||'')}"></div><button class="primary" onclick="setAddress()">${hasAddress?'Atualizar endereço':'Confirmar endereço'}</button></div>
-
 <section class="section"><div class="section-head"><div><h2>Sua cesta</h2><p>Adicione somente o que você precisa.</p></div></div><div class="card flat">${Object.entries(products).map(([k,p])=>cartRow(k,p)).join('')}</div></section>
-
-${hasItems&&hasAddress?`<section class="section"><div class="section-head"><div><h2>Pagamento e benefícios</h2><p>${liveMode?'O servidor recalcula preço e saldo antes de confirmar.':'O meio de pagamento será confirmado com a revenda no piloto.'}</p></div></div>
-<div class="card flat form-stack"><div class="input-wrap"><label for="payment-method">Forma de pagamento</label><select id="payment-method" class="input" onchange="setPaymentMethod(this.value)"><option value="pix" ${state.checkout.paymentMethod==='pix'?'selected':''}>Pix</option><option value="card" ${state.checkout.paymentMethod==='card'?'selected':''}>Cartão</option><option value="cash" ${state.checkout.paymentMethod==='cash'?'selected':''}>Dinheiro</option></select></div>
-${state.user.cashback>0?`<label class="check-row"><input type="checkbox" ${state.checkout.useCashback?'checked':''} onchange="toggleCashback(this.checked)"><span><strong>Usar cashback</strong><small>Saldo disponível: ${BRL.format(state.user.cashback)}</small></span></label>`:''}</div></section>
-<section class="section"><div class="section-head"><div><h2>Melhores opções</h2><p>${liveMode?'Ofertas calculadas e congeladas no servidor.':'Preço, ETA, capacidade e histórico entram na seleção.'}</p></div></div>${offerBlock}</section>`:hasItems&&!hasAddress?'<div class="notice">Confirme o endereço para calcular as opções disponíveis.</div>':!hasItems?'<div class="notice">Adicione pelo menos um produto para consultar ofertas.</div>':''}</section>`)
+${hasItems&&hasAddress?`<section class="section"><div class="section-head"><div><h2>Pagamento e benefícios</h2><p>${preview?'Prévia visual sem cobrança.':'O servidor recalcula preço e saldo antes de confirmar.'}</p></div></div>${paymentBlock}</section><section class="section"><div class="section-head"><div><h2>${preview?'Exemplos de oferta':'Melhores opções'}</h2><p>${preview?'Esses valores não representam o mercado real.':'Ofertas calculadas e congeladas no servidor.'}</p></div></div>${offerBlock}</section>`:hasItems&&!hasAddress?'<div class="notice">Confirme o endereço para continuar.</div>':!hasItems?'<div class="notice">Adicione pelo menos um produto para consultar ofertas.</div>':''}</section>`)
 }
 function cartRow(k,p){
   const q=state.cart[k]||0;
