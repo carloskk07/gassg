@@ -10,6 +10,7 @@ const moneySafety=fs.readFileSync(new URL('../supabase/migrations/20261002202113
 const adminEmailBootstrap=fs.readFileSync(new URL('../supabase/migrations/20261002213038_platform_admin_email_bootstrap_reservation.sql',import.meta.url),'utf8').replace(/--.*$/gm,'').replace(/\s+/g,' ').toLowerCase();
 const authorizedPricing=fs.readFileSync(new URL('../supabase/migrations/20261002214500_authorized_price_ranges.sql',import.meta.url),'utf8').replace(/--.*$/gm,'').replace(/\s+/g,' ').toLowerCase();
 const authorizedPricingFreshness=fs.readFileSync(new URL('../supabase/migrations/20261002215500_authorized_price_range_quote_freshness_fix.sql',import.meta.url),'utf8').replace(/--.*$/gm,'').replace(/\s+/g,' ').toLowerCase();
+const adminBootstrapFkIndex=fs.readFileSync(new URL('../supabase/migrations/20261002220500_admin_bootstrap_claimed_user_index.sql',import.meta.url),'utf8').replace(/--.*$/gm,'').replace(/\s+/g,' ').toLowerCase();
 
 for(const fn of ['create_order_from_quote','merchant_order_action','customer_order_action','complete_order_delivery']){
   assert.match(n,new RegExp('create or replace function public\\.'+fn+'\\b'),fn+' precisa estar versionada');
@@ -53,5 +54,6 @@ assert.match(authorizedPricingFreshness,/delivery_fee_confirmed_at is null/,'quo
 assert.match(authorizedPricingFreshness,/ci\.price_confirmed_at is not null/,'quote ranged precisa preservar freshness por SKU');
 assert.match(authorizedPricingFreshness,/for share of ci/,'quote ranged precisa bloquear os SKUs enquanto congela o snapshot');
 assert.match(authorizedPricingFreshness,/r\.unit_price_cents between ci\.min_price_cents and ci\.max_price_cents/,'quote ranged precisa validar a faixa após o lock');
+assert.match(adminBootstrapFkIndex,/platform_admin_bootstrap_reservations_claimed_user_idx/,'FK de claimed admin precisa de índice de cobertura');
 
 console.log('Runtime migration contract passou.');
