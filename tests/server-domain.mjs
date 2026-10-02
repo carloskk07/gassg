@@ -7,6 +7,11 @@ import {
   computeCashbackReservation,cashbackReservationEntries,cashbackReleaseEntries,
   referralPendingToAvailableEntries,validateDeliveryPin,shouldLockPin,readJsonBody,enforceApiQuota
 } from '../supabase/functions/_shared/domain.js';
+import {
+  isOperationalMerchantRole,
+  operationalMerchantMemberships,
+  selectMerchantMembership
+} from '../supabase/functions/_shared/merchant-membership.js';
 
 let passed=0;
 function test(name,fn){
@@ -155,6 +160,31 @@ test('membership separa operação de edição de catálogo',()=>{
   assert.equal(assertMerchantMembership({active:true,member_role:'driver'}).member_role,'driver');
   throwsCode(()=>assertCatalogWriteMembership({active:true,member_role:'driver'}),'MERCHANT_ACCESS_DENIED');
   assert.equal(assertCatalogWriteMembership({active:true,member_role:'manager'}).member_role,'manager');
+});
+
+test('seleção padrão ignora membership driver quando existe operação autorizada',()=>{
+  const memberships=[
+    {merchant_id:'m-driver',member_role:'driver',active:true},
+    {merchant_id:'m-owner',member_role:'owner',active:true},
+    {merchant_id:'m-manager',member_role:'manager',active:true}
+  ];
+  assert.equal(selectMerchantMembership(memberships)?.merchant_id,'m-owner');
+  assert.deepEqual(
+    operationalMerchantMemberships(memberships).map(x=>x.merchant_id),
+    ['m-owner','m-manager']
+  );
+});
+
+test('seleção explícita preserva revenda pedida e permite negar papel sem trocar silenciosamente',()=>{
+  const memberships=[
+    {merchant_id:'m-driver',member_role:'driver',active:true},
+    {merchant_id:'m-owner',member_role:'owner',active:true}
+  ];
+  const selected=selectMerchantMembership(memberships,'m-driver');
+  assert.equal(selected?.merchant_id,'m-driver');
+  assert.equal(isOperationalMerchantRole(selected?.member_role),false);
+  assert.equal(isOperationalMerchantRole('operator'),true);
+  assert.equal(selectMerchantMembership(memberships,'m-inexistente'),null);
 });
 
 test('oferta pública não contém identidade da revenda',()=>{
