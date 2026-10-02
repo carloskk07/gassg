@@ -450,6 +450,8 @@ assert.ok(pilotMigration.includes('revoke all on function public.merchant_offer_
 const merchantApplicationSource=read('supabase/functions/submit-merchant-application/index.ts');
 assert.ok(merchantApplicationSource.includes('existing?.status==="approved"'),'cadastro aprovado não pode ser reaberto silenciosamente');
 assert.ok(merchantApplicationSource.includes('resubmitted:existing.status==="rejected"'),'cadastro rejeitado deve poder ser corrigido e reenviado');
+assert.ok(merchantApplicationSource.includes('.in("status",["pending","rejected"])'),'reenvio não pode reabrir cadastro aprovado por corrida TOCTOU');
+assert.ok(merchantApplicationSource.includes('APPLICATION_STATE_CHANGED'),'mudança concorrente de estado precisa falhar de forma explícita');
 assert.ok(merchantApplicationSource.includes('retryExisting?.status==="pending"'),'retry após ACK perdido deve recuperar cadastro pendente do mesmo solicitante');
 assert.ok(merchant.includes('Cadastro recebido.')&&merchant.includes('Cadastrar / atualizar empresa'),'feedback de onboarding deve persistir após o toast');
 
