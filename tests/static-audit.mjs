@@ -23,6 +23,7 @@ for(const asset of swAssets){
 const customer=read('js/customer.js');
 const merchant=read('js/merchant.js');
 const growth=read('js/growth.js');
+const bootstrap=read('js/bootstrap.js');
 const core=read('js/core.js');
 const backend=read('js/backend.js');
 const admin=read('js/admin.js');
@@ -46,8 +47,18 @@ assert.ok(core.includes('if(globalThis.__CHAMA_TEST__)'),'API de testes precisa 
 assert.ok(core.includes('isValidCnpjShape'),'core precisa suportar validação estrutural do CNPJ atual');
 assert.ok(!merchant.includes('.stock'),'UI da revenda não deve depender do campo legado stock');
 assert.ok(growth.includes('referralCode'),'link de indicação deve usar código pessoal');
+assert.ok(bootstrap.includes('home,learn,earn'),'router público precisa expor jornadas de descoberta e renda');
+assert.ok(customer.includes('Quero comprar')&&customer.includes('Quero entender')&&customer.includes('Quero gerar renda'),'home precisa separar as três intenções principais');
+assert.ok(customer.includes("go('learn')")&&customer.includes("go('earn')"),'home precisa possuir CTAs claros para descoberta e renda');
+assert.ok(growth.includes('function learn()'),'jornada Saiba mais precisa existir');
+assert.ok(growth.includes('function earn()'),'hub Ganhe com o Chama precisa existir');
+assert.ok(growth.includes('REFERRAL_PILOT_RATE=0.02'),'exemplo de indicação deve estar ancorado na política atual do piloto');
+assert.ok(growth.includes('Os exemplos não são promessa de renda'),'marketing de indicação precisa explicar que exemplo não é renda garantida');
+assert.ok(growth.includes('Saque Pix ainda não disponível')&&growth.includes('disabled>Saque Pix ainda não disponível'),'UI não pode fingir saque ainda inexistente');
+assert.ok(growth.includes('Você continua no controle'),'landing de revenda deve enfatizar autonomia operacional');
+assert.ok(core.includes("['earn','💰','Ganhe','go']"),'navegação móvel precisa dar acesso direto ao hub de renda');
 assert.ok(!growth.includes('inputmode="numeric" maxlength="18"'),'campo CNPJ não pode forçar teclado somente numérico após adoção do CNPJ alfanumérico');
-assert.ok(sw.includes("CACHE='chama-sg-v1.22'"),'cache do service worker precisa estar versionado');
+assert.ok(sw.includes("CACHE='chama-sg-v1.23'"),'cache do service worker precisa estar versionado');
 assert.ok(sw.includes("./js/backend.js"),'runtime live precisa estar no cache da PWA');
 assert.ok(sw.includes("./js/runtime-config.js"),'configuração pública de origins precisa estar no cache da PWA');
 assert.ok(sw.includes("./js/turnstile.js"),'helper local do Turnstile precisa estar no cache da PWA');
@@ -110,7 +121,7 @@ assert.ok(merchant.includes('Endereço protegido até o aceite'),'painel real n�
 assert.ok(merchant.includes('Pagamento recebido'),'painel real deve exigir confirmação de pagamento');
 assert.ok(core.includes('grossCents*100'),'demo deve calcular cashback proporcional ao pedido');
 assert.ok(backend.includes('liveUpgradeAccount'),'cliente anônimo precisa poder vincular identidade permanente sem trocar de usuário');
-assert.ok(growth.includes('Comissão em dinheiro exige conta permanente'),'UI deve explicar o gate de identidade para saque');
+assert.ok(growth.includes('Vincule um e-mail à sua conta')&&growth.includes('Conta habilitada para comissão.'),'UI deve explicar o gate de identidade para comissão disponível');
 assert.ok(read('supabase/functions/customer-summary/index.ts').includes('cashEarningEligible'),'resumo financeiro precisa expor elegibilidade de comissão');
 assert.ok(read('supabase/functions/merchant-ops/index.ts').includes('Seu papel não pode manter a operação ativa.'),'heartbeat não pode ser mantido por papel não operacional');
 assert.ok(read('supabase/functions/merchant-orders/index.ts').includes('MERCHANT_ROLE_NOT_ENABLED'),'driver sem assignment não pode abrir painel operacional');
@@ -162,7 +173,7 @@ for(const fn of ['get-offers','create-order','customer-action','customer-summary
 }
 assert.ok(read('supabase/functions/get-order/index.ts').includes('CUSTOMER_ORIGIN_REQUIRED'),'get-order precisa exigir origem dedicada para papel customer');
 assert.ok(read('supabase/functions/get-order/index.ts').includes('CUSTOMER_ALLOWED_ORIGIN'),'get-order precisa separar origem customer de merchant');
-assert.ok(core.includes('esta origem provisória mostra exemplos, mas não aceita transações reais'),'origem provisória deve mostrar exemplos sem transação real');
+assert.ok(core.includes('compras reais serão liberadas na abertura oficial desta experiência'),'pré-lançamento deve deixar claro que compras reais ainda não estão liberadas');
 assert.ok(sw.includes("./js/admin.js"),'runtime admin precisa estar no cache da PWA');
 assert.ok(admin.includes("storageKey:'chama-sg-admin-auth-v1'"),'sessão admin deve ser isolada das sessões cliente/revenda');
 assert.ok(backend.includes("storage:sessionStorage")&&backend.includes("storageKey:'chama-sg-merchant-auth-v1'"),'sessão da revenda deve ser tab-scoped em sessionStorage');

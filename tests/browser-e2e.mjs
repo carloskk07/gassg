@@ -86,13 +86,33 @@ await send('Log.enable');
 await send('Page.addScriptToEvaluateOnNewDocument',{source:'globalThis.__CHAMA_TEST__=true;'});
 await navigate(BASE+'#home');
 await evaluate("localStorage.clear(); location.reload()");
-await waitFor("document.body.innerText.includes('Seu gás')","home after reset");
+await waitFor("document.body.innerText.includes('Peça gás')","home after reset");
 
 let body=await text();
-assert.match(body,/Seu gás/);
+assert.match(body,/Peça gás/);
+assert.match(body,/Quero comprar/);
+assert.match(body,/Quero entender/);
+assert.match(body,/Quero gerar renda/);
 assert.match(body,/Ambiente isolado de teste automatizado/);
 await auditDom('home');
 
+await evaluate("go('learn')");
+await waitFor("document.body.innerText.includes('Entenda o Chama')","learn route");
+body=await text();
+assert.match(body,/DÚVIDAS FREQUENTES/);
+assert.match(body,/Aceite real da revenda/);
+await auditDom('learn');
+
+await evaluate("go('earn')");
+await waitFor("document.body.innerText.includes('Duas formas de participar')","earn route");
+body=await text();
+assert.match(body,/Indique compradores/);
+assert.match(body,/Venda pelo Chama/);
+assert.match(body,/2% sobre venda elegível/);
+await auditDom('earn');
+
+await evaluate("go('home')");
+await waitFor("document.body.innerText.includes('Peça gás')","return home");
 await evaluate("quickProduct('WATER20')");
 await waitFor("location.hash==='#order'","order route");
 await evaluate("document.querySelector('#address').value='Rua <img src=x onerror=window.__xss=1> Teste, 123'; setAddress()");
@@ -154,6 +174,13 @@ await waitFor("document.body.innerText.includes('Clube Chama')","club route");
 body=await text();
 assert.match(body,/R\$\s*7,65/);
 await auditDom('club');
+
+await evaluate("go('refer')");
+await waitFor("document.body.innerText.includes('Compartilhe. A pessoa compra')","referral route");
+body=await text();
+assert.match(body,/Pix está em preparação/);
+assert.equal(await evaluate("[...document.querySelectorAll('button')].some(b=>b.textContent.includes('Saque Pix ainda não disponível')&&b.disabled)"),true);
+await auditDom('refer');
 
 assert.deepEqual(pageErrors,[],`Chrome registrou erros: ${pageErrors.join(' | ')}`);
 

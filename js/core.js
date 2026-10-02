@@ -599,14 +599,14 @@ function runtimeStrip(){
   const mode=globalThis.liveBanner?.()||'connecting';
   const preview=globalThis.prelaunchExamplesEnabled?.()===true;
   if(mode==='live'){
-    if(preview)return '<div class="demo-strip"><span>PRÉ-LANÇAMENTO • exemplos visuais até a primeira revenda real ficar ativa</span></div>';
-    return '<div class="demo-strip live-strip"><span>● OPERAÇÃO REAL • dados, pedidos e saldos vêm do backend</span></div>';
+    if(preview)return '<div class="demo-strip"><span>PRÉ-LANÇAMENTO • conheça a experiência enquanto formamos a primeira rede de parceiros</span></div>';
+    return '<div class="demo-strip live-strip"><span>● OPERAÇÃO ATIVA • consulte opções reais para o seu endereço</span></div>';
   }
-  if(mode==='connecting')return '<div class="demo-strip live-strip"><span>Conectando ao backend real…</span></div>';
+  if(mode==='connecting')return '<div class="demo-strip live-strip"><span>Preparando sua experiência…</span></div>';
   if(globalThis.liveRuntime?.status==='unsafe-origin'){
-    return '<div class="demo-strip"><span>PRÉ-LANÇAMENTO • esta origem provisória mostra exemplos, mas não aceita transações reais</span></div>';
+    return '<div class="demo-strip"><span>PRÉ-LANÇAMENTO • compras reais serão liberadas na abertura oficial desta experiência</span></div>';
   }
-  return '<div class="demo-strip blocked-strip"><span>Backend real indisponível • nenhuma transação foi simulada</span></div>';
+  return '<div class="demo-strip blocked-strip"><span>Serviço temporariamente indisponível • nenhum pedido foi criado</span></div>';
 }
 function shell(content){
   const r=route();
@@ -620,10 +620,10 @@ function shell(content){
     ? '<button onclick="go(\'admin\')">Control plane</button>'
     :merchantPortal
       ? '<button onclick="go(\'merchant\')">Operação</button><button onclick="go(\'catalog\')">Catálogo</button><button onclick="go(\'merchants\')">Parceiros</button>'
-      : '<button onclick="go(\'home\')">Início</button><button onclick="go(\'club\')">Clube</button><button onclick="go(\'refer\')">Indique e ganhe</button><button onclick="go(\'merchants\')">Para revendas</button>';
+      : '<button onclick="go(\'home\')">Início</button><button onclick="go(\'learn\')">Como funciona</button><button onclick="go(\'earn\')">Ganhe</button><button onclick="go(\'club\')">Clube</button><button onclick="go(\'merchants\')">Para revendas</button>';
   const switcher=adminPortal
     ? '<div class="mode-pill" aria-label="Alternar ambiente"><button onclick="openCustomerPortal()">Site</button><button class="active" onclick="go(\'admin\')">Admin</button></div>'
-    : `<div class="mode-pill" aria-label="Alternar modo"><button class="${!merchantPortal&&(!testDemo||state.mode==='customer')?'active':''}" onclick="${customerAction}">Cliente</button><button class="${merchantPortal||(testDemo&&state.mode==='merchant')?'active':''}" onclick="${merchantAction}">Revenda</button></div>`;
+    : `<div class="mode-pill" aria-label="Alternar modo"><button class="${!merchantPortal&&(!testDemo||state.mode==='customer')?'active':''}" onclick="${customerAction}">Comprar</button><button class="${merchantPortal||(testDemo&&state.mode==='merchant')?'active':''}" onclick="${merchantAction}">Revenda</button></div>`;
   return `<div class="app">
   ${runtimeStrip()}
   <header class="topbar"><div class="shell topbar-inner">
@@ -645,7 +645,7 @@ function bottomNav(r){
       ?[['merchant','🏪','Operação','go'],['merchant-orders','📦','Pedidos','go'],['catalog','🧺','Catálogo','go'],['merchants','➕','Parceiros','go']]
       :testDemo&&state.mode==='merchant'
         ?[['merchant','🏪','Operação','go'],['merchant-orders','📦','Pedidos','go'],['catalog','🧺','Catálogo','go'],['merchant-metrics','📊','Desempenho','go'],['merchants','➕','Parceiros','go']]
-        :[['home','⌂','Início','go'],['order','🔥','Pedir','start'],['tracking','📍','Pedido','go'],['club','★','Clube','go'],['refer','🤝','Indique','go']];
+        :[['home','⌂','Início','go'],['order','🔥','Pedir','start'],['tracking','📍','Pedido','go'],['earn','💰','Ganhe','go'],['club','★','Clube','go']];
   return `<nav class="bottom-nav" aria-label="Navegação principal">${items.map(([id,ic,l,act])=>`<button class="nav-btn ${r===id?'active':''}" ${r===id?'aria-current="page"':''} onclick="${act==='start'?"startOrder('P13')":`go('${id}')`}"><span aria-hidden="true">${ic}</span><span>${l}</span></button>`).join('')}</nav>`;
 }
 function setMode(m){state.mode=m==='merchant'?'merchant':'customer';save();go(state.mode==='merchant'?'merchant':'home');render()}
