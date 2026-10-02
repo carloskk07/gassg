@@ -269,6 +269,24 @@ function adminApplicationCard(a){
   </article>`;
 }
 
+
+function adminPilotPartnerCard(p){
+  const statusLabel={
+    awaiting_legal_data:'AGUARDANDO DADOS REAIS',
+    ready_for_review:'PRONTO PARA REVISÃO',
+    converted:'CONVERTIDO',
+    cancelled:'CANCELADO'
+  }[p.onboarding_status]||String(p.onboarding_status||'—').toUpperCase();
+  const statusClass=p.onboarding_status==='converted'?'online':p.onboarding_status==='cancelled'?'offline':'risk';
+  return `<article class="order-card">
+    <div class="order-head"><div><div class="order-id">${esc(p.display_name)}</div><div class="tiny muted">Parceiro piloto • ${esc(p.proposed_product_code)}</div></div><span class="status-pill ${statusClass}">${esc(statusLabel)}</span></div>
+    <div class="order-line"><strong>Preço comercial informado:</strong> ${adminMoney(p.proposed_delivered_price_cents)} ${p.delivery_included?'com entrega incluída':'antes da entrega'}</div>
+    <div class="order-line"><strong>Status do preço:</strong> ${p.price_status==='confirmed'?'confirmado':'proposto — ainda não publicar como oferta real'}</div>
+    ${p.notes?`<div class="tiny muted">${esc(p.notes)}</div>`:''}
+    <div class="notice" style="margin-top:10px"><strong>Gate de ativação preservado.</strong><br>CNPJ, responsável, endereço, conta owner e validação regulatória aplicável ainda precisam ser cadastrados antes de criar uma revenda ativa.</div>
+  </article>`;
+}
+
 function adminMerchantCard(m){
   const c=m.compliance||{};
   const active=m.status==='active';
@@ -371,6 +389,7 @@ function adminPage(){
 
   const d=adminRuntime.data;
   const pending=(d.applications||[]).filter(x=>x.status==='pending');
+  const pilotPartners=d.pilotPartners||[];
   const active=(d.merchants||[]).filter(x=>x.status==='active');
   const referralReviews=d.referralReviews||[];
   const pendingReferralReviews=referralReviews.filter(x=>x.risk_status==='review_required'&&x.financialState!=='reversed'&&!x.financialReversedAt);
@@ -392,6 +411,7 @@ function adminPage(){
 
     <section class="section"><div class="merchant-kpis">
       <div class="kpi"><span class="label">Cadastros pendentes</span><strong>${pending.length}</strong></div>
+      <div class="kpi"><span class="label">Parceiros piloto</span><strong>${pilotPartners.filter(x=>x.onboarding_status!=='cancelled').length}</strong></div>
       <div class="kpi"><span class="label">Revendas ativas</span><strong>${active.length}</strong></div>
       <div class="kpi"><span class="label">Taxas a receber</span><strong>${adminMoney(openFees)}</strong></div>
       <div class="kpi"><span class="label">Cashback a reembolsar</span><strong>${adminMoney(openCashback)}</strong></div>
@@ -405,6 +425,8 @@ function adminPage(){
         <button class="secondary" onclick="adminAddPlatformAdmin()">Adicionar administrador</button>
       </div>
     </section>
+
+    <section class="section"><div class="section-head"><div><h2>Parceiros piloto em preparação</h2><p>Interesse comercial registrado antes do cadastro jurídico. Esses registros não participam das ofertas e não contam como revenda ativa.</p></div></div>${pilotPartners.length?pilotPartners.map(adminPilotPartnerCard).join(''):'<div class="empty card">Nenhum parceiro piloto em preparação.</div>'}</section>
 
     <section class="section"><div class="section-head"><div><h2>Cadastros de parceiros</h2><p>Aprovação cria a revenda como pendente e vincula o solicitante como owner. Não coloca a operação online.</p></div></div>${(d.applications||[]).length?(d.applications||[]).map(adminApplicationCard).join(''):'<div class="empty card">Nenhum cadastro recebido.</div>'}</section>
 
