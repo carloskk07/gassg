@@ -91,7 +91,9 @@ await waitFor("document.body.innerText.includes('Seu gás, com preço e prazo')"
 let body=await text();
 assert.match(body,/Seu gás, com preço e prazo/);
 assert.match(body,/Quero pedir agora/);
-assert.match(body,/Quero economizar/);
+assert.match(body,/Quero entender melhor/);
+assert.match(body,/Botijão de cozinha 13 kg/);
+assert.match(body,/PROTEÇÃO CHAMA/);
 assert.match(body,/Quero ganhar ou vender/);
 assert.match(body,/Ambiente isolado de teste automatizado/);
 await auditDom('home');
@@ -117,7 +119,7 @@ await evaluate("go('learn')");
 await waitFor("document.body.innerText.includes('Entenda o Chama')","learn route");
 body=await text();
 assert.match(body,/DÚVIDAS FREQUENTES/);
-assert.match(body,/Aceite real da revenda/);
+assert.match(body,/Parceiro precisa confirmar/);
 await auditDom('learn');
 
 await evaluate("go('earn')");
