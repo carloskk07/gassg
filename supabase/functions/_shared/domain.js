@@ -1,4 +1,13 @@
 export const PRODUCT_CODES=Object.freeze(['P13','WATER20','CHARCOAL4','WOOD','ICE5']);
+
+export function isSupportedProductCode(value){
+  const code=String(value??'').trim().toUpperCase();
+  if(PRODUCT_CODES.includes(code))return true;
+  const match=/^P([1-9][0-9]?)$/.exec(code);
+  if(!match)return false;
+  const kg=Number(match[1]);
+  return Number.isInteger(kg)&&kg>=1&&kg<=90;
+}
 export const ORDER_STATUSES=Object.freeze([
   'OFFERED_TO_MERCHANT','MERCHANT_ACCEPTED','PREPARING','AT_RISK','REASSIGNING',
   'REQUOTE_REQUIRED','OUT_FOR_DELIVERY','ARRIVING','DELIVERED','SETTLED','CANCELLED'
@@ -134,7 +143,7 @@ export function normalizeItems(items){
   const aggregated=new Map();
   for(const raw of items){
     const code=String(raw?.productCode??'').toUpperCase();
-    invariant(PRODUCT_CODES.includes(code),'INVALID_PRODUCT','Produto inválido');
+    invariant(isSupportedProductCode(code),'INVALID_PRODUCT','Produto inválido');
     const qty=asPositiveInt(raw?.quantity,'quantity');
     const next=(aggregated.get(code)||0)+qty;
     invariant(next<=99,'INVALID_QUANTITY','Quantidade total do produto excede 99');
