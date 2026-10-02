@@ -47,7 +47,7 @@ assert.ok(core.includes('isValidCnpjShape'),'core precisa suportar validação e
 assert.ok(!merchant.includes('.stock'),'UI da revenda não deve depender do campo legado stock');
 assert.ok(growth.includes('referralCode'),'link de indicação deve usar código pessoal');
 assert.ok(!growth.includes('inputmode="numeric" maxlength="18"'),'campo CNPJ não pode forçar teclado somente numérico após adoção do CNPJ alfanumérico');
-assert.ok(sw.includes("CACHE='chama-sg-v1.20'"),'cache do service worker precisa estar versionado');
+assert.ok(sw.includes("CACHE='chama-sg-v1.21'"),'cache do service worker precisa estar versionado');
 assert.ok(sw.includes("./js/backend.js"),'runtime live precisa estar no cache da PWA');
 assert.ok(sw.includes("./js/runtime-config.js"),'configuração pública de origins precisa estar no cache da PWA');
 assert.ok(sw.includes("./js/turnstile.js"),'helper local do Turnstile precisa estar no cache da PWA');
@@ -69,6 +69,16 @@ assert.ok(backend.includes("sb_publishable_"),'frontend live deve usar publishab
 assert.ok(!backend.includes("sb_secret_"),'frontend jamais pode conter secret key');
 assert.ok(!backend.includes("service_role"),'frontend jamais pode depender de service_role');
 assert.ok(backend.includes("signInAnonymously"),'modo live do cliente precisa de Auth anônimo');
+assert.ok(backend.includes("customerPortalParams.get('merchant')!=='1'&&customerPortalParams.get('admin')!=='1'"),'cliente real deve ser o modo padrão fora dos portais privilegiados');
+assert.ok(backend.includes('prelaunchExamplesEnabled'),'exemplos precisam de gate explícito de pré-lançamento');
+assert.ok(backend.includes("liveInvoke('market-status'"),'frontend deve consultar autoridade server-side antes de decidir exemplos');
+assert.ok(customer.includes('EXEMPLO — NÃO COMPRÁVEL'),'exemplo visual precisa ser rotulado como não comprável');
+assert.ok(customer.includes('disabled>Disponível quando houver parceiro real'),'exemplo jamais pode acionar checkout');
+assert.ok(customer.includes('prelaunchExamplesEnabled'),'cliente deve remover exemplos quando o backend indicar supply real');
+assert.ok(core.includes("merchants:testDemo?["),'revendas sintéticas devem existir somente no runtime de teste');
+assert.ok(core.includes('Never hydrate those fields from browser storage'),'produção não pode restaurar autoridade financeira/merchant de storage');
+assert.ok(merchant.includes('A operação da revenda não possui modo fictício em produção.'),'rota merchant sem portal real deve falhar fechado');
+assert.ok(!growth.includes('Lista de interesse Plus registrada — demonstração'),'produção não pode fingir registro de benefício futuro');
 assert.ok(backend.includes("chamaTurnstile.challenge"),'nova identidade anônima deve exigir desafio Turnstile');
 assert.ok(backend.includes("options:{captchaToken}"),'token Turnstile deve ser entregue ao Auth do Supabase');
 const turnstile=read('js/turnstile.js');
@@ -131,14 +141,14 @@ assert.ok(read('supabase/functions/get-order/index.ts').includes('merchantOrigin
 assert.ok(merchant.includes('Origem da revenda não isolada'),'UI deve explicar o bloqueio de origem da revenda');
 assert.ok(backend.includes('customerOriginSafe'),'frontend cliente live precisa bloquear origem compartilhada');
 assert.ok(backend.includes('CHAMA_CUSTOMER_ORIGIN'),'origem dedicada do cliente precisa ser configurável');
-for(const fn of ['get-offers','create-order','customer-action','customer-summary','submit-merchant-application']){
+for(const fn of ['get-offers','create-order','customer-action','customer-summary','market-status','submit-merchant-application']){
   const source=read('supabase/functions/'+fn+'/index.ts');
   assert.ok(source.includes('CUSTOMER_ALLOWED_ORIGIN'),fn+' precisa exigir origem dedicada do cliente');
   assert.ok(!source.includes('carloskk07.github.io'),fn+' não pode confiar na origem compartilhada do GitHub Pages');
 }
 assert.ok(read('supabase/functions/get-order/index.ts').includes('CUSTOMER_ORIGIN_REQUIRED'),'get-order precisa exigir origem dedicada para papel customer');
 assert.ok(read('supabase/functions/get-order/index.ts').includes('CUSTOMER_ALLOWED_ORIGIN'),'get-order precisa separar origem customer de merchant');
-assert.ok(core.includes('Piloto real bloqueado nesta origem compartilhada'),'UI deve explicar que GitHub Pages é apenas demonstração');
+assert.ok(core.includes('esta origem provisória mostra exemplos, mas não aceita transações reais'),'origem provisória deve mostrar exemplos sem transação real');
 assert.ok(sw.includes("./js/admin.js"),'runtime admin precisa estar no cache da PWA');
 assert.ok(admin.includes("storageKey:'chama-sg-admin-auth-v1'"),'sessão admin deve ser isolada das sessões cliente/revenda');
 assert.ok(backend.includes("storage:sessionStorage")&&backend.includes("storageKey:'chama-sg-merchant-auth-v1'"),'sessão da revenda deve ser tab-scoped em sessionStorage');
