@@ -409,7 +409,7 @@ function merchantLiveCatalog(){
     <button class="primary" onclick="merchantLiveAddGlp()">Adicionar e confirmar</button>
   </div>`;
 
-  return shell(`<section class="page"><button class="back" onclick="go('merchant')">← Operação</button><h1 class="page-title">Catálogo real</h1><p class="muted">Cada SKU possui sua própria política e confirmação de preço. Em faixa automática, o Chama nunca oferece abaixo do mínimo nem acima do máximo autorizado.</p><div style="margin-top:16px">${addGlp}${rows}</div></section>`);
+  return shell(`<section class="page"><button class="back" onclick="go('merchant')">← Operação</button><h1 class="page-title">Catálogo real</h1><p class="muted">Cada SKU possui sua própria confirmação de preço e política comercial. Em faixa automática, o Chama nunca oferece abaixo do mínimo nem acima do máximo autorizado.</p><div style="margin-top:16px">${addGlp}${rows}</div></section>`);
 }
 
 async function merchantLiveAddGlp(){
