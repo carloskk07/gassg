@@ -12,7 +12,7 @@ const publishableKeys=JSON.parse(Deno.env.get("SUPABASE_PUBLISHABLE_KEYS")??"{}"
 const secretKeys=JSON.parse(Deno.env.get("SUPABASE_SECRET_KEYS")??"{}");
 const PUBLISHABLE_KEY=publishableKeys.default??Deno.env.get("SUPABASE_ANON_KEY")??"";
 const SECRET_KEY=secretKeys.default??Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")??"";
-const PROD_ORIGIN="https://carloskk07.github.io";
+const MERCHANT_ALLOWED_ORIGIN=(Deno.env.get("MERCHANT_ALLOWED_ORIGIN")??"").trim();
 const UUID_RE=/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const ACTIVE_STATUSES=[
   "OFFERED_TO_MERCHANT","MERCHANT_ACCEPTED","PREPARING","AT_RISK",
@@ -21,11 +21,11 @@ const ACTIVE_STATUSES=[
 
 function originAllowed(origin:string|null){
   if(!origin)return true;
-  if(origin===PROD_ORIGIN)return true;
-  return /^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(origin);
+  if(/^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(origin))return true;
+  return MERCHANT_ALLOWED_ORIGIN.length>0&&origin===MERCHANT_ALLOWED_ORIGIN;
 }
 function cors(origin:string|null){
-  const allowed=origin&&originAllowed(origin)?origin:PROD_ORIGIN;
+  const allowed=origin&&originAllowed(origin)?origin:(MERCHANT_ALLOWED_ORIGIN||"null");
   return {
     "Access-Control-Allow-Origin":allowed,
     "Access-Control-Allow-Headers":"authorization, apikey, content-type",
@@ -93,7 +93,7 @@ Deno.serve(async(req:Request)=>{
 
     const {data:merchant,error:merchantError}=await admin
       .from("merchants")
-      .select("id,name,status,online,trust_score,delivery_fee_cents,base_eta_minutes,accepts_citywide,price_confirmed_at,last_seen_at")
+      .select("id,name,status,online,trust_score,delivery_fee_cents,delivery_fee_confirmed_at,base_eta_minutes,accepts_citywide,last_seen_at")
       .eq("id",selected.merchant_id)
       .maybeSingle();
     if(merchantError)throw merchantError;
@@ -101,10 +101,34 @@ Deno.serve(async(req:Request)=>{
 
     const {data:catalog,error:catalogError}=await admin
       .from("catalog_items")
-      .select("product_code,product_name,price_cents,available_stock,active,updated_at")
+      .select("product_code,product_name,price_cents,available_stock,active,price_confirmed_at,updated_at")
       .eq("merchant_id",selected.merchant_id)
       .order("product_code");
     if(catalogError)throw catalogError;
+
+    const [
+      {data:compliance,error:complianceError},
+      {data:compliancePolicy,error:compliancePolicyError},
+      {data:cnpjCurrent,error:cnpjCurrentError},
+      {data:anpCurrent,error:anpCurrentError}
+    ]=await Promise.all([
+      admin
+        .from("merchant_compliance")
+        .select("cnpj_status,anp_status,cnpj_verified_at,anp_verified_at")
+        .eq("merchant_id",selected.merchant_id)
+        .maybeSingle(),
+      admin
+        .from("merchant_compliance_policy")
+        .select("cnpj_max_age_days,anp_max_age_days")
+        .eq("policy_key","default")
+        .maybeSingle(),
+      admin.rpc("merchant_cnpj_compliance_current",{p_merchant_id:selected.merchant_id}),
+      admin.rpc("merchant_anp_compliance_current",{p_merchant_id:selected.merchant_id})
+    ]);
+    if(complianceError)throw complianceError;
+    if(compliancePolicyError)throw compliancePolicyError;
+    if(cnpjCurrentError)throw cnpjCurrentError;
+    if(anpCurrentError)throw anpCurrentError;
 
     const {data:orders,error:ordersError}=await admin
       .from("orders")
@@ -150,8 +174,18 @@ Deno.serve(async(req:Request)=>{
         deliveryFeeCents:merchant.delivery_fee_cents,
         baseEtaMinutes:merchant.base_eta_minutes,
         acceptsCitywide:merchant.accepts_citywide,
-        priceConfirmedAt:merchant.price_confirmed_at,
-        lastSeenAt:merchant.last_seen_at
+        deliveryFeeConfirmedAt:merchant.delivery_fee_confirmed_at,
+        lastSeenAt:merchant.last_seen_at,
+        compliance:{
+          cnpjStatus:compliance?.cnpj_status??"pending",
+          anpStatus:compliance?.anp_status??"pending",
+          cnpjVerifiedAt:compliance?.cnpj_verified_at??null,
+          anpVerifiedAt:compliance?.anp_verified_at??null,
+          cnpjCurrent:cnpjCurrent===true,
+          anpCurrent:anpCurrent===true,
+          cnpjMaxAgeDays:Number(compliancePolicy?.cnpj_max_age_days??30),
+          anpMaxAgeDays:Number(compliancePolicy?.anp_max_age_days??7)
+        }
       },
       memberships:memberships
         .filter((m)=>["owner","manager","operator"].includes(m.member_role))
@@ -166,6 +200,7 @@ Deno.serve(async(req:Request)=>{
         priceCents:item.price_cents,
         availableStock:item.available_stock,
         active:item.active,
+        priceConfirmedAt:item.price_confirmed_at,
         updatedAt:item.updated_at
       })),
       orders:(orders??[]).map((o)=>({

@@ -15,11 +15,17 @@ const liveRuntime={
   loadingOffers:false,
   actionPending:false,
   error:null,
+  deliveryCompatibilityBlocked:false,
   lastSyncAt:null,
   offerRequestSeq:0,
   orderRequestSeq:0
 };
 
+function customerOriginSafe(){
+  if(['localhost','127.0.0.1'].includes(location.hostname))return true;
+  const configured=String(globalThis.CHAMA_CUSTOMER_ORIGIN||'').trim();
+  return configured.length>0&&location.origin===configured;
+}
 function liveRequested(){return liveRuntime.requested}
 function liveReady(){return liveRuntime.requested&&liveRuntime.status==='ready'}
 
@@ -55,6 +61,11 @@ async function backendInit(){
     liveRuntime.status='disabled';
     return false;
   }
+  if(!customerOriginSafe()){
+    liveRuntime.status='unsafe-origin';
+    liveRuntime.error='O piloto real do cliente exige uma origem dedicada e isolada.';
+    return false;
+  }
   if(liveRuntime.status==='ready')return true;
   liveRuntime.status='loading';
   liveRuntime.error=null;
@@ -65,7 +76,8 @@ async function backendInit(){
         persistSession:true,
         autoRefreshToken:true,
         detectSessionInUrl:true,
-        storageKey:'chama-sg-auth-v1'
+        storage:localStorage,
+        storageKey:'chama-sg-customer-auth-v2'
       }
     });
     liveRuntime.client=client;
@@ -74,7 +86,14 @@ async function backendInit(){
     if(error)throw error;
 
     if(!session){
-      const response=await client.auth.signInAnonymously();
+      if(!globalThis.chamaTurnstile?.challenge){
+        throw new Error('Proteção anti-bot indisponível');
+      }
+      const captchaToken=await globalThis.chamaTurnstile.challenge('anonymous_signin');
+      if(!captchaToken)throw new Error('Token anti-bot ausente');
+      const response=await client.auth.signInAnonymously({
+        options:{captchaToken}
+      });
       if(response.error)throw response.error;
       session=response.data.session;
     }
@@ -176,6 +195,7 @@ async function liveRefreshOffers({silent=false}={}){
   const seq=++liveRuntime.offerRequestSeq;
   if(!liveReady()||!state.address||!hasCartItems()){
     liveRuntime.offers=[];
+    liveRuntime.deliveryCompatibilityBlocked=false;
     liveRuntime.loadingOffers=false;
     if(!silent)render();
     return [];
@@ -183,6 +203,7 @@ async function liveRefreshOffers({silent=false}={}){
   const addressSnapshot=state.address;
   const itemsSnapshot=liveCartItems();
   liveRuntime.offers=[];
+  liveRuntime.deliveryCompatibilityBlocked=false;
   liveRuntime.loadingOffers=true;
   liveRuntime.error=null;
   if(!silent)render();
@@ -196,6 +217,7 @@ async function liveRefreshOffers({silent=false}={}){
     if(state.address!==addressSnapshot||JSON.stringify(liveCartItems())!==JSON.stringify(itemsSnapshot)){
       return liveRuntime.offers;
     }
+    liveRuntime.deliveryCompatibilityBlocked=data?.deliveryCompatibilityBlocked===true;
     liveRuntime.offers=(data?.offers||[])
       .map(liveOfferView)
       .filter(o=>Number.isFinite(Date.parse(o.expiresAt))&&Date.parse(o.expiresAt)>Date.now());
@@ -204,6 +226,7 @@ async function liveRefreshOffers({silent=false}={}){
   }catch(error){
     if(seq===liveRuntime.offerRequestSeq){
       liveRuntime.offers=[];
+      liveRuntime.deliveryCompatibilityBlocked=false;
       liveRuntime.error=String(error?.message||error);
     }
     throw error;
@@ -303,6 +326,7 @@ async function liveSyncFinancialProfile(){
     const summary=await liveInvoke('customer-summary',{});
     if(summary?.referralCode)state.user.referralCode=String(summary.referralCode).slice(0,40);
     state.user.cashback=Math.max(0,Number(summary?.cashbackCents||0)/100);
+    state.user.cashbackDebt=Math.max(0,Number(summary?.cashbackDebtCents||0)/100);
     state.user.commissionPending=Math.max(0,Number(summary?.commissionPendingCents||0)/100);
     state.user.commissionAvailable=Math.max(0,Number(summary?.commissionAvailableCents||0)/100);
     state.user.purchases=Math.max(0,Number(summary?.settledOrders||0));
@@ -364,12 +388,22 @@ const merchantRuntime={
   lastHeartbeatAt:0
 };
 
+function merchantOriginSafe(){
+  if(['localhost','127.0.0.1'].includes(location.hostname))return true;
+  const configured=String(globalThis.CHAMA_MERCHANT_ORIGIN||'').trim();
+  return configured.length>0&&location.origin===configured;
+}
 function merchantPortalRequested(){return merchantRuntime.requested}
 function merchantReady(){return merchantRuntime.requested&&merchantRuntime.status==='ready'}
 
 async function merchantBackendInit(){
   if(!merchantRuntime.requested){
     merchantRuntime.status='disabled';
+    return false;
+  }
+  if(!merchantOriginSafe()){
+    merchantRuntime.status='unsafe-origin';
+    merchantRuntime.error='O painel real da revenda exige uma origem dedicada e isolada.';
     return false;
   }
   if(['ready','no-access','unauthenticated'].includes(merchantRuntime.status)&&merchantRuntime.client)return merchantRuntime.status==='ready';
@@ -456,9 +490,11 @@ async function merchantSendLogin(email){
   const redirect=new URL(location.origin+location.pathname);
   redirect.searchParams.set('merchant','1');
   redirect.hash='merchant';
+  if(!globalThis.chamaTurnstile?.challenge)throw new Error('Proteção anti-bot indisponível');
+  const captchaToken=await globalThis.chamaTurnstile.challenge('merchant_login');
   const {error}=await merchantRuntime.client.auth.signInWithOtp({
     email:value,
-    options:{emailRedirectTo:redirect.toString(),shouldCreateUser:true}
+    options:{emailRedirectTo:redirect.toString(),shouldCreateUser:true,captchaToken}
   });
   if(error)throw error;
   merchantRuntime.notice='Enviamos um link de acesso para '+value+'. Abra-o neste navegador.';
@@ -535,8 +571,9 @@ async function merchantPerformAction(orderId,action,reason='other_operational'){
   try{
     const body={orderId,action,expectedVersion:order.version};
     if(action==='cannot-fulfill')body.reason=reason;
-    await merchantInvoke('merchant-action',body,{idempotencyKey:liveIdempotency('merchant-action')});
+    const result=await merchantInvoke('merchant-action',body,{idempotencyKey:liveIdempotency('merchant-action')});
     await merchantRefresh({silent:true});
+    return result;
   }catch(error){
     merchantRuntime.error=String(error?.message||error);
     try{await merchantRefresh({silent:true})}catch{}
@@ -661,6 +698,7 @@ function openCustomerPortal(){
 }
 
 globalThis.liveRuntime=liveRuntime;
+globalThis.customerOriginSafe=customerOriginSafe;
 globalThis.backendInit=backendInit;
 globalThis.liveRequested=liveRequested;
 globalThis.liveReady=liveReady;
@@ -674,6 +712,7 @@ globalThis.liveUpgradeAccount=liveUpgradeAccount;
 globalThis.livePoll=livePoll;
 globalThis.merchantRuntime=merchantRuntime;
 globalThis.merchantPortalRequested=merchantPortalRequested;
+globalThis.merchantOriginSafe=merchantOriginSafe;
 globalThis.merchantReady=merchantReady;
 globalThis.merchantBackendInit=merchantBackendInit;
 globalThis.merchantSendLogin=merchantSendLogin;

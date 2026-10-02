@@ -1,0 +1,83 @@
+// Cloudflare Turnstile helper for anonymous customer creation.
+// Loaded only when a new anonymous Supabase identity is required.
+(function(){
+  let scriptPromise=null;
+
+  function siteKey(){
+    return String(globalThis.CHAMA_TURNSTILE_SITE_KEY||'').trim();
+  }
+
+  function loadApi(){
+    if(globalThis.turnstile?.render)return Promise.resolve(globalThis.turnstile);
+    if(scriptPromise)return scriptPromise;
+
+    scriptPromise=new Promise((resolve,reject)=>{
+      const script=document.createElement('script');
+      script.src='https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit';
+      script.async=true;
+      script.defer=true;
+      script.dataset.chamaTurnstile='1';
+      script.onload=()=>{
+        if(globalThis.turnstile?.render)resolve(globalThis.turnstile);
+        else reject(new Error('Turnstile não inicializou'));
+      };
+      script.onerror=()=>reject(new Error('Falha ao carregar a verificação anti-bot'));
+      document.head.appendChild(script);
+    });
+    return scriptPromise;
+  }
+
+  async function challenge(action='auth'){
+    const key=siteKey();
+    const safeAction=/^[A-Za-z0-9_-]{1,32}$/.test(String(action))?String(action):'auth';
+    if(!key)throw new Error('Proteção anti-bot do piloto não configurada');
+    const api=await loadApi();
+
+    return new Promise((resolve,reject)=>{
+      const wrap=document.createElement('div');
+      wrap.dataset.chamaTurnstile='1';
+      wrap.setAttribute('role','dialog');
+      wrap.setAttribute('aria-modal','true');
+      wrap.innerHTML='<div class="turnstile-card"><strong>Verificação de segurança</strong><p>Conclua esta etapa para entrar no piloto.</p><div data-turnstile-host></div><button type="button" data-turnstile-cancel>Cancelar</button></div>';
+      document.body.appendChild(wrap);
+
+      const host=wrap.querySelector('[data-turnstile-host]');
+      const cancel=wrap.querySelector('[data-turnstile-cancel]');
+      let widgetId=null;
+      let settled=false;
+      const timer=setTimeout(()=>finish(false,new Error('A verificação de segurança expirou')),120000);
+
+      function cleanup(){
+        clearTimeout(timer);
+        if(widgetId!==null){
+          try{api.remove(widgetId)}catch{}
+        }
+        wrap.remove();
+      }
+      function finish(ok,value){
+        if(settled)return;
+        settled=true;
+        cleanup();
+        ok?resolve(value):reject(value);
+      }
+
+      cancel?.addEventListener('click',()=>finish(false,new Error('Verificação cancelada')),{once:true});
+
+      try{
+        widgetId=api.render(host,{
+          sitekey:key,
+          theme:'auto',
+          size:'flexible',
+          action:safeAction,
+          callback:(token)=>finish(true,String(token||'')),
+          'error-callback':()=>finish(false,new Error('A verificação de segurança falhou')),
+          'expired-callback':()=>{ try{api.reset(widgetId)}catch{} }
+        });
+      }catch(error){
+        finish(false,error instanceof Error?error:new Error('Falha ao iniciar Turnstile'));
+      }
+    });
+  }
+
+  globalThis.chamaTurnstile={siteKey,challenge};
+})();

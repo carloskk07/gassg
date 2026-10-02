@@ -23,10 +23,18 @@ jobs:
           deno-version: v2.x
       - name: Syntax check
         run: |
-          for f in js/*.js tests/*.mjs $(find supabase/functions -type f -name '*.js' 2>/dev/null); do
+          for f in js/*.js tests/*.mjs scripts/*.mjs $(find supabase/functions -type f -name '*.js' 2>/dev/null); do
             echo "Checking $f"
             node --check "$f"
           done
+      - name: Browser SDK SHA384 probe
+        run: |
+          curl --fail --silent --show-error --location \
+            'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.2/dist/umd/supabase.js' \
+            --output /tmp/supabase-browser.js
+          printf 'SUPABASE_BROWSER_SHA384=sha384-'
+          openssl dgst -sha384 -binary /tmp/supabase-browser.js | openssl base64 -A
+          printf '\n'
       - name: Edge Functions type and secret audit
         run: |
           if find supabase/functions -type f -name '*.ts' | grep -q .; then
@@ -43,6 +51,8 @@ jobs:
         run: node tests/simulations.mjs
       - name: Static trust and asset audit
         run: node tests/static-audit.mjs
+      - name: Runtime origin config contract
+        run: node tests/runtime-config.mjs
       - name: Backend security contract
         run: node tests/backend-contract.mjs
       - name: Runtime migration contract

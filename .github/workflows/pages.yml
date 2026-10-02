@@ -29,7 +29,7 @@ jobs:
           deno-version: v2.x
       - name: Syntax check
         run: |
-          for f in js/*.js tests/*.mjs $(find supabase/functions -type f -name '*.js' 2>/dev/null); do
+          for f in js/*.js tests/*.mjs scripts/*.mjs $(find supabase/functions -type f -name '*.js' 2>/dev/null); do
             echo "Checking $f"
             node --check "$f"
           done
@@ -49,6 +49,8 @@ jobs:
         run: node tests/simulations.mjs
       - name: Static trust and asset audit
         run: node tests/static-audit.mjs
+      - name: Runtime origin config contract
+        run: node tests/runtime-config.mjs
       - name: Backend security contract
         run: node tests/backend-contract.mjs
       - name: Runtime migration contract

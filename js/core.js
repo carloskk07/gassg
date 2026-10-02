@@ -28,6 +28,8 @@ const makePin=()=>{
 
 const products={
   P13:{name:'Gás P13',icon:'🔥'},
+  P20:{name:'Gás P20',icon:'🔥'},
+  P45:{name:'Gás P45',icon:'🔥'},
   WATER20:{name:'Água 20 L',icon:'💧'},
   CHARCOAL4:{name:'Carvão 4 kg',icon:'⚫'},
   WOOD:{name:'Lenha',icon:'🪵'},
@@ -39,7 +41,7 @@ function freshMerchant(id,name,priceP13,eta,distance,trust,inventory,prices){
   return {
     id,name,priceP13,deliveryFee:0,eta,distance,online:true,trust,
     accepted:0,delivered:0,priceConfirmedAt:ts,lastSeenAt:ts,
-    inventory:{P13:inventory.P13??0,WATER20:inventory.WATER20??0,CHARCOAL4:inventory.CHARCOAL4??0,WOOD:inventory.WOOD??0,ICE5:inventory.ICE5??0},
+    inventory:{P13:inventory.P13??0,P20:inventory.P20??0,P45:inventory.P45??0,WATER20:inventory.WATER20??0,CHARCOAL4:inventory.CHARCOAL4??0,WOOD:inventory.WOOD??0,ICE5:inventory.ICE5??0},
     products:{WATER20:prices.WATER20??null,CHARCOAL4:prices.CHARCOAL4??null,WOOD:prices.WOOD??null,ICE5:prices.ICE5??null}
   };
 }
@@ -48,9 +50,9 @@ function freshSeed(){
   return {
     version:STATE_VERSION,
     mode:'customer',
-    user:{name:'Carlos',cashback:7.50,purchases:4,referralCode:'CARLOS27',commissionAvailable:0,commissionPending:0,referredBy:null,cashEarningEligible:true,identityType:'demo'},
+    user:{name:'Carlos',cashback:7.50,cashbackDebt:0,purchases:4,referralCode:'CARLOS27',commissionAvailable:0,commissionPending:0,referredBy:null,cashEarningEligible:true,identityType:'demo'},
     address:'',
-    cart:{P13:0,WATER20:0,CHARCOAL4:0,WOOD:0,ICE5:0},
+    cart:{P13:0,P20:0,P45:0,WATER20:0,CHARCOAL4:0,WOOD:0,ICE5:0},
     checkout:{paymentMethod:'pix',useCashback:false},
     merchants:[
       freshMerchant('A','Revenda Parceira A',116.90,34,3.8,94,{P13:24,WATER20:18,CHARCOAL4:12,WOOD:8,ICE5:14},{WATER20:15.90,CHARCOAL4:19.90,WOOD:24.90,ICE5:12.00}),
@@ -94,6 +96,7 @@ function normalizeState(raw){
   merged.version=STATE_VERSION;
   merged.user={...base.user,...(raw.user||{})};
   merged.user.cashback=Math.max(0,roundMoney(Number(merged.user.cashback)||0));
+  merged.user.cashbackDebt=Math.max(0,roundMoney(Number(merged.user.cashbackDebt)||0));
   merged.user.purchases=Math.max(0,Math.trunc(Number(merged.user.purchases)||0));
   merged.user.commissionAvailable=Math.max(0,roundMoney(Number(merged.user.commissionAvailable)||0));
   merged.user.commissionPending=Math.max(0,roundMoney(Number(merged.user.commissionPending)||0));
@@ -117,21 +120,49 @@ function normalizeState(raw){
 }
 
 let storageHealthy=true;
+function isLiveStateScope(){
+  return new URLSearchParams(location.search).get('live')==='1';
+}
+function appStateStorage(){
+  return isLiveStateScope()?sessionStorage:localStorage;
+}
+function freshLiveSeed(){
+  const seed=freshSeed();
+  seed.user={
+    ...seed.user,
+    name:'',
+    cashback:0,
+    purchases:0,
+    referralCode:'',
+    commissionAvailable:0,
+    commissionPending:0,
+    referredBy:null,
+    cashEarningEligible:false,
+    identityType:'anonymous'
+  };
+  seed.address='';
+  seed.cart=normalizeCart({});
+  seed.orders=[];
+  seed.onboarding=[];
+  return seed;
+}
 function load(){
   try{
-    const raw=localStorage.getItem(STORAGE)??localStorage.getItem(LEGACY_STORAGE);
+    const storage=appStateStorage();
+    const raw=storage.getItem(STORAGE)??(!isLiveStateScope()?localStorage.getItem(LEGACY_STORAGE):null);
+    if(!raw&&isLiveStateScope())return freshLiveSeed();
     return normalizeState(raw?JSON.parse(raw):null);
   }catch(e){
     storageHealthy=false;
     console.warn('Falha ao carregar estado local',e);
-    return freshSeed();
+    return isLiveStateScope()?freshLiveSeed():freshSeed();
   }
 }
 let state=load();
 
 function save(){
   try{
-    localStorage.setItem(STORAGE,JSON.stringify(state));
+    appStateStorage().setItem(STORAGE,JSON.stringify(state));
     storageHealthy=true;
     return true;
   }catch(e){
@@ -372,9 +403,22 @@ function reassignOrderAfterRequoteLoss(o){
 }
 function customerCancel(id){
   const o=orderById(id);
-  if(!o||!['OFFERED_TO_MERCHANT','REQUOTE_REQUIRED'].includes(o.status))return {ok:false,error:'Este pedido já avançou e precisa de suporte para cancelamento'};
-  transition(o,'CANCELLED','Cancelado pelo cliente','O pedido foi cancelado antes do compromisso de entrega.');
-  restoreCashback(o);save();return {ok:true};
+  if(!o)return {ok:false,error:'Pedido não encontrado'};
+  if(['OFFERED_TO_MERCHANT','REQUOTE_REQUIRED'].includes(o.status)){
+    transition(o,'CANCELLED','Cancelado pelo cliente','O pedido foi cancelado antes do compromisso de entrega.');
+    restoreCashback(o);save();return {ok:true};
+  }
+  if(['PREPARING','AT_RISK'].includes(o.status)&&!o.dispatchedAt){
+    const m=merchantById(o.merchantId);
+    if(o.inventoryReserved){
+      releaseInventory(m,o.cart);
+      o.inventoryReserved=false;
+    }
+    const r=transition(o,'CANCELLED','Cancelado antes da saída','O estoque reservado foi devolvido antes da saída.');
+    if(!r.ok)return r;
+    restoreCashback(o);save();return {ok:true};
+  }
+  return {ok:false,error:'A entrega já saiu; o cancelamento automático não é mais permitido'};
 }
 function acceptOrder(id){
   const o=orderById(id); if(!o||o.status!=='OFFERED_TO_MERCHANT')return {ok:false,error:'Pedido não está aguardando aceite'};
@@ -525,6 +569,9 @@ function runtimeStrip(){
     if(status==='no-access'){
       return '<div class="demo-strip blocked-strip"><span>Conta autenticada, mas ainda sem revenda vinculada</span><button onclick="openCustomerPortal()">Voltar ao site</button></div>';
     }
+    if(status==='unsafe-origin'){
+      return '<div class="demo-strip blocked-strip"><span>Painel real bloqueado nesta origem compartilhada</span><button onclick="openCustomerPortal()">Voltar ao site</button></div>';
+    }
     return '<div class="demo-strip blocked-strip"><span>Painel da revenda indisponível no momento</span><button onclick="openCustomerPortal()">Voltar ao site</button></div>';
   }
   if(!globalThis.liveRequested?.()){
@@ -537,7 +584,10 @@ function runtimeStrip(){
   if(mode==='connecting'){
     return '<div class="demo-strip live-strip"><span>Conectando ao backend real do piloto…</span></div>';
   }
-  return '<div class="demo-strip blocked-strip"><span>Modo live solicitado, mas o Auth do piloto ainda não está disponível</span><button onclick="openCustomerPortal()">Abrir demonstração</button></div>';
+  if(globalThis.liveRuntime?.status==='unsafe-origin'){
+    return '<div class="demo-strip blocked-strip"><span>Piloto real bloqueado nesta origem compartilhada • use uma origem dedicada</span><button onclick="openCustomerPortal()">Abrir demonstração</button></div>';
+  }
+  return '<div class="demo-strip blocked-strip"><span>Modo live solicitado, mas o backend do piloto não está disponível</span><button onclick="openCustomerPortal()">Abrir demonstração</button></div>';
 }
 function shell(content){
   const r=route();

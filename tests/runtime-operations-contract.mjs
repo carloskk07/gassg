@@ -25,6 +25,39 @@ const settlementIndex=fs.readFileSync(new URL('../supabase/migrations/2026100111
 const adminControl=fs.readFileSync(new URL('../supabase/migrations/20261001118000_admin_control_plane.sql',import.meta.url),'utf8');
 const adminReversal=fs.readFileSync(new URL('../supabase/migrations/20261001119000_admin_reversal_authority.sql',import.meta.url),'utf8');
 const adminIndexes=fs.readFileSync(new URL('../supabase/migrations/20261001120000_admin_compliance_fk_indexes.sql',import.meta.url),'utf8');
+const adminIdem=fs.readFileSync(new URL('../supabase/migrations/20261001121000_admin_action_idempotency.sql',import.meta.url),'utf8');
+const cashbackRestore=fs.readFileSync(new URL('../supabase/migrations/20261001122000_restore_spent_cashback_on_reversal.sql',import.meta.url),'utf8');
+const rewardRetry=fs.readFileSync(new URL('../supabase/migrations/20261001123000_fault_tolerant_reward_processing.sql',import.meta.url),'utf8');
+const adminState=fs.readFileSync(new URL('../supabase/migrations/20261001124000_admin_state_transition_hardening.sql',import.meta.url),'utf8');
+const complianceContinuity=fs.readFileSync(new URL('../supabase/migrations/20261001125000_continuous_compliance_enforcement.sql',import.meta.url),'utf8');
+const glpGate=fs.readFileSync(new URL('../supabase/migrations/20261001126000_generalize_glp_regulatory_gate.sql',import.meta.url),'utf8');
+const rewardLifecycle=fs.readFileSync(new URL('../supabase/migrations/20261001127000_reward_retry_lifecycle_cleanup.sql',import.meta.url),'utf8');
+const skuFresh=fs.readFileSync(new URL('../supabase/migrations/20261001128000_per_sku_price_freshness.sql',import.meta.url),'utf8');
+const deliveryCompatibility=fs.readFileSync(new URL('../supabase/migrations/20261001130000_delivery_compatibility_authority.sql',import.meta.url),'utf8');
+const deliveryEnforcement=fs.readFileSync(new URL('../supabase/migrations/20261001131000_enforce_delivery_compatibility.sql',import.meta.url),'utf8');
+const deliveryAdmin=fs.readFileSync(new URL('../supabase/migrations/20261001132000_admin_delivery_capability_control.sql',import.meta.url),'utf8');
+const deliveryIndexes=fs.readFileSync(new URL('../supabase/migrations/20261001133000_delivery_capability_index_hygiene.sql',import.meta.url),'utf8');
+const referralRisk=fs.readFileSync(new URL('../supabase/migrations/20261001134000_referral_fraud_review_authority.sql',import.meta.url),'utf8');
+const acceptRace=fs.readFileSync(new URL('../supabase/migrations/20261001135000_accept_time_race_rescue.sql',import.meta.url),'utf8');
+const referralReversalGuard=fs.readFileSync(new URL('../supabase/migrations/20261001136000_referral_review_reversal_guard.sql',import.meta.url),'utf8');
+const referralConcurrency=fs.readFileSync(new URL('../supabase/migrations/20261001137000_referral_risk_concurrency_lock.sql',import.meta.url),'utf8');
+const atomicRescue=fs.readFileSync(new URL('../supabase/migrations/20261001138000_atomic_rescue_candidate_locking.sql',import.meta.url),'utf8');
+const rewardDeadLetter=fs.readFileSync(new URL('../supabase/migrations/20261001139000_reward_retry_dead_letter.sql',import.meta.url),'utf8');
+const adminRewardRecovery=fs.readFileSync(new URL('../supabase/migrations/20261001140000_admin_reward_recovery.sql',import.meta.url),'utf8');
+const settlementAccounting=fs.readFileSync(new URL('../supabase/migrations/20261001141000_settlement_accounting_decoupling.sql',import.meta.url),'utf8');
+const strictAccountingReward=fs.readFileSync(new URL('../supabase/migrations/20261001150000_strict_accounting_reward_separation.sql',import.meta.url),'utf8');
+const deterministicClocks=fs.readFileSync(new URL('../supabase/migrations/20261001151000_deterministic_settlement_clocks.sql',import.meta.url),'utf8');
+const impossibleStates=fs.readFileSync(new URL('../supabase/migrations/20261001152000_impossible_order_states.sql',import.meta.url),'utf8');
+const generalizedGlpDelivery=fs.readFileSync(new URL('../supabase/migrations/20261001153000_generalized_glp_delivery_compatibility.sql',import.meta.url),'utf8');
+const complianceFreshness=fs.readFileSync(new URL('../supabase/migrations/20261001154000_compliance_freshness_authority.sql',import.meta.url),'utf8');
+const realtimeCompliance=fs.readFileSync(new URL('../supabase/migrations/20261001155000_realtime_compliance_eligibility.sql',import.meta.url),'utf8');
+const adminAccountingRecovery=fs.readFileSync(new URL('../supabase/migrations/20261001142000_admin_settlement_accounting_recovery.sql',import.meta.url),'utf8');
+const noUnsafeOffset=fs.readFileSync(new URL('../supabase/migrations/20261001143000_disable_unsafe_cashback_offset.sql',import.meta.url),'utf8');
+const customerCancel=fs.readFileSync(new URL('../supabase/migrations/20261001144000_customer_cancel_before_dispatch.sql',import.meta.url),'utf8');
+const adminBootstrap=fs.readFileSync(new URL('../supabase/migrations/20261001145000_admin_bootstrap_continuity.sql',import.meta.url),'utf8');
+const adminMgmtIdem=fs.readFileSync(new URL('../supabase/migrations/20261001146000_admin_management_idempotency.sql',import.meta.url),'utf8');
+const strictOrderState=fs.readFileSync(new URL('../supabase/migrations/20261001147000_strict_order_state_invariants.sql',import.meta.url),'utf8');
+const noLegacyOffsetReversal=fs.readFileSync(new URL('../supabase/migrations/20261001148000_remove_legacy_offset_reversal.sql',import.meta.url),'utf8');
 const r=repricing.replace(/--.*$/gm,'').replace(/\s+/g,' ').toLowerCase();
 const w=watchdog.replace(/--.*$/gm,'').replace(/\s+/g,' ').toLowerCase();
 const h=hardening.replace(/--.*$/gm,'').replace(/\s+/g,' ').toLowerCase();
@@ -49,6 +82,39 @@ const si=settlementIndex.replace(/--.*$/gm,'').replace(/\s+/g,' ').toLowerCase()
 const ad=adminControl.replace(/--.*$/gm,'').replace(/\s+/g,' ').toLowerCase();
 const ar=adminReversal.replace(/--.*$/gm,'').replace(/\s+/g,' ').toLowerCase();
 const ai=adminIndexes.replace(/--.*$/gm,'').replace(/\s+/g,' ').toLowerCase();
+const adm=adminIdem.replace(/--.*$/gm,'').replace(/\s+/g,' ').toLowerCase();
+const cr=cashbackRestore.replace(/--.*$/gm,'').replace(/\s+/g,' ').toLowerCase();
+const fr=rewardRetry.replace(/--.*$/gm,'').replace(/\s+/g,' ').toLowerCase();
+const ast=adminState.replace(/--.*$/gm,'').replace(/\s+/g,' ').toLowerCase();
+const cc=complianceContinuity.replace(/--.*$/gm,'').replace(/\s+/g,' ').toLowerCase();
+const gg=glpGate.replace(/--.*$/gm,'').replace(/\s+/g,' ').toLowerCase();
+const rl=rewardLifecycle.replace(/--.*$/gm,'').replace(/\s+/g,' ').toLowerCase();
+const pf=skuFresh.replace(/--.*$/gm,'').replace(/\s+/g,' ').toLowerCase();
+const dc=deliveryCompatibility.replace(/--.*$/gm,'').replace(/\s+/g,' ').toLowerCase();
+const de=deliveryEnforcement.replace(/--.*$/gm,'').replace(/\s+/g,' ').toLowerCase();
+const da=deliveryAdmin.replace(/--.*$/gm,'').replace(/\s+/g,' ').toLowerCase();
+const di=deliveryIndexes.replace(/--.*$/gm,'').replace(/\s+/g,' ').toLowerCase();
+const rf=referralRisk.replace(/--.*$/gm,'').replace(/\s+/g,' ').toLowerCase();
+const xr=acceptRace.replace(/--.*$/gm,'').replace(/\s+/g,' ').toLowerCase();
+const rrg=referralReversalGuard.replace(/--.*$/gm,'').replace(/\s+/g,' ').toLowerCase();
+const rc=referralConcurrency.replace(/--.*$/gm,'').replace(/\s+/g,' ').toLowerCase();
+const arc=atomicRescue.replace(/--.*$/gm,'').replace(/\s+/g,' ').toLowerCase();
+const rdl=rewardDeadLetter.replace(/--.*$/gm,'').replace(/\s+/g,' ').toLowerCase();
+const arr=adminRewardRecovery.replace(/--.*$/gm,'').replace(/\s+/g,' ').toLowerCase();
+const sa=settlementAccounting.replace(/--.*$/gm,'').replace(/\s+/g,' ').toLowerCase();
+const sar=strictAccountingReward.replace(/--.*$/gm,'').replace(/\s+/g,' ').toLowerCase();
+const dsc=deterministicClocks.replace(/--.*$/gm,'').replace(/\s+/g,' ').toLowerCase();
+const ios=impossibleStates.replace(/--.*$/gm,'').replace(/\s+/g,' ').toLowerCase();
+const ggd=generalizedGlpDelivery.replace(/--.*$/gm,'').replace(/\s+/g,' ').toLowerCase();
+const cf=complianceFreshness.replace(/--.*$/gm,'').replace(/\s+/g,' ').toLowerCase();
+const rtc=realtimeCompliance.replace(/--.*$/gm,'').replace(/\s+/g,' ').toLowerCase();
+const aar=adminAccountingRecovery.replace(/--.*$/gm,'').replace(/\s+/g,' ').toLowerCase();
+const nuo=noUnsafeOffset.replace(/--.*$/gm,'').replace(/\s+/g,' ').toLowerCase();
+const cnc=customerCancel.replace(/--.*$/gm,'').replace(/\s+/g,' ').toLowerCase();
+const ab=adminBootstrap.replace(/--.*$/gm,'').replace(/\s+/g,' ').toLowerCase();
+const ami=adminMgmtIdem.replace(/--.*$/gm,'').replace(/\s+/g,' ').toLowerCase();
+const sos=strictOrderState.replace(/--.*$/gm,'').replace(/\s+/g,' ').toLowerCase();
+const nlor=noLegacyOffsetReversal.replace(/--.*$/gm,'').replace(/\s+/g,' ').toLowerCase();
 
 assert.match(r,/create table if not exists public\.order_requote_items/,'re-cotação precisa congelar preços por item');
 assert.match(r,/revoke all on table public\.order_requote_items from anon, authenticated/,'snapshot de re-cotação deve ser server-only');
@@ -195,4 +261,287 @@ assert.match(ar,/platform_admin_audit/,'reversão e auditoria precisam ocorrer n
 assert.match(ai,/merchant_compliance_verified_by_idx/,'FK verified_by do compliance precisa de índice');
 assert.match(ai,/platform_admins_created_by_idx/,'FK created_by da allowlist admin precisa de índice');
 
-console.log('Requote + watchdog + hardening v1.7.2 contract passou.');
+assert.match(adm,/create or replace function public\.admin_execute_action/,'mutações admin precisam de autoridade idempotente única');
+assert.match(adm,/insert into public\.action_requests/,'admin deve registrar chave idempotente');
+assert.match(adm,/idempotency_conflict/,'reuso de chave com payload diferente precisa falhar');
+assert.match(adm,/grant execute on function public\.admin_execute_action[\s\S]*to postgres, service_role/,'autoridade idempotente admin deve ser server-only');
+
+assert.match(cr,/restore_spent_cashback_on_financial_reversal/,'reversão deve devolver cashback usado no pedido');
+assert.match(cr,/cashback_reserved_cents/,'devolução deve usar exatamente o cashback consumido');
+assert.match(cr,/cashback-spent-return/,'devolução de cashback deve ser idempotente por pedido');
+assert.match(cr,/after insert on public\.order_financial_reversals/,'cashback gasto deve voltar na mesma transação da reversão');
+
+assert.match(fr,/v_order\.financial_state<>'settled'/,'reward grant precisa rejeitar pedido financeiramente revertido');
+assert.match(fr,/financial_reversed_at is not null/,'reward grant precisa bloquear reversão financeira já registrada');
+assert.match(fr,/create table if not exists public\.reward_processing_failures/,'falhas de reward precisam ser persistidas server-side');
+assert.match(fr,/exception when others[\s\S]*reward_processing_failures/,'falha de reward não pode derrubar settlement operacional');
+assert.match(fr,/process_deferred_order_rewards/,'rewards adiados precisam de retry idempotente');
+assert.match(fr,/o\.financial_state='settled'/,'retry só pode atuar em settlement financeiro válido');
+assert.match(fr,/g\.order_id is null/,'retry não pode duplicar reward já concedido');
+assert.match(fr,/chama-reward-retry/,'retry de rewards precisa de cron dedicado');
+
+assert.match(ast,/merchant_applications_one_live_cnpj_idx/,'deve existir apenas uma aplicação viva por CNPJ');
+assert.match(ast,/merchant_ownership_conflict/,'aprovação deve bloquear owner conflitante');
+assert.match(ast,/alreadyapproved/,'aprovação repetida precisa ser idempotente por estado');
+assert.match(ast,/alreadyrejected/,'rejeição repetida precisa ser idempotente por estado');
+assert.match(ast,/alreadyinstate/,'ativação ou suspensão repetida não pode alterar operação');
+assert.match(ast,/if v_merchant\.status=p_status then[\s\S]*online',/,'estado repetido deve preservar flag online');
+assert.match(ast,/invalid_merchant_status_transition/,'transições administrativas inválidas precisam falhar');
+
+assert.match(cc,/enforce_compliance_continuity/,'compliance deve ser reavaliado depois da ativação');
+assert.match(cc,/v_cnpj_status<>'verified'/,'CNPJ não verificado deve suspender revenda ativa');
+assert.match(cc,/v_has_active_p13 and v_anp_status<>'verified'/,'P13 ativo exige ANP continuamente verificada');
+assert.match(cc,/set status='suspended',[\s\S]*online=false/,'perda de compliance precisa derrubar operação imediatamente');
+assert.match(cc,/before delete[\s\S]*merchant_compliance/,'remoção da validação também deve suspender operação');
+assert.doesNotMatch(cc,/set status='active'/,'recuperar compliance não pode reativar automaticamente');
+
+assert.match(gg,/is_glp_product_code/,'gate regulatório deve identificar semanticamente qualquer SKU GLP');
+assert.match(gg,/between 1 and 90/,'convenção de GLP deve cobrir recipientes P1 até P90');
+assert.match(gg,/enforce_glp_catalog_compliance_trg/,'catálogo deve bloquear GLP irregular independentemente do tamanho');
+assert.match(gg,/glp_regulatory_verification_required/,'falha regulatória genérica de GLP precisa existir');
+assert.match(gg,/public\.is_glp_product_code\(ci\.product_code\)/,'ativação e continuidade devem detectar qualquer produto GLP ativo');
+assert.match(gg,/drop function if exists public\.enforce_p13_catalog_compliance/,'gate antigo P13-only deve ser removido');
+assert.doesNotMatch(gg,/ci\.product_code='p13'/,'gate atual não pode voltar a depender exclusivamente do P13');
+
+assert.match(rl,/resolve_reward_processing_failure/,'fila de reward precisa limpar falha já resolvida');
+assert.match(rl,/after insert on public\.order_reward_grants/,'grant bem-sucedido precisa encerrar falha pendente');
+assert.match(rl,/new\.financial_state='reversed'/,'reversão financeira precisa encerrar retry inviável');
+assert.match(rl,/resolved_at=coalesce\(resolved_at,clock_timestamp\(\)\)/,'resolução da fila precisa ser idempotente');
+
+assert.match(pf,/alter table public\.catalog_items[\s\S]*price_confirmed_at timestamptz/,'cada SKU precisa de relógio de confirmação próprio');
+assert.match(pf,/alter table public\.merchants[\s\S]*delivery_fee_confirmed_at timestamptz/,'taxa de entrega precisa de relógio independente');
+assert.match(pf,/for share of ci/,'snapshot de cotação precisa bloquear SKUs durante a captura');
+assert.match(pf,/ci\.price_confirmed_at>=clock_timestamp\(\)-interval '24 hours'/,'quote e rescue só podem usar SKU fresco');
+assert.match(pf,/m\.delivery_fee_confirmed_at>=clock_timestamp\(\)-interval '24 hours'/,'rescue só pode usar taxa de entrega fresca');
+assert.match(pf,/v_merchant\.delivery_fee_confirmed_at<clock_timestamp\(\)-interval '24 hours'/,'quote precisa validar freshness da taxa no banco');
+assert.doesNotMatch(pf,/v_merchant\.price_confirmed_at<clock_timestamp\(\)-interval '24 hours'/,'quote atual não pode depender do relógio global legado');
+
+assert.match(dc,/create table if not exists public\.product_delivery_profiles/,'produtos precisam de perfil logístico server-side');
+assert.match(dc,/requires_isolated_delivery/,'perfil logístico precisa suportar carga que exige isolamento');
+assert.match(dc,/regulated_glp_mixed_load_verified/,'cesta GLP mista precisa de capability explícita');
+assert.match(dc,/v_profiled<>v_requested/,'produto sem perfil logístico deve falhar fechado');
+assert.match(dc,/filter_delivery_compatible_merchants/,'matching precisa de filtro bulk de compatibilidade');
+assert.match(de,/quote_delivery_compatibility_guard/,'quote_items precisam de constraint trigger de compatibilidade');
+assert.match(de,/order_item_delivery_compatibility_guard/,'order_items precisam de constraint trigger de compatibilidade');
+assert.match(de,/order_delivery_transition_compatibility_guard/,'troca de fornecedor e despacho precisam revalidar compatibilidade');
+assert.match(de,/new\.status in \('preparing','out_for_delivery'\)/,'aceite e saída precisam revalidar capacidade logística');
+assert.match(de,/public\.merchant_cart_delivery_compatible[\s\S]*m\.id/,'rescue precisa pular revenda incompatível');
+assert.match(de,/delivery_incompatible/,'falha de compatibilidade deve ter erro semântico próprio');
+assert.match(da,/admin_set_delivery_capability/,'capacidade logística precisa de autoridade admin');
+assert.match(da,/v_compliance\.cnpj_status<>'verified'/,'capability exige CNPJ verificado');
+assert.match(da,/v_compliance\.anp_status<>'verified'/,'capability GLP exige ANP verificada');
+assert.match(da,/admin_delivery_capability_action/,'alteração de capability precisa ser idempotente');
+assert.match(da,/platform_admin_audit/,'capability precisa deixar trilha de auditoria');
+
+assert.match(di,/merchant_delivery_capabilities_verified_by_idx/,'FK verified_by da capability precisa de índice');
+assert.match(di,/drop index if exists public\.merchant_applications_live_cnpj_idx/,'índice CNPJ duplicado precisa permanecer removido');
+
+assert.match(rf,/create table if not exists public\.referral_reward_reviews/,'comissões de indicação precisam de review server-side');
+assert.match(rf,/same_delivery_address_as_referrer/,'mesmo endereço do indicador precisa gerar sinal de risco');
+assert.match(rf,/high_referral_velocity_24h/,'alta velocidade de indicações precisa gerar sinal');
+assert.match(rf,/multiple_referred_accounts_same_address/,'múltiplas contas no mesmo endereço precisam de sinal');
+assert.match(rf,/risk_status not in \('clear','approved'\)/,'maturação deve falhar fechada sem review elegível');
+assert.match(rf,/v_referrer_is_anonymous is true/,'indicador anônimo não pode receber comissão disponível');
+assert.match(rf,/v_referred_is_anonymous is true/,'comprador anônimo não pode liberar comissão ao indicador');
+assert.match(rf,/referral_pending_rejected/,'rejeição antes da maturação precisa estornar saldo pendente');
+assert.match(rf,/referral_available_rejected/,'rejeição posterior precisa permitir clawback do disponível');
+assert.match(rf,/platform_contribution_cents=platform_contribution_cents\+v_amount/,'comissão rejeitada deve voltar para contribuição');
+assert.match(rf,/admin_referral_review_action/,'decisão admin de referral precisa ser idempotente');
+assert.match(rf,/platform_admin_audit/,'review de referral precisa deixar trilha administrativa');
+
+assert.match(xr,/create or replace function public\.rescue_offered_order_now/,'aceite deve possuir autoridade única de rescue imediato');
+assert.match(xr,/for update/,'aceite concorrente precisa bloquear estoque antes da reserva');
+assert.match(xr,/stock_changed_before_accept/,'mudança de estoque no instante do aceite deve acionar rescue');
+assert.match(xr,/delivery_capability_changed_before_accept/,'mudança de capability logística deve acionar rescue');
+assert.match(xr,/merchant_unavailable_before_accept/,'revenda indisponível no aceite deve acionar rescue');
+assert.match(xr,/accepted',false/,'rescue deve retornar resultado explícito de não aceite');
+assert.match(xr,/autorescued',true/,'cliente operacional precisa distinguir rescue automático');
+assert.match(xr,/public\.system_rescue_order\(v_order\.id,p_reason\)/,'rescue imediato deve reutilizar ranking central');
+assert.doesNotMatch(xr,/raise exception 'insufficient_stock'/,'corrida de estoque no aceite não deve deixar pedido parado por erro');
+
+assert.match(rrg,/v_grant\.reversed_at is not null and p_decision='approved'/,'reward revertido não pode ser aprovado depois da reversão');
+assert.match(rrg,/referral_reward_already_reversed/,'aprovação tardia precisa falhar semanticamente');
+assert.match(rrg,/if v_grant\.reversed_at is not null then[\s\S]*v_amount:=0/,'rejeição tardia não pode debitar comissão novamente');
+assert.match(rrg,/rewardalreadyreversed/,'auditoria precisa registrar que o reward já estava revertido');
+
+assert.match(rc,/pg_advisory_xact_lock[\s\S]*referral-risk:/,'grant de referral precisa serializar por indicador');
+assert.match(rc,/v_referrer is not null and v_referral_amount>0/,'lock de referral só deve ocorrer quando existe comissão');
+assert.match(rc,/insert into public\.order_reward_grants/,'lock precisa anteceder a inserção que dispara análise de risco');
+
+assert.match(arc,/for update skip locked/,'rescue precisa bloquear candidata sem esperar indefinidamente');
+assert.match(arc,/from public\.merchants[\s\S]*for update skip locked/,'merchant candidato precisa ser travado antes da troca');
+assert.match(arc,/from public\.catalog_items[\s\S]*for update skip locked/,'SKUs candidatos precisam ser travados antes do snapshot');
+assert.match(arc,/v_locked_items<>v_expected_items/,'rescue deve rejeitar snapshot parcial');
+assert.match(arc,/price_confirmed_at<clock_timestamp\(\)-interval '24 hours'/,'rescue deve revalidar freshness de SKU sob lock');
+assert.match(arc,/delivery_fee_confirmed_at<clock_timestamp\(\)-interval '24 hours'/,'rescue deve revalidar taxa sob lock');
+assert.match(arc,/price and stock were revalidated|preço e estoque foram revalidados/,'evento de rescue deve registrar revalidação atômica');
+
+assert.match(rdl,/dead_lettered_at/,'falha de reward precisa possuir estado dead-letter');
+assert.match(rdl,/attempts>=8/,'retry automático precisa ter limite de tentativas');
+assert.match(rdl,/record_reward_processing_failure/,'registro de falha deve ser autoridade única');
+assert.match(rdl,/when 1 then 5[\s\S]*when 6 then 240[\s\S]*else 360/,'retry deve usar backoff progressivo');
+assert.match(rdl,/dead_lettered_at is null[\s\S]*next_retry_at is not null/,'worker não pode reprocessar dead-letter automaticamente');
+assert.match(arr,/admin_retry_order_reward/,'admin precisa de recuperação manual de reward');
+assert.match(arr,/pg_advisory_xact_lock[\s\S]*reward:/,'retry manual deve serializar com grant e reversal');
+assert.match(arr,/record_reward_processing_failure/,'retry manual falho precisa retornar à autoridade de falha');
+assert.match(arr,/reward_retry_succeeded/,'sucesso manual precisa deixar auditoria');
+assert.match(arr,/reward_retry_failed/,'falha manual precisa deixar auditoria');
+assert.match(arr,/admin_reward_retry_action/,'retry manual precisa ser idempotente');
+
+assert.match(sa,/ensure_order_settlement_accounting/,'contabilidade de settlement precisa de autoridade própria');
+assert.match(sa,/insert into public\.platform_receivables/,'taxa da plataforma deve nascer fora do reward engine');
+assert.match(sa,/insert into public\.merchant_cashback_reimbursements/,'reembolso de cashback deve nascer fora do reward engine');
+assert.match(sa,/settlement_accounting_failures/,'falha contábil precisa de fila própria');
+assert.match(sa,/process_deferred_settlement_accounting/,'contabilidade precisa de retry independente');
+assert.match(sa,/dead_lettered_at/,'retry contábil precisa de dead-letter');
+assert.match(sa,/chama-settlement-accounting-retry/,'retry contábil precisa de cron próprio');
+assert.match(sa,/perform public\.ensure_order_settlement_accounting\(new\.id\)[\s\S]*perform public\.grant_order_rewards\(new\.id\)/,'settlement deve processar contabilidade antes de rewards em blocos independentes');
+assert.match(aar,/admin_retry_settlement_accounting/,'admin precisa recuperar dívida contábil');
+assert.match(aar,/settlement_accounting_retry_succeeded/,'sucesso contábil manual precisa de auditoria');
+assert.match(aar,/settlement_accounting_retry_failed/,'falha contábil manual precisa de auditoria');
+assert.match(aar,/admin_settlement_accounting_retry_action/,'retry contábil manual precisa ser idempotente');
+
+assert.match(cnc,/cancel-before-dispatch/,'cliente precisa poder cancelar antes da saída');
+assert.match(cnc,/where id=p_order_id[\s\S]*for update/,'cancelamento deve serializar no row lock do pedido');
+assert.match(cnc,/status not in \('preparing','at_risk'\)[\s\S]*dispatched_at is not null/,'cancelamento automático deve parar na saída');
+assert.match(cnc,/available_stock=available_stock\+v_item\.quantity/,'cancelamento pós-aceite precisa devolver estoque');
+assert.match(cnc,/v_restored_items<>v_expected_items/,'cancelamento deve falhar fechado se estoque não puder ser recomposto');
+assert.match(cnc,/customer_cancelled_before_dispatch/,'ledger e pedido precisam registrar motivo de cancelamento pré-saída');
+assert.match(cnc,/stockrestoreditems/,'resultado precisa comprovar quantidade de SKUs restaurados');
+
+assert.match(ab,/bootstrap_first_platform_admin/,'primeiro admin precisa de bootstrap server-side explícito');
+assert.match(ab,/v_active_admins>0[\s\S]*admin_bootstrap_closed/,'bootstrap deve fechar após o primeiro admin ativo');
+assert.match(ab,/v_user\.is_anonymous is true/,'admin precisa de identidade permanente');
+assert.match(ab,/last_admin_cannot_be_removed/,'último admin ativo não pode ser removido');
+assert.match(ab,/pg_advisory_xact_lock[\s\S]*platform-admin-management/,'mudanças de admin precisam serializar');
+assert.match(ami,/admin_platform_admin_action/,'gestão de admin precisa ser idempotente');
+assert.match(ami,/admin-ops:set-platform-admin/,'idempotência deve ter namespace administrativo próprio');
+
+assert.match(sos,/orders_payment_confirmation_pair/,'pagamento precisa manter timestamp e método em par');
+assert.match(sos,/payment_confirmed_at is null or status='settled'/,'pagamento confirmado só pode existir em pedido liquidado');
+assert.match(sos,/delivered_at is null or status in \('delivered','settled'\)/,'timestamp de entrega não pode sobreviver em estado anterior');
+assert.match(sos,/dispatched_at is null or status in \('out_for_delivery','arriving','delivered','settled'\)/,'timestamp de saída não pode existir antes do despacho');
+assert.match(sos,/status='requote_required'[\s\S]*proposed_merchant_id is not null[\s\S]*status<>'requote_required'[\s\S]*proposed_merchant_id is null/,'proposal de re-cotação precisa existir somente no estado correto');
+assert.match(sos,/status in \('offered_to_merchant','requote_required'\)[\s\S]*offer_expires_at is not null/,'ofertas pendentes precisam sempre ter expiração');
+assert.match(sos,/orders_post_accept_requires_accepted_at/,'estados pós-aceite precisam de timestamp de aceite');
+
+assert.match(nlor,/v_reimbursement\.status='paid'/,'reversal só pode recuperar reembolso de cashback efetivamente pago');
+assert.doesNotMatch(nlor,/status in \('paid','offset'\)/,'reversal não pode reconhecer status offset legado');
+
+assert.match(sar,/create or replace function public\.grant_order_rewards/,'reward engine atual precisa ser versionado');
+assert.doesNotMatch(sar,/insert into public\.platform_receivables/,'reward engine não pode criar recebível da plataforma');
+assert.doesNotMatch(sar,/insert into public\.merchant_cashback_reimbursements/,'reward engine não pode criar reembolso ao lojista');
+assert.doesNotMatch(sar,/cashbackreimbursementcents/,'reward engine não deve expor efeito contábil removido');
+assert.match(sa,/ensure_order_settlement_accounting[\s\S]*insert into public\.platform_receivables/,'recebível deve pertencer à autoridade contábil');
+assert.match(sa,/ensure_order_settlement_accounting[\s\S]*insert into public\.merchant_cashback_reimbursements/,'reembolso deve pertencer à autoridade contábil');
+
+assert.match(dsc,/coalesce\(v_order\.settled_at,v_order\.payment_confirmed_at,v_order\.delivered_at,clock_timestamp\(\)\)\+interval '7 days'/,'vencimentos contábeis precisam nascer do settlement original');
+assert.match(dsc,/v_available_at:=coalesce\(v_order\.settled_at,v_order\.payment_confirmed_at,v_order\.delivered_at,clock_timestamp\(\)\)/,'hold de comissão deve usar settlement original');
+assert.match(dsc,/platform_contribution_cents,created_at/,'reward grant precisa persistir timestamp econômico explícito');
+assert.doesNotMatch(dsc,/v_available_at:=clock_timestamp\(\)/,'retry não pode reiniciar janela de comissão');
+assert.doesNotMatch(dsc,/['"]open['"],clock_timestamp\(\)\+interval '7 days'/,'retry não pode empurrar vencimento financeiro');
+
+assert.match(ios,/\(status='settled'\) = \(financial_state in \('settled','reversed'\)\)/,'SETTLED precisa equivaler a estado financeiro final');
+assert.match(ios,/financial_state<>'reversed'[\s\S]*financial_reversal_reason is null[\s\S]*financial_reversal_reference is null/,'metadados de reversal não podem vazar para pedido não revertido');
+assert.match(ios,/proposed_total_cents = proposed_gross_total_cents - cashback_reserved_cents/,'re-cotação precisa fechar aritmeticamente');
+assert.match(ios,/proposed_merchant_id is distinct from merchant_id/,'re-cotação precisa apontar para outra revenda');
+assert.match(ios,/merchant_id=any\(attempted_merchant_ids\)/,'revenda atual precisa constar no histórico de tentativas');
+assert.match(ios,/not \(proposed_merchant_id=any\(attempted_merchant_ids\)\)/,'candidata de re-cotação não pode ter sido tentada antes');
+assert.match(ios,/cardinality\(attempted_merchant_ids\) between 0 and 100/,'histórico de matching precisa ser limitado');
+
+console.log('Requote + watchdog + hardening v1.14.9 contract passou.');
+
+assert.match(ggd,/public\.is_glp_product_code\(r\.product_code\)/,'delivery deve herdar semântica GLP para P1..P90 sem perfil explícito');
+assert.match(ggd,/v_covered<>v_requested/,'SKU desconhecido fora do perfil deve continuar fail-closed');
+assert.match(ggd,/regulated_glp_mixed_load_verified/,'cesta mista com GLP deve exigir capability verificada');
+assert.match(cf,/cnpj_verified_at timestamptz/,'CNPJ precisa de relógio próprio');
+assert.match(cf,/anp_verified_at timestamptz/,'ANP precisa de relógio próprio');
+assert.match(cf,/cnpj_max_age_days integer not null default 30/,'política operacional de CNPJ precisa ser configurável');
+assert.match(cf,/anp_max_age_days integer not null default 7/,'política operacional de ANP precisa ser configurável');
+assert.match(cf,/merchant_cnpj_compliance_current/,'compliance CNPJ deve ser consultável como autoridade');
+assert.match(cf,/merchant_anp_compliance_current/,'compliance ANP deve ser consultável como autoridade');
+assert.match(cf,/public\.is_glp_product_code\(ci\.product_code\)/,'freshness ANP deve valer para todo GLP P1..P90');
+assert.doesNotMatch(cf,/ci\.product_code='p13'/,'trigger novo não pode voltar a hardcode P13');
+assert.match(cf,/chama-compliance-expiry/,'evidência vencida precisa de watchdog');
+assert.match(cf,/merchant_compliance_events/,'suspensão automática precisa de trilha de auditoria');
+assert.match(rtc,/merchant_operational_compliance_current/,'deve existir autoridade única de compliance operacional');
+assert.match(rtc,/create or replace function public\.create_quote_snapshot[\s\S]*merchant_operational_compliance_current/,'quote não pode nascer com compliance vencido');
+assert.match(rtc,/create or replace function public\.system_rescue_order[\s\S]*merchant_operational_compliance_current/,'rescue não pode escolher revenda com compliance vencido');
+assert.match(rtc,/merchant_compliance_expired_before_accept/,'aceite deve rescatar automaticamente quando compliance vencer');
+assert.match(rtc,/merchant_compliance_expired_before_dispatch/,'despacho deve rescatar automaticamente quando compliance vencer');
+assert.match(rtc,/create or replace function public\.process_order_timeouts[\s\S]*merchant_operational_compliance_current/,'watchdog deve detectar compliance vencido durante preparação');
+assert.match(rtc,/create or replace function public\.enforce_glp_catalog_compliance[\s\S]*anp_verified_at/,'novo GLP deve usar relógio ANP atual');
+assert.match(rtc,/admin_set_delivery_capability[\s\S]*merchant_anp_compliance_current/,'capability mista só pode ser validada com ANP vigente');
+
+
+const stableCompliance2=fs.readFileSync(new URL('../supabase/migrations/20261001156000_stable_compliance_and_strict_glp_capability.sql',import.meta.url),'utf8')
+  .replace(/--.*$/gm,'').replace(/\s+/g,' ').toLowerCase();
+const createOrderEligibility=fs.readFileSync(new URL('../supabase/migrations/20261001157000_create_order_eligibility_revalidation.sql',import.meta.url),'utf8')
+  .replace(/--.*$/gm,'').replace(/\s+/g,' ').toLowerCase();
+
+assert.match(stableCompliance2,/statement_timestamp\(\)/,'helpers STABLE devem usar relógio estável por statement');
+assert.doesNotMatch(stableCompliance2,/stable security definer[\s\S]{0,900}clock_timestamp\(\)/,'helper STABLE não pode depender de clock_timestamp volátil');
+assert.match(stableCompliance2,/merchant_anp_verification_current/,'ANP vigente deve existir separada da exigência por catálogo');
+assert.match(stableCompliance2,/admin_set_delivery_capability[\s\S]*merchant_anp_verification_current/,'capability GLP mista deve exigir ANP vigente mesmo antes de ativar GLP');
+assert.match(stableCompliance2,/enforce_glp_catalog_compliance[\s\S]*merchant_anp_verification_current/,'ativação de novo GLP deve exigir ANP vigente');
+
+assert.match(createOrderEligibility,/create_order_from_quote[\s\S]*merchant_operational_compliance_current/,'criação de pedido deve revalidar compliance');
+assert.match(createOrderEligibility,/create_order_from_quote[\s\S]*merchant_cart_delivery_compatible/,'criação de pedido deve revalidar compatibilidade logística');
+assert.match(createOrderEligibility,/raise exception 'quote_stale'/,'perda de elegibilidade deve invalidar quote sem criar pedido');
+
+console.log('Compliance clock + create-order eligibility contracts passaram.');
+
+
+const financialIntegrityV120=fs.readFileSync(
+  new URL('../supabase/migrations/20261001158000_financial_fact_integrity.sql',import.meta.url),
+  'utf8'
+).replace(/--.*$/gm,'').replace(/\s+/g,' ').toLowerCase();
+
+assert.match(financialIntegrityV120,/financial_fact_immutable/,'fatos econômicos não podem ser alterados após criação');
+assert.match(financialIntegrityV120,/platform_receivable_mismatch/,'recebível deve conferir com o pedido de origem');
+assert.match(financialIntegrityV120,/cashback_reimbursement_mismatch/,'reembolso de cashback deve conferir com o pedido');
+assert.match(financialIntegrityV120,/platform_fee_adjustment_mismatch/,'ajuste de taxa deve conferir com recebível');
+assert.match(financialIntegrityV120,/cashback_recovery_adjustment_mismatch/,'recuperação de cashback deve conferir com reembolso');
+assert.match(financialIntegrityV120,/financial_reference_required/,'baixa financeira deve exigir referência de conciliação');
+assert.match(financialIntegrityV120,/resolved_by=p_actor_user_id/,'baixa financeira deve registrar admin responsável');
+assert.match(financialIntegrityV120,/platform_receivables_resolution_lifecycle/,'recebível precisa de lifecycle auditável');
+assert.match(financialIntegrityV120,/merchant_cashback_resolution_lifecycle/,'reembolso de cashback precisa de lifecycle auditável');
+assert.match(financialIntegrityV120,/platform_adjustment_resolution_lifecycle/,'ajuste financeiro precisa de lifecycle auditável');
+assert.match(financialIntegrityV120,/before insert or update of order_id,merchant_id,gross_total_cents,platform_fee_bps,platform_fee_cents,due_at/,'fatos do recebível devem ser protegidos por trigger');
+assert.match(financialIntegrityV120,/before insert or update of order_id,merchant_id,cashback_cents,due_at/,'fatos do reembolso devem ser protegidos por trigger');
+
+console.log('Financial fact integrity v1.20 contract passou.');
+
+
+const closedWorldWallet=fs.readFileSync(
+  new URL('../supabase/migrations/20261001159000_closed_world_wallet_ledger.sql',import.meta.url),
+  'utf8'
+).replace(/--.*$/gm,'').replace(/\s+/g,' ').toLowerCase();
+
+assert.doesNotMatch(closedWorldWallet,/manual_adjustment/,'ledger não pode aceitar ajuste manual sem autoridade dedicada');
+assert.doesNotMatch(closedWorldWallet,/commission_withdrawal/,'ledger não pode aceitar saque sem autoridade dedicada');
+assert.match(closedWorldWallet,/wallet_entries_order_provenance_check/,'lançamento econômico precisa de vínculo com pedido');
+assert.match(closedWorldWallet,/entry_type='cashback_seed' or order_id is not null/,'somente seed pode existir sem pedido');
+assert.match(closedWorldWallet,/wallet_entries_bucket_entry_type_check/,'bucket precisa ser coerente com entry_type');
+assert.match(closedWorldWallet,/wallet_entries_sign_check/,'sinal do lançamento precisa ser coerente com entry_type');
+
+console.log('Closed-world wallet ledger contract passou.');
+
+
+const cashbackOffset=fs.readFileSync(
+  new URL('../supabase/migrations/20261001160000_cashback_reversal_offset.sql',import.meta.url),
+  'utf8'
+).replace(/--.*$/gm,'').replace(/\s+/g,' ').toLowerCase();
+
+assert.match(cashbackOffset,/create or replace function public\.cashback_position/,'saldo efetivo de cashback precisa de autoridade única');
+assert.match(cashbackOffset,/entry_type<>'cashback_reversal'/,'posição deve ignorar reversals legados para não contar clawback duas vezes');
+assert.match(cashbackOffset,/g\.reversed_at is not null[\s\S]*g\.cashback_cents>0/,'dívida deve nascer de grants financeiramente revertidos');
+assert.match(cashbackOffset,/'spendablecents',greatest\(0,v_net\)/,'saldo gastável nunca pode ficar negativo');
+assert.match(cashbackOffset,/'debtcents',greatest\(0,-v_net\)/,'passivo de cashback deve ficar explícito');
+assert.match(cashbackOffset,/cashback-user:/,'uso e reversão de cashback precisam serializar por usuário');
+assert.match(cashbackOffset,/create_order_from_quote[\s\S]*public\.cashback_position\(p_user_id\)/,'checkout deve usar saldo efetivo, não saldo bruto do ledger');
+assert.match(cashbackOffset,/customer_financial_summary[\s\S]*cashbackdebtcents/,'resumo financeiro deve expor compensação agregada');
+assert.doesNotMatch(cashbackOffset,/'cashback','cashback_reversal'/,'nova reversão financeira não pode gerar saldo negativo no wallet');
+assert.match(cashbackOffset,/cashbackclawbackmode','effective_balance_offset'/,'evento de reversão deve registrar modo de clawback');
+
+console.log('Cashback reversal offset v1.20.2 contract passou.');

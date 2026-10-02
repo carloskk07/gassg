@@ -15,16 +15,16 @@ const publishableKeys=JSON.parse(Deno.env.get("SUPABASE_PUBLISHABLE_KEYS")??"{}"
 const secretKeys=JSON.parse(Deno.env.get("SUPABASE_SECRET_KEYS")??"{}");
 const PUBLISHABLE_KEY=publishableKeys.default??Deno.env.get("SUPABASE_ANON_KEY")??"";
 const SECRET_KEY=secretKeys.default??Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")??"";
-const PROD_ORIGIN="https://carloskk07.github.io";
+const CUSTOMER_ALLOWED_ORIGIN=(Deno.env.get("CUSTOMER_ALLOWED_ORIGIN")??"").trim();
 const UUID_RE=/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 function originAllowed(origin:string|null){
   if(!origin)return true;
-  if(origin===PROD_ORIGIN)return true;
-  return /^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(origin);
+  if(/^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(origin))return true;
+  return CUSTOMER_ALLOWED_ORIGIN.length>0&&origin===CUSTOMER_ALLOWED_ORIGIN;
 }
 function cors(origin:string|null){
-  const allowed=origin&&originAllowed(origin)?origin:PROD_ORIGIN;
+  const allowed=origin&&originAllowed(origin)?origin:(CUSTOMER_ALLOWED_ORIGIN||"null");
   return {
     "Access-Control-Allow-Origin":allowed,
     "Access-Control-Allow-Headers":"authorization, apikey, content-type, idempotency-key",
@@ -55,6 +55,10 @@ function mapRpcError(error:{message?:string}|null){
     INVALID_TRANSITION:[409,"Esta ação não é válida no estado atual."],
     PROPOSED_OFFER_STALE:[409,"A alternativa ficou indisponível. Atualize o pedido."],
     REQUOTE_EXPIRED:[409,"A nova cotação expirou. O sistema atualizará o pedido."],
+    TOO_LATE_TO_CANCEL:[409,"A entrega já saiu. O cancelamento automático não é mais permitido."],
+    STOCK_RESTORE_FAILED:[409,"Não foi possível devolver o estoque reservado com segurança."],
+    IDEMPOTENCY_STATE_INVALID:[409,"Não foi possível confirmar o estado idempotente da operação."],
+    DELIVERY_INCOMPATIBLE:[409,"A alternativa não possui mais a capacidade logística necessária para esta cesta."],
     IDEMPOTENCY_CONFLICT:[409,"A mesma chave foi usada para outra requisição."]
   };
   for(const [code,[status,text]] of Object.entries(map)){
@@ -77,7 +81,7 @@ Deno.serve(async(req:Request)=>{
     if(!UUID_RE.test(orderId))throw new DomainError("INVALID_ORDER","Pedido inválido.",400);
 
     const action=String(body.action??"");
-    if(!["cancel-before-accept","accept-requote"].includes(action)){
+    if(!["cancel-before-accept","cancel-before-dispatch","accept-requote"].includes(action)){
       throw new DomainError("INVALID_ACTION","Ação inválida.",400);
     }
 

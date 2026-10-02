@@ -15,24 +15,34 @@ const publishableKeys=JSON.parse(Deno.env.get("SUPABASE_PUBLISHABLE_KEYS")??"{}"
 const secretKeys=JSON.parse(Deno.env.get("SUPABASE_SECRET_KEYS")??"{}");
 const PUBLISHABLE_KEY=publishableKeys.default??Deno.env.get("SUPABASE_ANON_KEY")??"";
 const SECRET_KEY=secretKeys.default??Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")??"";
-const PROD_ORIGIN="https://carloskk07.github.io";
+const MERCHANT_ALLOWED_ORIGIN=(Deno.env.get("MERCHANT_ALLOWED_ORIGIN")??"").trim();
 const UUID_RE=/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 const PRODUCT_NAMES:Record<string,string>={
-  P13:"Gás P13",
   WATER20:"Água 20 L",
   CHARCOAL4:"Carvão 4 kg",
   WOOD:"Lenha",
   ICE5:"Gelo 5 kg"
 };
+function glpKgForCode(code:string){
+  const match=/^P([1-9][0-9]?)$/.exec(code);
+  if(!match)return null;
+  const kg=Number(match[1]);
+  return Number.isInteger(kg)&&kg>=1&&kg<=90?kg:null;
+}
+function productNameForCode(code:string){
+  const kg=glpKgForCode(code);
+  if(kg!==null)return "Gás P"+kg;
+  return PRODUCT_NAMES[code]??null;
+}
 
 function originAllowed(origin:string|null){
   if(!origin)return true;
-  if(origin===PROD_ORIGIN)return true;
-  return /^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(origin);
+  if(/^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(origin))return true;
+  return MERCHANT_ALLOWED_ORIGIN.length>0&&origin===MERCHANT_ALLOWED_ORIGIN;
 }
 function cors(origin:string|null){
-  const allowed=origin&&originAllowed(origin)?origin:PROD_ORIGIN;
+  const allowed=origin&&originAllowed(origin)?origin:(MERCHANT_ALLOWED_ORIGIN||"null");
   return {
     "Access-Control-Allow-Origin":allowed,
     "Access-Control-Allow-Headers":"authorization, apikey, content-type",
@@ -103,26 +113,37 @@ Deno.serve(async(req:Request)=>{
       if(online){
         const {data:merchant,error:merchantError}=await admin
           .from("merchants")
-          .select("status,price_confirmed_at")
+          .select("status,delivery_fee_confirmed_at")
           .eq("id",merchantId)
           .maybeSingle();
         if(merchantError)throw merchantError;
         if(!merchant||merchant.status!=="active"){
           throw new DomainError("MERCHANT_NOT_ACTIVE","A revenda ainda não está ativa.",409);
         }
-        const confirmedAt=Date.parse(merchant.price_confirmed_at??"");
-        if(!Number.isFinite(confirmedAt)||Date.now()-confirmedAt>24*60*60*1000){
-          throw new DomainError("PRICE_CONFIRMATION_REQUIRED","Confirme os preços antes de ficar online.",409);
+        const feeConfirmedAt=Date.parse(merchant.delivery_fee_confirmed_at??"");
+        if(!Number.isFinite(feeConfirmedAt)||Date.now()-feeConfirmedAt>24*60*60*1000){
+          throw new DomainError("DELIVERY_FEE_CONFIRMATION_REQUIRED","Confirme a taxa de entrega antes de ficar online.",409);
         }
 
-        const {count,error:countError}=await admin
+        const {data:available,error:availableError}=await admin
           .from("catalog_items")
-          .select("*",{count:"exact",head:true})
+          .select("product_code,price_confirmed_at")
           .eq("merchant_id",merchantId)
           .eq("active",true)
           .gt("available_stock",0);
-        if(countError)throw countError;
-        if(!count)throw new DomainError("NO_AVAILABLE_STOCK","Nenhum produto possui estoque disponível.",409);
+        if(availableError)throw availableError;
+        if(!available?.length)throw new DomainError("NO_AVAILABLE_STOCK","Nenhum produto possui estoque disponível.",409);
+        const stale=available.filter((item)=>{
+          const ts=Date.parse(item.price_confirmed_at??"");
+          return !Number.isFinite(ts)||Date.now()-ts>24*60*60*1000;
+        });
+        if(stale.length){
+          throw new DomainError(
+            "PRICE_CONFIRMATION_REQUIRED",
+            "Confirme o preço de todos os produtos com estoque antes de ficar online.",
+            409
+          );
+        }
       }
 
       const {data,error}=await admin
@@ -137,8 +158,9 @@ Deno.serve(async(req:Request)=>{
 
     if(action==="update-product"){
       if(!canManage(role))throw new DomainError("MERCHANT_ACCESS_DENIED","Somente owner/manager pode alterar catálogo.",403);
-      const productCode=String(body.productCode??"").toUpperCase();
-      if(!PRODUCT_NAMES[productCode])throw new DomainError("INVALID_PRODUCT","Produto inválido.",400);
+      const productCode=String(body.productCode??"").trim().toUpperCase();
+      const productName=productNameForCode(productCode);
+      if(!productName)throw new DomainError("INVALID_PRODUCT","Produto inválido.",400);
       const priceCents=asPositiveInt(body.priceCents,"priceCents",{min:1,max:100000000});
       const availableStock=asPositiveInt(body.availableStock,"availableStock",{min:0,max:100000});
       const active=body.active!==false;
@@ -148,10 +170,11 @@ Deno.serve(async(req:Request)=>{
         .upsert({
           merchant_id:merchantId,
           product_code:productCode,
-          product_name:PRODUCT_NAMES[productCode],
+          product_name:productName,
           price_cents:priceCents,
           available_stock:availableStock,
           active,
+          price_confirmed_at:now,
           updated_at:now
         },{onConflict:"merchant_id,product_code"})
         .select("product_code,product_name,price_cents,available_stock,active,updated_at")
@@ -160,7 +183,7 @@ Deno.serve(async(req:Request)=>{
 
       const {error:merchantUpdateError}=await admin
         .from("merchants")
-        .update({price_confirmed_at:now,last_seen_at:now})
+        .update({last_seen_at:now})
         .eq("id",merchantId);
       if(merchantUpdateError)throw merchantUpdateError;
 
@@ -189,12 +212,13 @@ Deno.serve(async(req:Request)=>{
         .from("merchants")
         .update({
           delivery_fee_cents:deliveryFeeCents,
+          delivery_fee_confirmed_at:now,
           base_eta_minutes:baseEtaMinutes,
           accepts_citywide:acceptsCitywide,
           last_seen_at:now
         })
         .eq("id",merchantId)
-        .select("delivery_fee_cents,base_eta_minutes,accepts_citywide,last_seen_at")
+        .select("delivery_fee_cents,delivery_fee_confirmed_at,base_eta_minutes,accepts_citywide,last_seen_at")
         .single();
       if(error)throw error;
       return json({ok:true,...data},200,origin);
@@ -203,7 +227,17 @@ Deno.serve(async(req:Request)=>{
     return json({error:"INVALID_ACTION"},400,origin);
   }catch(error){
     if(error instanceof DomainError)return json({error:error.code,message:error.message},error.status,origin);
-    console.error("merchant-ops failed",error instanceof Error?error.message:String(error));
+    const message=error instanceof Error?error.message:String(error);
+    if(message.includes("CNPJ_REVERIFICATION_REQUIRED")){
+      return json({error:"CNPJ_REVERIFICATION_REQUIRED",message:"A verificação de CNPJ venceu. Solicite nova validação antes de ficar online."},409,origin);
+    }
+    if(message.includes("ANP_REVERIFICATION_REQUIRED")){
+      return json({error:"ANP_REVERIFICATION_REQUIRED",message:"A verificação ANP do GLP venceu. Solicite nova validação antes de ficar online."},409,origin);
+    }
+    if(message.includes("GLP_REGULATORY_VERIFICATION_REQUIRED")){
+      return json({error:"ANP_VERIFICATION_REQUIRED",message:"Este produto GLP exige validação ANP válida."},409,origin);
+    }
+    console.error("merchant-ops failed",message);
     return json({error:"INTERNAL_ERROR",message:"Não foi possível atualizar a operação."},500,origin);
   }
 });
