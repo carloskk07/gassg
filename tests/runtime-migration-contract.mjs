@@ -11,6 +11,7 @@ const adminEmailBootstrap=fs.readFileSync(new URL('../supabase/migrations/202610
 const authorizedPricing=fs.readFileSync(new URL('../supabase/migrations/20261002214500_authorized_price_ranges.sql',import.meta.url),'utf8').replace(/--.*$/gm,'').replace(/\s+/g,' ').toLowerCase();
 const authorizedPricingFreshness=fs.readFileSync(new URL('../supabase/migrations/20261002215500_authorized_price_range_quote_freshness_fix.sql',import.meta.url),'utf8').replace(/--.*$/gm,'').replace(/\s+/g,' ').toLowerCase();
 const adminBootstrapFkIndex=fs.readFileSync(new URL('../supabase/migrations/20261002220500_admin_bootstrap_claimed_user_index.sql',import.meta.url),'utf8').replace(/--.*$/gm,'').replace(/\s+/g,' ').toLowerCase();
+const jrCommercialRange=fs.readFileSync(new URL('../supabase/migrations/20261002235614_jr_confirmed_commercial_price_range.sql',import.meta.url),'utf8').replace(/--.*$/gm,'').replace(/\s+/g,' ').toLowerCase();
 
 for(const fn of ['create_order_from_quote','merchant_order_action','customer_order_action','complete_order_delivery']){
   assert.match(n,new RegExp('create or replace function public\\.'+fn+'\\b'),fn+' precisa estar versionada');
@@ -55,5 +56,11 @@ assert.match(authorizedPricingFreshness,/ci\.price_confirmed_at is not null/,'qu
 assert.match(authorizedPricingFreshness,/for share of ci/,'quote ranged precisa bloquear os SKUs enquanto congela o snapshot');
 assert.match(authorizedPricingFreshness,/r\.unit_price_cents between ci\.min_price_cents and ci\.max_price_cents/,'quote ranged precisa validar a faixa após o lock');
 assert.match(adminBootstrapFkIndex,/platform_admin_bootstrap_reservations_claimed_user_idx/,'FK de claimed admin precisa de índice de cobertura');
+assert.match(jrCommercialRange,/pricing_mode text not null default 'fixed'/,'staging do parceiro precisa suportar política de faixa');
+assert.match(jrCommercialRange,/min_delivered_price_cents=11590/,'JR precisa registrar mínimo comercial confirmado');
+assert.match(jrCommercialRange,/preferred_delivered_price_cents=12000/,'JR precisa registrar preço normal confirmado');
+assert.match(jrCommercialRange,/max_delivered_price_cents=12500/,'JR precisa registrar máximo comercial confirmado');
+assert.match(jrCommercialRange,/price_status='confirmed'/,'faixa JR precisa estar marcada como confirmada');
+assert.match(jrCommercialRange,/onboarding_status/,'migration comercial não pode apagar o gate de onboarding');
 
 console.log('Runtime migration contract passou.');
