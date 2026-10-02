@@ -93,9 +93,29 @@ function normalizeMerchant(raw,base){
 }
 function normalizeState(raw){
   const base=freshSeed();
-  if(!raw||typeof raw!=='object') return base;
-  const merged={...base,...raw};
+  if(!raw||typeof raw!=='object')return base;
+  const testDemo=globalThis.__CHAMA_TEST__===true;
+  const merged=testDemo?{...base,...raw}:{...base};
+
   merged.version=STATE_VERSION;
+  merged.checkout={...base.checkout,...(raw.checkout||{})};
+  merged.checkout.paymentMethod=['pix','card','cash'].includes(merged.checkout.paymentMethod)?merged.checkout.paymentMethod:'pix';
+  merged.checkout.useCashback=Boolean(merged.checkout.useCashback);
+  merged.address=String(raw.address||'').slice(0,160);
+  merged.cart=normalizeCart(raw.cart);
+
+  if(!testDemo){
+    // Financial, merchant, order and onboarding state is server-authoritative.
+    // Never hydrate those fields from browser storage.
+    merged.user={...base.user};
+    merged.mode='customer';
+    merged.onboarding=[];
+    merged.orders=[];
+    merged.merchants=[];
+    merged.selectedMerchant=null;
+    return merged;
+  }
+
   merged.user={...base.user,...(raw.user||{})};
   merged.user.cashback=Math.max(0,roundMoney(Number(merged.user.cashback)||0));
   merged.user.cashbackDebt=Math.max(0,roundMoney(Number(merged.user.cashbackDebt)||0));
@@ -105,12 +125,7 @@ function normalizeState(raw){
   merged.user.referralCode=String(merged.user.referralCode||base.user.referralCode).slice(0,40);
   merged.user.cashEarningEligible=merged.user.cashEarningEligible!==false;
   merged.user.identityType=String(merged.user.identityType||base.user.identityType).slice(0,24);
-  merged.checkout={...base.checkout,...(raw.checkout||{})};
-  merged.checkout.paymentMethod=['pix','card','cash'].includes(merged.checkout.paymentMethod)?merged.checkout.paymentMethod:'pix';
-  merged.checkout.useCashback=Boolean(merged.checkout.useCashback);
-  merged.address=String(raw.address||'').slice(0,160);
   merged.mode=raw.mode==='merchant'?'merchant':'customer';
-  merged.cart=normalizeCart(raw.cart);
   merged.onboarding=Array.isArray(raw.onboarding)?raw.onboarding.slice(0,100):[];
   merged.orders=Array.isArray(raw.orders)?raw.orders.slice(-100):[];
   merged.merchants=base.merchants.map(b=>{
@@ -123,7 +138,9 @@ function normalizeState(raw){
 
 let storageHealthy=true;
 function isLiveStateScope(){
-  return new URLSearchParams(location.search).get('live')==='1';
+  if(globalThis.__CHAMA_TEST__===true)return false;
+  const params=new URLSearchParams(location.search);
+  return params.get('merchant')!=='1'&&params.get('admin')!=='1';
 }
 function appStateStorage(){
   return isLiveStateScope()?sessionStorage:localStorage;
