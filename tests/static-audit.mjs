@@ -72,6 +72,8 @@ assert.ok(growth.includes('Taxa Chama: 7,5% por pedido concluído'),'landing de 
 assert.ok(growth.includes('SIMULADOR DE MARGEM INCREMENTAL')&&growth.includes('merchant-sim-fee'),'revenda precisa visualizar taxa e margem incremental');
 assert.ok(growth.includes('merchant-sim-product-cost')&&growth.includes('merchant-sim-delivery-cost')&&growth.includes('merchant-sim-payment-cost')&&growth.includes('merchant-sim-tax-rate'),'simulador da revenda precisa aceitar custos próprios antes de estimar margem');
 assert.ok(growth.includes('Receita não é lucro')&&growth.includes('não para prometer lucro'),'landing da revenda não pode confundir receita com lucro');
+assert.ok(growth.includes("productCostRaw!==''")&&growth.includes("contribution.textContent='—'"),'simulador não pode exibir margem antes de o parceiro informar o custo do produto');
+assert.ok(growth.includes('Obrigatório para estimar contribuição e margem.'),'UI deve explicar por que o custo do produto é necessário');
 assert.ok(growth.includes('Sem exclusividade')&&growth.includes('canal adicional'),'parceria precisa deixar claro que não substitui telefone/WhatsApp/canais próprios');
 assert.ok(growth.includes('Você não precisa ser sempre o mais barato')&&growth.includes('Distribuição saudável'),'landing precisa explicar distribuição sem prometer rodízio cego');
 assert.ok(growth.includes('AUMENTE O TICKET DA ENTREGA')&&growth.includes('Uma corrida pode carregar mais que um botijão'),'multiproduto deve ser vendido como aumento de ticket');
@@ -296,6 +298,8 @@ assert.ok(backend.includes("const idempotencyKey=liveIdempotency('customer-actio
 assert.ok(backend.includes("const idempotencyKey=liveIdempotency('merchant-action')")&&backend.includes("()=>merchantInvoke('merchant-action'"),'ação operacional da revenda precisa reutilizar a mesma chave idempotente no retry');
 assert.ok(backend.includes("const idempotencyKey=liveIdempotency('complete-delivery')"),'conclusão de entrega precisa fixar a chave antes do retry');
 assert.ok(admin.includes("const idempotencyKey=adminIdempotency('admin-'+action)")&&admin.includes('globalThis.retryAmbiguousOnce'),'mutações administrativas precisam reaproveitar a mesma chave no retry');
+assert.ok(backend.includes("retryAmbiguousOnce(()=>merchantInvoke('submit-merchant-application'"),'cadastro de parceiro precisa sobreviver a timeout/ACK perdido');
+assert.ok(backend.includes("retryAmbiguousOnce(\n      ()=>merchantInvoke('merchant-ops',{merchantId,action:'set-online'"),'toggle online deve repetir uma vez falha de transporte ambígua');
 assert.ok(merchant.includes('result?.autoRescued'),'UI da revenda precisa distinguir aceite real de rescue automático');
 assert.ok(merchant.includes('stock_changed_before_accept'),'UI deve explicar corrida de estoque sem falso aceite');
 
