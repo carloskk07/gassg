@@ -168,7 +168,7 @@ Deno.serve(async(req:Request)=>{
       const productCode=String(body.productCode??"").trim().toUpperCase();
       const productName=productNameForCode(productCode);
       if(!productName)throw new DomainError("INVALID_PRODUCT","Produto inválido.",400);
-      const priceCents=asPositiveInt(body.priceCents,"priceCents",{min:1,max:100000000});
+      const priceCents=asPositiveInt(body.priceCents,"priceCents",{min:1,max:1000000});
       const availableStock=asPositiveInt(body.availableStock,"availableStock",{min:0,max:100000});
       const active=body.active!==false;
 
