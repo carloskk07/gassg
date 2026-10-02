@@ -321,3 +321,87 @@ Ainda não são considerados concluídos:
 ## Regra de release
 
 Nenhuma mudança deve chegar a `main` com gate vermelho. O primeiro go-live de dinheiro real exige, além de CI verde, **origens dedicadas + Auth/Turnstile comprovados + revenda real + E2E multiusuário com evidência no Supabase**.
+
+
+---
+
+# Auditoria v1.26 — Human Conversion & Trust
+
+## Objetivo
+
+Revisar o Chama como um usuário que chega com três intenções diferentes — **comprar**, **entender** e **gerar benefício/receita** — sem relaxar os contratos financeiros, operacionais e de segurança já existentes.
+
+## Mudanças aprovadas
+
+### Compra primeiro
+
+- a Home passa a oferecer o botijão de cozinha de 13 kg em linguagem humana;
+- `P13` permanece como referência técnica secundária, sem governar a comunicação principal;
+- endereço e CTA de consulta ficam no primeiro bloco;
+- a hierarquia passa a ser **comprar → confiar → benefícios → oportunidades**.
+
+### Proteção Chama
+
+A lógica de rescue/requote já existente no backend ganhou uma tradução pública clara:
+
+- pedido enviado não equivale a entrega confirmada;
+- parceiro precisa aceitar;
+- “A caminho” continua dependendo de saída real;
+- se houver falha antes da saída, o sistema pode procurar outra opção elegível;
+- alternativa com total maior continua exigindo autorização explícita do cliente.
+
+Nenhuma nova autoridade foi criada no frontend. A UX apenas explica contratos server-side já existentes.
+
+### Linguagem de consumidor
+
+Foram reduzidos rótulos internos no caminho principal:
+
+- “P13” → “Botijão de cozinha 13 kg” na comunicação pública;
+- “PIN” → “código de recebimento” para o cliente;
+- “operação/revenda” → “parceiro” onde a precisão técnica não é necessária;
+- “Preço protegido” → “Total protegido” no acompanhamento.
+
+Os identificadores e estados internos permanecem inalterados.
+
+### Benefícios e geração de renda
+
+A v1.26 separa explicitamente:
+
+1. **cashback:** crédito para reduzir compras futuras;
+2. **comissão por indicação:** política atual de 2% sobre a primeira compra qualificada de novo cliente elegível;
+3. **receita da revenda:** vendas reais da própria empresa pelo marketplace.
+
+A interface não promete renda fixa, não remunera recrutamento e não apresenta saque/Pix como disponível antes da integração real.
+
+### Revendas
+
+A landing comercial preserva a política inicial de **7,5% sobre o valor bruto de cada pedido concluído** e acrescenta respostas sobre:
+
+- autonomia de aceite;
+- preço, estoque, prazo e taxa de entrega;
+- online/offline;
+- catálogo multiproduto;
+- estado ainda não comprovado do fluxo de cobrança, conciliação e repasse.
+
+Nenhum prazo de repasse foi inventado.
+
+## Gates adicionados/atualizados
+
+- Home deve conter a entrada de compra em linguagem humana;
+- Home deve apresentar Proteção Chama;
+- jornada deve preservar as três portas: pedir, entender e ganhar/vender;
+- cache PWA sobe para `chama-sg-v1.26`;
+- E2E browser passa a validar a nova linguagem pública sem alterar o cenário operacional de compra → aceite → saída → chegada → pagamento + código/PIN → cashback.
+
+## Estado real após esta mudança
+
+Esta rodada **não altera o readiness operacional**:
+
+- 0 revendas reais configuradas;
+- GitHub Pages continua pré-lançamento visual;
+- exemplos continuam não compráveis;
+- payout/saque real continua indisponível;
+- primeiro E2E real multi-dispositivo ainda é obrigatório;
+- origens dedicadas, Auth/Turnstile e onboarding da primeira revenda continuam sendo blockers do go-live.
+
+A regra permanece: UX mais convincente não pode ser usada para mascarar ausência de operação real.
