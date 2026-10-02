@@ -103,7 +103,7 @@ Deno.serve(async(req:Request)=>{
 
     const {data:catalog,error:catalogError}=await admin
       .from("catalog_items")
-      .select("product_code,product_name,price_cents,available_stock,active,price_confirmed_at,updated_at")
+      .select("product_code,product_name,price_cents,pricing_mode,min_price_cents,max_price_cents,pricing_strategy,available_stock,active,price_confirmed_at,updated_at")
       .eq("merchant_id",selected.merchant_id)
       .order("product_code");
     if(catalogError)throw catalogError;
@@ -200,6 +200,10 @@ Deno.serve(async(req:Request)=>{
         productCode:item.product_code,
         productName:item.product_name,
         priceCents:item.price_cents,
+        pricingMode:item.pricing_mode,
+        minPriceCents:item.min_price_cents,
+        maxPriceCents:item.max_price_cents,
+        pricingStrategy:item.pricing_strategy,
         availableStock:item.available_stock,
         active:item.active,
         priceConfirmedAt:item.price_confirmed_at,
