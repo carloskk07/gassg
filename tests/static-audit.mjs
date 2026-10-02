@@ -117,6 +117,9 @@ assert.ok(read('supabase/functions/merchant-orders/index.ts').includes('MERCHANT
 assert.ok(read('supabase/functions/merchant-ops/index.ts').includes('function glpKgForCode'),'merchant API deve reconhecer semanticamente GLP P1..P90');
 assert.ok(read('supabase/functions/merchant-ops/index.ts').includes('return "Gás P"+kg'),'nome de cilindro GLP deve ser derivado do código validado');
 assert.ok(core.includes("P20:{name:'Gás P20'")&&core.includes("P45:{name:'Gás P45'"),'cliente deve expor P20/P45 sem inventar oferta');
+assert.ok(core.includes('function ensureProductDefinition'),'cliente precisa materializar dinamicamente SKUs GLP reais');
+assert.ok(core.includes("products[code]={name:'Gás P'+kg,icon:'🔥'}"),'cliente deve derivar nome de GLP P1..P90 sem hardcode');
+assert.ok(backend.includes('ensureProductDefinition?.(code)'),'market-status deve hidratar no cliente os GLPs configurados pelas revendas');
 assert.ok(merchant.includes('merchantLiveAddGlp'),'painel real deve permitir adicionar cilindro GLP válido');
 const sharedDomain=read('supabase/functions/_shared/domain.js');
 assert.ok(sharedDomain.includes('isSupportedProductCode'),'domínio server-side precisa de autoridade explícita de SKU suportado');
