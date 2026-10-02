@@ -66,13 +66,13 @@ function home(){
       : '● CHAMA SÃO GABRIEL';
   const primaryLabel=preview?'Explorar como vai funcionar':'Consultar preço agora';
 
-  return shell(\`<section class="hero marketing-hero"><div class="hero-grid"><div>
-    <span class="eyebrow">\${eyebrow}</span>
+  return shell(`<section class="hero marketing-hero"><div class="hero-grid"><div>
+    <span class="eyebrow">${eyebrow}</span>
     <h1>Peça gás.<br>Compare. Acompanhe.</h1>
     <p>Gás e produtos essenciais em uma experiência simples: informe seu endereço, compare as opções e acompanhe o pedido até chegar.</p>
-    <div class="hero-price"><span class="from">P13</span><strong>\${priceText}</strong></div><div class="freshness">\${esc(freshness)}</div>
+    <div class="hero-price"><span class="from">P13</span><strong>${priceText}</strong></div><div class="freshness">${esc(freshness)}</div>
     <div class="hero-actions">
-      <button class="primary" onclick="quickProduct('P13')" \${disabled?'disabled':''}>🔥 \${primaryLabel}</button>
+      <button class="primary" onclick="quickProduct('P13')" ${disabled?'disabled':''}>🔥 ${primaryLabel}</button>
       <button class="secondary" onclick="go('learn')">Como funciona</button>
       <button class="ghost" onclick="go('earn')">💰 Ganhe com o Chama</button>
     </div>
@@ -87,7 +87,7 @@ function home(){
 
 <section class="section intent-section"><div class="section-head"><div><span class="section-kicker">COMECE PELO QUE VOCÊ QUER</span><h2>O Chama serve para comprar, entender e também gerar oportunidades.</h2></div></div>
 <div class="intent-grid">
-  <button class="intent-card" onclick="quickProduct('P13')" \${disabled?'disabled':''}><span class="intent-icon">🔥</span><span><strong>Quero comprar</strong><small>Consultar preço e opções de entrega.</small></span><b>→</b></button>
+  <button class="intent-card" onclick="quickProduct('P13')" ${disabled?'disabled':''}><span class="intent-icon">🔥</span><span><strong>Quero comprar</strong><small>Consultar preço e opções de entrega.</small></span><b>→</b></button>
   <button class="intent-card" onclick="go('learn')"><span class="intent-icon">👀</span><span><strong>Quero entender</strong><small>Veja como funciona, pagamentos e segurança.</small></span><b>→</b></button>
   <button class="intent-card" onclick="go('earn')"><span class="intent-icon">💰</span><span><strong>Quero gerar renda</strong><small>Indicação para pessoas e novas vendas para empresas.</small></span><b>→</b></button>
 </div></section>
@@ -101,9 +101,9 @@ function home(){
 </div></section>
 
 <section class="section"><div class="section-head"><div><span class="section-kicker">O QUE VOCÊ PODE PEDIR</span><h2>Mais que gás</h2><p>Peça apenas o que precisa. O gás não é obrigatório para comprar os outros itens.</p></div></div>
-<div class="quick-grid">\${Object.entries(products).map(([k,p])=>\`<button class="quick-card" onclick="quickProduct('\${k}')" \${disabled?'disabled':''}><div class="quick-icon">\${p.icon}</div><div class="quick-title">\${p.name}</div><div class="quick-sub">\${preview?'Ver experiência':'Consultar agora'}</div></button>\`).join('')}</div></section>
+<div class="quick-grid">${Object.entries(products).map(([k,p])=>`<button class="quick-card" onclick="quickProduct('${k}')" ${disabled?'disabled':''}><div class="quick-icon">${p.icon}</div><div class="quick-title">${p.name}</div><div class="quick-sub">${preview?'Ver experiência':'Consultar agora'}</div></button>`).join('')}</div></section>
 
-\${preview?prelaunchExampleSection({P13:1}):''}
+${preview?prelaunchExampleSection({P13:1}):''}
 
 <section class="section"><div class="section-head"><div><span class="section-kicker">POR QUE USAR</span><h2>Mais clareza em cada compra</h2></div></div>
 <div class="grid cards-3">
@@ -121,7 +121,7 @@ function home(){
   <div class="card feature-card"><div class="feature-icon">⭐</div><h3>Clube Chama</h3><p>Acompanhe cashback, recorrência e benefícios disponíveis na sua conta.</p><button class="ghost small" onclick="go('club')">Abrir Clube →</button></div>
 </div></section>
 
-<section class="section"><div class="banner merchant-banner"><div class="tiny">PARA EMPRESAS LOCAIS</div><h2>Já vende gás, água, carvão, lenha ou produtos relacionados?</h2><p>Use o Chama como um novo canal de vendas. Você controla catálogo, preços, estoque e quando quer receber pedidos.</p><div class="banner-actions"><button class="secondary" onclick="go('merchants')">Conhecer parceria</button><button class="ghost banner-link" onclick="go('earn')">Ver todas as oportunidades →</button></div></div></section>\`)
+<section class="section"><div class="banner merchant-banner"><div class="tiny">PARA EMPRESAS LOCAIS</div><h2>Já vende gás, água, carvão, lenha ou produtos relacionados?</h2><p>Use o Chama como um novo canal de vendas. Você controla catálogo, preços, estoque e quando quer receber pedidos.</p><div class="banner-actions"><button class="secondary" onclick="go('merchants')">Conhecer parceria</button><button class="ghost banner-link" onclick="go('earn')">Ver todas as oportunidades →</button></div></div></section>`)
 }
 function orderPage(){
   const testDemo=globalThis.__CHAMA_TEST__===true;
