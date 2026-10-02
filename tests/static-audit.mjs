@@ -278,3 +278,17 @@ assert.ok(adminFinanceSource.includes('FINANCIAL_REFERENCE_REQUIRED'),'admin-ops
 assert.ok(!adminFinancialBlock.includes('reference:body.reference==null?null'),'financial-action não pode aceitar baixa sem evidência');
 
 console.log('Admin financial reconciliation boundary passou.');
+
+
+const forbiddenWalletTypes=['manual_adjustment','commission_withdrawal'];
+for(const forbidden of forbiddenWalletTypes){
+  for(const file of fs.readdirSync(path.join(root,'supabase/functions'),{withFileTypes:true})){
+    if(!file.isDirectory()||file.name==='_shared')continue;
+    const p=path.join(root,'supabase/functions',file.name,'index.ts');
+    if(fs.existsSync(p)){
+      assert.ok(!fs.readFileSync(p,'utf8').includes(forbidden),file.name+' não pode usar '+forbidden+' sem autoridade dedicada');
+    }
+  }
+}
+
+console.log('Wallet runtime surface audit passou.');
