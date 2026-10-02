@@ -54,11 +54,14 @@ assert.ok(growth.includes('function learn()'),'jornada Saiba mais precisa existi
 assert.ok(growth.includes('function earn()'),'hub Ganhe com o Chama precisa existir');
 assert.ok(growth.includes('REFERRAL_PILOT_RATE=0.02'),'exemplo de indicação deve estar ancorado na política atual do piloto');
 assert.ok(growth.includes('Os exemplos não são promessa de renda'),'marketing de indicação precisa explicar que exemplo não é renda garantida');
+assert.ok(growth.includes('primeira compra qualificada de cada novo cliente indicado'),'marketing deve refletir aquisição apenas na primeira compra qualificada');
+assert.ok(growth.includes('Compras repetidas do mesmo cliente não geram novas comissões'),'marketing não pode sugerir comissão recorrente do mesmo indicado');
+assert.ok(growth.includes('indicador e cliente indicado em identidades permanentes'),'marketing deve expor o gate real de identidade para maturação');
 assert.ok(growth.includes('Saque Pix ainda não disponível')&&growth.includes('disabled>Saque Pix ainda não disponível'),'UI não pode fingir saque ainda inexistente');
 assert.ok(growth.includes('Você continua no controle'),'landing de revenda deve enfatizar autonomia operacional');
 assert.ok(core.includes("['earn','💰','Ganhe','go']"),'navegação móvel precisa dar acesso direto ao hub de renda');
 assert.ok(!growth.includes('inputmode="numeric" maxlength="18"'),'campo CNPJ não pode forçar teclado somente numérico após adoção do CNPJ alfanumérico');
-assert.ok(sw.includes("CACHE='chama-sg-v1.23'"),'cache do service worker precisa estar versionado');
+assert.ok(sw.includes("CACHE='chama-sg-v1.24'"),'cache do service worker precisa estar versionado');
 assert.ok(sw.includes("./js/backend.js"),'runtime live precisa estar no cache da PWA');
 assert.ok(sw.includes("./js/runtime-config.js"),'configuração pública de origins precisa estar no cache da PWA');
 assert.ok(sw.includes("./js/turnstile.js"),'helper local do Turnstile precisa estar no cache da PWA');
@@ -86,6 +89,7 @@ assert.ok(backend.includes("liveInvoke('market-status'"),'frontend deve consulta
 assert.ok(customer.includes('EXEMPLO — NÃO COMPRÁVEL'),'exemplo visual precisa ser rotulado como não comprável');
 assert.ok(customer.includes('disabled>Disponível quando houver parceiro real'),'exemplo jamais pode acionar checkout');
 assert.ok(customer.includes('prelaunchExamplesEnabled'),'cliente deve remover exemplos quando o backend indicar supply real');
+assert.ok(customer.includes('ready&&!market')&&customer.includes('Não foi possível confirmar o panorama geral agora'),'falha de market-status não pode ser apresentada como ausência de parceiros');
 assert.ok(core.includes("merchants:testDemo?["),'revendas sintéticas devem existir somente no runtime de teste');
 assert.ok(core.includes('Never hydrate those fields from browser storage'),'produção não pode restaurar autoridade financeira/merchant de storage');
 assert.ok(merchant.includes('A operação da revenda não possui modo fictício em produção.'),'rota merchant sem portal real deve falhar fechado');
@@ -109,6 +113,8 @@ assert.ok(!read('supabase/functions/get-offers/index.ts').includes('.from("quote
 assert.ok(read('supabase/functions/get-offers/index.ts').includes('get-offers-hour'),'consulta de oferta precisa também de quota horária');
 
 assert.ok(backend.includes("customer-summary"),'frontend live deve usar projeção financeira mínima');
+assert.ok(backend.includes('lastFinancialSyncAttemptAt')&&backend.includes('now-liveRuntime.lastFinancialSyncAttemptAt<60000'),'resumo financeiro deve ter retry periódico limitado');
+assert.ok(backend.includes('changed=(await liveSyncFinancialProfile())||changed'),'polling deve atualizar cashback/comissão mesmo sem pedido ativo');
 assert.ok(!backend.includes(".from('wallet_entries')"),'frontend não pode ler ledger financeiro bruto');
 assert.ok(!backend.includes(".from('profiles')"),'frontend não pode ler tabela de perfis diretamente');
 assert.ok(merchant.includes('Pagamento recebido'),'painel precisa exigir confirmação explícita de pagamento');
@@ -125,6 +131,10 @@ assert.ok(growth.includes('Vincule um e-mail à sua conta')&&growth.includes('Co
 assert.ok(read('supabase/functions/customer-summary/index.ts').includes('cashEarningEligible'),'resumo financeiro precisa expor elegibilidade de comissão');
 assert.ok(read('supabase/functions/merchant-ops/index.ts').includes('Seu papel não pode manter a operação ativa.'),'heartbeat não pode ser mantido por papel não operacional');
 assert.ok(read('supabase/functions/merchant-orders/index.ts').includes('MERCHANT_ROLE_NOT_ENABLED'),'driver sem assignment não pode abrir painel operacional');
+assert.ok(read('supabase/functions/merchant-orders/index.ts').includes('selectMerchantMembership'),'seleção default de revenda deve preferir membership operacional');
+assert.ok(backend.includes("localStorage.removeItem('chama-merchant-selected-v1')"),'logout/fallback deve limpar seleção de revenda persistida');
+assert.ok(backend.includes('recoverSelection=true')&&backend.includes('staleSelected&&recoverSelection'),'frontend deve recuperar seleção antiga pertencente a outra conta');
+assert.ok(merchant.includes("MERCHANT_ROLE_NOT_ENABLED"),'UI deve distinguir papel ainda não habilitado de ausência de vínculo');
 assert.ok(read('supabase/functions/merchant-ops/index.ts').includes('function glpKgForCode'),'merchant API deve reconhecer semanticamente GLP P1..P90');
 assert.ok(read('supabase/functions/merchant-ops/index.ts').includes('return "Gás P"+kg'),'nome de cilindro GLP deve ser derivado do código validado');
 assert.ok(core.includes("P20:{name:'Gás P20'")&&core.includes("P45:{name:'Gás P45'"),'cliente deve expor P20/P45 sem inventar oferta');
@@ -156,6 +166,11 @@ assert.ok(merchant.includes('canGoOnline'),'botão online deve considerar compli
 
 assert.ok(backend.includes('merchantOriginSafe'),'frontend da revenda precisa bloquear origem compartilhada');
 assert.ok(backend.includes('CHAMA_MERCHANT_ORIGIN'),'origem dedicada da revenda precisa ser configurável');
+assert.ok(backend.includes('function buildPortalHref'),'navegação entre portais precisa de autoridade explícita de origem');
+assert.ok(backend.includes("buildPortalHref(globalThis.CHAMA_MERCHANT_ORIGIN,'merchant')"),'CTA de revenda precisa navegar para a origem dedicada configurada');
+assert.ok(backend.includes("buildPortalHref(globalThis.CHAMA_CUSTOMER_ORIGIN,'customer')"),'retorno ao cliente precisa navegar para a origem dedicada configurada');
+assert.ok(admin.includes("buildPortalHref?.(globalThis.CHAMA_ADMIN_ORIGIN,'admin')"),'entrada administrativa precisa navegar para a origem dedicada configurada');
+assert.ok(!backend.includes("const url=new URL(location.href);\n  url.search='';\n  url.searchParams.set('merchant','1')"),'portal merchant não pode reutilizar cegamente a origem atual');
 for(const fn of ['merchant-orders','merchant-action','merchant-ops','complete-delivery']){
   const source=read('supabase/functions/'+fn+'/index.ts');
   assert.ok(source.includes('MERCHANT_ALLOWED_ORIGIN'),fn+' precisa exigir origem dedicada');
