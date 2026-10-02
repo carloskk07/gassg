@@ -43,6 +43,35 @@ function liveBanner(){
   return 'blocked';
 }
 
+function buildPortalHref(configuredOrigin,portal,current=location){
+  const currentOrigin=String(current?.origin||'').trim();
+  const currentHostname=String(current?.hostname||'').trim().toLowerCase();
+  const configured=String(configuredOrigin||'').trim();
+  const local=['localhost','127.0.0.1'].includes(currentHostname);
+  const targetOrigin=local?currentOrigin:configured;
+  if(!targetOrigin)return null;
+
+  let originUrl;
+  try{originUrl=new URL(targetOrigin)}catch{return null}
+  if(!local&&originUrl.origin!==targetOrigin)return null;
+
+  const pathname=String(current?.pathname||'/')||'/';
+  const url=new URL(pathname,originUrl.origin);
+  url.search='';
+  if(portal==='merchant'){
+    url.searchParams.set('merchant','1');
+    url.hash='merchant';
+  }else if(portal==='admin'){
+    url.searchParams.set('admin','1');
+    url.hash='admin';
+  }else if(portal==='customer'){
+    url.hash='home';
+  }else{
+    return null;
+  }
+  return url.toString();
+}
+
 function loadSupabaseBrowser(){
   if(globalThis.supabase?.createClient)return Promise.resolve(globalThis.supabase);
   return new Promise((resolve,reject)=>{
@@ -752,6 +781,7 @@ function openCustomerPortal(){
   location.href=url.toString();
 }
 
+globalThis.buildPortalHref=buildPortalHref;
 globalThis.liveRuntime=liveRuntime;
 globalThis.customerOriginSafe=customerOriginSafe;
 globalThis.backendInit=backendInit;
