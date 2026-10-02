@@ -131,7 +131,7 @@ await evaluate("go('earn')");
 await waitFor("document.body.innerText.includes('Comissão por indicação para pessoas')","earn route");
 body=await text();
 assert.match(body,/Indique quem realmente pode comprar/);
-assert.match(body,/Venda mais sem perder o controle/);
+assert.match(body,/Transforme pedidos adicionais em faturamento incremental/);
 assert.match(body,/2%/);
 assert.match(body,/Taxa Chama: 7,5% por pedido concluído/);
 await auditDom('earn');
