@@ -466,9 +466,6 @@ async function liveSyncFinancialProfile({force=false}={}){
     if(summary?.activeOrderId){
       liveRuntime.orderId=String(summary.activeOrderId);
       localStorage.setItem(CHAMA_BACKEND.orderStorageKey,liveRuntime.orderId);
-    }else if(liveRuntime.order&&["SETTLED","CANCELLED"].includes(liveRuntime.order.status)){
-      localStorage.removeItem(CHAMA_BACKEND.orderStorageKey);
-      liveRuntime.orderId=null;
     }
     liveRuntime.lastFinancialSyncAt=Date.now();
     save();
