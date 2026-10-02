@@ -8,6 +8,7 @@ const maintainPrivileges=fs.readFileSync(new URL('../supabase/migrations/2026100
 const sequenceHardening=fs.readFileSync(new URL('../supabase/migrations/20261002200242_server_only_sequence_and_pilot_fk_hardening.sql',import.meta.url),'utf8').replace(/--.*$/gm,'').replace(/\s+/g,' ').toLowerCase();
 const moneySafety=fs.readFileSync(new URL('../supabase/migrations/20261002202113_int4_cart_money_safety.sql',import.meta.url),'utf8').replace(/--.*$/gm,'').replace(/\s+/g,' ').toLowerCase();
 const adminEmailBootstrap=fs.readFileSync(new URL('../supabase/migrations/20261002213038_platform_admin_email_bootstrap_reservation.sql',import.meta.url),'utf8').replace(/--.*$/gm,'').replace(/\s+/g,' ').toLowerCase();
+const authorizedPricing=fs.readFileSync(new URL('../supabase/migrations/20261002205000_authorized_price_ranges.sql',import.meta.url),'utf8').replace(/--.*$/gm,'').replace(/\s+/g,' ').toLowerCase();
 
 for(const fn of ['create_order_from_quote','merchant_order_action','customer_order_action','complete_order_delivery']){
   assert.match(n,new RegExp('create or replace function public\\.'+fn+'\\b'),fn+' precisa estar versionada');
@@ -41,5 +42,11 @@ assert.match(adminEmailBootstrap,/u\.email_confirmed_at is not null/,'bootstrap 
 assert.match(adminEmailBootstrap,/u\.is_anonymous is false/,'bootstrap deve exigir identidade permanente');
 assert.match(adminEmailBootstrap,/revoke all on table public\.platform_admin_bootstrap_reservations from public, anon, authenticated/,'reserva administrativa não pode ser visível ao browser');
 assert.match(adminEmailBootstrap,/chama-first-admin-bootstrap/,'bootstrap reservado deve ter job server-side de ativação');
+assert.match(authorizedPricing,/pricing_mode text not null default 'fixed'/,'catálogo precisa suportar modo fixo/faixa');
+assert.match(authorizedPricing,/pricing_strategy text not null default 'balanced'/,'catálogo precisa registrar estratégia do parceiro');
+assert.match(authorizedPricing,/min_price_cents<=price_cents/,'preço normal precisa ficar acima do mínimo autorizado');
+assert.match(authorizedPricing,/price_cents<=max_price_cents/,'preço normal precisa ficar abaixo do máximo autorizado');
+assert.match(authorizedPricing,/r\.unit_price_cents between ci\.min_price_cents and ci\.max_price_cents/,'snapshot deve rejeitar preço fora da faixa autorizada');
+assert.match(authorizedPricing,/r\.unit_price_cents\*r\.quantity/,'snapshot precisa congelar o preço efetivamente ofertado');
 
 console.log('Runtime migration contract passou.');
