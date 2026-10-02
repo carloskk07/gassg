@@ -75,6 +75,8 @@ assert.ok(sw.includes("CACHE='chama-sg-v1.27'"),'cache do service worker precisa
 assert.ok(sw.includes("./js/backend.js"),'runtime live precisa estar no cache da PWA');
 assert.ok(sw.includes("./js/runtime-config.js"),'configuração pública de origins precisa estar no cache da PWA');
 assert.ok(sw.includes("./js/turnstile.js"),'helper local do Turnstile precisa estar no cache da PWA');
+assert.ok(sw.includes('async function networkFirst')&&sw.includes("return (await cache.match(cacheKey))||res"),'PWA deve usar cache também quando servidor same-origin responde erro');
+assert.ok(sw.includes("return (await cache.match(cacheKey))||Response.error()"),'PWA precisa responder de forma definida quando rede e cache falham');
 assert.ok(html.indexOf('./js/turnstile.js')<html.indexOf('./js/backend.js'),'helper Turnstile deve carregar antes do backend');
 assert.ok(html.indexOf('./js/runtime-config.js')<html.indexOf('./js/backend.js'),'runtime-config.js deve carregar antes do backend');
 assert.ok(html.includes('http-equiv="Content-Security-Policy"'),'PWA precisa declarar CSP explícita');
@@ -120,6 +122,8 @@ assert.ok(backend.includes("const pathname=local?")&&backend.includes(":'/'"),'n
 assert.ok(backend.includes("const idempotencyKey=liveIdempotency('create-order')"),'criação de pedido precisa fixar a chave idempotente antes da primeira tentativa');
 assert.ok(backend.includes("liveInvoke('create-order',payload,{idempotencyKey})"),'retry de create-order precisa reutilizar a mesma chave idempotente');
 assert.ok(backend.includes("toast('Pedido recuperado com segurança após uma falha de conexão.')"),'frontend precisa recuperar pedido após ACK perdido');
+assert.ok(backend.includes("Number(firstError?.status)>=500"),'create-order idempotente deve repetir uma vez também em erro transitório 5xx');
+assert.ok(!backend.includes('localStorage.removeItem(CHAMA_BACKEND.orderStorageKey);\n      liveRuntime.orderId=null;'),'sincronização financeira não pode apagar o último pedido terminal necessário para reload/suporte');
 assert.ok(backend.includes("SUPABASE_BROWSER_URL='https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.2/dist/umd/supabase.js'"),'browser deve fixar arquivo exato do supabase-js');
 assert.ok(backend.includes("SUPABASE_BROWSER_SRI='sha384-Rj26LVGvoeRVR6+mwQmFfcR3QOBEwT+ZmuCWpuiqeTzJpCs0ER4ITAWGb4Hiy3Ok'"),'browser deve fixar integridade SHA384 do SDK');
 assert.ok(backend.includes('script.integrity=SUPABASE_BROWSER_SRI'),'loader dinâmico precisa aplicar SRI antes de anexar o script');
