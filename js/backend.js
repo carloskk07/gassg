@@ -805,16 +805,21 @@ async function merchantSubmitApplicationLive(payload){
 }
 
 async function merchantHeartbeat(){
-  if(!merchantReady()||merchantRuntime.actionPending||!merchantRuntime.merchant)return;
+  if(!merchantReady()||merchantRuntime.actionPending||!merchantRuntime.merchant)return false;
   const now=Date.now();
-  if(now-merchantRuntime.lastHeartbeatAt<60000)return;
+  if(now-merchantRuntime.lastHeartbeatAt<60000)return null;
   merchantRuntime.lastHeartbeatAt=now;
   try{
     await merchantInvoke('merchant-ops',{
       merchantId:merchantRuntime.merchant.merchantId,
       action:'heartbeat'
     });
-  }catch{}
+    merchantRuntime.heartbeatError=null;
+    return true;
+  }catch(error){
+    merchantRuntime.heartbeatError=String(error?.message||error||'Falha ao confirmar presença');
+    return false;
+  }
 }
 
 async function merchantPoll(){
