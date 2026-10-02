@@ -211,8 +211,8 @@ assert.ok(merchant.includes('Revalidação necessária antes de operar.'),'paine
 assert.ok(merchant.includes('canGoOnline'),'botão online deve considerar compliance e confirmação comercial');
 assert.ok(merchant.includes("m.acceptsCitywide!==false"),'UI não pode permitir ONLINE quando a área atendida do piloto está desativada');
 assert.ok(merchant.includes('atendimento em São Gabriel desativado'),'painel deve explicar por que a operação não pode voltar online');
-assert.ok(merchantOpsSource.includes('DELIVERY_AREA_REQUIRED'),'backend deve bloquear ONLINE sem atendimento em São Gabriel no piloto');
-assert.ok(merchantOpsSource.includes('if(!acceptsCitywide)logisticsPatch.online=false'),'desativar a área do piloto deve pausar novos pedidos atomicamente');
+assert.ok(read('supabase/functions/merchant-ops/index.ts').includes('DELIVERY_AREA_REQUIRED'),'backend deve bloquear ONLINE sem atendimento em São Gabriel no piloto');
+assert.ok(read('supabase/functions/merchant-ops/index.ts').includes('if(!acceptsCitywide)logisticsPatch.online=false'),'desativar a área do piloto deve pausar novos pedidos atomicamente');
 
 
 
