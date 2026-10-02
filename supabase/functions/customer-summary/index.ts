@@ -77,6 +77,7 @@ Deno.serve(async(req:Request)=>{
     return json({
       referralCode:data?.referralCode??null,
       cashbackCents:Number(data?.cashbackCents??0),
+      cashbackDebtCents:Number(data?.cashbackDebtCents??0),
       commissionPendingCents:Number(data?.commissionPendingCents??0),
       commissionAvailableCents:Number(data?.commissionAvailableCents??0),
       settledOrders:Number(data?.settledOrders??0),
