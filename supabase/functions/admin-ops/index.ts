@@ -278,7 +278,7 @@ Deno.serve(async(req:Request)=>{
         kind,
         targetId:uuid(body.targetId,"target"),
         financialAction,
-        reference:body.reference==null?null:(cleanText(body.reference,{min:0,max:240,name:"referência"})||null)
+        reference:cleanText(body.reference,{min:3,max:240,name:"referência de conciliação"})
       };
     }else{
       throw new DomainError("INVALID_ACTION","Ação administrativa inválida.",400);
@@ -382,6 +382,10 @@ Deno.serve(async(req:Request)=>{
     if(message.includes("FINANCIAL_ITEM_NOT_OPEN")){
       return json({error:"FINANCIAL_ITEM_NOT_OPEN",message:"Este item financeiro já foi processado."},409,origin);
     }
+    if(message.includes("FINANCIAL_REFERENCE_REQUIRED")){
+      return json({error:"FINANCIAL_REFERENCE_REQUIRED",message:"Informe uma referência de conciliação para concluir a operação financeira."},400,origin);
+    }
+
     if(message.includes("REFERRAL_REVIEW_NOT_FOUND")){
       return json({error:"REFERRAL_REVIEW_NOT_FOUND",message:"A revisão de indicação não foi encontrada."},404,origin);
     }
