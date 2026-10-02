@@ -3,6 +3,8 @@ const CHAMA_BACKEND={
   publishableKey:'sb_publishable_3FLGyrWHrUZ5vQc59Iowug_pekOZ9u_',
   orderStorageKey:'chama-live-order-id-v1'
 };
+const SUPABASE_BROWSER_URL='https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.2/dist/umd/supabase.js';
+const SUPABASE_BROWSER_SRI='sha384-Rj26LVGvoeRVR6+mwQmFfcR3QOBEwT+ZmuCWpuiqeTzJpCs0ER4ITAWGb4Hiy3Ok';
 
 const customerPortalParams=new URLSearchParams(location.search);
 const liveRuntime={
@@ -51,7 +53,8 @@ function loadSupabaseBrowser(){
       return;
     }
     const script=document.createElement('script');
-    script.src='https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.2';
+    script.src=SUPABASE_BROWSER_URL;
+    script.integrity=SUPABASE_BROWSER_SRI;
     script.async=true;
     script.dataset.chamaSupabase='1';
     script.crossOrigin='anonymous';
