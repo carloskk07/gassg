@@ -173,7 +173,7 @@ for(const fn of ['get-offers','create-order','customer-action','customer-summary
 }
 assert.ok(read('supabase/functions/get-order/index.ts').includes('CUSTOMER_ORIGIN_REQUIRED'),'get-order precisa exigir origem dedicada para papel customer');
 assert.ok(read('supabase/functions/get-order/index.ts').includes('CUSTOMER_ALLOWED_ORIGIN'),'get-order precisa separar origem customer de merchant');
-assert.ok(core.includes('esta origem provisória mostra exemplos, mas não aceita transações reais'),'origem provisória deve mostrar exemplos sem transação real');
+assert.ok(core.includes('compras reais serão liberadas na abertura oficial desta experiência'),'pré-lançamento deve deixar claro que compras reais ainda não estão liberadas');
 assert.ok(sw.includes("./js/admin.js"),'runtime admin precisa estar no cache da PWA');
 assert.ok(admin.includes("storageKey:'chama-sg-admin-auth-v1'"),'sessão admin deve ser isolada das sessões cliente/revenda');
 assert.ok(backend.includes("storage:sessionStorage")&&backend.includes("storageKey:'chama-sg-merchant-auth-v1'"),'sessão da revenda deve ser tab-scoped em sessionStorage');
