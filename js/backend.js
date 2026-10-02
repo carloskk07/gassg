@@ -768,17 +768,20 @@ async function merchantPoll(){
 }
 
 function openMerchantPortal(){
-  const url=new URL(location.href);
-  url.search='';
-  url.searchParams.set('merchant','1');
-  url.hash='merchant';
-  location.href=url.toString();
+  const href=buildPortalHref(globalThis.CHAMA_MERCHANT_ORIGIN,'merchant');
+  if(!href){
+    toast('O portal da revenda ainda não possui uma origem dedicada configurada');
+    return;
+  }
+  location.href=href;
 }
 function openCustomerPortal(){
-  const url=new URL(location.href);
-  url.search='';
-  url.hash='home';
-  location.href=url.toString();
+  const href=buildPortalHref(globalThis.CHAMA_CUSTOMER_ORIGIN,'customer');
+  if(!href){
+    toast('O site do cliente ainda não possui uma origem dedicada configurada');
+    return;
+  }
+  location.href=href;
 }
 
 globalThis.buildPortalHref=buildPortalHref;
