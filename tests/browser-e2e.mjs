@@ -91,7 +91,9 @@ await waitFor("document.body.innerText.includes('Seu gás, com preço e prazo')"
 let body=await text();
 assert.match(body,/Seu gás, com preço e prazo/);
 assert.match(body,/Quero pedir agora/);
-assert.match(body,/Quero economizar/);
+assert.match(body,/Quero entender melhor/);
+assert.match(body,/Botijão de cozinha 13 kg/);
+assert.match(body,/PROTEÇÃO CHAMA/);
 assert.match(body,/Quero ganhar ou vender/);
 assert.match(body,/Ambiente isolado de teste automatizado/);
 await auditDom('home');
@@ -114,17 +116,17 @@ assert.equal(
 );
 
 await evaluate("go('learn')");
-await waitFor("document.body.innerText.includes('Entenda o Chama')","learn route");
+await waitFor("document.body.innerText.includes('Antes de pedir, veja quanto custa')","learn route");
 body=await text();
 assert.match(body,/DÚVIDAS FREQUENTES/);
-assert.match(body,/Aceite real da revenda/);
+assert.match(body,/Parceiro precisa confirmar/);
 await auditDom('learn');
 
 await evaluate("go('earn')");
-await waitFor("document.body.innerText.includes('Benefícios por indicar')","earn route");
+await waitFor("document.body.innerText.includes('Comissão por indicação para pessoas')","earn route");
 body=await text();
-assert.match(body,/Indique novos compradores/);
-assert.match(body,/Venda pelo Chama/);
+assert.match(body,/Indique quem realmente pode comprar/);
+assert.match(body,/Venda mais sem perder o controle/);
 assert.match(body,/2%/);
 assert.match(body,/Taxa Chama: 7,5% por pedido concluído/);
 await auditDom('earn');
@@ -148,12 +150,12 @@ await auditDom('order');
 
 const basket=await evaluate("JSON.stringify([...document.querySelectorAll('.cart-item')].map(row=>({name:row.querySelector('.product-left strong').textContent,qty:Number(row.querySelector('.qty strong').textContent)})))");
 const parsed=JSON.parse(basket);
-assert.equal(parsed.find(x=>x.name==='Gás P13').qty,0);
+assert.equal(parsed.find(x=>x.name==='Botijão de cozinha 13 kg').qty,0);
 assert.equal(parsed.find(x=>x.name==='Água 20 L').qty,1);
 
 assert.equal(await evaluate("window.__xss===undefined"),true);
 await evaluate("checkout('A')");
-await waitFor("location.hash==='#tracking' && document.body.innerText.includes('Aguardando revenda')","tracking pending");
+await waitFor("location.hash==='#tracking' && document.body.innerText.includes('Aguardando parceiro')","tracking pending");
 assert.equal(await evaluate("window.__xss===undefined"),true);
 await auditDom('tracking pending');
 
@@ -179,10 +181,10 @@ await evaluate("setMode('merchant')");
 await waitFor("document.body.innerText.includes('Estou chegando')","merchant arriving action");
 await evaluate("[...document.querySelectorAll('button')].find(b=>b.textContent.includes('Estou chegando')).click()");
 await evaluate("setMode('customer'); go('tracking')");
-await waitFor("document.body.innerText.includes('PIN de recebimento')","customer PIN");
+await waitFor("document.body.innerText.includes('Código de recebimento')","customer PIN");
 body=await text();
-const pin=(body.match(/PIN de recebimento:\s*(\d{4})/)||[])[1];
-assert.ok(pin,'PIN não encontrado');
+const pin=(body.match(/Código de recebimento:\s*(\d{4})/)||[])[1];
+assert.ok(pin,'Código de recebimento não encontrado');
 
 await evaluate("setMode('merchant')");
 await waitFor("document.querySelector('.pin-input') && document.querySelector('input[id^=paid-]')","merchant PIN and payment confirmation");
@@ -216,5 +218,5 @@ await auditDom('refer');
 
 assert.deepEqual(pageErrors,[],`Chrome registrou erros: ${pageErrors.join(' | ')}`);
 
-console.log('E2E Chrome passou: água sem P13 → aceite → saída → chegada → pagamento + PIN → cashback.');
+console.log('E2E Chrome passou: água sem botijão → aceite → saída → chegada → pagamento + código → cashback.');
 ws.close();

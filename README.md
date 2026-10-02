@@ -27,6 +27,25 @@ Esses exemplos:
 
 A suíte de testes mantém um marketplace sintético completo apenas quando injeta `globalThis.__CHAMA_TEST__=true`. A build normal não oferece esse caminho.
 
+## Estado atual — v1.26 human conversion & trust
+
+A v1.26 reorganiza a experiência pública a partir da decisão real do usuário: **comprar primeiro, entender a confiança depois e só então explorar benefícios e oportunidades**. Nenhuma capacidade financeira ou operacional inexistente foi promovida como pronta.
+
+Principais mudanças:
+
+- a Home inicia pela compra do **Botijão de cozinha 13 kg**, mantendo `P13` apenas como referência técnica secundária;
+- endereço, produto e CTA de consulta ficam juntos no primeiro bloco de decisão;
+- preço total, previsão de entrega e aceite do parceiro passaram a usar linguagem de consumidor;
+- cards reais continuam sem revelar a identidade completa do parceiro antes do aceite, mas explicam claramente total, prazo, elegibilidade, confiança e forma de pagamento;
+- rescue/requote passa a ser apresentado como **Proteção Chama**: se a primeira operação falhar antes da saída, o sistema pode procurar alternativa e qualquer aumento de total continua exigindo aceite explícito do cliente;
+- acompanhamento usa **código de recebimento** como linguagem pública, preservando o PIN técnico no backend;
+- cashback, comissão por indicação e receita de revenda são apresentados como três naturezas econômicas diferentes;
+- o simulador de indicação continua preso à política real do piloto de **2% sobre a primeira compra qualificada** e deixa ainda mais explícito que comissão não é renda fixa nem saque imediato;
+- a proposta para revendas continua expondo **7,5% por pedido concluído**, agora com FAQ sobre autonomia, taxa, catálogo e a ausência de prazo de repasse prometido enquanto cobrança/conciliação/payout não forem validados ponta a ponta;
+- o pré-lançamento continua fail-closed: exemplos seguem marcados **EXEMPLO — NÃO COMPRÁVEL** e não criam pedidos, cobranças ou recompensas.
+
+**Estado operacional permanece o mesmo:** o mercado real ainda tem 0 revendas configuradas e o GitHub Pages continua sendo somente uma prévia visual. A v1.26 melhora conversão e confiança; ela não remove os blockers de go-live listados abaixo.
+
 ## Estado atual — v1.25 conversion & transparent economics
 
 **Backend multiusuário:** aplicado no projeto Supabase exclusivo do Chama.

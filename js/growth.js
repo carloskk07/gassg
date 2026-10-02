@@ -75,7 +75,7 @@ function refer(){
 
   return shell(`<section class="page">
     <button class="back" onclick="go('earn')">← Ganhar ou vender</button>
-    <span class="eyebrow">INDICAÇÃO PARA PESSOAS</span>
+    <span class="eyebrow">COMISSÃO POR INDICAÇÃO</span>
     <h1 class="page-title">Indique um novo comprador. A primeira compra elegível pode gerar comissão.</h1>
     <p class="muted page-lead">O Chama usa indicação como aquisição de novos clientes: cadastro sozinho não gera valor e compras repetidas do mesmo indicado não criam uma nova comissão de aquisição.</p>
     <div class="earn-summary">
@@ -85,7 +85,7 @@ function refer(){
     ${referralCard}
     ${identityCard}
 
-    <section class="section"><div class="section-head"><div><span class="section-kicker">SIMULADOR DA POLÍTICA ATUAL</span><h2>Veja quanto a regra de 2% representa.</h2><p>Use quantidades e valores hipotéticos para entender a matemática — não como previsão de renda.</p></div></div>
+    <section class="section"><div class="section-head"><div><span class="section-kicker">SIMULADOR DA POLÍTICA ATUAL</span><h2>Veja o que 2% representa em vendas qualificadas.</h2><p>Use quantidades e valores hipotéticos para entender a matemática. O resultado não é previsão nem promessa de renda.</p></div></div>
       <div class="calculator-card">
         <div class="calculator-inputs">
           <div class="input-wrap"><label for="ref-sim-clients">Novos clientes com 1ª compra qualificada</label><input id="ref-sim-clients" class="input" type="number" inputmode="numeric" min="1" max="500" value="10" oninput="updateReferralSimulator()"></div>
@@ -93,7 +93,7 @@ function refer(){
         </div>
         <div class="calculator-result"><small>Comissão ilustrativa pela política atual</small><strong id="ref-sim-total">${BRL.format(referralExample(120,10))}</strong><span id="ref-sim-detail">10 novos clientes × ${BRL.format(120)} × 2%</span></div>
       </div>
-      <div class="notice" style="margin-top:12px"><strong>Não é promessa de renda.</strong><br>O valor só pode nascer da primeira compra qualificada de cada novo cliente indicado e ainda depende de entrega, pagamento, validação de risco, janela de segurança e das identidades permanentes exigidas pelo programa. Compras repetidas do mesmo cliente não geram novas comissões de aquisição.</div>
+      <div class="notice" style="margin-top:12px"><strong>Comissão não é saque imediato.</strong><br>O valor só pode nascer da primeira compra qualificada de cada novo cliente indicado e ainda depende de entrega, pagamento, validação de risco, janela de segurança e das identidades permanentes exigidas pelo programa. Compras repetidas do mesmo cliente não geram novas comissões.</div>
     </section>
 
     <section class="section"><div class="section-head"><div><h2>Como a comissão passa a existir</h2></div></div><div class="how-grid">
@@ -110,32 +110,32 @@ function refer(){
 function earn(){
   const merchantSample=merchantEconomicsExample(120);
   return shell(`<section class="page">
-    <span class="eyebrow">GANHAR OU VENDER</span>
-    <h1 class="page-title">Benefícios por indicar. Novas vendas para sua empresa.</h1>
-    <p class="muted page-lead">São duas oportunidades diferentes. Pessoa física pode receber comissão de aquisição quando traz um novo comprador elegível; empresa ganha vendendo produtos pelo Chama.</p>
+    <span class="eyebrow">BENEFÍCIOS E OPORTUNIDADES</span>
+    <h1 class="page-title">Comissão por indicação para pessoas. Mais vendas para empresas.</h1>
+    <p class="muted page-lead">São caminhos diferentes: quem compra pode indicar novos clientes elegíveis; quem já tem uma empresa pode usar o Chama como canal adicional de vendas. Nenhum dos dois é promessa de renda fixa.</p>
 
     <div class="opportunity-grid main-opportunities">
-      <article class="opportunity-card person-opportunity"><div class="opportunity-icon">🤝</div><span class="section-kicker">PARA PESSOAS</span><h2>Indique novos compradores</h2><p>Compartilhe seu link pessoal. A primeira compra qualificada de cada novo cliente indicado pode gerar comissão depois de entregue, paga e validada.</p>
+      <article class="opportunity-card person-opportunity"><div class="opportunity-icon">🤝</div><span class="section-kicker">PARA PESSOAS</span><h2>Indique quem realmente pode comprar</h2><p>Compartilhe seu link pessoal. A primeira compra qualificada de cada novo cliente indicado pode gerar comissão depois de entregue, paga e validada.</p>
         <ul class="clean-list"><li>Política atual do piloto: 2% da primeira compra qualificada</li><li>Uma comissão de aquisição por novo cliente elegível</li><li>Saldo “a liberar” separado do saldo disponível</li><li>Nenhum pagamento por simples recrutamento</li></ul>
         <div class="opportunity-example"><small>Exemplo matemático</small><strong>R$ 120 × 2% = ${BRL.format(referralExample(120))}</strong><span>Não é promessa de renda; a venda precisa cumprir todos os gates.</span></div>
         <button class="primary full" onclick="go('refer')">Simular minha indicação</button>
       </article>
-      <article class="opportunity-card business-opportunity"><div class="opportunity-icon">🏪</div><span class="section-kicker">PARA EMPRESAS</span><h2>Venda pelo Chama</h2><p>Transforme a plataforma em mais um canal de vendas para gás, água e outros itens da sua operação.</p>
+      <article class="opportunity-card business-opportunity"><div class="opportunity-icon">🏪</div><span class="section-kicker">PARA EMPRESAS</span><h2>Venda mais sem perder o controle</h2><p>Use a plataforma como um canal adicional para gás, água e outros itens da sua operação, mantendo preço, estoque, disponibilidade e aceite sob sua decisão.</p>
         <ul class="clean-list"><li>Você define preços, estoque e taxa de entrega</li><li>Escolhe quando ficar online</li><li>Decide se aceita cada pedido</li><li>Pode vender vários tipos de produto</li></ul>
         <div class="opportunity-example"><small>Política inicial do piloto</small><strong>Taxa Chama: 7,5% por pedido concluído</strong><span>Ex.: R$ 120 bruto → ${BRL.format(merchantSample.fee)} de taxa → ${BRL.format(merchantSample.merchantNet)} antes dos custos próprios e impostos.</span></div>
         <button class="primary full" onclick="go('merchants')">Ver parceria e simulador</button>
       </article>
     </div>
 
-    <section class="section"><div class="soft-band"><div><span class="section-kicker">TRANSPARÊNCIA</span><h2>Dinheiro só aparece quando existe atividade econômica real.</h2><p>Indicação exige venda válida. Revenda ganha vendendo produtos. O Chama não paga por formar rede de pessoas, não promete renda fixa e não apresenta saque como disponível antes da integração financeira.</p></div><button class="secondary" onclick="go('learn')">Entender compra e segurança</button></div></section>
+    <section class="section"><div class="soft-band"><div><span class="section-kicker">TRANSPARÊNCIA</span><h2>Benefício, comissão e receita não são a mesma coisa.</h2><p>Cashback reduz compras futuras. Comissão de indicação depende de uma venda válida. Receita da revenda nasce de pedidos concluídos. O Chama não paga por formar rede de pessoas, não promete renda fixa e só apresentará saque quando a integração financeira estiver realmente disponível.</p></div><button class="secondary" onclick="go('learn')">Entender compra e segurança</button></div></section>
   </section>`)
 }
 
 function learn(){
   return shell(`<section class="page">
     <span class="eyebrow">SAIBA MAIS</span>
-    <h1 class="page-title">Entenda o Chama antes de fazer seu primeiro pedido.</h1>
-    <p class="muted page-lead">O objetivo é simples: facilitar a comparação, dar mais clareza sobre o aceite da revenda e permitir que você acompanhe a entrega.</p>
+    <h1 class="page-title">Antes de pedir, veja quanto custa, quanto demora e o que acontece se algo der errado.</h1>
+    <p class="muted page-lead">O Chama foi desenhado para tirar as principais dúvidas antes da compra: total, prazo, confirmação do parceiro e acompanhamento até o recebimento.</p>
 
     <section class="section"><div class="section-head"><div><span class="section-kicker">PASSO A PASSO</span><h2>Comprar é um fluxo de quatro etapas</h2></div></div><div class="how-grid">
       <div class="how-card"><span>1</span><div><strong>Monte sua cesta</strong><p>Escolha gás e/ou produtos essenciais disponíveis.</p></div></div>
@@ -146,21 +146,23 @@ function learn(){
 
     <section class="section"><div class="section-head"><div><span class="section-kicker">O QUE MUDA PARA VOCÊ</span><h2>Menos dúvida durante a compra</h2></div></div><div class="grid cards-3">
       <div class="card feature-card"><div class="feature-icon">💲</div><h3>Valor antes de confirmar</h3><p>Você vê o total da opção antes de criar o pedido.</p></div>
-      <div class="card feature-card"><div class="feature-icon">✅</div><h3>Aceite real da revenda</h3><p>Pedido enviado não é tratado como atendido até a revenda confirmar.</p></div>
+      <div class="card feature-card"><div class="feature-icon">✅</div><h3>Parceiro precisa confirmar</h3><p>Enviar o pedido não significa que você já ficará esperando: a operação precisa aceitar antes de assumir a entrega.</p></div>
       <div class="card feature-card"><div class="feature-icon">📍</div><h3>Acompanhamento por etapas</h3><p>Preparando, a caminho e chegando são estados separados.</p></div>
     </div></section>
 
     <section class="section"><div class="section-head"><div><span class="section-kicker">DÚVIDAS FREQUENTES</span><h2>Antes de comprar</h2></div></div><div class="faq-list">
       <details open><summary>Preciso comprar gás para pedir água, carvão, lenha ou gelo?</summary><p>Não. Quando houver oferta real para o produto, você pode montar uma cesta sem gás.</p></details>
       <details><summary>O preço pode mudar depois que eu escolho?</summary><p>A opção escolhida é protegida para o pedido. Se for necessária uma alternativa mais cara durante uma reatribuição, o sistema pede seu aceite antes de trocar a condição.</p></details>
-      <details><summary>Como sei que a revenda realmente vai entregar?</summary><p>A revenda precisa aceitar o pedido. Depois, a saída também precisa ser confirmada antes de aparecer “A caminho”.</p></details>
-      <details><summary>Como a entrega é concluída?</summary><p>A conclusão exige confirmação de pagamento e o PIN de recebimento do pedido.</p></details>
+      <details><summary>Como sei que alguém realmente assumiu meu pedido?</summary><p>O parceiro precisa aceitar o pedido. Depois, a saída também precisa ser confirmada antes de aparecer “A caminho”.</p></details>
+      <details><summary>E se o parceiro aceitar e depois não puder sair para entregar?</summary><p>A Proteção Chama pode procurar outra opção elegível. Se a alternativa aumentar o total, você precisa aprovar o novo valor antes da troca.</p></details>
+      <details><summary>E se ninguém aceitar?</summary><p>O pedido não é apresentado como confirmado sem aceite real. O sistema pode tentar outras opções elegíveis dentro das regras do pedido e informa quando não houver atendimento disponível.</p></details>
+      <details><summary>Como a entrega é concluída?</summary><p>A conclusão exige confirmação de pagamento e o código de recebimento do pedido. Informe esse código somente quando o pedido estiver com você.</p></details>
       <details><summary>Como funciona o cashback?</summary><p>Compras elegíveis podem gerar crédito para reduzir compras futuras dentro do Chama. O saldo aparece no Clube Chama.</p></details>
       <details><summary>Também posso ganhar indicando pessoas?</summary><p>Sim. No piloto, a primeira compra qualificada de cada novo cliente indicado pode gerar comissão após entrega, pagamento e validação. Compras posteriores do mesmo cliente não geram outra comissão de aquisição.</p></details>
       <details><summary>Tenho uma revenda. Posso vender outros produtos além de gás?</summary><p>Sim. A proposta inclui gás e produtos relacionados, com preço e estoque controlados por SKU. GLP exige a validação regulatória aplicável.</p></details>
     </div></section>
 
-    <div class="dual-cta"><button class="primary" onclick="quickProduct('P13')">🔥 Consultar uma compra</button><button class="secondary" onclick="go('earn')">💰 Ver como ganhar</button></div>
+    <div class="dual-cta"><button class="primary" onclick="quickProduct('P13')">🔥 Ver preços e prazos</button><button class="secondary" onclick="go('earn')">🤝 Indicação e parceria</button></div>
   </section>`)
 }
 
@@ -209,8 +211,8 @@ function merchantsLanding(){
   const sample=merchantEconomicsExample(120,100);
   return shell(`<section class="page merchant-landing">
     <span class="eyebrow">PARA EMPRESAS LOCAIS</span>
-    <h1 class="page-title">Mais um canal de vendas, com custo visível antes de entrar.</h1>
-    <p class="muted page-lead">Receba oportunidades de pedidos sem abrir outra loja. Você continua controlando catálogo, preço, estoque, disponibilidade e a decisão de aceitar cada pedido.</p>
+    <h1 class="page-title">Mais um canal de vendas. Sua operação continua sob seu controle.</h1>
+    <p class="muted page-lead">Receba oportunidades de pedidos sem abrir outra loja. Você continua no controle de catálogo, preço, estoque, taxa de entrega, disponibilidade e da decisão de aceitar cada pedido.</p>
     <div class="merchant-commercial-strip">
       <div><small>POLÍTICA INICIAL DO PILOTO</small><strong>7,5%</strong><span>taxa da plataforma sobre o valor bruto de cada pedido concluído</span></div>
       <p>Sem mensalidade apresentada no modelo atual. Custos próprios da revenda, tributos, meios de pagamento e entrega não estão incluídos nesta conta.</p>
@@ -235,7 +237,7 @@ function merchantsLanding(){
           <div class="highlight"><small>Antes dos seus custos e impostos</small><strong id="merchant-sim-net">${BRL.format(sample.merchantNet)}</strong></div>
         </div>
       </div>
-      <div class="notice" style="margin-top:12px">O Chama congela a política financeira no pedido. A automação de cobrança, conciliação e payout ainda faz parte da preparação operacional para abertura pública.</div>
+      <div class="notice" style="margin-top:12px"><strong>Repasse ainda em validação operacional.</strong><br>O Chama congela a política financeira no pedido, mas o fluxo real de cobrança, conciliação e repasse ainda precisa ser validado ponta a ponta antes da abertura pública. Nenhum prazo de repasse é prometido nesta fase.</div>
     </section>
 
     <section class="section" id="merchant-how"><div class="section-head"><div><span class="section-kicker">DO PEDIDO À ENTREGA</span><h2>Uma operação simples de entender</h2></div></div><div class="how-grid">
@@ -257,6 +259,8 @@ function merchantsLanding(){
     <section class="section"><div class="merchant-requirements"><div><span class="section-kicker light">PARA COMEÇAR</span><h2>Cadastro curto, ativação responsável.</h2><p>Precisamos identificar a empresa e o responsável. Para vender GLP, a operação passa também pela verificação regulatória aplicável antes de entrar nas ofertas.</p></div>
       <div class="requirement-list"><span>✓ CNPJ e dados da empresa</span><span>✓ Responsável e contato</span><span>✓ Endereço da operação</span><span>✓ Validação ANP quando houver GLP</span></div>
     </div></section>
+
+    <section class="section"><div class="section-head"><div><span class="section-kicker">DÚVIDAS DE QUEM VENDE</span><h2>Antes de entrar, saiba exatamente o que você controla.</h2></div></div><div class="faq-list"><details open><summary>Quando existe a taxa de 7,5%?</summary><p>Na política inicial do piloto, a taxa da plataforma incide sobre o valor bruto de cada pedido concluído. O simulador acima mostra a matemática antes dos custos e tributos próprios da empresa.</p></details><details><summary>Sou obrigado a aceitar todo pedido?</summary><p>Não. A revenda decide se aceita cada pedido e também pode ficar offline quando não quiser receber novas oportunidades.</p></details><details><summary>Quem define preço, estoque e entrega?</summary><p>A própria revenda controla preço por produto, estoque disponível, taxa de entrega e prazo operacional dentro das regras da plataforma.</p></details><details><summary>Quando o dinheiro é repassado?</summary><p>O fluxo real de cobrança, conciliação e repasse ainda está em validação para a abertura pública. O Chama não publica um prazo de repasse antes dessa comprovação.</p></details><details><summary>Posso vender outros itens além do P13?</summary><p>Sim. O catálogo suporta outros tamanhos de GLP e produtos como água, carvão, lenha e gelo, sujeitos às validações aplicáveis.</p></details></div></section>
 
     <section class="section"><div class="soft-band"><div><span class="section-kicker">ENTRADA NO PILOTO</span><h2>Veja custo, requisitos e operação antes de ativar.</h2><p>Enviar o cadastro não coloca a empresa online automaticamente e não cria cobrança. A ativação depende da aprovação e, quando houver GLP, da validação regulatória aplicável.</p></div><button class="primary" onclick="${cta}">Começar cadastro</button></div></section>
 
