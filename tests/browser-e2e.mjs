@@ -150,12 +150,12 @@ await auditDom('order');
 
 const basket=await evaluate("JSON.stringify([...document.querySelectorAll('.cart-item')].map(row=>({name:row.querySelector('.product-left strong').textContent,qty:Number(row.querySelector('.qty strong').textContent)})))");
 const parsed=JSON.parse(basket);
-assert.equal(parsed.find(x=>x.name==='Gás P13').qty,0);
+assert.equal(parsed.find(x=>x.name==='Botijão de cozinha 13 kg').qty,0);
 assert.equal(parsed.find(x=>x.name==='Água 20 L').qty,1);
 
 assert.equal(await evaluate("window.__xss===undefined"),true);
 await evaluate("checkout('A')");
-await waitFor("location.hash==='#tracking' && document.body.innerText.includes('Aguardando revenda')","tracking pending");
+await waitFor("location.hash==='#tracking' && document.body.innerText.includes('Aguardando parceiro')","tracking pending");
 assert.equal(await evaluate("window.__xss===undefined"),true);
 await auditDom('tracking pending');
 
@@ -181,10 +181,10 @@ await evaluate("setMode('merchant')");
 await waitFor("document.body.innerText.includes('Estou chegando')","merchant arriving action");
 await evaluate("[...document.querySelectorAll('button')].find(b=>b.textContent.includes('Estou chegando')).click()");
 await evaluate("setMode('customer'); go('tracking')");
-await waitFor("document.body.innerText.includes('PIN de recebimento')","customer PIN");
+await waitFor("document.body.innerText.includes('Código de recebimento')","customer PIN");
 body=await text();
-const pin=(body.match(/PIN de recebimento:\s*(\d{4})/)||[])[1];
-assert.ok(pin,'PIN não encontrado');
+const pin=(body.match(/Código de recebimento:\s*(\d{4})/)||[])[1];
+assert.ok(pin,'Código de recebimento não encontrado');
 
 await evaluate("setMode('merchant')");
 await waitFor("document.querySelector('.pin-input') && document.querySelector('input[id^=paid-]')","merchant PIN and payment confirmation");
@@ -218,5 +218,5 @@ await auditDom('refer');
 
 assert.deepEqual(pageErrors,[],`Chrome registrou erros: ${pageErrors.join(' | ')}`);
 
-console.log('E2E Chrome passou: água sem P13 → aceite → saída → chegada → pagamento + PIN → cashback.');
+console.log('E2E Chrome passou: água sem botijão → aceite → saída → chegada → pagamento + código → cashback.');
 ws.close();
