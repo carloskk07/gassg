@@ -443,7 +443,7 @@ async function merchantLiveAddGlp(){
   const price=Number(document.getElementById('live-new-glp-price')?.value);
   const stock=Number(document.getElementById('live-new-glp-stock')?.value);
   if(!Number.isInteger(kg)||kg<1||kg>90)return toast('Use um código GLP entre P1 e P90');
-  if(!Number.isFinite(price)||price<=0||!Number.isInteger(stock)||stock<0)return toast('Revise preço e estoque');
+  if(!Number.isFinite(price)||price<=0||price>10000||!Number.isInteger(stock)||stock<0||stock>100000)return toast('Revise preço e estoque');
   try{
     await merchantUpdateProductLive(code,Math.round(price*100),stock,true);
     toast('Gás P'+kg+' adicionado ao catálogo');
