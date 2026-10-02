@@ -152,6 +152,11 @@ assert.ok(backend.includes("SUPABASE_BROWSER_SRI='sha384-Rj26LVGvoeRVR6+mwQmFfcR
 assert.ok(backend.includes('script.integrity=SUPABASE_BROWSER_SRI'),'loader dinâmico precisa aplicar SRI antes de anexar o script');
 assert.ok(!backend.includes('@supabase/supabase-js@2\''),'browser não pode usar major flutuante do supabase-js');
 assert.ok(backend.includes('offerRequestSeq')&&backend.includes('orderRequestSeq'),'runtime live precisa bloquear respostas assíncronas obsoletas');
+assert.ok(backend.includes('financialSyncSeq')&&backend.includes('marketStatusSeq'),'resumos financeiros e estado do mercado também precisam descartar respostas obsoletas');
+assert.ok(backend.includes('liveRuntime.pollPending')&&backend.includes('merchantRuntime.pollPending'),'polling cliente/revenda deve ser single-flight em rede lenta');
+assert.ok(backend.includes('refreshSeq:0')&&backend.includes('seq!==merchantRuntime.refreshSeq'),'refresh da revenda não pode aceitar resposta antiga sobre uma mais nova');
+assert.ok(admin.includes('pollPending:false')&&admin.includes('refreshSeq:0')&&admin.includes('now-adminRuntime.lastPollAt<15000'),'admin deve serializar refresh e evitar polling completo a cada 5 segundos');
+assert.ok(admin.includes('seq!==adminRuntime.refreshSeq'),'resposta administrativa obsoleta não pode sobrescrever estado mais novo');
 assert.ok(backend.includes('liveRuntime.actionPending'),'polling precisa respeitar ação em andamento');
 assert.ok(read('supabase/functions/get-offers/index.ts').includes('create_quote_snapshot'),'ofertas devem persistir snapshot por RPC atômica');
 assert.ok(!read('supabase/functions/get-offers/index.ts').includes('.from("quotes")\n        .insert'),'Edge não deve montar quote em duas gravações separadas');
