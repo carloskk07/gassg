@@ -50,6 +50,7 @@ async function startHomeOrder(){
 
 function home(){
   const testDemo=globalThis.__CHAMA_TEST__===true;
+  const internalPilot=globalThis.CHAMA_INTERNAL_PILOT===true;
   const ready=globalThis.liveReady?.()===true;
   const preview=!testDemo&&globalThis.prelaunchExamplesEnabled?.()===true;
   const market=globalThis.liveRuntime?.marketStatus||null;
@@ -68,7 +69,9 @@ function home(){
             : 'Conectando…';
 
   const freshness=testDemo
-    ? 'Ambiente isolado de teste automatizado'
+    ? internalPilot
+      ? 'Piloto interno: preço P13 informado pelo parceiro; estoque, prazo e demais dados desta simulação são testes.'
+      : 'Ambiente isolado de teste automatizado'
     : preview
       ? 'Pré-lançamento em São Gabriel: conheça a experiência antes da abertura.'
       : ready&&!market
@@ -87,14 +90,16 @@ function home(){
 
   const disabled=!testDemo&&!ready&&!preview;
   const eyebrow=testDemo
-    ? '● TESTE AUTOMATIZADO'
+    ? internalPilot?'● PILOTO INTERNO — SEM PEDIDOS REAIS':'● TESTE AUTOMATIZADO'
     : preview
       ? '● PRÉ-LANÇAMENTO EM SÃO GABRIEL'
       : '● CHAMA SÃO GABRIEL';
-  const primaryLabel=preview?'Ver como vou comprar':'Ver preços e prazos';
-  const singleMarket=ready&&market?.availableNow&&Number(market?.availableMerchantCount||0)===1;
+  const primaryLabel=internalPilot?'Simular pedido':preview?'Ver como vou comprar':'Ver preços e prazos';
+  const singleMarket=internalPilot||(ready&&market?.availableNow&&Number(market?.availableMerchantCount||0)===1);
   const heroJourney=singleMarket
-    ? 'Informe onde quer receber, veja o preço total e o prazo do parceiro disponível e acompanhe cada etapa até a entrega.'
+    ? internalPilot
+      ? 'Simule a jornada completa com o primeiro parceiro piloto: pedido, aceite, preparação, saída, chegada, pagamento e benefícios.'
+      : 'Informe onde quer receber, veja o preço total e o prazo do parceiro disponível e acompanhe cada etapa até a entrega.'
     : 'Informe onde quer receber, compare as opções disponíveis e acompanhe cada etapa até a entrega.';
 
   return shell(`<section class="hero marketing-hero"><div class="hero-grid"><div>
@@ -110,6 +115,7 @@ function home(){
     </div>
 
     <div class="trust-row"><span class="trust-chip">✓ Total antes de pedir</span><span class="trust-chip">✓ Parceiro precisa aceitar</span><span class="trust-chip">✓ Entrega acompanhada</span></div>
+    ${internalPilot?'<div class="notice" style="margin-top:14px"><strong>Ambiente de validação interna.</strong><br>Nenhuma ação nesta prévia gera pedido real, cobrança ou baixa de estoque. O único dado comercial real carregado no cenário é o P13 informado a R$ 115,90 entregue.</div>':''}
   </div>
   <div class="hero-visual" aria-label="Resumo visual dos benefícios do Chama">
     <div class="visual-top"><span class="visual-dot"></span><strong>Compra sem adivinhação</strong><span class="visual-live">CHAMA</span></div>
@@ -145,7 +151,7 @@ function home(){
 <section class="section"><div class="section-head"><div><span class="section-kicker">MAIS QUE GÁS</span><h2>Complete o que está faltando em casa.</h2><p>Você também pode pedir itens disponíveis sem colocar gás na cesta.</p></div></div>
 <div class="quick-grid">${Object.entries(products).map(([k,p])=>`<button class="quick-card" onclick="quickProduct('${k}')" ${disabled?'disabled':''}><div class="quick-icon">${p.icon}</div><div class="quick-title">${esc(customerProductName(k,p))}</div><div class="quick-sub">${preview?'Ver experiência':'Consultar agora'}</div></button>`).join('')}</div></section>
 
-${preview?`<section class="section"><div class="card flat"><span class="section-kicker">PRIMEIRO PARCEIRO PILOTO</span><h2 style="margin-top:6px">Gas e Lenheira do JR está em preparação para entrar no Chama.</h2><p class="muted">O interesse comercial já foi registrado. A operação só será liberada para pedidos depois do cadastro real, validações aplicáveis e configuração operacional da revenda.</p></div></section>`:''}
+${internalPilot?`<section class="section"><div class="card flat"><span class="section-kicker">PARCEIRO DO PILOTO INTERNO</span><h2 style="margin-top:6px">Gas e Lenheira do JR</h2><p class="muted">P13 informado a <strong>R$ 115,90 entregue</strong>. Para exercitar todo o sistema antes do cadastro definitivo, estoque, distância, ETA e trust desta tela são valores simulados e podem ser alterados no painel da revenda.</p><button class="secondary" onclick="setMode('merchant')">Abrir painel simulado da revenda</button></div></section>`:${pilotSection}}
 
 ${preview?prelaunchExampleSection({P13:1}):''}
 
@@ -162,19 +168,22 @@ ${preview?prelaunchExampleSection({P13:1}):''}
 }
 function orderPage(){
   const testDemo=globalThis.__CHAMA_TEST__===true;
+  const internalPilot=globalThis.CHAMA_INTERNAL_PILOT===true;
   const liveMode=globalThis.liveRequested?.()===true;
   const ready=globalThis.liveReady?.()===true;
   const preview=!testDemo&&globalThis.prelaunchExamplesEnabled?.()===true;
   const hasAddress=!!state.address;
   const hasItems=hasCartItems();
   const os=testDemo?(hasItems?offers():[]):(ready?(liveRuntime.offers||[]):[]);
-  const singleSupplier=!testDemo&&ready&&liveRuntime.marketMode==='single_supplier';
+  const singleSupplier=(internalPilot&&os.length===1)||(!testDemo&&ready&&liveRuntime.marketMode==='single_supplier');
   const pendingOrder=testDemo
     ? state.orders.find(isLiveOrder)
     : (liveRuntime.order&&!['SETTLED','CANCELLED'].includes(liveRuntime.order.status)?liveRuntime.order:null);
 
   let liveNotice='';
-  if(!testDemo&&preview){
+  if(internalPilot){
+    liveNotice='<div class="notice" style="margin-bottom:14px"><strong>Piloto interno.</strong><br>Este pedido é uma simulação completa. Não gera venda, cobrança, entrega ou alteração no banco operacional.</div>';
+  }else if(!testDemo&&preview){
     liveNotice='<div class="notice" style="margin-bottom:14px"><strong>Pré-lançamento.</strong><br>Você pode percorrer a experiência, mas os cards marcados como EXEMPLO não criam pedido nem cobrança.</div>';
   }else if(!testDemo&&liveMode&&!ready){
     const message=liveRuntime?.status==='loading'
@@ -225,6 +234,7 @@ function cartRow(k,p){
   return `<div class="cart-item"><div class="product-left"><div class="product-icon">${p.icon}</div><div><strong>${esc(label)}</strong><div class="tiny muted">${esc(customerProductMeta(k))}</div></div></div><div class="qty" aria-label="Quantidade de ${esc(label)}"><button aria-label="Diminuir" onclick="qty('${k}',-1)">−</button><strong>${q}</strong><button aria-label="Aumentar" onclick="qty('${k}',1)">+</button></div></div>`
 }
 function offerCard(o){
+  const internalPilot=globalThis.CHAMA_INTERNAL_PILOT===true;
   const recommended=o.roles.includes('Recomendado');
   const available=o.roles.includes('Disponível agora');
   const featured=recommended||available;
@@ -233,7 +243,7 @@ function offerCard(o){
   const labels=o.roles.join(' • ');
   const etaEnd=o.etaMax??(o.eta+7);
   const distanceChip=o.distance!=null?`<span class="meta-chip">${Number(o.distance).toFixed(1)} km</span>`:'';
-  return `<article class="offer ${featured?'selected':''}">${available?'<div class="best-badge">OPÇÃO DISPONÍVEL AGORA</div>':recommended?'<div class="best-badge">MELHOR EQUILÍBRIO</div>':''}<div class="offer-label">${esc(labels)}</div><div class="offer-main"><div><div class="offer-price">${BRL.format(payable)}</div><div class="tiny muted">${discount>0?`estimativa após ${BRL.format(discount)} de cashback`:'total com entrega'}</div></div><div class="offer-eta"><strong>${o.eta}–${etaEnd} min</strong><small>previsão</small></div></div><div class="offer-meta">${distanceChip}<span class="meta-chip">✓ Operação elegível</span><span class="meta-chip">Parceiro local verificado</span><span class="meta-chip">Confiança ${o.trust}/100</span><span class="meta-chip">Pagamento solicitado: ${esc(paymentLabel(state.checkout.paymentMethod))}</span></div><div class="offer-assurance">🔒 O nome do parceiro aparece após o aceite real. Se for necessária uma alternativa mais cara, você decide antes.</div><button class="${featured?'primary':'secondary'} full" style="margin-top:13px" onclick="checkout('${o.id}')" ${globalThis.liveRuntime?.actionPending?'disabled':''}>Pedir por ${BRL.format(payable)}</button></article>`
+  return `<article class="offer ${featured?'selected':''}">${available?'<div class="best-badge">OPÇÃO DISPONÍVEL AGORA</div>':recommended?'<div class="best-badge">MELHOR EQUILÍBRIO</div>':''}<div class="offer-label">${esc(labels)}</div><div class="offer-main"><div><div class="offer-price">${BRL.format(payable)}</div><div class="tiny muted">${discount>0?`estimativa após ${BRL.format(discount)} de cashback`:'total com entrega'}</div></div><div class="offer-eta"><strong>${o.eta}–${etaEnd} min</strong><small>previsão</small></div></div><div class="offer-meta">${distanceChip}${internalPilot?'<span class="meta-chip">🧪 Simulação operacional</span><span class="meta-chip">Sem validação jurídica nesta tela</span>':'<span class="meta-chip">✓ Operação elegível</span><span class="meta-chip">Parceiro local verificado</span>'}<span class="meta-chip">${internalPilot?'Trust simulado':'Confiança'} ${o.trust}/100</span><span class="meta-chip">Pagamento solicitado: ${esc(paymentLabel(state.checkout.paymentMethod))}</span></div><div class="offer-assurance">${internalPilot?'🧪 O pedido abaixo percorre todas as etapas localmente e não gera venda real.':'🔒 O nome do parceiro aparece após o aceite real. Se for necessária uma alternativa mais cara, você decide antes.'}</div><button class="${featured?'primary':'secondary'} full" style="margin-top:13px" onclick="checkout('${o.id}')" ${globalThis.liveRuntime?.actionPending?'disabled':''}>Pedir por ${BRL.format(payable)}</button></article>`
 }
 async function setAddress(){
   const el=document.querySelector('#address');
