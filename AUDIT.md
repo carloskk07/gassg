@@ -591,3 +591,111 @@ O branch v1.27 executa:
 - manifest.
 
 A regra continua: nenhum merge com gate vermelho. O go-live continua bloqueado até origens dedicadas, Auth/Turnstile, primeira revenda real e E2E multi-dispositivo com dinheiro/entrega reais.
+
+
+---
+
+# Auditoria v1.28 — First Real Merchant Pilot
+
+## Objetivo
+
+Preparar o Chama para operar com um primeiro parceiro real sem fabricar concorrência, documentação regulatória ou disponibilidade que ainda não existe.
+
+## Staging comercial
+
+O Supabase real agora contém um registro em `pilot_partner_drafts`:
+
+- nome: **Gas e Lenheira do JR**;
+- produto inicial: P13;
+- preço comercial informado: R$ 115,90 entregue;
+- `price_status=proposed`;
+- `onboarding_status=awaiting_legal_data`;
+- `merchant_id=null`.
+
+A tabela possui RLS, zero acesso para `public/anon/authenticated` e autoridade apenas server-side.
+
+Esse registro deliberadamente **não** cria linha em `merchants`, não exige CNPJ fictício, não recebe ANP fictícia e não entra no matching.
+
+## Prova de isolamento do staging
+
+Após aplicar a migration:
+
+- `pilot_partner_drafts`: 1 registro;
+- `merchants`: 0;
+- `market_supply_status().realSupplyConfigured=false`;
+- `configuredMerchantCount=0`;
+- `availableMerchantCount=0`.
+
+Portanto o pré-lançamento continua fail-closed até os dados reais serem cadastrados.
+
+## Mercado com fornecedor único
+
+O ranking agora possui uma regra explícita:
+
+- 0 candidatos → nenhuma oferta;
+- 1 candidato → uma única oferta com label `available`;
+- 2+ candidatos → marketplace com ranking e até 3 parceiros distintos.
+
+O cliente recebe `marketMode=single_supplier` quando há apenas uma revenda elegível e a UI deixa de prometer comparação inexistente.
+
+## Distribuição quando novas revendas entrarem
+
+A recomendação usa valor ao consumidor como autoridade principal:
+
+- 45% preço;
+- 35% ETA;
+- 20% trust.
+
+Preço e ETA usam diferenças economicamente significativas em vez de normalização pelo extremo do conjunto. Assim uma diferença de R$ 1 ou 1 minuto entre apenas duas revendas não vira artificialmente “0 versus 1”.
+
+Carga operacional é secundária:
+
+- pedidos ativos: penalidade máxima de 0,055;
+- pedidos dos últimos 7 dias: penalidade máxima de 0,025;
+- só parceiros dentro de 0,10 do melhor score base podem ganhar a recomendação por menor carga.
+
+Consequência: parceiros novos podem receber oportunidade quando são competitivos, mas uma oferta claramente pior não é promovida apenas para forçar distribuição.
+
+## Sinais de distribuição
+
+`merchant_offer_load(uuid[])` calcula server-side:
+
+- pedidos ativos por merchant;
+- pedidos não cancelados nos últimos 7 dias.
+
+A função é `SECURITY DEFINER`, possui `search_path=pg_catalog`, é revogada para `public/anon/authenticated` e concedida somente a `service_role`.
+
+## Interface administrativa
+
+O control plane passa a mostrar “Parceiros piloto em preparação”, separado de:
+
+- aplicações;
+- merchants;
+- compliance;
+- operações ativas.
+
+O registro informa explicitamente que o preço é proposto e que CNPJ, responsável, endereço, owner e validações ainda são gates obrigatórios.
+
+## Gates adicionados
+
+A suíte agora falha se:
+
+- staging criar merchant automaticamente;
+- preço proposto nascer confirmado;
+- staging for tratado como supply real;
+- fornecedor único gerar múltiplas opções fictícias;
+- ranking não possuir banda de qualidade;
+- carga puder substituir a autoridade principal de preço/ETA/trust;
+- migration deixar staging ou `merchant_offer_load` acessível ao browser.
+
+O server-domain possui simulações determinísticas para:
+
+1. um único fornecedor;
+2. dois fornecedores próximos, com distribuição pela carga;
+3. fornecedor novo claramente pior, que deve continuar fora da recomendação.
+
+## Estado de go-live
+
+A v1.28 prepara o piloto, mas a primeira compra real continua bloqueada até cadastrar e comprovar os dados reais do parceiro e as origens/Auth/Turnstile necessários.
+
+Nenhum dado jurídico ou regulatório foi inferido a partir da relação pessoal com o proprietário.
