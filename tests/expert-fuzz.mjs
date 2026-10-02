@@ -20,8 +20,8 @@ globalThis.__CHAMA_TEST__=true;
 
 vm.runInThisContext(fs.readFileSync(new URL('../js/core.js',import.meta.url),'utf8'),{filename:'js/core.js'});
 vm.runInThisContext(fs.readFileSync(new URL('../js/growth.js',import.meta.url),'utf8'),{filename:'js/growth.js'});
-const marginFn=globalThis.merchantMarginExample;
-const moneyRound=globalThis.roundMoney;
+const marginFn=vm.runInThisContext('merchantMarginExample');
+const moneyRound=vm.runInThisContext('roundMoney');
 assert.equal(typeof marginFn,'function');
 assert.equal(typeof moneyRound,'function');
 
