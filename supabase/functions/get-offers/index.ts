@@ -240,7 +240,7 @@ Deno.serve(async (req: Request) => {
       }
     }
 
-    const chosen = chooseOffers(candidates);
+    const chosen = chooseOffers(candidates) as Array<{candidate:Candidate;label:string}>;
     if (!chosen.length) return json({ offers: [] }, 200, origin);
 
     const expiresAt = new Date(Date.now() + QUOTE_TTL_MS).toISOString();
