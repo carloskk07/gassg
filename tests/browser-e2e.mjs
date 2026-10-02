@@ -221,7 +221,58 @@ await evaluate("document.querySelector('#ref-sim-clients').value='25'; document.
 assert.match(await evaluate("document.querySelector('#ref-sim-total').textContent"),/75,00/);
 await auditDom('refer');
 
+// Internal pilot on GitHub Pages reuses the proven simulation engine with a
+// single JR supplier. Exercise the complete customer ↔ merchant path separately.
+await evaluate("globalThis.CHAMA_INTERNAL_PILOT=true; reset(); render()");
+await waitFor("document.body.innerText.includes('PILOTO INTERNO') && document.body.innerText.includes('Gas e Lenheira do JR')","internal pilot home");
+body=await text();
+assert.match(body,/115,90/);
+assert.match(body,/SEM PEDIDOS REAIS/);
+assert.equal(await evaluate("state.merchants.length"),1);
+assert.equal(await evaluate("state.merchants[0].id"),'JR-PILOT');
+assert.equal(await evaluate("state.merchants[0].priceP13"),115.9);
+
+await evaluate("quickProduct('P13')");
+await waitFor("location.hash==='#order'","pilot order route");
+await evaluate("document.querySelector('#address').value='Rua Piloto Interno, 100'; setAddress()");
+await waitFor("document.body.innerText.includes('OPÇÃO DISPONÍVEL AGORA')","pilot single supplier offer");
+body=await text();
+assert.match(body,/Simulação operacional/);
+assert.match(body,/115,90/);
+assert.doesNotMatch(body,/Parceiro local verificado/);
+assert.equal(await evaluate("offers().length"),1);
+assert.deepEqual(JSON.parse(await evaluate("JSON.stringify(offers()[0].roles)")),['Disponível agora']);
+
+await evaluate("checkout('JR-PILOT')");
+await waitFor("location.hash==='#tracking' && document.body.innerText.includes('Aguardando parceiro')","pilot tracking pending");
+await evaluate("setMode('merchant')");
+await waitFor("document.body.innerText.includes('PAINEL DA REVENDA — PILOTO INTERNO') && document.querySelector('.order-card.new')","pilot merchant pending");
+body=await text();
+assert.match(body,/Nenhuma ação é real/);
+await evaluate("document.querySelector('.order-card.new .primary').click()");
+await waitFor("document.body.innerText.includes('Confirmar saída')","pilot merchant accepted");
+await evaluate("[...document.querySelectorAll('button')].find(b=>b.textContent.includes('Confirmar saída')).click()");
+await waitFor("document.body.innerText.includes('Estou chegando')","pilot dispatched");
+await evaluate("[...document.querySelectorAll('button')].find(b=>b.textContent.includes('Estou chegando')).click()");
+
+await evaluate("setMode('customer'); go('tracking')");
+await waitFor("document.body.innerText.includes('Código de recebimento')","pilot customer PIN");
+body=await text();
+const pilotPin=(body.match(/Código de recebimento:\s*(\d{4})/)||[])[1];
+assert.ok(pilotPin,'Código de recebimento do piloto não encontrado');
+assert.match(body,/Gas e Lenheira do JR/);
+
+await evaluate("setMode('merchant')");
+await waitFor("document.querySelector('.pin-input') && document.querySelector('input[id^=paid-]')","pilot merchant delivery");
+await evaluate("document.querySelector('input[id^=paid-]').checked=true; document.querySelector('.pin-input').value="+JSON.stringify(pilotPin)+"; [...document.querySelectorAll('button')].find(b=>b.textContent.includes('Confirmar entrega')).click()");
+await waitFor("document.body.innerText.includes('Nenhum pedido ativo')","pilot merchant settled");
+
+await evaluate("setMode('customer'); go('tracking')");
+await waitFor("document.body.innerText.includes('Concluído')","pilot customer settled");
+body=await text();
+assert.match(body,/R\$\s*1,15/);
+
 assert.deepEqual(pageErrors,[],`Chrome registrou erros: ${pageErrors.join(' | ')}`);
 
-console.log('E2E Chrome passou: água sem botijão → aceite → saída → chegada → pagamento + código → cashback.');
+console.log('E2E Chrome passou: fluxo padrão + piloto interno JR P13 R$ 115,90 até settlement e cashback.');
 ws.close();
