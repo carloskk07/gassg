@@ -1,4 +1,4 @@
-# Chama — Supabase backend v1.7.3
+# Chama — Supabase backend v1.8.0
 
 Backend multiusuário do Chama São Gabriel, isolado em projeto Supabase próprio.
 
@@ -29,6 +29,16 @@ Mesmo leitura direta criava superfícies desnecessárias:
 - risco de regressão ao adicionar uma coluna sensível.
 
 O navegador recebe apenas projeções mínimas por Edge Function.
+
+## Primeiro parceiro piloto
+
+`pilot_partner_drafts` guarda interesse comercial antes do cadastro jurídico real. É uma tabela server-only e não participa de `market_supply_status()`, matching ou criação de pedidos.
+
+O primeiro registro atual é **Gas e Lenheira do JR**, P13 a R$ 115,90 entregue, ainda com `price_status=proposed` e `onboarding_status=awaiting_legal_data`.
+
+Conversão para operação real continua exigindo o fluxo normal: identidade permanente, aplicação/cadastro, CNPJ, compliance aplicável, catálogo real, taxa/ETA, heartbeat e ativação administrativa.
+
+`merchant_offer_load(uuid[])` fornece ao servidor apenas carga ativa e volume de pedidos dos últimos 7 dias. Esses sinais não são expostos como identidade ou score interno ao cliente e só desempatem parceiros próximos em valor ao consumidor.
 
 ## Fluxo do cliente
 
