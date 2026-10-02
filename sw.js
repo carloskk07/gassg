@@ -9,26 +9,24 @@ self.addEventListener('activate',event=>{
 });
 self.addEventListener('message',event=>{if(event.data==='SKIP_WAITING')self.skipWaiting()});
 
+async function networkFirst(req,cacheKey=req){
+  const cache=await caches.open(CACHE);
+  try{
+    const res=await fetch(req);
+    if(res.ok){
+      await cache.put(cacheKey,res.clone());
+      return res;
+    }
+    return (await cache.match(cacheKey))||res;
+  }catch{
+    return (await cache.match(cacheKey))||Response.error();
+  }
+}
+
 self.addEventListener('fetch',event=>{
   const req=event.request;
   if(req.method!=='GET')return;
   const url=new URL(req.url);
   if(url.origin!==self.location.origin){event.respondWith(fetch(req));return}
-
-  if(req.mode==='navigate'){
-    event.respondWith(
-      fetch(req).then(res=>{
-        if(res.ok)caches.open(CACHE).then(c=>c.put('./index.html',res.clone()));
-        return res;
-      }).catch(()=>caches.match('./index.html'))
-    );
-    return;
-  }
-
-  event.respondWith(
-    fetch(req).then(res=>{
-      if(res.ok)caches.open(CACHE).then(c=>c.put(req,res.clone()));
-      return res;
-    }).catch(()=>caches.match(req))
-  );
+  event.respondWith(networkFirst(req,req.mode==='navigate'?'./index.html':req));
 });
