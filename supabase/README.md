@@ -1,6 +1,6 @@
-# Chama — Supabase backend v1.9.0
+# TAMÃO — Supabase backend v1.9.0
 
-Backend multiusuário do Chama São Gabriel, isolado em projeto Supabase próprio.
+Backend multiusuário do TAMÃO São Gabriel, isolado em projeto Supabase próprio.
 
 ## Princípios de autoridade
 
