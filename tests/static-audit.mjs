@@ -315,7 +315,7 @@ assert.ok(admin.includes("adminIdempotency('admin-'+action)"),'cada mutação ad
 assert.ok(admin.includes('adminOriginSafe'),'frontend admin precisa validar isolamento de origem');
 assert.ok(admin.includes("status='unsafe-origin'")||admin.includes("status='unsafe-origin';"),'frontend admin precisa bloquear origem compartilhada');
 assert.ok(adminOpsSource.includes('ADMIN_ALLOWED_ORIGIN'),'Edge admin precisa depender de origem dedicada configurável');
-assert.ok(offerSource.includes('commerce_launch_status')&&offerSource.includes('commerceLaunchBlocked:true'),'matching live precisa falhar fechado antes da abertura oficial');
+assert.ok(read('supabase/functions/get-offers/index.ts').includes('commerce_launch_status')&&read('supabase/functions/get-offers/index.ts').includes('commerceLaunchBlocked:true'),'matching live precisa falhar fechado antes da abertura oficial');
 assert.ok(read('supabase/functions/create-order/index.ts').includes('create_order_from_quote_v8')&&read('supabase/functions/create-order/index.ts').includes('COMMERCE_NOT_ENABLED'),'checkout deve usar autoridade V8 e traduzir kill switch');
 assert.ok(read('supabase/functions/market-status/index.ts').includes('commerce_launch_status')&&read('supabase/functions/market-status/index.ts').includes('launchMode:commerceEnabled?"live":"prelaunch"'),'market status não pode anunciar supply como live enquanto o comércio estiver fechado');
 assert.ok(backend.includes('commerceLaunchBlocked')&&backend.includes('commerceEnabled:data?.commerceEnabled===true'),'runtime cliente precisa carregar o estado de lançamento');
