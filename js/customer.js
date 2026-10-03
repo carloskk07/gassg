@@ -58,6 +58,7 @@ function setGlpContainerMode(value){
   if(globalThis.liveRequested?.()){
     liveRuntime.offers=[];
     liveRuntime.deliveryCompatibilityBlocked=false;
+    liveRuntime.paymentMethodUnavailable=false;
   }
   save();
   render();
@@ -319,7 +320,7 @@ function orderPage(){
   }
 
   let offerBlock='';
-  if(hasItems&&hasAddress&&!containerBlocked){
+  if(hasItems&&hasAddress){
     if(preview){
       offerBlock=`<div class="offer-stack">${prelaunchExampleOffers(state.cart).map(exampleOfferCard).join('')}</div>`;
     }else if(testDemo&&os.length){
@@ -332,10 +333,14 @@ function orderPage(){
       offerBlock=`<div class="offer-stack">${os.map(offerCard).join('')}</div>`;
     }else if(ready&&liveRuntime.deliveryCompatibilityBlocked){
       offerBlock='<div class="notice"><strong>Não encontramos uma operação habilitada para entregar esta combinação de itens agora.</strong><br>Se precisar com urgência, tente separar o GLP dos demais produtos ou consulte novamente depois.</div>';
-    }else if(ready&&liveRuntime.lastSyncAt){
-      offerBlock='<div class="empty card">Nenhum parceiro consegue atender esta cesta agora.</div>';
+    }else if(ready&&liveRuntime.paymentMethodUnavailable){
+      offerBlock=`<div class="empty card"><strong>Nenhuma revenda elegível aceita ${esc(paymentLabel(state.checkout.paymentMethod))} para esta consulta agora.</strong><br><span class="muted tiny">Escolha outra forma de pagamento ou consulte novamente depois.</span></div>`;
     }else if(ready&&liveRuntime.scheduledDeliveryUnavailable){
       offerBlock='<div class="empty card"><strong>Nenhuma revenda está aceitando essa janela agendada agora.</strong><br><span class="muted tiny">Escolha “Agora” ou outra janela para consultar novamente.</span></div>';
+    }else if(ready&&needsContainer&&liveRuntime.lastSyncAt){
+      offerBlock='<div class="empty card"><strong>Nenhuma revenda consegue fornecer carga + vasilhame desta cesta agora.</strong><br><span class="muted tiny">A opção só aparece quando os dois itens possuem preço confirmado e estoque.</span></div>';
+    }else if(ready&&liveRuntime.lastSyncAt){
+      offerBlock='<div class="empty card">Nenhum parceiro consegue atender esta cesta agora.</div>';
     }else if(ready){
       offerBlock='<div class="empty card"><button class="primary" onclick="liveRefreshOffers().catch(()=>{})">Procurar opções</button></div>';
     }else{
@@ -415,7 +420,14 @@ function quickProduct(k){state.cart=normalizeCart({});state.checkout.glpContaine
 function setPaymentMethod(v){
   state.checkout.paymentMethod=['pix','card','cash'].includes(v)?v:'pix';
   if(state.checkout.paymentMethod!=='cash')state.checkout.cashTenderCents=null;
+  if(globalThis.liveRequested?.()){
+    liveRuntime.offers=[];
+    liveRuntime.paymentMethodUnavailable=false;
+  }
   save();render();
+  if(globalThis.liveReady?.()&&state.address&&hasCartItems()){
+    liveRefreshOffers().catch(()=>{});
+  }
 }
 function setCashTender(value){
   const raw=String(value??'').trim();
