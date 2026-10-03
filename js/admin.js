@@ -67,6 +67,7 @@ async function adminBackendInit(){
       return false;
     }
 
+    await adminClaimBootstrap().catch(()=>{});
     await adminRefresh({silent:true});
     return adminRuntime.status==='ready';
   }catch(error){
@@ -116,6 +117,37 @@ async function adminInvoke(body={},options={}){
   return data;
 }
 
+async function adminAuthInvoke(body={},options={}){
+  const headers={
+    'Content-Type':'application/json',
+    'apikey':CHAMA_BACKEND.publishableKey
+  };
+  if(options.withSession===true){
+    headers.Authorization='Bearer '+await adminAccessToken();
+  }
+  const response=await globalThis.chamaFetch(CHAMA_BACKEND.url+'/functions/v1/admin-auth',{
+    method:'POST',
+    headers,
+    body:JSON.stringify(body),
+    cache:'no-store'
+  });
+  let data=null;
+  try{data=await response.json()}catch{}
+  if(!response.ok){
+    const err=new Error(data?.message||data?.error||('HTTP '+response.status));
+    err.code=data?.error||'HTTP_'+response.status;
+    err.status=response.status;
+    err.data=data;
+    throw err;
+  }
+  return data;
+}
+
+async function adminClaimBootstrap(){
+  if(!adminRuntime.session?.access_token)return null;
+  return adminAuthInvoke({action:'claim'},{withSession:true});
+}
+
 async function adminSendLogin(email){
   if(!adminRuntime.client)await adminBackendInit();
   const value=String(email||'').trim().toLowerCase();
@@ -125,12 +157,13 @@ async function adminSendLogin(email){
   redirect.hash='admin';
   if(!globalThis.chamaTurnstile?.challenge)throw new Error('Proteção anti-bot indisponível');
   const captchaToken=await globalThis.chamaTurnstile.challenge('admin_login');
-  const {error}=await adminRuntime.client.auth.signInWithOtp({
+  const result=await adminAuthInvoke({
+    action:'request-link',
     email:value,
-    options:{emailRedirectTo:redirect.toString(),shouldCreateUser:false,captchaToken}
+    captchaToken,
+    redirectTo:redirect.toString()
   });
-  if(error)throw error;
-  adminRuntime.notice='Enviamos um link de acesso para '+value+'.';
+  adminRuntime.notice=String(result?.message||'Se este e-mail estiver autorizado, o link de acesso será enviado.');
   adminRuntime.status='unauthenticated';
   render();
 }
@@ -256,7 +289,7 @@ function adminLoginView(){
       <div class="input-wrap"><label for="admin-email">E-mail administrativo</label><input id="admin-email" type="email" autocomplete="email" maxlength="160" class="input" placeholder="voce@email.com"></div>
       <button class="primary" onclick="adminLoginFromUi()">Enviar link de acesso</button>
     </div>
-    <div class="notice" style="margin-top:14px">O login não cria permissão administrativa. A conta precisa existir e estar na allowlist server-side.</div>
+    <div class="notice" style="margin-top:14px">O portal nunca concede permissão pelo navegador. Um admin existente recebe o link normalmente; no primeiro acesso, somente o e-mail previamente reservado no servidor pode criar e reclamar a conta inicial.</div>
   </section>`);
 }
 
@@ -266,7 +299,7 @@ function adminNoAccessView(){
     <span class="eyebrow">ACESSO NEGADO</span>
     <h1 class="page-title">Conta não autorizada</h1>
     <p class="muted">${esc(email)} está autenticada, mas não pertence à allowlist de administradores.</p>
-    <div class="notice danger" style="margin-top:14px">Não existe autoelevação de privilégio. O primeiro admin precisa ser incluído diretamente no banco por uma autoridade já autenticada no projeto.</div>
+    <div class="notice danger" style="margin-top:14px">Não existe autoelevação de privilégio. O primeiro admin só pode nascer da reserva criptográfica server-side; depois disso, novos administradores dependem de um admin já ativo.</div>
     <button class="ghost full" style="margin-top:12px" onclick="adminSignOut()">Sair desta conta</button>
   </section>`);
 }

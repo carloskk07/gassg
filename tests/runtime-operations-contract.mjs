@@ -803,3 +803,26 @@ assert.match(canonicalAddressGuardV143,/v_status in \('settled','cancelled'\)[\s
 assert.match(canonicalAddressGuardV143,/create constraint trigger require_order_canonical_address_commit[\s\S]*deferrable initially deferred/,'guard precisa rodar no commit para permitir wrapper V7 atômico');
 
 console.log('Canonical address v1.43 contract passou.');
+
+
+const secureAdminBootstrapV144=fs.readFileSync(
+  new URL('../supabase/migrations/20261003061000_secure_admin_bootstrap_v1_44.sql',import.meta.url),
+  'utf8'
+).replace(/--.*$/gm,'').replace(/\s+/g,' ').toLowerCase();
+
+assert.match(secureAdminBootstrapV144,/create or replace function public\.admin_login_mode/,'bootstrap precisa resolver elegibilidade de login somente no servidor');
+assert.match(secureAdminBootstrapV144,/encode\(extensions\.digest\(lower\(btrim\(u\.email\)\),'sha256'\),'hex'\)=v_hash/,'admin existente deve ser comparado por hash, sem persistir email em texto aberto');
+assert.match(secureAdminBootstrapV144,/platform_admin_bootstrap_reservations[\s\S]*claimed_user_id is null[\s\S]*encode\(r\.email_sha256,'hex'\)=v_hash/,'primeiro login só pode usar reserva ainda não reclamada');
+assert.match(secureAdminBootstrapV144,/if v_active_admins=0[\s\S]*return 'bootstrap_reserved'/,'criação da primeira identidade deve fechar assim que existir admin ativo');
+assert.match(secureAdminBootstrapV144,/revoke all on function public\.admin_login_mode\(text\)[\s\S]*from public, anon, authenticated/,'browser não pode consultar diretamente se um email é admin');
+assert.match(secureAdminBootstrapV144,/grant execute on function public\.admin_login_mode\(text\)[\s\S]*to service_role/,'resolução de login deve ser server-only');
+assert.match(secureAdminBootstrapV144,/create or replace function public\.claim_reserved_platform_admin/,'sessão confirmada precisa de claim transacional da reserva');
+assert.match(secureAdminBootstrapV144,/pg_advisory_xact_lock[\s\S]*platform-admin-email-bootstrap/,'claim e cron precisam compartilhar exclusão mútua');
+assert.match(secureAdminBootstrapV144,/v_user\.email_confirmed_at is null[\s\S]*permanent_confirmed_identity_required/,'bootstrap não pode aceitar identidade anônima ou email não confirmado');
+assert.match(secureAdminBootstrapV144,/v_hash:=extensions\.digest\(lower\(btrim\(v_user\.email\)\),'sha256'\)/,'claim deve comparar a identidade autenticada pela mesma reserva hash');
+assert.match(secureAdminBootstrapV144,/v_result:=public\.bootstrap_first_platform_admin\(p_user_id\)/,'claim deve reutilizar a autoridade original de primeiro admin');
+assert.match(secureAdminBootstrapV144,/set claimed_user_id=p_user_id,[\s\S]*claimed_at=clock_timestamp\(\)/,'reserva precisa ser consumida de forma auditável');
+assert.match(secureAdminBootstrapV144,/revoke all on function public\.claim_reserved_platform_admin\(uuid\)[\s\S]*from public, anon, authenticated/,'claim privilegiado não pode ser RPC do browser');
+assert.match(secureAdminBootstrapV144,/grant execute on function public\.claim_reserved_platform_admin\(uuid\)[\s\S]*to service_role/,'claim deve ser server-only');
+
+console.log('Secure admin bootstrap v1.44 contract passou.');

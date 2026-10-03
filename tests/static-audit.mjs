@@ -96,7 +96,7 @@ assert.ok(growth.includes('Saque Pix ainda não disponível')&&growth.includes('
 assert.ok(growth.includes('Você continua no controle'),'landing de revenda deve enfatizar autonomia operacional');
 assert.ok(core.includes("['earn','💰','Ganhe','go']"),'navegação móvel precisa dar acesso direto ao hub de renda');
 assert.ok(!growth.includes('inputmode="numeric" maxlength="18"'),'campo CNPJ não pode forçar teclado somente numérico após adoção do CNPJ alfanumérico');
-assert.ok(sw.includes("CACHE='chama-sg-v1.43'"),'cache do service worker precisa estar versionado');
+assert.ok(sw.includes("CACHE='chama-sg-v1.44'"),'cache do service worker precisa estar versionado');
 assert.ok(sw.includes("./js/backend.js"),'runtime live precisa estar no cache da PWA');
 assert.ok(sw.includes("./js/runtime-config.js"),'configuração pública de origins precisa estar no cache da PWA');
 assert.ok(sw.includes("./js/turnstile.js"),'helper local do Turnstile precisa estar no cache da PWA');
@@ -170,6 +170,15 @@ assert.ok(backend.includes('financialSyncSeq')&&backend.includes('marketStatusSe
 assert.ok(backend.includes('liveRuntime.pollPending')&&backend.includes('merchantRuntime.pollPending'),'polling cliente/revenda deve ser single-flight em rede lenta');
 assert.ok(backend.includes('refreshSeq:0')&&backend.includes('seq!==merchantRuntime.refreshSeq'),'refresh da revenda não pode aceitar resposta antiga sobre uma mais nova');
 assert.ok(admin.includes('pollPending:false')&&admin.includes('refreshSeq:0')&&admin.includes('now-adminRuntime.lastPollAt<15000'),'admin deve serializar refresh e evitar polling completo a cada 5 segundos');
+assert.ok(admin.includes("/functions/v1/admin-auth")&&admin.includes("action:'request-link'")&&admin.includes("action:'claim'"),'login administrativo precisa passar pela autoridade server-side de bootstrap');
+assert.ok(admin.includes("chamaTurnstile.challenge('admin_login')")&&!admin.includes("auth.signInWithOtp({\n    email:value"),'browser não pode decidir diretamente se cria a primeira conta administrativa');
+const adminAuthSource=read('supabase/functions/admin-auth/index.ts');
+assert.ok(adminAuthSource.includes('admin_login_mode')&&adminAuthSource.includes('claim_reserved_platform_admin'),'Edge de admin precisa consultar elegibilidade por hash e claim server-side');
+assert.ok(adminAuthSource.includes('shouldCreateUser:mode==="bootstrap_reserved"'),'criação da primeira identidade só pode ocorrer no modo reservado');
+assert.ok(adminAuthSource.includes('Se este e-mail estiver autorizado, o link de acesso será enviado.'),'request de login deve responder genericamente para evitar enumeração');
+assert.ok(adminAuthSource.includes('captchaToken')&&adminAuthSource.includes('CAPTCHA_REQUIRED'),'bootstrap sem identidade precisa continuar protegido por anti-bot');
+assert.ok(adminAuthSource.includes('url.origin!==origin'),'redirect de magic link precisa permanecer preso à origem administrativa');
+assert.ok(admin.includes('reserva criptográfica server-side'),'UI deve explicar que o primeiro admin não nasce por autoelevação');
 assert.ok(admin.includes('seq!==adminRuntime.refreshSeq'),'resposta administrativa obsoleta não pode sobrescrever estado mais novo');
 assert.ok(backend.includes('liveRuntime.actionPending'),'polling precisa respeitar ação em andamento');
 assert.ok(backend.includes('merchantProcessOrderAlerts')&&backend.includes("OFFERED_TO_MERCHANT"),'polling da revenda precisa detectar pedido novo aguardando aceite');
@@ -276,11 +285,11 @@ assert.ok(sw.includes("./js/admin.js"),'runtime admin precisa estar no cache da 
 assert.ok(admin.includes("storageKey:'chama-sg-admin-auth-v1'"),'sessão admin deve ser isolada das sessões cliente/revenda');
 assert.ok(backend.includes("storage:sessionStorage")&&backend.includes("storageKey:'chama-sg-merchant-auth-v1'"),'sessão da revenda deve ser tab-scoped em sessionStorage');
 assert.ok(admin.includes("storage:sessionStorage")&&admin.includes("storageKey:'chama-sg-admin-auth-v1'"),'sessão admin privilegiada deve ser tab-scoped em sessionStorage');
-assert.ok(admin.includes("shouldCreateUser:false"),'login admin não deve criar contas automaticamente');
+assert.ok(!admin.includes("auth.signInWithOtp"),'browser admin não deve chamar Auth OTP diretamente nem decidir criação de conta');
 assert.ok(backend.includes("challenge('merchant_login')"),'login da revenda deve resolver Turnstile antes do magic link');
 assert.ok(backend.includes('shouldCreateUser:true,captchaToken'),'magic link da revenda deve enviar captchaToken ao Supabase');
 assert.ok(admin.includes("challenge('admin_login')"),'login admin deve resolver Turnstile antes do magic link');
-assert.ok(admin.includes('shouldCreateUser:false,captchaToken'),'magic link admin deve enviar captchaToken sem criar conta');
+assert.ok(read('supabase/functions/admin-auth/index.ts').includes('shouldCreateUser:mode==="bootstrap_reserved"')&&read('supabase/functions/admin-auth/index.ts').includes('captchaToken'),'Edge admin deve enviar captcha e só criar conta para a reserva inicial');
 
 assert.ok(admin.includes("/functions/v1/admin-ops"),'admin deve operar somente pela Edge Function protegida');
 assert.ok(!admin.includes("service_role")&&!admin.includes("sb_secret_"),'frontend admin jamais pode conter autoridade server-side');
