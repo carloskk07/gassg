@@ -47,8 +47,14 @@ function safeRedirect(value:unknown,origin:string){
   const url=new URL(String(value??""));
   if(url.origin!==origin)throw new Error("INVALID_REDIRECT");
   if(!["http:","https:"].includes(url.protocol))throw new Error("INVALID_REDIRECT");
-  url.searchParams.set("admin","1");
-  url.hash="admin";
+  const local=["localhost","127.0.0.1"].includes(url.hostname.toLowerCase());
+  url.pathname="/";
+  url.search="";
+  url.hash="";
+  if(local){
+    url.searchParams.set("admin","1");
+    url.hash="admin";
+  }
   return url.toString();
 }
 async function requestLoginLink(req:Request,origin:string,body:any){
