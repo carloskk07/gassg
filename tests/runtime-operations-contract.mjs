@@ -636,3 +636,25 @@ assert.match(paymentContainersV136,/v_has_glp_family and v_has_non_glp/,'P13 + v
 assert.match(paymentContainersV136,/regulated_glp_mixed_load_verified/,'GLP + item doméstico continua exigindo capability verificada');
 
 console.log('Payment methods + GLP containers v1.36 contract passou.');
+
+
+const deliveryResponsibilityV137=fs.readFileSync(
+  new URL('../supabase/migrations/20261003035000_delivery_responsibility_v1_37.sql',import.meta.url),
+  'utf8'
+).replace(/--.*$/gm,'').replace(/\s+/g,' ').toLowerCase();
+
+assert.match(deliveryResponsibilityV137,/assigned_delivery_user_id uuid references auth\.users\(id\) on delete set null/,'pedido precisa de responsável de entrega server-side');
+assert.match(deliveryResponsibilityV137,/delivery_assigned_at timestamptz/,'atribuição precisa de timestamp auditável');
+assert.match(deliveryResponsibilityV137,/orders_delivery_assignment_after_dispatch/,'pedido despachado precisa obrigatoriamente ter responsabilidade definida');
+assert.match(deliveryResponsibilityV137,/create index if not exists orders_assigned_delivery_active_idx/,'fila do responsável precisa de índice operacional');
+assert.match(deliveryResponsibilityV137,/clear_delivery_assignment_before_rescue/,'rescue pré-saída precisa limpar responsabilidade da revenda anterior');
+assert.match(deliveryResponsibilityV137,/create or replace function public\.merchant_assign_delivery/,'atribuição precisa de RPC transacional própria');
+assert.match(deliveryResponsibilityV137,/v_actor_role not in \('owner','manager'\)/,'somente owner\/manager pode pré-atribuir entrega');
+assert.match(deliveryResponsibilityV137,/mm\.member_role in \('owner','manager','operator','driver'\)/,'responsável precisa ser membro ativo elegível da mesma revenda');
+assert.match(deliveryResponsibilityV137,/v_member_role='driver' and p_action in \('dispatch','arriving'\) and v_order\.assigned_delivery_user_id=p_user_id/,'motorista só pode avançar saída\/chegada quando atribuído');
+assert.match(deliveryResponsibilityV137,/assigned_delivery_user_id=coalesce\(assigned_delivery_user_id,p_user_id\)/,'quem confirma saída assume automaticamente se ninguém foi pré-atribuído');
+assert.match(deliveryResponsibilityV137,/v_member_role='driver' and v_order\.assigned_delivery_user_id=p_user_id/,'falha e conclusão do motorista devem exigir assignment');
+assert.match(deliveryResponsibilityV137,/revoke all on function public\.merchant_assign_delivery[\s\S]*from public, anon, authenticated/,'RPC de atribuição deve permanecer fora do Data API do browser');
+assert.match(deliveryResponsibilityV137,/grant execute on function public\.merchant_assign_delivery[\s\S]*to service_role/,'somente backend pode executar autoridade de atribuição');
+
+console.log('Delivery responsibility v1.37 contract passou.');
