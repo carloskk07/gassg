@@ -10,7 +10,8 @@ function marketingAnalyticsEnabled(){
     && globalThis.__CHAMA_TEST__!==true
     && globalThis.CHAMA_INTERNAL_PILOT!==true
     && globalThis.adminPortalRequested?.()!==true
-    && globalThis.merchantPortalRequested?.()!==true;
+    && globalThis.merchantPortalRequested?.()!==true
+    && globalThis.prelaunchExamplesEnabled?.()===true;
 }
 
 function marketingAnalyticsAudience(){
@@ -40,7 +41,13 @@ function marketingAnalyticsContext(){
 }
 
 function marketingAnalyticsSessionKey(eventType,audience){
-  return 'tamao-fa-v1:'+String(eventType||'')+':'+String(audience||'');
+  const c=marketingAnalyticsContext();
+  return [
+    'tamao-fa-v1',
+    String(eventType||''),
+    String(audience||''),
+    c.source,c.medium,c.campaign,c.content,c.landingPath
+  ].join(':').slice(0,700);
 }
 
 async function marketingTrack(eventType,audience){
