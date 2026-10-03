@@ -155,7 +155,7 @@ async function verifyLivePortals(){
   };
 }
 async function summary(admin:any){
-  const [apps,merchants,compliance,capabilities,referralReviews,rewardFailures,accountingFailures,receivables,reimbursements,adjustments,platformAdmins,audit]=await Promise.all([
+  const [apps,merchants,compliance,capabilities,referralReviews,rewardFailures,accountingFailures,receivables,reimbursements,adjustments,platformAdmins,prelaunchLeads,audit]=await Promise.all([
     admin.from("merchant_applications")
       .select("id,applicant_user_id,cnpj,company_name,responsible_name,phone,address_text,status,created_at,updated_at")
       .order("created_at",{ascending:false})
@@ -204,12 +204,16 @@ async function summary(admin:any){
       .select("user_id,active,created_by,created_at")
       .order("created_at",{ascending:true})
       .limit(100),
+    admin.from("prelaunch_leads")
+      .select("id,lead_type,contact_name,business_name,phone,postal_code,interests,note,status,submission_count,source,medium,campaign,content,term,referrer,landing_path,created_at,updated_at")
+      .order("created_at",{ascending:false})
+      .limit(200),
     admin.from("platform_admin_audit")
       .select("id,actor_user_id,action,target_type,target_id,metadata,created_at")
       .order("created_at",{ascending:false})
       .limit(50)
   ]);
-  for(const result of [apps,merchants,compliance,capabilities,referralReviews,rewardFailures,accountingFailures,receivables,reimbursements,adjustments,platformAdmins,audit]){
+  for(const result of [apps,merchants,compliance,capabilities,referralReviews,rewardFailures,accountingFailures,receivables,reimbursements,adjustments,platformAdmins,prelaunchLeads,audit]){
     if(result.error)throw result.error;
   }
   const pilotPartners=await admin
@@ -264,6 +268,7 @@ async function summary(admin:any){
       adjustments:adjustments.data??[]
     },
     platformAdmins:platformAdmins.data??[],
+    prelaunchLeads:prelaunchLeads.data??[],
     rewardFailures:rewardFailures.data??[],
     accountingFailures:accountingFailures.data??[],
     referralReviews:(referralReviews.data??[]).map((x:any)=>{
