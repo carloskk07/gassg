@@ -48,7 +48,7 @@ async function fetchJson(url){
   try{
     const response=await fetch(url,{
       method:"GET",
-      headers:{"Accept":"application/json","User-Agent":"Chama-Sao-Gabriel/1.0"},
+      headers:{"Accept":"application/json","User-Agent":"TAMAO-Sao-Gabriel/1.0"},
       signal:controller.signal
     });
     if(response.status===404)return {kind:"not-found"};
