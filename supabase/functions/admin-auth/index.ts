@@ -38,6 +38,14 @@ function quotaUuidFromHash(hex:string){
   const raw=hex.slice(0,32).padEnd(32,"0");
   return raw.slice(0,8)+"-"+raw.slice(8,12)+"-"+raw.slice(12,16)+"-"+raw.slice(16,20)+"-"+raw.slice(20,32);
 }
+function clientIp(req:Request){
+  return String(
+    req.headers.get("cf-connecting-ip")
+    ||req.headers.get("x-real-ip")
+    ||req.headers.get("x-forwarded-for")?.split(",")[0]
+    ||"unknown"
+  ).trim().slice(0,128);
+}
 function normalizeEmail(value:unknown){
   const email=String(value??"").trim().toLowerCase();
   if(email.length<3||email.length>160||!/^\S+@\S+\.\S+$/.test(email))throw new Error("INVALID_EMAIL");
@@ -54,19 +62,25 @@ function safeRedirect(value:unknown,origin:string){
 async function requestLoginLink(req:Request,origin:string,body:any){
   const email=normalizeEmail(body?.email);
   const captchaToken=String(body?.captchaToken??"").trim();
-  if(captchaToken.length<20)return json({error:"CAPTCHA_REQUIRED",message:"Verificação anti-bot obrigatória."},400,origin);
+  if(captchaToken&&captchaToken.length<20){
+    return json({error:"INVALID_CAPTCHA_TOKEN",message:"Verificação anti-bot inválida."},400,origin);
+  }
   const redirectTo=safeRedirect(body?.redirectTo,origin);
 
   const admin=createClient(SUPABASE_URL,SECRET_KEY,{
     auth:{persistSession:false,autoRefreshToken:false}
   });
   const emailHash=await sha256Hex(email);
+  const ipHash=await sha256Hex(SECRET_KEY.slice(0,32)+":"+clientIp(req));
+
+  // Every caller is throttled by network identity before email eligibility is resolved.
   await enforceApiQuota(admin,{
-    userId:quotaUuidFromHash(emailHash),
-    actionName:"admin-auth-request",
-    limit:5,
+    userId:quotaUuidFromHash(ipHash),
+    actionName:"admin-auth-request-ip",
+    limit:30,
     windowSeconds:3600
   });
+
   const {data:mode,error:modeError}=await admin.rpc("admin_login_mode",{
     p_email_sha256_hex:emailHash
   });
@@ -79,17 +93,24 @@ async function requestLoginLink(req:Request,origin:string,body:any){
     return json({ok:true,message:"Se este e-mail estiver autorizado, o link de acesso será enviado."},200,origin);
   }
 
+  // Only an authorized/reserved address can consume the stricter delivery quota.
+  await enforceApiQuota(admin,{
+    userId:quotaUuidFromHash(emailHash),
+    actionName:"admin-auth-request-email",
+    limit:5,
+    windowSeconds:3600
+  });
+
   const auth=createClient(SUPABASE_URL,PUBLISHABLE_KEY,{
     auth:{persistSession:false,autoRefreshToken:false}
   });
-  const {error}=await auth.auth.signInWithOtp({
-    email,
-    options:{
-      emailRedirectTo:redirectTo,
-      shouldCreateUser:mode==="bootstrap_reserved",
-      captchaToken
-    }
-  });
+  const options:any={
+    emailRedirectTo:redirectTo,
+    shouldCreateUser:mode==="bootstrap_reserved"
+  };
+  if(captchaToken)options.captchaToken=captchaToken;
+
+  const {error}=await auth.auth.signInWithOtp({email,options});
   if(error){
     console.error("admin-auth otp failed",String(error.code??error.status??"AUTH_ERROR"));
   }
