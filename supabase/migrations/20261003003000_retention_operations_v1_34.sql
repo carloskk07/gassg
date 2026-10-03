@@ -102,6 +102,7 @@ security definer
 set search_path = pg_catalog
 as $$
 declare
+  v_action public.action_requests%rowtype;
   v_quote public.quotes%rowtype;
   v_merchant public.merchants%rowtype;
   v_active integer:=0;
@@ -109,6 +110,25 @@ declare
   v_order_id uuid;
   v_total integer;
 begin
+  select * into v_action
+  from public.action_requests
+  where idempotency_key=p_idempotency_key;
+
+  if found and v_action.completed_at is not null then
+    if v_action.user_id<>p_user_id
+       or v_action.action_name<>'create-order'
+       or v_action.request_hash<>p_request_hash then
+      raise exception 'IDEMPOTENCY_CONFLICT' using errcode='23505';
+    end if;
+    v_result:=v_action.result_json;
+    v_order_id:=(v_result->>'orderId')::uuid;
+    select o.cash_tender_cents
+    into p_cash_tender_cents
+    from public.orders o
+    where o.id=v_order_id and o.customer_id=p_user_id;
+    return v_result||jsonb_build_object('cashTenderCents',p_cash_tender_cents);
+  end if;
+
   if p_payment_method not in ('pix','card','cash') then
     raise exception 'INVALID_PAYMENT_METHOD' using errcode='22023';
   end if;
@@ -189,6 +209,36 @@ revoke all on function public.create_order_from_quote_v2(
 grant execute on function public.create_order_from_quote_v2(
   uuid,uuid,text,boolean,text,text,text,integer
 ) to service_role;
+
+create or replace function public.clear_invalid_cash_tender()
+returns trigger
+language plpgsql
+set search_path = pg_catalog
+as $
+begin
+  if new.cash_tender_cents is not null
+     and (
+       new.payment_method<>'cash'
+       or new.cash_tender_cents<new.total_cents
+     ) then
+    new.cash_tender_cents:=null;
+  end if;
+  return new;
+end;
+$;
+
+revoke all on function public.clear_invalid_cash_tender()
+from public, anon, authenticated;
+grant execute on function public.clear_invalid_cash_tender()
+to postgres, service_role;
+
+drop trigger if exists clear_invalid_cash_tender_before_order_update
+on public.orders;
+
+create trigger clear_invalid_cash_tender_before_order_update
+before update of payment_method,total_cents,cash_tender_cents on public.orders
+for each row
+execute function public.clear_invalid_cash_tender();
 
 create or replace function public.merchant_public_performance(
   p_merchant_ids uuid[]
