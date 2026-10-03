@@ -42,13 +42,47 @@ function glpKgForProductCode(value){
   const kg=Number(match[1]);
   return Number.isInteger(kg)&&kg>=1&&kg<=90?kg:null;
 }
+function glpContainerKgForProductCode(value){
+  const code=String(value??'').trim().toUpperCase();
+  const match=/^P([1-9][0-9]?)_CONTAINER$/.exec(code);
+  if(!match)return null;
+  const kg=Number(match[1]);
+  return Number.isInteger(kg)&&kg>=1&&kg<=90?kg:null;
+}
+function glpContainerCodeForGas(value){
+  const kg=glpKgForProductCode(value);
+  return kg===null?null:'P'+kg+'_CONTAINER';
+}
 function ensureProductDefinition(value){
   const code=String(value??'').trim().toUpperCase();
   if(products[code])return products[code];
   const kg=glpKgForProductCode(code);
-  if(kg===null)return null;
-  products[code]={name:'Gás P'+kg,icon:'🔥'};
+  if(kg!==null){
+    products[code]={name:'Gás P'+kg,icon:'🔥'};
+    return products[code];
+  }
+  const containerKg=glpContainerKgForProductCode(code);
+  if(containerKg===null)return null;
+  products[code]={name:'Vasilhame P'+containerKg,icon:'🛢️',hidden:true};
   return products[code];
+}
+function synchronizeGlpContainerCart(cart,mode){
+  const target=cart||{};
+  const needsContainer=mode==='needs_container';
+  for(const [code,qtyRaw] of Object.entries({...target})){
+    const kg=glpKgForProductCode(code);
+    if(kg===null)continue;
+    const companion='P'+kg+'_CONTAINER';
+    ensureProductDefinition(companion);
+    target[companion]=needsContainer?clamp(Math.trunc(Number(qtyRaw)||0),0,99):0;
+  }
+  for(const code of Object.keys(target)){
+    if(glpContainerKgForProductCode(code)===null)continue;
+    const gasCode=code.replace(/_CONTAINER$/,'');
+    const gasQty=clamp(Math.trunc(Number(target[gasCode])||0),0,99);
+    target[code]=needsContainer?gasQty:0;
+  }
+  return target;
 }
 
 function freshMerchant(id,name,priceP13,eta,distance,trust,inventory,prices){
@@ -164,7 +198,10 @@ function normalizeState(raw){
     ? cashTender
     : null;
   merged.address=String(raw.address||'').slice(0,160);
-  merged.cart=normalizeCart(raw.cart);
+  merged.cart=synchronizeGlpContainerCart(
+    normalizeCart(raw.cart),
+    merged.checkout.glpContainerMode
+  );
 
   if(!testDemo){
     // Financial, merchant, order and onboarding state is server-authoritative.
@@ -631,7 +668,9 @@ function updateMerchant(id,{priceP13,stockP13,pricingMode,pricingMin,pricingMax,
 function setCartProduct(k,qty){
   k=String(k||'').trim().toUpperCase();
   if(!ensureProductDefinition(k))return;
-  state.cart[k]=clamp(Math.trunc(Number(qty)||0),0,99);save();
+  state.cart[k]=clamp(Math.trunc(Number(qty)||0),0,99);
+  synchronizeGlpContainerCart(state.cart,state.checkout.glpContainerMode);
+  save();
 }
 function startOrder(k='P13'){
   k=String(k||'').trim().toUpperCase();

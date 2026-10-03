@@ -45,6 +45,12 @@ assert.ok(core.includes('ALLOWED='),'máquina de estados deve possuir autoridade
 assert.ok(core.includes('MAX_PIN_FAILURES'),'PIN precisa de limite de tentativas');
 assert.ok(core.includes('PRICE_FRESH_MS'),'preço precisa de validade explícita');
 assert.ok(core.includes('scheduleStart>=scheduleNow+30*60*1000')&&core.includes('scheduleStart<=scheduleNow+72*60*60*1000'),'janela agendada persistida precisa expirar no browser antes de nova cotação');
+assert.ok(core.includes('glpContainerKgForProductCode')&&core.includes('synchronizeGlpContainerCart'),'carrinho precisa sincronizar vasilhame com a quantidade de GLP');
+assert.ok(customer.includes("p.hidden!==true")&&customer.includes('Vasilhame incluído na consulta'),'vasilhame deve ser SKU real mas não um contador manual no carrinho');
+assert.ok(merchant.includes('merchantLiveAddContainer')&&merchant.includes('Formas de pagamento'),'painel da revenda precisa governar vasilhames e pagamentos');
+assert.ok(backend.includes('paymentMethodUnavailable')&&backend.includes('paymentMethod:paymentMethodSnapshot'),'runtime cliente precisa recotar por forma de pagamento');
+assert.ok(read('supabase/functions/_shared/domain.js').includes("_CONTAINER$"),'Edge Functions precisam aceitar SKU companheiro de vasilhame');
+assert.ok(read('supabase/functions/merchant-ops/index.ts').includes('PAYMENT_METHOD_REQUIRED'),'revenda não pode ficar online sem forma de pagamento ativa');
 assert.ok(core.includes('if(globalThis.__CHAMA_TEST__)'),'API de testes precisa estar protegida no site público');
 assert.ok(core.includes('isValidCnpjShape'),'core precisa suportar validação estrutural do CNPJ atual');
 assert.ok(!merchant.includes('.stock'),'UI da revenda não deve depender do campo legado stock');
@@ -90,7 +96,7 @@ assert.ok(growth.includes('Saque Pix ainda não disponível')&&growth.includes('
 assert.ok(growth.includes('Você continua no controle'),'landing de revenda deve enfatizar autonomia operacional');
 assert.ok(core.includes("['earn','💰','Ganhe','go']"),'navegação móvel precisa dar acesso direto ao hub de renda');
 assert.ok(!growth.includes('inputmode="numeric" maxlength="18"'),'campo CNPJ não pode forçar teclado somente numérico após adoção do CNPJ alfanumérico');
-assert.ok(sw.includes("CACHE='chama-sg-v1.35'"),'cache do service worker precisa estar versionado');
+assert.ok(sw.includes("CACHE='chama-sg-v1.36'"),'cache do service worker precisa estar versionado');
 assert.ok(sw.includes("./js/backend.js"),'runtime live precisa estar no cache da PWA');
 assert.ok(sw.includes("./js/runtime-config.js"),'configuração pública de origins precisa estar no cache da PWA');
 assert.ok(sw.includes("./js/turnstile.js"),'helper local do Turnstile precisa estar no cache da PWA');
@@ -488,3 +494,4 @@ assert.ok(defaultPrivilegeLock.includes('revoke execute on functions from public
 assert.ok(defaultPrivilegeLock.includes('to service_role'),'service_role precisa manter autoridade explícita');
 assert.ok(maintainLock.includes('revoke maintain on tables from anon, authenticated'),'PostgreSQL 17 MAINTAIN precisa ser removido dos defaults do browser');
 console.log('Default Data API privilege audit passou.');
+

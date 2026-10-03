@@ -69,6 +69,11 @@ function merchantLivePage(){
   const performance=m.performance||{};
   const capacity=Math.max(1,Number(m.maxActiveOrders||8));
   const acceptsScheduledOrders=m.acceptsScheduledOrders===true;
+  const paymentMethods={
+    pix:m.paymentMethods?.pix===true,
+    card:m.paymentMethods?.card===true,
+    cash:m.paymentMethods?.cash===true
+  };
   const heartbeatFresh=merchantTimestampFresh(m.lastSeenAt,10/60);
   const connectionHealthy=!m.online||heartbeatFresh;
   const manage=['owner','manager'].includes(m.memberRole);
@@ -82,7 +87,8 @@ function merchantLivePage(){
   if(m.acceptsCitywide===false)freshnessProblems.push('atendimento em São Gabriel desativado');
   if(freshness.staleProducts.length)freshnessProblems.push('preço vencido: '+freshness.staleProducts.map(x=>x.productName||x.productCode).join(', '));
   if(!freshness.offerable.length)freshnessProblems.push('nenhum produto ativo com estoque');
-  const commercialReady=freshness.allFresh&&m.acceptsCitywide!==false;
+  if(!Object.values(paymentMethods).some(Boolean))freshnessProblems.push('nenhuma forma de pagamento confirmada');
+  const commercialReady=freshness.allFresh&&m.acceptsCitywide!==false&&Object.values(paymentMethods).some(Boolean);
   const freshnessNotice=!commercialReady
     ? '<div class="notice danger" style="margin-top:12px"><strong>Confirmação comercial incompleta.</strong><br>'+esc(freshnessProblems.join(' • '))+'. A revenda só participa das ofertas com área atendida, taxa e SKUs ofertáveis confirmados.</div>'
     : '';
@@ -141,6 +147,13 @@ function merchantLivePage(){
       <h3>Capacidade simultânea</h3>
       <div class="input-wrap"><label for="live-capacity">Máximo de pedidos ativos ao mesmo tempo</label><input id="live-capacity" inputmode="numeric" type="number" min="1" max="100" class="input" value="${capacity}"><small class="field-help">Ao atingir este limite, a revenda deixa de receber novas ofertas até liberar capacidade. Pedidos existentes não são cancelados.</small></div>
       <button class="secondary" onclick="merchantLiveSaveCapacity()">Salvar capacidade</button>
+      <div class="divider"></div>
+      <h3>Formas de pagamento</h3>
+      <p class="muted tiny">O Chama só mostra sua revenda ao cliente quando a forma escolhida estiver ativa aqui.</p>
+      <label class="check-row"><input id="live-payment-pix" type="checkbox" ${paymentMethods.pix?'checked':''}><span><strong>Pix</strong><small>Pagamento via Pix aceito pela operação.</small></span></label>
+      <label class="check-row"><input id="live-payment-card" type="checkbox" ${paymentMethods.card?'checked':''}><span><strong>Cartão</strong><small>Cartão aceito na entrega conforme sua operação.</small></span></label>
+      <label class="check-row"><input id="live-payment-cash" type="checkbox" ${paymentMethods.cash?'checked':''}><span><strong>Dinheiro</strong><small>Dinheiro aceito; o pedido pode informar troco.</small></span></label>
+      <button class="secondary" onclick="merchantLiveSavePaymentMethods()">Salvar formas de pagamento</button>
       <div class="divider"></div>
       <h3>Pedidos agendados</h3>
       <label class="check-row"><input id="live-scheduled-orders" type="checkbox" ${acceptsScheduledOrders?'checked':''}><span><strong>Aceitar entregas agendadas</strong><small>Quando ativo, clientes podem escolher janelas futuras de até 72 horas. O horário aparece antes do aceite.</small></span></label>
@@ -259,6 +272,19 @@ async function merchantLiveSaveCapacity(){
   try{
     await merchantUpdateCapacityLive(capacity);
     toast('Capacidade operacional atualizada');
+  }catch(e){toast(String(e?.message||e))}
+}
+
+async function merchantLiveSavePaymentMethods(){
+  const methods={
+    pix:document.querySelector('#live-payment-pix')?.checked===true,
+    card:document.querySelector('#live-payment-card')?.checked===true,
+    cash:document.querySelector('#live-payment-cash')?.checked===true
+  };
+  if(!Object.values(methods).some(Boolean))return toast('Ative pelo menos uma forma de pagamento');
+  try{
+    await merchantUpdatePaymentMethodsLive(methods);
+    toast('Formas de pagamento atualizadas');
   }catch(e){toast(String(e?.message||e))}
 }
 
@@ -433,9 +459,13 @@ function merchantLiveCatalog(){
 
   const known=[...local,...serverOnly]
     .sort((a,b)=>{
-      const ag=/^P([1-9][0-9]?)$/.exec(a.productCode);
-      const bg=/^P([1-9][0-9]?)$/.exec(b.productCode);
-      if(ag&&bg)return Number(ag[1])-Number(bg[1]);
+      const ag=/^P([1-9][0-9]?)(?:_CONTAINER)?$/.exec(a.productCode);
+      const bg=/^P([1-9][0-9]?)(?:_CONTAINER)?$/.exec(b.productCode);
+      if(ag&&bg){
+        const byKg=Number(ag[1])-Number(bg[1]);
+        if(byKg)return byKg;
+        return a.productCode.includes('_CONTAINER')?1:-1;
+      }
       if(ag)return -1;
       if(bg)return 1;
       return a.productName.localeCompare(b.productName,'pt-BR');
@@ -445,7 +475,7 @@ function merchantLiveCatalog(){
     const fresh=merchantTimestampFresh(item.priceConfirmedAt);
     const status=!item.active?'INATIVO':item.availableStock<=0?'SEM ESTOQUE':fresh?'CONFIRMADO':'PREÇO VENCIDO';
     const statusClass=item.active&&item.availableStock>0&&fresh?'online':item.active&&item.availableStock>0?'risk':'offline';
-    const icon=products[item.productCode]?.icon||(/^P([1-9][0-9]?)$/.test(item.productCode)?'🔥':'📦');
+    const icon=products[item.productCode]?.icon||( /_CONTAINER$/.test(item.productCode)?'🛢️':/^P([1-9][0-9]?)$/.test(item.productCode)?'🔥':'📦');
     const range=item.pricingMode==='range';
     const strategyLabel={volume:'Priorizar volume',balanced:'Equilibrado',margin:'Priorizar margem'}[item.pricingStrategy]||'Equilibrado';
     const priceSummary=range
@@ -480,7 +510,18 @@ function merchantLiveCatalog(){
     <button class="primary" onclick="merchantLiveAddGlp()">Adicionar e confirmar</button>
   </div>`;
 
-  return shell(`<section class="page"><button class="back" onclick="go('merchant')">← Operação</button><h1 class="page-title">Catálogo real</h1><p class="muted">Cada SKU possui sua própria confirmação de preço e política comercial. Em faixa automática, o Chama nunca oferece abaixo do mínimo nem acima do máximo autorizado.</p><div style="margin-top:16px">${addGlp}${rows}</div></section>`);
+  const addContainer=`<div class="card flat form-stack" style="margin-bottom:16px">
+    <h3>Adicionar vasilhame</h3>
+    <p class="muted tiny">Cadastre o recipiente separadamente da carga. Ex.: P13 cria o SKU P13_CONTAINER.</p>
+    <div class="field-row">
+      <div class="input-wrap"><label for="live-new-container-code">Tamanho GLP</label><input id="live-new-container-code" class="input" maxlength="3" placeholder="P13"></div>
+      <div class="input-wrap"><label for="live-new-container-price">Preço do vasilhame</label><input id="live-new-container-price" inputmode="decimal" type="number" min="0.01" max="10000" step="0.10" class="input" placeholder="0,00"></div>
+      <div class="input-wrap"><label for="live-new-container-stock">Estoque</label><input id="live-new-container-stock" inputmode="numeric" type="number" min="0" max="100000" class="input" value="0"></div>
+    </div>
+    <button class="primary" onclick="merchantLiveAddContainer()">Adicionar vasilhame</button>
+  </div>`;
+
+  return shell(`<section class="page"><button class="back" onclick="go('merchant')">← Operação</button><h1 class="page-title">Catálogo real</h1><p class="muted">Cada SKU possui sua própria confirmação de preço e política comercial. Em faixa automática, o Chama nunca oferece abaixo do mínimo nem acima do máximo autorizado.</p><div style="margin-top:16px">${addGlp}${addContainer}${rows}</div></section>`);
 }
 
 async function merchantLiveAddGlp(){
@@ -494,6 +535,20 @@ async function merchantLiveAddGlp(){
   try{
     await merchantUpdateProductLive(code,Math.round(price*100),stock,true);
     toast('Gás P'+kg+' adicionado ao catálogo');
+  }catch(e){toast(String(e?.message||e))}
+}
+
+async function merchantLiveAddContainer(){
+  const gasCode=String(document.getElementById('live-new-container-code')?.value||'').trim().toUpperCase();
+  const match=/^P([1-9][0-9]?)$/.exec(gasCode);
+  const kg=match?Number(match[1]):NaN;
+  const price=Number(document.getElementById('live-new-container-price')?.value);
+  const stock=Number(document.getElementById('live-new-container-stock')?.value);
+  if(!Number.isInteger(kg)||kg<1||kg>90)return toast('Use um tamanho entre P1 e P90');
+  if(!Number.isFinite(price)||price<=0||price>10000||!Number.isInteger(stock)||stock<0||stock>100000)return toast('Revise preço e estoque do vasilhame');
+  try{
+    await merchantUpdateProductLive(gasCode+'_CONTAINER',Math.round(price*100),stock,true);
+    toast('Vasilhame P'+kg+' adicionado ao catálogo');
   }catch(e){toast(String(e?.message||e))}
 }
 

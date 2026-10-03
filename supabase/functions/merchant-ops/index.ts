@@ -33,6 +33,13 @@ function glpKgForCode(code:string){
 function productNameForCode(code:string){
   const kg=glpKgForCode(code);
   if(kg!==null)return "Gás P"+kg;
+  const container=/^P([1-9][0-9]?)_CONTAINER$/.exec(code);
+  if(container){
+    const containerKg=Number(container[1]);
+    if(Number.isInteger(containerKg)&&containerKg>=1&&containerKg<=90){
+      return "Vasilhame P"+containerKg;
+    }
+  }
   return PRODUCT_NAMES[code]??null;
 }
 
@@ -80,7 +87,7 @@ Deno.serve(async(req:Request)=>{
     const merchantId=String(body.merchantId??"");
     const action=String(body.action??"");
     if(!UUID_RE.test(merchantId))throw new DomainError("INVALID_MERCHANT","Revenda inválida.",400);
-    if(!["heartbeat","set-online","update-product","update-logistics","update-capacity","update-scheduling"].includes(action)){
+    if(!["heartbeat","set-online","update-product","update-logistics","update-capacity","update-scheduling","update-payment-methods"].includes(action)){
       throw new DomainError("INVALID_ACTION","Ação inválida.",400);
     }
 
@@ -128,6 +135,20 @@ Deno.serve(async(req:Request)=>{
           throw new DomainError(
             "DELIVERY_AREA_REQUIRED",
             "Ative o atendimento em São Gabriel antes de ficar online neste piloto.",
+            409
+          );
+        }
+
+        const {count:paymentCount,error:paymentError}=await admin
+          .from("merchant_payment_methods")
+          .select("*",{count:"exact",head:true})
+          .eq("merchant_id",merchantId)
+          .eq("active",true);
+        if(paymentError)throw paymentError;
+        if(!paymentCount){
+          throw new DomainError(
+            "PAYMENT_METHOD_REQUIRED",
+            "Ative pelo menos uma forma de pagamento antes de ficar online.",
             409
           );
         }
@@ -250,6 +271,35 @@ Deno.serve(async(req:Request)=>{
       }
 
       return json({ok:true,product:data,priceConfirmedAt:now},200,origin);
+    }
+
+    if(action==="update-payment-methods"){
+      if(!canManage(role))throw new DomainError("MERCHANT_ACCESS_DENIED","Somente owner/manager pode alterar formas de pagamento.",403);
+      const methods={
+        pix:body.pix===true,
+        card:body.card===true,
+        cash:body.cash===true
+      };
+      if(!Object.values(methods).some(Boolean)){
+        throw new DomainError("PAYMENT_METHOD_REQUIRED","Ative pelo menos uma forma de pagamento.",400);
+      }
+      const rows=Object.entries(methods).map(([payment_method,active])=>({
+        merchant_id:merchantId,
+        payment_method,
+        active,
+        confirmed_at:now,
+        updated_at:now
+      }));
+      const {error}=await admin
+        .from("merchant_payment_methods")
+        .upsert(rows,{onConflict:"merchant_id,payment_method"});
+      if(error)throw error;
+      const {error:merchantUpdateError}=await admin
+        .from("merchants")
+        .update({last_seen_at:now})
+        .eq("id",merchantId);
+      if(merchantUpdateError)throw merchantUpdateError;
+      return json({ok:true,paymentMethods:methods,lastSeenAt:now},200,origin);
     }
 
     if(action==="update-scheduling"){

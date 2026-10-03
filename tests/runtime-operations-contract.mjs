@@ -614,3 +614,25 @@ assert.match(schedulingSavingsV135,/v_order\.delivery_window_start is null or m\
 assert.match(schedulingSavingsV135,/scheduled_delivery_unavailable/,'corrida de opt-out antes do aceite precisa falhar fechado');
 
 console.log('Scheduling + savings + referrals v1.35 contract passou.');
+
+
+const paymentContainersV136=fs.readFileSync(
+  new URL('../supabase/migrations/20261003033000_payment_methods_containers_v1_36.sql',import.meta.url),
+  'utf8'
+).replace(/--.*$/gm,'').replace(/\s+/g,' ').toLowerCase();
+
+assert.match(paymentContainersV136,/create table if not exists public\.merchant_payment_methods/,'formas de pagamento precisam de autoridade própria');
+assert.match(paymentContainersV136,/active boolean not null default false/,'forma de pagamento deve nascer fail-closed');
+assert.match(paymentContainersV136,/alter table public\.merchant_payment_methods enable row level security/,'formas de pagamento precisam de RLS');
+assert.match(paymentContainersV136,/revoke all on table public\.merchant_payment_methods from public, anon, authenticated/,'browser não pode consultar capacidades comerciais diretamente');
+assert.match(paymentContainersV136,/merchant_accepts_payment_method/,'matching e checkout precisam compartilhar autoridade de pagamento');
+assert.match(paymentContainersV136,/payment_method_requested/,'quote precisa congelar forma de pagamento');
+assert.match(paymentContainersV136,/create_order_from_quote_v4/,'checkout v4 precisa revalidar forma de pagamento');
+assert.match(paymentContainersV136,/payment_method_mismatch/,'quote não pode ser reutilizada com outra forma de pagamento');
+assert.match(paymentContainersV136,/payment_method_accept_guard/,'aceite precisa falhar se capacidade de pagamento mudar');
+assert.match(paymentContainersV136,/public\.merchant_accepts_payment_method\(m\.id,v_order\.payment_method\)/,'rescue precisa respeitar forma de pagamento');
+assert.match(paymentContainersV136,/is_glp_container_product_code/,'vasilhames precisam de classificação server-side explícita');
+assert.match(paymentContainersV136,/v_has_glp_family and v_has_non_glp/,'P13 + vasilhame não pode ser tratado como carga mista doméstica');
+assert.match(paymentContainersV136,/regulated_glp_mixed_load_verified/,'GLP + item doméstico continua exigindo capability verificada');
+
+console.log('Payment methods + GLP containers v1.36 contract passou.');
