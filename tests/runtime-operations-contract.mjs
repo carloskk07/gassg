@@ -692,3 +692,26 @@ assert.match(merchantTeamV138,/revoke all on function public\.merchant_team_muta
 assert.match(merchantTeamV138,/grant execute on function public\.merchant_team_mutate[\s\S]*to service_role/,'somente backend pode executar mutações de equipe');
 
 console.log('Merchant team v1.38 contract passou.');
+
+
+const deliveryDetailsV139=fs.readFileSync(
+  new URL('../supabase/migrations/20261003043000_delivery_details_v1_39.sql',import.meta.url),
+  'utf8'
+).replace(/--.*$/gm,'').replace(/\s+/g,' ').toLowerCase();
+
+assert.match(deliveryDetailsV139,/customer_phone_digits text/,'pedido precisa persistir telefone operacional');
+assert.match(deliveryDetailsV139,/address_complement text/,'pedido precisa persistir complemento');
+assert.match(deliveryDetailsV139,/delivery_reference text/,'pedido precisa persistir referência');
+assert.match(deliveryDetailsV139,/delivery_notes text/,'pedido precisa persistir instruções');
+assert.match(deliveryDetailsV139,/customer_phone_digits~'\^\[0-9\]\{10,11\}\$'/,'telefone persistido precisa ser somente dígitos com DDD');
+assert.match(deliveryDetailsV139,/create or replace function public\.create_order_from_quote_v5/,'checkout real precisa de autoridade V5');
+assert.match(deliveryDetailsV139,/v_result:=public\.create_order_from_quote_v4/,'V5 deve reutilizar a autoridade financeira\/comercial V4 na mesma transação');
+assert.match(deliveryDetailsV139,/set customer_phone_digits=v_phone,[\s\S]*address_complement=v_complement,[\s\S]*delivery_reference=v_reference,[\s\S]*delivery_notes=v_notes/,'dados de entrega precisam ser anexados antes do commit');
+assert.match(deliveryDetailsV139,/create or replace function public\.require_order_delivery_contact/,'banco precisa bloquear pedido sem contato independentemente da entrada');
+assert.match(deliveryDetailsV139,/where o\.id=new\.id/,'trigger deferido deve consultar o estado final do pedido');
+assert.match(deliveryDetailsV139,/order_delivery_contact_required/,'pedido sem telefone válido precisa falhar no commit');
+assert.match(deliveryDetailsV139,/create constraint trigger require_order_delivery_contact_commit[\s\S]*deferrable initially deferred/,'gate de contato deve executar no fim da transação para permitir wrapper V5 atômico');
+assert.match(deliveryDetailsV139,/revoke all on function public\.create_order_from_quote_v5[\s\S]*from public, anon, authenticated/,'V5 não pode ser chamada pelo browser');
+assert.match(deliveryDetailsV139,/grant execute on function public\.create_order_from_quote_v5[\s\S]*to service_role/,'V5 deve ser server-only');
+
+console.log('Delivery details v1.39 contract passou.');
