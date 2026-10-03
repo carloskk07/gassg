@@ -12,6 +12,9 @@ for(const ref of refs) assert.ok(exists(ref),`asset ausente no index: ${ref}`);
 
 const manifest=JSON.parse(read('manifest.webmanifest'));
 for(const icon of manifest.icons||[]) assert.ok(exists(icon.src.replace(/^\.\//,'')),`ícone do manifest ausente: ${icon.src}`);
+assert.equal(manifest.short_name,'TAMÃO','PWA deve expor a nova marca pública');
+assert.equal(manifest.theme_color,'#0d6b4b','manifest deve usar o verde institucional TAMÃO');
+assert.match(html,/TAMÃO — Pediu\? Tá na mão\./,'title deve carregar marca e assinatura');
 
 const sw=read('sw.js');
 const swAssets=[...sw.matchAll(/'\.\/([^']*)'/g)].map(m=>m[1]).filter(Boolean);
@@ -56,8 +59,12 @@ assert.ok(core.includes('isValidCnpjShape'),'core precisa suportar validação e
 assert.ok(!merchant.includes('.stock'),'UI da revenda não deve depender do campo legado stock');
 assert.ok(growth.includes('referralCode'),'link de indicação deve usar código pessoal');
 assert.ok(bootstrap.includes('home,learn,earn'),'router público precisa expor jornadas de descoberta e renda');
-assert.ok(customer.includes('Quero pedir agora')&&customer.includes('Quero entender melhor')&&customer.includes('Quero ganhar ou vender'),'home precisa priorizar compra e separar entendimento de oportunidades');
+assert.ok(customer.includes('Quero pedir agora')&&customer.includes('Quero entender melhor')&&customer.includes('Quero ganhar benefícios')&&customer.includes('Quero vender no TAMÃO'),'home precisa separar compra, entendimento, benefícios e parceria comercial');
 assert.ok(customer.includes('Botijão de cozinha 13 kg')&&customer.includes('startHomeOrder'),'home precisa iniciar a compra em linguagem humana sem depender de P13 como rótulo principal');
+assert.ok(core.includes('brand-name">TAMÃO')&&core.includes('Pediu? Tá na mão.'),'shell deve carregar a identidade TAMÃO');
+assert.ok(customer.includes('<h1>Pediu? Tá na mão.</h1>')&&customer.includes('Gás, água e essenciais perto de você.'),'hero deve materializar nome, promessa e categoria');
+assert.ok(!/\bChama\b/.test([customer,merchant,growth,admin,backend].join('\n')),'copy pública não pode regredir para a marca anterior');
+assert.ok(core.includes("const STORAGE='chama-sg-state-v2'")&&backend.includes('CHAMA_CUSTOMER_ORIGIN'),'rebrand não pode quebrar identificadores técnicos legados nesta versão');
 assert.ok(customer.includes('PROTEÇÃO TAMÃO')&&customer.includes('qualquer alternativa mais cara'),'home precisa explicar rescue e requote como proteção compreensível ao cliente');
 assert.ok(customer.includes('PRIMEIRO PARCEIRO PILOTO')&&customer.includes('Gas e Lenheira do JR'),'pré-lançamento deve mostrar o primeiro parceiro piloto sem fingir operação ativa');
 assert.ok(customer.includes('PILOTO INTERNO — SEM PEDIDOS REAIS')&&customer.includes('R$ 115,90 mínimo')&&customer.includes('R$ 120,00 normal')&&customer.includes('R$ 125,00 máximo'),'GitHub Pages deve comunicar claramente a faixa comercial interna do JR');
