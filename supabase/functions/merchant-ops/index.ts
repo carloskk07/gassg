@@ -139,6 +139,20 @@ Deno.serve(async(req:Request)=>{
           );
         }
 
+        const {count:paymentCount,error:paymentError}=await admin
+          .from("merchant_payment_methods")
+          .select("*",{count:"exact",head:true})
+          .eq("merchant_id",merchantId)
+          .eq("active",true);
+        if(paymentError)throw paymentError;
+        if(!paymentCount){
+          throw new DomainError(
+            "PAYMENT_METHOD_REQUIRED",
+            "Ative pelo menos uma forma de pagamento antes de ficar online.",
+            409
+          );
+        }
+
         const {data:available,error:availableError}=await admin
           .from("catalog_items")
           .select("product_code,price_confirmed_at")
