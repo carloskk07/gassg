@@ -265,6 +265,9 @@ assert.ok(adminAuthSource.includes('admin_login_mode')&&adminAuthSource.includes
 assert.ok(adminAuthSource.includes('shouldCreateUser:mode==="bootstrap_reserved"'),'criação da primeira identidade só pode ocorrer no modo reservado');
 assert.ok(adminAuthSource.includes('Se este e-mail estiver autorizado, o link de acesso será enviado.'),'request de login deve responder genericamente para evitar enumeração');
 assert.ok(adminAuthSource.includes('captchaToken')&&adminAuthSource.includes('CAPTCHA_REQUIRED'),'bootstrap sem identidade precisa continuar protegido por anti-bot');
+assert.ok(adminAuthSource.includes('clientIp(req)')&&adminAuthSource.includes('admin-auth-request-ip'),'request-link admin precisa limitar a origem de rede antes de avaliar o e-mail');
+assert.ok(adminAuthSource.indexOf('admin-auth-request-ip')<adminAuthSource.indexOf('captchaToken.length<20'),'quota por IP precisa ocorrer antes da recusa de CAPTCHA');
+assert.ok(adminAuthSource.includes('captchaToken.length<20')&&adminAuthSource.includes('shouldCreateUser:mode==="bootstrap_reserved"'),'CAPTCHA deve ser obrigatório no handler e criação de usuário restrita à reserva');
 assert.ok(adminAuthSource.includes('url.origin!==origin'),'redirect de magic link precisa permanecer preso à origem administrativa');
 assert.ok(adminAuthSource.includes('ADMIN_BOOTSTRAP_RETRY')&&adminAuthSource.includes('ADMIN_BOOTSTRAP_FAILED'),'claim administrativo não pode engolir falhas de concorrência ou backend');
 assert.ok(adminAuthSource.includes('safeStatus')&&adminAuthSource.includes('["claimed","existing_admin","bootstrap_closed","not_reserved"]'),'browser só pode receber estados de bootstrap explicitamente permitidos');
