@@ -140,8 +140,15 @@ function normalizeState(raw){
   merged.checkout.deliveryMode=merged.checkout.deliveryMode==='scheduled'?'scheduled':'now';
   const scheduleStart=Date.parse(String(merged.checkout.deliveryWindowStart||''));
   const scheduleEnd=Date.parse(String(merged.checkout.deliveryWindowEnd||''));
+  const scheduleNow=Date.now();
   const validSchedule=merged.checkout.deliveryMode==='scheduled'
-    &&Number.isFinite(scheduleStart)&&Number.isFinite(scheduleEnd)&&scheduleEnd>scheduleStart;
+    &&Number.isFinite(scheduleStart)
+    &&Number.isFinite(scheduleEnd)
+    &&scheduleEnd>scheduleStart
+    &&scheduleStart>=scheduleNow+30*60*1000
+    &&scheduleStart<=scheduleNow+72*60*60*1000
+    &&scheduleEnd-scheduleStart>=60*60*1000
+    &&scheduleEnd-scheduleStart<=4*60*60*1000;
   if(!validSchedule){
     merged.checkout.deliveryMode='now';
     merged.checkout.deliveryWindowStart=null;
