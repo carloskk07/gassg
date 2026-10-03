@@ -119,14 +119,28 @@ async function claimBootstrap(req:Request,origin:string){
     limit:20,
     windowSeconds:300
   });
-  const {error:claimError}=await admin.rpc("claim_reserved_platform_admin",{
+  const {data:claim,error:claimError}=await admin.rpc("claim_reserved_platform_admin",{
     p_user_id:data.user.id
   });
   if(claimError){
-    console.error("admin-auth bootstrap claim failed",String(claimError.code??"RPC_ERROR"));
+    const code=String(claimError.code??claimError.message??"RPC_ERROR");
+    console.error("admin-auth bootstrap claim failed",code);
+    if(code.includes("PERMANENT_CONFIRMED_IDENTITY_REQUIRED")){
+      return json({error:"PERMANENT_CONFIRMED_IDENTITY_REQUIRED",message:"Use uma conta permanente com e-mail confirmado."},401,origin);
+    }
+    return json({error:"ADMIN_BOOTSTRAP_FAILED",message:"Não foi possível concluir a ativação administrativa agora."},500,origin);
   }
 
-  return json({ok:true},200,origin);
+  const status=String(claim?.status??"");
+  if(["claimed","existing_admin"].includes(status)){
+    return json({ok:true,status},200,origin);
+  }
+  if(["not_reserved","bootstrap_closed"].includes(status)){
+    return json({error:"ADMIN_ACCESS_DENIED",message:"Esta conta não possui acesso administrativo."},403,origin);
+  }
+
+  console.error("admin-auth bootstrap claim returned unexpected status",status||"EMPTY");
+  return json({error:"ADMIN_BOOTSTRAP_STATE_INVALID",message:"O estado da ativação administrativa é inválido."},409,origin);
 }
 
 Deno.serve(async(req:Request)=>{
