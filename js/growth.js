@@ -324,8 +324,8 @@ async function shareReferral(){
 function merchantsLanding(){
   const portal=globalThis.merchantPortalRequested?.()===true;
   const internalPilot=globalThis.CHAMA_INTERNAL_PILOT===true;
-  const cta=internalPilot?"setMode('merchant')":portal?"go('merchant-join')":"openMerchantPortal()";
-  const ctaLabel=internalPilot?'Experimentar painel da revenda':portal?'Cadastrar minha empresa':'Acessar / cadastrar revenda';
+  const cta=internalPilot?"setMode('merchant')":"openPrelaunchMerchantLead()";
+  const ctaLabel=internalPilot?'Experimentar painel da revenda':'Quero ser parceiro fundador';
   const jrPrice=115.90;
   const initial=merchantMarginExample({salePrice:jrPrice,orders:50});
 
@@ -345,6 +345,8 @@ function merchantsLanding(){
       <button class="primary" onclick="${cta}">${ctaLabel}</button>
       <button class="secondary" onclick="document.getElementById('merchant-margin')?.scrollIntoView({behavior:'smooth'})">Simular margem</button>
     </div>
+
+    ${internalPilot?'':prelaunchMerchantLeadSection()}
 
     <section class="section"><div class="section-head"><div><span class="section-kicker">O QUE VOCÊ ESTÁ COMPRANDO COM A TAXA</span><h2>Não é apenas um pedido. É aquisição, operação e recorrência em um único canal.</h2><p>O objetivo é trazer demanda incremental sem exigir que sua empresa abandone os canais que já funcionam.</p></div></div>
       <div class="grid cards-3 partner-benefits">
