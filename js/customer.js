@@ -224,7 +224,7 @@ function home(){
     ? internalPilot?'● PILOTO INTERNO — SEM PEDIDOS REAIS':'● TESTE AUTOMATIZADO'
     : preview
       ? '● PRÉ-LANÇAMENTO EM SÃO GABRIEL'
-      : '● TAMÃO SÃO GABRIEL';
+      : '● TAMÃO • SÃO GABRIEL';
   const primaryLabel=internalPilot?'Simular pedido':preview?'Ver como vou comprar':'Ver preços e prazos';
   const singleMarket=internalPilot||(ready&&market?.availableNow&&Number(market?.availableMerchantCount||0)===1);
   const heroJourney=singleMarket
@@ -257,11 +257,12 @@ function home(){
 
 ${reorderCard}
 
-<section class="section intent-section"><div class="section-head"><div><span class="section-kicker">ESCOLHA SEU CAMINHO</span><h2>Comprar vem primeiro. Os benefícios aparecem depois.</h2></div></div>
+<section class="section intent-section"><div class="section-head"><div><span class="section-kicker">ESCOLHA SEU CAMINHO</span><h2>Comprar, economizar, indicar ou vender.</h2><p>Cada objetivo tem uma jornada própria no TAMÃO.</p></div></div>
 <div class="intent-grid">
   <button class="intent-card intent-primary" onclick="quickProduct('P13')" ${disabled?'disabled':''}><span class="intent-icon">🔥</span><span><strong>Quero pedir agora</strong><small>Consulte preço total e prazo de entrega.</small></span><b>→</b></button>
   <button class="intent-card" onclick="go('learn')"><span class="intent-icon">🛡️</span><span><strong>Quero entender melhor</strong><small>Veja como compra, pagamento e entrega funcionam.</small></span><b>→</b></button>
-  <button class="intent-card" onclick="go('earn')"><span class="intent-icon">🤝</span><span><strong>Quero ganhar ou vender</strong><small>Conheça indicação e parceria para empresas.</small></span><b>→</b></button>
+  <button class="intent-card" onclick="go('earn')"><span class="intent-icon">🎁</span><span><strong>Quero ganhar benefícios</strong><small>Cashback e indicação aparecem separados e com regras claras.</small></span><b>→</b></button>
+  <button class="intent-card" onclick="go('merchants')"><span class="intent-icon">🏪</span><span><strong>Quero vender no TAMÃO</strong><small>Transforme a plataforma em um canal adicional para sua empresa.</small></span><b>→</b></button>
 </div></section>
 
 <section class="section"><div class="protection-band"><div class="protection-icon">🛡️</div><div><span class="section-kicker light">PROTEÇÃO TAMÃO</span><h2>Se uma entrega falhar antes de sair, o pedido não fica simplesmente abandonado.</h2><p>O TAMÃO pode procurar outra opção elegível. Se a alternativa aumentar o total, você precisa aceitar o novo valor antes da troca.</p></div><button class="secondary dark-secondary" onclick="go('learn')">Como funciona</button></div></section>
