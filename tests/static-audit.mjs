@@ -428,7 +428,7 @@ assert.ok(merchant.includes('Dados para entrega')&&merchant.includes('href="tel:
 assert.ok(getOrderSource.includes('delivery_pii_redacted_at')&&getOrderSource.includes('deliveryDataRedacted'),'projeção do pedido precisa informar minimização de dados sem expor política interna');
 assert.ok(customer.includes('Dados operacionais de entrega removidos.')&&customer.includes('histórico do pedido, itens, valores e eventos continua disponível'),'cliente precisa entender o que foi removido e o que foi preservado');
 assert.ok(core.includes("postalCode:''")&&core.includes("merged.postalCode=String(raw.postalCode||'').replace(/\\D/g,'').slice(0,8)"),'estado do cliente precisa persistir CEP normalizado');
-assert.ok(customer.includes('O CEP é validado no servidor para confirmar atendimento em São Gabriel/RS.')&&customer.includes("Informe um CEP válido com 8 dígitos"),'checkout precisa coletar CEP e explicar validação server-side');
+assert.ok(customer.includes('O servidor confirma rua, bairro e atendimento em São Gabriel/RS.')&&customer.includes("Informe um CEP válido com 8 dígitos"),'checkout precisa coletar CEP e explicar validação server-side do endereço');
 assert.ok(backend.includes('postalCode:postalCodeSnapshot')&&backend.includes('postalValidated=data?.postalValidated===true'),'runtime deve vincular a consulta ao snapshot do CEP');
 const postalResolver=read('supabase/functions/_shared/postal-code.js');
 assert.ok(postalResolver.includes('brasilapi.com.br/api/cep/v1/')&&postalResolver.includes('viacep.com.br/ws/'),'CEP deve ter provedor primário e fallback explícito');
