@@ -85,6 +85,10 @@ assert.ok(read('supabase/functions/admin-ops/index.ts').includes('public_request
 assert.ok(html.includes('./js/admin-acquisition.js'),'inbox administrativo de aquisição precisa ser carregado');
 assert.ok(adminAcquisition.includes('adminPrelaunchLeadsSection')&&admin.includes('adminPrelaunchLeadsSection(d)'),'admin deve exibir leads captados');
 assert.ok(adminAcquisition.includes('adminSetPrelaunchLeadStatus')&&adminAcquisition.includes('QUALIFICADO')&&adminAcquisition.includes('CONVERTIDO'),'admin precisa operar pipeline de leads');
+assert.ok(adminAcquisition.includes('adminLeadWhatsAppText')&&adminAcquisition.includes('Abrir WhatsApp com mensagem'),'follow-up comercial precisa abrir com texto contextualizado');
+assert.ok(adminAcquisition.includes('adminPublicRequestWhatsAppText'),'contato público por WhatsApp precisa carregar protocolo/contexto sem copiar mensagem sensível');
+assert.ok(adminAcquisition.includes('adminLeadPriority')&&adminAcquisition.includes('Novos há +24h'),'admin precisa priorizar pipeline e destacar leads novos envelhecidos');
+assert.ok(adminAcquisition.includes("Date.parse(a.created_at||'')-Date.parse(b.created_at||'')"),'pipeline aberto precisa ordenar os leads mais antigos primeiro dentro do estágio');
 assert.ok(adminAcquisition.includes('adminSetPublicRequestStatus')&&adminAcquisition.includes('EM ANÁLISE')&&adminAcquisition.includes('RESOLVIDA'),'admin precisa operar fila de contato/LGPD');
 assert.ok(read('supabase/functions/admin-ops/index.ts').includes('admin_prelaunch_lead_action')&&read('supabase/functions/admin-ops/index.ts').includes('admin_public_request_action'),'admin API precisa usar autoridades transacionais de aquisição');
 assert.ok(read('supabase/migrations/20261003202000_launch_ops_v1_51.sql').includes('PRELAUNCH_LEAD_FINAL')&&read('supabase/migrations/20261003202000_launch_ops_v1_51.sql').includes('PUBLIC_REQUEST_ALREADY_CLOSED'),'pipeline precisa falhar fechado em estados finais');
@@ -145,7 +149,7 @@ assert.ok(growth.includes('Saque Pix ainda não disponível')&&growth.includes('
 assert.ok(growth.includes('Você continua no controle'),'landing de revenda deve enfatizar autonomia operacional');
 assert.ok(core.includes("['earn','💰','Ganhe','go']"),'navegação móvel precisa dar acesso direto ao hub de renda');
 assert.ok(!growth.includes('inputmode="numeric" maxlength="18"'),'campo CNPJ não pode forçar teclado somente numérico após adoção do CNPJ alfanumérico');
-assert.ok(sw.includes("CACHE='tamao-sg-v1.53'"),'cache do service worker precisa refletir a versão TAMÃO');
+assert.ok(sw.includes("CACHE='tamao-sg-v1.54'"),'cache do service worker precisa refletir a versão TAMÃO');
 assert.ok(admin.includes('offerable_supply_required')&&admin.includes('offerReadyMerchantCount'),'painel admin precisa expor oferta real como gate de lançamento');
 assert.ok(admin.includes('realmente capaz de receber uma oferta agora'),'copy de go-live precisa distinguir cadastro de capacidade operacional real');
 assert.ok(sw.includes("./js/backend.js"),'runtime live precisa estar no cache da PWA');
