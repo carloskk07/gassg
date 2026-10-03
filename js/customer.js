@@ -190,7 +190,7 @@ function home(){
   const priceText=testDemo
     ? (p==null?'Indisponível':BRL.format(p))
     : preview
-      ? 'Veja a experiência'
+      ? 'Lista de abertura'
       : ready&&!market
         ? 'Consultar preço'
         : ready&&market?.realSupplyConfigured
@@ -220,12 +220,14 @@ function home(){
             : 'Conectando ao serviço.';
 
   const disabled=!testDemo&&!ready&&!preview;
+  const acquisitionOpen=!testDemo&&(preview||!ready||market?.realSupplyConfigured===false);
   const eyebrow=testDemo
     ? internalPilot?'● PILOTO INTERNO — SEM PEDIDOS REAIS':'● TESTE AUTOMATIZADO'
     : preview
       ? '● PRÉ-LANÇAMENTO EM SÃO GABRIEL'
       : '● TAMÃO • SÃO GABRIEL';
-  const primaryLabel=internalPilot?'Simular pedido':preview?'Ver como vou comprar':'Ver preços e prazos';
+  const primaryLabel=internalPilot?'Simular pedido':acquisitionOpen?'Quero ser avisado':'Ver preços e prazos';
+  const primaryAction=acquisitionOpen?'openPrelaunchCustomerLead()':'startHomeOrder()';
   const singleMarket=internalPilot||(ready&&market?.availableNow&&Number(market?.availableMerchantCount||0)===1);
   const heroJourney=singleMarket
     ? internalPilot
@@ -241,7 +243,7 @@ function home(){
     <div class="purchase-starter" aria-label="Iniciar compra de gás">
       <div class="starter-product"><div class="starter-product-icon">🔥</div><div><span class="starter-label">MAIS PROCURADO</span><strong>Botijão de cozinha 13 kg</strong><small>P13 • GLP</small></div><div class="starter-price"><small>CONSULTA</small><b>${priceText}</b></div></div>
       <label class="starter-address" for="home-address"><span>${testDemo?'Onde entregar?':'CEP de entrega'}</span><div><span aria-hidden="true">📍</span><input id="home-address" autocomplete="${testDemo?'street-address':'postal-code'}" inputmode="${testDemo?'text':'numeric'}" maxlength="${testDemo?'160':'9'}" placeholder="${testDemo?'Digite seu endereço':'Ex.: 97300-000'}" value="${esc(testDemo?(state.address||''):String(state.postalCode||'').replace(/^(\d{5})(\d{0,3}).*$/,(m,a,b)=>b?a+'-'+b:a))}" ${disabled?'disabled':''}></div></label>
-      <button class="primary starter-cta" onclick="startHomeOrder()" ${disabled?'disabled':''}>🔥 ${primaryLabel}</button>
+      <button class="primary starter-cta" onclick="${primaryAction}" ${disabled&&!acquisitionOpen?'disabled':''}>🔥 ${primaryLabel}</button>
       <small class="starter-footnote">${esc(freshness)}</small>
     </div>
 
@@ -255,6 +257,7 @@ function home(){
     <div class="visual-status"><span class="visual-check">✓</span><div><strong>Tá na mão: parceiro confirmou</strong><small>Você só vê “A caminho” depois da saída confirmada.</small></div></div>
   </div></div></section>
 
+${acquisitionOpen?prelaunchCustomerLeadSection():''}
 ${reorderCard}
 
 <section class="section intent-section"><div class="section-head"><div><span class="section-kicker">ESCOLHA SEU CAMINHO</span><h2>Comprar, economizar, indicar ou vender.</h2><p>Cada objetivo tem uma jornada própria no TAMÃO.</p></div></div>
