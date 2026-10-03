@@ -57,7 +57,9 @@ function mapRpcError(error: { message?: string; code?: string } | null) {
     INVALID_PAYMENT_METHOD: { status: 400, message: "Forma de pagamento inválida." },
     INVALID_CASH_TENDER: { status: 400, message: "O valor para troco precisa cobrir o total do pedido." },
     CASH_TENDER_REQUIRES_CASH: { status: 400, message: "Valor para troco só pode ser usado em pagamento em dinheiro." },
-    MERCHANT_AT_CAPACITY: { status: 409, message: "O parceiro atingiu a capacidade de pedidos agora. Atualize as opções." }
+    MERCHANT_AT_CAPACITY: { status: 409, message: "O parceiro atingiu a capacidade de pedidos agora. Atualize as opções." },
+    INVALID_DELIVERY_WINDOW: { status: 400, message: "A janela de entrega não é mais válida. Escolha outro horário." },
+    SCHEDULED_DELIVERY_UNAVAILABLE: { status: 409, message: "Este parceiro não está mais aceitando pedidos agendados." }
   };
 
   for (const [code, meta] of Object.entries(known)) {
@@ -142,7 +144,7 @@ Deno.serve(async (req: Request) => {
     });
     await enforceApiQuota(admin,{userId:user.id,actionName:"create-order",limit:12,windowSeconds:600});
 
-    const { data, error } = await admin.rpc("create_order_from_quote_v2", {
+    const { data, error } = await admin.rpc("create_order_from_quote_v3", {
       p_user_id: user.id,
       p_quote_id: quoteId,
       p_payment_method: paymentMethod,
