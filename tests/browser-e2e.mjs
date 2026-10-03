@@ -86,15 +86,16 @@ await send('Log.enable');
 await send('Page.addScriptToEvaluateOnNewDocument',{source:'globalThis.__CHAMA_TEST__=true;'});
 await navigate(BASE+'#home');
 await evaluate("localStorage.clear(); location.reload()");
-await waitFor("document.body.innerText.includes('Seu gás, com preço e prazo')","home after reset");
+await waitFor("document.body.innerText.includes('Pediu? Tá na mão.')","home after reset");
 
 let body=await text();
-assert.match(body,/Seu gás, com preço e prazo/);
+assert.match(body,/Pediu\? Tá na mão\./);
 assert.match(body,/Quero pedir agora/);
 assert.match(body,/Quero entender melhor/);
 assert.match(body,/Botijão de cozinha 13 kg/);
 assert.match(body,/PROTEÇÃO TAMÃO/);
-assert.match(body,/Quero ganhar ou vender/);
+assert.match(body,/Quero ganhar benefícios/);
+assert.match(body,/Quero vender no TAMÃO/);
 assert.match(body,/Ambiente isolado de teste automatizado/);
 await auditDom('home');
 
