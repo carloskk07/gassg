@@ -37,3 +37,54 @@ function adminPrelaunchLeadsSection(data){
     '</section>'
   ].join('');
 }
+
+
+function adminPublicRequestKindLabel(value){
+  return ({general:'DÚVIDA',support:'SUPORTE',privacy:'PRIVACIDADE'})[value]||String(value||'SOLICITAÇÃO').toUpperCase();
+}
+function adminPrivacyActionLabel(value){
+  return ({
+    confirmation:'Confirmação de tratamento',
+    access:'Acesso aos dados',
+    correction:'Correção de dados',
+    deletion:'Eliminação de dados',
+    information:'Informações sobre uso/compartilhamento',
+    revocation:'Revogação de autorização',
+    other:'Outro assunto de privacidade'
+  })[value]||'—';
+}
+function adminPublicRequestCard(x){
+  const kind=adminPublicRequestKindLabel(x.request_kind);
+  const protocol=String(x.id||'').slice(0,8).toUpperCase();
+  const status=String(x.status||'new').toUpperCase();
+  let contactAction='';
+  if(x.contact_channel==='email'){
+    contactAction='<a class="secondary small" href="mailto:'+encodeURIComponent(String(x.contact_value||''))+'">Responder por e-mail</a>';
+  }else{
+    contactAction='<a class="secondary small" href="https://wa.me/'+esc(adminLeadWhatsApp(x.contact_value))+'" target="_blank" rel="noopener noreferrer">Abrir WhatsApp</a>';
+  }
+  return [
+    '<article class="card flat">',
+      '<div class="status-bar"><div><span class="status-pill '+(x.request_kind==='privacy'?'offline':'online')+'">'+esc(kind)+'</span>',
+      '<h3 style="margin:8px 0 3px">'+esc(x.contact_name||'Solicitante')+'</h3>',
+      '<div class="tiny muted">Protocolo '+esc(protocol)+' • '+esc(status)+'</div></div>',
+      '<small>'+new Date(x.created_at).toLocaleString('pt-BR')+'</small></div>',
+      x.request_kind==='privacy'?'<div class="list-row"><span>Direito/assunto</span><strong>'+esc(adminPrivacyActionLabel(x.privacy_action))+'</strong></div>':'',
+      '<div class="list-row"><span>Canal</span><strong>'+esc(x.contact_channel==='email'?'E-mail':'WhatsApp')+'</strong></div>',
+      '<p class="muted tiny" style="white-space:pre-wrap">'+esc(x.message||'')+'</p>',
+      '<div class="order-actions">'+contactAction+'<span class="tiny muted">'+esc(String(x.contact_value||''))+'</span></div>',
+    '</article>'
+  ].join('');
+}
+function adminPublicRequestsSection(data){
+  const requests=Array.isArray(data?.publicRequests)?data.publicRequests:[];
+  const open=requests.filter(x=>['new','in_review'].includes(x.status)).length;
+  const privacy=requests.filter(x=>x.request_kind==='privacy'&&['new','in_review'].includes(x.status)).length;
+  return [
+    '<section class="section">',
+      '<div class="section-head"><div><span class="section-kicker">CONFIANÇA • CONTATO E LGPD</span><h2>Solicitações públicas</h2><p>Dúvidas, suporte geral e exercícios de direitos recebidos pelo canal oficial do site.</p></div><span class="status-pill '+(open?'offline':'online')+'">'+open+' pendente(s)</span></div>',
+      '<div class="merchant-kpis"><div class="kpi"><span class="label">Pendentes</span><strong>'+open+'</strong></div><div class="kpi"><span class="label">Privacidade pendente</span><strong>'+privacy+'</strong></div></div>',
+      '<div class="grid cards-3" style="margin-top:14px">'+(requests.length?requests.slice(0,60).map(adminPublicRequestCard).join(''):'<div class="empty card">Nenhuma solicitação pública recebida.</div>')+'</div>',
+    '</section>'
+  ].join('');
+}
