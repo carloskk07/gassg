@@ -278,3 +278,16 @@ button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-vis
   .acquisition-funnel{grid-template-columns:repeat(4,1fr)}
   .acquisition-campaign-row{grid-template-columns:minmax(220px,1fr) minmax(330px,.9fr);align-items:center}
 }
+
+
+/* TAMÃO v1.56 — first-party funnel */
+.acquisition-funnel-full{grid-template-columns:1fr}
+.acquisition-campaign-row .status-pill{display:inline-flex;margin-bottom:6px}
+.campaign-rates{grid-template-columns:repeat(2,1fr)}
+@media(min-width:760px){
+  .acquisition-funnel-full{grid-template-columns:repeat(3,1fr)}
+  .campaign-rates{grid-template-columns:repeat(4,1fr)}
+}
+@media(min-width:1180px){
+  .acquisition-funnel-full{grid-template-columns:repeat(6,1fr)}
+}
