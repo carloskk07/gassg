@@ -734,6 +734,146 @@ const merchantRuntime={
   pollPending:false
 };
 
+const MERCHANT_ALERTS_KEY='chama-merchant-alerts-v1';
+function merchantStoredAlertsEnabled(){
+  try{return localStorage.getItem(MERCHANT_ALERTS_KEY)==='1'}catch{return false}
+}
+const merchantAlerts={
+  enabled:merchantStoredAlertsEnabled(),
+  knownOrderIds:new Set(),
+  audioContext:null,
+  lastAlertAt:0
+};
+
+function merchantAlertStatus(){
+  const supported=typeof Notification!=='undefined';
+  return {
+    enabled:merchantAlerts.enabled===true,
+    notificationSupported:supported,
+    notificationPermission:supported?Notification.permission:'unsupported'
+  };
+}
+
+function merchantAlertCandidates(orders=[],merchant=merchantRuntime.merchant){
+  const role=String(merchant?.memberRole||'');
+  if(role==='driver'){
+    return (orders||[]).filter(o=>['PREPARING','AT_RISK','OUT_FOR_DELIVERY','ARRIVING'].includes(String(o?.status||'')));
+  }
+  if(['owner','manager','operator'].includes(role)){
+    return (orders||[]).filter(o=>String(o?.status||'')==='OFFERED_TO_MERCHANT');
+  }
+  return [];
+}
+
+async function merchantEnsureAlertAudio(){
+  const AudioCtor=globalThis.AudioContext||globalThis.webkitAudioContext;
+  if(!AudioCtor)return null;
+  if(!merchantAlerts.audioContext)merchantAlerts.audioContext=new AudioCtor();
+  if(merchantAlerts.audioContext.state==='suspended'){
+    try{await merchantAlerts.audioContext.resume()}catch{}
+  }
+  return merchantAlerts.audioContext;
+}
+
+async function merchantPlayAlertTone(){
+  const ctx=await merchantEnsureAlertAudio();
+  if(!ctx||ctx.state!=='running')return false;
+  const base=ctx.currentTime+0.01;
+  [0,0.24,0.48].forEach((offset,index)=>{
+    const osc=ctx.createOscillator();
+    const gain=ctx.createGain();
+    osc.type='sine';
+    osc.frequency.setValueAtTime(index===1?1040:880,base+offset);
+    gain.gain.setValueAtTime(0.0001,base+offset);
+    gain.gain.exponentialRampToValueAtTime(0.16,base+offset+0.015);
+    gain.gain.exponentialRampToValueAtTime(0.0001,base+offset+0.16);
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+    osc.start(base+offset);
+    osc.stop(base+offset+0.18);
+  });
+  return true;
+}
+
+async function merchantShowSystemNotification(kind,count){
+  if(typeof Notification==='undefined'||Notification.permission!=='granted')return false;
+  const title=kind==='driver'?'Nova entrega no Chama':'Novo pedido no Chama';
+  const body=kind==='driver'
+    ? (count>1?count+' entregas foram atribuídas a você.':'Uma entrega foi atribuída a você.')
+    : (count>1?count+' pedidos aguardam aceite.':'Um pedido aguarda seu aceite.');
+  const options={
+    body,
+    tag:'chama-merchant-alert',
+    renotify:true,
+    icon:'./icons/icon.svg',
+    badge:'./icons/icon.svg',
+    data:{url:'./?merchant=1#merchant'}
+  };
+  try{
+    if(navigator.serviceWorker?.ready){
+      const registration=await navigator.serviceWorker.ready;
+      await registration.showNotification(title,options);
+      return true;
+    }
+  }catch{}
+  try{
+    new Notification(title,options);
+    return true;
+  }catch{return false}
+}
+
+async function merchantFireAlert(kind,count){
+  if(!merchantAlerts.enabled||count<1)return false;
+  const now=Date.now();
+  if(now-merchantAlerts.lastAlertAt<1200)return false;
+  merchantAlerts.lastAlertAt=now;
+  try{navigator.vibrate?.([180,80,180,80,260])}catch{}
+  await merchantPlayAlertTone().catch(()=>false);
+  await merchantShowSystemNotification(kind,count).catch(()=>false);
+  try{
+    toast(kind==='driver'
+      ?(count>1?count+' novas entregas atribuídas':'Nova entrega atribuída')
+      :(count>1?count+' novos pedidos aguardando aceite':'Novo pedido aguardando aceite'));
+  }catch{}
+  return true;
+}
+
+function merchantProcessOrderAlerts(orders=[],merchant=merchantRuntime.merchant){
+  const candidates=merchantAlertCandidates(orders,merchant);
+  const current=new Set(candidates.map(o=>String(o?.orderId||'')).filter(Boolean));
+  const fresh=[...current].filter(id=>!merchantAlerts.knownOrderIds.has(id));
+  merchantAlerts.knownOrderIds=current;
+  if(merchantAlerts.enabled&&fresh.length){
+    const kind=String(merchant?.memberRole||'')==='driver'?'driver':'merchant';
+    merchantFireAlert(kind,fresh.length).catch(()=>{});
+  }
+  return fresh.length;
+}
+
+async function merchantEnableAlertsLive(){
+  merchantAlerts.enabled=true;
+  try{localStorage.setItem(MERCHANT_ALERTS_KEY,'1')}catch{}
+  await merchantEnsureAlertAudio().catch(()=>null);
+  let permission=typeof Notification==='undefined'?'unsupported':Notification.permission;
+  if(typeof Notification!=='undefined'&&Notification.permission==='default'){
+    try{permission=await Notification.requestPermission()}catch{permission=Notification.permission}
+  }
+  merchantAlerts.knownOrderIds=new Set();
+  const fresh=merchantProcessOrderAlerts(merchantRuntime.orders,merchantRuntime.merchant);
+  if(!fresh)await merchantPlayAlertTone().catch(()=>false);
+  try{navigator.vibrate?.(120)}catch{}
+  render();
+  return {enabled:true,notificationPermission:permission};
+}
+
+function merchantDisableAlertsLive(){
+  merchantAlerts.enabled=false;
+  merchantAlerts.knownOrderIds=new Set();
+  try{localStorage.removeItem(MERCHANT_ALERTS_KEY)}catch{}
+  render();
+  return {enabled:false};
+}
+
 function merchantOriginSafe(){
   if(['localhost','127.0.0.1'].includes(location.hostname))return true;
   const configured=String(globalThis.CHAMA_MERCHANT_ORIGIN||'').trim();
@@ -866,6 +1006,7 @@ async function merchantSignOut(){
   merchantRuntime.notice=null;
   merchantRuntime.accessReason=null;
   merchantRuntime.heartbeatError=null;
+  merchantAlerts.knownOrderIds=new Set();
   render();
 }
 
@@ -883,6 +1024,7 @@ async function merchantRefresh({silent=false,recoverSelection=true}={}){
     merchantRuntime.deliveryTeam=data.deliveryTeam??[];
     merchantRuntime.catalog=data.catalog??[];
     merchantRuntime.orders=data.orders??[];
+    merchantProcessOrderAlerts(merchantRuntime.orders,merchantRuntime.merchant);
     merchantRuntime.selectedMerchantId=data.merchant?.merchantId??merchantRuntime.selectedMerchantId;
     if(merchantRuntime.selectedMerchantId)localStorage.setItem('chama-merchant-selected-v1',merchantRuntime.selectedMerchantId);
     merchantRuntime.status='ready';
@@ -931,6 +1073,7 @@ async function merchantRefresh({silent=false,recoverSelection=true}={}){
 }
 
 async function merchantSelectLive(merchantId){
+  merchantAlerts.knownOrderIds=new Set();
   merchantRuntime.team=null;
   merchantRuntime.teamLoading=false;
   merchantRuntime.selectedMerchantId=String(merchantId||'')||null;
@@ -1307,6 +1450,9 @@ globalThis.merchantRuntime=merchantRuntime;
 globalThis.merchantPortalRequested=merchantPortalRequested;
 globalThis.merchantOriginSafe=merchantOriginSafe;
 globalThis.merchantReady=merchantReady;
+globalThis.merchantAlertStatus=merchantAlertStatus;
+globalThis.merchantEnableAlertsLive=merchantEnableAlertsLive;
+globalThis.merchantDisableAlertsLive=merchantDisableAlertsLive;
 globalThis.merchantBackendInit=merchantBackendInit;
 globalThis.merchantSendLogin=merchantSendLogin;
 globalThis.merchantSignOut=merchantSignOut;

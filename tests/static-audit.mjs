@@ -96,7 +96,7 @@ assert.ok(growth.includes('Saque Pix ainda não disponível')&&growth.includes('
 assert.ok(growth.includes('Você continua no controle'),'landing de revenda deve enfatizar autonomia operacional');
 assert.ok(core.includes("['earn','💰','Ganhe','go']"),'navegação móvel precisa dar acesso direto ao hub de renda');
 assert.ok(!growth.includes('inputmode="numeric" maxlength="18"'),'campo CNPJ não pode forçar teclado somente numérico após adoção do CNPJ alfanumérico');
-assert.ok(sw.includes("CACHE='chama-sg-v1.39'"),'cache do service worker precisa estar versionado');
+assert.ok(sw.includes("CACHE='chama-sg-v1.40'"),'cache do service worker precisa estar versionado');
 assert.ok(sw.includes("./js/backend.js"),'runtime live precisa estar no cache da PWA');
 assert.ok(sw.includes("./js/runtime-config.js"),'configuração pública de origins precisa estar no cache da PWA');
 assert.ok(sw.includes("./js/turnstile.js"),'helper local do Turnstile precisa estar no cache da PWA');
@@ -171,6 +171,14 @@ assert.ok(backend.includes('refreshSeq:0')&&backend.includes('seq!==merchantRunt
 assert.ok(admin.includes('pollPending:false')&&admin.includes('refreshSeq:0')&&admin.includes('now-adminRuntime.lastPollAt<15000'),'admin deve serializar refresh e evitar polling completo a cada 5 segundos');
 assert.ok(admin.includes('seq!==adminRuntime.refreshSeq'),'resposta administrativa obsoleta não pode sobrescrever estado mais novo');
 assert.ok(backend.includes('liveRuntime.actionPending'),'polling precisa respeitar ação em andamento');
+assert.ok(backend.includes('merchantProcessOrderAlerts')&&backend.includes("OFFERED_TO_MERCHANT"),'polling da revenda precisa detectar pedido novo aguardando aceite');
+assert.ok(backend.includes("String(merchant?.memberRole||'')==='driver'")&&backend.includes("'PREPARING','AT_RISK','OUT_FOR_DELIVERY','ARRIVING'"),'motorista precisa detectar nova entrega atribuída sem receber ofertas de outros pedidos');
+assert.ok(backend.includes('navigator.vibrate?.([180,80,180,80,260])')&&backend.includes('merchantPlayAlertTone'),'alerta opt-in precisa combinar vibração e sinal sonoro quando suportado');
+assert.ok(backend.includes("Um pedido aguarda seu aceite.")&&backend.includes("Uma entrega foi atribuída a você."),'notificação deve usar copy operacional genérica sem PII');
+assert.ok(!backend.includes("body:o.address")&&!backend.includes("body:o.customerPhone"),'notificação nunca pode incluir endereço ou telefone');
+assert.ok(merchant.includes('Fechar totalmente o navegador interrompe o polling')&&merchant.includes('push com o app fechado exige uma etapa posterior'),'UI não pode vender polling local como push fechado');
+assert.ok(sw.includes("self.addEventListener('notificationclick'")&&sw.includes("?merchant=1#merchant"),'clique na notificação precisa voltar ao painel operacional');
+assert.ok(bootstrap.includes('merchantEnableAlertsFromUi')&&bootstrap.includes('merchantDisableAlertsFromUi'),'ações de opt-in de alerta precisam estar acessíveis pela UI');
 assert.ok(read('supabase/functions/get-offers/index.ts').includes('create_quote_snapshot'),'ofertas devem persistir snapshot por RPC atômica');
 assert.ok(!read('supabase/functions/get-offers/index.ts').includes('.from("quotes")\n        .insert'),'Edge não deve montar quote em duas gravações separadas');
 assert.ok(read('supabase/functions/get-offers/index.ts').includes('get-offers-hour'),'consulta de oferta precisa também de quota horária');
