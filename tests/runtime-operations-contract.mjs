@@ -853,3 +853,22 @@ assert.match(launchReadinessV146,/revoke all on function public\.create_order_fr
 assert.match(launchReadinessV146,/grant execute on function public\.create_order_from_quote_v8[\s\S]*to service_role/,'somente backend pode executar checkout V8');
 
 console.log('Launch readiness v1.46 contract passou.');
+
+
+const launchOfferableV147=fs.readFileSync(
+  new URL('../supabase/migrations/20261003123000_offerable_launch_readiness_v1_47.sql',import.meta.url),
+  'utf8'
+).replace(/--.*$/gm,'').replace(/\s+/g,' ').toLowerCase();
+
+assert.match(launchOfferableV147,/v_offer_ready integer:=0/,'readiness precisa de contagem dedicada de revendas realmente ofertáveis');
+assert.match(launchOfferableV147,/m\.online[\s\S]*m\.accepts_citywide[\s\S]*m\.last_seen_at>=statement_timestamp\(\)-interval '10 minutes'/,'ofertabilidade precisa exigir online, área e heartbeat fresco');
+assert.match(launchOfferableV147,/m\.delivery_fee_confirmed_at>=statement_timestamp\(\)-interval '24 hours'/,'ofertabilidade precisa exigir taxa de entrega fresca');
+assert.match(launchOfferableV147,/mm\.member_role='owner'/,'mesmo parceiro ofertável precisa ter owner ativo');
+assert.match(launchOfferableV147,/merchant_payment_methods p[\s\S]*p\.active/,'mesmo parceiro ofertável precisa ter forma de pagamento ativa');
+assert.match(launchOfferableV147,/ci\.available_stock>0[\s\S]*ci\.price_cents>0[\s\S]*ci\.price_confirmed_at>=statement_timestamp\(\)-interval '24 hours'/,'mesmo parceiro ofertável precisa ter estoque e preço fresco');
+assert.match(launchOfferableV147,/v_database_ready:=[\s\S]*v_offer_ready>0/,'databaseReady não pode passar sem oferta real possível');
+assert.match(launchOfferableV147,/offerable_supply_required/,'ausência de oferta real precisa ser blocker explícito');
+assert.match(launchOfferableV147,/offerreadymerchantcount/,'readiness precisa expor contagem de parceiros ofertáveis');
+assert.match(launchOfferableV147,/availablenow/,'readiness precisa projetar disponibilidade operacional atual');
+
+console.log('Offerable launch readiness v1.47 contract passou.');
