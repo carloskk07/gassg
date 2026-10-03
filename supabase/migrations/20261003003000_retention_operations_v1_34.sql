@@ -220,7 +220,7 @@ create or replace function public.clear_invalid_cash_tender()
 returns trigger
 language plpgsql
 set search_path = pg_catalog
-as $
+as $$
 begin
   if new.cash_tender_cents is not null
      and (
@@ -231,7 +231,7 @@ begin
   end if;
   return new;
 end;
-$;
+$$;
 
 revoke all on function public.clear_invalid_cash_tender()
 from public, anon, authenticated;
