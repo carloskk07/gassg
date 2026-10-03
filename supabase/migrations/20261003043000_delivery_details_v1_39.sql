@@ -137,7 +137,7 @@ create or replace function public.require_order_delivery_contact()
 returns trigger
 language plpgsql
 set search_path = pg_catalog
-as $
+as $$
 declare
   v_phone text;
 begin
@@ -146,13 +146,13 @@ begin
   from public.orders o
   where o.id=new.id;
 
-  if v_phone is null or v_phone!~'^[0-9]{10,11} then
+  if v_phone is null or v_phone!~'^[0-9]{10,11}$' then
     raise exception 'ORDER_DELIVERY_CONTACT_REQUIRED' using errcode='23514';
   end if;
 
   return null;
 end;
-$;
+$$;
 
 revoke all on function public.require_order_delivery_contact()
 from public, anon, authenticated;
