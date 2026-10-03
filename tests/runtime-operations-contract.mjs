@@ -740,3 +740,30 @@ assert.match(deliveryPiiRetentionV141,/limit 500[\s\S]*for update skip locked/,'
 assert.match(deliveryPiiRetentionV141,/deliverypiiredacted[\s\S]*deliverypiiretentiondays/,'resultado do job precisa expor contagem e política aplicada');
 
 console.log('Delivery PII retention v1.41 contract passou.');
+
+
+const postalServiceAreaV142=fs.readFileSync(
+  new URL('../supabase/migrations/20261003051000_postal_service_area_v1_42.sql',import.meta.url),
+  'utf8'
+).replace(/--.*$/gm,'').replace(/\s+/g,' ').toLowerCase();
+
+assert.match(postalServiceAreaV142,/create table if not exists public\.postal_code_validation_cache/,'CEP validado precisa de cache server-side');
+assert.match(postalServiceAreaV142,/postal_code text primary key[\s\S]*postal_code~'\^\[0-9\]\{8\}\$'/,'cache deve aceitar somente CEP normalizado de oito dígitos');
+assert.match(postalServiceAreaV142,/service_area_allowed boolean not null/,'cache deve congelar elegibilidade territorial');
+assert.match(postalServiceAreaV142,/alter table public\.postal_code_validation_cache enable row level security/,'cache de CEP precisa de RLS');
+assert.match(postalServiceAreaV142,/revoke all on table public\.postal_code_validation_cache from public, anon, authenticated/,'browser não pode ler ou escrever cache territorial');
+assert.match(postalServiceAreaV142,/create or replace function public\.create_quote_snapshot_v2/,'quote precisa de autoridade V2 com CEP');
+assert.match(postalServiceAreaV142,/pc\.verified_at>=clock_timestamp\(\)-interval '30 days'/,'quote só pode usar validação territorial fresca');
+assert.match(postalServiceAreaV142,/if not v_postal\.service_area_allowed then[\s\S]*postal_code_outside_service_area/,'quote deve bloquear CEP fora da área');
+assert.match(postalServiceAreaV142,/v_result:=public\.create_quote_snapshot\(/,'V2 deve preservar autoridade de quote existente na mesma transação');
+assert.match(postalServiceAreaV142,/set postal_code=p_postal_code/,'quote criada precisa congelar CEP validado');
+assert.match(postalServiceAreaV142,/create or replace function public\.create_order_from_quote_v6/,'pedido precisa de autoridade V6');
+assert.match(postalServiceAreaV142,/v_action\.completed_at is not null[\s\S]*return v_result\|\|jsonb_build_object/,'V6 deve preservar replay idempotente mesmo após limpeza da quote');
+assert.match(postalServiceAreaV142,/join public\.postal_code_validation_cache pc[\s\S]*pc\.service_area_allowed[\s\S]*pc\.verified_at>=clock_timestamp\(\)-interval '30 days'/,'pedido novo precisa revalidar autoridade territorial congelada');
+assert.match(postalServiceAreaV142,/set postal_code=v_postal_code/,'pedido precisa herdar o CEP da quote');
+assert.match(postalServiceAreaV142,/postal_code=null,[\s\S]*customer_phone_digits=null/,'retenção precisa remover CEP junto com contato de entrega');
+assert.match(postalServiceAreaV142,/delete from public\.postal_code_validation_cache pc[\s\S]*interval '60 days'/,'cache externo antigo precisa ser descartado');
+assert.match(postalServiceAreaV142,/grant execute on function public\.create_quote_snapshot_v2[\s\S]*to service_role/,'quote V2 deve ser server-only');
+assert.match(postalServiceAreaV142,/grant execute on function public\.create_order_from_quote_v6[\s\S]*to service_role/,'order V6 deve ser server-only');
+
+console.log('Postal service area v1.42 contract passou.');
