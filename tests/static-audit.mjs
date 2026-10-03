@@ -494,8 +494,6 @@ assert.ok(defaultPrivilegeLock.includes('revoke execute on functions from public
 assert.ok(defaultPrivilegeLock.includes('to service_role'),'service_role precisa manter autoridade explícita');
 assert.ok(maintainLock.includes('revoke maintain on tables from anon, authenticated'),'PostgreSQL 17 MAINTAIN precisa ser removido dos defaults do browser');
 console.log('Default Data API privilege audit passou.');
-),'Edge Functions precisam aceitar SKU companheiro de vasilhame');
-assert.ok(read('supabase/functions/merchant-ops/index.ts').includes('PAYMENT_METHOD_REQUIRED'),'revenda não pode ficar online sem forma de pagamento ativa');
 
 assert.ok(core.includes('if(globalThis.__CHAMA_TEST__)'),'API de testes precisa estar protegida no site público');
 assert.ok(core.includes('isValidCnpjShape'),'core precisa suportar validação estrutural do CNPJ atual');
