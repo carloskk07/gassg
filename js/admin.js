@@ -216,14 +216,22 @@ async function adminSendLogin(email){
   const redirect=new URL(location.origin+location.pathname);
   redirect.searchParams.set('admin','1');
   redirect.hash='admin';
-  if(!globalThis.chamaTurnstile?.challenge)throw new Error('Proteção anti-bot indisponível');
-  const captchaToken=await globalThis.chamaTurnstile.challenge('admin_login');
-  const result=await adminAuthInvoke({
+
+  let captchaToken='';
+  const turnstileKey=String(globalThis.chamaTurnstile?.siteKey?.()||'').trim();
+  if(turnstileKey){
+    if(!globalThis.chamaTurnstile?.challenge)throw new Error('Proteção anti-bot indisponível');
+    captchaToken=await globalThis.chamaTurnstile.challenge('admin_login');
+  }
+
+  const payload={
     action:'request-link',
     email:value,
-    captchaToken,
     redirectTo:redirect.toString()
-  });
+  };
+  if(captchaToken)payload.captchaToken=captchaToken;
+
+  const result=await adminAuthInvoke(payload);
   adminRuntime.notice=String(result?.message||'Se este e-mail estiver autorizado, o link de acesso será enviado.');
   adminRuntime.status='unauthenticated';
   render();
