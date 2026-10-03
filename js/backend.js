@@ -714,6 +714,8 @@ const merchantRuntime={
   merchant:null,
   memberships:[],
   deliveryTeam:[],
+  team:null,
+  teamLoading:false,
   catalog:[],
   orders:[],
   selectedMerchantId:localStorage.getItem('chama-merchant-selected-v1')||null,
@@ -849,6 +851,8 @@ async function merchantSignOut(){
   merchantRuntime.merchant=null;
   merchantRuntime.memberships=[];
   merchantRuntime.deliveryTeam=[];
+  merchantRuntime.team=null;
+  merchantRuntime.teamLoading=false;
   merchantRuntime.catalog=[];
   merchantRuntime.orders=[];
   merchantRuntime.selectedMerchantId=null;
@@ -900,6 +904,8 @@ async function merchantRefresh({silent=false,recoverSelection=true}={}){
       merchantRuntime.merchant=null;
       merchantRuntime.orders=[];
       merchantRuntime.deliveryTeam=[];
+      merchantRuntime.team=null;
+      merchantRuntime.teamLoading=false;
       merchantRuntime.catalog=[];
       merchantRuntime.error=null;
       merchantRuntime.accessReason=error?.code||'NO_MERCHANT_ACCESS';
@@ -921,6 +927,8 @@ async function merchantRefresh({silent=false,recoverSelection=true}={}){
 }
 
 async function merchantSelectLive(merchantId){
+  merchantRuntime.team=null;
+  merchantRuntime.teamLoading=false;
   merchantRuntime.selectedMerchantId=String(merchantId||'')||null;
   if(merchantRuntime.selectedMerchantId){
     localStorage.setItem('chama-merchant-selected-v1',merchantRuntime.selectedMerchantId);
@@ -953,6 +961,86 @@ async function merchantPerformAction(orderId,action,reason='other_operational'){
   }finally{
     merchantRuntime.actionPending=false;
     render();
+  }
+}
+
+async function merchantTeamLoadLive({silent=false}={}){
+  const merchantId=merchantRuntime.merchant?.merchantId;
+  if(!merchantId)throw new Error('Revenda não selecionada');
+  if(!['owner','manager'].includes(String(merchantRuntime.merchant?.memberRole||''))){
+    throw new Error('Seu papel não pode gerenciar a equipe');
+  }
+  merchantRuntime.teamLoading=true;
+  if(!silent)render();
+  try{
+    const data=await merchantInvoke('merchant-team',{merchantId,action:'list'});
+    merchantRuntime.team=data??{actorRole:null,members:[],pendingInvites:[]};
+    return merchantRuntime.team;
+  }finally{
+    merchantRuntime.teamLoading=false;
+    if(!silent)render();
+  }
+}
+
+async function merchantTeamMutateLive(action,payload={}){
+  const merchantId=merchantRuntime.merchant?.merchantId;
+  if(!merchantId)throw new Error('Revenda não selecionada');
+  if(!['invite','revoke-member','revoke-invite'].includes(action)){
+    throw new Error('Ação de equipe inválida');
+  }
+  merchantRuntime.actionPending=true;
+  merchantRuntime.error=null;
+  render();
+  try{
+    const idempotencyKey=liveIdempotency('merchant-team');
+    const result=await retryAmbiguousOnce(
+      ()=>merchantInvoke('merchant-team',{
+        merchantId,
+        action,
+        ...payload
+      },{idempotencyKey})
+    );
+    await merchantRefresh({silent:true});
+    await merchantTeamLoadLive({silent:true});
+    return result;
+  }catch(error){
+    merchantRuntime.error=String(error?.message||error);
+    try{await merchantTeamLoadLive({silent:true})}catch{}
+    throw error;
+  }finally{
+    merchantRuntime.actionPending=false;
+    render();
+  }
+}
+
+async function merchantTeamInviteLive(email,memberRole,displayName){
+  const normalizedEmail=String(email||'').trim().toLowerCase();
+  const role=String(memberRole||'').trim().toLowerCase();
+  const name=String(displayName||'').trim().replace(/\s+/g,' ');
+  if(!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(normalizedEmail))throw new Error('Informe um e-mail válido');
+  if(!['manager','operator','driver'].includes(role))throw new Error('Papel de equipe inválido');
+  if(name&&name.length>60)throw new Error('Nome operacional muito longo');
+  return merchantTeamMutateLive('invite',{
+    email:normalizedEmail,
+    memberRole:role,
+    displayName:name||null
+  });
+}
+
+async function merchantTeamRevokeMemberLive(targetUserId){
+  return merchantTeamMutateLive('revoke-member',{targetUserId:String(targetUserId||'')});
+}
+
+async function merchantTeamRevokeInviteLive(inviteId){
+  return merchantTeamMutateLive('revoke-invite',{inviteId:String(inviteId||'')});
+}
+
+async function merchantOpenTeam(){
+  try{
+    await merchantTeamLoadLive({silent:true});
+    go('merchant-team');
+  }catch(error){
+    toast(String(error?.message||error));
   }
 }
 
@@ -1221,6 +1309,13 @@ globalThis.merchantSignOut=merchantSignOut;
 globalThis.merchantRefresh=merchantRefresh;
 globalThis.merchantSelectLive=merchantSelectLive;
 globalThis.merchantPerformAction=merchantPerformAction;
+globalThis.merchantTeamLoadLive=merchantTeamLoadLive;
+globalThis.merchantTeamInviteLive=merchantTeamInviteLive;
+globalThis.merchantTeamRevokeMemberLive=merchantTeamRevokeMemberLive;
+globalThis.merchantTeamRevokeInviteLive=merchantTeamRevokeInviteLive;
+globalThis.merchantOpenTeam=merchantOpenTeam;
+globalThis.merchantAssignDeliveryLive=merchantAssignDeliveryLive;
+globalThis.merchantUpdateMemberProfileLive=merchantUpdateMemberProfileLive;
 globalThis.merchantCompleteDeliveryLive=merchantCompleteDeliveryLive;
 globalThis.merchantSetOnlineLive=merchantSetOnlineLive;
 globalThis.merchantUpdateProductLive=merchantUpdateProductLive;

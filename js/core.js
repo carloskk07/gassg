@@ -771,7 +771,9 @@ function bottomNav(r){
   const items=adminPortal
     ?[['admin','🛡️','Admin','go']]
     :merchantPortal
-      ?[['merchant','🏪','Operação','go'],['merchant-orders','📦','Pedidos','go'],['catalog','🧺','Catálogo','go'],['merchants','➕','Parceiros','go']]
+      ?globalThis.merchantRuntime?.merchant?.memberRole==='driver'
+        ?[['merchant','🚚','Entregas','go']]
+        :[['merchant','🏪','Operação','go'],['merchant-orders','📦','Pedidos','go'],['merchant-team','👥','Equipe','go'],['catalog','🧺','Catálogo','go']]
       :testDemo&&state.mode==='merchant'
         ?[['merchant','🏪','Operação','go'],['merchant-orders','📦','Pedidos','go'],['catalog','🧺','Catálogo','go'],['merchant-metrics','📊','Desempenho','go'],['merchants','➕','Parceiros','go']]
         :[['home','⌂','Início','go'],['order','🔥','Pedir','start'],['tracking','📍','Pedido','go'],['earn','💰','Ganhe','go'],['club','★','Clube','go']];

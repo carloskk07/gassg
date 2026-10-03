@@ -78,6 +78,62 @@ function merchantDriverLivePage(rt){
   </section>`);
 }
 
+function merchantTeamPage(){
+  const rt=globalThis.merchantRuntime||{};
+  const m=rt.merchant;
+  if(rt.status!=='ready'||!m){
+    return shell('<section class="page"><h1 class="page-title">Equipe da revenda</h1><div class="empty card">Conecte-se à operação para gerenciar a equipe.</div></section>');
+  }
+  if(!['owner','manager'].includes(String(m.memberRole||''))){
+    return shell('<section class="page"><button class="back" onclick="go(\'merchant\')">← Operação</button><h1 class="page-title">Equipe da revenda</h1><div class="notice danger"><strong>Acesso restrito.</strong><br>Somente owner ou manager pode gerenciar membros.</div></section>');
+  }
+  if(rt.teamLoading&&!rt.team){
+    return shell('<section class="page"><button class="back" onclick="go(\'merchant\')">← Operação</button><h1 class="page-title">Equipe da revenda</h1><div class="empty card">Carregando equipe…</div></section>');
+  }
+  const team=rt.team||{actorRole:m.memberRole,members:[],pendingInvites:[]};
+  const members=Array.isArray(team.members)?team.members:[];
+  const pending=Array.isArray(team.pendingInvites)?team.pendingInvites:[];
+  const canInviteManager=String(team.actorRole||m.memberRole)==='owner';
+  const roleLabel={owner:'Proprietário',manager:'Gerente',operator:'Operador',driver:'Motorista'};
+  const memberRows=members.map(member=>{
+    const role=String(member.memberRole||'');
+    const active=member.active===true;
+    const protectedMember=member.isSelf===true||role==='owner'||(role==='manager'&&!canInviteManager);
+    const status=active?'ATIVO':'INATIVO';
+    const statusClass=active?'online':'offline';
+    return `<div class="card flat" style="margin-bottom:10px">
+      <div class="status-bar"><div><strong>${esc(member.displayName||member.email||'Membro')}</strong><br><small>${esc(member.email||'')} • ${esc(roleLabel[role]||role)}</small></div><span class="status-pill ${statusClass}">${status}</span></div>
+      ${active&&!protectedMember?`<button class="danger-btn small" style="margin-top:10px" onclick="merchantTeamRevokeMemberFromUi('${esc(member.userId)}')">Revogar acesso</button>`:''}
+      ${!active?'<div class="tiny muted" style="margin-top:8px">Para reativar, envie um novo convite para o mesmo e-mail.</div>':''}
+    </div>`;
+  }).join('');
+  const inviteRows=pending.map(invite=>`<div class="card flat" style="margin-bottom:10px">
+    <div class="status-bar"><div><strong>${esc(invite.displayName||invite.email)}</strong><br><small>${esc(invite.email)} • ${esc(roleLabel[invite.memberRole]||invite.memberRole)}</small></div><span class="status-pill risk">PENDENTE</span></div>
+    <div class="tiny muted" style="margin-top:8px">Válido até ${esc(formatDateTime(invite.expiresAt))}. O vínculo acontece quando esse e-mail entrar no portal da revenda.</div>
+    <div class="order-actions"><button class="secondary small" onclick="copyMerchantTeamInstructions('${esc(invite.email)}')">Copiar instruções</button><button class="danger-btn small" onclick="merchantTeamRevokeInviteFromUi('${esc(invite.inviteId)}')">Cancelar convite</button></div>
+  </div>`).join('');
+
+  return shell(`<section class="page">
+    <button class="back" onclick="go('merchant')">← Operação</button>
+    <span class="eyebrow">ACESSO DA EQUIPE</span>
+    <h1 class="page-title">Equipe da revenda</h1>
+    <p class="muted page-lead">Convide pessoas pelo e-mail que elas usarão para entrar. A conta recebe somente o papel definido aqui.</p>
+    ${rt.error?`<div class="notice danger">${esc(rt.error)}</div>`:''}
+    <div class="card flat form-stack">
+      <h3>Convidar membro</h3>
+      <div class="input-wrap"><label for="team-email">E-mail</label><input id="team-email" class="input" type="email" autocomplete="email" maxlength="160" placeholder="pessoa@empresa.com"></div>
+      <div class="field-row">
+        <div class="input-wrap"><label for="team-role">Papel</label><select id="team-role" class="input">${canInviteManager?'<option value="manager">Gerente</option>':''}<option value="operator">Operador</option><option value="driver" selected>Motorista</option></select></div>
+        <div class="input-wrap"><label for="team-display-name">Nome operacional</label><input id="team-display-name" class="input" maxlength="60" placeholder="Ex.: João"></div>
+      </div>
+      <div class="notice"><strong>Sem senha compartilhada.</strong><br>Se a conta já existir, o acesso entra imediatamente. Caso contrário, o convite fica pendente por 7 dias e é reivindicado automaticamente no primeiro login com o mesmo e-mail.</div>
+      <button class="primary" onclick="merchantTeamInviteFromUi()" ${rt.actionPending?'disabled':''}>Convidar para a equipe</button>
+    </div>
+    <section class="section"><div class="section-head"><div><h2>Membros</h2><p>Owner não pode ser removido por esta tela. Manager só pode revogar operator ou driver.</p></div><button class="ghost small" onclick="merchantTeamReloadFromUi()">Atualizar</button></div>${memberRows||'<div class="empty card">Nenhum membro listado.</div>'}</section>
+    <section class="section"><div class="section-head"><div><h2>Convites pendentes</h2><p>O convidado deve entrar no portal usando exatamente o e-mail abaixo.</p></div></div>${inviteRows||'<div class="empty card">Nenhum convite pendente.</div>'}</section>
+  </section>`);
+}
+
 function merchantLivePage(){
   const rt=globalThis.merchantRuntime||{};
   if(['disabled','loading'].includes(rt.status)){
@@ -149,7 +205,7 @@ function merchantLivePage(){
 
     <div class="card flat form-stack" style="margin-top:14px">
       ${memberships.length>1?`<div class="input-wrap"><label for="merchant-live-select">Operação</label><select id="merchant-live-select" class="input" onchange="merchantLiveSelect(this.value)">${memberships.map(x=>`<option value="${esc(x.merchantId)}" ${x.merchantId===m.merchantId?'selected':''}>${esc(x.name)} • ${esc(x.memberRole)}</option>`).join('')}</select></div>`:''}
-      <div class="order-actions"><button class="secondary small" onclick="merchantLiveRefresh()">Atualizar</button>${operate?`<button class="${m.online?'danger-btn':'primary'} small" onclick="merchantLiveToggleOnline(${m.online?'false':'true'})" ${!m.online&&!canGoOnline?'disabled title="Regularize compliance, preços e logística antes de ficar online"':''}>${m.online?'Pausar novos pedidos':'Ficar online'}</button>`:''}<button class="ghost small" onclick="merchantLiveLogout()">Sair</button></div>
+      <div class="order-actions"><button class="secondary small" onclick="merchantLiveRefresh()">Atualizar</button>${manage?'<button class="secondary small" onclick="merchantOpenTeam()">Equipe</button>':''}${operate?`<button class="${m.online?'danger-btn':'primary'} small" onclick="merchantLiveToggleOnline(${m.online?'false':'true'})" ${!m.online&&!canGoOnline?'disabled title="Regularize compliance, preços e logística antes de ficar online"':''}>${m.online?'Pausar novos pedidos':'Ficar online'}</button>`:''}<button class="ghost small" onclick="merchantLiveLogout()">Sair</button></div>
     </div>
 
     <section class="section"><div class="merchant-kpis">
@@ -244,6 +300,43 @@ function merchantLiveOrder(o){
     ${o.riskReason?`<div class="notice danger" style="margin-top:10px">${esc(o.riskReason)}</div>`:''}
     <div class="order-actions">${actions}</div>
   </article>`;
+}
+
+async function merchantTeamReloadFromUi(){
+  try{await merchantTeamLoadLive();toast('Equipe atualizada')}catch(e){toast(String(e?.message||e))}
+}
+async function merchantTeamInviteFromUi(){
+  const email=String(document.getElementById('team-email')?.value||'').trim();
+  const role=String(document.getElementById('team-role')?.value||'driver');
+  const displayName=String(document.getElementById('team-display-name')?.value||'').trim();
+  try{
+    const result=await merchantTeamInviteLive(email,role,displayName);
+    toast(result?.status==='linked'?'Conta vinculada à equipe':'Convite pendente criado');
+  }catch(e){toast(String(e?.message||e))}
+}
+async function merchantTeamRevokeMemberFromUi(userId){
+  try{
+    await merchantTeamRevokeMemberLive(userId);
+    toast('Acesso do membro revogado');
+  }catch(e){toast(String(e?.message||e))}
+}
+async function merchantTeamRevokeInviteFromUi(inviteId){
+  try{
+    await merchantTeamRevokeInviteLive(inviteId);
+    toast('Convite cancelado');
+  }catch(e){toast(String(e?.message||e))}
+}
+async function copyMerchantTeamInstructions(email){
+  const url=location.origin+location.pathname+'?merchant=1#merchant';
+  const message='Você foi convidado para a equipe no Chama. Acesse '+url+' e entre usando exatamente este e-mail: '+String(email||'');
+  try{
+    if(navigator.clipboard?.writeText){
+      await navigator.clipboard.writeText(message);
+      toast('Instruções copiadas');
+      return;
+    }
+  }catch{}
+  toast('Não foi possível copiar automaticamente');
 }
 
 async function merchantLoginFromUi(){
