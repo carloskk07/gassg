@@ -713,6 +713,7 @@ const merchantRuntime={
   session:null,
   merchant:null,
   memberships:[],
+  deliveryTeam:[],
   catalog:[],
   orders:[],
   selectedMerchantId:localStorage.getItem('chama-merchant-selected-v1')||null,
@@ -847,6 +848,7 @@ async function merchantSignOut(){
   merchantRuntime.session=null;
   merchantRuntime.merchant=null;
   merchantRuntime.memberships=[];
+  merchantRuntime.deliveryTeam=[];
   merchantRuntime.catalog=[];
   merchantRuntime.orders=[];
   merchantRuntime.selectedMerchantId=null;
@@ -870,6 +872,7 @@ async function merchantRefresh({silent=false,recoverSelection=true}={}){
     if(seq!==merchantRuntime.refreshSeq)return data;
     merchantRuntime.merchant=data.merchant??null;
     merchantRuntime.memberships=data.memberships??[];
+    merchantRuntime.deliveryTeam=data.deliveryTeam??[];
     merchantRuntime.catalog=data.catalog??[];
     merchantRuntime.orders=data.orders??[];
     merchantRuntime.selectedMerchantId=data.merchant?.merchantId??merchantRuntime.selectedMerchantId;
@@ -896,6 +899,7 @@ async function merchantRefresh({silent=false,recoverSelection=true}={}){
       merchantRuntime.status='no-access';
       merchantRuntime.merchant=null;
       merchantRuntime.orders=[];
+      merchantRuntime.deliveryTeam=[];
       merchantRuntime.catalog=[];
       merchantRuntime.error=null;
       merchantRuntime.accessReason=error?.code||'NO_MERCHANT_ACCESS';
@@ -949,6 +953,54 @@ async function merchantPerformAction(orderId,action,reason='other_operational'){
   }finally{
     merchantRuntime.actionPending=false;
     render();
+  }
+}
+
+async function merchantAssignDeliveryLive(orderId,deliveryUserId){
+  if(merchantRuntime.actionPending)return;
+  const order=merchantRuntime.orders.find(o=>o.orderId===orderId);
+  if(!order)throw new Error('Pedido não encontrado no painel');
+  if(!deliveryUserId)throw new Error('Escolha um responsável pela entrega');
+  merchantRuntime.actionPending=true;
+  merchantRuntime.error=null;
+  render();
+  try{
+    const idempotencyKey=liveIdempotency('merchant-action');
+    const result=await retryAmbiguousOnce(
+      ()=>merchantInvoke('merchant-action',{
+        orderId,
+        action:'assign-delivery',
+        expectedVersion:order.version,
+        deliveryUserId:String(deliveryUserId)
+      },{idempotencyKey})
+    );
+    await merchantRefresh({silent:true});
+    return result;
+  }catch(error){
+    merchantRuntime.error=String(error?.message||error);
+    try{await merchantRefresh({silent:true})}catch{}
+    throw error;
+  }finally{
+    merchantRuntime.actionPending=false;
+    render();
+  }
+}
+
+async function merchantUpdateMemberProfileLive(displayName){
+  const merchantId=merchantRuntime.merchant?.merchantId;
+  if(!merchantId)throw new Error('Revenda não selecionada');
+  const name=String(displayName||'').trim().replace(/\s+/g,' ');
+  if(name.length<2||name.length>60)throw new Error('Informe um nome operacional entre 2 e 60 caracteres');
+  merchantRuntime.actionPending=true;render();
+  try{
+    await retryAmbiguousOnce(()=>merchantInvoke('merchant-ops',{
+      merchantId,
+      action:'update-member-profile',
+      displayName:name
+    }));
+    await merchantRefresh({silent:true});
+  }finally{
+    merchantRuntime.actionPending=false;render();
   }
 }
 
@@ -1095,6 +1147,7 @@ async function merchantSubmitApplicationLive(payload){
 
 async function merchantHeartbeat(){
   if(!merchantReady()||merchantRuntime.actionPending||!merchantRuntime.merchant)return false;
+  if(merchantRuntime.merchant.memberRole==='driver')return null;
   const now=Date.now();
   if(now-merchantRuntime.lastHeartbeatAt<60000)return null;
   merchantRuntime.lastHeartbeatAt=now;
