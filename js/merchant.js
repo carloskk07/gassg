@@ -508,7 +508,7 @@ function merchantLiveCatalog(){
       <div class="input-wrap"><label for="live-new-glp-stock">Estoque</label><input id="live-new-glp-stock" inputmode="numeric" type="number" min="0" max="100000" class="input" value="0"></div>
     </div>
     <button class="primary" onclick="merchantLiveAddGlp()">Adicionar e confirmar</button>
-  </div>;
+  </div>`;
 
   const addContainer=`<div class="card flat form-stack" style="margin-bottom:16px">
     <h3>Adicionar vasilhame</h3>
@@ -519,7 +519,7 @@ function merchantLiveCatalog(){
       <div class="input-wrap"><label for="live-new-container-stock">Estoque</label><input id="live-new-container-stock" inputmode="numeric" type="number" min="0" max="100000" class="input" value="0"></div>
     </div>
     <button class="primary" onclick="merchantLiveAddContainer()">Adicionar vasilhame</button>
-  </div>``;
+  </div>`;
 
   return shell(`<section class="page"><button class="back" onclick="go('merchant')">← Operação</button><h1 class="page-title">Catálogo real</h1><p class="muted">Cada SKU possui sua própria confirmação de preço e política comercial. Em faixa automática, o Chama nunca oferece abaixo do mínimo nem acima do máximo autorizado.</p><div style="margin-top:16px">${addGlp}${addContainer}${rows}</div></section>`);
 }
