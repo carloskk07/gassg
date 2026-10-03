@@ -25,6 +25,19 @@ function adminPrelaunchLeadCard(x){
     '</article>'
   ].join('');
 }
+function adminLeadCampaignRows(leads){
+  const groups=new Map();
+  for(const x of leads){
+    const source=String(x.source||'direto');
+    const campaign=String(x.campaign||'sem_campanha');
+    const key=source+'|'+campaign;
+    const row=groups.get(key)||{source,campaign,customers:0,merchants:0,total:0};
+    row.total++;
+    if(x.lead_type==='merchant')row.merchants++;else row.customers++;
+    groups.set(key,row);
+  }
+  return [...groups.values()].sort((a,b)=>b.total-a.total||a.source.localeCompare(b.source)).slice(0,8);
+}
 function adminPrelaunchLeadsSection(data){
   const leads=Array.isArray(data?.prelaunchLeads)?data.prelaunchLeads:[];
   const customers=leads.filter(x=>x.lead_type==='customer').length;
@@ -33,6 +46,7 @@ function adminPrelaunchLeadsSection(data){
     '<section class="section">',
       '<div class="section-head"><div><span class="section-kicker">AQUISIÇÃO • PRÉ-LANÇAMENTO</span><h2>Clientes e parceiros interessados</h2><p>Leads captados pelo site com origem de campanha, categorias de interesse e WhatsApp para contato.</p></div><span class="status-pill online">'+leads.length+' lead(s)</span></div>',
       '<div class="merchant-kpis"><div class="kpi"><span class="label">Clientes interessados</span><strong>'+customers+'</strong></div><div class="kpi"><span class="label">Empresas interessadas</span><strong>'+merchants+'</strong></div></div>',
+      adminLeadCampaignRows(leads).length?'<div class="card flat" style="margin-top:14px"><h3>Origem dos leads</h3><div class="list">'+adminLeadCampaignRows(leads).map(x=>'<div class="list-row"><div><strong>'+esc(x.source)+'</strong><br><small>'+esc(x.campaign)+'</small></div><div class="tiny" style="text-align:right"><strong>'+x.total+'</strong><br>'+x.customers+' cliente(s) • '+x.merchants+' parceiro(s)</div></div>').join('')+'</div></div>':'',
       '<div class="grid cards-3" style="margin-top:14px">'+(leads.length?leads.slice(0,60).map(adminPrelaunchLeadCard).join(''):'<div class="empty card">Nenhum lead captado ainda.</div>')+'</div>',
     '</section>'
   ].join('');
