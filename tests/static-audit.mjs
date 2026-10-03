@@ -44,6 +44,7 @@ assert.ok(!backend.includes("storageKey:'chama-sg-auth-v1'"),'chave legada compa
 assert.ok(core.includes('ALLOWED='),'máquina de estados deve possuir autoridade explícita');
 assert.ok(core.includes('MAX_PIN_FAILURES'),'PIN precisa de limite de tentativas');
 assert.ok(core.includes('PRICE_FRESH_MS'),'preço precisa de validade explícita');
+assert.ok(core.includes('scheduleStart>=scheduleNow+30*60*1000')&&core.includes('scheduleStart<=scheduleNow+72*60*60*1000'),'janela agendada persistida precisa expirar no browser antes de nova cotação');
 assert.ok(core.includes('if(globalThis.__CHAMA_TEST__)'),'API de testes precisa estar protegida no site público');
 assert.ok(core.includes('isValidCnpjShape'),'core precisa suportar validação estrutural do CNPJ atual');
 assert.ok(!merchant.includes('.stock'),'UI da revenda não deve depender do campo legado stock');
