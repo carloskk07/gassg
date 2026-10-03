@@ -9,8 +9,6 @@ function club(){
   const debt=Math.max(0,Number(state.user.cashbackDebt)||0);
   const comparisonSavings=Math.max(0,Number(globalThis.liveRuntime?.comparisonSavingsCents||0))/100;
   const cashbackEarned=Math.max(0,Number(globalThis.liveRuntime?.cashbackEarnedCents||0))/100;
-  if(hasReferral)setTimeout(renderReferralQr,0);
-
   return shell(`<section class="page">
     <span class="eyebrow">BENEFÍCIOS PARA QUEM COMPRA</span>
     <h1 class="page-title">Clube Chama</h1>
@@ -186,6 +184,8 @@ function refer(){
     : live&&permanent
       ? '<div class="notice success" style="margin-top:14px"><strong>Conta habilitada para comissão.</strong><br>Vendas elegíveis ainda passam pela janela de validação antes de se tornarem saldo disponível.</div>'
       : '';
+
+  if(hasReferral)setTimeout(renderReferralQr,0);
 
   return shell(`<section class="page">
     <button class="back" onclick="go('earn')">← Ganhar ou vender</button>
