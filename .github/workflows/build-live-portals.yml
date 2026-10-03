@@ -14,6 +14,7 @@ jobs:
       CHAMA_MERCHANT_ORIGIN: https://chama-sg-revenda.netlify.app
       CHAMA_ADMIN_ORIGIN: https://chama-sg-admin.netlify.app
       CHAMA_TURNSTILE_SITE_KEY: ${{ secrets.CHAMA_TURNSTILE_SITE_KEY }}
+      CHAMA_AUTH_REDIRECTS_CONFIRMED: ${{ vars.CHAMA_AUTH_REDIRECTS_CONFIRMED }}
       CHAMA_SOURCE_SHA: ${{ github.sha }}
     steps:
       - uses: actions/checkout@v6
@@ -21,9 +22,10 @@ jobs:
         run: node tests/runtime-config.mjs
       - name: Live portal bundle contracts
         run: node tests/live-portals.mjs
-      - name: Require real Turnstile configuration
+      - name: Require external launch gates
         run: |
           test -n "$CHAMA_TURNSTILE_SITE_KEY"
+          test "$CHAMA_AUTH_REDIRECTS_CONFIRMED" = "1"
           node scripts/build-live-portals.mjs
       - name: Verify isolated bundles
         run: |
@@ -34,6 +36,8 @@ jobs:
             test ! -e "dist/live-portals/$role/tests"
             grep -q "globalThis.CHAMA_PORTAL_ROLE=\"$role\"" "dist/live-portals/$role/js/runtime-config.js"
           done
+          test -f "dist/live-portals/release-manifest.json"
+          node -e "const m=require('./dist/live-portals/release-manifest.json'); for (const r of ['customer','merchant','admin']) if (!/^[0-9a-f]{64}$/.test(m.portals[r].bundleSha256)) process.exit(1)"
       - name: Upload customer portal
         uses: actions/upload-artifact@v4
         with:
@@ -51,4 +55,11 @@ jobs:
         with:
           name: chama-live-admin
           path: dist/live-portals/admin
+          if-no-files-found: error
+
+      - name: Upload release manifest
+        uses: actions/upload-artifact@v4
+        with:
+          name: chama-live-release-manifest
+          path: dist/live-portals/release-manifest.json
           if-no-files-found: error
