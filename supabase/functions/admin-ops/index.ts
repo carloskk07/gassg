@@ -435,6 +435,9 @@ Deno.serve(async(req:Request)=>{
         status,
         note:body.note==null?null:(cleanText(body.note,{min:0,max:1000,name:"observação do lead"})||null)
       };
+      if(status==="closed"&&!payload.note){
+        throw new DomainError("PRELAUNCH_LEAD_CLOSE_NOTE_REQUIRED","Informe o motivo do encerramento.",400);
+      }
     }else if(action==="public-request-status"){
       const status=String(body.status??"");
       if(!["in_review","resolved","closed"].includes(status)){
@@ -601,6 +604,9 @@ Deno.serve(async(req:Request)=>{
     }
     if(message.includes("PRELAUNCH_LEAD_NOT_FOUND")){
       return json({error:"PRELAUNCH_LEAD_NOT_FOUND",message:"Lead não encontrado."},404,origin);
+    }
+    if(message.includes("PRELAUNCH_LEAD_CLOSE_NOTE_REQUIRED")){
+      return json({error:"PRELAUNCH_LEAD_CLOSE_NOTE_REQUIRED",message:"Informe o motivo do encerramento."},400,origin);
     }
     if(message.includes("PRELAUNCH_LEAD_FINAL")||message.includes("INVALID_LEAD_TRANSITION")){
       return json({error:"PRELAUNCH_LEAD_STATE_CONFLICT",message:"Este lead já mudou de etapa. Atualize o painel."},409,origin);
