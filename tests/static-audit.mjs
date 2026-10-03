@@ -577,6 +577,12 @@ for(const entry of fs.readdirSync(functionRoot,{withFileTypes:true})){
     assert.ok(source.includes('consume_prelaunch_lead_quota'),entry.name+' precisa aplicar quota server-side');
     assert.ok(source.includes('ALLOWED_ORIGINS')&&source.includes('originAllowed'),entry.name+' precisa restringir origem explicitamente');
     assert.ok(source.includes('body.website'),entry.name+' precisa manter honeypot');
+  }else if(entry.name==='capture-marketing-event'){
+    assert.ok(source.includes('raw.length>6000'),entry.name+' precisa limitar JSON com teto reduzido');
+    assert.ok(source.includes('consume_prelaunch_lead_quota'),entry.name+' precisa aplicar quota server-side');
+    assert.ok(source.includes('ALLOWED_ORIGINS')&&source.includes('originAllowed'),entry.name+' precisa restringir origem explicitamente');
+    assert.ok(source.includes('EVENT_TYPES')&&source.includes('AUDIENCES'),entry.name+' precisa manter allowlists de evento e público');
+    assert.ok(source.includes('record_prelaunch_marketing_event'),entry.name+' precisa gravar somente pelo RPC agregado');
   }else{
     assert.ok(source.includes('readJsonBody(req)'),entry.name+' precisa limitar JSON');
     assert.ok(source.includes('enforceApiQuota(admin'),entry.name+' precisa aplicar quota server-side');
