@@ -232,7 +232,7 @@ async function merchantLiveSaveLogistics(){
   if(!Number.isFinite(fee)||fee<0||!Number.isInteger(eta)||eta<5||eta>180)return toast('Revise taxa e ETA');
   try{await merchantUpdateLogisticsLive(Math.round(fee*100),eta,citywide);toast(citywide?'Logística atualizada':'Logística atualizada. Novos pedidos foram pausados até reativar São Gabriel.')}catch(e){toast(String(e?.message||e))}
 }
-async async function merchantLiveSaveCapacity(){
+async function merchantLiveSaveCapacity(){
   const capacity=Number(document.querySelector('#live-capacity')?.value);
   if(!Number.isInteger(capacity)||capacity<1||capacity>100)return toast('Informe uma capacidade entre 1 e 100 pedidos');
   try{
@@ -241,7 +241,7 @@ async async function merchantLiveSaveCapacity(){
   }catch(e){toast(String(e?.message||e))}
 }
 
-function merchantLiveAction(id,action){
+async function merchantLiveAction(id,action){
   try{
     const result=await merchantPerformAction(id,action);
     if(action==='accept'&&result?.autoRescued){
