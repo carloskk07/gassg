@@ -49,7 +49,8 @@ assert.ok(core.includes('glpContainerKgForProductCode')&&core.includes('synchron
 assert.ok(customer.includes("p.hidden!==true")&&customer.includes('Vasilhame incluído na consulta'),'vasilhame deve ser SKU real mas não um contador manual no carrinho');
 assert.ok(merchant.includes('merchantLiveAddContainer')&&merchant.includes('Formas de pagamento'),'painel da revenda precisa governar vasilhames e pagamentos');
 assert.ok(backend.includes('paymentMethodUnavailable')&&backend.includes('paymentMethod:paymentMethodSnapshot'),'runtime cliente precisa recotar por forma de pagamento');
-assert.ok(read('supabase/functions/_shared/domain.js').includes('_CONTAINER
+assert.ok(read('supabase/functions/_shared/domain.js').includes("_CONTAINER$"),'Edge Functions precisam aceitar SKU companheiro de vasilhame');
+assert.ok(read('supabase/functions/merchant-ops/index.ts').includes('PAYMENT_METHOD_REQUIRED'),'revenda não pode ficar online sem forma de pagamento ativa');
 assert.ok(core.includes('if(globalThis.__CHAMA_TEST__)'),'API de testes precisa estar protegida no site público');
 assert.ok(core.includes('isValidCnpjShape'),'core precisa suportar validação estrutural do CNPJ atual');
 assert.ok(!merchant.includes('.stock'),'UI da revenda não deve depender do campo legado stock');
