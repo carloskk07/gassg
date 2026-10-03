@@ -38,6 +38,7 @@ const leadCapture=read('supabase/functions/capture-prelaunch-lead/index.ts');
 const leadMigration=read('supabase/migrations/20261003182954_prelaunch_acquisition_v1_49.sql');
 const admin=read('js/admin.js');
 const financePolicy=read('supabase/migrations/20261001105000_financial_unit_economics_v1_6.sql');
+const publicBuild=read('scripts/build-public-site.mjs');
 
 assert.ok(!customer.includes('desktop-only" style="display:block"'),'desktop-only não pode ser forçado a display:block no mobile');
 assert.ok(customer.includes('esc(o.address)'),'endereço do pedido deve ser escapado antes de entrar no HTML');
@@ -160,6 +161,10 @@ assert.ok(html.includes("frame-src https://challenges.cloudflare.com"),'CSP deve
 assert.ok(html.includes("object-src 'none'"),'CSP deve bloquear plugins/objetos');
 assert.ok(html.includes("base-uri 'self'"),'CSP deve impedir base URL externa');
 assert.ok(html.includes('name="referrer" content="strict-origin-when-cross-origin"'),'PWA precisa de política de referrer explícita');
+assert.ok(publicBuild.includes("TAMAO_DEPLOY_TARGET")&&publicBuild.includes("TAMAO_PUBLIC_INDEXING")&&publicBuild.includes("TAMAO_LIVE_RUNTIME"),'build público precisa ter modos explícitos de Cloudflare, indexação e runtime');
+assert.ok(publicBuild.includes("Content-Security-Policy:")&&publicBuild.includes("X-Frame-Options: DENY")&&publicBuild.includes("Permissions-Policy:"),'Cloudflare build precisa gerar headers de segurança');
+assert.ok(publicBuild.includes("X-Robots-Tag: noindex")&&publicBuild.includes("sitemap.xml"),'build precisa governar noindex e sitemap sem edição manual');
+assert.ok(publicBuild.includes("CHAMA_CUSTOMER_ORIGIN precisa coincidir")&&publicBuild.includes("Turnstile de teste é proibido"),'runtime real precisa falhar fechado para origem/chave incorretas');
 assert.ok(html.includes('name="robots" content="noindex,nofollow,noarchive,nosnippet"'),'pré-lançamento interno não deve ser indexado por buscadores');
 assert.ok(exists('robots.txt')&&read('robots.txt').includes('Disallow: /'),'pré-lançamento interno precisa bloquear crawling também por robots.txt');
 assert.ok(sw.includes("./robots.txt"),'PWA precisa conservar a política de robots offline');
