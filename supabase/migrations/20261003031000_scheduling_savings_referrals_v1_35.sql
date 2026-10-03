@@ -219,3 +219,36 @@ revoke all on function public.create_order_from_quote_v3(
 grant execute on function public.create_order_from_quote_v3(
   uuid,uuid,text,boolean,text,text,text,integer
 ) to service_role;
+
+
+create or replace function public.customer_benefit_totals(
+  p_user_id uuid
+)
+returns jsonb
+language sql
+security definer
+set search_path = pg_catalog
+as $$
+  select jsonb_build_object(
+    'comparisonSavingsCents',
+      coalesce((
+        select sum(o.comparison_savings_cents)
+        from public.orders o
+        where o.customer_id=p_user_id
+          and o.status='SETTLED'
+          and o.financial_state='settled'
+      ),0),
+    'cashbackEarnedCents',
+      coalesce((
+        select sum(g.cashback_cents)
+        from public.order_reward_grants g
+        where g.customer_id=p_user_id
+          and g.reversed_at is null
+      ),0)
+  );
+$$;
+
+revoke all on function public.customer_benefit_totals(uuid)
+from public, anon, authenticated;
+grant execute on function public.customer_benefit_totals(uuid)
+to service_role;
