@@ -273,13 +273,23 @@ function adminNoAccessView(){
 
 function adminApplicationCard(a){
   const pending=a.status==='pending';
+  const eligiblePilots=(globalThis.adminRuntime?.data?.pilotPartners||[]).filter(p=>
+    p.price_status==='confirmed'
+    &&p.merchant_id==null
+    &&['awaiting_legal_data','ready_for_review'].includes(p.onboarding_status)
+  );
+  const pilotControl=pending&&eligiblePilots.length
+    ? `<div class="form-stack" style="margin-top:10px"><div class="input-wrap"><label for="pilot-draft-${a.id}">Parceiro piloto comercial</label><select id="pilot-draft-${a.id}" class="input"><option value="">Não vincular staging</option>${eligiblePilots.map(p=>`<option value="${esc(p.id)}">${esc(p.display_name)} • ${esc(p.proposed_product_code)} • ${adminMoney(p.preferred_delivered_price_cents)}</option>`).join('')}</select><small class="field-help">Escolha somente se este cadastro jurídico corresponde de fato ao parceiro piloto. O catálogo será pré-carregado inativo, estoque zero e sem confirmação de preço operacional.</small></div><button class="secondary small" onclick="adminApprovePilotApplication('${a.id}')">Aprovar + vincular staging escolhido</button></div>`
+    : '';
   return `<article class="order-card">
     <div class="order-head"><div><div class="order-id">${esc(a.company_name)}</div><div class="tiny muted">${esc(a.cnpj)}</div></div>${adminStatusPill(a.status)}</div>
     <div class="order-line"><strong>Responsável:</strong> ${esc(a.responsible_name)}</div>
     <div class="order-line"><strong>WhatsApp:</strong> ${esc(a.phone)}</div>
     <div class="order-line"><strong>Endereço:</strong> ${esc(a.address_text)}</div>
+    ${a.pilot_draft_id?`<div class="notice success" style="margin-top:10px"><strong>Vinculado ao staging piloto.</strong><br>ID: ${esc(a.pilot_draft_id)}</div>`:''}
     <div class="tiny muted">Recebido em ${new Date(a.created_at).toLocaleString('pt-BR')}</div>
-    ${pending?`<div class="order-actions"><button class="primary small" onclick="adminApproveApplication('${a.id}')">Aprovar cadastro</button><button class="danger-btn small" onclick="adminRejectApplication('${a.id}')">Rejeitar</button></div>`:''}
+    ${pilotControl}
+    ${pending?`<div class="order-actions"><button class="primary small" onclick="adminApproveApplication('${a.id}')">Aprovar sem staging</button><button class="danger-btn small" onclick="adminRejectApplication('${a.id}')">Rejeitar</button></div>`:''}
   </article>`;
 }
 
@@ -298,7 +308,7 @@ function adminPilotPartnerCard(p){
     ${p.pricing_mode==='range'?`<div class="order-line"><strong>Estratégia inicial:</strong> ${esc(({volume:'Priorizar volume',balanced:'Equilibrado',margin:'Priorizar margem'})[p.pricing_strategy]||p.pricing_strategy||'—')}</div>`:''}
     <div class="order-line"><strong>Status do preço:</strong> ${p.price_status==='confirmed'?'confirmado':'proposto — ainda não publicar como oferta real'}</div>
     ${p.notes?`<div class="tiny muted">${esc(p.notes)}</div>`:''}
-    <div class="notice" style="margin-top:10px"><strong>Gate de ativação preservado.</strong><br>CNPJ, responsável, endereço, conta owner e validação regulatória aplicável ainda precisam ser cadastrados antes de criar uma revenda ativa.</div>
+    ${p.merchant_id?`<div class="notice success" style="margin-top:10px"><strong>Staging convertido em revenda pendente.</strong><br>Merchant: ${esc(p.merchant_id)}. Catálogo piloto permanece inativo até confirmação operacional.</div>`:'<div class="notice" style="margin-top:10px"><strong>Gate de ativação preservado.</strong><br>CNPJ, responsável, endereço, conta owner e validação regulatória aplicável ainda precisam ser cadastrados antes de criar uma revenda ativa.</div>'}
   </article>`;
 }
 
@@ -483,7 +493,7 @@ function adminPage(){
 
     <section class="section"><div class="section-head"><div><h2>Parceiros piloto em preparação</h2><p>Interesse comercial registrado antes do cadastro jurídico. Esses registros não participam das ofertas e não contam como revenda ativa.</p></div></div>${pilotPartners.length?pilotPartners.map(adminPilotPartnerCard).join(''):'<div class="empty card">Nenhum parceiro piloto em preparação.</div>'}</section>
 
-    <section class="section"><div class="section-head"><div><h2>Cadastros de parceiros</h2><p>Aprovação cria a revenda como pendente e vincula o solicitante como owner. Não coloca a operação online.</p></div></div>${(d.applications||[]).length?(d.applications||[]).map(adminApplicationCard).join(''):'<div class="empty card">Nenhum cadastro recebido.</div>'}</section>
+    <section class="section"><div class="section-head"><div><h2>Cadastros de parceiros</h2><p>Aprovação cria a revenda como pendente e vincula o solicitante como owner. Para parceiros piloto, o staging comercial pode ser vinculado explicitamente sem ativar catálogo, estoque ou operação.</p></div></div>${(d.applications||[]).length?(d.applications||[]).map(adminApplicationCard).join(''):'<div class="empty card">Nenhum cadastro recebido.</div>'}</section>
 
     <section class="section"><div class="section-head"><div><h2>Validação e ativação</h2><p>CNPJ é obrigatório para toda revenda ativa. Qualquer produto GLP ativo exige também validação ANP.</p></div></div>${(d.merchants||[]).length?(d.merchants||[]).map(adminMerchantCard).join(''):'<div class="empty card">Nenhuma revenda criada.</div>'}</section>
 
@@ -521,6 +531,17 @@ async function adminSetSupportStatus(caseId,status){
 
 async function adminApproveApplication(id){
   try{await adminPerform('approve-application',{applicationId:id});toast('Cadastro aprovado para validação')}catch(e){toast(String(e?.message||e))}
+}
+async function adminApprovePilotApplication(id){
+  const pilotDraftId=String(document.getElementById('pilot-draft-'+id)?.value||'');
+  if(!pilotDraftId)return toast('Escolha o parceiro piloto que corresponde a este cadastro');
+  const pilot=(globalThis.adminRuntime?.data?.pilotPartners||[]).find(p=>p.id===pilotDraftId);
+  if(!pilot)return toast('O staging selecionado não está mais disponível');
+  if(!confirm('Vincular este cadastro a '+String(pilot.display_name||'parceiro piloto')+'? O preço será pré-carregado, mas catálogo ficará inativo, estoque zero e a revenda continuará pendente/offline.'))return;
+  try{
+    await adminPerform('approve-pilot-application',{applicationId:id,pilotDraftId});
+    toast('Cadastro aprovado e staging piloto vinculado com gates preservados');
+  }catch(e){toast(String(e?.message||e))}
 }
 async function adminRejectApplication(id){
   const reason=prompt('Motivo da rejeição:');
