@@ -13,6 +13,15 @@ const secretKeys=JSON.parse(Deno.env.get("SUPABASE_SECRET_KEYS")??"{}");
 const PUBLISHABLE_KEY=publishableKeys.default??Deno.env.get("SUPABASE_ANON_KEY")??"";
 const SECRET_KEY=secretKeys.default??Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")??"";
 const ADMIN_ALLOWED_ORIGIN=(Deno.env.get("ADMIN_ALLOWED_ORIGIN")??"https://chama-sg-admin.netlify.app").trim();
+const CUSTOMER_LIVE_ORIGIN=(Deno.env.get("CUSTOMER_ALLOWED_ORIGIN")??"https://chama-sg-cliente.netlify.app").trim();
+const MERCHANT_LIVE_ORIGIN=(Deno.env.get("MERCHANT_ALLOWED_ORIGIN")??"https://chama-sg-revenda.netlify.app").trim();
+const TEST_TURNSTILE_KEYS=new Set([
+  "1x00000000000000000000AA",
+  "2x00000000000000000000AB",
+  "3x00000000000000000000FF",
+  "0x4AAAAAAAAAA-demo-site-key"
+]);
+const PORTAL_PROBE_TIMEOUT_MS=5000;
 const UUID_RE=/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 function originAllowed(origin:string|null){
@@ -72,6 +81,78 @@ async function requireAdmin(admin:any,userId:string){
     .maybeSingle();
   if(error)throw error;
   if(!data)throw new DomainError("ADMIN_ACCESS_DENIED","Esta conta não possui acesso administrativo.",403);
+}
+async function fetchTextWithTimeout(url:string){
+  const controller=new AbortController();
+  const timer=setTimeout(()=>controller.abort(),PORTAL_PROBE_TIMEOUT_MS);
+  try{
+    const response=await fetch(url,{
+      method:"GET",
+      headers:{"Accept":"application/json,text/plain,*/*","Cache-Control":"no-cache"},
+      signal:controller.signal
+    });
+    if(!response.ok)throw new Error("PORTAL_HTTP_"+response.status);
+    return await response.text();
+  }finally{
+    clearTimeout(timer);
+  }
+}
+function runtimeAssignment(source:string,key:string){
+  const pattern=new RegExp("globalThis\\."+key+"=([^;]+);");
+  const match=pattern.exec(source);
+  if(!match)return null;
+  try{return JSON.parse(match[1])}catch{return null}
+}
+async function probePortal(role:"customer"|"merchant"|"admin",origin:string){
+  try{
+    const [buildText,runtimeText]=await Promise.all([
+      fetchTextWithTimeout(origin+"/portal-build.json"),
+      fetchTextWithTimeout(origin+"/js/runtime-config.js")
+    ]);
+    const build=JSON.parse(buildText);
+    const roleInRuntime=runtimeAssignment(runtimeText,"CHAMA_PORTAL_ROLE");
+    const turnstileKey=String(runtimeAssignment(runtimeText,"CHAMA_TURNSTILE_SITE_KEY")??"").trim();
+    const customerOrigin=String(runtimeAssignment(runtimeText,"CHAMA_CUSTOMER_ORIGIN")??"").trim();
+    const merchantOrigin=String(runtimeAssignment(runtimeText,"CHAMA_MERCHANT_ORIGIN")??"").trim();
+    const adminOrigin=String(runtimeAssignment(runtimeText,"CHAMA_ADMIN_ORIGIN")??"").trim();
+    const sourceSha=String(build?.sourceSha??"").trim().toLowerCase();
+    const ok=
+      build?.schemaVersion===1
+      &&build?.portalRole===role
+      &&roleInRuntime===role
+      &&/^[0-9a-f]{40}$/.test(sourceSha)
+      &&turnstileKey.length>0
+      &&!TEST_TURNSTILE_KEYS.has(turnstileKey)
+      &&customerOrigin===CUSTOMER_LIVE_ORIGIN
+      &&merchantOrigin===MERCHANT_LIVE_ORIGIN
+      &&adminOrigin===ADMIN_ALLOWED_ORIGIN
+      &&build?.customerOrigin===CUSTOMER_LIVE_ORIGIN
+      &&build?.merchantOrigin===MERCHANT_LIVE_ORIGIN
+      &&build?.adminOrigin===ADMIN_ALLOWED_ORIGIN;
+    return {role,origin,ok,sourceSha:ok?sourceSha:null};
+  }catch(error){
+    return {
+      role,
+      origin,
+      ok:false,
+      sourceSha:null,
+      error:error instanceof Error?error.message:String(error)
+    };
+  }
+}
+async function verifyLivePortals(){
+  const probes=await Promise.all([
+    probePortal("customer",CUSTOMER_LIVE_ORIGIN),
+    probePortal("merchant",MERCHANT_LIVE_ORIGIN),
+    probePortal("admin",ADMIN_ALLOWED_ORIGIN)
+  ]);
+  const shas=new Set(probes.filter(x=>x.ok&&x.sourceSha).map(x=>x.sourceSha));
+  const allOk=probes.every(x=>x.ok)&&shas.size===1;
+  return {
+    ok:allOk,
+    sourceSha:allOk?[...shas][0]:null,
+    probes
+  };
 }
 async function summary(admin:any){
   const [apps,merchants,compliance,capabilities,referralReviews,rewardFailures,accountingFailures,receivables,reimbursements,adjustments,platformAdmins,audit]=await Promise.all([
@@ -138,16 +219,18 @@ async function summary(admin:any){
     .limit(50);
   if(pilotPartners.error)throw pilotPartners.error;
 
-  const [supportCases,businessMetrics]=await Promise.all([
+  const [supportCases,businessMetrics,launchReadiness]=await Promise.all([
     admin.from("support_cases")
       .select("id,order_id,customer_id,merchant_id,category,status,message,resolution_note,resolved_at,created_at,updated_at")
       .in("status",["open","in_review","resolved"])
       .order("updated_at",{ascending:false})
       .limit(100),
-    admin.rpc("platform_business_metrics")
+    admin.rpc("platform_business_metrics"),
+    admin.rpc("platform_launch_readiness")
   ]);
   if(supportCases.error)throw supportCases.error;
   if(businessMetrics.error)throw businessMetrics.error;
+  if(launchReadiness.error)throw launchReadiness.error;
 
   const referralOrderIds=(referralReviews.data??[]).map((x:any)=>x.order_id).filter(Boolean);
   const referralOrderStates=referralOrderIds.length
@@ -173,6 +256,7 @@ async function summary(admin:any){
       deliveryCapabilities:capabilitiesByMerchant.get(m.id)??[]
     })),
     businessMetrics:businessMetrics.data??{},
+    launchReadiness:launchReadiness.data??{},
     supportCases:supportCases.data??[],
     finance:{
       receivables:receivables.data??[],
