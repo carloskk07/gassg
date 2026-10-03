@@ -4,6 +4,7 @@ globalThis.CHAMA_CUSTOMER_ORIGIN='';
 globalThis.CHAMA_MERCHANT_ORIGIN='';
 globalThis.CHAMA_ADMIN_ORIGIN='';
 globalThis.CHAMA_TURNSTILE_SITE_KEY='';
+globalThis.CHAMA_PORTAL_ROLE='';
 
 // The current GitHub Pages site is an internal pre-launch lab, not a live commerce
 // origin. It deliberately reuses the deterministic browser simulation so the full
