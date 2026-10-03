@@ -14,6 +14,10 @@ import {
 } from '../supabase/functions/_shared/merchant-membership.js';
 import {chooseOffers} from '../supabase/functions/_shared/offer-ranking.js';
 import {effectiveUnitPrice} from '../supabase/functions/_shared/pricing-policy.js';
+import {
+  normalizePostalCode,
+  validateServicePostalCode
+} from '../supabase/functions/_shared/postal-code.js';
 
 let passed=0;
 function test(name,fn){
@@ -76,6 +80,93 @@ await test('quota server-side bloqueia excesso e falha fechada quando backend qu
 test('normaliza endereço sem aceitar vazio',()=>{
   assert.equal(normalizeAddress('  Rua   General Câmara, 123  '),'Rua General Câmara, 123');
   throwsCode(()=>normalizeAddress('x'),'INVALID_ADDRESS');
+});
+
+test('CEP exige exatamente oito dígitos',()=>{
+  assert.equal(normalizePostalCode('97300-000'),'97300000');
+  throwsCode(()=>normalizePostalCode('9730'),'INVALID_POSTAL_CODE');
+  throwsCode(()=>normalizePostalCode('abcdefgh'),'INVALID_POSTAL_CODE');
+});
+
+function postalAdmin({cached=null,cacheError=null}={}){
+  const writes=[];
+  return {
+    writes,
+    from(table){
+      assert.equal(table,'postal_code_validation_cache');
+      const chain={
+        select(){return chain},
+        eq(){return chain},
+        gte(){return chain},
+        maybeSingle:async()=>({data:cached,error:cacheError}),
+        upsert:async(row)=>{writes.push(row);return {error:null}}
+      };
+      return chain;
+    }
+  };
+}
+
+await test('CEP em cache permitido não chama provedores externos',async()=>{
+  const admin=postalAdmin({cached:{
+    postal_code:'97300000',city:'São Gabriel',state:'RS',ibge_code:'4318309',
+    provider:'brasilapi',service_area_allowed:true,verified_at:new Date().toISOString()
+  }});
+  const oldFetch=globalThis.fetch;
+  globalThis.fetch=async()=>{throw new Error('fetch externo não deveria ser chamado')};
+  try{
+    const result=await validateServicePostalCode(admin,'97300-000');
+    assert.equal(result.postalCode,'97300000');
+    assert.equal(result.cached,true);
+    assert.equal(admin.writes.length,0);
+  }finally{globalThis.fetch=oldFetch}
+});
+
+await test('CEP cacheado fora de São Gabriel falha fechado',async()=>{
+  const admin=postalAdmin({cached:{
+    postal_code:'90000000',city:'Porto Alegre',state:'RS',ibge_code:'4314902',
+    provider:'viacep',service_area_allowed:false,verified_at:new Date().toISOString()
+  }});
+  await assert.rejects(
+    ()=>validateServicePostalCode(admin,'90000000'),
+    e=>e instanceof DomainError&&e.code==='POSTAL_CODE_OUTSIDE_SERVICE_AREA'&&e.status===422
+  );
+});
+
+await test('resolvedor usa ViaCEP quando BrasilAPI fica indisponível',async()=>{
+  const admin=postalAdmin();
+  const oldFetch=globalThis.fetch;
+  let calls=0;
+  globalThis.fetch=async url=>{
+    calls++;
+    if(String(url).includes('brasilapi.com.br')){
+      return new Response('{}',{status:503,headers:{'content-type':'application/json'}});
+    }
+    return new Response(JSON.stringify({
+      cep:'97300-000',localidade:'São Gabriel',uf:'RS',ibge:'4318309'
+    }),{status:200,headers:{'content-type':'application/json'}});
+  };
+  try{
+    const result=await validateServicePostalCode(admin,'97300000');
+    assert.equal(result.provider,'viacep');
+    assert.equal(result.cached,false);
+    assert.equal(calls,2);
+    assert.equal(admin.writes.length,1);
+    assert.equal(admin.writes[0].service_area_allowed,true);
+    assert.equal(admin.writes[0].ibge_code,'4318309');
+  }finally{globalThis.fetch=oldFetch}
+});
+
+await test('falha dos dois provedores não transforma CEP em válido',async()=>{
+  const admin=postalAdmin();
+  const oldFetch=globalThis.fetch;
+  globalThis.fetch=async()=>new Response('{}',{status:503,headers:{'content-type':'application/json'}});
+  try{
+    await assert.rejects(
+      ()=>validateServicePostalCode(admin,'97300000'),
+      e=>e instanceof DomainError&&e.code==='POSTAL_CODE_VALIDATION_UNAVAILABLE'&&e.status===503
+    );
+    assert.equal(admin.writes.length,0);
+  }finally{globalThis.fetch=oldFetch}
 });
 
 test('CNPJ atual aceita formato alfanumérico',()=>{
