@@ -272,6 +272,7 @@ assert.ok(adminAuthSource.includes('return json({ok:true,status:safeStatus},200,
 assert.ok(functionConfig.includes('[functions.admin-auth]')&&functionConfig.includes('verify_jwt = false'),'admin-auth precisa permanecer alcançável antes de existir JWT');
 assert.ok(livePortalWorkflow.includes('Build disposable test bundles')&&livePortalWorkflow.includes("CHAMA_ALLOW_TEST_TURNSTILE: '1'"),'CI comum precisa validar o builder com chave oficial de teste sem publicar artefato');
 assert.ok(livePortalWorkflow.includes("if: github.event_name == 'workflow_dispatch'")&&livePortalWorkflow.includes('Require real Turnstile configuration'),'bundle de produção precisa existir somente em execução manual e exigir Turnstile real');
+assert.ok(livePortalWorkflow.includes("required: true")&&livePortalWorkflow.includes("type: string"),'release manual precisa exigir a site key pública como input explícito');
 assert.ok(livePortalWorkflow.includes('tamao-live-admin')&&!livePortalWorkflow.includes('name: chama-live-admin'),'artefato publicável precisa ter nome de produção atual e não ser emitido pelo job de teste');
 assert.ok(livePortalWorkflow.includes('Turnstile test/demo key cannot produce production portal artifacts.'),'produção precisa bloquear explicitamente chaves Turnstile de teste/demo');
 assert.ok(launchReadinessWorkflow.includes("TAMAO_REQUIRE_ADMIN_PORTAL: '1'")&&launchReadinessWorkflow.includes('remote-admin-readiness.mjs'),'gate manual de lançamento precisa exigir portal admin remoto real');
@@ -369,7 +370,10 @@ assert.ok(admin.includes("CHAMA_PORTAL_ROLE")&&admin.includes("==='admin'"),'bun
 assert.ok(read('scripts/generate-runtime-config.mjs').includes('CHAMA_PORTAL_ROLE')&&read('scripts/generate-runtime-config.mjs').includes('requirePortalRole'),'gerador live precisa exigir papel explícito');
 assert.ok(read('scripts/build-live-portals.mjs').includes('buildLivePortals')&&read('scripts/build-live-portals.mjs').includes('forbidden live portal path'),'build live precisa separar artefatos e bloquear diretórios internos');
 assert.ok(read('scripts/build-live-portals.mjs').includes('Cloudflare Turnstile test/demo key is forbidden'),'build live precisa bloquear chave de teste do Turnstile');
-assert.ok(read('.github/workflows/build-live-portals.yml').includes('CHAMA_TURNSTILE_SITE_KEY: ${{ secrets.CHAMA_TURNSTILE_SITE_KEY }}'),'job de produção deve depender da site key real configurada externamente');
+assert.ok(read('.github/workflows/build-live-portals.yml').includes('turnstile_site_key:')&&read('.github/workflows/build-live-portals.yml').includes('CHAMA_TURNSTILE_SITE_KEY: ${{ inputs.turnstile_site_key }}'),'site key pública do Turnstile deve entrar explicitamente no release manual');
+assert.ok(!read('.github/workflows/build-live-portals.yml').includes('secrets.CHAMA_TURNSTILE_SITE_KEY'),'site key pública não deve exigir GitHub Secret');
+assert.ok(read('.github/workflows/build-live-portals.yml').includes('Create immutable handoff checksums')&&read('.github/workflows/build-live-portals.yml').includes('SHA256SUMS.txt'),'artefatos live precisam levar checksums de handoff');
+assert.ok(read('.github/workflows/build-live-portals.yml').match(/retention-days:\s*3/g)?.length===3,'os três artefatos live devem expirar em três dias');
 assert.ok(read('.github/workflows/build-live-portals.yml').includes('tamao-live-customer')&&read('.github/workflows/build-live-portals.yml').includes('tamao-live-merchant')&&read('.github/workflows/build-live-portals.yml').includes('tamao-live-admin'),'job manual de produção precisa produzir três artefatos independentes');
 assert.ok(backend.includes("buildPortalHref(globalThis.CHAMA_CUSTOMER_ORIGIN,'customer')"),'retorno ao cliente precisa navegar para a origem dedicada configurada');
 assert.ok(admin.includes("buildPortalHref?.(globalThis.CHAMA_ADMIN_ORIGIN,'admin')"),'entrada administrativa precisa navegar para a origem dedicada configurada');
