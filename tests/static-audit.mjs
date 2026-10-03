@@ -96,7 +96,7 @@ assert.ok(growth.includes('Saque Pix ainda não disponível')&&growth.includes('
 assert.ok(growth.includes('Você continua no controle'),'landing de revenda deve enfatizar autonomia operacional');
 assert.ok(core.includes("['earn','💰','Ganhe','go']"),'navegação móvel precisa dar acesso direto ao hub de renda');
 assert.ok(!growth.includes('inputmode="numeric" maxlength="18"'),'campo CNPJ não pode forçar teclado somente numérico após adoção do CNPJ alfanumérico');
-assert.ok(sw.includes("CACHE='chama-sg-v1.43'"),'cache do service worker precisa estar versionado');
+assert.ok(sw.includes("CACHE='chama-sg-v1.44'"),'cache do service worker precisa estar versionado');
 assert.ok(sw.includes("./js/backend.js"),'runtime live precisa estar no cache da PWA');
 assert.ok(sw.includes("./js/runtime-config.js"),'configuração pública de origins precisa estar no cache da PWA');
 assert.ok(sw.includes("./js/turnstile.js"),'helper local do Turnstile precisa estar no cache da PWA');
@@ -305,6 +305,11 @@ assert.ok(adminOpsSource.includes('GLP_REGULATORY_VERIFICATION_REQUIRED'),'Edge 
 assert.ok(adminOpsSource.includes('produto GLP ativo exige validação ANP'),'mensagem administrativa deve cobrir todos os produtos GLP');
 assert.ok(admin.includes('Qualquer produto GLP ativo exige também validação ANP.'),'UI admin deve explicar gate ANP genérico');
 assert.ok(adminOpsSource.includes('pilot_partner_drafts'),'admin precisa projetar parceiros piloto ainda sem cadastro jurídico');
+assert.ok(adminOpsSource.includes('approve-pilot-application')&&adminOpsSource.includes('admin_approve_pilot_application'),'admin deve ter ação dedicada para converter staging piloto sem alterar aprovação comum');
+assert.ok(adminOpsSource.includes('pilot_draft_id'),'summary admin precisa projetar vínculo entre aplicação e staging');
+assert.ok(admin.includes('Aprovar + vincular staging escolhido')&&admin.includes('Aprovar sem staging'),'UI deve exigir escolha explícita entre aprovação comum e piloto');
+assert.ok(admin.includes('catálogo ficará inativo, estoque zero')&&admin.includes('adminApprovePilotApplication'),'UI precisa explicar e confirmar os gates preservados antes do vínculo piloto');
+assert.ok(bootstrap.includes('adminApprovePilotApplication'),'ação de vínculo piloto precisa estar exposta ao painel');
 assert.ok(adminOpsSource.includes('min_delivered_price_cents')&&adminOpsSource.includes('preferred_delivered_price_cents')&&adminOpsSource.includes('max_delivered_price_cents'),'admin precisa projetar mínimo/normal/máximo do parceiro piloto');
 assert.ok(admin.includes('Faixa comercial confirmada')&&admin.includes('Estratégia inicial'),'admin deve mostrar a faixa comercial confirmada sem confundir com preço único');
 assert.ok(admin.includes('AGUARDANDO DADOS REAIS')&&admin.includes('Gate de ativação preservado.'),'admin deve distinguir interesse comercial de merchant verificado');

@@ -76,7 +76,7 @@ async function requireAdmin(admin:any,userId:string){
 async function summary(admin:any){
   const [apps,merchants,compliance,capabilities,referralReviews,rewardFailures,accountingFailures,receivables,reimbursements,adjustments,platformAdmins,audit]=await Promise.all([
     admin.from("merchant_applications")
-      .select("id,applicant_user_id,cnpj,company_name,responsible_name,phone,address_text,status,created_at,updated_at")
+      .select("id,applicant_user_id,cnpj,company_name,responsible_name,phone,address_text,status,pilot_draft_id,created_at,updated_at")
       .order("created_at",{ascending:false})
       .limit(50),
     admin.from("merchants")
@@ -230,6 +230,11 @@ Deno.serve(async(req:Request)=>{
 
     if(action==="approve-application"){
       payload={applicationId:uuid(body.applicationId,"application")};
+    }else if(action==="approve-pilot-application"){
+      payload={
+        applicationId:uuid(body.applicationId,"application"),
+        pilotDraftId:uuid(body.pilotDraftId,"pilotDraft")
+      };
     }else if(action==="reject-application"){
       payload={
         applicationId:uuid(body.applicationId,"application"),
@@ -327,7 +332,16 @@ Deno.serve(async(req:Request)=>{
       p_idempotency_key:idempotencyKey,
       p_request_hash:requestHash
     };
-    if(action==="set-delivery-capability"){
+    if(action==="approve-pilot-application"){
+      rpcName="admin_approve_pilot_application";
+      rpcArgs={
+        p_actor_user_id:user.id,
+        p_application_id:payload.applicationId,
+        p_pilot_draft_id:payload.pilotDraftId,
+        p_idempotency_key:idempotencyKey,
+        p_request_hash:requestHash
+      };
+    }else if(action==="set-delivery-capability"){
       rpcName="admin_delivery_capability_action";
       rpcArgs={
         p_actor_user_id:user.id,
@@ -448,6 +462,25 @@ Deno.serve(async(req:Request)=>{
     if(message.includes("REFERRAL_REWARD_ALREADY_REVERSED")){
       return json({error:"REFERRAL_REWARD_ALREADY_REVERSED",message:"A liquidação financeira deste pedido já foi revertida; a comissão não pode ser aprovada."},409,origin);
     }
+    if(message.includes("PILOT_DRAFT_NOT_FOUND")){
+      return json({error:"PILOT_DRAFT_NOT_FOUND",message:"O parceiro piloto selecionado não existe mais."},404,origin);
+    }
+    if(message.includes("PILOT_DRAFT_ALREADY_CONVERTED")){
+      return json({error:"PILOT_DRAFT_ALREADY_CONVERTED",message:"Este parceiro piloto já foi convertido ou não está mais disponível para vínculo."},409,origin);
+    }
+    if(message.includes("PILOT_PRICE_NOT_CONFIRMED")){
+      return json({error:"PILOT_PRICE_NOT_CONFIRMED",message:"A condição comercial do parceiro piloto ainda não está confirmada."},409,origin);
+    }
+    if(message.includes("PILOT_APPLICATION_NOT_PENDING")||message.includes("PILOT_APPLICATION_ALREADY_LINKED")){
+      return json({error:"PILOT_APPLICATION_STATE_CONFLICT",message:"Este cadastro já mudou de estado ou já foi vinculado a outro piloto."},409,origin);
+    }
+    if(message.includes("PILOT_CATALOG_CONFLICT")){
+      return json({error:"PILOT_CATALOG_CONFLICT",message:"A revenda já possui configuração operacional deste produto; o staging não foi aplicado para evitar sobrescrever dados reais."},409,origin);
+    }
+    if(message.includes("PILOT_MERCHANT_NOT_PENDING")){
+      return json({error:"PILOT_MERCHANT_NOT_PENDING",message:"O vínculo piloto só pode ser aplicado enquanto a revenda permanece pendente e offline."},409,origin);
+    }
+
     if(message.includes("MERCHANT_OWNERSHIP_CONFLICT")){
       return json({error:"MERCHANT_OWNERSHIP_CONFLICT",message:"Este CNPJ já possui outro owner ativo. Use um fluxo explícito de transferência de propriedade."},409,origin);
     }
