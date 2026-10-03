@@ -143,12 +143,24 @@ export function canonicalAddress(postal,addressNumberValue){
       409
     );
   }
+  const city=normalizeText(postal?.city,120);
+  const state=String(postal?.state??"").toUpperCase();
   const neighborhood=normalizeText(postal?.neighborhood,160);
   const postalDisplay=String(postal?.postalCode??"").replace(/^(\d{5})(\d{3})$/,"$1-$2");
-  return street+", "+addressNumber
-    +(neighborhood?" - "+neighborhood:"")
-    +", "+normalizeText(postal?.city,120)+" - "+String(postal?.state??"").toUpperCase()
-    +", CEP "+postalDisplay;
+  const base=street+", "+addressNumber;
+  const suffix=", "+city+" - "+state+", CEP "+postalDisplay;
+  if((base+suffix).length>240){
+    throw new DomainError(
+      "CANONICAL_ADDRESS_TOO_LONG",
+      "Não foi possível representar este endereço com segurança.",
+      409
+    );
+  }
+  if(!neighborhood)return base+suffix;
+  const available=240-base.length-suffix.length-3;
+  return available>=2
+    ? base+" - "+neighborhood.slice(0,available)+suffix
+    : base+suffix;
 }
 
 export async function validateServicePostalCode(admin,value){
