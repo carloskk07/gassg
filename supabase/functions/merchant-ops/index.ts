@@ -80,7 +80,7 @@ Deno.serve(async(req:Request)=>{
     const merchantId=String(body.merchantId??"");
     const action=String(body.action??"");
     if(!UUID_RE.test(merchantId))throw new DomainError("INVALID_MERCHANT","Revenda inválida.",400);
-    if(!["heartbeat","set-online","update-product","update-logistics","update-capacity"].includes(action)){
+    if(!["heartbeat","set-online","update-product","update-logistics","update-capacity","update-scheduling"].includes(action)){
       throw new DomainError("INVALID_ACTION","Ação inválida.",400);
     }
 
@@ -250,6 +250,23 @@ Deno.serve(async(req:Request)=>{
       }
 
       return json({ok:true,product:data,priceConfirmedAt:now},200,origin);
+    }
+
+    if(action==="update-scheduling"){
+      if(!canManage(role))throw new DomainError("MERCHANT_ACCESS_DENIED","Somente owner/manager pode alterar agendamento.",403);
+      const acceptsScheduledOrders=body.acceptsScheduledOrders===true;
+      const {data,error}=await admin
+        .from("merchants")
+        .update({accepts_scheduled_orders:acceptsScheduledOrders,last_seen_at:now})
+        .eq("id",merchantId)
+        .select("accepts_scheduled_orders,last_seen_at")
+        .single();
+      if(error)throw error;
+      return json({
+        ok:true,
+        acceptsScheduledOrders:data.accepts_scheduled_orders===true,
+        lastSeenAt:data.last_seen_at
+      },200,origin);
     }
 
     if(action==="update-capacity"){

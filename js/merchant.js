@@ -68,6 +68,7 @@ function merchantLivePage(){
   const m=rt.merchant;
   const performance=m.performance||{};
   const capacity=Math.max(1,Number(m.maxActiveOrders||8));
+  const acceptsScheduledOrders=m.acceptsScheduledOrders===true;
   const heartbeatFresh=merchantTimestampFresh(m.lastSeenAt,10/60);
   const connectionHealthy=!m.online||heartbeatFresh;
   const manage=['owner','manager'].includes(m.memberRole);
@@ -140,10 +141,26 @@ function merchantLivePage(){
       <h3>Capacidade simultânea</h3>
       <div class="input-wrap"><label for="live-capacity">Máximo de pedidos ativos ao mesmo tempo</label><input id="live-capacity" inputmode="numeric" type="number" min="1" max="100" class="input" value="${capacity}"><small class="field-help">Ao atingir este limite, a revenda deixa de receber novas ofertas até liberar capacidade. Pedidos existentes não são cancelados.</small></div>
       <button class="secondary" onclick="merchantLiveSaveCapacity()">Salvar capacidade</button>
+      <div class="divider"></div>
+      <h3>Pedidos agendados</h3>
+      <label class="check-row"><input id="live-scheduled-orders" type="checkbox" ${acceptsScheduledOrders?'checked':''}><span><strong>Aceitar entregas agendadas</strong><small>Quando ativo, clientes podem escolher janelas futuras de até 72 horas. O horário aparece antes do aceite.</small></span></label>
+      <button class="secondary" onclick="merchantLiveSaveScheduling()">Salvar agendamento</button>
     </div>`:''}
 
     <section class="section"><div class="section-head"><div><h2>Pedidos que exigem ação</h2><p>Dados vêm do backend real. Status só muda depois de confirmação server-side.</p></div></div>${orders.length?orders.map(merchantLiveOrder).join(''):'<div class="empty card">Nenhum pedido ativo para esta revenda.</div>'}</section>
   </section>`);
+}
+
+function merchantScheduledDispatchState(o){
+  if(!o?.deliveryWindowStart)return {scheduled:false,ready:true,opensAt:null};
+  const start=Date.parse(o.deliveryWindowStart);
+  const eta=Math.max(5,Math.min(180,Number(merchantRuntime.merchant?.baseEtaMinutes||30)));
+  const opensAt=start-(eta+30)*60000;
+  return {
+    scheduled:true,
+    ready:Date.now()>=opensAt,
+    opensAt:Number.isFinite(opensAt)?new Date(opensAt).toISOString():null
+  };
 }
 
 function merchantLiveOrder(o){
@@ -157,7 +174,11 @@ function merchantLiveOrder(o){
     const secs=o.offerExpiresAt?Math.max(0,Math.ceil((Date.parse(o.offerExpiresAt)-Date.now())/1000)):0;
     actions=`<button class="primary small" onclick="merchantLiveAction('${o.orderId}','accept')">Aceitar pedido</button><button class="danger-btn small" onclick="merchantLiveAction('${o.orderId}','reject')">Não consigo atender</button><span class="tiny muted">Prazo ~${secs}s</span>`;
   }else if(['PREPARING','AT_RISK','MERCHANT_ACCEPTED'].includes(o.status)){
-    actions=`<button class="primary small" onclick="merchantLiveAction('${o.orderId}','dispatch')">Confirmar saída</button><select id="reason-${o.orderId}" class="input" style="max-width:220px;height:40px"><option value="stock_issue">Problema de estoque</option><option value="vehicle_issue">Problema no veículo</option><option value="staffing_issue">Equipe indisponível</option><option value="other_operational">Outro problema operacional</option></select><button class="danger-btn small" onclick="merchantLiveCannotFulfill('${o.orderId}')">Não consigo concluir</button>`;
+    const scheduleState=merchantScheduledDispatchState(o);
+    const dispatchButton=scheduleState.scheduled&&!scheduleState.ready
+      ? `<button class="primary small" disabled>Saída ainda bloqueada</button><span class="tiny muted">Liberada por volta de ${scheduleState.opensAt?esc(new Date(scheduleState.opensAt).toLocaleString('pt-BR')):'mais perto da janela'}</span>`
+      : `<button class="primary small" onclick="merchantLiveAction('${o.orderId}','dispatch')">Confirmar saída</button>`;
+    actions=`${dispatchButton}<select id="reason-${o.orderId}" class="input" style="max-width:220px;height:40px"><option value="stock_issue">Problema de estoque</option><option value="vehicle_issue">Problema no veículo</option><option value="staffing_issue">Equipe indisponível</option><option value="other_operational">Outro problema operacional</option></select><button class="danger-btn small" onclick="merchantLiveCannotFulfill('${o.orderId}')">Não consigo concluir</button>`;
   }else if(o.status==='OUT_FOR_DELIVERY'){
     actions=`<button class="secondary small" onclick="merchantLiveAction('${o.orderId}','arriving')">Estou chegando</button>`;
   }else if(o.status==='ARRIVING'){
@@ -166,7 +187,7 @@ function merchantLiveOrder(o){
 
   return `<article class="order-card ${o.status==='OFFERED_TO_MERCHANT'?'new':''}">
     <div class="order-head"><div><div class="order-id">${esc(o.publicCode||o.orderId)}</div><div class="order-line">${items||'Itens do pedido'}</div></div><div style="text-align:right"><strong>${total}</strong><div class="tiny muted">${esc(copy[0])}</div></div></div>
-    <div class="order-line">${address}</div><div class="order-line">Pagamento: ${esc(paymentLabel(o.paymentMethod))}</div>${o.paymentMethod==='cash'&&o.cashTenderCents?`<div class="order-line"><strong>Troco para: ${BRL.format(Number(o.cashTenderCents)/100)}</strong></div>`:''}
+    <div class="order-line">${address}</div><div class="order-line">Pagamento: ${esc(paymentLabel(o.paymentMethod))}</div>${o.paymentMethod==='cash'&&o.cashTenderCents?`<div class="order-line"><strong>Troco para: ${BRL.format(Number(o.cashTenderCents)/100)}</strong></div>`:''}${o.deliveryWindowStart?`<div class="notice success" style="margin-top:10px"><strong>Entrega agendada</strong><br>${esc(formatDeliveryWindow(o.deliveryWindowStart,o.deliveryWindowEnd))}</div>`:''}
     ${o.riskReason?`<div class="notice danger" style="margin-top:10px">${esc(o.riskReason)}</div>`:''}
     <div class="order-actions">${actions}</div>
   </article>`;
@@ -238,6 +259,14 @@ async function merchantLiveSaveCapacity(){
   try{
     await merchantUpdateCapacityLive(capacity);
     toast('Capacidade operacional atualizada');
+  }catch(e){toast(String(e?.message||e))}
+}
+
+async function merchantLiveSaveScheduling(){
+  const accepts=document.querySelector('#live-scheduled-orders')?.checked===true;
+  try{
+    await merchantUpdateSchedulingLive(accepts);
+    toast(accepts?'Pedidos agendados ativados':'Pedidos agendados pausados');
   }catch(e){toast(String(e?.message||e))}
 }
 

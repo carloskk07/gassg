@@ -73,7 +73,7 @@ Deno.serve(async(req:Request)=>{
     await enforceApiQuota(admin,{userId:user.id,actionName:"get-order",limit:120,windowSeconds:60});
     const {data:order,error:orderError}=await admin
       .from("orders")
-      .select("id,public_code,customer_id,merchant_id,status,financial_state,financial_reversed_at,financial_reversal_reason,address_text,payment_method,cash_tender_cents,gross_total_cents,cashback_reserved_cents,total_cents,proposed_total_cents,supplier_name_snapshot,risk_reason,offer_expires_at,accepted_at,dispatch_due_at,dispatched_at,arriving_at,promised_by,delivered_at,settled_at,payment_confirmed_at,pin_failures,version,created_at,updated_at")
+      .select("id,public_code,customer_id,merchant_id,status,financial_state,financial_reversed_at,financial_reversal_reason,address_text,payment_method,cash_tender_cents,gross_total_cents,cashback_reserved_cents,total_cents,proposed_total_cents,delivery_window_start,delivery_window_end,comparison_selected_total_cents,comparison_reference_cents,comparison_savings_cents,supplier_name_snapshot,risk_reason,offer_expires_at,accepted_at,dispatch_due_at,dispatched_at,arriving_at,promised_by,delivered_at,settled_at,payment_confirmed_at,pin_failures,version,created_at,updated_at")
       .eq("id",orderId)
       .maybeSingle();
 
@@ -179,6 +179,11 @@ Deno.serve(async(req:Request)=>{
       addressVisible:role==="customer"||order.status!=="OFFERED_TO_MERCHANT",
       paymentMethod:order.payment_method,
       cashTenderCents:order.cash_tender_cents,
+      deliveryWindowStart:order.delivery_window_start,
+      deliveryWindowEnd:order.delivery_window_end,
+      comparisonSelectedTotalCents:order.comparison_selected_total_cents,
+      comparisonReferenceCents:order.comparison_reference_cents,
+      comparisonSavingsCents:Number(order.comparison_savings_cents??0),
       grossTotalCents:order.gross_total_cents,
       cashbackReservedCents:order.cashback_reserved_cents,
       totalCents:order.total_cents,

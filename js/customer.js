@@ -79,6 +79,71 @@ function repeatLastOrder(){
   globalThis.liveScheduleOfferRefresh?.(50);
 }
 
+function deliverySchedulePresets(){
+  const now=new Date();
+  const make=(dayOffset,startHour,endHour,key,label)=>{
+    const start=new Date(now);
+    start.setDate(start.getDate()+dayOffset);
+    start.setHours(startHour,0,0,0);
+    const end=new Date(start);
+    end.setHours(endHour,0,0,0);
+    if(start.getTime()<Date.now()+30*60*1000)return null;
+    if(start.getTime()>Date.now()+72*60*60*1000)return null;
+    return {key,label,start:start.toISOString(),end:end.toISOString()};
+  };
+  return [
+    make(0,18,20,'today-evening','Hoje, 18h–20h'),
+    make(1,8,12,'tomorrow-morning','Amanhã, 8h–12h'),
+    make(1,13,17,'tomorrow-afternoon','Amanhã, 13h–17h')
+  ].filter(Boolean);
+}
+function formatDeliveryWindow(start,end){
+  const a=Date.parse(String(start||''));
+  const b=Date.parse(String(end||''));
+  if(!Number.isFinite(a)||!Number.isFinite(b))return '';
+  const startDate=new Date(a);
+  const endDate=new Date(b);
+  const sameDay=startDate.toDateString()===endDate.toDateString();
+  const date=startDate.toLocaleDateString('pt-BR',{day:'2-digit',month:'2-digit'});
+  const from=startDate.toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'});
+  const to=endDate.toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'});
+  return sameDay?`${date}, ${from}–${to}`:`${date} ${from} até ${endDate.toLocaleString('pt-BR')}`;
+}
+function setDeliverySchedule(key){
+  if(key==='now'){
+    state.checkout.deliveryMode='now';
+    state.checkout.deliveryWindowStart=null;
+    state.checkout.deliveryWindowEnd=null;
+    state.checkout.deliveryWindowLabel=null;
+  }else{
+    const option=deliverySchedulePresets().find(x=>x.key===key);
+    if(!option)return toast('Essa janela não está mais disponível');
+    state.checkout.deliveryMode='scheduled';
+    state.checkout.deliveryWindowStart=option.start;
+    state.checkout.deliveryWindowEnd=option.end;
+    state.checkout.deliveryWindowLabel=option.label;
+  }
+  if(globalThis.liveRequested?.()){
+    liveRuntime.offers=[];
+    liveRuntime.scheduledDeliveryUnavailable=false;
+  }
+  save();
+  render();
+  globalThis.liveScheduleOfferRefresh?.(50);
+}
+function deliveryScheduleBlock(){
+  const presets=deliverySchedulePresets();
+  const scheduled=state.checkout.deliveryMode==='scheduled';
+  const selectedLabel=scheduled
+    ? formatDeliveryWindow(state.checkout.deliveryWindowStart,state.checkout.deliveryWindowEnd)
+    : 'Assim que possível';
+  return `<section class="section"><div class="section-head"><div><h2>Quando você quer receber?</h2><p>O horário só é confirmado quando uma revenda que aceita agendamento assumir o pedido.</p></div></div><div class="card flat form-stack">
+    <label class="check-row"><input type="radio" name="delivery-schedule" ${scheduled?'':'checked'} onchange="setDeliverySchedule('now')"><span><strong>Agora</strong><small>Buscar a entrega mais rápida disponível.</small></span></label>
+    ${presets.map(p=>`<label class="check-row"><input type="radio" name="delivery-schedule" ${scheduled&&state.checkout.deliveryWindowStart===p.start?'checked':''} onchange="setDeliverySchedule('${p.key}')"><span><strong>${esc(p.label)}</strong><small>Somente revendas que ativaram pedidos agendados entram nesta busca.</small></span></label>`).join('')}
+    <div class="notice ${scheduled?'success':''}"><strong>${scheduled?'Entrega solicitada para '+esc(selectedLabel):'Entrega imediata selecionada.'}</strong><br>${scheduled?'A revenda recebe essa janela antes de aceitar.':'Você verá ETA e preço das operações disponíveis agora.'}</div>
+  </div></section>`;
+}
+
 function home(){
   const testDemo=globalThis.__CHAMA_TEST__===true;
   const internalPilot=globalThis.CHAMA_INTERNAL_PILOT===true;
@@ -261,6 +326,8 @@ function orderPage(){
       offerBlock='<div class="notice"><strong>Não encontramos uma operação habilitada para entregar esta combinação de itens agora.</strong><br>Se precisar com urgência, tente separar o GLP dos demais produtos ou consulte novamente depois.</div>';
     }else if(ready&&liveRuntime.lastSyncAt){
       offerBlock='<div class="empty card">Nenhum parceiro consegue atender esta cesta agora.</div>';
+    }else if(ready&&liveRuntime.scheduledDeliveryUnavailable){
+      offerBlock='<div class="empty card"><strong>Nenhuma revenda está aceitando essa janela agendada agora.</strong><br><span class="muted tiny">Escolha “Agora” ou outra janela para consultar novamente.</span></div>';
     }else if(ready){
       offerBlock='<div class="empty card"><button class="primary" onclick="liveRefreshOffers().catch(()=>{})">Procurar opções</button></div>';
     }else{
@@ -281,6 +348,7 @@ ${liveNotice}
 ${pendingOrder?`<div class="notice" style="margin-bottom:14px"><strong>Você já possui um pedido em andamento.</strong><br>Conclua ou cancele o pedido ${esc(pendingOrder.publicCode||pendingOrder.id)} antes de criar outro.<br><button class="ghost small" onclick="go('tracking')">Acompanhar pedido →</button></div>`:''}
 <div class="card flat form-stack order-address-card"><div class="input-wrap"><label for="address">Endereço de entrega</label><input id="address" class="input" autocomplete="street-address" maxlength="160" placeholder="Ex.: Rua General Câmara, 123" value="${esc(state.address||'')}"></div><button class="primary" onclick="setAddress()">${hasAddress?'Atualizar endereço':'Usar este endereço'}</button><small class="field-help">Usamos o endereço para procurar quem consegue atender sua cesta.</small></div>
 <section class="section"><div class="section-head"><div><h2>Sua cesta</h2><p>Adicione somente o que você precisa. Gás não é obrigatório para comprar os demais itens.</p></div></div><div class="card flat">${Object.entries(products).map(([k,p])=>cartRow(k,p)).join('')}</div></section>
+${deliveryScheduleBlock()}
 ${containerBlock}
 ${hasItems&&hasAddress&&!containerBlocked?`<section class="section"><div class="section-head"><div><h2>Como pretende pagar</h2><p>${preview?'Prévia visual sem cobrança.':'Escolha a forma e confira novamente antes do pedido.'}</p></div></div>${paymentBlock}</section><section class="section"><div class="section-head"><div><span class="section-kicker">${singleSupplier?'OPÇÃO DISPONÍVEL':'COMPARE ANTES DE PEDIR'}</span><h2>${preview?'Veja como as opções aparecerão':singleSupplier?'Preço total e prazo do parceiro disponível':'Preço total e prazo lado a lado'}</h2><p>${preview?'Os valores abaixo são somente ilustrativos.':internalPilot?'Há um único fornecedor no cenário interno. A faixa comercial P13 vem da conversa com o parceiro; o preço desta simulação é calculado dentro dela. Prazo, estoque e trust são simulados.':singleSupplier?'Há um parceiro elegível para esta cesta agora. Você vê a condição real sem opções fictícias.':'Escolha a opção que faz mais sentido para você.'}</p></div></div><div class="mini-protection">🛡️ <strong>Proteção Chama:</strong> ${internalPilot?'nesta simulação, se o JR recusar ou ficar indisponível o pedido é encerrado, porque não existe segundo fornecedor no cenário.':singleSupplier?'o parceiro precisa aceitar. Se ele não puder atender e ainda não houver outra revenda elegível, o pedido é encerrado sem inventar uma alternativa.':'o parceiro precisa aceitar e qualquer alternativa mais cara depende da sua aprovação.'}</div>${offerBlock}</section>`:hasItems&&!hasAddress?'<div class="notice">Informe o endereço para ver preço e prazo.</div>':!hasItems?'<div class="notice">Adicione pelo menos um produto para consultar as opções.</div>':''}</section>`)
 }
@@ -308,6 +376,9 @@ function offerCard(o){
     proof.push(`<span class="meta-chip">Aceite médio: ${secs<120?secs+' s':Math.round(secs/60)+' min'}</span>`);
   }
   if(Number(o.feedbackCount)>=3&&o.positiveFeedbackRate!=null)proof.push(`<span class="meta-chip">${Math.round(Number(o.positiveFeedbackRate)*100)}% avaliações positivas (${Number(o.feedbackCount)})</span>`);
+  if(o.comparisonSavings>0)proof.push(`<span class="meta-chip">Economiza ${BRL.format(o.comparisonSavings)} nesta comparação</span>`);
+  const demandLabel={normal:'Operação normal',elevated:'Demanda moderada',high:'Demanda alta'}[o.demandLevel]||'Operação disponível';
+  proof.push(`<span class="meta-chip">${esc(demandLabel)}</span>`);
   const proofHtml=proof.join('');
   return `<article class="offer ${featured?'selected':''}">${available?'<div class="best-badge">OPÇÃO DISPONÍVEL AGORA</div>':recommended?'<div class="best-badge">MELHOR EQUILÍBRIO</div>':''}<div class="offer-label">${esc(labels)}</div><div class="offer-main"><div><div class="offer-price">${BRL.format(payable)}</div><div class="tiny muted">${discount>0?`estimativa após ${BRL.format(discount)} de cashback`:'total com entrega'}</div></div><div class="offer-eta"><strong>${o.eta}–${etaEnd} min</strong><small>previsão</small></div></div><div class="offer-meta">${distanceChip}${internalPilot?'<span class="meta-chip">🧪 Simulação operacional</span><span class="meta-chip">Sem validação jurídica nesta tela</span>':'<span class="meta-chip">✓ Operação elegível</span><span class="meta-chip">Parceiro local verificado</span>'}<span class="meta-chip">${internalPilot?'Trust simulado':'Confiança'} ${o.trust}/100</span>${proofHtml}<span class="meta-chip">Pagamento solicitado: ${esc(paymentLabel(state.checkout.paymentMethod))}</span></div><div class="offer-assurance">${internalPilot?'🧪 O pedido abaixo percorre todas as etapas localmente e não gera venda real.':'🔒 O nome do parceiro aparece após o aceite real. Se for necessária uma alternativa mais cara, você decide antes.'}</div><button class="${featured?'primary':'secondary'} full" style="margin-top:13px" onclick="checkout('${o.id}')" ${globalThis.liveRuntime?.actionPending?'disabled':''}>Pedir por ${BRL.format(payable)}</button></article>`
 }
@@ -443,6 +514,12 @@ function liveTracking(){
   const proposed=o.proposedTotalCents==null?null:Number(o.proposedTotalCents)/100;
   const items=(o.items||[]).map(i=>`<div class="list-row"><span>${Number(i.quantity)}× ${esc(i.product_name||i.productName||i.product_code||'Item')}</span><strong>${BRL.format(Number(i.line_total_cents??i.lineTotalCents??0)/100)}</strong></div>`).join('');
   const careBlock=liveCustomerCareBlock(o);
+  const scheduleNotice=o.deliveryWindowStart
+    ? `<div class="notice success" style="margin-top:12px"><strong>Entrega agendada: ${esc(formatDeliveryWindow(o.deliveryWindowStart,o.deliveryWindowEnd))}</strong><br>O parceiro recebeu essa janela antes de assumir o pedido. A saída deve acontecer perto do horário necessário para cumprir a janela.</div>`
+    : '';
+  const comparisonNotice=Number(o.comparisonSavingsCents||0)>0
+    ? `<div class="notice" style="margin-top:12px"><strong>Economia nesta comparação: ${BRL.format(Number(o.comparisonSavingsCents)/100)}</strong><br>Diferença entre a opção escolhida e a opção mais cara que foi realmente exibida na consulta que originou este pedido.</div>`
+    : '';
 
   return shell(`<section class="page"><button class="back" onclick="go('home')">← Início</button>
 <div class="status-bar"><div><div class="tiny muted">PEDIDO ${esc(o.publicCode||o.orderId)}</div><h1 class="page-title" style="margin-bottom:3px">${esc(copy[0])}</h1></div><span class="status-pill ${['OUT_FOR_DELIVERY','ARRIVING','SETTLED','DELIVERED'].includes(o.status)?'online':o.status==='CANCELLED'?'offline':'risk'}">${o.status==='SETTLED'?'CONCLUÍDO':o.status==='CANCELLED'?'ENCERRADO':'AO VIVO'}</span></div>
@@ -451,6 +528,8 @@ function liveTracking(){
 <div class="divider"></div>
 <div class="list-row"><div><strong>${o.supplierName?esc(o.supplierName):'Parceiro em confirmação'}</strong><br><small>${o.supplierName?'Parceiro que aceitou o pedido':'O nome aparece depois que o pedido for aceito'}</small></div><div style="text-align:right"><strong>${BRL.format(total)}</strong><br><small>${esc(o.address||'')}</small></div></div>
 <div class="list-row"><span>Pagamento</span><strong>${paymentLabel(o.paymentMethod)}</strong></div>
+${scheduleNotice}
+${comparisonNotice}
 ${o.paymentMethod==='cash'&&o.cashTenderCents?`<div class="list-row"><span>Troco para</span><strong>${BRL.format(Number(o.cashTenderCents)/100)}</strong></div>`:''}
 ${items?'<div class="divider"></div>'+items:''}</div>
 

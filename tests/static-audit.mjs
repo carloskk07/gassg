@@ -44,6 +44,7 @@ assert.ok(!backend.includes("storageKey:'chama-sg-auth-v1'"),'chave legada compa
 assert.ok(core.includes('ALLOWED='),'máquina de estados deve possuir autoridade explícita');
 assert.ok(core.includes('MAX_PIN_FAILURES'),'PIN precisa de limite de tentativas');
 assert.ok(core.includes('PRICE_FRESH_MS'),'preço precisa de validade explícita');
+assert.ok(core.includes('scheduleStart>=scheduleNow+30*60*1000')&&core.includes('scheduleStart<=scheduleNow+72*60*60*1000'),'janela agendada persistida precisa expirar no browser antes de nova cotação');
 assert.ok(core.includes('if(globalThis.__CHAMA_TEST__)'),'API de testes precisa estar protegida no site público');
 assert.ok(core.includes('isValidCnpjShape'),'core precisa suportar validação estrutural do CNPJ atual');
 assert.ok(!merchant.includes('.stock'),'UI da revenda não deve depender do campo legado stock');
@@ -89,12 +90,14 @@ assert.ok(growth.includes('Saque Pix ainda não disponível')&&growth.includes('
 assert.ok(growth.includes('Você continua no controle'),'landing de revenda deve enfatizar autonomia operacional');
 assert.ok(core.includes("['earn','💰','Ganhe','go']"),'navegação móvel precisa dar acesso direto ao hub de renda');
 assert.ok(!growth.includes('inputmode="numeric" maxlength="18"'),'campo CNPJ não pode forçar teclado somente numérico após adoção do CNPJ alfanumérico');
-assert.ok(sw.includes("CACHE='chama-sg-v1.34'"),'cache do service worker precisa estar versionado');
+assert.ok(sw.includes("CACHE='chama-sg-v1.35'"),'cache do service worker precisa estar versionado');
 assert.ok(sw.includes("./js/backend.js"),'runtime live precisa estar no cache da PWA');
 assert.ok(sw.includes("./js/runtime-config.js"),'configuração pública de origins precisa estar no cache da PWA');
 assert.ok(sw.includes("./js/turnstile.js"),'helper local do Turnstile precisa estar no cache da PWA');
 assert.ok(sw.includes('async function networkFirst')&&sw.includes("return (await cache.match(cacheKey))||res"),'PWA deve usar cache também quando servidor same-origin responde erro');
 assert.ok(sw.includes("return (await cache.match(cacheKey))||Response.error()"),'PWA precisa responder de forma definida quando rede e cache falham');
+assert.ok(growth.includes('https://cdn.jsdelivr.net/npm/qrcode-generator@2.0.4/dist/qrcode.js'),'QR de indicação precisa usar versão externa fixada');
+assert.ok(growth.includes('ensureReferralQrLibrary')&&growth.includes('8000'),'QR não pode bloquear bootstrap e precisa de timeout próprio');
 assert.ok(html.indexOf('./js/turnstile.js')<html.indexOf('./js/backend.js'),'helper Turnstile deve carregar antes do backend');
 assert.ok(html.indexOf('./js/runtime-config.js')<html.indexOf('./js/backend.js'),'runtime-config.js deve carregar antes do backend');
 assert.ok(html.includes('http-equiv="Content-Security-Policy"'),'PWA precisa declarar CSP explícita');

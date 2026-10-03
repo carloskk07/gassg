@@ -75,7 +75,7 @@ function freshSeed(){
       : {name:'',cashback:0,cashbackDebt:0,purchases:0,referralCode:'',commissionAvailable:0,commissionPending:0,referredBy:null,cashEarningEligible:false,identityType:'uninitialized'},
     address:'',
     cart:{P13:0,P20:0,P45:0,WATER20:0,CHARCOAL4:0,WOOD:0,ICE5:0},
-    checkout:{paymentMethod:'pix',useCashback:false,cashTenderCents:null,glpContainerMode:'exchange'},
+    checkout:{paymentMethod:'pix',useCashback:false,cashTenderCents:null,glpContainerMode:'exchange',deliveryMode:'now',deliveryWindowStart:null,deliveryWindowEnd:null,deliveryWindowLabel:null},
     merchants:testDemo
       ? internalPilot
         ? [
@@ -137,6 +137,28 @@ function normalizeState(raw){
   merged.checkout.paymentMethod=['pix','card','cash'].includes(merged.checkout.paymentMethod)?merged.checkout.paymentMethod:'pix';
   merged.checkout.useCashback=Boolean(merged.checkout.useCashback);
   merged.checkout.glpContainerMode=merged.checkout.glpContainerMode==='needs_container'?'needs_container':'exchange';
+  merged.checkout.deliveryMode=merged.checkout.deliveryMode==='scheduled'?'scheduled':'now';
+  const scheduleStart=Date.parse(String(merged.checkout.deliveryWindowStart||''));
+  const scheduleEnd=Date.parse(String(merged.checkout.deliveryWindowEnd||''));
+  const scheduleNow=Date.now();
+  const validSchedule=merged.checkout.deliveryMode==='scheduled'
+    &&Number.isFinite(scheduleStart)
+    &&Number.isFinite(scheduleEnd)
+    &&scheduleEnd>scheduleStart
+    &&scheduleStart>=scheduleNow+30*60*1000
+    &&scheduleStart<=scheduleNow+72*60*60*1000
+    &&scheduleEnd-scheduleStart>=60*60*1000
+    &&scheduleEnd-scheduleStart<=4*60*60*1000;
+  if(!validSchedule){
+    merged.checkout.deliveryMode='now';
+    merged.checkout.deliveryWindowStart=null;
+    merged.checkout.deliveryWindowEnd=null;
+    merged.checkout.deliveryWindowLabel=null;
+  }else{
+    merged.checkout.deliveryWindowStart=new Date(scheduleStart).toISOString();
+    merged.checkout.deliveryWindowEnd=new Date(scheduleEnd).toISOString();
+    merged.checkout.deliveryWindowLabel=String(merged.checkout.deliveryWindowLabel||'Entrega agendada').slice(0,80);
+  }
   const cashTender=Number(merged.checkout.cashTenderCents);
   merged.checkout.cashTenderCents=merged.checkout.paymentMethod==='cash'&&Number.isInteger(cashTender)&&cashTender>0&&cashTender<=1000000
     ? cashTender
