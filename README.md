@@ -2,6 +2,21 @@
 
 Marketplace hiperlocal de gás e abastecimento essencial para São Gabriel/RS.
 
+## Estado atual — v1.49 acquisition
+
+O pré-lançamento agora possui **captação real e mensurável** sem abrir o comércio antes da hora:
+
+- clientes podem entrar na **lista de abertura** com WhatsApp, CEP e categorias de interesse;
+- empresas podem registrar interesse como **Parceiro Fundador** em um formulário curto, sem exigir CNPJ no primeiro contato;
+- UTM source/medium/campaign/content/term, referrer e landing path são preservados para medir campanhas;
+- o endpoint público possui allowlist de origem, honeypot, consentimento explícito, validação, deduplicação e rate limit server-side;
+- IP bruto não é persistido; o antiabuso usa somente hash server-side;
+- leads ficam em tabela server-only, sem SELECT para anon/authenticated;
+- o painel administrativo protegido recebe os leads e oferece atalho para contato via WhatsApp;
+- pedido real continua sujeito aos gates de lançamento já existentes.
+
+O domínio público pretendido é **tamao.com.br**. Enquanto DNS/hosting definitivo e portais isolados não forem comprovados, o GitHub Pages continua como laboratório interno e permanece fora de indexação.
+
 ## Estado atual — v1.48 TAMÃO
 
 A marca pública do produto passa a ser **TAMÃO**, com a assinatura **“Pediu? Tá na mão.”** e o descritor inicial **“Gás, água e essenciais perto de você.”**. A mudança é deliberadamente **brand-first**: interface, PWA, portais live, notificações, documentação e testes passam a usar TAMÃO, enquanto identificadores técnicos legados como `CHAMA_*`, chaves de storage, nomes de crons e contratos server-side permanecem estáveis nesta versão para não romper sessões, deploys, automações ou migrações existentes. A migração desses identificadores internos deve ocorrer apenas em uma etapa técnica separada, com compatibilidade explícita.

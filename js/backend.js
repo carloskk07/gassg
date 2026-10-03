@@ -280,6 +280,41 @@ async function liveInvoke(name,body={},options={}){
   return data;
 }
 
+function prelaunchAttribution(){
+  const p=new URLSearchParams(location.search);
+  const safe=(key,max)=>String(p.get(key)||'').trim().slice(0,max)||null;
+  return {
+    source:safe('utm_source',80),
+    medium:safe('utm_medium',80),
+    campaign:safe('utm_campaign',120),
+    content:safe('utm_content',120),
+    term:safe('utm_term',120),
+    referrer:String(document.referrer||'').slice(0,500)||null,
+    landingPath:String(location.pathname+location.search+location.hash).slice(0,240)
+  };
+}
+
+async function prelaunchLeadSubmit(payload){
+  const body={...payload,...prelaunchAttribution()};
+  return retryAmbiguousOnce(async()=>{
+    const response=await chamaFetch(CHAMA_BACKEND.url+'/functions/v1/capture-prelaunch-lead',{
+      method:'POST',
+      headers:{'Content-Type':'application/json','apikey':CHAMA_BACKEND.publishableKey},
+      body:JSON.stringify(body),
+      cache:'no-store'
+    });
+    let data=null;
+    try{data=await response.json()}catch{}
+    if(!response.ok){
+      const error=new Error(data?.message||data?.error||('HTTP '+response.status));
+      error.code=data?.error||'HTTP_'+response.status;
+      error.status=response.status;
+      throw error;
+    }
+    return data;
+  });
+}
+
 function liveCartItems(){
   return Object.entries(state.cart)
     .filter(([,quantity])=>Number(quantity)>0)
@@ -1462,6 +1497,7 @@ globalThis.isAmbiguousTransportError=isAmbiguousTransportError;
 globalThis.retryAmbiguousOnce=retryAmbiguousOnce;
 globalThis.buildPortalHref=buildPortalHref;
 globalThis.liveRuntime=liveRuntime;
+globalThis.prelaunchLeadSubmit=prelaunchLeadSubmit;
 globalThis.customerOriginSafe=customerOriginSafe;
 globalThis.backendInit=backendInit;
 globalThis.liveRequested=liveRequested;

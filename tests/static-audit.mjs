@@ -29,6 +29,10 @@ const growth=read('js/growth.js');
 const bootstrap=read('js/bootstrap.js');
 const core=read('js/core.js');
 const backend=read('js/backend.js');
+const acquisition=read('js/acquisition.js');
+const adminAcquisition=read('js/admin-acquisition.js');
+const leadCapture=read('supabase/functions/capture-prelaunch-lead/index.ts');
+const leadMigration=read('supabase/migrations/20261003182954_prelaunch_acquisition_v1_49.sql');
 const admin=read('js/admin.js');
 const financePolicy=read('supabase/migrations/20261001105000_financial_unit_economics_v1_6.sql');
 
@@ -60,6 +64,18 @@ assert.ok(!merchant.includes('.stock'),'UI da revenda não deve depender do camp
 assert.ok(growth.includes('referralCode'),'link de indicação deve usar código pessoal');
 assert.ok(bootstrap.includes('home,learn,earn'),'router público precisa expor jornadas de descoberta e renda');
 assert.ok(customer.includes('Quero pedir agora')&&customer.includes('Quero entender melhor')&&customer.includes('Quero ganhar benefícios')&&customer.includes('Quero vender no TAMÃO'),'home precisa separar compra, entendimento, benefícios e parceria comercial');
+assert.ok(html.includes('./js/acquisition.js'),'runtime de aquisição precisa ser carregado pelo site');
+assert.ok(html.includes('./js/admin-acquisition.js'),'inbox administrativo de aquisição precisa ser carregado');
+assert.ok(adminAcquisition.includes('adminPrelaunchLeadsSection')&&admin.includes('adminPrelaunchLeadsSection(d)'),'admin deve exibir leads captados');
+assert.ok(read('supabase/functions/admin-ops/index.ts').includes('prelaunch_leads')&&read('supabase/functions/admin-ops/index.ts').includes('prelaunchLeads'),'summary protegido deve transportar leads para o admin');
+assert.ok(customer.includes('acquisitionOpen')&&customer.includes('prelaunchCustomerLeadSection'),'pré-lançamento precisa converter tráfego em lista de abertura');
+assert.ok(acquisition.includes('Quero ser avisado na abertura')&&acquisition.includes('Quero conversar sobre parceria'),'aquisição precisa ter CTAs próprios para cliente e parceiro');
+assert.ok(acquisition.includes("utm_source")||backend.includes("utm_source"),'captação precisa preservar atribuição de campanha');
+assert.ok(backend.includes("capture-prelaunch-lead")&&backend.includes("prelaunchAttribution"),'frontend precisa enviar leads ao endpoint dedicado');
+assert.ok(leadCapture.includes('ALLOWED_ORIGINS')&&leadCapture.includes('consume_prelaunch_lead_quota'),'lead público precisa de allowlist de origem e rate limit server-side');
+assert.ok(leadCapture.includes('ip_hash')&&leadCapture.includes('SECRET_KEY.slice'),'antiabuso não pode persistir IP bruto');
+assert.ok(leadMigration.includes('revoke all on table public.prelaunch_leads from public, anon, authenticated'),'leads não podem ser expostos pelo Data API');
+assert.ok(leadMigration.includes('unique index if not exists prelaunch_leads_type_phone_uidx'),'reenvio do mesmo WhatsApp precisa ser deduplicável');
 assert.ok(customer.includes('Botijão de cozinha 13 kg')&&customer.includes('startHomeOrder'),'home precisa iniciar a compra em linguagem humana sem depender de P13 como rótulo principal');
 assert.ok(core.includes('brand-name">TAMÃO')&&core.includes('Pediu? Tá na mão.'),'shell deve carregar a identidade TAMÃO');
 assert.ok(customer.includes('<h1>Pediu? Tá na mão.</h1>')&&customer.includes('Gás, água e essenciais perto de você.'),'hero deve materializar nome, promessa e categoria');
@@ -103,7 +119,7 @@ assert.ok(growth.includes('Saque Pix ainda não disponível')&&growth.includes('
 assert.ok(growth.includes('Você continua no controle'),'landing de revenda deve enfatizar autonomia operacional');
 assert.ok(core.includes("['earn','💰','Ganhe','go']"),'navegação móvel precisa dar acesso direto ao hub de renda');
 assert.ok(!growth.includes('inputmode="numeric" maxlength="18"'),'campo CNPJ não pode forçar teclado somente numérico após adoção do CNPJ alfanumérico');
-assert.ok(sw.includes("CACHE='tamao-sg-v1.48'"),'cache do service worker precisa refletir a versão TAMÃO');
+assert.ok(sw.includes("CACHE='tamao-sg-v1.49'"),'cache do service worker precisa refletir a versão TAMÃO');
 assert.ok(admin.includes('offerable_supply_required')&&admin.includes('offerReadyMerchantCount'),'painel admin precisa expor oferta real como gate de lançamento');
 assert.ok(admin.includes('realmente capaz de receber uma oferta agora'),'copy de go-live precisa distinguir cadastro de capacidade operacional real');
 assert.ok(sw.includes("./js/backend.js"),'runtime live precisa estar no cache da PWA');
@@ -496,8 +512,14 @@ for(const entry of fs.readdirSync(functionRoot,{withFileTypes:true})){
   const source=fs.readFileSync(file,'utf8');
   assert.ok(source.includes('jsr:@supabase/functions-js@2.117.2/edge-runtime.d.ts'),entry.name+' precisa fixar functions-js');
   assert.ok(source.includes('npm:@supabase/supabase-js@2.117.2'),entry.name+' precisa fixar supabase-js');
-  assert.ok(source.includes('readJsonBody(req)'),entry.name+' precisa limitar JSON');
-  assert.ok(source.includes('enforceApiQuota(admin'),entry.name+' precisa aplicar quota server-side');
+  if(entry.name==='capture-prelaunch-lead'){
+    assert.ok(source.includes('raw.length>16000'),entry.name+' precisa limitar JSON');
+    assert.ok(source.includes('consume_prelaunch_lead_quota'),entry.name+' precisa aplicar quota server-side');
+    assert.ok(source.includes('ALLOWED_ORIGINS')&&source.includes('originAllowed'),entry.name+' precisa restringir origem explicitamente');
+  }else{
+    assert.ok(source.includes('readJsonBody(req)'),entry.name+' precisa limitar JSON');
+    assert.ok(source.includes('enforceApiQuota(admin'),entry.name+' precisa aplicar quota server-side');
+  }
   if(entry.name==='complete-delivery'){
     assert.ok(source.includes('body.paymentConfirmed!==true'),'complete-delivery deve exigir confirmação de pagamento');
     assert.ok(source.includes('paymentConfirmed:true'),'fingerprint idempotente deve incluir confirmação de pagamento');
