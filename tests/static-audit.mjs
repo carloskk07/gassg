@@ -43,6 +43,8 @@ const admin=read('js/admin.js');
 const financePolicy=read('supabase/migrations/20261001105000_financial_unit_economics_v1_6.sql');
 const publicBuild=read('scripts/build-public-site.mjs');
 const functionConfig=read('supabase/config.toml');
+const livePortalWorkflow=read('.github/workflows/build-live-portals.yml');
+const launchReadinessWorkflow=read('.github/workflows/launch-readiness.yml');
 
 assert.ok(!customer.includes('desktop-only" style="display:block"'),'desktop-only não pode ser forçado a display:block no mobile');
 assert.ok(customer.includes('esc(o.address)'),'endereço do pedido deve ser escapado antes de entrar no HTML');
@@ -268,6 +270,11 @@ assert.ok(adminAuthSource.includes('ADMIN_BOOTSTRAP_RETRY')&&adminAuthSource.inc
 assert.ok(adminAuthSource.includes('safeStatus')&&adminAuthSource.includes('["claimed","existing_admin","bootstrap_closed","not_reserved"]'),'browser só pode receber estados de bootstrap explicitamente permitidos');
 assert.ok(adminAuthSource.includes('return json({ok:true,status:safeStatus},200,origin)'),'claim deve devolver apenas estado seguro, sem payload interno da autoridade SQL');
 assert.ok(functionConfig.includes('[functions.admin-auth]')&&functionConfig.includes('verify_jwt = false'),'admin-auth precisa permanecer alcançável antes de existir JWT');
+assert.ok(livePortalWorkflow.includes('Build disposable test bundles')&&livePortalWorkflow.includes("CHAMA_ALLOW_TEST_TURNSTILE: '1'"),'CI comum precisa validar o builder com chave oficial de teste sem publicar artefato');
+assert.ok(livePortalWorkflow.includes("if: github.event_name == 'workflow_dispatch'")&&livePortalWorkflow.includes('Require real Turnstile configuration'),'bundle de produção precisa existir somente em execução manual e exigir Turnstile real');
+assert.ok(livePortalWorkflow.includes('tamao-live-admin')&&!livePortalWorkflow.includes('name: chama-live-admin'),'artefato publicável precisa ter nome de produção atual e não ser emitido pelo job de teste');
+assert.ok(livePortalWorkflow.includes('Turnstile test/demo key cannot produce production portal artifacts.'),'produção precisa bloquear explicitamente chaves Turnstile de teste/demo');
+assert.ok(launchReadinessWorkflow.includes("TAMAO_REQUIRE_ADMIN_PORTAL: '1'")&&launchReadinessWorkflow.includes('remote-admin-readiness.mjs'),'gate manual de lançamento precisa exigir portal admin remoto real');
 for(const publicFn of ['capture-prelaunch-lead','submit-public-request','capture-marketing-event']){
   assert.ok(
     functionConfig.includes('[functions.'+publicFn+']')&&functionConfig.split('[functions.'+publicFn+']')[1]?.split('[functions.')[0].includes('verify_jwt = false'),
@@ -362,8 +369,8 @@ assert.ok(admin.includes("CHAMA_PORTAL_ROLE")&&admin.includes("==='admin'"),'bun
 assert.ok(read('scripts/generate-runtime-config.mjs').includes('CHAMA_PORTAL_ROLE')&&read('scripts/generate-runtime-config.mjs').includes('requirePortalRole'),'gerador live precisa exigir papel explícito');
 assert.ok(read('scripts/build-live-portals.mjs').includes('buildLivePortals')&&read('scripts/build-live-portals.mjs').includes('forbidden live portal path'),'build live precisa separar artefatos e bloquear diretórios internos');
 assert.ok(read('scripts/build-live-portals.mjs').includes('Cloudflare Turnstile test/demo key is forbidden'),'build live precisa bloquear chave de teste do Turnstile');
-assert.ok(read('.github/workflows/build-live-portals.yml').includes('CHAMA_TURNSTILE_SITE_KEY: ${{ secrets.CHAMA_TURNSTILE_SITE_KEY }}'),'workflow live deve depender de configuração externa e não commitar site key');
-assert.ok(read('.github/workflows/build-live-portals.yml').includes('chama-live-customer')&&read('.github/workflows/build-live-portals.yml').includes('chama-live-merchant')&&read('.github/workflows/build-live-portals.yml').includes('chama-live-admin'),'workflow precisa produzir três artefatos independentes');
+assert.ok(read('.github/workflows/build-live-portals.yml').includes('CHAMA_TURNSTILE_SITE_KEY: ${{ secrets.CHAMA_TURNSTILE_SITE_KEY }}'),'job de produção deve depender da site key real configurada externamente');
+assert.ok(read('.github/workflows/build-live-portals.yml').includes('tamao-live-customer')&&read('.github/workflows/build-live-portals.yml').includes('tamao-live-merchant')&&read('.github/workflows/build-live-portals.yml').includes('tamao-live-admin'),'job manual de produção precisa produzir três artefatos independentes');
 assert.ok(backend.includes("buildPortalHref(globalThis.CHAMA_CUSTOMER_ORIGIN,'customer')"),'retorno ao cliente precisa navegar para a origem dedicada configurada');
 assert.ok(admin.includes("buildPortalHref?.(globalThis.CHAMA_ADMIN_ORIGIN,'admin')"),'entrada administrativa precisa navegar para a origem dedicada configurada');
 assert.ok(!backend.includes("const url=new URL(location.href);\n  url.search='';\n  url.searchParams.set('merchant','1')"),'portal merchant não pode reutilizar cegamente a origem atual');

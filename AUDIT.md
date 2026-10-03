@@ -1496,3 +1496,46 @@ Isso não torna o claim administrativo público: a ação `claim` continua exigi
 - cron de bootstrap ativo.
 
 Logo, o próximo passo operacional ainda é autenticar a conta reservada pelo magic link no portal administrativo dedicado.
+
+
+## V1.58 — Remote admin readiness
+
+### Prova remota do gateway
+
+A nova sonda executada pelo GitHub Actions chamou a Edge Function de produção.
+
+Resultados observados:
+
+- `request-link` sem JWT → HTTP 400 / `CAPTCHA_REQUIRED`;
+- `claim` sem bearer → HTTP 401 / `UNAUTHORIZED`.
+
+Isso comprova simultaneamente que o gateway permite o primeiro passo pré-autenticação e que a ação privilegiada permanece protegida dentro do handler.
+
+### Bloqueio externo do portal
+
+A sonda também consultou a origem dedicada `https://chama-sg-admin.netlify.app`.
+
+Estado observado:
+
+- `/portal-build.json` → 404;
+- `/js/runtime-config.js` → 404;
+- HTML do portal admin → 404.
+
+Portanto, o projeto Netlify existe, mas ainda não recebeu o bundle isolado atual.
+
+### Turnstile
+
+O workflow de geração de portais confirmou que `CHAMA_TURNSTILE_SITE_KEY` está vazio no GitHub Actions.
+
+O pipeline agora separa:
+
+1. validação automática do builder com a chave pública oficial de teste da Cloudflare e `CHAMA_ALLOW_TEST_TURNSTILE=1`, sem upload de artefatos;
+2. geração manual de bundle de produção, que exige segredo/variável com site key real e rejeita todas as chaves conhecidas de teste/demo.
+
+Assim, a ausência de configuração externa não mascara regressões de código, e ao mesmo tempo nenhum artefato de produção pode nascer com CAPTCHA de teste.
+
+### Gate de lançamento
+
+`.github/workflows/launch-readiness.yml` executa a mesma sonda com `TAMAO_REQUIRE_ADMIN_PORTAL=1`.
+
+Enquanto o portal admin remoto permanecer 404, esse gate deve falhar. Isso é intencional.
