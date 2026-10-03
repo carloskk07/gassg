@@ -13,6 +13,18 @@ export function normalizePostalCode(value){
   return postalCode;
 }
 
+export function normalizeAddressNumber(value){
+  const addressNumber=String(value??"").trim().toUpperCase().replace(/\s+/g,"");
+  if(!/^[0-9]{1,6}[A-Z]?$/.test(addressNumber)){
+    throw new DomainError(
+      "INVALID_ADDRESS_NUMBER",
+      "Informe o número do endereço usando números e, se necessário, uma letra.",
+      400
+    );
+  }
+  return addressNumber;
+}
+
 function normalizePlace(value){
   return String(value??"")
     .trim()
@@ -20,6 +32,10 @@ function normalizePlace(value){
     .replace(/[\u0300-\u036f]/g,"")
     .replace(/\s+/g," ")
     .toUpperCase();
+}
+
+function normalizeText(value,max){
+  return String(value??"").trim().replace(/\s+/g," ").slice(0,max);
 }
 
 function locationAllowed(city,state){
@@ -52,8 +68,10 @@ async function resolveBrasilApi(postalCode){
   const result=await fetchJson("https://brasilapi.com.br/api/cep/v1/"+encodeURIComponent(postalCode));
   if(result.kind!=="ok")return result;
   const data=result.data??{};
-  const city=String(data.city??"").trim();
-  const state=String(data.state??"").trim().toUpperCase();
+  const city=normalizeText(data.city,120);
+  const state=normalizeText(data.state,2).toUpperCase();
+  const street=normalizeText(data.street,180);
+  const neighborhood=normalizeText(data.neighborhood,160)||null;
   if(!city||!state)return {kind:"unavailable"};
   const ibgeCode=String(data.ibge?.city??"").replace(/\D/g,"")||null;
   return {
@@ -61,6 +79,8 @@ async function resolveBrasilApi(postalCode){
     provider:"brasilapi",
     city,
     state,
+    street:street||null,
+    neighborhood,
     ibgeCode:/^[0-9]{7}$/.test(ibgeCode??"")?ibgeCode:null
   };
 }
@@ -70,8 +90,10 @@ async function resolveViaCep(postalCode){
   if(result.kind!=="ok")return result;
   const data=result.data??{};
   if(data.erro===true||data.erro==="true")return {kind:"not-found"};
-  const city=String(data.localidade??"").trim();
-  const state=String(data.uf??"").trim().toUpperCase();
+  const city=normalizeText(data.localidade,120);
+  const state=normalizeText(data.uf,2).toUpperCase();
+  const street=normalizeText(data.logradouro,180);
+  const neighborhood=normalizeText(data.bairro,160)||null;
   if(!city||!state)return {kind:"unavailable"};
   const rawIbge=String(data.ibge??"").replace(/\D/g,"");
   return {
@@ -79,16 +101,27 @@ async function resolveViaCep(postalCode){
     provider:"viacep",
     city,
     state,
+    street:street||null,
+    neighborhood,
     ibgeCode:/^[0-9]{7}$/.test(rawIbge)?rawIbge:null
   };
 }
 
 async function resolveExternally(postalCode){
   const first=await resolveBrasilApi(postalCode);
-  if(first.kind==="resolved")return first;
+  if(first.kind==="resolved"&&first.street)return first;
 
   const second=await resolveViaCep(postalCode);
-  if(second.kind==="resolved")return second;
+  if(second.kind==="resolved"&&second.street)return second;
+
+  const resolved=first.kind==="resolved"?first:(second.kind==="resolved"?second:null);
+  if(resolved){
+    throw new DomainError(
+      "POSTAL_CODE_NOT_STREET_LEVEL",
+      "Este CEP não identifica uma rua específica. Informe o CEP do logradouro.",
+      422
+    );
+  }
 
   if(first.kind==="not-found"&&second.kind==="not-found"){
     throw new DomainError("POSTAL_CODE_NOT_FOUND","CEP não encontrado.",400);
@@ -100,6 +133,24 @@ async function resolveExternally(postalCode){
   );
 }
 
+export function canonicalAddress(postal,addressNumberValue){
+  const addressNumber=normalizeAddressNumber(addressNumberValue);
+  const street=normalizeText(postal?.street,180);
+  if(!street){
+    throw new DomainError(
+      "POSTAL_STREET_UNVERIFIED",
+      "Não foi possível confirmar a rua deste CEP.",
+      409
+    );
+  }
+  const neighborhood=normalizeText(postal?.neighborhood,160);
+  const postalDisplay=String(postal?.postalCode??"").replace(/^(\d{5})(\d{3})$/,"$1-$2");
+  return street+", "+addressNumber
+    +(neighborhood?" - "+neighborhood:"")
+    +", "+normalizeText(postal?.city,120)+" - "+String(postal?.state??"").toUpperCase()
+    +", CEP "+postalDisplay;
+}
+
 export async function validateServicePostalCode(admin,value){
   if(!admin?.from)throw new DomainError("POSTAL_CACHE_BACKEND_INVALID","Validação de CEP indisponível.",503);
   const postalCode=normalizePostalCode(value);
@@ -107,7 +158,7 @@ export async function validateServicePostalCode(admin,value){
 
   const {data:cached,error:cacheError}=await admin
     .from("postal_code_validation_cache")
-    .select("postal_code,city,state,ibge_code,provider,service_area_allowed,verified_at")
+    .select("postal_code,city,state,ibge_code,provider,service_area_allowed,street,neighborhood,verified_at")
     .eq("postal_code",postalCode)
     .gte("verified_at",cutoff)
     .maybeSingle();
@@ -116,16 +167,19 @@ export async function validateServicePostalCode(admin,value){
     throw new DomainError("POSTAL_CACHE_BACKEND_FAILED","Não foi possível validar o CEP agora.",503);
   }
 
-  if(cached){
-    if(cached.service_area_allowed!==true){
-      throw new DomainError("POSTAL_CODE_OUTSIDE_SERVICE_AREA","Este CEP não pertence à área atendida em São Gabriel/RS.",422);
-    }
+  if(cached&&cached.service_area_allowed!==true){
+    throw new DomainError("POSTAL_CODE_OUTSIDE_SERVICE_AREA","Este CEP não pertence à área atendida em São Gabriel/RS.",422);
+  }
+
+  if(cached&&String(cached.street??"").trim()){
     return {
       postalCode,
       city:cached.city,
       state:cached.state,
       ibgeCode:cached.ibge_code??null,
       provider:cached.provider,
+      street:cached.street,
+      neighborhood:cached.neighborhood??null,
       cached:true
     };
   }
@@ -142,6 +196,8 @@ export async function validateServicePostalCode(admin,value){
       ibge_code:resolved.ibgeCode,
       provider:resolved.provider,
       service_area_allowed:allowed,
+      street:resolved.street,
+      neighborhood:resolved.neighborhood,
       verified_at:now,
       updated_at:now
     },{onConflict:"postal_code"});
@@ -160,6 +216,8 @@ export async function validateServicePostalCode(admin,value){
     state:resolved.state,
     ibgeCode:resolved.ibgeCode,
     provider:resolved.provider,
+    street:resolved.street,
+    neighborhood:resolved.neighborhood??null,
     cached:false
   };
 }
