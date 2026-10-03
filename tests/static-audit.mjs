@@ -98,6 +98,7 @@ assert.ok(adminAcquisition.includes('adminAcquisitionMetrics')&&adminAcquisition
 assert.ok(adminAcquisition.includes('Campanhas: entrada até conversão')&&adminAcquisition.includes('qualificationRatePct')&&adminAcquisition.includes('conversionRatePct'),'admin precisa comparar campanhas por avanço do funil, não só volume');
 assert.ok(read('supabase/functions/admin-ops/index.ts').includes('admin_prelaunch_acquisition_metrics')&&read('supabase/functions/admin-ops/index.ts').includes('acquisitionMetrics'),'summary admin precisa transportar métricas server-wide');
 const acquisitionMetricsMigration=read('supabase/migrations/20261003204319_prelaunch_acquisition_metrics_v1_55.sql');
+const publicHashedQuotaMigration=read('supabase/migrations/20261003221546_public_hashed_api_quota_v1_59.sql');
 assert.ok(acquisitionMetricsMigration.includes('perform public.require_platform_admin')&&acquisitionMetricsMigration.includes("grant execute on function public.admin_prelaunch_acquisition_metrics(uuid)\nto service_role"),'métrica agregada precisa exigir admin e executar apenas via service_role');
 assert.ok(acquisitionMetricsMigration.includes("'medianFirstContactMinutes'")&&acquisitionMetricsMigration.includes("'campaigns'"),'métrica precisa incluir velocidade de contato e atribuição por campanha');
 assert.ok(adminAcquisition.includes('adminPublicRequestWhatsAppText'),'contato público por WhatsApp precisa carregar protocolo/contexto sem copiar mensagem sensível');
@@ -125,6 +126,9 @@ assert.ok(marketingCapture.includes('SECRET_KEY.slice')&&!marketingCapture.inclu
 assert.ok(marketingMigration.includes('revoke all on table public.prelaunch_marketing_event_daily from public, anon, authenticated'),'tabela analítica agregada não pode ser exposta ao navegador');
 assert.ok(marketingMigration.includes('security invoker')&&marketingMigration.includes('to service_role'),'gravação analítica deve usar invoker e execução exclusiva service_role');
 assert.ok(marketingMigration.includes("'landingViews'")&&marketingMigration.includes("'formViews'")&&marketingMigration.includes("'landingToLeadPct'"),'métrica administrativa precisa unir denominadores de campanha ao funil comercial');
+assert.ok(publicHashedQuotaMigration.includes('create table if not exists public.public_hashed_rate_limits'),'quota pré-auth precisa de tabela sem FK de usuário');
+assert.ok(publicHashedQuotaMigration.includes('consume_hashed_api_quota')&&publicHashedQuotaMigration.includes("grant execute on function public.consume_hashed_api_quota(text,text,integer,integer)\nto service_role"),'quota por hash precisa ser autoridade server-only');
+assert.ok(publicHashedQuotaMigration.includes('revoke all on table public.public_hashed_rate_limits from public, anon, authenticated'),'browser não pode acessar contadores técnicos de quota');
 assert.ok(adminAcquisition.includes('ENTRADAS')&&adminAcquisition.includes('VIRAM FORMULÁRIO')&&adminAcquisition.includes('landingToLeadPct'),'admin precisa exibir funil desde entrada até lead');
 assert.ok(legal.includes('Medição agregada do pré-lançamento')&&legal.includes('Meta Pixel')&&legal.includes('Google Analytics'),'privacidade precisa explicar a medição first-party e ausência de trackers terceiros');
 assert.ok(acquisition.includes('Quero ser avisado na abertura')&&acquisition.includes('Quero conversar sobre parceria'),'aquisição precisa ter CTAs próprios para cliente e parceiro');
@@ -266,6 +270,9 @@ assert.ok(adminAuthSource.includes('shouldCreateUser:mode==="bootstrap_reserved"
 assert.ok(adminAuthSource.includes('Se este e-mail estiver autorizado, o link de acesso será enviado.'),'request de login deve responder genericamente para evitar enumeração');
 assert.ok(adminAuthSource.includes('captchaToken')&&adminAuthSource.includes('CAPTCHA_REQUIRED'),'bootstrap sem identidade precisa continuar protegido por anti-bot');
 assert.ok(adminAuthSource.includes('clientIp(req)')&&adminAuthSource.includes('admin-auth-request-ip'),'request-link admin precisa limitar a origem de rede antes de avaliar o e-mail');
+assert.ok(adminAuthSource.includes('consume_hashed_api_quota')&&adminAuthSource.includes('enforceHashedQuota'),'quota pré-auth não pode depender de user_id/auth.users');
+assert.ok(!adminAuthSource.includes('quotaUuidFromHash'),'hash de rede/e-mail não pode ser convertido em identidade fictícia');
+assert.ok(adminAuthSource.includes('quotaSalt+":ip:"')&&adminAuthSource.includes('quotaSalt+":email:"'),'hashes de quota de IP e e-mail precisam ser separados e salgados');
 assert.ok(adminAuthSource.indexOf('admin-auth-request-ip')<adminAuthSource.indexOf('captchaToken.length<20'),'quota por IP precisa ocorrer antes da recusa de CAPTCHA');
 assert.ok(adminAuthSource.indexOf('captchaToken.length<20')<adminAuthSource.indexOf('const redirectTo=safeRedirect'),'CAPTCHA precisa ser validado antes de resolver redirect do magic link');
 assert.ok(adminAuthSource.includes('captchaToken.length<20')&&adminAuthSource.includes('shouldCreateUser:mode==="bootstrap_reserved"'),'CAPTCHA deve ser obrigatório no handler e criação de usuário restrita à reserva');
