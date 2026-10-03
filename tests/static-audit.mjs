@@ -95,7 +95,8 @@ assert.ok(sw.includes("./js/runtime-config.js"),'configuração pública de orig
 assert.ok(sw.includes("./js/turnstile.js"),'helper local do Turnstile precisa estar no cache da PWA');
 assert.ok(sw.includes('async function networkFirst')&&sw.includes("return (await cache.match(cacheKey))||res"),'PWA deve usar cache também quando servidor same-origin responde erro');
 assert.ok(sw.includes("return (await cache.match(cacheKey))||Response.error()"),'PWA precisa responder de forma definida quando rede e cache falham');
-assert.ok(html.includes('https://cdn.jsdelivr.net/npm/qrcode-generator@2.0.4/dist/qrcode.js'),'QR de indicação precisa usar versão externa fixada');
+assert.ok(growth.includes('https://cdn.jsdelivr.net/npm/qrcode-generator@2.0.4/dist/qrcode.js'),'QR de indicação precisa usar versão externa fixada');
+assert.ok(growth.includes('ensureReferralQrLibrary')&&growth.includes('8000'),'QR não pode bloquear bootstrap e precisa de timeout próprio');
 assert.ok(html.indexOf('./js/turnstile.js')<html.indexOf('./js/backend.js'),'helper Turnstile deve carregar antes do backend');
 assert.ok(html.indexOf('./js/runtime-config.js')<html.indexOf('./js/backend.js'),'runtime-config.js deve carregar antes do backend');
 assert.ok(html.includes('http-equiv="Content-Security-Policy"'),'PWA precisa declarar CSP explícita');
