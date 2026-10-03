@@ -36,12 +36,38 @@ function referralUrl(){
   const base=`${location.origin}${location.pathname}`;
   return `${base}?ref=${encodeURIComponent(state.user.referralCode)}#home`;
 }
-function renderReferralQr(){
+let referralQrLoader=null;
+function ensureReferralQrLibrary(){
+  if(typeof globalThis.qrcode==='function')return Promise.resolve(true);
+  if(referralQrLoader)return referralQrLoader;
+  referralQrLoader=new Promise((resolve)=>{
+    const script=document.createElement('script');
+    script.src='https://cdn.jsdelivr.net/npm/qrcode-generator@2.0.4/dist/qrcode.js';
+    script.async=true;
+    script.crossOrigin='anonymous';
+    let done=false;
+    const finish=(ok)=>{
+      if(done)return;
+      done=true;
+      clearTimeout(timer);
+      if(!ok)referralQrLoader=null;
+      resolve(ok&&typeof globalThis.qrcode==='function');
+    };
+    const timer=setTimeout(()=>finish(false),8000);
+    script.onload=()=>finish(true);
+    script.onerror=()=>finish(false);
+    document.head.appendChild(script);
+  });
+  return referralQrLoader;
+}
+async function renderReferralQr(){
   const target=document.getElementById('referral-qr');
   const url=referralUrl();
   if(!target||!url)return;
-  if(typeof globalThis.qrcode!=='function'){
-    target.innerHTML='<div class="tiny muted">QR indisponível neste navegador. O link continua funcionando normalmente.</div>';
+  const ready=await ensureReferralQrLibrary();
+  if(!document.body.contains(target))return;
+  if(!ready){
+    target.innerHTML='<div class="tiny muted">QR indisponível agora. O link e o código continuam funcionando normalmente.</div>';
     return;
   }
   try{
