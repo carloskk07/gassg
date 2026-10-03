@@ -319,7 +319,7 @@ assert.ok(read('supabase/functions/get-offers/index.ts').includes('commerce_laun
 assert.ok(read('supabase/functions/create-order/index.ts').includes('create_order_from_quote_v8')&&read('supabase/functions/create-order/index.ts').includes('COMMERCE_NOT_ENABLED'),'checkout deve usar autoridade V8 e traduzir kill switch');
 assert.ok(read('supabase/functions/market-status/index.ts').includes('commerce_launch_status')&&read('supabase/functions/market-status/index.ts').includes('launchMode:commerceEnabled?"live":"prelaunch"'),'market status não pode anunciar supply como live enquanto o comércio estiver fechado');
 assert.ok(backend.includes('commerceLaunchBlocked')&&backend.includes('commerceEnabled:data?.commerceEnabled===true'),'runtime cliente precisa carregar o estado de lançamento');
-assert.ok(customer.includes('Pré-lançamento controlado.')&&customer.includes('admin, da primeira revenda e dos portais live'),'cliente precisa distinguir launch fechado de indisponibilidade de parceiro');
+assert.ok(customer.includes('Pré-lançamento controlado.')&&customer.includes('administrador, da primeira revenda e dos portais live'),'cliente precisa distinguir launch fechado de indisponibilidade de parceiro');
 assert.ok(adminOpsSource.includes('verifyLivePortals')&&adminOpsSource.includes('portal-build.json')&&adminOpsSource.includes('CHAMA_TURNSTILE_SITE_KEY'),'admin deve atestar bundles e Turnstile antes do go-live');
 assert.ok(adminOpsSource.includes('TEST_TURNSTILE_KEYS')&&adminOpsSource.includes('sourceSha'),'atestado não pode aceitar chave Turnstile de teste nem versões divergentes');
 assert.ok(adminOpsSource.includes('admin_launch_control_action'),'go-live precisa usar autoridade idempotente server-side');
