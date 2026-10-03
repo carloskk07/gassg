@@ -2,6 +2,11 @@ name: Build isolated live portals
 
 on:
   workflow_dispatch:
+    inputs:
+      turnstile_site_key:
+        description: 'Cloudflare Turnstile site key pública das origens live'
+        required: true
+        type: string
   push:
     branches: [main]
     paths:
@@ -78,7 +83,7 @@ jobs:
       CHAMA_CUSTOMER_ORIGIN: https://chama-sg-cliente.netlify.app
       CHAMA_MERCHANT_ORIGIN: https://chama-sg-revenda.netlify.app
       CHAMA_ADMIN_ORIGIN: https://chama-sg-admin.netlify.app
-      CHAMA_TURNSTILE_SITE_KEY: ${{ secrets.CHAMA_TURNSTILE_SITE_KEY }}
+      CHAMA_TURNSTILE_SITE_KEY: ${{ inputs.turnstile_site_key }}
       CHAMA_SOURCE_SHA: ${{ github.sha }}
     steps:
       - uses: actions/checkout@v6
@@ -99,7 +104,17 @@ jobs:
             test -f "dist/live-portals/$role/portal-build.json"
             grep -q "\"portalRole\": \"$role\"" "dist/live-portals/$role/portal-build.json"
             grep -q "\"sourceSha\": \"$CHAMA_SOURCE_SHA\"" "dist/live-portals/$role/portal-build.json"
-            ! grep -q "1x00000000000000000000AA" "dist/live-portals/$role/js/runtime-config.js"
+            grep -q "$CHAMA_TURNSTILE_SITE_KEY" "dist/live-portals/$role/js/runtime-config.js"
+            ! grep -Eq "1x00000000000000000000AA|2x00000000000000000000AB|3x00000000000000000000FF|0x4AAAAAAAAAA-demo-site-key" "dist/live-portals/$role/js/runtime-config.js"
+          done
+      - name: Create immutable handoff checksums
+        run: |
+          for role in customer merchant admin; do
+            (
+              cd "dist/live-portals/$role"
+              find . -type f ! -name SHA256SUMS.txt -print0 | sort -z | xargs -0 sha256sum > SHA256SUMS.txt
+              sha256sum -c SHA256SUMS.txt
+            )
           done
       - name: Upload customer production portal
         uses: actions/upload-artifact@v4
@@ -107,6 +122,9 @@ jobs:
           name: tamao-live-customer
           path: dist/live-portals/customer
           if-no-files-found: error
+          retention-days: 3
+          retention-days: 3
+          retention-days: 3
       - name: Upload merchant production portal
         uses: actions/upload-artifact@v4
         with:
