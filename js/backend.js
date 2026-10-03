@@ -67,6 +67,10 @@ const liveRuntime={
   eligibleMerchantCount:0,
   displayedOfferCount:0,
   marketStatus:null,
+  lastOrderTemplate:null,
+  reorderPrediction:null,
+  referredCount:0,
+  qualifiedReferralCount:0,
   lastMarketStatusAt:0,
   lastFinancialSyncAt:0,
   lastFinancialSyncAttemptAt:0,
@@ -283,6 +287,12 @@ function liveOfferView(raw){
     eta:Number(raw.etaMinMinutes||0),
     etaMax:Number(raw.etaMaxMinutes||raw.etaMinMinutes||0),
     trust:Number(raw.trustScore||0),
+    completedOrders:Math.max(0,Number(raw.completedOrders||0)),
+    completionRate:raw.completionRate==null?null:Number(raw.completionRate),
+    onTimeRate:raw.onTimeRate==null?null:Number(raw.onTimeRate),
+    avgAcceptSeconds:raw.avgAcceptSeconds==null?null:Number(raw.avgAcceptSeconds),
+    feedbackCount:Math.max(0,Number(raw.feedbackCount||0)),
+    positiveFeedbackRate:raw.positiveFeedbackRate==null?null:Number(raw.positiveFeedbackRate),
     expiresAt:raw.expiresAt,
     live:true
   };
@@ -379,7 +389,8 @@ async function liveCreateOrder(quoteId){
     quoteId,
     paymentMethod:state.checkout.paymentMethod,
     useCashback:state.checkout.useCashback===true,
-    referralCode:state.user.referredBy||null
+    referralCode:state.user.referredBy||null,
+    cashTenderCents:state.checkout.paymentMethod==='cash'?state.checkout.cashTenderCents:null
   };
   try{
     const result=await retryAmbiguousOnce(
@@ -390,6 +401,7 @@ async function liveCreateOrder(quoteId){
     localStorage.setItem(CHAMA_BACKEND.orderStorageKey,result.orderId);
     state.cart=normalizeCart({});
     state.checkout.useCashback=false;
+    state.checkout.cashTenderCents=null;
     save();
     await liveGetOrder(result.orderId,{silent:true});
     go('tracking');
@@ -406,6 +418,7 @@ async function liveCreateOrder(quoteId){
     if(recovered){
       state.cart=normalizeCart({});
       state.checkout.useCashback=false;
+      state.checkout.cashTenderCents=null;
       save();
       go('tracking');
       toast('Pedido recuperado com segurança após uma falha de conexão.');
@@ -461,6 +474,37 @@ async function liveCustomerAction(action){
   }
 }
 
+async function liveSubmitFeedback(rating,tags=[]){
+  const order=liveRuntime.order;
+  if(!order||order.status!=='SETTLED')throw new Error('A avaliação fica disponível após a conclusão');
+  const value=Number(rating);
+  if(![1,5].includes(value))throw new Error('Avaliação inválida');
+  const result=await retryAmbiguousOnce(()=>liveInvoke('customer-care',{
+    action:'feedback',
+    orderId:order.orderId,
+    rating:value,
+    tags:Array.isArray(tags)?tags:[]
+  }));
+  await liveGetOrder(order.orderId,{silent:true});
+  render();
+  return result;
+}
+
+async function liveOpenSupportCase(category,message=''){
+  const order=liveRuntime.order;
+  if(!order)throw new Error('Pedido não encontrado');
+  const idempotencyKey=liveIdempotency('customer-care');
+  const result=await retryAmbiguousOnce(()=>liveInvoke('customer-care',{
+    action:'open-case',
+    orderId:order.orderId,
+    category:String(category||'other'),
+    message:String(message||'').trim()
+  },{idempotencyKey}));
+  await liveGetOrder(order.orderId,{silent:true});
+  render();
+  return result;
+}
+
 async function liveSyncFinancialProfile({force=false}={}){
   if(!liveReady())return false;
   const now=Date.now();
@@ -477,7 +521,11 @@ async function liveSyncFinancialProfile({force=false}={}){
     purchases:state.user.purchases,
     reversedPurchases:state.user.reversedPurchases,
     cashEarningEligible:state.user.cashEarningEligible,
-    identityType:state.user.identityType
+    identityType:state.user.identityType,
+    lastOrderTemplate:liveRuntime.lastOrderTemplate,
+    reorderPrediction:liveRuntime.reorderPrediction,
+    referredCount:liveRuntime.referredCount,
+    qualifiedReferralCount:liveRuntime.qualifiedReferralCount
   });
   const seq=++liveRuntime.financialSyncSeq;
   try{
@@ -492,6 +540,10 @@ async function liveSyncFinancialProfile({force=false}={}){
     state.user.reversedPurchases=Math.max(0,Number(summary?.reversedOrders||0));
     state.user.cashEarningEligible=summary?.cashEarningEligible===true;
     state.user.identityType=String(summary?.identityType||'anonymous');
+    liveRuntime.lastOrderTemplate=summary?.lastOrderTemplate??null;
+    liveRuntime.reorderPrediction=summary?.reorderPrediction??null;
+    liveRuntime.referredCount=Math.max(0,Number(summary?.referredCount||0));
+    liveRuntime.qualifiedReferralCount=Math.max(0,Number(summary?.qualifiedReferralCount||0));
     if(summary?.activeOrderId){
       liveRuntime.orderId=String(summary.activeOrderId);
       localStorage.setItem(CHAMA_BACKEND.orderStorageKey,liveRuntime.orderId);
@@ -507,7 +559,11 @@ async function liveSyncFinancialProfile({force=false}={}){
       purchases:state.user.purchases,
       reversedPurchases:state.user.reversedPurchases,
       cashEarningEligible:state.user.cashEarningEligible,
-      identityType:state.user.identityType
+      identityType:state.user.identityType,
+      lastOrderTemplate:liveRuntime.lastOrderTemplate,
+      reorderPrediction:liveRuntime.reorderPrediction,
+      referredCount:liveRuntime.referredCount,
+      qualifiedReferralCount:liveRuntime.qualifiedReferralCount
     });
     return before!==after;
   }catch(error){
@@ -924,6 +980,22 @@ async function merchantUpdateLogisticsLive(deliveryFeeCents,baseEtaMinutes,accep
       deliveryFeeCents:Number(deliveryFeeCents),
       baseEtaMinutes:Number(baseEtaMinutes),
       acceptsCitywide:acceptsCitywide===true
+    }));
+    await merchantRefresh({silent:true});
+  }finally{
+    merchantRuntime.actionPending=false;render();
+  }
+}
+
+async function merchantUpdateCapacityLive(maxActiveOrders){
+  const merchantId=merchantRuntime.merchant?.merchantId;
+  if(!merchantId)throw new Error('Revenda não selecionada');
+  const capacity=Number(maxActiveOrders);
+  if(!Number.isInteger(capacity)||capacity<1||capacity>100)throw new Error('Capacidade precisa ficar entre 1 e 100 pedidos');
+  merchantRuntime.actionPending=true;render();
+  try{
+    await retryAmbiguousOnce(()=>merchantInvoke('merchant-ops',{
+      merchantId,action:'update-capacity',maxActiveOrders:capacity
     }));
     await merchantRefresh({silent:true});
   }finally{
