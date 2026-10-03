@@ -2,12 +2,37 @@ name: Build isolated live portals
 
 on:
   workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'index.html'
+      - 'manifest.webmanifest'
+      - 'sw.js'
+      - 'css/**'
+      - 'js/**'
+      - 'icons/**'
+      - 'scripts/build-live-portals.mjs'
+      - 'scripts/generate-runtime-config.mjs'
+      - '.github/workflows/build-live-portals.yml'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'index.html'
+      - 'manifest.webmanifest'
+      - 'sw.js'
+      - 'css/**'
+      - 'js/**'
+      - 'icons/**'
+      - 'scripts/build-live-portals.mjs'
+      - 'scripts/generate-runtime-config.mjs'
+      - '.github/workflows/build-live-portals.yml'
 
 permissions:
   contents: read
 
 jobs:
   build:
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
     runs-on: ubuntu-latest
     env:
       CHAMA_CUSTOMER_ORIGIN: https://chama-sg-cliente.netlify.app
