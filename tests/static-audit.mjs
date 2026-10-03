@@ -31,6 +31,9 @@ const core=read('js/core.js');
 const backend=read('js/backend.js');
 const acquisition=read('js/acquisition.js');
 const adminAcquisition=read('js/admin-acquisition.js');
+const legal=read('js/legal.js');
+const publicRequest=read('supabase/functions/submit-public-request/index.ts');
+const publicRequestMigration=read('supabase/migrations/20261003195000_public_trust_channel_v1_50.sql');
 const leadCapture=read('supabase/functions/capture-prelaunch-lead/index.ts');
 const leadMigration=read('supabase/migrations/20261003182954_prelaunch_acquisition_v1_49.sql');
 const admin=read('js/admin.js');
@@ -65,6 +68,19 @@ assert.ok(growth.includes('referralCode'),'link de indicação deve usar código
 assert.ok(bootstrap.includes('home,learn,earn'),'router público precisa expor jornadas de descoberta e renda');
 assert.ok(customer.includes('Quero pedir agora')&&customer.includes('Quero entender melhor')&&customer.includes('Quero ganhar benefícios')&&customer.includes('Quero vender no TAMÃO'),'home precisa separar compra, entendimento, benefícios e parceria comercial');
 assert.ok(html.includes('./js/acquisition.js'),'runtime de aquisição precisa ser carregado pelo site');
+assert.ok(html.includes('./js/legal.js'),'camada de privacidade, termos e contato precisa ser carregada');
+assert.ok(bootstrap.includes('privacy:privacyPage')&&bootstrap.includes('terms:termsPage')&&bootstrap.includes('contact:contactPage'),'router público precisa expor páginas de confiança');
+assert.ok(core.includes('siteFooter')&&core.includes("go('privacy')")&&core.includes("go('terms')")&&core.includes("go('contact')"),'shell público precisa manter acesso persistente a privacidade, termos e contato');
+assert.ok(legal.includes('Aviso de Privacidade')&&legal.includes('Seus direitos')&&legal.includes('Exercer um direito de privacidade'),'aviso de privacidade precisa explicar direitos e oferecer canal acionável');
+assert.ok(legal.includes('Termos de Uso')&&legal.includes('Situação atual')&&legal.includes('Parceiro Fundador'),'termos de pré-lançamento precisam distinguir demonstração, cliente e parceiro');
+assert.ok(legal.includes('Fale com o TAMÃO')&&legal.includes('Privacidade / LGPD')&&legal.includes('submitPublicRequest'),'canal oficial precisa aceitar contato e solicitações de privacidade');
+assert.ok(backend.includes('submit-public-request')&&backend.includes('publicRequestSubmit'),'frontend precisa enviar o canal público ao endpoint dedicado');
+assert.ok(publicRequest.includes('ALLOWED_ORIGINS')&&publicRequest.includes('consume_prelaunch_lead_quota'),'canal público precisa de allowlist de origem e rate limit server-side');
+assert.ok(publicRequest.includes('body.acknowledged!==true')&&publicRequest.includes('body.website')&&publicRequest.includes('raw.length>16000'),'canal público precisa de confirmação, honeypot e limite de payload');
+assert.ok(publicRequest.includes('SECRET_KEY.slice')&&publicRequest.includes('ip_hash'),'canal público deve usar hash técnico sem persistir IP bruto');
+assert.ok(publicRequestMigration.includes('revoke all on table public.public_requests from public, anon, authenticated'),'solicitações públicas não podem ser expostas pelo Data API');
+assert.ok(adminAcquisition.includes('adminPublicRequestsSection')&&admin.includes('adminPublicRequestsSection(d)'),'admin deve exibir inbox de contato e privacidade');
+assert.ok(read('supabase/functions/admin-ops/index.ts').includes('public_requests')&&read('supabase/functions/admin-ops/index.ts').includes('publicRequests'),'summary protegido deve transportar solicitações públicas');
 assert.ok(html.includes('./js/admin-acquisition.js'),'inbox administrativo de aquisição precisa ser carregado');
 assert.ok(adminAcquisition.includes('adminPrelaunchLeadsSection')&&admin.includes('adminPrelaunchLeadsSection(d)'),'admin deve exibir leads captados');
 assert.ok(read('supabase/functions/admin-ops/index.ts').includes('prelaunch_leads')&&read('supabase/functions/admin-ops/index.ts').includes('prelaunchLeads'),'summary protegido deve transportar leads para o admin');
@@ -119,10 +135,11 @@ assert.ok(growth.includes('Saque Pix ainda não disponível')&&growth.includes('
 assert.ok(growth.includes('Você continua no controle'),'landing de revenda deve enfatizar autonomia operacional');
 assert.ok(core.includes("['earn','💰','Ganhe','go']"),'navegação móvel precisa dar acesso direto ao hub de renda');
 assert.ok(!growth.includes('inputmode="numeric" maxlength="18"'),'campo CNPJ não pode forçar teclado somente numérico após adoção do CNPJ alfanumérico');
-assert.ok(sw.includes("CACHE='tamao-sg-v1.49'"),'cache do service worker precisa refletir a versão TAMÃO');
+assert.ok(sw.includes("CACHE='tamao-sg-v1.50'"),'cache do service worker precisa refletir a versão TAMÃO');
 assert.ok(admin.includes('offerable_supply_required')&&admin.includes('offerReadyMerchantCount'),'painel admin precisa expor oferta real como gate de lançamento');
 assert.ok(admin.includes('realmente capaz de receber uma oferta agora'),'copy de go-live precisa distinguir cadastro de capacidade operacional real');
 assert.ok(sw.includes("./js/backend.js"),'runtime live precisa estar no cache da PWA');
+assert.ok(sw.includes("./js/legal.js"),'páginas de confiança precisam estar no cache da PWA');
 assert.ok(sw.includes("./js/runtime-config.js"),'configuração pública de origins precisa estar no cache da PWA');
 assert.ok(sw.includes("./js/turnstile.js"),'helper local do Turnstile precisa estar no cache da PWA');
 assert.ok(sw.includes('async function networkFirst')&&sw.includes("return (await cache.match(cacheKey))||res"),'PWA deve usar cache também quando servidor same-origin responde erro');
@@ -512,10 +529,11 @@ for(const entry of fs.readdirSync(functionRoot,{withFileTypes:true})){
   const source=fs.readFileSync(file,'utf8');
   assert.ok(source.includes('jsr:@supabase/functions-js@2.117.2/edge-runtime.d.ts'),entry.name+' precisa fixar functions-js');
   assert.ok(source.includes('npm:@supabase/supabase-js@2.117.2'),entry.name+' precisa fixar supabase-js');
-  if(entry.name==='capture-prelaunch-lead'){
+  if(['capture-prelaunch-lead','submit-public-request'].includes(entry.name)){
     assert.ok(source.includes('raw.length>16000'),entry.name+' precisa limitar JSON');
     assert.ok(source.includes('consume_prelaunch_lead_quota'),entry.name+' precisa aplicar quota server-side');
     assert.ok(source.includes('ALLOWED_ORIGINS')&&source.includes('originAllowed'),entry.name+' precisa restringir origem explicitamente');
+    assert.ok(source.includes('body.website'),entry.name+' precisa manter honeypot');
   }else{
     assert.ok(source.includes('readJsonBody(req)'),entry.name+' precisa limitar JSON');
     assert.ok(source.includes('enforceApiQuota(admin'),entry.name+' precisa aplicar quota server-side');
