@@ -87,7 +87,7 @@ Deno.serve(async(req:Request)=>{
     const merchantId=String(body.merchantId??"");
     const action=String(body.action??"");
     if(!UUID_RE.test(merchantId))throw new DomainError("INVALID_MERCHANT","Revenda inválida.",400);
-    if(!["heartbeat","set-online","update-product","update-logistics","update-capacity","update-scheduling","update-payment-methods"].includes(action)){
+    if(!["heartbeat","set-online","update-product","update-logistics","update-capacity","update-scheduling","update-payment-methods","update-member-profile"].includes(action)){
       throw new DomainError("INVALID_ACTION","Ação inválida.",400);
     }
 
@@ -105,6 +105,27 @@ Deno.serve(async(req:Request)=>{
 
     const role=membership.member_role;
     const now=new Date().toISOString();
+
+    if(action==="update-member-profile"){
+      const displayName=String(body.displayName??"").trim().replace(/\s+/g," ");
+      if(displayName.length<2||displayName.length>60||/[\u0000-\u001F\u007F]/.test(displayName)){
+        throw new DomainError("INVALID_DISPLAY_NAME","Informe um nome operacional entre 2 e 60 caracteres.",400);
+      }
+      const {data,error}=await admin
+        .from("merchant_members")
+        .update({display_name:displayName})
+        .eq("merchant_id",merchantId)
+        .eq("user_id",user.id)
+        .eq("active",true)
+        .select("member_role,display_name")
+        .single();
+      if(error)throw error;
+      return json({
+        ok:true,
+        memberRole:data.member_role,
+        displayName:data.display_name
+      },200,origin);
+    }
 
     if(action==="heartbeat"){
       if(!canOperate(role))throw new DomainError("MERCHANT_ACCESS_DENIED","Seu papel não pode manter a operação ativa.",403);

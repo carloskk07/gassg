@@ -537,6 +537,9 @@ function liveTracking(){
   const comparisonNotice=Number(o.comparisonSavingsCents||0)>0
     ? `<div class="notice" style="margin-top:12px"><strong>Economia nesta comparação: ${BRL.format(Number(o.comparisonSavingsCents)/100)}</strong><br>Diferença entre a opção escolhida e a opção mais cara que foi realmente exibida na consulta que originou este pedido.</div>`
     : '';
+  const deliveryResponsibilityNotice=o.hasAssignedDelivery&&['PREPARING','AT_RISK'].includes(o.status)
+    ? '<div class="notice success" style="margin-top:12px"><strong>Responsável pela entrega definido.</strong><br>A revenda já vinculou um membro da operação a este pedido. Seus dados pessoais não são expostos aqui.</div>'
+    : '';
 
   return shell(`<section class="page"><button class="back" onclick="go('home')">← Início</button>
 <div class="status-bar"><div><div class="tiny muted">PEDIDO ${esc(o.publicCode||o.orderId)}</div><h1 class="page-title" style="margin-bottom:3px">${esc(copy[0])}</h1></div><span class="status-pill ${['OUT_FOR_DELIVERY','ARRIVING','SETTLED','DELIVERED'].includes(o.status)?'online':o.status==='CANCELLED'?'offline':'risk'}">${o.status==='SETTLED'?'CONCLUÍDO':o.status==='CANCELLED'?'ENCERRADO':'AO VIVO'}</span></div>
@@ -547,6 +550,7 @@ function liveTracking(){
 <div class="list-row"><span>Pagamento</span><strong>${paymentLabel(o.paymentMethod)}</strong></div>
 ${scheduleNotice}
 ${comparisonNotice}
+${deliveryResponsibilityNotice}
 ${o.paymentMethod==='cash'&&o.cashTenderCents?`<div class="list-row"><span>Troco para</span><strong>${BRL.format(Number(o.cashTenderCents)/100)}</strong></div>`:''}
 ${items?'<div class="divider"></div>'+items:''}</div>
 

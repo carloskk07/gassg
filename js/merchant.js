@@ -30,7 +30,7 @@ function merchantLiveNoAccess(){
       : 'Você entrou como '+esc(email)+', mas esta conta ainda não possui uma operação ativa.'}</p>
     ${rt.notice?`<div class="notice success" style="margin-top:16px"><strong>Cadastro recebido.</strong><br>${esc(rt.notice)}</div>`:''}
     ${roleBlocked
-      ? '<div class="notice" style="margin-top:16px"><strong>Acesso operacional limitado.</strong><br>Owner, manager e operator podem usar o painel neste piloto. O papel de motorista permanece bloqueado até existir atribuição individual por pedido.</div>'
+      ? '<div class="notice" style="margin-top:16px"><strong>Acesso operacional limitado.</strong><br>Seu papel atual ainda não possui uma experiência habilitada nesta operação.</div>'
       : '<div class="card flat" style="margin-top:16px"><h3>Quer participar?</h3><p class="muted tiny">Envie ou atualize o cadastro da empresa. Um cadastro rejeitado pode ser corrigido e reenviado para nova análise.</p><button class="primary full" onclick="go(\'merchant-join\')">Cadastrar / atualizar empresa</button></div>'}
     <button class="ghost full" style="margin-top:12px" onclick="merchantLiveLogout()">Sair desta conta</button>
   </section>`);
@@ -51,6 +51,33 @@ function merchantLiveFreshness(){
   return {offerable,staleProducts,deliveryFresh,allFresh:deliveryFresh&&offerable.length>0&&!staleProducts.length};
 }
 
+function merchantDeliveryMemberLabel(userId){
+  const id=String(userId||'');
+  const member=(globalThis.merchantRuntime?.deliveryTeam||[]).find(x=>x.userId===id);
+  if(member?.displayName)return member.displayName;
+  const m=globalThis.merchantRuntime?.merchant;
+  if(m?.memberRole==='driver'&&id&&m?.memberDisplayName)return m.memberDisplayName;
+  return id?'Responsável atribuído':'Ainda não atribuído';
+}
+
+function merchantDriverLivePage(rt){
+  const m=rt.merchant||{};
+  const orders=rt.orders||[];
+  const name=String(m.memberDisplayName||'').trim();
+  return shell(`<section class="page">
+    <div class="status-bar"><div><div class="tiny muted">MINHAS ENTREGAS</div><h1 class="page-title" style="margin-bottom:2px">${esc(m.name||'Revenda')}</h1></div><span class="status-pill online">MOTORISTA</span></div>
+    <div class="notice success" style="margin-top:14px"><strong>Visão restrita por atribuição.</strong><br>Você vê somente pedidos que a operação vinculou à sua conta. Catálogo, preços, compliance e pedidos de outros responsáveis não aparecem aqui.</div>
+    <div class="card flat form-stack" style="margin-top:14px">
+      <h3>Seu nome operacional</h3>
+      <div class="input-wrap"><label for="driver-display-name">Como aparecer para a equipe</label><input id="driver-display-name" class="input" maxlength="60" value="${esc(name)}" placeholder="Ex.: João"></div>
+      <small class="field-help">Esse nome é usado dentro da operação. O cliente não recebe sua identidade por este painel.</small>
+      <button class="secondary" onclick="merchantLiveSaveMemberProfile()">Salvar nome</button>
+      <div class="order-actions"><button class="secondary small" onclick="merchantLiveRefresh()">Atualizar entregas</button><button class="ghost small" onclick="merchantLiveLogout()">Sair</button></div>
+    </div>
+    <section class="section"><div class="section-head"><div><h2>Pedidos atribuídos a você</h2><p>Saída, chegada e conclusão continuam protegidas pela versão do pedido e pelas autoridades do servidor.</p></div></div>${orders.length?orders.map(merchantLiveOrder).join(''):'<div class="empty card">Nenhuma entrega atribuída a você agora.</div>'}</section>
+  </section>`);
+}
+
 function merchantLivePage(){
   const rt=globalThis.merchantRuntime||{};
   if(['disabled','loading'].includes(rt.status)){
@@ -66,6 +93,7 @@ function merchantLivePage(){
   }
 
   const m=rt.merchant;
+  if(m.memberRole==='driver')return merchantDriverLivePage(rt);
   const performance=m.performance||{};
   const capacity=Math.max(1,Number(m.maxActiveOrders||8));
   const acceptsScheduledOrders=m.acceptsScheduledOrders===true;
@@ -80,6 +108,7 @@ function merchantLivePage(){
   const operate=['owner','manager','operator'].includes(m.memberRole);
   const p13=merchantLiveProduct('P13');
   const memberships=rt.memberships||[];
+  const deliveryTeam=rt.deliveryTeam||[];
   const orders=rt.orders||[];
   const freshness=merchantLiveFreshness();
   const freshnessProblems=[];
@@ -181,6 +210,15 @@ function merchantLiveOrder(o){
   const total=BRL.format(Number(o.totalCents||0)/100);
   const copy=statusCopy[o.status]||[o.status,''];
   const address=o.addressVisible&&o.address?'📍 '+esc(o.address):'📍 Endereço protegido até o aceite';
+  const currentRole=String(globalThis.merchantRuntime?.merchant?.memberRole||'');
+  const canAssignDelivery=['owner','manager'].includes(currentRole);
+  const deliveryTeam=globalThis.merchantRuntime?.deliveryTeam||[];
+  const assignedLabel=o.assignedDeliveryUserId
+    ? merchantDeliveryMemberLabel(o.assignedDeliveryUserId)
+    : '';
+  const assignmentControl=canAssignDelivery&&['PREPARING','AT_RISK'].includes(o.status)&&deliveryTeam.length
+    ? `<div class="form-stack" style="margin-top:10px"><div class="input-wrap"><label for="delivery-${o.orderId}">Responsável pela entrega</label><select id="delivery-${o.orderId}" class="input"><option value="">Escolher responsável</option>${deliveryTeam.map(member=>`<option value="${esc(member.userId)}" ${member.userId===o.assignedDeliveryUserId?'selected':''}>${esc(member.displayName)} • ${esc(member.memberRole)}</option>`).join('')}</select></div><button class="secondary small" onclick="merchantLiveAssignDelivery('${o.orderId}')">${o.assignedDeliveryUserId?'Alterar responsável':'Atribuir entrega'}</button></div>`
+    : '';
   let actions='';
 
   if(o.status==='OFFERED_TO_MERCHANT'){
@@ -201,6 +239,8 @@ function merchantLiveOrder(o){
   return `<article class="order-card ${o.status==='OFFERED_TO_MERCHANT'?'new':''}">
     <div class="order-head"><div><div class="order-id">${esc(o.publicCode||o.orderId)}</div><div class="order-line">${items||'Itens do pedido'}</div></div><div style="text-align:right"><strong>${total}</strong><div class="tiny muted">${esc(copy[0])}</div></div></div>
     <div class="order-line">${address}</div><div class="order-line">Pagamento: ${esc(paymentLabel(o.paymentMethod))}</div>${o.paymentMethod==='cash'&&o.cashTenderCents?`<div class="order-line"><strong>Troco para: ${BRL.format(Number(o.cashTenderCents)/100)}</strong></div>`:''}${o.deliveryWindowStart?`<div class="notice success" style="margin-top:10px"><strong>Entrega agendada</strong><br>${esc(formatDeliveryWindow(o.deliveryWindowStart,o.deliveryWindowEnd))}</div>`:''}
+    ${assignedLabel?`<div class="notice success" style="margin-top:10px"><strong>Responsável pela entrega:</strong> ${esc(assignedLabel)}</div>`:''}
+    ${assignmentControl}
     ${o.riskReason?`<div class="notice danger" style="margin-top:10px">${esc(o.riskReason)}</div>`:''}
     <div class="order-actions">${actions}</div>
   </article>`;
@@ -212,6 +252,21 @@ async function merchantLoginFromUi(){
 }
 async function merchantLiveRefresh(){
   try{await merchantRefresh();toast('Operação atualizada')}catch(e){toast(String(e?.message||e))}
+}
+async function merchantLiveAssignDelivery(id){
+  const deliveryUserId=String(document.getElementById('delivery-'+id)?.value||'');
+  if(!deliveryUserId)return toast('Escolha um responsável pela entrega');
+  try{
+    await merchantAssignDeliveryLive(id,deliveryUserId);
+    toast('Responsável pela entrega atualizado');
+  }catch(e){toast(String(e?.message||e))}
+}
+async function merchantLiveSaveMemberProfile(){
+  const name=String(document.getElementById('driver-display-name')?.value||'').trim();
+  try{
+    await merchantUpdateMemberProfileLive(name);
+    toast('Nome operacional atualizado');
+  }catch(e){toast(String(e?.message||e))}
 }
 async function merchantLiveSelect(id){
   try{await merchantSelectLive(id)}catch(e){toast(String(e?.message||e))}

@@ -64,6 +64,7 @@ function mapRpcError(error:{message?:string}|null){
     SCHEDULED_DELIVERY_UNAVAILABLE:[409,"Os agendamentos foram desativados para esta revenda. Recuse o pedido para o Chama procurar outra opção."],
     PAYMENT_METHOD_UNAVAILABLE:[409,"Esta forma de pagamento foi desativada para a revenda. Recuse o pedido para o Chama procurar outra opção."],
     SCHEDULED_DISPATCH_TOO_EARLY:[409,"Ainda é cedo para sair com este pedido agendado. Aguarde a janela operacional indicada."],
+    DELIVERY_MEMBER_INVALID:[409,"O responsável escolhido não é um membro ativo desta revenda."],
     IDEMPOTENCY_CONFLICT:[409,"A mesma chave foi usada para outra requisição."]
   };
   for(const [code,[status,text]] of Object.entries(map)){
@@ -86,7 +87,7 @@ Deno.serve(async(req:Request)=>{
     if(!UUID_RE.test(orderId))throw new DomainError("INVALID_ORDER","Pedido inválido.",400);
 
     const action=String(body.action??"");
-    if(!["accept","reject","dispatch","arriving","cannot-fulfill"].includes(action)){
+    if(!["accept","reject","dispatch","arriving","cannot-fulfill","assign-delivery"].includes(action)){
       throw new DomainError("INVALID_ACTION","Ação inválida.",400);
     }
     const expectedVersion=asPositiveInt(body.expectedVersion,"expectedVersion",{min:1,max:Number.MAX_SAFE_INTEGER});
@@ -95,11 +96,21 @@ Deno.serve(async(req:Request)=>{
     if(action==="cannot-fulfill"&&!failureReasons.has(reason)){
       throw new DomainError("INVALID_FAILURE_REASON","Motivo operacional inválido.",400);
     }
-    const requestHash=await requestFingerprint("merchant-action:"+action,{orderId,action,expectedVersion,reason});
+    const deliveryUserId=action==="assign-delivery"?String(body.deliveryUserId??""):"";
+    if(action==="assign-delivery"&&!UUID_RE.test(deliveryUserId)){
+      throw new DomainError("INVALID_DELIVERY_MEMBER","Responsável pela entrega inválido.",400);
+    }
+    const requestHash=await requestFingerprint("merchant-action:"+action,{
+      orderId,action,expectedVersion,reason,deliveryUserId
+    });
 
     const admin=createClient(SUPABASE_URL,SECRET_KEY,{auth:{persistSession:false,autoRefreshToken:false}});
     await enforceApiQuota(admin,{userId:user.id,actionName:"merchant-action",limit:80,windowSeconds:60});
-    const rpcName=action==="cannot-fulfill"?"merchant_fail_before_dispatch":"merchant_order_action";
+    const rpcName=action==="cannot-fulfill"
+      ?"merchant_fail_before_dispatch"
+      :action==="assign-delivery"
+        ?"merchant_assign_delivery"
+        :"merchant_order_action";
     const rpcArgs=action==="cannot-fulfill"
       ? {
           p_user_id:user.id,
@@ -109,14 +120,23 @@ Deno.serve(async(req:Request)=>{
           p_request_hash:requestHash,
           p_reason:reason
         }
-      : {
-          p_user_id:user.id,
-          p_order_id:orderId,
-          p_action:action,
-          p_expected_version:expectedVersion,
-          p_idempotency_key:idempotencyKey,
-          p_request_hash:requestHash
-        };
+      : action==="assign-delivery"
+        ? {
+            p_user_id:user.id,
+            p_order_id:orderId,
+            p_delivery_user_id:deliveryUserId,
+            p_expected_version:expectedVersion,
+            p_idempotency_key:idempotencyKey,
+            p_request_hash:requestHash
+          }
+        : {
+            p_user_id:user.id,
+            p_order_id:orderId,
+            p_action:action,
+            p_expected_version:expectedVersion,
+            p_idempotency_key:idempotencyKey,
+            p_request_hash:requestHash
+          };
     const {data,error}=await admin.rpc(rpcName,rpcArgs);
 
     if(error){
