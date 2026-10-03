@@ -117,7 +117,7 @@ begin
 
   v_portals_fresh:=
     v_control.portals_verified_at is not null
-    and v_control.portals_verified_at>=clock_timestamp()-interval '60 minutes'
+    and v_control.portals_verified_at>=statement_timestamp()-interval '60 minutes'
     and v_control.customer_portal_ok
     and v_control.merchant_portal_ok
     and v_control.admin_portal_ok
