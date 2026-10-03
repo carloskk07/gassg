@@ -9,6 +9,12 @@ const deployTarget=String(process.env.TAMAO_DEPLOY_TARGET||'lab').trim().toLower
 const cloudflare=deployTarget==='cloudflare';
 const indexing=process.env.TAMAO_PUBLIC_INDEXING==='1';
 const liveRuntime=process.env.TAMAO_LIVE_RUNTIME==='1';
+const TURNSTILE_TEST_KEYS=new Set([
+  '1x00000000000000000000AA',
+  '2x00000000000000000000AB',
+  '3x00000000000000000000FF',
+  '0x4AAAAAAAAAA-demo-site-key'
+]);
 
 function validatePublicOrigin(value){
   const raw=String(value||'https://tamao.com.br').trim().replace(/\/$/,'');
@@ -24,6 +30,12 @@ const publicOrigin=validatePublicOrigin(process.env.TAMAO_PUBLIC_ORIGIN);
 
 if(indexing&&!cloudflare)throw new Error('TAMAO_PUBLIC_INDEXING=1 só é permitido no build Cloudflare');
 if(liveRuntime&&!cloudflare)throw new Error('TAMAO_LIVE_RUNTIME=1 só é permitido no build Cloudflare');
+if(liveRuntime){
+  const customerOrigin=String(process.env.CHAMA_CUSTOMER_ORIGIN||'').trim().replace(/\/$/,'');
+  const turnstileKey=String(process.env.CHAMA_TURNSTILE_SITE_KEY||'').trim();
+  if(customerOrigin!==publicOrigin)throw new Error('CHAMA_CUSTOMER_ORIGIN precisa coincidir com TAMAO_PUBLIC_ORIGIN');
+  if(TURNSTILE_TEST_KEYS.has(turnstileKey))throw new Error('Turnstile de teste é proibido no runtime público real');
+}
 
 const files=['index.html','manifest.webmanifest','sw.js','robots.txt'];
 const dirs=['css','js','icons'];
