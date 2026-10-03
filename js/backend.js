@@ -49,10 +49,13 @@ async function retryAmbiguousOnce(operation){
 }
 
 const customerPortalParams=new URLSearchParams(location.search);
+const configuredPortalRole=String(globalThis.CHAMA_PORTAL_ROLE||'').trim().toLowerCase();
 const liveRuntime={
   requested:globalThis.__CHAMA_TEST__===true
     ? false
-    : customerPortalParams.get('merchant')!=='1'&&customerPortalParams.get('admin')!=='1',
+    : configuredPortalRole
+      ? configuredPortalRole==='customer'
+      : customerPortalParams.get('merchant')!=='1'&&customerPortalParams.get('admin')!=='1',
   status:'disabled',
   client:null,
   session:null,
@@ -729,7 +732,9 @@ async function livePoll(){
 
 
 const merchantRuntime={
-  requested:new URLSearchParams(location.search).get('merchant')==='1',
+  requested:configuredPortalRole
+    ? configuredPortalRole==='merchant'
+    : new URLSearchParams(location.search).get('merchant')==='1',
   status:'disabled',
   client:null,
   session:null,
