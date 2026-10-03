@@ -5,7 +5,9 @@ const marketingAnalyticsState={
 };
 
 function marketingAnalyticsEnabled(){
-  return globalThis.__CHAMA_TEST__!==true
+  const host=String(location.hostname||'').toLowerCase();
+  return ['tamao.com.br','www.tamao.com.br'].includes(host)
+    && globalThis.__CHAMA_TEST__!==true
     && globalThis.CHAMA_INTERNAL_PILOT!==true
     && globalThis.adminPortalRequested?.()!==true
     && globalThis.merchantPortalRequested?.()!==true;
