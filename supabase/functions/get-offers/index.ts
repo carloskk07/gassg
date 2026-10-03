@@ -178,6 +178,16 @@ Deno.serve(async (req: Request) => {
     await enforceApiQuota(admin,{userId:user.id,actionName:"get-offers",limit:20,windowSeconds:60});
     await enforceApiQuota(admin,{userId:user.id,actionName:"get-offers-hour",limit:120,windowSeconds:3600});
 
+    const {data:launchStatus,error:launchStatusError}=await admin.rpc("commerce_launch_status");
+    if(launchStatusError)throw launchStatusError;
+    if(launchStatus?.commerceEnabled!==true){
+      return json({
+        offers:[],
+        commerceLaunchBlocked:true,
+        launchMode:"prelaunch"
+      },200,origin);
+    }
+
     const postal=await validateServicePostalCode(admin,body.postalCode);
     const address=canonicalAddress(postal,addressNumber);
     const addressMeta={
