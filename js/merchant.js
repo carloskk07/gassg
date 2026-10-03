@@ -66,6 +66,8 @@ function merchantLivePage(){
   }
 
   const m=rt.merchant;
+  const performance=m.performance||{};
+  const capacity=Math.max(1,Number(m.maxActiveOrders||8));
   const heartbeatFresh=merchantTimestampFresh(m.lastSeenAt,10/60);
   const connectionHealthy=!m.online||heartbeatFresh;
   const manage=['owner','manager'].includes(m.memberRole);
@@ -118,7 +120,10 @@ function merchantLivePage(){
       <div class="kpi"><span class="label">${p13?.pricingMode==='range'?'Preço normal P13':'Preço P13'}</span><strong>${p13?BRL.format(Number(p13.priceCents||0)/100):'—'}</strong>${p13?.pricingMode==='range'?'<small>'+BRL.format(Number(p13.minPriceCents||0)/100)+'–'+BRL.format(Number(p13.maxPriceCents||0)/100)+'</small>':''}</div>
       <div class="kpi"><span class="label">Estoque P13</span><strong>${p13?Number(p13.availableStock||0):'—'}</strong></div>
       <div class="kpi"><span class="label">Trust</span><strong>${Number(m.trustScore||0)}/100</strong></div>
-      <div class="kpi"><span class="label">Pedidos ativos</span><strong>${orders.length}</strong></div>
+      <div class="kpi"><span class="label">Pedidos ativos</span><strong>${orders.length}/${capacity}</strong><small>capacidade simultânea</small></div>
+      <div class="kpi"><span class="label">Concluídos 90d</span><strong>${Number(performance.completedOrders||0)}</strong></div>
+      <div class="kpi"><span class="label">Conclusão pós-aceite</span><strong>${performance.completionRate==null?'—':Math.round(Number(performance.completionRate)*100)+'%'}</strong></div>
+      <div class="kpi"><span class="label">No prazo</span><strong>${performance.onTimeRate==null?'—':Math.round(Number(performance.onTimeRate)*100)+'%'}</strong></div>
     </div></section>
 
     ${manage?`<div class="card flat form-stack">
@@ -131,6 +136,10 @@ function merchantLivePage(){
       <div class="field-row"><div class="input-wrap"><label for="live-delivery-fee">Taxa de entrega</label><input id="live-delivery-fee" inputmode="decimal" type="number" min="0" max="1000" step="0.10" class="input" value="${(Number(m.deliveryFeeCents||0)/100).toFixed(2)}"></div><div class="input-wrap"><label for="live-eta">ETA base (min)</label><input id="live-eta" inputmode="numeric" type="number" min="5" max="180" class="input" value="${Number(m.baseEtaMinutes||30)}"></div></div>
       <label class="check-row"><input id="live-citywide" type="checkbox" ${m.acceptsCitywide!==false?'checked':''}><span><strong>Atende São Gabriel</strong><small>Usado no filtro de ofertas do piloto.</small></span></label>
       <button class="secondary" onclick="merchantLiveSaveLogistics()">Salvar logística</button>
+      <div class="divider"></div>
+      <h3>Capacidade simultânea</h3>
+      <div class="input-wrap"><label for="live-capacity">Máximo de pedidos ativos ao mesmo tempo</label><input id="live-capacity" inputmode="numeric" type="number" min="1" max="100" class="input" value="${capacity}"><small class="field-help">Ao atingir este limite, a revenda deixa de receber novas ofertas até liberar capacidade. Pedidos existentes não são cancelados.</small></div>
+      <button class="secondary" onclick="merchantLiveSaveCapacity()">Salvar capacidade</button>
     </div>`:''}
 
     <section class="section"><div class="section-head"><div><h2>Pedidos que exigem ação</h2><p>Dados vêm do backend real. Status só muda depois de confirmação server-side.</p></div></div>${orders.length?orders.map(merchantLiveOrder).join(''):'<div class="empty card">Nenhum pedido ativo para esta revenda.</div>'}</section>
@@ -157,7 +166,7 @@ function merchantLiveOrder(o){
 
   return `<article class="order-card ${o.status==='OFFERED_TO_MERCHANT'?'new':''}">
     <div class="order-head"><div><div class="order-id">${esc(o.publicCode||o.orderId)}</div><div class="order-line">${items||'Itens do pedido'}</div></div><div style="text-align:right"><strong>${total}</strong><div class="tiny muted">${esc(copy[0])}</div></div></div>
-    <div class="order-line">${address}</div><div class="order-line">Pagamento: ${esc(paymentLabel(o.paymentMethod))}</div>
+    <div class="order-line">${address}</div><div class="order-line">Pagamento: ${esc(paymentLabel(o.paymentMethod))}</div>${o.paymentMethod==='cash'&&o.cashTenderCents?`<div class="order-line"><strong>Troco para: ${BRL.format(Number(o.cashTenderCents)/100)}</strong></div>`:''}
     ${o.riskReason?`<div class="notice danger" style="margin-top:10px">${esc(o.riskReason)}</div>`:''}
     <div class="order-actions">${actions}</div>
   </article>`;
@@ -223,7 +232,16 @@ async function merchantLiveSaveLogistics(){
   if(!Number.isFinite(fee)||fee<0||!Number.isInteger(eta)||eta<5||eta>180)return toast('Revise taxa e ETA');
   try{await merchantUpdateLogisticsLive(Math.round(fee*100),eta,citywide);toast(citywide?'Logística atualizada':'Logística atualizada. Novos pedidos foram pausados até reativar São Gabriel.')}catch(e){toast(String(e?.message||e))}
 }
-async function merchantLiveAction(id,action){
+async async function merchantLiveSaveCapacity(){
+  const capacity=Number(document.querySelector('#live-capacity')?.value);
+  if(!Number.isInteger(capacity)||capacity<1||capacity>100)return toast('Informe uma capacidade entre 1 e 100 pedidos');
+  try{
+    await merchantUpdateCapacityLive(capacity);
+    toast('Capacidade operacional atualizada');
+  }catch(e){toast(String(e?.message||e))}
+}
+
+function merchantLiveAction(id,action){
   try{
     const result=await merchantPerformAction(id,action);
     if(action==='accept'&&result?.autoRescued){
