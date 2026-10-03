@@ -254,3 +254,27 @@ button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-vis
   .prelaunch-transparency-grid{grid-template-columns:repeat(3,1fr)}
   .prelaunch-intent-grid{grid-template-columns:repeat(3,1fr)}
 }
+
+
+/* TAMÃO v1.55 — acquisition intelligence */
+.acquisition-summary-kpis .kpi small{display:block;margin-top:4px;color:var(--muted);font-size:10px;line-height:1.35}
+.acquisition-funnel{display:grid;grid-template-columns:1fr;gap:9px;margin:14px 0}
+.funnel-stage{display:grid;grid-template-columns:36px minmax(0,1fr);gap:11px;align-items:center;background:white;border:1px solid var(--line);border-radius:18px;padding:14px;box-shadow:0 8px 22px rgba(16,47,34,.04)}
+.funnel-stage>span{width:34px;height:34px;border-radius:12px;background:var(--brand-soft);color:var(--brand);display:grid;place-items:center;font-size:11px;font-weight:950}
+.funnel-stage small{display:block;color:var(--muted);font-size:9px;font-weight:950;letter-spacing:.07em}
+.funnel-stage strong{display:block;font-size:24px;line-height:1.05;margin-top:3px;letter-spacing:-.035em}
+.funnel-stage p{margin:4px 0 0;color:var(--brand);font-size:11px;font-weight:900}
+.acquisition-campaigns{margin-top:14px}
+.acquisition-campaign-list{display:grid;gap:9px;margin-top:12px}
+.acquisition-campaign-row{display:grid;gap:10px;padding:12px;border:1px solid var(--line);border-radius:15px;background:#f8faf9}
+.acquisition-campaign-row>div:first-child strong{display:block;font-size:13px}
+.acquisition-campaign-row>div:first-child small{display:block;margin-top:4px;color:var(--muted);font-size:10px;line-height:1.4}
+.campaign-rates{display:grid;grid-template-columns:repeat(3,1fr);gap:7px}
+.campaign-rates span{background:white;border:1px solid #e4ece7;border-radius:11px;padding:8px;text-align:center}
+.campaign-rates small{display:block;color:var(--muted);font-size:8px;font-weight:900;letter-spacing:.04em;text-transform:uppercase}
+.campaign-rates strong{display:block;margin-top:3px;font-size:13px}
+.acquisition-queue-head{margin-top:20px}
+@media(min-width:760px){
+  .acquisition-funnel{grid-template-columns:repeat(4,1fr)}
+  .acquisition-campaign-row{grid-template-columns:minmax(220px,1fr) minmax(330px,.9fr);align-items:center}
+}
