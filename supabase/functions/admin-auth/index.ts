@@ -62,9 +62,6 @@ function safeRedirect(value:unknown,origin:string){
 async function requestLoginLink(req:Request,origin:string,body:any){
   const email=normalizeEmail(body?.email);
   const captchaToken=String(body?.captchaToken??"").trim();
-  if(captchaToken&&captchaToken.length<20){
-    return json({error:"INVALID_CAPTCHA_TOKEN",message:"Verificação anti-bot inválida."},400,origin);
-  }
   const redirectTo=safeRedirect(body?.redirectTo,origin);
 
   const admin=createClient(SUPABASE_URL,SECRET_KEY,{
@@ -80,6 +77,10 @@ async function requestLoginLink(req:Request,origin:string,body:any){
     limit:30,
     windowSeconds:3600
   });
+
+  if(captchaToken.length<20){
+    return json({error:"CAPTCHA_REQUIRED",message:"Verificação anti-bot obrigatória."},400,origin);
+  }
 
   const {data:mode,error:modeError}=await admin.rpc("admin_login_mode",{
     p_email_sha256_hex:emailHash
@@ -104,13 +105,14 @@ async function requestLoginLink(req:Request,origin:string,body:any){
   const auth=createClient(SUPABASE_URL,PUBLISHABLE_KEY,{
     auth:{persistSession:false,autoRefreshToken:false}
   });
-  const options:any={
-    emailRedirectTo:redirectTo,
-    shouldCreateUser:mode==="bootstrap_reserved"
-  };
-  if(captchaToken)options.captchaToken=captchaToken;
-
-  const {error}=await auth.auth.signInWithOtp({email,options});
+  const {error}=await auth.auth.signInWithOtp({
+    email,
+    options:{
+      emailRedirectTo:redirectTo,
+      shouldCreateUser:mode==="bootstrap_reserved",
+      captchaToken
+    }
+  });
   if(error){
     console.error("admin-auth otp failed",String(error.code??error.status??"AUTH_ERROR"));
   }
