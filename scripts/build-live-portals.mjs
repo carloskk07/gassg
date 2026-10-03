@@ -1,9 +1,10 @@
+import crypto from 'node:crypto';
 import fs from 'node:fs';
-import os from 'node:os';
 import path from 'node:path';
 import {buildRuntimeConfig,validatePortalRole} from './generate-runtime-config.mjs';
 
 const ROOT=path.resolve(new URL('..',import.meta.url).pathname);
+const LIVE_TARGETS=JSON.parse(fs.readFileSync(path.join(ROOT,'config','live-targets.json'),'utf8'));
 const STATIC_FILES=['index.html','manifest.webmanifest','sw.js'];
 const STATIC_DIRS=['css','js','icons'];
 const PORTALS={
@@ -35,6 +36,52 @@ export function assertProductionTurnstile(env=process.env){
     throw new Error('Cloudflare Turnstile test/demo key is forbidden in live portal bundles');
   }
   return key;
+}
+
+export function assertAuthRedirectsConfirmed(env=process.env){
+  if(String(env.CHAMA_AUTH_REDIRECTS_CONFIRMED??'').trim()!=='1'){
+    throw new Error(
+      'CHAMA_AUTH_REDIRECTS_CONFIRMED=1 is required after verifying Supabase Auth Site URL and Redirect URLs'
+    );
+  }
+  return true;
+}
+
+function portalOriginEnvKey(role){
+  return 'CHAMA_'+role.toUpperCase()+'_ORIGIN';
+}
+
+function assertTargetsMatchEnv(env){
+  for(const role of Object.keys(PORTALS)){
+    const expected=String(LIVE_TARGETS?.portals?.[role]?.origin??'');
+    const actual=String(env[portalOriginEnvKey(role)]??'').replace(/\/$/,'');
+    if(!expected||actual!==expected){
+      throw new Error(role+' origin does not match config/live-targets.json');
+    }
+  }
+}
+
+function recursiveFiles(root,dir=root){
+  const out=[];
+  for(const entry of fs.readdirSync(dir,{withFileTypes:true})){
+    const full=path.join(dir,entry.name);
+    if(entry.isDirectory())out.push(...recursiveFiles(root,full));
+    else if(entry.isFile())out.push(path.relative(root,full).split(path.sep).join('/'));
+  }
+  return out.sort();
+}
+
+function bundleDigest(dir){
+  const files=recursiveFiles(dir);
+  const hash=crypto.createHash('sha256');
+  let bytes=0;
+  for(const relative of files){
+    const data=fs.readFileSync(path.join(dir,relative));
+    bytes+=data.length;
+    const fileHash=crypto.createHash('sha256').update(data).digest('hex');
+    hash.update(relative+'\0'+fileHash+'\n');
+  }
+  return {sha256:hash.digest('hex'),fileCount:files.length,bytes};
 }
 
 function headers(){
@@ -77,6 +124,8 @@ function patchManifest(raw,portal){
 
 export function buildLivePortals(env=process.env,{outputRoot=env.PORTAL_BUILD_OUTPUT||path.join(ROOT,'dist','live-portals')}={}){
   assertProductionTurnstile(env);
+  assertAuthRedirectsConfirmed(env);
+  assertTargetsMatchEnv(env);
   const out=path.resolve(outputRoot);
   fs.rmSync(out,{recursive:true,force:true});
   fs.mkdirSync(out,{recursive:true});
@@ -113,8 +162,33 @@ export function buildLivePortals(env=process.env,{outputRoot=env.PORTAL_BUILD_OU
     for(const forbidden of ['supabase','tests','scripts','.github']){
       if(fs.existsSync(path.join(target,forbidden)))throw new Error('forbidden live portal path: '+forbidden);
     }
-    built.push({role,path:target});
+    const digest=bundleDigest(target);
+    built.push({
+      role,
+      path:target,
+      origin:LIVE_TARGETS.portals[role].origin,
+      netlifySiteId:LIVE_TARGETS.portals[role].netlifySiteId,
+      ...digest
+    });
   }
+
+  const releaseManifest={
+    schemaVersion:1,
+    sourceSha:String(env.CHAMA_SOURCE_SHA||'unknown'),
+    supabaseAuth:LIVE_TARGETS.supabaseAuth,
+    portals:Object.fromEntries(built.map(item=>[item.role,{
+      origin:item.origin,
+      netlifySiteId:item.netlifySiteId,
+      bundleSha256:item.sha256,
+      fileCount:item.fileCount,
+      bytes:item.bytes
+    }]))
+  };
+  fs.writeFileSync(
+    path.join(out,'release-manifest.json'),
+    JSON.stringify(releaseManifest,null,2)+'\n',
+    'utf8'
+  );
   return built;
 }
 
