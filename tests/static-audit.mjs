@@ -512,8 +512,14 @@ for(const entry of fs.readdirSync(functionRoot,{withFileTypes:true})){
   const source=fs.readFileSync(file,'utf8');
   assert.ok(source.includes('jsr:@supabase/functions-js@2.117.2/edge-runtime.d.ts'),entry.name+' precisa fixar functions-js');
   assert.ok(source.includes('npm:@supabase/supabase-js@2.117.2'),entry.name+' precisa fixar supabase-js');
-  assert.ok(source.includes('readJsonBody(req)'),entry.name+' precisa limitar JSON');
-  assert.ok(source.includes('enforceApiQuota(admin'),entry.name+' precisa aplicar quota server-side');
+  if(entry.name==='capture-prelaunch-lead'){
+    assert.ok(source.includes('raw.length>16000'),entry.name+' precisa limitar JSON');
+    assert.ok(source.includes('consume_prelaunch_lead_quota'),entry.name+' precisa aplicar quota server-side');
+    assert.ok(source.includes('ALLOWED_ORIGINS')&&source.includes('originAllowed'),entry.name+' precisa restringir origem explicitamente');
+  }else{
+    assert.ok(source.includes('readJsonBody(req)'),entry.name+' precisa limitar JSON');
+    assert.ok(source.includes('enforceApiQuota(admin'),entry.name+' precisa aplicar quota server-side');
+  }
   if(entry.name==='complete-delivery'){
     assert.ok(source.includes('body.paymentConfirmed!==true'),'complete-delivery deve exigir confirmação de pagamento');
     assert.ok(source.includes('paymentConfirmed:true'),'fingerprint idempotente deve incluir confirmação de pagamento');
