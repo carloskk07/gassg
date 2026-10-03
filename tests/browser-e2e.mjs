@@ -93,7 +93,7 @@ assert.match(body,/Seu gás, com preço e prazo/);
 assert.match(body,/Quero pedir agora/);
 assert.match(body,/Quero entender melhor/);
 assert.match(body,/Botijão de cozinha 13 kg/);
-assert.match(body,/PROTEÇÃO CHAMA/);
+assert.match(body,/PROTEÇÃO TAMÃO/);
 assert.match(body,/Quero ganhar ou vender/);
 assert.match(body,/Ambiente isolado de teste automatizado/);
 await auditDom('home');
@@ -139,7 +139,7 @@ body=await text();
 assert.match(body,/Indique quem realmente pode comprar/);
 assert.match(body,/Transforme pedidos adicionais em faturamento incremental/);
 assert.match(body,/2%/);
-assert.match(body,/Taxa Chama: 7,5% por pedido concluído/);
+assert.match(body,/Taxa TAMÃO: 7,5% por pedido concluído/);
 await auditDom('earn');
 
 await evaluate("go('merchants')");
@@ -219,7 +219,7 @@ body=await text();
 assert.match(body,/cashback/i);
 
 await evaluate("go('club')");
-await waitFor("document.body.innerText.includes('Clube Chama')","club route");
+await waitFor("document.body.innerText.includes('Clube TAMÃO')","club route");
 body=await text();
 assert.match(body,/R\$\s*7,65/);
 await auditDom('club');
