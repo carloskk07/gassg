@@ -69,8 +69,11 @@ const liveRuntime={
   marketStatus:null,
   lastOrderTemplate:null,
   reorderPrediction:null,
+  comparisonSavingsCents:0,
+  cashbackEarnedCents:0,
   referredCount:0,
   qualifiedReferralCount:0,
+  scheduledDeliveryUnavailable:false,
   lastMarketStatusAt:0,
   lastFinancialSyncAt:0,
   lastFinancialSyncAttemptAt:0,
@@ -293,6 +296,10 @@ function liveOfferView(raw){
     avgAcceptSeconds:raw.avgAcceptSeconds==null?null:Number(raw.avgAcceptSeconds),
     feedbackCount:Math.max(0,Number(raw.feedbackCount||0)),
     positiveFeedbackRate:raw.positiveFeedbackRate==null?null:Number(raw.positiveFeedbackRate),
+    comparisonSavings:Math.max(0,Number(raw.comparisonSavingsCents||0))/100,
+    demandLevel:String(raw.demandLevel||'normal'),
+    deliveryWindowStart:raw.deliveryWindowStart??null,
+    deliveryWindowEnd:raw.deliveryWindowEnd??null,
     expiresAt:raw.expiresAt,
     live:true
   };
@@ -317,17 +324,25 @@ async function liveRefreshOffers({silent=false}={}){
     liveRuntime.marketMode=null;
     liveRuntime.eligibleMerchantCount=0;
     liveRuntime.displayedOfferCount=0;
+    liveRuntime.scheduledDeliveryUnavailable=false;
     liveRuntime.loadingOffers=false;
     if(!silent)render();
     return [];
   }
   const addressSnapshot=state.address;
   const itemsSnapshot=liveCartItems();
+  const scheduleSnapshot=state.checkout.deliveryMode==='scheduled'
+    ? {
+        start:state.checkout.deliveryWindowStart,
+        end:state.checkout.deliveryWindowEnd
+      }
+    : {start:null,end:null};
   liveRuntime.offers=[];
   liveRuntime.deliveryCompatibilityBlocked=false;
   liveRuntime.marketMode=null;
   liveRuntime.eligibleMerchantCount=0;
   liveRuntime.displayedOfferCount=0;
+  liveRuntime.scheduledDeliveryUnavailable=false;
   liveRuntime.loadingOffers=true;
   liveRuntime.error=null;
   if(!silent)render();
@@ -335,13 +350,22 @@ async function liveRefreshOffers({silent=false}={}){
     const data=await liveInvoke('get-offers',{
       address:addressSnapshot,
       items:itemsSnapshot,
-      priority:'recommended'
+      priority:'recommended',
+      deliveryWindowStart:scheduleSnapshot.start,
+      deliveryWindowEnd:scheduleSnapshot.end
     });
     if(seq!==liveRuntime.offerRequestSeq)return liveRuntime.offers;
     if(state.address!==addressSnapshot||JSON.stringify(liveCartItems())!==JSON.stringify(itemsSnapshot)){
       return liveRuntime.offers;
     }
+    const currentSchedule=state.checkout.deliveryMode==='scheduled'
+      ? {start:state.checkout.deliveryWindowStart,end:state.checkout.deliveryWindowEnd}
+      : {start:null,end:null};
+    if(JSON.stringify(currentSchedule)!==JSON.stringify(scheduleSnapshot)){
+      return liveRuntime.offers;
+    }
     liveRuntime.deliveryCompatibilityBlocked=data?.deliveryCompatibilityBlocked===true;
+    liveRuntime.scheduledDeliveryUnavailable=data?.scheduledDeliveryUnavailable===true;
     liveRuntime.marketMode=String(data?.marketMode||'')||null;
     liveRuntime.eligibleMerchantCount=Math.max(0,Number(data?.eligibleMerchantCount||0));
     liveRuntime.displayedOfferCount=Math.max(0,Number(data?.displayedOfferCount||0));
@@ -357,6 +381,7 @@ async function liveRefreshOffers({silent=false}={}){
       liveRuntime.marketMode=null;
       liveRuntime.eligibleMerchantCount=0;
       liveRuntime.displayedOfferCount=0;
+      liveRuntime.scheduledDeliveryUnavailable=false;
       liveRuntime.error=String(error?.message||error);
     }
     throw error;
@@ -402,6 +427,10 @@ async function liveCreateOrder(quoteId){
     state.cart=normalizeCart({});
     state.checkout.useCashback=false;
     state.checkout.cashTenderCents=null;
+    state.checkout.deliveryMode='now';
+    state.checkout.deliveryWindowStart=null;
+    state.checkout.deliveryWindowEnd=null;
+    state.checkout.deliveryWindowLabel=null;
     save();
     await liveGetOrder(result.orderId,{silent:true});
     go('tracking');
@@ -419,6 +448,10 @@ async function liveCreateOrder(quoteId){
       state.cart=normalizeCart({});
       state.checkout.useCashback=false;
       state.checkout.cashTenderCents=null;
+      state.checkout.deliveryMode='now';
+      state.checkout.deliveryWindowStart=null;
+      state.checkout.deliveryWindowEnd=null;
+      state.checkout.deliveryWindowLabel=null;
       save();
       go('tracking');
       toast('Pedido recuperado com segurança após uma falha de conexão.');
@@ -525,7 +558,9 @@ async function liveSyncFinancialProfile({force=false}={}){
     lastOrderTemplate:liveRuntime.lastOrderTemplate,
     reorderPrediction:liveRuntime.reorderPrediction,
     referredCount:liveRuntime.referredCount,
-    qualifiedReferralCount:liveRuntime.qualifiedReferralCount
+    qualifiedReferralCount:liveRuntime.qualifiedReferralCount,
+    comparisonSavingsCents:liveRuntime.comparisonSavingsCents,
+    cashbackEarnedCents:liveRuntime.cashbackEarnedCents
   });
   const seq=++liveRuntime.financialSyncSeq;
   try{
@@ -544,6 +579,8 @@ async function liveSyncFinancialProfile({force=false}={}){
     liveRuntime.reorderPrediction=summary?.reorderPrediction??null;
     liveRuntime.referredCount=Math.max(0,Number(summary?.referredCount||0));
     liveRuntime.qualifiedReferralCount=Math.max(0,Number(summary?.qualifiedReferralCount||0));
+    liveRuntime.comparisonSavingsCents=Math.max(0,Number(summary?.comparisonSavingsCents||0));
+    liveRuntime.cashbackEarnedCents=Math.max(0,Number(summary?.cashbackEarnedCents||0));
     if(summary?.activeOrderId){
       liveRuntime.orderId=String(summary.activeOrderId);
       localStorage.setItem(CHAMA_BACKEND.orderStorageKey,liveRuntime.orderId);
@@ -563,7 +600,9 @@ async function liveSyncFinancialProfile({force=false}={}){
       lastOrderTemplate:liveRuntime.lastOrderTemplate,
       reorderPrediction:liveRuntime.reorderPrediction,
       referredCount:liveRuntime.referredCount,
-      qualifiedReferralCount:liveRuntime.qualifiedReferralCount
+      qualifiedReferralCount:liveRuntime.qualifiedReferralCount,
+      comparisonSavingsCents:liveRuntime.comparisonSavingsCents,
+      cashbackEarnedCents:liveRuntime.cashbackEarnedCents
     });
     return before!==after;
   }catch(error){
@@ -996,6 +1035,22 @@ async function merchantUpdateCapacityLive(maxActiveOrders){
   try{
     await retryAmbiguousOnce(()=>merchantInvoke('merchant-ops',{
       merchantId,action:'update-capacity',maxActiveOrders:capacity
+    }));
+    await merchantRefresh({silent:true});
+  }finally{
+    merchantRuntime.actionPending=false;render();
+  }
+}
+
+async function merchantUpdateSchedulingLive(acceptsScheduledOrders){
+  const merchantId=merchantRuntime.merchant?.merchantId;
+  if(!merchantId)throw new Error('Revenda não selecionada');
+  merchantRuntime.actionPending=true;render();
+  try{
+    await retryAmbiguousOnce(()=>merchantInvoke('merchant-ops',{
+      merchantId,
+      action:'update-scheduling',
+      acceptsScheduledOrders:acceptsScheduledOrders===true
     }));
     await merchantRefresh({silent:true});
   }finally{
