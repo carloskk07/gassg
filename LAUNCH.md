@@ -12,6 +12,7 @@
 - Captação de parceiros: pronta
 - Canal de contato e privacidade: pronto
 - Inbox administrativa de leads/solicitações: pronta
+- Admin operacional: reserva criada; primeira conta ainda precisa ser reivindicada
 
 ## Regra principal
 
@@ -46,9 +47,13 @@ Quando a alteração de nameservers estiver liberada:
 
 ## Prova antes do primeiro anúncio
 
+**Gate obrigatório antes de comprar tráfego:** reivindicar a conta administrativa reservada, entrar no portal admin e comprovar que o CRM carrega. Hoje existe uma reserva ainda não reivindicada; sem admin ativo, leads podem ser captados mas ninguém consegue operar a fila protegida.
+
 Executar em mobile e desktop:
 
 - home abre em HTTPS;
+- login administrativo reservado funciona;
+- resumo administrativo e funil de aquisição carregam;
 - canonical aponta para `https://tamao.com.br/`;
 - logo e favicon carregam;
 - lista de abertura salva lead no Supabase;

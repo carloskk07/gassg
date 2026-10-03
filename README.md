@@ -2,6 +2,26 @@
 
 Marketplace hiperlocal de gás e abastecimento essencial para São Gabriel/RS.
 
+## Estado atual — v1.55 acquisition intelligence
+
+O admin passa a medir o pré-lançamento como **funil comercial**, e não apenas como uma lista dos 200 contatos mais recentes.
+
+Uma função agregadora server-side calcula sobre a base completa:
+
+- total de leads, clientes e empresas;
+- volume dos últimos 7 e 30 dias;
+- novos ainda sem contato após 24 horas;
+- taxa de contato;
+- taxa de qualificação;
+- taxa de conversão;
+- conversão de qualificado para convertido;
+- média e mediana do tempo até o primeiro contato;
+- desempenho por source / medium / campaign.
+
+O navegador recebe somente os agregados necessários para essas métricas. A lista operacional continua limitada aos contatos recentes, evitando ampliar a exposição de PII só para produzir estatísticas.
+
+A autoridade `admin_prelaunch_acquisition_metrics` exige administrador válido e possui EXECUTE somente para `service_role`.
+
 ## Estado atual — v1.54 follow-up operations
 
 O mini-CRM de pré-lançamento agora ajuda o operador a agir, não apenas visualizar contatos:

@@ -1376,3 +1376,29 @@ A captação já possuía pipeline, mas o primeiro contato ainda começava numa 
 O link do WhatsApp de uma solicitação pública leva apenas um texto operacional com protocolo e tipo de atendimento; o conteúdo original enviado pelo usuário não é copiado para o parâmetro da URL.
 
 A abertura da conversa não marca o lead como contatado. O estado continua dependente de uma ação explícita do administrador, preservando a qualidade da métrica de conversão.
+
+
+## V1.55 — Acquisition intelligence
+
+### Problema fechado
+
+O resumo administrativo carregava no máximo 200 leads. Usar essa amostra para medir campanha produziria taxas incorretas assim que a aquisição ultrapassasse esse volume.
+
+### Solução
+
+A função `admin_prelaunch_acquisition_metrics` agrega a base inteira dentro do Postgres e retorna somente estatísticas, sem transportar PII adicional ao navegador.
+
+O funil usa os timestamps históricos (`contacted_at`, `qualified_at`, `converted_at`) em vez de inferir avanço apenas pelo status atual. Isso mantém as taxas corretas mesmo quando um lead já chegou a convertido.
+
+### Segurança
+
+- `SECURITY DEFINER` com search path restrito;
+- relações referenciadas com schema explícito;
+- `require_platform_admin`;
+- EXECUTE revogado de PUBLIC, anon e authenticated;
+- EXECUTE concedido somente ao service_role;
+- Edge Function já autentica o usuário e exige admin antes de solicitar o agregado.
+
+### Escala
+
+A lista visual permanece limitada aos 200 leads mais recentes para operação. Métricas e campanhas usam todos os registros, eliminando o viés da janela recente.
