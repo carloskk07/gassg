@@ -96,7 +96,7 @@ assert.ok(growth.includes('Saque Pix ainda não disponível')&&growth.includes('
 assert.ok(growth.includes('Você continua no controle'),'landing de revenda deve enfatizar autonomia operacional');
 assert.ok(core.includes("['earn','💰','Ganhe','go']"),'navegação móvel precisa dar acesso direto ao hub de renda');
 assert.ok(!growth.includes('inputmode="numeric" maxlength="18"'),'campo CNPJ não pode forçar teclado somente numérico após adoção do CNPJ alfanumérico');
-assert.ok(sw.includes("CACHE='chama-sg-v1.38'"),'cache do service worker precisa estar versionado');
+assert.ok(sw.includes("CACHE='chama-sg-v1.39'"),'cache do service worker precisa estar versionado');
 assert.ok(sw.includes("./js/backend.js"),'runtime live precisa estar no cache da PWA');
 assert.ok(sw.includes("./js/runtime-config.js"),'configuração pública de origins precisa estar no cache da PWA');
 assert.ok(sw.includes("./js/turnstile.js"),'helper local do Turnstile precisa estar no cache da PWA');
@@ -151,6 +151,10 @@ assert.ok(backend.includes('global:{fetch:chamaFetch}')&&admin.includes('global:
 assert.ok(backend.includes('supabaseLoadPromise=null')&&backend.includes("Tempo limite ao carregar Supabase JS"),'loader do SDK precisa poder se recuperar de falha e timeout');
 assert.ok(turnstile.includes('scriptPromise=null')&&turnstile.includes("Tempo limite ao carregar a verificação anti-bot"),'loader Turnstile não pode ficar permanentemente rejeitado após falha');
 assert.ok(backend.includes("const pathname=local?")&&backend.includes(":'/'"),'navegação cross-origin deve começar na raiz da origem dedicada, sem herdar path do site atual');
+assert.ok(read('supabase/functions/create-order/index.ts').includes('create_order_from_quote_v5'),'create-order real deve usar autoridade V5 com contato de entrega atômico');
+assert.ok(read('supabase/functions/create-order/index.ts').includes('customerPhoneDigits')&&read('supabase/functions/create-order/index.ts').includes('deliveryNotes'),'fingerprint e RPC precisam incluir dados de entrega normalizados');
+assert.ok(backend.includes('customerPhone:state.checkout.customerPhoneDigits')&&backend.includes('deliveryReference:state.checkout.deliveryReference'),'runtime precisa enviar detalhes de entrega no mesmo create-order');
+assert.ok(customer.includes('A revenda recebe o contato apenas depois de aceitar.')&&customer.includes('requirePhone:true'),'checkout real precisa exigir telefone e explicar a fronteira de privacidade');
 assert.ok(backend.includes("const idempotencyKey=liveIdempotency('create-order')"),'criação de pedido precisa fixar a chave idempotente antes da primeira tentativa');
 assert.ok(backend.includes("liveInvoke('create-order',payload,{idempotencyKey})"),'retry de create-order precisa reutilizar a mesma chave idempotente');
 assert.ok(backend.includes("toast('Pedido recuperado com segurança após uma falha de conexão.')"),'frontend precisa recuperar pedido após ACK perdido');
@@ -409,6 +413,9 @@ assert.ok(merchant.includes('merchantTeamPage')&&merchant.includes('Sem senha co
 assert.ok(bootstrap.includes("'merchant-team':merchantTeamPage")&&bootstrap.includes("'merchant-team'"),'router merchant precisa reconhecer workspace de equipe');
 assert.ok(core.includes("memberRole==='driver'")&&core.includes("['merchant','🚚','Entregas','go']"),'motorista não deve receber atalhos de catálogo/equipe na navegação');
 
+assert.ok(getOrderSource.includes('deliveryDetailsVisible=role==="customer"||order.status!=="OFFERED_TO_MERCHANT"'),'pedido individual deve esconder detalhes de entrega da revenda antes do aceite');
+assert.ok(merchantOrdersSource.includes('customerPhone:o.status==="OFFERED_TO_MERCHANT"?null:o.customer_phone_digits'),'feed da revenda deve ocultar telefone antes do aceite');
+assert.ok(merchant.includes('Dados para entrega')&&merchant.includes('href="tel:'),'painel operacional deve exibir contato acionável somente quando projetado pelo backend');
 assert.ok(getOrderSource.includes('financial_state'),'projeção do pedido precisa expor estado financeiro seguro');
 assert.ok(customer.includes('Liquidação financeira revertida'),'cliente precisa ver quando benefícios de pedido entregue foram revertidos');
 assert.ok(read('supabase/functions/customer-summary/index.ts').includes('reversedOrders'),'resumo do cliente precisa conhecer settlements revertidos');
