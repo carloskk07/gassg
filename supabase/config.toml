@@ -1,0 +1,13 @@
+# Edge Functions that must be reachable before a user session exists.
+# Authorization for privileged actions remains enforced inside each handler.
+[functions.admin-auth]
+verify_jwt = false
+
+[functions.capture-prelaunch-lead]
+verify_jwt = false
+
+[functions.submit-public-request]
+verify_jwt = false
+
+[functions.capture-marketing-event]
+verify_jwt = false

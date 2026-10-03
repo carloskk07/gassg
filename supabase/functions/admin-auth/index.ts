@@ -119,14 +119,36 @@ async function claimBootstrap(req:Request,origin:string){
     limit:20,
     windowSeconds:300
   });
-  const {error:claimError}=await admin.rpc("claim_reserved_platform_admin",{
+  const {data:claim,error:claimError}=await admin.rpc("claim_reserved_platform_admin",{
     p_user_id:data.user.id
   });
   if(claimError){
-    console.error("admin-auth bootstrap claim failed",String(claimError.code??"RPC_ERROR"));
+    const code=String(claimError.code??"RPC_ERROR");
+    console.error("admin-auth bootstrap claim failed",code);
+    if(code==="40001"){
+      return json({
+        error:"ADMIN_BOOTSTRAP_RETRY",
+        message:"Houve uma concorrência temporária ao validar o primeiro acesso. Tente novamente."
+      },409,origin);
+    }
+    if(code==="42501"){
+      return json({
+        error:"ADMIN_IDENTITY_NOT_CONFIRMED",
+        message:"A identidade administrativa precisa estar confirmada."
+      },403,origin);
+    }
+    return json({
+      error:"ADMIN_BOOTSTRAP_FAILED",
+      message:"Não foi possível concluir a validação administrativa agora."
+    },503,origin);
   }
 
-  return json({ok:true},200,origin);
+  const status=String(claim?.status??"unknown");
+  const safeStatus=["claimed","existing_admin","bootstrap_closed","not_reserved"].includes(status)
+    ? status
+    : "unknown";
+
+  return json({ok:true,status:safeStatus},200,origin);
 }
 
 Deno.serve(async(req:Request)=>{

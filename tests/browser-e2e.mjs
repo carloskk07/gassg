@@ -144,6 +144,13 @@ assert.equal(acquisitionProbe.campaigns[0].conversionRatePct,30);
 assert.equal(await evaluate("adminMetricPercent(37.5)"),'37,5%');
 assert.equal(await evaluate("adminMetricDuration(42)"),'42 min');
 assert.match(await evaluate("adminAcquisitionCampaigns({campaigns:[{audience:'customer',source:'meta',medium:'paid_social',campaign:'sg_launch_customer',content:'creative_a',landingViews:40,formViews:20,total:10,contactRatePct:80,qualificationRatePct:50,conversionRatePct:30,landingToFormPct:50,landingToLeadPct:25}]})"),/Campanhas: entrada até conversão/);
+assert.equal(await evaluate("typeof adminBootstrapAccessMessage"),'function');
+assert.match(await evaluate("adminRuntime.bootstrapStatus='not_reserved';adminBootstrapAccessMessage()"),/não corresponde à reserva administrativa inicial/i);
+assert.match(await evaluate("adminRuntime.bootstrapStatus='bootstrap_closed';adminBootstrapAccessMessage()"),/outro administrador ativo/i);
+assert.match(await evaluate("adminRuntime.bootstrapStatus='unknown';adminBootstrapAccessMessage()"),/não confirmou uma condição válida/i);
+assert.match(await evaluate("adminRuntime.bootstrapStatus='not_reserved';adminNoAccessView()"),/Validar acesso novamente/);
+assert.match(await evaluate("adminRuntime.bootstrapError='Falha simulada';adminBootstrapErrorView()"),/Nenhuma permissão foi concedida por fallback/);
+await evaluate("adminRuntime.bootstrapStatus=null;adminRuntime.bootstrapError=null");
 
 await evaluate("go('learn')");
 await waitFor("document.body.innerText.includes('Antes de pedir, veja quanto custa')","learn route");

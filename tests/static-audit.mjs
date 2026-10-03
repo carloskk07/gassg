@@ -42,6 +42,7 @@ const marketingMigration=read('supabase/migrations/20261003205752_first_party_pr
 const admin=read('js/admin.js');
 const financePolicy=read('supabase/migrations/20261001105000_financial_unit_economics_v1_6.sql');
 const publicBuild=read('scripts/build-public-site.mjs');
+const functionConfig=read('supabase/config.toml');
 
 assert.ok(!customer.includes('desktop-only" style="display:block"'),'desktop-only não pode ser forçado a display:block no mobile');
 assert.ok(customer.includes('esc(o.address)'),'endereço do pedido deve ser escapado antes de entrar no HTML');
@@ -174,7 +175,7 @@ assert.ok(growth.includes('Saque Pix ainda não disponível')&&growth.includes('
 assert.ok(growth.includes('Você continua no controle'),'landing de revenda deve enfatizar autonomia operacional');
 assert.ok(core.includes("['earn','💰','Ganhe','go']"),'navegação móvel precisa dar acesso direto ao hub de renda');
 assert.ok(!growth.includes('inputmode="numeric" maxlength="18"'),'campo CNPJ não pode forçar teclado somente numérico após adoção do CNPJ alfanumérico');
-assert.ok(sw.includes("CACHE='tamao-sg-v1.56'"),'cache do service worker precisa refletir a versão TAMÃO');
+assert.ok(sw.includes("CACHE='tamao-sg-v1.57'"),'cache do service worker precisa refletir a versão TAMÃO');
 assert.ok(admin.includes('offerable_supply_required')&&admin.includes('offerReadyMerchantCount'),'painel admin precisa expor oferta real como gate de lançamento');
 assert.ok(admin.includes('realmente capaz de receber uma oferta agora'),'copy de go-live precisa distinguir cadastro de capacidade operacional real');
 assert.ok(sw.includes("./js/backend.js"),'runtime live precisa estar no cache da PWA');
@@ -263,6 +264,19 @@ assert.ok(adminAuthSource.includes('shouldCreateUser:mode==="bootstrap_reserved"
 assert.ok(adminAuthSource.includes('Se este e-mail estiver autorizado, o link de acesso será enviado.'),'request de login deve responder genericamente para evitar enumeração');
 assert.ok(adminAuthSource.includes('captchaToken')&&adminAuthSource.includes('CAPTCHA_REQUIRED'),'bootstrap sem identidade precisa continuar protegido por anti-bot');
 assert.ok(adminAuthSource.includes('url.origin!==origin'),'redirect de magic link precisa permanecer preso à origem administrativa');
+assert.ok(adminAuthSource.includes('ADMIN_BOOTSTRAP_RETRY')&&adminAuthSource.includes('ADMIN_BOOTSTRAP_FAILED'),'claim administrativo não pode engolir falhas de concorrência ou backend');
+assert.ok(adminAuthSource.includes('safeStatus')&&adminAuthSource.includes('["claimed","existing_admin","bootstrap_closed","not_reserved"]'),'browser só pode receber estados de bootstrap explicitamente permitidos');
+assert.ok(adminAuthSource.includes('return json({ok:true,status:safeStatus},200,origin)'),'claim deve devolver apenas estado seguro, sem payload interno da autoridade SQL');
+assert.ok(functionConfig.includes('[functions.admin-auth]')&&functionConfig.includes('verify_jwt = false'),'admin-auth precisa permanecer alcançável antes de existir JWT');
+for(const publicFn of ['capture-prelaunch-lead','submit-public-request','capture-marketing-event']){
+  assert.ok(
+    functionConfig.includes('[functions.'+publicFn+']')&&functionConfig.split('[functions.'+publicFn+']')[1]?.split('[functions.')[0].includes('verify_jwt = false'),
+    publicFn+' precisa persistir verify_jwt=false no config.toml'
+  );
+}
+assert.ok(admin.includes('bootstrapStatus:null')&&admin.includes('bootstrapError:null'),'runtime admin precisa distinguir autorização de falha de bootstrap');
+assert.ok(admin.includes("adminRuntime.status='bootstrap-error'")&&admin.includes('Nenhuma permissão foi concedida por fallback'),'falha do bootstrap precisa fechar acesso e explicar ausência de fallback');
+assert.ok(admin.includes('adminRetryBootstrapFromUi')&&admin.includes('Validar acesso novamente'),'admin precisa permitir repetir a validação sem criar permissão no browser');
 assert.ok(admin.includes('reserva criptográfica server-side'),'UI deve explicar que o primeiro admin não nasce por autoelevação');
 assert.ok(admin.includes('seq!==adminRuntime.refreshSeq'),'resposta administrativa obsoleta não pode sobrescrever estado mais novo');
 assert.ok(backend.includes('liveRuntime.actionPending'),'polling precisa respeitar ação em andamento');
