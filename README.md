@@ -17,6 +17,8 @@ Falhas reais de concorrência ou backend retornam erro explícito e **não conce
 
 O pedido inicial de magic link continua respondendo genericamente para não permitir enumeração de e-mails.
 
+Durante a auditoria foi identificado um bloqueio de implantação: `admin-auth` estava publicada com `verify_jwt=true`, embora `request-link` precise funcionar antes da existência de uma sessão. A política agora fica versionada em `supabase/config.toml` com `verify_jwt=false` para as funções públicas controladas. O claim privilegiado continua exigindo bearer token e `auth.getUser` dentro do handler.
+
 ## Estado atual — v1.56 first-party analytics
 
 O pré-lançamento passa a medir o funil desde a entrada no domínio oficial, sem adicionar trackers publicitários de terceiros.
