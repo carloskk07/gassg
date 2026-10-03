@@ -151,7 +151,8 @@ assert.ok(backend.includes('global:{fetch:chamaFetch}')&&admin.includes('global:
 assert.ok(backend.includes('supabaseLoadPromise=null')&&backend.includes("Tempo limite ao carregar Supabase JS"),'loader do SDK precisa poder se recuperar de falha e timeout');
 assert.ok(turnstile.includes('scriptPromise=null')&&turnstile.includes("Tempo limite ao carregar a verificação anti-bot"),'loader Turnstile não pode ficar permanentemente rejeitado após falha');
 assert.ok(backend.includes("const pathname=local?")&&backend.includes(":'/'"),'navegação cross-origin deve começar na raiz da origem dedicada, sem herdar path do site atual');
-assert.ok(read('supabase/functions/create-order/index.ts').includes('create_order_from_quote_v5'),'create-order real deve usar autoridade V5 com contato de entrega atômico');
+assert.ok(read('supabase/functions/create-order/index.ts').includes('create_order_from_quote_v6'),'create-order real deve usar autoridade V6 com CEP validado');
+assert.ok(read('supabase/migrations/20261003051000_postal_service_area_v1_42.sql').includes('v_result:=public.create_order_from_quote_v5('),'V6 precisa preservar a autoridade V5 de contato de entrega atômico');
 assert.ok(read('supabase/functions/create-order/index.ts').includes('customerPhoneDigits')&&read('supabase/functions/create-order/index.ts').includes('deliveryNotes'),'fingerprint e RPC precisam incluir dados de entrega normalizados');
 assert.ok(backend.includes('customerPhone:state.checkout.customerPhoneDigits')&&backend.includes('deliveryReference:state.checkout.deliveryReference'),'runtime precisa enviar detalhes de entrega no mesmo create-order');
 assert.ok(customer.includes('A revenda recebe o contato apenas depois de aceitar.')&&customer.includes('requirePhone:true'),'checkout real precisa exigir telefone e explicar a fronteira de privacidade');
