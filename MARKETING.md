@@ -96,6 +96,27 @@ Atribuição confiável disponível desde a primeira campanha:
 - leads de cliente por source / medium / campaign;
 - leads de parceiro por source / medium / campaign;
 - CEP e categorias de interesse;
-- reenvios por WhatsApp já deduplicados.
+- reenvios por WhatsApp já deduplicados;
+- taxa de contato;
+- taxa de qualificação;
+- taxa de conversão;
+- tempo mediano até o primeiro contato;
+- novos sem contato há mais de 24 horas.
+
+### Como comparar campanhas
+
+Não escolher vencedor somente por quantidade de formulários.
+
+A sequência inicial de leitura deve ser:
+
+1. **Volume** — quantos leads entraram.
+2. **Contato** — quantos conseguimos realmente alcançar.
+3. **Qualificação** — quantos confirmaram interesse/região/categoria.
+4. **Conversão** — quantos avançaram para cliente/parceiro real.
+5. **Velocidade de resposta** — quanto tempo levamos para fazer o primeiro contato.
+
+Uma campanha com menos leads pode ser comercialmente melhor se entregar maior qualificação/conversão.
+
+Os agregados são calculados server-side sobre a base completa; a lista visual recente do admin não é usada como denominador das taxas.
 
 Pageviews e pixels publicitários ficam para uma etapa posterior, somente depois da política de privacidade e consentimento técnico serem atualizados se necessário.
