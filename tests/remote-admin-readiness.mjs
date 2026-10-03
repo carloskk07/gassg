@@ -49,7 +49,8 @@ async function jsonBody(response,label){
   catch{throw new Error(label+' returned non-JSON HTTP '+response.status+': '+text.slice(0,240))}
 }
 
-// Hard contract: first login must reach our handler without a user JWT.
+// Hard contract: first login must reach our handler without a user JWT or a CAPTCHA token.
+// The probe email is intentionally not reserved, so no email is sent and no auth user is created.
 const loginProbe=await resilientFetch(backendUrl+'/functions/v1/admin-auth',{
   method:'POST',
   headers:{
@@ -60,13 +61,33 @@ const loginProbe=await resilientFetch(backendUrl+'/functions/v1/admin-auth',{
   body:JSON.stringify({
     action:'request-link',
     email:'admin-readiness-probe@example.invalid',
-    captchaToken:'probe'
+    redirectTo:ADMIN_ORIGIN+'/?admin=1#admin'
   })
 },'admin-auth request-link');
 const loginBody=await jsonBody(loginProbe,'admin-auth request-link');
-assert.equal(loginProbe.status,400,'request-link sem JWT precisa alcançar o handler e falhar no CAPTCHA');
-assert.equal(loginBody.error,'CAPTCHA_REQUIRED','gateway não pode bloquear o primeiro request por ausência de JWT');
+assert.equal(loginProbe.status,200,'request-link sem JWT/Turnstile precisa alcançar o handler');
+assert.equal(loginBody.ok,true,'request-link não reservado deve responder genericamente sem enumerar e-mail');
+assert.match(String(loginBody.message||''),/Se este e-mail estiver autorizado/i);
 assert.equal(loginProbe.headers.get('access-control-allow-origin'),ADMIN_ORIGIN,'CORS do admin-auth precisa permanecer preso à origem admin');
+
+// Capability probe against Supabase Auth itself. create_user=false prevents a probe user from being created.
+// We record the result first; once the hosted configuration is proven CAPTCHA-free this becomes a hard launch contract.
+const authOtpProbe=await resilientFetch(backendUrl+'/auth/v1/otp',{
+  method:'POST',
+  headers:{
+    'Content-Type':'application/json',
+    'apikey':publishableKey
+  },
+  body:JSON.stringify({
+    email:'tamao-auth-capability-probe@example.invalid',
+    create_user:false
+  })
+},'Supabase Auth OTP capability');
+let authOtpBody={};
+try{authOtpBody=await authOtpProbe.json()}catch{}
+const authCaptchaRequired=
+  authOtpProbe.status>=400
+  &&/captcha/i.test(JSON.stringify(authOtpBody));
 
 // Hard contract: privileged claim remains closed without a bearer user session.
 const claimProbe=await resilientFetch(backendUrl+'/functions/v1/admin-auth',{
@@ -149,8 +170,13 @@ if(!portal.ready){
 
 console.log(JSON.stringify({
   ok:true,
-  adminAuthPublicEntry:'CAPTCHA_REQUIRED',
+  adminAuthPublicEntry:'GENERIC_200_NO_JWT_NO_CAPTCHA',
   adminClaimWithoutSession:'UNAUTHORIZED',
+  supabaseAuthOtpWithoutCaptcha:{
+    status:authOtpProbe.status,
+    captchaRequired:authCaptchaRequired,
+    body:authOtpBody
+  },
   adminPortal:portal,
   strictPortalGate:REQUIRE_ADMIN_PORTAL
 },null,2));
