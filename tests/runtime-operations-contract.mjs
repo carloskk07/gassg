@@ -660,3 +660,35 @@ assert.match(deliveryResponsibilityV137,/revoke all on function public\.merchant
 assert.match(deliveryResponsibilityV137,/grant execute on function public\.merchant_assign_delivery[\s\S]*to service_role/,'somente backend pode executar autoridade de atribuição');
 
 console.log('Delivery responsibility v1.37 contract passou.');
+
+
+const merchantTeamV138=fs.readFileSync(
+  new URL('../supabase/migrations/20261003041000_merchant_team_v1_38.sql',import.meta.url),
+  'utf8'
+).replace(/--.*$/gm,'').replace(/\s+/g,' ').toLowerCase();
+
+assert.match(merchantTeamV138,/create table if not exists public\.merchant_team_invites/,'convites de equipe precisam de autoridade persistente');
+assert.match(merchantTeamV138,/unique \(merchant_id,email_normalized\)/,'revenda não pode acumular convites concorrentes para o mesmo e-mail');
+assert.match(merchantTeamV138,/alter table public\.merchant_team_invites enable row level security/,'convites precisam de RLS');
+assert.match(merchantTeamV138,/revoke all on table public\.merchant_team_invites from public, anon, authenticated/,'convites não podem ser data-plane do browser');
+assert.match(merchantTeamV138,/create table if not exists public\.merchant_team_events/,'mudanças de equipe precisam de trilha própria');
+assert.match(merchantTeamV138,/merchant_team_invites_invited_by_fk_idx/,'FK invited_by precisa de índice');
+assert.match(merchantTeamV138,/merchant_team_invites_accepted_user_fk_idx/,'FK accepted_user_id precisa de índice');
+assert.match(merchantTeamV138,/merchant_team_events_actor_fk_idx/,'FK actor de evento precisa de índice');
+assert.match(merchantTeamV138,/merchant_team_events_target_fk_idx/,'FK target de evento precisa de índice');
+assert.match(merchantTeamV138,/merchant_team_events_invite_fk_idx/,'FK invite de evento precisa de índice');
+assert.match(merchantTeamV138,/create or replace function public\.claim_merchant_team_invites/,'primeiro login precisa de claim server-side');
+assert.match(merchantTeamV138,/from auth\.users u[\s\S]*u\.id=p_user_id/,'claim precisa derivar o e-mail da identidade autenticada');
+assert.match(merchantTeamV138,/v_is_anonymous/,'conta anônima não pode reivindicar equipe');
+assert.match(merchantTeamV138,/create or replace function public\.merchant_team_snapshot/,'owner\/manager precisam de projeção server-side da equipe');
+assert.match(merchantTeamV138,/v_actor_role not in \('owner','manager'\)/,'gestão de equipe exige owner\/manager');
+assert.match(merchantTeamV138,/p_member_role='manager' and v_actor_role<>'owner'/,'somente owner pode conceder papel manager');
+assert.match(merchantTeamV138,/self_team_invite/,'convite não pode ser usado para mutar o próprio acesso');
+assert.match(merchantTeamV138,/member_has_active_delivery/,'revogação precisa falhar se membro estiver em rota ativa');
+assert.match(merchantTeamV138,/status in \('preparing','at_risk'\)/,'revogação deve limpar assignments antes da saída');
+assert.match(merchantTeamV138,/delivery_unassigned/,'limpeza de assignment precisa deixar evento no pedido');
+assert.match(merchantTeamV138,/merchant-team:\'\|\|p_action/,'mutações de equipe precisam compartilhar idempotência central');
+assert.match(merchantTeamV138,/revoke all on function public\.merchant_team_mutate[\s\S]*from public, anon, authenticated/,'mutações de equipe devem ficar fora do Data API do browser');
+assert.match(merchantTeamV138,/grant execute on function public\.merchant_team_mutate[\s\S]*to service_role/,'somente backend pode executar mutações de equipe');
+
+console.log('Merchant team v1.38 contract passou.');
