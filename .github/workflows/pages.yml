@@ -68,6 +68,13 @@ jobs:
                 grep -q 'body.website' "$f" || { echo "$f missing honeypot"; exit 1; }
                 grep -q 'raw.length>16000' "$f" || { echo "$f missing payload cap"; exit 1; }
                 ;;
+              supabase/functions/capture-marketing-event/index.ts)
+                grep -q 'ALLOWED_ORIGINS' "$f" || { echo "$f missing explicit origin allowlist"; exit 1; }
+                grep -q 'consume_prelaunch_lead_quota' "$f" || { echo "$f missing server-side rate limit"; exit 1; }
+                grep -q 'EVENT_TYPES' "$f" || { echo "$f missing event allowlist"; exit 1; }
+                grep -q 'raw.length>6000' "$f" || { echo "$f missing payload cap"; exit 1; }
+                grep -q 'record_prelaunch_marketing_event' "$f" || { echo "$f missing aggregate RPC"; exit 1; }
+                ;;
               *)
                 grep -q 'auth.getUser' "$f" || { echo "$f missing explicit JWT user validation"; exit 1; }
                 ;;
