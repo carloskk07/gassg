@@ -109,6 +109,7 @@ function freshSeed(){
       : {name:'',cashback:0,cashbackDebt:0,purchases:0,referralCode:'',commissionAvailable:0,commissionPending:0,referredBy:null,cashEarningEligible:false,identityType:'uninitialized'},
     address:'',
     postalCode:'',
+    addressNumber:'',
     cart:{P13:0,P20:0,P45:0,WATER20:0,CHARCOAL4:0,WOOD:0,ICE5:0},
     checkout:{paymentMethod:'pix',useCashback:false,cashTenderCents:null,glpContainerMode:'exchange',deliveryMode:'now',deliveryWindowStart:null,deliveryWindowEnd:null,deliveryWindowLabel:null,customerPhoneDigits:'',addressComplement:'',deliveryReference:'',deliveryNotes:''},
     merchants:testDemo
@@ -203,8 +204,9 @@ function normalizeState(raw){
   merged.checkout.addressComplement=normalizeDeliveryText(merged.checkout.addressComplement,120);
   merged.checkout.deliveryReference=normalizeDeliveryText(merged.checkout.deliveryReference,160);
   merged.checkout.deliveryNotes=normalizeDeliveryText(merged.checkout.deliveryNotes,240);
-  merged.address=String(raw.address||'').slice(0,160);
+  merged.address=String(raw.address||'').slice(0,testDemo?160:240);
   merged.postalCode=String(raw.postalCode||'').replace(/\D/g,'').slice(0,8);
+  merged.addressNumber=String(raw.addressNumber||'').trim().toUpperCase().replace(/\s+/g,'').slice(0,7);
   merged.cart=synchronizeGlpContainerCart(
     normalizeCart(raw.cart),
     merged.checkout.glpContainerMode
@@ -266,6 +268,8 @@ function freshLiveSeed(){
     identityType:'anonymous'
   };
   seed.address='';
+  seed.postalCode='';
+  seed.addressNumber='';
   seed.cart=normalizeCart({});
   seed.orders=[];
   seed.onboarding=[];

@@ -3,7 +3,6 @@ import {
   createClient } from "npm:@supabase/supabase-js@2.117.2";
 import {
   DomainError,
-  normalizeAddress,
   normalizeItems,
   anonymizeOffer,
   hasMerchantLeak,
@@ -13,7 +12,7 @@ import {
 } from "../_shared/domain.js";
 import {chooseOffers} from "../_shared/offer-ranking.js";
 import {effectiveUnitPrice} from "../_shared/pricing-policy.js";
-import {validateServicePostalCode} from "../_shared/postal-code.js";
+import {validateServicePostalCode,normalizeAddressNumber,canonicalAddress} from "../_shared/postal-code.js";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
 const publishableKeys = JSON.parse(Deno.env.get("SUPABASE_PUBLISHABLE_KEYS") ?? "{}");
@@ -161,7 +160,7 @@ Deno.serve(async (req: Request) => {
   try {
     const user = await authenticatedUser(req);
     const body = await readJsonBody(req);
-    const address = normalizeAddress(body.address);
+    const addressNumber=normalizeAddressNumber(body.addressNumber);
     const items = normalizeItems(body.items);
     const deliveryWindow=normalizeDeliveryWindow(body as Record<string,unknown>);
     const paymentMethod=String(body.paymentMethod??"pix").trim().toLowerCase();
@@ -180,6 +179,17 @@ Deno.serve(async (req: Request) => {
     await enforceApiQuota(admin,{userId:user.id,actionName:"get-offers-hour",limit:120,windowSeconds:3600});
 
     const postal=await validateServicePostalCode(admin,body.postalCode);
+    const address=canonicalAddress(postal,addressNumber);
+    const addressMeta={
+      canonicalAddress:address,
+      postalValidated:true,
+      postalCode:postal.postalCode,
+      addressNumber,
+      street:postal.street,
+      neighborhood:postal.neighborhood??null,
+      serviceCity:postal.city,
+      serviceState:postal.state
+    };
 
     const { data: merchants, error: merchantError } = await admin
       .from("merchants")
@@ -193,10 +203,7 @@ Deno.serve(async (req: Request) => {
     if (merchantError) throw merchantError;
     if (!merchants?.length) return json({
       offers:[],
-      postalValidated:true,
-      postalCode:postal.postalCode,
-      serviceCity:postal.city,
-      serviceState:postal.state
+      ...addressMeta
     },200,origin);
 
     const scheduleEligibleMerchants=deliveryWindow
@@ -206,8 +213,7 @@ Deno.serve(async (req: Request) => {
       return json({
         offers:[],
         scheduledDeliveryUnavailable:deliveryWindow!==null,
-        postalValidated:true,
-        postalCode:postal.postalCode
+        ...addressMeta
       },200,origin);
     }
 
@@ -226,8 +232,7 @@ Deno.serve(async (req: Request) => {
         offers:[],
         paymentMethodUnavailable:true,
         paymentMethod,
-        postalValidated:true,
-        postalCode:postal.postalCode
+        ...addressMeta
       },200,origin);
     }
 
@@ -246,8 +251,7 @@ Deno.serve(async (req: Request) => {
       return json({
         offers:[],
         deliveryCompatibilityBlocked:true,
-        postalValidated:true,
-        postalCode:postal.postalCode
+        ...addressMeta
       },200,origin);
     }
     const compatibleIds=compatibleMerchants.map((m)=>m.id);
@@ -371,8 +375,7 @@ Deno.serve(async (req: Request) => {
     const chosen = chooseOffers(candidates) as Array<{candidate:Candidate;label:string}>;
     if (!chosen.length) return json({
       offers:[],
-      postalValidated:true,
-      postalCode:postal.postalCode
+      ...addressMeta
     },200,origin);
 
     const expiresAt = new Date(Date.now() + QUOTE_TTL_MS).toISOString();
@@ -383,6 +386,7 @@ Deno.serve(async (req: Request) => {
       const fingerprint=await requestFingerprint("quote-snapshot",{
         address,
         postalCode:postal.postalCode,
+        addressNumber,
         merchantId:candidate.merchantId,
         deliveryFeeCents:candidate.deliveryFeeCents,
         etaMinMinutes:candidate.etaMinMinutes,
@@ -397,11 +401,11 @@ Deno.serve(async (req: Request) => {
         paymentMethod
       });
 
-      const {data:quote,error:quoteError}=await admin.rpc("create_quote_snapshot_v2",{
+      const {data:quote,error:quoteError}=await admin.rpc("create_quote_snapshot_v3",{
         p_user_id:user.id,
         p_merchant_id:candidate.merchantId,
-        p_address:address,
         p_postal_code:postal.postalCode,
+        p_address_number:addressNumber,
         p_delivery_fee_cents:candidate.deliveryFeeCents,
         p_eta_min_minutes:candidate.etaMinMinutes,
         p_eta_max_minutes:candidate.etaMaxMinutes,
@@ -480,10 +484,7 @@ Deno.serve(async (req: Request) => {
       eligibleMerchantCount:candidates.length,
       displayedOfferCount:publicOffers.length,
       distributionPolicy:candidates.length===1?"single_supplier":"quality_first_balanced",
-      postalValidated:true,
-      postalCode:postal.postalCode,
-      serviceCity:postal.city,
-      serviceState:postal.state
+      ...addressMeta
     }, 200, origin);
   } catch (error) {
     return fail(error, origin);

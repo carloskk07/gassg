@@ -40,8 +40,16 @@ function customerProductMeta(code){
 async function startHomeOrder(){
   const el=document.querySelector('#home-address');
   const value=el?.value.trim()||'';
-  if(value&&value.length<5)return toast('Informe um endereço válido ou deixe em branco para preencher depois');
-  if(value)state.address=value.slice(0,160);
+  if(globalThis.__CHAMA_TEST__===true){
+    if(value&&value.length<5)return toast('Informe um endereço válido ou deixe em branco para preencher depois');
+    if(value)state.address=value.slice(0,160);
+  }else{
+    const postalCode=String(value||'').replace(/\D/g,'').slice(0,8);
+    if(value&&!/^[0-9]{8}$/.test(postalCode))return toast('Informe um CEP válido ou deixe em branco para preencher depois');
+    state.postalCode=postalCode;
+    state.address='';
+    state.addressNumber='';
+  }
   state.cart=normalizeCart({});
   state.checkout.glpContainerMode='exchange';
   setCartProduct('P13',1);
@@ -80,7 +88,9 @@ function repeatLastOrder(){
   }
   synchronizeGlpContainerCart(state.cart,state.checkout.glpContainerMode);
   if(!hasCartItems())return toast('Os itens da última compra não estão disponíveis nesta versão');
-  state.address=String(template.address||state.address||'').slice(0,160);
+  state.address=String(template.address||state.address||'').slice(0,240);
+  state.postalCode=String(template.postalCode||state.postalCode||'').replace(/\D/g,'').slice(0,8);
+  state.addressNumber=String(template.addressNumber||state.addressNumber||'').trim().toUpperCase().slice(0,7);
   state.checkout.paymentMethod=['pix','card','cash'].includes(template.paymentMethod)?template.paymentMethod:'pix';
   state.checkout.cashTenderCents=null;
   save();
@@ -230,7 +240,7 @@ function home(){
 
     <div class="purchase-starter" aria-label="Iniciar compra de gás">
       <div class="starter-product"><div class="starter-product-icon">🔥</div><div><span class="starter-label">MAIS PROCURADO</span><strong>Botijão de cozinha 13 kg</strong><small>P13 • GLP</small></div><div class="starter-price"><small>CONSULTA</small><b>${priceText}</b></div></div>
-      <label class="starter-address" for="home-address"><span>Onde entregar?</span><div><span aria-hidden="true">📍</span><input id="home-address" autocomplete="street-address" maxlength="160" placeholder="Digite seu endereço" value="${esc(state.address||'')}" ${disabled?'disabled':''}></div></label>
+      <label class="starter-address" for="home-address"><span>${testDemo?'Onde entregar?':'CEP de entrega'}</span><div><span aria-hidden="true">📍</span><input id="home-address" autocomplete="${testDemo?'street-address':'postal-code'}" inputmode="${testDemo?'text':'numeric'}" maxlength="${testDemo?'160':'9'}" placeholder="${testDemo?'Digite seu endereço':'Ex.: 97300-000'}" value="${esc(testDemo?(state.address||''):String(state.postalCode||'').replace(/^(\d{5})(\d{0,3}).*$/,(m,a,b)=>b?a+'-'+b:a))}" ${disabled?'disabled':''}></div></label>
       <button class="primary starter-cta" onclick="startHomeOrder()" ${disabled?'disabled':''}>🔥 ${primaryLabel}</button>
       <small class="starter-footnote">${esc(freshness)}</small>
     </div>
@@ -295,7 +305,11 @@ function orderPage(){
   const liveMode=globalThis.liveRequested?.()===true;
   const ready=globalThis.liveReady?.()===true;
   const preview=!testDemo&&globalThis.prelaunchExamplesEnabled?.()===true;
-  const hasAddress=!!state.address&&(testDemo||/^[0-9]{8}$/.test(String(state.postalCode||'')));
+  const hasAddress=testDemo
+    ? !!state.address
+    : !!state.address
+      && /^[0-9]{8}$/.test(String(state.postalCode||''))
+      && /^[0-9]{1,6}[A-Za-z]?$/.test(String(state.addressNumber||''));
   const hasItems=hasCartItems();
   const hasGlp=hasGlpCart();
   const needsContainer=hasGlp&&state.checkout.glpContainerMode==='needs_container';
@@ -360,13 +374,16 @@ function orderPage(){
 ${liveNotice}
 ${pendingOrder?`<div class="notice" style="margin-bottom:14px"><strong>Você já possui um pedido em andamento.</strong><br>Conclua ou cancele o pedido ${esc(pendingOrder.publicCode||pendingOrder.id)} antes de criar outro.<br><button class="ghost small" onclick="go('tracking')">Acompanhar pedido →</button></div>`:''}
 <div class="card flat form-stack order-address-card">
-  <div class="field-row">
-    <div class="input-wrap"><label for="postal-code">CEP</label><input id="postal-code" class="input" autocomplete="postal-code" inputmode="numeric" maxlength="9" placeholder="Ex.: 97300-000" value="${esc(String(state.postalCode||'').replace(/^(\d{5})(\d{0,3}).*$/,(m,a,b)=>b?a+'-'+b:a))}"><small class="field-help">${testDemo?'Opcional na simulação.':'O CEP é validado no servidor para confirmar atendimento em São Gabriel/RS.'}</small></div>
+  ${testDemo?`<div class="field-row">
+    <div class="input-wrap"><label for="postal-code">CEP</label><input id="postal-code" class="input" autocomplete="postal-code" inputmode="numeric" maxlength="9" placeholder="Ex.: 97300-000" value="${esc(String(state.postalCode||'').replace(/^(\d{5})(\d{0,3}).*$/,(m,a,b)=>b?a+'-'+b:a))}"><small class="field-help">Opcional na simulação.</small></div>
     <div class="input-wrap"><label for="address">Endereço de entrega</label><input id="address" class="input" autocomplete="street-address" maxlength="160" placeholder="Ex.: Rua General Câmara, 123" value="${esc(state.address||'')}"></div>
+  </div>`:`<div class="field-row">
+    <div class="input-wrap"><label for="postal-code">CEP</label><input id="postal-code" class="input" autocomplete="postal-code" inputmode="numeric" maxlength="9" placeholder="Ex.: 97300-000" value="${esc(String(state.postalCode||'').replace(/^(\d{5})(\d{0,3}).*$/,(m,a,b)=>b?a+'-'+b:a))}" onchange="deliveryAddressDraftChanged()"><small class="field-help">O servidor confirma rua, bairro e atendimento em São Gabriel/RS.</small></div>
+    <div class="input-wrap"><label for="address-number">Número</label><input id="address-number" class="input" autocomplete="address-line2" inputmode="text" maxlength="7" placeholder="Ex.: 123" value="${esc(state.addressNumber||'')}" onchange="deliveryAddressDraftChanged()"><small class="field-help">Use números e, se necessário, uma letra.</small></div>
   </div>
-  <button class="primary" onclick="setAddress()">${hasAddress?'Atualizar endereço':'Usar este endereço'}</button>
-  <small class="field-help">CEP e endereço são usados para procurar quem consegue atender sua cesta. O CEP não é enviado aos parceiros antes do aceite.</small>
-  ${ready&&liveRuntime.postalValidated?'<div class="notice success"><strong>CEP validado.</strong><br>A consulta foi confirmada para São Gabriel/RS.</div>':''}
+  ${state.address?`<div class="notice success"><strong>Endereço confirmado pelo servidor.</strong><br>${esc(state.address)}</div>`:'<div class="notice">A rua não é digitada manualmente: ela vem do CEP validado.</div>'}`}
+  <button class="primary" onclick="setAddress()">${hasAddress?'Atualizar endereço':'Validar endereço'}</button>
+  <small class="field-help">${testDemo?'Dados apenas da simulação.':'Nenhuma cotação real é criada antes da validação de CEP + número.'}</small>
 </div>
 ${hasAddress?`<div class="card flat form-stack" style="margin-top:12px">
   <h3>Dados para a entrega</h3>
@@ -412,26 +429,63 @@ function offerCard(o){
   const proofHtml=proof.join('');
   return `<article class="offer ${featured?'selected':''}">${available?'<div class="best-badge">OPÇÃO DISPONÍVEL AGORA</div>':recommended?'<div class="best-badge">MELHOR EQUILÍBRIO</div>':''}<div class="offer-label">${esc(labels)}</div><div class="offer-main"><div><div class="offer-price">${BRL.format(payable)}</div><div class="tiny muted">${discount>0?`estimativa após ${BRL.format(discount)} de cashback`:'total com entrega'}</div></div><div class="offer-eta"><strong>${o.eta}–${etaEnd} min</strong><small>previsão</small></div></div><div class="offer-meta">${distanceChip}${internalPilot?'<span class="meta-chip">🧪 Simulação operacional</span><span class="meta-chip">Sem validação jurídica nesta tela</span>':'<span class="meta-chip">✓ Operação elegível</span><span class="meta-chip">Parceiro local verificado</span>'}<span class="meta-chip">${internalPilot?'Trust simulado':'Confiança'} ${o.trust}/100</span>${proofHtml}<span class="meta-chip">Pagamento solicitado: ${esc(paymentLabel(state.checkout.paymentMethod))}</span></div><div class="offer-assurance">${internalPilot?'🧪 O pedido abaixo percorre todas as etapas localmente e não gera venda real.':'🔒 O nome do parceiro aparece após o aceite real. Se for necessária uma alternativa mais cara, você decide antes.'}</div><button class="${featured?'primary':'secondary'} full" style="margin-top:13px" onclick="checkout('${o.id}')" ${globalThis.liveRuntime?.actionPending?'disabled':''}>Pedir por ${BRL.format(payable)}</button></article>`
 }
-async function setAddress(){
-  const el=document.querySelector('#address');
-  const value=el?.value.trim()||'';
-  const postalCode=String(document.querySelector('#postal-code')?.value||state.postalCode||'').replace(/\D/g,'').slice(0,8);
-  if(value.length<5)return toast('Informe um endereço válido');
-  if(globalThis.__CHAMA_TEST__!==true&&!/^[0-9]{8}$/.test(postalCode)){
-    document.querySelector('#postal-code')?.focus();
-    return toast('Informe um CEP válido com 8 dígitos');
-  }
-  const changed=state.address!==value.slice(0,160)||state.postalCode!==postalCode;
-  state.address=value.slice(0,160);
+function deliveryAddressDraftChanged(){
+  if(globalThis.__CHAMA_TEST__===true)return;
+  const postalCode=String(document.querySelector('#postal-code')?.value||'').replace(/\D/g,'').slice(0,8);
+  const addressNumber=String(document.querySelector('#address-number')?.value||'').trim().toUpperCase().replace(/\s+/g,'').slice(0,7);
+  if(postalCode===String(state.postalCode||'')&&addressNumber===String(state.addressNumber||''))return;
   state.postalCode=postalCode;
-  if(changed&&globalThis.liveRequested?.()){
+  state.addressNumber=addressNumber;
+  state.address='';
+  if(globalThis.liveRuntime){
     liveRuntime.offers=[];
+    liveRuntime.postalValidated=false;
     liveRuntime.lastSyncAt=null;
     liveRuntime.error=null;
   }
   save();
+}
+
+async function setAddress(){
+  const postalCode=String(document.querySelector('#postal-code')?.value||state.postalCode||'').replace(/\D/g,'').slice(0,8);
+  if(globalThis.__CHAMA_TEST__===true){
+    const value=document.querySelector('#address')?.value.trim()||'';
+    if(value.length<5)return toast('Informe um endereço válido');
+    state.address=value.slice(0,160);
+    state.postalCode=postalCode;
+    save();
+    render();
+    return;
+  }
+
+  const addressNumber=String(document.querySelector('#address-number')?.value||state.addressNumber||'').trim().toUpperCase().replace(/\s+/g,'').slice(0,7);
+  if(!/^[0-9]{8}$/.test(postalCode)){
+    document.querySelector('#postal-code')?.focus();
+    return toast('Informe um CEP válido com 8 dígitos');
+  }
+  if(!/^[0-9]{1,6}[A-Z]?$/.test(addressNumber)){
+    document.querySelector('#address-number')?.focus();
+    return toast('Informe o número do endereço');
+  }
+
+  const changed=state.postalCode!==postalCode||state.addressNumber!==addressNumber;
+  state.postalCode=postalCode;
+  state.addressNumber=addressNumber;
+  if(changed){
+    state.address='';
+    liveRuntime.offers=[];
+    liveRuntime.postalValidated=false;
+    liveRuntime.lastSyncAt=null;
+    liveRuntime.error=null;
+  }
+  save();
+
   if(globalThis.liveReady?.()&&hasCartItems()){
-    try{await liveRefreshOffers({silent:true})}catch{}
+    try{
+      await liveRefreshOffers({silent:true});
+    }catch(error){
+      toast(String(error?.message||error));
+    }
   }
   render();
   setTimeout(()=>document.querySelector('.offer-stack')?.scrollIntoView({behavior:'smooth'}),100);

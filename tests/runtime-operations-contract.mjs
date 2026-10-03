@@ -767,3 +767,39 @@ assert.match(postalServiceAreaV142,/grant execute on function public\.create_quo
 assert.match(postalServiceAreaV142,/grant execute on function public\.create_order_from_quote_v6[\s\S]*to service_role/,'order V6 deve ser server-only');
 
 console.log('Postal service area v1.42 contract passou.');
+
+
+const canonicalAddressV143=fs.readFileSync(
+  new URL('../supabase/migrations/20261003054000_canonical_address_v1_43.sql',import.meta.url),
+  'utf8'
+).replace(/--.*$/gm,'').replace(/\s+/g,' ').toLowerCase();
+
+const canonicalAddressGuardV143=fs.readFileSync(
+  new URL('../supabase/migrations/20261003054500_canonical_address_guard_v1_43_1.sql',import.meta.url),
+  'utf8'
+).replace(/--.*$/gm,'').replace(/\s+/g,' ').toLowerCase();
+
+assert.match(canonicalAddressV143,/add column if not exists street text/,'cache de CEP precisa congelar logradouro');
+assert.match(canonicalAddressV143,/add column if not exists neighborhood text/,'cache de CEP precisa congelar bairro');
+assert.match(canonicalAddressV143,/add column if not exists address_number text/,'quote e pedido precisam separar número');
+assert.match(canonicalAddressV143,/create or replace function public\.create_quote_snapshot_v3/,'quote canônica precisa de autoridade V3');
+assert.match(canonicalAddressV143,/v_address_number:=upper\(trim\(coalesce\(p_address_number,''\)\)\)/,'número deve ser normalizado dentro da autoridade SQL');
+assert.match(canonicalAddressV143,/pc\.street is not null[\s\S]*char_length\(trim\(pc\.street\)\)>=2/,'quote não pode nascer de CEP sem rua específica');
+assert.match(canonicalAddressV143,/v_base:=trim\(v_postal\.street\)\|\|', '\|\|v_address_number/,'rua oficial e número devem formar a base do endereço');
+assert.match(canonicalAddressV143,/v_available:=240-char_length\(v_base\)-char_length\(v_suffix\)-3/,'bairro opcional deve respeitar o limite de endereço');
+assert.match(canonicalAddressV143,/v_result:=public\.create_quote_snapshot_v2/,'V3 deve preservar a autoridade territorial V2 na mesma transação');
+assert.match(canonicalAddressV143,/set address_number=v_address_number,[\s\S]*address_text=v_address/,'quote precisa congelar número e endereço canônico');
+assert.match(canonicalAddressV143,/create or replace function public\.create_order_from_quote_v7/,'pedido canônico precisa de autoridade V7');
+assert.match(canonicalAddressV143,/v_result:=public\.create_order_from_quote_v6/,'V7 deve preservar revalidação territorial e contato atômico da V6');
+assert.match(canonicalAddressV143,/set address_number=v_address_number/,'pedido precisa herdar número congelado da quote');
+assert.match(canonicalAddressV143,/address_number=null,[\s\S]*customer_phone_digits=null/,'retenção deve remover número junto dos demais dados de entrega');
+assert.match(canonicalAddressV143,/grant execute on function public\.create_quote_snapshot_v3[\s\S]*to service_role/,'quote V3 deve ser server-only');
+assert.match(canonicalAddressV143,/grant execute on function public\.create_order_from_quote_v7[\s\S]*to service_role/,'order V7 deve ser server-only');
+
+assert.match(canonicalAddressGuardV143,/create or replace function public\.require_order_canonical_address/,'banco precisa de guard independente da Edge Function');
+assert.match(canonicalAddressGuardV143,/v_postal_code!~'\^\[0-9\]\{8\}\$'/,'guard precisa exigir CEP normalizado');
+assert.match(canonicalAddressGuardV143,/v_address_number!~'\^\[0-9\]\{1,6\}\[a-za-z\]\?\$'/,'guard precisa exigir número canônico');
+assert.match(canonicalAddressGuardV143,/v_status in \('settled','cancelled'\)[\s\S]*v_redacted_at is not null/,'somente redação terminal permite apagar CEP e número');
+assert.match(canonicalAddressGuardV143,/create constraint trigger require_order_canonical_address_commit[\s\S]*deferrable initially deferred/,'guard precisa rodar no commit para permitir wrapper V7 atômico');
+
+console.log('Canonical address v1.43 contract passou.');

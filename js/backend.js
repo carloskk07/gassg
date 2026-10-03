@@ -308,11 +308,16 @@ function liveOfferView(raw){
 }
 
 let liveOfferTimer=null;
+function liveAddressDraftReady(){
+  return /^[0-9]{8}$/.test(String(state.postalCode||''))
+    && /^[0-9]{1,6}[A-Za-z]?$/.test(String(state.addressNumber||''))
+    && hasCartItems();
+}
 function liveScheduleOfferRefresh(delay=350){
   if(!liveReady())return;
   clearTimeout(liveOfferTimer);
   liveOfferTimer=setTimeout(()=>{
-    if(state.address&&hasCartItems()){
+    if(liveAddressDraftReady()){
       liveRefreshOffers().catch(()=>{});
     }
   },delay);
@@ -320,7 +325,7 @@ function liveScheduleOfferRefresh(delay=350){
 
 async function liveRefreshOffers({silent=false}={}){
   const seq=++liveRuntime.offerRequestSeq;
-  if(!liveReady()||!state.address||!/^[0-9]{8}$/.test(String(state.postalCode||''))||!hasCartItems()){
+  if(!liveReady()||!liveAddressDraftReady()){
     liveRuntime.offers=[];
     liveRuntime.deliveryCompatibilityBlocked=false;
     liveRuntime.marketMode=null;
@@ -333,8 +338,8 @@ async function liveRefreshOffers({silent=false}={}){
     if(!silent)render();
     return [];
   }
-  const addressSnapshot=state.address;
   const postalCodeSnapshot=String(state.postalCode||'');
+  const addressNumberSnapshot=String(state.addressNumber||'').trim().toUpperCase();
   const itemsSnapshot=liveCartItems();
   const scheduleSnapshot=state.checkout.deliveryMode==='scheduled'
     ? {
@@ -356,8 +361,8 @@ async function liveRefreshOffers({silent=false}={}){
   if(!silent)render();
   try{
     const data=await liveInvoke('get-offers',{
-      address:addressSnapshot,
       postalCode:postalCodeSnapshot,
+      addressNumber:addressNumberSnapshot,
       items:itemsSnapshot,
       priority:'recommended',
       deliveryWindowStart:scheduleSnapshot.start,
@@ -365,7 +370,7 @@ async function liveRefreshOffers({silent=false}={}){
       paymentMethod:paymentMethodSnapshot
     });
     if(seq!==liveRuntime.offerRequestSeq)return liveRuntime.offers;
-    if(state.address!==addressSnapshot||String(state.postalCode||'')!==postalCodeSnapshot||JSON.stringify(liveCartItems())!==JSON.stringify(itemsSnapshot)){
+    if(String(state.postalCode||'')!==postalCodeSnapshot||String(state.addressNumber||'').trim().toUpperCase()!==addressNumberSnapshot||JSON.stringify(liveCartItems())!==JSON.stringify(itemsSnapshot)){
       return liveRuntime.offers;
     }
     const currentSchedule=state.checkout.deliveryMode==='scheduled'
@@ -377,6 +382,12 @@ async function liveRefreshOffers({silent=false}={}){
     }
     liveRuntime.deliveryCompatibilityBlocked=data?.deliveryCompatibilityBlocked===true;
     liveRuntime.postalValidated=data?.postalValidated===true;
+    if(liveRuntime.postalValidated&&data?.canonicalAddress){
+      state.address=String(data.canonicalAddress).slice(0,240);
+      state.postalCode=String(data.postalCode||postalCodeSnapshot).replace(/\D/g,'').slice(0,8);
+      state.addressNumber=String(data.addressNumber||addressNumberSnapshot).trim().toUpperCase().slice(0,7);
+      save();
+    }
     liveRuntime.scheduledDeliveryUnavailable=data?.scheduledDeliveryUnavailable===true;
     liveRuntime.paymentMethodUnavailable=data?.paymentMethodUnavailable===true;
     liveRuntime.marketMode=String(data?.marketMode||'')||null;
@@ -1444,6 +1455,7 @@ globalThis.backendInit=backendInit;
 globalThis.liveRequested=liveRequested;
 globalThis.liveReady=liveReady;
 globalThis.liveBanner=liveBanner;
+globalThis.liveAddressDraftReady=liveAddressDraftReady;
 globalThis.liveRefreshOffers=liveRefreshOffers;
 globalThis.liveScheduleOfferRefresh=liveScheduleOfferRefresh;
 globalThis.liveCreateOrder=liveCreateOrder;

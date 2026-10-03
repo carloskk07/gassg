@@ -16,6 +16,8 @@ import {chooseOffers} from '../supabase/functions/_shared/offer-ranking.js';
 import {effectiveUnitPrice} from '../supabase/functions/_shared/pricing-policy.js';
 import {
   normalizePostalCode,
+  normalizeAddressNumber,
+  canonicalAddress,
   validateServicePostalCode
 } from '../supabase/functions/_shared/postal-code.js';
 
@@ -109,7 +111,8 @@ function postalAdmin({cached=null,cacheError=null}={}){
 await test('CEP em cache permitido não chama provedores externos',async()=>{
   const admin=postalAdmin({cached:{
     postal_code:'97300000',city:'São Gabriel',state:'RS',ibge_code:'4318309',
-    provider:'brasilapi',service_area_allowed:true,verified_at:new Date().toISOString()
+    provider:'brasilapi',service_area_allowed:true,street:'Rua General Câmara',
+    neighborhood:'Centro',verified_at:new Date().toISOString()
   }});
   const oldFetch=globalThis.fetch;
   globalThis.fetch=async()=>{throw new Error('fetch externo não deveria ser chamado')};
@@ -142,7 +145,8 @@ await test('resolvedor usa ViaCEP quando BrasilAPI fica indisponível',async()=>
       return new Response('{}',{status:503,headers:{'content-type':'application/json'}});
     }
     return new Response(JSON.stringify({
-      cep:'97300-000',localidade:'São Gabriel',uf:'RS',ibge:'4318309'
+      cep:'97300-000',localidade:'São Gabriel',uf:'RS',ibge:'4318309',
+      logradouro:'Rua General Câmara',bairro:'Centro'
     }),{status:200,headers:{'content-type':'application/json'}});
   };
   try{
@@ -153,6 +157,59 @@ await test('resolvedor usa ViaCEP quando BrasilAPI fica indisponível',async()=>
     assert.equal(admin.writes.length,1);
     assert.equal(admin.writes[0].service_area_allowed,true);
     assert.equal(admin.writes[0].ibge_code,'4318309');
+  }finally{globalThis.fetch=oldFetch}
+});
+
+test('número de endereço é normalizado e limitado',()=>{
+  assert.equal(normalizeAddressNumber(' 123 a '),'123A');
+  assert.equal(normalizeAddressNumber('42'),'42');
+  throwsCode(()=>normalizeAddressNumber('s/n'),'INVALID_ADDRESS_NUMBER');
+  throwsCode(()=>normalizeAddressNumber('12-3'),'INVALID_ADDRESS_NUMBER');
+});
+
+test('endereço canônico vem da rua do CEP e limita apenas o bairro opcional',()=>{
+  const result=canonicalAddress({
+    postalCode:'97300000',
+    street:'Rua General Câmara',
+    neighborhood:'Centro',
+    city:'São Gabriel',
+    state:'RS'
+  },'123');
+  assert.equal(result,'Rua General Câmara, 123 - Centro, São Gabriel - RS, CEP 97300-000');
+  assert.ok(result.length<=240);
+
+  const long=canonicalAddress({
+    postalCode:'97300000',
+    street:'Rua '+('A'.repeat(150)),
+    neighborhood:'B'.repeat(160),
+    city:'São Gabriel',
+    state:'RS'
+  },'999');
+  assert.ok(long.length<=240);
+  assert.ok(long.includes('São Gabriel - RS, CEP 97300-000'));
+});
+
+await test('CEP sem logradouro específico falha fechado',async()=>{
+  const admin=postalAdmin();
+  const oldFetch=globalThis.fetch;
+  globalThis.fetch=async url=>{
+    if(String(url).includes('brasilapi.com.br')){
+      return new Response(JSON.stringify({
+        cep:'97300-000',city:'São Gabriel',state:'RS',
+        neighborhood:'',street:''
+      }),{status:200,headers:{'content-type':'application/json'}});
+    }
+    return new Response(JSON.stringify({
+      cep:'97300-000',localidade:'São Gabriel',uf:'RS',ibge:'4318309',
+      logradouro:'',bairro:''
+    }),{status:200,headers:{'content-type':'application/json'}});
+  };
+  try{
+    await assert.rejects(
+      ()=>validateServicePostalCode(admin,'97300000'),
+      e=>e instanceof DomainError&&e.code==='POSTAL_CODE_NOT_STREET_LEVEL'&&e.status===422
+    );
+    assert.equal(admin.writes.length,0);
   }finally{globalThis.fetch=oldFetch}
 });
 
