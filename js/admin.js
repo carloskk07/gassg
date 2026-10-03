@@ -1,5 +1,7 @@
 const adminRuntime={
-  requested:new URLSearchParams(location.search).get('admin')==='1',
+  requested:String(globalThis.CHAMA_PORTAL_ROLE||'').trim().toLowerCase()
+    ? String(globalThis.CHAMA_PORTAL_ROLE||'').trim().toLowerCase()==='admin'
+    : new URLSearchParams(location.search).get('admin')==='1',
   status:'disabled',
   client:null,
   session:null,

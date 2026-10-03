@@ -3,7 +3,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import {execFileSync} from 'node:child_process';
-import {buildRuntimeConfig,validatePortalOrigin,validateTurnstileSiteKey} from '../scripts/generate-runtime-config.mjs';
+import {buildRuntimeConfig,validatePortalOrigin,validateTurnstileSiteKey,validatePortalRole} from '../scripts/generate-runtime-config.mjs';
 
 const good={
   CHAMA_CUSTOMER_ORIGIN:'https://app.example.com',
@@ -11,8 +11,9 @@ const good={
   CHAMA_ADMIN_ORIGIN:'https://admin.example.com',
   CHAMA_TURNSTILE_SITE_KEY:'0x4AAAAAAAAAA-demo-site-key'
 };
-const out=buildRuntimeConfig(good);
+const out=buildRuntimeConfig({...good,CHAMA_PORTAL_ROLE:'merchant'},{requirePortalRole:true});
 for(const value of Object.values(good))assert.ok(out.includes(value));
+assert.ok(out.includes('globalThis.CHAMA_PORTAL_ROLE="merchant";'));
 
 assert.throws(()=>validatePortalOrigin('X','http://app.example.com'),/https/);
 assert.throws(()=>validatePortalOrigin('X','https://example.github.io'),/github\.io/);
@@ -20,6 +21,9 @@ assert.throws(()=>validatePortalOrigin('X','https://app.example.com/path'),/path
 assert.throws(()=>buildRuntimeConfig({...good,CHAMA_ADMIN_ORIGIN:good.CHAMA_CUSTOMER_ORIGIN}),/distinct/);
 assert.throws(()=>buildRuntimeConfig({...good,CHAMA_TURNSTILE_SITE_KEY:''}),/TURNSTILE_SITE_KEY.*required/i);
 assert.throws(()=>validateTurnstileSiteKey('bad key with spaces'),/invalid/);
+assert.equal(validatePortalRole('customer',{required:true}),'customer');
+assert.throws(()=>validatePortalRole('unknown',{required:true}),/customer, merchant or admin/);
+assert.throws(()=>buildRuntimeConfig(good,{requirePortalRole:true}),/CHAMA_PORTAL_ROLE is required/);
 
 const tmp=path.join(os.tmpdir(),'chama-runtime-config-'+process.pid+'.js');
 execFileSync(process.execPath,['scripts/generate-runtime-config.mjs'],{

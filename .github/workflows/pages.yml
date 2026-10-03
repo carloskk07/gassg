@@ -63,6 +63,8 @@ jobs:
         run: node tests/static-audit.mjs
       - name: Runtime origin config contract
         run: node tests/runtime-config.mjs
+      - name: Live portal bundle contract
+        run: node tests/live-portals.mjs
       - name: Backend security contract
         run: node tests/backend-contract.mjs
       - name: Runtime migration contract

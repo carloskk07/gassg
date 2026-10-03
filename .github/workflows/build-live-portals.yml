@@ -1,0 +1,54 @@
+name: Build isolated live portals
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    env:
+      CHAMA_CUSTOMER_ORIGIN: https://chama-sg-cliente.netlify.app
+      CHAMA_MERCHANT_ORIGIN: https://chama-sg-revenda.netlify.app
+      CHAMA_ADMIN_ORIGIN: https://chama-sg-admin.netlify.app
+      CHAMA_TURNSTILE_SITE_KEY: ${{ secrets.CHAMA_TURNSTILE_SITE_KEY }}
+      CHAMA_SOURCE_SHA: ${{ github.sha }}
+    steps:
+      - uses: actions/checkout@v6
+      - name: Runtime config contracts
+        run: node tests/runtime-config.mjs
+      - name: Live portal bundle contracts
+        run: node tests/live-portals.mjs
+      - name: Require real Turnstile configuration
+        run: |
+          test -n "$CHAMA_TURNSTILE_SITE_KEY"
+          node scripts/build-live-portals.mjs
+      - name: Verify isolated bundles
+        run: |
+          for role in customer merchant admin; do
+            test -f "dist/live-portals/$role/index.html"
+            test -f "dist/live-portals/$role/js/runtime-config.js"
+            test ! -e "dist/live-portals/$role/supabase"
+            test ! -e "dist/live-portals/$role/tests"
+            grep -q "globalThis.CHAMA_PORTAL_ROLE=\"$role\"" "dist/live-portals/$role/js/runtime-config.js"
+          done
+      - name: Upload customer portal
+        uses: actions/upload-artifact@v4
+        with:
+          name: chama-live-customer
+          path: dist/live-portals/customer
+          if-no-files-found: error
+      - name: Upload merchant portal
+        uses: actions/upload-artifact@v4
+        with:
+          name: chama-live-merchant
+          path: dist/live-portals/merchant
+          if-no-files-found: error
+      - name: Upload admin portal
+        uses: actions/upload-artifact@v4
+        with:
+          name: chama-live-admin
+          path: dist/live-portals/admin
+          if-no-files-found: error
