@@ -61,8 +61,8 @@ function mapRpcError(error:{message?:string}|null){
     STOCK_RESTORE_FAILED:[409,"Não foi possível recompor o estoque reservado com segurança."],
     INVALID_RESCUE_STATE:[409,"O pedido não está em estado seguro para reatribuição."],
     DELIVERY_INCOMPATIBLE:[409,"Esta cesta exige uma capacidade logística que a revenda não possui ou não está mais verificada."],
-    SCHEDULED_DELIVERY_UNAVAILABLE:[409,"Os agendamentos foram desativados para esta revenda. Recuse o pedido para o Chama procurar outra opção."],
-    PAYMENT_METHOD_UNAVAILABLE:[409,"Esta forma de pagamento foi desativada para a revenda. Recuse o pedido para o Chama procurar outra opção."],
+    SCHEDULED_DELIVERY_UNAVAILABLE:[409,"Os agendamentos foram desativados para esta revenda. Recuse o pedido para o TAMÃO procurar outra opção."],
+    PAYMENT_METHOD_UNAVAILABLE:[409,"Esta forma de pagamento foi desativada para a revenda. Recuse o pedido para o TAMÃO procurar outra opção."],
     SCHEDULED_DISPATCH_TOO_EARLY:[409,"Ainda é cedo para sair com este pedido agendado. Aguarde a janela operacional indicada."],
     DELIVERY_MEMBER_INVALID:[409,"O responsável escolhido não é um membro ativo desta revenda."],
     IDEMPOTENCY_CONFLICT:[409,"A mesma chave foi usada para outra requisição."]

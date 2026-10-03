@@ -767,7 +767,7 @@ function shell(content){
   return `<div class="app">
   ${runtimeStrip()}
   <header class="topbar"><div class="shell topbar-inner">
-    <button class="brand brand-button" onclick="${brandAction}" aria-label="Ir para o início"><div class="brandmark"><span>🔥</span></div><div>Chama<small>São Gabriel</small></div></button>
+    <button class="brand brand-button" onclick="${brandAction}" aria-label="Ir para o início do TAMÃO"><div class="brandmark"><img src="./icons/icon.svg" alt=""></div><div><span class="brand-name">TAMÃO</span><small>Pediu? Tá na mão.</small></div></button>
     <div class="desktop-only desktop-nav">${desktopNav}</div>
     ${switcher}
   </div></header>

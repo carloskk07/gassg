@@ -11,7 +11,7 @@ function club(){
   const cashbackEarned=Math.max(0,Number(globalThis.liveRuntime?.cashbackEarnedCents||0))/100;
   return shell(`<section class="page">
     <span class="eyebrow">BENEFÍCIOS PARA QUEM COMPRA</span>
-    <h1 class="page-title">Clube Chama</h1>
+    <h1 class="page-title">Clube TAMÃO</h1>
     <p class="muted page-lead">Acompanhe o que suas compras já devolveram para você e use o saldo disponível para economizar nas próximas.</p>
     <div class="reward-hero"><div class="tiny" style="opacity:.75">SEU CASHBACK DISPONÍVEL</div><div class="balance">${BRL.format(state.user.cashback)}</div><div class="tiny">crédito para usar em novas compras</div><div class="progress"><div style="width:${pct}%"></div></div><strong>${esc(next)}</strong></div>
     <div class="earn-summary" style="margin-top:14px">
@@ -21,7 +21,7 @@ function club(){
     </div>
     ${debt>0?`<div class="notice" style="margin-top:14px"><strong>${BRL.format(debt)} em compensação.</strong><br>Esse valor corresponde a cashback de uma compra posteriormente revertida. Novos créditos reduzem essa compensação antes de ficarem disponíveis.</div>`:''}
     <section class="section"><div class="grid cards-3">
-      <div class="card"><div class="feature-icon">💵</div><h3>Cashback</h3><p class="muted tiny">Crédito para reduzir o valor de novas compras no Chama.</p></div>
+      <div class="card"><div class="feature-icon">💵</div><h3>Cashback</h3><p class="muted tiny">Crédito para reduzir o valor de novas compras no TAMÃO.</p></div>
       <div class="card"><div class="feature-icon">⭐</div><h3>Recorrência</h3><p class="muted tiny">Seu histórico ajuda a organizar benefícios e ciclos de fidelidade.</p></div>
       <div class="card"><div class="feature-icon">🤝</div><h3>Indicação</h3><p class="muted tiny">Além de economizar, você pode participar indicando novos compradores.</p><button class="ghost small" onclick="go('earn')">Ver como ganhar →</button></div>
     </div></section>
@@ -76,7 +76,7 @@ async function renderReferralQr(){
     const svg=target.querySelector('svg');
     if(svg){
       svg.setAttribute('role','img');
-      svg.setAttribute('aria-label','QR Code do seu link pessoal do Chama');
+      svg.setAttribute('aria-label','QR Code do seu link pessoal do TAMÃO');
       svg.style.maxWidth='220px';
       svg.style.width='100%';
       svg.style.height='auto';
@@ -178,7 +178,7 @@ function refer(){
   const qualifiedReferralCount=live?Math.max(0,Number(globalThis.liveRuntime?.qualifiedReferralCount||0)):0;
   const referralCard=hasReferral
     ? `<div class="card flat referral-share-card"><div class="tiny muted">SEU LINK PESSOAL</div><div class="share-box">${esc(url)}</div><div class="field-row" style="align-items:center;margin-top:14px"><div id="referral-qr" class="card flat" style="display:flex;align-items:center;justify-content:center;min-height:190px;flex:0 0 220px"><div class="tiny muted">Gerando QR...</div></div><div style="flex:1"><div class="tiny muted">SEU CÓDIGO</div><div class="balance" style="font-size:1.4rem">${esc(state.user.referralCode)}</div><p class="muted tiny">O QR e o link apontam para o mesmo código pessoal. Quem entrar por eles continua sujeito às regras de primeira compra qualificada.</p><button class="secondary small" onclick="copyReferralCode()">Copiar código</button></div></div><button class="primary full" style="margin-top:12px" onclick="shareReferral()">Compartilhar meu link</button></div>`
-    : '<div class="notice"><strong>Seu link ainda não está disponível.</strong><br>Ele aparece quando sua identidade real for carregada pelo serviço do Chama.</div>';
+    : '<div class="notice"><strong>Seu link ainda não está disponível.</strong><br>Ele aparece quando sua identidade real for carregada pelo serviço do TAMÃO.</div>';
   const identityCard=live&&!permanent
     ? `<div class="notice" style="margin-top:14px"><strong>Quer transformar comissão em saldo disponível?</strong><br>Vincule um e-mail à sua conta. Seu histórico, pedidos e cashback continuam no mesmo usuário.</div><div class="card flat form-stack" style="margin-top:14px"><div class="input-wrap"><label for="cash-email">Seu e-mail</label><input id="cash-email" type="email" autocomplete="email" maxlength="160" class="input" placeholder="voce@email.com"></div><button class="primary" onclick="activateCashAccount()">Vincular meu e-mail</button></div>`
     : live&&permanent
@@ -191,7 +191,7 @@ function refer(){
     <button class="back" onclick="go('earn')">← Ganhar ou vender</button>
     <span class="eyebrow">COMISSÃO POR INDICAÇÃO</span>
     <h1 class="page-title">Indique um novo comprador. A primeira compra elegível pode gerar comissão.</h1>
-    <p class="muted page-lead">O Chama usa indicação como aquisição de novos clientes: cadastro sozinho não gera valor e compras repetidas do mesmo indicado não criam uma nova comissão de aquisição.</p>
+    <p class="muted page-lead">O TAMÃO usa indicação como aquisição de novos clientes: cadastro sozinho não gera valor e compras repetidas do mesmo indicado não criam uma nova comissão de aquisição.</p>
     <div class="earn-summary">
       <div class="earn-balance-card"><span>Disponível</span><strong>${BRL.format(state.user.commissionAvailable)}</strong><small>saldo já liberado</small></div>
       <div class="earn-balance-card"><span>A liberar</span><strong>${BRL.format(state.user.commissionPending)}</strong><small>em validação</small></div>
@@ -213,7 +213,7 @@ function refer(){
     </section>
 
     <section class="section"><div class="section-head"><div><h2>Como a comissão passa a existir</h2></div></div><div class="how-grid">
-      <div class="how-card"><span>1</span><div><strong>Compartilhe seu link</strong><p>Envie para quem realmente possa se interessar pelo Chama.</p></div></div>
+      <div class="how-card"><span>1</span><div><strong>Compartilhe seu link</strong><p>Envie para quem realmente possa se interessar pelo TAMÃO.</p></div></div>
       <div class="how-card"><span>2</span><div><strong>O novo cliente faz a primeira compra qualificada</strong><p>Cadastro sozinho e compras posteriores do mesmo cliente não criam nova comissão.</p></div></div>
       <div class="how-card"><span>3</span><div><strong>A venda é concluída</strong><p>A entrega e o pagamento precisam ser confirmados.</p></div></div>
       <div class="how-card"><span>4</span><div><strong>A comissão é validada</strong><p>Depois da janela de segurança e com indicador e cliente indicado em identidades permanentes, o valor elegível pode ficar disponível.</p></div></div>
@@ -228,7 +228,7 @@ function earn(){
   return shell(`<section class="page">
     <span class="eyebrow">BENEFÍCIOS E OPORTUNIDADES</span>
     <h1 class="page-title">Comissão por indicação para pessoas. Mais vendas para empresas.</h1>
-    <p class="muted page-lead">São caminhos diferentes: quem compra pode indicar novos clientes elegíveis; quem já tem uma empresa pode usar o Chama como canal adicional de vendas. Nenhum dos dois é promessa de renda fixa.</p>
+    <p class="muted page-lead">São caminhos diferentes: quem compra pode indicar novos clientes elegíveis; quem já tem uma empresa pode usar o TAMÃO como canal adicional de vendas. Nenhum dos dois é promessa de renda fixa.</p>
 
     <div class="opportunity-grid main-opportunities">
       <article class="opportunity-card person-opportunity"><div class="opportunity-icon">🤝</div><span class="section-kicker">PARA PESSOAS</span><h2>Indique quem realmente pode comprar</h2><p>Compartilhe seu link pessoal. A primeira compra qualificada de cada novo cliente indicado pode gerar comissão depois de entregue, paga e validada.</p>
@@ -236,14 +236,14 @@ function earn(){
         <div class="opportunity-example"><small>Exemplo matemático</small><strong>R$ 120 × 2% = ${BRL.format(referralExample(120))}</strong><span>Não é promessa de renda; a venda precisa cumprir todos os gates.</span></div>
         <button class="primary full" onclick="go('refer')">Simular minha indicação</button>
       </article>
-      <article class="opportunity-card business-opportunity"><div class="opportunity-icon">🏪</div><span class="section-kicker">PARA EMPRESAS</span><h2>Transforme pedidos adicionais em faturamento incremental</h2><p>Use o Chama como um canal adicional para gás, água e outros itens, sem abandonar telefone, WhatsApp, balcão ou sua base atual de clientes.</p>
+      <article class="opportunity-card business-opportunity"><div class="opportunity-icon">🏪</div><span class="section-kicker">PARA EMPRESAS</span><h2>Transforme pedidos adicionais em faturamento incremental</h2><p>Use o TAMÃO como um canal adicional para gás, água e outros itens, sem abandonar telefone, WhatsApp, balcão ou sua base atual de clientes.</p>
         <ul class="clean-list"><li>Você define preços, estoque e taxa de entrega</li><li>Escolhe quando ficar online</li><li>Decide se aceita cada pedido</li><li>Pode aumentar o ticket com vários produtos na mesma entrega</li></ul>
-        <div class="opportunity-example"><small>Política inicial do piloto</small><strong>Taxa Chama: 7,5% por pedido concluído</strong><span>Ex.: R$ 120 bruto → ${BRL.format(merchantSample.fee)} de taxa → ${BRL.format(merchantSample.merchantNet)} antes dos custos próprios e impostos.</span></div>
+        <div class="opportunity-example"><small>Política inicial do piloto</small><strong>Taxa TAMÃO: 7,5% por pedido concluído</strong><span>Ex.: R$ 120 bruto → ${BRL.format(merchantSample.fee)} de taxa → ${BRL.format(merchantSample.merchantNet)} antes dos custos próprios e impostos.</span></div>
         <button class="primary full" onclick="go('merchants')">Ver parceria e simulador</button>
       </article>
     </div>
 
-    <section class="section"><div class="soft-band"><div><span class="section-kicker">TRANSPARÊNCIA</span><h2>Benefício, comissão e receita não são a mesma coisa.</h2><p>Cashback reduz compras futuras. Comissão de indicação depende de uma venda válida. Receita da revenda nasce de pedidos concluídos. O Chama não paga por formar rede de pessoas, não promete renda fixa e só apresentará saque quando a integração financeira estiver realmente disponível.</p></div><button class="secondary" onclick="go('learn')">Entender compra e segurança</button></div></section>
+    <section class="section"><div class="soft-band"><div><span class="section-kicker">TRANSPARÊNCIA</span><h2>Benefício, comissão e receita não são a mesma coisa.</h2><p>Cashback reduz compras futuras. Comissão de indicação depende de uma venda válida. Receita da revenda nasce de pedidos concluídos. O TAMÃO não paga por formar rede de pessoas, não promete renda fixa e só apresentará saque quando a integração financeira estiver realmente disponível.</p></div><button class="secondary" onclick="go('learn')">Entender compra e segurança</button></div></section>
   </section>`)
 }
 
@@ -251,7 +251,7 @@ function learn(){
   return shell(`<section class="page">
     <span class="eyebrow">SAIBA MAIS</span>
     <h1 class="page-title">Antes de pedir, veja quanto custa, quanto demora e o que acontece se algo der errado.</h1>
-    <p class="muted page-lead">O Chama foi desenhado para tirar as principais dúvidas antes da compra: total, prazo, confirmação do parceiro e acompanhamento até o recebimento.</p>
+    <p class="muted page-lead">O TAMÃO foi desenhado para tirar as principais dúvidas antes da compra: total, prazo, confirmação do parceiro e acompanhamento até o recebimento.</p>
 
     <section class="section"><div class="section-head"><div><span class="section-kicker">PASSO A PASSO</span><h2>Comprar é um fluxo de quatro etapas</h2></div></div><div class="how-grid">
       <div class="how-card"><span>1</span><div><strong>Monte sua cesta</strong><p>Escolha gás e/ou produtos essenciais disponíveis.</p></div></div>
@@ -270,10 +270,10 @@ function learn(){
       <details open><summary>Preciso comprar gás para pedir água, carvão, lenha ou gelo?</summary><p>Não. Quando houver oferta real para o produto, você pode montar uma cesta sem gás.</p></details>
       <details><summary>O preço pode mudar depois que eu escolho?</summary><p>A opção escolhida é protegida para o pedido. Se for necessária uma alternativa mais cara durante uma reatribuição, o sistema pede seu aceite antes de trocar a condição.</p></details>
       <details><summary>Como sei que alguém realmente assumiu meu pedido?</summary><p>O parceiro precisa aceitar o pedido. Depois, a saída também precisa ser confirmada antes de aparecer “A caminho”.</p></details>
-      <details><summary>E se o parceiro aceitar e depois não puder sair para entregar?</summary><p>A Proteção Chama pode procurar outra opção elegível. Se a alternativa aumentar o total, você precisa aprovar o novo valor antes da troca.</p></details>
+      <details><summary>E se o parceiro aceitar e depois não puder sair para entregar?</summary><p>A Proteção TAMÃO pode procurar outra opção elegível. Se a alternativa aumentar o total, você precisa aprovar o novo valor antes da troca.</p></details>
       <details><summary>E se ninguém aceitar?</summary><p>O pedido não é apresentado como confirmado sem aceite real. O sistema pode tentar outras opções elegíveis dentro das regras do pedido e informa quando não houver atendimento disponível.</p></details>
       <details><summary>Como a entrega é concluída?</summary><p>A conclusão exige confirmação de pagamento e o código de recebimento do pedido. Informe esse código somente quando o pedido estiver com você.</p></details>
-      <details><summary>Como funciona o cashback?</summary><p>Compras elegíveis podem gerar crédito para reduzir compras futuras dentro do Chama. O saldo aparece no Clube Chama.</p></details>
+      <details><summary>Como funciona o cashback?</summary><p>Compras elegíveis podem gerar crédito para reduzir compras futuras dentro do TAMÃO. O saldo aparece no Clube TAMÃO.</p></details>
       <details><summary>Também posso ganhar indicando pessoas?</summary><p>Sim. No piloto, a primeira compra qualificada de cada novo cliente indicado pode gerar comissão após entrega, pagamento e validação. Compras posteriores do mesmo cliente não geram outra comissão de aquisição.</p></details>
       <details><summary>Tenho uma revenda. Posso vender outros produtos além de gás?</summary><p>Sim. A proposta inclui gás e produtos relacionados, com preço e estoque controlados por SKU. GLP exige a validação regulatória aplicável.</p></details>
     </div></section>
@@ -304,10 +304,10 @@ async function activateCashAccount(){
 async function shareReferral(){
   const url=referralUrl();
   if(!url)return toast('Link real de indicação ainda indisponível');
-  const text=`Use o Chama para consultar preço e pedir gás e outros itens em São Gabriel: ${url}`;
+  const text=`Use o TAMÃO para consultar preço e pedir gás e outros itens em São Gabriel: ${url}`;
   try{
     if(navigator.share){
-      await navigator.share({title:'Chama São Gabriel',text,url});
+      await navigator.share({title:'TAMÃO São Gabriel',text,url});
       return;
     }
     if(navigator.clipboard?.writeText){
@@ -332,14 +332,14 @@ function merchantsLanding(){
   return shell(`<section class="page merchant-landing">
     <span class="eyebrow">PARA EMPRESAS LOCAIS</span>
     <h1 class="page-title">Transforme capacidade de entrega em novas vendas — sem perder o controle da sua operação.</h1>
-    <p class="muted page-lead">O Chama foi desenhado como um canal adicional: você continua vendendo por telefone, WhatsApp, balcão e seus próprios canais. <strong>Você continua no controle</strong> e decide quando e o que quer atender.</p>
+    <p class="muted page-lead">O TAMÃO foi desenhado como um canal adicional: você continua vendendo por telefone, WhatsApp, balcão e seus próprios canais. <strong>Você continua no controle</strong> e decide quando e o que quer atender.</p>
 
     <div class="merchant-commercial-strip merchant-value-strip">
       <div><small>POLÍTICA INICIAL DO PILOTO</small><strong>7,5%</strong><span>sobre o valor bruto de cada pedido concluído</span></div>
       <p><strong>Sem mensalidade apresentada no modelo atual.</strong> A taxa só nasce quando o pedido é concluído. Seus custos, tributos, pagamento e entrega continuam sendo parte da sua própria operação.</p>
     </div>
 
-    ${internalPilot?`<div class="notice success" style="margin-top:14px"><strong>Você está no laboratório interno do Chama.</strong><br>Abra o painel da Gas e Lenheira do JR, simule pedidos e veja a operação antes de qualquer cadastro real.</div>`:''}
+    ${internalPilot?`<div class="notice success" style="margin-top:14px"><strong>Você está no laboratório interno do TAMÃO.</strong><br>Abra o painel da Gas e Lenheira do JR, simule pedidos e veja a operação antes de qualquer cadastro real.</div>`:''}
 
     <div class="hero-actions merchant-hero-actions">
       <button class="primary" onclick="${cta}">${ctaLabel}</button>
@@ -350,12 +350,12 @@ function merchantsLanding(){
       <div class="grid cards-3 partner-benefits">
         <div class="card"><div class="feature-icon">📈</div><h3>Novos pedidos</h3><p class="muted tiny">Apareça para clientes que já estão procurando gás e itens relacionados na sua área de atendimento.</p></div>
         <div class="card"><div class="feature-icon">🧺</div><h3>Mais itens por entrega</h3><p class="muted tiny">Use o mesmo deslocamento para vender GLP, água, carvão, lenha, gelo e outros itens do seu catálogo.</p></div>
-        <div class="card"><div class="feature-icon">🔁</div><h3>Mais chance de recompra</h3><p class="muted tiny">Cashback e histórico ajudam o Chama a estimular novas compras sem transformar a revenda em um programa de pontos manual.</p></div>
+        <div class="card"><div class="feature-icon">🔁</div><h3>Mais chance de recompra</h3><p class="muted tiny">Cashback e histórico ajudam o TAMÃO a estimular novas compras sem transformar a revenda em um programa de pontos manual.</p></div>
       </div>
       <div class="merchant-no-lockin"><span>✓ Sem exclusividade</span><span>✓ Sem obrigação de aceitar</span><span>✓ Online/offline quando quiser</span><span>✓ Preço e estoque sob seu controle</span></div>
     </section>
 
-    <section class="section" id="merchant-margin"><div class="section-head"><div><span class="section-kicker">SIMULADOR DE MARGEM INCREMENTAL</span><h2>Veja o que uma venda adicional deixa depois dos custos que você informar.</h2><p>Receita não é lucro. Por isso o Chama separa venda bruta, taxa da plataforma e custos próprios da sua empresa.</p></div></div>
+    <section class="section" id="merchant-margin"><div class="section-head"><div><span class="section-kicker">SIMULADOR DE MARGEM INCREMENTAL</span><h2>Veja o que uma venda adicional deixa depois dos custos que você informar.</h2><p>Receita não é lucro. Por isso o TAMÃO separa venda bruta, taxa da plataforma e custos próprios da sua empresa.</p></div></div>
       <div class="calculator-card merchant-calculator merchant-margin-calculator">
         <div class="calculator-inputs merchant-margin-inputs">
           <div class="input-wrap"><label for="merchant-sim-orders">Pedidos adicionais</label><input id="merchant-sim-orders" class="input" type="number" inputmode="numeric" min="1" max="10000" value="50" oninput="updateMerchantSimulator()"></div>
@@ -367,7 +367,7 @@ function merchantsLanding(){
         </div>
         <div class="economics-results merchant-margin-results">
           <div><small>Vendas brutas</small><strong id="merchant-sim-gross">${BRL.format(initial.gross)}</strong></div>
-          <div><small>Taxa Chama (7,5%)</small><strong id="merchant-sim-fee">${BRL.format(initial.chamaFee)}</strong></div>
+          <div><small>Taxa TAMÃO (7,5%)</small><strong id="merchant-sim-fee">${BRL.format(initial.chamaFee)}</strong></div>
           <div><small>Custos próprios informados</small><strong id="merchant-sim-costs">Informe o custo do produto</strong></div>
           <div class="highlight"><small>Contribuição estimada após os custos informados</small><strong id="merchant-sim-contribution">—</strong></div>
           <div><small>Contribuição estimada por pedido</small><strong id="merchant-sim-unit">—</strong></div>
@@ -377,7 +377,7 @@ function merchantsLanding(){
       <div class="notice" style="margin-top:12px"><strong>Use os seus custos reais.</strong><br>O simulador não conhece seu custo de compra, folha, combustível, impostos, manutenção ou despesas fixas. Ele serve para testar cenários — não para prometer lucro.</div>
     </section>
 
-    <section class="section"><div class="section-head"><div><span class="section-kicker">COMO OS PEDIDOS SÃO DISTRIBUÍDOS</span><h2>Você não precisa ser sempre o mais barato para participar.</h2><p>O Chama tenta preservar valor para o cliente sem concentrar toda a operação em uma única revenda.</p></div></div>
+    <section class="section"><div class="section-head"><div><span class="section-kicker">COMO OS PEDIDOS SÃO DISTRIBUÍDOS</span><h2>Você não precisa ser sempre o mais barato para participar.</h2><p>O TAMÃO tenta preservar valor para o cliente sem concentrar toda a operação em uma única revenda.</p></div></div>
       <div class="distribution-grid">
         <div class="distribution-card"><span>1</span><strong>Preço total</strong><p>O cliente precisa enxergar uma condição competitiva.</p></div>
         <div class="distribution-card"><span>2</span><strong>Prazo real</strong><p>ETA e capacidade de entrega entram na escolha.</p></div>
@@ -398,13 +398,13 @@ function merchantsLanding(){
     </section>
 
     <section class="section" id="merchant-how"><div class="section-head"><div><span class="section-kicker">DO PEDIDO À ENTREGA</span><h2>Quatro decisões simples, com responsabilidade clara.</h2></div></div><div class="how-grid">
-      <div class="how-card"><span>1</span><div><strong>Cliente consulta</strong><p>O Chama procura operações elegíveis para a cesta e o endereço.</p></div></div>
+      <div class="how-card"><span>1</span><div><strong>Cliente consulta</strong><p>O TAMÃO procura operações elegíveis para a cesta e o endereço.</p></div></div>
       <div class="how-card"><span>2</span><div><strong>Você aceita ou recusa</strong><p>Recusar antes de aceitar é permitido. Se não puder atender, diga não ou fique offline.</p></div></div>
       <div class="how-card"><span>3</span><div><strong>Prepare e confirme a saída</strong><p>Depois do aceite, assumir o pedido passa a ser compromisso operacional. O cliente só vê “A caminho” após sua confirmação.</p></div></div>
       <div class="how-card"><span>4</span><div><strong>Conclua com prova</strong><p>Pagamento confirmado e código de recebimento encerram a entrega com rastreabilidade.</p></div></div>
     </div></section>
 
-    <section class="section"><div class="section-head"><div><span class="section-kicker">COMO O DINHEIRO FUNCIONA</span><h2>Venda, taxa e repasse são coisas diferentes.</h2><p>Antes da abertura pública, o fluxo financeiro real será validado ponta a ponta. O Chama não promete prazo de repasse antes dessa comprovação.</p></div></div>
+    <section class="section"><div class="section-head"><div><span class="section-kicker">COMO O DINHEIRO FUNCIONA</span><h2>Venda, taxa e repasse são coisas diferentes.</h2><p>Antes da abertura pública, o fluxo financeiro real será validado ponta a ponta. O TAMÃO não promete prazo de repasse antes dessa comprovação.</p></div></div>
       <div class="money-flow">
         <div><span>1</span><strong>Pedido</strong><small>Preço e política financeira ficam registrados.</small></div>
         <b>→</b>
@@ -412,9 +412,9 @@ function merchantsLanding(){
         <b>→</b>
         <div><span>3</span><strong>Conclusão</strong><small>Pagamento + código confirmam a entrega.</small></div>
         <b>→</b>
-        <div><span>4</span><strong>Conciliação</strong><small>Taxa Chama, cashback e ajustes ficam separados contabilmente.</small></div>
+        <div><span>4</span><strong>Conciliação</strong><small>Taxa TAMÃO, cashback e ajustes ficam separados contabilmente.</small></div>
       </div>
-      <div class="notice" style="margin-top:12px"><strong>Repasse ainda em validação operacional.</strong><br>Pix, dinheiro, cartão, cashback, estorno e conciliação precisam ser comprovados no piloto real antes de o Chama publicar um prazo de repasse.</div>
+      <div class="notice" style="margin-top:12px"><strong>Repasse ainda em validação operacional.</strong><br>Pix, dinheiro, cartão, cashback, estorno e conciliação precisam ser comprovados no piloto real antes de o TAMÃO publicar um prazo de repasse.</div>
     </section>
 
     <section class="section"><div class="section-head"><div><span class="section-kicker">O QUE VOCÊ CONTROLA</span><h2>Sua operação continua sendo sua.</h2></div></div>
@@ -434,11 +434,11 @@ function merchantsLanding(){
 
     <section class="section"><div class="section-head"><div><span class="section-kicker">DÚVIDAS DE QUEM VENDE</span><h2>As perguntas que um dono de revenda deveria fazer antes de entrar.</h2></div></div><div class="faq-list">
       <details open><summary>Sou obrigado a aceitar todo pedido?</summary><p>Não. Você decide pedido por pedido e pode ficar offline. Recusar antes do aceite é melhor do que assumir uma entrega que já sabe que não conseguirá cumprir.</p></details>
-      <details><summary>Se eu não for o mais barato, fico sem pedidos?</summary><p>Não necessariamente. O Chama considera preço total, prazo e confiança. Entre parceiros próximos em qualidade, carga atual e volume recente ajudam a evitar concentração.</p></details>
-      <details><summary>Posso continuar vendendo pelo WhatsApp e telefone?</summary><p>Sim. A proposta atual não exige exclusividade. O Chama é um canal adicional.</p></details>
+      <details><summary>Se eu não for o mais barato, fico sem pedidos?</summary><p>Não necessariamente. O TAMÃO considera preço total, prazo e confiança. Entre parceiros próximos em qualidade, carga atual e volume recente ajudam a evitar concentração.</p></details>
+      <details><summary>Posso continuar vendendo pelo WhatsApp e telefone?</summary><p>Sim. A proposta atual não exige exclusividade. O TAMÃO é um canal adicional.</p></details>
       <details><summary>Quando existe a taxa de 7,5%?</summary><p>Na política inicial do piloto, a taxa da plataforma incide sobre o valor bruto de cada pedido concluído.</p></details>
       <details><summary>Quem define preço, estoque e entrega?</summary><p>A própria revenda controla preço por produto, estoque, taxa de entrega, prazo operacional e disponibilidade.</p></details>
-      <details><summary>Quando o dinheiro é repassado?</summary><p>O fluxo real de cobrança, conciliação e repasse ainda está em validação. O Chama não publica prazo antes de comprovar o processo ponta a ponta.</p></details>
+      <details><summary>Quando o dinheiro é repassado?</summary><p>O fluxo real de cobrança, conciliação e repasse ainda está em validação. O TAMÃO não publica prazo antes de comprovar o processo ponta a ponta.</p></details>
       <details><summary>O que acontece se eu aceitar e depois não conseguir entregar?</summary><p>O sistema pode iniciar uma tentativa de rescue antes da saída. Falhas depois do aceite afetam a experiência e devem ser evitadas mantendo preço, estoque e disponibilidade atualizados.</p></details>
       <details><summary>Posso vender além do P13?</summary><p>Sim. O catálogo suporta outros tamanhos de GLP e produtos como água, carvão, lenha e gelo, sujeitos às validações aplicáveis.</p></details>
     </div></section>

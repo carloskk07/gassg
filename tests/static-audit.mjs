@@ -12,6 +12,9 @@ for(const ref of refs) assert.ok(exists(ref),`asset ausente no index: ${ref}`);
 
 const manifest=JSON.parse(read('manifest.webmanifest'));
 for(const icon of manifest.icons||[]) assert.ok(exists(icon.src.replace(/^\.\//,'')),`ícone do manifest ausente: ${icon.src}`);
+assert.equal(manifest.short_name,'TAMÃO','PWA deve expor a nova marca pública');
+assert.equal(manifest.theme_color,'#0d6b4b','manifest deve usar o verde institucional TAMÃO');
+assert.match(html,/TAMÃO — Pediu\? Tá na mão\./,'title deve carregar marca e assinatura');
 
 const sw=read('sw.js');
 const swAssets=[...sw.matchAll(/'\.\/([^']*)'/g)].map(m=>m[1]).filter(Boolean);
@@ -56,9 +59,13 @@ assert.ok(core.includes('isValidCnpjShape'),'core precisa suportar validação e
 assert.ok(!merchant.includes('.stock'),'UI da revenda não deve depender do campo legado stock');
 assert.ok(growth.includes('referralCode'),'link de indicação deve usar código pessoal');
 assert.ok(bootstrap.includes('home,learn,earn'),'router público precisa expor jornadas de descoberta e renda');
-assert.ok(customer.includes('Quero pedir agora')&&customer.includes('Quero entender melhor')&&customer.includes('Quero ganhar ou vender'),'home precisa priorizar compra e separar entendimento de oportunidades');
+assert.ok(customer.includes('Quero pedir agora')&&customer.includes('Quero entender melhor')&&customer.includes('Quero ganhar benefícios')&&customer.includes('Quero vender no TAMÃO'),'home precisa separar compra, entendimento, benefícios e parceria comercial');
 assert.ok(customer.includes('Botijão de cozinha 13 kg')&&customer.includes('startHomeOrder'),'home precisa iniciar a compra em linguagem humana sem depender de P13 como rótulo principal');
-assert.ok(customer.includes('PROTEÇÃO CHAMA')&&customer.includes('qualquer alternativa mais cara'),'home precisa explicar rescue e requote como proteção compreensível ao cliente');
+assert.ok(core.includes('brand-name">TAMÃO')&&core.includes('Pediu? Tá na mão.'),'shell deve carregar a identidade TAMÃO');
+assert.ok(customer.includes('<h1>Pediu? Tá na mão.</h1>')&&customer.includes('Gás, água e essenciais perto de você.'),'hero deve materializar nome, promessa e categoria');
+assert.ok(!/\bChama\b/.test([customer,merchant,growth,admin,backend].join('\n')),'copy pública não pode regredir para a marca anterior');
+assert.ok(core.includes("const STORAGE='chama-sg-state-v2'")&&backend.includes('CHAMA_CUSTOMER_ORIGIN'),'rebrand não pode quebrar identificadores técnicos legados nesta versão');
+assert.ok(customer.includes('PROTEÇÃO TAMÃO')&&customer.includes('qualquer alternativa mais cara'),'home precisa explicar rescue e requote como proteção compreensível ao cliente');
 assert.ok(customer.includes('PRIMEIRO PARCEIRO PILOTO')&&customer.includes('Gas e Lenheira do JR'),'pré-lançamento deve mostrar o primeiro parceiro piloto sem fingir operação ativa');
 assert.ok(customer.includes('PILOTO INTERNO — SEM PEDIDOS REAIS')&&customer.includes('R$ 115,90 mínimo')&&customer.includes('R$ 120,00 normal')&&customer.includes('R$ 125,00 máximo'),'GitHub Pages deve comunicar claramente a faixa comercial interna do JR');
 assert.ok(customer.includes('🧪 Simulação operacional')&&customer.includes('Sem validação jurídica nesta tela'),'oferta do piloto interno não pode fingir verificação regulatória');
@@ -67,15 +74,15 @@ assert.ok(customer.includes('Há um parceiro elegível para esta cesta agora.')&
 assert.ok(backend.includes("available:'Disponível agora'")&&backend.includes("marketMode"),'runtime cliente precisa transportar e rotular mercado de fornecedor único');
 assert.ok(customer.includes("go('learn')")&&customer.includes("go('earn')"),'home precisa possuir CTAs claros para descoberta e renda');
 assert.ok(growth.includes('function learn()'),'jornada Saiba mais precisa existir');
-assert.ok(growth.includes('function earn()'),'hub Ganhe com o Chama precisa existir');
+assert.ok(growth.includes('function earn()'),'hub Ganhe com o TAMÃO precisa existir');
 assert.ok(growth.includes('REFERRAL_PILOT_RATE=0.02'),'exemplo de indicação deve estar ancorado na política atual do piloto');
 assert.ok(growth.includes('MERCHANT_PILOT_FEE_RATE=0.075'),'simulador comercial deve usar a taxa real da política inicial do piloto');
 assert.ok(growth.includes('merchantMarginExample'),'simulador comercial avançado precisa centralizar cálculo de margem');
-assert.ok(growth.includes('gross-chamaFee-knownCosts'),'margem estimada precisa descontar taxa Chama e custos informados');
+assert.ok(growth.includes('gross-chamaFee-knownCosts'),'margem estimada precisa descontar taxa TAMÃO e custos informados');
 assert.ok(financePolicy.includes('platform_fee_bps=750'),'backend financeiro deve manter 7,5% enquanto a UX publica essa taxa');
 assert.ok(financePolicy.includes('direct_referral_bps=200'),'backend financeiro deve manter 2% enquanto a UX publica essa comissão');
 assert.ok(financePolicy.includes('cashback_bps=100'),'backend financeiro deve manter 1% como política inicial de cashback');
-assert.ok(growth.includes('Taxa Chama: 7,5% por pedido concluído'),'landing de oportunidade deve expor o custo comercial do piloto');
+assert.ok(growth.includes('Taxa TAMÃO: 7,5% por pedido concluído'),'landing de oportunidade deve expor o custo comercial do piloto');
 assert.ok(growth.includes('SIMULADOR DE MARGEM INCREMENTAL')&&growth.includes('merchant-sim-fee'),'revenda precisa visualizar taxa e margem incremental');
 assert.ok(growth.includes('merchant-sim-product-cost')&&growth.includes('merchant-sim-delivery-cost')&&growth.includes('merchant-sim-payment-cost')&&growth.includes('merchant-sim-tax-rate'),'simulador da revenda precisa aceitar custos próprios antes de estimar margem');
 assert.ok(growth.includes('Receita não é lucro')&&growth.includes('não para prometer lucro'),'landing da revenda não pode confundir receita com lucro');
@@ -96,7 +103,7 @@ assert.ok(growth.includes('Saque Pix ainda não disponível')&&growth.includes('
 assert.ok(growth.includes('Você continua no controle'),'landing de revenda deve enfatizar autonomia operacional');
 assert.ok(core.includes("['earn','💰','Ganhe','go']"),'navegação móvel precisa dar acesso direto ao hub de renda');
 assert.ok(!growth.includes('inputmode="numeric" maxlength="18"'),'campo CNPJ não pode forçar teclado somente numérico após adoção do CNPJ alfanumérico');
-assert.ok(sw.includes("CACHE='chama-sg-v1.47'"),'cache do service worker precisa estar versionado');
+assert.ok(sw.includes("CACHE='tamao-sg-v1.48'"),'cache do service worker precisa refletir a versão TAMÃO');
 assert.ok(admin.includes('offerable_supply_required')&&admin.includes('offerReadyMerchantCount'),'painel admin precisa expor oferta real como gate de lançamento');
 assert.ok(admin.includes('realmente capaz de receber uma oferta agora'),'copy de go-live precisa distinguir cadastro de capacidade operacional real');
 assert.ok(sw.includes("./js/backend.js"),'runtime live precisa estar no cache da PWA');

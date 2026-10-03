@@ -1,4 +1,4 @@
-# Chama — Threat model v1.7.2
+# TAMÃO — Threat model v1.7.2
 
 Este documento define os principais riscos do piloto real e as mitigações já implementadas ou ainda obrigatórias.
 

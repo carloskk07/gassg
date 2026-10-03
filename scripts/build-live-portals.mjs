@@ -7,9 +7,9 @@ const ROOT=path.resolve(new URL('..',import.meta.url).pathname);
 const STATIC_FILES=['index.html','manifest.webmanifest','sw.js'];
 const STATIC_DIRS=['css','js','icons'];
 const PORTALS={
-  customer:{name:'Chama — Cliente',shortName:'Chama',title:'Chama — Gás e essenciais em São Gabriel'},
-  merchant:{name:'Chama — Revenda',shortName:'Chama Revenda',title:'Chama Revenda — Operação'},
-  admin:{name:'Chama — Administração',shortName:'Chama Admin',title:'Chama Admin — Controle'}
+  customer:{name:'TAMÃO — Cliente',shortName:'TAMÃO',title:'TAMÃO — Pediu? Tá na mão.'},
+  merchant:{name:'TAMÃO — Revenda',shortName:'TAMÃO Revenda',title:'TAMÃO Revenda — Operação'},
+  admin:{name:'TAMÃO — Administração',shortName:'TAMÃO Admin',title:'TAMÃO Admin — Controle'}
 };
 const TEST_KEYS=new Set([
   '1x00000000000000000000AA',

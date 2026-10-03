@@ -69,7 +69,7 @@ function mapRpcError(error: { message?: string; code?: string } | null) {
     POSTAL_CODE_UNVERIFIED: { status: 409, message: "A validação do CEP desta oferta expirou. Atualize as opções antes de pedir." },
     POSTAL_CODE_OUTSIDE_SERVICE_AREA: { status: 409, message: "Este CEP não pertence mais à área atendida." },
     QUOTE_ADDRESS_NOT_CANONICAL: { status: 409, message: "O endereço desta oferta precisa ser validado novamente." },
-    COMMERCE_NOT_ENABLED: { status: 409, message: "Os pedidos reais ainda não foram liberados. Aguarde a abertura oficial do Chama." }
+    COMMERCE_NOT_ENABLED: { status: 409, message: "Os pedidos reais ainda não foram liberados. Aguarde a abertura oficial do TAMÃO." }
   };
 
   for (const [code, meta] of Object.entries(known)) {

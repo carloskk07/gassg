@@ -1,6 +1,12 @@
-# Chama São Gabriel — MVP PWA
+# TAMÃO — marketplace local de essenciais
 
 Marketplace hiperlocal de gás e abastecimento essencial para São Gabriel/RS.
+
+## Estado atual — v1.48 TAMÃO
+
+A marca pública do produto passa a ser **TAMÃO**, com a assinatura **“Pediu? Tá na mão.”** e o descritor inicial **“Gás, água e essenciais perto de você.”**. A mudança é deliberadamente **brand-first**: interface, PWA, portais live, notificações, documentação e testes passam a usar TAMÃO, enquanto identificadores técnicos legados como `CHAMA_*`, chaves de storage, nomes de crons e contratos server-side permanecem estáveis nesta versão para não romper sessões, deploys, automações ou migrações existentes. A migração desses identificadores internos deve ocorrer apenas em uma etapa técnica separada, com compatibilidade explícita.
+
+A identidade visual v1.48 usa verde profundo, fundo quente e amarelo de confirmação, além de um símbolo de **mão + check** para materializar a promessa “tá na mão”. O repositório continua com o nome técnico `gassg` enquanto domínio e clearance marcário definitivo não estiverem formalmente concluídos.
 
 ## Online
 
@@ -48,7 +54,7 @@ A v1.32 substitui o preço único opcional por uma política por SKU controlada 
 
 Cada item pode operar em:
 
-- **Preço fixo** — o Chama usa exatamente o preço confirmado;
+- **Preço fixo** — o TAMÃO usa exatamente o preço confirmado;
 - **Faixa automática** — a revenda define **mínimo autorizado**, **preço normal**, **máximo autorizado** e uma estratégia:
   - Priorizar volume;
   - Equilibrado;
@@ -98,7 +104,7 @@ A v1.30 transforma a experiência de parceria de uma explicação de funcionalid
 
 A landing agora começa por **faturamento incremental**, sem sugerir exclusividade:
 
-- Chama como canal adicional a telefone, WhatsApp, balcão e canais próprios;
+- TAMÃO como canal adicional a telefone, WhatsApp, balcão e canais próprios;
 - sem obrigação de aceitar todo pedido;
 - online/offline sob decisão da empresa;
 - preço, estoque, taxa de entrega e catálogo controlados pela revenda;
@@ -115,7 +121,7 @@ O simulador antigo de “bruto - taxa” foi substituído por um modelo que rece
 - custo do meio de pagamento;
 - tributos percentuais.
 
-A saída separa vendas brutas, taxa Chama, custos informados, contribuição total, contribuição por pedido e margem estimada. A interface deixa explícito que **receita não é lucro** e que o cálculo não conhece custos fixos nem promete rentabilidade.
+A saída separa vendas brutas, taxa TAMÃO, custos informados, contribuição total, contribuição por pedido e margem estimada. A interface deixa explícito que **receita não é lucro** e que o cálculo não conhece custos fixos nem promete rentabilidade.
 
 ### Distribuição de pedidos
 
@@ -149,7 +155,7 @@ No GitHub Pages interno, o CTA principal é **Experimentar painel da revenda** e
 
 ## Estado atual — v1.29 internal full pilot
 
-Como o Chama ainda não está sendo divulgado e não possui domínio próprio, o GitHub Pages passou a funcionar como **laboratório interno completo**, sem abrir comércio real.
+Como o TAMÃO ainda não está sendo divulgado e não possui domínio próprio, o GitHub Pages passou a funcionar como **laboratório interno completo**, sem abrir comércio real.
 
 - somente no host `carloskk07.github.io/gassg/`, o runtime ativa `CHAMA_INTERNAL_PILOT`;
 - esse modo usa o motor de simulação já auditado e **não chama create-order real**;
@@ -230,7 +236,7 @@ Principais mudanças:
 - endereço, produto e CTA de consulta ficam juntos no primeiro bloco de decisão;
 - preço total, previsão de entrega e aceite do parceiro passaram a usar linguagem de consumidor;
 - cards reais continuam sem revelar a identidade completa do parceiro antes do aceite, mas explicam claramente total, prazo, elegibilidade, confiança e forma de pagamento;
-- rescue/requote passa a ser apresentado como **Proteção Chama**: se a primeira operação falhar antes da saída, o sistema pode procurar alternativa e qualquer aumento de total continua exigindo aceite explícito do cliente;
+- rescue/requote passa a ser apresentado como **Proteção TAMÃO**: se a primeira operação falhar antes da saída, o sistema pode procurar alternativa e qualquer aumento de total continua exigindo aceite explícito do cliente;
 - acompanhamento usa **código de recebimento** como linguagem pública, preservando o PIN técnico no backend;
 - cashback, comissão por indicação e receita de revenda são apresentados como três naturezas econômicas diferentes;
 - o simulador de indicação continua preso à política real do piloto de **2% sobre a primeira compra qualificada** e deixa ainda mais explícito que comissão não é renda fixa nem saque imediato;
@@ -241,7 +247,7 @@ Principais mudanças:
 
 ## Estado atual — v1.25 conversion & transparent economics
 
-**Backend multiusuário:** aplicado no projeto Supabase exclusivo do Chama.
+**Backend multiusuário:** aplicado no projeto Supabase exclusivo do TAMÃO.
 
 **Mercado real configurado neste momento:** 0 revendas. Por isso a prévia visual permanece ativa.
 
@@ -272,7 +278,7 @@ A home agora prioriza preço, prazo, aceite real e rastreabilidade. Ofertas reai
 A economia pública também ficou ligada ao contrato financeiro do backend:
 
 - indicação: simulador baseado na política inicial de **2% sobre a primeira compra qualificada de cada novo cliente elegível**;
-- revenda: política inicial de **7,5% sobre o valor bruto de cada pedido concluído**, com simulador de vendas brutas, taxa Chama e valor anterior aos custos/tributos próprios;
+- revenda: política inicial de **7,5% sobre o valor bruto de cada pedido concluído**, com simulador de vendas brutas, taxa TAMÃO e valor anterior aos custos/tributos próprios;
 - exemplos são explicitamente ilustrativos e não são promessa de renda;
 - saque Pix continua desabilitado até existir integração financeira real.
 

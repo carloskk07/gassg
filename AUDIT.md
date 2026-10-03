@@ -1,4 +1,4 @@
-# Auditoria v1.25 — Chama São Gabriel
+# Auditoria — TAMÃO
 
 Data: 02/10/2026
 
@@ -329,7 +329,7 @@ Nenhuma mudança deve chegar a `main` com gate vermelho. O primeiro go-live de d
 
 ## Objetivo
 
-Revisar o Chama como um usuário que chega com três intenções diferentes — **comprar**, **entender** e **gerar benefício/receita** — sem relaxar os contratos financeiros, operacionais e de segurança já existentes.
+Revisar o TAMÃO como um usuário que chega com três intenções diferentes — **comprar**, **entender** e **gerar benefício/receita** — sem relaxar os contratos financeiros, operacionais e de segurança já existentes.
 
 ## Mudanças aprovadas
 
@@ -340,7 +340,7 @@ Revisar o Chama como um usuário que chega com três intenções diferentes — 
 - endereço e CTA de consulta ficam no primeiro bloco;
 - a hierarquia passa a ser **comprar → confiar → benefícios → oportunidades**.
 
-### Proteção Chama
+### Proteção TAMÃO
 
 A lógica de rescue/requote já existente no backend ganhou uma tradução pública clara:
 
@@ -388,7 +388,7 @@ Nenhum prazo de repasse foi inventado.
 ## Gates adicionados/atualizados
 
 - Home deve conter a entrada de compra em linguagem humana;
-- Home deve apresentar Proteção Chama;
+- Home deve apresentar Proteção TAMÃO;
 - jornada deve preservar as três portas: pedir, entender e ganhar/vender;
 - cache PWA sobe para `chama-sg-v1.26`;
 - E2E browser passa a validar a nova linguagem pública sem alterar o cenário operacional de compra → aceite → saída → chegada → pagamento + código/PIN → cashback.
@@ -440,7 +440,7 @@ Correção aplicada no Supabase real e versionada:
 - manter `service_role` explícito;
 - revogar também `MAINTAIN`, privilégio distinto do PostgreSQL 17.
 
-A primeira tentativa também tentou alterar defaults de `supabase_admin` e foi corretamente recusada pelo provedor. A inspeção de ownership confirmou que os objetos Chama em `public` pertencem a `postgres`, então a migration final atua apenas sobre a autoridade correta.
+A primeira tentativa também tentou alterar defaults de `supabase_admin` e foi corretamente recusada pelo provedor. A inspeção de ownership confirmou que os objetos TAMÃO em `public` pertencem a `postgres`, então a migration final atua apenas sobre a autoridade correta.
 
 ### 2. Baseline `schema.sql` contradizia o runtime atual
 
@@ -599,7 +599,7 @@ A regra continua: nenhum merge com gate vermelho. O go-live continua bloqueado a
 
 ## Objetivo
 
-Preparar o Chama para operar com um primeiro parceiro real sem fabricar concorrência, documentação regulatória ou disponibilidade que ainda não existe.
+Preparar o TAMÃO para operar com um primeiro parceiro real sem fabricar concorrência, documentação regulatória ou disponibilidade que ainda não existe.
 
 ## Staging comercial
 
@@ -793,7 +793,7 @@ Esse modo pode ser removido ou convertido em staging dedicado quando os domínio
 
 ## Objetivo
 
-Revisar o Chama do ponto de vista de um proprietário de revenda que precisa responder quatro perguntas antes de entrar:
+Revisar o TAMÃO do ponto de vista de um proprietário de revenda que precisa responder quatro perguntas antes de entrar:
 
 1. isso pode trazer pedidos novos?
 2. quanto custa?
@@ -806,7 +806,7 @@ A experiência anterior explicava muito bem catálogo, aceite, online/offline e 
 
 O simulador anterior mostrava apenas:
 
-`vendas brutas - taxa Chama`.
+`vendas brutas - taxa TAMÃO`.
 
 Esse valor não é lucro e poderia ser interpretado dessa forma por um parceiro menos atento.
 
@@ -817,7 +817,7 @@ Esse valor não é lucro e poderia ser interpretado dessa forma por um parceiro 
 `merchantMarginExample()` agora calcula:
 
 - vendas brutas;
-- taxa Chama de 7,5%;
+- taxa TAMÃO de 7,5%;
 - custo do produto informado;
 - custo de entrega informado;
 - custo de pagamento informado;
@@ -830,7 +830,7 @@ Nenhum custo desconhecido é inventado. O preço de R$ 115,90 do cenário JR apa
 
 ### Sem exclusividade
 
-A landing declara que o Chama é um canal adicional. Telefone, WhatsApp, balcão e demais canais próprios continuam fazendo parte da operação.
+A landing declara que o TAMÃO é um canal adicional. Telefone, WhatsApp, balcão e demais canais próprios continuam fazendo parte da operação.
 
 ### Distribuição
 
@@ -1232,3 +1232,8 @@ O cenário JR agora nasce com o preço normal de **R$ 120,00** e a faixa confirm
 
 O preço calculado no laboratório permanece dentro da faixa. Alterar estratégia, estoque ou carga na simulação não modifica a condição comercial real cadastrada no staging.
 
+
+
+## V1.48 — Rebrand TAMÃO
+
+A camada pública foi migrada de Chama para **TAMÃO** sem renomear contratos internos que sustentam autenticação, storage, crons, Edge Functions e configuração de origens. Essa separação reduz risco de regressão durante o rebrand. A prova desta versão exige metadata/PWA TAMÃO, shell com o novo símbolo, hero **“Pediu? Tá na mão.”**, Proteção TAMÃO, Clube TAMÃO, portais live com metadata atualizada e smoke/E2E alinhados à nova marca.
