@@ -134,6 +134,32 @@ assert.match(body,/DÚVIDAS FREQUENTES/);
 assert.match(body,/Parceiro precisa confirmar/);
 await auditDom('learn');
 
+await evaluate("go('privacy')");
+await waitFor("document.body.innerText.includes('Aviso de Privacidade')","privacy route");
+body=await text();
+assert.match(body,/Seus direitos/);
+assert.match(body,/Exercer um direito de privacidade/);
+assert.match(body,/não é armazenado nessas tabelas de captação/i);
+await auditDom('privacy');
+
+await evaluate("go('terms')");
+await waitFor("document.body.innerText.includes('Termos de Uso')","terms route");
+body=await text();
+assert.match(body,/Situação atual/);
+assert.match(body,/não cria pedido, cobrança ou reserva real de estoque/i);
+assert.match(body,/não promete volume de pedidos, faturamento ou renda/i);
+await auditDom('terms');
+
+await evaluate("go('contact')");
+await waitFor("document.body.innerText.includes('Fale com o TAMÃO')","contact route");
+body=await text();
+assert.match(body,/Privacidade \/ LGPD/);
+await evaluate("document.querySelector('#public-request-kind').value='privacy'; contactKindChanged()");
+assert.equal(await evaluate("document.querySelector('#privacy-action-wrap').hidden"),false);
+await evaluate("document.querySelector('#public-contact-channel').value='email'; contactChannelChanged()");
+assert.equal(await evaluate("document.querySelector('#public-contact-value').type"),'email');
+await auditDom('contact');
+
 await evaluate("go('earn')");
 await waitFor("document.body.innerText.includes('Comissão por indicação para pessoas')","earn route");
 body=await text();
