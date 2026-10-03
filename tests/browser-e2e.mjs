@@ -157,7 +157,7 @@ await waitFor("document.body.innerText.includes('Aviso de Privacidade')","privac
 body=await text();
 assert.match(body,/Seus direitos/);
 assert.match(body,/Exercer um direito de privacidade/);
-assert.match(body,/não é armazenado nessas tabelas de captação/i);
+assert.match(body,/IP bruto não é gravado nas tabelas de captação nem na tabela de analytics/i);
 await auditDom('privacy');
 
 await evaluate("go('terms')");
