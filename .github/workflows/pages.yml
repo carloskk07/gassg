@@ -138,6 +138,15 @@ jobs:
           node tests/browser-e2e.mjs
       - name: Validate manifest
         run: node -e "JSON.parse(require('fs').readFileSync('manifest.webmanifest','utf8')); console.log('manifest OK')"
+      - name: Cloudflare production build contract
+        run: |
+          TAMAO_DEPLOY_TARGET=cloudflare node scripts/build-public-site.mjs /tmp/tamao-cloudflare-prelaunch
+          test -f /tmp/tamao-cloudflare-prelaunch/_headers
+          grep -q "Content-Security-Policy:" /tmp/tamao-cloudflare-prelaunch/_headers
+          grep -q "X-Robots-Tag: noindex" /tmp/tamao-cloudflare-prelaunch/_headers
+          TAMAO_DEPLOY_TARGET=cloudflare TAMAO_PUBLIC_INDEXING=1 node scripts/build-public-site.mjs /tmp/tamao-cloudflare-public
+          grep -q 'name="robots" content="index,follow"' /tmp/tamao-cloudflare-public/index.html
+          test -f /tmp/tamao-cloudflare-public/sitemap.xml
       - name: Stage public PWA only
         run: node scripts/build-public-site.mjs _site
       - name: Configure Pages
