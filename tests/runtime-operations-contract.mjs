@@ -587,5 +587,8 @@ assert.match(retentionOpsV134,/alter table public\.support_cases enable row leve
 assert.match(retentionOpsV134,/request_idempotency_key text not null unique/,'abertura de suporte precisa ser idempotente');
 assert.match(retentionOpsV134,/merchant_public_performance/,'prova objetiva de performance precisa de autoridade server-side');
 assert.match(retentionOpsV134,/create or replace function public\.system_rescue_order[\s\S]*max_active_orders/,'rescue automático precisa respeitar capacidade');
+assert.match(retentionOpsV134,/platform_business_metrics/,'admin precisa de métricas server-side do negócio');
+assert.match(retentionOpsV134,/admin_support_case_action/,'fila de suporte precisa de autoridade administrativa');
+assert.match(retentionOpsV134,/support-case-status/,'mudança de suporte precisa deixar trilha administrativa');
 
 console.log('Retention + operational reliability v1.34 contract passou.');
