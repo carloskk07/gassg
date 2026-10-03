@@ -757,17 +757,21 @@ function shell(content){
   const adminPortal=globalThis.adminPortalRequested?.()===true;
   const merchantPortal=!adminPortal&&globalThis.merchantPortalRequested?.()===true;
   const testDemo=globalThis.__CHAMA_TEST__===true;
-  const merchantAction=merchantPortal?"go('merchant')":testDemo?"setMode('merchant')":"openMerchantPortal()";
+  const prelaunchPublic=!adminPortal&&!merchantPortal&&!testDemo&&globalThis.prelaunchExamplesEnabled?.()===true;
+  const merchantOriginReady=String(globalThis.CHAMA_MERCHANT_ORIGIN||'').trim().length>0;
+  const merchantAction=merchantPortal?"go('merchant')":testDemo?"setMode('merchant')":prelaunchPublic||!merchantOriginReady?"go('merchants')":"openMerchantPortal()";
   const customerAction=(adminPortal||merchantPortal)?"openCustomerPortal()":testDemo?"setMode('customer')":"go('home')";
   const brandAction=adminPortal?"go('admin')":merchantPortal?"go('merchant')":"go('home')";
   const desktopNav=adminPortal
     ? '<button onclick="go(\'admin\')">Control plane</button>'
     :merchantPortal
       ? '<button onclick="go(\'merchant\')">Operação</button><button onclick="go(\'catalog\')">Catálogo</button><button onclick="go(\'merchants\')">Parceiros</button>'
-      : '<button onclick="go(\'home\')">Início</button><button onclick="go(\'learn\')">Como funciona</button><button onclick="go(\'earn\')">Ganhe</button><button onclick="go(\'club\')">Clube</button><button onclick="go(\'merchants\')">Para revendas</button>';
+      : prelaunchPublic
+        ? '<button onclick="go(\'home\')">Início</button><button onclick="openPrelaunchCustomerLead()">Lista de abertura</button><button onclick="go(\'learn\')">Como funciona</button><button onclick="go(\'merchants\')">Para empresas</button><button onclick="go(\'contact\')">Contato</button>'
+        : '<button onclick="go(\'home\')">Início</button><button onclick="go(\'learn\')">Como funciona</button><button onclick="go(\'earn\')">Ganhe</button><button onclick="go(\'club\')">Clube</button><button onclick="go(\'merchants\')">Para revendas</button>';
   const switcher=adminPortal
     ? '<div class="mode-pill" aria-label="Alternar ambiente"><button onclick="openCustomerPortal()">Site</button><button class="active" onclick="go(\'admin\')">Admin</button></div>'
-    : `<div class="mode-pill" aria-label="Alternar modo"><button class="${!merchantPortal&&(!testDemo||state.mode==='customer')?'active':''}" onclick="${customerAction}">Comprar</button><button class="${merchantPortal||(testDemo&&state.mode==='merchant')?'active':''}" onclick="${merchantAction}">Revenda</button></div>`;
+    : `<div class="mode-pill" aria-label="Alternar modo"><button class="${!merchantPortal&&(!testDemo||state.mode==='customer')&&r!=='merchants'?'active':''}" onclick="${customerAction}">${prelaunchPublic?'Quero comprar':'Comprar'}</button><button class="${merchantPortal||(testDemo&&state.mode==='merchant')||(!merchantPortal&&r==='merchants')?'active':''}" onclick="${merchantAction}">${prelaunchPublic?'Quero vender':'Revenda'}</button></div>`;
   return `<div class="app">
   ${runtimeStrip()}
   <header class="topbar"><div class="shell topbar-inner">
@@ -784,6 +788,7 @@ function bottomNav(r){
   const adminPortal=globalThis.adminPortalRequested?.()===true;
   const merchantPortal=!adminPortal&&globalThis.merchantPortalRequested?.()===true;
   const testDemo=globalThis.__CHAMA_TEST__===true;
+  const prelaunchPublic=!adminPortal&&!merchantPortal&&!testDemo&&globalThis.prelaunchExamplesEnabled?.()===true;
   const items=adminPortal
     ?[['admin','🛡️','Admin','go']]
     :merchantPortal
@@ -792,8 +797,14 @@ function bottomNav(r){
         :[['merchant','🏪','Operação','go'],['merchant-orders','📦','Pedidos','go'],['merchant-team','👥','Equipe','go'],['catalog','🧺','Catálogo','go']]
       :testDemo&&state.mode==='merchant'
         ?[['merchant','🏪','Operação','go'],['merchant-orders','📦','Pedidos','go'],['catalog','🧺','Catálogo','go'],['merchant-metrics','📊','Desempenho','go'],['merchants','➕','Parceiros','go']]
-        :[['home','⌂','Início','go'],['order','🔥','Pedir','start'],['tracking','📍','Pedido','go'],['earn','💰','Ganhe','go'],['club','★','Clube','go']];
-  return `<nav class="bottom-nav" aria-label="Navegação principal">${items.map(([id,ic,l,act])=>`<button class="nav-btn ${r===id?'active':''}" ${r===id?'aria-current="page"':''} onclick="${act==='start'?"startOrder('P13')":`go('${id}')`}"><span aria-hidden="true">${ic}</span><span>${l}</span></button>`).join('')}</nav>`;
+        :prelaunchPublic
+          ?[['home','⌂','Início','go'],['early-access','🔔','Abertura','lead'],['learn','🛡️','Como funciona','go'],['merchants','🏪','Vender','go'],['contact','💬','Contato','go']]
+          :[['home','⌂','Início','go'],['order','🔥','Pedir','start'],['tracking','📍','Pedido','go'],['earn','💰','Ganhe','go'],['club','★','Clube','go']];
+  return `<nav class="bottom-nav" aria-label="Navegação principal">${items.map(([id,ic,l,act])=>{
+    const active=r===id;
+    const onclick=act==='start'?"startOrder('P13')":act==='lead'?"openPrelaunchCustomerLead()":`go('${id}')`;
+    return `<button class="nav-btn ${active?'active':''}" ${active?'aria-current="page"':''} onclick="${onclick}"><span aria-hidden="true">${ic}</span><span>${l}</span></button>`;
+  }).join('')}</nav>`;
 }
 function setMode(m){state.mode=m==='merchant'?'merchant':'customer';save();go(state.mode==='merchant'?'merchant':'home');render()}
 
