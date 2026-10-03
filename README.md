@@ -2,6 +2,25 @@
 
 Marketplace hiperlocal de gás e abastecimento essencial para São Gabriel/RS.
 
+## Estado atual — v1.58 remote readiness
+
+A prontidão administrativa passa a ser provada também **fora do runner local**.
+
+A sonda `tests/remote-admin-readiness.mjs` chama a infraestrutura real e confirmou:
+
+- `admin-auth/request-link` chega ao handler sem JWT e é rejeitado pelo próprio gate de CAPTCHA (`CAPTCHA_REQUIRED`);
+- `admin-auth/claim` continua fechado sem bearer (`UNAUTHORIZED`);
+- portanto, o bloqueio de `verify_jwt` encontrado na v1.57 está efetivamente corrigido em produção.
+
+A mesma sonda encontrou um bloqueio externo independente: o projeto Netlify `chama-sg-admin` existe, mas o bundle isolado ainda não está publicado; HTML, `runtime-config.js` e `portal-build.json` retornam 404.
+
+Também foi confirmado que o GitHub Actions ainda não possui `CHAMA_TURNSTILE_SITE_KEY` real. O pipeline foi separado em dois níveis:
+
+- **validate** — roda automaticamente e usa somente a chave oficial de teste da Cloudflare para provar o builder; não publica nem faz upload de artefato de produção;
+- **production-bundle** — roda apenas manualmente e exige uma chave Turnstile real; bloqueia chaves conhecidas de teste/demo e então gera os três artefatos publicáveis.
+
+O workflow manual **TAMÃO launch readiness** continua falhando fechado até o portal administrativo remoto estar realmente online.
+
 ## Estado atual — v1.57 admin bootstrap diagnostics
 
 O primeiro acesso administrativo deixa de tratar toda falha como simples "conta não autorizada".
