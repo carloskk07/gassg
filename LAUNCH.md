@@ -98,3 +98,42 @@ Se domínio, SSL, captação ou PWA falharem:
 3. voltar o domínio para página de manutenção ou build anterior;
 4. corrigir;
 5. repetir a prova de lançamento antes de retomar tráfego.
+
+
+## Operação dos primeiros leads
+
+Quando a captação pública começar, o admin deve ser tratado como uma fila operacional, não como arquivo de contatos.
+
+### Cliente
+
+1. `NOVO` — acabou de entrar.
+2. `CONTATADO` — houve tentativa real de contato.
+3. `QUALIFICADO` — confirmou interesse/região/categoria.
+4. `CONVERTIDO` — virou cliente real quando a operação abrir.
+5. `ENCERRADO` — sem continuidade; registrar motivo.
+
+### Parceiro
+
+Usar o mesmo pipeline, mas considerar `CONVERTIDO` somente quando a empresa efetivamente avançar para o onboarding real, não apenas por responder no WhatsApp.
+
+### Contato e privacidade
+
+- `NOVA` — ainda não tratada;
+- `EM ANÁLISE` — alguém assumiu o caso;
+- `RESOLVIDA` — houve solução documentada;
+- `ENCERRADA` — fluxo finalizado.
+
+Nunca marcar uma solicitação de privacidade como resolvida só por enviar uma mensagem inicial. A resolução deve refletir a providência efetivamente tomada.
+
+### Disciplina de campanha
+
+Não comparar campanhas somente por cliques. A métrica operacional inicial deve priorizar:
+
+- leads novos;
+- leads contatados;
+- leads qualificados;
+- leads convertidos;
+- parceiros qualificados;
+- origem/campanha de cada conversão.
+
+Isso evita otimizar anúncios para volume de formulário sem valor comercial.
