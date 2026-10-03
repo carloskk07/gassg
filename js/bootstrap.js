@@ -5,7 +5,7 @@ function render(){
   try{
     if(!globalThis.adminPortalRequested?.())housekeeping();
     const r=route();
-    const pages={home,learn,earn,order:orderPage,tracking,club,refer,merchants:merchantsLanding,'merchant-join':merchantJoin,merchant:merchantPage,'merchant-orders':merchantOrders,catalog,'merchant-metrics':merchantMetrics,admin:adminPage};
+    const pages={home,learn,earn,order:orderPage,tracking,club,refer,merchants:merchantsLanding,'merchant-join':merchantJoin,merchant:merchantPage,'merchant-orders':merchantOrders,'merchant-team':merchantTeamPage,catalog,'merchant-metrics':merchantMetrics,admin:adminPage};
     const app=document.querySelector('#app');
     if(app)app.innerHTML=(pages[r]||home)();
   }catch(e){
@@ -30,7 +30,7 @@ window.addEventListener('load',async()=>{
     render();
   }else if(globalThis.merchantPortalRequested?.()){
     await merchantBackendInit();
-    if(!['merchant','merchant-orders','catalog','merchant-metrics','merchants','merchant-join'].includes(route()))go('merchant');
+    if(!['merchant','merchant-orders','merchant-team','catalog','merchant-metrics','merchants','merchant-join'].includes(route()))go('merchant');
     render();
   }else if(globalThis.liveRequested?.()){
     await backendInit();
@@ -59,7 +59,9 @@ Object.assign(window,{
   merchantUpdate,merchantAction,reset,
   merchantLoginFromUi,merchantLiveRefresh,merchantLiveSelect,merchantLiveToggleOnline,
   merchantLiveSaveP13,merchantLiveSaveProduct,merchantLiveSaveLogistics,merchantLiveAction,merchantLiveCannotFulfill,
-  merchantLiveDeliver,merchantLiveLogout,
+  merchantLiveDeliver,merchantLiveAssignDelivery,merchantLiveSaveMemberProfile,
+  merchantOpenTeam,merchantTeamReloadFromUi,merchantTeamInviteFromUi,merchantTeamRevokeMemberFromUi,merchantTeamRevokeInviteFromUi,copyMerchantTeamInstructions,
+  merchantLiveLogout,
   adminLoginFromUi,adminRefresh,adminSignOut,adminApproveApplication,adminRejectApplication,
   adminSaveCompliance,adminSetMerchantStatus,adminFinancial,adminReverseOrder
 });
