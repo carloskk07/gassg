@@ -64,6 +64,6 @@ Object.assign(window,{
   merchantEnableAlertsFromUi,merchantDisableAlertsFromUi,
   merchantOpenTeam,merchantTeamReloadFromUi,merchantTeamInviteFromUi,merchantTeamRevokeMemberFromUi,merchantTeamRevokeInviteFromUi,copyMerchantTeamInstructions,
   merchantLiveLogout,
-  adminLoginFromUi,adminRefresh,adminSignOut,adminApproveApplication,adminRejectApplication,
+  adminLoginFromUi,adminRetryBootstrapFromUi,adminRefresh,adminSignOut,adminApproveApplication,adminRejectApplication,
   adminSaveCompliance,adminSetMerchantStatus,adminFinancial,adminReverseOrder
 });
