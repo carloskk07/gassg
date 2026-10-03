@@ -89,12 +89,13 @@ assert.ok(growth.includes('Saque Pix ainda não disponível')&&growth.includes('
 assert.ok(growth.includes('Você continua no controle'),'landing de revenda deve enfatizar autonomia operacional');
 assert.ok(core.includes("['earn','💰','Ganhe','go']"),'navegação móvel precisa dar acesso direto ao hub de renda');
 assert.ok(!growth.includes('inputmode="numeric" maxlength="18"'),'campo CNPJ não pode forçar teclado somente numérico após adoção do CNPJ alfanumérico');
-assert.ok(sw.includes("CACHE='chama-sg-v1.34'"),'cache do service worker precisa estar versionado');
+assert.ok(sw.includes("CACHE='chama-sg-v1.35'"),'cache do service worker precisa estar versionado');
 assert.ok(sw.includes("./js/backend.js"),'runtime live precisa estar no cache da PWA');
 assert.ok(sw.includes("./js/runtime-config.js"),'configuração pública de origins precisa estar no cache da PWA');
 assert.ok(sw.includes("./js/turnstile.js"),'helper local do Turnstile precisa estar no cache da PWA');
 assert.ok(sw.includes('async function networkFirst')&&sw.includes("return (await cache.match(cacheKey))||res"),'PWA deve usar cache também quando servidor same-origin responde erro');
 assert.ok(sw.includes("return (await cache.match(cacheKey))||Response.error()"),'PWA precisa responder de forma definida quando rede e cache falham');
+assert.ok(html.includes('https://cdn.jsdelivr.net/npm/qrcode-generator@2.0.4/dist/qrcode.js'),'QR de indicação precisa usar versão externa fixada');
 assert.ok(html.indexOf('./js/turnstile.js')<html.indexOf('./js/backend.js'),'helper Turnstile deve carregar antes do backend');
 assert.ok(html.indexOf('./js/runtime-config.js')<html.indexOf('./js/backend.js'),'runtime-config.js deve carregar antes do backend');
 assert.ok(html.includes('http-equiv="Content-Security-Policy"'),'PWA precisa declarar CSP explícita');
