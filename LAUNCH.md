@@ -47,7 +47,26 @@ Quando a alteração de nameservers estiver liberada:
 
 ## Prova antes do primeiro anúncio
 
-**Gate obrigatório antes de comprar tráfego:** reivindicar a conta administrativa reservada, entrar no portal admin e comprovar que o CRM carrega. Hoje existe uma reserva ainda não reivindicada; sem admin ativo, leads podem ser captados mas ninguém consegue operar a fila protegida.
+### Prova do primeiro administrador
+
+Usar somente a origem administrativa dedicada configurada para o control plane.
+
+1. abrir o portal admin dedicado;
+2. solicitar o magic link com o e-mail previamente reservado;
+3. abrir o link recebido no mesmo fluxo administrativo;
+4. confirmar que o servidor retorna `claimed` no primeiro acesso ou `existing_admin` nos acessos seguintes;
+5. confirmar que o resumo administrativo carrega;
+6. confirmar no banco que existe pelo menos 1 admin ativo;
+7. somente então considerar o gate administrativo concluído.
+
+Se aparecer `not_reserved`, não insistir nem criar nova reserva automaticamente: o e-mail autenticado não corresponde à reserva atual.
+
+Se aparecer `bootstrap_closed`, já existe outro administrador ativo; a nova conta deve ser adicionada por ele.
+
+Se houver erro de validação/concorrência, usar **Validar acesso novamente**. O sistema não concede permissão por fallback.
+
+
+**Gate obrigatório antes de comprar tráfego:** reivindicar a conta administrativa reservada, entrar no portal admin e comprovar que o CRM carrega. Hoje existe uma reserva ainda não reivindicada, nenhum admin ativo e ainda não há usuário permanente confirmado correspondente à reserva; sem admin ativo, leads podem ser captados mas ninguém consegue operar a fila protegida.
 
 Executar em mobile e desktop:
 
