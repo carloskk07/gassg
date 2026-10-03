@@ -23,7 +23,7 @@ function openPrelaunchCustomerLead(){
 }
 function prelaunchCustomerLeadSection(){
   if(prelaunchLeadSent('customer')){
-    return '<section class="section lead-section" id="early-access"><div class="lead-success-card"><span class="lead-success-icon">✓</span><div><span class="section-kicker">LISTA DE ABERTURA</span><h2>Seu interesse já foi registrado.</h2><p>Quando houver disponibilidade para sua região, o TAMÃO poderá avisar pelo WhatsApp informado.</p></div><button class="secondary" onclick="go(\\'learn\\')">Conhecer o TAMÃO</button></div></section>';
+    return '<section class="section lead-section" id="early-access"><div class="lead-success-card"><span class="lead-success-icon">✓</span><div><span class="section-kicker">LISTA DE ABERTURA</span><h2>Seu interesse já foi registrado.</h2><p>Quando houver disponibilidade para sua região, o TAMÃO poderá avisar pelo WhatsApp informado.</p></div><button class="secondary" onclick="go(\'learn\')">Conhecer o TAMÃO</button></div></section>';
   }
   const rawPostal=leadPostalDigits(state.postalCode||'');
   const postal=rawPostal.length===8?rawPostal.replace(/^(\d{5})(\d{3})$/,'$1-$2'):rawPostal;
@@ -49,7 +49,7 @@ function prelaunchCustomerLeadSection(){
         '<button id="prelaunch-submit" class="primary full" onclick="submitPrelaunchCustomerLead()">Quero ser avisado na abertura</button>',
         '<div id="prelaunch-result" class="lead-result" role="status" aria-live="polite"></div>',
       '</div></div>',
-      '<div class="lead-partner-link"><span>Tem uma revenda ou comércio local?</span><button class="ghost small" onclick="go(\\'merchants\\')">Quero vender no TAMÃO →</button></div>',
+      '<div class="lead-partner-link"><span>Tem uma revenda ou comércio local?</span><button class="ghost small" onclick="go(\'merchants\')">Quero vender no TAMÃO →</button></div>',
     '</section>'
   ].join('');
 }
