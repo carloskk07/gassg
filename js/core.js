@@ -108,6 +108,7 @@ function freshSeed(){
         : {name:'Carlos',cashback:7.50,cashbackDebt:0,purchases:4,referralCode:'CARLOS27',commissionAvailable:0,commissionPending:0,referredBy:null,cashEarningEligible:true,identityType:'test'}
       : {name:'',cashback:0,cashbackDebt:0,purchases:0,referralCode:'',commissionAvailable:0,commissionPending:0,referredBy:null,cashEarningEligible:false,identityType:'uninitialized'},
     address:'',
+    postalCode:'',
     cart:{P13:0,P20:0,P45:0,WATER20:0,CHARCOAL4:0,WOOD:0,ICE5:0},
     checkout:{paymentMethod:'pix',useCashback:false,cashTenderCents:null,glpContainerMode:'exchange',deliveryMode:'now',deliveryWindowStart:null,deliveryWindowEnd:null,deliveryWindowLabel:null,customerPhoneDigits:'',addressComplement:'',deliveryReference:'',deliveryNotes:''},
     merchants:testDemo
@@ -203,6 +204,7 @@ function normalizeState(raw){
   merged.checkout.deliveryReference=normalizeDeliveryText(merged.checkout.deliveryReference,160);
   merged.checkout.deliveryNotes=normalizeDeliveryText(merged.checkout.deliveryNotes,240);
   merged.address=String(raw.address||'').slice(0,160);
+  merged.postalCode=String(raw.postalCode||'').replace(/\D/g,'').slice(0,8);
   merged.cart=synchronizeGlpContainerCart(
     normalizeCart(raw.cart),
     merged.checkout.glpContainerMode
