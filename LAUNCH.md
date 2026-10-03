@@ -15,7 +15,7 @@
 - Admin operacional: reserva criada; primeira conta ainda precisa ser reivindicada
 - Gateway `admin-auth`: prova remota OK (`request-link` pré-JWT chega ao handler; `claim` sem sessão é bloqueado)
 - Portal admin Netlify: **bloqueado — bundle isolado ainda retorna 404**
-- Turnstile dos portais isolados: **bloqueado — `CHAMA_TURNSTILE_SITE_KEY` real ainda não configurada no GitHub Actions**
+- Turnstile dos portais isolados: **bloqueado — ainda falta criar/fornecer uma site key real**
 
 ## Regra principal
 
@@ -57,12 +57,16 @@ Usar somente a origem administrativa dedicada configurada para o control plane.
 Antes do magic link, concluir estes gates externos:
 
 - criar/configurar uma **site key Turnstile real** para as origens live;
-- cadastrar essa site key como `CHAMA_TURNSTILE_SITE_KEY` no GitHub Actions;
-- executar manualmente **Build isolated live portals** e confirmar os artefatos `tamao-live-*`;
+- executar manualmente **Build isolated live portals** e informar essa site key no campo `turnstile_site_key`;
+- confirmar os artefatos `tamao-live-*` e validar o arquivo `SHA256SUMS.txt` de cada pacote;
 - publicar o artefato `tamao-live-admin` no projeto Netlify `chama-sg-admin`;
 - executar **TAMÃO launch readiness** e exigir resultado verde.
 
+A **site key Turnstile é pública por definição** e ficará embutida no JavaScript do navegador; portanto ela entra como input explícito do release manual, não como GitHub Secret. A chave secreta do Turnstile continua fora do repositório e deve permanecer configurada apenas no provedor que valida o CAPTCHA.
+
 A chave Turnstile oficial de teste usada no CI serve somente para validar o builder e nunca pode ser publicada como bundle live.
+
+Os artefatos de produção ficam retidos por apenas 3 dias. Sempre publicar o pacote mais recente e conferir `SHA256SUMS.txt` antes do deploy.
 
 1. confirmar que a função `admin-auth` está publicada com `verify_jwt=false` — o primeiro pedido de magic link ocorre antes de existir JWT;
 2. abrir o portal admin dedicado;
