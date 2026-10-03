@@ -378,8 +378,8 @@ ${pendingOrder?`<div class="notice" style="margin-bottom:14px"><strong>Você já
     <div class="input-wrap"><label for="postal-code">CEP</label><input id="postal-code" class="input" autocomplete="postal-code" inputmode="numeric" maxlength="9" placeholder="Ex.: 97300-000" value="${esc(String(state.postalCode||'').replace(/^(\d{5})(\d{0,3}).*$/,(m,a,b)=>b?a+'-'+b:a))}"><small class="field-help">Opcional na simulação.</small></div>
     <div class="input-wrap"><label for="address">Endereço de entrega</label><input id="address" class="input" autocomplete="street-address" maxlength="160" placeholder="Ex.: Rua General Câmara, 123" value="${esc(state.address||'')}"></div>
   </div>`:`<div class="field-row">
-    <div class="input-wrap"><label for="postal-code">CEP</label><input id="postal-code" class="input" autocomplete="postal-code" inputmode="numeric" maxlength="9" placeholder="Ex.: 97300-000" value="${esc(String(state.postalCode||'').replace(/^(\d{5})(\d{0,3}).*$/,(m,a,b)=>b?a+'-'+b:a))}"><small class="field-help">O servidor confirma rua, bairro e atendimento em São Gabriel/RS.</small></div>
-    <div class="input-wrap"><label for="address-number">Número</label><input id="address-number" class="input" autocomplete="address-line2" inputmode="text" maxlength="7" placeholder="Ex.: 123" value="${esc(state.addressNumber||'')}"><small class="field-help">Use números e, se necessário, uma letra.</small></div>
+    <div class="input-wrap"><label for="postal-code">CEP</label><input id="postal-code" class="input" autocomplete="postal-code" inputmode="numeric" maxlength="9" placeholder="Ex.: 97300-000" value="${esc(String(state.postalCode||'').replace(/^(\d{5})(\d{0,3}).*$/,(m,a,b)=>b?a+'-'+b:a))}" onchange="deliveryAddressDraftChanged()"><small class="field-help">O servidor confirma rua, bairro e atendimento em São Gabriel/RS.</small></div>
+    <div class="input-wrap"><label for="address-number">Número</label><input id="address-number" class="input" autocomplete="address-line2" inputmode="text" maxlength="7" placeholder="Ex.: 123" value="${esc(state.addressNumber||'')}" onchange="deliveryAddressDraftChanged()"><small class="field-help">Use números e, se necessário, uma letra.</small></div>
   </div>
   ${state.address?`<div class="notice success"><strong>Endereço confirmado pelo servidor.</strong><br>${esc(state.address)}</div>`:'<div class="notice">A rua não é digitada manualmente: ela vem do CEP validado.</div>'}`}
   <button class="primary" onclick="setAddress()">${hasAddress?'Atualizar endereço':'Validar endereço'}</button>
@@ -429,6 +429,23 @@ function offerCard(o){
   const proofHtml=proof.join('');
   return `<article class="offer ${featured?'selected':''}">${available?'<div class="best-badge">OPÇÃO DISPONÍVEL AGORA</div>':recommended?'<div class="best-badge">MELHOR EQUILÍBRIO</div>':''}<div class="offer-label">${esc(labels)}</div><div class="offer-main"><div><div class="offer-price">${BRL.format(payable)}</div><div class="tiny muted">${discount>0?`estimativa após ${BRL.format(discount)} de cashback`:'total com entrega'}</div></div><div class="offer-eta"><strong>${o.eta}–${etaEnd} min</strong><small>previsão</small></div></div><div class="offer-meta">${distanceChip}${internalPilot?'<span class="meta-chip">🧪 Simulação operacional</span><span class="meta-chip">Sem validação jurídica nesta tela</span>':'<span class="meta-chip">✓ Operação elegível</span><span class="meta-chip">Parceiro local verificado</span>'}<span class="meta-chip">${internalPilot?'Trust simulado':'Confiança'} ${o.trust}/100</span>${proofHtml}<span class="meta-chip">Pagamento solicitado: ${esc(paymentLabel(state.checkout.paymentMethod))}</span></div><div class="offer-assurance">${internalPilot?'🧪 O pedido abaixo percorre todas as etapas localmente e não gera venda real.':'🔒 O nome do parceiro aparece após o aceite real. Se for necessária uma alternativa mais cara, você decide antes.'}</div><button class="${featured?'primary':'secondary'} full" style="margin-top:13px" onclick="checkout('${o.id}')" ${globalThis.liveRuntime?.actionPending?'disabled':''}>Pedir por ${BRL.format(payable)}</button></article>`
 }
+function deliveryAddressDraftChanged(){
+  if(globalThis.__CHAMA_TEST__===true)return;
+  const postalCode=String(document.querySelector('#postal-code')?.value||'').replace(/\D/g,'').slice(0,8);
+  const addressNumber=String(document.querySelector('#address-number')?.value||'').trim().toUpperCase().replace(/\s+/g,'').slice(0,7);
+  if(postalCode===String(state.postalCode||'')&&addressNumber===String(state.addressNumber||''))return;
+  state.postalCode=postalCode;
+  state.addressNumber=addressNumber;
+  state.address='';
+  if(globalThis.liveRuntime){
+    liveRuntime.offers=[];
+    liveRuntime.postalValidated=false;
+    liveRuntime.lastSyncAt=null;
+    liveRuntime.error=null;
+  }
+  save();
+}
+
 async function setAddress(){
   const postalCode=String(document.querySelector('#postal-code')?.value||state.postalCode||'').replace(/\D/g,'').slice(0,8);
   if(globalThis.__CHAMA_TEST__===true){
