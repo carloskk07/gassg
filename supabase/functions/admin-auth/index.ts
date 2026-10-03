@@ -34,9 +34,26 @@ async function sha256Hex(value:string){
   const digest=await crypto.subtle.digest("SHA-256",bytes);
   return Array.from(new Uint8Array(digest)).map(x=>x.toString(16).padStart(2,"0")).join("");
 }
-function quotaUuidFromHash(hex:string){
-  const raw=hex.slice(0,32).padEnd(32,"0");
-  return raw.slice(0,8)+"-"+raw.slice(8,12)+"-"+raw.slice(12,16)+"-"+raw.slice(16,20)+"-"+raw.slice(20,32);
+async function enforceHashedQuota(admin:any,{
+  keyHash,actionName,limit,windowSeconds
+}:{keyHash:string,actionName:string,limit:number,windowSeconds:number}){
+  if(!/^[0-9a-f]{64}$/.test(keyHash)){
+    throw new DomainError("RATE_LIMIT_KEY_INVALID","Rate limiter inválido.",500);
+  }
+  const {data,error}=await admin.rpc("consume_hashed_api_quota",{
+    p_key_hash:keyHash,
+    p_action_name:actionName,
+    p_limit:limit,
+    p_window_seconds:windowSeconds
+  });
+  if(error){
+    console.error("admin-auth hashed quota failed",String(error.code??"RPC_ERROR"),actionName);
+    throw new DomainError("RATE_LIMIT_BACKEND_FAILED","Não foi possível validar o limite de requisições.",503);
+  }
+  if(data?.allowed!==true){
+    throw new DomainError("RATE_LIMITED","Muitas tentativas. Aguarde antes de tentar novamente.",429);
+  }
+  return data;
 }
 function clientIp(req:Request){
   return String(
@@ -67,11 +84,13 @@ async function requestLoginLink(req:Request,origin:string,body:any){
     auth:{persistSession:false,autoRefreshToken:false}
   });
   const emailHash=await sha256Hex(email);
-  const ipHash=await sha256Hex(SECRET_KEY.slice(0,32)+":"+clientIp(req));
+  const quotaSalt=SECRET_KEY.slice(0,32);
+  const ipHash=await sha256Hex(quotaSalt+":ip:"+clientIp(req));
+  const emailQuotaHash=await sha256Hex(quotaSalt+":email:"+email);
 
-  // Every caller is throttled by network identity before email eligibility is resolved.
-  await enforceApiQuota(admin,{
-    userId:quotaUuidFromHash(ipHash),
+  // Every caller is throttled by a salted network hash before email eligibility is resolved.
+  await enforceHashedQuota(admin,{
+    keyHash:ipHash,
     actionName:"admin-auth-request-ip",
     limit:30,
     windowSeconds:3600
@@ -95,9 +114,9 @@ async function requestLoginLink(req:Request,origin:string,body:any){
     return json({ok:true,message:"Se este e-mail estiver autorizado, o link de acesso será enviado."},200,origin);
   }
 
-  // Only an authorized/reserved address can consume the stricter delivery quota.
-  await enforceApiQuota(admin,{
-    userId:quotaUuidFromHash(emailHash),
+  // Only an authorized/reserved address can consume the stricter salted email quota.
+  await enforceHashedQuota(admin,{
+    keyHash:emailQuotaHash,
     actionName:"admin-auth-request-email",
     limit:5,
     windowSeconds:3600
