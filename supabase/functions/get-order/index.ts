@@ -73,7 +73,7 @@ Deno.serve(async(req:Request)=>{
     await enforceApiQuota(admin,{userId:user.id,actionName:"get-order",limit:120,windowSeconds:60});
     const {data:order,error:orderError}=await admin
       .from("orders")
-      .select("id,public_code,customer_id,merchant_id,status,financial_state,financial_reversed_at,financial_reversal_reason,address_text,payment_method,gross_total_cents,cashback_reserved_cents,total_cents,proposed_total_cents,supplier_name_snapshot,risk_reason,offer_expires_at,accepted_at,dispatch_due_at,dispatched_at,arriving_at,promised_by,delivered_at,settled_at,payment_confirmed_at,pin_failures,version,created_at,updated_at")
+      .select("id,public_code,customer_id,merchant_id,status,financial_state,financial_reversed_at,financial_reversal_reason,address_text,payment_method,cash_tender_cents,gross_total_cents,cashback_reserved_cents,total_cents,proposed_total_cents,supplier_name_snapshot,risk_reason,offer_expires_at,accepted_at,dispatch_due_at,dispatched_at,arriving_at,promised_by,delivered_at,settled_at,payment_confirmed_at,pin_failures,version,created_at,updated_at")
       .eq("id",orderId)
       .maybeSingle();
 
@@ -121,6 +121,31 @@ Deno.serve(async(req:Request)=>{
     if(itemError)throw itemError;
     if(eventError)throw eventError;
 
+    let feedback:any=null;
+    let supportCases:any[]=[];
+    if(role==="customer"){
+      const [
+        {data:feedbackRow,error:feedbackError},
+        {data:supportRows,error:supportError}
+      ]=await Promise.all([
+        admin.from("order_feedback")
+          .select("rating,tags,note,created_at,updated_at")
+          .eq("order_id",order.id)
+          .eq("customer_id",user.id)
+          .maybeSingle(),
+        admin.from("support_cases")
+          .select("id,category,status,created_at,resolved_at")
+          .eq("order_id",order.id)
+          .eq("customer_id",user.id)
+          .order("created_at",{ascending:false})
+          .limit(10)
+      ]);
+      if(feedbackError)throw feedbackError;
+      if(supportError)throw supportError;
+      feedback=feedbackRow??null;
+      supportCases=supportRows??[];
+    }
+
     let deliveryPin:string|null=null;
     if(role==="customer"&&["OUT_FOR_DELIVERY","ARRIVING"].includes(order.status)){
       const {data:secret,error:secretError}=await admin
@@ -153,6 +178,7 @@ Deno.serve(async(req:Request)=>{
       address:role==="customer"||order.status!=="OFFERED_TO_MERCHANT"?order.address_text:null,
       addressVisible:role==="customer"||order.status!=="OFFERED_TO_MERCHANT",
       paymentMethod:order.payment_method,
+      cashTenderCents:order.cash_tender_cents,
       grossTotalCents:order.gross_total_cents,
       cashbackReservedCents:order.cashback_reserved_cents,
       totalCents:order.total_cents,
@@ -170,6 +196,20 @@ Deno.serve(async(req:Request)=>{
       paymentConfirmedAt:order.payment_confirmed_at,
       pinFailures:role==="merchant"?order.pin_failures:null,
       deliveryPin,
+      feedback:role==="customer"&&feedback?{
+        rating:Number(feedback.rating),
+        tags:feedback.tags??[],
+        note:feedback.note??null,
+        createdAt:feedback.created_at,
+        updatedAt:feedback.updated_at
+      }:null,
+      supportCases:role==="customer"?supportCases.map((x)=>({
+        id:x.id,
+        category:x.category,
+        status:x.status,
+        createdAt:x.created_at,
+        resolvedAt:x.resolved_at
+      })):[],
       items:items??[],
       events:(events??[]).map((e)=>({
         type:e.event_type,

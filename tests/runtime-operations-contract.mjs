@@ -567,3 +567,28 @@ assert.match(prelaunchSupply,/grant execute on function public\.market_supply_st
 
 console.log('Prelaunch supply authority v1.21 contract passou.');
 
+
+
+const retentionOpsV134=fs.readFileSync(
+  new URL('../supabase/migrations/20261003003000_retention_operations_v1_34.sql',import.meta.url),
+  'utf8'
+).replace(/--.*$/gm,'').replace(/\s+/g,' ').toLowerCase();
+
+assert.match(retentionOpsV134,/max_active_orders smallint not null default 8/,'revenda precisa declarar capacidade simultânea');
+assert.match(retentionOpsV134,/merchant-capacity:/,'checkout e rescue precisam compartilhar o lock de capacidade');
+assert.match(retentionOpsV134,/proposed_merchant_id=.*status='requote_required'/,'requote pendente precisa reservar capacidade');
+assert.match(retentionOpsV134,/create_order_from_quote_v2/,'checkout v2 precisa carregar intenção de troco e gate de capacidade');
+assert.match(retentionOpsV134,/cash_tender_cents/,'pedido precisa congelar intenção de troco');
+assert.match(retentionOpsV134,/create table if not exists public\.order_feedback/,'feedback pós-entrega precisa ser persistido');
+assert.match(retentionOpsV134,/alter table public\.order_feedback enable row level security/,'feedback precisa de RLS');
+assert.match(retentionOpsV134,/revoke all on table public\.order_feedback from anon, authenticated/,'feedback não pode ser data-plane do browser');
+assert.match(retentionOpsV134,/create table if not exists public\.support_cases/,'problemas do pedido precisam de caso auditável');
+assert.match(retentionOpsV134,/alter table public\.support_cases enable row level security/,'casos de suporte precisam de RLS');
+assert.match(retentionOpsV134,/request_idempotency_key text not null unique/,'abertura de suporte precisa ser idempotente');
+assert.match(retentionOpsV134,/merchant_public_performance/,'prova objetiva de performance precisa de autoridade server-side');
+assert.match(retentionOpsV134,/create or replace function public\.system_rescue_order[\s\S]*max_active_orders/,'rescue automático precisa respeitar capacidade');
+assert.match(retentionOpsV134,/platform_business_metrics/,'admin precisa de métricas server-side do negócio');
+assert.match(retentionOpsV134,/admin_support_case_action/,'fila de suporte precisa de autoridade administrativa');
+assert.match(retentionOpsV134,/support-case-status/,'mudança de suporte precisa deixar trilha administrativa');
+
+console.log('Retention + operational reliability v1.34 contract passou.');

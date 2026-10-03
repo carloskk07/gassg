@@ -75,7 +75,7 @@ function freshSeed(){
       : {name:'',cashback:0,cashbackDebt:0,purchases:0,referralCode:'',commissionAvailable:0,commissionPending:0,referredBy:null,cashEarningEligible:false,identityType:'uninitialized'},
     address:'',
     cart:{P13:0,P20:0,P45:0,WATER20:0,CHARCOAL4:0,WOOD:0,ICE5:0},
-    checkout:{paymentMethod:'pix',useCashback:false},
+    checkout:{paymentMethod:'pix',useCashback:false,cashTenderCents:null,glpContainerMode:'exchange'},
     merchants:testDemo
       ? internalPilot
         ? [
@@ -136,6 +136,11 @@ function normalizeState(raw){
   merged.checkout={...base.checkout,...(raw.checkout||{})};
   merged.checkout.paymentMethod=['pix','card','cash'].includes(merged.checkout.paymentMethod)?merged.checkout.paymentMethod:'pix';
   merged.checkout.useCashback=Boolean(merged.checkout.useCashback);
+  merged.checkout.glpContainerMode=merged.checkout.glpContainerMode==='needs_container'?'needs_container':'exchange';
+  const cashTender=Number(merged.checkout.cashTenderCents);
+  merged.checkout.cashTenderCents=merged.checkout.paymentMethod==='cash'&&Number.isInteger(cashTender)&&cashTender>0&&cashTender<=1000000
+    ? cashTender
+    : null;
   merged.address=String(raw.address||'').slice(0,160);
   merged.cart=normalizeCart(raw.cart);
 

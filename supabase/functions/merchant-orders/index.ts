@@ -95,7 +95,7 @@ Deno.serve(async(req:Request)=>{
 
     const {data:merchant,error:merchantError}=await admin
       .from("merchants")
-      .select("id,name,status,online,trust_score,delivery_fee_cents,delivery_fee_confirmed_at,base_eta_minutes,accepts_citywide,last_seen_at")
+      .select("id,name,status,online,trust_score,delivery_fee_cents,delivery_fee_confirmed_at,base_eta_minutes,accepts_citywide,max_active_orders,last_seen_at")
       .eq("id",selected.merchant_id)
       .maybeSingle();
     if(merchantError)throw merchantError;
@@ -134,7 +134,7 @@ Deno.serve(async(req:Request)=>{
 
     const {data:orders,error:ordersError}=await admin
       .from("orders")
-      .select("id,public_code,status,address_text,payment_method,gross_total_cents,cashback_reserved_cents,total_cents,supplier_name_snapshot,risk_reason,offer_expires_at,accepted_at,dispatch_due_at,dispatched_at,arriving_at,promised_by,pin_failures,version,created_at,updated_at")
+      .select("id,public_code,status,address_text,payment_method,cash_tender_cents,gross_total_cents,cashback_reserved_cents,total_cents,supplier_name_snapshot,risk_reason,offer_expires_at,accepted_at,dispatch_due_at,dispatched_at,arriving_at,promised_by,pin_failures,version,created_at,updated_at")
       .eq("merchant_id",selected.merchant_id)
       .in("status",ACTIVE_STATUSES)
       .order("created_at",{ascending:true})
@@ -152,6 +152,13 @@ Deno.serve(async(req:Request)=>{
       if(error)throw error;
       items=data??[];
     }
+
+    const {data:performanceRows,error:performanceError}=await admin.rpc(
+      "merchant_public_performance",
+      {p_merchant_ids:[selected.merchant_id]}
+    );
+    if(performanceError)throw performanceError;
+    const performance=(performanceRows??[])[0]??null;
 
     const byOrder=new Map<string,any[]>();
     for(const item of items){
@@ -176,7 +183,16 @@ Deno.serve(async(req:Request)=>{
         deliveryFeeCents:merchant.delivery_fee_cents,
         baseEtaMinutes:merchant.base_eta_minutes,
         acceptsCitywide:merchant.accepts_citywide,
+        maxActiveOrders:Number(merchant.max_active_orders??8),
         deliveryFeeConfirmedAt:merchant.delivery_fee_confirmed_at,
+        performance:{
+          completedOrders:Number(performance?.completed_orders??0),
+          completionRate:performance?.completion_rate==null?null:Number(performance.completion_rate),
+          onTimeRate:performance?.on_time_rate==null?null:Number(performance.on_time_rate),
+          avgAcceptSeconds:performance?.avg_accept_seconds==null?null:Number(performance.avg_accept_seconds),
+          feedbackCount:Number(performance?.feedback_count??0),
+          positiveFeedbackRate:performance?.positive_feedback_rate==null?null:Number(performance.positive_feedback_rate)
+        },
         lastSeenAt:merchant.last_seen_at,
         compliance:{
           cnpjStatus:compliance?.cnpj_status??"pending",
@@ -216,6 +232,7 @@ Deno.serve(async(req:Request)=>{
         address:o.status==="OFFERED_TO_MERCHANT"?null:o.address_text,
         addressVisible:o.status!=="OFFERED_TO_MERCHANT",
         paymentMethod:o.payment_method,
+        cashTenderCents:o.cash_tender_cents,
         grossTotalCents:o.gross_total_cents,
         cashbackReservedCents:o.cashback_reserved_cents,
         totalCents:o.total_cents,

@@ -80,7 +80,7 @@ Deno.serve(async(req:Request)=>{
     const merchantId=String(body.merchantId??"");
     const action=String(body.action??"");
     if(!UUID_RE.test(merchantId))throw new DomainError("INVALID_MERCHANT","Revenda inválida.",400);
-    if(!["heartbeat","set-online","update-product","update-logistics"].includes(action)){
+    if(!["heartbeat","set-online","update-product","update-logistics","update-capacity"].includes(action)){
       throw new DomainError("INVALID_ACTION","Ação inválida.",400);
     }
 
@@ -250,6 +250,19 @@ Deno.serve(async(req:Request)=>{
       }
 
       return json({ok:true,product:data,priceConfirmedAt:now},200,origin);
+    }
+
+    if(action==="update-capacity"){
+      if(!canManage(role))throw new DomainError("MERCHANT_ACCESS_DENIED","Somente owner/manager pode alterar capacidade.",403);
+      const maxActiveOrders=asPositiveInt(body.maxActiveOrders,"maxActiveOrders",{min:1,max:100});
+      const {data,error}=await admin
+        .from("merchants")
+        .update({max_active_orders:maxActiveOrders,last_seen_at:now})
+        .eq("id",merchantId)
+        .select("max_active_orders,last_seen_at")
+        .single();
+      if(error)throw error;
+      return json({ok:true,maxActiveOrders:Number(data.max_active_orders),lastSeenAt:data.last_seen_at},200,origin);
     }
 
     if(action==="update-logistics"){

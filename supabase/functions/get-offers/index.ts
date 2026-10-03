@@ -108,6 +108,12 @@ type Candidate = {
   rankScore: number;
   activeOrders: number;
   recentOrders7d: number;
+  completedOrders: number;
+  completionRate: number | null;
+  onTimeRate: number | null;
+  avgAcceptSeconds: number | null;
+  feedbackCount: number;
+  positiveFeedbackRate: number | null;
   recommendationScore: number;
 };
 
@@ -139,7 +145,7 @@ Deno.serve(async (req: Request) => {
 
     const { data: merchants, error: merchantError } = await admin
       .from("merchants")
-      .select("id,trust_score,delivery_fee_cents,base_eta_minutes")
+      .select("id,trust_score,delivery_fee_cents,base_eta_minutes,max_active_orders")
       .eq("status", "active")
       .eq("online", true)
       .eq("accepts_citywide", true)
@@ -184,6 +190,23 @@ Deno.serve(async (req: Request) => {
         .map((row)=>[row.merchant_id,row])
     );
 
+    const {data:performanceRows,error:performanceError}=await admin.rpc(
+      "merchant_public_performance",
+      {p_merchant_ids:compatibleIds}
+    );
+    if(performanceError)throw performanceError;
+    const performanceByMerchant=new Map(
+      ((performanceRows??[]) as Array<{
+        merchant_id:string;
+        completed_orders:number;
+        completion_rate:number|null;
+        on_time_rate:number|null;
+        avg_accept_seconds:number|null;
+        feedback_count:number;
+        positive_feedback_rate:number|null;
+      }>).map((row)=>[row.merchant_id,row])
+    );
+
     const byMerchant = new Map<string, Map<string, CatalogRow>>();
     for (const row of (catalog ?? []) as CatalogRow[]) {
       if (!byMerchant.has(row.merchant_id)) byMerchant.set(row.merchant_id, new Map());
@@ -197,6 +220,9 @@ Deno.serve(async (req: Request) => {
       const load=loadByMerchant.get(merchant.id);
       const activeOrders=Number(load?.active_orders??0);
       const recentOrders7d=Number(load?.recent_orders_7d??0);
+      const maxActiveOrders=Math.max(1,Number(merchant.max_active_orders??8));
+      if(activeOrders>=maxActiveOrders)continue;
+      const performance=performanceByMerchant.get(merchant.id);
 
       const snapshotItems: Candidate["items"] = [];
       let subtotal = 0;
@@ -247,6 +273,12 @@ Deno.serve(async (req: Request) => {
         rankScore: 0,
         activeOrders,
         recentOrders7d,
+        completedOrders:Number(performance?.completed_orders??0),
+        completionRate:performance?.completion_rate==null?null:Number(performance.completion_rate),
+        onTimeRate:performance?.on_time_rate==null?null:Number(performance.on_time_rate),
+        avgAcceptSeconds:performance?.avg_accept_seconds==null?null:Number(performance.avg_accept_seconds),
+        feedbackCount:Number(performance?.feedback_count??0),
+        positiveFeedbackRate:performance?.positive_feedback_rate==null?null:Number(performance.positive_feedback_rate),
         recommendationScore:0
       });
     }
@@ -294,7 +326,7 @@ Deno.serve(async (req: Request) => {
       }
       if(!quote)throw new Error("Quote snapshot failed");
 
-      const safe=anonymizeOffer({
+      const safe:any=anonymizeOffer({
         id:quote.quoteId,
         label,
         total_cents:Number(quote.grossTotalCents),
@@ -303,6 +335,13 @@ Deno.serve(async (req: Request) => {
         expires_at:quote.expiresAt,
         trust_score:candidate.trustScore
       });
+
+      safe.completedOrders=candidate.completedOrders;
+      safe.completionRate=candidate.completionRate;
+      safe.onTimeRate=candidate.onTimeRate;
+      safe.avgAcceptSeconds=candidate.avgAcceptSeconds;
+      safe.feedbackCount=candidate.feedbackCount;
+      safe.positiveFeedbackRate=candidate.positiveFeedbackRate;
 
       if(hasMerchantLeak(safe))throw new Error("Merchant identity leak detected");
       publicOffers.push(safe);
