@@ -132,16 +132,39 @@ grant execute on function public.create_order_from_quote_v5(
   uuid,uuid,text,boolean,text,text,text,integer,text,text,text,text
 ) to service_role;
 
--- V5 becomes the only service-role order creation entrypoint.
-revoke execute on function public.create_order_from_quote(
-  uuid,uuid,text,boolean,text,text,text
-) from service_role;
-revoke execute on function public.create_order_from_quote_v2(
-  uuid,uuid,text,boolean,text,text,text,integer
-) from service_role;
-revoke execute on function public.create_order_from_quote_v3(
-  uuid,uuid,text,boolean,text,text,text,integer
-) from service_role;
-revoke execute on function public.create_order_from_quote_v4(
-  uuid,uuid,text,boolean,text,text,text,integer
-) from service_role;
+-- Enforce delivery contact at commit time so legacy internal wrappers cannot bypass V5.
+create or replace function public.require_order_delivery_contact()
+returns trigger
+language plpgsql
+set search_path = pg_catalog
+as $
+declare
+  v_phone text;
+begin
+  select o.customer_phone_digits
+  into v_phone
+  from public.orders o
+  where o.id=new.id;
+
+  if v_phone is null or v_phone!~'^[0-9]{10,11} then
+    raise exception 'ORDER_DELIVERY_CONTACT_REQUIRED' using errcode='23514';
+  end if;
+
+  return null;
+end;
+$;
+
+revoke all on function public.require_order_delivery_contact()
+from public, anon, authenticated;
+grant execute on function public.require_order_delivery_contact()
+to postgres, service_role;
+
+drop trigger if exists require_order_delivery_contact_commit
+on public.orders;
+
+create constraint trigger require_order_delivery_contact_commit
+after insert or update of customer_phone_digits
+on public.orders
+deferrable initially deferred
+for each row
+execute function public.require_order_delivery_contact();
