@@ -30,6 +30,7 @@ const bootstrap=read('js/bootstrap.js');
 const core=read('js/core.js');
 const backend=read('js/backend.js');
 const acquisition=read('js/acquisition.js');
+const adminAcquisition=read('js/admin-acquisition.js');
 const leadCapture=read('supabase/functions/capture-prelaunch-lead/index.ts');
 const leadMigration=read('supabase/migrations/20261003182954_prelaunch_acquisition_v1_49.sql');
 const admin=read('js/admin.js');
@@ -64,6 +65,9 @@ assert.ok(growth.includes('referralCode'),'link de indicação deve usar código
 assert.ok(bootstrap.includes('home,learn,earn'),'router público precisa expor jornadas de descoberta e renda');
 assert.ok(customer.includes('Quero pedir agora')&&customer.includes('Quero entender melhor')&&customer.includes('Quero ganhar benefícios')&&customer.includes('Quero vender no TAMÃO'),'home precisa separar compra, entendimento, benefícios e parceria comercial');
 assert.ok(html.includes('./js/acquisition.js'),'runtime de aquisição precisa ser carregado pelo site');
+assert.ok(html.includes('./js/admin-acquisition.js'),'inbox administrativo de aquisição precisa ser carregado');
+assert.ok(adminAcquisition.includes('adminPrelaunchLeadsSection')&&admin.includes('adminPrelaunchLeadsSection(d)'),'admin deve exibir leads captados');
+assert.ok(read('supabase/functions/admin-ops/index.ts').includes('prelaunch_leads')&&read('supabase/functions/admin-ops/index.ts').includes('prelaunchLeads'),'summary protegido deve transportar leads para o admin');
 assert.ok(customer.includes('acquisitionOpen')&&customer.includes('prelaunchCustomerLeadSection'),'pré-lançamento precisa converter tráfego em lista de abertura');
 assert.ok(acquisition.includes('Quero ser avisado na abertura')&&acquisition.includes('Quero conversar sobre parceria'),'aquisição precisa ter CTAs próprios para cliente e parceiro');
 assert.ok(acquisition.includes("utm_source")||backend.includes("utm_source"),'captação precisa preservar atribuição de campanha');
