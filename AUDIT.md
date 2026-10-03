@@ -1367,3 +1367,12 @@ A auditoria de conversão encontrou dois atritos de pré-lançamento: o switcher
 A V1.53 corrige ambos de forma contextual. Durante o pré-lançamento público, os caminhos principais são **lista de abertura, entendimento, parceria e contato**. Quando a operação real estiver disponível, a navegação operacional volta automaticamente.
 
 A home também passa a declarar a situação atual sem métricas inventadas: São Gabriel como praça inicial, primeiro parceiro piloto ainda em preparação e cadastro sem pedido/cobrança.
+
+
+## V1.54 — Follow-up operations
+
+A captação já possuía pipeline, mas o primeiro contato ainda começava numa conversa vazia. A V1.54 adiciona mensagens iniciais contextualizadas para clientes, parceiros e solicitações públicas e prioriza a fila por estágio/idade.
+
+O link do WhatsApp de uma solicitação pública leva apenas um texto operacional com protocolo e tipo de atendimento; o conteúdo original enviado pelo usuário não é copiado para o parâmetro da URL.
+
+A abertura da conversa não marca o lead como contatado. O estado continua dependente de uma ação explícita do administrador, preservando a qualidade da métrica de conversão.
