@@ -27,16 +27,22 @@ Quando a alteração de nameservers estiver liberada:
 2. Trocar na registradora os nameservers pelos dois fornecidos pela Cloudflare.
 3. Criar um projeto Cloudflare Pages conectado a `carloskk07/gassg`.
 4. Branch de produção: `main`.
-5. Build command:
+5. Variáveis iniciais do Pages:
+   - `TAMAO_DEPLOY_TARGET=cloudflare`
+   - `TAMAO_PUBLIC_ORIGIN=https://tamao.com.br`
+   - `TAMAO_PUBLIC_INDEXING=0`
+   - `TAMAO_LIVE_RUNTIME=0`
+6. Build command:
    `node scripts/build-public-site.mjs dist`
-6. Output directory:
+7. Output directory:
    `dist`
-7. Adicionar os custom domains:
+8. Adicionar os custom domains:
    - `tamao.com.br`
    - `www.tamao.com.br`
-8. Validar HTTPS nos dois hosts.
-9. Definir um único host canônico e redirecionar o outro.
-10. Validar que nenhum diretório interno (`supabase/`, `tests/`, `scripts/`, `.github/`) foi publicado.
+9. Validar HTTPS nos dois hosts.
+10. Definir `tamao.com.br` como canônico. O redirecionamento de host deve ser criado por **Bulk Redirect** na Cloudflare; `_redirects` do Pages não governa redirect de domínio.
+11. Validar que nenhum diretório interno (`supabase/`, `tests/`, `scripts/`, `.github/`) foi publicado.
+12. O build Cloudflare gera `_headers` automaticamente com CSP, anti-frame, política de referrer, Permissions-Policy e cache restritivo para HTML/service worker/runtime config.
 
 ## Prova antes do primeiro anúncio
 
@@ -137,3 +143,39 @@ Não comparar campanhas somente por cliques. A métrica operacional inicial deve
 - origem/campanha de cada conversão.
 
 Isso evita otimizar anúncios para volume de formulário sem valor comercial.
+
+
+## Chaves de publicação Cloudflare
+
+### Pré-lançamento para anúncios
+
+Manter:
+
+- `TAMAO_DEPLOY_TARGET=cloudflare`
+- `TAMAO_PUBLIC_ORIGIN=https://tamao.com.br`
+- `TAMAO_PUBLIC_INDEXING=0`
+- `TAMAO_LIVE_RUNTIME=0`
+
+Esse modo aceita captação de clientes/parceiros e contato público, mas mantém indexação bloqueada e não habilita comércio real.
+
+**Anúncio pago não depende de indexação orgânica.** Depois de DNS, HTTPS e formulários passarem na prova real, campanhas de pré-lançamento podem apontar para o domínio ainda em `noindex`.
+
+### Abrir indexação orgânica
+
+Somente após a prova de domínio:
+
+- mudar `TAMAO_PUBLIC_INDEXING=1`;
+- redeploy.
+
+O build troca o meta robots, publica `robots.txt` com `Allow: /`, cria `sitemap.xml` e remove o header `X-Robots-Tag: noindex`.
+
+### Runtime real do cliente
+
+Somente na etapa de comércio real, mudar `TAMAO_LIVE_RUNTIME=1` e configurar também:
+
+- `CHAMA_CUSTOMER_ORIGIN=https://tamao.com.br`;
+- `CHAMA_MERCHANT_ORIGIN=<origem HTTPS isolada da revenda>`;
+- `CHAMA_ADMIN_ORIGIN=<origem HTTPS isolada do admin>`;
+- `CHAMA_TURNSTILE_SITE_KEY=<site key real>`.
+
+O build falha se a origem do cliente não coincidir com o domínio público, se faltar qualquer origem privilegiada ou se a chave Turnstile for uma chave conhecida de teste.
