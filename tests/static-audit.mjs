@@ -399,7 +399,7 @@ assert.ok(!adminOpsSource.includes('const PROD_ORIGIN="https://carloskk07.github
 
 const getOrderSource=read('supabase/functions/get-order/index.ts');
 assert.ok(getOrderSource.includes('membership.member_role==="driver"')&&getOrderSource.includes('order.assigned_delivery_user_id===user.id'),'driver só pode ler pedido individual quando for o responsável atribuído');
-assert.ok(backend.includes('merchantAssignDeliveryLive')&&backend.includes("m.memberRole==='driver'"),'runtime precisa suportar atribuição e impedir heartbeat comercial do motorista');
+assert.ok(backend.includes('merchantAssignDeliveryLive')&&backend.includes("merchantRuntime.merchant.memberRole==='driver'"),'runtime precisa suportar atribuição e impedir heartbeat comercial do motorista');
 assert.ok(merchant.includes('merchantDriverLivePage')&&merchant.includes('Visão restrita por atribuição.')&&merchant.includes('merchantLiveAssignDelivery'),'UI precisa ter workspace mínimo do motorista e controle de atribuição');
 assert.ok(customer.includes('Responsável pela entrega definido.')&&!customer.includes('assignedDeliveryUserId'),'cliente deve ver responsabilidade operacional sem receber identidade do membro');
 assert.ok(read('supabase/functions/merchant-orders/index.ts').includes('catalog:[]')&&read('supabase/functions/merchant-orders/index.ts').includes('deliveryTeam:[]'),'driver não pode receber catálogo nem equipe completa');
