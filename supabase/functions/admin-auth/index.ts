@@ -62,7 +62,6 @@ function safeRedirect(value:unknown,origin:string){
 async function requestLoginLink(req:Request,origin:string,body:any){
   const email=normalizeEmail(body?.email);
   const captchaToken=String(body?.captchaToken??"").trim();
-  const redirectTo=safeRedirect(body?.redirectTo,origin);
 
   const admin=createClient(SUPABASE_URL,SECRET_KEY,{
     auth:{persistSession:false,autoRefreshToken:false}
@@ -81,6 +80,8 @@ async function requestLoginLink(req:Request,origin:string,body:any){
   if(captchaToken.length<20){
     return json({error:"CAPTCHA_REQUIRED",message:"Verificação anti-bot obrigatória."},400,origin);
   }
+
+  const redirectTo=safeRedirect(body?.redirectTo,origin);
 
   const {data:mode,error:modeError}=await admin.rpc("admin_login_mode",{
     p_email_sha256_hex:emailHash
