@@ -60,6 +60,7 @@ Object.assign(window,{
   merchantLoginFromUi,merchantLiveRefresh,merchantLiveSelect,merchantLiveToggleOnline,
   merchantLiveSaveP13,merchantLiveSaveProduct,merchantLiveSaveLogistics,merchantLiveAction,merchantLiveCannotFulfill,
   merchantLiveDeliver,merchantLiveAssignDelivery,merchantLiveSaveMemberProfile,
+  merchantEnableAlertsFromUi,merchantDisableAlertsFromUi,
   merchantOpenTeam,merchantTeamReloadFromUi,merchantTeamInviteFromUi,merchantTeamRevokeMemberFromUi,merchantTeamRevokeInviteFromUi,copyMerchantTeamInstructions,
   merchantLiveLogout,
   adminLoginFromUi,adminRefresh,adminSignOut,adminApproveApplication,adminRejectApplication,
