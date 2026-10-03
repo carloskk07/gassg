@@ -96,7 +96,7 @@ assert.ok(growth.includes('Saque Pix ainda não disponível')&&growth.includes('
 assert.ok(growth.includes('Você continua no controle'),'landing de revenda deve enfatizar autonomia operacional');
 assert.ok(core.includes("['earn','💰','Ganhe','go']"),'navegação móvel precisa dar acesso direto ao hub de renda');
 assert.ok(!growth.includes('inputmode="numeric" maxlength="18"'),'campo CNPJ não pode forçar teclado somente numérico após adoção do CNPJ alfanumérico');
-assert.ok(sw.includes("CACHE='chama-sg-v1.45'"),'cache do service worker precisa estar versionado');
+assert.ok(sw.includes("CACHE='chama-sg-v1.46'"),'cache do service worker precisa estar versionado');
 assert.ok(sw.includes("./js/backend.js"),'runtime live precisa estar no cache da PWA');
 assert.ok(sw.includes("./js/runtime-config.js"),'configuração pública de origins precisa estar no cache da PWA');
 assert.ok(sw.includes("./js/turnstile.js"),'helper local do Turnstile precisa estar no cache da PWA');
@@ -265,6 +265,15 @@ assert.ok(read('scripts/build-live-portals.mjs').includes('buildLivePortals')&&r
 assert.ok(read('scripts/build-live-portals.mjs').includes('Cloudflare Turnstile test/demo key is forbidden'),'build live precisa bloquear chave de teste do Turnstile');
 assert.ok(read('.github/workflows/build-live-portals.yml').includes('CHAMA_TURNSTILE_SITE_KEY: ${{ secrets.CHAMA_TURNSTILE_SITE_KEY }}'),'workflow live deve depender de configuração externa e não commitar site key');
 assert.ok(read('.github/workflows/build-live-portals.yml').includes('chama-live-customer')&&read('.github/workflows/build-live-portals.yml').includes('chama-live-merchant')&&read('.github/workflows/build-live-portals.yml').includes('chama-live-admin'),'workflow precisa produzir três artefatos independentes');
+assert.ok(read('config/live-targets.json').includes('7a4387a8-ef6b-4f04-a074-51718b990a2a')&&read('config/live-targets.json').includes('b6d240d3-54e9-466f-9696-7f8220b5910d')&&read('config/live-targets.json').includes('95a15220-98ce-4b13-b52b-12f9eb50f24c'),'release targets precisam manter os três Site IDs Netlify explícitos');
+assert.ok(read('config/live-targets.json').includes('"siteUrl": "https://chama-sg-cliente.netlify.app/"')&&read('config/live-targets.json').includes('https://chama-sg-revenda.netlify.app/')&&read('config/live-targets.json').includes('https://chama-sg-admin.netlify.app/'),'configuração declarativa precisa listar exatamente os três redirects Auth de produção');
+assert.ok(read('scripts/build-live-portals.mjs').includes('assertAuthRedirectsConfirmed')&&read('scripts/build-live-portals.mjs').includes('CHAMA_AUTH_REDIRECTS_CONFIRMED=1'),'build live deve falhar fechado sem confirmação da allowlist Supabase Auth');
+assert.ok(read('scripts/build-live-portals.mjs').includes('bundleDigest')&&read('scripts/build-live-portals.mjs').includes('bundleSha256'),'release precisa atestar conteúdo de cada portal com SHA-256');
+assert.ok(read('.github/workflows/build-live-portals.yml').includes('vars.CHAMA_AUTH_REDIRECTS_CONFIRMED')&&read('.github/workflows/build-live-portals.yml').includes('chama-live-release-manifest'),'workflow live precisa exigir confirmação Auth externa e publicar manifesto de release');
+assert.ok(backend.includes('{email:value},')&&backend.includes('{emailRedirectTo}'),'upgrade de conta do cliente precisa fixar redirect na origem cliente');
+assert.ok(backend.includes("CHAMA_PORTAL_ROLE||'').trim().toLowerCase()!=='merchant'"),'portal merchant isolado deve usar redirect raiz em produção');
+assert.ok(admin.includes("CHAMA_PORTAL_ROLE||'').trim().toLowerCase()!=='admin'"),'portal admin isolado deve usar redirect raiz em produção');
+assert.ok(read('supabase/functions/admin-auth/index.ts').includes('url.pathname="/"')&&read('supabase/functions/admin-auth/index.ts').includes('if(local)'),'admin-auth deve canonicalizar redirect live na raiz e manter query/hash apenas em localhost');
 assert.ok(backend.includes("buildPortalHref(globalThis.CHAMA_CUSTOMER_ORIGIN,'customer')"),'retorno ao cliente precisa navegar para a origem dedicada configurada');
 assert.ok(admin.includes("buildPortalHref?.(globalThis.CHAMA_ADMIN_ORIGIN,'admin')"),'entrada administrativa precisa navegar para a origem dedicada configurada');
 assert.ok(!backend.includes("const url=new URL(location.href);\n  url.search='';\n  url.searchParams.set('merchant','1')"),'portal merchant não pode reutilizar cegamente a origem atual');
