@@ -2,6 +2,17 @@
 
 Marketplace hiperlocal de gás e abastecimento essencial para São Gabriel/RS.
 
+## Estado atual — v1.54 follow-up operations
+
+O mini-CRM de pré-lançamento agora ajuda o operador a agir, não apenas visualizar contatos:
+
+- leads são priorizados por estágio e, dentro do estágio, os mais antigos aparecem primeiro;
+- o admin destaca **Novos há +24h** para reduzir esquecimento;
+- o WhatsApp de cliente abre com uma mensagem inicial contextualizada sobre a lista de abertura;
+- o WhatsApp de parceiro abre com mensagem específica sobre parceria em São Gabriel;
+- solicitações públicas por WhatsApp recebem mensagem com protocolo e contexto, sem copiar o conteúdo sensível da solicitação para a URL;
+- abrir o WhatsApp continua **sem alterar o status automaticamente** — o operador confirma o estágio somente depois da ação real.
+
 ## Estado atual — v1.53 conversion UX
 
 O pré-lançamento público agora prioriza conversão e remove becos sem saída:
