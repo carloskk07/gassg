@@ -205,7 +205,7 @@ async function summary(admin:any){
       .order("created_at",{ascending:true})
       .limit(100),
     admin.from("prelaunch_leads")
-      .select("id,lead_type,contact_name,business_name,phone,postal_code,interests,note,status,submission_count,source,medium,campaign,content,term,referrer,landing_path,created_at,updated_at")
+      .select("id,lead_type,contact_name,business_name,phone,postal_code,interests,note,admin_note,status,submission_count,source,medium,campaign,content,term,referrer,landing_path,contacted_at,qualified_at,converted_at,closed_at,created_at,updated_at")
       .order("created_at",{ascending:false})
       .limit(200),
     admin.from("public_requests")
@@ -425,6 +425,29 @@ Deno.serve(async(req:Request)=>{
         financialAction,
         reference:cleanText(body.reference,{min:3,max:240,name:"referência de conciliação"})
       };
+    }else if(action==="lead-status"){
+      const status=String(body.status??"");
+      if(!["contacted","qualified","converted","closed"].includes(status)){
+        throw new DomainError("INVALID_LEAD_STATUS","Status de lead inválido.",400);
+      }
+      payload={
+        leadId:uuid(body.leadId,"lead"),
+        status,
+        note:body.note==null?null:(cleanText(body.note,{min:0,max:1000,name:"observação do lead"})||null)
+      };
+    }else if(action==="public-request-status"){
+      const status=String(body.status??"");
+      if(!["in_review","resolved","closed"].includes(status)){
+        throw new DomainError("INVALID_PUBLIC_REQUEST_STATUS","Status da solicitação inválido.",400);
+      }
+      payload={
+        requestId:uuid(body.requestId,"request"),
+        status,
+        resolutionNote:body.resolutionNote==null?null:(cleanText(body.resolutionNote,{min:0,max:2000,name:"resolução"})||null)
+      };
+      if(["resolved","closed"].includes(status)&&!payload.resolutionNote){
+        throw new DomainError("PUBLIC_REQUEST_RESOLUTION_REQUIRED","Informe como a solicitação foi tratada.",400);
+      }
     }else{
       throw new DomainError("INVALID_ACTION","Ação administrativa inválida.",400);
     }
@@ -481,6 +504,26 @@ Deno.serve(async(req:Request)=>{
       rpcArgs={
         p_actor_user_id:user.id,
         p_order_id:payload.orderId,
+        p_idempotency_key:idempotencyKey,
+        p_request_hash:requestHash
+      };
+    }else if(action==="lead-status"){
+      rpcName="admin_prelaunch_lead_action";
+      rpcArgs={
+        p_actor_user_id:user.id,
+        p_lead_id:payload.leadId,
+        p_status:payload.status,
+        p_note:payload.note,
+        p_idempotency_key:idempotencyKey,
+        p_request_hash:requestHash
+      };
+    }else if(action==="public-request-status"){
+      rpcName="admin_public_request_action";
+      rpcArgs={
+        p_actor_user_id:user.id,
+        p_request_id:payload.requestId,
+        p_status:payload.status,
+        p_resolution_note:payload.resolutionNote,
         p_idempotency_key:idempotencyKey,
         p_request_hash:requestHash
       };
@@ -555,6 +598,21 @@ Deno.serve(async(req:Request)=>{
       || message.includes("P13_REGULATORY_VERIFICATION_REQUIRED")
     ){
       return json({error:"ANP_VERIFICATION_REQUIRED",message:"Revenda com produto GLP ativo exige validação ANP antes da operação."},409,origin);
+    }
+    if(message.includes("PRELAUNCH_LEAD_NOT_FOUND")){
+      return json({error:"PRELAUNCH_LEAD_NOT_FOUND",message:"Lead não encontrado."},404,origin);
+    }
+    if(message.includes("PRELAUNCH_LEAD_FINAL")||message.includes("INVALID_LEAD_TRANSITION")){
+      return json({error:"PRELAUNCH_LEAD_STATE_CONFLICT",message:"Este lead já mudou de etapa. Atualize o painel."},409,origin);
+    }
+    if(message.includes("PUBLIC_REQUEST_NOT_FOUND")){
+      return json({error:"PUBLIC_REQUEST_NOT_FOUND",message:"Solicitação não encontrada."},404,origin);
+    }
+    if(message.includes("PUBLIC_REQUEST_ALREADY_CLOSED")||message.includes("INVALID_PUBLIC_REQUEST_TRANSITION")){
+      return json({error:"PUBLIC_REQUEST_STATE_CONFLICT",message:"Esta solicitação já mudou de estado. Atualize o painel."},409,origin);
+    }
+    if(message.includes("PUBLIC_REQUEST_RESOLUTION_REQUIRED")){
+      return json({error:"PUBLIC_REQUEST_RESOLUTION_REQUIRED",message:"Informe como a solicitação foi tratada."},400,origin);
     }
     if(message.includes("SUPPORT_CASE_NOT_FOUND")){
       return json({error:"SUPPORT_CASE_NOT_FOUND",message:"Atendimento não encontrado."},404,origin);
