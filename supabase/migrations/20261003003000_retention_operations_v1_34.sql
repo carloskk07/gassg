@@ -734,3 +734,272 @@ revoke all on function public.system_rescue_order(uuid,text)
 from public, anon, authenticated;
 grant execute on function public.system_rescue_order(uuid,text)
 to postgres, service_role;
+
+
+-- Admin business observability without exposing raw operational tables to the browser.
+create or replace function public.platform_business_metrics()
+returns jsonb
+language sql
+security definer
+set search_path = pg_catalog
+as $$
+  with settled_30 as (
+    select o.*
+    from public.orders o
+    where o.status='SETTLED'
+      and o.financial_state='settled'
+      and coalesce(o.settled_at,o.updated_at)>=clock_timestamp()-interval '30 days'
+  ),
+  settled_90 as (
+    select o.*
+    from public.orders o
+    where o.status='SETTLED'
+      and o.financial_state='settled'
+      and coalesce(o.settled_at,o.updated_at)>=clock_timestamp()-interval '90 days'
+  ),
+  orders_30 as (
+    select o.*
+    from public.orders o
+    where o.created_at>=clock_timestamp()-interval '30 days'
+  ),
+  active_customers as (
+    select distinct s.customer_id
+    from settled_30 s
+  ),
+  repeat_customers as (
+    select a.customer_id
+    from active_customers a
+    where (
+      select count(*)
+      from public.orders o
+      where o.customer_id=a.customer_id
+        and o.status='SETTLED'
+        and o.financial_state='settled'
+    )>=2
+  ),
+  support as (
+    select count(*)::integer as open_count
+    from public.support_cases sc
+    where sc.status in ('open','in_review')
+  ),
+  fees as (
+    select coalesce(sum(pr.platform_fee_cents),0)::bigint as generated
+    from public.platform_receivables pr
+    where pr.created_at>=clock_timestamp()-interval '30 days'
+      and pr.status<>'reversed'
+  ),
+  cashback as (
+    select coalesce(sum(g.cashback_cents),0)::bigint as granted
+    from public.order_reward_grants g
+    where g.created_at>=clock_timestamp()-interval '30 days'
+      and g.reversed_at is null
+  )
+  select jsonb_build_object(
+    'settledOrders30d',(select count(*) from settled_30),
+    'gmvCents30d',(select coalesce(sum(gross_total_cents),0) from settled_30),
+    'averageTicketCents30d',(
+      select coalesce(round(avg(gross_total_cents)),0)::bigint from settled_30
+    ),
+    'activeCustomers30d',(select count(*) from active_customers),
+    'repeatCustomers30d',(select count(*) from repeat_customers),
+    'repeatRate30d',(
+      select case when count(*)=0 then null
+        else round(
+          (select count(*)::numeric from repeat_customers)/count(*)::numeric,
+          4
+        )
+      end
+      from active_customers
+    ),
+    'createdOrders30d',(select count(*) from orders_30),
+    'cancelledOrders30d',(select count(*) from orders_30 where status='CANCELLED'),
+    'cancellationRate30d',(
+      select case when count(*)=0 then null
+        else round(
+          count(*) filter (where status='CANCELLED')::numeric/count(*)::numeric,
+          4
+        )
+      end
+      from orders_30
+    ),
+    'settledOrders90d',(select count(*) from settled_90),
+    'onTimeRate90d',(
+      select case when count(*) filter (
+        where delivered_at is not null and promised_by is not null
+      )=0 then null
+      else round(
+        count(*) filter (
+          where delivered_at is not null
+            and promised_by is not null
+            and delivered_at<=promised_by
+        )::numeric
+        /
+        count(*) filter (
+          where delivered_at is not null and promised_by is not null
+        )::numeric,
+        4
+      ) end
+      from settled_90
+    ),
+    'platformFeeGeneratedCents30d',(select generated from fees),
+    'cashbackGrantedCents30d',(select granted from cashback),
+    'openSupportCases',(select open_count from support)
+  );
+$$;
+
+revoke all on function public.platform_business_metrics()
+from public, anon, authenticated;
+grant execute on function public.platform_business_metrics()
+to service_role;
+
+
+create or replace function public.admin_support_case_action(
+  p_actor_user_id uuid,
+  p_case_id uuid,
+  p_status text,
+  p_resolution_note text,
+  p_idempotency_key text,
+  p_request_hash text
+)
+returns jsonb
+language plpgsql
+security definer
+set search_path = pg_catalog
+as $$
+declare
+  v_action public.action_requests%rowtype;
+  v_case public.support_cases%rowtype;
+  v_result jsonb;
+begin
+  perform public.require_platform_admin(p_actor_user_id);
+
+  if p_status not in ('in_review','resolved','closed') then
+    raise exception 'INVALID_SUPPORT_STATUS' using errcode='22023';
+  end if;
+  if p_idempotency_key is null
+     or char_length(p_idempotency_key)<12
+     or char_length(p_idempotency_key)>120 then
+    raise exception 'INVALID_IDEMPOTENCY_KEY' using errcode='22023';
+  end if;
+  if p_request_hash is null
+     or p_request_hash!~'^[0-9a-f]{64}$' then
+    raise exception 'INVALID_REQUEST_HASH' using errcode='22023';
+  end if;
+  if p_status in ('resolved','closed')
+     and (
+       p_resolution_note is null
+       or char_length(trim(p_resolution_note))<3
+       or char_length(trim(p_resolution_note))>1000
+     ) then
+    raise exception 'SUPPORT_RESOLUTION_NOTE_REQUIRED' using errcode='22023';
+  end if;
+
+  insert into public.action_requests(
+    idempotency_key,user_id,action_name,request_hash
+  )
+  values(
+    p_idempotency_key,p_actor_user_id,'admin-ops:support-case-status',p_request_hash
+  )
+  on conflict(idempotency_key) do nothing;
+
+  select *
+  into v_action
+  from public.action_requests
+  where idempotency_key=p_idempotency_key
+  for update;
+
+  if not found then
+    raise exception 'IDEMPOTENCY_STATE_INVALID' using errcode='40001';
+  end if;
+  if v_action.user_id<>p_actor_user_id
+     or v_action.action_name<>'admin-ops:support-case-status'
+     or v_action.request_hash<>p_request_hash then
+    raise exception 'IDEMPOTENCY_CONFLICT' using errcode='23505';
+  end if;
+  if v_action.completed_at is not null then
+    return v_action.result_json;
+  end if;
+
+  select *
+  into v_case
+  from public.support_cases
+  where id=p_case_id
+  for update;
+
+  if not found then
+    raise exception 'SUPPORT_CASE_NOT_FOUND' using errcode='P0002';
+  end if;
+
+  if v_case.status='closed' then
+    raise exception 'SUPPORT_CASE_ALREADY_CLOSED' using errcode='40001';
+  end if;
+  if v_case.status='resolved' and p_status<>'closed' then
+    raise exception 'INVALID_SUPPORT_TRANSITION' using errcode='40001';
+  end if;
+
+  update public.support_cases
+  set status=p_status,
+      resolution_note=case
+        when p_resolution_note is null then resolution_note
+        else left(trim(p_resolution_note),1000)
+      end,
+      resolved_at=case
+        when p_status in ('resolved','closed')
+          then coalesce(resolved_at,clock_timestamp())
+        else null
+      end,
+      updated_at=clock_timestamp()
+  where id=v_case.id
+  returning * into v_case;
+
+  insert into public.order_events(
+    order_id,actor_user_id,actor_type,event_type,title,detail,metadata
+  )
+  values(
+    v_case.order_id,p_actor_user_id,'admin','SUPPORT_CASE_UPDATED',
+    case
+      when p_status='in_review' then 'Atendimento em análise'
+      when p_status='resolved' then 'Atendimento resolvido'
+      else 'Atendimento encerrado'
+    end,
+    coalesce(v_case.resolution_note,'O status do atendimento foi atualizado.'),
+    jsonb_build_object('supportCaseId',v_case.id,'status',v_case.status)
+  );
+
+  insert into public.platform_admin_audit(
+    actor_user_id,action,target_type,target_id,metadata
+  )
+  values(
+    p_actor_user_id,
+    'support-case-status',
+    'support_case',
+    v_case.id,
+    jsonb_build_object(
+      'orderId',v_case.order_id,
+      'status',v_case.status
+    )
+  );
+
+  v_result:=jsonb_build_object(
+    'ok',true,
+    'caseId',v_case.id,
+    'orderId',v_case.order_id,
+    'status',v_case.status,
+    'resolvedAt',v_case.resolved_at
+  );
+
+  update public.action_requests
+  set result_json=v_result,
+      completed_at=clock_timestamp()
+  where idempotency_key=p_idempotency_key;
+
+  return v_result;
+end;
+$$;
+
+revoke all on function public.admin_support_case_action(
+  uuid,uuid,text,text,text,text
+) from public, anon, authenticated;
+grant execute on function public.admin_support_case_action(
+  uuid,uuid,text,text,text,text
+) to service_role;
