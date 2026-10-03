@@ -116,31 +116,96 @@ function adminLeadCampaignRows(leads){
   const groups=new Map();
   for(const x of leads){
     const source=String(x.source||'direto');
+    const medium=String(x.medium||'sem_medium');
     const campaign=String(x.campaign||'sem_campanha');
-    const key=source+'|'+campaign;
-    const row=groups.get(key)||{source,campaign,customers:0,merchants:0,total:0};
+    const key=source+'|'+medium+'|'+campaign;
+    const row=groups.get(key)||{source,medium,campaign,customers:0,merchants:0,total:0,contacted:0,qualified:0,converted:0};
     row.total++;
     if(x.lead_type==='merchant')row.merchants++;else row.customers++;
+    if(x.contacted_at)row.contacted++;
+    if(x.qualified_at)row.qualified++;
+    if(x.converted_at)row.converted++;
     groups.set(key,row);
   }
-  return [...groups.values()].sort((a,b)=>b.total-a.total||a.source.localeCompare(b.source)).slice(0,8);
+  return [...groups.values()].map(row=>({
+    ...row,
+    contactRatePct:row.total?100*row.contacted/row.total:0,
+    qualificationRatePct:row.total?100*row.qualified/row.total:0,
+    conversionRatePct:row.total?100*row.converted/row.total:0
+  })).sort((a,b)=>b.total-a.total||b.converted-a.converted||a.source.localeCompare(b.source)).slice(0,8);
+}
+function adminMetricPercent(value){
+  const n=Number(value);
+  return Number.isFinite(n)?n.toLocaleString('pt-BR',{minimumFractionDigits:0,maximumFractionDigits:1})+'%':'—';
+}
+function adminMetricDuration(value){
+  const n=Number(value);
+  if(!Number.isFinite(n)||n<0)return '—';
+  if(n<60)return Math.round(n)+' min';
+  if(n<1440)return (n/60).toLocaleString('pt-BR',{minimumFractionDigits:1,maximumFractionDigits:1})+' h';
+  return (n/1440).toLocaleString('pt-BR',{minimumFractionDigits:1,maximumFractionDigits:1})+' d';
+}
+function adminAcquisitionMetrics(data,leads){
+  const server=data?.acquisitionMetrics;
+  if(server&&typeof server==='object'&&Number.isFinite(Number(server.total))){
+    return {...server,campaigns:Array.isArray(server.campaigns)?server.campaigns:[]};
+  }
+  const total=leads.length;
+  const contacted=leads.filter(x=>x.contacted_at).length;
+  const qualified=leads.filter(x=>x.qualified_at).length;
+  const converted=leads.filter(x=>x.converted_at).length;
+  return {
+    total,
+    customers:leads.filter(x=>x.lead_type==='customer').length,
+    merchants:leads.filter(x=>x.lead_type==='merchant').length,
+    new:leads.filter(x=>x.status==='new').length,
+    contacted,
+    qualified,
+    converted,
+    closed:leads.filter(x=>x.status==='closed').length,
+    staleNew24h:leads.filter(x=>x.status==='new'&&(Date.now()-Date.parse(String(x.created_at||'')))>=24*60*60*1000).length,
+    last7d:leads.filter(x=>(Date.now()-Date.parse(String(x.created_at||'')))<=7*24*60*60*1000).length,
+    last30d:leads.filter(x=>(Date.now()-Date.parse(String(x.created_at||'')))<=30*24*60*60*1000).length,
+    contactRatePct:total?100*contacted/total:0,
+    qualificationRatePct:total?100*qualified/total:0,
+    conversionRatePct:total?100*converted/total:0,
+    qualifiedToConvertedPct:qualified?100*converted/qualified:0,
+    avgFirstContactMinutes:null,
+    medianFirstContactMinutes:null,
+    campaigns:adminLeadCampaignRows(leads)
+  };
+}
+function adminAcquisitionCampaigns(metrics){
+  const rows=Array.isArray(metrics?.campaigns)?metrics.campaigns:[];
+  if(!rows.length)return '';
+  return '<div class="card flat acquisition-campaigns"><div class="status-bar"><div><span class="section-kicker">ATRIBUIÇÃO</span><h3 style="margin:5px 0 0">Campanhas e conversão</h3></div><small>todos os leads</small></div><div class="acquisition-campaign-list">'+rows.slice(0,12).map(x=>{
+    const origin=[x.source,x.medium].filter(Boolean).join(' / ');
+    return '<div class="acquisition-campaign-row"><div><strong>'+esc(origin||'direto')+'</strong><small>'+esc(x.campaign||'sem_campanha')+' • '+Number(x.total||0)+' lead(s) • '+Number(x.customers||0)+' cliente(s) • '+Number(x.merchants||0)+' parceiro(s)</small></div><div class="campaign-rates"><span><small>Contato</small><strong>'+adminMetricPercent(x.contactRatePct)+'</strong></span><span><small>Qualificação</small><strong>'+adminMetricPercent(x.qualificationRatePct)+'</strong></span><span><small>Conversão</small><strong>'+adminMetricPercent(x.conversionRatePct)+'</strong></span></div></div>';
+  }).join('')+'</div></div>';
 }
 function adminPrelaunchLeadsSection(data){
   const leads=Array.isArray(data?.prelaunchLeads)?data.prelaunchLeads:[];
-  const customers=leads.filter(x=>x.lead_type==='customer').length;
-  const merchants=leads.filter(x=>x.lead_type==='merchant').length;
-  const fresh=leads.filter(x=>x.status==='new').length;
-  const contacted=leads.filter(x=>x.status==='contacted').length;
-  const qualified=leads.filter(x=>x.status==='qualified').length;
-  const converted=leads.filter(x=>x.status==='converted').length;
-  const staleNew=leads.filter(x=>x.status==='new'&&(Date.now()-Date.parse(String(x.created_at||'')))>=24*60*60*1000).length;
+  const metrics=adminAcquisitionMetrics(data,leads);
   const ordered=[...leads].sort((a,b)=>adminLeadPriority(a.status)-adminLeadPriority(b.status)||(Date.parse(a.created_at||'')-Date.parse(b.created_at||'')));
   return [
     '<section class="section">',
-      '<div class="section-head"><div><span class="section-kicker">AQUISIÇÃO • PRÉ-LANÇAMENTO</span><h2>Clientes e parceiros interessados</h2><p>Leads captados pelo site com origem de campanha, categorias de interesse e WhatsApp para contato.</p></div><span class="status-pill online">'+leads.length+' lead(s)</span></div>',
-      '<div class="merchant-kpis"><div class="kpi"><span class="label">Clientes interessados</span><strong>'+customers+'</strong></div><div class="kpi"><span class="label">Empresas interessadas</span><strong>'+merchants+'</strong></div><div class="kpi"><span class="label">Novos</span><strong>'+fresh+'</strong></div><div class="kpi"><span class="label">Contatados</span><strong>'+contacted+'</strong></div><div class="kpi"><span class="label">Qualificados</span><strong>'+qualified+'</strong></div><div class="kpi"><span class="label">Convertidos</span><strong>'+converted+'</strong></div><div class="kpi"><span class="label">Novos há +24h</span><strong>'+staleNew+'</strong></div></div>',
-      adminLeadCampaignRows(leads).length?'<div class="card flat" style="margin-top:14px"><h3>Origem dos leads</h3><div class="list">'+adminLeadCampaignRows(leads).map(x=>'<div class="list-row"><div><strong>'+esc(x.source)+'</strong><br><small>'+esc(x.campaign)+'</small></div><div class="tiny" style="text-align:right"><strong>'+x.total+'</strong><br>'+x.customers+' cliente(s) • '+x.merchants+' parceiro(s)</div></div>').join('')+'</div></div>':'',
-      '<div class="grid cards-3" style="margin-top:14px">'+(ordered.length?ordered.slice(0,60).map(adminPrelaunchLeadCard).join(''):'<div class="empty card">Nenhum lead captado ainda.</div>')+'</div>',
+      '<div class="section-head"><div><span class="section-kicker">AQUISIÇÃO • PRÉ-LANÇAMENTO</span><h2>Funil real de clientes e parceiros</h2><p>As métricas agregadas usam todos os leads do banco. A fila operacional abaixo traz somente os contatos recentes necessários para atendimento.</p></div><span class="status-pill online">'+Number(metrics.total||0)+' lead(s)</span></div>',
+      '<div class="merchant-kpis acquisition-summary-kpis">',
+        '<div class="kpi"><span class="label">Total captado</span><strong>'+Number(metrics.total||0)+'</strong><small>'+Number(metrics.last7d||0)+' nos últimos 7 dias</small></div>',
+        '<div class="kpi"><span class="label">Clientes</span><strong>'+Number(metrics.customers||0)+'</strong></div>',
+        '<div class="kpi"><span class="label">Empresas</span><strong>'+Number(metrics.merchants||0)+'</strong></div>',
+        '<div class="kpi"><span class="label">Novos há +24h</span><strong>'+Number(metrics.staleNew24h||0)+'</strong><small>prioridade de contato</small></div>',
+        '<div class="kpi"><span class="label">Mediana até 1º contato</span><strong>'+adminMetricDuration(metrics.medianFirstContactMinutes)+'</strong></div>',
+      '</div>',
+      '<div class="acquisition-funnel">',
+        '<div class="funnel-stage"><span>1</span><div><small>CAPTADOS</small><strong>'+Number(metrics.total||0)+'</strong><p>100% da base</p></div></div>',
+        '<div class="funnel-stage"><span>2</span><div><small>CONTATADOS</small><strong>'+Number(metrics.contacted||0)+'</strong><p>'+adminMetricPercent(metrics.contactRatePct)+'</p></div></div>',
+        '<div class="funnel-stage"><span>3</span><div><small>QUALIFICADOS</small><strong>'+Number(metrics.qualified||0)+'</strong><p>'+adminMetricPercent(metrics.qualificationRatePct)+'</p></div></div>',
+        '<div class="funnel-stage"><span>4</span><div><small>CONVERTIDOS</small><strong>'+Number(metrics.converted||0)+'</strong><p>'+adminMetricPercent(metrics.conversionRatePct)+'</p></div></div>',
+      '</div>',
+      adminAcquisitionCampaigns(metrics),
+      '<div class="section-head acquisition-queue-head"><div><span class="section-kicker">FILA OPERACIONAL</span><h3>Leads recentes para atendimento</h3><p>Até 200 contatos mais recentes. Ordenados por estágio e antiguidade para reduzir esquecimento.</p></div><span class="status-pill '+(Number(metrics.staleNew24h||0)?'offline':'online')+'">'+Number(metrics.new||0)+' novo(s)</span></div>',
+      '<div class="grid cards-3" style="margin-top:14px">'+(ordered.length?ordered.slice(0,200).map(adminPrelaunchLeadCard).join(''):'<div class="empty card">Nenhum lead captado ainda.</div>')+'</div>',
     '</section>'
   ].join('');
 }
