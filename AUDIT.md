@@ -1477,6 +1477,17 @@ O painel possui estados separados para:
 
 A opção "Validar acesso novamente" repete apenas a autoridade server-side. O browser continua incapaz de criar linha em `platform_admins`.
 
+### Bloqueio de implantação encontrado
+
+A versão remota de `admin-auth` estava com `verify_jwt=true`. Isso é incompatível com `request-link`, que precisa ser chamado antes de o usuário possuir JWT.
+
+A correção é dupla:
+
+- publicar `admin-auth` com `verify_jwt=false`;
+- versionar essa decisão em `supabase/config.toml`, junto das demais funções públicas controladas.
+
+Isso não torna o claim administrativo público: a ação `claim` continua exigindo `Authorization: Bearer ...`, valida o usuário com `auth.getUser` e só então chama a autoridade SQL.
+
 ### Situação observada durante a auditoria
 
 - 0 administradores ativos;
