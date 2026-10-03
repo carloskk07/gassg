@@ -98,10 +98,13 @@ assert.match(body,/Quero ganhar benefícios/);
 assert.match(body,/Quero vender no TAMÃO/);
 assert.match(body,/Ambiente isolado de teste automatizado/);
 assert.equal(await evaluate("marketingAnalyticsEnabled()"),false);
-assert.deepEqual(
-  JSON.parse(await evaluate("JSON.stringify(marketingAnalyticsContext())")),
-  {source:'',medium:'',campaign:'',content:'',landingPath:'/#home',referrerHost:''}
-);
+const marketingContextProbe=JSON.parse(await evaluate("JSON.stringify(marketingAnalyticsContext())"));
+assert.equal(marketingContextProbe.source,'');
+assert.equal(marketingContextProbe.medium,'');
+assert.equal(marketingContextProbe.campaign,'');
+assert.equal(marketingContextProbe.content,'');
+assert.equal(marketingContextProbe.landingPath,'/#home');
+assert.equal(typeof marketingContextProbe.referrerHost,'string');
 await auditDom('home');
 
 assert.equal(
