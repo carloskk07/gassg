@@ -18,6 +18,8 @@ A site key é pública e já precisa aparecer no frontend. O workflow manual **B
 
 A chave secreta do Turnstile não entra no GitHub nem no bundle.
 
+Durante esta rodada também foi detectado e eliminado um **drift de source-of-truth**: a `admin-auth` publicada já continha quota por IP, mas a `main` ainda não refletia esse código. A versão canônica passa a preservar essa proteção e reforça o contrato: quota por IP → CAPTCHA obrigatório → elegibilidade do e-mail → quota de entrega por e-mail → OTP.
+
 ## Estado atual — v1.58 remote readiness
 
 A prontidão administrativa passa a ser provada também **fora do runner local**.
