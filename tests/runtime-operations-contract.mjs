@@ -647,6 +647,8 @@ assert.match(deliveryResponsibilityV137,/assigned_delivery_user_id uuid referenc
 assert.match(deliveryResponsibilityV137,/delivery_assigned_at timestamptz/,'atribuição precisa de timestamp auditável');
 assert.match(deliveryResponsibilityV137,/orders_delivery_assignment_after_dispatch/,'pedido despachado precisa obrigatoriamente ter responsabilidade definida');
 assert.match(deliveryResponsibilityV137,/create index if not exists orders_assigned_delivery_active_idx/,'fila do responsável precisa de índice operacional');
+assert.match(deliveryResponsibilityV137,/create index if not exists orders_assigned_delivery_user_fk_idx/,'FK do responsável precisa de índice completo para lifecycle de auth.users');
+assert.match(deliveryResponsibilityV137,/create index if not exists orders_delivery_assigned_by_fk_idx/,'FK de quem atribuiu precisa de índice completo para lifecycle de auth.users');
 assert.match(deliveryResponsibilityV137,/clear_delivery_assignment_before_rescue/,'rescue pré-saída precisa limpar responsabilidade da revenda anterior');
 assert.match(deliveryResponsibilityV137,/create or replace function public\.merchant_assign_delivery/,'atribuição precisa de RPC transacional própria');
 assert.match(deliveryResponsibilityV137,/v_actor_role not in \('owner','manager'\)/,'somente owner\/manager pode pré-atribuir entrega');
