@@ -127,6 +127,13 @@ assert.deepEqual(retryProbe,{attempts:2,result:'OK'});
 const noRetryProbe=JSON.parse(await evaluate(`(async()=>{let attempts=0;try{await retryAmbiguousOnce(async()=>{attempts++;const error=new Error('regra');error.code='INVALID_ACTION';error.status=400;throw error})}catch(error){return JSON.stringify({attempts,code:error.code})}})()`));
 assert.deepEqual(noRetryProbe,{attempts:1,code:'INVALID_ACTION'});
 
+const acquisitionProbe=JSON.parse(await evaluate(`JSON.stringify(adminAcquisitionMetrics({acquisitionMetrics:{total:20,customers:14,merchants:6,new:3,contacted:15,qualified:8,converted:4,closed:2,staleNew24h:1,last7d:9,last30d:20,contactRatePct:75,qualificationRatePct:40,conversionRatePct:20,qualifiedToConvertedPct:50,medianFirstContactMinutes:42,campaigns:[{source:'meta',medium:'paid_social',campaign:'sg_launch_customer',total:10,customers:10,merchants:0,contacted:8,qualified:5,converted:3,contactRatePct:80,qualificationRatePct:50,conversionRatePct:30}]}},[]}))`));
+assert.equal(acquisitionProbe.total,20);
+assert.equal(acquisitionProbe.campaigns[0].conversionRatePct,30);
+assert.equal(await evaluate("adminMetricPercent(37.5)"),'37,5%');
+assert.equal(await evaluate("adminMetricDuration(42)"),'42 min');
+assert.match(await evaluate("adminAcquisitionCampaigns({campaigns:[{source:'meta',medium:'paid_social',campaign:'sg_launch_customer',total:10,customers:10,merchants:0,contactRatePct:80,qualificationRatePct:50,conversionRatePct:30}]})"),/Campanhas e conversão/);
+
 await evaluate("go('learn')");
 await waitFor("document.body.innerText.includes('Antes de pedir, veja quanto custa')","learn route");
 body=await text();
