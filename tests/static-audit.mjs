@@ -70,7 +70,7 @@ assert.ok(customer.includes('Quero pedir agora')&&customer.includes('Quero enten
 assert.ok(html.includes('./js/acquisition.js'),'runtime de aquisição precisa ser carregado pelo site');
 assert.ok(html.includes('./js/legal.js'),'camada de privacidade, termos e contato precisa ser carregada');
 assert.ok(bootstrap.includes('privacy:privacyPage')&&bootstrap.includes('terms:termsPage')&&bootstrap.includes('contact:contactPage'),'router público precisa expor páginas de confiança');
-assert.ok(core.includes('siteFooter')&&core.includes("go('privacy')")&&core.includes("go('terms')")&&core.includes("go('contact')"),'shell público precisa manter acesso persistente a privacidade, termos e contato');
+assert.ok(core.includes('function siteFooter')&&core.includes('Privacidade</button>')&&core.includes('Termos</button>')&&core.includes('Contato</button>'),'shell público precisa manter acesso persistente a privacidade, termos e contato');
 assert.ok(legal.includes('Aviso de Privacidade')&&legal.includes('Seus direitos')&&legal.includes('Exercer um direito de privacidade'),'aviso de privacidade precisa explicar direitos e oferecer canal acionável');
 assert.ok(legal.includes('Termos de Uso')&&legal.includes('Situação atual')&&legal.includes('Parceiro Fundador'),'termos de pré-lançamento precisam distinguir demonstração, cliente e parceiro');
 assert.ok(legal.includes('Fale com o TAMÃO')&&legal.includes('Privacidade / LGPD')&&legal.includes('submitPublicRequest'),'canal oficial precisa aceitar contato e solicitações de privacidade');
