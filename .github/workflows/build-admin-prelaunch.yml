@@ -1,0 +1,72 @@
+name: Build prelaunch admin portal
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'index.html'
+      - 'manifest.webmanifest'
+      - 'sw.js'
+      - 'css/**'
+      - 'js/**'
+      - 'icons/**'
+      - 'scripts/build-admin-prelaunch.mjs'
+      - 'scripts/generate-runtime-config.mjs'
+      - 'tests/admin-prelaunch-portal.mjs'
+      - '.github/workflows/build-admin-prelaunch.yml'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'index.html'
+      - 'manifest.webmanifest'
+      - 'sw.js'
+      - 'css/**'
+      - 'js/**'
+      - 'icons/**'
+      - 'scripts/build-admin-prelaunch.mjs'
+      - 'scripts/generate-runtime-config.mjs'
+      - 'tests/admin-prelaunch-portal.mjs'
+      - '.github/workflows/build-admin-prelaunch.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    env:
+      CHAMA_CUSTOMER_ORIGIN: https://chama-sg-cliente.netlify.app
+      CHAMA_MERCHANT_ORIGIN: https://chama-sg-revenda.netlify.app
+      CHAMA_ADMIN_ORIGIN: https://chama-sg-admin.netlify.app
+      CHAMA_TURNSTILE_SITE_KEY: ''
+      CHAMA_SOURCE_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+    steps:
+      - uses: actions/checkout@v6
+      - name: Runtime config contract
+        run: node tests/runtime-config.mjs
+      - name: Admin prelaunch bundle contract
+        run: node tests/admin-prelaunch-portal.mjs
+      - name: Build admin prelaunch bundle
+        run: node scripts/build-admin-prelaunch.mjs
+      - name: Verify deployable boundary
+        run: |
+          test -f dist/admin-prelaunch/index.html
+          test -f dist/admin-prelaunch/portal-build.json
+          test -f dist/admin-prelaunch/js/runtime-config.js
+          grep -q '"deploymentProfile": "prelaunch-admin"' dist/admin-prelaunch/portal-build.json
+          grep -q '"turnstileConfigured": false' dist/admin-prelaunch/portal-build.json
+          grep -q 'globalThis.CHAMA_PORTAL_ROLE="admin";' dist/admin-prelaunch/js/runtime-config.js
+          grep -q 'globalThis.CHAMA_TURNSTILE_SITE_KEY="";' dist/admin-prelaunch/js/runtime-config.js
+          test ! -e dist/admin-prelaunch/supabase
+          test ! -e dist/admin-prelaunch/tests
+          test ! -e dist/admin-prelaunch/scripts
+      - name: Upload deployable prelaunch admin artifact
+        if: github.event_name != 'pull_request'
+        uses: actions/upload-artifact@v4
+        with:
+          name: tamao-admin-prelaunch
+          path: dist/admin-prelaunch
+          if-no-files-found: error
+          retention-days: 7
