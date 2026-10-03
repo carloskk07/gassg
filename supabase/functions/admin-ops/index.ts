@@ -368,6 +368,23 @@ Deno.serve(async(req:Request)=>{
         targetUserId:uuid(body.targetUserId,"targetUser"),
         active:body.active===true
       };
+    }else if(action==="verify-launch-portals"){
+      const verification=await verifyLivePortals();
+      if(!verification.ok){
+        return json({
+          error:"LIVE_PORTALS_NOT_READY",
+          message:"Os três portais live ainda não passaram na verificação de origem, bundle e Turnstile.",
+          verification
+        },409,origin);
+      }
+      payload={
+        sourceSha:verification.sourceSha,
+        customerOk:true,
+        merchantOk:true,
+        adminOk:true
+      };
+    }else if(action==="enable-commerce"||action==="disable-commerce"){
+      payload={};
     }else if(action==="support-case-status"){
       const status=String(body.status??"");
       if(!["in_review","resolved","closed"].includes(status)){
@@ -468,6 +485,19 @@ Deno.serve(async(req:Request)=>{
         p_request_hash:requestHash
       };
     }
+    else if(["verify-launch-portals","enable-commerce","disable-commerce"].includes(action)){
+      rpcName="admin_launch_control_action";
+      rpcArgs={
+        p_actor_user_id:user.id,
+        p_action:action==="verify-launch-portals"?"record-portals":action,
+        p_source_sha:action==="verify-launch-portals"?payload.sourceSha:null,
+        p_customer_ok:action==="verify-launch-portals"?true:false,
+        p_merchant_ok:action==="verify-launch-portals"?true:false,
+        p_admin_ok:action==="verify-launch-portals"?true:false,
+        p_idempotency_key:idempotencyKey,
+        p_request_hash:requestHash
+      };
+    }
     const {data,error}=await admin.rpc(rpcName,rpcArgs);
     if(error)throw error;
     return json(data,200,origin);
@@ -490,6 +520,15 @@ Deno.serve(async(req:Request)=>{
     }
     if(message.includes("LAST_ADMIN_CANNOT_BE_REMOVED")){
       return json({error:"LAST_ADMIN_CANNOT_BE_REMOVED",message:"O último administrador ativo não pode ser removido."},409,origin);
+    }
+    if(message.includes("LAUNCH_NOT_READY")){
+      return json({error:"LAUNCH_NOT_READY",message:"O comércio ainda possui bloqueios de lançamento. Atualize a prontidão antes de abrir pedidos."},409,origin);
+    }
+    if(message.includes("PORTAL_ATTESTATION_INVALID")){
+      return json({error:"PORTAL_ATTESTATION_INVALID",message:"A verificação dos portais live não é válida."},409,origin);
+    }
+    if(message.includes("LAUNCH_CONTROL_MISSING")){
+      return json({error:"LAUNCH_CONTROL_MISSING",message:"A autoridade de lançamento não está disponível."},503,origin);
     }
     if(message.includes("CNPJ_VERIFICATION_REQUIRED")){
       return json({error:"CNPJ_VERIFICATION_REQUIRED",message:"Valide o CNPJ antes de ativar a revenda."},409,origin);
