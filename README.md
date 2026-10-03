@@ -2,6 +2,24 @@
 
 Marketplace hiperlocal de gás e abastecimento essencial para São Gabriel/RS.
 
+## Estado atual — v1.50 trust & launch
+
+A etapa de espera do domínio está sendo usada para fechar a superfície pública de confiança e lançamento.
+
+- páginas públicas de **Privacidade**, **Termos** e **Contato**;
+- canal server-only para dúvidas, suporte geral e solicitações LGPD;
+- confirmação explícita de uso dos dados para resposta;
+- honeypot, limite de payload, allowlist de origem e rate limit no endpoint público;
+- solicitações aparecem no admin protegido;
+- links de privacidade passam a acompanhar os formulários de cliente e parceiro;
+- Supabase public endpoints usam o modelo atual de `SUPABASE_SECRET_KEYS` com fallback legado;
+- build público unificado em `scripts/build-public-site.mjs`, adequado ao futuro Cloudflare Pages e ao GitHub Pages;
+- `robots.txt` passa a ser incluído de fato no artefato publicado;
+- runbook Cloudflare em `LAUNCH.md`;
+- primeiras URLs/campanhas UTM em `MARKETING.md`.
+
+O domínio **tamao.com.br** já foi adquirido. A troca de nameservers aguarda a janela operacional do Registro.br. Até DNS + HTTPS + formulários passarem na prova, o site público permanece `noindex` e nenhum anúncio pago deve apontar para o domínio.
+
 ## Estado atual — v1.49 acquisition
 
 O pré-lançamento agora possui **captação real e mensurável** sem abrir o comércio antes da hora:

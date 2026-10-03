@@ -53,15 +53,25 @@ jobs:
             exit 1
           fi
           for f in $(find supabase/functions -mindepth 2 -maxdepth 2 -name 'index.ts' | sort); do
-            if [ "$f" = "supabase/functions/capture-prelaunch-lead/index.ts" ]; then
-              grep -q 'ALLOWED_ORIGINS' "$f" || { echo "$f missing explicit origin allowlist"; exit 1; }
-              grep -q 'consume_prelaunch_lead_quota' "$f" || { echo "$f missing server-side rate limit"; exit 1; }
-              grep -q 'body.consent!==true' "$f" || { echo "$f missing explicit consent gate"; exit 1; }
-              grep -q 'body.website' "$f" || { echo "$f missing honeypot"; exit 1; }
-              grep -q 'raw.length>16000' "$f" || { echo "$f missing payload cap"; exit 1; }
-            else
-              grep -q 'auth.getUser' "$f" || { echo "$f missing explicit JWT user validation"; exit 1; }
-            fi
+            case "$f" in
+              supabase/functions/capture-prelaunch-lead/index.ts)
+                grep -q 'ALLOWED_ORIGINS' "$f" || { echo "$f missing explicit origin allowlist"; exit 1; }
+                grep -q 'consume_prelaunch_lead_quota' "$f" || { echo "$f missing server-side rate limit"; exit 1; }
+                grep -q 'body.consent!==true' "$f" || { echo "$f missing explicit consent gate"; exit 1; }
+                grep -q 'body.website' "$f" || { echo "$f missing honeypot"; exit 1; }
+                grep -q 'raw.length>16000' "$f" || { echo "$f missing payload cap"; exit 1; }
+                ;;
+              supabase/functions/submit-public-request/index.ts)
+                grep -q 'ALLOWED_ORIGINS' "$f" || { echo "$f missing explicit origin allowlist"; exit 1; }
+                grep -q 'consume_prelaunch_lead_quota' "$f" || { echo "$f missing server-side rate limit"; exit 1; }
+                grep -q 'body.acknowledged!==true' "$f" || { echo "$f missing acknowledgement gate"; exit 1; }
+                grep -q 'body.website' "$f" || { echo "$f missing honeypot"; exit 1; }
+                grep -q 'raw.length>16000' "$f" || { echo "$f missing payload cap"; exit 1; }
+                ;;
+              *)
+                grep -q 'auth.getUser' "$f" || { echo "$f missing explicit JWT user validation"; exit 1; }
+                ;;
+            esac
           done
       - name: Marketplace simulations
         run: node tests/simulations.mjs
@@ -89,7 +99,7 @@ jobs:
           sleep 1
           CHROME="$(command -v google-chrome || command -v chromium || command -v chromium-browser)"
           test -n "$CHROME"
-          for route in home learn earn order club refer merchants merchant admin; do
+          for route in home learn earn order club refer merchants privacy terms contact merchant admin; do
             "$CHROME" --headless=new --no-sandbox --disable-gpu --window-size=360,800 --virtual-time-budget=1200 --user-data-dir="/tmp/chrome-$route" --dump-dom "http://127.0.0.1:4173/#$route" > "/tmp/$route.html"
           done
           grep -Fq "Pediu? Tá na mão." /tmp/home.html
@@ -106,6 +116,11 @@ jobs:
           grep -q "Cadastre o interesse em menos de 1 minuto" /tmp/merchants.html
           grep -q "Quero ser parceiro fundador" /tmp/merchants.html
           grep -q "PARCEIRO FUNDADOR" /tmp/merchants.html
+          grep -q "Aviso de Privacidade" /tmp/privacy.html
+          grep -q "Seus direitos" /tmp/privacy.html
+          grep -q "Termos de Uso" /tmp/terms.html
+          grep -q "Fale com o TAMÃO" /tmp/contact.html
+          grep -q "Privacidade / LGPD" /tmp/contact.html
           grep -q "Acesso operacional real" /tmp/merchant.html
           ! grep -q "PAINEL DA REVENDA — DEMONSTRAÇÃO" /tmp/merchant.html
           ! grep -q "Revenda Parceira A" /tmp/merchant.html
@@ -124,13 +139,7 @@ jobs:
       - name: Validate manifest
         run: node -e "JSON.parse(require('fs').readFileSync('manifest.webmanifest','utf8')); console.log('manifest OK')"
       - name: Stage public PWA only
-        run: |
-          rm -rf _site
-          mkdir -p _site
-          cp index.html manifest.webmanifest sw.js _site/
-          cp -R css js icons _site/
-          test ! -e _site/supabase
-          test ! -e _site/tests
+        run: node scripts/build-public-site.mjs _site
       - name: Configure Pages
         uses: actions/configure-pages@v5
       - name: Upload static site

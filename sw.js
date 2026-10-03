@@ -1,5 +1,5 @@
-const CACHE='tamao-sg-v1.49';
-const ASSETS=['./','./index.html','./css/base.css','./css/components.css','./js/runtime-config.js','./js/turnstile.js','./js/backend.js','./js/core.js','./js/acquisition.js','./js/customer.js','./js/growth.js','./js/merchant.js','./js/admin-acquisition.js','./js/admin.js','./js/bootstrap.js','./manifest.webmanifest','./robots.txt','./icons/icon.svg'];
+const CACHE='tamao-sg-v1.50';
+const ASSETS=['./','./index.html','./css/base.css','./css/components.css','./js/runtime-config.js','./js/turnstile.js','./js/backend.js','./js/core.js','./js/acquisition.js','./js/legal.js','./js/customer.js','./js/growth.js','./js/merchant.js','./js/admin-acquisition.js','./js/admin.js','./js/bootstrap.js','./manifest.webmanifest','./robots.txt','./icons/icon.svg'];
 
 self.addEventListener('install',event=>{
   event.waitUntil(caches.open(CACHE).then(cache=>cache.addAll(ASSETS)).then(()=>self.skipWaiting()));

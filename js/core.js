@@ -748,6 +748,10 @@ function runtimeStrip(){
   }
   return '<div class="demo-strip blocked-strip"><span>Serviço temporariamente indisponível • nenhum pedido foi criado</span></div>';
 }
+function siteFooter({adminPortal=false}={}){
+  if(adminPortal)return '';
+  return '<footer class="site-footer"><div class="shell site-footer-inner"><div><strong>TAMÃO</strong><small>Pediu? Tá na mão. • Pré-lançamento em São Gabriel/RS</small></div><nav aria-label="Informações legais"><button onclick="go(\'privacy\')">Privacidade</button><button onclick="go(\'terms\')">Termos</button><button onclick="go(\'contact\')">Contato</button></nav></div></footer>';
+}
 function shell(content){
   const r=route();
   const adminPortal=globalThis.adminPortalRequested?.()===true;
@@ -772,6 +776,7 @@ function shell(content){
     ${switcher}
   </div></header>
   <main class="shell">${content}</main>
+  ${siteFooter({adminPortal})}
   ${bottomNav(r)}
   </div>`;
 }

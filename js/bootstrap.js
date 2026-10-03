@@ -5,7 +5,7 @@ function render(){
   try{
     if(!globalThis.adminPortalRequested?.())housekeeping();
     const r=route();
-    const pages={home,learn,earn,order:orderPage,tracking,club,refer,merchants:merchantsLanding,'merchant-join':merchantJoin,merchant:merchantPage,'merchant-orders':merchantOrders,'merchant-team':merchantTeamPage,catalog,'merchant-metrics':merchantMetrics,admin:adminPage};
+    const pages={home,learn,earn,order:orderPage,tracking,club,refer,merchants:merchantsLanding,'merchant-join':merchantJoin,merchant:merchantPage,'merchant-orders':merchantOrders,'merchant-team':merchantTeamPage,catalog,'merchant-metrics':merchantMetrics,privacy:privacyPage,terms:termsPage,contact:contactPage,admin:adminPage};
     const app=document.querySelector('#app');
     if(app)app.innerHTML=(pages[r]||home)();
   }catch(e){

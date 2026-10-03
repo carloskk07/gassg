@@ -155,7 +155,7 @@ async function verifyLivePortals(){
   };
 }
 async function summary(admin:any){
-  const [apps,merchants,compliance,capabilities,referralReviews,rewardFailures,accountingFailures,receivables,reimbursements,adjustments,platformAdmins,prelaunchLeads,audit]=await Promise.all([
+  const [apps,merchants,compliance,capabilities,referralReviews,rewardFailures,accountingFailures,receivables,reimbursements,adjustments,platformAdmins,prelaunchLeads,publicRequests,audit]=await Promise.all([
     admin.from("merchant_applications")
       .select("id,applicant_user_id,cnpj,company_name,responsible_name,phone,address_text,status,created_at,updated_at")
       .order("created_at",{ascending:false})
@@ -208,12 +208,16 @@ async function summary(admin:any){
       .select("id,lead_type,contact_name,business_name,phone,postal_code,interests,note,status,submission_count,source,medium,campaign,content,term,referrer,landing_path,created_at,updated_at")
       .order("created_at",{ascending:false})
       .limit(200),
+    admin.from("public_requests")
+      .select("id,request_kind,privacy_action,contact_name,contact_channel,contact_value,message,status,resolution_note,resolved_at,source,medium,campaign,referrer,landing_path,created_at,updated_at")
+      .order("created_at",{ascending:false})
+      .limit(200),
     admin.from("platform_admin_audit")
       .select("id,actor_user_id,action,target_type,target_id,metadata,created_at")
       .order("created_at",{ascending:false})
       .limit(50)
   ]);
-  for(const result of [apps,merchants,compliance,capabilities,referralReviews,rewardFailures,accountingFailures,receivables,reimbursements,adjustments,platformAdmins,prelaunchLeads,audit]){
+  for(const result of [apps,merchants,compliance,capabilities,referralReviews,rewardFailures,accountingFailures,receivables,reimbursements,adjustments,platformAdmins,prelaunchLeads,publicRequests,audit]){
     if(result.error)throw result.error;
   }
   const pilotPartners=await admin
@@ -269,6 +273,7 @@ async function summary(admin:any){
     },
     platformAdmins:platformAdmins.data??[],
     prelaunchLeads:prelaunchLeads.data??[],
+    publicRequests:publicRequests.data??[],
     rewardFailures:rewardFailures.data??[],
     accountingFailures:accountingFailures.data??[],
     referralReviews:(referralReviews.data??[]).map((x:any)=>{
