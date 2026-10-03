@@ -74,16 +74,23 @@ set search_path = pg_catalog
 as $$
 declare
   v_eta integer;
+  v_accepts_scheduled boolean;
   v_dispatch_open timestamptz;
 begin
   if new.delivery_window_start is null then
     return new;
   end if;
 
-  select m.base_eta_minutes
-  into v_eta
+  select m.base_eta_minutes,m.accepts_scheduled_orders
+  into v_eta,v_accepts_scheduled
   from public.merchants m
   where m.id=new.merchant_id;
+
+  if old.status='OFFERED_TO_MERCHANT'
+     and new.status='PREPARING'
+     and not coalesce(v_accepts_scheduled,false) then
+    raise exception 'SCHEDULED_DELIVERY_UNAVAILABLE' using errcode='40001';
+  end if;
 
   v_eta:=greatest(5,least(180,coalesce(v_eta,30)));
 
