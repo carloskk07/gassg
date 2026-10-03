@@ -838,7 +838,7 @@ assert.match(launchReadinessV146,/commerce_enabled boolean not null default fals
 assert.match(launchReadinessV146,/alter table public\.platform_launch_control enable row level security/,'launch control precisa de RLS');
 assert.match(launchReadinessV146,/revoke all on table public\.platform_launch_control from public, anon, authenticated/,'browser não pode operar launch control diretamente');
 assert.match(launchReadinessV146,/create or replace function public\.platform_launch_readiness/,'readiness precisa ser calculada no banco');
-assert.match(launchReadinessV146,/v_active_admins>0[\s\S]*realSupplyConfigured[\s\S]*v_owner_ready>0[\s\S]*v_payment_ready>0/,'readiness precisa exigir admin, supply, owner e pagamento reais');
+assert.match(launchReadinessV146,/v_active_admins>0[\s\S]*realsupplyconfigured[\s\S]*v_owner_ready>0[\s\S]*v_payment_ready>0/,'readiness precisa exigir admin, supply, owner e pagamento reais');
 assert.match(launchReadinessV146,/portals_verified_at>=statement_timestamp\(\)-interval '60 minutes'/,'atestado dos portais precisa expirar antes da abertura');
 assert.match(launchReadinessV146,/live_portals_verification_required/,'portais live precisam ser blocker explícito');
 assert.match(launchReadinessV146,/create or replace function public\.admin_launch_control_action/,'mutações de lançamento precisam de autoridade idempotente dedicada');
