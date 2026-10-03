@@ -2,6 +2,36 @@
 
 Marketplace hiperlocal de gás e abastecimento essencial para São Gabriel/RS.
 
+## Estado atual — v1.56 first-party analytics
+
+O pré-lançamento passa a medir o funil desde a entrada no domínio oficial, sem adicionar trackers publicitários de terceiros.
+
+### Eventos agregados
+
+- `landing_view` — uma entrada por sessão/aba, público e atribuição;
+- `lead_form_view` — formulário visível em pelo menos 35%.
+
+Os eventos são consolidados por dia, público, source, medium, campaign, content, rota e host de referência. A tabela não recebe nome, telefone, CEP, IP bruto nem identificador analítico persistente.
+
+### Escopo
+
+O runtime só mede quando:
+
+- o host é `tamao.com.br` ou `www.tamao.com.br`;
+- o produto ainda está em modo de pré-lançamento;
+- não é portal administrativo/revenda;
+- não é ambiente de teste.
+
+GitHub Pages, localhost e previews não contaminam os números.
+
+### Funil
+
+O admin passa a mostrar:
+
+**Entradas → formulário → lead → contato → qualificação → conversão**
+
+Assim, tráfego pago pode ser avaliado pela qualidade do funil inteiro, e não só por cliques ou formulários.
+
 ## Estado atual — v1.55 acquisition intelligence
 
 O admin passa a medir o pré-lançamento como **funil comercial**, e não apenas como uma lista dos 200 contatos mais recentes.

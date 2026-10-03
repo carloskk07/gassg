@@ -148,7 +148,7 @@ for(const forbidden of ['supabase','tests','scripts','.github','.git']){
 
 const required=[
   'index.html','manifest.webmanifest','sw.js','robots.txt',
-  'js/runtime-config.js','js/backend.js','js/core.js','js/acquisition.js','js/legal.js',
+  'js/runtime-config.js','js/backend.js','js/core.js','js/analytics.js','js/acquisition.js','js/legal.js',
   'css/base.css','css/components.css','icons/icon.svg'
 ];
 for(const item of required){

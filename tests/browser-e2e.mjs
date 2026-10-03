@@ -97,6 +97,14 @@ assert.match(body,/PROTEÇÃO TAMÃO/);
 assert.match(body,/Quero ganhar benefícios/);
 assert.match(body,/Quero vender no TAMÃO/);
 assert.match(body,/Ambiente isolado de teste automatizado/);
+assert.equal(await evaluate("marketingAnalyticsEnabled()"),false);
+const marketingContextProbe=JSON.parse(await evaluate("JSON.stringify(marketingAnalyticsContext())"));
+assert.equal(marketingContextProbe.source,'');
+assert.equal(marketingContextProbe.medium,'');
+assert.equal(marketingContextProbe.campaign,'');
+assert.equal(marketingContextProbe.content,'');
+assert.equal(marketingContextProbe.landingPath,'/#home');
+assert.equal(typeof marketingContextProbe.referrerHost,'string');
 await auditDom('home');
 
 assert.equal(
@@ -135,7 +143,7 @@ assert.equal(acquisitionProbe.total,20);
 assert.equal(acquisitionProbe.campaigns[0].conversionRatePct,30);
 assert.equal(await evaluate("adminMetricPercent(37.5)"),'37,5%');
 assert.equal(await evaluate("adminMetricDuration(42)"),'42 min');
-assert.match(await evaluate("adminAcquisitionCampaigns({campaigns:[{source:'meta',medium:'paid_social',campaign:'sg_launch_customer',total:10,customers:10,merchants:0,contactRatePct:80,qualificationRatePct:50,conversionRatePct:30}]})"),/Campanhas e conversão/);
+assert.match(await evaluate("adminAcquisitionCampaigns({campaigns:[{audience:'customer',source:'meta',medium:'paid_social',campaign:'sg_launch_customer',content:'creative_a',landingViews:40,formViews:20,total:10,contactRatePct:80,qualificationRatePct:50,conversionRatePct:30,landingToFormPct:50,landingToLeadPct:25}]})"),/Campanhas: entrada até conversão/);
 
 await evaluate("go('learn')");
 await waitFor("document.body.innerText.includes('Antes de pedir, veja quanto custa')","learn route");
@@ -149,7 +157,7 @@ await waitFor("document.body.innerText.includes('Aviso de Privacidade')","privac
 body=await text();
 assert.match(body,/Seus direitos/);
 assert.match(body,/Exercer um direito de privacidade/);
-assert.match(body,/não é armazenado nessas tabelas de captação/i);
+assert.match(body,/IP bruto não é gravado nas tabelas de captação nem na tabela de analytics/i);
 await auditDom('privacy');
 
 await evaluate("go('terms')");

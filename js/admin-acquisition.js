@@ -155,6 +155,11 @@ function adminAcquisitionMetrics(data,leads){
   const qualified=leads.filter(x=>x.qualified_at).length;
   const converted=leads.filter(x=>x.converted_at).length;
   return {
+    landingViews:0,
+    formViews:0,
+    landingToFormPct:0,
+    landingToLeadPct:0,
+    formToLeadPct:0,
     total,
     customers:leads.filter(x=>x.lead_type==='customer').length,
     merchants:leads.filter(x=>x.lead_type==='merchant').length,
@@ -178,9 +183,11 @@ function adminAcquisitionMetrics(data,leads){
 function adminAcquisitionCampaigns(metrics){
   const rows=Array.isArray(metrics?.campaigns)?metrics.campaigns:[];
   if(!rows.length)return '';
-  return '<div class="card flat acquisition-campaigns"><div class="status-bar"><div><span class="section-kicker">ATRIBUIÇÃO</span><h3 style="margin:5px 0 0">Campanhas e conversão</h3></div><small>todos os leads</small></div><div class="acquisition-campaign-list">'+rows.slice(0,12).map(x=>{
+  return '<div class="card flat acquisition-campaigns"><div class="status-bar"><div><span class="section-kicker">ATRIBUIÇÃO FIRST-PARTY</span><h3 style="margin:5px 0 0">Campanhas: entrada até conversão</h3></div><small>contadores agregados + leads reais</small></div><div class="acquisition-campaign-list">'+rows.slice(0,16).map(x=>{
     const origin=[x.source,x.medium].filter(Boolean).join(' / ');
-    return '<div class="acquisition-campaign-row"><div><strong>'+esc(origin||'direto')+'</strong><small>'+esc(x.campaign||'sem_campanha')+' • '+Number(x.total||0)+' lead(s) • '+Number(x.customers||0)+' cliente(s) • '+Number(x.merchants||0)+' parceiro(s)</small></div><div class="campaign-rates"><span><small>Contato</small><strong>'+adminMetricPercent(x.contactRatePct)+'</strong></span><span><small>Qualificação</small><strong>'+adminMetricPercent(x.qualificationRatePct)+'</strong></span><span><small>Conversão</small><strong>'+adminMetricPercent(x.conversionRatePct)+'</strong></span></div></div>';
+    const audience=x.audience==='merchant'?'PARCEIRO':'CLIENTE';
+    const creative=x.content&&x.content!=='sem_conteudo'?' • '+esc(x.content):'';
+    return '<div class="acquisition-campaign-row"><div><span class="status-pill">'+audience+'</span><strong>'+esc(origin||'direto')+'</strong><small>'+esc(x.campaign||'sem_campanha')+creative+' • '+Number(x.landingViews||0)+' entrada(s) • '+Number(x.formViews||0)+' formulário(s) • '+Number(x.total||0)+' lead(s)</small></div><div class="campaign-rates"><span><small>Entrada → form.</small><strong>'+adminMetricPercent(x.landingToFormPct)+'</strong></span><span><small>Entrada → lead</small><strong>'+adminMetricPercent(x.landingToLeadPct)+'</strong></span><span><small>Qualificação</small><strong>'+adminMetricPercent(x.qualificationRatePct)+'</strong></span><span><small>Conversão</small><strong>'+adminMetricPercent(x.conversionRatePct)+'</strong></span></div></div>';
   }).join('')+'</div></div>';
 }
 function adminPrelaunchLeadsSection(data){
@@ -191,17 +198,20 @@ function adminPrelaunchLeadsSection(data){
     '<section class="section">',
       '<div class="section-head"><div><span class="section-kicker">AQUISIÇÃO • PRÉ-LANÇAMENTO</span><h2>Funil real de clientes e parceiros</h2><p>As métricas agregadas usam todos os leads do banco. A fila operacional abaixo traz somente os contatos recentes necessários para atendimento.</p></div><span class="status-pill online">'+Number(metrics.total||0)+' lead(s)</span></div>',
       '<div class="merchant-kpis acquisition-summary-kpis">',
+        '<div class="kpi"><span class="label">Entradas medidas</span><strong>'+Number(metrics.landingViews||0)+'</strong><small>uma vez por sessão/aba e público</small></div>',
+        '<div class="kpi"><span class="label">Formulários vistos</span><strong>'+Number(metrics.formViews||0)+'</strong><small>'+adminMetricPercent(metrics.landingToFormPct)+' das entradas</small></div>',
         '<div class="kpi"><span class="label">Total captado</span><strong>'+Number(metrics.total||0)+'</strong><small>'+Number(metrics.last7d||0)+' nos últimos 7 dias</small></div>',
-        '<div class="kpi"><span class="label">Clientes</span><strong>'+Number(metrics.customers||0)+'</strong></div>',
-        '<div class="kpi"><span class="label">Empresas</span><strong>'+Number(metrics.merchants||0)+'</strong></div>',
+        '<div class="kpi"><span class="label">Clientes / empresas</span><strong>'+Number(metrics.customers||0)+' / '+Number(metrics.merchants||0)+'</strong></div>',
         '<div class="kpi"><span class="label">Novos há +24h</span><strong>'+Number(metrics.staleNew24h||0)+'</strong><small>prioridade de contato</small></div>',
         '<div class="kpi"><span class="label">Mediana até 1º contato</span><strong>'+adminMetricDuration(metrics.medianFirstContactMinutes)+'</strong></div>',
       '</div>',
-      '<div class="acquisition-funnel">',
-        '<div class="funnel-stage"><span>1</span><div><small>CAPTADOS</small><strong>'+Number(metrics.total||0)+'</strong><p>100% da base</p></div></div>',
-        '<div class="funnel-stage"><span>2</span><div><small>CONTATADOS</small><strong>'+Number(metrics.contacted||0)+'</strong><p>'+adminMetricPercent(metrics.contactRatePct)+'</p></div></div>',
-        '<div class="funnel-stage"><span>3</span><div><small>QUALIFICADOS</small><strong>'+Number(metrics.qualified||0)+'</strong><p>'+adminMetricPercent(metrics.qualificationRatePct)+'</p></div></div>',
-        '<div class="funnel-stage"><span>4</span><div><small>CONVERTIDOS</small><strong>'+Number(metrics.converted||0)+'</strong><p>'+adminMetricPercent(metrics.conversionRatePct)+'</p></div></div>',
+      '<div class="acquisition-funnel acquisition-funnel-full">',
+        '<div class="funnel-stage"><span>1</span><div><small>ENTRADAS</small><strong>'+Number(metrics.landingViews||0)+'</strong><p>sessões medidas</p></div></div>',
+        '<div class="funnel-stage"><span>2</span><div><small>VIRAM FORMULÁRIO</small><strong>'+Number(metrics.formViews||0)+'</strong><p>'+adminMetricPercent(metrics.landingToFormPct)+' das entradas</p></div></div>',
+        '<div class="funnel-stage"><span>3</span><div><small>VIRARAM LEAD</small><strong>'+Number(metrics.total||0)+'</strong><p>'+adminMetricPercent(metrics.landingToLeadPct)+' das entradas</p></div></div>',
+        '<div class="funnel-stage"><span>4</span><div><small>CONTATADOS</small><strong>'+Number(metrics.contacted||0)+'</strong><p>'+adminMetricPercent(metrics.contactRatePct)+' dos leads</p></div></div>',
+        '<div class="funnel-stage"><span>5</span><div><small>QUALIFICADOS</small><strong>'+Number(metrics.qualified||0)+'</strong><p>'+adminMetricPercent(metrics.qualificationRatePct)+' dos leads</p></div></div>',
+        '<div class="funnel-stage"><span>6</span><div><small>CONVERTIDOS</small><strong>'+Number(metrics.converted||0)+'</strong><p>'+adminMetricPercent(metrics.conversionRatePct)+' dos leads</p></div></div>',
       '</div>',
       adminAcquisitionCampaigns(metrics),
       '<div class="section-head acquisition-queue-head"><div><span class="section-kicker">FILA OPERACIONAL</span><h3>Leads recentes para atendimento</h3><p>Até 200 contatos mais recentes. Ordenados por estágio e antiguidade para reduzir esquecimento.</p></div><span class="status-pill '+(Number(metrics.staleNew24h||0)?'offline':'online')+'">'+Number(metrics.new||0)+' novo(s)</span></div>',

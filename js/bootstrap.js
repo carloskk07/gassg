@@ -8,6 +8,7 @@ function render(){
     const pages={home,learn,earn,order:orderPage,tracking,club,refer,merchants:merchantsLanding,'merchant-join':merchantJoin,merchant:merchantPage,'merchant-orders':merchantOrders,'merchant-team':merchantTeamPage,catalog,'merchant-metrics':merchantMetrics,privacy:privacyPage,terms:termsPage,contact:contactPage,admin:adminPage};
     const app=document.querySelector('#app');
     if(app)app.innerHTML=(pages[r]||home)();
+    queueMicrotask(()=>globalThis.marketingAnalyticsAfterRender?.());
   }catch(e){
     globalThis.__lastRenderError=String(e?.stack||e?.message||e);
     console.error('Falha de renderização',e);

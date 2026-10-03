@@ -29,6 +29,7 @@ const growth=read('js/growth.js');
 const bootstrap=read('js/bootstrap.js');
 const core=read('js/core.js');
 const backend=read('js/backend.js');
+const analytics=read('js/analytics.js');
 const acquisition=read('js/acquisition.js');
 const adminAcquisition=read('js/admin-acquisition.js');
 const legal=read('js/legal.js');
@@ -36,6 +37,8 @@ const publicRequest=read('supabase/functions/submit-public-request/index.ts');
 const publicRequestMigration=read('supabase/migrations/20261003194135_public_trust_channel_v1_50.sql');
 const leadCapture=read('supabase/functions/capture-prelaunch-lead/index.ts');
 const leadMigration=read('supabase/migrations/20261003182954_prelaunch_acquisition_v1_49.sql');
+const marketingCapture=read('supabase/functions/capture-marketing-event/index.ts');
+const marketingMigration=read('supabase/migrations/20261003205752_first_party_prelaunch_analytics_v1_56.sql');
 const admin=read('js/admin.js');
 const financePolicy=read('supabase/migrations/20261001105000_financial_unit_economics_v1_6.sql');
 const publicBuild=read('scripts/build-public-site.mjs');
@@ -68,6 +71,8 @@ assert.ok(!merchant.includes('.stock'),'UI da revenda não deve depender do camp
 assert.ok(growth.includes('referralCode'),'link de indicação deve usar código pessoal');
 assert.ok(bootstrap.includes('home,learn,earn'),'router público precisa expor jornadas de descoberta e renda');
 assert.ok(customer.includes('Quero pedir agora')&&customer.includes('Quero entender melhor')&&customer.includes('Quero ganhar benefícios')&&customer.includes('Quero vender no TAMÃO'),'home precisa separar compra, entendimento, benefícios e parceria comercial');
+assert.ok(html.includes('./js/analytics.js'),'runtime de analytics first-party precisa ser carregado pelo site');
+assert.ok(html.indexOf('./js/core.js')<html.indexOf('./js/analytics.js')&&html.indexOf('./js/analytics.js')<html.indexOf('./js/acquisition.js'),'analytics precisa carregar depois do core e antes das jornadas de aquisição');
 assert.ok(html.includes('./js/acquisition.js'),'runtime de aquisição precisa ser carregado pelo site');
 assert.ok(html.includes('./js/legal.js'),'camada de privacidade, termos e contato precisa ser carregada');
 assert.ok(bootstrap.includes('privacy:privacyPage')&&bootstrap.includes('terms:termsPage')&&bootstrap.includes('contact:contactPage'),'router público precisa expor páginas de confiança');
@@ -87,7 +92,7 @@ assert.ok(adminAcquisition.includes('adminPrelaunchLeadsSection')&&admin.include
 assert.ok(adminAcquisition.includes('adminSetPrelaunchLeadStatus')&&adminAcquisition.includes('QUALIFICADO')&&adminAcquisition.includes('CONVERTIDO'),'admin precisa operar pipeline de leads');
 assert.ok(adminAcquisition.includes('adminLeadWhatsAppText')&&adminAcquisition.includes('Abrir WhatsApp com mensagem'),'follow-up comercial precisa abrir com texto contextualizado');
 assert.ok(adminAcquisition.includes('adminAcquisitionMetrics')&&adminAcquisition.includes('Funil real de clientes e parceiros'),'admin precisa exibir funil de aquisição sobre métricas agregadas');
-assert.ok(adminAcquisition.includes('Campanhas e conversão')&&adminAcquisition.includes('qualificationRatePct')&&adminAcquisition.includes('conversionRatePct'),'admin precisa comparar campanhas por avanço do funil, não só volume');
+assert.ok(adminAcquisition.includes('Campanhas: entrada até conversão')&&adminAcquisition.includes('qualificationRatePct')&&adminAcquisition.includes('conversionRatePct'),'admin precisa comparar campanhas por avanço do funil, não só volume');
 assert.ok(read('supabase/functions/admin-ops/index.ts').includes('admin_prelaunch_acquisition_metrics')&&read('supabase/functions/admin-ops/index.ts').includes('acquisitionMetrics'),'summary admin precisa transportar métricas server-wide');
 const acquisitionMetricsMigration=read('supabase/migrations/20261003204319_prelaunch_acquisition_metrics_v1_55.sql');
 assert.ok(acquisitionMetricsMigration.includes('perform public.require_platform_admin')&&acquisitionMetricsMigration.includes("grant execute on function public.admin_prelaunch_acquisition_metrics(uuid)\nto service_role"),'métrica agregada precisa exigir admin e executar apenas via service_role');
@@ -105,6 +110,20 @@ assert.ok(acquisition.includes('ONDE ESTAMOS AGORA')&&acquisition.includes('Prim
 assert.ok(core.includes("prelaunchPublic||!merchantOriginReady?\"go('merchants')\":\"openMerchantPortal()\""),'switcher público não pode mandar revenda para portal ainda inexistente');
 assert.ok(core.includes("['early-access','🔔','Abertura','lead']")&&core.includes("act==='lead'?\"openPrelaunchCustomerLead()\""),'navegação mobile de pré-lançamento precisa levar à lista de abertura');
 assert.ok(acquisition.includes("if(!section)")&&acquisition.includes("if(route()!=='home')go('home')"),'CTA da lista deve funcionar mesmo quando acionado fora da home');
+assert.ok(analytics.includes("['tamao.com.br','www.tamao.com.br'].includes(host)"),'analytics não pode medir laboratório, localhost ou preview');
+assert.ok(analytics.includes("prelaunchExamplesEnabled?.()===true"),'analytics first-party precisa desligar automaticamente fora do pré-lançamento');
+assert.ok(analytics.includes("sessionStorage")&&!analytics.includes("localStorage"),'deduplicação analítica deve ser transitória por sessão, sem identificador persistente');
+assert.ok(analytics.includes("location.pathname")&&analytics.includes("referrerHost:marketingAnalyticsReferrerHost()"),'analytics deve enviar rota sem query e somente host de referência');
+assert.ok(!analytics.includes("utm_term"),'analytics agregado não precisa transportar termo de busca/campanha mais granular');
+assert.ok(analytics.includes("capture-marketing-event")&&analytics.includes("landing_view")&&analytics.includes("lead_form_view"),'runtime precisa medir entrada e visualização de formulário');
+assert.ok(marketingCapture.includes('ALLOWED_ORIGINS')&&marketingCapture.includes('consume_prelaunch_lead_quota'),'endpoint analítico público precisa de allowlist e rate limit');
+assert.ok(marketingCapture.includes('raw.length>6000')&&marketingCapture.includes('record_prelaunch_marketing_event'),'endpoint analítico precisa limitar payload e gravar somente via RPC agregado');
+assert.ok(marketingCapture.includes('SECRET_KEY.slice')&&!marketingCapture.includes('.from("prelaunch_marketing_event_daily")'),'IP deve servir somente ao antiabuso; Edge não deve escrever tabela diretamente');
+assert.ok(marketingMigration.includes('revoke all on table public.prelaunch_marketing_event_daily from public, anon, authenticated'),'tabela analítica agregada não pode ser exposta ao navegador');
+assert.ok(marketingMigration.includes('security invoker')&&marketingMigration.includes('to service_role'),'gravação analítica deve usar invoker e execução exclusiva service_role');
+assert.ok(marketingMigration.includes("'landingViews'")&&marketingMigration.includes("'formViews'")&&marketingMigration.includes("'landingToLeadPct'"),'métrica administrativa precisa unir denominadores de campanha ao funil comercial');
+assert.ok(adminAcquisition.includes('ENTRADAS')&&adminAcquisition.includes('VIRAM FORMULÁRIO')&&adminAcquisition.includes('landingToLeadPct'),'admin precisa exibir funil desde entrada até lead');
+assert.ok(legal.includes('Medição agregada do pré-lançamento')&&legal.includes('Meta Pixel')&&legal.includes('Google Analytics'),'privacidade precisa explicar a medição first-party e ausência de trackers terceiros');
 assert.ok(acquisition.includes('Quero ser avisado na abertura')&&acquisition.includes('Quero conversar sobre parceria'),'aquisição precisa ter CTAs próprios para cliente e parceiro');
 assert.ok(acquisition.includes("utm_source")||backend.includes("utm_source"),'captação precisa preservar atribuição de campanha');
 assert.ok(backend.includes("capture-prelaunch-lead")&&backend.includes("prelaunchAttribution"),'frontend precisa enviar leads ao endpoint dedicado');
@@ -155,7 +174,7 @@ assert.ok(growth.includes('Saque Pix ainda não disponível')&&growth.includes('
 assert.ok(growth.includes('Você continua no controle'),'landing de revenda deve enfatizar autonomia operacional');
 assert.ok(core.includes("['earn','💰','Ganhe','go']"),'navegação móvel precisa dar acesso direto ao hub de renda');
 assert.ok(!growth.includes('inputmode="numeric" maxlength="18"'),'campo CNPJ não pode forçar teclado somente numérico após adoção do CNPJ alfanumérico');
-assert.ok(sw.includes("CACHE='tamao-sg-v1.55'"),'cache do service worker precisa refletir a versão TAMÃO');
+assert.ok(sw.includes("CACHE='tamao-sg-v1.56'"),'cache do service worker precisa refletir a versão TAMÃO');
 assert.ok(admin.includes('offerable_supply_required')&&admin.includes('offerReadyMerchantCount'),'painel admin precisa expor oferta real como gate de lançamento');
 assert.ok(admin.includes('realmente capaz de receber uma oferta agora'),'copy de go-live precisa distinguir cadastro de capacidade operacional real');
 assert.ok(sw.includes("./js/backend.js"),'runtime live precisa estar no cache da PWA');
@@ -558,6 +577,12 @@ for(const entry of fs.readdirSync(functionRoot,{withFileTypes:true})){
     assert.ok(source.includes('consume_prelaunch_lead_quota'),entry.name+' precisa aplicar quota server-side');
     assert.ok(source.includes('ALLOWED_ORIGINS')&&source.includes('originAllowed'),entry.name+' precisa restringir origem explicitamente');
     assert.ok(source.includes('body.website'),entry.name+' precisa manter honeypot');
+  }else if(entry.name==='capture-marketing-event'){
+    assert.ok(source.includes('raw.length>6000'),entry.name+' precisa limitar JSON com teto reduzido');
+    assert.ok(source.includes('consume_prelaunch_lead_quota'),entry.name+' precisa aplicar quota server-side');
+    assert.ok(source.includes('ALLOWED_ORIGINS')&&source.includes('originAllowed'),entry.name+' precisa restringir origem explicitamente');
+    assert.ok(source.includes('EVENT_TYPES')&&source.includes('AUDIENCES'),entry.name+' precisa manter allowlists de evento e público');
+    assert.ok(source.includes('record_prelaunch_marketing_event'),entry.name+' precisa gravar somente pelo RPC agregado');
   }else{
     assert.ok(source.includes('readJsonBody(req)'),entry.name+' precisa limitar JSON');
     assert.ok(source.includes('enforceApiQuota(admin'),entry.name+' precisa aplicar quota server-side');

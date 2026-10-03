@@ -1402,3 +1402,40 @@ O funil usa os timestamps históricos (`contacted_at`, `qualified_at`, `converte
 ### Escala
 
 A lista visual permanece limitada aos 200 leads mais recentes para operação. Métricas e campanhas usam todos os registros, eliminando o viés da janela recente.
+
+
+## V1.56 — First-party prelaunch analytics
+
+### Objetivo
+
+Criar o denominador que faltava entre anúncio e lead sem instalar Meta Pixel, Google Analytics ou identificadores persistentes de terceiros.
+
+### Minimização
+
+O navegador envia somente:
+
+- tipo de evento;
+- público cliente/parceiro;
+- source / medium / campaign / content;
+- pathname + rota;
+- hostname do referenciador.
+
+Não envia query completa de navegação, UTM term, nome, telefone, CEP ou identificador analítico persistente.
+
+### Antiabuso
+
+O endpoint público possui allowlist de origem, payload cap e rate limit server-side. O IP pode ser processado para produzir o hash técnico usado na quota, mas não é gravado na tabela de analytics.
+
+### Persistência
+
+`prelaunch_marketing_event_daily` guarda apenas contadores diários agregados. RLS está ativo e browser roles não possuem privilégios.
+
+`record_prelaunch_marketing_event` usa SECURITY INVOKER e só pode ser executada por `service_role`.
+
+### Escopo de produção
+
+O cliente só ativa a medição no domínio oficial e enquanto `prelaunchExamplesEnabled()` indicar pré-lançamento. CI, localhost, GitHub Pages e previews ficam fora.
+
+### Prova atômica
+
+O incremento foi testado duas vezes dentro de uma transação e comprovado como contador 2; a transação foi revertida e deixou zero linhas de teste no banco.
