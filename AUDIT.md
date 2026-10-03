@@ -1439,3 +1439,49 @@ O cliente só ativa a medição no domínio oficial e enquanto `prelaunchExample
 ### Prova atômica
 
 O incremento foi testado duas vezes dentro de uma transação e comprovado como contador 2; a transação foi revertida e deixou zero linhas de teste no banco.
+
+
+## V1.57 — First-admin bootstrap diagnostics
+
+### Falha anterior
+
+O endpoint de claim registrava erros no log, mas devolvia `{ok:true}` mesmo quando a autoridade SQL falhava. O navegador então consultava o admin, recebia 403 e apresentava a mesma tela de "conta não autorizada" para situações distintas.
+
+Isso não elevava privilégio, porém dificultava distinguir:
+
+- e-mail autenticado incorreto;
+- bootstrap já encerrado;
+- erro temporário de concorrência;
+- falha real do backend.
+
+### Correção
+
+`admin-auth` passou a expor somente quatro estados permitidos: `claimed`, `existing_admin`, `not_reserved` e `bootstrap_closed`.
+
+Erros SQL são mapeados para respostas fechadas:
+
+- `40001` → `ADMIN_BOOTSTRAP_RETRY` / HTTP 409;
+- identidade não confirmada → HTTP 403;
+- demais falhas → `ADMIN_BOOTSTRAP_FAILED` / HTTP 503.
+
+Nenhum payload interno do RPC é devolvido.
+
+### Runtime
+
+O painel possui estados separados para:
+
+- acesso negado conclusivo;
+- falha de validação;
+- bootstrap reivindicado;
+- admin já existente.
+
+A opção "Validar acesso novamente" repete apenas a autoridade server-side. O browser continua incapaz de criar linha em `platform_admins`.
+
+### Situação observada durante a auditoria
+
+- 0 administradores ativos;
+- 1 reserva ainda não reivindicada;
+- 0 usuários permanentes confirmados correspondendo à reserva;
+- cron de bootstrap ativo.
+
+Logo, o próximo passo operacional ainda é autenticar a conta reservada pelo magic link no portal administrativo dedicado.
