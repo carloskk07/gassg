@@ -97,6 +97,11 @@ assert.match(body,/PROTEÇÃO TAMÃO/);
 assert.match(body,/Quero ganhar benefícios/);
 assert.match(body,/Quero vender no TAMÃO/);
 assert.match(body,/Ambiente isolado de teste automatizado/);
+assert.equal(await evaluate("marketingAnalyticsEnabled()"),false);
+assert.deepEqual(
+  JSON.parse(await evaluate("JSON.stringify(marketingAnalyticsContext())")),
+  {source:'',medium:'',campaign:'',content:'',landingPath:'/#home',referrerHost:''}
+);
 await auditDom('home');
 
 assert.equal(
