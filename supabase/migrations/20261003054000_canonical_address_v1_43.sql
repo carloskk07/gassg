@@ -58,6 +58,10 @@ declare
   v_address_number text;
   v_postal_display text;
   v_address text;
+  v_base text;
+  v_suffix text;
+  v_neighborhood text;
+  v_available integer;
 begin
   v_address_number:=upper(trim(coalesce(p_address_number,'')));
 
@@ -83,13 +87,18 @@ begin
   end if;
 
   v_postal_display:=substr(p_postal_code,1,5)||'-'||substr(p_postal_code,6,3);
-  v_address:=trim(v_postal.street)||', '||v_address_number
-    ||case
-        when nullif(trim(coalesce(v_postal.neighborhood,'')),'') is null then ''
-        else ' - '||trim(v_postal.neighborhood)
-      end
-    ||', '||trim(v_postal.city)||' - '||v_postal.state
-    ||', CEP '||v_postal_display;
+  v_base:=trim(v_postal.street)||', '||v_address_number;
+  v_suffix:=', '||trim(v_postal.city)||' - '||v_postal.state||', CEP '||v_postal_display;
+  v_neighborhood:=nullif(trim(coalesce(v_postal.neighborhood,'')),'');
+  if char_length(v_base)+char_length(v_suffix)>240 then
+    raise exception 'CANONICAL_ADDRESS_TOO_LONG' using errcode='22023';
+  end if;
+  v_available:=240-char_length(v_base)-char_length(v_suffix)-3;
+  v_address:=case
+    when v_neighborhood is not null and v_available>=2
+      then v_base||' - '||left(v_neighborhood,v_available)||v_suffix
+    else v_base||v_suffix
+  end;
 
   v_result:=public.create_quote_snapshot_v2(
     p_user_id,
