@@ -575,6 +575,9 @@ function liveTracking(){
   const comparisonNotice=Number(o.comparisonSavingsCents||0)>0
     ? `<div class="notice" style="margin-top:12px"><strong>Economia nesta comparação: ${BRL.format(Number(o.comparisonSavingsCents)/100)}</strong><br>Diferença entre a opção escolhida e a opção mais cara que foi realmente exibida na consulta que originou este pedido.</div>`
     : '';
+  const deliveryDetailsNotice=o.customerPhone
+    ? `<div class="notice" style="margin-top:12px"><strong>Dados de entrega confirmados.</strong><br>Telefone: ${esc(formatDeliveryPhone(o.customerPhone))}${o.addressComplement?` • Complemento: ${esc(o.addressComplement)}`:''}${o.deliveryReference?`<br>Referência: ${esc(o.deliveryReference)}`:''}${o.deliveryNotes?`<br>Instruções: ${esc(o.deliveryNotes)}`:''}</div>`
+    : '';
   const deliveryResponsibilityNotice=o.hasAssignedDelivery&&['PREPARING','AT_RISK'].includes(o.status)
     ? '<div class="notice success" style="margin-top:12px"><strong>Responsável pela entrega definido.</strong><br>A revenda já vinculou um membro da operação a este pedido. Seus dados pessoais não são expostos aqui.</div>'
     : '';
@@ -588,6 +591,7 @@ function liveTracking(){
 <div class="list-row"><span>Pagamento</span><strong>${paymentLabel(o.paymentMethod)}</strong></div>
 ${scheduleNotice}
 ${comparisonNotice}
+${deliveryDetailsNotice}
 ${deliveryResponsibilityNotice}
 ${o.paymentMethod==='cash'&&o.cashTenderCents?`<div class="list-row"><span>Troco para</span><strong>${BRL.format(Number(o.cashTenderCents)/100)}</strong></div>`:''}
 ${items?'<div class="divider"></div>'+items:''}</div>
