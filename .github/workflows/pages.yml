@@ -53,7 +53,15 @@ jobs:
             exit 1
           fi
           for f in $(find supabase/functions -mindepth 2 -maxdepth 2 -name 'index.ts' | sort); do
-            grep -q 'auth.getUser' "$f" || { echo "$f missing explicit JWT user validation"; exit 1; }
+            if [ "$f" = "supabase/functions/capture-prelaunch-lead/index.ts" ]; then
+              grep -q 'ALLOWED_ORIGINS' "$f" || { echo "$f missing explicit origin allowlist"; exit 1; }
+              grep -q 'consume_prelaunch_lead_quota' "$f" || { echo "$f missing server-side rate limit"; exit 1; }
+              grep -q 'body.consent!==true' "$f" || { echo "$f missing explicit consent gate"; exit 1; }
+              grep -q 'body.website' "$f" || { echo "$f missing honeypot"; exit 1; }
+              grep -q 'raw.length>16000' "$f" || { echo "$f missing payload cap"; exit 1; }
+            else
+              grep -q 'auth.getUser' "$f" || { echo "$f missing explicit JWT user validation"; exit 1; }
+            fi
           done
       - name: Marketplace simulations
         run: node tests/simulations.mjs
