@@ -3,9 +3,14 @@ export const PRODUCT_CODES=Object.freeze(['P13','WATER20','CHARCOAL4','WOOD','IC
 export function isSupportedProductCode(value){
   const code=String(value??'').trim().toUpperCase();
   if(PRODUCT_CODES.includes(code))return true;
-  const match=/^P([1-9][0-9]?)$/.exec(code);
-  if(!match)return false;
-  const kg=Number(match[1]);
+  const gas=/^P([1-9][0-9]?)$/.exec(code);
+  if(gas){
+    const kg=Number(gas[1]);
+    return Number.isInteger(kg)&&kg>=1&&kg<=90;
+  }
+  const container=/^P([1-9][0-9]?)_CONTAINER$/.exec(code);
+  if(!container)return false;
+  const kg=Number(container[1]);
   return Number.isInteger(kg)&&kg>=1&&kg<=90;
 }
 export const ORDER_STATUSES=Object.freeze([
