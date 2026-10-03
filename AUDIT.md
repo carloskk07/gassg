@@ -1559,6 +1559,24 @@ Cada bundle de produção recebe `SHA256SUMS.txt` calculado depois do build. O p
 
 Os artefatos customer, merchant e admin têm retenção de 3 dias. Isso reduz a chance de um pacote antigo ser confundido com o release atual.
 
+### Drift remoto corrigido
+
+A sonda remota expôs divergência entre GitHub e a Edge Function publicada. A v4 remota já tinha quota adicional por IP, mas o arquivo versionado ainda representava a versão anterior.
+
+A proteção útil foi incorporada ao source canônico e o CAPTCHA passou a ser novamente obrigatório dentro do handler, independentemente da UI ou de configuração implícita do Auth.
+
+A ordem de autoridade fica:
+
+1. normalização e redirect seguro;
+2. quota por identidade de rede;
+3. CAPTCHA obrigatório;
+4. consulta de elegibilidade por hash do e-mail;
+5. quota estrita do e-mail autorizado;
+6. envio do OTP;
+7. claim posterior com bearer + `auth.getUser`.
+
+Isso elimina tanto o drift quanto a possibilidade de chamada direta contornar o CAPTCHA apenas porque a UI o exigia.
+
 ### Fail closed
 
 O release continua recusando:
