@@ -295,7 +295,7 @@ function orderPage(){
   const liveMode=globalThis.liveRequested?.()===true;
   const ready=globalThis.liveReady?.()===true;
   const preview=!testDemo&&globalThis.prelaunchExamplesEnabled?.()===true;
-  const hasAddress=!!state.address;
+  const hasAddress=!!state.address&&(testDemo||/^[0-9]{8}$/.test(String(state.postalCode||'')));
   const hasItems=hasCartItems();
   const hasGlp=hasGlpCart();
   const needsContainer=hasGlp&&state.checkout.glpContainerMode==='needs_container';
@@ -359,7 +359,14 @@ function orderPage(){
   return shell(`<section class="page"><button class="back" onclick="go('home')">← Voltar</button><span class="eyebrow">PEDIR AGORA</span><h1 class="page-title">O que você precisa e onde devemos entregar?</h1><p class="muted page-lead">Depois do endereço, você compara total e prazo antes de escolher.</p>
 ${liveNotice}
 ${pendingOrder?`<div class="notice" style="margin-bottom:14px"><strong>Você já possui um pedido em andamento.</strong><br>Conclua ou cancele o pedido ${esc(pendingOrder.publicCode||pendingOrder.id)} antes de criar outro.<br><button class="ghost small" onclick="go('tracking')">Acompanhar pedido →</button></div>`:''}
-<div class="card flat form-stack order-address-card"><div class="input-wrap"><label for="address">Endereço de entrega</label><input id="address" class="input" autocomplete="street-address" maxlength="160" placeholder="Ex.: Rua General Câmara, 123" value="${esc(state.address||'')}"></div><button class="primary" onclick="setAddress()">${hasAddress?'Atualizar endereço':'Usar este endereço'}</button><small class="field-help">Usamos o endereço para procurar quem consegue atender sua cesta.</small></div>
+<div class="card flat form-stack order-address-card">
+  <div class="field-row">
+    <div class="input-wrap"><label for="postal-code">CEP</label><input id="postal-code" class="input" autocomplete="postal-code" inputmode="numeric" maxlength="9" placeholder="Ex.: 97300-000" value="${esc(String(state.postalCode||'').replace(/^(\d{5})(\d{0,3}).*$/,(m,a,b)=>b?a+'-'+b:a))}"><small class="field-help">${testDemo?'Opcional na simulação.':'O CEP é validado no servidor para confirmar atendimento em São Gabriel/RS.'}</small></div>
+    <div class="input-wrap"><label for="address">Endereço de entrega</label><input id="address" class="input" autocomplete="street-address" maxlength="160" placeholder="Ex.: Rua General Câmara, 123" value="${esc(state.address||'')}"></div>
+  </div>
+  <button class="primary" onclick="setAddress()">${hasAddress?'Atualizar endereço':'Usar este endereço'}</button>
+  <small class="field-help">CEP e endereço são usados para procurar quem consegue atender sua cesta. O CEP não é enviado aos parceiros antes do aceite.</small>
+</div>
 ${hasAddress?`<div class="card flat form-stack" style="margin-top:12px">
   <h3>Dados para a entrega</h3>
   <div class="input-wrap"><label for="delivery-phone">Telefone com DDD</label><input id="delivery-phone" class="input" type="tel" inputmode="tel" autocomplete="tel" maxlength="18" placeholder="Ex.: (55) 99999-1234" value="${esc(formatDeliveryPhone(state.checkout.customerPhoneDigits))}" onchange="deliveryDetailsChanged()"><small class="field-help">Obrigatório somente para concluir um pedido real. A revenda recebe o contato apenas depois de aceitar.</small></div>
@@ -407,8 +414,21 @@ function offerCard(o){
 async function setAddress(){
   const el=document.querySelector('#address');
   const value=el?.value.trim()||'';
+  const postalCode=String(document.querySelector('#postal-code')?.value||state.postalCode||'').replace(/\D/g,'').slice(0,8);
   if(value.length<5)return toast('Informe um endereço válido');
-  state.address=value.slice(0,160);save();
+  if(globalThis.__CHAMA_TEST__!==true&&!/^[0-9]{8}$/.test(postalCode)){
+    document.querySelector('#postal-code')?.focus();
+    return toast('Informe um CEP válido com 8 dígitos');
+  }
+  const changed=state.address!==value.slice(0,160)||state.postalCode!==postalCode;
+  state.address=value.slice(0,160);
+  state.postalCode=postalCode;
+  if(changed&&globalThis.liveRequested?.()){
+    liveRuntime.offers=[];
+    liveRuntime.lastSyncAt=null;
+    liveRuntime.error=null;
+  }
+  save();
   if(globalThis.liveReady?.()&&hasCartItems()){
     try{await liveRefreshOffers({silent:true})}catch{}
   }
