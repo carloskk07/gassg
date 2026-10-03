@@ -2,6 +2,35 @@ function adminLeadWhatsApp(raw){
   const digits=String(raw||'').replace(/\D/g,'');
   return digits.length===10||digits.length===11?'55'+digits:digits;
 }
+function adminFirstName(value){
+  return String(value||'').trim().split(/\s+/)[0]||'';
+}
+function adminLeadWhatsAppText(x){
+  const first=adminFirstName(x.contact_name);
+  if(x.lead_type==='merchant'){
+    const company=String(x.business_name||'sua empresa').trim();
+    return 'Olá'+(first?', '+first:'')+'! Aqui é do TAMÃO. Recebemos o interesse da '+company+' em participar como parceiro em São Gabriel. Quero entender rapidamente sua operação e explicar os próximos passos, sem compromisso. Podemos conversar por aqui?';
+  }
+  return 'Olá'+(first?', '+first:'')+'! Aqui é do TAMÃO. Você entrou na nossa lista de abertura em São Gabriel. Estamos organizando a cobertura por região e queremos confirmar seu interesse antes da abertura. Posso te avisar por aqui quando houver novidade para o seu CEP?';
+}
+function adminPublicRequestWhatsAppText(x){
+  const first=adminFirstName(x.contact_name);
+  const protocol=String(x.id||'').slice(0,8).toUpperCase();
+  const subject=x.request_kind==='privacy'?'sua solicitação de privacidade':'sua mensagem';
+  return 'Olá'+(first?', '+first:'')+'! Aqui é do TAMÃO. Recebemos '+subject+' pelo site. Protocolo '+protocol+'. Estou entrando em contato para dar continuidade ao atendimento.';
+}
+function adminLeadPriority(value){
+  return ({new:0,contacted:1,qualified:2,converted:3,closed:4})[value]??9;
+}
+function adminLeadAgeLabel(createdAt){
+  const ms=Date.now()-Date.parse(String(createdAt||''));
+  if(!Number.isFinite(ms)||ms<0)return '';
+  const hours=Math.floor(ms/3600000);
+  if(hours<1)return 'agora';
+  if(hours<24)return 'há '+hours+'h';
+  const days=Math.floor(hours/24);
+  return 'há '+days+'d';
+}
 function adminLeadInterestLabel(value){
   return ({gas:'Gás',water:'Água',charcoal:'Carvão',firewood:'Lenha',ice:'Gelo',other:'Outros'})[value]||String(value||'');
 }
@@ -67,6 +96,7 @@ function adminPrelaunchLeadCard(x){
   const interests=(x.interests||[]).map(adminLeadInterestLabel).join(' • ')||'—';
   const source=[x.source,x.medium,x.campaign].filter(Boolean).join(' / ')||'acesso direto';
   const wa=adminLeadWhatsApp(x.phone);
+  const waText=encodeURIComponent(adminLeadWhatsAppText(x));
   return [
     '<article class="card flat">',
       '<div class="status-bar"><div><span class="status-pill '+(merchant?'online':'')+'">'+type+'</span> <span class="status-pill '+adminLeadStatusClass(x.status)+'">'+esc(adminLeadStatusLabel(x.status))+'</span>',
@@ -77,7 +107,7 @@ function adminPrelaunchLeadCard(x){
       '<div class="list-row"><span>Origem</span><strong>'+esc(source)+'</strong></div>',
       x.note?'<p class="muted tiny"><strong>Mensagem:</strong> '+esc(x.note)+'</p>':'',
       x.admin_note?'<p class="muted tiny"><strong>Nota interna:</strong> '+esc(x.admin_note)+'</p>':'',
-      '<div class="order-actions"><a class="secondary small" href="https://wa.me/'+esc(wa)+'" target="_blank" rel="noopener noreferrer">Abrir WhatsApp</a><span class="tiny muted">envios: '+Number(x.submission_count||1)+'</span></div>',
+      '<div class="order-actions"><a class="secondary small" href="https://wa.me/'+esc(wa)+'?text='+waText+'" target="_blank" rel="noopener noreferrer">Abrir WhatsApp com mensagem</a><span class="tiny muted">'+esc(adminLeadAgeLabel(x.created_at))+' • envios: '+Number(x.submission_count||1)+'</span></div>',
       adminLeadActionButtons(x),
     '</article>'
   ].join('');
@@ -103,12 +133,14 @@ function adminPrelaunchLeadsSection(data){
   const contacted=leads.filter(x=>x.status==='contacted').length;
   const qualified=leads.filter(x=>x.status==='qualified').length;
   const converted=leads.filter(x=>x.status==='converted').length;
+  const staleNew=leads.filter(x=>x.status==='new'&&(Date.now()-Date.parse(String(x.created_at||'')))>=24*60*60*1000).length;
+  const ordered=[...leads].sort((a,b)=>adminLeadPriority(a.status)-adminLeadPriority(b.status)||(Date.parse(a.created_at||'')-Date.parse(b.created_at||'')));
   return [
     '<section class="section">',
       '<div class="section-head"><div><span class="section-kicker">AQUISIÇÃO • PRÉ-LANÇAMENTO</span><h2>Clientes e parceiros interessados</h2><p>Leads captados pelo site com origem de campanha, categorias de interesse e WhatsApp para contato.</p></div><span class="status-pill online">'+leads.length+' lead(s)</span></div>',
-      '<div class="merchant-kpis"><div class="kpi"><span class="label">Clientes interessados</span><strong>'+customers+'</strong></div><div class="kpi"><span class="label">Empresas interessadas</span><strong>'+merchants+'</strong></div><div class="kpi"><span class="label">Novos</span><strong>'+fresh+'</strong></div><div class="kpi"><span class="label">Contatados</span><strong>'+contacted+'</strong></div><div class="kpi"><span class="label">Qualificados</span><strong>'+qualified+'</strong></div><div class="kpi"><span class="label">Convertidos</span><strong>'+converted+'</strong></div></div>',
+      '<div class="merchant-kpis"><div class="kpi"><span class="label">Clientes interessados</span><strong>'+customers+'</strong></div><div class="kpi"><span class="label">Empresas interessadas</span><strong>'+merchants+'</strong></div><div class="kpi"><span class="label">Novos</span><strong>'+fresh+'</strong></div><div class="kpi"><span class="label">Contatados</span><strong>'+contacted+'</strong></div><div class="kpi"><span class="label">Qualificados</span><strong>'+qualified+'</strong></div><div class="kpi"><span class="label">Convertidos</span><strong>'+converted+'</strong></div><div class="kpi"><span class="label">Novos há +24h</span><strong>'+staleNew+'</strong></div></div>',
       adminLeadCampaignRows(leads).length?'<div class="card flat" style="margin-top:14px"><h3>Origem dos leads</h3><div class="list">'+adminLeadCampaignRows(leads).map(x=>'<div class="list-row"><div><strong>'+esc(x.source)+'</strong><br><small>'+esc(x.campaign)+'</small></div><div class="tiny" style="text-align:right"><strong>'+x.total+'</strong><br>'+x.customers+' cliente(s) • '+x.merchants+' parceiro(s)</div></div>').join('')+'</div></div>':'',
-      '<div class="grid cards-3" style="margin-top:14px">'+(leads.length?leads.slice(0,60).map(adminPrelaunchLeadCard).join(''):'<div class="empty card">Nenhum lead captado ainda.</div>')+'</div>',
+      '<div class="grid cards-3" style="margin-top:14px">'+(ordered.length?ordered.slice(0,60).map(adminPrelaunchLeadCard).join(''):'<div class="empty card">Nenhum lead captado ainda.</div>')+'</div>',
     '</section>'
   ].join('');
 }
@@ -136,7 +168,7 @@ function adminPublicRequestCard(x){
   if(x.contact_channel==='email'){
     contactAction='<a class="secondary small" href="mailto:'+encodeURIComponent(String(x.contact_value||''))+'">Responder por e-mail</a>';
   }else{
-    contactAction='<a class="secondary small" href="https://wa.me/'+esc(adminLeadWhatsApp(x.contact_value))+'" target="_blank" rel="noopener noreferrer">Abrir WhatsApp</a>';
+    contactAction='<a class="secondary small" href="https://wa.me/'+esc(adminLeadWhatsApp(x.contact_value))+'?text='+encodeURIComponent(adminPublicRequestWhatsAppText(x))+'" target="_blank" rel="noopener noreferrer">Abrir WhatsApp com mensagem</a>';
   }
   return [
     '<article class="card flat">',
