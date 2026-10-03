@@ -1237,3 +1237,44 @@ O preço calculado no laboratório permanece dentro da faixa. Alterar estratégi
 ## V1.48 — Rebrand TAMÃO
 
 A camada pública foi migrada de Chama para **TAMÃO** sem renomear contratos internos que sustentam autenticação, storage, crons, Edge Functions e configuração de origens. Essa separação reduz risco de regressão durante o rebrand. A prova desta versão exige metadata/PWA TAMÃO, shell com o novo símbolo, hero **“Pediu? Tá na mão.”**, Proteção TAMÃO, Clube TAMÃO, portais live com metadata atualizada e smoke/E2E alinhados à nova marca.
+
+
+## V1.49 — Acquisition readiness
+
+### Objetivo
+
+Transformar o pré-lançamento do TAMÃO em um funil real de aquisição para **clientes** e **parceiros**, preservando o bloqueio do comércio até os gates operacionais passarem.
+
+### Cliente
+
+A home passa a oferecer **Quero ser avisado** quando ainda não existe supply real disponível. O cadastro coleta somente dados úteis ao pré-lançamento: nome opcional, WhatsApp, CEP, categorias de interesse e consentimento explícito.
+
+O CEP serve também como sinal de demanda para priorizar recrutamento de parceiros por região. Nenhum pedido, cobrança ou reserva de estoque é criado pelo cadastro.
+
+### Parceiro
+
+A landing de revendas passa a separar **interesse comercial** de **onboarding operacional**. O primeiro contato pede nome da empresa, responsável, WhatsApp, categorias e CEP opcional. CNPJ e validações regulatórias continuam no onboarding formal posterior.
+
+### Atribuição
+
+O endpoint conserva UTMs, referrer e landing path. Isso permite medir anúncios sem depender inicialmente de pixels de terceiros.
+
+### Segurança e privacidade
+
+- tabela `prelaunch_leads` é server-only;
+- browser `anon/authenticated` não possui SELECT/INSERT/UPDATE/DELETE;
+- Edge Function aceita apenas origens explícitas;
+- payload limitado e validado;
+- honeypot;
+- consentimento obrigatório;
+- deduplicação por tipo + WhatsApp;
+- rate limit por hash de IP;
+- IP bruto não é armazenado.
+
+### Operação
+
+O admin protegido recebe até os leads mais recentes com tipo, interesse, CEP, origem de campanha e atalho para WhatsApp. A captação não altera `platform_launch_control` nem habilita comércio real.
+
+### Gate de publicação
+
+GitHub Pages permanece laboratório interno e `noindex` até o domínio TAMÃO e a arquitetura de origem pública serem comprovados. A troca de SEO/indexação só pode acontecer depois dessa verificação.
