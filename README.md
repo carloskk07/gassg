@@ -2,6 +2,37 @@
 
 Marketplace hiperlocal de gás e abastecimento essencial para São Gabriel/RS.
 
+## Estado atual — v1.51 launch operations
+
+O pré-lançamento agora possui um **pipeline operacional auditável** para evitar que aquisição vire apenas uma lista de contatos.
+
+### Leads
+
+Cada cliente ou parceiro captado pode avançar por:
+
+- `new` — novo;
+- `contacted` — contato realizado;
+- `qualified` — interesse qualificado;
+- `converted` — virou cliente/parceiro real;
+- `closed` — encerrado.
+
+O banco registra datas de contato, qualificação, conversão e encerramento. O admin mantém uma nota interna separada da mensagem enviada pelo próprio lead.
+
+### Contato e LGPD
+
+Solicitações públicas avançam por:
+
+- `new`;
+- `in_review`;
+- `resolved`;
+- `closed`.
+
+Resolver ou encerrar exige documentação da solução no admin.
+
+### Autoridade
+
+As transições passam por RPCs `SECURITY DEFINER` exclusivos do `service_role`, exigem administrador válido, usam idempotência, bloqueiam regressões de estado e escrevem em `platform_admin_audit`.
+
 ## Estado atual — v1.50 trust & launch
 
 A etapa de espera do domínio está sendo usada para fechar a superfície pública de confiança e lançamento.
