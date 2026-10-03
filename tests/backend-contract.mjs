@@ -178,10 +178,8 @@ const cronLockdown=fs.readFileSync(
   'utf8'
 ).replace(/--.*$/gm,'').replace(/\s+/g,' ').toLowerCase();
 
-assert.match(cronLockdown,/revoke all privileges on table cron\.job, cron\.job_run_details from anon, authenticated/,'tabelas pg_cron devem ser inacessíveis ao browser');
+assert.match(cronLockdown,/revoke select on table cron\.job, cron\.job_run_details from anon, authenticated/,'tabelas pg_cron não podem ser legíveis pelo browser');
 assert.match(cronLockdown,/revoke usage on schema cron from anon, authenticated/,'schema cron não deve ser endereçável pelo browser');
-assert.match(cronLockdown,/create policy cron_job_policy[\s\S]*to postgres/,'policy de cron.job deve ser restrita ao postgres');
-assert.match(cronLockdown,/create policy cron_job_run_details_policy[\s\S]*to postgres/,'policy de histórico cron deve ser restrita ao postgres');
-assert.doesNotMatch(cronLockdown,/to (anon|authenticated|public)/,'policies pg_cron não podem reabrir papéis de browser');
+assert.doesNotMatch(cronLockdown,/drop policy|create policy|alter policy/,'migration da aplicação não deve tentar alterar policies pertencentes ao supabase_admin');
 
 console.log('Cron browser lockdown v1.34.2 contract passou.');
