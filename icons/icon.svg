@@ -1,10 +1,14 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-labelledby="title desc">
+  <title id="title">TAMÃO</title>
+  <desc id="desc">Símbolo TAMÃO: uma mão estilizada com sinal de confirmação.</desc>
   <defs>
-    <linearGradient id="g" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0" stop-color="#0b6b45"/><stop offset="1" stop-color="#16a66a"/>
+    <linearGradient id="bg" x1="8" y1="6" x2="57" y2="59" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#0A3E2D"/>
+      <stop offset="1" stop-color="#0D6B4B"/>
     </linearGradient>
   </defs>
-  <rect width="512" height="512" rx="116" fill="url(#g)"/>
-  <path d="M291 75c20 93-64 110-35 179 14-24 38-37 50-67 46 42 68 89 54 139-16 59-68 101-128 101-73 0-132-59-132-132 0-77 62-116 104-165 5 44 17 75 40 94-1-63 32-102 47-149Z" fill="#fff" opacity=".96"/>
-  <circle cx="250" cy="329" r="55" fill="#ffd86b"/>
+  <rect width="64" height="64" rx="18" fill="url(#bg)"/>
+  <circle cx="49" cy="15" r="7" fill="#F4B63F"/>
+  <path d="M22.5 31.5V22a3.5 3.5 0 0 1 7 0v7.5V18a3.5 3.5 0 1 1 7 0v11.5V21a3.5 3.5 0 1 1 7 0v10.5V26a3.5 3.5 0 1 1 7 0v12.2C50.5 47.5 44 54 34.7 54h-2.4c-7.3 0-12-3.4-15.1-9.3l-4.3-8.2a3.4 3.4 0 0 1 6-3.2l3.6 6.2v-8Z" fill="#FFFDF8"/>
+  <path d="m31.2 42.2 3.5 3.5 7.8-8.5" fill="none" stroke="#0D6B4B" stroke-width="3.3" stroke-linecap="round" stroke-linejoin="round"/>
 </svg>
