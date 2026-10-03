@@ -20,6 +20,17 @@ assert.throws(()=>validatePortalOrigin('X','https://example.github.io'),/github\
 assert.throws(()=>validatePortalOrigin('X','https://app.example.com/path'),/path|origin/);
 assert.throws(()=>buildRuntimeConfig({...good,CHAMA_ADMIN_ORIGIN:good.CHAMA_CUSTOMER_ORIGIN}),/distinct/);
 assert.throws(()=>buildRuntimeConfig({...good,CHAMA_TURNSTILE_SITE_KEY:''}),/TURNSTILE_SITE_KEY.*required/i);
+const adminWithoutTurnstile=buildRuntimeConfig({
+  ...good,
+  CHAMA_PORTAL_ROLE:'admin',
+  CHAMA_TURNSTILE_SITE_KEY:''
+},{requirePortalRole:true,allowAdminWithoutTurnstile:true});
+assert.ok(adminWithoutTurnstile.includes('globalThis.CHAMA_PORTAL_ROLE="admin";'));
+assert.ok(adminWithoutTurnstile.includes('globalThis.CHAMA_TURNSTILE_SITE_KEY="";'));
+assert.throws(
+  ()=>buildRuntimeConfig({...good,CHAMA_PORTAL_ROLE:'customer',CHAMA_TURNSTILE_SITE_KEY:''},{requirePortalRole:true,allowAdminWithoutTurnstile:true}),
+  /TURNSTILE_SITE_KEY.*required/i
+);
 assert.throws(()=>validateTurnstileSiteKey('bad key with spaces'),/invalid/);
 assert.equal(validatePortalRole('customer',{required:true}),'customer');
 assert.throws(()=>validatePortalRole('unknown',{required:true}),/customer, merchant or admin/);
