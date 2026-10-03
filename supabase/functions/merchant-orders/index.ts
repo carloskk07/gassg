@@ -160,6 +160,18 @@ Deno.serve(async(req:Request)=>{
     if(performanceError)throw performanceError;
     const performance=(performanceRows??[])[0]??null;
 
+    const {data:paymentRows,error:paymentError}=await admin
+      .from("merchant_payment_methods")
+      .select("payment_method,active")
+      .eq("merchant_id",selected.merchant_id);
+    if(paymentError)throw paymentError;
+    const paymentMethods={pix:false,card:false,cash:false};
+    for(const row of paymentRows??[]){
+      if(row.payment_method in paymentMethods){
+        paymentMethods[row.payment_method as keyof typeof paymentMethods]=row.active===true;
+      }
+    }
+
     const byOrder=new Map<string,any[]>();
     for(const item of items){
       if(!byOrder.has(item.order_id))byOrder.set(item.order_id,[]);
@@ -184,6 +196,7 @@ Deno.serve(async(req:Request)=>{
         baseEtaMinutes:merchant.base_eta_minutes,
         acceptsCitywide:merchant.accepts_citywide,
         acceptsScheduledOrders:merchant.accepts_scheduled_orders===true,
+        paymentMethods,
         maxActiveOrders:Number(merchant.max_active_orders??8),
         deliveryFeeConfirmedAt:merchant.delivery_fee_confirmed_at,
         performance:{
