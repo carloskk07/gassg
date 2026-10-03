@@ -1,22 +1,18 @@
 {
-  "id": "./",
-  "name": "Chama São Gabriel",
-  "short_name": "Chama",
-  "description": "Preço do gás, entrega inteligente e benefícios locais em São Gabriel.",
-  "lang": "pt-BR",
-  "start_url": "./#home",
+  "name": "TAMÃO — Gás, água e essenciais",
+  "short_name": "TAMÃO",
+  "description": "Pediu? Tá na mão. Compare preço e prazo de gás, água e essenciais perto de você.",
+  "start_url": "./",
   "scope": "./",
   "display": "standalone",
-  "display_override": ["window-controls-overlay", "standalone", "minimal-ui"],
-  "orientation": "any",
-  "background_color": "#f6f7f5",
-  "theme_color": "#0b6b45",
-  "categories": ["shopping", "lifestyle"],
+  "background_color": "#f7f4ee",
+  "theme_color": "#0d6b4b",
   "icons": [
-    {"src":"./icons/icon.svg","sizes":"any","type":"image/svg+xml","purpose":"any maskable"}
-  ],
-  "shortcuts": [
-    {"name":"Pedir gás","short_name":"Pedir","url":"./#order","icons":[{"src":"./icons/icon.svg","sizes":"any","type":"image/svg+xml"}]},
-    {"name":"Acompanhar pedido","short_name":"Pedido","url":"./#tracking","icons":[{"src":"./icons/icon.svg","sizes":"any","type":"image/svg+xml"}]}
+    {
+      "src": "./icons/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
   ]
 }
