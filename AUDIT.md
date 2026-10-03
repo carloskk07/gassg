@@ -1278,3 +1278,38 @@ O admin protegido recebe até os leads mais recentes com tipo, interesse, CEP, o
 ### Gate de publicação
 
 GitHub Pages permanece laboratório interno e `noindex` até o domínio TAMÃO e a arquitetura de origem pública serem comprovados. A troca de SEO/indexação só pode acontecer depois dessa verificação.
+
+
+## V1.50 — Trust & launch authority
+
+### Superfície pública
+
+O TAMÃO passa a ter três rotas públicas persistentes: **Privacidade**, **Termos** e **Contato**. O footer as mantém acessíveis em todas as jornadas públicas.
+
+### Direitos e contato
+
+O formulário oficial suporta dúvidas gerais, suporte e solicitações de privacidade. Pedidos de privacidade podem ser categorizados como confirmação, acesso, correção, eliminação, informações, revogação ou outro assunto.
+
+A submissão é server-only, possui protocolo curto de retorno e pode exigir confirmação de identidade antes de qualquer entrega/alteração de dados.
+
+### Segurança do canal
+
+- tabela `public_requests` sem acesso de `anon/authenticated`;
+- Edge Function pública com allowlist de origem;
+- payload máximo;
+- honeypot;
+- acknowledgement explícito;
+- contato validado;
+- rate limit server-side reutilizando a autoridade antiabuso existente;
+- IP bruto não é persistido;
+- admin protegido recebe as solicitações.
+
+### Build público
+
+`scripts/build-public-site.mjs` cria um artefato por allowlist. Somente index, manifest, service worker, robots, CSS, JS e ícones entram na publicação. Diretórios internos permanecem fora.
+
+O GitHub Pages e o futuro Cloudflare Pages devem usar a mesma autoridade de build.
+
+### Indexação
+
+O laboratório permanece `noindex` e `robots.txt: Disallow: /` até a prova de domínio/HTTPS. O `robots.txt` agora é copiado para o artefato de Pages, corrigindo a divergência anterior entre repositório e publicação.
