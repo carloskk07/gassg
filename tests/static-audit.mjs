@@ -460,7 +460,7 @@ const postalResolver=read('supabase/functions/_shared/postal-code.js');
 assert.ok(postalResolver.includes('brasilapi.com.br/api/cep/v1/')&&postalResolver.includes('viacep.com.br/ws/'),'CEP deve ter provedor primário e fallback explícito');
 assert.ok(postalResolver.includes('POSTAL_CODE_VALIDATION_UNAVAILABLE')&&postalResolver.includes('POSTAL_CODE_OUTSIDE_SERVICE_AREA'),'validação de CEP deve falhar fechada em indisponibilidade ou município fora da área');
 assert.ok(read('supabase/functions/get-offers/index.ts').includes('validateServicePostalCode')&&read('supabase/functions/get-offers/index.ts').includes('create_quote_snapshot_v3'),'matching precisa resolver rua por CEP e criar quote canônica');
-assert.ok(read('supabase/functions/create-order/index.ts').includes('create_order_from_quote_v7'),'pedido real precisa herdar CEP e número da quote canônica');
+assert.ok(read('supabase/functions/create-order/index.ts').includes('create_order_from_quote_v8')&&read('supabase/migrations/20261003114500_launch_readiness_v1_46.sql').includes('return public.create_order_from_quote_v7'),'pedido real precisa herdar CEP e número da quote canônica através da cadeia V8→V7');
 assert.ok(getOrderSource.includes('postalCode:deliveryDetailsVisible?order.postal_code:null'),'CEP deve seguir a mesma fronteira de privacidade dos detalhes de entrega');
 assert.ok(merchantOrdersSource.includes('postalCode:o.status==="OFFERED_TO_MERCHANT"?null:o.postal_code'),'feed da revenda não pode expor CEP antes do aceite');
 assert.ok(core.includes("addressNumber:''")&&core.includes("merged.addressNumber=String(raw.addressNumber||'').trim().toUpperCase()"),'estado do cliente precisa separar número do endereço canônico');
