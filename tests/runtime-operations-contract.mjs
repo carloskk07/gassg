@@ -610,5 +610,7 @@ assert.match(schedulingSavingsV135,/comparison_reference_cents/,'pedido precisa 
 assert.match(schedulingSavingsV135,/comparison_savings_cents/,'economia comparativa precisa ser persistida');
 assert.match(schedulingSavingsV135,/customer_benefit_totals/,'benefícios acumulados precisam de autoridade server-side');
 assert.match(schedulingSavingsV135,/financial_state='settled'/,'economia acumulada só pode contar pedido financeiramente válido');
+assert.match(schedulingSavingsV135,/v_order\.delivery_window_start is null or m\.accepts_scheduled_orders/,'rescue agendado só pode usar revenda que aceita agendamento');
+assert.match(schedulingSavingsV135,/scheduled_delivery_unavailable/,'corrida de opt-out antes do aceite precisa falhar fechado');
 
 console.log('Scheduling + savings + referrals v1.35 contract passou.');
