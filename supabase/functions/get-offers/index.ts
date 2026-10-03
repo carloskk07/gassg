@@ -24,6 +24,34 @@ const CUSTOMER_ALLOWED_ORIGIN=(Deno.env.get("CUSTOMER_ALLOWED_ORIGIN")??"").trim
 const QUOTE_TTL_MS = 5 * 60 * 1000;
 const PRICE_FRESH_MS = 24 * 60 * 60 * 1000;
 const HEARTBEAT_FRESH_MS = 10 * 60 * 1000;
+const MIN_SCHEDULE_LEAD_MS = 30 * 60 * 1000;
+const MAX_SCHEDULE_HORIZON_MS = 72 * 60 * 60 * 1000;
+const MIN_SCHEDULE_WINDOW_MS = 60 * 60 * 1000;
+const MAX_SCHEDULE_WINDOW_MS = 4 * 60 * 60 * 1000;
+
+function normalizeDeliveryWindow(body:Record<string,unknown>){
+  const rawStart=body.deliveryWindowStart;
+  const rawEnd=body.deliveryWindowEnd;
+  if(rawStart==null&&rawEnd==null)return null;
+  if(rawStart==null||rawEnd==null){
+    throw new DomainError("INVALID_DELIVERY_WINDOW","A janela de entrega está incompleta.",400);
+  }
+  const start=Date.parse(String(rawStart));
+  const end=Date.parse(String(rawEnd));
+  const now=Date.now();
+  if(!Number.isFinite(start)||!Number.isFinite(end)
+     || start<now+MIN_SCHEDULE_LEAD_MS
+     || start>now+MAX_SCHEDULE_HORIZON_MS
+     || end<=start
+     || end-start<MIN_SCHEDULE_WINDOW_MS
+     || end-start>MAX_SCHEDULE_WINDOW_MS){
+    throw new DomainError("INVALID_DELIVERY_WINDOW","Escolha uma janela entre 1 e 4 horas, com pelo menos 30 minutos de antecedência e até 72 horas.",400);
+  }
+  return {
+    start:new Date(start).toISOString(),
+    end:new Date(end).toISOString()
+  };
+}
 
 function originAllowed(origin: string | null) {
   if (!origin) return true;
@@ -115,6 +143,8 @@ type Candidate = {
   feedbackCount: number;
   positiveFeedbackRate: number | null;
   recommendationScore: number;
+  maxActiveOrders: number;
+  demandLevel: "normal"|"elevated"|"high";
 };
 
 Deno.serve(async (req: Request) => {
@@ -132,6 +162,7 @@ Deno.serve(async (req: Request) => {
     const body = await readJsonBody(req);
     const address = normalizeAddress(body.address);
     const items = normalizeItems(body.items);
+    const deliveryWindow=normalizeDeliveryWindow(body as Record<string,unknown>);
 
     const now = Date.now();
     const priceCutoff = new Date(now - PRICE_FRESH_MS).toISOString();
@@ -145,7 +176,7 @@ Deno.serve(async (req: Request) => {
 
     const { data: merchants, error: merchantError } = await admin
       .from("merchants")
-      .select("id,trust_score,delivery_fee_cents,base_eta_minutes,max_active_orders")
+      .select("id,trust_score,delivery_fee_cents,base_eta_minutes,max_active_orders,accepts_scheduled_orders")
       .eq("status", "active")
       .eq("online", true)
       .eq("accepts_citywide", true)
@@ -155,7 +186,17 @@ Deno.serve(async (req: Request) => {
     if (merchantError) throw merchantError;
     if (!merchants?.length) return json({ offers: [] }, 200, origin);
 
-    const merchantIds = merchants.map((m) => m.id);
+    const scheduleEligibleMerchants=deliveryWindow
+      ? merchants.filter((m)=>m.accepts_scheduled_orders===true)
+      : merchants;
+    if(!scheduleEligibleMerchants.length){
+      return json({
+        offers:[],
+        scheduledDeliveryUnavailable:deliveryWindow!==null
+      },200,origin);
+    }
+
+    const merchantIds = scheduleEligibleMerchants.map((m) => m.id);
     const productCodes = items.map((x) => x.productCode);
 
     const {data:compatibleMerchantIds,error:compatibilityError}=await admin.rpc(
@@ -165,7 +206,7 @@ Deno.serve(async (req: Request) => {
     if(compatibilityError)throw compatibilityError;
 
     const compatibleSet=new Set((compatibleMerchantIds??[]) as string[]);
-    const compatibleMerchants=merchants.filter((m)=>compatibleSet.has(m.id));
+    const compatibleMerchants=scheduleEligibleMerchants.filter((m)=>compatibleSet.has(m.id));
     if(!compatibleMerchants.length){
       return json({offers:[],deliveryCompatibilityBlocked:true},200,origin);
     }
@@ -222,6 +263,8 @@ Deno.serve(async (req: Request) => {
       const recentOrders7d=Number(load?.recent_orders_7d??0);
       const maxActiveOrders=Math.max(1,Number(merchant.max_active_orders??8));
       if(activeOrders>=maxActiveOrders)continue;
+      const loadRatio=activeOrders/maxActiveOrders;
+      const demandLevel:Candidate["demandLevel"]=loadRatio>=0.75?"high":loadRatio>=0.5?"elevated":"normal";
       const performance=performanceByMerchant.get(merchant.id);
 
       const snapshotItems: Candidate["items"] = [];
@@ -279,7 +322,9 @@ Deno.serve(async (req: Request) => {
         avgAcceptSeconds:performance?.avg_accept_seconds==null?null:Number(performance.avg_accept_seconds),
         feedbackCount:Number(performance?.feedback_count??0),
         positiveFeedbackRate:performance?.positive_feedback_rate==null?null:Number(performance.positive_feedback_rate),
-        recommendationScore:0
+        recommendationScore:0,
+        maxActiveOrders,
+        demandLevel
       });
     }
 
@@ -287,7 +332,8 @@ Deno.serve(async (req: Request) => {
     if (!chosen.length) return json({ offers: [] }, 200, origin);
 
     const expiresAt = new Date(Date.now() + QUOTE_TTL_MS).toISOString();
-    const publicOffers: unknown[] = [];
+    const publicOffers: any[] = [];
+    const quoteRecords:Array<{quoteId:string;totalCents:number;safe:any}>=[];
 
     for (const { candidate, label } of chosen) {
       const fingerprint=await requestFingerprint("quote-snapshot",{
@@ -300,7 +346,9 @@ Deno.serve(async (req: Request) => {
           productCode:item.productCode,
           quantity:item.quantity,
           unitPriceCents:item.unitPriceCents
-        }))
+        })),
+        deliveryWindowStart:deliveryWindow?.start??null,
+        deliveryWindowEnd:deliveryWindow?.end??null
       });
 
       const {data:quote,error:quoteError}=await admin.rpc("create_quote_snapshot",{
@@ -326,6 +374,16 @@ Deno.serve(async (req: Request) => {
       }
       if(!quote)throw new Error("Quote snapshot failed");
 
+      const {error:windowUpdateError}=await admin
+        .from("quotes")
+        .update({
+          delivery_window_start:deliveryWindow?.start??null,
+          delivery_window_end:deliveryWindow?.end??null
+        })
+        .eq("id",quote.quoteId)
+        .eq("customer_id",user.id);
+      if(windowUpdateError)throw windowUpdateError;
+
       const safe:any=anonymizeOffer({
         id:quote.quoteId,
         label,
@@ -342,9 +400,30 @@ Deno.serve(async (req: Request) => {
       safe.avgAcceptSeconds=candidate.avgAcceptSeconds;
       safe.feedbackCount=candidate.feedbackCount;
       safe.positiveFeedbackRate=candidate.positiveFeedbackRate;
+      safe.demandLevel=candidate.demandLevel;
+      safe.deliveryWindowStart=deliveryWindow?.start??null;
+      safe.deliveryWindowEnd=deliveryWindow?.end??null;
 
       if(hasMerchantLeak(safe))throw new Error("Merchant identity leak detected");
-      publicOffers.push(safe);
+      quoteRecords.push({
+        quoteId:String(quote.quoteId),
+        totalCents:Number(quote.grossTotalCents),
+        safe
+      });
+    }
+
+    if(quoteRecords.length){
+      const comparisonReferenceCents=Math.max(...quoteRecords.map((x)=>x.totalCents));
+      const {error:comparisonError}=await admin
+        .from("quotes")
+        .update({comparison_reference_cents:comparisonReferenceCents})
+        .in("id",quoteRecords.map((x)=>x.quoteId))
+        .eq("customer_id",user.id);
+      if(comparisonError)throw comparisonError;
+      for(const record of quoteRecords){
+        record.safe.comparisonSavingsCents=Math.max(0,comparisonReferenceCents-record.totalCents);
+        publicOffers.push(record.safe);
+      }
     }
 
     return json({
