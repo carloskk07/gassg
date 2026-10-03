@@ -13,6 +13,7 @@ import {
 } from "../_shared/domain.js";
 import {chooseOffers} from "../_shared/offer-ranking.js";
 import {effectiveUnitPrice} from "../_shared/pricing-policy.js";
+import {validateServicePostalCode} from "../_shared/postal-code.js";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
 const publishableKeys = JSON.parse(Deno.env.get("SUPABASE_PUBLISHABLE_KEYS") ?? "{}");
@@ -178,6 +179,8 @@ Deno.serve(async (req: Request) => {
     await enforceApiQuota(admin,{userId:user.id,actionName:"get-offers",limit:20,windowSeconds:60});
     await enforceApiQuota(admin,{userId:user.id,actionName:"get-offers-hour",limit:120,windowSeconds:3600});
 
+    const postal=await validateServicePostalCode(admin,body.postalCode);
+
     const { data: merchants, error: merchantError } = await admin
       .from("merchants")
       .select("id,trust_score,delivery_fee_cents,base_eta_minutes,max_active_orders,accepts_scheduled_orders")
@@ -188,7 +191,13 @@ Deno.serve(async (req: Request) => {
       .gte("last_seen_at", heartbeatCutoff);
 
     if (merchantError) throw merchantError;
-    if (!merchants?.length) return json({ offers: [] }, 200, origin);
+    if (!merchants?.length) return json({
+      offers:[],
+      postalValidated:true,
+      postalCode:postal.postalCode,
+      serviceCity:postal.city,
+      serviceState:postal.state
+    },200,origin);
 
     const scheduleEligibleMerchants=deliveryWindow
       ? merchants.filter((m)=>m.accepts_scheduled_orders===true)
@@ -196,7 +205,9 @@ Deno.serve(async (req: Request) => {
     if(!scheduleEligibleMerchants.length){
       return json({
         offers:[],
-        scheduledDeliveryUnavailable:deliveryWindow!==null
+        scheduledDeliveryUnavailable:deliveryWindow!==null,
+        postalValidated:true,
+        postalCode:postal.postalCode
       },200,origin);
     }
 
@@ -214,7 +225,9 @@ Deno.serve(async (req: Request) => {
       return json({
         offers:[],
         paymentMethodUnavailable:true,
-        paymentMethod
+        paymentMethod,
+        postalValidated:true,
+        postalCode:postal.postalCode
       },200,origin);
     }
 
@@ -230,7 +243,12 @@ Deno.serve(async (req: Request) => {
     const compatibleSet=new Set((compatibleMerchantIds??[]) as string[]);
     const compatibleMerchants=paymentEligibleMerchants.filter((m)=>compatibleSet.has(m.id));
     if(!compatibleMerchants.length){
-      return json({offers:[],deliveryCompatibilityBlocked:true},200,origin);
+      return json({
+        offers:[],
+        deliveryCompatibilityBlocked:true,
+        postalValidated:true,
+        postalCode:postal.postalCode
+      },200,origin);
     }
     const compatibleIds=compatibleMerchants.map((m)=>m.id);
 
@@ -351,7 +369,11 @@ Deno.serve(async (req: Request) => {
     }
 
     const chosen = chooseOffers(candidates) as Array<{candidate:Candidate;label:string}>;
-    if (!chosen.length) return json({ offers: [] }, 200, origin);
+    if (!chosen.length) return json({
+      offers:[],
+      postalValidated:true,
+      postalCode:postal.postalCode
+    },200,origin);
 
     const expiresAt = new Date(Date.now() + QUOTE_TTL_MS).toISOString();
     const publicOffers: any[] = [];
@@ -360,6 +382,7 @@ Deno.serve(async (req: Request) => {
     for (const { candidate, label } of chosen) {
       const fingerprint=await requestFingerprint("quote-snapshot",{
         address,
+        postalCode:postal.postalCode,
         merchantId:candidate.merchantId,
         deliveryFeeCents:candidate.deliveryFeeCents,
         etaMinMinutes:candidate.etaMinMinutes,
@@ -374,10 +397,11 @@ Deno.serve(async (req: Request) => {
         paymentMethod
       });
 
-      const {data:quote,error:quoteError}=await admin.rpc("create_quote_snapshot",{
+      const {data:quote,error:quoteError}=await admin.rpc("create_quote_snapshot_v2",{
         p_user_id:user.id,
         p_merchant_id:candidate.merchantId,
         p_address:address,
+        p_postal_code:postal.postalCode,
         p_delivery_fee_cents:candidate.deliveryFeeCents,
         p_eta_min_minutes:candidate.etaMinMinutes,
         p_eta_max_minutes:candidate.etaMaxMinutes,
@@ -455,7 +479,11 @@ Deno.serve(async (req: Request) => {
       marketMode:candidates.length===1?"single_supplier":"marketplace",
       eligibleMerchantCount:candidates.length,
       displayedOfferCount:publicOffers.length,
-      distributionPolicy:candidates.length===1?"single_supplier":"quality_first_balanced"
+      distributionPolicy:candidates.length===1?"single_supplier":"quality_first_balanced",
+      postalValidated:true,
+      postalCode:postal.postalCode,
+      serviceCity:postal.city,
+      serviceState:postal.state
     }, 200, origin);
   } catch (error) {
     return fail(error, origin);
