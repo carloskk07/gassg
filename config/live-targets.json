@@ -1,0 +1,25 @@
+{
+  "schemaVersion": 1,
+  "netlifyTeamSlug": "carlosfreitaskk",
+  "portals": {
+    "customer": {
+      "origin": "https://chama-sg-cliente.netlify.app",
+      "netlifySiteId": "7a4387a8-ef6b-4f04-a074-51718b990a2a"
+    },
+    "merchant": {
+      "origin": "https://chama-sg-revenda.netlify.app",
+      "netlifySiteId": "b6d240d3-54e9-466f-9696-7f8220b5910d"
+    },
+    "admin": {
+      "origin": "https://chama-sg-admin.netlify.app",
+      "netlifySiteId": "95a15220-98ce-4b13-b52b-12f9eb50f24c"
+    }
+  },
+  "supabaseAuth": {
+    "siteUrl": "https://chama-sg-cliente.netlify.app/",
+    "additionalRedirectUrls": [
+      "https://chama-sg-revenda.netlify.app/",
+      "https://chama-sg-admin.netlify.app/"
+    ]
+  }
+}
