@@ -366,6 +366,7 @@ ${pendingOrder?`<div class="notice" style="margin-bottom:14px"><strong>Você já
   </div>
   <button class="primary" onclick="setAddress()">${hasAddress?'Atualizar endereço':'Usar este endereço'}</button>
   <small class="field-help">CEP e endereço são usados para procurar quem consegue atender sua cesta. O CEP não é enviado aos parceiros antes do aceite.</small>
+  ${ready&&liveRuntime.postalValidated?'<div class="notice success"><strong>CEP validado.</strong><br>A consulta foi confirmada para São Gabriel/RS.</div>':''}
 </div>
 ${hasAddress?`<div class="card flat form-stack" style="margin-top:12px">
   <h3>Dados para a entrega</h3>
@@ -609,7 +610,7 @@ function liveTracking(){
 
 <div class="card flat"><div class="price-lock"><span>🔒</span><div><strong>Total protegido: ${BRL.format(total)}</strong><br>${cashbackReserved>0?`Inclui ${BRL.format(cashbackReserved)} de cashback reservado. `:''}Se for necessária uma opção mais cara, você precisa aprovar antes.</div></div>
 <div class="divider"></div>
-<div class="list-row"><div><strong>${o.supplierName?esc(o.supplierName):'Parceiro em confirmação'}</strong><br><small>${o.supplierName?'Parceiro que aceitou o pedido':'O nome aparece depois que o pedido for aceito'}</small></div><div style="text-align:right"><strong>${BRL.format(total)}</strong><br><small>${esc(o.address||'')}</small></div></div>
+<div class="list-row"><div><strong>${o.supplierName?esc(o.supplierName):'Parceiro em confirmação'}</strong><br><small>${o.supplierName?'Parceiro que aceitou o pedido':'O nome aparece depois que o pedido for aceito'}</small></div><div style="text-align:right"><strong>${BRL.format(total)}</strong><br><small>${o.postalCode?'CEP '+esc(String(o.postalCode).replace(/^(\d{5})(\d{3})$/,'$1-$2'))+' • ':''}${esc(o.address||'')}</small></div></div>
 <div class="list-row"><span>Pagamento</span><strong>${paymentLabel(o.paymentMethod)}</strong></div>
 ${scheduleNotice}
 ${comparisonNotice}
