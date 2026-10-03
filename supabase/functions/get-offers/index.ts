@@ -163,6 +163,10 @@ Deno.serve(async (req: Request) => {
     const address = normalizeAddress(body.address);
     const items = normalizeItems(body.items);
     const deliveryWindow=normalizeDeliveryWindow(body as Record<string,unknown>);
+    const paymentMethod=String(body.paymentMethod??"pix").trim().toLowerCase();
+    if(!["pix","card","cash"].includes(paymentMethod)){
+      throw new DomainError("INVALID_PAYMENT_METHOD","Forma de pagamento inválida.",400);
+    }
 
     const now = Date.now();
     const priceCutoff = new Date(now - PRICE_FRESH_MS).toISOString();
@@ -196,7 +200,25 @@ Deno.serve(async (req: Request) => {
       },200,origin);
     }
 
-    const merchantIds = scheduleEligibleMerchants.map((m) => m.id);
+    const scheduledMerchantIds = scheduleEligibleMerchants.map((m) => m.id);
+    const {data:paymentRows,error:paymentError}=await admin
+      .from("merchant_payment_methods")
+      .select("merchant_id")
+      .in("merchant_id",scheduledMerchantIds)
+      .eq("payment_method",paymentMethod)
+      .eq("active",true);
+    if(paymentError)throw paymentError;
+    const paymentSet=new Set((paymentRows??[]).map((row)=>row.merchant_id));
+    const paymentEligibleMerchants=scheduleEligibleMerchants.filter((m)=>paymentSet.has(m.id));
+    if(!paymentEligibleMerchants.length){
+      return json({
+        offers:[],
+        paymentMethodUnavailable:true,
+        paymentMethod
+      },200,origin);
+    }
+
+    const merchantIds = paymentEligibleMerchants.map((m) => m.id);
     const productCodes = items.map((x) => x.productCode);
 
     const {data:compatibleMerchantIds,error:compatibilityError}=await admin.rpc(
@@ -206,7 +228,7 @@ Deno.serve(async (req: Request) => {
     if(compatibilityError)throw compatibilityError;
 
     const compatibleSet=new Set((compatibleMerchantIds??[]) as string[]);
-    const compatibleMerchants=scheduleEligibleMerchants.filter((m)=>compatibleSet.has(m.id));
+    const compatibleMerchants=paymentEligibleMerchants.filter((m)=>compatibleSet.has(m.id));
     if(!compatibleMerchants.length){
       return json({offers:[],deliveryCompatibilityBlocked:true},200,origin);
     }
@@ -348,7 +370,8 @@ Deno.serve(async (req: Request) => {
           unitPriceCents:item.unitPriceCents
         })),
         deliveryWindowStart:deliveryWindow?.start??null,
-        deliveryWindowEnd:deliveryWindow?.end??null
+        deliveryWindowEnd:deliveryWindow?.end??null,
+        paymentMethod
       });
 
       const {data:quote,error:quoteError}=await admin.rpc("create_quote_snapshot",{
@@ -378,7 +401,8 @@ Deno.serve(async (req: Request) => {
         .from("quotes")
         .update({
           delivery_window_start:deliveryWindow?.start??null,
-          delivery_window_end:deliveryWindow?.end??null
+          delivery_window_end:deliveryWindow?.end??null,
+          payment_method_requested:paymentMethod
         })
         .eq("id",quote.quoteId)
         .eq("customer_id",user.id);
