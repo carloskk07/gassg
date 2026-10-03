@@ -384,6 +384,42 @@ const statusCopy={
   CANCELLED:['Cancelado','O pedido não será entregue.']
 };
 
+function liveCustomerCareBlock(o){
+  const openCases=(o.supportCases||[]).filter(x=>['open','in_review'].includes(x.status));
+  const caseCopy={
+    late:'Atraso',
+    wrong_item:'Produto incorreto',
+    price_payment:'Preço ou pagamento',
+    no_show:'Entrega não apareceu',
+    delivery:'Problema na entrega',
+    other:'Outro problema'
+  };
+  const existing=openCases.length
+    ? `<div class="notice" style="margin-top:10px"><strong>Atendimento em acompanhamento.</strong><br>${openCases.map(x=>esc(caseCopy[x.category]||x.category)+' • '+esc(x.status==='in_review'?'em análise':'aberto')).join('<br>')}</div>`
+    : '';
+  const feedback=o.status==='SETTLED'
+    ? o.feedback
+      ? `<div class="notice success" style="margin-top:14px"><strong>Avaliação registrada ${Number(o.feedback.rating)===5?'👍':'👎'}</strong><br>Ela entra nos indicadores de qualidade do parceiro sem expor seus dados.</div>`
+      : `<div class="card flat" style="margin-top:14px"><strong>Tudo certo com a entrega?</strong><p class="muted tiny">Uma resposta curta ajuda a melhorar a seleção de parceiros.</p><div class="order-actions"><button class="secondary small" onclick="submitDeliveryFeedbackFromUi(5)">👍 Tudo certo</button><button class="ghost small" onclick="submitDeliveryFeedbackFromUi(1)">👎 Tive problema</button></div></div>`
+    : '';
+  return `${feedback}<div class="card flat support-card" style="margin-top:14px"><strong>Precisa de ajuda com este pedido?</strong><p class="muted tiny">Registre o problema aqui. A solicitação fica vinculada ao pedido e entra na trilha de auditoria.</p>${existing}<div class="form-stack" style="margin-top:12px"><div class="input-wrap"><label for="support-category">Tipo de problema</label><select id="support-category" class="input"><option value="late">Atraso</option><option value="wrong_item">Produto incorreto</option><option value="price_payment">Preço ou pagamento</option><option value="no_show">Entrega não apareceu</option><option value="delivery">Problema na entrega</option><option value="other">Outro problema</option></select></div><div class="input-wrap"><label for="support-message">Conte em poucas palavras</label><textarea id="support-message" class="input" maxlength="1000" rows="3" placeholder="Ex.: o pedido chegou, mas veio um item diferente."></textarea></div><button class="secondary full" onclick="openSupportCaseFromUi()" ${globalThis.liveRuntime?.actionPending?'disabled':''}>Registrar problema</button></div></div>`;
+}
+
+async function submitDeliveryFeedbackFromUi(rating){
+  try{
+    await liveSubmitFeedback(rating);
+    toast(rating===5?'Obrigado pela avaliação':'Avaliação registrada. Se precisar, abra um atendimento abaixo.');
+  }catch(error){toast(String(error?.message||error))}
+}
+async function openSupportCaseFromUi(){
+  const category=String(document.querySelector('#support-category')?.value||'other');
+  const message=String(document.querySelector('#support-message')?.value||'').trim();
+  try{
+    const result=await liveOpenSupportCase(category,message);
+    toast(result?.alreadyOpen?'Esse problema já está em acompanhamento':'Problema registrado para acompanhamento');
+  }catch(error){toast(String(error?.message||error))}
+}
+
 function liveTracking(){
   if(!globalThis.liveReady?.()){
     const message=liveRuntime?.status==='loading'
@@ -406,6 +442,7 @@ function liveTracking(){
   const cashbackReserved=Number(o.cashbackReservedCents||0)/100;
   const proposed=o.proposedTotalCents==null?null:Number(o.proposedTotalCents)/100;
   const items=(o.items||[]).map(i=>`<div class="list-row"><span>${Number(i.quantity)}× ${esc(i.product_name||i.productName||i.product_code||'Item')}</span><strong>${BRL.format(Number(i.line_total_cents??i.lineTotalCents??0)/100)}</strong></div>`).join('');
+  const careBlock=liveCustomerCareBlock(o);
 
   return shell(`<section class="page"><button class="back" onclick="go('home')">← Início</button>
 <div class="status-bar"><div><div class="tiny muted">PEDIDO ${esc(o.publicCode||o.orderId)}</div><h1 class="page-title" style="margin-bottom:3px">${esc(copy[0])}</h1></div><span class="status-pill ${['OUT_FOR_DELIVERY','ARRIVING','SETTLED','DELIVERED'].includes(o.status)?'online':o.status==='CANCELLED'?'offline':'risk'}">${o.status==='SETTLED'?'CONCLUÍDO':o.status==='CANCELLED'?'ENCERRADO':'AO VIVO'}</span></div>
@@ -414,6 +451,7 @@ function liveTracking(){
 <div class="divider"></div>
 <div class="list-row"><div><strong>${o.supplierName?esc(o.supplierName):'Parceiro em confirmação'}</strong><br><small>${o.supplierName?'Parceiro que aceitou o pedido':'O nome aparece depois que o pedido for aceito'}</small></div><div style="text-align:right"><strong>${BRL.format(total)}</strong><br><small>${esc(o.address||'')}</small></div></div>
 <div class="list-row"><span>Pagamento</span><strong>${paymentLabel(o.paymentMethod)}</strong></div>
+${o.paymentMethod==='cash'&&o.cashTenderCents?`<div class="list-row"><span>Troco para</span><strong>${BRL.format(Number(o.cashTenderCents)/100)}</strong></div>`:''}
 ${items?'<div class="divider"></div>'+items:''}</div>
 
 ${o.status==='OFFERED_TO_MERCHANT'?`<div class="notice" style="margin-top:14px"><strong>Aguardando o parceiro confirmar.</strong><br>O parceiro tem até 3 minutos para responder. ${deadline!=null?`Prazo restante aproximado: ${deadline}s.`:''}</div>`:''}
@@ -426,7 +464,7 @@ ${o.riskReason&&o.status!=='CANCELLED'?`<div class="notice danger" style="margin
 ${o.deliveryPin&&['OUT_FOR_DELIVERY','ARRIVING'].includes(o.status)?`<div class="notice success"><strong>Código de recebimento: ${esc(o.deliveryPin)}</strong><br>Informe este código somente quando o pedido estiver na sua frente.</div>`:''}
 ${active&&['OFFERED_TO_MERCHANT','REQUOTE_REQUIRED'].includes(o.status)?`<button class="ghost full" style="margin-top:10px" onclick="cancelPending('${o.orderId}')" ${liveRuntime.actionPending?'disabled':''}>Cancelar antes do aceite</button>`:''}
 ${active&&['PREPARING','AT_RISK'].includes(o.status)?`<button class="danger-btn full" style="margin-top:10px" onclick="cancelBeforeDispatch('${o.orderId}')" ${liveRuntime.actionPending?'disabled':''}>Cancelar antes da saída</button>`:''}
-<div class="card flat support-card" style="margin-top:14px"><strong>Precisa de ajuda?</strong><p class="muted tiny">O pedido real já é auditável. O canal humano de suporte ainda será conectado antes da abertura pública.</p></div>
+${careBlock}
 </section>`);
 }
 
