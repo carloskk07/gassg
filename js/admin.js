@@ -154,9 +154,11 @@ async function adminSendLogin(email){
   if(!adminRuntime.client)await adminBackendInit();
   const value=String(email||'').trim().toLowerCase();
   if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value))throw new Error('Informe um e-mail válido');
-  const redirect=new URL(location.origin+location.pathname);
-  redirect.searchParams.set('admin','1');
-  redirect.hash='admin';
+  const redirect=new URL('/',location.origin);
+  if(String(globalThis.CHAMA_PORTAL_ROLE||'').trim().toLowerCase()!=='admin'){
+    redirect.searchParams.set('admin','1');
+    redirect.hash='admin';
+  }
   if(!globalThis.chamaTurnstile?.challenge)throw new Error('Proteção anti-bot indisponível');
   const captchaToken=await globalThis.chamaTurnstile.challenge('admin_login');
   const result=await adminAuthInvoke({
