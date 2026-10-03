@@ -77,12 +77,12 @@ jobs:
             "$CHROME" --headless=new --no-sandbox --disable-gpu --window-size=360,800 --virtual-time-budget=1200 --user-data-dir="/tmp/chrome-$route" --dump-dom "http://127.0.0.1:4173/#$route" > "/tmp/$route.html"
           done
           grep -q "Seu gás, com preço e prazo" /tmp/home.html
-          grep -q "PROTEÇÃO CHAMA" /tmp/home.html
+          grep -q "PROTEÇÃO TAMÃO" /tmp/home.html
           grep -q "Botijão de cozinha 13 kg" /tmp/home.html
           grep -q "Antes de pedir, veja quanto custa" /tmp/learn.html
           grep -q "Comissão por indicação para pessoas" /tmp/earn.html
           grep -q "O que você precisa e onde devemos entregar" /tmp/order.html
-          grep -q "Clube Chama" /tmp/club.html
+          grep -q "Clube TAMÃO" /tmp/club.html
           grep -q "Indique um novo comprador" /tmp/refer.html
           grep -q "Transforme capacidade de entrega em novas vendas" /tmp/merchants.html
           grep -q "SIMULADOR DE MARGEM INCREMENTAL" /tmp/merchants.html
