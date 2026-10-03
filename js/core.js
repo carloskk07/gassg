@@ -204,7 +204,7 @@ function normalizeState(raw){
   merged.checkout.addressComplement=normalizeDeliveryText(merged.checkout.addressComplement,120);
   merged.checkout.deliveryReference=normalizeDeliveryText(merged.checkout.deliveryReference,160);
   merged.checkout.deliveryNotes=normalizeDeliveryText(merged.checkout.deliveryNotes,240);
-  merged.address=String(raw.address||'').slice(0,240);
+  merged.address=String(raw.address||'').slice(0,testDemo?160:240);
   merged.postalCode=String(raw.postalCode||'').replace(/\D/g,'').slice(0,8);
   merged.addressNumber=String(raw.addressNumber||'').trim().toUpperCase().replace(/\s+/g,'').slice(0,7);
   merged.cart=synchronizeGlpContainerCart(
