@@ -58,14 +58,22 @@ Deno.serve(async(req:Request)=>{
     const admin=createClient(SUPABASE_URL,SECRET_KEY,{auth:{persistSession:false,autoRefreshToken:false}});
     await enforceApiQuota(admin,{userId:user.id,actionName:"market-status",limit:30,windowSeconds:60});
 
-    const {data,error}=await admin.rpc("market_supply_status");
+    const [{data,error},{data:launchStatus,error:launchError}]=await Promise.all([
+      admin.rpc("market_supply_status"),
+      admin.rpc("commerce_launch_status")
+    ]);
     if(error)throw error;
+    if(launchError)throw launchError;
 
+    const commerceEnabled=launchStatus?.commerceEnabled===true;
     return json({
-      realSupplyConfigured:data?.realSupplyConfigured===true,
+      commerceEnabled,
+      launchMode:commerceEnabled?"live":"prelaunch",
+      supplyConfigured:data?.realSupplyConfigured===true,
+      realSupplyConfigured:commerceEnabled&&data?.realSupplyConfigured===true,
       configuredMerchantCount:Number(data?.configuredMerchantCount??0),
-      availableNow:data?.availableNow===true,
-      availableMerchantCount:Number(data?.availableMerchantCount??0),
+      availableNow:commerceEnabled&&data?.availableNow===true,
+      availableMerchantCount:commerceEnabled?Number(data?.availableMerchantCount??0):0,
       productCodes:Array.isArray(data?.productCodes)?data.productCodes:[]
     },200,origin);
   }catch(error){
