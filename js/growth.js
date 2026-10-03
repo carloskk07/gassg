@@ -7,11 +7,20 @@ function club(){
   const pct=cycle*20;
   const next=purchases>0&&cycle===5?'Ciclo completo — a próxima compra inicia um novo ciclo':`${cycle} de 5 compras no ciclo atual`;
   const debt=Math.max(0,Number(state.user.cashbackDebt)||0);
+  const comparisonSavings=Math.max(0,Number(globalThis.liveRuntime?.comparisonSavingsCents||0))/100;
+  const cashbackEarned=Math.max(0,Number(globalThis.liveRuntime?.cashbackEarnedCents||0))/100;
+  if(hasReferral)setTimeout(renderReferralQr,0);
+
   return shell(`<section class="page">
     <span class="eyebrow">BENEFÍCIOS PARA QUEM COMPRA</span>
     <h1 class="page-title">Clube Chama</h1>
     <p class="muted page-lead">Acompanhe o que suas compras já devolveram para você e use o saldo disponível para economizar nas próximas.</p>
     <div class="reward-hero"><div class="tiny" style="opacity:.75">SEU CASHBACK DISPONÍVEL</div><div class="balance">${BRL.format(state.user.cashback)}</div><div class="tiny">crédito para usar em novas compras</div><div class="progress"><div style="width:${pct}%"></div></div><strong>${esc(next)}</strong></div>
+    <div class="earn-summary" style="margin-top:14px">
+      <div class="earn-balance-card"><span>Economia nas comparações</span><strong>${BRL.format(comparisonSavings)}</strong><small>diferença acumulada contra a opção mais cara realmente exibida nas consultas que viraram pedidos concluídos</small></div>
+      <div class="earn-balance-card"><span>Cashback já gerado</span><strong>${BRL.format(cashbackEarned)}</strong><small>créditos válidos historicamente, mesmo que parte já tenha sido usada</small></div>
+      <div class="earn-balance-card"><span>Cashback disponível</span><strong>${BRL.format(state.user.cashback)}</strong><small>saldo que pode reduzir uma próxima compra</small></div>
+    </div>
     ${debt>0?`<div class="notice" style="margin-top:14px"><strong>${BRL.format(debt)} em compensação.</strong><br>Esse valor corresponde a cashback de uma compra posteriormente revertida. Novos créditos reduzem essa compensação antes de ficarem disponíveis.</div>`:''}
     <section class="section"><div class="grid cards-3">
       <div class="card"><div class="feature-icon">💵</div><h3>Cashback</h3><p class="muted tiny">Crédito para reduzir o valor de novas compras no Chama.</p></div>
@@ -27,6 +36,44 @@ function referralUrl(){
   const base=`${location.origin}${location.pathname}`;
   return `${base}?ref=${encodeURIComponent(state.user.referralCode)}#home`;
 }
+function renderReferralQr(){
+  const target=document.getElementById('referral-qr');
+  const url=referralUrl();
+  if(!target||!url)return;
+  if(typeof globalThis.qrcode!=='function'){
+    target.innerHTML='<div class="tiny muted">QR indisponível neste navegador. O link continua funcionando normalmente.</div>';
+    return;
+  }
+  try{
+    const qr=globalThis.qrcode(0,'M');
+    qr.addData(url);
+    qr.make();
+    target.innerHTML=qr.createSvgTag({cellSize:5,margin:2,scalable:true});
+    const svg=target.querySelector('svg');
+    if(svg){
+      svg.setAttribute('role','img');
+      svg.setAttribute('aria-label','QR Code do seu link pessoal do Chama');
+      svg.style.maxWidth='220px';
+      svg.style.width='100%';
+      svg.style.height='auto';
+    }
+  }catch{
+    target.innerHTML='<div class="tiny muted">Não foi possível gerar o QR agora. Use o link pessoal exibido acima.</div>';
+  }
+}
+async function copyReferralCode(){
+  const code=String(state.user.referralCode||'');
+  if(!code)return toast('Código ainda indisponível');
+  try{
+    if(navigator.clipboard?.writeText){
+      await navigator.clipboard.writeText(code);
+      toast('Código copiado');
+      return;
+    }
+  }catch{}
+  toast('Copie o código exibido no cartão');
+}
+
 function referralExample(orderReais,count=1){
   const amount=Math.max(0,Number(orderReais)||0);
   const qty=Math.max(1,Math.trunc(Number(count)||1));
@@ -106,7 +153,7 @@ function refer(){
   const referredCount=live?Math.max(0,Number(globalThis.liveRuntime?.referredCount||0)):0;
   const qualifiedReferralCount=live?Math.max(0,Number(globalThis.liveRuntime?.qualifiedReferralCount||0)):0;
   const referralCard=hasReferral
-    ? `<div class="card flat referral-share-card"><div class="tiny muted">SEU LINK PESSOAL</div><div class="share-box">${esc(url)}</div><button class="primary full" style="margin-top:12px" onclick="shareReferral()">Compartilhar meu link</button></div>`
+    ? `<div class="card flat referral-share-card"><div class="tiny muted">SEU LINK PESSOAL</div><div class="share-box">${esc(url)}</div><div class="field-row" style="align-items:center;margin-top:14px"><div id="referral-qr" class="card flat" style="display:flex;align-items:center;justify-content:center;min-height:190px;flex:0 0 220px"><div class="tiny muted">Gerando QR...</div></div><div style="flex:1"><div class="tiny muted">SEU CÓDIGO</div><div class="balance" style="font-size:1.4rem">${esc(state.user.referralCode)}</div><p class="muted tiny">O QR e o link apontam para o mesmo código pessoal. Quem entrar por eles continua sujeito às regras de primeira compra qualificada.</p><button class="secondary small" onclick="copyReferralCode()">Copiar código</button></div></div><button class="primary full" style="margin-top:12px" onclick="shareReferral()">Compartilhar meu link</button></div>`
     : '<div class="notice"><strong>Seu link ainda não está disponível.</strong><br>Ele aparece quando sua identidade real for carregada pelo serviço do Chama.</div>';
   const identityCard=live&&!permanent
     ? `<div class="notice" style="margin-top:14px"><strong>Quer transformar comissão em saldo disponível?</strong><br>Vincule um e-mail à sua conta. Seu histórico, pedidos e cashback continuam no mesmo usuário.</div><div class="card flat form-stack" style="margin-top:14px"><div class="input-wrap"><label for="cash-email">Seu e-mail</label><input id="cash-email" type="email" autocomplete="email" maxlength="160" class="input" placeholder="voce@email.com"></div><button class="primary" onclick="activateCashAccount()">Vincular meu e-mail</button></div>`
