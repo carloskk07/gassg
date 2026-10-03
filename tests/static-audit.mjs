@@ -96,7 +96,7 @@ assert.ok(growth.includes('Saque Pix ainda não disponível')&&growth.includes('
 assert.ok(growth.includes('Você continua no controle'),'landing de revenda deve enfatizar autonomia operacional');
 assert.ok(core.includes("['earn','💰','Ganhe','go']"),'navegação móvel precisa dar acesso direto ao hub de renda');
 assert.ok(!growth.includes('inputmode="numeric" maxlength="18"'),'campo CNPJ não pode forçar teclado somente numérico após adoção do CNPJ alfanumérico');
-assert.ok(sw.includes("CACHE='chama-sg-v1.42'"),'cache do service worker precisa estar versionado');
+assert.ok(sw.includes("CACHE='chama-sg-v1.43'"),'cache do service worker precisa estar versionado');
 assert.ok(sw.includes("./js/backend.js"),'runtime live precisa estar no cache da PWA');
 assert.ok(sw.includes("./js/runtime-config.js"),'configuração pública de origins precisa estar no cache da PWA');
 assert.ok(sw.includes("./js/turnstile.js"),'helper local do Turnstile precisa estar no cache da PWA');
@@ -151,7 +151,7 @@ assert.ok(backend.includes('global:{fetch:chamaFetch}')&&admin.includes('global:
 assert.ok(backend.includes('supabaseLoadPromise=null')&&backend.includes("Tempo limite ao carregar Supabase JS"),'loader do SDK precisa poder se recuperar de falha e timeout');
 assert.ok(turnstile.includes('scriptPromise=null')&&turnstile.includes("Tempo limite ao carregar a verificação anti-bot"),'loader Turnstile não pode ficar permanentemente rejeitado após falha');
 assert.ok(backend.includes("const pathname=local?")&&backend.includes(":'/'"),'navegação cross-origin deve começar na raiz da origem dedicada, sem herdar path do site atual');
-assert.ok(read('supabase/functions/create-order/index.ts').includes('create_order_from_quote_v6'),'create-order real deve usar autoridade V6 com CEP validado');
+assert.ok(read('supabase/functions/create-order/index.ts').includes('create_order_from_quote_v7'),'create-order real deve usar autoridade V7 com endereço canônico');
 assert.ok(read('supabase/migrations/20261003051000_postal_service_area_v1_42.sql').includes('v_result:=public.create_order_from_quote_v5('),'V6 precisa preservar a autoridade V5 de contato de entrega atômico');
 assert.ok(read('supabase/functions/create-order/index.ts').includes('customerPhoneDigits')&&read('supabase/functions/create-order/index.ts').includes('deliveryNotes'),'fingerprint e RPC precisam incluir dados de entrega normalizados');
 assert.ok(backend.includes('customerPhone:state.checkout.customerPhoneDigits')&&backend.includes('deliveryReference:state.checkout.deliveryReference'),'runtime precisa enviar detalhes de entrega no mesmo create-order');
@@ -433,10 +433,18 @@ assert.ok(backend.includes('postalCode:postalCodeSnapshot')&&backend.includes('p
 const postalResolver=read('supabase/functions/_shared/postal-code.js');
 assert.ok(postalResolver.includes('brasilapi.com.br/api/cep/v1/')&&postalResolver.includes('viacep.com.br/ws/'),'CEP deve ter provedor primário e fallback explícito');
 assert.ok(postalResolver.includes('POSTAL_CODE_VALIDATION_UNAVAILABLE')&&postalResolver.includes('POSTAL_CODE_OUTSIDE_SERVICE_AREA'),'validação de CEP deve falhar fechada em indisponibilidade ou município fora da área');
-assert.ok(read('supabase/functions/get-offers/index.ts').includes('validateServicePostalCode')&&read('supabase/functions/get-offers/index.ts').includes('create_quote_snapshot_v2'),'matching precisa validar CEP antes de criar quote');
-assert.ok(read('supabase/functions/create-order/index.ts').includes('create_order_from_quote_v6'),'pedido real precisa herdar CEP de quote validada');
+assert.ok(read('supabase/functions/get-offers/index.ts').includes('validateServicePostalCode')&&read('supabase/functions/get-offers/index.ts').includes('create_quote_snapshot_v3'),'matching precisa resolver rua por CEP e criar quote canônica');
+assert.ok(read('supabase/functions/create-order/index.ts').includes('create_order_from_quote_v7'),'pedido real precisa herdar CEP e número da quote canônica');
 assert.ok(getOrderSource.includes('postalCode:deliveryDetailsVisible?order.postal_code:null'),'CEP deve seguir a mesma fronteira de privacidade dos detalhes de entrega');
 assert.ok(merchantOrdersSource.includes('postalCode:o.status==="OFFERED_TO_MERCHANT"?null:o.postal_code'),'feed da revenda não pode expor CEP antes do aceite');
+assert.ok(core.includes("addressNumber:''")&&core.includes("merged.addressNumber=String(raw.addressNumber||'').trim().toUpperCase()"),'estado do cliente precisa separar número do endereço canônico');
+assert.ok(backend.includes('addressNumber:addressNumberSnapshot')&&!backend.includes('address:addressSnapshot'),'consulta real não pode confiar em rua digitada pelo browser');
+assert.ok(customer.includes('A rua não é digitada manualmente: ela vem do CEP validado.')&&customer.includes('deliveryAddressDraftChanged()'),'UI real deve usar CEP + número e invalidar ofertas após edição');
+assert.ok(postalResolver.includes('normalizeAddressNumber')&&postalResolver.includes('canonicalAddress'),'resolvedor precisa governar número e endereço canônico');
+assert.ok(postalResolver.includes('street:street||null')&&postalResolver.includes('neighborhood'),'provedores de CEP precisam enriquecer logradouro e bairro');
+assert.ok(postalResolver.includes('POSTAL_CODE_NOT_STREET_LEVEL'),'CEP genérico sem logradouro deve falhar fechado');
+assert.ok(read('supabase/migrations/20261003054000_canonical_address_v1_43.sql').includes('create_quote_snapshot_v3'),'quote V3 deve construir endereço no banco');
+assert.ok(read('supabase/migrations/20261003054500_canonical_address_guard_v1_43_1.sql').includes('require_order_canonical_address'),'pedido precisa de gate deferido de CEP + número');
 assert.ok(getOrderSource.includes('financial_state'),'projeção do pedido precisa expor estado financeiro seguro');
 assert.ok(customer.includes('Liquidação financeira revertida'),'cliente precisa ver quando benefícios de pedido entregue foram revertidos');
 assert.ok(read('supabase/functions/customer-summary/index.ts').includes('reversedOrders'),'resumo do cliente precisa conhecer settlements revertidos');
