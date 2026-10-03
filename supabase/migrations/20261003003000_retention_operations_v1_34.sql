@@ -109,6 +109,7 @@ declare
   v_result jsonb;
   v_order_id uuid;
   v_total integer;
+  v_replay_cash_tender integer;
 begin
   select * into v_action
   from public.action_requests
@@ -123,10 +124,10 @@ begin
     v_result:=v_action.result_json;
     v_order_id:=(v_result->>'orderId')::uuid;
     select o.cash_tender_cents
-    into p_cash_tender_cents
+    into v_replay_cash_tender
     from public.orders o
     where o.id=v_order_id and o.customer_id=p_user_id;
-    return v_result||jsonb_build_object('cashTenderCents',p_cash_tender_cents);
+    return v_result||jsonb_build_object('cashTenderCents',v_replay_cash_tender);
   end if;
 
   if p_payment_method not in ('pix','card','cash') then
