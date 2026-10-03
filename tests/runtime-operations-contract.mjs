@@ -592,3 +592,23 @@ assert.match(retentionOpsV134,/admin_support_case_action/,'fila de suporte preci
 assert.match(retentionOpsV134,/support-case-status/,'mudança de suporte precisa deixar trilha administrativa');
 
 console.log('Retention + operational reliability v1.34 contract passou.');
+
+
+const schedulingSavingsV135=fs.readFileSync(
+  new URL('../supabase/migrations/20261003031000_scheduling_savings_referrals_v1_35.sql',import.meta.url),
+  'utf8'
+).replace(/--.*$/gm,'').replace(/\s+/g,' ').toLowerCase();
+
+assert.match(schedulingSavingsV135,/accepts_scheduled_orders boolean not null default false/,'agendamento precisa ser opt-in da revenda');
+assert.match(schedulingSavingsV135,/delivery_window_start timestamptz/,'cotação/pedido precisam congelar início da janela');
+assert.match(schedulingSavingsV135,/delivery_window_end timestamptz/,'cotação/pedido precisam congelar fim da janela');
+assert.match(schedulingSavingsV135,/delivery_window_end-delivery_window_start between interval '1 hour' and interval '4 hours'/,'janela agendada precisa ser limitada');
+assert.match(schedulingSavingsV135,/scheduled_dispatch_too_early/,'banco precisa bloquear saída cedo demais');
+assert.match(schedulingSavingsV135,/create_order_from_quote_v3/,'checkout v3 precisa copiar agendamento e economia');
+assert.match(schedulingSavingsV135,/comparison_selected_total_cents/,'pedido precisa congelar total escolhido');
+assert.match(schedulingSavingsV135,/comparison_reference_cents/,'pedido precisa congelar referência realmente exibida');
+assert.match(schedulingSavingsV135,/comparison_savings_cents/,'economia comparativa precisa ser persistida');
+assert.match(schedulingSavingsV135,/customer_benefit_totals/,'benefícios acumulados precisam de autoridade server-side');
+assert.match(schedulingSavingsV135,/financial_state='settled'/,'economia acumulada só pode contar pedido financeiramente válido');
+
+console.log('Scheduling + savings + referrals v1.35 contract passou.');
