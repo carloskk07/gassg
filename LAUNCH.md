@@ -51,13 +51,14 @@ Quando a alteração de nameservers estiver liberada:
 
 Usar somente a origem administrativa dedicada configurada para o control plane.
 
-1. abrir o portal admin dedicado;
-2. solicitar o magic link com o e-mail previamente reservado;
-3. abrir o link recebido no mesmo fluxo administrativo;
-4. confirmar que o servidor retorna `claimed` no primeiro acesso ou `existing_admin` nos acessos seguintes;
-5. confirmar que o resumo administrativo carrega;
-6. confirmar no banco que existe pelo menos 1 admin ativo;
-7. somente então considerar o gate administrativo concluído.
+1. confirmar que a função `admin-auth` está publicada com `verify_jwt=false` — o primeiro pedido de magic link ocorre antes de existir JWT;
+2. abrir o portal admin dedicado;
+3. solicitar o magic link com o e-mail previamente reservado;
+4. abrir o link recebido no mesmo fluxo administrativo;
+5. confirmar que o servidor retorna `claimed` no primeiro acesso ou `existing_admin` nos acessos seguintes;
+6. confirmar que o resumo administrativo carrega;
+7. confirmar no banco que existe pelo menos 1 admin ativo;
+8. somente então considerar o gate administrativo concluído.
 
 Se aparecer `not_reserved`, não insistir nem criar nova reserva automaticamente: o e-mail autenticado não corresponde à reserva atual.
 
