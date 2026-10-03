@@ -138,6 +138,17 @@ async function summary(admin:any){
     .limit(50);
   if(pilotPartners.error)throw pilotPartners.error;
 
+  const [supportCases,businessMetrics]=await Promise.all([
+    admin.from("support_cases")
+      .select("id,order_id,customer_id,merchant_id,category,status,message,resolution_note,resolved_at,created_at,updated_at")
+      .in("status",["open","in_review","resolved"])
+      .order("updated_at",{ascending:false})
+      .limit(100),
+    admin.rpc("platform_business_metrics")
+  ]);
+  if(supportCases.error)throw supportCases.error;
+  if(businessMetrics.error)throw businessMetrics.error;
+
   const referralOrderIds=(referralReviews.data??[]).map((x:any)=>x.order_id).filter(Boolean);
   const referralOrderStates=referralOrderIds.length
     ? await admin.from("orders")
@@ -161,6 +172,8 @@ async function summary(admin:any){
       compliance:byMerchant.get(m.id)??null,
       deliveryCapabilities:capabilitiesByMerchant.get(m.id)??[]
     })),
+    businessMetrics:businessMetrics.data??{},
+    supportCases:supportCases.data??[],
     finance:{
       receivables:receivables.data??[],
       cashbackReimbursements:reimbursements.data??[],
@@ -271,6 +284,19 @@ Deno.serve(async(req:Request)=>{
         targetUserId:uuid(body.targetUserId,"targetUser"),
         active:body.active===true
       };
+    }else if(action==="support-case-status"){
+      const status=String(body.status??"");
+      if(!["in_review","resolved","closed"].includes(status)){
+        throw new DomainError("INVALID_SUPPORT_STATUS","Status de atendimento inválido.",400);
+      }
+      payload={
+        caseId:uuid(body.caseId,"case"),
+        status,
+        resolutionNote:body.resolutionNote==null?null:(cleanText(body.resolutionNote,{min:0,max:1000,name:"resolução"})||null)
+      };
+      if(["resolved","closed"].includes(status)&&!payload.resolutionNote){
+        throw new DomainError("SUPPORT_RESOLUTION_NOTE_REQUIRED","Informe como o atendimento foi resolvido.",400);
+      }
     }else if(action==="financial-action"){
       const kind=String(body.kind??"");
       const financialAction=String(body.financialAction??"");
@@ -326,6 +352,16 @@ Deno.serve(async(req:Request)=>{
       rpcArgs={
         p_actor_user_id:user.id,
         p_order_id:payload.orderId,
+        p_idempotency_key:idempotencyKey,
+        p_request_hash:requestHash
+      };
+    }else if(action==="support-case-status"){
+      rpcName="admin_support_case_action";
+      rpcArgs={
+        p_actor_user_id:user.id,
+        p_case_id:payload.caseId,
+        p_status:payload.status,
+        p_resolution_note:payload.resolutionNote,
         p_idempotency_key:idempotencyKey,
         p_request_hash:requestHash
       };
@@ -386,6 +422,15 @@ Deno.serve(async(req:Request)=>{
       || message.includes("P13_REGULATORY_VERIFICATION_REQUIRED")
     ){
       return json({error:"ANP_VERIFICATION_REQUIRED",message:"Revenda com produto GLP ativo exige validação ANP antes da operação."},409,origin);
+    }
+    if(message.includes("SUPPORT_CASE_NOT_FOUND")){
+      return json({error:"SUPPORT_CASE_NOT_FOUND",message:"Atendimento não encontrado."},404,origin);
+    }
+    if(message.includes("SUPPORT_CASE_ALREADY_CLOSED")||message.includes("INVALID_SUPPORT_TRANSITION")){
+      return json({error:"SUPPORT_CASE_STATE_CONFLICT",message:"O atendimento já mudou de estado. Atualize o painel."},409,origin);
+    }
+    if(message.includes("SUPPORT_RESOLUTION_NOTE_REQUIRED")){
+      return json({error:"SUPPORT_RESOLUTION_NOTE_REQUIRED",message:"Informe como o atendimento foi resolvido."},400,origin);
     }
     if(message.includes("FINANCIAL_ITEM_NOT_OPEN")){
       return json({error:"FINANCIAL_ITEM_NOT_OPEN",message:"Este item financeiro já foi processado."},409,origin);
