@@ -423,7 +423,11 @@ async function liveCreateOrder(quoteId){
     paymentMethod:state.checkout.paymentMethod,
     useCashback:state.checkout.useCashback===true,
     referralCode:state.user.referredBy||null,
-    cashTenderCents:state.checkout.paymentMethod==='cash'?state.checkout.cashTenderCents:null
+    cashTenderCents:state.checkout.paymentMethod==='cash'?state.checkout.cashTenderCents:null,
+    customerPhone:state.checkout.customerPhoneDigits||'',
+    addressComplement:state.checkout.addressComplement||null,
+    deliveryReference:state.checkout.deliveryReference||null,
+    deliveryNotes:state.checkout.deliveryNotes||null
   };
   try{
     const result=await retryAmbiguousOnce(
