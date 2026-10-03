@@ -561,7 +561,6 @@ assert.ok(html.includes('name="referrer" content="strict-origin-when-cross-origi
 assert.ok(html.includes('name="robots" content="noindex,nofollow,noarchive,nosnippet"'),'pré-lançamento interno não deve ser indexado por buscadores');
 assert.ok(exists('robots.txt')&&read('robots.txt').includes('Disallow: /'),'pré-lançamento interno precisa bloquear crawling também por robots.txt');
 assert.ok(sw.includes("./robots.txt"),'PWA precisa conservar a política de robots offline');
-const runtimeConfig=read('js/runtime-config.js');
 assert.ok(runtimeConfig.includes("CHAMA_CUSTOMER_ORIGIN=''")&&runtimeConfig.includes("CHAMA_MERCHANT_ORIGIN=''")&&runtimeConfig.includes("CHAMA_ADMIN_ORIGIN=''"),'GitHub Pages deve falhar fechado sem origins privilegiadas');
 assert.ok(runtimeConfig.includes("CHAMA_TURNSTILE_SITE_KEY=''"),'GitHub Pages não pode embutir site key de Turnstile do portal real');
 assert.ok(runtimeConfig.includes("CHAMA_INTERNAL_PILOT")&&runtimeConfig.includes("chamaHost==='carloskk07.github.io'"),'GitHub Pages deve ativar somente a simulação interna, nunca os portais live');
