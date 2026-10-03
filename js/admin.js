@@ -386,6 +386,30 @@ function adminAccountingFailureCard(x){
   </article>`;
 }
 
+function adminSupportCaseCard(x){
+  const category={
+    late:'Atraso',
+    wrong_item:'Produto incorreto',
+    price_payment:'Preço ou pagamento',
+    no_show:'Entrega não apareceu',
+    delivery:'Problema na entrega',
+    other:'Outro problema'
+  }[x.category]||String(x.category||'Problema');
+  const statusLabel={
+    open:'ABERTO',
+    in_review:'EM ANÁLISE',
+    resolved:'RESOLVIDO',
+    closed:'ENCERRADO'
+  }[x.status]||String(x.status||'—').toUpperCase();
+  const statusClass=['resolved','closed'].includes(x.status)?'online':x.status==='open'?'offline':'risk';
+  return `<article class="order-card">
+    <div class="order-head"><div><div class="order-id">${esc(category)}</div><div class="tiny muted">Pedido ${esc(x.order_id)} • aberto em ${new Date(x.created_at).toLocaleString('pt-BR')}</div></div><span class="status-pill ${statusClass}">${esc(statusLabel)}</span></div>
+    ${x.message?`<div class="order-line"><strong>Cliente:</strong> ${esc(x.message)}</div>`:''}
+    ${x.resolution_note?`<div class="notice success" style="margin-top:10px"><strong>Tratativa:</strong><br>${esc(x.resolution_note)}</div>`:''}
+    ${!['resolved','closed'].includes(x.status)?`<div class="order-actions">${x.status==='open'?`<button class="secondary small" onclick="adminSetSupportStatus('${x.id}','in_review')">Assumir análise</button>`:''}<button class="primary small" onclick="adminSetSupportStatus('${x.id}','resolved')">Resolver</button><button class="ghost small" onclick="adminSetSupportStatus('${x.id}','closed')">Encerrar</button></div>`:''}
+  </article>`;
+}
+
 function adminPage(){
   if(!adminPortalRequested()){
     return shell('<section class="page"><div class="notice danger">Administração só está disponível no portal protegido.</div></section>');
@@ -416,6 +440,9 @@ function adminPage(){
   const reimbursements=d.finance?.cashbackReimbursements||[];
   const adjustments=d.finance?.adjustments||[];
   const platformAdmins=d.platformAdmins||[];
+  const supportCases=d.supportCases||[];
+  const openSupportCases=supportCases.filter(x=>['open','in_review'].includes(x.status));
+  const metrics=d.businessMetrics||{};
   const openFees=receivables.reduce((s,x)=>s+Number(x.platform_fee_cents||0),0);
   const openCashback=reimbursements.reduce((s,x)=>s+Number(x.cashback_cents||0),0);
   const openAdjustments=adjustments.reduce((s,x)=>s+Number(x.amount_cents||0),0);
@@ -424,6 +451,17 @@ function adminPage(){
     <div class="status-bar"><div><div class="tiny muted">CONTROL PLANE REAL</div><h1 class="page-title" style="margin-bottom:2px">Administração Chama</h1></div><div class="order-actions"><button class="secondary small" onclick="adminRefresh()">Atualizar</button><button class="ghost small" onclick="adminSignOut()">Sair</button></div></div>
     ${adminRuntime.error?`<div class="notice danger" style="margin-top:12px">${esc(adminRuntime.error)}</div>`:''}
 
+    <section class="section"><div class="section-head"><div><span class="section-kicker">NEGÓCIO • 30 DIAS</span><h2>Pulso da operação</h2><p>Indicadores server-side calculados apenas sobre fatos liquidados e estados reais do pedido.</p></div></div><div class="merchant-kpis">
+      <div class="kpi"><span class="label">GMV 30d</span><strong>${adminMoney(metrics.gmvCents30d)}</strong><small>${Number(metrics.settledOrders30d||0)} pedidos liquidados</small></div>
+      <div class="kpi"><span class="label">Ticket médio</span><strong>${adminMoney(metrics.averageTicketCents30d)}</strong></div>
+      <div class="kpi"><span class="label">Clientes recorrentes</span><strong>${metrics.repeatRate30d==null?'—':Math.round(Number(metrics.repeatRate30d)*100)+'%'}</strong><small>${Number(metrics.repeatCustomers30d||0)} de ${Number(metrics.activeCustomers30d||0)} clientes ativos</small></div>
+      <div class="kpi"><span class="label">Cancelamentos</span><strong>${metrics.cancellationRate30d==null?'—':Math.round(Number(metrics.cancellationRate30d)*100)+'%'}</strong><small>${Number(metrics.cancelledOrders30d||0)} de ${Number(metrics.createdOrders30d||0)} pedidos</small></div>
+      <div class="kpi"><span class="label">Pontualidade 90d</span><strong>${metrics.onTimeRate90d==null?'—':Math.round(Number(metrics.onTimeRate90d)*100)+'%'}</strong></div>
+      <div class="kpi"><span class="label">Taxa gerada 30d</span><strong>${adminMoney(metrics.platformFeeGeneratedCents30d)}</strong></div>
+      <div class="kpi"><span class="label">Cashback 30d</span><strong>${adminMoney(metrics.cashbackGrantedCents30d)}</strong></div>
+      <div class="kpi"><span class="label">Atendimentos abertos</span><strong>${Number(metrics.openSupportCases||openSupportCases.length)}</strong></div>
+    </div></section>
+
     <section class="section"><div class="merchant-kpis">
       <div class="kpi"><span class="label">Cadastros pendentes</span><strong>${pending.length}</strong></div>
       <div class="kpi"><span class="label">Parceiros piloto</span><strong>${pilotPartners.filter(x=>x.onboarding_status!=='cancelled').length}</strong></div>
@@ -431,6 +469,8 @@ function adminPage(){
       <div class="kpi"><span class="label">Taxas a receber</span><strong>${adminMoney(openFees)}</strong></div>
       <div class="kpi"><span class="label">Cashback a reembolsar</span><strong>${adminMoney(openCashback)}</strong></div>
     </div></section>
+
+    <section class="section"><div class="section-head"><div><h2>Atendimento de pedidos</h2><p>Problemas registrados pelo cliente entram aqui com vínculo ao pedido, status e trilha administrativa.</p></div><span class="status-pill ${openSupportCases.length?'offline':'online'}">${openSupportCases.length} aberto(s)</span></div>${supportCases.length?supportCases.map(adminSupportCaseCard).join(''):'<div class="empty card">Nenhum atendimento registrado.</div>'}</section>
 
     <section class="section"><div class="section-head"><div><h2>Administradores da plataforma</h2><p>O primeiro admin é criado somente por bootstrap server-side. Depois disso, esta tela mantém redundância operacional sem permitir remover o último admin ativo.</p></div><span class="status-pill online">${platformAdmins.filter(x=>x.active).length} ativo(s)</span></div>
       <div class="card flat form-stack">
@@ -463,6 +503,20 @@ function adminPage(){
 
     <section class="section"><div class="section-head"><div><h2>Auditoria recente</h2></div></div><div class="list">${(d.recentAudit||[]).length?(d.recentAudit||[]).map(x=>`<div class="list-row"><div><strong>${esc(x.action)}</strong><br><small>${esc(x.target_type)} • ${esc(x.target_id||'—')}</small></div><small>${new Date(x.created_at).toLocaleString('pt-BR')}</small></div>`).join(''):'<div class="empty card">Nenhuma ação administrativa registrada.</div>'}</div></section>
   </section>`);
+}
+
+async function adminSetSupportStatus(caseId,status){
+  const label=status==='in_review'?'colocar este atendimento em análise':status==='resolved'?'resolver este atendimento':'encerrar este atendimento';
+  let resolutionNote='';
+  if(['resolved','closed'].includes(status)){
+    resolutionNote=prompt('Descreva a solução ou motivo do encerramento:')||'';
+    if(resolutionNote.trim().length<3)return toast('Informe como o atendimento foi tratado');
+  }
+  if(!confirm('Confirma '+label+'?'))return;
+  try{
+    await adminPerform('support-case-status',{caseId,status,resolutionNote});
+    toast(status==='in_review'?'Atendimento em análise':status==='resolved'?'Atendimento resolvido':'Atendimento encerrado');
+  }catch(e){toast(String(e?.message||e))}
 }
 
 async function adminApproveApplication(id){
@@ -578,3 +632,6 @@ globalThis.adminRetryAccounting=adminRetryAccounting;
 globalThis.adminSetPlatformAdmin=adminSetPlatformAdmin;
 globalThis.adminAddPlatformAdmin=adminAddPlatformAdmin;
 globalThis.openAdminPortal=openAdminPortal;
+
+
+globalThis.adminSetSupportStatus=adminSetSupportStatus;
