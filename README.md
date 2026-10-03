@@ -2,6 +2,22 @@
 
 Marketplace hiperlocal de gás e abastecimento essencial para São Gabriel/RS.
 
+## Estado atual — v1.59 portal handoff
+
+O release dos portais isolados deixa de depender de um GitHub Secret desnecessário para a site key Turnstile.
+
+A site key é pública e já precisa aparecer no frontend. O workflow manual **Build isolated live portals** agora solicita `turnstile_site_key` diretamente no disparo e:
+
+- recusa vazio;
+- recusa as chaves oficiais de teste/demo;
+- gera customer / merchant / admin com a mesma origem validada;
+- confere que a chave fornecida realmente entrou no runtime;
+- gera `SHA256SUMS.txt` dentro de cada bundle;
+- verifica todos os checksums antes do upload;
+- mantém os artefatos disponíveis por apenas 3 dias.
+
+A chave secreta do Turnstile não entra no GitHub nem no bundle.
+
 ## Estado atual — v1.58 remote readiness
 
 A prontidão administrativa passa a ser provada também **fora do runner local**.
