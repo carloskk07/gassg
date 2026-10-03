@@ -162,7 +162,7 @@ assert.match(await evaluate("document.querySelector('#merchant-sim-unit').textCo
 await auditDom('merchant acquisition');
 
 await evaluate("go('home')");
-await waitFor("document.body.innerText.includes('Seu gás, com preço e prazo')","return home");
+await waitFor("document.body.innerText.includes('Pediu? Tá na mão.')","return home");
 await evaluate("quickProduct('WATER20')");
 await waitFor("location.hash==='#order'","order route");
 await evaluate("document.querySelector('#address').value='Rua <img src=x onerror=window.__xss=1> Teste, 123'; setAddress()");
