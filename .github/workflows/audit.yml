@@ -78,7 +78,7 @@ jobs:
         run: node tests/expert-fuzz.mjs
       - name: Static trust and asset audit
         run: node tests/static-audit.mjs
-      - name: Remote admin readiness contract
+      - name: Remote admin gateway contract and portal report
         run: node tests/remote-admin-readiness.mjs
       - name: Runtime origin config contract
         run: node tests/runtime-config.mjs
