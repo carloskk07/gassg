@@ -61,7 +61,11 @@ function mapRpcError(error: { message?: string; code?: string } | null) {
     INVALID_DELIVERY_WINDOW: { status: 400, message: "A janela de entrega não é mais válida. Escolha outro horário." },
     SCHEDULED_DELIVERY_UNAVAILABLE: { status: 409, message: "Este parceiro não está mais aceitando pedidos agendados." },
     PAYMENT_METHOD_MISMATCH: { status: 409, message: "A forma de pagamento mudou depois da cotação. Atualize as opções." },
-    PAYMENT_METHOD_UNAVAILABLE: { status: 409, message: "Este parceiro não aceita mais esta forma de pagamento. Atualize as opções." }
+    PAYMENT_METHOD_UNAVAILABLE: { status: 409, message: "Este parceiro não aceita mais esta forma de pagamento. Atualize as opções." },
+    INVALID_CUSTOMER_PHONE: { status: 400, message: "Informe um telefone válido com DDD." },
+    INVALID_ADDRESS_COMPLEMENT: { status: 400, message: "Complemento de endereço inválido." },
+    INVALID_DELIVERY_REFERENCE: { status: 400, message: "Referência de entrega inválida." },
+    INVALID_DELIVERY_NOTES: { status: 400, message: "Instruções de entrega inválidas." }
   };
 
   for (const [code, meta] of Object.entries(known)) {
@@ -132,12 +136,33 @@ Deno.serve(async (req: Request) => {
       ? null
       : String(body.referralCode).trim().toUpperCase().slice(0, 20);
 
+    const customerPhoneDigits = String(body.customerPhone ?? "").replace(/\D/g, "");
+    if (!/^[0-9]{10,11}$/.test(customerPhoneDigits)) {
+      throw new DomainError("INVALID_CUSTOMER_PHONE", "Informe um telefone válido com DDD.", 400);
+    }
+
+    const cleanOptionalText = (value: unknown, max: number, code: string, message: string) => {
+      const text = String(value ?? "").trim().replace(/\s+/g, " ");
+      if (!text) return null;
+      if (text.length > max || /[\u0000-\u001F\u007F]/.test(text)) {
+        throw new DomainError(code, message, 400);
+      }
+      return text;
+    };
+    const addressComplement = cleanOptionalText(body.addressComplement, 120, "INVALID_ADDRESS_COMPLEMENT", "Complemento de endereço inválido.");
+    const deliveryReference = cleanOptionalText(body.deliveryReference, 160, "INVALID_DELIVERY_REFERENCE", "Referência de entrega inválida.");
+    const deliveryNotes = cleanOptionalText(body.deliveryNotes, 240, "INVALID_DELIVERY_NOTES", "Instruções de entrega inválidas.");
+
     const fingerprintPayload = {
       quoteId,
       paymentMethod,
       useCashback,
       referralCode,
-      cashTenderCents
+      cashTenderCents,
+      customerPhoneDigits,
+      addressComplement,
+      deliveryReference,
+      deliveryNotes
     };
     const requestHash = await requestFingerprint("create-order", fingerprintPayload);
 
@@ -146,7 +171,7 @@ Deno.serve(async (req: Request) => {
     });
     await enforceApiQuota(admin,{userId:user.id,actionName:"create-order",limit:12,windowSeconds:600});
 
-    const { data, error } = await admin.rpc("create_order_from_quote_v4", {
+    const { data, error } = await admin.rpc("create_order_from_quote_v5", {
       p_user_id: user.id,
       p_quote_id: quoteId,
       p_payment_method: paymentMethod,
@@ -154,7 +179,11 @@ Deno.serve(async (req: Request) => {
       p_idempotency_key: idempotencyKey,
       p_request_hash: requestHash,
       p_referral_code: referralCode,
-      p_cash_tender_cents: cashTenderCents
+      p_cash_tender_cents: cashTenderCents,
+      p_customer_phone: customerPhoneDigits,
+      p_address_complement: addressComplement,
+      p_delivery_reference: deliveryReference,
+      p_delivery_notes: deliveryNotes
     });
 
     if (error) {
