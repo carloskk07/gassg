@@ -203,8 +203,6 @@ Deno.serve(async (req: Request) => {
     if (merchantError) throw merchantError;
     if (!merchants?.length) return json({
       offers:[],
-      postalValidated:true,
-      postalCode:postal.postalCode,
       ...addressMeta
     },200,origin);
 
