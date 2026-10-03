@@ -143,7 +143,7 @@ assert.equal(acquisitionProbe.total,20);
 assert.equal(acquisitionProbe.campaigns[0].conversionRatePct,30);
 assert.equal(await evaluate("adminMetricPercent(37.5)"),'37,5%');
 assert.equal(await evaluate("adminMetricDuration(42)"),'42 min');
-assert.match(await evaluate("adminAcquisitionCampaigns({campaigns:[{source:'meta',medium:'paid_social',campaign:'sg_launch_customer',total:10,customers:10,merchants:0,contactRatePct:80,qualificationRatePct:50,conversionRatePct:30}]})"),/Campanhas e conversão/);
+assert.match(await evaluate("adminAcquisitionCampaigns({campaigns:[{audience:'customer',source:'meta',medium:'paid_social',campaign:'sg_launch_customer',content:'creative_a',landingViews:40,formViews:20,total:10,contactRatePct:80,qualificationRatePct:50,conversionRatePct:30,landingToFormPct:50,landingToLeadPct:25}]})"),/Campanhas: entrada até conversão/);
 
 await evaluate("go('learn')");
 await waitFor("document.body.innerText.includes('Antes de pedir, veja quanto custa')","learn route");
