@@ -139,14 +139,7 @@ jobs:
       - name: Validate manifest
         run: node -e "JSON.parse(require('fs').readFileSync('manifest.webmanifest','utf8')); console.log('manifest OK')"
       - name: Stage public PWA only
-        run: |
-          rm -rf _site
-          mkdir -p _site
-          cp index.html manifest.webmanifest sw.js robots.txt _site/
-          cp -R css js icons _site/
-          test ! -e _site/supabase
-          test -f _site/robots.txt
-          test ! -e _site/tests
+        run: node scripts/build-public-site.mjs _site
       - name: Configure Pages
         uses: actions/configure-pages@v5
       - name: Upload static site
