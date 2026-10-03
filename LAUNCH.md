@@ -13,6 +13,9 @@
 - Canal de contato e privacidade: pronto
 - Inbox administrativa de leads/solicitações: pronta
 - Admin operacional: reserva criada; primeira conta ainda precisa ser reivindicada
+- Gateway `admin-auth`: prova remota OK (`request-link` pré-JWT chega ao handler; `claim` sem sessão é bloqueado)
+- Portal admin Netlify: **bloqueado — bundle isolado ainda retorna 404**
+- Turnstile dos portais isolados: **bloqueado — `CHAMA_TURNSTILE_SITE_KEY` real ainda não configurada no GitHub Actions**
 
 ## Regra principal
 
@@ -50,6 +53,16 @@ Quando a alteração de nameservers estiver liberada:
 ### Prova do primeiro administrador
 
 Usar somente a origem administrativa dedicada configurada para o control plane.
+
+Antes do magic link, concluir estes gates externos:
+
+- criar/configurar uma **site key Turnstile real** para as origens live;
+- cadastrar essa site key como `CHAMA_TURNSTILE_SITE_KEY` no GitHub Actions;
+- executar manualmente **Build isolated live portals** e confirmar os artefatos `tamao-live-*`;
+- publicar o artefato `tamao-live-admin` no projeto Netlify `chama-sg-admin`;
+- executar **TAMÃO launch readiness** e exigir resultado verde.
+
+A chave Turnstile oficial de teste usada no CI serve somente para validar o builder e nunca pode ser publicada como bundle live.
 
 1. confirmar que a função `admin-auth` está publicada com `verify_jwt=false` — o primeiro pedido de magic link ocorre antes de existir JWT;
 2. abrir o portal admin dedicado;
