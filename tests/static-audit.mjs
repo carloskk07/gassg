@@ -96,7 +96,7 @@ assert.ok(growth.includes('Saque Pix ainda não disponível')&&growth.includes('
 assert.ok(growth.includes('Você continua no controle'),'landing de revenda deve enfatizar autonomia operacional');
 assert.ok(core.includes("['earn','💰','Ganhe','go']"),'navegação móvel precisa dar acesso direto ao hub de renda');
 assert.ok(!growth.includes('inputmode="numeric" maxlength="18"'),'campo CNPJ não pode forçar teclado somente numérico após adoção do CNPJ alfanumérico');
-assert.ok(sw.includes("CACHE='chama-sg-v1.37'"),'cache do service worker precisa estar versionado');
+assert.ok(sw.includes("CACHE='chama-sg-v1.38'"),'cache do service worker precisa estar versionado');
 assert.ok(sw.includes("./js/backend.js"),'runtime live precisa estar no cache da PWA');
 assert.ok(sw.includes("./js/runtime-config.js"),'configuração pública de origins precisa estar no cache da PWA');
 assert.ok(sw.includes("./js/turnstile.js"),'helper local do Turnstile precisa estar no cache da PWA');
@@ -239,7 +239,7 @@ assert.ok(backend.includes("buildPortalHref(globalThis.CHAMA_MERCHANT_ORIGIN,'me
 assert.ok(backend.includes("buildPortalHref(globalThis.CHAMA_CUSTOMER_ORIGIN,'customer')"),'retorno ao cliente precisa navegar para a origem dedicada configurada');
 assert.ok(admin.includes("buildPortalHref?.(globalThis.CHAMA_ADMIN_ORIGIN,'admin')"),'entrada administrativa precisa navegar para a origem dedicada configurada');
 assert.ok(!backend.includes("const url=new URL(location.href);\n  url.search='';\n  url.searchParams.set('merchant','1')"),'portal merchant não pode reutilizar cegamente a origem atual');
-for(const fn of ['merchant-orders','merchant-action','merchant-ops','complete-delivery','submit-merchant-application']){
+for(const fn of ['merchant-orders','merchant-action','merchant-ops','merchant-team','complete-delivery','submit-merchant-application']){
   const source=read('supabase/functions/'+fn+'/index.ts');
   assert.ok(source.includes('MERCHANT_ALLOWED_ORIGIN'),fn+' precisa exigir origem dedicada');
   assert.ok(!source.includes('const PROD_ORIGIN="https://carloskk07.github.io"'),fn+' não pode confiar no GitHub Pages compartilhado');
@@ -403,6 +403,12 @@ assert.ok(backend.includes('merchantAssignDeliveryLive')&&backend.includes("merc
 assert.ok(merchant.includes('merchantDriverLivePage')&&merchant.includes('Visão restrita por atribuição.')&&merchant.includes('merchantLiveAssignDelivery'),'UI precisa ter workspace mínimo do motorista e controle de atribuição');
 assert.ok(customer.includes('Responsável pela entrega definido.')&&!customer.includes('assignedDeliveryUserId'),'cliente deve ver responsabilidade operacional sem receber identidade do membro');
 assert.ok(read('supabase/functions/merchant-orders/index.ts').includes('catalog:[]')&&read('supabase/functions/merchant-orders/index.ts').includes('deliveryTeam:[]'),'driver não pode receber catálogo nem equipe completa');
+assert.ok(read('supabase/functions/merchant-orders/index.ts').includes('claim_merchant_team_invites'),'primeiro login precisa reivindicar convite de equipe antes de decidir NO_MERCHANT_ACCESS');
+assert.ok(backend.includes('merchantTeamInviteLive')&&backend.includes('merchantTeamRevokeMemberLive')&&backend.includes('merchantTeamRevokeInviteLive'),'runtime precisa governar convites e revogações pela Edge Function');
+assert.ok(merchant.includes('merchantTeamPage')&&merchant.includes('Sem senha compartilhada.')&&merchant.includes('merchantOpenTeam'),'painel precisa expor gestão de equipe sem credencial compartilhada');
+assert.ok(bootstrap.includes("'merchant-team':merchantTeamPage")&&bootstrap.includes("'merchant-team'"),'router merchant precisa reconhecer workspace de equipe');
+assert.ok(core.includes("memberRole==='driver'")&&core.includes("['merchant','🚚','Entregas','go']"),'motorista não deve receber atalhos de catálogo/equipe na navegação');
+
 assert.ok(getOrderSource.includes('financial_state'),'projeção do pedido precisa expor estado financeiro seguro');
 assert.ok(customer.includes('Liquidação financeira revertida'),'cliente precisa ver quando benefícios de pedido entregue foram revertidos');
 assert.ok(read('supabase/functions/customer-summary/index.ts').includes('reversedOrders'),'resumo do cliente precisa conhecer settlements revertidos');
