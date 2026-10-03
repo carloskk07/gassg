@@ -43,8 +43,8 @@ async function startHomeOrder(){
   if(value&&value.length<5)return toast('Informe um endereço válido ou deixe em branco para preencher depois');
   if(value)state.address=value.slice(0,160);
   state.cart=normalizeCart({});
-  setCartProduct('P13',1);
   state.checkout.glpContainerMode='exchange';
+  setCartProduct('P13',1);
   save();
   go('order');
 }
@@ -54,26 +54,34 @@ function hasGlpCart(cart=state.cart){
 }
 function setGlpContainerMode(value){
   state.checkout.glpContainerMode=value==='needs_container'?'needs_container':'exchange';
+  synchronizeGlpContainerCart(state.cart,state.checkout.glpContainerMode);
+  if(globalThis.liveRequested?.()){
+    liveRuntime.offers=[];
+    liveRuntime.deliveryCompatibilityBlocked=false;
+  }
   save();
   render();
-  if(globalThis.liveReady?.()&&state.checkout.glpContainerMode==='exchange'&&state.address&&hasCartItems()){
+  if(globalThis.liveReady?.()&&state.address&&hasCartItems()){
     liveRefreshOffers().catch(()=>{});
   }
 }
 function repeatLastOrder(){
   const template=globalThis.liveRuntime?.lastOrderTemplate;
   if(!template||!Array.isArray(template.items)||!template.items.length)return toast('Ainda não há uma compra concluída para repetir');
+  const needsContainer=template.items.some(item=>glpContainerKgForProductCode(item.productCode)!==null);
   state.cart=normalizeCart({});
+  state.checkout.glpContainerMode=needsContainer?'needs_container':'exchange';
   for(const item of template.items){
     const code=String(item.productCode||'').trim().toUpperCase();
+    if(glpContainerKgForProductCode(code)!==null)continue;
     if(!ensureProductDefinition(code))continue;
     setCartProduct(code,Math.max(0,Math.min(99,Number(item.quantity)||0)));
   }
+  synchronizeGlpContainerCart(state.cart,state.checkout.glpContainerMode);
   if(!hasCartItems())return toast('Os itens da última compra não estão disponíveis nesta versão');
   state.address=String(template.address||state.address||'').slice(0,160);
   state.checkout.paymentMethod=['pix','card','cash'].includes(template.paymentMethod)?template.paymentMethod:'pix';
   state.checkout.cashTenderCents=null;
-  state.checkout.glpContainerMode='exchange';
   save();
   go('order');
   globalThis.liveScheduleOfferRefresh?.(50);
@@ -289,7 +297,7 @@ function orderPage(){
   const hasAddress=!!state.address;
   const hasItems=hasCartItems();
   const hasGlp=hasGlpCart();
-  const containerBlocked=hasGlp&&state.checkout.glpContainerMode==='needs_container';
+  const needsContainer=hasGlp&&state.checkout.glpContainerMode==='needs_container';
   const os=testDemo?(hasItems?offers():[]):(ready?(liveRuntime.offers||[]):[]);
   const singleSupplier=(internalPilot&&os.length===1)||(!testDemo&&ready&&liveRuntime.marketMode==='single_supplier');
   const pendingOrder=testDemo
@@ -340,17 +348,17 @@ function orderPage(){
     : `<div class="card flat form-stack"><div class="input-wrap"><label for="payment-method">Como você pretende pagar?</label><select id="payment-method" class="input" onchange="setPaymentMethod(this.value)"><option value="pix" ${state.checkout.paymentMethod==='pix'?'selected':''}>Pix</option><option value="card" ${state.checkout.paymentMethod==='card'?'selected':''}>Cartão</option><option value="cash" ${state.checkout.paymentMethod==='cash'?'selected':''}>Dinheiro</option></select><small class="field-help">Esta é sua preferência de pagamento. O parceiro vê a forma solicitada antes de assumir o pedido.</small></div>${state.checkout.paymentMethod==='cash'?`<div class="input-wrap"><label for="cash-tender">Precisa de troco? Troco para quanto?</label><input id="cash-tender" class="input" type="number" inputmode="decimal" min="1" max="10000" step="0.01" placeholder="Ex.: 150,00" value="${state.checkout.cashTenderCents?esc((state.checkout.cashTenderCents/100).toFixed(2)):''}" onchange="setCashTender(this.value)"><small class="field-help">Deixe vazio se não precisar informar troco. O entregador verá este valor antes de sair.</small></div>`:''}${state.user.cashback>0?`<label class="check-row"><input type="checkbox" ${state.checkout.useCashback?'checked':''} onchange="toggleCashback(this.checked)"><span><strong>Usar cashback</strong><small>Saldo disponível: ${BRL.format(state.user.cashback)}</small></span></label>`:''}</div>`;
 
   const containerBlock=hasGlp
-    ? `<section class="section"><div class="section-head"><div><h2>Como será o botijão?</h2><p>O preço desta oferta precisa corresponder exatamente ao tipo de compra.</p></div></div><div class="card flat form-stack"><label class="check-row"><input type="radio" name="glp-container" value="exchange" ${state.checkout.glpContainerMode!=='needs_container'?'checked':''} onchange="setGlpContainerMode('exchange')"><span><strong>Tenho botijão vazio para troca</strong><small>Fluxo normal: você entrega o vazio e recebe o botijão cheio.</small></span></label><label class="check-row"><input type="radio" name="glp-container" value="needs_container" ${state.checkout.glpContainerMode==='needs_container'?'checked':''} onchange="setGlpContainerMode('needs_container')"><span><strong>Não tenho vasilhame</strong><small>Preciso comprar também o recipiente.</small></span></label>${containerBlocked?'<div class="notice danger"><strong>Compra do vasilhame ainda não está precificada nesta oferta.</strong><br>Para não mostrar um total incompleto, o Chama bloqueia a confirmação até a revenda cadastrar o valor do recipiente. Escolha troca com vazio para continuar agora.</div>':'<div class="notice success"><strong>Preço calculado para troca.</strong><br>O total considera que haverá um botijão vazio compatível para entregar ao parceiro.</div>'}</div></section>`
+    ? `<section class="section"><div class="section-head"><div><h2>Como será o botijão?</h2><p>O preço da oferta muda conforme existe ou não um recipiente para troca.</p></div></div><div class="card flat form-stack"><label class="check-row"><input type="radio" name="glp-container" value="exchange" ${state.checkout.glpContainerMode!=='needs_container'?'checked':''} onchange="setGlpContainerMode('exchange')"><span><strong>Tenho botijão vazio para troca</strong><small>Você entrega o recipiente compatível e compra somente a carga cheia.</small></span></label><label class="check-row"><input type="radio" name="glp-container" value="needs_container" ${state.checkout.glpContainerMode==='needs_container'?'checked':''} onchange="setGlpContainerMode('needs_container')"><span><strong>Não tenho vasilhame</strong><small>O Chama inclui automaticamente um vasilhame do mesmo tamanho para cada carga de GLP.</small></span></label>${needsContainer?'<div class="notice"><strong>Vasilhame incluído na consulta.</strong><br>A oferta só aparece se a revenda tiver preço confirmado e estoque tanto da carga quanto do recipiente.</div>':'<div class="notice success"><strong>Compra por troca.</strong><br>O total considera que haverá um botijão vazio compatível para entregar ao parceiro.</div>'}</div></section>`
     : '';
 
   return shell(`<section class="page"><button class="back" onclick="go('home')">← Voltar</button><span class="eyebrow">PEDIR AGORA</span><h1 class="page-title">O que você precisa e onde devemos entregar?</h1><p class="muted page-lead">Depois do endereço, você compara total e prazo antes de escolher.</p>
 ${liveNotice}
 ${pendingOrder?`<div class="notice" style="margin-bottom:14px"><strong>Você já possui um pedido em andamento.</strong><br>Conclua ou cancele o pedido ${esc(pendingOrder.publicCode||pendingOrder.id)} antes de criar outro.<br><button class="ghost small" onclick="go('tracking')">Acompanhar pedido →</button></div>`:''}
 <div class="card flat form-stack order-address-card"><div class="input-wrap"><label for="address">Endereço de entrega</label><input id="address" class="input" autocomplete="street-address" maxlength="160" placeholder="Ex.: Rua General Câmara, 123" value="${esc(state.address||'')}"></div><button class="primary" onclick="setAddress()">${hasAddress?'Atualizar endereço':'Usar este endereço'}</button><small class="field-help">Usamos o endereço para procurar quem consegue atender sua cesta.</small></div>
-<section class="section"><div class="section-head"><div><h2>Sua cesta</h2><p>Adicione somente o que você precisa. Gás não é obrigatório para comprar os demais itens.</p></div></div><div class="card flat">${Object.entries(products).map(([k,p])=>cartRow(k,p)).join('')}</div></section>
+<section class="section"><div class="section-head"><div><h2>Sua cesta</h2><p>Adicione somente o que você precisa. Gás não é obrigatório para comprar os demais itens.</p></div></div><div class="card flat">${Object.entries(products).filter(([,p])=>p.hidden!==true).map(([k,p])=>cartRow(k,p)).join('')}</div></section>
 ${deliveryScheduleBlock()}
 ${containerBlock}
-${hasItems&&hasAddress&&!containerBlocked?`<section class="section"><div class="section-head"><div><h2>Como pretende pagar</h2><p>${preview?'Prévia visual sem cobrança.':'Escolha a forma e confira novamente antes do pedido.'}</p></div></div>${paymentBlock}</section><section class="section"><div class="section-head"><div><span class="section-kicker">${singleSupplier?'OPÇÃO DISPONÍVEL':'COMPARE ANTES DE PEDIR'}</span><h2>${preview?'Veja como as opções aparecerão':singleSupplier?'Preço total e prazo do parceiro disponível':'Preço total e prazo lado a lado'}</h2><p>${preview?'Os valores abaixo são somente ilustrativos.':internalPilot?'Há um único fornecedor no cenário interno. A faixa comercial P13 vem da conversa com o parceiro; o preço desta simulação é calculado dentro dela. Prazo, estoque e trust são simulados.':singleSupplier?'Há um parceiro elegível para esta cesta agora. Você vê a condição real sem opções fictícias.':'Escolha a opção que faz mais sentido para você.'}</p></div></div><div class="mini-protection">🛡️ <strong>Proteção Chama:</strong> ${internalPilot?'nesta simulação, se o JR recusar ou ficar indisponível o pedido é encerrado, porque não existe segundo fornecedor no cenário.':singleSupplier?'o parceiro precisa aceitar. Se ele não puder atender e ainda não houver outra revenda elegível, o pedido é encerrado sem inventar uma alternativa.':'o parceiro precisa aceitar e qualquer alternativa mais cara depende da sua aprovação.'}</div>${offerBlock}</section>`:hasItems&&!hasAddress?'<div class="notice">Informe o endereço para ver preço e prazo.</div>':!hasItems?'<div class="notice">Adicione pelo menos um produto para consultar as opções.</div>':''}</section>`)
+${hasItems&&hasAddress?`<section class="section"><div class="section-head"><div><h2>Como pretende pagar</h2><p>${preview?'Prévia visual sem cobrança.':'Escolha a forma e confira novamente antes do pedido.'}</p></div></div>${paymentBlock}</section><section class="section"><div class="section-head"><div><span class="section-kicker">${singleSupplier?'OPÇÃO DISPONÍVEL':'COMPARE ANTES DE PEDIR'}</span><h2>${preview?'Veja como as opções aparecerão':singleSupplier?'Preço total e prazo do parceiro disponível':'Preço total e prazo lado a lado'}</h2><p>${preview?'Os valores abaixo são somente ilustrativos.':internalPilot?'Há um único fornecedor no cenário interno. A faixa comercial P13 vem da conversa com o parceiro; o preço desta simulação é calculado dentro dela. Prazo, estoque e trust são simulados.':singleSupplier?'Há um parceiro elegível para esta cesta agora. Você vê a condição real sem opções fictícias.':'Escolha a opção que faz mais sentido para você.'}</p></div></div><div class="mini-protection">🛡️ <strong>Proteção Chama:</strong> ${internalPilot?'nesta simulação, se o JR recusar ou ficar indisponível o pedido é encerrado, porque não existe segundo fornecedor no cenário.':singleSupplier?'o parceiro precisa aceitar. Se ele não puder atender e ainda não houver outra revenda elegível, o pedido é encerrado sem inventar uma alternativa.':'o parceiro precisa aceitar e qualquer alternativa mais cara depende da sua aprovação.'}</div>${offerBlock}</section>`:hasItems&&!hasAddress?'<div class="notice">Informe o endereço para ver preço e prazo.</div>':!hasItems?'<div class="notice">Adicione pelo menos um produto para consultar as opções.</div>':''}</section>`)
 }
 function cartRow(k,p){
   const q=state.cart[k]||0;
@@ -403,7 +411,7 @@ function qty(k,d){
   render();
   globalThis.liveScheduleOfferRefresh?.();
 }
-function quickProduct(k){state.cart=normalizeCart({});setCartProduct(k,1);state.checkout.glpContainerMode='exchange';go('order')}
+function quickProduct(k){state.cart=normalizeCart({});state.checkout.glpContainerMode='exchange';setCartProduct(k,1);go('order')}
 function setPaymentMethod(v){
   state.checkout.paymentMethod=['pix','card','cash'].includes(v)?v:'pix';
   if(state.checkout.paymentMethod!=='cash')state.checkout.cashTenderCents=null;
@@ -420,9 +428,6 @@ function setCashTender(value){
 function toggleCashback(v){state.checkout.useCashback=Boolean(v);save();render()}
 
 async function checkout(mid){
-  if(hasGlpCart()&&state.checkout.glpContainerMode==='needs_container'){
-    return toast('O valor do vasilhame precisa estar incluído antes de confirmar');
-  }
   const selected=(globalThis.liveRuntime?.offers||[]).find(o=>o.id===mid||o.quoteId===mid);
   if(state.checkout.paymentMethod==='cash'&&state.checkout.cashTenderCents&&selected){
     const discount=state.checkout.useCashback?Math.min(state.user.cashback,selected.total):0;
