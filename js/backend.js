@@ -315,6 +315,26 @@ async function prelaunchLeadSubmit(payload){
   });
 }
 
+async function publicRequestSubmit(payload){
+  return retryAmbiguousOnce(async()=>{
+    const response=await chamaFetch(CHAMA_BACKEND.url+'/functions/v1/submit-public-request',{
+      method:'POST',
+      headers:{'Content-Type':'application/json','apikey':CHAMA_BACKEND.publishableKey},
+      body:JSON.stringify({...payload,attribution:prelaunchAttribution()}),
+      cache:'no-store'
+    });
+    let data=null;
+    try{data=await response.json()}catch{}
+    if(!response.ok){
+      const error=new Error(data?.message||data?.error||('HTTP '+response.status));
+      error.code=data?.error||'HTTP_'+response.status;
+      error.status=response.status;
+      throw error;
+    }
+    return data;
+  });
+}
+
 function liveCartItems(){
   return Object.entries(state.cart)
     .filter(([,quantity])=>Number(quantity)>0)
@@ -1498,6 +1518,7 @@ globalThis.retryAmbiguousOnce=retryAmbiguousOnce;
 globalThis.buildPortalHref=buildPortalHref;
 globalThis.liveRuntime=liveRuntime;
 globalThis.prelaunchLeadSubmit=prelaunchLeadSubmit;
+globalThis.publicRequestSubmit=publicRequestSubmit;
 globalThis.customerOriginSafe=customerOriginSafe;
 globalThis.backendInit=backendInit;
 globalThis.liveRequested=liveRequested;
