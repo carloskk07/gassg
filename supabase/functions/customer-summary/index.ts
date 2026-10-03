@@ -99,7 +99,7 @@ Deno.serve(async(req:Request)=>{
         .maybeSingle(),
       admin
         .from("orders")
-        .select("id,public_code,address_text,payment_method,total_cents,settled_at,created_at")
+        .select("id,public_code,address_text,postal_code,address_number,payment_method,total_cents,settled_at,created_at")
         .eq("customer_id",user.id)
         .eq("status","SETTLED")
         .eq("financial_state","settled")
@@ -146,6 +146,8 @@ Deno.serve(async(req:Request)=>{
       orderId:lastOrder.id,
       publicCode:lastOrder.public_code,
       address:lastOrder.address_text,
+      postalCode:lastOrder.postal_code,
+      addressNumber:lastOrder.address_number,
       paymentMethod:lastOrder.payment_method,
       totalCents:Number(lastOrder.total_cents??0),
       settledAt:lastOrder.settled_at,
