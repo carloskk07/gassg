@@ -184,3 +184,19 @@ Somente na etapa de comércio real, mudar `TAMAO_LIVE_RUNTIME=1` e configurar ta
 - `CHAMA_TURNSTILE_SITE_KEY=<site key real>`.
 
 O build falha se a origem do cliente não coincidir com o domínio público, se faltar qualquer origem privilegiada ou se a chave Turnstile for uma chave conhecida de teste.
+
+
+## Analytics de pré-lançamento
+
+A medição inicial é first-party e agregada. Não instalar Meta Pixel ou Google Analytics nesta fase.
+
+O funil esperado no admin é:
+
+1. **Entradas** — uma contagem por sessão/aba, público e conjunto de UTM.
+2. **Viram formulário** — o formulário ficou visível em pelo menos 35%.
+3. **Viraram lead** — cadastro real salvo.
+4. **Contatados**.
+5. **Qualificados**.
+6. **Convertidos**.
+
+Os dois primeiros estágios são contadores agregados; os demais vêm do CRM real. Não interpretar "Entradas" como pessoas únicas.
