@@ -69,13 +69,14 @@ A chave Turnstile oficial de teste usada no CI serve somente para validar o buil
 Os artefatos de produção ficam retidos por apenas 3 dias. Sempre publicar o pacote mais recente e conferir `SHA256SUMS.txt` antes do deploy.
 
 1. confirmar que a função `admin-auth` está publicada com `verify_jwt=false` — o primeiro pedido de magic link ocorre antes de existir JWT;
-2. abrir o portal admin dedicado;
-3. solicitar o magic link com o e-mail previamente reservado;
-4. abrir o link recebido no mesmo fluxo administrativo;
-5. confirmar que o servidor retorna `claimed` no primeiro acesso ou `existing_admin` nos acessos seguintes;
-6. confirmar que o resumo administrativo carrega;
-7. confirmar no banco que existe pelo menos 1 admin ativo;
-8. somente então considerar o gate administrativo concluído.
+2. confirmar na sonda remota que `request-link` sem CAPTCHA retorna `CAPTCHA_REQUIRED` e `claim` sem bearer retorna `UNAUTHORIZED`;
+3. abrir o portal admin dedicado;
+4. solicitar o magic link com o e-mail previamente reservado;
+5. abrir o link recebido no mesmo fluxo administrativo;
+6. confirmar que o servidor retorna `claimed` no primeiro acesso ou `existing_admin` nos acessos seguintes;
+7. confirmar que o resumo administrativo carrega;
+8. confirmar no banco que existe pelo menos 1 admin ativo;
+9. somente então considerar o gate administrativo concluído.
 
 Se aparecer `not_reserved`, não insistir nem criar nova reserva automaticamente: o e-mail autenticado não corresponde à reserva atual.
 
