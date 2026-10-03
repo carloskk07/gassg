@@ -803,3 +803,29 @@ assert.match(canonicalAddressGuardV143,/v_status in \('settled','cancelled'\)[\s
 assert.match(canonicalAddressGuardV143,/create constraint trigger require_order_canonical_address_commit[\s\S]*deferrable initially deferred/,'guard precisa rodar no commit para permitir wrapper V7 atômico');
 
 console.log('Canonical address v1.43 contract passou.');
+
+
+const pilotActivationV144=fs.readFileSync(
+  new URL('../supabase/migrations/20261003060000_pilot_assisted_activation_v1_44.sql',import.meta.url),
+  'utf8'
+).replace(/--.*$/gm,'').replace(/\s+/g,' ').toLowerCase();
+
+assert.match(pilotActivationV144,/add column if not exists pilot_draft_id uuid[\s\S]*references public\.pilot_partner_drafts\(id\)/,'aplicação precisa registrar vínculo auditável ao staging');
+assert.match(pilotActivationV144,/create unique index if not exists merchant_applications_pilot_draft_unique_idx/,'um staging piloto não pode ser consumido por mais de uma aplicação');
+assert.match(pilotActivationV144,/create or replace function public\.admin_approve_pilot_application/,'conversão piloto precisa de autoridade SQL própria');
+assert.match(pilotActivationV144,/admin-ops:approve-pilot-application/,'conversão piloto precisa participar da idempotência administrativa central');
+assert.match(pilotActivationV144,/v_app\.status<>'pending'/,'somente aplicação ainda pendente pode consumir staging');
+assert.match(pilotActivationV144,/v_draft\.onboarding_status not in \('awaiting_legal_data','ready_for_review'\)/,'staging convertido ou cancelado não pode ser reutilizado');
+assert.match(pilotActivationV144,/v_draft\.price_status<>'confirmed'/,'condição comercial precisa estar confirmada antes de semear catálogo');
+assert.match(pilotActivationV144,/v_base:=public\.admin_approve_merchant_application/,'fluxo piloto deve reutilizar a aprovação jurídica normal na mesma transação');
+assert.match(pilotActivationV144,/v_merchant\.status<>'pending' or v_merchant\.online/,'vínculo piloto não pode sobrescrever revenda já operacional');
+assert.match(pilotActivationV144,/v_existing\.active[\s\S]*v_existing\.available_stock>0[\s\S]*v_existing\.price_confirmed_at is not null/,'staging não pode sobrescrever configuração operacional já confirmada');
+assert.match(pilotActivationV144,/available_stock,[\s\S]*active,[\s\S]*price_confirmed_at/,'seed de catálogo precisa declarar explicitamente estoque, ativo e freshness');
+assert.match(pilotActivationV144,/v_draft\.preferred_delivered_price_cents,[\s\S]*0,[\s\S]*false,[\s\S]*null/,'produto piloto deve nascer com preço conhecido, estoque zero, inativo e não confirmado operacionalmente');
+assert.match(pilotActivationV144,/pricing_mode,[\s\S]*min_price_cents,[\s\S]*max_price_cents,[\s\S]*pricing_strategy/,'seed deve preservar faixa e estratégia comercial confirmadas');
+assert.match(pilotActivationV144,/onboarding_status='converted'/,'staging precisa registrar conversão para merchant pendente');
+assert.match(pilotActivationV144,/catalogactive',false[\s\S]*stock',0[\s\S]*priceconfirmed',false/,'resultado administrativo precisa provar que catálogo ainda não está ofertável');
+assert.match(pilotActivationV144,/revoke all on function public\.admin_approve_pilot_application[\s\S]*from public, anon, authenticated/,'browser não pode executar conversão piloto diretamente');
+assert.match(pilotActivationV144,/grant execute on function public\.admin_approve_pilot_application[\s\S]*to service_role/,'somente backend pode converter staging piloto');
+
+console.log('Pilot assisted activation v1.44 contract passou.');
