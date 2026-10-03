@@ -451,6 +451,7 @@ function adminLaunchBlockerLabel(code){
     real_supply_required:'Criar e validar ao menos uma revenda real com catálogo elegível.',
     merchant_owner_required:'A revenda ativa precisa ter owner permanente e operacional.',
     merchant_payment_required:'A revenda precisa confirmar ao menos uma forma de pagamento.',
+    offerable_supply_required:'Pelo menos uma revenda precisa estar realmente ofertável agora: online, heartbeat fresco, área ativa, taxa e preço frescos, estoque disponível, owner e pagamento ativos.',
     live_portals_verification_required:'Publicar e verificar os três portais live com Turnstile real.'
   })[String(code||'')]||String(code||'Bloqueio desconhecido');
 }
@@ -462,12 +463,13 @@ function adminLaunchControl(readiness={}){
     ? new Date(readiness.portalsVerifiedAt).toLocaleString('pt-BR')
     : 'ainda não verificados';
   const sourceSha=String(readiness.portalsSourceSha||'');
-  return `<section class="section"><div class="section-head"><div><span class="section-kicker">GO-LIVE • AUTORIDADE SERVER-SIDE</span><h2>Lançamento do comércio real</h2><p>Pedidos reais permanecem bloqueados no banco até todos os gates passarem e um administrador abrir explicitamente o comércio.</p></div><span class="status-pill ${enabled?'online':'offline'}">${enabled?'COMÉRCIO ABERTO':'COMÉRCIO FECHADO'}</span></div>
+  return `<section class="section"><div class="section-head"><div><span class="section-kicker">GO-LIVE • AUTORIDADE SERVER-SIDE</span><h2>Lançamento do comércio real</h2><p>Pedidos reais permanecem bloqueados até existir não apenas cadastro, mas pelo menos uma revenda realmente capaz de receber uma oferta agora.</p></div><span class="status-pill ${enabled?'online':'offline'}">${enabled?'COMÉRCIO ABERTO':'COMÉRCIO FECHADO'}</span></div>
     <div class="merchant-kpis">
       <div class="kpi"><span class="label">Admins ativos</span><strong>${Number(readiness.activeAdminCount||0)}</strong></div>
       <div class="kpi"><span class="label">Revendas configuradas</span><strong>${Number(readiness.configuredMerchantCount||0)}</strong></div>
       <div class="kpi"><span class="label">Owner pronto</span><strong>${Number(readiness.ownerReadyMerchantCount||0)}</strong></div>
       <div class="kpi"><span class="label">Pagamento pronto</span><strong>${Number(readiness.paymentReadyMerchantCount||0)}</strong></div>
+      <div class="kpi"><span class="label">Ofertável agora</span><strong>${Number(readiness.offerReadyMerchantCount||0)}</strong><small>${readiness.availableNow?'há oferta real possível':'nenhuma oferta real possível'}</small></div>
       <div class="kpi"><span class="label">Portais</span><strong>${readiness.portalsFresh?'OK':'PENDENTE'}</strong><small>${esc(verifiedAt)}</small></div>
     </div>
     <div class="card flat form-stack" style="margin-top:12px">
