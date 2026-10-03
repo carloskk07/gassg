@@ -826,3 +826,30 @@ assert.match(secureAdminBootstrapV144,/revoke all on function public\.claim_rese
 assert.match(secureAdminBootstrapV144,/grant execute on function public\.claim_reserved_platform_admin\(uuid\)[\s\S]*to service_role/,'claim deve ser server-only');
 
 console.log('Secure admin bootstrap v1.44 contract passou.');
+
+
+const launchReadinessV146=fs.readFileSync(
+  new URL('../supabase/migrations/20261003114500_launch_readiness_v1_46.sql',import.meta.url),
+  'utf8'
+).replace(/--.*$/gm,'').replace(/\s+/g,' ').toLowerCase();
+
+assert.match(launchReadinessV146,/create table if not exists public\.platform_launch_control/,'go-live precisa de autoridade server-side própria');
+assert.match(launchReadinessV146,/commerce_enabled boolean not null default false/,'comércio deve nascer fail-closed');
+assert.match(launchReadinessV146,/alter table public\.platform_launch_control enable row level security/,'launch control precisa de RLS');
+assert.match(launchReadinessV146,/revoke all on table public\.platform_launch_control from public, anon, authenticated/,'browser não pode operar launch control diretamente');
+assert.match(launchReadinessV146,/create or replace function public\.platform_launch_readiness/,'readiness precisa ser calculada no banco');
+assert.match(launchReadinessV146,/v_active_admins>0[\s\S]*realSupplyConfigured[\s\S]*v_owner_ready>0[\s\S]*v_payment_ready>0/,'readiness precisa exigir admin, supply, owner e pagamento reais');
+assert.match(launchReadinessV146,/portals_verified_at>=statement_timestamp\(\)-interval '60 minutes'/,'atestado dos portais precisa expirar antes da abertura');
+assert.match(launchReadinessV146,/live_portals_verification_required/,'portais live precisam ser blocker explícito');
+assert.match(launchReadinessV146,/create or replace function public\.admin_launch_control_action/,'mutações de lançamento precisam de autoridade idempotente dedicada');
+assert.match(launchReadinessV146,/p_action not in \('record-portals','enable-commerce','disable-commerce'\)/,'superfície de launch deve ser fechada e enumerada');
+assert.match(launchReadinessV146,/action_requests[\s\S]*admin-launch:/,'mutações de launch precisam reutilizar ledger de idempotência');
+assert.match(launchReadinessV146,/if not coalesce\(\(v_readiness->>'readytoenable'\)::boolean,false\)[\s\S]*launch_not_ready/,'abertura precisa falhar se qualquer gate estiver pendente');
+assert.match(launchReadinessV146,/create trigger require_commerce_enabled_before_order_insert[\s\S]*before insert on public\.orders/,'kill switch precisa bloquear insert mesmo fora da Edge Function');
+assert.match(launchReadinessV146,/raise exception 'commerce_not_enabled'/,'banco precisa produzir erro canônico quando comércio estiver fechado');
+assert.match(launchReadinessV146,/create or replace function public\.create_order_from_quote_v8/,'checkout precisa de wrapper V8 consciente do lançamento');
+assert.match(launchReadinessV146,/return public\.create_order_from_quote_v7/,'V8 deve preservar toda autoridade de endereço, pagamento e contato V7');
+assert.match(launchReadinessV146,/revoke all on function public\.create_order_from_quote_v8[\s\S]*from public, anon, authenticated/,'V8 deve permanecer fora do Data API do browser');
+assert.match(launchReadinessV146,/grant execute on function public\.create_order_from_quote_v8[\s\S]*to service_role/,'somente backend pode executar checkout V8');
+
+console.log('Launch readiness v1.46 contract passou.');
