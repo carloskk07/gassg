@@ -72,7 +72,7 @@ Deno.serve(async(req:Request)=>{
     await enforceApiQuota(admin,{userId:user.id,actionName:"merchant-orders",limit:120,windowSeconds:60});
     const {data:memberships,error:membershipError}=await admin
       .from("merchant_members")
-      .select("merchant_id,member_role,active")
+      .select("merchant_id,member_role,display_name,active")
       .eq("user_id",user.id)
       .eq("active",true);
     if(membershipError)throw membershipError;
@@ -80,6 +80,97 @@ Deno.serve(async(req:Request)=>{
 
     const selected=selectMerchantMembership(memberships,requestedMerchantId);
     if(!selected)return json({error:"MERCHANT_ACCESS_DENIED",message:"Você não possui acesso a esta revenda."},403,origin);
+
+    if(selected.member_role==="driver"){
+      const {data:merchant,error:merchantError}=await admin
+        .from("merchants")
+        .select("id,name,status,base_eta_minutes,last_seen_at")
+        .eq("id",selected.merchant_id)
+        .maybeSingle();
+      if(merchantError)throw merchantError;
+      if(!merchant)return json({error:"MERCHANT_NOT_FOUND"},404,origin);
+
+      const {data:driverOrders,error:driverOrdersError}=await admin
+        .from("orders")
+        .select("id,public_code,status,address_text,payment_method,cash_tender_cents,gross_total_cents,cashback_reserved_cents,total_cents,delivery_window_start,delivery_window_end,supplier_name_snapshot,risk_reason,dispatch_due_at,dispatched_at,arriving_at,promised_by,pin_failures,version,assigned_delivery_user_id,delivery_assigned_at,delivery_assigned_by,created_at,updated_at")
+        .eq("merchant_id",selected.merchant_id)
+        .eq("assigned_delivery_user_id",user.id)
+        .in("status",["PREPARING","AT_RISK","OUT_FOR_DELIVERY","ARRIVING"])
+        .order("created_at",{ascending:true})
+        .limit(100);
+      if(driverOrdersError)throw driverOrdersError;
+
+      const driverIds=(driverOrders??[]).map((o)=>o.id);
+      let driverItems:any[]=[];
+      if(driverIds.length){
+        const {data,error}=await admin
+          .from("order_items")
+          .select("order_id,product_code,product_name,quantity,unit_price_cents,line_total_cents")
+          .in("order_id",driverIds)
+          .order("product_code");
+        if(error)throw error;
+        driverItems=data??[];
+      }
+      const driverByOrder=new Map<string,any[]>();
+      for(const item of driverItems){
+        if(!driverByOrder.has(item.order_id))driverByOrder.set(item.order_id,[]);
+        driverByOrder.get(item.order_id)!.push({
+          productCode:item.product_code,
+          productName:item.product_name,
+          quantity:item.quantity,
+          unitPriceCents:item.unit_price_cents,
+          lineTotalCents:item.line_total_cents
+        });
+      }
+
+      return json({
+        merchant:{
+          merchantId:merchant.id,
+          name:merchant.name,
+          memberRole:"driver",
+          memberDisplayName:selected.display_name??null,
+          status:merchant.status,
+          baseEtaMinutes:Number(merchant.base_eta_minutes??30),
+          lastSeenAt:merchant.last_seen_at
+        },
+        memberships:[{
+          merchantId:merchant.id,
+          memberRole:"driver",
+          name:merchant.name
+        }],
+        deliveryTeam:[],
+        catalog:[],
+        orders:(driverOrders??[]).map((o)=>({
+          orderId:o.id,
+          publicCode:o.public_code,
+          status:o.status,
+          address:o.address_text,
+          addressVisible:true,
+          paymentMethod:o.payment_method,
+          cashTenderCents:o.cash_tender_cents,
+          deliveryWindowStart:o.delivery_window_start,
+          deliveryWindowEnd:o.delivery_window_end,
+          grossTotalCents:o.gross_total_cents,
+          cashbackReservedCents:o.cashback_reserved_cents,
+          totalCents:o.total_cents,
+          supplierName:o.supplier_name_snapshot,
+          riskReason:o.risk_reason,
+          dispatchDueAt:o.dispatch_due_at,
+          dispatchedAt:o.dispatched_at,
+          arrivingAt:o.arriving_at,
+          promisedBy:o.promised_by,
+          pinFailures:o.pin_failures,
+          version:o.version,
+          assignedDeliveryUserId:o.assigned_delivery_user_id,
+          deliveryAssignedAt:o.delivery_assigned_at,
+          deliveryAssignedBy:o.delivery_assigned_by,
+          items:driverByOrder.get(o.id)??[],
+          createdAt:o.created_at,
+          updatedAt:o.updated_at
+        }))
+      },200,origin);
+    }
+
     if(!isOperationalMerchantRole(selected.member_role)){
       return json({error:"MERCHANT_ROLE_NOT_ENABLED",message:"Este papel ainda não possui painel operacional no piloto."},403,origin);
     }
@@ -134,7 +225,7 @@ Deno.serve(async(req:Request)=>{
 
     const {data:orders,error:ordersError}=await admin
       .from("orders")
-      .select("id,public_code,status,address_text,payment_method,cash_tender_cents,gross_total_cents,cashback_reserved_cents,total_cents,delivery_window_start,delivery_window_end,comparison_savings_cents,supplier_name_snapshot,risk_reason,offer_expires_at,accepted_at,dispatch_due_at,dispatched_at,arriving_at,promised_by,pin_failures,version,created_at,updated_at")
+      .select("id,public_code,status,address_text,payment_method,cash_tender_cents,gross_total_cents,cashback_reserved_cents,total_cents,delivery_window_start,delivery_window_end,comparison_savings_cents,supplier_name_snapshot,risk_reason,offer_expires_at,accepted_at,dispatch_due_at,dispatched_at,arriving_at,promised_by,pin_failures,version,assigned_delivery_user_id,delivery_assigned_at,delivery_assigned_by,created_at,updated_at")
       .eq("merchant_id",selected.merchant_id)
       .in("status",ACTIVE_STATUSES)
       .order("created_at",{ascending:true})
@@ -171,6 +262,21 @@ Deno.serve(async(req:Request)=>{
         paymentMethods[row.payment_method as keyof typeof paymentMethods]=row.active===true;
       }
     }
+
+    const {data:deliveryMembers,error:deliveryMembersError}=await admin
+      .from("merchant_members")
+      .select("user_id,member_role,display_name,created_at")
+      .eq("merchant_id",selected.merchant_id)
+      .eq("active",true)
+      .in("member_role",["owner","manager","operator","driver"])
+      .order("created_at",{ascending:true});
+    if(deliveryMembersError)throw deliveryMembersError;
+    const deliveryTeam=(deliveryMembers??[]).map((member,index)=>({
+      userId:member.user_id,
+      memberRole:member.member_role,
+      displayName:member.display_name
+        ??(`${member.member_role==="driver"?"Entregador":"Membro"} ${index+1} • ${String(member.user_id).slice(-6).toUpperCase()}`)
+    }));
 
     const byOrder=new Map<string,any[]>();
     for(const item of items){
@@ -226,6 +332,7 @@ Deno.serve(async(req:Request)=>{
           memberRole:m.member_role,
           name:merchantNames.get(m.merchant_id)??"Revenda"
         })),
+      deliveryTeam,
       catalog:(catalog??[]).map((item)=>({
         productCode:item.product_code,
         productName:item.product_name,
@@ -263,6 +370,9 @@ Deno.serve(async(req:Request)=>{
         promisedBy:o.promised_by,
         pinFailures:o.pin_failures,
         version:o.version,
+        assignedDeliveryUserId:o.assigned_delivery_user_id,
+        deliveryAssignedAt:o.delivery_assigned_at,
+        deliveryAssignedBy:o.delivery_assigned_by,
         items:byOrder.get(o.id)??[],
         createdAt:o.created_at,
         updatedAt:o.updated_at
