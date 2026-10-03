@@ -1358,3 +1358,12 @@ A publicação passa a possuir modos explícitos em vez de depender de edição 
 O Cloudflare build gera `_headers` com CSP por resposta, proteção contra framing, `nosniff`, Referrer-Policy, Permissions-Policy e cache fail-safe para HTML, service worker e runtime config.
 
 O CI constrói e valida os modos de pré-lançamento e indexável e prova que runtime real sem configuração obrigatória falha.
+
+
+## V1.53 — Prelaunch conversion UX
+
+A auditoria de conversão encontrou dois atritos de pré-lançamento: o switcher de revenda podia tentar abrir um portal ainda sem origem configurada e a navegação mobile mantinha ações de pós-compra antes de existirem pedidos reais.
+
+A V1.53 corrige ambos de forma contextual. Durante o pré-lançamento público, os caminhos principais são **lista de abertura, entendimento, parceria e contato**. Quando a operação real estiver disponível, a navegação operacional volta automaticamente.
+
+A home também passa a declarar a situação atual sem métricas inventadas: São Gabriel como praça inicial, primeiro parceiro piloto ainda em preparação e cadastro sem pedido/cobrança.
