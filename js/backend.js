@@ -656,7 +656,11 @@ async function liveUpgradeAccount(email){
     save();
     return {alreadyPermanent:true};
   }
-  const {data,error}=await liveRuntime.client.auth.updateUser({email:value});
+  const emailRedirectTo=new URL('/',location.origin).toString();
+  const {data,error}=await liveRuntime.client.auth.updateUser(
+    {email:value},
+    {emailRedirectTo}
+  );
   if(error)throw error;
   liveRuntime.identityUpgradePending=value;
   return {pending:true,email:value,user:data?.user??null};
@@ -997,9 +1001,11 @@ async function merchantSendLogin(email){
   if(!merchantRuntime.client)await merchantBackendInit();
   const value=String(email||'').trim().toLowerCase();
   if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value))throw new Error('Informe um e-mail válido');
-  const redirect=new URL(location.origin+location.pathname);
-  redirect.searchParams.set('merchant','1');
-  redirect.hash='merchant';
+  const redirect=new URL('/',location.origin);
+  if(String(globalThis.CHAMA_PORTAL_ROLE||'').trim().toLowerCase()!=='merchant'){
+    redirect.searchParams.set('merchant','1');
+    redirect.hash='merchant';
+  }
   if(!globalThis.chamaTurnstile?.challenge)throw new Error('Proteção anti-bot indisponível');
   const captchaToken=await globalThis.chamaTurnstile.challenge('merchant_login');
   const {error}=await merchantRuntime.client.auth.signInWithOtp({
