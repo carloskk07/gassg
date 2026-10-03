@@ -101,7 +101,7 @@ Deno.serve(async(req:Request)=>{
 
       const {data:driverOrders,error:driverOrdersError}=await admin
         .from("orders")
-        .select("id,public_code,status,address_text,customer_phone_digits,address_complement,delivery_reference,delivery_notes,payment_method,cash_tender_cents,gross_total_cents,cashback_reserved_cents,total_cents,delivery_window_start,delivery_window_end,supplier_name_snapshot,risk_reason,dispatch_due_at,dispatched_at,arriving_at,promised_by,pin_failures,version,assigned_delivery_user_id,delivery_assigned_at,delivery_assigned_by,created_at,updated_at")
+        .select("id,public_code,status,address_text,postal_code,customer_phone_digits,address_complement,delivery_reference,delivery_notes,payment_method,cash_tender_cents,gross_total_cents,cashback_reserved_cents,total_cents,delivery_window_start,delivery_window_end,supplier_name_snapshot,risk_reason,dispatch_due_at,dispatched_at,arriving_at,promised_by,pin_failures,version,assigned_delivery_user_id,delivery_assigned_at,delivery_assigned_by,created_at,updated_at")
         .eq("merchant_id",selected.merchant_id)
         .eq("assigned_delivery_user_id",user.id)
         .in("status",["PREPARING","AT_RISK","OUT_FOR_DELIVERY","ARRIVING"])
@@ -154,6 +154,7 @@ Deno.serve(async(req:Request)=>{
           publicCode:o.public_code,
           status:o.status,
           address:o.address_text,
+          postalCode:o.postal_code,
           addressVisible:true,
           deliveryDetailsVisible:true,
           customerPhone:o.customer_phone_digits,
@@ -239,7 +240,7 @@ Deno.serve(async(req:Request)=>{
 
     const {data:orders,error:ordersError}=await admin
       .from("orders")
-      .select("id,public_code,status,address_text,customer_phone_digits,address_complement,delivery_reference,delivery_notes,payment_method,cash_tender_cents,gross_total_cents,cashback_reserved_cents,total_cents,delivery_window_start,delivery_window_end,comparison_savings_cents,supplier_name_snapshot,risk_reason,offer_expires_at,accepted_at,dispatch_due_at,dispatched_at,arriving_at,promised_by,pin_failures,version,assigned_delivery_user_id,delivery_assigned_at,delivery_assigned_by,created_at,updated_at")
+      .select("id,public_code,status,address_text,postal_code,customer_phone_digits,address_complement,delivery_reference,delivery_notes,payment_method,cash_tender_cents,gross_total_cents,cashback_reserved_cents,total_cents,delivery_window_start,delivery_window_end,comparison_savings_cents,supplier_name_snapshot,risk_reason,offer_expires_at,accepted_at,dispatch_due_at,dispatched_at,arriving_at,promised_by,pin_failures,version,assigned_delivery_user_id,delivery_assigned_at,delivery_assigned_by,created_at,updated_at")
       .eq("merchant_id",selected.merchant_id)
       .in("status",ACTIVE_STATUSES)
       .order("created_at",{ascending:true})
@@ -365,6 +366,7 @@ Deno.serve(async(req:Request)=>{
         publicCode:o.public_code,
         status:o.status,
         address:o.status==="OFFERED_TO_MERCHANT"?null:o.address_text,
+        postalCode:o.status==="OFFERED_TO_MERCHANT"?null:o.postal_code,
         addressVisible:o.status!=="OFFERED_TO_MERCHANT",
         deliveryDetailsVisible:o.status!=="OFFERED_TO_MERCHANT",
         customerPhone:o.status==="OFFERED_TO_MERCHANT"?null:o.customer_phone_digits,

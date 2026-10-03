@@ -65,7 +65,9 @@ function mapRpcError(error: { message?: string; code?: string } | null) {
     INVALID_CUSTOMER_PHONE: { status: 400, message: "Informe um telefone válido com DDD." },
     INVALID_ADDRESS_COMPLEMENT: { status: 400, message: "Complemento de endereço inválido." },
     INVALID_DELIVERY_REFERENCE: { status: 400, message: "Referência de entrega inválida." },
-    INVALID_DELIVERY_NOTES: { status: 400, message: "Instruções de entrega inválidas." }
+    INVALID_DELIVERY_NOTES: { status: 400, message: "Instruções de entrega inválidas." },
+    POSTAL_CODE_UNVERIFIED: { status: 409, message: "A validação do CEP desta oferta expirou. Atualize as opções antes de pedir." },
+    POSTAL_CODE_OUTSIDE_SERVICE_AREA: { status: 409, message: "Este CEP não pertence mais à área atendida." }
   };
 
   for (const [code, meta] of Object.entries(known)) {
@@ -171,7 +173,7 @@ Deno.serve(async (req: Request) => {
     });
     await enforceApiQuota(admin,{userId:user.id,actionName:"create-order",limit:12,windowSeconds:600});
 
-    const { data, error } = await admin.rpc("create_order_from_quote_v5", {
+    const { data, error } = await admin.rpc("create_order_from_quote_v6", {
       p_user_id: user.id,
       p_quote_id: quoteId,
       p_payment_method: paymentMethod,

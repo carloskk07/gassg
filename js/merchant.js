@@ -302,7 +302,7 @@ function merchantLiveOrder(o){
     ? `<div class="form-stack" style="margin-top:10px"><div class="input-wrap"><label for="delivery-${o.orderId}">Responsável pela entrega</label><select id="delivery-${o.orderId}" class="input"><option value="">Escolher responsável</option>${deliveryTeam.map(member=>`<option value="${esc(member.userId)}" ${member.userId===o.assignedDeliveryUserId?'selected':''}>${esc(member.displayName)} • ${esc(member.memberRole)}</option>`).join('')}</select></div><button class="secondary small" onclick="merchantLiveAssignDelivery('${o.orderId}')">${o.assignedDeliveryUserId?'Alterar responsável':'Atribuir entrega'}</button></div>`
     : '';
   const deliveryContact=o.deliveryDetailsVisible
-    ? `<div class="notice" style="margin-top:10px"><strong>Dados para entrega</strong><br>${o.customerPhone?`Telefone: <a href="tel:${esc(String(o.customerPhone))}">${esc(merchantFormatPhone(o.customerPhone))}</a>`:'Telefone não informado'}${o.addressComplement?`<br>Complemento: ${esc(o.addressComplement)}`:''}${o.deliveryReference?`<br>Referência: ${esc(o.deliveryReference)}`:''}${o.deliveryNotes?`<br>Instruções: ${esc(o.deliveryNotes)}`:''}</div>`
+    ? `<div class="notice" style="margin-top:10px"><strong>Dados para entrega</strong>${o.postalCode?`<br>CEP: ${esc(String(o.postalCode).replace(/^(\d{5})(\d{3})$/,'$1-$2'))}`:''}<br>${o.customerPhone?`Telefone: <a href="tel:${esc(String(o.customerPhone))}">${esc(merchantFormatPhone(o.customerPhone))}</a>`:'Telefone não informado'}${o.addressComplement?`<br>Complemento: ${esc(o.addressComplement)}`:''}${o.deliveryReference?`<br>Referência: ${esc(o.deliveryReference)}`:''}${o.deliveryNotes?`<br>Instruções: ${esc(o.deliveryNotes)}`:''}</div>`
     : '';
   let actions='';
 
