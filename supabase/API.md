@@ -1,4 +1,4 @@
-# Chama — Edge Function contract v1.7.2
+# TAMÃO — Edge Function contract v1.7.2
 
 O browser usa publishable key + JWT. Dados reais da aplicação não são lidos/escritos diretamente pelo Data API.
 
