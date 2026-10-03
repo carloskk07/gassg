@@ -119,4 +119,15 @@ Uma campanha com menos leads pode ser comercialmente melhor se entregar maior qu
 
 Os agregados são calculados server-side sobre a base completa; a lista visual recente do admin não é usada como denominador das taxas.
 
-Pageviews e pixels publicitários ficam para uma etapa posterior, somente depois da política de privacidade e consentimento técnico serem atualizados se necessário.
+O TAMÃO agora mede **entradas de campanha e visualizações do formulário com analytics first-party agregado**, sem Meta Pixel ou Google Analytics. O admin consegue calcular entrada → formulário → lead → qualificação → conversão por source / medium / campaign / content.
+
+Essa medição:
+- funciona apenas no domínio oficial durante o pré-lançamento;
+- não roda em localhost, GitHub Pages ou previews;
+- não cria cookie publicitário nem identificador analítico persistente;
+- usa sessionStorage somente para evitar contagem repetida na mesma aba;
+- envia apenas UTM, rota sem query e domínio de referência;
+- consolida os eventos em contadores diários;
+- não grava IP bruto na tabela analítica.
+
+Pixels publicitários de terceiros continuam fora desta fase. Qualquer adoção futura exigirá nova revisão de privacidade, consentimento e governança.
