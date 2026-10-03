@@ -70,6 +70,15 @@ Deno.serve(async(req:Request)=>{
 
     const admin=createClient(SUPABASE_URL,SECRET_KEY,{auth:{persistSession:false,autoRefreshToken:false}});
     await enforceApiQuota(admin,{userId:user.id,actionName:"merchant-orders",limit:120,windowSeconds:60});
+
+    const {error:claimInviteError}=await admin.rpc("claim_merchant_team_invites",{
+      p_user_id:user.id
+    });
+    if(claimInviteError){
+      console.error("merchant team invite claim failed",String(claimInviteError.message??"claim_failed"));
+      throw new DomainError("TEAM_INVITE_CLAIM_FAILED","Não foi possível validar os convites desta conta.",503);
+    }
+
     const {data:memberships,error:membershipError}=await admin
       .from("merchant_members")
       .select("merchant_id,member_role,display_name,active")
