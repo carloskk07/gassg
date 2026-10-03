@@ -261,6 +261,13 @@ function merchantScheduledDispatchState(o){
   };
 }
 
+function merchantFormatPhone(value){
+  const d=String(value||'').replace(/\D/g,'').slice(0,11);
+  if(d.length===10)return '('+d.slice(0,2)+') '+d.slice(2,6)+'-'+d.slice(6);
+  if(d.length===11)return '('+d.slice(0,2)+') '+d.slice(2,7)+'-'+d.slice(7);
+  return d;
+}
+
 function merchantLiveOrder(o){
   const items=(o.items||[]).map(i=>`${Number(i.quantity)}× ${esc(i.productName||i.productCode||'Item')}`).join(' • ');
   const total=BRL.format(Number(o.totalCents||0)/100);
@@ -274,6 +281,9 @@ function merchantLiveOrder(o){
     : '';
   const assignmentControl=canAssignDelivery&&['PREPARING','AT_RISK'].includes(o.status)&&deliveryTeam.length
     ? `<div class="form-stack" style="margin-top:10px"><div class="input-wrap"><label for="delivery-${o.orderId}">Responsável pela entrega</label><select id="delivery-${o.orderId}" class="input"><option value="">Escolher responsável</option>${deliveryTeam.map(member=>`<option value="${esc(member.userId)}" ${member.userId===o.assignedDeliveryUserId?'selected':''}>${esc(member.displayName)} • ${esc(member.memberRole)}</option>`).join('')}</select></div><button class="secondary small" onclick="merchantLiveAssignDelivery('${o.orderId}')">${o.assignedDeliveryUserId?'Alterar responsável':'Atribuir entrega'}</button></div>`
+    : '';
+  const deliveryContact=o.deliveryDetailsVisible
+    ? `<div class="notice" style="margin-top:10px"><strong>Dados para entrega</strong><br>${o.customerPhone?`Telefone: <a href="tel:${esc(String(o.customerPhone))}">${esc(merchantFormatPhone(o.customerPhone))}</a>`:'Telefone não informado'}${o.addressComplement?`<br>Complemento: ${esc(o.addressComplement)}`:''}${o.deliveryReference?`<br>Referência: ${esc(o.deliveryReference)}`:''}${o.deliveryNotes?`<br>Instruções: ${esc(o.deliveryNotes)}`:''}</div>`
     : '';
   let actions='';
 
@@ -295,6 +305,7 @@ function merchantLiveOrder(o){
   return `<article class="order-card ${o.status==='OFFERED_TO_MERCHANT'?'new':''}">
     <div class="order-head"><div><div class="order-id">${esc(o.publicCode||o.orderId)}</div><div class="order-line">${items||'Itens do pedido'}</div></div><div style="text-align:right"><strong>${total}</strong><div class="tiny muted">${esc(copy[0])}</div></div></div>
     <div class="order-line">${address}</div><div class="order-line">Pagamento: ${esc(paymentLabel(o.paymentMethod))}</div>${o.paymentMethod==='cash'&&o.cashTenderCents?`<div class="order-line"><strong>Troco para: ${BRL.format(Number(o.cashTenderCents)/100)}</strong></div>`:''}${o.deliveryWindowStart?`<div class="notice success" style="margin-top:10px"><strong>Entrega agendada</strong><br>${esc(formatDeliveryWindow(o.deliveryWindowStart,o.deliveryWindowEnd))}</div>`:''}
+    ${deliveryContact}
     ${assignedLabel?`<div class="notice success" style="margin-top:10px"><strong>Responsável pela entrega:</strong> ${esc(assignedLabel)}</div>`:''}
     ${assignmentControl}
     ${o.riskReason?`<div class="notice danger" style="margin-top:10px">${esc(o.riskReason)}</div>`:''}

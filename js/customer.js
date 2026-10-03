@@ -360,6 +360,15 @@ function orderPage(){
 ${liveNotice}
 ${pendingOrder?`<div class="notice" style="margin-bottom:14px"><strong>Você já possui um pedido em andamento.</strong><br>Conclua ou cancele o pedido ${esc(pendingOrder.publicCode||pendingOrder.id)} antes de criar outro.<br><button class="ghost small" onclick="go('tracking')">Acompanhar pedido →</button></div>`:''}
 <div class="card flat form-stack order-address-card"><div class="input-wrap"><label for="address">Endereço de entrega</label><input id="address" class="input" autocomplete="street-address" maxlength="160" placeholder="Ex.: Rua General Câmara, 123" value="${esc(state.address||'')}"></div><button class="primary" onclick="setAddress()">${hasAddress?'Atualizar endereço':'Usar este endereço'}</button><small class="field-help">Usamos o endereço para procurar quem consegue atender sua cesta.</small></div>
+${hasAddress?`<div class="card flat form-stack" style="margin-top:12px">
+  <h3>Dados para a entrega</h3>
+  <div class="input-wrap"><label for="delivery-phone">Telefone com DDD</label><input id="delivery-phone" class="input" type="tel" inputmode="tel" autocomplete="tel" maxlength="18" placeholder="Ex.: (55) 99999-1234" value="${esc(formatDeliveryPhone(state.checkout.customerPhoneDigits))}" onchange="deliveryDetailsChanged()"><small class="field-help">Obrigatório somente para concluir um pedido real. A revenda recebe o contato apenas depois de aceitar.</small></div>
+  <div class="field-row">
+    <div class="input-wrap"><label for="address-complement">Complemento</label><input id="address-complement" class="input" maxlength="120" placeholder="Ex.: casa dos fundos, ap. 202" value="${esc(state.checkout.addressComplement||'')}" onchange="deliveryDetailsChanged()"></div>
+    <div class="input-wrap"><label for="delivery-reference">Ponto de referência</label><input id="delivery-reference" class="input" maxlength="160" placeholder="Ex.: ao lado da farmácia" value="${esc(state.checkout.deliveryReference||'')}" onchange="deliveryDetailsChanged()"></div>
+  </div>
+  <div class="input-wrap"><label for="delivery-notes">Instruções para a entrega</label><textarea id="delivery-notes" class="input" maxlength="240" rows="2" placeholder="Ex.: chamar no portão; cachorro no pátio." onchange="deliveryDetailsChanged()">${esc(state.checkout.deliveryNotes||'')}</textarea><small class="field-help">Evite dados desnecessários. Essas informações ficam vinculadas ao pedido para a operação responsável.</small></div>
+</div>`:''}
 <section class="section"><div class="section-head"><div><h2>Sua cesta</h2><p>Adicione somente o que você precisa. Gás não é obrigatório para comprar os demais itens.</p></div></div><div class="card flat">${Object.entries(products).filter(([,p])=>p.hidden!==true).map(([k,p])=>cartRow(k,p)).join('')}</div></section>
 ${deliveryScheduleBlock()}
 ${containerBlock}
@@ -406,6 +415,34 @@ async function setAddress(){
   render();
   setTimeout(()=>document.querySelector('.offer-stack')?.scrollIntoView({behavior:'smooth'}),100);
 }
+function formatDeliveryPhone(value){
+  const d=String(value||'').replace(/\D/g,'').slice(0,11);
+  if(d.length<=2)return d;
+  if(d.length<=6)return '('+d.slice(0,2)+') '+d.slice(2);
+  if(d.length<=10)return '('+d.slice(0,2)+') '+d.slice(2,6)+'-'+d.slice(6);
+  return '('+d.slice(0,2)+') '+d.slice(2,7)+'-'+d.slice(7);
+}
+function syncDeliveryDetailsFromUi({requirePhone=false}={}){
+  const phoneDigits=String(document.getElementById('delivery-phone')?.value??state.checkout.customerPhoneDigits??'').replace(/\D/g,'').slice(0,11);
+  const complement=String(document.getElementById('address-complement')?.value??state.checkout.addressComplement??'').trim().replace(/\s+/g,' ').slice(0,120);
+  const reference=String(document.getElementById('delivery-reference')?.value??state.checkout.deliveryReference??'').trim().replace(/\s+/g,' ').slice(0,160);
+  const notes=String(document.getElementById('delivery-notes')?.value??state.checkout.deliveryNotes??'').trim().replace(/\s+/g,' ').slice(0,240);
+  if(requirePhone&&!/^[0-9]{10,11}$/.test(phoneDigits)){
+    document.getElementById('delivery-phone')?.focus();
+    toast('Informe um telefone válido com DDD para a entrega');
+    return false;
+  }
+  state.checkout.customerPhoneDigits=phoneDigits;
+  state.checkout.addressComplement=complement;
+  state.checkout.deliveryReference=reference;
+  state.checkout.deliveryNotes=notes;
+  save();
+  return true;
+}
+function deliveryDetailsChanged(){
+  syncDeliveryDetailsFromUi();
+}
+
 function qty(k,d){
   setCartProduct(k,(state.cart[k]||0)+d);
   if(globalThis.liveRequested?.()){
@@ -440,6 +477,7 @@ function setCashTender(value){
 function toggleCashback(v){state.checkout.useCashback=Boolean(v);save();render()}
 
 async function checkout(mid){
+  if(globalThis.liveRequested?.()&&!syncDeliveryDetailsFromUi({requirePhone:true}))return;
   const selected=(globalThis.liveRuntime?.offers||[]).find(o=>o.id===mid||o.quoteId===mid);
   if(state.checkout.paymentMethod==='cash'&&state.checkout.cashTenderCents&&selected){
     const discount=state.checkout.useCashback?Math.min(state.user.cashback,selected.total):0;
@@ -537,6 +575,9 @@ function liveTracking(){
   const comparisonNotice=Number(o.comparisonSavingsCents||0)>0
     ? `<div class="notice" style="margin-top:12px"><strong>Economia nesta comparação: ${BRL.format(Number(o.comparisonSavingsCents)/100)}</strong><br>Diferença entre a opção escolhida e a opção mais cara que foi realmente exibida na consulta que originou este pedido.</div>`
     : '';
+  const deliveryDetailsNotice=o.customerPhone
+    ? `<div class="notice" style="margin-top:12px"><strong>Dados de entrega confirmados.</strong><br>Telefone: ${esc(formatDeliveryPhone(o.customerPhone))}${o.addressComplement?` • Complemento: ${esc(o.addressComplement)}`:''}${o.deliveryReference?`<br>Referência: ${esc(o.deliveryReference)}`:''}${o.deliveryNotes?`<br>Instruções: ${esc(o.deliveryNotes)}`:''}</div>`
+    : '';
   const deliveryResponsibilityNotice=o.hasAssignedDelivery&&['PREPARING','AT_RISK'].includes(o.status)
     ? '<div class="notice success" style="margin-top:12px"><strong>Responsável pela entrega definido.</strong><br>A revenda já vinculou um membro da operação a este pedido. Seus dados pessoais não são expostos aqui.</div>'
     : '';
@@ -550,6 +591,7 @@ function liveTracking(){
 <div class="list-row"><span>Pagamento</span><strong>${paymentLabel(o.paymentMethod)}</strong></div>
 ${scheduleNotice}
 ${comparisonNotice}
+${deliveryDetailsNotice}
 ${deliveryResponsibilityNotice}
 ${o.paymentMethod==='cash'&&o.cashTenderCents?`<div class="list-row"><span>Troco para</span><strong>${BRL.format(Number(o.cashTenderCents)/100)}</strong></div>`:''}
 ${items?'<div class="divider"></div>'+items:''}</div>
