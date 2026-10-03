@@ -96,7 +96,7 @@ assert.ok(growth.includes('Saque Pix ainda não disponível')&&growth.includes('
 assert.ok(growth.includes('Você continua no controle'),'landing de revenda deve enfatizar autonomia operacional');
 assert.ok(core.includes("['earn','💰','Ganhe','go']"),'navegação móvel precisa dar acesso direto ao hub de renda');
 assert.ok(!growth.includes('inputmode="numeric" maxlength="18"'),'campo CNPJ não pode forçar teclado somente numérico após adoção do CNPJ alfanumérico');
-assert.ok(sw.includes("CACHE='chama-sg-v1.40'"),'cache do service worker precisa estar versionado');
+assert.ok(sw.includes("CACHE='chama-sg-v1.41'"),'cache do service worker precisa estar versionado');
 assert.ok(sw.includes("./js/backend.js"),'runtime live precisa estar no cache da PWA');
 assert.ok(sw.includes("./js/runtime-config.js"),'configuração pública de origins precisa estar no cache da PWA');
 assert.ok(sw.includes("./js/turnstile.js"),'helper local do Turnstile precisa estar no cache da PWA');
@@ -424,6 +424,8 @@ assert.ok(core.includes("memberRole==='driver'")&&core.includes("['merchant','�
 assert.ok(getOrderSource.includes('deliveryDetailsVisible=role==="customer"||order.status!=="OFFERED_TO_MERCHANT"'),'pedido individual deve esconder detalhes de entrega da revenda antes do aceite');
 assert.ok(merchantOrdersSource.includes('customerPhone:o.status==="OFFERED_TO_MERCHANT"?null:o.customer_phone_digits'),'feed da revenda deve ocultar telefone antes do aceite');
 assert.ok(merchant.includes('Dados para entrega')&&merchant.includes('href="tel:'),'painel operacional deve exibir contato acionável somente quando projetado pelo backend');
+assert.ok(getOrderSource.includes('delivery_pii_redacted_at')&&getOrderSource.includes('deliveryDataRedacted'),'projeção do pedido precisa informar minimização de dados sem expor política interna');
+assert.ok(customer.includes('Dados operacionais de entrega removidos.')&&customer.includes('histórico do pedido, itens, valores e eventos continua disponível'),'cliente precisa entender o que foi removido e o que foi preservado');
 assert.ok(getOrderSource.includes('financial_state'),'projeção do pedido precisa expor estado financeiro seguro');
 assert.ok(customer.includes('Liquidação financeira revertida'),'cliente precisa ver quando benefícios de pedido entregue foram revertidos');
 assert.ok(read('supabase/functions/customer-summary/index.ts').includes('reversedOrders'),'resumo do cliente precisa conhecer settlements revertidos');

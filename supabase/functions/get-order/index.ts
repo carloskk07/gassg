@@ -73,7 +73,7 @@ Deno.serve(async(req:Request)=>{
     await enforceApiQuota(admin,{userId:user.id,actionName:"get-order",limit:120,windowSeconds:60});
     const {data:order,error:orderError}=await admin
       .from("orders")
-      .select("id,public_code,customer_id,merchant_id,status,financial_state,financial_reversed_at,financial_reversal_reason,address_text,customer_phone_digits,address_complement,delivery_reference,delivery_notes,payment_method,cash_tender_cents,gross_total_cents,cashback_reserved_cents,total_cents,proposed_total_cents,delivery_window_start,delivery_window_end,comparison_selected_total_cents,comparison_reference_cents,comparison_savings_cents,supplier_name_snapshot,risk_reason,offer_expires_at,accepted_at,dispatch_due_at,dispatched_at,arriving_at,promised_by,delivered_at,settled_at,payment_confirmed_at,pin_failures,version,assigned_delivery_user_id,delivery_assigned_at,delivery_assigned_by,created_at,updated_at")
+      .select("id,public_code,customer_id,merchant_id,status,financial_state,financial_reversed_at,financial_reversal_reason,address_text,customer_phone_digits,address_complement,delivery_reference,delivery_notes,delivery_pii_redacted_at,payment_method,cash_tender_cents,gross_total_cents,cashback_reserved_cents,total_cents,proposed_total_cents,delivery_window_start,delivery_window_end,comparison_selected_total_cents,comparison_reference_cents,comparison_savings_cents,supplier_name_snapshot,risk_reason,offer_expires_at,accepted_at,dispatch_due_at,dispatched_at,arriving_at,promised_by,delivered_at,settled_at,payment_confirmed_at,pin_failures,version,assigned_delivery_user_id,delivery_assigned_at,delivery_assigned_by,created_at,updated_at")
       .eq("id",orderId)
       .maybeSingle();
 
@@ -193,6 +193,8 @@ Deno.serve(async(req:Request)=>{
       addressComplement:deliveryDetailsVisible?order.address_complement:null,
       deliveryReference:deliveryDetailsVisible?order.delivery_reference:null,
       deliveryNotes:deliveryDetailsVisible?order.delivery_notes:null,
+      deliveryDataRedacted:order.delivery_pii_redacted_at!=null,
+      deliveryDataRedactedAt:role==="customer"?order.delivery_pii_redacted_at:null,
       paymentMethod:order.payment_method,
       cashTenderCents:order.cash_tender_cents,
       deliveryWindowStart:order.delivery_window_start,
