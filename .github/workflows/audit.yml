@@ -84,7 +84,22 @@ jobs:
       - name: Server domain simulations
         run: node tests/server-domain.mjs
       - name: Public artifact boundary
-        run: node scripts/build-public-site.mjs /tmp/tamao-public
+        run: |
+          node scripts/build-public-site.mjs /tmp/tamao-public
+          TAMAO_DEPLOY_TARGET=cloudflare node scripts/build-public-site.mjs /tmp/tamao-cloudflare-prelaunch
+          test -f /tmp/tamao-cloudflare-prelaunch/_headers
+          grep -q "X-Robots-Tag: noindex" /tmp/tamao-cloudflare-prelaunch/_headers
+          grep -q "Disallow: /" /tmp/tamao-cloudflare-prelaunch/robots.txt
+          test ! -e /tmp/tamao-cloudflare-prelaunch/sitemap.xml
+          TAMAO_DEPLOY_TARGET=cloudflare TAMAO_PUBLIC_INDEXING=1 node scripts/build-public-site.mjs /tmp/tamao-cloudflare-public
+          grep -q 'name="robots" content="index,follow"' /tmp/tamao-cloudflare-public/index.html
+          grep -q "Allow: /" /tmp/tamao-cloudflare-public/robots.txt
+          test -f /tmp/tamao-cloudflare-public/sitemap.xml
+          ! grep -q "X-Robots-Tag: noindex" /tmp/tamao-cloudflare-public/_headers
+          if TAMAO_DEPLOY_TARGET=cloudflare TAMAO_LIVE_RUNTIME=1 node scripts/build-public-site.mjs /tmp/tamao-live-invalid; then
+            echo "live runtime não pode buildar sem origins/Turnstile"
+            exit 1
+          fi
       - name: Browser smoke — mobile routes
         run: |
           python3 -m http.server 4173 >/tmp/chama-http.log 2>&1 &

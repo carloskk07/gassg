@@ -1344,3 +1344,17 @@ As duas autoridades novas:
 ### Conversão operacional
 
 O admin exibe estágios e oferece ações explícitas. Abrir WhatsApp/e-mail não altera status automaticamente; o operador precisa confirmar a mudança de etapa, evitando falsos positivos.
+
+
+## V1.52 — Cloudflare production build authority
+
+A publicação passa a possuir modos explícitos em vez de depender de edição manual no dia do lançamento.
+
+- `lab`: build padrão usado pelo GitHub Pages interno;
+- `cloudflare + noindex`: domínio oficial em pré-lançamento, com captação ativa e crawling bloqueado;
+- `cloudflare + indexável`: meta robots, robots.txt e sitemap coerentes;
+- `cloudflare + live-runtime`: exige origins HTTPS isoladas, origem do cliente igual ao domínio público e Turnstile real.
+
+O Cloudflare build gera `_headers` com CSP por resposta, proteção contra framing, `nosniff`, Referrer-Policy, Permissions-Policy e cache fail-safe para HTML, service worker e runtime config.
+
+O CI constrói e valida os modos de pré-lançamento e indexável e prova que runtime real sem configuração obrigatória falha.

@@ -2,6 +2,32 @@
 
 Marketplace hiperlocal de gás e abastecimento essencial para São Gabriel/RS.
 
+## Estado atual — v1.52 cloudflare production
+
+O TAMÃO agora possui uma autoridade explícita de build para a futura publicação em Cloudflare Pages.
+
+### Modos
+
+- **lab** — GitHub Pages interno, comportamento atual;
+- **cloudflare / noindex** — domínio oficial para pré-lançamento e anúncios, com crawling bloqueado;
+- **cloudflare / indexável** — libera meta robots, robots.txt e sitemap de forma coerente;
+- **cloudflare / live runtime** — somente para comércio real, exigindo origins HTTPS isoladas e Turnstile real.
+
+### Segurança por resposta
+
+O build Cloudflare gera `_headers` com CSP, `X-Frame-Options: DENY`, `nosniff`, Referrer-Policy, Permissions-Policy e cache restritivo para HTML, service worker e runtime config.
+
+### Fail closed
+
+O runtime real falha no build se:
+
+- a origem pública não for HTTPS;
+- `CHAMA_CUSTOMER_ORIGIN` não coincidir com `TAMAO_PUBLIC_ORIGIN`;
+- faltarem as demais origins privilegiadas;
+- a chave Turnstile for uma chave conhecida de teste.
+
+A indexação orgânica pode ser ativada por variável depois da prova do domínio; anúncios de pré-lançamento podem operar antes disso, porque não dependem de crawling orgânico.
+
 ## Estado atual — v1.51 launch operations
 
 O pré-lançamento agora possui um **pipeline operacional auditável** para evitar que aquisição vire apenas uma lista de contatos.
