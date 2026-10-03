@@ -345,6 +345,8 @@ function orderPage(){
       offerBlock=`<div class="notice danger"><strong>Não foi possível atualizar as opções.</strong><br>${esc(liveRuntime.error)}<br><button class="secondary small" style="margin-top:10px" onclick="liveRefreshOffers().catch(()=>{})">Tentar novamente</button></div>`;
     }else if(ready&&os.length){
       offerBlock=`<div class="offer-stack">${os.map(offerCard).join('')}</div>`;
+    }else if(ready&&liveRuntime.commerceLaunchBlocked){
+      offerBlock='<div class="notice"><strong>Pré-lançamento controlado.</strong><br>O Chama ainda não liberou pedidos reais. A abertura só acontece depois da validação do administrador, da primeira revenda e dos portais live.</div>';
     }else if(ready&&liveRuntime.deliveryCompatibilityBlocked){
       offerBlock='<div class="notice"><strong>Não encontramos uma operação habilitada para entregar esta combinação de itens agora.</strong><br>Se precisar com urgência, tente separar o GLP dos demais produtos ou consulte novamente depois.</div>';
     }else if(ready&&liveRuntime.paymentMethodUnavailable){

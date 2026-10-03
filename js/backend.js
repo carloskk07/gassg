@@ -66,6 +66,7 @@ const liveRuntime={
   actionPending:false,
   error:null,
   deliveryCompatibilityBlocked:false,
+  commerceLaunchBlocked:false,
   marketMode:null,
   eligibleMerchantCount:0,
   displayedOfferCount:0,
@@ -331,6 +332,7 @@ async function liveRefreshOffers({silent=false}={}){
   if(!liveReady()||!liveAddressDraftReady()){
     liveRuntime.offers=[];
     liveRuntime.deliveryCompatibilityBlocked=false;
+    liveRuntime.commerceLaunchBlocked=false;
     liveRuntime.marketMode=null;
     liveRuntime.eligibleMerchantCount=0;
     liveRuntime.displayedOfferCount=0;
@@ -353,6 +355,7 @@ async function liveRefreshOffers({silent=false}={}){
   const paymentMethodSnapshot=state.checkout.paymentMethod;
   liveRuntime.offers=[];
   liveRuntime.deliveryCompatibilityBlocked=false;
+  liveRuntime.commerceLaunchBlocked=false;
   liveRuntime.marketMode=null;
   liveRuntime.eligibleMerchantCount=0;
   liveRuntime.displayedOfferCount=0;
@@ -384,6 +387,7 @@ async function liveRefreshOffers({silent=false}={}){
       return liveRuntime.offers;
     }
     liveRuntime.deliveryCompatibilityBlocked=data?.deliveryCompatibilityBlocked===true;
+    liveRuntime.commerceLaunchBlocked=data?.commerceLaunchBlocked===true;
     liveRuntime.postalValidated=data?.postalValidated===true;
     if(liveRuntime.postalValidated&&data?.canonicalAddress){
       state.address=String(data.canonicalAddress).slice(0,240);
@@ -670,6 +674,9 @@ async function liveSyncMarketStatus({force=false}={}){
   const data=await liveInvoke('market-status',{});
   if(seq!==liveRuntime.marketStatusSeq)return liveRuntime.marketStatus;
   liveRuntime.marketStatus={
+    commerceEnabled:data?.commerceEnabled===true,
+    launchMode:String(data?.launchMode||'prelaunch'),
+    supplyConfigured:data?.supplyConfigured===true,
     realSupplyConfigured:data?.realSupplyConfigured===true,
     configuredMerchantCount:Math.max(0,Number(data?.configuredMerchantCount||0)),
     availableNow:data?.availableNow===true,

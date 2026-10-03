@@ -96,7 +96,7 @@ assert.ok(growth.includes('Saque Pix ainda não disponível')&&growth.includes('
 assert.ok(growth.includes('Você continua no controle'),'landing de revenda deve enfatizar autonomia operacional');
 assert.ok(core.includes("['earn','💰','Ganhe','go']"),'navegação móvel precisa dar acesso direto ao hub de renda');
 assert.ok(!growth.includes('inputmode="numeric" maxlength="18"'),'campo CNPJ não pode forçar teclado somente numérico após adoção do CNPJ alfanumérico');
-assert.ok(sw.includes("CACHE='chama-sg-v1.45'"),'cache do service worker precisa estar versionado');
+assert.ok(sw.includes("CACHE='chama-sg-v1.46'"),'cache do service worker precisa estar versionado');
 assert.ok(sw.includes("./js/backend.js"),'runtime live precisa estar no cache da PWA');
 assert.ok(sw.includes("./js/runtime-config.js"),'configuração pública de origins precisa estar no cache da PWA');
 assert.ok(sw.includes("./js/turnstile.js"),'helper local do Turnstile precisa estar no cache da PWA');
@@ -151,7 +151,7 @@ assert.ok(backend.includes('global:{fetch:chamaFetch}')&&admin.includes('global:
 assert.ok(backend.includes('supabaseLoadPromise=null')&&backend.includes("Tempo limite ao carregar Supabase JS"),'loader do SDK precisa poder se recuperar de falha e timeout');
 assert.ok(turnstile.includes('scriptPromise=null')&&turnstile.includes("Tempo limite ao carregar a verificação anti-bot"),'loader Turnstile não pode ficar permanentemente rejeitado após falha');
 assert.ok(backend.includes("const pathname=local?")&&backend.includes(":'/'"),'navegação cross-origin deve começar na raiz da origem dedicada, sem herdar path do site atual');
-assert.ok(read('supabase/functions/create-order/index.ts').includes('create_order_from_quote_v7'),'create-order real deve usar autoridade V7 com endereço canônico');
+assert.ok(read('supabase/functions/create-order/index.ts').includes('create_order_from_quote_v8'),'create-order real deve usar autoridade V8, que preserva o endereço canônico V7 e adiciona o kill switch');
 assert.ok(read('supabase/migrations/20261003051000_postal_service_area_v1_42.sql').includes('v_result:=public.create_order_from_quote_v5('),'V6 precisa preservar a autoridade V5 de contato de entrega atômico');
 assert.ok(read('supabase/functions/create-order/index.ts').includes('customerPhoneDigits')&&read('supabase/functions/create-order/index.ts').includes('deliveryNotes'),'fingerprint e RPC precisam incluir dados de entrega normalizados');
 assert.ok(backend.includes('customerPhone:state.checkout.customerPhoneDigits')&&backend.includes('deliveryReference:state.checkout.deliveryReference'),'runtime precisa enviar detalhes de entrega no mesmo create-order');
@@ -315,6 +315,16 @@ assert.ok(admin.includes("adminIdempotency('admin-'+action)"),'cada mutação ad
 assert.ok(admin.includes('adminOriginSafe'),'frontend admin precisa validar isolamento de origem');
 assert.ok(admin.includes("status='unsafe-origin'")||admin.includes("status='unsafe-origin';"),'frontend admin precisa bloquear origem compartilhada');
 assert.ok(adminOpsSource.includes('ADMIN_ALLOWED_ORIGIN'),'Edge admin precisa depender de origem dedicada configurável');
+assert.ok(read('supabase/functions/get-offers/index.ts').includes('commerce_launch_status')&&read('supabase/functions/get-offers/index.ts').includes('commerceLaunchBlocked:true'),'matching live precisa falhar fechado antes da abertura oficial');
+assert.ok(read('supabase/functions/create-order/index.ts').includes('create_order_from_quote_v8')&&read('supabase/functions/create-order/index.ts').includes('COMMERCE_NOT_ENABLED'),'checkout deve usar autoridade V8 e traduzir kill switch');
+assert.ok(read('supabase/functions/market-status/index.ts').includes('commerce_launch_status')&&read('supabase/functions/market-status/index.ts').includes('launchMode:commerceEnabled?"live":"prelaunch"'),'market status não pode anunciar supply como live enquanto o comércio estiver fechado');
+assert.ok(backend.includes('commerceLaunchBlocked')&&backend.includes('commerceEnabled:data?.commerceEnabled===true'),'runtime cliente precisa carregar o estado de lançamento');
+assert.ok(customer.includes('Pré-lançamento controlado.')&&customer.includes('administrador, da primeira revenda e dos portais live'),'cliente precisa distinguir launch fechado de indisponibilidade de parceiro');
+assert.ok(adminOpsSource.includes('verifyLivePortals')&&adminOpsSource.includes('portal-build.json')&&adminOpsSource.includes('CHAMA_TURNSTILE_SITE_KEY'),'admin deve atestar bundles e Turnstile antes do go-live');
+assert.ok(adminOpsSource.includes('TEST_TURNSTILE_KEYS')&&adminOpsSource.includes('sourceSha'),'atestado não pode aceitar chave Turnstile de teste nem versões divergentes');
+assert.ok(adminOpsSource.includes('admin_launch_control_action'),'go-live precisa usar autoridade idempotente server-side');
+assert.ok(admin.includes('Lançamento do comércio real')&&admin.includes('adminVerifyLaunchPortals')&&admin.includes('adminSetCommerceEnabled'),'control plane precisa mostrar blockers, atestar portais e operar o kill switch');
+
 assert.ok(adminOpsSource.includes('MERCHANT_OWNERSHIP_CONFLICT'),'Edge admin precisa expor conflito de ownership sem erro genérico');
 assert.ok(adminOpsSource.includes('INVALID_MERCHANT_STATUS_TRANSITION'),'Edge admin precisa expor transição administrativa inválida');
 assert.ok(adminOpsSource.includes('GLP_REGULATORY_VERIFICATION_REQUIRED'),'Edge admin precisa reconhecer gate regulatório genérico de GLP');
@@ -450,7 +460,7 @@ const postalResolver=read('supabase/functions/_shared/postal-code.js');
 assert.ok(postalResolver.includes('brasilapi.com.br/api/cep/v1/')&&postalResolver.includes('viacep.com.br/ws/'),'CEP deve ter provedor primário e fallback explícito');
 assert.ok(postalResolver.includes('POSTAL_CODE_VALIDATION_UNAVAILABLE')&&postalResolver.includes('POSTAL_CODE_OUTSIDE_SERVICE_AREA'),'validação de CEP deve falhar fechada em indisponibilidade ou município fora da área');
 assert.ok(read('supabase/functions/get-offers/index.ts').includes('validateServicePostalCode')&&read('supabase/functions/get-offers/index.ts').includes('create_quote_snapshot_v3'),'matching precisa resolver rua por CEP e criar quote canônica');
-assert.ok(read('supabase/functions/create-order/index.ts').includes('create_order_from_quote_v7'),'pedido real precisa herdar CEP e número da quote canônica');
+assert.ok(read('supabase/functions/create-order/index.ts').includes('create_order_from_quote_v8')&&read('supabase/migrations/20261003114500_launch_readiness_v1_46.sql').includes('return public.create_order_from_quote_v7'),'pedido real precisa herdar CEP e número da quote canônica através da cadeia V8→V7');
 assert.ok(getOrderSource.includes('postalCode:deliveryDetailsVisible?order.postal_code:null'),'CEP deve seguir a mesma fronteira de privacidade dos detalhes de entrega');
 assert.ok(merchantOrdersSource.includes('postalCode:o.status==="OFFERED_TO_MERCHANT"?null:o.postal_code'),'feed da revenda não pode expor CEP antes do aceite');
 assert.ok(core.includes("addressNumber:''")&&core.includes("merged.addressNumber=String(raw.addressNumber||'').trim().toUpperCase()"),'estado do cliente precisa separar número do endereço canônico');
