@@ -42,6 +42,7 @@ const marketingMigration=read('supabase/migrations/20261003205752_first_party_pr
 const admin=read('js/admin.js');
 const financePolicy=read('supabase/migrations/20261001105000_financial_unit_economics_v1_6.sql');
 const publicBuild=read('scripts/build-public-site.mjs');
+const adminPrelaunchBuild=read('scripts/build-admin-prelaunch.mjs');
 const functionConfig=read('supabase/config.toml');
 const livePortalWorkflow=read('.github/workflows/build-live-portals.yml');
 const launchReadinessWorkflow=read('.github/workflows/launch-readiness.yml');
@@ -259,12 +260,15 @@ assert.ok(backend.includes('liveRuntime.pollPending')&&backend.includes('merchan
 assert.ok(backend.includes('refreshSeq:0')&&backend.includes('seq!==merchantRuntime.refreshSeq'),'refresh da revenda não pode aceitar resposta antiga sobre uma mais nova');
 assert.ok(admin.includes('pollPending:false')&&admin.includes('refreshSeq:0')&&admin.includes('now-adminRuntime.lastPollAt<15000'),'admin deve serializar refresh e evitar polling completo a cada 5 segundos');
 assert.ok(admin.includes("/functions/v1/admin-auth")&&admin.includes("action:'request-link'")&&admin.includes("action:'claim'"),'login administrativo precisa passar pela autoridade server-side de bootstrap');
-assert.ok(admin.includes("chamaTurnstile.challenge('admin_login')")&&!admin.includes("auth.signInWithOtp({\n    email:value"),'browser não pode decidir diretamente se cria a primeira conta administrativa');
+assert.ok(admin.includes("chamaTurnstile?.siteKey?.()")&&admin.includes("chamaTurnstile.challenge('admin_login')")&&!admin.includes("auth.signInWithOtp({\n    email:value"),'browser pode usar Turnstile quando configurado, mas nunca decidir diretamente se cria a primeira conta administrativa');
 const adminAuthSource=read('supabase/functions/admin-auth/index.ts');
 assert.ok(adminAuthSource.includes('admin_login_mode')&&adminAuthSource.includes('claim_reserved_platform_admin'),'Edge de admin precisa consultar elegibilidade por hash e claim server-side');
 assert.ok(adminAuthSource.includes('shouldCreateUser:mode==="bootstrap_reserved"'),'criação da primeira identidade só pode ocorrer no modo reservado');
 assert.ok(adminAuthSource.includes('Se este e-mail estiver autorizado, o link de acesso será enviado.'),'request de login deve responder genericamente para evitar enumeração');
-assert.ok(adminAuthSource.includes('captchaToken')&&adminAuthSource.includes('CAPTCHA_REQUIRED'),'bootstrap sem identidade precisa continuar protegido por anti-bot');
+assert.ok(adminAuthSource.includes('admin-auth-request-ip')&&adminAuthSource.includes('admin-auth-request-email'),'bootstrap sem identidade precisa de quotas independentes por rede e e-mail autorizado');
+assert.ok(adminAuthSource.includes('SECRET_KEY.slice(0,32)+":"+clientIp(req)'),'quota de rede deve persistir somente identidade derivada/hasheada, não IP bruto');
+assert.ok(adminAuthSource.includes('if(captchaToken)options.captchaToken=captchaToken'),'Turnstile deve ser opcional e encaminhado ao Auth somente quando configurado');
+assert.ok(!adminAuthSource.includes('CAPTCHA_REQUIRED'),'admin pré-lançamento não pode depender obrigatoriamente de provedor CAPTCHA externo');
 assert.ok(adminAuthSource.includes('url.origin!==origin'),'redirect de magic link precisa permanecer preso à origem administrativa');
 assert.ok(adminAuthSource.includes('ADMIN_BOOTSTRAP_RETRY')&&adminAuthSource.includes('ADMIN_BOOTSTRAP_FAILED'),'claim administrativo não pode engolir falhas de concorrência ou backend');
 assert.ok(adminAuthSource.includes('safeStatus')&&adminAuthSource.includes('["claimed","existing_admin","bootstrap_closed","not_reserved"]'),'browser só pode receber estados de bootstrap explicitamente permitidos');
@@ -275,6 +279,9 @@ assert.ok(livePortalWorkflow.includes("if: github.event_name == 'workflow_dispat
 assert.ok(livePortalWorkflow.includes('tamao-live-admin')&&!livePortalWorkflow.includes('name: chama-live-admin'),'artefato publicável precisa ter nome de produção atual e não ser emitido pelo job de teste');
 assert.ok(livePortalWorkflow.includes('Turnstile test/demo key cannot produce production portal artifacts.'),'produção precisa bloquear explicitamente chaves Turnstile de teste/demo');
 assert.ok(launchReadinessWorkflow.includes("TAMAO_REQUIRE_ADMIN_PORTAL: '1'")&&launchReadinessWorkflow.includes('remote-admin-readiness.mjs'),'gate manual de lançamento precisa exigir portal admin remoto real');
+assert.ok(adminPrelaunchBuild.includes("CHAMA_PORTAL_ROLE:'admin'")&&adminPrelaunchBuild.includes('allowAdminWithoutTurnstile:true'),'builder admin pré-lançamento precisa limitar a exceção de Turnstile ao papel admin');
+assert.ok(adminPrelaunchBuild.includes("deploymentProfile:'prelaunch-admin'")&&adminPrelaunchBuild.includes('turnstileConfigured'),'bundle admin precisa declarar explicitamente o perfil e a presença/ausência de Turnstile');
+assert.ok(read('tests/admin-prelaunch-portal.mjs').includes("globalThis.CHAMA_TURNSTILE_SITE_KEY=\"\";"),'teste do bundle admin precisa provar runtime sem Turnstile');
 for(const publicFn of ['capture-prelaunch-lead','submit-public-request','capture-marketing-event']){
   assert.ok(
     functionConfig.includes('[functions.'+publicFn+']')&&functionConfig.split('[functions.'+publicFn+']')[1]?.split('[functions.')[0].includes('verify_jwt = false'),
