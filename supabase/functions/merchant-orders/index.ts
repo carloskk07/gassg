@@ -95,7 +95,7 @@ Deno.serve(async(req:Request)=>{
 
     const {data:merchant,error:merchantError}=await admin
       .from("merchants")
-      .select("id,name,status,online,trust_score,delivery_fee_cents,delivery_fee_confirmed_at,base_eta_minutes,accepts_citywide,max_active_orders,last_seen_at")
+      .select("id,name,status,online,trust_score,delivery_fee_cents,delivery_fee_confirmed_at,base_eta_minutes,accepts_citywide,accepts_scheduled_orders,max_active_orders,last_seen_at")
       .eq("id",selected.merchant_id)
       .maybeSingle();
     if(merchantError)throw merchantError;
@@ -134,7 +134,7 @@ Deno.serve(async(req:Request)=>{
 
     const {data:orders,error:ordersError}=await admin
       .from("orders")
-      .select("id,public_code,status,address_text,payment_method,cash_tender_cents,gross_total_cents,cashback_reserved_cents,total_cents,supplier_name_snapshot,risk_reason,offer_expires_at,accepted_at,dispatch_due_at,dispatched_at,arriving_at,promised_by,pin_failures,version,created_at,updated_at")
+      .select("id,public_code,status,address_text,payment_method,cash_tender_cents,gross_total_cents,cashback_reserved_cents,total_cents,delivery_window_start,delivery_window_end,comparison_savings_cents,supplier_name_snapshot,risk_reason,offer_expires_at,accepted_at,dispatch_due_at,dispatched_at,arriving_at,promised_by,pin_failures,version,created_at,updated_at")
       .eq("merchant_id",selected.merchant_id)
       .in("status",ACTIVE_STATUSES)
       .order("created_at",{ascending:true})
@@ -183,6 +183,7 @@ Deno.serve(async(req:Request)=>{
         deliveryFeeCents:merchant.delivery_fee_cents,
         baseEtaMinutes:merchant.base_eta_minutes,
         acceptsCitywide:merchant.accepts_citywide,
+        acceptsScheduledOrders:merchant.accepts_scheduled_orders===true,
         maxActiveOrders:Number(merchant.max_active_orders??8),
         deliveryFeeConfirmedAt:merchant.delivery_fee_confirmed_at,
         performance:{
@@ -233,6 +234,9 @@ Deno.serve(async(req:Request)=>{
         addressVisible:o.status!=="OFFERED_TO_MERCHANT",
         paymentMethod:o.payment_method,
         cashTenderCents:o.cash_tender_cents,
+        deliveryWindowStart:o.delivery_window_start,
+        deliveryWindowEnd:o.delivery_window_end,
+        comparisonSavingsCents:Number(o.comparison_savings_cents??0),
         grossTotalCents:o.gross_total_cents,
         cashbackReservedCents:o.cashback_reserved_cents,
         totalCents:o.total_cents,
