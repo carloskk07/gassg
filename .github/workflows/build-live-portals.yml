@@ -123,17 +123,17 @@ jobs:
           path: dist/live-portals/customer
           if-no-files-found: error
           retention-days: 3
-          retention-days: 3
-          retention-days: 3
       - name: Upload merchant production portal
         uses: actions/upload-artifact@v4
         with:
           name: tamao-live-merchant
           path: dist/live-portals/merchant
           if-no-files-found: error
+          retention-days: 3
       - name: Upload admin production portal
         uses: actions/upload-artifact@v4
         with:
           name: tamao-live-admin
           path: dist/live-portals/admin
           if-no-files-found: error
+          retention-days: 3
