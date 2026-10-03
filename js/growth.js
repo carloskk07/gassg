@@ -103,6 +103,8 @@ function refer(){
   const live=globalThis.liveRequested?.()===true;
   const permanent=state.user.cashEarningEligible===true;
   const hasReferral=Boolean(state.user.referralCode);
+  const referredCount=live?Math.max(0,Number(globalThis.liveRuntime?.referredCount||0)):0;
+  const qualifiedReferralCount=live?Math.max(0,Number(globalThis.liveRuntime?.qualifiedReferralCount||0)):0;
   const referralCard=hasReferral
     ? `<div class="card flat referral-share-card"><div class="tiny muted">SEU LINK PESSOAL</div><div class="share-box">${esc(url)}</div><button class="primary full" style="margin-top:12px" onclick="shareReferral()">Compartilhar meu link</button></div>`
     : '<div class="notice"><strong>Seu link ainda não está disponível.</strong><br>Ele aparece quando sua identidade real for carregada pelo serviço do Chama.</div>';
@@ -120,6 +122,8 @@ function refer(){
     <div class="earn-summary">
       <div class="earn-balance-card"><span>Disponível</span><strong>${BRL.format(state.user.commissionAvailable)}</strong><small>saldo já liberado</small></div>
       <div class="earn-balance-card"><span>A liberar</span><strong>${BRL.format(state.user.commissionPending)}</strong><small>em validação</small></div>
+      <div class="earn-balance-card"><span>Indicados</span><strong>${referredCount}</strong><small>novos usuários vinculados</small></div>
+      <div class="earn-balance-card"><span>Qualificados</span><strong>${qualifiedReferralCount}</strong><small>com 1ª compra qualificada</small></div>
     </div>
     ${referralCard}
     ${identityCard}
