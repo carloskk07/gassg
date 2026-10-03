@@ -60,6 +60,23 @@ function merchantDeliveryMemberLabel(userId){
   return id?'Responsável atribuído':'Ainda não atribuído';
 }
 
+function merchantAlertControl(){
+  const status=globalThis.merchantAlertStatus?.()||{enabled:false,notificationSupported:false,notificationPermission:'unsupported'};
+  const permission=status.notificationPermission;
+  const notificationCopy=!status.notificationSupported
+    ? 'Notificação do sistema indisponível neste navegador; som e vibração ainda podem funcionar.'
+    : permission==='granted'
+      ? 'Som, vibração e notificação do sistema habilitados neste aparelho.'
+      : permission==='denied'
+        ? 'Som e vibração podem funcionar, mas o navegador bloqueou notificações do sistema.'
+        : 'Ao ativar, o navegador pode pedir permissão para notificações.';
+  return `<div class="card flat form-stack" style="margin-top:14px">
+    <div class="status-bar"><div><strong>Alertas neste aparelho</strong><br><small>${esc(notificationCopy)}</small></div><span class="status-pill ${status.enabled?'online':'offline'}">${status.enabled?'ATIVOS':'DESLIGADOS'}</span></div>
+    <div class="notice"><strong>Escopo atual.</strong><br>Os alertas funcionam enquanto este painel/PWA estiver aberto, inclusive em outra aba. Fechar totalmente o navegador interrompe o polling; push com o app fechado exige uma etapa posterior.</div>
+    <button class="${status.enabled?'danger-btn':'primary'}" onclick="${status.enabled?'merchantDisableAlertsFromUi()':'merchantEnableAlertsFromUi()'}">${status.enabled?'Desativar alertas':'Ativar som, vibração e notificações'}</button>
+  </div>`;
+}
+
 function merchantDriverLivePage(rt){
   const m=rt.merchant||{};
   const orders=rt.orders||[];
@@ -67,6 +84,7 @@ function merchantDriverLivePage(rt){
   return shell(`<section class="page">
     <div class="status-bar"><div><div class="tiny muted">MINHAS ENTREGAS</div><h1 class="page-title" style="margin-bottom:2px">${esc(m.name||'Revenda')}</h1></div><span class="status-pill online">MOTORISTA</span></div>
     <div class="notice success" style="margin-top:14px"><strong>Visão restrita por atribuição.</strong><br>Você vê somente pedidos que a operação vinculou à sua conta. Catálogo, preços, compliance e pedidos de outros responsáveis não aparecem aqui.</div>
+    ${merchantAlertControl()}
     <div class="card flat form-stack" style="margin-top:14px">
       <h3>Seu nome operacional</h3>
       <div class="input-wrap"><label for="driver-display-name">Como aparecer para a equipe</label><input id="driver-display-name" class="input" maxlength="60" value="${esc(name)}" placeholder="Ex.: João"></div>
@@ -202,6 +220,7 @@ function merchantLivePage(){
     ${connectionNotice}
     ${complianceNotice}
     ${freshnessNotice}
+    ${merchantAlertControl()}
 
     <div class="card flat form-stack" style="margin-top:14px">
       ${memberships.length>1?`<div class="input-wrap"><label for="merchant-live-select">Operação</label><select id="merchant-live-select" class="input" onchange="merchantLiveSelect(this.value)">${memberships.map(x=>`<option value="${esc(x.merchantId)}" ${x.merchantId===m.merchantId?'selected':''}>${esc(x.name)} • ${esc(x.memberRole)}</option>`).join('')}</select></div>`:''}
@@ -311,6 +330,21 @@ function merchantLiveOrder(o){
     ${o.riskReason?`<div class="notice danger" style="margin-top:10px">${esc(o.riskReason)}</div>`:''}
     <div class="order-actions">${actions}</div>
   </article>`;
+}
+
+async function merchantEnableAlertsFromUi(){
+  try{
+    const status=await merchantEnableAlertsLive();
+    toast(status?.notificationPermission==='denied'
+      ?'Alertas sonoros ativados; notificações do navegador estão bloqueadas'
+      :'Alertas de novos pedidos ativados');
+  }catch(e){toast(String(e?.message||e))}
+}
+function merchantDisableAlertsFromUi(){
+  try{
+    merchantDisableAlertsLive();
+    toast('Alertas desativados neste aparelho');
+  }catch(e){toast(String(e?.message||e))}
 }
 
 async function merchantTeamReloadFromUi(){
