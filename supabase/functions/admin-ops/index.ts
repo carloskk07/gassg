@@ -133,7 +133,7 @@ async function summary(admin:any){
   }
   const pilotPartners=await admin
     .from("pilot_partner_drafts")
-    .select("id,display_name,proposed_product_code,proposed_delivered_price_cents,delivery_included,price_status,onboarding_status,merchant_id,notes,created_at,updated_at")
+    .select("id,display_name,proposed_product_code,proposed_delivered_price_cents,delivery_included,price_status,onboarding_status,merchant_id,pricing_mode,min_delivered_price_cents,preferred_delivered_price_cents,max_delivered_price_cents,pricing_strategy,notes,created_at,updated_at")
     .order("created_at",{ascending:true})
     .limit(50);
   if(pilotPartners.error)throw pilotPartners.error;

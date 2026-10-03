@@ -1183,3 +1183,52 @@ O registro comercial real continua P13 = **R$ 115,90 entregue** e não recebe fa
 
 No laboratório interno, JR começa em preço fixo. O E2E altera explicitamente para uma faixa simulada de R$ 115,90 / R$ 120,00 / R$ 125,00 apenas para provar a UX e a autoridade técnica.
 
+---
+
+# Auditoria v1.33 — JR Confirmed Commercial Range
+
+## Informação comercial confirmada
+
+O parceiro piloto **Gas e Lenheira do JR** confirmou para P13, com entrega incluída:
+
+- mínimo autorizado: **R$ 115,90**;
+- preço normal: **R$ 120,00**;
+- máximo autorizado: **R$ 125,00**.
+
+O staging foi promovido de `price_status=proposed` para `price_status=confirmed` e passou a usar `pricing_mode=range` com estratégia inicial `balanced`.
+
+## Isolamento preservado
+
+Essa confirmação comercial não remove nenhum gate de ativação:
+
+- `onboarding_status=awaiting_legal_data`;
+- `merchant_id=null`;
+- 0 merchants reais;
+- o draft não participa de `market_supply_status()`;
+- o draft não participa de matching;
+- o draft não pode receber pedido real.
+
+## Banco
+
+`pilot_partner_drafts` agora possui autoridade explícita de faixa:
+
+- `pricing_mode`;
+- `min_delivered_price_cents`;
+- `preferred_delivered_price_cents`;
+- `max_delivered_price_cents`;
+- `pricing_strategy`.
+
+Constraints impõem:
+
+`min <= normal <= max`
+
+e, quando `pricing_mode=fixed`:
+
+`min = normal = max`.
+
+## Laboratório interno
+
+O cenário JR agora nasce com o preço normal de **R$ 120,00** e a faixa confirmada **R$ 115,90–R$ 125,00**. A estratégia inicial é equilibrada.
+
+O preço calculado no laboratório permanece dentro da faixa. Alterar estratégia, estoque ou carga na simulação não modifica a condição comercial real cadastrada no staging.
+

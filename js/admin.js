@@ -294,7 +294,8 @@ function adminPilotPartnerCard(p){
   const statusClass=p.onboarding_status==='converted'?'online':p.onboarding_status==='cancelled'?'offline':'risk';
   return `<article class="order-card">
     <div class="order-head"><div><div class="order-id">${esc(p.display_name)}</div><div class="tiny muted">Parceiro piloto • ${esc(p.proposed_product_code)}</div></div><span class="status-pill ${statusClass}">${esc(statusLabel)}</span></div>
-    <div class="order-line"><strong>Preço comercial informado:</strong> ${adminMoney(p.proposed_delivered_price_cents)} ${p.delivery_included?'com entrega incluída':'antes da entrega'}</div>
+    <div class="order-line"><strong>${p.pricing_mode==='range'?'Faixa comercial confirmada':'Preço comercial informado'}:</strong> ${p.pricing_mode==='range'?adminMoney(p.min_delivered_price_cents)+' mínimo • '+adminMoney(p.preferred_delivered_price_cents)+' normal • '+adminMoney(p.max_delivered_price_cents)+' máximo':adminMoney(p.proposed_delivered_price_cents)} ${p.delivery_included?'com entrega incluída':'antes da entrega'}</div>
+    ${p.pricing_mode==='range'?`<div class="order-line"><strong>Estratégia inicial:</strong> ${esc(({volume:'Priorizar volume',balanced:'Equilibrado',margin:'Priorizar margem'})[p.pricing_strategy]||p.pricing_strategy||'—')}</div>`:''}
     <div class="order-line"><strong>Status do preço:</strong> ${p.price_status==='confirmed'?'confirmado':'proposto — ainda não publicar como oferta real'}</div>
     ${p.notes?`<div class="tiny muted">${esc(p.notes)}</div>`:''}
     <div class="notice" style="margin-top:10px"><strong>Gate de ativação preservado.</strong><br>CNPJ, responsável, endereço, conta owner e validação regulatória aplicável ainda precisam ser cadastrados antes de criar uma revenda ativa.</div>

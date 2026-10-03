@@ -35,7 +35,7 @@ O navegador recebe apenas projeções mínimas por Edge Function.
 
 `pilot_partner_drafts` guarda interesse comercial antes do cadastro jurídico real. É uma tabela server-only e não participa de `market_supply_status()`, matching ou criação de pedidos.
 
-O primeiro registro atual é **Gas e Lenheira do JR**, P13 a R$ 115,90 entregue, ainda com `price_status=proposed` e `onboarding_status=awaiting_legal_data`.
+O primeiro registro atual é **Gas e Lenheira do JR**, P13 com faixa entregue confirmada de **R$ 115,90 mínimo / R$ 120,00 normal / R$ 125,00 máximo**, `price_status=confirmed` e `onboarding_status=awaiting_legal_data`. O staging continua fora de matching e não cria merchant ativo.
 
 Conversão para operação real continua exigindo o fluxo normal: identidade permanente, aplicação/cadastro, CNPJ, compliance aplicável, catálogo real, taxa/ETA, heartbeat e ativação administrativa.
 

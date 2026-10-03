@@ -27,6 +27,21 @@ Esses exemplos:
 
 A suíte de testes mantém um marketplace sintético completo apenas quando injeta `globalThis.__CHAMA_TEST__=true`. A build normal não oferece esse caminho.
 
+## Estado atual — v1.33 JR confirmed commercial range
+
+O primeiro parceiro piloto agora possui uma faixa comercial P13 confirmada no staging server-only:
+
+- mínimo autorizado: **R$ 115,90**;
+- preço normal: **R$ 120,00**;
+- máximo autorizado: **R$ 125,00**;
+- entrega incluída;
+- modo: **faixa automática**;
+- estratégia inicial do motor: **Equilibrado**.
+
+Isso **não ativa o JR como revenda real**. `onboarding_status` permanece `awaiting_legal_data`, `merchant_id` continua nulo e o registro não participa de matching, market supply ou criação de pedidos reais.
+
+O laboratório interno foi alinhado à faixa confirmada. Estoque, ETA, distância, trust, aceite, pagamento e entrega continuam simulados.
+
 ## Estado atual — v1.32 merchant-authorized pricing range
 
 A v1.32 substitui o preço único opcional por uma política por SKU controlada pela própria revenda.
@@ -50,7 +65,7 @@ Invariantes:
 - freshness por SKU e por taxa de entrega continua obrigatória;
 - rows de catálogo são bloqueadas durante o snapshot;
 - preço fora da faixa é rejeitado pelo RPC;
-- P13 do JR continua **fixo em R$ 115,90 por padrão** no piloto; qualquer faixa mostrada no GitHub Pages é apenas simulação interna até autorização comercial real.
+- o JR agora possui faixa comercial confirmada de **R$ 115,90 / R$ 120,00 / R$ 125,00** no staging; o GitHub Pages simula a operação usando essa faixa, sem ativar venda real.
 
 O laboratório interno permite testar a faixa sem alterar a operação real do parceiro.
 
