@@ -445,6 +445,45 @@ function adminSupportCaseCard(x){
   </article>`;
 }
 
+function adminLaunchBlockerLabel(code){
+  return ({
+    admin_required:'Reivindicar e manter pelo menos um administrador ativo.',
+    real_supply_required:'Criar e validar ao menos uma revenda real com catálogo elegível.',
+    merchant_owner_required:'A revenda ativa precisa ter owner permanente e operacional.',
+    merchant_payment_required:'A revenda precisa confirmar ao menos uma forma de pagamento.',
+    live_portals_verification_required:'Publicar e verificar os três portais live com Turnstile real.'
+  })[String(code||'')]||String(code||'Bloqueio desconhecido');
+}
+function adminLaunchControl(readiness={}){
+  const blockers=Array.isArray(readiness.blockers)?readiness.blockers:[];
+  const enabled=readiness.commerceEnabled===true;
+  const ready=readiness.readyToEnable===true;
+  const verifiedAt=readiness.portalsVerifiedAt
+    ? new Date(readiness.portalsVerifiedAt).toLocaleString('pt-BR')
+    : 'ainda não verificados';
+  const sourceSha=String(readiness.portalsSourceSha||'');
+  return `<section class="section"><div class="section-head"><div><span class="section-kicker">GO-LIVE • AUTORIDADE SERVER-SIDE</span><h2>Lançamento do comércio real</h2><p>Pedidos reais permanecem bloqueados no banco até todos os gates passarem e um administrador abrir explicitamente o comércio.</p></div><span class="status-pill ${enabled?'online':'offline'}">${enabled?'COMÉRCIO ABERTO':'COMÉRCIO FECHADO'}</span></div>
+    <div class="merchant-kpis">
+      <div class="kpi"><span class="label">Admins ativos</span><strong>${Number(readiness.activeAdminCount||0)}</strong></div>
+      <div class="kpi"><span class="label">Revendas configuradas</span><strong>${Number(readiness.configuredMerchantCount||0)}</strong></div>
+      <div class="kpi"><span class="label">Owner pronto</span><strong>${Number(readiness.ownerReadyMerchantCount||0)}</strong></div>
+      <div class="kpi"><span class="label">Pagamento pronto</span><strong>${Number(readiness.paymentReadyMerchantCount||0)}</strong></div>
+      <div class="kpi"><span class="label">Portais</span><strong>${readiness.portalsFresh?'OK':'PENDENTE'}</strong><small>${esc(verifiedAt)}</small></div>
+    </div>
+    <div class="card flat form-stack" style="margin-top:12px">
+      ${blockers.length?`<div class="notice"><strong>Bloqueios atuais</strong><br>${blockers.map(x=>'• '+esc(adminLaunchBlockerLabel(x))).join('<br>')}</div>`:'<div class="notice success"><strong>Todos os gates técnicos passaram.</strong><br>O comércio ainda só abre mediante ação administrativa explícita.</div>'}
+      ${sourceSha?`<small class="field-help">Bundle live atestado: <code>${esc(sourceSha.slice(0,12))}…</code></small>`:''}
+      <div class="order-actions">
+        <button class="secondary" onclick="adminVerifyLaunchPortals()">Verificar portais live</button>
+        ${enabled
+          ?'<button class="danger-btn" onclick="adminSetCommerceEnabled(false)">Fechar comércio agora</button>'
+          :`<button class="primary" ${ready?'':'disabled'} onclick="adminSetCommerceEnabled(true)">Abrir comércio real</button>`}
+      </div>
+      <small class="field-help">A verificação dos portais expira em 60 minutos antes da abertura. Depois de aberto, o kill switch pode ser fechado imediatamente pelo admin.</small>
+    </div>
+  </section>`;
+}
+
 function adminPage(){
   if(!adminPortalRequested()){
     return shell('<section class="page"><div class="notice danger">Administração só está disponível no portal protegido.</div></section>');
@@ -485,6 +524,8 @@ function adminPage(){
   return shell(`<section class="page">
     <div class="status-bar"><div><div class="tiny muted">CONTROL PLANE REAL</div><h1 class="page-title" style="margin-bottom:2px">Administração Chama</h1></div><div class="order-actions"><button class="secondary small" onclick="adminRefresh()">Atualizar</button><button class="ghost small" onclick="adminSignOut()">Sair</button></div></div>
     ${adminRuntime.error?`<div class="notice danger" style="margin-top:12px">${esc(adminRuntime.error)}</div>`:''}
+
+    ${adminLaunchControl(d.launchReadiness||{})}
 
     <section class="section"><div class="section-head"><div><span class="section-kicker">NEGÓCIO • 30 DIAS</span><h2>Pulso da operação</h2><p>Indicadores server-side calculados apenas sobre fatos liquidados e estados reais do pedido.</p></div></div><div class="merchant-kpis">
       <div class="kpi"><span class="label">GMV 30d</span><strong>${adminMoney(metrics.gmvCents30d)}</strong><small>${Number(metrics.settledOrders30d||0)} pedidos liquidados</small></div>
@@ -538,6 +579,24 @@ function adminPage(){
 
     <section class="section"><div class="section-head"><div><h2>Auditoria recente</h2></div></div><div class="list">${(d.recentAudit||[]).length?(d.recentAudit||[]).map(x=>`<div class="list-row"><div><strong>${esc(x.action)}</strong><br><small>${esc(x.target_type)} • ${esc(x.target_id||'—')}</small></div><small>${new Date(x.created_at).toLocaleString('pt-BR')}</small></div>`).join(''):'<div class="empty card">Nenhuma ação administrativa registrada.</div>'}</div></section>
   </section>`);
+}
+
+async function adminVerifyLaunchPortals(){
+  try{
+    const result=await adminPerform('verify-launch-portals',{});
+    if(result?.ok)toast('Os três portais live foram verificados');
+  }catch(e){toast(String(e?.message||e))}
+}
+async function adminSetCommerceEnabled(enabled){
+  if(enabled){
+    if(!confirm('Abrir pedidos reais agora? Esta ação permite criação de pedidos no banco e deve ser feita somente após o piloto estar operacional.'))return;
+  }else{
+    if(!confirm('Fechar o comércio real agora? Novas ofertas e novos pedidos serão bloqueados imediatamente.'))return;
+  }
+  try{
+    await adminPerform(enabled?'enable-commerce':'disable-commerce',{});
+    toast(enabled?'Comércio real aberto':'Comércio real fechado');
+  }catch(e){toast(String(e?.message||e))}
 }
 
 async function adminSetSupportStatus(caseId,status){
@@ -669,4 +728,6 @@ globalThis.adminAddPlatformAdmin=adminAddPlatformAdmin;
 globalThis.openAdminPortal=openAdminPortal;
 
 
+globalThis.adminVerifyLaunchPortals=adminVerifyLaunchPortals;
+globalThis.adminSetCommerceEnabled=adminSetCommerceEnabled;
 globalThis.adminSetSupportStatus=adminSetSupportStatus;
