@@ -171,3 +171,17 @@ assert.match(normalized,/version integer not null default 1/,'pedido precisa sup
 assert.doesNotMatch(normalized,/supabase_realtime/,'baseline não deve reabrir Postgres Changes quando o runtime usa polling protegido por Edge Functions');
 
 console.log('Backend contract passou: SQL íntegro, RLS server-only, defaults fail-closed, ledger, quotes, PIN hash e centavos verificados.');
+
+
+const cronLockdown=fs.readFileSync(
+  new URL('../supabase/migrations/20261003021000_cron_browser_lockdown.sql',import.meta.url),
+  'utf8'
+).replace(/--.*$/gm,'').replace(/\s+/g,' ').toLowerCase();
+
+assert.match(cronLockdown,/revoke all privileges on table cron\.job, cron\.job_run_details from anon, authenticated/,'tabelas pg_cron devem ser inacessíveis ao browser');
+assert.match(cronLockdown,/revoke usage on schema cron from anon, authenticated/,'schema cron não deve ser endereçável pelo browser');
+assert.match(cronLockdown,/create policy cron_job_policy[\s\S]*to postgres/,'policy de cron.job deve ser restrita ao postgres');
+assert.match(cronLockdown,/create policy cron_job_run_details_policy[\s\S]*to postgres/,'policy de histórico cron deve ser restrita ao postgres');
+assert.doesNotMatch(cronLockdown,/to (anon|authenticated|public)/,'policies pg_cron não podem reabrir papéis de browser');
+
+console.log('Cron browser lockdown v1.34.2 contract passou.');
