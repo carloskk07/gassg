@@ -66,7 +66,7 @@ button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-vis
   .marketing-hero .hero-grid{padding:32px 34px;gap:34px}
   .hero-visual{margin-top:0;align-self:center}
   .hero-actions{flex-direction:row;flex-wrap:wrap}.hero-actions>*{width:auto}
-  .intent-grid{grid-template-columns:repeat(3,1fr)}
+  .intent-grid{grid-template-columns:repeat(4,1fr)}
   .how-grid{grid-template-columns:repeat(2,1fr)}
   .opportunity-band{grid-template-columns:1fr auto;align-items:center;padding:30px}
   .opportunity-actions{min-width:220px}
