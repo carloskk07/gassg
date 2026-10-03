@@ -154,7 +154,7 @@ async function verifyLivePortals(){
     probes
   };
 }
-async function summary(admin:any){
+async function summary(admin:any,actorUserId:string){
   const [apps,merchants,compliance,capabilities,referralReviews,rewardFailures,accountingFailures,receivables,reimbursements,adjustments,platformAdmins,prelaunchLeads,publicRequests,audit]=await Promise.all([
     admin.from("merchant_applications")
       .select("id,applicant_user_id,cnpj,company_name,responsible_name,phone,address_text,status,created_at,updated_at")
@@ -227,18 +227,20 @@ async function summary(admin:any){
     .limit(50);
   if(pilotPartners.error)throw pilotPartners.error;
 
-  const [supportCases,businessMetrics,launchReadiness]=await Promise.all([
+  const [supportCases,businessMetrics,launchReadiness,acquisitionMetrics]=await Promise.all([
     admin.from("support_cases")
       .select("id,order_id,customer_id,merchant_id,category,status,message,resolution_note,resolved_at,created_at,updated_at")
       .in("status",["open","in_review","resolved"])
       .order("updated_at",{ascending:false})
       .limit(100),
     admin.rpc("platform_business_metrics"),
-    admin.rpc("platform_launch_readiness")
+    admin.rpc("platform_launch_readiness"),
+    admin.rpc("admin_prelaunch_acquisition_metrics",{p_actor_user_id:actorUserId})
   ]);
   if(supportCases.error)throw supportCases.error;
   if(businessMetrics.error)throw businessMetrics.error;
   if(launchReadiness.error)throw launchReadiness.error;
+  if(acquisitionMetrics.error)throw acquisitionMetrics.error;
 
   const referralOrderIds=(referralReviews.data??[]).map((x:any)=>x.order_id).filter(Boolean);
   const referralOrderStates=referralOrderIds.length
@@ -273,6 +275,7 @@ async function summary(admin:any){
     },
     platformAdmins:platformAdmins.data??[],
     prelaunchLeads:prelaunchLeads.data??[],
+    acquisitionMetrics:acquisitionMetrics.data??{},
     publicRequests:publicRequests.data??[],
     rewardFailures:rewardFailures.data??[],
     accountingFailures:accountingFailures.data??[],
@@ -312,7 +315,7 @@ Deno.serve(async(req:Request)=>{
     await requireAdmin(admin,user.id);
 
     if(action==="summary"){
-      return json(await summary(admin),200,origin);
+      return json(await summary(admin,user.id),200,origin);
     }
 
     const idempotencyKey=String(req.headers.get("Idempotency-Key")??"").trim();
