@@ -96,7 +96,7 @@ assert.ok(growth.includes('Saque Pix ainda não disponível')&&growth.includes('
 assert.ok(growth.includes('Você continua no controle'),'landing de revenda deve enfatizar autonomia operacional');
 assert.ok(core.includes("['earn','💰','Ganhe','go']"),'navegação móvel precisa dar acesso direto ao hub de renda');
 assert.ok(!growth.includes('inputmode="numeric" maxlength="18"'),'campo CNPJ não pode forçar teclado somente numérico após adoção do CNPJ alfanumérico');
-assert.ok(sw.includes("CACHE='chama-sg-v1.36'"),'cache do service worker precisa estar versionado');
+assert.ok(sw.includes("CACHE='chama-sg-v1.37'"),'cache do service worker precisa estar versionado');
 assert.ok(sw.includes("./js/backend.js"),'runtime live precisa estar no cache da PWA');
 assert.ok(sw.includes("./js/runtime-config.js"),'configuração pública de origins precisa estar no cache da PWA');
 assert.ok(sw.includes("./js/turnstile.js"),'helper local do Turnstile precisa estar no cache da PWA');
@@ -194,7 +194,7 @@ assert.ok(backend.includes('summary?.activeOrderId')&&backend.includes('localSto
 assert.ok(read('supabase/functions/merchant-ops/index.ts').includes('Seu papel não pode manter a operação ativa.'),'heartbeat não pode ser mantido por papel não operacional');
 assert.ok(backend.includes('merchantRuntime.heartbeatError')&&backend.includes('await merchantHeartbeat();\n    await merchantRefresh({silent:true});'),'polling da revenda deve confirmar presença antes de projetar o estado atualizado');
 assert.ok(merchant.includes('heartbeatFresh')&&merchant.includes('SEM CONEXÃO'),'painel não pode exibir ONLINE quando heartbeat já ficou velho');
-assert.ok(read('supabase/functions/merchant-orders/index.ts').includes('MERCHANT_ROLE_NOT_ENABLED'),'driver sem assignment não pode abrir painel operacional');
+assert.ok(read('supabase/functions/merchant-orders/index.ts').includes('selected.member_role==="driver"')&&read('supabase/functions/merchant-orders/index.ts').includes('.eq("assigned_delivery_user_id",user.id)'),'driver deve abrir somente a fila atribuída à própria identidade');
 assert.ok(read('supabase/functions/merchant-orders/index.ts').includes('selectMerchantMembership'),'seleção default de revenda deve preferir membership operacional');
 assert.ok(backend.includes("localStorage.removeItem('chama-merchant-selected-v1')"),'logout/fallback deve limpar seleção de revenda persistida');
 assert.ok(backend.includes('recoverSelection=true')&&backend.includes('staleSelected&&recoverSelection'),'frontend deve recuperar seleção antiga pertencente a outra conta');
@@ -398,7 +398,11 @@ assert.ok(!adminOpsSource.includes('const PROD_ORIGIN="https://carloskk07.github
 
 
 const getOrderSource=read('supabase/functions/get-order/index.ts');
-assert.ok(getOrderSource.includes('["owner","manager","operator"].includes(membership.member_role)'),'driver sem assignment não pode ler pedido individual');
+assert.ok(getOrderSource.includes('membership.member_role==="driver"')&&getOrderSource.includes('order.assigned_delivery_user_id===user.id'),'driver só pode ler pedido individual quando for o responsável atribuído');
+assert.ok(backend.includes('merchantAssignDeliveryLive')&&backend.includes("m.memberRole==='driver'"),'runtime precisa suportar atribuição e impedir heartbeat comercial do motorista');
+assert.ok(merchant.includes('merchantDriverLivePage')&&merchant.includes('Visão restrita por atribuição.')&&merchant.includes('merchantLiveAssignDelivery'),'UI precisa ter workspace mínimo do motorista e controle de atribuição');
+assert.ok(customer.includes('Responsável pela entrega definido.')&&!customer.includes('assignedDeliveryUserId'),'cliente deve ver responsabilidade operacional sem receber identidade do membro');
+assert.ok(read('supabase/functions/merchant-orders/index.ts').includes('catalog:[]')&&read('supabase/functions/merchant-orders/index.ts').includes('deliveryTeam:[]'),'driver não pode receber catálogo nem equipe completa');
 assert.ok(getOrderSource.includes('financial_state'),'projeção do pedido precisa expor estado financeiro seguro');
 assert.ok(customer.includes('Liquidação financeira revertida'),'cliente precisa ver quando benefícios de pedido entregue foram revertidos');
 assert.ok(read('supabase/functions/customer-summary/index.ts').includes('reversedOrders'),'resumo do cliente precisa conhecer settlements revertidos');
