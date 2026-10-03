@@ -69,10 +69,15 @@ Deno.serve(async(req:Request)=>{
       windowSeconds:60
     });
 
-    const {data,error}=await admin.rpc("customer_financial_summary",{
-      p_user_id:user.id
-    });
+    const [
+      {data,error},
+      {data:benefitTotals,error:benefitTotalsError}
+    ]=await Promise.all([
+      admin.rpc("customer_financial_summary",{p_user_id:user.id}),
+      admin.rpc("customer_benefit_totals",{p_user_id:user.id})
+    ]);
     if(error)throw error;
+    if(benefitTotalsError)throw benefitTotalsError;
 
     const ACTIVE_ORDER_STATUSES=[
       "OFFERED_TO_MERCHANT","MERCHANT_ACCEPTED","PREPARING","OUT_FOR_DELIVERY",
@@ -176,6 +181,8 @@ Deno.serve(async(req:Request)=>{
       referralCode:data?.referralCode??null,
       cashbackCents:Number(data?.cashbackCents??0),
       cashbackDebtCents:Number(data?.cashbackDebtCents??0),
+      cashbackEarnedCents:Number(benefitTotals?.cashbackEarnedCents??0),
+      comparisonSavingsCents:Number(benefitTotals?.comparisonSavingsCents??0),
       commissionPendingCents:Number(data?.commissionPendingCents??0),
       commissionAvailableCents:Number(data?.commissionAvailableCents??0),
       settledOrders:Number(data?.settledOrders??0),
