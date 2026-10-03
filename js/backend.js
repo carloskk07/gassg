@@ -827,7 +827,7 @@ async function merchantPlayAlertTone(){
 
 async function merchantShowSystemNotification(kind,count){
   if(typeof Notification==='undefined'||Notification.permission!=='granted')return false;
-  const title=kind==='driver'?'Nova entrega no Chama':'Novo pedido no Chama';
+  const title=kind==='driver'?'Nova entrega no TAMÃO':'Novo pedido no TAMÃO';
   const body=kind==='driver'
     ? (count>1?count+' entregas foram atribuídas a você.':'Uma entrega foi atribuída a você.')
     : (count>1?count+' pedidos aguardam aceite.':'Um pedido aguarda seu aceite.');
