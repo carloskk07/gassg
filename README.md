@@ -2,6 +2,21 @@
 
 Marketplace hiperlocal de gás e abastecimento essencial para São Gabriel/RS.
 
+## Estado atual — v1.57 admin bootstrap diagnostics
+
+O primeiro acesso administrativo deixa de tratar toda falha como simples "conta não autorizada".
+
+A autoridade `admin-auth` agora devolve ao navegador apenas um estado seguro de bootstrap:
+
+- `claimed` — a reserva inicial foi reivindicada;
+- `existing_admin` — a conta já era um administrador ativo;
+- `not_reserved` — a conta autenticada não corresponde à reserva inicial;
+- `bootstrap_closed` — já existe administrador ativo e a janela inicial foi encerrada.
+
+Falhas reais de concorrência ou backend retornam erro explícito e **não concedem permissão por fallback**. A UI oferece nova tentativa de validação sem executar qualquer autoelevação no browser.
+
+O pedido inicial de magic link continua respondendo genericamente para não permitir enumeração de e-mails.
+
 ## Estado atual — v1.56 first-party analytics
 
 O pré-lançamento passa a medir o funil desde a entrada no domínio oficial, sem adicionar trackers publicitários de terceiros.
