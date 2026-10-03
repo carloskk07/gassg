@@ -30,6 +30,12 @@ alter table public.orders
     or delivery_assigned_at is not null
   );
 
+create index if not exists orders_assigned_delivery_user_fk_idx
+  on public.orders(assigned_delivery_user_id);
+
+create index if not exists orders_delivery_assigned_by_fk_idx
+  on public.orders(delivery_assigned_by);
+
 create index if not exists orders_assigned_delivery_active_idx
   on public.orders(assigned_delivery_user_id,status,updated_at)
   where assigned_delivery_user_id is not null
