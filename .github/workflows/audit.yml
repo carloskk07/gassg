@@ -115,6 +115,10 @@ jobs:
           grep -q "PROTEÇÃO TAMÃO" /tmp/home.html
           grep -q "Botijão de cozinha 13 kg" /tmp/home.html
           grep -q "Quero ser avisado na abertura" /tmp/home.html
+          grep -q "ONDE ESTAMOS AGORA" /tmp/home.html
+          grep -q "Primeiro parceiro piloto em preparação" /tmp/home.html
+          grep -q "Quero comprar" /tmp/home.html
+          grep -q "Quero vender no TAMÃO" /tmp/home.html
           grep -q "Antes de pedir, veja quanto custa" /tmp/learn.html
           grep -q "Comissão por indicação para pessoas" /tmp/earn.html
           grep -q "O que você precisa e onde devemos entregar" /tmp/order.html

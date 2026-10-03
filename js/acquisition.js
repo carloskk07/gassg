@@ -14,13 +14,40 @@ function leadPostalDigits(value){
   return String(value||'').replace(/\D/g,'').slice(0,8);
 }
 function openPrelaunchCustomerLead(){
+  const section=document.getElementById('early-access');
+  if(!section){
+    if(route()!=='home')go('home');
+    setTimeout(()=>{
+      const targetSection=document.getElementById('early-access');
+      if(!targetSection)return;
+      const target=document.querySelector('#prelaunch-postal');
+      const postal=leadPostalDigits(state.postalCode||'');
+      if(target&&postal.length===8)target.value=postal.replace(/^(\d{5})(\d{3})$/,'$1-$2');
+      targetSection.scrollIntoView({behavior:'smooth',block:'start'});
+      setTimeout(()=>document.querySelector('#prelaunch-phone')?.focus(),250);
+    },120);
+    return;
+  }
   const source=document.querySelector('#home-address');
   const target=document.querySelector('#prelaunch-postal');
   const postal=leadPostalDigits(source?.value||state.postalCode||'');
   if(target&&postal.length===8)target.value=postal.replace(/^(\d{5})(\d{3})$/,'$1-$2');
-  document.getElementById('early-access')?.scrollIntoView({behavior:'smooth',block:'start'});
+  section.scrollIntoView({behavior:'smooth',block:'start'});
   setTimeout(()=>document.querySelector('#prelaunch-phone')?.focus(),350);
 }
+function prelaunchTransparencyBand(){
+  return [
+    '<section class="section prelaunch-transparency" aria-label="Situação atual do TAMÃO">',
+      '<div class="section-head"><div><span class="section-kicker">ONDE ESTAMOS AGORA</span><h2>Pré-lançamento de verdade, sem fingir que a operação já está pronta.</h2><p>Estamos validando a primeira rede local antes de liberar pedidos reais.</p></div></div>',
+      '<div class="prelaunch-transparency-grid">',
+        '<article><span class="prelaunch-step">1</span><div><strong>São Gabriel primeiro</strong><p>O lançamento inicial está sendo preparado para São Gabriel/RS.</p></div></article>',
+        '<article><span class="prelaunch-step">2</span><div><strong>Primeiro parceiro piloto em preparação</strong><p>A Gas e Lenheira do JR está na etapa de preparação. Isso ainda não significa operação pública ativa.</p></div></article>',
+        '<article><span class="prelaunch-step">3</span><div><strong>Seu CEP ajuda a priorizar cobertura</strong><p>Entrar na lista mostra onde existe demanda. O cadastro não cria pedido nem cobrança.</p></div></article>',
+      '</div>',
+    '</section>'
+  ].join('');
+}
+
 function prelaunchCustomerLeadSection(){
   if(prelaunchLeadSent('customer')){
     return '<section class="section lead-section" id="early-access"><div class="lead-success-card"><span class="lead-success-icon">✓</span><div><span class="section-kicker">LISTA DE ABERTURA</span><h2>Seu interesse já foi registrado.</h2><p>Quando houver disponibilidade para sua região, o TAMÃO poderá avisar pelo WhatsApp informado.</p></div><button class="secondary" onclick="go(\'learn\')">Conhecer o TAMÃO</button></div></section>';

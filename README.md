@@ -2,6 +2,18 @@
 
 Marketplace hiperlocal de gás e abastecimento essencial para São Gabriel/RS.
 
+## Estado atual — v1.53 conversion UX
+
+O pré-lançamento público agora prioriza conversão e remove becos sem saída:
+
+- o switcher **Quero vender** abre a landing pública de empresas enquanto o portal real ainda não possui origem dedicada;
+- a navegação mobile de pré-lançamento troca ações de pós-compra por **Início / Abertura / Como funciona / Vender / Contato**;
+- o CTA **Abertura** funciona a partir de qualquer rota e leva de volta ao formulário na home;
+- a home reduz o bloco de intenção para três decisões possíveis hoje: comprar, entender ou vender;
+- uma faixa de transparência explica São Gabriel como praça inicial, o primeiro parceiro piloto em preparação e que o cadastro não cria pedido nem cobrança.
+
+A navegação completa de pedido, rastreio, indicação e Clube reaparece automaticamente quando o mercado deixa o modo de pré-lançamento.
+
 ## Estado atual — v1.52 cloudflare production
 
 O TAMÃO agora possui uma autoridade explícita de build para a futura publicação em Cloudflare Pages.

@@ -90,6 +90,11 @@ assert.ok(read('supabase/functions/admin-ops/index.ts').includes('admin_prelaunc
 assert.ok(read('supabase/migrations/20261003202000_launch_ops_v1_51.sql').includes('PRELAUNCH_LEAD_FINAL')&&read('supabase/migrations/20261003202000_launch_ops_v1_51.sql').includes('PUBLIC_REQUEST_ALREADY_CLOSED'),'pipeline precisa falhar fechado em estados finais');
 assert.ok(read('supabase/functions/admin-ops/index.ts').includes('prelaunch_leads')&&read('supabase/functions/admin-ops/index.ts').includes('prelaunchLeads'),'summary protegido deve transportar leads para o admin');
 assert.ok(customer.includes('acquisitionOpen')&&customer.includes('prelaunchCustomerLeadSection'),'pré-lançamento precisa converter tráfego em lista de abertura');
+assert.ok(customer.includes('prelaunchTransparencyBand')&&customer.includes('COMECE POR AQUI')&&customer.includes('Quero comprar'),'home de pré-lançamento precisa concentrar a decisão em compra, entendimento e parceria');
+assert.ok(acquisition.includes('ONDE ESTAMOS AGORA')&&acquisition.includes('Primeiro parceiro piloto em preparação')&&acquisition.includes('O cadastro não cria pedido nem cobrança'),'pré-lançamento precisa comunicar estado real sem fabricar prova social');
+assert.ok(core.includes("prelaunchPublic||!merchantOriginReady?\"go('merchants')\":\"openMerchantPortal()\""),'switcher público não pode mandar revenda para portal ainda inexistente');
+assert.ok(core.includes("['early-access','🔔','Abertura','lead']")&&core.includes("act==='lead'?\"openPrelaunchCustomerLead()\""),'navegação mobile de pré-lançamento precisa levar à lista de abertura');
+assert.ok(acquisition.includes("if(!section)")&&acquisition.includes("if(route()!=='home')go('home')"),'CTA da lista deve funcionar mesmo quando acionado fora da home');
 assert.ok(acquisition.includes('Quero ser avisado na abertura')&&acquisition.includes('Quero conversar sobre parceria'),'aquisição precisa ter CTAs próprios para cliente e parceiro');
 assert.ok(acquisition.includes("utm_source")||backend.includes("utm_source"),'captação precisa preservar atribuição de campanha');
 assert.ok(backend.includes("capture-prelaunch-lead")&&backend.includes("prelaunchAttribution"),'frontend precisa enviar leads ao endpoint dedicado');
@@ -140,7 +145,7 @@ assert.ok(growth.includes('Saque Pix ainda não disponível')&&growth.includes('
 assert.ok(growth.includes('Você continua no controle'),'landing de revenda deve enfatizar autonomia operacional');
 assert.ok(core.includes("['earn','💰','Ganhe','go']"),'navegação móvel precisa dar acesso direto ao hub de renda');
 assert.ok(!growth.includes('inputmode="numeric" maxlength="18"'),'campo CNPJ não pode forçar teclado somente numérico após adoção do CNPJ alfanumérico');
-assert.ok(sw.includes("CACHE='tamao-sg-v1.51'"),'cache do service worker precisa refletir a versão TAMÃO');
+assert.ok(sw.includes("CACHE='tamao-sg-v1.53'"),'cache do service worker precisa refletir a versão TAMÃO');
 assert.ok(admin.includes('offerable_supply_required')&&admin.includes('offerReadyMerchantCount'),'painel admin precisa expor oferta real como gate de lançamento');
 assert.ok(admin.includes('realmente capaz de receber uma oferta agora'),'copy de go-live precisa distinguir cadastro de capacidade operacional real');
 assert.ok(sw.includes("./js/backend.js"),'runtime live precisa estar no cache da PWA');
