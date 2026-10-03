@@ -85,8 +85,8 @@ Deno.serve(async(req:Request)=>{
       }
       const rating=Number(body.rating);
       if(![1,5].includes(rating))throw new DomainError("INVALID_RATING","Avaliação inválida.",400);
-      const rawTags=Array.isArray(body.tags)?body.tags:[];
-      const tags=[...new Set(rawTags.map((x)=>String(x).trim()).filter((x)=>FEEDBACK_TAGS.has(x)))].slice(0,8);
+      const rawTags:unknown[]=Array.isArray(body.tags)?body.tags:[];
+      const tags=[...new Set(rawTags.map((x:unknown)=>String(x).trim()).filter((x:string)=>FEEDBACK_TAGS.has(x)))].slice(0,8);
       const note=cleanNote(body.note,500);
       const now=new Date().toISOString();
 
