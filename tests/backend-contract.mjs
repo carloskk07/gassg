@@ -190,6 +190,19 @@ const cronPublicAcl=fs.readFileSync(
   'utf8'
 ).replace(/--.*$/gm,'').replace(/\s+/g,' ').toLowerCase();
 
-assert.match(cronPublicAcl,/revoke all privileges on table cron\.job, cron\.job_run_details from public, anon, authenticated/,'ACL herdado de PUBLIC no pg_cron precisa ser removido');
+assert.match(cronPublicAcl,/revoke all privileges on table cron\.job, cron\.job_run_details from public, anon, authenticated/,'tentativa best-effort de fechar ACL herdado do pg_cron precisa ficar versionada');
 
-console.log('Cron PUBLIC ACL lockdown v1.34.3 contract passou.');
+console.log('Cron PUBLIC ACL best-effort v1.34.3 contract passou.');
+
+
+const cronEffectiveBoundary=fs.readFileSync(
+  new URL('../supabase/migrations/20261003022500_cron_effective_browser_boundary.sql',import.meta.url),
+  'utf8'
+).replace(/--.*$/gm,'').replace(/\s+/g,' ').toLowerCase();
+
+assert.match(cronEffectiveBoundary,/revoke usage on schema cron from anon, authenticated/,'browser deve permanecer sem USAGE no schema cron');
+assert.match(cronEffectiveBoundary,/has_schema_privilege\('anon','cron','usage'\)/,'migração deve provar a fronteira efetiva de anon');
+assert.match(cronEffectiveBoundary,/has_schema_privilege\('authenticated','cron','usage'\)/,'migração deve provar a fronteira efetiva de authenticated');
+assert.match(cronEffectiveBoundary,/cron_schema_exposed_to_browser/,'migração deve falhar fechado se o schema cron reabrir');
+
+console.log('Cron effective browser boundary v1.34.4 contract passou.');
