@@ -206,3 +206,32 @@ assert.match(cronEffectiveBoundary,/has_schema_privilege\('authenticated','cron'
 assert.match(cronEffectiveBoundary,/cron_schema_exposed_to_browser/,'migração deve falhar fechado se o schema cron reabrir');
 
 console.log('Cron effective browser boundary v1.34.4 contract passou.');
+
+
+const isolatedOriginContracts=[
+  ['admin-auth','ADMIN_ALLOWED_ORIGIN','https://chama-sg-admin.netlify.app'],
+  ['admin-ops','ADMIN_ALLOWED_ORIGIN','https://chama-sg-admin.netlify.app'],
+  ['complete-delivery','MERCHANT_ALLOWED_ORIGIN','https://chama-sg-revenda.netlify.app'],
+  ['create-order','CUSTOMER_ALLOWED_ORIGIN','https://chama-sg-cliente.netlify.app'],
+  ['customer-action','CUSTOMER_ALLOWED_ORIGIN','https://chama-sg-cliente.netlify.app'],
+  ['customer-care','CUSTOMER_ALLOWED_ORIGIN','https://chama-sg-cliente.netlify.app'],
+  ['customer-summary','CUSTOMER_ALLOWED_ORIGIN','https://chama-sg-cliente.netlify.app'],
+  ['get-offers','CUSTOMER_ALLOWED_ORIGIN','https://chama-sg-cliente.netlify.app'],
+  ['get-order','CUSTOMER_ALLOWED_ORIGIN','https://chama-sg-cliente.netlify.app'],
+  ['get-order','MERCHANT_ALLOWED_ORIGIN','https://chama-sg-revenda.netlify.app'],
+  ['market-status','CUSTOMER_ALLOWED_ORIGIN','https://chama-sg-cliente.netlify.app'],
+  ['merchant-action','MERCHANT_ALLOWED_ORIGIN','https://chama-sg-revenda.netlify.app'],
+  ['merchant-ops','MERCHANT_ALLOWED_ORIGIN','https://chama-sg-revenda.netlify.app'],
+  ['merchant-orders','MERCHANT_ALLOWED_ORIGIN','https://chama-sg-revenda.netlify.app'],
+  ['merchant-team','MERCHANT_ALLOWED_ORIGIN','https://chama-sg-revenda.netlify.app'],
+  ['submit-merchant-application','MERCHANT_ALLOWED_ORIGIN','https://chama-sg-revenda.netlify.app']
+];
+for(const [fn,envName,origin] of isolatedOriginContracts){
+  const source=fs.readFileSync(new URL('../supabase/functions/'+fn+'/index.ts',import.meta.url),'utf8');
+  assert.ok(
+    source.includes('Deno.env.get("'+envName+'")')&&source.includes(origin),
+    fn+' precisa manter fallback para a origem isolada '+origin
+  );
+}
+
+console.log('Isolated portal CORS fallbacks contract passou.');
