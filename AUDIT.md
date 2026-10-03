@@ -1313,3 +1313,34 @@ O GitHub Pages e o futuro Cloudflare Pages devem usar a mesma autoridade de buil
 ### Indexação
 
 O laboratório permanece `noindex` e `robots.txt: Disallow: /` até a prova de domínio/HTTPS. O `robots.txt` agora é copiado para o artefato de Pages, corrigindo a divergência anterior entre repositório e publicação.
+
+
+## V1.51 — Launch operations authority
+
+### Problema fechado
+
+Captação sem workflow produz lista de contatos, não operação. A V1.51 transforma leads e solicitações públicas em filas administráveis e auditáveis.
+
+### Pipeline comercial
+
+`prelaunch_leads` ganha nota interna e timestamps de contato, qualificação, conversão e encerramento. Estados finais não podem ser reabertos pelo endpoint administrativo.
+
+### Fila de confiança
+
+`public_requests` passa a ter transições administrativas explícitas. Resolver ou encerrar exige nota de resolução.
+
+### Segurança
+
+As duas autoridades novas:
+
+- validam `platform_admins`;
+- possuem idempotência via `action_requests`;
+- travam a linha com `FOR UPDATE`;
+- validam transição;
+- escrevem auditoria;
+- não concedem EXECUTE a `anon` nem `authenticated`;
+- concedem EXECUTE apenas a `service_role`.
+
+### Conversão operacional
+
+O admin exibe estágios e oferece ações explícitas. Abrir WhatsApp/e-mail não altera status automaticamente; o operador precisa confirmar a mudança de etapa, evitando falsos positivos.
