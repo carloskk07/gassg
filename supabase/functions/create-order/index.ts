@@ -54,7 +54,10 @@ function mapRpcError(error: { message?: string; code?: string } | null) {
     QUOTE_STALE: { status: 409, message: "A disponibilidade mudou. Atualize as ofertas." },
     ACTIVE_ORDER_EXISTS: { status: 409, message: "Você já possui um pedido em andamento." },
     IDEMPOTENCY_CONFLICT: { status: 409, message: "A mesma chave foi usada para outra requisição." },
-    INVALID_PAYMENT_METHOD: { status: 400, message: "Forma de pagamento inválida." }
+    INVALID_PAYMENT_METHOD: { status: 400, message: "Forma de pagamento inválida." },
+    INVALID_CASH_TENDER: { status: 400, message: "O valor para troco precisa cobrir o total do pedido." },
+    CASH_TENDER_REQUIRES_CASH: { status: 400, message: "Valor para troco só pode ser usado em pagamento em dinheiro." },
+    MERCHANT_AT_CAPACITY: { status: 409, message: "O parceiro atingiu a capacidade de pedidos agora. Atualize as opções." }
   };
 
   for (const [code, meta] of Object.entries(known)) {
@@ -110,6 +113,17 @@ Deno.serve(async (req: Request) => {
     }
 
     const useCashback = body.useCashback === true;
+    const rawCashTender = body.cashTenderCents;
+    const cashTenderCents = rawCashTender == null || rawCashTender === ""
+      ? null
+      : Number(rawCashTender);
+    if (cashTenderCents != null && (!Number.isInteger(cashTenderCents) || cashTenderCents < 1 || cashTenderCents > 1000000)) {
+      throw new DomainError("INVALID_CASH_TENDER", "Valor para troco inválido.", 400);
+    }
+    if (paymentMethod !== "cash" && cashTenderCents != null) {
+      throw new DomainError("CASH_TENDER_REQUIRES_CASH", "Troco só se aplica ao pagamento em dinheiro.", 400);
+    }
+
     const referralCode = body.referralCode == null
       ? null
       : String(body.referralCode).trim().toUpperCase().slice(0, 20);
@@ -118,7 +132,8 @@ Deno.serve(async (req: Request) => {
       quoteId,
       paymentMethod,
       useCashback,
-      referralCode
+      referralCode,
+      cashTenderCents
     };
     const requestHash = await requestFingerprint("create-order", fingerprintPayload);
 
@@ -127,14 +142,15 @@ Deno.serve(async (req: Request) => {
     });
     await enforceApiQuota(admin,{userId:user.id,actionName:"create-order",limit:12,windowSeconds:600});
 
-    const { data, error } = await admin.rpc("create_order_from_quote", {
+    const { data, error } = await admin.rpc("create_order_from_quote_v2", {
       p_user_id: user.id,
       p_quote_id: quoteId,
       p_payment_method: paymentMethod,
       p_use_cashback: useCashback,
       p_idempotency_key: idempotencyKey,
       p_request_hash: requestHash,
-      p_referral_code: referralCode
+      p_referral_code: referralCode,
+      p_cash_tender_cents: cashTenderCents
     });
 
     if (error) {
