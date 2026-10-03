@@ -83,6 +83,8 @@ jobs:
         run: node tests/runtime-operations-contract.mjs
       - name: Server domain simulations
         run: node tests/server-domain.mjs
+      - name: Public artifact boundary
+        run: node scripts/build-public-site.mjs /tmp/tamao-public
       - name: Browser smoke — mobile routes
         run: |
           python3 -m http.server 4173 >/tmp/chama-http.log 2>&1 &
