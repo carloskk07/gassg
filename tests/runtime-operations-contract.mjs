@@ -715,3 +715,28 @@ assert.match(deliveryDetailsV139,/revoke all on function public\.create_order_fr
 assert.match(deliveryDetailsV139,/grant execute on function public\.create_order_from_quote_v5[\s\S]*to service_role/,'V5 deve ser server-only');
 
 console.log('Delivery details v1.39 contract passou.');
+
+
+const deliveryPiiRetentionV141=fs.readFileSync(
+  new URL('../supabase/migrations/20261003045000_delivery_pii_retention_v1_41.sql',import.meta.url),
+  'utf8'
+).replace(/--.*$/gm,'').replace(/\s+/g,' ').toLowerCase();
+
+assert.match(deliveryPiiRetentionV141,/create table if not exists public\.data_retention_policy/,'janela de retenção precisa ser política declarativa');
+assert.match(deliveryPiiRetentionV141,/terminal_delivery_pii_days smallint not null default 90/,'retenção operacional inicial precisa ser explícita');
+assert.match(deliveryPiiRetentionV141,/terminal_delivery_pii_days between 7 and 730/,'política de retenção precisa ter limites defensivos');
+assert.match(deliveryPiiRetentionV141,/alter table public\.data_retention_policy enable row level security/,'política de retenção precisa ser server-only');
+assert.match(deliveryPiiRetentionV141,/revoke all on table public\.data_retention_policy from public, anon, authenticated/,'browser não pode alterar política de retenção');
+assert.match(deliveryPiiRetentionV141,/delivery_pii_redacted_at timestamptz/,'pedido precisa registrar quando o PII operacional foi minimizado');
+assert.match(deliveryPiiRetentionV141,/orders_delivery_pii_retention_idx/,'job de retenção precisa de índice focado nos pedidos ainda não redigidos');
+assert.match(deliveryPiiRetentionV141,/v_status in \('settled','cancelled'\)[\s\S]*v_redacted_at is not null/,'telefone só pode faltar em pedido terminal efetivamente redigido');
+assert.match(deliveryPiiRetentionV141,/status in \('settled','cancelled'\)[\s\S]*delivery_pii_redacted_at is null/,'somente pedidos terminais ainda não redigidos entram na limpeza');
+assert.match(deliveryPiiRetentionV141,/not exists \([\s\S]*from public\.support_cases sc[\s\S]*sc\.status in \('open','in_review'\)/,'atendimento aberto precisa suspender a redação');
+assert.match(deliveryPiiRetentionV141,/address_text='\[dados de entrega removidos\]'/,'endereço detalhado precisa ser substituído por marcador neutro');
+assert.match(deliveryPiiRetentionV141,/customer_phone_digits=null,[\s\S]*address_complement=null,[\s\S]*delivery_reference=null,[\s\S]*delivery_notes=null/,'telefone e detalhes de chegada precisam ser removidos juntos');
+assert.match(deliveryPiiRetentionV141,/delivery_pii_redacted_at=clock_timestamp\(\)/,'redação precisa deixar timestamp auditável');
+assert.match(deliveryPiiRetentionV141,/delivery_pii_redacted/,'redação precisa deixar evento no histórico do pedido');
+assert.match(deliveryPiiRetentionV141,/limit 500[\s\S]*for update skip locked/,'job precisa processar lotes limitados e concorrentes com segurança');
+assert.match(deliveryPiiRetentionV141,/deliverypiiredacted[\s\S]*deliverypiiretentiondays/,'resultado do job precisa expor contagem e política aplicada');
+
+console.log('Delivery PII retention v1.41 contract passou.');
