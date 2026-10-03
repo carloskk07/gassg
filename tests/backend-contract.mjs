@@ -183,3 +183,13 @@ assert.match(cronLockdown,/revoke usage on schema cron from anon, authenticated/
 assert.doesNotMatch(cronLockdown,/drop policy|create policy|alter policy/,'migration da aplicação não deve tentar alterar policies pertencentes ao supabase_admin');
 
 console.log('Cron browser lockdown v1.34.2 contract passou.');
+
+
+const cronPublicAcl=fs.readFileSync(
+  new URL('../supabase/migrations/20261003022000_cron_public_acl_lockdown.sql',import.meta.url),
+  'utf8'
+).replace(/--.*$/gm,'').replace(/\s+/g,' ').toLowerCase();
+
+assert.match(cronPublicAcl,/revoke all privileges on table cron\.job, cron\.job_run_details from public, anon, authenticated/,'ACL herdado de PUBLIC no pg_cron precisa ser removido');
+
+console.log('Cron PUBLIC ACL lockdown v1.34.3 contract passou.');
