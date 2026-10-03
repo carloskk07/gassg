@@ -150,7 +150,39 @@ declare
   v_result jsonb;
   v_order_id uuid;
   v_postal_code text;
+  v_action public.action_requests%rowtype;
 begin
+  select *
+  into v_action
+  from public.action_requests
+  where idempotency_key=p_idempotency_key;
+
+  if found and v_action.completed_at is not null then
+    if v_action.user_id<>p_user_id
+       or v_action.action_name<>'create-order'
+       or v_action.request_hash<>p_request_hash then
+      raise exception 'IDEMPOTENCY_CONFLICT' using errcode='23505';
+    end if;
+
+    v_result:=v_action.result_json;
+    v_order_id:=(v_result->>'orderId')::uuid;
+
+    select o.postal_code
+    into v_postal_code
+    from public.orders o
+    where o.id=v_order_id
+      and o.customer_id=p_user_id;
+
+    if not found then
+      raise exception 'ORDER_NOT_FOUND' using errcode='P0002';
+    end if;
+
+    return v_result||jsonb_build_object(
+      'postalCode',v_postal_code,
+      'postalValidated',v_postal_code is not null
+    );
+  end if;
+
   select q.postal_code
   into v_postal_code
   from public.quotes q
