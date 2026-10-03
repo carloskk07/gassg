@@ -9,6 +9,8 @@ const adminRuntime={
   actionPending:false,
   error:null,
   notice:null,
+  bootstrapStatus:null,
+  bootstrapError:null,
   lastSyncAt:null,
   refreshSeq:0,
   pollPending:false,
@@ -69,9 +71,23 @@ async function adminBackendInit(){
       return false;
     }
 
-    await adminClaimBootstrap().catch(()=>{});
+    let bootstrapFailure=null;
+    try{
+      await adminClaimBootstrap();
+    }catch(error){
+      bootstrapFailure=error;
+      adminRuntime.bootstrapError=String(error?.message||error||'Falha ao validar o primeiro acesso.');
+    }
     await adminRefresh({silent:true});
-    return adminRuntime.status==='ready';
+    if(adminRuntime.status==='ready'){
+      adminRuntime.bootstrapError=null;
+      return true;
+    }
+    if(adminRuntime.status==='no-access'&&bootstrapFailure){
+      adminRuntime.status='bootstrap-error';
+      adminRuntime.error='Não foi possível confirmar a autorização administrativa. Tente validar o acesso novamente.';
+    }
+    return false;
   }catch(error){
     adminRuntime.status='unavailable';
     adminRuntime.error=String(error?.message||error||'Administração indisponível');
@@ -147,7 +163,50 @@ async function adminAuthInvoke(body={},options={}){
 
 async function adminClaimBootstrap(){
   if(!adminRuntime.session?.access_token)return null;
-  return adminAuthInvoke({action:'claim'},{withSession:true});
+  const result=await adminAuthInvoke({action:'claim'},{withSession:true});
+  adminRuntime.bootstrapStatus=String(result?.status||'unknown');
+  adminRuntime.bootstrapError=null;
+  if(adminRuntime.bootstrapStatus==='claimed'){
+    adminRuntime.notice='Primeiro acesso confirmado. A administração foi ativada com segurança.';
+  }
+  return result;
+}
+
+function adminBootstrapAccessMessage(){
+  if(adminRuntime.bootstrapStatus==='not_reserved'){
+    return 'Esta conta permanente foi autenticada, mas não corresponde à reserva administrativa inicial.';
+  }
+  if(adminRuntime.bootstrapStatus==='bootstrap_closed'){
+    return 'O bootstrap inicial já foi encerrado porque existe outro administrador ativo. Esta conta só pode ser adicionada por um administrador existente.';
+  }
+  if(adminRuntime.bootstrapStatus==='unknown'){
+    return 'A identidade foi autenticada, mas o servidor não confirmou uma condição válida de bootstrap.';
+  }
+  return 'Esta conta está autenticada, mas não possui autorização administrativa ativa.';
+}
+
+async function adminRetryBootstrapFromUi(){
+  if(adminRuntime.actionPending)return;
+  adminRuntime.actionPending=true;
+  adminRuntime.status='loading';
+  adminRuntime.error=null;
+  adminRuntime.bootstrapError=null;
+  render();
+  try{
+    await adminClaimBootstrap();
+    await adminRefresh({silent:true});
+    if(adminRuntime.status==='no-access'&&adminRuntime.bootstrapStatus==='claimed'){
+      adminRuntime.status='bootstrap-error';
+      adminRuntime.error='O primeiro acesso foi reivindicado, mas o control plane ainda não confirmou a permissão. Tente novamente.';
+    }
+  }catch(error){
+    adminRuntime.status='bootstrap-error';
+    adminRuntime.bootstrapError=String(error?.message||error||'Falha ao validar o acesso.');
+    adminRuntime.error='A validação administrativa falhou antes de qualquer elevação de privilégio.';
+  }finally{
+    adminRuntime.actionPending=false;
+    render();
+  }
 }
 
 async function adminSendLogin(email){
@@ -177,6 +236,8 @@ async function adminSignOut(){
   adminRuntime.status='unauthenticated';
   adminRuntime.error=null;
   adminRuntime.notice=null;
+  adminRuntime.bootstrapStatus=null;
+  adminRuntime.bootstrapError=null;
   render();
 }
 
@@ -300,9 +361,23 @@ function adminNoAccessView(){
   return shell(`<section class="page">
     <span class="eyebrow">ACESSO NEGADO</span>
     <h1 class="page-title">Conta não autorizada</h1>
-    <p class="muted">${esc(email)} está autenticada, mas não pertence à allowlist de administradores.</p>
-    <div class="notice danger" style="margin-top:14px">Não existe autoelevação de privilégio. O primeiro admin só pode nascer da reserva criptográfica server-side; depois disso, novos administradores dependem de um admin já ativo.</div>
-    <button class="ghost full" style="margin-top:12px" onclick="adminSignOut()">Sair desta conta</button>
+    <p class="muted">${esc(email)} está autenticada, mas o servidor não concedeu acesso ao control plane.</p>
+    <div class="notice danger" style="margin-top:14px">${esc(adminBootstrapAccessMessage())}</div>
+    <div class="notice" style="margin-top:10px">Não existe autoelevação de privilégio. O primeiro admin só pode nascer da reserva criptográfica server-side; depois disso, novos administradores dependem de um admin já ativo.</div>
+    <button class="secondary full" style="margin-top:12px" onclick="adminRetryBootstrapFromUi()">Validar acesso novamente</button>
+    <button class="ghost full" style="margin-top:8px" onclick="adminSignOut()">Sair desta conta</button>
+  </section>`);
+}
+
+function adminBootstrapErrorView(){
+  return shell(`<section class="page">
+    <span class="eyebrow">VALIDAÇÃO ADMINISTRATIVA</span>
+    <h1 class="page-title">Não foi possível concluir a validação</h1>
+    <p class="muted">Sua sessão foi autenticada, mas a autoridade de bootstrap não respondeu de forma conclusiva.</p>
+    <div class="notice danger" style="margin-top:14px">${esc(adminRuntime.bootstrapError||adminRuntime.error||'Falha temporária na validação administrativa.')}</div>
+    <div class="notice" style="margin-top:10px">Nenhuma permissão foi concedida por fallback. O acesso permanece fechado até o servidor confirmar a autorização.</div>
+    <button class="primary full" style="margin-top:12px" onclick="adminRetryBootstrapFromUi()">Tentar validação novamente</button>
+    <button class="ghost full" style="margin-top:8px" onclick="adminSignOut()">Sair desta conta</button>
   </section>`);
 }
 
@@ -498,6 +573,7 @@ function adminPage(){
   }
   if(adminRuntime.status==='unauthenticated')return adminLoginView();
   if(adminRuntime.status==='no-access')return adminNoAccessView();
+  if(adminRuntime.status==='bootstrap-error')return adminBootstrapErrorView();
   if(adminRuntime.status!=='ready'||!adminRuntime.data){
     return shell(`<section class="page"><h1 class="page-title">Administração</h1><div class="notice danger"><strong>Não foi possível carregar o painel.</strong><br>${esc(adminRuntime.error||'Tente novamente.')}</div><button class="secondary full" style="margin-top:12px" onclick="adminRefresh()">Tentar novamente</button></section>`);
   }
@@ -723,6 +799,7 @@ globalThis.adminPortalRequested=adminPortalRequested;
 globalThis.adminReady=adminReady;
 globalThis.adminBackendInit=adminBackendInit;
 globalThis.adminSendLogin=adminSendLogin;
+globalThis.adminRetryBootstrapFromUi=adminRetryBootstrapFromUi;
 globalThis.adminSignOut=adminSignOut;
 globalThis.adminRefresh=adminRefresh;
 globalThis.adminPoll=adminPoll;
