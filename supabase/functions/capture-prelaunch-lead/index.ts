@@ -2,7 +2,8 @@ import "jsr:@supabase/functions-js@2.117.2/edge-runtime.d.ts";
 import { createClient } from "npm:@supabase/supabase-js@2.117.2";
 
 const SUPABASE_URL=Deno.env.get("SUPABASE_URL")??"";
-const SECRET_KEY=Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")??"";
+const secretKeys=JSON.parse(Deno.env.get("SUPABASE_SECRET_KEYS")??"{}");
+const SECRET_KEY=secretKeys.default??Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")??"";
 const ALLOWED_ORIGINS=new Set([
   "https://tamao.com.br",
   "https://www.tamao.com.br",
