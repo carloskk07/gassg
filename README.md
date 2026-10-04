@@ -18,6 +18,13 @@ O painel administrativo passa a apresentar uma **Central de Produção**. O kill
 Confirmações administrativas ficam em `platform_launch_confirmations`, sem acesso de `anon/authenticated`, e todas as decisões são registradas em `platform_admin_audit`.
 
 
+
+## V1.63 — onboarding assistido do primeiro parceiro
+
+O administrador pode converter um parceiro piloto em uma revenda real sem SQL manual. A conversão cria a revenda em estado `pending`, registra dados comerciais server-only, catálogo/preço/estoque inicial, formas de pagamento explicitamente selecionadas e configuração logística.
+
+O fluxo **não** fabrica validação: compliance nasce pendente, a revenda permanece offline e o owner pode ser vinculado quando a conta permanente existir. Toda conversão é idempotente e auditada.
+
 ## Estado atual — v1.61 cloudflare portals
 
 O Netlify deixa de ser requisito para os portais isolados. A rota principal passa a ser **Cloudflare Pages**, mantendo o Netlify apenas como fallback de migração.

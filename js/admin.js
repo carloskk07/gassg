@@ -394,6 +394,11 @@ function adminApplicationCard(a){
 }
 
 
+function adminProductName(code){
+  const value=String(code||'').toUpperCase();
+  if(/^P([1-9]|[1-8][0-9]|90)$/.test(value))return 'Gás GLP '+value;
+  return ({WATER20:'Água 20 L',CHARCOAL4:'Carvão 4 kg',WOOD:'Lenha',ICE5:'Gelo 5 kg'})[value]||value;
+}
 function adminPilotPartnerCard(p){
   const statusLabel={
     awaiting_legal_data:'AGUARDANDO DADOS REAIS',
@@ -402,13 +407,53 @@ function adminPilotPartnerCard(p){
     cancelled:'CANCELADO'
   }[p.onboarding_status]||String(p.onboarding_status||'—').toUpperCase();
   const statusClass=p.onboarding_status==='converted'?'online':p.onboarding_status==='cancelled'?'offline':'risk';
+  const id=String(p.id);
+  const prefix='pilot-'+id;
+  const convertible=!['converted','cancelled'].includes(p.onboarding_status);
   return `<article class="order-card">
     <div class="order-head"><div><div class="order-id">${esc(p.display_name)}</div><div class="tiny muted">Parceiro piloto • ${esc(p.proposed_product_code)}</div></div><span class="status-pill ${statusClass}">${esc(statusLabel)}</span></div>
     <div class="order-line"><strong>${p.pricing_mode==='range'?'Faixa comercial confirmada':'Preço comercial informado'}:</strong> ${p.pricing_mode==='range'?adminMoney(p.min_delivered_price_cents)+' mínimo • '+adminMoney(p.preferred_delivered_price_cents)+' normal • '+adminMoney(p.max_delivered_price_cents)+' máximo':adminMoney(p.proposed_delivered_price_cents)} ${p.delivery_included?'com entrega incluída':'antes da entrega'}</div>
     ${p.pricing_mode==='range'?`<div class="order-line"><strong>Estratégia inicial:</strong> ${esc(({volume:'Priorizar volume',balanced:'Equilibrado',margin:'Priorizar margem'})[p.pricing_strategy]||p.pricing_strategy||'—')}</div>`:''}
     <div class="order-line"><strong>Status do preço:</strong> ${p.price_status==='confirmed'?'confirmado':'proposto — ainda não publicar como oferta real'}</div>
     ${p.notes?`<div class="tiny muted">${esc(p.notes)}</div>`:''}
-    <div class="notice" style="margin-top:10px"><strong>Gate de ativação preservado.</strong><br>CNPJ, responsável, endereço, conta owner e validação regulatória aplicável ainda precisam ser cadastrados antes de criar uma revenda ativa.</div>
+    ${p.onboarding_status==='converted'?`<div class="notice success" style="margin-top:10px"><strong>Revenda criada.</strong><br>ID: ${esc(p.merchant_id||'—')}. Compliance e ativação continuam separados.</div>`:''}
+    ${convertible?`<div class="divider"></div>
+      <div class="notice"><strong>Converter parceiro piloto em revenda</strong><br>Cria cadastro, dados comerciais, catálogo, estoque inicial e pagamentos selecionados. Compliance permanece <strong>pendente</strong>.</div>
+      <div class="field-row">
+        <div class="input-wrap"><label for="${prefix}-legal">Razão social</label><input id="${prefix}-legal" class="input" maxlength="180" placeholder="Razão social real"></div>
+        <div class="input-wrap"><label for="${prefix}-cnpj">CNPJ</label><input id="${prefix}-cnpj" class="input" maxlength="24" placeholder="CNPJ real"></div>
+      </div>
+      <div class="field-row">
+        <div class="input-wrap"><label for="${prefix}-responsible">Responsável</label><input id="${prefix}-responsible" class="input" maxlength="120" placeholder="Nome do responsável"></div>
+        <div class="input-wrap"><label for="${prefix}-owner-name">Nome no portal</label><input id="${prefix}-owner-name" class="input" maxlength="60" placeholder="Opcional"></div>
+      </div>
+      <div class="field-row">
+        <div class="input-wrap"><label for="${prefix}-phone">Telefone</label><input id="${prefix}-phone" class="input" maxlength="24" placeholder="55..."></div>
+        <div class="input-wrap"><label for="${prefix}-whatsapp">WhatsApp</label><input id="${prefix}-whatsapp" class="input" maxlength="24" placeholder="55..."></div>
+      </div>
+      <div class="field-row">
+        <div class="input-wrap"><label for="${prefix}-postal">CEP</label><input id="${prefix}-postal" class="input" maxlength="12" placeholder="97300000"></div>
+        <div class="input-wrap"><label for="${prefix}-city">Cidade</label><input id="${prefix}-city" class="input" maxlength="120" value="São Gabriel"></div>
+      </div>
+      <div class="input-wrap"><label for="${prefix}-address">Endereço</label><input id="${prefix}-address" class="input" maxlength="240" placeholder="Rua, número e complemento"></div>
+      <div class="input-wrap"><label for="${prefix}-owner">UUID da conta owner</label><input id="${prefix}-owner" class="input" maxlength="36" placeholder="Opcional — pode ser vinculado depois"><small class="field-help">Sem owner, a revenda existe mas continua pendente no checklist.</small></div>
+      <div class="field-row">
+        <div class="input-wrap"><label for="${prefix}-stock">Estoque inicial</label><input id="${prefix}-stock" class="input" type="number" min="0" max="1000000" step="1" value="0"></div>
+        <div class="input-wrap"><label for="${prefix}-fee">Taxa de entrega</label><input id="${prefix}-fee" class="input" type="number" min="0" max="1000" step="0.01" value="0.00"></div>
+      </div>
+      <div class="field-row">
+        <div class="input-wrap"><label for="${prefix}-eta">ETA base (min)</label><input id="${prefix}-eta" class="input" type="number" min="5" max="180" step="1" value="30"></div>
+        <div class="input-wrap"><label for="${prefix}-radius">Raio km</label><input id="${prefix}-radius" class="input" type="number" min="0" max="100" step="0.5" placeholder="Opcional"></div>
+      </div>
+      <label class="check-row"><input id="${prefix}-citywide" type="checkbox"><span><strong>Atende toda São Gabriel</strong><small>Marque apenas se a cobertura foi confirmada.</small></span></label>
+      <div class="card flat"><strong>Formas de pagamento confirmadas</strong>
+        <label class="check-row"><input id="${prefix}-pay-pix" type="checkbox"><span>Pix</span></label>
+        <label class="check-row"><input id="${prefix}-pay-cash" type="checkbox"><span>Dinheiro</span></label>
+        <label class="check-row"><input id="${prefix}-pay-card" type="checkbox"><span>Cartão na entrega</span></label>
+      </div>
+      <div class="input-wrap"><label for="${prefix}-notes">Observações administrativas</label><input id="${prefix}-notes" class="input" maxlength="2000" placeholder="Evidências, combinações e pendências"></div>
+      <button class="primary" onclick="adminConvertPilotPartner('${id}')">Converter em revenda pendente</button>
+    `:''}
   </article>`;
 }
 
@@ -425,6 +470,7 @@ function adminMerchantCard(m){
   return `<article class="order-card">
     <div class="order-head"><div><div class="order-id">${esc(m.name)}</div><div class="tiny muted">${esc(m.cnpj)}</div></div>${adminStatusPill(m.status)}</div>
     <div class="order-line">Online: <strong>${m.online?'sim':'não'}</strong> • Trust: ${Number(m.trust_score||0)}/100</div>
+    ${m.businessDetails?`<div class="order-line"><strong>Responsável:</strong> ${esc(m.businessDetails.responsible_name)} • ${esc(m.businessDetails.city)}/${esc(m.businessDetails.state)} • WhatsApp ${esc(m.businessDetails.whatsapp)}</div>`:''}
     <div class="field-row" style="margin-top:12px">
       <div class="input-wrap"><label for="${cnpjId}">CNPJ</label><select id="${cnpjId}" class="input"><option value="pending" ${c.cnpj_status==='pending'?'selected':''}>Pendente</option><option value="verified" ${c.cnpj_status==='verified'?'selected':''}>Verificado</option><option value="rejected" ${c.cnpj_status==='rejected'?'selected':''}>Rejeitado</option></select><small>Última verificação: ${c.cnpj_verified_at?esc(formatDateTime(c.cnpj_verified_at)):'nunca'}</small></div>
       <div class="input-wrap"><label for="${anpId}">ANP</label><select id="${anpId}" class="input"><option value="pending" ${c.anp_status==='pending'?'selected':''}>Pendente</option><option value="verified" ${c.anp_status==='verified'?'selected':''}>Verificada</option><option value="not_required" ${c.anp_status==='not_required'?'selected':''}>Não se aplica</option><option value="rejected" ${c.anp_status==='rejected'?'selected':''}>Rejeitada</option></select><small>Última verificação: ${c.anp_verified_at?esc(formatDateTime(c.anp_verified_at)):c.anp_status==='not_required'?'não se aplica':'nunca'}</small></div>
@@ -760,6 +806,58 @@ async function adminSetSupportStatus(caseId,status){
   }catch(e){toast(String(e?.message||e))}
 }
 
+async function adminConvertPilotPartner(id){
+  const p=(adminRuntime.data?.pilotPartners||[]).find(x=>x.id===id);
+  if(!p)return toast('Parceiro piloto não encontrado');
+  const prefix='pilot-'+id;
+  const value=(suffix)=>document.getElementById(prefix+'-'+suffix)?.value?.trim()||'';
+  const checked=(suffix)=>document.getElementById(prefix+'-'+suffix)?.checked===true;
+  const paymentMethods=[];
+  if(checked('pay-pix'))paymentMethods.push('pix');
+  if(checked('pay-cash'))paymentMethods.push('cash');
+  if(checked('pay-card'))paymentMethods.push('card');
+  const required={
+    legalName:value('legal'),cnpj:value('cnpj'),responsibleName:value('responsible'),
+    phone:value('phone'),whatsapp:value('whatsapp'),postalCode:value('postal'),
+    city:value('city'),addressText:value('address')
+  };
+  if(Object.values(required).some(x=>!x))return toast('Preencha os dados reais obrigatórios da revenda');
+  const ownerUserId=value('owner')||null;
+  if(ownerUserId&&!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(ownerUserId)){
+    return toast('UUID da conta owner inválido');
+  }
+  const availableStock=Number(value('stock')||0);
+  const deliveryFeeCents=Math.round(Number(value('fee')||0)*100);
+  const baseEtaMinutes=Number(value('eta')||30);
+  const radiusText=value('radius');
+  if(!confirm('Criar esta revenda como PENDENTE? Compliance não será marcado como verificado e a revenda não ficará online automaticamente.'))return;
+  try{
+    const result=await adminPerform('assisted-merchant-onboarding',{
+      draftId:id,
+      tradeName:p.display_name,
+      ...required,
+      state:'RS',
+      ownerUserId,
+      ownerDisplayName:value('owner-name')||null,
+      productCode:p.proposed_product_code,
+      productName:adminProductName(p.proposed_product_code),
+      pricingMode:p.pricing_mode||'fixed',
+      minPriceCents:Number(p.min_delivered_price_cents||p.proposed_delivered_price_cents),
+      preferredPriceCents:Number(p.preferred_delivered_price_cents||p.proposed_delivered_price_cents),
+      maxPriceCents:Number(p.max_delivered_price_cents||p.proposed_delivered_price_cents),
+      pricingStrategy:p.pricing_strategy||'balanced',
+      availableStock,
+      paymentMethods,
+      deliveryFeeCents,
+      baseEtaMinutes,
+      acceptsCitywide:checked('citywide'),
+      serviceRadiusKm:radiusText===''?null:Number(radiusText),
+      adminNotes:value('notes')||null
+    });
+    toast(result?.alreadyConverted?'Parceiro já estava convertido':'Revenda criada como pendente');
+  }catch(e){toast(String(e?.message||e))}
+}
+
 async function adminApproveApplication(id){
   try{await adminPerform('approve-application',{applicationId:id});toast('Cadastro aprovado para validação')}catch(e){toast(String(e?.message||e))}
 }
@@ -881,3 +979,4 @@ globalThis.adminConfirmLaunchRequirement=adminConfirmLaunchRequirement;
 globalThis.adminSetOperationMode=adminSetOperationMode;
 globalThis.adminSetCommerceEnabled=adminSetCommerceEnabled;
 globalThis.adminSetSupportStatus=adminSetSupportStatus;
+globalThis.adminConvertPilotPartner=adminConvertPilotPartner;
