@@ -291,7 +291,12 @@ assert.ok(livePortalWorkflow.includes('https://tamao-sg-cliente.pages.dev')&&liv
 assert.ok(!livePortalWorkflow.includes('chama-sg-cliente.netlify.app')&&!livePortalWorkflow.includes('chama-sg-revenda.netlify.app')&&!livePortalWorkflow.includes('chama-sg-admin.netlify.app'),'workflow de produção não pode regredir para origins Netlify');
 assert.ok(livePortalWorkflow.includes('tamao-live-admin')&&!livePortalWorkflow.includes('name: chama-live-admin'),'artefato publicável precisa ter nome de produção atual e não ser emitido pelo job de teste');
 assert.ok(livePortalWorkflow.includes('Turnstile test/demo key cannot produce production portal artifacts.'),'produção precisa bloquear explicitamente chaves Turnstile de teste/demo');
-assert.ok(launchReadinessWorkflow.includes("TAMAO_REQUIRE_ADMIN_PORTAL: '1'")&&launchReadinessWorkflow.includes('remote-admin-readiness.mjs'),'gate manual de lançamento precisa exigir portal admin remoto real');
+assert.ok(launchReadinessWorkflow.includes("TAMAO_REQUIRE_LIVE_PORTALS: '1'")&&launchReadinessWorkflow.includes('remote-admin-readiness.mjs'),'gate manual de lançamento precisa exigir os três portais live reais');
+const remotePortalReadiness=read('tests/remote-admin-readiness.mjs');
+assert.ok(remotePortalReadiness.includes("customer:{origin:'https://tamao-sg-cliente.pages.dev'")&&remotePortalReadiness.includes("merchant:{origin:'https://tamao-sg-revenda.pages.dev'")&&remotePortalReadiness.includes("admin:{origin:'https://tamao-sg-admin.pages.dev'"),'sonda remota precisa verificar cliente, revenda e admin nas origins Pages');
+assert.ok(remotePortalReadiness.includes('sourceShas.size===1')&&remotePortalReadiness.includes('commonSourceSha'),'sonda remota precisa exigir o mesmo SHA fonte entre os três portais');
+assert.ok(remotePortalReadiness.includes('TEST_TURNSTILE_KEYS')&&remotePortalReadiness.includes('runtime remoto usa chave Turnstile de teste/demo'),'sonda remota precisa reprovar chave Turnstile de teste/demo');
+
 for(const publicFn of ['capture-prelaunch-lead','submit-public-request','capture-marketing-event']){
   assert.ok(
     functionConfig.includes('[functions.'+publicFn+']')&&functionConfig.split('[functions.'+publicFn+']')[1]?.split('[functions.')[0].includes('verify_jwt = false'),
