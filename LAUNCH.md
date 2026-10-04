@@ -14,8 +14,9 @@
 - Inbox administrativa de leads/solicitações: pronta
 - Admin operacional: reserva criada; primeira conta ainda precisa ser reivindicada
 - Gateway `admin-auth`: prova remota OK (`request-link` pré-JWT chega ao handler; `claim` sem sessão é bloqueado)
-- Portal admin Netlify: **bloqueado — bundle isolado ainda retorna 404**
-- Turnstile dos portais isolados: **bloqueado — ainda falta criar/fornecer uma site key real**
+- Portal admin Cloudflare Pages: código pronto; falta criar o projeto `tamao-sg-admin` na conta Cloudflare
+- Turnstile dos portais isolados: site key pública já disponível; falta autorizar os hostnames `pages.dev` no widget
+- Netlify: opcional/fallback; upgrade não é requisito para o lançamento
 
 ## Regra principal
 
@@ -23,26 +24,38 @@
 
 O GitHub Pages continua sendo laboratório técnico. O domínio oficial será publicado via Cloudflare Pages.
 
-## Netlify — conexão simplificada
+## Netlify — fallback legado
 
-Os projetos existentes `chama-sg-cliente`, `chama-sg-revenda` e `chama-sg-admin` podem usar o mesmo repositório `carloskk07/gassg`.
+Os projetos Netlify existentes permanecem somente como caminho de rollback. Nenhum upgrade do Netlify é necessário para seguir com o TAMÃO.
 
-Na tela **Link your project to a Git repository**:
+## Cloudflare Pages — portais isolados agora
 
-- Branch to deploy: `main`;
-- Base directory: deixar vazio;
-- Build command: deixar vazio;
-- Publish directory: deixar vazio;
-- Functions directory: deixar vazio.
+Esta etapa **não depende da troca de nameservers do tamao.com.br**.
 
-O Netlify lê `netlify.toml` da raiz. O builder identifica a role a partir do próprio nome do projeto e publica somente `dist/netlify`.
+Os projetos usam o mesmo repositório e a mesma configuração:
 
-Antes do primeiro deploy live, ainda é obrigatório definir no projeto a variável pública:
+- Repository: `carloskk07/gassg`
+- Production branch: `main`
+- Root directory: vazio
+- Build command: `node scripts/build-cloudflare-portal.mjs`
+- Build output directory: `dist/cloudflare-portal`
 
-`CHAMA_TURNSTILE_SITE_KEY=<site key real>`
+Projetos:
 
-A chave de teste/demo não é aceita em bundle live. A site key é pública; a secret key do Turnstile nunca entra no Netlify frontend nem no repositório.
+- `tamao-sg-admin`
+- `tamao-sg-cliente`
+- `tamao-sg-revenda`
 
+O builder identifica automaticamente a role pelo `CF_PAGES_URL`. A site key pública Turnstile já está versionada, portanto não é preciso cadastrar variável de ambiente para ela.
+
+Para destravar o primeiro administrador, basta criar primeiro **somente `tamao-sg-admin`**. Cliente e revenda podem ser criados depois.
+
+No widget Turnstile atual, autorizar:
+
+- `tamao-sg-admin.pages.dev`
+- `tamao-sg-cliente.pages.dev`
+- `tamao-sg-revenda.pages.dev`
+- `tamao.com.br`
 
 ## Cloudflare Pages — configuração preparada
 
@@ -77,17 +90,14 @@ Usar somente a origem administrativa dedicada configurada para o control plane.
 
 Antes do magic link, concluir estes gates externos:
 
-- criar/configurar uma **site key Turnstile real** para as origens live;
-- executar manualmente **Build isolated live portals** e informar essa site key no campo `turnstile_site_key`;
-- confirmar os artefatos `tamao-live-*` e validar o arquivo `SHA256SUMS.txt` de cada pacote;
-- publicar o artefato `tamao-live-admin` no projeto Netlify `chama-sg-admin`;
+- no widget Turnstile atual, autorizar `tamao-sg-admin.pages.dev`;
+- criar o projeto Cloudflare Pages `tamao-sg-admin` conectado ao repositório;
+- usar build command `node scripts/build-cloudflare-portal.mjs`;
+- usar output `dist/cloudflare-portal`;
+- confirmar que `https://tamao-sg-admin.pages.dev/portal-build.json` responde e declara role `admin`;
 - executar **TAMÃO launch readiness** e exigir resultado verde.
 
-A **site key Turnstile é pública por definição** e ficará embutida no JavaScript do navegador; portanto ela entra como input explícito do release manual, não como GitHub Secret. A chave secreta do Turnstile continua fora do repositório e deve permanecer configurada apenas no provedor que valida o CAPTCHA.
-
-A chave Turnstile oficial de teste usada no CI serve somente para validar o builder e nunca pode ser publicada como bundle live.
-
-Os artefatos de produção ficam retidos por apenas 3 dias. Sempre publicar o pacote mais recente e conferir `SHA256SUMS.txt` antes do deploy.
+A site key Turnstile é pública por definição e já está versionada no builder. A secret key continua fora do repositório e do frontend.
 
 1. confirmar que a função `admin-auth` está publicada com `verify_jwt=false` — o primeiro pedido de magic link ocorre antes de existir JWT;
 2. confirmar na sonda remota que `request-link` sem CAPTCHA retorna `CAPTCHA_REQUIRED` e `claim` sem bearer retorna `UNAUTHORIZED`;
