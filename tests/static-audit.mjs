@@ -808,6 +808,9 @@ assert.ok(merchantApplicationSource.includes('claim_pilot_partner_invite')&&merc
 assert.ok(backend.includes("redirect.searchParams.set('pilot',pilotInviteToken)"),'magic link da revenda precisa preservar convite piloto válido');
 assert.ok(growth.includes('function merchantPilotInviteToken')&&growth.includes('clearMerchantPilotInviteToken()'),'frontend precisa validar o formato e remover o token da URL após claim');
 assert.ok(growth.includes('Convite de parceiro piloto detectado.')&&growth.includes('A operação continuará offline'),'UI do convite não pode prometer ativação automática');
+const pilotInviteIndexes=read('supabase/migrations/20261004185800_pilot_partner_invite_fk_indexes_v1_69_1.sql');
+assert.ok(pilotInviteIndexes.includes('pilot_partner_invites_claimed_user_idx')&&pilotInviteIndexes.includes('pilot_partner_invites_application_idx'),'FKs de claim/application do convite piloto precisam de índices de cobertura');
+
 
 
 console.log('First merchant pilot safety audit passou.');
