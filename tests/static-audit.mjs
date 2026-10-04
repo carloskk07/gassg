@@ -473,7 +473,14 @@ assert.ok(admin.includes('Qualquer produto GLP ativo exige também validação A
 assert.ok(adminOpsSource.includes('pilot_partner_drafts'),'admin precisa projetar parceiros piloto ainda sem cadastro jurídico');
 assert.ok(adminOpsSource.includes('min_delivered_price_cents')&&adminOpsSource.includes('preferred_delivered_price_cents')&&adminOpsSource.includes('max_delivered_price_cents'),'admin precisa projetar mínimo/normal/máximo do parceiro piloto');
 assert.ok(admin.includes('Faixa comercial confirmada')&&admin.includes('Estratégia inicial'),'admin deve mostrar a faixa comercial confirmada sem confundir com preço único');
-assert.ok(admin.includes('AGUARDANDO DADOS REAIS')&&admin.includes('Gate de ativação preservado.'),'admin deve distinguir interesse comercial de merchant verificado');
+assert.ok(admin.includes('AGUARDANDO DADOS REAIS')&&admin.includes('Converter em revenda pendente')&&admin.includes('Compliance permanece')&&admin.includes('adminConvertPilotPartner'),'admin deve converter o piloto por jornada assistida sem fabricar verificação ou ativação');
+const assistedOnboardingSchema=read('supabase/migrations/20261004143500_assisted_merchant_onboarding_v1_63.sql');
+const assistedOnboardingAuthority=read('supabase/migrations/20261004143600_assisted_merchant_onboarding_authority_v1_63_1.sql');
+assert.ok(assistedOnboardingSchema.includes('merchant_business_details')&&assistedOnboardingSchema.includes('enable row level security')&&assistedOnboardingSchema.includes('revoke all on table public.merchant_business_details from public, anon, authenticated'),'dados cadastrais assistidos precisam permanecer server-only');
+assert.ok(assistedOnboardingAuthority.includes('admin_assisted_merchant_onboarding')&&assistedOnboardingAuthority.includes("'pending'")&&assistedOnboardingAuthority.includes("'compliancePending',true"),'conversão assistida deve nascer pendente e declarar compliance pendente');
+assert.ok(assistedOnboardingAuthority.includes('action_requests')&&assistedOnboardingAuthority.includes('platform_admin_audit'),'onboarding assistido precisa ser idempotente e auditado');
+assert.ok(adminOpsSource.includes('assisted-merchant-onboarding')&&adminOpsSource.includes('merchant_business_details')&&adminOpsSource.includes('admin_assisted_merchant_onboarding'),'admin API precisa transportar dados comerciais e executar a autoridade transacional');
+
 const offerSource=read('supabase/functions/get-offers/index.ts');
 const merchantOpsSource=read('supabase/functions/merchant-ops/index.ts');
 const merchantOrdersSource=read('supabase/functions/merchant-orders/index.ts');
