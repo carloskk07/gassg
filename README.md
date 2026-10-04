@@ -2,6 +2,22 @@
 
 Marketplace hiperlocal de gás e abastecimento essencial para São Gabriel/RS.
 
+
+## Estado atual — v1.62 autoridade operacional administrável
+
+O go-live deixa de tratar toda pendência comercial como falha técnica. A autoridade server-side agora separa:
+
+- `READY` — requisitos recomendados satisfeitos;
+- `READY_WITH_WARNINGS` — pendências operacionais visíveis, assumíveis por administrador autorizado com motivo, evidência, validade opcional e auditoria;
+- `BLOCKED_SECURITY` — falha de segurança/integridade que permanece fail-closed.
+
+A operação possui modos explícitos `PRELAUNCH / PILOT / LIVE / PAUSED`. `commerce_enabled` continua existindo como compatibilidade e só fica ativo em PILOT/LIVE.
+
+O painel administrativo passa a apresentar uma **Central de Produção**. O kill switch muda para PAUSED sem apagar pedidos existentes. O caminho legado de “abrir comércio” inicia em PILOT, nunca promove automaticamente para LIVE.
+
+Confirmações administrativas ficam em `platform_launch_confirmations`, sem acesso de `anon/authenticated`, e todas as decisões são registradas em `platform_admin_audit`.
+
+
 ## Estado atual — v1.61 cloudflare portals
 
 O Netlify deixa de ser requisito para os portais isolados. A rota principal passa a ser **Cloudflare Pages**, mantendo o Netlify apenas como fallback de migração.
