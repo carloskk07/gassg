@@ -91,7 +91,7 @@ jobs:
           CHAMA_ADMIN_ORIGIN: https://chama-sg-admin.netlify.app
           CHAMA_TURNSTILE_SITE_KEY: 1x00000000000000000000AA
           CHAMA_ALLOW_TEST_TURNSTILE: '1'
-          CHAMA_PORTAL_ROLE: admin
+          SITE_NAME: chama-sg-admin
           CHAMA_SOURCE_SHA: ci-netlify-zero-config
         run: |
           node scripts/build-netlify-portal.mjs
