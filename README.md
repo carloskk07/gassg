@@ -2,6 +2,24 @@
 
 Marketplace hiperlocal de gás e abastecimento essencial para São Gabriel/RS.
 
+## Estado atual — v1.60 netlify zero-config
+
+Os três projetos Netlify podem ser conectados ao mesmo repositório sem preencher manualmente Base directory, Build command, Publish directory ou Functions directory.
+
+O arquivo `netlify.toml` versiona:
+
+- build: `node scripts/build-netlify-portal.mjs`;
+- publish: `dist/netlify`;
+- Node 22.
+
+O builder identifica automaticamente:
+
+- `chama-sg-cliente` → customer;
+- `chama-sg-revenda` → merchant;
+- `chama-sg-admin` → admin.
+
+As origens HTTPS atuais dos três portais também possuem defaults versionados. A única configuração externa que continua obrigatória para um bundle live é a **site key real do Cloudflare Turnstile**.
+
 ## Estado atual — v1.59 portal handoff
 
 O release dos portais isolados deixa de depender de um GitHub Secret desnecessário para a site key Turnstile.
