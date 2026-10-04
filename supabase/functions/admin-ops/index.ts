@@ -239,6 +239,12 @@ async function summary(admin:any,actorUserId:string){
     .select("merchant_id,legal_name,trade_name,responsible_name,phone,whatsapp,postal_code,city,state,address_text,admin_notes,updated_at")
     .limit(100);
   if(merchantBusinessDetails.error)throw merchantBusinessDetails.error;
+  const commercialPolicy=await admin
+    .from("reward_policy")
+    .select("policy_key,active,platform_fee_bps,variable_cost_bps,minimum_contribution_bps,cashback_bps,direct_referral_bps,commission_hold_hours,policy_version,updated_at,updated_by,last_change_reason")
+    .eq("policy_key","default")
+    .single();
+  if(commercialPolicy.error)throw commercialPolicy.error;
 
   const controlOrders=await admin
     .from("orders")
@@ -302,6 +308,7 @@ async function summary(admin:any,actorUserId:string){
     })),
     businessMetrics:businessMetrics.data??{},
     launchReadiness:launchReadiness.data??{},
+    commercialPolicy:commercialPolicy.data??null,
     supportCases:supportCases.data??[],
     controlOrders:(controlOrders.data??[]).map((o:any)=>({
       ...o,
@@ -419,6 +426,33 @@ Deno.serve(async(req:Request)=>{
       payload={
         targetUserId:uuid(body.targetUserId,"targetUser"),
         active:body.active===true
+      };
+    }else if(action==="commercial-policy"){
+      const expectedVersion=Number(body.expectedVersion);
+      const asBps=(value:unknown,name:string)=>{
+        const n=Number(value);
+        if(!Number.isSafeInteger(n)||n<0||n>5000){
+          throw new DomainError("INVALID_COMMERCIAL_POLICY_BPS",name+" inválido.",400);
+        }
+        return n;
+      };
+      const commissionHoldHours=Number(body.commissionHoldHours);
+      if(!Number.isSafeInteger(commissionHoldHours)||commissionHoldHours<0||commissionHoldHours>2160){
+        throw new DomainError("INVALID_COMMISSION_HOLD","Carência de comissão inválida.",400);
+      }
+      if(!Number.isSafeInteger(expectedVersion)||expectedVersion<1){
+        throw new DomainError("INVALID_POLICY_VERSION","Versão da política inválida.",400);
+      }
+      payload={
+        expectedVersion,
+        active:body.active===true,
+        platformFeeBps:asBps(body.platformFeeBps,"taxa da plataforma"),
+        variableCostBps:asBps(body.variableCostBps,"reserva de custo"),
+        minimumContributionBps:asBps(body.minimumContributionBps,"contribuição mínima"),
+        cashbackBps:asBps(body.cashbackBps,"cashback"),
+        directReferralBps:asBps(body.directReferralBps,"indicação"),
+        commissionHoldHours,
+        reason:cleanText(body.reason,{min:3,max:1000,name:"motivo da política"})
       };
     }else if(action==="order-control"){
       const controlAction=String(body.controlAction??"").trim().toLowerCase();
@@ -687,6 +721,23 @@ Deno.serve(async(req:Request)=>{
         p_request_hash:requestHash
       };
     }
+    else if(action==="commercial-policy"){
+      rpcName="admin_commercial_policy_action";
+      rpcArgs={
+        p_actor_user_id:user.id,
+        p_expected_version:payload.expectedVersion,
+        p_active:payload.active,
+        p_platform_fee_bps:payload.platformFeeBps,
+        p_variable_cost_bps:payload.variableCostBps,
+        p_minimum_contribution_bps:payload.minimumContributionBps,
+        p_cashback_bps:payload.cashbackBps,
+        p_direct_referral_bps:payload.directReferralBps,
+        p_commission_hold_hours:payload.commissionHoldHours,
+        p_reason:payload.reason,
+        p_idempotency_key:idempotencyKey,
+        p_request_hash:requestHash
+      };
+    }
     else if(action==="order-control"){
       rpcName="admin_order_control_action";
       rpcArgs={
@@ -808,6 +859,21 @@ Deno.serve(async(req:Request)=>{
     }
     if(message.includes("LAUNCH_NOT_READY")){
       return json({error:"LAUNCH_NOT_READY",message:"A operação ainda possui pendências não resolvidas. Revise a Central de Produção."},409,origin);
+    }
+    if(message.includes("COMMERCIAL_POLICY_CONTRIBUTION_UNFUNDED")){
+      return json({error:"COMMERCIAL_POLICY_CONTRIBUTION_UNFUNDED",message:"A taxa da plataforma não cobre a reserva de custo e a contribuição mínima."},409,origin);
+    }
+    if(message.includes("COMMERCIAL_POLICY_REWARDS_UNFUNDED")){
+      return json({error:"COMMERCIAL_POLICY_REWARDS_UNFUNDED",message:"Cashback e indicação excedem o orçamento disponível depois de custos e contribuição mínima."},409,origin);
+    }
+    if(message.includes("COMMERCIAL_POLICY_DISABLE_REQUIRES_PAUSE")){
+      return json({error:"COMMERCIAL_POLICY_DISABLE_REQUIRES_PAUSE",message:"Pause a operação antes de desativar a política financeira."},409,origin);
+    }
+    if(message.includes("POLICY_VERSION_CONFLICT")){
+      return json({error:"POLICY_VERSION_CONFLICT",message:"A política mudou desde que o painel foi carregado. Atualize antes de salvar."},409,origin);
+    }
+    if(message.includes("FINANCIAL_POLICY_MISSING")){
+      return json({error:"FINANCIAL_POLICY_MISSING",message:"A política financeira padrão não está disponível."},503,origin);
     }
     if(message.includes("ORDER_ALREADY_DISPATCHED")){
       return json({error:"ORDER_ALREADY_DISPATCHED",message:"O pedido já saiu para entrega. Cancelamento ou reatribuição automática não são mais seguros."},409,origin);
