@@ -782,6 +782,33 @@ assert.ok(merchantApplicationSource.includes('.in("status",["pending","rejected"
 assert.ok(merchantApplicationSource.includes('APPLICATION_STATE_CHANGED'),'mudança concorrente de estado precisa falhar de forma explícita');
 assert.ok(merchantApplicationSource.includes('retryExisting?.status==="pending"'),'retry após ACK perdido deve recuperar cadastro pendente do mesmo solicitante');
 assert.ok(merchant.includes('Cadastro recebido.')&&merchant.includes('Cadastrar / atualizar empresa'),'feedback de onboarding deve persistir após o toast');
+const pilotInviteAuthority=read('supabase/migrations/20261004185000_pilot_partner_invite_v1_69.sql');
+assert.ok(pilotInviteAuthority.includes('pilot_partner_drafts_product_registry_fkey')&&pilotInviteAuthority.includes('references public.product_delivery_profiles(product_code)'),'rascunho piloto deve usar o mesmo registro canônico de produto do restante da plataforma');
+assert.ok(pilotInviteAuthority.includes('create table if not exists public.pilot_partner_invites')&&pilotInviteAuthority.includes("token_hash ~ '^[0-9a-f]{64}
+
+console.log('First merchant pilot safety audit passou.');
+
+
+const defaultPrivilegeLock=read('supabase/migrations/20261002173404_lock_default_data_api_privileges.sql').toLowerCase();
+const maintainLock=read('supabase/migrations/20261002173435_revoke_default_maintain_privilege.sql').toLowerCase();
+assert.ok(defaultPrivilegeLock.includes('alter default privileges for role postgres in schema public'),'migration precisa governar privilégios padrão do owner real');
+assert.ok(defaultPrivilegeLock.includes('revoke execute on functions from public, anon, authenticated'),'funções futuras devem nascer server-only');
+assert.ok(defaultPrivilegeLock.includes('to service_role'),'service_role precisa manter autoridade explícita');
+assert.ok(maintainLock.includes('revoke maintain on tables from anon, authenticated'),'PostgreSQL 17 MAINTAIN precisa ser removido dos defaults do browser');
+console.log('Default Data API privilege audit passou.');
+
+"),'convite piloto precisa armazenar somente hash SHA-256, nunca token em claro');
+assert.ok(pilotInviteAuthority.includes('revoke all on table public.pilot_partner_invites from public, anon, authenticated')&&pilotInviteAuthority.includes('revoke all on function public.claim_pilot_partner_invite'),'convite e autoridade de claim precisam permanecer server-only');
+assert.ok(pilotInviteAuthority.includes('u.is_anonymous is false')&&pilotInviteAuthority.includes('u.email_confirmed_at is not null'),'convite piloto só pode ser reivindicado por identidade permanente confirmada');
+assert.ok(pilotInviteAuthority.includes('PILOT_INVITE_ALREADY_CLAIMED')&&pilotInviteAuthority.includes('PILOT_INVITE_EXPIRED')&&pilotInviteAuthority.includes('PILOT_INVITE_REVOKED'),'convite precisa ser uso único, expirar e poder ser revogado');
+assert.ok(pilotInviteAuthority.includes('pilot_partner_draft_id')&&pilotInviteAuthority.includes('merchant_applications_pilot_partner_draft_uidx'),'uma aplicação piloto deve possuir vínculo explícito e exclusivo com o rascunho');
+assert.ok(pilotInviteAuthority.includes('available_stock=0')&&pilotInviteAuthority.includes('active=false'),'aprovação piloto precisa pré-carregar termos sem criar oferta ativa ou estoque fictício');
+assert.ok(pilotInviteAuthority.includes("'pilotTermsSeeded',v_pilot_terms_seeded")&&pilotInviteAuthority.includes("onboarding_status='converted'"),'aprovação deve registrar que os termos foram aproveitados e converter o staging');
+assert.ok(merchantApplicationSource.includes('claim_pilot_partner_invite')&&merchantApplicationSource.includes('body.pilotInviteToken'),'endpoint de cadastro precisa vincular o convite apenas no backend autenticado');
+assert.ok(backend.includes("redirect.searchParams.set('pilot',pilotInviteToken)"),'magic link da revenda precisa preservar convite piloto válido');
+assert.ok(growth.includes('function merchantPilotInviteToken')&&growth.includes('clearMerchantPilotInviteToken()'),'frontend precisa validar o formato e remover o token da URL após claim');
+assert.ok(growth.includes('Convite de parceiro piloto detectado.')&&growth.includes('A operação continuará offline'),'UI do convite não pode prometer ativação automática');
+
 
 console.log('First merchant pilot safety audit passou.');
 
