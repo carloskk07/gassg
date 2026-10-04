@@ -4,12 +4,25 @@ import {buildLivePortals} from './build-live-portals.mjs';
 import {validatePortalRole} from './generate-runtime-config.mjs';
 
 const root=path.resolve(new URL('..',import.meta.url).pathname);
-const role=validatePortalRole(process.env.CHAMA_PORTAL_ROLE,{required:true});
+const SITE_ROLE_BY_NAME={
+  'chama-sg-cliente':'customer',
+  'chama-sg-revenda':'merchant',
+  'chama-sg-admin':'admin'
+};
+const siteName=String(process.env.SITE_NAME||'').trim().toLowerCase();
+const role=validatePortalRole(process.env.CHAMA_PORTAL_ROLE||SITE_ROLE_BY_NAME[siteName],{required:true});
 const sourceSha=String(process.env.CHAMA_SOURCE_SHA||process.env.COMMIT_REF||process.env.HEAD||'unknown').trim();
 const outRoot=path.join(root,'dist','netlify-build');
 const publish=path.join(root,'dist','netlify');
 
-const env={...process.env,CHAMA_SOURCE_SHA:sourceSha};
+const env={
+  ...process.env,
+  CHAMA_SOURCE_SHA:sourceSha,
+  CHAMA_PORTAL_ROLE:role,
+  CHAMA_CUSTOMER_ORIGIN:process.env.CHAMA_CUSTOMER_ORIGIN||'https://chama-sg-cliente.netlify.app',
+  CHAMA_MERCHANT_ORIGIN:process.env.CHAMA_MERCHANT_ORIGIN||'https://chama-sg-revenda.netlify.app',
+  CHAMA_ADMIN_ORIGIN:process.env.CHAMA_ADMIN_ORIGIN||'https://chama-sg-admin.netlify.app'
+};
 buildLivePortals(env,{outputRoot:outRoot});
 
 const source=path.join(outRoot,role);
