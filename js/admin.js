@@ -709,6 +709,53 @@ function adminControlTower(d){
   </section>`;
 }
 
+function adminBpsPct(bps){
+  const n=Number(bps||0)/100;
+  return Number.isInteger(n)?String(n):n.toFixed(2).replace(/0+$/,'').replace(/\.$/,'');
+}
+function adminCommercialPolicySection(d){
+  const p=d.commercialPolicy;
+  if(!p)return `<section class="section"><div class="notice danger"><strong>Política comercial indisponível.</strong><br>O painel não conseguiu carregar a autoridade financeira.</div></section>`;
+  const fee=Number(p.platform_fee_bps||0);
+  const variable=Number(p.variable_cost_bps||0);
+  const contribution=Number(p.minimum_contribution_bps||0);
+  const cashback=Number(p.cashback_bps||0);
+  const referral=Number(p.direct_referral_bps||0);
+  const rewards=cashback+referral;
+  const headroom=Math.max(0,fee-variable-contribution-rewards);
+  const per100=(bps)=>adminMoney(Math.floor(10000*Number(bps||0)/10000));
+  return `<section class="section">
+    <div class="section-head"><div><span class="section-kicker">ECONOMIA E INCENTIVOS</span><h2>Política comercial</h2><p>As alterações são snapshotadas somente em pedidos novos. Pedidos existentes preservam a regra vigente quando foram criados.</p></div><span class="status-pill ${p.active?'online':'offline'}">V${Number(p.policy_version||1)} • ${p.active?'ATIVA':'INATIVA'}</span></div>
+    <div class="merchant-kpis">
+      <div class="kpi"><span class="label">Taxa TAMÃO</span><strong>${adminBpsPct(fee)}%</strong><small>${per100(fee)} por R$ 100</small></div>
+      <div class="kpi"><span class="label">Reserva variável</span><strong>${adminBpsPct(variable)}%</strong><small>${per100(variable)} por R$ 100</small></div>
+      <div class="kpi"><span class="label">Contribuição mínima</span><strong>${adminBpsPct(contribution)}%</strong><small>${per100(contribution)} por R$ 100</small></div>
+      <div class="kpi"><span class="label">Cashback</span><strong>${adminBpsPct(cashback)}%</strong><small>${per100(cashback)} por R$ 100</small></div>
+      <div class="kpi"><span class="label">Indicação</span><strong>${adminBpsPct(referral)}%</strong><small>${per100(referral)} por R$ 100</small></div>
+      <div class="kpi"><span class="label">Folga econômica</span><strong>${adminBpsPct(headroom)}%</strong><small>${per100(headroom)} por R$ 100 no pior caso</small></div>
+    </div>
+    <div class="card flat form-stack" style="margin-top:12px">
+      <label class="check-row"><input id="policy-active" type="checkbox" ${p.active?'checked':''} onchange="adminPreviewCommercialPolicy()"><span><strong>Política ativa para novos pedidos</strong><small>Desativar durante PILOT/LIVE é bloqueado pelo servidor; pause a operação primeiro.</small></span></label>
+      <div class="field-row">
+        <div class="input-wrap"><label for="policy-fee">Taxa TAMÃO (%)</label><input id="policy-fee" type="number" min="0" max="50" step="0.05" class="input" value="${adminBpsPct(fee)}" oninput="adminPreviewCommercialPolicy()"></div>
+        <div class="input-wrap"><label for="policy-variable">Reserva de custo (%)</label><input id="policy-variable" type="number" min="0" max="50" step="0.05" class="input" value="${adminBpsPct(variable)}" oninput="adminPreviewCommercialPolicy()"></div>
+      </div>
+      <div class="field-row">
+        <div class="input-wrap"><label for="policy-contribution">Contribuição mínima (%)</label><input id="policy-contribution" type="number" min="0" max="50" step="0.05" class="input" value="${adminBpsPct(contribution)}" oninput="adminPreviewCommercialPolicy()"></div>
+        <div class="input-wrap"><label for="policy-cashback">Cashback (%)</label><input id="policy-cashback" type="number" min="0" max="50" step="0.05" class="input" value="${adminBpsPct(cashback)}" oninput="adminPreviewCommercialPolicy()"></div>
+      </div>
+      <div class="field-row">
+        <div class="input-wrap"><label for="policy-referral">Indicação direta (%)</label><input id="policy-referral" type="number" min="0" max="50" step="0.05" class="input" value="${adminBpsPct(referral)}" oninput="adminPreviewCommercialPolicy()"></div>
+        <div class="input-wrap"><label for="policy-hold">Carência da indicação (horas)</label><input id="policy-hold" type="number" min="0" max="2160" step="1" class="input" value="${Number(p.commission_hold_hours||0)}"></div>
+      </div>
+      <div id="policy-preview" class="notice"><strong>Prévia por R$ 100:</strong><br>Taxa ${per100(fee)} • custo ${per100(variable)} • contribuição mínima ${per100(contribution)} • cashback ${per100(cashback)} • indicação ${per100(referral)} • folga ${per100(headroom)}.</div>
+      <div class="input-wrap"><label for="policy-reason">Motivo da alteração</label><input id="policy-reason" class="input" maxlength="1000" placeholder="Ex.: ajustar cashback do piloto após revisão de margem"></div>
+      <button class="primary" onclick="adminSaveCommercialPolicy(${Number(p.policy_version||1)})">Salvar política para pedidos futuros</button>
+      ${p.last_change_reason?`<small class="field-help">Última decisão: ${esc(p.last_change_reason)} • ${esc(formatDateTime(p.updated_at))}</small>`:''}
+    </div>
+  </section>`;
+}
+
 function adminPage(){
   if(!adminPortalRequested()){
     return shell('<section class="page"><div class="notice danger">Administração só está disponível no portal protegido.</div></section>');
@@ -755,6 +802,8 @@ function adminPage(){
     ${adminLaunchControl(d.launchReadiness||{})}
 
     ${adminControlTower({...d,controlOrders})}
+
+    ${adminCommercialPolicySection(d)}
 
     <section class="section"><div class="section-head"><div><span class="section-kicker">NEGÓCIO • 30 DIAS</span><h2>Pulso da operação</h2><p>Indicadores server-side calculados apenas sobre fatos liquidados e estados reais do pedido.</p></div></div><div class="merchant-kpis">
       <div class="kpi"><span class="label">GMV 30d</span><strong>${adminMoney(metrics.gmvCents30d)}</strong><small>${Number(metrics.settledOrders30d||0)} pedidos liquidados</small></div>
@@ -812,6 +861,65 @@ function adminPage(){
 
     <section class="section"><div class="section-head"><div><h2>Auditoria recente</h2></div></div><div class="list">${(d.recentAudit||[]).length?(d.recentAudit||[]).map(x=>`<div class="list-row"><div><strong>${esc(x.action)}</strong><br><small>${esc(x.target_type)} • ${esc(x.target_id||'—')}</small></div><small>${new Date(x.created_at).toLocaleString('pt-BR')}</small></div>`).join(''):'<div class="empty card">Nenhuma ação administrativa registrada.</div>'}</div></section>
   </section>`);
+}
+
+function adminPolicyFieldBps(id){
+  const n=Number(document.getElementById(id)?.value);
+  if(!Number.isFinite(n)||n<0||n>50)return null;
+  return Math.round(n*100);
+}
+function adminPreviewCommercialPolicy(){
+  const el=document.getElementById('policy-preview');
+  if(!el)return;
+  const fee=adminPolicyFieldBps('policy-fee');
+  const variable=adminPolicyFieldBps('policy-variable');
+  const contribution=adminPolicyFieldBps('policy-contribution');
+  const cashback=adminPolicyFieldBps('policy-cashback');
+  const referral=adminPolicyFieldBps('policy-referral');
+  if([fee,variable,contribution,cashback,referral].some(x=>x==null)){
+    el.className='notice danger';
+    el.innerHTML='<strong>Prévia indisponível.</strong><br>Revise os percentuais.';
+    return;
+  }
+  const headroom=fee-variable-contribution-cashback-referral;
+  const cents=(bps)=>adminMoney(Math.floor(10000*bps/10000));
+  el.className='notice '+(headroom>=0?'success':'danger');
+  el.innerHTML='<strong>Prévia por R$ 100:</strong><br>Taxa '+cents(fee)+' • custo '+cents(variable)+' • contribuição mínima '+cents(contribution)+' • cashback '+cents(cashback)+' • indicação '+cents(referral)+' • folga '+cents(Math.max(0,headroom))+(headroom<0?' • <strong>POLÍTICA NÃO FINANCIADA</strong>':'');
+}
+async function adminSaveCommercialPolicy(expectedVersion){
+  const active=document.getElementById('policy-active')?.checked===true;
+  const platformFeeBps=adminPolicyFieldBps('policy-fee');
+  const variableCostBps=adminPolicyFieldBps('policy-variable');
+  const minimumContributionBps=adminPolicyFieldBps('policy-contribution');
+  const cashbackBps=adminPolicyFieldBps('policy-cashback');
+  const directReferralBps=adminPolicyFieldBps('policy-referral');
+  const commissionHoldHours=Number(document.getElementById('policy-hold')?.value);
+  const reason=document.getElementById('policy-reason')?.value.trim()||'';
+  if([platformFeeBps,variableCostBps,minimumContributionBps,cashbackBps,directReferralBps].some(x=>x==null)){
+    return toast('Revise os percentuais da política');
+  }
+  if(!Number.isSafeInteger(commissionHoldHours)||commissionHoldHours<0||commissionHoldHours>2160){
+    return toast('A carência precisa estar entre 0 e 2160 horas');
+  }
+  if(reason.length<3)return toast('Informe o motivo da alteração');
+  if(active&&platformFeeBps<variableCostBps+minimumContributionBps+cashbackBps+directReferralBps){
+    return toast('A taxa TAMÃO não financia custos, contribuição mínima e recompensas informadas');
+  }
+  if(!confirm('Salvar esta política para PEDIDOS FUTUROS? Pedidos existentes manterão seus snapshots atuais.'))return;
+  try{
+    await adminPerform('commercial-policy',{
+      expectedVersion,
+      active,
+      platformFeeBps,
+      variableCostBps,
+      minimumContributionBps,
+      cashbackBps,
+      directReferralBps,
+      commissionHoldHours,
+      reason
+    });
+    toast('Política comercial atualizada para pedidos futuros');
+  }catch(e){toast(String(e?.message||e))}
 }
 
 function adminOpenWhatsapp(phone){
@@ -1072,6 +1180,8 @@ globalThis.adminAddPlatformAdmin=adminAddPlatformAdmin;
 globalThis.openAdminPortal=openAdminPortal;
 
 
+globalThis.adminPreviewCommercialPolicy=adminPreviewCommercialPolicy;
+globalThis.adminSaveCommercialPolicy=adminSaveCommercialPolicy;
 globalThis.adminOpenWhatsapp=adminOpenWhatsapp;
 globalThis.adminOrderControl=adminOrderControl;
 globalThis.adminVerifyLaunchPortals=adminVerifyLaunchPortals;
