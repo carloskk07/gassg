@@ -74,6 +74,27 @@ Toda mudança exige motivo, incrementa `policy_version`, entra em histórico e v
 
 A comunicação pública recebe os percentuais vigentes pelo `market-status`, para que landing, FAQ e simuladores não continuem exibindo uma taxa antiga.
 
+
+## Catálogo dinâmico — V1.66
+
+A Central Administrativa possui **Catálogo da plataforma**.
+
+O administrador pode:
+- criar/ativar/pausar categorias;
+- cadastrar produtos gerais;
+- definir visibilidade ao cliente;
+- definir se revendas podem adicionar o produto;
+- ordenar categorias/produtos;
+- pausar um produto globalmente.
+
+A categoria `glp` é reservada. Gases P1–P90 e seus vasilhames têm nome, classe logística e isolamento canônicos e não podem ser reclassificados como produto comum.
+
+Pausar uma categoria ou produto pausa automaticamente os respectivos SKUs ativos das revendas. Ao reativar, a revenda precisa reconfirmar preço/estoque e tornar o item ativo novamente.
+
+Na revenda, produtos gerais liberados aparecem em **Adicionar produto do catálogo TAMÃO**. No cliente, novos produtos só aparecem quando existe SKU configurado no mercado e a definição está marcada como visível.
+
+Todas as superfícies transacionais usam FK para `product_delivery_profiles`, evitando que um produto passe no catálogo e falhe depois em cotação/pedido.
+
 ## Estado atual
 
 - Marca pública: **TAMÃO**
