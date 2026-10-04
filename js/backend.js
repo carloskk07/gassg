@@ -737,6 +737,15 @@ async function liveSyncMarketStatus({force=false}={}){
     availableNow:data?.availableNow===true,
     availableMerchantCount:Math.max(0,Number(data?.availableMerchantCount||0)),
     productCodes:Array.isArray(data?.productCodes)?data.productCodes.map(code=>String(code).trim().toUpperCase()):[],
+    productDefinitions:Array.isArray(data?.productDefinitions)
+      ? data.productDefinitions.map(item=>({
+        productCode:String(item?.productCode||'').trim().toUpperCase(),
+        productName:String(item?.productName||'').trim(),
+        categoryKey:String(item?.categoryKey||'other').trim().toLowerCase(),
+        categoryName:String(item?.categoryName||'Outros').trim(),
+        sortOrder:Number(item?.sortOrder||100)
+      })).filter(item=>/^[A-Z][A-Z0-9_]{1,31}$/.test(item.productCode)&&item.productName.length>0)
+      :[],
     commercialPolicy:data?.commercialPolicy&&typeof data.commercialPolicy==='object'
       ?{
         active:data.commercialPolicy.active===true,
@@ -748,8 +757,12 @@ async function liveSyncMarketStatus({force=false}={}){
       }
       :null
   };
+  const definitionByCode=new Map(
+    (liveRuntime.marketStatus.productDefinitions||[]).map(item=>[item.productCode,item])
+  );
   for(const code of liveRuntime.marketStatus.productCodes){
-    if(globalThis.ensureProductDefinition?.(code)&&!(code in state.cart))state.cart[code]=0;
+    const definition=definitionByCode.get(code)||null;
+    if(globalThis.ensureProductDefinition?.(code,definition)&&!(code in state.cart))state.cart[code]=0;
   }
   save();
   liveRuntime.lastMarketStatusAt=now;
