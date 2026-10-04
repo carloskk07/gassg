@@ -2,11 +2,6 @@ name: Build isolated live portals
 
 on:
   workflow_dispatch:
-    inputs:
-      turnstile_site_key:
-        description: 'Cloudflare Turnstile site key pública das origens live'
-        required: true
-        type: string
   push:
     branches: [main]
     paths:
@@ -42,9 +37,9 @@ jobs:
     if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
     runs-on: ubuntu-latest
     env:
-      CHAMA_CUSTOMER_ORIGIN: https://chama-sg-cliente.netlify.app
-      CHAMA_MERCHANT_ORIGIN: https://chama-sg-revenda.netlify.app
-      CHAMA_ADMIN_ORIGIN: https://chama-sg-admin.netlify.app
+      CHAMA_CUSTOMER_ORIGIN: https://tamao-sg-cliente.pages.dev
+      CHAMA_MERCHANT_ORIGIN: https://tamao-sg-revenda.pages.dev
+      CHAMA_ADMIN_ORIGIN: https://tamao-sg-admin.pages.dev
       # Cloudflare's documented visible test site key. This job only validates
       # the bundle builder and never uploads a production artifact.
       CHAMA_TURNSTILE_SITE_KEY: 1x00000000000000000000AA
@@ -76,14 +71,15 @@ jobs:
           echo "Disposable test bundles validated; nothing is uploaded."
 
   production-bundle:
-    if: github.event_name == 'workflow_dispatch'
+    if: github.event_name == 'workflow_dispatch' || github.event_name == 'push'
     needs: validate
     runs-on: ubuntu-latest
     env:
-      CHAMA_CUSTOMER_ORIGIN: https://chama-sg-cliente.netlify.app
-      CHAMA_MERCHANT_ORIGIN: https://chama-sg-revenda.netlify.app
-      CHAMA_ADMIN_ORIGIN: https://chama-sg-admin.netlify.app
-      CHAMA_TURNSTILE_SITE_KEY: ${{ inputs.turnstile_site_key }}
+      CHAMA_CUSTOMER_ORIGIN: https://tamao-sg-cliente.pages.dev
+      CHAMA_MERCHANT_ORIGIN: https://tamao-sg-revenda.pages.dev
+      CHAMA_ADMIN_ORIGIN: https://tamao-sg-admin.pages.dev
+      # Turnstile site key is public by design; the secret key never enters the bundle.
+      CHAMA_TURNSTILE_SITE_KEY: 0x4AAAAAAFNKDvnzxtYQ9WM2
       CHAMA_SOURCE_SHA: ${{ github.sha }}
     steps:
       - uses: actions/checkout@v6
