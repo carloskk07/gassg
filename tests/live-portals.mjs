@@ -3,6 +3,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import {buildLivePortals,assertProductionTurnstile} from '../scripts/build-live-portals.mjs';
+import {buildCloudflarePortal,CLOUDFLARE_PROJECTS,PUBLIC_TURNSTILE_SITE_KEY} from '../scripts/build-cloudflare-portal.mjs';
 
 const origins={
   CHAMA_CUSTOMER_ORIGIN:'https://tamao-sg-cliente.pages.dev',
@@ -54,5 +55,24 @@ for(const {role,path:dir} of built){
   assert.equal(metadata.sourceSha,'test-sha');
 }
 
+const cfRoot=fs.mkdtempSync(path.join(os.tmpdir(),'tamao-cloudflare-portals-'));
+for(const [projectName,cfg] of Object.entries(CLOUDFLARE_PROJECTS)){
+  const outRoot=path.join(cfRoot,projectName,'build');
+  const publishDir=path.join(cfRoot,projectName,'publish');
+  const result=buildCloudflarePortal({
+    CHAMA_CLOUDFLARE_PROJECT:projectName,
+    CHAMA_SOURCE_SHA:'1234567890123456789012345678901234567890'
+  },{outputRoot:outRoot,publishDir});
+  assert.equal(result.role,cfg.role);
+  assert.equal(result.projectName,projectName);
+  const meta=JSON.parse(fs.readFileSync(path.join(publishDir,'portal-build.json'),'utf8'));
+  assert.equal(meta.portalRole,cfg.role);
+  assert.equal(meta.customerOrigin,CLOUDFLARE_PROJECTS['tamao-sg-cliente'].origin);
+  assert.equal(meta.merchantOrigin,CLOUDFLARE_PROJECTS['tamao-sg-revenda'].origin);
+  assert.equal(meta.adminOrigin,CLOUDFLARE_PROJECTS['tamao-sg-admin'].origin);
+  const runtime=fs.readFileSync(path.join(publishDir,'js','runtime-config.js'),'utf8');
+  assert.ok(runtime.includes(PUBLIC_TURNSTILE_SITE_KEY));
+}
 fs.rmSync(root,{recursive:true,force:true});
-console.log('Live portal bundles contract passou.');
+fs.rmSync(cfRoot,{recursive:true,force:true});
+console.log('Live + Cloudflare portal bundles contract passou.');
