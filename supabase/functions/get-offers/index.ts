@@ -184,6 +184,33 @@ Deno.serve(async (req: Request) => {
     await enforceApiQuota(admin,{userId:user.id,actionName:"get-offers",limit:20,windowSeconds:60});
     await enforceApiQuota(admin,{userId:user.id,actionName:"get-offers-hour",limit:120,windowSeconds:3600});
 
+    const requestedProductCodes=[...new Set(items.map((x)=>x.productCode))];
+    const {data:registeredProducts,error:registeredProductsError}=await admin
+      .from("product_delivery_profiles")
+      .select("product_code,category_key")
+      .in("product_code",requestedProductCodes)
+      .eq("active",true);
+    if(registeredProductsError)throw registeredProductsError;
+
+    const registeredCodes=new Set((registeredProducts??[]).map((row)=>String(row.product_code)));
+    if(requestedProductCodes.some((code)=>!registeredCodes.has(code))){
+      throw new DomainError("INVALID_PRODUCT","Um ou mais produtos não estão ativos no catálogo TAMÃO.",400);
+    }
+
+    const categoryKeys=[...new Set((registeredProducts??[]).map((row)=>String(row.category_key)).filter(Boolean))];
+    const {data:activeCategories,error:activeCategoriesError}=categoryKeys.length
+      ? await admin
+          .from("product_categories")
+          .select("category_key")
+          .in("category_key",categoryKeys)
+          .eq("active",true)
+      : {data:[],error:null};
+    if(activeCategoriesError)throw activeCategoriesError;
+    const activeCategorySet=new Set((activeCategories??[]).map((row)=>String(row.category_key)));
+    if((registeredProducts??[]).some((row)=>!activeCategorySet.has(String(row.category_key)))){
+      throw new DomainError("INVALID_PRODUCT","Uma categoria solicitada está pausada.",400);
+    }
+
     const {data:launchStatus,error:launchStatusError}=await admin.rpc("commerce_launch_status");
     if(launchStatusError)throw launchStatusError;
     if(launchStatus?.commerceEnabled!==true){
