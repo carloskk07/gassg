@@ -1,10 +1,23 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 
-const ADMIN_ORIGIN='https://tamao-sg-admin.pages.dev';
-const CUSTOMER_ORIGIN='https://tamao-sg-cliente.pages.dev';
-const MERCHANT_ORIGIN='https://tamao-sg-revenda.pages.dev';
-const REQUIRE_ADMIN_PORTAL=process.env.TAMAO_REQUIRE_ADMIN_PORTAL==='1';
+const PORTALS={
+  customer:{origin:'https://tamao-sg-cliente.pages.dev',title:'TAMÃO — Pediu? Tá na mão.'},
+  merchant:{origin:'https://tamao-sg-revenda.pages.dev',title:'TAMÃO Revenda — Operação'},
+  admin:{origin:'https://tamao-sg-admin.pages.dev',title:'TAMÃO Admin — Controle'}
+};
+const CUSTOMER_ORIGIN=PORTALS.customer.origin;
+const MERCHANT_ORIGIN=PORTALS.merchant.origin;
+const ADMIN_ORIGIN=PORTALS.admin.origin;
+const REQUIRE_LIVE_PORTALS=
+  process.env.TAMAO_REQUIRE_LIVE_PORTALS==='1'
+  ||process.env.TAMAO_REQUIRE_ADMIN_PORTAL==='1';
+const TEST_TURNSTILE_KEYS=new Set([
+  '1x00000000000000000000AA',
+  '2x00000000000000000000AB',
+  '3x00000000000000000000FF',
+  '0x4AAAAAAAAAA-demo-site-key'
+]);
 
 const backend=fs.readFileSync(new URL('../js/backend.js',import.meta.url),'utf8');
 const backendUrl=/url:'([^']+)'/.exec(backend)?.[1]||'';
@@ -82,75 +95,113 @@ const claimBody=await jsonBody(claimProbe,'admin-auth claim');
 assert.equal(claimProbe.status,401,'claim sem bearer token deve permanecer fechado');
 assert.equal(claimBody.error,'UNAUTHORIZED','claim precisa autenticar dentro do handler');
 
-const portal={
-  ready:true,
-  reasons:[],
-  sourceSha:null,
-  buildStatus:null,
-  runtimeStatus:null,
-  htmlStatus:null,
-  role:null
-};
+async function verifyPortal(role,cfg){
+  const portal={
+    role,
+    origin:cfg.origin,
+    ready:true,
+    reasons:[],
+    sourceSha:null,
+    buildStatus:null,
+    runtimeStatus:null,
+    htmlStatus:null,
+    turnstileKey:null
+  };
+  const check=(condition,reason)=>{
+    if(condition)return;
+    portal.ready=false;
+    portal.reasons.push(reason);
+  };
 
-async function portalCheck(condition,reason){
-  if(condition)return;
-  portal.ready=false;
-  portal.reasons.push(reason);
-}
-
-try{
-  const buildResponse=await resilientFetch(ADMIN_ORIGIN+'/portal-build.json?probe='+Date.now(),{},'admin portal build metadata');
-  portal.buildStatus=buildResponse.status;
-  if(buildResponse.status===200){
-    const build=await jsonBody(buildResponse,'admin portal build metadata');
-    portal.role=build.portalRole??null;
-    portal.sourceSha=String(build.sourceSha??'')||null;
-    await portalCheck(build.schemaVersion===1,'portal-build schema inválido');
-    await portalCheck(build.portalRole==='admin','portal-build não declara role admin');
-    await portalCheck(build.customerOrigin===CUSTOMER_ORIGIN,'portal-build customerOrigin divergente');
-    await portalCheck(build.merchantOrigin===MERCHANT_ORIGIN,'portal-build merchantOrigin divergente');
-    await portalCheck(build.adminOrigin===ADMIN_ORIGIN,'portal-build adminOrigin divergente');
-    await portalCheck(/^[0-9a-f]{40}$/.test(String(build.sourceSha||'')),'portal-build sem SHA fonte válido');
-  }else{
-    await portalCheck(false,'portal-build.json HTTP '+buildResponse.status);
-  }
-
-  const runtimeResponse=await resilientFetch(ADMIN_ORIGIN+'/js/runtime-config.js?probe='+Date.now(),{},'admin runtime config');
-  portal.runtimeStatus=runtimeResponse.status;
-  if(runtimeResponse.status===200){
-    const runtime=await runtimeResponse.text();
-    await portalCheck(runtime.includes('globalThis.CHAMA_PORTAL_ROLE="admin";'),'runtime remoto não assume role admin');
-    for(const origin of [CUSTOMER_ORIGIN,MERCHANT_ORIGIN,ADMIN_ORIGIN]){
-      await portalCheck(runtime.includes(origin),'runtime remoto não conhece '+origin);
+  try{
+    const nonce=Date.now()+'-'+role;
+    const buildResponse=await resilientFetch(
+      cfg.origin+'/portal-build.json?probe='+nonce,
+      {},
+      role+' portal build metadata'
+    );
+    portal.buildStatus=buildResponse.status;
+    if(buildResponse.status===200){
+      const build=await jsonBody(buildResponse,role+' portal build metadata');
+      portal.sourceSha=String(build.sourceSha??'')||null;
+      check(build.schemaVersion===1,'portal-build schema inválido');
+      check(build.portalRole===role,'portal-build role divergente');
+      check(build.customerOrigin===CUSTOMER_ORIGIN,'portal-build customerOrigin divergente');
+      check(build.merchantOrigin===MERCHANT_ORIGIN,'portal-build merchantOrigin divergente');
+      check(build.adminOrigin===ADMIN_ORIGIN,'portal-build adminOrigin divergente');
+      check(/^[0-9a-f]{40}$/.test(String(build.sourceSha||'')),'portal-build sem SHA fonte válido');
+    }else{
+      check(false,'portal-build.json HTTP '+buildResponse.status);
     }
-  }else{
-    await portalCheck(false,'runtime-config HTTP '+runtimeResponse.status);
-  }
 
-  const htmlResponse=await resilientFetch(ADMIN_ORIGIN+'/?admin=1&probe='+Date.now()+'#admin',{},'admin portal html');
-  portal.htmlStatus=htmlResponse.status;
-  if(htmlResponse.status===200){
-    const html=await htmlResponse.text();
-    await portalCheck(html.includes('data-chama-portal="admin"'),'HTML remoto não é bundle isolado de admin');
-    await portalCheck(html.includes('TAMÃO Admin — Controle'),'HTML remoto não carrega título administrativo');
-  }else{
-    await portalCheck(false,'HTML admin HTTP '+htmlResponse.status);
+    const runtimeResponse=await resilientFetch(
+      cfg.origin+'/js/runtime-config.js?probe='+nonce,
+      {},
+      role+' runtime config'
+    );
+    portal.runtimeStatus=runtimeResponse.status;
+    if(runtimeResponse.status===200){
+      const runtime=await runtimeResponse.text();
+      check(runtime.includes('globalThis.CHAMA_PORTAL_ROLE='+JSON.stringify(role)+';'),'runtime remoto não assume role '+role);
+      for(const origin of [CUSTOMER_ORIGIN,MERCHANT_ORIGIN,ADMIN_ORIGIN]){
+        check(runtime.includes(origin),'runtime remoto não conhece '+origin);
+      }
+      const turnstile=/globalThis\.CHAMA_TURNSTILE_SITE_KEY=("[^"]*"|'[^']*');/.exec(runtime)?.[1]||'';
+      let turnstileKey='';
+      try{turnstileKey=JSON.parse(turnstile)}catch{turnstileKey=turnstile.replace(/^['"]|['"]$/g,'')}
+      portal.turnstileKey=turnstileKey||null;
+      check(turnstileKey.length>=6,'runtime remoto sem site key Turnstile');
+      check(!TEST_TURNSTILE_KEYS.has(turnstileKey),'runtime remoto usa chave Turnstile de teste/demo');
+    }else{
+      check(false,'runtime-config HTTP '+runtimeResponse.status);
+    }
+
+    const htmlResponse=await resilientFetch(
+      cfg.origin+'/?probe='+nonce,
+      {},
+      role+' portal html'
+    );
+    portal.htmlStatus=htmlResponse.status;
+    if(htmlResponse.status===200){
+      const html=await htmlResponse.text();
+      check(html.includes('data-chama-portal="'+role+'"'),'HTML remoto não é bundle isolado de '+role);
+      check(html.includes(cfg.title),'HTML remoto não carrega título esperado de '+role);
+    }else{
+      check(false,'HTML HTTP '+htmlResponse.status);
+    }
+  }catch(error){
+    portal.ready=false;
+    portal.reasons.push(String(error?.message||error));
   }
-}catch(error){
-  portal.ready=false;
-  portal.reasons.push(String(error?.message||error));
+  return portal;
 }
 
-if(!portal.ready){
-  const message='Portal admin remoto ainda não está pronto: '+portal.reasons.join('; ');
-  if(REQUIRE_ADMIN_PORTAL)assert.fail(message);
-  console.warn('::warning title=TAMÃO admin portal pendente::'+message);
+const portalResults=await Promise.all(
+  Object.entries(PORTALS).map(([role,cfg])=>verifyPortal(role,cfg))
+);
+const portalByRole=Object.fromEntries(portalResults.map(x=>[x.role,x]));
+const readyPortals=portalResults.filter(x=>x.ready);
+const sourceShas=new Set(readyPortals.map(x=>x.sourceSha).filter(Boolean));
+const allReady=portalResults.every(x=>x.ready)&&sourceShas.size===1;
+
+if(!allReady){
+  const problems=portalResults
+    .filter(x=>!x.ready)
+    .map(x=>x.role+': '+x.reasons.join('; '));
+  if(readyPortals.length>1&&sourceShas.size!==1){
+    problems.push('source SHA divergente entre portais: '+[...sourceShas].join(', '));
+  }
+  const message='Portais live ainda não estão prontos: '+problems.join(' | ');
+  if(REQUIRE_LIVE_PORTALS)assert.fail(message);
+  console.warn('::warning title=TAMÃO live portals pendentes::'+message);
 }
 
 console.log(JSON.stringify({
   ok:true,
   adminAuthPublicEntry:'CAPTCHA_REQUIRED',
   adminClaimWithoutSession:'UNAUTHORIZED',
-  adminPortal:portal,
-  strictPortalGate:REQUIRE_ADMIN_PORTAL
+  allPortalsReady:allReady,
+  commonSourceSha:allReady?[...sourceShas][0]:null,
+  portals:portalByRole,
+  strictPortalGate:REQUIRE_LIVE_PORTALS
 },null,2));
