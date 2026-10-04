@@ -429,8 +429,8 @@ Deno.serve(async(req:Request)=>{
          (pricingMode==="fixed"&&(minPriceCents!==preferredPriceCents||preferredPriceCents!==maxPriceCents))){
         throw new DomainError("INVALID_PRICE_RANGE","Faixa de preço inválida.",400);
       }
-      const rawPayments=Array.isArray(body.paymentMethods)?body.paymentMethods.map((x:any)=>String(x)):[];
-      const paymentMethods=[...new Set(rawPayments)];
+      const rawPayments:string[]=Array.isArray(body.paymentMethods)?body.paymentMethods.map((x:any)=>String(x)):[];
+      const paymentMethods:string[]=[...new Set<string>(rawPayments)];
       if(paymentMethods.length>3||paymentMethods.some(x=>!["pix","card","cash"].includes(x))){
         throw new DomainError("INVALID_PAYMENT_METHOD","Forma de pagamento inválida.",400);
       }
