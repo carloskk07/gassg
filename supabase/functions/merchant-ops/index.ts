@@ -23,31 +23,6 @@ const MERCHANT_PRIMARY_ORIGINS=new Set([
 ].filter(Boolean));
 const UUID_RE=/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
-const PRODUCT_NAMES:Record<string,string>={
-  WATER20:"Água 20 L",
-  CHARCOAL4:"Carvão 4 kg",
-  WOOD:"Lenha",
-  ICE5:"Gelo 5 kg"
-};
-function glpKgForCode(code:string){
-  const match=/^P([1-9][0-9]?)$/.exec(code);
-  if(!match)return null;
-  const kg=Number(match[1]);
-  return Number.isInteger(kg)&&kg>=1&&kg<=90?kg:null;
-}
-function productNameForCode(code:string){
-  const kg=glpKgForCode(code);
-  if(kg!==null)return "Gás P"+kg;
-  const container=/^P([1-9][0-9]?)_CONTAINER$/.exec(code);
-  if(container){
-    const containerKg=Number(container[1]);
-    if(Number.isInteger(containerKg)&&containerKg>=1&&containerKg<=90){
-      return "Vasilhame P"+containerKg;
-    }
-  }
-  return PRODUCT_NAMES[code]??null;
-}
-
 function originAllowed(origin:string|null){
   if(!origin)return true;
   if(/^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(origin))return true;
@@ -213,8 +188,31 @@ Deno.serve(async(req:Request)=>{
     if(action==="update-product"){
       if(!canManage(role))throw new DomainError("MERCHANT_ACCESS_DENIED","Somente owner/manager pode alterar catálogo.",403);
       const productCode=String(body.productCode??"").trim().toUpperCase();
-      const productName=productNameForCode(productCode);
-      if(!productName)throw new DomainError("INVALID_PRODUCT","Produto inválido.",400);
+      if(!/^[A-Z][A-Z0-9_]{1,31}$/.test(productCode)){
+        throw new DomainError("INVALID_PRODUCT","Produto inválido.",400);
+      }
+      const {data:productProfile,error:productProfileError}=await admin
+        .from("product_delivery_profiles")
+        .select("product_code,product_name,category_key,active,merchant_add_allowed")
+        .eq("product_code",productCode)
+        .eq("active",true)
+        .eq("merchant_add_allowed",true)
+        .maybeSingle();
+      if(productProfileError)throw productProfileError;
+      if(!productProfile){
+        throw new DomainError("INVALID_PRODUCT","Este produto não está disponível para inclusão no catálogo.",400);
+      }
+      const {data:productCategory,error:productCategoryError}=await admin
+        .from("product_categories")
+        .select("category_key,active")
+        .eq("category_key",productProfile.category_key)
+        .eq("active",true)
+        .maybeSingle();
+      if(productCategoryError)throw productCategoryError;
+      if(!productCategory){
+        throw new DomainError("INVALID_PRODUCT","A categoria deste produto está pausada.",400);
+      }
+      const productName=String(productProfile.product_name);
       const priceCents=asPositiveInt(body.priceCents,"priceCents",{min:1,max:1000000});
       const availableStock=asPositiveInt(body.availableStock,"availableStock",{min:0,max:100000});
       const active=body.active!==false;
