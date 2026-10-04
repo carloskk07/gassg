@@ -1,4 +1,21 @@
-# TAMÃO — Runbook de lançamento
+# TAMÃO — lançamento e operação
+
+## V1.62 — Central de Produção
+
+A abertura real passa a ser governada por três estados de prontidão: `READY`, `READY_WITH_WARNINGS` e `BLOCKED_SECURITY`. Apenas o último representa bloqueio técnico absoluto.
+
+Pendências de negócio aparecem no admin com condição, risco, recomendação e confirmação explícita. A confirmação exige motivo, aceita evidência e validade opcional, e gera auditoria. Segurança estrutural, RLS, privilégios, integridade financeira e RPCs privilegiadas continuam fail-closed.
+
+Modos operacionais:
+
+- `PRELAUNCH` — captação e preparação, sem novos pedidos reais;
+- `PILOT` — pedidos reais em operação controlada;
+- `LIVE` — operação normal;
+- `PAUSED` — kill switch para novos pedidos, preservando pedidos existentes e os painéis.
+
+A primeira abertura deve usar **PILOT**.
+
+
 
 ## Estado atual
 
