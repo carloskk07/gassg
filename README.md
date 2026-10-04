@@ -63,6 +63,19 @@ Principais garantias:
 - onboarding assistido usa o mesmo registro e ignora nome de produto fornecido pela UI;
 - renomear um produto sincroniza catálogos atuais, sem reescrever snapshots históricos de pedidos/cotações.
 
+
+
+## V1.67 — handoff Cloudflare sem drift
+
+O workflow `.github/workflows/build-live-portals.yml` passa a usar exclusivamente as três origins Cloudflare Pages:
+
+- `https://tamao-sg-cliente.pages.dev`;
+- `https://tamao-sg-revenda.pages.dev`;
+- `https://tamao-sg-admin.pages.dev`.
+
+A site key pública do Turnstile já é versionada e não precisa mais ser digitada em cada release. O job `production-bundle` roda em push da `main` e também pode ser disparado manualmente, gerando os artefatos `tamao-live-customer`, `tamao-live-merchant` e `tamao-live-admin`.
+
+O workflow não faz deploy em nome da conta Cloudflare: os projetos Pages continuam sendo a autoridade de publicação. A mudança elimina o risco de gerar um bundle “de produção” ainda apontando para as origins Netlify legadas.
 ## Estado atual — v1.61 cloudflare portals
 
 O Netlify deixa de ser requisito para os portais isolados. A rota principal passa a ser **Cloudflare Pages**, mantendo o Netlify apenas como fallback de migração.
