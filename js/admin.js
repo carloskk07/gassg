@@ -723,7 +723,7 @@ function adminProductRegistrySection(d){
   const selectableCategories=categories.filter(x=>x.active&&x.category_key!=='glp');
   const categoryCards=categories.map(cat=>`<div class="list-row">
     <div><strong>${esc(cat.category_name)}</strong><br><small>${esc(cat.category_key)} • ordem ${Number(cat.sort_order||100)}</small></div>
-    <div class="order-actions"><span class="status-pill ${cat.active?'online':'offline'}">${cat.active?'ATIVA':'PAUSADA'}</span><button class="${cat.active?'danger-btn':'secondary'} small" onclick="adminToggleProductCategory('${esc(cat.category_key)}','${String(cat.category_name||'').replace(/'/g,"&#39;")}',${cat.active?'false':'true'},${Number(cat.sort_order||100)})">${cat.active?'Pausar':'Ativar'}</button></div>
+    <div class="order-actions"><span class="status-pill ${cat.active?'online':'offline'}">${cat.active?'ATIVA':'PAUSADA'}</span><button class="${cat.active?'danger-btn':'secondary'} small" onclick="adminToggleProductCategory('${esc(cat.category_key)}',${cat.active?'false':'true'},${Number(cat.sort_order||100)})">${cat.active?'Pausar':'Ativar'}</button></div>
   </div>`).join('');
   const productRows=general.map(item=>`<div class="list-row">
     <div><strong>${esc(item.product_name)}</strong><br><small>${esc(item.product_code)} • ${esc(item.category_key)} • ordem ${Number(item.sort_order||100)}</small></div>
@@ -934,7 +934,9 @@ async function adminCreateProductCategory(){
     toast('Categoria salva');
   }catch(e){toast(String(e?.message||e))}
 }
-async function adminToggleProductCategory(categoryKey,categoryName,active,sortOrder){
+async function adminToggleProductCategory(categoryKey,active,sortOrder){
+  const category=(adminRuntime.data?.productRegistry?.categories||[]).find(x=>x.category_key===categoryKey);
+  const categoryName=String(category?.category_name||categoryKey);
   const reason=prompt((active?'Motivo para ativar ':'Motivo para pausar ')+categoryName+':')||'';
   if(reason.trim().length<3)return toast('Informe o motivo');
   if(!active&&!confirm('Pausar esta categoria? SKUs ativos das revendas serão pausados e precisarão ser reconfirmados antes de voltar a vender.'))return;
