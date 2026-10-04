@@ -32,6 +32,7 @@ function inferProjectName(){
 const projectName=inferProjectName();
 const role=PROJECTS[projectName].role;
 const sourceSha=String(process.env.CHAMA_SOURCE_SHA||process.env.CF_PAGES_COMMIT_SHA||'unknown').trim();
+const PUBLIC_TURNSTILE_SITE_KEY='0x4AAAAAAFNKDvnzxtYQ9WM2';
 const outRoot=path.join(root,'dist','cloudflare-build');
 const publish=path.join(root,'dist','cloudflare-portal');
 
@@ -39,6 +40,7 @@ const env={
   ...process.env,
   CHAMA_SOURCE_SHA:sourceSha,
   CHAMA_PORTAL_ROLE:role,
+  CHAMA_TURNSTILE_SITE_KEY:process.env.CHAMA_TURNSTILE_SITE_KEY||PUBLIC_TURNSTILE_SITE_KEY,
   CHAMA_CUSTOMER_ORIGIN:process.env.CHAMA_CUSTOMER_ORIGIN||PROJECTS['tamao-sg-cliente'].origin,
   CHAMA_MERCHANT_ORIGIN:process.env.CHAMA_MERCHANT_ORIGIN||PROJECTS['tamao-sg-revenda'].origin,
   CHAMA_ADMIN_ORIGIN:process.env.CHAMA_ADMIN_ORIGIN||PROJECTS['tamao-sg-admin'].origin
