@@ -12,7 +12,18 @@ const secretKeys=JSON.parse(Deno.env.get("SUPABASE_SECRET_KEYS")??"{}");
 const PUBLISHABLE_KEY=publishableKeys.default??Deno.env.get("SUPABASE_ANON_KEY")??"";
 const SECRET_KEY=secretKeys.default??Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")??"";
 const CUSTOMER_ALLOWED_ORIGIN=(Deno.env.get("CUSTOMER_ALLOWED_ORIGIN")??"https://chama-sg-cliente.netlify.app").trim();
+const CUSTOMER_PRIMARY_ORIGINS=new Set([
+  "https://tamao-sg-cliente.pages.dev",
+  "https://tamao.com.br",
+  "https://www.tamao.com.br",
+  CUSTOMER_ALLOWED_ORIGIN
+].filter(Boolean));
 const MERCHANT_ALLOWED_ORIGIN=(Deno.env.get("MERCHANT_ALLOWED_ORIGIN")??"https://chama-sg-revenda.netlify.app").trim();
+const MERCHANT_PRIMARY_ORIGINS=new Set([
+  "https://tamao-sg-revenda.pages.dev",
+  "https://parceiro.tamao.com.br",
+  MERCHANT_ALLOWED_ORIGIN
+].filter(Boolean));
 const UUID_RE=/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 function localOrigin(origin:string|null){
@@ -21,18 +32,18 @@ function localOrigin(origin:string|null){
 function customerOriginAllowed(origin:string|null){
   if(!origin)return true;
   if(localOrigin(origin))return true;
-  return CUSTOMER_ALLOWED_ORIGIN.length>0&&origin===CUSTOMER_ALLOWED_ORIGIN;
+  return CUSTOMER_PRIMARY_ORIGINS.has(origin);
 }
 function merchantOriginAllowed(origin:string|null){
   if(!origin)return true;
   if(localOrigin(origin))return true;
-  return MERCHANT_ALLOWED_ORIGIN.length>0&&origin===MERCHANT_ALLOWED_ORIGIN;
+  return MERCHANT_PRIMARY_ORIGINS.has(origin);
 }
 function originAllowed(origin:string|null){
   return customerOriginAllowed(origin)||merchantOriginAllowed(origin);
 }
 function cors(origin:string|null){
-  const fallback=CUSTOMER_ALLOWED_ORIGIN||MERCHANT_ALLOWED_ORIGIN||"null";
+  const fallback="https://tamao-sg-cliente.pages.dev";
   const allowed=origin&&originAllowed(origin)?origin:fallback;
   return {
     "Access-Control-Allow-Origin":allowed,

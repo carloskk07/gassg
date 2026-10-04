@@ -16,6 +16,11 @@ const secretKeys=JSON.parse(Deno.env.get("SUPABASE_SECRET_KEYS")??"{}");
 const PUBLISHABLE_KEY=publishableKeys.default??Deno.env.get("SUPABASE_ANON_KEY")??"";
 const SECRET_KEY=secretKeys.default??Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")??"";
 const MERCHANT_ALLOWED_ORIGIN=(Deno.env.get("MERCHANT_ALLOWED_ORIGIN")??"https://chama-sg-revenda.netlify.app").trim();
+const MERCHANT_PRIMARY_ORIGINS=new Set([
+  "https://tamao-sg-revenda.pages.dev",
+  "https://parceiro.tamao.com.br",
+  MERCHANT_ALLOWED_ORIGIN
+].filter(Boolean));
 const UUID_RE=/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 const PRODUCT_NAMES:Record<string,string>={
@@ -46,10 +51,10 @@ function productNameForCode(code:string){
 function originAllowed(origin:string|null){
   if(!origin)return true;
   if(/^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(origin))return true;
-  return MERCHANT_ALLOWED_ORIGIN.length>0&&origin===MERCHANT_ALLOWED_ORIGIN;
+  return MERCHANT_PRIMARY_ORIGINS.has(origin);
 }
 function cors(origin:string|null){
-  const allowed=origin&&originAllowed(origin)?origin:(MERCHANT_ALLOWED_ORIGIN||"null");
+  const allowed=origin&&originAllowed(origin)?origin:("https://tamao-sg-revenda.pages.dev");
   return {
     "Access-Control-Allow-Origin":allowed,
     "Access-Control-Allow-Headers":"authorization, apikey, content-type",

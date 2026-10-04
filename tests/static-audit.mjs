@@ -47,6 +47,7 @@ const livePortalWorkflow=read('.github/workflows/build-live-portals.yml');
 const launchReadinessWorkflow=read('.github/workflows/launch-readiness.yml');
 const netlifyConfig=read('netlify.toml');
 const netlifyBuilder=read('scripts/build-netlify-portal.mjs');
+const cloudflarePortalBuilder=read('scripts/build-cloudflare-portal.mjs');
 
 assert.ok(!customer.includes('desktop-only" style="display:block"'),'desktop-only não pode ser forçado a display:block no mobile');
 assert.ok(customer.includes('esc(o.address)'),'endereço do pedido deve ser escapado antes de entrar no HTML');
@@ -387,6 +388,10 @@ assert.ok(netlifyConfig.includes('command = "node scripts/build-netlify-portal.m
 assert.ok(netlifyBuilder.includes('SITE_ROLE_BY_NAME')&&netlifyBuilder.includes("'chama-sg-admin':'admin'")&&netlifyBuilder.includes('COMMIT_REF')&&netlifyBuilder.includes('portal-build.json'),'builder Netlify precisa inferir role pelo projeto, preservar SHA e validar metadata');
 assert.ok(netlifyBuilder.includes('buildLivePortals')&&netlifyBuilder.includes("fs.cpSync(source,publish"),'Netlify deve publicar somente o bundle isolado da role configurada');
 assert.ok(netlifyBuilder.includes("'https://chama-sg-cliente.netlify.app'")&&netlifyBuilder.includes("'https://chama-sg-revenda.netlify.app'")&&netlifyBuilder.includes("'https://chama-sg-admin.netlify.app'"),'origens Netlify atuais precisam ter defaults versionados para reduzir configuração manual');
+assert.ok(cloudflarePortalBuilder.includes("'tamao-sg-cliente'")&&cloudflarePortalBuilder.includes("'tamao-sg-revenda'")&&cloudflarePortalBuilder.includes("'tamao-sg-admin'"),'builder Cloudflare precisa mapear os três projetos isolados');
+assert.ok(cloudflarePortalBuilder.includes('CF_PAGES_URL')&&cloudflarePortalBuilder.includes('CF_PAGES_COMMIT_SHA'),'builder Cloudflare precisa inferir projeto/SHA do ambiente Pages');
+assert.ok(cloudflarePortalBuilder.includes("'https://tamao-sg-cliente.pages.dev'")&&cloudflarePortalBuilder.includes("'https://tamao-sg-revenda.pages.dev'")&&cloudflarePortalBuilder.includes("'https://tamao-sg-admin.pages.dev'"),'origens Cloudflare Pages precisam ficar versionadas');
+assert.ok(cloudflarePortalBuilder.includes("PUBLIC_TURNSTILE_SITE_KEY='0x4AAAAAAFNKDvnzxtYQ9WM2'"),'site key pública Turnstile pode ser versionada para reduzir configuração manual');
 assert.ok(read('.github/workflows/build-live-portals.yml').includes('turnstile_site_key:')&&read('.github/workflows/build-live-portals.yml').includes('CHAMA_TURNSTILE_SITE_KEY: ${{ inputs.turnstile_site_key }}'),'site key pública do Turnstile deve entrar explicitamente no release manual');
 assert.ok(!read('.github/workflows/build-live-portals.yml').includes('secrets.CHAMA_TURNSTILE_SITE_KEY'),'site key pública não deve exigir GitHub Secret');
 assert.ok(read('.github/workflows/build-live-portals.yml').includes('Create immutable handoff checksums')&&read('.github/workflows/build-live-portals.yml').includes('SHA256SUMS.txt'),'artefatos live precisam levar checksums de handoff');

@@ -12,9 +12,17 @@ const publishableKeys=JSON.parse(Deno.env.get("SUPABASE_PUBLISHABLE_KEYS")??"{}"
 const secretKeys=JSON.parse(Deno.env.get("SUPABASE_SECRET_KEYS")??"{}");
 const PUBLISHABLE_KEY=publishableKeys.default??Deno.env.get("SUPABASE_ANON_KEY")??"";
 const SECRET_KEY=secretKeys.default??Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")??"";
-const ADMIN_ALLOWED_ORIGIN=(Deno.env.get("ADMIN_ALLOWED_ORIGIN")??"https://chama-sg-admin.netlify.app").trim();
-const CUSTOMER_LIVE_ORIGIN=(Deno.env.get("CUSTOMER_ALLOWED_ORIGIN")??"https://chama-sg-cliente.netlify.app").trim();
-const MERCHANT_LIVE_ORIGIN=(Deno.env.get("MERCHANT_ALLOWED_ORIGIN")??"https://chama-sg-revenda.netlify.app").trim();
+const LEGACY_ADMIN_ALLOWED_ORIGIN=(Deno.env.get("ADMIN_ALLOWED_ORIGIN")??"https://chama-sg-admin.netlify.app").trim();
+const LEGACY_CUSTOMER_ALLOWED_ORIGIN=(Deno.env.get("CUSTOMER_ALLOWED_ORIGIN")??"https://chama-sg-cliente.netlify.app").trim();
+const LEGACY_MERCHANT_ALLOWED_ORIGIN=(Deno.env.get("MERCHANT_ALLOWED_ORIGIN")??"https://chama-sg-revenda.netlify.app").trim();
+const ADMIN_LIVE_ORIGIN="https://tamao-sg-admin.pages.dev";
+const CUSTOMER_LIVE_ORIGIN="https://tamao-sg-cliente.pages.dev";
+const MERCHANT_LIVE_ORIGIN="https://tamao-sg-revenda.pages.dev";
+const ADMIN_PRIMARY_ORIGINS=new Set([
+  ADMIN_LIVE_ORIGIN,
+  "https://admin.tamao.com.br",
+  LEGACY_ADMIN_ALLOWED_ORIGIN
+].filter(Boolean));
 const TEST_TURNSTILE_KEYS=new Set([
   "1x00000000000000000000AA",
   "2x00000000000000000000AB",
@@ -27,10 +35,10 @@ const UUID_RE=/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a
 function originAllowed(origin:string|null){
   if(!origin)return true;
   if(/^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(origin))return true;
-  return ADMIN_ALLOWED_ORIGIN.length>0&&origin===ADMIN_ALLOWED_ORIGIN;
+  return ADMIN_PRIMARY_ORIGINS.has(origin);
 }
 function cors(origin:string|null){
-  const allowed=origin&&originAllowed(origin)?origin:(ADMIN_ALLOWED_ORIGIN||"null");
+  const allowed=origin&&originAllowed(origin)?origin:ADMIN_LIVE_ORIGIN;
   return {
     "Access-Control-Allow-Origin":allowed,
     "Access-Control-Allow-Headers":"authorization, apikey, content-type, idempotency-key",
@@ -125,10 +133,10 @@ async function probePortal(role:"customer"|"merchant"|"admin",origin:string){
       &&!TEST_TURNSTILE_KEYS.has(turnstileKey)
       &&customerOrigin===CUSTOMER_LIVE_ORIGIN
       &&merchantOrigin===MERCHANT_LIVE_ORIGIN
-      &&adminOrigin===ADMIN_ALLOWED_ORIGIN
+      &&adminOrigin===ADMIN_LIVE_ORIGIN
       &&build?.customerOrigin===CUSTOMER_LIVE_ORIGIN
       &&build?.merchantOrigin===MERCHANT_LIVE_ORIGIN
-      &&build?.adminOrigin===ADMIN_ALLOWED_ORIGIN;
+      &&build?.adminOrigin===ADMIN_LIVE_ORIGIN;
     return {role,origin,ok,sourceSha:ok?sourceSha:null};
   }catch(error){
     return {
@@ -144,7 +152,7 @@ async function verifyLivePortals(){
   const probes=await Promise.all([
     probePortal("customer",CUSTOMER_LIVE_ORIGIN),
     probePortal("merchant",MERCHANT_LIVE_ORIGIN),
-    probePortal("admin",ADMIN_ALLOWED_ORIGIN)
+    probePortal("admin",ADMIN_LIVE_ORIGIN)
   ]);
   const shas=new Set(probes.filter(x=>x.ok&&x.sourceSha).map(x=>x.sourceSha));
   const allOk=probes.every(x=>x.ok)&&shas.size===1;

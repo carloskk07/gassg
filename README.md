@@ -2,6 +2,26 @@
 
 Marketplace hiperlocal de gás e abastecimento essencial para São Gabriel/RS.
 
+## Estado atual — v1.61 cloudflare portals
+
+O Netlify deixa de ser requisito para os portais isolados. A rota principal passa a ser **Cloudflare Pages**, mantendo o Netlify apenas como fallback de migração.
+
+Projetos previstos:
+
+- `tamao-sg-cliente` → `https://tamao-sg-cliente.pages.dev`;
+- `tamao-sg-revenda` → `https://tamao-sg-revenda.pages.dev`;
+- `tamao-sg-admin` → `https://tamao-sg-admin.pages.dev`.
+
+Todos podem usar o mesmo repositório e a mesma configuração:
+
+- build command: `node scripts/build-cloudflare-portal.mjs`;
+- output: `dist/cloudflare-portal`;
+- branch: `main`.
+
+O builder infere a role pelo `CF_PAGES_URL`, usa `CF_PAGES_COMMIT_SHA` como origem de atestação e já contém a site key pública Turnstile usada pelo TAMÃO. A secret key continua fora do repositório.
+
+O backend aceita as novas origens Cloudflare, as futuras origens `tamao.com.br` e mantém as origens Netlify apenas como fallback temporário.
+
 ## Estado atual — v1.60 netlify zero-config
 
 Os três projetos Netlify podem ser conectados ao mesmo repositório sem preencher manualmente Base directory, Build command, Publish directory ou Functions directory.

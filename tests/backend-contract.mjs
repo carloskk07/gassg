@@ -235,3 +235,18 @@ for(const [fn,envName,origin] of isolatedOriginContracts){
 }
 
 console.log('Isolated portal CORS fallbacks contract passou.');
+
+
+const cloudflarePortalOrigins={
+  'admin-auth':'https://tamao-sg-admin.pages.dev',
+  'admin-ops':'https://tamao-sg-admin.pages.dev',
+  'create-order':'https://tamao-sg-cliente.pages.dev',
+  'customer-summary':'https://tamao-sg-cliente.pages.dev',
+  'merchant-ops':'https://tamao-sg-revenda.pages.dev',
+  'merchant-orders':'https://tamao-sg-revenda.pages.dev'
+};
+for(const [fn,origin] of Object.entries(cloudflarePortalOrigins)){
+  const source=fs.readFileSync(new URL('../supabase/functions/'+fn+'/index.ts',import.meta.url),'utf8');
+  assert.ok(source.includes(origin),fn+' precisa aceitar origem Cloudflare Pages');
+}
+console.log('Cloudflare portal origins v1.61 contract passou.');

@@ -12,14 +12,20 @@ const secretKeys=JSON.parse(Deno.env.get("SUPABASE_SECRET_KEYS")??"{}");
 const PUBLISHABLE_KEY=publishableKeys.default??Deno.env.get("SUPABASE_ANON_KEY")??"";
 const SECRET_KEY=secretKeys.default??Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")??"";
 const CUSTOMER_ALLOWED_ORIGIN=(Deno.env.get("CUSTOMER_ALLOWED_ORIGIN")??"https://chama-sg-cliente.netlify.app").trim();
+const CUSTOMER_PRIMARY_ORIGINS=new Set([
+  "https://tamao-sg-cliente.pages.dev",
+  "https://tamao.com.br",
+  "https://www.tamao.com.br",
+  CUSTOMER_ALLOWED_ORIGIN
+].filter(Boolean));
 
 function originAllowed(origin:string|null){
   if(!origin)return true;
   if(/^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(origin))return true;
-  return CUSTOMER_ALLOWED_ORIGIN.length>0&&origin===CUSTOMER_ALLOWED_ORIGIN;
+  return CUSTOMER_PRIMARY_ORIGINS.has(origin);
 }
 function cors(origin:string|null){
-  const allowed=origin&&originAllowed(origin)?origin:(CUSTOMER_ALLOWED_ORIGIN||"null");
+  const allowed=origin&&originAllowed(origin)?origin:("https://tamao-sg-cliente.pages.dev");
   return {
     "Access-Control-Allow-Origin":allowed,
     "Access-Control-Allow-Headers":"authorization, apikey, content-type",

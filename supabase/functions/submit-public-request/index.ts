@@ -7,6 +7,7 @@ const SECRET_KEY=secretKeys.default??Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")??
 const ALLOWED_ORIGINS=new Set([
   "https://tamao.com.br",
   "https://www.tamao.com.br",
+  "https://tamao-sg-cliente.pages.dev",
   "https://carloskk07.github.io"
 ]);
 
