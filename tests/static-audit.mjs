@@ -69,7 +69,7 @@ assert.ok(core.includes('glpContainerKgForProductCode')&&core.includes('synchron
 assert.ok(customer.includes("p.hidden!==true")&&customer.includes('Vasilhame incluído na consulta'),'vasilhame deve ser SKU real mas não um contador manual no carrinho');
 assert.ok(merchant.includes('merchantLiveAddContainer')&&merchant.includes('Formas de pagamento'),'painel da revenda precisa governar vasilhames e pagamentos');
 assert.ok(backend.includes('paymentMethodUnavailable')&&backend.includes('paymentMethod:paymentMethodSnapshot'),'runtime cliente precisa recotar por forma de pagamento');
-assert.ok(read('supabase/functions/_shared/domain.js').includes("_CONTAINER$"),'Edge Functions precisam aceitar SKU companheiro de vasilhame');
+assert.ok(read('supabase/migrations/20261004161000_dynamic_product_registry_v1_66.sql').includes("'P'||g::text||'_CONTAINER'")&&read('supabase/functions/_shared/domain.js').includes("/^[A-Z][A-Z0-9_]{1,31}$/"),'SKU de vasilhame precisa existir no registro canônico e passar pela validação segura de formato');
 assert.ok(read('supabase/functions/merchant-ops/index.ts').includes('PAYMENT_METHOD_REQUIRED'),'revenda não pode ficar online sem forma de pagamento ativa');
 assert.ok(core.includes('if(globalThis.__CHAMA_TEST__)'),'API de testes precisa estar protegida no site público');
 assert.ok(core.includes('isValidCnpjShape'),'core precisa suportar validação estrutural do CNPJ atual');
