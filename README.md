@@ -65,6 +65,20 @@ Principais garantias:
 
 
 
+
+
+## V1.68 — prova remota dos três portais
+
+A sonda remota deixa de verificar apenas o admin e passa a validar **cliente, revenda e administração** como uma unidade de release.
+
+Para cada portal, a prova confere:
+
+- `portal-build.json` com role e origins corretas;
+- `runtime-config.js` com role isolada, três origins e Turnstile não-demo;
+- HTML realmente pertencente à role esperada;
+- SHA fonte válido.
+
+O gate só fica verde quando os três portais estão prontos e compartilham o mesmo SHA. No CI normal, indisponibilidade externa continua sendo reportada como warning. No workflow manual **TAMÃO launch readiness**, qualquer portal ausente, divergente ou desatualizado falha fechado.
 ## V1.67 — handoff Cloudflare sem drift
 
 O workflow `.github/workflows/build-live-portals.yml` passa a usar exclusivamente as três origins Cloudflare Pages:
