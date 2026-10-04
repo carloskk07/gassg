@@ -520,43 +520,72 @@ function adminSupportCaseCard(x){
   </article>`;
 }
 
-function adminLaunchBlockerLabel(code){
+function adminProductionRequirementLabel(code){
   return ({
-    admin_required:'Reivindicar e manter pelo menos um administrador ativo.',
-    real_supply_required:'Criar e validar ao menos uma revenda real com catálogo elegível.',
-    merchant_owner_required:'A revenda ativa precisa ter owner permanente e operacional.',
-    merchant_payment_required:'A revenda precisa confirmar ao menos uma forma de pagamento.',
-    offerable_supply_required:'Pelo menos uma revenda precisa estar realmente ofertável agora: online, heartbeat fresco, área ativa, taxa e preço frescos, estoque disponível, owner e pagamento ativos.',
-    live_portals_verification_required:'Publicar e verificar os três portais live com Turnstile real.'
-  })[String(code||'')]||String(code||'Bloqueio desconhecido');
+    admin_required:'Administrador ativo',
+    real_supply_required:'Primeira oferta real',
+    merchant_owner_required:'Responsável da revenda',
+    merchant_payment_required:'Forma de pagamento',
+    offerable_supply_required:'Capacidade de atender agora',
+    live_portals_verification_required:'Portais live e Turnstile'
+  })[String(code||'')]||String(code||'Pendência');
+}
+function adminSecurityBlockerLabel(code){
+  return ({
+    browser_sensitive_table_acl:'Acesso direto do navegador a tabelas sensíveis detectado.',
+    sensitive_table_rls_disabled:'RLS desativado em tabela sensível.',
+    admin_rpc_browser_exposure:'RPC administrativa privilegiada exposta ao navegador.'
+  })[String(code||'')]||String(code||'Bloqueio técnico');
 }
 function adminLaunchControl(readiness={}){
-  const blockers=Array.isArray(readiness.blockers)?readiness.blockers:[];
-  const enabled=readiness.commerceEnabled===true;
-  const ready=readiness.readyToEnable===true;
+  const security=Array.isArray(readiness.securityBlockers)?readiness.securityBlockers:[];
+  const warningDetails=Array.isArray(readiness.warningDetails)?readiness.warningDetails:[];
+  const mode=String(readiness.operationMode|| (readiness.commerceEnabled?'LIVE':'PRELAUNCH')).toUpperCase();
+  const readinessState=String(readiness.readinessState|| (security.length?'BLOCKED_SECURITY':warningDetails.length?'READY_WITH_WARNINGS':'READY'));
+  const canActivate=readiness.canActivateOperation===true;
   const verifiedAt=readiness.portalsVerifiedAt
     ? new Date(readiness.portalsVerifiedAt).toLocaleString('pt-BR')
     : 'ainda não verificados';
   const sourceSha=String(readiness.portalsSourceSha||'');
-  return `<section class="section"><div class="section-head"><div><span class="section-kicker">GO-LIVE • AUTORIDADE SERVER-SIDE</span><h2>Lançamento do comércio real</h2><p>Pedidos reais permanecem bloqueados até existir não apenas cadastro, mas pelo menos uma revenda realmente capaz de receber uma oferta agora.</p></div><span class="status-pill ${enabled?'online':'offline'}">${enabled?'COMÉRCIO ABERTO':'COMÉRCIO FECHADO'}</span></div>
+  const stateClass=readinessState==='READY'?'online':readinessState==='BLOCKED_SECURITY'?'offline':'risk';
+  const modeClass=['PILOT','LIVE'].includes(mode)?'online':mode==='PAUSED'?'offline':'risk';
+  const warnings=warningDetails.map(item=>{
+    const confirmed=item.confirmed===true;
+    const expiry=item.expiresAt?new Date(item.expiresAt).toLocaleString('pt-BR'):null;
+    return `<article class="order-card">
+      <div class="order-head"><div><div class="order-id">${esc(adminProductionRequirementLabel(item.key))}</div><div class="tiny muted">${esc(item.condition||'Pendência operacional')}</div></div><span class="status-pill ${confirmed?'online':'risk'}">${confirmed?'CONFIRMADO PELO ADMIN':esc(item.status||'PENDENTE')}</span></div>
+      <div class="order-line"><strong>Risco:</strong> ${esc(item.risk||'Pendência operacional.')}</div>
+      <div class="order-line"><strong>Recomendação:</strong> ${esc(item.recommendation||'Revisar antes de operar.')}</div>
+      ${item.reason?`<div class="notice success" style="margin-top:10px"><strong>Decisão registrada:</strong> ${esc(item.reason)}${expiry?' • válida até '+esc(expiry):''}</div>`:''}
+      ${!confirmed?`<div class="order-actions"><button class="secondary small" onclick="adminConfirmLaunchRequirement('${String(item.key).replace(/'/g,'')}')">Revisar e confirmar</button></div>`:''}
+    </article>`;
+  }).join('');
+  const securityHtml=security.length
+    ? `<div class="notice danger"><strong>Bloqueios críticos — não podem ser ignorados</strong><br>${security.map(x=>'• '+esc(adminSecurityBlockerLabel(x))).join('<br>')}</div>`
+    : '<div class="notice success"><strong>Segurança estrutural sem bloqueios detectados.</strong><br>RLS, ACLs privilegiadas e autoridade administrativa permanecem fail-closed.</div>';
+
+  return `<section class="section"><div class="section-head"><div><span class="section-kicker">CENTRAL DE PRODUÇÃO</span><h2>Operação real sob controle do administrador</h2><p>Segurança técnica continua obrigatória. Pendências comerciais e operacionais são exibidas com risco, recomendação e decisão auditada.</p></div><div class="order-actions"><span class="status-pill ${stateClass}">${esc(readinessState)}</span><span class="status-pill ${modeClass}">${esc(mode)}</span></div></div>
     <div class="merchant-kpis">
       <div class="kpi"><span class="label">Admins ativos</span><strong>${Number(readiness.activeAdminCount||0)}</strong></div>
       <div class="kpi"><span class="label">Revendas configuradas</span><strong>${Number(readiness.configuredMerchantCount||0)}</strong></div>
       <div class="kpi"><span class="label">Owner pronto</span><strong>${Number(readiness.ownerReadyMerchantCount||0)}</strong></div>
       <div class="kpi"><span class="label">Pagamento pronto</span><strong>${Number(readiness.paymentReadyMerchantCount||0)}</strong></div>
       <div class="kpi"><span class="label">Ofertável agora</span><strong>${Number(readiness.offerReadyMerchantCount||0)}</strong><small>${readiness.availableNow?'há oferta real possível':'nenhuma oferta real possível'}</small></div>
-      <div class="kpi"><span class="label">Portais</span><strong>${readiness.portalsFresh?'OK':'PENDENTE'}</strong><small>${esc(verifiedAt)}</small></div>
+      <div class="kpi"><span class="label">Portais</span><strong>${readiness.portalsFresh?'OK':'ATENÇÃO'}</strong><small>${esc(verifiedAt)}</small></div>
     </div>
     <div class="card flat form-stack" style="margin-top:12px">
-      ${blockers.length?`<div class="notice"><strong>Bloqueios atuais</strong><br>${blockers.map(x=>'• '+esc(adminLaunchBlockerLabel(x))).join('<br>')}</div>`:'<div class="notice success"><strong>Todos os gates técnicos passaram.</strong><br>O comércio ainda só abre mediante ação administrativa explícita.</div>'}
+      ${securityHtml}
+      ${warningDetails.length?`<div><strong>Alertas operacionais</strong><div class="tiny muted" style="margin-top:4px">Resolva a condição ou registre conscientemente a decisão administrativa antes de ativar PILOT/LIVE.</div></div>${warnings}`:'<div class="notice success"><strong>Checklist operacional recomendado concluído.</strong></div>'}
       ${sourceSha?`<small class="field-help">Bundle live atestado: <code>${esc(sourceSha.slice(0,12))}…</code></small>`:''}
       <div class="order-actions">
         <button class="secondary" onclick="adminVerifyLaunchPortals()">Verificar portais live</button>
-        ${enabled
-          ?'<button class="danger-btn" onclick="adminSetCommerceEnabled(false)">Fechar comércio agora</button>'
-          :`<button class="primary" ${ready?'':'disabled'} onclick="adminSetCommerceEnabled(true)">Abrir comércio real</button>`}
+        ${['PILOT','LIVE'].includes(mode)
+          ?'<button class="danger-btn" onclick="adminSetOperationMode(\'PAUSED\')">Pausar novos pedidos</button>'
+          :`<button class="primary" ${canActivate?'':'disabled'} onclick="adminSetOperationMode('PILOT')">ATIVAR OPERAÇÃO PILOTO</button>`}
+        ${mode==='PILOT'?`<button class="secondary" ${canActivate?'':'disabled'} onclick="adminSetOperationMode('LIVE')">Promover para LIVE</button>`:''}
+        ${mode==='PAUSED'?'<button class="ghost" onclick="adminSetOperationMode(\'PRELAUNCH\')">Voltar a PRELAUNCH</button>':''}
       </div>
-      <small class="field-help">A verificação dos portais expira em 60 minutos antes da abertura. Depois de aberto, o kill switch pode ser fechado imediatamente pelo admin.</small>
+      <small class="field-help">${security.length?'A ativação está bloqueada por segurança.':canActivate?'A autoridade server-side permite ativação explícita.':'Há alertas ainda não confirmados.'} O kill switch preserva pedidos existentes e bloqueia apenas novos pedidos.</small>
     </div>
   </section>`;
 }
@@ -669,16 +698,52 @@ async function adminVerifyLaunchPortals(){
     if(result?.ok)toast('Os três portais live foram verificados');
   }catch(e){toast(String(e?.message||e))}
 }
-async function adminSetCommerceEnabled(enabled){
-  if(enabled){
-    if(!confirm('Abrir pedidos reais agora? Esta ação permite criação de pedidos no banco e deve ser feita somente após o piloto estar operacional.'))return;
-  }else{
-    if(!confirm('Fechar o comércio real agora? Novas ofertas e novos pedidos serão bloqueados imediatamente.'))return;
+async function adminConfirmLaunchRequirement(requirementKey){
+  const reason=prompt('Explique por que esta pendência pode ser assumida agora pelo administrador:')||'';
+  if(reason.trim().length<3)return toast('Informe o motivo da decisão');
+  const hoursText=prompt('Validade da confirmação em horas. Deixe vazio para não expirar:','24');
+  if(hoursText===null)return;
+  let expiresAt=null;
+  if(String(hoursText).trim()){
+    const hours=Number(hoursText);
+    if(!Number.isFinite(hours)||hours<=0||hours>8760)return toast('Informe uma validade entre 1 e 8760 horas');
+    expiresAt=new Date(Date.now()+hours*60*60*1000).toISOString();
   }
+  const evidence=prompt('Evidência ou referência opcional:','')||'';
+  if(!confirm('Estou ciente do risco e desejo registrar esta decisão administrativa.'))return;
   try{
-    await adminPerform(enabled?'enable-commerce':'disable-commerce',{});
-    toast(enabled?'Comércio real aberto':'Comércio real fechado');
+    await adminPerform('confirm-launch-requirement',{
+      requirementKey,
+      status:'confirmed',
+      reason,
+      evidence,
+      expiresAt,
+      source:'admin-panel'
+    });
+    toast('Decisão registrada na auditoria');
   }catch(e){toast(String(e?.message||e))}
+}
+async function adminSetOperationMode(mode){
+  const target=String(mode||'').toUpperCase();
+  const labels={PRELAUNCH:'voltar ao pré-lançamento',PILOT:'ativar a operação piloto',LIVE:'ativar a operação normal',PAUSED:'pausar novos pedidos'};
+  if(!labels[target])return toast('Modo operacional inválido');
+  const reason=prompt('Motivo para '+labels[target]+':')||'';
+  if(reason.trim().length<3)return toast('Informe o motivo da mudança');
+  const confirmText=target==='PAUSED'
+    ?'Pausar novos pedidos agora? Pedidos existentes e o painel continuarão acessíveis.'
+    :target==='LIVE'
+      ?'Ativar LIVE agora? Esta ação libera a operação normal conforme o checklist confirmado.'
+      :target==='PILOT'
+        ?'Ativar PILOT agora? Pedidos reais serão permitidos em operação controlada.'
+        :'Voltar a PRELAUNCH? Novos pedidos reais ficarão bloqueados.';
+  if(!confirm(confirmText))return;
+  try{
+    await adminPerform('set-operation-mode',{mode:target,reason});
+    toast('Modo operacional atualizado para '+target);
+  }catch(e){toast(String(e?.message||e))}
+}
+async function adminSetCommerceEnabled(enabled){
+  return adminSetOperationMode(enabled?'PILOT':'PAUSED');
 }
 
 async function adminSetSupportStatus(caseId,status){
@@ -812,5 +877,7 @@ globalThis.openAdminPortal=openAdminPortal;
 
 
 globalThis.adminVerifyLaunchPortals=adminVerifyLaunchPortals;
+globalThis.adminConfirmLaunchRequirement=adminConfirmLaunchRequirement;
+globalThis.adminSetOperationMode=adminSetOperationMode;
 globalThis.adminSetCommerceEnabled=adminSetCommerceEnabled;
 globalThis.adminSetSupportStatus=adminSetSupportStatus;

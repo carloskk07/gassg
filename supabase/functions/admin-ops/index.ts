@@ -389,6 +389,40 @@ Deno.serve(async(req:Request)=>{
         targetUserId:uuid(body.targetUserId,"targetUser"),
         active:body.active===true
       };
+    }else if(action==="confirm-launch-requirement"){
+      const requirementKey=String(body.requirementKey??"").trim();
+      const status=String(body.status??"confirmed").trim();
+      if(!/^[a-z0-9][a-z0-9_:-]{1,119}$/.test(requirementKey)){
+        throw new DomainError("INVALID_LAUNCH_REQUIREMENT_KEY","Requisito de produção inválido.",400);
+      }
+      if(!["confirmed","revoked"].includes(status)){
+        throw new DomainError("INVALID_LAUNCH_CONFIRMATION_STATUS","Status de confirmação inválido.",400);
+      }
+      const reason=cleanText(body.reason,{min:3,max:1000,name:"motivo da confirmação"});
+      const evidence=body.evidence==null?"":cleanText(body.evidence,{min:0,max:2000,name:"evidência"});
+      const source=body.source==null?"admin-panel":cleanText(body.source,{min:2,max:80,name:"origem"});
+      let expiresAt:null|string=null;
+      if(body.expiresAt!=null&&String(body.expiresAt).trim()!==""){
+        const parsed=new Date(String(body.expiresAt));
+        if(!Number.isFinite(parsed.getTime())||parsed.getTime()<=Date.now()){
+          throw new DomainError("LAUNCH_CONFIRMATION_EXPIRY_INVALID","A validade da confirmação precisa estar no futuro.",400);
+        }
+        expiresAt=parsed.toISOString();
+      }
+      payload={requirementKey,status,reason,evidence,expiresAt,source};
+    }else if(action==="set-operation-mode"){
+      const mode=String(body.mode??"").trim().toUpperCase();
+      if(!["PRELAUNCH","PILOT","LIVE","PAUSED"].includes(mode)){
+        throw new DomainError("INVALID_OPERATION_MODE","Modo operacional inválido.",400);
+      }
+      payload={
+        mode,
+        reason:cleanText(body.reason,{min:3,max:1000,name:"motivo da mudança de modo"}),
+        sourceSha:body.sourceSha==null?null:String(body.sourceSha).trim().toLowerCase()||null
+      };
+      if(payload.sourceSha&&!/^[0-9a-f]{40}$/.test(String(payload.sourceSha))){
+        throw new DomainError("INVALID_OPERATION_SOURCE_SHA","Versão de origem inválida.",400);
+      }
     }else if(action==="verify-launch-portals"){
       const verification=await verifyLivePortals();
       if(!verification.ok){
@@ -542,6 +576,32 @@ Deno.serve(async(req:Request)=>{
         p_request_hash:requestHash
       };
     }
+    else if(action==="confirm-launch-requirement"){
+      rpcName="admin_confirm_launch_requirement";
+      rpcArgs={
+        p_actor_user_id:user.id,
+        p_requirement_key:payload.requirementKey,
+        p_status:payload.status,
+        p_reason:payload.reason,
+        p_evidence:payload.evidence?{note:payload.evidence}:{},
+        p_expires_at:payload.expiresAt,
+        p_metadata:{},
+        p_source:payload.source,
+        p_idempotency_key:idempotencyKey,
+        p_request_hash:requestHash
+      };
+    }
+    else if(action==="set-operation-mode"){
+      rpcName="admin_operation_mode_action";
+      rpcArgs={
+        p_actor_user_id:user.id,
+        p_mode:payload.mode,
+        p_reason:payload.reason,
+        p_source_sha:payload.sourceSha,
+        p_idempotency_key:idempotencyKey,
+        p_request_hash:requestHash
+      };
+    }
     else if(action==="set-platform-admin"){
       rpcName="admin_platform_admin_action";
       rpcArgs={
@@ -589,7 +649,25 @@ Deno.serve(async(req:Request)=>{
       return json({error:"LAST_ADMIN_CANNOT_BE_REMOVED",message:"O último administrador ativo não pode ser removido."},409,origin);
     }
     if(message.includes("LAUNCH_NOT_READY")){
-      return json({error:"LAUNCH_NOT_READY",message:"O comércio ainda possui bloqueios de lançamento. Atualize a prontidão antes de abrir pedidos."},409,origin);
+      return json({error:"LAUNCH_NOT_READY",message:"A operação ainda possui pendências não resolvidas. Revise a Central de Produção."},409,origin);
+    }
+    if(message.includes("LAUNCH_BLOCKED_SECURITY")){
+      return json({error:"LAUNCH_BLOCKED_SECURITY",message:"Existe um bloqueio técnico de segurança ou integridade que não pode ser ignorado."},409,origin);
+    }
+    if(message.includes("LAUNCH_WARNINGS_UNCONFIRMED")){
+      return json({error:"LAUNCH_WARNINGS_UNCONFIRMED",message:"Existem alertas operacionais ainda não confirmados pelo administrador."},409,origin);
+    }
+    if(message.includes("LAUNCH_REQUIREMENT_NOT_ACTIVE")){
+      return json({error:"LAUNCH_REQUIREMENT_NOT_ACTIVE",message:"Esta pendência já não está ativa. Atualize a Central de Produção."},409,origin);
+    }
+    if(message.includes("LAUNCH_CONFIRMATION_REASON_REQUIRED")){
+      return json({error:"LAUNCH_CONFIRMATION_REASON_REQUIRED",message:"Informe o motivo da decisão administrativa."},400,origin);
+    }
+    if(message.includes("OPERATION_MODE_REASON_REQUIRED")){
+      return json({error:"OPERATION_MODE_REASON_REQUIRED",message:"Informe o motivo da mudança do modo operacional."},400,origin);
+    }
+    if(message.includes("INVALID_OPERATION_MODE")){
+      return json({error:"INVALID_OPERATION_MODE",message:"Modo operacional inválido."},400,origin);
     }
     if(message.includes("PORTAL_ATTESTATION_INVALID")){
       return json({error:"PORTAL_ATTESTATION_INVALID",message:"A verificação dos portais live não é válida."},409,origin);
