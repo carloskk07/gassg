@@ -45,6 +45,8 @@ const publicBuild=read('scripts/build-public-site.mjs');
 const functionConfig=read('supabase/config.toml');
 const livePortalWorkflow=read('.github/workflows/build-live-portals.yml');
 const launchReadinessWorkflow=read('.github/workflows/launch-readiness.yml');
+const netlifyConfig=read('netlify.toml');
+const netlifyBuilder=read('scripts/build-netlify-portal.mjs');
 
 assert.ok(!customer.includes('desktop-only" style="display:block"'),'desktop-only não pode ser forçado a display:block no mobile');
 assert.ok(customer.includes('esc(o.address)'),'endereço do pedido deve ser escapado antes de entrar no HTML');
@@ -381,6 +383,10 @@ assert.ok(admin.includes("CHAMA_PORTAL_ROLE")&&admin.includes("==='admin'"),'bun
 assert.ok(read('scripts/generate-runtime-config.mjs').includes('CHAMA_PORTAL_ROLE')&&read('scripts/generate-runtime-config.mjs').includes('requirePortalRole'),'gerador live precisa exigir papel explícito');
 assert.ok(read('scripts/build-live-portals.mjs').includes('buildLivePortals')&&read('scripts/build-live-portals.mjs').includes('forbidden live portal path'),'build live precisa separar artefatos e bloquear diretórios internos');
 assert.ok(read('scripts/build-live-portals.mjs').includes('Cloudflare Turnstile test/demo key is forbidden'),'build live precisa bloquear chave de teste do Turnstile');
+assert.ok(netlifyConfig.includes('command = "node scripts/build-netlify-portal.mjs"')&&netlifyConfig.includes('publish = "dist/netlify"'),'Netlify precisa usar build zero-config versionado');
+assert.ok(netlifyBuilder.includes('SITE_ROLE_BY_NAME')&&netlifyBuilder.includes("'chama-sg-admin':'admin'")&&netlifyBuilder.includes('COMMIT_REF')&&netlifyBuilder.includes('portal-build.json'),'builder Netlify precisa inferir role pelo projeto, preservar SHA e validar metadata');
+assert.ok(netlifyBuilder.includes('buildLivePortals')&&netlifyBuilder.includes("fs.cpSync(source,publish"),'Netlify deve publicar somente o bundle isolado da role configurada');
+assert.ok(netlifyBuilder.includes("'https://chama-sg-cliente.netlify.app'")&&netlifyBuilder.includes("'https://chama-sg-revenda.netlify.app'")&&netlifyBuilder.includes("'https://chama-sg-admin.netlify.app'"),'origens Netlify atuais precisam ter defaults versionados para reduzir configuração manual');
 assert.ok(read('.github/workflows/build-live-portals.yml').includes('turnstile_site_key:')&&read('.github/workflows/build-live-portals.yml').includes('CHAMA_TURNSTILE_SITE_KEY: ${{ inputs.turnstile_site_key }}'),'site key pública do Turnstile deve entrar explicitamente no release manual');
 assert.ok(!read('.github/workflows/build-live-portals.yml').includes('secrets.CHAMA_TURNSTILE_SITE_KEY'),'site key pública não deve exigir GitHub Secret');
 assert.ok(read('.github/workflows/build-live-portals.yml').includes('Create immutable handoff checksums')&&read('.github/workflows/build-live-portals.yml').includes('SHA256SUMS.txt'),'artefatos live precisam levar checksums de handoff');

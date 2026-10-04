@@ -23,6 +23,27 @@
 
 O GitHub Pages continua sendo laboratório técnico. O domínio oficial será publicado via Cloudflare Pages.
 
+## Netlify — conexão simplificada
+
+Os projetos existentes `chama-sg-cliente`, `chama-sg-revenda` e `chama-sg-admin` podem usar o mesmo repositório `carloskk07/gassg`.
+
+Na tela **Link your project to a Git repository**:
+
+- Branch to deploy: `main`;
+- Base directory: deixar vazio;
+- Build command: deixar vazio;
+- Publish directory: deixar vazio;
+- Functions directory: deixar vazio.
+
+O Netlify lê `netlify.toml` da raiz. O builder identifica a role a partir do próprio nome do projeto e publica somente `dist/netlify`.
+
+Antes do primeiro deploy live, ainda é obrigatório definir no projeto a variável pública:
+
+`CHAMA_TURNSTILE_SITE_KEY=<site key real>`
+
+A chave de teste/demo não é aceita em bundle live. A site key é pública; a secret key do Turnstile nunca entra no Netlify frontend nem no repositório.
+
+
 ## Cloudflare Pages — configuração preparada
 
 Quando a alteração de nameservers estiver liberada:

@@ -84,6 +84,25 @@ jobs:
         run: node tests/runtime-config.mjs
       - name: Live portal bundle contract
         run: node tests/live-portals.mjs
+      - name: Netlify zero-config bundle contract
+        env:
+          CHAMA_CUSTOMER_ORIGIN: https://chama-sg-cliente.netlify.app
+          CHAMA_MERCHANT_ORIGIN: https://chama-sg-revenda.netlify.app
+          CHAMA_ADMIN_ORIGIN: https://chama-sg-admin.netlify.app
+          CHAMA_TURNSTILE_SITE_KEY: 1x00000000000000000000AA
+          CHAMA_ALLOW_TEST_TURNSTILE: '1'
+          SITE_NAME: chama-sg-admin
+          CHAMA_SOURCE_SHA: ci-netlify-zero-config
+        run: |
+          node scripts/build-netlify-portal.mjs
+          test -f dist/netlify/index.html
+          test -f dist/netlify/portal-build.json
+          grep -q '"portalRole": "admin"' dist/netlify/portal-build.json
+          grep -q '"sourceSha": "ci-netlify-zero-config"' dist/netlify/portal-build.json
+          grep -q 'data-chama-portal="admin"' dist/netlify/index.html
+          test ! -e dist/netlify/supabase
+          test ! -e dist/netlify/tests
+          test ! -e dist/netlify/scripts
       - name: Backend security contract
         run: node tests/backend-contract.mjs
       - name: Runtime migration contract
