@@ -219,6 +219,40 @@ Deno.serve(async(req:Request)=>{
       .order("product_code");
     if(catalogError)throw catalogError;
 
+    const {data:registryProducts,error:registryProductsError}=await admin
+      .from("product_delivery_profiles")
+      .select("product_code,product_name,category_key,sort_order")
+      .eq("active",true)
+      .eq("merchant_add_allowed",true)
+      .eq("delivery_class","household_general")
+      .order("sort_order",{ascending:true})
+      .order("product_name",{ascending:true});
+    if(registryProductsError)throw registryProductsError;
+    const registryCategoryKeys=[...new Set((registryProducts??[]).map((x)=>String(x.category_key)).filter(Boolean))];
+    const {data:registryCategories,error:registryCategoriesError}=registryCategoryKeys.length
+      ? await admin
+          .from("product_categories")
+          .select("category_key,category_name,sort_order")
+          .in("category_key",registryCategoryKeys)
+          .eq("active",true)
+      : {data:[],error:null};
+    if(registryCategoriesError)throw registryCategoriesError;
+    const registryCategoryByKey=new Map(
+      (registryCategories??[]).map((x)=>[String(x.category_key),x])
+    );
+    const availableProducts=(registryProducts??[])
+      .filter((x)=>registryCategoryByKey.has(String(x.category_key)))
+      .map((x)=>{
+        const category:any=registryCategoryByKey.get(String(x.category_key));
+        return {
+          productCode:String(x.product_code),
+          productName:String(x.product_name),
+          categoryKey:String(x.category_key),
+          categoryName:String(category?.category_name??x.category_key),
+          sortOrder:Number(x.sort_order??100)
+        };
+      });
+
     const [
       {data:compliance,error:complianceError},
       {data:compliancePolicy,error:compliancePolicyError},
@@ -353,6 +387,7 @@ Deno.serve(async(req:Request)=>{
           name:merchantNames.get(m.merchant_id)??"Revenda"
         })),
       deliveryTeam,
+      availableProducts,
       catalog:(catalog??[]).map((item)=>({
         productCode:item.product_code,
         productName:item.product_name,
