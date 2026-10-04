@@ -71,6 +71,13 @@ Principais garantias:
 
 ## V1.69 — convite seguro para parceiro piloto
 
+
+### V1.69.3 — fallback de claim sem depender do deploy da Edge
+
+Se a versão publicada de `submit-merchant-application` ainda não reconhecer `pilotInviteToken`, o frontend conclui o vínculo por `claim_my_pilot_partner_invite`.
+
+Esse wrapper é a única exceção autenticada da jornada piloto: usa `auth.uid()` como identidade, não recebe user ID do navegador, não abre acesso a tabelas e reutiliza a autoridade interna server-only `claim_pilot_partner_invite`. `anon` continua sem EXECUTE.
+
 O parceiro piloto pode fornecer os próprios dados jurídicos pelo portal da revenda sem perder as condições comerciais já registradas no staging.
 
 O vínculo usa convite com token de uso único:
