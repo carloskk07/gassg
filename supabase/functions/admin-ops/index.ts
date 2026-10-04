@@ -527,8 +527,8 @@ Deno.serve(async(req:Request)=>{
     }else if(action==="assisted-merchant-onboarding"){
       const draftId=body.draftId==null||String(body.draftId).trim()===""?null:uuid(body.draftId,"draft");
       const productCode=String(body.productCode??"").trim().toUpperCase();
-      if(!(["WATER20","CHARCOAL4","WOOD","ICE5"].includes(productCode)||/^P([1-9]|[1-8][0-9]|90)$/.test(productCode))){
-        throw new DomainError("INVALID_PRODUCT_CODE","Produto inicial inválido.",400);
+      if(!/^[A-Z][A-Z0-9_]{1,31}$/.test(productCode)){
+        throw new DomainError("INVALID_PRODUCT_CODE","Código do produto inicial inválido.",400);
       }
       const pricingMode=String(body.pricingMode??"").trim().toLowerCase();
       const pricingStrategy=String(body.pricingStrategy??"balanced").trim().toLowerCase();
