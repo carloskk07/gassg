@@ -67,6 +67,23 @@ Principais garantias:
 
 
 
+
+
+## V1.69 — convite seguro para parceiro piloto
+
+O parceiro piloto pode fornecer os próprios dados jurídicos pelo portal da revenda sem perder as condições comerciais já registradas no staging.
+
+O vínculo usa convite com token de uso único:
+
+- somente o SHA-256 do token fica no banco;
+- a tabela de convites e a função de claim são server-only;
+- o convite exige conta permanente com e-mail confirmado;
+- expira, pode ser revogado e não pode ser usado por outra conta;
+- o token é preservado no magic link e removido da URL depois do claim.
+
+Quando a aplicação vinculada é aprovada, o owner é criado pelo fluxo normal e os termos do rascunho são pré-carregados no catálogo. O SKU nasce **inativo e com estoque 0**; preço/faixa podem ser preservados, mas a revenda ainda precisa concluir compliance, meios de pagamento, logística, estoque e disponibilidade antes de aparecer em ofertas.
+
+`pilot_partner_drafts.proposed_product_code` também passa a referenciar o registro canônico `product_delivery_profiles`, eliminando a última allowlist de produto do staging piloto.
 ## V1.68 — prova remota dos três portais
 
 A sonda remota deixa de verificar apenas o admin e passa a validar **cliente, revenda e administração** como uma unidade de release.
