@@ -1085,6 +1085,10 @@ async function merchantSendLogin(email){
   if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value))throw new Error('Informe um e-mail válido');
   const redirect=new URL(location.origin+location.pathname);
   redirect.searchParams.set('merchant','1');
+  const pilotInviteToken=String(new URLSearchParams(location.search).get('pilot')||'').trim();
+  if(/^[A-Za-z0-9_-]{20,240}$/.test(pilotInviteToken)){
+    redirect.searchParams.set('pilot',pilotInviteToken);
+  }
   redirect.hash='merchant';
   if(!globalThis.chamaTurnstile?.challenge)throw new Error('Proteção anti-bot indisponível');
   const captchaToken=await globalThis.chamaTurnstile.challenge('merchant_login');

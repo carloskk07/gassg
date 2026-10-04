@@ -99,6 +99,23 @@ Todas as superfícies transacionais usam FK para `product_delivery_profiles`, ev
 
 
 
+
+
+## V1.69 — onboarding do parceiro piloto por convite
+
+Para um parceiro que já possui condições comerciais registradas em `pilot_partner_drafts`, use o convite piloto em vez de redigitar os dados jurídicos no admin.
+
+Fluxo:
+
+1. o parceiro abre o link do convite no portal da revenda;
+2. entra com uma conta permanente e confirmada;
+3. informa CNPJ, empresa, responsável, WhatsApp e endereço;
+4. o backend liga a aplicação ao rascunho por token hash/uso único;
+5. o admin aprova a aplicação normalmente;
+6. o owner é criado e os termos comerciais do staging entram no catálogo como `active=false`, estoque 0;
+7. compliance, pagamentos, logística, estoque e online continuam gates independentes.
+
+A aprovação nunca transforma o rascunho em oferta comprável por si só.
 ## V1.68 — prova remota tripla
 
 O workflow **TAMÃO launch readiness** agora exige `TAMAO_REQUIRE_LIVE_PORTALS=1`.
