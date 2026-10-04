@@ -53,17 +53,70 @@ function glpContainerCodeForGas(value){
   const kg=glpKgForProductCode(value);
   return kg===null?null:'P'+kg+'_CONTAINER';
 }
-function ensureProductDefinition(value){
+function ensureProductDefinition(value,meta=null){
   const code=String(value??'').trim().toUpperCase();
-  if(products[code])return products[code];
-  const kg=glpKgForProductCode(code);
-  if(kg!==null){
-    products[code]={name:'Gás P'+kg,icon:'🔥'};
+  const serverName=String(meta?.productName||'').trim();
+  const categoryKey=String(meta?.categoryKey||'').trim().toLowerCase();
+  const categoryName=String(meta?.categoryName||'').trim();
+  const sortOrder=Number(meta?.sortOrder||100);
+  const categoryIcon={
+    glp:'🔥',
+    water:'💧',
+    barbecue:'🔥',
+    ice:'🧊',
+    other:'📦'
+  }[categoryKey]||'📦';
+
+  if(products[code]){
+    if(serverName){
+      products[code]={
+        ...products[code],
+        name:serverName,
+        categoryKey:categoryKey||products[code].categoryKey||'other',
+        categoryName:categoryName||products[code].categoryName||'Outros',
+        sortOrder:Number.isFinite(sortOrder)?sortOrder:(products[code].sortOrder||100),
+        registry:true
+      };
+    }
     return products[code];
   }
+
+  const kg=glpKgForProductCode(code);
+  if(kg!==null){
+    products[code]={
+      name:serverName||('Gás P'+kg),
+      icon:'🔥',
+      categoryKey:'glp',
+      categoryName:categoryName||'Gás e vasilhames',
+      sortOrder:Number.isFinite(sortOrder)?sortOrder:kg,
+      registry:Boolean(serverName)
+    };
+    return products[code];
+  }
+
   const containerKg=glpContainerKgForProductCode(code);
-  if(containerKg===null)return null;
-  products[code]={name:'Vasilhame P'+containerKg,icon:'🛢️',hidden:true};
+  if(containerKg!==null){
+    products[code]={
+      name:serverName||('Vasilhame P'+containerKg),
+      icon:'🛢️',
+      hidden:true,
+      categoryKey:'glp',
+      categoryName:categoryName||'Gás e vasilhames',
+      sortOrder:Number.isFinite(sortOrder)?sortOrder:1000+containerKg,
+      registry:Boolean(serverName)
+    };
+    return products[code];
+  }
+
+  if(!serverName||!/^[A-Z][A-Z0-9_]{1,31}$/.test(code))return null;
+  products[code]={
+    name:serverName,
+    icon:categoryIcon,
+    categoryKey:categoryKey||'other',
+    categoryName:categoryName||'Outros',
+    sortOrder:Number.isFinite(sortOrder)?sortOrder:100,
+    registry:true
+  };
   return products[code];
 }
 function synchronizeGlpContainerCart(cart,mode){
