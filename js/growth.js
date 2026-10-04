@@ -1,5 +1,22 @@
-const REFERRAL_PILOT_RATE=0.02;
-const MERCHANT_PILOT_FEE_RATE=0.075;
+const DEFAULT_REFERRAL_PILOT_RATE=0.02;
+const DEFAULT_MERCHANT_PILOT_FEE_RATE=0.075;
+
+function currentCommercialRate(field,fallback){
+  const policy=globalThis.liveRuntime?.marketStatus?.commercialPolicy;
+  const raw=policy&&typeof policy==='object'?Number(policy[field]):NaN;
+  if(Number.isFinite(raw)&&raw>=0&&raw<=5000)return raw/10000;
+  return fallback;
+}
+function referralPilotRate(){
+  return currentCommercialRate('directReferralBps',DEFAULT_REFERRAL_PILOT_RATE);
+}
+function merchantPilotFeeRate(){
+  return currentCommercialRate('platformFeeBps',DEFAULT_MERCHANT_PILOT_FEE_RATE);
+}
+function policyPercent(rate){
+  const pct=Math.round(Math.max(0,Number(rate)||0)*10000)/100;
+  return pct.toLocaleString('pt-BR',{maximumFractionDigits:2})+'%';
+}
 
 function club(){
   const purchases=Math.max(0,Number(state.user.purchases)||0);
@@ -101,13 +118,13 @@ async function copyReferralCode(){
 function referralExample(orderReais,count=1){
   const amount=Math.max(0,Number(orderReais)||0);
   const qty=Math.max(1,Math.trunc(Number(count)||1));
-  return roundMoney(amount*REFERRAL_PILOT_RATE*qty);
+  return roundMoney(amount*referralPilotRate()*qty);
 }
 function merchantEconomicsExample(orderReais,count=1){
   const amount=Math.max(0,Number(orderReais)||0);
   const qty=Math.max(1,Math.trunc(Number(count)||1));
   const gross=roundMoney(amount*qty);
-  const fee=roundMoney(gross*MERCHANT_PILOT_FEE_RATE);
+  const fee=roundMoney(gross*merchantPilotFeeRate());
   return {gross,fee,merchantNet:roundMoney(gross-fee)};
 }
 function merchantMarginExample({salePrice,orders=1,productCost=0,deliveryCost=0,paymentCost=0,taxRate=0}={}){
@@ -118,7 +135,7 @@ function merchantMarginExample({salePrice,orders=1,productCost=0,deliveryCost=0,
   const unitPaymentCost=Math.max(0,Number(paymentCost)||0);
   const taxPct=Math.min(100,Math.max(0,Number(taxRate)||0));
   const gross=roundMoney(price*qty);
-  const chamaFee=roundMoney(gross*MERCHANT_PILOT_FEE_RATE);
+  const chamaFee=roundMoney(gross*merchantPilotFeeRate());
   const productCosts=roundMoney(unitProductCost*qty);
   const deliveryCosts=roundMoney(unitDeliveryCost*qty);
   const paymentCosts=roundMoney(unitPaymentCost*qty);
@@ -136,7 +153,7 @@ function updateReferralSimulator(){
   const out=document.querySelector('#ref-sim-total');
   if(out)out.textContent=BRL.format(total);
   const detail=document.querySelector('#ref-sim-detail');
-  if(detail)detail.textContent=clients+' novo'+(clients===1?' cliente':'s clientes')+' × '+BRL.format(ticket)+' × 2%';
+  if(detail)detail.textContent=clients+' novo'+(clients===1?' cliente':'s clientes')+' × '+BRL.format(ticket)+' × '+policyPercent(referralPilotRate());
 }
 function updateMerchantSimulator(){
   const orders=Math.min(10000,Math.max(1,Math.trunc(Number(document.querySelector('#merchant-sim-orders')?.value)||1)));
@@ -187,6 +204,7 @@ function refer(){
 
   if(hasReferral)setTimeout(renderReferralQr,0);
 
+  const referralRateLabel=policyPercent(referralPilotRate());
   return shell(`<section class="page">
     <button class="back" onclick="go('earn')">← Ganhar ou vender</button>
     <span class="eyebrow">COMISSÃO POR INDICAÇÃO</span>
@@ -201,13 +219,13 @@ function refer(){
     ${referralCard}
     ${identityCard}
 
-    <section class="section"><div class="section-head"><div><span class="section-kicker">SIMULADOR DA POLÍTICA ATUAL</span><h2>Veja o que 2% representa em vendas qualificadas.</h2><p>Use quantidades e valores hipotéticos para entender a matemática. O resultado não é previsão nem promessa de renda.</p></div></div>
+    <section class="section"><div class="section-head"><div><span class="section-kicker">SIMULADOR DA POLÍTICA ATUAL</span><h2>Veja o que ${referralRateLabel} representa em vendas qualificadas.</h2><p>Use quantidades e valores hipotéticos para entender a matemática. O resultado não é previsão nem promessa de renda.</p></div></div>
       <div class="calculator-card">
         <div class="calculator-inputs">
           <div class="input-wrap"><label for="ref-sim-clients">Novos clientes com 1ª compra qualificada</label><input id="ref-sim-clients" class="input" type="number" inputmode="numeric" min="1" max="500" value="10" oninput="updateReferralSimulator()"></div>
           <div class="input-wrap"><label for="ref-sim-ticket">Valor médio da primeira compra (R$)</label><input id="ref-sim-ticket" class="input" type="number" inputmode="decimal" min="1" step="0.01" value="120" oninput="updateReferralSimulator()"></div>
         </div>
-        <div class="calculator-result"><small>Comissão ilustrativa pela política atual</small><strong id="ref-sim-total">${BRL.format(referralExample(120,10))}</strong><span id="ref-sim-detail">10 novos clientes × ${BRL.format(120)} × 2%</span></div>
+        <div class="calculator-result"><small>Comissão ilustrativa pela política atual</small><strong id="ref-sim-total">${BRL.format(referralExample(120,10))}</strong><span id="ref-sim-detail">10 novos clientes × ${BRL.format(120)} × ${referralRateLabel}</span></div>
       </div>
       <div class="notice" style="margin-top:12px"><strong>Comissão não é saque imediato.</strong><br>O valor só pode nascer da primeira compra qualificada de cada novo cliente indicado e ainda depende de entrega, pagamento, validação de risco, janela de segurança e das identidades permanentes exigidas pelo programa. Compras repetidas do mesmo cliente não geram novas comissões.</div>
     </section>
@@ -225,6 +243,8 @@ function refer(){
 
 function earn(){
   const merchantSample=merchantEconomicsExample(120);
+  const referralRateLabel=policyPercent(referralPilotRate());
+  const merchantFeeLabel=policyPercent(merchantPilotFeeRate());
   return shell(`<section class="page">
     <span class="eyebrow">BENEFÍCIOS E OPORTUNIDADES</span>
     <h1 class="page-title">Comissão por indicação para pessoas. Mais vendas para empresas.</h1>
@@ -232,13 +252,13 @@ function earn(){
 
     <div class="opportunity-grid main-opportunities">
       <article class="opportunity-card person-opportunity"><div class="opportunity-icon">🤝</div><span class="section-kicker">PARA PESSOAS</span><h2>Indique quem realmente pode comprar</h2><p>Compartilhe seu link pessoal. A primeira compra qualificada de cada novo cliente indicado pode gerar comissão depois de entregue, paga e validada.</p>
-        <ul class="clean-list"><li>Política atual do piloto: 2% da primeira compra qualificada</li><li>Uma comissão de aquisição por novo cliente elegível</li><li>Saldo “a liberar” separado do saldo disponível</li><li>Nenhum pagamento por simples recrutamento</li></ul>
-        <div class="opportunity-example"><small>Exemplo matemático</small><strong>R$ 120 × 2% = ${BRL.format(referralExample(120))}</strong><span>Não é promessa de renda; a venda precisa cumprir todos os gates.</span></div>
+        <ul class="clean-list"><li>Política comercial atual: ${referralRateLabel} da primeira compra qualificada</li><li>Uma comissão de aquisição por novo cliente elegível</li><li>Saldo “a liberar” separado do saldo disponível</li><li>Nenhum pagamento por simples recrutamento</li></ul>
+        <div class="opportunity-example"><small>Exemplo matemático</small><strong>R$ 120 × ${referralRateLabel} = ${BRL.format(referralExample(120))}</strong><span>Não é promessa de renda; a venda precisa cumprir todos os gates.</span></div>
         <button class="primary full" onclick="go('refer')">Simular minha indicação</button>
       </article>
       <article class="opportunity-card business-opportunity"><div class="opportunity-icon">🏪</div><span class="section-kicker">PARA EMPRESAS</span><h2>Transforme pedidos adicionais em faturamento incremental</h2><p>Use o TAMÃO como um canal adicional para gás, água e outros itens, sem abandonar telefone, WhatsApp, balcão ou sua base atual de clientes.</p>
         <ul class="clean-list"><li>Você define preços, estoque e taxa de entrega</li><li>Escolhe quando ficar online</li><li>Decide se aceita cada pedido</li><li>Pode aumentar o ticket com vários produtos na mesma entrega</li></ul>
-        <div class="opportunity-example"><small>Política inicial do piloto</small><strong>Taxa TAMÃO: 7,5% por pedido concluído</strong><span>Ex.: R$ 120 bruto → ${BRL.format(merchantSample.fee)} de taxa → ${BRL.format(merchantSample.merchantNet)} antes dos custos próprios e impostos.</span></div>
+        <div class="opportunity-example"><small>Política comercial atual</small><strong>Taxa TAMÃO: ${merchantFeeLabel} por pedido concluído</strong><span>Ex.: R$ 120 bruto → ${BRL.format(merchantSample.fee)} de taxa → ${BRL.format(merchantSample.merchantNet)} antes dos custos próprios e impostos.</span></div>
         <button class="primary full" onclick="go('merchants')">Ver parceria e simulador</button>
       </article>
     </div>
@@ -327,6 +347,7 @@ function merchantsLanding(){
   const cta=internalPilot?"setMode('merchant')":"openPrelaunchMerchantLead()";
   const ctaLabel=internalPilot?'Experimentar painel da revenda':'Quero ser parceiro fundador';
   const jrPrice=115.90;
+  const merchantFeeLabel=policyPercent(merchantPilotFeeRate());
   const initial=merchantMarginExample({salePrice:jrPrice,orders:50});
 
   return shell(`<section class="page merchant-landing">
@@ -335,7 +356,7 @@ function merchantsLanding(){
     <p class="muted page-lead">O TAMÃO foi desenhado como um canal adicional: você continua vendendo por telefone, WhatsApp, balcão e seus próprios canais. <strong>Você continua no controle</strong> e decide quando e o que quer atender.</p>
 
     <div class="merchant-commercial-strip merchant-value-strip">
-      <div><small>POLÍTICA INICIAL DO PILOTO</small><strong>7,5%</strong><span>sobre o valor bruto de cada pedido concluído</span></div>
+      <div><small>POLÍTICA COMERCIAL ATUAL</small><strong>${merchantFeeLabel}</strong><span>sobre o valor bruto de cada pedido concluído</span></div>
       <p><strong>Sem mensalidade apresentada no modelo atual.</strong> A taxa só nasce quando o pedido é concluído. Seus custos, tributos, pagamento e entrega continuam sendo parte da sua própria operação.</p>
     </div>
 
@@ -369,7 +390,7 @@ function merchantsLanding(){
         </div>
         <div class="economics-results merchant-margin-results">
           <div><small>Vendas brutas</small><strong id="merchant-sim-gross">${BRL.format(initial.gross)}</strong></div>
-          <div><small>Taxa TAMÃO (7,5%)</small><strong id="merchant-sim-fee">${BRL.format(initial.chamaFee)}</strong></div>
+          <div><small>Taxa TAMÃO (${merchantFeeLabel})</small><strong id="merchant-sim-fee">${BRL.format(initial.chamaFee)}</strong></div>
           <div><small>Custos próprios informados</small><strong id="merchant-sim-costs">Informe o custo do produto</strong></div>
           <div class="highlight"><small>Contribuição estimada após os custos informados</small><strong id="merchant-sim-contribution">—</strong></div>
           <div><small>Contribuição estimada por pedido</small><strong id="merchant-sim-unit">—</strong></div>
@@ -438,7 +459,7 @@ function merchantsLanding(){
       <details open><summary>Sou obrigado a aceitar todo pedido?</summary><p>Não. Você decide pedido por pedido e pode ficar offline. Recusar antes do aceite é melhor do que assumir uma entrega que já sabe que não conseguirá cumprir.</p></details>
       <details><summary>Se eu não for o mais barato, fico sem pedidos?</summary><p>Não necessariamente. O TAMÃO considera preço total, prazo e confiança. Entre parceiros próximos em qualidade, carga atual e volume recente ajudam a evitar concentração.</p></details>
       <details><summary>Posso continuar vendendo pelo WhatsApp e telefone?</summary><p>Sim. A proposta atual não exige exclusividade. O TAMÃO é um canal adicional.</p></details>
-      <details><summary>Quando existe a taxa de 7,5%?</summary><p>Na política inicial do piloto, a taxa da plataforma incide sobre o valor bruto de cada pedido concluído.</p></details>
+      <details><summary>Quando existe a taxa de ${merchantFeeLabel}?</summary><p>Na política comercial atual, a taxa da plataforma incide sobre o valor bruto de cada pedido concluído. O percentual exibido é sincronizado com a política vigente para novos pedidos.</p></details>
       <details><summary>Quem define preço, estoque e entrega?</summary><p>A própria revenda controla preço por produto, estoque, taxa de entrega, prazo operacional e disponibilidade.</p></details>
       <details><summary>Quando o dinheiro é repassado?</summary><p>O fluxo real de cobrança, conciliação e repasse ainda está em validação. O TAMÃO não publica prazo antes de comprovar o processo ponta a ponta.</p></details>
       <details><summary>O que acontece se eu aceitar e depois não conseguir entregar?</summary><p>O sistema pode iniciar uma tentativa de rescue antes da saída. Falhas depois do aceite afetam a experiência e devem ser evitadas mantendo preço, estoque e disponibilidade atualizados.</p></details>
