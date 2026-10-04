@@ -510,6 +510,7 @@ const glpCategoryReservation=read('supabase/migrations/20261004162600_glp_catego
 const dynamicProductTransactions=read('supabase/migrations/20261004163100_dynamic_product_transaction_fks_v1_66_4.sql');
 const assistedOnboardingProductRegistry=read('supabase/migrations/20261004163700_assisted_onboarding_product_registry_v1_66_5.sql');
 const productNameCatalogSync=read('supabase/migrations/20261004164200_product_name_catalog_sync_v1_66_6.sql');
+const productRegistryFkIndexes=read('supabase/migrations/20261004164800_product_registry_fk_indexes_v1_66_8.sql');
 const merchantOrdersRegistrySource=read('supabase/functions/merchant-orders/index.ts');
 assert.ok(dynamicProductRegistry.includes('create table if not exists public.product_categories')&&dynamicProductRegistry.includes('alter table public.product_delivery_profiles'),'V1.66 precisa transformar perfis logísticos no registro canônico de categorias/produtos');
 assert.ok(dynamicProductRegistry.includes("from generate_series(1,90)")&&dynamicProductRegistry.includes("'P'||g::text||'_CONTAINER'"),'registro precisa pré-cadastrar P1–P90 e vasilhames canônicos');
@@ -526,6 +527,9 @@ assert.ok(assistedOnboardingProductRegistry.includes('v_product_profile.product_
 assert.ok(assistedOnboardingProductRegistry.includes('public.is_glp_product_code(p_product_code)'),'gate ANP do onboarding deve depender da semântica canônica de GLP, não de prefixo solto');
 assert.ok(!adminOpsSource.includes('["WATER20","CHARCOAL4","WOOD","ICE5"].includes(productCode)'),'admin-ops não pode manter allowlist residual no onboarding');
 assert.ok(productNameCatalogSync.includes('product_name=p_product_name')&&productNameCatalogSync.includes('catalogItemsRenamed'),'renomear produto precisa sincronizar catálogos atuais sem tocar snapshots históricos');
+for(const table of ['catalog_items','quote_items','order_items','order_requote_items']){
+  assert.ok(productRegistryFkIndexes.includes('create index if not exists '+table+'_product_code_idx')&&productRegistryFkIndexes.includes('on public.'+table+'(product_code)'),table+' precisa indexar a FK product_code para joins e integridade eficientes');
+}
 assert.ok(merchantOrdersRegistrySource.includes('availableProducts')&&merchantOrdersRegistrySource.includes('.eq("delivery_class","household_general")'),'portal da revenda deve receber produtos gerais liberados sem carregar toda a família GLP no seletor');
 assert.ok(marketStatusSource.includes('productDefinitions')&&marketStatusSource.includes('customer_visible'),'cliente deve receber apenas definições sanitizadas e visíveis de produtos configurados');
 assert.ok(backend.includes('productDefinitions:Array.isArray')&&backend.includes('definitionByCode'),'runtime cliente precisa transportar metadados por código');
