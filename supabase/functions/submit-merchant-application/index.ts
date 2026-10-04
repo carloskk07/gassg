@@ -52,6 +52,39 @@ async function authenticatedUser(req:Request){
   if(error||!data.user)throw new DomainError("UNAUTHORIZED","Sessão inválida ou expirada.",401);
   return assertPermanentMerchantUser(data.user);
 }
+async function attachPilotInvite(admin:any,userId:string,applicationId:string,value:unknown){
+  const token=String(value??"").trim();
+  if(!token)return null;
+  if(token.length<20||token.length>240||!/^[A-Za-z0-9_-]+$/.test(token)){
+    throw new DomainError("INVALID_PILOT_INVITE","Convite piloto inválido.",400);
+  }
+  const {data,error}=await admin.rpc("claim_pilot_partner_invite",{
+    p_user_id:userId,
+    p_application_id:applicationId,
+    p_token:token
+  });
+  if(!error)return data??null;
+  const message=String(error.message||error.details||error.hint||"");
+  if(message.includes("PILOT_INVITE_EXPIRED")){
+    throw new DomainError("PILOT_INVITE_EXPIRED","Este convite piloto expirou. Solicite um novo link.",409);
+  }
+  if(message.includes("PILOT_INVITE_REVOKED")){
+    throw new DomainError("PILOT_INVITE_REVOKED","Este convite piloto foi revogado.",409);
+  }
+  if(message.includes("PILOT_INVITE_ALREADY_CLAIMED")){
+    throw new DomainError("PILOT_INVITE_ALREADY_CLAIMED","Este convite piloto já foi usado por outra conta.",409);
+  }
+  if(message.includes("PILOT_PARTNER_ALREADY_CONVERTED")){
+    throw new DomainError("PILOT_PARTNER_ALREADY_CONVERTED","Este parceiro piloto já foi convertido em revenda.",409);
+  }
+  if(message.includes("APPLICATION_PILOT_LINK_CONFLICT")){
+    throw new DomainError("APPLICATION_PILOT_LINK_CONFLICT","Este cadastro já está ligado a outro convite piloto.",409);
+  }
+  if(message.includes("INVALID_PILOT_INVITE")){
+    throw new DomainError("INVALID_PILOT_INVITE","Convite piloto inválido.",400);
+  }
+  throw error;
+}
 
 Deno.serve(async(req:Request)=>{
   const origin=req.headers.get("Origin");
@@ -133,6 +166,7 @@ Deno.serve(async(req:Request)=>{
         throw new DomainError("APPLICATION_STATE_CHANGED","O estado do cadastro mudou. Atualize a página e tente novamente.",409);
       }
 
+      const pilotPartner=await attachPilotInvite(admin,user.id,data.id,body.pilotInviteToken);
       return json({
         applicationId:data.id,
         cnpj:data.cnpj,
@@ -141,7 +175,8 @@ Deno.serve(async(req:Request)=>{
         createdAt:data.created_at,
         updatedAt:data.updated_at,
         reused:true,
-        resubmitted:existing.status==="rejected"
+        resubmitted:existing.status==="rejected",
+        pilotPartner
       },200,origin);
     }
 
@@ -171,6 +206,7 @@ Deno.serve(async(req:Request)=>{
           .eq("cnpj",cnpj)
           .maybeSingle();
         if(retryExisting?.status==="pending"){
+          const pilotPartner=await attachPilotInvite(admin,user.id,retryExisting.id,body.pilotInviteToken);
           return json({
             applicationId:retryExisting.id,
             cnpj:retryExisting.cnpj,
@@ -178,7 +214,8 @@ Deno.serve(async(req:Request)=>{
             status:retryExisting.status,
             createdAt:retryExisting.created_at,
             reused:true,
-            resubmitted:false
+            resubmitted:false,
+            pilotPartner
           },200,origin);
         }
         return json({error:"APPLICATION_EXISTS",message:"Este CNPJ já possui cadastro pendente ou aprovado."},409,origin);
@@ -186,6 +223,7 @@ Deno.serve(async(req:Request)=>{
       throw error;
     }
 
+    const pilotPartner=await attachPilotInvite(admin,user.id,data.id,body.pilotInviteToken);
     return json({
       applicationId:data.id,
       cnpj:data.cnpj,
@@ -193,7 +231,8 @@ Deno.serve(async(req:Request)=>{
       status:data.status,
       createdAt:data.created_at,
       reused:false,
-      resubmitted:false
+      resubmitted:false,
+      pilotPartner
     },201,origin);
   }catch(error){
     if(error instanceof DomainError)return json({error:error.code,message:error.message},error.status,origin);
