@@ -220,6 +220,21 @@ function home(){
             : 'Conectando ao serviço.';
 
   const disabled=!testDemo&&!ready&&!preview;
+  const liveProductCodes=new Set(Array.isArray(market?.productCodes)?market.productCodes:[]);
+  const homeProductEntries=Object.entries(products)
+    .filter(([code,p])=>!p.hidden&&(
+      testDemo
+      ||preview
+      ||!ready
+      ||!market
+      ||liveProductCodes.has(code)
+    ))
+    .sort(([,a],[,b])=>
+      Number(a.sortOrder||100)-Number(b.sortOrder||100)
+      ||String(a.name||'').localeCompare(String(b.name||''),'pt-BR')
+    );
+  const feeBps=Number(market?.commercialPolicy?.platformFeeBps??750);
+  const merchantFeeLabel=(Math.max(0,feeBps)/100).toLocaleString('pt-BR',{maximumFractionDigits:2})+'%';
   const acquisitionOpen=!testDemo&&(preview||!ready||market?.realSupplyConfigured===false);
   const eyebrow=testDemo
     ? internalPilot?'● PILOTO INTERNO — SEM PEDIDOS REAIS':'● TESTE AUTOMATIZADO'
@@ -295,7 +310,7 @@ ${intentSection}
 </div></section>
 
 <section class="section"><div class="section-head"><div><span class="section-kicker">MAIS QUE GÁS</span><h2>Complete o que está faltando em casa.</h2><p>Você também pode pedir itens disponíveis sem colocar gás na cesta.</p></div></div>
-<div class="quick-grid">${Object.entries(products).map(([k,p])=>`<button class="quick-card" onclick="quickProduct('${k}')" ${disabled?'disabled':''}><div class="quick-icon">${p.icon}</div><div class="quick-title">${esc(customerProductName(k,p))}</div><div class="quick-sub">${preview?'Ver experiência':'Consultar agora'}</div></button>`).join('')}</div></section>
+<div class="quick-grid">${homeProductEntries.length?homeProductEntries.map(([k,p])=>`<button class="quick-card" onclick="quickProduct('${k}')" ${disabled?'disabled':''}><div class="quick-icon">${p.icon}</div><div class="quick-title">${esc(customerProductName(k,p))}</div><div class="quick-sub">${preview?'Ver experiência':'Consultar agora'}</div></button>`).join(''):'<div class="empty card">Nenhum produto está configurado para consulta agora.</div>'}</div></section>
 
 ${internalPilot?`<section class="section"><div class="card flat"><span class="section-kicker">PARCEIRO DO PILOTO INTERNO</span><h2 style="margin-top:6px">Gas e Lenheira do JR</h2><p class="muted">P13 com faixa comercial confirmada: <strong>R$ 115,90 mínimo, R$ 120,00 normal e R$ 125,00 máximo</strong>, com entrega incluída. O preço automático permanece dentro desses limites; estoque, distância, ETA e trust desta tela continuam simulados.</p><button class="secondary" onclick="setMode('merchant')">Abrir painel simulado da revenda</button></div></section>`:preview?`<section class="section"><div class="card flat"><span class="section-kicker">PRIMEIRO PARCEIRO PILOTO</span><h2 style="margin-top:6px">Gas e Lenheira do JR está em preparação para entrar no TAMÃO.</h2><p class="muted">O interesse comercial já foi registrado. A operação só será liberada para pedidos depois do cadastro real, validações aplicáveis e configuração operacional da revenda.</p></div></section>`:''}
 
@@ -310,7 +325,7 @@ ${preview?prelaunchExampleSection({P13:1}):''}
 
 <section class="section"><div class="opportunity-band"><div><span class="section-kicker light">DEPOIS DA COMPRA</span><h2>Economize comprando. Receba comissão indicando. Venda com sua empresa.</h2><p>Cashback, comissão por indicação e receita da revenda são coisas diferentes — o TAMÃO mostra cada uma separadamente.</p></div><div class="opportunity-actions"><button class="primary light-primary" onclick="go('club')">Ver benefícios de compra</button><button class="secondary dark-secondary" onclick="go('earn')">Indicação ou parceria</button></div></div></section>
 
-<section class="section"><div class="section-head"><div><span class="section-kicker">PARA EMPRESAS LOCAIS</span><h2>Já vende gás, água, carvão, lenha, gelo ou outros itens?</h2><p>Use o TAMÃO como um canal adicional de vendas sem abrir mão do controle da sua operação.</p></div></div><div class="merchant-home-card"><div><span class="merchant-home-rate">7,5%</span><small>taxa inicial do piloto por pedido concluído</small></div><div><strong>Você define preço, estoque e disponibilidade.</strong><p>Também decide se aceita cada pedido e pode ficar offline quando não quiser receber novas vendas.</p></div><button class="primary" onclick="go('merchants')">Ver parceria e custos</button></div></section>`)
+<section class="section"><div class="section-head"><div><span class="section-kicker">PARA EMPRESAS LOCAIS</span><h2>Já vende gás, água, carvão, lenha, gelo ou outros itens?</h2><p>Use o TAMÃO como um canal adicional de vendas sem abrir mão do controle da sua operação.</p></div></div><div class="merchant-home-card"><div><span class="merchant-home-rate">${merchantFeeLabel}</span><small>taxa comercial atual por pedido concluído</small></div><div><strong>Você define preço, estoque e disponibilidade.</strong><p>Também decide se aceita cada pedido e pode ficar offline quando não quiser receber novas vendas.</p></div><button class="primary" onclick="go('merchants')">Ver parceria e custos</button></div></section>`)
 }
 function orderPage(){
   const testDemo=globalThis.__CHAMA_TEST__===true;
