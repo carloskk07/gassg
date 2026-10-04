@@ -46,6 +46,23 @@ Regras importantes:
 - a landing e os simuladores públicos consomem a política sanitizada via `market-status`, evitando texto comercial desatualizado;
 - 7,5% de taxa, 1% de cashback e 2% de indicação permanecem como baseline atual, não como hardcode público.
 
+
+## V1.66 — registro dinâmico de categorias e produtos
+
+O catálogo deixa de depender de allowlists de JavaScript. `product_delivery_profiles` passa a ser o registro canônico de SKUs, com categorias server-only e autoridade administrativa auditada.
+
+Principais garantias:
+
+- produtos gerais podem ser cadastrados pelo admin sem novo deploy;
+- P1–P90 e `P1_CONTAINER`–`P90_CONTAINER` são pré-registrados e protegidos como família GLP canônica;
+- `catalog_items`, `quote_items`, `order_items` e `order_requote_items` referenciam o mesmo registro por FK;
+- parser do frontend/Edge valida apenas o formato seguro do código; existência e permissão vêm do banco;
+- pausar produto ou categoria pausa SKUs ativos das revendas, mas reativar não liga estoque/oferta automaticamente;
+- revendas recebem produtos gerais liberados e continuam com fluxos específicos para GLP/vasilhames;
+- o cliente recebe somente metadados sanitizados de produtos configurados e visíveis;
+- onboarding assistido usa o mesmo registro e ignora nome de produto fornecido pela UI;
+- renomear um produto sincroniza catálogos atuais, sem reescrever snapshots históricos de pedidos/cotações.
+
 ## Estado atual — v1.61 cloudflare portals
 
 O Netlify deixa de ser requisito para os portais isolados. A rota principal passa a ser **Cloudflare Pages**, mantendo o Netlify apenas como fallback de migração.
