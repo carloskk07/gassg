@@ -97,6 +97,21 @@ Todas as superfícies transacionais usam FK para `product_delivery_profiles`, ev
 
 
 
+
+
+## V1.68 — prova remota tripla
+
+O workflow **TAMÃO launch readiness** agora exige `TAMAO_REQUIRE_LIVE_PORTALS=1`.
+
+A sonda verifica os três endpoints Pages, não apenas o admin. O lançamento é bloqueado se:
+
+- algum portal não responder;
+- a role do bundle estiver errada;
+- as origins divergirem;
+- o runtime carregar uma chave Turnstile de teste/demo;
+- os três portais não estiverem no mesmo SHA fonte.
+
+Assim, criar somente o projeto admin continua suficiente para reivindicar o primeiro administrador, mas **não** é suficiente para abrir o comércio real. PILOT/LIVE exige cliente + revenda + admin consistentes.
 ## V1.67 — bundles live para Cloudflare Pages
 
 O pipeline de artefatos agora acompanha a arquitetura atual:
