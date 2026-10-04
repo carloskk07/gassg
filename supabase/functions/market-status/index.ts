@@ -72,9 +72,13 @@ Deno.serve(async(req:Request)=>{
     if(launchError)throw launchError;
 
     const commerceEnabled=launchStatus?.commerceEnabled===true;
+    const operationMode=String(
+      launchStatus?.operationMode??(commerceEnabled?"LIVE":"PRELAUNCH")
+    ).toUpperCase();
     return json({
       commerceEnabled,
-      launchMode:commerceEnabled?"live":"prelaunch",
+      operationMode,
+      launchMode:operationMode.toLowerCase(),
       supplyConfigured:data?.realSupplyConfigured===true,
       realSupplyConfigured:commerceEnabled&&data?.realSupplyConfigured===true,
       configuredMerchantCount:Number(data?.configuredMerchantCount??0),
