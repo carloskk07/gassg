@@ -1,17 +1,9 @@
-export const PRODUCT_CODES=Object.freeze(['P13','WATER20','CHARCOAL4','WOOD','ICE5']);
-
 export function isSupportedProductCode(value){
+  // Esta função valida apenas a FORMA do código recebido do cliente.
+  // A existência/autorização do produto é sempre confirmada no registro
+  // server-side product_delivery_profiles antes de qualquer oferta ou escrita.
   const code=String(value??'').trim().toUpperCase();
-  if(PRODUCT_CODES.includes(code))return true;
-  const gas=/^P([1-9][0-9]?)$/.exec(code);
-  if(gas){
-    const kg=Number(gas[1]);
-    return Number.isInteger(kg)&&kg>=1&&kg<=90;
-  }
-  const container=/^P([1-9][0-9]?)_CONTAINER$/.exec(code);
-  if(!container)return false;
-  const kg=Number(container[1]);
-  return Number.isInteger(kg)&&kg>=1&&kg<=90;
+  return /^[A-Z][A-Z0-9_]{1,31}$/.test(code);
 }
 export const ORDER_STATUSES=Object.freeze([
   'OFFERED_TO_MERCHANT','MERCHANT_ACCEPTED','PREPARING','AT_RISK','REASSIGNING',
@@ -147,7 +139,7 @@ export function normalizeItems(items){
   invariant(items.length>=1&&items.length<=20,'INVALID_ITEMS','Quantidade de linhas inválida');
   const aggregated=new Map();
   for(const raw of items){
-    const code=String(raw?.productCode??'').toUpperCase();
+    const code=String(raw?.productCode??'').trim().toUpperCase();
     invariant(isSupportedProductCode(code),'INVALID_PRODUCT','Produto inválido');
     const qty=asPositiveInt(raw?.quantity,'quantity');
     const next=(aggregated.get(code)||0)+qty;
