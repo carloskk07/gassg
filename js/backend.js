@@ -736,7 +736,17 @@ async function liveSyncMarketStatus({force=false}={}){
     configuredMerchantCount:Math.max(0,Number(data?.configuredMerchantCount||0)),
     availableNow:data?.availableNow===true,
     availableMerchantCount:Math.max(0,Number(data?.availableMerchantCount||0)),
-    productCodes:Array.isArray(data?.productCodes)?data.productCodes.map(code=>String(code).trim().toUpperCase()):[]
+    productCodes:Array.isArray(data?.productCodes)?data.productCodes.map(code=>String(code).trim().toUpperCase()):[],
+    commercialPolicy:data?.commercialPolicy&&typeof data.commercialPolicy==='object'
+      ?{
+        active:data.commercialPolicy.active===true,
+        platformFeeBps:Math.max(0,Number(data.commercialPolicy.platformFeeBps||0)),
+        cashbackBps:Math.max(0,Number(data.commercialPolicy.cashbackBps||0)),
+        directReferralBps:Math.max(0,Number(data.commercialPolicy.directReferralBps||0)),
+        commissionHoldHours:Math.max(0,Number(data.commercialPolicy.commissionHoldHours||0)),
+        version:Math.max(1,Number(data.commercialPolicy.version||1))
+      }
+      :null
   };
   for(const code of liveRuntime.marketStatus.productCodes){
     if(globalThis.ensureProductDefinition?.(code)&&!(code in state.cart))state.cart[code]=0;

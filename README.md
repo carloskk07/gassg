@@ -32,6 +32,20 @@ O admin passa a enxergar pedidos reais em uma Torre de Controle com estados oper
 
 O rescue reaproveita as regras transacionais existentes para revalidar estoque, capacidade, compliance, pagamento e preço. Se a alternativa for mais cara, o cliente continua sendo a autoridade para aceitar a nova condição. Depois da saída para entrega, cancelamento/reatribuição automática pelo admin é bloqueado.
 
+
+## V1.65 — política comercial administrável
+
+Taxa TAMÃO, reserva de custo, contribuição mínima, cashback, indicação e carência de comissão passam a ter autoridade administrativa versionada e auditada.
+
+Regras importantes:
+
+- mudanças afetam apenas pedidos futuros; cada pedido preserva snapshots financeiros;
+- o backend rejeita políticas em que taxa, custos, contribuição mínima e recompensas não fecham economicamente;
+- a política não pode ser desativada durante `PILOT` ou `LIVE`; primeiro é necessário pausar a operação;
+- histórico fica em `financial_policy_history`, server-only;
+- a landing e os simuladores públicos consomem a política sanitizada via `market-status`, evitando texto comercial desatualizado;
+- 7,5% de taxa, 1% de cashback e 2% de indicação permanecem como baseline atual, não como hardcode público.
+
 ## Estado atual — v1.61 cloudflare portals
 
 O Netlify deixa de ser requisito para os portais isolados. A rota principal passa a ser **Cloudflare Pages**, mantendo o Netlify apenas como fallback de migração.

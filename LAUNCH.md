@@ -55,6 +55,25 @@ Ações administrativas disponíveis:
 
 Depois de `OUT_FOR_DELIVERY`, a Torre não permite rollback operacional automático. Exceções devem ser tratadas por atendimento e, se necessário após settlement, pela reversão financeira auditada.
 
+
+## Política comercial — V1.65
+
+A Central Administrativa possui a seção **Economia e incentivos**.
+
+O administrador pode revisar:
+- taxa TAMÃO;
+- reserva variável de custo;
+- contribuição mínima da plataforma;
+- cashback;
+- comissão por indicação direta;
+- carência da comissão.
+
+Antes de salvar, o painel mostra uma prévia por R$ 100. O servidor rejeita configurações que não financiem custos, contribuição mínima e recompensas.
+
+Toda mudança exige motivo, incrementa `policy_version`, entra em histórico e vale somente para pedidos criados depois da mudança. Pedidos existentes nunca são recalculados retroativamente.
+
+A comunicação pública recebe os percentuais vigentes pelo `market-status`, para que landing, FAQ e simuladores não continuem exibindo uma taxa antiga.
+
 ## Estado atual
 
 - Marca pública: **TAMÃO**

@@ -64,12 +64,18 @@ Deno.serve(async(req:Request)=>{
     const admin=createClient(SUPABASE_URL,SECRET_KEY,{auth:{persistSession:false,autoRefreshToken:false}});
     await enforceApiQuota(admin,{userId:user.id,actionName:"market-status",limit:30,windowSeconds:60});
 
-    const [{data,error},{data:launchStatus,error:launchError}]=await Promise.all([
+    const [{data,error},{data:launchStatus,error:launchError},commercialPolicy]=await Promise.all([
       admin.rpc("market_supply_status"),
-      admin.rpc("commerce_launch_status")
+      admin.rpc("commerce_launch_status"),
+      admin
+        .from("reward_policy")
+        .select("active,platform_fee_bps,cashback_bps,direct_referral_bps,commission_hold_hours,policy_version")
+        .eq("policy_key","default")
+        .single()
     ]);
     if(error)throw error;
     if(launchError)throw launchError;
+    if(commercialPolicy.error)throw commercialPolicy.error;
 
     const commerceEnabled=launchStatus?.commerceEnabled===true;
     const operationMode=String(
@@ -84,7 +90,15 @@ Deno.serve(async(req:Request)=>{
       configuredMerchantCount:Number(data?.configuredMerchantCount??0),
       availableNow:commerceEnabled&&data?.availableNow===true,
       availableMerchantCount:commerceEnabled?Number(data?.availableMerchantCount??0):0,
-      productCodes:Array.isArray(data?.productCodes)?data.productCodes:[]
+      productCodes:Array.isArray(data?.productCodes)?data.productCodes:[],
+      commercialPolicy:{
+        active:commercialPolicy.data?.active===true,
+        platformFeeBps:Number(commercialPolicy.data?.platform_fee_bps??0),
+        cashbackBps:Number(commercialPolicy.data?.cashback_bps??0),
+        directReferralBps:Number(commercialPolicy.data?.direct_referral_bps??0),
+        commissionHoldHours:Number(commercialPolicy.data?.commission_hold_hours??0),
+        version:Number(commercialPolicy.data?.policy_version??1)
+      }
     },200,origin);
   }catch(error){
     if(error instanceof DomainError)return json({error:error.code,message:error.message},error.status,origin);
