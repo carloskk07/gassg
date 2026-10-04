@@ -234,6 +234,11 @@ async function summary(admin:any,actorUserId:string){
     .order("created_at",{ascending:true})
     .limit(50);
   if(pilotPartners.error)throw pilotPartners.error;
+  const merchantBusinessDetails=await admin
+    .from("merchant_business_details")
+    .select("merchant_id,legal_name,trade_name,responsible_name,phone,whatsapp,postal_code,city,state,address_text,admin_notes,updated_at")
+    .limit(100);
+  if(merchantBusinessDetails.error)throw merchantBusinessDetails.error;
 
   const [supportCases,businessMetrics,launchReadiness,acquisitionMetrics]=await Promise.all([
     admin.from("support_cases")
@@ -260,6 +265,7 @@ async function summary(admin:any,actorUserId:string){
   const referralStateByOrder=new Map((referralOrderStates.data??[]).map((x:any)=>[x.id,x]));
 
   const byMerchant=new Map((compliance.data??[]).map((x:any)=>[x.merchant_id,x]));
+  const businessByMerchant=new Map((merchantBusinessDetails.data??[]).map((x:any)=>[x.merchant_id,x]));
   const capabilitiesByMerchant=new Map<string,any[]>();
   for(const cap of capabilities.data??[]){
     if(!capabilitiesByMerchant.has(cap.merchant_id))capabilitiesByMerchant.set(cap.merchant_id,[]);
@@ -271,6 +277,7 @@ async function summary(admin:any,actorUserId:string){
     merchants:(merchants.data??[]).map((m:any)=>({
       ...m,
       compliance:byMerchant.get(m.id)??null,
+      businessDetails:businessByMerchant.get(m.id)??null,
       deliveryCapabilities:capabilitiesByMerchant.get(m.id)??[]
     })),
     businessMetrics:businessMetrics.data??{},
@@ -388,6 +395,71 @@ Deno.serve(async(req:Request)=>{
       payload={
         targetUserId:uuid(body.targetUserId,"targetUser"),
         active:body.active===true
+      };
+    }else if(action==="assisted-merchant-onboarding"){
+      const draftId=body.draftId==null||String(body.draftId).trim()===""?null:uuid(body.draftId,"draft");
+      const productCode=String(body.productCode??"").trim().toUpperCase();
+      if(!(["WATER20","CHARCOAL4","WOOD","ICE5"].includes(productCode)||/^P([1-9]|[1-8][0-9]|90)$/.test(productCode))){
+        throw new DomainError("INVALID_PRODUCT_CODE","Produto inicial inválido.",400);
+      }
+      const pricingMode=String(body.pricingMode??"").trim().toLowerCase();
+      const pricingStrategy=String(body.pricingStrategy??"balanced").trim().toLowerCase();
+      if(!["fixed","range"].includes(pricingMode)||!["volume","balanced","margin"].includes(pricingStrategy)){
+        throw new DomainError("INVALID_PRICING_POLICY","Política de preço inválida.",400);
+      }
+      const minPriceCents=Number(body.minPriceCents);
+      const preferredPriceCents=Number(body.preferredPriceCents);
+      const maxPriceCents=Number(body.maxPriceCents);
+      const availableStock=Number(body.availableStock??0);
+      const deliveryFeeCents=Number(body.deliveryFeeCents??0);
+      const baseEtaMinutes=Number(body.baseEtaMinutes??30);
+      for(const [name,value,min,max] of [
+        ["preço mínimo",minPriceCents,1,1000000],
+        ["preço normal",preferredPriceCents,1,1000000],
+        ["preço máximo",maxPriceCents,1,1000000],
+        ["estoque",availableStock,0,1000000],
+        ["taxa de entrega",deliveryFeeCents,0,100000],
+        ["ETA",baseEtaMinutes,5,180]
+      ] as const){
+        if(!Number.isSafeInteger(value)||value<min||value>max){
+          throw new DomainError("INVALID_ASSISTED_ONBOARDING_NUMBER",name+" inválido.",400);
+        }
+      }
+      if(minPriceCents>preferredPriceCents||preferredPriceCents>maxPriceCents||
+         (pricingMode==="fixed"&&(minPriceCents!==preferredPriceCents||preferredPriceCents!==maxPriceCents))){
+        throw new DomainError("INVALID_PRICE_RANGE","Faixa de preço inválida.",400);
+      }
+      const rawPayments=Array.isArray(body.paymentMethods)?body.paymentMethods.map((x:any)=>String(x)):[];
+      const paymentMethods=[...new Set(rawPayments)];
+      if(paymentMethods.length>3||paymentMethods.some(x=>!["pix","card","cash"].includes(x))){
+        throw new DomainError("INVALID_PAYMENT_METHOD","Forma de pagamento inválida.",400);
+      }
+      const ownerUserId=body.ownerUserId==null||String(body.ownerUserId).trim()===""?null:uuid(body.ownerUserId,"owner");
+      const serviceRadiusKm=body.serviceRadiusKm==null||String(body.serviceRadiusKm).trim()===""?null:Number(body.serviceRadiusKm);
+      if(serviceRadiusKm!=null&&(!Number.isFinite(serviceRadiusKm)||serviceRadiusKm<0||serviceRadiusKm>100)){
+        throw new DomainError("INVALID_SERVICE_RADIUS","Raio de atendimento inválido.",400);
+      }
+      payload={
+        draftId,
+        tradeName:cleanText(body.tradeName,{min:2,max:120,name:"nome fantasia"}),
+        legalName:cleanText(body.legalName,{min:2,max:180,name:"razão social"}),
+        cnpj:cleanText(body.cnpj,{min:14,max:24,name:"CNPJ"}),
+        responsibleName:cleanText(body.responsibleName,{min:2,max:120,name:"responsável"}),
+        phone:cleanText(body.phone,{min:10,max:24,name:"telefone"}),
+        whatsapp:cleanText(body.whatsapp,{min:10,max:24,name:"WhatsApp"}),
+        postalCode:cleanText(body.postalCode,{min:8,max:12,name:"CEP"}),
+        city:cleanText(body.city,{min:2,max:120,name:"cidade"}),
+        state:cleanText(body.state??"RS",{min:2,max:2,name:"UF"}).toUpperCase(),
+        addressText:cleanText(body.addressText,{min:5,max:240,name:"endereço"}),
+        ownerUserId,
+        ownerDisplayName:body.ownerDisplayName==null?null:(cleanText(body.ownerDisplayName,{min:0,max:60,name:"nome do owner"})||null),
+        productCode,
+        productName:cleanText(body.productName,{min:2,max:120,name:"produto"}),
+        pricingMode,minPriceCents,preferredPriceCents,maxPriceCents,pricingStrategy,
+        availableStock,paymentMethods,deliveryFeeCents,baseEtaMinutes,
+        acceptsCitywide:body.acceptsCitywide===true,
+        serviceRadiusKm,
+        adminNotes:body.adminNotes==null?null:(cleanText(body.adminNotes,{min:0,max:2000,name:"observações"})||null)
       };
     }else if(action==="confirm-launch-requirement"){
       const requirementKey=String(body.requirementKey??"").trim();
@@ -576,6 +648,41 @@ Deno.serve(async(req:Request)=>{
         p_request_hash:requestHash
       };
     }
+    else if(action==="assisted-merchant-onboarding"){
+      rpcName="admin_assisted_merchant_onboarding";
+      rpcArgs={
+        p_actor_user_id:user.id,
+        p_draft_id:payload.draftId,
+        p_trade_name:payload.tradeName,
+        p_legal_name:payload.legalName,
+        p_cnpj:payload.cnpj,
+        p_responsible_name:payload.responsibleName,
+        p_phone:payload.phone,
+        p_whatsapp:payload.whatsapp,
+        p_postal_code:payload.postalCode,
+        p_city:payload.city,
+        p_state:payload.state,
+        p_address_text:payload.addressText,
+        p_owner_user_id:payload.ownerUserId,
+        p_owner_display_name:payload.ownerDisplayName,
+        p_product_code:payload.productCode,
+        p_product_name:payload.productName,
+        p_pricing_mode:payload.pricingMode,
+        p_min_price_cents:payload.minPriceCents,
+        p_preferred_price_cents:payload.preferredPriceCents,
+        p_max_price_cents:payload.maxPriceCents,
+        p_pricing_strategy:payload.pricingStrategy,
+        p_available_stock:payload.availableStock,
+        p_payment_methods:payload.paymentMethods,
+        p_delivery_fee_cents:payload.deliveryFeeCents,
+        p_base_eta_minutes:payload.baseEtaMinutes,
+        p_accepts_citywide:payload.acceptsCitywide,
+        p_service_radius_km:payload.serviceRadiusKm,
+        p_admin_notes:payload.adminNotes,
+        p_idempotency_key:idempotencyKey,
+        p_request_hash:requestHash
+      };
+    }
     else if(action==="confirm-launch-requirement"){
       rpcName="admin_confirm_launch_requirement";
       rpcArgs={
@@ -650,6 +757,21 @@ Deno.serve(async(req:Request)=>{
     }
     if(message.includes("LAUNCH_NOT_READY")){
       return json({error:"LAUNCH_NOT_READY",message:"A operação ainda possui pendências não resolvidas. Revise a Central de Produção."},409,origin);
+    }
+    if(message.includes("PILOT_PARTNER_NOT_FOUND")){
+      return json({error:"PILOT_PARTNER_NOT_FOUND",message:"Parceiro piloto não encontrado."},404,origin);
+    }
+    if(message.includes("PILOT_PARTNER_CANCELLED")){
+      return json({error:"PILOT_PARTNER_CANCELLED",message:"Este parceiro piloto foi cancelado."},409,origin);
+    }
+    if(message.includes("OWNER_USER_NOT_FOUND")){
+      return json({error:"OWNER_USER_NOT_FOUND",message:"A conta owner informada não existe ou ainda é anônima."},404,origin);
+    }
+    if(message.includes("PILOT_PRODUCT_MISMATCH")){
+      return json({error:"PILOT_PRODUCT_MISMATCH",message:"O produto não corresponde ao rascunho comercial do parceiro."},409,origin);
+    }
+    if(message.includes("INVALID_MERCHANT_IDENTITY")||message.includes("INVALID_MERCHANT_PHONE")||message.includes("INVALID_MERCHANT_ADDRESS")||message.includes("INVALID_PRICE_RANGE")){
+      return json({error:"INVALID_ASSISTED_ONBOARDING",message:"Revise os dados cadastrais, endereço e faixa comercial informados."},400,origin);
     }
     if(message.includes("LAUNCH_BLOCKED_SECURITY")){
       return json({error:"LAUNCH_BLOCKED_SECURITY",message:"Existe um bloqueio técnico de segurança ou integridade que não pode ser ignorado."},409,origin);
