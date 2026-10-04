@@ -103,6 +103,13 @@ Todas as superfícies transacionais usam FK para `product_delivery_profiles`, ev
 
 ## V1.69 — onboarding do parceiro piloto por convite
 
+
+### V1.69.3 — compatibilidade com Edge anterior
+
+O convite piloto não fica bloqueado se `submit-merchant-application` ainda estiver em uma versão anterior no Supabase.
+
+Depois de criar/atualizar a aplicação, o portal usa a sessão autenticada para chamar `claim_my_pilot_partner_invite`. A função deriva o usuário de `auth.uid()`, valida ownership da aplicação pela autoridade interna e não expõe tabelas ao navegador.
+
 Para um parceiro que já possui condições comerciais registradas em `pilot_partner_drafts`, use o convite piloto em vez de redigitar os dados jurídicos no admin.
 
 Fluxo:

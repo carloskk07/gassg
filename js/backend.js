@@ -1491,9 +1491,38 @@ async function merchantUpdatePaymentMethodsLive(methods){
   }
 }
 
+function merchantPilotInviteErrorMessage(error){
+  const raw=String(error?.message||error?.details||error?.hint||error||'');
+  if(raw.includes('PILOT_INVITE_EXPIRED'))return 'Este convite piloto expirou. Solicite um novo link.';
+  if(raw.includes('PILOT_INVITE_REVOKED'))return 'Este convite piloto foi revogado.';
+  if(raw.includes('PILOT_INVITE_ALREADY_CLAIMED'))return 'Este convite piloto já foi usado por outra conta.';
+  if(raw.includes('PILOT_PARTNER_ALREADY_CONVERTED'))return 'Este parceiro piloto já foi convertido em revenda.';
+  if(raw.includes('APPLICATION_PILOT_LINK_CONFLICT'))return 'Este cadastro já está ligado a outro convite piloto.';
+  if(raw.includes('INVALID_PILOT_INVITE'))return 'Convite piloto inválido.';
+  return raw||'Não foi possível vincular o convite piloto';
+}
+
+async function merchantClaimPilotInviteLive(applicationId,pilotInviteToken){
+  if(!merchantRuntime.client)throw new Error('Cliente da revenda indisponível');
+  const application=String(applicationId||'').trim();
+  const token=String(pilotInviteToken||'').trim();
+  if(!application||!/^[A-Za-z0-9_-]{20,240}$/.test(token))return null;
+  const {data,error}=await merchantRuntime.client.rpc('claim_my_pilot_partner_invite',{
+    p_application_id:application,
+    p_token:token
+  });
+  if(error)throw new Error(merchantPilotInviteErrorMessage(error));
+  return data??null;
+}
+
 async function merchantSubmitApplicationLive(payload){
   if(!merchantRuntime.session?.access_token)throw new Error('Entre com seu e-mail antes de enviar o cadastro');
-  return retryAmbiguousOnce(()=>merchantInvoke('submit-merchant-application',payload));
+  const result=await retryAmbiguousOnce(()=>merchantInvoke('submit-merchant-application',payload));
+  const pilotInviteToken=String(payload?.pilotInviteToken||'').trim();
+  if(pilotInviteToken&&!result?.pilotPartner&&result?.applicationId){
+    result.pilotPartner=await merchantClaimPilotInviteLive(result.applicationId,pilotInviteToken);
+  }
+  return result;
 }
 
 async function merchantHeartbeat(){
@@ -1589,6 +1618,7 @@ globalThis.merchantCompleteDeliveryLive=merchantCompleteDeliveryLive;
 globalThis.merchantSetOnlineLive=merchantSetOnlineLive;
 globalThis.merchantUpdateProductLive=merchantUpdateProductLive;
 globalThis.merchantUpdateLogisticsLive=merchantUpdateLogisticsLive;
+globalThis.merchantClaimPilotInviteLive=merchantClaimPilotInviteLive;
 globalThis.merchantSubmitApplicationLive=merchantSubmitApplicationLive;
 globalThis.merchantPoll=merchantPoll;
 globalThis.openMerchantPortal=openMerchantPortal;
