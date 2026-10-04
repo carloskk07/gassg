@@ -156,14 +156,14 @@ assert.ok(backend.includes("available:'Disponível agora'")&&backend.includes("m
 assert.ok(customer.includes("go('learn')")&&customer.includes("go('earn')"),'home precisa possuir CTAs claros para descoberta e renda');
 assert.ok(growth.includes('function learn()'),'jornada Saiba mais precisa existir');
 assert.ok(growth.includes('function earn()'),'hub Ganhe com o TAMÃO precisa existir');
-assert.ok(growth.includes('REFERRAL_PILOT_RATE=0.02'),'exemplo de indicação deve estar ancorado na política atual do piloto');
-assert.ok(growth.includes('MERCHANT_PILOT_FEE_RATE=0.075'),'simulador comercial deve usar a taxa real da política inicial do piloto');
+assert.ok(growth.includes('DEFAULT_REFERRAL_PILOT_RATE=0.02')&&growth.includes("currentCommercialRate('directReferralBps'"),'indicação deve possuir fallback de laboratório, mas preferir a política comercial live');
+assert.ok(growth.includes('DEFAULT_MERCHANT_PILOT_FEE_RATE=0.075')&&growth.includes("currentCommercialRate('platformFeeBps'"),'simulador comercial deve possuir fallback de laboratório, mas preferir a política comercial live');
 assert.ok(growth.includes('merchantMarginExample'),'simulador comercial avançado precisa centralizar cálculo de margem');
 assert.ok(growth.includes('gross-chamaFee-knownCosts'),'margem estimada precisa descontar taxa TAMÃO e custos informados');
-assert.ok(financePolicy.includes('platform_fee_bps=750'),'backend financeiro deve manter 7,5% enquanto a UX publica essa taxa');
-assert.ok(financePolicy.includes('direct_referral_bps=200'),'backend financeiro deve manter 2% enquanto a UX publica essa comissão');
-assert.ok(financePolicy.includes('cashback_bps=100'),'backend financeiro deve manter 1% como política inicial de cashback');
-assert.ok(growth.includes('Taxa TAMÃO: 7,5% por pedido concluído'),'landing de oportunidade deve expor o custo comercial do piloto');
+assert.ok(financePolicy.includes('platform_fee_bps=750'),'migração financeira inicial precisa manter 7,5% como baseline histórico');
+assert.ok(financePolicy.includes('direct_referral_bps=200'),'migração financeira inicial precisa manter 2% como baseline histórico');
+assert.ok(financePolicy.includes('cashback_bps=100'),'migração financeira inicial precisa manter 1% como baseline histórico');
+assert.ok(!growth.includes('Taxa TAMÃO: 7,5% por pedido concluído')&&!growth.includes('× 2%'),'landing live não pode congelar percentuais comerciais que o admin consegue alterar');
 assert.ok(growth.includes('SIMULADOR DE MARGEM INCREMENTAL')&&growth.includes('merchant-sim-fee'),'revenda precisa visualizar taxa e margem incremental');
 assert.ok(growth.includes('merchant-sim-product-cost')&&growth.includes('merchant-sim-delivery-cost')&&growth.includes('merchant-sim-payment-cost')&&growth.includes('merchant-sim-tax-rate'),'simulador da revenda precisa aceitar custos próprios antes de estimar margem');
 assert.ok(growth.includes('Receita não é lucro')&&growth.includes('não para prometer lucro'),'landing da revenda não pode confundir receita com lucro');
@@ -489,6 +489,18 @@ assert.ok(orderControlAuthority.includes('cashback_release')&&orderControlAuthor
 assert.ok(orderControlAuthority.includes('revoke all on function public.admin_order_control_action')&&orderControlAuthority.includes('from public, anon, authenticated'),'autoridade da Torre não pode ser executável diretamente pelo browser');
 assert.ok(adminOpsSource.includes('controlOrders')&&adminOpsSource.includes('admin_order_control_action')&&adminOpsSource.includes('order-control'),'admin API precisa projetar pedidos e transportar intervenções idempotentes');
 assert.ok(admin.includes('TORRE DE CONTROLE')&&admin.includes('Buscar outra revenda')&&admin.includes('Cancelar antes da saída')&&admin.includes('adminOrderControl'),'painel admin precisa oferecer Torre de Controle operacional sem UPDATE livre');
+const commercialPolicyAuthority=read('supabase/migrations/20261004153000_commercial_policy_control_v1_65.sql');
+const marketStatusSource=read('supabase/functions/market-status/index.ts');
+assert.ok(commercialPolicyAuthority.includes('admin_commercial_policy_action')&&commercialPolicyAuthority.includes('POLICY_VERSION_CONFLICT'),'política comercial precisa de autoridade administrativa e concorrência otimista');
+assert.ok(commercialPolicyAuthority.includes('COMMERCIAL_POLICY_CONTRIBUTION_UNFUNDED')&&commercialPolicyAuthority.includes('COMMERCIAL_POLICY_REWARDS_UNFUNDED'),'backend precisa rejeitar política economicamente não financiada');
+assert.ok(commercialPolicyAuthority.includes('COMMERCIAL_POLICY_DISABLE_REQUIRES_PAUSE'),'política financeira não pode ser desligada durante PILOT/LIVE');
+assert.ok(commercialPolicyAuthority.includes('financial_policy_history')&&commercialPolicyAuthority.includes('platform_admin_audit'),'mudança comercial precisa manter histórico dedicado e auditoria administrativa');
+assert.ok(commercialPolicyAuthority.includes('revoke all on table public.financial_policy_history from public, anon, authenticated')&&commercialPolicyAuthority.includes('revoke all on function public.admin_commercial_policy_action'),'histórico e autoridade comercial devem permanecer server-only');
+assert.ok(adminOpsSource.includes('commercialPolicy')&&adminOpsSource.includes('admin_commercial_policy_action')&&adminOpsSource.includes('commercial-policy'),'admin API precisa projetar e alterar a política comercial pela autoridade dedicada');
+assert.ok(admin.includes('ECONOMIA E INCENTIVOS')&&admin.includes('adminSaveCommercialPolicy')&&admin.includes('POLÍTICA NÃO FINANCIADA'),'painel admin precisa mostrar política, prévia econômica e impedir configuração inviável');
+assert.ok(marketStatusSource.includes('commercialPolicy')&&marketStatusSource.includes('platform_fee_bps')&&marketStatusSource.includes('direct_referral_bps'),'market-status precisa publicar somente a política comercial sanitizada necessária à UX');
+assert.ok(backend.includes('commercialPolicy:data?.commercialPolicy')&&growth.includes('currentCommercialRate'),'runtime cliente precisa transportar a política e a UX precisa consumi-la dinamicamente');
+
 
 
 const offerSource=read('supabase/functions/get-offers/index.ts');
