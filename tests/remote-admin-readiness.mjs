@@ -1,9 +1,9 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 
-const ADMIN_ORIGIN='https://chama-sg-admin.netlify.app';
-const CUSTOMER_ORIGIN='https://chama-sg-cliente.netlify.app';
-const MERCHANT_ORIGIN='https://chama-sg-revenda.netlify.app';
+const ADMIN_ORIGIN='https://tamao-sg-admin.pages.dev';
+const CUSTOMER_ORIGIN='https://tamao-sg-cliente.pages.dev';
+const MERCHANT_ORIGIN='https://tamao-sg-revenda.pages.dev';
 const REQUIRE_ADMIN_PORTAL=process.env.TAMAO_REQUIRE_ADMIN_PORTAL==='1';
 
 const backend=fs.readFileSync(new URL('../js/backend.js',import.meta.url),'utf8');
