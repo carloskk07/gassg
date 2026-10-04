@@ -245,6 +245,19 @@ async function summary(admin:any,actorUserId:string){
     .eq("policy_key","default")
     .single();
   if(commercialPolicy.error)throw commercialPolicy.error;
+  const [productCategories,productProfiles]=await Promise.all([
+    admin.from("product_categories")
+      .select("category_key,category_name,active,sort_order,updated_at,updated_by")
+      .order("sort_order",{ascending:true})
+      .order("category_name",{ascending:true}),
+    admin.from("product_delivery_profiles")
+      .select("product_code,product_name,category_key,delivery_class,requires_isolated_delivery,customer_visible,merchant_add_allowed,active,sort_order,updated_at,updated_by")
+      .order("sort_order",{ascending:true})
+      .order("product_name",{ascending:true})
+      .limit(500)
+  ]);
+  if(productCategories.error)throw productCategories.error;
+  if(productProfiles.error)throw productProfiles.error;
 
   const controlOrders=await admin
     .from("orders")
@@ -309,6 +322,10 @@ async function summary(admin:any,actorUserId:string){
     businessMetrics:businessMetrics.data??{},
     launchReadiness:launchReadiness.data??{},
     commercialPolicy:commercialPolicy.data??null,
+    productRegistry:{
+      categories:productCategories.data??[],
+      products:productProfiles.data??[]
+    },
     supportCases:supportCases.data??[],
     controlOrders:(controlOrders.data??[]).map((o:any)=>({
       ...o,
@@ -427,6 +444,44 @@ Deno.serve(async(req:Request)=>{
         targetUserId:uuid(body.targetUserId,"targetUser"),
         active:body.active===true
       };
+    }else if(action==="product-registry"){
+      const registryAction=String(body.registryAction??"").trim().toLowerCase();
+      if(!["upsert-category","upsert-product","set-product-active"].includes(registryAction)){
+        throw new DomainError("INVALID_PRODUCT_REGISTRY_ACTION","Ação do catálogo administrativo inválida.",400);
+      }
+      const sortOrderRaw=Number(body.sortOrder??100);
+      if(!Number.isSafeInteger(sortOrderRaw)||sortOrderRaw<0||sortOrderRaw>10000){
+        throw new DomainError("INVALID_PRODUCT_SORT_ORDER","Ordem do produto/categoria inválida.",400);
+      }
+      const categoryKey=String(body.categoryKey??"").trim().toLowerCase();
+      const productCode=String(body.productCode??"").trim().toUpperCase();
+      const common={
+        registryAction,
+        categoryKey:categoryKey||null,
+        categoryName:body.categoryName==null?null:(cleanText(body.categoryName,{min:2,max:80,name:"nome da categoria"})||null),
+        productCode:productCode||null,
+        productName:body.productName==null?null:(cleanText(body.productName,{min:2,max:120,name:"nome do produto"})||null),
+        deliveryClass:body.deliveryClass==null?null:String(body.deliveryClass).trim().toLowerCase(),
+        requiresIsolatedDelivery:body.requiresIsolatedDelivery===true,
+        customerVisible:body.customerVisible!==false,
+        merchantAddAllowed:body.merchantAddAllowed!==false,
+        active:body.active!==false,
+        sortOrder:sortOrderRaw,
+        reason:cleanText(body.reason,{min:3,max:1000,name:"motivo da alteração"})
+      };
+      if(registryAction==="upsert-category"){
+        if(!/^[a-z][a-z0-9_]{1,39}$/.test(categoryKey)){
+          throw new DomainError("INVALID_PRODUCT_CATEGORY","Chave da categoria inválida.",400);
+        }
+      }else{
+        if(!/^[A-Z][A-Z0-9_]{1,31}$/.test(productCode)){
+          throw new DomainError("INVALID_PRODUCT_PROFILE","Código do produto inválido.",400);
+        }
+        if(registryAction==="upsert-product"&&!["regulated_glp","household_general"].includes(String(common.deliveryClass||""))){
+          throw new DomainError("INVALID_PRODUCT_PROFILE","Classe logística inválida.",400);
+        }
+      }
+      payload=common;
     }else if(action==="commercial-policy"){
       const expectedVersion=Number(body.expectedVersion);
       const asBps=(value:unknown,name:string)=>{
@@ -472,8 +527,8 @@ Deno.serve(async(req:Request)=>{
     }else if(action==="assisted-merchant-onboarding"){
       const draftId=body.draftId==null||String(body.draftId).trim()===""?null:uuid(body.draftId,"draft");
       const productCode=String(body.productCode??"").trim().toUpperCase();
-      if(!(["WATER20","CHARCOAL4","WOOD","ICE5"].includes(productCode)||/^P([1-9]|[1-8][0-9]|90)$/.test(productCode))){
-        throw new DomainError("INVALID_PRODUCT_CODE","Produto inicial inválido.",400);
+      if(!/^[A-Z][A-Z0-9_]{1,31}$/.test(productCode)){
+        throw new DomainError("INVALID_PRODUCT_CODE","Código do produto inicial inválido.",400);
       }
       const pricingMode=String(body.pricingMode??"").trim().toLowerCase();
       const pricingStrategy=String(body.pricingStrategy??"balanced").trim().toLowerCase();
@@ -721,6 +776,26 @@ Deno.serve(async(req:Request)=>{
         p_request_hash:requestHash
       };
     }
+    else if(action==="product-registry"){
+      rpcName="admin_product_registry_action";
+      rpcArgs={
+        p_actor_user_id:user.id,
+        p_action:payload.registryAction,
+        p_category_key:payload.categoryKey,
+        p_category_name:payload.categoryName,
+        p_product_code:payload.productCode,
+        p_product_name:payload.productName,
+        p_delivery_class:payload.deliveryClass,
+        p_requires_isolated_delivery:payload.requiresIsolatedDelivery,
+        p_customer_visible:payload.customerVisible,
+        p_merchant_add_allowed:payload.merchantAddAllowed,
+        p_active:payload.active,
+        p_sort_order:payload.sortOrder,
+        p_reason:payload.reason,
+        p_idempotency_key:idempotencyKey,
+        p_request_hash:requestHash
+      };
+    }
     else if(action==="commercial-policy"){
       rpcName="admin_commercial_policy_action";
       rpcArgs={
@@ -859,6 +934,21 @@ Deno.serve(async(req:Request)=>{
     }
     if(message.includes("LAUNCH_NOT_READY")){
       return json({error:"LAUNCH_NOT_READY",message:"A operação ainda possui pendências não resolvidas. Revise a Central de Produção."},409,origin);
+    }
+    if(message.includes("PRODUCT_CATEGORY_NOT_FOUND")){
+      return json({error:"PRODUCT_CATEGORY_NOT_FOUND",message:"A categoria informada não existe."},404,origin);
+    }
+    if(message.includes("PRODUCT_PROFILE_NOT_FOUND")){
+      return json({error:"PRODUCT_PROFILE_NOT_FOUND",message:"O produto informado não existe no registro."},404,origin);
+    }
+    if(message.includes("GLP_PRODUCT_CANONICAL_POLICY")){
+      return json({error:"GLP_PRODUCT_CANONICAL_POLICY",message:"Produtos GLP possuem nome, classe, visibilidade e logística canônicos e não podem ser reclassificados."},409,origin);
+    }
+    if(message.includes("GENERAL_PRODUCT_CLASS_POLICY")){
+      return json({error:"GENERAL_PRODUCT_CLASS_POLICY",message:"Produtos gerais precisam usar a classe logística doméstica e não podem imitar códigos reservados de GLP."},409,origin);
+    }
+    if(message.includes("INVALID_PRODUCT_CATEGORY")||message.includes("INVALID_PRODUCT_PROFILE")){
+      return json({error:"INVALID_PRODUCT_REGISTRY",message:"Revise código, categoria, nome e regras do produto."},400,origin);
     }
     if(message.includes("COMMERCIAL_POLICY_CONTRIBUTION_UNFUNDED")){
       return json({error:"COMMERCIAL_POLICY_CONTRIBUTION_UNFUNDED",message:"A taxa da plataforma não cobre a reserva de custo e a contribuição mínima."},409,origin);

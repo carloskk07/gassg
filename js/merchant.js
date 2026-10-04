@@ -692,6 +692,31 @@ function merchantLiveCatalog(){
     </div>`;
   }).join('');
 
+  const catalogCodes=new Set((rt.catalog||[]).map(item=>String(item.productCode||'').toUpperCase()));
+  const addableProducts=(rt.availableProducts||[])
+    .filter(item=>{
+      const code=String(item.productCode||'').toUpperCase();
+      return code&&!catalogCodes.has(code)&&!localCodes.has(code);
+    })
+    .sort((a,b)=>{
+      const category=String(a.categoryName||'').localeCompare(String(b.categoryName||''),'pt-BR');
+      return category||String(a.productName||'').localeCompare(String(b.productName||''),'pt-BR');
+    });
+  const addRegistered=addableProducts.length
+    ? `<div class="card flat form-stack" style="margin-bottom:16px">
+        <h3>Adicionar produto do catálogo TAMÃO</h3>
+        <p class="muted tiny">Aqui aparecem produtos gerais liberados pela administração. GLP e vasilhames continuam nos fluxos específicos abaixo.</p>
+        <div class="input-wrap"><label for="live-new-registry-product">Produto</label><select id="live-new-registry-product" class="input">
+          ${addableProducts.map(item=>`<option value="${esc(item.productCode)}">${esc(item.categoryName||'Outros')} • ${esc(item.productName)}</option>`).join('')}
+        </select></div>
+        <div class="field-row">
+          <div class="input-wrap"><label for="live-new-registry-price">Preço</label><input id="live-new-registry-price" inputmode="decimal" type="number" min="0.01" max="10000" step="0.10" class="input" placeholder="0,00"></div>
+          <div class="input-wrap"><label for="live-new-registry-stock">Estoque</label><input id="live-new-registry-stock" inputmode="numeric" type="number" min="0" max="100000" class="input" value="0"></div>
+        </div>
+        <button class="primary" onclick="merchantLiveAddRegisteredProduct()">Adicionar e confirmar</button>
+      </div>`
+    : '';
+
   const addGlp=`<div class="card flat form-stack" style="margin-bottom:16px">
     <h3>Adicionar cilindro GLP</h3>
     <p class="muted tiny">Códigos P1 a P90 seguem automaticamente as regras regulatórias e logísticas de GLP.</p>
@@ -714,7 +739,22 @@ function merchantLiveCatalog(){
     <button class="primary" onclick="merchantLiveAddContainer()">Adicionar vasilhame</button>
   </div>`;
 
-  return shell(`<section class="page"><button class="back" onclick="go('merchant')">← Operação</button><h1 class="page-title">Catálogo real</h1><p class="muted">Cada SKU possui sua própria confirmação de preço e política comercial. Em faixa automática, o TAMÃO nunca oferece abaixo do mínimo nem acima do máximo autorizado.</p><div style="margin-top:16px">${addGlp}${addContainer}${rows}</div></section>`);
+  return shell(`<section class="page"><button class="back" onclick="go('merchant')">← Operação</button><h1 class="page-title">Catálogo real</h1><p class="muted">Cada SKU possui sua própria confirmação de preço e política comercial. Produtos gerais liberados pela administração entram sem novo deploy; GLP mantém regras próprias.</p><div style="margin-top:16px">${addRegistered}${addGlp}${addContainer}${rows}</div></section>`);
+}
+
+async function merchantLiveAddRegisteredProduct(){
+  const code=String(document.getElementById('live-new-registry-product')?.value||'').trim().toUpperCase();
+  const available=(globalThis.merchantRuntime?.availableProducts||[]).find(item=>String(item.productCode||'').toUpperCase()===code);
+  const price=Number(document.getElementById('live-new-registry-price')?.value);
+  const stock=Number(document.getElementById('live-new-registry-stock')?.value);
+  if(!available)return toast('Escolha um produto liberado pela administração');
+  if(!Number.isFinite(price)||price<=0||price>10000||!Number.isInteger(stock)||stock<0||stock>100000){
+    return toast('Revise preço e estoque');
+  }
+  try{
+    await merchantUpdateProductLive(code,Math.round(price*100),stock,true);
+    toast(String(available.productName||code)+' adicionado ao catálogo');
+  }catch(e){toast(String(e?.message||e))}
 }
 
 async function merchantLiveAddGlp(){

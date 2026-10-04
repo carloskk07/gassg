@@ -239,22 +239,27 @@ test('itens repetidos são agregados e ordenados deterministicamente',()=>{
   );
 });
 
-test('GLP P1–P90 é aceito e limites são fail-closed',()=>{
+test('parser de SKU valida forma segura; existência fica no registro server-side',()=>{
   assert.equal(isSupportedProductCode('P1'),true);
   assert.equal(isSupportedProductCode('p20'),true);
   assert.equal(isSupportedProductCode('P45'),true);
   assert.equal(isSupportedProductCode('P90'),true);
-  assert.equal(isSupportedProductCode('P0'),false);
-  assert.equal(isSupportedProductCode('P91'),false);
+  assert.equal(isSupportedProductCode('P0'),true);
+  assert.equal(isSupportedProductCode('P91'),true);
+  assert.equal(isSupportedProductCode('XYZ'),true);
+  assert.equal(isSupportedProductCode('P13_CONTAINER'),true);
+  assert.equal(isSupportedProductCode(''),false);
+  assert.equal(isSupportedProductCode('A'),false);
+  assert.equal(isSupportedProductCode('BAD-CODE'),false);
+  assert.equal(isSupportedProductCode('bad code'),false);
   assert.deepEqual(
-    normalizeItems([{productCode:'P45',quantity:1},{productCode:'p20',quantity:2}]),
-    [{productCode:'P20',quantity:2},{productCode:'P45',quantity:1}]
+    normalizeItems([{productCode:'P45',quantity:1},{productCode:'p20',quantity:2},{productCode:'xyz',quantity:1}]),
+    [{productCode:'P20',quantity:2},{productCode:'P45',quantity:1},{productCode:'XYZ',quantity:1}]
   );
 });
 
-test('produto e quantidade inválidos são bloqueados',()=>{
-  throwsCode(()=>normalizeItems([{productCode:'XYZ',quantity:1}]),'INVALID_PRODUCT');
-  throwsCode(()=>normalizeItems([{productCode:'P91',quantity:1}]),'INVALID_PRODUCT');
+test('formato de produto e quantidade inválidos são bloqueados',()=>{
+  throwsCode(()=>normalizeItems([{productCode:'BAD-CODE',quantity:1}]),'INVALID_PRODUCT');
   throwsCode(()=>normalizeItems([{productCode:'P13',quantity:0}]),'INVALID_QUANTITY');
 });
 

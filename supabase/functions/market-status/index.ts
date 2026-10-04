@@ -81,6 +81,43 @@ Deno.serve(async(req:Request)=>{
     const operationMode=String(
       launchStatus?.operationMode??(commerceEnabled?"LIVE":"PRELAUNCH")
     ).toUpperCase();
+
+    const marketProductCodes=Array.isArray(data?.productCodes)
+      ? [...new Set(data.productCodes.map((code:unknown)=>String(code).trim().toUpperCase()).filter(Boolean))]
+      : [];
+    const {data:productProfiles,error:productProfilesError}=marketProductCodes.length
+      ? await admin
+          .from("product_delivery_profiles")
+          .select("product_code,product_name,category_key,sort_order")
+          .in("product_code",marketProductCodes)
+          .eq("active",true)
+          .eq("customer_visible",true)
+      : {data:[],error:null};
+    if(productProfilesError)throw productProfilesError;
+    const categoryKeys=[...new Set((productProfiles??[]).map((x)=>String(x.category_key)).filter(Boolean))];
+    const {data:categories,error:categoriesError}=categoryKeys.length
+      ? await admin
+          .from("product_categories")
+          .select("category_key,category_name,sort_order")
+          .in("category_key",categoryKeys)
+          .eq("active",true)
+      : {data:[],error:null};
+    if(categoriesError)throw categoriesError;
+    const categoryByKey=new Map((categories??[]).map((x)=>[String(x.category_key),x]));
+    const productDefinitions=(productProfiles??[])
+      .filter((x)=>categoryByKey.has(String(x.category_key)))
+      .map((x)=>{
+        const category:any=categoryByKey.get(String(x.category_key));
+        return {
+          productCode:String(x.product_code),
+          productName:String(x.product_name),
+          categoryKey:String(x.category_key),
+          categoryName:String(category?.category_name??x.category_key),
+          sortOrder:Number(x.sort_order??100)
+        };
+      })
+      .sort((a,b)=>a.sortOrder-b.sortOrder||a.productName.localeCompare(b.productName,"pt-BR"));
+
     return json({
       commerceEnabled,
       operationMode,
@@ -90,7 +127,8 @@ Deno.serve(async(req:Request)=>{
       configuredMerchantCount:Number(data?.configuredMerchantCount??0),
       availableNow:commerceEnabled&&data?.availableNow===true,
       availableMerchantCount:commerceEnabled?Number(data?.availableMerchantCount??0):0,
-      productCodes:Array.isArray(data?.productCodes)?data.productCodes:[],
+      productCodes:productDefinitions.map((x)=>x.productCode),
+      productDefinitions,
       commercialPolicy:{
         active:commercialPolicy.data?.active===true,
         platformFeeBps:Number(commercialPolicy.data?.platform_fee_bps??0),
