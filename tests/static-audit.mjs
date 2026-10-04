@@ -507,6 +507,8 @@ assert.ok(backend.includes('commercialPolicy:data?.commercialPolicy')&&growth.in
 const dynamicProductRegistry=read('supabase/migrations/20261004161000_dynamic_product_registry_v1_66.sql');
 const categoryPauseFix=read('supabase/migrations/20261004162200_category_pause_catalog_fix_v1_66_1.sql');
 const glpCategoryReservation=read('supabase/migrations/20261004162600_glp_category_reservation_v1_66_2.sql');
+const dynamicProductTransactions=read('supabase/migrations/20261004163100_dynamic_product_transaction_fks_v1_66_4.sql');
+const assistedOnboardingProductRegistry=read('supabase/migrations/20261004163700_assisted_onboarding_product_registry_v1_66_5.sql');
 const merchantOrdersRegistrySource=read('supabase/functions/merchant-orders/index.ts');
 assert.ok(dynamicProductRegistry.includes('create table if not exists public.product_categories')&&dynamicProductRegistry.includes('alter table public.product_delivery_profiles'),'V1.66 precisa transformar perfis logísticos no registro canônico de categorias/produtos');
 assert.ok(dynamicProductRegistry.includes("from generate_series(1,90)")&&dynamicProductRegistry.includes("'P'||g::text||'_CONTAINER'"),'registro precisa pré-cadastrar P1–P90 e vasilhames canônicos');
@@ -515,6 +517,13 @@ assert.ok(dynamicProductRegistry.includes('admin_product_registry_action')&&dyna
 assert.ok(dynamicProductRegistry.includes('revoke all on table public.product_categories from public, anon, authenticated')&&dynamicProductRegistry.includes('revoke all on function public.admin_product_registry_action'),'registro e mutação administrativa devem permanecer server-only');
 assert.ok(categoryPauseFix.includes('catalogItemsPaused')&&categoryPauseFix.includes('update public.catalog_items ci'),'pausar categoria precisa pausar SKUs ativos das revendas');
 assert.ok(glpCategoryReservation.includes("p_category_key='glp'"),'categoria GLP deve ser exclusiva da família canônica');
+for(const table of ['quote_items','order_items','order_requote_items']){
+  assert.ok(dynamicProductTransactions.includes('alter table public.'+table)&&dynamicProductTransactions.includes(table+'_product_code_registry_fkey'),table+' precisa referenciar o registro canônico em vez de allowlist');
+}
+assert.ok(assistedOnboardingProductRegistry.includes('product_delivery_profiles')&&assistedOnboardingProductRegistry.includes('product_categories'),'onboarding assistido precisa validar o SKU no mesmo registro server-side');
+assert.ok(assistedOnboardingProductRegistry.includes('v_product_profile.product_name'),'onboarding não pode confiar no nome de produto enviado pela UI');
+assert.ok(assistedOnboardingProductRegistry.includes('public.is_glp_product_code(p_product_code)'),'gate ANP do onboarding deve depender da semântica canônica de GLP, não de prefixo solto');
+assert.ok(!adminOpsSource.includes('["WATER20","CHARCOAL4","WOOD","ICE5"].includes(productCode)'),'admin-ops não pode manter allowlist residual no onboarding');
 assert.ok(merchantOrdersRegistrySource.includes('availableProducts')&&merchantOrdersRegistrySource.includes('.eq("delivery_class","household_general")'),'portal da revenda deve receber produtos gerais liberados sem carregar toda a família GLP no seletor');
 assert.ok(marketStatusSource.includes('productDefinitions')&&marketStatusSource.includes('customer_visible'),'cliente deve receber apenas definições sanitizadas e visíveis de produtos configurados');
 assert.ok(backend.includes('productDefinitions:Array.isArray')&&backend.includes('definitionByCode'),'runtime cliente precisa transportar metadados por código');
