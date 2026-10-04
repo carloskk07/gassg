@@ -636,6 +636,79 @@ function adminLaunchControl(readiness={}){
   </section>`;
 }
 
+function adminOrderStatusLabel(status){
+  return ({
+    OFFERED_TO_MERCHANT:'AGUARDANDO PARCEIRO',
+    MERCHANT_ACCEPTED:'ACEITO',
+    PREPARING:'PREPARANDO',
+    AT_RISK:'EM RISCO',
+    REASSIGNING:'REATRIBUINDO',
+    REQUOTE_REQUIRED:'CONFIRMAÇÃO DE PREÇO',
+    OUT_FOR_DELIVERY:'A CAMINHO',
+    ARRIVING:'CHEGANDO',
+    DELIVERED:'ENTREGUE',
+    SETTLED:'CONCLUÍDO',
+    CANCELLED:'CANCELADO'
+  })[String(status||'')]||String(status||'—');
+}
+function adminOrderIsLate(o){
+  const now=Date.now();
+  if(['DELIVERED','SETTLED','CANCELLED'].includes(o.status))return false;
+  const promised=Date.parse(o.promised_by||'');
+  const dispatch=Date.parse(o.dispatch_due_at||'');
+  if(Number.isFinite(promised)&&promised<now)return true;
+  if(['PREPARING','AT_RISK'].includes(o.status)&&Number.isFinite(dispatch)&&dispatch<now)return true;
+  return false;
+}
+function adminControlOrderCard(o){
+  const merchant=(adminRuntime.data?.merchants||[]).find(x=>x.id===o.merchant_id);
+  const proposed=(adminRuntime.data?.merchants||[]).find(x=>x.id===o.proposed_merchant_id);
+  const items=(o.items||[]).map(i=>`${Number(i.quantity||0)}× ${esc(i.product_name||i.product_code||'Item')}`).join(' • ');
+  const late=adminOrderIsLate(o);
+  const risk=['AT_RISK','REASSIGNING','REQUOTE_REQUIRED'].includes(o.status)||late;
+  const rescueable=['OFFERED_TO_MERCHANT','PREPARING','AT_RISK','REASSIGNING','REQUOTE_REQUIRED'].includes(o.status)&&!o.dispatched_at;
+  const cancellable=rescueable;
+  const customerPhone=String(o.customer_phone_digits||'').replace(/\D/g,'');
+  const merchantWhatsapp=String(merchant?.businessDetails?.whatsapp||'').replace(/\D/g,'');
+  const statusClass=['DELIVERED','SETTLED'].includes(o.status)?'online':o.status==='CANCELLED'?'offline':risk?'offline':'risk';
+  const destination=[o.address_text,o.address_complement,o.delivery_reference].filter(Boolean).join(' • ');
+  return `<article class="order-card ${risk?'new':''}">
+    <div class="order-head"><div><div class="order-id">${esc(o.public_code||o.id)}</div><div class="tiny muted">${items||'Itens não carregados'}</div></div><div style="text-align:right"><span class="status-pill ${statusClass}">${esc(adminOrderStatusLabel(o.status))}</span>${late?'<div class="tiny" style="margin-top:4px"><strong>ATRASADO</strong></div>':''}</div></div>
+    <div class="order-line"><strong>${adminMoney(o.total_cents)}</strong> • pagamento ${esc(String(o.payment_method||'—').toUpperCase())} • versão ${Number(o.version||0)}</div>
+    <div class="order-line"><strong>Revenda:</strong> ${esc(merchant?.name||o.supplier_name_snapshot||'Ainda não definida')}${proposed?' • alternativa '+esc(proposed.name):''}</div>
+    ${destination?`<div class="order-line"><strong>Entrega:</strong> ${esc(destination)}</div>`:''}
+    ${o.risk_reason?`<div class="notice danger" style="margin-top:8px"><strong>Risco:</strong> ${esc(o.risk_reason)}</div>`:''}
+    <div class="tiny muted">Atualizado ${esc(formatDateTime(o.updated_at))}${o.promised_by?' • prometido '+esc(formatDateTime(o.promised_by)):''}</div>
+    <div class="order-actions">
+      ${customerPhone?`<button class="ghost small" onclick="adminOpenWhatsapp('${customerPhone}')">Cliente</button>`:''}
+      ${merchantWhatsapp?`<button class="ghost small" onclick="adminOpenWhatsapp('${merchantWhatsapp}')">Revenda</button>`:''}
+      <button class="secondary small" onclick="adminOrderControl('${o.id}',${Number(o.version||0)},'note')">Registrar observação</button>
+      ${rescueable?`<button class="secondary small" onclick="adminOrderControl('${o.id}',${Number(o.version||0)},'rescue')">Buscar outra revenda</button>`:''}
+      ${cancellable?`<button class="danger-btn small" onclick="adminOrderControl('${o.id}',${Number(o.version||0)},'cancel')">Cancelar antes da saída</button>`:''}
+    </div>
+    ${['OUT_FOR_DELIVERY','ARRIVING'].includes(o.status)?'<small class="field-help">Após a saída, reatribuição/cancelamento automático ficam bloqueados. Use observação e atendimento para tratar exceções sem corromper estoque ou financeiro.</small>':''}
+  </article>`;
+}
+function adminControlTower(d){
+  const orders=d.controlOrders||[];
+  const terminal=new Set(['DELIVERED','SETTLED','CANCELLED']);
+  const active=orders.filter(o=>!terminal.has(o.status));
+  const waiting=active.filter(o=>o.status==='OFFERED_TO_MERCHANT');
+  const risks=active.filter(o=>['AT_RISK','REASSIGNING','REQUOTE_REQUIRED'].includes(o.status)||adminOrderIsLate(o));
+  const delivery=active.filter(o=>['OUT_FOR_DELIVERY','ARRIVING'].includes(o.status));
+  const visible=[...active,...orders.filter(o=>terminal.has(o.status)).slice(0,12)];
+  return `<section class="section">
+    <div class="section-head"><div><span class="section-kicker">TORRE DE CONTROLE</span><h2>Pedidos agora</h2><p>Visão operacional com intervenção auditada. Resgate preserva estoque, capacidade, compliance e confirmação de preço.</p></div><span class="status-pill ${risks.length?'offline':'online'}">${risks.length} em risco</span></div>
+    <div class="merchant-kpis">
+      <div class="kpi"><span class="label">Ativos</span><strong>${active.length}</strong></div>
+      <div class="kpi"><span class="label">Aguardando aceite</span><strong>${waiting.length}</strong></div>
+      <div class="kpi"><span class="label">Em risco/atrasados</span><strong>${risks.length}</strong></div>
+      <div class="kpi"><span class="label">Em entrega</span><strong>${delivery.length}</strong></div>
+    </div>
+    <div style="margin-top:12px">${visible.length?visible.map(adminControlOrderCard).join(''):'<div class="empty card">Nenhum pedido real registrado ainda.</div>'}</div>
+  </section>`;
+}
+
 function adminPage(){
   if(!adminPortalRequested()){
     return shell('<section class="page"><div class="notice danger">Administração só está disponível no portal protegido.</div></section>');
@@ -669,6 +742,7 @@ function adminPage(){
   const platformAdmins=d.platformAdmins||[];
   const supportCases=d.supportCases||[];
   const openSupportCases=supportCases.filter(x=>['open','in_review'].includes(x.status));
+  const controlOrders=d.controlOrders||[];
   const metrics=d.businessMetrics||{};
   const openFees=receivables.reduce((s,x)=>s+Number(x.platform_fee_cents||0),0);
   const openCashback=reimbursements.reduce((s,x)=>s+Number(x.cashback_cents||0),0);
@@ -679,6 +753,8 @@ function adminPage(){
     ${adminRuntime.error?`<div class="notice danger" style="margin-top:12px">${esc(adminRuntime.error)}</div>`:''}
 
     ${adminLaunchControl(d.launchReadiness||{})}
+
+    ${adminControlTower({...d,controlOrders})}
 
     <section class="section"><div class="section-head"><div><span class="section-kicker">NEGÓCIO • 30 DIAS</span><h2>Pulso da operação</h2><p>Indicadores server-side calculados apenas sobre fatos liquidados e estados reais do pedido.</p></div></div><div class="merchant-kpis">
       <div class="kpi"><span class="label">GMV 30d</span><strong>${adminMoney(metrics.gmvCents30d)}</strong><small>${Number(metrics.settledOrders30d||0)} pedidos liquidados</small></div>
@@ -736,6 +812,28 @@ function adminPage(){
 
     <section class="section"><div class="section-head"><div><h2>Auditoria recente</h2></div></div><div class="list">${(d.recentAudit||[]).length?(d.recentAudit||[]).map(x=>`<div class="list-row"><div><strong>${esc(x.action)}</strong><br><small>${esc(x.target_type)} • ${esc(x.target_id||'—')}</small></div><small>${new Date(x.created_at).toLocaleString('pt-BR')}</small></div>`).join(''):'<div class="empty card">Nenhuma ação administrativa registrada.</div>'}</div></section>
   </section>`);
+}
+
+function adminOpenWhatsapp(phone){
+  const digits=String(phone||'').replace(/\D/g,'');
+  if(digits.length<10)return toast('Contato indisponível');
+  window.open('https://wa.me/'+digits,'_blank','noopener,noreferrer');
+}
+async function adminOrderControl(orderId,expectedVersion,controlAction){
+  const labels={
+    note:'Registrar uma observação administrativa neste pedido:',
+    rescue:'Motivo para buscar outra revenda:',
+    cancel:'Motivo para cancelar o pedido antes da saída:'
+  };
+  const reason=prompt(labels[controlAction]||'Motivo da intervenção:')||'';
+  if(reason.trim().length<3)return toast('Informe o motivo da intervenção');
+  if(controlAction==='rescue'&&!confirm('Buscar outra revenda agora? O sistema revalidará estoque, preço, compliance, pagamento e capacidade. Se a nova condição for mais cara, o cliente deverá confirmar.'))return;
+  if(controlAction==='cancel'&&!confirm('Cancelar este pedido antes da saída? Estoque reservado e cashback serão restaurados quando aplicável.'))return;
+  try{
+    const result=await adminPerform('order-control',{orderId,expectedVersion,controlAction,reason});
+    toast(controlAction==='note'?'Observação registrada':controlAction==='rescue'?'Resgate executado':'Pedido cancelado');
+    return result;
+  }catch(e){toast(String(e?.message||e))}
 }
 
 async function adminVerifyLaunchPortals(){
@@ -974,6 +1072,8 @@ globalThis.adminAddPlatformAdmin=adminAddPlatformAdmin;
 globalThis.openAdminPortal=openAdminPortal;
 
 
+globalThis.adminOpenWhatsapp=adminOpenWhatsapp;
+globalThis.adminOrderControl=adminOrderControl;
 globalThis.adminVerifyLaunchPortals=adminVerifyLaunchPortals;
 globalThis.adminConfirmLaunchRequirement=adminConfirmLaunchRequirement;
 globalThis.adminSetOperationMode=adminSetOperationMode;
