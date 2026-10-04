@@ -5,9 +5,9 @@ import path from 'node:path';
 import {buildLivePortals,assertProductionTurnstile} from '../scripts/build-live-portals.mjs';
 
 const origins={
-  CHAMA_CUSTOMER_ORIGIN:'https://chama-sg-cliente.netlify.app',
-  CHAMA_MERCHANT_ORIGIN:'https://chama-sg-revenda.netlify.app',
-  CHAMA_ADMIN_ORIGIN:'https://chama-sg-admin.netlify.app'
+  CHAMA_CUSTOMER_ORIGIN:'https://tamao-sg-cliente.pages.dev',
+  CHAMA_MERCHANT_ORIGIN:'https://tamao-sg-revenda.pages.dev',
+  CHAMA_ADMIN_ORIGIN:'https://tamao-sg-admin.pages.dev'
 };
 const testKey='1x00000000000000000000AA';
 
