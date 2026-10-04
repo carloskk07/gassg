@@ -342,17 +342,21 @@ assert.ok(read('supabase/functions/merchant-orders/index.ts').includes('selectMe
 assert.ok(backend.includes("localStorage.removeItem('chama-merchant-selected-v1')"),'logout/fallback deve limpar seleção de revenda persistida');
 assert.ok(backend.includes('recoverSelection=true')&&backend.includes('staleSelected&&recoverSelection'),'frontend deve recuperar seleção antiga pertencente a outra conta');
 assert.ok(merchant.includes("MERCHANT_ROLE_NOT_ENABLED"),'UI deve distinguir papel ainda não habilitado de ausência de vínculo');
-assert.ok(read('supabase/functions/merchant-ops/index.ts').includes('function glpKgForCode'),'merchant API deve reconhecer semanticamente GLP P1..P90');
-assert.ok(read('supabase/functions/merchant-ops/index.ts').includes('return "Gás P"+kg'),'nome de cilindro GLP deve ser derivado do código validado');
-assert.ok(core.includes("P20:{name:'Gás P20'")&&core.includes("P45:{name:'Gás P45'"),'cliente deve expor P20/P45 sem inventar oferta');
-assert.ok(core.includes('function ensureProductDefinition'),'cliente precisa materializar dinamicamente SKUs GLP reais');
-assert.ok(core.includes("products[code]={name:'Gás P'+kg,icon:'🔥'}"),'cliente deve derivar nome de GLP P1..P90 sem hardcode');
-assert.ok(backend.includes('ensureProductDefinition?.(code)'),'market-status deve hidratar no cliente os GLPs configurados pelas revendas');
-assert.ok(merchant.includes('merchantLiveAddGlp'),'painel real deve permitir adicionar cilindro GLP válido');
+const merchantOpsRegistrySource=read('supabase/functions/merchant-ops/index.ts');
+assert.ok(merchantOpsRegistrySource.includes('.from("product_delivery_profiles")')&&merchantOpsRegistrySource.includes('.eq("merchant_add_allowed",true)'),'merchant API deve consultar o registro server-side antes de incluir SKU');
+assert.ok(merchantOpsRegistrySource.includes('const productName=String(productProfile.product_name)'),'nome de produto da revenda deve vir do registro canônico, não de allowlist local');
+assert.ok(core.includes("P20:{name:'Gás P20'")&&core.includes("P45:{name:'Gás P45'"),'cliente pode manter defaults de demonstração sem transformá-los em oferta real');
+assert.ok(core.includes('function ensureProductDefinition(value,meta=null)')&&core.includes("meta?.productName"),'cliente precisa materializar dinamicamente metadados sanitizados do registro');
+assert.ok(core.includes("categoryKey:categoryKey||'other'")&&core.includes("registry:true"),'produto geral recebido do servidor precisa virar definição real no frontend');
+assert.ok(backend.includes('ensureProductDefinition?.(code,definition)'),'market-status deve hidratar no cliente os produtos configurados com seus metadados');
+assert.ok(merchant.includes('merchantLiveAddGlp')&&merchant.includes('merchantLiveAddRegisteredProduct'),'painel real deve preservar fluxo GLP e permitir produto geral liberado pelo admin');
 const sharedDomain=read('supabase/functions/_shared/domain.js');
-assert.ok(sharedDomain.includes('isSupportedProductCode'),'domínio server-side precisa de autoridade explícita de SKU suportado');
-assert.ok(sharedDomain.includes('kg>=1&&kg<=90'),'domínio server-side deve aceitar GLP P1..P90');
-assert.ok(sharedDomain.includes("invariant(isSupportedProductCode(code),'INVALID_PRODUCT'"),'normalização de itens deve usar a autoridade GLP generalizada');
+assert.ok(sharedDomain.includes('isSupportedProductCode')&&sharedDomain.includes("/^[A-Z][A-Z0-9_]{1,31}$/"),'domínio compartilhado deve validar somente a forma segura do código');
+assert.ok(sharedDomain.includes('product_delivery_profiles antes de qualquer oferta ou escrita'),'domínio compartilhado deve declarar que o registro server-side é a autoridade de existência');
+assert.ok(sharedDomain.includes("invariant(isSupportedProductCode(code),'INVALID_PRODUCT'"),'normalização de itens deve rejeitar formato de SKU inválido antes de consultar o registro');
+const getOffersRegistrySource=read('supabase/functions/get-offers/index.ts');
+assert.ok(getOffersRegistrySource.includes('.from("product_delivery_profiles")')&&getOffersRegistrySource.includes('.from("product_categories")'),'get-offers precisa validar produto e categoria ativos no registro server-side');
+assert.ok(getOffersRegistrySource.includes('requestedProductCodes.some')&&getOffersRegistrySource.includes('INVALID_PRODUCT'),'oferta não pode prosseguir com SKU ausente ou pausado');
 const generalizedProducts=read('supabase/migrations/20261001162000_generalized_product_code_contract.sql');
 for(const table of ['catalog_items','quote_items','order_items','order_requote_items']){
   assert.ok(generalizedProducts.includes('alter table public.'+table),table+' precisa receber contrato generalizado de product_code');
@@ -500,6 +504,25 @@ assert.ok(adminOpsSource.includes('commercialPolicy')&&adminOpsSource.includes('
 assert.ok(admin.includes('ECONOMIA E INCENTIVOS')&&admin.includes('adminSaveCommercialPolicy')&&admin.includes('POLÍTICA NÃO FINANCIADA'),'painel admin precisa mostrar política, prévia econômica e impedir configuração inviável');
 assert.ok(marketStatusSource.includes('commercialPolicy')&&marketStatusSource.includes('platform_fee_bps')&&marketStatusSource.includes('direct_referral_bps'),'market-status precisa publicar somente a política comercial sanitizada necessária à UX');
 assert.ok(backend.includes('commercialPolicy:data?.commercialPolicy')&&growth.includes('currentCommercialRate'),'runtime cliente precisa transportar a política e a UX precisa consumi-la dinamicamente');
+const dynamicProductRegistry=read('supabase/migrations/20261004161000_dynamic_product_registry_v1_66.sql');
+const categoryPauseFix=read('supabase/migrations/20261004162200_category_pause_catalog_fix_v1_66_1.sql');
+const glpCategoryReservation=read('supabase/migrations/20261004162600_glp_category_reservation_v1_66_2.sql');
+const merchantOrdersRegistrySource=read('supabase/functions/merchant-orders/index.ts');
+assert.ok(dynamicProductRegistry.includes('create table if not exists public.product_categories')&&dynamicProductRegistry.includes('alter table public.product_delivery_profiles'),'V1.66 precisa transformar perfis logísticos no registro canônico de categorias/produtos');
+assert.ok(dynamicProductRegistry.includes("from generate_series(1,90)")&&dynamicProductRegistry.includes("'P'||g::text||'_CONTAINER'"),'registro precisa pré-cadastrar P1–P90 e vasilhames canônicos');
+assert.ok(dynamicProductRegistry.includes('drop constraint if exists catalog_items_product_code_check')&&dynamicProductRegistry.includes('catalog_items_product_code_registry_fkey'),'catalog_items deve trocar allowlist fixa por FK ao registro');
+assert.ok(dynamicProductRegistry.includes('admin_product_registry_action')&&dynamicProductRegistry.includes('GLP_PRODUCT_CANONICAL_POLICY'),'gestão administrativa deve existir sem permitir reclassificar GLP');
+assert.ok(dynamicProductRegistry.includes('revoke all on table public.product_categories from public, anon, authenticated')&&dynamicProductRegistry.includes('revoke all on function public.admin_product_registry_action'),'registro e mutação administrativa devem permanecer server-only');
+assert.ok(categoryPauseFix.includes('catalogItemsPaused')&&categoryPauseFix.includes('update public.catalog_items ci'),'pausar categoria precisa pausar SKUs ativos das revendas');
+assert.ok(glpCategoryReservation.includes("p_category_key='glp'"),'categoria GLP deve ser exclusiva da família canônica');
+assert.ok(merchantOrdersRegistrySource.includes('availableProducts')&&merchantOrdersRegistrySource.includes('.eq("delivery_class","household_general")'),'portal da revenda deve receber produtos gerais liberados sem carregar toda a família GLP no seletor');
+assert.ok(marketStatusSource.includes('productDefinitions')&&marketStatusSource.includes('customer_visible'),'cliente deve receber apenas definições sanitizadas e visíveis de produtos configurados');
+assert.ok(backend.includes('productDefinitions:Array.isArray')&&backend.includes('definitionByCode'),'runtime cliente precisa transportar metadados por código');
+assert.ok(customer.includes('homeProductEntries')&&customer.includes('liveProductCodes.has(code)'),'vitrine live deve mostrar somente produtos realmente configurados');
+assert.ok(!customer.includes('<span class="merchant-home-rate">7,5%</span>'),'home não pode congelar taxa comercial antiga');
+assert.ok(adminOpsSource.includes('productRegistry')&&adminOpsSource.includes('admin_product_registry_action'),'admin API precisa projetar e alterar o registro por autoridade dedicada');
+assert.ok(admin.includes('CATÁLOGO DA PLATAFORMA')&&admin.includes('adminCreateRegistryProduct')&&admin.includes('Produtos gerais podem ser criados sem novo deploy'),'painel admin precisa cadastrar categoria/produto sem SQL ou novo bundle');
+
 
 
 
