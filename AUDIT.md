@@ -1496,3 +1496,17 @@ Isso não torna o claim administrativo público: a ação `claim` continua exigi
 - cron de bootstrap ativo.
 
 Logo, o próximo passo operacional ainda é autenticar a conta reservada pelo magic link no portal administrativo dedicado.
+
+
+### Gateway do primeiro login
+
+A auditoria encontrou uma configuração incompatível com o fluxo: `admin-auth` estava implantada com verificação JWT no gateway, embora a ação `request-link` aconteça antes de qualquer sessão existir.
+
+A função foi reimplantada com `verify_jwt=false`. Isso é intencional e limitado:
+
+- `request-link` permanece protegido por allowlist de origem, Turnstile, quota e resposta anti-enumeração;
+- `claim` exige header Bearer, chama `auth.getUser` e rejeita sessão ausente, anônima ou inválida;
+- a política foi persistida em `supabase/config.toml`;
+- o CI exige explicitamente essa configuração.
+
+No Supabase, `admin-auth` ficou ativa na versão 8 com `verify_jwt=false`.
