@@ -11,7 +11,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
-      - name: Strict remote admin readiness
+      - name: Strict remote live portal readiness
         env:
-          TAMAO_REQUIRE_ADMIN_PORTAL: '1'
+          TAMAO_REQUIRE_LIVE_PORTALS: '1'
         run: node tests/remote-admin-readiness.mjs
