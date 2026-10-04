@@ -240,6 +240,26 @@ async function summary(admin:any,actorUserId:string){
     .limit(100);
   if(merchantBusinessDetails.error)throw merchantBusinessDetails.error;
 
+  const controlOrders=await admin
+    .from("orders")
+    .select("id,public_code,status,customer_id,merchant_id,proposed_merchant_id,supplier_name_snapshot,payment_method,gross_total_cents,total_cents,risk_reason,offer_expires_at,accepted_at,dispatch_due_at,dispatched_at,arriving_at,promised_by,version,address_text,postal_code,address_complement,delivery_reference,customer_phone_digits,created_at,updated_at")
+    .order("updated_at",{ascending:false})
+    .limit(120);
+  if(controlOrders.error)throw controlOrders.error;
+  const controlOrderIds=(controlOrders.data??[]).map((x:any)=>x.id).filter(Boolean);
+  const controlItems=controlOrderIds.length
+    ? await admin.from("order_items")
+        .select("order_id,product_code,product_name,quantity,unit_price_cents,line_total_cents")
+        .in("order_id",controlOrderIds)
+        .order("product_code")
+    : {data:[],error:null};
+  if(controlItems.error)throw controlItems.error;
+  const controlItemsByOrder=new Map<string,any[]>();
+  for(const item of controlItems.data??[]){
+    if(!controlItemsByOrder.has(item.order_id))controlItemsByOrder.set(item.order_id,[]);
+    controlItemsByOrder.get(item.order_id)!.push(item);
+  }
+
   const [supportCases,businessMetrics,launchReadiness,acquisitionMetrics]=await Promise.all([
     admin.from("support_cases")
       .select("id,order_id,customer_id,merchant_id,category,status,message,resolution_note,resolved_at,created_at,updated_at")
@@ -283,6 +303,10 @@ async function summary(admin:any,actorUserId:string){
     businessMetrics:businessMetrics.data??{},
     launchReadiness:launchReadiness.data??{},
     supportCases:supportCases.data??[],
+    controlOrders:(controlOrders.data??[]).map((o:any)=>({
+      ...o,
+      items:controlItemsByOrder.get(o.id)??[]
+    })),
     finance:{
       receivables:receivables.data??[],
       cashbackReimbursements:reimbursements.data??[],
@@ -395,6 +419,21 @@ Deno.serve(async(req:Request)=>{
       payload={
         targetUserId:uuid(body.targetUserId,"targetUser"),
         active:body.active===true
+      };
+    }else if(action==="order-control"){
+      const controlAction=String(body.controlAction??"").trim().toLowerCase();
+      if(!["note","rescue","cancel"].includes(controlAction)){
+        throw new DomainError("INVALID_ADMIN_ORDER_ACTION","Ação da Torre de Controle inválida.",400);
+      }
+      const expectedVersion=Number(body.expectedVersion);
+      if(!Number.isSafeInteger(expectedVersion)||expectedVersion<1){
+        throw new DomainError("INVALID_VERSION","Versão do pedido inválida.",400);
+      }
+      payload={
+        orderId:uuid(body.orderId,"order"),
+        controlAction,
+        expectedVersion,
+        reason:cleanText(body.reason,{min:3,max:1000,name:"motivo da intervenção"})
       };
     }else if(action==="assisted-merchant-onboarding"){
       const draftId=body.draftId==null||String(body.draftId).trim()===""?null:uuid(body.draftId,"draft");
@@ -648,6 +687,18 @@ Deno.serve(async(req:Request)=>{
         p_request_hash:requestHash
       };
     }
+    else if(action==="order-control"){
+      rpcName="admin_order_control_action";
+      rpcArgs={
+        p_actor_user_id:user.id,
+        p_order_id:payload.orderId,
+        p_action:payload.controlAction,
+        p_expected_version:payload.expectedVersion,
+        p_reason:payload.reason,
+        p_idempotency_key:idempotencyKey,
+        p_request_hash:requestHash
+      };
+    }
     else if(action==="assisted-merchant-onboarding"){
       rpcName="admin_assisted_merchant_onboarding";
       rpcArgs={
@@ -757,6 +808,18 @@ Deno.serve(async(req:Request)=>{
     }
     if(message.includes("LAUNCH_NOT_READY")){
       return json({error:"LAUNCH_NOT_READY",message:"A operação ainda possui pendências não resolvidas. Revise a Central de Produção."},409,origin);
+    }
+    if(message.includes("ORDER_ALREADY_DISPATCHED")){
+      return json({error:"ORDER_ALREADY_DISPATCHED",message:"O pedido já saiu para entrega. Cancelamento ou reatribuição automática não são mais seguros."},409,origin);
+    }
+    if(message.includes("ORDER_NOT_RESCUABLE")){
+      return json({error:"ORDER_NOT_RESCUABLE",message:"Este estado do pedido não permite reatribuição automática segura."},409,origin);
+    }
+    if(message.includes("ORDER_NOT_CANCELLABLE")||message.includes("ORDER_TERMINAL")){
+      return json({error:"ORDER_NOT_CANCELLABLE",message:"Este pedido não pode ser cancelado por esta ação administrativa."},409,origin);
+    }
+    if(message.includes("ADMIN_ORDER_REASON_REQUIRED")){
+      return json({error:"ADMIN_ORDER_REASON_REQUIRED",message:"Informe o motivo da intervenção administrativa."},400,origin);
     }
     if(message.includes("PILOT_PARTNER_NOT_FOUND")){
       return json({error:"PILOT_PARTNER_NOT_FOUND",message:"Parceiro piloto não encontrado."},404,origin);

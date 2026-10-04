@@ -480,6 +480,16 @@ assert.ok(assistedOnboardingSchema.includes('merchant_business_details')&&assist
 assert.ok(assistedOnboardingAuthority.includes('admin_assisted_merchant_onboarding')&&assistedOnboardingAuthority.includes("'pending'")&&assistedOnboardingAuthority.includes("'compliancePending',true"),'conversão assistida deve nascer pendente e declarar compliance pendente');
 assert.ok(assistedOnboardingAuthority.includes('action_requests')&&assistedOnboardingAuthority.includes('platform_admin_audit'),'onboarding assistido precisa ser idempotente e auditado');
 assert.ok(adminOpsSource.includes('assisted-merchant-onboarding')&&adminOpsSource.includes('merchant_business_details')&&adminOpsSource.includes('admin_assisted_merchant_onboarding'),'admin API precisa transportar dados comerciais e executar a autoridade transacional');
+const orderControlAuthority=read('supabase/migrations/20261004145100_admin_order_control_tower_v1_64.sql');
+assert.ok(orderControlAuthority.includes('admin_order_control_action')&&orderControlAuthority.includes("p_action not in ('note','rescue','cancel')"),'Torre de Controle precisa de autoridade administrativa fechada e limitada');
+assert.ok(orderControlAuthority.includes('rescue_offered_order_now')&&orderControlAuthority.includes('system_release_and_rescue_accepted_order')&&orderControlAuthority.includes('system_rescue_order'),'reatribuição admin deve reutilizar rescue transacional existente');
+assert.ok(orderControlAuthority.includes('ORDER_ALREADY_DISPATCHED')&&orderControlAuthority.includes("v_order.status in ('OUT_FOR_DELIVERY','ARRIVING')"),'admin não pode cancelar/reatribuir automaticamente após a saída');
+assert.ok(orderControlAuthority.includes("actor_type,event_type")&&orderControlAuthority.includes("'admin','ADMIN_NOTE'")&&orderControlAuthority.includes('platform_admin_audit'),'intervenções da Torre precisam produzir trilha operacional e auditoria administrativa');
+assert.ok(orderControlAuthority.includes('cashback_release')&&orderControlAuthority.includes('available_stock=available_stock+v_item.quantity'),'cancelamento administrativo antes da saída precisa restaurar cashback e estoque quando aplicável');
+assert.ok(orderControlAuthority.includes('revoke all on function public.admin_order_control_action')&&orderControlAuthority.includes('from public, anon, authenticated'),'autoridade da Torre não pode ser executável diretamente pelo browser');
+assert.ok(adminOpsSource.includes('controlOrders')&&adminOpsSource.includes('admin_order_control_action')&&adminOpsSource.includes('order-control'),'admin API precisa projetar pedidos e transportar intervenções idempotentes');
+assert.ok(admin.includes('TORRE DE CONTROLE')&&admin.includes('Buscar outra revenda')&&admin.includes('Cancelar antes da saída')&&admin.includes('adminOrderControl'),'painel admin precisa oferecer Torre de Controle operacional sem UPDATE livre');
+
 
 const offerSource=read('supabase/functions/get-offers/index.ts');
 const merchantOpsSource=read('supabase/functions/merchant-ops/index.ts');

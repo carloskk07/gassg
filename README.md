@@ -25,6 +25,13 @@ O administrador pode converter um parceiro piloto em uma revenda real sem SQL ma
 
 O fluxo **não** fabrica validação: compliance nasce pendente, a revenda permanece offline e o owner pode ser vinculado quando a conta permanente existir. Toda conversão é idempotente e auditada.
 
+
+## V1.64 — Torre de Controle de pedidos
+
+O admin passa a enxergar pedidos reais em uma Torre de Controle com estados operacionais, atraso, risco, revenda, itens, pagamento e destino. As intervenções não fazem `UPDATE` livre: observação, rescue e cancelamento antes da saída passam por uma autoridade server-side idempotente e auditada.
+
+O rescue reaproveita as regras transacionais existentes para revalidar estoque, capacidade, compliance, pagamento e preço. Se a alternativa for mais cara, o cliente continua sendo a autoridade para aceitar a nova condição. Depois da saída para entrega, cancelamento/reatribuição automática pelo admin é bloqueado.
+
 ## Estado atual — v1.61 cloudflare portals
 
 O Netlify deixa de ser requisito para os portais isolados. A rota principal passa a ser **Cloudflare Pages**, mantendo o Netlify apenas como fallback de migração.

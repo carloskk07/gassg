@@ -35,6 +35,26 @@ A conversão:
 
 Não use SQL manual para converter o parceiro piloto.
 
+
+## Torre de Controle — V1.64
+
+O painel administrativo mostra pedidos ativos e recentes com foco em:
+- aguardando aceite;
+- preparando;
+- em risco/reatribuindo;
+- nova cotação;
+- a caminho/chegando;
+- atrasados;
+- concluídos/cancelados recentes.
+
+Ações administrativas disponíveis:
+- registrar observação;
+- buscar outra revenda por rescue canônico;
+- cancelar antes da saída, restaurando estoque/cashback quando aplicável;
+- abrir contato de cliente ou revenda quando o número está disponível.
+
+Depois de `OUT_FOR_DELIVERY`, a Torre não permite rollback operacional automático. Exceções devem ser tratadas por atendimento e, se necessário após settlement, pela reversão financeira auditada.
+
 ## Estado atual
 
 - Marca pública: **TAMÃO**
