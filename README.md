@@ -4,6 +4,12 @@ Marketplace hiperlocal de gás e abastecimento essencial para São Gabriel/RS.
 
 ## Estado atual — v1.57 admin bootstrap diagnostics
 
+Além do diagnóstico de bootstrap, a V1.57 corrige a política de gateway do primeiro login: `admin-auth` precisa ser alcançável **antes** de existir sessão, portanto fica com `verify_jwt=false` no gateway. Isso não transforma o claim em público: a própria função exige `Authorization: Bearer <token>` e valida o usuário com `auth.getUser` antes de chamar a autoridade SQL.
+
+A política fica persistida em `supabase/config.toml` para evitar regressão de deploy.
+
+
+
 O primeiro acesso administrativo deixa de tratar toda falha como simples "conta não autorizada".
 
 A autoridade `admin-auth` agora devolve ao navegador apenas um estado seguro de bootstrap:
