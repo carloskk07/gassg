@@ -95,6 +95,19 @@ Na revenda, produtos gerais liberados aparecem em **Adicionar produto do catálo
 
 Todas as superfícies transacionais usam FK para `product_delivery_profiles`, evitando que um produto passe no catálogo e falhe depois em cotação/pedido.
 
+
+
+## V1.67 — bundles live para Cloudflare Pages
+
+O pipeline de artefatos agora acompanha a arquitetura atual:
+
+- origins de customer/revenda/admin são os três `tamao-sg-*.pages.dev`;
+- a site key pública Turnstile é canônica e já está no repositório;
+- não existe mais input manual obrigatório de site key;
+- `production-bundle` roda automaticamente quando a `main` muda em arquivos de portal;
+- os três artefatos publicáveis continuam separados e com checksum.
+
+Isso **não substitui** a criação dos três projetos Cloudflare Pages. Cada projeto deve permanecer conectado à `main`, usando `node scripts/build-cloudflare-portal.mjs` e output `dist/cloudflare-portal`.
 ## Estado atual
 
 - Marca pública: **TAMÃO**
