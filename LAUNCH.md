@@ -17,6 +17,24 @@ A primeira abertura deve usar **PILOT**.
 
 
 
+
+## Onboarding assistido do primeiro parceiro — V1.63
+
+Na Central Administrativa, o cartão do parceiro piloto permite preencher dados reais e executar **Converter em revenda pendente**.
+
+A conversão:
+- preserva a faixa comercial já registrada;
+- cria merchant `pending`;
+- cria dados cadastrais server-only;
+- cria o SKU inicial e estoque informado;
+- ativa somente os meios de pagamento marcados pelo administrador;
+- mantém compliance pendente;
+- não coloca a revenda online;
+- permite owner vazio para vínculo posterior;
+- registra a ação na auditoria.
+
+Não use SQL manual para converter o parceiro piloto.
+
 ## Estado atual
 
 - Marca pública: **TAMÃO**
