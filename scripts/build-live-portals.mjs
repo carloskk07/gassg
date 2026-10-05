@@ -82,6 +82,7 @@ export function buildLivePortals(env=process.env,{outputRoot=env.PORTAL_BUILD_OU
   fs.mkdirSync(out,{recursive:true});
 
   const indexRaw=fs.readFileSync(path.join(ROOT,'index.html'),'utf8');
+  if(/<\/script>\\n\s*<script/.test(indexRaw))throw new Error('index.html contém \\n literal entre scripts; use quebra de linha real');
   const manifestRaw=fs.readFileSync(path.join(ROOT,'manifest.webmanifest'),'utf8');
   const built=[];
 
