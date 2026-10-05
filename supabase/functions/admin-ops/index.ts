@@ -15,12 +15,13 @@ const SECRET_KEY=secretKeys.default??Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")??
 const LEGACY_ADMIN_ALLOWED_ORIGIN=(Deno.env.get("ADMIN_ALLOWED_ORIGIN")??"https://chama-sg-admin.netlify.app").trim();
 const LEGACY_CUSTOMER_ALLOWED_ORIGIN=(Deno.env.get("CUSTOMER_ALLOWED_ORIGIN")??"https://chama-sg-cliente.netlify.app").trim();
 const LEGACY_MERCHANT_ALLOWED_ORIGIN=(Deno.env.get("MERCHANT_ALLOWED_ORIGIN")??"https://chama-sg-revenda.netlify.app").trim();
-const ADMIN_LIVE_ORIGIN="https://tamao-sg-admin.pages.dev";
-const CUSTOMER_LIVE_ORIGIN="https://tamao-sg-cliente.pages.dev";
-const MERCHANT_LIVE_ORIGIN="https://tamao-sg-revenda.pages.dev";
+const ADMIN_LIVE_ORIGIN="https://admin.tamao.com.br";
+const CUSTOMER_LIVE_ORIGIN="https://tamao.com.br";
+const MERCHANT_LIVE_ORIGIN="https://parceiro.tamao.com.br";
+const ADMIN_PAGES_ORIGIN="https://tamao-sg-admin.pages.dev";
 const ADMIN_PRIMARY_ORIGINS=new Set([
   ADMIN_LIVE_ORIGIN,
-  "https://admin.tamao.com.br",
+  ADMIN_PAGES_ORIGIN,
   LEGACY_ADMIN_ALLOWED_ORIGIN
 ].filter(Boolean));
 const TEST_TURNSTILE_KEYS=new Set([
