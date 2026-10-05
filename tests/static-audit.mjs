@@ -8,6 +8,12 @@ const root=path.resolve(new URL('..',import.meta.url).pathname);
 const read=p=>fs.readFileSync(path.join(root,p),'utf8');
 const exists=p=>fs.existsSync(path.join(root,p));
 
+for(const name of fs.readdirSync(path.join(root,'supabase','migrations'))){
+  if(!name.endsWith('.sql'))continue;
+  const sql=read(path.join('supabase','migrations',name));
+  assert.ok(!/^\\s*\\$function\\$\\s*$/m.test(sql),`migration ${name} possui terminador $function$ sem ponto e vírgula`);
+}
+
 const html=read('index.html');
 const refs=[...html.matchAll(/(?:src|href)="(\.\/[^"#?]+)"/g)].map(m=>m[1].replace(/^\.\//,''));
 for(const ref of refs) assert.ok(exists(ref),`asset ausente no index: ${ref}`);
