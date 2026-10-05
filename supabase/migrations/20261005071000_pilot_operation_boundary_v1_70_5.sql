@@ -40,7 +40,7 @@ CREATE OR REPLACE FUNCTION public.market_supply_status()
  LANGUAGE plpgsql
  STABLE SECURITY DEFINER
  SET search_path TO 'pg_catalog'
-AS $function$;
+AS $function$
 declare
   v_configured integer:=0;
   v_available integer:=0;
@@ -109,7 +109,7 @@ CREATE OR REPLACE FUNCTION public.create_order_from_quote_v8(p_user_id uuid, p_q
  LANGUAGE plpgsql
  SECURITY DEFINER
  SET search_path TO 'pg_catalog'
-AS $function$;
+AS $function$
 declare
   v_enabled boolean:=false;
   v_mode text:='PRELAUNCH';
@@ -159,7 +159,7 @@ CREATE OR REPLACE FUNCTION public.system_rescue_order(p_order_id uuid, p_reason 
  LANGUAGE plpgsql
  SECURITY DEFINER
  SET search_path TO 'pg_catalog'
-AS $function$;
+AS $function$
 declare
   v_order public.orders%rowtype;
   v_candidate_id uuid;
