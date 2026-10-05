@@ -40,7 +40,7 @@ CREATE OR REPLACE FUNCTION public.market_supply_status()
  LANGUAGE plpgsql
  STABLE SECURITY DEFINER
  SET search_path TO 'pg_catalog'
-AS $function$
+AS $function$;
 declare
   v_configured integer:=0;
   v_available integer:=0;
@@ -101,7 +101,7 @@ begin
     'productCodes',v_products
   );
 end;
-$function$
+$function$;
 
 
 CREATE OR REPLACE FUNCTION public.create_order_from_quote_v8(p_user_id uuid, p_quote_id uuid, p_payment_method text, p_use_cashback boolean, p_idempotency_key text, p_request_hash text, p_referral_code text DEFAULT NULL::text, p_cash_tender_cents integer DEFAULT NULL::integer, p_customer_phone text DEFAULT NULL::text, p_address_complement text DEFAULT NULL::text, p_delivery_reference text DEFAULT NULL::text, p_delivery_notes text DEFAULT NULL::text)
@@ -109,7 +109,7 @@ CREATE OR REPLACE FUNCTION public.create_order_from_quote_v8(p_user_id uuid, p_q
  LANGUAGE plpgsql
  SECURITY DEFINER
  SET search_path TO 'pg_catalog'
-AS $function$
+AS $function$;
 declare
   v_enabled boolean:=false;
   v_mode text:='PRELAUNCH';
@@ -151,7 +151,7 @@ begin
     p_delivery_notes
   );
 end;
-$function$
+$function$;
 
 
 CREATE OR REPLACE FUNCTION public.system_rescue_order(p_order_id uuid, p_reason text)
@@ -159,7 +159,7 @@ CREATE OR REPLACE FUNCTION public.system_rescue_order(p_order_id uuid, p_reason 
  LANGUAGE plpgsql
  SECURITY DEFINER
  SET search_path TO 'pg_catalog'
-AS $function$
+AS $function$;
 declare
   v_order public.orders%rowtype;
   v_candidate_id uuid;
@@ -493,6 +493,6 @@ begin
 
   return v_result;
 end;
-$function$
+$function$;
 
 
