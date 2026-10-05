@@ -468,6 +468,9 @@ assert.ok(customer.includes('Pré-lançamento controlado.')&&customer.includes('
 assert.ok(adminOpsSource.includes('verifyLivePortals')&&adminOpsSource.includes('portal-build.json')&&adminOpsSource.includes('CHAMA_TURNSTILE_SITE_KEY'),'admin deve atestar bundles e Turnstile antes do go-live');
 assert.ok(adminOpsSource.includes('TEST_TURNSTILE_KEYS')&&adminOpsSource.includes('sourceSha'),'atestado não pode aceitar chave Turnstile de teste nem versões divergentes');
 assert.ok(adminOpsSource.includes('admin_launch_control_action')&&adminOpsSource.includes('admin_confirm_launch_requirement')&&adminOpsSource.includes('admin_operation_mode_action'),'go-live precisa usar autoridade idempotente server-side, confirmação administrativa e modos explícitos');
+const operationModeIntegrity=read('supabase/migrations/20261005034500_operation_mode_integrity_v1_70_2.sql');
+assert.ok(operationModeIntegrity.includes("commerce_enabled = (operation_mode in ('PILOT','LIVE'))"),'modo operacional e kill switch precisam ser inseparáveis por constraint');
+assert.ok(operationModeIntegrity.includes("v_previous_mode='PRELAUNCH' and p_mode='PILOT'")&&operationModeIntegrity.includes("v_previous_mode='LIVE' and p_mode='PAUSED'")&&operationModeIntegrity.includes('INVALID_OPERATION_MODE_TRANSITION'),'servidor precisa impor grafo de transição operacional, não confiar na UI');
 assert.ok(admin.includes('CENTRAL DE PRODUÇÃO')&&admin.includes('adminVerifyLaunchPortals')&&admin.includes('adminConfirmLaunchRequirement')&&admin.includes('adminSetOperationMode'),'control plane precisa separar bloqueios críticos, alertas confirmáveis, modos e kill switch');
 const operationalAuthorityMigration=read('supabase/migrations/20261004141330_admin_operational_authority_v1_62.sql');
 const launchNullFixMigration=read('supabase/migrations/20261004142430_launch_confirmation_null_fix_v1_62_1.sql');
