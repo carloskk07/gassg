@@ -4,7 +4,7 @@ import path from 'node:path';
 import {buildRuntimeConfig,validatePortalRole} from './generate-runtime-config.mjs';
 
 const ROOT=path.resolve(new URL('..',import.meta.url).pathname);
-const STATIC_FILES=['index.html','manifest.webmanifest','sw.js'];
+const STATIC_FILES=['index.html','manifest.webmanifest','sw.js','robots.txt'];
 const STATIC_DIRS=['css','js','icons'];
 const PORTALS={
   customer:{name:'TAMÃO — Cliente',shortName:'TAMÃO',title:'TAMÃO — Pediu? Tá na mão.'},
