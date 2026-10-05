@@ -6,9 +6,9 @@ import {buildLivePortals,assertProductionTurnstile} from '../scripts/build-live-
 import {buildCloudflarePortal,CLOUDFLARE_PROJECTS,PUBLIC_TURNSTILE_SITE_KEY} from '../scripts/build-cloudflare-portal.mjs';
 
 const origins={
-  CHAMA_CUSTOMER_ORIGIN:'https://tamao-sg-cliente.pages.dev',
-  CHAMA_MERCHANT_ORIGIN:'https://tamao-sg-revenda.pages.dev',
-  CHAMA_ADMIN_ORIGIN:'https://tamao-sg-admin.pages.dev'
+  CHAMA_CUSTOMER_ORIGIN:'https://tamao.com.br',
+  CHAMA_MERCHANT_ORIGIN:'https://parceiro.tamao.com.br',
+  CHAMA_ADMIN_ORIGIN:'https://admin.tamao.com.br'
 };
 const testKey='1x00000000000000000000AA';
 
