@@ -108,8 +108,8 @@ Deno.serve(async(req:Request)=>{
       return json({error:"MESSAGE_REQUIRED",message:"Explique sua solicitação em pelo menos 10 caracteres."},400,origin);
     }
 
-    const idempotencyKey=String(req.headers.get("Idempotency-Key")??"").trim();
-    if(idempotencyKey.length<12||idempotencyKey.length>120||!/^[A-Za-z0-9._:-]+$/.test(idempotencyKey)){
+    const idempotencyKey=String(req.headers.get("Idempotency-Key")??"").trim()||null;
+    if(idempotencyKey&&(idempotencyKey.length<12||idempotencyKey.length>120||!/^[A-Za-z0-9._:-]+$/.test(idempotencyKey))){
       return json({error:"INVALID_IDEMPOTENCY_KEY",message:"Não foi possível identificar esta tentativa com segurança."},400,origin);
     }
 
@@ -130,11 +130,12 @@ Deno.serve(async(req:Request)=>{
     const requestHash=await sha256Hex(JSON.stringify(normalized));
     const admin=createClient(SUPABASE_URL,SECRET_KEY,{auth:{persistSession:false,autoRefreshToken:false}});
 
-    const {data:existing,error:existingError}=await admin
-      .from("public_requests")
-      .select("id,request_kind,status,created_at,request_hash")
-      .eq("request_idempotency_key",idempotencyKey)
-      .maybeSingle();
+    const {data:existing,error:existingError}=idempotencyKey
+      ? await admin.from("public_requests")
+          .select("id,request_kind,status,created_at,request_hash")
+          .eq("request_idempotency_key",idempotencyKey)
+          .maybeSingle()
+      : {data:null,error:null};
     if(existingError)throw existingError;
     if(existing){
       if(existing.request_hash!==requestHash){
@@ -168,7 +169,7 @@ Deno.serve(async(req:Request)=>{
       acknowledged_at:new Date().toISOString(),
       ip_hash:ipHash,
       request_idempotency_key:idempotencyKey,
-      request_hash:requestHash
+      request_hash:idempotencyKey?requestHash:null
     };
     const {data,error}=await admin
       .from("public_requests")
@@ -176,7 +177,7 @@ Deno.serve(async(req:Request)=>{
       .select("id,request_kind,status,created_at,request_hash")
       .single();
     if(error){
-      if(String(error.code)==="23505"){
+      if(idempotencyKey&&String(error.code)==="23505"){
         const {data:race,error:raceError}=await admin
           .from("public_requests")
           .select("id,request_kind,status,created_at,request_hash")
