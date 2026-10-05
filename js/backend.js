@@ -316,10 +316,15 @@ async function prelaunchLeadSubmit(payload){
 }
 
 async function publicRequestSubmit(payload){
+  const idempotencyKey=liveIdempotency('public-request');
   return retryAmbiguousOnce(async()=>{
     const response=await chamaFetch(CHAMA_BACKEND.url+'/functions/v1/submit-public-request',{
       method:'POST',
-      headers:{'Content-Type':'application/json','apikey':CHAMA_BACKEND.publishableKey},
+      headers:{
+        'Content-Type':'application/json',
+        'apikey':CHAMA_BACKEND.publishableKey,
+        'Idempotency-Key':idempotencyKey
+      },
       body:JSON.stringify({...payload,attribution:prelaunchAttribution()}),
       cache:'no-store'
     });
