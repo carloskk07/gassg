@@ -51,6 +51,8 @@ const netlifyConfig=read('netlify.toml');
 const netlifyBuilder=read('scripts/build-netlify-portal.mjs');
 const cloudflarePortalBuilder=read('scripts/build-cloudflare-portal.mjs');
 const pilotBoundaryMigration=read('supabase/migrations/20261005071000_pilot_operation_boundary_v1_70_5.sql');
+const orderLaunchRetryHardening=read('supabase/migrations/20261005105517_order_launch_mode_retry_hardening_v1_70_2.sql');
+const orderReplayAuthority=read('supabase/migrations/20261005105701_order_idempotent_replay_authority_v1_70_2_1.sql');
 
 assert.ok(!customer.includes('desktop-only" style="display:block"'),'desktop-only não pode ser forçado a display:block no mobile');
 assert.ok(customer.includes('esc(o.address)'),'endereço do pedido deve ser escapado antes de entrar no HTML');
@@ -467,6 +469,10 @@ assert.ok(read('supabase/functions/get-offers/index.ts').includes('commerce_laun
 assert.ok(read('supabase/functions/get-offers/index.ts').includes('operationMode==="PILOT"')&&read('supabase/functions/get-offers/index.ts').includes('pilot_partner_drafts'),'PILOT precisa filtrar ofertas para parceiros piloto no servidor');
 assert.ok(pilotBoundaryMigration.includes('merchant_allowed_in_operation_mode')&&pilotBoundaryMigration.includes('public.system_rescue_order')&&pilotBoundaryMigration.includes('PILOT_MERCHANT_NOT_ALLOWED'),'PILOT precisa governar criação e rescue no PostgreSQL, não apenas na UI');
 assert.ok(read('supabase/functions/create-order/index.ts').includes('PILOT_MERCHANT_NOT_ALLOWED'),'checkout precisa traduzir conflito de fronteira PILOT sem erro 500');
+assert.ok(orderLaunchRetryHardening.includes('for share')&&orderLaunchRetryHardening.includes("q.customer_id=p_user_id")&&orderLaunchRetryHardening.includes("onboarding_status='converted'"),'checkout precisa serializar com mudança de modo e revalidar ownership/merchant piloto na criação');
+assert.ok(orderReplayAuthority.indexOf('v_action.completed_at is not null')<orderReplayAuthority.indexOf('select commerce_enabled,operation_mode'),'replay concluído precisa vencer kill switch e mudança de modo');
+assert.ok(orderReplayAuthority.includes("v_action.user_id<>p_user_id")&&orderReplayAuthority.includes("v_action.request_hash<>p_request_hash")&&orderReplayAuthority.includes("'ORDER_NOT_FOUND'"),'replay precisa validar identidade/hash e depender do pedido persistido');
+assert.ok(orderReplayAuthority.includes("'canonicalAddress',v_order.address_text")&&orderReplayAuthority.includes("'postalCode',v_order.postal_code"),'replay final precisa reconstruir a resposta pelo snapshot persistido do pedido, não pela quote');
 assert.ok(read('supabase/functions/create-order/index.ts').includes('create_order_from_quote_v8')&&read('supabase/functions/create-order/index.ts').includes('COMMERCE_NOT_ENABLED'),'checkout deve usar autoridade V8 e traduzir kill switch');
 assert.ok(read('supabase/functions/market-status/index.ts').includes('commerce_launch_status')&&read('supabase/functions/market-status/index.ts').includes('operationMode')&&read('supabase/functions/market-status/index.ts').includes('launchMode:operationMode.toLowerCase()'),'market status precisa propagar PRELAUNCH/PILOT/LIVE/PAUSED sem inferir modo apenas por booleano');
 assert.ok(backend.includes('commerceLaunchBlocked')&&backend.includes('commerceEnabled:data?.commerceEnabled===true'),'runtime cliente precisa carregar o estado de lançamento');
