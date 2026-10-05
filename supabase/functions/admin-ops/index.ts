@@ -616,10 +616,22 @@ Deno.serve(async(req:Request)=>{
       if(!["PRELAUNCH","PILOT","LIVE","PAUSED"].includes(mode)){
         throw new DomainError("INVALID_OPERATION_MODE","Modo operacional inválido.",400);
       }
+      let sourceSha=body.sourceSha==null?null:String(body.sourceSha).trim().toLowerCase()||null;
+      if(["PILOT","LIVE"].includes(mode)){
+        const verification=await verifyLivePortals();
+        if(!verification.ok||!verification.sourceSha){
+          return json({
+            error:"LIVE_PORTALS_NOT_READY",
+            message:"Os três portais oficiais precisam passar na verificação imediatamente antes de ativar PILOT/LIVE.",
+            verification
+          },409,origin);
+        }
+        sourceSha=verification.sourceSha;
+      }
       payload={
         mode,
         reason:cleanText(body.reason,{min:3,max:1000,name:"motivo da mudança de modo"}),
-        sourceSha:body.sourceSha==null?null:String(body.sourceSha).trim().toLowerCase()||null
+        sourceSha
       };
       if(payload.sourceSha&&!/^[0-9a-f]{40}$/.test(String(payload.sourceSha))){
         throw new DomainError("INVALID_OPERATION_SOURCE_SHA","Versão de origem inválida.",400);
