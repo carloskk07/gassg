@@ -580,7 +580,8 @@ function adminSecurityBlockerLabel(code){
   return ({
     browser_sensitive_table_acl:'Acesso direto do navegador a tabelas sensíveis detectado.',
     sensitive_table_rls_disabled:'RLS desativado em tabela sensível.',
-    admin_rpc_browser_exposure:'RPC administrativa privilegiada exposta ao navegador.'
+    admin_rpc_browser_exposure:'RPC administrativa privilegiada exposta ao navegador.',
+    live_portals_verification_required:'Portais oficiais sem verificação técnica recente e consistente.'
   })[String(code||'')]||String(code||'Bloqueio técnico');
 }
 function adminLaunchControl(readiness={}){
