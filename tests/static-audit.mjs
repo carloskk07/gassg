@@ -303,6 +303,10 @@ assert.ok(remotePortalReadiness.includes("customer:{origin:'https://tamao.com.br
 assert.ok(remotePortalReadiness.includes('sourceShas.size===1')&&remotePortalReadiness.includes('commonSourceSha'),'sonda remota precisa exigir o mesmo SHA fonte entre os três portais');
 assert.ok(remotePortalReadiness.includes('TAMAO_EXPECTED_SOURCE_SHA')&&remotePortalReadiness.includes('expectedSourceMatches'),'sonda estrita precisa reprovar portais uniformemente atrasados em relação ao SHA esperado');
 assert.ok(remotePortalReadiness.includes('TEST_TURNSTILE_KEYS')&&remotePortalReadiness.includes('runtime remoto usa chave Turnstile de teste/demo'),'sonda remota precisa reprovar chave Turnstile de teste/demo');
+const portalIntegrityGate=read('supabase/migrations/20261005114500_live_portal_integrity_gate_v1_70_7.sql');
+assert.ok(portalIntegrityGate.includes("v_security:=array_append(v_security,'live_portals_verification_required')"),'atestado live vencido/ausente precisa ser bloqueio técnico não confirmável');
+assert.ok(!portalIntegrityGate.includes("v_warnings:=array_append(v_warnings,'live_portals_verification_required')"),'integridade de deploy não pode voltar a ser warning confirmável pelo admin');
+assert.ok(admin.includes('Portais oficiais sem verificação técnica recente e consistente.'),'Central de Produção precisa explicar o bloqueio técnico de atestado live');
 
 for(const publicFn of ['capture-prelaunch-lead','submit-public-request','capture-marketing-event']){
   assert.ok(
