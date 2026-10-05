@@ -680,6 +680,7 @@ assert.ok(bootstrap.includes("'merchant-team':merchantTeamPage")&&bootstrap.incl
 assert.ok(core.includes("memberRole==='driver'")&&core.includes("['merchant','🚚','Entregas','go']"),'motorista não deve receber atalhos de catálogo/equipe na navegação');
 
 assert.ok(getOrderSource.includes('deliveryDetailsVisible=role==="customer"||order.status!=="OFFERED_TO_MERCHANT"'),'pedido individual deve esconder detalhes de entrega da revenda antes do aceite');
+assert.ok(getOrderSource.includes('if(!role)return json({error:"ORDER_NOT_FOUND"')&&!getOrderSource.includes('if(!role)return json({error:"ACCESS_DENIED"'),'get-order não pode confirmar a existência de pedido para usuário sem ownership/membership');
 assert.ok(merchantOrdersSource.includes('customerPhone:o.status==="OFFERED_TO_MERCHANT"?null:o.customer_phone_digits'),'feed da revenda deve ocultar telefone antes do aceite');
 assert.ok(merchant.includes('Dados para entrega')&&merchant.includes('href="tel:'),'painel operacional deve exibir contato acionável somente quando projetado pelo backend');
 assert.ok(getOrderSource.includes('delivery_pii_redacted_at')&&getOrderSource.includes('deliveryDataRedacted'),'projeção do pedido precisa informar minimização de dados sem expor política interna');
