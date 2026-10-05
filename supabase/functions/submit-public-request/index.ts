@@ -135,8 +135,8 @@ Deno.serve(async(req:Request)=>{
       referrer:clean(attribution.referrer,500),
       landing_path:clean(attribution.landingPath,240)
     };
-    const requestKeyHash=await sha256Hex(idempotencyKey);
-    const requestFingerprintHash=await sha256Hex(JSON.stringify({
+    const requestKeyHash=await sha256Hex(SECRET_KEY.slice(0,32)+":idempotency:"+idempotencyKey);
+    const requestFingerprintHash=await sha256Hex(SECRET_KEY.slice(0,32)+":submission:"+JSON.stringify({
       requestKind,
       privacyAction,
       contactName,
