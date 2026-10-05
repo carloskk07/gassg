@@ -120,7 +120,7 @@ Deno.serve(async(req:Request)=>{
       }
     }
 
-    if(!role)return json({error:"ACCESS_DENIED",message:"Você não possui acesso a este pedido."},403,origin);
+    if(!role)return json({error:"ORDER_NOT_FOUND",message:"Pedido não encontrado."},404,origin);
     if(role==="customer"&&!customerOriginAllowed(origin)){
       return json({error:"CUSTOMER_ORIGIN_REQUIRED",message:"O acesso real do cliente exige uma origem dedicada."},403,origin);
     }
