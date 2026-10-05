@@ -8,6 +8,24 @@ const root=path.resolve(new URL('..',import.meta.url).pathname);
 const read=p=>fs.readFileSync(path.join(root,p),'utf8');
 const exists=p=>fs.existsSync(path.join(root,p));
 
+function assertSqlFunctionTerminators(){
+  const dir=path.join(root,'supabase','migrations');
+  for(const name of fs.readdirSync(dir).filter(name=>name.endsWith('.sql'))){
+    const sql=fs.readFileSync(path.join(dir,name),'utf8');
+    const opening=/\bAS\s+(\$[A-Za-z_][A-Za-z0-9_]*\$|\$\$)/ig;
+    let match;
+    while((match=opening.exec(sql))){
+      const tag=match[1];
+      const close=sql.indexOf(tag,opening.lastIndex);
+      assert.ok(close>=0,`${name}: bloco SQL dollar-quoted sem fechamento ${tag}`);
+      const tail=sql.slice(close+tag.length);
+      assert.match(tail,/^[ \t]*;/,`${name}: função/procedure sem ; após ${tag}`);
+      opening.lastIndex=close+tag.length;
+    }
+  }
+}
+assertSqlFunctionTerminators();
+
 const html=read('index.html');
 const refs=[...html.matchAll(/(?:src|href)="(\.\/[^"#?]+)"/g)].map(m=>m[1].replace(/^\.\//,''));
 for(const ref of refs) assert.ok(exists(ref),`asset ausente no index: ${ref}`);
