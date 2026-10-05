@@ -128,7 +128,7 @@ function merchantTeamPage(){
   const inviteRows=pending.map(invite=>`<div class="card flat" style="margin-bottom:10px">
     <div class="status-bar"><div><strong>${esc(invite.displayName||invite.email)}</strong><br><small>${esc(invite.email)} • ${esc(roleLabel[invite.memberRole]||invite.memberRole)}</small></div><span class="status-pill risk">PENDENTE</span></div>
     <div class="tiny muted" style="margin-top:8px">Válido até ${esc(formatDateTime(invite.expiresAt))}. O vínculo acontece quando esse e-mail entrar no portal da revenda.</div>
-    <div class="order-actions"><button class="secondary small" onclick="copyMerchantTeamInstructions('${esc(invite.email)}')">Copiar instruções</button><button class="danger-btn small" onclick="merchantTeamRevokeInviteFromUi('${esc(invite.inviteId)}')">Cancelar convite</button></div>
+    <div class="order-actions"><button class="secondary small" data-invite-id="${esc(invite.inviteId)}" onclick="copyMerchantTeamInstructionsByInvite(this.dataset.inviteId)">Copiar instruções</button><button class="danger-btn small" onclick="merchantTeamRevokeInviteFromUi('${esc(invite.inviteId)}')">Cancelar convite</button></div>
   </div>`).join('');
 
   return shell(`<section class="page">
@@ -370,6 +370,12 @@ async function merchantTeamRevokeInviteFromUi(inviteId){
     await merchantTeamRevokeInviteLive(inviteId);
     toast('Convite cancelado');
   }catch(e){toast(String(e?.message||e))}
+}
+async function copyMerchantTeamInstructionsByInvite(inviteId){
+  const id=String(inviteId||'');
+  const invite=(globalThis.merchantRuntime?.team?.pendingInvites||[]).find(x=>String(x.inviteId||'')===id);
+  if(!invite)return toast('Convite não encontrado');
+  return copyMerchantTeamInstructions(invite.email);
 }
 async function copyMerchantTeamInstructions(email){
   const url=location.origin+location.pathname+'?merchant=1#merchant';
