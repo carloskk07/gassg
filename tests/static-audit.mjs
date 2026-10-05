@@ -683,6 +683,8 @@ assert.ok(adminOpsSource.includes('admin_platform_admin_action'),'gestão de adm
 assert.ok(adminOpsSource.includes('LAST_ADMIN_CANNOT_BE_REMOVED'),'Edge deve traduzir proteção do último admin');
 assert.ok(admin.includes('Administradores da plataforma'),'painel admin precisa mostrar administradores');
 assert.ok(admin.includes('adminSetPlatformAdmin'),'painel admin precisa permitir gestão protegida de admins');
+assert.ok(admin.includes('admin-new-user-email')&&!admin.includes('admin-new-user-id'),'continuidade administrativa não pode exigir UUID cru descoberto fora do painel');
+assert.ok(adminOpsSource.includes('admin.auth.admin.listUsers')&&adminOpsSource.includes('INVALID_ADMIN_EMAIL')&&adminOpsSource.includes('ADMIN_USER_NOT_FOUND'),'Edge admin precisa resolver novo administrador por e-mail somente entre contas permanentes existentes');
 
 
 
