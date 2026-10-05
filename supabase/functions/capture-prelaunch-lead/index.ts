@@ -137,8 +137,8 @@ Deno.serve(async(req:Request)=>{
       landing_path:clean(body.landingPath,240)
     };
     const note=clean(body.note,500);
-    const requestKeyHash=await sha256Hex(idempotencyKey);
-    const requestFingerprintHash=await sha256Hex(JSON.stringify({
+    const requestKeyHash=await sha256Hex(SECRET_KEY.slice(0,32)+":idempotency:"+idempotencyKey);
+    const requestFingerprintHash=await sha256Hex(SECRET_KEY.slice(0,32)+":submission:"+JSON.stringify({
       leadType,
       contactName,
       businessName:leadType==="merchant"?businessName:null,
