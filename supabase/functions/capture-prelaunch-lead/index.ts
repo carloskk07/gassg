@@ -105,8 +105,8 @@ Deno.serve(async(req:Request)=>{
       return json({error:"INTEREST_REQUIRED",message:leadType==="merchant"?"Marque pelo menos uma categoria que sua empresa vende.":"Marque pelo menos um produto de interesse."},400,origin);
     }
 
-    const idempotencyKey=String(req.headers.get("Idempotency-Key")??"").trim();
-    if(idempotencyKey.length<12||idempotencyKey.length>120||!/^[A-Za-z0-9._:-]+$/.test(idempotencyKey)){
+    const idempotencyKey=String(req.headers.get("Idempotency-Key")??"").trim()||null;
+    if(idempotencyKey&&(idempotencyKey.length<12||idempotencyKey.length>120||!/^[A-Za-z0-9._:-]+$/.test(idempotencyKey))){
       return json({error:"INVALID_IDEMPOTENCY_KEY",message:"Não foi possível identificar esta tentativa com segurança."},400,origin);
     }
 
@@ -132,11 +132,12 @@ Deno.serve(async(req:Request)=>{
     const requestHash=await sha256Hex(JSON.stringify(normalized));
     const admin=createClient(SUPABASE_URL,SECRET_KEY,{auth:{persistSession:false,autoRefreshToken:false}});
 
-    const {data:replay,error:replayError}=await admin
-      .from("prelaunch_leads")
-      .select("id,lead_type,status,created_at,updated_at,last_submission_hash")
-      .eq("last_submission_idempotency_key",idempotencyKey)
-      .maybeSingle();
+    const {data:replay,error:replayError}=idempotencyKey
+      ? await admin.from("prelaunch_leads")
+          .select("id,lead_type,status,created_at,updated_at,last_submission_hash")
+          .eq("last_submission_idempotency_key",idempotencyKey)
+          .maybeSingle()
+      : {data:null,error:null};
     if(replayError)throw replayError;
     if(replay){
       if(replay.last_submission_hash!==requestHash){
@@ -168,7 +169,7 @@ Deno.serve(async(req:Request)=>{
       consent_at:new Date().toISOString(),
       ip_hash:ipHash,
       last_submission_idempotency_key:idempotencyKey,
-      last_submission_hash:requestHash,
+      last_submission_hash:idempotencyKey?requestHash:null,
       updated_at:new Date().toISOString()
     };
 
@@ -184,7 +185,7 @@ Deno.serve(async(req:Request)=>{
     let reused=false;
     if(existing){
       reused=true;
-      if(existing.last_submission_idempotency_key===idempotencyKey){
+      if(idempotencyKey&&existing.last_submission_idempotency_key===idempotencyKey){
         if(existing.last_submission_hash!==requestHash){
           return json({error:"IDEMPOTENCY_CONFLICT",message:"Esta tentativa já foi usada com outros dados."},409,origin);
         }
@@ -207,11 +208,12 @@ Deno.serve(async(req:Request)=>{
         .single();
       if(error){
         if(String(error.code)==="23505"){
-          const {data:keyRace,error:keyRaceError}=await admin
-            .from("prelaunch_leads")
-            .select("id,lead_type,status,created_at,updated_at,last_submission_hash")
-            .eq("last_submission_idempotency_key",idempotencyKey)
-            .maybeSingle();
+          const {data:keyRace,error:keyRaceError}=idempotencyKey
+            ? await admin.from("prelaunch_leads")
+                .select("id,lead_type,status,created_at,updated_at,last_submission_hash")
+                .eq("last_submission_idempotency_key",idempotencyKey)
+                .maybeSingle()
+            : {data:null,error:null};
           if(keyRaceError)throw keyRaceError;
           if(keyRace){
             if(keyRace.last_submission_hash!==requestHash){
