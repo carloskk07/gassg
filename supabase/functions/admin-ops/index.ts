@@ -563,7 +563,24 @@ Deno.serve(async(req:Request)=>{
       if(paymentMethods.length>3||paymentMethods.some(x=>!["pix","card","cash"].includes(x))){
         throw new DomainError("INVALID_PAYMENT_METHOD","Forma de pagamento inválida.",400);
       }
-      const ownerUserId=body.ownerUserId==null||String(body.ownerUserId).trim()===""?null:uuid(body.ownerUserId,"owner");
+      let ownerUserId=body.ownerUserId==null||String(body.ownerUserId).trim()===""?null:uuid(body.ownerUserId,"owner");
+      if(draftId&&ownerUserId==null){
+        const {data:claimedApplication,error:claimedApplicationError}=await admin
+          .from("merchant_applications")
+          .select("applicant_user_id,status")
+          .eq("pilot_partner_draft_id",draftId)
+          .eq("status","pending")
+          .maybeSingle();
+        if(claimedApplicationError)throw claimedApplicationError;
+        if(!claimedApplication?.applicant_user_id){
+          throw new DomainError(
+            "PILOT_OWNER_REQUIRED",
+            "O parceiro precisa reivindicar o convite e concluir o cadastro antes da conversão.",
+            409
+          );
+        }
+        ownerUserId=uuid(claimedApplication.applicant_user_id,"owner");
+      }
       const serviceRadiusKm=body.serviceRadiusKm==null||String(body.serviceRadiusKm).trim()===""?null:Number(body.serviceRadiusKm);
       if(serviceRadiusKm!=null&&(!Number.isFinite(serviceRadiusKm)||serviceRadiusKm<0||serviceRadiusKm>100)){
         throw new DomainError("INVALID_SERVICE_RADIUS","Raio de atendimento inválido.",400);
