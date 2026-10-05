@@ -80,6 +80,24 @@ async function auditDom(label){
   assert.equal(a.buttons,0,label+' tem botões sem nome acessível');
 }
 
+async function auditMobileViewportMatrix(){
+  const widths=[320,360,390];
+  const routes=['home','learn','earn','merchants','contact','order'];
+  for(const width of widths){
+    await send('Emulation.setDeviceMetricsOverride',{
+      width,height:844,deviceScaleFactor:1,mobile:true
+    });
+    for(const routeName of routes){
+      await evaluate(`go(${JSON.stringify(routeName)})`);
+      await waitFor(`location.hash===${JSON.stringify('#'+routeName)}`,routeName+' route at '+width+'px');
+      await auditDom(routeName+' @ '+width+'px');
+    }
+  }
+  await send('Emulation.clearDeviceMetricsOverride');
+  await evaluate("go('home')");
+  await waitFor("location.hash==='#home'","home after mobile viewport matrix");
+}
+
 await send('Page.enable');
 await send('Runtime.enable');
 await send('Log.enable');
@@ -106,6 +124,7 @@ assert.equal(marketingContextProbe.content,'');
 assert.equal(marketingContextProbe.landingPath,'/#home');
 assert.equal(typeof marketingContextProbe.referrerHost,'string');
 await auditDom('home');
+await auditMobileViewportMatrix();
 
 assert.equal(
   await evaluate("buildPortalHref('https://revenda.example.com','merchant',{origin:'https://app.example.com',hostname:'app.example.com',pathname:'/gassg/'})"),
@@ -366,5 +385,5 @@ assert.match(body,/R\$\s*1,15/);
 
 assert.deepEqual(pageErrors,[],`Chrome registrou erros: ${pageErrors.join(' | ')}`);
 
-console.log('E2E Chrome passou: fluxo padrão + faixa comercial JR 115,90/120/125 + P13 até settlement e cashback.');
+console.log('E2E Chrome passou: viewport 320/360/390 + rotas públicas + fluxo padrão + faixa comercial JR 115,90/120/125 + P13 até settlement e cashback.');
 ws.close();
