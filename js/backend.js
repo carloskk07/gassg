@@ -316,11 +316,17 @@ async function prelaunchLeadSubmit(payload){
 }
 
 async function publicRequestSubmit(payload){
+  const idempotencyKey='public-request:'+crypto.randomUUID();
+  const body=JSON.stringify({...payload,attribution:prelaunchAttribution()});
   return retryAmbiguousOnce(async()=>{
     const response=await chamaFetch(CHAMA_BACKEND.url+'/functions/v1/submit-public-request',{
       method:'POST',
-      headers:{'Content-Type':'application/json','apikey':CHAMA_BACKEND.publishableKey},
-      body:JSON.stringify({...payload,attribution:prelaunchAttribution()}),
+      headers:{
+        'Content-Type':'application/json',
+        'apikey':CHAMA_BACKEND.publishableKey,
+        'Idempotency-Key':idempotencyKey
+      },
+      body,
       cache:'no-store'
     });
     let data=null;
