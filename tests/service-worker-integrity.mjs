@@ -71,7 +71,14 @@ const offlineReq={method:'GET',url:'https://tamao.com.br/outra-rota',mode:'navig
 const offlineRes=await dispatchFetch(offlineReq);
 assert.match(await offlineRes.text(),/shell-novo/);
 
-// 4) A rede do SW deve ignorar HTTP cache para reduzir bundle obsoleto pós-deploy.
+// 4) Um 5xx de asset same-origin deve usar a última cópia boa.
+const cssReq={method:'GET',url:'https://tamao.com.br/css/base.css',mode:'same-origin'};
+store.set(cssReq.url,new Response('body{display:block}',{status:200,headers:{'content-type':'text/css'}}));
+fetchImpl=async()=>new Response('erro temporário',{status:503,headers:{'content-type':'text/plain'}});
+const cssRes=await dispatchFetch(cssReq);
+assert.equal(await cssRes.text(),'body{display:block}','5xx deve cair no cache bom do asset');
+
+// 5) A rede do SW deve ignorar HTTP cache para reduzir bundle obsoleto pós-deploy.
 assert.match(source,/fetch\(req,\{cache:'no-store'\}\)/);
 assert.match(source,/contentType\.includes\('text\/html'\)/);
 assert.ok(!source.includes("req.mode==='navigate'?'./index.html':req"),'padrão antigo de cache poisoning não pode voltar');
