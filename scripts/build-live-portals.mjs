@@ -75,6 +75,18 @@ function patchManifest(raw,portal){
   return JSON.stringify(manifest,null,2)+'\n';
 }
 
+function patchServiceWorker(raw,sourceSha){
+  const buildId=String(sourceSha||'unknown').trim()||'unknown';
+  if(!/^[A-Za-z0-9._-]{1,120}$/.test(buildId))throw new Error('source SHA inválido para cache PWA');
+  const next=raw.replace(
+    /const CACHE=['"][^'"]+['"];/,
+    'const CACHE='+JSON.stringify('tamao-sg-'+buildId)+';'
+  );
+  if(next===raw)throw new Error('constante CACHE do service worker não encontrada');
+  return next;
+}
+
+
 export function buildLivePortals(env=process.env,{outputRoot=env.PORTAL_BUILD_OUTPUT||path.join(ROOT,'dist','live-portals')}={}){
   assertProductionTurnstile(env);
   const out=path.resolve(outputRoot);
@@ -84,6 +96,8 @@ export function buildLivePortals(env=process.env,{outputRoot=env.PORTAL_BUILD_OU
   const indexRaw=fs.readFileSync(path.join(ROOT,'index.html'),'utf8');
   if(/<\/script>\\n\s*<script/.test(indexRaw))throw new Error('index.html contém \\n literal entre scripts; use quebra de linha real');
   const manifestRaw=fs.readFileSync(path.join(ROOT,'manifest.webmanifest'),'utf8');
+  const serviceWorkerRaw=fs.readFileSync(path.join(ROOT,'sw.js'),'utf8');
+  const sourceSha=String(env.CHAMA_SOURCE_SHA||'unknown').trim()||'unknown';
   const built=[];
 
   for(const role of Object.keys(PORTALS)){
@@ -100,12 +114,13 @@ export function buildLivePortals(env=process.env,{outputRoot=env.PORTAL_BUILD_OU
     );
     fs.writeFileSync(path.join(target,'index.html'),patchIndex(indexRaw,role),'utf8');
     fs.writeFileSync(path.join(target,'manifest.webmanifest'),patchManifest(manifestRaw,role),'utf8');
+    fs.writeFileSync(path.join(target,'sw.js'),patchServiceWorker(serviceWorkerRaw,sourceSha),'utf8');
     fs.writeFileSync(path.join(target,'_headers'),headers(),'utf8');
     fs.writeFileSync(path.join(target,'_redirects'),'/* /index.html 200\n','utf8');
     fs.writeFileSync(path.join(target,'portal-build.json'),JSON.stringify({
       schemaVersion:1,
       portalRole:role,
-      sourceSha:String(env.CHAMA_SOURCE_SHA||'unknown'),
+      sourceSha,
       customerOrigin:String(env.CHAMA_CUSTOMER_ORIGIN||''),
       merchantOrigin:String(env.CHAMA_MERCHANT_ORIGIN||''),
       adminOrigin:String(env.CHAMA_ADMIN_ORIGIN||'')
