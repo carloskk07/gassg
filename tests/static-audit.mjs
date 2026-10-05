@@ -268,6 +268,7 @@ assert.ok(!backend.includes('@supabase/supabase-js@2\''),'browser não pode usar
 assert.ok(backend.includes('offerRequestSeq')&&backend.includes('orderRequestSeq'),'runtime live precisa bloquear respostas assíncronas obsoletas');
 assert.ok(backend.includes('financialSyncSeq')&&backend.includes('marketStatusSeq'),'resumos financeiros e estado do mercado também precisam descartar respostas obsoletas');
 assert.ok(backend.includes('liveRuntime.pollPending')&&backend.includes('merchantRuntime.pollPending'),'polling cliente/revenda deve ser single-flight em rede lenta');
+assert.ok(backend.includes('const minIntervalMs=activeOrder?5000:15000')&&backend.includes('merchantRuntime.lastPollAt'),'revenda ociosa não deve baixar snapshot completo a cada 5 segundos; pedido ativo preserva baixa latência');
 assert.ok(backend.includes('refreshSeq:0')&&backend.includes('seq!==merchantRuntime.refreshSeq'),'refresh da revenda não pode aceitar resposta antiga sobre uma mais nova');
 assert.ok(admin.includes('pollPending:false')&&admin.includes('refreshSeq:0')&&admin.includes('now-adminRuntime.lastPollAt<15000'),'admin deve serializar refresh e evitar polling completo a cada 5 segundos');
 assert.ok(admin.includes("/functions/v1/admin-auth")&&admin.includes("action:'request-link'")&&admin.includes("action:'claim'"),'login administrativo precisa passar pela autoridade server-side de bootstrap');
