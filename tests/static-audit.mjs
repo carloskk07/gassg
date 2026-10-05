@@ -297,10 +297,16 @@ assert.ok(!livePortalWorkflow.includes('chama-sg-cliente.netlify.app')&&!livePor
 assert.ok(livePortalWorkflow.includes('tamao-live-admin')&&!livePortalWorkflow.includes('name: chama-live-admin'),'artefato publicável precisa ter nome de produção atual e não ser emitido pelo job de teste');
 assert.ok(livePortalWorkflow.includes('Turnstile test/demo key cannot produce production portal artifacts.'),'produção precisa bloquear explicitamente chaves Turnstile de teste/demo');
 assert.ok(launchReadinessWorkflow.includes("TAMAO_REQUIRE_LIVE_PORTALS: '1'")&&launchReadinessWorkflow.includes('remote-admin-readiness.mjs'),'gate manual de lançamento precisa exigir os três portais live reais');
+assert.ok(launchReadinessWorkflow.includes('TAMAO_EXPECTED_SOURCE_SHA: ${{ github.sha }}'),'gate de lançamento precisa amarrar produção ao commit exato que está sendo certificado');
 const remotePortalReadiness=read('tests/remote-admin-readiness.mjs');
 assert.ok(remotePortalReadiness.includes("customer:{origin:'https://tamao.com.br'")&&remotePortalReadiness.includes("merchant:{origin:'https://parceiro.tamao.com.br'")&&remotePortalReadiness.includes("admin:{origin:'https://admin.tamao.com.br'"),'sonda remota precisa verificar cliente, parceiro e admin nos domínios oficiais');
 assert.ok(remotePortalReadiness.includes('sourceShas.size===1')&&remotePortalReadiness.includes('commonSourceSha'),'sonda remota precisa exigir o mesmo SHA fonte entre os três portais');
+assert.ok(remotePortalReadiness.includes('TAMAO_EXPECTED_SOURCE_SHA')&&remotePortalReadiness.includes('expectedSourceMatches'),'sonda estrita precisa reprovar portais uniformemente atrasados em relação ao SHA esperado');
 assert.ok(remotePortalReadiness.includes('TEST_TURNSTILE_KEYS')&&remotePortalReadiness.includes('runtime remoto usa chave Turnstile de teste/demo'),'sonda remota precisa reprovar chave Turnstile de teste/demo');
+const portalIntegrityGate=read('supabase/migrations/20261005114500_live_portal_integrity_gate_v1_70_7.sql');
+assert.ok(portalIntegrityGate.includes("v_security:=array_append(v_security,'live_portals_verification_required')"),'atestado live vencido/ausente precisa ser bloqueio técnico não confirmável');
+assert.ok(!portalIntegrityGate.includes("v_warnings:=array_append(v_warnings,'live_portals_verification_required')"),'integridade de deploy não pode voltar a ser warning confirmável pelo admin');
+assert.ok(admin.includes('Portais oficiais sem verificação técnica recente e consistente.'),'Central de Produção precisa explicar o bloqueio técnico de atestado live');
 
 for(const publicFn of ['capture-prelaunch-lead','submit-public-request','capture-marketing-event']){
   assert.ok(

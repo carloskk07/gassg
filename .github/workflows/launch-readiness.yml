@@ -14,4 +14,5 @@ jobs:
       - name: Strict remote live portal readiness
         env:
           TAMAO_REQUIRE_LIVE_PORTALS: '1'
+          TAMAO_EXPECTED_SOURCE_SHA: ${{ github.sha }}
         run: node tests/remote-admin-readiness.mjs

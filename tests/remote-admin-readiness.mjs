@@ -12,6 +12,10 @@ const ADMIN_ORIGIN=PORTALS.admin.origin;
 const REQUIRE_LIVE_PORTALS=
   process.env.TAMAO_REQUIRE_LIVE_PORTALS==='1'
   ||process.env.TAMAO_REQUIRE_ADMIN_PORTAL==='1';
+const EXPECTED_SOURCE_SHA=String(process.env.TAMAO_EXPECTED_SOURCE_SHA||'').trim().toLowerCase();
+if(EXPECTED_SOURCE_SHA){
+  assert.match(EXPECTED_SOURCE_SHA,/^[0-9a-f]{40}$/,'TAMAO_EXPECTED_SOURCE_SHA precisa ser SHA git completo');
+}
 const TEST_TURNSTILE_KEYS=new Set([
   '1x00000000000000000000AA',
   '2x00000000000000000000AB',
@@ -182,7 +186,9 @@ const portalResults=await Promise.all(
 const portalByRole=Object.fromEntries(portalResults.map(x=>[x.role,x]));
 const readyPortals=portalResults.filter(x=>x.ready);
 const sourceShas=new Set(readyPortals.map(x=>x.sourceSha).filter(Boolean));
-const allReady=portalResults.every(x=>x.ready)&&sourceShas.size===1;
+const commonSourceSha=sourceShas.size===1?[...sourceShas][0]:null;
+const expectedSourceMatches=!EXPECTED_SOURCE_SHA||commonSourceSha===EXPECTED_SOURCE_SHA;
+const allReady=portalResults.every(x=>x.ready)&&sourceShas.size===1&&expectedSourceMatches;
 
 if(!allReady){
   const problems=portalResults
@@ -190,6 +196,9 @@ if(!allReady){
     .map(x=>x.role+': '+x.reasons.join('; '));
   if(readyPortals.length>1&&sourceShas.size!==1){
     problems.push('source SHA divergente entre portais: '+[...sourceShas].join(', '));
+  }
+  if(EXPECTED_SOURCE_SHA&&commonSourceSha!==EXPECTED_SOURCE_SHA){
+    problems.push('source SHA remoto '+String(commonSourceSha||'ausente')+' difere do esperado '+EXPECTED_SOURCE_SHA);
   }
   const message='Portais live ainda não estão prontos: '+problems.join(' | ');
   if(REQUIRE_LIVE_PORTALS)assert.fail(message);
@@ -201,7 +210,9 @@ console.log(JSON.stringify({
   adminAuthPublicEntry:'CAPTCHA_REQUIRED',
   adminClaimWithoutSession:'UNAUTHORIZED',
   allPortalsReady:allReady,
-  commonSourceSha:allReady?[...sourceShas][0]:null,
+  commonSourceSha,
+  expectedSourceSha:EXPECTED_SOURCE_SHA||null,
+  expectedSourceMatches,
   portals:portalByRole,
   strictPortalGate:REQUIRE_LIVE_PORTALS
 },null,2));
