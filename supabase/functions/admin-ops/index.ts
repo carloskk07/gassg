@@ -616,10 +616,22 @@ Deno.serve(async(req:Request)=>{
       if(!["PRELAUNCH","PILOT","LIVE","PAUSED"].includes(mode)){
         throw new DomainError("INVALID_OPERATION_MODE","Modo operacional inválido.",400);
       }
+      let sourceSha=body.sourceSha==null?null:String(body.sourceSha).trim().toLowerCase()||null;
+      if(["PILOT","LIVE"].includes(mode)){
+        const verification=await verifyLivePortals();
+        if(!verification.ok||!verification.sourceSha){
+          return json({
+            error:"LIVE_PORTALS_NOT_READY",
+            message:"Os três portais oficiais precisam passar na verificação imediatamente antes de ativar PILOT/LIVE.",
+            verification
+          },409,origin);
+        }
+        sourceSha=verification.sourceSha;
+      }
       payload={
         mode,
         reason:cleanText(body.reason,{min:3,max:1000,name:"motivo da mudança de modo"}),
-        sourceSha:body.sourceSha==null?null:String(body.sourceSha).trim().toLowerCase()||null
+        sourceSha
       };
       if(payload.sourceSha&&!/^[0-9a-f]{40}$/.test(String(payload.sourceSha))){
         throw new DomainError("INVALID_OPERATION_SOURCE_SHA","Versão de origem inválida.",400);
@@ -1010,6 +1022,12 @@ Deno.serve(async(req:Request)=>{
     }
     if(message.includes("INVALID_OPERATION_MODE")){
       return json({error:"INVALID_OPERATION_MODE",message:"Modo operacional inválido."},400,origin);
+    }
+    if(message.includes("INVALID_OPERATION_MODE_TRANSITION")){
+      return json({error:"INVALID_OPERATION_MODE_TRANSITION",message:"A mudança de modo não é válida para o estado operacional atual. Atualize a Central de Produção."},409,origin);
+    }
+    if(message.includes("platform_launch_control_mode_source_consistency")){
+      return json({error:"PORTAL_SOURCE_SHA_MISMATCH",message:"Os portais mudaram depois da última verificação. Verifique os três portais novamente antes de ativar PILOT/LIVE."},409,origin);
     }
     if(message.includes("PORTAL_ATTESTATION_INVALID")){
       return json({error:"PORTAL_ATTESTATION_INVALID",message:"A verificação dos portais live não é válida."},409,origin);

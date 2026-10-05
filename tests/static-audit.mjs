@@ -496,8 +496,12 @@ assert.ok(adminOpsSource.includes('verifyLivePortals')&&adminOpsSource.includes(
 assert.ok(adminOpsSource.includes('TEST_TURNSTILE_KEYS')&&adminOpsSource.includes('sourceSha'),'atestado não pode aceitar chave Turnstile de teste nem versões divergentes');
 assert.ok(adminOpsSource.includes('admin_launch_control_action')&&adminOpsSource.includes('admin_confirm_launch_requirement')&&adminOpsSource.includes('admin_operation_mode_action'),'go-live precisa usar autoridade idempotente server-side, confirmação administrativa e modos explícitos');
 const operationModeIntegrity=read('supabase/migrations/20261005034500_operation_mode_integrity_v1_70_2.sql');
+const activationPortalConsistency=read('supabase/migrations/20261005211000_activation_portal_sha_consistency_v1_70_13.sql');
 assert.ok(operationModeIntegrity.includes("commerce_enabled = (operation_mode in ('PILOT','LIVE'))"),'modo operacional e kill switch precisam ser inseparáveis por constraint');
 assert.ok(operationModeIntegrity.includes("v_previous_mode='PRELAUNCH' and p_mode='PILOT'")&&operationModeIntegrity.includes("v_previous_mode='LIVE' and p_mode='PAUSED'")&&operationModeIntegrity.includes('INVALID_OPERATION_MODE_TRANSITION'),'servidor precisa impor grafo de transição operacional, não confiar na UI');
+assert.ok(adminOpsSource.includes('if(["PILOT","LIVE"].includes(mode))')&&adminOpsSource.includes('sourceSha=verification.sourceSha'),'ativação PILOT/LIVE precisa reprovar os três portais no Edge imediatamente antes da mutação');
+assert.ok(activationPortalConsistency.includes('mode_source_sha = portals_source_sha')&&activationPortalConsistency.includes('not commerce_enabled'),'banco precisa rejeitar ativação cujo SHA vivo diverge do último atestado registrado');
+assert.ok(adminOpsSource.includes('PORTAL_SOURCE_SHA_MISMATCH')&&adminOpsSource.includes('INVALID_OPERATION_MODE_TRANSITION'),'Edge admin precisa traduzir drift de portal e conflito de transição sem mascarar como erro 500');
 assert.ok(admin.includes('CENTRAL DE PRODUÇÃO')&&admin.includes('adminVerifyLaunchPortals')&&admin.includes('adminConfirmLaunchRequirement')&&admin.includes('adminSetOperationMode'),'control plane precisa separar bloqueios críticos, alertas confirmáveis, modos e kill switch');
 const operationalAuthorityMigration=read('supabase/migrations/20261004141330_admin_operational_authority_v1_62.sql');
 const launchNullFixMigration=read('supabase/migrations/20261004142430_launch_confirmation_null_fix_v1_62_1.sql');
