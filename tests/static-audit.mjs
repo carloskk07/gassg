@@ -50,6 +50,7 @@ const launchReadinessWorkflow=read('.github/workflows/launch-readiness.yml');
 const netlifyConfig=read('netlify.toml');
 const netlifyBuilder=read('scripts/build-netlify-portal.mjs');
 const cloudflarePortalBuilder=read('scripts/build-cloudflare-portal.mjs');
+const pilotBoundaryMigration=read('supabase/migrations/20261005071000_pilot_operation_boundary_v1_70_5.sql');
 
 assert.ok(!customer.includes('desktop-only" style="display:block"'),'desktop-only não pode ser forçado a display:block no mobile');
 assert.ok(customer.includes('esc(o.address)'),'endereço do pedido deve ser escapado antes de entrar no HTML');
@@ -463,6 +464,9 @@ assert.ok(adminOpsSource.includes('ADMIN_ALLOWED_ORIGIN'),'Edge admin precisa de
 assert.ok(adminOpsSource.includes('const CUSTOMER_LIVE_ORIGIN="https://tamao.com.br"')&&adminOpsSource.includes('const MERCHANT_LIVE_ORIGIN="https://parceiro.tamao.com.br"')&&adminOpsSource.includes('const ADMIN_LIVE_ORIGIN="https://admin.tamao.com.br"'),'verificador administrativo precisa provar os três domínios oficiais, não os hosts técnicos pages.dev');
 assert.ok(adminOpsSource.includes('ADMIN_PAGES_ORIGIN="https://tamao-sg-admin.pages.dev"'),'portal técnico admin pode permanecer somente como fallback CORS, não como origem canônica');
 assert.ok(read('supabase/functions/get-offers/index.ts').includes('commerce_launch_status')&&read('supabase/functions/get-offers/index.ts').includes('commerceLaunchBlocked:true'),'matching live precisa falhar fechado antes da abertura oficial');
+assert.ok(read('supabase/functions/get-offers/index.ts').includes('operationMode==="PILOT"')&&read('supabase/functions/get-offers/index.ts').includes('pilot_partner_drafts'),'PILOT precisa filtrar ofertas para parceiros piloto no servidor');
+assert.ok(pilotBoundaryMigration.includes('merchant_allowed_in_operation_mode')&&pilotBoundaryMigration.includes('public.system_rescue_order')&&pilotBoundaryMigration.includes('PILOT_MERCHANT_NOT_ALLOWED'),'PILOT precisa governar criação e rescue no PostgreSQL, não apenas na UI');
+assert.ok(read('supabase/functions/create-order/index.ts').includes('PILOT_MERCHANT_NOT_ALLOWED'),'checkout precisa traduzir conflito de fronteira PILOT sem erro 500');
 assert.ok(read('supabase/functions/create-order/index.ts').includes('create_order_from_quote_v8')&&read('supabase/functions/create-order/index.ts').includes('COMMERCE_NOT_ENABLED'),'checkout deve usar autoridade V8 e traduzir kill switch');
 assert.ok(read('supabase/functions/market-status/index.ts').includes('commerce_launch_status')&&read('supabase/functions/market-status/index.ts').includes('operationMode')&&read('supabase/functions/market-status/index.ts').includes('launchMode:operationMode.toLowerCase()'),'market status precisa propagar PRELAUNCH/PILOT/LIVE/PAUSED sem inferir modo apenas por booleano');
 assert.ok(backend.includes('commerceLaunchBlocked')&&backend.includes('commerceEnabled:data?.commerceEnabled===true'),'runtime cliente precisa carregar o estado de lançamento');
