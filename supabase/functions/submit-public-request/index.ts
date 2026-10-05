@@ -19,7 +19,7 @@ function originAllowed(origin:string|null){
 function cors(origin:string|null){
   return {
     "Access-Control-Allow-Origin":origin&&originAllowed(origin)?origin:"null",
-    "Access-Control-Allow-Headers":"content-type, apikey",
+    "Access-Control-Allow-Headers":"content-type, apikey, idempotency-key",
     "Access-Control-Allow-Methods":"POST, OPTIONS",
     "Vary":"Origin"
   };
@@ -57,6 +57,21 @@ function normalizeContact(channel:string,value:unknown){
   if(phone.length<10||phone.length>13)return null;
   return phone;
 }
+function readIdempotencyKey(req:Request){
+  const key=String(req.headers.get("idempotency-key")??"").trim();
+  if(key.length<12||key.length>120||!/^[A-Za-z0-9._:-]+$/.test(key))return null;
+  return key;
+}
+function acceptedPayload(id:unknown,requestKind:string){
+  return {
+    ok:true,
+    accepted:true,
+    protocol:String(id).slice(0,8).toUpperCase(),
+    message:requestKind==="privacy"
+      ?"Solicitação de privacidade recebida. Poderemos pedir confirmação de identidade antes de fornecer ou alterar dados."
+      :"Solicitação recebida. Usaremos o canal informado para responder."
+  };
+}
 
 Deno.serve(async(req:Request)=>{
   const origin=req.headers.get("Origin");
@@ -76,6 +91,10 @@ Deno.serve(async(req:Request)=>{
     let body:any;
     try{body=JSON.parse(raw)}catch{return json({error:"INVALID_JSON",message:"Dados inválidos."},400,origin)}
     if(clean(body.website,200))return json({ok:true,accepted:true},202,origin);
+    const idempotencyKey=readIdempotencyKey(req);
+    if(!idempotencyKey){
+      return json({error:"INVALID_IDEMPOTENCY_KEY",message:"Não foi possível identificar esta tentativa com segurança. Atualize a página e tente novamente."},400,origin);
+    }
     if(body.acknowledged!==true){
       return json({error:"ACK_REQUIRED",message:"Confirme que os dados serão usados para responder à sua solicitação."},400,origin);
     }
@@ -108,7 +127,39 @@ Deno.serve(async(req:Request)=>{
       return json({error:"MESSAGE_REQUIRED",message:"Explique sua solicitação em pelo menos 10 caracteres."},400,origin);
     }
 
+    const attribution=body.attribution&&typeof body.attribution==="object"?body.attribution:{};
+    const normalizedAttribution={
+      source:clean(attribution.source,80),
+      medium:clean(attribution.medium,80),
+      campaign:clean(attribution.campaign,120),
+      referrer:clean(attribution.referrer,500),
+      landing_path:clean(attribution.landingPath,240)
+    };
+    const requestKeyHash=await sha256Hex(SECRET_KEY.slice(0,32)+":idempotency:"+idempotencyKey);
+    const requestFingerprintHash=await sha256Hex(SECRET_KEY.slice(0,32)+":submission:"+JSON.stringify({
+      requestKind,
+      privacyAction,
+      contactName,
+      contactChannel,
+      contactValue,
+      message,
+      attribution:normalizedAttribution
+    }));
+
     const admin=createClient(SUPABASE_URL,SECRET_KEY,{auth:{persistSession:false,autoRefreshToken:false}});
+    const {data:existingByKey,error:existingByKeyError}=await admin
+      .from("public_requests")
+      .select("id,request_kind,request_fingerprint_hash")
+      .eq("request_key_hash",requestKeyHash)
+      .maybeSingle();
+    if(existingByKeyError)throw existingByKeyError;
+    if(existingByKey){
+      if(existingByKey.request_fingerprint_hash!==requestFingerprintHash){
+        return json({error:"IDEMPOTENCY_CONFLICT",message:"Esta tentativa já foi usada com outros dados. Atualize a página e envie novamente."},409,origin);
+      }
+      return json(acceptedPayload(existingByKey.id,existingByKey.request_kind),200,origin);
+    }
+
     const ipHash=await sha256Hex(SECRET_KEY.slice(0,32)+":"+clientIp(req));
     const {data:quota,error:quotaError}=await admin.rpc("consume_prelaunch_lead_quota",{
       p_ip_hash:ipHash,
@@ -121,7 +172,6 @@ Deno.serve(async(req:Request)=>{
       return json({error:"RATE_LIMITED",message:"Muitas solicitações em pouco tempo. Tente novamente mais tarde.",retryAfterSeconds:quota?.retryAfterSeconds||3600},429,origin);
     }
 
-    const attribution=body.attribution&&typeof body.attribution==="object"?body.attribution:{};
     const payload={
       request_kind:requestKind,
       privacy_action:privacyAction,
@@ -130,28 +180,35 @@ Deno.serve(async(req:Request)=>{
       contact_value:contactValue,
       message,
       acknowledged_at:new Date().toISOString(),
-      source:clean(attribution.source,80),
-      medium:clean(attribution.medium,80),
-      campaign:clean(attribution.campaign,120),
-      referrer:clean(attribution.referrer,500),
-      landing_path:clean(attribution.landingPath,240),
-      ip_hash:ipHash
+      ...normalizedAttribution,
+      ip_hash:ipHash,
+      request_key_hash:requestKeyHash,
+      request_fingerprint_hash:requestFingerprintHash
     };
     const {data,error}=await admin
       .from("public_requests")
       .insert(payload)
       .select("id,request_kind,status,created_at")
       .single();
-    if(error)throw error;
+    if(error){
+      if(String(error.code)==="23505"){
+        const {data:race,error:raceError}=await admin
+          .from("public_requests")
+          .select("id,request_kind,request_fingerprint_hash")
+          .eq("request_key_hash",requestKeyHash)
+          .maybeSingle();
+        if(raceError)throw raceError;
+        if(race){
+          if(race.request_fingerprint_hash!==requestFingerprintHash){
+            return json({error:"IDEMPOTENCY_CONFLICT",message:"Esta tentativa já foi usada com outros dados. Atualize a página e envie novamente."},409,origin);
+          }
+          return json(acceptedPayload(race.id,race.request_kind),200,origin);
+        }
+      }
+      throw error;
+    }
 
-    return json({
-      ok:true,
-      accepted:true,
-      protocol:String(data.id).slice(0,8).toUpperCase(),
-      message:requestKind==="privacy"
-        ?"Solicitação de privacidade recebida. Poderemos pedir confirmação de identidade antes de fornecer ou alterar dados."
-        :"Solicitação recebida. Usaremos o canal informado para responder."
-    },201,origin);
+    return json(acceptedPayload(data.id,data.request_kind),201,origin);
   }catch(error){
     console.error("submit-public-request failed",error instanceof Error?error.message:String(error));
     return json({error:"INTERNAL_ERROR",message:"Não foi possível enviar agora. Tente novamente."},500,origin);

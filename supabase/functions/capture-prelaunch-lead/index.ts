@@ -20,7 +20,7 @@ function originAllowed(origin:string|null){
 function cors(origin:string|null){
   return {
     "Access-Control-Allow-Origin":origin&&originAllowed(origin)?origin:"null",
-    "Access-Control-Allow-Headers":"content-type, apikey",
+    "Access-Control-Allow-Headers":"content-type, apikey, idempotency-key",
     "Access-Control-Allow-Methods":"POST, OPTIONS",
     "Vary":"Origin"
   };
@@ -50,6 +50,24 @@ function clientIp(req:Request){
     ||"unknown"
   ).trim().slice(0,128);
 }
+function readIdempotencyKey(req:Request){
+  const key=String(req.headers.get("idempotency-key")??"").trim();
+  if(key.length<12||key.length>120||!/^[A-Za-z0-9._:-]+$/.test(key))return null;
+  return key;
+}
+function acceptedLeadPayload(lead:any,leadType:string,reused:boolean,idempotentReplay=false){
+  return {
+    ok:true,
+    accepted:true,
+    leadId:lead?.id,
+    leadType,
+    reused,
+    idempotentReplay,
+    message:leadType==="merchant"
+      ?"Interesse recebido. O TAMÃO pode entrar em contato pelo WhatsApp informado."
+      :"Você entrou na lista de abertura. O TAMÃO pode avisar pelo WhatsApp informado."
+  };
+}
 
 Deno.serve(async(req:Request)=>{
   const origin=req.headers.get("Origin");
@@ -70,6 +88,10 @@ Deno.serve(async(req:Request)=>{
     try{body=JSON.parse(raw)}catch{return json({error:"INVALID_JSON",message:"Dados inválidos."},400,origin)}
 
     if(clean(body.website,200))return json({ok:true,accepted:true},202,origin);
+    const idempotencyKey=readIdempotencyKey(req);
+    if(!idempotencyKey){
+      return json({error:"INVALID_IDEMPOTENCY_KEY",message:"Não foi possível identificar esta tentativa com segurança. Atualize a página e tente novamente."},400,origin);
+    }
 
     const leadType=String(body.leadType??"").trim();
     if(!["customer","merchant"].includes(leadType)){
@@ -105,7 +127,42 @@ Deno.serve(async(req:Request)=>{
       return json({error:"INTEREST_REQUIRED",message:leadType==="merchant"?"Marque pelo menos uma categoria que sua empresa vende.":"Marque pelo menos um produto de interesse."},400,origin);
     }
 
+    const campaign={
+      source:clean(body.source,80),
+      medium:clean(body.medium,80),
+      campaign:clean(body.campaign,120),
+      content:clean(body.content,120),
+      term:clean(body.term,120),
+      referrer:clean(body.referrer,500),
+      landing_path:clean(body.landingPath,240)
+    };
+    const note=clean(body.note,500);
+    const requestKeyHash=await sha256Hex(SECRET_KEY.slice(0,32)+":idempotency:"+idempotencyKey);
+    const requestFingerprintHash=await sha256Hex(SECRET_KEY.slice(0,32)+":submission:"+JSON.stringify({
+      leadType,
+      contactName,
+      businessName:leadType==="merchant"?businessName:null,
+      phone,
+      postalCode,
+      interests:[...interests].sort(),
+      note,
+      campaign
+    }));
+
     const admin=createClient(SUPABASE_URL,SECRET_KEY,{auth:{persistSession:false,autoRefreshToken:false}});
+    const {data:existingByKey,error:existingByKeyError}=await admin
+      .from("prelaunch_leads")
+      .select("id,lead_type,status,created_at,updated_at,submission_count,last_submission_fingerprint_hash")
+      .eq("last_submission_key_hash",requestKeyHash)
+      .maybeSingle();
+    if(existingByKeyError)throw existingByKeyError;
+    if(existingByKey){
+      if(existingByKey.last_submission_fingerprint_hash!==requestFingerprintHash){
+        return json({error:"IDEMPOTENCY_CONFLICT",message:"Esta tentativa já foi usada com outros dados. Atualize a página e envie novamente."},409,origin);
+      }
+      return json(acceptedLeadPayload(existingByKey,existingByKey.lead_type,true,true),200,origin);
+    }
+
     const ip=clientIp(req);
     const ipHash=await sha256Hex(SECRET_KEY.slice(0,32)+":"+ip);
     const {data:quota,error:quotaError}=await admin.rpc("consume_prelaunch_lead_quota",{
@@ -119,15 +176,6 @@ Deno.serve(async(req:Request)=>{
       return json({error:"RATE_LIMITED",message:"Muitas tentativas. Aguarde um pouco e tente novamente.",retryAfterSeconds:quota?.retryAfterSeconds||3600},429,origin);
     }
 
-    const campaign={
-      source:clean(body.source,80),
-      medium:clean(body.medium,80),
-      campaign:clean(body.campaign,120),
-      content:clean(body.content,120),
-      term:clean(body.term,120),
-      referrer:clean(body.referrer,500),
-      landing_path:clean(body.landingPath,240)
-    };
     const payload={
       lead_type:leadType,
       contact_name:contactName,
@@ -135,10 +183,12 @@ Deno.serve(async(req:Request)=>{
       phone,
       postal_code:postalCode,
       interests,
-      note:clean(body.note,500),
+      note,
       consent_at:new Date().toISOString(),
       ...campaign,
       ip_hash:ipHash,
+      last_submission_key_hash:requestKeyHash,
+      last_submission_fingerprint_hash:requestFingerprintHash,
       updated_at:new Date().toISOString()
     };
 
@@ -170,6 +220,19 @@ Deno.serve(async(req:Request)=>{
         .single();
       if(error){
         if(String(error.code)==="23505"){
+          const {data:raceByKey,error:raceByKeyError}=await admin
+            .from("prelaunch_leads")
+            .select("id,lead_type,status,created_at,updated_at,last_submission_fingerprint_hash")
+            .eq("last_submission_key_hash",requestKeyHash)
+            .maybeSingle();
+          if(raceByKeyError)throw raceByKeyError;
+          if(raceByKey){
+            if(raceByKey.last_submission_fingerprint_hash!==requestFingerprintHash){
+              return json({error:"IDEMPOTENCY_CONFLICT",message:"Esta tentativa já foi usada com outros dados. Atualize a página e envie novamente."},409,origin);
+            }
+            return json(acceptedLeadPayload(raceByKey,raceByKey.lead_type,true,true),200,origin);
+          }
+
           const {data:race,error:raceError}=await admin
             .from("prelaunch_leads")
             .select("id,lead_type,status,created_at,updated_at")
@@ -183,16 +246,7 @@ Deno.serve(async(req:Request)=>{
       }else lead=data;
     }
 
-    return json({
-      ok:true,
-      accepted:true,
-      leadId:lead?.id,
-      leadType,
-      reused,
-      message:leadType==="merchant"
-        ?"Interesse recebido. O TAMÃO pode entrar em contato pelo WhatsApp informado."
-        :"Você entrou na lista de abertura. O TAMÃO pode avisar pelo WhatsApp informado."
-    },reused?200:201,origin);
+    return json(acceptedLeadPayload(lead,leadType,reused,false),reused?200:201,origin);
   }catch(error){
     console.error("capture-prelaunch-lead failed",error instanceof Error?error.message:String(error));
     return json({error:"INTERNAL_ERROR",message:"Não foi possível salvar agora. Tente novamente."},500,origin);
