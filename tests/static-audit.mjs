@@ -43,6 +43,7 @@ const adminAcquisition=read('js/admin-acquisition.js');
 const legal=read('js/legal.js');
 const publicRequest=read('supabase/functions/submit-public-request/index.ts');
 const publicRequestMigration=read('supabase/migrations/20261003194135_public_trust_channel_v1_50.sql');
+const publicRetryIdempotency=read('supabase/migrations/20261005231500_public_retry_idempotency_v1_70_15.sql');
 const leadCapture=read('supabase/functions/capture-prelaunch-lead/index.ts');
 const leadMigration=read('supabase/migrations/20261003182954_prelaunch_acquisition_v1_49.sql');
 const marketingCapture=read('supabase/functions/capture-marketing-event/index.ts');
@@ -102,6 +103,8 @@ assert.ok(backend.includes('submit-public-request')&&backend.includes('publicReq
 assert.ok(publicRequest.includes('ALLOWED_ORIGINS')&&publicRequest.includes('consume_prelaunch_lead_quota'),'canal público precisa de allowlist de origem e rate limit server-side');
 assert.ok(publicRequest.includes('body.acknowledged!==true')&&publicRequest.includes('body.website')&&publicRequest.includes('raw.length>16000'),'canal público precisa de confirmação, honeypot e limite de payload');
 assert.ok(publicRequest.includes('SECRET_KEY.slice')&&publicRequest.includes('ip_hash'),'canal público deve usar hash técnico sem persistir IP bruto');
+assert.ok(backend.includes("liveIdempotency('public-request')")&&backend.includes("'Idempotency-Key':idempotencyKey"),'retry de contato/LGPD precisa reutilizar chave idempotente');
+assert.ok(publicRequest.includes('request_idempotency_key')&&publicRequest.includes('request_hash')&&publicRequest.includes('IDEMPOTENCY_CONFLICT'),'endpoint público precisa replayar ACK perdido sem duplicar solicitação');
 assert.ok(publicRequestMigration.includes('revoke all on table public.public_requests from public, anon, authenticated'),'solicitações públicas não podem ser expostas pelo Data API');
 assert.ok(adminAcquisition.includes('adminPublicRequestsSection')&&admin.includes('adminPublicRequestsSection(d)'),'admin deve exibir inbox de contato e privacidade');
 assert.ok(read('supabase/functions/admin-ops/index.ts').includes('public_requests')&&read('supabase/functions/admin-ops/index.ts').includes('publicRequests'),'summary protegido deve transportar solicitações públicas');
@@ -153,6 +156,9 @@ assert.ok(leadCapture.includes('ALLOWED_ORIGINS')&&leadCapture.includes('consume
 assert.ok(leadCapture.includes('ip_hash')&&leadCapture.includes('SECRET_KEY.slice'),'antiabuso não pode persistir IP bruto');
 assert.ok(leadMigration.includes('revoke all on table public.prelaunch_leads from public, anon, authenticated'),'leads não podem ser expostos pelo Data API');
 assert.ok(leadMigration.includes('unique index if not exists prelaunch_leads_type_phone_uidx'),'reenvio do mesmo WhatsApp precisa ser deduplicável');
+assert.ok(backend.includes("liveIdempotency('prelaunch-lead')"),'retry de lead precisa reutilizar chave idempotente');
+assert.ok(leadCapture.includes('last_submission_idempotency_key')&&leadCapture.includes('last_submission_hash')&&leadCapture.includes('IDEMPOTENCY_CONFLICT'),'lead precisa distinguir retry do mesmo envio de uma nova submissão real');
+assert.ok(publicRetryIdempotency.includes('public_requests_idempotency_key_uidx')&&publicRetryIdempotency.includes('prelaunch_leads_last_submission_idempotency_uidx'),'banco precisa impor unicidade das chaves públicas de retry');
 assert.ok(customer.includes('Botijão de cozinha 13 kg')&&customer.includes('startHomeOrder'),'home precisa iniciar a compra em linguagem humana sem depender de P13 como rótulo principal');
 assert.ok(core.includes('brand-name">TAMÃO')&&core.includes('Pediu? Tá na mão.'),'shell deve carregar a identidade TAMÃO');
 assert.ok(customer.includes('<h1>Pediu? Tá na mão.</h1>')&&customer.includes('Gás, água e essenciais perto de você.'),'hero deve materializar nome, promessa e categoria');
