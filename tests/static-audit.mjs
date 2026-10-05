@@ -528,12 +528,16 @@ assert.ok(assistedOnboardingAuthority.includes('admin_assisted_merchant_onboardi
 assert.ok(assistedOnboardingAuthority.includes('action_requests')&&assistedOnboardingAuthority.includes('platform_admin_audit'),'onboarding assistido precisa ser idempotente e auditado');
 assert.ok(adminOpsSource.includes('assisted-merchant-onboarding')&&adminOpsSource.includes('merchant_business_details')&&adminOpsSource.includes('admin_assisted_merchant_onboarding'),'admin API precisa transportar dados comerciais e executar a autoridade transacional');
 const orderControlAuthority=read('supabase/migrations/20261004145100_admin_order_control_tower_v1_64.sql');
+const orderControlPrivacy=read('supabase/migrations/20261005220000_admin_order_event_privacy_v1_70_14.sql');
 assert.ok(orderControlAuthority.includes('admin_order_control_action')&&orderControlAuthority.includes("p_action not in ('note','rescue','cancel')"),'Torre de Controle precisa de autoridade administrativa fechada e limitada');
 assert.ok(orderControlAuthority.includes('rescue_offered_order_now')&&orderControlAuthority.includes('system_release_and_rescue_accepted_order')&&orderControlAuthority.includes('system_rescue_order'),'reatribuição admin deve reutilizar rescue transacional existente');
 assert.ok(orderControlAuthority.includes('ORDER_ALREADY_DISPATCHED')&&orderControlAuthority.includes("v_order.status in ('OUT_FOR_DELIVERY','ARRIVING')"),'admin não pode cancelar/reatribuir automaticamente após a saída');
 assert.ok(orderControlAuthority.includes("actor_type,event_type")&&orderControlAuthority.includes("'admin','ADMIN_NOTE'")&&orderControlAuthority.includes('platform_admin_audit'),'intervenções da Torre precisam produzir trilha operacional e auditoria administrativa');
 assert.ok(orderControlAuthority.includes('cashback_release')&&orderControlAuthority.includes('available_stock=available_stock+v_item.quantity'),'cancelamento administrativo antes da saída precisa restaurar cashback e estoque quando aplicável');
 assert.ok(orderControlAuthority.includes('revoke all on function public.admin_order_control_action')&&orderControlAuthority.includes('from public, anon, authenticated'),'autoridade da Torre não pode ser executável diretamente pelo browser');
+assert.ok(orderControlPrivacy.includes("risk_reason='admin_rescue'")&&orderControlPrivacy.includes("risk_reason='admin_cancelled'"),'motivos administrativos não podem ser copiados para risk_reason público');
+assert.ok(!orderControlPrivacy.includes("left(p_reason,1000)")&&!orderControlPrivacy.includes("admin_rescue: '||p_reason")&&!orderControlPrivacy.includes("admin_cancelled: '||p_reason"),'timeline pública não pode receber o motivo administrativo bruto');
+assert.ok(orderControlPrivacy.includes("'reason',p_reason")&&orderControlPrivacy.includes('platform_admin_audit'),'motivo completo precisa permanecer disponível somente na auditoria administrativa server-side');
 assert.ok(adminOpsSource.includes('controlOrders')&&adminOpsSource.includes('admin_order_control_action')&&adminOpsSource.includes('order-control'),'admin API precisa projetar pedidos e transportar intervenções idempotentes');
 assert.ok(admin.includes('TORRE DE CONTROLE')&&admin.includes('Buscar outra revenda')&&admin.includes('Cancelar antes da saída')&&admin.includes('adminOrderControl'),'painel admin precisa oferecer Torre de Controle operacional sem UPDATE livre');
 const commercialPolicyAuthority=read('supabase/migrations/20261004153000_commercial_policy_control_v1_65.sql');
@@ -700,6 +704,7 @@ assert.ok(core.includes("memberRole==='driver'")&&core.includes("['merchant','�
 
 assert.ok(getOrderSource.includes('deliveryDetailsVisible=role==="customer"||order.status!=="OFFERED_TO_MERCHANT"'),'pedido individual deve esconder detalhes de entrega da revenda antes do aceite');
 assert.ok(getOrderSource.includes('if(!role)return json({error:"ORDER_NOT_FOUND"')&&!getOrderSource.includes('if(!role)return json({error:"ACCESS_DENIED"'),'get-order não pode confirmar a existência de pedido para usuário sem ownership/membership');
+assert.ok(getOrderSource.includes('financialReversalReason:role==="customer"&&order.financial_reversal_reason?"Reversão financeira confirmada pela administração.":null')&&!getOrderSource.includes('financialReversalReason:role==="customer"?order.financial_reversal_reason:null'),'motivo financeiro administrativo bruto não pode ser projetado ao cliente');
 assert.ok(merchantOrdersSource.includes('customerPhone:o.status==="OFFERED_TO_MERCHANT"?null:o.customer_phone_digits'),'feed da revenda deve ocultar telefone antes do aceite');
 assert.ok(merchant.includes('Dados para entrega')&&merchant.includes('href="tel:'),'painel operacional deve exibir contato acionável somente quando projetado pelo backend');
 assert.ok(getOrderSource.includes('delivery_pii_redacted_at')&&getOrderSource.includes('deliveryDataRedacted'),'projeção do pedido precisa informar minimização de dados sem expor política interna');
