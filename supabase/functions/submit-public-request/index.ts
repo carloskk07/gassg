@@ -19,7 +19,7 @@ function originAllowed(origin:string|null){
 function cors(origin:string|null){
   return {
     "Access-Control-Allow-Origin":origin&&originAllowed(origin)?origin:"null",
-    "Access-Control-Allow-Headers":"content-type, apikey",
+    "Access-Control-Allow-Headers":"content-type, apikey, idempotency-key",
     "Access-Control-Allow-Methods":"POST, OPTIONS",
     "Vary":"Origin"
   };
@@ -108,7 +108,49 @@ Deno.serve(async(req:Request)=>{
       return json({error:"MESSAGE_REQUIRED",message:"Explique sua solicitação em pelo menos 10 caracteres."},400,origin);
     }
 
+    const idempotencyKey=String(req.headers.get("Idempotency-Key")??"").trim();
+    if(idempotencyKey.length<12||idempotencyKey.length>120||!/^[A-Za-z0-9._:-]+$/.test(idempotencyKey)){
+      return json({error:"INVALID_IDEMPOTENCY_KEY",message:"Não foi possível identificar esta tentativa com segurança."},400,origin);
+    }
+
+    const attribution=body.attribution&&typeof body.attribution==="object"?body.attribution:{};
+    const normalized={
+      request_kind:requestKind,
+      privacy_action:privacyAction,
+      contact_name:contactName,
+      contact_channel:contactChannel,
+      contact_value:contactValue,
+      message,
+      source:clean(attribution.source,80),
+      medium:clean(attribution.medium,80),
+      campaign:clean(attribution.campaign,120),
+      referrer:clean(attribution.referrer,500),
+      landing_path:clean(attribution.landingPath,240)
+    };
+    const requestHash=await sha256Hex(JSON.stringify(normalized));
     const admin=createClient(SUPABASE_URL,SECRET_KEY,{auth:{persistSession:false,autoRefreshToken:false}});
+
+    const {data:existing,error:existingError}=await admin
+      .from("public_requests")
+      .select("id,request_kind,status,created_at,request_hash")
+      .eq("request_idempotency_key",idempotencyKey)
+      .maybeSingle();
+    if(existingError)throw existingError;
+    if(existing){
+      if(existing.request_hash!==requestHash){
+        return json({error:"IDEMPOTENCY_CONFLICT",message:"Esta tentativa já foi usada com outros dados."},409,origin);
+      }
+      return json({
+        ok:true,
+        accepted:true,
+        protocol:String(existing.id).slice(0,8).toUpperCase(),
+        replayed:true,
+        message:requestKind==="privacy"
+          ?"Solicitação de privacidade recebida. Poderemos pedir confirmação de identidade antes de fornecer ou alterar dados."
+          :"Solicitação recebida. Usaremos o canal informado para responder."
+      },200,origin);
+    }
+
     const ipHash=await sha256Hex(SECRET_KEY.slice(0,32)+":"+clientIp(req));
     const {data:quota,error:quotaError}=await admin.rpc("consume_prelaunch_lead_quota",{
       p_ip_hash:ipHash,
@@ -121,33 +163,47 @@ Deno.serve(async(req:Request)=>{
       return json({error:"RATE_LIMITED",message:"Muitas solicitações em pouco tempo. Tente novamente mais tarde.",retryAfterSeconds:quota?.retryAfterSeconds||3600},429,origin);
     }
 
-    const attribution=body.attribution&&typeof body.attribution==="object"?body.attribution:{};
     const payload={
-      request_kind:requestKind,
-      privacy_action:privacyAction,
-      contact_name:contactName,
-      contact_channel:contactChannel,
-      contact_value:contactValue,
-      message,
+      ...normalized,
       acknowledged_at:new Date().toISOString(),
-      source:clean(attribution.source,80),
-      medium:clean(attribution.medium,80),
-      campaign:clean(attribution.campaign,120),
-      referrer:clean(attribution.referrer,500),
-      landing_path:clean(attribution.landingPath,240),
-      ip_hash:ipHash
+      ip_hash:ipHash,
+      request_idempotency_key:idempotencyKey,
+      request_hash:requestHash
     };
     const {data,error}=await admin
       .from("public_requests")
       .insert(payload)
-      .select("id,request_kind,status,created_at")
+      .select("id,request_kind,status,created_at,request_hash")
       .single();
-    if(error)throw error;
+    if(error){
+      if(String(error.code)==="23505"){
+        const {data:race,error:raceError}=await admin
+          .from("public_requests")
+          .select("id,request_kind,status,created_at,request_hash")
+          .eq("request_idempotency_key",idempotencyKey)
+          .maybeSingle();
+        if(raceError)throw raceError;
+        if(race&&race.request_hash===requestHash){
+          return json({
+            ok:true,
+            accepted:true,
+            protocol:String(race.id).slice(0,8).toUpperCase(),
+            replayed:true,
+            message:requestKind==="privacy"
+              ?"Solicitação de privacidade recebida. Poderemos pedir confirmação de identidade antes de fornecer ou alterar dados."
+              :"Solicitação recebida. Usaremos o canal informado para responder."
+          },200,origin);
+        }
+        if(race) return json({error:"IDEMPOTENCY_CONFLICT",message:"Esta tentativa já foi usada com outros dados."},409,origin);
+      }
+      throw error;
+    }
 
     return json({
       ok:true,
       accepted:true,
       protocol:String(data.id).slice(0,8).toUpperCase(),
+      replayed:false,
       message:requestKind==="privacy"
         ?"Solicitação de privacidade recebida. Poderemos pedir confirmação de identidade antes de fornecer ou alterar dados."
         :"Solicitação recebida. Usaremos o canal informado para responder."
