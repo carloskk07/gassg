@@ -2,9 +2,9 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 
 const PORTALS={
-  customer:{origin:'https://tamao-sg-cliente.pages.dev',title:'TAMÃO — Pediu? Tá na mão.'},
-  merchant:{origin:'https://tamao-sg-revenda.pages.dev',title:'TAMÃO Revenda — Operação'},
-  admin:{origin:'https://tamao-sg-admin.pages.dev',title:'TAMÃO Admin — Controle'}
+  customer:{origin:'https://tamao.com.br',title:'TAMÃO — Pediu? Tá na mão.'},
+  merchant:{origin:'https://parceiro.tamao.com.br',title:'TAMÃO Revenda — Operação'},
+  admin:{origin:'https://admin.tamao.com.br',title:'TAMÃO Admin — Controle'}
 };
 const CUSTOMER_ORIGIN=PORTALS.customer.origin;
 const MERCHANT_ORIGIN=PORTALS.merchant.origin;

@@ -5,9 +5,9 @@ import {validatePortalRole} from './generate-runtime-config.mjs';
 
 const ROOT=path.resolve(new URL('..',import.meta.url).pathname);
 export const CLOUDFLARE_PROJECTS={
-  'tamao-sg-cliente':{role:'customer',origin:'https://tamao-sg-cliente.pages.dev'},
-  'tamao-sg-revenda':{role:'merchant',origin:'https://tamao-sg-revenda.pages.dev'},
-  'tamao-sg-admin':{role:'admin',origin:'https://tamao-sg-admin.pages.dev'}
+  'tamao-sg-cliente':{role:'customer',origin:'https://tamao.com.br',pagesOrigin:'https://tamao-sg-cliente.pages.dev'},
+  'tamao-sg-revenda':{role:'merchant',origin:'https://parceiro.tamao.com.br',pagesOrigin:'https://tamao-sg-revenda.pages.dev'},
+  'tamao-sg-admin':{role:'admin',origin:'https://admin.tamao.com.br',pagesOrigin:'https://tamao-sg-admin.pages.dev'}
 };
 export const PUBLIC_TURNSTILE_SITE_KEY='0x4AAAAAAFNKDvnzxtYQ9WM2';
 
