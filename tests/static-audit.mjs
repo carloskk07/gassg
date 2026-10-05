@@ -103,6 +103,10 @@ assert.ok(publicRequest.includes('ALLOWED_ORIGINS')&&publicRequest.includes('con
 assert.ok(publicRequest.includes('body.acknowledged!==true')&&publicRequest.includes('body.website')&&publicRequest.includes('raw.length>16000'),'canal público precisa de confirmação, honeypot e limite de payload');
 assert.ok(publicRequest.includes('SECRET_KEY.slice')&&publicRequest.includes('ip_hash'),'canal público deve usar hash técnico sem persistir IP bruto');
 assert.ok(publicRequestMigration.includes('revoke all on table public.public_requests from public, anon, authenticated'),'solicitações públicas não podem ser expostas pelo Data API');
+const publicRequestIdempotencyMigration=read('supabase/migrations/20261005160000_public_request_idempotency_v1_70_13.sql');
+assert.ok(backend.includes("'Idempotency-Key':idempotencyKey")&&backend.includes("const idempotencyKey='public-request:'+crypto.randomUUID()"),'retry do canal público precisa reutilizar chave idempotente única');
+assert.ok(publicRequest.includes('idempotency_key')&&publicRequest.includes('request_hash')&&publicRequest.includes('IDEMPOTENCY_CONFLICT')&&publicRequest.includes('String(error.code)==="23505"'),'endpoint público precisa transformar ACK perdido em replay seguro');
+assert.ok(publicRequestIdempotencyMigration.includes('public_requests_idempotency_key_uidx')&&publicRequestIdempotencyMigration.includes('public_requests_idempotency_pair_check'),'banco precisa impor unicidade e vínculo chave/hash para solicitações públicas');
 assert.ok(adminAcquisition.includes('adminPublicRequestsSection')&&admin.includes('adminPublicRequestsSection(d)'),'admin deve exibir inbox de contato e privacidade');
 assert.ok(read('supabase/functions/admin-ops/index.ts').includes('public_requests')&&read('supabase/functions/admin-ops/index.ts').includes('publicRequests'),'summary protegido deve transportar solicitações públicas');
 assert.ok(html.includes('./js/admin-acquisition.js'),'inbox administrativo de aquisição precisa ser carregado');
