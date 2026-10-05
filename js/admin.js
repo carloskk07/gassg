@@ -436,7 +436,7 @@ function adminPilotPartnerCard(p){
         <div class="input-wrap"><label for="${prefix}-city">Cidade</label><input id="${prefix}-city" class="input" maxlength="120" value="São Gabriel"></div>
       </div>
       <div class="input-wrap"><label for="${prefix}-address">Endereço</label><input id="${prefix}-address" class="input" maxlength="240" placeholder="Rua, número e complemento"></div>
-      <div class="input-wrap"><label for="${prefix}-owner">UUID da conta owner</label><input id="${prefix}-owner" class="input" maxlength="36" placeholder="Opcional — pode ser vinculado depois"><small class="field-help">Sem owner, a revenda existe mas continua pendente no checklist.</small></div>
+      <div class="notice"><strong>Owner automático pelo convite.</strong><br>O responsável operacional será vinculado à conta permanente que reivindicou este parceiro e concluiu o cadastro. Se o convite ainda não foi reivindicado, a conversão será bloqueada sem criar revenda órfã.</div>
       <div class="field-row">
         <div class="input-wrap"><label for="${prefix}-stock">Estoque inicial</label><input id="${prefix}-stock" class="input" type="number" min="0" max="1000000" step="1" value="0"></div>
         <div class="input-wrap"><label for="${prefix}-fee">Taxa de entrega</label><input id="${prefix}-fee" class="input" type="number" min="0" max="1000" step="0.01" value="0.00"></div>
@@ -1153,10 +1153,7 @@ async function adminConvertPilotPartner(id){
     city:value('city'),addressText:value('address')
   };
   if(Object.values(required).some(x=>!x))return toast('Preencha os dados reais obrigatórios da revenda');
-  const ownerUserId=value('owner')||null;
-  if(ownerUserId&&!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(ownerUserId)){
-    return toast('UUID da conta owner inválido');
-  }
+  const ownerUserId=null;
   const availableStock=Number(value('stock')||0);
   const deliveryFeeCents=Math.round(Number(value('fee')||0)*100);
   const baseEtaMinutes=Number(value('eta')||30);

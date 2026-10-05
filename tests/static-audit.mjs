@@ -527,6 +527,8 @@ assert.ok(assistedOnboardingSchema.includes('merchant_business_details')&&assist
 assert.ok(assistedOnboardingAuthority.includes('admin_assisted_merchant_onboarding')&&assistedOnboardingAuthority.includes("'pending'")&&assistedOnboardingAuthority.includes("'compliancePending',true"),'conversão assistida deve nascer pendente e declarar compliance pendente');
 assert.ok(assistedOnboardingAuthority.includes('action_requests')&&assistedOnboardingAuthority.includes('platform_admin_audit'),'onboarding assistido precisa ser idempotente e auditado');
 assert.ok(adminOpsSource.includes('assisted-merchant-onboarding')&&adminOpsSource.includes('merchant_business_details')&&adminOpsSource.includes('admin_assisted_merchant_onboarding'),'admin API precisa transportar dados comerciais e executar a autoridade transacional');
+assert.ok(adminOpsSource.includes('.eq("pilot_partner_draft_id",draftId)')&&adminOpsSource.includes('.eq("status","pending")')&&adminOpsSource.includes('PILOT_OWNER_REQUIRED'),'conversão do parceiro piloto precisa inferir owner da aplicação reivindicada e falhar fechado sem owner');
+assert.ok(!admin.includes('UUID da conta owner')&&admin.includes('Owner automático pelo convite.'),'admin não pode exigir UUID cru para vincular owner no fluxo piloto normal');
 const orderControlAuthority=read('supabase/migrations/20261004145100_admin_order_control_tower_v1_64.sql');
 const orderControlPrivacy=read('supabase/migrations/20261005220000_admin_order_event_privacy_v1_70_14.sql');
 assert.ok(orderControlAuthority.includes('admin_order_control_action')&&orderControlAuthority.includes("p_action not in ('note','rescue','cancel')"),'Torre de Controle precisa de autoridade administrativa fechada e limitada');
