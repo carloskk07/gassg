@@ -441,8 +441,33 @@ Deno.serve(async(req:Request)=>{
         reference:body.reference==null?null:(cleanText(body.reference,{min:0,max:120,name:"referência"})||null)
       };
     }else if(action==="set-platform-admin"){
+      let targetUserId=body.targetUserId==null||String(body.targetUserId).trim()===""?null:uuid(body.targetUserId,"targetUser");
+      if(targetUserId==null){
+        const targetEmail=String(body.targetEmail??"").trim().toLowerCase();
+        if(targetEmail.length<3||targetEmail.length>160||!/^\\S+@\\S+\\.\\S+$/.test(targetEmail)){
+          throw new DomainError("INVALID_ADMIN_EMAIL","Informe um e-mail válido de conta permanente.",400);
+        }
+        let targetUser:any=null;
+        for(let page=1;page<=10&&!targetUser;page++){
+          const {data:listData,error:listError}=await admin.auth.admin.listUsers({page,perPage:1000});
+          if(listError)throw listError;
+          targetUser=(listData?.users??[]).find((candidate:any)=>
+            candidate?.is_anonymous!==true
+            &&String(candidate?.email??"").trim().toLowerCase()===targetEmail
+          )??null;
+          if((listData?.users??[]).length<1000)break;
+        }
+        if(!targetUser?.id){
+          throw new DomainError(
+            "ADMIN_USER_NOT_FOUND",
+            "Esta conta permanente ainda não existe. Peça para a pessoa acessar o TAMÃO com esse e-mail antes de conceder acesso administrativo.",
+            404
+          );
+        }
+        targetUserId=uuid(targetUser.id,"targetUser");
+      }
       payload={
-        targetUserId:uuid(body.targetUserId,"targetUser"),
+        targetUserId,
         active:body.active===true
       };
     }else if(action==="product-registry"){
