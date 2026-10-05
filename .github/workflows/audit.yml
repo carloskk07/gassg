@@ -168,16 +168,24 @@ jobs:
           ! grep -q "PAINEL DA REVENDA — DEMONSTRAÇÃO" /tmp/merchant.html
           ! grep -q "Revenda Parceira A" /tmp/merchant.html
           grep -q "Administração só está disponível" /tmp/admin.html
-      - name: Browser E2E — fluxo completo
+      - name: Browser E2E — 320/360/390 px
         run: |
           python3 -m http.server 4173 >/tmp/chama-e2e-http.log 2>&1 &
           SERVER_PID=$!
           CHROME="$(command -v google-chrome || command -v chromium || command -v chromium-browser)"
           test -n "$CHROME"
-          "$CHROME" --headless=new --no-sandbox --disable-gpu --window-size=390,844 --remote-debugging-port=9222 --user-data-dir=/tmp/chama-e2e-chrome about:blank >/tmp/chama-e2e-chrome.log 2>&1 &
-          CHROME_PID=$!
-          trap 'kill $CHROME_PID $SERVER_PID 2>/dev/null || true' EXIT
-          sleep 2
-          node tests/browser-e2e.mjs
+          trap 'kill $SERVER_PID 2>/dev/null || true' EXIT
+          sleep 1
+          for spec in "320:800:9222" "360:800:9223" "390:844:9224"; do
+            IFS=: read -r WIDTH HEIGHT PORT <<< "$spec"
+            DIR="/tmp/chama-e2e-chrome-$WIDTH"
+            LOG="/tmp/chama-e2e-chrome-$WIDTH.log"
+            "$CHROME" --headless=new --no-sandbox --disable-gpu --window-size="$WIDTH,$HEIGHT" --remote-debugging-port="$PORT" --user-data-dir="$DIR" about:blank >"$LOG" 2>&1 &
+            CHROME_PID=$!
+            sleep 2
+            CHROME_DEBUG="http://127.0.0.1:$PORT" node tests/browser-e2e.mjs
+            kill "$CHROME_PID" 2>/dev/null || true
+            wait "$CHROME_PID" 2>/dev/null || true
+          done
       - name: Validate manifest JSON
         run: node -e "JSON.parse(require('fs').readFileSync('manifest.webmanifest','utf8')); console.log('manifest OK')"
