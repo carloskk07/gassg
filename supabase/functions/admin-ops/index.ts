@@ -1023,6 +1023,12 @@ Deno.serve(async(req:Request)=>{
     if(message.includes("INVALID_OPERATION_MODE")){
       return json({error:"INVALID_OPERATION_MODE",message:"Modo operacional inválido."},400,origin);
     }
+    if(message.includes("INVALID_OPERATION_MODE_TRANSITION")){
+      return json({error:"INVALID_OPERATION_MODE_TRANSITION",message:"A mudança de modo não é válida para o estado operacional atual. Atualize a Central de Produção."},409,origin);
+    }
+    if(message.includes("platform_launch_control_mode_source_consistency")){
+      return json({error:"PORTAL_SOURCE_SHA_MISMATCH",message:"Os portais mudaram depois da última verificação. Verifique os três portais novamente antes de ativar PILOT/LIVE."},409,origin);
+    }
     if(message.includes("PORTAL_ATTESTATION_INVALID")){
       return json({error:"PORTAL_ATTESTATION_INVALID",message:"A verificação dos portais live não é válida."},409,origin);
     }
