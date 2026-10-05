@@ -156,6 +156,10 @@ assert.ok(acquisition.includes("utm_source")||backend.includes("utm_source"),'ca
 assert.ok(backend.includes("capture-prelaunch-lead")&&backend.includes("prelaunchAttribution"),'frontend precisa enviar leads ao endpoint dedicado');
 assert.ok(leadCapture.includes('ALLOWED_ORIGINS')&&leadCapture.includes('consume_prelaunch_lead_quota'),'lead público precisa de allowlist de origem e rate limit server-side');
 assert.ok(leadCapture.includes('ip_hash')&&leadCapture.includes('SECRET_KEY.slice'),'antiabuso não pode persistir IP bruto');
+assert.ok(backend.includes("liveIdempotency('prelaunch-lead')"),'retry da lista de abertura precisa reutilizar a mesma chave idempotente');
+assert.ok(leadCapture.includes('last_request_idempotency_key')&&leadCapture.includes('last_request_hash')&&leadCapture.includes('IDEMPOTENCY_CONFLICT'),'captação precisa impedir que ACK retry infle submission_count');
+assert.ok(leadCapture.includes('idempotency-key'),'CORS da captação precisa aceitar o header idempotente');
+assert.ok(publicRequestIdempotencyMigration.includes('prelaunch_leads_last_idempotency_key_uidx'),'banco precisa guardar a última submissão idempotente do lead');
 assert.ok(leadMigration.includes('revoke all on table public.prelaunch_leads from public, anon, authenticated'),'leads não podem ser expostos pelo Data API');
 assert.ok(leadMigration.includes('unique index if not exists prelaunch_leads_type_phone_uidx'),'reenvio do mesmo WhatsApp precisa ser deduplicável');
 assert.ok(customer.includes('Botijão de cozinha 13 kg')&&customer.includes('startHomeOrder'),'home precisa iniciar a compra em linguagem humana sem depender de P13 como rótulo principal');
