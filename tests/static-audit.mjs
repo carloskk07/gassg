@@ -458,6 +458,8 @@ assert.ok(admin.includes("adminIdempotency('admin-'+action)"),'cada mutação ad
 assert.ok(admin.includes('adminOriginSafe'),'frontend admin precisa validar isolamento de origem');
 assert.ok(admin.includes("status='unsafe-origin'")||admin.includes("status='unsafe-origin';"),'frontend admin precisa bloquear origem compartilhada');
 assert.ok(adminOpsSource.includes('ADMIN_ALLOWED_ORIGIN'),'Edge admin precisa depender de origem dedicada configurável');
+assert.ok(adminOpsSource.includes('const CUSTOMER_LIVE_ORIGIN="https://tamao.com.br"')&&adminOpsSource.includes('const MERCHANT_LIVE_ORIGIN="https://parceiro.tamao.com.br"')&&adminOpsSource.includes('const ADMIN_LIVE_ORIGIN="https://admin.tamao.com.br"'),'verificador administrativo precisa provar os três domínios oficiais, não os hosts técnicos pages.dev');
+assert.ok(adminOpsSource.includes('ADMIN_PAGES_ORIGIN="https://tamao-sg-admin.pages.dev"'),'portal técnico admin pode permanecer somente como fallback CORS, não como origem canônica');
 assert.ok(read('supabase/functions/get-offers/index.ts').includes('commerce_launch_status')&&read('supabase/functions/get-offers/index.ts').includes('commerceLaunchBlocked:true'),'matching live precisa falhar fechado antes da abertura oficial');
 assert.ok(read('supabase/functions/create-order/index.ts').includes('create_order_from_quote_v8')&&read('supabase/functions/create-order/index.ts').includes('COMMERCE_NOT_ENABLED'),'checkout deve usar autoridade V8 e traduzir kill switch');
 assert.ok(read('supabase/functions/market-status/index.ts').includes('commerce_launch_status')&&read('supabase/functions/market-status/index.ts').includes('operationMode')&&read('supabase/functions/market-status/index.ts').includes('launchMode:operationMode.toLowerCase()'),'market status precisa propagar PRELAUNCH/PILOT/LIVE/PAUSED sem inferir modo apenas por booleano');
@@ -466,6 +468,9 @@ assert.ok(customer.includes('Pré-lançamento controlado.')&&customer.includes('
 assert.ok(adminOpsSource.includes('verifyLivePortals')&&adminOpsSource.includes('portal-build.json')&&adminOpsSource.includes('CHAMA_TURNSTILE_SITE_KEY'),'admin deve atestar bundles e Turnstile antes do go-live');
 assert.ok(adminOpsSource.includes('TEST_TURNSTILE_KEYS')&&adminOpsSource.includes('sourceSha'),'atestado não pode aceitar chave Turnstile de teste nem versões divergentes');
 assert.ok(adminOpsSource.includes('admin_launch_control_action')&&adminOpsSource.includes('admin_confirm_launch_requirement')&&adminOpsSource.includes('admin_operation_mode_action'),'go-live precisa usar autoridade idempotente server-side, confirmação administrativa e modos explícitos');
+const operationModeIntegrity=read('supabase/migrations/20261005034500_operation_mode_integrity_v1_70_2.sql');
+assert.ok(operationModeIntegrity.includes("commerce_enabled = (operation_mode in ('PILOT','LIVE'))"),'modo operacional e kill switch precisam ser inseparáveis por constraint');
+assert.ok(operationModeIntegrity.includes("v_previous_mode='PRELAUNCH' and p_mode='PILOT'")&&operationModeIntegrity.includes("v_previous_mode='LIVE' and p_mode='PAUSED'")&&operationModeIntegrity.includes('INVALID_OPERATION_MODE_TRANSITION'),'servidor precisa impor grafo de transição operacional, não confiar na UI');
 assert.ok(admin.includes('CENTRAL DE PRODUÇÃO')&&admin.includes('adminVerifyLaunchPortals')&&admin.includes('adminConfirmLaunchRequirement')&&admin.includes('adminSetOperationMode'),'control plane precisa separar bloqueios críticos, alertas confirmáveis, modos e kill switch');
 const operationalAuthorityMigration=read('supabase/migrations/20261004141330_admin_operational_authority_v1_62.sql');
 const launchNullFixMigration=read('supabase/migrations/20261004142430_launch_confirmation_null_fix_v1_62_1.sql');
