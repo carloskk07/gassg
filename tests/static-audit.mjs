@@ -146,6 +146,8 @@ assert.ok(publicHashedQuotaMigration.includes('consume_hashed_api_quota')&&publi
 assert.ok(publicHashedQuotaMigration.includes('revoke all on table public.public_hashed_rate_limits from public, anon, authenticated'),'browser não pode acessar contadores técnicos de quota');
 assert.ok(adminAcquisition.includes('ENTRADAS')&&adminAcquisition.includes('VIRAM FORMULÁRIO')&&adminAcquisition.includes('landingToLeadPct'),'admin precisa exibir funil desde entrada até lead');
 assert.ok(legal.includes('Medição agregada do pré-lançamento')&&legal.includes('Meta Pixel')&&legal.includes('Google Analytics'),'privacidade precisa explicar a medição first-party e ausência de trackers terceiros');
+assert.ok(legal.includes('Cloudflare para DNS, proteção e hospedagem pública')&&legal.includes('Supabase para backend, autenticação e banco de dados'),'aviso de privacidade precisa refletir a infraestrutura oficial já em uso');
+assert.ok(legal.includes('podem registrar IP e outros metadados técnicos em logs operacionais próprios'),'aviso de privacidade precisa distinguir hash do TAMÃO de logs técnicos dos provedores');
 assert.ok(acquisition.includes('Quero ser avisado na abertura')&&acquisition.includes('Quero conversar sobre parceria'),'aquisição precisa ter CTAs próprios para cliente e parceiro');
 assert.ok(acquisition.includes("utm_source")||backend.includes("utm_source"),'captação precisa preservar atribuição de campanha');
 assert.ok(backend.includes("capture-prelaunch-lead")&&backend.includes("prelaunchAttribution"),'frontend precisa enviar leads ao endpoint dedicado');
