@@ -33,6 +33,8 @@ assert.deepEqual(built.map(x=>x.role),['customer','merchant','admin']);
 for(const {role,path:dir} of built){
   assert.ok(fs.existsSync(path.join(dir,'index.html')));
   assert.ok(fs.existsSync(path.join(dir,'sw.js')));
+  assert.ok(fs.existsSync(path.join(dir,'robots.txt')));
+  assert.match(fs.readFileSync(path.join(dir,'robots.txt'),'utf8'),/Disallow:\s*\//);
   assert.ok(fs.existsSync(path.join(dir,'_headers')));
   assert.ok(fs.existsSync(path.join(dir,'_redirects')));
   assert.ok(!fs.existsSync(path.join(dir,'supabase')));
