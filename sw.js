@@ -13,8 +13,11 @@ async function networkFirst(req,cacheKey=req){
   const cache=await caches.open(CACHE);
   try{
     const res=await fetch(req,{cache:'no-store'});
-    if(res.ok)await cache.put(cacheKey,res.clone());
-    return res;
+    if(res.ok){
+      await cache.put(cacheKey,res.clone());
+      return res;
+    }
+    return (await cache.match(cacheKey))||res;
   }catch{
     return (await cache.match(cacheKey))||Response.error();
   }
