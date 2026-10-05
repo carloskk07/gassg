@@ -33,6 +33,8 @@ assert.deepEqual(built.map(x=>x.role),['customer','merchant','admin']);
 for(const {role,path:dir} of built){
   assert.ok(fs.existsSync(path.join(dir,'index.html')));
   assert.ok(fs.existsSync(path.join(dir,'sw.js')));
+  const sw=fs.readFileSync(path.join(dir,'sw.js'),'utf8');
+  assert.ok(sw.includes('tamao-sg-test-sha'),'service worker precisa versionar cache pelo sourceSha do bundle');
   assert.ok(fs.existsSync(path.join(dir,'robots.txt')));
   assert.match(fs.readFileSync(path.join(dir,'robots.txt'),'utf8'),/Disallow:\s*\//);
   assert.ok(fs.existsSync(path.join(dir,'_headers')));
