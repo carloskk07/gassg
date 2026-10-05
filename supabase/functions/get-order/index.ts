@@ -195,7 +195,7 @@ Deno.serve(async(req:Request)=>{
       status:order.status,
       financialState:order.financial_state,
       financialReversedAt:role==="customer"?order.financial_reversed_at:null,
-      financialReversalReason:role==="customer"?order.financial_reversal_reason:null,
+      financialReversalReason:role==="customer"&&order.financial_reversal_reason?"Reversão financeira confirmada pela administração.":null,
       version:order.version,
       address:deliveryDetailsVisible?order.address_text:null,
       postalCode:deliveryDetailsVisible?order.postal_code:null,
