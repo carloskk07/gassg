@@ -217,9 +217,10 @@ Deno.serve(async (req: Request) => {
       return json({
         offers:[],
         commerceLaunchBlocked:true,
-        launchMode:"prelaunch"
+        launchMode:String(launchStatus?.operationMode??"PRELAUNCH").toLowerCase()
       },200,origin);
     }
+    const operationMode=String(launchStatus?.operationMode??"LIVE").trim().toUpperCase();
 
     const postal=await validateServicePostalCode(admin,body.postalCode);
     const address=canonicalAddress(postal,addressNumber);
@@ -244,14 +245,28 @@ Deno.serve(async (req: Request) => {
       .gte("last_seen_at", heartbeatCutoff);
 
     if (merchantError) throw merchantError;
-    if (!merchants?.length) return json({
+
+    let modeEligibleMerchants=merchants??[];
+    if(operationMode==="PILOT"&&modeEligibleMerchants.length){
+      const {data:pilotRows,error:pilotError}=await admin
+        .from("pilot_partner_drafts")
+        .select("merchant_id")
+        .eq("onboarding_status","converted")
+        .in("merchant_id",modeEligibleMerchants.map((m)=>m.id));
+      if(pilotError)throw pilotError;
+      const pilotMerchantIds=new Set((pilotRows??[]).map((row)=>row.merchant_id).filter(Boolean));
+      modeEligibleMerchants=modeEligibleMerchants.filter((m)=>pilotMerchantIds.has(m.id));
+    }
+
+    if (!modeEligibleMerchants.length) return json({
       offers:[],
+      pilotRestricted:operationMode==="PILOT",
       ...addressMeta
     },200,origin);
 
     const scheduleEligibleMerchants=deliveryWindow
-      ? merchants.filter((m)=>m.accepts_scheduled_orders===true)
-      : merchants;
+      ? modeEligibleMerchants.filter((m)=>m.accepts_scheduled_orders===true)
+      : modeEligibleMerchants;
     if(!scheduleEligibleMerchants.length){
       return json({
         offers:[],
