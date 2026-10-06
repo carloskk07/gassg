@@ -401,6 +401,18 @@ function adminProductName(code){
   if(/^P([1-9]|[1-8][0-9]|90)$/.test(value))return 'Gás GLP '+value;
   return ({WATER20:'Água 20 L',CHARCOAL4:'Carvão 4 kg',WOOD:'Lenha',ICE5:'Gelo 5 kg'})[value]||value;
 }
+function adminPilotInviteControls(p,id){
+  const convertible=!['converted','cancelled'].includes(String(p?.onboarding_status||''));
+  if(!convertible)return '';
+  const invite=p?.activeInvite||null;
+  const expiresAt=invite?.expiresAt?Date.parse(invite.expiresAt):NaN;
+  const active=Boolean(invite&&Number.isFinite(expiresAt)&&expiresAt>Date.now());
+  const label=active?'ativo até '+new Date(invite.expiresAt).toLocaleString('pt-BR'):invite?'expirado':'nenhum convite ativo';
+  return '<div class="order-line"><strong>Convite do parceiro:</strong> '+esc(label)+'</div>'+
+    '<div class="order-actions"><button class="secondary small" onclick="adminIssuePilotInvite(\''+esc(id)+'\')">'+(active?'Rotacionar convite':'Gerar convite')+'</button>'+
+    (active?'<button class="danger-btn small" onclick="adminRevokePilotInvite(\''+esc(id)+'\')">Revogar convite</button>':'')+'</div>';
+}
+
 function adminPilotPartnerCard(p){
   const statusLabel={
     awaiting_legal_data:'AGUARDANDO DADOS REAIS',
@@ -418,6 +430,7 @@ function adminPilotPartnerCard(p){
     ${p.pricing_mode==='range'?`<div class="order-line"><strong>Estratégia inicial:</strong> ${esc(({volume:'Priorizar volume',balanced:'Equilibrado',margin:'Priorizar margem'})[p.pricing_strategy]||p.pricing_strategy||'—')}</div>`:''}
     <div class="order-line"><strong>Status do preço:</strong> ${p.price_status==='confirmed'?'confirmado':'proposto — ainda não publicar como oferta real'}</div>
     ${p.notes?`<div class="tiny muted">${esc(p.notes)}</div>`:''}
+    ${adminPilotInviteControls(p,id)}
     ${p.onboarding_status==='converted'?`<div class="notice success" style="margin-top:10px"><strong>Revenda criada.</strong><br>ID: ${esc(p.merchant_id||'—')}. Compliance e ativação continuam separados.</div>`:''}
     ${convertible?`<div class="divider"></div>
       <div class="notice"><strong>Converter parceiro piloto em revenda</strong><br>Cria cadastro, dados comerciais, catálogo, estoque inicial e pagamentos selecionados. Compliance permanece <strong>pendente</strong>.</div>
@@ -1143,6 +1156,51 @@ async function adminSetSupportStatus(caseId,status){
   }catch(e){toast(String(e?.message||e))}
 }
 
+function adminGeneratePilotInviteToken(){
+  const bytes=new Uint8Array(32);
+  crypto.getRandomValues(bytes);
+  let binary='';
+  for(const byte of bytes)binary+=String.fromCharCode(byte);
+  return btoa(binary).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');
+}
+function adminPilotInviteLink(token){
+  const configured=String(globalThis.CHAMA_MERCHANT_ORIGIN||'https://parceiro.tamao.com.br').trim();
+  const url=new URL(configured||'https://parceiro.tamao.com.br',location.href);
+  url.pathname='/';
+  url.search='';
+  url.searchParams.set('pilot',token);
+  url.hash='merchant-join';
+  return url.toString();
+}
+async function adminIssuePilotInvite(id){
+  const p=(adminRuntime.data?.pilotPartners||[]).find(x=>x.id===id);
+  if(!p)return toast('Parceiro piloto não encontrado');
+  if(['converted','cancelled'].includes(String(p.onboarding_status||'')))return toast('Este parceiro não pode receber novo convite');
+  const daysRaw=prompt('Validade do novo convite em dias (1 a 90):','14');
+  if(daysRaw==null)return;
+  const days=Number(daysRaw);
+  if(!Number.isInteger(days)||days<1||days>90)return toast('Informe uma validade entre 1 e 90 dias');
+  if(p.activeInvite&&!confirm('Já existe um convite ativo. Rotacionar agora invalidará o link anterior. Continuar?'))return;
+  const token=adminGeneratePilotInviteToken();
+  const expiresAt=new Date(Date.now()+days*24*60*60*1000).toISOString();
+  try{
+    const result=await adminPerform('pilot-invite',{pilotPartnerId:id,inviteAction:'issue',token,expiresAt});
+    const link=adminPilotInviteLink(token);
+    try{await navigator.clipboard?.writeText(link)}catch{}
+    prompt('Convite criado'+(Number(result?.rotatedPreviousCount||0)>0?' e o link anterior foi revogado':'')+'. Copie este link e envie ao parceiro:',link);
+    toast('Convite piloto criado com validade até '+new Date(result?.expiresAt||expiresAt).toLocaleString('pt-BR'));
+  }catch(e){toast(String(e?.message||e))}
+}
+async function adminRevokePilotInvite(id){
+  const p=(adminRuntime.data?.pilotPartners||[]).find(x=>x.id===id);
+  if(!p)return toast('Parceiro piloto não encontrado');
+  if(!confirm('Revogar o convite ativo deste parceiro? O link deixará de funcionar imediatamente.'))return;
+  try{
+    const result=await adminPerform('pilot-invite',{pilotPartnerId:id,inviteAction:'revoke'});
+    toast(Number(result?.revokedCount||0)>0?'Convite revogado':'Nenhum convite ativo para revogar');
+  }catch(e){toast(String(e?.message||e))}
+}
+
 async function adminConvertPilotPartner(id){
   const p=(adminRuntime.data?.pilotPartners||[]).find(x=>x.id===id);
   if(!p)return toast('Parceiro piloto não encontrado');
@@ -1324,4 +1382,6 @@ globalThis.adminConfirmLaunchRequirement=adminConfirmLaunchRequirement;
 globalThis.adminSetOperationMode=adminSetOperationMode;
 globalThis.adminSetCommerceEnabled=adminSetCommerceEnabled;
 globalThis.adminSetSupportStatus=adminSetSupportStatus;
+globalThis.adminIssuePilotInvite=adminIssuePilotInvite;
+globalThis.adminRevokePilotInvite=adminRevokePilotInvite;
 globalThis.adminConvertPilotPartner=adminConvertPilotPartner;

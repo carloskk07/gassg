@@ -4,7 +4,8 @@ import {
   DomainError,
   readJsonBody,
   enforceApiQuota,
-  requestFingerprint
+  requestFingerprint,
+  sha256Hex
 } from "../_shared/domain.js";
 
 const SUPABASE_URL=Deno.env.get("SUPABASE_URL")??"";
@@ -235,6 +236,24 @@ async function summary(admin:any,actorUserId:string){
     .order("created_at",{ascending:true})
     .limit(50);
   if(pilotPartners.error)throw pilotPartners.error;
+  const pilotPartnerInvites=await admin
+    .from("pilot_partner_invites")
+    .select("id,draft_id,expires_at,claimed_at,revoked_at,created_at")
+    .is("claimed_at",null)
+    .is("revoked_at",null)
+    .order("created_at",{ascending:false})
+    .limit(100);
+  if(pilotPartnerInvites.error)throw pilotPartnerInvites.error;
+  const activeInviteByDraft=new Map<string,any>();
+  for(const invite of pilotPartnerInvites.data??[]){
+    if(!activeInviteByDraft.has(invite.draft_id)){
+      activeInviteByDraft.set(invite.draft_id,{
+        id:invite.id,
+        expiresAt:invite.expires_at,
+        createdAt:invite.created_at
+      });
+    }
+  }
   const merchantBusinessDetails=await admin
     .from("merchant_business_details")
     .select("merchant_id,legal_name,trade_name,responsible_name,phone,whatsapp,postal_code,city,state,address_text,admin_notes,updated_at")
@@ -313,7 +332,10 @@ async function summary(admin:any,actorUserId:string){
   }
   return {
     applications:apps.data??[],
-    pilotPartners:pilotPartners.data??[],
+    pilotPartners:(pilotPartners.data??[]).map((p:any)=>({
+      ...p,
+      activeInvite:activeInviteByDraft.get(p.id)??null
+    })),
     merchants:(merchants.data??[]).map((m:any)=>({
       ...m,
       compliance:byMerchant.get(m.id)??null,
@@ -550,6 +572,30 @@ Deno.serve(async(req:Request)=>{
         expectedVersion,
         reason:cleanText(body.reason,{min:3,max:1000,name:"motivo da intervenção"})
       };
+    }else if(action==="pilot-invite"){
+      const inviteAction=String(body.inviteAction??"").trim().toLowerCase();
+      if(!["issue","revoke"].includes(inviteAction)){
+        throw new DomainError("INVALID_PILOT_INVITE_ACTION","Ação de convite piloto inválida.",400);
+      }
+      const draftId=uuid(body.pilotPartnerId,"pilotPartner");
+      let tokenHash:null|string=null;
+      let expiresAt:null|string=null;
+      if(inviteAction==="issue"){
+        const token=String(body.token??"").trim();
+        if(token.length<20||token.length>240||!/^[A-Za-z0-9_-]+$/.test(token)){
+          throw new DomainError("INVALID_PILOT_INVITE","Token de convite inválido.",400);
+        }
+        tokenHash=await sha256Hex(token);
+        const parsed=new Date(String(body.expiresAt??""));
+        const now=Date.now();
+        if(!Number.isFinite(parsed.getTime())
+           ||parsed.getTime()<=now+5*60*1000
+           ||parsed.getTime()>now+90*24*60*60*1000){
+          throw new DomainError("INVALID_PILOT_INVITE_EXPIRY","Validade do convite precisa ficar entre 5 minutos e 90 dias.",400);
+        }
+        expiresAt=parsed.toISOString();
+      }
+      payload={draftId,inviteAction,tokenHash,expiresAt};
     }else if(action==="assisted-merchant-onboarding"){
       const draftId=body.draftId==null||String(body.draftId).trim()===""?null:uuid(body.draftId,"draft");
       const productCode=String(body.productCode??"").trim().toUpperCase();
@@ -906,6 +952,18 @@ Deno.serve(async(req:Request)=>{
         };
       }
     }
+    else if(action==="pilot-invite"){
+      rpcName="admin_pilot_partner_invite_action";
+      rpcArgs={
+        p_actor_user_id:user.id,
+        p_draft_id:payload.draftId,
+        p_action:payload.inviteAction,
+        p_token_hash:payload.tokenHash,
+        p_expires_at:payload.expiresAt,
+        p_idempotency_key:idempotencyKey,
+        p_request_hash:requestHash
+      };
+    }
     else if(action==="assisted-merchant-onboarding"){
       rpcName="admin_assisted_merchant_onboarding";
       rpcArgs={
@@ -1080,6 +1138,15 @@ Deno.serve(async(req:Request)=>{
     }
     if(message.includes("PILOT_PARTNER_CANCELLED")){
       return json({error:"PILOT_PARTNER_CANCELLED",message:"Este parceiro piloto foi cancelado."},409,origin);
+    }
+    if(message.includes("PILOT_PARTNER_INVITE_NOT_ALLOWED")){
+      return json({error:"PILOT_PARTNER_INVITE_NOT_ALLOWED",message:"Este parceiro piloto já foi convertido/cancelado e não pode receber novo convite."},409,origin);
+    }
+    if(message.includes("INVALID_PILOT_INVITE_EXPIRY")){
+      return json({error:"INVALID_PILOT_INVITE_EXPIRY",message:"Validade do convite inválida."},400,origin);
+    }
+    if(message.includes("INVALID_PILOT_INVITE_ACTION")||message.includes("INVALID_PILOT_INVITE_TOKEN_HASH")){
+      return json({error:"INVALID_PILOT_INVITE_ACTION",message:"Não foi possível validar a operação de convite piloto."},400,origin);
     }
     if(message.includes("OWNER_USER_NOT_FOUND")){
       return json({error:"OWNER_USER_NOT_FOUND",message:"A conta owner informada não existe ou ainda é anônima."},404,origin);
