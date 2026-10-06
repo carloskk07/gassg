@@ -70,6 +70,15 @@ async function navigate(url){
   await waitFor("document.readyState==='complete'","page load");
   await waitFor("document.querySelector('#app') && document.querySelector('#app').innerText.length>20","app render");
 }
+async function setMobileViewport(width,height=844){
+  await send('Emulation.setDeviceMetricsOverride',{
+    width,height,deviceScaleFactor:1,mobile:true,
+    screenWidth:width,screenHeight:height
+  });
+}
+async function clearViewportOverride(){
+  await send('Emulation.clearDeviceMetricsOverride');
+}
 const text=()=>evaluate("document.body.innerText");
 async function auditDom(label){
   const raw=await evaluate(`JSON.stringify((()=>{const ids=[...document.querySelectorAll('[id]')].map(e=>e.id).filter(Boolean);const dup=ids.filter((id,i)=>ids.indexOf(id)!==i);const controls=[...document.querySelectorAll('input,select,textarea')].filter(e=>e.type!=='hidden');const labels=[...document.querySelectorAll('label')];const unlabeled=controls.filter(e=>!(e.getAttribute('aria-label')||e.getAttribute('aria-labelledby')||e.closest('label')||(e.id&&labels.some(l=>l.htmlFor===e.id)))).map(e=>e.id||e.outerHTML.slice(0,80));const buttons=[...document.querySelectorAll('button')].filter(b=>!(b.textContent.trim()||b.getAttribute('aria-label')||b.title)).length;return {overflow:document.documentElement.scrollWidth-window.innerWidth,dup:[...new Set(dup)],unlabeled,buttons};})())`);
@@ -106,6 +115,23 @@ assert.equal(marketingContextProbe.content,'');
 assert.equal(marketingContextProbe.landingPath,'/#home');
 assert.equal(typeof marketingContextProbe.referrerHost,'string');
 await auditDom('home');
+
+for(const width of [320,360,390]){
+  await setMobileViewport(width);
+  await navigate(BASE+'#home');
+  await waitFor("document.body.innerText.includes('Pediu? Tá na mão.')","mobile home "+width);
+  assert.equal(await evaluate("window.innerWidth"),width,'viewport mobile precisa respeitar '+width+'px');
+  await auditDom('home mobile '+width+'px');
+
+  for(const routeName of ['learn','earn','merchants']){
+    await evaluate("go("+JSON.stringify(routeName)+")");
+    await waitFor("document.querySelector('#app') && document.querySelector('#app').innerText.length>20",'mobile '+routeName+' '+width);
+    await auditDom(routeName+' mobile '+width+'px');
+  }
+}
+await clearViewportOverride();
+await navigate(BASE+'#home');
+await waitFor("document.body.innerText.includes('Pediu? Tá na mão.')","home after mobile matrix");
 
 assert.equal(
   await evaluate("buildPortalHref('https://revenda.example.com','merchant',{origin:'https://app.example.com',hostname:'app.example.com',pathname:'/gassg/'})"),
