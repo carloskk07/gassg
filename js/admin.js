@@ -1396,4 +1396,6 @@ globalThis.adminConfirmLaunchRequirement=adminConfirmLaunchRequirement;
 globalThis.adminSetOperationMode=adminSetOperationMode;
 globalThis.adminSetCommerceEnabled=adminSetCommerceEnabled;
 globalThis.adminSetSupportStatus=adminSetSupportStatus;
+globalThis.adminRotatePilotInvite=adminRotatePilotInvite;
+globalThis.adminRevokePilotInvite=adminRevokePilotInvite;
 globalThis.adminConvertPilotPartner=adminConvertPilotPartner;
