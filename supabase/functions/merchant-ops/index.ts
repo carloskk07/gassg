@@ -54,6 +54,16 @@ async function authenticatedUser(req:Request){
 }
 function canOperate(role:string){return ["owner","manager","operator"].includes(role)}
 function canManage(role:string){return ["owner","manager"].includes(role)}
+function catalogStateMatches(row:any,desired:any){
+  return Boolean(row)
+    && Number(row.price_cents)===Number(desired.price_cents)
+    && String(row.pricing_mode)===String(desired.pricing_mode)
+    && Number(row.min_price_cents)===Number(desired.min_price_cents)
+    && Number(row.max_price_cents)===Number(desired.max_price_cents)
+    && String(row.pricing_strategy)===String(desired.pricing_strategy)
+    && Number(row.available_stock)===Number(desired.available_stock)
+    && Boolean(row.active)===Boolean(desired.active);
+}
 
 Deno.serve(async(req:Request)=>{
   const origin=req.headers.get("Origin");
@@ -219,7 +229,7 @@ Deno.serve(async(req:Request)=>{
 
       const {data:existingCatalog,error:existingCatalogError}=await admin
         .from("catalog_items")
-        .select("pricing_mode,min_price_cents,max_price_cents,pricing_strategy")
+        .select("price_cents,pricing_mode,min_price_cents,max_price_cents,pricing_strategy,available_stock,active,price_confirmed_at,updated_at")
         .eq("merchant_id",merchantId)
         .eq("product_code",productCode)
         .maybeSingle();
@@ -257,25 +267,81 @@ Deno.serve(async(req:Request)=>{
         }
       }
 
-      const {data,error}=await admin
-        .from("catalog_items")
-        .upsert({
-          merchant_id:merchantId,
-          product_code:productCode,
-          product_name:productName,
-          price_cents:priceCents,
-          pricing_mode:pricingMode,
-          min_price_cents:minPriceCents,
-          max_price_cents:maxPriceCents,
-          pricing_strategy:pricingStrategy,
-          available_stock:availableStock,
-          active,
-          price_confirmed_at:now,
-          updated_at:now
-        },{onConflict:"merchant_id,product_code"})
-        .select("product_code,product_name,price_cents,pricing_mode,min_price_cents,max_price_cents,pricing_strategy,available_stock,active,updated_at")
-        .single();
-      if(error)throw error;
+      const desiredCatalog={
+        merchant_id:merchantId,
+        product_code:productCode,
+        product_name:productName,
+        price_cents:priceCents,
+        pricing_mode:pricingMode,
+        min_price_cents:minPriceCents,
+        max_price_cents:maxPriceCents,
+        pricing_strategy:pricingStrategy,
+        available_stock:availableStock,
+        active,
+        price_confirmed_at:now,
+        updated_at:now
+      };
+      let data:any=null;
+
+      if(existingCatalog){
+        const expectedUpdatedAt=String(body.expectedUpdatedAt??"").trim();
+        if(!expectedUpdatedAt||!Number.isFinite(Date.parse(expectedUpdatedAt))){
+          throw new DomainError(
+            "CATALOG_VERSION_REQUIRED",
+            "Atualize o painel antes de salvar este produto.",
+            409
+          );
+        }
+
+        const {data:updated,error:updateError}=await admin
+          .from("catalog_items")
+          .update(desiredCatalog)
+          .eq("merchant_id",merchantId)
+          .eq("product_code",productCode)
+          .eq("updated_at",expectedUpdatedAt)
+          .select("product_code,product_name,price_cents,pricing_mode,min_price_cents,max_price_cents,pricing_strategy,available_stock,active,price_confirmed_at,updated_at")
+          .maybeSingle();
+        if(updateError)throw updateError;
+        data=updated;
+
+        if(!data){
+          const {data:current,error:currentError}=await admin
+            .from("catalog_items")
+            .select("product_code,product_name,price_cents,pricing_mode,min_price_cents,max_price_cents,pricing_strategy,available_stock,active,price_confirmed_at,updated_at")
+            .eq("merchant_id",merchantId)
+            .eq("product_code",productCode)
+            .maybeSingle();
+          if(currentError)throw currentError;
+          if(catalogStateMatches(current,desiredCatalog)){
+            data=current;
+          }else{
+            throw new DomainError(
+              "CATALOG_VERSION_CONFLICT",
+              "O estoque ou preço mudou em outra ação. Atualize o painel antes de salvar novamente.",
+              409
+            );
+          }
+        }
+      }else{
+        const {data:inserted,error:insertError}=await admin
+          .from("catalog_items")
+          .insert(desiredCatalog)
+          .select("product_code,product_name,price_cents,pricing_mode,min_price_cents,max_price_cents,pricing_strategy,available_stock,active,price_confirmed_at,updated_at")
+          .maybeSingle();
+        if(insertError){
+          if(String((insertError as any)?.code??"")==="23505"){
+            throw new DomainError(
+              "CATALOG_VERSION_CONFLICT",
+              "Este produto foi criado em outra aba. Atualize o painel antes de salvar novamente.",
+              409
+            );
+          }
+          throw insertError;
+        }
+        data=inserted;
+      }
+
+      if(!data)throw new DomainError("CATALOG_UPDATE_FAILED","Não foi possível confirmar a atualização do catálogo.",500);
 
       const {error:merchantUpdateError}=await admin
         .from("merchants")
