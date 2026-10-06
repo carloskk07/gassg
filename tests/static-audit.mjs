@@ -44,6 +44,7 @@ const legal=read('js/legal.js');
 const publicRequest=read('supabase/functions/submit-public-request/index.ts');
 const publicRequestMigration=read('supabase/migrations/20261003194135_public_trust_channel_v1_50.sql');
 const publicRetryIdempotency=read('supabase/migrations/20261005231500_public_retry_idempotency_v1_70_15.sql');
+const publicRequestRetryAuthority=read('supabase/migrations/20261006193000_public_request_retry_authority_v1_70_28.sql');
 const leadRetryOrdering=read('supabase/migrations/20261006153000_lead_retry_ordering_v1_70_26.sql');
 const leadCapture=read('supabase/functions/capture-prelaunch-lead/index.ts');
 const leadMigration=read('supabase/migrations/20261003182954_prelaunch_acquisition_v1_49.sql');
@@ -101,7 +102,8 @@ assert.ok(legal.includes('Aviso de Privacidade')&&legal.includes('Seus direitos'
 assert.ok(legal.includes('Termos de Uso')&&legal.includes('Situação atual')&&legal.includes('Parceiro Fundador'),'termos de pré-lançamento precisam distinguir demonstração, cliente e parceiro');
 assert.ok(legal.includes('Fale com o TAMÃO')&&legal.includes('Privacidade / LGPD')&&legal.includes('submitPublicRequest'),'canal oficial precisa aceitar contato e solicitações de privacidade');
 assert.ok(backend.includes('submit-public-request')&&backend.includes('publicRequestSubmit'),'frontend precisa enviar o canal público ao endpoint dedicado');
-assert.ok(publicRequest.includes('ALLOWED_ORIGINS')&&publicRequest.includes('consume_prelaunch_lead_quota'),'canal público precisa de allowlist de origem e rate limit server-side');
+assert.ok(publicRequest.includes('ALLOWED_ORIGINS')&&publicRequest.includes('submit_public_request_idempotent'),'canal público precisa de allowlist de origem e autoridade transacional server-side');
+assert.ok(publicRequestRetryAuthority.includes('consume_prelaunch_lead_quota')&&publicRequestRetryAuthority.includes("hashtextextended('public-request:'"),'autoridade de contato/LGPD precisa serializar retry antes da quota');
 assert.ok(publicRequest.includes('body.acknowledged!==true')&&publicRequest.includes('body.website')&&publicRequest.includes('raw.length>16000'),'canal público precisa de confirmação, honeypot e limite de payload');
 assert.ok(publicRequest.includes('SECRET_KEY.slice')&&publicRequest.includes('ip_hash'),'canal público deve usar hash técnico sem persistir IP bruto');
 assert.ok(backend.includes("liveIdempotency('public-request')")&&backend.includes("'Idempotency-Key':idempotencyKey"),'retry de contato/LGPD precisa reutilizar chave idempotente');
@@ -805,7 +807,8 @@ for(const entry of fs.readdirSync(functionRoot,{withFileTypes:true})){
     assert.ok(source.includes('body.website'),entry.name+' precisa manter honeypot');
   }else if(entry.name==='submit-public-request'){
     assert.ok(source.includes('raw.length>16000'),entry.name+' precisa limitar JSON');
-    assert.ok(source.includes('consume_prelaunch_lead_quota'),entry.name+' precisa aplicar quota server-side');
+    assert.ok(source.includes('submit_public_request_idempotent'),entry.name+' precisa usar autoridade transacional de retry');
+    assert.ok(publicRequestRetryAuthority.includes('consume_prelaunch_lead_quota'),entry.name+' precisa manter quota dentro da autoridade server-side');
     assert.ok(source.includes('ALLOWED_ORIGINS')&&source.includes('originAllowed'),entry.name+' precisa restringir origem explicitamente');
     assert.ok(source.includes('body.website'),entry.name+' precisa manter honeypot');
   }else if(entry.name==='capture-marketing-event'){
