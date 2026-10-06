@@ -435,6 +435,11 @@ function adminPilotPartnerCard(p){
     ${p.notes?`<div class="tiny muted">${esc(p.notes)}</div>`:''}
     ${p.onboarding_status==='converted'?`<div class="notice success" style="margin-top:10px"><strong>Revenda criada.</strong><br>ID: ${esc(p.merchant_id||'—')}. Compliance e ativação continuam separados.</div>`:''}
     ${convertible?`<div class="divider"></div>
+      <div class="notice"><strong>Convite seguro do parceiro</strong><br>O token é exibido uma única vez ao administrador, nunca é salvo em claro e links novos usam fragmento para não enviar o segredo ao servidor.</div>
+      <div class="order-actions">
+        <button class="secondary small" onclick="adminRotatePilotInvite('${id}')">Gerar / rotacionar convite (14 dias)</button>
+        <button class="danger-btn small" onclick="adminRevokePilotInvite('${id}')">Revogar convite ativo</button>
+      </div>
       <div class="notice"><strong>Converter parceiro piloto em revenda</strong><br>Cria cadastro, dados comerciais, catálogo, estoque inicial e pagamentos selecionados. Compliance permanece <strong>pendente</strong>.</div>
       <div class="field-row">
         <div class="input-wrap"><label for="${prefix}-legal">Razão social</label><input id="${prefix}-legal" class="input" maxlength="180" placeholder="Razão social real"></div>
