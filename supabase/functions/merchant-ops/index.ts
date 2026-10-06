@@ -103,16 +103,6 @@ async function applyMerchantConfig(admin:any,{
   }
   return data;
 }
-function catalogStateMatches(row:any,desired:any){
-  return Boolean(row)
-    && Number(row.price_cents)===Number(desired.price_cents)
-    && String(row.pricing_mode)===String(desired.pricing_mode)
-    && Number(row.min_price_cents)===Number(desired.min_price_cents)
-    && Number(row.max_price_cents)===Number(desired.max_price_cents)
-    && String(row.pricing_strategy)===String(desired.pricing_strategy)
-    && Number(row.available_stock)===Number(desired.available_stock)
-    && Boolean(row.active)===Boolean(desired.active);
-}
 
 Deno.serve(async(req:Request)=>{
   const origin=req.headers.get("Origin");
