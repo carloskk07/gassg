@@ -185,13 +185,23 @@ Deno.serve(async(req:Request)=>{
         }
       }
 
-      const {data,error}=await admin
+      let onlineUpdate=admin
         .from("merchants")
         .update({online,last_seen_at:now})
-        .eq("id",merchantId)
+        .eq("id",merchantId);
+      if(online)onlineUpdate=onlineUpdate.eq("accepts_citywide",true);
+      const {data,error}=await onlineUpdate
         .select("online,last_seen_at")
-        .single();
+        .maybeSingle();
       if(error)throw error;
+      if(!data&&online){
+        throw new DomainError(
+          "DELIVERY_AREA_REQUIRED",
+          "A área de entrega mudou em outra ação. Atualize o painel antes de ficar online.",
+          409
+        );
+      }
+      if(!data)throw new DomainError("MERCHANT_NOT_FOUND","Revenda não encontrada.",404);
       return json({ok:true,...data},200,origin);
     }
 
