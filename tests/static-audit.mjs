@@ -44,6 +44,7 @@ const legal=read('js/legal.js');
 const publicRequest=read('supabase/functions/submit-public-request/index.ts');
 const publicRequestMigration=read('supabase/migrations/20261003194135_public_trust_channel_v1_50.sql');
 const publicRetryIdempotency=read('supabase/migrations/20261005231500_public_retry_idempotency_v1_70_15.sql');
+const leadRetryOrdering=read('supabase/migrations/20261006153000_lead_retry_ordering_v1_70_26.sql');
 const leadCapture=read('supabase/functions/capture-prelaunch-lead/index.ts');
 const leadMigration=read('supabase/migrations/20261003182954_prelaunch_acquisition_v1_49.sql');
 const marketingCapture=read('supabase/functions/capture-marketing-event/index.ts');
@@ -152,12 +153,15 @@ assert.ok(legal.includes('Medição agregada do pré-lançamento')&&legal.includ
 assert.ok(acquisition.includes('Quero ser avisado na abertura')&&acquisition.includes('Quero conversar sobre parceria'),'aquisição precisa ter CTAs próprios para cliente e parceiro');
 assert.ok(acquisition.includes("utm_source")||backend.includes("utm_source"),'captação precisa preservar atribuição de campanha');
 assert.ok(backend.includes("capture-prelaunch-lead")&&backend.includes("prelaunchAttribution"),'frontend precisa enviar leads ao endpoint dedicado');
-assert.ok(leadCapture.includes('ALLOWED_ORIGINS')&&leadCapture.includes('consume_prelaunch_lead_quota'),'lead público precisa de allowlist de origem e rate limit server-side');
+assert.ok(leadCapture.includes('ALLOWED_ORIGINS')&&leadCapture.includes('capture_prelaunch_lead_idempotent'),'lead público precisa de allowlist de origem e autoridade transacional server-side');
+assert.ok(leadRetryOrdering.includes('consume_prelaunch_lead_quota')&&leadRetryOrdering.includes("hashtextextended('prelaunch-lead:'"),'autoridade de lead precisa aplicar quota e serializar por lead lógico');
 assert.ok(leadCapture.includes('ip_hash')&&leadCapture.includes('SECRET_KEY.slice'),'antiabuso não pode persistir IP bruto');
 assert.ok(leadMigration.includes('revoke all on table public.prelaunch_leads from public, anon, authenticated'),'leads não podem ser expostos pelo Data API');
 assert.ok(leadMigration.includes('unique index if not exists prelaunch_leads_type_phone_uidx'),'reenvio do mesmo WhatsApp precisa ser deduplicável');
 assert.ok(backend.includes("liveIdempotency('prelaunch-lead')"),'retry de lead precisa reutilizar chave idempotente');
-assert.ok(leadCapture.includes('last_submission_idempotency_key')&&leadCapture.includes('last_submission_hash')&&leadCapture.includes('IDEMPOTENCY_CONFLICT'),'lead precisa distinguir retry do mesmo envio de uma nova submissão real');
+assert.ok(leadCapture.includes('IDEMPOTENCY_CONFLICT')&&leadRetryOrdering.includes('prelaunch_lead_submissions')&&leadRetryOrdering.includes("'replayed',true"),'lead precisa preservar cada tentativa idempotente para ACK perdido e retry fora de ordem');
+assert.ok(leadRetryOrdering.includes('for update')&&leadRetryOrdering.includes('pg_advisory_xact_lock'),'lead precisa serializar chaves idempotentes e atualizações concorrentes');
+assert.ok(leadRetryOrdering.includes('revoke all on table public.prelaunch_lead_submissions from public, anon, authenticated'),'histórico idempotente de lead deve permanecer server-only');
 assert.ok(publicRetryIdempotency.includes('public_requests_idempotency_key_uidx')&&publicRetryIdempotency.includes('prelaunch_leads_last_submission_idempotency_uidx'),'banco precisa impor unicidade das chaves públicas de retry');
 assert.ok(customer.includes('Botijão de cozinha 13 kg')&&customer.includes('startHomeOrder'),'home precisa iniciar a compra em linguagem humana sem depender de P13 como rótulo principal');
 assert.ok(core.includes('brand-name">TAMÃO')&&core.includes('Pediu? Tá na mão.'),'shell deve carregar a identidade TAMÃO');
@@ -793,7 +797,13 @@ for(const entry of fs.readdirSync(functionRoot,{withFileTypes:true})){
   const source=fs.readFileSync(file,'utf8');
   assert.ok(source.includes('jsr:@supabase/functions-js@2.117.2/edge-runtime.d.ts'),entry.name+' precisa fixar functions-js');
   assert.ok(source.includes('npm:@supabase/supabase-js@2.117.2'),entry.name+' precisa fixar supabase-js');
-  if(['capture-prelaunch-lead','submit-public-request'].includes(entry.name)){
+  if(entry.name==='capture-prelaunch-lead'){
+    assert.ok(source.includes('raw.length>16000'),entry.name+' precisa limitar JSON');
+    assert.ok(source.includes('capture_prelaunch_lead_idempotent'),entry.name+' precisa usar autoridade transacional de retry');
+    assert.ok(leadRetryOrdering.includes('consume_prelaunch_lead_quota'),entry.name+' precisa manter quota dentro da autoridade server-side');
+    assert.ok(source.includes('ALLOWED_ORIGINS')&&source.includes('originAllowed'),entry.name+' precisa restringir origem explicitamente');
+    assert.ok(source.includes('body.website'),entry.name+' precisa manter honeypot');
+  }else if(entry.name==='submit-public-request'){
     assert.ok(source.includes('raw.length>16000'),entry.name+' precisa limitar JSON');
     assert.ok(source.includes('consume_prelaunch_lead_quota'),entry.name+' precisa aplicar quota server-side');
     assert.ok(source.includes('ALLOWED_ORIGINS')&&source.includes('originAllowed'),entry.name+' precisa restringir origem explicitamente');
