@@ -56,7 +56,8 @@ jobs:
             case "$f" in
               supabase/functions/capture-prelaunch-lead/index.ts)
                 grep -q 'ALLOWED_ORIGINS' "$f" || { echo "$f missing explicit origin allowlist"; exit 1; }
-                grep -q 'consume_prelaunch_lead_quota' "$f" || { echo "$f missing server-side rate limit"; exit 1; }
+                grep -q 'capture_prelaunch_lead_idempotent' "$f" || { echo "$f missing transactional lead authority"; exit 1; }
+                grep -q 'consume_prelaunch_lead_quota' supabase/migrations/20261006153000_lead_retry_ordering_v1_70_26.sql || { echo "$f transactional authority missing server-side rate limit"; exit 1; }
                 grep -q 'body.consent!==true' "$f" || { echo "$f missing explicit consent gate"; exit 1; }
                 grep -q 'body.website' "$f" || { echo "$f missing honeypot"; exit 1; }
                 grep -q 'raw.length>16000' "$f" || { echo "$f missing payload cap"; exit 1; }
