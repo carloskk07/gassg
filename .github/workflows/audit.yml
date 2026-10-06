@@ -79,6 +79,8 @@ jobs:
         run: node tests/expert-fuzz.mjs
       - name: Financial invariant fuzz
         run: node tests/financial-invariants-fuzz.mjs
+      - name: Service worker cache integrity
+        run: node tests/service-worker-integrity.mjs
       - name: Static trust and asset audit
         run: node tests/static-audit.mjs
       - name: Remote admin gateway contract and portal report
