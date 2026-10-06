@@ -499,6 +499,13 @@ assert.ok(admin.includes("adminIdempotency('admin-'+action)"),'cada mutação ad
 assert.ok(admin.includes('adminOriginSafe'),'frontend admin precisa validar isolamento de origem');
 assert.ok(admin.includes("status='unsafe-origin'")||admin.includes("status='unsafe-origin';"),'frontend admin precisa bloquear origem compartilhada');
 assert.ok(adminOpsSource.includes('ADMIN_ALLOWED_ORIGIN'),'Edge admin precisa depender de origem dedicada configurável');
+const pilotInviteAdminMigration=read('supabase/migrations/20261006233000_admin_pilot_invite_authority_v1_70_28.sql');
+assert.ok(admin.includes('adminIssuePilotInvite')&&admin.includes('adminRevokePilotInvite')&&admin.includes('adminGeneratePilotInviteToken'),'admin precisa emitir, rotacionar e revogar convite piloto sem SQL');
+assert.ok(admin.includes('crypto.getRandomValues')&&admin.includes("searchParams.set('pilot',token)"),'convite piloto deve usar Web Crypto e montar o link oficial somente no navegador admin');
+assert.ok(adminOpsSource.includes('action==="pilot-invite"')&&adminOpsSource.includes('sha256Hex(token)')&&adminOpsSource.includes('admin_pilot_partner_invite_action'),'Edge admin precisa hashear o convite antes da autoridade transacional');
+assert.ok(adminOpsSource.includes('payload={draftId,inviteAction,tokenHash,expiresAt}'),'payload idempotente do convite não pode carregar token em claro depois da validação');
+assert.ok(pilotInviteAdminMigration.includes('perform public.require_platform_admin')&&pilotInviteAdminMigration.includes('platform_admin_audit')&&pilotInviteAdminMigration.includes('action_requests'),'convite piloto admin precisa exigir admin, audit log e idempotência');
+assert.ok(pilotInviteAdminMigration.includes('revoke all on function public.admin_pilot_partner_invite_action')&&pilotInviteAdminMigration.includes('to service_role'),'autoridade de convite piloto não pode ser executável pelo browser');
 assert.ok(adminOpsSource.includes('const CUSTOMER_LIVE_ORIGIN="https://tamao.com.br"')&&adminOpsSource.includes('const MERCHANT_LIVE_ORIGIN="https://parceiro.tamao.com.br"')&&adminOpsSource.includes('const ADMIN_LIVE_ORIGIN="https://admin.tamao.com.br"'),'verificador administrativo precisa provar os três domínios oficiais, não os hosts técnicos pages.dev');
 assert.ok(adminOpsSource.includes('ADMIN_PAGES_ORIGIN="https://tamao-sg-admin.pages.dev"'),'portal técnico admin pode permanecer somente como fallback CORS, não como origem canônica');
 assert.ok(read('supabase/functions/get-offers/index.ts').includes('commerce_launch_status')&&read('supabase/functions/get-offers/index.ts').includes('commerceLaunchBlocked:true'),'matching live precisa falhar fechado antes da abertura oficial');
