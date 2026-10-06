@@ -1163,6 +1163,58 @@ async function adminSetSupportStatus(caseId,status){
   }catch(e){toast(String(e?.message||e))}
 }
 
+async function adminRotatePilotInvite(id){
+  const draft=(adminRuntime.data?.pilotPartners||[]).find(x=>x.id===id);
+  if(!draft)return toast('Parceiro piloto não encontrado');
+  const reason=prompt('Motivo para gerar/rotacionar este convite piloto:')||'';
+  if(reason.trim().length<3)return toast('Informe o motivo da rotação');
+  if(!confirm('Gerar um novo convite por 14 dias? Qualquer convite ativo anterior deste parceiro será revogado.'))return;
+  try{
+    const token=adminPilotInviteSecret();
+    const tokenHash=await adminSha256Hex(token);
+    const expiresAt=new Date(Date.now()+14*24*60*60*1000).toISOString();
+    const result=await adminPerform('pilot-invite-action',{
+      draftId:id,
+      inviteAction:'rotate',
+      tokenHash,
+      expiresAt,
+      reason
+    });
+    if(!result?.ok)throw new Error('O servidor não confirmou a criação do convite');
+    const link=adminPilotInviteLink(token);
+    let copied=false;
+    try{
+      await navigator.clipboard.writeText(link);
+      copied=true;
+    }catch{}
+    if(copied){
+      toast('Convite seguro criado e copiado. O token não fica salvo em claro.');
+    }else{
+      prompt('Convite criado. Copie agora; o token não poderá ser recuperado depois:',link);
+    }
+    return result;
+  }catch(e){toast(String(e?.message||e))}
+}
+
+async function adminRevokePilotInvite(id){
+  const draft=(adminRuntime.data?.pilotPartners||[]).find(x=>x.id===id);
+  if(!draft)return toast('Parceiro piloto não encontrado');
+  const reason=prompt('Motivo para revogar o convite piloto ativo:')||'';
+  if(reason.trim().length<3)return toast('Informe o motivo da revogação');
+  if(!confirm('Revogar o convite piloto ativo deste parceiro? Links anteriores deixarão de funcionar.'))return;
+  try{
+    const result=await adminPerform('pilot-invite-action',{
+      draftId:id,
+      inviteAction:'revoke',
+      tokenHash:'',
+      expiresAt:null,
+      reason
+    });
+    toast(Number(result?.revokedCount||0)>0?'Convite ativo revogado':'Nenhum convite ativo precisava ser revogado');
+    return result;
+  }catch(e){toast(String(e?.message||e))}
+}
+
 async function adminConvertPilotPartner(id){
   const p=(adminRuntime.data?.pilotPartners||[]).find(x=>x.id===id);
   if(!p)return toast('Parceiro piloto não encontrado');
