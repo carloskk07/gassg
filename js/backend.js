@@ -1406,17 +1406,29 @@ async function merchantUpdateProductLive(productCode,priceCents,availableStock,a
   if(!merchantId)throw new Error('Revenda não selecionada');
   merchantRuntime.actionPending=true;render();
   try{
+    const normalizedCode=String(productCode||'').trim().toUpperCase();
+    const current=(merchantRuntime.catalog||[]).find(
+      item=>String(item?.productCode||'').trim().toUpperCase()===normalizedCode
+    )||null;
     const body={
-      merchantId,action:'update-product',productCode,
+      merchantId,action:'update-product',productCode:normalizedCode,
       priceCents:Number(priceCents),availableStock:Number(availableStock),active:active!==false
     };
+    if(current?.updatedAt)body.expectedUpdatedAt=String(current.updatedAt);
     if(pricing&&typeof pricing==='object'){
       if(pricing.pricingMode!=null)body.pricingMode=String(pricing.pricingMode);
       if(pricing.minPriceCents!=null)body.minPriceCents=Number(pricing.minPriceCents);
       if(pricing.maxPriceCents!=null)body.maxPriceCents=Number(pricing.maxPriceCents);
       if(pricing.pricingStrategy!=null)body.pricingStrategy=String(pricing.pricingStrategy);
     }
-    await retryAmbiguousOnce(()=>merchantInvoke('merchant-ops',body));
+    try{
+      await retryAmbiguousOnce(()=>merchantInvoke('merchant-ops',body));
+    }catch(error){
+      if(['CATALOG_VERSION_CONFLICT','CATALOG_VERSION_REQUIRED'].includes(String(error?.code||''))){
+        await merchantRefresh({silent:true});
+      }
+      throw error;
+    }
     await merchantRefresh({silent:true});
   }finally{
     merchantRuntime.actionPending=false;render();
