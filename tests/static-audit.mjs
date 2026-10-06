@@ -478,6 +478,10 @@ assert.ok(!adminOpsSource.includes('.rpc("admin_financial_action"'),'Edge admin 
 assert.ok(!adminOpsSource.includes('.rpc("admin_reverse_settled_order"'),'Edge admin não pode contornar a autoridade idempotente de reversão');
 const reversalReplayMigration=read('supabase/migrations/20261005235900_reversal_replay_timestamp_consistency_v1_70_16.sql');
 assert.ok(reversalReplayMigration.includes("'reversedAt',coalesce(v_order.financial_reversed_at,v_existing.created_at)"),'replay da reversão financeira deve devolver o mesmo timestamp da primeira resposta');
+const checkoutSerializationMigration=read('supabase/migrations/20261006001000_customer_checkout_serialization_v1_70_17.sql');
+assert.ok(checkoutSerializationMigration.includes("pg_advisory_xact_lock")&&checkoutSerializationMigration.includes("'cashback-user:'||p_user_id::text"),'checkout concorrente do mesmo cliente precisa ser serializado antes das verificações inferiores');
+assert.ok(checkoutSerializationMigration.indexOf('pg_advisory_xact_lock')<checkoutSerializationMigration.indexOf('select commerce_enabled,operation_mode'),'lock por cliente precisa ocorrer antes da leitura de modo e da descida para v7');
+assert.ok(read('supabase/functions/create-order/index.ts').includes('create_order_from_quote_v8'),'Edge de checkout precisa usar somente a autoridade V8 endurecida');
 assert.ok(!adminOpsSource.includes('.rpc("admin_approve_merchant_application"'),'Edge admin não pode aprovar parceiro fora da autoridade idempotente');
 assert.ok(admin.includes("headers['Idempotency-Key']"),'frontend admin precisa enviar chave idempotente');
 assert.ok(admin.includes("adminIdempotency('admin-'+action)"),'cada mutação admin precisa criar uma chave própria');
