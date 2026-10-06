@@ -206,7 +206,7 @@ Deno.serve(async(req:Request)=>{
 
     const {data:merchant,error:merchantError}=await admin
       .from("merchants")
-      .select("id,name,status,online,trust_score,delivery_fee_cents,delivery_fee_confirmed_at,base_eta_minutes,accepts_citywide,accepts_scheduled_orders,max_active_orders,last_seen_at")
+      .select("id,name,status,online,trust_score,delivery_fee_cents,delivery_fee_confirmed_at,base_eta_minutes,accepts_citywide,accepts_scheduled_orders,max_active_orders,last_seen_at,updated_at")
       .eq("id",selected.merchant_id)
       .maybeSingle();
     if(merchantError)throw merchantError;
@@ -359,6 +359,7 @@ Deno.serve(async(req:Request)=>{
         paymentMethods,
         maxActiveOrders:Number(merchant.max_active_orders??8),
         deliveryFeeConfirmedAt:merchant.delivery_fee_confirmed_at,
+        configUpdatedAt:merchant.updated_at,
         performance:{
           completedOrders:Number(performance?.completed_orders??0),
           completionRate:performance?.completion_rate==null?null:Number(performance.completion_rate),
