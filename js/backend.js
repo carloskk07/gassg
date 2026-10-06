@@ -1438,17 +1438,40 @@ async function merchantUpdateProductLive(productCode,priceCents,availableStock,a
   }
 }
 
-async function merchantUpdateLogisticsLive(deliveryFeeCents,baseEtaMinutes,acceptsCitywide){
+async function merchantConfigMutation(action,payload={}){
   const merchantId=merchantRuntime.merchant?.merchantId;
   if(!merchantId)throw new Error('Revenda não selecionada');
+  let expectedUpdatedAt=String(merchantRuntime.merchant?.configUpdatedAt||'').trim();
+  if(!expectedUpdatedAt){
+    await merchantRefresh({silent:true});
+    expectedUpdatedAt=String(merchantRuntime.merchant?.configUpdatedAt||'').trim();
+  }
+  if(!expectedUpdatedAt)throw Object.assign(new Error('Atualize o painel antes de salvar a configuração'),{code:'CONFIG_VERSION_REQUIRED'});
+
+  const idempotencyKey=liveIdempotency('merchant-config');
+  try{
+    return await retryAmbiguousOnce(()=>merchantInvoke('merchant-ops',{
+      merchantId,
+      action,
+      expectedUpdatedAt,
+      ...payload
+    },{idempotencyKey}));
+  }catch(error){
+    if(['CONFIG_VERSION_CONFLICT','CONFIG_VERSION_REQUIRED'].includes(String(error?.code||''))){
+      await merchantRefresh({silent:true});
+    }
+    throw error;
+  }
+}
+
+async function merchantUpdateLogisticsLive(deliveryFeeCents,baseEtaMinutes,acceptsCitywide){
   merchantRuntime.actionPending=true;render();
   try{
-    await retryAmbiguousOnce(()=>merchantInvoke('merchant-ops',{
-      merchantId,action:'update-logistics',
+    await merchantConfigMutation('update-logistics',{
       deliveryFeeCents:Number(deliveryFeeCents),
       baseEtaMinutes:Number(baseEtaMinutes),
       acceptsCitywide:acceptsCitywide===true
-    }));
+    });
     await merchantRefresh({silent:true});
   }finally{
     merchantRuntime.actionPending=false;render();
@@ -1456,15 +1479,11 @@ async function merchantUpdateLogisticsLive(deliveryFeeCents,baseEtaMinutes,accep
 }
 
 async function merchantUpdateCapacityLive(maxActiveOrders){
-  const merchantId=merchantRuntime.merchant?.merchantId;
-  if(!merchantId)throw new Error('Revenda não selecionada');
   const capacity=Number(maxActiveOrders);
   if(!Number.isInteger(capacity)||capacity<1||capacity>100)throw new Error('Capacidade precisa ficar entre 1 e 100 pedidos');
   merchantRuntime.actionPending=true;render();
   try{
-    await retryAmbiguousOnce(()=>merchantInvoke('merchant-ops',{
-      merchantId,action:'update-capacity',maxActiveOrders:capacity
-    }));
+    await merchantConfigMutation('update-capacity',{maxActiveOrders:capacity});
     await merchantRefresh({silent:true});
   }finally{
     merchantRuntime.actionPending=false;render();
@@ -1472,15 +1491,11 @@ async function merchantUpdateCapacityLive(maxActiveOrders){
 }
 
 async function merchantUpdateSchedulingLive(acceptsScheduledOrders){
-  const merchantId=merchantRuntime.merchant?.merchantId;
-  if(!merchantId)throw new Error('Revenda não selecionada');
   merchantRuntime.actionPending=true;render();
   try{
-    await retryAmbiguousOnce(()=>merchantInvoke('merchant-ops',{
-      merchantId,
-      action:'update-scheduling',
+    await merchantConfigMutation('update-scheduling',{
       acceptsScheduledOrders:acceptsScheduledOrders===true
-    }));
+    });
     await merchantRefresh({silent:true});
   }finally{
     merchantRuntime.actionPending=false;render();
@@ -1488,8 +1503,6 @@ async function merchantUpdateSchedulingLive(acceptsScheduledOrders){
 }
 
 async function merchantUpdatePaymentMethodsLive(methods){
-  const merchantId=merchantRuntime.merchant?.merchantId;
-  if(!merchantId)throw new Error('Revenda não selecionada');
   const payload={
     pix:methods?.pix===true,
     card:methods?.card===true,
@@ -1498,11 +1511,7 @@ async function merchantUpdatePaymentMethodsLive(methods){
   if(!Object.values(payload).some(Boolean))throw new Error('Ative pelo menos uma forma de pagamento');
   merchantRuntime.actionPending=true;render();
   try{
-    await retryAmbiguousOnce(()=>merchantInvoke('merchant-ops',{
-      merchantId,
-      action:'update-payment-methods',
-      ...payload
-    }));
+    await merchantConfigMutation('update-payment-methods',payload);
     await merchantRefresh({silent:true});
   }finally{
     merchantRuntime.actionPending=false;render();
