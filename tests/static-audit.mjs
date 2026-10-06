@@ -59,6 +59,7 @@ const netlifyConfig=read('netlify.toml');
 const netlifyBuilder=read('scripts/build-netlify-portal.mjs');
 const cloudflarePortalBuilder=read('scripts/build-cloudflare-portal.mjs');
 const pilotBoundaryMigration=read('supabase/migrations/20261005071000_pilot_operation_boundary_v1_70_5.sql');
+const pilotRescueReconciliation=read('supabase/migrations/20261005120500_pilot_rescue_boundary_reconciliation_v1_70_9.sql');
 const orderLaunchRetryHardening=read('supabase/migrations/20261005105517_order_launch_mode_retry_hardening_v1_70_2.sql');
 const orderReplayAuthority=read('supabase/migrations/20261005105701_order_idempotent_replay_authority_v1_70_2_1.sql');
 const orderReplayReassert=read('supabase/migrations/20261005130000_reassert_order_idempotent_replay_v1_70_11.sql');
@@ -504,6 +505,10 @@ assert.ok(adminOpsSource.includes('ADMIN_PAGES_ORIGIN="https://tamao-sg-admin.pa
 assert.ok(read('supabase/functions/get-offers/index.ts').includes('commerce_launch_status')&&read('supabase/functions/get-offers/index.ts').includes('commerceLaunchBlocked:true'),'matching live precisa falhar fechado antes da abertura oficial');
 assert.ok(read('supabase/functions/get-offers/index.ts').includes('operationMode==="PILOT"')&&read('supabase/functions/get-offers/index.ts').includes('pilot_partner_drafts'),'PILOT precisa filtrar ofertas para parceiros piloto no servidor');
 assert.ok(pilotBoundaryMigration.includes('merchant_allowed_in_operation_mode')&&pilotBoundaryMigration.includes('public.system_rescue_order')&&pilotBoundaryMigration.includes('PILOT_MERCHANT_NOT_ALLOWED'),'PILOT precisa governar criação e rescue no PostgreSQL, não apenas na UI');
+assert.ok(pilotRescueReconciliation.includes('create or replace function public.merchant_allowed_in_operation_mode')&&pilotRescueReconciliation.includes('CREATE OR REPLACE FUNCTION public.market_supply_status')&&pilotRescueReconciliation.includes('CREATE OR REPLACE FUNCTION public.system_rescue_order'),'produção precisa possuir reconciliação explícita da boundary PILOT ausente no ledger histórico');
+const pilotRescueBody=pilotRescueReconciliation.toLowerCase();
+assert.ok((pilotRescueBody.match(/merchant_allowed_in_operation_mode\(m\.id\)/g)||[]).length>=2,'supply e rescue precisam filtrar revendas pelo modo operacional');
+assert.ok(pilotRescueBody.includes('not public.merchant_allowed_in_operation_mode(v_candidate_id)'),'rescue precisa revalidar boundary PILOT sob lock antes de assumir a candidata');
 assert.ok(read('supabase/functions/create-order/index.ts').includes('PILOT_MERCHANT_NOT_ALLOWED'),'checkout precisa traduzir conflito de fronteira PILOT sem erro 500');
 assert.ok(orderLaunchRetryHardening.includes('for share')&&orderLaunchRetryHardening.includes("q.customer_id=p_user_id")&&orderLaunchRetryHardening.includes("onboarding_status='converted'"),'checkout precisa serializar com mudança de modo e revalidar ownership/merchant piloto na criação');
 assert.ok(orderReplayAuthority.indexOf('v_action.completed_at is not null')<orderReplayAuthority.indexOf('select commerce_enabled,operation_mode'),'replay concluído precisa vencer kill switch e mudança de modo');
