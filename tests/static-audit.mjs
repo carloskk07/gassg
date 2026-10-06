@@ -921,9 +921,32 @@ assert.ok(growth.includes('Convite de parceiro piloto detectado.')&&growth.inclu
 const pilotInviteIndexes=read('supabase/migrations/20261004185800_pilot_partner_invite_fk_indexes_v1_69_1.sql');
 assert.ok(pilotInviteIndexes.includes('pilot_partner_invites_claimed_user_idx')&&pilotInviteIndexes.includes('pilot_partner_invites_application_idx'),'FKs de claim/application do convite piloto precisam de índices de cobertura');
 const pilotClaimFallback=read('supabase/migrations/20261004193000_pilot_partner_claim_fallback_v1_69_3.sql');
+const adminPilotInviteControl=read('supabase/migrations/20261006221000_admin_pilot_invite_control_v1_70_33.sql');
 assert.ok(pilotClaimFallback.includes('auth.uid()')&&pilotClaimFallback.includes('claim_pilot_partner_invite'),'fallback autenticado precisa derivar a identidade do JWT e reutilizar a autoridade interna');
 assert.ok(pilotClaimFallback.includes('revoke all on function public.claim_my_pilot_partner_invite(uuid,text)')&&pilotClaimFallback.includes('grant execute on function public.claim_my_pilot_partner_invite(uuid,text)')&&pilotClaimFallback.includes('to authenticated'),'somente authenticated pode executar o wrapper estreito de claim');
 assert.ok(backend.includes("merchantRuntime.client.rpc('claim_my_pilot_partner_invite'")&&backend.includes('!result?.pilotPartner&&result?.applicationId'),'frontend precisa usar o wrapper somente como fallback quando a Edge ainda não retornou o vínculo');
+assert.ok(adminPilotInviteControl.includes('perform public.require_platform_admin(p_actor_user_id)')&&adminPilotInviteControl.includes('from public.pilot_partner_drafts')&&adminPilotInviteControl.includes('for update'),'rotação de convite precisa exigir admin e serializar pelo draft');
+assert.ok(adminPilotInviteControl.includes("p_token_hash!~'^[0-9a-f]{64}
+
+
+console.log('First merchant pilot safety audit passou.');
+
+const defaultPrivilegeLock=read('supabase/migrations/20261002173404_lock_default_data_api_privileges.sql').toLowerCase();
+const maintainLock=read('supabase/migrations/20261002173435_revoke_default_maintain_privilege.sql').toLowerCase();
+assert.ok(defaultPrivilegeLock.includes('alter default privileges for role postgres in schema public'),'migration precisa governar privilégios padrão do owner real');
+assert.ok(defaultPrivilegeLock.includes('revoke execute on functions from public, anon, authenticated'),'funções futuras devem nascer server-only');
+assert.ok(defaultPrivilegeLock.includes('to service_role'),'service_role precisa manter autoridade explícita');
+assert.ok(maintainLock.includes('revoke maintain on tables from anon, authenticated'),'PostgreSQL 17 MAINTAIN precisa ser removido dos defaults do browser');
+console.log('Default Data API privilege audit passou.');
+
+")&&adminPilotInviteControl.includes('token_hash,expires_at'),'autoridade de convite deve receber somente SHA-256 e nunca token em claro');
+assert.ok(adminPilotInviteControl.includes('from public.action_requests')&&adminPilotInviteControl.includes('v_action.completed_at is not null'),'rotação/revogação de convite precisa ser idempotente sob retry e ACK perdido');
+assert.ok(adminPilotInviteControl.includes('set revoked_at=clock_timestamp()')&&adminPilotInviteControl.includes("p_action='rotate'"),'rotacionar convite deve invalidar qualquer convite ativo anterior na mesma transação');
+assert.ok(adminPilotInviteControl.includes("'rotate-pilot-partner-invite'")&&adminPilotInviteControl.includes("'revoke-pilot-partner-invite'")&&adminPilotInviteControl.includes('platform_admin_audit'),'ciclo do convite precisa deixar trilha administrativa sem armazenar segredo');
+assert.ok(adminPilotInviteControl.includes('revoke all on function public.admin_pilot_partner_invite_action')&&adminPilotInviteControl.includes('to service_role'),'browser não pode chamar diretamente a autoridade de convite piloto');
+assert.ok(adminOpsSource.includes('action==="pilot-invite-action"')&&adminOpsSource.includes('admin_pilot_partner_invite_action'),'Admin Edge deve mediar rotação/revogação pela autoridade server-side');
+assert.ok(admin.includes('crypto.getRandomValues')&&admin.includes("crypto.subtle.digest('SHA-256'")&&admin.includes("'/#merchant-join?pilot='"),'token deve nascer no navegador administrativo, persistindo somente hash e usando fragmento no link');
+assert.ok(admin.includes("adminPerform('pilot-invite-action'")&&admin.includes('adminRotatePilotInvite')&&admin.includes('adminRevokePilotInvite'),'Central/Admin deve operar convite piloto sem SQL manual');
 
 
 console.log('First merchant pilot safety audit passou.');
