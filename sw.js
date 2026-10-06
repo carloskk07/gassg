@@ -1,4 +1,4 @@
-const CACHE='tamao-sg-v1.57';
+const CACHE='tamao-sg-v1.70.3';
 const ASSETS=['./','./index.html','./css/base.css','./css/components.css','./js/runtime-config.js','./js/turnstile.js','./js/backend.js','./js/core.js','./js/analytics.js','./js/acquisition.js','./js/legal.js','./js/customer.js','./js/growth.js','./js/merchant.js','./js/admin-acquisition.js','./js/admin.js','./js/bootstrap.js','./manifest.webmanifest','./robots.txt','./icons/icon.svg'];
 
 self.addEventListener('install',event=>{
@@ -12,7 +12,7 @@ self.addEventListener('message',event=>{if(event.data==='SKIP_WAITING')self.skip
 async function networkFirst(req,cacheKey=req){
   const cache=await caches.open(CACHE);
   try{
-    const res=await fetch(req);
+    const res=await fetch(req,{cache:'no-store'});
     if(res.ok){
       await cache.put(cacheKey,res.clone());
       return res;
@@ -23,14 +23,35 @@ async function networkFirst(req,cacheKey=req){
   }
 }
 
+async function navigationNetworkFirst(req){
+  const cache=await caches.open(CACHE);
+  try{
+    const res=await fetch(req,{cache:'no-store'});
+    if(res.ok){
+      const contentType=String(res.headers.get('content-type')||'').toLowerCase();
+      if(contentType.includes('text/html')){
+        await cache.put('./index.html',res.clone());
+      }else{
+        await cache.put(req,res.clone());
+      }
+    }
+    return res;
+  }catch{
+    return (await cache.match(req))||(await cache.match('./index.html'))||Response.error();
+  }
+}
+
 self.addEventListener('fetch',event=>{
   const req=event.request;
   if(req.method!=='GET')return;
   const url=new URL(req.url);
   if(url.origin!==self.location.origin){event.respondWith(fetch(req));return}
-  event.respondWith(networkFirst(req,req.mode==='navigate'?'./index.html':req));
+  if(req.mode==='navigate'){
+    event.respondWith(navigationNetworkFirst(req));
+    return;
+  }
+  event.respondWith(networkFirst(req));
 });
-
 
 self.addEventListener('notificationclick',event=>{
   event.notification?.close();
