@@ -7,7 +7,8 @@ import {
   asNonNegativeCents,
   asPositiveInt,
   readJsonBody,
-  enforceApiQuota
+  enforceApiQuota,
+  requestFingerprint
 } from "../_shared/domain.js";
 
 const SUPABASE_URL=Deno.env.get("SUPABASE_URL")??"";
@@ -32,7 +33,7 @@ function cors(origin:string|null){
   const allowed=origin&&originAllowed(origin)?origin:("https://tamao-sg-revenda.pages.dev");
   return {
     "Access-Control-Allow-Origin":allowed,
-    "Access-Control-Allow-Headers":"authorization, apikey, content-type",
+    "Access-Control-Allow-Headers":"authorization, apikey, content-type, idempotency-key",
     "Access-Control-Allow-Methods":"POST, OPTIONS",
     "Vary":"Origin"
   };
@@ -54,6 +55,54 @@ async function authenticatedUser(req:Request){
 }
 function canOperate(role:string){return ["owner","manager","operator"].includes(role)}
 function canManage(role:string){return ["owner","manager"].includes(role)}
+function configExpectedAt(value:unknown){
+  const raw=String(value??"").trim();
+  if(!raw||!Number.isFinite(Date.parse(raw))){
+    throw new DomainError("CONFIG_VERSION_REQUIRED","Atualize o painel antes de salvar esta configuração.",409);
+  }
+  return raw;
+}
+function mutationIdempotencyKey(req:Request){
+  const key=String(req.headers.get("Idempotency-Key")??"").trim();
+  if(key.length<12||key.length>120||!/^[A-Za-z0-9._:-]+$/.test(key)){
+    throw new DomainError("INVALID_IDEMPOTENCY_KEY","Chave idempotente obrigatória para salvar configuração.",400);
+  }
+  return key;
+}
+async function applyMerchantConfig(admin:any,{
+  req,userId,merchantId,action,expectedUpdatedAt,payload
+}:{
+  req:Request,userId:string,merchantId:string,action:string,expectedUpdatedAt:string,payload:Record<string,unknown>
+}){
+  const idempotencyKey=mutationIdempotencyKey(req);
+  const requestHash=await requestFingerprint(action,{merchantId,expectedUpdatedAt,payload});
+  const {data,error}=await admin.rpc("merchant_config_action",{
+    p_user_id:userId,
+    p_merchant_id:merchantId,
+    p_action:action,
+    p_expected_updated_at:expectedUpdatedAt,
+    p_payload:payload,
+    p_idempotency_key:idempotencyKey,
+    p_request_hash:requestHash
+  });
+  if(error){
+    const message=String(error.message??error);
+    if(message.includes("CONFIG_VERSION_REQUIRED")){
+      throw new DomainError("CONFIG_VERSION_REQUIRED","Atualize o painel antes de salvar esta configuração.",409);
+    }
+    if(message.includes("CONFIG_VERSION_CONFLICT")){
+      throw new DomainError("CONFIG_VERSION_CONFLICT","A configuração mudou em outra aba. O painel foi atualizado; revise antes de salvar novamente.",409);
+    }
+    if(message.includes("IDEMPOTENCY_CONFLICT")){
+      throw new DomainError("IDEMPOTENCY_CONFLICT","Esta tentativa já foi usada com outro conteúdo.",409);
+    }
+    if(message.includes("IDEMPOTENCY_STATE_INVALID")){
+      throw new DomainError("IDEMPOTENCY_STATE_INVALID","Não foi possível confirmar a gravação idempotente.",409);
+    }
+    throw error;
+  }
+  return data;
+}
 function catalogStateMatches(row:any,desired:any){
   return Boolean(row)
     && Number(row.price_cents)===Number(desired.price_cents)
@@ -383,82 +432,53 @@ Deno.serve(async(req:Request)=>{
       if(!Object.values(methods).some(Boolean)){
         throw new DomainError("PAYMENT_METHOD_REQUIRED","Ative pelo menos uma forma de pagamento.",400);
       }
-      const rows=Object.entries(methods).map(([payment_method,active])=>({
-        merchant_id:merchantId,
-        payment_method,
-        active,
-        confirmed_at:now,
-        updated_at:now
-      }));
-      const {error}=await admin
-        .from("merchant_payment_methods")
-        .upsert(rows,{onConflict:"merchant_id,payment_method"});
-      if(error)throw error;
-      const {error:merchantUpdateError}=await admin
-        .from("merchants")
-        .update({last_seen_at:now})
-        .eq("id",merchantId);
-      if(merchantUpdateError)throw merchantUpdateError;
-      return json({ok:true,paymentMethods:methods,lastSeenAt:now},200,origin);
+      const data=await applyMerchantConfig(admin,{
+        req,userId:user.id,merchantId,action,
+        expectedUpdatedAt:configExpectedAt(body.expectedUpdatedAt),
+        payload:methods
+      });
+      return json(data,200,origin);
     }
 
     if(action==="update-scheduling"){
       if(!canManage(role))throw new DomainError("MERCHANT_ACCESS_DENIED","Somente owner/manager pode alterar agendamento.",403);
-      const acceptsScheduledOrders=body.acceptsScheduledOrders===true;
-      const {data,error}=await admin
-        .from("merchants")
-        .update({accepts_scheduled_orders:acceptsScheduledOrders,last_seen_at:now})
-        .eq("id",merchantId)
-        .select("accepts_scheduled_orders,last_seen_at")
-        .single();
-      if(error)throw error;
-      return json({
-        ok:true,
-        acceptsScheduledOrders:data.accepts_scheduled_orders===true,
-        lastSeenAt:data.last_seen_at
-      },200,origin);
+      const payload={acceptsScheduledOrders:body.acceptsScheduledOrders===true};
+      const data=await applyMerchantConfig(admin,{
+        req,userId:user.id,merchantId,action,
+        expectedUpdatedAt:configExpectedAt(body.expectedUpdatedAt),
+        payload
+      });
+      return json(data,200,origin);
     }
 
     if(action==="update-capacity"){
       if(!canManage(role))throw new DomainError("MERCHANT_ACCESS_DENIED","Somente owner/manager pode alterar capacidade.",403);
-      const maxActiveOrders=asPositiveInt(body.maxActiveOrders,"maxActiveOrders",{min:1,max:100});
-      const {data,error}=await admin
-        .from("merchants")
-        .update({max_active_orders:maxActiveOrders,last_seen_at:now})
-        .eq("id",merchantId)
-        .select("max_active_orders,last_seen_at")
-        .single();
-      if(error)throw error;
-      return json({ok:true,maxActiveOrders:Number(data.max_active_orders),lastSeenAt:data.last_seen_at},200,origin);
+      const payload={
+        maxActiveOrders:asPositiveInt(body.maxActiveOrders,"maxActiveOrders",{min:1,max:100})
+      };
+      const data=await applyMerchantConfig(admin,{
+        req,userId:user.id,merchantId,action,
+        expectedUpdatedAt:configExpectedAt(body.expectedUpdatedAt),
+        payload
+      });
+      return json(data,200,origin);
     }
 
     if(action==="update-logistics"){
       if(!canManage(role))throw new DomainError("MERCHANT_ACCESS_DENIED","Somente owner/manager pode alterar logística.",403);
       const deliveryFeeCents=asNonNegativeCents(body.deliveryFeeCents,"deliveryFeeCents");
       if(deliveryFeeCents>100000)throw new DomainError("INVALID_DELIVERY_FEE","Taxa de entrega inválida.",400);
-      const baseEtaMinutes=asPositiveInt(body.baseEtaMinutes,"baseEtaMinutes",{min:5,max:180});
-      const acceptsCitywide=body.acceptsCitywide===true;
-
-      const logisticsPatch:Record<string,unknown>={
-        delivery_fee_cents:deliveryFeeCents,
-        delivery_fee_confirmed_at:now,
-        base_eta_minutes:baseEtaMinutes,
-        accepts_citywide:acceptsCitywide,
-        last_seen_at:now
+      const payload={
+        deliveryFeeCents,
+        baseEtaMinutes:asPositiveInt(body.baseEtaMinutes,"baseEtaMinutes",{min:5,max:180}),
+        acceptsCitywide:body.acceptsCitywide===true
       };
-      // Current pilot matching only supports citywide São Gabriel coverage.
-      // Turning that capability off must also pause new orders so the panel
-      // cannot display a ghost ONLINE state while get-offers excludes it.
-      if(!acceptsCitywide)logisticsPatch.online=false;
-
-      const {data,error}=await admin
-        .from("merchants")
-        .update(logisticsPatch)
-        .eq("id",merchantId)
-        .select("delivery_fee_cents,delivery_fee_confirmed_at,base_eta_minutes,accepts_citywide,online,last_seen_at")
-        .single();
-      if(error)throw error;
-      return json({ok:true,...data},200,origin);
+      const data=await applyMerchantConfig(admin,{
+        req,userId:user.id,merchantId,action,
+        expectedUpdatedAt:configExpectedAt(body.expectedUpdatedAt),
+        payload
+      });
+      return json(data,200,origin);
     }
 
     return json({error:"INVALID_ACTION"},400,origin);
