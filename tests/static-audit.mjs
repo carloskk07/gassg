@@ -613,6 +613,10 @@ assert.ok(merchantOpsSource.includes('delivery_fee_confirmed_at:now'),'edição 
 assert.ok(!merchantOpsSource.includes('.update({price_confirmed_at:now,last_seen_at:now})'),'SKU não pode renovar relógio global da revenda');
 assert.ok(merchantOrdersSource.includes('priceConfirmedAt:item.price_confirmed_at'),'painel precisa receber freshness por SKU');
 assert.ok(merchantOrdersSource.includes('deliveryFeeConfirmedAt:merchant.delivery_fee_confirmed_at'),'painel precisa receber freshness da taxa');
+assert.ok(merchantOpsSource.includes('expectedUpdatedAt')&&merchantOpsSource.includes('.eq("updated_at",expectedUpdatedAt)'),'edição de catálogo existente precisa usar controle otimista pelo updated_at visto pela revenda');
+assert.ok(merchantOpsSource.includes('CATALOG_VERSION_CONFLICT')&&merchantOpsSource.includes('catalogStateMatches(current,desiredCatalog)'),'conflito de catálogo precisa falhar 409 sem quebrar replay após ACK perdido');
+assert.ok(backend.includes('if(current?.updatedAt)body.expectedUpdatedAt=String(current.updatedAt)'),'portal da revenda precisa enviar a versão do SKU que está editando');
+assert.ok(backend.includes("['CATALOG_VERSION_CONFLICT','CATALOG_VERSION_REQUIRED']")&&backend.includes('await merchantRefresh({silent:true})'),'conflito de estoque/preço precisa recarregar o estado real antes de nova tentativa');
 assert.ok(merchant.includes('merchantLiveSaveProduct'),'painel live precisa editar/reconfirmar múltiplos SKUs');
 assert.ok(merchant.includes('Cada SKU possui sua própria confirmação de preço'),'UI precisa explicar freshness independente');
 assert.ok(backend.includes('return result;'),'runtime da revenda precisa devolver o resultado real da ação');
