@@ -649,6 +649,10 @@ assert.ok(merchant.includes('merchantLiveSaveProduct'),'painel live precisa edit
 assert.ok(merchant.includes('Cada SKU possui sua própria confirmação de preço'),'UI precisa explicar freshness independente');
 assert.ok(backend.includes('return result;'),'runtime da revenda precisa devolver o resultado real da ação');
 assert.ok(backend.includes('function retryAmbiguousOnce(operation)'),'runtime precisa centralizar retry de falhas de transporte ambíguas');
+assert.ok(backend.includes('lastPollAt:0'),'polling da revenda precisa manter relógio próprio');
+assert.ok(backend.includes("merchantRuntime.merchant?.online===true||activeOrders"),'polling da revenda precisa distinguir operação urgente de painel ocioso');
+assert.ok(backend.includes('urgent?5000:30000'),'revenda online/pedido ativo precisa manter 5s; offline sem pedido deve cair para 30s');
+assert.ok(backend.includes('if(urgent)await merchantHeartbeat()'),'heartbeat não deve rodar em painel offline ocioso');
 assert.ok(backend.includes("const idempotencyKey=liveIdempotency('customer-action')")&&backend.includes("()=>liveInvoke('customer-action'"),'ação do cliente precisa reutilizar a mesma chave idempotente no retry');
 assert.ok(backend.includes("const idempotencyKey=liveIdempotency('merchant-action')")&&backend.includes("()=>merchantInvoke('merchant-action'"),'ação operacional da revenda precisa reutilizar a mesma chave idempotente no retry');
 assert.ok(backend.includes("const idempotencyKey=liveIdempotency('complete-delivery')"),'conclusão de entrega precisa fixar a chave antes do retry');
