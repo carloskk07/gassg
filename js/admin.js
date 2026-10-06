@@ -401,6 +401,18 @@ function adminProductName(code){
   if(/^P([1-9]|[1-8][0-9]|90)$/.test(value))return 'Gás GLP '+value;
   return ({WATER20:'Água 20 L',CHARCOAL4:'Carvão 4 kg',WOOD:'Lenha',ICE5:'Gelo 5 kg'})[value]||value;
 }
+function adminPilotInviteControls(p,id){
+  const convertible=!['converted','cancelled'].includes(String(p?.onboarding_status||''));
+  if(!convertible)return '';
+  const invite=p?.activeInvite||null;
+  const expiresAt=invite?.expiresAt?Date.parse(invite.expiresAt):NaN;
+  const active=Boolean(invite&&Number.isFinite(expiresAt)&&expiresAt>Date.now());
+  const label=active?'ativo até '+new Date(invite.expiresAt).toLocaleString('pt-BR'):invite?'expirado':'nenhum convite ativo';
+  return '<div class="order-line"><strong>Convite do parceiro:</strong> '+esc(label)+'</div>'+
+    '<div class="order-actions"><button class="secondary small" onclick="adminIssuePilotInvite(\''+esc(id)+'\')">'+(active?'Rotacionar convite':'Gerar convite')+'</button>'+
+    (active?'<button class="danger-btn small" onclick="adminRevokePilotInvite(\''+esc(id)+'\')">Revogar convite</button>':'')+'</div>';
+}
+
 function adminPilotPartnerCard(p){
   const statusLabel={
     awaiting_legal_data:'AGUARDANDO DADOS REAIS',
@@ -418,6 +430,7 @@ function adminPilotPartnerCard(p){
     ${p.pricing_mode==='range'?`<div class="order-line"><strong>Estratégia inicial:</strong> ${esc(({volume:'Priorizar volume',balanced:'Equilibrado',margin:'Priorizar margem'})[p.pricing_strategy]||p.pricing_strategy||'—')}</div>`:''}
     <div class="order-line"><strong>Status do preço:</strong> ${p.price_status==='confirmed'?'confirmado':'proposto — ainda não publicar como oferta real'}</div>
     ${p.notes?`<div class="tiny muted">${esc(p.notes)}</div>`:''}
+    ${adminPilotInviteControls(p,id)}
     ${p.onboarding_status==='converted'?`<div class="notice success" style="margin-top:10px"><strong>Revenda criada.</strong><br>ID: ${esc(p.merchant_id||'—')}. Compliance e ativação continuam separados.</div>`:''}
     ${convertible?`<div class="divider"></div>
       <div class="notice"><strong>Converter parceiro piloto em revenda</strong><br>Cria cadastro, dados comerciais, catálogo, estoque inicial e pagamentos selecionados. Compliance permanece <strong>pendente</strong>.</div>
