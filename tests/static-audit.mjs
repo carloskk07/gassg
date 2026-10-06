@@ -614,6 +614,9 @@ assert.ok(!merchantOpsSource.includes('.update({price_confirmed_at:now,last_seen
 assert.ok(merchantOrdersSource.includes('priceConfirmedAt:item.price_confirmed_at'),'painel precisa receber freshness por SKU');
 assert.ok(merchantOrdersSource.includes('deliveryFeeConfirmedAt:merchant.delivery_fee_confirmed_at'),'painel precisa receber freshness da taxa');
 assert.ok(merchantOpsSource.includes('expectedUpdatedAt')&&merchantOpsSource.includes('.eq("updated_at",expectedUpdatedAt)'),'edição de catálogo existente precisa usar controle otimista pelo updated_at visto pela revenda');
+assert.ok(merchantOpsSource.includes('if(online)onlineUpdate=onlineUpdate.eq("accepts_citywide",true)'),'ficar online precisa revalidar a área de entrega no mesmo UPDATE para fechar corrida entre abas');
+const onlineAreaInvariant=read('supabase/migrations/20261006024500_online_delivery_area_invariant_v1_70_19.sql');
+assert.ok(onlineAreaInvariant.includes('check (not online or accepts_citywide is true)'),'banco precisa proibir estado online sem cobertura aceita pelo matching atual');
 assert.ok(merchantOpsSource.includes('CATALOG_VERSION_CONFLICT')&&merchantOpsSource.includes('catalogStateMatches(current,desiredCatalog)'),'conflito de catálogo precisa falhar 409 sem quebrar replay após ACK perdido');
 assert.ok(backend.includes('if(current?.updatedAt)body.expectedUpdatedAt=String(current.updatedAt)'),'portal da revenda precisa enviar a versão do SKU que está editando');
 assert.ok(backend.includes("['CATALOG_VERSION_CONFLICT','CATALOG_VERSION_REQUIRED']")&&backend.includes('await merchantRefresh({silent:true})'),'conflito de estoque/preço precisa recarregar o estado real antes de nova tentativa');
