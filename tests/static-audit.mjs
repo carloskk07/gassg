@@ -414,6 +414,7 @@ assert.ok(merchant.includes("m.acceptsCitywide!==false"),'UI não pode permitir 
 assert.ok(merchant.includes('atendimento em São Gabriel desativado'),'painel deve explicar por que a operação não pode voltar online');
 assert.ok(read('supabase/functions/merchant-ops/index.ts').includes('DELIVERY_AREA_REQUIRED'),'backend deve bloquear ONLINE sem atendimento em São Gabriel no piloto');
 const merchantConfigConcurrency=read('supabase/migrations/20261006101500_merchant_config_concurrency_v1_70_24.sql');
+const catalogRetryAuthority=read('supabase/migrations/20261006160000_catalog_retry_authority_v1_70_27.sql');
 assert.ok(merchantConfigConcurrency.includes('online=case when v_citywide then online else false end'),'desativar a área do piloto deve pausar novos pedidos na mesma transação da configuração');
 
 
@@ -632,17 +633,21 @@ const merchantOrdersSource=read('supabase/functions/merchant-orders/index.ts');
 assert.ok(offerSource.includes('.gte("delivery_fee_confirmed_at", priceCutoff)'),'matching deve exigir taxa de entrega fresca');
 assert.ok(offerSource.includes('.gte("price_confirmed_at", priceCutoff)'),'matching deve exigir preço fresco por SKU');
 assert.ok(!offerSource.includes('.gte("price_confirmed_at", priceCutoff)\n      .gte("last_seen_at"'),'merchant global price clock não pode voltar a governar matching');
-assert.ok(merchantOpsSource.includes('price_confirmed_at:now'),'edição de produto deve confirmar somente o SKU alterado');
+assert.ok(catalogRetryAuthority.includes('price_confirmed_at=v_now'),'edição de produto deve confirmar somente o SKU alterado dentro da autoridade transacional');
 assert.ok(merchantConfigConcurrency.includes('delivery_fee_confirmed_at=v_now'),'edição logística deve confirmar a taxa separadamente dentro da autoridade transacional');
 assert.ok(!merchantOpsSource.includes('.update({price_confirmed_at:now,last_seen_at:now})'),'SKU não pode renovar relógio global da revenda');
 assert.ok(merchantOrdersSource.includes('priceConfirmedAt:item.price_confirmed_at'),'painel precisa receber freshness por SKU');
 assert.ok(merchantOrdersSource.includes('deliveryFeeConfirmedAt:merchant.delivery_fee_confirmed_at'),'painel precisa receber freshness da taxa');
-assert.ok(merchantOpsSource.includes('expectedUpdatedAt')&&merchantOpsSource.includes('.eq("updated_at",expectedUpdatedAt)'),'edição de catálogo existente precisa usar controle otimista pelo updated_at visto pela revenda');
+assert.ok(merchantOpsSource.includes('p_expected_updated_at:expectedUpdatedAt')&&catalogRetryAuthority.includes('v_catalog.updated_at is distinct from p_expected_updated_at'),'edição de catálogo existente precisa usar controle otimista pelo updated_at visto pela revenda');
 assert.ok(merchantOpsSource.includes('if(online)onlineUpdate=onlineUpdate.eq("accepts_citywide",true)'),'ficar online precisa revalidar a área de entrega no mesmo UPDATE para fechar corrida entre abas');
 const onlineAreaInvariant=read('supabase/migrations/20261006024500_online_delivery_area_invariant_v1_70_19.sql');
 assert.ok(onlineAreaInvariant.includes('check (not online or accepts_citywide is true)'),'banco precisa proibir estado online sem cobertura aceita pelo matching atual');
-assert.ok(merchantOpsSource.includes('CATALOG_VERSION_CONFLICT')&&merchantOpsSource.includes('catalogStateMatches(current,desiredCatalog)'),'conflito de catálogo precisa falhar 409 sem quebrar replay após ACK perdido');
+assert.ok(merchantOpsSource.includes('CATALOG_VERSION_CONFLICT')&&merchantOpsSource.includes('merchant_catalog_action'),'conflito de catálogo precisa falhar 409 pela autoridade server-side');
+assert.ok(catalogRetryAuthority.includes('from public.action_requests')&&catalogRetryAuthority.includes('v_action.completed_at is not null'),'ACK perdido de criação/edição de SKU precisa replayar resultado já commitado');
+assert.ok(catalogRetryAuthority.includes('from public.catalog_items')&&catalogRetryAuthority.includes('for update'),'duas abas precisam serializar alteração do mesmo SKU');
+assert.ok(catalogRetryAuthority.includes('revoke all on function public.merchant_catalog_action')&&catalogRetryAuthority.includes('from public, anon, authenticated'),'autoridade de catálogo não pode ser executável pelo browser');
 assert.ok(backend.includes('if(current?.updatedAt)body.expectedUpdatedAt=String(current.updatedAt)'),'portal da revenda precisa enviar a versão do SKU que está editando');
+assert.ok(backend.includes("const idempotencyKey=liveIdempotency('merchant-catalog')")&&backend.includes("merchantInvoke('merchant-ops',body,{idempotencyKey})"),'criação/edição de SKU precisa reutilizar a mesma chave após timeout/ACK perdido');
 assert.ok(backend.includes("['CATALOG_VERSION_CONFLICT','CATALOG_VERSION_REQUIRED']")&&backend.includes('await merchantRefresh({silent:true})'),'conflito de estoque/preço precisa recarregar o estado real antes de nova tentativa');
 assert.ok(merchantOrdersSource.includes('configUpdatedAt:merchant.updated_at'),'snapshot da revenda precisa expor a versão canônica da configuração');
 assert.ok(merchantOpsSource.includes('requestFingerprint')&&merchantOpsSource.includes('Idempotency-Key')&&merchantOpsSource.includes('merchant_config_action'),'configuração da revenda precisa usar fingerprint e RPC idempotente');
