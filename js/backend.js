@@ -845,6 +845,7 @@ const merchantRuntime={
   heartbeatError:null,
   lastSyncAt:null,
   lastHeartbeatAt:0,
+  lastPollAt:0,
   refreshSeq:0,
   pollPending:false
 };
@@ -1574,9 +1575,15 @@ async function merchantHeartbeat(){
 
 async function merchantPoll(){
   if(!merchantReady()||merchantRuntime.actionPending||merchantRuntime.pollPending||document.visibilityState==='hidden')return;
+  const now=Date.now();
+  const activeOrders=(merchantRuntime.orders||[]).some(order=>!['SETTLED','CANCELLED'].includes(String(order?.status||'')));
+  const urgent=merchantRuntime.merchant?.online===true||activeOrders;
+  const minIntervalMs=urgent?5000:30000;
+  if(merchantRuntime.lastPollAt&&now-merchantRuntime.lastPollAt<minIntervalMs)return;
+  merchantRuntime.lastPollAt=now;
   merchantRuntime.pollPending=true;
   try{
-    await merchantHeartbeat();
+    if(urgent)await merchantHeartbeat();
     await merchantRefresh({silent:true});
     render();
   }catch{
