@@ -569,6 +569,7 @@ async function liveGetOrder(orderId=liveRuntime.orderId,{silent=false}={}){
   if(seq<liveRuntime.orderRequestSeq&&current?.orderId===order.orderId&&Number(current.version)>=Number(order.version))return current;
   liveRuntime.order=order;
   liveRuntime.orderId=order.orderId;
+  liveRuntime.error=null;
   liveRuntime.lastSyncAt=new Date().toISOString();
   localStorage.setItem(CHAMA_BACKEND.orderStorageKey,order.orderId);
   if(['SETTLED','CANCELLED'].includes(order.status)){
@@ -808,8 +809,10 @@ async function livePoll(){
         localStorage.removeItem(CHAMA_BACKEND.orderStorageKey);
         liveRuntime.orderId=null;
         liveRuntime.order=null;
+        liveRuntime.error=null;
         render();
-      }else if(changed){
+      }else{
+        liveRuntime.error=String(error?.message||error||'Não foi possível atualizar o pedido.');
         render();
       }
     }
@@ -1566,7 +1569,9 @@ async function merchantPoll(){
     await merchantHeartbeat();
     await merchantRefresh({silent:true});
     render();
-  }catch{}
+  }catch{
+    render();
+  }
   finally{merchantRuntime.pollPending=false}
 }
 

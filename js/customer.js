@@ -688,9 +688,13 @@ function liveTracking(){
   const deliveryResponsibilityNotice=o.hasAssignedDelivery&&['PREPARING','AT_RISK'].includes(o.status)
     ? '<div class="notice success" style="margin-top:12px"><strong>Responsável pela entrega definido.</strong><br>A revenda já vinculou um membro da operação a este pedido. Seus dados pessoais não são expostos aqui.</div>'
     : '';
+  const trackingSyncNotice=liveRuntime.error
+    ? '<div class="notice danger" style="margin-top:12px"><strong>Acompanhamento temporariamente sem conexão.</strong><br>O último estado confirmado continua visível abaixo. Tente atualizar novamente antes de tomar uma decisão baseada no status.</div>'
+    : '';
 
   return shell(`<section class="page"><button class="back" onclick="go('home')">← Início</button>
 <div class="status-bar"><div><div class="tiny muted">PEDIDO ${esc(o.publicCode||o.orderId)}</div><h1 class="page-title" style="margin-bottom:3px">${esc(copy[0])}</h1></div><span class="status-pill ${['OUT_FOR_DELIVERY','ARRIVING','SETTLED','DELIVERED'].includes(o.status)?'online':o.status==='CANCELLED'?'offline':'risk'}">${o.status==='SETTLED'?'CONCLUÍDO':o.status==='CANCELLED'?'ENCERRADO':'AO VIVO'}</span></div>
+${trackingSyncNotice}
 
 <div class="card flat"><div class="price-lock"><span>🔒</span><div><strong>Total protegido: ${BRL.format(total)}</strong><br>${cashbackReserved>0?`Inclui ${BRL.format(cashbackReserved)} de cashback reservado. `:''}Se for necessária uma opção mais cara, você precisa aprovar antes.</div></div>
 <div class="divider"></div>

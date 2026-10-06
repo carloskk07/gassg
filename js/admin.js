@@ -310,7 +310,9 @@ async function adminPoll(){
   try{
     await adminRefresh({silent:true});
     render();
-  }catch{}
+  }catch{
+    render();
+  }
   finally{adminRuntime.pollPending=false}
 }
 
