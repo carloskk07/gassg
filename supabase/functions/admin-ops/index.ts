@@ -612,11 +612,14 @@ Deno.serve(async(req:Request)=>{
       }
       payload={requirementKey,status,reason,evidence,expiresAt,source};
     }else if(action==="set-operation-mode"){
+      const expectedMode=String(body.expectedMode??"").trim().toUpperCase();
       const mode=String(body.mode??"").trim().toUpperCase();
-      if(!["PRELAUNCH","PILOT","LIVE","PAUSED"].includes(mode)){
+      if(!["PRELAUNCH","PILOT","LIVE","PAUSED"].includes(expectedMode)
+         ||!["PRELAUNCH","PILOT","LIVE","PAUSED"].includes(mode)){
         throw new DomainError("INVALID_OPERATION_MODE","Modo operacional inválido.",400);
       }
       payload={
+        expectedMode,
         mode,
         reason:cleanText(body.reason,{min:3,max:1000,name:"motivo da mudança de modo"}),
         sourceSha:body.sourceSha==null?null:String(body.sourceSha).trim().toLowerCase()||null
@@ -877,9 +880,10 @@ Deno.serve(async(req:Request)=>{
       };
     }
     else if(action==="set-operation-mode"){
-      rpcName="admin_operation_mode_action";
+      rpcName="admin_operation_mode_action_v2";
       rpcArgs={
         p_actor_user_id:user.id,
+        p_expected_mode:payload.expectedMode,
         p_mode:payload.mode,
         p_reason:payload.reason,
         p_source_sha:payload.sourceSha,
@@ -1007,6 +1011,12 @@ Deno.serve(async(req:Request)=>{
     }
     if(message.includes("OPERATION_MODE_REASON_REQUIRED")){
       return json({error:"OPERATION_MODE_REASON_REQUIRED",message:"Informe o motivo da mudança do modo operacional."},400,origin);
+    }
+    if(message.includes("OPERATION_MODE_CONFLICT")){
+      return json({error:"OPERATION_MODE_CONFLICT",message:"O modo operacional mudou desde que o painel foi carregado. Atualize antes de tentar novamente."},409,origin);
+    }
+    if(message.includes("INVALID_OPERATION_MODE_TRANSITION")){
+      return json({error:"INVALID_OPERATION_MODE_TRANSITION",message:"Esta transição de modo não é permitida a partir do estado atual."},409,origin);
     }
     if(message.includes("INVALID_OPERATION_MODE")){
       return json({error:"INVALID_OPERATION_MODE",message:"Modo operacional inválido."},400,origin);
