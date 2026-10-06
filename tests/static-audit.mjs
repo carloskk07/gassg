@@ -668,6 +668,14 @@ assert.ok(backend.includes('lastPollAt:0'),'polling da revenda precisa manter re
 assert.ok(backend.includes("merchantRuntime.merchant?.online===true||activeOrders"),'polling da revenda precisa distinguir operação urgente de painel ocioso');
 assert.ok(backend.includes('urgent?5000:30000'),'revenda online/pedido ativo precisa manter 5s; offline sem pedido deve cair para 30s');
 assert.ok(backend.includes('if(urgent)await merchantHeartbeat()'),'heartbeat não deve rodar em painel offline ocioso');
+assert.ok(backend.includes("MERCHANT_PILOT_INVITE_STORAGE='tamao-pilot-invite-v1'")&&backend.includes('MERCHANT_PILOT_INVITE_TTL_MS'),'convite piloto deve sair da URL e permanecer apenas em armazenamento transitório com expiração');
+assert.ok(backend.includes('merchantPilotInviteFromUrl')&&backend.includes("history.replaceState(null,'',url.pathname+url.search+url.hash)"),'token piloto legado em query/hash deve ser capturado e removido imediatamente da barra de endereço');
+assert.ok(backend.includes("const hashToken=String(hashParams.get('pilot')")&&backend.includes("const queryToken=String(url.searchParams.get('pilot')"),'migração deve aceitar link novo em fragmento e link legado em query sem perder o parceiro');
+assert.ok(!backend.includes("redirect.searchParams.set('pilot'"),'magic link da revenda jamais pode propagar o segredo do convite em query string');
+assert.ok(backend.includes("redirect.hash=pilotInviteToken?'merchant-join':'merchant'"),'magic link deve preservar somente a rota, mantendo o token fora da URL enviada ao provedor');
+assert.ok(backend.includes('clearMerchantPilotInviteToken();')&&backend.includes("raw.includes('PILOT_INVITE_EXPIRED')"),'claim concluído ou convite terminal inválido deve apagar o segredo transitório');
+assert.ok(!growth.includes("new URLSearchParams(location.search).get('pilot')"),'UI de parceria não pode reler token piloto da query string');
+assert.ok(growth.includes('globalThis.merchantPilotInviteToken?.()')&&growth.includes('globalThis.clearMerchantPilotInviteToken?.()'),'UI deve consumir a autoridade sanitizada de convite do runtime');
 assert.ok(backend.includes("const idempotencyKey=liveIdempotency('customer-action')")&&backend.includes("()=>liveInvoke('customer-action'"),'ação do cliente precisa reutilizar a mesma chave idempotente no retry');
 assert.ok(backend.includes("const idempotencyKey=liveIdempotency('merchant-action')")&&backend.includes("()=>merchantInvoke('merchant-action'"),'ação operacional da revenda precisa reutilizar a mesma chave idempotente no retry');
 assert.ok(backend.includes("const idempotencyKey=liveIdempotency('complete-delivery')"),'conclusão de entrega precisa fixar a chave antes do retry');
