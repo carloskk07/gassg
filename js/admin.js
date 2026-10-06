@@ -1101,8 +1101,10 @@ async function adminConfirmLaunchRequirement(requirementKey){
 }
 async function adminSetOperationMode(mode){
   const target=String(mode||'').toUpperCase();
+  const expectedMode=String(adminRuntime.data?.launchReadiness?.operationMode||'').toUpperCase();
   const labels={PRELAUNCH:'voltar ao pré-lançamento',PILOT:'ativar a operação piloto',LIVE:'ativar a operação normal',PAUSED:'pausar novos pedidos'};
   if(!labels[target])return toast('Modo operacional inválido');
+  if(!labels[expectedMode])return toast('Estado operacional desatualizado. Atualize o painel e tente novamente.');
   const reason=prompt('Motivo para '+labels[target]+':')||'';
   if(reason.trim().length<3)return toast('Informe o motivo da mudança');
   const confirmText=target==='PAUSED'
@@ -1114,7 +1116,7 @@ async function adminSetOperationMode(mode){
         :'Voltar a PRELAUNCH? Novos pedidos reais ficarão bloqueados.';
   if(!confirm(confirmText))return;
   try{
-    await adminPerform('set-operation-mode',{mode:target,reason});
+    await adminPerform('set-operation-mode',{expectedMode,mode:target,reason});
     toast('Modo operacional atualizado para '+target);
   }catch(e){toast(String(e?.message||e))}
 }
