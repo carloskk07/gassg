@@ -893,7 +893,7 @@ function adminPage(){
       <div class="card flat form-stack">
         <div class="list">${platformAdmins.length?platformAdmins.map(x=>`<div class="list-row"><div><strong>${esc(x.user_id)}</strong><br><small>${x.active?'Administrador ativo':'Acesso administrativo suspenso'}</small></div><div class="order-actions"><span class="status-pill ${x.active?'online':'offline'}">${x.active?'ATIVO':'INATIVO'}</span><button class="${x.active?'danger-btn':'secondary'} small" onclick="adminSetPlatformAdmin('${x.user_id}',${x.active?'false':'true'})">${x.active?'Desativar':'Ativar'}</button></div></div>`).join(''):'<div class="tiny muted">Nenhum administrador bootstrapado ainda.</div>'}</div>
         <div class="divider"></div>
-        <div class="input-wrap"><label for="admin-new-user-id">UUID de uma conta permanente</label><input id="admin-new-user-id" class="input" maxlength="36" placeholder="00000000-0000-0000-0000-000000000000"></div>
+        <div class="input-wrap"><label for="admin-new-user-email">E-mail da conta permanente</label><input id="admin-new-user-email" class="input" type="email" maxlength="160" autocomplete="off" placeholder="pessoa@empresa.com"><small class="field-help">A pessoa precisa ter acessado o TAMÃO com este e-mail ao menos uma vez. O servidor resolve a conta sem expor UUIDs.</small></div>
         <button class="secondary" onclick="adminAddPlatformAdmin()">Adicionar administrador</button>
       </div>
     </section>
@@ -1265,11 +1265,14 @@ async function adminSetPlatformAdmin(targetUserId,active){
   }catch(e){toast(String(e?.message||e))}
 }
 async function adminAddPlatformAdmin(){
-  const targetUserId=document.querySelector('#admin-new-user-id')?.value.trim()||'';
-  if(!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(targetUserId)){
-    return toast('Informe um UUID válido de conta permanente');
+  const targetEmail=document.querySelector('#admin-new-user-email')?.value.trim().toLowerCase()||'';
+  if(targetEmail.length<3||targetEmail.length>160||!/^\S+@\S+\.\S+$/.test(targetEmail)){
+    return toast('Informe um e-mail válido de conta permanente');
   }
-  await adminSetPlatformAdmin(targetUserId,true);
+  try{
+    await adminPerform('set-platform-admin',{targetEmail,active:true});
+    toast('Administrador ativado');
+  }catch(e){toast(String(e?.message||e))}
 }
 
 async function adminFinancial(kind,targetId,financialAction){
