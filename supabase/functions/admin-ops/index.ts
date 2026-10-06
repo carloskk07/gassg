@@ -668,7 +668,21 @@ Deno.serve(async(req:Request)=>{
         merchantOk:true,
         adminOk:true
       };
-    }else if(action==="enable-commerce"||action==="disable-commerce"){
+    }else if(action==="enable-commerce"){
+      const verification=await verifyLivePortals();
+      if(!verification.ok||!verification.sourceSha){
+        return json({
+          error:"LIVE_PORTALS_NOT_READY",
+          message:"Os três portais oficiais precisam passar na verificação imediatamente antes de ativar PILOT.",
+          verification
+        },409,origin);
+      }
+      payload={
+        mode:"PILOT",
+        reason:"Abertura pelo fluxo legado redirecionada para a autoridade moderna em modo PILOT.",
+        sourceSha:verification.sourceSha
+      };
+    }else if(action==="disable-commerce"){
       payload={};
     }else if(action==="support-case-status"){
       const status=String(body.status??"");
@@ -938,11 +952,22 @@ Deno.serve(async(req:Request)=>{
         p_request_hash:requestHash
       };
     }
-    else if(["verify-launch-portals","enable-commerce","disable-commerce"].includes(action)){
+    else if(action==="enable-commerce"){
+      rpcName="admin_operation_mode_action";
+      rpcArgs={
+        p_actor_user_id:user.id,
+        p_mode:"PILOT",
+        p_reason:payload.reason,
+        p_source_sha:payload.sourceSha,
+        p_idempotency_key:idempotencyKey,
+        p_request_hash:requestHash
+      };
+    }
+    else if(["verify-launch-portals","disable-commerce"].includes(action)){
       rpcName="admin_launch_control_action";
       rpcArgs={
         p_actor_user_id:user.id,
-        p_action:action==="verify-launch-portals"?"record-portals":action,
+        p_action:action==="verify-launch-portals"?"record-portals":"disable-commerce",
         p_source_sha:action==="verify-launch-portals"?payload.sourceSha:null,
         p_customer_ok:action==="verify-launch-portals"?true:false,
         p_merchant_ok:action==="verify-launch-portals"?true:false,
