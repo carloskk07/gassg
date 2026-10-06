@@ -512,7 +512,7 @@ Deno.serve(async(req:Request)=>{
       };
     }else if(action==="order-control"){
       const controlAction=String(body.controlAction??"").trim().toLowerCase();
-      if(!["note","rescue","cancel"].includes(controlAction)){
+      if(!["note","rescue","cancel","cancel-after-dispatch"].includes(controlAction)){
         throw new DomainError("INVALID_ADMIN_ORDER_ACTION","Ação da Torre de Controle inválida.",400);
       }
       const expectedVersion=Number(body.expectedVersion);
@@ -844,16 +844,28 @@ Deno.serve(async(req:Request)=>{
       };
     }
     else if(action==="order-control"){
-      rpcName="admin_order_control_action";
-      rpcArgs={
-        p_actor_user_id:user.id,
-        p_order_id:payload.orderId,
-        p_action:payload.controlAction,
-        p_expected_version:payload.expectedVersion,
-        p_reason:payload.reason,
-        p_idempotency_key:idempotencyKey,
-        p_request_hash:requestHash
-      };
+      if(payload.controlAction==="cancel-after-dispatch"){
+        rpcName="admin_cancel_dispatched_order";
+        rpcArgs={
+          p_actor_user_id:user.id,
+          p_order_id:payload.orderId,
+          p_expected_version:payload.expectedVersion,
+          p_reason:payload.reason,
+          p_idempotency_key:idempotencyKey,
+          p_request_hash:requestHash
+        };
+      }else{
+        rpcName="admin_order_control_action";
+        rpcArgs={
+          p_actor_user_id:user.id,
+          p_order_id:payload.orderId,
+          p_action:payload.controlAction,
+          p_expected_version:payload.expectedVersion,
+          p_reason:payload.reason,
+          p_idempotency_key:idempotencyKey,
+          p_request_hash:requestHash
+        };
+      }
     }
     else if(action==="assisted-merchant-onboarding"){
       rpcName="admin_assisted_merchant_onboarding";
@@ -995,8 +1007,14 @@ Deno.serve(async(req:Request)=>{
     if(message.includes("FINANCIAL_POLICY_MISSING")){
       return json({error:"FINANCIAL_POLICY_MISSING",message:"A política financeira padrão não está disponível."},503,origin);
     }
+    if(message.includes("ORDER_NOT_DISPATCHED_INCIDENT")){
+      return json({error:"ORDER_NOT_DISPATCHED_INCIDENT",message:"Esta resolução é exclusiva para pedidos que já saíram e ainda não foram concluídos."},409,origin);
+    }
+    if(message.includes("ORDER_FINANCIAL_STATE_NOT_CANCELLABLE")){
+      return json({error:"ORDER_FINANCIAL_STATE_NOT_CANCELLABLE",message:"O pedido já possui confirmação financeira ou entrega concluída e precisa ser tratado pelo fluxo de reversão."},409,origin);
+    }
     if(message.includes("ORDER_ALREADY_DISPATCHED")){
-      return json({error:"ORDER_ALREADY_DISPATCHED",message:"O pedido já saiu para entrega. Cancelamento ou reatribuição automática não são mais seguros."},409,origin);
+      return json({error:"ORDER_ALREADY_DISPATCHED",message:"O pedido já saiu para entrega. Use a resolução de incidente pós-saída se a entrega falhou definitivamente."},409,origin);
     }
     if(message.includes("ORDER_NOT_RESCUABLE")){
       return json({error:"ORDER_NOT_RESCUABLE",message:"Este estado do pedido não permite reatribuição automática segura."},409,origin);

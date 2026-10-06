@@ -671,6 +671,7 @@ function adminControlOrderCard(o){
   const risk=['AT_RISK','REASSIGNING','REQUOTE_REQUIRED'].includes(o.status)||late;
   const rescueable=['OFFERED_TO_MERCHANT','PREPARING','AT_RISK','REASSIGNING','REQUOTE_REQUIRED'].includes(o.status)&&!o.dispatched_at;
   const cancellable=rescueable;
+  const postDispatchIncident=['OUT_FOR_DELIVERY','ARRIVING'].includes(o.status)&&!!o.dispatched_at;
   const customerPhone=String(o.customer_phone_digits||'').replace(/\D/g,'');
   const merchantWhatsapp=String(merchant?.businessDetails?.whatsapp||'').replace(/\D/g,'');
   const statusClass=['DELIVERED','SETTLED'].includes(o.status)?'online':o.status==='CANCELLED'?'offline':risk?'offline':'risk';
@@ -688,8 +689,9 @@ function adminControlOrderCard(o){
       <button class="secondary small" onclick="adminOrderControl('${o.id}',${Number(o.version||0)},'note')">Registrar observação</button>
       ${rescueable?`<button class="secondary small" onclick="adminOrderControl('${o.id}',${Number(o.version||0)},'rescue')">Buscar outra revenda</button>`:''}
       ${cancellable?`<button class="danger-btn small" onclick="adminOrderControl('${o.id}',${Number(o.version||0)},'cancel')">Cancelar antes da saída</button>`:''}
+      ${postDispatchIncident?`<button class="danger-btn small" onclick="adminOrderControl('${o.id}',${Number(o.version||0)},'cancel-after-dispatch')">Encerrar entrega com falha</button>`:''}
     </div>
-    ${['OUT_FOR_DELIVERY','ARRIVING'].includes(o.status)?'<small class="field-help">Após a saída, reatribuição/cancelamento automático ficam bloqueados. Use observação e atendimento para tratar exceções sem corromper estoque ou financeiro.</small>':''}
+    ${postDispatchIncident?'<small class="field-help">Use apenas quando a entrega falhou definitivamente depois da saída. O pedido será encerrado e o cashback liberado, mas o estoque NÃO será devolvido automaticamente; a revenda deve reconciliar fisicamente o produto.</small>':''}
   </article>`;
 }
 function adminControlTower(d){
@@ -1058,15 +1060,17 @@ async function adminOrderControl(orderId,expectedVersion,controlAction){
   const labels={
     note:'Registrar uma observação administrativa neste pedido:',
     rescue:'Motivo para buscar outra revenda:',
-    cancel:'Motivo para cancelar o pedido antes da saída:'
+    cancel:'Motivo para cancelar o pedido antes da saída:',
+    'cancel-after-dispatch':'Descreva a falha confirmada depois da saída:'
   };
   const reason=prompt(labels[controlAction]||'Motivo da intervenção:')||'';
   if(reason.trim().length<3)return toast('Informe o motivo da intervenção');
   if(controlAction==='rescue'&&!confirm('Buscar outra revenda agora? O sistema revalidará estoque, preço, compliance, pagamento e capacidade. Se a nova condição for mais cara, o cliente deverá confirmar.'))return;
   if(controlAction==='cancel'&&!confirm('Cancelar este pedido antes da saída? Estoque reservado e cashback serão restaurados quando aplicável.'))return;
+  if(controlAction==='cancel-after-dispatch'&&!confirm('Encerrar esta entrega após a saída? O cashback será liberado e o PIN invalidado, mas o estoque NÃO será restaurado automaticamente. Use somente após confirmar que a entrega falhou.'))return;
   try{
     const result=await adminPerform('order-control',{orderId,expectedVersion,controlAction,reason});
-    toast(controlAction==='note'?'Observação registrada':controlAction==='rescue'?'Resgate executado':'Pedido cancelado');
+    toast(controlAction==='note'?'Observação registrada':controlAction==='rescue'?'Resgate executado':controlAction==='cancel-after-dispatch'?'Entrega falhada encerrada; revisar estoque físico':'Pedido cancelado');
     return result;
   }catch(e){toast(String(e?.message||e))}
 }
