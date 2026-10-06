@@ -469,15 +469,11 @@ function merchantsLanding(){
     <section class="section"><div class="soft-band"><div><span class="section-kicker">${internalPilot?'TESTE ANTES DE CADASTRAR':'ENTRADA NO PILOTO'}</span><h2>${internalPilot?'Experimente a operação completa agora.':'Veja custo, requisitos e operação antes de ativar.'}</h2><p>${internalPilot?'O painel do JR neste laboratório é simulado e não cria venda real. Use-o para entender a rotina antes de cadastrar os dados definitivos.':'Enviar o cadastro não coloca a empresa online automaticamente e não cria cobrança. A ativação depende da aprovação e das validações aplicáveis.'}</p></div><button class="primary" onclick="${cta}">${ctaLabel}</button></div></section>
   </section>`)
 }
-function merchantPilotInviteToken(){
-  const token=String(new URLSearchParams(location.search).get('pilot')||'').trim();
-  return /^[A-Za-z0-9_-]{20,240}$/.test(token)?token:'';
+function currentMerchantPilotInviteToken(){
+  return String(globalThis.merchantPilotInviteToken?.()||'').trim();
 }
-function clearMerchantPilotInviteToken(){
-  const url=new URL(location.href);
-  if(!url.searchParams.has('pilot'))return;
-  url.searchParams.delete('pilot');
-  history.replaceState(null,'',url.pathname+(url.searchParams.toString()?'?'+url.searchParams.toString():'')+url.hash);
+function clearCurrentMerchantPilotInviteToken(){
+  globalThis.clearMerchantPilotInviteToken?.();
 }
 function merchantJoin(){
   if(globalThis.merchantPortalRequested?.()){
@@ -488,7 +484,7 @@ function merchantJoin(){
     if(rt.status==='unauthenticated')return merchantLiveLoginView();
   }
   if(globalThis.__CHAMA_TEST__!==true&&!globalThis.merchantPortalRequested?.())return merchantRealPortalRequired();
-  const pilotInvite=globalThis.merchantPortalRequested?.()?merchantPilotInviteToken():'';
+  const pilotInvite=globalThis.merchantPortalRequested?.()?currentMerchantPilotInviteToken():'';
   return shell(`<section class="page"><button class="back" onclick="go('merchants')">← Para revendas</button><h1 class="page-title">Quero ser parceiro</h1><p class="muted">${globalThis.merchantPortalRequested?.()?'Preencha os dados para enviar sua empresa para análise.':'Ambiente isolado de teste.'}</p>${pilotInvite?'<div class="notice success" style="margin-bottom:14px"><strong>Convite de parceiro piloto detectado.</strong><br>Seus dados serão vinculados às condições comerciais já registradas. A operação continuará offline até aprovação, compliance, estoque e disponibilidade serem confirmados.</div>':''}<div class="card flat form-stack"><div class="field-row"><div class="input-wrap"><label for="j-cnpj">CNPJ</label><input id="j-cnpj" autocapitalize="characters" maxlength="18" class="input" placeholder="00.000.000/0000-00 ou alfanumérico"></div><div class="input-wrap"><label for="j-name">Nome da empresa</label><input id="j-name" maxlength="90" class="input" placeholder="Nome da revenda"></div></div><div class="field-row"><div class="input-wrap"><label for="j-owner">Responsável</label><input id="j-owner" maxlength="90" class="input" placeholder="Nome do responsável"></div><div class="input-wrap"><label for="j-phone">WhatsApp</label><input id="j-phone" inputmode="tel" maxlength="20" class="input" placeholder="(55) 99999-9999"></div></div><div class="input-wrap"><label for="j-address">Endereço</label><input id="j-address" maxlength="160" class="input" placeholder="Endereço da empresa"></div><button class="primary" onclick="joinMerchant()">Enviar para análise</button></div><div class="notice" style="margin-top:14px">O cadastro não coloca a empresa online automaticamente. A operação entra nas ofertas somente depois da aprovação e, quando houver GLP, da validação regulatória aplicável.</div></section>`)
 }
 function onlyDigits(v){return String(v||'').replace(/\D/g,'')}
@@ -506,7 +502,7 @@ async function joinMerchant(){
   if(globalThis.merchantPortalRequested?.()){
     if(!globalThis.merchantRuntime?.session?.access_token)return toast('Entre com seu e-mail antes de enviar o cadastro');
     try{
-      const pilotInviteToken=merchantPilotInviteToken();
+      const pilotInviteToken=currentMerchantPilotInviteToken();
       const result=await merchantSubmitApplicationLive({
         cnpj,
         companyName:name.slice(0,90),
@@ -516,7 +512,7 @@ async function joinMerchant(){
         ...(pilotInviteToken?{pilotInviteToken}:{})
       });
       toast(result?.pilotPartner?.pilotPartnerName?'Cadastro piloto vinculado e enviado para análise':'Cadastro real enviado para análise');
-      if(result?.pilotPartner)clearMerchantPilotInviteToken();
+      if(result?.pilotPartner)clearCurrentMerchantPilotInviteToken();
       globalThis.merchantRuntime.notice=result?.pilotPartner?.pilotPartnerName
         ? 'Cadastro vinculado ao parceiro piloto '+String(result.pilotPartner.pilotPartnerName)+'. Aguarde a aprovação e as validações operacionais.'
         : 'Cadastro '+String(result?.companyName||name)+' recebido. Aguarde a validação e o vínculo da operação.';
