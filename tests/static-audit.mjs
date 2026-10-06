@@ -409,7 +409,8 @@ assert.ok(merchant.includes('canGoOnline'),'botão online deve considerar compli
 assert.ok(merchant.includes("m.acceptsCitywide!==false"),'UI não pode permitir ONLINE quando a área atendida do piloto está desativada');
 assert.ok(merchant.includes('atendimento em São Gabriel desativado'),'painel deve explicar por que a operação não pode voltar online');
 assert.ok(read('supabase/functions/merchant-ops/index.ts').includes('DELIVERY_AREA_REQUIRED'),'backend deve bloquear ONLINE sem atendimento em São Gabriel no piloto');
-assert.ok(read('supabase/functions/merchant-ops/index.ts').includes('if(!acceptsCitywide)logisticsPatch.online=false'),'desativar a área do piloto deve pausar novos pedidos atomicamente');
+const merchantConfigConcurrency=read('supabase/migrations/20261006101500_merchant_config_concurrency_v1_70_24.sql');
+assert.ok(merchantConfigConcurrency.includes('online=case when v_citywide then online else false end'),'desativar a área do piloto deve pausar novos pedidos na mesma transação da configuração');
 
 
 
@@ -624,7 +625,7 @@ assert.ok(offerSource.includes('.gte("delivery_fee_confirmed_at", priceCutoff)')
 assert.ok(offerSource.includes('.gte("price_confirmed_at", priceCutoff)'),'matching deve exigir preço fresco por SKU');
 assert.ok(!offerSource.includes('.gte("price_confirmed_at", priceCutoff)\n      .gte("last_seen_at"'),'merchant global price clock não pode voltar a governar matching');
 assert.ok(merchantOpsSource.includes('price_confirmed_at:now'),'edição de produto deve confirmar somente o SKU alterado');
-assert.ok(merchantOpsSource.includes('delivery_fee_confirmed_at:now'),'edição logística deve confirmar a taxa separadamente');
+assert.ok(merchantConfigConcurrency.includes('delivery_fee_confirmed_at=v_now'),'edição logística deve confirmar a taxa separadamente dentro da autoridade transacional');
 assert.ok(!merchantOpsSource.includes('.update({price_confirmed_at:now,last_seen_at:now})'),'SKU não pode renovar relógio global da revenda');
 assert.ok(merchantOrdersSource.includes('priceConfirmedAt:item.price_confirmed_at'),'painel precisa receber freshness por SKU');
 assert.ok(merchantOrdersSource.includes('deliveryFeeConfirmedAt:merchant.delivery_fee_confirmed_at'),'painel precisa receber freshness da taxa');
@@ -635,6 +636,15 @@ assert.ok(onlineAreaInvariant.includes('check (not online or accepts_citywide is
 assert.ok(merchantOpsSource.includes('CATALOG_VERSION_CONFLICT')&&merchantOpsSource.includes('catalogStateMatches(current,desiredCatalog)'),'conflito de catálogo precisa falhar 409 sem quebrar replay após ACK perdido');
 assert.ok(backend.includes('if(current?.updatedAt)body.expectedUpdatedAt=String(current.updatedAt)'),'portal da revenda precisa enviar a versão do SKU que está editando');
 assert.ok(backend.includes("['CATALOG_VERSION_CONFLICT','CATALOG_VERSION_REQUIRED']")&&backend.includes('await merchantRefresh({silent:true})'),'conflito de estoque/preço precisa recarregar o estado real antes de nova tentativa');
+assert.ok(merchantOrdersSource.includes('configUpdatedAt:merchant.updated_at'),'snapshot da revenda precisa expor a versão canônica da configuração');
+assert.ok(merchantOpsSource.includes('requestFingerprint')&&merchantOpsSource.includes('Idempotency-Key')&&merchantOpsSource.includes('merchant_config_action'),'configuração da revenda precisa usar fingerprint e RPC idempotente');
+assert.ok(merchantOpsSource.includes('CONFIG_VERSION_CONFLICT')&&merchantOpsSource.includes('CONFIG_VERSION_REQUIRED'),'Edge deve expor conflito de configuração sem erro genérico');
+assert.ok(backend.includes("liveIdempotency('merchant-config')")&&backend.includes('expectedUpdatedAt'),'frontend precisa reutilizar chave idempotente e versão da configuração no retry');
+assert.ok(merchantConfigConcurrency.includes('from public.action_requests')&&merchantConfigConcurrency.includes('for update'),'autoridade de configuração precisa serializar replay idempotente');
+assert.ok(merchantConfigConcurrency.includes('from public.merchants')&&merchantConfigConcurrency.includes('for update'),'autoridade de configuração precisa serializar duas abas pela linha da revenda');
+assert.ok(merchantConfigConcurrency.includes('v_merchant.updated_at is distinct from p_expected_updated_at'),'gravação stale deve falhar antes de sobrescrever configuração nova');
+assert.ok(merchantConfigConcurrency.includes("'merchant-config:'||p_action")&&merchantConfigConcurrency.includes('v_action.completed_at is not null'),'ACK perdido deve retornar o resultado já commitado');
+assert.ok(merchantConfigConcurrency.includes('revoke all on function public.merchant_config_action')&&merchantConfigConcurrency.includes('from public, anon, authenticated'),'autoridade de configuração não pode ser executável pelo browser');
 assert.ok(merchant.includes('merchantLiveSaveProduct'),'painel live precisa editar/reconfirmar múltiplos SKUs');
 assert.ok(merchant.includes('Cada SKU possui sua própria confirmação de preço'),'UI precisa explicar freshness independente');
 assert.ok(backend.includes('return result;'),'runtime da revenda precisa devolver o resultado real da ação');
