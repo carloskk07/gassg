@@ -1424,8 +1424,9 @@ async function merchantUpdateProductLive(productCode,priceCents,availableStock,a
       if(pricing.maxPriceCents!=null)body.maxPriceCents=Number(pricing.maxPriceCents);
       if(pricing.pricingStrategy!=null)body.pricingStrategy=String(pricing.pricingStrategy);
     }
+    const idempotencyKey=liveIdempotency('merchant-catalog');
     try{
-      await retryAmbiguousOnce(()=>merchantInvoke('merchant-ops',body));
+      await retryAmbiguousOnce(()=>merchantInvoke('merchant-ops',body,{idempotencyKey}));
     }catch(error){
       if(['CATALOG_VERSION_CONFLICT','CATALOG_VERSION_REQUIRED'].includes(String(error?.code||''))){
         await merchantRefresh({silent:true});

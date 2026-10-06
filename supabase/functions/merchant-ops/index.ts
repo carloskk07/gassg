@@ -103,16 +103,6 @@ async function applyMerchantConfig(admin:any,{
   }
   return data;
 }
-function catalogStateMatches(row:any,desired:any){
-  return Boolean(row)
-    && Number(row.price_cents)===Number(desired.price_cents)
-    && String(row.pricing_mode)===String(desired.pricing_mode)
-    && Number(row.min_price_cents)===Number(desired.min_price_cents)
-    && Number(row.max_price_cents)===Number(desired.max_price_cents)
-    && String(row.pricing_strategy)===String(desired.pricing_strategy)
-    && Number(row.available_stock)===Number(desired.available_stock)
-    && Boolean(row.active)===Boolean(desired.active);
-}
 
 Deno.serve(async(req:Request)=>{
   const origin=req.headers.get("Origin");
@@ -326,100 +316,69 @@ Deno.serve(async(req:Request)=>{
         }
       }
 
-      const desiredCatalog={
-        merchant_id:merchantId,
-        product_code:productCode,
-        product_name:productName,
-        price_cents:priceCents,
-        pricing_mode:pricingMode,
-        min_price_cents:minPriceCents,
-        max_price_cents:maxPriceCents,
-        pricing_strategy:pricingStrategy,
-        available_stock:availableStock,
-        active,
-        price_confirmed_at:now,
-        updated_at:now
+      const expectedUpdatedAt=existingCatalog
+        ? String(body.expectedUpdatedAt??"").trim()
+        : null;
+      if(existingCatalog&&(!expectedUpdatedAt||!Number.isFinite(Date.parse(expectedUpdatedAt)))){
+        throw new DomainError(
+          "CATALOG_VERSION_REQUIRED",
+          "Atualize o painel antes de salvar este produto.",
+          409
+        );
+      }
+
+      const catalogPayload={
+        productCode,
+        priceCents,
+        pricingMode,
+        minPriceCents,
+        maxPriceCents,
+        pricingStrategy,
+        availableStock,
+        active
       };
-      let data:any=null;
-
-      if(existingCatalog){
-        const expectedUpdatedAt=String(body.expectedUpdatedAt??"").trim();
-        if(!expectedUpdatedAt||!Number.isFinite(Date.parse(expectedUpdatedAt))){
-          throw new DomainError(
-            "CATALOG_VERSION_REQUIRED",
-            "Atualize o painel antes de salvar este produto.",
-            409
-          );
+      const idempotencyKey=mutationIdempotencyKey(req);
+      const requestHash=await requestFingerprint("update-product",{
+        merchantId,
+        expectedUpdatedAt,
+        ...catalogPayload
+      });
+      const {data,error}=await admin.rpc("merchant_catalog_action",{
+        p_user_id:user.id,
+        p_merchant_id:merchantId,
+        p_product_code:productCode,
+        p_expected_updated_at:expectedUpdatedAt,
+        p_price_cents:priceCents,
+        p_pricing_mode:pricingMode,
+        p_min_price_cents:minPriceCents,
+        p_max_price_cents:maxPriceCents,
+        p_pricing_strategy:pricingStrategy,
+        p_available_stock:availableStock,
+        p_active:active,
+        p_idempotency_key:idempotencyKey,
+        p_request_hash:requestHash
+      });
+      if(error){
+        const message=String(error.message??error);
+        if(message.includes("CATALOG_VERSION_REQUIRED")){
+          throw new DomainError("CATALOG_VERSION_REQUIRED","Atualize o painel antes de salvar este produto.",409);
         }
-
-        const {data:updated,error:updateError}=await admin
-          .from("catalog_items")
-          .update(desiredCatalog)
-          .eq("merchant_id",merchantId)
-          .eq("product_code",productCode)
-          .eq("updated_at",expectedUpdatedAt)
-          .select("product_code,product_name,price_cents,pricing_mode,min_price_cents,max_price_cents,pricing_strategy,available_stock,active,price_confirmed_at,updated_at")
-          .maybeSingle();
-        if(updateError)throw updateError;
-        data=updated;
-
-        if(!data){
-          const {data:current,error:currentError}=await admin
-            .from("catalog_items")
-            .select("product_code,product_name,price_cents,pricing_mode,min_price_cents,max_price_cents,pricing_strategy,available_stock,active,price_confirmed_at,updated_at")
-            .eq("merchant_id",merchantId)
-            .eq("product_code",productCode)
-            .maybeSingle();
-          if(currentError)throw currentError;
-          if(catalogStateMatches(current,desiredCatalog)){
-            data=current;
-          }else{
-            throw new DomainError(
-              "CATALOG_VERSION_CONFLICT",
-              "O estoque ou preço mudou em outra ação. Atualize o painel antes de salvar novamente.",
-              409
-            );
-          }
+        if(message.includes("CATALOG_VERSION_CONFLICT")){
+          throw new DomainError("CATALOG_VERSION_CONFLICT","O estoque ou preço mudou em outra ação. Atualize o painel antes de salvar novamente.",409);
         }
-      }else{
-        const {data:inserted,error:insertError}=await admin
-          .from("catalog_items")
-          .insert(desiredCatalog)
-          .select("product_code,product_name,price_cents,pricing_mode,min_price_cents,max_price_cents,pricing_strategy,available_stock,active,price_confirmed_at,updated_at")
-          .maybeSingle();
-        if(insertError){
-          if(String((insertError as any)?.code??"")==="23505"){
-            throw new DomainError(
-              "CATALOG_VERSION_CONFLICT",
-              "Este produto foi criado em outra aba. Atualize o painel antes de salvar novamente.",
-              409
-            );
-          }
-          throw insertError;
+        if(message.includes("IDEMPOTENCY_CONFLICT")){
+          throw new DomainError("IDEMPOTENCY_CONFLICT","Esta tentativa já foi usada com outro conteúdo.",409);
         }
-        data=inserted;
+        if(message.includes("IDEMPOTENCY_STATE_INVALID")){
+          throw new DomainError("IDEMPOTENCY_STATE_INVALID","Não foi possível confirmar a gravação idempotente.",409);
+        }
+        if(message.includes("INVALID_PRODUCT")){
+          throw new DomainError("INVALID_PRODUCT","Este produto ou categoria não está disponível para alteração.",409);
+        }
+        throw error;
       }
-
-      if(!data)throw new DomainError("CATALOG_UPDATE_FAILED","Não foi possível confirmar a atualização do catálogo.",500);
-
-      const {error:merchantUpdateError}=await admin
-        .from("merchants")
-        .update({last_seen_at:now})
-        .eq("id",merchantId);
-      if(merchantUpdateError)throw merchantUpdateError;
-
-      const {count,error:availableError}=await admin
-        .from("catalog_items")
-        .select("*",{count:"exact",head:true})
-        .eq("merchant_id",merchantId)
-        .eq("active",true)
-        .gt("available_stock",0);
-      if(availableError)throw availableError;
-      if(!count){
-        await admin.from("merchants").update({online:false}).eq("id",merchantId);
-      }
-
-      return json({ok:true,product:data,priceConfirmedAt:now},200,origin);
+      if(!data?.product)throw new DomainError("CATALOG_UPDATE_FAILED","Não foi possível confirmar a atualização do catálogo.",500);
+      return json(data,200,origin);
     }
 
     if(action==="update-payment-methods"){
