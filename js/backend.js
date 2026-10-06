@@ -48,8 +48,90 @@ async function retryAmbiguousOnce(operation){
   }
 }
 
+const MERCHANT_PILOT_INVITE_STORAGE='tamao-pilot-invite-v1';
+const MERCHANT_PILOT_INVITE_TTL_MS=2*60*60*1000;
+function validMerchantPilotInviteToken(value){
+  return /^[A-Za-z0-9_-]{20,240}$/.test(String(value||'').trim());
+}
+function storedMerchantPilotInviteToken(){
+  try{
+    const raw=localStorage.getItem(MERCHANT_PILOT_INVITE_STORAGE);
+    if(!raw)return '';
+    const data=JSON.parse(raw);
+    const token=String(data?.token||'').trim();
+    const expiresAt=Number(data?.expiresAt||0);
+    if(!validMerchantPilotInviteToken(token)||!Number.isFinite(expiresAt)||expiresAt<=Date.now()){
+      localStorage.removeItem(MERCHANT_PILOT_INVITE_STORAGE);
+      return '';
+    }
+    return token;
+  }catch{
+    localStorage.removeItem(MERCHANT_PILOT_INVITE_STORAGE);
+    return '';
+  }
+}
+function merchantPilotInviteFromUrl(){
+  const url=new URL(location.href);
+  const rawHash=url.hash.replace(/^#/,'');
+  const splitAt=rawHash.indexOf('?');
+  const hashRoute=splitAt>=0?rawHash.slice(0,splitAt):rawHash;
+  const hashParams=new URLSearchParams(splitAt>=0?rawHash.slice(splitAt+1):'');
+  const queryToken=String(url.searchParams.get('pilot')||'').trim();
+  const hashToken=String(hashParams.get('pilot')||'').trim();
+  const token=validMerchantPilotInviteToken(hashToken)?hashToken:(validMerchantPilotInviteToken(queryToken)?queryToken:'');
+  let changed=false;
+
+  if(url.searchParams.has('pilot')){
+    url.searchParams.delete('pilot');
+    changed=true;
+  }
+  if(hashParams.has('pilot')){
+    hashParams.delete('pilot');
+    url.hash=hashRoute
+      ? '#'+hashRoute+(hashParams.toString()?'?'+hashParams.toString():'')
+      : (hashParams.toString()?'#?'+hashParams.toString():'');
+    changed=true;
+  }
+  if(changed){
+    history.replaceState(null,'',url.pathname+url.search+url.hash);
+  }
+  if(token){
+    try{
+      localStorage.setItem(MERCHANT_PILOT_INVITE_STORAGE,JSON.stringify({
+        token,
+        expiresAt:Date.now()+MERCHANT_PILOT_INVITE_TTL_MS
+      }));
+    }catch{}
+  }
+  return token;
+}
+function merchantPilotInviteToken(){
+  return merchantPilotInviteFromUrl()||storedMerchantPilotInviteToken();
+}
+function clearMerchantPilotInviteToken(){
+  try{localStorage.removeItem(MERCHANT_PILOT_INVITE_STORAGE)}catch{}
+  const url=new URL(location.href);
+  const rawHash=url.hash.replace(/^#/,'');
+  const splitAt=rawHash.indexOf('?');
+  const hashRoute=splitAt>=0?rawHash.slice(0,splitAt):rawHash;
+  const hashParams=new URLSearchParams(splitAt>=0?rawHash.slice(splitAt+1):'');
+  let changed=false;
+  if(url.searchParams.has('pilot')){url.searchParams.delete('pilot');changed=true}
+  if(hashParams.has('pilot')){
+    hashParams.delete('pilot');
+    url.hash=hashRoute
+      ? '#'+hashRoute+(hashParams.toString()?'?'+hashParams.toString():'')
+      : (hashParams.toString()?'#?'+hashParams.toString():'');
+    changed=true;
+  }
+  if(changed)history.replaceState(null,'',url.pathname+url.search+url.hash);
+}
+
 const customerPortalParams=new URLSearchParams(location.search);
 const configuredPortalRole=String(globalThis.CHAMA_PORTAL_ROLE||'').trim().toLowerCase();
+if(configuredPortalRole==='merchant'||customerPortalParams.get('merchant')==='1'||customerPortalParams.has('pilot')||location.hash.includes('pilot=')){
+  merchantPilotInviteFromUrl();
+}
 const liveRuntime={
   requested:globalThis.__CHAMA_TEST__===true
     ? false
@@ -1092,11 +1174,8 @@ async function merchantSendLogin(email){
   if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value))throw new Error('Informe um e-mail válido');
   const redirect=new URL(location.origin+location.pathname);
   redirect.searchParams.set('merchant','1');
-  const pilotInviteToken=String(new URLSearchParams(location.search).get('pilot')||'').trim();
-  if(/^[A-Za-z0-9_-]{20,240}$/.test(pilotInviteToken)){
-    redirect.searchParams.set('pilot',pilotInviteToken);
-  }
-  redirect.hash='merchant';
+  const pilotInviteToken=merchantPilotInviteToken();
+  redirect.hash=pilotInviteToken?'merchant-join':'merchant';
   if(!globalThis.chamaTurnstile?.challenge)throw new Error('Proteção anti-bot indisponível');
   const captchaToken=await globalThis.chamaTurnstile.challenge('merchant_login');
   const {error}=await merchantRuntime.client.auth.signInWithOtp({
@@ -1540,7 +1619,17 @@ async function merchantClaimPilotInviteLive(applicationId,pilotInviteToken){
     p_application_id:application,
     p_token:token
   });
-  if(error)throw new Error(merchantPilotInviteErrorMessage(error));
+  if(error){
+    const raw=String(error?.message||error?.details||error?.hint||error||'');
+    if(
+      raw.includes('PILOT_INVITE_EXPIRED')
+      ||raw.includes('PILOT_INVITE_REVOKED')
+      ||raw.includes('PILOT_INVITE_ALREADY_CLAIMED')
+      ||raw.includes('INVALID_PILOT_INVITE')
+    )clearMerchantPilotInviteToken();
+    throw new Error(merchantPilotInviteErrorMessage(error));
+  }
+  clearMerchantPilotInviteToken();
   return data??null;
 }
 
@@ -1655,6 +1744,8 @@ globalThis.merchantCompleteDeliveryLive=merchantCompleteDeliveryLive;
 globalThis.merchantSetOnlineLive=merchantSetOnlineLive;
 globalThis.merchantUpdateProductLive=merchantUpdateProductLive;
 globalThis.merchantUpdateLogisticsLive=merchantUpdateLogisticsLive;
+globalThis.merchantPilotInviteToken=merchantPilotInviteToken;
+globalThis.clearMerchantPilotInviteToken=clearMerchantPilotInviteToken;
 globalThis.merchantClaimPilotInviteLive=merchantClaimPilotInviteLive;
 globalThis.merchantSubmitApplicationLive=merchantSubmitApplicationLive;
 globalThis.merchantPoll=merchantPoll;
