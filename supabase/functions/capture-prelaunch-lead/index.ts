@@ -132,121 +132,58 @@ Deno.serve(async(req:Request)=>{
     const requestHash=await sha256Hex(JSON.stringify(normalized));
     const admin=createClient(SUPABASE_URL,SECRET_KEY,{auth:{persistSession:false,autoRefreshToken:false}});
 
-    const {data:replay,error:replayError}=idempotencyKey
-      ? await admin.from("prelaunch_leads")
-          .select("id,lead_type,status,created_at,updated_at,last_submission_hash")
-          .eq("last_submission_idempotency_key",idempotencyKey)
-          .maybeSingle()
-      : {data:null,error:null};
-    if(replayError)throw replayError;
-    if(replay){
-      if(replay.last_submission_hash!==requestHash){
-        return json({error:"IDEMPOTENCY_CONFLICT",message:"Esta tentativa já foi usada com outros dados."},409,origin);
-      }
-      return json({
-        ok:true,accepted:true,leadId:replay.id,leadType,reused:true,replayed:true,
-        message:leadType==="merchant"
-          ?"Interesse recebido. O TAMÃO pode entrar em contato pelo WhatsApp informado."
-          :"Você entrou na lista de abertura. O TAMÃO pode avisar pelo WhatsApp informado."
-      },200,origin);
-    }
-
     const ip=clientIp(req);
     const ipHash=await sha256Hex(SECRET_KEY.slice(0,32)+":"+ip);
-    const {data:quota,error:quotaError}=await admin.rpc("consume_prelaunch_lead_quota",{
+    const {data:result,error:rpcError}=await admin.rpc("capture_prelaunch_lead_idempotent",{
+      p_lead_type:normalized.lead_type,
+      p_contact_name:normalized.contact_name,
+      p_business_name:normalized.business_name,
+      p_phone:normalized.phone,
+      p_postal_code:normalized.postal_code,
+      p_interests:normalized.interests,
+      p_note:normalized.note,
+      p_source:normalized.source,
+      p_medium:normalized.medium,
+      p_campaign:normalized.campaign,
+      p_content:normalized.content,
+      p_term:normalized.term,
+      p_referrer:normalized.referrer,
+      p_landing_path:normalized.landing_path,
       p_ip_hash:ipHash,
-      p_action_name:"capture-prelaunch-lead",
-      p_limit:6,
-      p_window_seconds:3600
+      p_idempotency_key:idempotencyKey,
+      p_request_hash:requestHash
     });
-    if(quotaError)throw quotaError;
-    if(quota?.allowed!==true){
-      return json({error:"RATE_LIMITED",message:"Muitas tentativas. Aguarde um pouco e tente novamente.",retryAfterSeconds:quota?.retryAfterSeconds||3600},429,origin);
-    }
-
-    const payload={
-      ...normalized,
-      consent_at:new Date().toISOString(),
-      ip_hash:ipHash,
-      last_submission_idempotency_key:idempotencyKey,
-      last_submission_hash:idempotencyKey?requestHash:null,
-      updated_at:new Date().toISOString()
-    };
-
-    const {data:existing,error:existingError}=await admin
-      .from("prelaunch_leads")
-      .select("id,status,submission_count,last_submission_idempotency_key,last_submission_hash")
-      .eq("lead_type",leadType)
-      .eq("phone",phone)
-      .maybeSingle();
-    if(existingError)throw existingError;
-
-    let lead:any=null;
-    let reused=false;
-    if(existing){
-      reused=true;
-      if(idempotencyKey&&existing.last_submission_idempotency_key===idempotencyKey){
-        if(existing.last_submission_hash!==requestHash){
-          return json({error:"IDEMPOTENCY_CONFLICT",message:"Esta tentativa já foi usada com outros dados."},409,origin);
-        }
-        lead=existing;
-      }else{
-        const {data,error}=await admin
-          .from("prelaunch_leads")
-          .update({...payload,submission_count:Math.min(1000000,Number(existing.submission_count||1)+1)})
-          .eq("id",existing.id)
-          .select("id,lead_type,status,created_at,updated_at")
-          .single();
-        if(error)throw error;
-        lead=data;
+    if(rpcError){
+      const message=String(rpcError.message??rpcError.details??rpcError.code??"");
+      if(message.includes("IDEMPOTENCY_CONFLICT")){
+        return json({error:"IDEMPOTENCY_CONFLICT",message:"Esta tentativa já foi usada com outros dados."},409,origin);
       }
-    }else{
-      const {data,error}=await admin
-        .from("prelaunch_leads")
-        .insert(payload)
-        .select("id,lead_type,status,created_at,updated_at")
-        .single();
-      if(error){
-        if(String(error.code)==="23505"){
-          const {data:keyRace,error:keyRaceError}=idempotencyKey
-            ? await admin.from("prelaunch_leads")
-                .select("id,lead_type,status,created_at,updated_at,last_submission_hash")
-                .eq("last_submission_idempotency_key",idempotencyKey)
-                .maybeSingle()
-            : {data:null,error:null};
-          if(keyRaceError)throw keyRaceError;
-          if(keyRace){
-            if(keyRace.last_submission_hash!==requestHash){
-              return json({error:"IDEMPOTENCY_CONFLICT",message:"Esta tentativa já foi usada com outros dados."},409,origin);
-            }
-            lead=keyRace;
-            reused=true;
-          }else{
-            const {data:race,error:raceError}=await admin
-              .from("prelaunch_leads")
-              .select("id,lead_type,status,created_at,updated_at")
-              .eq("lead_type",leadType)
-              .eq("phone",phone)
-              .single();
-            if(raceError)throw raceError;
-            lead=race;
-            reused=true;
-          }
-        }else throw error;
-      }else lead=data;
+      if(message.includes("IDEMPOTENCY_STATE_INVALID")||message.includes("IDEMPOTENCY_RESULT_MISSING")){
+        return json({error:"IDEMPOTENCY_RETRY",message:"Não foi possível confirmar esta tentativa. Tente novamente."},409,origin);
+      }
+      throw rpcError;
+    }
+    if(result?.error==="RATE_LIMITED"){
+      return json({
+        error:"RATE_LIMITED",
+        message:"Muitas tentativas. Aguarde um pouco e tente novamente.",
+        retryAfterSeconds:Number(result?.retryAfterSeconds||3600)
+      },429,origin);
     }
 
+    const reused=result?.reused===true;
+    const replayed=result?.replayed===true;
     return json({
       ok:true,
       accepted:true,
-      leadId:lead?.id,
-      leadType,
+      leadId:result?.leadId,
+      leadType:String(result?.leadType||leadType),
       reused,
-      replayed:false,
+      replayed,
       message:leadType==="merchant"
         ?"Interesse recebido. O TAMÃO pode entrar em contato pelo WhatsApp informado."
         :"Você entrou na lista de abertura. O TAMÃO pode avisar pelo WhatsApp informado."
-    },reused?200:201,origin);
+    },reused||replayed?200:201,origin);
   }catch(error){
     console.error("capture-prelaunch-lead failed",error instanceof Error?error.message:String(error));
     return json({error:"INTERNAL_ERROR",message:"Não foi possível salvar agora. Tente novamente."},500,origin);
