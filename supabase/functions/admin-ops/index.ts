@@ -389,7 +389,32 @@ Deno.serve(async(req:Request)=>{
 
     let payload:Record<string,unknown>;
 
-    if(action==="approve-application"){
+    if(action==="pilot-invite-action"){
+      const inviteAction=String(body.inviteAction??"").trim().toLowerCase();
+      if(!["rotate","revoke"].includes(inviteAction)){
+        throw new DomainError("INVALID_PILOT_INVITE_ADMIN_ACTION","Ação de convite piloto inválida.",400);
+      }
+      const tokenHash=body.tokenHash==null?"":String(body.tokenHash).trim().toLowerCase();
+      let expiresAt:null|string=null;
+      if(inviteAction==="rotate"){
+        if(!/^[0-9a-f]{64}$/.test(tokenHash)){
+          throw new DomainError("INVALID_PILOT_INVITE_HASH","Hash do convite piloto inválido.",400);
+        }
+        const parsed=new Date(String(body.expiresAt??""));
+        const maxExpiry=Date.now()+30*24*60*60*1000;
+        if(!Number.isFinite(parsed.getTime())||parsed.getTime()<=Date.now()||parsed.getTime()>maxExpiry){
+          throw new DomainError("INVALID_PILOT_INVITE_EXPIRY","A validade do convite precisa ficar entre agora e 30 dias.",400);
+        }
+        expiresAt=parsed.toISOString();
+      }
+      payload={
+        draftId:uuid(body.draftId,"draft"),
+        inviteAction,
+        tokenHash,
+        expiresAt,
+        reason:cleanText(body.reason,{min:3,max:1000,name:"motivo da rotação do convite"})
+      };
+    }else if(action==="approve-application"){
       payload={applicationId:uuid(body.applicationId,"application")};
     }else if(action==="reject-application"){
       payload={
@@ -778,7 +803,20 @@ Deno.serve(async(req:Request)=>{
       p_idempotency_key:idempotencyKey,
       p_request_hash:requestHash
     };
-    if(action==="set-delivery-capability"){
+    if(action==="pilot-invite-action"){
+      rpcName="admin_pilot_partner_invite_action";
+      rpcArgs={
+        p_actor_user_id:user.id,
+        p_draft_id:payload.draftId,
+        p_action:payload.inviteAction,
+        p_token_hash:payload.tokenHash,
+        p_expires_at:payload.expiresAt,
+        p_reason:payload.reason,
+        p_idempotency_key:idempotencyKey,
+        p_request_hash:requestHash
+      };
+    }
+    else if(action==="set-delivery-capability"){
       rpcName="admin_delivery_capability_action";
       rpcArgs={
         p_actor_user_id:user.id,
@@ -1074,6 +1112,12 @@ Deno.serve(async(req:Request)=>{
     }
     if(message.includes("ADMIN_ORDER_REASON_REQUIRED")){
       return json({error:"ADMIN_ORDER_REASON_REQUIRED",message:"Informe o motivo da intervenção administrativa."},400,origin);
+    }
+    if(message.includes("INVALID_PILOT_INVITE_ADMIN_ACTION")||message.includes("INVALID_PILOT_INVITE_HASH")||message.includes("INVALID_PILOT_INVITE_EXPIRY")||message.includes("PILOT_INVITE_REASON_REQUIRED")){
+      return json({error:"INVALID_PILOT_INVITE_ADMIN_ACTION",message:"Revise a ação, validade e motivo do convite piloto."},400,origin);
+    }
+    if(message.includes("PILOT_PARTNER_ALREADY_CONVERTED")){
+      return json({error:"PILOT_PARTNER_ALREADY_CONVERTED",message:"Este parceiro piloto já foi convertido e não aceita novo convite."},409,origin);
     }
     if(message.includes("PILOT_PARTNER_NOT_FOUND")){
       return json({error:"PILOT_PARTNER_NOT_FOUND",message:"Parceiro piloto não encontrado."},404,origin);
