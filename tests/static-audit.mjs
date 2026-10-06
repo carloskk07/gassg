@@ -367,6 +367,9 @@ assert.ok(read('supabase/functions/customer-summary/index.ts').includes('activeO
 assert.ok(backend.includes('summary?.activeOrderId')&&backend.includes('localStorage.setItem(CHAMA_BACKEND.orderStorageKey,liveRuntime.orderId)'),'cliente deve persistir pedido ativo recuperado pelo servidor');
 assert.ok(read('supabase/functions/merchant-ops/index.ts').includes('Seu papel não pode manter a operação ativa.'),'heartbeat não pode ser mantido por papel não operacional');
 assert.ok(backend.includes('merchantRuntime.heartbeatError')&&backend.includes('await merchantHeartbeat();\n    await merchantRefresh({silent:true});'),'polling da revenda deve confirmar presença antes de projetar o estado atualizado');
+assert.ok(backend.includes("liveRuntime.error=String(error?.message||error||'Não foi possível atualizar o pedido.')")&&customer.includes('Acompanhamento temporariamente sem conexão.'),'tracking cliente precisa tornar falha de polling visível sem fingir status ao vivo');
+assert.ok(backend.includes("await merchantRefresh({silent:true});\n    render();\n  }catch{\n    render();"),'polling da revenda precisa renderizar imediatamente o estado indisponível');
+assert.ok(admin.includes("await adminRefresh({silent:true});\n    render();\n  }catch{\n    render();"),'polling admin precisa renderizar imediatamente o estado indisponível');
 assert.ok(merchant.includes('heartbeatFresh')&&merchant.includes('SEM CONEXÃO'),'painel não pode exibir ONLINE quando heartbeat já ficou velho');
 assert.ok(read('supabase/functions/merchant-orders/index.ts').includes('selected.member_role==="driver"')&&read('supabase/functions/merchant-orders/index.ts').includes('.eq("assigned_delivery_user_id",user.id)'),'driver deve abrir somente a fila atribuída à própria identidade');
 assert.ok(read('supabase/functions/merchant-orders/index.ts').includes('selectMerchantMembership'),'seleção default de revenda deve preferir membership operacional');
