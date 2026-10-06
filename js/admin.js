@@ -108,6 +108,21 @@ function adminIdempotency(prefix='admin'){
   const uuid=globalThis.crypto?.randomUUID?.()||Math.random().toString(36).slice(2)+Date.now().toString(36);
   return prefix+':'+uuid;
 }
+function adminPilotInviteSecret(){
+  const bytes=new Uint8Array(32);
+  globalThis.crypto.getRandomValues(bytes);
+  let binary='';
+  for(const byte of bytes)binary+=String.fromCharCode(byte);
+  return btoa(binary).replace(/\\+/g,'-').replace(/\\//g,'_').replace(/=+$/,'');
+}
+async function adminSha256Hex(value){
+  const digest=await globalThis.crypto.subtle.digest('SHA-256',new TextEncoder().encode(String(value)));
+  return [...new Uint8Array(digest)].map(byte=>byte.toString(16).padStart(2,'0')).join('');
+}
+function adminPilotInviteLink(token){
+  const origin=String(globalThis.CHAMA_MERCHANT_ORIGIN||'https://parceiro.tamao.com.br').replace(/\\/+$/,'');
+  return origin+'/#merchant-join?pilot='+encodeURIComponent(token);
+}
 
 async function adminInvoke(body={},options={}){
   const token=await adminAccessToken();
