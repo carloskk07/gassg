@@ -94,47 +94,72 @@ for(let i=0;i<20000;i++){
 }
 
 
-function prepaidFeeAllocation(projectedFee,availableCredit){
-  const fee=Math.max(0,Math.trunc(projectedFee));
+function prepaidFeeAllocation(packageFee,flexFee,availableCredit){
+  const discountedFee=Math.max(0,Math.trunc(packageFee));
+  const fallbackFee=Math.max(0,Math.trunc(flexFee));
   const available=Math.max(0,Math.trunc(availableCredit));
-  if(fee<=0||available<=0){
-    return {usesPrepaid:false,reserved:0,postpaidDue:fee};
+  if(discountedFee>0&&available>=discountedFee){
+    return {
+      rateMode:'package',
+      totalFee:discountedFee,
+      reserved:discountedFee,
+      postpaidDue:0
+    };
   }
-  const reserved=Math.min(fee,available);
-  return {usesPrepaid:true,reserved,postpaidDue:fee-reserved};
+  const reserved=fallbackFee>0?Math.min(fallbackFee,available):0;
+  return {
+    rateMode:'flex',
+    totalFee:fallbackFee,
+    reserved,
+    postpaidDue:fallbackFee-reserved
+  };
 }
 
 let prepaidCases=0;
 for(let i=0;i<25000;i++){
-  const projectedFee=int(0,1000000);
-  const availableCredit=int(0,1000000);
-  const a=prepaidFeeAllocation(projectedFee,availableCredit);
+  const gross=int(1,100000000);
+  const packageBps=int(1,849);
+  const flexBps=int(packageBps+1,1000);
+  const packageFee=Math.floor((gross*packageBps)/10000);
+  const flexFee=Math.floor((gross*flexBps)/10000);
+  const availableCredit=int(0,Math.max(1,packageFee+10000));
+  const a=prepaidFeeAllocation(packageFee,flexFee,availableCredit);
+
   assert.ok(a.reserved>=0);
-  assert.ok(a.reserved<=projectedFee);
+  assert.ok(a.reserved<=a.totalFee);
   assert.ok(a.reserved<=availableCredit);
-  assert.equal(a.reserved+a.postpaidDue,projectedFee);
-  if(projectedFee>0&&availableCredit>0){
-    assert.equal(a.usesPrepaid,true);
-    assert.equal(a.reserved,Math.min(projectedFee,availableCredit));
-    if(availableCredit<projectedFee){
-      assert.equal(a.reserved,availableCredit,'último pedido precisa consumir todo o saldo residual');
-      assert.ok(a.postpaidDue>0,'diferença da última taxa precisa seguir para D+1');
-    }
+  assert.equal(a.reserved+a.postpaidDue,a.totalFee);
+
+  if(packageFee>0&&availableCredit>=packageFee){
+    assert.equal(a.rateMode,'package');
+    assert.equal(a.totalFee,packageFee);
+    assert.equal(a.reserved,packageFee);
+    assert.equal(a.postpaidDue,0);
   }else{
-    assert.equal(a.usesPrepaid,false);
+    assert.equal(a.rateMode,'flex');
+    assert.equal(a.totalFee,flexFee);
+    assert.equal(a.reserved,Math.min(flexFee,availableCredit));
+    if(packageFee>0&&availableCredit>0&&availableCredit<packageFee){
+      assert.equal(a.reserved,availableCredit,'saldo residual precisa ser totalmente abatido da taxa Flex');
+      assert.ok(a.postpaidDue>=0);
+      assert.equal(a.rateMode,'flex','saldo residual não pode manter desconto do pacote');
+    }
   }
   prepaidCases++;
 }
 
-for(const [projectedFee,availableCredit,expectedReserved,expectedDue] of [
-  [500,300,300,200],
-  [500,500,500,0],
-  [500,700,500,0],
-  [1,1,1,0],
-  [1,0,0,1],
-  [0,300,0,0]
+for(const [packageFee,flexFee,availableCredit,expectedMode,expectedReserved,expectedDue] of [
+  [500,650,300,'flex',300,350],
+  [500,650,499,'flex',499,151],
+  [500,650,500,'package',500,0],
+  [500,650,700,'package',500,0],
+  [1,2,1,'package',1,0],
+  [1,2,0,'flex',0,2],
+  [0,1,1,'flex',1,0],
+  [0,0,300,'flex',0,0]
 ]){
-  const a=prepaidFeeAllocation(projectedFee,availableCredit);
+  const a=prepaidFeeAllocation(packageFee,flexFee,availableCredit);
+  assert.equal(a.rateMode,expectedMode);
   assert.equal(a.reserved,expectedReserved);
   assert.equal(a.postpaidDue,expectedDue);
   prepaidCases++;
