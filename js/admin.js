@@ -1144,6 +1144,78 @@ function adminReferralReviewCard(x){
     ${pending?`<div class="order-actions"><button class="primary small" onclick="adminReviewReferral('${x.order_id}','approved')">Aprovar comissão</button><button class="danger-btn small" onclick="adminReviewReferral('${x.order_id}','rejected')">Rejeitar comissão</button></div>`:''}
   </article>`;
 }
+function adminBillingPlanLabel(planKey){
+  const plan=(adminRuntime.data?.merchantBilling?.plans||[]).find(x=>x.plan_key===planKey);
+  return plan?.display_name||String(planKey||'—');
+}
+function adminBillingStatementStatus(status){
+  return ({
+    open:'ABERTO',
+    paid:'PAGO',
+    overdue:'VENCIDO',
+    waived:'ABONADO'
+  })[String(status||'')]||String(status||'—').toUpperCase();
+}
+function adminBillingPlanCard(plan){
+  const fee=(Number(plan.platform_fee_bps||0)/100).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2});
+  const prepaid=plan.billing_mode==='prepaid_credit';
+  return `<article class="card flat">
+    <div class="order-head"><div><strong>${esc(plan.display_name)}</strong><br><small>${prepaid?'Crédito pré-pago':'Pós-pago diário'}</small></div><span class="status-pill ${plan.active?'online':'offline'}">${fee}%</span></div>
+    ${prepaid?`<div class="order-line"><strong>Pacote:</strong> ${adminMoney(plan.purchase_amount_cents)} → ${adminMoney(plan.credit_grant_cents)} em crédito de taxas</div>`:'<div class="order-line">Sem compra antecipada • fechamento diário D+1</div>'}
+  </article>`;
+}
+function adminBillingAccountCard(account){
+  const held=account.sales_hold===true;
+  const available=Math.max(0,Number(account.credit_balance_cents||0)-Number(account.credit_reserved_cents||0));
+  return `<article class="order-card">
+    <div class="order-head"><div><div class="order-id">${esc(adminMerchantName(account.merchant_id))}</div><div class="tiny muted">${esc(adminBillingPlanLabel(account.plan_key))} • atualizado ${esc(account.updated_at?new Date(account.updated_at).toLocaleString('pt-BR'):'—')}</div></div><span class="status-pill ${held?'offline':'online'}">${held?'VENDAS EM HOLD':'FINANCEIRO OK'}</span></div>
+    <div class="merchant-kpis">
+      <div class="kpi"><span class="label">Crédito</span><strong>${adminMoney(account.credit_balance_cents)}</strong></div>
+      <div class="kpi"><span class="label">Reservado</span><strong>${adminMoney(account.credit_reserved_cents)}</strong></div>
+      <div class="kpi"><span class="label">Disponível</span><strong>${adminMoney(available)}</strong></div>
+      <div class="kpi"><span class="label">Último fechamento</span><strong>${esc(account.last_daily_close_date||'—')}</strong></div>
+    </div>
+    ${held?`<div class="notice danger" style="margin-top:10px"><strong>Novas vendas bloqueadas.</strong><br>${esc(account.sales_hold_reason||'Débito vencido')} • desde ${esc(account.sales_hold_at?new Date(account.sales_hold_at).toLocaleString('pt-BR'):'—')}</div>`:''}
+    <div class="order-actions">
+      ${(adminRuntime.data?.merchantBilling?.plans||[]).filter(p=>p.active&&p.billing_mode==='prepaid_credit').map(p=>`<button class="secondary small" onclick="adminConfirmBillingPackage('${esc(account.merchant_id)}','${esc(p.plan_key)}')">${esc(p.display_name)}</button>`).join('')}
+      <button class="ghost small" onclick="adminSetMerchantFlex('${esc(account.merchant_id)}')">Voltar ao Flex</button>
+    </div>
+  </article>`;
+}
+function adminBillingStatementCard(statement){
+  const overdue=statement.status==='overdue';
+  const open=['open','overdue'].includes(statement.status);
+  const paidByCredit=Number(statement.prepaid_credit_applied_cents||0);
+  return `<article class="order-card">
+    <div class="order-head"><div><div class="order-id">${esc(adminMerchantName(statement.merchant_id))} • ${esc(statement.business_date)}</div><div class="tiny muted">Fechado em ${esc(new Date(statement.closed_at).toLocaleString('pt-BR'))} • vence ${esc(new Date(statement.due_at).toLocaleString('pt-BR'))}</div></div><span class="status-pill ${statement.status==='paid'?'online':overdue?'offline':'risk'}">${esc(adminBillingStatementStatus(statement.status))}</span></div>
+    <div class="merchant-kpis">
+      <div class="kpi"><span class="label">Vendas</span><strong>${adminMoney(statement.gross_sales_cents)}</strong></div>
+      <div class="kpi"><span class="label">Taxa bruta</span><strong>${adminMoney(statement.gross_fee_cents)}</strong></div>
+      <div class="kpi"><span class="label">Crédito usado</span><strong>${adminMoney(paidByCredit)}</strong></div>
+      <div class="kpi"><span class="label">A pagar</span><strong>${adminMoney(statement.amount_due_cents)}</strong></div>
+    </div>
+    ${open?`<div class="order-actions"><button class="primary small" onclick="adminResolveDailyStatement('${esc(statement.merchant_id)}','${esc(statement.id)}','mark-statement-paid')">Confirmar pagamento</button><button class="ghost small" onclick="adminResolveDailyStatement('${esc(statement.merchant_id)}','${esc(statement.id)}','waive-statement')">Abonar</button></div>`:''}
+    ${statement.resolution_reference?`<div class="tiny muted">Referência: ${esc(statement.resolution_reference)}</div>`:''}
+  </article>`;
+}
+function adminMerchantBillingSection(d){
+  const billing=d.merchantBilling||{};
+  const plans=billing.plans||[];
+  const accounts=billing.accounts||[];
+  const statements=billing.statements||[];
+  const openStatements=statements.filter(x=>['open','overdue'].includes(x.status));
+  const overdue=openStatements.filter(x=>x.status==='overdue');
+  const held=accounts.filter(x=>x.sales_hold);
+  return `<section class="section">
+    <div class="section-head"><div><span class="section-kicker">COBRANÇA DAS REVENDAS</span><h2>Fechamento diário + pacotes</h2><p>Cada pedido mantém sua taxa auditável. À 00:05 o dia anterior é consolidado; o saldo vence no fim do dia seguinte. Crédito pré-pago reduz a taxa e evita pagamento diário enquanto houver saldo.</p></div><div class="order-actions"><span class="status-pill ${overdue.length?'offline':'online'}">${overdue.length} vencido(s)</span><span class="status-pill ${held.length?'offline':'online'}">${held.length} hold(s)</span></div></div>
+    ${plans.length?`<div class="admin-entity-grid">${plans.map(adminBillingPlanCard).join('')}</div>`:'<div class="notice">Motor de cobrança diária ainda não está ativo neste ambiente.</div>'}
+    ${accounts.length?`<div class="section-head" style="margin-top:18px"><div><h3>Contas de cobrança</h3><p>Saldo, reservas e bloqueio financeiro por revenda.</p></div></div><div class="admin-entity-grid">${accounts.map(adminBillingAccountCard).join('')}</div>`:''}
+    <div class="section-head" style="margin-top:18px"><div><h3>Fechamentos diários</h3><p>Prioridade para vencidos e abertos; históricos liquidados permanecem auditáveis.</p></div></div>
+    ${openStatements.length?openStatements.map(adminBillingStatementCard).join(''):'<div class="empty card">Nenhum fechamento em aberto.</div>'}
+    ${statements.some(x=>!['open','overdue'].includes(x.status))?`<details class="card flat" style="margin-top:12px"><summary><strong>Histórico recente</strong></summary><div style="margin-top:10px">${statements.filter(x=>!['open','overdue'].includes(x.status)).slice(0,30).map(adminBillingStatementCard).join('')}</div></details>`:''}
+  </section>`;
+}
+
 function adminReceivableRow(x){
   return `<div class="list-row"><div><strong>${esc(adminMerchantName(x.merchant_id))}</strong><br><small>Taxa da plataforma • pedido ${esc(x.order_id)}</small></div><div style="text-align:right"><strong>${adminMoney(x.platform_fee_cents)}</strong><div class="order-actions"><button class="secondary small" onclick="adminFinancial('platform_receivable','${x.order_id}','paid')">Pago</button><button class="ghost small" onclick="adminFinancial('platform_receivable','${x.order_id}','waived')">Abonar</button></div></div></div>`;
 }
@@ -1531,6 +1603,7 @@ function adminPage(){
   const catalogContent=`${adminProductRegistrySection(d)}`;
 
   const financeContent=`
+    ${adminMerchantBillingSection(d)}
     ${adminCommercialPolicySection(d)}
     <section class="section"><div class="section-head"><div><h2>Revisão de indicações</h2><p>Comissões suspeitas não amadurecem automaticamente. Aprovação ainda exige identidades permanentes e fim da quarentena.</p></div><span class="status-pill ${pendingReferralReviews.length?'offline':'online'}">${pendingReferralReviews.length} pendente(s)</span></div>${referralReviews.length?referralReviews.map(adminReferralReviewCard).join(''):'<div class="empty card">Nenhuma indicação exige revisão.</div>'}</section>
     <section class="section"><div class="section-head"><div><h2>Fila de benefícios</h2><p>Falhas transitórias usam backoff. Dead-letter exige revisão manual; a entrega do pedido permanece concluída.</p></div><span class="status-pill ${deadRewardFailures.length?'offline':'online'}">${deadRewardFailures.length} dead-letter</span></div>${rewardFailures.length?rewardFailures.map(adminRewardFailureCard).join(''):'<div class="empty card">Nenhuma dívida de processamento de benefícios.</div>'}</section>
@@ -2009,6 +2082,36 @@ async function adminAddPlatformAdmin(){
   }catch(e){toast(String(e?.message||e))}
 }
 
+async function adminConfirmBillingPackage(merchantId,planKey){
+  const plan=(adminRuntime.data?.merchantBilling?.plans||[]).find(x=>x.plan_key===planKey);
+  if(!plan)return toast('Pacote não encontrado');
+  const reference=prompt('Referência do pagamento do pacote (Pix/PSP/comprovante):')||'';
+  if(reference.trim().length<3)return toast('Informe a referência do pagamento');
+  if(!confirm('Confirmar '+plan.display_name+' para '+adminMerchantName(merchantId)+'? Crédito: '+adminMoney(plan.credit_grant_cents)+' • taxa: '+(Number(plan.platform_fee_bps)/100).toFixed(2)+'%'))return;
+  try{
+    await adminPerform('merchant-billing-action',{merchantId,billingAction:'confirm-package',planKey,reference});
+    toast('Pacote financeiro ativado');
+  }catch(e){toast(String(e?.message||e))}
+}
+async function adminSetMerchantFlex(merchantId){
+  const reference=prompt('Motivo/referência para voltar ao Flex:')||'';
+  if(reference.trim().length<3)return toast('Informe uma referência');
+  if(!confirm('Voltar '+adminMerchantName(merchantId)+' ao Flex Diário? Só será permitido sem crédito pré-pago disponível ou reservado.'))return;
+  try{
+    await adminPerform('merchant-billing-action',{merchantId,billingAction:'set-flex',reference});
+    toast('Plano Flex ativado');
+  }catch(e){toast(String(e?.message||e))}
+}
+async function adminResolveDailyStatement(merchantId,statementId,billingAction){
+  const reference=prompt(billingAction==='mark-statement-paid'?'Referência do pagamento recebido:':'Motivo/referência do abono:')||'';
+  if(reference.trim().length<3)return toast('Informe a referência');
+  if(!confirm(billingAction==='mark-statement-paid'?'Confirmar quitação deste fechamento diário?':'Abonar este fechamento diário?'))return;
+  try{
+    await adminPerform('merchant-billing-action',{merchantId,statementId,billingAction,reference});
+    toast('Fechamento diário atualizado');
+  }catch(e){toast(String(e?.message||e))}
+}
+
 async function adminFinancial(kind,targetId,financialAction){
   const reference=prompt('Referência da conciliação (opcional):')||'';
   try{
@@ -2046,6 +2149,9 @@ globalThis.adminChangePlatformAdminRole=adminChangePlatformAdminRole;
 globalThis.adminCreateIncident=adminCreateIncident;
 globalThis.adminIncidentAction=adminIncidentAction;
 globalThis.adminAuditSearch=adminAuditSearch;
+globalThis.adminConfirmBillingPackage=adminConfirmBillingPackage;
+globalThis.adminSetMerchantFlex=adminSetMerchantFlex;
+globalThis.adminResolveDailyStatement=adminResolveDailyStatement;
 globalThis.openAdminPortal=openAdminPortal;
 
 
