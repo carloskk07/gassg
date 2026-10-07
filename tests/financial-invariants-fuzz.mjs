@@ -231,4 +231,49 @@ assert.equal(prepaidTransitionAllowed({
 }),true,'exaustão atômica pode retornar ao Flex');
 transitionCases+=5;
 
-console.log(`Financial invariant fuzz passou: ${rewardCases} cenários de unit economics + ${positionCases} posições de cashback + ${prepaidCases} cenários de consumo de crédito de taxa + ${transitionCases} transições de pacote.`);
+
+function billingReconciliationFlags({
+  accountBalance,ledgerBalance,accountReserved,orderReserved,
+  billingMode,approvedPackage,packageLedgerOk,
+  approvedStatement,statementPaid,pendingStatement,statementTermsOk
+}){
+  return {
+    balanceMismatch:accountBalance!==ledgerBalance,
+    reservationMismatch:accountReserved!==orderReserved,
+    flexWithCredit:billingMode==='postpaid_daily'&&(accountBalance>0||accountReserved>0),
+    approvedPackageWithoutLedger:approvedPackage&&!packageLedgerOk,
+    approvedStatementNotPaid:approvedStatement&&!statementPaid,
+    pendingStatementTermsChanged:pendingStatement&&!statementTermsOk
+  };
+}
+
+let reconciliationCases=0;
+for(let i=0;i<20000;i++){
+  const ledgerBalance=int(0,1000000);
+  const accountBalance=rnd()<0.92?ledgerBalance:int(0,1000000);
+  const orderReserved=int(0,accountBalance);
+  const accountReserved=rnd()<0.92?orderReserved:int(0,accountBalance);
+  const billingMode=rnd()<0.7?'prepaid_credit':'postpaid_daily';
+  const approvedPackage=rnd()<0.2;
+  const packageLedgerOk=rnd()<0.95;
+  const approvedStatement=rnd()<0.2;
+  const statementPaid=rnd()<0.95;
+  const pendingStatement=rnd()<0.2;
+  const statementTermsOk=rnd()<0.95;
+  const flags=billingReconciliationFlags({
+    accountBalance,ledgerBalance,accountReserved,orderReserved,billingMode,
+    approvedPackage,packageLedgerOk,approvedStatement,statementPaid,
+    pendingStatement,statementTermsOk
+  });
+
+  assert.equal(flags.balanceMismatch,accountBalance!==ledgerBalance);
+  assert.equal(flags.reservationMismatch,accountReserved!==orderReserved);
+  assert.equal(flags.flexWithCredit,billingMode==='postpaid_daily'&&(accountBalance>0||accountReserved>0));
+  assert.equal(flags.approvedPackageWithoutLedger,approvedPackage&&!packageLedgerOk);
+  assert.equal(flags.approvedStatementNotPaid,approvedStatement&&!statementPaid);
+  assert.equal(flags.pendingStatementTermsChanged,pendingStatement&&!statementTermsOk);
+  reconciliationCases++;
+}
+
+
+console.log(`Financial invariant fuzz passou: ${rewardCases} cenários de unit economics + ${positionCases} posições de cashback + ${prepaidCases} cenários de consumo de crédito de taxa + ${transitionCases} transições de pacote + ${reconciliationCases} cenários de reconciliação.`);
