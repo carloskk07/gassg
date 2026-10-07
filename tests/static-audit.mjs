@@ -550,7 +550,6 @@ assert.ok(prepaidPlanTransition.includes('validate_billing_package_request_trans
 assert.ok(prepaidPlanTransition.includes('enforce_billing_account_plan_transition_trg'),'mudança da conta precisa ter proteção estrutural independente da UI');
 assert.ok(prepaidPlanTransition.includes("v_target.billing_mode='postpaid_daily'")&&prepaidPlanTransition.includes('new.credit_balance_cents'),'Flex não pode herdar saldo pré-pago remanescente');
 assert.ok(merchant.includes('Proteção do saldo atual.')&&merchant.includes('upgrade')&&merchant.includes('downgrade'),'portal precisa explicar recarga, upgrade e downgrade de pacote');
-assert.ok(merchantOpsBillingSource.includes('PREPAID_PLAN_DOWNGRADE_WITH_ACTIVE_CREDIT'),'merchant-ops precisa traduzir downgrade protegido em conflito legível');
 assert.ok(adminRbacIncidentMigration.includes("admin_role in ('superadmin','operations','finance','support','compliance','readonly')"),'migration RBAC precisa declarar papéis administrativos canônicos');
 assert.ok(adminRbacIncidentMigration.includes('LAST_SUPERADMIN_CANNOT_BE_REMOVED')&&adminRbacIncidentMigration.includes('enforce_platform_superadmin_continuity'),'último Superadmin ativo precisa ser protegido estruturalmente');
 assert.ok(adminRbacIncidentMigration.includes('create table if not exists public.platform_incidents')&&adminRbacIncidentMigration.includes('alter table public.platform_incidents enable row level security'),'incidentes precisam ser persistentes, server-only e protegidos por RLS');
@@ -582,6 +581,7 @@ assert.ok(adminOpsSource.includes('admin_execute_action'),'Edge admin deve usar 
 assert.ok(adminOpsSource.includes('idempotency-key'),'CORS admin precisa aceitar o header idempotente');
 const merchantOpsBillingSource=read('supabase/functions/merchant-ops/index.ts');
 const merchantOrdersBillingSource=read('supabase/functions/merchant-orders/index.ts');
+assert.ok(merchantOpsBillingSource.includes('PREPAID_PLAN_DOWNGRADE_WITH_ACTIVE_CREDIT'),'merchant-ops precisa traduzir downgrade protegido em conflito legível');
 assert.ok(merchantOpsBillingSource.includes('request-billing-package')&&merchantOpsBillingSource.includes('notify-billing-payment')&&merchantOpsBillingSource.includes('merchant_billing_request_action'),'portal da revenda precisa criar avisos financeiros pela autoridade idempotente');
 assert.ok(merchantOpsBillingSource.includes('MERCHANT_FINANCE_PERMISSION_DENIED')&&merchantOpsBillingSource.includes('canManage(role)'),'somente owner/manager pode solicitar pacote ou informar pagamento');
 assert.ok(merchantOrdersBillingSource.includes('merchant_billing_payment_requests')&&merchantOrdersBillingSource.includes('paymentRequests:'),'snapshot financeiro da revenda precisa expor suas solicitações recentes');
