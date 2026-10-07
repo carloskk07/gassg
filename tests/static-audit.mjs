@@ -740,6 +740,7 @@ const offerSource=read('supabase/functions/get-offers/index.ts');
 const merchantOpsSource=read('supabase/functions/merchant-ops/index.ts');
 const merchantOrdersSource=read('supabase/functions/merchant-orders/index.ts');
 assert.ok(offerSource.includes('.gte("delivery_fee_confirmed_at", priceCutoff)'),'matching deve exigir taxa de entrega fresca');
+assert.ok(offerSource.includes('merchant_billing_accounts')&&offerSource.includes('.eq("sales_hold",true)')&&offerSource.includes('financiallyHeld'),'matching deve excluir revendas em hold financeiro antes de montar ofertas');
 assert.ok(offerSource.includes('.gte("price_confirmed_at", priceCutoff)'),'matching deve exigir preço fresco por SKU');
 assert.ok(!offerSource.includes('.gte("price_confirmed_at", priceCutoff)\n      .gte("last_seen_at"'),'merchant global price clock não pode voltar a governar matching');
 assert.ok(catalogRetryAuthority.includes('price_confirmed_at=v_now'),'edição de produto deve confirmar somente o SKU alterado dentro da autoridade transacional');
