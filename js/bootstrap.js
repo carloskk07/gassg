@@ -24,7 +24,6 @@ window.addEventListener('error',e=>console.error('Erro global',e.error||e.messag
 window.addEventListener('unhandledrejection',e=>console.error('Promise rejeitada',e.reason));
 
 window.addEventListener('load',async()=>{
-  render();
   if(globalThis.adminPortalRequested?.()){
     await adminBackendInit();
     if(route()!=='admin')go('admin');
@@ -33,12 +32,15 @@ window.addEventListener('load',async()=>{
     await merchantBackendInit();
     if(!['merchant','merchant-orders','merchant-team','catalog','merchant-metrics','merchants','merchant-join'].includes(route()))go('merchant');
     render();
-  }else if(globalThis.liveRequested?.()){
-    await backendInit();
-    if(globalThis.liveReady?.()&&route()==='order'&&state.address&&hasCartItems()){
-      try{await liveRefreshOffers({silent:true})}catch{}
-    }
+  }else{
     render();
+    if(globalThis.liveRequested?.()){
+      await backendInit();
+      if(globalThis.liveReady?.()&&route()==='order'&&state.address&&hasCartItems()){
+        try{await liveRefreshOffers({silent:true})}catch{}
+      }
+      render();
+    }
   }
   if('serviceWorker'in navigator&&location.protocol.startsWith('http')){
     try{
