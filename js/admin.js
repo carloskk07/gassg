@@ -528,10 +528,10 @@ function adminAttentionCenter(d){
     if(x.type&&x.id)return "adminOpenEntity('"+String(x.type).replace(/'/g,'')+"','"+String(x.id).replace(/'/g,'')+"')";
     return "adminSetSection('"+String(x.section||'overview').replace(/'/g,'')+"')";
   };
-  return \`<section class="section admin-attention">
+  return `<section class="section admin-attention">
     <div class="section-head"><div><span class="section-kicker">ATENÇÃO AGORA</span><h2>Fila operacional priorizada</h2><p>O painel reúne automaticamente os eventos que merecem ação administrativa primeiro.</p></div><div class="order-actions"><span class="status-pill ${critical?'offline':'online'}">${critical} crítico(s)</span><span class="status-pill ${high?'risk':'online'}">${high} alto(s)</span></div></div>
-    ${items.length?\`<div class="admin-attention-list">${items.map(x=>\`<button type="button" class="admin-attention-item ${esc(x.severity)}" onclick="${action(x)}"><span class="admin-attention-severity">${esc(adminSeverityLabel(x.severity))}</span><span><strong>${esc(x.title)}</strong><small>${esc(x.detail)}</small></span><span aria-hidden="true">›</span></button>\`).join('')}</div>\`:'<div class="notice success"><strong>Nenhuma intervenção prioritária agora.</strong><br>Filas críticas, pedidos em risco e sinais operacionais estão limpos.</div>'}
-  </section>\`;
+    ${items.length?`<div class="admin-attention-list">${items.map(x=>`<button type="button" class="admin-attention-item ${esc(x.severity)}" onclick="${action(x)}"><span class="admin-attention-severity">${esc(adminSeverityLabel(x.severity))}</span><span><strong>${esc(x.title)}</strong><small>${esc(x.detail)}</small></span><span aria-hidden="true">›</span></button>`).join('')}</div>`:'<div class="notice success"><strong>Nenhuma intervenção prioritária agora.</strong><br>Filas críticas, pedidos em risco e sinais operacionais estão limpos.</div>'}
+  </section>`;
 }
 function adminRecentCustomers(d){
   const map=new Map();
@@ -551,36 +551,36 @@ function adminRecentCustomers(d){
 }
 function adminCustomersSection(d){
   const customers=adminRecentCustomers(d);
-  return \`<section class="section">
+  return `<section class="section">
     <div class="section-head"><div><span class="section-kicker">CLIENTES 360°</span><h2>Clientes recentes</h2><p>Visão operacional agregada a partir dos pedidos recentes. Abra o 360° para histórico, suporte, gastos e feedback.</p></div><span class="status-pill online">${customers.length} recente(s)</span></div>
-    ${customers.length?\`<div class="admin-entity-grid">${customers.map(x=>\`<button type="button" class="card flat admin-entity-card" onclick="adminOpenEntity('customer','${esc(x.id)}')"><div><strong>${esc(x.phone||'Cliente')}</strong><small>${esc(x.lastOrder||'Sem pedido')} • ${x.orders} pedido(s)</small></div><div><strong>${adminMoney(x.totalCents)}</strong><small>volume recente</small></div></button>\`).join('')}</div>\`:'<div class="empty card">Ainda não há clientes com pedidos reais.</div>'}
-  </section>\`;
+    ${customers.length?`<div class="admin-entity-grid">${customers.map(x=>`<button type="button" class="card flat admin-entity-card" onclick="adminOpenEntity('customer','${esc(x.id)}')"><div><strong>${esc(x.phone||'Cliente')}</strong><small>${esc(x.lastOrder||'Sem pedido')} • ${x.orders} pedido(s)</small></div><div><strong>${adminMoney(x.totalCents)}</strong><small>volume recente</small></div></button>`).join('')}</div>`:'<div class="empty card">Ainda não há clientes com pedidos reais.</div>'}
+  </section>`;
 }
 function adminGlobalSearchView(){
   const results=adminRuntime.searchResults||[];
   const searched=adminRuntime.searchQuery;
-  return \`<div class="admin-global-search">
+  return `<div class="admin-global-search">
     <div class="admin-search-input-wrap">
       <span aria-hidden="true">⌕</span>
       <input id="admin-global-search" class="input" maxlength="120" autocomplete="off" placeholder="Buscar pedido, telefone, CNPJ, revenda, cliente…" value="${esc(searched||'')}" onkeydown="if(event.key==='Enter'){event.preventDefault();adminSearchFromUi()}">
       <button class="secondary small" type="button" onclick="adminSearchFromUi()" ${adminRuntime.searchPending?'disabled aria-busy="true"':''}>${adminRuntime.searchPending?'Buscando…':'Buscar'}</button>
       ${searched?'<button class="ghost small" type="button" onclick="adminClearSearch()">Limpar</button>':''}
     </div>
-    ${searched?\`<div class="admin-search-results">
+    ${searched?`<div class="admin-search-results">
       <div class="tiny muted">${adminRuntime.searchPending?'Consultando control plane…':results.length+' resultado(s) para “'+esc(searched)+'”'}</div>
-      ${!adminRuntime.searchPending&&results.length?results.map(x=>\`<button type="button" class="admin-search-result" onclick="adminOpenSearchResult('${esc(x.type)}','${esc(x.id)}')"><span class="status-pill">${esc(String(x.type||'').toUpperCase())}</span><span><strong>${esc(x.title||x.id)}</strong><small>${esc(x.subtitle||'')}</small></span><span aria-hidden="true">›</span></button>\`).join(''):!adminRuntime.searchPending?'<div class="empty">Nenhum registro encontrado.</div>':''}
-    </div>\`:''}
-  </div>\`;
+      ${!adminRuntime.searchPending&&results.length?results.map(x=>`<button type="button" class="admin-search-result" onclick="adminOpenSearchResult('${esc(x.type)}','${esc(x.id)}')"><span class="status-pill">${esc(String(x.type||'').toUpperCase())}</span><span><strong>${esc(x.title||x.id)}</strong><small>${esc(x.subtitle||'')}</small></span><span aria-hidden="true">›</span></button>`).join(''):!adminRuntime.searchPending?'<div class="empty">Nenhum registro encontrado.</div>':''}
+    </div>`:''}
+  </div>`;
 }
 function adminTimeline(events=[]){
   const clean=events.filter(x=>x?.at).sort((a,b)=>Date.parse(a.at)-Date.parse(b.at));
-  return clean.length?\`<div class="admin-timeline">${clean.map(x=>\`<div class="admin-timeline-row"><span></span><div><strong>${esc(x.label)}</strong><small>${esc(formatDateTime(x.at))}${x.detail?' • '+esc(x.detail):''}</small></div></div>\`).join('')}</div>\`:'<div class="tiny muted">Sem eventos cronológicos.</div>';
+  return clean.length?`<div class="admin-timeline">${clean.map(x=>`<div class="admin-timeline-row"><span></span><div><strong>${esc(x.label)}</strong><small>${esc(formatDateTime(x.at))}${x.detail?' • '+esc(x.detail):''}</small></div></div>`).join('')}</div>`:'<div class="tiny muted">Sem eventos cronológicos.</div>';
 }
 function adminDetailView(){
   const d=adminRuntime.detail;
   if(!d)return '';
   if(d.loading)return '<div class="admin-drawer-backdrop" onclick="adminCloseDetail()"><aside class="admin-drawer" onclick="event.stopPropagation()"><div class="empty card">Carregando visão 360°…</div></aside></div>';
-  if(d.error)return \`<div class="admin-drawer-backdrop" onclick="adminCloseDetail()"><aside class="admin-drawer" onclick="event.stopPropagation()"><div class="admin-drawer-head"><h2>Detalhes</h2><button class="ghost small" onclick="adminCloseDetail()">Fechar</button></div><div class="notice danger">${esc(d.error)}</div></aside></div>\`;
+  if(d.error)return `<div class="admin-drawer-backdrop" onclick="adminCloseDetail()"><aside class="admin-drawer" onclick="event.stopPropagation()"><div class="admin-drawer-head"><h2>Detalhes</h2><button class="ghost small" onclick="adminCloseDetail()">Fechar</button></div><div class="notice danger">${esc(d.error)}</div></aside></div>`;
 
   let content='';
   if(d.type==='order'){
@@ -593,7 +593,7 @@ function adminDetailView(){
       {label:'Entregue',at:o.delivered_at},
       {label:'Liquidado',at:o.settled_at}
     ];
-    content=\`<div class="admin-drawer-head"><div><span class="section-kicker">PEDIDO 360°</span><h2>${esc(o.public_code||o.id)}</h2></div><button class="ghost small" onclick="adminCloseDetail()">Fechar</button></div>
+    content=`<div class="admin-drawer-head"><div><span class="section-kicker">PEDIDO 360°</span><h2>${esc(o.public_code||o.id)}</h2></div><button class="ghost small" onclick="adminCloseDetail()">Fechar</button></div>
       <div class="merchant-kpis">
         <div class="kpi"><span class="label">Status</span><strong>${esc(adminOrderStatusLabel(o.status))}</strong></div>
         <div class="kpi"><span class="label">Total</span><strong>${adminMoney(o.total_cents)}</strong></div>
@@ -601,33 +601,33 @@ function adminDetailView(){
         <div class="kpi"><span class="label">Financeiro</span><strong>${esc(o.financial_state||'—')}</strong></div>
       </div>
       <div class="order-actions" style="margin:12px 0">
-        ${o.customer_id?\`<button class="secondary small" onclick="adminOpenEntity('customer','${esc(o.customer_id)}')">Cliente 360°</button>\`:''}
-        ${o.merchant_id?\`<button class="secondary small" onclick="adminOpenEntity('merchant','${esc(o.merchant_id)}')">Revenda 360°</button>\`:''}
+        ${o.customer_id?`<button class="secondary small" onclick="adminOpenEntity('customer','${esc(o.customer_id)}')">Cliente 360°</button>`:''}
+        ${o.merchant_id?`<button class="secondary small" onclick="adminOpenEntity('merchant','${esc(o.merchant_id)}')">Revenda 360°</button>`:''}
       </div>
       <section class="section"><h3>Timeline</h3>${adminTimeline(timeline)}</section>
-      <section class="section"><h3>Itens</h3><div class="list">${(d.items||[]).map(x=>\`<div class="list-row"><div><strong>${esc(x.product_name)}</strong><br><small>${Number(x.quantity)} × ${adminMoney(x.unit_price_cents)}</small></div><strong>${adminMoney(x.line_total_cents)}</strong></div>\`).join('')||'<div class="tiny muted">Sem itens.</div>'}</div></section>
-      <section class="section"><h3>Entrega</h3><div class="card flat"><div class="order-line"><strong>Telefone:</strong> ${esc(o.customer_phone_digits||'—')}</div><div class="order-line"><strong>CEP:</strong> ${esc(o.postal_code||'—')}</div><div class="order-line"><strong>Endereço:</strong> ${esc(o.address_text||'dados minimizados')}</div>${o.delivery_reference?\`<div class="order-line"><strong>Referência:</strong> ${esc(o.delivery_reference)}</div>\`:''}</div></section>
+      <section class="section"><h3>Itens</h3><div class="list">${(d.items||[]).map(x=>`<div class="list-row"><div><strong>${esc(x.product_name)}</strong><br><small>${Number(x.quantity)} × ${adminMoney(x.unit_price_cents)}</small></div><strong>${adminMoney(x.line_total_cents)}</strong></div>`).join('')||'<div class="tiny muted">Sem itens.</div>'}</div></section>
+      <section class="section"><h3>Entrega</h3><div class="card flat"><div class="order-line"><strong>Telefone:</strong> ${esc(o.customer_phone_digits||'—')}</div><div class="order-line"><strong>CEP:</strong> ${esc(o.postal_code||'—')}</div><div class="order-line"><strong>Endereço:</strong> ${esc(o.address_text||'dados minimizados')}</div>${o.delivery_reference?`<div class="order-line"><strong>Referência:</strong> ${esc(o.delivery_reference)}</div>`:''}</div></section>
       <section class="section"><h3>Suporte e financeiro</h3><div class="merchant-kpis"><div class="kpi"><span class="label">Atendimentos</span><strong>${(d.support||[]).length}</strong></div><div class="kpi"><span class="label">Taxa plataforma</span><strong>${adminMoney(d.finance?.receivable?.platform_fee_cents)}</strong></div><div class="kpi"><span class="label">Cashback</span><strong>${adminMoney(d.finance?.reimbursement?.cashback_cents)}</strong></div><div class="kpi"><span class="label">Ajustes</span><strong>${(d.finance?.adjustments||[]).length}</strong></div></div></section>
-      <section class="section"><h3>Auditoria</h3><div class="list">${(d.audit||[]).map(x=>\`<div class="list-row"><div><strong>${esc(x.action)}</strong><br><small>${esc(x.target_type)}</small></div><small>${esc(formatDateTime(x.created_at))}</small></div>\`).join('')||'<div class="tiny muted">Sem ações administrativas.</div>'}</div></section>\`;
+      <section class="section"><h3>Auditoria</h3><div class="list">${(d.audit||[]).map(x=>`<div class="list-row"><div><strong>${esc(x.action)}</strong><br><small>${esc(x.target_type)}</small></div><small>${esc(formatDateTime(x.created_at))}</small></div>`).join('')||'<div class="tiny muted">Sem ações administrativas.</div>'}</div></section>`;
   }else if(d.type==='merchant'){
     const m=d.merchant||{};
     const metrics=d.metrics||{};
-    content=\`<div class="admin-drawer-head"><div><span class="section-kicker">REVENDA 360°</span><h2>${esc(m.name||m.id)}</h2></div><button class="ghost small" onclick="adminCloseDetail()">Fechar</button></div>
+    content=`<div class="admin-drawer-head"><div><span class="section-kicker">REVENDA 360°</span><h2>${esc(m.name||m.id)}</h2></div><button class="ghost small" onclick="adminCloseDetail()">Fechar</button></div>
       <div class="merchant-kpis">
         <div class="kpi"><span class="label">Status</span><strong>${esc(m.status||'—')}</strong></div>
         <div class="kpi"><span class="label">Trust</span><strong>${Number(m.trust_score||0)}/100</strong></div>
         <div class="kpi"><span class="label">Pedidos</span><strong>${Number(metrics.orders||0)}</strong></div>
         <div class="kpi"><span class="label">Cancelamento</span><strong>${metrics.cancellationRate==null?'—':Math.round(metrics.cancellationRate*100)+'%'}</strong></div>
       </div>
-      <section class="section"><h3>Operação</h3><div class="card flat"><div class="order-line"><strong>Online:</strong> ${m.online?'sim':'não'} • <strong>Heartbeat:</strong> ${m.last_seen_at?esc(formatDateTime(m.last_seen_at)):'nunca'}</div><div class="order-line"><strong>Preço confirmado:</strong> ${m.price_confirmed_at?esc(formatDateTime(m.price_confirmed_at)):'nunca'}</div><div class="order-line"><strong>CNPJ:</strong> ${esc(m.cnpj||'—')}</div>${d.business?\`<div class="order-line"><strong>Responsável:</strong> ${esc(d.business.responsible_name||'—')} • ${esc(d.business.whatsapp||'')}</div>\`:''}</div></section>
+      <section class="section"><h3>Operação</h3><div class="card flat"><div class="order-line"><strong>Online:</strong> ${m.online?'sim':'não'} • <strong>Heartbeat:</strong> ${m.last_seen_at?esc(formatDateTime(m.last_seen_at)):'nunca'}</div><div class="order-line"><strong>Preço confirmado:</strong> ${m.price_confirmed_at?esc(formatDateTime(m.price_confirmed_at)):'nunca'}</div><div class="order-line"><strong>CNPJ:</strong> ${esc(m.cnpj||'—')}</div>${d.business?`<div class="order-line"><strong>Responsável:</strong> ${esc(d.business.responsible_name||'—')} • ${esc(d.business.whatsapp||'')}</div>`:''}</div></section>
       <section class="section"><h3>Compliance e capacidade</h3><div class="merchant-kpis"><div class="kpi"><span class="label">CNPJ</span><strong>${esc(d.compliance?.cnpj_status||'—')}</strong></div><div class="kpi"><span class="label">ANP</span><strong>${esc(d.compliance?.anp_status||'—')}</strong></div><div class="kpi"><span class="label">Pagamentos</span><strong>${(d.payments||[]).filter(x=>x.active).length}</strong></div><div class="kpi"><span class="label">Equipe</span><strong>${(d.members||[]).filter(x=>x.active).length}</strong></div></div></section>
-      <section class="section"><h3>Catálogo</h3><div class="list">${(d.catalog||[]).map(x=>\`<div class="list-row"><div><strong>${esc(x.product_name)}</strong><br><small>${x.available_stock} em estoque • ${x.active?'ativo':'pausado'}</small></div><strong>${adminMoney(x.price_cents)}</strong></div>\`).join('')||'<div class="tiny muted">Catálogo vazio.</div>'}</div></section>
-      <section class="section"><h3>Pedidos recentes</h3><div class="list">${(d.orders||[]).slice(0,20).map(x=>\`<button class="list-row admin-row-button" onclick="adminOpenEntity('order','${esc(x.id)}')"><div><strong>${esc(x.public_code)}</strong><br><small>${esc(adminOrderStatusLabel(x.status))}</small></div><strong>${adminMoney(x.total_cents)}</strong></button>\`).join('')||'<div class="tiny muted">Sem pedidos.</div>'}</div></section>
-      <section class="section"><h3>Financeiro e suporte</h3><div class="merchant-kpis"><div class="kpi"><span class="label">Atendimentos</span><strong>${(d.support||[]).length}</strong></div><div class="kpi"><span class="label">Recebíveis</span><strong>${(d.finance?.receivables||[]).filter(x=>x.status==='open').length}</strong></div><div class="kpi"><span class="label">Cashback</span><strong>${(d.finance?.reimbursements||[]).filter(x=>x.status==='open').length}</strong></div><div class="kpi"><span class="label">Ajustes</span><strong>${(d.finance?.adjustments||[]).filter(x=>x.status==='open').length}</strong></div></div></section>\`;
+      <section class="section"><h3>Catálogo</h3><div class="list">${(d.catalog||[]).map(x=>`<div class="list-row"><div><strong>${esc(x.product_name)}</strong><br><small>${x.available_stock} em estoque • ${x.active?'ativo':'pausado'}</small></div><strong>${adminMoney(x.price_cents)}</strong></div>`).join('')||'<div class="tiny muted">Catálogo vazio.</div>'}</div></section>
+      <section class="section"><h3>Pedidos recentes</h3><div class="list">${(d.orders||[]).slice(0,20).map(x=>`<button class="list-row admin-row-button" onclick="adminOpenEntity('order','${esc(x.id)}')"><div><strong>${esc(x.public_code)}</strong><br><small>${esc(adminOrderStatusLabel(x.status))}</small></div><strong>${adminMoney(x.total_cents)}</strong></button>`).join('')||'<div class="tiny muted">Sem pedidos.</div>'}</div></section>
+      <section class="section"><h3>Financeiro e suporte</h3><div class="merchant-kpis"><div class="kpi"><span class="label">Atendimentos</span><strong>${(d.support||[]).length}</strong></div><div class="kpi"><span class="label">Recebíveis</span><strong>${(d.finance?.receivables||[]).filter(x=>x.status==='open').length}</strong></div><div class="kpi"><span class="label">Cashback</span><strong>${(d.finance?.reimbursements||[]).filter(x=>x.status==='open').length}</strong></div><div class="kpi"><span class="label">Ajustes</span><strong>${(d.finance?.adjustments||[]).filter(x=>x.status==='open').length}</strong></div></div></section>`;
   }else if(d.type==='customer'){
     const m=d.metrics||{};
     const latest=(d.orders||[])[0]||{};
-    content=\`<div class="admin-drawer-head"><div><span class="section-kicker">CLIENTE 360°</span><h2>${esc(latest.customer_phone_digits||'Cliente')}</h2><small class="muted">${esc(d.id)}</small></div><button class="ghost small" onclick="adminCloseDetail()">Fechar</button></div>
+    content=`<div class="admin-drawer-head"><div><span class="section-kicker">CLIENTE 360°</span><h2>${esc(latest.customer_phone_digits||'Cliente')}</h2><small class="muted">${esc(d.id)}</small></div><button class="ghost small" onclick="adminCloseDetail()">Fechar</button></div>
       <div class="merchant-kpis">
         <div class="kpi"><span class="label">Pedidos</span><strong>${Number(m.orders||0)}</strong></div>
         <div class="kpi"><span class="label">Liquidados</span><strong>${Number(m.settled||0)}</strong></div>
@@ -635,10 +635,10 @@ function adminDetailView(){
         <div class="kpi"><span class="label">Cashback</span><strong>${adminMoney(m.cashbackCents)}</strong></div>
       </div>
       <section class="section"><h3>Conta</h3><div class="card flat"><div class="order-line"><strong>Código de indicação:</strong> ${esc(d.profile?.referral_code||'—')}</div><div class="order-line"><strong>Desde:</strong> ${d.profile?.created_at?esc(formatDateTime(d.profile.created_at)):'—'}</div><div class="order-line"><strong>Atendimentos:</strong> ${(d.support||[]).length} • <strong>Feedbacks:</strong> ${(d.feedback||[]).length}</div></div></section>
-      <section class="section"><h3>Histórico de pedidos</h3><div class="list">${(d.orders||[]).map(x=>\`<button class="list-row admin-row-button" onclick="adminOpenEntity('order','${esc(x.id)}')"><div><strong>${esc(x.public_code)}</strong><br><small>${esc(adminOrderStatusLabel(x.status))} • ${esc(x.supplier_name_snapshot||'sem revenda')}</small></div><strong>${adminMoney(x.total_cents)}</strong></button>\`).join('')||'<div class="tiny muted">Sem pedidos.</div>'}</div></section>
-      <section class="section"><h3>Feedback</h3><div class="list">${(d.feedback||[]).map(x=>\`<div class="list-row"><div><strong>${Number(x.rating||0)}/5</strong><br><small>${esc((x.tags||[]).join(' • ')||x.note||'Sem observação')}</small></div><small>${esc(formatDateTime(x.created_at))}</small></div>\`).join('')||'<div class="tiny muted">Sem feedback.</div>'}</div></section>\`;
+      <section class="section"><h3>Histórico de pedidos</h3><div class="list">${(d.orders||[]).map(x=>`<button class="list-row admin-row-button" onclick="adminOpenEntity('order','${esc(x.id)}')"><div><strong>${esc(x.public_code)}</strong><br><small>${esc(adminOrderStatusLabel(x.status))} • ${esc(x.supplier_name_snapshot||'sem revenda')}</small></div><strong>${adminMoney(x.total_cents)}</strong></button>`).join('')||'<div class="tiny muted">Sem pedidos.</div>'}</div></section>
+      <section class="section"><h3>Feedback</h3><div class="list">${(d.feedback||[]).map(x=>`<div class="list-row"><div><strong>${Number(x.rating||0)}/5</strong><br><small>${esc((x.tags||[]).join(' • ')||x.note||'Sem observação')}</small></div><small>${esc(formatDateTime(x.created_at))}</small></div>`).join('')||'<div class="tiny muted">Sem feedback.</div>'}</div></section>`;
   }
-  return \`<div class="admin-drawer-backdrop" onclick="adminCloseDetail()"><aside class="admin-drawer" onclick="event.stopPropagation()">${content}</aside></div>\`;
+  return `<div class="admin-drawer-backdrop" onclick="adminCloseDetail()"><aside class="admin-drawer" onclick="event.stopPropagation()">${content}</aside></div>`;
 }
 function adminSystemHealthView(){
   const h=adminRuntime.health;
@@ -647,9 +647,9 @@ function adminSystemHealthView(){
   const status=String(h.status||'critical');
   const cls=status==='healthy'?'online':status==='degraded'?'risk':'offline';
   const portals=h.portals?.probes||[];
-  return \`<section class="section">
+  return `<section class="section">
     <div class="section-head"><div><span class="section-kicker">SAÚDE DO SISTEMA</span><h2>Control plane ${status==='healthy'?'saudável':status==='degraded'?'degradado':'crítico'}</h2><p>Última checagem: ${esc(formatDateTime(h.checkedAt))} • ${Number(h.latencyMs||0)} ms</p></div><div class="order-actions"><span class="status-pill ${cls}">${esc(status.toUpperCase())}</span><button class="secondary small" onclick="adminLoadSystemHealth({force:true})">Atualizar</button></div></div>
-    ${h.error?\`<div class="notice danger">${esc(h.error)}</div>\`:''}
+    ${h.error?`<div class="notice danger">${esc(h.error)}</div>`:''}
     <div class="merchant-kpis">
       <div class="kpi"><span class="label">Edge admin-ops</span><strong>${h.edge?.ok?'OK':'FALHA'}</strong></div>
       <div class="kpi"><span class="label">Banco</span><strong>${h.database?.ok?'OK':'FALHA'}</strong><small>${esc(h.database?.operationMode||'—')}</small></div>
@@ -660,8 +660,8 @@ function adminSystemHealthView(){
       <div class="kpi"><span class="label">Heartbeat vencido</span><strong>${Number(h.queues?.staleMerchantHeartbeat||0)}</strong></div>
       <div class="kpi"><span class="label">Preço vencido</span><strong>${Number(h.queues?.staleMerchantPrice||0)}</strong></div>
     </div>
-    <div class="admin-health-portals">${portals.map(p=>\`<div class="card flat"><div class="order-head"><strong>${esc(String(p.role||'').toUpperCase())}</strong><span class="status-pill ${p.ok?'online':'offline'}">${p.ok?'OK':'FALHA'}</span></div><small>${esc(p.origin||'')}</small><div class="tiny muted">${esc(p.sourceSha?.slice(0,12)||p.error||'sem SHA')}</div></div>\`).join('')}</div>
-  </section>\`;
+    <div class="admin-health-portals">${portals.map(p=>`<div class="card flat"><div class="order-head"><strong>${esc(String(p.role||'').toUpperCase())}</strong><span class="status-pill ${p.ok?'online':'offline'}">${p.ok?'OK':'FALHA'}</span></div><small>${esc(p.origin||'')}</small><div class="tiny muted">${esc(p.sourceSha?.slice(0,12)||p.error||'sem SHA')}</div></div>`).join('')}</div>
+  </section>`;
 }
 
 function adminSetSection(section){
