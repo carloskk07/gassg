@@ -732,7 +732,7 @@ async function summary(admin:any,actorUserId:string){
       .order("business_date",{ascending:false})
       .limit(300),
     admin.from("merchant_billing_payment_requests")
-      .select("id,merchant_id,request_kind,plan_key,statement_id,expected_amount_cents,platform_fee_bps_snapshot,credit_grant_cents_snapshot,merchant_reference,status,requested_by,requested_at,resolved_by,resolved_at,admin_reference,updated_at")
+      .select("id,merchant_id,request_kind,plan_key,statement_id,expected_amount_cents,platform_fee_bps_snapshot,credit_grant_cents_snapshot,merchant_reference,status,requested_by,requested_at,resolved_by,resolved_at,admin_reference,received_amount_cents,payment_method,updated_at")
       .order("requested_at",{ascending:false})
       .limit(300),
     billingMetricsPromise,
@@ -1379,10 +1379,22 @@ Deno.serve(async(req:Request)=>{
       if(!["approve","reject"].includes(requestAction)){
         throw new DomainError("INVALID_PAYMENT_REQUEST_ACTION","Ação de solicitação financeira inválida.",400);
       }
+      const receivedAmountCents=requestAction==="approve"?Number(body.receivedAmountCents):null;
+      if(requestAction==="approve"&&(!Number.isSafeInteger(receivedAmountCents)||Number(receivedAmountCents)<=0)){
+        throw new DomainError("RECEIVED_AMOUNT_REQUIRED","Informe o valor efetivamente recebido em centavos.",400);
+      }
+      const paymentMethod=requestAction==="approve"
+        ?String(body.paymentMethod??"").trim().toLowerCase()
+        :null;
+      if(paymentMethod!=null&&!["pix","bank_transfer","cash","card","other"].includes(paymentMethod)){
+        throw new DomainError("INVALID_PAYMENT_METHOD","Forma de pagamento confirmada inválida.",400);
+      }
       payload={
         paymentRequestId:uuid(body.paymentRequestId,"payment request"),
         requestAction,
-        reference:cleanText(body.reference,{min:3,max:240,name:"referência financeira"})
+        reference:cleanText(body.reference,{min:3,max:240,name:"referência financeira"}),
+        receivedAmountCents,
+        paymentMethod
       };
     }else if(action==="lead-status"){
       const status=String(body.status??"");
@@ -1515,6 +1527,8 @@ Deno.serve(async(req:Request)=>{
         p_payment_request_id:payload.paymentRequestId,
         p_action:payload.requestAction,
         p_reference:payload.reference,
+        p_received_amount_cents:payload.receivedAmountCents,
+        p_payment_method:payload.paymentMethod,
         p_idempotency_key:idempotencyKey,
         p_request_hash:requestHash
       };
