@@ -252,7 +252,8 @@ function scopeAdminSummary(role:string,data:any){
           merchant_id:x.merchant_id,sales_hold:x.sales_hold,sales_hold_reason:x.sales_hold_reason,sales_hold_at:x.sales_hold_at
         })),
         statements:[],
-        paymentRequests:[]
+        paymentRequests:[],
+        metrics:null
       },
       rewardFailures:[],accountingFailures:[],referralReviews:[],
       platformAdmins:adminSelf,
@@ -285,7 +286,7 @@ function scopeAdminSummary(role:string,data:any){
         price_confirmed_at:m.price_confirmed_at,last_seen_at:m.last_seen_at
       })),
       commercialPolicy:null,
-      merchantBilling:{plans:[],accounts:[],statements:[],paymentRequests:[]},
+      merchantBilling:{plans:[],accounts:[],statements:[],paymentRequests:[],metrics:null},
       productRegistry:{categories:[],products:[]},
       finance:{receivables:[],cashbackReimbursements:[],adjustments:[]},
       rewardFailures:[],accountingFailures:[],referralReviews:[],
@@ -298,7 +299,7 @@ function scopeAdminSummary(role:string,data:any){
     return {
       ...data,
       businessMetrics:{},commercialPolicy:null,
-      merchantBilling:{plans:[],accounts:[],statements:[],paymentRequests:[]},
+      merchantBilling:{plans:[],accounts:[],statements:[],paymentRequests:[],metrics:null},
       productRegistry:{categories:[],products:[]},
       supportCases:[],controlOrders:[],
       finance:{receivables:[],cashbackReimbursements:[],adjustments:[]},
@@ -662,6 +663,8 @@ async function summary(admin:any,actorUserId:string){
   for(const result of [apps,merchants,compliance,capabilities,referralReviews,rewardFailures,accountingFailures,receivables,reimbursements,adjustments,platformAdmins,prelaunchLeads,publicRequests,audit,incidents]){
     if(result.error)throw result.error;
   }
+  const currentAdmin=(platformAdmins.data??[]).find((x:any)=>x.user_id===actorUserId)??null;
+  const actorRole=String(currentAdmin?.admin_role||"superadmin");
   const pilotPartners=await admin
     .from("pilot_partner_drafts")
     .select("id,display_name,proposed_product_code,proposed_delivered_price_cents,delivery_included,price_status,onboarding_status,merchant_id,pricing_mode,min_delivered_price_cents,preferred_delivered_price_cents,max_delivered_price_cents,pricing_strategy,notes,created_at,updated_at")
@@ -709,7 +712,10 @@ async function summary(admin:any,actorUserId:string){
   if(productCategories.error)throw productCategories.error;
   if(productProfiles.error)throw productProfiles.error;
 
-  const [billingPlans,billingAccounts,dailyStatements,billingPaymentRequests]=await Promise.all([
+  const billingMetricsPromise=["superadmin","finance","readonly"].includes(actorRole)
+    ? admin.rpc("admin_merchant_billing_metrics",{p_actor_user_id:actorUserId})
+    : Promise.resolve({data:null,error:null});
+  const [billingPlans,billingAccounts,dailyStatements,billingPaymentRequests,billingMetrics]=await Promise.all([
     admin.from("merchant_billing_plans")
       .select("plan_key,display_name,billing_mode,platform_fee_bps,purchase_amount_cents,credit_grant_cents,active,sort_order,updated_at")
       .order("sort_order",{ascending:true}),
@@ -724,9 +730,10 @@ async function summary(admin:any,actorUserId:string){
     admin.from("merchant_billing_payment_requests")
       .select("id,merchant_id,request_kind,plan_key,statement_id,expected_amount_cents,platform_fee_bps_snapshot,credit_grant_cents_snapshot,merchant_reference,status,requested_by,requested_at,resolved_by,resolved_at,admin_reference,updated_at")
       .order("requested_at",{ascending:false})
-      .limit(300)
+      .limit(300),
+    billingMetricsPromise
   ]);
-  for(const result of [billingPlans,billingAccounts,dailyStatements,billingPaymentRequests]){
+  for(const result of [billingPlans,billingAccounts,dailyStatements,billingPaymentRequests,billingMetrics]){
     if(result.error)throw result.error;
   }
 
@@ -866,7 +873,8 @@ async function summary(admin:any,actorUserId:string){
       plans:billingPlans.data??[],
       accounts:billingAccounts.data??[],
       statements:dailyStatements.data??[],
-      paymentRequests:billingPaymentRequests.data??[]
+      paymentRequests:billingPaymentRequests.data??[],
+      metrics:billingMetrics.data??null
     },
     productRegistry:{
       categories:productCategories.data??[],
@@ -882,7 +890,7 @@ async function summary(admin:any,actorUserId:string){
       cashbackReimbursements:reimbursements.data??[],
       adjustments:adjustments.data??[]
     },
-    currentAdmin:(platformAdmins.data??[]).find((x:any)=>x.user_id===actorUserId)??null,
+    currentAdmin,
     platformAdmins:platformAdmins.data??[],
     prelaunchLeads:prelaunchLeads.data??[],
     acquisitionMetrics:acquisitionMetrics.data??{},
@@ -900,7 +908,6 @@ async function summary(admin:any,actorUserId:string){
     incidents:incidents.data??[],
     recentAudit:audit.data??[]
   };
-  const actorRole=String(summaryResult.currentAdmin?.admin_role||"superadmin");
   return scopeAdminSummary(actorRole,summaryResult);
 }
 
