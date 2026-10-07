@@ -213,15 +213,19 @@ let portalResults=await probePortals();
 // release mode, wait for the exact expected SHA instead of turning normal
 // deployment propagation into a false-negative readiness failure.
 if(REQUIRE_LIVE_PORTALS&&EXPECTED_SOURCE_SHA){
-  for(let attempt=1;attempt<=7;attempt++){
+  const propagationAttempts=Math.max(
+    7,
+    Math.min(30,Number(process.env.TAMAO_PORTAL_PROPAGATION_ATTEMPTS||25)||25)
+  );
+  for(let attempt=1;attempt<=propagationAttempts;attempt++){
     const expectedReady=portalResults.every(
       portal=>portal.ready&&portal.sourceSha===EXPECTED_SOURCE_SHA
     );
     if(expectedReady)break;
-    if(attempt===7)break;
+    if(attempt===propagationAttempts)break;
     console.log(
       'Aguardando propagação dos portais live para '+EXPECTED_SOURCE_SHA+
-      ' (tentativa '+attempt+'/7)'
+      ' (tentativa '+attempt+'/'+propagationAttempts+')'
     );
     await sleep(10000);
     portalResults=await probePortals();
