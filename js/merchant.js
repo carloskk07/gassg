@@ -154,6 +154,49 @@ function merchantTeamPage(){
   </section>`);
 }
 
+function merchantBillingLiveView(rt){
+  const billing=rt.billing||null;
+  if(!billing?.account)return '';
+  const account=billing.account||{};
+  const plan=billing.plan||{};
+  const statements=billing.openStatements||[];
+  const held=account.salesHold===true;
+  const role=String(rt.merchant?.memberRole||'');
+  const canSeeFinance=['owner','manager'].includes(role);
+  if(!canSeeFinance){
+    return held
+      ? '<div class="notice danger" style="margin-top:12px"><strong>Novas vendas suspensas por pendência financeira.</strong><br>O owner ou gerente precisa regularizar o fechamento vencido. Pedidos já aceitos continuam disponíveis normalmente.</div>'
+      : '';
+  }
+  const feePct=(Number(plan.platformFeeBps||0)/100).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2});
+  const available=Number(account.creditAvailableCents||0);
+  const nextDue=statements
+    .filter(x=>['open','overdue'].includes(x.status))
+    .sort((a,b)=>Date.parse(a.dueAt||'')-Date.parse(b.dueAt||''))[0]||null;
+  const openDue=statements.reduce((sum,x)=>sum+Number(x.amountDueCents||0),0);
+  const planCards=(billing.plans||[]).map(p=>{
+    const pct=(Number(p.platformFeeBps||0)/100).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2});
+    const current=p.planKey===plan.planKey;
+    return `<div class="card flat"><div class="order-head"><div><strong>${esc(p.displayName)}</strong><br><small>${p.billingMode==='prepaid_credit'?'Pacote pré-pago':'Pós-pago diário'}</small></div><span class="status-pill ${current?'online':''}">${pct}%</span></div>${p.billingMode==='prepaid_credit'?`<div class="tiny muted">${BRL.format(Number(p.purchaseAmountCents||0)/100)} de crédito de taxas • ativação após confirmação do pagamento.</div>`:'<div class="tiny muted">Sem recarga antecipada. Fechamento diário com vencimento D+1.</div>'}${current?'<div class="notice success" style="margin-top:8px"><strong>Plano atual</strong></div>':''}</div>`;
+  }).join('');
+  const statementRows=statements.map(s=>`<div class="list-row"><div><strong>${esc(String(s.businessDate||'Fechamento'))}</strong><br><small>${s.status==='overdue'?'VENCIDO':'vence '+esc(s.dueAt?new Date(s.dueAt).toLocaleString('pt-BR'):'—')}</small></div><div style="text-align:right"><strong>${BRL.format(Number(s.amountDueCents||0)/100)}</strong><br><small>taxa bruta ${BRL.format(Number(s.grossFeeCents||0)/100)} • crédito ${BRL.format(Number(s.prepaidCreditAppliedCents||0)/100)}</small></div></div>`).join('');
+  return `<section class="section">
+    <div class="section-head"><div><span class="section-kicker">FINANCEIRO TAMÃO</span><h2>Taxas e fechamento diário</h2><p>Cada venda conserva sua taxa individual. O TAMÃO fecha o dia às 00:05 e eventual saldo pós-pago vence até o fim do dia seguinte.</p></div><span class="status-pill ${held?'offline':'online'}">${held?'VENDAS SUSPENSAS':'EM DIA'}</span></div>
+    ${held?'<div class="notice danger"><strong>Há fechamento vencido.</strong><br>Novas vendas ficam pausadas até a regularização. Pedidos já aceitos continuam normalmente; seu acesso ao painel e ao histórico permanece disponível.</div>':''}
+    <div class="merchant-kpis">
+      <div class="kpi"><span class="label">Plano</span><strong>${esc(plan.displayName||'Flex Diário')}</strong><small>${feePct}% por venda</small></div>
+      <div class="kpi"><span class="label">Crédito pré-pago</span><strong>${BRL.format(Number(account.creditBalanceCents||0)/100)}</strong></div>
+      <div class="kpi"><span class="label">Reservado</span><strong>${BRL.format(Number(account.creditReservedCents||0)/100)}</strong><small>pedidos ainda não liquidados</small></div>
+      <div class="kpi"><span class="label">Disponível</span><strong>${BRL.format(available/100)}</strong></div>
+      <div class="kpi"><span class="label">Saldo D+1 aberto</span><strong>${BRL.format(openDue/100)}</strong><small>${nextDue?'próximo vencimento '+new Date(nextDue.dueAt).toLocaleString('pt-BR'):'nenhum vencimento'}</small></div>
+    </div>
+    ${statementRows?`<div class="card flat" style="margin-top:12px"><h3>Fechamentos em aberto</h3><div class="list">${statementRows}</div></div>`:''}
+    <div class="section-head" style="margin-top:16px"><div><h3>Opções de taxa</h3><p>Quanto maior o crédito antecipado, menor a taxa por venda. O crédito só é consumido quando pedidos são liquidados.</p></div></div>
+    <div class="admin-entity-grid">${planCards}</div>
+    <div class="notice" style="margin-top:12px"><strong>Compra segura de pacote.</strong><br>O crédito só entra depois da confirmação financeira pelo TAMÃO/PSP. Um clique no painel nunca cria saldo sozinho.</div>
+  </section>`;
+}
+
 function merchantLivePage(){
   const rt=globalThis.merchantRuntime||{};
   if(['disabled','loading'].includes(rt.status)){
@@ -186,6 +229,8 @@ function merchantLivePage(){
   const memberships=rt.memberships||[];
   const deliveryTeam=rt.deliveryTeam||[];
   const orders=rt.orders||[];
+  const billing=rt.billing||null;
+  const financialHold=billing?.account?.salesHold===true;
   const freshness=merchantLiveFreshness();
   const freshnessProblems=[];
   if(!freshness.deliveryFresh)freshnessProblems.push('taxa de entrega vencida');
@@ -208,7 +253,7 @@ function merchantLivePage(){
   const complianceNotice=complianceReady
     ? `<div class="notice success" style="margin-top:12px"><strong>Compliance vigente.</strong><br>CNPJ: ${esc(cnpjWhen)} • janela operacional ${Number(compliance.cnpjMaxAgeDays||30)} dias. ${hasGlp?`ANP: ${esc(anpWhen)} • janela operacional ${Number(compliance.anpMaxAgeDays||7)} dias.`:'Sem GLP ativo no catálogo; ANP não é exigida para a operação atual.'}</div>`
     : `<div class="notice danger" style="margin-top:12px"><strong>Revalidação necessária antes de operar.</strong><br>${!cnpjCurrent?`CNPJ: última verificação ${esc(cnpjWhen)}; revalidar a cada ${Number(compliance.cnpjMaxAgeDays||30)} dias. `:''}${!anpCurrent?`ANP: última verificação ${esc(anpWhen)}; revalidar a cada ${Number(compliance.anpMaxAgeDays||7)} dias para GLP.`:''}</div>`;
-  const canGoOnline=m.status==='active'&&complianceReady&&commercialReady;
+  const canGoOnline=m.status==='active'&&complianceReady&&commercialReady&&!financialHold;
   const connectionNotice=!connectionHealthy
     ? '<div class="notice danger" style="margin-top:12px"><strong>Conexão da operação sem confirmação recente.</strong><br>Enquanto a presença da revenda não for renovada, novos pedidos podem deixar de ser enviados para esta operação.</div>'
     : rt.heartbeatError
@@ -222,11 +267,12 @@ function merchantLivePage(){
     ${connectionNotice}
     ${complianceNotice}
     ${freshnessNotice}
+    ${financialHold?'<div class="notice danger" style="margin-top:12px"><strong>Novas vendas suspensas por pendência financeira.</strong><br>Regularize o fechamento vencido. Pedidos já aceitos continuam disponíveis normalmente.</div>':''}
     ${merchantAlertControl()}
 
     <div class="card flat form-stack" style="margin-top:14px">
       ${memberships.length>1?`<div class="input-wrap"><label for="merchant-live-select">Operação</label><select id="merchant-live-select" class="input" onchange="merchantLiveSelect(this.value)">${memberships.map(x=>`<option value="${esc(x.merchantId)}" ${x.merchantId===m.merchantId?'selected':''}>${esc(x.name)} • ${esc(x.memberRole)}</option>`).join('')}</select></div>`:''}
-      <div class="order-actions"><button class="secondary small" onclick="merchantLiveRefresh()">Atualizar</button>${manage?'<button class="secondary small" onclick="merchantOpenTeam()">Equipe</button>':''}${operate?`<button class="${m.online?'danger-btn':'primary'} small" onclick="merchantLiveToggleOnline(${m.online?'false':'true'})" ${!m.online&&!canGoOnline?'disabled title="Regularize compliance, preços e logística antes de ficar online"':''}>${m.online?'Pausar novos pedidos':'Ficar online'}</button>`:''}<button class="ghost small" onclick="merchantLiveLogout()">Sair</button></div>
+      <div class="order-actions"><button class="secondary small" onclick="merchantLiveRefresh()">Atualizar</button>${manage?'<button class="secondary small" onclick="merchantOpenTeam()">Equipe</button>':''}${operate?`<button class="${m.online?'danger-btn':'primary'} small" onclick="merchantLiveToggleOnline(${m.online?'false':'true'})" ${!m.online&&!canGoOnline?'disabled title="'+(financialHold?'Regularize o fechamento financeiro vencido antes de ficar online':'Regularize compliance, preços e logística antes de ficar online')+'"':''}>${m.online?'Pausar novos pedidos':'Ficar online'}</button>`:''}<button class="ghost small" onclick="merchantLiveLogout()">Sair</button></div>
     </div>
 
     <section class="section"><div class="merchant-kpis">
@@ -238,6 +284,8 @@ function merchantLivePage(){
       <div class="kpi"><span class="label">Conclusão pós-aceite</span><strong>${performance.completionRate==null?'—':Math.round(Number(performance.completionRate)*100)+'%'}</strong></div>
       <div class="kpi"><span class="label">No prazo</span><strong>${performance.onTimeRate==null?'—':Math.round(Number(performance.onTimeRate)*100)+'%'}</strong></div>
     </div></section>
+
+    ${merchantBillingLiveView(rt)}
 
     ${manage?`<div class="card flat form-stack">
       <h3>Preço e estoque P13</h3>
