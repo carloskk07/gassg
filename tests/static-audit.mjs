@@ -296,6 +296,8 @@ assert.ok(admin.includes("/functions/v1/admin-auth")&&admin.includes("action:'re
 assert.ok(admin.includes("chamaTurnstile.challenge('admin_login')")&&!admin.includes("auth.signInWithOtp({\n    email:value"),'browser não pode decidir diretamente se cria a primeira conta administrativa');
 assert.ok(!/async function adminSendLogin\(email\)\{[\s\S]*?await adminBackendInit\(\)/.test(admin),'pedido de magic link não deve depender do carregamento prévio do SDK Supabase');
 assert.ok(admin.includes("adminRuntime.notice='Abrindo a verificação de segurança…'")&&admin.includes("adminRuntime.notice='Verificação concluída. Solicitando o link de acesso…'"),'login admin deve mostrar progresso persistente antes do envio');
+assert.ok(admin.includes("redirect.searchParams.set('admin','1')")&&admin.includes("redirect.hash=''"),'magic link admin deve reservar o fragmento para os tokens do Supabase');
+assert.ok(!admin.includes("redirect.hash='admin'"),'login admin não pode competir com o fragmento de autenticação implícita');
 const adminAuthSource=read('supabase/functions/admin-auth/index.ts');
 assert.ok(adminAuthSource.includes('admin_login_mode')&&adminAuthSource.includes('claim_reserved_platform_admin'),'Edge de admin precisa consultar elegibilidade por hash e claim server-side');
 assert.ok(adminAuthSource.includes('shouldCreateUser:mode==="bootstrap_reserved"'),'criação da primeira identidade só pode ocorrer no modo reservado');
@@ -477,6 +479,8 @@ assert.ok(backend.includes("storage:sessionStorage")&&backend.includes("storageK
 assert.ok(admin.includes("storage:sessionStorage")&&admin.includes("storageKey:'chama-sg-admin-auth-v1'"),'sessão admin privilegiada deve ser tab-scoped em sessionStorage');
 assert.ok(!admin.includes("auth.signInWithOtp"),'browser admin não deve chamar Auth OTP diretamente nem decidir criação de conta');
 assert.ok(backend.includes("challenge('merchant_login')"),'login da revenda deve resolver Turnstile antes do magic link');
+assert.ok(backend.includes("redirect.searchParams.set('merchant','1')")&&backend.includes("merchantPilotInviteToken();\n  redirect.hash=''"),'magic link da revenda deve reservar o fragmento para os tokens do Supabase');
+assert.ok(!backend.includes("redirect.hash=pilotInviteToken?'merchant-join':'merchant'"),'login da revenda não pode competir com o fragmento de autenticação implícita');
 assert.ok(backend.includes('shouldCreateUser:true,captchaToken'),'magic link da revenda deve enviar captchaToken ao Supabase');
 assert.ok(admin.includes("challenge('admin_login')"),'login admin deve resolver Turnstile antes do magic link');
 assert.ok(read('supabase/functions/admin-auth/index.ts').includes('shouldCreateUser:mode==="bootstrap_reserved"')&&read('supabase/functions/admin-auth/index.ts').includes('captchaToken'),'Edge admin deve enviar captcha e só criar conta para a reserva inicial');
