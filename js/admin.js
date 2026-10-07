@@ -1225,7 +1225,7 @@ function adminBillingStatementCard(statement){
       <div class="kpi"><span class="label">Crédito usado</span><strong>${adminMoney(paidByCredit)}</strong></div>
       <div class="kpi"><span class="label">A pagar</span><strong>${adminMoney(statement.amount_due_cents)}</strong></div>
     </div>
-    ${open?`<div class="order-actions"><button class="primary small" onclick="adminResolveDailyStatement('${esc(statement.merchant_id)}','${esc(statement.id)}','mark-statement-paid')">Confirmar pagamento</button><button class="ghost small" onclick="adminResolveDailyStatement('${esc(statement.merchant_id)}','${esc(statement.id)}','waive-statement')">Abonar</button></div>`:''}
+    ${open?`<div class="notice" style="margin-top:10px"><strong>Quitação somente pela fila de pagamentos informados.</strong><br>Para marcar este fechamento como pago, a revenda precisa informar o pagamento e o Financeiro deve aprovar o valor exato. O abono administrativo continua separado.</div><div class="order-actions"><button class="ghost small" onclick="adminResolveDailyStatement('${esc(statement.merchant_id)}','${esc(statement.id)}','waive-statement')">Abonar</button></div>`:''}
     ${statement.resolution_reference?`<div class="tiny muted">Referência: ${esc(statement.resolution_reference)}</div>`:''}
   </article>`;
 }
@@ -2268,12 +2268,15 @@ async function adminSetMerchantFlex(merchantId){
   }catch(e){toast(String(e?.message||e))}
 }
 async function adminResolveDailyStatement(merchantId,statementId,billingAction){
-  const reference=prompt(billingAction==='mark-statement-paid'?'Referência do pagamento recebido:':'Motivo/referência do abono:')||'';
+  if(billingAction!=='waive-statement'){
+    return toast('Quitação D+1 exige uma solicitação de pagamento informada pela revenda.');
+  }
+  const reference=prompt('Motivo/referência do abono:')||'';
   if(reference.trim().length<3)return toast('Informe a referência');
-  if(!confirm(billingAction==='mark-statement-paid'?'Confirmar quitação deste fechamento diário?':'Abonar este fechamento diário?'))return;
+  if(!confirm('Abonar este fechamento diário?'))return;
   try{
     await adminPerform('merchant-billing-action',{merchantId,statementId,billingAction,reference});
-    toast('Fechamento diário atualizado');
+    toast('Fechamento diário abonado');
   }catch(e){toast(String(e?.message||e))}
 }
 
