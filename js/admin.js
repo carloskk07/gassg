@@ -1249,6 +1249,8 @@ function adminPage(){
     ${adminControlTower({...d,controlOrders})}
     <section class="section"><div class="section-head"><div><h2>Atendimento de pedidos</h2><p>Problemas registrados pelo cliente entram aqui com vínculo ao pedido, status e trilha administrativa.</p></div><span class="status-pill ${openSupportCases.length?'offline':'online'}">${openSupportCases.length} aberto(s)</span></div>${supportCases.length?supportCases.map(adminSupportCaseCard).join(''):'<div class="empty card">Nenhum atendimento registrado.</div>'}</section>`;
 
+  const customersContent=adminCustomersSection(d);
+
   const partnersContent=`
     ${adminPrelaunchLeadsSection(d)}
     ${adminPublicRequestsSection(d)}
