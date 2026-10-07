@@ -704,3 +704,50 @@ button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-vis
     width:100%;
   }
 }
+
+
+/* Pilot onboarding workflow */
+.pilot-step-grid{
+  display:grid;
+  grid-template-columns:repeat(4,minmax(0,1fr));
+  gap:8px;
+  margin-top:10px;
+}
+.pilot-step{
+  display:flex;
+  align-items:center;
+  gap:8px;
+  min-width:0;
+  padding:9px 10px;
+  border:1px solid var(--line);
+  border-radius:12px;
+}
+.pilot-step>span{
+  display:grid;
+  place-items:center;
+  width:26px;
+  height:26px;
+  flex:0 0 26px;
+  border-radius:999px;
+  border:1px solid currentColor;
+  font-weight:700;
+}
+.pilot-step strong,.pilot-step small{
+  display:block;
+}
+.pilot-step small{
+  margin-top:1px;
+  opacity:.72;
+}
+.pilot-step.done{
+  border-color:color-mix(in srgb,var(--good) 45%,var(--line));
+}
+.pilot-step.pending{
+  opacity:.76;
+}
+@media(max-width:760px){
+  .pilot-step-grid{grid-template-columns:1fr 1fr}
+}
+@media(max-width:420px){
+  .pilot-step-grid{grid-template-columns:1fr}
+}
