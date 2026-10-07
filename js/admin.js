@@ -1385,6 +1385,7 @@ function adminMerchantBillingSection(d){
   const statements=billing.statements||[];
   const paymentRequests=billing.paymentRequests||[];
   const paymentEvents=billing.paymentEvents||[];
+  const paymentIngress=billing.paymentIngress||null;
   const metrics=billing.metrics||null;
   const reconciliation=billing.reconciliation||null;
   const pendingPaymentRequests=paymentRequests
@@ -1401,6 +1402,11 @@ function adminMerchantBillingSection(d){
     });
   return `<section class="section">
     <div class="section-head"><div><span class="section-kicker">COBRANÇA DAS REVENDAS</span><h2>Fechamento diário + pacotes</h2><p>Cada pedido mantém sua taxa auditável. À 00:05 o dia anterior é consolidado; o saldo vence no fim do dia seguinte. Crédito pré-pago reduz a taxa e evita pagamento diário enquanto houver saldo.</p></div><div class="order-actions"><span class="status-pill ${Number(metrics?.overdueStatementCount??overdue.length)?'offline':'online'}">${Number(metrics?.overdueStatementCount??overdue.length)} vencido(s)</span><span class="status-pill ${Number(metrics?.salesHoldCount??held.length)?'offline':'online'}">${Number(metrics?.salesHoldCount??held.length)} hold(s)</span></div></div>
+    ${paymentIngress?`<div class="card flat" style="margin-bottom:16px"><div class="section-head"><div><h3>Entrada Pix / PSP</h3><p>Prontidão do webhook de conciliação. O painel recebe somente nomes dos provedores; segredos nunca saem do ambiente server-side.</p></div><span class="status-pill ${paymentIngress.configured?'online':'risk'}">${paymentIngress.configured?'CONFIGURADO':'PENDENTE'}</span></div>
+      <div class="tiny muted">Provedores configurados: ${Number(paymentIngress.providerCount||0)}${Array.isArray(paymentIngress.providers)&&paymentIngress.providers.length?' • '+paymentIngress.providers.map(esc).join(', '):''}</div>
+      ${paymentIngress.endpoint?`<div class="tiny muted">Endpoint: ${esc(paymentIngress.endpoint)}</div>`:''}
+      ${paymentIngress.configValid===false?`<div class="notice danger" style="margin-top:10px"><strong>Configuração de webhook inválida.</strong><br>O mapa BILLING_PAYMENT_WEBHOOK_SECRETS não pôde ser validado. Nenhum recebimento automático deve ser considerado pronto.</div>`:paymentIngress.configured?'':'<div class="notice" style="margin-top:10px"><strong>PSP/Pix ainda não conectado.</strong><br>O motor de conciliação está pronto, mas nenhum segredo de provedor válido foi detectado no ambiente de produção. O fluxo manual continua disponível.</div>'}
+    </div>`:''}
     ${adminBillingMetricsView(metrics)}
     ${adminBillingReconciliationView(reconciliation)}
     ${actionableEvents.length?`<div class="section-head" style="margin-top:18px"><div><h3>Eventos de pagamento</h3><p>Eventos autenticados do provedor são conciliados por valor + identificador. Ambiguidades nunca movimentam saldo automaticamente.</p></div><span class="status-pill ${actionableEvents.some(x=>x.status==='review_required')?'risk':'online'}">${actionableEvents.length} evento(s)</span></div>${actionableEvents.map(adminBillingPaymentEventCard).join('')}`:''}
