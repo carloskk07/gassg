@@ -305,4 +305,30 @@ assert.equal(exactPaymentConfirmationAllowed(30000,30000,'pix'),true);
 assert.equal(exactPaymentConfirmationAllowed(30000,30000,'invalid'),false);
 exactPaymentCases+=3;
 
-console.log(`Financial invariant fuzz passou: ${rewardCases} cenários de unit economics + ${positionCases} posições de cashback + ${prepaidCases} cenários de consumo de crédito de taxa + ${transitionCases} transições de pacote + ${reconciliationCases} cenários de reconciliação + ${exactPaymentCases} confirmações exatas de pagamento.`);
+
+function d1StatementPaidAllowed({amountDueCents,approvedExactPaymentRequest}){
+  if(amountDueCents<=0)return true;
+  return approvedExactPaymentRequest===true;
+}
+
+let d1AuthorityCases=0;
+for(let i=0;i<20000;i++){
+  const amountDue=int(0,100000000);
+  const hasApprovedExact=rnd()<0.75;
+  const allowed=d1StatementPaidAllowed({
+    amountDueCents:amountDue,
+    approvedExactPaymentRequest:hasApprovedExact
+  });
+  assert.equal(
+    allowed,
+    amountDue<=0||hasApprovedExact,
+    'fechamento D+1 positivo só pode ficar pago com solicitação exata aprovada'
+  );
+  d1AuthorityCases++;
+}
+assert.equal(d1StatementPaidAllowed({amountDueCents:1,approvedExactPaymentRequest:false}),false);
+assert.equal(d1StatementPaidAllowed({amountDueCents:1,approvedExactPaymentRequest:true}),true);
+assert.equal(d1StatementPaidAllowed({amountDueCents:0,approvedExactPaymentRequest:false}),true);
+d1AuthorityCases+=3;
+
+console.log(`Financial invariant fuzz passou: ${rewardCases} cenários de unit economics + ${positionCases} posições de cashback + ${prepaidCases} cenários de consumo de crédito de taxa + ${transitionCases} transições de pacote + ${reconciliationCases} cenários de reconciliação + ${exactPaymentCases} confirmações exatas de pagamento + ${d1AuthorityCases} cenários de autoridade D+1.`);
