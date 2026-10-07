@@ -103,7 +103,7 @@ const ADMIN_ROLE_ACTIONS:Record<string,Set<string>>={
   ]),
   finance:new Set([
     "financial-action","review-referral","retry-reward","retry-accounting","reverse-order",
-    "commercial-policy","incident-action"
+    "commercial-policy","merchant-billing-action","incident-action"
   ]),
   support:new Set(["order-control","support-case-status","incident-action"]),
   compliance:new Set([
@@ -246,6 +246,13 @@ function scopeAdminSummary(role:string,data:any){
     return {
       ...data,
       finance:{receivables:[],cashbackReimbursements:[],adjustments:[]},
+      merchantBilling:{
+        plans:[],
+        accounts:(data.merchantBilling?.accounts??[]).map((x:any)=>({
+          merchant_id:x.merchant_id,sales_hold:x.sales_hold,sales_hold_reason:x.sales_hold_reason,sales_hold_at:x.sales_hold_at
+        })),
+        statements:[]
+      },
       rewardFailures:[],accountingFailures:[],referralReviews:[],
       platformAdmins:adminSelf,
       recentAudit:(data.recentAudit??[]).filter((x:any)=>!String(x.action||"").match(/financial|reward|referral|admin_access|platform_admin/))
@@ -277,6 +284,7 @@ function scopeAdminSummary(role:string,data:any){
         price_confirmed_at:m.price_confirmed_at,last_seen_at:m.last_seen_at
       })),
       commercialPolicy:null,
+      merchantBilling:{plans:[],accounts:[],statements:[]},
       productRegistry:{categories:[],products:[]},
       finance:{receivables:[],cashbackReimbursements:[],adjustments:[]},
       rewardFailures:[],accountingFailures:[],referralReviews:[],
@@ -289,6 +297,7 @@ function scopeAdminSummary(role:string,data:any){
     return {
       ...data,
       businessMetrics:{},commercialPolicy:null,
+      merchantBilling:{plans:[],accounts:[],statements:[]},
       productRegistry:{categories:[],products:[]},
       supportCases:[],controlOrders:[],
       finance:{receivables:[],cashbackReimbursements:[],adjustments:[]},
@@ -699,6 +708,23 @@ async function summary(admin:any,actorUserId:string){
   if(productCategories.error)throw productCategories.error;
   if(productProfiles.error)throw productProfiles.error;
 
+  const [billingPlans,billingAccounts,dailyStatements]=await Promise.all([
+    admin.from("merchant_billing_plans")
+      .select("plan_key,display_name,billing_mode,platform_fee_bps,purchase_amount_cents,credit_grant_cents,active,sort_order,updated_at")
+      .order("sort_order",{ascending:true}),
+    admin.from("merchant_billing_accounts")
+      .select("merchant_id,plan_key,credit_balance_cents,credit_reserved_cents,sales_hold,sales_hold_reason,sales_hold_at,last_daily_close_date,updated_at")
+      .order("updated_at",{ascending:false})
+      .limit(200),
+    admin.from("merchant_daily_statements")
+      .select("id,merchant_id,business_date,gross_sales_cents,gross_fee_cents,prepaid_credit_applied_cents,amount_due_cents,status,due_at,closed_at,paid_at,waived_at,resolution_reference,created_at,updated_at")
+      .order("business_date",{ascending:false})
+      .limit(300)
+  ]);
+  for(const result of [billingPlans,billingAccounts,dailyStatements]){
+    if(result.error)throw result.error;
+  }
+
   const controlOrders=await admin
     .from("orders")
     .select("id,public_code,status,customer_id,merchant_id,proposed_merchant_id,supplier_name_snapshot,payment_method,gross_total_cents,total_cents,risk_reason,offer_expires_at,accepted_at,dispatch_due_at,dispatched_at,arriving_at,promised_by,version,address_text,postal_code,address_complement,delivery_reference,customer_phone_digits,created_at,updated_at")
@@ -831,6 +857,11 @@ async function summary(admin:any,actorUserId:string){
     businessMetrics:businessMetrics.data??{},
     launchReadiness:launchReadiness.data??{},
     commercialPolicy:commercialPolicy.data??null,
+    merchantBilling:{
+      plans:billingPlans.data??[],
+      accounts:billingAccounts.data??[],
+      statements:dailyStatements.data??[]
+    },
     productRegistry:{
       categories:productCategories.data??[],
       products:productProfiles.data??[]
@@ -1304,6 +1335,23 @@ Deno.serve(async(req:Request)=>{
         financialAction,
         reference:cleanText(body.reference,{min:3,max:240,name:"referência de conciliação"})
       };
+    }else if(action==="merchant-billing-action"){
+      const billingAction=String(body.billingAction??"").trim().toLowerCase();
+      if(!["confirm-package","set-flex","mark-statement-paid","waive-statement"].includes(billingAction)){
+        throw new DomainError("INVALID_BILLING_ACTION","Ação de cobrança da revenda inválida.",400);
+      }
+      const statementId=body.statementId==null||String(body.statementId).trim()===""?null:uuid(body.statementId,"statement");
+      const planKey=body.planKey==null?null:String(body.planKey).trim().toLowerCase();
+      if(planKey!=null&&!/^[a-z][a-z0-9_]{1,39}$/.test(planKey)){
+        throw new DomainError("INVALID_BILLING_PLAN","Plano de cobrança inválido.",400);
+      }
+      payload={
+        merchantId:uuid(body.merchantId,"merchant"),
+        billingAction,
+        planKey,
+        statementId,
+        reference:cleanText(body.reference,{min:3,max:240,name:"referência financeira"})
+      };
     }else if(action==="lead-status"){
       const status=String(body.status??"");
       if(!["contacted","qualified","converted","closed"].includes(status)){
@@ -1413,6 +1461,18 @@ Deno.serve(async(req:Request)=>{
       rpcArgs={
         p_actor_user_id:user.id,
         p_order_id:payload.orderId,
+        p_idempotency_key:idempotencyKey,
+        p_request_hash:requestHash
+      };
+    }else if(action==="merchant-billing-action"){
+      rpcName="admin_merchant_billing_action";
+      rpcArgs={
+        p_actor_user_id:user.id,
+        p_merchant_id:payload.merchantId,
+        p_action:payload.billingAction,
+        p_plan_key:payload.planKey,
+        p_statement_id:payload.statementId,
+        p_reference:payload.reference,
         p_idempotency_key:idempotencyKey,
         p_request_hash:requestHash
       };
