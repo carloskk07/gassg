@@ -94,7 +94,8 @@ await send('Runtime.enable');
 await send('Log.enable');
 await send('Page.addScriptToEvaluateOnNewDocument',{source:'globalThis.__CHAMA_TEST__=true;'});
 await navigate(BASE+'#home');
-await evaluate("localStorage.clear(); location.reload()");
+await evaluate("localStorage.clear()");
+await navigate(BASE+'#home');
 await waitFor("document.body.innerText.includes('Pediu? Tá na mão.')","home after reset");
 
 let body=await text();
