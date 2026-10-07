@@ -1363,7 +1363,14 @@ Deno.serve(async(req:Request)=>{
           409
         );
       }
-      if(!["set-flex","mark-statement-paid","waive-statement"].includes(billingAction)){
+      if(billingAction==="mark-statement-paid"){
+        throw new DomainError(
+          "STATEMENT_PAYMENT_REQUEST_REQUIRED",
+          "A quitação de D+1 só pode ocorrer pela solicitação de pagamento informada pela revenda e conciliada pelo Financeiro.",
+          409
+        );
+      }
+      if(!["set-flex","waive-statement"].includes(billingAction)){
         throw new DomainError("INVALID_BILLING_ACTION","Ação de cobrança da revenda inválida.",400);
       }
       const statementId=body.statementId==null||String(body.statementId).trim()===""?null:uuid(body.statementId,"statement");
