@@ -690,6 +690,11 @@ assert.ok(adminOpsSource.includes('providers:configuredProviders')&&adminOpsSour
 assert.ok(adminOpsSource.includes('paymentIngress:billingPaymentIngressReadiness()'),'summary financeiro precisa carregar a prontidão real do ingress');
 assert.ok(adminOpsSource.includes('paymentIngress:null'),'perfis não financeiros precisam receber prontidão de webhook redigida');
 assert.ok(admin.includes('Entrada Pix / PSP')&&admin.includes('PSP/Pix ainda não conectado.')&&admin.includes('segredos nunca saem do ambiente server-side'),'Financeiro precisa enxergar claramente se o PSP está realmente conectado sem exposição de segredo');
+assert.ok(adminOpsSource.includes('PAYMENT_INGRESS_CONTRACT="tamao_normalized_hmac_v1"')&&adminOpsSource.includes('LIVE_PAYMENT_PROVIDER_ADAPTERS=new Set<string>([])'),'v1.88 precisa distinguir contrato normalizado de adaptadores reais implementados em código');
+assert.ok(adminOpsSource.includes('normalizedIngressConfigured')&&adminOpsSource.includes('livePspReady')&&adminOpsSource.includes('liveProviderCount'),'readiness precisa separar secret técnico de PSP realmente suportado');
+assert.ok(adminOpsSource.includes('configuredProviders.filter((name)=>LIVE_PAYMENT_PROVIDER_ADAPTERS.has(name))'),'um secret sozinho não pode transformar um provedor em adaptador live');
+assert.ok(admin.includes('INGRESS PRONTO')&&admin.includes('PSP LIVE')&&admin.includes('Ingress técnico pronto; PSP real ainda não.'),'UI precisa impedir que ingress HMAC normalizado seja confundido com integração bancária real');
+assert.ok(admin.includes('Não trate este estado como integração bancária concluída.'),'painel precisa declarar explicitamente o limite do ingress normalizado');
 assert.ok(billingPaymentWebhookSource.includes('x-tamao-signature')&&billingPaymentWebhookSource.includes('hmacSha256Hex')&&billingPaymentWebhookSource.includes('constantTimeEqualHex'),'webhook de pagamentos precisa verificar HMAC antes de tocar o banco');
 assert.ok(billingPaymentWebhookSource.includes('MAX_SKEW_SECONDS=300')&&billingPaymentWebhookSource.includes('STALE_WEBHOOK'),'webhook precisa limitar replay temporal a cinco minutos');
 assert.ok(billingPaymentWebhookSource.includes('BILLING_PAYMENT_WEBHOOK_SECRETS')&&billingPaymentWebhookSource.includes('WEBHOOK_PROVIDER_NOT_CONFIGURED'),'provedor sem segredo configurado precisa falhar fechado');
