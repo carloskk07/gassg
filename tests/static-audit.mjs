@@ -639,6 +639,11 @@ assert.ok(pilotClaimOrdering.includes('claim_pilot_partner_invite_v2')&&pilotCla
 assert.ok(pilotClaimOrdering.includes("v_app.status='rejected'")&&pilotClaimOrdering.includes('APPLICATION_REJECTED'),'aplicação rejeitada não pode reivindicar convite sem reenvio');
 assert.ok(pilotClaimOrdering.includes('claim_my_pilot_partner_invite')&&pilotClaimOrdering.includes('claim_pilot_partner_invite_v2'),'wrapper autenticado precisa usar a autoridade de claim V2');
 assert.ok(pilotClaimOrdering.includes('revoke all on function public.claim_pilot_partner_invite_v2')&&pilotClaimOrdering.includes('to service_role'),'autoridade interna de claim V2 precisa permanecer server-only');
+const pilotDigestRepair=read('supabase/migrations/20261007173500_pilot_invite_digest_schema_v1_72_2.sql');
+assert.ok(pilotDigestRepair.includes("extensions.digest(p_token,'sha256')"),'claim piloto precisa usar o schema real do pgcrypto');
+assert.ok(!pilotDigestRepair.includes("public.digest(p_token,'sha256')"),'repair não pode depender do schema public para pgcrypto');
+assert.ok(pilotDigestRepair.includes('create or replace function public.claim_pilot_partner_invite(')&&pilotDigestRepair.includes('claim_pilot_partner_invite_v2'),'autoridade legada de claim deve delegar para V2');
+assert.ok(pilotDigestRepair.includes('revoke all on function public.claim_pilot_partner_invite(uuid,uuid,text)')&&pilotDigestRepair.includes('to service_role'),'claim legado deve permanecer fechado ao browser');
 const merchantUiSource=read('js/merchant.js');
 const bootstrapSource=read('js/bootstrap.js');
 assert.ok(merchantUiSource.includes('Convite reconhecido.')&&merchantUiSource.includes('Entre para continuar seu cadastro'),'login da revenda precisa reconhecer visualmente o convite sem expor token');
