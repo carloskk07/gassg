@@ -272,7 +272,7 @@ async function adminEntityDetail(admin:any,entityType:unknown,rawId:unknown){
   if(type!=="order")uuid(id,type);
 
   if(type==="order"){
-    let orderQuery=admin.from("orders").select("*");
+    let orderQuery=admin.from("orders").select("id,public_code,status,customer_id,merchant_id,proposed_merchant_id,supplier_name_snapshot,payment_method,gross_total_cents,total_cents,cashback_reserved_cents,financial_state,financial_reversed_at,offer_expires_at,accepted_at,dispatch_due_at,dispatched_at,arriving_at,promised_by,delivered_at,settled_at,address_text,postal_code,address_number,address_complement,delivery_reference,customer_phone_digits,delivery_pii_redacted_at,created_at,updated_at,version");
     orderQuery=UUID_RE.test(id)?orderQuery.eq("id",id):orderQuery.eq("public_code",cleanText(id,{min:6,max:32,name:"pedido"}));
     const orderResult=await orderQuery.maybeSingle();
     if(orderResult.error)throw orderResult.error;
