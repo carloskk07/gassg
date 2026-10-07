@@ -247,6 +247,16 @@ Deno.serve(async (req: Request) => {
     if (merchantError) throw merchantError;
 
     let modeEligibleMerchants=merchants??[];
+    if(modeEligibleMerchants.length){
+      const {data:heldBillingAccounts,error:heldBillingError}=await admin
+        .from("merchant_billing_accounts")
+        .select("merchant_id")
+        .in("merchant_id",modeEligibleMerchants.map((m)=>m.id))
+        .eq("sales_hold",true);
+      if(heldBillingError)throw heldBillingError;
+      const financiallyHeld=new Set((heldBillingAccounts??[]).map((row)=>row.merchant_id));
+      modeEligibleMerchants=modeEligibleMerchants.filter((m)=>!financiallyHeld.has(m.id));
+    }
     if(operationMode==="PILOT"&&modeEligibleMerchants.length){
       const {data:pilotRows,error:pilotError}=await admin
         .from("pilot_partner_drafts")
