@@ -653,4 +653,48 @@ for(let i=0;i<20000;i++){
   canonicalEventCases+=5;
 }
 
-console.log(`Financial invariant fuzz passou: ${rewardCases} cenários de unit economics + ${positionCases} posições de cashback + ${prepaidCases} cenários de consumo de crédito de taxa + ${transitionCases} transições de pacote + ${reconciliationCases} cenários de reconciliação + ${exactPaymentCases} confirmações exatas de pagamento + ${d1AuthorityCases} cenários de autoridade D+1 + ${reconciliationKeyCases} cenários de unicidade de conciliação + ${providerEventCases} cenários de eventos de provedor + ${reactiveProviderCases} transições reativas de conciliação + ${provenanceCases} provas de proveniência de aprovação + ${paymentEventReviewCases} decisões de lifecycle de eventos + ${financeSlaCases} classificações de SLA financeiro + ${canonicalEventCases} decisões de evento canônico.`);
+
+function normalizeWooviReceivedPix(body){
+  if(!body||body.event!=='OPENPIX:TRANSACTION_RECEIVED')return null;
+  const pix=body.pix;
+  if(!pix||pix.status!=='CONFIRMED')return null;
+  const key=String(pix.endToEndId||'').trim();
+  const amount=Number(pix.value);
+  const occurredAt=Date.parse(String(pix.time||pix.createdAt||''));
+  if(!/^[A-Za-z0-9]{20,80}$/.test(key))return null;
+  if(!Number.isSafeInteger(amount)||amount<=0)return null;
+  if(!Number.isFinite(occurredAt))return null;
+  return {
+    provider:'woovi',
+    providerEventId:'OPENPIX:TRANSACTION_RECEIVED:'+key,
+    reconciliationKey:key,
+    paymentMethod:'pix',
+    amountCents:amount
+  };
+}
+
+let wooviAdapterCases=0;
+for(let i=0;i<20000;i++){
+  const suffix=i.toString(36).padStart(11,'0');
+  const e2e='E12345678202610071234'+suffix;
+  const amount=int(1,10000000);
+  const payload={
+    event:'OPENPIX:TRANSACTION_RECEIVED',
+    pix:{
+      endToEndId:e2e,
+      value:amount,
+      time:'2026-10-07T20:10:56.000Z',
+      status:'CONFIRMED'
+    }
+  };
+  const normalized=normalizeWooviReceivedPix(payload);
+  assert.equal(normalized?.provider,'woovi');
+  assert.equal(normalized?.reconciliationKey,e2e);
+  assert.equal(normalized?.amountCents,amount);
+  assert.equal(normalized?.paymentMethod,'pix');
+  assert.equal(normalizeWooviReceivedPix({...payload,event:'OPENPIX:CHARGE_EXPIRED'}),null);
+  assert.equal(normalizeWooviReceivedPix({...payload,pix:{...payload.pix,status:'PENDING'}}),null);
+  wooviAdapterCases+=6;
+}
+
+console.log(`Financial invariant fuzz passou: ${rewardCases} cenários de unit economics + ${positionCases} posições de cashback + ${prepaidCases} cenários de consumo de crédito de taxa + ${transitionCases} transições de pacote + ${reconciliationCases} cenários de reconciliação + ${exactPaymentCases} confirmações exatas de pagamento + ${d1AuthorityCases} cenários de autoridade D+1 + ${reconciliationKeyCases} cenários de unicidade de conciliação + ${providerEventCases} cenários de eventos de provedor + ${reactiveProviderCases} transições reativas de conciliação + ${provenanceCases} provas de proveniência de aprovação + ${paymentEventReviewCases} decisões de lifecycle de eventos + ${financeSlaCases} classificações de SLA financeiro + ${canonicalEventCases} decisões de evento canônico + ${wooviAdapterCases} normalizações Woovi/OpenPix.`);
