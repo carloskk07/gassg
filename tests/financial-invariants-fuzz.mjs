@@ -482,4 +482,69 @@ for(let i=0;i<20000;i++){
   reactiveProviderCases+=5;
 }
 
-console.log(`Financial invariant fuzz passou: ${rewardCases} cenários de unit economics + ${positionCases} posições de cashback + ${prepaidCases} cenários de consumo de crédito de taxa + ${transitionCases} transições de pacote + ${reconciliationCases} cenários de reconciliação + ${exactPaymentCases} confirmações exatas de pagamento + ${d1AuthorityCases} cenários de autoridade D+1 + ${reconciliationKeyCases} cenários de unicidade de conciliação + ${providerEventCases} cenários de eventos de provedor + ${reactiveProviderCases} transições reativas de conciliação.`);
+
+function providerApprovalProvenanceAllowed({
+  requestId,merchantId,expectedAmountCents,
+  receivedAmountCents,paymentMethod,reconciliationKey,event
+}){
+  if(receivedAmountCents!==expectedAmountCents)return false;
+  if(!event)return true;
+  return event.status==='matched_exact'
+    &&event.paymentRequestId===requestId
+    &&event.merchantId===merchantId
+    &&event.amountCents===receivedAmountCents
+    &&event.paymentMethod===paymentMethod
+    &&String(event.reconciliationKey||'').trim().toLowerCase()
+      ===String(reconciliationKey||'').trim().toLowerCase();
+}
+
+let provenanceCases=0;
+for(let i=0;i<20000;i++){
+  const requestId='req-'+i;
+  const merchantId='m-'+i;
+  const amount=int(1,10000000);
+  const key='e2e-prov-'+i.toString(36).padStart(7,'0');
+  const method=['pix','bank_transfer','cash','card','other'][int(0,4)];
+  const event={
+    status:'matched_exact',
+    paymentRequestId:requestId,
+    merchantId,
+    amountCents:amount,
+    paymentMethod:method,
+    reconciliationKey:key
+  };
+
+  assert.equal(providerApprovalProvenanceAllowed({
+    requestId,merchantId,expectedAmountCents:amount,
+    receivedAmountCents:amount,paymentMethod:method,
+    reconciliationKey:key.toUpperCase(),event
+  }),true);
+
+  assert.equal(providerApprovalProvenanceAllowed({
+    requestId,merchantId,expectedAmountCents:amount,
+    receivedAmountCents:amount+1,paymentMethod:method,
+    reconciliationKey:key,event
+  }),false);
+
+  assert.equal(providerApprovalProvenanceAllowed({
+    requestId,merchantId,expectedAmountCents:amount,
+    receivedAmountCents:amount,paymentMethod:method,
+    reconciliationKey:key,event:{...event,paymentRequestId:'other'}
+  }),false);
+
+  assert.equal(providerApprovalProvenanceAllowed({
+    requestId,merchantId,expectedAmountCents:amount,
+    receivedAmountCents:amount,paymentMethod:method,
+    reconciliationKey:key,event:{...event,status:'review_required'}
+  }),false);
+
+  assert.equal(providerApprovalProvenanceAllowed({
+    requestId,merchantId,expectedAmountCents:amount,
+    receivedAmountCents:amount,paymentMethod:method,
+    reconciliationKey:key,event:null
+  }),true,'aprovação manual continua permitida com confirmação financeira exata');
+
+  provenanceCases+=5;
+}
+
+console.log(`Financial invariant fuzz passou: ${rewardCases} cenários de unit economics + ${positionCases} posições de cashback + ${prepaidCases} cenários de consumo de crédito de taxa + ${transitionCases} transições de pacote + ${reconciliationCases} cenários de reconciliação + ${exactPaymentCases} confirmações exatas de pagamento + ${d1AuthorityCases} cenários de autoridade D+1 + ${reconciliationKeyCases} cenários de unicidade de conciliação + ${providerEventCases} cenários de eventos de provedor + ${reactiveProviderCases} transições reativas de conciliação + ${provenanceCases} provas de proveniência de aprovação.`);
