@@ -311,3 +311,42 @@ revoke all on function public.ingest_merchant_billing_payment_event(
 grant execute on function public.ingest_merchant_billing_payment_event(
   text,text,text,text,bigint,text,timestamptz,text,text
 ) to service_role, postgres;
+
+
+create or replace function public.mark_reconciled_payment_event_applied()
+returns trigger
+language plpgsql
+security definer
+set search_path=pg_catalog
+as $$
+begin
+  if new.status='approved'
+     and old.status is distinct from new.status
+     and new.reconciliation_key is not null then
+    update public.merchant_billing_payment_events e
+    set status='applied',
+        payment_request_id=new.id,
+        merchant_id=new.merchant_id,
+        match_reason='approved_payment_request_applied',
+        applied_at=clock_timestamp(),
+        applied_by=new.resolved_by,
+        updated_at=clock_timestamp()
+    where e.status='matched_exact'
+      and e.payment_request_id=new.id
+      and e.amount_cents=new.received_amount_cents
+      and lower(trim(e.reconciliation_key))=lower(trim(new.reconciliation_key));
+  end if;
+  return new;
+end;
+$$;
+
+revoke all on function public.mark_reconciled_payment_event_applied()
+from public, anon, authenticated;
+grant execute on function public.mark_reconciled_payment_event_applied()
+to postgres, service_role;
+
+drop trigger if exists mark_reconciled_payment_event_applied_trg
+on public.merchant_billing_payment_requests;
+create trigger mark_reconciled_payment_event_applied_trg
+after update of status on public.merchant_billing_payment_requests
+for each row execute function public.mark_reconciled_payment_event_applied();
