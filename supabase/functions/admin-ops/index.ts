@@ -747,7 +747,9 @@ async function summary(admin:any,actorUserId:string){
 
   const byMerchant=new Map((compliance.data??[]).map((x:any)=>[x.merchant_id,x]));
   const businessByMerchant=new Map((merchantBusinessDetails.data??[]).map((x:any)=>[x.merchant_id,x]));
-  const merchantReadinessById=new Map((merchantReadiness.data??[]).map((x:any)=>[x.merchantId,x]));
+  const merchantReadinessById=new Map<string,any>(
+    (merchantReadiness.data??[]).map((x:any)=>[String(x.merchantId),x] as [string,any])
+  );
   const capabilitiesByMerchant=new Map<string,any[]>();
   for(const cap of capabilities.data??[]){
     if(!capabilitiesByMerchant.has(cap.merchant_id))capabilitiesByMerchant.set(cap.merchant_id,[]);
@@ -765,7 +767,7 @@ async function summary(admin:any,actorUserId:string){
       const latestInvite=inviteHistory[0]??null;
       const application=applicationByDraft.get(p.id)??null;
       const converted=p.onboarding_status==="converted"||Boolean(p.merchant_id);
-      const readiness=p.merchant_id?merchantReadinessById.get(p.merchant_id)??null:null;
+      const readiness:any=p.merchant_id?merchantReadinessById.get(String(p.merchant_id))??null:null;
       const cancelled=p.onboarding_status==="cancelled";
       let inviteStatus="none";
       if(claimedInvite||application)inviteStatus="claimed";
