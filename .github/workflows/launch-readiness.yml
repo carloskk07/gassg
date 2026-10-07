@@ -2,6 +2,20 @@ name: TAMÃO launch readiness
 
 on:
   workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'index.html'
+      - 'manifest.webmanifest'
+      - 'sw.js'
+      - 'css/**'
+      - 'js/**'
+      - 'icons/**'
+      - 'scripts/build-cloudflare-portal.mjs'
+      - 'scripts/build-live-portals.mjs'
+      - 'scripts/generate-runtime-config.mjs'
+      - 'tests/remote-admin-readiness.mjs'
+      - '.github/workflows/launch-readiness.yml'
 
 permissions:
   contents: read
