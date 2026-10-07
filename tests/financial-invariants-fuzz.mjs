@@ -276,4 +276,33 @@ for(let i=0;i<20000;i++){
 }
 
 
-console.log(`Financial invariant fuzz passou: ${rewardCases} cenários de unit economics + ${positionCases} posições de cashback + ${prepaidCases} cenários de consumo de crédito de taxa + ${transitionCases} transições de pacote + ${reconciliationCases} cenários de reconciliação.`);
+
+function exactPaymentConfirmationAllowed(expectedCents,receivedCents,paymentMethod){
+  return Number.isSafeInteger(expectedCents)
+    && expectedCents>0
+    && Number.isSafeInteger(receivedCents)
+    && receivedCents===expectedCents
+    && ['pix','bank_transfer','cash','card','other'].includes(paymentMethod);
+}
+
+let exactPaymentCases=0;
+for(let i=0;i<20000;i++){
+  const expected=int(1,100000000);
+  const received=rnd()<0.8?expected:int(1,100000000);
+  const methods=['pix','bank_transfer','cash','card','other','invalid',''];
+  const method=methods[int(0,methods.length-1)];
+  const allowed=exactPaymentConfirmationAllowed(expected,received,method);
+  assert.equal(
+    allowed,
+    received===expected&&['pix','bank_transfer','cash','card','other'].includes(method),
+    'aprovação financeira só pode ocorrer com valor exato e meio permitido'
+  );
+  exactPaymentCases++;
+}
+
+assert.equal(exactPaymentConfirmationAllowed(30000,29999,'pix'),false);
+assert.equal(exactPaymentConfirmationAllowed(30000,30000,'pix'),true);
+assert.equal(exactPaymentConfirmationAllowed(30000,30000,'invalid'),false);
+exactPaymentCases+=3;
+
+console.log(`Financial invariant fuzz passou: ${rewardCases} cenários de unit economics + ${positionCases} posições de cashback + ${prepaidCases} cenários de consumo de crédito de taxa + ${transitionCases} transições de pacote + ${reconciliationCases} cenários de reconciliação + ${exactPaymentCases} confirmações exatas de pagamento.`);
