@@ -230,7 +230,7 @@ function merchantBillingLiveView(rt){
     ${statementRows?`<div class="card flat" style="margin-top:12px"><h3>Fechamentos em aberto</h3><div class="list">${statementRows}</div></div>`:''}
     <div class="section-head" style="margin-top:16px"><div><h3>Opções de taxa</h3><p>Quanto maior o crédito antecipado, menor a taxa por venda. O crédito só é consumido quando pedidos são liquidados. Com saldo ativo, recargas do mesmo pacote e upgrades para taxa menor permanecem disponíveis; downgrade só depois de zerar saldo e reservas.</p></div></div>
     <div class="admin-entity-grid">${planCards}</div>
-    <div class="notice" style="margin-top:12px"><strong>Confirmação financeira em duas etapas.</strong><br>A revenda informa a referência do pagamento; o pedido fica pendente. Só o admin pode confirmar e gerar crédito ou quitar o fechamento diário. Se o saldo restante não cobrir toda a taxa descontada de uma venda, esse último saldo é abatido da taxa Flex daquela venda e apenas a diferença entra no fechamento D+1; quando saldo e reservas zerarem, o plano volta ao Flex automaticamente.</div>
+    <div class="notice" style="margin-top:12px"><strong>Confirmação financeira em duas etapas.</strong><br>A revenda informa o identificador exato do pagamento; para Pix, prefira o EndToEndId. Quando um provedor integrado confirmar o mesmo ID e valor, o TAMÃO prepara a conciliação automaticamente. Crédito ou quitação só acontecem após confirmação financeira. Se o saldo restante não cobrir toda a taxa descontada de uma venda, esse último saldo é abatido da taxa Flex daquela venda e apenas a diferença entra no fechamento D+1; quando saldo e reservas zerarem, o plano volta ao Flex automaticamente.</div>
     ${recentRequests?`<details class="card flat" style="margin-top:12px"><summary><strong>Solicitações financeiras recentes</strong></summary><div class="list" style="margin-top:10px">${recentRequests}</div></details>`:''}
   </section>`;
 }
@@ -239,8 +239,8 @@ async function merchantRequestBillingPackageFromUi(planKey){
   const billing=globalThis.merchantRuntime?.billing||{};
   const plan=(billing.plans||[]).find(p=>p.planKey===planKey);
   if(!plan)return toast('Pacote não encontrado');
-  const reference=prompt('Referência do pagamento do pacote (Pix/PSP/comprovante):')||'';
-  if(reference.trim().length<3)return toast('Informe a referência do pagamento');
+  const reference=prompt('Identificador exato do pagamento (Pix: EndToEndId; transferência/PSP: ID da transação):')||'';
+  if(reference.trim().length<6)return toast('Informe o identificador exato da transação');
   if(!confirm('Enviar para conferência o '+plan.displayName+' no valor de '+BRL.format(Number(plan.purchaseAmountCents||0)/100)+'? O crédito só entra após aprovação do admin.'))return;
   try{
     await merchantRequestBillingPackageLive(planKey,reference);
@@ -252,8 +252,8 @@ async function merchantNotifyStatementPaidFromUi(statementId){
   const billing=globalThis.merchantRuntime?.billing||{};
   const statement=(billing.openStatements||[]).find(s=>s.id===statementId);
   if(!statement)return toast('Fechamento não encontrado');
-  const reference=prompt('Referência do pagamento (Pix/PSP/comprovante):')||'';
-  if(reference.trim().length<3)return toast('Informe a referência do pagamento');
+  const reference=prompt('Identificador exato do pagamento (Pix: EndToEndId; transferência/PSP: ID da transação):')||'';
+  if(reference.trim().length<6)return toast('Informe o identificador exato da transação');
   if(!confirm('Informar pagamento de '+BRL.format(Number(statement.amountDueCents||0)/100)+'? O fechamento só será quitado depois da conferência do admin.'))return;
   try{
     await merchantNotifyBillingPaymentLive(statementId,reference);
