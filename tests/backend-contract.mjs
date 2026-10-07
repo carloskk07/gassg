@@ -256,6 +256,27 @@ assert.doesNotMatch(
 );
 console.log('Admin auth production-origin boundary passou.');
 
+const adminBootstrapConfirmedIdentity=fs.readFileSync(
+  new URL('../supabase/migrations/20261007035000_admin_bootstrap_confirmed_identity_v1_70_37.sql',import.meta.url),
+  'utf8'
+);
+assert.match(
+  adminBootstrapConfirmedIdentity,
+  /email_confirmed_at is null/,
+  'autoridade final de bootstrap deve exigir e-mail confirmado'
+);
+assert.match(
+  adminBootstrapConfirmedIdentity,
+  /PERMANENT_CONFIRMED_IDENTITY_REQUIRED/,
+  'bootstrap deve falhar fechado sem identidade permanente confirmada'
+);
+assert.match(
+  adminBootstrapConfirmedIdentity,
+  /revoke all on function public\.bootstrap_first_platform_admin\(uuid\)[\s\S]*from public, anon, authenticated/,
+  'bootstrap final não pode ser executável diretamente pelo navegador'
+);
+console.log('Admin bootstrap confirmed-identity authority passou.');
+
 
 const cloudflarePortalOrigins={
   'admin-auth':'https://tamao-sg-admin.pages.dev',
