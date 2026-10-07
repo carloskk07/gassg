@@ -1136,16 +1136,17 @@ async function merchantBackendInit(){
     merchantRuntime.client=client;
 
     let {data:{session},error}=await client.auth.getSession();
-    if(error)throw error;
 
-    if(!session?.access_token&&callbackSession?.access_token&&callbackSession?.refresh_token){
+    if((error||!session?.access_token)&&callbackSession?.access_token&&callbackSession?.refresh_token){
       const restored=await client.auth.setSession({
         access_token:callbackSession.access_token,
         refresh_token:callbackSession.refresh_token
       });
       if(restored.error)throw restored.error;
       session=restored.data.session??null;
+      error=null;
     }
+    if(error)throw error;
 
     if(session?.access_token){
       clearSupabaseAuthFragment('merchant');
