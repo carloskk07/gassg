@@ -168,6 +168,19 @@ Deno.serve(async(req:Request)=>{
       const online=body.online===true;
 
       if(online){
+        const {data:financialAllowed,error:financialAllowedError}=await admin.rpc(
+          "merchant_financial_sales_allowed",
+          {p_merchant_id:merchantId}
+        );
+        if(financialAllowedError)throw financialAllowedError;
+        if(financialAllowed!==true){
+          throw new DomainError(
+            "MERCHANT_FINANCIAL_SALES_HOLD",
+            "Há um fechamento financeiro vencido. Regularize o débito antes de voltar a receber novas vendas.",
+            409
+          );
+        }
+
         const {data:merchant,error:merchantError}=await admin
           .from("merchants")
           .select("status,delivery_fee_confirmed_at,accepts_citywide")
