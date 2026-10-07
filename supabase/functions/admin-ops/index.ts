@@ -456,7 +456,7 @@ async function adminSystemHealth(admin:any){
 }
 
 async function summary(admin:any,actorUserId:string){
-  const [apps,merchants,compliance,capabilities,referralReviews,rewardFailures,accountingFailures,receivables,reimbursements,adjustments,platformAdmins,prelaunchLeads,publicRequests,audit]=await Promise.all([
+  const [apps,merchants,compliance,capabilities,referralReviews,rewardFailures,accountingFailures,receivables,reimbursements,adjustments,platformAdmins,prelaunchLeads,publicRequests,audit,incidents]=await Promise.all([
     admin.from("merchant_applications")
       .select("id,applicant_user_id,cnpj,company_name,responsible_name,phone,address_text,status,created_at,updated_at")
       .order("created_at",{ascending:false})
@@ -516,9 +516,13 @@ async function summary(admin:any,actorUserId:string){
     admin.from("platform_admin_audit")
       .select("id,actor_user_id,action,target_type,target_id,metadata,created_at")
       .order("created_at",{ascending:false})
-      .limit(50)
+      .limit(50),
+    admin.from("platform_incidents")
+      .select("id,title,description,severity,status,source,entity_type,entity_id,assigned_admin_id,created_by,acknowledged_at,acknowledged_by,resolved_at,resolved_by,resolution_note,created_at,updated_at")
+      .order("updated_at",{ascending:false})
+      .limit(100)
   ]);
-  for(const result of [apps,merchants,compliance,capabilities,referralReviews,rewardFailures,accountingFailures,receivables,reimbursements,adjustments,platformAdmins,prelaunchLeads,publicRequests,audit]){
+  for(const result of [apps,merchants,compliance,capabilities,referralReviews,rewardFailures,accountingFailures,receivables,reimbursements,adjustments,platformAdmins,prelaunchLeads,publicRequests,audit,incidents]){
     if(result.error)throw result.error;
   }
   const pilotPartners=await admin
@@ -665,6 +669,7 @@ async function summary(admin:any,actorUserId:string){
         financialReversedAt:state?.financial_reversed_at??null
       };
     }),
+    incidents:incidents.data??[],
     recentAudit:audit.data??[]
   };
 }
