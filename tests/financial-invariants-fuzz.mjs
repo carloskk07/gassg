@@ -351,4 +351,73 @@ assert.equal(reconciliationKeyCanApprove(new Set(),'abc'),false);
 assert.equal(reconciliationKeyCanApprove(new Set(['pix-e2e-123456']),' PIX-E2E-123456 '),false);
 reconciliationKeyCases+=2;
 
-console.log(`Financial invariant fuzz passou: ${rewardCases} cenários de unit economics + ${positionCases} posições de cashback + ${prepaidCases} cenários de consumo de crédito de taxa + ${transitionCases} transições de pacote + ${reconciliationCases} cenários de reconciliação + ${exactPaymentCases} confirmações exatas de pagamento + ${d1AuthorityCases} cenários de autoridade D+1 + ${reconciliationKeyCases} cenários de unicidade de conciliação.`);
+
+function matchProviderPaymentEvent({key,amount,pending,approved}){
+  const normalized=String(key||'').trim().toLowerCase();
+  const already=approved.find(x=>String(x.reconciliationKey||'').trim().toLowerCase()===normalized);
+  if(already){
+    return already.receivedAmountCents===amount
+      ?{status:'already_applied',requestId:already.id}
+      :{status:'review_required',reason:'transaction_key_already_used_with_other_amount'};
+  }
+  const exact=pending.filter(x=>
+    x.expectedAmountCents===amount
+    &&String(x.merchantReference||'').trim().toLowerCase()===normalized
+  );
+  if(exact.length===1)return {status:'matched_exact',requestId:exact[0].id};
+  if(exact.length>1)return {status:'review_required',reason:'multiple_exact_candidates'};
+  const sameReference=pending.some(x=>String(x.merchantReference||'').trim().toLowerCase()===normalized);
+  return {
+    status:'review_required',
+    reason:sameReference?'reference_found_but_amount_differs':'no_exact_pending_request'
+  };
+}
+
+let providerEventCases=0;
+for(let i=0;i<20000;i++){
+  const key='e2e-'+i.toString(36).padStart(8,'0');
+  const amount=int(1,10000000);
+  const exact={id:'r-'+i,expectedAmountCents:amount,merchantReference:key};
+  const result=matchProviderPaymentEvent({
+    key,
+    amount,
+    pending:[exact],
+    approved:[]
+  });
+  assert.equal(result.status,'matched_exact');
+  assert.equal(result.requestId,exact.id);
+
+  const mismatch=matchProviderPaymentEvent({
+    key,
+    amount:amount+1,
+    pending:[exact],
+    approved:[]
+  });
+  assert.equal(mismatch.status,'review_required');
+  assert.equal(mismatch.reason,'reference_found_but_amount_differs');
+
+  const duplicate=matchProviderPaymentEvent({
+    key,
+    amount,
+    pending:[exact,{...exact,id:'r2-'+i}],
+    approved:[]
+  });
+  assert.equal(duplicate.status,'review_required');
+  assert.equal(duplicate.reason,'multiple_exact_candidates');
+
+  const applied=matchProviderPaymentEvent({
+    key:key.toUpperCase(),
+    amount,
+    pending:[],
+    approved:[{id:'a-'+i,reconciliationKey:key,receivedAmountCents:amount}]
+  });
+  assert.equal(applied.status,'already_applied');
+  providerEventCases+=4;
+}
+
+assert.equal(matchProviderPaymentEvent({
+  key:'unknown-123456',amount:100,pending:[],approved:[]
+}).reason,'no_exact_pending_request');
+providerEventCases++;
+
+console.log(`Financial invariant fuzz passou: ${rewardCases} cenários de unit economics + ${positionCases} posições de cashback + ${prepaidCases} cenários de consumo de crédito de taxa + ${transitionCases} transições de pacote + ${reconciliationCases} cenários de reconciliação + ${exactPaymentCases} confirmações exatas de pagamento + ${d1AuthorityCases} cenários de autoridade D+1 + ${reconciliationKeyCases} cenários de unicidade de conciliação + ${providerEventCases} cenários de eventos de provedor.`);

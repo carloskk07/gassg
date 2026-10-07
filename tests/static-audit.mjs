@@ -527,6 +527,8 @@ const merchantBillingReconciliation=read('supabase/migrations/20261007220000_mer
 const exactPaymentConfirmation=read('supabase/migrations/20261007223000_exact_payment_confirmation_v1_78.sql');
 const singleD1PaymentAuthority=read('supabase/migrations/20261007230000_single_d1_payment_authority_v1_79.sql');
 const uniquePaymentReconciliation=read('supabase/migrations/20261007233000_unique_payment_reconciliation_v1_80.sql');
+const paymentEventReconciliation=read('supabase/migrations/20261008001500_payment_event_reconciliation_v1_81.sql');
+const billingPaymentWebhookSource=read('supabase/functions/billing-payment-webhook/index.ts');
 assert.ok(merchantBillingIndexes.includes('merchant_billing_accounts_plan_key_idx')&&merchantBillingIndexes.includes('merchant_daily_statements_resolved_by_idx')&&merchantBillingIndexes.includes('merchant_fee_credit_ledger_created_by_idx')&&merchantBillingIndexes.includes('merchant_fee_credit_ledger_order_id_idx')&&merchantBillingIndexes.includes('merchant_fee_credit_ledger_plan_key_idx'),'billing v1.72 precisa cobrir as FKs apontadas pelo advisor do banco');
 assert.ok(merchantBillingMigration.includes("'flex_daily','Flex Diário','postpaid_daily',850")&&merchantBillingMigration.includes("'credit_3000','Crédito 3.000','prepaid_credit',650"),'billing v1.72 precisa manter Flex premium e pacotes pré-pagos com desconto progressivo');
 assert.ok(merchantBillingMigration.includes('BILLING_PLAN_BELOW_ECONOMIC_FLOOR')&&merchantBillingMigration.includes('variable_cost_bps')&&merchantBillingMigration.includes('minimum_contribution_bps'),'pacotes não podem cair abaixo do piso econômico completo');
@@ -626,6 +628,19 @@ assert.ok(uniquePaymentReconciliation.includes('p_reconciliation_key text')&&uni
 assert.ok(adminOpsSource.includes('reconciliationKey')&&adminOpsSource.includes('p_reconciliation_key')&&adminOpsSource.includes('PAYMENT_RECONCILIATION_KEY_ALREADY_USED'),'admin-ops precisa transportar e traduzir a chave única de conciliação');
 assert.ok(admin.includes('EndToEndId do Pix')&&admin.includes('Identificador único da transação/recibo')&&admin.includes('reconciliationKey'),'admin deve coletar uma referência única real antes de aprovar');
 assert.ok(merchantOrdersBillingSource.includes('reconciliation_key')&&merchant.includes('r.reconciliationKey'),'histórico da revenda precisa receber o identificador reconciliado confirmado');
+assert.ok(paymentEventReconciliation.includes('create table if not exists public.merchant_billing_payment_events')&&paymentEventReconciliation.includes("status in ('received','matched_exact','review_required','already_applied','ignored','applied')"),'v1.81 precisa persistir uma inbox server-only para eventos de pagamento');
+assert.ok(paymentEventReconciliation.includes('merchant_billing_payment_events_provider_event_uq')&&paymentEventReconciliation.includes('PAYMENT_EVENT_IDEMPOTENCY_CONFLICT'),'evento de provedor precisa ser idempotente e detectar replay conflitante');
+assert.ok(paymentEventReconciliation.includes('merchant_billing_pending_reference_amount_idx')&&paymentEventReconciliation.includes('exact_reference_and_amount'),'matcher precisa usar referência normalizada + valor exato sem adivinhação por valor');
+assert.ok(paymentEventReconciliation.includes('multiple_exact_candidates')&&paymentEventReconciliation.includes('reference_found_but_amount_differs')&&paymentEventReconciliation.includes('no_exact_pending_request'),'ambiguidades de conciliação precisam ir para revisão, nunca movimentar saldo');
+assert.ok(paymentEventReconciliation.includes('mark_reconciled_payment_event_applied_trg')&&paymentEventReconciliation.includes("status='applied'"),'evento conciliado precisa ser fechado automaticamente quando a solicitação for aprovada');
+assert.ok(paymentEventReconciliation.includes("revoke all on table public.merchant_billing_payment_events from public, anon, authenticated")&&paymentEventReconciliation.includes('to service_role, postgres'),'inbox financeira e RPC de ingestão precisam permanecer server-only');
+assert.ok(billingPaymentWebhookSource.includes('x-tamao-signature')&&billingPaymentWebhookSource.includes('hmacSha256Hex')&&billingPaymentWebhookSource.includes('constantTimeEqualHex'),'webhook de pagamentos precisa verificar HMAC antes de tocar o banco');
+assert.ok(billingPaymentWebhookSource.includes('MAX_SKEW_SECONDS=300')&&billingPaymentWebhookSource.includes('STALE_WEBHOOK'),'webhook precisa limitar replay temporal a cinco minutos');
+assert.ok(billingPaymentWebhookSource.includes('BILLING_PAYMENT_WEBHOOK_SECRETS')&&billingPaymentWebhookSource.includes('WEBHOOK_PROVIDER_NOT_CONFIGURED'),'provedor sem segredo configurado precisa falhar fechado');
+assert.ok(billingPaymentWebhookSource.includes('ingest_merchant_billing_payment_event')&&billingPaymentWebhookSource.includes('raw_payload_sha256'),'webhook autenticado precisa delegar matching ao RPC e preservar hash do payload bruto');
+assert.ok(adminOpsSource.includes('merchant_billing_payment_events')&&adminOpsSource.includes('paymentEvents:billingPaymentEvents.data??[]'),'admin-ops precisa levar eventos financeiros reconciliáveis apenas para perfis financeiros');
+assert.ok(admin.includes('Conciliação automática pronta.')&&admin.includes('Confirmar evento conciliado')&&admin.includes("status==='matched_exact'"),'admin precisa diferenciar evento exato de revisão manual');
+assert.ok(merchant.includes('EndToEndId')&&merchant.includes('conciliação automaticamente'),'revenda precisa ser orientada a fornecer identificador compatível com matching automático');
 assert.ok(merchantOpsBillingSource.includes('request-billing-package')&&merchantOpsBillingSource.includes('notify-billing-payment')&&merchantOpsBillingSource.includes('merchant_billing_request_action'),'portal da revenda precisa criar avisos financeiros pela autoridade idempotente');
 assert.ok(merchantOpsBillingSource.includes('MERCHANT_FINANCE_PERMISSION_DENIED')&&merchantOpsBillingSource.includes('canManage(role)'),'somente owner/manager pode solicitar pacote ou informar pagamento');
 assert.ok(merchantOrdersBillingSource.includes('merchant_billing_payment_requests')&&merchantOrdersBillingSource.includes('paymentRequests:'),'snapshot financeiro da revenda precisa expor suas solicitações recentes');
@@ -1036,6 +1051,11 @@ for(const entry of fs.readdirSync(functionRoot,{withFileTypes:true})){
     assert.ok(source.includes('ALLOWED_ORIGINS')&&source.includes('originAllowed'),entry.name+' precisa restringir origem explicitamente');
     assert.ok(source.includes('EVENT_TYPES')&&source.includes('AUDIENCES'),entry.name+' precisa manter allowlists de evento e público');
     assert.ok(source.includes('record_prelaunch_marketing_event'),entry.name+' precisa gravar somente pelo RPC agregado');
+  }else if(entry.name==='billing-payment-webhook'){
+    assert.ok(source.includes('MAX_BODY_BYTES=16384')&&source.includes('TextEncoder().encode(rawBody).byteLength>MAX_BODY_BYTES'),entry.name+' precisa limitar o corpo bruto antes do parse');
+    assert.ok(source.includes('x-tamao-signature')&&source.includes('hmacSha256Hex')&&source.includes('constantTimeEqualHex'),entry.name+' precisa autenticar o payload bruto por HMAC');
+    assert.ok(source.includes('MAX_SKEW_SECONDS=300')&&source.includes('STALE_WEBHOOK'),entry.name+' precisa bloquear replay temporal');
+    assert.ok(source.includes('ingest_merchant_billing_payment_event'),entry.name+' precisa usar autoridade transacional server-only');
   }else{
     assert.ok(source.includes('readJsonBody(req)'),entry.name+' precisa limitar JSON');
     assert.ok(source.includes('enforceApiQuota(admin'),entry.name+' precisa aplicar quota server-side');

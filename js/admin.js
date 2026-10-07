@@ -1231,7 +1231,9 @@ function adminBillingStatementCard(statement){
 }
 function adminBillingPaymentRequestCard(request){
   const plans=adminRuntime.data?.merchantBilling?.plans||[];
+  const events=adminRuntime.data?.merchantBilling?.paymentEvents||[];
   const plan=plans.find(p=>p.plan_key===request.plan_key);
+  const matchedEvent=events.find(e=>e.status==='matched_exact'&&e.payment_request_id===request.id)||null;
   const pending=request.status==='pending';
   const approved=request.status==='approved';
   const title=request.request_kind==='package_purchase'
@@ -1252,11 +1254,37 @@ function adminBillingPaymentRequestCard(request){
     <div class="order-line"><strong>Referência informada pela revenda:</strong> ${esc(request.merchant_reference||'—')}</div>
     ${request.admin_reference?`<div class="tiny muted">Referência administrativa: ${esc(request.admin_reference)}</div>`:''}
     ${approved&&request.received_amount_cents!=null?`<div class="tiny muted">Recebido: ${adminMoney(request.received_amount_cents)} • ${esc(adminPaymentMethodLabel(request.payment_method))}${request.reconciliation_key?' • ID '+esc(request.reconciliation_key):''}</div>`:''}
-    ${pending?`<div class="notice" style="margin-top:10px"><strong>Nenhum crédito ou quitação ocorreu ainda.</strong><br>Confira o recebimento no meio financeiro antes de aprovar. A aprovação exige valor recebido exato, meio de pagamento e referência.</div>
+    ${pending?`${matchedEvent?`<div class="notice success" style="margin-top:10px"><strong>Conciliação automática pronta.</strong><br>${esc(matchedEvent.provider)} confirmou ${adminMoney(matchedEvent.amount_cents)} • ${esc(adminPaymentMethodLabel(matchedEvent.payment_method))} • ID ${esc(matchedEvent.reconciliation_key)}.</div>`:`<div class="notice" style="margin-top:10px"><strong>Nenhum crédito ou quitação ocorreu ainda.</strong><br>Confira o recebimento no meio financeiro antes de aprovar. A aprovação exige valor recebido exato, meio de pagamento e referência.</div>`}
       <div class="order-actions">
-        <button class="primary small" onclick="adminResolveBillingPaymentRequest('${esc(request.id)}','approve')">Confirmar recebimento</button>
+        ${matchedEvent?`<button class="primary small" onclick="adminResolveBillingPaymentRequest('${esc(request.id)}','approve','${esc(matchedEvent.id)}')">Confirmar evento conciliado</button><button class="secondary small" onclick="adminResolveBillingPaymentRequest('${esc(request.id)}','approve')">Conferir manualmente</button>`:`<button class="primary small" onclick="adminResolveBillingPaymentRequest('${esc(request.id)}','approve')">Confirmar recebimento</button>`}
         <button class="danger-btn small" onclick="adminResolveBillingPaymentRequest('${esc(request.id)}','reject')">Rejeitar</button>
       </div>`:''}
+  </article>`;
+}
+
+function adminBillingPaymentEventLabel(status){
+  return ({
+    received:'RECEBIDO',
+    matched_exact:'CONCILIADO',
+    review_required:'REVISAR',
+    already_applied:'JÁ APLICADO',
+    ignored:'IGNORADO',
+    applied:'APLICADO'
+  })[String(status||'')]||String(status||'—').toUpperCase();
+}
+function adminBillingPaymentEventCard(event){
+  const status=String(event.status||'');
+  const matched=status==='matched_exact';
+  const review=status==='review_required';
+  const statusClass=matched||status==='applied'||status==='already_applied'?'online':review?'risk':'';
+  const merchant=event.merchant_id?adminMerchantName(event.merchant_id):'Sem revenda vinculada';
+  return `<article class="order-card">
+    <div class="order-head"><div><div class="order-id">${esc(event.provider)} • ${esc(event.provider_event_id)}</div><div class="tiny muted">${esc(event.received_at?new Date(event.received_at).toLocaleString('pt-BR'):'—')} • ${esc(merchant)}</div></div><span class="status-pill ${statusClass}">${esc(adminBillingPaymentEventLabel(status))}</span></div>
+    <div class="order-line"><strong>Pagamento:</strong> ${adminMoney(event.amount_cents)} • ${esc(adminPaymentMethodLabel(event.payment_method))}</div>
+    <div class="tiny muted">ID conciliável: ${esc(event.reconciliation_key)}${event.payer_reference?' • pagador '+esc(event.payer_reference):''}</div>
+    ${event.match_reason?`<div class="tiny muted">Motor: ${esc(event.match_reason)}</div>`:''}
+    ${matched&&event.payment_request_id?`<div class="notice success" style="margin-top:10px"><strong>Correspondência exata encontrada.</strong><br>Valor e identificador coincidem com uma solicitação pendente.</div><div class="order-actions"><button class="primary small" onclick="adminResolveBillingPaymentRequest('${esc(event.payment_request_id)}','approve','${esc(event.id)}')">Confirmar evento conciliado</button></div>`:''}
+    ${review?`<div class="notice" style="margin-top:10px"><strong>Revisão obrigatória.</strong><br>O evento não movimentou saldo porque não houve correspondência exata e única.</div>`:''}
   </article>`;
 }
 
@@ -1331,16 +1359,19 @@ function adminMerchantBillingSection(d){
   const accounts=billing.accounts||[];
   const statements=billing.statements||[];
   const paymentRequests=billing.paymentRequests||[];
+  const paymentEvents=billing.paymentEvents||[];
   const metrics=billing.metrics||null;
   const reconciliation=billing.reconciliation||null;
   const pendingPaymentRequests=paymentRequests.filter(x=>x.status==='pending');
   const openStatements=statements.filter(x=>['open','overdue'].includes(x.status));
   const overdue=openStatements.filter(x=>x.status==='overdue');
   const held=accounts.filter(x=>x.sales_hold);
+  const actionableEvents=paymentEvents.filter(x=>['matched_exact','review_required'].includes(x.status));
   return `<section class="section">
     <div class="section-head"><div><span class="section-kicker">COBRANÇA DAS REVENDAS</span><h2>Fechamento diário + pacotes</h2><p>Cada pedido mantém sua taxa auditável. À 00:05 o dia anterior é consolidado; o saldo vence no fim do dia seguinte. Crédito pré-pago reduz a taxa e evita pagamento diário enquanto houver saldo.</p></div><div class="order-actions"><span class="status-pill ${Number(metrics?.overdueStatementCount??overdue.length)?'offline':'online'}">${Number(metrics?.overdueStatementCount??overdue.length)} vencido(s)</span><span class="status-pill ${Number(metrics?.salesHoldCount??held.length)?'offline':'online'}">${Number(metrics?.salesHoldCount??held.length)} hold(s)</span></div></div>
     ${adminBillingMetricsView(metrics)}
     ${adminBillingReconciliationView(reconciliation)}
+    ${actionableEvents.length?`<div class="section-head" style="margin-top:18px"><div><h3>Eventos de pagamento</h3><p>Eventos autenticados do provedor são conciliados por valor + identificador. Ambiguidades nunca movimentam saldo automaticamente.</p></div><span class="status-pill ${actionableEvents.some(x=>x.status==='review_required')?'risk':'online'}">${actionableEvents.length} evento(s)</span></div>${actionableEvents.map(adminBillingPaymentEventCard).join('')}`:''}
     ${plans.length?`<div class="admin-entity-grid">${plans.map(adminBillingPlanCard).join('')}</div>`:'<div class="notice">Motor de cobrança diária ainda não está ativo neste ambiente.</div>'}
     <div class="section-head" style="margin-top:18px"><div><h3>Pagamentos aguardando conferência</h3><p>Aprovar é uma ação financeira: pacote gera crédito; fechamento diário é quitado. A referência da revenda, sozinha, nunca movimenta saldo.</p></div><span class="status-pill ${pendingPaymentRequests.length?'risk':'online'}">${pendingPaymentRequests.length} pendente(s)</span></div>
     ${pendingPaymentRequests.length?pendingPaymentRequests.map(adminBillingPaymentRequestCard).join(''):'<div class="empty card">Nenhum pagamento aguarda conferência.</div>'}
@@ -2218,15 +2249,34 @@ async function adminAddPlatformAdmin(){
   }catch(e){toast(String(e?.message||e))}
 }
 
-async function adminResolveBillingPaymentRequest(paymentRequestId,requestAction){
-  const request=(adminRuntime.data?.merchantBilling?.paymentRequests||[]).find(x=>x.id===paymentRequestId);
+async function adminResolveBillingPaymentRequest(paymentRequestId,requestAction,reconciledEventId=null){
+  const billing=adminRuntime.data?.merchantBilling||{};
+  const request=(billing.paymentRequests||[]).find(x=>x.id===paymentRequestId);
   if(!request)return toast('Solicitação financeira não encontrada');
   if(request.status!=='pending')return toast('Esta solicitação já foi resolvida');
   const approve=requestAction==='approve';
   const expectedCents=Number(request.expected_amount_cents||0);
+  const reconciledEvent=reconciledEventId
+    ?(billing.paymentEvents||[]).find(x=>x.id===reconciledEventId)
+    :null;
+  if(reconciledEventId&&(
+    !reconciledEvent
+    ||reconciledEvent.status!=='matched_exact'
+    ||reconciledEvent.payment_request_id!==request.id
+  )){
+    return toast('O evento conciliado mudou. Atualize o painel antes de aprovar.');
+  }
   let receivedAmountCents=null;
   let paymentMethod=null;
-  if(approve){
+  let reconciliationKey=null;
+  if(approve&&reconciledEvent){
+    receivedAmountCents=Number(reconciledEvent.amount_cents||0);
+    paymentMethod=String(reconciledEvent.payment_method||'');
+    reconciliationKey=String(reconciledEvent.reconciliation_key||'').trim();
+    if(receivedAmountCents!==expectedCents){
+      return toast('O evento não possui o valor exato desta solicitação.');
+    }
+  }else if(approve){
     const defaultAmount=(expectedCents/100).toFixed(2).replace('.',',');
     const receivedRaw=prompt('Valor efetivamente recebido (R$):',defaultAmount);
     if(receivedRaw==null)return;
@@ -2239,9 +2289,6 @@ async function adminResolveBillingPaymentRequest(paymentRequestId,requestAction)
     if(methodRaw==null)return;
     paymentMethod=adminNormalizePaymentMethod(methodRaw);
     if(!paymentMethod)return toast('Informe uma forma de pagamento válida');
-  }
-  let reconciliationKey=null;
-  if(approve){
     const keyHint=paymentMethod==='pix'
       ? 'Identificador único da transação (EndToEndId do Pix):'
       : 'Identificador único da transação/recibo:';
@@ -2251,7 +2298,13 @@ async function adminResolveBillingPaymentRequest(paymentRequestId,requestAction)
       return toast('Informe um identificador único da transação entre 6 e 160 caracteres');
     }
   }
-  const reference=prompt(approve?'Referência/observação da conferência financeira:':'Motivo da rejeição:')||'';
+  const defaultReference=reconciledEvent
+    ?'Evento '+reconciledEvent.provider+' • '+reconciledEvent.provider_event_id
+    :'';
+  const reference=prompt(
+    approve?'Referência/observação da conferência financeira:':'Motivo da rejeição:',
+    defaultReference
+  )||'';
   if(reference.trim().length<3)return toast('Informe uma referência');
   const amount=adminMoney(expectedCents);
   const message=approve
