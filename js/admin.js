@@ -1250,6 +1250,48 @@ function adminBillingMetricsView(metrics){
   </div>`;
 }
 
+function adminBillingReconciliationMessage(issue){
+  const labels={
+    account_ledger_balance_mismatch:'Saldo da conta diverge do razão de créditos.',
+    account_reserved_order_mismatch:'Reserva financeira diverge dos pedidos ainda não liquidados.',
+    flex_with_prepaid_credit:'Conta em Flex ainda carrega crédito ou reserva pré-paga.',
+    approved_package_without_ledger_credit:'Pacote aprovado sem crédito correspondente no ledger.',
+    linked_package_credit_not_approved:'Crédito de pacote ligado a uma solicitação que não está aprovada.',
+    approved_statement_not_paid:'Pagamento D+1 aprovado sem fechamento marcado como pago.',
+    pending_statement_terms_changed:'Aviso de pagamento está pendente, mas os termos do fechamento mudaram.',
+    resolved_statement_has_open_receivable:'Fechamento resolvido ainda possui recebível aberto.',
+    overdue_without_sales_hold:'Fechamento vencido ainda não gerou hold de novas vendas.',
+    sales_hold_without_overdue_statement:'Hold financeiro existe sem fechamento vencido correspondente.',
+    pending_payment_review_over_24h:'Pagamento informado aguarda conferência há mais de 24 horas.'
+  };
+  return labels[String(issue?.issueType||'')]||String(issue?.issueType||'Divergência financeira');
+}
+
+function adminBillingReconciliationView(reconciliation){
+  if(!reconciliation)return '';
+  const issues=Array.isArray(reconciliation.issues)?reconciliation.issues:[];
+  const critical=Number(reconciliation.criticalCount||0);
+  const warnings=Number(reconciliation.warningCount||0);
+  const healthy=reconciliation.healthy===true&&critical===0&&warnings===0;
+  const issueRows=issues.map(issue=>{
+    const severity=String(issue.severity||'warning');
+    const merchant=adminMerchantName(issue.merchantId);
+    const expected=Number(issue.expectedCents||0);
+    const actual=Number(issue.actualCents||0);
+    const amountDiff=expected!==actual
+      ? `<div class="tiny muted">Esperado: ${adminMoney(expected)} • atual: ${adminMoney(actual)}</div>`
+      : '';
+    const age=Number(issue.ageHours);
+    return `<div class="list-row"><div><strong>${esc(adminBillingReconciliationMessage(issue))}</strong><br><small>${esc(merchant)} • ${esc(issue.entityId||'—')}${Number.isFinite(age)?' • '+age.toLocaleString('pt-BR',{maximumFractionDigits:1})+'h':''}</small>${amountDiff}</div><span class="status-pill ${severity==='critical'?'offline':'risk'}">${severity==='critical'?'CRÍTICO':'ATENÇÃO'}</span></div>`;
+  }).join('');
+  return `<div class="card flat" style="margin-bottom:16px">
+    <div class="section-head"><div><h3>Reconciliação financeira</h3><p>Auditoria independente entre conta, ledger, reservas de pedidos, solicitações de pagamento e fechamentos D+1.</p></div><span class="status-pill ${healthy?'online':'offline'}">${healthy?'ÍNTEGRA':critical+' crítico(s)'}</span></div>
+    <div class="tiny muted">Divergências: ${Number(reconciliation.issueCount||0)} • críticas: ${critical} • alertas: ${warnings} • pagamentos aguardando revisão há mais de 24h: ${Number(reconciliation.stalePendingReviewCount||0)}</div>
+    ${issueRows?`<div class="list" style="margin-top:10px">${issueRows}</div>`:'<div class="notice success" style="margin-top:10px"><strong>Conciliação fechada.</strong><br>Nenhuma divergência encontrada entre os registros financeiros auditados.</div>'}
+    ${Number(reconciliation.issueCount||0)>issues.length?`<div class="tiny muted" style="margin-top:8px">Mostrando as primeiras ${issues.length} divergências de ${Number(reconciliation.issueCount||0)}.</div>`:''}
+  </div>`;
+}
+
 function adminMerchantBillingSection(d){
   const billing=d.merchantBilling||{};
   const plans=billing.plans||[];
@@ -1257,6 +1299,7 @@ function adminMerchantBillingSection(d){
   const statements=billing.statements||[];
   const paymentRequests=billing.paymentRequests||[];
   const metrics=billing.metrics||null;
+  const reconciliation=billing.reconciliation||null;
   const pendingPaymentRequests=paymentRequests.filter(x=>x.status==='pending');
   const openStatements=statements.filter(x=>['open','overdue'].includes(x.status));
   const overdue=openStatements.filter(x=>x.status==='overdue');
@@ -1264,6 +1307,7 @@ function adminMerchantBillingSection(d){
   return `<section class="section">
     <div class="section-head"><div><span class="section-kicker">COBRANÇA DAS REVENDAS</span><h2>Fechamento diário + pacotes</h2><p>Cada pedido mantém sua taxa auditável. À 00:05 o dia anterior é consolidado; o saldo vence no fim do dia seguinte. Crédito pré-pago reduz a taxa e evita pagamento diário enquanto houver saldo.</p></div><div class="order-actions"><span class="status-pill ${Number(metrics?.overdueStatementCount??overdue.length)?'offline':'online'}">${Number(metrics?.overdueStatementCount??overdue.length)} vencido(s)</span><span class="status-pill ${Number(metrics?.salesHoldCount??held.length)?'offline':'online'}">${Number(metrics?.salesHoldCount??held.length)} hold(s)</span></div></div>
     ${adminBillingMetricsView(metrics)}
+    ${adminBillingReconciliationView(reconciliation)}
     ${plans.length?`<div class="admin-entity-grid">${plans.map(adminBillingPlanCard).join('')}</div>`:'<div class="notice">Motor de cobrança diária ainda não está ativo neste ambiente.</div>'}
     <div class="section-head" style="margin-top:18px"><div><h3>Pagamentos aguardando conferência</h3><p>Aprovar é uma ação financeira: pacote gera crédito; fechamento diário é quitado. A referência da revenda, sozinha, nunca movimenta saldo.</p></div><span class="status-pill ${pendingPaymentRequests.length?'risk':'online'}">${pendingPaymentRequests.length} pendente(s)</span></div>
     ${pendingPaymentRequests.length?pendingPaymentRequests.map(adminBillingPaymentRequestCard).join(''):'<div class="empty card">Nenhum pagamento aguarda conferência.</div>'}
