@@ -260,20 +260,43 @@ returns trigger
 language plpgsql
 security definer
 set search_path=pg_catalog
-as $$
-declare
-  v_merchant uuid;
+as $
 begin
-  v_merchant:=case when tg_table_name='quotes' then new.merchant_id else new.merchant_id end;
+  if tg_table_name='quotes' then
+    if new.merchant_id is not null
+       and not public.merchant_financial_sales_allowed(new.merchant_id) then
+      raise exception 'MERCHANT_FINANCIAL_SALES_HOLD' using errcode='42501';
+    end if;
+    return new;
+  end if;
 
-  if v_merchant is not null
-     and not public.merchant_financial_sales_allowed(v_merchant) then
-    raise exception 'MERCHANT_FINANCIAL_SALES_HOLD' using errcode='42501';
+  if tg_table_name='orders' then
+    if tg_op='INSERT' then
+      if new.merchant_id is not null
+         and not public.merchant_financial_sales_allowed(new.merchant_id) then
+        raise exception 'MERCHANT_FINANCIAL_SALES_HOLD' using errcode='42501';
+      end if;
+      if new.proposed_merchant_id is not null
+         and not public.merchant_financial_sales_allowed(new.proposed_merchant_id) then
+        raise exception 'MERCHANT_FINANCIAL_SALES_HOLD' using errcode='42501';
+      end if;
+    else
+      if new.merchant_id is distinct from old.merchant_id
+         and new.merchant_id is not null
+         and not public.merchant_financial_sales_allowed(new.merchant_id) then
+        raise exception 'MERCHANT_FINANCIAL_SALES_HOLD' using errcode='42501';
+      end if;
+      if new.proposed_merchant_id is distinct from old.proposed_merchant_id
+         and new.proposed_merchant_id is not null
+         and not public.merchant_financial_sales_allowed(new.proposed_merchant_id) then
+        raise exception 'MERCHANT_FINANCIAL_SALES_HOLD' using errcode='42501';
+      end if;
+    end if;
   end if;
 
   return new;
 end;
-$$;
+$;
 
 revoke all on function public.require_merchant_financial_sales_allowed()
 from public, anon, authenticated;
@@ -289,7 +312,7 @@ for each row execute function public.require_merchant_financial_sales_allowed();
 drop trigger if exists require_merchant_financial_sales_allowed_order_trg
 on public.orders;
 create trigger require_merchant_financial_sales_allowed_order_trg
-before insert on public.orders
+before insert or update of merchant_id,proposed_merchant_id on public.orders
 for each row execute function public.require_merchant_financial_sales_allowed();
 
 create or replace function public.snapshot_order_economics()
@@ -951,9 +974,9 @@ begin
     if exists(
       select 1 from public.merchant_billing_accounts
       where merchant_id=p_merchant_id
-        and credit_reserved_cents>0
+        and (credit_reserved_cents>0 or credit_balance_cents>0)
     ) then
-      raise exception 'PREPAID_RESERVATIONS_ACTIVE' using errcode='40001';
+      raise exception 'PREPAID_CREDIT_STILL_AVAILABLE' using errcode='40001';
     end if;
 
     update public.merchant_billing_accounts
