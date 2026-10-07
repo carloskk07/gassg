@@ -13,7 +13,8 @@ declare
   v_account public.merchant_billing_accounts%rowtype;
   v_plan public.merchant_billing_plans%rowtype;
   v_flex public.merchant_billing_plans%rowtype;
-  v_projected_fee integer:=0;
+  v_package_fee integer:=0;
+  v_flex_fee integer:=0;
   v_available bigint:=0;
   v_reservation integer:=0;
 begin
@@ -83,7 +84,7 @@ begin
   end if;
 
   if v_plan.billing_mode='prepaid_credit' then
-    v_projected_fee:=floor(
+    v_package_fee:=floor(
       (new.gross_total_cents::numeric*v_plan.platform_fee_bps)/10000
     )::integer;
     v_available:=greatest(
@@ -91,16 +92,33 @@ begin
       0
     );
 
-    if v_projected_fee>0 and v_available>0 then
-      v_reservation:=least(v_projected_fee,v_available)::integer;
+    if v_package_fee>0 and v_available>=v_package_fee then
       new.platform_fee_bps_snapshot:=v_plan.platform_fee_bps;
       new.billing_plan_key_snapshot:=v_plan.plan_key;
-      new.prepaid_fee_reserved_cents_snapshot:=v_reservation;
+      new.prepaid_fee_reserved_cents_snapshot:=v_package_fee;
 
       update public.merchant_billing_accounts
-      set credit_reserved_cents=credit_reserved_cents+v_reservation,
+      set credit_reserved_cents=credit_reserved_cents+v_package_fee,
           updated_at=clock_timestamp()
       where merchant_id=new.merchant_id;
+    elsif v_available>0 then
+      -- The prepaid discount only applies when the discounted fee is fully covered.
+      -- Residual credit still pays down the final Flex-rate fee so no cent is stranded.
+      v_flex_fee:=floor(
+        (new.gross_total_cents::numeric*v_flex.platform_fee_bps)/10000
+      )::integer;
+      new.platform_fee_bps_snapshot:=v_flex.platform_fee_bps;
+      new.billing_plan_key_snapshot:=v_flex.plan_key;
+
+      if v_flex_fee>0 then
+        v_reservation:=least(v_flex_fee,v_available)::integer;
+        new.prepaid_fee_reserved_cents_snapshot:=v_reservation;
+
+        update public.merchant_billing_accounts
+        set credit_reserved_cents=credit_reserved_cents+v_reservation,
+            updated_at=clock_timestamp()
+        where merchant_id=new.merchant_id;
+      end if;
     else
       new.platform_fee_bps_snapshot:=v_flex.platform_fee_bps;
       new.billing_plan_key_snapshot:=v_flex.plan_key;
