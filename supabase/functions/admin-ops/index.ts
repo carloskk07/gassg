@@ -344,9 +344,9 @@ async function adminEntityDetail(admin:any,entityType:unknown,rawId:unknown){
 async function adminSystemHealth(admin:any){
   const started=Date.now();
   const now=new Date();
-  const heartbeatCutoff=new Date(now.getTime()-15*60*1000).toISOString();
-  const priceCutoff=new Date(now.getTime()-24*60*60*1000).toISOString();
-  const [portals,readiness,openSupport,rewardDebt,accountingDebt,overdueReceivables,overdueCashback,staleHeartbeat,stalePrice]=await Promise.all([
+  const heartbeatCutoff=now.getTime()-15*60*1000;
+  const priceCutoff=now.getTime()-24*60*60*1000;
+  const [portals,readiness,openSupport,rewardDebt,accountingDebt,overdueReceivables,overdueCashback,activeMerchants]=await Promise.all([
     verifyLivePortals(),
     admin.rpc("platform_launch_readiness"),
     admin.from("support_cases").select("id",{count:"exact",head:true}).in("status",["open","in_review"]),
@@ -354,20 +354,28 @@ async function adminSystemHealth(admin:any){
     admin.from("settlement_accounting_failures").select("order_id",{count:"exact",head:true}).is("resolved_at",null),
     admin.from("platform_receivables").select("order_id",{count:"exact",head:true}).eq("status","open").lt("due_at",now.toISOString()),
     admin.from("merchant_cashback_reimbursements").select("order_id",{count:"exact",head:true}).eq("status","open").lt("due_at",now.toISOString()),
-    admin.from("merchants").select("id",{count:"exact",head:true}).eq("status","active").or("last_seen_at.is.null,last_seen_at.lt."+heartbeatCutoff),
-    admin.from("merchants").select("id",{count:"exact",head:true}).eq("status","active").or("price_confirmed_at.is.null,price_confirmed_at.lt."+priceCutoff)
+    admin.from("merchants").select("id,last_seen_at,price_confirmed_at").eq("status","active").limit(1000)
   ]);
-  for(const result of [readiness,openSupport,rewardDebt,accountingDebt,overdueReceivables,overdueCashback,staleHeartbeat,stalePrice]){
+  for(const result of [readiness,openSupport,rewardDebt,accountingDebt,overdueReceivables,overdueCashback,activeMerchants]){
     if(result.error)throw result.error;
   }
+  const activeMerchantRows=activeMerchants.data??[];
+  const staleMerchantHeartbeat=activeMerchantRows.filter((m:any)=>{
+    const ts=Date.parse(String(m.last_seen_at??""));
+    return !Number.isFinite(ts)||ts<heartbeatCutoff;
+  }).length;
+  const staleMerchantPrice=activeMerchantRows.filter((m:any)=>{
+    const ts=Date.parse(String(m.price_confirmed_at??""));
+    return !Number.isFinite(ts)||ts<priceCutoff;
+  }).length;
   const queues={
     openSupport:Number(openSupport.count||0),
     rewardFailures:Number(rewardDebt.count||0),
     accountingFailures:Number(accountingDebt.count||0),
     overdueReceivables:Number(overdueReceivables.count||0),
     overdueCashback:Number(overdueCashback.count||0),
-    staleMerchantHeartbeat:Number(staleHeartbeat.count||0),
-    staleMerchantPrice:Number(stalePrice.count||0)
+    staleMerchantHeartbeat,
+    staleMerchantPrice
   };
   const critical=(!portals.ok)||(Array.isArray(readiness.data?.securityBlockers)&&readiness.data.securityBlockers.length>0);
   const degraded=Object.values(queues).some((x:any)=>Number(x)>0);
