@@ -308,7 +308,10 @@ begin
       select e.id
       from public.merchant_billing_payment_events e
       where e.status in ('received','review_required','matched_exact')
-        and e.payment_request_id=old.id
+        and (
+          e.payment_request_id=old.id
+          or lower(trim(e.reconciliation_key))=lower(trim(old.merchant_reference))
+        )
       order by e.received_at asc,e.id
     loop
       perform public.reconcile_merchant_billing_payment_event(v_event_id);
