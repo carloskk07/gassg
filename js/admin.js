@@ -967,6 +967,7 @@ function adminPilotInviteControls(p,id){
   const active=Boolean(invite&&Number.isFinite(expiresAt)&&expiresAt>Date.now());
   const label=active?'ativo até '+new Date(invite.expiresAt).toLocaleString('pt-BR'):invite?'expirado':'nenhum convite ativo';
   return '<div class="order-line"><strong>Convite do parceiro:</strong> '+esc(label)+'</div>'+
+    (active?'<div class="tiny muted">Por segurança, o link não é armazenado em claro e não pode ser recuperado depois. Se você não salvou o link quando ele foi criado, use <strong>Rotacionar convite</strong>.</div>':'')+
     '<div class="order-actions"><button class="secondary small" onclick="adminIssuePilotInvite(\''+esc(id)+'\')">'+(active?'Rotacionar convite':'Gerar convite')+'</button>'+
     (active?'<button class="danger-btn small" onclick="adminRevokePilotInvite(\''+esc(id)+'\')">Revogar convite</button>':'')+'</div>';
 }
@@ -1830,7 +1831,7 @@ async function adminIssuePilotInvite(id){
     const result=await adminPerform('pilot-invite',{pilotPartnerId:id,inviteAction:'issue',token,expiresAt});
     const link=adminPilotInviteLink(token);
     try{await navigator.clipboard?.writeText(link)}catch{}
-    prompt('Convite criado'+(Number(result?.rotatedPreviousCount||0)>0?' e o link anterior foi revogado':'')+'. Copie este link e envie ao parceiro:',link);
+    prompt('Convite criado'+(Number(result?.rotatedPreviousCount||0)>0?' e o link anterior foi revogado':'')+'. Copie este link agora e envie ao parceiro. Por segurança, ele não poderá ser recuperado depois; se for perdido, rotacione o convite:',link);
     toast('Convite piloto criado com validade até '+new Date(result?.expiresAt||expiresAt).toLocaleString('pt-BR'));
   }catch(e){toast(String(e?.message||e))}
 }
