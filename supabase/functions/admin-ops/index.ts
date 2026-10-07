@@ -191,6 +191,115 @@ async function verifyLivePortals(){
   };
 }
 
+function adminRoleCanViewEntity(role:string,type:string){
+  if(["superadmin","readonly","operations","finance","support"].includes(role)){
+    return ["order","merchant","customer"].includes(type);
+  }
+  if(role==="compliance")return type==="merchant";
+  return false;
+}
+function redactOrderForFinance(order:any){
+  if(!order||typeof order!=="object")return order;
+  const copy={...order};
+  for(const key of ["customer_phone_digits","postal_code","address_text","delivery_reference"]){
+    if(key in copy)copy[key]=null;
+  }
+  return copy;
+}
+function scopeEntityDetail(role:string,result:any){
+  if(["superadmin","readonly"].includes(role))return result;
+  if(result?.type==="order"){
+    if(role==="finance"){
+      return {...result,order:redactOrderForFinance(result.order),support:[],audit:[]};
+    }
+    if(role==="support"){
+      return {...result,finance:{receivable:null,reimbursement:null,adjustments:[]},audit:[]};
+    }
+    if(role==="operations"){
+      return {...result,finance:{receivable:null,reimbursement:null,adjustments:[]}};
+    }
+  }
+  if(result?.type==="merchant"){
+    if(role==="finance"){
+      return {...result,business:null,compliance:null,capabilities:[],payments:[],members:[],catalog:[],support:[],audit:[]};
+    }
+    if(role==="support"){
+      return {...result,business:null,compliance:null,payments:[],members:[],finance:{receivables:[],reimbursements:[],adjustments:[]},audit:[]};
+    }
+    if(role==="compliance"){
+      return {...result,orders:[],support:[],finance:{receivables:[],reimbursements:[],adjustments:[]}};
+    }
+    if(role==="operations"){
+      return {...result,finance:{receivables:[],reimbursements:[],adjustments:[]}};
+    }
+  }
+  if(result?.type==="customer"&&role==="finance"){
+    return {...result,orders:(result.orders??[]).map(redactOrderForFinance),support:[],feedback:[]};
+  }
+  return result;
+}
+function scopeAdminSummary(role:string,data:any){
+  if(["superadmin","readonly"].includes(role))return data;
+  const current=data.currentAdmin??null;
+  const adminSelf=current?[current]:[];
+  if(role==="operations"){
+    return {
+      ...data,
+      finance:{receivables:[],cashbackReimbursements:[],adjustments:[]},
+      rewardFailures:[],accountingFailures:[],referralReviews:[],
+      platformAdmins:adminSelf,
+      recentAudit:(data.recentAudit??[]).filter((x:any)=>!String(x.action||"").match(/financial|reward|referral|admin_access|platform_admin/))
+    };
+  }
+  if(role==="finance"){
+    return {
+      ...data,
+      applications:[],pilotPartners:[],
+      merchants:(data.merchants??[]).map((m:any)=>({
+        id:m.id,name:m.name,cnpj:m.cnpj,status:m.status,online:m.online,trust_score:m.trust_score,
+        delivery_fee_cents:m.delivery_fee_cents,price_confirmed_at:m.price_confirmed_at,last_seen_at:m.last_seen_at
+      })),
+      productRegistry:{categories:[],products:[]},
+      supportCases:[],
+      controlOrders:(data.controlOrders??[]).map(redactOrderForFinance),
+      platformAdmins:adminSelf,
+      prelaunchLeads:[],acquisitionMetrics:{},publicRequests:[],
+      recentAudit:(data.recentAudit??[]).filter((x:any)=>String(x.action||"").match(/financial|reward|referral|reverse|settlement|commercial/))
+    };
+  }
+  if(role==="support"){
+    return {
+      ...data,
+      applications:[],pilotPartners:[],
+      merchants:(data.merchants??[]).map((m:any)=>({
+        id:m.id,name:m.name,status:m.status,online:m.online,trust_score:m.trust_score,
+        delivery_fee_cents:m.delivery_fee_cents,base_eta_minutes:m.base_eta_minutes,
+        price_confirmed_at:m.price_confirmed_at,last_seen_at:m.last_seen_at
+      })),
+      commercialPolicy:null,
+      productRegistry:{categories:[],products:[]},
+      finance:{receivables:[],cashbackReimbursements:[],adjustments:[]},
+      rewardFailures:[],accountingFailures:[],referralReviews:[],
+      platformAdmins:adminSelf,
+      prelaunchLeads:[],acquisitionMetrics:{},
+      recentAudit:[]
+    };
+  }
+  if(role==="compliance"){
+    return {
+      ...data,
+      businessMetrics:{},commercialPolicy:null,
+      productRegistry:{categories:[],products:[]},
+      supportCases:[],controlOrders:[],
+      finance:{receivables:[],cashbackReimbursements:[],adjustments:[]},
+      rewardFailures:[],accountingFailures:[],referralReviews:[],
+      platformAdmins:adminSelf,publicRequests:[],
+      recentAudit:(data.recentAudit??[]).filter((x:any)=>String(x.action||"").match(/merchant|application|compliance|delivery_capability|pilot/))
+    };
+  }
+  return {...data,platformAdmins:adminSelf};
+}
+
 function lookupText(value:unknown){
   const raw=String(value??"").trim().replace(/\s+/g," ");
   if(raw.length<2||raw.length>120){
@@ -204,7 +313,7 @@ function pushUniqueResult(target:any[],seen:Set<string>,item:any){
   seen.add(key);
   target.push(item);
 }
-async function adminSearch(admin:any,rawQuery:unknown){
+async function adminSearch(admin:any,rawQuery:unknown,role:string){
   const query=lookupText(rawQuery);
   const like="%"+query+"%";
   const digits=query.replace(/\D/g,"");
@@ -287,12 +396,20 @@ async function adminSearch(admin:any,rawQuery:unknown){
       }
     }
   }
-  return {query,results:results.slice(0,40)};
+  const allowedTypes=role==="compliance"
+    ? new Set(["merchant","application","lead"])
+    : ["finance","support"].includes(role)
+      ? new Set(["order","merchant","customer"])
+      : new Set(["order","merchant","customer","application","lead","request"]);
+  return {query,results:results.filter((x:any)=>allowedTypes.has(x.type)).slice(0,40)};
 }
-async function adminEntityDetail(admin:any,entityType:unknown,rawId:unknown){
+async function adminEntityDetail(admin:any,entityType:unknown,rawId:unknown,role:string){
   const type=String(entityType??"").trim().toLowerCase();
   if(!["order","merchant","customer"].includes(type)){
     throw new DomainError("INVALID_ADMIN_ENTITY","Tipo de detalhe administrativo inválido.",400);
+  }
+  if(!adminRoleCanViewEntity(role,type)){
+    throw new DomainError("ADMIN_PERMISSION_DENIED","Seu perfil administrativo não possui acesso a este tipo de detalhe.",403);
   }
   const id=String(rawId??"").trim();
   if(type!=="order")uuid(id,type);
@@ -315,7 +432,7 @@ async function adminEntityDetail(admin:any,entityType:unknown,rawId:unknown){
       order.merchant_id?admin.from("merchants").select("id,name,cnpj,status,online,trust_score,last_seen_at").eq("id",order.merchant_id).maybeSingle():Promise.resolve({data:null,error:null})
     ]);
     for(const result of [items,support,feedback,receivable,reimbursement,adjustments,audit,merchant])if(result.error)throw result.error;
-    return {type,id:order.id,order,items:items.data??[],support:support.data??[],feedback:feedback.data??null,merchant:merchant.data??null,finance:{receivable:receivable.data??null,reimbursement:reimbursement.data??null,adjustments:adjustments.data??[]},audit:audit.data??[]};
+    return scopeEntityDetail(role,{type,id:order.id,order,items:items.data??[],support:support.data??[],feedback:feedback.data??null,merchant:merchant.data??null,finance:{receivable:receivable.data??null,reimbursement:reimbursement.data??null,adjustments:adjustments.data??[]},audit:audit.data??[]});
   }
 
   if(type==="merchant"){
@@ -343,13 +460,13 @@ async function adminEntityDetail(admin:any,entityType:unknown,rawId:unknown){
     const cancelled=terminal.filter((x:any)=>x.status==="CANCELLED");
     const delivered=history.filter((x:any)=>x.delivered_at);
     const onTime=delivered.filter((x:any)=>x.delivered_at&&x.updated_at&&new Date(x.delivered_at).getTime()<=new Date(x.updated_at).getTime());
-    return {
+    return scopeEntityDetail(role,{
       type,id,merchant:merchantResult.data,business:business.data??null,compliance:compliance.data??null,
       capabilities:capabilities.data??[],payments:payments.data??[],members:members.data??[],catalog:catalog.data??[],
       orders:history,support:support.data??[],finance:{receivables:receivables.data??[],reimbursements:reimbursements.data??[],adjustments:adjustments.data??[]},
       metrics:{orders:history.length,settled:settled.length,cancelled:cancelled.length,cancellationRate:terminal.length?cancelled.length/terminal.length:null,onTimeKnown:delivered.length,onTimeCount:onTime.length},
       audit:audit.data??[]
-    };
+    });
   }
 
   const customerId=uuid(id,"customer");
@@ -365,7 +482,7 @@ async function adminEntityDetail(admin:any,entityType:unknown,rawId:unknown){
   const cancelled=history.filter((x:any)=>x.status==="CANCELLED");
   const spend=settled.reduce((sum:number,x:any)=>sum+Number(x.total_cents||0),0);
   const cashback=settled.reduce((sum:number,x:any)=>sum+Number(x.cashback_reserved_cents||0),0);
-  return {type,id:customerId,profile:profile.data??null,orders:history,support:support.data??[],feedback:feedback.data??[],metrics:{orders:history.length,settled:settled.length,cancelled:cancelled.length,spendCents:spend,cashbackCents:cashback}};
+  return scopeEntityDetail(role,{type,id:customerId,profile:profile.data??null,orders:history,support:support.data??[],feedback:feedback.data??[],metrics:{orders:history.length,settled:settled.length,cancelled:cancelled.length,spendCents:spend,cashbackCents:cashback}});
 }
 async function adminAuditSearch(admin:any,body:any){
   const limit=Math.min(200,Math.max(1,Number(body.limit||100)));
@@ -625,7 +742,7 @@ async function summary(admin:any,actorUserId:string){
     if(!capabilitiesByMerchant.has(cap.merchant_id))capabilitiesByMerchant.set(cap.merchant_id,[]);
     capabilitiesByMerchant.get(cap.merchant_id)!.push(cap);
   }
-  return {
+  const summaryResult={
     applications:apps.data??[],
     pilotPartners:(pilotPartners.data??[]).map((p:any)=>({
       ...p,
@@ -672,6 +789,8 @@ async function summary(admin:any,actorUserId:string){
     incidents:incidents.data??[],
     recentAudit:audit.data??[]
   };
+  const actorRole=String(summaryResult.currentAdmin?.admin_role||"superadmin");
+  return scopeAdminSummary(actorRole,summaryResult);
 }
 
 Deno.serve(async(req:Request)=>{
@@ -702,10 +821,10 @@ Deno.serve(async(req:Request)=>{
       return json(await summary(admin,user.id),200,origin);
     }
     if(action==="search"){
-      return json(await adminSearch(admin,body.query),200,origin);
+      return json(await adminSearch(admin,body.query,String(adminAccess.admin_role||"superadmin")),200,origin);
     }
     if(action==="entity-detail"){
-      return json(await adminEntityDetail(admin,body.entityType,body.entityId),200,origin);
+      return json(await adminEntityDetail(admin,body.entityType,body.entityId,String(adminAccess.admin_role||"superadmin")),200,origin);
     }
     if(action==="system-health"){
       return json(await adminSystemHealth(admin),200,origin);
