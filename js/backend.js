@@ -1548,6 +1548,40 @@ async function merchantBillingRequestLive(action,payload={}){
   }
 }
 
+async function merchantCreateBillingPixLive({planKey=null,statementId=null}={}){
+  const merchantId=merchantRuntime.merchant?.merchantId;
+  if(!merchantId)throw new Error('Revenda não selecionada');
+  if(!['owner','manager'].includes(String(merchantRuntime.merchant?.memberRole||''))){
+    throw new Error('Seu papel não pode gerar cobranças Pix');
+  }
+  const plan=planKey==null?null:String(planKey).trim().toLowerCase();
+  const statement=statementId==null?null:String(statementId).trim();
+  if((plan==null)===(statement==null))throw new Error('Informe o pacote ou fechamento');
+  if(plan!=null&&!/^[a-z][a-z0-9_]{1,39}$/.test(plan))throw new Error('Pacote de crédito inválido');
+  if(statement!=null&&!statement)throw new Error('Fechamento diário inválido');
+
+  merchantRuntime.actionPending=true;
+  merchantRuntime.error=null;
+  render();
+  try{
+    const idempotencyKey=liveIdempotency('merchant-billing-pix');
+    const result=await retryAmbiguousOnce(()=>merchantInvoke('merchant-billing-pix',{
+      merchantId,
+      planKey:plan,
+      statementId:statement
+    },{idempotencyKey}));
+    await merchantRefresh({silent:true});
+    return result;
+  }catch(error){
+    merchantRuntime.error=String(error?.message||error);
+    try{await merchantRefresh({silent:true})}catch{}
+    throw error;
+  }finally{
+    merchantRuntime.actionPending=false;
+    render();
+  }
+}
+
 async function merchantRequestBillingPackageLive(planKey,reference){
   const plan=String(planKey||'').trim().toLowerCase();
   const ref=String(reference||'').trim().replace(/\s+/g,' ');
