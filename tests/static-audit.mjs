@@ -634,6 +634,15 @@ assert.ok(!admin.includes('UUID da conta owner')&&admin.includes('Owner automát
 assert.ok(adminOpsSource.includes('inviteStatus')&&adminOpsSource.includes('ownerClaimed')&&adminOpsSource.includes('nextAction')&&adminOpsSource.includes('partner_claim_invite'),'summary admin precisa projetar progresso real do onboarding piloto');
 assert.ok(admin.includes('Onboarding real')&&admin.includes('pilot-step-grid')&&admin.includes('adminPilotNextActionCopy'),'painel admin precisa mostrar onboarding guiado e próxima ação');
 assert.ok(admin.includes('Aguarde o parceiro reivindicar o convite e concluir um cadastro válido'),'conversão no admin deve permanecer visualmente bloqueada antes do claim válido');
+const pilotClaimOrdering=read('supabase/migrations/20261007172500_pilot_invite_claim_ordering_v1_72_1.sql');
+assert.ok(pilotClaimOrdering.includes('claim_pilot_partner_invite_v2')&&pilotClaimOrdering.includes("v_app.status not in ('pending','approved')"),'claim V2 precisa aceitar pending/approved e permanecer fechado para outros estados');
+assert.ok(pilotClaimOrdering.includes("v_app.status='rejected'")&&pilotClaimOrdering.includes('APPLICATION_REJECTED'),'aplicação rejeitada não pode reivindicar convite sem reenvio');
+assert.ok(pilotClaimOrdering.includes('claim_my_pilot_partner_invite')&&pilotClaimOrdering.includes('claim_pilot_partner_invite_v2'),'wrapper autenticado precisa usar a autoridade de claim V2');
+assert.ok(pilotClaimOrdering.includes('revoke all on function public.claim_pilot_partner_invite_v2')&&pilotClaimOrdering.includes('to service_role'),'autoridade interna de claim V2 precisa permanecer server-only');
+const merchantUiSource=read('js/merchant.js');
+const bootstrapSource=read('js/bootstrap.js');
+assert.ok(merchantUiSource.includes('Convite reconhecido.')&&merchantUiSource.includes('Entre para continuar seu cadastro'),'login da revenda precisa reconhecer visualmente o convite sem expor token');
+assert.ok(bootstrapSource.includes("invitedPartner&&globalThis.merchantRuntime?.status==='no-access'")&&bootstrapSource.includes("go('merchant-join')"),'retorno do magic link de parceiro convidado precisa ir direto ao cadastro');
 assert.ok(admin.includes('application?.companyName')&&admin.includes('application?.cnpj')&&admin.includes('application?.responsibleName'),'dados enviados pelo parceiro devem pré-preencher a conversão assistida');
 const orderControlAuthority=read('supabase/migrations/20261004145100_admin_order_control_tower_v1_64.sql');
 const orderControlPrivacy=read('supabase/migrations/20261005220000_admin_order_event_privacy_v1_70_14.sql');
