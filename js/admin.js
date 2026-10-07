@@ -980,7 +980,16 @@ function adminPilotNextActionCopy(p){
     partner_claim_invite:'Convite ativo. O próximo passo é o parceiro abrir o link, entrar com o e-mail dele e concluir o cadastro.',
     review_and_convert:'Convite reivindicado e cadastro ligado ao parceiro. Revise os dados reais abaixo e converta a revenda.',
     partner_resubmit:'O cadastro ligado ao convite foi rejeitado. O parceiro precisa corrigir e reenviar antes da conversão.',
-    merchant_setup_review:'A revenda já foi criada. Agora valide CNPJ/ANP, pagamentos, estoque/logística e só depois ative a operação.',
+    merchant_setup_review:'A revenda já foi criada. Revise as pendências operacionais abaixo antes de ativá-la.',
+    assign_owner:'Vincule um owner operacional permanente à revenda.',
+    verify_compliance:'Valide CNPJ e, quando aplicável, ANP antes de ativar a operação.',
+    confirm_payment:'Confirme ao menos uma forma de pagamento aceita pela revenda.',
+    confirm_offer:'Confirme produto ativo, estoque disponível e preço recente.',
+    confirm_logistics:'Confirme atendimento da área e taxa de entrega recente.',
+    activate_merchant:'As bases estão prontas. Ative a revenda no painel administrativo.',
+    go_online:'A revenda está ativa; o responsável precisa entrar no portal e colocá-la online.',
+    refresh_heartbeat:'A revenda está online, mas precisa renovar a presença no portal para ficar ofertável.',
+    ready:'Revenda pronta e ofertável agora.',
     none:'Este parceiro não possui próxima ação operacional.'
   })[next]||'Revise o estado do parceiro antes de continuar.';
 }
@@ -1000,7 +1009,17 @@ function adminPilotPartnerCard(p){
   const applicationUsable=Boolean(application&&['pending','approved'].includes(String(application.status||'')));
   const readyToConvert=convertible&&onboarding.ownerClaimed===true&&applicationUsable;
   const steps=Array.isArray(onboarding.steps)?onboarding.steps:[];
-  const stepLabel={invite:'Convite',claim:'Conta vinculada',application:'Cadastro',merchant:'Revenda criada'};
+  const stepLabel={
+    invite:'Convite',
+    claim:'Conta vinculada',
+    application:'Cadastro',
+    merchant:'Revenda criada',
+    owner:'Owner',
+    compliance:'Compliance',
+    payment:'Pagamento',
+    offer:'Oferta',
+    online:'Online'
+  };
   const stepHtml=steps.length
     ? '<div class="pilot-step-grid">'+steps.map((step,index)=>{
         const done=step?.done===true;
@@ -1077,6 +1096,7 @@ function adminPilotPartnerCard(p){
 
 function adminMerchantCard(m){
   const c=m.compliance||{};
+  const readiness=m.readiness||null;
   const active=m.status==='active';
   const cnpjId='cnpj-'+m.id;
   const anpId='anp-'+m.id;
@@ -1088,6 +1108,7 @@ function adminMerchantCard(m){
   return `<article class="order-card">
     <div class="order-head"><div><div class="order-id">${esc(m.name)}</div><div class="tiny muted">${esc(m.cnpj)}</div></div>${adminStatusPill(m.status)}</div>
     <div class="order-line">Online: <strong>${m.online?'sim':'não'}</strong> • Trust: ${Number(m.trust_score||0)}/100</div>
+    ${readiness?`<div class="notice ${readiness.offerReady?'success':''}" style="margin-top:10px"><strong>${readiness.offerReady?'Revenda ofertável':'Próximo passo operacional'}</strong><br>${esc(adminPilotNextActionCopy({onboarding:{nextAction:readiness.nextAction}}))}</div>`:''}
     ${m.businessDetails?`<div class="order-line"><strong>Responsável:</strong> ${esc(m.businessDetails.responsible_name)} • ${esc(m.businessDetails.city)}/${esc(m.businessDetails.state)} • WhatsApp ${esc(m.businessDetails.whatsapp)}</div>`:''}
     <div class="field-row" style="margin-top:12px">
       <div class="input-wrap"><label for="${cnpjId}">CNPJ</label><select id="${cnpjId}" class="input"><option value="pending" ${c.cnpj_status==='pending'?'selected':''}>Pendente</option><option value="verified" ${c.cnpj_status==='verified'?'selected':''}>Verificado</option><option value="rejected" ${c.cnpj_status==='rejected'?'selected':''}>Rejeitado</option></select><small>Última verificação: ${c.cnpj_verified_at?esc(formatDateTime(c.cnpj_verified_at)):'nunca'}</small></div>
