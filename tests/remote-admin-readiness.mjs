@@ -85,6 +85,27 @@ assert.equal(loginProbe.status,400,'request-link sem JWT precisa alcançar o han
 assert.equal(loginBody.error,'CAPTCHA_REQUIRED','gateway não pode bloquear o primeiro request por ausência de JWT');
 assert.equal(loginProbe.headers.get('access-control-allow-origin'),ADMIN_ORIGIN,'CORS do admin-auth precisa permanecer preso à origem admin');
 
+// Hard contract: production admin auth must reject development and legacy origins.
+for(const blockedOrigin of ['http://localhost:3000','https://chama-sg-admin.netlify.app']){
+  const blockedProbe=await resilientFetch(backendUrl+'/functions/v1/admin-auth',{
+    method:'POST',
+    headers:{
+      'Content-Type':'application/json',
+      'apikey':publishableKey,
+      'Origin':blockedOrigin
+    },
+    body:JSON.stringify({action:'request-link',email:'blocked-origin-probe@example.invalid',captchaToken:'probe'})
+  },'admin-auth blocked origin '+blockedOrigin);
+  const blockedBody=await jsonBody(blockedProbe,'admin-auth blocked origin '+blockedOrigin);
+  assert.equal(blockedProbe.status,403,'admin-auth precisa rejeitar origem não produtiva '+blockedOrigin);
+  assert.equal(blockedBody.error,'ORIGIN_NOT_ALLOWED','origem não produtiva deve falhar antes do fluxo de login');
+  assert.notEqual(
+    blockedProbe.headers.get('access-control-allow-origin'),
+    blockedOrigin,
+    'CORS não pode ecoar origem administrativa bloqueada'
+  );
+}
+
 // Hard contract: privileged claim remains closed without a bearer user session.
 const claimProbe=await resilientFetch(backendUrl+'/functions/v1/admin-auth',{
   method:'POST',
@@ -232,6 +253,7 @@ if(!allReady){
 console.log(JSON.stringify({
   ok:true,
   adminAuthPublicEntry:'CAPTCHA_REQUIRED',
+  blockedAdminOrigins:['localhost','legacy-netlify'],
   adminClaimWithoutSession:'UNAUTHORIZED',
   allPortalsReady:allReady,
   commonSourceSha,
