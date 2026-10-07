@@ -299,10 +299,6 @@ assert.ok(admin.includes('function adminAttentionCenter(d)')&&admin.includes('AT
 assert.ok(admin.includes("adminInvoke({action:'search',query:value})")&&admin.includes('adminGlobalSearchView()'),'busca global precisa consultar a autoridade administrativa server-side');
 assert.ok(admin.includes("adminInvoke({action:'entity-detail',entityType,entityId})")&&admin.includes('PEDIDO 360°')&&admin.includes('REVENDA 360°')&&admin.includes('CLIENTE 360°'),'admin precisa expor visões 360 server-side');
 assert.ok(admin.includes("adminInvoke({action:'system-health'})")&&admin.includes('SAÚDE DO SISTEMA'),'diagnóstico de produção precisa estar disponível dentro do painel');
-assert.ok(adminOpsSource.includes('async function adminSearch(')&&adminOpsSource.includes('async function adminEntityDetail(')&&adminOpsSource.includes('async function adminSystemHealth('),'admin-ops precisa concentrar busca, detalhe e saúde no backend');
-assert.ok(adminOpsSource.includes('if(action==="search")')&&adminOpsSource.includes('if(action==="entity-detail")')&&adminOpsSource.includes('if(action==="system-health")'),'ações administrativas somente leitura precisam ser roteadas antes da exigência de idempotência de mutações');
-assert.ok(adminOpsSource.indexOf('if(action==="system-health")')<adminOpsSource.indexOf('const idempotencyKey='),'health/search/detail não podem ser tratados como mutações');
-assert.ok(adminOpsSource.includes('verifyLivePortals()')&&adminOpsSource.includes('staleMerchantHeartbeat')&&adminOpsSource.includes('overdueReceivables'),'saúde do sistema precisa cobrir portais, heartbeat e dívida operacional');
 assert.ok(admin.includes("/functions/v1/admin-auth")&&admin.includes("action:'request-link'")&&admin.includes("action:'claim'"),'login administrativo precisa passar pela autoridade server-side de bootstrap');
 assert.ok(admin.includes("chamaTurnstile.challenge('admin_login')")&&!admin.includes("auth.signInWithOtp({\n    email:value"),'browser não pode decidir diretamente se cria a primeira conta administrativa');
 assert.ok(!/async function adminSendLogin\(email\)\{[\s\S]*?await adminBackendInit\(\)/.test(admin),'pedido de magic link não deve depender do carregamento prévio do SDK Supabase');
@@ -508,6 +504,10 @@ assert.ok(!admin.includes("service_role")&&!admin.includes("sb_secret_"),'fronte
 assert.ok(read('supabase/functions/admin-ops/index.ts').includes('platform_admins'),'Edge admin deve exigir allowlist server-side');
 assert.ok(read('supabase/functions/admin-ops/index.ts').includes('ADMIN_ACCESS_DENIED'),'Edge admin deve negar conta fora da allowlist');
 const adminOpsSource=read('supabase/functions/admin-ops/index.ts');
+assert.ok(adminOpsSource.includes('async function adminSearch(')&&adminOpsSource.includes('async function adminEntityDetail(')&&adminOpsSource.includes('async function adminSystemHealth('),'admin-ops precisa concentrar busca, detalhe e saúde no backend');
+assert.ok(adminOpsSource.includes('if(action==="search")')&&adminOpsSource.includes('if(action==="entity-detail")')&&adminOpsSource.includes('if(action==="system-health")'),'ações administrativas somente leitura precisam ser roteadas antes da exigência de idempotência de mutações');
+assert.ok(adminOpsSource.indexOf('if(action==="system-health")')<adminOpsSource.indexOf('const idempotencyKey='),'health/search/detail não podem ser tratados como mutações');
+assert.ok(adminOpsSource.includes('verifyLivePortals()')&&adminOpsSource.includes('staleMerchantHeartbeat')&&adminOpsSource.includes('overdueReceivables'),'saúde do sistema precisa cobrir portais, heartbeat e dívida operacional');
 assert.ok(adminOpsSource.includes('requestFingerprint'),'mutações admin devem possuir fingerprint canônico');
 assert.ok(adminOpsSource.includes('Idempotency-Key'),'Edge admin deve exigir chave idempotente');
 assert.ok(adminOpsSource.includes('admin_execute_action'),'Edge admin deve usar autoridade idempotente única');
