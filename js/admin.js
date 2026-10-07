@@ -14,7 +14,13 @@ const adminRuntime={
   lastSyncAt:null,
   refreshSeq:0,
   pollPending:false,
-  lastPollAt:0
+  lastPollAt:0,
+  section:(()=>{
+    try{
+      const saved=sessionStorage.getItem('tamao-admin-section');
+      return ['overview','orders','partners','catalog','finance','system'].includes(saved)?saved:'overview';
+    }catch{return 'overview'}
+  })()
 };
 
 function adminOriginSafe(){
@@ -376,6 +382,30 @@ function openAdminPortal(){
 function adminLoginFromUi(){
   const email=document.querySelector('#admin-email')?.value.trim()||'';
   adminSendLogin(email).catch(e=>toast(String(e?.message||e)));
+}
+
+function adminSetSection(section){
+  const allowed=['overview','orders','partners','catalog','finance','system'];
+  const next=allowed.includes(String(section||''))?String(section):'overview';
+  adminRuntime.section=next;
+  try{sessionStorage.setItem('tamao-admin-section',next)}catch{}
+  render();
+  requestAnimationFrame(()=>{
+    document.querySelector('.admin-main')?.scrollIntoView({block:'start'});
+  });
+}
+
+function adminMenuButton(id,label,icon,badge=''){
+  const active=adminRuntime.section===id;
+  return `<button class="admin-nav-item ${active?'active':''}" type="button" onclick="adminSetSection('${id}')" aria-current="${active?'page':'false'}">
+    <span class="admin-nav-icon" aria-hidden="true">${icon}</span>
+    <span class="admin-nav-label">${esc(label)}</span>
+    ${badge!==''?`<span class="admin-nav-badge">${esc(String(badge))}</span>`:''}
+  </button>`;
+}
+
+function adminPanel(id,content){
+  return `<div class="admin-panel ${adminRuntime.section===id?'active':''}" data-admin-panel="${id}">${content}</div>`;
 }
 
 function adminMoney(cents){
@@ -913,18 +943,8 @@ function adminPage(){
   const openCashback=reimbursements.reduce((s,x)=>s+Number(x.cashback_cents||0),0);
   const openAdjustments=adjustments.reduce((s,x)=>s+Number(x.amount_cents||0),0);
 
-  return shell(`<section class="page">
-    <div class="status-bar"><div><div class="tiny muted">CONTROL PLANE REAL</div><h1 class="page-title" style="margin-bottom:2px">Administração TAMÃO</h1></div><div class="order-actions"><button class="secondary small" onclick="adminRefresh()">Atualizar</button><button class="ghost small" onclick="adminSignOut()">Sair</button></div></div>
-    ${adminRuntime.error?`<div class="notice danger" style="margin-top:12px">${esc(adminRuntime.error)}</div>`:''}
-
+  const overviewContent=`
     ${adminLaunchControl(d.launchReadiness||{})}
-
-    ${adminControlTower({...d,controlOrders})}
-
-    ${adminProductRegistrySection(d)}
-
-    ${adminCommercialPolicySection(d)}
-
     <section class="section"><div class="section-head"><div><span class="section-kicker">NEGÓCIO • 30 DIAS</span><h2>Pulso da operação</h2><p>Indicadores server-side calculados apenas sobre fatos liquidados e estados reais do pedido.</p></div></div><div class="merchant-kpis">
       <div class="kpi"><span class="label">GMV 30d</span><strong>${adminMoney(metrics.gmvCents30d)}</strong><small>${Number(metrics.settledOrders30d||0)} pedidos liquidados</small></div>
       <div class="kpi"><span class="label">Ticket médio</span><strong>${adminMoney(metrics.averageTicketCents30d)}</strong></div>
@@ -935,21 +955,40 @@ function adminPage(){
       <div class="kpi"><span class="label">Cashback 30d</span><strong>${adminMoney(metrics.cashbackGrantedCents30d)}</strong></div>
       <div class="kpi"><span class="label">Atendimentos abertos</span><strong>${Number(metrics.openSupportCases||openSupportCases.length)}</strong></div>
     </div></section>
-
     <section class="section"><div class="merchant-kpis">
       <div class="kpi"><span class="label">Cadastros pendentes</span><strong>${pending.length}</strong></div>
       <div class="kpi"><span class="label">Parceiros piloto</span><strong>${pilotPartners.filter(x=>x.onboarding_status!=='cancelled').length}</strong></div>
       <div class="kpi"><span class="label">Revendas ativas</span><strong>${active.length}</strong></div>
       <div class="kpi"><span class="label">Taxas a receber</span><strong>${adminMoney(openFees)}</strong></div>
       <div class="kpi"><span class="label">Cashback a reembolsar</span><strong>${adminMoney(openCashback)}</strong></div>
-    </div></section>
+    </div></section>`;
 
+  const ordersContent=`
+    ${adminControlTower({...d,controlOrders})}
+    <section class="section"><div class="section-head"><div><h2>Atendimento de pedidos</h2><p>Problemas registrados pelo cliente entram aqui com vínculo ao pedido, status e trilha administrativa.</p></div><span class="status-pill ${openSupportCases.length?'offline':'online'}">${openSupportCases.length} aberto(s)</span></div>${supportCases.length?supportCases.map(adminSupportCaseCard).join(''):'<div class="empty card">Nenhum atendimento registrado.</div>'}</section>`;
+
+  const partnersContent=`
     ${adminPrelaunchLeadsSection(d)}
-
     ${adminPublicRequestsSection(d)}
+    <section class="section"><div class="section-head"><div><h2>Parceiros piloto em preparação</h2><p>Interesse comercial registrado antes do cadastro jurídico. Esses registros não participam das ofertas e não contam como revenda ativa.</p></div></div>${pilotPartners.length?pilotPartners.map(adminPilotPartnerCard).join(''):'<div class="empty card">Nenhum parceiro piloto em preparação.</div>'}</section>
+    <section class="section"><div class="section-head"><div><h2>Cadastros de parceiros</h2><p>Aprovação cria a revenda como pendente e vincula o solicitante como owner. Não coloca a operação online.</p></div></div>${(d.applications||[]).length?(d.applications||[]).map(adminApplicationCard).join(''):'<div class="empty card">Nenhum cadastro recebido.</div>'}</section>
+    <section class="section"><div class="section-head"><div><h2>Validação e ativação</h2><p>CNPJ é obrigatório para toda revenda ativa. Qualquer produto GLP ativo exige também validação ANP.</p></div></div>${(d.merchants||[]).length?(d.merchants||[]).map(adminMerchantCard).join(''):'<div class="empty card">Nenhuma revenda criada.</div>'}</section>`;
 
-    <section class="section"><div class="section-head"><div><h2>Atendimento de pedidos</h2><p>Problemas registrados pelo cliente entram aqui com vínculo ao pedido, status e trilha administrativa.</p></div><span class="status-pill ${openSupportCases.length?'offline':'online'}">${openSupportCases.length} aberto(s)</span></div>${supportCases.length?supportCases.map(adminSupportCaseCard).join(''):'<div class="empty card">Nenhum atendimento registrado.</div>'}</section>
+  const catalogContent=`${adminProductRegistrySection(d)}`;
 
+  const financeContent=`
+    ${adminCommercialPolicySection(d)}
+    <section class="section"><div class="section-head"><div><h2>Revisão de indicações</h2><p>Comissões suspeitas não amadurecem automaticamente. Aprovação ainda exige identidades permanentes e fim da quarentena.</p></div><span class="status-pill ${pendingReferralReviews.length?'offline':'online'}">${pendingReferralReviews.length} pendente(s)</span></div>${referralReviews.length?referralReviews.map(adminReferralReviewCard).join(''):'<div class="empty card">Nenhuma indicação exige revisão.</div>'}</section>
+    <section class="section"><div class="section-head"><div><h2>Fila de benefícios</h2><p>Falhas transitórias usam backoff. Dead-letter exige revisão manual; a entrega do pedido permanece concluída.</p></div><span class="status-pill ${deadRewardFailures.length?'offline':'online'}">${deadRewardFailures.length} dead-letter</span></div>${rewardFailures.length?rewardFailures.map(adminRewardFailureCard).join(''):'<div class="empty card">Nenhuma dívida de processamento de benefícios.</div>'}</section>
+    <section class="section"><div class="section-head"><div><h2>Fila contábil de settlement</h2><p>Taxa da plataforma e reembolso de cashback são processados independentemente dos benefícios.</p></div><span class="status-pill ${deadAccountingFailures.length?'offline':'online'}">${deadAccountingFailures.length} dead-letter</span></div>${accountingFailures.length?accountingFailures.map(adminAccountingFailureCard).join(''):'<div class="empty card">Nenhuma dívida contábil de settlement.</div>'}</section>
+    <section class="section"><div class="section-head"><div><h2>Conciliação financeira</h2><p>Taxa da plataforma, cashback usado e ajustes são contas separadas.</p></div></div>
+      <div class="card flat"><h3>Taxas da plataforma</h3><div class="list">${receivables.length?receivables.map(adminReceivableRow).join(''):'<div class="tiny muted">Nenhuma taxa em aberto.</div>'}</div></div>
+      <div class="card flat" style="margin-top:12px"><h3>Cashback a reembolsar</h3><div class="list">${reimbursements.length?reimbursements.map(adminReimbursementRow).join(''):'<div class="tiny muted">Nenhum reembolso em aberto.</div>'}</div></div>
+      <div class="card flat" style="margin-top:12px"><h3>Ajustes de reversão • ${adminMoney(openAdjustments)}</h3><div class="list">${adjustments.length?adjustments.map(adminAdjustmentRow).join(''):'<div class="tiny muted">Nenhum ajuste em aberto.</div>'}</div></div>
+    </section>
+    <section class="section"><div class="card flat form-stack"><h3>Reversão financeira auditada</h3><p class="muted tiny">Somente para um pedido já liquidado que teve estorno/refund confirmado. O histórico operacional de entrega permanece.</p><div class="input-wrap"><label for="admin-reverse-order">ID do pedido</label><input id="admin-reverse-order" class="input" placeholder="UUID do pedido"></div><div class="input-wrap"><label for="admin-reverse-reason">Motivo</label><input id="admin-reverse-reason" class="input" maxlength="240" placeholder="Motivo confirmado"></div><div class="input-wrap"><label for="admin-reverse-ref">Referência</label><input id="admin-reverse-ref" class="input" maxlength="120" placeholder="ID do estorno/comprovante"></div><button class="danger-btn" onclick="adminReverseOrder()">Executar reversão</button></div></section>`;
+
+  const systemContent=`
     <section class="section"><div class="section-head"><div><h2>Administradores da plataforma</h2><p>O primeiro admin é criado somente por bootstrap server-side. Depois disso, esta tela mantém redundância operacional sem permitir remover o último admin ativo.</p></div><span class="status-pill online">${platformAdmins.filter(x=>x.active).length} ativo(s)</span></div>
       <div class="card flat form-stack">
         <div class="list">${platformAdmins.length?platformAdmins.map(x=>`<div class="list-row"><div><strong>${esc(x.user_id)}</strong><br><small>${x.active?'Administrador ativo':'Acesso administrativo suspenso'}</small></div><div class="order-actions"><span class="status-pill ${x.active?'online':'offline'}">${x.active?'ATIVO':'INATIVO'}</span><button class="${x.active?'danger-btn':'secondary'} small" onclick="adminSetPlatformAdmin('${x.user_id}',${x.active?'false':'true'})">${x.active?'Desativar':'Ativar'}</button></div></div>`).join(''):'<div class="tiny muted">Nenhum administrador bootstrapado ainda.</div>'}</div>
@@ -958,28 +997,33 @@ function adminPage(){
         <button class="secondary" onclick="adminAddPlatformAdmin()">Adicionar administrador</button>
       </div>
     </section>
+    <section class="section"><div class="section-head"><div><h2>Auditoria recente</h2><p>Histórico das ações administrativas mais recentes.</p></div></div><div class="list">${(d.recentAudit||[]).length?(d.recentAudit||[]).map(x=>`<div class="list-row"><div><strong>${esc(x.action)}</strong><br><small>${esc(x.target_type)} • ${esc(x.target_id||'—')}</small></div><small>${new Date(x.created_at).toLocaleString('pt-BR')}</small></div>`).join(''):'<div class="empty card">Nenhuma ação administrativa registrada.</div>'}</div></section>`;
 
-    <section class="section"><div class="section-head"><div><h2>Parceiros piloto em preparação</h2><p>Interesse comercial registrado antes do cadastro jurídico. Esses registros não participam das ofertas e não contam como revenda ativa.</p></div></div>${pilotPartners.length?pilotPartners.map(adminPilotPartnerCard).join(''):'<div class="empty card">Nenhum parceiro piloto em preparação.</div>'}</section>
+  const menu=`
+    <nav class="admin-sidebar" aria-label="Áreas administrativas">
+      <div class="admin-nav-title">Painel</div>
+      ${adminMenuButton('overview','Visão geral','⌂')}
+      ${adminMenuButton('orders','Pedidos','▣',controlOrders.length+openSupportCases.length)}
+      ${adminMenuButton('partners','Parceiros','◇',pending.length+pilotPartners.filter(x=>x.onboarding_status!=='cancelled').length)}
+      ${adminMenuButton('catalog','Catálogo','▤')}
+      ${adminMenuButton('finance','Financeiro','₿',pendingReferralReviews.length+deadRewardFailures.length+deadAccountingFailures.length)}
+      ${adminMenuButton('system','Segurança e sistema','⚙',platformAdmins.filter(x=>x.active).length)}
+    </nav>`;
 
-    <section class="section"><div class="section-head"><div><h2>Cadastros de parceiros</h2><p>Aprovação cria a revenda como pendente e vincula o solicitante como owner. Não coloca a operação online.</p></div></div>${(d.applications||[]).length?(d.applications||[]).map(adminApplicationCard).join(''):'<div class="empty card">Nenhum cadastro recebido.</div>'}</section>
-
-    <section class="section"><div class="section-head"><div><h2>Validação e ativação</h2><p>CNPJ é obrigatório para toda revenda ativa. Qualquer produto GLP ativo exige também validação ANP.</p></div></div>${(d.merchants||[]).length?(d.merchants||[]).map(adminMerchantCard).join(''):'<div class="empty card">Nenhuma revenda criada.</div>'}</section>
-
-    <section class="section"><div class="section-head"><div><h2>Revisão de indicações</h2><p>Comissões suspeitas não amadurecem automaticamente. Aprovação ainda exige identidades permanentes e fim da quarentena.</p></div><span class="status-pill ${pendingReferralReviews.length?'offline':'online'}">${pendingReferralReviews.length} pendente(s)</span></div>${referralReviews.length?referralReviews.map(adminReferralReviewCard).join(''):'<div class="empty card">Nenhuma indicação exige revisão.</div>'}</section>
-
-    <section class="section"><div class="section-head"><div><h2>Fila de benefícios</h2><p>Falhas transitórias usam backoff. Dead-letter exige revisão manual; a entrega do pedido permanece concluída.</p></div><span class="status-pill ${deadRewardFailures.length?'offline':'online'}">${deadRewardFailures.length} dead-letter</span></div>${rewardFailures.length?rewardFailures.map(adminRewardFailureCard).join(''):'<div class="empty card">Nenhuma dívida de processamento de benefícios.</div>'}</section>
-
-    <section class="section"><div class="section-head"><div><h2>Fila contábil de settlement</h2><p>Taxa da plataforma e reembolso de cashback são processados independentemente dos benefícios.</p></div><span class="status-pill ${deadAccountingFailures.length?'offline':'online'}">${deadAccountingFailures.length} dead-letter</span></div>${accountingFailures.length?accountingFailures.map(adminAccountingFailureCard).join(''):'<div class="empty card">Nenhuma dívida contábil de settlement.</div>'}</section>
-
-    <section class="section"><div class="section-head"><div><h2>Conciliação financeira</h2><p>Taxa da plataforma, cashback usado e ajustes são contas separadas.</p></div></div>
-      <div class="card flat"><h3>Taxas da plataforma</h3><div class="list">${receivables.length?receivables.map(adminReceivableRow).join(''):'<div class="tiny muted">Nenhuma taxa em aberto.</div>'}</div></div>
-      <div class="card flat" style="margin-top:12px"><h3>Cashback a reembolsar</h3><div class="list">${reimbursements.length?reimbursements.map(adminReimbursementRow).join(''):'<div class="tiny muted">Nenhum reembolso em aberto.</div>'}</div></div>
-      <div class="card flat" style="margin-top:12px"><h3>Ajustes de reversão • ${adminMoney(openAdjustments)}</h3><div class="list">${adjustments.length?adjustments.map(adminAdjustmentRow).join(''):'<div class="tiny muted">Nenhum ajuste em aberto.</div>'}</div></div>
-    </section>
-
-    <section class="section"><div class="card flat form-stack"><h3>Reversão financeira auditada</h3><p class="muted tiny">Somente para um pedido já liquidado que teve estorno/refund confirmado. O histórico operacional de entrega permanece.</p><div class="input-wrap"><label for="admin-reverse-order">ID do pedido</label><input id="admin-reverse-order" class="input" placeholder="UUID do pedido"></div><div class="input-wrap"><label for="admin-reverse-reason">Motivo</label><input id="admin-reverse-reason" class="input" maxlength="240" placeholder="Motivo confirmado"></div><div class="input-wrap"><label for="admin-reverse-ref">Referência</label><input id="admin-reverse-ref" class="input" maxlength="120" placeholder="ID do estorno/comprovante"></div><button class="danger-btn" onclick="adminReverseOrder()">Executar reversão</button></div></section>
-
-    <section class="section"><div class="section-head"><div><h2>Auditoria recente</h2></div></div><div class="list">${(d.recentAudit||[]).length?(d.recentAudit||[]).map(x=>`<div class="list-row"><div><strong>${esc(x.action)}</strong><br><small>${esc(x.target_type)} • ${esc(x.target_id||'—')}</small></div><small>${new Date(x.created_at).toLocaleString('pt-BR')}</small></div>`).join(''):'<div class="empty card">Nenhuma ação administrativa registrada.</div>'}</div></section>
+  return shell(`<section class="page admin-page">
+    <div class="status-bar admin-topbar"><div><div class="tiny muted">CONTROL PLANE REAL</div><h1 class="page-title" style="margin-bottom:2px">Administração TAMÃO</h1></div><div class="order-actions"><button class="secondary small" onclick="adminRefresh()">Atualizar</button><button class="ghost small" onclick="adminSignOut()">Sair</button></div></div>
+    ${adminRuntime.error?`<div class="notice danger" style="margin-top:12px">${esc(adminRuntime.error)}</div>`:''}
+    <div class="admin-workspace">
+      ${menu}
+      <main class="admin-main">
+        ${adminPanel('overview',overviewContent)}
+        ${adminPanel('orders',ordersContent)}
+        ${adminPanel('partners',partnersContent)}
+        ${adminPanel('catalog',catalogContent)}
+        ${adminPanel('finance',financeContent)}
+        ${adminPanel('system',systemContent)}
+      </main>
+    </div>
   </section>`);
 }
 
