@@ -263,6 +263,9 @@ const turnstile=read('js/turnstile.js');
 assert.ok(turnstile.includes('https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit'),'Turnstile deve carregar a API oficial em modo explícito');
 assert.ok(turnstile.includes('action:safeAction'),'helper Turnstile deve validar e encaminhar action específica');
 assert.ok(turnstile.includes('CHAMA_TURNSTILE_SITE_KEY'),'helper deve depender da site key pública de runtime');
+assert.ok(turnstile.includes("value==='110200'")&&turnstile.includes("value==='200500'"),'Turnstile deve distinguir domínio não autorizado de iframe bloqueado');
+assert.ok(turnstile.includes("'error-callback':(code)")&&turnstile.includes("'unsupported-callback'"),'Turnstile deve expor erro real e incompatibilidade ao usuário');
+assert.ok(turnstile.includes("retry:'auto'")&&turnstile.includes("'retry-interval':8000"),'Turnstile deve recuperar falhas transitórias automaticamente');
 
 assert.ok(backend.includes("get-offers")&&backend.includes("create-order")&&backend.includes("get-order"),'runtime live precisa usar Edge Functions seguras');
 assert.ok(backend.includes('CHAMA_NETWORK_TIMEOUT_MS=15000')&&backend.includes("timeoutError.code='NETWORK_TIMEOUT'"),'requisições do frontend precisam de deadline explícito');
@@ -291,6 +294,8 @@ assert.ok(backend.includes('refreshSeq:0')&&backend.includes('seq!==merchantRunt
 assert.ok(admin.includes('pollPending:false')&&admin.includes('refreshSeq:0')&&admin.includes('now-adminRuntime.lastPollAt<15000'),'admin deve serializar refresh e evitar polling completo a cada 5 segundos');
 assert.ok(admin.includes("/functions/v1/admin-auth")&&admin.includes("action:'request-link'")&&admin.includes("action:'claim'"),'login administrativo precisa passar pela autoridade server-side de bootstrap');
 assert.ok(admin.includes("chamaTurnstile.challenge('admin_login')")&&!admin.includes("auth.signInWithOtp({\n    email:value"),'browser não pode decidir diretamente se cria a primeira conta administrativa');
+assert.ok(!/async function adminSendLogin\(email\)\{[\s\S]*?await adminBackendInit\(\)/.test(admin),'pedido de magic link não deve depender do carregamento prévio do SDK Supabase');
+assert.ok(admin.includes("adminRuntime.notice='Abrindo a verificação de segurança…'")&&admin.includes("adminRuntime.notice='Verificação concluída. Solicitando o link de acesso…'"),'login admin deve mostrar progresso persistente antes do envio');
 const adminAuthSource=read('supabase/functions/admin-auth/index.ts');
 assert.ok(adminAuthSource.includes('admin_login_mode')&&adminAuthSource.includes('claim_reserved_platform_admin'),'Edge de admin precisa consultar elegibilidade por hash e claim server-side');
 assert.ok(adminAuthSource.includes('shouldCreateUser:mode==="bootstrap_reserved"'),'criação da primeira identidade só pode ocorrer no modo reservado');
