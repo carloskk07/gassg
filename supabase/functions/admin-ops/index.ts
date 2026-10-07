@@ -85,12 +85,38 @@ function cleanText(value:unknown,{min=0,max=240,name="texto"}={}){
 async function requireAdmin(admin:any,userId:string){
   const {data,error}=await admin
     .from("platform_admins")
-    .select("user_id,active")
+    .select("user_id,active,admin_role")
     .eq("user_id",userId)
     .eq("active",true)
     .maybeSingle();
   if(error)throw error;
   if(!data)throw new DomainError("ADMIN_ACCESS_DENIED","Esta conta não possui acesso administrativo.",403);
+  return data;
+}
+const ADMIN_READ_ACTIONS=new Set(["summary","search","entity-detail","system-health","audit-search","incident-list"]);
+const ADMIN_ROLE_ACTIONS:Record<string,Set<string>>={
+  superadmin:new Set(["*"]),
+  operations:new Set([
+    "approve-application","reject-application","verify-merchant","activate-merchant","suspend-merchant",
+    "set-delivery-capability","order-control","support-case-status","lead-status","public-request-status",
+    "pilot-invite","assisted-merchant-onboarding","product-registry","verify-launch-portals","incident-action"
+  ]),
+  finance:new Set([
+    "financial-action","review-referral","retry-reward","retry-accounting","reverse-order",
+    "commercial-policy","incident-action"
+  ]),
+  support:new Set(["order-control","support-case-status","incident-action"]),
+  compliance:new Set([
+    "approve-application","reject-application","verify-merchant","activate-merchant","suspend-merchant",
+    "set-delivery-capability","incident-action"
+  ]),
+  readonly:new Set()
+};
+function requireAdminAction(role:string,action:string){
+  if(ADMIN_READ_ACTIONS.has(action))return;
+  const allowed=ADMIN_ROLE_ACTIONS[role]??new Set<string>();
+  if(allowed.has("*")||allowed.has(action))return;
+  throw new DomainError("ADMIN_PERMISSION_DENIED","Seu perfil administrativo não possui permissão para esta ação.",403);
 }
 async function fetchTextWithTimeout(url:string){
   const controller=new AbortController();
@@ -341,6 +367,44 @@ async function adminEntityDetail(admin:any,entityType:unknown,rawId:unknown){
   const cashback=settled.reduce((sum:number,x:any)=>sum+Number(x.cashback_reserved_cents||0),0);
   return {type,id:customerId,profile:profile.data??null,orders:history,support:support.data??[],feedback:feedback.data??[],metrics:{orders:history.length,settled:settled.length,cancelled:cancelled.length,spendCents:spend,cashbackCents:cashback}};
 }
+async function adminAuditSearch(admin:any,body:any){
+  const limit=Math.min(200,Math.max(1,Number(body.limit||100)));
+  let query=admin.from("platform_admin_audit")
+    .select("id,actor_user_id,action,target_type,target_id,metadata,created_at")
+    .order("created_at",{ascending:false})
+    .limit(limit);
+  if(body.actorUserId)query=query.eq("actor_user_id",uuid(body.actorUserId,"actor"));
+  if(body.action)query=query.eq("action",cleanText(body.action,{min:2,max:80,name:"ação"}));
+  if(body.targetType)query=query.eq("target_type",cleanText(body.targetType,{min:2,max:80,name:"tipo de alvo"}));
+  if(body.from){
+    const from=new Date(String(body.from));
+    if(!Number.isFinite(from.getTime()))throw new DomainError("INVALID_AUDIT_RANGE","Data inicial inválida.",400);
+    query=query.gte("created_at",from.toISOString());
+  }
+  if(body.to){
+    const to=new Date(String(body.to));
+    if(!Number.isFinite(to.getTime()))throw new DomainError("INVALID_AUDIT_RANGE","Data final inválida.",400);
+    query=query.lte("created_at",to.toISOString());
+  }
+  const result=await query;
+  if(result.error)throw result.error;
+  const q=String(body.query||"").trim().toLowerCase();
+  const rows=(result.data??[]).filter((row:any)=>{
+    if(!q)return true;
+    return [row.action,row.target_type,row.target_id,row.actor_user_id,JSON.stringify(row.metadata||{})]
+      .some(v=>String(v||"").toLowerCase().includes(q));
+  });
+  return {results:rows,limit};
+}
+async function adminIncidentList(admin:any){
+  const result=await admin.from("platform_incidents")
+    .select("id,title,description,severity,status,source,entity_type,entity_id,assigned_admin_id,created_by,acknowledged_at,acknowledged_by,resolved_at,resolved_by,resolution_note,created_at,updated_at")
+    .order("updated_at",{ascending:false})
+    .limit(200);
+  if(result.error)throw result.error;
+  return {incidents:result.data??[]};
+}
+
 async function adminSystemHealth(admin:any){
   const started=Date.now();
   const now=new Date();
@@ -625,7 +689,8 @@ Deno.serve(async(req:Request)=>{
       limit:120,
       windowSeconds:60
     });
-    await requireAdmin(admin,user.id);
+    const adminAccess=await requireAdmin(admin,user.id);
+    requireAdminAction(String(adminAccess.admin_role||"superadmin"),action);
 
     if(action==="summary"){
       return json(await summary(admin,user.id),200,origin);
@@ -638,6 +703,12 @@ Deno.serve(async(req:Request)=>{
     }
     if(action==="system-health"){
       return json(await adminSystemHealth(admin),200,origin);
+    }
+    if(action==="audit-search"){
+      return json(await adminAuditSearch(admin,body),200,origin);
+    }
+    if(action==="incident-list"){
+      return json(await adminIncidentList(admin),200,origin);
     }
 
     const idempotencyKey=String(req.headers.get("Idempotency-Key")??"").trim();
