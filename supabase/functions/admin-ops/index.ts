@@ -502,7 +502,7 @@ async function summary(admin:any,actorUserId:string){
       .order("created_at",{ascending:true})
       .limit(100),
     admin.from("platform_admins")
-      .select("user_id,active,created_by,created_at")
+      .select("user_id,active,admin_role,created_by,created_at")
       .order("created_at",{ascending:true})
       .limit(100),
     admin.from("prelaunch_leads")
@@ -650,6 +650,7 @@ async function summary(admin:any,actorUserId:string){
       cashbackReimbursements:reimbursements.data??[],
       adjustments:adjustments.data??[]
     },
+    currentAdmin:(platformAdmins.data??[]).find((x:any)=>x.user_id===actorUserId)??null,
     platformAdmins:platformAdmins.data??[],
     prelaunchLeads:prelaunchLeads.data??[],
     acquisitionMetrics:acquisitionMetrics.data??{},
@@ -795,9 +796,20 @@ Deno.serve(async(req:Request)=>{
         }
         targetUserId=uuid(targetUser.id,"targetUser");
       }
+      const existingAccess=await admin
+        .from("platform_admins")
+        .select("admin_role")
+        .eq("user_id",targetUserId)
+        .maybeSingle();
+      if(existingAccess.error)throw existingAccess.error;
+      const adminRole=String(body.adminRole??existingAccess.data?.admin_role??"readonly").trim().toLowerCase();
+      if(!["superadmin","operations","finance","support","compliance","readonly"].includes(adminRole)){
+        throw new DomainError("INVALID_ADMIN_ROLE","Perfil administrativo inválido.",400);
+      }
       payload={
         targetUserId,
-        active:body.active===true
+        active:body.active===true,
+        adminRole
       };
     }else if(action==="product-registry"){
       const registryAction=String(body.registryAction??"").trim().toLowerCase();
@@ -1105,6 +1117,33 @@ Deno.serve(async(req:Request)=>{
       if(status==="closed"&&!payload.note){
         throw new DomainError("PRELAUNCH_LEAD_CLOSE_NOTE_REQUIRED","Informe o motivo do encerramento.",400);
       }
+    }else if(action==="incident-action"){
+      const incidentAction=String(body.incidentAction??"").trim().toLowerCase();
+      if(!["create","acknowledge","assign","set-status","resolve","reopen"].includes(incidentAction)){
+        throw new DomainError("INVALID_INCIDENT_ACTION","Ação de incidente inválida.",400);
+      }
+      const incidentId=body.incidentId==null||String(body.incidentId).trim()===""?null:uuid(body.incidentId,"incident");
+      const severity=body.severity==null?null:String(body.severity).trim().toLowerCase();
+      if(severity!=null&&!["critical","high","medium","low"].includes(severity)){
+        throw new DomainError("INVALID_INCIDENT_SEVERITY","Severidade de incidente inválida.",400);
+      }
+      const incidentStatus=body.incidentStatus==null?null:String(body.incidentStatus).trim().toLowerCase();
+      if(incidentStatus!=null&&!["open","investigating","monitoring"].includes(incidentStatus)){
+        throw new DomainError("INVALID_INCIDENT_STATUS","Status de incidente inválido.",400);
+      }
+      payload={
+        incidentAction,
+        incidentId,
+        title:body.title==null?null:(cleanText(body.title,{min:3,max:160,name:"título do incidente"})||null),
+        description:body.description==null?null:(cleanText(body.description,{min:0,max:4000,name:"descrição"})||null),
+        severity,
+        source:body.source==null?"admin":cleanText(body.source,{min:2,max:80,name:"origem"}),
+        entityType:body.entityType==null?null:(cleanText(body.entityType,{min:0,max:80,name:"tipo de entidade"})||null),
+        entityId:body.entityId==null?null:(cleanText(body.entityId,{min:0,max:160,name:"entidade"})||null),
+        assignedAdminId:body.assignedAdminId==null||String(body.assignedAdminId).trim()===""?null:uuid(body.assignedAdminId,"assignedAdmin"),
+        incidentStatus,
+        resolutionNote:body.resolutionNote==null?null:(cleanText(body.resolutionNote,{min:0,max:4000,name:"resolução"})||null)
+      };
     }else if(action==="public-request-status"){
       const status=String(body.status??"");
       if(!["in_review","resolved","closed"].includes(status)){
@@ -1333,11 +1372,31 @@ Deno.serve(async(req:Request)=>{
       };
     }
     else if(action==="set-platform-admin"){
-      rpcName="admin_platform_admin_action";
+      rpcName="admin_platform_admin_access_action";
       rpcArgs={
         p_actor_user_id:user.id,
         p_target_user_id:payload.targetUserId,
         p_active:payload.active,
+        p_admin_role:payload.adminRole,
+        p_idempotency_key:idempotencyKey,
+        p_request_hash:requestHash
+      };
+    }
+    else if(action==="incident-action"){
+      rpcName="admin_incident_action";
+      rpcArgs={
+        p_actor_user_id:user.id,
+        p_action:payload.incidentAction,
+        p_incident_id:payload.incidentId,
+        p_title:payload.title,
+        p_description:payload.description,
+        p_severity:payload.severity,
+        p_source:payload.source,
+        p_entity_type:payload.entityType,
+        p_entity_id:payload.entityId,
+        p_assigned_admin_id:payload.assignedAdminId,
+        p_status:payload.incidentStatus,
+        p_resolution_note:payload.resolutionNote,
         p_idempotency_key:idempotencyKey,
         p_request_hash:requestHash
       };
@@ -1379,6 +1438,21 @@ Deno.serve(async(req:Request)=>{
     const message=error instanceof Error?error.message:String(error);
     if(message.includes("ADMIN_ACCESS_DENIED")){
       return json({error:"ADMIN_ACCESS_DENIED",message:"Esta conta não possui acesso administrativo."},403,origin);
+    }
+    if(message.includes("ADMIN_PERMISSION_DENIED")){
+      return json({error:"ADMIN_PERMISSION_DENIED",message:"Seu perfil administrativo não possui permissão para esta ação."},403,origin);
+    }
+    if(message.includes("LAST_SUPERADMIN_CANNOT_BE_REMOVED")){
+      return json({error:"LAST_SUPERADMIN_CANNOT_BE_REMOVED",message:"O último Superadmin ativo não pode ser removido nem rebaixado."},409,origin);
+    }
+    if(message.includes("INVALID_ADMIN_ROLE")){
+      return json({error:"INVALID_ADMIN_ROLE",message:"Perfil administrativo inválido."},400,origin);
+    }
+    if(message.includes("INCIDENT_NOT_FOUND")){
+      return json({error:"INCIDENT_NOT_FOUND",message:"Incidente não encontrado."},404,origin);
+    }
+    if(message.includes("INVALID_INCIDENT_")||message.includes("INCIDENT_RESOLUTION_REQUIRED")||message.includes("INCIDENT_ASSIGNEE_NOT_ACTIVE_ADMIN")){
+      return json({error:"INVALID_INCIDENT",message:"Revise os dados, responsável, status e resolução do incidente."},400,origin);
     }
     if(message.includes("ADMIN_USER_NOT_FOUND")){
       return json({error:"ADMIN_USER_NOT_FOUND",message:"Usuário permanente não encontrado."},404,origin);
