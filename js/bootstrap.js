@@ -30,7 +30,12 @@ window.addEventListener('load',async()=>{
     render();
   }else if(globalThis.merchantPortalRequested?.()){
     await merchantBackendInit();
-    if(!['merchant','merchant-orders','merchant-team','catalog','merchant-metrics','merchants','merchant-join'].includes(route()))go('merchant');
+    const invitedPartner=Boolean(globalThis.merchantPilotInviteToken?.());
+    if(invitedPartner&&globalThis.merchantRuntime?.status==='no-access'){
+      if(route()!=='merchant-join')go('merchant-join');
+    }else if(!['merchant','merchant-orders','merchant-team','catalog','merchant-metrics','merchants','merchant-join'].includes(route())){
+      go('merchant');
+    }
     render();
   }else{
     render();
