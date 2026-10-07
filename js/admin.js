@@ -854,7 +854,7 @@ function adminMerchantCard(m){
     <div class="divider"></div>
     <label class="check-row"><input id="${mixedId}" type="checkbox" ${mixed?.active?'checked':''}><span><strong>Capacidade logística verificada para cesta mista com GLP</strong><small>Ative somente após validação operacional específica. CNPJ e ANP precisam estar verificados.</small></span></label>
     <div class="input-wrap"><label for="${mixedNotesId}">Evidência / observação logística</label><input id="${mixedNotesId}" class="input" maxlength="1000" value="${esc(mixed?.notes||'')}" placeholder="Veículo, procedimento, evidência ou referência da validação"></div>
-    <div class="order-actions"><button class="secondary small" onclick="adminSaveCompliance('${m.id}')">Salvar validação</button><button class="secondary small" onclick="adminSaveDeliveryCapability('${m.id}')">Salvar capacidade logística</button>${active?`<button class="danger-btn small" onclick="adminSetMerchantStatus('${m.id}','suspend-merchant')">Suspender</button>`:`<button class="primary small" onclick="adminSetMerchantStatus('${m.id}','activate-merchant')">Ativar</button>`}</div>
+    <div class="order-actions"><button class="ghost small" onclick="adminOpenEntity('merchant','${m.id}')">Abrir 360°</button><button class="secondary small" onclick="adminSaveCompliance('${m.id}')">Salvar validação</button><button class="secondary small" onclick="adminSaveDeliveryCapability('${m.id}')">Salvar capacidade logística</button>${active?`<button class="danger-btn small" onclick="adminSetMerchantStatus('${m.id}','suspend-merchant')">Suspender</button>`:`<button class="primary small" onclick="adminSetMerchantStatus('${m.id}','activate-merchant')">Ativar</button>`}</div>
   </article>`;
 }
 
@@ -1056,6 +1056,7 @@ function adminControlOrderCard(o){
     ${o.risk_reason?`<div class="notice danger" style="margin-top:8px"><strong>Risco:</strong> ${esc(o.risk_reason)}</div>`:''}
     <div class="tiny muted">Atualizado ${esc(formatDateTime(o.updated_at))}${o.promised_by?' • prometido '+esc(formatDateTime(o.promised_by)):''}</div>
     <div class="order-actions">
+      <button class="ghost small" onclick="adminOpenEntity('order','${o.id}')">Abrir 360°</button>
       ${customerPhone?`<button class="ghost small" onclick="adminOpenWhatsapp('${customerPhone}')">Cliente</button>`:''}
       ${merchantWhatsapp?`<button class="ghost small" onclick="adminOpenWhatsapp('${merchantWhatsapp}')">Revenda</button>`:''}
       <button class="secondary small" onclick="adminOrderControl('${o.id}',${Number(o.version||0)},'note')">Registrar observação</button>
@@ -1299,17 +1300,20 @@ function adminPage(){
   return shell(`<section class="page admin-page">
     <div class="status-bar admin-topbar"><div><div class="tiny muted">CONTROL PLANE REAL</div><h1 class="page-title" style="margin-bottom:2px">Administração TAMÃO</h1></div><div class="order-actions"><button class="secondary small" onclick="adminRefresh()">Atualizar</button><button class="ghost small" onclick="adminSignOut()">Sair</button></div></div>
     ${adminRuntime.error?`<div class="notice danger" style="margin-top:12px">${esc(adminRuntime.error)}</div>`:''}
+    ${adminGlobalSearchView()}
     <div class="admin-workspace">
       ${menu}
       <main class="admin-main">
         ${adminPanel('overview',overviewContent)}
         ${adminPanel('orders',ordersContent)}
+        ${adminPanel('customers',customersContent)}
         ${adminPanel('partners',partnersContent)}
         ${adminPanel('catalog',catalogContent)}
         ${adminPanel('finance',financeContent)}
         ${adminPanel('system',systemContent)}
       </main>
     </div>
+    ${adminDetailView()}
   </section>`);
 }
 
