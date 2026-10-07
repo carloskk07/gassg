@@ -102,6 +102,8 @@ jobs:
                 ;;
             esac
           done
+      - name: Woovi webhook cryptographic contract
+        run: node tests/woovi-webhook-crypto.mjs
       - name: Marketplace simulations
         run: node tests/simulations.mjs
       - name: Expert deterministic fuzz
