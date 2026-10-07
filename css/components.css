@@ -667,3 +667,40 @@ button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-vis
     padding:14px;
   }
 }
+
+
+/* Admin incidents and RBAC */
+.admin-incident-grid{
+  display:grid;
+  grid-template-columns:repeat(auto-fit,minmax(300px,1fr));
+  gap:12px;
+}
+.admin-incident-card{
+  min-width:0;
+}
+.admin-incident-card .input-wrap{
+  margin-bottom:0;
+}
+.admin-access-row{
+  align-items:flex-start;
+}
+.small-input{
+  min-width:150px;
+  width:auto;
+}
+@media (max-width:720px){
+  .admin-incident-grid{
+    grid-template-columns:1fr;
+  }
+  .admin-access-row{
+    flex-direction:column;
+    gap:10px;
+  }
+  .admin-access-row .order-actions{
+    width:100%;
+    justify-content:flex-start;
+  }
+  .small-input{
+    width:100%;
+  }
+}
