@@ -508,6 +508,8 @@ assert.ok(adminOpsSource.includes('async function adminSearch(')&&adminOpsSource
 assert.ok(adminOpsSource.includes('if(action==="search")')&&adminOpsSource.includes('if(action==="entity-detail")')&&adminOpsSource.includes('if(action==="system-health")'),'ações administrativas somente leitura precisam ser roteadas antes da exigência de idempotência de mutações');
 assert.ok(adminOpsSource.indexOf('if(action==="system-health")')<adminOpsSource.indexOf('const idempotencyKey='),'health/search/detail não podem ser tratados como mutações');
 assert.ok(adminOpsSource.includes('verifyLivePortals()')&&adminOpsSource.includes('staleMerchantHeartbeat')&&adminOpsSource.includes('overdueReceivables'),'saúde do sistema precisa cobrir portais, heartbeat e dívida operacional');
+assert.ok(!adminOpsSource.includes('admin.from("orders").select("*")'),'Order 360 administrativo não pode projetar credenciais/campos internos por wildcard');
+assert.ok(adminOpsSource.includes('delivery_pii_redacted_at')&&!adminOpsSource.includes('pin_hash'),'Order 360 deve projetar minimização de PII sem expor hash do PIN de entrega');
 assert.ok(adminOpsSource.includes('requestFingerprint'),'mutações admin devem possuir fingerprint canônico');
 assert.ok(adminOpsSource.includes('Idempotency-Key'),'Edge admin deve exigir chave idempotente');
 assert.ok(adminOpsSource.includes('admin_execute_action'),'Edge admin deve usar autoridade idempotente única');
