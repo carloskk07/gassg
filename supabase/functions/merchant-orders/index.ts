@@ -346,7 +346,7 @@ Deno.serve(async(req:Request)=>{
           .order("business_date",{ascending:false})
           .limit(31),
         admin.from("merchant_billing_payment_requests")
-          .select("id,request_kind,plan_key,statement_id,expected_amount_cents,merchant_reference,status,requested_at,resolved_at,admin_reference")
+          .select("id,request_kind,plan_key,statement_id,expected_amount_cents,merchant_reference,status,requested_at,resolved_at,admin_reference,received_amount_cents,payment_method")
           .eq("merchant_id",selected.merchant_id)
           .order("requested_at",{ascending:false})
           .limit(30)
@@ -405,7 +405,9 @@ Deno.serve(async(req:Request)=>{
           status:r.status,
           requestedAt:r.requested_at,
           resolvedAt:r.resolved_at,
-          adminReference:r.admin_reference
+          adminReference:r.admin_reference,
+          receivedAmountCents:r.received_amount_cents==null?null:Number(r.received_amount_cents),
+          paymentMethod:r.payment_method
         }))
       };
     }else{
