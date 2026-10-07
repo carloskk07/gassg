@@ -316,6 +316,8 @@ assert.ok(adminAuthSource.indexOf('admin-auth-request-ip')<adminAuthSource.index
 assert.ok(adminAuthSource.indexOf('captchaToken.length<20')<adminAuthSource.indexOf('const redirectTo=safeRedirect'),'CAPTCHA precisa ser validado antes de resolver redirect do magic link');
 assert.ok(adminAuthSource.includes('captchaToken.length<20')&&adminAuthSource.includes('shouldCreateUser:mode==="bootstrap_reserved"'),'CAPTCHA deve ser obrigatório no handler e criação de usuário restrita à reserva');
 assert.ok(adminAuthSource.includes('url.origin!==origin'),'redirect de magic link precisa permanecer preso à origem administrativa');
+assert.ok(adminAuthSource.includes('url.hash=""'),'Edge admin deve manter o fragmento livre para os tokens do Supabase');
+assert.ok(!adminAuthSource.includes('url.hash="admin"'),'servidor admin não pode roubar o fragmento da autenticação implícita');
 assert.ok(adminAuthSource.includes('ADMIN_BOOTSTRAP_RETRY')&&adminAuthSource.includes('ADMIN_BOOTSTRAP_FAILED'),'claim administrativo não pode engolir falhas de concorrência ou backend');
 assert.ok(adminAuthSource.includes('safeStatus')&&adminAuthSource.includes('["claimed","existing_admin","bootstrap_closed","not_reserved"]'),'browser só pode receber estados de bootstrap explicitamente permitidos');
 assert.ok(adminAuthSource.includes('return json({ok:true,status:safeStatus},200,origin)'),'claim deve devolver apenas estado seguro, sem payload interno da autoridade SQL');
