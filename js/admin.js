@@ -42,6 +42,10 @@ async function adminBackendInit(){
   adminRuntime.status='loading';
   adminRuntime.error=null;
   try{
+    // Capture the implicit-grant fragment before the SDK or router can mutate it.
+    // This is a defensive fallback; Supabase detectSessionInUrl remains enabled.
+    const callbackSession=globalThis.captureSupabaseImplicitSessionFromUrl?.()??null;
+
     const lib=await loadSupabaseBrowser();
     const client=lib.createClient(CHAMA_BACKEND.url,CHAMA_BACKEND.publishableKey,{
       auth:{
@@ -55,8 +59,21 @@ async function adminBackendInit(){
     });
     adminRuntime.client=client;
 
-    const {data:{session},error}=await client.auth.getSession();
+    let {data:{session},error}=await client.auth.getSession();
     if(error)throw error;
+
+    if(!session?.access_token&&callbackSession?.access_token&&callbackSession?.refresh_token){
+      const restored=await client.auth.setSession({
+        access_token:callbackSession.access_token,
+        refresh_token:callbackSession.refresh_token
+      });
+      if(restored.error)throw restored.error;
+      session=restored.data.session??null;
+    }
+
+    if(session?.access_token){
+      globalThis.clearSupabaseAuthFragment?.('admin');
+    }
     adminRuntime.session=session??null;
 
     if(!session?.access_token){
