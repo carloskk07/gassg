@@ -331,4 +331,24 @@ assert.equal(d1StatementPaidAllowed({amountDueCents:1,approvedExactPaymentReques
 assert.equal(d1StatementPaidAllowed({amountDueCents:0,approvedExactPaymentRequest:false}),true);
 d1AuthorityCases+=3;
 
-console.log(`Financial invariant fuzz passou: ${rewardCases} cenários de unit economics + ${positionCases} posições de cashback + ${prepaidCases} cenários de consumo de crédito de taxa + ${transitionCases} transições de pacote + ${reconciliationCases} cenários de reconciliação + ${exactPaymentCases} confirmações exatas de pagamento + ${d1AuthorityCases} cenários de autoridade D+1.`);
+
+function reconciliationKeyCanApprove(approvedKeys,key){
+  const normalized=String(key||'').trim().toLowerCase();
+  if(normalized.length<6||normalized.length>160)return false;
+  return !approvedKeys.has(normalized);
+}
+
+let reconciliationKeyCases=0;
+const approvedKeys=new Set();
+for(let i=0;i<20000;i++){
+  const unique='tx-'+i.toString(36).padStart(6,'0');
+  assert.equal(reconciliationKeyCanApprove(approvedKeys,unique),true);
+  approvedKeys.add(unique.toLowerCase());
+  assert.equal(reconciliationKeyCanApprove(approvedKeys,unique.toUpperCase()),false,'mesmo ID com caixa diferente não pode ser reutilizado');
+  reconciliationKeyCases+=2;
+}
+assert.equal(reconciliationKeyCanApprove(new Set(),'abc'),false);
+assert.equal(reconciliationKeyCanApprove(new Set(['pix-e2e-123456']),' PIX-E2E-123456 '),false);
+reconciliationKeyCases+=2;
+
+console.log(`Financial invariant fuzz passou: ${rewardCases} cenários de unit economics + ${positionCases} posições de cashback + ${prepaidCases} cenários de consumo de crédito de taxa + ${transitionCases} transições de pacote + ${reconciliationCases} cenários de reconciliação + ${exactPaymentCases} confirmações exatas de pagamento + ${d1AuthorityCases} cenários de autoridade D+1 + ${reconciliationKeyCases} cenários de unicidade de conciliação.`);

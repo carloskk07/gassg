@@ -213,7 +213,7 @@ function merchantBillingLiveView(rt){
     const status=({pending:'PENDENTE',approved:'APROVADO',rejected:'REJEITADO',cancelled:'CANCELADO'})[r.status]||String(r.status||'').toUpperCase();
     const method=({pix:'Pix',bank_transfer:'Transferência',cash:'Dinheiro',card:'Cartão',other:'Outro'})[String(r.paymentMethod||'')]||null;
     const confirmed=r.status==='approved'&&r.receivedAmountCents!=null
-      ? `<br><small>confirmado: ${BRL.format(Number(r.receivedAmountCents||0)/100)}${method?' • '+esc(method):''}${r.adminReference?' • '+esc(r.adminReference):''}</small>`
+      ? `<br><small>confirmado: ${BRL.format(Number(r.receivedAmountCents||0)/100)}${method?' • '+esc(method):''}${r.reconciliationKey?' • ID '+esc(r.reconciliationKey):''}${r.adminReference?' • '+esc(r.adminReference):''}</small>`
       : '';
     return `<div class="list-row"><div><strong>${esc(label)}</strong><br><small>${esc(r.requestedAt?new Date(r.requestedAt).toLocaleString('pt-BR'):'—')} • ${esc(r.merchantReference||'sem referência')}</small>${confirmed}</div><div style="text-align:right"><span class="status-pill ${r.status==='approved'?'online':r.status==='rejected'?'offline':r.status==='pending'?'risk':''}">${esc(status)}</span><br><small>${BRL.format(Number(r.expectedAmountCents||0)/100)}</small></div></div>`;
   }).join('');
