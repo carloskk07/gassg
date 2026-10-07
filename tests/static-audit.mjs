@@ -1129,6 +1129,12 @@ for(const entry of fs.readdirSync(functionRoot,{withFileTypes:true})){
     assert.ok(source.includes('x-tamao-signature')&&source.includes('hmacSha256Hex')&&source.includes('constantTimeEqualHex'),entry.name+' precisa autenticar o payload bruto por HMAC');
     assert.ok(source.includes('MAX_SKEW_SECONDS=300')&&source.includes('STALE_WEBHOOK'),entry.name+' precisa bloquear replay temporal');
     assert.ok(source.includes('ingest_merchant_billing_payment_event'),entry.name+' precisa usar autoridade transacional server-only');
+  }else if(entry.name==='billing-payment-webhook-woovi'){
+    assert.ok(source.includes('MAX_BODY_BYTES=65536')&&source.includes('TextEncoder().encode(rawBody).byteLength>MAX_BODY_BYTES'),entry.name+' precisa limitar o corpo bruto antes do parse');
+    assert.ok(source.includes('x-webhook-signature')&&source.includes('verifyWooviSignature(rawBody,signature)')&&source.includes('RSASSA-PKCS1-v1_5'),entry.name+' precisa autenticar o payload bruto com RSA-SHA256');
+    assert.ok(source.includes('WOOVI_WEBHOOK_AUTHORIZATION')&&source.includes('constantTimeEqual(authorization,expectedAuthorization)'),entry.name+' precisa exigir token privado do webhook');
+    assert.ok(source.includes('WOOVI_COMPANY_ID')&&source.includes('WOOVI_COMPANY_MISMATCH'),entry.name+' precisa vincular a entrega à empresa configurada');
+    assert.ok(source.includes('OPENPIX:TRANSACTION_RECEIVED')&&source.includes('ingest_merchant_billing_payment_event'),entry.name+' precisa aceitar apenas Pix recebido e delegar ao matcher server-only');
   }else{
     assert.ok(source.includes('readJsonBody(req)'),entry.name+' precisa limitar JSON');
     assert.ok(source.includes('enforceApiQuota(admin'),entry.name+' precisa aplicar quota server-side');
