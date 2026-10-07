@@ -22,10 +22,12 @@ const adminRuntime={
   detailPending:false,
   health:null,
   healthPending:false,
+  auditResults:null,
+  auditPending:false,
   section:(()=>{
     try{
       const saved=sessionStorage.getItem('tamao-admin-section');
-      return ['overview','orders','customers','partners','catalog','finance','system'].includes(saved)?saved:'overview';
+      return ['overview','orders','customers','partners','catalog','finance','incidents','audit','system'].includes(saved)?saved:'overview';
     }catch{return 'overview'}
   })()
 };
@@ -676,7 +678,7 @@ function adminSystemHealthView(){
 }
 
 function adminSetSection(section){
-  const allowed=['overview','orders','customers','partners','catalog','finance','system'];
+  const allowed=['overview','orders','customers','partners','catalog','finance','incidents','audit','system'];
   const next=allowed.includes(String(section||''))?String(section):'overview';
   adminRuntime.section=next;
   try{sessionStorage.setItem('tamao-admin-section',next)}catch{}
