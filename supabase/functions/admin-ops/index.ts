@@ -164,6 +164,225 @@ async function verifyLivePortals(){
     probes
   };
 }
+
+function lookupText(value:unknown){
+  const raw=String(value??"").trim().replace(/\s+/g," ");
+  if(raw.length<2||raw.length>120){
+    throw new DomainError("INVALID_ADMIN_SEARCH","Digite ao menos 2 caracteres para pesquisar.",400);
+  }
+  return raw.replace(/[,%()]/g," ").replace(/\s+/g," ").trim();
+}
+function pushUniqueResult(target:any[],seen:Set<string>,item:any){
+  const key=String(item.type)+":"+String(item.id);
+  if(seen.has(key))return;
+  seen.add(key);
+  target.push(item);
+}
+async function adminSearch(admin:any,rawQuery:unknown){
+  const query=lookupText(rawQuery);
+  const like="%"+query+"%";
+  const digits=query.replace(/\D/g,"");
+  const isUuid=UUID_RE.test(query);
+  const tasks:any[]=[
+    admin.from("orders").select("id,public_code,status,customer_id,merchant_id,total_cents,customer_phone_digits,updated_at").ilike("public_code",like).order("updated_at",{ascending:false}).limit(12),
+    admin.from("merchants").select("id,name,cnpj,status,online,trust_score,last_seen_at").ilike("name",like).order("updated_at",{ascending:false}).limit(12),
+    admin.from("merchants").select("id,name,cnpj,status,online,trust_score,last_seen_at").ilike("cnpj",like).order("updated_at",{ascending:false}).limit(12),
+    admin.from("merchant_applications").select("id,company_name,cnpj,responsible_name,phone,status,updated_at").ilike("company_name",like).order("updated_at",{ascending:false}).limit(10),
+    admin.from("merchant_applications").select("id,company_name,cnpj,responsible_name,phone,status,updated_at").ilike("responsible_name",like).order("updated_at",{ascending:false}).limit(10),
+    admin.from("prelaunch_leads").select("id,lead_type,contact_name,business_name,phone,status,updated_at").ilike("contact_name",like).order("updated_at",{ascending:false}).limit(10),
+    admin.from("prelaunch_leads").select("id,lead_type,contact_name,business_name,phone,status,updated_at").ilike("business_name",like).order("updated_at",{ascending:false}).limit(10),
+    admin.from("public_requests").select("id,request_kind,contact_name,contact_channel,contact_value,status,updated_at").ilike("contact_name",like).order("updated_at",{ascending:false}).limit(10)
+  ];
+  if(digits.length>=4){
+    const phoneLike="%"+digits+"%";
+    tasks.push(
+      admin.from("orders").select("id,public_code,status,customer_id,merchant_id,total_cents,customer_phone_digits,updated_at").ilike("customer_phone_digits",phoneLike).order("updated_at",{ascending:false}).limit(15),
+      admin.from("merchant_applications").select("id,company_name,cnpj,responsible_name,phone,status,updated_at").ilike("phone",phoneLike).order("updated_at",{ascending:false}).limit(10),
+      admin.from("prelaunch_leads").select("id,lead_type,contact_name,business_name,phone,status,updated_at").ilike("phone",phoneLike).order("updated_at",{ascending:false}).limit(10),
+      admin.from("public_requests").select("id,request_kind,contact_name,contact_channel,contact_value,status,updated_at").ilike("contact_value",phoneLike).order("updated_at",{ascending:false}).limit(10)
+    );
+  }
+  if(isUuid){
+    tasks.push(
+      admin.from("orders").select("id,public_code,status,customer_id,merchant_id,total_cents,customer_phone_digits,updated_at").eq("id",query).limit(1),
+      admin.from("orders").select("id,public_code,status,customer_id,merchant_id,total_cents,customer_phone_digits,updated_at").eq("customer_id",query).order("updated_at",{ascending:false}).limit(12),
+      admin.from("merchants").select("id,name,cnpj,status,online,trust_score,last_seen_at").eq("id",query).limit(1)
+    );
+  }
+
+  const responses=await Promise.all(tasks);
+  for(const response of responses){
+    if(response.error)throw response.error;
+  }
+
+  const results:any[]=[];
+  const seen=new Set<string>();
+  const customerSeen=new Set<string>();
+  for(const response of responses){
+    for(const row of response.data??[]){
+      if(row.public_code){
+        pushUniqueResult(results,seen,{
+          type:"order",id:row.id,title:row.public_code,
+          subtitle:"Pedido • "+String(row.status||"—")+" • "+String(row.customer_phone_digits||"sem telefone"),
+          status:row.status,updatedAt:row.updated_at
+        });
+        if(row.customer_id&&!customerSeen.has(row.customer_id)){
+          customerSeen.add(row.customer_id);
+          pushUniqueResult(results,seen,{
+            type:"customer",id:row.customer_id,title:row.customer_phone_digits||"Cliente",
+            subtitle:"Cliente • pedido recente "+row.public_code,
+            status:"customer",updatedAt:row.updated_at
+          });
+        }
+      }else if(row.name&&row.cnpj){
+        pushUniqueResult(results,seen,{
+          type:"merchant",id:row.id,title:row.name,
+          subtitle:"Revenda • "+row.cnpj+" • "+String(row.status||"—"),
+          status:row.status,updatedAt:row.last_seen_at
+        });
+      }else if(row.company_name){
+        pushUniqueResult(results,seen,{
+          type:"application",id:row.id,title:row.company_name,
+          subtitle:"Cadastro de parceiro • "+String(row.responsible_name||"—")+" • "+String(row.phone||""),
+          status:row.status,updatedAt:row.updated_at
+        });
+      }else if(row.lead_type){
+        pushUniqueResult(results,seen,{
+          type:"lead",id:row.id,title:row.business_name||row.contact_name||"Lead",
+          subtitle:"Lead • "+String(row.contact_name||"")+" • "+String(row.phone||""),
+          status:row.status,updatedAt:row.updated_at
+        });
+      }else if(row.request_kind){
+        pushUniqueResult(results,seen,{
+          type:"request",id:row.id,title:row.contact_name||"Solicitação pública",
+          subtitle:String(row.request_kind||"Solicitação")+" • "+String(row.contact_value||""),
+          status:row.status,updatedAt:row.updated_at
+        });
+      }
+    }
+  }
+  return {query,results:results.slice(0,40)};
+}
+async function adminEntityDetail(admin:any,entityType:unknown,rawId:unknown){
+  const type=String(entityType??"").trim().toLowerCase();
+  if(!["order","merchant","customer"].includes(type)){
+    throw new DomainError("INVALID_ADMIN_ENTITY","Tipo de detalhe administrativo inválido.",400);
+  }
+  const id=String(rawId??"").trim();
+  if(type!=="order")uuid(id,type);
+
+  if(type==="order"){
+    let orderQuery=admin.from("orders").select("*");
+    orderQuery=UUID_RE.test(id)?orderQuery.eq("id",id):orderQuery.eq("public_code",cleanText(id,{min:6,max:32,name:"pedido"}));
+    const orderResult=await orderQuery.maybeSingle();
+    if(orderResult.error)throw orderResult.error;
+    if(!orderResult.data)throw new DomainError("ORDER_NOT_FOUND","Pedido não encontrado.",404);
+    const order=orderResult.data;
+    const [items,support,feedback,receivable,reimbursement,adjustments,audit,merchant]=await Promise.all([
+      admin.from("order_items").select("product_code,product_name,quantity,unit_price_cents,line_total_cents").eq("order_id",order.id).order("product_code"),
+      admin.from("support_cases").select("id,category,status,message,resolution_note,resolved_at,created_at,updated_at").eq("order_id",order.id).order("created_at",{ascending:false}).limit(50),
+      admin.from("order_feedback").select("rating,tags,note,created_at,updated_at").eq("order_id",order.id).maybeSingle(),
+      admin.from("platform_receivables").select("*").eq("order_id",order.id).maybeSingle(),
+      admin.from("merchant_cashback_reimbursements").select("*").eq("order_id",order.id).maybeSingle(),
+      admin.from("platform_settlement_adjustments").select("*").eq("order_id",order.id).order("created_at",{ascending:false}).limit(50),
+      admin.from("platform_admin_audit").select("actor_user_id,action,target_type,target_id,metadata,created_at").eq("target_id",order.id).order("created_at",{ascending:false}).limit(50),
+      order.merchant_id?admin.from("merchants").select("id,name,cnpj,status,online,trust_score,last_seen_at").eq("id",order.merchant_id).maybeSingle():Promise.resolve({data:null,error:null})
+    ]);
+    for(const result of [items,support,feedback,receivable,reimbursement,adjustments,audit,merchant])if(result.error)throw result.error;
+    return {type,id:order.id,order,items:items.data??[],support:support.data??[],feedback:feedback.data??null,merchant:merchant.data??null,finance:{receivable:receivable.data??null,reimbursement:reimbursement.data??null,adjustments:adjustments.data??[]},audit:audit.data??[]};
+  }
+
+  if(type==="merchant"){
+    const merchantResult=await admin.from("merchants").select("*").eq("id",id).maybeSingle();
+    if(merchantResult.error)throw merchantResult.error;
+    if(!merchantResult.data)throw new DomainError("MERCHANT_NOT_FOUND","Revenda não encontrada.",404);
+    const [business,compliance,capabilities,payments,members,catalog,orders,support,receivables,reimbursements,adjustments,audit]=await Promise.all([
+      admin.from("merchant_business_details").select("*").eq("merchant_id",id).maybeSingle(),
+      admin.from("merchant_compliance").select("*").eq("merchant_id",id).maybeSingle(),
+      admin.from("merchant_delivery_capabilities").select("*").eq("merchant_id",id).order("capability_code"),
+      admin.from("merchant_payment_methods").select("*").eq("merchant_id",id).order("payment_method"),
+      admin.from("merchant_members").select("user_id,member_role,active,display_name,created_at").eq("merchant_id",id).order("created_at"),
+      admin.from("catalog_items").select("product_code,product_name,price_cents,min_price_cents,max_price_cents,pricing_mode,pricing_strategy,available_stock,active,price_confirmed_at,updated_at").eq("merchant_id",id).order("product_name"),
+      admin.from("orders").select("id,public_code,status,customer_id,total_cents,payment_method,created_at,updated_at,accepted_at,dispatched_at,delivered_at,settled_at").eq("merchant_id",id).order("created_at",{ascending:false}).limit(80),
+      admin.from("support_cases").select("id,order_id,category,status,message,resolution_note,created_at,updated_at").eq("merchant_id",id).order("created_at",{ascending:false}).limit(50),
+      admin.from("platform_receivables").select("*").eq("merchant_id",id).order("created_at",{ascending:false}).limit(100),
+      admin.from("merchant_cashback_reimbursements").select("*").eq("merchant_id",id).order("created_at",{ascending:false}).limit(100),
+      admin.from("platform_settlement_adjustments").select("*").eq("merchant_id",id).order("created_at",{ascending:false}).limit(100),
+      admin.from("platform_admin_audit").select("actor_user_id,action,target_type,target_id,metadata,created_at").eq("target_id",id).order("created_at",{ascending:false}).limit(50)
+    ]);
+    for(const result of [business,compliance,capabilities,payments,members,catalog,orders,support,receivables,reimbursements,adjustments,audit])if(result.error)throw result.error;
+    const history=orders.data??[];
+    const terminal=history.filter((x:any)=>["SETTLED","CANCELLED"].includes(x.status));
+    const settled=terminal.filter((x:any)=>x.status==="SETTLED");
+    const cancelled=terminal.filter((x:any)=>x.status==="CANCELLED");
+    const delivered=history.filter((x:any)=>x.delivered_at);
+    const onTime=delivered.filter((x:any)=>x.delivered_at&&x.updated_at&&new Date(x.delivered_at).getTime()<=new Date(x.updated_at).getTime());
+    return {
+      type,id,merchant:merchantResult.data,business:business.data??null,compliance:compliance.data??null,
+      capabilities:capabilities.data??[],payments:payments.data??[],members:members.data??[],catalog:catalog.data??[],
+      orders:history,support:support.data??[],finance:{receivables:receivables.data??[],reimbursements:reimbursements.data??[],adjustments:adjustments.data??[]},
+      metrics:{orders:history.length,settled:settled.length,cancelled:cancelled.length,cancellationRate:terminal.length?cancelled.length/terminal.length:null,onTimeKnown:delivered.length,onTimeCount:onTime.length},
+      audit:audit.data??[]
+    };
+  }
+
+  const customerId=uuid(id,"customer");
+  const [profile,orders,support,feedback]=await Promise.all([
+    admin.from("profiles").select("user_id,referral_code,created_at,updated_at").eq("user_id",customerId).maybeSingle(),
+    admin.from("orders").select("id,public_code,status,merchant_id,supplier_name_snapshot,total_cents,gross_total_cents,cashback_reserved_cents,payment_method,customer_phone_digits,postal_code,created_at,updated_at,delivered_at,settled_at,financial_state").eq("customer_id",customerId).order("created_at",{ascending:false}).limit(100),
+    admin.from("support_cases").select("id,order_id,merchant_id,category,status,message,resolution_note,created_at,updated_at").eq("customer_id",customerId).order("created_at",{ascending:false}).limit(80),
+    admin.from("order_feedback").select("order_id,merchant_id,rating,tags,note,created_at").eq("customer_id",customerId).order("created_at",{ascending:false}).limit(80)
+  ]);
+  for(const result of [profile,orders,support,feedback])if(result.error)throw result.error;
+  const history=orders.data??[];
+  const settled=history.filter((x:any)=>x.status==="SETTLED");
+  const cancelled=history.filter((x:any)=>x.status==="CANCELLED");
+  const spend=settled.reduce((sum:number,x:any)=>sum+Number(x.total_cents||0),0);
+  const cashback=settled.reduce((sum:number,x:any)=>sum+Number(x.cashback_reserved_cents||0),0);
+  return {type,id:customerId,profile:profile.data??null,orders:history,support:support.data??[],feedback:feedback.data??[],metrics:{orders:history.length,settled:settled.length,cancelled:cancelled.length,spendCents:spend,cashbackCents:cashback}};
+}
+async function adminSystemHealth(admin:any){
+  const started=Date.now();
+  const now=new Date();
+  const heartbeatCutoff=new Date(now.getTime()-15*60*1000).toISOString();
+  const priceCutoff=new Date(now.getTime()-24*60*60*1000).toISOString();
+  const [portals,readiness,openSupport,rewardDebt,accountingDebt,overdueReceivables,overdueCashback,staleHeartbeat,stalePrice]=await Promise.all([
+    verifyLivePortals(),
+    admin.rpc("platform_launch_readiness"),
+    admin.from("support_cases").select("id",{count:"exact",head:true}).in("status",["open","in_review"]),
+    admin.from("reward_processing_failures").select("order_id",{count:"exact",head:true}).is("resolved_at",null),
+    admin.from("settlement_accounting_failures").select("order_id",{count:"exact",head:true}).is("resolved_at",null),
+    admin.from("platform_receivables").select("order_id",{count:"exact",head:true}).eq("status","open").lt("due_at",now.toISOString()),
+    admin.from("merchant_cashback_reimbursements").select("order_id",{count:"exact",head:true}).eq("status","open").lt("due_at",now.toISOString()),
+    admin.from("merchants").select("id",{count:"exact",head:true}).eq("status","active").or("last_seen_at.is.null,last_seen_at.lt."+heartbeatCutoff),
+    admin.from("merchants").select("id",{count:"exact",head:true}).eq("status","active").or("price_confirmed_at.is.null,price_confirmed_at.lt."+priceCutoff)
+  ]);
+  for(const result of [readiness,openSupport,rewardDebt,accountingDebt,overdueReceivables,overdueCashback,staleHeartbeat,stalePrice]){
+    if(result.error)throw result.error;
+  }
+  const queues={
+    openSupport:Number(openSupport.count||0),
+    rewardFailures:Number(rewardDebt.count||0),
+    accountingFailures:Number(accountingDebt.count||0),
+    overdueReceivables:Number(overdueReceivables.count||0),
+    overdueCashback:Number(overdueCashback.count||0),
+    staleMerchantHeartbeat:Number(staleHeartbeat.count||0),
+    staleMerchantPrice:Number(stalePrice.count||0)
+  };
+  const critical=(!portals.ok)||(Array.isArray(readiness.data?.securityBlockers)&&readiness.data.securityBlockers.length>0);
+  const degraded=Object.values(queues).some((x:any)=>Number(x)>0);
+  return {
+    checkedAt:now.toISOString(),
+    latencyMs:Date.now()-started,
+    status:critical?"critical":degraded?"degraded":"healthy",
+    edge:{ok:true,service:"admin-ops"},
+    database:{ok:true,operationMode:readiness.data?.operationMode??null,commerceEnabled:readiness.data?.commerceEnabled===true},
+    portals,
+    queues,
+    readiness:readiness.data??{}
+  };
+}
+
 async function summary(admin:any,actorUserId:string){
   const [apps,merchants,compliance,capabilities,referralReviews,rewardFailures,accountingFailures,receivables,reimbursements,adjustments,platformAdmins,prelaunchLeads,publicRequests,audit]=await Promise.all([
     admin.from("merchant_applications")
@@ -402,6 +621,15 @@ Deno.serve(async(req:Request)=>{
 
     if(action==="summary"){
       return json(await summary(admin,user.id),200,origin);
+    }
+    if(action==="search"){
+      return json(await adminSearch(admin,body.query),200,origin);
+    }
+    if(action==="entity-detail"){
+      return json(await adminEntityDetail(admin,body.entityType,body.entityId),200,origin);
+    }
+    if(action==="system-health"){
+      return json(await adminSystemHealth(admin),200,origin);
     }
 
     const idempotencyKey=String(req.headers.get("Idempotency-Key")??"").trim();
