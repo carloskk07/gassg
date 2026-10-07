@@ -1174,8 +1174,10 @@ async function merchantSendLogin(email){
   if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value))throw new Error('Informe um e-mail válido');
   const redirect=new URL(location.origin+location.pathname);
   redirect.searchParams.set('merchant','1');
-  const pilotInviteToken=merchantPilotInviteToken();
-  redirect.hash=pilotInviteToken?'merchant-join':'merchant';
+  // Supabase implicit auth owns the URL fragment while returning access tokens.
+  // Pilot invite state is already persisted separately, so keep this hash empty.
+  merchantPilotInviteToken();
+  redirect.hash='';
   if(!globalThis.chamaTurnstile?.challenge)throw new Error('Proteção anti-bot indisponível');
   const captchaToken=await globalThis.chamaTurnstile.challenge('merchant_login');
   const {error}=await merchantRuntime.client.auth.signInWithOtp({
