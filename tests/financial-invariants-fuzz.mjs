@@ -93,4 +93,51 @@ for(let i=0;i<20000;i++){
   positionCases++;
 }
 
-console.log(`Financial invariant fuzz passou: ${rewardCases} cenários de unit economics + ${positionCases} posições de cashback.`);
+
+function prepaidFeeAllocation(projectedFee,availableCredit){
+  const fee=Math.max(0,Math.trunc(projectedFee));
+  const available=Math.max(0,Math.trunc(availableCredit));
+  if(fee<=0||available<=0){
+    return {usesPrepaid:false,reserved:0,postpaidDue:fee};
+  }
+  const reserved=Math.min(fee,available);
+  return {usesPrepaid:true,reserved,postpaidDue:fee-reserved};
+}
+
+let prepaidCases=0;
+for(let i=0;i<25000;i++){
+  const projectedFee=int(0,1000000);
+  const availableCredit=int(0,1000000);
+  const a=prepaidFeeAllocation(projectedFee,availableCredit);
+  assert.ok(a.reserved>=0);
+  assert.ok(a.reserved<=projectedFee);
+  assert.ok(a.reserved<=availableCredit);
+  assert.equal(a.reserved+a.postpaidDue,projectedFee);
+  if(projectedFee>0&&availableCredit>0){
+    assert.equal(a.usesPrepaid,true);
+    assert.equal(a.reserved,Math.min(projectedFee,availableCredit));
+    if(availableCredit<projectedFee){
+      assert.equal(a.reserved,availableCredit,'último pedido precisa consumir todo o saldo residual');
+      assert.ok(a.postpaidDue>0,'diferença da última taxa precisa seguir para D+1');
+    }
+  }else{
+    assert.equal(a.usesPrepaid,false);
+  }
+  prepaidCases++;
+}
+
+for(const [projectedFee,availableCredit,expectedReserved,expectedDue] of [
+  [500,300,300,200],
+  [500,500,500,0],
+  [500,700,500,0],
+  [1,1,1,0],
+  [1,0,0,1],
+  [0,300,0,0]
+]){
+  const a=prepaidFeeAllocation(projectedFee,availableCredit);
+  assert.equal(a.reserved,expectedReserved);
+  assert.equal(a.postpaidDue,expectedDue);
+  prepaidCases++;
+}
+
+console.log(`Financial invariant fuzz passou: ${rewardCases} cenários de unit economics + ${positionCases} posições de cashback + ${prepaidCases} cenários de consumo de crédito de taxa.`);
