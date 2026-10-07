@@ -321,13 +321,15 @@ Deno.serve(async(req:Request)=>{
       plan:null,
       account:null,
       openStatements:[],
-      plans:[]
+      plans:[],
+      paymentRequests:[]
     };
     if(["owner","manager"].includes(selected.member_role)){
       const [
         {data:billingAccount,error:billingAccountError},
         {data:billingPlans,error:billingPlansError},
-        {data:billingStatements,error:billingStatementsError}
+        {data:billingStatements,error:billingStatementsError},
+        {data:billingPaymentRequests,error:billingPaymentRequestsError}
       ]=await Promise.all([
         admin.from("merchant_billing_accounts")
           .select("merchant_id,plan_key,credit_balance_cents,credit_reserved_cents,sales_hold,sales_hold_reason,sales_hold_at,last_daily_close_date,updated_at")
@@ -342,11 +344,17 @@ Deno.serve(async(req:Request)=>{
           .eq("merchant_id",selected.merchant_id)
           .in("status",["open","overdue"])
           .order("business_date",{ascending:false})
-          .limit(31)
+          .limit(31),
+        admin.from("merchant_billing_payment_requests")
+          .select("id,request_kind,plan_key,statement_id,expected_amount_cents,merchant_reference,status,requested_at,resolved_at,admin_reference")
+          .eq("merchant_id",selected.merchant_id)
+          .order("requested_at",{ascending:false})
+          .limit(30)
       ]);
       if(billingAccountError)throw billingAccountError;
       if(billingPlansError)throw billingPlansError;
       if(billingStatementsError)throw billingStatementsError;
+      if(billingPaymentRequestsError)throw billingPaymentRequestsError;
       const currentPlan=(billingPlans??[]).find((p:any)=>p.plan_key===billingAccount?.plan_key)??null;
       billing={
         plan:currentPlan?{
@@ -386,6 +394,18 @@ Deno.serve(async(req:Request)=>{
           platformFeeBps:Number(p.platform_fee_bps||0),
           purchaseAmountCents:p.purchase_amount_cents==null?null:Number(p.purchase_amount_cents),
           creditGrantCents:p.credit_grant_cents==null?null:Number(p.credit_grant_cents)
+        })),
+        paymentRequests:(billingPaymentRequests??[]).map((r:any)=>({
+          id:r.id,
+          requestKind:r.request_kind,
+          planKey:r.plan_key,
+          statementId:r.statement_id,
+          expectedAmountCents:Number(r.expected_amount_cents||0),
+          merchantReference:r.merchant_reference,
+          status:r.status,
+          requestedAt:r.requested_at,
+          resolvedAt:r.resolved_at,
+          adminReference:r.admin_reference
         }))
       };
     }else{
@@ -403,7 +423,8 @@ Deno.serve(async(req:Request)=>{
           salesHoldAt:billingAccount.sales_hold_at??null
         }:null,
         openStatements:[],
-        plans:[]
+        plans:[],
+        paymentRequests:[]
       };
     }
 

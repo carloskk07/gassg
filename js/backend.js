@@ -1518,6 +1518,58 @@ async function merchantCompleteDeliveryLive(orderId,pin,paymentConfirmed){
   }
 }
 
+async function merchantBillingRequestLive(action,payload={}){
+  const merchantId=merchantRuntime.merchant?.merchantId;
+  if(!merchantId)throw new Error('Revenda não selecionada');
+  if(!['owner','manager'].includes(String(merchantRuntime.merchant?.memberRole||''))){
+    throw new Error('Seu papel não pode operar cobranças e pacotes');
+  }
+  const allowed=['request-billing-package','notify-billing-payment','cancel-billing-request'];
+  if(!allowed.includes(action))throw new Error('Ação financeira inválida');
+  merchantRuntime.actionPending=true;
+  merchantRuntime.error=null;
+  render();
+  try{
+    const idempotencyKey=liveIdempotency('merchant-billing');
+    const result=await retryAmbiguousOnce(()=>merchantInvoke('merchant-ops',{
+      merchantId,
+      action,
+      ...payload
+    },{idempotencyKey}));
+    await merchantRefresh({silent:true});
+    return result;
+  }catch(error){
+    merchantRuntime.error=String(error?.message||error);
+    try{await merchantRefresh({silent:true})}catch{}
+    throw error;
+  }finally{
+    merchantRuntime.actionPending=false;
+    render();
+  }
+}
+
+async function merchantRequestBillingPackageLive(planKey,reference){
+  const plan=String(planKey||'').trim().toLowerCase();
+  const ref=String(reference||'').trim().replace(/\s+/g,' ');
+  if(!/^[a-z][a-z0-9_]{1,39}$/.test(plan))throw new Error('Pacote de crédito inválido');
+  if(ref.length<3||ref.length>240)throw new Error('Informe a referência do pagamento');
+  return merchantBillingRequestLive('request-billing-package',{planKey:plan,reference:ref});
+}
+
+async function merchantNotifyBillingPaymentLive(statementId,reference){
+  const id=String(statementId||'').trim();
+  const ref=String(reference||'').trim().replace(/\s+/g,' ');
+  if(!id)throw new Error('Fechamento diário inválido');
+  if(ref.length<3||ref.length>240)throw new Error('Informe a referência do pagamento');
+  return merchantBillingRequestLive('notify-billing-payment',{statementId:id,reference:ref});
+}
+
+async function merchantCancelBillingRequestLive(paymentRequestId){
+  const id=String(paymentRequestId||'').trim();
+  if(!id)throw new Error('Solicitação financeira inválida');
+  return merchantBillingRequestLive('cancel-billing-request',{paymentRequestId:id});
+}
+
 async function merchantSetOnlineLive(online){
   const merchantId=merchantRuntime.merchant?.merchantId;
   if(!merchantId)throw new Error('Revenda não selecionada');
@@ -1789,6 +1841,10 @@ globalThis.merchantOpenTeam=merchantOpenTeam;
 globalThis.merchantAssignDeliveryLive=merchantAssignDeliveryLive;
 globalThis.merchantUpdateMemberProfileLive=merchantUpdateMemberProfileLive;
 globalThis.merchantCompleteDeliveryLive=merchantCompleteDeliveryLive;
+globalThis.merchantBillingRequestLive=merchantBillingRequestLive;
+globalThis.merchantRequestBillingPackageLive=merchantRequestBillingPackageLive;
+globalThis.merchantNotifyBillingPaymentLive=merchantNotifyBillingPaymentLive;
+globalThis.merchantCancelBillingRequestLive=merchantCancelBillingRequestLive;
 globalThis.merchantSetOnlineLive=merchantSetOnlineLive;
 globalThis.merchantUpdateProductLive=merchantUpdateProductLive;
 globalThis.merchantUpdateLogisticsLive=merchantUpdateLogisticsLive;
