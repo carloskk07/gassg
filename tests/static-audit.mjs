@@ -690,7 +690,7 @@ assert.ok(backend.includes("MERCHANT_PILOT_INVITE_STORAGE='tamao-pilot-invite-v1
 assert.ok(backend.includes('merchantPilotInviteFromUrl')&&backend.includes("history.replaceState(null,'',url.pathname+url.search+url.hash)"),'token piloto legado em query/hash deve ser capturado e removido imediatamente da barra de endereço');
 assert.ok(backend.includes("const hashToken=String(hashParams.get('pilot')")&&backend.includes("const queryToken=String(url.searchParams.get('pilot')"),'migração deve aceitar link novo em fragmento e link legado em query sem perder o parceiro');
 assert.ok(!backend.includes("redirect.searchParams.set('pilot'"),'magic link da revenda jamais pode propagar o segredo do convite em query string');
-assert.ok(backend.includes("redirect.hash=pilotInviteToken?'merchant-join':'merchant'"),'magic link deve preservar somente a rota, mantendo o token fora da URL enviada ao provedor');
+assert.ok(backend.includes("merchantPilotInviteToken();\n  redirect.hash=''"),'magic link da revenda deve persistir o convite fora da URL e reservar o fragmento para a sessão Supabase');
 assert.ok(backend.includes('clearMerchantPilotInviteToken();')&&backend.includes("raw.includes('PILOT_INVITE_EXPIRED')"),'claim concluído ou convite terminal inválido deve apagar o segredo transitório');
 assert.ok(!growth.includes("new URLSearchParams(location.search).get('pilot')"),'UI de parceria não pode reler token piloto da query string');
 assert.ok(growth.includes('globalThis.merchantPilotInviteToken?.()')&&growth.includes('globalThis.clearMerchantPilotInviteToken?.()'),'UI deve consumir a autoridade sanitizada de convite do runtime');
