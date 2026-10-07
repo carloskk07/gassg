@@ -944,6 +944,7 @@ const merchantRuntime={
   teamLoading:false,
   catalog:[],
   availableProducts:[],
+  billing:null,
   orders:[],
   selectedMerchantId:localStorage.getItem('chama-merchant-selected-v1')||null,
   actionPending:false,
@@ -1242,6 +1243,7 @@ async function merchantSignOut(){
   merchantRuntime.teamLoading=false;
   merchantRuntime.catalog=[];
   merchantRuntime.availableProducts=[];
+  merchantRuntime.billing=null;
   merchantRuntime.orders=[];
   merchantRuntime.selectedMerchantId=null;
   localStorage.removeItem('chama-merchant-selected-v1');
@@ -1268,6 +1270,7 @@ async function merchantRefresh({silent=false,recoverSelection=true}={}){
     merchantRuntime.deliveryTeam=data.deliveryTeam??[];
     merchantRuntime.catalog=data.catalog??[];
     merchantRuntime.availableProducts=data.availableProducts??[];
+    merchantRuntime.billing=data.billing??null;
     merchantRuntime.orders=data.orders??[];
     merchantProcessOrderAlerts(merchantRuntime.orders,merchantRuntime.merchant);
     merchantRuntime.selectedMerchantId=data.merchant?.merchantId??merchantRuntime.selectedMerchantId;
@@ -1299,6 +1302,7 @@ async function merchantRefresh({silent=false,recoverSelection=true}={}){
       merchantRuntime.teamLoading=false;
       merchantRuntime.catalog=[];
       merchantRuntime.availableProducts=[];
+      merchantRuntime.billing=null;
       merchantRuntime.error=null;
       merchantRuntime.accessReason=error?.code||'NO_MERCHANT_ACCESS';
       return null;
