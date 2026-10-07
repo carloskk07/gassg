@@ -750,6 +750,8 @@ function adminIncidentCard(item,admins){
   const activeAdmins=(admins||[]).filter(x=>x.active);
   const severityClass=item.severity==='critical'?'offline':item.severity==='high'?'risk':'online';
   const resolved=item.status==='resolved';
+  const readOnly=adminCurrentRole()==='readonly';
+  const assignee=activeAdmins.find(x=>x.user_id===item.assigned_admin_id);
   return `<article class="card admin-incident-card">
     <div class="order-head">
       <div><span class="status-pill ${severityClass}">${esc(adminIncidentSeverityLabel(item.severity))}</span><h3 style="margin:8px 0 2px">${esc(item.title)}</h3><small class="muted">${esc(item.source||'admin')} • ${esc(formatDateTime(item.updated_at))}</small></div>
@@ -757,18 +759,20 @@ function adminIncidentCard(item,admins){
     </div>
     ${item.description?`<p class="muted">${esc(item.description)}</p>`:''}
     ${item.entity_type?`<div class="tiny muted">Entidade: ${esc(item.entity_type)} • ${esc(item.entity_id||'—')}</div>`:''}
-    <div class="input-wrap" style="margin-top:10px">
-      <label for="incident-assignee-${esc(item.id)}">Responsável</label>
-      <select id="incident-assignee-${esc(item.id)}" class="input">
-        <option value="">Sem responsável</option>
-        ${activeAdmins.map(a=>`<option value="${esc(a.user_id)}" ${item.assigned_admin_id===a.user_id?'selected':''}>${esc(adminRoleLabel(a.admin_role))} • ${esc(a.user_id.slice(0,8))}</option>`).join('')}
-      </select>
-    </div>
-    <div class="order-actions" style="margin-top:10px">
-      <button class="secondary small" onclick="adminIncidentAction('${esc(item.id)}','assign')">Atribuir</button>
-      ${!item.acknowledged_at?`<button class="secondary small" onclick="adminIncidentAction('${esc(item.id)}','acknowledge')">Reconhecer</button>`:''}
-      ${!resolved?`<button class="secondary small" onclick="adminIncidentAction('${esc(item.id)}','set-status')">Alterar status</button><button class="primary small" onclick="adminIncidentAction('${esc(item.id)}','resolve')">Resolver</button>`:`<button class="secondary small" onclick="adminIncidentAction('${esc(item.id)}','reopen')">Reabrir</button>`}
-    </div>
+    ${readOnly
+      ? `<div class="tiny muted" style="margin-top:10px">Responsável: ${esc(assignee?adminRoleLabel(assignee.admin_role)+' • '+assignee.user_id.slice(0,8):'não atribuído')}</div>`
+      : `<div class="input-wrap" style="margin-top:10px">
+          <label for="incident-assignee-${esc(item.id)}">Responsável</label>
+          <select id="incident-assignee-${esc(item.id)}" class="input">
+            <option value="">Sem responsável</option>
+            ${activeAdmins.map(a=>`<option value="${esc(a.user_id)}" ${item.assigned_admin_id===a.user_id?'selected':''}>${esc(adminRoleLabel(a.admin_role))} • ${esc(a.user_id.slice(0,8))}</option>`).join('')}
+          </select>
+        </div>
+        <div class="order-actions" style="margin-top:10px">
+          <button class="secondary small" onclick="adminIncidentAction('${esc(item.id)}','assign')">Atribuir</button>
+          ${!item.acknowledged_at?`<button class="secondary small" onclick="adminIncidentAction('${esc(item.id)}','acknowledge')">Reconhecer</button>`:''}
+          ${!resolved?`<button class="secondary small" onclick="adminIncidentAction('${esc(item.id)}','set-status')">Alterar status</button><button class="primary small" onclick="adminIncidentAction('${esc(item.id)}','resolve')">Resolver</button>`:`<button class="secondary small" onclick="adminIncidentAction('${esc(item.id)}','reopen')">Reabrir</button>`}
+        </div>`}
     ${item.resolution_note?`<div class="notice success" style="margin-top:10px"><strong>Resolução</strong><br>${esc(item.resolution_note)}</div>`:''}
   </article>`;
 }
@@ -776,19 +780,22 @@ function adminIncidentCenter(d){
   const incidents=d.incidents||[];
   const open=incidents.filter(x=>x.status!=='resolved');
   const resolved=incidents.filter(x=>x.status==='resolved');
+  const readOnly=adminCurrentRole()==='readonly';
   return `<section class="section">
     <div class="section-head"><div><span class="section-kicker">INCIDENTES</span><h2>Central de Incidentes</h2><p>Eventos críticos ganham responsável, severidade, status e resolução auditável.</p></div><span class="status-pill ${open.length?'risk':'online'}">${open.length} aberto(s)</span></div>
-    <div class="card flat form-stack">
-      <h3>Novo incidente</h3>
-      <div class="input-wrap"><label for="admin-incident-title">Título</label><input id="admin-incident-title" class="input" maxlength="160" placeholder="Ex.: falha no recebimento de pedidos"></div>
-      <div class="input-wrap"><label for="admin-incident-severity">Severidade</label><select id="admin-incident-severity" class="input"><option value="critical">Crítico</option><option value="high">Alto</option><option value="medium" selected>Médio</option><option value="low">Baixo</option></select></div>
-      <div class="input-wrap"><label for="admin-incident-description">Descrição</label><textarea id="admin-incident-description" class="input" maxlength="4000" rows="3" placeholder="Impacto, sintomas e contexto"></textarea></div>
-      <div class="grid-2">
-        <div class="input-wrap"><label for="admin-incident-entity-type">Tipo relacionado</label><input id="admin-incident-entity-type" class="input" maxlength="80" placeholder="order, merchant, system…"></div>
-        <div class="input-wrap"><label for="admin-incident-entity-id">ID relacionado</label><input id="admin-incident-entity-id" class="input" maxlength="160" placeholder="Código/UUID opcional"></div>
-      </div>
-      <button class="primary" onclick="adminCreateIncident()">Criar incidente</button>
-    </div>
+    ${readOnly
+      ? '<div class="notice">Perfil Somente leitura: incidentes podem ser consultados, mas não alterados.</div>'
+      : `<div class="card flat form-stack">
+          <h3>Novo incidente</h3>
+          <div class="input-wrap"><label for="admin-incident-title">Título</label><input id="admin-incident-title" class="input" maxlength="160" placeholder="Ex.: falha no recebimento de pedidos"></div>
+          <div class="input-wrap"><label for="admin-incident-severity">Severidade</label><select id="admin-incident-severity" class="input"><option value="critical">Crítico</option><option value="high">Alto</option><option value="medium" selected>Médio</option><option value="low">Baixo</option></select></div>
+          <div class="input-wrap"><label for="admin-incident-description">Descrição</label><textarea id="admin-incident-description" class="input" maxlength="4000" rows="3" placeholder="Impacto, sintomas e contexto"></textarea></div>
+          <div class="grid-2">
+            <div class="input-wrap"><label for="admin-incident-entity-type">Tipo relacionado</label><input id="admin-incident-entity-type" class="input" maxlength="80" placeholder="order, merchant, system…"></div>
+            <div class="input-wrap"><label for="admin-incident-entity-id">ID relacionado</label><input id="admin-incident-entity-id" class="input" maxlength="160" placeholder="Código/UUID opcional"></div>
+          </div>
+          <button class="primary" onclick="adminCreateIncident()">Criar incidente</button>
+        </div>`}
     <div class="admin-incident-grid" style="margin-top:12px">
       ${open.length?open.map(x=>adminIncidentCard(x,d.platformAdmins||[])).join(''):'<div class="notice success"><strong>Nenhum incidente aberto.</strong></div>'}
     </div>
@@ -1472,9 +1479,8 @@ function adminPage(){
   const incidentsContent=adminIncidentCenter(d);
   const auditContent=adminAuditView(d);
 
-  const systemContent=`
-    ${adminSystemHealthView()}
-    <section class="section"><div class="section-head"><div><span class="section-kicker">ACESSO ADMINISTRATIVO</span><h2>Administradores da plataforma</h2><p>RBAC explícito: Superadmin, Operações, Financeiro, Suporte, Compliance e Somente leitura. O último Superadmin ativo não pode ser removido nem rebaixado.</p></div><div class="order-actions"><span class="status-pill online">${platformAdmins.filter(x=>x.active).length} ativo(s)</span><span class="status-pill">${esc(adminRoleLabel(adminCurrentRole()))}</span></div></div>
+  const adminAccessContent=currentRole==='superadmin'
+    ? `<section class="section"><div class="section-head"><div><span class="section-kicker">ACESSO ADMINISTRATIVO</span><h2>Administradores da plataforma</h2><p>RBAC explícito: Superadmin, Operações, Financeiro, Suporte, Compliance e Somente leitura. O último Superadmin ativo não pode ser removido nem rebaixado.</p></div><div class="order-actions"><span class="status-pill online">${platformAdmins.filter(x=>x.active).length} ativo(s)</span><span class="status-pill">${esc(adminRoleLabel(currentRole))}</span></div></div>
       <div class="card flat form-stack">
         <div class="list">${platformAdmins.length?platformAdmins.map(x=>`<div class="list-row admin-access-row"><div><strong>${esc(x.user_id)}</strong><br><small>${x.active?'Administrador ativo':'Acesso administrativo suspenso'} • ${esc(adminRoleLabel(x.admin_role))}</small></div><div class="order-actions"><select id="admin-role-${esc(x.user_id)}" class="input small-input" aria-label="Perfil administrativo">${adminRoleOptions(x.admin_role)}</select><button class="secondary small" onclick="adminChangePlatformAdminRole('${esc(x.user_id)}')">Salvar perfil</button><span class="status-pill ${x.active?'online':'offline'}">${x.active?'ATIVO':'INATIVO'}</span><button class="${x.active?'danger-btn':'secondary'} small" onclick="adminSetPlatformAdmin('${esc(x.user_id)}',${x.active?'false':'true'},document.getElementById('admin-role-${esc(x.user_id)}')?.value)">${x.active?'Desativar':'Ativar'}</button></div></div>`).join(''):'<div class="tiny muted">Nenhum administrador bootstrapado ainda.</div>'}</div>
         <div class="divider"></div>
@@ -1482,7 +1488,15 @@ function adminPage(){
         <div class="input-wrap"><label for="admin-new-user-role">Perfil inicial</label><select id="admin-new-user-role" class="input"><option value="readonly">Somente leitura</option><option value="support">Suporte</option><option value="compliance">Compliance</option><option value="operations">Operações</option><option value="finance">Financeiro</option><option value="superadmin">Superadmin</option></select><small class="field-help">Use Superadmin somente para quem precisa controlar acessos e modo operacional.</small></div>
         <button class="secondary" onclick="adminAddPlatformAdmin()">Adicionar administrador</button>
       </div>
-    </section>`;
+    </section>`
+    : currentRole==='readonly'
+      ? `<section class="section"><div class="section-head"><div><span class="section-kicker">ACESSO ADMINISTRATIVO</span><h2>Administradores</h2><p>Consulta sem permissão para alterar perfis ou acessos.</p></div></div><div class="list">${platformAdmins.map(x=>`<div class="list-row"><div><strong>${esc(x.user_id)}</strong><br><small>${esc(adminRoleLabel(x.admin_role))}</small></div><span class="status-pill ${x.active?'online':'offline'}">${x.active?'ATIVO':'INATIVO'}</span></div>`).join('')}</div></section>`
+      : '';
+
+  const systemContent=`
+    ${adminSystemHealthView()}
+    ${adminAccessContent}
+  `;
 
   const menu=`
     <nav class="admin-sidebar" aria-label="Áreas administrativas">
