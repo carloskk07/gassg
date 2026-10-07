@@ -7,20 +7,19 @@ const publishableKeys=JSON.parse(Deno.env.get("SUPABASE_PUBLISHABLE_KEYS")??"{}"
 const secretKeys=JSON.parse(Deno.env.get("SUPABASE_SECRET_KEYS")??"{}");
 const PUBLISHABLE_KEY=publishableKeys.default??Deno.env.get("SUPABASE_ANON_KEY")??"";
 const SECRET_KEY=secretKeys.default??Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")??"";
-const ADMIN_ALLOWED_ORIGIN=(Deno.env.get("ADMIN_ALLOWED_ORIGIN")??"https://chama-sg-admin.netlify.app").trim();
+const ADMIN_LIVE_ORIGIN="https://admin.tamao.com.br";
+const ADMIN_PAGES_ORIGIN="https://tamao-sg-admin.pages.dev";
 const ADMIN_PRIMARY_ORIGINS=new Set([
-  "https://tamao-sg-admin.pages.dev",
-  "https://admin.tamao.com.br",
-  ADMIN_ALLOWED_ORIGIN
-].filter(Boolean));
+  ADMIN_LIVE_ORIGIN,
+  ADMIN_PAGES_ORIGIN
+]);
 
 function originAllowed(origin:string|null){
   if(!origin)return false;
-  if(/^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(origin))return true;
   return ADMIN_PRIMARY_ORIGINS.has(origin);
 }
 function cors(origin:string|null){
-  const allowed=origin&&originAllowed(origin)?origin:"https://tamao-sg-admin.pages.dev";
+  const allowed=origin&&originAllowed(origin)?origin:ADMIN_LIVE_ORIGIN;
   return {
     "Access-Control-Allow-Origin":allowed,
     "Access-Control-Allow-Headers":"authorization, apikey, content-type",
