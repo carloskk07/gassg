@@ -303,6 +303,8 @@ async function adminSignOut(){
   adminRuntime.detailPending=false;
   adminRuntime.health=null;
   adminRuntime.healthPending=false;
+  adminRuntime.auditResults=null;
+  adminRuntime.auditPending=false;
   adminRuntime.status='unauthenticated';
   adminRuntime.error=null;
   adminRuntime.notice=null;
@@ -339,6 +341,7 @@ async function adminRefresh({silent=false}={}){
       adminRuntime.searchResults=[];
       adminRuntime.detail=null;
       adminRuntime.health=null;
+      adminRuntime.auditResults=null;
       adminRuntime.error='Sua sessão expirou. Entre novamente.';
       return null;
     }
