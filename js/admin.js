@@ -1440,17 +1440,20 @@ function adminPage(){
     </section>
     <section class="section"><div class="card flat form-stack"><h3>Reversão financeira auditada</h3><p class="muted tiny">Somente para um pedido já liquidado que teve estorno/refund confirmado. O histórico operacional de entrega permanece.</p><div class="input-wrap"><label for="admin-reverse-order">ID do pedido</label><input id="admin-reverse-order" class="input" placeholder="UUID do pedido"></div><div class="input-wrap"><label for="admin-reverse-reason">Motivo</label><input id="admin-reverse-reason" class="input" maxlength="240" placeholder="Motivo confirmado"></div><div class="input-wrap"><label for="admin-reverse-ref">Referência</label><input id="admin-reverse-ref" class="input" maxlength="120" placeholder="ID do estorno/comprovante"></div><button class="danger-btn" onclick="adminReverseOrder()">Executar reversão</button></div></section>`;
 
+  const incidentsContent=adminIncidentCenter(d);
+  const auditContent=adminAuditView(d);
+
   const systemContent=`
     ${adminSystemHealthView()}
-    <section class="section"><div class="section-head"><div><h2>Administradores da plataforma</h2><p>O primeiro admin é criado somente por bootstrap server-side. Depois disso, esta tela mantém redundância operacional sem permitir remover o último admin ativo.</p></div><span class="status-pill online">${platformAdmins.filter(x=>x.active).length} ativo(s)</span></div>
+    <section class="section"><div class="section-head"><div><span class="section-kicker">ACESSO ADMINISTRATIVO</span><h2>Administradores da plataforma</h2><p>RBAC explícito: Superadmin, Operações, Financeiro, Suporte, Compliance e Somente leitura. O último Superadmin ativo não pode ser removido nem rebaixado.</p></div><div class="order-actions"><span class="status-pill online">${platformAdmins.filter(x=>x.active).length} ativo(s)</span><span class="status-pill">${esc(adminRoleLabel(adminCurrentRole()))}</span></div></div>
       <div class="card flat form-stack">
-        <div class="list">${platformAdmins.length?platformAdmins.map(x=>`<div class="list-row"><div><strong>${esc(x.user_id)}</strong><br><small>${x.active?'Administrador ativo':'Acesso administrativo suspenso'}</small></div><div class="order-actions"><span class="status-pill ${x.active?'online':'offline'}">${x.active?'ATIVO':'INATIVO'}</span><button class="${x.active?'danger-btn':'secondary'} small" onclick="adminSetPlatformAdmin('${x.user_id}',${x.active?'false':'true'})">${x.active?'Desativar':'Ativar'}</button></div></div>`).join(''):'<div class="tiny muted">Nenhum administrador bootstrapado ainda.</div>'}</div>
+        <div class="list">${platformAdmins.length?platformAdmins.map(x=>`<div class="list-row admin-access-row"><div><strong>${esc(x.user_id)}</strong><br><small>${x.active?'Administrador ativo':'Acesso administrativo suspenso'} • ${esc(adminRoleLabel(x.admin_role))}</small></div><div class="order-actions"><select id="admin-role-${esc(x.user_id)}" class="input small-input" aria-label="Perfil administrativo">${adminRoleOptions(x.admin_role)}</select><button class="secondary small" onclick="adminChangePlatformAdminRole('${esc(x.user_id)}')">Salvar perfil</button><span class="status-pill ${x.active?'online':'offline'}">${x.active?'ATIVO':'INATIVO'}</span><button class="${x.active?'danger-btn':'secondary'} small" onclick="adminSetPlatformAdmin('${esc(x.user_id)}',${x.active?'false':'true'},document.getElementById('admin-role-${esc(x.user_id)}')?.value)">${x.active?'Desativar':'Ativar'}</button></div></div>`).join(''):'<div class="tiny muted">Nenhum administrador bootstrapado ainda.</div>'}</div>
         <div class="divider"></div>
-        <div class="input-wrap"><label for="admin-new-user-email">E-mail da conta permanente</label><input id="admin-new-user-email" class="input" type="email" maxlength="160" autocomplete="off" placeholder="pessoa@empresa.com"><small class="field-help">A pessoa precisa ter acessado o TAMÃO com este e-mail ao menos uma vez. O servidor resolve a conta sem expor UUIDs.</small></div>
+        <div class="input-wrap"><label for="admin-new-user-email">E-mail da conta permanente</label><input id="admin-new-user-email" class="input" type="email" maxlength="160" autocomplete="off" placeholder="pessoa@empresa.com"><small class="field-help">A conta precisa ser permanente e confirmada antes de receber acesso administrativo.</small></div>
+        <div class="input-wrap"><label for="admin-new-user-role">Perfil inicial</label><select id="admin-new-user-role" class="input"><option value="readonly">Somente leitura</option><option value="support">Suporte</option><option value="compliance">Compliance</option><option value="operations">Operações</option><option value="finance">Financeiro</option><option value="superadmin">Superadmin</option></select><small class="field-help">Use Superadmin somente para quem precisa controlar acessos e modo operacional.</small></div>
         <button class="secondary" onclick="adminAddPlatformAdmin()">Adicionar administrador</button>
       </div>
-    </section>
-    <section class="section"><div class="section-head"><div><h2>Auditoria recente</h2><p>Histórico das ações administrativas mais recentes.</p></div></div><div class="list">${(d.recentAudit||[]).length?(d.recentAudit||[]).map(x=>`<div class="list-row"><div><strong>${esc(x.action)}</strong><br><small>${esc(x.target_type)} • ${esc(x.target_id||'—')}</small></div><small>${new Date(x.created_at).toLocaleString('pt-BR')}</small></div>`).join(''):'<div class="empty card">Nenhuma ação administrativa registrada.</div>'}</div></section>`;
+    </section>`;
 
   const menu=`
     <nav class="admin-sidebar" aria-label="Áreas administrativas">
@@ -1461,6 +1464,8 @@ function adminPage(){
       ${adminMenuButton('partners','Parceiros','◇',pending.length+pilotPartners.filter(x=>x.onboarding_status!=='cancelled').length)}
       ${adminMenuButton('catalog','Catálogo','▤')}
       ${adminMenuButton('finance','Financeiro','₿',pendingReferralReviews.length+deadRewardFailures.length+deadAccountingFailures.length)}
+      ${adminMenuButton('incidents','Incidentes','!',(d.incidents||[]).filter(x=>x.status!=='resolved').length)}
+      ${adminMenuButton('audit','Auditoria','⌕')}
       ${adminMenuButton('system','Segurança e sistema','⚙',platformAdmins.filter(x=>x.active).length)}
     </nav>`;
 
@@ -1477,6 +1482,8 @@ function adminPage(){
         ${adminPanel('partners',partnersContent)}
         ${adminPanel('catalog',catalogContent)}
         ${adminPanel('finance',financeContent)}
+        ${adminPanel('incidents',incidentsContent)}
+        ${adminPanel('audit',auditContent)}
         ${adminPanel('system',systemContent)}
       </main>
     </div>
