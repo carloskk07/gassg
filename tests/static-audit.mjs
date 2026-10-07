@@ -516,6 +516,8 @@ assert.ok(read('supabase/functions/admin-ops/index.ts').includes('ADMIN_ACCESS_D
 const adminOpsSource=read('supabase/functions/admin-ops/index.ts');
 const adminRbacIncidentMigration=read('supabase/migrations/20261007160000_admin_rbac_incidents_v1_71.sql');
 const merchantBillingMigration=read('supabase/migrations/20261007173000_merchant_billing_engine_v1_72.sql');
+const merchantBillingIndexes=read('supabase/migrations/20261007174500_merchant_billing_fk_indexes_v1_72_1.sql');
+assert.ok(merchantBillingIndexes.includes('merchant_billing_accounts_plan_key_idx')&&merchantBillingIndexes.includes('merchant_daily_statements_resolved_by_idx')&&merchantBillingIndexes.includes('merchant_fee_credit_ledger_created_by_idx')&&merchantBillingIndexes.includes('merchant_fee_credit_ledger_order_id_idx')&&merchantBillingIndexes.includes('merchant_fee_credit_ledger_plan_key_idx'),'billing v1.72 precisa cobrir as FKs apontadas pelo advisor do banco');
 assert.ok(merchantBillingMigration.includes("'flex_daily','Flex Diário','postpaid_daily',850")&&merchantBillingMigration.includes("'credit_3000','Crédito 3.000','prepaid_credit',650"),'billing v1.72 precisa manter Flex premium e pacotes pré-pagos com desconto progressivo');
 assert.ok(merchantBillingMigration.includes('BILLING_PLAN_BELOW_ECONOMIC_FLOOR')&&merchantBillingMigration.includes('variable_cost_bps')&&merchantBillingMigration.includes('minimum_contribution_bps'),'pacotes não podem cair abaixo do piso econômico completo');
 assert.ok(merchantBillingMigration.includes("at time zone 'America/Sao_Paulo'")&&merchantBillingMigration.includes("'5 3 * * *'"),'fechamento diário precisa usar o dia comercial de São Gabriel e executar após meia-noite local');
