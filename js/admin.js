@@ -1859,21 +1859,32 @@ async function adminRetryAccounting(orderId){
   }catch(e){toast(String(e?.message||e))}
 }
 
-async function adminSetPlatformAdmin(targetUserId,active){
-  if(active!==true&&!confirm('Desativar este administrador? O último admin ativo nunca pode ser removido.'))return;
+async function adminSetPlatformAdmin(targetUserId,active,adminRole=null){
+  const current=(adminRuntime.data?.platformAdmins||[]).find(x=>x.user_id===targetUserId);
+  const role=adminRole||document.getElementById('admin-role-'+targetUserId)?.value||current?.admin_role||'readonly';
+  if(active!==true&&!confirm('Desativar este administrador? O último Superadmin ativo nunca pode ser removido.'))return;
   try{
-    await adminPerform('set-platform-admin',{targetUserId,active:active===true});
-    toast(active?'Administrador ativado':'Administrador desativado');
+    await adminPerform('set-platform-admin',{targetUserId,active:active===true,adminRole:role});
+    toast(active?'Acesso administrativo atualizado':'Administrador desativado');
   }catch(e){toast(String(e?.message||e))}
+}
+async function adminChangePlatformAdminRole(targetUserId){
+  const current=(adminRuntime.data?.platformAdmins||[]).find(x=>x.user_id===targetUserId);
+  if(!current)return toast('Administrador não encontrado');
+  const role=document.getElementById('admin-role-'+targetUserId)?.value||current.admin_role;
+  if(role===current.admin_role)return toast('O perfil já está selecionado');
+  if(!confirm('Alterar o perfil deste administrador para '+adminRoleLabel(role)+'?'))return;
+  return adminSetPlatformAdmin(targetUserId,current.active,role);
 }
 async function adminAddPlatformAdmin(){
   const targetEmail=document.querySelector('#admin-new-user-email')?.value.trim().toLowerCase()||'';
+  const adminRole=document.querySelector('#admin-new-user-role')?.value||'readonly';
   if(targetEmail.length<3||targetEmail.length>160||!/^\S+@\S+\.\S+$/.test(targetEmail)){
     return toast('Informe um e-mail válido de conta permanente');
   }
   try{
-    await adminPerform('set-platform-admin',{targetEmail,active:true});
-    toast('Administrador ativado');
+    await adminPerform('set-platform-admin',{targetEmail,active:true,adminRole});
+    toast('Administrador adicionado como '+adminRoleLabel(adminRole));
   }catch(e){toast(String(e?.message||e))}
 }
 
@@ -1910,6 +1921,10 @@ globalThis.adminRetryReward=adminRetryReward;
 globalThis.adminRetryAccounting=adminRetryAccounting;
 globalThis.adminSetPlatformAdmin=adminSetPlatformAdmin;
 globalThis.adminAddPlatformAdmin=adminAddPlatformAdmin;
+globalThis.adminChangePlatformAdminRole=adminChangePlatformAdminRole;
+globalThis.adminCreateIncident=adminCreateIncident;
+globalThis.adminIncidentAction=adminIncidentAction;
+globalThis.adminAuditSearch=adminAuditSearch;
 globalThis.openAdminPortal=openAdminPortal;
 
 
