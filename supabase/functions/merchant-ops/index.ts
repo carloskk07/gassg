@@ -179,6 +179,13 @@ Deno.serve(async(req:Request)=>{
         if(message.includes("PACKAGE_REQUEST_ALREADY_PENDING")){
           throw new DomainError("PACKAGE_REQUEST_ALREADY_PENDING","Já existe uma solicitação de pacote aguardando confirmação.",409);
         }
+        if(message.includes("PREPAID_PLAN_DOWNGRADE_WITH_ACTIVE_CREDIT")){
+          throw new DomainError(
+            "PREPAID_PLAN_DOWNGRADE_WITH_ACTIVE_CREDIT",
+            "Enquanto houver crédito ou reserva do pacote atual, você pode recarregar o mesmo pacote ou migrar apenas para uma taxa menor. Aguarde o saldo terminar para escolher uma taxa maior.",
+            409
+          );
+        }
         if(message.includes("STATEMENT_NOT_PAYABLE")){
           throw new DomainError("STATEMENT_NOT_PAYABLE","Este fechamento já foi resolvido ou não possui saldo a pagar.",409);
         }
