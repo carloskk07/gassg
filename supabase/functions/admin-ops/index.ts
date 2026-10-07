@@ -585,7 +585,7 @@ async function adminSystemHealth(admin:any){
 async function summary(admin:any,actorUserId:string){
   const [apps,merchants,compliance,capabilities,referralReviews,rewardFailures,accountingFailures,receivables,reimbursements,adjustments,platformAdmins,prelaunchLeads,publicRequests,audit,incidents]=await Promise.all([
     admin.from("merchant_applications")
-      .select("id,applicant_user_id,cnpj,company_name,responsible_name,phone,address_text,status,created_at,updated_at")
+      .select("id,applicant_user_id,pilot_partner_draft_id,cnpj,company_name,responsible_name,phone,address_text,status,created_at,updated_at")
       .order("created_at",{ascending:false})
       .limit(50),
     admin.from("merchants")
@@ -660,21 +660,19 @@ async function summary(admin:any,actorUserId:string){
   if(pilotPartners.error)throw pilotPartners.error;
   const pilotPartnerInvites=await admin
     .from("pilot_partner_invites")
-    .select("id,draft_id,expires_at,claimed_at,revoked_at,created_at")
-    .is("claimed_at",null)
-    .is("revoked_at",null)
+    .select("id,draft_id,expires_at,claimed_at,claimed_user_id,application_id,revoked_at,created_at")
     .order("created_at",{ascending:false})
-    .limit(100);
+    .limit(200);
   if(pilotPartnerInvites.error)throw pilotPartnerInvites.error;
-  const activeInviteByDraft=new Map<string,any>();
+  const invitesByDraft=new Map<string,any[]>();
   for(const invite of pilotPartnerInvites.data??[]){
-    if(!activeInviteByDraft.has(invite.draft_id)){
-      activeInviteByDraft.set(invite.draft_id,{
-        id:invite.id,
-        expiresAt:invite.expires_at,
-        createdAt:invite.created_at
-      });
-    }
+    if(!invitesByDraft.has(invite.draft_id))invitesByDraft.set(invite.draft_id,[]);
+    invitesByDraft.get(invite.draft_id)!.push(invite);
+  }
+  const applicationByDraft=new Map<string,any>();
+  for(const application of apps.data??[]){
+    if(!application.pilot_partner_draft_id||applicationByDraft.has(application.pilot_partner_draft_id))continue;
+    applicationByDraft.set(application.pilot_partner_draft_id,application);
   }
   const merchantBusinessDetails=await admin
     .from("merchant_business_details")
@@ -754,10 +752,61 @@ async function summary(admin:any,actorUserId:string){
   }
   const summaryResult={
     applications:apps.data??[],
-    pilotPartners:(pilotPartners.data??[]).map((p:any)=>({
-      ...p,
-      activeInvite:activeInviteByDraft.get(p.id)??null
-    })),
+    pilotPartners:(pilotPartners.data??[]).map((p:any)=>{
+      const inviteHistory=invitesByDraft.get(p.id)??[];
+      const now=Date.now();
+      const activeInvite=inviteHistory.find((invite:any)=>
+        !invite.claimed_at&&!invite.revoked_at&&Date.parse(invite.expires_at)>now
+      )??null;
+      const claimedInvite=inviteHistory.find((invite:any)=>Boolean(invite.claimed_at))??null;
+      const latestInvite=inviteHistory[0]??null;
+      const application=applicationByDraft.get(p.id)??null;
+      const converted=p.onboarding_status==="converted"||Boolean(p.merchant_id);
+      const cancelled=p.onboarding_status==="cancelled";
+      let inviteStatus="none";
+      if(claimedInvite||application)inviteStatus="claimed";
+      else if(activeInvite)inviteStatus="active";
+      else if(latestInvite?.revoked_at)inviteStatus="revoked";
+      else if(latestInvite&&Date.parse(latestInvite.expires_at)<=now)inviteStatus="expired";
+      let nextAction="issue_invite";
+      if(cancelled)nextAction="none";
+      else if(converted)nextAction="merchant_setup_review";
+      else if(application||claimedInvite)nextAction="review_and_convert";
+      else if(activeInvite)nextAction="partner_claim_invite";
+      else if(latestInvite)nextAction="issue_new_invite";
+      return {
+        ...p,
+        activeInvite:activeInvite?{
+          id:activeInvite.id,
+          expiresAt:activeInvite.expires_at,
+          createdAt:activeInvite.created_at
+        }:null,
+        onboarding:{
+          inviteStatus,
+          inviteExpiresAt:activeInvite?.expires_at??latestInvite?.expires_at??null,
+          inviteClaimedAt:claimedInvite?.claimed_at??null,
+          ownerClaimed:Boolean(claimedInvite?.claimed_user_id||application?.applicant_user_id),
+          application:application?{
+            id:application.id,
+            status:application.status,
+            companyName:application.company_name,
+            cnpj:application.cnpj,
+            responsibleName:application.responsible_name,
+            phone:application.phone,
+            addressText:application.address_text,
+            updatedAt:application.updated_at
+          }:null,
+          merchantCreated:converted,
+          nextAction,
+          steps:[
+            {key:"invite",done:Boolean(activeInvite||claimedInvite||application||converted),status:inviteStatus},
+            {key:"claim",done:Boolean(claimedInvite||application||converted),status:(claimedInvite||application||converted)?"done":"pending"},
+            {key:"application",done:Boolean(application||converted),status:application?.status??(converted?"converted":"pending")},
+            {key:"merchant",done:converted,status:converted?"done":"pending"}
+          ]
+        }
+      };
+    }),
     merchants:(merchants.data??[]).map((m:any)=>({
       ...m,
       compliance:byMerchant.get(m.id)??null,
@@ -1093,7 +1142,9 @@ Deno.serve(async(req:Request)=>{
           .from("merchant_applications")
           .select("applicant_user_id,status")
           .eq("pilot_partner_draft_id",draftId)
-          .eq("status","pending")
+          .in("status",["pending","approved"])
+          .order("updated_at",{ascending:false})
+          .limit(1)
           .maybeSingle();
         if(claimedApplicationError)throw claimedApplicationError;
         if(!claimedApplication?.applicant_user_id){
@@ -1445,7 +1496,7 @@ Deno.serve(async(req:Request)=>{
       };
     }
     else if(action==="assisted-merchant-onboarding"){
-      rpcName="admin_assisted_merchant_onboarding";
+      rpcName="admin_assisted_merchant_onboarding_v2";
       rpcArgs={
         p_actor_user_id:user.id,
         p_draft_id:payload.draftId,
@@ -1665,6 +1716,12 @@ Deno.serve(async(req:Request)=>{
     }
     if(message.includes("OWNER_USER_NOT_FOUND")){
       return json({error:"OWNER_USER_NOT_FOUND",message:"A conta owner informada não existe ou ainda é anônima."},404,origin);
+    }
+    if(message.includes("PILOT_OWNER_MISMATCH")){
+      return json({error:"PILOT_OWNER_MISMATCH",message:"O owner precisa ser a mesma conta permanente que reivindicou o convite deste parceiro."},409,origin);
+    }
+    if(message.includes("PILOT_OWNER_REQUIRED")){
+      return json({error:"PILOT_OWNER_REQUIRED",message:"O parceiro precisa reivindicar o convite e concluir o cadastro antes da conversão."},409,origin);
     }
     if(message.includes("PILOT_PRODUCT_MISMATCH")){
       return json({error:"PILOT_PRODUCT_MISMATCH",message:"O produto não corresponde ao rascunho comercial do parceiro."},409,origin);
