@@ -15,10 +15,17 @@ const adminRuntime={
   refreshSeq:0,
   pollPending:false,
   lastPollAt:0,
+  searchQuery:'',
+  searchResults:[],
+  searchPending:false,
+  detail:null,
+  detailPending:false,
+  health:null,
+  healthPending:false,
   section:(()=>{
     try{
       const saved=sessionStorage.getItem('tamao-admin-section');
-      return ['overview','orders','partners','catalog','finance','system'].includes(saved)?saved:'overview';
+      return ['overview','orders','customers','partners','catalog','finance','system'].includes(saved)?saved:'overview';
     }catch{return 'overview'}
   })()
 };
@@ -385,11 +392,12 @@ function adminLoginFromUi(){
 }
 
 function adminSetSection(section){
-  const allowed=['overview','orders','partners','catalog','finance','system'];
+  const allowed=['overview','orders','customers','partners','catalog','finance','system'];
   const next=allowed.includes(String(section||''))?String(section):'overview';
   adminRuntime.section=next;
   try{sessionStorage.setItem('tamao-admin-section',next)}catch{}
   render();
+  if(next==='system')adminLoadSystemHealth().catch(()=>{});
   requestAnimationFrame(()=>{
     document.querySelector('.admin-main')?.scrollIntoView({block:'start'});
   });
