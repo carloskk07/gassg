@@ -834,9 +834,29 @@ function adminAuditView(d){
   </section>`;
 }
 
+const ADMIN_SECTION_ROLES={
+  overview:new Set(['superadmin','readonly','operations','finance','support','compliance']),
+  orders:new Set(['superadmin','operations','finance','support']),
+  customers:new Set(['superadmin','operations','finance','support']),
+  partners:new Set(['superadmin','operations','compliance']),
+  catalog:new Set(['superadmin','operations']),
+  finance:new Set(['superadmin','finance']),
+  incidents:new Set(['superadmin','readonly','operations','finance','support','compliance']),
+  audit:new Set(['superadmin','readonly','operations','finance','support','compliance']),
+  system:new Set(['superadmin','readonly','operations'])
+};
+function adminRoleCanSection(section,role=adminCurrentRole()){
+  return ADMIN_SECTION_ROLES[String(section)]?.has(String(role))===true;
+}
+function adminFirstSectionForRole(role=adminCurrentRole()){
+  return ['overview','orders','customers','partners','catalog','finance','incidents','audit','system']
+    .find(section=>adminRoleCanSection(section,role))||'overview';
+}
+
 function adminSetSection(section){
   const allowed=['overview','orders','customers','partners','catalog','finance','incidents','audit','system'];
-  const next=allowed.includes(String(section||''))?String(section):'overview';
+  const requested=allowed.includes(String(section||''))?String(section):'overview';
+  const next=adminRoleCanSection(requested)?requested:adminFirstSectionForRole();
   adminRuntime.section=next;
   try{sessionStorage.setItem('tamao-admin-section',next)}catch{}
   render();
@@ -847,6 +867,7 @@ function adminSetSection(section){
 }
 
 function adminMenuButton(id,label,icon,badge=''){
+  if(!adminRoleCanSection(id))return '';
   const active=adminRuntime.section===id;
   return `<button class="admin-nav-item ${active?'active':''}" type="button" onclick="adminSetSection('${id}')" aria-current="${active?'page':'false'}">
     <span class="admin-nav-icon" aria-hidden="true">${icon}</span>
@@ -856,6 +877,7 @@ function adminMenuButton(id,label,icon,badge=''){
 }
 
 function adminPanel(id,content){
+  if(!adminRoleCanSection(id))return '';
   return `<div class="admin-panel ${adminRuntime.section===id?'active':''}" data-admin-panel="${id}">${content}</div>`;
 }
 
@@ -1374,6 +1396,10 @@ function adminPage(){
   }
 
   const d=adminRuntime.data;
+  const currentRole=adminCurrentRole();
+  if(!adminRoleCanSection(adminRuntime.section,currentRole)){
+    adminRuntime.section=adminFirstSectionForRole(currentRole);
+  }
   const pending=(d.applications||[]).filter(x=>x.status==='pending');
   const pilotPartners=d.pilotPartners||[];
   const active=(d.merchants||[]).filter(x=>x.status==='active');
@@ -1397,7 +1423,7 @@ function adminPage(){
 
   const overviewContent=`
     ${adminAttentionCenter(d)}
-    ${adminLaunchControl(d.launchReadiness||{})}
+    ${currentRole==='superadmin'?adminLaunchControl(d.launchReadiness||{}):''}
     <section class="section"><div class="section-head"><div><span class="section-kicker">NEGÓCIO • 30 DIAS</span><h2>Pulso da operação</h2><p>Indicadores server-side calculados apenas sobre fatos liquidados e estados reais do pedido.</p></div></div><div class="merchant-kpis">
       <div class="kpi"><span class="label">GMV 30d</span><strong>${adminMoney(metrics.gmvCents30d)}</strong><small>${Number(metrics.settledOrders30d||0)} pedidos liquidados</small></div>
       <div class="kpi"><span class="label">Ticket médio</span><strong>${adminMoney(metrics.averageTicketCents30d)}</strong></div>
@@ -1473,7 +1499,7 @@ function adminPage(){
     </nav>`;
 
   return shell(`<section class="page admin-page">
-    <div class="status-bar admin-topbar"><div><div class="tiny muted">CONTROL PLANE REAL</div><h1 class="page-title" style="margin-bottom:2px">Administração TAMÃO</h1></div><div class="order-actions"><button class="secondary small" onclick="adminRefresh()">Atualizar</button><button class="ghost small" onclick="adminSignOut()">Sair</button></div></div>
+    <div class="status-bar admin-topbar"><div><div class="tiny muted">CONTROL PLANE REAL</div><h1 class="page-title" style="margin-bottom:2px">Administração TAMÃO</h1></div><div class="order-actions"><span class="status-pill">${esc(adminRoleLabel(currentRole))}</span><button class="secondary small" onclick="adminRefresh()">Atualizar</button><button class="ghost small" onclick="adminSignOut()">Sair</button></div></div>
     ${adminRuntime.error?`<div class="notice danger" style="margin-top:12px">${esc(adminRuntime.error)}</div>`:''}
     ${adminGlobalSearchView()}
     <div class="admin-workspace">
