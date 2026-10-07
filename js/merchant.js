@@ -160,6 +160,12 @@ function merchantBillingLiveView(rt){
   const account=billing.account||{};
   const plan=billing.plan||{};
   const statements=billing.openStatements||[];
+  const requests=billing.paymentRequests||[];
+  const pending=requests.filter(r=>r.status==='pending');
+  const pendingPackage=pending.find(r=>r.requestKind==='package_purchase')||null;
+  const pendingByStatement=new Map(
+    pending.filter(r=>r.requestKind==='statement_payment'&&r.statementId).map(r=>[r.statementId,r])
+  );
   const held=account.salesHold===true;
   const role=String(rt.merchant?.memberRole||'');
   const canSeeFinance=['owner','manager'].includes(role);
@@ -177,9 +183,29 @@ function merchantBillingLiveView(rt){
   const planCards=(billing.plans||[]).map(p=>{
     const pct=(Number(p.platformFeeBps||0)/100).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2});
     const current=p.planKey===plan.planKey;
-    return `<div class="card flat"><div class="order-head"><div><strong>${esc(p.displayName)}</strong><br><small>${p.billingMode==='prepaid_credit'?'Pacote pré-pago':'Pós-pago diário'}</small></div><span class="status-pill ${current?'online':''}">${pct}%</span></div>${p.billingMode==='prepaid_credit'?`<div class="tiny muted">${BRL.format(Number(p.purchaseAmountCents||0)/100)} de crédito de taxas • ativação após confirmação do pagamento.</div>`:'<div class="tiny muted">Sem recarga antecipada. Fechamento diário com vencimento D+1.</div>'}${current?'<div class="notice success" style="margin-top:8px"><strong>Plano atual</strong></div>':''}</div>`;
+    const prepaid=p.billingMode==='prepaid_credit';
+    const pendingThis=pendingPackage?.planKey===p.planKey;
+    const action=prepaid
+      ? pendingThis
+        ? `<div class="notice risk" style="margin-top:8px"><strong>Aguardando confirmação.</strong><br>O admin precisa conferir o pagamento antes de liberar o crédito.</div><button class="ghost small" style="margin-top:8px" onclick="merchantCancelBillingRequestFromUi('${esc(pendingPackage.id)}')" ${rt.actionPending?'disabled':''}>Cancelar solicitação</button>`
+        : `<button class="secondary small" style="margin-top:8px" onclick="merchantRequestBillingPackageFromUi('${esc(p.planKey)}')" ${pendingPackage||rt.actionPending?'disabled':''}>${pendingPackage?'Outro pacote já está pendente':'Informar pagamento e solicitar ativação'}</button>`
+      : '';
+    return `<div class="card flat"><div class="order-head"><div><strong>${esc(p.displayName)}</strong><br><small>${prepaid?'Pacote pré-pago':'Pós-pago diário'}</small></div><span class="status-pill ${current?'online':''}">${pct}%</span></div>${prepaid?`<div class="tiny muted">${BRL.format(Number(p.purchaseAmountCents||0)/100)} de crédito de taxas • ativação somente após conferência administrativa.</div>`:'<div class="tiny muted">Sem recarga antecipada. Fechamento diário com vencimento D+1.</div>'}${current?'<div class="notice success" style="margin-top:8px"><strong>Plano atual</strong></div>':''}${action}</div>`;
   }).join('');
-  const statementRows=statements.map(s=>`<div class="list-row"><div><strong>${esc(String(s.businessDate||'Fechamento'))}</strong><br><small>${s.status==='overdue'?'VENCIDO':'vence '+esc(s.dueAt?new Date(s.dueAt).toLocaleString('pt-BR'):'—')}</small></div><div style="text-align:right"><strong>${BRL.format(Number(s.amountDueCents||0)/100)}</strong><br><small>taxa bruta ${BRL.format(Number(s.grossFeeCents||0)/100)} • crédito ${BRL.format(Number(s.prepaidCreditAppliedCents||0)/100)}</small></div></div>`).join('');
+  const statementRows=statements.map(s=>{
+    const request=pendingByStatement.get(s.id);
+    const paymentAction=request
+      ? `<div class="tiny muted" style="margin-top:6px"><strong>Pagamento informado.</strong> Aguardando conferência do admin.</div><button class="ghost small" style="margin-top:6px" onclick="merchantCancelBillingRequestFromUi('${esc(request.id)}')" ${rt.actionPending?'disabled':''}>Cancelar aviso</button>`
+      : `<button class="secondary small" style="margin-top:6px" onclick="merchantNotifyStatementPaidFromUi('${esc(s.id)}')" ${rt.actionPending?'disabled':''}>Informar pagamento</button>`;
+    return `<div class="list-row"><div><strong>${esc(String(s.businessDate||'Fechamento'))}</strong><br><small>${s.status==='overdue'?'VENCIDO':'vence '+esc(s.dueAt?new Date(s.dueAt).toLocaleString('pt-BR'):'—')}</small>${paymentAction}</div><div style="text-align:right"><strong>${BRL.format(Number(s.amountDueCents||0)/100)}</strong><br><small>taxa bruta ${BRL.format(Number(s.grossFeeCents||0)/100)} • crédito ${BRL.format(Number(s.prepaidCreditAppliedCents||0)/100)}</small></div></div>`;
+  }).join('');
+  const recentRequests=requests.slice(0,8).map(r=>{
+    const label=r.requestKind==='package_purchase'
+      ? 'Pacote '+((billing.plans||[]).find(p=>p.planKey===r.planKey)?.displayName||r.planKey||'')
+      : 'Pagamento do fechamento';
+    const status=({pending:'PENDENTE',approved:'APROVADO',rejected:'REJEITADO',cancelled:'CANCELADO'})[r.status]||String(r.status||'').toUpperCase();
+    return `<div class="list-row"><div><strong>${esc(label)}</strong><br><small>${esc(r.requestedAt?new Date(r.requestedAt).toLocaleString('pt-BR'):'—')} • ${esc(r.merchantReference||'sem referência')}</small></div><div style="text-align:right"><span class="status-pill ${r.status==='approved'?'online':r.status==='rejected'?'offline':r.status==='pending'?'risk':''}">${esc(status)}</span><br><small>${BRL.format(Number(r.expectedAmountCents||0)/100)}</small></div></div>`;
+  }).join('');
   return `<section class="section">
     <div class="section-head"><div><span class="section-kicker">FINANCEIRO TAMÃO</span><h2>Taxas e fechamento diário</h2><p>Cada venda conserva sua taxa individual. O TAMÃO fecha o dia às 00:05 e eventual saldo pós-pago vence até o fim do dia seguinte.</p></div><span class="status-pill ${held?'offline':'online'}">${held?'VENDAS SUSPENSAS':'EM DIA'}</span></div>
     ${held?'<div class="notice danger"><strong>Há fechamento vencido.</strong><br>Novas vendas ficam pausadas até a regularização. Pedidos já aceitos continuam normalmente; seu acesso ao painel e ao histórico permanece disponível.</div>':''}
@@ -193,8 +219,43 @@ function merchantBillingLiveView(rt){
     ${statementRows?`<div class="card flat" style="margin-top:12px"><h3>Fechamentos em aberto</h3><div class="list">${statementRows}</div></div>`:''}
     <div class="section-head" style="margin-top:16px"><div><h3>Opções de taxa</h3><p>Quanto maior o crédito antecipado, menor a taxa por venda. O crédito só é consumido quando pedidos são liquidados.</p></div></div>
     <div class="admin-entity-grid">${planCards}</div>
-    <div class="notice" style="margin-top:12px"><strong>Compra segura de pacote.</strong><br>O crédito só entra depois da confirmação financeira pelo TAMÃO/PSP. Um clique no painel nunca cria saldo sozinho.</div>
+    <div class="notice" style="margin-top:12px"><strong>Confirmação financeira em duas etapas.</strong><br>A revenda informa a referência do pagamento; o pedido fica pendente. Só o admin pode confirmar e gerar crédito ou quitar o fechamento diário.</div>
+    ${recentRequests?`<details class="card flat" style="margin-top:12px"><summary><strong>Solicitações financeiras recentes</strong></summary><div class="list" style="margin-top:10px">${recentRequests}</div></details>`:''}
   </section>`;
+}
+
+async function merchantRequestBillingPackageFromUi(planKey){
+  const billing=globalThis.merchantRuntime?.billing||{};
+  const plan=(billing.plans||[]).find(p=>p.planKey===planKey);
+  if(!plan)return toast('Pacote não encontrado');
+  const reference=prompt('Referência do pagamento do pacote (Pix/PSP/comprovante):')||'';
+  if(reference.trim().length<3)return toast('Informe a referência do pagamento');
+  if(!confirm('Enviar para conferência o '+plan.displayName+' no valor de '+BRL.format(Number(plan.purchaseAmountCents||0)/100)+'? O crédito só entra após aprovação do admin.'))return;
+  try{
+    await merchantRequestBillingPackageLive(planKey,reference);
+    toast('Solicitação enviada para conferência');
+  }catch(e){toast(String(e?.message||e))}
+}
+
+async function merchantNotifyStatementPaidFromUi(statementId){
+  const billing=globalThis.merchantRuntime?.billing||{};
+  const statement=(billing.openStatements||[]).find(s=>s.id===statementId);
+  if(!statement)return toast('Fechamento não encontrado');
+  const reference=prompt('Referência do pagamento (Pix/PSP/comprovante):')||'';
+  if(reference.trim().length<3)return toast('Informe a referência do pagamento');
+  if(!confirm('Informar pagamento de '+BRL.format(Number(statement.amountDueCents||0)/100)+'? O fechamento só será quitado depois da conferência do admin.'))return;
+  try{
+    await merchantNotifyBillingPaymentLive(statementId,reference);
+    toast('Pagamento informado; aguardando conferência');
+  }catch(e){toast(String(e?.message||e))}
+}
+
+async function merchantCancelBillingRequestFromUi(paymentRequestId){
+  if(!confirm('Cancelar esta solicitação financeira pendente?'))return;
+  try{
+    await merchantCancelBillingRequestLive(paymentRequestId);
+    toast('Solicitação cancelada');
+  }catch(e){toast(String(e?.message||e))}
 }
 
 function merchantLivePage(){
@@ -854,3 +915,7 @@ function formatDateTime(v){
   const d=new Date(v);if(Number.isNaN(d.getTime()))return 'não confirmada';
   return d.toLocaleString('pt-BR',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'});
 }
+
+globalThis.merchantRequestBillingPackageFromUi=merchantRequestBillingPackageFromUi;
+globalThis.merchantNotifyStatementPaidFromUi=merchantNotifyStatementPaidFromUi;
+globalThis.merchantCancelBillingRequestFromUi=merchantCancelBillingRequestFromUi;
