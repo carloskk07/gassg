@@ -217,6 +217,32 @@ function buildPortalHref(configuredOrigin,portal,current=location){
   return url.toString();
 }
 
+function captureSupabaseImplicitSessionFromUrl(){
+  const raw=String(location.hash||'').replace(/^#/,'');
+  if(!raw||!raw.includes('access_token='))return null;
+  const params=new URLSearchParams(raw);
+  const accessToken=String(params.get('access_token')||'').trim();
+  const refreshToken=String(params.get('refresh_token')||'').trim();
+  const tokenType=String(params.get('token_type')||'').trim();
+  const expiresIn=Number(params.get('expires_in')||0);
+  if(!accessToken||!refreshToken)return null;
+  return {
+    access_token:accessToken,
+    refresh_token:refreshToken,
+    token_type:tokenType||'bearer',
+    expires_in:Number.isFinite(expiresIn)&&expiresIn>0?expiresIn:null
+  };
+}
+
+function clearSupabaseAuthFragment(routeName=''){
+  const url=new URL(location.href);
+  const raw=String(url.hash||'').replace(/^#/,'');
+  if(!raw.includes('access_token=')&&!raw.includes('refresh_token=')&&!raw.includes('error='))return false;
+  url.hash=routeName?'#'+routeName:'';
+  history.replaceState(null,'',url.pathname+url.search+url.hash);
+  return true;
+}
+
 function loadSupabaseBrowser(){
   if(globalThis.supabase?.createClient)return Promise.resolve(globalThis.supabase);
   if(supabaseLoadPromise)return supabaseLoadPromise;
