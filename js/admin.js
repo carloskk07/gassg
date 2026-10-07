@@ -1251,7 +1251,7 @@ function adminBillingPaymentRequestCard(request){
     <div class="order-head"><div><div class="order-id">${esc(adminMerchantName(request.merchant_id))} • ${esc(title)}</div><div class="tiny muted">${esc(request.requested_at?new Date(request.requested_at).toLocaleString('pt-BR'):'—')} • ${detail}</div></div><span class="status-pill ${statusClass}">${esc(statusLabel)}</span></div>
     <div class="order-line"><strong>Referência informada pela revenda:</strong> ${esc(request.merchant_reference||'—')}</div>
     ${request.admin_reference?`<div class="tiny muted">Referência administrativa: ${esc(request.admin_reference)}</div>`:''}
-    ${approved&&request.received_amount_cents!=null?`<div class="tiny muted">Recebido: ${adminMoney(request.received_amount_cents)} • ${esc(adminPaymentMethodLabel(request.payment_method))}</div>`:''}
+    ${approved&&request.received_amount_cents!=null?`<div class="tiny muted">Recebido: ${adminMoney(request.received_amount_cents)} • ${esc(adminPaymentMethodLabel(request.payment_method))}${request.reconciliation_key?' • ID '+esc(request.reconciliation_key):''}</div>`:''}
     ${pending?`<div class="notice" style="margin-top:10px"><strong>Nenhum crédito ou quitação ocorreu ainda.</strong><br>Confira o recebimento no meio financeiro antes de aprovar. A aprovação exige valor recebido exato, meio de pagamento e referência.</div>
       <div class="order-actions">
         <button class="primary small" onclick="adminResolveBillingPaymentRequest('${esc(request.id)}','approve')">Confirmar recebimento</button>
@@ -2240,7 +2240,18 @@ async function adminResolveBillingPaymentRequest(paymentRequestId,requestAction)
     paymentMethod=adminNormalizePaymentMethod(methodRaw);
     if(!paymentMethod)return toast('Informe uma forma de pagamento válida');
   }
-  const reference=prompt(approve?'Referência da conferência financeira (Pix/PSP/extrato):':'Motivo da rejeição:')||'';
+  let reconciliationKey=null;
+  if(approve){
+    const keyHint=paymentMethod==='pix'
+      ? 'Identificador único da transação (EndToEndId do Pix):'
+      : 'Identificador único da transação/recibo:';
+    reconciliationKey=prompt(keyHint)||'';
+    reconciliationKey=reconciliationKey.trim().replace(/\s+/g,' ');
+    if(reconciliationKey.length<6||reconciliationKey.length>160){
+      return toast('Informe um identificador único da transação entre 6 e 160 caracteres');
+    }
+  }
+  const reference=prompt(approve?'Referência/observação da conferência financeira:':'Motivo da rejeição:')||'';
   if(reference.trim().length<3)return toast('Informe uma referência');
   const amount=adminMoney(expectedCents);
   const message=approve
@@ -2253,7 +2264,8 @@ async function adminResolveBillingPaymentRequest(paymentRequestId,requestAction)
       requestAction,
       reference,
       receivedAmountCents,
-      paymentMethod
+      paymentMethod,
+      reconciliationKey
     });
     toast(approve?'Pagamento confirmado com valor conciliado':'Solicitação rejeitada');
   }catch(e){toast(String(e?.message||e))}
