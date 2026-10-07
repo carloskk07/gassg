@@ -771,6 +771,7 @@ async function summary(admin:any,actorUserId:string){
       let nextAction="issue_invite";
       if(cancelled)nextAction="none";
       else if(converted)nextAction="merchant_setup_review";
+      else if(application?.status==="rejected")nextAction="partner_resubmit";
       else if(application||claimedInvite)nextAction="review_and_convert";
       else if(activeInvite)nextAction="partner_claim_invite";
       else if(latestInvite)nextAction="issue_new_invite";
