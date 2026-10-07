@@ -298,6 +298,11 @@ assert.ok(!/async function adminSendLogin\(email\)\{[\s\S]*?await adminBackendIn
 assert.ok(admin.includes("adminRuntime.notice='Abrindo a verificação de segurança…'")&&admin.includes("adminRuntime.notice='Verificação concluída. Solicitando o link de acesso…'"),'login admin deve mostrar progresso persistente antes do envio');
 assert.ok(admin.includes("redirect.searchParams.set('admin','1')")&&admin.includes("redirect.hash=''"),'magic link admin deve reservar o fragmento para os tokens do Supabase');
 assert.ok(!admin.includes("redirect.hash='admin'"),'login admin não pode competir com o fragmento de autenticação implícita');
+assert.ok(backend.includes('function captureSupabaseImplicitSessionFromUrl()')&&backend.includes("params.get('access_token')")&&backend.includes("params.get('refresh_token')"),'runtime precisa capturar explicitamente o callback implícito antes do roteamento');
+assert.ok(backend.includes("function clearSupabaseAuthFragment(routeName='')")&&backend.includes("history.replaceState(null,'',url.pathname+url.search+url.hash)"),'tokens de callback precisam ser removidos imediatamente da barra de endereço');
+assert.ok(admin.includes('const callbackSession=globalThis.captureSupabaseImplicitSessionFromUrl?.()??null')&&admin.includes('await client.auth.setSession({'),'admin precisa restaurar explicitamente a sessão quando detectSessionInUrl não a materializar');
+assert.ok(backend.includes('const callbackSession=captureSupabaseImplicitSessionFromUrl();')&&backend.includes("clearSupabaseAuthFragment('merchant')"),'revenda precisa ter o mesmo fallback explícito de sessão');
+assert.ok(bootstrap.indexOf('if(globalThis.adminPortalRequested?.())')<bootstrap.indexOf('render();'),'portal admin precisa consumir o callback antes do primeiro render');
 const adminAuthSource=read('supabase/functions/admin-auth/index.ts');
 assert.ok(adminAuthSource.includes('admin_login_mode')&&adminAuthSource.includes('claim_reserved_platform_admin'),'Edge de admin precisa consultar elegibilidade por hash e claim server-side');
 assert.ok(adminAuthSource.includes('shouldCreateUser:mode==="bootstrap_reserved"'),'criação da primeira identidade só pode ocorrer no modo reservado');
