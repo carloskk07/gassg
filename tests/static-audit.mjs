@@ -719,6 +719,10 @@ assert.ok(merchant.includes('O preço de concorrentes não define o seu valor.')
 const moneySafetyMigration=read('supabase/migrations/20261002202113_int4_cart_money_safety.sql').toLowerCase();
 assert.ok(moneySafetyMigration.includes('price_cents between 1 and 1000000'),'catálogo precisa limitar preço unitário ao teto int4 seguro');
 assert.ok(moneySafetyMigration.includes('unit_price_cents between 1 and 1000000'),'snapshots de cotação/pedido precisam preservar o mesmo teto monetário');
+const aggregateMoneyIntegrity=read('supabase/migrations/20261007013000_order_money_integrity_v1_70_34.sql');
+assert.ok(aggregateMoneyIntegrity.includes('delivery_fee_cents_snapshot')&&aggregateMoneyIntegrity.includes('QUOTE_TOTAL_INTEGRITY_MISMATCH')&&aggregateMoneyIntegrity.includes('ORDER_TOTAL_INTEGRITY_MISMATCH'),'quote e pedido precisam provar soma de linhas + entrega no banco');
+assert.ok(aggregateMoneyIntegrity.includes('create constraint trigger quote_money_integrity_header_guard')&&aggregateMoneyIntegrity.includes('create constraint trigger order_money_integrity_item_guard'),'integridade agregada precisa ser diferida e cobrir cabeçalho e itens');
+assert.ok(aggregateMoneyIntegrity.includes('delivery_fee_cents_snapshot=v_candidate_fee')&&aggregateMoneyIntegrity.includes('delivery_fee_cents_snapshot=v_order.proposed_delivery_fee_cents'),'rescue e requote precisam atualizar o snapshot da taxa junto com o total');
 assert.ok(read('supabase/functions/merchant-ops/index.ts').includes('{min:1,max:1000000}'),'API de catálogo deve rejeitar preço acima do teto seguro antes do banco');
 assert.ok(merchant.includes('max="10000"')&&merchant.includes('price>10000'),'UI da revenda deve refletir e validar o teto seguro de R$ 10 mil por unidade');
 assert.ok(offerSource.includes('marketMode:candidates.length===1?"single_supplier":"marketplace"'),'Edge deve declarar explicitamente fornecedor único vs marketplace');
