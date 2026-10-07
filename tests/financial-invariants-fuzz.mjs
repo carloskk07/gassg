@@ -547,4 +547,23 @@ for(let i=0;i<20000;i++){
   provenanceCases+=5;
 }
 
-console.log(`Financial invariant fuzz passou: ${rewardCases} cenários de unit economics + ${positionCases} posições de cashback + ${prepaidCases} cenários de consumo de crédito de taxa + ${transitionCases} transições de pacote + ${reconciliationCases} cenários de reconciliação + ${exactPaymentCases} confirmações exatas de pagamento + ${d1AuthorityCases} cenários de autoridade D+1 + ${reconciliationKeyCases} cenários de unicidade de conciliação + ${providerEventCases} cenários de eventos de provedor + ${reactiveProviderCases} transições reativas de conciliação + ${provenanceCases} provas de proveniência de aprovação.`);
+
+function paymentEventReviewActionAllowed(status,action,reason=''){
+  if(action==='recheck')return ['received','review_required','matched_exact'].includes(status)||['applied','already_applied','ignored'].includes(status);
+  if(action==='ignore')return status==='review_required'&&String(reason).trim().length>=3;
+  return false;
+}
+
+let paymentEventReviewCases=0;
+for(let i=0;i<20000;i++){
+  const reason='motivo-'+i;
+  assert.equal(paymentEventReviewActionAllowed('review_required','ignore',reason),true);
+  assert.equal(paymentEventReviewActionAllowed('matched_exact','ignore',reason),false);
+  assert.equal(paymentEventReviewActionAllowed('applied','ignore',reason),false);
+  assert.equal(paymentEventReviewActionAllowed('review_required','ignore','x'),false);
+  assert.equal(paymentEventReviewActionAllowed('review_required','recheck'),true);
+  assert.equal(paymentEventReviewActionAllowed('ignored','recheck'),true,'recheck terminal deve ser replay seguro sem reabrir o evento');
+  paymentEventReviewCases+=6;
+}
+
+console.log(`Financial invariant fuzz passou: ${rewardCases} cenários de unit economics + ${positionCases} posições de cashback + ${prepaidCases} cenários de consumo de crédito de taxa + ${transitionCases} transições de pacote + ${reconciliationCases} cenários de reconciliação + ${exactPaymentCases} confirmações exatas de pagamento + ${d1AuthorityCases} cenários de autoridade D+1 + ${reconciliationKeyCases} cenários de unicidade de conciliação + ${providerEventCases} cenários de eventos de provedor + ${reactiveProviderCases} transições reativas de conciliação + ${provenanceCases} provas de proveniência de aprovação + ${paymentEventReviewCases} decisões de lifecycle de eventos.`);
