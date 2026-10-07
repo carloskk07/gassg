@@ -739,7 +739,7 @@ async function summary(admin:any,actorUserId:string){
       .order("business_date",{ascending:false})
       .limit(300),
     admin.from("merchant_billing_payment_requests")
-      .select("id,merchant_id,request_kind,plan_key,statement_id,expected_amount_cents,platform_fee_bps_snapshot,credit_grant_cents_snapshot,merchant_reference,status,requested_by,requested_at,resolved_by,resolved_at,admin_reference,received_amount_cents,payment_method,reconciliation_key,updated_at")
+      .select("id,merchant_id,request_kind,plan_key,statement_id,expected_amount_cents,platform_fee_bps_snapshot,credit_grant_cents_snapshot,merchant_reference,status,requested_by,requested_at,resolved_by,resolved_at,admin_reference,received_amount_cents,payment_method,reconciliation_key,approval_source,provider_payment_event_id,updated_at")
       .order("requested_at",{ascending:false})
       .limit(300),
     billingMetricsPromise,
@@ -1408,13 +1408,19 @@ Deno.serve(async(req:Request)=>{
       const reconciliationKey=requestAction==="approve"
         ?cleanText(body.reconciliationKey,{min:6,max:160,name:"identificador único da transação"})
         :null;
+      const paymentEventId=requestAction==="approve"
+        &&body.paymentEventId!=null
+        &&String(body.paymentEventId).trim()!==""
+          ?uuid(body.paymentEventId,"payment event")
+          :null;
       payload={
         paymentRequestId:uuid(body.paymentRequestId,"payment request"),
         requestAction,
         reference:cleanText(body.reference,{min:3,max:240,name:"referência financeira"}),
         receivedAmountCents,
         paymentMethod,
-        reconciliationKey
+        reconciliationKey,
+        paymentEventId
       };
     }else if(action==="lead-status"){
       const status=String(body.status??"");
@@ -1550,6 +1556,7 @@ Deno.serve(async(req:Request)=>{
         p_received_amount_cents:payload.receivedAmountCents,
         p_payment_method:payload.paymentMethod,
         p_reconciliation_key:payload.reconciliationKey,
+        p_payment_event_id:payload.paymentEventId,
         p_idempotency_key:idempotencyKey,
         p_request_hash:requestHash
       };
@@ -1829,6 +1836,9 @@ Deno.serve(async(req:Request)=>{
     }
     if(message.includes("POLICY_VERSION_CONFLICT")){
       return json({error:"POLICY_VERSION_CONFLICT",message:"A política mudou desde que o painel foi carregado. Atualize antes de salvar."},409,origin);
+    }
+    if(message.includes("PAYMENT_EVENT_NOT_MATCHED_TO_REQUEST")||message.includes("PAYMENT_EVENT_APPROVAL_MISMATCH")||message.includes("PROVIDER_PAYMENT_EVENT_APPROVAL_INCONSISTENT")){
+      return json({error:"PAYMENT_EVENT_APPROVAL_MISMATCH",message:"O evento do provedor não corresponde mais exatamente a esta cobrança. Atualize a fila financeira antes de aprovar."},409,origin);
     }
     if(message.includes("PAYMENT_RECONCILIATION_KEY_ALREADY_USED")){
       return json({error:"PAYMENT_RECONCILIATION_KEY_ALREADY_USED",message:"Este identificador de pagamento já foi usado em outra cobrança. Confira a transação antes de aprovar."},409,origin);

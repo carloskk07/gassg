@@ -1253,7 +1253,7 @@ function adminBillingPaymentRequestCard(request){
     <div class="order-head"><div><div class="order-id">${esc(adminMerchantName(request.merchant_id))} • ${esc(title)}</div><div class="tiny muted">${esc(request.requested_at?new Date(request.requested_at).toLocaleString('pt-BR'):'—')} • ${detail}</div></div><span class="status-pill ${statusClass}">${esc(statusLabel)}</span></div>
     <div class="order-line"><strong>Referência informada pela revenda:</strong> ${esc(request.merchant_reference||'—')}</div>
     ${request.admin_reference?`<div class="tiny muted">Referência administrativa: ${esc(request.admin_reference)}</div>`:''}
-    ${approved&&request.received_amount_cents!=null?`<div class="tiny muted">Recebido: ${adminMoney(request.received_amount_cents)} • ${esc(adminPaymentMethodLabel(request.payment_method))}${request.reconciliation_key?' • ID '+esc(request.reconciliation_key):''}</div>`:''}
+    ${approved&&request.received_amount_cents!=null?`<div class="tiny muted">Recebido: ${adminMoney(request.received_amount_cents)} • ${esc(adminPaymentMethodLabel(request.payment_method))}${request.reconciliation_key?' • ID '+esc(request.reconciliation_key):''} • origem ${esc(request.approval_source==='provider_event'?'evento do provedor':'conferência manual')}</div>`:''}
     ${pending?`${matchedEvent?`<div class="notice success" style="margin-top:10px"><strong>Conciliação automática pronta.</strong><br>${esc(matchedEvent.provider)} confirmou ${adminMoney(matchedEvent.amount_cents)} • ${esc(adminPaymentMethodLabel(matchedEvent.payment_method))} • ID ${esc(matchedEvent.reconciliation_key)}.</div>`:`<div class="notice" style="margin-top:10px"><strong>Nenhum crédito ou quitação ocorreu ainda.</strong><br>Confira o recebimento no meio financeiro antes de aprovar. A aprovação exige valor recebido exato, meio de pagamento e referência.</div>`}
       <div class="order-actions">
         ${matchedEvent?`<button class="primary small" onclick="adminResolveBillingPaymentRequest('${esc(request.id)}','approve','${esc(matchedEvent.id)}')">Confirmar evento conciliado</button><button class="secondary small" onclick="adminResolveBillingPaymentRequest('${esc(request.id)}','approve')">Conferir manualmente</button>`:`<button class="primary small" onclick="adminResolveBillingPaymentRequest('${esc(request.id)}','approve')">Confirmar recebimento</button>`}
@@ -2318,7 +2318,8 @@ async function adminResolveBillingPaymentRequest(paymentRequestId,requestAction,
       reference,
       receivedAmountCents,
       paymentMethod,
-      reconciliationKey
+      reconciliationKey,
+      paymentEventId:reconciledEvent?.id??null
     });
     toast(approve?'Pagamento confirmado com valor conciliado':'Solicitação rejeitada');
   }catch(e){toast(String(e?.message||e))}
