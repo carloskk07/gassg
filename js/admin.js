@@ -210,23 +210,50 @@ async function adminRetryBootstrapFromUi(){
 }
 
 async function adminSendLogin(email){
-  if(!adminRuntime.client)await adminBackendInit();
+  if(adminRuntime.actionPending)return null;
   const value=String(email||'').trim().toLowerCase();
   if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value))throw new Error('Informe um e-mail válido');
-  const redirect=new URL(location.origin+location.pathname);
-  redirect.searchParams.set('admin','1');
-  redirect.hash='admin';
-  if(!globalThis.chamaTurnstile?.challenge)throw new Error('Proteção anti-bot indisponível');
-  const captchaToken=await globalThis.chamaTurnstile.challenge('admin_login');
-  const result=await adminAuthInvoke({
-    action:'request-link',
-    email:value,
-    captchaToken,
-    redirectTo:redirect.toString()
-  });
-  adminRuntime.notice=String(result?.message||'Se este e-mail estiver autorizado, o link de acesso será enviado.');
-  adminRuntime.status='unauthenticated';
+
+  adminRuntime.actionPending=true;
+  adminRuntime.error=null;
+  adminRuntime.notice='Abrindo a verificação de segurança…';
   render();
+
+  try{
+    const redirect=new URL(location.origin+location.pathname);
+    redirect.searchParams.set('admin','1');
+    redirect.hash='admin';
+
+    if(!globalThis.chamaTurnstile?.challenge){
+      throw new Error('Proteção anti-bot indisponível. Atualize a página e tente novamente.');
+    }
+
+    const captchaToken=await globalThis.chamaTurnstile.challenge('admin_login');
+    if(!captchaToken)throw new Error('A verificação anti-bot não gerou um token válido.');
+
+    adminRuntime.notice='Verificação concluída. Solicitando o link de acesso…';
+    render();
+
+    // A solicitação do magic link não depende do SDK Supabase no navegador.
+    // O servidor valida origem, Turnstile, rate limit e elegibilidade do e-mail.
+    const result=await adminAuthInvoke({
+      action:'request-link',
+      email:value,
+      captchaToken,
+      redirectTo:redirect.toString()
+    });
+
+    adminRuntime.notice=String(result?.message||'Se este e-mail estiver autorizado, o link de acesso será enviado.');
+    adminRuntime.status='unauthenticated';
+    return result;
+  }catch(error){
+    adminRuntime.notice=null;
+    adminRuntime.error=String(error?.message||error||'Não foi possível solicitar o link de acesso.');
+    throw error;
+  }finally{
+    adminRuntime.actionPending=false;
+    render();
+  }
 }
 
 async function adminSignOut(){
@@ -352,7 +379,7 @@ function adminLoginView(){
     ${adminRuntime.error?`<div class="notice danger" style="margin-top:14px">${esc(adminRuntime.error)}</div>`:''}
     <div class="card flat form-stack" style="margin-top:16px">
       <div class="input-wrap"><label for="admin-email">E-mail administrativo</label><input id="admin-email" type="email" autocomplete="email" maxlength="160" class="input" placeholder="voce@email.com"></div>
-      <button class="primary" onclick="adminLoginFromUi()">Enviar link de acesso</button>
+      <button class="primary" onclick="adminLoginFromUi()" ${adminRuntime.actionPending?'disabled aria-busy="true"':''}>${adminRuntime.actionPending?'Processando…':'Enviar link de acesso'}</button>
     </div>
     <div class="notice" style="margin-top:14px">O portal nunca concede permissão pelo navegador. Um admin existente recebe o link normalmente; no primeiro acesso, somente o e-mail previamente reservado no servidor pode criar e reclamar a conta inicial.</div>
   </section>`);
