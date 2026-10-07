@@ -521,6 +521,7 @@ const merchantBillingIndexes=read('supabase/migrations/20261007174500_merchant_b
 const merchantBillingPaymentRequests=read('supabase/migrations/20261007200000_merchant_billing_payment_requests_v1_73.sql');
 const merchantBillingPaymentRequestIndexes=read('supabase/migrations/20261007202000_merchant_billing_payment_request_fk_indexes_v1_73_1.sql');
 const prepaidCreditExhaustion=read('supabase/migrations/20261007203500_prepaid_credit_exhaustion_v1_74.sql');
+const prepaidPlanTransition=read('supabase/migrations/20261007210000_prepaid_plan_transition_policy_v1_75.sql');
 assert.ok(merchantBillingIndexes.includes('merchant_billing_accounts_plan_key_idx')&&merchantBillingIndexes.includes('merchant_daily_statements_resolved_by_idx')&&merchantBillingIndexes.includes('merchant_fee_credit_ledger_created_by_idx')&&merchantBillingIndexes.includes('merchant_fee_credit_ledger_order_id_idx')&&merchantBillingIndexes.includes('merchant_fee_credit_ledger_plan_key_idx'),'billing v1.72 precisa cobrir as FKs apontadas pelo advisor do banco');
 assert.ok(merchantBillingMigration.includes("'flex_daily','Flex Diário','postpaid_daily',850")&&merchantBillingMigration.includes("'credit_3000','Crédito 3.000','prepaid_credit',650"),'billing v1.72 precisa manter Flex premium e pacotes pré-pagos com desconto progressivo');
 assert.ok(merchantBillingMigration.includes('BILLING_PLAN_BELOW_ECONOMIC_FLOOR')&&merchantBillingMigration.includes('variable_cost_bps')&&merchantBillingMigration.includes('minimum_contribution_bps'),'pacotes não podem cair abaixo do piso econômico completo');
@@ -544,6 +545,11 @@ assert.ok(prepaidCreditExhaustion.includes('v_available>=v_package_fee')&&prepai
 assert.ok(prepaidCreditExhaustion.includes("then 'flex_daily'")&&prepaidCreditExhaustion.includes('credit_balance_cents-v_order.prepaid_fee_reserved_cents_snapshot=0'),'conta precisa voltar ao Flex automaticamente somente quando saldo e reservas zerarem');
 assert.ok(prepaidCreditExhaustion.includes("'postpaidDueCents',greatest(v_platform_fee-v_credit_applied,0)"),'diferença não coberta pelo último crédito precisa continuar no D+1');
 assert.ok(merchant.includes('saldo é usado até o último centavo')&&merchant.includes('abatido da taxa Flex daquela venda')&&merchant.includes('plano volta ao Flex automaticamente'),'portal da revenda precisa explicar exaustão sem saldo preso nem desconto residual abusável');
+assert.ok(prepaidPlanTransition.includes('PREPAID_PLAN_DOWNGRADE_WITH_ACTIVE_CREDIT'),'v1.75 precisa bloquear downgrade de pacote com crédito ativo');
+assert.ok(prepaidPlanTransition.includes('validate_billing_package_request_transition_trg'),'solicitação de pacote precisa ser validada antes de ficar pendente');
+assert.ok(prepaidPlanTransition.includes('enforce_billing_account_plan_transition_trg'),'mudança da conta precisa ter proteção estrutural independente da UI');
+assert.ok(prepaidPlanTransition.includes("v_target.billing_mode='postpaid_daily'")&&prepaidPlanTransition.includes('new.credit_balance_cents'),'Flex não pode herdar saldo pré-pago remanescente');
+assert.ok(merchant.includes('Proteção do saldo atual.')&&merchant.includes('upgrade')&&merchant.includes('downgrade'),'portal precisa explicar recarga, upgrade e downgrade de pacote');
 assert.ok(adminRbacIncidentMigration.includes("admin_role in ('superadmin','operations','finance','support','compliance','readonly')"),'migration RBAC precisa declarar papéis administrativos canônicos');
 assert.ok(adminRbacIncidentMigration.includes('LAST_SUPERADMIN_CANNOT_BE_REMOVED')&&adminRbacIncidentMigration.includes('enforce_platform_superadmin_continuity'),'último Superadmin ativo precisa ser protegido estruturalmente');
 assert.ok(adminRbacIncidentMigration.includes('create table if not exists public.platform_incidents')&&adminRbacIncidentMigration.includes('alter table public.platform_incidents enable row level security'),'incidentes precisam ser persistentes, server-only e protegidos por RLS');
@@ -575,6 +581,7 @@ assert.ok(adminOpsSource.includes('admin_execute_action'),'Edge admin deve usar 
 assert.ok(adminOpsSource.includes('idempotency-key'),'CORS admin precisa aceitar o header idempotente');
 const merchantOpsBillingSource=read('supabase/functions/merchant-ops/index.ts');
 const merchantOrdersBillingSource=read('supabase/functions/merchant-orders/index.ts');
+assert.ok(merchantOpsBillingSource.includes('PREPAID_PLAN_DOWNGRADE_WITH_ACTIVE_CREDIT'),'merchant-ops precisa traduzir downgrade protegido em conflito legível');
 assert.ok(merchantOpsBillingSource.includes('request-billing-package')&&merchantOpsBillingSource.includes('notify-billing-payment')&&merchantOpsBillingSource.includes('merchant_billing_request_action'),'portal da revenda precisa criar avisos financeiros pela autoridade idempotente');
 assert.ok(merchantOpsBillingSource.includes('MERCHANT_FINANCE_PERMISSION_DENIED')&&merchantOpsBillingSource.includes('canManage(role)'),'somente owner/manager pode solicitar pacote ou informar pagamento');
 assert.ok(merchantOrdersBillingSource.includes('merchant_billing_payment_requests')&&merchantOrdersBillingSource.includes('paymentRequests:'),'snapshot financeiro da revenda precisa expor suas solicitações recentes');

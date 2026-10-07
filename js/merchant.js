@@ -184,11 +184,18 @@ function merchantBillingLiveView(rt){
     const pct=(Number(p.platformFeeBps||0)/100).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2});
     const current=p.planKey===plan.planKey;
     const prepaid=p.billingMode==='prepaid_credit';
+    const activePrepaidBalance=plan.billingMode==='prepaid_credit'
+      && (Number(account.creditBalanceCents||0)>0||Number(account.creditReservedCents||0)>0);
+    const protectedDowngrade=prepaid
+      && activePrepaidBalance
+      && Number(p.platformFeeBps||0)>Number(plan.platformFeeBps||0);
     const pendingThis=pendingPackage?.planKey===p.planKey;
     const action=prepaid
       ? pendingThis
         ? `<div class="notice risk" style="margin-top:8px"><strong>Aguardando confirmação.</strong><br>O admin precisa conferir o pagamento antes de liberar o crédito.</div><button class="ghost small" style="margin-top:8px" onclick="merchantCancelBillingRequestFromUi('${esc(pendingPackage.id)}')" ${rt.actionPending?'disabled':''}>Cancelar solicitação</button>`
-        : `<button class="secondary small" style="margin-top:8px" onclick="merchantRequestBillingPackageFromUi('${esc(p.planKey)}')" ${pendingPackage||rt.actionPending?'disabled':''}>${pendingPackage?'Outro pacote já está pendente':'Informar pagamento e solicitar ativação'}</button>`
+        : protectedDowngrade
+          ? `<div class="notice" style="margin-top:8px"><strong>Proteção do saldo atual.</strong><br>Enquanto houver crédito ou reserva no pacote ${esc(plan.displayName||'atual')}, você pode recarregar o mesmo pacote ou migrar para uma taxa menor. Este pacote ficará disponível quando o saldo atual terminar.</div>`
+          : `<button class="secondary small" style="margin-top:8px" onclick="merchantRequestBillingPackageFromUi('${esc(p.planKey)}')" ${pendingPackage||rt.actionPending?'disabled':''}>${pendingPackage?'Outro pacote já está pendente':current?'Recarregar este pacote':'Informar pagamento e solicitar ativação'}</button>`
       : '';
     return `<div class="card flat"><div class="order-head"><div><strong>${esc(p.displayName)}</strong><br><small>${prepaid?'Pacote pré-pago':'Pós-pago diário'}</small></div><span class="status-pill ${current?'online':''}">${pct}%</span></div>${prepaid?`<div class="tiny muted">${BRL.format(Number(p.purchaseAmountCents||0)/100)} de crédito de taxas • ativação somente após conferência administrativa. O saldo é usado até o último centavo.</div>`:'<div class="tiny muted">Sem recarga antecipada. Fechamento diário com vencimento D+1.</div>'}${current?'<div class="notice success" style="margin-top:8px"><strong>Plano atual</strong></div>':''}${action}</div>`;
   }).join('');
@@ -217,7 +224,7 @@ function merchantBillingLiveView(rt){
       <div class="kpi"><span class="label">Saldo D+1 aberto</span><strong>${BRL.format(openDue/100)}</strong><small>${nextDue?'próximo vencimento '+new Date(nextDue.dueAt).toLocaleString('pt-BR'):'nenhum vencimento'}</small></div>
     </div>
     ${statementRows?`<div class="card flat" style="margin-top:12px"><h3>Fechamentos em aberto</h3><div class="list">${statementRows}</div></div>`:''}
-    <div class="section-head" style="margin-top:16px"><div><h3>Opções de taxa</h3><p>Quanto maior o crédito antecipado, menor a taxa por venda. O crédito só é consumido quando pedidos são liquidados.</p></div></div>
+    <div class="section-head" style="margin-top:16px"><div><h3>Opções de taxa</h3><p>Quanto maior o crédito antecipado, menor a taxa por venda. O crédito só é consumido quando pedidos são liquidados. Com saldo ativo, recargas do mesmo pacote e upgrades para taxa menor permanecem disponíveis; downgrade só depois de zerar saldo e reservas.</p></div></div>
     <div class="admin-entity-grid">${planCards}</div>
     <div class="notice" style="margin-top:12px"><strong>Confirmação financeira em duas etapas.</strong><br>A revenda informa a referência do pagamento; o pedido fica pendente. Só o admin pode confirmar e gerar crédito ou quitar o fechamento diário. Se o saldo restante não cobrir toda a taxa descontada de uma venda, esse último saldo é abatido da taxa Flex daquela venda e apenas a diferença entra no fechamento D+1; quando saldo e reservas zerarem, o plano volta ao Flex automaticamente.</div>
     ${recentRequests?`<details class="card flat" style="margin-top:12px"><summary><strong>Solicitações financeiras recentes</strong></summary><div class="list" style="margin-top:10px">${recentRequests}</div></details>`:''}

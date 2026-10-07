@@ -165,4 +165,70 @@ for(const [packageFee,flexFee,availableCredit,expectedMode,expectedReserved,expe
   prepaidCases++;
 }
 
-console.log(`Financial invariant fuzz passou: ${rewardCases} cenários de unit economics + ${positionCases} posições de cashback + ${prepaidCases} cenários de consumo de crédito de taxa.`);
+
+function prepaidTransitionAllowed({
+  currentMode,currentBps,targetMode,targetBps,balance,reserved,newBalance,newReserved
+}){
+  if(targetMode==='postpaid_daily'){
+    return newBalance===0&&newReserved===0;
+  }
+  if(
+    currentMode==='prepaid_credit'
+    && targetMode==='prepaid_credit'
+    && (balance>0||reserved>0)
+    && targetBps>currentBps
+  ) return false;
+  return true;
+}
+
+let transitionCases=0;
+for(let i=0;i<25000;i++){
+  const currentBps=int(1,1000);
+  const targetBps=int(1,1000);
+  const balance=int(0,1000000);
+  const reserved=int(0,balance);
+  const allowed=prepaidTransitionAllowed({
+    currentMode:'prepaid_credit',
+    currentBps,
+    targetMode:'prepaid_credit',
+    targetBps,
+    balance,
+    reserved,
+    newBalance:balance+int(0,100000),
+    newReserved:reserved
+  });
+  if(balance>0||reserved>0){
+    assert.equal(
+      allowed,
+      targetBps<=currentBps,
+      'com crédito ativo só recarga/upgrade de taxa pode ocorrer'
+    );
+  }else{
+    assert.equal(allowed,true,'sem crédito ativo qualquer novo pacote pode iniciar');
+  }
+  transitionCases++;
+}
+
+assert.equal(prepaidTransitionAllowed({
+  currentMode:'prepaid_credit',currentBps:650,targetMode:'prepaid_credit',targetBps:700,
+  balance:300000,reserved:0,newBalance:400000,newReserved:0
+}),false,'não pode piorar 6,50% para 7,00% com saldo ativo');
+assert.equal(prepaidTransitionAllowed({
+  currentMode:'prepaid_credit',currentBps:750,targetMode:'prepaid_credit',targetBps:650,
+  balance:10000,reserved:5000,newBalance:310000,newReserved:5000
+}),true,'upgrade para taxa menor deve continuar permitido');
+assert.equal(prepaidTransitionAllowed({
+  currentMode:'prepaid_credit',currentBps:700,targetMode:'prepaid_credit',targetBps:700,
+  balance:10000,reserved:0,newBalance:110000,newReserved:0
+}),true,'recarga do mesmo pacote deve continuar permitida');
+assert.equal(prepaidTransitionAllowed({
+  currentMode:'prepaid_credit',currentBps:650,targetMode:'postpaid_daily',targetBps:850,
+  balance:1,reserved:0,newBalance:1,newReserved:0
+}),false,'Flex não pode receber conta com crédito remanescente');
+assert.equal(prepaidTransitionAllowed({
+  currentMode:'prepaid_credit',currentBps:650,targetMode:'postpaid_daily',targetBps:850,
+  balance:1,reserved:1,newBalance:0,newReserved:0
+}),true,'exaustão atômica pode retornar ao Flex');
+transitionCases+=5;
+
+console.log(`Financial invariant fuzz passou: ${rewardCases} cenários de unit economics + ${positionCases} posições de cashback + ${prepaidCases} cenários de consumo de crédito de taxa + ${transitionCases} transições de pacote.`);
