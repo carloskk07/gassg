@@ -719,7 +719,7 @@ async function summary(admin:any,actorUserId:string){
     controlItemsByOrder.get(item.order_id)!.push(item);
   }
 
-  const [supportCases,businessMetrics,launchReadiness,acquisitionMetrics]=await Promise.all([
+  const [supportCases,businessMetrics,launchReadiness,acquisitionMetrics,merchantReadiness]=await Promise.all([
     admin.from("support_cases")
       .select("id,order_id,customer_id,merchant_id,category,status,message,resolution_note,resolved_at,created_at,updated_at")
       .in("status",["open","in_review","resolved"])
@@ -727,12 +727,14 @@ async function summary(admin:any,actorUserId:string){
       .limit(100),
     admin.rpc("platform_business_metrics"),
     admin.rpc("platform_launch_readiness"),
-    admin.rpc("admin_prelaunch_acquisition_metrics",{p_actor_user_id:actorUserId})
+    admin.rpc("admin_prelaunch_acquisition_metrics",{p_actor_user_id:actorUserId}),
+    admin.rpc("admin_merchant_readiness_snapshot",{p_actor_user_id:actorUserId})
   ]);
   if(supportCases.error)throw supportCases.error;
   if(businessMetrics.error)throw businessMetrics.error;
   if(launchReadiness.error)throw launchReadiness.error;
   if(acquisitionMetrics.error)throw acquisitionMetrics.error;
+  if(merchantReadiness.error)throw merchantReadiness.error;
 
   const referralOrderIds=(referralReviews.data??[]).map((x:any)=>x.order_id).filter(Boolean);
   const referralOrderStates=referralOrderIds.length
@@ -745,6 +747,7 @@ async function summary(admin:any,actorUserId:string){
 
   const byMerchant=new Map((compliance.data??[]).map((x:any)=>[x.merchant_id,x]));
   const businessByMerchant=new Map((merchantBusinessDetails.data??[]).map((x:any)=>[x.merchant_id,x]));
+  const merchantReadinessById=new Map((merchantReadiness.data??[]).map((x:any)=>[x.merchantId,x]));
   const capabilitiesByMerchant=new Map<string,any[]>();
   for(const cap of capabilities.data??[]){
     if(!capabilitiesByMerchant.has(cap.merchant_id))capabilitiesByMerchant.set(cap.merchant_id,[]);
@@ -762,6 +765,7 @@ async function summary(admin:any,actorUserId:string){
       const latestInvite=inviteHistory[0]??null;
       const application=applicationByDraft.get(p.id)??null;
       const converted=p.onboarding_status==="converted"||Boolean(p.merchant_id);
+      const readiness=p.merchant_id?merchantReadinessById.get(p.merchant_id)??null:null;
       const cancelled=p.onboarding_status==="cancelled";
       let inviteStatus="none";
       if(claimedInvite||application)inviteStatus="claimed";
@@ -770,7 +774,7 @@ async function summary(admin:any,actorUserId:string){
       else if(latestInvite&&Date.parse(latestInvite.expires_at)<=now)inviteStatus="expired";
       let nextAction="issue_invite";
       if(cancelled)nextAction="none";
-      else if(converted)nextAction="merchant_setup_review";
+      else if(converted)nextAction=String(readiness?.nextAction||"merchant_setup_review");
       else if(application?.status==="rejected")nextAction="partner_resubmit";
       else if(application||claimedInvite)nextAction="review_and_convert";
       else if(activeInvite)nextAction="partner_claim_invite";
@@ -786,7 +790,7 @@ async function summary(admin:any,actorUserId:string){
           inviteStatus,
           inviteExpiresAt:activeInvite?.expires_at??latestInvite?.expires_at??null,
           inviteClaimedAt:claimedInvite?.claimed_at??null,
-          ownerClaimed:Boolean(claimedInvite?.claimed_user_id||application?.applicant_user_id),
+          ownerClaimed:Boolean(claimedInvite?.claimed_user_id||application?.applicant_user_id||readiness?.ownerReady),
           application:application?{
             id:application.id,
             status:application.status,
@@ -798,12 +802,18 @@ async function summary(admin:any,actorUserId:string){
             updatedAt:application.updated_at
           }:null,
           merchantCreated:converted,
+          readiness,
           nextAction,
           steps:[
             {key:"invite",done:Boolean(activeInvite||claimedInvite||application||converted),status:inviteStatus},
             {key:"claim",done:Boolean(claimedInvite||application||converted),status:(claimedInvite||application||converted)?"done":"pending"},
-            {key:"application",done:Boolean(application||converted),status:application?.status??(converted?"converted":"pending")},
-            {key:"merchant",done:converted,status:converted?"done":"pending"}
+            {key:"application",done:Boolean((application&&["pending","approved"].includes(application.status))||converted),status:application?.status??(converted?"converted":"pending")},
+            {key:"merchant",done:converted,status:converted?"done":"pending"},
+            {key:"owner",done:Boolean(readiness?.ownerReady),status:readiness?.ownerReady?"done":"pending"},
+            {key:"compliance",done:Boolean(readiness?.complianceReady),status:readiness?.complianceReady?"done":"pending"},
+            {key:"payment",done:Boolean(readiness?.paymentReady),status:readiness?.paymentReady?"done":"pending"},
+            {key:"offer",done:Boolean(readiness?.commercialReady),status:readiness?.commercialReady?"done":"pending"},
+            {key:"online",done:Boolean(readiness?.offerReady),status:readiness?.offerReady?"done":"pending"}
           ]
         }
       };
@@ -812,8 +822,10 @@ async function summary(admin:any,actorUserId:string){
       ...m,
       compliance:byMerchant.get(m.id)??null,
       businessDetails:businessByMerchant.get(m.id)??null,
-      deliveryCapabilities:capabilitiesByMerchant.get(m.id)??[]
+      deliveryCapabilities:capabilitiesByMerchant.get(m.id)??[],
+      readiness:merchantReadinessById.get(m.id)??null
     })),
+    merchantReadiness:merchantReadiness.data??[],
     businessMetrics:businessMetrics.data??{},
     launchReadiness:launchReadiness.data??{},
     commercialPolicy:commercialPolicy.data??null,
