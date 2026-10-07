@@ -532,6 +532,7 @@ const paymentEventFkIndexes=read('supabase/migrations/20261008004000_payment_eve
 const reactivePaymentReconciliation=read('supabase/migrations/20261008010000_reactive_payment_reconciliation_v1_82.sql');
 const paymentApprovalProvenance=read('supabase/migrations/20261008013000_payment_approval_provenance_v1_83.sql');
 const paymentEventReviewLifecycle=read('supabase/migrations/20261008020000_payment_event_review_lifecycle_v1_84.sql');
+const financeQueueSla=read('supabase/migrations/20261008023000_finance_queue_sla_v1_85.sql');
 const billingPaymentWebhookSource=read('supabase/functions/billing-payment-webhook/index.ts');
 assert.ok(merchantBillingIndexes.includes('merchant_billing_accounts_plan_key_idx')&&merchantBillingIndexes.includes('merchant_daily_statements_resolved_by_idx')&&merchantBillingIndexes.includes('merchant_fee_credit_ledger_created_by_idx')&&merchantBillingIndexes.includes('merchant_fee_credit_ledger_order_id_idx')&&merchantBillingIndexes.includes('merchant_fee_credit_ledger_plan_key_idx'),'billing v1.72 precisa cobrir as FKs apontadas pelo advisor do banco');
 assert.ok(merchantBillingMigration.includes("'flex_daily','Flex Diário','postpaid_daily',850")&&merchantBillingMigration.includes("'credit_3000','Crédito 3.000','prepaid_credit',650"),'billing v1.72 precisa manter Flex premium e pacotes pré-pagos com desconto progressivo');
@@ -666,6 +667,15 @@ assert.ok(paymentEventReviewLifecycle.includes('merchant_billing_payment_event_i
 assert.ok(paymentEventReviewLifecycle.includes("revoke all on function public.admin_merchant_billing_payment_event_action(")&&paymentEventReviewLifecycle.includes('to service_role, postgres'),'autoridade de lifecycle não pode ser RPC de browser');
 assert.ok(adminOpsSource.includes('"merchant-billing-payment-event"')&&adminOpsSource.includes('admin_merchant_billing_payment_event_action'),'admin-ops precisa rotear lifecycle pelo backend idempotente');
 assert.ok(admin.includes('adminBillingPaymentEventAction')&&admin.includes('Reprocessar conciliação')&&admin.includes('Ignorar evento'),'Financeiro precisa conseguir reavaliar e encerrar eventos de revisão sem apagá-los');
+assert.ok(financeQueueSla.includes("'matchedApprovalTargetHours',2")&&financeQueueSla.includes("'eventReviewTargetHours',4")&&financeQueueSla.includes("'pendingEscalationHours',24"),'v1.85 precisa declarar SLAs financeiros explícitos de 2h/4h/24h');
+assert.ok(financeQueueSla.includes('pendingAgeBuckets')&&financeQueueSla.includes('queueSla'),'cockpit server-side precisa devolver idade da fila e estado de SLA sem depender da paginação');
+assert.ok(financeQueueSla.includes('matched_payment_approval_sla_over_2h')&&financeQueueSla.includes('payment_event_review_sla_over_4h'),'reconciliador precisa escalar conciliados e eventos em revisão envelhecidos');
+assert.ok(financeQueueSla.includes("not exists(\n        select 1\n        from public.merchant_billing_payment_events e")&&financeQueueSla.includes("e.status='matched_exact'"),'alerta genérico >24h não deve duplicar solicitações já conciliadas exatamente');
+assert.ok(financeQueueSla.includes('financeQueueSlaBreachCount')&&financeQueueSla.includes('oldestFinanceSlaBreachAt'),'reconciliação precisa resumir violações e a mais antiga');
+assert.ok(financeQueueSla.includes("revoke all on function public.admin_merchant_billing_metrics(uuid)")&&financeQueueSla.includes("revoke all on function public.admin_merchant_billing_reconciliation(uuid)"),'métricas e SLA continuam server-only');
+assert.ok(admin.includes('SLA financeiro')&&admin.includes('Conciliados prontos')&&admin.includes('Eventos em revisão'),'admin precisa transformar SLA em fila operacional visível');
+assert.ok(admin.includes('Nenhum item é cancelado automaticamente.'),'UI precisa deixar explícito que SLA não executa decisão financeira automática');
+assert.ok(admin.includes("priority=(x)=>x.status==='matched_exact'?0:1")&&admin.includes("Date.parse(a.requested_at||0)-Date.parse(b.requested_at||0)"),'fila financeira deve ordenar conciliados e solicitações pela urgência/idade');
 assert.ok(billingPaymentWebhookSource.includes('x-tamao-signature')&&billingPaymentWebhookSource.includes('hmacSha256Hex')&&billingPaymentWebhookSource.includes('constantTimeEqualHex'),'webhook de pagamentos precisa verificar HMAC antes de tocar o banco');
 assert.ok(billingPaymentWebhookSource.includes('MAX_SKEW_SECONDS=300')&&billingPaymentWebhookSource.includes('STALE_WEBHOOK'),'webhook precisa limitar replay temporal a cinco minutos');
 assert.ok(billingPaymentWebhookSource.includes('BILLING_PAYMENT_WEBHOOK_SECRETS')&&billingPaymentWebhookSource.includes('WEBHOOK_PROVIDER_NOT_CONFIGURED'),'provedor sem segredo configurado precisa falhar fechado');

@@ -566,4 +566,44 @@ for(let i=0;i<20000;i++){
   paymentEventReviewCases+=6;
 }
 
-console.log(`Financial invariant fuzz passou: ${rewardCases} cenários de unit economics + ${positionCases} posições de cashback + ${prepaidCases} cenários de consumo de crédito de taxa + ${transitionCases} transições de pacote + ${reconciliationCases} cenários de reconciliação + ${exactPaymentCases} confirmações exatas de pagamento + ${d1AuthorityCases} cenários de autoridade D+1 + ${reconciliationKeyCases} cenários de unicidade de conciliação + ${providerEventCases} cenários de eventos de provedor + ${reactiveProviderCases} transições reativas de conciliação + ${provenanceCases} provas de proveniência de aprovação + ${paymentEventReviewCases} decisões de lifecycle de eventos.`);
+
+function financeQueueSlaClass({kind,status,ageHours,matchedExact=false}){
+  if(kind==='provider_event'&&status==='matched_exact'){
+    return ageHours>=2?'matched_breach':'matched_ok';
+  }
+  if(kind==='provider_event'&&status==='review_required'){
+    return ageHours>=4?'review_breach':'review_ok';
+  }
+  if(kind==='payment_request'&&status==='pending'&&!matchedExact){
+    return ageHours>=24?'pending_breach':'pending_ok';
+  }
+  return 'not_actionable';
+}
+
+let financeSlaCases=0;
+for(let i=0;i<20000;i++){
+  const matchedAge=(i%4===0)?1.99:2+(i%72)/10;
+  const reviewAge=(i%5===0)?3.99:4+(i%120)/10;
+  const pendingAge=(i%6===0)?23.99:24+(i%240)/10;
+
+  assert.equal(
+    financeQueueSlaClass({kind:'provider_event',status:'matched_exact',ageHours:matchedAge}),
+    matchedAge>=2?'matched_breach':'matched_ok'
+  );
+  assert.equal(
+    financeQueueSlaClass({kind:'provider_event',status:'review_required',ageHours:reviewAge}),
+    reviewAge>=4?'review_breach':'review_ok'
+  );
+  assert.equal(
+    financeQueueSlaClass({kind:'payment_request',status:'pending',ageHours:pendingAge,matchedExact:false}),
+    pendingAge>=24?'pending_breach':'pending_ok'
+  );
+  assert.equal(
+    financeQueueSlaClass({kind:'payment_request',status:'pending',ageHours:48,matchedExact:true}),
+    'not_actionable',
+    'solicitação já conciliada deve seguir SLA de 2h do evento, não duplicar alerta >24h'
+  );
+  financeSlaCases+=4;
+}
+
+console.log(`Financial invariant fuzz passou: ${rewardCases} cenários de unit economics + ${positionCases} posições de cashback + ${prepaidCases} cenários de consumo de crédito de taxa + ${transitionCases} transições de pacote + ${reconciliationCases} cenários de reconciliação + ${exactPaymentCases} confirmações exatas de pagamento + ${d1AuthorityCases} cenários de autoridade D+1 + ${reconciliationKeyCases} cenários de unicidade de conciliação + ${providerEventCases} cenários de eventos de provedor + ${reactiveProviderCases} transições reativas de conciliação + ${provenanceCases} provas de proveniência de aprovação + ${paymentEventReviewCases} decisões de lifecycle de eventos + ${financeSlaCases} classificações de SLA financeiro.`);
