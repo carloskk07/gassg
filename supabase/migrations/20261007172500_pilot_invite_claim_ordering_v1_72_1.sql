@@ -57,7 +57,7 @@ begin
     raise exception 'APPLICATION_STATUS_NOT_CLAIMABLE' using errcode='40001';
   end if;
 
-  v_hash:=encode(public.digest(p_token,'sha256'),'hex');
+  v_hash:=encode(extensions.digest(p_token,'sha256'),'hex');
 
   select * into v_invite
   from public.pilot_partner_invites
