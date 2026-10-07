@@ -1051,6 +1051,11 @@ for(const entry of fs.readdirSync(functionRoot,{withFileTypes:true})){
     assert.ok(source.includes('ALLOWED_ORIGINS')&&source.includes('originAllowed'),entry.name+' precisa restringir origem explicitamente');
     assert.ok(source.includes('EVENT_TYPES')&&source.includes('AUDIENCES'),entry.name+' precisa manter allowlists de evento e público');
     assert.ok(source.includes('record_prelaunch_marketing_event'),entry.name+' precisa gravar somente pelo RPC agregado');
+  }else if(entry.name==='billing-payment-webhook'){
+    assert.ok(source.includes('MAX_BODY_BYTES=16384')&&source.includes('TextEncoder().encode(rawBody).byteLength>MAX_BODY_BYTES'),entry.name+' precisa limitar o corpo bruto antes do parse');
+    assert.ok(source.includes('x-tamao-signature')&&source.includes('hmacSha256Hex')&&source.includes('constantTimeEqualHex'),entry.name+' precisa autenticar o payload bruto por HMAC');
+    assert.ok(source.includes('MAX_SKEW_SECONDS=300')&&source.includes('STALE_WEBHOOK'),entry.name+' precisa bloquear replay temporal');
+    assert.ok(source.includes('ingest_merchant_billing_payment_event'),entry.name+' precisa usar autoridade transacional server-only');
   }else{
     assert.ok(source.includes('readJsonBody(req)'),entry.name+' precisa limitar JSON');
     assert.ok(source.includes('enforceApiQuota(admin'),entry.name+' precisa aplicar quota server-side');
