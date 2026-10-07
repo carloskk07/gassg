@@ -33,6 +33,8 @@ const TEST_TURNSTILE_KEYS=new Set([
 ]);
 const PORTAL_PROBE_TIMEOUT_MS=5000;
 const UUID_RE=/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+const PAYMENT_INGRESS_CONTRACT="tamao_normalized_hmac_v1";
+const LIVE_PAYMENT_PROVIDER_ADAPTERS=new Set<string>([]);
 
 function originAllowed(origin:string|null){
   if(!origin)return true;
@@ -218,11 +220,18 @@ function billingPaymentIngressReadiness(){
   if(genericSecret.length>=24)providers.add("generic");
 
   const configuredProviders=[...providers].sort();
+  const normalizedIngressConfigured=configValid&&configuredProviders.length>0;
+  const liveProviders=configuredProviders.filter((name)=>LIVE_PAYMENT_PROVIDER_ADAPTERS.has(name));
   return {
-    configured:configuredProviders.length>0&&configValid,
+    configured:normalizedIngressConfigured,
+    normalizedIngressConfigured,
+    livePspReady:configValid&&liveProviders.length>0,
     configValid,
+    contract:PAYMENT_INGRESS_CONTRACT,
     providerCount:configuredProviders.length,
     providers:configuredProviders,
+    liveProviderCount:liveProviders.length,
+    liveProviders,
     endpoint:SUPABASE_URL
       ?SUPABASE_URL.replace(/\/$/,"")+"/functions/v1/billing-payment-webhook"
       :null
