@@ -484,7 +484,16 @@ async function adminEntityDetail(admin:any,entityType:unknown,rawId:unknown,role
   const cashback=settled.reduce((sum:number,x:any)=>sum+Number(x.cashback_reserved_cents||0),0);
   return scopeEntityDetail(role,{type,id:customerId,profile:profile.data??null,orders:history,support:support.data??[],feedback:feedback.data??[],metrics:{orders:history.length,settled:settled.length,cancelled:cancelled.length,spendCents:spend,cashbackCents:cashback}});
 }
-async function adminAuditSearch(admin:any,body:any){
+function adminRoleAuditMatch(role:string,row:any){
+  if(["superadmin","readonly"].includes(role))return true;
+  const action=String(row?.action||"").toLowerCase();
+  if(role==="finance")return /financial|reward|referral|reverse|settlement|commercial|incident/.test(action);
+  if(role==="support")return /order|support|incident/.test(action);
+  if(role==="compliance")return /merchant|application|compliance|delivery_capability|pilot|incident/.test(action);
+  if(role==="operations")return !/financial|reward|referral|platform_admin|admin_access/.test(action);
+  return false;
+}
+async function adminAuditSearch(admin:any,body:any,role:string){
   const limit=Math.min(200,Math.max(1,Number(body.limit||100)));
   let query=admin.from("platform_admin_audit")
     .select("id,actor_user_id,action,target_type,target_id,metadata,created_at")
@@ -507,6 +516,7 @@ async function adminAuditSearch(admin:any,body:any){
   if(result.error)throw result.error;
   const q=String(body.query||"").trim().toLowerCase();
   const rows=(result.data??[]).filter((row:any)=>{
+    if(!adminRoleAuditMatch(role,row))return false;
     if(!q)return true;
     return [row.action,row.target_type,row.target_id,row.actor_user_id,JSON.stringify(row.metadata||{})]
       .some(v=>String(v||"").toLowerCase().includes(q));
@@ -830,7 +840,7 @@ Deno.serve(async(req:Request)=>{
       return json(await adminSystemHealth(admin),200,origin);
     }
     if(action==="audit-search"){
-      return json(await adminAuditSearch(admin,body),200,origin);
+      return json(await adminAuditSearch(admin,body,String(adminAccess.admin_role||"superadmin")),200,origin);
     }
     if(action==="incident-list"){
       return json(await adminIncidentList(admin),200,origin);
