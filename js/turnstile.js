@@ -46,6 +46,32 @@
     return scriptPromise;
   }
 
+  function turnstileErrorMessage(code){
+    const value=String(code??'').trim();
+    if(value==='110100'||value==='110110'||value==='400020'){
+      return 'A chave da verificação anti-bot está inválida ou não foi encontrada. Código Turnstile: '+value;
+    }
+    if(value==='110200'||value==='400021'){
+      return 'Este domínio não está autorizado no Turnstile. Adicione admin.tamao.com.br em Hostname Management. Código Turnstile: '+value;
+    }
+    if(value==='200500'){
+      return 'O Turnstile não conseguiu carregar o iframe. Verifique bloqueadores de anúncios/rastreadores e permita challenges.cloudflare.com. Código Turnstile: '+value;
+    }
+    if(value==='110600'||value==='110620'){
+      return 'A verificação de segurança expirou. Tente novamente. Código Turnstile: '+value;
+    }
+    if(/^300/.test(value)||/^600/.test(value)){
+      return 'A verificação de segurança falhou. Atualize a página e tente novamente. Código Turnstile: '+value;
+    }
+    return value
+      ? 'A verificação de segurança falhou. Código Turnstile: '+value
+      : 'A verificação de segurança falhou';
+  }
+
+  function preload(){
+    return loadApi();
+  }
+
   async function challenge(action='auth'){
     const key=siteKey();
     const safeAction=/^[A-Za-z0-9_-]{1,32}$/.test(String(action))?String(action):'auth';
@@ -89,7 +115,14 @@
           size:'flexible',
           action:safeAction,
           callback:(token)=>finish(true,String(token||'')),
-          'error-callback':()=>finish(false,new Error('A verificação de segurança falhou')),
+          retry:'auto',
+          'retry-interval':8000,
+          'error-callback':(code)=>{
+            finish(false,new Error(turnstileErrorMessage(code)));
+            return true;
+          },
+          'timeout-callback':()=>finish(false,new Error('A interação com a verificação de segurança expirou. Tente novamente.')),
+          'unsupported-callback':()=>finish(false,new Error('Este navegador não é compatível com a verificação de segurança. Atualize o navegador ou tente outro navegador.')),
           'expired-callback':()=>{ try{api.reset(widgetId)}catch{} }
         });
       }catch(error){
@@ -98,5 +131,5 @@
     });
   }
 
-  globalThis.chamaTurnstile={siteKey,challenge};
+  globalThis.chamaTurnstile={siteKey,preload,challenge};
 })();
