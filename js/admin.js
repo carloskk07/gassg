@@ -891,6 +891,38 @@ function adminPanel(id,content){
 function adminMoney(cents){
   return BRL.format(Math.max(0,Number(cents||0))/100);
 }
+function adminParseMoneyToCents(value){
+  let raw=String(value??'').trim().replace(/\s+/g,'').replace(/^R\$/i,'');
+  if(!raw)return null;
+  if(raw.includes(',')){
+    raw=raw.replace(/\./g,'').replace(',','.');
+  }else if(/^\d{1,3}(\.\d{3})+$/.test(raw)){
+    raw=raw.replace(/\./g,'');
+  }
+  if(!/^\d+(?:\.\d{1,2})?$/.test(raw))return null;
+  const cents=Math.round(Number(raw)*100);
+  return Number.isSafeInteger(cents)&&cents>0?cents:null;
+}
+function adminNormalizePaymentMethod(value){
+  const raw=String(value??'').trim().toLowerCase();
+  const map={
+    pix:'pix',
+    transferencia:'bank_transfer',
+    'transferência':'bank_transfer',
+    bank_transfer:'bank_transfer',
+    dinheiro:'cash',
+    cash:'cash',
+    cartao:'card',
+    'cartão':'card',
+    card:'card',
+    outro:'other',
+    other:'other'
+  };
+  return map[raw]||null;
+}
+function adminPaymentMethodLabel(value){
+  return ({pix:'Pix',bank_transfer:'Transferência',cash:'Dinheiro',card:'Cartão',other:'Outro'})[String(value||'')]||String(value||'—');
+}
 function adminMerchantName(id){
   const m=(adminRuntime.data?.merchants||[]).find(x=>x.id===id);
   return m?.name||String(id||'Revenda');
@@ -1219,7 +1251,8 @@ function adminBillingPaymentRequestCard(request){
     <div class="order-head"><div><div class="order-id">${esc(adminMerchantName(request.merchant_id))} • ${esc(title)}</div><div class="tiny muted">${esc(request.requested_at?new Date(request.requested_at).toLocaleString('pt-BR'):'—')} • ${detail}</div></div><span class="status-pill ${statusClass}">${esc(statusLabel)}</span></div>
     <div class="order-line"><strong>Referência informada pela revenda:</strong> ${esc(request.merchant_reference||'—')}</div>
     ${request.admin_reference?`<div class="tiny muted">Referência administrativa: ${esc(request.admin_reference)}</div>`:''}
-    ${pending?`<div class="notice" style="margin-top:10px"><strong>Nenhum crédito ou quitação ocorreu ainda.</strong><br>Confira o recebimento no meio financeiro antes de aprovar.</div>
+    ${approved&&request.received_amount_cents!=null?`<div class="tiny muted">Recebido: ${adminMoney(request.received_amount_cents)} • ${esc(adminPaymentMethodLabel(request.payment_method))}</div>`:''}
+    ${pending?`<div class="notice" style="margin-top:10px"><strong>Nenhum crédito ou quitação ocorreu ainda.</strong><br>Confira o recebimento no meio financeiro antes de aprovar. A aprovação exige valor recebido exato, meio de pagamento e referência.</div>
       <div class="order-actions">
         <button class="primary small" onclick="adminResolveBillingPaymentRequest('${esc(request.id)}','approve')">Confirmar recebimento</button>
         <button class="danger-btn small" onclick="adminResolveBillingPaymentRequest('${esc(request.id)}','reject')">Rejeitar</button>
@@ -2190,16 +2223,39 @@ async function adminResolveBillingPaymentRequest(paymentRequestId,requestAction)
   if(!request)return toast('Solicitação financeira não encontrada');
   if(request.status!=='pending')return toast('Esta solicitação já foi resolvida');
   const approve=requestAction==='approve';
+  const expectedCents=Number(request.expected_amount_cents||0);
+  let receivedAmountCents=null;
+  let paymentMethod=null;
+  if(approve){
+    const defaultAmount=(expectedCents/100).toFixed(2).replace('.',',');
+    const receivedRaw=prompt('Valor efetivamente recebido (R$):',defaultAmount);
+    if(receivedRaw==null)return;
+    receivedAmountCents=adminParseMoneyToCents(receivedRaw);
+    if(receivedAmountCents==null)return toast('Informe um valor recebido válido');
+    if(receivedAmountCents!==expectedCents){
+      return toast('Valor recebido diferente do esperado. Não é possível aprovar esta solicitação.');
+    }
+    const methodRaw=prompt('Forma confirmada: pix, transferencia, dinheiro, cartao ou outro','pix');
+    if(methodRaw==null)return;
+    paymentMethod=adminNormalizePaymentMethod(methodRaw);
+    if(!paymentMethod)return toast('Informe uma forma de pagamento válida');
+  }
   const reference=prompt(approve?'Referência da conferência financeira (Pix/PSP/extrato):':'Motivo da rejeição:')||'';
   if(reference.trim().length<3)return toast('Informe uma referência');
-  const amount=adminMoney(request.expected_amount_cents);
+  const amount=adminMoney(expectedCents);
   const message=approve
-    ? 'Confirmar recebimento de '+amount+'? Esta ação '+(request.request_kind==='package_purchase'?'creditará o pacote na conta da revenda.':'quitará o fechamento diário.') 
+    ? 'Confirmar recebimento exato de '+amount+' via '+adminPaymentMethodLabel(paymentMethod)+'? Esta ação '+(request.request_kind==='package_purchase'?'creditará o pacote na conta da revenda.':'quitará o fechamento diário.')
     : 'Rejeitar esta solicitação de '+amount+'? Nenhum saldo será movimentado.';
   if(!confirm(message))return;
   try{
-    await adminPerform('merchant-billing-payment-request',{paymentRequestId,requestAction,reference});
-    toast(approve?'Pagamento confirmado':'Solicitação rejeitada');
+    await adminPerform('merchant-billing-payment-request',{
+      paymentRequestId,
+      requestAction,
+      reference,
+      receivedAmountCents,
+      paymentMethod
+    });
+    toast(approve?'Pagamento confirmado com valor conciliado':'Solicitação rejeitada');
   }catch(e){toast(String(e?.message||e))}
 }
 async function adminSetMerchantFlex(merchantId){
