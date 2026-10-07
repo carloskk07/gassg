@@ -34,7 +34,7 @@ const TEST_TURNSTILE_KEYS=new Set([
 const PORTAL_PROBE_TIMEOUT_MS=5000;
 const UUID_RE=/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const PAYMENT_INGRESS_CONTRACT="tamao_normalized_hmac_v1";
-const LIVE_PAYMENT_PROVIDER_ADAPTERS=new Set<string>([]);
+const LIVE_PAYMENT_PROVIDER_ADAPTERS=new Set<string>(["woovi"]);
 
 function originAllowed(origin:string|null){
   if(!origin)return true;
@@ -221,7 +221,19 @@ function billingPaymentIngressReadiness(){
 
   const configuredProviders=[...providers].sort();
   const normalizedIngressConfigured=configValid&&configuredProviders.length>0;
-  const liveProviders=configuredProviders.filter((name)=>LIVE_PAYMENT_PROVIDER_ADAPTERS.has(name));
+
+  const wooviAuthorization=String(Deno.env.get("WOOVI_WEBHOOK_AUTHORIZATION")??"");
+  const wooviCompanyId=String(Deno.env.get("WOOVI_COMPANY_ID")??"").trim();
+  const wooviReady=
+    LIVE_PAYMENT_PROVIDER_ADAPTERS.has("woovi")
+    &&wooviAuthorization.length>=24
+    &&wooviCompanyId.length>=6
+    &&wooviCompanyId.length<=160;
+
+  const liveProviders=[
+    ...(wooviReady?["woovi"]:[])
+  ].sort();
+
   return {
     configured:normalizedIngressConfigured,
     normalizedIngressConfigured,
@@ -232,9 +244,24 @@ function billingPaymentIngressReadiness(){
     providers:configuredProviders,
     liveProviderCount:liveProviders.length,
     liveProviders,
+    adapterReadiness:{
+      woovi:{
+        implemented:LIVE_PAYMENT_PROVIDER_ADAPTERS.has("woovi"),
+        authorizationConfigured:wooviAuthorization.length>=24,
+        companyBound:wooviCompanyId.length>=6&&wooviCompanyId.length<=160,
+        ready:wooviReady,
+        event:"OPENPIX:TRANSACTION_RECEIVED",
+        signature:"RSA-SHA256"
+      }
+    },
     endpoint:SUPABASE_URL
       ?SUPABASE_URL.replace(/\/$/,"")+"/functions/v1/billing-payment-webhook"
-      :null
+      :null,
+    liveEndpoints:{
+      woovi:SUPABASE_URL
+        ?SUPABASE_URL.replace(/\/$/,"")+"/functions/v1/billing-payment-webhook-woovi"
+        :null
+    }
   };
 }
 

@@ -17,3 +17,10 @@ verify_jwt = false
 # JWT is disabled because authenticity is enforced with a provider-specific HMAC signature.
 [functions.billing-payment-webhook]
 verify_jwt = false
+
+
+# Native Woovi/OpenPix Pix-received adapter.
+# JWT is disabled because authenticity is checked with Woovi RSA signature,
+# a private webhook Authorization token and the bound Woovi company ID.
+[functions.billing-payment-webhook-woovi]
+verify_jwt = false
