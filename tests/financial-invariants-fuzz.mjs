@@ -420,4 +420,66 @@ assert.equal(matchProviderPaymentEvent({
 }).reason,'no_exact_pending_request');
 providerEventCases++;
 
-console.log(`Financial invariant fuzz passou: ${rewardCases} cenários de unit economics + ${positionCases} posições de cashback + ${prepaidCases} cenários de consumo de crédito de taxa + ${transitionCases} transições de pacote + ${reconciliationCases} cenários de reconciliação + ${exactPaymentCases} confirmações exatas de pagamento + ${d1AuthorityCases} cenários de autoridade D+1 + ${reconciliationKeyCases} cenários de unicidade de conciliação + ${providerEventCases} cenários de eventos de provedor.`);
+
+function reactiveProviderEventState({event,requests}){
+  if(['applied','already_applied','ignored'].includes(event.status))return {...event};
+  const key=String(event.reconciliationKey||'').trim().toLowerCase();
+  const approved=requests.find(x=>
+    x.status==='approved'
+    &&String(x.reconciliationKey||'').trim().toLowerCase()===key
+  );
+  if(approved){
+    return approved.receivedAmountCents===event.amountCents
+      ?{...event,status:'already_applied',requestId:approved.id,reason:'approved_payment_already_uses_transaction'}
+      :{...event,status:'review_required',requestId:null,reason:'transaction_key_already_used_with_other_amount'};
+  }
+  const exact=requests.filter(x=>
+    x.status==='pending'
+    &&x.expectedAmountCents===event.amountCents
+    &&String(x.merchantReference||'').trim().toLowerCase()===key
+  );
+  if(exact.length===1)return {...event,status:'matched_exact',requestId:exact[0].id,reason:'exact_reference_and_amount'};
+  if(exact.length>1)return {...event,status:'review_required',requestId:null,reason:'multiple_exact_candidates'};
+  const sameRef=requests.some(x=>
+    x.status==='pending'
+    &&String(x.merchantReference||'').trim().toLowerCase()===key
+  );
+  return {...event,status:'review_required',requestId:null,reason:sameRef?'reference_found_but_amount_differs':'no_exact_pending_request'};
+}
+
+let reactiveProviderCases=0;
+for(let i=0;i<20000;i++){
+  const key='reactive-'+i.toString(36).padStart(7,'0');
+  const amount=int(1,10000000);
+  const event={status:'review_required',reconciliationKey:key,amountCents:amount,requestId:null};
+
+  const before=reactiveProviderEventState({event,requests:[]});
+  assert.equal(before.status,'review_required');
+  assert.equal(before.reason,'no_exact_pending_request');
+
+  const r1={id:'r1-'+i,status:'pending',merchantReference:key,expectedAmountCents:amount};
+  const one=reactiveProviderEventState({event:before,requests:[r1]});
+  assert.equal(one.status,'matched_exact');
+  assert.equal(one.requestId,r1.id);
+
+  const r2={id:'r2-'+i,status:'pending',merchantReference:key.toUpperCase(),expectedAmountCents:amount};
+  const ambiguous=reactiveProviderEventState({event:one,requests:[r1,r2]});
+  assert.equal(ambiguous.status,'review_required');
+  assert.equal(ambiguous.reason,'multiple_exact_candidates');
+  assert.equal(ambiguous.requestId,null);
+
+  r1.status='cancelled';
+  const rematched=reactiveProviderEventState({event:ambiguous,requests:[r1,r2]});
+  assert.equal(rematched.status,'matched_exact');
+  assert.equal(rematched.requestId,r2.id);
+
+  r2.status='rejected';
+  const released=reactiveProviderEventState({event:rematched,requests:[r1,r2]});
+  assert.equal(released.status,'review_required');
+  assert.equal(released.reason,'no_exact_pending_request');
+  assert.equal(released.requestId,null);
+
+  reactiveProviderCases+=5;
+}
+
+console.log(`Financial invariant fuzz passou: ${rewardCases} cenários de unit economics + ${positionCases} posições de cashback + ${prepaidCases} cenários de consumo de crédito de taxa + ${transitionCases} transições de pacote + ${reconciliationCases} cenários de reconciliação + ${exactPaymentCases} confirmações exatas de pagamento + ${d1AuthorityCases} cenários de autoridade D+1 + ${reconciliationKeyCases} cenários de unicidade de conciliação + ${providerEventCases} cenários de eventos de provedor + ${reactiveProviderCases} transições reativas de conciliação.`);
