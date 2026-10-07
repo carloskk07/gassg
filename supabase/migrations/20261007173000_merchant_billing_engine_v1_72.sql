@@ -260,7 +260,7 @@ returns trigger
 language plpgsql
 security definer
 set search_path=pg_catalog
-as $
+as $$
 begin
   if tg_table_name='quotes' then
     if new.merchant_id is not null
@@ -296,7 +296,7 @@ begin
 
   return new;
 end;
-$;
+$$;
 
 revoke all on function public.require_merchant_financial_sales_allowed()
 from public, anon, authenticated;
