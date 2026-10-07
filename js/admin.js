@@ -1311,6 +1311,32 @@ function adminBillingMetricsView(metrics){
   </div>`;
 }
 
+function adminBillingReviewSlaView(sla){
+  if(!sla)return '';
+  const attention=sla.needsAttention===true;
+  const oldestPending=sla.oldestPendingRequestedAt
+    ?new Date(sla.oldestPendingRequestedAt).toLocaleString('pt-BR')
+    :null;
+  const oldestReview=sla.oldestReviewReceivedAt
+    ?new Date(sla.oldestReviewReceivedAt).toLocaleString('pt-BR')
+    :null;
+  return `<div class="card flat" style="margin-bottom:16px">
+    <div class="section-head"><div><h3>SLA de conciliação</h3><p>Tempo de resposta do Financeiro para pagamentos informados e eventos Pix/PSP. Atraso gera prioridade, nunca expiração automática do pagamento.</p></div><span class="status-pill ${attention?'offline':'online'}">${attention?'ATENÇÃO':'NO PRAZO'}</span></div>
+    <div class="merchant-kpis">
+      <div class="kpi"><span class="label">Match exato aguardando</span><strong>${Number(sla.matchedAwaitingApprovalCount||0)}</strong><small>${adminMoney(sla.matchedAwaitingApprovalCents)}</small></div>
+      <div class="kpi"><span class="label">Match acima de 2h</span><strong>${Number(sla.matchedOver2hCount||0)}</strong><small>${adminMoney(sla.matchedOver2hCents)}</small></div>
+      <div class="kpi"><span class="label">Eventos em revisão</span><strong>${Number(sla.reviewRequiredCount||0)}</strong><small>${adminMoney(sla.reviewRequiredCents)}</small></div>
+      <div class="kpi"><span class="label">Revisão acima de 24h</span><strong>${Number(sla.reviewOver24hCount||0)}</strong><small>${adminMoney(sla.reviewOver24hCents)}</small></div>
+      <div class="kpi"><span class="label">Avisos acima de 24h</span><strong>${Number(sla.pendingOver24hCount||0)}</strong><small>${adminMoney(sla.pendingOver24hCents)}</small></div>
+      <div class="kpi"><span class="label">Crítico acima de 48h</span><strong>${Number(sla.pendingOver48hCount||0)}</strong><small>${adminMoney(sla.pendingOver48hCents)}</small></div>
+      <div class="kpi"><span class="label">Aplicado nas últimas 24h</span><strong>${Number(sla.appliedLast24hCount||0)}</strong><small>${adminMoney(sla.appliedLast24hCents)}</small></div>
+      <div class="kpi"><span class="label">Ignorados nas últimas 24h</span><strong>${Number(sla.ignoredLast24hCount||0)}</strong><small>eventos encerrados com motivo</small></div>
+    </div>
+    <div class="tiny muted" style="margin-top:10px">${oldestPending?'Aviso pendente mais antigo: '+esc(oldestPending):'Nenhum aviso de pagamento pendente'}${oldestReview?' • evento em revisão mais antigo: '+esc(oldestReview):''}</div>
+    <div class="notice" style="margin-top:10px"><strong>Política fail-safe.</strong><br>O TAMÃO não cancela automaticamente uma alegação de pagamento só por idade. O SLA serve para ordenar a fila, escalar atrasos e preservar a prova financeira.</div>
+  </div>`;
+}
+
 function adminBillingReconciliationMessage(issue){
   const labels={
     account_ledger_balance_mismatch:'Saldo da conta diverge do razão de créditos.',
@@ -1362,6 +1388,7 @@ function adminMerchantBillingSection(d){
   const paymentEvents=billing.paymentEvents||[];
   const metrics=billing.metrics||null;
   const reconciliation=billing.reconciliation||null;
+  const reviewSla=billing.reviewSla||null;
   const pendingPaymentRequests=paymentRequests.filter(x=>x.status==='pending');
   const openStatements=statements.filter(x=>['open','overdue'].includes(x.status));
   const overdue=openStatements.filter(x=>x.status==='overdue');
@@ -1370,6 +1397,7 @@ function adminMerchantBillingSection(d){
   return `<section class="section">
     <div class="section-head"><div><span class="section-kicker">COBRANÇA DAS REVENDAS</span><h2>Fechamento diário + pacotes</h2><p>Cada pedido mantém sua taxa auditável. À 00:05 o dia anterior é consolidado; o saldo vence no fim do dia seguinte. Crédito pré-pago reduz a taxa e evita pagamento diário enquanto houver saldo.</p></div><div class="order-actions"><span class="status-pill ${Number(metrics?.overdueStatementCount??overdue.length)?'offline':'online'}">${Number(metrics?.overdueStatementCount??overdue.length)} vencido(s)</span><span class="status-pill ${Number(metrics?.salesHoldCount??held.length)?'offline':'online'}">${Number(metrics?.salesHoldCount??held.length)} hold(s)</span></div></div>
     ${adminBillingMetricsView(metrics)}
+    ${adminBillingReviewSlaView(reviewSla)}
     ${adminBillingReconciliationView(reconciliation)}
     ${actionableEvents.length?`<div class="section-head" style="margin-top:18px"><div><h3>Eventos de pagamento</h3><p>Eventos autenticados do provedor são conciliados por valor + identificador. Ambiguidades nunca movimentam saldo automaticamente.</p></div><span class="status-pill ${actionableEvents.some(x=>x.status==='review_required')?'risk':'online'}">${actionableEvents.length} evento(s)</span></div>${actionableEvents.map(adminBillingPaymentEventCard).join('')}`:''}
     ${plans.length?`<div class="admin-entity-grid">${plans.map(adminBillingPlanCard).join('')}</div>`:'<div class="notice">Motor de cobrança diária ainda não está ativo neste ambiente.</div>'}
