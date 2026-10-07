@@ -199,7 +199,7 @@ begin
 
   return v_result;
 end;
-$function$
+$function$;
 
 
 CREATE OR REPLACE FUNCTION public.customer_order_action(p_user_id uuid, p_order_id uuid, p_action text, p_expected_version integer, p_idempotency_key text, p_request_hash text)
@@ -528,7 +528,7 @@ begin
 
   return v_result;
 end;
-$function$
+$function$;
 
 
 CREATE OR REPLACE FUNCTION public.system_rescue_order(p_order_id uuid, p_reason text)
@@ -871,7 +871,7 @@ begin
 
   return v_result;
 end;
-$function$
+$function$;
 
 
 create or replace function public.assert_quote_money_integrity()
