@@ -191,6 +191,44 @@ async function verifyLivePortals(){
   };
 }
 
+function billingPaymentIngressReadiness(){
+  const providers=new Set<string>();
+  let configValid=true;
+  const providerRe=/^[a-z0-9][a-z0-9._-]{1,39}$/;
+  const rawMap=String(Deno.env.get("BILLING_PAYMENT_WEBHOOK_SECRETS")??"").trim();
+
+  if(rawMap){
+    try{
+      const parsed=JSON.parse(rawMap);
+      if(!parsed||typeof parsed!=="object"||Array.isArray(parsed)){
+        configValid=false;
+      }else{
+        for(const [provider,value] of Object.entries(parsed)){
+          const name=String(provider||"").trim().toLowerCase();
+          const secret=String(value??"");
+          if(providerRe.test(name)&&secret.length>=24)providers.add(name);
+        }
+      }
+    }catch{
+      configValid=false;
+    }
+  }
+
+  const genericSecret=String(Deno.env.get("BILLING_PAYMENT_WEBHOOK_SECRET")??"");
+  if(genericSecret.length>=24)providers.add("generic");
+
+  const configuredProviders=[...providers].sort();
+  return {
+    configured:configuredProviders.length>0&&configValid,
+    configValid,
+    providerCount:configuredProviders.length,
+    providers:configuredProviders,
+    endpoint:SUPABASE_URL
+      ?SUPABASE_URL.replace(/\/$/,"")+"/functions/v1/billing-payment-webhook"
+      :null
+  };
+}
+
 function adminRoleCanViewEntity(role:string,type:string){
   if(["superadmin","readonly","operations","finance","support"].includes(role)){
     return ["order","merchant","customer"].includes(type);
@@ -254,6 +292,7 @@ function scopeAdminSummary(role:string,data:any){
         statements:[],
         paymentRequests:[],
         paymentEvents:[],
+        paymentIngress:null,
         metrics:null,
         reconciliation:null
       },
@@ -288,7 +327,7 @@ function scopeAdminSummary(role:string,data:any){
         price_confirmed_at:m.price_confirmed_at,last_seen_at:m.last_seen_at
       })),
       commercialPolicy:null,
-      merchantBilling:{plans:[],accounts:[],statements:[],paymentRequests:[],paymentEvents:[],metrics:null,reconciliation:null},
+      merchantBilling:{plans:[],accounts:[],statements:[],paymentRequests:[],paymentEvents:[],paymentIngress:null,metrics:null,reconciliation:null},
       productRegistry:{categories:[],products:[]},
       finance:{receivables:[],cashbackReimbursements:[],adjustments:[]},
       rewardFailures:[],accountingFailures:[],referralReviews:[],
@@ -301,7 +340,7 @@ function scopeAdminSummary(role:string,data:any){
     return {
       ...data,
       businessMetrics:{},commercialPolicy:null,
-      merchantBilling:{plans:[],accounts:[],statements:[],paymentRequests:[],paymentEvents:[],metrics:null,reconciliation:null},
+      merchantBilling:{plans:[],accounts:[],statements:[],paymentRequests:[],paymentEvents:[],paymentIngress:null,metrics:null,reconciliation:null},
       productRegistry:{categories:[],products:[]},
       supportCases:[],controlOrders:[],
       finance:{receivables:[],cashbackReimbursements:[],adjustments:[]},
@@ -888,6 +927,7 @@ async function summary(admin:any,actorUserId:string){
       statements:dailyStatements.data??[],
       paymentRequests:billingPaymentRequests.data??[],
       paymentEvents:billingPaymentEvents.data??[],
+      paymentIngress:billingPaymentIngressReadiness(),
       metrics:billingMetrics.data??null,
       reconciliation:billingReconciliation.data??null
     },
