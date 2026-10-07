@@ -677,6 +677,155 @@ function adminSystemHealthView(){
   </section>`;
 }
 
+
+function adminRoleLabel(role){
+  return ({
+    superadmin:'Superadmin',
+    operations:'Operações',
+    finance:'Financeiro',
+    support:'Suporte',
+    compliance:'Compliance',
+    readonly:'Somente leitura'
+  })[String(role||'')]||String(role||'—');
+}
+function adminCurrentRole(){
+  return String(adminRuntime.data?.currentAdmin?.admin_role||'superadmin');
+}
+function adminIncidentSeverityLabel(value){
+  return ({critical:'CRÍTICO',high:'ALTO',medium:'MÉDIO',low:'BAIXO'})[String(value||'')]||String(value||'—').toUpperCase();
+}
+function adminIncidentStatusLabel(value){
+  return ({
+    open:'ABERTO',
+    investigating:'INVESTIGANDO',
+    monitoring:'MONITORANDO',
+    resolved:'RESOLVIDO'
+  })[String(value||'')]||String(value||'—').toUpperCase();
+}
+async function adminCreateIncident(){
+  const title=document.getElementById('admin-incident-title')?.value.trim()||'';
+  const severity=document.getElementById('admin-incident-severity')?.value||'medium';
+  const description=document.getElementById('admin-incident-description')?.value.trim()||'';
+  const entityType=document.getElementById('admin-incident-entity-type')?.value.trim()||'';
+  const entityId=document.getElementById('admin-incident-entity-id')?.value.trim()||'';
+  if(title.length<3)return toast('Informe um título para o incidente');
+  try{
+    await adminPerform('incident-action',{
+      incidentAction:'create',title,severity,description,
+      source:'admin-panel',entityType:entityType||null,entityId:entityId||null
+    });
+    toast('Incidente criado');
+  }catch(e){toast(String(e?.message||e))}
+}
+async function adminIncidentAction(incidentId,incidentAction){
+  const payload={incidentId,incidentAction};
+  if(incidentAction==='resolve'){
+    const note=prompt('Descreva como o incidente foi resolvido:')||'';
+    if(note.trim().length<3)return toast('Informe a resolução');
+    payload.resolutionNote=note;
+  }
+  if(incidentAction==='set-status'){
+    const status=prompt('Novo status: investigating ou monitoring')||'';
+    if(!['investigating','monitoring'].includes(status.trim().toLowerCase()))return toast('Status inválido');
+    payload.incidentStatus=status.trim().toLowerCase();
+  }
+  if(incidentAction==='assign'){
+    const select=document.getElementById('incident-assignee-'+incidentId);
+    payload.assignedAdminId=select?.value||null;
+  }
+  try{
+    await adminPerform('incident-action',payload);
+    toast('Incidente atualizado');
+  }catch(e){toast(String(e?.message||e))}
+}
+function adminIncidentCard(item,admins){
+  const activeAdmins=(admins||[]).filter(x=>x.active);
+  const severityClass=item.severity==='critical'?'offline':item.severity==='high'?'risk':'online';
+  const resolved=item.status==='resolved';
+  return `<article class="card admin-incident-card">
+    <div class="order-head">
+      <div><span class="status-pill ${severityClass}">${esc(adminIncidentSeverityLabel(item.severity))}</span><h3 style="margin:8px 0 2px">${esc(item.title)}</h3><small class="muted">${esc(item.source||'admin')} • ${esc(formatDateTime(item.updated_at))}</small></div>
+      <span class="status-pill ${resolved?'online':'risk'}">${esc(adminIncidentStatusLabel(item.status))}</span>
+    </div>
+    ${item.description?`<p class="muted">${esc(item.description)}</p>`:''}
+    ${item.entity_type?`<div class="tiny muted">Entidade: ${esc(item.entity_type)} • ${esc(item.entity_id||'—')}</div>`:''}
+    <div class="input-wrap" style="margin-top:10px">
+      <label for="incident-assignee-${esc(item.id)}">Responsável</label>
+      <select id="incident-assignee-${esc(item.id)}" class="input">
+        <option value="">Sem responsável</option>
+        ${activeAdmins.map(a=>`<option value="${esc(a.user_id)}" ${item.assigned_admin_id===a.user_id?'selected':''}>${esc(adminRoleLabel(a.admin_role))} • ${esc(a.user_id.slice(0,8))}</option>`).join('')}
+      </select>
+    </div>
+    <div class="order-actions" style="margin-top:10px">
+      <button class="secondary small" onclick="adminIncidentAction('${esc(item.id)}','assign')">Atribuir</button>
+      ${!item.acknowledged_at?`<button class="secondary small" onclick="adminIncidentAction('${esc(item.id)}','acknowledge')">Reconhecer</button>`:''}
+      ${!resolved?`<button class="secondary small" onclick="adminIncidentAction('${esc(item.id)}','set-status')">Alterar status</button><button class="primary small" onclick="adminIncidentAction('${esc(item.id)}','resolve')">Resolver</button>`:`<button class="secondary small" onclick="adminIncidentAction('${esc(item.id)}','reopen')">Reabrir</button>`}
+    </div>
+    ${item.resolution_note?`<div class="notice success" style="margin-top:10px"><strong>Resolução</strong><br>${esc(item.resolution_note)}</div>`:''}
+  </article>`;
+}
+function adminIncidentCenter(d){
+  const incidents=d.incidents||[];
+  const open=incidents.filter(x=>x.status!=='resolved');
+  const resolved=incidents.filter(x=>x.status==='resolved');
+  return `<section class="section">
+    <div class="section-head"><div><span class="section-kicker">INCIDENTES</span><h2>Central de Incidentes</h2><p>Eventos críticos ganham responsável, severidade, status e resolução auditável.</p></div><span class="status-pill ${open.length?'risk':'online'}">${open.length} aberto(s)</span></div>
+    <div class="card flat form-stack">
+      <h3>Novo incidente</h3>
+      <div class="input-wrap"><label for="admin-incident-title">Título</label><input id="admin-incident-title" class="input" maxlength="160" placeholder="Ex.: falha no recebimento de pedidos"></div>
+      <div class="input-wrap"><label for="admin-incident-severity">Severidade</label><select id="admin-incident-severity" class="input"><option value="critical">Crítico</option><option value="high">Alto</option><option value="medium" selected>Médio</option><option value="low">Baixo</option></select></div>
+      <div class="input-wrap"><label for="admin-incident-description">Descrição</label><textarea id="admin-incident-description" class="input" maxlength="4000" rows="3" placeholder="Impacto, sintomas e contexto"></textarea></div>
+      <div class="grid-2">
+        <div class="input-wrap"><label for="admin-incident-entity-type">Tipo relacionado</label><input id="admin-incident-entity-type" class="input" maxlength="80" placeholder="order, merchant, system…"></div>
+        <div class="input-wrap"><label for="admin-incident-entity-id">ID relacionado</label><input id="admin-incident-entity-id" class="input" maxlength="160" placeholder="Código/UUID opcional"></div>
+      </div>
+      <button class="primary" onclick="adminCreateIncident()">Criar incidente</button>
+    </div>
+    <div class="admin-incident-grid" style="margin-top:12px">
+      ${open.length?open.map(x=>adminIncidentCard(x,d.platformAdmins||[])).join(''):'<div class="notice success"><strong>Nenhum incidente aberto.</strong></div>'}
+    </div>
+    ${resolved.length?`<details class="card flat" style="margin-top:12px"><summary><strong>Resolvidos (${resolved.length})</strong></summary><div class="admin-incident-grid" style="margin-top:10px">${resolved.slice(0,30).map(x=>adminIncidentCard(x,d.platformAdmins||[])).join('')}</div></details>`:''}
+  </section>`;
+}
+async function adminAuditSearch(){
+  if(adminRuntime.auditPending)return;
+  const query=document.getElementById('admin-audit-query')?.value.trim()||'';
+  const action=document.getElementById('admin-audit-action')?.value.trim()||'';
+  const targetType=document.getElementById('admin-audit-target')?.value.trim()||'';
+  const from=document.getElementById('admin-audit-from')?.value||'';
+  const to=document.getElementById('admin-audit-to')?.value||'';
+  adminRuntime.auditPending=true;
+  render();
+  try{
+    const result=await adminInvoke({action:'audit-search',query,action:action||null,targetType:targetType||null,from:from||null,to:to||null,limit:200});
+    adminRuntime.auditResults=result?.results||[];
+  }catch(e){
+    adminRuntime.error=String(e?.message||e);
+  }finally{
+    adminRuntime.auditPending=false;
+    render();
+  }
+}
+function adminAuditView(d){
+  const rows=adminRuntime.auditResults??d.recentAudit??[];
+  return `<section class="section">
+    <div class="section-head"><div><span class="section-kicker">AUDITORIA</span><h2>Investigação administrativa</h2><p>Pesquise ações por texto, ação, tipo de alvo e período.</p></div><span class="status-pill online">${rows.length} registro(s)</span></div>
+    <div class="card flat">
+      <div class="grid-2">
+        <div class="input-wrap"><label for="admin-audit-query">Busca livre</label><input id="admin-audit-query" class="input" placeholder="ator, alvo, metadata…"></div>
+        <div class="input-wrap"><label for="admin-audit-action">Ação exata</label><input id="admin-audit-action" class="input" placeholder="merchant_activated"></div>
+        <div class="input-wrap"><label for="admin-audit-target">Tipo de alvo</label><input id="admin-audit-target" class="input" placeholder="merchant, order…"></div>
+        <div class="input-wrap"><label for="admin-audit-from">A partir de</label><input id="admin-audit-from" class="input" type="datetime-local"></div>
+        <div class="input-wrap"><label for="admin-audit-to">Até</label><input id="admin-audit-to" class="input" type="datetime-local"></div>
+      </div>
+      <button class="secondary" onclick="adminAuditSearch()" ${adminRuntime.auditPending?'disabled aria-busy="true"':''}>${adminRuntime.auditPending?'Pesquisando…':'Pesquisar auditoria'}</button>
+    </div>
+    <div class="list" style="margin-top:12px">
+      ${rows.length?rows.map(x=>`<div class="list-row"><div><strong>${esc(x.action)}</strong><br><small>${esc(x.target_type)} • ${esc(x.target_id||'—')} • ator ${esc(String(x.actor_user_id||'').slice(0,8))}</small></div><small>${esc(formatDateTime(x.created_at))}</small></div>`).join(''):'<div class="empty card">Nenhuma ação encontrada.</div>'}
+    </div>
+  </section>`;
+}
+
 function adminSetSection(section){
   const allowed=['overview','orders','customers','partners','catalog','finance','incidents','audit','system'];
   const next=allowed.includes(String(section||''))?String(section):'overview';
