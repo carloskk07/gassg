@@ -971,6 +971,18 @@ function adminPilotInviteControls(p,id){
     (active?'<button class="danger-btn small" onclick="adminRevokePilotInvite(\''+esc(id)+'\')">Revogar convite</button>':'')+'</div>';
 }
 
+function adminPilotNextActionCopy(p){
+  const next=String(p?.onboarding?.nextAction||'');
+  return ({
+    issue_invite:'Gere o convite e envie ao parceiro. Nenhuma revenda será criada antes de ele entrar com uma conta permanente.',
+    issue_new_invite:'O convite anterior não está utilizável. Gere um novo link e envie ao parceiro.',
+    partner_claim_invite:'Convite ativo. O próximo passo é o parceiro abrir o link, entrar com o e-mail dele e concluir o cadastro.',
+    review_and_convert:'Convite reivindicado e cadastro ligado ao parceiro. Revise os dados reais abaixo e converta a revenda.',
+    partner_resubmit:'O cadastro ligado ao convite foi rejeitado. O parceiro precisa corrigir e reenviar antes da conversão.',
+    merchant_setup_review:'A revenda já foi criada. Agora valide CNPJ/ANP, pagamentos, estoque/logística e só depois ative a operação.',
+    none:'Este parceiro não possui próxima ação operacional.'
+  })[next]||'Revise o estado do parceiro antes de continuar.';
+}
 function adminPilotPartnerCard(p){
   const statusLabel={
     awaiting_legal_data:'AGUARDANDO DADOS REAIS',
@@ -982,34 +994,66 @@ function adminPilotPartnerCard(p){
   const id=String(p.id);
   const prefix='pilot-'+id;
   const convertible=!['converted','cancelled'].includes(p.onboarding_status);
+  const onboarding=p.onboarding||{};
+  const application=onboarding.application||null;
+  const applicationUsable=Boolean(application&&['pending','approved'].includes(String(application.status||'')));
+  const readyToConvert=convertible&&onboarding.ownerClaimed===true&&applicationUsable;
+  const steps=Array.isArray(onboarding.steps)?onboarding.steps:[];
+  const stepLabel={invite:'Convite',claim:'Conta vinculada',application:'Cadastro',merchant:'Revenda criada'};
+  const stepHtml=steps.length
+    ? '<div class="pilot-step-grid">'+steps.map((step,index)=>{
+        const done=step?.done===true;
+        return '<div class="pilot-step '+(done?'done':'pending')+'"><span>'+(index+1)+'</span><div><strong>'+esc(stepLabel[step.key]||step.key)+'</strong><small>'+esc(done?'concluído':'pendente')+'</small></div></div>';
+      }).join('')+'</div>'
+    : '';
+  const prefill={
+    legal:application?.companyName||'',
+    cnpj:application?.cnpj||'',
+    responsible:application?.responsibleName||'',
+    phone:application?.phone||'',
+    whatsapp:application?.phone||'',
+    address:application?.addressText||''
+  };
+  const inviteState={
+    none:'SEM CONVITE',
+    active:'CONVITE ATIVO',
+    claimed:'REIVINDICADO',
+    expired:'EXPIRADO',
+    revoked:'REVOGADO'
+  }[String(onboarding.inviteStatus||'none')]||String(onboarding.inviteStatus||'').toUpperCase();
   return `<article class="order-card">
     <div class="order-head"><div><div class="order-id">${esc(p.display_name)}</div><div class="tiny muted">Parceiro piloto • ${esc(p.proposed_product_code)}</div></div><span class="status-pill ${statusClass}">${esc(statusLabel)}</span></div>
     <div class="order-line"><strong>${p.pricing_mode==='range'?'Faixa comercial confirmada':'Preço comercial informado'}:</strong> ${p.pricing_mode==='range'?adminMoney(p.min_delivered_price_cents)+' mínimo • '+adminMoney(p.preferred_delivered_price_cents)+' normal • '+adminMoney(p.max_delivered_price_cents)+' máximo':adminMoney(p.proposed_delivered_price_cents)} ${p.delivery_included?'com entrega incluída':'antes da entrega'}</div>
     ${p.pricing_mode==='range'?`<div class="order-line"><strong>Estratégia inicial:</strong> ${esc(({volume:'Priorizar volume',balanced:'Equilibrado',margin:'Priorizar margem'})[p.pricing_strategy]||p.pricing_strategy||'—')}</div>`:''}
     <div class="order-line"><strong>Status do preço:</strong> ${p.price_status==='confirmed'?'confirmado':'proposto — ainda não publicar como oferta real'}</div>
     ${p.notes?`<div class="tiny muted">${esc(p.notes)}</div>`:''}
+    <div class="divider"></div>
+    <div class="status-bar"><strong>Onboarding real</strong><span class="status-pill ${onboarding.inviteStatus==='claimed'?'online':onboarding.inviteStatus==='active'?'risk':'offline'}">${esc(inviteState)}</span></div>
+    ${stepHtml}
+    <div class="notice ${readyToConvert?'success':''}" style="margin-top:10px"><strong>Próxima ação</strong><br>${esc(adminPilotNextActionCopy(p))}</div>
+    ${application?`<div class="order-line"><strong>Cadastro do parceiro:</strong> ${esc(String(application.status||'—').toUpperCase())} • atualizado ${esc(formatDateTime(application.updatedAt))}</div>`:''}
     ${adminPilotInviteControls(p,id)}
     ${p.onboarding_status==='converted'?`<div class="notice success" style="margin-top:10px"><strong>Revenda criada.</strong><br>ID: ${esc(p.merchant_id||'—')}. Compliance e ativação continuam separados.</div>`:''}
     ${convertible?`<div class="divider"></div>
-      <div class="notice"><strong>Converter parceiro piloto em revenda</strong><br>Cria cadastro, dados comerciais, catálogo, estoque inicial e pagamentos selecionados. Compliance permanece <strong>pendente</strong>.</div>
+      <div class="notice"><strong>Converter parceiro piloto em revenda</strong><br>Cria cadastro, dados comerciais, catálogo, estoque inicial e pagamentos selecionados. Compliance permanece <strong>pendente</strong>. A conversão só é liberada quando o convite estiver ligado à conta permanente do parceiro.</div>
       <div class="field-row">
-        <div class="input-wrap"><label for="${prefix}-legal">Razão social</label><input id="${prefix}-legal" class="input" maxlength="180" placeholder="Razão social real"></div>
-        <div class="input-wrap"><label for="${prefix}-cnpj">CNPJ</label><input id="${prefix}-cnpj" class="input" maxlength="24" placeholder="CNPJ real"></div>
+        <div class="input-wrap"><label for="${prefix}-legal">Razão social</label><input id="${prefix}-legal" class="input" maxlength="180" value="${esc(prefill.legal)}" placeholder="Razão social real"></div>
+        <div class="input-wrap"><label for="${prefix}-cnpj">CNPJ</label><input id="${prefix}-cnpj" class="input" maxlength="24" value="${esc(prefill.cnpj)}" placeholder="CNPJ real"></div>
       </div>
       <div class="field-row">
-        <div class="input-wrap"><label for="${prefix}-responsible">Responsável</label><input id="${prefix}-responsible" class="input" maxlength="120" placeholder="Nome do responsável"></div>
-        <div class="input-wrap"><label for="${prefix}-owner-name">Nome no portal</label><input id="${prefix}-owner-name" class="input" maxlength="60" placeholder="Opcional"></div>
+        <div class="input-wrap"><label for="${prefix}-responsible">Responsável</label><input id="${prefix}-responsible" class="input" maxlength="120" value="${esc(prefill.responsible)}" placeholder="Nome do responsável"></div>
+        <div class="input-wrap"><label for="${prefix}-owner-name">Nome no portal</label><input id="${prefix}-owner-name" class="input" maxlength="60" value="${esc(prefill.responsible)}" placeholder="Opcional"></div>
       </div>
       <div class="field-row">
-        <div class="input-wrap"><label for="${prefix}-phone">Telefone</label><input id="${prefix}-phone" class="input" maxlength="24" placeholder="55..."></div>
-        <div class="input-wrap"><label for="${prefix}-whatsapp">WhatsApp</label><input id="${prefix}-whatsapp" class="input" maxlength="24" placeholder="55..."></div>
+        <div class="input-wrap"><label for="${prefix}-phone">Telefone</label><input id="${prefix}-phone" class="input" maxlength="24" value="${esc(prefill.phone)}" placeholder="55..."></div>
+        <div class="input-wrap"><label for="${prefix}-whatsapp">WhatsApp</label><input id="${prefix}-whatsapp" class="input" maxlength="24" value="${esc(prefill.whatsapp)}" placeholder="55..."></div>
       </div>
       <div class="field-row">
         <div class="input-wrap"><label for="${prefix}-postal">CEP</label><input id="${prefix}-postal" class="input" maxlength="12" placeholder="97300000"></div>
         <div class="input-wrap"><label for="${prefix}-city">Cidade</label><input id="${prefix}-city" class="input" maxlength="120" value="São Gabriel"></div>
       </div>
-      <div class="input-wrap"><label for="${prefix}-address">Endereço</label><input id="${prefix}-address" class="input" maxlength="240" placeholder="Rua, número e complemento"></div>
-      <div class="notice"><strong>Owner automático pelo convite.</strong><br>O responsável operacional será vinculado à conta permanente que reivindicou este parceiro e concluiu o cadastro. Se o convite ainda não foi reivindicado, a conversão será bloqueada sem criar revenda órfã.</div>
+      <div class="input-wrap"><label for="${prefix}-address">Endereço</label><input id="${prefix}-address" class="input" maxlength="240" value="${esc(prefill.address)}" placeholder="Rua, número e complemento"></div>
+      <div class="notice ${onboarding.ownerClaimed?'success':''}"><strong>Owner automático pelo convite.</strong><br>${onboarding.ownerClaimed?'Conta permanente do parceiro já vinculada. A autoridade do banco impedirá trocar o owner por outra conta.':'Ainda aguardando o parceiro reivindicar o convite. A conversão permanece bloqueada para não criar revenda órfã.'}</div>
       <div class="field-row">
         <div class="input-wrap"><label for="${prefix}-stock">Estoque inicial</label><input id="${prefix}-stock" class="input" type="number" min="0" max="1000000" step="1" value="0"></div>
         <div class="input-wrap"><label for="${prefix}-fee">Taxa de entrega</label><input id="${prefix}-fee" class="input" type="number" min="0" max="1000" step="0.01" value="0.00"></div>
@@ -1025,7 +1069,7 @@ function adminPilotPartnerCard(p){
         <label class="check-row"><input id="${prefix}-pay-card" type="checkbox"><span>Cartão na entrega</span></label>
       </div>
       <div class="input-wrap"><label for="${prefix}-notes">Observações administrativas</label><input id="${prefix}-notes" class="input" maxlength="2000" placeholder="Evidências, combinações e pendências"></div>
-      <button class="primary" onclick="adminConvertPilotPartner('${id}')">Converter em revenda pendente</button>
+      <button class="primary" onclick="adminConvertPilotPartner('${id}')" ${readyToConvert?'':'disabled title="Aguarde o parceiro reivindicar o convite e concluir um cadastro válido"'}>Converter em revenda pendente</button>
     `:''}
   </article>`;
 }
