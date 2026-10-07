@@ -22,7 +22,7 @@ async function waitDebugger(){
 }
 
 const chrome=spawn(chromeBinary(),[
-  '--headless=new','--no-sandbox','--disable-gpu',
+  '--headless=new','--no-sandbox','--disable-gpu','--disable-extensions',
   '--remote-debugging-port='+DEBUG_PORT,
   '--user-data-dir=/tmp/tamao-turnstile-probe',
   'about:blank'
@@ -30,9 +30,14 @@ const chrome=spawn(chromeBinary(),[
 
 try{
   await waitDebugger();
-  const tabs=await (await fetch('http://127.0.0.1:'+DEBUG_PORT+'/json/list')).json();
-  assert.ok(tabs[0]?.webSocketDebuggerUrl,'CDP sem aba disponível');
-  const ws=new WebSocket(tabs[0].webSocketDebuggerUrl);
+  const target=await (
+    await fetch(
+      'http://127.0.0.1:'+DEBUG_PORT+'/json/new?'+encodeURIComponent(ADMIN_URL),
+      {method:'PUT'}
+    )
+  ).json();
+  assert.ok(target?.webSocketDebuggerUrl,'CDP não criou a aba do portal admin');
+  const ws=new WebSocket(target.webSocketDebuggerUrl);
   await new Promise((resolve,reject)=>{
     ws.addEventListener('open',resolve,{once:true});
     ws.addEventListener('error',reject,{once:true});
@@ -56,8 +61,19 @@ try{
 
   await call('Page.enable');
   await call('Runtime.enable');
-  await call('Page.navigate',{url:ADMIN_URL});
-  await sleep(5000);
+
+  let liveHost='';
+  for(let attempt=0;attempt<30;attempt++){
+    const loc=await call('Runtime.evaluate',{
+      expression:'location.hostname',
+      returnByValue:true
+    });
+    liveHost=String(loc.result?.value||'');
+    if(liveHost==='admin.tamao.com.br')break;
+    await sleep(500);
+  }
+  assert.equal(liveHost,'admin.tamao.com.br','Chromium não abriu o portal admin real');
+  await sleep(2500);
 
   const setup=await call('Runtime.evaluate',{
     expression:`(async()=>{
