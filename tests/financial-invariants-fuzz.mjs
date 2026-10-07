@@ -606,4 +606,51 @@ for(let i=0;i<20000;i++){
   financeSlaCases+=4;
 }
 
-console.log(`Financial invariant fuzz passou: ${rewardCases} cenários de unit economics + ${positionCases} posições de cashback + ${prepaidCases} cenários de consumo de crédito de taxa + ${transitionCases} transições de pacote + ${reconciliationCases} cenários de reconciliação + ${exactPaymentCases} confirmações exatas de pagamento + ${d1AuthorityCases} cenários de autoridade D+1 + ${reconciliationKeyCases} cenários de unicidade de conciliação + ${providerEventCases} cenários de eventos de provedor + ${reactiveProviderCases} transições reativas de conciliação + ${provenanceCases} provas de proveniência de aprovação + ${paymentEventReviewCases} decisões de lifecycle de eventos + ${financeSlaCases} classificações de SLA financeiro.`);
+
+function canonicalProviderEventDecision({existingMatched,eventKey,eventStatus}){
+  if(['applied','already_applied','ignored'].includes(eventStatus))return eventStatus;
+  const duplicate=existingMatched.some(x=>
+    String(x.key||'').trim().toLowerCase()===String(eventKey||'').trim().toLowerCase()
+  );
+  return duplicate?'duplicate_transaction_event':'eligible_for_matching';
+}
+
+function approvalEventTerminalStatus({approvalSource,eventSelected}){
+  if(approvalSource==='provider_event'&&eventSelected)return 'applied';
+  if(approvalSource==='manual')return 'already_applied';
+  return 'unchanged';
+}
+
+let canonicalEventCases=0;
+for(let i=0;i<20000;i++){
+  const key='canon-'+i.toString(36).padStart(8,'0');
+  assert.equal(
+    canonicalProviderEventDecision({
+      existingMatched:[{key}],
+      eventKey:key.toUpperCase(),
+      eventStatus:'review_required'
+    }),
+    'duplicate_transaction_event'
+  );
+  assert.equal(
+    canonicalProviderEventDecision({
+      existingMatched:[{key:'other-'+key}],
+      eventKey:key,
+      eventStatus:'review_required'
+    }),
+    'eligible_for_matching'
+  );
+  assert.equal(
+    canonicalProviderEventDecision({
+      existingMatched:[{key}],
+      eventKey:key,
+      eventStatus:'already_applied'
+    }),
+    'already_applied'
+  );
+  assert.equal(approvalEventTerminalStatus({approvalSource:'provider_event',eventSelected:true}),'applied');
+  assert.equal(approvalEventTerminalStatus({approvalSource:'manual',eventSelected:false}),'already_applied');
+  canonicalEventCases+=5;
+}
+
+console.log(`Financial invariant fuzz passou: ${rewardCases} cenários de unit economics + ${positionCases} posições de cashback + ${prepaidCases} cenários de consumo de crédito de taxa + ${transitionCases} transições de pacote + ${reconciliationCases} cenários de reconciliação + ${exactPaymentCases} confirmações exatas de pagamento + ${d1AuthorityCases} cenários de autoridade D+1 + ${reconciliationKeyCases} cenários de unicidade de conciliação + ${providerEventCases} cenários de eventos de provedor + ${reactiveProviderCases} transições reativas de conciliação + ${provenanceCases} provas de proveniência de aprovação + ${paymentEventReviewCases} decisões de lifecycle de eventos + ${financeSlaCases} classificações de SLA financeiro + ${canonicalEventCases} decisões de evento canônico.`);

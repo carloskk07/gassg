@@ -1272,6 +1272,21 @@ function adminBillingPaymentEventLabel(status){
     applied:'APLICADO'
   })[String(status||'')]||String(status||'—').toUpperCase();
 }
+function adminBillingPaymentMatchReasonLabel(reason){
+  return ({
+    exact_reference_and_amount:'referência + valor exatos',
+    multiple_exact_candidates:'mais de uma cobrança candidata',
+    reference_found_but_amount_differs:'referência encontrada com valor diferente',
+    no_exact_pending_request:'nenhuma cobrança pendente correspondente',
+    approved_payment_already_uses_transaction:'transação já aplicada em cobrança aprovada',
+    transaction_key_already_used_with_other_amount:'ID já usado com outro valor',
+    duplicate_transaction_event:'outro evento já é o registro canônico desta transação',
+    approved_payment_request_applied:'evento aplicado pela aprovação conciliada',
+    manual_approval_payment_already_confirmed:'pagamento confirmado manualmente pelo Financeiro',
+    ignored_by_finance:'evento encerrado pelo Financeiro'
+  })[String(reason||'')]||String(reason||'—');
+}
+
 function adminBillingPaymentEventCard(event){
   const status=String(event.status||'');
   const matched=status==='matched_exact';
@@ -1282,7 +1297,7 @@ function adminBillingPaymentEventCard(event){
     <div class="order-head"><div><div class="order-id">${esc(event.provider)} • ${esc(event.provider_event_id)}</div><div class="tiny muted">${esc(event.received_at?new Date(event.received_at).toLocaleString('pt-BR'):'—')} • ${esc(merchant)}</div></div><span class="status-pill ${statusClass}">${esc(adminBillingPaymentEventLabel(status))}</span></div>
     <div class="order-line"><strong>Pagamento:</strong> ${adminMoney(event.amount_cents)} • ${esc(adminPaymentMethodLabel(event.payment_method))}</div>
     <div class="tiny muted">ID conciliável: ${esc(event.reconciliation_key)}${event.payer_reference?' • pagador '+esc(event.payer_reference):''}</div>
-    ${event.match_reason?`<div class="tiny muted">Motor: ${esc(event.match_reason)}</div>`:''}
+    ${event.match_reason?`<div class="tiny muted">Conciliação: ${esc(adminBillingPaymentMatchReasonLabel(event.match_reason))}</div>`:''}
     ${matched&&event.payment_request_id?`<div class="notice success" style="margin-top:10px"><strong>Correspondência exata encontrada.</strong><br>Valor e identificador coincidem com uma solicitação pendente.</div><div class="order-actions"><button class="primary small" onclick="adminResolveBillingPaymentRequest('${esc(event.payment_request_id)}','approve','${esc(event.id)}')">Confirmar evento conciliado</button></div>`:''}
     ${review?`<div class="notice" style="margin-top:10px"><strong>Revisão obrigatória.</strong><br>O evento não movimentou saldo porque não houve correspondência exata e única.</div><div class="order-actions"><button class="secondary small" onclick="adminBillingPaymentEventAction('${esc(event.id)}','recheck')">Reprocessar conciliação</button><button class="ghost small" onclick="adminBillingPaymentEventAction('${esc(event.id)}','ignore')">Ignorar evento</button></div>`:''}
   </article>`;
