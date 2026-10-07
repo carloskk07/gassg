@@ -531,6 +531,7 @@ const paymentEventReconciliation=read('supabase/migrations/20261008001500_paymen
 const paymentEventFkIndexes=read('supabase/migrations/20261008004000_payment_event_fk_indexes_v1_81_1.sql');
 const reactivePaymentReconciliation=read('supabase/migrations/20261008010000_reactive_payment_reconciliation_v1_82.sql');
 const paymentApprovalProvenance=read('supabase/migrations/20261008013000_payment_approval_provenance_v1_83.sql');
+const paymentEventReviewLifecycle=read('supabase/migrations/20261008020000_payment_event_review_lifecycle_v1_84.sql');
 const billingPaymentWebhookSource=read('supabase/functions/billing-payment-webhook/index.ts');
 assert.ok(merchantBillingIndexes.includes('merchant_billing_accounts_plan_key_idx')&&merchantBillingIndexes.includes('merchant_daily_statements_resolved_by_idx')&&merchantBillingIndexes.includes('merchant_fee_credit_ledger_created_by_idx')&&merchantBillingIndexes.includes('merchant_fee_credit_ledger_order_id_idx')&&merchantBillingIndexes.includes('merchant_fee_credit_ledger_plan_key_idx'),'billing v1.72 precisa cobrir as FKs apontadas pelo advisor do banco');
 assert.ok(merchantBillingMigration.includes("'flex_daily','Flex Diário','postpaid_daily',850")&&merchantBillingMigration.includes("'credit_3000','Crédito 3.000','prepaid_credit',650"),'billing v1.72 precisa manter Flex premium e pacotes pré-pagos com desconto progressivo');
@@ -656,6 +657,15 @@ assert.ok(paymentApprovalProvenance.includes("revoke all on function public.admi
 assert.ok(adminOpsSource.includes('paymentEventId')&&adminOpsSource.includes('p_payment_event_id')&&adminOpsSource.includes('PAYMENT_EVENT_APPROVAL_MISMATCH'),'admin-ops precisa transportar e tratar o vínculo do evento');
 assert.ok(admin.includes('paymentEventId:reconciledEvent?.id??null')&&admin.includes("request.approval_source==='provider_event'"),'admin precisa enviar o evento selecionado e exibir a origem persistida');
 assert.ok(merchantOrdersBillingSource.includes('approval_source')&&merchant.includes("r.approvalSource==='provider_event'"),'revenda precisa receber e visualizar a proveniência da confirmação');
+assert.ok(paymentEventReviewLifecycle.includes('ignored_at timestamptz')&&paymentEventReviewLifecycle.includes('ignored_by uuid')&&paymentEventReviewLifecycle.includes('ignore_reason text'),'v1.84 precisa preservar quem, quando e por que um evento foi ignorado');
+assert.ok(paymentEventReviewLifecycle.includes('merchant_billing_payment_events_ignored_by_idx'),'FK de ignored_by precisa nascer coberta por índice');
+assert.ok(paymentEventReviewLifecycle.includes('admin_merchant_billing_payment_event_action')&&paymentEventReviewLifecycle.includes("v_kind not in ('recheck','ignore')"),'lifecycle de eventos precisa usar autoridade financeira dedicada');
+assert.ok(paymentEventReviewLifecycle.includes("v_role not in ('superadmin','finance')"),'somente Finance/Superadmin pode decidir eventos de pagamento');
+assert.ok(paymentEventReviewLifecycle.includes('PAYMENT_EVENT_MATCHED_CANNOT_IGNORE')&&paymentEventReviewLifecycle.includes("v_event.status<>'review_required'"),'evento exato ou terminal não pode ser ignorado silenciosamente');
+assert.ok(paymentEventReviewLifecycle.includes('merchant_billing_payment_event_ignored')&&paymentEventReviewLifecycle.includes('merchant_billing_payment_event_rechecked'),'reprocessamento e descarte precisam deixar trilha no audit log');
+assert.ok(paymentEventReviewLifecycle.includes("revoke all on function public.admin_merchant_billing_payment_event_action(")&&paymentEventReviewLifecycle.includes('to service_role, postgres'),'autoridade de lifecycle não pode ser RPC de browser');
+assert.ok(adminOpsSource.includes('"merchant-billing-payment-event"')&&adminOpsSource.includes('admin_merchant_billing_payment_event_action'),'admin-ops precisa rotear lifecycle pelo backend idempotente');
+assert.ok(admin.includes('adminBillingPaymentEventAction')&&admin.includes('Reprocessar conciliação')&&admin.includes('Ignorar evento'),'Financeiro precisa conseguir reavaliar e encerrar eventos de revisão sem apagá-los');
 assert.ok(billingPaymentWebhookSource.includes('x-tamao-signature')&&billingPaymentWebhookSource.includes('hmacSha256Hex')&&billingPaymentWebhookSource.includes('constantTimeEqualHex'),'webhook de pagamentos precisa verificar HMAC antes de tocar o banco');
 assert.ok(billingPaymentWebhookSource.includes('MAX_SKEW_SECONDS=300')&&billingPaymentWebhookSource.includes('STALE_WEBHOOK'),'webhook precisa limitar replay temporal a cinco minutos');
 assert.ok(billingPaymentWebhookSource.includes('BILLING_PAYMENT_WEBHOOK_SECRETS')&&billingPaymentWebhookSource.includes('WEBHOOK_PROVIDER_NOT_CONFIGURED'),'provedor sem segredo configurado precisa falhar fechado');

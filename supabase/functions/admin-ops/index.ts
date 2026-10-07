@@ -103,7 +103,7 @@ const ADMIN_ROLE_ACTIONS:Record<string,Set<string>>={
   ]),
   finance:new Set([
     "financial-action","review-referral","retry-reward","retry-accounting","reverse-order",
-    "commercial-policy","merchant-billing-action","merchant-billing-payment-request","incident-action"
+    "commercial-policy","merchant-billing-action","merchant-billing-payment-request","merchant-billing-payment-event","incident-action"
   ]),
   support:new Set(["order-control","support-case-status","incident-action"]),
   compliance:new Set([
@@ -722,7 +722,7 @@ async function summary(admin:any,actorUserId:string){
     : Promise.resolve({data:null,error:null});
   const billingPaymentEventsPromise=["superadmin","finance","readonly"].includes(actorRole)
     ? admin.from("merchant_billing_payment_events")
-        .select("id,provider,provider_event_id,reconciliation_key,payment_method,amount_cents,currency,occurred_at,received_at,payer_reference,status,payment_request_id,merchant_id,match_reason,applied_at,applied_by,updated_at")
+        .select("id,provider,provider_event_id,reconciliation_key,payment_method,amount_cents,currency,occurred_at,received_at,payer_reference,status,payment_request_id,merchant_id,match_reason,applied_at,applied_by,ignored_at,ignored_by,ignore_reason,updated_at")
         .order("received_at",{ascending:false})
         .limit(200)
     : Promise.resolve({data:[],error:null});
@@ -1422,6 +1422,19 @@ Deno.serve(async(req:Request)=>{
         reconciliationKey,
         paymentEventId
       };
+    }else if(action==="merchant-billing-payment-event"){
+      const eventAction=String(body.eventAction??"").trim().toLowerCase();
+      if(!["recheck","ignore"].includes(eventAction)){
+        throw new DomainError("INVALID_PAYMENT_EVENT_ACTION","Ação de evento financeiro inválida.",400);
+      }
+      const reason=eventAction==="ignore"
+        ?cleanText(body.reason,{min:3,max:240,name:"motivo para ignorar o evento"})
+        :null;
+      payload={
+        paymentEventId:uuid(body.paymentEventId,"payment event"),
+        eventAction,
+        reason
+      };
     }else if(action==="lead-status"){
       const status=String(body.status??"");
       if(!["contacted","qualified","converted","closed"].includes(status)){
@@ -1557,6 +1570,16 @@ Deno.serve(async(req:Request)=>{
         p_payment_method:payload.paymentMethod,
         p_reconciliation_key:payload.reconciliationKey,
         p_payment_event_id:payload.paymentEventId,
+        p_idempotency_key:idempotencyKey,
+        p_request_hash:requestHash
+      };
+    }else if(action==="merchant-billing-payment-event"){
+      rpcName="admin_merchant_billing_payment_event_action";
+      rpcArgs={
+        p_actor_user_id:user.id,
+        p_event_id:payload.paymentEventId,
+        p_action:payload.eventAction,
+        p_reason:payload.reason,
         p_idempotency_key:idempotencyKey,
         p_request_hash:requestHash
       };
@@ -1836,6 +1859,15 @@ Deno.serve(async(req:Request)=>{
     }
     if(message.includes("POLICY_VERSION_CONFLICT")){
       return json({error:"POLICY_VERSION_CONFLICT",message:"A política mudou desde que o painel foi carregado. Atualize antes de salvar."},409,origin);
+    }
+    if(message.includes("PAYMENT_EVENT_MATCHED_CANNOT_IGNORE")){
+      return json({error:"PAYMENT_EVENT_MATCHED_CANNOT_IGNORE",message:"Este evento já corresponde exatamente a uma cobrança pendente. Resolva ou rejeite a cobrança antes de ignorar o evento."},409,origin);
+    }
+    if(message.includes("PAYMENT_EVENT_NOT_REVIEWABLE")){
+      return json({error:"PAYMENT_EVENT_NOT_REVIEWABLE",message:"Este evento já foi encerrado ou não está mais em revisão."},409,origin);
+    }
+    if(message.includes("PAYMENT_EVENT_IGNORE_REASON_REQUIRED")){
+      return json({error:"PAYMENT_EVENT_IGNORE_REASON_REQUIRED",message:"Informe por que este evento financeiro deve ser ignorado."},400,origin);
     }
     if(message.includes("PAYMENT_EVENT_NOT_MATCHED_TO_REQUEST")||message.includes("PAYMENT_EVENT_APPROVAL_MISMATCH")||message.includes("PROVIDER_PAYMENT_EVENT_APPROVAL_INCONSISTENT")){
       return json({error:"PAYMENT_EVENT_APPROVAL_MISMATCH",message:"O evento do provedor não corresponde mais exatamente a esta cobrança. Atualize a fila financeira antes de aprovar."},409,origin);

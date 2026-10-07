@@ -1284,7 +1284,7 @@ function adminBillingPaymentEventCard(event){
     <div class="tiny muted">ID conciliável: ${esc(event.reconciliation_key)}${event.payer_reference?' • pagador '+esc(event.payer_reference):''}</div>
     ${event.match_reason?`<div class="tiny muted">Motor: ${esc(event.match_reason)}</div>`:''}
     ${matched&&event.payment_request_id?`<div class="notice success" style="margin-top:10px"><strong>Correspondência exata encontrada.</strong><br>Valor e identificador coincidem com uma solicitação pendente.</div><div class="order-actions"><button class="primary small" onclick="adminResolveBillingPaymentRequest('${esc(event.payment_request_id)}','approve','${esc(event.id)}')">Confirmar evento conciliado</button></div>`:''}
-    ${review?`<div class="notice" style="margin-top:10px"><strong>Revisão obrigatória.</strong><br>O evento não movimentou saldo porque não houve correspondência exata e única.</div>`:''}
+    ${review?`<div class="notice" style="margin-top:10px"><strong>Revisão obrigatória.</strong><br>O evento não movimentou saldo porque não houve correspondência exata e única.</div><div class="order-actions"><button class="secondary small" onclick="adminBillingPaymentEventAction('${esc(event.id)}','recheck')">Reprocessar conciliação</button><button class="ghost small" onclick="adminBillingPaymentEventAction('${esc(event.id)}','ignore')">Ignorar evento</button></div>`:''}
   </article>`;
 }
 
@@ -2246,6 +2246,27 @@ async function adminAddPlatformAdmin(){
   try{
     await adminPerform('set-platform-admin',{targetEmail,active:true,adminRole});
     toast('Administrador adicionado como '+adminRoleLabel(adminRole));
+  }catch(e){toast(String(e?.message||e))}
+}
+
+async function adminBillingPaymentEventAction(paymentEventId,eventAction){
+  const event=(adminRuntime.data?.merchantBilling?.paymentEvents||[]).find(x=>x.id===paymentEventId);
+  if(!event)return toast('Evento financeiro não encontrado');
+  if(eventAction==='ignore'){
+    if(event.status!=='review_required')return toast('Somente eventos em revisão podem ser ignorados');
+    const reason=prompt('Motivo para ignorar este evento financeiro:')||'';
+    if(reason.trim().length<3)return toast('Informe o motivo');
+    if(!confirm('Ignorar este evento sem apagar seu histórico? Ele continuará auditável.'))return;
+    try{
+      await adminPerform('merchant-billing-payment-event',{paymentEventId,eventAction,reason});
+      toast('Evento encerrado como ignorado');
+    }catch(e){toast(String(e?.message||e))}
+    return;
+  }
+  if(eventAction!=='recheck')return toast('Ação financeira inválida');
+  try{
+    await adminPerform('merchant-billing-payment-event',{paymentEventId,eventAction,reason:null});
+    toast('Conciliação reprocessada');
   }catch(e){toast(String(e?.message||e))}
 }
 
