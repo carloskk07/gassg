@@ -1225,6 +1225,7 @@ function adminPage(){
   const openAdjustments=adjustments.reduce((s,x)=>s+Number(x.amount_cents||0),0);
 
   const overviewContent=`
+    ${adminAttentionCenter(d)}
     ${adminLaunchControl(d.launchReadiness||{})}
     <section class="section"><div class="section-head"><div><span class="section-kicker">NEGÓCIO • 30 DIAS</span><h2>Pulso da operação</h2><p>Indicadores server-side calculados apenas sobre fatos liquidados e estados reais do pedido.</p></div></div><div class="merchant-kpis">
       <div class="kpi"><span class="label">GMV 30d</span><strong>${adminMoney(metrics.gmvCents30d)}</strong><small>${Number(metrics.settledOrders30d||0)} pedidos liquidados</small></div>
