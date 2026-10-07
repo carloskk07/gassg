@@ -552,6 +552,7 @@ assert.ok(adminOpsSource.includes('ADMIN_ALLOWED_ORIGIN'),'Edge admin precisa de
 const pilotInviteAdminMigration=read('supabase/migrations/20261006233000_admin_pilot_invite_authority_v1_70_28.sql');
 const pilotInviteCreatedByFix=read('supabase/migrations/20261007001500_pilot_invite_created_by_fix_v1_70_33.sql');
 assert.ok(admin.includes('adminIssuePilotInvite')&&admin.includes('adminRevokePilotInvite')&&admin.includes('adminGeneratePilotInviteToken'),'admin precisa emitir, rotacionar e revogar convite piloto sem SQL');
+assert.ok(admin.includes('não é armazenado em claro e não pode ser recuperado depois')&&admin.includes('Copie este link agora e envie ao parceiro'),'painel deve explicar que o link piloto é one-time e precisa ser rotacionado se perdido');
 assert.ok(admin.includes('crypto.getRandomValues')&&admin.includes("searchParams.set('pilot',token)"),'convite piloto deve usar Web Crypto e montar o link oficial somente no navegador admin');
 assert.ok(adminOpsSource.includes('action==="pilot-invite"')&&adminOpsSource.includes('sha256Hex(token)')&&adminOpsSource.includes('admin_pilot_partner_invite_action'),'Edge admin precisa hashear o convite antes da autoridade transacional');
 assert.ok(adminOpsSource.includes('payload={draftId,inviteAction,tokenHash,expiresAt}'),'payload idempotente do convite não pode carregar token em claro depois da validação');
