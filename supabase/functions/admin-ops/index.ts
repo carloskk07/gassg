@@ -224,11 +224,24 @@ function billingPaymentIngressReadiness(){
 
   const wooviAuthorization=String(Deno.env.get("WOOVI_WEBHOOK_AUTHORIZATION")??"");
   const wooviCompanyId=String(Deno.env.get("WOOVI_COMPANY_ID")??"").trim();
-  const wooviReady=
+  const wooviAppId=String(Deno.env.get("WOOVI_APP_ID")??"").trim();
+  const wooviApiBase=String(
+    Deno.env.get("WOOVI_API_BASE_URL")??"https://api.woovi.com"
+  ).trim().replace(/\/$/,"");
+  const wooviApiBaseValid=[
+    "https://api.woovi.com",
+    "https://api.woovi-sandbox.com"
+  ].includes(wooviApiBase);
+  const wooviWebhookReady=
     LIVE_PAYMENT_PROVIDER_ADAPTERS.has("woovi")
     &&wooviAuthorization.length>=24
     &&wooviCompanyId.length>=6
     &&wooviCompanyId.length<=160;
+  const wooviChargeReady=
+    LIVE_PAYMENT_PROVIDER_ADAPTERS.has("woovi")
+    &&wooviAppId.length>=12
+    &&wooviApiBaseValid;
+  const wooviReady=wooviWebhookReady&&wooviChargeReady;
 
   const liveProviders=[
     ...(wooviReady?["woovi"]:[])
@@ -247,10 +260,15 @@ function billingPaymentIngressReadiness(){
     adapterReadiness:{
       woovi:{
         implemented:LIVE_PAYMENT_PROVIDER_ADAPTERS.has("woovi"),
-        authorizationConfigured:wooviAuthorization.length>=24,
+        webhookAuthorizationConfigured:wooviAuthorization.length>=24,
         companyBound:wooviCompanyId.length>=6&&wooviCompanyId.length<=160,
+        appIdConfigured:wooviAppId.length>=12,
+        apiBaseValid:wooviApiBaseValid,
+        environment:wooviApiBase==="https://api.woovi-sandbox.com"?"sandbox":"production",
+        receiveReady:wooviWebhookReady,
+        chargeReady:wooviChargeReady,
         ready:wooviReady,
-        event:"OPENPIX:TRANSACTION_RECEIVED",
+        events:["OPENPIX:TRANSACTION_RECEIVED","OPENPIX:CHARGE_COMPLETED"],
         signature:"RSA-SHA256"
       }
     },
@@ -260,6 +278,9 @@ function billingPaymentIngressReadiness(){
     liveEndpoints:{
       woovi:SUPABASE_URL
         ?SUPABASE_URL.replace(/\/$/,"")+"/functions/v1/billing-payment-webhook-woovi"
+        :null,
+      merchantPix:SUPABASE_URL
+        ?SUPABASE_URL.replace(/\/$/,"")+"/functions/v1/merchant-billing-pix"
         :null
     }
   };
