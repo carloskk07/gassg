@@ -77,7 +77,9 @@ function safeRedirect(value:unknown,origin:string){
   if(url.origin!==origin)throw new Error("INVALID_REDIRECT");
   if(!["http:","https:"].includes(url.protocol))throw new Error("INVALID_REDIRECT");
   url.searchParams.set("admin","1");
-  url.hash="admin";
+  // Supabase implicit auth appends access/refresh tokens in the URL fragment.
+  // The server must never reserve that fragment for SPA routing.
+  url.hash="";
   return url.toString();
 }
 async function requestLoginLink(req:Request,origin:string,body:any){
