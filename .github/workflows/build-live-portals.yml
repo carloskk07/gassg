@@ -2,19 +2,11 @@ name: Build isolated live portals
 
 on:
   workflow_dispatch:
+  # Every main SHA gets an immutable portal artifact. The remote readiness gate
+  # requires exact SHA equality, so path-filtering push events can create a SHA
+  # that can never become attestable (for example, a tests-only commit).
   push:
     branches: [main]
-    paths:
-      - 'index.html'
-      - 'manifest.webmanifest'
-      - 'sw.js'
-      - 'css/**'
-      - 'js/**'
-      - 'icons/**'
-      - 'scripts/build-live-portals.mjs'
-      - 'scripts/generate-runtime-config.mjs'
-      - 'tests/live-portals.mjs'
-      - '.github/workflows/build-live-portals.yml'
   pull_request:
     branches: [main]
     paths:
