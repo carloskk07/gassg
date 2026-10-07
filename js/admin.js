@@ -222,7 +222,10 @@ async function adminSendLogin(email){
   try{
     const redirect=new URL(location.origin+location.pathname);
     redirect.searchParams.set('admin','1');
-    redirect.hash='admin';
+    // Supabase implicit auth returns access/refresh tokens in the URL fragment.
+    // Keep the redirect hash empty until detectSessionInUrl consumes that fragment;
+    // bootstrap.js routes to #admin only after authentication initializes.
+    redirect.hash='';
 
     if(!globalThis.chamaTurnstile?.challenge){
       throw new Error('Proteção anti-bot indisponível. Atualize a página e tente novamente.');
