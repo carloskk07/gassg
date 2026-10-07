@@ -903,7 +903,8 @@ begin
   group by q.id,q.gross_total_cents,q.delivery_fee_cents;
 
   if not found then
-    return coalesce(new,old);
+    if tg_op='DELETE' then return old; end if;
+    return new;
   end if;
 
   if v_item_count<1 then
@@ -914,7 +915,8 @@ begin
     raise exception 'QUOTE_TOTAL_INTEGRITY_MISMATCH' using errcode='23514';
   end if;
 
-  return coalesce(new,old);
+  if tg_op='DELETE' then return old; end if;
+    return new;
 end;
 $$;
 
@@ -964,7 +966,8 @@ begin
   group by o.id,o.gross_total_cents,o.delivery_fee_cents_snapshot;
 
   if not found then
-    return coalesce(new,old);
+    if tg_op='DELETE' then return old; end if;
+    return new;
   end if;
 
   if v_item_count<1 then
@@ -975,7 +978,8 @@ begin
     raise exception 'ORDER_TOTAL_INTEGRITY_MISMATCH' using errcode='23514';
   end if;
 
-  return coalesce(new,old);
+  if tg_op='DELETE' then return old; end if;
+    return new;
 end;
 $$;
 
