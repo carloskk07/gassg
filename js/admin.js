@@ -294,6 +294,13 @@ async function adminSignOut(){
   if(adminRuntime.client)await adminRuntime.client.auth.signOut().catch(()=>{});
   adminRuntime.session=null;
   adminRuntime.data=null;
+  adminRuntime.searchQuery='';
+  adminRuntime.searchResults=[];
+  adminRuntime.searchPending=false;
+  adminRuntime.detail=null;
+  adminRuntime.detailPending=false;
+  adminRuntime.health=null;
+  adminRuntime.healthPending=false;
   adminRuntime.status='unauthenticated';
   adminRuntime.error=null;
   adminRuntime.notice=null;
@@ -326,6 +333,10 @@ async function adminRefresh({silent=false}={}){
       adminRuntime.status='unauthenticated';
       adminRuntime.session=null;
       adminRuntime.data=null;
+      adminRuntime.searchQuery='';
+      adminRuntime.searchResults=[];
+      adminRuntime.detail=null;
+      adminRuntime.health=null;
       adminRuntime.error='Sua sessão expirou. Entre novamente.';
       return null;
     }
