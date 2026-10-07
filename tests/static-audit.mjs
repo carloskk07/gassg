@@ -805,8 +805,8 @@ assert.ok(!admin.includes('>Compensado</button>'),'UI admin não pode oferecer c
 assert.ok(admin.includes('Fila contábil de settlement'),'painel admin precisa exibir falhas contábeis');
 assert.ok(admin.includes('adminRetryAccounting'),'painel admin precisa permitir retry contábil auditado');
 assert.ok(adminOpsSource.includes('platform_admins'),'resumo admin precisa listar continuidade administrativa');
-assert.ok(adminOpsSource.includes('admin_platform_admin_action'),'gestão de admin deve usar autoridade idempotente dedicada');
-assert.ok(adminOpsSource.includes('LAST_ADMIN_CANNOT_BE_REMOVED'),'Edge deve traduzir proteção do último admin');
+assert.ok(adminOpsSource.includes('admin_platform_admin_access_action'),'gestão de admin deve usar autoridade RBAC idempotente dedicada');
+assert.ok(adminOpsSource.includes('LAST_ADMIN_CANNOT_BE_REMOVED')&&adminOpsSource.includes('LAST_SUPERADMIN_CANNOT_BE_REMOVED'),'Edge deve traduzir proteção do último admin e do último Superadmin');
 assert.ok(admin.includes('Administradores da plataforma'),'painel admin precisa mostrar administradores');
 assert.ok(admin.includes('adminSetPlatformAdmin'),'painel admin precisa permitir gestão protegida de admins');
 assert.ok(admin.includes('admin-new-user-email')&&!admin.includes('admin-new-user-id'),'continuidade administrativa não pode exigir UUID cru descoberto fora do painel');
