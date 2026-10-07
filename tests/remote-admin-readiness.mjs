@@ -180,9 +180,33 @@ async function verifyPortal(role,cfg){
   return portal;
 }
 
-const portalResults=await Promise.all(
-  Object.entries(PORTALS).map(([role,cfg])=>verifyPortal(role,cfg))
-);
+async function probePortals(){
+  return Promise.all(
+    Object.entries(PORTALS).map(([role,cfg])=>verifyPortal(role,cfg))
+  );
+}
+
+let portalResults=await probePortals();
+
+// Cloudflare Pages publishes asynchronously after a GitHub push. In strict
+// release mode, wait for the exact expected SHA instead of turning normal
+// deployment propagation into a false-negative readiness failure.
+if(REQUIRE_LIVE_PORTALS&&EXPECTED_SOURCE_SHA){
+  for(let attempt=1;attempt<=7;attempt++){
+    const expectedReady=portalResults.every(
+      portal=>portal.ready&&portal.sourceSha===EXPECTED_SOURCE_SHA
+    );
+    if(expectedReady)break;
+    if(attempt===7)break;
+    console.log(
+      'Aguardando propagação dos portais live para '+EXPECTED_SOURCE_SHA+
+      ' (tentativa '+attempt+'/7)'
+    );
+    await sleep(10000);
+    portalResults=await probePortals();
+  }
+}
+
 const portalByRole=Object.fromEntries(portalResults.map(x=>[x.role,x]));
 const readyPortals=portalResults.filter(x=>x.ready);
 const sourceShas=new Set(readyPortals.map(x=>x.sourceSha).filter(Boolean));
