@@ -1289,6 +1289,7 @@ function adminPage(){
       <div class="admin-nav-title">Painel</div>
       ${adminMenuButton('overview','Visão geral','⌂')}
       ${adminMenuButton('orders','Pedidos','▣',controlOrders.length+openSupportCases.length)}
+      ${adminMenuButton('customers','Clientes','◎',adminRecentCustomers(d).length)}
       ${adminMenuButton('partners','Parceiros','◇',pending.length+pilotPartners.filter(x=>x.onboarding_status!=='cancelled').length)}
       ${adminMenuButton('catalog','Catálogo','▤')}
       ${adminMenuButton('finance','Financeiro','₿',pendingReferralReviews.length+deadRewardFailures.length+deadAccountingFailures.length)}
