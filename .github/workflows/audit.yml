@@ -44,6 +44,13 @@ jobs:
             echo "Secret-like value detected in Edge Function source"
             exit 1
           fi
+          ADMIN_AUTH='supabase/functions/admin-auth/index.ts'
+          grep -q 'const ADMIN_LIVE_ORIGIN="https://admin.tamao.com.br"' "$ADMIN_AUTH" || { echo "admin-auth missing official origin"; exit 1; }
+          grep -q 'const ADMIN_PAGES_ORIGIN="https://tamao-sg-admin.pages.dev"' "$ADMIN_AUTH" || { echo "admin-auth missing Cloudflare Pages origin"; exit 1; }
+          if grep -qE 'localhost|127\\.0\\.0\\.1|ADMIN_ALLOWED_ORIGIN|chama-sg-admin\\.netlify\\.app' "$ADMIN_AUTH"; then
+            echo "admin-auth contains non-production or legacy admin origin"
+            exit 1
+          fi
           for f in $(find supabase/functions -mindepth 2 -maxdepth 2 -name 'index.ts' | sort); do
             case "$f" in
               supabase/functions/capture-prelaunch-lead/index.ts)
