@@ -116,7 +116,7 @@ Deno.serve(async(req:Request)=>{
     const merchantId=String(body.merchantId??"");
     const action=String(body.action??"");
     if(!UUID_RE.test(merchantId))throw new DomainError("INVALID_MERCHANT","Revenda inválida.",400);
-    if(!["heartbeat","set-online","update-product","update-logistics","update-capacity","update-scheduling","update-payment-methods","update-member-profile"].includes(action)){
+    if(!["heartbeat","set-online","update-product","update-logistics","update-capacity","update-scheduling","update-payment-methods","update-member-profile","request-billing-package","notify-billing-payment","cancel-billing-request"].includes(action)){
       throw new DomainError("INVALID_ACTION","Ação inválida.",400);
     }
 
@@ -134,6 +134,64 @@ Deno.serve(async(req:Request)=>{
 
     const role=membership.member_role;
     const now=new Date().toISOString();
+
+    if(["request-billing-package","notify-billing-payment","cancel-billing-request"].includes(action)){
+      if(!canManage(role)){
+        throw new DomainError("MERCHANT_FINANCE_PERMISSION_DENIED","Somente owner ou gerente pode operar cobranças e pacotes.",403);
+      }
+      const idempotencyKey=mutationIdempotencyKey(req);
+      const planKey=action==="request-billing-package"?String(body.planKey??"").trim().toLowerCase():null;
+      const statementId=action==="notify-billing-payment"?String(body.statementId??"").trim():null;
+      const paymentRequestId=action==="cancel-billing-request"?String(body.paymentRequestId??"").trim():null;
+      const merchantReference=action==="cancel-billing-request"?null:String(body.reference??"").trim().replace(/\s+/g," ");
+      if(planKey!=null&&!/^[a-z][a-z0-9_]{1,39}$/.test(planKey)){
+        throw new DomainError("INVALID_BILLING_PLAN","Pacote de crédito inválido.",400);
+      }
+      if(statementId!=null&&!UUID_RE.test(statementId)){
+        throw new DomainError("INVALID_STATEMENT","Fechamento diário inválido.",400);
+      }
+      if(paymentRequestId!=null&&!UUID_RE.test(paymentRequestId)){
+        throw new DomainError("INVALID_PAYMENT_REQUEST","Solicitação financeira inválida.",400);
+      }
+      if(merchantReference!=null&&(merchantReference.length<3||merchantReference.length>240||/[\u0000-\u001F\u007F]/.test(merchantReference))){
+        throw new DomainError("PAYMENT_REFERENCE_REQUIRED","Informe uma referência de pagamento válida.",400);
+      }
+      const rpcAction=action==="request-billing-package"
+        ?"submit-package"
+        :action==="notify-billing-payment"
+          ?"submit-statement-payment"
+          :"cancel-request";
+      const requestPayload={merchantId,rpcAction,planKey,statementId,paymentRequestId,merchantReference};
+      const requestHash=await requestFingerprint("merchant-billing-request",requestPayload);
+      const {data,error}=await admin.rpc("merchant_billing_request_action",{
+        p_actor_user_id:user.id,
+        p_merchant_id:merchantId,
+        p_action:rpcAction,
+        p_plan_key:planKey,
+        p_statement_id:statementId,
+        p_payment_request_id:paymentRequestId,
+        p_merchant_reference:merchantReference,
+        p_idempotency_key:idempotencyKey,
+        p_request_hash:requestHash
+      });
+      if(error){
+        const message=String(error.message??error);
+        if(message.includes("PACKAGE_REQUEST_ALREADY_PENDING")){
+          throw new DomainError("PACKAGE_REQUEST_ALREADY_PENDING","Já existe uma solicitação de pacote aguardando confirmação.",409);
+        }
+        if(message.includes("STATEMENT_NOT_PAYABLE")){
+          throw new DomainError("STATEMENT_NOT_PAYABLE","Este fechamento já foi resolvido ou não possui saldo a pagar.",409);
+        }
+        if(message.includes("PAYMENT_REQUEST_ALREADY_RESOLVED")){
+          throw new DomainError("PAYMENT_REQUEST_ALREADY_RESOLVED","Esta solicitação financeira já foi resolvida.",409);
+        }
+        if(message.includes("IDEMPOTENCY_CONFLICT")){
+          throw new DomainError("IDEMPOTENCY_CONFLICT","Esta tentativa já foi usada com outro conteúdo.",409);
+        }
+        throw error;
+      }
+      return json(data,200,origin);
+    }
 
     if(action==="update-member-profile"){
       const displayName=String(body.displayName??"").trim().replace(/\s+/g," ");
