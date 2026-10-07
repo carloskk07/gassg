@@ -1120,6 +1120,8 @@ async function merchantBackendInit(){
   merchantRuntime.status='loading';
   merchantRuntime.error=null;
   try{
+    const callbackSession=captureSupabaseImplicitSessionFromUrl();
+
     const lib=await loadSupabaseBrowser();
     const client=lib.createClient(CHAMA_BACKEND.url,CHAMA_BACKEND.publishableKey,{
       auth:{
@@ -1133,8 +1135,21 @@ async function merchantBackendInit(){
     });
     merchantRuntime.client=client;
 
-    const {data:{session},error}=await client.auth.getSession();
+    let {data:{session},error}=await client.auth.getSession();
     if(error)throw error;
+
+    if(!session?.access_token&&callbackSession?.access_token&&callbackSession?.refresh_token){
+      const restored=await client.auth.setSession({
+        access_token:callbackSession.access_token,
+        refresh_token:callbackSession.refresh_token
+      });
+      if(restored.error)throw restored.error;
+      session=restored.data.session??null;
+    }
+
+    if(session?.access_token){
+      clearSupabaseAuthFragment('merchant');
+    }
     merchantRuntime.session=session??null;
 
     if(!session?.access_token){
@@ -1772,6 +1787,8 @@ globalThis.merchantCompleteDeliveryLive=merchantCompleteDeliveryLive;
 globalThis.merchantSetOnlineLive=merchantSetOnlineLive;
 globalThis.merchantUpdateProductLive=merchantUpdateProductLive;
 globalThis.merchantUpdateLogisticsLive=merchantUpdateLogisticsLive;
+globalThis.captureSupabaseImplicitSessionFromUrl=captureSupabaseImplicitSessionFromUrl;
+globalThis.clearSupabaseAuthFragment=clearSupabaseAuthFragment;
 globalThis.merchantPilotInviteToken=merchantPilotInviteToken;
 globalThis.clearMerchantPilotInviteToken=clearMerchantPilotInviteToken;
 globalThis.merchantClaimPilotInviteLive=merchantClaimPilotInviteLive;
