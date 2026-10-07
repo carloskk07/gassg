@@ -1177,7 +1177,6 @@ function adminBillingAccountCard(account){
     </div>
     ${held?`<div class="notice danger" style="margin-top:10px"><strong>Novas vendas bloqueadas.</strong><br>${esc(account.sales_hold_reason||'Débito vencido')} • desde ${esc(account.sales_hold_at?new Date(account.sales_hold_at).toLocaleString('pt-BR'):'—')}</div>`:''}
     <div class="order-actions">
-      ${(adminRuntime.data?.merchantBilling?.plans||[]).filter(p=>p.active&&p.billing_mode==='prepaid_credit').map(p=>`<button class="secondary small" onclick="adminConfirmBillingPackage('${esc(account.merchant_id)}','${esc(p.plan_key)}')">${esc(p.display_name)}</button>`).join('')}
       <button class="ghost small" onclick="adminSetMerchantFlex('${esc(account.merchant_id)}')">Voltar ao Flex</button>
     </div>
   </article>`;
@@ -1198,17 +1197,52 @@ function adminBillingStatementCard(statement){
     ${statement.resolution_reference?`<div class="tiny muted">Referência: ${esc(statement.resolution_reference)}</div>`:''}
   </article>`;
 }
+function adminBillingPaymentRequestCard(request){
+  const plans=adminRuntime.data?.merchantBilling?.plans||[];
+  const plan=plans.find(p=>p.plan_key===request.plan_key);
+  const pending=request.status==='pending';
+  const approved=request.status==='approved';
+  const title=request.request_kind==='package_purchase'
+    ? 'Compra de '+(plan?.display_name||request.plan_key||'pacote')
+    : 'Pagamento de fechamento diário';
+  const statusLabel=({
+    pending:'PENDENTE',
+    approved:'APROVADO',
+    rejected:'REJEITADO',
+    cancelled:'CANCELADO'
+  })[String(request.status||'')]||String(request.status||'—').toUpperCase();
+  const statusClass=approved?'online':request.status==='rejected'?'offline':pending?'risk':'';
+  const detail=request.request_kind==='package_purchase'
+    ? `${adminMoney(request.expected_amount_cents)} • crédito ${adminMoney(request.credit_grant_cents_snapshot)} • taxa ${(Number(request.platform_fee_bps_snapshot||0)/100).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2})}%`
+    : `${adminMoney(request.expected_amount_cents)} • fechamento ${esc(request.statement_id||'—')}`;
+  return `<article class="order-card">
+    <div class="order-head"><div><div class="order-id">${esc(adminMerchantName(request.merchant_id))} • ${esc(title)}</div><div class="tiny muted">${esc(request.requested_at?new Date(request.requested_at).toLocaleString('pt-BR'):'—')} • ${detail}</div></div><span class="status-pill ${statusClass}">${esc(statusLabel)}</span></div>
+    <div class="order-line"><strong>Referência informada pela revenda:</strong> ${esc(request.merchant_reference||'—')}</div>
+    ${request.admin_reference?`<div class="tiny muted">Referência administrativa: ${esc(request.admin_reference)}</div>`:''}
+    ${pending?`<div class="notice" style="margin-top:10px"><strong>Nenhum crédito ou quitação ocorreu ainda.</strong><br>Confira o recebimento no meio financeiro antes de aprovar.</div>
+      <div class="order-actions">
+        <button class="primary small" onclick="adminResolveBillingPaymentRequest('${esc(request.id)}','approve')">Confirmar recebimento</button>
+        <button class="danger-btn small" onclick="adminResolveBillingPaymentRequest('${esc(request.id)}','reject')">Rejeitar</button>
+      </div>`:''}
+  </article>`;
+}
+
 function adminMerchantBillingSection(d){
   const billing=d.merchantBilling||{};
   const plans=billing.plans||[];
   const accounts=billing.accounts||[];
   const statements=billing.statements||[];
+  const paymentRequests=billing.paymentRequests||[];
+  const pendingPaymentRequests=paymentRequests.filter(x=>x.status==='pending');
   const openStatements=statements.filter(x=>['open','overdue'].includes(x.status));
   const overdue=openStatements.filter(x=>x.status==='overdue');
   const held=accounts.filter(x=>x.sales_hold);
   return `<section class="section">
     <div class="section-head"><div><span class="section-kicker">COBRANÇA DAS REVENDAS</span><h2>Fechamento diário + pacotes</h2><p>Cada pedido mantém sua taxa auditável. À 00:05 o dia anterior é consolidado; o saldo vence no fim do dia seguinte. Crédito pré-pago reduz a taxa e evita pagamento diário enquanto houver saldo.</p></div><div class="order-actions"><span class="status-pill ${overdue.length?'offline':'online'}">${overdue.length} vencido(s)</span><span class="status-pill ${held.length?'offline':'online'}">${held.length} hold(s)</span></div></div>
     ${plans.length?`<div class="admin-entity-grid">${plans.map(adminBillingPlanCard).join('')}</div>`:'<div class="notice">Motor de cobrança diária ainda não está ativo neste ambiente.</div>'}
+    <div class="section-head" style="margin-top:18px"><div><h3>Pagamentos aguardando conferência</h3><p>Aprovar é uma ação financeira: pacote gera crédito; fechamento diário é quitado. A referência da revenda, sozinha, nunca movimenta saldo.</p></div><span class="status-pill ${pendingPaymentRequests.length?'risk':'online'}">${pendingPaymentRequests.length} pendente(s)</span></div>
+    ${pendingPaymentRequests.length?pendingPaymentRequests.map(adminBillingPaymentRequestCard).join(''):'<div class="empty card">Nenhum pagamento aguarda conferência.</div>'}
+    ${paymentRequests.some(x=>x.status!=='pending')?`<details class="card flat" style="margin-top:12px"><summary><strong>Histórico de solicitações financeiras</strong></summary><div style="margin-top:10px">${paymentRequests.filter(x=>x.status!=='pending').slice(0,50).map(adminBillingPaymentRequestCard).join('')}</div></details>`:''}
     ${accounts.length?`<div class="section-head" style="margin-top:18px"><div><h3>Contas de cobrança</h3><p>Saldo, reservas e bloqueio financeiro por revenda.</p></div></div><div class="admin-entity-grid">${accounts.map(adminBillingAccountCard).join('')}</div>`:''}
     <div class="section-head" style="margin-top:18px"><div><h3>Fechamentos diários</h3><p>Prioridade para vencidos e abertos; históricos liquidados permanecem auditáveis.</p></div></div>
     ${openStatements.length?openStatements.map(adminBillingStatementCard).join(''):'<div class="empty card">Nenhum fechamento em aberto.</div>'}
@@ -2082,15 +2116,21 @@ async function adminAddPlatformAdmin(){
   }catch(e){toast(String(e?.message||e))}
 }
 
-async function adminConfirmBillingPackage(merchantId,planKey){
-  const plan=(adminRuntime.data?.merchantBilling?.plans||[]).find(x=>x.plan_key===planKey);
-  if(!plan)return toast('Pacote não encontrado');
-  const reference=prompt('Referência do pagamento do pacote (Pix/PSP/comprovante):')||'';
-  if(reference.trim().length<3)return toast('Informe a referência do pagamento');
-  if(!confirm('Confirmar '+plan.display_name+' para '+adminMerchantName(merchantId)+'? Crédito: '+adminMoney(plan.credit_grant_cents)+' • taxa: '+(Number(plan.platform_fee_bps)/100).toFixed(2)+'%'))return;
+async function adminResolveBillingPaymentRequest(paymentRequestId,requestAction){
+  const request=(adminRuntime.data?.merchantBilling?.paymentRequests||[]).find(x=>x.id===paymentRequestId);
+  if(!request)return toast('Solicitação financeira não encontrada');
+  if(request.status!=='pending')return toast('Esta solicitação já foi resolvida');
+  const approve=requestAction==='approve';
+  const reference=prompt(approve?'Referência da conferência financeira (Pix/PSP/extrato):':'Motivo da rejeição:')||'';
+  if(reference.trim().length<3)return toast('Informe uma referência');
+  const amount=adminMoney(request.expected_amount_cents);
+  const message=approve
+    ? 'Confirmar recebimento de '+amount+'? Esta ação '+(request.request_kind==='package_purchase'?'creditará o pacote na conta da revenda.':'quitará o fechamento diário.') 
+    : 'Rejeitar esta solicitação de '+amount+'? Nenhum saldo será movimentado.';
+  if(!confirm(message))return;
   try{
-    await adminPerform('merchant-billing-action',{merchantId,billingAction:'confirm-package',planKey,reference});
-    toast('Pacote financeiro ativado');
+    await adminPerform('merchant-billing-payment-request',{paymentRequestId,requestAction,reference});
+    toast(approve?'Pagamento confirmado':'Solicitação rejeitada');
   }catch(e){toast(String(e?.message||e))}
 }
 async function adminSetMerchantFlex(merchantId){
@@ -2149,7 +2189,7 @@ globalThis.adminChangePlatformAdminRole=adminChangePlatformAdminRole;
 globalThis.adminCreateIncident=adminCreateIncident;
 globalThis.adminIncidentAction=adminIncidentAction;
 globalThis.adminAuditSearch=adminAuditSearch;
-globalThis.adminConfirmBillingPackage=adminConfirmBillingPackage;
+globalThis.adminResolveBillingPaymentRequest=adminResolveBillingPaymentRequest;
 globalThis.adminSetMerchantFlex=adminSetMerchantFlex;
 globalThis.adminResolveDailyStatement=adminResolveDailyStatement;
 globalThis.openAdminPortal=openAdminPortal;
