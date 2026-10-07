@@ -317,6 +317,96 @@ Deno.serve(async(req:Request)=>{
       }
     }
 
+    let billing:any={
+      plan:null,
+      account:null,
+      openStatements:[],
+      plans:[]
+    };
+    if(["owner","manager"].includes(selected.member_role)){
+      const [
+        {data:billingAccount,error:billingAccountError},
+        {data:billingPlans,error:billingPlansError},
+        {data:billingStatements,error:billingStatementsError}
+      ]=await Promise.all([
+        admin.from("merchant_billing_accounts")
+          .select("merchant_id,plan_key,credit_balance_cents,credit_reserved_cents,sales_hold,sales_hold_reason,sales_hold_at,last_daily_close_date,updated_at")
+          .eq("merchant_id",selected.merchant_id)
+          .maybeSingle(),
+        admin.from("merchant_billing_plans")
+          .select("plan_key,display_name,billing_mode,platform_fee_bps,purchase_amount_cents,credit_grant_cents,active,sort_order")
+          .eq("active",true)
+          .order("sort_order",{ascending:true}),
+        admin.from("merchant_daily_statements")
+          .select("id,business_date,gross_sales_cents,gross_fee_cents,prepaid_credit_applied_cents,amount_due_cents,status,due_at,closed_at,paid_at,waived_at,resolution_reference")
+          .eq("merchant_id",selected.merchant_id)
+          .in("status",["open","overdue"])
+          .order("business_date",{ascending:false})
+          .limit(31)
+      ]);
+      if(billingAccountError)throw billingAccountError;
+      if(billingPlansError)throw billingPlansError;
+      if(billingStatementsError)throw billingStatementsError;
+      const currentPlan=(billingPlans??[]).find((p:any)=>p.plan_key===billingAccount?.plan_key)??null;
+      billing={
+        plan:currentPlan?{
+          planKey:currentPlan.plan_key,
+          displayName:currentPlan.display_name,
+          billingMode:currentPlan.billing_mode,
+          platformFeeBps:Number(currentPlan.platform_fee_bps||0)
+        }:null,
+        account:billingAccount?{
+          creditBalanceCents:Number(billingAccount.credit_balance_cents||0),
+          creditReservedCents:Number(billingAccount.credit_reserved_cents||0),
+          creditAvailableCents:Math.max(0,Number(billingAccount.credit_balance_cents||0)-Number(billingAccount.credit_reserved_cents||0)),
+          salesHold:billingAccount.sales_hold===true,
+          salesHoldReason:billingAccount.sales_hold_reason??null,
+          salesHoldAt:billingAccount.sales_hold_at??null,
+          lastDailyCloseDate:billingAccount.last_daily_close_date??null,
+          updatedAt:billingAccount.updated_at??null
+        }:null,
+        openStatements:(billingStatements??[]).map((s:any)=>({
+          id:s.id,
+          businessDate:s.business_date,
+          grossSalesCents:Number(s.gross_sales_cents||0),
+          grossFeeCents:Number(s.gross_fee_cents||0),
+          prepaidCreditAppliedCents:Number(s.prepaid_credit_applied_cents||0),
+          amountDueCents:Number(s.amount_due_cents||0),
+          status:s.status,
+          dueAt:s.due_at,
+          closedAt:s.closed_at,
+          paidAt:s.paid_at,
+          waivedAt:s.waived_at,
+          resolutionReference:s.resolution_reference
+        })),
+        plans:(billingPlans??[]).map((p:any)=>({
+          planKey:p.plan_key,
+          displayName:p.display_name,
+          billingMode:p.billing_mode,
+          platformFeeBps:Number(p.platform_fee_bps||0),
+          purchaseAmountCents:p.purchase_amount_cents==null?null:Number(p.purchase_amount_cents),
+          creditGrantCents:p.credit_grant_cents==null?null:Number(p.credit_grant_cents)
+        }))
+      };
+    }else{
+      const {data:billingAccount,error:billingAccountError}=await admin
+        .from("merchant_billing_accounts")
+        .select("sales_hold,sales_hold_reason,sales_hold_at")
+        .eq("merchant_id",selected.merchant_id)
+        .maybeSingle();
+      if(billingAccountError)throw billingAccountError;
+      billing={
+        plan:null,
+        account:billingAccount?{
+          salesHold:billingAccount.sales_hold===true,
+          salesHoldReason:billingAccount.sales_hold_reason??null,
+          salesHoldAt:billingAccount.sales_hold_at??null
+        }:null,
+        openStatements:[],
+        plans:[]
+      };
+    }
+
     const {data:deliveryMembers,error:deliveryMembersError}=await admin
       .from("merchant_members")
       .select("user_id,member_role,display_name,created_at")
@@ -388,6 +478,7 @@ Deno.serve(async(req:Request)=>{
           name:merchantNames.get(m.merchant_id)??"Revenda"
         })),
       deliveryTeam,
+      billing,
       availableProducts,
       catalog:(catalog??[]).map((item)=>({
         productCode:item.product_code,
