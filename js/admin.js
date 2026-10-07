@@ -1283,6 +1283,10 @@ function adminBillingPaymentMatchReasonLabel(reason){
     duplicate_transaction_event:'outro evento já é o registro canônico desta transação',
     approved_payment_request_applied:'evento aplicado pela aprovação conciliada',
     manual_approval_payment_already_confirmed:'pagamento confirmado manualmente pelo Financeiro',
+    provider_charge_correlation_and_amount:'cobrança Pix correlacionada ao TAMÃO + valor exato',
+    provider_charge_request_not_pending:'Pix recebido para solicitação que já não está pendente',
+    provider_charge_merchant_mismatch:'correlação Pix aponta para outra revenda',
+    provider_charge_amount_mismatch:'Pix correlacionado com valor diferente do esperado',
     ignored_by_finance:'evento encerrado pelo Financeiro'
   })[String(reason||'')]||String(reason||'—');
 }
@@ -1298,6 +1302,7 @@ function adminBillingPaymentEventCard(event){
     <div class="order-line"><strong>Pagamento:</strong> ${adminMoney(event.amount_cents)} • ${esc(adminPaymentMethodLabel(event.payment_method))}</div>
     <div class="tiny muted">ID conciliável: ${esc(event.reconciliation_key)}${event.payer_reference?' • pagador '+esc(event.payer_reference):''}</div>
     ${event.match_reason?`<div class="tiny muted">Conciliação: ${esc(adminBillingPaymentMatchReasonLabel(event.match_reason))}</div>`:''}
+    ${event.provider_correlation_id?`<div class="tiny muted">Correlação TAMÃO/PSP: ${esc(event.provider_correlation_id)}</div>`:''}
     ${matched&&event.payment_request_id?`<div class="notice success" style="margin-top:10px"><strong>Correspondência exata encontrada.</strong><br>Valor e identificador coincidem com uma solicitação pendente.</div><div class="order-actions"><button class="primary small" onclick="adminResolveBillingPaymentRequest('${esc(event.payment_request_id)}','approve','${esc(event.id)}')">Confirmar evento conciliado</button></div>`:''}
     ${review?`<div class="notice" style="margin-top:10px"><strong>Revisão obrigatória.</strong><br>O evento não movimentou saldo porque não houve correspondência exata e única.</div><div class="order-actions"><button class="secondary small" onclick="adminBillingPaymentEventAction('${esc(event.id)}','recheck')">Reprocessar conciliação</button><button class="ghost small" onclick="adminBillingPaymentEventAction('${esc(event.id)}','ignore')">Ignorar evento</button></div>`:''}
   </article>`;
@@ -1385,6 +1390,7 @@ function adminMerchantBillingSection(d){
   const statements=billing.statements||[];
   const paymentRequests=billing.paymentRequests||[];
   const paymentEvents=billing.paymentEvents||[];
+  const providerCharges=billing.providerCharges||[];
   const paymentIngress=billing.paymentIngress||null;
   const metrics=billing.metrics||null;
   const reconciliation=billing.reconciliation||null;
@@ -1419,6 +1425,7 @@ function adminMerchantBillingSection(d){
     </div>`:''}
     ${adminBillingMetricsView(metrics)}
     ${adminBillingReconciliationView(reconciliation)}
+    ${providerCharges.length?`<details class="card flat" style="margin-bottom:16px"><summary><strong>Cobranças Pix geradas pelo TAMÃO</strong> • ${providerCharges.length}</summary><div class="list" style="margin-top:10px">${providerCharges.slice(0,50).map(charge=>`<div class="list-row"><div><strong>${esc(adminMerchantName(charge.merchant_id))}</strong><br><small>${esc(charge.provider||'—')} • correlação ${esc(charge.correlation_id||'—')}${charge.end_to_end_id?' • EndToEndId '+esc(charge.end_to_end_id):''}</small></div><div style="text-align:right"><strong>${adminMoney(charge.amount_cents)}</strong><br><span class="status-pill ${charge.status==='completed'?'online':charge.last_error_code?'offline':'risk'}">${esc(String(charge.status||'—').toUpperCase())}</span>${charge.last_error_code?`<br><small>${esc(charge.last_error_code)}</small>`:''}</div></div>`).join('')}</div></details>`:''}
     ${actionableEvents.length?`<div class="section-head" style="margin-top:18px"><div><h3>Eventos de pagamento</h3><p>Eventos autenticados do provedor são conciliados por valor + identificador. Ambiguidades nunca movimentam saldo automaticamente.</p></div><span class="status-pill ${actionableEvents.some(x=>x.status==='review_required')?'risk':'online'}">${actionableEvents.length} evento(s)</span></div>${actionableEvents.map(adminBillingPaymentEventCard).join('')}`:''}
     ${plans.length?`<div class="admin-entity-grid">${plans.map(adminBillingPlanCard).join('')}</div>`:'<div class="notice">Motor de cobrança diária ainda não está ativo neste ambiente.</div>'}
     <div class="section-head" style="margin-top:18px"><div><h3>Pagamentos aguardando conferência</h3><p>Aprovar é uma ação financeira: pacote gera crédito; fechamento diário é quitado. A referência da revenda, sozinha, nunca movimenta saldo.</p></div><span class="status-pill ${pendingPaymentRequests.length?'risk':'online'}">${pendingPaymentRequests.length} pendente(s)</span></div>
