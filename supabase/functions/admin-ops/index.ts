@@ -253,6 +253,7 @@ function scopeAdminSummary(role:string,data:any){
         })),
         statements:[],
         paymentRequests:[],
+        paymentEvents:[],
         metrics:null,
         reconciliation:null
       },
@@ -287,7 +288,7 @@ function scopeAdminSummary(role:string,data:any){
         price_confirmed_at:m.price_confirmed_at,last_seen_at:m.last_seen_at
       })),
       commercialPolicy:null,
-      merchantBilling:{plans:[],accounts:[],statements:[],paymentRequests:[],metrics:null,reconciliation:null},
+      merchantBilling:{plans:[],accounts:[],statements:[],paymentRequests:[],paymentEvents:[],metrics:null,reconciliation:null},
       productRegistry:{categories:[],products:[]},
       finance:{receivables:[],cashbackReimbursements:[],adjustments:[]},
       rewardFailures:[],accountingFailures:[],referralReviews:[],
@@ -300,7 +301,7 @@ function scopeAdminSummary(role:string,data:any){
     return {
       ...data,
       businessMetrics:{},commercialPolicy:null,
-      merchantBilling:{plans:[],accounts:[],statements:[],paymentRequests:[],metrics:null,reconciliation:null},
+      merchantBilling:{plans:[],accounts:[],statements:[],paymentRequests:[],paymentEvents:[],metrics:null,reconciliation:null},
       productRegistry:{categories:[],products:[]},
       supportCases:[],controlOrders:[],
       finance:{receivables:[],cashbackReimbursements:[],adjustments:[]},
@@ -719,7 +720,13 @@ async function summary(admin:any,actorUserId:string){
   const billingReconciliationPromise=["superadmin","finance","readonly"].includes(actorRole)
     ? admin.rpc("admin_merchant_billing_reconciliation",{p_actor_user_id:actorUserId})
     : Promise.resolve({data:null,error:null});
-  const [billingPlans,billingAccounts,dailyStatements,billingPaymentRequests,billingMetrics,billingReconciliation]=await Promise.all([
+  const billingPaymentEventsPromise=["superadmin","finance","readonly"].includes(actorRole)
+    ? admin.from("merchant_billing_payment_events")
+        .select("id,provider,provider_event_id,reconciliation_key,payment_method,amount_cents,currency,occurred_at,received_at,payer_reference,status,payment_request_id,merchant_id,match_reason,applied_at,applied_by,updated_at")
+        .order("received_at",{ascending:false})
+        .limit(200)
+    : Promise.resolve({data:[],error:null});
+  const [billingPlans,billingAccounts,dailyStatements,billingPaymentRequests,billingMetrics,billingReconciliation,billingPaymentEvents]=await Promise.all([
     admin.from("merchant_billing_plans")
       .select("plan_key,display_name,billing_mode,platform_fee_bps,purchase_amount_cents,credit_grant_cents,active,sort_order,updated_at")
       .order("sort_order",{ascending:true}),
@@ -736,9 +743,10 @@ async function summary(admin:any,actorUserId:string){
       .order("requested_at",{ascending:false})
       .limit(300),
     billingMetricsPromise,
-    billingReconciliationPromise
+    billingReconciliationPromise,
+    billingPaymentEventsPromise
   ]);
-  for(const result of [billingPlans,billingAccounts,dailyStatements,billingPaymentRequests,billingMetrics,billingReconciliation]){
+  for(const result of [billingPlans,billingAccounts,dailyStatements,billingPaymentRequests,billingMetrics,billingReconciliation,billingPaymentEvents]){
     if(result.error)throw result.error;
   }
 
@@ -879,6 +887,7 @@ async function summary(admin:any,actorUserId:string){
       accounts:billingAccounts.data??[],
       statements:dailyStatements.data??[],
       paymentRequests:billingPaymentRequests.data??[],
+      paymentEvents:billingPaymentEvents.data??[],
       metrics:billingMetrics.data??null,
       reconciliation:billingReconciliation.data??null
     },
