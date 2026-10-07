@@ -688,6 +688,11 @@ function adminRoleLabel(role){
     readonly:'Somente leitura'
   })[String(role||'')]||String(role||'—');
 }
+function adminRoleOptions(selected){
+  return ['superadmin','operations','finance','support','compliance','readonly']
+    .map(role=>`<option value="${role}" ${role===selected?'selected':''}>${esc(adminRoleLabel(role))}</option>`)
+    .join('');
+}
 function adminCurrentRole(){
   return String(adminRuntime.data?.currentAdmin?.admin_role||'superadmin');
 }
