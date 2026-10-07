@@ -11,3 +11,9 @@ verify_jwt = false
 
 [functions.capture-marketing-event]
 verify_jwt = false
+
+
+# External payment provider adapter ingress.
+# JWT is disabled because authenticity is enforced with a provider-specific HMAC signature.
+[functions.billing-payment-webhook]
+verify_jwt = false
