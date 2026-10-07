@@ -209,7 +209,6 @@ console.log('Cron effective browser boundary v1.34.4 contract passou.');
 
 
 const isolatedOriginContracts=[
-  ['admin-auth','ADMIN_ALLOWED_ORIGIN','https://chama-sg-admin.netlify.app'],
   ['admin-ops','ADMIN_ALLOWED_ORIGIN','https://chama-sg-admin.netlify.app'],
   ['complete-delivery','MERCHANT_ALLOWED_ORIGIN','https://chama-sg-revenda.netlify.app'],
   ['create-order','CUSTOMER_ALLOWED_ORIGIN','https://chama-sg-cliente.netlify.app'],
@@ -235,6 +234,27 @@ for(const [fn,envName,origin] of isolatedOriginContracts){
 }
 
 console.log('Isolated portal CORS fallbacks contract passou.');
+
+const adminAuthSource=fs.readFileSync(
+  new URL('../supabase/functions/admin-auth/index.ts',import.meta.url),
+  'utf8'
+);
+assert.match(
+  adminAuthSource,
+  /const ADMIN_LIVE_ORIGIN="https:\/\/admin\.tamao\.com\.br"/,
+  'admin-auth deve fixar a origem administrativa oficial'
+);
+assert.match(
+  adminAuthSource,
+  /const ADMIN_PAGES_ORIGIN="https:\/\/tamao-sg-admin\.pages\.dev"/,
+  'admin-auth deve manter apenas o portal Cloudflare Pages como origem operacional auxiliar'
+);
+assert.doesNotMatch(
+  adminAuthSource,
+  /localhost|127\.0\.0\.1|ADMIN_ALLOWED_ORIGIN|chama-sg-admin\.netlify\.app/,
+  'admin-auth de produção não pode reabrir localhost ou origem administrativa legada'
+);
+console.log('Admin auth production-origin boundary passou.');
 
 
 const cloudflarePortalOrigins={
