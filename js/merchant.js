@@ -217,11 +217,15 @@ function merchantBillingLiveView(rt){
     pending.filter(r=>r.requestKind==='statement_payment'&&r.statementId).map(r=>[r.statementId,r])
   );
   const held=account.salesHold===true;
+  const holdReason=String(account.salesHoldReason||'');
+  const refundHold=holdReason==='provider_payment_refund_review';
   const role=String(rt.merchant?.memberRole||'');
   const canSeeFinance=['owner','manager'].includes(role);
   if(!canSeeFinance){
     return held
-      ? '<div class="notice danger" style="margin-top:12px"><strong>Novas vendas suspensas por pendência financeira.</strong><br>O owner ou gerente precisa regularizar o fechamento vencido. Pedidos já aceitos continuam disponíveis normalmente.</div>'
+      ? refundHold
+        ? '<div class="notice danger" style="margin-top:12px"><strong>Novas vendas suspensas por revisão financeira.</strong><br>Um pagamento anteriormente confirmado teve reembolso/estorno informado pelo provedor. O owner ou gerente precisa tratar a revisão com o Financeiro. Pedidos já aceitos continuam disponíveis normalmente.</div>'
+        : '<div class="notice danger" style="margin-top:12px"><strong>Novas vendas suspensas por pendência financeira.</strong><br>O owner ou gerente precisa regularizar o fechamento vencido. Pedidos já aceitos continuam disponíveis normalmente.</div>'
       : '';
   }
 
@@ -311,7 +315,9 @@ function merchantBillingLiveView(rt){
 
   return `<section class="section">
     <div class="section-head"><div><span class="section-kicker">FINANCEIRO TAMÃO</span><h2>Taxas e fechamento diário</h2><p>Cada venda conserva sua taxa individual. O TAMÃO fecha o dia às 00:05 e eventual saldo pós-pago vence até o fim do dia seguinte.</p></div><span class="status-pill ${held?'offline':'online'}">${held?'VENDAS SUSPENSAS':'EM DIA'}</span></div>
-    ${held?'<div class="notice danger"><strong>Há fechamento vencido.</strong><br>Novas vendas ficam pausadas até a regularização. Pedidos já aceitos continuam normalmente; seu acesso ao painel e ao histórico permanece disponível.</div>':''}
+    ${held?(refundHold
+      ?'<div class="notice danger"><strong>Refund/estorno em revisão.</strong><br>O provedor informou devolução de um pagamento anteriormente conciliado. Novas vendas e novas solicitações financeiras ficam pausadas até o Financeiro confirmar a recuperação ou executar a correção contábil apropriada. Seu histórico permanece disponível.</div>'
+      :'<div class="notice danger"><strong>Há fechamento vencido.</strong><br>Novas vendas ficam pausadas até a regularização. Pedidos já aceitos continuam normalmente; seu acesso ao painel e ao histórico permanece disponível.</div>'):''}
     <div class="merchant-kpis">
       <div class="kpi"><span class="label">Plano</span><strong>${esc(plan.displayName||'Flex Diário')}</strong><small>${feePct}% por venda</small></div>
       <div class="kpi"><span class="label">Crédito pré-pago</span><strong>${BRL.format(Number(account.creditBalanceCents||0)/100)}</strong></div>
