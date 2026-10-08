@@ -524,7 +524,7 @@ returns jsonb
 language plpgsql
 security definer
 set search_path=pg_catalog
-as $
+as $refund_reconcile$
 declare
   v_refund public.merchant_billing_payment_refunds%rowtype;
   v_event public.merchant_billing_payment_events%rowtype;
@@ -641,7 +641,7 @@ begin
     'cumulativeRefundedCents',v_refund.cumulative_refunded_cents
   );
 end;
-$;
+$refund_reconcile$;
 
 revoke all on function public.reconcile_merchant_billing_payment_refund(uuid)
 from public,anon,authenticated;
@@ -653,7 +653,7 @@ returns trigger
 language plpgsql
 security definer
 set search_path=pg_catalog
-as $
+as $refund_refresh$
 declare
   v_refund_id uuid;
 begin
@@ -678,7 +678,7 @@ begin
 
   return new;
 end;
-$;
+$refund_refresh$;
 
 revoke all on function public.refresh_provider_refunds_after_payment_event()
 from public,anon,authenticated;
