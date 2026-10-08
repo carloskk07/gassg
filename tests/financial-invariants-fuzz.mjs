@@ -2120,4 +2120,113 @@ for(let i=0;i<30000;i++){
   dailyStatementEquationCases+=12;
 }
 
-console.log(`Financial invariant fuzz passou: ${rewardCases} cenários de unit economics + ${positionCases} posições de cashback + ${prepaidCases} cenários de consumo de crédito de taxa + ${transitionCases} transições de pacote + ${reconciliationCases} cenários de reconciliação + ${exactPaymentCases} confirmações exatas de pagamento + ${d1AuthorityCases} cenários de autoridade D+1 + ${reconciliationKeyCases} cenários de unicidade de conciliação + ${providerEventCases} cenários de eventos de provedor + ${reactiveProviderCases} transições reativas de conciliação + ${provenanceCases} provas de proveniência de aprovação + ${paymentEventReviewCases} decisões de lifecycle de eventos + ${financeSlaCases} classificações de SLA financeiro + ${canonicalEventCases} decisões de evento canônico + ${wooviAdapterCases} normalizações Woovi/OpenPix + ${generatedPixCases} decisões de cobrança Pix correlacionada + ${siblingProviderCases} decisões de evento irmão do PSP + ${pixExpirationCases} decisões de expiração/regeneração Pix + ${providerCancelCases} decisões de cancelamento acoplado ao PSP + ${providerRefundCases} decisões de refund/quarentena do PSP + ${refundRecoveryCases} decisões de recuperação econômica de refund + ${refundRecoveryReconciliationCases} provas de reconciliação de recuperação + ${refundExposureCapCases} alocações com teto de exposição de refund + ${exactRecoveryAllocationCases} escritas com alocação exata/imutável + ${refundAllocationSplitCases} provas de decomposição recuperável/excedente + ${preapprovalRefundCases} provas de neutralidade de refund pré-aprovação + ${providerRefundLockCases} provas de ordem de lock PSP/refund + ${providerEvidenceCases} provas de precedência da evidência PSP + ${manualRefundAnchorCases} provas de âncora manual de refund + ${refundRecoveryReopenCases} provas de reabertura de recuperação após refund + ${orderBillingRebindCases} provas de rebind de cobrança por pedido + ${prepaidReversalD1Cases} provas de estorno pré-pago/D+1 + ${refundRecoveryBalanceEquationCases} provas da equação de saldo de recuperação + ${merchantCreditEquationCases} provas das equações de saldo/reserva de crédito + ${feeCreditLedgerImmutabilityCases} provas de imutabilidade do ledger de crédito + ${dailyStatementEquationCases} provas da equação incremental D+1.`);
+
+function applyDailyStatementResolutionLifecycle(before,requested,stamp){
+  const wasResolved=before.status==='paid'||before.status==='waived';
+  if(wasResolved){
+    const mutated=
+      requested.status!==before.status
+      ||requested.paidAt!==before.paidAt
+      ||requested.waivedAt!==before.waivedAt;
+    return mutated
+      ?{ok:false,error:'DAILY_STATEMENT_RESOLUTION_IMMUTABLE'}
+      :{ok:true,row:{...requested}};
+  }
+
+  if(requested.status==='paid'){
+    return {
+      ok:true,
+      row:{...requested,paidAt:stamp,waivedAt:null}
+    };
+  }
+  if(requested.status==='waived'){
+    return {
+      ok:true,
+      row:{...requested,paidAt:null,waivedAt:stamp}
+    };
+  }
+  if(requested.paidAt!=null||requested.waivedAt!=null){
+    return {
+      ok:false,
+      error:'DAILY_STATEMENT_UNRESOLVED_TIMESTAMP_FORBIDDEN'
+    };
+  }
+  return {
+    ok:true,
+    row:{...requested,paidAt:null,waivedAt:null}
+  };
+}
+
+let dailyStatementResolutionLifecycleCases=0;
+for(let i=0;i<30000;i++){
+  const stamp='2026-10-08T23:'+String(i%60).padStart(2,'0')+':00.000Z';
+  const open={status:'open',paidAt:null,waivedAt:null};
+  const overdue={status:'overdue',paidAt:null,waivedAt:null};
+
+  const paid=applyDailyStatementResolutionLifecycle(
+    open,
+    {status:'paid',paidAt:'forged-client-time',waivedAt:'forged-waiver-time'},
+    stamp
+  );
+  assert.equal(paid.ok,true);
+  assert.equal(paid.row.status,'paid');
+  assert.equal(paid.row.paidAt,stamp,'banco precisa substituir timestamp fornecido pelo caller');
+  assert.equal(paid.row.waivedAt,null);
+
+  const waived=applyDailyStatementResolutionLifecycle(
+    overdue,
+    {status:'waived',paidAt:'forged-paid-time',waivedAt:'forged-waiver-time'},
+    stamp
+  );
+  assert.equal(waived.ok,true);
+  assert.equal(waived.row.paidAt,null);
+  assert.equal(waived.row.waivedAt,stamp);
+
+  const stillOpen=applyDailyStatementResolutionLifecycle(
+    open,
+    {status:'open',paidAt:null,waivedAt:null},
+    stamp
+  );
+  assert.equal(stillOpen.ok,true);
+
+  const fakeOpenPaidAt=applyDailyStatementResolutionLifecycle(
+    open,
+    {status:'open',paidAt:stamp,waivedAt:null},
+    stamp
+  );
+  assert.equal(fakeOpenPaidAt.ok,false);
+  assert.equal(fakeOpenPaidAt.error,'DAILY_STATEMENT_UNRESOLVED_TIMESTAMP_FORBIDDEN');
+
+  const paidStable=applyDailyStatementResolutionLifecycle(
+    paid.row,
+    {...paid.row},
+    'later'
+  );
+  assert.equal(paidStable.ok,true);
+
+  const reopenPaid=applyDailyStatementResolutionLifecycle(
+    paid.row,
+    {status:'open',paidAt:null,waivedAt:null},
+    'later'
+  );
+  assert.equal(reopenPaid.ok,false);
+  assert.equal(reopenPaid.error,'DAILY_STATEMENT_RESOLUTION_IMMUTABLE');
+
+  const rewritePaidAt=applyDailyStatementResolutionLifecycle(
+    paid.row,
+    {...paid.row,paidAt:'later'},
+    'later'
+  );
+  assert.equal(rewritePaidAt.ok,false);
+
+  const relabelWaiver=applyDailyStatementResolutionLifecycle(
+    waived.row,
+    {status:'paid',paidAt:stamp,waivedAt:null},
+    'later'
+  );
+  assert.equal(relabelWaiver.ok,false);
+
+  dailyStatementResolutionLifecycleCases+=16;
+}
+
+console.log(`Financial invariant fuzz passou: ${rewardCases} cenários de unit economics + ${positionCases} posições de cashback + ${prepaidCases} cenários de consumo de crédito de taxa + ${transitionCases} transições de pacote + ${reconciliationCases} cenários de reconciliação + ${exactPaymentCases} confirmações exatas de pagamento + ${d1AuthorityCases} cenários de autoridade D+1 + ${reconciliationKeyCases} cenários de unicidade de conciliação + ${providerEventCases} cenários de eventos de provedor + ${reactiveProviderCases} transições reativas de conciliação + ${provenanceCases} provas de proveniência de aprovação + ${paymentEventReviewCases} decisões de lifecycle de eventos + ${financeSlaCases} classificações de SLA financeiro + ${canonicalEventCases} decisões de evento canônico + ${wooviAdapterCases} normalizações Woovi/OpenPix + ${generatedPixCases} decisões de cobrança Pix correlacionada + ${siblingProviderCases} decisões de evento irmão do PSP + ${pixExpirationCases} decisões de expiração/regeneração Pix + ${providerCancelCases} decisões de cancelamento acoplado ao PSP + ${providerRefundCases} decisões de refund/quarentena do PSP + ${refundRecoveryCases} decisões de recuperação econômica de refund + ${refundRecoveryReconciliationCases} provas de reconciliação de recuperação + ${refundExposureCapCases} alocações com teto de exposição de refund + ${exactRecoveryAllocationCases} escritas com alocação exata/imutável + ${refundAllocationSplitCases} provas de decomposição recuperável/excedente + ${preapprovalRefundCases} provas de neutralidade de refund pré-aprovação + ${providerRefundLockCases} provas de ordem de lock PSP/refund + ${providerEvidenceCases} provas de precedência da evidência PSP + ${manualRefundAnchorCases} provas de âncora manual de refund + ${refundRecoveryReopenCases} provas de reabertura de recuperação após refund + ${orderBillingRebindCases} provas de rebind de cobrança por pedido + ${prepaidReversalD1Cases} provas de estorno pré-pago/D+1 + ${refundRecoveryBalanceEquationCases} provas da equação de saldo de recuperação + ${merchantCreditEquationCases} provas das equações de saldo/reserva de crédito + ${feeCreditLedgerImmutabilityCases} provas de imutabilidade do ledger de crédito + ${dailyStatementEquationCases} provas da equação incremental D+1 + ${dailyStatementResolutionLifecycleCases} provas do lifecycle de resolução D+1.`);
