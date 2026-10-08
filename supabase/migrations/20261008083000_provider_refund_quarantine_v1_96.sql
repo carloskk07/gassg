@@ -127,8 +127,28 @@ begin
      or new.amount_cents is distinct from old.amount_cents
      or new.currency is distinct from old.currency
      or new.occurred_at is distinct from old.occurred_at
-     or new.raw_payload_sha256 is distinct from old.raw_payload_sha256
-     or new.payment_event_id is distinct from old.payment_event_id
+     or new.raw_payload_sha256 is distinct from old.raw_payload_sha256 then
+    raise exception 'PROVIDER_REFUND_FACT_IMMUTABLE' using errcode='23514';
+  end if;
+
+  -- Ingestion reserves the provider event first, then may enrich that new row
+  -- once with its authoritative TAMÃO linkage under the same transaction.
+  -- After linkage (or after resolution) those derived facts are immutable.
+  if old.status='review_required'
+     and old.payment_event_id is null
+     and old.payment_request_id is null
+     and old.merchant_id is null
+     and old.original_payment_amount_cents is null
+     and old.cumulative_refunded_cents is null
+     and old.match_reason='original_payment_not_found'
+     and new.status='review_required'
+     and new.resolved_at is null
+     and new.resolved_by is null
+     and new.resolution_reference is null then
+    return new;
+  end if;
+
+  if new.payment_event_id is distinct from old.payment_event_id
      or new.payment_request_id is distinct from old.payment_request_id
      or new.merchant_id is distinct from old.merchant_id
      or new.original_payment_amount_cents is distinct from old.original_payment_amount_cents
@@ -136,6 +156,7 @@ begin
      or new.match_reason is distinct from old.match_reason then
     raise exception 'PROVIDER_REFUND_FACT_IMMUTABLE' using errcode='23514';
   end if;
+
   return new;
 end;
 $$;
