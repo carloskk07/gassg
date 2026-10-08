@@ -1,6 +1,10 @@
 [build]
 command = "node scripts/build-netlify-portal.mjs"
 publish = "dist/netlify"
+# Netlify is a production-only legacy fallback. Cloudflare/official domains are
+# the deployment authority; deploy-preview and branch-deploy builds are skipped.
+# Netlify ignore contract: exit 1 = build, exit 0 = cancel.
+ignore = "if [ \"$CONTEXT\" = \"production\" ]; then exit 1; else exit 0; fi"
 
 [build.environment]
 NODE_VERSION = "22"
