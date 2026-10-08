@@ -547,6 +547,8 @@ const canonicalPaymentEvent=read('supabase/migrations/20261008030000_canonical_p
 const generatedPixBilling=read('supabase/migrations/20261008043000_generated_pix_billing_v1_90.sql');
 const pspHealthEventDedup=read('supabase/migrations/20261008060000_psp_health_event_dedup_v1_91.sql');
 const pixChargeExpiration=read('supabase/migrations/20261008070000_pix_charge_expiration_v1_94.sql');
+const requestClosePixCancel=read('supabase/migrations/20261008080000_request_close_pix_cancel_v1_95.sql');
+const wooviBillingHelperSource=read('supabase/functions/_shared/woovi-billing.ts');
 const billingPaymentWebhookSource=read('supabase/functions/billing-payment-webhook/index.ts');
 const wooviPaymentWebhookSource=read('supabase/functions/billing-payment-webhook-woovi/index.ts');
 const merchantBillingPixSource=read('supabase/functions/merchant-billing-pix/index.ts');
@@ -791,6 +793,14 @@ assert.ok(adminOpsSource.includes('expired_at,completed_at')||adminOpsSource.inc
 assert.ok(merchantOrdersBillingSource.includes('expired_at')&&merchantOrdersBillingSource.includes('expiredAt:charge.expired_at'),'snapshot da revenda precisa transportar expiração real da cobrança');
 assert.ok(merchant.includes('function merchantBillingPixChargeExpired(')&&merchant.includes('Pix expirado.')&&merchant.includes('Gerar novo Pix'),'portal da revenda precisa ocultar QR vencido e oferecer regeneração mantendo a solicitação');
 assert.ok(admin.includes('CHARGE_EXPIRED:')&&admin.includes('chargeExpiredWebhookReady')&&admin.includes('expirou'),'Financeiro precisa mostrar saúde do webhook de expiração e histórico de QR vencido');
+assert.ok(requestClosePixCancel.includes('retire_open_provider_charges_on_request_resolution')&&requestClosePixCancel.includes("old.status='pending'")&&requestClosePixCancel.includes("new.status in ('approved','rejected','cancelled')"),'v1.95 precisa aposentar cobranças abertas sempre que a solicitação financeira deixar pending');
+assert.ok(requestClosePixCancel.includes("set status='cancelled'")&&requestClosePixCancel.includes("'PROVIDER_CANCEL_REQUIRED'"),'fechamento da solicitação precisa registrar cancelamento remoto obrigatório sem depender da UI');
+assert.ok(requestClosePixCancel.includes('merchant_billing_provider_charges_cancel_retry_idx')&&requestClosePixCancel.includes("'PROVIDER_CANCEL_FAILED'"),'cancelamentos remotos pendentes/falhos precisam ter índice operacional de retry');
+assert.ok(wooviBillingHelperSource.includes('ALLOWED_WOOVI_BASES')&&wooviBillingHelperSource.includes('method:"DELETE"')&&wooviBillingHelperSource.includes('encodeURIComponent(correlationId)'),'helper de cancelamento precisa limitar host e excluir cobrança Woovi por correlationID codificado');
+assert.ok(wooviBillingHelperSource.includes('PROVIDER_CANCEL_REQUIRED')&&wooviBillingHelperSource.includes('PROVIDER_CANCEL_FAILED')&&wooviBillingHelperSource.includes('providerConfigured:config.valid'),'helper precisa preservar evidência sanitizada de cancelamento, inclusive falha de configuração');
+assert.ok(read('supabase/functions/merchant-ops/index.ts').includes('cancelWooviProviderCharges')&&read('supabase/functions/merchant-ops/index.ts').includes('rpcAction==="cancel-request"'),'cancelamento da revenda precisa tentar invalidar o Pix no PSP depois do commit local');
+assert.ok(adminOpsSource.includes('cancelWooviProviderCharges')&&adminOpsSource.includes('action==="merchant-billing-payment-request"')&&adminOpsSource.includes('action==="merchant-billing-action"'),'resoluções do Financeiro precisam tentar invalidar Pix pendente sem criar rota paralela');
+assert.ok(merchant.includes('também tentará invalidar qualquer Pix ativo no provedor'),'UI da revenda precisa explicar a consequência do cancelamento da solicitação');
 assert.ok(!adminOpsSource.includes('.rpc("admin_financial_action"'),'Edge admin não pode contornar a autoridade idempotente financeira');
 assert.ok(!adminOpsSource.includes('.rpc("admin_reverse_settled_order"'),'Edge admin não pode contornar a autoridade idempotente de reversão');
 const reversalReplayMigration=read('supabase/migrations/20261005235900_reversal_replay_timestamp_consistency_v1_70_16.sql');
