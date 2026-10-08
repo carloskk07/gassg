@@ -346,7 +346,11 @@ function merchantBillingLiveView(rt){
     const source=r.pixCharge
       ? `<br><small>Pix TAMÃO • ${esc(r.pixCharge.status||'—')}${r.pixCharge.endToEndId?' • EndToEndId '+esc(r.pixCharge.endToEndId):''}</small>`
       : `<br><small>${esc(r.merchantReference||'sem referência')}</small>`;
-    return `<div class="list-row"><div><strong>${esc(label)}</strong><br><small>${esc(r.requestedAt?new Date(r.requestedAt).toLocaleString('pt-BR'):'—')}</small>${source}${confirmed}</div><div style="text-align:right"><span class="status-pill ${r.status==='approved'?'online':r.status==='rejected'?'offline':r.status==='pending'?'risk':''}">${esc(status)}</span><br><small>${BRL.format(Number(r.expectedAmountCents||0)/100)}</small></div></div>`;
+    const providerRefundNeutralized=r.status==='cancelled'
+      &&r.adminReference==='provider-refund-before-approval'
+        ?'<br><small>Pagamento devolvido pelo provedor antes da confirmação. Nenhum crédito, quitação ou nova dívida foi aplicado; gere uma nova cobrança se ainda quiser concluir o pagamento.</small>'
+        :'';
+    return `<div class="list-row"><div><strong>${esc(label)}</strong><br><small>${esc(r.requestedAt?new Date(r.requestedAt).toLocaleString('pt-BR'):'—')}</small>${source}${confirmed}${providerRefundNeutralized}</div><div style="text-align:right"><span class="status-pill ${r.status==='approved'?'online':r.status==='rejected'?'offline':r.status==='pending'?'risk':''}">${esc(status)}</span><br><small>${BRL.format(Number(r.expectedAmountCents||0)/100)}</small></div></div>`;
   }).join('');
 
   return `<section class="section">
