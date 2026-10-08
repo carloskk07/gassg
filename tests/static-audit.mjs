@@ -560,6 +560,7 @@ const providerRefundLockOrder=read('supabase/migrations/20261008140000_provider_
 const providerEvidencePrecedence=read('supabase/migrations/20261008143000_provider_evidence_precedence_v1_104.sql');
 const manualPaymentRefundAnchor=read('supabase/migrations/20261008150000_manual_payment_refund_anchor_v1_105.sql');
 const reopenRefundRecovery=read('supabase/migrations/20261008163000_reopen_refund_recovery_v1_106.sql');
+const refundRecoveryBalanceEquation=read('supabase/migrations/20261008170000_refund_recovery_balance_equation_v1_107.sql');
 const providerChargeCancelSource=read('supabase/functions/_shared/provider-charge-cancel.js');
 const providerCancelMerchantOps=read('supabase/functions/merchant-ops/index.ts');
 const billingPaymentWebhookSource=read('supabase/functions/billing-payment-webhook/index.ts');
@@ -916,6 +917,12 @@ assert.ok(reopenRefundRecovery.includes("'refund_of_recovery_payment'")&&reopenR
 assert.ok(adminOpsSource.includes('outstanding_cents')&&merchantOrdersBillingSource.includes('outstanding_cents'),'admin e revenda precisam receber o saldo atual da recuperação');
 assert.ok(admin.includes('saldo ${adminMoney(recovery.outstanding_cents)} / alocado')&&admin.includes('RECUPERAÇÃO REABERTA'),'Financeiro precisa distinguir saldo atual de valor histórico e explicar a reabertura');
 assert.ok(merchant.includes('recovery.outstandingCents')&&merchant.includes('saldo atual'),'revenda precisa pagar/exibir somente o saldo de recuperação corrente');
+assert.ok(refundRecoveryBalanceEquation.includes('refund_recovery_expected_outstanding')&&refundRecoveryBalanceEquation.includes('v_recovery.amount_cents-v_approved+v_reopened'),'v1.107 precisa derivar saldo corrente de alocação histórica - pagamentos aprovados + refunds reabertos');
+assert.ok(refundRecoveryBalanceEquation.includes("r.status='approved'")&&refundRecoveryBalanceEquation.includes("f.status='resolved_recovery_reopened'"),'equação só pode contar pagamentos definitivamente aprovados e reaberturas definitivamente resolvidas');
+assert.ok(refundRecoveryBalanceEquation.includes('REFUND_RECOVERY_BALANCE_EQUATION_RANGE')&&refundRecoveryBalanceEquation.includes('REFUND_RECOVERY_BALANCE_EQUATION_MISMATCH'),'prova estrutural precisa bloquear overpayment, over-reopen e drift do saldo');
+assert.ok(refundRecoveryBalanceEquation.includes('deferrable initially deferred')&&refundRecoveryBalanceEquation.includes('require_refund_recovery_balance_on_request_trg')&&refundRecoveryBalanceEquation.includes('require_refund_recovery_balance_on_refund_trg'),'equação precisa ser provada no COMMIT a partir de recovery, payment request e refund');
+assert.ok(refundRecoveryBalanceEquation.includes('REFUND_RECOVERY_EXISTING_BALANCE_DRIFT'),'migration precisa falhar fechado se qualquer recuperação histórica já estiver divergente');
+assert.ok(refundRecoveryBalanceEquation.includes('revoke all on function public.refund_recovery_expected_outstanding(uuid)')&&refundRecoveryBalanceEquation.includes('revoke all on function public.require_refund_recovery_balance_equation()'),'autoridades da equação precisam permanecer server-only');
 
 assert.ok(refundAllocationSplit.includes("to_jsonb(new)->>'id'")&&refundAllocationSplit.includes("to_jsonb(new)->>'refund_id'"),'constraint trigger compartilhado entre refund/recovery precisa extrair IDs sem assumir o record shape da tabela chamadora');
 assert.ok(refundAllocationSplit.includes('REFUND_ALLOCATION_ZERO_EXPOSURE_HAS_RECOVERY')&&refundAllocationSplit.includes('REFUND_ALLOCATION_RECOVERY_MISMATCH'),'zero exposição não pode gerar dívida e obrigação positiva precisa bater exatamente com o recoverable');
