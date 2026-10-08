@@ -559,6 +559,7 @@ const preapprovalRefundNeutrality=read('supabase/migrations/20261008133000_preap
 const providerRefundLockOrder=read('supabase/migrations/20261008140000_provider_refund_lock_order_v1_103.sql');
 const providerEvidencePrecedence=read('supabase/migrations/20261008143000_provider_evidence_precedence_v1_104.sql');
 const manualPaymentRefundAnchor=read('supabase/migrations/20261008150000_manual_payment_refund_anchor_v1_105.sql');
+const reopenRefundRecovery=read('supabase/migrations/20261008163000_reopen_refund_recovery_v1_106.sql');
 const providerChargeCancelSource=read('supabase/functions/_shared/provider-charge-cancel.js');
 const providerCancelMerchantOps=read('supabase/functions/merchant-ops/index.ts');
 const billingPaymentWebhookSource=read('supabase/functions/billing-payment-webhook/index.ts');
@@ -902,6 +903,20 @@ assert.ok(manualPaymentRefundAnchor.includes('block_manual_approval_with_unlinke
 assert.ok(manualPaymentRefundAnchor.includes('v_result:=public.reconcile_merchant_billing_payment_refund(v_refund.id)'),'ingest e replay precisam compartilhar a mesma autoridade de matching de refund');
 assert.ok(manualPaymentRefundAnchor.includes("'merchant-billing-refund:'||v_refund.provider")&&manualPaymentRefundAnchor.includes('pg_advisory_xact_lock'),'reconcile de refund precisa serializar a chave original antes de calcular acumulado');
 assert.ok(admin.includes('Âncora financeira: confirmação Pix manual exata')&&admin.includes('multiple_manual_payment_candidates'),'Financeiro precisa enxergar âncora manual e ambiguidade sem linguagem técnica crua');
+assert.ok(reopenRefundRecovery.includes('outstanding_cents bigint')&&reopenRefundRecovery.includes('outstanding_cents>=0 and outstanding_cents<=amount_cents'),'v1.106 precisa separar valor histórico da obrigação do saldo ainda pendente');
+assert.ok(reopenRefundRecovery.includes("status='pending'")&&reopenRefundRecovery.includes('merchant_billing_payment_requests_refund_recovery_live_uq'),'v1.106 precisa permitir múltiplas aprovações históricas mantendo só uma recuperação pendente por vez');
+assert.ok(reopenRefundRecovery.includes('normalize_refund_recovery_payment_request_amount')&&reopenRefundRecovery.includes('new.expected_amount_cents:=v_recovery.outstanding_cents'),'nova tentativa de recuperação precisa nascer pelo saldo corrente, não pelo valor histórico');
+assert.ok(reopenRefundRecovery.includes("v_request.request_kind='refund_recovery'")&&reopenRefundRecovery.includes('sum(r.recoverable_amount_cents)'),'refund de pagamento de recuperação precisa ter teto próprio por payment request sem criar obrigação aninhada');
+assert.ok(reopenRefundRecovery.includes("new.status:='resolved_recovery_reopened'")&&reopenRefundRecovery.includes("new.match_reason:='refund_of_recovery_payment'"),'refund da recuperação precisa terminar automaticamente como reabertura auditável');
+assert.ok(reopenRefundRecovery.includes('v_recovery.outstanding_cents+new.recoverable_amount_cents')&&reopenRefundRecovery.includes('least('),'saldo reaberto precisa somar apenas a parcela recuperável e nunca exceder a obrigação original');
+assert.ok(reopenRefundRecovery.includes('REFUND_RECOVERY_REOPEN_CREATED_NESTED_OBLIGATION')&&reopenRefundRecovery.includes('where nested.refund_id=new.id'),'constraint diferido precisa proibir recuperação-da-recuperação');
+assert.ok(reopenRefundRecovery.includes('v_request.expected_amount_cents>v_recovery.outstanding_cents')&&reopenRefundRecovery.includes('outstanding_cents=outstanding_cents-v_request.expected_amount_cents'),'aprovação de recuperação precisa aceitar pagamento parcial válido e descontar exatamente o valor aprovado');
+assert.ok(reopenRefundRecovery.includes("when outstanding_cents-v_request.expected_amount_cents=0")&&reopenRefundRecovery.includes("else 'open'"),'obrigação só pode ficar recovered quando o saldo chegar exatamente a zero');
+assert.ok(reopenRefundRecovery.includes("'refund_of_recovery_payment'")&&reopenRefundRecovery.includes('require_manual_payment_refund_anchor'),'prova manual exata da v1.105 precisa continuar válida no refund de uma recuperação');
+assert.ok(adminOpsSource.includes('outstanding_cents')&&merchantOrdersBillingSource.includes('outstanding_cents'),'admin e revenda precisam receber o saldo atual da recuperação');
+assert.ok(admin.includes('saldo ${adminMoney(recovery.outstanding_cents)} / alocado')&&admin.includes('RECUPERAÇÃO REABERTA'),'Financeiro precisa distinguir saldo atual de valor histórico e explicar a reabertura');
+assert.ok(merchant.includes('recovery.outstandingCents')&&merchant.includes('saldo atual'),'revenda precisa pagar/exibir somente o saldo de recuperação corrente');
+
 assert.ok(refundAllocationSplit.includes("to_jsonb(new)->>'id'")&&refundAllocationSplit.includes("to_jsonb(new)->>'refund_id'"),'constraint trigger compartilhado entre refund/recovery precisa extrair IDs sem assumir o record shape da tabela chamadora');
 assert.ok(refundAllocationSplit.includes('REFUND_ALLOCATION_ZERO_EXPOSURE_HAS_RECOVERY')&&refundAllocationSplit.includes('REFUND_ALLOCATION_RECOVERY_MISMATCH'),'zero exposição não pode gerar dívida e obrigação positiva precisa bater exatamente com o recoverable');
 assert.ok(refundAllocationSplit.includes('new.recoverable_amount_cents is distinct from old.recoverable_amount_cents')&&refundAllocationSplit.includes('new.excess_amount_cents is distinct from old.excess_amount_cents'),'decomposição econômica precisa ficar imutável depois do primeiro vínculo autoritativo');
