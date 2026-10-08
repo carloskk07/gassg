@@ -842,7 +842,7 @@ function pixChargeExpirationDecision({
 }
 
 function pixChargeLateCommitDecision(status){
-  return ['completed','expired'].includes(status)?status:'active';
+  return ['completed','expired','cancelled'].includes(status)?status:'active';
 }
 
 function pixChargePaymentTruthDecision(status){
@@ -885,4 +885,89 @@ for(let i=0;i<20000;i++){
   pixExpirationCases+=11;
 }
 
-console.log(`Financial invariant fuzz passou: ${rewardCases} cenários de unit economics + ${positionCases} posições de cashback + ${prepaidCases} cenários de consumo de crédito de taxa + ${transitionCases} transições de pacote + ${reconciliationCases} cenários de reconciliação + ${exactPaymentCases} confirmações exatas de pagamento + ${d1AuthorityCases} cenários de autoridade D+1 + ${reconciliationKeyCases} cenários de unicidade de conciliação + ${providerEventCases} cenários de eventos de provedor + ${reactiveProviderCases} transições reativas de conciliação + ${provenanceCases} provas de proveniência de aprovação + ${paymentEventReviewCases} decisões de lifecycle de eventos + ${financeSlaCases} classificações de SLA financeiro + ${canonicalEventCases} decisões de evento canônico + ${wooviAdapterCases} normalizações Woovi/OpenPix + ${generatedPixCases} decisões de cobrança Pix correlacionada + ${siblingProviderCases} decisões de evento irmão do PSP + ${pixExpirationCases} decisões de expiração/regeneração Pix.`);
+
+function paymentRequestCancelDecision({
+  actor='merchant',
+  requestStatus='pending',
+  chargeStatus='active',
+  eventStatus=null
+}){
+  const providerPaid=
+    chargeStatus==='completed'
+    ||['matched_exact','applied','already_applied'].includes(String(eventStatus||''));
+  if(actor==='merchant'&&requestStatus==='pending'&&providerPaid)return 'blocked_paid';
+  if(requestStatus==='pending'&&['merchant','finance'].includes(actor))return 'cancelled';
+  return 'unchanged';
+}
+
+function providerChargeAfterRequestResolution({
+  requestBefore='pending',
+  requestAfter='cancelled',
+  chargeStatus='active'
+}){
+  if(requestBefore==='pending'
+     &&['cancelled','rejected'].includes(requestAfter)
+     &&['preparing','active'].includes(chargeStatus)){
+    return {status:'cancelled',lastErrorCode:'PROVIDER_CANCEL_REQUIRED'};
+  }
+  return {status:chargeStatus,lastErrorCode:null};
+}
+
+function providerCancelRetryDecision({status,lastErrorCode,provider='woovi'}){
+  const retryable=status==='cancelled'
+    &&['PROVIDER_CANCEL_REQUIRED','PROVIDER_CANCEL_FAILED'].includes(lastErrorCode);
+  if(!retryable)return 'skip';
+  return provider==='woovi'?'delete_provider':'unsupported_provider';
+}
+
+let providerCancelCases=0;
+for(let i=0;i<20000;i++){
+  assert.equal(paymentRequestCancelDecision({
+    actor:'merchant',chargeStatus:'active'
+  }),'cancelled');
+  assert.equal(paymentRequestCancelDecision({
+    actor:'merchant',chargeStatus:'completed'
+  }),'blocked_paid');
+  assert.equal(paymentRequestCancelDecision({
+    actor:'merchant',chargeStatus:'active',eventStatus:'matched_exact'
+  }),'blocked_paid');
+  assert.equal(paymentRequestCancelDecision({
+    actor:'finance',chargeStatus:'completed'
+  }),'cancelled','Finance pode resolver/rejeitar sem usar o guard específico da revenda');
+
+  assert.deepEqual(
+    providerChargeAfterRequestResolution({
+      requestAfter:'cancelled',chargeStatus:'active'
+    }),
+    {status:'cancelled',lastErrorCode:'PROVIDER_CANCEL_REQUIRED'}
+  );
+  assert.deepEqual(
+    providerChargeAfterRequestResolution({
+      requestAfter:'rejected',chargeStatus:'preparing'
+    }),
+    {status:'cancelled',lastErrorCode:'PROVIDER_CANCEL_REQUIRED'}
+  );
+  assert.deepEqual(
+    providerChargeAfterRequestResolution({
+      requestAfter:'cancelled',chargeStatus:'completed'
+    }),
+    {status:'completed',lastErrorCode:null}
+  );
+
+  assert.equal(pixChargeLateCommitDecision('cancelled'),'cancelled');
+  assert.equal(providerCancelRetryDecision({
+    status:'cancelled',lastErrorCode:'PROVIDER_CANCEL_REQUIRED'
+  }),'delete_provider');
+  assert.equal(providerCancelRetryDecision({
+    status:'cancelled',lastErrorCode:'PROVIDER_CANCEL_FAILED'
+  }),'delete_provider');
+  assert.equal(providerCancelRetryDecision({
+    status:'completed',lastErrorCode:'PROVIDER_CANCEL_FAILED'
+  }),'skip');
+  assert.equal(providerCancelRetryDecision({
+    status:'cancelled',lastErrorCode:'PROVIDER_CANCEL_REQUIRED',provider:'other'
+  }),'unsupported_provider');
+  providerCancelCases+=12;
+}
+
+console.log(`Financial invariant fuzz passou: ${rewardCases} cenários de unit economics + ${positionCases} posições de cashback + ${prepaidCases} cenários de consumo de crédito de taxa + ${transitionCases} transições de pacote + ${reconciliationCases} cenários de reconciliação + ${exactPaymentCases} confirmações exatas de pagamento + ${d1AuthorityCases} cenários de autoridade D+1 + ${reconciliationKeyCases} cenários de unicidade de conciliação + ${providerEventCases} cenários de eventos de provedor + ${reactiveProviderCases} transições reativas de conciliação + ${provenanceCases} provas de proveniência de aprovação + ${paymentEventReviewCases} decisões de lifecycle de eventos + ${financeSlaCases} classificações de SLA financeiro + ${canonicalEventCases} decisões de evento canônico + ${wooviAdapterCases} normalizações Woovi/OpenPix + ${generatedPixCases} decisões de cobrança Pix correlacionada + ${siblingProviderCases} decisões de evento irmão do PSP + ${pixExpirationCases} decisões de expiração/regeneração Pix + ${providerCancelCases} decisões de cancelamento acoplado ao PSP.`);

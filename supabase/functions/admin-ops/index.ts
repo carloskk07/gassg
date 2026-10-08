@@ -7,6 +7,7 @@ import {
   requestFingerprint,
   sha256Hex
 } from "../_shared/domain.js";
+import { cancelProviderChargesForPaymentRequest } from "../_shared/provider-charge-cancel.js";
 
 const SUPABASE_URL=Deno.env.get("SUPABASE_URL")??"";
 const publishableKeys=JSON.parse(Deno.env.get("SUPABASE_PUBLISHABLE_KEYS")??"{}");
@@ -105,7 +106,7 @@ const ADMIN_ROLE_ACTIONS:Record<string,Set<string>>={
   ]),
   finance:new Set([
     "financial-action","review-referral","retry-reward","retry-accounting","reverse-order",
-    "commercial-policy","merchant-billing-action","merchant-billing-payment-request","merchant-billing-payment-event","incident-action"
+    "commercial-policy","merchant-billing-action","merchant-billing-payment-request","merchant-billing-payment-event","merchant-billing-provider-cancel-retry","incident-action"
   ]),
   support:new Set(["order-control","support-case-status","incident-action"]),
   compliance:new Set([
@@ -1715,6 +1716,10 @@ Deno.serve(async(req:Request)=>{
         reconciliationKey,
         paymentEventId
       };
+    }else if(action==="merchant-billing-provider-cancel-retry"){
+      payload={
+        paymentRequestId:uuid(body.paymentRequestId,"payment request")
+      };
     }else if(action==="merchant-billing-payment-event"){
       const eventAction=String(body.eventAction??"").trim().toLowerCase();
       if(!["recheck","ignore"].includes(eventAction)){
@@ -1786,6 +1791,18 @@ Deno.serve(async(req:Request)=>{
     }
 
     const requestHash=await requestFingerprint("admin-ops:"+action,payload);
+
+    if(action==="merchant-billing-provider-cancel-retry"){
+      const providerCancellation=await cancelProviderChargesForPaymentRequest(
+        admin,String(payload.paymentRequestId)
+      );
+      return json({
+        ok:providerCancellation.failed===0,
+        paymentRequestId:payload.paymentRequestId,
+        providerCancellation
+      },200,origin);
+    }
+
     let rpcName="admin_execute_action";
     let rpcArgs:any={
       p_actor_user_id:user.id,
@@ -2087,6 +2104,25 @@ Deno.serve(async(req:Request)=>{
     }
     const {data,error}=await admin.rpc(rpcName,rpcArgs);
     if(error)throw error;
+
+    if(action==="merchant-billing-payment-request"
+       &&payload.requestAction==="reject"
+       &&payload.paymentRequestId){
+      let providerCancellation={attempted:0,cancelled:0,failed:0,deferred:false};
+      try{
+        providerCancellation={
+          ...(await cancelProviderChargesForPaymentRequest(
+            admin,payload.paymentRequestId
+          )),
+          deferred:false
+        };
+      }catch(cancelError){
+        console.error("provider cancellation handoff failed",String(cancelError));
+        providerCancellation={attempted:0,cancelled:0,failed:1,deferred:true};
+      }
+      return json({...data,providerCancellation},200,origin);
+    }
+
     return json(data,200,origin);
 
 

@@ -547,6 +547,9 @@ const canonicalPaymentEvent=read('supabase/migrations/20261008030000_canonical_p
 const generatedPixBilling=read('supabase/migrations/20261008043000_generated_pix_billing_v1_90.sql');
 const pspHealthEventDedup=read('supabase/migrations/20261008060000_psp_health_event_dedup_v1_91.sql');
 const pixChargeExpiration=read('supabase/migrations/20261008070000_pix_charge_expiration_v1_94.sql');
+const providerCancelCoupling=read('supabase/migrations/20261008074500_provider_charge_cancel_coupling_v1_95.sql');
+const providerChargeCancelSource=read('supabase/functions/_shared/provider-charge-cancel.js');
+const providerCancelMerchantOps=read('supabase/functions/merchant-ops/index.ts');
 const billingPaymentWebhookSource=read('supabase/functions/billing-payment-webhook/index.ts');
 const wooviPaymentWebhookSource=read('supabase/functions/billing-payment-webhook-woovi/index.ts');
 const merchantBillingPixSource=read('supabase/functions/merchant-billing-pix/index.ts');
@@ -791,6 +794,18 @@ assert.ok(adminOpsSource.includes('expired_at,completed_at')||adminOpsSource.inc
 assert.ok(merchantOrdersBillingSource.includes('expired_at')&&merchantOrdersBillingSource.includes('expiredAt:charge.expired_at'),'snapshot da revenda precisa transportar expiração real da cobrança');
 assert.ok(merchant.includes('function merchantBillingPixChargeExpired(')&&merchant.includes('Pix expirado.')&&merchant.includes('Gerar novo Pix'),'portal da revenda precisa ocultar QR vencido e oferecer regeneração mantendo a solicitação');
 assert.ok(admin.includes('CHARGE_EXPIRED:')&&admin.includes('chargeExpiredWebhookReady')&&admin.includes('expirou'),'Financeiro precisa mostrar saúde do webhook de expiração e histórico de QR vencido');
+assert.ok(providerCancelCoupling.includes('guard_merchant_payment_request_cancel_after_provider_payment')&&providerCancelCoupling.includes('PAYMENT_REQUEST_PAYMENT_ALREADY_RECEIVED'),'v1.95 precisa bloquear cancelamento da revenda depois de evidência de pagamento');
+assert.ok(providerCancelCoupling.includes("new.admin_reference='cancelled-by-merchant'")&&providerCancelCoupling.includes("c.status='completed'")&&providerCancelCoupling.includes("e.status in ('matched_exact','applied','already_applied')"),'guard de cancelamento deve ser específico da revenda e reconhecer pagamento no charge/evento');
+assert.ok(providerCancelCoupling.includes('retire_provider_charges_after_payment_request_resolution')&&providerCancelCoupling.includes("new.status in ('cancelled','rejected')")&&providerCancelCoupling.includes("'PROVIDER_CANCEL_REQUIRED'"),'cancelamento/rejeição financeira precisa aposentar QRs locais e criar handoff de cancelamento PSP');
+assert.ok(providerCancelCoupling.includes('guard_provider_charge_terminal_reopen')&&providerCancelCoupling.includes("old.status='cancelled'")&&providerCancelCoupling.includes("new.status in ('preparing','active')"),'resposta tardia da criação do Pix não pode reativar cobrança cancelada');
+assert.ok(providerCancelCoupling.includes('merchant_billing_provider_charges_cancel_retry_idx'),'fila de cancelamento externo precisa ter índice parcial próprio');
+assert.ok(providerChargeCancelSource.includes('method:"DELETE"')&&providerChargeCancelSource.includes('PROVIDER_CANCEL_REQUIRED')&&providerChargeCancelSource.includes('PROVIDER_CANCEL_FAILED'),'helper server-side precisa excluir a cobrança no PSP e preservar falha retryável');
+assert.ok(providerChargeCancelSource.includes('https://api.woovi.com')&&providerChargeCancelSource.includes('https://api.woovi-sandbox.com'),'cancelamento externo precisa restringir SSRF aos hosts oficiais da Woovi');
+assert.ok(providerCancelMerchantOps.includes('cancelProviderChargesForPaymentRequest')&&providerCancelMerchantOps.includes('PAYMENT_REQUEST_PAYMENT_ALREADY_RECEIVED'),'merchant-ops precisa executar cancelamento PSP e traduzir pagamento já recebido');
+assert.ok(adminOpsSource.includes('merchant-billing-provider-cancel-retry')&&adminOpsSource.includes('cancelProviderChargesForPaymentRequest'),'Financeiro precisa ter retry explícito para cancelamento externo');
+assert.ok(merchantBillingPixSource.includes('committed?.status==="cancelled"')&&merchantBillingPixSource.includes('PIX_REQUEST_CANCELLED'),'Edge de criação Pix precisa detectar cancelamento que venceu a corrida e não devolver QR utilizável');
+assert.ok(merchant.includes('cancelamento do QR no PSP ficou pendente para o Financeiro')&&merchant.includes('pagamento já tiver sido recebido, o cancelamento será bloqueado'),'revenda precisa receber estado honesto do cancelamento acoplado');
+assert.ok(admin.includes('Repetir cancelamento no PSP')&&admin.includes('adminRetryBillingProviderCancel'),'Financeiro precisa conseguir repetir cancelamento externo sem reabrir solicitação');
 assert.ok(!adminOpsSource.includes('.rpc("admin_financial_action"'),'Edge admin não pode contornar a autoridade idempotente financeira');
 assert.ok(!adminOpsSource.includes('.rpc("admin_reverse_settled_order"'),'Edge admin não pode contornar a autoridade idempotente de reversão');
 const reversalReplayMigration=read('supabase/migrations/20261005235900_reversal_replay_timestamp_consistency_v1_70_16.sql');

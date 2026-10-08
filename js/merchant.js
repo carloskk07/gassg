@@ -401,10 +401,17 @@ async function merchantNotifyStatementPaidFromUi(statementId){
 }
 
 async function merchantCancelBillingRequestFromUi(paymentRequestId){
-  if(!confirm('Cancelar esta solicitação financeira pendente? Se você já copiou um Pix desta solicitação, não o pague depois do cancelamento.'))return;
+  if(!confirm('Cancelar esta solicitação financeira pendente? O TAMÃO também tentará invalidar o QR Pix no provedor. Se o pagamento já tiver sido recebido, o cancelamento será bloqueado.'))return;
   try{
-    await merchantCancelBillingRequestLive(paymentRequestId);
-    toast('Solicitação cancelada');
+    const result=await merchantCancelBillingRequestLive(paymentRequestId);
+    const cancel=result?.providerCancellation||{};
+    if(Number(cancel.failed||0)>0){
+      toast('Solicitação cancelada; o cancelamento do QR no PSP ficou pendente para o Financeiro');
+    }else if(Number(cancel.cancelled||0)>0){
+      toast('Solicitação e QR Pix cancelados');
+    }else{
+      toast('Solicitação cancelada');
+    }
   }catch(e){toast(String(e?.message||e))}
 }
 

@@ -504,6 +504,21 @@ async function adminCheckBillingProviderHealth(){
   }
 }
 
+async function adminRetryBillingProviderCancel(paymentRequestId){
+  if(!paymentRequestId)return toast('Solicitação financeira inválida');
+  if(!confirm('Repetir o cancelamento desta cobrança no PSP? A solicitação financeira continuará encerrada.'))return;
+  try{
+    const result=await adminPerform('merchant-billing-provider-cancel-retry',{paymentRequestId});
+    const cancel=result?.providerCancellation||{};
+    if(Number(cancel.failed||0)>0){
+      toast('Cancelamento no PSP ainda falhou; a pendência continua registrada');
+    }else if(Number(cancel.cancelled||0)>0){
+      toast('Cobrança cancelada no PSP');
+    }else{
+      toast('Nenhum cancelamento de PSP está pendente para esta solicitação');
+    }
+  }catch(e){toast(String(e?.message||e))}
+}
 function adminSeverityLabel(level){
   return ({critical:'CRÍTICO',high:'ALTO',medium:'MÉDIO',low:'BAIXO'})[String(level)]||String(level||'INFO').toUpperCase();
 }
@@ -1412,6 +1427,17 @@ function adminBillingReconciliationView(reconciliation){
   </div>`;
 }
 
+function adminBillingProviderChargeRow(charge){
+  const cancelRetry=charge.status==='cancelled'
+    &&['PROVIDER_CANCEL_REQUIRED','PROVIDER_CANCEL_FAILED'].includes(String(charge.last_error_code||''));
+  const retryButton=cancelRetry&&charge.payment_request_id
+    ? `<br><button class="secondary small" style="margin-top:6px" onclick="adminRetryBillingProviderCancel('${esc(charge.payment_request_id)}')">Repetir cancelamento no PSP</button>`
+    : '';
+  const pendingNote=cancelRetry
+    ? '<br><small>Cancelamento externo pendente; a cobrança local já está encerrada.</small>'
+    : '';
+  return `<div class="list-row"><div><strong>${esc(adminMerchantName(charge.merchant_id))}</strong><br><small>${esc(charge.provider||'—')} • correlação ${esc(charge.correlation_id||'—')}${charge.end_to_end_id?' • EndToEndId '+esc(charge.end_to_end_id):''}</small>${pendingNote}</div><div style="text-align:right"><strong>${adminMoney(charge.amount_cents)}</strong><br><span class="status-pill ${charge.status==='completed'?'online':charge.last_error_code?'offline':charge.status==='expired'||charge.status==='cancelled'?'':'risk'}">${esc(String(charge.status||'—').toUpperCase())}</span>${charge.expired_at?`<br><small>expirou ${esc(formatDateTime(charge.expired_at))}</small>`:''}${charge.last_error_code?`<br><small>${esc(charge.last_error_code)}</small>`:''}${retryButton}</div></div>`;
+}
 function adminMerchantBillingSection(d){
   const billing=d.merchantBilling||{};
   const plans=billing.plans||[];
@@ -1464,7 +1490,7 @@ function adminMerchantBillingSection(d){
     </div>`:''}
     ${adminBillingMetricsView(metrics)}
     ${adminBillingReconciliationView(reconciliation)}
-    ${providerCharges.length?`<details class="card flat" style="margin-bottom:16px"><summary><strong>Cobranças Pix geradas pelo TAMÃO</strong> • ${providerCharges.length}</summary><div class="list" style="margin-top:10px">${providerCharges.slice(0,50).map(charge=>`<div class="list-row"><div><strong>${esc(adminMerchantName(charge.merchant_id))}</strong><br><small>${esc(charge.provider||'—')} • correlação ${esc(charge.correlation_id||'—')}${charge.end_to_end_id?' • EndToEndId '+esc(charge.end_to_end_id):''}</small></div><div style="text-align:right"><strong>${adminMoney(charge.amount_cents)}</strong><br><span class="status-pill ${charge.status==='completed'?'online':charge.last_error_code?'offline':charge.status==='expired'||charge.status==='cancelled'?'':'risk'}">${esc(String(charge.status||'—').toUpperCase())}</span>${charge.expired_at?`<br><small>expirou ${esc(formatDateTime(charge.expired_at))}</small>`:''}${charge.last_error_code?`<br><small>${esc(charge.last_error_code)}</small>`:''}</div></div>`).join('')}</div></details>`:''}
+    ${providerCharges.length?`<details class="card flat" style="margin-bottom:16px"><summary><strong>Cobranças Pix geradas pelo TAMÃO</strong> • ${providerCharges.length}</summary><div class="list" style="margin-top:10px">${providerCharges.slice(0,50).map(adminBillingProviderChargeRow).join('')}</div></details>`:''}
     ${actionableEvents.length?`<div class="section-head" style="margin-top:18px"><div><h3>Eventos de pagamento</h3><p>Eventos autenticados do provedor são conciliados por valor + identificador. Ambiguidades nunca movimentam saldo automaticamente.</p></div><span class="status-pill ${actionableEvents.some(x=>x.status==='review_required')?'risk':'online'}">${actionableEvents.length} evento(s)</span></div>${actionableEvents.map(adminBillingPaymentEventCard).join('')}`:''}
     ${plans.length?`<div class="admin-entity-grid">${plans.map(adminBillingPlanCard).join('')}</div>`:'<div class="notice">Motor de cobrança diária ainda não está ativo neste ambiente.</div>'}
     <div class="section-head" style="margin-top:18px"><div><h3>Pagamentos aguardando conferência</h3><p>Aprovar é uma ação financeira: pacote gera crédito; fechamento diário é quitado. A referência da revenda, sozinha, nunca movimenta saldo.</p></div><span class="status-pill ${pendingPaymentRequests.length?'risk':'online'}">${pendingPaymentRequests.length} pendente(s)</span></div>
