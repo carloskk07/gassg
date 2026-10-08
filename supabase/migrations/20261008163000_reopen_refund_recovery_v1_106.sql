@@ -584,9 +584,21 @@ begin
     where id=v_parent.refund_id;
 
     if not found
-       or v_original_refund.status<>'review_required'
-       or v_original_refund.merchant_id is distinct from v_refund.merchant_id then
-      raise exception 'REFUND_RECOVERY_REOPEN_ORIGINAL_REFUND_NOT_OPEN'
+       or v_original_refund.merchant_id is distinct from v_refund.merchant_id
+       or not (
+         (
+           v_parent.outstanding_cents>0
+           and v_parent.status in ('open','payment_pending')
+           and v_original_refund.status='review_required'
+         )
+         or
+         (
+           v_parent.outstanding_cents=0
+           and v_parent.status='recovered'
+           and v_original_refund.status='resolved_recovered'
+         )
+       ) then
+      raise exception 'REFUND_RECOVERY_REOPEN_ORIGINAL_REFUND_STATE_INVALID'
         using errcode='23514';
     end if;
 
@@ -1921,8 +1933,20 @@ begin
      or v_recovery.outstanding_cents<0
      or v_recovery.outstanding_cents>v_recovery.amount_cents
      or v_original_refund.id is null
-     or v_original_refund.status<>'review_required'
      or v_original_refund.merchant_id is distinct from new.merchant_id
+     or not (
+       (
+         v_recovery.outstanding_cents>0
+         and v_recovery.status in ('open','payment_pending')
+         and v_original_refund.status='review_required'
+       )
+       or
+       (
+         v_recovery.outstanding_cents=0
+         and v_recovery.status='recovered'
+         and v_original_refund.status='resolved_recovered'
+       )
+     )
      or exists(
        select 1
        from public.merchant_billing_refund_recoveries nested
