@@ -1780,7 +1780,7 @@ for(let i=0;i<30000;i++){
     statementStatus:'open',
     statementDueCents:cash+extraDue,
     currentPlanIsPrepaid:currentPrepaid,
-    currentPlanBps,
+    currentPlanBps:currentBps,
     sourcePlanBps:sourceBps
   });
   assert.equal(open.creditRestoredCents,prepaid);
@@ -1799,7 +1799,7 @@ for(let i=0;i<30000;i++){
     statementStatus:'paid',
     statementDueCents:cash,
     currentPlanIsPrepaid:currentPrepaid,
-    currentPlanBps,
+    currentPlanBps:currentBps,
     sourcePlanBps:sourceBps
   });
   assert.equal(paid.creditRestoredCents,prepaid);
