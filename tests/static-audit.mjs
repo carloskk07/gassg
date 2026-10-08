@@ -535,6 +535,7 @@ const paymentEventReviewLifecycle=read('supabase/migrations/20261008020000_payme
 const financeQueueSla=read('supabase/migrations/20261008023000_finance_queue_sla_v1_85.sql');
 const canonicalPaymentEvent=read('supabase/migrations/20261008030000_canonical_payment_event_v1_86.sql');
 const generatedPixBilling=read('supabase/migrations/20261008043000_generated_pix_billing_v1_90.sql');
+const pspHealthEventDedup=read('supabase/migrations/20261008060000_psp_health_event_dedup_v1_91.sql');
 const billingPaymentWebhookSource=read('supabase/functions/billing-payment-webhook/index.ts');
 const wooviPaymentWebhookSource=read('supabase/functions/billing-payment-webhook-woovi/index.ts');
 const merchantBillingPixSource=read('supabase/functions/merchant-billing-pix/index.ts');
@@ -746,6 +747,17 @@ assert.ok(merchantOrdersBillingSource.includes('merchant_billing_provider_charge
 assert.ok(backend.includes('merchantCreateBillingPixLive')&&backend.includes("liveIdempotency('merchant-billing-pix')")&&backend.includes("'merchant-billing-pix'"),'cliente da revenda precisa gerar cobrança por Edge idempotente dedicada');
 assert.ok(merchant.includes('Gerar Pix e solicitar ativação')&&merchant.includes('Pagar com Pix')&&merchant.includes('Pix copia e cola')&&merchant.includes('merchantCopyBillingPixCode'),'portal deve tornar o Pix gerado o caminho principal sem remover fallback manual');
 assert.ok(admin.includes('Cobranças Pix geradas pelo TAMÃO')&&admin.includes('provider_charge_correlation_and_amount'),'Financeiro precisa distinguir cobrança correlacionada do fallback manual');
+assert.ok(pspHealthEventDedup.includes("'superseded'")&&pspHealthEventDedup.includes('sibling_provider_event_same_transaction'),'v1.91 precisa ter estado terminal explícito para notificação irmã benigna do PSP');
+assert.ok(pspHealthEventDedup.includes('v_event.provider_correlation_id is null')&&pspHealthEventDedup.includes('v_other_matched.provider=v_event.provider')&&pspHealthEventDedup.includes('v_other_matched.amount_cents=v_event.amount_cents')&&pspHealthEventDedup.includes('v_other_matched.payment_method=v_event.payment_method'),'deduplicação benigna só pode ocorrer para evento genérico do mesmo PSP, mesma transação, valor e meio');
+assert.ok(pspHealthEventDedup.includes("e.match_reason='no_exact_pending_request'")&&pspHealthEventDedup.includes('sibling_provider_event_resolved_by_charge'),'evento genérico em revisão só pode ser aposentado automaticamente quando a cobrança correlacionada posterior resolve exatamente o mesmo Pix');
+assert.ok(pspHealthEventDedup.includes("status='review_required'")&&pspHealthEventDedup.includes("match_reason='duplicate_transaction_event'"),'evidência conflitante precisa continuar em revisão, nunca ser ocultada como duplicata benigna');
+assert.ok(adminOpsSource.includes('billing-provider-health')&&adminOpsSource.includes('wooviBillingProviderHealth'),'admin precisa oferecer health-check real do PSP como ação de leitura autenticada');
+assert.ok(adminOpsSource.includes('/api/v1/webhook?url=')&&adminOpsSource.includes('"Authorization":appId'),'health-check Woovi precisa validar o AppID pela API oficial sem criar cobrança');
+assert.ok(adminOpsSource.includes('WOOVI_CHARGE_WEBHOOK_MISSING')&&adminOpsSource.includes('WOOVI_CHARGE_WEBHOOK_AUTH_MISMATCH')&&adminOpsSource.includes('chargeWebhookReady'),'health-check precisa provar webhook CHARGE_COMPLETED ativo e com autorização exata');
+assert.ok(adminOpsSource.includes('transactionWebhookActive')&&adminOpsSource.includes('OPENPIX:TRANSACTION_RECEIVED'),'health-check precisa tornar visível se o evento genérico irmão também está ativo');
+assert.ok(admin.includes('Testar conexão real com a Woovi')&&admin.includes('adminCheckBillingProviderHealth'),'Financeiro precisa conseguir executar a prova real do PSP sem sair do painel');
+assert.ok(admin.includes("providerHealth.credentialValid===true?'válida'")&&admin.includes('providerHealth.chargeWebhookReady'),'UI deve mostrar resultado sanitizado do teste real, sem depender só de secret presente');
+assert.ok(admin.includes("superseded:'SUBSTITUÍDO'")&&admin.includes('sibling_provider_event_resolved_by_charge'),'UI precisa explicar eventos irmãos aposentados sem colocá-los na fila de revisão');
 assert.ok(!adminOpsSource.includes('.rpc("admin_financial_action"'),'Edge admin não pode contornar a autoridade idempotente financeira');
 assert.ok(!adminOpsSource.includes('.rpc("admin_reverse_settled_order"'),'Edge admin não pode contornar a autoridade idempotente de reversão');
 const reversalReplayMigration=read('supabase/migrations/20261005235900_reversal_replay_timestamp_consistency_v1_70_16.sql');
