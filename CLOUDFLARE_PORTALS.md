@@ -14,6 +14,8 @@ O Netlify permanece apenas como fallback legado de **produção** durante a tran
 
 O GitHub Pages também deixa de publicar em cada `push`: permanece somente como fallback manual de emergência. A autoridade live é o trio de domínios oficiais validado pelo gate `TAMÃO launch readiness` com igualdade exata de SHA.
 
+As Edge Functions privilegiadas da revenda não autorizam mais a origem Netlify por fallback. Elas aceitam canonicamente `https://parceiro.tamao.com.br` e `https://tamao-sg-revenda.pages.dev`; `MERCHANT_ALLOWED_ORIGIN` só adiciona uma origem quando houver configuração explícita.
+
 ## Por que Cloudflare Pages
 
 Os três projetos podem apontar para o mesmo repositório `carloskk07/gassg`.
