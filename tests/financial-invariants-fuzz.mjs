@@ -1245,4 +1245,61 @@ for(let i=0;i<30000;i++){
   refundExposureCapCases+=7;
 }
 
-console.log(`Financial invariant fuzz passou: ${rewardCases} cenários de unit economics + ${positionCases} posições de cashback + ${prepaidCases} cenários de consumo de crédito de taxa + ${transitionCases} transições de pacote + ${reconciliationCases} cenários de reconciliação + ${exactPaymentCases} confirmações exatas de pagamento + ${d1AuthorityCases} cenários de autoridade D+1 + ${reconciliationKeyCases} cenários de unicidade de conciliação + ${providerEventCases} cenários de eventos de provedor + ${reactiveProviderCases} transições reativas de conciliação + ${provenanceCases} provas de proveniência de aprovação + ${paymentEventReviewCases} decisões de lifecycle de eventos + ${financeSlaCases} classificações de SLA financeiro + ${canonicalEventCases} decisões de evento canônico + ${wooviAdapterCases} normalizações Woovi/OpenPix + ${generatedPixCases} decisões de cobrança Pix correlacionada + ${siblingProviderCases} decisões de evento irmão do PSP + ${pixExpirationCases} decisões de expiração/regeneração Pix + ${providerCancelCases} decisões de cancelamento acoplado ao PSP + ${providerRefundCases} decisões de refund/quarentena do PSP + ${refundRecoveryCases} decisões de recuperação econômica de refund + ${refundRecoveryReconciliationCases} provas de reconciliação de recuperação + ${refundExposureCapCases} alocações com teto de exposição de refund.`);
+
+function exactRecoveryWriteDecision({
+  operation='insert',
+  refundAmount,
+  originalAmount,
+  priorAllocated,
+  requestedAmount,
+  economicFieldsChanged=false
+}){
+  if(operation==='delete')return 'blocked_immutable';
+  if(operation==='update'&&economicFieldsChanged)return 'blocked_immutable';
+  const remaining=Math.max(originalAmount-priorAllocated,0);
+  const expected=Math.min(refundAmount,remaining);
+  if(expected<=0)return 'blocked_no_exposure';
+  if(requestedAmount!==expected)return 'blocked_exact_allocation';
+  return 'accepted';
+}
+
+let exactRecoveryAllocationCases=0;
+for(let i=0;i<30000;i++){
+  const original=int(1,10000000);
+  const prior=int(0,original);
+  const refund=int(1,original);
+  const expected=Math.min(refund,Math.max(original-prior,0));
+
+  if(expected>0){
+    assert.equal(exactRecoveryWriteDecision({
+      refundAmount:refund,originalAmount:original,priorAllocated:prior,
+      requestedAmount:expected
+    }),'accepted');
+    if(expected>1){
+      assert.equal(exactRecoveryWriteDecision({
+        refundAmount:refund,originalAmount:original,priorAllocated:prior,
+        requestedAmount:expected-1
+      }),'blocked_exact_allocation');
+    }
+    assert.equal(exactRecoveryWriteDecision({
+      refundAmount:refund,originalAmount:original,priorAllocated:prior,
+      requestedAmount:expected,
+      operation:'update',
+      economicFieldsChanged:true
+    }),'blocked_immutable');
+  }else{
+    assert.equal(exactRecoveryWriteDecision({
+      refundAmount:refund,originalAmount:original,priorAllocated:prior,
+      requestedAmount:1
+    }),'blocked_no_exposure');
+  }
+
+  assert.equal(exactRecoveryWriteDecision({
+    refundAmount:refund,originalAmount:original,priorAllocated:prior,
+    requestedAmount:expected||1,operation:'delete'
+  }),'blocked_immutable');
+
+  exactRecoveryAllocationCases+=4;
+}
+
+console.log(`Financial invariant fuzz passou: ${rewardCases} cenários de unit economics + ${positionCases} posições de cashback + ${prepaidCases} cenários de consumo de crédito de taxa + ${transitionCases} transições de pacote + ${reconciliationCases} cenários de reconciliação + ${exactPaymentCases} confirmações exatas de pagamento + ${d1AuthorityCases} cenários de autoridade D+1 + ${reconciliationKeyCases} cenários de unicidade de conciliação + ${providerEventCases} cenários de eventos de provedor + ${reactiveProviderCases} transições reativas de conciliação + ${provenanceCases} provas de proveniência de aprovação + ${paymentEventReviewCases} decisões de lifecycle de eventos + ${financeSlaCases} classificações de SLA financeiro + ${canonicalEventCases} decisões de evento canônico + ${wooviAdapterCases} normalizações Woovi/OpenPix + ${generatedPixCases} decisões de cobrança Pix correlacionada + ${siblingProviderCases} decisões de evento irmão do PSP + ${pixExpirationCases} decisões de expiração/regeneração Pix + ${providerCancelCases} decisões de cancelamento acoplado ao PSP + ${providerRefundCases} decisões de refund/quarentena do PSP + ${refundRecoveryCases} decisões de recuperação econômica de refund + ${refundRecoveryReconciliationCases} provas de reconciliação de recuperação + ${refundExposureCapCases} alocações com teto de exposição de refund + ${exactRecoveryAllocationCases} escritas com alocação exata/imutável.`);
