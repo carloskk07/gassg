@@ -561,6 +561,7 @@ const providerEvidencePrecedence=read('supabase/migrations/20261008143000_provid
 const manualPaymentRefundAnchor=read('supabase/migrations/20261008150000_manual_payment_refund_anchor_v1_105.sql');
 const reopenRefundRecovery=read('supabase/migrations/20261008163000_reopen_refund_recovery_v1_106.sql');
 const orderBillingRebind=read('supabase/migrations/20261008180000_order_billing_rebind_v1_107.sql');
+const prepaidReversalD1Netting=read('supabase/migrations/20261008190000_prepaid_reversal_d1_netting_v1_108.sql');
 const providerChargeCancelSource=read('supabase/functions/_shared/provider-charge-cancel.js');
 const providerCancelMerchantOps=read('supabase/functions/merchant-ops/index.ts');
 const billingPaymentWebhookSource=read('supabase/functions/billing-payment-webhook/index.ts');
@@ -927,6 +928,19 @@ assert.ok(orderBillingRebind.includes('v_flex_fee:=floor(')&&orderBillingRebind.
 assert.ok(orderBillingRebind.includes('credit_reserved_cents=credit_reserved_cents+v_reservation')&&orderBillingRebind.includes('where merchant_id=new.merchant_id'),'nova reserva precisa pertencer exclusivamente à nova revenda');
 assert.ok(orderBillingRebind.includes("event_type,title,detail,metadata")&&orderBillingRebind.includes("'BILLING_SNAPSHOT_REBOUND'"),'mudança de responsabilidade financeira precisa deixar trilha no histórico do pedido');
 assert.ok(orderBillingRebind.includes('revoke all on function public.rebind_order_billing_snapshot()')&&orderBillingRebind.includes('to postgres,service_role'),'autoridade de rebind financeiro precisa permanecer server-only');
+assert.ok(prepaidReversalD1Netting.includes('prepaid_fee_credit_source_plan_key_snapshot text')&&prepaidReversalD1Netting.includes('orders_prepaid_fee_credit_source_plan_shape'),'v1.108 precisa persistir qual pacote originou cada centavo pré-pago reservado');
+assert.ok(prepaidReversalD1Netting.includes('new.prepaid_fee_credit_source_plan_key_snapshot:=v_plan.plan_key')&&prepaidReversalD1Netting.includes('v_order.prepaid_fee_credit_source_plan_key_snapshot'),'snapshot/settlement precisam preservar a origem mesmo quando a taxa final cai para Flex');
+assert.ok(prepaidReversalD1Netting.includes("'fee_reversal_credit'")&&prepaidReversalD1Netting.includes('merchant_fee_credit_ledger_order_reversal_uq'),'devolução de crédito por estorno precisa ter lançamento semântico e idempotente por pedido');
+assert.ok(prepaidReversalD1Netting.includes("'merchant-fee-credit:'||v_order.merchant_id::text")&&prepaidReversalD1Netting.includes('credit_balance_cents+v_order.prepaid_fee_credit_applied_cents'),'restauração precisa usar o lock canônico e devolver exatamente o crédito consumido');
+assert.ok(prepaidReversalD1Netting.includes('v_current_plan.platform_fee_bps<=v_source_plan.platform_fee_bps')&&prepaidReversalD1Netting.includes('v_target_plan_key:=v_source_plan.plan_key'),'crédito restaurado nunca pode piorar um plano pré-pago atual nem ficar preso no Flex');
+assert.ok(prepaidReversalD1Netting.includes("pr.status<>'reversed'")&&prepaidReversalD1Netting.includes("when pr.status='open' then greatest("),'fechamento D+1 precisa excluir recebíveis revertidos e cobrar somente obrigações open');
+assert.ok(prepaidReversalD1Netting.includes("v_statement.status in ('open','overdue')")&&prepaidReversalD1Netting.includes('amount_due_cents=amount_due_cents-v_cash_refund_due'),'estorno com D+1 aberto precisa reduzir o fechamento em vez de criar reembolso de caixa');
+assert.ok(prepaidReversalD1Netting.includes("admin_reference='statement-adjusted-by-order-reversal'")&&prepaidReversalD1Netting.includes("request_kind='statement_payment'"),'mudança do valor D+1 precisa cancelar solicitação pendente obsoleta e acionar retirement do PSP');
+assert.ok(prepaidReversalD1Netting.includes("v_statement.status='paid'")&&prepaidReversalD1Netting.includes("'platform_fee_refund_due'")&&prepaidReversalD1Netting.includes('v_cash_refund_due'),'D+1 já pago deve gerar ajuste em dinheiro somente pela parcela pós-paga');
+assert.ok(prepaidReversalD1Netting.includes('v_receivable.platform_fee_cents\n              -v_receivable.prepaid_credit_applied_cents'),'validador do ajuste precisa provar caixa líquido de crédito pré-pago');
+assert.ok(prepaidReversalD1Netting.includes('prepaid_fee_credit_reversed_at=case')&&prepaidReversalD1Netting.includes("'prepaidCreditRestoredCents',v_credit_restored"),'pedido e evento precisam registrar explicitamente quanto crédito foi devolvido');
+assert.ok(prepaidReversalD1Netting.includes("entry_type in ('package_credit','fee_consumption','fee_reversal_credit','admin_adjustment')"),'reconciliador precisa contar fee_reversal_credit no saldo canônico do ledger');
+assert.ok(prepaidReversalD1Netting.includes('revoke all on function public.admin_merchant_billing_reconciliation(uuid)')&&prepaidReversalD1Netting.includes('to service_role,postgres'),'reconciliador atualizado precisa continuar server-only');
 
 assert.ok(refundAllocationSplit.includes("to_jsonb(new)->>'id'")&&refundAllocationSplit.includes("to_jsonb(new)->>'refund_id'"),'constraint trigger compartilhado entre refund/recovery precisa extrair IDs sem assumir o record shape da tabela chamadora');
 assert.ok(refundAllocationSplit.includes('REFUND_ALLOCATION_ZERO_EXPOSURE_HAS_RECOVERY')&&refundAllocationSplit.includes('REFUND_ALLOCATION_RECOVERY_MISMATCH'),'zero exposição não pode gerar dívida e obrigação positiva precisa bater exatamente com o recoverable');
