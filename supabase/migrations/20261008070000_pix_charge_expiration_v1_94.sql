@@ -341,11 +341,10 @@ begin
     raise exception 'PIX_CHARGE_PROVIDER_MISMATCH' using errcode='40001';
   end if;
 
-  if v_charge.status='completed' then
-    -- The signed payment webhook can win the race against the create-charge
-    -- HTTP response. In that case the financial fact is already completed,
-    -- but provider presentation metadata may still be missing. Enrich only
-    -- missing fields; conflicting non-null evidence remains fatal.
+  if v_charge.status in ('completed','expired') then
+    -- Signed payment/expiry webhooks can win the race against the create-charge
+    -- HTTP response. Preserve the authoritative terminal state and enrich only
+    -- missing provider presentation metadata. Never revive an expired charge.
     if (v_charge.provider_charge_id is not null
         and v_charge.provider_charge_id is distinct from v_provider_charge_id)
        or (v_charge.br_code is not null
@@ -550,3 +549,56 @@ revoke all on function public.merchant_billing_provider_charge_expire(
 grant execute on function public.merchant_billing_provider_charge_expire(
   text,text,bigint,timestamptz
 ) to service_role,postgres;
+
+create or replace function public.expire_due_merchant_billing_provider_charges()
+returns jsonb
+language plpgsql
+security definer
+set search_path=pg_catalog
+as $
+declare
+  v_count integer:=0;
+begin
+  update public.merchant_billing_provider_charges
+  set status='expired',
+      expired_at=coalesce(expired_at,expires_at,clock_timestamp()),
+      updated_at=clock_timestamp()
+  where status='active'
+    and expires_at is not null
+    and expires_at<=clock_timestamp();
+
+  get diagnostics v_count=row_count;
+
+  return jsonb_build_object(
+    'ok',true,
+    'expiredCharges',v_count,
+    'processedAt',clock_timestamp()
+  );
+end;
+$;
+
+revoke all on function public.expire_due_merchant_billing_provider_charges()
+from public,anon,authenticated;
+grant execute on function public.expire_due_merchant_billing_provider_charges()
+to postgres,service_role;
+
+do $
+declare
+  v_jobid bigint;
+begin
+  select jobid into v_jobid
+  from cron.job
+  where jobname='tamao-pix-charge-expiration';
+
+  if v_jobid is not null then
+    perform cron.unschedule(v_jobid);
+  end if;
+
+  perform cron.schedule(
+    'tamao-pix-charge-expiration',
+    '*/5 * * * *',
+    'select public.expire_due_merchant_billing_provider_charges();'
+  );
+end
+$;
+
