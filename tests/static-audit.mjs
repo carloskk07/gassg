@@ -557,6 +557,7 @@ const refundRecoveryExactAllocation=read('supabase/migrations/20261008120000_ref
 const refundAllocationSplit=read('supabase/migrations/20261008124500_refund_allocation_split_v1_101.sql');
 const preapprovalRefundNeutrality=read('supabase/migrations/20261008133000_preapproval_refund_neutrality_v1_102.sql');
 const providerRefundLockOrder=read('supabase/migrations/20261008140000_provider_refund_lock_order_v1_103.sql');
+const providerEvidencePrecedence=read('supabase/migrations/20261008143000_provider_evidence_precedence_v1_104.sql');
 const providerChargeCancelSource=read('supabase/functions/_shared/provider-charge-cancel.js');
 const providerCancelMerchantOps=read('supabase/functions/merchant-ops/index.ts');
 const billingPaymentWebhookSource=read('supabase/functions/billing-payment-webhook/index.ts');
@@ -884,6 +885,13 @@ assert.ok(providerRefundLockOrder.indexOf('from public.merchant_billing_payment_
 assert.ok(providerRefundLockOrder.includes("v_event.status<>'matched_exact'")&&providerRefundLockOrder.includes('v_event.payment_request_id is distinct from v_request.id'),'mudança de lock não pode afrouxar a prova de vínculo exato do evento');
 assert.ok(providerRefundLockOrder.includes('p_received_amount_cents<>v_request.expected_amount_cents')&&providerRefundLockOrder.includes('PAYMENT_EVENT_APPROVAL_MISMATCH'),'mudança de lock precisa preservar valor exato, meio e transaction ID');
 assert.ok(providerRefundLockOrder.includes("revoke all on function public.admin_merchant_billing_payment_request_action(")&&providerRefundLockOrder.includes('to service_role,postgres'),'overload forte com nova ordem de locks precisa permanecer server-only');
+assert.ok(providerEvidencePrecedence.includes('block_manual_approval_when_provider_event_matched')&&providerEvidencePrecedence.includes("new.approval_source='manual'"),'v1.104 precisa bloquear aprovação manual somente quando a transição tenta usar origem manual');
+assert.ok(providerEvidencePrecedence.includes("e.status='matched_exact'")&&providerEvidencePrecedence.includes('e.payment_request_id=new.id')&&providerEvidencePrecedence.includes('e.merchant_id=new.merchant_id'),'guard precisa exigir prova PSP exata ligada à mesma solicitação e revenda');
+assert.ok(providerEvidencePrecedence.includes('PAYMENT_EVENT_MATCHED_REQUIRES_PROVIDER_APPROVAL'),'v1.104 precisa falhar com erro específico quando prova PSP exata for ignorada');
+assert.ok(providerEvidencePrecedence.includes('before update of status,approval_source'),'precedência de evidência precisa ser estrutural no banco e não depender da UI');
+assert.ok(providerEvidencePrecedence.includes('revoke all on function public.block_manual_approval_when_provider_event_matched()')&&providerEvidencePrecedence.includes('to postgres,service_role'),'guard v1.104 precisa permanecer server-only');
+assert.ok(adminOpsSource.includes('PAYMENT_EVENT_MATCHED_REQUIRES_PROVIDER_APPROVAL')&&adminOpsSource.includes('Confirmar evento conciliado'),'admin-ops precisa traduzir a precedência de evidência de forma operacional');
+assert.ok(admin.includes('Aprovação manual desabilitada: existe prova exata do PSP.')&&!admin.includes("Confirmar evento conciliado</button><button class=\"secondary small\" onclick=\"adminResolveBillingPaymentRequest"),'UI não pode oferecer bypass manual quando matched_exact já existe');
 assert.ok(refundAllocationSplit.includes("to_jsonb(new)->>'id'")&&refundAllocationSplit.includes("to_jsonb(new)->>'refund_id'"),'constraint trigger compartilhado entre refund/recovery precisa extrair IDs sem assumir o record shape da tabela chamadora');
 assert.ok(refundAllocationSplit.includes('REFUND_ALLOCATION_ZERO_EXPOSURE_HAS_RECOVERY')&&refundAllocationSplit.includes('REFUND_ALLOCATION_RECOVERY_MISMATCH'),'zero exposição não pode gerar dívida e obrigação positiva precisa bater exatamente com o recoverable');
 assert.ok(refundAllocationSplit.includes('new.recoverable_amount_cents is distinct from old.recoverable_amount_cents')&&refundAllocationSplit.includes('new.excess_amount_cents is distinct from old.excess_amount_cents'),'decomposição econômica precisa ficar imutável depois do primeiro vínculo autoritativo');
