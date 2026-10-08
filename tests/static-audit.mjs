@@ -558,6 +558,7 @@ const refundAllocationSplit=read('supabase/migrations/20261008124500_refund_allo
 const preapprovalRefundNeutrality=read('supabase/migrations/20261008133000_preapproval_refund_neutrality_v1_102.sql');
 const providerRefundLockOrder=read('supabase/migrations/20261008140000_provider_refund_lock_order_v1_103.sql');
 const providerEvidencePrecedence=read('supabase/migrations/20261008143000_provider_evidence_precedence_v1_104.sql');
+const manualPaymentRefundAnchor=read('supabase/migrations/20261008150000_manual_payment_refund_anchor_v1_105.sql');
 const providerChargeCancelSource=read('supabase/functions/_shared/provider-charge-cancel.js');
 const providerCancelMerchantOps=read('supabase/functions/merchant-ops/index.ts');
 const billingPaymentWebhookSource=read('supabase/functions/billing-payment-webhook/index.ts');
@@ -892,6 +893,15 @@ assert.ok(providerEvidencePrecedence.includes('before update of status,approval_
 assert.ok(providerEvidencePrecedence.includes('revoke all on function public.block_manual_approval_when_provider_event_matched()')&&providerEvidencePrecedence.includes('to postgres,service_role'),'guard v1.104 precisa permanecer server-only');
 assert.ok(adminOpsSource.includes('PAYMENT_EVENT_MATCHED_REQUIRES_PROVIDER_APPROVAL')&&adminOpsSource.includes('Confirmar evento conciliado'),'admin-ops precisa traduzir a precedência de evidência de forma operacional');
 assert.ok(admin.includes('Aprovação manual desabilitada: existe prova exata do PSP.')&&!admin.includes("Confirmar evento conciliado</button><button class=\"secondary small\" onclick=\"adminResolveBillingPaymentRequest"),'UI não pode oferecer bypass manual quando matched_exact já existe');
+assert.ok(manualPaymentRefundAnchor.includes("r.approval_source='manual'")&&manualPaymentRefundAnchor.includes("r.payment_method='pix'")&&manualPaymentRefundAnchor.includes('r.provider_payment_event_id is null'),'v1.105 só pode ancorar refund sem evento em aprovação manual Pix real');
+assert.ok(manualPaymentRefundAnchor.includes('r.received_amount_cents is not null')&&manualPaymentRefundAnchor.includes('lower(trim(r.reconciliation_key))'),'âncora manual precisa exigir valor recebido persistido e EndToEndId exato');
+assert.ok(manualPaymentRefundAnchor.includes("match_reason='refund_before_finance_approval_manual_reference'")&&manualPaymentRefundAnchor.includes('v_pending_count=1'),'referência pendente só pode neutralizar quando existe exatamente um candidato');
+assert.ok(manualPaymentRefundAnchor.includes("'multiple_manual_payment_candidates'"),'ambiguidade de referência manual precisa permanecer fail-closed e sem vínculo econômico');
+assert.ok(manualPaymentRefundAnchor.includes('require_manual_payment_refund_anchor_trg')&&manualPaymentRefundAnchor.includes('deferrable initially deferred'),'refund sem payment_event precisa ser provado estruturalmente no COMMIT');
+assert.ok(manualPaymentRefundAnchor.includes('block_manual_approval_with_unlinked_provider_refund_trg')&&manualPaymentRefundAnchor.includes('PAYMENT_REFUND_REVIEW_REQUIRED'),'refund assinado ainda não vinculado precisa bloquear aprovação manual posterior com a mesma chave');
+assert.ok(manualPaymentRefundAnchor.includes('v_result:=public.reconcile_merchant_billing_payment_refund(v_refund.id)'),'ingest e replay precisam compartilhar a mesma autoridade de matching de refund');
+assert.ok(manualPaymentRefundAnchor.includes("'merchant-billing-refund:'||v_refund.provider")&&manualPaymentRefundAnchor.includes('pg_advisory_xact_lock'),'reconcile de refund precisa serializar a chave original antes de calcular acumulado');
+assert.ok(admin.includes('Âncora financeira: confirmação Pix manual exata')&&admin.includes('multiple_manual_payment_candidates'),'Financeiro precisa enxergar âncora manual e ambiguidade sem linguagem técnica crua');
 assert.ok(refundAllocationSplit.includes("to_jsonb(new)->>'id'")&&refundAllocationSplit.includes("to_jsonb(new)->>'refund_id'"),'constraint trigger compartilhado entre refund/recovery precisa extrair IDs sem assumir o record shape da tabela chamadora');
 assert.ok(refundAllocationSplit.includes('REFUND_ALLOCATION_ZERO_EXPOSURE_HAS_RECOVERY')&&refundAllocationSplit.includes('REFUND_ALLOCATION_RECOVERY_MISMATCH'),'zero exposição não pode gerar dívida e obrigação positiva precisa bater exatamente com o recoverable');
 assert.ok(refundAllocationSplit.includes('new.recoverable_amount_cents is distinct from old.recoverable_amount_cents')&&refundAllocationSplit.includes('new.excess_amount_cents is distinct from old.excess_amount_cents'),'decomposição econômica precisa ficar imutável depois do primeiro vínculo autoritativo');
