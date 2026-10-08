@@ -69,19 +69,26 @@ const pix=await jsonPost('/functions/v1/merchant-billing-pix',{
   origin:MERCHANT_ORIGIN,
   body:{}
 });
+const problems=[];
+let appIdConfigured=false;
+let companyIdConfigured=false;
+let webhookAuthorizationConfigured=false;
+
 if(pix.status===503&&pix.body?.error==='PIX_PROVIDER_NOT_CONFIGURED'){
-  assert.fail('WOOVI_APP_ID não está configurado no runtime de produção');
+  problems.push('WOOVI_APP_ID ausente/inválido');
+}else{
+  assert.equal(
+    pix.status,
+    401,
+    'probe Pix precisa alcançar a autenticação depois do gate WOOVI_APP_ID'
+  );
+  assert.equal(
+    pix.body?.error,
+    'UNAUTHORIZED',
+    'probe Pix não confirmou o gate interno de configuração Woovi'
+  );
+  appIdConfigured=true;
 }
-assert.equal(
-  pix.status,
-  401,
-  'probe Pix precisa alcançar a autenticação depois do gate WOOVI_APP_ID'
-);
-assert.equal(
-  pix.body?.error,
-  'UNAUTHORIZED',
-  'probe Pix não confirmou o gate interno de configuração Woovi'
-);
 
 // The Woovi webhook checks WOOVI_WEBHOOK_AUTHORIZATION + WOOVI_COMPANY_ID
 // before comparing the incoming private Authorization value. Sending no
@@ -90,26 +97,35 @@ const webhook=await jsonPost('/functions/v1/billing-payment-webhook-woovi',{
   body:{}
 });
 if(webhook.status===503&&webhook.body?.error==='WOOVI_ADAPTER_NOT_CONFIGURED'){
-  assert.fail(
-    'WOOVI_COMPANY_ID e/ou WOOVI_WEBHOOK_AUTHORIZATION não estão configurados no runtime de produção'
+  problems.push('WOOVI_COMPANY_ID e/ou WOOVI_WEBHOOK_AUTHORIZATION ausentes/inválidos');
+}else{
+  assert.equal(
+    webhook.status,
+    401,
+    'webhook Woovi precisa alcançar a comparação da autorização privada'
   );
+  assert.equal(
+    webhook.body?.error,
+    'INVALID_WOOVI_AUTHORIZATION',
+    'webhook Woovi não confirmou o gate interno de Company ID/autorização privada'
+  );
+  companyIdConfigured=true;
+  webhookAuthorizationConfigured=true;
 }
-assert.equal(
-  webhook.status,
-  401,
-  'webhook Woovi precisa alcançar a comparação da autorização privada'
-);
-assert.equal(
-  webhook.body?.error,
-  'INVALID_WOOVI_AUTHORIZATION',
-  'webhook Woovi não confirmou o gate interno de Company ID/autorização privada'
-);
 
-console.log(JSON.stringify({
-  ok:true,
+const report={
+  ok:problems.length===0,
   provider:'woovi',
-  appIdConfigured:true,
-  companyIdConfigured:true,
-  webhookAuthorizationConfigured:true,
-  secretsExposed:false
-},null,2));
+  appIdConfigured,
+  companyIdConfigured,
+  webhookAuthorizationConfigured,
+  secretsExposed:false,
+  problems
+};
+console.log(JSON.stringify(report,null,2));
+
+assert.equal(
+  problems.length,
+  0,
+  'Woovi PSP runtime incompleto: '+problems.join('; ')
+);
