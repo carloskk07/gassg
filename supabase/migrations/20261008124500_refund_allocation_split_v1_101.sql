@@ -210,8 +210,9 @@ declare
   v_recovery public.merchant_billing_refund_recoveries%rowtype;
 begin
   v_refund_id:=case
-    when tg_table_name='merchant_billing_payment_refunds' then new.id
-    else new.refund_id
+    when tg_table_name='merchant_billing_payment_refunds'
+      then nullif(to_jsonb(new)->>'id','')::uuid
+    else nullif(to_jsonb(new)->>'refund_id','')::uuid
   end;
 
   select *
