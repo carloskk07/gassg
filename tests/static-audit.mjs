@@ -567,6 +567,7 @@ const prepaidSourcePlanFkIndex=read('supabase/migrations/20261008214500_prepaid_
 const merchantCreditBalanceEquation=read('supabase/migrations/20261008220000_merchant_credit_balance_equation_v1_111.sql');
 const feeCreditLedgerImmutability=read('supabase/migrations/20261008223000_fee_credit_ledger_immutability_v1_112.sql');
 const dailyStatementReceivableEquation=read('supabase/migrations/20261008230000_daily_statement_receivable_equation_v1_113.sql');
+const resolvedDailyStatementSnapshotEquation=read('supabase/migrations/20261008231500_resolved_daily_statement_snapshot_equation_v1_114.sql');
 const providerChargeCancelSource=read('supabase/functions/_shared/provider-charge-cancel.js');
 const providerCancelMerchantOps=read('supabase/functions/merchant-ops/index.ts');
 const billingPaymentWebhookSource=read('supabase/functions/billing-payment-webhook/index.ts');
@@ -978,6 +979,14 @@ assert.ok(dailyStatementReceivableEquation.includes("when v_previous_status='ove
 assert.ok(dailyStatementReceivableEquation.includes("'statement-recalculated-by-daily-close'")&&dailyStatementReceivableEquation.includes('expected_amount_cents is distinct from v_totals.amount_due_cents'),'mudança de valor do fechamento precisa invalidar aviso de pagamento pendente com valor antigo');
 assert.ok(dailyStatementReceivableEquation.includes('DAILY_STATEMENT_EXISTING_DRIFT'),'migration deve falhar fechado se já houver fechamento histórico divergente');
 assert.ok(dailyStatementReceivableEquation.includes('revoke all on function public.close_merchant_daily_finance(date)')&&dailyStatementReceivableEquation.includes('to postgres,service_role'),'autoridade de fechamento diário precisa continuar server-only');
+
+assert.ok(resolvedDailyStatementSnapshotEquation.includes('merchant_daily_statement_expected_resolved_totals')&&resolvedDailyStatementSnapshotEquation.includes('original_amount_due_cents'),'v1.114 precisa derivar o snapshot histórico resolvido separadamente da posição aberta');
+assert.ok(resolvedDailyStatementSnapshotEquation.includes('sum(pr.gross_total_cents)')&&resolvedDailyStatementSnapshotEquation.includes('sum(pr.platform_fee_cents)')&&resolvedDailyStatementSnapshotEquation.includes('sum(pr.prepaid_credit_applied_cents)'),'snapshot resolvido precisa continuar incluindo recebíveis revertidos depois da quitação');
+assert.ok(resolvedDailyStatementSnapshotEquation.includes('greatest(\n        pr.platform_fee_cents-pr.prepaid_credit_applied_cents,')&&resolvedDailyStatementSnapshotEquation.includes('DAILY_STATEMENT_RESOLVED_SNAPSHOT_MISMATCH'),'valor originalmente cobrado precisa permanecer provado mesmo após estorno pós-resolução');
+assert.ok(resolvedDailyStatementSnapshotEquation.includes('DAILY_STATEMENT_WITHOUT_RECEIVABLES'),'statement sem componentes não pode existir nem quando quitado integralmente por crédito');
+assert.ok(resolvedDailyStatementSnapshotEquation.includes('DAILY_STATEMENT_EXISTING_DRIFT_V1_114'),'migration precisa revalidar fail-closed todo histórico já resolvido');
+assert.ok(resolvedDailyStatementSnapshotEquation.includes('revoke all on function public.merchant_daily_statement_expected_resolved_totals(uuid)')&&resolvedDailyStatementSnapshotEquation.includes('to postgres,service_role'),'helper da prova histórica precisa permanecer server-only');
+
 
 assert.ok(refundAllocationSplit.includes("to_jsonb(new)->>'id'")&&refundAllocationSplit.includes("to_jsonb(new)->>'refund_id'"),'constraint trigger compartilhado entre refund/recovery precisa extrair IDs sem assumir o record shape da tabela chamadora');
 assert.ok(refundAllocationSplit.includes('REFUND_ALLOCATION_ZERO_EXPOSURE_HAS_RECOVERY')&&refundAllocationSplit.includes('REFUND_ALLOCATION_RECOVERY_MISMATCH'),'zero exposição não pode gerar dívida e obrigação positiva precisa bater exatamente com o recoverable');
