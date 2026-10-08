@@ -329,13 +329,6 @@ from public,anon,authenticated;
 grant execute on function public.reconcile_merchant_billing_payment_event(uuid)
 to service_role,postgres;
 
-
-
-revoke all on function public.reconcile_merchant_billing_payment_event(uuid)
-from public,anon,authenticated;
-grant execute on function public.reconcile_merchant_billing_payment_event(uuid)
-to service_role,postgres;
-
 create or replace function public.admin_merchant_billing_payment_event_action(
   p_actor_user_id uuid,
   p_event_id uuid,
