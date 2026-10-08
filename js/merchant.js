@@ -210,11 +210,16 @@ function merchantBillingLiveView(rt){
   const plan=billing.plan||{};
   const statements=billing.openStatements||[];
   const requests=billing.paymentRequests||[];
+  const recoveries=billing.refundRecoveries||[];
   const pixReady=billing.pixProviderReady===true;
   const pending=requests.filter(r=>r.status==='pending');
   const pendingPackage=pending.find(r=>r.requestKind==='package_purchase')||null;
   const pendingByStatement=new Map(
     pending.filter(r=>r.requestKind==='statement_payment'&&r.statementId).map(r=>[r.statementId,r])
+  );
+  const pendingByRecovery=new Map(
+    pending.filter(r=>r.requestKind==='refund_recovery'&&r.refundRecoveryId)
+      .map(r=>[r.refundRecoveryId,r])
   );
   const held=account.salesHold===true;
   const holdReason=String(account.salesHoldReason||'');
@@ -293,10 +298,40 @@ function merchantBillingLiveView(rt){
     return `<div class="list-row"><div><strong>${esc(String(s.businessDate||'Fechamento'))}</strong><br><small>${s.status==='overdue'?'VENCIDO':'vence '+esc(s.dueAt?new Date(s.dueAt).toLocaleString('pt-BR'):'—')}</small>${paymentAction}</div><div style="text-align:right"><strong>${BRL.format(Number(s.amountDueCents||0)/100)}</strong><br><small>taxa bruta ${BRL.format(Number(s.grossFeeCents||0)/100)} • crédito ${BRL.format(Number(s.prepaidCreditAppliedCents||0)/100)}</small></div></div>`;
   }).join('');
 
+  const recoveryRows=recoveries
+    .filter(r=>['open','payment_pending'].includes(String(r.status||'')))
+    .map(recovery=>{
+      const request=pendingByRecovery.get(recovery.id)
+        ||(recovery.recoveryPaymentRequestId
+          ?requests.find(r=>r.id===recovery.recoveryPaymentRequestId)
+          :null);
+      const amount=BRL.format(Number(recovery.amountCents||0)/100);
+      let action='';
+      if(request?.status==='pending'){
+        const chargeView=merchantBillingPixChargeView(request);
+        const expired=merchantBillingPixChargeExpired(request.pixCharge);
+        const retryPix=pixReady&&(
+          !request.pixCharge
+          ||request.pixCharge.status==='preparing'
+          ||expired
+        )
+          ? `<button class="secondary small" style="margin-top:8px" onclick="merchantCreateRefundRecoveryPixFromUi('${esc(recovery.id)}')" ${rt.actionPending?'disabled':''}>${expired?'Gerar novo Pix':'Gerar/recuperar Pix'}</button>`
+          : '';
+        action=`${chargeView||'<div class="notice risk" style="margin-top:8px"><strong>Recuperação pendente.</strong><br>Aguardando pagamento ou conferência financeira.</div>'}${retryPix}<button class="ghost small" style="margin-top:8px" onclick="merchantCancelBillingRequestFromUi('${esc(request.id)}')" ${rt.actionPending?'disabled':''}>Cancelar aviso de pagamento</button>`;
+      }else{
+        action=pixReady
+          ? `<button class="secondary small" style="margin-top:8px" onclick="merchantCreateRefundRecoveryPixFromUi('${esc(recovery.id)}')" ${rt.actionPending?'disabled':''}>Pagar recuperação com Pix</button><button class="ghost small" style="margin-top:8px" onclick="merchantNotifyRefundRecoveryPaidFromUi('${esc(recovery.id)}')" ${rt.actionPending?'disabled':''}>Já paguei por outro meio</button>`
+          : `<button class="secondary small" style="margin-top:8px" onclick="merchantNotifyRefundRecoveryPaidFromUi('${esc(recovery.id)}')" ${rt.actionPending?'disabled':''}>Informar pagamento da recuperação</button>`;
+      }
+      return `<div class="card flat"><div class="order-head"><div><strong>Recuperação de refund/estorno</strong><br><small>Obrigação ${esc(String(recovery.id).slice(0,8))} • o hold permanece até a aprovação do pagamento</small></div><span class="status-pill risk">${amount}</span></div>${action}</div>`;
+    }).join('');
+
   const recentRequests=requests.slice(0,8).map(r=>{
     const label=r.requestKind==='package_purchase'
       ? 'Pacote '+((billing.plans||[]).find(p=>p.planKey===r.planKey)?.displayName||r.planKey||'')
-      : 'Pagamento do fechamento';
+      : r.requestKind==='refund_recovery'
+        ? 'Recuperação de refund/estorno'
+        : 'Pagamento do fechamento';
     const status=({pending:'PENDENTE',approved:'APROVADO',rejected:'REJEITADO',cancelled:'CANCELADO'})[r.status]||String(r.status||'').toUpperCase();
     const method=({pix:'Pix',bank_transfer:'Transferência',cash:'Dinheiro',card:'Cartão',other:'Outro'})[String(r.paymentMethod||'')]||null;
     const provenance=r.approvalSource==='provider_event'
@@ -316,7 +351,7 @@ function merchantBillingLiveView(rt){
   return `<section class="section">
     <div class="section-head"><div><span class="section-kicker">FINANCEIRO TAMÃO</span><h2>Taxas e fechamento diário</h2><p>Cada venda conserva sua taxa individual. O TAMÃO fecha o dia às 00:05 e eventual saldo pós-pago vence até o fim do dia seguinte.</p></div><span class="status-pill ${held?'offline':'online'}">${held?'VENDAS SUSPENSAS':'EM DIA'}</span></div>
     ${held?(refundHold
-      ?'<div class="notice danger"><strong>Refund/estorno em revisão.</strong><br>O provedor informou devolução de um pagamento anteriormente conciliado. Novas vendas e novas solicitações financeiras ficam pausadas até o Financeiro confirmar a recuperação ou executar a correção contábil apropriada. Seu histórico permanece disponível.</div>'
+      ?'<div class="notice danger"><strong>Refund/estorno em revisão.</strong><br>O provedor informou devolução de um pagamento anteriormente conciliado. Novas vendas e novos benefícios financeiros ficam pausados. Quite a obrigação de recuperação abaixo; o hold só é liberado depois que o pagamento exato for conciliado e aprovado pelo Financeiro.</div>'
       :'<div class="notice danger"><strong>Há fechamento vencido.</strong><br>Novas vendas ficam pausadas até a regularização. Pedidos já aceitos continuam normalmente; seu acesso ao painel e ao histórico permanece disponível.</div>'):''}
     <div class="merchant-kpis">
       <div class="kpi"><span class="label">Plano</span><strong>${esc(plan.displayName||'Flex Diário')}</strong><small>${feePct}% por venda</small></div>
@@ -325,6 +360,7 @@ function merchantBillingLiveView(rt){
       <div class="kpi"><span class="label">Disponível</span><strong>${BRL.format(available/100)}</strong></div>
       <div class="kpi"><span class="label">Saldo D+1 aberto</span><strong>${BRL.format(openDue/100)}</strong><small>${nextDue?'próximo vencimento '+new Date(nextDue.dueAt).toLocaleString('pt-BR'):'nenhum vencimento'}</small></div>
     </div>
+    ${recoveryRows?`<div class="section-head" style="margin-top:16px"><div><h3>Recuperação de refund/estorno</h3><p>O valor devolvido pelo PSP precisa ser recomposto por uma nova transação comprovável. A referência administrativa sozinha não encerra o caso.</p></div></div><div class="admin-entity-grid">${recoveryRows}</div>`:''}
     ${statementRows?`<div class="card flat" style="margin-top:12px"><h3>Fechamentos em aberto</h3><div class="list">${statementRows}</div></div>`:''}
     <div class="section-head" style="margin-top:16px"><div><h3>Opções de taxa</h3><p>Quanto maior o crédito antecipado, menor a taxa por venda. O crédito só é consumido quando pedidos são liquidados. Com saldo ativo, recargas do mesmo pacote e upgrades para taxa menor permanecem disponíveis; downgrade só depois de zerar saldo e reservas.</p></div></div>
     <div class="admin-entity-grid">${planCards}</div>
@@ -352,6 +388,30 @@ async function merchantCreateStatementPixFromUi(statementId){
   try{
     await merchantCreateBillingPixLive({statementId});
     toast('Pix gerado. Use o QR ou o código copia e cola.');
+  }catch(e){toast(String(e?.message||e))}
+}
+
+async function merchantCreateRefundRecoveryPixFromUi(refundRecoveryId){
+  const billing=globalThis.merchantRuntime?.billing||{};
+  const recovery=(billing.refundRecoveries||[]).find(r=>r.id===refundRecoveryId);
+  if(!recovery)return toast('Obrigação de recuperação não encontrada');
+  if(!confirm('Gerar Pix de '+BRL.format(Number(recovery.amountCents||0)/100)+' para recompor este refund/estorno? O hold só será liberado após conferência do Financeiro.'))return;
+  try{
+    await merchantCreateBillingPixLive({refundRecoveryId});
+    toast('Pix de recuperação gerado.');
+  }catch(e){toast(String(e?.message||e))}
+}
+
+async function merchantNotifyRefundRecoveryPaidFromUi(refundRecoveryId){
+  const billing=globalThis.merchantRuntime?.billing||{};
+  const recovery=(billing.refundRecoveries||[]).find(r=>r.id===refundRecoveryId);
+  if(!recovery)return toast('Obrigação de recuperação não encontrada');
+  const reference=prompt('Identificador exato do pagamento de recuperação (Pix: EndToEndId; outro meio: ID da transação):')||'';
+  if(reference.trim().length<6)return toast('Informe o identificador exato da transação');
+  if(!confirm('Enviar para conferência a recuperação de '+BRL.format(Number(recovery.amountCents||0)/100)+'? O hold continua ativo até a aprovação do Financeiro.'))return;
+  try{
+    await merchantNotifyRefundRecoveryPaidLive(refundRecoveryId,reference);
+    toast('Pagamento de recuperação informado; aguardando conferência');
   }catch(e){toast(String(e?.message||e))}
 }
 
