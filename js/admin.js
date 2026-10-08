@@ -1324,6 +1324,7 @@ function adminBillingPaymentEventLabel(status){
     already_applied:'JÁ APLICADO',
     ignored:'IGNORADO',
     superseded:'SUBSTITUÍDO',
+    refunded:'REEMBOLSADO',
     applied:'APLICADO'
   })[String(status||'')]||String(status||'—').toUpperCase();
 }
@@ -1344,6 +1345,7 @@ function adminBillingPaymentMatchReasonLabel(reason){
     provider_charge_request_not_pending:'Pix recebido para solicitação que já não está pendente',
     provider_charge_merchant_mismatch:'correlação Pix aponta para outra revenda',
     provider_charge_amount_mismatch:'Pix correlacionado com valor diferente do esperado',
+    provider_refund_before_approval:'pagamento devolvido pelo PSP antes da aprovação financeira',
     ignored_by_finance:'evento encerrado pelo Financeiro'
   })[String(reason||'')]||String(reason||'—');
 }
@@ -1352,7 +1354,7 @@ function adminBillingPaymentEventCard(event){
   const status=String(event.status||'');
   const matched=status==='matched_exact';
   const review=status==='review_required';
-  const statusClass=matched||status==='applied'||status==='already_applied'?'online':review?'risk':'';
+  const statusClass=matched||status==='applied'||status==='already_applied'||status==='refunded'?'online':review?'risk':'';
   const merchant=event.merchant_id?adminMerchantName(event.merchant_id):'Sem revenda vinculada';
   return `<article class="order-card">
     <div class="order-head"><div><div class="order-id">${esc(event.provider)} • ${esc(event.provider_event_id)}</div><div class="tiny muted">${esc(event.received_at?new Date(event.received_at).toLocaleString('pt-BR'):'—')} • ${esc(merchant)}</div></div><span class="status-pill ${statusClass}">${esc(adminBillingPaymentEventLabel(status))}</span></div>
@@ -1483,7 +1485,8 @@ function adminBillingRefundCard(refund){
     resolved_recovered:
       persistedExcess>0?'EXPOSIÇÃO RECUPERADA':'RECUPERADO',
     ignored_unrelated:'NÃO RELACIONADO',
-    resolved_excess:'EXCESSO RECONHECIDO'
+    resolved_excess:'EXCESSO RECONHECIDO',
+    resolved_preapproval:'DEVOLVIDO ANTES DA APROVAÇÃO'
   })[String(refund.status||'')]||String(refund.status||'—').toUpperCase();
 
   let recoveryState='';
@@ -1518,8 +1521,13 @@ function adminBillingRefundCard(refund){
     <div class="order-head"><div><strong>${linked?esc(adminMerchantName(refund.merchant_id)):'Refund sem vínculo TAMÃO'}</strong><br><small>${esc(refund.provider||'—')} • ${esc(formatDateTime(refund.occurred_at))}</small></div><span class="status-pill ${review?'offline':'online'}">${esc(statusLabel)}</span></div>
     <div class="tiny muted">Refund: ${esc(refund.refund_reconciliation_key||'—')} • original: ${esc(refund.original_reconciliation_key||'—')}</div>
     <div class="tiny muted">Valor devolvido: ${adminMoney(refund.amount_cents)}${progress}</div>
-    ${linked&&persistedRecoverable!=null&&persistedExcess!=null?`<div class="tiny muted">Alocação econômica: recuperável ${adminMoney(persistedRecoverable)} • excedente não cobrável ${adminMoney(persistedExcess)} • prova ${adminMoney(persistedRecoverable+persistedExcess)} = refund</div>`:''}
+    ${linked&&persistedRecoverable!=null&&persistedExcess!=null
+      ?refund.status==='resolved_preapproval'
+        ?`<div class="tiny muted">Alocação econômica: recuperável R$ 0,00 • não recuperável porque nenhum benefício foi concedido ${adminMoney(persistedExcess)} • prova ${adminMoney(persistedRecoverable+persistedExcess)} = refund</div>`
+        :`<div class="tiny muted">Alocação econômica: recuperável ${adminMoney(persistedRecoverable)} • excedente não cobrável ${adminMoney(persistedExcess)} • prova ${adminMoney(persistedRecoverable+persistedExcess)} = refund</div>`
+      :''}
     <div class="tiny muted">Motor: ${esc(adminBillingRefundReasonLabel(refund.match_reason))}</div>
+    ${refund.status==='resolved_preapproval'?'<div class="notice success" style="margin-top:8px"><strong>Sem exposição da revenda.</strong><br>O PSP devolveu o pagamento antes da aprovação financeira. A solicitação foi cancelada automaticamente; nenhum crédito, quitação ou obrigação de recuperação foi criado.</div>':''}
     ${recovery?`<div class="tiny muted">Obrigação de recuperação: ${esc(recovery.id)} • ${adminMoney(recovery.amount_cents)} • ${esc(String(recovery.status||'—').toUpperCase())}</div>`:''}
     ${refund.resolution_reference?`<div class="tiny muted">Resolução: ${esc(refund.resolution_reference)}</div>`:''}
     ${review&&linked?'<div class="notice danger" style="margin-top:8px"><strong>Hold financeiro ativo.</strong><br>Novas vendas e novos benefícios financeiros permanecem suspensos até a recuperação comprovada.</div>':''}
