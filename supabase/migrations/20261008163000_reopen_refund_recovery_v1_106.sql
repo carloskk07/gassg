@@ -115,7 +115,7 @@ returns trigger
 language plpgsql
 security definer
 set search_path=pg_catalog
-as $function$;
+as $function$
 declare
   v_recovery public.merchant_billing_refund_recoveries%rowtype;
 begin
@@ -159,7 +159,7 @@ returns trigger
 language plpgsql
 security definer
 set search_path=pg_catalog
-as $function$;
+as $function$
 declare
   v_request public.merchant_billing_payment_requests%rowtype;
   v_recovery public.merchant_billing_refund_recoveries%rowtype;
@@ -283,7 +283,7 @@ CREATE OR REPLACE FUNCTION public.derive_provider_refund_allocation_split()
  LANGUAGE plpgsql
  SECURITY DEFINER
  SET search_path TO 'pg_catalog'
-AS $function$;
+AS $function$
 declare
   v_allocated_elsewhere bigint:=0;
   v_remaining bigint:=0;
@@ -363,7 +363,7 @@ CREATE OR REPLACE FUNCTION public.block_new_payment_request_during_provider_refu
  LANGUAGE plpgsql
  SECURITY DEFINER
  SET search_path TO 'pg_catalog'
-AS $function$;
+AS $function$
 declare
   v_recovery public.merchant_billing_refund_recoveries%rowtype;
 begin
@@ -410,7 +410,7 @@ CREATE OR REPLACE FUNCTION public.guard_provider_refund_fact_immutable()
  LANGUAGE plpgsql
  SECURITY DEFINER
  SET search_path TO 'pg_catalog'
-AS $function$;
+AS $function$
 begin
   if new.provider is distinct from old.provider
      or new.provider_event_id is distinct from old.provider_event_id
@@ -462,7 +462,7 @@ CREATE OR REPLACE FUNCTION public.require_refund_recovery_allocation_consistency
  LANGUAGE plpgsql
  SECURITY DEFINER
  SET search_path TO 'pg_catalog'
-AS $function$;
+AS $function$
 declare
   v_refund_id uuid;
   v_refund public.merchant_billing_payment_refunds%rowtype;
@@ -598,7 +598,7 @@ CREATE OR REPLACE FUNCTION public.admin_merchant_billing_payment_request_action(
  LANGUAGE plpgsql
  SECURITY DEFINER
  SET search_path TO 'pg_catalog'
-AS $function$;
+AS $function$
 declare
   v_role text;
   v_action public.action_requests%rowtype;
@@ -918,7 +918,7 @@ CREATE OR REPLACE FUNCTION public.admin_merchant_billing_metrics(p_actor_user_id
  LANGUAGE plpgsql
  SECURITY DEFINER
  SET search_path TO 'pg_catalog'
-AS $function$;
+AS $function$
 declare
   v_role text;
   v_account_count bigint:=0;
@@ -1277,7 +1277,7 @@ CREATE OR REPLACE FUNCTION public.admin_merchant_billing_reconciliation(p_actor_
  LANGUAGE plpgsql
  SECURITY DEFINER
  SET search_path TO 'pg_catalog'
-AS $function$;
+AS $function$
 declare
   v_role text;
   v_issue_count bigint:=0;
@@ -1859,7 +1859,7 @@ returns trigger
 language plpgsql
 security definer
 set search_path=pg_catalog
-as $function$;
+as $function$
 declare
   v_request public.merchant_billing_payment_requests%rowtype;
   v_recovery public.merchant_billing_refund_recoveries%rowtype;
