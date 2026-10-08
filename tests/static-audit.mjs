@@ -560,6 +560,7 @@ const providerRefundLockOrder=read('supabase/migrations/20261008140000_provider_
 const providerEvidencePrecedence=read('supabase/migrations/20261008143000_provider_evidence_precedence_v1_104.sql');
 const manualPaymentRefundAnchor=read('supabase/migrations/20261008150000_manual_payment_refund_anchor_v1_105.sql');
 const reopenRefundRecovery=read('supabase/migrations/20261008163000_reopen_refund_recovery_v1_106.sql');
+const orderBillingRebind=read('supabase/migrations/20261008180000_order_billing_rebind_v1_107.sql');
 const providerChargeCancelSource=read('supabase/functions/_shared/provider-charge-cancel.js');
 const providerCancelMerchantOps=read('supabase/functions/merchant-ops/index.ts');
 const billingPaymentWebhookSource=read('supabase/functions/billing-payment-webhook/index.ts');
@@ -916,6 +917,16 @@ assert.ok(reopenRefundRecovery.includes("'refund_of_recovery_payment'")&&reopenR
 assert.ok(adminOpsSource.includes('outstanding_cents')&&merchantOrdersBillingSource.includes('outstanding_cents'),'admin e revenda precisam receber o saldo atual da recuperação');
 assert.ok(admin.includes('saldo ${adminMoney(recovery.outstanding_cents)} / alocado')&&admin.includes('RECUPERAÇÃO REABERTA'),'Financeiro precisa distinguir saldo atual de valor histórico e explicar a reabertura');
 assert.ok(merchant.includes('recovery.outstandingCents')&&merchant.includes('saldo atual'),'revenda precisa pagar/exibir somente o saldo de recuperação corrente');
+assert.ok(orderBillingRebind.includes('create or replace function public.rebind_order_billing_snapshot()')&&orderBillingRebind.includes('before update of\n  merchant_id,gross_total_cents'),'v1.107 precisa rebindar a cobrança quando a revenda ou o valor bruto muda');
+assert.ok(orderBillingRebind.includes('ORDER_BILLING_SNAPSHOT_IMMUTABLE')&&orderBillingRebind.includes('v_snapshot_changed'),'snapshot de taxa/plano/reserva não pode ser editado isoladamente');
+assert.ok(orderBillingRebind.includes('ORDER_BILLING_REBIND_TOO_LATE')&&orderBillingRebind.includes("old.dispatched_at is not null")&&orderBillingRebind.includes("old.prepaid_fee_credit_consumed_at is not null"),'rebind precisa ser proibido depois da saída ou da movimentação financeira');
+assert.ok(orderBillingRebind.includes("'merchant-fee-credit:'||old.merchant_id::text")&&orderBillingRebind.includes("'merchant-fee-credit:'||new.merchant_id::text")&&orderBillingRebind.includes('old.merchant_id::text<new.merchant_id::text'),'transferência entre revendas precisa usar o mesmo lock de settlement em ordem determinística');
+assert.ok(orderBillingRebind.includes('credit_reserved_cents-old.prepaid_fee_reserved_cents_snapshot')&&orderBillingRebind.includes('where merchant_id=old.merchant_id'),'reserva antiga precisa ser liberada da revenda que realmente a possui');
+assert.ok(orderBillingRebind.includes('v_account.credit_balance_cents-v_account.credit_reserved_cents')&&orderBillingRebind.includes('v_package_fee>0 and v_available>=v_package_fee'),'nova reserva precisa recalcular disponibilidade após liberar a antiga');
+assert.ok(orderBillingRebind.includes('v_flex_fee:=floor(')&&orderBillingRebind.includes('v_reservation:=least(v_flex_fee,v_available)'),'saldo residual deve continuar usando a regra v1.74: taxa Flex com abatimento até o último centavo');
+assert.ok(orderBillingRebind.includes('credit_reserved_cents=credit_reserved_cents+v_reservation')&&orderBillingRebind.includes('where merchant_id=new.merchant_id'),'nova reserva precisa pertencer exclusivamente à nova revenda');
+assert.ok(orderBillingRebind.includes("event_type,title,detail,metadata")&&orderBillingRebind.includes("'BILLING_SNAPSHOT_REBOUND'"),'mudança de responsabilidade financeira precisa deixar trilha no histórico do pedido');
+assert.ok(orderBillingRebind.includes('revoke all on function public.rebind_order_billing_snapshot()')&&orderBillingRebind.includes('to postgres,service_role'),'autoridade de rebind financeiro precisa permanecer server-only');
 
 assert.ok(refundAllocationSplit.includes("to_jsonb(new)->>'id'")&&refundAllocationSplit.includes("to_jsonb(new)->>'refund_id'"),'constraint trigger compartilhado entre refund/recovery precisa extrair IDs sem assumir o record shape da tabela chamadora');
 assert.ok(refundAllocationSplit.includes('REFUND_ALLOCATION_ZERO_EXPOSURE_HAS_RECOVERY')&&refundAllocationSplit.includes('REFUND_ALLOCATION_RECOVERY_MISMATCH'),'zero exposição não pode gerar dívida e obrigação positiva precisa bater exatamente com o recoverable');
