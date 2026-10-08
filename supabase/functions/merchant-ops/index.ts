@@ -209,7 +209,7 @@ Deno.serve(async(req:Request)=>{
         let providerCancellation={attempted:0,cancelled:0,failed:0,deferred:false};
         try{
           providerCancellation={
-            ...(await cancelProviderChargesForPaymentRequest(admin,paymentRequestId)),
+            ...(await cancelProviderChargesForPaymentRequest(admin,paymentRequestId,{actorKind:"merchant",actorUserId:user.id})),
             deferred:false
           };
         }catch(cancelError){
