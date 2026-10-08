@@ -1609,4 +1609,105 @@ for(let i=0;i<30000;i++){
   refundRecoveryReopenCases+=7;
 }
 
-console.log(`Financial invariant fuzz passou: ${rewardCases} cenários de unit economics + ${positionCases} posições de cashback + ${prepaidCases} cenários de consumo de crédito de taxa + ${transitionCases} transições de pacote + ${reconciliationCases} cenários de reconciliação + ${exactPaymentCases} confirmações exatas de pagamento + ${d1AuthorityCases} cenários de autoridade D+1 + ${reconciliationKeyCases} cenários de unicidade de conciliação + ${providerEventCases} cenários de eventos de provedor + ${reactiveProviderCases} transições reativas de conciliação + ${provenanceCases} provas de proveniência de aprovação + ${paymentEventReviewCases} decisões de lifecycle de eventos + ${financeSlaCases} classificações de SLA financeiro + ${canonicalEventCases} decisões de evento canônico + ${wooviAdapterCases} normalizações Woovi/OpenPix + ${generatedPixCases} decisões de cobrança Pix correlacionada + ${siblingProviderCases} decisões de evento irmão do PSP + ${pixExpirationCases} decisões de expiração/regeneração Pix + ${providerCancelCases} decisões de cancelamento acoplado ao PSP + ${providerRefundCases} decisões de refund/quarentena do PSP + ${refundRecoveryCases} decisões de recuperação econômica de refund + ${refundRecoveryReconciliationCases} provas de reconciliação de recuperação + ${refundExposureCapCases} alocações com teto de exposição de refund + ${exactRecoveryAllocationCases} escritas com alocação exata/imutável + ${refundAllocationSplitCases} provas de decomposição recuperável/excedente + ${preapprovalRefundCases} provas de neutralidade de refund pré-aprovação + ${providerRefundLockCases} provas de ordem de lock PSP/refund + ${providerEvidenceCases} provas de precedência da evidência PSP + ${manualRefundAnchorCases} provas de âncora manual de refund + ${refundRecoveryReopenCases} provas de reabertura de recuperação após refund.`);
+
+function rebindOrderBillingSnapshotModel({
+  oldReservation,
+  oldMerchantReserved,
+  newBalance,
+  newOtherReserved,
+  newPlanBps,
+  flexBps,
+  grossCents
+}){
+  assert.ok(oldReservation>=0&&oldMerchantReserved>=oldReservation);
+  assert.ok(newBalance>=0&&newOtherReserved>=0&&newOtherReserved<=newBalance);
+  const oldReservedAfter=oldMerchantReserved-oldReservation;
+  const available=Math.max(newBalance-newOtherReserved,0);
+  const packageFee=Math.floor(grossCents*newPlanBps/10000);
+  const flexFee=Math.floor(grossCents*flexBps/10000);
+  let feeBps=flexBps;
+  let reservation=0;
+  let plan='flex_daily';
+
+  if(packageFee>0&&available>=packageFee){
+    feeBps=newPlanBps;
+    reservation=packageFee;
+    plan='prepaid';
+  }else if(available>0){
+    reservation=Math.min(flexFee,available);
+  }
+
+  return {
+    oldReservedAfter,
+    newReservedAfter:newOtherReserved+reservation,
+    reservation,
+    feeBps,
+    plan,
+    packageFee,
+    flexFee,
+    available
+  };
+}
+
+let orderBillingRebindCases=0;
+for(let i=0;i<30000;i++){
+  const gross=int(1,5000000);
+  const packageBps=[650,700,750][int(0,2)];
+  const flexBps=850;
+  const packageFee=Math.floor(gross*packageBps/10000);
+  const flexFee=Math.floor(gross*flexBps/10000);
+  const oldReservation=int(0,Math.max(1,Math.min(50000,flexFee+1)));
+  const otherOld=int(0,50000);
+  const newBalance=int(0,500000);
+  const newOtherReserved=int(0,newBalance);
+
+  const moved=rebindOrderBillingSnapshotModel({
+    oldReservation,
+    oldMerchantReserved:oldReservation+otherOld,
+    newBalance,
+    newOtherReserved,
+    newPlanBps:packageBps,
+    flexBps,
+    grossCents:gross
+  });
+
+  assert.equal(moved.oldReservedAfter,otherOld);
+  assert.ok(moved.reservation>=0&&moved.reservation<=moved.available);
+  assert.equal(moved.newReservedAfter,newOtherReserved+moved.reservation);
+
+  if(packageFee>0&&moved.available>=packageFee){
+    assert.equal(moved.feeBps,packageBps);
+    assert.equal(moved.reservation,packageFee);
+    assert.equal(moved.plan,'prepaid');
+  }else{
+    assert.equal(moved.feeBps,flexBps);
+    assert.equal(moved.plan,'flex_daily');
+    assert.equal(moved.reservation,Math.min(flexFee,moved.available));
+  }
+
+  const resizedGross=int(1,5000000);
+  const resizedPackageFee=Math.floor(resizedGross*packageBps/10000);
+  const sameMerchantOtherReserved=newOtherReserved;
+  const resized=rebindOrderBillingSnapshotModel({
+    oldReservation:moved.reservation,
+    oldMerchantReserved:sameMerchantOtherReserved+moved.reservation,
+    newBalance,
+    newOtherReserved:sameMerchantOtherReserved,
+    newPlanBps:packageBps,
+    flexBps,
+    grossCents:resizedGross
+  });
+
+  assert.equal(resized.oldReservedAfter,sameMerchantOtherReserved);
+  assert.ok(resized.newReservedAfter<=newBalance);
+  if(resizedPackageFee>0&&resized.available>=resizedPackageFee){
+    assert.equal(resized.reservation,resizedPackageFee);
+    assert.equal(resized.feeBps,packageBps);
+  }else{
+    assert.equal(resized.feeBps,flexBps);
+  }
+
+  orderBillingRebindCases+=14;
+}
+
+console.log(`Financial invariant fuzz passou: ${rewardCases} cenários de unit economics + ${positionCases} posições de cashback + ${prepaidCases} cenários de consumo de crédito de taxa + ${transitionCases} transições de pacote + ${reconciliationCases} cenários de reconciliação + ${exactPaymentCases} confirmações exatas de pagamento + ${d1AuthorityCases} cenários de autoridade D+1 + ${reconciliationKeyCases} cenários de unicidade de conciliação + ${providerEventCases} cenários de eventos de provedor + ${reactiveProviderCases} transições reativas de conciliação + ${provenanceCases} provas de proveniência de aprovação + ${paymentEventReviewCases} decisões de lifecycle de eventos + ${financeSlaCases} classificações de SLA financeiro + ${canonicalEventCases} decisões de evento canônico + ${wooviAdapterCases} normalizações Woovi/OpenPix + ${generatedPixCases} decisões de cobrança Pix correlacionada + ${siblingProviderCases} decisões de evento irmão do PSP + ${pixExpirationCases} decisões de expiração/regeneração Pix + ${providerCancelCases} decisões de cancelamento acoplado ao PSP + ${providerRefundCases} decisões de refund/quarentena do PSP + ${refundRecoveryCases} decisões de recuperação econômica de refund + ${refundRecoveryReconciliationCases} provas de reconciliação de recuperação + ${refundExposureCapCases} alocações com teto de exposição de refund + ${exactRecoveryAllocationCases} escritas com alocação exata/imutável + ${refundAllocationSplitCases} provas de decomposição recuperável/excedente + ${preapprovalRefundCases} provas de neutralidade de refund pré-aprovação + ${providerRefundLockCases} provas de ordem de lock PSP/refund + ${providerEvidenceCases} provas de precedência da evidência PSP + ${manualRefundAnchorCases} provas de âncora manual de refund + ${refundRecoveryReopenCases} provas de reabertura de recuperação após refund + ${orderBillingRebindCases} provas de rebind de cobrança por pedido.`);
