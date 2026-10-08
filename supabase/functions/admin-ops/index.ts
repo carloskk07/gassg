@@ -307,7 +307,7 @@ async function wooviBillingProviderHealth(){
     return {
       ok:false,status:"invalid_config",checkedAt,environment,
       credentialValid:false,chargeWebhookReady:false,
-      transactionWebhookActive:false,companyBound:companyId.length>=6,
+      transactionWebhookActive:false,companyIdConfigured:companyId.length>=6,
       reason:"WOOVI_API_BASE_INVALID"
     };
   }
@@ -315,7 +315,7 @@ async function wooviBillingProviderHealth(){
     return {
       ok:false,status:"not_configured",checkedAt,environment,
       credentialValid:false,chargeWebhookReady:false,
-      transactionWebhookActive:false,companyBound:companyId.length>=6,
+      transactionWebhookActive:false,companyIdConfigured:companyId.length>=6,
       reason:"WOOVI_APP_ID_MISSING"
     };
   }
@@ -323,7 +323,7 @@ async function wooviBillingProviderHealth(){
     return {
       ok:false,status:"invalid_config",checkedAt,environment,
       credentialValid:false,chargeWebhookReady:false,
-      transactionWebhookActive:false,companyBound:companyId.length>=6,
+      transactionWebhookActive:false,companyIdConfigured:companyId.length>=6,
       reason:"WOOVI_WEBHOOK_ENDPOINT_MISSING"
     };
   }
@@ -346,7 +346,7 @@ async function wooviBillingProviderHealth(){
         ok:false,status:"provider_invalid_response",checkedAt,environment,
         credentialValid:response.status!==401,
         chargeWebhookReady:false,transactionWebhookActive:false,
-        companyBound:companyId.length>=6,
+        companyIdConfigured:companyId.length>=6,
         apiStatus:response.status,
         reason:"WOOVI_RESPONSE_TOO_LARGE"
       };
@@ -356,20 +356,27 @@ async function wooviBillingProviderHealth(){
       return {
         ok:false,status:"invalid_credentials",checkedAt,environment,
         credentialValid:false,chargeWebhookReady:false,
-        transactionWebhookActive:false,companyBound:companyId.length>=6,
+        transactionWebhookActive:false,companyIdConfigured:companyId.length>=6,
         apiStatus:401,reason:"WOOVI_APP_ID_REJECTED"
       };
     }
     if(!response.ok){
+      const status=response.status===403
+        ?"insufficient_scope"
+        :response.status===429
+          ?"rate_limited"
+          :"provider_unavailable";
       return {
         ok:false,
-        status:response.status===429?"rate_limited":"provider_unavailable",
+        status,
         checkedAt,environment,
         credentialValid:response.status!==401,
         chargeWebhookReady:false,transactionWebhookActive:false,
-        companyBound:companyId.length>=6,
+        companyIdConfigured:companyId.length>=6,
         apiStatus:response.status,
-        reason:"WOOVI_WEBHOOK_LIST_HTTP_"+response.status
+        reason:response.status===403
+          ?"WOOVI_WEBHOOK_LIST_FORBIDDEN"
+          :"WOOVI_WEBHOOK_LIST_HTTP_"+response.status
       };
     }
 
@@ -379,7 +386,7 @@ async function wooviBillingProviderHealth(){
       return {
         ok:false,status:"provider_invalid_response",checkedAt,environment,
         credentialValid:true,chargeWebhookReady:false,
-        transactionWebhookActive:false,companyBound:companyId.length>=6,
+        transactionWebhookActive:false,companyIdConfigured:companyId.length>=6,
         apiStatus:response.status,reason:"WOOVI_INVALID_JSON"
       };
     }
@@ -404,10 +411,10 @@ async function wooviBillingProviderHealth(){
     };
     const chargeCompleted=webhookState("OPENPIX:CHARGE_COMPLETED");
     const transactionReceived=webhookState("OPENPIX:TRANSACTION_RECEIVED");
-    const companyBound=companyId.length>=6&&companyId.length<=160;
+    const companyIdConfigured=companyId.length>=6&&companyId.length<=160;
     const chargeWebhookReady=
       chargeCompleted.active&&chargeCompleted.authorizationMatch;
-    const ok=chargeWebhookReady&&companyBound;
+    const ok=chargeWebhookReady&&companyIdConfigured;
 
     return {
       ok,
@@ -416,7 +423,7 @@ async function wooviBillingProviderHealth(){
       environment,
       apiStatus:response.status,
       credentialValid:true,
-      companyBound,
+      companyIdConfigured,
       endpointRegistered:matching.length>0,
       chargeWebhookReady,
       transactionWebhookActive:
@@ -426,7 +433,7 @@ async function wooviBillingProviderHealth(){
         transactionReceived
       },
       reason:ok?null:
-        !companyBound?"WOOVI_COMPANY_ID_MISSING":
+        !companyIdConfigured?"WOOVI_COMPANY_ID_MISSING":
         !chargeCompleted.registered?"WOOVI_CHARGE_WEBHOOK_MISSING":
         !chargeCompleted.active?"WOOVI_CHARGE_WEBHOOK_INACTIVE":
         !chargeCompleted.authorizationMatch?"WOOVI_CHARGE_WEBHOOK_AUTH_MISMATCH":
@@ -436,7 +443,7 @@ async function wooviBillingProviderHealth(){
     return {
       ok:false,status:"provider_unavailable",checkedAt,environment,
       credentialValid:null,chargeWebhookReady:false,
-      transactionWebhookActive:false,companyBound:companyId.length>=6,
+      transactionWebhookActive:false,companyIdConfigured:companyId.length>=6,
       reason:error instanceof DOMException&&error.name==="AbortError"
         ?"WOOVI_HEALTH_TIMEOUT"
         :"WOOVI_HEALTH_FETCH_FAILED"
