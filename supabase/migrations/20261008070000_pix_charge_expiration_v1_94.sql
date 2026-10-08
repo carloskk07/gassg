@@ -555,7 +555,7 @@ returns jsonb
 language plpgsql
 security definer
 set search_path=pg_catalog
-as $
+as $$
 declare
   v_count integer:=0;
 begin
@@ -575,14 +575,14 @@ begin
     'processedAt',clock_timestamp()
   );
 end;
-$;
+$$;
 
 revoke all on function public.expire_due_merchant_billing_provider_charges()
 from public,anon,authenticated;
 grant execute on function public.expire_due_merchant_billing_provider_charges()
 to postgres,service_role;
 
-do $
+do $$
 declare
   v_jobid bigint;
 begin
