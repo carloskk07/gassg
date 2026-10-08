@@ -568,6 +568,7 @@ const merchantCreditBalanceEquation=read('supabase/migrations/20261008220000_mer
 const feeCreditLedgerImmutability=read('supabase/migrations/20261008223000_fee_credit_ledger_immutability_v1_112.sql');
 const dailyStatementReceivableEquation=read('supabase/migrations/20261008230000_daily_statement_receivable_equation_v1_113.sql');
 const dailyStatementResolutionLifecycle=read('supabase/migrations/20261008231500_daily_statement_resolution_lifecycle_v1_114.sql');
+const dailyStatementResolutionProvenance=read('supabase/migrations/20261008233000_daily_statement_resolution_provenance_v1_115.sql');
 const providerChargeCancelSource=read('supabase/functions/_shared/provider-charge-cancel.js');
 const providerCancelMerchantOps=read('supabase/functions/merchant-ops/index.ts');
 const billingPaymentWebhookSource=read('supabase/functions/billing-payment-webhook/index.ts');
@@ -988,6 +989,18 @@ assert.ok(dailyStatementResolutionLifecycle.includes('DAILY_STATEMENT_UNRESOLVED
 assert.ok(dailyStatementResolutionLifecycle.includes('coalesce(paid_at,updated_at,closed_at,created_at,clock_timestamp())')&&dailyStatementResolutionLifecycle.includes('coalesce(waived_at,updated_at,closed_at,created_at,clock_timestamp())'),'v1.114 precisa possuir backfill determinístico para histórico legado');
 assert.ok(dailyStatementResolutionLifecycle.includes('DAILY_STATEMENT_RESOLUTION_LIFECYCLE_PROOF_FAILED'),'migration precisa terminar com prova fail-closed do lifecycle');
 assert.ok(dailyStatementResolutionLifecycle.includes('revoke all on function public.enforce_merchant_daily_statement_resolution_lifecycle()')&&dailyStatementResolutionLifecycle.includes('to postgres,service_role'),'autoridade de lifecycle precisa permanecer server-only');
+
+assert.ok(dailyStatementResolutionProvenance.includes('resolution_kind text')&&dailyStatementResolutionProvenance.includes('resolution_cause_order_id uuid'),'v1.115 precisa persistir a proveniência e a causa exata da resolução');
+assert.ok(dailyStatementResolutionProvenance.includes("resolution_kind='net_zero_reversal'")&&dailyStatementResolutionProvenance.includes("'net-zero-order-reversal:'||o.public_code"),'net-zero precisa ser ligado ao order canônico, não inferido só pelo relógio');
+assert.ok(dailyStatementResolutionProvenance.includes('merchant_daily_statements_resolution_cause_order_fkey')&&dailyStatementResolutionProvenance.includes('merchant_daily_statements_resolution_cause_order_idx'),'causa da resolução precisa ter FK RESTRICT e índice de cobertura');
+assert.ok(dailyStatementResolutionProvenance.includes("resolution_kind='payment'")&&dailyStatementResolutionProvenance.includes("resolution_kind='prepaid_credit'")&&dailyStatementResolutionProvenance.includes("resolution_kind='waiver'"),'v1.115 precisa distinguir pagamento, crédito pré-pago, waiver e net-zero');
+assert.ok(dailyStatementResolutionProvenance.includes('update of\n  status,paid_at,waived_at,resolution_kind,resolution_cause_order_id'),'proveniência resolvida precisa entrar na mesma autoridade de imutabilidade do lifecycle');
+assert.ok(dailyStatementResolutionProvenance.includes("pr.reversed_at>coalesce(s.paid_at,s.waived_at)")&&dailyStatementResolutionProvenance.includes('pr.order_id is distinct from s.resolution_cause_order_id'),'snapshot histórico deve incluir estorno posterior e excluir estorno anterior/causal');
+assert.ok(dailyStatementResolutionProvenance.includes('DAILY_STATEMENT_NET_ZERO_CAUSE_MISMATCH')&&dailyStatementResolutionProvenance.includes('DAILY_STATEMENT_RESOLVED_SNAPSHOT_MISMATCH'),'prova resolvida precisa falhar explicitamente para causa ou totais divergentes');
+assert.ok(dailyStatementResolutionProvenance.includes('DAILY_STATEMENT_WITHOUT_RECEIVABLES'),'statement resolvido ou aberto sem componentes não pode existir');
+assert.ok(dailyStatementResolutionProvenance.includes('DAILY_STATEMENT_EXISTING_DRIFT_V1_115'),'migration precisa revalidar o histórico inteiro fail-closed');
+assert.ok(dailyStatementResolutionProvenance.includes('revoke all on function public.merchant_daily_statement_expected_resolved_totals(uuid)')&&dailyStatementResolutionProvenance.includes('to postgres,service_role'),'helper de snapshot resolvido precisa permanecer server-only');
+
 
 
 assert.ok(refundAllocationSplit.includes("to_jsonb(new)->>'id'")&&refundAllocationSplit.includes("to_jsonb(new)->>'refund_id'"),'constraint trigger compartilhado entre refund/recovery precisa extrair IDs sem assumir o record shape da tabela chamadora');
