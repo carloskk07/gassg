@@ -1751,7 +1751,7 @@ Deno.serve(async(req:Request)=>{
       };
     }else if(action==="merchant-billing-refund"){
       const refundAction=String(body.refundAction??"").trim().toLowerCase();
-      if(!["mark-recovered","dismiss-unrelated"].includes(refundAction)){
+      if(!["mark-recovered","dismiss-unrelated","dismiss-excess"].includes(refundAction)){
         throw new DomainError("INVALID_PAYMENT_REFUND_ACTION","Ação de reembolso financeiro inválida.",400);
       }
       payload={

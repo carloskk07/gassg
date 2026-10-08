@@ -1477,25 +1477,33 @@ function adminBillingRefundCard(refund){
   const statusLabel=({
     review_required:'REVISÃO',
     resolved_recovered:'RECUPERADO',
-    ignored_unrelated:'NÃO RELACIONADO'
+    ignored_unrelated:'NÃO RELACIONADO',
+    resolved_excess:'EXCESSO RECONHECIDO'
   })[String(refund.status||'')]||String(refund.status||'—').toUpperCase();
 
   let recoveryState='';
   if(review&&linked){
-    if(!recovery){
-      recoveryState='<div class="notice danger" style="margin-top:8px"><strong>Obrigação de recuperação ausente.</strong><br>Este refund está ligado, mas a obrigação econômica ainda não apareceu. Não encerre manualmente; atualize/reconcilie o backend.</div>';
+    const refunded=Number(refund.amount_cents||0);
+    const recoverable=Number(recovery?.amount_cents||0);
+    const excess=Math.max(0,refunded-recoverable);
+    if(!recovery&&refund.match_reason==='refund_total_exceeds_original'){
+      recoveryState='<div class="notice" style="margin-top:8px"><strong>Exposição original já totalmente coberta.</strong><br>Este fato do PSP permanece auditável, mas nenhum valor adicional foi convertido em dívida. O Financeiro precisa reconhecer o excesso para encerrar a revisão e liberar o hold quando não houver outra pendência.</div>';
+    }else if(!recovery){
+      recoveryState='<div class="notice danger" style="margin-top:8px"><strong>Obrigação de recuperação ausente.</strong><br>Este refund está ligado e ainda possui exposição econômica, mas a obrigação não apareceu. Não encerre manualmente; atualize/reconcilie o backend.</div>';
     }else if(recovery.status==='open'){
-      recoveryState=`<div class="notice" style="margin-top:8px"><strong>Obrigação aberta: ${adminMoney(recovery.amount_cents)}.</strong><br>A revenda precisa pagar a recuperação. O hold permanece ativo e uma referência administrativa sozinha não resolve o caso.</div>`;
+      recoveryState=`<div class="notice" style="margin-top:8px"><strong>Obrigação aberta: ${adminMoney(recoverable)}.</strong><br>A revenda precisa pagar somente a exposição recuperável. O hold permanece ativo e uma referência administrativa sozinha não resolve o caso.${excess>0?' Excesso do PSP não convertido em dívida: '+adminMoney(excess)+'.':''}</div>`;
     }else if(recovery.status==='payment_pending'){
-      recoveryState=`<div class="notice risk" style="margin-top:8px"><strong>Pagamento de recuperação pendente: ${adminMoney(recovery.amount_cents)}.</strong><br>${recoveryRequest?'Solicitação '+esc(recoveryRequest.id)+' está na fila financeira.':'A obrigação possui solicitação vinculada; atualize a fila para conferir.'} Aprove somente após valor exato + identificador da transação.</div>`;
+      recoveryState=`<div class="notice risk" style="margin-top:8px"><strong>Pagamento de recuperação pendente: ${adminMoney(recoverable)}.</strong><br>${recoveryRequest?'Solicitação '+esc(recoveryRequest.id)+' está na fila financeira.':'A obrigação possui solicitação vinculada; atualize a fila para conferir.'} Aprove somente após valor exato + identificador da transação.${excess>0?' Excesso fora da obrigação: '+adminMoney(excess)+'.':''}</div>`;
     }else if(recovery.status==='recovered'){
-      recoveryState='<div class="notice success" style="margin-top:8px"><strong>Recuperação economicamente comprovada.</strong><br>O pagamento de recuperação foi aprovado pela autoridade financeira.</div>';
+      recoveryState=`<div class="notice success" style="margin-top:8px"><strong>Recuperação economicamente comprovada.</strong><br>O pagamento de ${adminMoney(recoverable)} foi aprovado pela autoridade financeira.${excess>0?' O excesso de '+adminMoney(excess)+' não virou dívida.':''}</div>`;
     }
   }
 
   const actions=review&&!linked
     ?`<div class="order-actions"><button class="ghost small" onclick="adminResolveBillingRefund('${esc(refund.id)}','dismiss-unrelated')">Marcar não relacionado</button></div>`
-    :'';
+    :review&&linked&&refund.match_reason==='refund_total_exceeds_original'&&!recovery
+      ?`<div class="order-actions"><button class="secondary small" onclick="adminResolveBillingRefund('${esc(refund.id)}','dismiss-excess')">Reconhecer excesso do PSP</button></div>`
+      :'';
 
   return `<article class="order-card">
     <div class="order-head"><div><strong>${linked?esc(adminMerchantName(refund.merchant_id)):'Refund sem vínculo TAMÃO'}</strong><br><small>${esc(refund.provider||'—')} • ${esc(formatDateTime(refund.occurred_at))}</small></div><span class="status-pill ${review?'offline':'online'}">${esc(statusLabel)}</span></div>
@@ -2460,26 +2468,56 @@ async function adminAddPlatformAdmin(){
 }
 
 async function adminResolveBillingRefund(refundId,refundAction){
-  const refund=(adminRuntime.data?.merchantBilling?.refunds||[]).find(x=>x.id===refundId);
+  const billing=adminRuntime.data?.merchantBilling||{};
+  const refund=(billing.refunds||[]).find(x=>x.id===refundId);
   if(!refund)return toast('Refund financeiro não encontrado');
   if(refund.status!=='review_required')return toast('Este refund já foi resolvido');
-  if(refundAction!=='dismiss-unrelated'){
-    return toast('Refund ligado só pode ser recuperado por uma solicitação de pagamento aprovada.');
+
+  const recovery=(billing.refundRecoveries||[]).find(x=>x.refund_id===refund.id)||null;
+
+  if(refundAction==='dismiss-unrelated'){
+    if(refund.payment_request_id||refund.merchant_id){
+      return toast('Refund ligado não pode ser descartado como não relacionado.');
+    }
+    const reference=prompt('Explique por que este refund não pertence a uma cobrança TAMÃO:')||'';
+    if(reference.trim().length<3)return toast('Informe a referência da resolução');
+    if(!confirm('Confirmar que este refund não está relacionado ao TAMÃO? Esta opção só funciona para item sem revenda/solicitação vinculada.'))return;
+    try{
+      await adminPerform('merchant-billing-refund',{
+        refundId,
+        refundAction:'dismiss-unrelated',
+        reference
+      });
+      toast('Refund encerrado como não relacionado');
+    }catch(e){toast(String(e?.message||e))}
+    return;
   }
-  if(refund.payment_request_id||refund.merchant_id){
-    return toast('Refund ligado não pode ser descartado como não relacionado.');
+
+  if(refundAction==='dismiss-excess'){
+    if(!refund.payment_request_id||!refund.merchant_id){
+      return toast('Somente refund ligado pode ser reconhecido como excesso.');
+    }
+    if(refund.match_reason!=='refund_total_exceeds_original'){
+      return toast('Este refund não excede a exposição original.');
+    }
+    if(recovery){
+      return toast('Ainda existe valor recuperável. Quite/aprove a obrigação antes de tratar o excesso.');
+    }
+    const reference=prompt('Referência para reconhecer que este valor excede a exposição original e não deve virar dívida:')||'';
+    if(reference.trim().length<3)return toast('Informe a referência da resolução');
+    if(!confirm('Reconhecer este refund como excesso acima do pagamento original? O fato do PSP permanecerá auditável, mas nenhum valor adicional será cobrado da revenda.'))return;
+    try{
+      await adminPerform('merchant-billing-refund',{
+        refundId,
+        refundAction:'dismiss-excess',
+        reference
+      });
+      toast('Excesso do PSP reconhecido sem criar dívida adicional');
+    }catch(e){toast(String(e?.message||e))}
+    return;
   }
-  const reference=prompt('Explique por que este refund não pertence a uma cobrança TAMÃO:')||'';
-  if(reference.trim().length<3)return toast('Informe a referência da resolução');
-  if(!confirm('Confirmar que este refund não está relacionado ao TAMÃO? Esta opção só funciona para item sem revenda/solicitação vinculada.'))return;
-  try{
-    await adminPerform('merchant-billing-refund',{
-      refundId,
-      refundAction:'dismiss-unrelated',
-      reference
-    });
-    toast('Refund encerrado como não relacionado');
-  }catch(e){toast(String(e?.message||e))}
+
+  toast('Refund ligado só pode ser recuperado por pagamento aprovado; excesso só pode ser reconhecido quando não houver exposição restante.');
 }
 
 async function adminBillingPaymentEventAction(paymentEventId,eventAction){

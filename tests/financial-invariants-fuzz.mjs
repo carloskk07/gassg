@@ -1192,4 +1192,57 @@ for(let i=0;i<20000;i++){
   refundRecoveryReconciliationCases+=8;
 }
 
-console.log(`Financial invariant fuzz passou: ${rewardCases} cenários de unit economics + ${positionCases} posições de cashback + ${prepaidCases} cenários de consumo de crédito de taxa + ${transitionCases} transições de pacote + ${reconciliationCases} cenários de reconciliação + ${exactPaymentCases} confirmações exatas de pagamento + ${d1AuthorityCases} cenários de autoridade D+1 + ${reconciliationKeyCases} cenários de unicidade de conciliação + ${providerEventCases} cenários de eventos de provedor + ${reactiveProviderCases} transições reativas de conciliação + ${provenanceCases} provas de proveniência de aprovação + ${paymentEventReviewCases} decisões de lifecycle de eventos + ${financeSlaCases} classificações de SLA financeiro + ${canonicalEventCases} decisões de evento canônico + ${wooviAdapterCases} normalizações Woovi/OpenPix + ${generatedPixCases} decisões de cobrança Pix correlacionada + ${siblingProviderCases} decisões de evento irmão do PSP + ${pixExpirationCases} decisões de expiração/regeneração Pix + ${providerCancelCases} decisões de cancelamento acoplado ao PSP + ${providerRefundCases} decisões de refund/quarentena do PSP + ${refundRecoveryCases} decisões de recuperação econômica de refund + ${refundRecoveryReconciliationCases} provas de reconciliação de recuperação.`);
+
+function allocateRefundRecoveryExposure(originalAmount,refundAmounts){
+  let allocated=0;
+  const recoveries=[];
+  const excess=[];
+  for(const refund of refundAmounts){
+    const remaining=Math.max(originalAmount-allocated,0);
+    const recoverable=Math.min(refund,remaining);
+    recoveries.push(recoverable);
+    excess.push(Math.max(refund-recoverable,0));
+    allocated+=recoverable;
+  }
+  return {recoveries,excess,allocated};
+}
+
+let refundExposureCapCases=0;
+for(let i=0;i<30000;i++){
+  const original=int(1,10000000);
+  const refundCount=int(1,8);
+  const refunds=Array.from({length:refundCount},()=>int(1,Math.max(1,original)));
+  const result=allocateRefundRecoveryExposure(original,refunds);
+
+  assert.ok(result.allocated<=original,'obrigação total nunca pode exceder pagamento original');
+  assert.equal(
+    result.allocated,
+    Math.min(original,refunds.reduce((sum,x)=>sum+x,0)),
+    'alocação precisa recuperar somente a exposição efetivamente devolvida até o teto'
+  );
+
+  let running=0;
+  for(let j=0;j<refunds.length;j++){
+    const expected=Math.min(refunds[j],Math.max(original-running,0));
+    assert.equal(result.recoveries[j],expected);
+    assert.equal(result.excess[j],refunds[j]-expected);
+    running+=expected;
+  }
+
+  if(refunds.reduce((sum,x)=>sum+x,0)>original){
+    assert.ok(result.excess.some(x=>x>0),'over-refund precisa produzir excesso não convertido em dívida');
+  }
+
+  refundExposureCapCases+=refundCount+3;
+}
+
+// Caso canônico: pagamento 300, refunds 200 + 200 => dívida 200 + 100.
+{
+  const x=allocateRefundRecoveryExposure(30000,[20000,20000,5000]);
+  assert.deepEqual(x.recoveries,[20000,10000,0]);
+  assert.deepEqual(x.excess,[0,10000,5000]);
+  assert.equal(x.allocated,30000);
+  refundExposureCapCases+=7;
+}
+
+console.log(`Financial invariant fuzz passou: ${rewardCases} cenários de unit economics + ${positionCases} posições de cashback + ${prepaidCases} cenários de consumo de crédito de taxa + ${transitionCases} transições de pacote + ${reconciliationCases} cenários de reconciliação + ${exactPaymentCases} confirmações exatas de pagamento + ${d1AuthorityCases} cenários de autoridade D+1 + ${reconciliationKeyCases} cenários de unicidade de conciliação + ${providerEventCases} cenários de eventos de provedor + ${reactiveProviderCases} transições reativas de conciliação + ${provenanceCases} provas de proveniência de aprovação + ${paymentEventReviewCases} decisões de lifecycle de eventos + ${financeSlaCases} classificações de SLA financeiro + ${canonicalEventCases} decisões de evento canônico + ${wooviAdapterCases} normalizações Woovi/OpenPix + ${generatedPixCases} decisões de cobrança Pix correlacionada + ${siblingProviderCases} decisões de evento irmão do PSP + ${pixExpirationCases} decisões de expiração/regeneração Pix + ${providerCancelCases} decisões de cancelamento acoplado ao PSP + ${providerRefundCases} decisões de refund/quarentena do PSP + ${refundRecoveryCases} decisões de recuperação econômica de refund + ${refundRecoveryReconciliationCases} provas de reconciliação de recuperação + ${refundExposureCapCases} alocações com teto de exposição de refund.`);
