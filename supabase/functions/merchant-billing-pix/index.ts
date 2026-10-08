@@ -288,14 +288,19 @@ Deno.serve(async(req:Request)=>{
     const merchantId=String(body.merchantId??"").trim();
     const planKey=body.planKey==null?null:String(body.planKey).trim().toLowerCase();
     const statementId=body.statementId==null?null:String(body.statementId).trim();
+    const refundRecoveryId=body.refundRecoveryId==null
+      ?null
+      :String(body.refundRecoveryId).trim();
 
     if(!UUID_RE.test(merchantId)){
       throw new DomainError("INVALID_MERCHANT","Revenda inválida.",400);
     }
-    if((planKey==null)===(statementId==null)){
+    const targetCount=[planKey,statementId,refundRecoveryId]
+      .filter((value)=>value!=null).length;
+    if(targetCount!==1){
       throw new DomainError(
         "PIX_CHARGE_TARGET_REQUIRED",
-        "Informe o pacote ou o fechamento que será pago.",
+        "Informe exatamente uma cobrança financeira.",
         400
       );
     }
@@ -304,6 +309,13 @@ Deno.serve(async(req:Request)=>{
     }
     if(statementId!=null&&!UUID_RE.test(statementId)){
       throw new DomainError("INVALID_STATEMENT","Fechamento diário inválido.",400);
+    }
+    if(refundRecoveryId!=null&&!UUID_RE.test(refundRecoveryId)){
+      throw new DomainError(
+        "INVALID_REFUND_RECOVERY",
+        "Obrigação de recuperação inválida.",
+        400
+      );
     }
 
     const key=idempotencyKey(req);
@@ -318,7 +330,7 @@ Deno.serve(async(req:Request)=>{
     });
 
     const requestHash=await requestFingerprint("merchant-billing-pix-charge",{
-      merchantId,planKey,statementId
+      merchantId,planKey,statementId,refundRecoveryId
     });
 
     const {data:prepared,error:prepareError}=await admin.rpc(
@@ -328,6 +340,7 @@ Deno.serve(async(req:Request)=>{
         p_merchant_id:merchantId,
         p_plan_key:planKey,
         p_statement_id:statementId,
+        p_refund_recovery_id:refundRecoveryId,
         p_idempotency_key:key,
         p_request_hash:requestHash
       }
@@ -352,6 +365,20 @@ Deno.serve(async(req:Request)=>{
         throw new DomainError(
           "STATEMENT_NOT_PAYABLE",
           "Este fechamento já foi resolvido ou não possui saldo a pagar.",
+          409
+        );
+      }
+      if(message.includes("REFUND_RECOVERY_NOT_FOUND")){
+        throw new DomainError(
+          "REFUND_RECOVERY_NOT_FOUND",
+          "A obrigação de recuperação não foi encontrada.",
+          404
+        );
+      }
+      if(message.includes("REFUND_RECOVERY_NOT_PAYABLE")){
+        throw new DomainError(
+          "REFUND_RECOVERY_NOT_PAYABLE",
+          "Esta recuperação já foi resolvida ou não está mais disponível para pagamento.",
           409
         );
       }
@@ -414,7 +441,9 @@ Deno.serve(async(req:Request)=>{
         expectedAmountCents,
         planKey
           ? "TAMÃO • pacote de crédito "+planKey
-          : "TAMÃO • fechamento "+String(statementId).slice(0,8)
+          : statementId
+            ? "TAMÃO • fechamento "+String(statementId).slice(0,8)
+            : "TAMÃO • recuperação de refund "+String(refundRecoveryId).slice(0,8)
       );
 
       if(created.ok){
