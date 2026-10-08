@@ -360,7 +360,7 @@ Deno.serve(async(req:Request)=>{
 
       const {data:billingProviderCharges,error:billingProviderChargesError}=await admin
         .from("merchant_billing_provider_charges")
-        .select("id,payment_request_id,provider,correlation_id,amount_cents,status,br_code,qr_code_data_uri,payment_link_url,expires_at,completed_at,paid_amount_cents,end_to_end_id,last_error_code,updated_at")
+        .select("id,payment_request_id,provider,correlation_id,amount_cents,status,br_code,qr_code_data_uri,payment_link_url,expires_at,expired_at,completed_at,paid_amount_cents,end_to_end_id,last_error_code,updated_at")
         .eq("merchant_id",selected.merchant_id)
         .order("created_at",{ascending:false})
         .limit(30);
@@ -438,6 +438,7 @@ Deno.serve(async(req:Request)=>{
                 qrCodeDataUri:charge.qr_code_data_uri??null,
                 paymentLinkUrl:charge.payment_link_url??null,
                 expiresAt:charge.expires_at??null,
+                expiredAt:charge.expired_at??null,
                 completedAt:charge.completed_at??null,
                 paidAmountCents:charge.paid_amount_cents==null?null:Number(charge.paid_amount_cents),
                 endToEndId:charge.end_to_end_id??null,
@@ -455,6 +456,7 @@ Deno.serve(async(req:Request)=>{
           amountCents:Number(charge.amount_cents||0),
           status:charge.status,
           expiresAt:charge.expires_at??null,
+          expiredAt:charge.expired_at??null,
           completedAt:charge.completed_at??null,
           paidAmountCents:charge.paid_amount_cents==null?null:Number(charge.paid_amount_cents),
           endToEndId:charge.end_to_end_id??null,
