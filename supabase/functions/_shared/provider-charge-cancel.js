@@ -58,7 +58,11 @@ async function cancelWooviCharge(correlationId){
 export async function cancelProviderChargesForPaymentRequest(
   admin,
   paymentRequestId,
-  {limit=8}={}
+  {
+    limit=8,
+    actorKind="system",
+    actorUserId=null
+  }={}
 ){
   const {data,error}=await admin
     .from("merchant_billing_provider_charges")
@@ -84,24 +88,25 @@ export async function cancelProviderChargesForPaymentRequest(
       outcome={ok:false,reason:"UNSUPPORTED_PROVIDER_CANCEL",httpStatus:null};
     }
 
-    const now=new Date().toISOString();
-    const {error:updateError}=await admin
-      .from("merchant_billing_provider_charges")
-      .update({
-        last_error_code:outcome.ok?null:"PROVIDER_CANCEL_FAILED",
-        last_error_at:outcome.ok?null:now,
-        updated_at:now
-      })
-      .eq("id",charge.id)
-      .eq("status","cancelled");
+    const {data:auditResult,error:auditError}=await admin.rpc(
+      "record_merchant_billing_provider_cancel_attempt",
+      {
+        p_charge_id:charge.id,
+        p_actor_kind:actorKind,
+        p_actor_user_id:actorUserId,
+        p_success:outcome.ok===true,
+        p_reason:outcome.ok?null:String(outcome.reason||"PROVIDER_CANCEL_FAILED"),
+        p_http_status:outcome.httpStatus
+      }
+    );
 
-    if(updateError){
+    if(auditError){
       failed++;
       results.push({
         chargeId:charge.id,
         provider:charge.provider,
         ok:false,
-        reason:"CANCEL_STATE_UPDATE_FAILED"
+        reason:"CANCEL_AUDIT_COMMIT_FAILED"
       });
     }else if(outcome.ok){
       cancelled++;
@@ -109,7 +114,8 @@ export async function cancelProviderChargesForPaymentRequest(
         chargeId:charge.id,
         provider:charge.provider,
         ok:true,
-        reason:null
+        reason:null,
+        attemptNo:Number(auditResult?.attemptNo||0)
       });
     }else{
       failed++;
@@ -117,7 +123,8 @@ export async function cancelProviderChargesForPaymentRequest(
         chargeId:charge.id,
         provider:charge.provider,
         ok:false,
-        reason:outcome.reason
+        reason:outcome.reason,
+        attemptNo:Number(auditResult?.attemptNo||0)
       });
     }
   }
