@@ -674,6 +674,10 @@ begin
       where r.id=v_charge.payment_request_id
       for update;
 
+      if not found then
+        raise exception 'PIX_CHARGE_REQUEST_NOT_FOUND' using errcode='P0002';
+      end if;
+
       update public.merchant_billing_provider_charges
       set status='completed',
           completed_at=coalesce(completed_at,v_event.occurred_at),
@@ -682,10 +686,6 @@ begin
           updated_at=clock_timestamp()
       where id=v_charge.id
       returning * into v_charge;
-
-      if not found then
-        raise exception 'PIX_CHARGE_REQUEST_NOT_FOUND' using errcode='P0002';
-      end if;
 
       if v_request.status='pending'
          and v_request.merchant_id=v_charge.merchant_id
