@@ -512,6 +512,38 @@ grant execute on function public.ingest_merchant_billing_payment_refund(
   text,text,text,text,bigint,text,timestamptz,text
 ) to service_role,postgres;
 
+create or replace function public.block_new_payment_request_during_provider_refund_review()
+returns trigger
+language plpgsql
+security definer
+set search_path=pg_catalog
+as $
+begin
+  if exists(
+    select 1
+    from public.merchant_billing_payment_refunds r
+    where r.merchant_id=new.merchant_id
+      and r.status='review_required'
+  ) then
+    raise exception 'PAYMENT_REFUND_REVIEW_BLOCKS_NEW_REQUEST'
+      using errcode='40001';
+  end if;
+  return new;
+end;
+$;
+
+revoke all on function public.block_new_payment_request_during_provider_refund_review()
+from public,anon,authenticated;
+grant execute on function public.block_new_payment_request_during_provider_refund_review()
+to postgres,service_role;
+
+drop trigger if exists block_new_payment_request_during_provider_refund_review_trg
+on public.merchant_billing_payment_requests;
+create trigger block_new_payment_request_during_provider_refund_review_trg
+before insert
+on public.merchant_billing_payment_requests
+for each row execute function public.block_new_payment_request_during_provider_refund_review();
+
 create or replace function public.block_approval_with_unresolved_provider_refund()
 returns trigger
 language plpgsql
