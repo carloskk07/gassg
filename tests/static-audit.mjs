@@ -55,6 +55,7 @@ const publicBuild=read('scripts/build-public-site.mjs');
 const functionConfig=read('supabase/config.toml');
 const livePortalWorkflow=read('.github/workflows/build-live-portals.yml');
 const launchReadinessWorkflow=read('.github/workflows/launch-readiness.yml');
+const remoteAdminTurnstile=read('tests/remote-admin-turnstile.mjs');
 const auditWorkflow=read('.github/workflows/audit.yml');
 const pagesWorkflow=read('.github/workflows/pages.yml');
 const edgeFunctionAudit=read('scripts/audit-edge-functions.sh');
@@ -362,6 +363,13 @@ assert.ok(livePortalWorkflow.includes('tamao-live-admin')&&!livePortalWorkflow.i
 assert.ok(livePortalWorkflow.includes('Turnstile test/demo key cannot produce production portal artifacts.'),'produção precisa bloquear explicitamente chaves Turnstile de teste/demo');
 assert.ok(launchReadinessWorkflow.includes("TAMAO_REQUIRE_LIVE_PORTALS: '1'")&&launchReadinessWorkflow.includes('remote-admin-readiness.mjs'),'gate manual de lançamento precisa exigir os três portais live reais');
 assert.ok(launchReadinessWorkflow.includes('TAMAO_EXPECTED_SOURCE_SHA: ${{ github.sha }}'),'gate de lançamento precisa amarrar produção ao commit exato que está sendo certificado');
+
+assert.ok(launchReadinessWorkflow.includes('node tests/remote-admin-turnstile.mjs'),'gate de lançamento precisa continuar executando o smoke real do Turnstile');
+assert.ok(remoteAdminTurnstile.includes('CHROME_START_ATTEMPTS=3')&&remoteAdminTurnstile.includes('CHROME_START_POLLS=80'),'sonda Turnstile precisa tolerar startup lento do Chrome sem remover fail-closed');
+assert.ok(remoteAdminTurnstile.includes('--disable-dev-shm-usage')&&remoteAdminTurnstile.includes('--remote-debugging-address=127.0.0.1'),'Chrome do runner precisa usar configuração headless resiliente e debug apenas local');
+assert.ok(remoteAdminTurnstile.includes("stdio:['ignore','ignore','pipe']")&&remoteAdminTurnstile.includes('compactDiagnostics'),'falha de startup do Chrome precisa preservar diagnóstico em vez de descartar stderr');
+assert.ok(remoteAdminTurnstile.includes("initial.host,'admin.tamao.com.br'")&&remoteAdminTurnstile.includes('hardConfigError')&&remoteAdminTurnstile.includes("assert.notEqual(state.status,'unsupported'"),'retry de infraestrutura não pode afrouxar hostname/sitekey/API/erros duros do Turnstile');
+
 const remotePortalReadiness=read('tests/remote-admin-readiness.mjs');
 assert.ok(remotePortalReadiness.includes("customer:{origin:'https://tamao.com.br'")&&remotePortalReadiness.includes("merchant:{origin:'https://parceiro.tamao.com.br'")&&remotePortalReadiness.includes("admin:{origin:'https://admin.tamao.com.br'"),'sonda remota precisa verificar cliente, parceiro e admin nos domínios oficiais');
 assert.ok(remotePortalReadiness.includes('sourceShas.size===1')&&remotePortalReadiness.includes('commonSourceSha'),'sonda remota precisa exigir o mesmo SHA fonte entre os três portais');
