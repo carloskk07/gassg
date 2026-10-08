@@ -540,6 +540,16 @@ function adminAttentionItems(d){
   for(const x of d.accountingFailures||[]){
     if(x.dead_lettered_at)push('critical','Settlement em dead-letter','Pedido '+x.order_id,{section:'finance'});
   }
+  for(const x of d.merchantBilling?.refunds||[]){
+    if(x.status==='review_required'){
+      push('critical','Estorno PSP exige revisão',adminMerchantName(x.merchant_id)+' • '+adminMoney(x.refund_amount_cents),{section:'finance'});
+    }
+  }
+  for(const x of d.merchantBilling?.refundDebts||[]){
+    if(x.status==='open'){
+      push('high','Recuperação por estorno em aberto',adminMerchantName(x.merchant_id)+' • '+adminMoney(x.amount_cents),{section:'finance'});
+    }
+  }
   const now=Date.now();
   for(const x of d.finance?.receivables||[]){
     if(x.due_at&&Date.parse(x.due_at)<now)push('high','Taxa vencida',adminMerchantName(x.merchant_id)+' • '+adminMoney(x.platform_fee_cents),{section:'finance'});
@@ -1438,6 +1448,34 @@ function adminBillingProviderChargeRow(charge){
     : '';
   return `<div class="list-row"><div><strong>${esc(adminMerchantName(charge.merchant_id))}</strong><br><small>${esc(charge.provider||'—')} • correlação ${esc(charge.correlation_id||'—')}${charge.end_to_end_id?' • EndToEndId '+esc(charge.end_to_end_id):''}</small>${pendingNote}</div><div style="text-align:right"><strong>${adminMoney(charge.amount_cents)}</strong><br><span class="status-pill ${charge.status==='completed'?'online':charge.last_error_code?'offline':charge.status==='expired'||charge.status==='cancelled'?'':'risk'}">${esc(String(charge.status||'—').toUpperCase())}</span>${charge.expired_at?`<br><small>expirou ${esc(formatDateTime(charge.expired_at))}</small>`:''}${charge.last_error_code?`<br><small>${esc(charge.last_error_code)}</small>`:''}${retryButton}</div></div>`;
 }
+function adminBillingRefundActionLabel(action){
+  return ({
+    package_credit_reversal:'Crédito pré-pago revertido',
+    recovery_debt:'Recuperação financeira criada',
+    request_cancelled_before_approval:'Solicitação cancelada antes da aprovação',
+    unapproved_payment_refund:'Refund de pagamento não aprovado'
+  })[String(action||'')]||String(action||'—');
+}
+function adminBillingRefundCard(refund){
+  const review=refund.status==='review_required';
+  const applied=refund.status==='applied';
+  const ignored=refund.status==='ignored';
+  const cls=review?'risk':applied?'online':'';
+  const merchant=refund.merchant_id?adminMerchantName(refund.merchant_id):'Sem revenda vinculada';
+  return `<article class="order-card">
+    <div class="order-head"><div><div class="order-id">Estorno PSP • ${esc(refund.provider||'—')}</div><div class="tiny muted">${esc(formatDateTime(refund.occurred_at))} • ${esc(merchant)}</div></div><span class="status-pill ${cls}">${review?'REVISÃO':applied?'APLICADO':ignored?'IGNORADO':esc(String(refund.status||'—').toUpperCase())}</span></div>
+    <div class="order-line"><strong>Valor devolvido:</strong> ${adminMoney(refund.refund_amount_cents)} de ${adminMoney(refund.original_amount_cents)}${refund.partial?' • parcial':' • integral'}</div>
+    <div class="tiny muted">Refund EndToEndId: ${esc(refund.refund_end_to_end_id||'—')}</div>
+    <div class="tiny muted">Pagamento original: ${esc(refund.original_end_to_end_id||'—')}</div>
+    ${refund.action_type?`<div class="tiny muted">Tratamento: ${esc(adminBillingRefundActionLabel(refund.action_type))} • crédito revertido ${adminMoney(refund.credit_reversed_cents||0)} • recuperação ${adminMoney(refund.debt_created_cents||0)}</div>`:''}
+    ${review?`<div class="notice danger" style="margin-top:10px"><strong>Revisão financeira obrigatória.</strong><br>${esc(refund.review_reason||'O estorno não pôde ser aplicado automaticamente com segurança.')} Novas vendas permanecem bloqueadas até decisão do Financeiro.</div><div class="order-actions"><button class="primary small" onclick="adminBillingPaymentRefundAction('${esc(refund.id)}','create_debt')">Criar dívida de recuperação</button><button class="ghost small" onclick="adminBillingPaymentRefundAction('${esc(refund.id)}','dismiss')">Descartar após investigação</button></div>`:''}
+  </article>`;
+}
+function adminBillingRefundDebtRow(debt){
+  const open=debt.status==='open';
+  return `<div class="list-row"><div><strong>${esc(adminMerchantName(debt.merchant_id))}</strong><br><small>Recuperação por estorno PSP • ${esc(formatDateTime(debt.created_at))}</small><br><small>${esc(debt.reason||'Estorno de pagamento previamente confirmado')}</small></div><div style="text-align:right"><strong>${adminMoney(debt.amount_cents)}</strong><br><span class="status-pill ${open?'offline':'online'}">${esc(String(debt.status||'—').toUpperCase())}</span>${open?`<div class="order-actions" style="margin-top:6px"><button class="secondary small" onclick="adminBillingRefundDebtAction('${esc(debt.id)}','mark_paid')">Marcar pago</button><button class="ghost small" onclick="adminBillingRefundDebtAction('${esc(debt.id)}','waive')">Abonar</button></div>`:''}</div></div>`;
+}
+
 function adminMerchantBillingSection(d){
   const billing=d.merchantBilling||{};
   const plans=billing.plans||[];
@@ -1446,6 +1484,8 @@ function adminMerchantBillingSection(d){
   const paymentRequests=billing.paymentRequests||[];
   const paymentEvents=billing.paymentEvents||[];
   const providerCharges=billing.providerCharges||[];
+  const refunds=billing.refunds||[];
+  const refundDebts=billing.refundDebts||[];
   const paymentIngress=billing.paymentIngress||null;
   const providerHealth=adminRuntime.providerHealth;
   const pspValidated=providerHealth?.ok===true;
@@ -1477,11 +1517,11 @@ function adminMerchantBillingSection(d){
       ${paymentIngress.liveEndpoints?.merchantPix?`<div class="tiny muted">Geração Pix da revenda: ${esc(paymentIngress.liveEndpoints.merchantPix)}</div>`:''}
       ${paymentIngress.endpoint?`<div class="tiny muted">Ingress normalizado: ${esc(paymentIngress.endpoint)}</div>`:''}
       <div style="margin-top:10px"><button class="secondary small" onclick="adminCheckBillingProviderHealth()" ${adminRuntime.providerHealthPending?'disabled':''}>${adminRuntime.providerHealthPending?'Testando conexão…':'Testar conexão real com a Woovi'}</button></div>
-      ${providerHealth?`<div class="notice ${providerHealth.ok?'success':'danger'}" style="margin-top:10px"><strong>${providerHealth.ok?'Teste real Woovi aprovado.':'Teste real Woovi requer atenção.'}</strong><br>Credencial API: ${providerHealth.credentialValid===true?'válida':providerHealth.credentialValid===false?'inválida':'não confirmada'} • webhook CHARGE_COMPLETED: ${providerHealth.chargeWebhookReady?'ativo e autenticado':'não confirmado'} • CHARGE_EXPIRED: ${providerHealth.chargeExpiredWebhookReady?'ativo e autenticado':'não confirmado'} • TRANSACTION_RECEIVED: ${providerHealth.transactionWebhookActive?'ativo':'não necessário/ausente'} • empresa vinculada: ${providerHealth.companyBound?'sim':'não'} • ambiente: ${esc(providerHealth.environment||'—')}${providerHealth.reason?' • '+esc(providerHealth.reason):''}</div>`:''}
+      ${providerHealth?`<div class="notice ${providerHealth.ok?'success':'danger'}" style="margin-top:10px"><strong>${providerHealth.ok?'Teste real Woovi aprovado.':'Teste real Woovi requer atenção.'}</strong><br>Credencial API: ${providerHealth.credentialValid===true?'válida':providerHealth.credentialValid===false?'inválida':'não confirmada'} • webhook CHARGE_COMPLETED: ${providerHealth.chargeWebhookReady?'ativo e autenticado':'não confirmado'} • CHARGE_EXPIRED: ${providerHealth.chargeExpiredWebhookReady?'ativo e autenticado':'não confirmado'} • REFUND_SENT_CONFIRMED: ${providerHealth.refundWebhookReady?'ativo e autenticado':'não confirmado'} • TRANSACTION_RECEIVED: ${providerHealth.transactionWebhookActive?'ativo':'não necessário/ausente'} • empresa vinculada: ${providerHealth.companyBound?'sim':'não'} • ambiente: ${esc(providerHealth.environment||'—')}${providerHealth.reason?' • '+esc(providerHealth.reason):''}</div>`:''}
       ${paymentIngress.configValid===false
         ?`<div class="notice danger" style="margin-top:10px"><strong>Configuração de webhook inválida.</strong><br>O mapa BILLING_PAYMENT_WEBHOOK_SECRETS não pôde ser validado. Nenhum recebimento automático deve ser considerado pronto.</div>`
         :pspValidated
-          ?`<div class="notice success" style="margin-top:10px"><strong>PSP validado em tempo real.</strong><br>O AppID respondeu; CHARGE_COMPLETED e CHARGE_EXPIRED estão ativos e autenticados. A cobrança automática pode conciliar pagamento, expirar QR e regenerar com segurança.</div>`
+          ?`<div class="notice success" style="margin-top:10px"><strong>PSP validado em tempo real.</strong><br>O AppID respondeu; CHARGE_COMPLETED, CHARGE_EXPIRED e REFUND_SENT_CONFIRMED estão ativos e autenticados. A cobrança automática pode conciliar, expirar e tratar devoluções confirmadas com segurança.</div>`
           :paymentIngress.livePspReady
             ?`<div class="notice" style="margin-top:10px"><strong>PSP configurado; prova real ainda pendente.</strong><br>Os secrets necessários existem no servidor, mas isso não comprova que a credencial ou o webhook estejam válidos na Woovi. Use “Testar conexão real com a Woovi”.</div>`
             :paymentIngress.normalizedIngressConfigured
@@ -1491,6 +1531,8 @@ function adminMerchantBillingSection(d){
     ${adminBillingMetricsView(metrics)}
     ${adminBillingReconciliationView(reconciliation)}
     ${providerCharges.length?`<details class="card flat" style="margin-bottom:16px"><summary><strong>Cobranças Pix geradas pelo TAMÃO</strong> • ${providerCharges.length}</summary><div class="list" style="margin-top:10px">${providerCharges.slice(0,50).map(adminBillingProviderChargeRow).join('')}</div></details>`:''}
+    ${refunds.length?`<div class="section-head" style="margin-top:18px"><div><h3>Estornos/devoluções do PSP</h3><p>Refunds confirmados pelo banco são ligados ao pagamento original por EndToEndId. Casos seguros revertem crédito; casos sem reversão segura geram recuperação ou revisão.</p></div><span class="status-pill ${refunds.some(x=>x.status==='review_required')?'offline':'online'}">${refunds.filter(x=>x.status==='review_required').length} revisão(ões)</span></div>${refunds.slice(0,50).map(adminBillingRefundCard).join('')}`:''}
+    ${refundDebts.length?`<details class="card flat" style="margin-bottom:16px" ${refundDebts.some(x=>x.status==='open')?'open':''}><summary><strong>Dívidas de recuperação por estorno</strong> • ${refundDebts.filter(x=>x.status==='open').length} aberta(s)</summary><div class="list" style="margin-top:10px">${refundDebts.slice(0,50).map(adminBillingRefundDebtRow).join('')}</div></details>`:''}
     ${actionableEvents.length?`<div class="section-head" style="margin-top:18px"><div><h3>Eventos de pagamento</h3><p>Eventos autenticados do provedor são conciliados por valor + identificador. Ambiguidades nunca movimentam saldo automaticamente.</p></div><span class="status-pill ${actionableEvents.some(x=>x.status==='review_required')?'risk':'online'}">${actionableEvents.length} evento(s)</span></div>${actionableEvents.map(adminBillingPaymentEventCard).join('')}`:''}
     ${plans.length?`<div class="admin-entity-grid">${plans.map(adminBillingPlanCard).join('')}</div>`:'<div class="notice">Motor de cobrança diária ainda não está ativo neste ambiente.</div>'}
     <div class="section-head" style="margin-top:18px"><div><h3>Pagamentos aguardando conferência</h3><p>Aprovar é uma ação financeira: pacote gera crédito; fechamento diário é quitado. A referência da revenda, sozinha, nunca movimenta saldo.</p></div><span class="status-pill ${pendingPaymentRequests.length?'risk':'online'}">${pendingPaymentRequests.length} pendente(s)</span></div>
@@ -2387,6 +2429,49 @@ async function adminBillingPaymentEventAction(paymentEventId,eventAction){
   try{
     await adminPerform('merchant-billing-payment-event',{paymentEventId,eventAction,reason:null});
     toast('Conciliação reprocessada');
+  }catch(e){toast(String(e?.message||e))}
+}
+
+async function adminBillingPaymentRefundAction(refundId,refundAction){
+  const refund=(adminRuntime.data?.merchantBilling?.refunds||[]).find(x=>x.id===refundId);
+  if(!refund)return toast('Estorno financeiro não encontrado');
+  if(refund.status!=='review_required')return toast('Este estorno não está mais em revisão');
+  const createDebt=refundAction==='create_debt';
+  if(!createDebt&&refundAction!=='dismiss')return toast('Ação de estorno inválida');
+  const reference=prompt(
+    createDebt
+      ?'Referência da análise que confirma a dívida de recuperação:'
+      :'Referência da investigação que permite descartar este estorno:'
+  )||'';
+  if(reference.trim().length<3)return toast('Informe uma referência');
+  const message=createDebt
+    ?'Criar dívida de recuperação de '+adminMoney(refund.refund_amount_cents)+' e manter a revenda bloqueada até regularização?'
+    :'Descartar este estorno após investigação? O registro continuará auditável e o hold será reavaliado.';
+  if(!confirm(message))return;
+  try{
+    await adminPerform('merchant-billing-payment-refund',{
+      refundId,refundAction,reference
+    });
+    toast(createDebt?'Dívida de recuperação criada':'Estorno encerrado após investigação');
+  }catch(e){toast(String(e?.message||e))}
+}
+
+async function adminBillingRefundDebtAction(debtId,debtAction){
+  const debt=(adminRuntime.data?.merchantBilling?.refundDebts||[]).find(x=>x.id===debtId);
+  if(!debt)return toast('Dívida de recuperação não encontrada');
+  if(debt.status!=='open')return toast('Esta dívida já foi resolvida');
+  const waive=debtAction==='waive';
+  if(!waive&&debtAction!=='mark_paid')return toast('Ação de dívida inválida');
+  const reference=prompt(
+    waive?'Motivo/referência para abonar a dívida:':'Referência do pagamento recebido:'
+  )||'';
+  if(reference.trim().length<3)return toast('Informe uma referência');
+  if(!confirm((waive?'Abonar':'Marcar como paga')+' a recuperação de '+adminMoney(debt.amount_cents)+'?'))return;
+  try{
+    await adminPerform('merchant-billing-refund-debt',{
+      debtId,debtAction,reference
+    });
+    toast(waive?'Dívida abonada':'Recuperação marcada como paga');
   }catch(e){toast(String(e?.message||e))}
 }
 
