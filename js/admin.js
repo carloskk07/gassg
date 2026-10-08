@@ -1383,14 +1383,15 @@ function adminBillingMetricsView(metrics){
       <div class="kpi"><span class="label">Vencido</span><strong>${adminMoney(metrics.overdueStatementCents)}</strong><small>${Number(metrics.overdueStatementCount||0)} fechamento(s)</small></div>
       <div class="kpi"><span class="label">Vence em até 24h</span><strong>${adminMoney(metrics.dueWithin24hCents)}</strong><small>${Number(metrics.dueWithin24hCount||0)} fechamento(s)</small></div>
       <div class="kpi"><span class="label">Aguardando conferência</span><strong>${adminMoney(metrics.pendingPaymentCents)}</strong><small>${Number(metrics.pendingPaymentCount||0)} pagamento(s)</small></div>
+      <div class="kpi"><span class="label">Recuperações de refund</span><strong>${adminMoney(metrics.refundRecoveryOutstandingCents||0)}</strong><small>${Number(metrics.refundRecoveryOutstandingCount||0)} obrigação(ões) em aberto • ${Number(sla.refundRecoveryOpenBreachCount||0)} fora de 24h</small></div>
       <div class="kpi"><span class="label">Conciliados prontos</span><strong>${Number(sla.matchedAwaitingApprovalCount||0)}</strong><small>${Number(sla.matchedApprovalBreachCount||0)} fora do SLA de ${Number(sla.matchedApprovalTargetHours||2)}h</small></div>
       <div class="kpi"><span class="label">Eventos em revisão</span><strong>${Number(sla.reviewEventCount||0)}</strong><small>${Number(sla.reviewEventBreachCount||0)} fora do SLA de ${Number(sla.eventReviewTargetHours||4)}h</small></div>
       <div class="kpi"><span class="label">SLA financeiro</span><strong>${slaBreaches}</strong><small>${slaBreaches?'item(ns) exigem prioridade':'fila dentro do prazo'}</small></div>
       <div class="kpi"><span class="label">Vendas em hold</span><strong>${Number(metrics.salesHoldCount||0)}</strong><small>de ${Number(metrics.accountCount||0)} conta(s)</small></div>
     </div>
-    <div class="tiny muted" style="margin-top:10px">Pacotes a conferir: ${Number(metrics.pendingPackageCount||0)} • ${adminMoney(metrics.pendingPackageCents)} · D+1 informado: ${Number(metrics.pendingStatementPaymentCount||0)} • ${adminMoney(metrics.pendingStatementPaymentCents)}${oldest?' · solicitação pendente mais antiga: '+esc(oldest):''}</div>
+    <div class="tiny muted" style="margin-top:10px">Pacotes a conferir: ${Number(metrics.pendingPackageCount||0)} • ${adminMoney(metrics.pendingPackageCents)} · D+1 informado: ${Number(metrics.pendingStatementPaymentCount||0)} • ${adminMoney(metrics.pendingStatementPaymentCents)} · recuperação informada: ${Number(metrics.pendingRefundRecoveryCount||0)} • ${adminMoney(metrics.pendingRefundRecoveryCents||0)}${oldest?' · solicitação pendente mais antiga: '+esc(oldest):''}</div>
     <div class="tiny muted" style="margin-top:6px">Idade da fila: &lt;1h ${Number(buckets.under1hCount||0)} · 1–4h ${Number(buckets.from1To4hCount||0)} · 4–24h ${Number(buckets.from4To24hCount||0)} · &gt;24h ${Number(buckets.over24hCount||0)} (${adminMoney(buckets.over24hCents||0)})</div>
-    ${slaBreaches?`<div class="notice" style="margin-top:10px"><strong>SLA financeiro vencido.</strong><br>Priorize pagamentos já conciliados há mais de ${Number(sla.matchedApprovalTargetHours||2)}h, eventos em revisão há mais de ${Number(sla.eventReviewTargetHours||4)}h e avisos sem conciliação há mais de ${Number(sla.pendingEscalationHours||24)}h. Nenhum item é cancelado automaticamente.</div>`:''}
+    ${slaBreaches?`<div class="notice" style="margin-top:10px"><strong>SLA financeiro vencido.</strong><br>Priorize pagamentos já conciliados há mais de ${Number(sla.matchedApprovalTargetHours||2)}h, eventos em revisão há mais de ${Number(sla.eventReviewTargetHours||4)}h, obrigações de recuperação ainda sem tentativa de pagamento há mais de ${Number(sla.refundRecoveryOpenTargetHours||24)}h e avisos sem conciliação há mais de ${Number(sla.pendingEscalationHours||24)}h. Nenhum item é cancelado automaticamente.</div>`:''}
     ${planMix.length?`<div class="order-actions" style="margin-top:10px">${planMix.map(p=>`<span class="status-pill">${esc(p.displayName||p.planKey)}: ${Number(p.accountCount||0)} conta(s) • ${(Number(p.platformFeeBps||0)/100).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2})}%</span>`).join('')}</div>`:''}
     <div class="notice" style="margin-top:10px"><strong>Leitura contábil.</strong><br>Crédito em circulação é saldo pré-pago ainda disponível para taxas; “aguardando conferência” é apenas valor informado pela revenda e não vira crédito nem quitação até aprovação administrativa.</div>
   </div>`;
@@ -1410,7 +1411,14 @@ function adminBillingReconciliationMessage(issue){
     sales_hold_without_overdue_statement:'Hold financeiro existe sem fechamento vencido correspondente.',
     pending_payment_review_over_24h:'Aviso de pagamento sem conciliação exata aguarda ação há mais de 24 horas.',
     matched_payment_approval_sla_over_2h:'Pagamento já conciliado aguarda confirmação do Financeiro há mais de 2 horas.',
-    payment_event_review_sla_over_4h:'Evento de pagamento permanece em revisão há mais de 4 horas.'
+    payment_event_review_sla_over_4h:'Evento de pagamento permanece em revisão há mais de 4 horas.',
+    refund_review_recovery_mismatch:'Refund ligado não possui obrigação de recuperação exata e coerente.',
+    refund_recovery_request_mismatch:'Obrigação de recuperação diverge da solicitação financeira vinculada.',
+    resolved_refund_without_recovered_obligation:'Refund foi marcado como recuperado sem obrigação + pagamento aprovados.',
+    recovered_obligation_refund_not_resolved:'Obrigação foi recuperada, mas o refund não foi encerrado de forma coerente.',
+    refund_review_without_sales_hold:'Refund ligado está em revisão sem hold efetivo de novas vendas.',
+    refund_hold_without_review:'Existe hold de refund sem refund vinculado ainda em revisão.',
+    refund_recovery_open_over_24h:'Obrigação de recuperação está aberta há mais de 24 horas sem tentativa de pagamento.'
   };
   return labels[String(issue?.issueType||'')]||String(issue?.issueType||'Divergência financeira');
 }
@@ -1433,8 +1441,8 @@ function adminBillingReconciliationView(reconciliation){
     return `<div class="list-row"><div><strong>${esc(adminBillingReconciliationMessage(issue))}</strong><br><small>${esc(merchant)} • ${esc(issue.entityId||'—')}${Number.isFinite(age)?' • '+age.toLocaleString('pt-BR',{maximumFractionDigits:1})+'h':''}</small>${amountDiff}</div><span class="status-pill ${severity==='critical'?'offline':'risk'}">${severity==='critical'?'CRÍTICO':'ATENÇÃO'}</span></div>`;
   }).join('');
   return `<div class="card flat" style="margin-bottom:16px">
-    <div class="section-head"><div><h3>Reconciliação financeira</h3><p>Auditoria independente entre conta, ledger, reservas de pedidos, solicitações de pagamento e fechamentos D+1.</p></div><span class="status-pill ${healthy?'online':'offline'}">${healthy?'ÍNTEGRA':critical+' crítico(s)'}</span></div>
-    <div class="tiny muted">Divergências: ${Number(reconciliation.issueCount||0)} • críticas: ${critical} • alertas: ${warnings} • pagamentos aguardando revisão há mais de 24h: ${Number(reconciliation.stalePendingReviewCount||0)}</div>
+    <div class="section-head"><div><h3>Reconciliação financeira</h3><p>Auditoria independente entre conta, ledger, reservas de pedidos, solicitações de pagamento, fechamentos D+1, refunds e obrigações de recuperação.</p></div><span class="status-pill ${healthy?'online':'offline'}">${healthy?'ÍNTEGRA':critical+' crítico(s)'}</span></div>
+    <div class="tiny muted">Divergências: ${Number(reconciliation.issueCount||0)} • críticas: ${critical} • alertas: ${warnings} • pagamentos aguardando revisão há mais de 24h: ${Number(reconciliation.stalePendingReviewCount||0)} • recuperações abertas >24h: ${Number(reconciliation.refundRecoveryOpenSlaBreachCount||0)}</div>
     ${issueRows?`<div class="list" style="margin-top:10px">${issueRows}</div>`:'<div class="notice success" style="margin-top:10px"><strong>Conciliação fechada.</strong><br>Nenhuma divergência encontrada entre os registros financeiros auditados.</div>'}
     ${Number(reconciliation.issueCount||0)>issues.length?`<div class="tiny muted" style="margin-top:8px">Mostrando as primeiras ${issues.length} divergências de ${Number(reconciliation.issueCount||0)}.</div>`:''}
   </div>`;
