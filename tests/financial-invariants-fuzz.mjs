@@ -549,7 +549,7 @@ for(let i=0;i<20000;i++){
 
 
 function paymentEventReviewActionAllowed(status,action,reason=''){
-  if(action==='recheck')return ['received','review_required','matched_exact'].includes(status)||['applied','already_applied','ignored'].includes(status);
+  if(action==='recheck')return ['received','review_required','matched_exact'].includes(status)||['applied','already_applied','ignored','superseded'].includes(status);
   if(action==='ignore')return status==='review_required'&&String(reason).trim().length>=3;
   return false;
 }
@@ -563,7 +563,8 @@ for(let i=0;i<20000;i++){
   assert.equal(paymentEventReviewActionAllowed('review_required','ignore','x'),false);
   assert.equal(paymentEventReviewActionAllowed('review_required','recheck'),true);
   assert.equal(paymentEventReviewActionAllowed('ignored','recheck'),true,'recheck terminal deve ser replay seguro sem reabrir o evento');
-  paymentEventReviewCases+=6;
+  assert.equal(paymentEventReviewActionAllowed('superseded','recheck'),true,'evento irmão substituído também precisa ser terminal e replay-safe');
+  paymentEventReviewCases+=7;
 }
 
 
