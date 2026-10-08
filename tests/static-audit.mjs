@@ -553,6 +553,7 @@ const refundRecoveryObligation=read('supabase/migrations/20261008093000_refund_r
 const refundPaymentEventFkIndex=read('supabase/migrations/20261008094500_refund_payment_event_fk_index_v1_97_1.sql');
 const refundRecoveryReconciliation=read('supabase/migrations/20261008100000_refund_recovery_reconciliation_v1_98.sql');
 const refundRecoveryExposureCap=read('supabase/migrations/20261008113000_refund_recovery_exposure_cap_v1_99.sql');
+const refundRecoveryExactAllocation=read('supabase/migrations/20261008120000_refund_recovery_exact_allocation_v1_100.sql');
 const providerChargeCancelSource=read('supabase/functions/_shared/provider-charge-cancel.js');
 const providerCancelMerchantOps=read('supabase/functions/merchant-ops/index.ts');
 const billingPaymentWebhookSource=read('supabase/functions/billing-payment-webhook/index.ts');
@@ -854,6 +855,12 @@ assert.ok(refundRecoveryExposureCap.includes("revoke all on function public.guar
 assert.ok(adminOpsSource.includes('"mark-recovered","dismiss-unrelated","dismiss-excess"'),'admin-ops precisa rotear reconhecimento de excesso pelo backend idempotente');
 assert.ok(admin.includes('Reconhecer excesso do PSP')&&admin.includes('Exposição original já totalmente coberta.')&&admin.includes('Excesso do PSP não convertido em dívida'),'Financeiro precisa enxergar o cap e encerrar somente excesso sem obrigação');
 assert.ok(merchant.includes('Não existe cobrança automática de recuperação em aberto neste momento.')&&merchant.includes('não cria dívida acima do valor originalmente recebido'),'revenda não pode receber mensagem de dívida fantasma quando a exposição já está totalmente coberta');
+assert.ok(refundRecoveryExactAllocation.includes('REFUND_RECOVERY_EXACT_ALLOCATION_REQUIRED')&&refundRecoveryExactAllocation.includes('v_expected:=least(v_refund.amount_cents,v_remaining)'),'v1.100 precisa exigir a obrigação exatamente igual à exposição recuperável restante');
+assert.ok(refundRecoveryExactAllocation.includes('REFUND_RECOVERY_FACT_IMMUTABLE')&&refundRecoveryExactAllocation.includes("tg_op='UPDATE'"),'campos econômicos da obrigação não podem ser reescritos depois da criação');
+assert.ok(refundRecoveryExactAllocation.includes('block_refund_recovery_delete')&&refundRecoveryExactAllocation.includes('before delete on public.merchant_billing_refund_recoveries'),'obrigação econômica não pode ser apagada para esconder dívida');
+assert.ok(refundRecoveryExactAllocation.includes('V1100_EXISTING_REFUND_RECOVERY_ALLOCATION_INVALID')&&refundRecoveryExactAllocation.includes('rows between unbounded preceding and 1 preceding'),'migration precisa rejeitar qualquer rateio legado que já viole a alocação determinística');
+assert.ok(refundRecoveryExactAllocation.includes("'refund-recovery-exposure:'||new.original_payment_request_id::text")&&refundRecoveryExactAllocation.includes('pg_advisory_xact_lock'),'alocação exata precisa continuar serializada por pagamento original');
+assert.ok(refundRecoveryExactAllocation.includes("revoke all on function public.guard_refund_recovery_exposure_cap()")&&refundRecoveryExactAllocation.includes("revoke all on function public.block_refund_recovery_delete()"),'guards v1.100 precisam permanecer server-only');
 assert.ok(admin.includes('Recuperações de refund')&&admin.includes('recuperação informada:')&&admin.includes('refundRecoveryOpenBreachCount'),'cockpit admin precisa mostrar exposição e SLA de recuperação');
 assert.ok(admin.includes('Refund ligado não possui obrigação de recuperação exata e coerente.')&&admin.includes('Obrigação de recuperação está aberta há mais de 24 horas'),'UI precisa traduzir divergência estrutural e envelhecimento da recuperação');
 assert.ok(merchantBillingPixSource.includes('refundRecoveryId')&&merchantBillingPixSource.includes('REFUND_RECOVERY_NOT_PAYABLE'),'Edge Pix precisa aceitar e traduzir obrigação de recuperação');
