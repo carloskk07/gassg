@@ -495,9 +495,12 @@ assert.ok(read('.github/workflows/build-live-portals.yml').includes('tamao-live-
 assert.ok(backend.includes("buildPortalHref(globalThis.CHAMA_CUSTOMER_ORIGIN,'customer')"),'retorno ao cliente precisa navegar para a origem dedicada configurada');
 assert.ok(admin.includes("buildPortalHref?.(globalThis.CHAMA_ADMIN_ORIGIN,'admin')"),'entrada administrativa precisa navegar para a origem dedicada configurada');
 assert.ok(!backend.includes("const url=new URL(location.href);\n  url.search='';\n  url.searchParams.set('merchant','1')"),'portal merchant não pode reutilizar cegamente a origem atual');
-for(const fn of ['merchant-orders','merchant-action','merchant-ops','merchant-team','complete-delivery','submit-merchant-application']){
+for(const fn of ['merchant-orders','merchant-action','merchant-ops','merchant-team','complete-delivery','submit-merchant-application','merchant-billing-pix','get-order']){
   const source=read('supabase/functions/'+fn+'/index.ts');
   assert.ok(source.includes('MERCHANT_ALLOWED_ORIGIN'),fn+' precisa exigir origem dedicada');
+  assert.ok(source.includes('(Deno.env.get("MERCHANT_ALLOWED_ORIGIN")??"").trim()'),fn+' não pode reautorizar Netlify por fallback implícito');
+  assert.ok(source.includes('https://parceiro.tamao.com.br')&&source.includes('https://tamao-sg-revenda.pages.dev'),fn+' precisa manter apenas origens canônicas da revenda mais override explícito');
+  assert.ok(!source.includes('chama-sg-revenda.netlify.app'),fn+' não pode manter origem Netlify legada no backend privilegiado');
   assert.ok(!source.includes('const PROD_ORIGIN="https://carloskk07.github.io"'),fn+' não pode confiar no GitHub Pages compartilhado');
 }
 assert.ok(read('supabase/functions/submit-merchant-application/index.ts').includes('MERCHANT_ALLOWED_ORIGIN'),'cadastro de empresa deve aceitar a origem dedicada da revenda, não a origem do cliente');
