@@ -125,6 +125,98 @@ function safePayerName(value:unknown){
   return raw;
 }
 
+async function retireWooviSiblingCharges(admin:any,paidCorrelationId:string){
+  const {data:paidCharge,error:paidError}=await admin
+    .from("merchant_billing_provider_charges")
+    .select("id,payment_request_id")
+    .eq("provider","woovi")
+    .eq("correlation_id",paidCorrelationId)
+    .maybeSingle();
+
+  if(paidError||!paidCharge?.payment_request_id){
+    if(paidError)console.error("woovi paid charge lookup failed",String(paidError.message??paidError));
+    return {attempted:0,cancelled:0,failed:0};
+  }
+
+  const {data:siblings,error:siblingError}=await admin
+    .from("merchant_billing_provider_charges")
+    .select("id,correlation_id")
+    .eq("provider","woovi")
+    .eq("payment_request_id",paidCharge.payment_request_id)
+    .eq("status","cancelled")
+    .eq("last_error_code","PROVIDER_CANCEL_REQUIRED")
+    .neq("id",paidCharge.id)
+    .limit(5);
+
+  if(siblingError){
+    console.error("woovi sibling charge lookup failed",String(siblingError.message??siblingError));
+    return {attempted:0,cancelled:0,failed:0};
+  }
+
+  const rows=siblings??[];
+  if(!rows.length)return {attempted:0,cancelled:0,failed:0};
+
+  const appId=String(Deno.env.get("WOOVI_APP_ID")??"").trim();
+  const apiBase=String(
+    Deno.env.get("WOOVI_API_BASE_URL")??"https://api.woovi.com"
+  ).trim().replace(/\/$/,"");
+  const allowedBases=new Set([
+    "https://api.woovi.com",
+    "https://api.woovi-sandbox.com"
+  ]);
+  let cancelled=0;
+  let failed=0;
+
+  for(const sibling of rows){
+    let ok=false;
+    if(appId.length>=12&&allowedBases.has(apiBase)){
+      const controller=new AbortController();
+      const timer=setTimeout(()=>controller.abort(),4500);
+      try{
+        const response=await fetch(
+          apiBase+"/api/v1/charge/"+encodeURIComponent(String(sibling.correlation_id)),
+          {
+            method:"DELETE",
+            headers:{
+              "Accept":"application/json",
+              "Authorization":appId
+            },
+            signal:controller.signal
+          }
+        );
+        ok=response.ok;
+        try{await response.body?.cancel()}catch{}
+      }catch(error){
+        console.error("woovi sibling charge cancel failed",String(error));
+      }finally{
+        clearTimeout(timer);
+      }
+    }
+
+    const {error:updateError}=await admin
+      .from("merchant_billing_provider_charges")
+      .update({
+        last_error_code:ok?null:"PROVIDER_CANCEL_FAILED",
+        last_error_at:ok?null:new Date().toISOString(),
+        updated_at:new Date().toISOString()
+      })
+      .eq("id",sibling.id)
+      .eq("status","cancelled")
+      .eq("last_error_code","PROVIDER_CANCEL_REQUIRED");
+
+    if(updateError){
+      console.error("woovi sibling charge cancel state failed",String(updateError.message??updateError));
+      failed++;
+    }else if(ok){
+      cancelled++;
+    }else{
+      failed++;
+    }
+  }
+
+  return {attempted:rows.length,cancelled,failed};
+}
+
 Deno.serve(async(req:Request)=>{
   if(req.method!=="POST")return response({error:"METHOD_NOT_ALLOWED"},405);
 
@@ -306,10 +398,16 @@ Deno.serve(async(req:Request)=>{
     return response({error:"PAYMENT_EVENT_INGEST_FAILED"},503);
   }
 
+  const siblingCancellation=eventName==="OPENPIX:CHARGE_COMPLETED"
+    &&providerCorrelationId
+      ?await retireWooviSiblingCharges(admin,providerCorrelationId)
+      :{attempted:0,cancelled:0,failed:0};
+
   return response({
     ok:true,
     provider:"woovi",
     event:eventName,
+    siblingCancellation,
     ...(data??{})
   },202);
 });
