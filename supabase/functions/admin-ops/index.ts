@@ -1794,7 +1794,8 @@ Deno.serve(async(req:Request)=>{
 
     if(action==="merchant-billing-provider-cancel-retry"){
       const providerCancellation=await cancelProviderChargesForPaymentRequest(
-        admin,String(payload.paymentRequestId)
+        admin,String(payload.paymentRequestId),
+        {actorKind:"admin",actorUserId:user.id}
       );
       return json({
         ok:providerCancellation.failed===0,
@@ -2112,7 +2113,8 @@ Deno.serve(async(req:Request)=>{
       try{
         providerCancellation={
           ...(await cancelProviderChargesForPaymentRequest(
-            admin,payload.paymentRequestId
+            admin,payload.paymentRequestId,
+            {actorKind:"admin",actorUserId:user.id}
           )),
           deferred:false
         };
