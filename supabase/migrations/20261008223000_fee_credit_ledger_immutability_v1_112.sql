@@ -4,7 +4,7 @@
 -- Only technical provenance redaction is allowed:
 --   order_id   -> NULL (order retention / FK ON DELETE SET NULL)
 --   created_by -> NULL (auth user deletion / FK ON DELETE SET NULL)
--- Merchant deletion may cascade ledger rows only as part of the parent delete.
+-- Ledger rows are never deleted. Financial history outlives operational cleanup.
 
 create or replace function public.guard_merchant_fee_credit_ledger_immutable()
 returns trigger
@@ -19,17 +19,6 @@ begin
   end if;
 
   if tg_op='DELETE' then
-    -- Preserve the existing merchant FK ON DELETE CASCADE contract, while
-    -- rejecting standalone deletion of a financial fact.
-    if pg_catalog.pg_trigger_depth()>1
-       and not exists(
-         select 1
-         from public.merchants m
-         where m.id=old.merchant_id
-       ) then
-      return old;
-    end if;
-
     raise exception 'MERCHANT_FEE_CREDIT_LEDGER_DELETE_FORBIDDEN:%',
       old.id
       using errcode='23514';
