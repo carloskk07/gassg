@@ -95,7 +95,7 @@ async function requireAdmin(admin:any,userId:string){
   if(!data)throw new DomainError("ADMIN_ACCESS_DENIED","Esta conta não possui acesso administrativo.",403);
   return data;
 }
-const ADMIN_READ_ACTIONS=new Set(["summary","search","entity-detail","system-health","audit-search","incident-list"]);
+const ADMIN_READ_ACTIONS=new Set(["summary","search","entity-detail","system-health","billing-provider-health","audit-search","incident-list"]);
 const ADMIN_ROLE_ACTIONS:Record<string,Set<string>>={
   superadmin:new Set(["*"]),
   operations:new Set([
@@ -284,6 +284,166 @@ function billingPaymentIngressReadiness(){
         :null
     }
   };
+}
+
+async function wooviBillingProviderHealth(){
+  const readiness=billingPaymentIngressReadiness();
+  const woovi=readiness?.adapterReadiness?.woovi??{};
+  const endpoint=String(readiness?.liveEndpoints?.woovi??"").trim();
+  const appId=String(Deno.env.get("WOOVI_APP_ID")??"").trim();
+  const expectedAuthorization=String(Deno.env.get("WOOVI_WEBHOOK_AUTHORIZATION")??"");
+  const companyId=String(Deno.env.get("WOOVI_COMPANY_ID")??"").trim();
+  const base=String(
+    Deno.env.get("WOOVI_API_BASE_URL")??"https://api.woovi.com"
+  ).trim().replace(/\/$/,"");
+  const allowedBases=new Set([
+    "https://api.woovi.com",
+    "https://api.woovi-sandbox.com"
+  ]);
+  const checkedAt=new Date().toISOString();
+  const environment=base==="https://api.woovi-sandbox.com"?"sandbox":"production";
+
+  if(!allowedBases.has(base)){
+    return {
+      ok:false,status:"invalid_config",checkedAt,environment,
+      credentialValid:false,chargeWebhookReady:false,
+      transactionWebhookActive:false,companyBound:companyId.length>=6,
+      reason:"WOOVI_API_BASE_INVALID"
+    };
+  }
+  if(appId.length<12){
+    return {
+      ok:false,status:"not_configured",checkedAt,environment,
+      credentialValid:false,chargeWebhookReady:false,
+      transactionWebhookActive:false,companyBound:companyId.length>=6,
+      reason:"WOOVI_APP_ID_MISSING"
+    };
+  }
+  if(!endpoint){
+    return {
+      ok:false,status:"invalid_config",checkedAt,environment,
+      credentialValid:false,chargeWebhookReady:false,
+      transactionWebhookActive:false,companyBound:companyId.length>=6,
+      reason:"WOOVI_WEBHOOK_ENDPOINT_MISSING"
+    };
+  }
+
+  const controller=new AbortController();
+  const timer=setTimeout(()=>controller.abort(),7000);
+  try{
+    const url=base+"/api/v1/webhook?url="+encodeURIComponent(endpoint);
+    const response=await fetch(url,{
+      method:"GET",
+      headers:{
+        "Accept":"application/json",
+        "Authorization":appId
+      },
+      signal:controller.signal
+    });
+    const raw=await response.text();
+    if(raw.length>300000){
+      return {
+        ok:false,status:"provider_invalid_response",checkedAt,environment,
+        credentialValid:response.status!==401,
+        chargeWebhookReady:false,transactionWebhookActive:false,
+        companyBound:companyId.length>=6,
+        apiStatus:response.status,
+        reason:"WOOVI_RESPONSE_TOO_LARGE"
+      };
+    }
+
+    if(response.status===401){
+      return {
+        ok:false,status:"invalid_credentials",checkedAt,environment,
+        credentialValid:false,chargeWebhookReady:false,
+        transactionWebhookActive:false,companyBound:companyId.length>=6,
+        apiStatus:401,reason:"WOOVI_APP_ID_REJECTED"
+      };
+    }
+    if(!response.ok){
+      return {
+        ok:false,
+        status:response.status===429?"rate_limited":"provider_unavailable",
+        checkedAt,environment,
+        credentialValid:response.status!==401,
+        chargeWebhookReady:false,transactionWebhookActive:false,
+        companyBound:companyId.length>=6,
+        apiStatus:response.status,
+        reason:"WOOVI_WEBHOOK_LIST_HTTP_"+response.status
+      };
+    }
+
+    let payload:any={};
+    try{payload=raw?JSON.parse(raw):{}}
+    catch{
+      return {
+        ok:false,status:"provider_invalid_response",checkedAt,environment,
+        credentialValid:true,chargeWebhookReady:false,
+        transactionWebhookActive:false,companyBound:companyId.length>=6,
+        apiStatus:response.status,reason:"WOOVI_INVALID_JSON"
+      };
+    }
+    const webhooks=Array.isArray(payload?.webhooks)?payload.webhooks:[];
+    const matching=webhooks.filter((item:any)=>
+      String(item?.url??"").trim()===endpoint
+    );
+    const webhookState=(event:string)=>{
+      const candidates=matching.filter((item:any)=>
+        String(item?.event??"").trim()===event
+      );
+      const active=candidates.filter((item:any)=>item?.isActive===true);
+      const authorizationMatch=active.some((item:any)=>
+        expectedAuthorization.length>=24
+        &&String(item?.authorization??"")===expectedAuthorization
+      );
+      return {
+        registered:candidates.length>0,
+        active:active.length>0,
+        authorizationMatch
+      };
+    };
+    const chargeCompleted=webhookState("OPENPIX:CHARGE_COMPLETED");
+    const transactionReceived=webhookState("OPENPIX:TRANSACTION_RECEIVED");
+    const companyBound=companyId.length>=6&&companyId.length<=160;
+    const chargeWebhookReady=
+      chargeCompleted.active&&chargeCompleted.authorizationMatch;
+    const ok=chargeWebhookReady&&companyBound;
+
+    return {
+      ok,
+      status:ok?"healthy":"misconfigured",
+      checkedAt,
+      environment,
+      apiStatus:response.status,
+      credentialValid:true,
+      companyBound,
+      endpointRegistered:matching.length>0,
+      chargeWebhookReady,
+      transactionWebhookActive:
+        transactionReceived.active&&transactionReceived.authorizationMatch,
+      webhooks:{
+        chargeCompleted,
+        transactionReceived
+      },
+      reason:ok?null:
+        !companyBound?"WOOVI_COMPANY_ID_MISSING":
+        !chargeCompleted.registered?"WOOVI_CHARGE_WEBHOOK_MISSING":
+        !chargeCompleted.active?"WOOVI_CHARGE_WEBHOOK_INACTIVE":
+        !chargeCompleted.authorizationMatch?"WOOVI_CHARGE_WEBHOOK_AUTH_MISMATCH":
+        "WOOVI_HEALTH_UNKNOWN"
+    };
+  }catch(error){
+    return {
+      ok:false,status:"provider_unavailable",checkedAt,environment,
+      credentialValid:null,chargeWebhookReady:false,
+      transactionWebhookActive:false,companyBound:companyId.length>=6,
+      reason:error instanceof DOMException&&error.name==="AbortError"
+        ?"WOOVI_HEALTH_TIMEOUT"
+        :"WOOVI_HEALTH_FETCH_FAILED"
+    };
+  }finally{
+    clearTimeout(timer);
+  }
 }
 
 function adminRoleCanViewEntity(role:string,type:string){
@@ -647,9 +807,10 @@ async function adminSystemHealth(admin:any){
   const now=new Date();
   const heartbeatCutoff=now.getTime()-15*60*1000;
   const priceCutoff=now.getTime()-24*60*60*1000;
-  const [portals,readiness,openSupport,rewardDebt,accountingDebt,overdueReceivables,overdueCashback,activeMerchants]=await Promise.all([
+  const [portals,readiness,paymentProvider,openSupport,rewardDebt,accountingDebt,overdueReceivables,overdueCashback,activeMerchants]=await Promise.all([
     verifyLivePortals(),
     admin.rpc("platform_launch_readiness"),
+    wooviBillingProviderHealth(),
     admin.from("support_cases").select("id",{count:"exact",head:true}).in("status",["open","in_review"]),
     admin.from("reward_processing_failures").select("order_id",{count:"exact",head:true}).is("resolved_at",null),
     admin.from("settlement_accounting_failures").select("order_id",{count:"exact",head:true}).is("resolved_at",null),
@@ -687,6 +848,7 @@ async function adminSystemHealth(admin:any){
     edge:{ok:true,service:"admin-ops"},
     database:{ok:true,operationMode:readiness.data?.operationMode??null,commerceEnabled:readiness.data?.commerceEnabled===true},
     portals,
+    paymentProvider,
     queues,
     readiness:readiness.data??{}
   };
@@ -1067,6 +1229,9 @@ Deno.serve(async(req:Request)=>{
     }
     if(action==="system-health"){
       return json(await adminSystemHealth(admin),200,origin);
+    }
+    if(action==="billing-provider-health"){
+      return json(await wooviBillingProviderHealth(),200,origin);
     }
     if(action==="audit-search"){
       return json(await adminAuditSearch(admin,body,String(adminAccess.admin_role||"superadmin")),200,origin);
