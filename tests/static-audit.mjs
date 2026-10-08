@@ -495,7 +495,7 @@ assert.ok(read('.github/workflows/build-live-portals.yml').includes('tamao-live-
 assert.ok(backend.includes("buildPortalHref(globalThis.CHAMA_CUSTOMER_ORIGIN,'customer')"),'retorno ao cliente precisa navegar para a origem dedicada configurada');
 assert.ok(admin.includes("buildPortalHref?.(globalThis.CHAMA_ADMIN_ORIGIN,'admin')"),'entrada administrativa precisa navegar para a origem dedicada configurada');
 assert.ok(!backend.includes("const url=new URL(location.href);\n  url.search='';\n  url.searchParams.set('merchant','1')"),'portal merchant não pode reutilizar cegamente a origem atual');
-for(const fn of ['merchant-orders','merchant-action','merchant-ops','merchant-team','complete-delivery','submit-merchant-application','merchant-billing-pix']){
+for(const fn of ['merchant-orders','merchant-action','merchant-ops','merchant-team','complete-delivery','submit-merchant-application','merchant-billing-pix','get-order']){
   const source=read('supabase/functions/'+fn+'/index.ts');
   assert.ok(source.includes('MERCHANT_ALLOWED_ORIGIN'),fn+' precisa exigir origem dedicada');
   assert.ok(source.includes('(Deno.env.get("MERCHANT_ALLOWED_ORIGIN")??"").trim()'),fn+' não pode reautorizar Netlify por fallback implícito');
