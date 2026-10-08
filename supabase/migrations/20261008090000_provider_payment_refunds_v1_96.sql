@@ -38,7 +38,7 @@ create table if not exists public.merchant_billing_payment_refunds (
   raw_payload_sha256 text not null
     check (raw_payload_sha256 ~ '^[0-9a-f]{64}$'),
   status text not null default 'received'
-    check (status in ('received','applied','review_required')),
+    check (status in ('received','applied','review_required','ignored')),
   action_type text
     check (
       action_type is null
@@ -215,6 +215,18 @@ begin
         sales_hold_at=coalesce(sales_hold_at,clock_timestamp()),
         updated_at=clock_timestamp()
     where merchant_id=p_merchant_id;
+  elsif exists(
+    select 1
+    from public.merchant_billing_payment_refunds r
+    where r.merchant_id=p_merchant_id
+      and r.status='review_required'
+  ) then
+    update public.merchant_billing_accounts
+    set sales_hold=true,
+        sales_hold_reason='provider_payment_refund_review',
+        sales_hold_at=coalesce(sales_hold_at,clock_timestamp()),
+        updated_at=clock_timestamp()
+    where merchant_id=p_merchant_id;
   else
     update public.merchant_billing_accounts
     set sales_hold=false,
@@ -223,7 +235,10 @@ begin
         updated_at=clock_timestamp()
     where merchant_id=p_merchant_id
       and sales_hold
-      and sales_hold_reason='provider_payment_refund_debt';
+      and sales_hold_reason in (
+        'provider_payment_refund_debt',
+        'provider_payment_refund_review'
+      );
 
     perform public.process_merchant_billing_enforcement();
   end if;
@@ -482,16 +497,7 @@ begin
   from public.merchant_billing_payment_refunds r
   where r.provider=v_provider
     and lower(trim(r.original_end_to_end_id))=lower(v_original_e2e)
-    and r.status<>'review_required'
-       or r.id=v_refund.id;
-
-  -- Repeat with explicit parentheses to keep cumulative proof scoped.
-  select coalesce(sum(r.refund_amount_cents),0)
-  into v_total_refunded
-  from public.merchant_billing_payment_refunds r
-  where r.provider=v_provider
-    and lower(trim(r.original_end_to_end_id))=lower(v_original_e2e)
-    and (r.status<>'review_required' or r.id=v_refund.id);
+    and r.status<>'ignored';
 
   if v_total_refunded>p_original_amount_cents then
     update public.merchant_billing_payment_refunds
@@ -501,12 +507,7 @@ begin
     where id=v_refund.id
     returning * into v_refund;
 
-    update public.merchant_billing_accounts
-    set sales_hold=true,
-        sales_hold_reason='provider_payment_refund_review',
-        sales_hold_at=coalesce(sales_hold_at,clock_timestamp()),
-        updated_at=clock_timestamp()
-    where merchant_id=v_request.merchant_id;
+    perform public.refresh_merchant_refund_debt_hold(v_request.merchant_id);
 
     return jsonb_build_object(
       'ok',true,'replayed',false,'refundId',v_refund.id,
@@ -636,27 +637,6 @@ begin
   where id=v_refund.id
   returning * into v_refund;
 
-  insert into public.platform_admin_audit(
-    actor_user_id,action,target_type,target_id,metadata
-  )
-  values(
-    null,
-    'merchant_billing_provider_refund_applied',
-    'merchant_billing_payment_refund',
-    v_refund.id::text,
-    jsonb_build_object(
-      'provider',v_provider,
-      'refundEndToEndId',v_refund_e2e,
-      'originalEndToEndId',v_original_e2e,
-      'refundAmountCents',p_refund_amount_cents,
-      'paymentRequestId',v_request.id,
-      'merchantId',v_request.merchant_id,
-      'actionType',v_action,
-      'creditReversedCents',v_credit_reversed,
-      'debtCreatedCents',v_debt
-    )
-  );
-
   return jsonb_build_object(
     'ok',true,
     'replayed',false,
@@ -676,6 +656,385 @@ revoke all on function public.ingest_merchant_billing_payment_refund(
 ) from public,anon,authenticated;
 grant execute on function public.ingest_merchant_billing_payment_refund(
   text,text,text,text,bigint,bigint,text,timestamptz,boolean,text
+) to service_role,postgres;
+
+create or replace function public.admin_merchant_billing_payment_refund_action(
+  p_actor_user_id uuid,
+  p_refund_id uuid,
+  p_action text,
+  p_reference text,
+  p_idempotency_key text,
+  p_request_hash text
+)
+returns jsonb
+language plpgsql
+security definer
+set search_path=pg_catalog
+as $
+declare
+  v_role text;
+  v_kind text:=lower(trim(coalesce(p_action,'')));
+  v_reference text:=nullif(trim(coalesce(p_reference,'')),'');
+  v_action public.action_requests%rowtype;
+  v_refund public.merchant_billing_payment_refunds%rowtype;
+  v_result jsonb;
+begin
+  v_role:=public.platform_admin_role(p_actor_user_id);
+  if v_role not in ('superadmin','finance') then
+    raise exception 'ADMIN_PERMISSION_DENIED' using errcode='42501';
+  end if;
+
+  if v_kind not in ('create_debt','dismiss') then
+    raise exception 'INVALID_PAYMENT_REFUND_ACTION' using errcode='22023';
+  end if;
+
+  if v_reference is null
+     or char_length(v_reference)<3
+     or char_length(v_reference)>240 then
+    raise exception 'FINANCIAL_REFERENCE_REQUIRED' using errcode='22023';
+  end if;
+
+  if p_idempotency_key is null
+     or char_length(p_idempotency_key)<12
+     or char_length(p_idempotency_key)>120 then
+    raise exception 'INVALID_IDEMPOTENCY_KEY' using errcode='22023';
+  end if;
+
+  if p_request_hash is null or p_request_hash!~'^[0-9a-f]{64}
+  p_actor_user_id uuid,
+  p_debt_id uuid,
+  p_action text,
+  p_reference text,
+  p_idempotency_key text,
+  p_request_hash text
+)
+returns jsonb
+language plpgsql
+security definer
+set search_path=pg_catalog
+as $$
+declare
+  v_role text;
+  v_kind text:=lower(trim(coalesce(p_action,'')));
+  v_reference text:=nullif(trim(coalesce(p_reference,'')),'');
+  v_action public.action_requests%rowtype;
+  v_debt public.merchant_billing_refund_debts%rowtype;
+  v_result jsonb;
+begin
+  v_role:=public.platform_admin_role(p_actor_user_id);
+  if v_role not in ('superadmin','finance') then
+    raise exception 'ADMIN_PERMISSION_DENIED' using errcode='42501';
+  end if;
+
+  if v_kind not in ('mark_paid','waive') then
+    raise exception 'INVALID_REFUND_DEBT_ACTION' using errcode='22023';
+  end if;
+
+  if v_reference is null
+     or char_length(v_reference)<3
+     or char_length(v_reference)>240 then
+    raise exception 'FINANCIAL_REFERENCE_REQUIRED' using errcode='22023';
+  end if;
+
+  if p_idempotency_key is null
+     or char_length(p_idempotency_key)<12
+     or char_length(p_idempotency_key)>120 then
+    raise exception 'INVALID_IDEMPOTENCY_KEY' using errcode='22023';
+  end if;
+
+  if p_request_hash is null or p_request_hash!~'^[0-9a-f]{64}$' then
+    raise exception 'INVALID_REQUEST_HASH' using errcode='22023';
+  end if;
+
+  insert into public.action_requests(
+    idempotency_key,user_id,action_name,request_hash
+  )
+  values(
+    p_idempotency_key,p_actor_user_id,
+    'admin-ops:merchant-billing-refund-debt:'||v_kind,
+    p_request_hash
+  )
+  on conflict(idempotency_key) do nothing;
+
+  select *
+  into v_action
+  from public.action_requests
+  where idempotency_key=p_idempotency_key
+  for update;
+
+  if v_action.user_id<>p_actor_user_id
+     or v_action.action_name<>
+        'admin-ops:merchant-billing-refund-debt:'||v_kind
+     or v_action.request_hash<>p_request_hash then
+    raise exception 'IDEMPOTENCY_CONFLICT' using errcode='23505';
+  end if;
+
+  if v_action.completed_at is not null then
+    return v_action.result_json;
+  end if;
+
+  select *
+  into v_debt
+  from public.merchant_billing_refund_debts
+  where id=p_debt_id
+  for update;
+
+  if not found then
+    raise exception 'REFUND_DEBT_NOT_FOUND' using errcode='P0002';
+  end if;
+
+  if v_debt.status<>'open' then
+    raise exception 'REFUND_DEBT_ALREADY_RESOLVED' using errcode='40001';
+  end if;
+
+  update public.merchant_billing_refund_debts
+  set status=case when v_kind='mark_paid' then 'paid' else 'waived' end,
+      settled_at=clock_timestamp(),
+      resolved_by=p_actor_user_id,
+      resolution_reference=v_reference,
+      updated_at=clock_timestamp()
+  where id=v_debt.id
+  returning * into v_debt;
+
+  perform public.refresh_merchant_refund_debt_hold(v_debt.merchant_id);
+
+  v_result:=jsonb_build_object(
+    'ok',true,
+    'debtId',v_debt.id,
+    'status',v_debt.status,
+    'merchantId',v_debt.merchant_id,
+    'amountCents',v_debt.amount_cents,
+    'position',public.merchant_financial_position(v_debt.merchant_id)
+  );
+
+  update public.action_requests
+  set result_json=v_result,
+      completed_at=clock_timestamp()
+  where idempotency_key=p_idempotency_key;
+
+  insert into public.platform_admin_audit(
+    actor_user_id,action,target_type,target_id,metadata
+  )
+  values(
+    p_actor_user_id,
+    'merchant_billing_refund_debt_'||v_kind,
+    'merchant_billing_refund_debt',
+    v_debt.id::text,
+    jsonb_build_object(
+      'merchantId',v_debt.merchant_id,
+      'amountCents',v_debt.amount_cents,
+      'status',v_debt.status,
+      'reference',v_reference
+    )
+  );
+
+  return v_result;
+end;
+$$;
+
+revoke all on function public.admin_merchant_billing_refund_debt_action(
+  uuid,uuid,text,text,text,text
+) from public,anon,authenticated;
+grant execute on function public.admin_merchant_billing_refund_debt_action(
+  uuid,uuid,text,text,text,text
+) to service_role,postgres;
+
+create or replace function public.merchant_financial_position(p_merchant_id uuid)
+returns jsonb
+language plpgsql
+security definer
+set search_path=pg_catalog
+as $$
+declare
+  v_fees bigint:=0;
+  v_cashback bigint:=0;
+  v_platform_owes bigint:=0;
+  v_merchant_owes bigint:=0;
+  v_refund_debt bigint:=0;
+  v_credit bigint:=0;
+  v_reserved bigint:=0;
+  v_hold boolean:=false;
+  v_plan text;
+begin
+  if p_merchant_id is null then
+    raise exception 'INVALID_MERCHANT' using errcode='22023';
+  end if;
+
+  select coalesce(sum(platform_fee_cents-prepaid_credit_applied_cents),0)
+  into v_fees
+  from public.platform_receivables
+  where merchant_id=p_merchant_id
+    and status='open';
+
+  select coalesce(sum(cashback_cents),0)
+  into v_cashback
+  from public.merchant_cashback_reimbursements
+  where merchant_id=p_merchant_id
+    and status='open';
+
+  select
+    coalesce(sum(amount_cents) filter (
+      where direction='platform_owes_merchant' and status='open'
+    ),0),
+    coalesce(sum(amount_cents) filter (
+      where direction='merchant_owes_platform' and status='open'
+    ),0)
+  into v_platform_owes,v_merchant_owes
+  from public.platform_settlement_adjustments
+  where merchant_id=p_merchant_id;
+
+  select coalesce(sum(amount_cents),0)
+  into v_refund_debt
+  from public.merchant_billing_refund_debts
+  where merchant_id=p_merchant_id
+    and status='open';
+
+  select credit_balance_cents,credit_reserved_cents,sales_hold,plan_key
+  into v_credit,v_reserved,v_hold,v_plan
+  from public.merchant_billing_accounts
+  where merchant_id=p_merchant_id;
+
+  return jsonb_build_object(
+    'merchantId',p_merchant_id,
+    'billingPlanKey',v_plan,
+    'prepaidCreditBalanceCents',coalesce(v_credit,0),
+    'prepaidCreditReservedCents',coalesce(v_reserved,0),
+    'financialSalesHold',coalesce(v_hold,false),
+    'platformFeesReceivableCents',v_fees,
+    'cashbackReimbursementPayableCents',v_cashback,
+    'providerRefundRecoveryCents',v_refund_debt,
+    'otherPlatformPayablesCents',v_platform_owes,
+    'otherMerchantReceivablesCents',v_merchant_owes+v_refund_debt,
+    'netDueToPlatformCents',
+      v_fees+v_merchant_owes+v_refund_debt-v_cashback-v_platform_owes
+  );
+end;
+$$;
+
+revoke all on function public.merchant_financial_position(uuid)
+from public,anon,authenticated;
+grant execute on function public.merchant_financial_position(uuid)
+to service_role,postgres;
+ then
+    raise exception 'INVALID_REQUEST_HASH' using errcode='22023';
+  end if;
+
+  insert into public.action_requests(
+    idempotency_key,user_id,action_name,request_hash
+  )
+  values(
+    p_idempotency_key,p_actor_user_id,
+    'admin-ops:merchant-billing-payment-refund:'||v_kind,
+    p_request_hash
+  )
+  on conflict(idempotency_key) do nothing;
+
+  select *
+  into v_action
+  from public.action_requests
+  where idempotency_key=p_idempotency_key
+  for update;
+
+  if v_action.user_id<>p_actor_user_id
+     or v_action.action_name<>
+        'admin-ops:merchant-billing-payment-refund:'||v_kind
+     or v_action.request_hash<>p_request_hash then
+    raise exception 'IDEMPOTENCY_CONFLICT' using errcode='23505';
+  end if;
+
+  if v_action.completed_at is not null then
+    return v_action.result_json;
+  end if;
+
+  select *
+  into v_refund
+  from public.merchant_billing_payment_refunds
+  where id=p_refund_id
+  for update;
+
+  if not found then
+    raise exception 'PAYMENT_REFUND_NOT_FOUND' using errcode='P0002';
+  end if;
+
+  if v_refund.status<>'review_required' then
+    raise exception 'PAYMENT_REFUND_NOT_REVIEWABLE' using errcode='40001';
+  end if;
+
+  if v_kind='create_debt' then
+    if v_refund.payment_request_id is null or v_refund.merchant_id is null then
+      raise exception 'PAYMENT_REFUND_NOT_LINKED' using errcode='40001';
+    end if;
+
+    insert into public.merchant_billing_refund_debts(
+      payment_refund_id,payment_request_id,merchant_id,amount_cents,reason
+    )
+    values(
+      v_refund.id,v_refund.payment_request_id,v_refund.merchant_id,
+      v_refund.refund_amount_cents,
+      'Finance confirmed provider refund recovery debt after review'
+    );
+
+    update public.merchant_billing_payment_refunds
+    set status='applied',
+        action_type='recovery_debt',
+        debt_created_cents=refund_amount_cents,
+        review_reason=null,
+        applied_at=clock_timestamp(),
+        updated_at=clock_timestamp()
+    where id=v_refund.id
+    returning * into v_refund;
+  else
+    update public.merchant_billing_payment_refunds
+    set status='ignored',
+        review_reason=null,
+        updated_at=clock_timestamp()
+    where id=v_refund.id
+    returning * into v_refund;
+  end if;
+
+  if v_refund.merchant_id is not null then
+    perform public.refresh_merchant_refund_debt_hold(v_refund.merchant_id);
+  end if;
+
+  v_result:=jsonb_build_object(
+    'ok',true,
+    'refundId',v_refund.id,
+    'status',v_refund.status,
+    'actionType',v_refund.action_type,
+    'merchantId',v_refund.merchant_id,
+    'paymentRequestId',v_refund.payment_request_id
+  );
+
+  update public.action_requests
+  set result_json=v_result,
+      completed_at=clock_timestamp()
+  where idempotency_key=p_idempotency_key;
+
+  insert into public.platform_admin_audit(
+    actor_user_id,action,target_type,target_id,metadata
+  )
+  values(
+    p_actor_user_id,
+    'merchant_billing_payment_refund_'||v_kind,
+    'merchant_billing_payment_refund',
+    v_refund.id::text,
+    jsonb_build_object(
+      'merchantId',v_refund.merchant_id,
+      'paymentRequestId',v_refund.payment_request_id,
+      'refundAmountCents',v_refund.refund_amount_cents,
+      'reference',v_reference
+    )
+  );
+
+  return v_result;
+end;
+$;
+
+revoke all on function public.admin_merchant_billing_payment_refund_action(
+  uuid,uuid,text,text,text,text
+) from public,anon,authenticated;
+grant execute on function public.admin_merchant_billing_payment_refund_action(
+  uuid,uuid,text,text,text,text
 ) to service_role,postgres;
 
 create or replace function public.admin_merchant_billing_refund_debt_action(
