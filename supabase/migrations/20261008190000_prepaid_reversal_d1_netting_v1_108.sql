@@ -219,7 +219,7 @@ begin
 
   return new;
 end;
-$function$
+$function$;
 
 
 CREATE OR REPLACE FUNCTION public.rebind_order_billing_snapshot()
@@ -435,7 +435,7 @@ begin
 
   return new;
 end;
-$function$
+$function$;
 
 
 drop trigger if exists rebind_order_billing_snapshot_before_update
@@ -589,7 +589,7 @@ begin
     'dueAt',v_due_at
   );
 end;
-$function$
+$function$;
 
 
 CREATE OR REPLACE FUNCTION public.close_merchant_daily_finance(p_business_date date DEFAULT NULL::date)
@@ -708,7 +708,7 @@ begin
     'dueAt',v_due_at
   );
 end;
-$function$
+$function$;
 
 
 CREATE OR REPLACE FUNCTION public.validate_settlement_adjustment_fact()
@@ -777,7 +777,7 @@ begin
 
   return new;
 end;
-$function$
+$function$;
 
 
 CREATE OR REPLACE FUNCTION public.reverse_settled_order_financials(p_order_id uuid, p_reason text, p_reference text DEFAULT NULL::text)
@@ -1165,5 +1165,5 @@ begin
 
   return v_result;
 end;
-$function$
+$function$;
 
