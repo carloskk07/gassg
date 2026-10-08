@@ -268,7 +268,7 @@ function billingPaymentIngressReadiness(){
         receiveReady:wooviWebhookReady,
         chargeReady:wooviChargeReady,
         ready:wooviReady,
-        events:["OPENPIX:TRANSACTION_RECEIVED","OPENPIX:CHARGE_COMPLETED"],
+        events:["OPENPIX:TRANSACTION_RECEIVED","OPENPIX:CHARGE_COMPLETED","OPENPIX:CHARGE_EXPIRED"],
         signature:"RSA-SHA256"
       }
     },
@@ -306,7 +306,7 @@ async function wooviBillingProviderHealth(){
   if(!allowedBases.has(base)){
     return {
       ok:false,status:"invalid_config",checkedAt,environment,
-      credentialValid:false,chargeWebhookReady:false,
+      credentialValid:false,chargeWebhookReady:false,chargeExpiredWebhookReady:false,
       transactionWebhookActive:false,companyBound:companyId.length>=6,
       reason:"WOOVI_API_BASE_INVALID"
     };
@@ -314,7 +314,7 @@ async function wooviBillingProviderHealth(){
   if(appId.length<12){
     return {
       ok:false,status:"not_configured",checkedAt,environment,
-      credentialValid:false,chargeWebhookReady:false,
+      credentialValid:false,chargeWebhookReady:false,chargeExpiredWebhookReady:false,
       transactionWebhookActive:false,companyBound:companyId.length>=6,
       reason:"WOOVI_APP_ID_MISSING"
     };
@@ -322,7 +322,7 @@ async function wooviBillingProviderHealth(){
   if(!endpoint){
     return {
       ok:false,status:"invalid_config",checkedAt,environment,
-      credentialValid:false,chargeWebhookReady:false,
+      credentialValid:false,chargeWebhookReady:false,chargeExpiredWebhookReady:false,
       transactionWebhookActive:false,companyBound:companyId.length>=6,
       reason:"WOOVI_WEBHOOK_ENDPOINT_MISSING"
     };
@@ -345,7 +345,7 @@ async function wooviBillingProviderHealth(){
       return {
         ok:false,status:"provider_invalid_response",checkedAt,environment,
         credentialValid:response.status!==401,
-        chargeWebhookReady:false,transactionWebhookActive:false,
+        chargeWebhookReady:false,chargeExpiredWebhookReady:false,transactionWebhookActive:false,
         companyBound:companyId.length>=6,
         apiStatus:response.status,
         reason:"WOOVI_RESPONSE_TOO_LARGE"
@@ -369,7 +369,7 @@ async function wooviBillingProviderHealth(){
           "provider_unavailable",
         checkedAt,environment,
         credentialValid:response.status!==401,
-        chargeWebhookReady:false,transactionWebhookActive:false,
+        chargeWebhookReady:false,chargeExpiredWebhookReady:false,transactionWebhookActive:false,
         companyBound:companyId.length>=6,
         apiStatus:response.status,
         reason:
@@ -409,11 +409,14 @@ async function wooviBillingProviderHealth(){
       };
     };
     const chargeCompleted=webhookState("OPENPIX:CHARGE_COMPLETED");
+    const chargeExpired=webhookState("OPENPIX:CHARGE_EXPIRED");
     const transactionReceived=webhookState("OPENPIX:TRANSACTION_RECEIVED");
     const companyBound=companyId.length>=6&&companyId.length<=160;
     const chargeWebhookReady=
       chargeCompleted.active&&chargeCompleted.authorizationMatch;
-    const ok=chargeWebhookReady&&companyBound;
+    const chargeExpiredWebhookReady=
+      chargeExpired.active&&chargeExpired.authorizationMatch;
+    const ok=chargeWebhookReady&&chargeExpiredWebhookReady&&companyBound;
 
     return {
       ok,
@@ -425,10 +428,12 @@ async function wooviBillingProviderHealth(){
       companyBound,
       endpointRegistered:matching.length>0,
       chargeWebhookReady,
+      chargeExpiredWebhookReady,
       transactionWebhookActive:
         transactionReceived.active&&transactionReceived.authorizationMatch,
       webhooks:{
         chargeCompleted,
+        chargeExpired,
         transactionReceived
       },
       reason:ok?null:
@@ -436,12 +441,15 @@ async function wooviBillingProviderHealth(){
         !chargeCompleted.registered?"WOOVI_CHARGE_WEBHOOK_MISSING":
         !chargeCompleted.active?"WOOVI_CHARGE_WEBHOOK_INACTIVE":
         !chargeCompleted.authorizationMatch?"WOOVI_CHARGE_WEBHOOK_AUTH_MISMATCH":
+        !chargeExpired.registered?"WOOVI_CHARGE_EXPIRED_WEBHOOK_MISSING":
+        !chargeExpired.active?"WOOVI_CHARGE_EXPIRED_WEBHOOK_INACTIVE":
+        !chargeExpired.authorizationMatch?"WOOVI_CHARGE_EXPIRED_WEBHOOK_AUTH_MISMATCH":
         "WOOVI_HEALTH_UNKNOWN"
     };
   }catch(error){
     return {
       ok:false,status:"provider_unavailable",checkedAt,environment,
-      credentialValid:null,chargeWebhookReady:false,
+      credentialValid:null,chargeWebhookReady:false,chargeExpiredWebhookReady:false,
       transactionWebhookActive:false,companyBound:companyId.length>=6,
       reason:error instanceof DOMException&&error.name==="AbortError"
         ?"WOOVI_HEALTH_TIMEOUT"
@@ -1001,7 +1009,7 @@ async function summary(admin:any,actorUserId:string){
     : Promise.resolve({data:[],error:null});
   const billingProviderChargesPromise=["superadmin","finance","readonly"].includes(actorRole)
     ? admin.from("merchant_billing_provider_charges")
-        .select("id,payment_request_id,merchant_id,provider,correlation_id,amount_cents,currency,status,provider_charge_id,provider_transaction_id,expires_at,completed_at,paid_amount_cents,end_to_end_id,last_error_code,last_error_at,created_at,updated_at")
+        .select("id,payment_request_id,merchant_id,provider,correlation_id,amount_cents,currency,status,provider_charge_id,provider_transaction_id,expires_at,expired_at,completed_at,paid_amount_cents,end_to_end_id,last_error_code,last_error_at,created_at,updated_at")
         .order("created_at",{ascending:false})
         .limit(200)
     : Promise.resolve({data:[],error:null});

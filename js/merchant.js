@@ -154,6 +154,15 @@ function merchantTeamPage(){
   </section>`);
 }
 
+function merchantBillingPixChargeExpired(charge){
+  if(!charge)return false;
+  if(String(charge.status||'')==='expired')return true;
+  const expiresAt=Date.parse(String(charge.expiresAt||''));
+  return String(charge.status||'')==='active'
+    &&Number.isFinite(expiresAt)
+    &&expiresAt<=Date.now();
+}
+
 function merchantBillingPixChargeView(request){
   const charge=request?.pixCharge||null;
   if(!charge)return '';
@@ -161,11 +170,19 @@ function merchantBillingPixChargeView(request){
   const amount=BRL.format(Number(charge.amountCents||request.expectedAmountCents||0)/100);
   const expiry=charge.expiresAt?new Date(charge.expiresAt).toLocaleString('pt-BR'):null;
   const completed=status==='completed';
-  const active=status==='active';
+  const expired=merchantBillingPixChargeExpired(charge);
+  const active=status==='active'&&!expired;
   const preparing=status==='preparing';
 
   if(completed){
     return `<div class="notice success" style="margin-top:8px"><strong>Pix recebido.</strong><br>${amount} confirmado pelo provedor${charge.endToEndId?' • EndToEndId '+esc(charge.endToEndId):''}. O Financeiro fará a confirmação final antes de liberar crédito ou quitar o fechamento.</div>`;
+  }
+
+  if(expired){
+    const expiredAt=charge.expiredAt
+      ?new Date(charge.expiredAt).toLocaleString('pt-BR')
+      :expiry;
+    return `<div class="notice risk" style="margin-top:8px"><strong>Pix expirado.</strong><br>Este QR não deve mais ser usado${expiredAt?' • expirou em '+esc(expiredAt):''}. A solicitação financeira continua pendente; gere um novo Pix. Nenhum crédito ou quitação ocorreu por causa da expiração.</div>`;
   }
 
   if(preparing){
@@ -229,11 +246,14 @@ function merchantBillingLiveView(rt){
     let action='';
     if(prepaid&&pendingThis){
       const chargeView=merchantBillingPixChargeView(pendingPackage);
-      const retryPix=pixReady&&!pendingPackage.pixCharge
-        ? `<button class="secondary small" style="margin-top:8px" onclick="merchantCreateBillingPackagePixFromUi('${esc(p.planKey)}')" ${rt.actionPending?'disabled':''}>Gerar/recuperar Pix</button>`
-        : pendingPackage.pixCharge?.status==='preparing'
-          ? `<button class="secondary small" style="margin-top:8px" onclick="merchantCreateBillingPackagePixFromUi('${esc(p.planKey)}')" ${rt.actionPending?'disabled':''}>Gerar/recuperar Pix</button>`
-          : '';
+      const packageChargeExpired=merchantBillingPixChargeExpired(pendingPackage.pixCharge);
+      const retryPix=pixReady&&(
+        !pendingPackage.pixCharge
+        ||pendingPackage.pixCharge?.status==='preparing'
+        ||packageChargeExpired
+      )
+        ? `<button class="secondary small" style="margin-top:8px" onclick="merchantCreateBillingPackagePixFromUi('${esc(p.planKey)}')" ${rt.actionPending?'disabled':''}>${packageChargeExpired?'Gerar novo Pix':'Gerar/recuperar Pix'}</button>`
+        : '';
       action=`${chargeView||'<div class="notice risk" style="margin-top:8px"><strong>Solicitação pendente.</strong><br>Aguardando pagamento ou conferência financeira.</div>'}${retryPix}<button class="ghost small" style="margin-top:8px" onclick="merchantCancelBillingRequestFromUi('${esc(pendingPackage.id)}')" ${rt.actionPending?'disabled':''}>Cancelar solicitação</button>`;
     }else if(prepaid&&protectedDowngrade){
       action=`<div class="notice" style="margin-top:8px"><strong>Proteção do saldo atual.</strong><br>Enquanto houver crédito ou reserva no pacote ${esc(plan.displayName||'atual')}, você pode recarregar o mesmo pacote ou migrar para uma taxa menor. Este pacote ficará disponível quando o saldo atual terminar.</div>`;
@@ -252,8 +272,13 @@ function merchantBillingLiveView(rt){
     let paymentAction='';
     if(request){
       const chargeView=merchantBillingPixChargeView(request);
-      const retryPix=pixReady&&(!request.pixCharge||request.pixCharge.status==='preparing')
-        ? `<button class="secondary small" style="margin-top:6px" onclick="merchantCreateStatementPixFromUi('${esc(s.id)}')" ${rt.actionPending?'disabled':''}>Gerar/recuperar Pix</button>`
+      const statementChargeExpired=merchantBillingPixChargeExpired(request.pixCharge);
+      const retryPix=pixReady&&(
+        !request.pixCharge
+        ||request.pixCharge.status==='preparing'
+        ||statementChargeExpired
+      )
+        ? `<button class="secondary small" style="margin-top:6px" onclick="merchantCreateStatementPixFromUi('${esc(s.id)}')" ${rt.actionPending?'disabled':''}>${statementChargeExpired?'Gerar novo Pix':'Gerar/recuperar Pix'}</button>`
         : '';
       paymentAction=`${chargeView||'<div class="tiny muted" style="margin-top:6px"><strong>Pagamento informado.</strong> Aguardando conferência do Financeiro.</div>'}${retryPix}<button class="ghost small" style="margin-top:6px" onclick="merchantCancelBillingRequestFromUi('${esc(request.id)}')" ${rt.actionPending?'disabled':''}>Cancelar aviso</button>`;
     }else{
