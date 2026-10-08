@@ -458,7 +458,7 @@ Deno.serve(async(req:Request)=>{
 
     if(committed?.status==="cancelled"){
       try{
-        await cancelProviderChargesForPaymentRequest(admin,paymentRequestId);
+        await cancelProviderChargesForPaymentRequest(admin,paymentRequestId,{actorKind:"merchant",actorUserId:user.id});
       }catch(cancelError){
         console.error("late Pix creation cancellation failed",String(cancelError));
       }
