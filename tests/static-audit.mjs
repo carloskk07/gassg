@@ -55,6 +55,9 @@ const publicBuild=read('scripts/build-public-site.mjs');
 const functionConfig=read('supabase/config.toml');
 const livePortalWorkflow=read('.github/workflows/build-live-portals.yml');
 const launchReadinessWorkflow=read('.github/workflows/launch-readiness.yml');
+const auditWorkflow=read('.github/workflows/audit.yml');
+const pagesWorkflow=read('.github/workflows/pages.yml');
+const edgeFunctionAudit=read('scripts/audit-edge-functions.sh');
 const netlifyConfig=read('netlify.toml');
 const netlifyBuilder=read('scripts/build-netlify-portal.mjs');
 const cloudflarePortalBuilder=read('scripts/build-cloudflare-portal.mjs');
@@ -74,6 +77,13 @@ assert.ok(core.includes('freshLiveSeed'),'modo live não pode herdar carteira/en
 assert.ok(backend.includes("storage:localStorage")&&backend.includes("storageKey:'chama-sg-customer-auth-v2'"),'cliente live deve persistir identidade anônima somente na origem dedicada');
 assert.ok(backend.includes("localStorage.getItem(CHAMA_BACKEND.orderStorageKey)"),'pedido live precisa ser recuperável depois de fechar e reabrir o navegador');
 assert.ok(!backend.includes("storageKey:'chama-sg-auth-v1'"),'chave legada compartilhada do cliente não pode voltar');
+assert.ok(auditWorkflow.includes('run: bash scripts/audit-edge-functions.sh')&&pagesWorkflow.includes('run: bash scripts/audit-edge-functions.sh'),'Audit e GitHub Pages precisam compartilhar a mesma autoridade de auditoria das Edge Functions');
+assert.ok(edgeFunctionAudit.includes('set -euo pipefail')&&edgeFunctionAudit.includes('deno check'),'autoridade compartilhada de Edge precisa falhar fechado e type-checkar todas as funções');
+assert.ok(edgeFunctionAudit.includes('supabase/functions/billing-payment-webhook/index.ts)')&&edgeFunctionAudit.includes('x-tamao-signature')&&edgeFunctionAudit.includes('MAX_SKEW_SECONDS=300'),'auditoria compartilhada precisa reconhecer webhook HMAC público pelo contrato criptográfico, não por JWT de usuário');
+assert.ok(edgeFunctionAudit.includes('supabase/functions/billing-payment-webhook-woovi/index.ts)')&&edgeFunctionAudit.includes('x-webhook-signature')&&edgeFunctionAudit.includes('RSASSA-PKCS1-v1_5')&&edgeFunctionAudit.includes('OPENPIX:CHARGE_COMPLETED'),'auditoria compartilhada precisa reconhecer webhook Woovi assinado e seu evento autoritativo');
+assert.ok(edgeFunctionAudit.includes('supabase/functions/merchant-billing-pix/index.ts)')&&edgeFunctionAudit.includes('merchant_billing_pix_charge_prepare')&&edgeFunctionAudit.includes('MAX_QR_IMAGE_BYTES'),'auditoria compartilhada precisa manter os gates específicos da criação Pix autenticada');
+assert.ok(edgeFunctionAudit.includes('ADMIN_LIVE_ORIGIN="https://admin.tamao.com.br"')&&edgeFunctionAudit.includes('ADMIN_PAGES_ORIGIN="https://tamao-sg-admin.pages.dev"'),'autoridade compartilhada precisa preservar isolamento estrito do admin');
+assert.ok(!pagesWorkflow.includes("grep -q 'auth.getUser' \"$f\""),'GitHub Pages não pode voltar a manter uma cópia divergente da regra genérica de autenticação Edge');
 
 assert.ok(core.includes('ALLOWED='),'máquina de estados deve possuir autoridade explícita');
 assert.ok(core.includes('MAX_PIN_FAILURES'),'PIN precisa de limite de tentativas');
