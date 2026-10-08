@@ -1288,7 +1288,9 @@ function adminBillingPaymentRequestCard(request){
   const approved=request.status==='approved';
   const title=request.request_kind==='package_purchase'
     ? 'Compra de '+(plan?.display_name||request.plan_key||'pacote')
-    : 'Pagamento de fechamento diário';
+    : request.request_kind==='refund_recovery'
+      ? 'Recuperação de refund/estorno'
+      : 'Pagamento de fechamento diário';
   const statusLabel=({
     pending:'PENDENTE',
     approved:'APROVADO',
@@ -1298,7 +1300,9 @@ function adminBillingPaymentRequestCard(request){
   const statusClass=approved?'online':request.status==='rejected'?'offline':pending?'risk':'';
   const detail=request.request_kind==='package_purchase'
     ? `${adminMoney(request.expected_amount_cents)} • crédito ${adminMoney(request.credit_grant_cents_snapshot)} • taxa ${(Number(request.platform_fee_bps_snapshot||0)/100).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2})}%`
-    : `${adminMoney(request.expected_amount_cents)} • fechamento ${esc(request.statement_id||'—')}`;
+    : request.request_kind==='refund_recovery'
+      ? `${adminMoney(request.expected_amount_cents)} • obrigação ${esc(request.refund_recovery_id||'—')}`
+      : `${adminMoney(request.expected_amount_cents)} • fechamento ${esc(request.statement_id||'—')}`;
   return `<article class="order-card">
     <div class="order-head"><div><div class="order-id">${esc(adminMerchantName(request.merchant_id))} • ${esc(title)}</div><div class="tiny muted">${esc(request.requested_at?new Date(request.requested_at).toLocaleString('pt-BR'):'—')} • ${detail}</div></div><span class="status-pill ${statusClass}">${esc(statusLabel)}</span></div>
     <div class="order-line"><strong>Referência informada pela revenda:</strong> ${esc(request.merchant_reference||'—')}</div>
@@ -1446,6 +1450,13 @@ function adminBillingRefundReasonLabel(reason){
   })[String(reason||'')]||String(reason||'—');
 }
 function adminBillingRefundCard(refund){
+  const billing=adminRuntime.data?.merchantBilling||{};
+  const recoveries=billing.refundRecoveries||[];
+  const requests=billing.paymentRequests||[];
+  const recovery=recoveries.find(x=>x.refund_id===refund.id)||null;
+  const recoveryRequest=recovery?.recovery_payment_request_id
+    ?requests.find(x=>x.id===recovery.recovery_payment_request_id)||null
+    :null;
   const review=refund.status==='review_required';
   const linked=Boolean(refund.payment_request_id&&refund.merchant_id);
   const original=refund.original_payment_amount_cents==null
@@ -1460,18 +1471,33 @@ function adminBillingRefundCard(refund){
     resolved_recovered:'RECUPERADO',
     ignored_unrelated:'NÃO RELACIONADO'
   })[String(refund.status||'')]||String(refund.status||'—').toUpperCase();
-  const actions=review
-    ?linked
-      ?`<div class="order-actions"><button class="secondary small" onclick="adminResolveBillingRefund('${esc(refund.id)}','mark-recovered')">Valor recuperado</button></div>`
-      :`<div class="order-actions"><button class="ghost small" onclick="adminResolveBillingRefund('${esc(refund.id)}','dismiss-unrelated')">Marcar não relacionado</button></div>`
+
+  let recoveryState='';
+  if(review&&linked){
+    if(!recovery){
+      recoveryState='<div class="notice danger" style="margin-top:8px"><strong>Obrigação de recuperação ausente.</strong><br>Este refund está ligado, mas a obrigação econômica ainda não apareceu. Não encerre manualmente; atualize/reconcilie o backend.</div>';
+    }else if(recovery.status==='open'){
+      recoveryState=`<div class="notice" style="margin-top:8px"><strong>Obrigação aberta: ${adminMoney(recovery.amount_cents)}.</strong><br>A revenda precisa pagar a recuperação. O hold permanece ativo e uma referência administrativa sozinha não resolve o caso.</div>`;
+    }else if(recovery.status==='payment_pending'){
+      recoveryState=`<div class="notice risk" style="margin-top:8px"><strong>Pagamento de recuperação pendente: ${adminMoney(recovery.amount_cents)}.</strong><br>${recoveryRequest?'Solicitação '+esc(recoveryRequest.id)+' está na fila financeira.':'A obrigação possui solicitação vinculada; atualize a fila para conferir.'} Aprove somente após valor exato + identificador da transação.</div>`;
+    }else if(recovery.status==='recovered'){
+      recoveryState='<div class="notice success" style="margin-top:8px"><strong>Recuperação economicamente comprovada.</strong><br>O pagamento de recuperação foi aprovado pela autoridade financeira.</div>';
+    }
+  }
+
+  const actions=review&&!linked
+    ?`<div class="order-actions"><button class="ghost small" onclick="adminResolveBillingRefund('${esc(refund.id)}','dismiss-unrelated')">Marcar não relacionado</button></div>`
     :'';
+
   return `<article class="order-card">
     <div class="order-head"><div><strong>${linked?esc(adminMerchantName(refund.merchant_id)):'Refund sem vínculo TAMÃO'}</strong><br><small>${esc(refund.provider||'—')} • ${esc(formatDateTime(refund.occurred_at))}</small></div><span class="status-pill ${review?'offline':'online'}">${esc(statusLabel)}</span></div>
     <div class="tiny muted">Refund: ${esc(refund.refund_reconciliation_key||'—')} • original: ${esc(refund.original_reconciliation_key||'—')}</div>
     <div class="tiny muted">Valor devolvido: ${adminMoney(refund.amount_cents)}${progress}</div>
     <div class="tiny muted">Motor: ${esc(adminBillingRefundReasonLabel(refund.match_reason))}</div>
+    ${recovery?`<div class="tiny muted">Obrigação de recuperação: ${esc(recovery.id)} • ${adminMoney(recovery.amount_cents)} • ${esc(String(recovery.status||'—').toUpperCase())}</div>`:''}
     ${refund.resolution_reference?`<div class="tiny muted">Resolução: ${esc(refund.resolution_reference)}</div>`:''}
-    ${review&&linked?'<div class="notice danger" style="margin-top:8px"><strong>Hold financeiro ativo.</strong><br>Novas vendas permanecem suspensas até a resolução deste refund.</div>':''}
+    ${review&&linked?'<div class="notice danger" style="margin-top:8px"><strong>Hold financeiro ativo.</strong><br>Novas vendas e novos benefícios financeiros permanecem suspensos até a recuperação comprovada.</div>':''}
+    ${recoveryState}
     ${actions}
   </article>`;
 }
@@ -1495,6 +1521,7 @@ function adminMerchantBillingSection(d){
   const paymentRequests=billing.paymentRequests||[];
   const paymentEvents=billing.paymentEvents||[];
   const refunds=billing.refunds||[];
+  const refundRecoveries=billing.refundRecoveries||[];
   const providerCharges=billing.providerCharges||[];
   const paymentIngress=billing.paymentIngress||null;
   const providerHealth=adminRuntime.providerHealth;
@@ -1543,7 +1570,7 @@ function adminMerchantBillingSection(d){
     </div>`:''}
     ${adminBillingMetricsView(metrics)}
     ${adminBillingReconciliationView(reconciliation)}
-    ${pendingRefunds.length?`<div class="section-head" style="margin-top:18px"><div><h3>Reembolsos do PSP exigem decisão</h3><p>Refund confirmado nunca desfaz crédito ou quitação silenciosamente. Itens ligados colocam a revenda em hold até o Financeiro comprovar recuperação ou executar uma reversão contábil futura.</p></div><span class="status-pill offline">${pendingRefunds.length} em revisão</span></div>${pendingRefunds.map(adminBillingRefundCard).join('')}`:''}
+    ${pendingRefunds.length?`<div class="section-head" style="margin-top:18px"><div><h3>Reembolsos do PSP exigem decisão</h3><p>Refund confirmado nunca desfaz crédito ou quitação silenciosamente. Refund ligado cria obrigação de recuperação no valor exato; o hold só cai depois que o pagamento dessa obrigação for conciliado e aprovado.</p></div><span class="status-pill offline">${pendingRefunds.length} em revisão</span></div>${pendingRefunds.map(adminBillingRefundCard).join('')}`:''}
     ${refunds.some(x=>x.status!=='review_required')?`<details class="card flat" style="margin-bottom:16px"><summary><strong>Histórico de refunds do PSP</strong></summary><div style="margin-top:10px">${refunds.filter(x=>x.status!=='review_required').slice(0,50).map(adminBillingRefundCard).join('')}</div></details>`:''}
     ${providerCharges.length?`<details class="card flat" style="margin-bottom:16px"><summary><strong>Cobranças Pix geradas pelo TAMÃO</strong> • ${providerCharges.length}</summary><div class="list" style="margin-top:10px">${providerCharges.slice(0,50).map(adminBillingProviderChargeRow).join('')}</div></details>`:''}
     ${actionableEvents.length?`<div class="section-head" style="margin-top:18px"><div><h3>Eventos de pagamento</h3><p>Eventos autenticados do provedor são conciliados por valor + identificador. Ambiguidades nunca movimentam saldo automaticamente.</p></div><span class="status-pill ${actionableEvents.some(x=>x.status==='review_required')?'risk':'online'}">${actionableEvents.length} evento(s)</span></div>${actionableEvents.map(adminBillingPaymentEventCard).join('')}`:''}
@@ -2428,23 +2455,22 @@ async function adminResolveBillingRefund(refundId,refundAction){
   const refund=(adminRuntime.data?.merchantBilling?.refunds||[]).find(x=>x.id===refundId);
   if(!refund)return toast('Refund financeiro não encontrado');
   if(refund.status!=='review_required')return toast('Este refund já foi resolvido');
-  const recovered=refundAction==='mark-recovered';
-  if(recovered&&(!refund.payment_request_id||!refund.merchant_id)){
-    return toast('Refund sem vínculo não pode ser marcado como recuperado');
+  if(refundAction!=='dismiss-unrelated'){
+    return toast('Refund ligado só pode ser recuperado por uma solicitação de pagamento aprovada.');
   }
-  if(!recovered&&refundAction!=='dismiss-unrelated')return toast('Ação de refund inválida');
-  const promptText=recovered
-    ?'Referência que comprova a recuperação do valor (novo Pix, transferência, acordo):'
-    :'Explique por que este refund não pertence a uma cobrança TAMÃO:';
-  const reference=prompt(promptText)||'';
+  if(refund.payment_request_id||refund.merchant_id){
+    return toast('Refund ligado não pode ser descartado como não relacionado.');
+  }
+  const reference=prompt('Explique por que este refund não pertence a uma cobrança TAMÃO:')||'';
   if(reference.trim().length<3)return toast('Informe a referência da resolução');
-  const message=recovered
-    ?'Confirmar que o valor deste refund foi recuperado externamente? O hold será liberado apenas se não existir outra pendência financeira.'
-    :'Confirmar que este refund não está relacionado ao TAMÃO? Esta opção só funciona para item sem revenda/solicitação vinculada.';
-  if(!confirm(message))return;
+  if(!confirm('Confirmar que este refund não está relacionado ao TAMÃO? Esta opção só funciona para item sem revenda/solicitação vinculada.'))return;
   try{
-    await adminPerform('merchant-billing-refund',{refundId,refundAction,reference});
-    toast(recovered?'Refund resolvido como valor recuperado':'Refund encerrado como não relacionado');
+    await adminPerform('merchant-billing-refund',{
+      refundId,
+      refundAction:'dismiss-unrelated',
+      reference
+    });
+    toast('Refund encerrado como não relacionado');
   }catch(e){toast(String(e?.message||e))}
 }
 
@@ -2527,8 +2553,13 @@ async function adminResolveBillingPaymentRequest(paymentRequestId,requestAction,
   )||'';
   if(reference.trim().length<3)return toast('Informe uma referência');
   const amount=adminMoney(expectedCents);
+  const approvalEffect=request.request_kind==='package_purchase'
+    ?'creditará o pacote na conta da revenda.'
+    :request.request_kind==='refund_recovery'
+      ?'comprovará a recuperação do refund e permitirá retirar o hold se não houver outra pendência.'
+      :'quitará o fechamento diário.';
   const message=approve
-    ? 'Confirmar recebimento exato de '+amount+' via '+adminPaymentMethodLabel(paymentMethod)+'? Esta ação '+(request.request_kind==='package_purchase'?'creditará o pacote na conta da revenda.':'quitará o fechamento diário.')
+    ? 'Confirmar recebimento exato de '+amount+' via '+adminPaymentMethodLabel(paymentMethod)+'? Esta ação '+approvalEffect
     : 'Rejeitar esta solicitação de '+amount+'? Nenhum saldo será movimentado.';
   if(!confirm(message))return;
   try{
