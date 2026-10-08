@@ -1890,6 +1890,59 @@ $function$;
 
 
 
+CREATE OR REPLACE FUNCTION public.require_manual_payment_refund_anchor()
+ RETURNS trigger
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO 'pg_catalog'
+AS $function$
+declare
+  v_request public.merchant_billing_payment_requests%rowtype;
+begin
+  if new.payment_request_id is null
+     or new.payment_event_id is not null
+     or (
+       new.status='resolved_preapproval'
+       and new.match_reason='refund_before_finance_approval_manual_reference'
+     ) then
+    return new;
+  end if;
+
+  select *
+  into v_request
+  from public.merchant_billing_payment_requests
+  where id=new.payment_request_id;
+
+  if not found
+     or v_request.merchant_id is distinct from new.merchant_id
+     or v_request.status<>'approved'
+     or v_request.approval_source<>'manual'
+     or v_request.provider_payment_event_id is not null
+     or v_request.payment_method<>'pix'
+     or v_request.received_amount_cents is null
+     or v_request.received_amount_cents
+        is distinct from new.original_payment_amount_cents
+     or lower(trim(v_request.reconciliation_key))
+        is distinct from lower(trim(new.original_reconciliation_key))
+     or new.match_reason not in (
+       'partial_refund_confirmed',
+       'full_refund_confirmed',
+       'refund_total_exceeds_original',
+       'refund_of_recovery_payment'
+     ) then
+    raise exception 'MANUAL_PAYMENT_REFUND_ANCHOR_INVALID'
+      using errcode='23514';
+  end if;
+
+  return new;
+end;
+$function$;
+
+revoke all on function public.require_manual_payment_refund_anchor()
+from public,anon,authenticated;
+grant execute on function public.require_manual_payment_refund_anchor()
+to postgres,service_role;
+
 create or replace function public.require_refund_recovery_reopen_consistency()
 returns trigger
 language plpgsql
