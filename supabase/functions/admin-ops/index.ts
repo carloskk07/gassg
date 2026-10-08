@@ -525,6 +525,7 @@ function scopeAdminSummary(role:string,data:any){
         paymentRequests:[],
         paymentEvents:[],
         providerCharges:[],
+        providerCancelAttempts:[],
         paymentIngress:null,
         metrics:null,
         reconciliation:null
@@ -560,7 +561,7 @@ function scopeAdminSummary(role:string,data:any){
         price_confirmed_at:m.price_confirmed_at,last_seen_at:m.last_seen_at
       })),
       commercialPolicy:null,
-      merchantBilling:{plans:[],accounts:[],statements:[],paymentRequests:[],paymentEvents:[],providerCharges:[],paymentIngress:null,metrics:null,reconciliation:null},
+      merchantBilling:{plans:[],accounts:[],statements:[],paymentRequests:[],paymentEvents:[],providerCharges:[],providerCancelAttempts:[],paymentIngress:null,metrics:null,reconciliation:null},
       productRegistry:{categories:[],products:[]},
       finance:{receivables:[],cashbackReimbursements:[],adjustments:[]},
       rewardFailures:[],accountingFailures:[],referralReviews:[],
@@ -573,7 +574,7 @@ function scopeAdminSummary(role:string,data:any){
     return {
       ...data,
       businessMetrics:{},commercialPolicy:null,
-      merchantBilling:{plans:[],accounts:[],statements:[],paymentRequests:[],paymentEvents:[],providerCharges:[],paymentIngress:null,metrics:null,reconciliation:null},
+      merchantBilling:{plans:[],accounts:[],statements:[],paymentRequests:[],paymentEvents:[],providerCharges:[],providerCancelAttempts:[],paymentIngress:null,metrics:null,reconciliation:null},
       productRegistry:{categories:[],products:[]},
       supportCases:[],controlOrders:[],
       finance:{receivables:[],cashbackReimbursements:[],adjustments:[]},
