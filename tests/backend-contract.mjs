@@ -210,30 +210,49 @@ console.log('Cron effective browser boundary v1.34.4 contract passou.');
 
 const isolatedOriginContracts=[
   ['admin-ops','ADMIN_ALLOWED_ORIGIN','https://chama-sg-admin.netlify.app'],
-  ['complete-delivery','MERCHANT_ALLOWED_ORIGIN','https://chama-sg-revenda.netlify.app'],
   ['create-order','CUSTOMER_ALLOWED_ORIGIN','https://chama-sg-cliente.netlify.app'],
   ['customer-action','CUSTOMER_ALLOWED_ORIGIN','https://chama-sg-cliente.netlify.app'],
   ['customer-care','CUSTOMER_ALLOWED_ORIGIN','https://chama-sg-cliente.netlify.app'],
   ['customer-summary','CUSTOMER_ALLOWED_ORIGIN','https://chama-sg-cliente.netlify.app'],
   ['get-offers','CUSTOMER_ALLOWED_ORIGIN','https://chama-sg-cliente.netlify.app'],
   ['get-order','CUSTOMER_ALLOWED_ORIGIN','https://chama-sg-cliente.netlify.app'],
-  ['get-order','MERCHANT_ALLOWED_ORIGIN','https://chama-sg-revenda.netlify.app'],
-  ['market-status','CUSTOMER_ALLOWED_ORIGIN','https://chama-sg-cliente.netlify.app'],
-  ['merchant-action','MERCHANT_ALLOWED_ORIGIN','https://chama-sg-revenda.netlify.app'],
-  ['merchant-ops','MERCHANT_ALLOWED_ORIGIN','https://chama-sg-revenda.netlify.app'],
-  ['merchant-orders','MERCHANT_ALLOWED_ORIGIN','https://chama-sg-revenda.netlify.app'],
-  ['merchant-team','MERCHANT_ALLOWED_ORIGIN','https://chama-sg-revenda.netlify.app'],
-  ['submit-merchant-application','MERCHANT_ALLOWED_ORIGIN','https://chama-sg-revenda.netlify.app']
+  ['market-status','CUSTOMER_ALLOWED_ORIGIN','https://chama-sg-cliente.netlify.app']
 ];
 for(const [fn,envName,origin] of isolatedOriginContracts){
   const source=fs.readFileSync(new URL('../supabase/functions/'+fn+'/index.ts',import.meta.url),'utf8');
   assert.ok(
     source.includes('Deno.env.get("'+envName+'")')&&source.includes(origin),
-    fn+' precisa manter fallback para a origem isolada '+origin
+    fn+' precisa manter fallback legado explicitamente coberto por contrato enquanto essa superfície ainda existir'
   );
 }
+console.log('Remaining legacy portal CORS fallbacks contract passou.');
 
-console.log('Isolated portal CORS fallbacks contract passou.');
+const merchantCanonicalOriginContracts=[
+  'merchant-billing-pix',
+  'merchant-orders',
+  'merchant-action',
+  'merchant-ops',
+  'merchant-team',
+  'complete-delivery',
+  'submit-merchant-application',
+  'get-order'
+];
+for(const fn of merchantCanonicalOriginContracts){
+  const source=fs.readFileSync(new URL('../supabase/functions/'+fn+'/index.ts',import.meta.url),'utf8');
+  assert.ok(
+    source.includes('Deno.env.get("MERCHANT_ALLOWED_ORIGIN")??""'),
+    fn+' não pode criar origem merchant extra por fallback implícito'
+  );
+  assert.ok(
+    source.includes('https://parceiro.tamao.com.br')&&source.includes('https://tamao-sg-revenda.pages.dev'),
+    fn+' precisa manter os dois pontos canônicos controlados da revenda'
+  );
+  assert.ok(
+    !source.includes('https://chama-sg-revenda.netlify.app'),
+    fn+' não pode autorizar a origem Netlify merchant legada'
+  );
+}
+console.log('Canonical merchant CORS authority v1.117 contract passou.');
 
 const adminAuthSource=fs.readFileSync(
   new URL('../supabase/functions/admin-auth/index.ts',import.meta.url),
