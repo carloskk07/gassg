@@ -305,6 +305,8 @@ async function adminSignOut(){
   adminRuntime.detailPending=false;
   adminRuntime.health=null;
   adminRuntime.healthPending=false;
+  adminRuntime.providerHealth=null;
+  adminRuntime.providerHealthPending=false;
   adminRuntime.auditResults=null;
   adminRuntime.auditPending=false;
   adminRuntime.status='unauthenticated';
@@ -343,6 +345,7 @@ async function adminRefresh({silent=false}={}){
       adminRuntime.searchResults=[];
       adminRuntime.detail=null;
       adminRuntime.health=null;
+      adminRuntime.providerHealth=null;
       adminRuntime.auditResults=null;
       adminRuntime.error='Sua sessão expirou. Entre novamente.';
       return null;
@@ -1437,7 +1440,7 @@ function adminMerchantBillingSection(d){
     });
   return `<section class="section">
     <div class="section-head"><div><span class="section-kicker">COBRANÇA DAS REVENDAS</span><h2>Fechamento diário + pacotes</h2><p>Cada pedido mantém sua taxa auditável. À 00:05 o dia anterior é consolidado; o saldo vence no fim do dia seguinte. Crédito pré-pago reduz a taxa e evita pagamento diário enquanto houver saldo.</p></div><div class="order-actions"><span class="status-pill ${Number(metrics?.overdueStatementCount??overdue.length)?'offline':'online'}">${Number(metrics?.overdueStatementCount??overdue.length)} vencido(s)</span><span class="status-pill ${Number(metrics?.salesHoldCount??held.length)?'offline':'online'}">${Number(metrics?.salesHoldCount??held.length)} hold(s)</span></div></div>
-    ${paymentIngress?`<div class="card flat" style="margin-bottom:16px"><div class="section-head"><div><h3>Entrada Pix / PSP</h3><p>Prontidão em duas camadas: ingress normalizado do TAMÃO e adaptador nativo do PSP. O painel recebe somente metadados; segredos nunca saem do ambiente server-side.</p></div><span class="status-pill ${paymentIngress.livePspReady?'online':paymentIngress.normalizedIngressConfigured?'risk':''}">${paymentIngress.livePspReady?'PSP LIVE':paymentIngress.normalizedIngressConfigured?'INGRESS PRONTO':'PENDENTE'}</span></div>
+    ${paymentIngress?`<div class="card flat" style="margin-bottom:16px"><div class="section-head"><div><h3>Entrada Pix / PSP</h3><p>Prontidão em duas camadas: ingress normalizado do TAMÃO e adaptador nativo do PSP. O painel recebe somente metadados; segredos nunca saem do ambiente server-side.</p></div><span class="status-pill ${providerHealth?.ok?'online':paymentIngress.livePspReady||paymentIngress.normalizedIngressConfigured?'risk':''}">${providerHealth?.ok?'PSP VALIDADO':paymentIngress.livePspReady?'CONFIGURADO':paymentIngress.normalizedIngressConfigured?'INGRESS PRONTO':'PENDENTE'}</span></div>
       <div class="tiny muted">Contrato técnico: ${esc(paymentIngress.contract||'—')} • secrets válidos: ${Number(paymentIngress.providerCount||0)}${Array.isArray(paymentIngress.providers)&&paymentIngress.providers.length?' • '+paymentIngress.providers.map(esc).join(', '):''}</div>
       <div class="tiny muted">Adaptadores nativos de PSP ativos: ${Number(paymentIngress.liveProviderCount||0)}${Array.isArray(paymentIngress.liveProviders)&&paymentIngress.liveProviders.length?' • '+paymentIngress.liveProviders.map(esc).join(', '):''}</div>
       ${paymentIngress.adapterReadiness?.woovi?`<div class="tiny muted">Woovi/OpenPix: adaptador ${paymentIngress.adapterReadiness.woovi.implemented?'implementado':'ausente'} • webhook ${paymentIngress.adapterReadiness.woovi.receiveReady?'pronto':'pendente'} • criação de cobrança ${paymentIngress.adapterReadiness.woovi.chargeReady?'pronta':'pendente'} • App ID ${paymentIngress.adapterReadiness.woovi.appIdConfigured?'configurado':'pendente'} • token privado ${paymentIngress.adapterReadiness.woovi.webhookAuthorizationConfigured?'configurado':'pendente'} • vínculo da empresa ${paymentIngress.adapterReadiness.woovi.companyBound?'configurado':'pendente'} • ambiente ${esc(paymentIngress.adapterReadiness.woovi.environment||'—')} • assinatura ${esc(paymentIngress.adapterReadiness.woovi.signature||'—')}</div>`:''}
@@ -1445,12 +1448,14 @@ function adminMerchantBillingSection(d){
       ${paymentIngress.liveEndpoints?.merchantPix?`<div class="tiny muted">Geração Pix da revenda: ${esc(paymentIngress.liveEndpoints.merchantPix)}</div>`:''}
       ${paymentIngress.endpoint?`<div class="tiny muted">Ingress normalizado: ${esc(paymentIngress.endpoint)}</div>`:''}
       <div style="margin-top:10px"><button class="secondary small" onclick="adminCheckBillingProviderHealth()" ${adminRuntime.providerHealthPending?'disabled':''}>${adminRuntime.providerHealthPending?'Testando conexão…':'Testar conexão real com a Woovi'}</button></div>
-      ${providerHealth?`<div class="notice ${providerHealth.ok?'success':'danger'}" style="margin-top:10px"><strong>${providerHealth.ok?'Teste real Woovi aprovado.':'Teste real Woovi requer atenção.'}</strong><br>Credencial API: ${providerHealth.credentialValid===true?'válida':providerHealth.credentialValid===false?'inválida':'não confirmada'} • webhook CHARGE_COMPLETED: ${providerHealth.chargeWebhookReady?'ativo e autenticado':'não confirmado'} • TRANSACTION_RECEIVED: ${providerHealth.transactionWebhookActive?'ativo':'não necessário/ausente'} • empresa vinculada: ${providerHealth.companyBound?'sim':'não'} • ambiente: ${esc(providerHealth.environment||'—')}${providerHealth.reason?' • '+esc(providerHealth.reason):''}</div>`:''}
+      ${providerHealth?`<div class="notice ${providerHealth.ok?'success':'danger'}" style="margin-top:10px"><strong>${providerHealth.ok?'Teste real Woovi aprovado.':'Teste real Woovi requer atenção.'}</strong><br>Credencial API: ${providerHealth.credentialValid===true?'válida':providerHealth.credentialValid===false?'inválida':'não confirmada'} • webhook CHARGE_COMPLETED: ${providerHealth.chargeWebhookReady?'ativo e autenticado':'não confirmado'} • TRANSACTION_RECEIVED: ${providerHealth.transactionWebhookActive?'ativo':'não necessário/ausente'} • company ID configurado: ${providerHealth.companyIdConfigured?'sim':'não'} • ambiente: ${esc(providerHealth.environment||'—')}${providerHealth.reason?' • '+esc(providerHealth.reason):''}</div>`:''}
       ${paymentIngress.configValid===false
         ?`<div class="notice danger" style="margin-top:10px"><strong>Configuração de webhook inválida.</strong><br>O mapa BILLING_PAYMENT_WEBHOOK_SECRETS não pôde ser validado. Nenhum recebimento automático deve ser considerado pronto.</div>`
-        :paymentIngress.livePspReady
-          ?`<div class="notice success" style="margin-top:10px"><strong>PSP real conectado.</strong><br>Existe adaptador nativo com secret válido para receber e normalizar eventos do provedor.</div>`
-          :paymentIngress.normalizedIngressConfigured
+        :providerHealth?.ok
+          ?`<div class="notice success" style="margin-top:10px"><strong>PSP real validado.</strong><br>AppID aceito pela Woovi e webhook CHARGE_COMPLETED ativo com o token privado esperado.</div>`
+          :paymentIngress.livePspReady
+            ?`<div class="notice" style="margin-top:10px"><strong>Configuração completa, aguardando teste real.</strong><br>As credenciais e endpoints estão presentes no ambiente, mas o painel só considera a integração validada após consultar a API da Woovi.</div>`
+            :paymentIngress.normalizedIngressConfigured
             ?`<div class="notice" style="margin-top:10px"><strong>Ingress técnico pronto; PSP real ainda não.</strong><br>Há secret para o contrato HMAC normalizado do TAMÃO, mas nenhum adaptador nativo de PSP está ativo. Não trate este estado como integração bancária concluída.</div>`
             :`<div class="notice" style="margin-top:10px"><strong>PSP/Pix ainda não conectado.</strong><br>O motor interno de conciliação está pronto, mas não há secret de ingress válido nem adaptador nativo de provedor. O fluxo manual continua disponível.</div>`}
     </div>`:''}
