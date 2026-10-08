@@ -175,7 +175,8 @@ Deno.serve(async(req:Request)=>{
     return response({error:"WOOVI_COMPANY_MISMATCH"},401);
   }
 
-  if(String(body.event??"")!=="OPENPIX:TRANSACTION_RECEIVED"){
+  const eventName=String(body.event??"").trim();
+  if(!["OPENPIX:TRANSACTION_RECEIVED","OPENPIX:CHARGE_COMPLETED"].includes(eventName)){
     return response({ok:true,ignored:true,reason:"UNSUPPORTED_WOOVI_EVENT"},202);
   }
 
@@ -185,19 +186,43 @@ Deno.serve(async(req:Request)=>{
   }
 
   const endToEndId=String(pix.endToEndId??"").trim();
-  const amountCents=positiveSafeInteger(pix.value);
+  const pixAmountCents=positiveSafeInteger(pix.value);
   const occurredAt=parseIsoTimestamp(pix.time??pix.createdAt);
-  const status=String(pix.status??"").trim().toUpperCase();
-  const payerReference=safePayerName(pix?.payer?.name??pix?.debitParty?.holder?.name);
+  const pixStatus=String(pix.status??"").trim().toUpperCase();
+  const payerReference=safePayerName(
+    pix?.payer?.name??pix?.debitParty?.holder?.name
+  );
 
   if(!E2E_RE.test(endToEndId)
-     ||amountCents==null
+     ||pixAmountCents==null
      ||!occurredAt
-     ||status!=="CONFIRMED"){
+     ||pixStatus!=="CONFIRMED"){
     return response({error:"INVALID_WOOVI_PIX_EVENT"},400);
   }
 
-  const providerEventId="OPENPIX:TRANSACTION_RECEIVED:"+endToEndId;
+  let providerCorrelationId:string|null=null;
+  let amountCents=pixAmountCents;
+
+  if(eventName==="OPENPIX:CHARGE_COMPLETED"){
+    const charge=body.charge;
+    if(!charge||typeof charge!=="object"||Array.isArray(charge)){
+      return response({error:"INVALID_WOOVI_CHARGE_EVENT"},400);
+    }
+    providerCorrelationId=String(charge.correlationID??"").trim();
+    const chargeAmount=positiveSafeInteger(charge.value);
+    const chargeStatus=String(charge.status??"").trim().toUpperCase();
+
+    if(!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
+        .test(providerCorrelationId)
+       ||chargeAmount==null
+       ||chargeAmount!==pixAmountCents
+       ||chargeStatus!=="COMPLETED"){
+      return response({error:"INVALID_WOOVI_CHARGE_EVENT"},400);
+    }
+    amountCents=chargeAmount;
+  }
+
+  const providerEventId=eventName+":"+endToEndId;
   const payloadHash=await sha256Hex(rawBody);
   const admin=createClient(SUPABASE_URL,SECRET_KEY,{
     auth:{persistSession:false,autoRefreshToken:false}
@@ -211,7 +236,8 @@ Deno.serve(async(req:Request)=>{
     p_currency:"BRL",
     p_occurred_at:occurredAt,
     p_raw_payload_sha256:payloadHash,
-    p_payer_reference:payerReference
+    p_payer_reference:payerReference,
+    p_provider_correlation_id:providerCorrelationId
   });
 
   if(error){
@@ -219,7 +245,9 @@ Deno.serve(async(req:Request)=>{
     if(message.includes("PAYMENT_EVENT_IDEMPOTENCY_CONFLICT")){
       return response({error:"PAYMENT_EVENT_IDEMPOTENCY_CONFLICT"},409);
     }
-    if(message.includes("INVALID_PAYMENT_")||message.includes("UNSUPPORTED_PAYMENT_EVENT_")){
+    if(message.includes("INVALID_PAYMENT_")
+       ||message.includes("INVALID_PROVIDER_CORRELATION_ID")
+       ||message.includes("UNSUPPORTED_PAYMENT_EVENT_")){
       return response({error:"INVALID_PAYMENT_EVENT"},400);
     }
     console.error("woovi billing event ingest failed",message);
@@ -229,7 +257,7 @@ Deno.serve(async(req:Request)=>{
   return response({
     ok:true,
     provider:"woovi",
-    event:"OPENPIX:TRANSACTION_RECEIVED",
+    event:eventName,
     ...(data??{})
   },202);
 });

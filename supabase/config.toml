@@ -24,3 +24,9 @@ verify_jwt = false
 # a private webhook Authorization token and the bound Woovi company ID.
 [functions.billing-payment-webhook-woovi]
 verify_jwt = false
+
+
+# Authenticated merchant billing endpoint that creates/retrieves provider Pix charges.
+# JWT verification remains inside the function to support the project key model consistently.
+[functions.merchant-billing-pix]
+verify_jwt = false

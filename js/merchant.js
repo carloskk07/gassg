@@ -154,6 +154,38 @@ function merchantTeamPage(){
   </section>`);
 }
 
+function merchantBillingPixChargeView(request){
+  const charge=request?.pixCharge||null;
+  if(!charge)return '';
+  const status=String(charge.status||'');
+  const amount=BRL.format(Number(charge.amountCents||request.expectedAmountCents||0)/100);
+  const expiry=charge.expiresAt?new Date(charge.expiresAt).toLocaleString('pt-BR'):null;
+  const completed=status==='completed';
+  const active=status==='active';
+  const preparing=status==='preparing';
+
+  if(completed){
+    return `<div class="notice success" style="margin-top:8px"><strong>Pix recebido.</strong><br>${amount} confirmado pelo provedor${charge.endToEndId?' • EndToEndId '+esc(charge.endToEndId):''}. O Financeiro fará a confirmação final antes de liberar crédito ou quitar o fechamento.</div>`;
+  }
+
+  if(preparing){
+    return `<div class="notice risk" style="margin-top:8px"><strong>Preparando cobrança Pix.</strong><br>Use “Gerar/recuperar Pix” para concluir ou recuperar uma tentativa interrompida.${charge.lastErrorCode?' Última falha: '+esc(charge.lastErrorCode)+'.':''}</div>`;
+  }
+
+  if(!active)return '';
+
+  const qr=charge.qrCodeDataUri
+    ? `<div style="margin-top:10px;text-align:center"><img src="${esc(charge.qrCodeDataUri)}" alt="QR Code Pix TAMÃO" width="220" height="220" loading="lazy" style="max-width:100%;height:auto"></div>`
+    : '';
+  const copy=charge.brCode
+    ? `<div class="input-wrap" style="margin-top:8px"><label>Pix copia e cola</label><textarea class="input" readonly rows="3">${esc(charge.brCode)}</textarea></div><button class="secondary small" style="margin-top:8px" onclick="merchantCopyBillingPixCode('${esc(request.id)}')">Copiar código Pix</button>`
+    : '';
+  const link=charge.paymentLinkUrl
+    ? ` <a class="ghost small" href="${esc(charge.paymentLinkUrl)}" target="_blank" rel="noopener noreferrer">Abrir pagamento</a>`
+    : '';
+  return `<div class="card flat" style="margin-top:8px"><div class="order-head"><div><strong>Pix pronto para pagar</strong><br><small>${amount}${expiry?' • válido até '+esc(expiry):''}</small></div><span class="status-pill online">QR ATIVO</span></div>${qr}${copy}${link}</div>`;
+}
+
 function merchantBillingLiveView(rt){
   const billing=rt.billing||null;
   if(!billing?.account)return '';
@@ -161,6 +193,7 @@ function merchantBillingLiveView(rt){
   const plan=billing.plan||{};
   const statements=billing.openStatements||[];
   const requests=billing.paymentRequests||[];
+  const pixReady=billing.pixProviderReady===true;
   const pending=requests.filter(r=>r.status==='pending');
   const pendingPackage=pending.find(r=>r.requestKind==='package_purchase')||null;
   const pendingByStatement=new Map(
@@ -174,38 +207,63 @@ function merchantBillingLiveView(rt){
       ? '<div class="notice danger" style="margin-top:12px"><strong>Novas vendas suspensas por pendência financeira.</strong><br>O owner ou gerente precisa regularizar o fechamento vencido. Pedidos já aceitos continuam disponíveis normalmente.</div>'
       : '';
   }
+
   const feePct=(Number(plan.platformFeeBps||0)/100).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2});
   const available=Number(account.creditAvailableCents||0);
   const nextDue=statements
     .filter(x=>['open','overdue'].includes(x.status))
     .sort((a,b)=>Date.parse(a.dueAt||'')-Date.parse(b.dueAt||''))[0]||null;
   const openDue=statements.reduce((sum,x)=>sum+Number(x.amountDueCents||0),0);
+
   const planCards=(billing.plans||[]).map(p=>{
     const pct=(Number(p.platformFeeBps||0)/100).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2});
     const current=p.planKey===plan.planKey;
     const prepaid=p.billingMode==='prepaid_credit';
     const activePrepaidBalance=plan.billingMode==='prepaid_credit'
-      && (Number(account.creditBalanceCents||0)>0||Number(account.creditReservedCents||0)>0);
+      &&(Number(account.creditBalanceCents||0)>0||Number(account.creditReservedCents||0)>0);
     const protectedDowngrade=prepaid
-      && activePrepaidBalance
-      && Number(p.platformFeeBps||0)>Number(plan.platformFeeBps||0);
+      &&activePrepaidBalance
+      &&Number(p.platformFeeBps||0)>Number(plan.platformFeeBps||0);
     const pendingThis=pendingPackage?.planKey===p.planKey;
-    const action=prepaid
-      ? pendingThis
-        ? `<div class="notice risk" style="margin-top:8px"><strong>Aguardando confirmação.</strong><br>O admin precisa conferir o pagamento antes de liberar o crédito.</div><button class="ghost small" style="margin-top:8px" onclick="merchantCancelBillingRequestFromUi('${esc(pendingPackage.id)}')" ${rt.actionPending?'disabled':''}>Cancelar solicitação</button>`
-        : protectedDowngrade
-          ? `<div class="notice" style="margin-top:8px"><strong>Proteção do saldo atual.</strong><br>Enquanto houver crédito ou reserva no pacote ${esc(plan.displayName||'atual')}, você pode recarregar o mesmo pacote ou migrar para uma taxa menor. Este pacote ficará disponível quando o saldo atual terminar.</div>`
-          : `<button class="secondary small" style="margin-top:8px" onclick="merchantRequestBillingPackageFromUi('${esc(p.planKey)}')" ${pendingPackage||rt.actionPending?'disabled':''}>${pendingPackage?'Outro pacote já está pendente':current?'Recarregar este pacote':'Informar pagamento e solicitar ativação'}</button>`
-      : '';
-    return `<div class="card flat"><div class="order-head"><div><strong>${esc(p.displayName)}</strong><br><small>${prepaid?'Pacote pré-pago':'Pós-pago diário'}</small></div><span class="status-pill ${current?'online':''}">${pct}%</span></div>${prepaid?`<div class="tiny muted">${BRL.format(Number(p.purchaseAmountCents||0)/100)} de crédito de taxas • ativação somente após conferência administrativa. O saldo é usado até o último centavo.</div>`:'<div class="tiny muted">Sem recarga antecipada. Fechamento diário com vencimento D+1.</div>'}${current?'<div class="notice success" style="margin-top:8px"><strong>Plano atual</strong></div>':''}${action}</div>`;
+
+    let action='';
+    if(prepaid&&pendingThis){
+      const chargeView=merchantBillingPixChargeView(pendingPackage);
+      const retryPix=pixReady&&!pendingPackage.pixCharge
+        ? `<button class="secondary small" style="margin-top:8px" onclick="merchantCreateBillingPackagePixFromUi('${esc(p.planKey)}')" ${rt.actionPending?'disabled':''}>Gerar/recuperar Pix</button>`
+        : pendingPackage.pixCharge?.status==='preparing'
+          ? `<button class="secondary small" style="margin-top:8px" onclick="merchantCreateBillingPackagePixFromUi('${esc(p.planKey)}')" ${rt.actionPending?'disabled':''}>Gerar/recuperar Pix</button>`
+          : '';
+      action=`${chargeView||'<div class="notice risk" style="margin-top:8px"><strong>Solicitação pendente.</strong><br>Aguardando pagamento ou conferência financeira.</div>'}${retryPix}<button class="ghost small" style="margin-top:8px" onclick="merchantCancelBillingRequestFromUi('${esc(pendingPackage.id)}')" ${rt.actionPending?'disabled':''}>Cancelar solicitação</button>`;
+    }else if(prepaid&&protectedDowngrade){
+      action=`<div class="notice" style="margin-top:8px"><strong>Proteção do saldo atual.</strong><br>Enquanto houver crédito ou reserva no pacote ${esc(plan.displayName||'atual')}, você pode recarregar o mesmo pacote ou migrar para uma taxa menor. Este pacote ficará disponível quando o saldo atual terminar.</div>`;
+    }else if(prepaid){
+      const pixAction=pixReady
+        ? `<button class="secondary small" style="margin-top:8px" onclick="merchantCreateBillingPackagePixFromUi('${esc(p.planKey)}')" ${pendingPackage||rt.actionPending?'disabled':''}>${current?'Gerar Pix para recarregar':'Gerar Pix e solicitar ativação'}</button><button class="ghost small" style="margin-top:8px" onclick="merchantRequestBillingPackageFromUi('${esc(p.planKey)}')" ${pendingPackage||rt.actionPending?'disabled':''}>Já paguei por outro meio</button>`
+        : `<button class="secondary small" style="margin-top:8px" onclick="merchantRequestBillingPackageFromUi('${esc(p.planKey)}')" ${pendingPackage||rt.actionPending?'disabled':''}>${pendingPackage?'Outro pacote já está pendente':current?'Informar pagamento da recarga':'Informar pagamento e solicitar ativação'}</button>`;
+      action=pixAction;
+    }
+
+    return `<div class="card flat"><div class="order-head"><div><strong>${esc(p.displayName)}</strong><br><small>${prepaid?'Pacote pré-pago':'Pós-pago diário'}</small></div><span class="status-pill ${current?'online':''}">${pct}%</span></div>${prepaid?`<div class="tiny muted">${BRL.format(Number(p.purchaseAmountCents||0)/100)} de crédito de taxas • ativação somente após confirmação financeira. O saldo é usado até o último centavo.</div>`:'<div class="tiny muted">Sem recarga antecipada. Fechamento diário com vencimento D+1.</div>'}${current?'<div class="notice success" style="margin-top:8px"><strong>Plano atual</strong></div>':''}${action}</div>`;
   }).join('');
+
   const statementRows=statements.map(s=>{
     const request=pendingByStatement.get(s.id);
-    const paymentAction=request
-      ? `<div class="tiny muted" style="margin-top:6px"><strong>Pagamento informado.</strong> Aguardando conferência do admin.</div><button class="ghost small" style="margin-top:6px" onclick="merchantCancelBillingRequestFromUi('${esc(request.id)}')" ${rt.actionPending?'disabled':''}>Cancelar aviso</button>`
-      : `<button class="secondary small" style="margin-top:6px" onclick="merchantNotifyStatementPaidFromUi('${esc(s.id)}')" ${rt.actionPending?'disabled':''}>Informar pagamento</button>`;
+    let paymentAction='';
+    if(request){
+      const chargeView=merchantBillingPixChargeView(request);
+      const retryPix=pixReady&&(!request.pixCharge||request.pixCharge.status==='preparing')
+        ? `<button class="secondary small" style="margin-top:6px" onclick="merchantCreateStatementPixFromUi('${esc(s.id)}')" ${rt.actionPending?'disabled':''}>Gerar/recuperar Pix</button>`
+        : '';
+      paymentAction=`${chargeView||'<div class="tiny muted" style="margin-top:6px"><strong>Pagamento informado.</strong> Aguardando conferência do Financeiro.</div>'}${retryPix}<button class="ghost small" style="margin-top:6px" onclick="merchantCancelBillingRequestFromUi('${esc(request.id)}')" ${rt.actionPending?'disabled':''}>Cancelar aviso</button>`;
+    }else{
+      paymentAction=pixReady
+        ? `<button class="secondary small" style="margin-top:6px" onclick="merchantCreateStatementPixFromUi('${esc(s.id)}')" ${rt.actionPending?'disabled':''}>Pagar com Pix</button><button class="ghost small" style="margin-top:6px" onclick="merchantNotifyStatementPaidFromUi('${esc(s.id)}')" ${rt.actionPending?'disabled':''}>Já paguei por outro meio</button>`
+        : `<button class="secondary small" style="margin-top:6px" onclick="merchantNotifyStatementPaidFromUi('${esc(s.id)}')" ${rt.actionPending?'disabled':''}>Informar pagamento</button>`;
+    }
     return `<div class="list-row"><div><strong>${esc(String(s.businessDate||'Fechamento'))}</strong><br><small>${s.status==='overdue'?'VENCIDO':'vence '+esc(s.dueAt?new Date(s.dueAt).toLocaleString('pt-BR'):'—')}</small>${paymentAction}</div><div style="text-align:right"><strong>${BRL.format(Number(s.amountDueCents||0)/100)}</strong><br><small>taxa bruta ${BRL.format(Number(s.grossFeeCents||0)/100)} • crédito ${BRL.format(Number(s.prepaidCreditAppliedCents||0)/100)}</small></div></div>`;
   }).join('');
+
   const recentRequests=requests.slice(0,8).map(r=>{
     const label=r.requestKind==='package_purchase'
       ? 'Pacote '+((billing.plans||[]).find(p=>p.planKey===r.planKey)?.displayName||r.planKey||'')
@@ -220,8 +278,12 @@ function merchantBillingLiveView(rt){
     const confirmed=r.status==='approved'&&r.receivedAmountCents!=null
       ? `<br><small>confirmado: ${BRL.format(Number(r.receivedAmountCents||0)/100)}${method?' • '+esc(method):''}${r.reconciliationKey?' • ID '+esc(r.reconciliationKey):''}${provenance?' • '+esc(provenance):''}${r.adminReference?' • '+esc(r.adminReference):''}</small>`
       : '';
-    return `<div class="list-row"><div><strong>${esc(label)}</strong><br><small>${esc(r.requestedAt?new Date(r.requestedAt).toLocaleString('pt-BR'):'—')} • ${esc(r.merchantReference||'sem referência')}</small>${confirmed}</div><div style="text-align:right"><span class="status-pill ${r.status==='approved'?'online':r.status==='rejected'?'offline':r.status==='pending'?'risk':''}">${esc(status)}</span><br><small>${BRL.format(Number(r.expectedAmountCents||0)/100)}</small></div></div>`;
+    const source=r.pixCharge
+      ? `<br><small>Pix TAMÃO • ${esc(r.pixCharge.status||'—')}${r.pixCharge.endToEndId?' • EndToEndId '+esc(r.pixCharge.endToEndId):''}</small>`
+      : `<br><small>${esc(r.merchantReference||'sem referência')}</small>`;
+    return `<div class="list-row"><div><strong>${esc(label)}</strong><br><small>${esc(r.requestedAt?new Date(r.requestedAt).toLocaleString('pt-BR'):'—')}</small>${source}${confirmed}</div><div style="text-align:right"><span class="status-pill ${r.status==='approved'?'online':r.status==='rejected'?'offline':r.status==='pending'?'risk':''}">${esc(status)}</span><br><small>${BRL.format(Number(r.expectedAmountCents||0)/100)}</small></div></div>`;
   }).join('');
+
   return `<section class="section">
     <div class="section-head"><div><span class="section-kicker">FINANCEIRO TAMÃO</span><h2>Taxas e fechamento diário</h2><p>Cada venda conserva sua taxa individual. O TAMÃO fecha o dia às 00:05 e eventual saldo pós-pago vence até o fim do dia seguinte.</p></div><span class="status-pill ${held?'offline':'online'}">${held?'VENDAS SUSPENSAS':'EM DIA'}</span></div>
     ${held?'<div class="notice danger"><strong>Há fechamento vencido.</strong><br>Novas vendas ficam pausadas até a regularização. Pedidos já aceitos continuam normalmente; seu acesso ao painel e ao histórico permanece disponível.</div>':''}
@@ -235,9 +297,56 @@ function merchantBillingLiveView(rt){
     ${statementRows?`<div class="card flat" style="margin-top:12px"><h3>Fechamentos em aberto</h3><div class="list">${statementRows}</div></div>`:''}
     <div class="section-head" style="margin-top:16px"><div><h3>Opções de taxa</h3><p>Quanto maior o crédito antecipado, menor a taxa por venda. O crédito só é consumido quando pedidos são liquidados. Com saldo ativo, recargas do mesmo pacote e upgrades para taxa menor permanecem disponíveis; downgrade só depois de zerar saldo e reservas.</p></div></div>
     <div class="admin-entity-grid">${planCards}</div>
-    <div class="notice" style="margin-top:12px"><strong>Confirmação financeira em duas etapas.</strong><br>A revenda informa o identificador exato do pagamento; para Pix, prefira o EndToEndId. Quando um provedor integrado confirmar o mesmo ID e valor, o TAMÃO prepara a conciliação automaticamente. Crédito ou quitação só acontecem após confirmação financeira. Se o saldo restante não cobrir toda a taxa descontada de uma venda, esse último saldo é abatido da taxa Flex daquela venda e apenas a diferença entra no fechamento D+1; quando saldo e reservas zerarem, o plano volta ao Flex automaticamente.</div>
+    <div class="notice" style="margin-top:12px"><strong>Pix com conciliação automática.</strong><br>${pixReady?'Gere o Pix no próprio TAMÃO: o QR e o copia-e-cola ficam vinculados à solicitação, e o EndToEndId bancário volta pelo provedor sem digitação manual.':'A integração automática ainda não está configurada neste ambiente; o fluxo manual permanece disponível.'} Em qualquer rota, crédito ou quitação só acontecem após a confirmação financeira. Se o saldo restante não cobrir toda a taxa descontada de uma venda, esse último saldo é abatido da taxa Flex daquela venda e apenas a diferença entra no fechamento D+1; quando saldo e reservas zerarem, o plano volta ao Flex automaticamente.</div>
     ${recentRequests?`<details class="card flat" style="margin-top:12px"><summary><strong>Solicitações financeiras recentes</strong></summary><div class="list" style="margin-top:10px">${recentRequests}</div></details>`:''}
   </section>`;
+}
+
+async function merchantCreateBillingPackagePixFromUi(planKey){
+  const billing=globalThis.merchantRuntime?.billing||{};
+  const plan=(billing.plans||[]).find(p=>p.planKey===planKey);
+  if(!plan)return toast('Pacote não encontrado');
+  if(!confirm('Gerar Pix de '+BRL.format(Number(plan.purchaseAmountCents||0)/100)+' para '+plan.displayName+'? O crédito só será liberado após confirmação financeira.'))return;
+  try{
+    await merchantCreateBillingPixLive({planKey});
+    toast('Pix gerado. Use o QR ou o código copia e cola.');
+  }catch(e){toast(String(e?.message||e))}
+}
+
+async function merchantCreateStatementPixFromUi(statementId){
+  const billing=globalThis.merchantRuntime?.billing||{};
+  const statement=(billing.openStatements||[]).find(s=>s.id===statementId);
+  if(!statement)return toast('Fechamento não encontrado');
+  if(!confirm('Gerar Pix de '+BRL.format(Number(statement.amountDueCents||0)/100)+' para este fechamento?'))return;
+  try{
+    await merchantCreateBillingPixLive({statementId});
+    toast('Pix gerado. Use o QR ou o código copia e cola.');
+  }catch(e){toast(String(e?.message||e))}
+}
+
+async function merchantCopyBillingPixCode(paymentRequestId){
+  const request=(globalThis.merchantRuntime?.billing?.paymentRequests||[])
+    .find(r=>r.id===paymentRequestId);
+  const code=String(request?.pixCharge?.brCode||'');
+  if(!code)return toast('Código Pix indisponível');
+  try{
+    if(navigator.clipboard?.writeText){
+      await navigator.clipboard.writeText(code);
+    }else{
+      const area=document.createElement('textarea');
+      area.value=code;
+      area.setAttribute('readonly','');
+      area.style.position='fixed';
+      area.style.opacity='0';
+      document.body.appendChild(area);
+      area.select();
+      if(!document.execCommand('copy'))throw new Error('copy_failed');
+      area.remove();
+    }
+    toast('Código Pix copiado');
+  }catch{
+    toast('Não foi possível copiar automaticamente. Selecione o código e copie manualmente.');
+  }
 }
 
 async function merchantRequestBillingPackageFromUi(planKey){
@@ -267,7 +376,7 @@ async function merchantNotifyStatementPaidFromUi(statementId){
 }
 
 async function merchantCancelBillingRequestFromUi(paymentRequestId){
-  if(!confirm('Cancelar esta solicitação financeira pendente?'))return;
+  if(!confirm('Cancelar esta solicitação financeira pendente? Se você já copiou um Pix desta solicitação, não o pague depois do cancelamento.'))return;
   try{
     await merchantCancelBillingRequestLive(paymentRequestId);
     toast('Solicitação cancelada');

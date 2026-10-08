@@ -224,11 +224,24 @@ function billingPaymentIngressReadiness(){
 
   const wooviAuthorization=String(Deno.env.get("WOOVI_WEBHOOK_AUTHORIZATION")??"");
   const wooviCompanyId=String(Deno.env.get("WOOVI_COMPANY_ID")??"").trim();
-  const wooviReady=
+  const wooviAppId=String(Deno.env.get("WOOVI_APP_ID")??"").trim();
+  const wooviApiBase=String(
+    Deno.env.get("WOOVI_API_BASE_URL")??"https://api.woovi.com"
+  ).trim().replace(/\/$/,"");
+  const wooviApiBaseValid=[
+    "https://api.woovi.com",
+    "https://api.woovi-sandbox.com"
+  ].includes(wooviApiBase);
+  const wooviWebhookReady=
     LIVE_PAYMENT_PROVIDER_ADAPTERS.has("woovi")
     &&wooviAuthorization.length>=24
     &&wooviCompanyId.length>=6
     &&wooviCompanyId.length<=160;
+  const wooviChargeReady=
+    LIVE_PAYMENT_PROVIDER_ADAPTERS.has("woovi")
+    &&wooviAppId.length>=12
+    &&wooviApiBaseValid;
+  const wooviReady=wooviWebhookReady&&wooviChargeReady;
 
   const liveProviders=[
     ...(wooviReady?["woovi"]:[])
@@ -247,10 +260,15 @@ function billingPaymentIngressReadiness(){
     adapterReadiness:{
       woovi:{
         implemented:LIVE_PAYMENT_PROVIDER_ADAPTERS.has("woovi"),
-        authorizationConfigured:wooviAuthorization.length>=24,
+        webhookAuthorizationConfigured:wooviAuthorization.length>=24,
         companyBound:wooviCompanyId.length>=6&&wooviCompanyId.length<=160,
+        appIdConfigured:wooviAppId.length>=12,
+        apiBaseValid:wooviApiBaseValid,
+        environment:wooviApiBase==="https://api.woovi-sandbox.com"?"sandbox":"production",
+        receiveReady:wooviWebhookReady,
+        chargeReady:wooviChargeReady,
         ready:wooviReady,
-        event:"OPENPIX:TRANSACTION_RECEIVED",
+        events:["OPENPIX:TRANSACTION_RECEIVED","OPENPIX:CHARGE_COMPLETED"],
         signature:"RSA-SHA256"
       }
     },
@@ -260,6 +278,9 @@ function billingPaymentIngressReadiness(){
     liveEndpoints:{
       woovi:SUPABASE_URL
         ?SUPABASE_URL.replace(/\/$/,"")+"/functions/v1/billing-payment-webhook-woovi"
+        :null,
+      merchantPix:SUPABASE_URL
+        ?SUPABASE_URL.replace(/\/$/,"")+"/functions/v1/merchant-billing-pix"
         :null
     }
   };
@@ -328,6 +349,7 @@ function scopeAdminSummary(role:string,data:any){
         statements:[],
         paymentRequests:[],
         paymentEvents:[],
+        providerCharges:[],
         paymentIngress:null,
         metrics:null,
         reconciliation:null
@@ -363,7 +385,7 @@ function scopeAdminSummary(role:string,data:any){
         price_confirmed_at:m.price_confirmed_at,last_seen_at:m.last_seen_at
       })),
       commercialPolicy:null,
-      merchantBilling:{plans:[],accounts:[],statements:[],paymentRequests:[],paymentEvents:[],paymentIngress:null,metrics:null,reconciliation:null},
+      merchantBilling:{plans:[],accounts:[],statements:[],paymentRequests:[],paymentEvents:[],providerCharges:[],paymentIngress:null,metrics:null,reconciliation:null},
       productRegistry:{categories:[],products:[]},
       finance:{receivables:[],cashbackReimbursements:[],adjustments:[]},
       rewardFailures:[],accountingFailures:[],referralReviews:[],
@@ -376,7 +398,7 @@ function scopeAdminSummary(role:string,data:any){
     return {
       ...data,
       businessMetrics:{},commercialPolicy:null,
-      merchantBilling:{plans:[],accounts:[],statements:[],paymentRequests:[],paymentEvents:[],paymentIngress:null,metrics:null,reconciliation:null},
+      merchantBilling:{plans:[],accounts:[],statements:[],paymentRequests:[],paymentEvents:[],providerCharges:[],paymentIngress:null,metrics:null,reconciliation:null},
       productRegistry:{categories:[],products:[]},
       supportCases:[],controlOrders:[],
       finance:{receivables:[],cashbackReimbursements:[],adjustments:[]},
@@ -797,11 +819,17 @@ async function summary(admin:any,actorUserId:string){
     : Promise.resolve({data:null,error:null});
   const billingPaymentEventsPromise=["superadmin","finance","readonly"].includes(actorRole)
     ? admin.from("merchant_billing_payment_events")
-        .select("id,provider,provider_event_id,reconciliation_key,payment_method,amount_cents,currency,occurred_at,received_at,payer_reference,status,payment_request_id,merchant_id,match_reason,applied_at,applied_by,ignored_at,ignored_by,ignore_reason,updated_at")
+        .select("id,provider,provider_event_id,reconciliation_key,provider_correlation_id,payment_method,amount_cents,currency,occurred_at,received_at,payer_reference,status,payment_request_id,merchant_id,match_reason,applied_at,applied_by,ignored_at,ignored_by,ignore_reason,updated_at")
         .order("received_at",{ascending:false})
         .limit(200)
     : Promise.resolve({data:[],error:null});
-  const [billingPlans,billingAccounts,dailyStatements,billingPaymentRequests,billingMetrics,billingReconciliation,billingPaymentEvents]=await Promise.all([
+  const billingProviderChargesPromise=["superadmin","finance","readonly"].includes(actorRole)
+    ? admin.from("merchant_billing_provider_charges")
+        .select("id,payment_request_id,merchant_id,provider,correlation_id,amount_cents,currency,status,provider_charge_id,provider_transaction_id,expires_at,completed_at,paid_amount_cents,end_to_end_id,last_error_code,last_error_at,created_at,updated_at")
+        .order("created_at",{ascending:false})
+        .limit(200)
+    : Promise.resolve({data:[],error:null});
+  const [billingPlans,billingAccounts,dailyStatements,billingPaymentRequests,billingMetrics,billingReconciliation,billingPaymentEvents,billingProviderCharges]=await Promise.all([
     admin.from("merchant_billing_plans")
       .select("plan_key,display_name,billing_mode,platform_fee_bps,purchase_amount_cents,credit_grant_cents,active,sort_order,updated_at")
       .order("sort_order",{ascending:true}),
@@ -819,9 +847,10 @@ async function summary(admin:any,actorUserId:string){
       .limit(300),
     billingMetricsPromise,
     billingReconciliationPromise,
-    billingPaymentEventsPromise
+    billingPaymentEventsPromise,
+    billingProviderChargesPromise
   ]);
-  for(const result of [billingPlans,billingAccounts,dailyStatements,billingPaymentRequests,billingMetrics,billingReconciliation,billingPaymentEvents]){
+  for(const result of [billingPlans,billingAccounts,dailyStatements,billingPaymentRequests,billingMetrics,billingReconciliation,billingPaymentEvents,billingProviderCharges]){
     if(result.error)throw result.error;
   }
 
@@ -963,6 +992,7 @@ async function summary(admin:any,actorUserId:string){
       statements:dailyStatements.data??[],
       paymentRequests:billingPaymentRequests.data??[],
       paymentEvents:billingPaymentEvents.data??[],
+      providerCharges:billingProviderCharges.data??[],
       paymentIngress:billingPaymentIngressReadiness(),
       metrics:billingMetrics.data??null,
       reconciliation:billingReconciliation.data??null

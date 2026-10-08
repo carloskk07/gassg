@@ -92,10 +92,25 @@ jobs:
                 grep -q 'RSASSA-PKCS1-v1_5' "$f" || { echo "$f missing RSA-SHA256 verification"; exit 1; }
                 grep -q 'webhook/public-keys' "$f" || { echo "$f missing Woovi public-key rotation endpoint"; exit 1; }
                 grep -q 'OPENPIX:TRANSACTION_RECEIVED' "$f" || { echo "$f missing Pix-received event allowlist"; exit 1; }
+                grep -q 'OPENPIX:CHARGE_COMPLETED' "$f" || { echo "$f missing completed-charge event allowlist"; exit 1; }
                 grep -q 'endToEndId' "$f" || { echo "$f missing Pix reconciliation identifier"; exit 1; }
+                grep -q 'charge.correlationID' "$f" || { echo "$f missing TAMÃO/provider charge correlation"; exit 1; }
+                grep -q 'p_provider_correlation_id' "$f" || { echo "$f missing provider correlation transport"; exit 1; }
                 grep -q 'MAX_BODY_BYTES=65536' "$f" || { echo "$f missing raw payload cap"; exit 1; }
                 grep -q 'ingest_merchant_billing_payment_event' "$f" || { echo "$f missing server-side payment event authority"; exit 1; }
                 grep -q '\[functions.billing-payment-webhook-woovi\]' supabase/config.toml || { echo "$f missing config.toml entry"; exit 1; }
+                ;;
+              supabase/functions/merchant-billing-pix/index.ts)
+                grep -q 'auth.getUser' "$f" || { echo "$f missing explicit JWT user validation"; exit 1; }
+                grep -q 'WOOVI_APP_ID' "$f" || { echo "$f missing Woovi API credential gate"; exit 1; }
+                grep -q 'WOOVI_BASES' "$f" || { echo "$f missing official Woovi host allowlist"; exit 1; }
+                grep -q 'merchant_billing_pix_charge_prepare' "$f" || { echo "$f missing transactional Pix prepare authority"; exit 1; }
+                grep -q 'merchant_billing_provider_charge_commit' "$f" || { echo "$f missing Pix provider commit authority"; exit 1; }
+                grep -q 'getWooviCharge' "$f" || { echo "$f missing correlation recovery before create"; exit 1; }
+                grep -q 'createWooviCharge' "$f" || { echo "$f missing provider charge creation"; exit 1; }
+                grep -q 'MAX_QR_IMAGE_BYTES' "$f" || { echo "$f missing QR image cap"; exit 1; }
+                grep -q 'enforceApiQuota' "$f" || { echo "$f missing server-side rate limit"; exit 1; }
+                grep -q '\[functions.merchant-billing-pix\]' supabase/config.toml || { echo "$f missing config.toml entry"; exit 1; }
                 ;;
               *)
                 grep -q 'auth.getUser' "$f" || { echo "$f missing explicit JWT user validation"; exit 1; }

@@ -322,7 +322,9 @@ Deno.serve(async(req:Request)=>{
       account:null,
       openStatements:[],
       plans:[],
-      paymentRequests:[]
+      paymentRequests:[],
+      providerCharges:[],
+      pixProviderReady:false
     };
     if(["owner","manager"].includes(selected.member_role)){
       const [
@@ -355,6 +357,15 @@ Deno.serve(async(req:Request)=>{
       if(billingPlansError)throw billingPlansError;
       if(billingStatementsError)throw billingStatementsError;
       if(billingPaymentRequestsError)throw billingPaymentRequestsError;
+
+      const {data:billingProviderCharges,error:billingProviderChargesError}=await admin
+        .from("merchant_billing_provider_charges")
+        .select("id,payment_request_id,provider,correlation_id,amount_cents,status,br_code,qr_code_data_uri,payment_link_url,expires_at,completed_at,paid_amount_cents,end_to_end_id,last_error_code,updated_at")
+        .eq("merchant_id",selected.merchant_id)
+        .order("created_at",{ascending:false})
+        .limit(30);
+      if(billingProviderChargesError)throw billingProviderChargesError;
+
       const currentPlan=(billingPlans??[]).find((p:any)=>p.plan_key===billingAccount?.plan_key)??null;
       billing={
         plan:currentPlan?{
@@ -409,8 +420,52 @@ Deno.serve(async(req:Request)=>{
           receivedAmountCents:r.received_amount_cents==null?null:Number(r.received_amount_cents),
           paymentMethod:r.payment_method,
           reconciliationKey:r.reconciliation_key,
-          approvalSource:r.approval_source
-        }))
+          approvalSource:r.approval_source,
+          pixCharge:(billingProviderCharges??[]).find(
+            (charge:any)=>charge.payment_request_id===r.id&&charge.provider==="woovi"
+          )
+            ?(()=>{
+              const charge:any=(billingProviderCharges??[]).find(
+                (x:any)=>x.payment_request_id===r.id&&x.provider==="woovi"
+              );
+              return {
+                id:charge.id,
+                provider:charge.provider,
+                correlationId:charge.correlation_id,
+                amountCents:Number(charge.amount_cents||0),
+                status:charge.status,
+                brCode:charge.br_code??null,
+                qrCodeDataUri:charge.qr_code_data_uri??null,
+                paymentLinkUrl:charge.payment_link_url??null,
+                expiresAt:charge.expires_at??null,
+                completedAt:charge.completed_at??null,
+                paidAmountCents:charge.paid_amount_cents==null?null:Number(charge.paid_amount_cents),
+                endToEndId:charge.end_to_end_id??null,
+                lastErrorCode:charge.last_error_code??null,
+                updatedAt:charge.updated_at??null
+              };
+            })()
+            :null
+        })),
+        providerCharges:(billingProviderCharges??[]).map((charge:any)=>({
+          id:charge.id,
+          paymentRequestId:charge.payment_request_id,
+          provider:charge.provider,
+          correlationId:charge.correlation_id,
+          amountCents:Number(charge.amount_cents||0),
+          status:charge.status,
+          expiresAt:charge.expires_at??null,
+          completedAt:charge.completed_at??null,
+          paidAmountCents:charge.paid_amount_cents==null?null:Number(charge.paid_amount_cents),
+          endToEndId:charge.end_to_end_id??null,
+          lastErrorCode:charge.last_error_code??null
+        })),
+        pixProviderReady:
+          String(Deno.env.get("WOOVI_APP_ID")??"").trim().length>=12
+          &&["https://api.woovi.com","https://api.woovi-sandbox.com"].includes(
+            String(Deno.env.get("WOOVI_API_BASE_URL")??"https://api.woovi.com")
+              .trim().replace(/\/$/,"")
+          )
       };
     }else{
       const {data:billingAccount,error:billingAccountError}=await admin
@@ -428,7 +483,9 @@ Deno.serve(async(req:Request)=>{
         }:null,
         openStatements:[],
         plans:[],
-        paymentRequests:[]
+        paymentRequests:[],
+        providerCharges:[],
+        pixProviderReady:false
       };
     }
 

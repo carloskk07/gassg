@@ -697,4 +697,66 @@ for(let i=0;i<20000;i++){
   wooviAdapterCases+=6;
 }
 
-console.log(`Financial invariant fuzz passou: ${rewardCases} cenários de unit economics + ${positionCases} posições de cashback + ${prepaidCases} cenários de consumo de crédito de taxa + ${transitionCases} transições de pacote + ${reconciliationCases} cenários de reconciliação + ${exactPaymentCases} confirmações exatas de pagamento + ${d1AuthorityCases} cenários de autoridade D+1 + ${reconciliationKeyCases} cenários de unicidade de conciliação + ${providerEventCases} cenários de eventos de provedor + ${reactiveProviderCases} transições reativas de conciliação + ${provenanceCases} provas de proveniência de aprovação + ${paymentEventReviewCases} decisões de lifecycle de eventos + ${financeSlaCases} classificações de SLA financeiro + ${canonicalEventCases} decisões de evento canônico + ${wooviAdapterCases} normalizações Woovi/OpenPix.`);
+
+function normalizeWooviChargeCompleted(body){
+  if(!body||body.event!=='OPENPIX:CHARGE_COMPLETED')return null;
+  const charge=body.charge;
+  const pix=body.pix;
+  if(!charge||!pix||charge.status!=='COMPLETED'||pix.status!=='CONFIRMED')return null;
+  const correlationId=String(charge.correlationID||'').trim();
+  const endToEndId=String(pix.endToEndId||'').trim();
+  const chargeAmount=Number(charge.value);
+  const pixAmount=Number(pix.value);
+  if(!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(correlationId))return null;
+  if(!/^[A-Za-z0-9]{20,80}$/.test(endToEndId))return null;
+  if(!Number.isSafeInteger(chargeAmount)||chargeAmount<=0||chargeAmount!==pixAmount)return null;
+  return {correlationId,endToEndId,amountCents:chargeAmount};
+}
+
+function generatedPixMatchDecision({
+  requestId,chargeRequestId,requestStatus,requestAmount,chargeAmount,eventAmount,
+  correlationId,eventCorrelationId
+}){
+  if(String(correlationId).toLowerCase()!==String(eventCorrelationId).toLowerCase())return 'no_charge_correlation';
+  if(requestId!==chargeRequestId)return 'provider_charge_request_mismatch';
+  if(requestStatus!=='pending')return 'provider_charge_request_not_pending';
+  if(requestAmount!==chargeAmount||requestAmount!==eventAmount)return 'provider_charge_amount_mismatch';
+  return 'provider_charge_correlation_and_amount';
+}
+
+let generatedPixCases=0;
+for(let i=0;i<20000;i++){
+  const suffix=i.toString(16).padStart(12,'0');
+  const correlationId='12345678-1234-4abc-8def-'+suffix;
+  const e2e='E1234567820261007'+i.toString(36).padStart(20,'0');
+  const amount=int(1,10000000);
+  const body={
+    event:'OPENPIX:CHARGE_COMPLETED',
+    charge:{correlationID:correlationId,value:amount,status:'COMPLETED'},
+    pix:{endToEndId:e2e,value:amount,status:'CONFIRMED'}
+  };
+  const normalized=normalizeWooviChargeCompleted(body);
+  assert.equal(normalized?.correlationId,correlationId);
+  assert.equal(normalized?.endToEndId,e2e);
+  assert.equal(normalized?.amountCents,amount);
+  assert.equal(normalizeWooviChargeCompleted({...body,pix:{...body.pix,value:amount+1}}),null);
+  assert.equal(normalizeWooviChargeCompleted({...body,charge:{...body.charge,status:'ACTIVE'}}),null);
+
+  const args={
+    requestId:'req-'+i,
+    chargeRequestId:'req-'+i,
+    requestStatus:'pending',
+    requestAmount:amount,
+    chargeAmount:amount,
+    eventAmount:amount,
+    correlationId,
+    eventCorrelationId:correlationId.toUpperCase()
+  };
+  assert.equal(generatedPixMatchDecision(args),'provider_charge_correlation_and_amount');
+  assert.equal(generatedPixMatchDecision({...args,eventAmount:amount+1}),'provider_charge_amount_mismatch');
+  assert.equal(generatedPixMatchDecision({...args,requestStatus:'cancelled'}),'provider_charge_request_not_pending');
+  assert.equal(generatedPixMatchDecision({...args,eventCorrelationId:'22345678-1234-4abc-8def-'+suffix}),'no_charge_correlation');
+  generatedPixCases+=9;
+}
+
+console.log(`Financial invariant fuzz passou: ${rewardCases} cenários de unit economics + ${positionCases} posições de cashback + ${prepaidCases} cenários de consumo de crédito de taxa + ${transitionCases} transições de pacote + ${reconciliationCases} cenários de reconciliação + ${exactPaymentCases} confirmações exatas de pagamento + ${d1AuthorityCases} cenários de autoridade D+1 + ${reconciliationKeyCases} cenários de unicidade de conciliação + ${providerEventCases} cenários de eventos de provedor + ${reactiveProviderCases} transições reativas de conciliação + ${provenanceCases} provas de proveniência de aprovação + ${paymentEventReviewCases} decisões de lifecycle de eventos + ${financeSlaCases} classificações de SLA financeiro + ${canonicalEventCases} decisões de evento canônico + ${wooviAdapterCases} normalizações Woovi/OpenPix + ${generatedPixCases} decisões de cobrança Pix correlacionada.`);
