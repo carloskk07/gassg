@@ -1524,7 +1524,7 @@ async function merchantBillingRequestLive(action,payload={}){
   if(!['owner','manager'].includes(String(merchantRuntime.merchant?.memberRole||''))){
     throw new Error('Seu papel não pode operar cobranças e pacotes');
   }
-  const allowed=['request-billing-package','notify-billing-payment','cancel-billing-request'];
+  const allowed=['request-billing-package','notify-billing-payment','notify-refund-recovery-payment','cancel-billing-request'];
   if(!allowed.includes(action))throw new Error('Ação financeira inválida');
   merchantRuntime.actionPending=true;
   merchantRuntime.error=null;
@@ -1548,7 +1548,7 @@ async function merchantBillingRequestLive(action,payload={}){
   }
 }
 
-async function merchantCreateBillingPixLive({planKey=null,statementId=null}={}){
+async function merchantCreateBillingPixLive({planKey=null,statementId=null,refundRecoveryId=null}={}){
   const merchantId=merchantRuntime.merchant?.merchantId;
   if(!merchantId)throw new Error('Revenda não selecionada');
   if(!['owner','manager'].includes(String(merchantRuntime.merchant?.memberRole||''))){
@@ -1556,9 +1556,13 @@ async function merchantCreateBillingPixLive({planKey=null,statementId=null}={}){
   }
   const plan=planKey==null?null:String(planKey).trim().toLowerCase();
   const statement=statementId==null?null:String(statementId).trim();
-  if((plan==null)===(statement==null))throw new Error('Informe o pacote ou fechamento');
+  const recovery=refundRecoveryId==null?null:String(refundRecoveryId).trim();
+  if([plan,statement,recovery].filter(v=>v!=null).length!==1){
+    throw new Error('Informe exatamente uma cobrança financeira');
+  }
   if(plan!=null&&!/^[a-z][a-z0-9_]{1,39}$/.test(plan))throw new Error('Pacote de crédito inválido');
   if(statement!=null&&!statement)throw new Error('Fechamento diário inválido');
+  if(recovery!=null&&!recovery)throw new Error('Obrigação de recuperação inválida');
 
   merchantRuntime.actionPending=true;
   merchantRuntime.error=null;
@@ -1568,7 +1572,8 @@ async function merchantCreateBillingPixLive({planKey=null,statementId=null}={}){
     const result=await retryAmbiguousOnce(()=>merchantInvoke('merchant-billing-pix',{
       merchantId,
       planKey:plan,
-      statementId:statement
+      statementId:statement,
+      refundRecoveryId:recovery
     },{idempotencyKey}));
     await merchantRefresh({silent:true});
     return result;
@@ -1596,6 +1601,17 @@ async function merchantNotifyBillingPaymentLive(statementId,reference){
   if(!id)throw new Error('Fechamento diário inválido');
   if(ref.length<3||ref.length>240)throw new Error('Informe a referência do pagamento');
   return merchantBillingRequestLive('notify-billing-payment',{statementId:id,reference:ref});
+}
+
+async function merchantNotifyRefundRecoveryPaidLive(refundRecoveryId,reference){
+  const id=String(refundRecoveryId||'').trim();
+  const ref=String(reference||'').trim().replace(/\s+/g,' ');
+  if(!id)throw new Error('Obrigação de recuperação inválida');
+  if(ref.length<3||ref.length>240)throw new Error('Informe a referência do pagamento');
+  return merchantBillingRequestLive(
+    'notify-refund-recovery-payment',
+    {refundRecoveryId:id,reference:ref}
+  );
 }
 
 async function merchantCancelBillingRequestLive(paymentRequestId){
