@@ -369,7 +369,7 @@ Deno.serve(async(req:Request)=>{
 
       const {data:billingRefundRecoveries,error:billingRefundRecoveriesError}=await admin
         .from("merchant_billing_refund_recoveries")
-        .select("id,refund_id,amount_cents,currency,status,recovery_payment_request_id,recovered_at,created_at,updated_at")
+        .select("id,refund_id,amount_cents,outstanding_cents,currency,status,recovery_payment_request_id,recovered_at,created_at,updated_at")
         .eq("merchant_id",selected.merchant_id)
         .order("created_at",{ascending:false})
         .limit(30);
@@ -478,6 +478,7 @@ Deno.serve(async(req:Request)=>{
           id:recovery.id,
           refundId:recovery.refund_id,
           amountCents:Number(recovery.amount_cents||0),
+          outstandingCents:Number(recovery.outstanding_cents??recovery.amount_cents??0),
           currency:recovery.currency,
           status:recovery.status,
           recoveryPaymentRequestId:recovery.recovery_payment_request_id??null,
