@@ -550,6 +550,42 @@ grant execute on function public.merchant_billing_provider_charge_expire(
   text,text,bigint,timestamptz
 ) to service_role,postgres;
 
+create or replace function public.retire_sibling_provider_charges_after_payment()
+returns trigger
+language plpgsql
+security definer
+set search_path=pg_catalog
+as $
+begin
+  if new.status='completed'
+     and old.status is distinct from 'completed' then
+    update public.merchant_billing_provider_charges sibling
+    set status='cancelled',
+        last_error_code='PROVIDER_CANCEL_REQUIRED',
+        last_error_at=clock_timestamp(),
+        updated_at=clock_timestamp()
+    where sibling.payment_request_id=new.payment_request_id
+      and sibling.provider=new.provider
+      and sibling.id<>new.id
+      and sibling.status in ('preparing','active');
+  end if;
+
+  return new;
+end;
+$;
+
+revoke all on function public.retire_sibling_provider_charges_after_payment()
+from public,anon,authenticated;
+grant execute on function public.retire_sibling_provider_charges_after_payment()
+to postgres,service_role;
+
+drop trigger if exists retire_sibling_provider_charges_after_payment_trg
+on public.merchant_billing_provider_charges;
+create trigger retire_sibling_provider_charges_after_payment_trg
+after update of status
+on public.merchant_billing_provider_charges
+for each row execute function public.retire_sibling_provider_charges_after_payment();
+
 create or replace function public.expire_due_merchant_billing_provider_charges()
 returns jsonb
 language plpgsql
