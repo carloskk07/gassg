@@ -1010,11 +1010,17 @@ async function summary(admin:any,actorUserId:string){
     : Promise.resolve({data:[],error:null});
   const billingProviderChargesPromise=["superadmin","finance","readonly"].includes(actorRole)
     ? admin.from("merchant_billing_provider_charges")
-        .select("id,payment_request_id,merchant_id,provider,correlation_id,amount_cents,currency,status,provider_charge_id,provider_transaction_id,expires_at,expired_at,completed_at,paid_amount_cents,end_to_end_id,last_error_code,last_error_at,created_at,updated_at")
+        .select("id,payment_request_id,merchant_id,provider,correlation_id,amount_cents,currency,status,provider_charge_id,provider_transaction_id,expires_at,expired_at,completed_at,paid_amount_cents,end_to_end_id,last_error_code,last_error_at,provider_cancel_attempts,provider_cancel_last_attempt_at,provider_cancel_last_reason,provider_cancel_last_http_status,provider_cancel_last_actor_kind,provider_cancel_last_actor_user_id,provider_cancelled_at,created_at,updated_at")
         .order("created_at",{ascending:false})
         .limit(200)
     : Promise.resolve({data:[],error:null});
-  const [billingPlans,billingAccounts,dailyStatements,billingPaymentRequests,billingMetrics,billingReconciliation,billingPaymentEvents,billingProviderCharges]=await Promise.all([
+  const billingProviderCancelAttemptsPromise=["superadmin","finance","readonly"].includes(actorRole)
+    ? admin.from("merchant_billing_provider_cancel_attempts")
+        .select("id,provider_charge_id,payment_request_id,merchant_id,provider,correlation_id,attempt_no,actor_kind,actor_user_id,success,reason,http_status,created_at")
+        .order("created_at",{ascending:false})
+        .limit(200)
+    : Promise.resolve({data:[],error:null});
+  const [billingPlans,billingAccounts,dailyStatements,billingPaymentRequests,billingMetrics,billingReconciliation,billingPaymentEvents,billingProviderCharges,billingProviderCancelAttempts]=await Promise.all([
     admin.from("merchant_billing_plans")
       .select("plan_key,display_name,billing_mode,platform_fee_bps,purchase_amount_cents,credit_grant_cents,active,sort_order,updated_at")
       .order("sort_order",{ascending:true}),
@@ -1033,9 +1039,10 @@ async function summary(admin:any,actorUserId:string){
     billingMetricsPromise,
     billingReconciliationPromise,
     billingPaymentEventsPromise,
-    billingProviderChargesPromise
+    billingProviderChargesPromise,
+    billingProviderCancelAttemptsPromise
   ]);
-  for(const result of [billingPlans,billingAccounts,dailyStatements,billingPaymentRequests,billingMetrics,billingReconciliation,billingPaymentEvents,billingProviderCharges]){
+  for(const result of [billingPlans,billingAccounts,dailyStatements,billingPaymentRequests,billingMetrics,billingReconciliation,billingPaymentEvents,billingProviderCharges,billingProviderCancelAttempts]){
     if(result.error)throw result.error;
   }
 
@@ -1178,6 +1185,7 @@ async function summary(admin:any,actorUserId:string){
       paymentRequests:billingPaymentRequests.data??[],
       paymentEvents:billingPaymentEvents.data??[],
       providerCharges:billingProviderCharges.data??[],
+      providerCancelAttempts:billingProviderCancelAttempts.data??[],
       paymentIngress:billingPaymentIngressReadiness(),
       metrics:billingMetrics.data??null,
       reconciliation:billingReconciliation.data??null
