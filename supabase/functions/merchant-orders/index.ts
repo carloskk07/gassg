@@ -324,6 +324,9 @@ Deno.serve(async(req:Request)=>{
       plans:[],
       paymentRequests:[],
       providerCharges:[],
+      refunds:[],
+      refundDebts:[],
+      refundRecoveryCents:0,
       pixProviderReady:false
     };
     if(["owner","manager"].includes(selected.member_role)){
@@ -365,6 +368,24 @@ Deno.serve(async(req:Request)=>{
         .order("created_at",{ascending:false})
         .limit(30);
       if(billingProviderChargesError)throw billingProviderChargesError;
+
+      const [
+        {data:billingRefunds,error:billingRefundsError},
+        {data:billingRefundDebts,error:billingRefundDebtsError}
+      ]=await Promise.all([
+        admin.from("merchant_billing_payment_refunds")
+          .select("id,payment_request_id,refund_amount_cents,original_amount_cents,occurred_at,partial,status,action_type,credit_reversed_cents,debt_created_cents,review_reason,applied_at")
+          .eq("merchant_id",selected.merchant_id)
+          .order("occurred_at",{ascending:false})
+          .limit(20),
+        admin.from("merchant_billing_refund_debts")
+          .select("id,payment_refund_id,payment_request_id,amount_cents,status,reason,settled_at,resolution_reference,created_at,updated_at")
+          .eq("merchant_id",selected.merchant_id)
+          .order("created_at",{ascending:false})
+          .limit(20)
+      ]);
+      if(billingRefundsError)throw billingRefundsError;
+      if(billingRefundDebtsError)throw billingRefundDebtsError;
 
       const currentPlan=(billingPlans??[]).find((p:any)=>p.plan_key===billingAccount?.plan_key)??null;
       billing={
@@ -464,6 +485,35 @@ Deno.serve(async(req:Request)=>{
           endToEndId:charge.end_to_end_id??null,
           lastErrorCode:charge.last_error_code??null
         })),
+        refunds:(billingRefunds??[]).map((refund:any)=>({
+          id:refund.id,
+          paymentRequestId:refund.payment_request_id,
+          refundAmountCents:Number(refund.refund_amount_cents||0),
+          originalAmountCents:Number(refund.original_amount_cents||0),
+          occurredAt:refund.occurred_at,
+          partial:refund.partial===true,
+          status:refund.status,
+          actionType:refund.action_type,
+          creditReversedCents:Number(refund.credit_reversed_cents||0),
+          debtCreatedCents:Number(refund.debt_created_cents||0),
+          reviewRequired:refund.status==="review_required",
+          appliedAt:refund.applied_at??null
+        })),
+        refundDebts:(billingRefundDebts??[]).map((debt:any)=>({
+          id:debt.id,
+          paymentRefundId:debt.payment_refund_id,
+          paymentRequestId:debt.payment_request_id,
+          amountCents:Number(debt.amount_cents||0),
+          status:debt.status,
+          reason:debt.reason,
+          settledAt:debt.settled_at??null,
+          resolutionReference:debt.resolution_reference??null,
+          createdAt:debt.created_at,
+          updatedAt:debt.updated_at
+        })),
+        refundRecoveryCents:(billingRefundDebts??[])
+          .filter((debt:any)=>debt.status==="open")
+          .reduce((sum:number,debt:any)=>sum+Number(debt.amount_cents||0),0),
         pixProviderReady:
           String(Deno.env.get("WOOVI_APP_ID")??"").trim().length>=12
           &&["https://api.woovi.com","https://api.woovi-sandbox.com"].includes(
