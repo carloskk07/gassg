@@ -759,4 +759,74 @@ for(let i=0;i<20000;i++){
   generatedPixCases+=9;
 }
 
-console.log(`Financial invariant fuzz passou: ${rewardCases} cenários de unit economics + ${positionCases} posições de cashback + ${prepaidCases} cenários de consumo de crédito de taxa + ${transitionCases} transições de pacote + ${reconciliationCases} cenários de reconciliação + ${exactPaymentCases} confirmações exatas de pagamento + ${d1AuthorityCases} cenários de autoridade D+1 + ${reconciliationKeyCases} cenários de unicidade de conciliação + ${providerEventCases} cenários de eventos de provedor + ${reactiveProviderCases} transições reativas de conciliação + ${provenanceCases} provas de proveniência de aprovação + ${paymentEventReviewCases} decisões de lifecycle de eventos + ${financeSlaCases} classificações de SLA financeiro + ${canonicalEventCases} decisões de evento canônico + ${wooviAdapterCases} normalizações Woovi/OpenPix + ${generatedPixCases} decisões de cobrança Pix correlacionada.`);
+
+function siblingProviderEventDecision({
+  canonicalStatus='matched_exact',
+  canonicalProvider,canonicalKey,canonicalAmount,canonicalMethod,canonicalCurrency='BRL',
+  incomingProvider,incomingKey,incomingAmount,incomingMethod,incomingCurrency='BRL',
+  incomingCorrelation=null
+}){
+  if(canonicalStatus!=='matched_exact')return 'no_canonical_match';
+  const same=
+    String(canonicalProvider).toLowerCase()===String(incomingProvider).toLowerCase()
+    &&String(canonicalKey).toLowerCase()===String(incomingKey).toLowerCase()
+    &&canonicalAmount===incomingAmount
+    &&canonicalMethod===incomingMethod
+    &&canonicalCurrency===incomingCurrency;
+  if(same&&incomingCorrelation==null)return 'superseded';
+  return 'review_required';
+}
+
+function unresolvedSiblingResolution({
+  status,matchReason,providerCorrelationId,provider,key,amount,method,currency='BRL',
+  chargeProvider,chargeKey,chargeAmount,chargeMethod,chargeCurrency='BRL'
+}){
+  const same=
+    provider===chargeProvider
+    &&String(key).toLowerCase()===String(chargeKey).toLowerCase()
+    &&amount===chargeAmount
+    &&method===chargeMethod
+    &&currency===chargeCurrency;
+  return status==='review_required'
+    &&matchReason==='no_exact_pending_request'
+    &&providerCorrelationId==null
+    &&same
+      ?'superseded'
+      :'preserve';
+}
+
+let siblingProviderCases=0;
+for(let i=0;i<20000;i++){
+  const key='E1234567820261007'+i.toString(36).padStart(20,'0');
+  const amount=int(1,10000000);
+  const base={
+    canonicalProvider:'woovi',
+    canonicalKey:key,
+    canonicalAmount:amount,
+    canonicalMethod:'pix',
+    incomingProvider:'woovi',
+    incomingKey:key.toLowerCase(),
+    incomingAmount:amount,
+    incomingMethod:'pix'
+  };
+  assert.equal(siblingProviderEventDecision(base),'superseded');
+  assert.equal(siblingProviderEventDecision({...base,incomingAmount:amount+1}),'review_required');
+  assert.equal(siblingProviderEventDecision({...base,incomingProvider:'other'}),'review_required');
+  assert.equal(siblingProviderEventDecision({...base,incomingMethod:'bank_transfer'}),'review_required');
+  assert.equal(siblingProviderEventDecision({...base,incomingCorrelation:'12345678-1234-4abc-8def-'+i.toString(16).padStart(12,'0')}),'review_required');
+
+  const review={
+    status:'review_required',
+    matchReason:'no_exact_pending_request',
+    providerCorrelationId:null,
+    provider:'woovi',key,amount,method:'pix',
+    chargeProvider:'woovi',chargeKey:key,chargeAmount:amount,chargeMethod:'pix'
+  };
+  assert.equal(unresolvedSiblingResolution(review),'superseded');
+  assert.equal(unresolvedSiblingResolution({...review,matchReason:'reference_found_but_amount_differs'}),'preserve');
+  assert.equal(unresolvedSiblingResolution({...review,chargeAmount:amount+1}),'preserve');
+  assert.equal(unresolvedSiblingResolution({...review,providerCorrelationId:'some-correlation'}),'preserve');
+  siblingProviderCases+=9;
+}
+
+console.log(`Financial invariant fuzz passou: ${rewardCases} cenários de unit economics + ${positionCases} posições de cashback + ${prepaidCases} cenários de consumo de crédito de taxa + ${transitionCases} transições de pacote + ${reconciliationCases} cenários de reconciliação + ${exactPaymentCases} confirmações exatas de pagamento + ${d1AuthorityCases} cenários de autoridade D+1 + ${reconciliationKeyCases} cenários de unicidade de conciliação + ${providerEventCases} cenários de eventos de provedor + ${reactiveProviderCases} transições reativas de conciliação + ${provenanceCases} provas de proveniência de aprovação + ${paymentEventReviewCases} decisões de lifecycle de eventos + ${financeSlaCases} classificações de SLA financeiro + ${canonicalEventCases} decisões de evento canônico + ${wooviAdapterCases} normalizações Woovi/OpenPix + ${generatedPixCases} decisões de cobrança Pix correlacionada + ${siblingProviderCases} decisões de evento irmão do PSP.`);
