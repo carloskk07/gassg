@@ -1294,6 +1294,7 @@ function adminBillingPaymentEventLabel(status){
     review_required:'REVISAR',
     already_applied:'JÁ APLICADO',
     ignored:'IGNORADO',
+    superseded:'SUBSTITUÍDO',
     applied:'APLICADO'
   })[String(status||'')]||String(status||'—').toUpperCase();
 }
@@ -1305,7 +1306,9 @@ function adminBillingPaymentMatchReasonLabel(reason){
     no_exact_pending_request:'nenhuma cobrança pendente correspondente',
     approved_payment_already_uses_transaction:'transação já aplicada em cobrança aprovada',
     transaction_key_already_used_with_other_amount:'ID já usado com outro valor',
-    duplicate_transaction_event:'outro evento já é o registro canônico desta transação',
+    duplicate_transaction_event:'outro evento conflitante já é o registro canônico desta transação',
+    sibling_provider_event_same_transaction:'notificação irmã do PSP para a mesma transação; registro canônico preservado',
+    sibling_provider_event_resolved_by_charge:'notificação genérica do PSP substituída pela cobrança correlacionada',
     approved_payment_request_applied:'evento aplicado pela aprovação conciliada',
     manual_approval_payment_already_confirmed:'pagamento confirmado manualmente pelo Financeiro',
     provider_charge_correlation_and_amount:'cobrança Pix correlacionada ao TAMÃO + valor exato',
