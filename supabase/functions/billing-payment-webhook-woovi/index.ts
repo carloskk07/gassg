@@ -11,6 +11,7 @@ const MAX_BODY_BYTES=65536;
 const PUBLIC_KEY_FETCH_TIMEOUT_MS=3500;
 const PUBLIC_KEY_CACHE_MS=55*60*1000;
 const E2E_RE=/^[A-Za-z0-9]{20,80}$/;
+const UUID_RE=/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 let cachedPublicKeys:CryptoKey[]=[];
 let publicKeysExpiresAt=0;
@@ -176,8 +177,60 @@ Deno.serve(async(req:Request)=>{
   }
 
   const eventName=String(body.event??"").trim();
-  if(!["OPENPIX:TRANSACTION_RECEIVED","OPENPIX:CHARGE_COMPLETED"].includes(eventName)){
+  if(![
+    "OPENPIX:TRANSACTION_RECEIVED",
+    "OPENPIX:CHARGE_COMPLETED",
+    "OPENPIX:CHARGE_EXPIRED"
+  ].includes(eventName)){
     return response({ok:true,ignored:true,reason:"UNSUPPORTED_WOOVI_EVENT"},202);
+  }
+
+  if(eventName==="OPENPIX:CHARGE_EXPIRED"){
+    const charge=body.charge;
+    if(!charge||typeof charge!=="object"||Array.isArray(charge)){
+      return response({error:"INVALID_WOOVI_CHARGE_EXPIRY_EVENT"},400);
+    }
+
+    const correlationId=String(charge.correlationID??"").trim();
+    const amountCents=positiveSafeInteger(charge.value);
+    const status=String(charge.status??"").trim().toUpperCase();
+    const expiresAt=parseIsoTimestamp(charge.expiresDate??charge.updatedAt);
+
+    if(!UUID_RE.test(correlationId)
+       ||amountCents==null
+       ||status!=="EXPIRED"
+       ||!expiresAt){
+      return response({error:"INVALID_WOOVI_CHARGE_EXPIRY_EVENT"},400);
+    }
+
+    const admin=createClient(SUPABASE_URL,SECRET_KEY,{
+      auth:{persistSession:false,autoRefreshToken:false}
+    });
+    const {data,error}=await admin.rpc(
+      "merchant_billing_provider_charge_expire",
+      {
+        p_provider:"woovi",
+        p_correlation_id:correlationId,
+        p_amount_cents:amountCents,
+        p_provider_expires_at:expiresAt
+      }
+    );
+
+    if(error){
+      const message=String(error.message??error);
+      if(message.includes("INVALID_PIX_CHARGE_")){
+        return response({error:"INVALID_WOOVI_CHARGE_EXPIRY_EVENT"},400);
+      }
+      console.error("woovi charge expiry failed",message);
+      return response({error:"PIX_CHARGE_EXPIRY_FAILED"},503);
+    }
+
+    return response({
+      ok:true,
+      provider:"woovi",
+      event:eventName,
+      ...(data??{})
+    },202);
   }
 
   const pix=body.pix;
@@ -212,8 +265,7 @@ Deno.serve(async(req:Request)=>{
     const chargeAmount=positiveSafeInteger(charge.value);
     const chargeStatus=String(charge.status??"").trim().toUpperCase();
 
-    if(!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
-        .test(providerCorrelationId)
+    if(!UUID_RE.test(providerCorrelationId)
        ||chargeAmount==null
        ||chargeAmount!==pixAmountCents
        ||chargeStatus!=="COMPLETED"){
