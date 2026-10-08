@@ -1977,4 +1977,47 @@ for(let i=0;i<30000;i++){
   merchantCreditEquationCases+=6;
 }
 
-console.log(`Financial invariant fuzz passou: ${rewardCases} cenários de unit economics + ${positionCases} posições de cashback + ${prepaidCases} cenários de consumo de crédito de taxa + ${transitionCases} transições de pacote + ${reconciliationCases} cenários de reconciliação + ${exactPaymentCases} confirmações exatas de pagamento + ${d1AuthorityCases} cenários de autoridade D+1 + ${reconciliationKeyCases} cenários de unicidade de conciliação + ${providerEventCases} cenários de eventos de provedor + ${reactiveProviderCases} transições reativas de conciliação + ${provenanceCases} provas de proveniência de aprovação + ${paymentEventReviewCases} decisões de lifecycle de eventos + ${financeSlaCases} classificações de SLA financeiro + ${canonicalEventCases} decisões de evento canônico + ${wooviAdapterCases} normalizações Woovi/OpenPix + ${generatedPixCases} decisões de cobrança Pix correlacionada + ${siblingProviderCases} decisões de evento irmão do PSP + ${pixExpirationCases} decisões de expiração/regeneração Pix + ${providerCancelCases} decisões de cancelamento acoplado ao PSP + ${providerRefundCases} decisões de refund/quarentena do PSP + ${refundRecoveryCases} decisões de recuperação econômica de refund + ${refundRecoveryReconciliationCases} provas de reconciliação de recuperação + ${refundExposureCapCases} alocações com teto de exposição de refund + ${exactRecoveryAllocationCases} escritas com alocação exata/imutável + ${refundAllocationSplitCases} provas de decomposição recuperável/excedente + ${preapprovalRefundCases} provas de neutralidade de refund pré-aprovação + ${providerRefundLockCases} provas de ordem de lock PSP/refund + ${providerEvidenceCases} provas de precedência da evidência PSP + ${manualRefundAnchorCases} provas de âncora manual de refund + ${refundRecoveryReopenCases} provas de reabertura de recuperação após refund + ${orderBillingRebindCases} provas de rebind de cobrança por pedido + ${prepaidReversalD1Cases} provas de estorno pré-pago/D+1 + ${refundRecoveryBalanceEquationCases} provas da equação de saldo de recuperação + ${merchantCreditEquationCases} provas das equações de saldo/reserva de crédito.`);
+
+function feeCreditLedgerUpdateAllowed(before,after){
+  const immutable=[
+    'id','merchantId','entryType','amountCents','planKey',
+    'reference','paymentRequestId','createdAt'
+  ];
+  if(immutable.some(k=>before[k]!==after[k]))return false;
+
+  if(before.orderId!==after.orderId){
+    if(!(before.orderId!=null&&after.orderId==null))return false;
+  }
+  if(before.createdBy!==after.createdBy){
+    if(!(before.createdBy!=null&&after.createdBy==null))return false;
+  }
+  return true;
+}
+
+let feeCreditLedgerImmutabilityCases=0;
+for(let i=0;i<30000;i++){
+  const row={
+    id:'ledger-'+i,
+    merchantId:'merchant-'+i,
+    entryType:'package_credit',
+    amountCents:int(1,10000000),
+    planKey:'credit_300',
+    reference:'ref-'+i,
+    paymentRequestId:'request-'+i,
+    orderId:'order-'+i,
+    createdBy:'user-'+i,
+    createdAt:'2026-10-08T00:00:00Z'
+  };
+
+  assert.equal(feeCreditLedgerUpdateAllowed(row,{...row,amountCents:row.amountCents+1}),false);
+  assert.equal(feeCreditLedgerUpdateAllowed(row,{...row,entryType:'admin_adjustment'}),false);
+  assert.equal(feeCreditLedgerUpdateAllowed(row,{...row,reference:row.reference+'-edited'}),false);
+  assert.equal(feeCreditLedgerUpdateAllowed(row,{...row,orderId:null}),true);
+  assert.equal(feeCreditLedgerUpdateAllowed(row,{...row,createdBy:null}),true);
+  assert.equal(feeCreditLedgerUpdateAllowed(row,{...row,orderId:'other-order'}),false);
+  assert.equal(feeCreditLedgerUpdateAllowed(row,{...row,createdBy:'other-user'}),false);
+
+  feeCreditLedgerImmutabilityCases+=7;
+}
+
+console.log(`Financial invariant fuzz passou: ${rewardCases} cenários de unit economics + ${positionCases} posições de cashback + ${prepaidCases} cenários de consumo de crédito de taxa + ${transitionCases} transições de pacote + ${reconciliationCases} cenários de reconciliação + ${exactPaymentCases} confirmações exatas de pagamento + ${d1AuthorityCases} cenários de autoridade D+1 + ${reconciliationKeyCases} cenários de unicidade de conciliação + ${providerEventCases} cenários de eventos de provedor + ${reactiveProviderCases} transições reativas de conciliação + ${provenanceCases} provas de proveniência de aprovação + ${paymentEventReviewCases} decisões de lifecycle de eventos + ${financeSlaCases} classificações de SLA financeiro + ${canonicalEventCases} decisões de evento canônico + ${wooviAdapterCases} normalizações Woovi/OpenPix + ${generatedPixCases} decisões de cobrança Pix correlacionada + ${siblingProviderCases} decisões de evento irmão do PSP + ${pixExpirationCases} decisões de expiração/regeneração Pix + ${providerCancelCases} decisões de cancelamento acoplado ao PSP + ${providerRefundCases} decisões de refund/quarentena do PSP + ${refundRecoveryCases} decisões de recuperação econômica de refund + ${refundRecoveryReconciliationCases} provas de reconciliação de recuperação + ${refundExposureCapCases} alocações com teto de exposição de refund + ${exactRecoveryAllocationCases} escritas com alocação exata/imutável + ${refundAllocationSplitCases} provas de decomposição recuperável/excedente + ${preapprovalRefundCases} provas de neutralidade de refund pré-aprovação + ${providerRefundLockCases} provas de ordem de lock PSP/refund + ${providerEvidenceCases} provas de precedência da evidência PSP + ${manualRefundAnchorCases} provas de âncora manual de refund + ${refundRecoveryReopenCases} provas de reabertura de recuperação após refund + ${orderBillingRebindCases} provas de rebind de cobrança por pedido + ${prepaidReversalD1Cases} provas de estorno pré-pago/D+1 + ${refundRecoveryBalanceEquationCases} provas da equação de saldo de recuperação + ${merchantCreditEquationCases} provas das equações de saldo/reserva de crédito + ${feeCreditLedgerImmutabilityCases} provas de imutabilidade do ledger de crédito.`);
