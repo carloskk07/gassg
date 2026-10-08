@@ -1116,4 +1116,80 @@ for(let i=0;i<20000;i++){
   refundRecoveryCases+=11;
 }
 
-console.log(`Financial invariant fuzz passou: ${rewardCases} cenários de unit economics + ${positionCases} posições de cashback + ${prepaidCases} cenários de consumo de crédito de taxa + ${transitionCases} transições de pacote + ${reconciliationCases} cenários de reconciliação + ${exactPaymentCases} confirmações exatas de pagamento + ${d1AuthorityCases} cenários de autoridade D+1 + ${reconciliationKeyCases} cenários de unicidade de conciliação + ${providerEventCases} cenários de eventos de provedor + ${reactiveProviderCases} transições reativas de conciliação + ${provenanceCases} provas de proveniência de aprovação + ${paymentEventReviewCases} decisões de lifecycle de eventos + ${financeSlaCases} classificações de SLA financeiro + ${canonicalEventCases} decisões de evento canônico + ${wooviAdapterCases} normalizações Woovi/OpenPix + ${generatedPixCases} decisões de cobrança Pix correlacionada + ${siblingProviderCases} decisões de evento irmão do PSP + ${pixExpirationCases} decisões de expiração/regeneração Pix + ${providerCancelCases} decisões de cancelamento acoplado ao PSP + ${providerRefundCases} decisões de refund/quarentena do PSP + ${refundRecoveryCases} decisões de recuperação econômica de refund.`);
+
+function refundRecoveryReconciliationIssues({
+  refundStatus='review_required',
+  linked=true,
+  recoveryExists=true,
+  recoveryStatus='open',
+  recoveryMatches=true,
+  requestStatus=null,
+  requestMatches=true,
+  hold=true,
+  ageHours=1
+}){
+  const issues=[];
+  if(refundStatus==='review_required'&&linked){
+    if(!recoveryExists||!recoveryMatches||!['open','payment_pending'].includes(recoveryStatus)){
+      issues.push('refund_review_recovery_mismatch');
+    }
+    if(!hold)issues.push('refund_review_without_sales_hold');
+  }
+  if(recoveryExists&&recoveryStatus==='payment_pending'
+     &&(requestStatus!=='pending'||!requestMatches)){
+    issues.push('refund_recovery_request_mismatch');
+  }
+  if(recoveryExists&&recoveryStatus==='recovered'
+     &&(requestStatus!=='approved'||!requestMatches)){
+    issues.push('refund_recovery_request_mismatch');
+  }
+  if(refundStatus==='resolved_recovered'
+     &&(!recoveryExists||recoveryStatus!=='recovered'||requestStatus!=='approved'||!requestMatches)){
+    issues.push('resolved_refund_without_recovered_obligation');
+  }
+  if(recoveryExists&&recoveryStatus==='recovered'&&refundStatus!=='resolved_recovered'){
+    issues.push('recovered_obligation_refund_not_resolved');
+  }
+  if(recoveryExists&&recoveryStatus==='open'&&ageHours>=24){
+    issues.push('refund_recovery_open_over_24h');
+  }
+  return issues;
+}
+
+let refundRecoveryReconciliationCases=0;
+for(let i=0;i<20000;i++){
+  assert.deepEqual(refundRecoveryReconciliationIssues({
+    refundStatus:'review_required',linked:true,recoveryExists:true,
+    recoveryStatus:'open',recoveryMatches:true,hold:true,ageHours:1
+  }),[]);
+  assert.ok(refundRecoveryReconciliationIssues({
+    refundStatus:'review_required',linked:true,recoveryExists:false,hold:true
+  }).includes('refund_review_recovery_mismatch'));
+  assert.ok(refundRecoveryReconciliationIssues({
+    refundStatus:'review_required',linked:true,recoveryExists:true,
+    recoveryStatus:'open',recoveryMatches:true,hold:false
+  }).includes('refund_review_without_sales_hold'));
+  assert.ok(refundRecoveryReconciliationIssues({
+    refundStatus:'review_required',linked:true,recoveryExists:true,
+    recoveryStatus:'payment_pending',requestStatus:'cancelled',requestMatches:true,hold:true
+  }).includes('refund_recovery_request_mismatch'));
+  assert.ok(refundRecoveryReconciliationIssues({
+    refundStatus:'resolved_recovered',linked:true,recoveryExists:true,
+    recoveryStatus:'open',requestStatus:null,hold:false
+  }).includes('resolved_refund_without_recovered_obligation'));
+  assert.deepEqual(refundRecoveryReconciliationIssues({
+    refundStatus:'resolved_recovered',linked:true,recoveryExists:true,
+    recoveryStatus:'recovered',requestStatus:'approved',requestMatches:true,hold:false
+  }),[]);
+  assert.ok(refundRecoveryReconciliationIssues({
+    refundStatus:'review_required',linked:true,recoveryExists:true,
+    recoveryStatus:'recovered',requestStatus:'approved',requestMatches:true,hold:true
+  }).includes('recovered_obligation_refund_not_resolved'));
+  assert.ok(refundRecoveryReconciliationIssues({
+    refundStatus:'review_required',linked:true,recoveryExists:true,
+    recoveryStatus:'open',recoveryMatches:true,hold:true,ageHours:24
+  }).includes('refund_recovery_open_over_24h'));
+  refundRecoveryReconciliationCases+=8;
+}
+
+console.log(`Financial invariant fuzz passou: ${rewardCases} cenários de unit economics + ${positionCases} posições de cashback + ${prepaidCases} cenários de consumo de crédito de taxa + ${transitionCases} transições de pacote + ${reconciliationCases} cenários de reconciliação + ${exactPaymentCases} confirmações exatas de pagamento + ${d1AuthorityCases} cenários de autoridade D+1 + ${reconciliationKeyCases} cenários de unicidade de conciliação + ${providerEventCases} cenários de eventos de provedor + ${reactiveProviderCases} transições reativas de conciliação + ${provenanceCases} provas de proveniência de aprovação + ${paymentEventReviewCases} decisões de lifecycle de eventos + ${financeSlaCases} classificações de SLA financeiro + ${canonicalEventCases} decisões de evento canônico + ${wooviAdapterCases} normalizações Woovi/OpenPix + ${generatedPixCases} decisões de cobrança Pix correlacionada + ${siblingProviderCases} decisões de evento irmão do PSP + ${pixExpirationCases} decisões de expiração/regeneração Pix + ${providerCancelCases} decisões de cancelamento acoplado ao PSP + ${providerRefundCases} decisões de refund/quarentena do PSP + ${refundRecoveryCases} decisões de recuperação econômica de refund + ${refundRecoveryReconciliationCases} provas de reconciliação de recuperação.`);
