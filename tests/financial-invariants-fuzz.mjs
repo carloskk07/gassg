@@ -1710,4 +1710,138 @@ for(let i=0;i<30000;i++){
   orderBillingRebindCases+=14;
 }
 
-console.log(`Financial invariant fuzz passou: ${rewardCases} cenários de unit economics + ${positionCases} posições de cashback + ${prepaidCases} cenários de consumo de crédito de taxa + ${transitionCases} transições de pacote + ${reconciliationCases} cenários de reconciliação + ${exactPaymentCases} confirmações exatas de pagamento + ${d1AuthorityCases} cenários de autoridade D+1 + ${reconciliationKeyCases} cenários de unicidade de conciliação + ${providerEventCases} cenários de eventos de provedor + ${reactiveProviderCases} transições reativas de conciliação + ${provenanceCases} provas de proveniência de aprovação + ${paymentEventReviewCases} decisões de lifecycle de eventos + ${financeSlaCases} classificações de SLA financeiro + ${canonicalEventCases} decisões de evento canônico + ${wooviAdapterCases} normalizações Woovi/OpenPix + ${generatedPixCases} decisões de cobrança Pix correlacionada + ${siblingProviderCases} decisões de evento irmão do PSP + ${pixExpirationCases} decisões de expiração/regeneração Pix + ${providerCancelCases} decisões de cancelamento acoplado ao PSP + ${providerRefundCases} decisões de refund/quarentena do PSP + ${refundRecoveryCases} decisões de recuperação econômica de refund + ${refundRecoveryReconciliationCases} provas de reconciliação de recuperação + ${refundExposureCapCases} alocações com teto de exposição de refund + ${exactRecoveryAllocationCases} escritas com alocação exata/imutável + ${refundAllocationSplitCases} provas de decomposição recuperável/excedente + ${preapprovalRefundCases} provas de neutralidade de refund pré-aprovação + ${providerRefundLockCases} provas de ordem de lock PSP/refund + ${providerEvidenceCases} provas de precedência da evidência PSP + ${manualRefundAnchorCases} provas de âncora manual de refund + ${refundRecoveryReopenCases} provas de reabertura de recuperação após refund + ${orderBillingRebindCases} provas de rebind de cobrança por pedido.`);
+
+function reverseMerchantFeeModel({
+  platformFeeCents,
+  prepaidAppliedCents,
+  receivableStatus,
+  statementStatus=null,
+  statementDueCents=0,
+  currentPlanIsPrepaid=false,
+  currentPlanBps=850,
+  sourcePlanBps=750
+}){
+  assert.ok(platformFeeCents>=0);
+  assert.ok(prepaidAppliedCents>=0&&prepaidAppliedCents<=platformFeeCents);
+  const cashComponent=platformFeeCents-prepaidAppliedCents;
+  const targetPlanBps=
+    currentPlanIsPrepaid&&currentPlanBps<=sourcePlanBps
+      ?currentPlanBps
+      :sourcePlanBps;
+
+  let newStatementDue=statementDueCents;
+  let cashRefundDue=0;
+  let cancelPendingPayment=false;
+
+  if(statementStatus==='open'||statementStatus==='overdue'){
+    assert.ok(statementDueCents>=cashComponent);
+    newStatementDue=statementDueCents-cashComponent;
+    cancelPendingPayment=cashComponent>0;
+  }else if(statementStatus==='paid'&&receivableStatus==='paid'){
+    cashRefundDue=cashComponent;
+  }else if(statementStatus==null&&receivableStatus==='paid'){
+    cashRefundDue=cashComponent;
+  }
+
+  return {
+    creditRestoredCents:prepaidAppliedCents,
+    cashComponent,
+    cashRefundDue,
+    newStatementDue,
+    cancelPendingPayment,
+    targetPlanBps
+  };
+}
+
+function dailyCloseReceivableDue({status,platformFeeCents,prepaidAppliedCents}){
+  if(status==='reversed')return {included:false,due:0};
+  return {
+    included:true,
+    due:status==='open'
+      ?Math.max(platformFeeCents-prepaidAppliedCents,0)
+      :0
+  };
+}
+
+let prepaidReversalD1Cases=0;
+for(let i=0;i<30000;i++){
+  const fee=int(1,1000000);
+  const prepaid=int(0,fee);
+  const cash=fee-prepaid;
+  const extraDue=int(0,1000000);
+  const sourceBps=[650,700,750][int(0,2)];
+  const currentPrepaid=i%2===0;
+  const currentBps=[650,700,750][int(0,2)];
+
+  const open=reverseMerchantFeeModel({
+    platformFeeCents:fee,
+    prepaidAppliedCents:prepaid,
+    receivableStatus:'open',
+    statementStatus:'open',
+    statementDueCents:cash+extraDue,
+    currentPlanIsPrepaid:currentPrepaid,
+    currentPlanBps,
+    sourcePlanBps:sourceBps
+  });
+  assert.equal(open.creditRestoredCents,prepaid);
+  assert.equal(open.cashRefundDue,0);
+  assert.equal(open.newStatementDue,extraDue);
+  assert.equal(open.cancelPendingPayment,cash>0);
+  assert.equal(
+    open.targetPlanBps,
+    currentPrepaid&&currentBps<=sourceBps?currentBps:sourceBps
+  );
+
+  const paid=reverseMerchantFeeModel({
+    platformFeeCents:fee,
+    prepaidAppliedCents:prepaid,
+    receivableStatus:'paid',
+    statementStatus:'paid',
+    statementDueCents:cash,
+    currentPlanIsPrepaid:currentPrepaid,
+    currentPlanBps,
+    sourcePlanBps:sourceBps
+  });
+  assert.equal(paid.creditRestoredCents,prepaid);
+  assert.equal(paid.cashRefundDue,cash);
+  assert.equal(paid.cashRefundDue+paid.creditRestoredCents,fee);
+
+  const fullyPrepaid=reverseMerchantFeeModel({
+    platformFeeCents:fee,
+    prepaidAppliedCents:fee,
+    receivableStatus:'paid',
+    statementStatus:'paid',
+    currentPlanIsPrepaid:false,
+    sourcePlanBps:sourceBps
+  });
+  assert.equal(fullyPrepaid.cashRefundDue,0);
+  assert.equal(fullyPrepaid.creditRestoredCents,fee);
+
+  const openClose=dailyCloseReceivableDue({
+    status:'open',platformFeeCents:fee,prepaidAppliedCents:prepaid
+  });
+  assert.equal(openClose.included,true);
+  assert.equal(openClose.due,cash);
+  assert.deepEqual(
+    dailyCloseReceivableDue({
+      status:'paid',platformFeeCents:fee,prepaidAppliedCents:prepaid
+    }),
+    {included:true,due:0}
+  );
+  assert.deepEqual(
+    dailyCloseReceivableDue({
+      status:'waived',platformFeeCents:fee,prepaidAppliedCents:prepaid
+    }),
+    {included:true,due:0}
+  );
+  assert.deepEqual(
+    dailyCloseReceivableDue({
+      status:'reversed',platformFeeCents:fee,prepaidAppliedCents:prepaid
+    }),
+    {included:false,due:0}
+  );
+
+  prepaidReversalD1Cases+=16;
+}
+
+console.log(`Financial invariant fuzz passou: ${rewardCases} cenários de unit economics + ${positionCases} posições de cashback + ${prepaidCases} cenários de consumo de crédito de taxa + ${transitionCases} transições de pacote + ${reconciliationCases} cenários de reconciliação + ${exactPaymentCases} confirmações exatas de pagamento + ${d1AuthorityCases} cenários de autoridade D+1 + ${reconciliationKeyCases} cenários de unicidade de conciliação + ${providerEventCases} cenários de eventos de provedor + ${reactiveProviderCases} transições reativas de conciliação + ${provenanceCases} provas de proveniência de aprovação + ${paymentEventReviewCases} decisões de lifecycle de eventos + ${financeSlaCases} classificações de SLA financeiro + ${canonicalEventCases} decisões de evento canônico + ${wooviAdapterCases} normalizações Woovi/OpenPix + ${generatedPixCases} decisões de cobrança Pix correlacionada + ${siblingProviderCases} decisões de evento irmão do PSP + ${pixExpirationCases} decisões de expiração/regeneração Pix + ${providerCancelCases} decisões de cancelamento acoplado ao PSP + ${providerRefundCases} decisões de refund/quarentena do PSP + ${refundRecoveryCases} decisões de recuperação econômica de refund + ${refundRecoveryReconciliationCases} provas de reconciliação de recuperação + ${refundExposureCapCases} alocações com teto de exposição de refund + ${exactRecoveryAllocationCases} escritas com alocação exata/imutável + ${refundAllocationSplitCases} provas de decomposição recuperável/excedente + ${preapprovalRefundCases} provas de neutralidade de refund pré-aprovação + ${providerRefundLockCases} provas de ordem de lock PSP/refund + ${providerEvidenceCases} provas de precedência da evidência PSP + ${manualRefundAnchorCases} provas de âncora manual de refund + ${refundRecoveryReopenCases} provas de reabertura de recuperação após refund + ${orderBillingRebindCases} provas de rebind de cobrança por pedido + ${prepaidReversalD1Cases} provas de estorno pré-pago/D+1.`);
