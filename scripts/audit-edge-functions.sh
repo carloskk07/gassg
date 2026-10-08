@@ -88,4 +88,9 @@ for f in $(find supabase/functions -mindepth 2 -maxdepth 2 -name 'index.ts' | so
       grep -q 'auth.getUser' "$f" || { echo "$f missing explicit JWT user validation"; exit 1; }
       ;;
   esac
+  case "$f" in
+    supabase/functions/merchant-ops/index.ts|supabase/functions/admin-ops/index.ts|supabase/functions/merchant-billing-pix/index.ts)
+      grep -q 'provider-charge-cancel.js' "$f" || { echo "$f missing shared provider cancellation authority"; exit 1; }
+      ;;
+  esac
 done
