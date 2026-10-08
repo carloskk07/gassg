@@ -371,6 +371,11 @@ assert.ok(launchReadinessWorkflow.includes('node tests/remote-finance-psp-readin
 assert.ok(remoteFinancePspReadiness.includes('PIX_PROVIDER_NOT_CONFIGURED')&&remoteFinancePspReadiness.includes("pix.body?.error,\n  'UNAUTHORIZED'"),'probe Pix precisa distinguir App ID ausente de autenticação de usuário ausente');
 assert.ok(remoteFinancePspReadiness.includes('WOOVI_ADAPTER_NOT_CONFIGURED')&&remoteFinancePspReadiness.includes('INVALID_WOOVI_AUTHORIZATION'),'probe webhook precisa provar Company ID + autorização privada sem conhecer o segredo');
 assert.ok(remoteFinancePspReadiness.includes('secretsExposed:false'),'gate PSP precisa afirmar explicitamente que nenhum valor secreto é emitido');
+
+assert.ok(remoteFinancePspReadiness.includes('const problems=[]')&&remoteFinancePspReadiness.includes("problems.push('WOOVI_APP_ID ausente/inválido')"),'gate PSP precisa acumular diagnóstico do App ID sem abortar antes do webhook');
+assert.ok(remoteFinancePspReadiness.includes("problems.push('WOOVI_COMPANY_ID e/ou WOOVI_WEBHOOK_AUTHORIZATION ausentes/inválidos')"),'gate PSP precisa acumular diagnóstico do adapter privado na mesma execução');
+assert.ok(remoteFinancePspReadiness.includes("'Woovi PSP runtime incompleto: '+problems.join('; ')"),'gate PSP precisa falhar uma única vez com diagnóstico consolidado');
+
 assert.ok(!remoteFinancePspReadiness.includes('WOOVI_APP_ID=')&&!remoteFinancePspReadiness.includes('WOOVI_WEBHOOK_AUTHORIZATION='),'probe PSP não pode versionar valores de secrets');
 
 assert.ok(remoteAdminTurnstile.includes('CHROME_START_ATTEMPTS=3')&&remoteAdminTurnstile.includes('CHROME_START_POLLS=80'),'sonda Turnstile precisa tolerar startup lento do Chrome sem remover fail-closed');
