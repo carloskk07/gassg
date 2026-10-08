@@ -383,6 +383,15 @@ async function adminPerform(action,payload={}){
 async function adminPoll(){
   if(!adminReady()||adminRuntime.actionPending||adminRuntime.pollPending||document.visibilityState==='hidden')return;
   const now=Date.now();
+  for(const refund of d.merchantBilling?.refunds||[]){
+    if(refund.status==='review_required'){
+      const linked=Boolean(refund.merchant_id&&refund.payment_request_id);
+      push(linked?'critical':'high',
+        linked?'Refund do PSP bloqueia revenda':'Refund do PSP sem vínculo',
+        (linked?adminMerchantName(refund.merchant_id)+' • ':'')+adminMoney(refund.amount_cents)+' • '+String(refund.match_reason||'review_required'),
+        {section:'finance'});
+    }
+  }
   if(adminRuntime.lastPollAt&&now-adminRuntime.lastPollAt<15000)return;
   adminRuntime.lastPollAt=now;
   adminRuntime.pollPending=true;
@@ -1427,6 +1436,46 @@ function adminBillingReconciliationView(reconciliation){
   </div>`;
 }
 
+function adminBillingRefundReasonLabel(reason){
+  return ({
+    original_payment_not_found:'pagamento original não localizado no TAMÃO',
+    refund_before_finance_approval:'refund chegou antes da aprovação financeira',
+    partial_refund_confirmed:'reembolso parcial confirmado pelo PSP',
+    full_refund_confirmed:'reembolso total confirmado pelo PSP',
+    refund_total_exceeds_original:'soma de reembolsos excede o pagamento original'
+  })[String(reason||'')]||String(reason||'—');
+}
+function adminBillingRefundCard(refund){
+  const review=refund.status==='review_required';
+  const linked=Boolean(refund.payment_request_id&&refund.merchant_id);
+  const original=refund.original_payment_amount_cents==null
+    ?null:Number(refund.original_payment_amount_cents);
+  const cumulative=refund.cumulative_refunded_cents==null
+    ?null:Number(refund.cumulative_refunded_cents);
+  const progress=original&&cumulative!=null
+    ?` • acumulado ${adminMoney(cumulative)} / ${adminMoney(original)}`
+    :'';
+  const statusLabel=({
+    review_required:'REVISÃO',
+    resolved_recovered:'RECUPERADO',
+    ignored_unrelated:'NÃO RELACIONADO'
+  })[String(refund.status||'')]||String(refund.status||'—').toUpperCase();
+  const actions=review
+    ?linked
+      ?`<div class="order-actions"><button class="secondary small" onclick="adminResolveBillingRefund('${esc(refund.id)}','mark-recovered')">Valor recuperado</button></div>`
+      :`<div class="order-actions"><button class="ghost small" onclick="adminResolveBillingRefund('${esc(refund.id)}','dismiss-unrelated')">Marcar não relacionado</button></div>`
+    :'';
+  return `<article class="order-card">
+    <div class="order-head"><div><strong>${linked?esc(adminMerchantName(refund.merchant_id)):'Refund sem vínculo TAMÃO'}</strong><br><small>${esc(refund.provider||'—')} • ${esc(formatDateTime(refund.occurred_at))}</small></div><span class="status-pill ${review?'offline':'online'}">${esc(statusLabel)}</span></div>
+    <div class="tiny muted">Refund: ${esc(refund.refund_reconciliation_key||'—')} • original: ${esc(refund.original_reconciliation_key||'—')}</div>
+    <div class="tiny muted">Valor devolvido: ${adminMoney(refund.amount_cents)}${progress}</div>
+    <div class="tiny muted">Motor: ${esc(adminBillingRefundReasonLabel(refund.match_reason))}</div>
+    ${refund.resolution_reference?`<div class="tiny muted">Resolução: ${esc(refund.resolution_reference)}</div>`:''}
+    ${review&&linked?'<div class="notice danger" style="margin-top:8px"><strong>Hold financeiro ativo.</strong><br>Novas vendas permanecem suspensas até a resolução deste refund.</div>':''}
+    ${actions}
+  </article>`;
+}
+
 function adminBillingProviderChargeRow(charge){
   const cancelRetry=charge.status==='cancelled'
     &&['PROVIDER_CANCEL_REQUIRED','PROVIDER_CANCEL_FAILED'].includes(String(charge.last_error_code||''));
@@ -1445,6 +1494,7 @@ function adminMerchantBillingSection(d){
   const statements=billing.statements||[];
   const paymentRequests=billing.paymentRequests||[];
   const paymentEvents=billing.paymentEvents||[];
+  const refunds=billing.refunds||[];
   const providerCharges=billing.providerCharges||[];
   const paymentIngress=billing.paymentIngress||null;
   const providerHealth=adminRuntime.providerHealth;
@@ -1461,6 +1511,9 @@ function adminMerchantBillingSection(d){
   const openStatements=statements.filter(x=>['open','overdue'].includes(x.status));
   const overdue=openStatements.filter(x=>x.status==='overdue');
   const held=accounts.filter(x=>x.sales_hold);
+  const pendingRefunds=refunds
+    .filter(x=>x.status==='review_required')
+    .sort((a,b)=>Date.parse(a.occurred_at||0)-Date.parse(b.occurred_at||0));
   const actionableEvents=paymentEvents
     .filter(x=>['matched_exact','review_required'].includes(x.status))
     .sort((a,b)=>{
@@ -1477,11 +1530,11 @@ function adminMerchantBillingSection(d){
       ${paymentIngress.liveEndpoints?.merchantPix?`<div class="tiny muted">Geração Pix da revenda: ${esc(paymentIngress.liveEndpoints.merchantPix)}</div>`:''}
       ${paymentIngress.endpoint?`<div class="tiny muted">Ingress normalizado: ${esc(paymentIngress.endpoint)}</div>`:''}
       <div style="margin-top:10px"><button class="secondary small" onclick="adminCheckBillingProviderHealth()" ${adminRuntime.providerHealthPending?'disabled':''}>${adminRuntime.providerHealthPending?'Testando conexão…':'Testar conexão real com a Woovi'}</button></div>
-      ${providerHealth?`<div class="notice ${providerHealth.ok?'success':'danger'}" style="margin-top:10px"><strong>${providerHealth.ok?'Teste real Woovi aprovado.':'Teste real Woovi requer atenção.'}</strong><br>Credencial API: ${providerHealth.credentialValid===true?'válida':providerHealth.credentialValid===false?'inválida':'não confirmada'} • webhook CHARGE_COMPLETED: ${providerHealth.chargeWebhookReady?'ativo e autenticado':'não confirmado'} • CHARGE_EXPIRED: ${providerHealth.chargeExpiredWebhookReady?'ativo e autenticado':'não confirmado'} • TRANSACTION_RECEIVED: ${providerHealth.transactionWebhookActive?'ativo':'não necessário/ausente'} • empresa vinculada: ${providerHealth.companyBound?'sim':'não'} • ambiente: ${esc(providerHealth.environment||'—')}${providerHealth.reason?' • '+esc(providerHealth.reason):''}</div>`:''}
+      ${providerHealth?`<div class="notice ${providerHealth.ok?'success':'danger'}" style="margin-top:10px"><strong>${providerHealth.ok?'Teste real Woovi aprovado.':'Teste real Woovi requer atenção.'}</strong><br>Credencial API: ${providerHealth.credentialValid===true?'válida':providerHealth.credentialValid===false?'inválida':'não confirmada'} • webhook CHARGE_COMPLETED: ${providerHealth.chargeWebhookReady?'ativo e autenticado':'não confirmado'} • CHARGE_EXPIRED: ${providerHealth.chargeExpiredWebhookReady?'ativo e autenticado':'não confirmado'} • REFUND_SENT: ${providerHealth.refundWebhookReady?'ativo e autenticado':'não confirmado'} • TRANSACTION_RECEIVED: ${providerHealth.transactionWebhookActive?'ativo':'não necessário/ausente'} • empresa vinculada: ${providerHealth.companyBound?'sim':'não'} • ambiente: ${esc(providerHealth.environment||'—')}${providerHealth.reason?' • '+esc(providerHealth.reason):''}</div>`:''}
       ${paymentIngress.configValid===false
         ?`<div class="notice danger" style="margin-top:10px"><strong>Configuração de webhook inválida.</strong><br>O mapa BILLING_PAYMENT_WEBHOOK_SECRETS não pôde ser validado. Nenhum recebimento automático deve ser considerado pronto.</div>`
         :pspValidated
-          ?`<div class="notice success" style="margin-top:10px"><strong>PSP validado em tempo real.</strong><br>O AppID respondeu; CHARGE_COMPLETED e CHARGE_EXPIRED estão ativos e autenticados. A cobrança automática pode conciliar pagamento, expirar QR e regenerar com segurança.</div>`
+          ?`<div class="notice success" style="margin-top:10px"><strong>PSP validado em tempo real.</strong><br>O AppID respondeu; pagamento, expiração e refund confirmado estão autenticados. O TAMÃO consegue conciliar Pix, expirar QR e colocar devoluções em revisão segura.</div>`
           :paymentIngress.livePspReady
             ?`<div class="notice" style="margin-top:10px"><strong>PSP configurado; prova real ainda pendente.</strong><br>Os secrets necessários existem no servidor, mas isso não comprova que a credencial ou o webhook estejam válidos na Woovi. Use “Testar conexão real com a Woovi”.</div>`
             :paymentIngress.normalizedIngressConfigured
@@ -1490,6 +1543,8 @@ function adminMerchantBillingSection(d){
     </div>`:''}
     ${adminBillingMetricsView(metrics)}
     ${adminBillingReconciliationView(reconciliation)}
+    ${pendingRefunds.length?`<div class="section-head" style="margin-top:18px"><div><h3>Reembolsos do PSP exigem decisão</h3><p>Refund confirmado nunca desfaz crédito ou quitação silenciosamente. Itens ligados colocam a revenda em hold até o Financeiro comprovar recuperação ou executar uma reversão contábil futura.</p></div><span class="status-pill offline">${pendingRefunds.length} em revisão</span></div>${pendingRefunds.map(adminBillingRefundCard).join('')}`:''}
+    ${refunds.some(x=>x.status!=='review_required')?`<details class="card flat" style="margin-bottom:16px"><summary><strong>Histórico de refunds do PSP</strong></summary><div style="margin-top:10px">${refunds.filter(x=>x.status!=='review_required').slice(0,50).map(adminBillingRefundCard).join('')}</div></details>`:''}
     ${providerCharges.length?`<details class="card flat" style="margin-bottom:16px"><summary><strong>Cobranças Pix geradas pelo TAMÃO</strong> • ${providerCharges.length}</summary><div class="list" style="margin-top:10px">${providerCharges.slice(0,50).map(adminBillingProviderChargeRow).join('')}</div></details>`:''}
     ${actionableEvents.length?`<div class="section-head" style="margin-top:18px"><div><h3>Eventos de pagamento</h3><p>Eventos autenticados do provedor são conciliados por valor + identificador. Ambiguidades nunca movimentam saldo automaticamente.</p></div><span class="status-pill ${actionableEvents.some(x=>x.status==='review_required')?'risk':'online'}">${actionableEvents.length} evento(s)</span></div>${actionableEvents.map(adminBillingPaymentEventCard).join('')}`:''}
     ${plans.length?`<div class="admin-entity-grid">${plans.map(adminBillingPlanCard).join('')}</div>`:'<div class="notice">Motor de cobrança diária ainda não está ativo neste ambiente.</div>'}
@@ -2366,6 +2421,30 @@ async function adminAddPlatformAdmin(){
   try{
     await adminPerform('set-platform-admin',{targetEmail,active:true,adminRole});
     toast('Administrador adicionado como '+adminRoleLabel(adminRole));
+  }catch(e){toast(String(e?.message||e))}
+}
+
+async function adminResolveBillingRefund(refundId,refundAction){
+  const refund=(adminRuntime.data?.merchantBilling?.refunds||[]).find(x=>x.id===refundId);
+  if(!refund)return toast('Refund financeiro não encontrado');
+  if(refund.status!=='review_required')return toast('Este refund já foi resolvido');
+  const recovered=refundAction==='mark-recovered';
+  if(recovered&&(!refund.payment_request_id||!refund.merchant_id)){
+    return toast('Refund sem vínculo não pode ser marcado como recuperado');
+  }
+  if(!recovered&&refundAction!=='dismiss-unrelated')return toast('Ação de refund inválida');
+  const promptText=recovered
+    ?'Referência que comprova a recuperação do valor (novo Pix, transferência, acordo):'
+    :'Explique por que este refund não pertence a uma cobrança TAMÃO:';
+  const reference=prompt(promptText)||'';
+  if(reference.trim().length<3)return toast('Informe a referência da resolução');
+  const message=recovered
+    ?'Confirmar que o valor deste refund foi recuperado externamente? O hold será liberado apenas se não existir outra pendência financeira.'
+    :'Confirmar que este refund não está relacionado ao TAMÃO? Esta opção só funciona para item sem revenda/solicitação vinculada.';
+  if(!confirm(message))return;
+  try{
+    await adminPerform('merchant-billing-refund',{refundId,refundAction,reference});
+    toast(recovered?'Refund resolvido como valor recuperado':'Refund encerrado como não relacionado');
   }catch(e){toast(String(e?.message||e))}
 }
 
