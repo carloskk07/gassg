@@ -47,6 +47,30 @@ alter table public.merchant_billing_refund_recoveries
       and recovered_at is not null)
   );
 
+create or replace function public.initialize_refund_recovery_outstanding()
+returns trigger
+language plpgsql
+security definer
+set search_path=pg_catalog
+as $function$
+begin
+  new.outstanding_cents:=new.amount_cents;
+  return new;
+end;
+$function$;
+
+revoke all on function public.initialize_refund_recovery_outstanding()
+from public,anon,authenticated;
+grant execute on function public.initialize_refund_recovery_outstanding()
+to postgres,service_role;
+
+drop trigger if exists aa_initialize_refund_recovery_outstanding_trg
+on public.merchant_billing_refund_recoveries;
+create trigger aa_initialize_refund_recovery_outstanding_trg
+before insert
+on public.merchant_billing_refund_recoveries
+for each row execute function public.initialize_refund_recovery_outstanding();
+
 drop index if exists public.merchant_billing_payment_requests_refund_recovery_live_uq;
 create unique index merchant_billing_payment_requests_refund_recovery_live_uq
   on public.merchant_billing_payment_requests(refund_recovery_id)
