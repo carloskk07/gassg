@@ -183,7 +183,11 @@ function normalizeCharge(data:any,correlationId:string,expectedAmountCents:numbe
   if(!brCode||brCode.length<20)throw new Error("WOOVI_BR_CODE_MISSING");
 
   const providerChargeId=cleanText(
-    charge.globalID??charge.identifier??charge.paymentLinkID??charge.transactionID,
+    charge.globalID
+      ??charge.identifier
+      ??charge.transactionID
+      ??charge.paymentLinkID
+      ??charge.correlationID,
     240
   );
   if(!providerChargeId)throw new Error("WOOVI_CHARGE_ID_MISSING");
