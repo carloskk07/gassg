@@ -363,13 +363,19 @@ async function wooviBillingProviderHealth(){
     if(!response.ok){
       return {
         ok:false,
-        status:response.status===429?"rate_limited":"provider_unavailable",
+        status:
+          response.status===403?"permission_denied":
+          response.status===429?"rate_limited":
+          "provider_unavailable",
         checkedAt,environment,
         credentialValid:response.status!==401,
         chargeWebhookReady:false,transactionWebhookActive:false,
         companyBound:companyId.length>=6,
         apiStatus:response.status,
-        reason:"WOOVI_WEBHOOK_LIST_HTTP_"+response.status
+        reason:
+          response.status===403
+            ?"WOOVI_APP_ID_PERMISSION_DENIED"
+            :"WOOVI_WEBHOOK_LIST_HTTP_"+response.status
       };
     }
 
@@ -839,8 +845,16 @@ async function adminSystemHealth(admin:any){
     staleMerchantHeartbeat,
     staleMerchantPrice
   };
-  const critical=(!portals.ok)||(Array.isArray(readiness.data?.securityBlockers)&&readiness.data.securityBlockers.length>0);
-  const degraded=Object.values(queues).some((x:any)=>Number(x)>0);
+  const critical=
+    (!portals.ok)
+    ||(Array.isArray(readiness.data?.securityBlockers)&&readiness.data.securityBlockers.length>0);
+  const operationalQueueDegraded=
+    Object.values(queues).some((x:any)=>Number(x)>0);
+  // The marketplace remains operable through the manual Finance fallback if
+  // the PSP is unavailable, so provider health degrades the control plane but
+  // never silently disables commerce or promotes itself to a security blocker.
+  const paymentProviderDegraded=paymentProvider?.ok!==true;
+  const degraded=operationalQueueDegraded||paymentProviderDegraded;
   return {
     checkedAt:now.toISOString(),
     latencyMs:Date.now()-started,

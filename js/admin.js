@@ -701,6 +701,7 @@ function adminSystemHealthView(){
       <div class="kpi"><span class="label">Heartbeat vencido</span><strong>${Number(h.queues?.staleMerchantHeartbeat||0)}</strong></div>
       <div class="kpi"><span class="label">Preço vencido</span><strong>${Number(h.queues?.staleMerchantPrice||0)}</strong></div>
     </div>
+    ${h.paymentProvider?.ok===false?`<div class="notice" style="margin-bottom:12px"><strong>Cobrança automática degradada.</strong><br>A falha do PSP aparece no diagnóstico, mas o TAMÃO não bloqueia vendas automaticamente: o Financeiro mantém a conferência manual como contingência. Motivo: ${esc(h.paymentProvider?.reason||h.paymentProvider?.status||'indisponível')}.</div>`:''}
     <div class="admin-health-portals">${portals.map(p=>`<div class="card flat"><div class="order-head"><strong>${esc(String(p.role||'').toUpperCase())}</strong><span class="status-pill ${p.ok?'online':'offline'}">${p.ok?'OK':'FALHA'}</span></div><small>${esc(p.origin||'')}</small><div class="tiny muted">${esc(p.sourceSha?.slice(0,12)||p.error||'sem SHA')}</div></div>`).join('')}</div>
   </section>`;
 }
@@ -1421,6 +1422,11 @@ function adminMerchantBillingSection(d){
   const providerCharges=billing.providerCharges||[];
   const paymentIngress=billing.paymentIngress||null;
   const providerHealth=adminRuntime.providerHealth;
+  const pspValidated=providerHealth?.ok===true;
+  const pspFailed=Boolean(providerHealth)&&providerHealth?.ok===false;
+  const pspConfigured=paymentIngress?.livePspReady===true;
+  const pspBadgeLabel=pspValidated?'PSP VALIDADO':pspFailed?'PSP FALHANDO':pspConfigured?'PSP CONFIGURADO':paymentIngress?.normalizedIngressConfigured?'INGRESS PRONTO':'PENDENTE';
+  const pspBadgeClass=pspValidated?'online':pspFailed?'offline':pspConfigured||paymentIngress?.normalizedIngressConfigured?'risk':'';
   const metrics=billing.metrics||null;
   const reconciliation=billing.reconciliation||null;
   const pendingPaymentRequests=paymentRequests
@@ -1437,7 +1443,7 @@ function adminMerchantBillingSection(d){
     });
   return `<section class="section">
     <div class="section-head"><div><span class="section-kicker">COBRANÇA DAS REVENDAS</span><h2>Fechamento diário + pacotes</h2><p>Cada pedido mantém sua taxa auditável. À 00:05 o dia anterior é consolidado; o saldo vence no fim do dia seguinte. Crédito pré-pago reduz a taxa e evita pagamento diário enquanto houver saldo.</p></div><div class="order-actions"><span class="status-pill ${Number(metrics?.overdueStatementCount??overdue.length)?'offline':'online'}">${Number(metrics?.overdueStatementCount??overdue.length)} vencido(s)</span><span class="status-pill ${Number(metrics?.salesHoldCount??held.length)?'offline':'online'}">${Number(metrics?.salesHoldCount??held.length)} hold(s)</span></div></div>
-    ${paymentIngress?`<div class="card flat" style="margin-bottom:16px"><div class="section-head"><div><h3>Entrada Pix / PSP</h3><p>Prontidão em duas camadas: ingress normalizado do TAMÃO e adaptador nativo do PSP. O painel recebe somente metadados; segredos nunca saem do ambiente server-side.</p></div><span class="status-pill ${paymentIngress.livePspReady?'online':paymentIngress.normalizedIngressConfigured?'risk':''}">${paymentIngress.livePspReady?'PSP LIVE':paymentIngress.normalizedIngressConfigured?'INGRESS PRONTO':'PENDENTE'}</span></div>
+    ${paymentIngress?`<div class="card flat" style="margin-bottom:16px"><div class="section-head"><div><h3>Entrada Pix / PSP</h3><p>Configuração e disponibilidade real são estados diferentes. O painel só chama o PSP de validado após uma consulta autenticada à Woovi; segredos nunca saem do ambiente server-side.</p></div><span class="status-pill ${pspBadgeClass}">${esc(pspBadgeLabel)}</span></div>
       <div class="tiny muted">Contrato técnico: ${esc(paymentIngress.contract||'—')} • secrets válidos: ${Number(paymentIngress.providerCount||0)}${Array.isArray(paymentIngress.providers)&&paymentIngress.providers.length?' • '+paymentIngress.providers.map(esc).join(', '):''}</div>
       <div class="tiny muted">Adaptadores nativos de PSP ativos: ${Number(paymentIngress.liveProviderCount||0)}${Array.isArray(paymentIngress.liveProviders)&&paymentIngress.liveProviders.length?' • '+paymentIngress.liveProviders.map(esc).join(', '):''}</div>
       ${paymentIngress.adapterReadiness?.woovi?`<div class="tiny muted">Woovi/OpenPix: adaptador ${paymentIngress.adapterReadiness.woovi.implemented?'implementado':'ausente'} • webhook ${paymentIngress.adapterReadiness.woovi.receiveReady?'pronto':'pendente'} • criação de cobrança ${paymentIngress.adapterReadiness.woovi.chargeReady?'pronta':'pendente'} • App ID ${paymentIngress.adapterReadiness.woovi.appIdConfigured?'configurado':'pendente'} • token privado ${paymentIngress.adapterReadiness.woovi.webhookAuthorizationConfigured?'configurado':'pendente'} • vínculo da empresa ${paymentIngress.adapterReadiness.woovi.companyBound?'configurado':'pendente'} • ambiente ${esc(paymentIngress.adapterReadiness.woovi.environment||'—')} • assinatura ${esc(paymentIngress.adapterReadiness.woovi.signature||'—')}</div>`:''}
@@ -1448,11 +1454,13 @@ function adminMerchantBillingSection(d){
       ${providerHealth?`<div class="notice ${providerHealth.ok?'success':'danger'}" style="margin-top:10px"><strong>${providerHealth.ok?'Teste real Woovi aprovado.':'Teste real Woovi requer atenção.'}</strong><br>Credencial API: ${providerHealth.credentialValid===true?'válida':providerHealth.credentialValid===false?'inválida':'não confirmada'} • webhook CHARGE_COMPLETED: ${providerHealth.chargeWebhookReady?'ativo e autenticado':'não confirmado'} • TRANSACTION_RECEIVED: ${providerHealth.transactionWebhookActive?'ativo':'não necessário/ausente'} • empresa vinculada: ${providerHealth.companyBound?'sim':'não'} • ambiente: ${esc(providerHealth.environment||'—')}${providerHealth.reason?' • '+esc(providerHealth.reason):''}</div>`:''}
       ${paymentIngress.configValid===false
         ?`<div class="notice danger" style="margin-top:10px"><strong>Configuração de webhook inválida.</strong><br>O mapa BILLING_PAYMENT_WEBHOOK_SECRETS não pôde ser validado. Nenhum recebimento automático deve ser considerado pronto.</div>`
-        :paymentIngress.livePspReady
-          ?`<div class="notice success" style="margin-top:10px"><strong>PSP real conectado.</strong><br>Existe adaptador nativo com secret válido para receber e normalizar eventos do provedor.</div>`
-          :paymentIngress.normalizedIngressConfigured
-            ?`<div class="notice" style="margin-top:10px"><strong>Ingress técnico pronto; PSP real ainda não.</strong><br>Há secret para o contrato HMAC normalizado do TAMÃO, mas nenhum adaptador nativo de PSP está ativo. Não trate este estado como integração bancária concluída.</div>`
-            :`<div class="notice" style="margin-top:10px"><strong>PSP/Pix ainda não conectado.</strong><br>O motor interno de conciliação está pronto, mas não há secret de ingress válido nem adaptador nativo de provedor. O fluxo manual continua disponível.</div>`}
+        :pspValidated
+          ?`<div class="notice success" style="margin-top:10px"><strong>PSP validado em tempo real.</strong><br>O AppID respondeu, o webhook CHARGE_COMPLETED está ativo e autenticado, e a cobrança automática pode operar com conciliação por EndToEndId.</div>`
+          :paymentIngress.livePspReady
+            ?`<div class="notice" style="margin-top:10px"><strong>PSP configurado; prova real ainda pendente.</strong><br>Os secrets necessários existem no servidor, mas isso não comprova que a credencial ou o webhook estejam válidos na Woovi. Use “Testar conexão real com a Woovi”.</div>`
+            :paymentIngress.normalizedIngressConfigured
+              ?`<div class="notice" style="margin-top:10px"><strong>Ingress técnico pronto; PSP real ainda não.</strong><br>Há secret para o contrato HMAC normalizado do TAMÃO, mas nenhum adaptador nativo de PSP está configurado. O fluxo manual continua disponível.</div>`
+              :`<div class="notice" style="margin-top:10px"><strong>PSP/Pix ainda não conectado.</strong><br>O motor interno de conciliação está pronto, mas não há integração automática validada. O fluxo manual continua disponível.</div>`}
     </div>`:''}
     ${adminBillingMetricsView(metrics)}
     ${adminBillingReconciliationView(reconciliation)}
