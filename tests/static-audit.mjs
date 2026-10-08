@@ -552,6 +552,7 @@ const providerRefundQuarantine=read('supabase/migrations/20261008083000_provider
 const refundRecoveryObligation=read('supabase/migrations/20261008093000_refund_recovery_obligation_v1_97.sql');
 const refundPaymentEventFkIndex=read('supabase/migrations/20261008094500_refund_payment_event_fk_index_v1_97_1.sql');
 const refundRecoveryReconciliation=read('supabase/migrations/20261008100000_refund_recovery_reconciliation_v1_98.sql');
+const refundRecoveryExposureCap=read('supabase/migrations/20261008113000_refund_recovery_exposure_cap_v1_99.sql');
 const providerChargeCancelSource=read('supabase/functions/_shared/provider-charge-cancel.js');
 const providerCancelMerchantOps=read('supabase/functions/merchant-ops/index.ts');
 const billingPaymentWebhookSource=read('supabase/functions/billing-payment-webhook/index.ts');
@@ -843,6 +844,16 @@ assert.ok(refundRecoveryReconciliation.includes("'resolved_refund_without_recove
 assert.ok(refundRecoveryReconciliation.includes("'refund_review_without_sales_hold'")&&refundRecoveryReconciliation.includes("'refund_hold_without_review'"),'hold de refund precisa ser reconciliado nos dois sentidos');
 assert.ok(refundRecoveryReconciliation.includes("'refund_recovery_open_over_24h'")&&refundRecoveryReconciliation.includes("'refundRecoveryOpenSlaBreachCount'")&&refundRecoveryReconciliation.includes("'refundRecoveryOpenHours',24"),'obrigação sem tentativa de pagamento por 24h precisa entrar no SLA financeiro');
 assert.ok(refundRecoveryReconciliation.includes("revoke all on function public.admin_merchant_billing_metrics(uuid)")&&refundRecoveryReconciliation.includes("revoke all on function public.admin_merchant_billing_reconciliation(uuid)"),'métricas/reconciliação v1.98 precisam permanecer server-only');
+assert.ok(refundRecoveryExposureCap.includes('guard_refund_recovery_exposure_cap')&&refundRecoveryExposureCap.includes('REFUND_RECOVERY_EXPOSURE_CAP_EXCEEDED'),'v1.99 precisa impor teto estrutural à soma das recuperações por pagamento original');
+assert.ok(refundRecoveryExposureCap.includes("'refund-recovery-exposure:'||new.original_payment_request_id::text")&&refundRecoveryExposureCap.includes('pg_advisory_xact_lock'),'alocação concorrente de refund precisa ser serializada por pagamento original');
+assert.ok(refundRecoveryExposureCap.includes('v_remaining:=greatest(new.original_payment_amount_cents-v_allocated,0)')&&refundRecoveryExposureCap.includes('v_recoverable:=least(new.amount_cents,v_remaining)'),'obrigação precisa ser limitada à exposição econômica remanescente');
+assert.ok(refundRecoveryExposureCap.includes("status in (\n      'review_required','resolved_recovered',\n      'ignored_unrelated','resolved_excess'")&&refundRecoveryExposureCap.includes("'dismiss-excess'"),'excesso sem exposição precisa ter estado/resolução auditável própria');
+assert.ok(refundRecoveryExposureCap.includes("'refund_recovery_exposure_cap_exceeded'")&&refundRecoveryExposureCap.includes("'resolved_excess_with_recovery_obligation'"),'reconciliador precisa denunciar tanto over-recovery quanto falso resolved_excess');
+assert.ok(refundRecoveryExposureCap.includes('refund_recovery_expected')&&refundRecoveryExposureCap.includes('expected_recovery_cents'),'reconciliação precisa provar obrigação esperada já considerando o teto');
+assert.ok(refundRecoveryExposureCap.includes("revoke all on function public.guard_refund_recovery_exposure_cap()")&&refundRecoveryExposureCap.includes("revoke all on function public.admin_merchant_billing_refund_action("),'novas autoridades v1.99 precisam permanecer server-only');
+assert.ok(adminOpsSource.includes('"mark-recovered","dismiss-unrelated","dismiss-excess"'),'admin-ops precisa rotear reconhecimento de excesso pelo backend idempotente');
+assert.ok(admin.includes('Reconhecer excesso do PSP')&&admin.includes('Exposição original já totalmente coberta.')&&admin.includes('Excesso do PSP não convertido em dívida'),'Financeiro precisa enxergar o cap e encerrar somente excesso sem obrigação');
+assert.ok(merchant.includes('Não existe cobrança automática de recuperação em aberto neste momento.')&&merchant.includes('não cria dívida acima do valor originalmente recebido'),'revenda não pode receber mensagem de dívida fantasma quando a exposição já está totalmente coberta');
 assert.ok(admin.includes('Recuperações de refund')&&admin.includes('recuperação informada:')&&admin.includes('refundRecoveryOpenBreachCount'),'cockpit admin precisa mostrar exposição e SLA de recuperação');
 assert.ok(admin.includes('Refund ligado não possui obrigação de recuperação exata e coerente.')&&admin.includes('Obrigação de recuperação está aberta há mais de 24 horas'),'UI precisa traduzir divergência estrutural e envelhecimento da recuperação');
 assert.ok(merchantBillingPixSource.includes('refundRecoveryId')&&merchantBillingPixSource.includes('REFUND_RECOVERY_NOT_PAYABLE'),'Edge Pix precisa aceitar e traduzir obrigação de recuperação');
@@ -851,7 +862,7 @@ assert.ok(merchantOrdersBillingSource.includes('merchant_billing_refund_recoveri
 assert.ok(backend.includes('merchantNotifyRefundRecoveryPaidLive')&&backend.includes('refundRecoveryId:recovery'),'cliente precisa suportar Pix e fallback manual para recuperação');
 assert.ok(merchant.includes('Pagar recuperação com Pix')&&merchant.includes('referência administrativa sozinha não encerra o caso')&&merchant.includes('merchantCreateRefundRecoveryPixFromUi'),'portal da revenda precisa apresentar a obrigação como pagamento real, não anotação');
 assert.ok(adminOpsSource.includes('billingRefundRecoveriesPromise')&&adminOpsSource.includes('refund_recovery_id'),'Financeiro precisa receber obrigação + vínculo da solicitação');
-assert.ok(admin.includes('Obrigação de recuperação')&&admin.includes('Refund ligado só pode ser recuperado por uma solicitação de pagamento aprovada.'),'admin precisa remover encerramento textual do refund ligado');
+assert.ok(admin.includes('Obrigação de recuperação')&&admin.includes('Refund ligado só pode ser recuperado por pagamento aprovado')&&admin.includes('Reconhecer excesso do PSP'),'admin precisa exigir pagamento para exposição real e permitir apenas reconhecimento explícito do excesso sem dívida');
 assert.ok(!admin.includes('>Valor recuperado</button>'),'UI admin não pode manter botão direto que encerra refund ligado sem pagamento comprovado');
 assert.ok(admin.includes("request.request_kind==='refund_recovery'")&&admin.includes('comprovará a recuperação do refund'),'aprovação financeira precisa explicar o efeito econômico específico da recuperação');
 assert.ok(!adminOpsSource.includes('.rpc("admin_financial_action"'),'Edge admin não pode contornar a autoridade idempotente financeira');
