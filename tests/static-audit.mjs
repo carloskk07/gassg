@@ -550,6 +550,7 @@ const pixChargeExpiration=read('supabase/migrations/20261008070000_pix_charge_ex
 const providerCancelCoupling=read('supabase/migrations/20261008074500_provider_charge_cancel_coupling_v1_95.sql');
 const providerRefundQuarantine=read('supabase/migrations/20261008083000_provider_refund_quarantine_v1_96.sql');
 const refundRecoveryObligation=read('supabase/migrations/20261008093000_refund_recovery_obligation_v1_97.sql');
+const refundPaymentEventFkIndex=read('supabase/migrations/20261008094500_refund_payment_event_fk_index_v1_97_1.sql');
 const providerChargeCancelSource=read('supabase/functions/_shared/provider-charge-cancel.js');
 const providerCancelMerchantOps=read('supabase/functions/merchant-ops/index.ts');
 const billingPaymentWebhookSource=read('supabase/functions/billing-payment-webhook/index.ts');
@@ -834,6 +835,7 @@ assert.ok(refundRecoveryObligation.includes("v_request.request_kind='refund_reco
 assert.ok(refundRecoveryObligation.includes("raise exception 'PAYMENT_REFUND_RECOVERY_PAYMENT_REQUIRED'"),'botão administrativo antigo mark-recovered precisa falhar fechado depois da V1.97');
 assert.ok(refundRecoveryObligation.includes('sync_refund_recovery_after_payment_request')&&refundRecoveryObligation.includes("new.status in ('cancelled','rejected')"),'cancelamento/rejeição da tentativa precisa reabrir a obrigação sem encerrar o refund');
 assert.ok(refundRecoveryObligation.includes('revoke all on function public.merchant_billing_request_action')&&refundRecoveryObligation.includes('revoke all on function public.merchant_billing_pix_charge_prepare'),'novas autoridades de recuperação precisam permanecer server-only');
+assert.ok(refundPaymentEventFkIndex.includes('merchant_billing_payment_refunds_payment_event_idx')&&refundPaymentEventFkIndex.includes('payment_event_id'),'v1.97.1 precisa cobrir a FK payment_event_id apontada pelo advisor de produção');
 assert.ok(merchantBillingPixSource.includes('refundRecoveryId')&&merchantBillingPixSource.includes('REFUND_RECOVERY_NOT_PAYABLE'),'Edge Pix precisa aceitar e traduzir obrigação de recuperação');
 assert.ok(providerCancelMerchantOps.includes('notify-refund-recovery-payment')&&providerCancelMerchantOps.includes('submit-refund-recovery'),'fallback manual da recuperação precisa usar merchant-ops e a mesma autoridade financeira');
 assert.ok(merchantOrdersBillingSource.includes('merchant_billing_refund_recoveries')&&merchantOrdersBillingSource.includes('refundRecoveries:'),'snapshot financeiro da revenda precisa carregar suas obrigações sem expor tabela ao browser');
