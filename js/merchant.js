@@ -306,7 +306,9 @@ function merchantBillingLiveView(rt){
         ||(recovery.recoveryPaymentRequestId
           ?requests.find(r=>r.id===recovery.recoveryPaymentRequestId)
           :null);
-      const amount=BRL.format(Number(recovery.amountCents||0)/100);
+      const outstanding=Number(recovery.outstandingCents??recovery.amountCents??0);
+      const allocated=Number(recovery.amountCents||0);
+      const amount=BRL.format(outstanding/100);
       let action='';
       if(request?.status==='pending'){
         const chargeView=merchantBillingPixChargeView(request);
@@ -324,7 +326,7 @@ function merchantBillingLiveView(rt){
           ? `<button class="secondary small" style="margin-top:8px" onclick="merchantCreateRefundRecoveryPixFromUi('${esc(recovery.id)}')" ${rt.actionPending?'disabled':''}>Pagar recuperação com Pix</button><button class="ghost small" style="margin-top:8px" onclick="merchantNotifyRefundRecoveryPaidFromUi('${esc(recovery.id)}')" ${rt.actionPending?'disabled':''}>Já paguei por outro meio</button>`
           : `<button class="secondary small" style="margin-top:8px" onclick="merchantNotifyRefundRecoveryPaidFromUi('${esc(recovery.id)}')" ${rt.actionPending?'disabled':''}>Informar pagamento da recuperação</button>`;
       }
-      return `<div class="card flat"><div class="order-head"><div><strong>Recuperação de refund/estorno</strong><br><small>Obrigação ${esc(String(recovery.id).slice(0,8))} • o hold permanece até a aprovação do pagamento</small></div><span class="status-pill risk">${amount}</span></div>${action}</div>`;
+      return `<div class="card flat"><div class="order-head"><div><strong>Recuperação de refund/estorno</strong><br><small>Obrigação ${esc(String(recovery.id).slice(0,8))} • saldo atual ${amount}${outstanding!==allocated?' • valor histórico '+BRL.format(allocated/100):''} • o hold permanece até a aprovação do saldo</small></div><span class="status-pill risk">${amount}</span></div>${action}</div>`;
     }).join('');
 
   const recentRequests=requests.slice(0,8).map(r=>{
