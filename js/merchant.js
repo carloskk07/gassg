@@ -401,7 +401,7 @@ async function merchantNotifyStatementPaidFromUi(statementId){
 }
 
 async function merchantCancelBillingRequestFromUi(paymentRequestId){
-  if(!confirm('Cancelar esta solicitação financeira pendente? Se você já copiou um Pix desta solicitação, não o pague depois do cancelamento.'))return;
+  if(!confirm('Cancelar esta solicitação financeira pendente? O TAMÃO também tentará invalidar qualquer Pix ativo no provedor. Não pague códigos Pix que você já tenha copiado desta solicitação.'))return;
   try{
     await merchantCancelBillingRequestLive(paymentRequestId);
     toast('Solicitação cancelada');
