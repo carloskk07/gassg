@@ -106,7 +106,7 @@ const ADMIN_ROLE_ACTIONS:Record<string,Set<string>>={
   ]),
   finance:new Set([
     "financial-action","review-referral","retry-reward","retry-accounting","reverse-order",
-    "commercial-policy","merchant-billing-action","merchant-billing-payment-request","merchant-billing-payment-event","incident-action"
+    "commercial-policy","merchant-billing-action","merchant-billing-payment-request","merchant-billing-payment-event","merchant-billing-provider-cancel-retry","incident-action"
   ]),
   support:new Set(["order-control","support-case-status","incident-action"]),
   compliance:new Set([
@@ -1716,6 +1716,10 @@ Deno.serve(async(req:Request)=>{
         reconciliationKey,
         paymentEventId
       };
+    }else if(action==="merchant-billing-provider-cancel-retry"){
+      payload={
+        paymentRequestId:uuid(body.paymentRequestId,"payment request")
+      };
     }else if(action==="merchant-billing-payment-event"){
       const eventAction=String(body.eventAction??"").trim().toLowerCase();
       if(!["recheck","ignore"].includes(eventAction)){
@@ -1787,6 +1791,18 @@ Deno.serve(async(req:Request)=>{
     }
 
     const requestHash=await requestFingerprint("admin-ops:"+action,payload);
+
+    if(action==="merchant-billing-provider-cancel-retry"){
+      const providerCancellation=await cancelProviderChargesForPaymentRequest(
+        admin,String(payload.paymentRequestId)
+      );
+      return json({
+        ok:providerCancellation.failed===0,
+        paymentRequestId:payload.paymentRequestId,
+        providerCancellation
+      },200,origin);
+    }
+
     let rpcName="admin_execute_action";
     let rpcArgs:any={
       p_actor_user_id:user.id,
