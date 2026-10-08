@@ -1609,4 +1609,40 @@ for(let i=0;i<30000;i++){
   refundRecoveryReopenCases+=7;
 }
 
-console.log(`Financial invariant fuzz passou: ${rewardCases} cenários de unit economics + ${positionCases} posições de cashback + ${prepaidCases} cenários de consumo de crédito de taxa + ${transitionCases} transições de pacote + ${reconciliationCases} cenários de reconciliação + ${exactPaymentCases} confirmações exatas de pagamento + ${d1AuthorityCases} cenários de autoridade D+1 + ${reconciliationKeyCases} cenários de unicidade de conciliação + ${providerEventCases} cenários de eventos de provedor + ${reactiveProviderCases} transições reativas de conciliação + ${provenanceCases} provas de proveniência de aprovação + ${paymentEventReviewCases} decisões de lifecycle de eventos + ${financeSlaCases} classificações de SLA financeiro + ${canonicalEventCases} decisões de evento canônico + ${wooviAdapterCases} normalizações Woovi/OpenPix + ${generatedPixCases} decisões de cobrança Pix correlacionada + ${siblingProviderCases} decisões de evento irmão do PSP + ${pixExpirationCases} decisões de expiração/regeneração Pix + ${providerCancelCases} decisões de cancelamento acoplado ao PSP + ${providerRefundCases} decisões de refund/quarentena do PSP + ${refundRecoveryCases} decisões de recuperação econômica de refund + ${refundRecoveryReconciliationCases} provas de reconciliação de recuperação + ${refundExposureCapCases} alocações com teto de exposição de refund + ${exactRecoveryAllocationCases} escritas com alocação exata/imutável + ${refundAllocationSplitCases} provas de decomposição recuperável/excedente + ${preapprovalRefundCases} provas de neutralidade de refund pré-aprovação + ${providerRefundLockCases} provas de ordem de lock PSP/refund + ${providerEvidenceCases} provas de precedência da evidência PSP + ${manualRefundAnchorCases} provas de âncora manual de refund + ${refundRecoveryReopenCases} provas de reabertura de recuperação após refund.`);
+
+function refundRecoveryEquation({allocated,approvedPayments,reopenedRefunds}){
+  return allocated
+    -approvedPayments.reduce((sum,x)=>sum+x,0)
+    +reopenedRefunds.reduce((sum,x)=>sum+x,0);
+}
+
+let refundRecoveryBalanceEquationCases=0;
+for(let i=0;i<30000;i++){
+  const allocated=int(100,10000000);
+  const approved=[];
+  const reopened=[];
+  let outstanding=allocated;
+
+  const first=int(1,outstanding);
+  approved.push(first);
+  outstanding-=first;
+  assert.equal(refundRecoveryEquation({allocated,approvedPayments:approved,reopenedRefunds:reopened}),outstanding);
+
+  const refundable=first;
+  const refund=int(1,refundable);
+  reopened.push(refund);
+  outstanding+=refund;
+  assert.equal(refundRecoveryEquation({allocated,approvedPayments:approved,reopenedRefunds:reopened}),outstanding);
+  assert.ok(outstanding>=0&&outstanding<=allocated);
+
+  const second=int(1,outstanding);
+  approved.push(second);
+  outstanding-=second;
+  assert.equal(refundRecoveryEquation({allocated,approvedPayments:approved,reopenedRefunds:reopened}),outstanding);
+
+  const forged=outstanding+1;
+  assert.notEqual(forged,refundRecoveryEquation({allocated,approvedPayments:approved,reopenedRefunds:reopened}));
+  refundRecoveryBalanceEquationCases+=6;
+}
+
+console.log(`Financial invariant fuzz passou: ${rewardCases} cenários de unit economics + ${positionCases} posições de cashback + ${prepaidCases} cenários de consumo de crédito de taxa + ${transitionCases} transições de pacote + ${reconciliationCases} cenários de reconciliação + ${exactPaymentCases} confirmações exatas de pagamento + ${d1AuthorityCases} cenários de autoridade D+1 + ${reconciliationKeyCases} cenários de unicidade de conciliação + ${providerEventCases} cenários de eventos de provedor + ${reactiveProviderCases} transições reativas de conciliação + ${provenanceCases} provas de proveniência de aprovação + ${paymentEventReviewCases} decisões de lifecycle de eventos + ${financeSlaCases} classificações de SLA financeiro + ${canonicalEventCases} decisões de evento canônico + ${wooviAdapterCases} normalizações Woovi/OpenPix + ${generatedPixCases} decisões de cobrança Pix correlacionada + ${siblingProviderCases} decisões de evento irmão do PSP + ${pixExpirationCases} decisões de expiração/regeneração Pix + ${providerCancelCases} decisões de cancelamento acoplado ao PSP + ${providerRefundCases} decisões de refund/quarentena do PSP + ${refundRecoveryCases} decisões de recuperação econômica de refund + ${refundRecoveryReconciliationCases} provas de reconciliação de recuperação + ${refundExposureCapCases} alocações com teto de exposição de refund + ${exactRecoveryAllocationCases} escritas com alocação exata/imutável + ${refundAllocationSplitCases} provas de decomposição recuperável/excedente + ${preapprovalRefundCases} provas de neutralidade de refund pré-aprovação + ${providerRefundLockCases} provas de ordem de lock PSP/refund + ${providerEvidenceCases} provas de precedência da evidência PSP + ${manualRefundAnchorCases} provas de âncora manual de refund + ${refundRecoveryReopenCases} provas de reabertura de recuperação após refund + ${refundRecoveryBalanceEquationCases} provas da equação de saldo de recuperação.`);
