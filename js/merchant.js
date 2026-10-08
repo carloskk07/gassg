@@ -211,6 +211,7 @@ function merchantBillingLiveView(rt){
   const statements=billing.openStatements||[];
   const requests=billing.paymentRequests||[];
   const recoveries=billing.refundRecoveries||[];
+  const activeRecoveries=recoveries.filter(r=>['open','payment_pending'].includes(String(r.status||'')));
   const pixReady=billing.pixProviderReady===true;
   const pending=requests.filter(r=>r.status==='pending');
   const pendingPackage=pending.find(r=>r.requestKind==='package_purchase')||null;
@@ -351,7 +352,9 @@ function merchantBillingLiveView(rt){
   return `<section class="section">
     <div class="section-head"><div><span class="section-kicker">FINANCEIRO TAMÃO</span><h2>Taxas e fechamento diário</h2><p>Cada venda conserva sua taxa individual. O TAMÃO fecha o dia às 00:05 e eventual saldo pós-pago vence até o fim do dia seguinte.</p></div><span class="status-pill ${held?'offline':'online'}">${held?'VENDAS SUSPENSAS':'EM DIA'}</span></div>
     ${held?(refundHold
-      ?'<div class="notice danger"><strong>Refund/estorno em revisão.</strong><br>O provedor informou devolução de um pagamento anteriormente conciliado. Novas vendas e novos benefícios financeiros ficam pausados. Quite a obrigação de recuperação abaixo; o hold só é liberado depois que o pagamento exato for conciliado e aprovado pelo Financeiro.</div>'
+      ?activeRecoveries.length
+        ?'<div class="notice danger"><strong>Refund/estorno em revisão.</strong><br>O provedor informou devolução de um pagamento anteriormente conciliado. Novas vendas e novos benefícios financeiros ficam pausados. Quite somente a obrigação de recuperação exibida abaixo; o hold só é liberado depois que o pagamento exato for conciliado e aprovado pelo Financeiro e não houver outra revisão pendente.</div>'
+        :'<div class="notice danger"><strong>Refund/estorno em análise do Financeiro.</strong><br>Não existe cobrança automática de recuperação em aberto neste momento. O TAMÃO não cria dívida acima do valor originalmente recebido. Aguarde a análise do excesso/anomalia; novas vendas permanecem pausadas até a decisão auditável do Financeiro.</div>'
       :'<div class="notice danger"><strong>Há fechamento vencido.</strong><br>Novas vendas ficam pausadas até a regularização. Pedidos já aceitos continuam normalmente; seu acesso ao painel e ao histórico permanece disponível.</div>'):''}
     <div class="merchant-kpis">
       <div class="kpi"><span class="label">Plano</span><strong>${esc(plan.displayName||'Flex Diário')}</strong><small>${feePct}% por venda</small></div>
