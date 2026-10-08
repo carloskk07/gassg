@@ -1454,6 +1454,8 @@ function adminBillingRefundReasonLabel(reason){
   return ({
     original_payment_not_found:'pagamento original não localizado no TAMÃO',
     refund_before_finance_approval:'refund chegou antes da aprovação financeira',
+    refund_before_finance_approval_manual_reference:'refund antes da aprovação identificado pela referência manual da revenda',
+    multiple_manual_payment_candidates:'mais de uma solicitação manual usa o mesmo identificador bancário',
     partial_refund_confirmed:'reembolso parcial confirmado pelo PSP',
     full_refund_confirmed:'reembolso total confirmado pelo PSP',
     refund_total_exceeds_original:'soma de reembolsos excede o pagamento original'
@@ -1527,6 +1529,7 @@ function adminBillingRefundCard(refund){
         :`<div class="tiny muted">Alocação econômica: recuperável ${adminMoney(persistedRecoverable)} • excedente não cobrável ${adminMoney(persistedExcess)} • prova ${adminMoney(persistedRecoverable+persistedExcess)} = refund</div>`
       :''}
     <div class="tiny muted">Motor: ${esc(adminBillingRefundReasonLabel(refund.match_reason))}</div>
+    ${linked&&!refund.payment_event_id?`<div class="tiny muted">Âncora financeira: confirmação Pix manual exata (sem payment_event original). EndToEndId e valor foram conferidos contra a solicitação.</div>`:''}
     ${refund.status==='resolved_preapproval'?'<div class="notice success" style="margin-top:8px"><strong>Sem exposição da revenda.</strong><br>O PSP devolveu o pagamento antes da aprovação financeira. A solicitação foi cancelada automaticamente; nenhum crédito, quitação ou obrigação de recuperação foi criado.</div>':''}
     ${recovery?`<div class="tiny muted">Obrigação de recuperação: ${esc(recovery.id)} • ${adminMoney(recovery.amount_cents)} • ${esc(String(recovery.status||'—').toUpperCase())}</div>`:''}
     ${refund.resolution_reference?`<div class="tiny muted">Resolução: ${esc(refund.resolution_reference)}</div>`:''}
