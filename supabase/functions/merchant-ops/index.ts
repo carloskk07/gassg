@@ -10,6 +10,7 @@ import {
   enforceApiQuota,
   requestFingerprint
 } from "../_shared/domain.js";
+import { cancelProviderChargesForPaymentRequest } from "../_shared/provider-charge-cancel.js";
 
 const SUPABASE_URL=Deno.env.get("SUPABASE_URL")??"";
 const publishableKeys=JSON.parse(Deno.env.get("SUPABASE_PUBLISHABLE_KEYS")??"{}");
@@ -192,10 +193,30 @@ Deno.serve(async(req:Request)=>{
         if(message.includes("PAYMENT_REQUEST_ALREADY_RESOLVED")){
           throw new DomainError("PAYMENT_REQUEST_ALREADY_RESOLVED","Esta solicitação financeira já foi resolvida.",409);
         }
+        if(message.includes("PAYMENT_REQUEST_PAYMENT_ALREADY_RECEIVED")){
+          throw new DomainError(
+            "PAYMENT_REQUEST_PAYMENT_ALREADY_RECEIVED",
+            "Este Pix já foi recebido pelo provedor e não pode mais ser cancelado pela revenda. Aguarde a conferência do Financeiro.",
+            409
+          );
+        }
         if(message.includes("IDEMPOTENCY_CONFLICT")){
           throw new DomainError("IDEMPOTENCY_CONFLICT","Esta tentativa já foi usada com outro conteúdo.",409);
         }
         throw error;
+      }
+      if(action==="cancel-billing-request"&&paymentRequestId&&data?.status==="cancelled"){
+        let providerCancellation={attempted:0,cancelled:0,failed:0,deferred:false};
+        try{
+          providerCancellation={
+            ...(await cancelProviderChargesForPaymentRequest(admin,paymentRequestId)),
+            deferred:false
+          };
+        }catch(cancelError){
+          console.error("provider cancellation handoff failed",String(cancelError));
+          providerCancellation={attempted:0,cancelled:0,failed:1,deferred:true};
+        }
+        return json({...data,providerCancellation},200,origin);
       }
       return json(data,200,origin);
     }
