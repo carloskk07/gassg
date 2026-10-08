@@ -701,6 +701,7 @@ function adminSystemHealthView(){
       <div class="kpi"><span class="label">Heartbeat vencido</span><strong>${Number(h.queues?.staleMerchantHeartbeat||0)}</strong></div>
       <div class="kpi"><span class="label">Preço vencido</span><strong>${Number(h.queues?.staleMerchantPrice||0)}</strong></div>
     </div>
+    ${h.paymentProvider?.ok===false?`<div class="notice" style="margin-bottom:12px"><strong>Cobrança automática degradada.</strong><br>A falha do PSP aparece no diagnóstico, mas o TAMÃO não bloqueia vendas automaticamente: o Financeiro mantém a conferência manual como contingência. Motivo: ${esc(h.paymentProvider?.reason||h.paymentProvider?.status||'indisponível')}.</div>`:''}
     <div class="admin-health-portals">${portals.map(p=>`<div class="card flat"><div class="order-head"><strong>${esc(String(p.role||'').toUpperCase())}</strong><span class="status-pill ${p.ok?'online':'offline'}">${p.ok?'OK':'FALHA'}</span></div><small>${esc(p.origin||'')}</small><div class="tiny muted">${esc(p.sourceSha?.slice(0,12)||p.error||'sem SHA')}</div></div>`).join('')}</div>
   </section>`;
 }
