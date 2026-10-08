@@ -1029,13 +1029,13 @@ async function summary(admin:any,actorUserId:string){
     : Promise.resolve({data:[],error:null});
   const billingRefundsPromise=["superadmin","finance","readonly"].includes(actorRole)
     ? admin.from("merchant_billing_payment_refunds")
-        .select("id,provider,provider_event_id,original_reconciliation_key,refund_reconciliation_key,amount_cents,recoverable_amount_cents,excess_amount_cents,currency,occurred_at,received_at,status,payment_event_id,payment_request_id,merchant_id,original_payment_amount_cents,cumulative_refunded_cents,match_reason,resolved_by,resolved_at,resolution_reference,created_at,updated_at")
+        .select("id,provider,provider_event_id,original_reconciliation_key,refund_reconciliation_key,amount_cents,recoverable_amount_cents,excess_amount_cents,currency,occurred_at,received_at,status,payment_event_id,payment_request_id,merchant_id,original_payment_amount_cents,cumulative_refunded_cents,match_reason,reopened_refund_recovery_id,resolved_by,resolved_at,resolution_reference,created_at,updated_at")
         .order("occurred_at",{ascending:false})
         .limit(200)
     : Promise.resolve({data:[],error:null});
   const billingRefundRecoveriesPromise=["superadmin","finance","readonly"].includes(actorRole)
     ? admin.from("merchant_billing_refund_recoveries")
-        .select("id,refund_id,merchant_id,original_payment_request_id,amount_cents,currency,status,recovery_payment_request_id,recovered_by,recovered_at,created_at,updated_at")
+        .select("id,refund_id,merchant_id,original_payment_request_id,amount_cents,outstanding_cents,currency,status,recovery_payment_request_id,recovered_by,recovered_at,created_at,updated_at")
         .order("created_at",{ascending:false})
         .limit(200)
     : Promise.resolve({data:[],error:null});

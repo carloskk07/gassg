@@ -1458,7 +1458,8 @@ function adminBillingRefundReasonLabel(reason){
     multiple_manual_payment_candidates:'mais de uma solicitação manual usa o mesmo identificador bancário',
     partial_refund_confirmed:'reembolso parcial confirmado pelo PSP',
     full_refund_confirmed:'reembolso total confirmado pelo PSP',
-    refund_total_exceeds_original:'soma de reembolsos excede o pagamento original'
+    refund_total_exceeds_original:'soma de reembolsos excede o pagamento original',
+    refund_of_recovery_payment:'reembolso de um pagamento usado para quitar recuperação anterior'
   })[String(reason||'')]||String(reason||'—');
 }
 function adminBillingRefundCard(refund){
@@ -1466,6 +1467,9 @@ function adminBillingRefundCard(refund){
   const recoveries=billing.refundRecoveries||[];
   const requests=billing.paymentRequests||[];
   const recovery=recoveries.find(x=>x.refund_id===refund.id)||null;
+  const reopenedRecovery=refund.reopened_refund_recovery_id
+    ?recoveries.find(x=>x.id===refund.reopened_refund_recovery_id)||null
+    :null;
   const recoveryRequest=recovery?.recovery_payment_request_id
     ?requests.find(x=>x.id===recovery.recovery_payment_request_id)||null
     :null;
@@ -1488,15 +1492,19 @@ function adminBillingRefundCard(refund){
       persistedExcess>0?'EXPOSIÇÃO RECUPERADA':'RECUPERADO',
     ignored_unrelated:'NÃO RELACIONADO',
     resolved_excess:'EXCESSO RECONHECIDO',
-    resolved_preapproval:'DEVOLVIDO ANTES DA APROVAÇÃO'
+    resolved_preapproval:'DEVOLVIDO ANTES DA APROVAÇÃO',
+    resolved_recovery_reopened:'RECUPERAÇÃO REABERTA'
   })[String(refund.status||'')]||String(refund.status||'—').toUpperCase();
 
   let recoveryState='';
   if(review&&linked){
     const refunded=Number(refund.amount_cents||0);
-    const recoverable=persistedRecoverable==null
-      ?Number(recovery?.amount_cents||0)
-      :persistedRecoverable;
+    const recoverable=Number(
+      recovery?.outstanding_cents
+      ??persistedRecoverable
+      ??recovery?.amount_cents
+      ??0
+    );
     const excess=persistedExcess==null
       ?Math.max(0,refunded-recoverable)
       :persistedExcess;
@@ -1531,7 +1539,8 @@ function adminBillingRefundCard(refund){
     <div class="tiny muted">Motor: ${esc(adminBillingRefundReasonLabel(refund.match_reason))}</div>
     ${linked&&!refund.payment_event_id?`<div class="tiny muted">Âncora financeira: confirmação Pix manual exata (sem payment_event original). EndToEndId e valor foram conferidos contra a solicitação.</div>`:''}
     ${refund.status==='resolved_preapproval'?'<div class="notice success" style="margin-top:8px"><strong>Sem exposição da revenda.</strong><br>O PSP devolveu o pagamento antes da aprovação financeira. A solicitação foi cancelada automaticamente; nenhum crédito, quitação ou obrigação de recuperação foi criado.</div>':''}
-    ${recovery?`<div class="tiny muted">Obrigação de recuperação: ${esc(recovery.id)} • ${adminMoney(recovery.amount_cents)} • ${esc(String(recovery.status||'—').toUpperCase())}</div>`:''}
+    ${refund.status==='resolved_recovery_reopened'&&reopenedRecovery?`<div class="notice" style="margin-top:8px"><strong>Pagamento da recuperação foi reembolsado pelo PSP.</strong><br>A obrigação original foi reaberta sem criar uma dívida encadeada. Saldo atual: ${adminMoney(reopenedRecovery.outstanding_cents)} de ${adminMoney(reopenedRecovery.amount_cents)} originalmente alocados.</div>`:''}
+    ${recovery?`<div class="tiny muted">Obrigação de recuperação: ${esc(recovery.id)} • saldo ${adminMoney(recovery.outstanding_cents)} / alocado ${adminMoney(recovery.amount_cents)} • ${esc(String(recovery.status||'—').toUpperCase())}</div>`:''}
     ${refund.resolution_reference?`<div class="tiny muted">Resolução: ${esc(refund.resolution_reference)}</div>`:''}
     ${review&&linked?'<div class="notice danger" style="margin-top:8px"><strong>Hold financeiro ativo.</strong><br>Novas vendas e novos benefícios financeiros permanecem suspensos até a recuperação comprovada.</div>':''}
     ${recoveryState}
