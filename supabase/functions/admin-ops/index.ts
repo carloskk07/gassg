@@ -2262,6 +2262,9 @@ Deno.serve(async(req:Request)=>{
     if(message.includes("PAYMENT_EVENT_IGNORE_REASON_REQUIRED")){
       return json({error:"PAYMENT_EVENT_IGNORE_REASON_REQUIRED",message:"Informe por que este evento financeiro deve ser ignorado."},400,origin);
     }
+    if(message.includes("PAYMENT_EVENT_MATCHED_REQUIRES_PROVIDER_APPROVAL")){
+      return json({error:"PAYMENT_EVENT_MATCHED_REQUIRES_PROVIDER_APPROVAL",message:"Existe uma confirmação exata do PSP para esta cobrança. Use “Confirmar evento conciliado” para preservar a prova do provedor."},409,origin);
+    }
     if(message.includes("PAYMENT_EVENT_NOT_MATCHED_TO_REQUEST")||message.includes("PAYMENT_EVENT_APPROVAL_MISMATCH")||message.includes("PROVIDER_PAYMENT_EVENT_APPROVAL_INCONSISTENT")){
       return json({error:"PAYMENT_EVENT_APPROVAL_MISMATCH",message:"O evento do provedor não corresponde mais exatamente a esta cobrança. Atualize a fila financeira antes de aprovar."},409,origin);
     }
