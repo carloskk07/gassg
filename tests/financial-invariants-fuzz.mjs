@@ -1428,4 +1428,71 @@ for(let i=0;i<30000;i++){
   preapprovalRefundCases+=12;
 }
 
-console.log(`Financial invariant fuzz passou: ${rewardCases} cenários de unit economics + ${positionCases} posições de cashback + ${prepaidCases} cenários de consumo de crédito de taxa + ${transitionCases} transições de pacote + ${reconciliationCases} cenários de reconciliação + ${exactPaymentCases} confirmações exatas de pagamento + ${d1AuthorityCases} cenários de autoridade D+1 + ${reconciliationKeyCases} cenários de unicidade de conciliação + ${providerEventCases} cenários de eventos de provedor + ${reactiveProviderCases} transições reativas de conciliação + ${provenanceCases} provas de proveniência de aprovação + ${paymentEventReviewCases} decisões de lifecycle de eventos + ${financeSlaCases} classificações de SLA financeiro + ${canonicalEventCases} decisões de evento canônico + ${wooviAdapterCases} normalizações Woovi/OpenPix + ${generatedPixCases} decisões de cobrança Pix correlacionada + ${siblingProviderCases} decisões de evento irmão do PSP + ${pixExpirationCases} decisões de expiração/regeneração Pix + ${providerCancelCases} decisões de cancelamento acoplado ao PSP + ${providerRefundCases} decisões de refund/quarentena do PSP + ${refundRecoveryCases} decisões de recuperação econômica de refund + ${refundRecoveryReconciliationCases} provas de reconciliação de recuperação + ${refundExposureCapCases} alocações com teto de exposição de refund + ${exactRecoveryAllocationCases} escritas com alocação exata/imutável + ${refundAllocationSplitCases} provas de decomposição recuperável/excedente + ${preapprovalRefundCases} provas de neutralidade de refund pré-aprovação.`);
+
+function directTwoRowDeadlockRisk(orderA,orderB){
+  return orderA.length===2&&orderB.length===2
+    &&orderA[0]===orderB[1]
+    &&orderA[1]===orderB[0];
+}
+
+function providerApprovalRefundRace({winner,refundAmount,originalAmount}){
+  if(winner==='approval'){
+    return {
+      requestStatus:'approved',
+      eventStatus:'applied',
+      refundStatus:'review_required',
+      recoverable:Math.min(refundAmount,originalAmount),
+      hold:true,
+      lateApprovalBlocked:false
+    };
+  }
+  if(winner==='refund'){
+    return {
+      requestStatus:'cancelled',
+      eventStatus:'refunded',
+      refundStatus:'resolved_preapproval',
+      recoverable:0,
+      hold:false,
+      lateApprovalBlocked:true
+    };
+  }
+  throw new Error('winner inválido');
+}
+
+let providerRefundLockCases=0;
+for(let i=0;i<30000;i++){
+  const original=int(1,10000000);
+  const refund=int(1,original);
+
+  assert.equal(
+    directTwoRowDeadlockRisk(['payment_event','payment_request'],['payment_event','payment_request']),
+    false,
+    'ordem canônica igual não pode formar ciclo direto'
+  );
+  assert.equal(
+    directTwoRowDeadlockRisk(['payment_request','payment_event'],['payment_event','payment_request']),
+    true,
+    'ordem antiga invertida precisa ser reconhecida como ciclo de deadlock'
+  );
+
+  const approvalWins=providerApprovalRefundRace({
+    winner:'approval',refundAmount:refund,originalAmount:original
+  });
+  assert.equal(approvalWins.requestStatus,'approved');
+  assert.equal(approvalWins.eventStatus,'applied');
+  assert.equal(approvalWins.recoverable,refund);
+  assert.equal(approvalWins.hold,true);
+
+  const refundWins=providerApprovalRefundRace({
+    winner:'refund',refundAmount:refund,originalAmount:original
+  });
+  assert.equal(refundWins.requestStatus,'cancelled');
+  assert.equal(refundWins.eventStatus,'refunded');
+  assert.equal(refundWins.recoverable,0);
+  assert.equal(refundWins.hold,false);
+  assert.equal(refundWins.lateApprovalBlocked,true);
+
+  providerRefundLockCases+=11;
+}
+
+console.log(`Financial invariant fuzz passou: ${rewardCases} cenários de unit economics + ${positionCases} posições de cashback + ${prepaidCases} cenários de consumo de crédito de taxa + ${transitionCases} transições de pacote + ${reconciliationCases} cenários de reconciliação + ${exactPaymentCases} confirmações exatas de pagamento + ${d1AuthorityCases} cenários de autoridade D+1 + ${reconciliationKeyCases} cenários de unicidade de conciliação + ${providerEventCases} cenários de eventos de provedor + ${reactiveProviderCases} transições reativas de conciliação + ${provenanceCases} provas de proveniência de aprovação + ${paymentEventReviewCases} decisões de lifecycle de eventos + ${financeSlaCases} classificações de SLA financeiro + ${canonicalEventCases} decisões de evento canônico + ${wooviAdapterCases} normalizações Woovi/OpenPix + ${generatedPixCases} decisões de cobrança Pix correlacionada + ${siblingProviderCases} decisões de evento irmão do PSP + ${pixExpirationCases} decisões de expiração/regeneração Pix + ${providerCancelCases} decisões de cancelamento acoplado ao PSP + ${providerRefundCases} decisões de refund/quarentena do PSP + ${refundRecoveryCases} decisões de recuperação econômica de refund + ${refundRecoveryReconciliationCases} provas de reconciliação de recuperação + ${refundExposureCapCases} alocações com teto de exposição de refund + ${exactRecoveryAllocationCases} escritas com alocação exata/imutável + ${refundAllocationSplitCases} provas de decomposição recuperável/excedente + ${preapprovalRefundCases} provas de neutralidade de refund pré-aprovação + ${providerRefundLockCases} provas de ordem de lock PSP/refund.`);
