@@ -546,6 +546,7 @@ const financeQueueSla=read('supabase/migrations/20261008023000_finance_queue_sla
 const canonicalPaymentEvent=read('supabase/migrations/20261008030000_canonical_payment_event_v1_86.sql');
 const generatedPixBilling=read('supabase/migrations/20261008043000_generated_pix_billing_v1_90.sql');
 const pspHealthEventDedup=read('supabase/migrations/20261008060000_psp_health_event_dedup_v1_91.sql');
+const pixChargeExpiration=read('supabase/migrations/20261008070000_pix_charge_expiration_v1_94.sql');
 const billingPaymentWebhookSource=read('supabase/functions/billing-payment-webhook/index.ts');
 const wooviPaymentWebhookSource=read('supabase/functions/billing-payment-webhook-woovi/index.ts');
 const merchantBillingPixSource=read('supabase/functions/merchant-billing-pix/index.ts');
@@ -777,6 +778,19 @@ assert.ok(admin.includes('Cobrança automática degradada.')&&admin.includes('n�
 assert.ok(adminOpsSource.includes('"permission_denied"')&&adminOpsSource.includes('WOOVI_APP_ID_PERMISSION_DENIED'),'403 da Woovi precisa ser distinguido de indisponibilidade genérica');
 assert.ok(admin.includes("providerHealth.credentialValid===true?'válida'")&&admin.includes('providerHealth.chargeWebhookReady'),'UI deve mostrar resultado sanitizado do teste real, sem depender só de secret presente');
 assert.ok(admin.includes("superseded:'SUBSTITUÍDO'")&&admin.includes('sibling_provider_event_resolved_by_charge'),'UI precisa explicar eventos irmãos aposentados sem colocá-los na fila de revisão');
+assert.ok(pixChargeExpiration.includes('add column if not exists expired_at timestamptz')&&pixChargeExpiration.includes('merchant_billing_provider_charges_expired_shape'),'v1.94 precisa persistir expiração explícita da cobrança Pix');
+assert.ok(pixChargeExpiration.includes("v_charge.status='active'")&&pixChargeExpiration.includes('v_charge.expires_at<=clock_timestamp()')&&pixChargeExpiration.includes("set status='expired'"),'prepare Pix precisa aposentar QR vencido antes de regenerar');
+assert.ok(pixChargeExpiration.includes("if v_charge.status in ('completed','expired') then")&&pixChargeExpiration.includes('Never revive an expired charge'),'resposta HTTP tardia não pode reativar uma cobrança expirada');
+assert.ok(pixChargeExpiration.includes('merchant_billing_provider_charge_expire')&&pixChargeExpiration.includes('PROVIDER_EXPIRY_AMOUNT_MISMATCH'),'webhook de expiração precisa usar autoridade server-only e preservar divergência de valor');
+assert.ok(pixChargeExpiration.includes('expire_due_merchant_billing_provider_charges')&&pixChargeExpiration.includes("'tamao-pix-charge-expiration'")&&pixChargeExpiration.includes("'*/5 * * * *'"),'cobranças vencidas precisam ser varridas automaticamente a cada cinco minutos');
+assert.ok(pixChargeExpiration.includes('retire_sibling_provider_charges_after_payment')&&pixChargeExpiration.includes("'PROVIDER_CANCEL_REQUIRED'"),'pagamento tardio de um QR antigo precisa aposentar cobranças irmãs regeneradas');
+assert.ok(wooviPaymentWebhookSource.includes('"OPENPIX:CHARGE_EXPIRED"')&&wooviPaymentWebhookSource.includes('merchant_billing_provider_charge_expire'),'adaptador Woovi precisa consumir expiração assinada do provedor');
+assert.ok(wooviPaymentWebhookSource.includes('retireWooviSiblingCharges')&&wooviPaymentWebhookSource.includes('method:"DELETE"')&&wooviPaymentWebhookSource.includes('PROVIDER_CANCEL_FAILED'),'webhook pago precisa tentar cancelar no PSP os QRs irmãos regenerados sem ocultar falha');
+assert.ok(adminOpsSource.includes('chargeExpiredWebhookReady')&&adminOpsSource.includes('"OPENPIX:CHARGE_EXPIRED"')&&adminOpsSource.includes('WOOVI_CHARGE_EXPIRED_WEBHOOK_MISSING'),'health-check real precisa exigir o webhook de expiração além do webhook de pagamento');
+assert.ok(adminOpsSource.includes('expired_at,completed_at')||adminOpsSource.includes('expires_at,expired_at,completed_at'),'Financeiro precisa receber timestamp de expiração das cobranças Pix');
+assert.ok(merchantOrdersBillingSource.includes('expired_at')&&merchantOrdersBillingSource.includes('expiredAt:charge.expired_at'),'snapshot da revenda precisa transportar expiração real da cobrança');
+assert.ok(merchant.includes('function merchantBillingPixChargeExpired(')&&merchant.includes('Pix expirado.')&&merchant.includes('Gerar novo Pix'),'portal da revenda precisa ocultar QR vencido e oferecer regeneração mantendo a solicitação');
+assert.ok(admin.includes('CHARGE_EXPIRED:')&&admin.includes('chargeExpiredWebhookReady')&&admin.includes('expirou'),'Financeiro precisa mostrar saúde do webhook de expiração e histórico de QR vencido');
 assert.ok(!adminOpsSource.includes('.rpc("admin_financial_action"'),'Edge admin não pode contornar a autoridade idempotente financeira');
 assert.ok(!adminOpsSource.includes('.rpc("admin_reverse_settled_order"'),'Edge admin não pode contornar a autoridade idempotente de reversão');
 const reversalReplayMigration=read('supabase/migrations/20261005235900_reversal_replay_timestamp_consistency_v1_70_16.sql');
