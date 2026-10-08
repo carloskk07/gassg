@@ -1302,4 +1302,69 @@ for(let i=0;i<30000;i++){
   exactRecoveryAllocationCases+=4;
 }
 
-console.log(`Financial invariant fuzz passou: ${rewardCases} cenários de unit economics + ${positionCases} posições de cashback + ${prepaidCases} cenários de consumo de crédito de taxa + ${transitionCases} transições de pacote + ${reconciliationCases} cenários de reconciliação + ${exactPaymentCases} confirmações exatas de pagamento + ${d1AuthorityCases} cenários de autoridade D+1 + ${reconciliationKeyCases} cenários de unicidade de conciliação + ${providerEventCases} cenários de eventos de provedor + ${reactiveProviderCases} transições reativas de conciliação + ${provenanceCases} provas de proveniência de aprovação + ${paymentEventReviewCases} decisões de lifecycle de eventos + ${financeSlaCases} classificações de SLA financeiro + ${canonicalEventCases} decisões de evento canônico + ${wooviAdapterCases} normalizações Woovi/OpenPix + ${generatedPixCases} decisões de cobrança Pix correlacionada + ${siblingProviderCases} decisões de evento irmão do PSP + ${pixExpirationCases} decisões de expiração/regeneração Pix + ${providerCancelCases} decisões de cancelamento acoplado ao PSP + ${providerRefundCases} decisões de refund/quarentena do PSP + ${refundRecoveryCases} decisões de recuperação econômica de refund + ${refundRecoveryReconciliationCases} provas de reconciliação de recuperação + ${refundExposureCapCases} alocações com teto de exposição de refund + ${exactRecoveryAllocationCases} escritas com alocação exata/imutável.`);
+
+function refundAllocationSplit({refundAmount,originalAmount,allocatedElsewhere,recoveryAmount=null}){
+  const remaining=Math.max(originalAmount-allocatedElsewhere,0);
+  const recoverable=Math.min(refundAmount,remaining);
+  const excess=refundAmount-recoverable;
+  const recoveryConsistent=recoverable>0
+    ? recoveryAmount===recoverable
+    : recoveryAmount==null;
+  return {recoverable,excess,recoveryConsistent};
+}
+
+let refundAllocationSplitCases=0;
+for(let i=0;i<30000;i++){
+  const original=int(1,10000000);
+  const allocated=int(0,original);
+  const refund=int(1,Math.max(original*2,1));
+  const expected=Math.min(refund,Math.max(original-allocated,0));
+  const x=refundAllocationSplit({
+    refundAmount:refund,
+    originalAmount:original,
+    allocatedElsewhere:allocated,
+    recoveryAmount:expected>0?expected:null
+  });
+
+  assert.equal(x.recoverable,expected);
+  assert.equal(x.excess,refund-expected);
+  assert.equal(x.recoverable+x.excess,refund,'split persistido precisa conservar integralmente o fato do PSP');
+  assert.equal(x.recoveryConsistent,true);
+
+  if(expected>0){
+    assert.equal(refundAllocationSplit({
+      refundAmount:refund,
+      originalAmount:original,
+      allocatedElsewhere:allocated,
+      recoveryAmount:expected+1
+    }).recoveryConsistent,false,'obrigação não pode divergir um centavo do recoverable');
+  }else{
+    assert.equal(refundAllocationSplit({
+      refundAmount:refund,
+      originalAmount:original,
+      allocatedElsewhere:allocated,
+      recoveryAmount:1
+    }).recoveryConsistent,false,'exposição zero não pode gerar obrigação');
+  }
+
+  refundAllocationSplitCases+=5;
+}
+
+// Provas canônicas da semântica exibida ao Financeiro.
+{
+  assert.deepEqual(
+    refundAllocationSplit({refundAmount:10000,originalAmount:10000,allocatedElsewhere:0,recoveryAmount:10000}),
+    {recoverable:10000,excess:0,recoveryConsistent:true}
+  );
+  assert.deepEqual(
+    refundAllocationSplit({refundAmount:10000,originalAmount:10000,allocatedElsewhere:6000,recoveryAmount:4000}),
+    {recoverable:4000,excess:6000,recoveryConsistent:true}
+  );
+  assert.deepEqual(
+    refundAllocationSplit({refundAmount:10000,originalAmount:10000,allocatedElsewhere:10000,recoveryAmount:null}),
+    {recoverable:0,excess:10000,recoveryConsistent:true}
+  );
+  refundAllocationSplitCases+=9;
+}
+
+console.log(`Financial invariant fuzz passou: ${rewardCases} cenários de unit economics + ${positionCases} posições de cashback + ${prepaidCases} cenários de consumo de crédito de taxa + ${transitionCases} transições de pacote + ${reconciliationCases} cenários de reconciliação + ${exactPaymentCases} confirmações exatas de pagamento + ${d1AuthorityCases} cenários de autoridade D+1 + ${reconciliationKeyCases} cenários de unicidade de conciliação + ${providerEventCases} cenários de eventos de provedor + ${reactiveProviderCases} transições reativas de conciliação + ${provenanceCases} provas de proveniência de aprovação + ${paymentEventReviewCases} decisões de lifecycle de eventos + ${financeSlaCases} classificações de SLA financeiro + ${canonicalEventCases} decisões de evento canônico + ${wooviAdapterCases} normalizações Woovi/OpenPix + ${generatedPixCases} decisões de cobrança Pix correlacionada + ${siblingProviderCases} decisões de evento irmão do PSP + ${pixExpirationCases} decisões de expiração/regeneração Pix + ${providerCancelCases} decisões de cancelamento acoplado ao PSP + ${providerRefundCases} decisões de refund/quarentena do PSP + ${refundRecoveryCases} decisões de recuperação econômica de refund + ${refundRecoveryReconciliationCases} provas de reconciliação de recuperação + ${refundExposureCapCases} alocações com teto de exposição de refund + ${exactRecoveryAllocationCases} escritas com alocação exata/imutável + ${refundAllocationSplitCases} provas de decomposição recuperável/excedente.`);

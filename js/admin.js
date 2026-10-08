@@ -1474,9 +1474,14 @@ function adminBillingRefundCard(refund){
   const progress=original&&cumulative!=null
     ?` • acumulado ${adminMoney(cumulative)} / ${adminMoney(original)}`
     :'';
+  const persistedRecoverable=refund.recoverable_amount_cents==null
+    ?null:Number(refund.recoverable_amount_cents);
+  const persistedExcess=refund.excess_amount_cents==null
+    ?null:Number(refund.excess_amount_cents);
   const statusLabel=({
     review_required:'REVISÃO',
-    resolved_recovered:'RECUPERADO',
+    resolved_recovered:
+      persistedExcess>0?'EXPOSIÇÃO RECUPERADA':'RECUPERADO',
     ignored_unrelated:'NÃO RELACIONADO',
     resolved_excess:'EXCESSO RECONHECIDO'
   })[String(refund.status||'')]||String(refund.status||'—').toUpperCase();
@@ -1484,8 +1489,12 @@ function adminBillingRefundCard(refund){
   let recoveryState='';
   if(review&&linked){
     const refunded=Number(refund.amount_cents||0);
-    const recoverable=Number(recovery?.amount_cents||0);
-    const excess=Math.max(0,refunded-recoverable);
+    const recoverable=persistedRecoverable==null
+      ?Number(recovery?.amount_cents||0)
+      :persistedRecoverable;
+    const excess=persistedExcess==null
+      ?Math.max(0,refunded-recoverable)
+      :persistedExcess;
     if(!recovery&&refund.match_reason==='refund_total_exceeds_original'){
       recoveryState='<div class="notice" style="margin-top:8px"><strong>Exposição original já totalmente coberta.</strong><br>Este fato do PSP permanece auditável, mas nenhum valor adicional foi convertido em dívida. O Financeiro precisa reconhecer o excesso para encerrar a revisão e liberar o hold quando não houver outra pendência.</div>';
     }else if(!recovery){
@@ -1509,6 +1518,7 @@ function adminBillingRefundCard(refund){
     <div class="order-head"><div><strong>${linked?esc(adminMerchantName(refund.merchant_id)):'Refund sem vínculo TAMÃO'}</strong><br><small>${esc(refund.provider||'—')} • ${esc(formatDateTime(refund.occurred_at))}</small></div><span class="status-pill ${review?'offline':'online'}">${esc(statusLabel)}</span></div>
     <div class="tiny muted">Refund: ${esc(refund.refund_reconciliation_key||'—')} • original: ${esc(refund.original_reconciliation_key||'—')}</div>
     <div class="tiny muted">Valor devolvido: ${adminMoney(refund.amount_cents)}${progress}</div>
+    ${linked&&persistedRecoverable!=null&&persistedExcess!=null?`<div class="tiny muted">Alocação econômica: recuperável ${adminMoney(persistedRecoverable)} • excedente não cobrável ${adminMoney(persistedExcess)} • prova ${adminMoney(persistedRecoverable+persistedExcess)} = refund</div>`:''}
     <div class="tiny muted">Motor: ${esc(adminBillingRefundReasonLabel(refund.match_reason))}</div>
     ${recovery?`<div class="tiny muted">Obrigação de recuperação: ${esc(recovery.id)} • ${adminMoney(recovery.amount_cents)} • ${esc(String(recovery.status||'—').toUpperCase())}</div>`:''}
     ${refund.resolution_reference?`<div class="tiny muted">Resolução: ${esc(refund.resolution_reference)}</div>`:''}

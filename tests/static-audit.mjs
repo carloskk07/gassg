@@ -554,6 +554,7 @@ const refundPaymentEventFkIndex=read('supabase/migrations/20261008094500_refund_
 const refundRecoveryReconciliation=read('supabase/migrations/20261008100000_refund_recovery_reconciliation_v1_98.sql');
 const refundRecoveryExposureCap=read('supabase/migrations/20261008113000_refund_recovery_exposure_cap_v1_99.sql');
 const refundRecoveryExactAllocation=read('supabase/migrations/20261008120000_refund_recovery_exact_allocation_v1_100.sql');
+const refundAllocationSplit=read('supabase/migrations/20261008124500_refund_allocation_split_v1_101.sql');
 const providerChargeCancelSource=read('supabase/functions/_shared/provider-charge-cancel.js');
 const providerCancelMerchantOps=read('supabase/functions/merchant-ops/index.ts');
 const billingPaymentWebhookSource=read('supabase/functions/billing-payment-webhook/index.ts');
@@ -861,6 +862,17 @@ assert.ok(refundRecoveryExactAllocation.includes('block_refund_recovery_delete')
 assert.ok(refundRecoveryExactAllocation.includes('V1100_EXISTING_REFUND_RECOVERY_ALLOCATION_INVALID')&&refundRecoveryExactAllocation.includes('rows between unbounded preceding and 1 preceding'),'migration precisa rejeitar qualquer rateio legado que já viole a alocação determinística');
 assert.ok(refundRecoveryExactAllocation.includes("'refund-recovery-exposure:'||new.original_payment_request_id::text")&&refundRecoveryExactAllocation.includes('pg_advisory_xact_lock'),'alocação exata precisa continuar serializada por pagamento original');
 assert.ok(refundRecoveryExactAllocation.includes("revoke all on function public.guard_refund_recovery_exposure_cap()")&&refundRecoveryExactAllocation.includes("revoke all on function public.block_refund_recovery_delete()"),'guards v1.100 precisam permanecer server-only');
+assert.ok(refundAllocationSplit.includes('recoverable_amount_cents bigint')&&refundAllocationSplit.includes('excess_amount_cents bigint'),'v1.101 precisa persistir a decomposição recuperável/excedente no próprio fato do refund');
+assert.ok(refundAllocationSplit.includes('recoverable_amount_cents+excess_amount_cents=amount_cents'),'todo refund ligado precisa provar refund = recuperável + excedente');
+assert.ok(refundAllocationSplit.includes('derive_provider_refund_allocation_split')&&refundAllocationSplit.includes("'refund-recovery-exposure:'||new.payment_request_id::text")&&refundAllocationSplit.includes('pg_advisory_xact_lock'),'split precisa ser derivado sob a mesma serialização da exposição original');
+assert.ok(refundAllocationSplit.includes('rr.refund_id is distinct from new.id')&&refundAllocationSplit.includes('v_recoverable:=least(new.amount_cents,v_remaining)'),'cálculo precisa excluir a própria obrigação e usar somente exposição remanescente');
+assert.ok(refundAllocationSplit.includes('require_refund_recovery_allocation_consistency')&&refundAllocationSplit.includes('deferrable initially deferred'),'COMMIT precisa provar coerência entre split persistido e obrigação de recuperação');
+assert.ok(refundAllocationSplit.includes("to_jsonb(new)->>'id'")&&refundAllocationSplit.includes("to_jsonb(new)->>'refund_id'"),'constraint trigger compartilhado entre refund/recovery precisa extrair IDs sem assumir o record shape da tabela chamadora');
+assert.ok(refundAllocationSplit.includes('REFUND_ALLOCATION_ZERO_EXPOSURE_HAS_RECOVERY')&&refundAllocationSplit.includes('REFUND_ALLOCATION_RECOVERY_MISMATCH'),'zero exposição não pode gerar dívida e obrigação positiva precisa bater exatamente com o recoverable');
+assert.ok(refundAllocationSplit.includes('new.recoverable_amount_cents is distinct from old.recoverable_amount_cents')&&refundAllocationSplit.includes('new.excess_amount_cents is distinct from old.excess_amount_cents'),'decomposição econômica precisa ficar imutável depois do primeiro vínculo autoritativo');
+assert.ok(refundAllocationSplit.includes("status<>'resolved_recovered' or recoverable_amount_cents>0")&&refundAllocationSplit.includes("status<>'resolved_excess'"),'estado resolvido precisa ser semanticamente compatível com a alocação persistida');
+assert.ok(adminOpsSource.includes('recoverable_amount_cents,excess_amount_cents'),'admin-ops precisa carregar a decomposição provada pelo banco');
+assert.ok(admin.includes('Alocação econômica: recuperável')&&admin.includes('excedente não cobrável')&&admin.includes('EXPOSIÇÃO RECUPERADA'),'Financeiro precisa distinguir valor recuperado de excesso fora da dívida');
 assert.ok(admin.includes('Recuperações de refund')&&admin.includes('recuperação informada:')&&admin.includes('refundRecoveryOpenBreachCount'),'cockpit admin precisa mostrar exposição e SLA de recuperação');
 assert.ok(admin.includes('Refund ligado não possui obrigação de recuperação exata e coerente.')&&admin.includes('Obrigação de recuperação está aberta há mais de 24 horas'),'UI precisa traduzir divergência estrutural e envelhecimento da recuperação');
 assert.ok(merchantBillingPixSource.includes('refundRecoveryId')&&merchantBillingPixSource.includes('REFUND_RECOVERY_NOT_PAYABLE'),'Edge Pix precisa aceitar e traduzir obrigação de recuperação');
