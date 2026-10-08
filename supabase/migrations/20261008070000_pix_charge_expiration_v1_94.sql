@@ -555,7 +555,7 @@ returns trigger
 language plpgsql
 security definer
 set search_path=pg_catalog
-as $
+as $$
 begin
   if new.status='completed'
      and old.status is distinct from 'completed' then
@@ -572,7 +572,7 @@ begin
 
   return new;
 end;
-$;
+$$;
 
 revoke all on function public.retire_sibling_provider_charges_after_payment()
 from public,anon,authenticated;
