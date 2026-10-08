@@ -970,4 +970,78 @@ for(let i=0;i<20000;i++){
   providerCancelCases+=12;
 }
 
-console.log(`Financial invariant fuzz passou: ${rewardCases} cenários de unit economics + ${positionCases} posições de cashback + ${prepaidCases} cenários de consumo de crédito de taxa + ${transitionCases} transições de pacote + ${reconciliationCases} cenários de reconciliação + ${exactPaymentCases} confirmações exatas de pagamento + ${d1AuthorityCases} cenários de autoridade D+1 + ${reconciliationKeyCases} cenários de unicidade de conciliação + ${providerEventCases} cenários de eventos de provedor + ${reactiveProviderCases} transições reativas de conciliação + ${provenanceCases} provas de proveniência de aprovação + ${paymentEventReviewCases} decisões de lifecycle de eventos + ${financeSlaCases} classificações de SLA financeiro + ${canonicalEventCases} decisões de evento canônico + ${wooviAdapterCases} normalizações Woovi/OpenPix + ${generatedPixCases} decisões de cobrança Pix correlacionada + ${siblingProviderCases} decisões de evento irmão do PSP + ${pixExpirationCases} decisões de expiração/regeneração Pix + ${providerCancelCases} decisões de cancelamento acoplado ao PSP.`);
+
+function providerRefundDecision({
+  originalFound=true,
+  requestStatus='approved',
+  originalAmount,
+  priorRefunded=0,
+  refundAmount
+}){
+  if(!originalFound){
+    return {linked:false,hold:false,reason:'original_payment_not_found',cumulative:null};
+  }
+  const cumulative=priorRefunded+refundAmount;
+  const reason=
+    cumulative>originalAmount?'refund_total_exceeds_original':
+    requestStatus!=='approved'?'refund_before_finance_approval':
+    cumulative===originalAmount?'full_refund_confirmed':
+    'partial_refund_confirmed';
+  return {linked:true,hold:true,reason,cumulative};
+}
+function providerRefundApprovalAllowed({requestStatus='pending',unresolvedLinkedRefund=false}){
+  return !(requestStatus!=='approved'&&unresolvedLinkedRefund);
+}
+function providerRefundNewRequestAllowed({unresolvedRefundForMerchant=false}){
+  return !unresolvedRefundForMerchant;
+}
+function providerRefundHoldAfterResolution({otherRefundReview=false,overdue=false}){
+  return otherRefundReview||overdue;
+}
+
+let providerRefundCases=0;
+for(let i=0;i<20000;i++){
+  const original=int(2,10000000);
+  const first=int(1,original-1);
+  const remaining=original-first;
+
+  const partial=providerRefundDecision({
+    originalAmount:original,priorRefunded:0,refundAmount:first
+  });
+  assert.deepEqual(partial,{
+    linked:true,hold:true,reason:'partial_refund_confirmed',cumulative:first
+  });
+
+  const full=providerRefundDecision({
+    originalAmount:original,priorRefunded:first,refundAmount:remaining
+  });
+  assert.equal(full.reason,'full_refund_confirmed');
+  assert.equal(full.cumulative,original);
+
+  const excess=providerRefundDecision({
+    originalAmount:original,priorRefunded:first,refundAmount:remaining+1
+  });
+  assert.equal(excess.reason,'refund_total_exceeds_original');
+
+  const beforeApproval=providerRefundDecision({
+    originalAmount:original,priorRefunded:0,refundAmount:first,requestStatus:'pending'
+  });
+  assert.equal(beforeApproval.reason,'refund_before_finance_approval');
+  assert.equal(providerRefundApprovalAllowed({
+    requestStatus:'pending',unresolvedLinkedRefund:true
+  }),false);
+
+  const unmatched=providerRefundDecision({
+    originalFound:false,originalAmount:original,refundAmount:first
+  });
+  assert.deepEqual(unmatched,{
+    linked:false,hold:false,reason:'original_payment_not_found',cumulative:null
+  });
+
+  assert.equal(providerRefundNewRequestAllowed({unresolvedRefundForMerchant:true}),false);
+  assert.equal(providerRefundHoldAfterResolution({otherRefundReview:true,overdue:false}),true);
+  assert.equal(providerRefundHoldAfterResolution({otherRefundReview:false,overdue:false}),false);
+  providerRefundCases+=9;
+}
+
+console.log(`Financial invariant fuzz passou: ${rewardCases} cenários de unit economics + ${positionCases} posições de cashback + ${prepaidCases} cenários de consumo de crédito de taxa + ${transitionCases} transições de pacote + ${reconciliationCases} cenários de reconciliação + ${exactPaymentCases} confirmações exatas de pagamento + ${d1AuthorityCases} cenários de autoridade D+1 + ${reconciliationKeyCases} cenários de unicidade de conciliação + ${providerEventCases} cenários de eventos de provedor + ${reactiveProviderCases} transições reativas de conciliação + ${provenanceCases} provas de proveniência de aprovação + ${paymentEventReviewCases} decisões de lifecycle de eventos + ${financeSlaCases} classificações de SLA financeiro + ${canonicalEventCases} decisões de evento canônico + ${wooviAdapterCases} normalizações Woovi/OpenPix + ${generatedPixCases} decisões de cobrança Pix correlacionada + ${siblingProviderCases} decisões de evento irmão do PSP + ${pixExpirationCases} decisões de expiração/regeneração Pix + ${providerCancelCases} decisões de cancelamento acoplado ao PSP + ${providerRefundCases} decisões de refund/quarentena do PSP.`);
