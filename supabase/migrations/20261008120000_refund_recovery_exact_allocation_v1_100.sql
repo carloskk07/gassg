@@ -138,3 +138,27 @@ before insert or update of
   refund_id,merchant_id,original_payment_request_id,amount_cents,currency
 on public.merchant_billing_refund_recoveries
 for each row execute function public.guard_refund_recovery_exposure_cap();
+
+
+create or replace function public.block_refund_recovery_delete()
+returns trigger
+language plpgsql
+security definer
+set search_path=pg_catalog
+as $$
+begin
+  raise exception 'REFUND_RECOVERY_FACT_IMMUTABLE'
+    using errcode='23514';
+end;
+$$;
+
+revoke all on function public.block_refund_recovery_delete()
+from public,anon,authenticated;
+grant execute on function public.block_refund_recovery_delete()
+to postgres,service_role;
+
+drop trigger if exists block_refund_recovery_delete_trg
+on public.merchant_billing_refund_recoveries;
+create trigger block_refund_recovery_delete_trg
+before delete on public.merchant_billing_refund_recoveries
+for each row execute function public.block_refund_recovery_delete();
