@@ -504,6 +504,21 @@ async function adminCheckBillingProviderHealth(){
   }
 }
 
+async function adminRetryBillingProviderCancel(paymentRequestId){
+  if(!paymentRequestId)return toast('Solicitação financeira inválida');
+  if(!confirm('Repetir o cancelamento desta cobrança no PSP? A solicitação financeira continuará encerrada.'))return;
+  try{
+    const result=await adminPerform('merchant-billing-provider-cancel-retry',{paymentRequestId});
+    const cancel=result?.providerCancellation||{};
+    if(Number(cancel.failed||0)>0){
+      toast('Cancelamento no PSP ainda falhou; a pendência continua registrada');
+    }else if(Number(cancel.cancelled||0)>0){
+      toast('Cobrança cancelada no PSP');
+    }else{
+      toast('Nenhum cancelamento de PSP está pendente para esta solicitação');
+    }
+  }catch(e){toast(String(e?.message||e))}
+}
 function adminSeverityLabel(level){
   return ({critical:'CRÍTICO',high:'ALTO',medium:'MÉDIO',low:'BAIXO'})[String(level)]||String(level||'INFO').toUpperCase();
 }
