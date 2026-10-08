@@ -18,7 +18,7 @@ const CUSTOMER_PRIMARY_ORIGINS=new Set([
   "https://www.tamao.com.br",
   CUSTOMER_ALLOWED_ORIGIN
 ].filter(Boolean));
-const MERCHANT_ALLOWED_ORIGIN=(Deno.env.get("MERCHANT_ALLOWED_ORIGIN")??"https://chama-sg-revenda.netlify.app").trim();
+const MERCHANT_ALLOWED_ORIGIN=(Deno.env.get("MERCHANT_ALLOWED_ORIGIN")??"").trim();
 const MERCHANT_PRIMARY_ORIGINS=new Set([
   "https://tamao-sg-revenda.pages.dev",
   "https://parceiro.tamao.com.br",
