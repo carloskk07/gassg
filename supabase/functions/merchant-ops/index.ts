@@ -117,7 +117,7 @@ Deno.serve(async(req:Request)=>{
     const merchantId=String(body.merchantId??"");
     const action=String(body.action??"");
     if(!UUID_RE.test(merchantId))throw new DomainError("INVALID_MERCHANT","Revenda inválida.",400);
-    if(!["heartbeat","set-online","update-product","update-logistics","update-capacity","update-scheduling","update-payment-methods","update-member-profile","request-billing-package","notify-billing-payment","cancel-billing-request"].includes(action)){
+    if(!["heartbeat","set-online","update-product","update-logistics","update-capacity","update-scheduling","update-payment-methods","update-member-profile","request-billing-package","notify-billing-payment","notify-refund-recovery-payment","cancel-billing-request"].includes(action)){
       throw new DomainError("INVALID_ACTION","Ação inválida.",400);
     }
 
@@ -136,13 +136,16 @@ Deno.serve(async(req:Request)=>{
     const role=membership.member_role;
     const now=new Date().toISOString();
 
-    if(["request-billing-package","notify-billing-payment","cancel-billing-request"].includes(action)){
+    if(["request-billing-package","notify-billing-payment","notify-refund-recovery-payment","cancel-billing-request"].includes(action)){
       if(!canManage(role)){
         throw new DomainError("MERCHANT_FINANCE_PERMISSION_DENIED","Somente owner ou gerente pode operar cobranças e pacotes.",403);
       }
       const idempotencyKey=mutationIdempotencyKey(req);
       const planKey=action==="request-billing-package"?String(body.planKey??"").trim().toLowerCase():null;
       const statementId=action==="notify-billing-payment"?String(body.statementId??"").trim():null;
+      const refundRecoveryId=action==="notify-refund-recovery-payment"
+        ?String(body.refundRecoveryId??"").trim()
+        :null;
       const paymentRequestId=action==="cancel-billing-request"?String(body.paymentRequestId??"").trim():null;
       const merchantReference=action==="cancel-billing-request"?null:String(body.reference??"").trim().replace(/\s+/g," ");
       if(planKey!=null&&!/^[a-z][a-z0-9_]{1,39}$/.test(planKey)){
@@ -150,6 +153,13 @@ Deno.serve(async(req:Request)=>{
       }
       if(statementId!=null&&!UUID_RE.test(statementId)){
         throw new DomainError("INVALID_STATEMENT","Fechamento diário inválido.",400);
+      }
+      if(refundRecoveryId!=null&&!UUID_RE.test(refundRecoveryId)){
+        throw new DomainError(
+          "INVALID_REFUND_RECOVERY",
+          "Obrigação de recuperação inválida.",
+          400
+        );
       }
       if(paymentRequestId!=null&&!UUID_RE.test(paymentRequestId)){
         throw new DomainError("INVALID_PAYMENT_REQUEST","Solicitação financeira inválida.",400);
@@ -161,8 +171,13 @@ Deno.serve(async(req:Request)=>{
         ?"submit-package"
         :action==="notify-billing-payment"
           ?"submit-statement-payment"
-          :"cancel-request";
-      const requestPayload={merchantId,rpcAction,planKey,statementId,paymentRequestId,merchantReference};
+          :action==="notify-refund-recovery-payment"
+            ?"submit-refund-recovery"
+            :"cancel-request";
+      const requestPayload={
+        merchantId,rpcAction,planKey,statementId,refundRecoveryId,
+        paymentRequestId,merchantReference
+      };
       const requestHash=await requestFingerprint("merchant-billing-request",requestPayload);
       const {data,error}=await admin.rpc("merchant_billing_request_action",{
         p_actor_user_id:user.id,
@@ -170,6 +185,7 @@ Deno.serve(async(req:Request)=>{
         p_action:rpcAction,
         p_plan_key:planKey,
         p_statement_id:statementId,
+        p_refund_recovery_id:refundRecoveryId,
         p_payment_request_id:paymentRequestId,
         p_merchant_reference:merchantReference,
         p_idempotency_key:idempotencyKey,
@@ -189,6 +205,27 @@ Deno.serve(async(req:Request)=>{
         }
         if(message.includes("STATEMENT_NOT_PAYABLE")){
           throw new DomainError("STATEMENT_NOT_PAYABLE","Este fechamento já foi resolvido ou não possui saldo a pagar.",409);
+        }
+        if(message.includes("REFUND_RECOVERY_NOT_FOUND")){
+          throw new DomainError(
+            "REFUND_RECOVERY_NOT_FOUND",
+            "A obrigação de recuperação não foi encontrada.",
+            404
+          );
+        }
+        if(message.includes("REFUND_RECOVERY_NOT_PAYABLE")){
+          throw new DomainError(
+            "REFUND_RECOVERY_NOT_PAYABLE",
+            "Esta recuperação já foi resolvida ou não está mais disponível.",
+            409
+          );
+        }
+        if(message.includes("INVALID_REFUND_RECOVERY_REQUEST")){
+          throw new DomainError(
+            "INVALID_REFUND_RECOVERY_REQUEST",
+            "A recuperação não corresponde ao refund em revisão.",
+            409
+          );
         }
         if(message.includes("PAYMENT_REQUEST_ALREADY_RESOLVED")){
           throw new DomainError("PAYMENT_REQUEST_ALREADY_RESOLVED","Esta solicitação financeira já foi resolvida.",409);
