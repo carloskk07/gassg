@@ -600,5 +600,5 @@ begin
     'select public.expire_due_merchant_billing_provider_charges();'
   );
 end
-$;
+$$;
 
