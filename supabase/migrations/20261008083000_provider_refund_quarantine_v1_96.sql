@@ -369,7 +369,7 @@ begin
     p_amount_cents,v_currency,p_occurred_at,v_hash,
     'original_payment_not_found'
   )
-  on conflict(provider,provider_event_id) do nothing
+  on conflict do nothing
   returning * into v_refund;
 
   if v_refund.id is null then
@@ -377,7 +377,12 @@ begin
     into v_existing
     from public.merchant_billing_payment_refunds
     where provider=v_provider
-      and provider_event_id=v_event_id
+      and (
+        provider_event_id=v_event_id
+        or lower(trim(refund_reconciliation_key))=lower(v_refund_key)
+      )
+    order by case when provider_event_id=v_event_id then 0 else 1 end,id
+    limit 1
     for update;
 
     if not found then
@@ -511,6 +516,181 @@ revoke all on function public.ingest_merchant_billing_payment_refund(
 grant execute on function public.ingest_merchant_billing_payment_refund(
   text,text,text,text,bigint,text,timestamptz,text
 ) to service_role,postgres;
+
+create or replace function public.reconcile_merchant_billing_payment_refund(
+  p_refund_id uuid
+)
+returns jsonb
+language plpgsql
+security definer
+set search_path=pg_catalog
+as $
+declare
+  v_refund public.merchant_billing_payment_refunds%rowtype;
+  v_event public.merchant_billing_payment_events%rowtype;
+  v_request public.merchant_billing_payment_requests%rowtype;
+  v_cumulative bigint:=0;
+  v_reason text;
+begin
+  select *
+  into v_refund
+  from public.merchant_billing_payment_refunds
+  where id=p_refund_id
+  for update;
+
+  if not found then
+    raise exception 'PAYMENT_REFUND_NOT_FOUND' using errcode='P0002';
+  end if;
+
+  if v_refund.status<>'review_required'
+     or v_refund.payment_request_id is not null then
+    return jsonb_build_object(
+      'ok',true,
+      'refundId',v_refund.id,
+      'status',v_refund.status,
+      'paymentRequestId',v_refund.payment_request_id,
+      'merchantId',v_refund.merchant_id,
+      'matchReason',v_refund.match_reason,
+      'cumulativeRefundedCents',v_refund.cumulative_refunded_cents
+    );
+  end if;
+
+  select e.*
+  into v_event
+  from public.merchant_billing_payment_events e
+  where e.provider=v_refund.provider
+    and lower(trim(e.reconciliation_key))=
+        lower(trim(v_refund.original_reconciliation_key))
+    and e.payment_request_id is not null
+    and e.merchant_id is not null
+    and e.status in ('matched_exact','applied','already_applied')
+  order by
+    case e.status
+      when 'applied' then 0
+      when 'already_applied' then 1
+      else 2
+    end,
+    e.received_at asc,e.id
+  limit 1
+  for update;
+
+  if not found then
+    return jsonb_build_object(
+      'ok',true,
+      'refundId',v_refund.id,
+      'status',v_refund.status,
+      'paymentRequestId',null,
+      'merchantId',null,
+      'matchReason',v_refund.match_reason,
+      'cumulativeRefundedCents',null
+    );
+  end if;
+
+  select *
+  into v_request
+  from public.merchant_billing_payment_requests
+  where id=v_event.payment_request_id
+  for update;
+
+  if not found then
+    raise exception 'PAYMENT_REFUND_REQUEST_NOT_FOUND' using errcode='P0002';
+  end if;
+
+  select coalesce(sum(r.amount_cents),0)
+  into v_cumulative
+  from public.merchant_billing_payment_refunds r
+  where r.provider=v_refund.provider
+    and lower(trim(r.original_reconciliation_key))=
+        lower(trim(v_refund.original_reconciliation_key));
+
+  v_reason:=case
+    when v_cumulative>v_event.amount_cents
+      then 'refund_total_exceeds_original'
+    when v_request.status<>'approved'
+      then 'refund_before_finance_approval'
+    when v_cumulative=v_event.amount_cents
+      then 'full_refund_confirmed'
+    else 'partial_refund_confirmed'
+  end;
+
+  update public.merchant_billing_payment_refunds
+  set payment_event_id=v_event.id,
+      payment_request_id=v_request.id,
+      merchant_id=v_request.merchant_id,
+      original_payment_amount_cents=v_event.amount_cents,
+      cumulative_refunded_cents=v_cumulative,
+      match_reason=v_reason,
+      updated_at=clock_timestamp()
+  where id=v_refund.id
+  returning * into v_refund;
+
+  insert into public.merchant_billing_accounts(merchant_id,plan_key)
+  values(v_request.merchant_id,'flex_daily')
+  on conflict(merchant_id) do nothing;
+
+  perform public.process_merchant_billing_enforcement();
+
+  return jsonb_build_object(
+    'ok',true,
+    'refundId',v_refund.id,
+    'status',v_refund.status,
+    'paymentRequestId',v_refund.payment_request_id,
+    'merchantId',v_refund.merchant_id,
+    'matchReason',v_refund.match_reason,
+    'originalPaymentAmountCents',v_refund.original_payment_amount_cents,
+    'cumulativeRefundedCents',v_refund.cumulative_refunded_cents
+  );
+end;
+$;
+
+revoke all on function public.reconcile_merchant_billing_payment_refund(uuid)
+from public,anon,authenticated;
+grant execute on function public.reconcile_merchant_billing_payment_refund(uuid)
+to service_role,postgres;
+
+create or replace function public.refresh_provider_refunds_after_payment_event()
+returns trigger
+language plpgsql
+security definer
+set search_path=pg_catalog
+as $
+declare
+  v_refund_id uuid;
+begin
+  if new.payment_request_id is null
+     or new.merchant_id is null
+     or new.status not in ('matched_exact','applied','already_applied') then
+    return new;
+  end if;
+
+  for v_refund_id in
+    select r.id
+    from public.merchant_billing_payment_refunds r
+    where r.provider=new.provider
+      and r.status='review_required'
+      and r.payment_request_id is null
+      and lower(trim(r.original_reconciliation_key))=
+          lower(trim(new.reconciliation_key))
+    order by r.occurred_at,r.id
+  loop
+    perform public.reconcile_merchant_billing_payment_refund(v_refund_id);
+  end loop;
+
+  return new;
+end;
+$;
+
+revoke all on function public.refresh_provider_refunds_after_payment_event()
+from public,anon,authenticated;
+grant execute on function public.refresh_provider_refunds_after_payment_event()
+to postgres,service_role;
+
+drop trigger if exists refresh_provider_refunds_after_payment_event_trg
+on public.merchant_billing_payment_events;
+create trigger refresh_provider_refunds_after_payment_event_trg
+after insert or update of status,payment_request_id,merchant_id,reconciliation_key
+on public.merchant_billing_payment_events
+for each row execute function public.refresh_provider_refunds_after_payment_event();
 
 create or replace function public.block_new_payment_request_during_provider_refund_review()
 returns trigger
