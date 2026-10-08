@@ -212,6 +212,15 @@ begin
     return v_action.result_json;
   end if;
 
+  -- Serialize distinct idempotency keys from multiple tabs/devices for the
+  -- same merchant before inspecting/creating the one pending financial request.
+  perform pg_catalog.pg_advisory_xact_lock(
+    pg_catalog.hashtextextended(
+      'merchant-billing-pix:'||p_merchant_id::text,
+      0
+    )
+  );
+
   if p_plan_key is not null then
     select *
     into v_plan
@@ -435,10 +444,29 @@ begin
   end if;
 
   if v_charge.status='completed' then
-    if v_charge.provider_charge_id is distinct from v_provider_charge_id
-       or v_charge.br_code is distinct from v_br_code then
+    -- The signed payment webhook can win the race against the create-charge
+    -- HTTP response. In that case the financial fact is already completed,
+    -- but provider presentation metadata may still be missing. Enrich only
+    -- missing fields; conflicting non-null evidence remains fatal.
+    if (v_charge.provider_charge_id is not null
+        and v_charge.provider_charge_id is distinct from v_provider_charge_id)
+       or (v_charge.br_code is not null
+        and v_charge.br_code is distinct from v_br_code) then
       raise exception 'PIX_CHARGE_COMMIT_CONFLICT' using errcode='23505';
     end if;
+
+    update public.merchant_billing_provider_charges
+    set provider_charge_id=coalesce(provider_charge_id,v_provider_charge_id),
+        provider_transaction_id=coalesce(provider_transaction_id,v_provider_transaction_id),
+        br_code=coalesce(br_code,v_br_code),
+        qr_code_data_uri=coalesce(qr_code_data_uri,v_qr),
+        payment_link_url=coalesce(payment_link_url,v_link),
+        expires_at=coalesce(expires_at,p_expires_at),
+        last_error_code=null,
+        last_error_at=null,
+        updated_at=clock_timestamp()
+    where id=v_charge.id
+    returning * into v_charge;
   else
     update public.merchant_billing_provider_charges
     set status=v_status,
