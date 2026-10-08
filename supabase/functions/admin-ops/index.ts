@@ -106,7 +106,7 @@ const ADMIN_ROLE_ACTIONS:Record<string,Set<string>>={
   ]),
   finance:new Set([
     "financial-action","review-referral","retry-reward","retry-accounting","reverse-order",
-    "commercial-policy","merchant-billing-action","merchant-billing-payment-request","merchant-billing-payment-event","merchant-billing-provider-cancel-retry","incident-action"
+    "commercial-policy","merchant-billing-action","merchant-billing-payment-request","merchant-billing-payment-event","merchant-billing-provider-cancel-retry","merchant-billing-payment-refund","merchant-billing-refund-debt","incident-action"
   ]),
   support:new Set(["order-control","support-case-status","incident-action"]),
   compliance:new Set([
@@ -269,7 +269,7 @@ function billingPaymentIngressReadiness(){
         receiveReady:wooviWebhookReady,
         chargeReady:wooviChargeReady,
         ready:wooviReady,
-        events:["OPENPIX:TRANSACTION_RECEIVED","OPENPIX:CHARGE_COMPLETED","OPENPIX:CHARGE_EXPIRED"],
+        events:["OPENPIX:TRANSACTION_RECEIVED","OPENPIX:CHARGE_COMPLETED","OPENPIX:CHARGE_EXPIRED","PIX_TRANSACTION_REFUND_SENT_CONFIRMED"],
         signature:"RSA-SHA256"
       }
     },
@@ -307,7 +307,7 @@ async function wooviBillingProviderHealth(){
   if(!allowedBases.has(base)){
     return {
       ok:false,status:"invalid_config",checkedAt,environment,
-      credentialValid:false,chargeWebhookReady:false,chargeExpiredWebhookReady:false,
+      credentialValid:false,chargeWebhookReady:false,chargeExpiredWebhookReady:false,refundWebhookReady:false,
       transactionWebhookActive:false,companyBound:companyId.length>=6,
       reason:"WOOVI_API_BASE_INVALID"
     };
@@ -315,7 +315,7 @@ async function wooviBillingProviderHealth(){
   if(appId.length<12){
     return {
       ok:false,status:"not_configured",checkedAt,environment,
-      credentialValid:false,chargeWebhookReady:false,chargeExpiredWebhookReady:false,
+      credentialValid:false,chargeWebhookReady:false,chargeExpiredWebhookReady:false,refundWebhookReady:false,
       transactionWebhookActive:false,companyBound:companyId.length>=6,
       reason:"WOOVI_APP_ID_MISSING"
     };
@@ -323,7 +323,7 @@ async function wooviBillingProviderHealth(){
   if(!endpoint){
     return {
       ok:false,status:"invalid_config",checkedAt,environment,
-      credentialValid:false,chargeWebhookReady:false,chargeExpiredWebhookReady:false,
+      credentialValid:false,chargeWebhookReady:false,chargeExpiredWebhookReady:false,refundWebhookReady:false,
       transactionWebhookActive:false,companyBound:companyId.length>=6,
       reason:"WOOVI_WEBHOOK_ENDPOINT_MISSING"
     };
@@ -346,7 +346,7 @@ async function wooviBillingProviderHealth(){
       return {
         ok:false,status:"provider_invalid_response",checkedAt,environment,
         credentialValid:response.status!==401,
-        chargeWebhookReady:false,chargeExpiredWebhookReady:false,transactionWebhookActive:false,
+        chargeWebhookReady:false,chargeExpiredWebhookReady:false,refundWebhookReady:false,transactionWebhookActive:false,
         companyBound:companyId.length>=6,
         apiStatus:response.status,
         reason:"WOOVI_RESPONSE_TOO_LARGE"
@@ -356,7 +356,7 @@ async function wooviBillingProviderHealth(){
     if(response.status===401){
       return {
         ok:false,status:"invalid_credentials",checkedAt,environment,
-        credentialValid:false,chargeWebhookReady:false,
+        credentialValid:false,chargeWebhookReady:false,chargeExpiredWebhookReady:false,refundWebhookReady:false,
         transactionWebhookActive:false,companyBound:companyId.length>=6,
         apiStatus:401,reason:"WOOVI_APP_ID_REJECTED"
       };
@@ -370,7 +370,7 @@ async function wooviBillingProviderHealth(){
           "provider_unavailable",
         checkedAt,environment,
         credentialValid:response.status!==401,
-        chargeWebhookReady:false,chargeExpiredWebhookReady:false,transactionWebhookActive:false,
+        chargeWebhookReady:false,chargeExpiredWebhookReady:false,refundWebhookReady:false,transactionWebhookActive:false,
         companyBound:companyId.length>=6,
         apiStatus:response.status,
         reason:
@@ -385,7 +385,7 @@ async function wooviBillingProviderHealth(){
     catch{
       return {
         ok:false,status:"provider_invalid_response",checkedAt,environment,
-        credentialValid:true,chargeWebhookReady:false,
+        credentialValid:true,chargeWebhookReady:false,chargeExpiredWebhookReady:false,refundWebhookReady:false,
         transactionWebhookActive:false,companyBound:companyId.length>=6,
         apiStatus:response.status,reason:"WOOVI_INVALID_JSON"
       };
@@ -411,13 +411,20 @@ async function wooviBillingProviderHealth(){
     };
     const chargeCompleted=webhookState("OPENPIX:CHARGE_COMPLETED");
     const chargeExpired=webhookState("OPENPIX:CHARGE_EXPIRED");
+    const refundSent=webhookState("PIX_TRANSACTION_REFUND_SENT_CONFIRMED");
     const transactionReceived=webhookState("OPENPIX:TRANSACTION_RECEIVED");
     const companyBound=companyId.length>=6&&companyId.length<=160;
     const chargeWebhookReady=
       chargeCompleted.active&&chargeCompleted.authorizationMatch;
     const chargeExpiredWebhookReady=
       chargeExpired.active&&chargeExpired.authorizationMatch;
-    const ok=chargeWebhookReady&&chargeExpiredWebhookReady&&companyBound;
+    const refundWebhookReady=
+      refundSent.active&&refundSent.authorizationMatch;
+    const ok=
+      chargeWebhookReady
+      &&chargeExpiredWebhookReady
+      &&refundWebhookReady
+      &&companyBound;
 
     return {
       ok,
@@ -430,11 +437,13 @@ async function wooviBillingProviderHealth(){
       endpointRegistered:matching.length>0,
       chargeWebhookReady,
       chargeExpiredWebhookReady,
+      refundWebhookReady,
       transactionWebhookActive:
         transactionReceived.active&&transactionReceived.authorizationMatch,
       webhooks:{
         chargeCompleted,
         chargeExpired,
+        refundSent,
         transactionReceived
       },
       reason:ok?null:
@@ -445,12 +454,15 @@ async function wooviBillingProviderHealth(){
         !chargeExpired.registered?"WOOVI_CHARGE_EXPIRED_WEBHOOK_MISSING":
         !chargeExpired.active?"WOOVI_CHARGE_EXPIRED_WEBHOOK_INACTIVE":
         !chargeExpired.authorizationMatch?"WOOVI_CHARGE_EXPIRED_WEBHOOK_AUTH_MISMATCH":
+        !refundSent.registered?"WOOVI_REFUND_SENT_WEBHOOK_MISSING":
+        !refundSent.active?"WOOVI_REFUND_SENT_WEBHOOK_INACTIVE":
+        !refundSent.authorizationMatch?"WOOVI_REFUND_SENT_WEBHOOK_AUTH_MISMATCH":
         "WOOVI_HEALTH_UNKNOWN"
     };
   }catch(error){
     return {
       ok:false,status:"provider_unavailable",checkedAt,environment,
-      credentialValid:null,chargeWebhookReady:false,chargeExpiredWebhookReady:false,
+      credentialValid:null,chargeWebhookReady:false,chargeExpiredWebhookReady:false,refundWebhookReady:false,
       transactionWebhookActive:false,companyBound:companyId.length>=6,
       reason:error instanceof DOMException&&error.name==="AbortError"
         ?"WOOVI_HEALTH_TIMEOUT"
@@ -525,6 +537,8 @@ function scopeAdminSummary(role:string,data:any){
         paymentRequests:[],
         paymentEvents:[],
         providerCharges:[],
+        refunds:[],
+        refundDebts:[],
         paymentIngress:null,
         metrics:null,
         reconciliation:null
@@ -560,7 +574,7 @@ function scopeAdminSummary(role:string,data:any){
         price_confirmed_at:m.price_confirmed_at,last_seen_at:m.last_seen_at
       })),
       commercialPolicy:null,
-      merchantBilling:{plans:[],accounts:[],statements:[],paymentRequests:[],paymentEvents:[],providerCharges:[],paymentIngress:null,metrics:null,reconciliation:null},
+      merchantBilling:{plans:[],accounts:[],statements:[],paymentRequests:[],paymentEvents:[],providerCharges:[],refunds:[],refundDebts:[],paymentIngress:null,metrics:null,reconciliation:null},
       productRegistry:{categories:[],products:[]},
       finance:{receivables:[],cashbackReimbursements:[],adjustments:[]},
       rewardFailures:[],accountingFailures:[],referralReviews:[],
@@ -573,7 +587,7 @@ function scopeAdminSummary(role:string,data:any){
     return {
       ...data,
       businessMetrics:{},commercialPolicy:null,
-      merchantBilling:{plans:[],accounts:[],statements:[],paymentRequests:[],paymentEvents:[],providerCharges:[],paymentIngress:null,metrics:null,reconciliation:null},
+      merchantBilling:{plans:[],accounts:[],statements:[],paymentRequests:[],paymentEvents:[],providerCharges:[],refunds:[],refundDebts:[],paymentIngress:null,metrics:null,reconciliation:null},
       productRegistry:{categories:[],products:[]},
       supportCases:[],controlOrders:[],
       finance:{receivables:[],cashbackReimbursements:[],adjustments:[]},
@@ -1014,7 +1028,19 @@ async function summary(admin:any,actorUserId:string){
         .order("created_at",{ascending:false})
         .limit(200)
     : Promise.resolve({data:[],error:null});
-  const [billingPlans,billingAccounts,dailyStatements,billingPaymentRequests,billingMetrics,billingReconciliation,billingPaymentEvents,billingProviderCharges]=await Promise.all([
+  const billingPaymentRefundsPromise=["superadmin","finance","readonly"].includes(actorRole)
+    ? admin.from("merchant_billing_payment_refunds")
+        .select("id,provider,provider_event_id,refund_end_to_end_id,original_end_to_end_id,payment_request_id,merchant_id,refund_amount_cents,original_amount_cents,currency,occurred_at,partial,status,action_type,credit_reversed_cents,debt_created_cents,review_reason,applied_at,created_at,updated_at")
+        .order("occurred_at",{ascending:false})
+        .limit(200)
+    : Promise.resolve({data:[],error:null});
+  const billingRefundDebtsPromise=["superadmin","finance","readonly"].includes(actorRole)
+    ? admin.from("merchant_billing_refund_debts")
+        .select("id,payment_refund_id,payment_request_id,merchant_id,amount_cents,status,reason,settled_at,resolved_by,resolution_reference,created_at,updated_at")
+        .order("created_at",{ascending:false})
+        .limit(200)
+    : Promise.resolve({data:[],error:null});
+  const [billingPlans,billingAccounts,dailyStatements,billingPaymentRequests,billingMetrics,billingReconciliation,billingPaymentEvents,billingProviderCharges,billingPaymentRefunds,billingRefundDebts]=await Promise.all([
     admin.from("merchant_billing_plans")
       .select("plan_key,display_name,billing_mode,platform_fee_bps,purchase_amount_cents,credit_grant_cents,active,sort_order,updated_at")
       .order("sort_order",{ascending:true}),
@@ -1033,9 +1059,11 @@ async function summary(admin:any,actorUserId:string){
     billingMetricsPromise,
     billingReconciliationPromise,
     billingPaymentEventsPromise,
-    billingProviderChargesPromise
+    billingProviderChargesPromise,
+    billingPaymentRefundsPromise,
+    billingRefundDebtsPromise
   ]);
-  for(const result of [billingPlans,billingAccounts,dailyStatements,billingPaymentRequests,billingMetrics,billingReconciliation,billingPaymentEvents,billingProviderCharges]){
+  for(const result of [billingPlans,billingAccounts,dailyStatements,billingPaymentRequests,billingMetrics,billingReconciliation,billingPaymentEvents,billingProviderCharges,billingPaymentRefunds,billingRefundDebts]){
     if(result.error)throw result.error;
   }
 
@@ -1178,6 +1206,8 @@ async function summary(admin:any,actorUserId:string){
       paymentRequests:billingPaymentRequests.data??[],
       paymentEvents:billingPaymentEvents.data??[],
       providerCharges:billingProviderCharges.data??[],
+      refunds:billingPaymentRefunds.data??[],
+      refundDebts:billingRefundDebts.data??[],
       paymentIngress:billingPaymentIngressReadiness(),
       metrics:billingMetrics.data??null,
       reconciliation:billingReconciliation.data??null
@@ -1733,6 +1763,26 @@ Deno.serve(async(req:Request)=>{
         eventAction,
         reason
       };
+    }else if(action==="merchant-billing-payment-refund"){
+      const refundAction=String(body.refundAction??"").trim().toLowerCase();
+      if(!["create_debt","dismiss"].includes(refundAction)){
+        throw new DomainError("INVALID_PAYMENT_REFUND_ACTION","Ação de estorno financeiro inválida.",400);
+      }
+      payload={
+        refundId:uuid(body.refundId,"payment refund"),
+        refundAction,
+        reference:cleanText(body.reference,{min:3,max:240,name:"referência da análise do estorno"})
+      };
+    }else if(action==="merchant-billing-refund-debt"){
+      const debtAction=String(body.debtAction??"").trim().toLowerCase();
+      if(!["mark_paid","waive"].includes(debtAction)){
+        throw new DomainError("INVALID_REFUND_DEBT_ACTION","Ação de dívida de estorno inválida.",400);
+      }
+      payload={
+        debtId:uuid(body.debtId,"refund debt"),
+        debtAction,
+        reference:cleanText(body.reference,{min:3,max:240,name:"referência da regularização"})
+      };
     }else if(action==="lead-status"){
       const status=String(body.status??"");
       if(!["contacted","qualified","converted","closed"].includes(status)){
@@ -1890,6 +1940,26 @@ Deno.serve(async(req:Request)=>{
         p_event_id:payload.paymentEventId,
         p_action:payload.eventAction,
         p_reason:payload.reason,
+        p_idempotency_key:idempotencyKey,
+        p_request_hash:requestHash
+      };
+    }else if(action==="merchant-billing-payment-refund"){
+      rpcName="admin_merchant_billing_payment_refund_action";
+      rpcArgs={
+        p_actor_user_id:user.id,
+        p_refund_id:payload.refundId,
+        p_action:payload.refundAction,
+        p_reference:payload.reference,
+        p_idempotency_key:idempotencyKey,
+        p_request_hash:requestHash
+      };
+    }else if(action==="merchant-billing-refund-debt"){
+      rpcName="admin_merchant_billing_refund_debt_action";
+      rpcArgs={
+        p_actor_user_id:user.id,
+        p_debt_id:payload.debtId,
+        p_action:payload.debtAction,
+        p_reference:payload.reference,
         p_idempotency_key:idempotencyKey,
         p_request_hash:requestHash
       };
