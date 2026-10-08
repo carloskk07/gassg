@@ -563,6 +563,7 @@ const reopenRefundRecovery=read('supabase/migrations/20261008163000_reopen_refun
 const refundRecoveryBalanceEquation=read('supabase/migrations/20261008213000_refund_recovery_balance_equation_v1_109.sql');
 const orderBillingRebind=read('supabase/migrations/20261008180000_order_billing_rebind_v1_107.sql');
 const prepaidReversalD1Netting=read('supabase/migrations/20261008190000_prepaid_reversal_d1_netting_v1_108.sql');
+const prepaidSourcePlanFkIndex=read('supabase/migrations/20261008214500_prepaid_source_plan_fk_index_v1_110.sql');
 const providerChargeCancelSource=read('supabase/functions/_shared/provider-charge-cancel.js');
 const providerCancelMerchantOps=read('supabase/functions/merchant-ops/index.ts');
 const billingPaymentWebhookSource=read('supabase/functions/billing-payment-webhook/index.ts');
@@ -948,6 +949,7 @@ assert.ok(prepaidReversalD1Netting.includes('v_receivable.platform_fee_cents\n  
 assert.ok(prepaidReversalD1Netting.includes('prepaid_fee_credit_reversed_at=case')&&prepaidReversalD1Netting.includes("'prepaidCreditRestoredCents',v_credit_restored"),'pedido e evento precisam registrar explicitamente quanto crédito foi devolvido');
 assert.ok(prepaidReversalD1Netting.includes("entry_type in ('package_credit','fee_consumption','fee_reversal_credit','admin_adjustment')"),'reconciliador precisa contar fee_reversal_credit no saldo canônico do ledger');
 assert.ok(prepaidReversalD1Netting.includes('revoke all on function public.admin_merchant_billing_reconciliation(uuid)')&&prepaidReversalD1Netting.includes('to service_role,postgres'),'reconciliador atualizado precisa continuar server-only');
+assert.ok(prepaidSourcePlanFkIndex.includes('orders_prepaid_fee_credit_source_plan_key_idx')&&prepaidSourcePlanFkIndex.includes('prepaid_fee_credit_source_plan_key_snapshot is not null'),'v1.110 precisa cobrir a FK de proveniência do pacote pré-pago sem indexar linhas nulas');
 
 assert.ok(refundAllocationSplit.includes("to_jsonb(new)->>'id'")&&refundAllocationSplit.includes("to_jsonb(new)->>'refund_id'"),'constraint trigger compartilhado entre refund/recovery precisa extrair IDs sem assumir o record shape da tabela chamadora');
 assert.ok(refundAllocationSplit.includes('REFUND_ALLOCATION_ZERO_EXPOSURE_HAS_RECOVERY')&&refundAllocationSplit.includes('REFUND_ALLOCATION_RECOVERY_MISMATCH'),'zero exposição não pode gerar dívida e obrigação positiva precisa bater exatamente com o recoverable');
