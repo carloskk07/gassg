@@ -324,6 +324,7 @@ Deno.serve(async(req:Request)=>{
       plans:[],
       paymentRequests:[],
       providerCharges:[],
+      refundRecoveries:[],
       pixProviderReady:false
     };
     if(["owner","manager"].includes(selected.member_role)){
@@ -348,7 +349,7 @@ Deno.serve(async(req:Request)=>{
           .order("business_date",{ascending:false})
           .limit(31),
         admin.from("merchant_billing_payment_requests")
-          .select("id,request_kind,plan_key,statement_id,expected_amount_cents,merchant_reference,status,requested_at,resolved_at,admin_reference,received_amount_cents,payment_method,reconciliation_key,approval_source")
+          .select("id,request_kind,plan_key,statement_id,refund_recovery_id,expected_amount_cents,merchant_reference,status,requested_at,resolved_at,admin_reference,received_amount_cents,payment_method,reconciliation_key,approval_source")
           .eq("merchant_id",selected.merchant_id)
           .order("requested_at",{ascending:false})
           .limit(30)
@@ -365,6 +366,14 @@ Deno.serve(async(req:Request)=>{
         .order("created_at",{ascending:false})
         .limit(30);
       if(billingProviderChargesError)throw billingProviderChargesError;
+
+      const {data:billingRefundRecoveries,error:billingRefundRecoveriesError}=await admin
+        .from("merchant_billing_refund_recoveries")
+        .select("id,refund_id,amount_cents,currency,status,recovery_payment_request_id,recovered_at,created_at,updated_at")
+        .eq("merchant_id",selected.merchant_id)
+        .order("created_at",{ascending:false})
+        .limit(30);
+      if(billingRefundRecoveriesError)throw billingRefundRecoveriesError;
 
       const currentPlan=(billingPlans??[]).find((p:any)=>p.plan_key===billingAccount?.plan_key)??null;
       billing={
@@ -411,6 +420,7 @@ Deno.serve(async(req:Request)=>{
           requestKind:r.request_kind,
           planKey:r.plan_key,
           statementId:r.statement_id,
+          refundRecoveryId:r.refund_recovery_id,
           expectedAmountCents:Number(r.expected_amount_cents||0),
           merchantReference:r.merchant_reference,
           status:r.status,
@@ -464,6 +474,17 @@ Deno.serve(async(req:Request)=>{
           endToEndId:charge.end_to_end_id??null,
           lastErrorCode:charge.last_error_code??null
         })),
+        refundRecoveries:(billingRefundRecoveries??[]).map((recovery:any)=>({
+          id:recovery.id,
+          refundId:recovery.refund_id,
+          amountCents:Number(recovery.amount_cents||0),
+          currency:recovery.currency,
+          status:recovery.status,
+          recoveryPaymentRequestId:recovery.recovery_payment_request_id??null,
+          recoveredAt:recovery.recovered_at??null,
+          createdAt:recovery.created_at,
+          updatedAt:recovery.updated_at
+        })),
         pixProviderReady:
           String(Deno.env.get("WOOVI_APP_ID")??"").trim().length>=12
           &&["https://api.woovi.com","https://api.woovi-sandbox.com"].includes(
@@ -489,6 +510,7 @@ Deno.serve(async(req:Request)=>{
         plans:[],
         paymentRequests:[],
         providerCharges:[],
+        refundRecoveries:[],
         pixProviderReady:false
       };
     }

@@ -1044,4 +1044,76 @@ for(let i=0;i<20000;i++){
   providerRefundCases+=9;
 }
 
-console.log(`Financial invariant fuzz passou: ${rewardCases} cenários de unit economics + ${positionCases} posições de cashback + ${prepaidCases} cenários de consumo de crédito de taxa + ${transitionCases} transições de pacote + ${reconciliationCases} cenários de reconciliação + ${exactPaymentCases} confirmações exatas de pagamento + ${d1AuthorityCases} cenários de autoridade D+1 + ${reconciliationKeyCases} cenários de unicidade de conciliação + ${providerEventCases} cenários de eventos de provedor + ${reactiveProviderCases} transições reativas de conciliação + ${provenanceCases} provas de proveniência de aprovação + ${paymentEventReviewCases} decisões de lifecycle de eventos + ${financeSlaCases} classificações de SLA financeiro + ${canonicalEventCases} decisões de evento canônico + ${wooviAdapterCases} normalizações Woovi/OpenPix + ${generatedPixCases} decisões de cobrança Pix correlacionada + ${siblingProviderCases} decisões de evento irmão do PSP + ${pixExpirationCases} decisões de expiração/regeneração Pix + ${providerCancelCases} decisões de cancelamento acoplado ao PSP + ${providerRefundCases} decisões de refund/quarentena do PSP.`);
+
+function refundRecoveryRequestAllowed({
+  refundReview=true,
+  requestKind='package_purchase',
+  recoveryMatches=false
+}){
+  if(!refundReview)return true;
+  return requestKind==='refund_recovery'&&recoveryMatches;
+}
+
+function refundRecoveryTransition({
+  recoveryStatus='open',
+  requestStatus=null,
+  exactApproved=false
+}){
+  if(recoveryStatus==='recovered')return 'recovered';
+  if(requestStatus==='pending')return 'payment_pending';
+  if(['cancelled','rejected'].includes(String(requestStatus||'')))return 'open';
+  if(exactApproved&&requestStatus==='approved')return 'recovered';
+  return recoveryStatus;
+}
+
+function refundResolutionAllowed({
+  linked=true,
+  action='mark-recovered',
+  recoveryStatus='open'
+}){
+  if(!linked)return action==='dismiss-unrelated';
+  return action==='payment-approved'&&recoveryStatus==='recovered';
+}
+
+let refundRecoveryCases=0;
+for(let i=0;i<20000;i++){
+  assert.equal(refundRecoveryRequestAllowed({
+    refundReview:true,requestKind:'package_purchase',recoveryMatches:false
+  }),false);
+  assert.equal(refundRecoveryRequestAllowed({
+    refundReview:true,requestKind:'statement_payment',recoveryMatches:false
+  }),false);
+  assert.equal(refundRecoveryRequestAllowed({
+    refundReview:true,requestKind:'refund_recovery',recoveryMatches:true
+  }),true);
+  assert.equal(refundRecoveryRequestAllowed({
+    refundReview:true,requestKind:'refund_recovery',recoveryMatches:false
+  }),false);
+
+  assert.equal(refundRecoveryTransition({
+    recoveryStatus:'open',requestStatus:'pending'
+  }),'payment_pending');
+  assert.equal(refundRecoveryTransition({
+    recoveryStatus:'payment_pending',requestStatus:'cancelled'
+  }),'open');
+  assert.equal(refundRecoveryTransition({
+    recoveryStatus:'payment_pending',requestStatus:'rejected'
+  }),'open');
+  assert.equal(refundRecoveryTransition({
+    recoveryStatus:'payment_pending',requestStatus:'approved',exactApproved:true
+  }),'recovered');
+
+  assert.equal(refundResolutionAllowed({
+    linked:true,action:'mark-recovered',recoveryStatus:'open'
+  }),false);
+  assert.equal(refundResolutionAllowed({
+    linked:true,action:'payment-approved',recoveryStatus:'recovered'
+  }),true);
+  assert.equal(refundResolutionAllowed({
+    linked:false,action:'dismiss-unrelated'
+  }),true);
+
+  refundRecoveryCases+=11;
+}
+
+console.log(`Financial invariant fuzz passou: ${rewardCases} cenários de unit economics + ${positionCases} posições de cashback + ${prepaidCases} cenários de consumo de crédito de taxa + ${transitionCases} transições de pacote + ${reconciliationCases} cenários de reconciliação + ${exactPaymentCases} confirmações exatas de pagamento + ${d1AuthorityCases} cenários de autoridade D+1 + ${reconciliationKeyCases} cenários de unicidade de conciliação + ${providerEventCases} cenários de eventos de provedor + ${reactiveProviderCases} transições reativas de conciliação + ${provenanceCases} provas de proveniência de aprovação + ${paymentEventReviewCases} decisões de lifecycle de eventos + ${financeSlaCases} classificações de SLA financeiro + ${canonicalEventCases} decisões de evento canônico + ${wooviAdapterCases} normalizações Woovi/OpenPix + ${generatedPixCases} decisões de cobrança Pix correlacionada + ${siblingProviderCases} decisões de evento irmão do PSP + ${pixExpirationCases} decisões de expiração/regeneração Pix + ${providerCancelCases} decisões de cancelamento acoplado ao PSP + ${providerRefundCases} decisões de refund/quarentena do PSP + ${refundRecoveryCases} decisões de recuperação econômica de refund.`);
