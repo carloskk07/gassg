@@ -7,6 +7,7 @@ import {
   enforceApiQuota,
   requestFingerprint
 } from "../_shared/domain.js";
+import { cancelProviderChargesForPaymentRequest } from "../_shared/provider-charge-cancel.js";
 
 const SUPABASE_URL=Deno.env.get("SUPABASE_URL")??"";
 const publishableKeys=JSON.parse(Deno.env.get("SUPABASE_PUBLISHABLE_KEYS")??"{}");
@@ -454,6 +455,19 @@ Deno.serve(async(req:Request)=>{
       }
     );
     if(commitError)throw commitError;
+
+    if(committed?.status==="cancelled"){
+      try{
+        await cancelProviderChargesForPaymentRequest(admin,paymentRequestId);
+      }catch(cancelError){
+        console.error("late Pix creation cancellation failed",String(cancelError));
+      }
+      throw new DomainError(
+        "PIX_REQUEST_CANCELLED",
+        "A solicitação financeira foi cancelada enquanto o Pix era gerado. O QR não deve ser usado.",
+        409
+      );
+    }
 
     return json({
       ok:true,
