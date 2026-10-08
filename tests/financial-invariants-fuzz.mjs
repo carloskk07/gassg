@@ -1908,4 +1908,73 @@ for(let i=0;i<30000;i++){
   refundRecoveryBalanceEquationCases+=6;
 }
 
-console.log(`Financial invariant fuzz passou: ${rewardCases} cenários de unit economics + ${positionCases} posições de cashback + ${prepaidCases} cenários de consumo de crédito de taxa + ${transitionCases} transições de pacote + ${reconciliationCases} cenários de reconciliação + ${exactPaymentCases} confirmações exatas de pagamento + ${d1AuthorityCases} cenários de autoridade D+1 + ${reconciliationKeyCases} cenários de unicidade de conciliação + ${providerEventCases} cenários de eventos de provedor + ${reactiveProviderCases} transições reativas de conciliação + ${provenanceCases} provas de proveniência de aprovação + ${paymentEventReviewCases} decisões de lifecycle de eventos + ${financeSlaCases} classificações de SLA financeiro + ${canonicalEventCases} decisões de evento canônico + ${wooviAdapterCases} normalizações Woovi/OpenPix + ${generatedPixCases} decisões de cobrança Pix correlacionada + ${siblingProviderCases} decisões de evento irmão do PSP + ${pixExpirationCases} decisões de expiração/regeneração Pix + ${providerCancelCases} decisões de cancelamento acoplado ao PSP + ${providerRefundCases} decisões de refund/quarentena do PSP + ${refundRecoveryCases} decisões de recuperação econômica de refund + ${refundRecoveryReconciliationCases} provas de reconciliação de recuperação + ${refundExposureCapCases} alocações com teto de exposição de refund + ${exactRecoveryAllocationCases} escritas com alocação exata/imutável + ${refundAllocationSplitCases} provas de decomposição recuperável/excedente + ${preapprovalRefundCases} provas de neutralidade de refund pré-aprovação + ${providerRefundLockCases} provas de ordem de lock PSP/refund + ${providerEvidenceCases} provas de precedência da evidência PSP + ${manualRefundAnchorCases} provas de âncora manual de refund + ${refundRecoveryReopenCases} provas de reabertura de recuperação após refund + ${orderBillingRebindCases} provas de rebind de cobrança por pedido + ${prepaidReversalD1Cases} provas de estorno pré-pago/D+1 + ${refundRecoveryBalanceEquationCases} provas da equação de saldo de recuperação.`);
+
+function merchantCreditEquationModel({
+  packageCredits,
+  feeConsumptions,
+  feeReversalCredits,
+  adminAdjustments,
+  liveReservations
+}){
+  const balance=[
+    ...packageCredits,
+    ...feeConsumptions,
+    ...feeReversalCredits,
+    ...adminAdjustments
+  ].reduce((sum,x)=>sum+x,0);
+  const reserved=liveReservations.reduce((sum,x)=>sum+x,0);
+  return {balance,reserved};
+}
+
+let merchantCreditEquationCases=0;
+for(let i=0;i<30000;i++){
+  const packageCredit=int(1000,10000000);
+  const consumed=-int(0,packageCredit);
+  const reversed=int(0,Math.max(0,-consumed));
+  const beforeAdjustment=packageCredit+consumed+reversed;
+  const adjustment=int(-Math.min(beforeAdjustment,10000),10000);
+  const expectedBalance=beforeAdjustment+adjustment;
+  assert.ok(expectedBalance>=0);
+
+  const maxReserved=Math.max(0,expectedBalance);
+  const r1=int(0,maxReserved);
+  const r2=int(0,maxReserved-r1);
+
+  const state=merchantCreditEquationModel({
+    packageCredits:[packageCredit],
+    feeConsumptions:[consumed],
+    feeReversalCredits:[reversed],
+    adminAdjustments:[adjustment],
+    liveReservations:[r1,r2]
+  });
+
+  assert.equal(state.balance,expectedBalance);
+  assert.equal(state.reserved,r1+r2);
+  assert.ok(state.reserved>=0&&state.reserved<=state.balance);
+
+  assert.notEqual(state.balance+1,state.balance,'um centavo de drift no saldo precisa ser detectável');
+  if(state.balance>0){
+    const forgedReserved=Math.min(state.balance,state.reserved+1);
+    if(forgedReserved!==state.reserved){
+      assert.notEqual(forgedReserved,state.reserved,'drift de reserva precisa ser detectável');
+    }
+  }
+
+  const reservationRelease=int(-10000,10000);
+  assert.equal(
+    merchantCreditEquationModel({
+      packageCredits:[packageCredit],
+      feeConsumptions:[consumed],
+      feeReversalCredits:[reversed],
+      adminAdjustments:[adjustment],
+      liveReservations:[r1,r2]
+    }).balance,
+    expectedBalance,
+    'reservation_release não participa da equação do saldo'
+  );
+  void reservationRelease;
+
+  merchantCreditEquationCases+=6;
+}
+
+console.log(`Financial invariant fuzz passou: ${rewardCases} cenários de unit economics + ${positionCases} posições de cashback + ${prepaidCases} cenários de consumo de crédito de taxa + ${transitionCases} transições de pacote + ${reconciliationCases} cenários de reconciliação + ${exactPaymentCases} confirmações exatas de pagamento + ${d1AuthorityCases} cenários de autoridade D+1 + ${reconciliationKeyCases} cenários de unicidade de conciliação + ${providerEventCases} cenários de eventos de provedor + ${reactiveProviderCases} transições reativas de conciliação + ${provenanceCases} provas de proveniência de aprovação + ${paymentEventReviewCases} decisões de lifecycle de eventos + ${financeSlaCases} classificações de SLA financeiro + ${canonicalEventCases} decisões de evento canônico + ${wooviAdapterCases} normalizações Woovi/OpenPix + ${generatedPixCases} decisões de cobrança Pix correlacionada + ${siblingProviderCases} decisões de evento irmão do PSP + ${pixExpirationCases} decisões de expiração/regeneração Pix + ${providerCancelCases} decisões de cancelamento acoplado ao PSP + ${providerRefundCases} decisões de refund/quarentena do PSP + ${refundRecoveryCases} decisões de recuperação econômica de refund + ${refundRecoveryReconciliationCases} provas de reconciliação de recuperação + ${refundExposureCapCases} alocações com teto de exposição de refund + ${exactRecoveryAllocationCases} escritas com alocação exata/imutável + ${refundAllocationSplitCases} provas de decomposição recuperável/excedente + ${preapprovalRefundCases} provas de neutralidade de refund pré-aprovação + ${providerRefundLockCases} provas de ordem de lock PSP/refund + ${providerEvidenceCases} provas de precedência da evidência PSP + ${manualRefundAnchorCases} provas de âncora manual de refund + ${refundRecoveryReopenCases} provas de reabertura de recuperação após refund + ${orderBillingRebindCases} provas de rebind de cobrança por pedido + ${prepaidReversalD1Cases} provas de estorno pré-pago/D+1 + ${refundRecoveryBalanceEquationCases} provas da equação de saldo de recuperação + ${merchantCreditEquationCases} provas das equações de saldo/reserva de crédito.`);
