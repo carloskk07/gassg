@@ -556,6 +556,7 @@ const refundRecoveryExposureCap=read('supabase/migrations/20261008113000_refund_
 const refundRecoveryExactAllocation=read('supabase/migrations/20261008120000_refund_recovery_exact_allocation_v1_100.sql');
 const refundAllocationSplit=read('supabase/migrations/20261008124500_refund_allocation_split_v1_101.sql');
 const preapprovalRefundNeutrality=read('supabase/migrations/20261008133000_preapproval_refund_neutrality_v1_102.sql');
+const providerRefundLockOrder=read('supabase/migrations/20261008140000_provider_refund_lock_order_v1_103.sql');
 const providerChargeCancelSource=read('supabase/functions/_shared/provider-charge-cancel.js');
 const providerCancelMerchantOps=read('supabase/functions/merchant-ops/index.ts');
 const billingPaymentWebhookSource=read('supabase/functions/billing-payment-webhook/index.ts');
@@ -878,6 +879,11 @@ assert.ok(preapprovalRefundNeutrality.includes("v_request.status<>'cancelled'")&
 assert.ok(admin.includes("refunded:'REEMBOLSADO'")&&admin.includes("resolved_preapproval:'DEVOLVIDO ANTES DA APROVAÇÃO'"),'Financeiro precisa enxergar estados de neutralização em linguagem operacional');
 assert.ok(admin.includes('Sem exposição da revenda.')&&admin.includes('nenhum crédito, quitação ou obrigação de recuperação foi criado'),'admin precisa explicar por que o refund pré-aprovação não vira dívida');
 assert.ok(merchant.includes("r.adminReference==='provider-refund-before-approval'")&&merchant.includes('Nenhum crédito, quitação ou nova dívida foi aplicado'),'revenda precisa entender o cancelamento automático por devolução do PSP');
+assert.ok(providerRefundLockOrder.includes('Canonical provider-backed order: event first, request second'),'v1.103 precisa documentar a autoridade canônica de locks para aprovação por PSP');
+assert.ok(providerRefundLockOrder.indexOf('from public.merchant_billing_payment_events')<providerRefundLockOrder.indexOf('from public.merchant_billing_payment_requests'),'aprovação por evento precisa travar payment_event antes de payment_request, igual ao ingest de refund');
+assert.ok(providerRefundLockOrder.includes("v_event.status<>'matched_exact'")&&providerRefundLockOrder.includes('v_event.payment_request_id is distinct from v_request.id'),'mudança de lock não pode afrouxar a prova de vínculo exato do evento');
+assert.ok(providerRefundLockOrder.includes('p_received_amount_cents<>v_request.expected_amount_cents')&&providerRefundLockOrder.includes('PAYMENT_EVENT_APPROVAL_MISMATCH'),'mudança de lock precisa preservar valor exato, meio e transaction ID');
+assert.ok(providerRefundLockOrder.includes("revoke all on function public.admin_merchant_billing_payment_request_action(")&&providerRefundLockOrder.includes('to service_role,postgres'),'overload forte com nova ordem de locks precisa permanecer server-only');
 assert.ok(refundAllocationSplit.includes("to_jsonb(new)->>'id'")&&refundAllocationSplit.includes("to_jsonb(new)->>'refund_id'"),'constraint trigger compartilhado entre refund/recovery precisa extrair IDs sem assumir o record shape da tabela chamadora');
 assert.ok(refundAllocationSplit.includes('REFUND_ALLOCATION_ZERO_EXPOSURE_HAS_RECOVERY')&&refundAllocationSplit.includes('REFUND_ALLOCATION_RECOVERY_MISMATCH'),'zero exposição não pode gerar dívida e obrigação positiva precisa bater exatamente com o recoverable');
 assert.ok(refundAllocationSplit.includes('new.recoverable_amount_cents is distinct from old.recoverable_amount_cents')&&refundAllocationSplit.includes('new.excess_amount_cents is distinct from old.excess_amount_cents'),'decomposição econômica precisa ficar imutável depois do primeiro vínculo autoritativo');
