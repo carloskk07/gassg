@@ -885,4 +885,55 @@ for(let i=0;i<20000;i++){
   pixExpirationCases+=11;
 }
 
-console.log(`Financial invariant fuzz passou: ${rewardCases} cenários de unit economics + ${positionCases} posições de cashback + ${prepaidCases} cenários de consumo de crédito de taxa + ${transitionCases} transições de pacote + ${reconciliationCases} cenários de reconciliação + ${exactPaymentCases} confirmações exatas de pagamento + ${d1AuthorityCases} cenários de autoridade D+1 + ${reconciliationKeyCases} cenários de unicidade de conciliação + ${providerEventCases} cenários de eventos de provedor + ${reactiveProviderCases} transições reativas de conciliação + ${provenanceCases} provas de proveniência de aprovação + ${paymentEventReviewCases} decisões de lifecycle de eventos + ${financeSlaCases} classificações de SLA financeiro + ${canonicalEventCases} decisões de evento canônico + ${wooviAdapterCases} normalizações Woovi/OpenPix + ${generatedPixCases} decisões de cobrança Pix correlacionada + ${siblingProviderCases} decisões de evento irmão do PSP + ${pixExpirationCases} decisões de expiração/regeneração Pix.`);
+
+function resolvedRequestProviderChargeDecision({
+  oldRequestStatus,newRequestStatus,chargeStatus
+}){
+  const requestResolved=
+    oldRequestStatus==='pending'
+    &&['approved','rejected','cancelled'].includes(newRequestStatus);
+  if(requestResolved&&['preparing','active'].includes(chargeStatus)){
+    return {status:'cancelled',cancelCode:'PROVIDER_CANCEL_REQUIRED'};
+  }
+  return {status:chargeStatus,cancelCode:null};
+}
+
+let requestClosePixCases=0;
+for(let i=0;i<20000;i++){
+  for(const resolved of ['approved','rejected','cancelled']){
+    assert.deepEqual(
+      resolvedRequestProviderChargeDecision({
+        oldRequestStatus:'pending',newRequestStatus:resolved,chargeStatus:'active'
+      }),
+      {status:'cancelled',cancelCode:'PROVIDER_CANCEL_REQUIRED'}
+    );
+    assert.deepEqual(
+      resolvedRequestProviderChargeDecision({
+        oldRequestStatus:'pending',newRequestStatus:resolved,chargeStatus:'preparing'
+      }),
+      {status:'cancelled',cancelCode:'PROVIDER_CANCEL_REQUIRED'}
+    );
+    assert.equal(
+      resolvedRequestProviderChargeDecision({
+        oldRequestStatus:'pending',newRequestStatus:resolved,chargeStatus:'completed'
+      }).status,
+      'completed'
+    );
+    requestClosePixCases+=3;
+  }
+  assert.equal(
+    resolvedRequestProviderChargeDecision({
+      oldRequestStatus:'pending',newRequestStatus:'pending',chargeStatus:'active'
+    }).status,
+    'active'
+  );
+  assert.equal(
+    resolvedRequestProviderChargeDecision({
+      oldRequestStatus:'approved',newRequestStatus:'approved',chargeStatus:'active'
+    }).status,
+    'active'
+  );
+  requestClosePixCases+=2;
+}
+
+console.log(`Financial invariant fuzz passou: ${rewardCases} cenários de unit economics + ${positionCases} posições de cashback + ${prepaidCases} cenários de consumo de crédito de taxa + ${transitionCases} transições de pacote + ${reconciliationCases} cenários de reconciliação + ${exactPaymentCases} confirmações exatas de pagamento + ${d1AuthorityCases} cenários de autoridade D+1 + ${reconciliationKeyCases} cenários de unicidade de conciliação + ${providerEventCases} cenários de eventos de provedor + ${reactiveProviderCases} transições reativas de conciliação + ${provenanceCases} provas de proveniência de aprovação + ${paymentEventReviewCases} decisões de lifecycle de eventos + ${financeSlaCases} classificações de SLA financeiro + ${canonicalEventCases} decisões de evento canônico + ${wooviAdapterCases} normalizações Woovi/OpenPix + ${generatedPixCases} decisões de cobrança Pix correlacionada + ${siblingProviderCases} decisões de evento irmão do PSP + ${pixExpirationCases} decisões de expiração/regeneração Pix + ${requestClosePixCases} decisões de cancelamento Pix por fechamento da solicitação.`);
