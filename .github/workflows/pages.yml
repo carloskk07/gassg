@@ -1,8 +1,9 @@
-name: Deploy to GitHub Pages
+name: Legacy GitHub Pages fallback (manual)
 
+# Cloudflare + the official TAMÃO domains are the live deployment authority.
+# Keep GitHub Pages only as an explicit emergency/manual fallback so a main
+# push cannot silently publish a third production surface.
 on:
-  push:
-    branches: [main]
   workflow_dispatch:
 
 permissions:

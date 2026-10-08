@@ -10,7 +10,9 @@ Projetos planejados:
 - `tamao-sg-revenda` → `https://tamao-sg-revenda.pages.dev`
 - `tamao-sg-admin` → `https://tamao-sg-admin.pages.dev`
 
-O Netlify permanece apenas como fallback legado durante a transição.
+O Netlify permanece apenas como fallback legado de **produção** durante a transição. Deploy previews e branch deploys ficam fora da autoridade live e devem permanecer restritos à equipe/sem build automático.
+
+O GitHub Pages também deixa de publicar em cada `push`: permanece somente como fallback manual de emergência. A autoridade live é o trio de domínios oficiais validado pelo gate `TAMÃO launch readiness` com igualdade exata de SHA.
 
 ## Por que Cloudflare Pages
 

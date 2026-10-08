@@ -84,6 +84,9 @@ assert.ok(edgeFunctionAudit.includes('supabase/functions/billing-payment-webhook
 assert.ok(edgeFunctionAudit.includes('supabase/functions/merchant-billing-pix/index.ts)')&&edgeFunctionAudit.includes('merchant_billing_pix_charge_prepare')&&edgeFunctionAudit.includes('MAX_QR_IMAGE_BYTES'),'auditoria compartilhada precisa manter os gates específicos da criação Pix autenticada');
 assert.ok(edgeFunctionAudit.includes('ADMIN_LIVE_ORIGIN="https://admin.tamao.com.br"')&&edgeFunctionAudit.includes('ADMIN_PAGES_ORIGIN="https://tamao-sg-admin.pages.dev"'),'autoridade compartilhada precisa preservar isolamento estrito do admin');
 assert.ok(!pagesWorkflow.includes("grep -q 'auth.getUser' \"$f\""),'GitHub Pages não pode voltar a manter uma cópia divergente da regra genérica de autenticação Edge');
+assert.ok(pagesWorkflow.includes('workflow_dispatch:'),'fallback GitHub Pages precisa continuar disponível por disparo manual');
+assert.ok(!/^\s*push:/m.test(pagesWorkflow),'GitHub Pages legado não pode publicar automaticamente em push da main');
+assert.ok(pagesWorkflow.includes('Legacy GitHub Pages fallback (manual)'),'workflow legado precisa declarar explicitamente sua função de fallback manual');
 
 assert.ok(core.includes('ALLOWED='),'máquina de estados deve possuir autoridade explícita');
 assert.ok(core.includes('MAX_PIN_FAILURES'),'PIN precisa de limite de tentativas');
@@ -473,6 +476,10 @@ assert.ok(read('scripts/generate-runtime-config.mjs').includes('CHAMA_PORTAL_ROL
 assert.ok(read('scripts/build-live-portals.mjs').includes('buildLivePortals')&&read('scripts/build-live-portals.mjs').includes('forbidden live portal path'),'build live precisa separar artefatos e bloquear diretórios internos');
 assert.ok(read('scripts/build-live-portals.mjs').includes('Cloudflare Turnstile test/demo key is forbidden'),'build live precisa bloquear chave de teste do Turnstile');
 assert.ok(netlifyConfig.includes('command = "node scripts/build-netlify-portal.mjs"')&&netlifyConfig.includes('publish = "dist/netlify"'),'Netlify precisa usar build zero-config versionado');
+assert.ok(
+  netlifyConfig.includes('ignore = "if [ \\"$CONTEXT\\" = \\"production\\" ]; then exit 1; else exit 0; fi"'),
+  'fallback Netlify precisa cancelar deploy-preview/branch-deploy e construir somente production'
+);
 assert.ok(netlifyBuilder.includes('SITE_ROLE_BY_NAME')&&netlifyBuilder.includes("'chama-sg-admin':'admin'")&&netlifyBuilder.includes('COMMIT_REF')&&netlifyBuilder.includes('portal-build.json'),'builder Netlify precisa inferir role pelo projeto, preservar SHA e validar metadata');
 assert.ok(netlifyBuilder.includes('buildLivePortals')&&netlifyBuilder.includes("fs.cpSync(source,publish"),'Netlify deve publicar somente o bundle isolado da role configurada');
 assert.ok(netlifyBuilder.includes("'https://chama-sg-cliente.netlify.app'")&&netlifyBuilder.includes("'https://chama-sg-revenda.netlify.app'")&&netlifyBuilder.includes("'https://chama-sg-admin.netlify.app'"),'origens Netlify atuais precisam ter defaults versionados para reduzir configuração manual');
