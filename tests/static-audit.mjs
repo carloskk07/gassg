@@ -368,7 +368,12 @@ assert.ok(launchReadinessWorkflow.includes('TAMAO_EXPECTED_SOURCE_SHA: ${{ githu
 assert.ok(launchReadinessWorkflow.includes('node tests/remote-admin-turnstile.mjs'),'gate de lançamento precisa continuar executando o smoke real do Turnstile');
 
 assert.ok(launchReadinessWorkflow.includes('node tests/remote-finance-psp-readiness.mjs'),'gate de lançamento precisa provar configuração runtime do PSP antes de aprovar produção');
-assert.ok(remoteFinancePspReadiness.includes('PIX_PROVIDER_NOT_CONFIGURED')&&remoteFinancePspReadiness.includes("pix.body?.error,\n  'UNAUTHORIZED'"),'probe Pix precisa distinguir App ID ausente de autenticação de usuário ausente');
+assert.ok(
+  remoteFinancePspReadiness.includes('PIX_PROVIDER_NOT_CONFIGURED')
+  &&remoteFinancePspReadiness.includes("pix.body?.error")
+  &&remoteFinancePspReadiness.includes("'UNAUTHORIZED'"),
+  'probe Pix precisa distinguir App ID ausente de autenticação de usuário ausente'
+);
 assert.ok(remoteFinancePspReadiness.includes('WOOVI_ADAPTER_NOT_CONFIGURED')&&remoteFinancePspReadiness.includes('INVALID_WOOVI_AUTHORIZATION'),'probe webhook precisa provar Company ID + autorização privada sem conhecer o segredo');
 assert.ok(remoteFinancePspReadiness.includes('secretsExposed:false'),'gate PSP precisa afirmar explicitamente que nenhum valor secreto é emitido');
 
