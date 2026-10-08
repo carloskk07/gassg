@@ -802,6 +802,144 @@ async function adminIncidentList(admin:any){
   return {incidents:result.data??[]};
 }
 
+async function adminPaymentProviderHealth(role:string){
+  if(!["superadmin","finance","readonly"].includes(role)){
+    throw new DomainError(
+      "ADMIN_PERMISSION_DENIED",
+      "Seu perfil administrativo não possui permissão para consultar o PSP.",
+      403
+    );
+  }
+
+  const appId=String(Deno.env.get("WOOVI_APP_ID")??"").trim();
+  const authorization=String(Deno.env.get("WOOVI_WEBHOOK_AUTHORIZATION")??"");
+  const companyId=String(Deno.env.get("WOOVI_COMPANY_ID")??"").trim();
+  const apiBase=String(
+    Deno.env.get("WOOVI_API_BASE_URL")??"https://api.woovi.com"
+  ).trim().replace(/\/$/,"");
+  const allowedBases=new Set([
+    "https://api.woovi.com",
+    "https://api.woovi-sandbox.com"
+  ]);
+  const apiBaseValid=allowedBases.has(apiBase);
+  const configured=
+    appId.length>=12
+    &&authorization.length>=24
+    &&companyId.length>=6
+    &&companyId.length<=160
+    &&apiBaseValid;
+
+  const baseResult={
+    provider:"woovi",
+    checkedAt:new Date().toISOString(),
+    environment:apiBase==="https://api.woovi-sandbox.com"?"sandbox":"production",
+    configured,
+    apiBaseValid,
+    appIdConfigured:appId.length>=12,
+    webhookAuthorizationConfigured:authorization.length>=24,
+    companyBound:companyId.length>=6&&companyId.length<=160,
+    apiReachable:false,
+    credentialValid:false,
+    httpStatus:null as number|null,
+    latencyMs:null as number|null,
+    status:configured?"checking":"not_configured",
+    detail:configured
+      ?"Configuração presente; aguardando teste da API."
+      :"Faltam credenciais ou vínculo obrigatórios para ativar o PSP."
+  };
+
+  if(!configured)return baseResult;
+
+  const controller=new AbortController();
+  const timer=setTimeout(()=>controller.abort(),5000);
+  const started=Date.now();
+
+  try{
+    const response=await fetch(apiBase+"/api/v1/charge",{
+      method:"GET",
+      headers:{
+        "Accept":"application/json",
+        "Authorization":appId,
+        "Cache-Control":"no-cache"
+      },
+      signal:controller.signal
+    });
+    const latencyMs=Date.now()-started;
+    const httpStatus=response.status;
+    const credentialValid=response.status===200;
+    const apiReachable=true;
+
+    // Consume only a small bounded prefix so a provider regression cannot
+    // turn a health check into an unbounded memory read. The body is never
+    // returned to the browser and may contain provider/account metadata.
+    const reader=response.body?.getReader();
+    if(reader){
+      let total=0;
+      try{
+        while(total<32768){
+          const {done,value}=await reader.read();
+          if(done)break;
+          total+=value?.byteLength??0;
+          if(total>=32768){
+            await reader.cancel();
+            break;
+          }
+        }
+      }catch{
+        try{await reader.cancel()}catch{}
+      }
+    }
+
+    if(credentialValid){
+      return {
+        ...baseResult,
+        apiReachable,
+        credentialValid:true,
+        httpStatus,
+        latencyMs,
+        status:"healthy",
+        detail:"AppID aceito pela API Woovi; leitura de cobranças disponível."
+      };
+    }
+
+    if(httpStatus===401){
+      return {
+        ...baseResult,
+        apiReachable,
+        credentialValid:false,
+        httpStatus,
+        latencyMs,
+        status:"invalid_credential",
+        detail:"A API Woovi rejeitou o AppID configurado."
+      };
+    }
+
+    return {
+      ...baseResult,
+      apiReachable,
+      credentialValid:false,
+      httpStatus,
+      latencyMs,
+      status:"provider_error",
+      detail:"A Woovi respondeu, mas a leitura de cobranças não ficou saudável."
+    };
+  }catch(error){
+    return {
+      ...baseResult,
+      apiReachable:false,
+      credentialValid:false,
+      httpStatus:null,
+      latencyMs:Date.now()-started,
+      status:"unreachable",
+      detail:error instanceof DOMException&&error.name==="AbortError"
+        ?"Tempo limite ao consultar a API Woovi."
+        :"Não foi possível alcançar a API Woovi."
+    };
+  }finally{
+    clearTimeout(timer);
+  }
+}
+
 async function adminSystemHealth(admin:any){
   const started=Date.now();
   const now=new Date();
@@ -1229,6 +1367,13 @@ Deno.serve(async(req:Request)=>{
     }
     if(action==="system-health"){
       return json(await adminSystemHealth(admin),200,origin);
+    }
+    if(action==="payment-provider-health"){
+      return json(
+        await adminPaymentProviderHealth(String(adminAccess.admin_role||"superadmin")),
+        200,
+        origin
+      );
     }
     if(action==="billing-provider-health"){
       return json(await wooviBillingProviderHealth(),200,origin);
