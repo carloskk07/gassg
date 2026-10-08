@@ -210,6 +210,9 @@ function merchantBillingLiveView(rt){
   const plan=billing.plan||{};
   const statements=billing.openStatements||[];
   const requests=billing.paymentRequests||[];
+  const refunds=billing.refunds||[];
+  const refundDebts=billing.refundDebts||[];
+  const refundRecoveryCents=Number(billing.refundRecoveryCents||0);
   const pixReady=billing.pixProviderReady===true;
   const pending=requests.filter(r=>r.status==='pending');
   const pendingPackage=pending.find(r=>r.requestKind==='package_purchase')||null;
@@ -231,6 +234,14 @@ function merchantBillingLiveView(rt){
     .filter(x=>['open','overdue'].includes(x.status))
     .sort((a,b)=>Date.parse(a.dueAt||'')-Date.parse(b.dueAt||''))[0]||null;
   const openDue=statements.reduce((sum,x)=>sum+Number(x.amountDueCents||0),0);
+  const refundReviewCount=refunds.filter(x=>x.reviewRequired===true).length;
+  const openRefundDebtCount=refundDebts.filter(x=>x.status==='open').length;
+  const refundHold=String(account.salesHoldReason||'').startsWith('provider_payment_refund_');
+  const holdNotice=held
+    ? refundHold
+      ? `<div class="notice danger"><strong>Pagamento anteriormente confirmado foi devolvido pelo PSP.</strong><br>${refundRecoveryCents>0?'Há '+BRL.format(refundRecoveryCents/100)+' em recuperação financeira. ':''}${refundReviewCount>0?'Existe '+refundReviewCount+' estorno(s) em análise pelo Financeiro. ':''}Novas vendas ficam pausadas até a regularização ou conclusão da análise; pedidos já aceitos e seu histórico continuam disponíveis.</div>`
+      : '<div class="notice danger"><strong>Há pendência financeira.</strong><br>Novas vendas ficam pausadas até a regularização. Pedidos já aceitos continuam normalmente; seu acesso ao painel e ao histórico permanece disponível.</div>'
+    : '';
 
   const planCards=(billing.plans||[]).map(p=>{
     const pct=(Number(p.platformFeeBps||0)/100).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2});
@@ -311,19 +322,21 @@ function merchantBillingLiveView(rt){
 
   return `<section class="section">
     <div class="section-head"><div><span class="section-kicker">FINANCEIRO TAMÃO</span><h2>Taxas e fechamento diário</h2><p>Cada venda conserva sua taxa individual. O TAMÃO fecha o dia às 00:05 e eventual saldo pós-pago vence até o fim do dia seguinte.</p></div><span class="status-pill ${held?'offline':'online'}">${held?'VENDAS SUSPENSAS':'EM DIA'}</span></div>
-    ${held?'<div class="notice danger"><strong>Há fechamento vencido.</strong><br>Novas vendas ficam pausadas até a regularização. Pedidos já aceitos continuam normalmente; seu acesso ao painel e ao histórico permanece disponível.</div>':''}
+    ${holdNotice}
     <div class="merchant-kpis">
       <div class="kpi"><span class="label">Plano</span><strong>${esc(plan.displayName||'Flex Diário')}</strong><small>${feePct}% por venda</small></div>
       <div class="kpi"><span class="label">Crédito pré-pago</span><strong>${BRL.format(Number(account.creditBalanceCents||0)/100)}</strong></div>
       <div class="kpi"><span class="label">Reservado</span><strong>${BRL.format(Number(account.creditReservedCents||0)/100)}</strong><small>pedidos ainda não liquidados</small></div>
       <div class="kpi"><span class="label">Disponível</span><strong>${BRL.format(available/100)}</strong></div>
       <div class="kpi"><span class="label">Saldo D+1 aberto</span><strong>${BRL.format(openDue/100)}</strong><small>${nextDue?'próximo vencimento '+new Date(nextDue.dueAt).toLocaleString('pt-BR'):'nenhum vencimento'}</small></div>
+      ${refundRecoveryCents>0?`<div class="kpi"><span class="label">Recuperação por estorno</span><strong>${BRL.format(refundRecoveryCents/100)}</strong><small>${openRefundDebtCount} pendência(s) aberta(s)</small></div>`:''}
     </div>
     ${statementRows?`<div class="card flat" style="margin-top:12px"><h3>Fechamentos em aberto</h3><div class="list">${statementRows}</div></div>`:''}
     <div class="section-head" style="margin-top:16px"><div><h3>Opções de taxa</h3><p>Quanto maior o crédito antecipado, menor a taxa por venda. O crédito só é consumido quando pedidos são liquidados. Com saldo ativo, recargas do mesmo pacote e upgrades para taxa menor permanecem disponíveis; downgrade só depois de zerar saldo e reservas.</p></div></div>
     <div class="admin-entity-grid">${planCards}</div>
     <div class="notice" style="margin-top:12px"><strong>Pix com conciliação automática.</strong><br>${pixReady?'Gere o Pix no próprio TAMÃO: o QR e o copia-e-cola ficam vinculados à solicitação, e o EndToEndId bancário volta pelo provedor sem digitação manual.':'A integração automática ainda não está configurada neste ambiente; o fluxo manual permanece disponível.'} Em qualquer rota, crédito ou quitação só acontecem após a confirmação financeira. Se o saldo restante não cobrir toda a taxa descontada de uma venda, esse último saldo é abatido da taxa Flex daquela venda e apenas a diferença entra no fechamento D+1; quando saldo e reservas zerarem, o plano volta ao Flex automaticamente.</div>
     ${recentRequests?`<details class="card flat" style="margin-top:12px"><summary><strong>Solicitações financeiras recentes</strong></summary><div class="list" style="margin-top:10px">${recentRequests}</div></details>`:''}
+    ${refunds.length?`<details class="card flat" style="margin-top:12px"><summary><strong>Devoluções/estornos recentes</strong></summary><div class="list" style="margin-top:10px">${refunds.slice(0,10).map(x=>`<div class="list-row"><div><strong>${x.status==='review_required'?'Em análise':x.actionType==='package_credit_reversal'?'Crédito revertido':x.actionType==='recovery_debt'?'Recuperação financeira':'Estorno registrado'}</strong><br><small>${esc(x.occurredAt?new Date(x.occurredAt).toLocaleString('pt-BR'):'—')}${x.partial?' • parcial':' • integral'}</small></div><div style="text-align:right"><strong>${BRL.format(Number(x.refundAmountCents||0)/100)}</strong><br><span class="status-pill ${x.status==='review_required'?'risk':x.status==='applied'?'online':''}">${esc(String(x.status||'—').toUpperCase())}</span></div></div>`).join('')}</div></details>`:''}
   </section>`;
 }
 
