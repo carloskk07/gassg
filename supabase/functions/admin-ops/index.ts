@@ -106,7 +106,7 @@ const ADMIN_ROLE_ACTIONS:Record<string,Set<string>>={
   ]),
   finance:new Set([
     "financial-action","review-referral","retry-reward","retry-accounting","reverse-order",
-    "commercial-policy","merchant-billing-action","merchant-billing-payment-request","merchant-billing-payment-event","merchant-billing-provider-cancel-retry","incident-action"
+    "commercial-policy","merchant-billing-action","merchant-billing-payment-request","merchant-billing-payment-event","merchant-billing-refund","merchant-billing-provider-cancel-retry","incident-action"
   ]),
   support:new Set(["order-control","support-case-status","incident-action"]),
   compliance:new Set([
@@ -535,6 +535,7 @@ function scopeAdminSummary(role:string,data:any){
         statements:[],
         paymentRequests:[],
         paymentEvents:[],
+        refunds:[],
         providerCharges:[],
         paymentIngress:null,
         metrics:null,
@@ -571,7 +572,7 @@ function scopeAdminSummary(role:string,data:any){
         price_confirmed_at:m.price_confirmed_at,last_seen_at:m.last_seen_at
       })),
       commercialPolicy:null,
-      merchantBilling:{plans:[],accounts:[],statements:[],paymentRequests:[],paymentEvents:[],providerCharges:[],paymentIngress:null,metrics:null,reconciliation:null},
+      merchantBilling:{plans:[],accounts:[],statements:[],paymentRequests:[],paymentEvents:[],refunds:[],providerCharges:[],paymentIngress:null,metrics:null,reconciliation:null},
       productRegistry:{categories:[],products:[]},
       finance:{receivables:[],cashbackReimbursements:[],adjustments:[]},
       rewardFailures:[],accountingFailures:[],referralReviews:[],
@@ -584,7 +585,7 @@ function scopeAdminSummary(role:string,data:any){
     return {
       ...data,
       businessMetrics:{},commercialPolicy:null,
-      merchantBilling:{plans:[],accounts:[],statements:[],paymentRequests:[],paymentEvents:[],providerCharges:[],paymentIngress:null,metrics:null,reconciliation:null},
+      merchantBilling:{plans:[],accounts:[],statements:[],paymentRequests:[],paymentEvents:[],refunds:[],providerCharges:[],paymentIngress:null,metrics:null,reconciliation:null},
       productRegistry:{categories:[],products:[]},
       supportCases:[],controlOrders:[],
       finance:{receivables:[],cashbackReimbursements:[],adjustments:[]},
@@ -1025,7 +1026,13 @@ async function summary(admin:any,actorUserId:string){
         .order("created_at",{ascending:false})
         .limit(200)
     : Promise.resolve({data:[],error:null});
-  const [billingPlans,billingAccounts,dailyStatements,billingPaymentRequests,billingMetrics,billingReconciliation,billingPaymentEvents,billingProviderCharges]=await Promise.all([
+  const billingRefundsPromise=["superadmin","finance","readonly"].includes(actorRole)
+    ? admin.from("merchant_billing_payment_refunds")
+        .select("id,provider,provider_event_id,original_reconciliation_key,refund_reconciliation_key,amount_cents,currency,occurred_at,received_at,status,payment_event_id,payment_request_id,merchant_id,original_payment_amount_cents,cumulative_refunded_cents,match_reason,resolved_by,resolved_at,resolution_reference,created_at,updated_at")
+        .order("occurred_at",{ascending:false})
+        .limit(200)
+    : Promise.resolve({data:[],error:null});
+  const [billingPlans,billingAccounts,dailyStatements,billingPaymentRequests,billingMetrics,billingReconciliation,billingPaymentEvents,billingProviderCharges,billingRefunds]=await Promise.all([
     admin.from("merchant_billing_plans")
       .select("plan_key,display_name,billing_mode,platform_fee_bps,purchase_amount_cents,credit_grant_cents,active,sort_order,updated_at")
       .order("sort_order",{ascending:true}),
@@ -1044,9 +1051,10 @@ async function summary(admin:any,actorUserId:string){
     billingMetricsPromise,
     billingReconciliationPromise,
     billingPaymentEventsPromise,
-    billingProviderChargesPromise
+    billingProviderChargesPromise,
+    billingRefundsPromise
   ]);
-  for(const result of [billingPlans,billingAccounts,dailyStatements,billingPaymentRequests,billingMetrics,billingReconciliation,billingPaymentEvents,billingProviderCharges]){
+  for(const result of [billingPlans,billingAccounts,dailyStatements,billingPaymentRequests,billingMetrics,billingReconciliation,billingPaymentEvents,billingProviderCharges,billingRefunds]){
     if(result.error)throw result.error;
   }
 
@@ -1188,6 +1196,7 @@ async function summary(admin:any,actorUserId:string){
       statements:dailyStatements.data??[],
       paymentRequests:billingPaymentRequests.data??[],
       paymentEvents:billingPaymentEvents.data??[],
+      refunds:billingRefunds.data??[],
       providerCharges:billingProviderCharges.data??[],
       paymentIngress:billingPaymentIngressReadiness(),
       metrics:billingMetrics.data??null,
@@ -1731,6 +1740,16 @@ Deno.serve(async(req:Request)=>{
       payload={
         paymentRequestId:uuid(body.paymentRequestId,"payment request")
       };
+    }else if(action==="merchant-billing-refund"){
+      const refundAction=String(body.refundAction??"").trim().toLowerCase();
+      if(!["mark-recovered","dismiss-unrelated"].includes(refundAction)){
+        throw new DomainError("INVALID_PAYMENT_REFUND_ACTION","Ação de reembolso financeiro inválida.",400);
+      }
+      payload={
+        refundId:uuid(body.refundId,"refund"),
+        refundAction,
+        reference:cleanText(body.reference,{min:3,max:240,name:"referência da resolução"})
+      };
     }else if(action==="merchant-billing-payment-event"){
       const eventAction=String(body.eventAction??"").trim().toLowerCase();
       if(!["recheck","ignore"].includes(eventAction)){
@@ -1901,6 +1920,16 @@ Deno.serve(async(req:Request)=>{
         p_event_id:payload.paymentEventId,
         p_action:payload.eventAction,
         p_reason:payload.reason,
+        p_idempotency_key:idempotencyKey,
+        p_request_hash:requestHash
+      };
+    }else if(action==="merchant-billing-refund"){
+      rpcName="admin_merchant_billing_refund_action";
+      rpcArgs={
+        p_actor_user_id:user.id,
+        p_refund_id:payload.refundId,
+        p_action:payload.refundAction,
+        p_reference:payload.reference,
         p_idempotency_key:idempotencyKey,
         p_request_hash:requestHash
       };
@@ -2199,6 +2228,21 @@ Deno.serve(async(req:Request)=>{
     }
     if(message.includes("POLICY_VERSION_CONFLICT")){
       return json({error:"POLICY_VERSION_CONFLICT",message:"A política mudou desde que o painel foi carregado. Atualize antes de salvar."},409,origin);
+    }
+    if(message.includes("PAYMENT_REFUND_REVIEW_REQUIRED")){
+      return json({error:"PAYMENT_REFUND_REVIEW_REQUIRED",message:"Existe um reembolso confirmado ligado a esta cobrança. Resolva a revisão antes de aprovar."},409,origin);
+    }
+    if(message.includes("PAYMENT_REFUND_ALREADY_RESOLVED")){
+      return json({error:"PAYMENT_REFUND_ALREADY_RESOLVED",message:"Este reembolso já foi resolvido no Financeiro."},409,origin);
+    }
+    if(message.includes("PAYMENT_REFUND_NOT_LINKED")){
+      return json({error:"PAYMENT_REFUND_NOT_LINKED",message:"Este reembolso não está ligado a uma cobrança TAMÃO; use a resolução de item não relacionado."},409,origin);
+    }
+    if(message.includes("PAYMENT_REFUND_LINKED_CANNOT_DISMISS")){
+      return json({error:"PAYMENT_REFUND_LINKED_CANNOT_DISMISS",message:"Este reembolso pertence a uma cobrança TAMÃO e não pode ser descartado como não relacionado."},409,origin);
+    }
+    if(message.includes("PAYMENT_REFUND_NOT_FOUND")){
+      return json({error:"PAYMENT_REFUND_NOT_FOUND",message:"Reembolso financeiro não encontrado."},404,origin);
     }
     if(message.includes("PAYMENT_EVENT_MATCHED_CANNOT_IGNORE")){
       return json({error:"PAYMENT_EVENT_MATCHED_CANNOT_IGNORE",message:"Este evento já corresponde exatamente a uma cobrança pendente. Resolva ou rejeite a cobrança antes de ignorar o evento."},409,origin);
