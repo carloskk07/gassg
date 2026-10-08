@@ -830,4 +830,59 @@ for(let i=0;i<20000;i++){
   siblingProviderCases+=9;
 }
 
-console.log(`Financial invariant fuzz passou: ${rewardCases} cenários de unit economics + ${positionCases} posições de cashback + ${prepaidCases} cenários de consumo de crédito de taxa + ${transitionCases} transições de pacote + ${reconciliationCases} cenários de reconciliação + ${exactPaymentCases} confirmações exatas de pagamento + ${d1AuthorityCases} cenários de autoridade D+1 + ${reconciliationKeyCases} cenários de unicidade de conciliação + ${providerEventCases} cenários de eventos de provedor + ${reactiveProviderCases} transições reativas de conciliação + ${provenanceCases} provas de proveniência de aprovação + ${paymentEventReviewCases} decisões de lifecycle de eventos + ${financeSlaCases} classificações de SLA financeiro + ${canonicalEventCases} decisões de evento canônico + ${wooviAdapterCases} normalizações Woovi/OpenPix + ${generatedPixCases} decisões de cobrança Pix correlacionada + ${siblingProviderCases} decisões de evento irmão do PSP.`);
+
+function pixChargeExpirationDecision({
+  status,expiresAtMs,nowMs,storedAmount,providerAmount
+}){
+  if(status==='completed'||status==='cancelled')return status;
+  if(providerAmount!=null&&providerAmount!==storedAmount)return 'review_required';
+  if(status==='expired')return 'expired';
+  if(status==='active'&&Number.isFinite(expiresAtMs)&&expiresAtMs<=nowMs)return 'expired';
+  return status;
+}
+
+function pixChargeLateCommitDecision(status){
+  return ['completed','expired'].includes(status)?status:'active';
+}
+
+function pixChargePaymentTruthDecision(status){
+  return status==='cancelled'?'review_required':'completed';
+}
+
+function siblingChargeAfterPaymentDecision({
+  siblingStatus,sameRequest=true,sameProvider=true
+}){
+  return sameRequest
+    &&sameProvider
+    &&['preparing','active'].includes(siblingStatus)
+      ?'cancelled'
+      :siblingStatus;
+}
+
+let pixExpirationCases=0;
+for(let i=0;i<20000;i++){
+  const now=Date.now()+i;
+  const amount=int(1,10000000);
+  assert.equal(pixChargeExpirationDecision({
+    status:'active',expiresAtMs:now-1,nowMs:now,storedAmount:amount
+  }),'expired');
+  assert.equal(pixChargeExpirationDecision({
+    status:'active',expiresAtMs:now+1,nowMs:now,storedAmount:amount
+  }),'active');
+  assert.equal(pixChargeExpirationDecision({
+    status:'completed',expiresAtMs:now-1,nowMs:now,storedAmount:amount
+  }),'completed');
+  assert.equal(pixChargeExpirationDecision({
+    status:'active',expiresAtMs:now-1,nowMs:now,storedAmount:amount,providerAmount:amount+1
+  }),'review_required');
+  assert.equal(pixChargeLateCommitDecision('expired'),'expired');
+  assert.equal(pixChargeLateCommitDecision('completed'),'completed');
+  assert.equal(pixChargePaymentTruthDecision('expired'),'completed');
+  assert.equal(siblingChargeAfterPaymentDecision({siblingStatus:'active'}),'cancelled');
+  assert.equal(siblingChargeAfterPaymentDecision({siblingStatus:'preparing'}),'cancelled');
+  assert.equal(siblingChargeAfterPaymentDecision({siblingStatus:'expired'}),'expired');
+  assert.equal(siblingChargeAfterPaymentDecision({siblingStatus:'active',sameRequest:false}),'active');
+  pixExpirationCases+=11;
+}
+
+console.log(`Financial invariant fuzz passou: ${rewardCases} cenários de unit economics + ${positionCases} posições de cashback + ${prepaidCases} cenários de consumo de crédito de taxa + ${transitionCases} transições de pacote + ${reconciliationCases} cenários de reconciliação + ${exactPaymentCases} confirmações exatas de pagamento + ${d1AuthorityCases} cenários de autoridade D+1 + ${reconciliationKeyCases} cenários de unicidade de conciliação + ${providerEventCases} cenários de eventos de provedor + ${reactiveProviderCases} transições reativas de conciliação + ${provenanceCases} provas de proveniência de aprovação + ${paymentEventReviewCases} decisões de lifecycle de eventos + ${financeSlaCases} classificações de SLA financeiro + ${canonicalEventCases} decisões de evento canônico + ${wooviAdapterCases} normalizações Woovi/OpenPix + ${generatedPixCases} decisões de cobrança Pix correlacionada + ${siblingProviderCases} decisões de evento irmão do PSP + ${pixExpirationCases} decisões de expiração/regeneração Pix.`);
