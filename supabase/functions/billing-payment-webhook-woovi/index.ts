@@ -272,9 +272,83 @@ Deno.serve(async(req:Request)=>{
   if(![
     "OPENPIX:TRANSACTION_RECEIVED",
     "OPENPIX:CHARGE_COMPLETED",
-    "OPENPIX:CHARGE_EXPIRED"
+    "OPENPIX:CHARGE_EXPIRED",
+    "PIX_TRANSACTION_REFUND_SENT_CONFIRMED"
   ].includes(eventName)){
     return response({ok:true,ignored:true,reason:"UNSUPPORTED_WOOVI_EVENT"},202);
+  }
+
+  if(eventName==="PIX_TRANSACTION_REFUND_SENT_CONFIRMED"){
+    const refund=body.refundTransaction;
+    const original=body.originalTransaction;
+    if(!refund||typeof refund!=="object"||Array.isArray(refund)
+       ||!original||typeof original!=="object"||Array.isArray(original)){
+      return response({error:"INVALID_WOOVI_REFUND_EVENT"},400);
+    }
+
+    const refundEndToEndId=String(refund.endToEndId??"").trim();
+    const originalEndToEndId=String(original.endToEndId??"").trim();
+    const refundAmountCents=positiveSafeInteger(refund.value);
+    const originalAmountCents=positiveSafeInteger(original.value);
+    const occurredAt=parseIsoTimestamp(refund.time??refund.createdAt);
+    const refundStatus=String(refund.status??"").trim().toUpperCase();
+    const refundType=String(refund.type??"").trim().toUpperCase();
+    const originalStatus=String(original.status??"").trim().toUpperCase();
+    const originalType=String(original.type??"").trim().toUpperCase();
+
+    if(!E2E_RE.test(refundEndToEndId)
+       ||!E2E_RE.test(originalEndToEndId)
+       ||refundEndToEndId===originalEndToEndId
+       ||refundAmountCents==null
+       ||originalAmountCents==null
+       ||refundAmountCents>originalAmountCents
+       ||!occurredAt
+       ||refundStatus!=="CONFIRMED"
+       ||refundType!=="REFUND"
+       ||originalStatus!=="CONFIRMED"
+       ||originalType!=="PAYMENT"){
+      return response({error:"INVALID_WOOVI_REFUND_EVENT"},400);
+    }
+
+    const providerEventId=eventName+":"+refundEndToEndId;
+    const payloadHash=await sha256Hex(rawBody);
+    const admin=createClient(SUPABASE_URL,SECRET_KEY,{
+      auth:{persistSession:false,autoRefreshToken:false}
+    });
+    const {data,error}=await admin.rpc(
+      "ingest_merchant_billing_payment_refund",
+      {
+        p_provider:"woovi",
+        p_provider_event_id:providerEventId,
+        p_original_reconciliation_key:originalEndToEndId,
+        p_refund_reconciliation_key:refundEndToEndId,
+        p_amount_cents:refundAmountCents,
+        p_currency:"BRL",
+        p_occurred_at:occurredAt,
+        p_raw_payload_sha256:payloadHash
+      }
+    );
+
+    if(error){
+      const message=String(error.message??error);
+      if(message.includes("PAYMENT_REFUND_IDEMPOTENCY_CONFLICT")){
+        return response({error:"PAYMENT_REFUND_IDEMPOTENCY_CONFLICT"},409);
+      }
+      if(message.includes("INVALID_PAYMENT_REFUND_")
+         ||message.includes("UNSUPPORTED_PAYMENT_REFUND_")
+         ||message.includes("PAYMENT_REFUND_KEYS_MUST_DIFFER")){
+        return response({error:"INVALID_PAYMENT_REFUND"},400);
+      }
+      console.error("woovi billing refund ingest failed",message);
+      return response({error:"PAYMENT_REFUND_INGEST_FAILED"},503);
+    }
+
+    return response({
+      ok:true,
+      provider:"woovi",
+      event:eventName,
+      ...(data??{})
+    },202);
   }
 
   if(eventName==="OPENPIX:CHARGE_EXPIRED"){
