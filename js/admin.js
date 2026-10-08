@@ -22,8 +22,6 @@ const adminRuntime={
   detailPending:false,
   health:null,
   healthPending:false,
-  paymentProviderHealth:null,
-  paymentProviderHealthPending:false,
   providerHealth:null,
   providerHealthPending:false,
   auditResults:null,
@@ -502,24 +500,6 @@ async function adminCheckBillingProviderHealth(){
     };
   }finally{
     adminRuntime.providerHealthPending=false;
-    render();
-  }
-}
-
-async function adminLoadPaymentProviderHealth({force=false}={}){
-  if(adminRuntime.paymentProviderHealthPending||(!force&&adminRuntime.paymentProviderHealth))return;
-  adminRuntime.paymentProviderHealthPending=true;
-  render();
-  try{
-    adminRuntime.paymentProviderHealth=await adminInvoke({action:'payment-provider-health'});
-  }catch(error){
-    adminRuntime.paymentProviderHealth={
-      status:'error',
-      detail:String(error?.message||error||'Teste do PSP indisponível'),
-      checkedAt:new Date().toISOString()
-    };
-  }finally{
-    adminRuntime.paymentProviderHealthPending=false;
     render();
   }
 }
@@ -1335,8 +1315,6 @@ function adminBillingPaymentMatchReasonLabel(reason){
     provider_charge_request_not_pending:'Pix recebido para solicitação que já não está pendente',
     provider_charge_merchant_mismatch:'correlação Pix aponta para outra revenda',
     provider_charge_amount_mismatch:'Pix correlacionado com valor diferente do esperado',
-    sibling_provider_event_same_transaction:'evento irmão benigno da mesma transação',
-    sibling_provider_event_resolved_by_charge:'evento genérico substituído pela cobrança correlacionada',
     ignored_by_finance:'evento encerrado pelo Financeiro'
   })[String(reason||'')]||String(reason||'—');
 }
@@ -1466,11 +1444,6 @@ function adminMerchantBillingSection(d){
       ${paymentIngress.liveEndpoints?.woovi?`<div class="tiny muted">Webhook Woovi: ${esc(paymentIngress.liveEndpoints.woovi)}</div>`:''}
       ${paymentIngress.liveEndpoints?.merchantPix?`<div class="tiny muted">Geração Pix da revenda: ${esc(paymentIngress.liveEndpoints.merchantPix)}</div>`:''}
       ${paymentIngress.endpoint?`<div class="tiny muted">Ingress normalizado: ${esc(paymentIngress.endpoint)}</div>`:''}
-      <div class="order-actions" style="margin-top:10px">
-        <button class="secondary small" onclick="adminLoadPaymentProviderHealth({force:true})" ${adminRuntime.paymentProviderHealthPending?'disabled':''}>${adminRuntime.paymentProviderHealthPending?'Testando Woovi…':'Testar conexão Woovi'}</button>
-        ${adminRuntime.paymentProviderHealth?`<span class="status-pill ${adminRuntime.paymentProviderHealth.status==='healthy'?'online':adminRuntime.paymentProviderHealth.status==='not_configured'?'risk':'offline'}">${adminRuntime.paymentProviderHealth.status==='healthy'?'API OK':adminRuntime.paymentProviderHealth.status==='not_configured'?'NÃO CONFIGURADO':'FALHA'}</span>`:''}
-      </div>
-      ${adminRuntime.paymentProviderHealth?`<div class="tiny muted" style="margin-top:6px">${esc(adminRuntime.paymentProviderHealth.detail||'—')}${adminRuntime.paymentProviderHealth.httpStatus!=null?' • HTTP '+esc(adminRuntime.paymentProviderHealth.httpStatus):''}${adminRuntime.paymentProviderHealth.latencyMs!=null?' • '+esc(adminRuntime.paymentProviderHealth.latencyMs)+' ms':''}${adminRuntime.paymentProviderHealth.checkedAt?' • '+esc(formatDateTime(adminRuntime.paymentProviderHealth.checkedAt)):''}</div>`:''}
       <div style="margin-top:10px"><button class="secondary small" onclick="adminCheckBillingProviderHealth()" ${adminRuntime.providerHealthPending?'disabled':''}>${adminRuntime.providerHealthPending?'Testando conexão…':'Testar conexão real com a Woovi'}</button></div>
       ${providerHealth?`<div class="notice ${providerHealth.ok?'success':'danger'}" style="margin-top:10px"><strong>${providerHealth.ok?'Teste real Woovi aprovado.':'Teste real Woovi requer atenção.'}</strong><br>Credencial API: ${providerHealth.credentialValid===true?'válida':providerHealth.credentialValid===false?'inválida':'não confirmada'} • webhook CHARGE_COMPLETED: ${providerHealth.chargeWebhookReady?'ativo e autenticado':'não confirmado'} • TRANSACTION_RECEIVED: ${providerHealth.transactionWebhookActive?'ativo':'não necessário/ausente'} • empresa vinculada: ${providerHealth.companyBound?'sim':'não'} • ambiente: ${esc(providerHealth.environment||'—')}${providerHealth.reason?' • '+esc(providerHealth.reason):''}</div>`:''}
       ${paymentIngress.configValid===false
