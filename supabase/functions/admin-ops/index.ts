@@ -7,6 +7,7 @@ import {
   requestFingerprint,
   sha256Hex
 } from "../_shared/domain.js";
+import { cancelWooviProviderCharges } from "../_shared/woovi-billing.ts";
 
 const SUPABASE_URL=Deno.env.get("SUPABASE_URL")??"";
 const publishableKeys=JSON.parse(Deno.env.get("SUPABASE_PUBLISHABLE_KEYS")??"{}");
@@ -2087,7 +2088,43 @@ Deno.serve(async(req:Request)=>{
     }
     const {data,error}=await admin.rpc(rpcName,rpcArgs);
     if(error)throw error;
-    return json(data,200,origin);
+
+    let providerCancellation=null;
+    if(action==="merchant-billing-payment-request"&&data?.paymentRequestId){
+      try{
+        providerCancellation=await cancelWooviProviderCharges(admin,{
+          paymentRequestId:String(data.paymentRequestId)
+        });
+      }catch(cancelError){
+        console.error(
+          "admin billing provider cancellation failed",
+          String(cancelError instanceof Error?cancelError.message:cancelError)
+        );
+        providerCancellation={
+          attempted:0,cancelled:0,failed:1,error:"PROVIDER_CANCEL_SYNC_FAILED"
+        };
+      }
+    }else if(action==="merchant-billing-action"&&data?.merchantId){
+      try{
+        providerCancellation=await cancelWooviProviderCharges(admin,{
+          merchantId:String(data.merchantId)
+        });
+      }catch(cancelError){
+        console.error(
+          "admin billing provider cancellation failed",
+          String(cancelError instanceof Error?cancelError.message:cancelError)
+        );
+        providerCancellation={
+          attempted:0,cancelled:0,failed:1,error:"PROVIDER_CANCEL_SYNC_FAILED"
+        };
+      }
+    }
+
+    return json(
+      providerCancellation?{...(data??{}),providerCancellation}:data,
+      200,
+      origin
+    );
 
 
   }catch(error){
