@@ -22,6 +22,8 @@ const adminRuntime={
   detailPending:false,
   health:null,
   healthPending:false,
+  providerHealth:null,
+  providerHealthPending:false,
   auditResults:null,
   auditPending:false,
   section:(()=>{
@@ -480,6 +482,28 @@ async function adminLoadSystemHealth({force=false}={}){
     render();
   }
 }
+
+async function adminCheckBillingProviderHealth(){
+  if(adminRuntime.providerHealthPending)return;
+  adminRuntime.providerHealthPending=true;
+  render();
+  try{
+    adminRuntime.providerHealth=await adminInvoke({action:'billing-provider-health'});
+    const h=adminRuntime.providerHealth;
+    toast(h?.ok?'Conexão Woovi validada':'Woovi exige atenção: '+String(h?.reason||h?.status||'indisponível'));
+  }catch(error){
+    adminRuntime.providerHealth={
+      ok:false,
+      status:'unavailable',
+      reason:String(error?.message||error||'Diagnóstico Woovi indisponível'),
+      checkedAt:new Date().toISOString()
+    };
+  }finally{
+    adminRuntime.providerHealthPending=false;
+    render();
+  }
+}
+
 function adminSeverityLabel(level){
   return ({critical:'CRÍTICO',high:'ALTO',medium:'MÉDIO',low:'BAIXO'})[String(level)]||String(level||'INFO').toUpperCase();
 }
@@ -670,6 +694,7 @@ function adminSystemHealthView(){
       <div class="kpi"><span class="label">Edge admin-ops</span><strong>${h.edge?.ok?'OK':'FALHA'}</strong></div>
       <div class="kpi"><span class="label">Banco</span><strong>${h.database?.ok?'OK':'FALHA'}</strong><small>${esc(h.database?.operationMode||'—')}</small></div>
       <div class="kpi"><span class="label">Portais</span><strong>${h.portals?.ok?'3/3':'ATENÇÃO'}</strong><small>${esc(h.portals?.sourceSha?.slice(0,8)||'SHA divergente')}</small></div>
+      <div class="kpi"><span class="label">Woovi</span><strong>${h.paymentProvider?.ok?'OK':String(h.paymentProvider?.status||'PENDENTE').toUpperCase()}</strong><small>${h.paymentProvider?.credentialValid===true?'AppID válido':h.paymentProvider?.credentialValid===false?'AppID rejeitado':'sem prova de API'}</small></div>
       <div class="kpi"><span class="label">Suporte aberto</span><strong>${Number(h.queues?.openSupport||0)}</strong></div>
       <div class="kpi"><span class="label">Reward failures</span><strong>${Number(h.queues?.rewardFailures||0)}</strong></div>
       <div class="kpi"><span class="label">Accounting failures</span><strong>${Number(h.queues?.accountingFailures||0)}</strong></div>
@@ -1392,6 +1417,7 @@ function adminMerchantBillingSection(d){
   const paymentEvents=billing.paymentEvents||[];
   const providerCharges=billing.providerCharges||[];
   const paymentIngress=billing.paymentIngress||null;
+  const providerHealth=adminRuntime.providerHealth;
   const metrics=billing.metrics||null;
   const reconciliation=billing.reconciliation||null;
   const pendingPaymentRequests=paymentRequests
@@ -1415,6 +1441,8 @@ function adminMerchantBillingSection(d){
       ${paymentIngress.liveEndpoints?.woovi?`<div class="tiny muted">Webhook Woovi: ${esc(paymentIngress.liveEndpoints.woovi)}</div>`:''}
       ${paymentIngress.liveEndpoints?.merchantPix?`<div class="tiny muted">Geração Pix da revenda: ${esc(paymentIngress.liveEndpoints.merchantPix)}</div>`:''}
       ${paymentIngress.endpoint?`<div class="tiny muted">Ingress normalizado: ${esc(paymentIngress.endpoint)}</div>`:''}
+      <div style="margin-top:10px"><button class="secondary small" onclick="adminCheckBillingProviderHealth()" ${adminRuntime.providerHealthPending?'disabled':''}>${adminRuntime.providerHealthPending?'Testando conexão…':'Testar conexão real com a Woovi'}</button></div>
+      ${providerHealth?`<div class="notice ${providerHealth.ok?'success':'danger'}" style="margin-top:10px"><strong>${providerHealth.ok?'Teste real Woovi aprovado.':'Teste real Woovi requer atenção.'}</strong><br>Credencial API: ${providerHealth.credentialValid===true?'válida':providerHealth.credentialValid===false?'inválida':'não confirmada'} • webhook CHARGE_COMPLETED: ${providerHealth.chargeWebhookReady?'ativo e autenticado':'não confirmado'} • TRANSACTION_RECEIVED: ${providerHealth.transactionWebhookActive?'ativo':'não necessário/ausente'} • empresa vinculada: ${providerHealth.companyBound?'sim':'não'} • ambiente: ${esc(providerHealth.environment||'—')}${providerHealth.reason?' • '+esc(providerHealth.reason):''}</div>`:''}
       ${paymentIngress.configValid===false
         ?`<div class="notice danger" style="margin-top:10px"><strong>Configuração de webhook inválida.</strong><br>O mapa BILLING_PAYMENT_WEBHOOK_SECRETS não pôde ser validado. Nenhum recebimento automático deve ser considerado pronto.</div>`
         :paymentIngress.livePspReady
