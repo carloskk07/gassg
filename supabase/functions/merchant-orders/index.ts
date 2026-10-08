@@ -421,32 +421,34 @@ Deno.serve(async(req:Request)=>{
           paymentMethod:r.payment_method,
           reconciliationKey:r.reconciliation_key,
           approvalSource:r.approval_source,
-          pixCharge:(billingProviderCharges??[]).find(
-            (charge:any)=>charge.payment_request_id===r.id&&charge.provider==="woovi"
-          )
-            ?(()=>{
-              const charge:any=(billingProviderCharges??[]).find(
-                (x:any)=>x.payment_request_id===r.id&&x.provider==="woovi"
-              );
-              return {
-                id:charge.id,
-                provider:charge.provider,
-                correlationId:charge.correlation_id,
-                amountCents:Number(charge.amount_cents||0),
-                status:charge.status,
-                brCode:charge.br_code??null,
-                qrCodeDataUri:charge.qr_code_data_uri??null,
-                paymentLinkUrl:charge.payment_link_url??null,
-                expiresAt:charge.expires_at??null,
-                expiredAt:charge.expired_at??null,
-                completedAt:charge.completed_at??null,
-                paidAmountCents:charge.paid_amount_cents==null?null:Number(charge.paid_amount_cents),
-                endToEndId:charge.end_to_end_id??null,
-                lastErrorCode:charge.last_error_code??null,
-                updatedAt:charge.updated_at??null
-              };
-            })()
-            :null
+          pixCharge:(()=>{
+            const charges:any[]=(billingProviderCharges??[]).filter(
+              (x:any)=>x.payment_request_id===r.id&&x.provider==="woovi"
+            );
+            const charge:any=
+              charges.find((x:any)=>x.status==="completed")
+              ??charges.find((x:any)=>["active","preparing"].includes(x.status))
+              ??charges[0]
+              ??null;
+            if(!charge)return null;
+            return {
+              id:charge.id,
+              provider:charge.provider,
+              correlationId:charge.correlation_id,
+              amountCents:Number(charge.amount_cents||0),
+              status:charge.status,
+              brCode:charge.br_code??null,
+              qrCodeDataUri:charge.qr_code_data_uri??null,
+              paymentLinkUrl:charge.payment_link_url??null,
+              expiresAt:charge.expires_at??null,
+              expiredAt:charge.expired_at??null,
+              completedAt:charge.completed_at??null,
+              paidAmountCents:charge.paid_amount_cents==null?null:Number(charge.paid_amount_cents),
+              endToEndId:charge.end_to_end_id??null,
+              lastErrorCode:charge.last_error_code??null,
+              updatedAt:charge.updated_at??null
+            };
+          })()
         })),
         providerCharges:(billingProviderCharges??[]).map((charge:any)=>({
           id:charge.id,
