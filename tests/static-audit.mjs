@@ -565,6 +565,7 @@ const orderBillingRebind=read('supabase/migrations/20261008180000_order_billing_
 const prepaidReversalD1Netting=read('supabase/migrations/20261008190000_prepaid_reversal_d1_netting_v1_108.sql');
 const prepaidSourcePlanFkIndex=read('supabase/migrations/20261008214500_prepaid_source_plan_fk_index_v1_110.sql');
 const merchantCreditBalanceEquation=read('supabase/migrations/20261008220000_merchant_credit_balance_equation_v1_111.sql');
+const feeCreditLedgerImmutability=read('supabase/migrations/20261008223000_fee_credit_ledger_immutability_v1_112.sql');
 const providerChargeCancelSource=read('supabase/functions/_shared/provider-charge-cancel.js');
 const providerCancelMerchantOps=read('supabase/functions/merchant-ops/index.ts');
 const billingPaymentWebhookSource=read('supabase/functions/billing-payment-webhook/index.ts');
@@ -959,6 +960,12 @@ assert.ok(merchantCreditBalanceEquation.includes('require_merchant_fee_credit_eq
 assert.ok(merchantCreditBalanceEquation.includes('MERCHANT_FEE_CREDIT_EXISTING_DRIFT'),'migration precisa falhar fechado se o estado histórico divergir');
 assert.ok(merchantCreditBalanceEquation.includes('merchant_fee_credit_ledger_merchant_idx')===false&&merchantCreditBalanceEquation.includes('create index')===false,'v1.111 não deve criar índices redundantes: os índices canônicos já existem');
 assert.ok(merchantCreditBalanceEquation.includes('revoke all on function public.merchant_fee_credit_expected_balance(uuid)')&&merchantCreditBalanceEquation.includes('revoke all on function public.merchant_fee_credit_expected_reserved(uuid)')&&merchantCreditBalanceEquation.includes('revoke all on function public.assert_merchant_fee_credit_account_equation(uuid)')&&merchantCreditBalanceEquation.includes('revoke all on function public.require_merchant_fee_credit_account_equation()'),'todas as autoridades da equação precisam permanecer server-only');
+assert.ok(feeCreditLedgerImmutability.includes('guard_merchant_fee_credit_ledger_immutable')&&feeCreditLedgerImmutability.includes('before update or delete')&&feeCreditLedgerImmutability.includes('before truncate'),'v1.112 precisa proteger UPDATE, DELETE e TRUNCATE do ledger');
+assert.ok(feeCreditLedgerImmutability.includes('MERCHANT_FEE_CREDIT_LEDGER_FACT_IMMUTABLE')&&feeCreditLedgerImmutability.includes('MERCHANT_FEE_CREDIT_LEDGER_DELETE_FORBIDDEN')&&feeCreditLedgerImmutability.includes('MERCHANT_FEE_CREDIT_LEDGER_TRUNCATE_FORBIDDEN'),'ledger append-only precisa falhar com erros estruturais explícitos');
+assert.ok(feeCreditLedgerImmutability.includes('old.order_id is not null and new.order_id is null')&&feeCreditLedgerImmutability.includes('old.created_by is not null and new.created_by is null'),'v1.112 deve permitir somente redaction técnica para NULL em order_id/created_by');
+assert.ok(feeCreditLedgerImmutability.includes("revoke all on table public.merchant_fee_credit_ledger")&&feeCreditLedgerImmutability.includes("grant select,insert on table public.merchant_fee_credit_ledger")&&feeCreditLedgerImmutability.includes("'service_role','public.merchant_fee_credit_ledger','TRUNCATE'"),'service_role precisa ficar somente com SELECT/INSERT, sem UPDATE/DELETE/TRUNCATE');
+assert.ok(feeCreditLedgerImmutability.includes('pg_trigger_depth()>1')&&feeCreditLedgerImmutability.includes('from public.merchants'),'DELETE só pode sobreviver como cascata do merchant pai já removido');
+assert.ok(feeCreditLedgerImmutability.includes('MERCHANT_FEE_CREDIT_LEDGER_BROWSER_GRANT_DRIFT')&&feeCreditLedgerImmutability.includes('MERCHANT_FEE_CREDIT_LEDGER_SERVICE_ROLE_ACL_DRIFT'),'migration precisa validar ACL final fail-closed');
 
 assert.ok(refundAllocationSplit.includes("to_jsonb(new)->>'id'")&&refundAllocationSplit.includes("to_jsonb(new)->>'refund_id'"),'constraint trigger compartilhado entre refund/recovery precisa extrair IDs sem assumir o record shape da tabela chamadora');
 assert.ok(refundAllocationSplit.includes('REFUND_ALLOCATION_ZERO_EXPOSURE_HAS_RECOVERY')&&refundAllocationSplit.includes('REFUND_ALLOCATION_RECOVERY_MISMATCH'),'zero exposição não pode gerar dívida e obrigação positiva precisa bater exatamente com o recoverable');
