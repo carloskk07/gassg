@@ -697,7 +697,7 @@ returns trigger
 language plpgsql
 security definer
 set search_path=pg_catalog
-as $
+as $refund_new_request$
 begin
   if exists(
     select 1
@@ -710,7 +710,7 @@ begin
   end if;
   return new;
 end;
-$;
+$refund_new_request$;
 
 revoke all on function public.block_new_payment_request_during_provider_refund_review()
 from public,anon,authenticated;
