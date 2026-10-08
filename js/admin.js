@@ -1453,11 +1453,13 @@ function adminMerchantBillingSection(d){
       ${providerHealth?`<div class="notice ${providerHealth.ok?'success':'danger'}" style="margin-top:10px"><strong>${providerHealth.ok?'Teste real Woovi aprovado.':'Teste real Woovi requer atenção.'}</strong><br>Credencial API: ${providerHealth.credentialValid===true?'válida':providerHealth.credentialValid===false?'inválida':'não confirmada'} • webhook CHARGE_COMPLETED: ${providerHealth.chargeWebhookReady?'ativo e autenticado':'não confirmado'} • TRANSACTION_RECEIVED: ${providerHealth.transactionWebhookActive?'ativo':'não necessário/ausente'} • empresa vinculada: ${providerHealth.companyBound?'sim':'não'} • ambiente: ${esc(providerHealth.environment||'—')}${providerHealth.reason?' • '+esc(providerHealth.reason):''}</div>`:''}
       ${paymentIngress.configValid===false
         ?`<div class="notice danger" style="margin-top:10px"><strong>Configuração de webhook inválida.</strong><br>O mapa BILLING_PAYMENT_WEBHOOK_SECRETS não pôde ser validado. Nenhum recebimento automático deve ser considerado pronto.</div>`
-        :paymentIngress.livePspReady
-          ?`<div class="notice success" style="margin-top:10px"><strong>PSP real conectado.</strong><br>Existe adaptador nativo com secret válido para receber e normalizar eventos do provedor.</div>`
-          :paymentIngress.normalizedIngressConfigured
-            ?`<div class="notice" style="margin-top:10px"><strong>Ingress técnico pronto; PSP real ainda não.</strong><br>Há secret para o contrato HMAC normalizado do TAMÃO, mas nenhum adaptador nativo de PSP está ativo. Não trate este estado como integração bancária concluída.</div>`
-            :`<div class="notice" style="margin-top:10px"><strong>PSP/Pix ainda não conectado.</strong><br>O motor interno de conciliação está pronto, mas não há secret de ingress válido nem adaptador nativo de provedor. O fluxo manual continua disponível.</div>`}
+        :pspValidated
+          ?`<div class="notice success" style="margin-top:10px"><strong>PSP validado em tempo real.</strong><br>O AppID respondeu, o webhook CHARGE_COMPLETED está ativo e autenticado, e a cobrança automática pode operar com conciliação por EndToEndId.</div>`
+          :paymentIngress.livePspReady
+            ?`<div class="notice" style="margin-top:10px"><strong>PSP configurado; prova real ainda pendente.</strong><br>Os secrets necessários existem no servidor, mas isso não comprova que a credencial ou o webhook estejam válidos na Woovi. Use “Testar conexão real com a Woovi”.</div>`
+            :paymentIngress.normalizedIngressConfigured
+              ?`<div class="notice" style="margin-top:10px"><strong>Ingress técnico pronto; PSP real ainda não.</strong><br>Há secret para o contrato HMAC normalizado do TAMÃO, mas nenhum adaptador nativo de PSP está configurado. O fluxo manual continua disponível.</div>`
+              :`<div class="notice" style="margin-top:10px"><strong>PSP/Pix ainda não conectado.</strong><br>O motor interno de conciliação está pronto, mas não há integração automática validada. O fluxo manual continua disponível.</div>`}
     </div>`:''}
     ${adminBillingMetricsView(metrics)}
     ${adminBillingReconciliationView(reconciliation)}
