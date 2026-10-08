@@ -61,7 +61,9 @@ for f in $(find supabase/functions -mindepth 2 -maxdepth 2 -name 'index.ts' | so
       grep -q 'OPENPIX:TRANSACTION_RECEIVED' "$f" || { echo "$f missing Pix-received event allowlist"; exit 1; }
       grep -q 'OPENPIX:CHARGE_COMPLETED' "$f" || { echo "$f missing completed-charge event allowlist"; exit 1; }
       grep -q 'OPENPIX:CHARGE_EXPIRED' "$f" || { echo "$f missing expired-charge event allowlist"; exit 1; }
+      grep -q 'PIX_TRANSACTION_REFUND_SENT_CONFIRMED' "$f" || { echo "$f missing confirmed refund-sent event allowlist"; exit 1; }
       grep -q 'merchant_billing_provider_charge_expire' "$f" || { echo "$f missing server-side expiry authority"; exit 1; }
+      grep -q 'ingest_merchant_billing_payment_refund' "$f" || { echo "$f missing server-side refund authority"; exit 1; }
       grep -q 'retireWooviSiblingCharges' "$f" || { echo "$f missing regenerated sibling cancellation"; exit 1; }
       grep -q 'method:"DELETE"' "$f" || { echo "$f missing provider-side sibling cancellation"; exit 1; }
       grep -q 'PROVIDER_CANCEL_FAILED' "$f" || { echo "$f missing cancellation failure evidence"; exit 1; }
