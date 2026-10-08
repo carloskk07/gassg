@@ -7,6 +7,7 @@ import {
   requestFingerprint,
   sha256Hex
 } from "../_shared/domain.js";
+import { cancelProviderChargesForPaymentRequest } from "../_shared/provider-charge-cancel.js";
 
 const SUPABASE_URL=Deno.env.get("SUPABASE_URL")??"";
 const publishableKeys=JSON.parse(Deno.env.get("SUPABASE_PUBLISHABLE_KEYS")??"{}");
@@ -2087,6 +2088,25 @@ Deno.serve(async(req:Request)=>{
     }
     const {data,error}=await admin.rpc(rpcName,rpcArgs);
     if(error)throw error;
+
+    if(action==="merchant-billing-payment-request"
+       &&payload.requestAction==="reject"
+       &&payload.paymentRequestId){
+      let providerCancellation={attempted:0,cancelled:0,failed:0,deferred:false};
+      try{
+        providerCancellation={
+          ...(await cancelProviderChargesForPaymentRequest(
+            admin,payload.paymentRequestId
+          )),
+          deferred:false
+        };
+      }catch(cancelError){
+        console.error("provider cancellation handoff failed",String(cancelError));
+        providerCancellation={attempted:0,cancelled:0,failed:1,deferred:true};
+      }
+      return json({...data,providerCancellation},200,origin);
+    }
+
     return json(data,200,origin);
 
 
