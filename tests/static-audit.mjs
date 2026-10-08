@@ -56,6 +56,7 @@ const functionConfig=read('supabase/config.toml');
 const livePortalWorkflow=read('.github/workflows/build-live-portals.yml');
 const launchReadinessWorkflow=read('.github/workflows/launch-readiness.yml');
 const remoteAdminTurnstile=read('tests/remote-admin-turnstile.mjs');
+const remoteFinancePspReadiness=read('tests/remote-finance-psp-readiness.mjs');
 const auditWorkflow=read('.github/workflows/audit.yml');
 const pagesWorkflow=read('.github/workflows/pages.yml');
 const edgeFunctionAudit=read('scripts/audit-edge-functions.sh');
@@ -365,6 +366,13 @@ assert.ok(launchReadinessWorkflow.includes("TAMAO_REQUIRE_LIVE_PORTALS: '1'")&&l
 assert.ok(launchReadinessWorkflow.includes('TAMAO_EXPECTED_SOURCE_SHA: ${{ github.sha }}'),'gate de lançamento precisa amarrar produção ao commit exato que está sendo certificado');
 
 assert.ok(launchReadinessWorkflow.includes('node tests/remote-admin-turnstile.mjs'),'gate de lançamento precisa continuar executando o smoke real do Turnstile');
+
+assert.ok(launchReadinessWorkflow.includes('node tests/remote-finance-psp-readiness.mjs'),'gate de lançamento precisa provar configuração runtime do PSP antes de aprovar produção');
+assert.ok(remoteFinancePspReadiness.includes('PIX_PROVIDER_NOT_CONFIGURED')&&remoteFinancePspReadiness.includes("pix.body?.error,\n  'UNAUTHORIZED'"),'probe Pix precisa distinguir App ID ausente de autenticação de usuário ausente');
+assert.ok(remoteFinancePspReadiness.includes('WOOVI_ADAPTER_NOT_CONFIGURED')&&remoteFinancePspReadiness.includes('INVALID_WOOVI_AUTHORIZATION'),'probe webhook precisa provar Company ID + autorização privada sem conhecer o segredo');
+assert.ok(remoteFinancePspReadiness.includes('secretsExposed:false'),'gate PSP precisa afirmar explicitamente que nenhum valor secreto é emitido');
+assert.ok(!remoteFinancePspReadiness.includes('WOOVI_APP_ID=')&&!remoteFinancePspReadiness.includes('WOOVI_WEBHOOK_AUTHORIZATION='),'probe PSP não pode versionar valores de secrets');
+
 assert.ok(remoteAdminTurnstile.includes('CHROME_START_ATTEMPTS=3')&&remoteAdminTurnstile.includes('CHROME_START_POLLS=80'),'sonda Turnstile precisa tolerar startup lento do Chrome sem remover fail-closed');
 assert.ok(remoteAdminTurnstile.includes('--disable-dev-shm-usage')&&remoteAdminTurnstile.includes('--remote-debugging-address=127.0.0.1'),'Chrome do runner precisa usar configuração headless resiliente e debug apenas local');
 assert.ok(remoteAdminTurnstile.includes("stdio:['ignore','ignore','pipe']")&&remoteAdminTurnstile.includes('compactDiagnostics'),'falha de startup do Chrome precisa preservar diagnóstico em vez de descartar stderr');
