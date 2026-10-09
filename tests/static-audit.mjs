@@ -980,7 +980,9 @@ assert.ok(
   &&getOrderPaymentSource.includes('fundsOwner:"merchant"')
   &&getOrderPaymentSource.includes('tamaoReceivesSaleProceeds:false')
   &&backend.includes('liveStartMerchantPayment')
-  &&merchant.includes('Conexões para confirmação automática')
+  &&merchant.includes('Provedores que a revenda usa')
+  &&merchant.includes('Eu uso este PSP')
+  &&merchant.includes('merchantDeclaredProvider:true')
   &&merchant.includes('Mercado Pago não é obrigatório.'),
   'portais precisam resolver pagamento por capacidade, manter fallback manual e deixar explícito que a venda não passa pelo TAMÃO'
 );

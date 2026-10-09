@@ -168,10 +168,12 @@ assert.ok(
 );
 assert.ok(
   merchant.includes('Mercado Pago não é obrigatório.')
-  &&merchant.includes('Conexões para confirmação automática')
+  &&merchant.includes('Provedores que a revenda usa')
   &&merchant.includes('merchantConnectProviderFromUi')
-  &&merchant.includes('merchantUpdatePaymentRoutesLive'),
-  'UX da revenda deve deixar explícito que PSP é opcional e confirmação automática é uma camada separada'
+  &&merchant.includes('merchantUseProviderManuallyFromUi')
+  &&merchant.includes('merchantUpdatePaymentRoutesLive')
+  &&merchant.includes('automação e custódia são coisas diferentes'),
+  'UX da revenda deve deixar explícito que PSP é opcional, pode começar manual e confirmação automática é uma camada separada'
 );
 assert.ok(
   merchant.includes("provider:'manual'")
