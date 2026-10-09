@@ -8,6 +8,7 @@ import {
   sha256Hex
 } from "../_shared/domain.js";
 import { cancelProviderChargesForPaymentRequest } from "../_shared/provider-charge-cancel.js";
+import { paymentEncryptionConfigured } from "../_shared/payment-secrets.js";
 
 const SUPABASE_URL=Deno.env.get("SUPABASE_URL")??"";
 const publishableKeys=JSON.parse(Deno.env.get("SUPABASE_PUBLISHABLE_KEYS")??"{}");
@@ -35,7 +36,8 @@ const TEST_TURNSTILE_KEYS=new Set([
 const PORTAL_PROBE_TIMEOUT_MS=5000;
 const UUID_RE=/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const PAYMENT_INGRESS_CONTRACT="tamao_normalized_hmac_v1";
-const LIVE_PAYMENT_PROVIDER_ADAPTERS=new Set<string>(["woovi"]);
+const LIVE_PAYMENT_PROVIDER_ADAPTERS=new Set<string>(["mercadopago","woovi"]);
+const BILLING_PIX_PROVIDER=String(Deno.env.get("BILLING_PIX_PROVIDER")??"mercadopago").trim().toLowerCase();
 
 function originAllowed(origin:string|null){
   if(!origin)return true;
@@ -106,7 +108,7 @@ const ADMIN_ROLE_ACTIONS:Record<string,Set<string>>={
   ]),
   finance:new Set([
     "financial-action","review-referral","retry-reward","retry-accounting","reverse-order",
-    "commercial-policy","merchant-billing-action","merchant-billing-payment-request","merchant-billing-payment-event","merchant-billing-refund","merchant-billing-provider-cancel-retry","incident-action"
+    "commercial-policy","merchant-billing-action","merchant-billing-payment-request","merchant-billing-payment-event","merchant-billing-refund","merchant-billing-provider-cancel-retry","merchant-payment-capability","incident-action"
   ]),
   support:new Set(["order-control","support-case-status","incident-action"]),
   compliance:new Set([
@@ -223,6 +225,17 @@ function billingPaymentIngressReadiness(){
   const configuredProviders=[...providers].sort();
   const normalizedIngressConfigured=configValid&&configuredProviders.length>0;
 
+  const mercadoPagoAccessToken=String(Deno.env.get("MERCADOPAGO_ACCESS_TOKEN")??"").trim();
+  const mercadoPagoWebhookSecret=String(Deno.env.get("MERCADOPAGO_WEBHOOK_SECRET")??"");
+  const mercadoPagoChargeReady=
+    LIVE_PAYMENT_PROVIDER_ADAPTERS.has("mercadopago")
+    &&mercadoPagoAccessToken.length>=20
+    &&!/[\u0000-\u001f\u007f\s]/.test(mercadoPagoAccessToken);
+  const mercadoPagoWebhookReady=
+    LIVE_PAYMENT_PROVIDER_ADAPTERS.has("mercadopago")
+    &&mercadoPagoWebhookSecret.length>=16;
+  const mercadoPagoReady=mercadoPagoChargeReady&&mercadoPagoWebhookReady;
+
   const wooviAuthorization=String(Deno.env.get("WOOVI_WEBHOOK_AUTHORIZATION")??"");
   const wooviCompanyId=String(Deno.env.get("WOOVI_COMPANY_ID")??"").trim();
   const wooviAppId=String(Deno.env.get("WOOVI_APP_ID")??"").trim();
@@ -245,13 +258,21 @@ function billingPaymentIngressReadiness(){
   const wooviReady=wooviWebhookReady&&wooviChargeReady;
 
   const liveProviders=[
+    ...(mercadoPagoReady?["mercadopago"]:[]),
     ...(wooviReady?["woovi"]:[])
   ].sort();
+  const activeProviderReady=
+    BILLING_PIX_PROVIDER==="mercadopago"
+      ?mercadoPagoReady
+      :BILLING_PIX_PROVIDER==="woovi"
+        ?wooviReady
+        :false;
 
   return {
     configured:normalizedIngressConfigured,
     normalizedIngressConfigured,
-    livePspReady:configValid&&liveProviders.length>0,
+    livePspReady:configValid&&activeProviderReady,
+    activeBillingProvider:BILLING_PIX_PROVIDER,
     configValid,
     contract:PAYMENT_INGRESS_CONTRACT,
     providerCount:configuredProviders.length,
@@ -259,6 +280,17 @@ function billingPaymentIngressReadiness(){
     liveProviderCount:liveProviders.length,
     liveProviders,
     adapterReadiness:{
+      mercadopago:{
+        implemented:LIVE_PAYMENT_PROVIDER_ADAPTERS.has("mercadopago"),
+        accessTokenConfigured:mercadoPagoChargeReady,
+        webhookSecretConfigured:mercadoPagoWebhookReady,
+        receiveReady:mercadoPagoWebhookReady,
+        chargeReady:mercadoPagoChargeReady,
+        ready:mercadoPagoReady,
+        events:["order"],
+        signature:"HMAC-SHA256",
+        authoritativeLookup:"GET /v1/orders/{id}"
+      },
       woovi:{
         implemented:LIVE_PAYMENT_PROVIDER_ADAPTERS.has("woovi"),
         webhookAuthorizationConfigured:wooviAuthorization.length>=24,
@@ -277,6 +309,9 @@ function billingPaymentIngressReadiness(){
       ?SUPABASE_URL.replace(/\/$/,"")+"/functions/v1/billing-payment-webhook"
       :null,
     liveEndpoints:{
+      mercadopago:SUPABASE_URL
+        ?SUPABASE_URL.replace(/\/$/,"")+"/functions/v1/billing-payment-webhook-mercadopago"
+        :null,
       woovi:SUPABASE_URL
         ?SUPABASE_URL.replace(/\/$/,"")+"/functions/v1/billing-payment-webhook-woovi"
         :null,
@@ -284,6 +319,133 @@ function billingPaymentIngressReadiness(){
         ?SUPABASE_URL.replace(/\/$/,"")+"/functions/v1/merchant-billing-pix"
         :null
     }
+  };
+}
+
+async function mercadoPagoBillingProviderHealth(){
+  const readiness=billingPaymentIngressReadiness();
+  const endpoint=String(readiness?.liveEndpoints?.mercadopago??"").trim();
+  const accessToken=String(Deno.env.get("MERCADOPAGO_ACCESS_TOKEN")??"").trim();
+  const webhookSecret=String(Deno.env.get("MERCADOPAGO_WEBHOOK_SECRET")??"");
+  const checkedAt=new Date().toISOString();
+  const tokenShapeValid=
+    accessToken.length>=20&&!/[\u0000-\u001f\u007f\s]/.test(accessToken);
+  const webhookSecretConfigured=webhookSecret.length>=16;
+
+  if(!tokenShapeValid||!webhookSecretConfigured||!endpoint){
+    return {
+      ok:false,
+      provider:"mercadopago",
+      status:"not_configured",
+      checkedAt,
+      credentialValid:false,
+      chargeReady:tokenShapeValid,
+      receiveReady:webhookSecretConfigured,
+      webhookSecretConfigured,
+      endpoint,
+      reason:
+        !tokenShapeValid?"MERCADOPAGO_ACCESS_TOKEN_MISSING":
+        !webhookSecretConfigured?"MERCADOPAGO_WEBHOOK_SECRET_MISSING":
+        "MERCADOPAGO_WEBHOOK_ENDPOINT_MISSING"
+    };
+  }
+
+  const controller=new AbortController();
+  const timer=setTimeout(()=>controller.abort(),7000);
+  try{
+    const response=await fetch("https://api.mercadolibre.com/users/me",{
+      method:"GET",
+      headers:{
+        "Accept":"application/json",
+        "Authorization":"Bearer "+accessToken
+      },
+      signal:controller.signal
+    });
+    const raw=await response.text();
+    if(raw.length>200000){
+      return {
+        ok:false,provider:"mercadopago",status:"provider_invalid_response",
+        checkedAt,credentialValid:response.status!==401,
+        chargeReady:false,receiveReady:webhookSecretConfigured,
+        webhookSecretConfigured,endpoint,apiStatus:response.status,
+        reason:"MERCADOPAGO_RESPONSE_TOO_LARGE"
+      };
+    }
+    if(response.status===401){
+      return {
+        ok:false,provider:"mercadopago",status:"invalid_credentials",
+        checkedAt,credentialValid:false,chargeReady:false,
+        receiveReady:webhookSecretConfigured,webhookSecretConfigured,
+        endpoint,apiStatus:401,reason:"MERCADOPAGO_ACCESS_TOKEN_REJECTED"
+      };
+    }
+    if(!response.ok){
+      return {
+        ok:false,provider:"mercadopago",
+        status:response.status===429?"rate_limited":"provider_unavailable",
+        checkedAt,credentialValid:null,chargeReady:false,
+        receiveReady:webhookSecretConfigured,webhookSecretConfigured,
+        endpoint,apiStatus:response.status,
+        reason:"MERCADOPAGO_CREDENTIAL_HEALTH_HTTP_"+response.status
+      };
+    }
+    let accountId:null|string=null;
+    try{
+      const payload=raw?JSON.parse(raw):{};
+      const id=String(payload?.id??"").trim();
+      accountId=id||null;
+    }catch{
+      return {
+        ok:false,provider:"mercadopago",status:"provider_invalid_response",
+        checkedAt,credentialValid:true,chargeReady:false,
+        receiveReady:webhookSecretConfigured,webhookSecretConfigured,
+        endpoint,apiStatus:response.status,reason:"MERCADOPAGO_INVALID_JSON"
+      };
+    }
+    return {
+      ok:true,
+      provider:"mercadopago",
+      status:"healthy",
+      checkedAt,
+      credentialValid:true,
+      chargeReady:true,
+      receiveReady:true,
+      webhookSecretConfigured:true,
+      endpoint,
+      endpointConfiguredLocally:true,
+      remoteWebhookRegistrationVerified:false,
+      accountBound:accountId!=null,
+      apiStatus:response.status,
+      reason:null
+    };
+  }catch(error){
+    return {
+      ok:false,provider:"mercadopago",status:"provider_unavailable",
+      checkedAt,credentialValid:null,chargeReady:false,
+      receiveReady:webhookSecretConfigured,webhookSecretConfigured,
+      endpoint,
+      reason:error instanceof DOMException&&error.name==="AbortError"
+        ?"MERCADOPAGO_HEALTH_TIMEOUT"
+        :"MERCADOPAGO_HEALTH_FETCH_FAILED"
+    };
+  }finally{
+    clearTimeout(timer);
+  }
+}
+
+async function billingProviderHealth(){
+  if(BILLING_PIX_PROVIDER==="mercadopago"){
+    return await mercadoPagoBillingProviderHealth();
+  }
+  if(BILLING_PIX_PROVIDER==="woovi"){
+    return await wooviBillingProviderHealth();
+  }
+  return {
+    ok:false,
+    provider:BILLING_PIX_PROVIDER,
+    status:"invalid_config",
+    checkedAt:new Date().toISOString(),
+    reason:"BILLING_PIX_PROVIDER_INVALID"
   };
 }
 
@@ -526,6 +688,7 @@ function scopeAdminSummary(role:string,data:any){
   if(role==="operations"){
     return {
       ...data,
+      merchants:(data.merchants??[]).map((m:any)=>({...m,paymentAccount:null})),
       finance:{receivables:[],cashbackReimbursements:[],adjustments:[]},
       merchantBilling:{
         plans:[],
@@ -553,7 +716,8 @@ function scopeAdminSummary(role:string,data:any){
       applications:[],pilotPartners:[],
       merchants:(data.merchants??[]).map((m:any)=>({
         id:m.id,name:m.name,cnpj:m.cnpj,status:m.status,online:m.online,trust_score:m.trust_score,
-        delivery_fee_cents:m.delivery_fee_cents,price_confirmed_at:m.price_confirmed_at,last_seen_at:m.last_seen_at
+        delivery_fee_cents:m.delivery_fee_cents,price_confirmed_at:m.price_confirmed_at,last_seen_at:m.last_seen_at,
+        paymentAccount:m.paymentAccount??null
       })),
       productRegistry:{categories:[],products:[]},
       supportCases:[],
@@ -573,7 +737,7 @@ function scopeAdminSummary(role:string,data:any){
         price_confirmed_at:m.price_confirmed_at,last_seen_at:m.last_seen_at
       })),
       commercialPolicy:null,
-      merchantBilling:{plans:[],accounts:[],statements:[],paymentRequests:[],paymentEvents:[],refunds:[],refundRecoveries:[],providerCharges:[],paymentIngress:null,metrics:null,reconciliation:null},
+      merchantBilling:{plans:[],accounts:[],statements:[],paymentRequests:[],paymentEvents:[],refunds:[],refundRecoveries:[],providerCharges:[],paymentAccounts:[],paymentIngress:null,metrics:null,reconciliation:null},
       productRegistry:{categories:[],products:[]},
       finance:{receivables:[],cashbackReimbursements:[],adjustments:[]},
       rewardFailures:[],accountingFailures:[],referralReviews:[],
@@ -585,8 +749,9 @@ function scopeAdminSummary(role:string,data:any){
   if(role==="compliance"){
     return {
       ...data,
+      merchants:(data.merchants??[]).map((m:any)=>({...m,paymentAccount:null})),
       businessMetrics:{},commercialPolicy:null,
-      merchantBilling:{plans:[],accounts:[],statements:[],paymentRequests:[],paymentEvents:[],refunds:[],refundRecoveries:[],providerCharges:[],paymentIngress:null,metrics:null,reconciliation:null},
+      merchantBilling:{plans:[],accounts:[],statements:[],paymentRequests:[],paymentEvents:[],refunds:[],refundRecoveries:[],providerCharges:[],paymentAccounts:[],paymentIngress:null,metrics:null,reconciliation:null},
       productRegistry:{categories:[],products:[]},
       supportCases:[],controlOrders:[],
       finance:{receivables:[],cashbackReimbursements:[],adjustments:[]},
@@ -838,7 +1003,7 @@ async function adminSystemHealth(admin:any){
   const [portals,readiness,paymentProvider,openSupport,rewardDebt,accountingDebt,overdueReceivables,overdueCashback,activeMerchants]=await Promise.all([
     verifyLivePortals(),
     admin.rpc("platform_launch_readiness"),
-    wooviBillingProviderHealth(),
+    billingProviderHealth(),
     admin.from("support_cases").select("id",{count:"exact",head:true}).in("status",["open","in_review"]),
     admin.from("reward_processing_failures").select("order_id",{count:"exact",head:true}).is("resolved_at",null),
     admin.from("settlement_accounting_failures").select("order_id",{count:"exact",head:true}).is("resolved_at",null),
@@ -1027,6 +1192,13 @@ async function summary(admin:any,actorUserId:string){
         .order("created_at",{ascending:false})
         .limit(200)
     : Promise.resolve({data:[],error:null});
+  const merchantPaymentAccountsPromise=["superadmin","finance","readonly"].includes(actorRole)
+    ? admin.from("merchant_payment_provider_accounts")
+        .select("merchant_id,provider,provider_account_id,status,capabilities,token_expires_at,connected_at,refreshed_at,revoked_at,last_error_code,last_error_at,updated_at")
+        .eq("provider","mercadopago")
+        .order("updated_at",{ascending:false})
+        .limit(500)
+    : Promise.resolve({data:[],error:null});
   const billingRefundsPromise=["superadmin","finance","readonly"].includes(actorRole)
     ? admin.from("merchant_billing_payment_refunds")
         .select("id,provider,provider_event_id,original_reconciliation_key,refund_reconciliation_key,amount_cents,recoverable_amount_cents,excess_amount_cents,currency,occurred_at,received_at,status,payment_event_id,payment_request_id,merchant_id,original_payment_amount_cents,cumulative_refunded_cents,match_reason,reopened_refund_recovery_id,resolved_by,resolved_at,resolution_reference,created_at,updated_at")
@@ -1039,7 +1211,7 @@ async function summary(admin:any,actorUserId:string){
         .order("created_at",{ascending:false})
         .limit(200)
     : Promise.resolve({data:[],error:null});
-  const [billingPlans,billingAccounts,dailyStatements,billingPaymentRequests,billingMetrics,billingReconciliation,billingPaymentEvents,billingProviderCharges,billingRefunds,billingRefundRecoveries]=await Promise.all([
+  const [billingPlans,billingAccounts,dailyStatements,billingPaymentRequests,billingMetrics,billingReconciliation,billingPaymentEvents,billingProviderCharges,merchantPaymentAccounts,billingRefunds,billingRefundRecoveries]=await Promise.all([
     admin.from("merchant_billing_plans")
       .select("plan_key,display_name,billing_mode,platform_fee_bps,purchase_amount_cents,credit_grant_cents,active,sort_order,updated_at")
       .order("sort_order",{ascending:true}),
@@ -1059,10 +1231,11 @@ async function summary(admin:any,actorUserId:string){
     billingReconciliationPromise,
     billingPaymentEventsPromise,
     billingProviderChargesPromise,
+    merchantPaymentAccountsPromise,
     billingRefundsPromise,
     billingRefundRecoveriesPromise
   ]);
-  for(const result of [billingPlans,billingAccounts,dailyStatements,billingPaymentRequests,billingMetrics,billingReconciliation,billingPaymentEvents,billingProviderCharges,billingRefunds,billingRefundRecoveries]){
+  for(const result of [billingPlans,billingAccounts,dailyStatements,billingPaymentRequests,billingMetrics,billingReconciliation,billingPaymentEvents,billingProviderCharges,merchantPaymentAccounts,billingRefunds,billingRefundRecoveries]){
     if(result.error)throw result.error;
   }
 
@@ -1116,6 +1289,9 @@ async function summary(admin:any,actorUserId:string){
   const businessByMerchant=new Map((merchantBusinessDetails.data??[]).map((x:any)=>[x.merchant_id,x]));
   const merchantReadinessById=new Map<string,any>(
     (merchantReadiness.data??[]).map((x:any)=>[String(x.merchantId),x] as [string,any])
+  );
+  const paymentAccountByMerchant=new Map<string,any>(
+    (merchantPaymentAccounts.data??[]).map((x:any)=>[String(x.merchant_id),x] as [string,any])
   );
   const capabilitiesByMerchant=new Map<string,any[]>();
   for(const cap of capabilities.data??[]){
@@ -1192,12 +1368,17 @@ async function summary(admin:any,actorUserId:string){
       compliance:byMerchant.get(m.id)??null,
       businessDetails:businessByMerchant.get(m.id)??null,
       deliveryCapabilities:capabilitiesByMerchant.get(m.id)??[],
-      readiness:merchantReadinessById.get(m.id)??null
+      readiness:merchantReadinessById.get(m.id)??null,
+      paymentAccount:paymentAccountByMerchant.get(m.id)??null
     })),
     merchantReadiness:merchantReadiness.data??[],
     businessMetrics:businessMetrics.data??{},
     launchReadiness:launchReadiness.data??{},
     commercialPolicy:commercialPolicy.data??null,
+    merchantPayments:{
+      globalDirectPaymentsEnabled:
+        String(Deno.env.get("MERCHANT_DIRECT_PAYMENTS_ENABLED")??"").trim()==="1"
+    },
     merchantBilling:{
       plans:billingPlans.data??[],
       accounts:billingAccounts.data??[],
@@ -1207,6 +1388,7 @@ async function summary(admin:any,actorUserId:string){
       refunds:billingRefunds.data??[],
       refundRecoveries:billingRefundRecoveries.data??[],
       providerCharges:billingProviderCharges.data??[],
+      paymentAccounts:merchantPaymentAccounts.data??[],
       paymentIngress:billingPaymentIngressReadiness(),
       metrics:billingMetrics.data??null,
       reconciliation:billingReconciliation.data??null
@@ -1283,7 +1465,7 @@ Deno.serve(async(req:Request)=>{
       return json(await adminSystemHealth(admin),200,origin);
     }
     if(action==="billing-provider-health"){
-      return json(await wooviBillingProviderHealth(),200,origin);
+      return json(await billingProviderHealth(),200,origin);
     }
     if(action==="audit-search"){
       return json(await adminAuditSearch(admin,body,String(adminAccess.admin_role||"superadmin")),200,origin);
@@ -1713,6 +1895,41 @@ Deno.serve(async(req:Request)=>{
         statementId,
         reference:cleanText(body.reference,{min:3,max:240,name:"referência financeira"})
       };
+    }else if(action==="merchant-payment-capability"){
+      const enabled=body.enabled===true;
+      const reference=cleanText(body.reference,{
+        min:3,max:240,name:"referência da homologação de pagamento"
+      });
+      if(enabled){
+        const oauthClientId=String(Deno.env.get("MERCADOPAGO_CLIENT_ID")??"").trim();
+        const oauthClientSecret=String(Deno.env.get("MERCADOPAGO_CLIENT_SECRET")??"").trim();
+        const oauthRedirect=String(Deno.env.get("MERCADOPAGO_OAUTH_REDIRECT_URI")??"").trim();
+        const webhookSecret=String(Deno.env.get("MERCADOPAGO_WEBHOOK_SECRET")??"").trim();
+        const encryptionKey=String(Deno.env.get("MERCHANT_PAYMENT_TOKEN_ENCRYPTION_KEY")??"").trim();
+        let redirectValid=false;
+        try{
+          const parsed=new URL(oauthRedirect);
+          redirectValid=parsed.protocol==="https:"&&!parsed.username&&!parsed.password;
+        }catch{}
+        if(
+          oauthClientId.length<5
+          ||oauthClientSecret.length<10
+          ||!redirectValid
+          ||webhookSecret.length<16
+          ||!paymentEncryptionConfigured(encryptionKey)
+        ){
+          throw new DomainError(
+            "MERCHANT_PAYMENT_RUNTIME_NOT_READY",
+            "OAuth, webhook e criptografia precisam estar configurados antes de homologar pagamentos diretos.",
+            503
+          );
+        }
+      }
+      payload={
+        merchantId:uuid(body.merchantId,"merchant"),
+        enabled,
+        reference
+      };
     }else if(action==="merchant-billing-payment-request"){
       const requestAction=String(body.requestAction??"").trim().toLowerCase();
       if(!["approve","reject"].includes(requestAction)){
@@ -1904,6 +2121,16 @@ Deno.serve(async(req:Request)=>{
         p_action:payload.billingAction,
         p_plan_key:payload.planKey,
         p_statement_id:payload.statementId,
+        p_reference:payload.reference,
+        p_idempotency_key:idempotencyKey,
+        p_request_hash:requestHash
+      };
+    }else if(action==="merchant-payment-capability"){
+      rpcName="admin_merchant_payment_capability_action";
+      rpcArgs={
+        p_actor_user_id:user.id,
+        p_merchant_id:payload.merchantId,
+        p_enabled:payload.enabled,
         p_reference:payload.reference,
         p_idempotency_key:idempotencyKey,
         p_request_hash:requestHash
@@ -2172,6 +2399,14 @@ Deno.serve(async(req:Request)=>{
       return json({...data,providerCancellation},200,origin);
     }
 
+    if(action==="merchant-payment-capability"){
+      return json({
+        ...data,
+        directPaymentsGlobalEnabled:
+          String(Deno.env.get("MERCHANT_DIRECT_PAYMENTS_ENABLED")??"").trim()==="1"
+      },200,origin);
+    }
+
     return json(data,200,origin);
 
 
@@ -2186,6 +2421,18 @@ Deno.serve(async(req:Request)=>{
     }
     if(message.includes("ADMIN_PERMISSION_DENIED")){
       return json({error:"ADMIN_PERMISSION_DENIED",message:"Seu perfil administrativo não possui permissão para esta ação."},403,origin);
+    }
+    if(message.includes("MERCHANT_PAYMENT_ACCOUNT_NOT_CONNECTED")){
+      return json({error:"MERCHANT_PAYMENT_ACCOUNT_NOT_CONNECTED",message:"A revenda precisa conectar a própria conta Mercado Pago antes da homologação."},409,origin);
+    }
+    if(message.includes("MERCHANT_PAYMENT_ACCOUNT_NOT_READY")){
+      return json({error:"MERCHANT_PAYMENT_ACCOUNT_NOT_READY",message:"A conexão Mercado Pago da revenda ainda não está pronta para pagamentos diretos."},409,origin);
+    }
+    if(message.includes("MERCHANT_PAYMENT_REVIEW_REQUIRED")){
+      return json({error:"MERCHANT_PAYMENT_REVIEW_REQUIRED",message:"Existe uma transação da revenda em revisão; resolva-a antes de reativar pagamentos diretos."},409,origin);
+    }
+    if(message.includes("MERCHANT_PAYMENT_CAPABILITY_REFERENCE_REQUIRED")){
+      return json({error:"MERCHANT_PAYMENT_CAPABILITY_REFERENCE_REQUIRED",message:"Informe a referência da homologação ou desativação."},400,origin);
     }
     if(message.includes("LAST_SUPERADMIN_CANNOT_BE_REMOVED")){
       return json({error:"LAST_SUPERADMIN_CANNOT_BE_REMOVED",message:"O último Superadmin ativo não pode ser removido nem rebaixado."},409,origin);

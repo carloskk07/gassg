@@ -499,12 +499,14 @@ async function adminCheckBillingProviderHealth(){
   try{
     adminRuntime.providerHealth=await adminInvoke({action:'billing-provider-health'});
     const h=adminRuntime.providerHealth;
-    toast(h?.ok?'Conexão Woovi validada':'Woovi exige atenção: '+String(h?.reason||h?.status||'indisponível'));
+    const provider=h?.provider==='mercadopago'?'Mercado Pago':h?.provider==='woovi'?'Woovi/OpenPix':'PSP ativo';
+    toast(h?.ok?provider+' validado':provider+' exige atenção: '+String(h?.reason||h?.status||'indisponível'));
   }catch(error){
     adminRuntime.providerHealth={
       ok:false,
       status:'unavailable',
-      reason:String(error?.message||error||'Diagnóstico Woovi indisponível'),
+      provider:null,
+      reason:String(error?.message||error||'Diagnóstico do PSP indisponível'),
       checkedAt:new Date().toISOString()
     };
   }finally{
@@ -1559,6 +1561,63 @@ function adminBillingProviderChargeRow(charge){
     : '';
   return `<div class="list-row"><div><strong>${esc(adminMerchantName(charge.merchant_id))}</strong><br><small>${esc(charge.provider||'—')} • correlação ${esc(charge.correlation_id||'—')}${charge.end_to_end_id?' • EndToEndId '+esc(charge.end_to_end_id):''}</small>${pendingNote}</div><div style="text-align:right"><strong>${adminMoney(charge.amount_cents)}</strong><br><span class="status-pill ${charge.status==='completed'?'online':charge.last_error_code?'offline':charge.status==='expired'||charge.status==='cancelled'?'':'risk'}">${esc(String(charge.status||'—').toUpperCase())}</span>${charge.expired_at?`<br><small>expirou ${esc(formatDateTime(charge.expired_at))}</small>`:''}${charge.last_error_code?`<br><small>${esc(charge.last_error_code)}</small>`:''}${retryButton}</div></div>`;
 }
+
+
+function adminBillingProviderHealthNotice(h){
+  if(!h)return '';
+  const ok=h.ok===true;
+  const provider=h.provider==='mercadopago'?'Mercado Pago':h.provider==='woovi'?'Woovi/OpenPix':'PSP ativo';
+  let detail='';
+  if(h.provider==='mercadopago'){
+    detail='credencial API '+(h.credentialValid===true?'válida':h.credentialValid===false?'inválida':'não confirmada')
+      +' • criação '+(h.chargeReady?'pronta':'não confirmada')
+      +' • webhook HMAC '+(h.receiveReady?'configurado':'não confirmado')
+      +' • conta '+(h.accountBound?'vinculada':'não confirmada');
+  }else{
+    detail='credencial '+(h.credentialValid===true?'válida':h.credentialValid===false?'inválida':'não confirmada')
+      +' • webhook pagamento '+(h.chargeWebhookReady?'ativo':'não confirmado')
+      +' • expiração '+(h.chargeExpiredWebhookReady?'ativa':'não confirmada')
+      +' • refund '+(h.refundWebhookReady?'ativo':'não confirmado')
+      +' • empresa '+(h.companyBound?'vinculada':'não confirmada');
+  }
+  if(h.reason)detail+=' • '+esc(h.reason);
+  return '<div class="notice '+(ok?'success':'danger')+'" style="margin-top:10px"><strong>'+(ok?'Teste real '+provider+' aprovado.':'Teste real '+provider+' requer atenção.')+'</strong><br>'+detail+'</div>';
+}
+
+function adminMerchantPaymentAccountCard(merchant){
+  const account=merchant?.paymentAccount||null;
+  const connected=account?.status==='active';
+  const directEnabled=account?.capabilities?.directSalePaymentsEnabled===true;
+  const globalEnabled=adminRuntime.data?.merchantPayments?.globalDirectPaymentsEnabled===true;
+  const accountRef=String(account?.provider_account_id||'');
+  const safeAccountRef=accountRef?('•••• '+accountRef.slice(-6)):'—';
+  const statusLabel=!connected?'NÃO CONECTADO':directEnabled?'HOMOLOGADO':'AGUARDA HOMOLOGAÇÃO';
+  const statusClass=directEnabled&&globalEnabled?'online':connected?'risk':'';
+  let notice='';
+  if(!connected){
+    notice='<div class="notice" style="margin-top:8px">A revenda ainda não concluiu a autorização OAuth do próprio Mercado Pago.</div>';
+  }else if(directEnabled){
+    notice='<div class="notice success" style="margin-top:8px"><strong>Revenda homologada.</strong><br>A plataforma pode validar pagamentos feitos diretamente na conta desta revenda. O TAMÃO não recebe nem repassa o valor da venda.</div>';
+  }else{
+    notice='<div class="notice" style="margin-top:8px"><strong>Conta conectada, venda direta bloqueada.</strong><br>Valide a integração real desta revenda antes de homologar pagamentos online.</div>';
+  }
+  const action=connected
+    ?'<div class="order-actions"><button class="'+(directEnabled?'danger-btn':'secondary')+' small" onclick="adminSetMerchantPaymentCapability(\''+esc(merchant.id)+'\','+(directEnabled?'false':'true')+')">'+(directEnabled?'Suspender pagamentos diretos':'Homologar pagamentos diretos')+'</button></div>'
+    :'';
+  return '<article class="order-card">'
+    +'<div class="order-head"><div><div class="order-id">'+esc(merchant?.name||merchant?.id||'Revenda')+'</div><div class="tiny muted">Mercado Pago • conta '+esc(safeAccountRef)+'</div></div><span class="status-pill '+statusClass+'">'+esc(statusLabel)+'</span></div>'
+    +notice
+    +'<div class="tiny muted" style="margin-top:8px">Kill switch global: <strong>'+(globalEnabled?'ATIVO':'DESATIVADO')+'</strong> • conexão: '+esc(account?.status||'not_connected')+(account?.connected_at?' • desde '+esc(formatDateTime(account.connected_at)):'')+'</div>'
+    +action
+    +'</article>';
+}
+function adminMerchantPaymentAccountsSection(d){
+  const rows=(d.merchants||[]).filter(m=>m.paymentAccount);
+  const globalEnabled=d.merchantPayments?.globalDirectPaymentsEnabled===true;
+  return '<div class="section-head" style="margin-top:18px"><div><h3>Recebimento direto das revendas</h3><p>Cada revenda conecta a própria conta Mercado Pago. Homologação individual e kill switch global são independentes; nenhuma venda passa pela conta do TAMÃO.</p></div><span class="status-pill '+(globalEnabled?'online':'risk')+'">GLOBAL '+(globalEnabled?'ATIVO':'DESATIVADO')+'</span></div>'
+    +(rows.length?'<div class="admin-entity-grid">'+rows.map(adminMerchantPaymentAccountCard).join('')+'</div>':'<div class="empty card">Nenhuma revenda conectou uma conta Mercado Pago ainda.</div>');
+}
+
 function adminMerchantBillingSection(d){
   const billing=d.merchantBilling||{};
   const plans=billing.plans||[];
@@ -1595,25 +1654,29 @@ function adminMerchantBillingSection(d){
     });
   return `<section class="section">
     <div class="section-head"><div><span class="section-kicker">COBRANÇA DAS REVENDAS</span><h2>Fechamento diário + pacotes</h2><p>Cada pedido mantém sua taxa auditável. À 00:05 o dia anterior é consolidado; o saldo vence no fim do dia seguinte. Crédito pré-pago reduz a taxa e evita pagamento diário enquanto houver saldo.</p></div><div class="order-actions"><span class="status-pill ${Number(metrics?.overdueStatementCount??overdue.length)?'offline':'online'}">${Number(metrics?.overdueStatementCount??overdue.length)} vencido(s)</span><span class="status-pill ${Number(metrics?.salesHoldCount??held.length)?'offline':'online'}">${Number(metrics?.salesHoldCount??held.length)} hold(s)</span></div></div>
-    ${paymentIngress?`<div class="card flat" style="margin-bottom:16px"><div class="section-head"><div><h3>Entrada Pix / PSP</h3><p>Configuração e disponibilidade real são estados diferentes. O painel só chama o PSP de validado após uma consulta autenticada à Woovi; segredos nunca saem do ambiente server-side.</p></div><span class="status-pill ${pspBadgeClass}">${esc(pspBadgeLabel)}</span></div>
+    ${paymentIngress?`<div class="card flat" style="margin-bottom:16px"><div class="section-head"><div><h3>Entrada Pix / PSP</h3><p>Configuração e disponibilidade real são estados diferentes. O painel só chama o PSP ativo de validado após uma consulta autenticada; segredos nunca saem do ambiente server-side.</p></div><span class="status-pill ${pspBadgeClass}">${esc(pspBadgeLabel)}</span></div>
       <div class="tiny muted">Contrato técnico: ${esc(paymentIngress.contract||'—')} • secrets válidos: ${Number(paymentIngress.providerCount||0)}${Array.isArray(paymentIngress.providers)&&paymentIngress.providers.length?' • '+paymentIngress.providers.map(esc).join(', '):''}</div>
       <div class="tiny muted">Adaptadores nativos de PSP ativos: ${Number(paymentIngress.liveProviderCount||0)}${Array.isArray(paymentIngress.liveProviders)&&paymentIngress.liveProviders.length?' • '+paymentIngress.liveProviders.map(esc).join(', '):''}</div>
+      <div class="tiny muted">PSP ativo: <strong>${esc(paymentIngress.activeBillingProvider||'—')}</strong></div>
+      ${paymentIngress.adapterReadiness?.mercadopago?`<div class="tiny muted">Mercado Pago: adaptador ${paymentIngress.adapterReadiness.mercadopago.implemented?'implementado':'ausente'} • Access Token ${paymentIngress.adapterReadiness.mercadopago.accessTokenConfigured?'configurado':'pendente'} • webhook HMAC ${paymentIngress.adapterReadiness.mercadopago.webhookSecretConfigured?'configurado':'pendente'} • cobrança ${paymentIngress.adapterReadiness.mercadopago.chargeReady?'pronta':'pendente'} • recebimento ${paymentIngress.adapterReadiness.mercadopago.receiveReady?'pronto':'pendente'}</div>`:''}
+      ${paymentIngress.liveEndpoints?.mercadopago?`<div class="tiny muted">Webhook Mercado Pago único (Order): ${esc(paymentIngress.liveEndpoints.mercadopago)}</div>`:''}
       ${paymentIngress.adapterReadiness?.woovi?`<div class="tiny muted">Woovi/OpenPix: adaptador ${paymentIngress.adapterReadiness.woovi.implemented?'implementado':'ausente'} • webhook ${paymentIngress.adapterReadiness.woovi.receiveReady?'pronto':'pendente'} • criação de cobrança ${paymentIngress.adapterReadiness.woovi.chargeReady?'pronta':'pendente'} • App ID ${paymentIngress.adapterReadiness.woovi.appIdConfigured?'configurado':'pendente'} • token privado ${paymentIngress.adapterReadiness.woovi.webhookAuthorizationConfigured?'configurado':'pendente'} • vínculo da empresa ${paymentIngress.adapterReadiness.woovi.companyBound?'configurado':'pendente'} • ambiente ${esc(paymentIngress.adapterReadiness.woovi.environment||'—')} • assinatura ${esc(paymentIngress.adapterReadiness.woovi.signature||'—')}</div>`:''}
       ${paymentIngress.liveEndpoints?.woovi?`<div class="tiny muted">Webhook Woovi: ${esc(paymentIngress.liveEndpoints.woovi)}</div>`:''}
       ${paymentIngress.liveEndpoints?.merchantPix?`<div class="tiny muted">Geração Pix da revenda: ${esc(paymentIngress.liveEndpoints.merchantPix)}</div>`:''}
       ${paymentIngress.endpoint?`<div class="tiny muted">Ingress normalizado: ${esc(paymentIngress.endpoint)}</div>`:''}
-      <div style="margin-top:10px"><button class="secondary small" onclick="adminCheckBillingProviderHealth()" ${adminRuntime.providerHealthPending?'disabled':''}>${adminRuntime.providerHealthPending?'Testando conexão…':'Testar conexão real com a Woovi'}</button></div>
-      ${providerHealth?`<div class="notice ${providerHealth.ok?'success':'danger'}" style="margin-top:10px"><strong>${providerHealth.ok?'Teste real Woovi aprovado.':'Teste real Woovi requer atenção.'}</strong><br>Credencial API: ${providerHealth.credentialValid===true?'válida':providerHealth.credentialValid===false?'inválida':'não confirmada'} • webhook CHARGE_COMPLETED: ${providerHealth.chargeWebhookReady?'ativo e autenticado':'não confirmado'} • CHARGE_EXPIRED: ${providerHealth.chargeExpiredWebhookReady?'ativo e autenticado':'não confirmado'} • REFUND_SENT: ${providerHealth.refundWebhookReady?'ativo e autenticado':'não confirmado'} • TRANSACTION_RECEIVED: ${providerHealth.transactionWebhookActive?'ativo':'não necessário/ausente'} • empresa vinculada: ${providerHealth.companyBound?'sim':'não'} • ambiente: ${esc(providerHealth.environment||'—')}${providerHealth.reason?' • '+esc(providerHealth.reason):''}</div>`:''}
+      <div style="margin-top:10px"><button class="secondary small" onclick="adminCheckBillingProviderHealth()" ${adminRuntime.providerHealthPending?'disabled':''}>${adminRuntime.providerHealthPending?'Testando conexão…':'Testar PSP ativo'}</button></div>
+      ${adminBillingProviderHealthNotice(providerHealth)}
       ${paymentIngress.configValid===false
         ?`<div class="notice danger" style="margin-top:10px"><strong>Configuração de webhook inválida.</strong><br>O mapa BILLING_PAYMENT_WEBHOOK_SECRETS não pôde ser validado. Nenhum recebimento automático deve ser considerado pronto.</div>`
         :pspValidated
-          ?`<div class="notice success" style="margin-top:10px"><strong>PSP validado em tempo real.</strong><br>O AppID respondeu; pagamento, expiração e refund confirmado estão autenticados. O TAMÃO consegue conciliar Pix, expirar QR e colocar devoluções em revisão segura.</div>`
+          ?`<div class="notice success" style="margin-top:10px"><strong>PSP validado em tempo real.</strong><br>A credencial do PSP ativo respondeu e os gates de cobrança + webhook estão configurados. O TAMÃO continua exigindo correlação, valor e evidência exatos antes de movimentar o financeiro.</div>`
           :paymentIngress.livePspReady
-            ?`<div class="notice" style="margin-top:10px"><strong>PSP configurado; prova real ainda pendente.</strong><br>Os secrets necessários existem no servidor, mas isso não comprova que a credencial ou o webhook estejam válidos na Woovi. Use “Testar conexão real com a Woovi”.</div>`
+            ?`<div class="notice" style="margin-top:10px"><strong>PSP configurado; prova real ainda pendente.</strong><br>Os requisitos server-side existem, mas presença de secret não comprova a credencial ou o webhook do PSP ativo. Use “Testar PSP ativo”.</div>`
             :paymentIngress.normalizedIngressConfigured
               ?`<div class="notice" style="margin-top:10px"><strong>Ingress técnico pronto; PSP real ainda não.</strong><br>Há secret para o contrato HMAC normalizado do TAMÃO, mas nenhum adaptador nativo de PSP está configurado. O fluxo manual continua disponível.</div>`
               :`<div class="notice" style="margin-top:10px"><strong>PSP/Pix ainda não conectado.</strong><br>O motor interno de conciliação está pronto, mas não há integração automática validada. O fluxo manual continua disponível.</div>`}
     </div>`:''}
+    ${adminMerchantPaymentAccountsSection(d)}
     ${adminBillingMetricsView(metrics)}
     ${adminBillingReconciliationView(reconciliation)}
     ${pendingRefunds.length?`<div class="section-head" style="margin-top:18px"><div><h3>Reembolsos do PSP exigem decisão</h3><p>Refund confirmado nunca desfaz crédito ou quitação silenciosamente. Refund ligado cria obrigação de recuperação no valor exato; o hold só cai depois que o pagamento dessa obrigação for conciliado e aprovado.</p></div><span class="status-pill offline">${pendingRefunds.length} em revisão</span></div>${pendingRefunds.map(adminBillingRefundCard).join('')}`:''}
@@ -2430,6 +2493,30 @@ async function adminSaveDeliveryCapability(id){
     toast(active?'Capacidade logística verificada':'Capacidade logística revogada');
   }catch(e){toast(String(e?.message||e))}
 }
+
+async function adminSetMerchantPaymentCapability(merchantId,enabled){
+  const merchant=(adminRuntime.data?.merchants||[]).find(x=>x.id===merchantId);
+  const name=merchant?.name||'esta revenda';
+  const reference=prompt(
+    enabled
+      ?'Referência da homologação E2E (ticket, teste ou evidência):'
+      :'Motivo/referência da suspensão:'
+  )||'';
+  if(reference.trim().length<3)return toast('Informe uma referência auditável');
+  const message=enabled
+    ?'Homologar pagamento direto para '+name+'? O dinheiro continuará indo direto à conta Mercado Pago da revenda. O kill switch global permanece independente.'
+    :'Suspender pagamento direto para '+name+'? Checkouts já iniciados continuam sujeitos ao controle financeiro e a cancelamento/reembolso seguro.';
+  if(!confirm(message))return;
+  try{
+    const result=await adminPerform('merchant-payment-capability',{
+      merchantId,
+      enabled:enabled===true,
+      reference:reference.trim()
+    });
+    toast(result?.directSalePaymentsEnabled?'Pagamentos diretos homologados para a revenda':'Pagamentos diretos suspensos para a revenda');
+  }catch(e){toast(String(e?.message||e))}
+}
+
 async function adminSetMerchantStatus(id,action){
   const label=action==='activate-merchant'?'ativar':'suspender';
   if(!confirm('Confirma '+label+' esta revenda?'))return;

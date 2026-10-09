@@ -82,8 +82,15 @@ assert.ok(!backend.includes("storageKey:'chama-sg-auth-v1'"),'chave legada compa
 assert.ok(auditWorkflow.includes('run: bash scripts/audit-edge-functions.sh')&&pagesWorkflow.includes('run: bash scripts/audit-edge-functions.sh'),'Audit e GitHub Pages precisam compartilhar a mesma autoridade de auditoria das Edge Functions');
 assert.ok(edgeFunctionAudit.includes('set -euo pipefail')&&edgeFunctionAudit.includes('deno check'),'autoridade compartilhada de Edge precisa falhar fechado e type-checkar todas as funções');
 assert.ok(edgeFunctionAudit.includes('supabase/functions/billing-payment-webhook/index.ts)')&&edgeFunctionAudit.includes('x-tamao-signature')&&edgeFunctionAudit.includes('MAX_SKEW_SECONDS=300'),'auditoria compartilhada precisa reconhecer webhook HMAC público pelo contrato criptográfico, não por JWT de usuário');
-assert.ok(edgeFunctionAudit.includes('supabase/functions/billing-payment-webhook-woovi/index.ts)')&&edgeFunctionAudit.includes('x-webhook-signature')&&edgeFunctionAudit.includes('RSASSA-PKCS1-v1_5')&&edgeFunctionAudit.includes('OPENPIX:CHARGE_COMPLETED'),'auditoria compartilhada precisa reconhecer webhook Woovi assinado e seu evento autoritativo');
-assert.ok(edgeFunctionAudit.includes('supabase/functions/merchant-billing-pix/index.ts)')&&edgeFunctionAudit.includes('merchant_billing_pix_charge_prepare')&&edgeFunctionAudit.includes('MAX_QR_IMAGE_BYTES'),'auditoria compartilhada precisa manter os gates específicos da criação Pix autenticada');
+assert.ok(edgeFunctionAudit.includes('supabase/functions/billing-payment-webhook-woovi/index.ts)')&&edgeFunctionAudit.includes('x-webhook-signature')&&edgeFunctionAudit.includes('RSASSA-PKCS1-v1_5')&&edgeFunctionAudit.includes('OPENPIX:CHARGE_COMPLETED'),'auditoria compartilhada precisa preservar o adapter Woovi para migração futura');
+assert.ok(
+  edgeFunctionAudit.includes('supabase/functions/billing-payment-webhook-mercadopago/index.ts')
+  &&edgeFunctionAudit.includes('verifyMercadoPagoWebhook')
+  &&edgeFunctionAudit.includes('merchant_sale_payment_attempts')
+  &&edgeFunctionAudit.includes('route:"platform_billing"'),
+  'auditoria compartilhada precisa reconhecer o único webhook Mercado Pago e seus dois domínios financeiros'
+);
+assert.ok(edgeFunctionAudit.includes('supabase/functions/merchant-billing-pix/index.ts)')&&edgeFunctionAudit.includes('merchant_billing_pix_charge_prepare_provider')&&edgeFunctionAudit.includes('BILLING_PIX_PROVIDER'),'auditoria compartilhada precisa manter criação Pix autenticada e neutra por PSP');
 assert.ok(edgeFunctionAudit.includes('ADMIN_LIVE_ORIGIN="https://admin.tamao.com.br"')&&edgeFunctionAudit.includes('ADMIN_PAGES_ORIGIN="https://tamao-sg-admin.pages.dev"'),'autoridade compartilhada precisa preservar isolamento estrito do admin');
 assert.ok(!pagesWorkflow.includes("grep -q 'auth.getUser' \"$f\""),'GitHub Pages não pode voltar a manter uma cópia divergente da regra genérica de autenticação Edge');
 assert.ok(pagesWorkflow.includes('workflow_dispatch:'),'fallback GitHub Pages precisa continuar disponível por disparo manual');
@@ -372,16 +379,33 @@ assert.ok(
   remoteFinancePspReadiness.includes('PIX_PROVIDER_NOT_CONFIGURED')
   &&remoteFinancePspReadiness.includes("pix.body?.error")
   &&remoteFinancePspReadiness.includes("'UNAUTHORIZED'"),
-  'probe Pix precisa distinguir App ID ausente de autenticação de usuário ausente'
+  'probe Pix precisa distinguir credencial Mercado Pago ausente de autenticação de usuário ausente'
 );
-assert.ok(remoteFinancePspReadiness.includes('WOOVI_ADAPTER_NOT_CONFIGURED')&&remoteFinancePspReadiness.includes('INVALID_WOOVI_AUTHORIZATION'),'probe webhook precisa provar Company ID + autorização privada sem conhecer o segredo');
+assert.ok(
+  remoteFinancePspReadiness.includes('MERCADOPAGO_WEBHOOK_NOT_CONFIGURED')
+  &&remoteFinancePspReadiness.includes('INVALID_MERCADOPAGO_SIGNATURE')
+  &&remoteFinancePspReadiness.includes("id:'readiness-probe-order'"),
+  'probe webhook precisa provar o segredo HMAC sem conhecer seu valor nem consultar uma order real'
+);
 assert.ok(remoteFinancePspReadiness.includes('secretsExposed:false'),'gate PSP precisa afirmar explicitamente que nenhum valor secreto é emitido');
-
-assert.ok(remoteFinancePspReadiness.includes('const problems=[]')&&remoteFinancePspReadiness.includes("problems.push('WOOVI_APP_ID ausente/inválido')"),'gate PSP precisa acumular diagnóstico do App ID sem abortar antes do webhook');
-assert.ok(remoteFinancePspReadiness.includes("problems.push('WOOVI_COMPANY_ID e/ou WOOVI_WEBHOOK_AUTHORIZATION ausentes/inválidos')"),'gate PSP precisa acumular diagnóstico do adapter privado na mesma execução');
-assert.ok(remoteFinancePspReadiness.includes("'Woovi PSP runtime incompleto: '+problems.join('; ')"),'gate PSP precisa falhar uma única vez com diagnóstico consolidado');
-
-assert.ok(!remoteFinancePspReadiness.includes('WOOVI_APP_ID=')&&!remoteFinancePspReadiness.includes('WOOVI_WEBHOOK_AUTHORIZATION='),'probe PSP não pode versionar valores de secrets');
+assert.ok(
+  remoteFinancePspReadiness.includes('const problems=[]')
+  &&remoteFinancePspReadiness.includes("problems.push('MERCADOPAGO_ACCESS_TOKEN ausente/inválido')"),
+  'gate PSP precisa acumular diagnóstico do Access Token sem abortar antes do webhook'
+);
+assert.ok(
+  remoteFinancePspReadiness.includes("problems.push('MERCADOPAGO_WEBHOOK_SECRET ausente/inválido')"),
+  'gate PSP precisa diagnosticar Access Token e segredo de webhook separadamente'
+);
+assert.ok(
+  remoteFinancePspReadiness.includes("'Mercado Pago PSP runtime incompleto: '+problems.join('; ')"),
+  'gate PSP precisa falhar uma única vez com diagnóstico consolidado'
+);
+assert.ok(
+  !remoteFinancePspReadiness.includes('MERCADOPAGO_ACCESS_TOKEN=')
+  &&!remoteFinancePspReadiness.includes('MERCADOPAGO_WEBHOOK_SECRET='),
+  'probe PSP não pode versionar valores de secrets'
+);
 
 assert.ok(remoteAdminTurnstile.includes('CHROME_START_ATTEMPTS=3')&&remoteAdminTurnstile.includes('CHROME_START_POLLS=80'),'sonda Turnstile precisa tolerar startup lento do Chrome sem remover fail-closed');
 assert.ok(remoteAdminTurnstile.includes('--disable-dev-shm-usage')&&remoteAdminTurnstile.includes('--remote-debugging-address=127.0.0.1'),'Chrome do runner precisa usar configuração headless resiliente e debug apenas local');
@@ -609,7 +633,25 @@ const providerChargeCancelSource=read('supabase/functions/_shared/provider-charg
 const providerCancelMerchantOps=read('supabase/functions/merchant-ops/index.ts');
 const billingPaymentWebhookSource=read('supabase/functions/billing-payment-webhook/index.ts');
 const wooviPaymentWebhookSource=read('supabase/functions/billing-payment-webhook-woovi/index.ts');
+const mercadoPagoPaymentWebhookSource=read('supabase/functions/billing-payment-webhook-mercadopago/index.ts');
+const mercadoPagoSharedSource=read('supabase/functions/_shared/mercadopago.js');
+const paymentSecretsSource=read('supabase/functions/_shared/payment-secrets.js');
+const merchantSalePaymentControlSource=read('supabase/functions/_shared/merchant-sale-payment-control.js');
+const merchantPaymentConnectSource=read('supabase/functions/merchant-payment-connect/index.ts');
+const merchantPaymentOauthCallbackSource=read('supabase/functions/merchant-payment-oauth-callback/index.ts');
+const orderPaymentCheckoutSource=read('supabase/functions/order-payment-checkout/index.ts');
+const completeDeliveryPaymentSource=read('supabase/functions/complete-delivery/index.ts');
+const customerActionPaymentSource=read('supabase/functions/customer-action/index.ts');
+const merchantActionPaymentSource=read('supabase/functions/merchant-action/index.ts');
+const getOrderPaymentSource=read('supabase/functions/get-order/index.ts');
 const merchantBillingPixSource=read('supabase/functions/merchant-billing-pix/index.ts');
+const mercadoPagoPaymentBoundaryMigration=read('supabase/migrations/20261009003357_mercadopago_payment_boundary_v1_121.sql');
+const merchantPaymentOauthMigration=read('supabase/migrations/20261009004250_merchant_payment_oauth_authority_v1_122.sql');
+const merchantSalePaymentAuthorityMigration=read('supabase/migrations/20261009004636_merchant_sale_payment_authority_v1_123.sql');
+const merchantSalePaymentOrderGuardMigration=read('supabase/migrations/20261009005043_merchant_sale_payment_order_guard_v1_125.sql');
+const merchantSalePaymentReleaseMigration=read('supabase/migrations/20261009005411_merchant_sale_payment_release_serialization_v1_127.sql');
+const merchantPaymentCapabilityMigration=read('supabase/migrations/20261009005938_admin_merchant_payment_capability_v1_129.sql');
+const lateProviderIdentityCancelMigration=read('supabase/migrations/20261009024100_late_provider_identity_cancel_v1_131.sql');
 assert.ok(merchantBillingIndexes.includes('merchant_billing_accounts_plan_key_idx')&&merchantBillingIndexes.includes('merchant_daily_statements_resolved_by_idx')&&merchantBillingIndexes.includes('merchant_fee_credit_ledger_created_by_idx')&&merchantBillingIndexes.includes('merchant_fee_credit_ledger_order_id_idx')&&merchantBillingIndexes.includes('merchant_fee_credit_ledger_plan_key_idx'),'billing v1.72 precisa cobrir as FKs apontadas pelo advisor do banco');
 assert.ok(merchantBillingMigration.includes("'flex_daily','Flex Diário','postpaid_daily',850")&&merchantBillingMigration.includes("'credit_3000','Crédito 3.000','prepaid_credit',650"),'billing v1.72 precisa manter Flex premium e pacotes pré-pagos com desconto progressivo');
 assert.ok(merchantBillingMigration.includes('BILLING_PLAN_BELOW_ECONOMIC_FLOOR')&&merchantBillingMigration.includes('variable_cost_bps')&&merchantBillingMigration.includes('minimum_contribution_bps'),'pacotes não podem cair abaixo do piso econômico completo');
@@ -768,8 +810,8 @@ assert.ok(admin.includes('Entrada Pix / PSP')&&admin.includes('PSP/Pix ainda nã
 assert.ok(adminOpsSource.includes('PAYMENT_INGRESS_CONTRACT="tamao_normalized_hmac_v1"'),'contrato normalizado genérico precisa continuar explícito e separado dos adaptadores nativos');
 assert.ok(adminOpsSource.includes('normalizedIngressConfigured')&&adminOpsSource.includes('livePspReady')&&adminOpsSource.includes('liveProviderCount'),'readiness precisa separar secret técnico de PSP realmente suportado');
 assert.ok(admin.includes('INGRESS PRONTO')&&admin.includes('PSP CONFIGURADO')&&admin.includes('PSP VALIDADO')&&admin.includes('Ingress técnico pronto; PSP real ainda não.'),'UI precisa distinguir ingress técnico, PSP apenas configurado e PSP realmente validado');
-assert.ok(admin.includes('PSP configurado; prova real ainda pendente.')&&admin.includes('isso não comprova que a credencial ou o webhook estejam válidos na Woovi'),'painel não pode promover presença de secrets a prova de integração bancária real');
-assert.ok(adminOpsSource.includes('LIVE_PAYMENT_PROVIDER_ADAPTERS=new Set<string>(["woovi"])'),'v1.89 só pode declarar Woovi implementada quando o adaptador nativo estiver no código');
+assert.ok(admin.includes('PSP configurado; prova real ainda pendente.')&&admin.includes('presença de secret não comprova a credencial ou o webhook do PSP ativo')&&admin.includes('Testar PSP ativo'),'painel não pode promover presença de secrets a prova de integração bancária real');
+assert.ok(adminOpsSource.includes('LIVE_PAYMENT_PROVIDER_ADAPTERS=new Set<string>(["mercadopago","woovi"])'),'readiness só pode declarar Mercado Pago e Woovi implementados quando ambos os adaptadores nativos estiverem no código');
 assert.ok(adminOpsSource.includes('WOOVI_WEBHOOK_AUTHORIZATION')&&adminOpsSource.includes('WOOVI_COMPANY_ID')&&adminOpsSource.includes('wooviReady'),'Woovi só pode ficar live com token privado forte e vínculo da empresa');
 assert.ok(adminOpsSource.includes('webhookAuthorizationConfigured')&&adminOpsSource.includes('companyBound')&&adminOpsSource.includes('billing-payment-webhook-woovi'),'readiness do admin precisa explicar exatamente o que falta no adaptador Woovi');
 assert.ok(wooviPaymentWebhookSource.includes('WOOVI_PUBLIC_KEYS_URL="https://api.woovi.com/api/v1/webhook/public-keys"'),'adaptador Woovi precisa acompanhar rotação pela fonte oficial de chaves públicas');
@@ -780,7 +822,7 @@ assert.ok(wooviPaymentWebhookSource.indexOf('verifyWooviSignature(rawBody,signat
 assert.ok(wooviPaymentWebhookSource.includes('"OPENPIX:TRANSACTION_RECEIVED"')&&wooviPaymentWebhookSource.includes('"OPENPIX:CHARGE_COMPLETED"')&&wooviPaymentWebhookSource.includes('pix.endToEndId')&&wooviPaymentWebhookSource.includes('charge.correlationID'),'adaptador Woovi precisa cobrir Pix recebido e cobrança concluída preservando EndToEndId + correlação TAMÃO');
 assert.ok(wooviPaymentWebhookSource.includes('p_provider:"woovi"')&&wooviPaymentWebhookSource.includes('p_reconciliation_key:endToEndId')&&wooviPaymentWebhookSource.includes('p_payment_method:"pix"'),'evento Woovi precisa desembocar na autoridade provider-agnostic existente');
 assert.ok(wooviPaymentWebhookSource.includes('raw_payload_sha256')||wooviPaymentWebhookSource.includes('p_raw_payload_sha256:payloadHash'),'adaptador Woovi precisa preservar hash do payload bruto para auditoria');
-assert.ok(admin.includes('Woovi/OpenPix: adaptador')&&admin.includes('Webhook Woovi:')&&admin.includes('Geração Pix da revenda:'),'Financeiro precisa enxergar readiness dos dois sentidos do adaptador sem segredos');
+assert.ok(admin.includes('Mercado Pago: adaptador')&&admin.includes('Webhook Mercado Pago único (Order):')&&admin.includes('Woovi/OpenPix: adaptador')&&admin.includes('Geração Pix da revenda:'),'Financeiro precisa enxergar Mercado Pago ativo e Woovi fallback nos dois sentidos sem segredos');
 assert.ok(billingPaymentWebhookSource.includes('x-tamao-signature')&&billingPaymentWebhookSource.includes('hmacSha256Hex')&&billingPaymentWebhookSource.includes('constantTimeEqualHex'),'webhook de pagamentos precisa verificar HMAC antes de tocar o banco');
 assert.ok(billingPaymentWebhookSource.includes('MAX_SKEW_SECONDS=300')&&billingPaymentWebhookSource.includes('STALE_WEBHOOK'),'webhook precisa limitar replay temporal a cinco minutos');
 assert.ok(billingPaymentWebhookSource.includes('BILLING_PAYMENT_WEBHOOK_SECRETS')&&billingPaymentWebhookSource.includes('WEBHOOK_PROVIDER_NOT_CONFIGURED'),'provedor sem segredo configurado precisa falhar fechado');
@@ -805,13 +847,122 @@ assert.ok(generatedPixBilling.includes("'pix-auto:'||v_correlation")&&generatedP
 assert.ok(generatedPixBilling.includes("match_reason='provider_charge_correlation_and_amount'")&&generatedPixBilling.includes('v_request.expected_amount_cents=v_event.amount_cents'),'matcher precisa usar correlação do PSP + valor exato, nunca apenas correlação');
 assert.ok(generatedPixBilling.includes('end_to_end_id=v_event.reconciliation_key')&&generatedPixBilling.includes('p_provider_correlation_id text'),'EndToEndId precisa continuar sendo a prova bancária final, separada da correlação da cobrança');
 assert.ok(generatedPixBilling.includes("revoke all on function public.merchant_billing_pix_charge_prepare(")&&generatedPixBilling.includes("revoke all on function public.merchant_billing_provider_charge_commit("),'autoridades de geração/commit Pix não podem ser executadas pelo browser');
-assert.ok(merchantBillingPixSource.includes('WOOVI_APP_ID')&&merchantBillingPixSource.includes('PIX_PROVIDER_NOT_CONFIGURED'),'Edge de cobrança precisa falhar fechado sem credencial de criação Woovi');
-assert.ok(merchantBillingPixSource.includes('https://api.woovi.com')&&merchantBillingPixSource.includes('https://api.woovi-sandbox.com')&&merchantBillingPixSource.includes('WOOVI_BASES'),'Edge precisa limitar SSRF aos hosts oficiais Woovi de produção/sandbox');
-assert.ok(merchantBillingPixSource.indexOf('getWooviCharge(')<merchantBillingPixSource.indexOf('createWooviCharge('),'retry de cobrança precisa consultar correlationID antes de criar');
-assert.ok(merchantBillingPixSource.includes('correlationID:correlationId')&&merchantBillingPixSource.includes('value:expectedAmountCents')&&merchantBillingPixSource.includes('expiresIn:86400'),'criação Woovi precisa fixar correlação TAMÃO, valor em centavos e validade');
-assert.ok(merchantBillingPixSource.includes('WOOVI_CORRELATION_MISMATCH')&&merchantBillingPixSource.includes('WOOVI_AMOUNT_MISMATCH'),'resposta do PSP precisa ser rejeitada se correlação ou valor divergirem');
-assert.ok(merchantBillingPixSource.includes('data:image/png;base64,')&&merchantBillingPixSource.includes('MAX_QR_IMAGE_BYTES'),'QR remoto precisa ser normalizado server-side para data URI limitada, compatível com CSP');
-assert.ok(wooviPaymentWebhookSource.includes('p_provider_correlation_id:providerCorrelationId')&&wooviPaymentWebhookSource.includes('chargeAmount!==pixAmountCents'),'webhook concluído precisa transportar correlationID e provar consistência entre cobrança e Pix');
+assert.ok(
+  merchantBillingPixSource.includes('BILLING_PIX_PROVIDER')
+  &&merchantBillingPixSource.includes('MERCADOPAGO_ACCESS_TOKEN')
+  &&merchantBillingPixSource.includes('PIX_PROVIDER_NOT_CONFIGURED'),
+  'Edge de cobrança precisa usar Mercado Pago por padrão e falhar fechado sem credencial'
+);
+assert.ok(
+  merchantBillingPixSource.includes('"/v1/orders"')
+  &&merchantBillingPixSource.includes('external_reference:correlationId')
+  &&merchantBillingPixSource.includes('idempotencyKey:correlationId'),
+  'Pix Mercado Pago precisa usar Orders API, correlação TAMÃO e idempotência do provedor'
+);
+assert.ok(
+  merchantBillingPixSource.includes('MERCADOPAGO_CORRELATION_MISMATCH')
+  &&merchantBillingPixSource.includes('MERCADOPAGO_AMOUNT_MISMATCH')
+  &&merchantBillingPixSource.includes('MERCADOPAGO_PAYMENT_METHOD_MISMATCH'),
+  'resposta Mercado Pago precisa provar correlação, valor e método antes de persistir QR'
+);
+assert.ok(
+  mercadoPagoSharedSource.includes('https://api.mercadopago.com')
+  &&mercadoPagoSharedSource.includes('host.endsWith(".mercadopago.com.br")')
+  &&mercadoPagoSharedSource.includes('constantTimeEqualHex'),
+  'adapter Mercado Pago precisa fixar API oficial, URLs de checkout Brasil e comparação constante'
+);
+assert.ok(
+  mercadoPagoPaymentWebhookSource.includes('verifyMercadoPagoWebhook')
+  &&mercadoPagoPaymentWebhookSource.includes('merchant_sale_payment_attempts')
+  &&mercadoPagoPaymentWebhookSource.includes('decryptPaymentSecret')
+  &&mercadoPagoPaymentWebhookSource.includes('apply_merchant_sale_payment_event')
+  &&mercadoPagoPaymentWebhookSource.includes('ingest_merchant_billing_payment_event')
+  &&mercadoPagoPaymentWebhookSource.includes('ingest_merchant_billing_payment_refund')
+  &&mercadoPagoPaymentWebhookSource.includes('route:"merchant_sale"')
+  &&mercadoPagoPaymentWebhookSource.includes('route:"platform_billing"'),
+  'um único webhook Mercado Pago precisa autenticar e rotear separadamente venda da revenda e receita TAMÃO'
+);
+assert.ok(mercadoPagoPaymentWebhookSource.includes('tamaoReceivesPlatformBilling:true')&&mercadoPagoPaymentWebhookSource.includes('tamaoReceivesSaleProceeds:false'),'webhook unificado precisa distinguir semanticamente receita do TAMÃO de venda pertencente à revenda');
+assert.ok(admin.includes('Recebimento direto das revendas')&&admin.includes("adminPerform('merchant-payment-capability'")&&admin.includes('Homologar pagamentos diretos')&&admin.includes('Kill switch global'),'Financeiro precisa possuir homologação auditável por revenda sem confundir com o kill switch global');
+assert.ok(
+  mercadoPagoPaymentWebhookSource.includes('providerUserId!==providerAccountId')
+  &&mercadoPagoPaymentWebhookSource.includes('MERCADOPAGO_ORDER_ROUTE_NOT_READY')
+  &&!functionConfig.includes('[functions.merchant-sale-payment-webhook-mercadopago]'),
+  'ingresso Mercado Pago precisa vincular seller exato, preservar retry na corrida e manter uma única URL Order'
+);
+assert.ok(
+  merchantPaymentConnectSource.includes('merchant_payment_oauth_states')
+  &&merchantPaymentConnectSource.includes('code_challenge_method","S256"')
+  &&merchantPaymentConnectSource.includes('encryptPaymentSecret')
+  &&merchantPaymentConnectSource.includes('https://auth.mercadopago.com/authorization'),
+  'OAuth de revenda precisa usar state de uso único, PKCE S256 e verifier criptografado'
+);
+assert.ok(
+  merchantPaymentOauthCallbackSource.includes('consume_merchant_payment_oauth_state')
+  &&merchantPaymentOauthCallbackSource.includes('https://api.mercadopago.com/oauth/token')
+  &&merchantPaymentOauthCallbackSource.includes('https://api.mercadolibre.com/users/me')
+  &&merchantPaymentOauthCallbackSource.includes('directSalePaymentsEnabled:false'),
+  'callback OAuth precisa consumir state uma vez, validar seller e nascer com pagamento direto desativado'
+);
+assert.ok(
+  paymentSecretsSource.includes('AES-GCM')
+  &&paymentSecretsSource.includes('bytes.length!==32')
+  &&paymentSecretsSource.includes('additionalData'),
+  'tokens de sellers precisam permanecer criptografados com chave de 256 bits e AAD contextual'
+);
+assert.ok(
+  orderPaymentCheckoutSource.includes('MERCHANT_DIRECT_PAYMENTS_ENABLED')
+  &&orderPaymentCheckoutSource.includes('directSalePaymentsEnabled')
+  &&orderPaymentCheckoutSource.includes('prepare_merchant_sale_payment_attempt')
+  &&orderPaymentCheckoutSource.includes('processing_mode:"manual"')
+  &&orderPaymentCheckoutSource.includes('providerUserId!==seller.providerAccountId')
+  &&!orderPaymentCheckoutSource.includes('marketplace_fee')
+  &&orderPaymentCheckoutSource.includes('tamaoReceivesSaleProceeds:false'),
+  'checkout direto precisa ter dois gates, seller exato, valor autoritativo e nenhuma comissão/split na fase PF'
+);
+assert.ok(
+  merchantSalePaymentControlSource.includes('"/refund"')
+  &&merchantSalePaymentControlSource.includes('"/cancel"')
+  &&merchantSalePaymentControlSource.includes('released_for_order_change_at')
+  &&customerActionPaymentSource.includes('releaseMerchantSalePaymentBeforeOrderChange')
+  &&merchantActionPaymentSource.includes('releaseMerchantSalePaymentBeforeOrderChange'),
+  'cancelamento/rematching só pode ocorrer depois de cancelar ou reembolsar a order no PSP'
+);
+assert.ok(
+  completeDeliveryPaymentSource.includes('p_payment_confirmed_by_merchant')
+  &&completeDeliveryPaymentSource.includes('SALE_PAYMENT_STILL_PENDING')
+  &&merchantSalePaymentOrderGuardMigration.includes('SALE_PAYMENT_CANCEL_OR_REFUND_REQUIRED')
+  &&merchantSalePaymentReleaseMigration.includes('SALE_PAYMENT_ORDER_CHANGE_PENDING'),
+  'entrega e mutações do pedido precisam respeitar evidência PSP e barreira de serialização financeira'
+);
+assert.ok(
+  getOrderPaymentSource.includes('MERCHANT_DIRECT_PAYMENTS_ENABLED')
+  &&getOrderPaymentSource.includes('tamaoReceivesSaleProceeds:false')
+  &&backend.includes('liveStartMerchantPayment')
+  &&merchant.includes('Conectar Mercado Pago'),
+  'portais precisam expor apenas estado seguro e deixar explícito que a venda não passa pelo TAMÃO'
+);
+assert.ok(
+  mercadoPagoPaymentBoundaryMigration.includes('merchant_payment_provider_accounts')
+  &&mercadoPagoPaymentBoundaryMigration.includes('merchant_sale_payment_attempts')
+  &&merchantPaymentOauthMigration.includes('consume_merchant_payment_oauth_state')
+  &&merchantSalePaymentAuthorityMigration.includes('apply_merchant_sale_payment_event')
+  &&merchantPaymentCapabilityMigration.includes('admin_merchant_payment_capability_action'),
+  'migrations versionadas precisam reconstruir conexão OAuth, venda direta e homologação administrativa'
+);
+assert.ok(
+  adminOpsSource.includes('"merchant-payment-capability"')
+  &&adminOpsSource.includes('MERCHANT_PAYMENT_RUNTIME_NOT_READY')
+  &&merchantPaymentCapabilityMigration.includes("v_role not in ('superadmin','finance')"),
+  'somente Financeiro/Superadmin pode homologar pagamento direto e somente com runtime seguro'
+);
+
+assert.ok(
+  merchantBillingPixSource.includes('WOOVI_APP_ID')
+  &&merchantBillingPixSource.includes('getWooviCharge(')
+  &&wooviPaymentWebhookSource.includes('p_provider_correlation_id:providerCorrelationId'),
+  'adapter Woovi precisa permanecer preservado como rota de migração futura'
+);
 assert.ok(adminOpsSource.includes('WOOVI_APP_ID')&&adminOpsSource.includes('chargeReady')&&adminOpsSource.includes('receiveReady'),'PSP LIVE precisa exigir tanto criação de cobrança quanto webhook de recebimento');
 assert.ok(adminOpsSource.includes('providerCharges:billingProviderCharges.data??[]')&&adminOpsSource.includes('provider_correlation_id'),'Financeiro precisa receber cobranças geradas e correlação de eventos');
 assert.ok(merchantOrdersBillingSource.includes('merchant_billing_provider_charges')&&merchantOrdersBillingSource.includes('pixProviderReady')&&merchantOrdersBillingSource.includes('pixCharge:'),'snapshot da revenda precisa entregar QR/charge somente a owner/manager');
@@ -823,20 +974,20 @@ assert.ok(pspHealthEventDedup.includes('v_event.provider_correlation_id is null'
 assert.ok(pspHealthEventDedup.includes("e.match_reason='no_exact_pending_request'")&&pspHealthEventDedup.includes('sibling_provider_event_resolved_by_charge'),'evento genérico em revisão só pode ser aposentado automaticamente quando a cobrança correlacionada posterior resolve exatamente o mesmo Pix');
 assert.ok(pspHealthEventDedup.includes("status='review_required'")&&pspHealthEventDedup.includes("match_reason='duplicate_transaction_event'"),'evidência conflitante precisa continuar em revisão, nunca ser ocultada como duplicata benigna');
 assert.ok(pspHealthEventDedup.includes("('applied','already_applied','ignored','superseded')")&&pspHealthEventDedup.includes('admin_merchant_billing_payment_event_action'),'reprocessar evento superseded precisa ser terminal/replay-safe e não reabrir conciliação');
-assert.ok(adminOpsSource.includes('billing-provider-health')&&adminOpsSource.includes('wooviBillingProviderHealth'),'admin precisa oferecer health-check real do PSP como ação de leitura autenticada');
+assert.ok(adminOpsSource.includes('billing-provider-health')&&adminOpsSource.includes('billingProviderHealth')&&adminOpsSource.includes('mercadoPagoBillingProviderHealth')&&adminOpsSource.includes('wooviBillingProviderHealth'),'admin precisa oferecer health-check real provider-aware do PSP como ação de leitura autenticada');
 assert.ok(adminOpsSource.includes('/api/v1/webhook?url=')&&adminOpsSource.includes('"Authorization":appId'),'health-check Woovi precisa validar o AppID pela API oficial sem criar cobrança');
 assert.ok(adminOpsSource.includes('WOOVI_CHARGE_WEBHOOK_MISSING')&&adminOpsSource.includes('WOOVI_CHARGE_WEBHOOK_AUTH_MISMATCH')&&adminOpsSource.includes('chargeWebhookReady'),'health-check precisa provar webhook CHARGE_COMPLETED ativo e com autorização exata');
 assert.ok(adminOpsSource.includes('transactionWebhookActive')&&adminOpsSource.includes('OPENPIX:TRANSACTION_RECEIVED'),'health-check precisa tornar visível se o evento genérico irmão também está ativo');
-assert.ok(admin.includes('Testar conexão real com a Woovi')&&admin.includes('adminCheckBillingProviderHealth'),'Financeiro precisa conseguir executar a prova real do PSP sem sair do painel');
+assert.ok(admin.includes('Testar PSP ativo')&&admin.includes('adminCheckBillingProviderHealth'),'Financeiro precisa conseguir executar a prova real do PSP ativo sem sair do painel');
 assert.ok(admin.includes("pspValidated=providerHealth?.ok===true")&&admin.includes("pspFailed=Boolean(providerHealth)&&providerHealth?.ok===false")&&admin.includes("pspConfigured=paymentIngress?.livePspReady===true"),'v1.92 precisa modelar configurado, validado e falhando como estados separados');
 assert.ok(admin.includes("pspBadgeLabel=pspValidated?'PSP VALIDADO':pspFailed?'PSP FALHANDO':pspConfigured?'PSP CONFIGURADO'"),'badge financeiro só pode dizer validado após health-check real');
-assert.ok(admin.includes('PSP validado em tempo real.')&&admin.includes('PSP configurado; prova real ainda pendente.'),'copy do Financeiro precisa reservar sucesso para a prova real da Woovi');
+assert.ok(admin.includes('PSP validado em tempo real.')&&admin.includes('PSP configurado; prova real ainda pendente.'),'copy do Financeiro precisa reservar sucesso para a prova real do PSP ativo');
 assert.ok(!admin.includes('PSP real conectado.'),'v1.92 não pode manter linguagem que confunde secret presente com conexão provada');
 assert.ok(adminOpsSource.includes('paymentProviderDegraded=paymentProvider?.ok!==true')&&adminOpsSource.includes('operationalQueueDegraded||paymentProviderDegraded'),'system-health precisa degradar quando o PSP não está realmente saudável');
 assert.ok(adminOpsSource.includes('nunca silenciosamente desliga commerce')||adminOpsSource.includes('never silently disables commerce')||adminOpsSource.includes('never silently disables commerce'),'contrato do health-check deve preservar fallback manual sem bloquear comércio');
 assert.ok(admin.includes('Cobrança automática degradada.')&&admin.includes('não bloqueia vendas automaticamente')&&admin.includes('conferência manual como contingência'),'painel deve explicar que falha do PSP degrada saúde, mas não dispara hold automático');
 assert.ok(adminOpsSource.includes('"permission_denied"')&&adminOpsSource.includes('WOOVI_APP_ID_PERMISSION_DENIED'),'403 da Woovi precisa ser distinguido de indisponibilidade genérica');
-assert.ok(admin.includes("providerHealth.credentialValid===true?'válida'")&&admin.includes('providerHealth.chargeWebhookReady'),'UI deve mostrar resultado sanitizado do teste real, sem depender só de secret presente');
+assert.ok(admin.includes('adminBillingProviderHealthNotice')&&admin.includes("h.provider==='mercadopago'")&&admin.includes('h.chargeWebhookReady'),'UI deve mostrar resultado sanitizado tanto de Mercado Pago quanto de Woovi, sem depender só de secret presente');
 assert.ok(admin.includes("superseded:'SUBSTITUÍDO'")&&admin.includes('sibling_provider_event_resolved_by_charge'),'UI precisa explicar eventos irmãos aposentados sem colocá-los na fila de revisão');
 assert.ok(pixChargeExpiration.includes('add column if not exists expired_at timestamptz')&&pixChargeExpiration.includes('merchant_billing_provider_charges_expired_shape'),'v1.94 precisa persistir expiração explícita da cobrança Pix');
 assert.ok(pixChargeExpiration.includes("v_charge.status='active'")&&pixChargeExpiration.includes('v_charge.expires_at<=clock_timestamp()')&&pixChargeExpiration.includes("set status='expired'"),'prepare Pix precisa aposentar QR vencido antes de regenerar');
@@ -850,7 +1001,7 @@ assert.ok(adminOpsSource.includes('chargeExpiredWebhookReady')&&adminOpsSource.i
 assert.ok(adminOpsSource.includes('expired_at,completed_at')||adminOpsSource.includes('expires_at,expired_at,completed_at'),'Financeiro precisa receber timestamp de expiração das cobranças Pix');
 assert.ok(merchantOrdersBillingSource.includes('expired_at')&&merchantOrdersBillingSource.includes('expiredAt:charge.expired_at'),'snapshot da revenda precisa transportar expiração real da cobrança');
 assert.ok(merchant.includes('function merchantBillingPixChargeExpired(')&&merchant.includes('Pix expirado.')&&merchant.includes('Gerar novo Pix'),'portal da revenda precisa ocultar QR vencido e oferecer regeneração mantendo a solicitação');
-assert.ok(admin.includes('CHARGE_EXPIRED:')&&admin.includes('chargeExpiredWebhookReady')&&admin.includes('expirou'),'Financeiro precisa mostrar saúde do webhook de expiração e histórico de QR vencido');
+assert.ok(admin.includes('h.chargeExpiredWebhookReady')&&admin.includes('expiração')&&admin.includes('expirou'),'Financeiro precisa preservar saúde de expiração quando Woovi estiver ativo e histórico de QR vencido em qualquer PSP');
 assert.ok(providerCancelCoupling.includes('guard_merchant_payment_request_cancel_after_provider_payment')&&providerCancelCoupling.includes('PAYMENT_REQUEST_PAYMENT_ALREADY_RECEIVED'),'v1.95 precisa bloquear cancelamento da revenda depois de evidência de pagamento');
 assert.ok(providerCancelCoupling.includes("new.admin_reference='cancelled-by-merchant'")&&providerCancelCoupling.includes("c.status='completed'")&&providerCancelCoupling.includes("e.status in ('matched_exact','applied','already_applied')"),'guard de cancelamento deve ser específico da revenda e reconhecer pagamento no charge/evento');
 assert.ok(providerCancelCoupling.includes('retire_provider_charges_after_payment_request_resolution')&&providerCancelCoupling.includes("new.status in ('cancelled','rejected')")&&providerCancelCoupling.includes("'PROVIDER_CANCEL_REQUIRED'"),'cancelamento/rejeição financeira precisa aposentar QRs locais e criar handoff de cancelamento PSP');
@@ -858,6 +1009,9 @@ assert.ok(providerCancelCoupling.includes('guard_provider_charge_terminal_reopen
 assert.ok(providerCancelCoupling.includes('merchant_billing_provider_charges_cancel_retry_idx'),'fila de cancelamento externo precisa ter índice parcial próprio');
 assert.ok(providerChargeCancelSource.includes('method:"DELETE"')&&providerChargeCancelSource.includes('PROVIDER_CANCEL_REQUIRED')&&providerChargeCancelSource.includes('PROVIDER_CANCEL_FAILED'),'helper server-side precisa excluir a cobrança no PSP e preservar falha retryável');
 assert.ok(providerChargeCancelSource.includes('https://api.woovi.com')&&providerChargeCancelSource.includes('https://api.woovi-sandbox.com'),'cancelamento externo precisa restringir SSRF aos hosts oficiais da Woovi');
+assert.ok(providerChargeCancelSource.includes('cancelMercadoPagoCharge')&&providerChargeCancelSource.includes('MERCADOPAGO_CANCEL_BINDING_MISMATCH')&&providerChargeCancelSource.includes('MERCADOPAGO_PAYMENT_ALREADY_RECEIVED')&&providerChargeCancelSource.includes('"/cancel"'),'cancelamento externo Mercado Pago precisa reconsultar a Order, provar referência/valor e recusar cancelamento depois de pagamento');
+assert.ok(providerChargeCancelSource.includes('provider_charge_id,amount_cents')&&providerChargeCancelSource.includes('charge.provider==="mercadopago"'),'fila de cancelamento precisa transportar a identidade e o valor da Order Mercado Pago');
+assert.ok(lateProviderIdentityCancelMigration.includes("v_charge.status in ('cancelled','expired')")&&lateProviderIdentityCancelMigration.includes('provider_charge_id=coalesce(provider_charge_id,v_provider_charge_id)')&&lateProviderIdentityCancelMigration.includes("coalesce(last_error_code,'PROVIDER_CANCEL_REQUIRED')"),'resposta tardia do PSP precisa persistir a identidade externa sem reabrir QR cancelado e manter retry de cancelamento');
 assert.ok(providerCancelMerchantOps.includes('cancelProviderChargesForPaymentRequest')&&providerCancelMerchantOps.includes('PAYMENT_REQUEST_PAYMENT_ALREADY_RECEIVED'),'merchant-ops precisa executar cancelamento PSP e traduzir pagamento já recebido');
 assert.ok(adminOpsSource.includes('merchant-billing-provider-cancel-retry')&&adminOpsSource.includes('cancelProviderChargesForPaymentRequest'),'Financeiro precisa ter retry explícito para cancelamento externo');
 assert.ok(merchantBillingPixSource.includes('committed?.status==="cancelled"')&&merchantBillingPixSource.includes('PIX_REQUEST_CANCELLED'),'Edge de criação Pix precisa detectar cancelamento que venceu a corrida e não devolver QR utilizável');
@@ -1469,13 +1623,20 @@ for(const entry of fs.readdirSync(functionRoot,{withFileTypes:true})){
     assert.ok(source.includes('WOOVI_WEBHOOK_AUTHORIZATION')&&source.includes('constantTimeEqual(authorization,expectedAuthorization)'),entry.name+' precisa exigir token privado do webhook');
     assert.ok(source.includes('WOOVI_COMPANY_ID')&&source.includes('WOOVI_COMPANY_MISMATCH'),entry.name+' precisa vincular a entrega à empresa configurada');
     assert.ok(source.includes('OPENPIX:TRANSACTION_RECEIVED')&&source.includes('ingest_merchant_billing_payment_event'),entry.name+' precisa aceitar apenas Pix recebido e delegar ao matcher server-only');
+  }else if(entry.name==='billing-payment-webhook-mercadopago'){
+    assert.ok(source.includes('MAX_BODY_BYTES=65536')&&source.includes('TextEncoder().encode(raw).byteLength>MAX_BODY_BYTES'),entry.name+' precisa limitar o corpo bruto antes do parse');
+    assert.ok(source.includes('verifyMercadoPagoWebhook(req,webhookSecret,dataId)')&&source.includes('INVALID_MERCADOPAGO_SIGNATURE'),entry.name+' precisa autenticar o ingresso por HMAC antes do roteamento financeiro');
+    assert.ok(source.includes('merchant_sale_payment_attempts')&&source.includes('handlePlatformBillingOrder')&&source.includes('handleMerchantSaleOrder'),entry.name+' precisa rotear venda da revenda e cobrança do TAMÃO por vínculo exato');
+  }else if(entry.name==='merchant-payment-oauth-callback'){
+    assert.ok(source.includes('req.method!=="GET"')&&source.includes('consume_merchant_payment_oauth_state'),entry.name+' precisa ser callback GET com state de uso único');
+    assert.ok(source.includes('decryptPaymentSecret')&&source.includes('code_verifier')&&source.includes('verifySellerToken'),entry.name+' precisa provar PKCE e conta do seller antes de persistir tokens');
   }else{
     assert.ok(source.includes('readJsonBody(req)'),entry.name+' precisa limitar JSON');
     assert.ok(source.includes('enforceApiQuota(admin'),entry.name+' precisa aplicar quota server-side');
   }
   if(entry.name==='complete-delivery'){
-    assert.ok(source.includes('body.paymentConfirmed!==true'),'complete-delivery deve exigir confirmação de pagamento');
-    assert.ok(source.includes('paymentConfirmed:true'),'fingerprint idempotente deve incluir confirmação de pagamento');
+    assert.ok(source.includes('paymentConfirmedByMerchant=body.paymentConfirmed===true')&&source.includes('p_payment_confirmed_by_merchant:paymentConfirmedByMerchant'),'complete-delivery deve transportar atestação manual sem sobrepor evidência PSP');
+    assert.ok(source.includes('paymentConfirmedByMerchant')&&source.includes('requestFingerprint("complete-delivery"'),'fingerprint idempotente deve incluir a origem da confirmação manual');
   }
 
 }

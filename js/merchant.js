@@ -501,7 +501,21 @@ function merchantLivePage(){
   if(rt.status==='unauthenticated')return merchantLiveLoginView();
   if(rt.status==='no-access')return merchantLiveNoAccess();
   if(rt.status!=='ready'||!rt.merchant){
-    return shell(`<section class="page"><h1 class="page-title">Painel da revenda</h1><div class="notice danger"><strong>Não foi possível carregar a operação.</strong><br>${esc(rt.error||'Tente novamente.')}</div><button class="secondary full" style="margin-top:12px" onclick="merchantLiveRefresh()">Tentar novamente</button></section>`);
+    const receivingAccountCard=manage
+    ? receivingAccount?.connected
+      ? `<div class="divider"></div>
+        <h3>Recebimento direto da revenda</h3>
+        <div class="notice success"><strong>Mercado Pago conectado.</strong><br>Conta autorizada para validação segura de transações. O dinheiro das vendas pertence à revenda e não passa pela conta do TAMÃO.</div>
+        <div class="tiny muted" style="margin-top:8px">Pagamentos automáticos de clientes permanecem desativados até a homologação E2E. Esta conexão não cria split nem repasse.</div>
+        <button class="secondary" style="margin-top:10px" onclick="merchantDisconnectMercadoPagoFromUi()">Desconectar Mercado Pago</button>`
+      : `<div class="divider"></div>
+        <h3>Recebimento direto da revenda</h3>
+        <p class="muted tiny">Conecte sua própria conta Mercado Pago. Quando a validação automática for homologada, o cliente poderá pagar diretamente à revenda e o TAMÃO receberá apenas a confirmação da transação.</p>
+        <button class="secondary" onclick="merchantConnectMercadoPagoFromUi()">Conectar Mercado Pago</button>
+        <div class="tiny muted" style="margin-top:8px">O TAMÃO não recebe nem repassa o valor da venda nesta modalidade.</div>`
+    : '';
+
+  return shell(`<section class="page"><h1 class="page-title">Painel da revenda</h1><div class="notice danger"><strong>Não foi possível carregar a operação.</strong><br>${esc(rt.error||'Tente novamente.')}</div><button class="secondary full" style="margin-top:12px" onclick="merchantLiveRefresh()">Tentar novamente</button></section>`);
   }
 
   const m=rt.merchant;
@@ -523,6 +537,7 @@ function merchantLivePage(){
   const deliveryTeam=rt.deliveryTeam||[];
   const orders=rt.orders||[];
   const billing=rt.billing||null;
+  const receivingAccount=rt.receivingAccount||null;
   const financialHold=billing?.account?.salesHold===true;
   const freshness=merchantLiveFreshness();
   const freshnessProblems=[];
@@ -601,6 +616,7 @@ function merchantLivePage(){
       <label class="check-row"><input id="live-payment-card" type="checkbox" ${paymentMethods.card?'checked':''}><span><strong>Cartão</strong><small>Cartão aceito na entrega conforme sua operação.</small></span></label>
       <label class="check-row"><input id="live-payment-cash" type="checkbox" ${paymentMethods.cash?'checked':''}><span><strong>Dinheiro</strong><small>Dinheiro aceito; o pedido pode informar troco.</small></span></label>
       <button class="secondary" onclick="merchantLiveSavePaymentMethods()">Salvar formas de pagamento</button>
+      ${receivingAccountCard}
       <div class="divider"></div>
       <h3>Pedidos agendados</h3>
       <label class="check-row"><input id="live-scheduled-orders" type="checkbox" ${acceptsScheduledOrders?'checked':''}><span><strong>Aceitar entregas agendadas</strong><small>Quando ativo, clientes podem escolher janelas futuras de até 72 horas. O horário aparece antes do aceite.</small></span></label>
@@ -814,6 +830,20 @@ async function merchantLiveSaveCapacity(){
   try{
     await merchantUpdateCapacityLive(capacity);
     toast('Capacidade operacional atualizada');
+  }catch(e){toast(String(e?.message||e))}
+}
+
+async function merchantConnectMercadoPagoFromUi(){
+  try{
+    await merchantPaymentConnectLive('start');
+  }catch(e){toast(String(e?.message||e))}
+}
+
+async function merchantDisconnectMercadoPagoFromUi(){
+  if(!confirm('Desconectar o Mercado Pago desta revenda? Nenhum dinheiro será movimentado.'))return;
+  try{
+    await merchantPaymentConnectLive('disconnect');
+    toast('Mercado Pago desconectado');
   }catch(e){toast(String(e?.message||e))}
 }
 

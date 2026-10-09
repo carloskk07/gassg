@@ -52,6 +52,25 @@ for f in $(find supabase/functions -mindepth 2 -maxdepth 2 -name 'index.ts' | so
       grep -q 'ingest_merchant_billing_payment_event' "$f" || { echo "$f missing server-side payment event authority"; exit 1; }
       grep -q '\[functions.billing-payment-webhook\]' supabase/config.toml || { echo "$f missing config.toml entry"; exit 1; }
       ;;
+    supabase/functions/billing-payment-webhook-mercadopago/index.ts)
+      grep -q 'MERCADOPAGO_WEBHOOK_SECRET' "$f" || { echo "$f missing Mercado Pago webhook secret gate"; exit 1; }
+      grep -q 'verifyMercadoPagoWebhook' "$f" || { echo "$f missing Mercado Pago HMAC validation"; exit 1; }
+      grep -q 'x-request-id' supabase/functions/_shared/mercadopago.js || { echo "$f missing signed request-id binding"; exit 1; }
+      grep -q 'x-signature' supabase/functions/_shared/mercadopago.js || { echo "$f missing signature header parsing"; exit 1; }
+      grep -q 'constantTimeEqualHex' supabase/functions/_shared/mercadopago.js || { echo "$f missing constant-time signature comparison"; exit 1; }
+      grep -q 'merchant_sale_payment_attempts' "$f" || { echo "$f missing exact merchant-sale route authority"; exit 1; }
+      grep -q 'decryptPaymentSecret' "$f" || { echo "$f missing seller-owned token decryption"; exit 1; }
+      grep -q 'apply_merchant_sale_payment_event' "$f" || { echo "$f missing merchant-sale reconciliation authority"; exit 1; }
+      grep -q 'ingest_merchant_billing_payment_event' "$f" || { echo "$f missing TAMÃO billing reconciliation authority"; exit 1; }
+      grep -q 'ingest_merchant_billing_payment_refund' "$f" || { echo "$f missing TAMÃO billing refund authority"; exit 1; }
+      grep -q 'route:"merchant_sale"' "$f" || { echo "$f missing explicit merchant-sale result route"; exit 1; }
+      grep -q 'route:"platform_billing"' "$f" || { echo "$f missing explicit platform-billing result route"; exit 1; }
+      grep -q 'providerUserId!==providerAccountId' "$f" || { echo "$f missing exact seller-account binding"; exit 1; }
+      grep -q 'MERCADOPAGO_ORDER_ROUTE_NOT_READY' "$f" || { echo "$f must fail retryable on early unknown seller order"; exit 1; }
+      grep -q 'MAX_BODY_BYTES=65536' "$f" || { echo "$f missing payload cap"; exit 1; }
+      grep -q '\[functions.billing-payment-webhook-mercadopago\]' supabase/config.toml || { echo "$f missing config.toml entry"; exit 1; }
+      ! grep -q '\[functions.merchant-sale-payment-webhook-mercadopago\]' supabase/config.toml || { echo "Mercado Pago must use one production Order webhook ingress"; exit 1; }
+      ;;
     supabase/functions/billing-payment-webhook-woovi/index.ts)
       grep -q 'x-webhook-signature' "$f" || { echo "$f missing Woovi RSA signature header"; exit 1; }
       grep -q 'WOOVI_WEBHOOK_AUTHORIZATION' "$f" || { echo "$f missing private webhook authorization binding"; exit 1; }
@@ -74,15 +93,44 @@ for f in $(find supabase/functions -mindepth 2 -maxdepth 2 -name 'index.ts' | so
       grep -q 'ingest_merchant_billing_payment_event' "$f" || { echo "$f missing server-side payment event authority"; exit 1; }
       grep -q '\[functions.billing-payment-webhook-woovi\]' supabase/config.toml || { echo "$f missing config.toml entry"; exit 1; }
       ;;
+    supabase/functions/merchant-payment-connect/index.ts)
+      grep -q 'auth.getUser' "$f" || { echo "$f missing explicit merchant authentication"; exit 1; }
+      grep -q 'merchant_payment_oauth_states' "$f" || { echo "$f missing one-time OAuth state persistence"; exit 1; }
+      grep -q 'code_challenge_method","S256"' "$f" || { echo "$f missing OAuth PKCE S256"; exit 1; }
+      grep -q 'encryptPaymentSecret' "$f" || { echo "$f missing encrypted PKCE verifier"; exit 1; }
+      grep -q 'https://auth.mercadopago.com/authorization' "$f" || { echo "$f missing official Mercado Pago authorization endpoint"; exit 1; }
+      grep -q '\[functions.merchant-payment-connect\]' supabase/config.toml || { echo "$f missing config.toml entry"; exit 1; }
+      ;;
+    supabase/functions/merchant-payment-oauth-callback/index.ts)
+      grep -q 'consume_merchant_payment_oauth_state' "$f" || { echo "$f missing one-time OAuth state consumption"; exit 1; }
+      grep -q 'https://api.mercadopago.com/oauth/token' "$f" || { echo "$f missing server-side OAuth token exchange"; exit 1; }
+      grep -q 'https://api.mercadolibre.com/users/me' "$f" || { echo "$f missing seller token/account verification"; exit 1; }
+      grep -q 'encryptPaymentSecret' "$f" || { echo "$f missing encrypted seller token storage"; exit 1; }
+      grep -q 'directSalePaymentsEnabled:false' "$f" || { echo "$f must connect sellers with direct payments disabled"; exit 1; }
+      grep -q '\[functions.merchant-payment-oauth-callback\]' supabase/config.toml || { echo "$f missing config.toml entry"; exit 1; }
+      ;;
+    supabase/functions/order-payment-checkout/index.ts)
+      grep -q 'auth.getUser' "$f" || { echo "$f missing customer authentication"; exit 1; }
+      grep -q 'MERCHANT_DIRECT_PAYMENTS_ENABLED' "$f" || { echo "$f missing global direct-payment kill switch"; exit 1; }
+      grep -q 'directSalePaymentsEnabled' "$f" || { echo "$f missing per-merchant direct-payment approval"; exit 1; }
+      grep -q 'prepare_merchant_sale_payment_attempt' "$f" || { echo "$f missing exact order/merchant/amount DB authority"; exit 1; }
+      grep -q 'decryptPaymentSecret' "$f" || { echo "$f missing merchant-owned provider credential use"; exit 1; }
+      grep -q 'processing_mode:"manual"' "$f" || { echo "$f missing hosted Checkout Pro mode"; exit 1; }
+      grep -q 'providerUserId!==seller.providerAccountId' "$f" || { echo "$f missing exact seller binding"; exit 1; }
+      ! grep -q 'marketplace_fee' "$f" || { echo "$f cannot collect/split merchant sale proceeds in PF phase"; exit 1; }
+      grep -q 'tamaoReceivesSaleProceeds:false' "$f" || { echo "$f missing explicit no-repass contract"; exit 1; }
+      grep -q '\[functions.order-payment-checkout\]' supabase/config.toml || { echo "$f missing config.toml entry"; exit 1; }
+      ;;
     supabase/functions/merchant-billing-pix/index.ts)
       grep -q 'auth.getUser' "$f" || { echo "$f missing explicit JWT user validation"; exit 1; }
-      grep -q 'WOOVI_APP_ID' "$f" || { echo "$f missing Woovi API credential gate"; exit 1; }
-      grep -q 'WOOVI_BASES' "$f" || { echo "$f missing official Woovi host allowlist"; exit 1; }
-      grep -q 'merchant_billing_pix_charge_prepare' "$f" || { echo "$f missing transactional Pix prepare authority"; exit 1; }
+      grep -q 'BILLING_PIX_PROVIDER' "$f" || { echo "$f missing explicit PSP routing authority"; exit 1; }
+      grep -q 'MERCADOPAGO_ACCESS_TOKEN' "$f" || { echo "$f missing Mercado Pago credential gate"; exit 1; }
+      grep -q '"/v1/orders"' "$f" || { echo "$f missing Mercado Pago Orders API creation"; exit 1; }
+      grep -q 'merchant_billing_pix_charge_prepare_provider' "$f" || { echo "$f missing provider-neutral transactional Pix prepare authority"; exit 1; }
       grep -q 'merchant_billing_provider_charge_commit' "$f" || { echo "$f missing Pix provider commit authority"; exit 1; }
-      grep -q 'getWooviCharge' "$f" || { echo "$f missing correlation recovery before create"; exit 1; }
-      grep -q 'createWooviCharge' "$f" || { echo "$f missing provider charge creation"; exit 1; }
-      grep -q 'MAX_QR_IMAGE_BYTES' "$f" || { echo "$f missing QR image cap"; exit 1; }
+      grep -q 'idempotencyKey:correlationId' "$f" || { echo "$f missing provider idempotency binding"; exit 1; }
+      grep -q 'WOOVI_APP_ID' "$f" || { echo "$f must preserve Woovi migration fallback"; exit 1; }
+      grep -q 'getWooviCharge' "$f" || { echo "$f must preserve Woovi recovery fallback"; exit 1; }
       grep -q 'enforceApiQuota' "$f" || { echo "$f missing server-side rate limit"; exit 1; }
       grep -q '\[functions.merchant-billing-pix\]' supabase/config.toml || { echo "$f missing config.toml entry"; exit 1; }
       ;;
@@ -96,3 +144,13 @@ for f in $(find supabase/functions -mindepth 2 -maxdepth 2 -name 'index.ts' | so
       ;;
   esac
 done
+
+
+# Mercado Pago provider cancellation authority: local cancellation must not
+# leave a remotely payable Order behind, including late-create races.
+CANCEL_HELPER="supabase/functions/_shared/provider-charge-cancel.js"
+grep -q 'cancelMercadoPagoCharge' "$CANCEL_HELPER" || { echo "Mercado Pago provider cancellation authority missing"; exit 1; }
+grep -q 'MERCADOPAGO_CANCEL_BINDING_MISMATCH' "$CANCEL_HELPER" || { echo "Mercado Pago cancellation missing binding proof"; exit 1; }
+grep -q 'MERCADOPAGO_PAYMENT_ALREADY_RECEIVED' "$CANCEL_HELPER" || { echo "Mercado Pago cancellation must refuse paid orders"; exit 1; }
+grep -q '"/v1/orders/"' "$CANCEL_HELPER" || { echo "Mercado Pago cancellation missing authoritative Orders API lookup"; exit 1; }
+grep -q 'charge.provider==="mercadopago"' "$CANCEL_HELPER" || { echo "Mercado Pago cancellation not wired into provider dispatcher"; exit 1; }

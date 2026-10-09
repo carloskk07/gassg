@@ -5,12 +5,15 @@ import { DomainError,
   readJsonBody,
   enforceApiQuota
 } from "../_shared/domain.js";
+import { safeMercadoPagoUrl } from "../_shared/mercadopago.js";
 
 const SUPABASE_URL=Deno.env.get("SUPABASE_URL")??"";
 const publishableKeys=JSON.parse(Deno.env.get("SUPABASE_PUBLISHABLE_KEYS")??"{}");
 const secretKeys=JSON.parse(Deno.env.get("SUPABASE_SECRET_KEYS")??"{}");
 const PUBLISHABLE_KEY=publishableKeys.default??Deno.env.get("SUPABASE_ANON_KEY")??"";
 const SECRET_KEY=secretKeys.default??Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")??"";
+const MERCHANT_DIRECT_PAYMENTS_ENABLED=
+  String(Deno.env.get("MERCHANT_DIRECT_PAYMENTS_ENABLED")??"").trim()==="1";
 const CUSTOMER_ALLOWED_ORIGIN=(Deno.env.get("CUSTOMER_ALLOWED_ORIGIN")??"https://chama-sg-cliente.netlify.app").trim();
 const CUSTOMER_PRIMARY_ORIGINS=new Set([
   "https://tamao-sg-cliente.pages.dev",
@@ -185,6 +188,76 @@ Deno.serve(async(req:Request)=>{
       }
     }
 
+    let onlinePayment:any={
+      provider:"mercadopago",
+      available:false,
+      canStart:false,
+      status:"not_available",
+      checkoutUrl:null,
+      approvedAt:null,
+      refundedAt:null,
+      amountCents:Number(order.total_cents||0),
+      tamaoReceivesSaleProceeds:false
+    };
+    if(
+      order.merchant_id
+      &&["pix","card"].includes(String(order.payment_method??""))
+    ){
+      const [
+        {data:providerAccount,error:providerAccountError},
+        {data:paymentAttempt,error:paymentAttemptError}
+      ]=await Promise.all([
+        admin.from("merchant_payment_provider_accounts")
+          .select("status,capabilities")
+          .eq("merchant_id",order.merchant_id)
+          .eq("provider","mercadopago")
+          .maybeSingle(),
+        admin.from("merchant_sale_payment_attempts")
+          .select("status,checkout_url,expires_at,approved_at,refunded_at,amount_cents,merchant_id")
+          .eq("order_id",order.id)
+          .order("created_at",{ascending:false})
+          .limit(1)
+          .maybeSingle()
+      ]);
+      if(providerAccountError)throw providerAccountError;
+      if(paymentAttemptError)throw paymentAttemptError;
+
+      const merchantEnabled=
+        providerAccount?.status==="active"
+        &&providerAccount?.capabilities?.directSalePaymentsEnabled===true;
+      const orderEligible=[
+        "MERCHANT_ACCEPTED","PREPARING","AT_RISK",
+        "OUT_FOR_DELIVERY","ARRIVING"
+      ].includes(order.status);
+      const attemptStatus=String(paymentAttempt?.status??"not_started");
+      const checkoutUrl=
+        role==="customer"
+        &&["checkout_ready","pending"].includes(attemptStatus)
+          ?safeMercadoPagoUrl(paymentAttempt?.checkout_url)
+          :null;
+      const terminalRetryable=["rejected","cancelled","expired"].includes(attemptStatus);
+      const noAttempt=attemptStatus==="not_started";
+      onlinePayment={
+        provider:"mercadopago",
+        available:
+          MERCHANT_DIRECT_PAYMENTS_ENABLED
+          &&merchantEnabled
+          &&orderEligible,
+        canStart:
+          MERCHANT_DIRECT_PAYMENTS_ENABLED
+          &&merchantEnabled
+          &&orderEligible
+          &&(noAttempt||terminalRetryable),
+        status:attemptStatus,
+        checkoutUrl,
+        expiresAt:role==="customer"?paymentAttempt?.expires_at??null:null,
+        approvedAt:paymentAttempt?.approved_at??null,
+        refundedAt:paymentAttempt?.refunded_at??null,
+        amountCents:Number(paymentAttempt?.amount_cents??order.total_cents??0),
+        tamaoReceivesSaleProceeds:false
+      };
+    }
+
     const deliveryDetailsVisible=role==="customer"||order.status!=="OFFERED_TO_MERCHANT";
 
     const safeOrder={
@@ -208,6 +281,7 @@ Deno.serve(async(req:Request)=>{
       deliveryDataRedacted:order.delivery_pii_redacted_at!=null,
       deliveryDataRedactedAt:role==="customer"?order.delivery_pii_redacted_at:null,
       paymentMethod:order.payment_method,
+      onlinePayment,
       cashTenderCents:order.cash_tender_cents,
       deliveryWindowStart:order.delivery_window_start,
       deliveryWindowEnd:order.delivery_window_end,

@@ -30,3 +30,29 @@ verify_jwt = false
 # JWT verification remains inside the function to support the project key model consistently.
 [functions.merchant-billing-pix]
 verify_jwt = false
+
+
+# Single Mercado Pago Order webhook ingress for both TAMÃO billing and
+# merchant-owned sales. JWT is disabled because HMAC authenticates delivery;
+# the handler routes only by exact local provider-order bindings and then
+# re-fetches the order with the owning account token before reconciliation.
+[functions.billing-payment-webhook-mercadopago]
+verify_jwt = false
+
+
+# Merchant payment connection management. JWT validation is performed inside
+# the function so the same publishable-key/session model is used consistently.
+[functions.merchant-payment-connect]
+verify_jwt = false
+
+# Mercado Pago redirects here before a TAMÃO user session exists.
+# Authenticity is enforced by a one-time high-entropy OAuth state plus PKCE.
+[functions.merchant-payment-oauth-callback]
+verify_jwt = false
+
+
+# Customer starts a direct checkout against the merchant-owned Mercado Pago
+# account. JWT/session validation is enforced inside the handler.
+[functions.order-payment-checkout]
+verify_jwt = false
+
