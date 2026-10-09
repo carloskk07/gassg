@@ -18,6 +18,8 @@ jobs:
           TAMAO_REQUIRE_LIVE_PORTALS: '1'
           TAMAO_EXPECTED_SOURCE_SHA: ${{ github.sha }}
         run: node tests/remote-admin-readiness.mjs
+      - name: Direct merchant payment kill-switch gate
+        run: node tests/remote-direct-payment-kill-switch.mjs
       - name: Mercado Pago PSP runtime configuration gate
         run: node tests/remote-finance-psp-readiness.mjs
       - name: Remote admin Turnstile configuration smoke
