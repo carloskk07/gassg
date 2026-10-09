@@ -1916,6 +1916,23 @@ function adminMerchantPaymentProviderCatalog(d){
     }).join('')
     +'</div>';
 }
+function adminMerchantSaleVerificationSection(d){
+  const rows=(d.merchantPayments?.verifications||[]).slice(0,20);
+  const orderById=new Map((d.controlOrders||[]).map(x=>[String(x.id),x]));
+  if(!rows.length){
+    return '<div class="card flat" style="margin-top:12px"><h3>Evidências de pagamento das vendas</h3><div class="tiny muted">Nenhuma venda possui evidência registrada ainda. Quando houver operação, esta área distinguirá confirmação por provedor, terminal e revenda.</div></div>';
+  }
+  return '<div class="card flat" style="margin-top:12px"><div class="section-head"><div><h3>Evidências de pagamento das vendas</h3><p>Somente prova transacional. Estes valores pertencem às revendas e não compõem o caixa do TAMÃO.</p></div></div><div class="list">'
+    +rows.map(row=>{
+      const order=orderById.get(String(row.order_id));
+      const merchantName=adminMerchantName(row.merchant_id);
+      const transaction=String(row.provider_transaction_id||'');
+      const safeTx=transaction?'•••• '+transaction.slice(-8):'sem ID externo';
+      const level=adminMerchantPaymentVerificationLabel(row.verification_level);
+      return '<div class="list-row"><div><strong>'+esc(order?.public_code||String(row.order_id).slice(0,8))+' • '+esc(merchantName)+'</strong><br><small>'+esc(adminBillingProviderName(row.provider))+' • '+esc(level)+' • '+esc(safeTx)+'</small></div><div style="text-align:right"><strong>'+adminMoney(row.amount_cents)+'</strong><br><small>'+esc(formatDateTime(row.verified_at||row.occurred_at||row.created_at))+'</small></div></div>';
+    }).join('')
+    +'</div></div>';
+}
 function adminMerchantPaymentAccountsSection(d){
   const merchants=d.merchants||[];
   const rows=[];
@@ -1928,7 +1945,8 @@ function adminMerchantPaymentAccountsSection(d){
   return '<div class="section-head" style="margin-top:18px"><div><span class="section-kicker">VENDA DO CLIENTE → REVENDA</span><h3>Recebimento direto multi-PSP</h3><p>A revenda pode usar o provedor que já possui. Conectar ou homologar um PSP serve apenas para confirmar a transação; nenhuma venda passa pela conta do TAMÃO.</p></div><span class="status-pill '+(globalEnabled?'online':'risk')+'">AUTOMAÇÃO GLOBAL '+(globalEnabled?'ATIVA':'DESATIVADA')+'</span></div>'
     +'<div class="notice"><strong>Arquitetura agnóstica de provedor.</strong><br>Mercado Pago não é obrigatório. Pix próprio, dinheiro e cartão na entrega continuam válidos; PagBank, Stone, Getnet e outros entram como conectores independentes.</div>'
     +adminMerchantPaymentProviderCatalog(d)
-    +(rows.length?'<div class="admin-entity-grid" style="margin-top:12px">'+rows.map(adminMerchantPaymentAccountCard).join('')+'</div>':'<div class="empty card" style="margin-top:12px">Nenhuma revenda possui conexão automática com PSP ainda. Isso não impede uma revenda de operar com formas de pagamento manuais confirmadas.</div>');
+    +(rows.length?'<div class="admin-entity-grid" style="margin-top:12px">'+rows.map(adminMerchantPaymentAccountCard).join('')+'</div>':'<div class="empty card" style="margin-top:12px">Nenhuma revenda possui conexão automática com PSP ainda. Isso não impede uma revenda de operar com formas de pagamento manuais confirmadas.</div>')
+    +adminMerchantSaleVerificationSection(d);
 }
 
 function adminMerchantBillingSection(d){
