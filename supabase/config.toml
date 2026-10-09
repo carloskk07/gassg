@@ -56,3 +56,11 @@ verify_jwt = false
 [functions.order-payment-checkout]
 verify_jwt = false
 
+
+
+# Machine-only live portal attestation. Supabase JWT verification is disabled
+# because the handler authenticates a short-lived GitHub Actions OIDC JWT,
+# verifies its signature/claims, re-checks GitHub main and independently probes
+# all three production portals before a server-only readiness mutation.
+[functions.portal-readiness-attestor]
+verify_jwt = false

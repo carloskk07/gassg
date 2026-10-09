@@ -121,6 +121,22 @@ for f in $(find supabase/functions -mindepth 2 -maxdepth 2 -name 'index.ts' | so
       grep -q 'tamaoReceivesSaleProceeds:false' "$f" || { echo "$f missing explicit no-repass contract"; exit 1; }
       grep -q '\[functions.order-payment-checkout\]' supabase/config.toml || { echo "$f missing config.toml entry"; exit 1; }
       ;;
+    supabase/functions/portal-readiness-attestor/index.ts)
+      grep -q 'https://token.actions.githubusercontent.com/.well-known/jwks' "$f" || { echo "$f missing GitHub OIDC JWKS"; exit 1; }
+      grep -q 'tamao-portal-attestor' "$f" || { echo "$f missing dedicated OIDC audience"; exit 1; }
+      grep -q 'RSASSA-PKCS1-v1_5' "$f" || { echo "$f missing OIDC RSA verification"; exit 1; }
+      grep -q 'crypto.subtle.verify' "$f" || { echo "$f missing OIDC signature verification"; exit 1; }
+      grep -q 'repository!==REPOSITORY' "$f" || { echo "$f missing exact repository claim binding"; exit 1; }
+      grep -q 'repository_id' "$f" || { echo "$f missing immutable repository id binding"; exit 1; }
+      grep -q 'repository_owner_id' "$f" || { echo "$f missing immutable owner id binding"; exit 1; }
+      grep -q 'workflow_ref' "$f" || { echo "$f missing exact workflow claim binding"; exit 1; }
+      grep -q 'https://api.github.com/repos/carloskk07/gassg/commits/main' "$f" || { echo "$f missing independent GitHub main proof"; exit 1; }
+      grep -q 'record_automated_portal_attestation' "$f" || { echo "$f missing server-only portal attestation authority"; exit 1; }
+      grep -q 'readJsonBody(req,{maxBytes:4096})' "$f" || { echo "$f missing small payload cap"; exit 1; }
+      ! grep -q 'admin_operation_mode_action' "$f" || { echo "$f must not mutate operation mode"; exit 1; }
+      ! grep -q 'platform_launch_confirmations' "$f" || { echo "$f must not confirm launch warnings"; exit 1; }
+      grep -q '\[functions.portal-readiness-attestor\]' supabase/config.toml || { echo "$f missing config.toml entry"; exit 1; }
+      ;;
     supabase/functions/merchant-billing-pix/index.ts)
       grep -q 'auth.getUser' "$f" || { echo "$f missing explicit JWT user validation"; exit 1; }
       grep -q 'BILLING_PIX_PROVIDER' "$f" || { echo "$f missing explicit PSP routing authority"; exit 1; }
