@@ -52,6 +52,20 @@ for f in $(find supabase/functions -mindepth 2 -maxdepth 2 -name 'index.ts' | so
       grep -q 'ingest_merchant_billing_payment_event' "$f" || { echo "$f missing server-side payment event authority"; exit 1; }
       grep -q '\[functions.billing-payment-webhook\]' supabase/config.toml || { echo "$f missing config.toml entry"; exit 1; }
       ;;
+    supabase/functions/billing-payment-webhook-mercadopago/index.ts)
+      grep -q 'MERCADOPAGO_WEBHOOK_SECRET' "$f" || { echo "$f missing Mercado Pago webhook secret gate"; exit 1; }
+      grep -q 'verifyMercadoPagoWebhook' "$f" || { echo "$f missing Mercado Pago HMAC validation"; exit 1; }
+      grep -q 'x-request-id' supabase/functions/_shared/mercadopago.js || { echo "$f missing signed request-id binding"; exit 1; }
+      grep -q 'x-signature' supabase/functions/_shared/mercadopago.js || { echo "$f missing signature header parsing"; exit 1; }
+      grep -q 'HMAC' supabase/functions/_shared/mercadopago.js || { echo "$f missing HMAC-SHA256 primitive"; exit 1; }
+      grep -q 'constantTimeEqualHex' supabase/functions/_shared/mercadopago.js || { echo "$f missing constant-time signature comparison"; exit 1; }
+      grep -q '"/v1/orders/"' "$f" || { echo "$f missing authoritative provider order lookup"; exit 1; }
+      grep -q 'ingest_merchant_billing_payment_event' "$f" || { echo "$f missing generic payment reconciliation authority"; exit 1; }
+      grep -q 'ingest_merchant_billing_payment_refund' "$f" || { echo "$f missing generic refund reconciliation authority"; exit 1; }
+      grep -q 'FOREIGN_ORDER_REFERENCE' "$f" || { echo "$f must ignore unrelated Mercado Pago account traffic"; exit 1; }
+      grep -q 'MAX_BODY_BYTES=65536' "$f" || { echo "$f missing payload cap"; exit 1; }
+      grep -q '\[functions.billing-payment-webhook-mercadopago\]' supabase/config.toml || { echo "$f missing config.toml entry"; exit 1; }
+      ;;
     supabase/functions/billing-payment-webhook-woovi/index.ts)
       grep -q 'x-webhook-signature' "$f" || { echo "$f missing Woovi RSA signature header"; exit 1; }
       grep -q 'WOOVI_WEBHOOK_AUTHORIZATION' "$f" || { echo "$f missing private webhook authorization binding"; exit 1; }
@@ -76,13 +90,14 @@ for f in $(find supabase/functions -mindepth 2 -maxdepth 2 -name 'index.ts' | so
       ;;
     supabase/functions/merchant-billing-pix/index.ts)
       grep -q 'auth.getUser' "$f" || { echo "$f missing explicit JWT user validation"; exit 1; }
-      grep -q 'WOOVI_APP_ID' "$f" || { echo "$f missing Woovi API credential gate"; exit 1; }
-      grep -q 'WOOVI_BASES' "$f" || { echo "$f missing official Woovi host allowlist"; exit 1; }
-      grep -q 'merchant_billing_pix_charge_prepare' "$f" || { echo "$f missing transactional Pix prepare authority"; exit 1; }
+      grep -q 'BILLING_PIX_PROVIDER' "$f" || { echo "$f missing explicit PSP routing authority"; exit 1; }
+      grep -q 'MERCADOPAGO_ACCESS_TOKEN' "$f" || { echo "$f missing Mercado Pago credential gate"; exit 1; }
+      grep -q '"/v1/orders"' "$f" || { echo "$f missing Mercado Pago Orders API creation"; exit 1; }
+      grep -q 'merchant_billing_pix_charge_prepare_provider' "$f" || { echo "$f missing provider-neutral transactional Pix prepare authority"; exit 1; }
       grep -q 'merchant_billing_provider_charge_commit' "$f" || { echo "$f missing Pix provider commit authority"; exit 1; }
-      grep -q 'getWooviCharge' "$f" || { echo "$f missing correlation recovery before create"; exit 1; }
-      grep -q 'createWooviCharge' "$f" || { echo "$f missing provider charge creation"; exit 1; }
-      grep -q 'MAX_QR_IMAGE_BYTES' "$f" || { echo "$f missing QR image cap"; exit 1; }
+      grep -q 'idempotencyKey:correlationId' "$f" || { echo "$f missing provider idempotency binding"; exit 1; }
+      grep -q 'WOOVI_APP_ID' "$f" || { echo "$f must preserve Woovi migration fallback"; exit 1; }
+      grep -q 'getWooviCharge' "$f" || { echo "$f must preserve Woovi recovery fallback"; exit 1; }
       grep -q 'enforceApiQuota' "$f" || { echo "$f missing server-side rate limit"; exit 1; }
       grep -q '\[functions.merchant-billing-pix\]' supabase/config.toml || { echo "$f missing config.toml entry"; exit 1; }
       ;;
