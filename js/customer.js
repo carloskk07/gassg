@@ -691,10 +691,25 @@ function liveTracking(){
   const trackingSyncNotice=liveRuntime.error
     ? '<div class="notice danger" style="margin-top:12px"><strong>Acompanhamento temporariamente sem conexão.</strong><br>O último estado confirmado continua visível abaixo. Tente atualizar novamente antes de tomar uma decisão baseada no status.</div>'
     : '';
+  const onlinePayment=o.onlinePayment||null;
+  const directPaymentNotice=onlinePayment?.available===true||onlinePayment?.status==='approved'||onlinePayment?.status==='refunded'||onlinePayment?.status==='review_required'
+    ? onlinePayment.status==='approved'
+      ? '<div class="notice success" style="margin-top:14px"><strong>Pagamento confirmado pela revenda.</strong><br>O Mercado Pago confirmou a transação diretamente na conta do parceiro. O TAMÃO não recebeu nem repassou o valor desta venda.</div>'
+      : onlinePayment.status==='refunded'
+        ? '<div class="notice" style="margin-top:14px"><strong>Pagamento reembolsado.</strong><br>O provedor confirmou a reversão na conta da revenda.</div>'
+        : onlinePayment.status==='review_required'
+          ? '<div class="notice danger" style="margin-top:14px"><strong>Pagamento em revisão.</strong><br>O pedido fica protegido até o TAMÃO confirmar o estado diretamente no provedor.</div>'
+          : onlinePayment.checkoutUrl
+            ? `<div class="notice" style="margin-top:14px"><strong>Pagamento direto à revenda disponível.</strong><br>O valor vai direto para a conta Mercado Pago do parceiro; o TAMÃO apenas valida a transação.<div class="order-actions"><button class="primary small" onclick="liveStartMerchantPayment()" ${liveRuntime.actionPending?'disabled':''}>Continuar pagamento</button></div></div>`
+            : onlinePayment.canStart===true
+              ? `<div class="notice" style="margin-top:14px"><strong>Pague direto à revenda.</strong><br>Você será levado ao Mercado Pago do parceiro. O TAMÃO não recebe nem repassa o valor do pedido.<div class="order-actions"><button class="primary small" onclick="liveStartMerchantPayment()" ${liveRuntime.actionPending?'disabled':''}>Pagar com Mercado Pago</button></div></div>`
+              : '<div class="notice" style="margin-top:14px"><strong>Aguardando confirmação do pagamento.</strong><br>Atualize o pedido para consultar novamente o estado informado pelo provedor.</div>'
+    : '';
 
   return shell(`<section class="page"><button class="back" onclick="go('home')">← Início</button>
 <div class="status-bar"><div><div class="tiny muted">PEDIDO ${esc(o.publicCode||o.orderId)}</div><h1 class="page-title" style="margin-bottom:3px">${esc(copy[0])}</h1></div><span class="status-pill ${['OUT_FOR_DELIVERY','ARRIVING','SETTLED','DELIVERED'].includes(o.status)?'online':o.status==='CANCELLED'?'offline':'risk'}">${o.status==='SETTLED'?'CONCLUÍDO':o.status==='CANCELLED'?'ENCERRADO':'AO VIVO'}</span></div>
 ${trackingSyncNotice}
+${directPaymentNotice}
 
 <div class="card flat"><div class="price-lock"><span>🔒</span><div><strong>Total protegido: ${BRL.format(total)}</strong><br>${cashbackReserved>0?`Inclui ${BRL.format(cashbackReserved)} de cashback reservado. `:''}Se for necessária uma opção mais cara, você precisa aprovar antes.</div></div>
 <div class="divider"></div>
