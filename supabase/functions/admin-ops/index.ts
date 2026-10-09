@@ -1194,10 +1194,21 @@ async function summary(admin:any,actorUserId:string){
     : Promise.resolve({data:[],error:null});
   const merchantPaymentAccountsPromise=["superadmin","finance","readonly"].includes(actorRole)
     ? admin.from("merchant_payment_provider_accounts")
-        .select("merchant_id,provider,provider_account_id,status,capabilities,token_expires_at,connected_at,refreshed_at,revoked_at,last_error_code,last_error_at,updated_at")
-        .eq("provider","mercadopago")
+        .select("id,merchant_id,provider,provider_account_id,status,connection_mode,verification_level,credential_kind,capabilities,metadata,token_expires_at,connected_at,refreshed_at,revoked_at,last_error_code,last_error_at,updated_at")
         .order("updated_at",{ascending:false})
-        .limit(500)
+        .limit(1000)
+    : Promise.resolve({data:[],error:null});
+  const merchantPaymentProvidersPromise=["superadmin","finance","readonly"].includes(actorRole)
+    ? admin.from("payment_provider_catalog")
+        .select("provider_key,display_name,connection_mode,verification_level,adapter_status,supported_methods,supports_webhook,supports_lookup,requires_platform_credentials,funds_flow,sort_order,notes")
+        .order("sort_order",{ascending:true})
+    : Promise.resolve({data:[],error:null});
+  const merchantPaymentRoutesPromise=["superadmin","finance","readonly"].includes(actorRole)
+    ? admin.from("merchant_payment_routes")
+        .select("id,merchant_id,payment_method,provider,connection_id,channel,verification_mode,active,priority,customer_label,confirmed_at,updated_at")
+        .order("merchant_id",{ascending:true})
+        .order("priority",{ascending:true})
+        .limit(2000)
     : Promise.resolve({data:[],error:null});
   const billingRefundsPromise=["superadmin","finance","readonly"].includes(actorRole)
     ? admin.from("merchant_billing_payment_refunds")
@@ -1211,7 +1222,7 @@ async function summary(admin:any,actorUserId:string){
         .order("created_at",{ascending:false})
         .limit(200)
     : Promise.resolve({data:[],error:null});
-  const [billingPlans,billingAccounts,dailyStatements,billingPaymentRequests,billingMetrics,billingReconciliation,billingPaymentEvents,billingProviderCharges,merchantPaymentAccounts,billingRefunds,billingRefundRecoveries]=await Promise.all([
+  const [billingPlans,billingAccounts,dailyStatements,billingPaymentRequests,billingMetrics,billingReconciliation,billingPaymentEvents,billingProviderCharges,merchantPaymentAccounts,merchantPaymentProviders,merchantPaymentRoutes,billingRefunds,billingRefundRecoveries]=await Promise.all([
     admin.from("merchant_billing_plans")
       .select("plan_key,display_name,billing_mode,platform_fee_bps,purchase_amount_cents,credit_grant_cents,active,sort_order,policy_version,updated_by,last_change_reason,updated_at")
       .order("sort_order",{ascending:true}),
@@ -1232,10 +1243,12 @@ async function summary(admin:any,actorUserId:string){
     billingPaymentEventsPromise,
     billingProviderChargesPromise,
     merchantPaymentAccountsPromise,
+    merchantPaymentProvidersPromise,
+    merchantPaymentRoutesPromise,
     billingRefundsPromise,
     billingRefundRecoveriesPromise
   ]);
-  for(const result of [billingPlans,billingAccounts,dailyStatements,billingPaymentRequests,billingMetrics,billingReconciliation,billingPaymentEvents,billingProviderCharges,merchantPaymentAccounts,billingRefunds,billingRefundRecoveries]){
+  for(const result of [billingPlans,billingAccounts,dailyStatements,billingPaymentRequests,billingMetrics,billingReconciliation,billingPaymentEvents,billingProviderCharges,merchantPaymentAccounts,merchantPaymentProviders,merchantPaymentRoutes,billingRefunds,billingRefundRecoveries]){
     if(result.error)throw result.error;
   }
 
@@ -1290,9 +1303,18 @@ async function summary(admin:any,actorUserId:string){
   const merchantReadinessById=new Map<string,any>(
     (merchantReadiness.data??[]).map((x:any)=>[String(x.merchantId),x] as [string,any])
   );
-  const paymentAccountByMerchant=new Map<string,any>(
-    (merchantPaymentAccounts.data??[]).map((x:any)=>[String(x.merchant_id),x] as [string,any])
-  );
+  const paymentAccountsByMerchant=new Map<string,any[]>();
+  for(const account of merchantPaymentAccounts.data??[]){
+    const key=String(account.merchant_id);
+    if(!paymentAccountsByMerchant.has(key))paymentAccountsByMerchant.set(key,[]);
+    paymentAccountsByMerchant.get(key)!.push(account);
+  }
+  const paymentRoutesByMerchant=new Map<string,any[]>();
+  for(const route of merchantPaymentRoutes.data??[]){
+    const key=String(route.merchant_id);
+    if(!paymentRoutesByMerchant.has(key))paymentRoutesByMerchant.set(key,[]);
+    paymentRoutesByMerchant.get(key)!.push(route);
+  }
   const capabilitiesByMerchant=new Map<string,any[]>();
   for(const cap of capabilities.data??[]){
     if(!capabilitiesByMerchant.has(cap.merchant_id))capabilitiesByMerchant.set(cap.merchant_id,[]);
@@ -1369,7 +1391,9 @@ async function summary(admin:any,actorUserId:string){
       businessDetails:businessByMerchant.get(m.id)??null,
       deliveryCapabilities:capabilitiesByMerchant.get(m.id)??[],
       readiness:merchantReadinessById.get(m.id)??null,
-      paymentAccount:paymentAccountByMerchant.get(m.id)??null
+      paymentAccounts:paymentAccountsByMerchant.get(String(m.id))??[],
+      paymentAccount:(paymentAccountsByMerchant.get(String(m.id))??[]).find((x:any)=>x.provider==="mercadopago")??null,
+      paymentRoutes:paymentRoutesByMerchant.get(String(m.id))??[]
     })),
     merchantReadiness:merchantReadiness.data??[],
     businessMetrics:businessMetrics.data??{},
@@ -1377,7 +1401,11 @@ async function summary(admin:any,actorUserId:string){
     commercialPolicy:commercialPolicy.data??null,
     merchantPayments:{
       globalDirectPaymentsEnabled:
-        String(Deno.env.get("MERCHANT_DIRECT_PAYMENTS_ENABLED")??"").trim()==="1"
+        String(Deno.env.get("MERCHANT_DIRECT_PAYMENTS_ENABLED")??"").trim()==="1",
+      fundsOwner:"merchant",
+      tamaoReceivesSaleProceeds:false,
+      providerCatalog:merchantPaymentProviders.data??[],
+      routes:merchantPaymentRoutes.data??[]
     },
     merchantBilling:{
       plans:billingPlans.data??[],
