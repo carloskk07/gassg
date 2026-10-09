@@ -634,6 +634,7 @@ Deno.serve(async(req:Request)=>{
           requiresPlatformCredentials:row.requires_platform_credentials===true,
           customerVisible:row.customer_visible===true,
           fundsFlow:row.funds_flow,
+          sortOrder:Number(row.sort_order||100),
           notes:row.notes??null,
           connectReady:readiness.connectReady,
           setupState:readiness.setupState
