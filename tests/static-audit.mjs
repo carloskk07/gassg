@@ -1657,7 +1657,7 @@ for(const entry of fs.readdirSync(functionRoot,{withFileTypes:true})){
     assert.ok(source.includes('merchant_sale_payment_attempts')&&source.includes('handlePlatformBillingOrder')&&source.includes('handleMerchantSaleOrder'),entry.name+' precisa rotear venda da revenda e cobrança do TAMÃO por vínculo exato');
   }else if(entry.name==='merchant-payment-oauth-callback'){
     assert.ok(source.includes('req.method!=="GET"')&&source.includes('consume_merchant_payment_oauth_state'),entry.name+' precisa ser callback GET com state de uso único');
-    assert.ok(source.includes('decryptPaymentSecret')&&source.includes('code_verifier')&&source.includes('verifySellerToken'),entry.name+' precisa provar PKCE e conta do seller antes de persistir tokens');
+    assert.ok(source.includes('decryptPaymentSecret')&&source.includes('code_verifier')&&source.includes('verifyMercadoPagoSellerToken')&&source.includes('verifyPagBankSellerToken'),entry.name+' precisa provar state/PKCE quando aplicável e identidade da conta antes de persistir tokens');
   }else{
     assert.ok(source.includes('readJsonBody(req)'),entry.name+' precisa limitar JSON');
     assert.ok(source.includes('enforceApiQuota(admin'),entry.name+' precisa aplicar quota server-side');
