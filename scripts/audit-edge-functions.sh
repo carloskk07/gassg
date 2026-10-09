@@ -65,6 +65,14 @@ for f in $(find supabase/functions -mindepth 2 -maxdepth 2 -name 'index.ts' | so
       grep -q 'ingest_merchant_billing_payment_refund' "$f" || { echo "$f missing TAMÃO billing refund authority"; exit 1; }
       grep -q 'route:"merchant_sale"' "$f" || { echo "$f missing explicit merchant-sale result route"; exit 1; }
       grep -q 'route:"platform_billing"' "$f" || { echo "$f missing explicit platform-billing result route"; exit 1; }
+      grep -q 'WEBHOOK_PROBE_RE' "$f" || { echo "$f missing reserved non-financial webhook probe namespace"; exit 1; }
+      grep -q 'handleWebhookProbe' "$f" || { echo "$f missing signed webhook proof handler"; exit 1; }
+      grep -q 'consume_payment_webhook_probe' "$f" || { echo "$f missing server-only webhook proof authority"; exit 1; }
+      grep -q 'route:"webhook_probe"' "$f" || { echo "$f missing explicit non-financial proof route"; exit 1; }
+      grep -q 'financialMutationAttempted:false' "$f" || { echo "$f missing explicit zero-finance proof contract"; exit 1; }
+      signature_line="$(grep -n 'verifyMercadoPagoWebhook(req,webhookSecret,dataId)' "$f" | head -1 | cut -d: -f1)"
+      probe_line="$(grep -n 'WEBHOOK_PROBE_RE.test(dataId)' "$f" | head -1 | cut -d: -f1)"
+      [[ -n "$signature_line" && -n "$probe_line" && "$signature_line" -lt "$probe_line" ]] || { echo "$f must verify provider HMAC before consuming webhook proof"; exit 1; }
       grep -q 'providerUserId!==providerAccountId' "$f" || { echo "$f missing exact seller-account binding"; exit 1; }
       grep -q 'MERCADOPAGO_ORDER_ROUTE_NOT_READY' "$f" || { echo "$f must fail retryable on early unknown seller order"; exit 1; }
       grep -q 'MAX_BODY_BYTES=65536' "$f" || { echo "$f missing payload cap"; exit 1; }
