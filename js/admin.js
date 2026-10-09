@@ -444,6 +444,29 @@ function adminClearSearch(){
   adminRuntime.searchResults=[];
   render();
 }
+function adminFocusSearch(){
+  const input=document.getElementById('admin-global-search');
+  if(!input)return;
+  input.focus();
+  input.select();
+}
+function adminBindKeyboardShortcuts(){
+  if(globalThis.__tamaoAdminKeyboardBound)return;
+  globalThis.__tamaoAdminKeyboardBound=true;
+  document.addEventListener('keydown',event=>{
+    if(!adminPortalRequested()||adminRuntime.status!=='ready')return;
+    if((event.ctrlKey||event.metaKey)&&String(event.key).toLowerCase()==='k'){
+      event.preventDefault();
+      adminFocusSearch();
+      return;
+    }
+    if(event.key==='Escape'&&adminRuntime.detail){
+      event.preventDefault();
+      adminCloseDetail();
+    }
+  });
+}
+adminBindKeyboardShortcuts();
 function adminOpenSearchResult(type,id){
   if(['order','merchant','customer'].includes(String(type))){
     return adminOpenEntity(type,id);
@@ -661,10 +684,11 @@ function adminGlobalSearchView(){
   const searched=adminRuntime.searchQuery;
   return `<div class="admin-global-search">
     <div class="admin-search-input-wrap">
-      <span aria-hidden="true">⌕</span>
-      <input id="admin-global-search" class="input" maxlength="120" autocomplete="off" placeholder="Buscar pedido, telefone, CNPJ, revenda, cliente…" value="${esc(searched||'')}" onkeydown="if(event.key==='Enter'){event.preventDefault();adminSearchFromUi()}">
-      <button class="secondary small" type="button" onclick="adminSearchFromUi()" ${adminRuntime.searchPending?'disabled aria-busy="true"':''}>${adminRuntime.searchPending?'Buscando…':'Buscar'}</button>
-      ${searched?'<button class="ghost small" type="button" onclick="adminClearSearch()">Limpar</button>':''}
+      <span class="admin-search-icon" aria-hidden="true">${adminNavIcon('audit')}</span>
+      <input id="admin-global-search" class="input" maxlength="120" autocomplete="off" placeholder="Buscar pedido, telefone, CNPJ, revenda ou cliente…" value="${esc(searched||'')}" onkeydown="if(event.key==='Enter'){event.preventDefault();adminSearchFromUi()}">
+      <kbd class="admin-search-shortcut">Ctrl K</kbd>
+      <button class="secondary small admin-search-submit" type="button" onclick="adminSearchFromUi()" ${adminRuntime.searchPending?'disabled aria-busy="true"':''}>${adminRuntime.searchPending?'Buscando…':'Buscar'}</button>
+      ${searched?'<button class="ghost small admin-search-clear" type="button" onclick="adminClearSearch()">Limpar</button>':''}
     </div>
     ${searched?`<div class="admin-search-results">
       <div class="tiny muted">${adminRuntime.searchPending?'Consultando control plane…':results.length+' resultado(s) para “'+esc(searched)+'”'}</div>
@@ -974,6 +998,69 @@ function adminFirstSectionForRole(role=adminCurrentRole()){
     .find(section=>adminRoleCanSection(section,role))||'overview';
 }
 
+function adminSectionMeta(section=adminRuntime.section){
+  return ({
+    overview:{kicker:'CENTRAL DE COMANDO',title:'Visão geral',description:'Saúde do negócio, prioridades e decisões que exigem atenção agora.'},
+    orders:{kicker:'OPERAÇÃO EM TEMPO REAL',title:'Pedidos',description:'Acompanhe aceite, risco, entrega, suporte e intervenções auditadas.'},
+    customers:{kicker:'RELACIONAMENTO',title:'Clientes',description:'Visão operacional dos clientes recentes e acesso rápido ao histórico 360°.'},
+    partners:{kicker:'REDE DE REVENDA',title:'Parceiros',description:'Aquisição, onboarding, compliance e prontidão operacional das revendas.'},
+    catalog:{kicker:'OFERTA DA PLATAFORMA',title:'Catálogo',description:'Categorias, produtos e governança da oferta disponível na plataforma.'},
+    finance:{kicker:'CONTROLADORIA',title:'Financeiro',description:'Cobranças TAMÃO, crédito, D+1, PSP, conciliação, refunds e política econômica.'},
+    incidents:{kicker:'CONFIABILIDADE',title:'Incidentes',description:'Severidade, resposta, MTTA/MTTR e resolução auditável dos eventos operacionais.'},
+    audit:{kicker:'GOVERNANÇA',title:'Auditoria',description:'Trilha forense das decisões administrativas e mudanças sensíveis da plataforma.'},
+    system:{kicker:'SEGURANÇA & PLATAFORMA',title:'Sistema',description:'Saúde técnica, portais, PSP, RBAC e controles estruturais do ambiente.'}
+  })[String(section||'overview')]||{kicker:'CONTROL PLANE',title:'Administração',description:'Controle operacional do TAMÃO.'};
+}
+function adminRelativeTime(value){
+  if(!value)return 'sem sincronização';
+  const ms=Date.now()-Date.parse(value);
+  if(!Number.isFinite(ms))return 'agora';
+  const abs=Math.max(0,ms);
+  if(abs<45000)return 'agora';
+  const min=Math.round(abs/60000);
+  if(min<60)return 'há '+min+' min';
+  const hours=Math.round(min/60);
+  if(hours<24)return 'há '+hours+' h';
+  const days=Math.round(hours/24);
+  return 'há '+days+' d';
+}
+function adminNavIcon(id){
+  const paths={
+    overview:'<path d="M4 12a8 8 0 1 1 16 0v7a1 1 0 0 1-1 1h-5v-6h-4v6H5a1 1 0 0 1-1-1v-7Z"/><path d="M8 11h8"/>',
+    orders:'<rect x="4" y="3" width="16" height="18" rx="2"/><path d="M8 8h8M8 12h8M8 16h5"/>',
+    customers:'<circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/>',
+    partners:'<path d="M8 12a4 4 0 1 0-4-4 4 4 0 0 0 4 4Zm8 0a4 4 0 1 0-4-4"/><path d="M1 21a7 7 0 0 1 14 0M14 15a7 7 0 0 1 9 6"/>',
+    catalog:'<path d="M4 6h16v14H4z"/><path d="M8 6V3h8v3M8 11h8M8 15h5"/>',
+    finance:'<path d="M4 7h16v13H4z"/><path d="M7 4h10M8 11h8M8 15h5"/><circle cx="17" cy="16" r="1"/>',
+    incidents:'<path d="M12 3 2.5 20h19L12 3Z"/><path d="M12 9v5M12 17h.01"/>',
+    audit:'<path d="M4 4h16v16H4z"/><path d="M8 8h8M8 12h5M8 16h4"/><circle cx="17" cy="16" r="2.5"/>',
+    system:'<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .34 1.88l.06.06-2.83 2.83-.06-.06A1.7 1.7 0 0 0 15 19.4a1.7 1.7 0 0 0-1 .6 1.7 1.7 0 0 0-.4 1.1V21h-4v-.1A1.7 1.7 0 0 0 8.6 19.4a1.7 1.7 0 0 0-1.88.34l-.06.06-2.83-2.83.06-.06A1.7 1.7 0 0 0 4.6 15a1.7 1.7 0 0 0-.6-1 1.7 1.7 0 0 0-1.1-.4H3v-4h.1A1.7 1.7 0 0 0 4.6 8.6a1.7 1.7 0 0 0-.34-1.88l-.06-.06 2.83-2.83.06.06A1.7 1.7 0 0 0 9 4.6a1.7 1.7 0 0 0 1-.6 1.7 1.7 0 0 0 .4-1.1V3h4v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.88-.34l.06-.06 2.83 2.83-.06.06A1.7 1.7 0 0 0 19.4 9c.38.3.6.65.6 1v.4h1v4h-1v.1c0 .2-.2.4-.6.5Z"/>'
+  };
+  return '<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">'+(paths[id]||paths.overview)+'</svg>';
+}
+function adminOperationalStrip(d){
+  const readiness=d.launchReadiness||{};
+  const mode=String(readiness.operationMode||(readiness.commerceEnabled?'LIVE':'PRELAUNCH')).toUpperCase();
+  const blockers=Array.isArray(readiness.securityBlockers)?readiness.securityBlockers.length:0;
+  const warnings=Array.isArray(readiness.unresolvedWarnings)?readiness.unresolvedWarnings.length:0;
+  const incidents=(d.incidents||[]).filter(x=>x.status!=='resolved').length;
+  const billing=d.merchantBilling||{};
+  const ingress=billing.paymentIngress||{};
+  const e2e=adminBillingE2EState(d);
+  const provider=adminBillingProviderName(ingress.activeBillingProvider||adminRuntime.providerHealth?.provider);
+  const providerState=e2e.validated?'E2E validado':adminRuntime.providerHealth?.ok===true?'API validada':ingress.livePspReady?'configurado':'pendente';
+  const tone=blockers?'danger':warnings?'warning':'good';
+  return '<div class="admin-ops-strip '+tone+'">'+
+    '<div class="admin-ops-primary"><span class="admin-live-dot"></span><div><small>OPERAÇÃO</small><strong>'+esc(mode)+'</strong></div></div>'+
+    '<div class="admin-ops-item"><small>Prontidão</small><strong>'+(blockers?blockers+' bloqueio(s)':warnings?warnings+' pendência(s)':'sem bloqueios')+'</strong></div>'+
+    '<div class="admin-ops-item"><small>PSP</small><strong>'+esc(provider)+' • '+esc(providerState)+'</strong></div>'+
+    '<div class="admin-ops-item"><small>Incidentes</small><strong>'+incidents+' aberto(s)</strong></div>'+
+    '<div class="admin-ops-item admin-ops-sync"><small>Última atualização</small><strong>'+esc(adminRelativeTime(adminRuntime.lastSyncAt))+'</strong></div>'+
+  '</div>';
+}
+function adminExecutiveKpi({icon,label,value,detail='',tone='neutral'}){
+  return '<article class="admin-exec-kpi '+esc(tone)+'"><span class="admin-exec-icon" aria-hidden="true">'+esc(icon)+'</span><div><small>'+esc(label)+'</small><strong>'+value+'</strong>'+(detail?'<p>'+esc(detail)+'</p>':'')+'</div></article>';
+}
 function adminSetSection(section){
   const allowed=['overview','orders','customers','partners','catalog','finance','incidents','audit','system'];
   const requested=allowed.includes(String(section||''))?String(section):'overview';
@@ -991,7 +1078,7 @@ function adminMenuButton(id,label,icon,badge=''){
   if(!adminRoleCanSection(id))return '';
   const active=adminRuntime.section===id;
   return `<button class="admin-nav-item ${active?'active':''}" type="button" onclick="adminSetSection('${id}')" aria-current="${active?'page':'false'}">
-    <span class="admin-nav-icon" aria-hidden="true">${icon}</span>
+    <span class="admin-nav-icon" aria-hidden="true">${adminNavIcon(id)}</span>
     <span class="admin-nav-label">${esc(label)}</span>
     ${badge!==''?`<span class="admin-nav-badge">${esc(String(badge))}</span>`:''}
   </button>`;
