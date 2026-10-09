@@ -441,7 +441,7 @@ Deno.serve(async(req:Request)=>{
 
     const {data:existing,error:existingError}=await admin
       .from("merchant_billing_provider_charges")
-      .select("id,payment_request_id,provider,correlation_id,amount_cents,status,br_code,qr_code_data_uri,payment_link_url,expires_at,completed_at,paid_amount_cents,end_to_end_id")
+      .select("id,payment_request_id,provider,correlation_id,provider_charge_id,amount_cents,status,br_code,qr_code_data_uri,payment_link_url,expires_at,completed_at,paid_amount_cents,end_to_end_id")
       .eq("id",chargeId)
       .eq("merchant_id",merchantId)
       .maybeSingle();
