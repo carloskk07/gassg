@@ -10,6 +10,10 @@ import {
   readJsonBody,
   enforceApiQuota
 } from "../_shared/domain.js";
+import {
+  MerchantSalePaymentControlError,
+  releaseMerchantSalePaymentBeforeOrderChange
+} from "../_shared/merchant-sale-payment-control.js";
 
 const SUPABASE_URL=Deno.env.get("SUPABASE_URL")??"";
 const publishableKeys=JSON.parse(Deno.env.get("SUPABASE_PUBLISHABLE_KEYS")??"{}");
@@ -111,6 +115,9 @@ Deno.serve(async(req:Request)=>{
 
     const admin=createClient(SUPABASE_URL,SECRET_KEY,{auth:{persistSession:false,autoRefreshToken:false}});
     await enforceApiQuota(admin,{userId:user.id,actionName:"merchant-action",limit:80,windowSeconds:60});
+    if(action==="cannot-fulfill"){
+      await releaseMerchantSalePaymentBeforeOrderChange(admin,orderId);
+    }
     const rpcName=action==="cannot-fulfill"
       ?"merchant_fail_before_dispatch"
       :action==="assign-delivery"
@@ -152,6 +159,9 @@ Deno.serve(async(req:Request)=>{
     return json(data,200,origin);
   }catch(error){
     if(error instanceof DomainError)return json({error:error.code,message:error.message},error.status,origin);
+    if(error instanceof MerchantSalePaymentControlError){
+      return json({error:error.code,message:error.message},error.status,origin);
+    }
     console.error("merchant-action failed",error instanceof Error?error.message:String(error));
     return json({error:"INTERNAL_ERROR",message:"Não foi possível atualizar o pedido."},500,origin);
   }
