@@ -1259,7 +1259,8 @@ function adminMerchantCard(m){
       <div class="input-wrap"><label for="${anpId}">ANP</label><select id="${anpId}" class="input"><option value="pending" ${c.anp_status==='pending'?'selected':''}>Pendente</option><option value="verified" ${c.anp_status==='verified'?'selected':''}>Verificada</option><option value="not_required" ${c.anp_status==='not_required'?'selected':''}>Não se aplica</option><option value="rejected" ${c.anp_status==='rejected'?'selected':''}>Rejeitada</option></select><small>Última verificação: ${c.anp_verified_at?esc(formatDateTime(c.anp_verified_at)):c.anp_status==='not_required'?'não se aplica':'nunca'}</small></div>
     </div>
     <div class="input-wrap"><label for="${refId}">Referência ANP</label><input id="${refId}" class="input" maxlength="240" value="${esc(c.anp_reference||'')}" placeholder="Número/consulta/evidência"></div>
-    <div class="input-wrap"><label for="${notesId}">Observações</label><input id="${notesId}" class="input" maxlength="1000" value="${esc(c.notes||'')}" placeholder="Observações de validação"></div>
+    <div class="input-wrap"><label for="${notesId}">Evidência / observações de compliance</label><input id="${notesId}" class="input" maxlength="1000" value="${esc(c.notes||'')}" placeholder="Fonte consultada, data, resultado e referência da validação"><small>Ao marcar CNPJ como verificado, registre aqui a fonte/evidência. ANP verificada também exige a referência acima.</small></div>
+    ${c.verified_by?`<div class="tiny muted">Última decisão de compliance por admin ${esc(String(c.verified_by).slice(0,8))} • ${esc(formatDateTime(c.updated_at))}</div>`:''}
     <div class="divider"></div>
     <label class="check-row"><input id="${mixedId}" type="checkbox" ${mixed?.active?'checked':''}><span><strong>Capacidade logística verificada para cesta mista com GLP</strong><small>Ative somente após validação operacional específica. CNPJ e ANP precisam estar verificados.</small></span></label>
     <div class="input-wrap"><label for="${mixedNotesId}">Evidência / observação logística</label><input id="${mixedNotesId}" class="input" maxlength="1000" value="${esc(mixed?.notes||'')}" placeholder="Veículo, procedimento, evidência ou referência da validação"></div>
@@ -2619,6 +2620,9 @@ async function adminSaveCompliance(id){
   const anpStatus=document.getElementById('anp-'+id)?.value||'pending';
   const anpReference=document.getElementById('anpref-'+id)?.value.trim()||'';
   const notes=document.getElementById('notes-'+id)?.value.trim()||'';
+  if(cnpjStatus==='verified'&&notes.length<5)return toast('Registre a fonte/evidência usada para verificar o CNPJ');
+  if(anpStatus==='verified'&&anpReference.length<3)return toast('Informe a referência da consulta ANP');
+  if((cnpjStatus==='rejected'||anpStatus==='rejected')&&notes.length<5)return toast('Documente a evidência da rejeição');
   try{
     await adminPerform('verify-merchant',{merchantId:id,cnpjStatus,anpStatus,anpReference,notes});
     toast('Validação salva');
