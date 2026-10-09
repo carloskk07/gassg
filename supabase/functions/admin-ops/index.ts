@@ -1032,7 +1032,7 @@ async function adminSystemHealth(admin:any){
   const [portals,readiness,paymentProvider,openSupport,rewardDebt,accountingDebt,overdueReceivables,overdueCashback,activeMerchants]=await Promise.all([
     verifyLivePortals(),
     admin.rpc("platform_launch_readiness"),
-    billingProviderHealth(),
+    billingProviderHealth(admin),
     admin.from("support_cases").select("id",{count:"exact",head:true}).in("status",["open","in_review"]),
     admin.from("reward_processing_failures").select("order_id",{count:"exact",head:true}).is("resolved_at",null),
     admin.from("settlement_accounting_failures").select("order_id",{count:"exact",head:true}).is("resolved_at",null),
