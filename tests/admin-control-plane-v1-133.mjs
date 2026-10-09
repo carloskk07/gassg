@@ -18,6 +18,8 @@ assert.ok(!poll.includes('d.merchantBilling'),
   'adminPoll não pode usar d fora de escopo');
 assert.ok(!poll.includes("push(linked?'critical'"),
   'adminPoll não pode construir a fila de atenção');
+assert.ok(poll.includes("fastSections=new Set(['overview','orders','finance','incidents'])")&&poll.includes('60000'),
+  'polling deve ser rápido apenas nas áreas operacionais e desacelerar abas estáveis');
 
 const attention=admin.slice(
   admin.indexOf('function adminAttentionItems'),
@@ -105,6 +107,12 @@ assert.ok(admin.includes("adminRequireTypedConfirmation('ESTORNAR '+orderId"),
   'reversão financeira precisa de confirmação reforçada');
 assert.ok(admin.includes("adminRequireTypedConfirmation('SUPERADMIN'"),
   'elevação a Superadmin precisa de confirmação reforçada');
+assert.ok(admin.includes("adminRole==='superadmin'&&!adminRequireTypedConfirmation('SUPERADMIN'"),
+  'novo Superadmin também precisa de confirmação reforçada');
+assert.ok(admin.includes("enabled&&!adminRequireTypedConfirmation('HOMOLOGAR'"),
+  'homologação de pagamento direto precisa de confirmação reforçada');
+assert.ok(admin.includes('Formas de pagamento aceitas do cliente final'),
+  'onboarding deve separar pagamento do cliente da cobrança de taxas TAMÃO');
 
 const page=admin.slice(admin.indexOf('function adminPage()'),admin.indexOf('function adminFilterRegistry'));
 assert.ok(page.includes("const badge=(n)=>Number(n)>0"),
