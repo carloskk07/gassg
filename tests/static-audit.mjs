@@ -1623,13 +1623,20 @@ for(const entry of fs.readdirSync(functionRoot,{withFileTypes:true})){
     assert.ok(source.includes('WOOVI_WEBHOOK_AUTHORIZATION')&&source.includes('constantTimeEqual(authorization,expectedAuthorization)'),entry.name+' precisa exigir token privado do webhook');
     assert.ok(source.includes('WOOVI_COMPANY_ID')&&source.includes('WOOVI_COMPANY_MISMATCH'),entry.name+' precisa vincular a entrega à empresa configurada');
     assert.ok(source.includes('OPENPIX:TRANSACTION_RECEIVED')&&source.includes('ingest_merchant_billing_payment_event'),entry.name+' precisa aceitar apenas Pix recebido e delegar ao matcher server-only');
+  }else if(entry.name==='billing-payment-webhook-mercadopago'){
+    assert.ok(source.includes('MAX_BODY_BYTES=65536')&&source.includes('TextEncoder().encode(raw).byteLength>MAX_BODY_BYTES'),entry.name+' precisa limitar o corpo bruto antes do parse');
+    assert.ok(source.includes('verifyMercadoPagoWebhook(req,webhookSecret,dataId)')&&source.includes('INVALID_MERCADOPAGO_SIGNATURE'),entry.name+' precisa autenticar o ingresso por HMAC antes do roteamento financeiro');
+    assert.ok(source.includes('merchant_sale_payment_attempts')&&source.includes('handlePlatformBillingOrder')&&source.includes('handleMerchantSaleOrder'),entry.name+' precisa rotear venda da revenda e cobrança do TAMÃO por vínculo exato');
+  }else if(entry.name==='merchant-payment-oauth-callback'){
+    assert.ok(source.includes('req.method!=="GET"')&&source.includes('consume_merchant_payment_oauth_state'),entry.name+' precisa ser callback GET com state de uso único');
+    assert.ok(source.includes('decryptPaymentSecret')&&source.includes('code_verifier')&&source.includes('verifySellerToken'),entry.name+' precisa provar PKCE e conta do seller antes de persistir tokens');
   }else{
     assert.ok(source.includes('readJsonBody(req)'),entry.name+' precisa limitar JSON');
     assert.ok(source.includes('enforceApiQuota(admin'),entry.name+' precisa aplicar quota server-side');
   }
   if(entry.name==='complete-delivery'){
-    assert.ok(source.includes('body.paymentConfirmed!==true'),'complete-delivery deve exigir confirmação de pagamento');
-    assert.ok(source.includes('paymentConfirmed:true'),'fingerprint idempotente deve incluir confirmação de pagamento');
+    assert.ok(source.includes('paymentConfirmedByMerchant=body.paymentConfirmed===true')&&source.includes('p_payment_confirmed_by_merchant:paymentConfirmedByMerchant'),'complete-delivery deve transportar atestação manual sem sobrepor evidência PSP');
+    assert.ok(source.includes('paymentConfirmedByMerchant')&&source.includes('requestFingerprint("complete-delivery"'),'fingerprint idempotente deve incluir a origem da confirmação manual');
   }
 
 }
