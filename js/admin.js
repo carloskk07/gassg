@@ -499,12 +499,14 @@ async function adminCheckBillingProviderHealth(){
   try{
     adminRuntime.providerHealth=await adminInvoke({action:'billing-provider-health'});
     const h=adminRuntime.providerHealth;
-    toast(h?.ok?'Conexão Woovi validada':'Woovi exige atenção: '+String(h?.reason||h?.status||'indisponível'));
+    const provider=h?.provider==='mercadopago'?'Mercado Pago':h?.provider==='woovi'?'Woovi/OpenPix':'PSP ativo';
+    toast(h?.ok?provider+' validado':provider+' exige atenção: '+String(h?.reason||h?.status||'indisponível'));
   }catch(error){
     adminRuntime.providerHealth={
       ok:false,
       status:'unavailable',
-      reason:String(error?.message||error||'Diagnóstico Woovi indisponível'),
+      provider:null,
+      reason:String(error?.message||error||'Diagnóstico do PSP indisponível'),
       checkedAt:new Date().toISOString()
     };
   }finally{
