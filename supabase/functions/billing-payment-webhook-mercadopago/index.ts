@@ -19,6 +19,7 @@ const secretKeys=JSON.parse(Deno.env.get("SUPABASE_SECRET_KEYS")??"{}");
 const SECRET_KEY=secretKeys.default??Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")??"";
 const UUID_RE=/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const MAX_BODY_BYTES=65536;
+const WEBHOOK_PROBE_RE=/^TAMAO-WEBHOOK-PROBE-[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
 
 function json(body:unknown,status=200){
   return new Response(JSON.stringify(body),{
@@ -463,6 +464,72 @@ async function handlePlatformBillingOrder(
   },200);
 }
 
+async function handleWebhookProbe(
+  admin:any,
+  req:Request,
+  dataId:string,
+  topic:string,
+  body:any
+){
+  const requestId=String(req.headers.get("x-request-id")??"").trim();
+  const evidenceHash=await billingEvidenceHash({
+    provider:"mercadopago",
+    purpose:"remote_webhook_registration_proof",
+    resourceId:dataId,
+    requestId,
+    topic,
+    action:String(body?.action??"").trim(),
+    applicationId:String(body?.application_id??"").trim(),
+    liveMode:body?.live_mode===true
+  });
+  const {data,error}=await admin.rpc("consume_payment_webhook_probe",{
+    p_provider:"mercadopago",
+    p_resource_id:dataId,
+    p_provider_request_id:requestId||null,
+    p_evidence_sha256:evidenceHash,
+    p_metadata:{
+      topic,
+      action:String(body?.action??"").trim()||null,
+      applicationId:String(body?.application_id??"").trim()||null,
+      liveMode:body?.live_mode===true,
+      providerRequestIdPresent:Boolean(requestId)
+    }
+  });
+  if(error){
+    const message=String(error.message??error);
+    if(message.includes("WEBHOOK_PROBE_NOT_FOUND")){
+      return json({
+        error:"WEBHOOK_PROBE_NOT_FOUND",
+        financialMutationAttempted:false
+      },404);
+    }
+    if(message.includes("WEBHOOK_PROBE_EXPIRED")){
+      return json({
+        error:"WEBHOOK_PROBE_EXPIRED",
+        financialMutationAttempted:false
+      },410);
+    }
+    if(message.includes("WEBHOOK_PROBE_INVALID")){
+      return json({
+        error:"WEBHOOK_PROBE_INVALID",
+        financialMutationAttempted:false
+      },400);
+    }
+    throw error;
+  }
+  return json({
+    ok:true,
+    route:"webhook_probe",
+    provider:"mercadopago",
+    status:"verified",
+    probeId:data?.probeId??null,
+    verifiedAt:data?.verifiedAt??null,
+    replayed:data?.replayed===true,
+    signatureVerified:true,
+    financialMutationAttempted:false
+  },200);
+}
+
 Deno.serve(async(req:Request)=>{
   if(req.method!=="POST")return json({error:"METHOD_NOT_ALLOWED"},405);
 
@@ -509,6 +576,13 @@ Deno.serve(async(req:Request)=>{
     const admin=createClient(SUPABASE_URL,SECRET_KEY,{
       auth:{persistSession:false,autoRefreshToken:false}
     });
+
+    // Provider-signed simulator proof. The reserved resource ID namespace can
+    // never be treated as a financial Order. Signature verification already
+    // succeeded above, and the RPC can only consume a short-lived admin probe.
+    if(WEBHOOK_PROBE_RE.test(dataId)){
+      return await handleWebhookProbe(admin,req,dataId,topic,body);
+    }
 
     // Route by an exact local provider-order binding first. This allows one
     // Mercado Pago production webhook URL for platform billing and every
