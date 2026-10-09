@@ -1966,10 +1966,21 @@ Deno.serve(async(req:Request)=>{
       };
     }else if(action==="merchant-payment-capability"){
       const enabled=body.enabled===true;
+      const provider=String(body.provider??"mercadopago").trim().toLowerCase();
+      if(!/^[a-z][a-z0-9_]{1,39}$/.test(provider)||provider==="manual"){
+        throw new DomainError("PAYMENT_PROVIDER_INVALID","Provedor de pagamento inválido.",400);
+      }
       const reference=cleanText(body.reference,{
         min:3,max:240,name:"referência da homologação de pagamento"
       });
       if(enabled){
+        if(provider!=="mercadopago"){
+          throw new DomainError(
+            "MERCHANT_PAYMENT_ADAPTER_NOT_IMPLEMENTED",
+            "Este provedor já existe na camada multi-PSP, mas ainda não possui o ciclo completo de venda automática homologado.",
+            409
+          );
+        }
         const oauthClientId=String(Deno.env.get("MERCADOPAGO_CLIENT_ID")??"").trim();
         const oauthClientSecret=String(Deno.env.get("MERCADOPAGO_CLIENT_SECRET")??"").trim();
         const oauthRedirect=String(Deno.env.get("MERCADOPAGO_OAUTH_REDIRECT_URI")??"").trim();
@@ -1996,6 +2007,7 @@ Deno.serve(async(req:Request)=>{
       }
       payload={
         merchantId:uuid(body.merchantId,"merchant"),
+        provider,
         enabled,
         reference
       };
@@ -2195,10 +2207,11 @@ Deno.serve(async(req:Request)=>{
         p_request_hash:requestHash
       };
     }else if(action==="merchant-payment-capability"){
-      rpcName="admin_merchant_payment_capability_action";
+      rpcName="admin_merchant_provider_payment_capability_action";
       rpcArgs={
         p_actor_user_id:user.id,
         p_merchant_id:payload.merchantId,
+        p_provider:payload.provider,
         p_enabled:payload.enabled,
         p_reference:payload.reference,
         p_idempotency_key:idempotencyKey,
@@ -2505,10 +2518,13 @@ Deno.serve(async(req:Request)=>{
       return json({error:"ADMIN_PERMISSION_DENIED",message:"Seu perfil administrativo não possui permissão para esta ação."},403,origin);
     }
     if(message.includes("MERCHANT_PAYMENT_ACCOUNT_NOT_CONNECTED")){
-      return json({error:"MERCHANT_PAYMENT_ACCOUNT_NOT_CONNECTED",message:"A revenda precisa conectar a própria conta Mercado Pago antes da homologação."},409,origin);
+      return json({error:"MERCHANT_PAYMENT_ACCOUNT_NOT_CONNECTED",message:"A revenda precisa conectar a própria conta deste provedor antes da homologação."},409,origin);
     }
     if(message.includes("MERCHANT_PAYMENT_ACCOUNT_NOT_READY")){
-      return json({error:"MERCHANT_PAYMENT_ACCOUNT_NOT_READY",message:"A conexão Mercado Pago da revenda ainda não está pronta para pagamentos diretos."},409,origin);
+      return json({error:"MERCHANT_PAYMENT_ACCOUNT_NOT_READY",message:"A conexão da revenda com este provedor ainda não está pronta para confirmação automática."},409,origin);
+    }
+    if(message.includes("INVALID_MERCHANT_PAYMENT_CAPABILITY")){
+      return json({error:"INVALID_MERCHANT_PAYMENT_CAPABILITY",message:"Este provedor ainda não possui um adaptador de venda direta homologado no TAMÃO."},409,origin);
     }
     if(message.includes("MERCHANT_PAYMENT_REVIEW_REQUIRED")){
       return json({error:"MERCHANT_PAYMENT_REVIEW_REQUIRED",message:"Existe uma transação da revenda em revisão; resolva-a antes de reativar pagamentos diretos."},409,origin);
