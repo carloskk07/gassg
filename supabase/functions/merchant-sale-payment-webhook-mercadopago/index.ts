@@ -52,6 +52,16 @@ function primaryPayment(order:any){
     :[];
   return payments[0]??null;
 }
+function refundedCents(order:any){
+  const refunds=Array.isArray(order?.transactions?.refunds)
+    ?order.transactions.refunds
+    :[];
+  return refunds.reduce((sum:number,item:any)=>{
+    const status=String(item?.status??"").trim().toLowerCase();
+    if(status&&!["processed","approved","refunded"].includes(status))return sum;
+    return sum+(moneyToCents(item?.amount)??0);
+  },0);
+}
 function providerStatus(order:any,payment:any){
   const candidates=[
     payment?.status,
@@ -187,11 +197,15 @@ Deno.serve(async(req:Request)=>{
       order?.external_reference??""
     ).trim();
     const amountCents=moneyToCents(order?.total_amount);
+    const providerAccountId=String(account.provider_account_id??"").trim();
+    const providerUserId=String(order?.user_id??"").trim();
     if(
       orderId!==dataId
       ||externalReference!==attempt.external_reference
       ||amountCents!==Number(attempt.amount_cents)
       ||attempt.currency!=="BRL"
+      ||!providerAccountId
+      ||providerUserId!==providerAccountId
     ){
       await admin
         .from("merchant_sale_payment_attempts")
@@ -208,7 +222,52 @@ Deno.serve(async(req:Request)=>{
 
     const payment=primaryPayment(order);
     const paymentId=String(payment?.id??"").trim()||null;
-    const status=providerStatus(order,payment);
+    const refundTotalCents=refundedCents(order);
+    let status=providerStatus(order,payment);
+    if(refundTotalCents>=Number(attempt.amount_cents)){
+      status="refunded";
+    }else if(refundTotalCents>0){
+      const now=new Date().toISOString();
+      const {error:partialError}=await admin
+        .from("merchant_sale_payment_attempts")
+        .update({
+          status:"review_required",
+          last_error_code:"PARTIAL_REFUND_REVIEW_REQUIRED",
+          last_error_at:now,
+          updated_at:now
+        })
+        .eq("id",attempt.id);
+      if(partialError)throw partialError;
+      return json({
+        ok:true,
+        provider:"mercadopago",
+        orderId,
+        salePaymentStatus:"review_required",
+        reason:"PARTIAL_REFUND_REVIEW_REQUIRED",
+        tamaoReceivesSaleProceeds:false
+      },200);
+    }
+    if(status==="processed"&&!paymentId){
+      const now=new Date().toISOString();
+      const {error:paymentIdError}=await admin
+        .from("merchant_sale_payment_attempts")
+        .update({
+          status:"review_required",
+          last_error_code:"PROVIDER_PAYMENT_ID_MISSING",
+          last_error_at:now,
+          updated_at:now
+        })
+        .eq("id",attempt.id);
+      if(paymentIdError)throw paymentIdError;
+      return json({
+        ok:true,
+        provider:"mercadopago",
+        orderId,
+        salePaymentStatus:"review_required",
+        reason:"PROVIDER_PAYMENT_ID_MISSING",
+        tamaoReceivesSaleProceeds:false
+      },200);
+    }
     const statusDetail=String(
       payment?.status_detail
       ??order?.status_detail
@@ -222,7 +281,9 @@ Deno.serve(async(req:Request)=>{
       externalReference,
       status,
       statusDetail,
-      amountCents
+      amountCents,
+      refundTotalCents,
+      providerAccountId
     };
     const eventHash=await sha256Hex(JSON.stringify(normalizedEvent));
     const providerEventId="order-state:"+eventHash.slice(0,64);
