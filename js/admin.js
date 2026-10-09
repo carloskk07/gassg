@@ -383,7 +383,9 @@ async function adminPerform(action,payload={}){
 async function adminPoll(){
   if(!adminReady()||adminRuntime.actionPending||adminRuntime.pollPending||document.visibilityState==='hidden')return;
   const now=Date.now();
-  if(adminRuntime.lastPollAt&&now-adminRuntime.lastPollAt<15000)return;
+  const fastSections=new Set(['overview','orders','finance','incidents']);
+  const pollIntervalMs=fastSections.has(String(adminRuntime.section||''))?15000:60000;
+  if(adminRuntime.lastPollAt&&now-adminRuntime.lastPollAt<pollIntervalMs)return;
   adminRuntime.lastPollAt=now;
   adminRuntime.pollPending=true;
   try{
@@ -1227,7 +1229,7 @@ function adminPilotPartnerCard(p){
         <div class="input-wrap"><label for="${prefix}-radius">Raio km</label><input id="${prefix}-radius" class="input" type="number" min="0" max="100" step="0.5" placeholder="Opcional"></div>
       </div>
       <label class="check-row"><input id="${prefix}-citywide" type="checkbox"><span><strong>Atende toda São Gabriel</strong><small>Marque apenas se a cobertura foi confirmada.</small></span></label>
-      <div class="card flat"><strong>Formas de pagamento confirmadas</strong>
+      <div class="card flat"><strong>Formas de pagamento aceitas do cliente final</strong><div class="tiny muted" style="margin-top:4px">Isto descreve como a revenda recebe a venda do cliente. Não é a cobrança de taxas do TAMÃO.</div>
         <label class="check-row"><input id="${prefix}-pay-pix" type="checkbox"><span>Pix</span></label>
         <label class="check-row"><input id="${prefix}-pay-cash" type="checkbox"><span>Dinheiro</span></label>
         <label class="check-row"><input id="${prefix}-pay-card" type="checkbox"><span>Cartão na entrega</span></label>
@@ -2651,6 +2653,7 @@ async function adminSetMerchantPaymentCapability(merchantId,enabled){
     ?'Homologar pagamento direto para '+name+'? O dinheiro continuará indo direto à conta Mercado Pago da revenda. O kill switch global permanece independente.'
     :'Suspender pagamento direto para '+name+'? Checkouts já iniciados continuam sujeitos ao controle financeiro e a cancelamento/reembolso seguro.';
   if(!confirm(message))return;
+  if(enabled&&!adminRequireTypedConfirmation('HOMOLOGAR','A homologação permite validar pagamentos feitos diretamente na conta da revenda quando o kill switch global estiver ativo.'))return toast('Homologação cancelada');
   try{
     const result=await adminPerform('merchant-payment-capability',{
       merchantId,
@@ -2723,6 +2726,7 @@ async function adminAddPlatformAdmin(){
   if(targetEmail.length<3||targetEmail.length>160||!/^\S+@\S+\.\S+$/.test(targetEmail)){
     return toast('Informe um e-mail válido de conta permanente');
   }
+  if(adminRole==='superadmin'&&!adminRequireTypedConfirmation('SUPERADMIN','Conceder Superadmin a uma nova conta entrega autoridade máxima sobre o control plane.'))return toast('Inclusão cancelada');
   try{
     await adminPerform('set-platform-admin',{targetEmail,active:true,adminRole});
     toast('Administrador adicionado como '+adminRoleLabel(adminRole));
