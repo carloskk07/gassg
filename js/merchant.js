@@ -516,6 +516,53 @@ function merchantVerificationLabel(value){
     customer_receipt:'Comprovante do cliente'
   })[String(value||'')]||String(value||'—');
 }
+function merchantSerializablePaymentRoute(route){
+  return {
+    paymentMethod:String(route?.paymentMethod||''),
+    provider:String(route?.provider||''),
+    connectionId:route?.connectionId||null,
+    channel:String(route?.channel||'external'),
+    verificationMode:String(route?.verificationMode||'merchant_confirmed'),
+    active:route?.active===true,
+    priority:Number(route?.priority||100),
+    customerLabel:route?.customerLabel||null,
+    metadata:route?.metadata&&typeof route.metadata==='object'?route.metadata:{}
+  };
+}
+function merchantProviderManualMethods(provider,rt=globalThis.merchantRuntime||{}){
+  const supported=Array.isArray(provider?.supportedMethods)?provider.supportedMethods:[];
+  const paymentMethods=rt?.merchant?.paymentMethods||{};
+  const methods=[];
+  if(paymentMethods.pix===true&&supported.includes('pix'))methods.push('pix');
+  if(paymentMethods.card===true&&supported.includes('card'))methods.push('card');
+  return methods;
+}
+function merchantProviderManualDeclared(providerKey,rt=globalThis.merchantRuntime||{}){
+  return (Array.isArray(rt?.paymentRoutes)?rt.paymentRoutes:[]).some(route=>
+    route?.provider===providerKey
+    &&route?.verificationMode==='merchant_confirmed'
+    &&route?.metadata?.merchantDeclaredProvider===true
+  );
+}
+function merchantProviderManualRoute(provider,paymentMethod){
+  const name=String(provider?.displayName||merchantProviderName(provider?.provider));
+  return {
+    paymentMethod,
+    provider:String(provider?.provider||''),
+    connectionId:null,
+    channel:'external',
+    verificationMode:'merchant_confirmed',
+    active:true,
+    priority:Math.min(850,650+Number(provider?.sortOrder||100)),
+    customerLabel:paymentMethod==='pix'?'Pix • '+name:'Cartão • '+name,
+    metadata:{
+      merchantDeclaredProvider:true,
+      manualProviderFallback:true,
+      automaticVerification:false,
+      fundsOwner:'merchant'
+    }
+  };
+}
 function merchantPaymentConnectionsView(rt){
   const providers=(rt.paymentProviders||[]).filter(p=>p.provider!=='manual');
   const accounts=rt.receivingAccounts||[];
@@ -529,41 +576,55 @@ function merchantPaymentConnectionsView(rt){
     const account=accounts.find(a=>a.provider===provider.provider)||null;
     const connected=account?.connected===true;
     const directEnabled=account?.capabilities?.directSalePaymentsEnabled===true;
+    const manualDeclared=merchantProviderManualDeclared(provider.provider,rt);
+    const manualMethods=merchantProviderManualMethods(provider,rt);
     const state=connected
       ? directEnabled?'HOMOLOGADO':'CONECTADO'
-      : provider.setupState==='manual_only'?'MANUAL'
-      : provider.connectReady?'DISPONÍVEL'
-      : provider.adapterStatus==='planned'?'PLANEJADO':'CREDENCIAMENTO';
-    const stateClass=connected?(directEnabled?'online':'risk'):'';
-    let action='';
+      : manualDeclared?'EM USO • MANUAL'
+      : provider.setupState==='manual_only'?'MANUAL DISPONÍVEL'
+      : provider.connectReady?'AUTOMAÇÃO DISPONÍVEL'
+      : provider.adapterStatus==='planned'?'PLANEJADO':'AUTOMAÇÃO PENDENTE';
+    const stateClass=connected?(directEnabled?'online':'risk'):manualDeclared?'risk':'';
+    const actions=[];
     if(connected){
-      action=`<button class="secondary small" onclick="merchantDisconnectProviderFromUi('${esc(provider.provider)}')">Desconectar</button>`;
+      actions.push(`<button class="secondary small" onclick="merchantDisconnectProviderFromUi('${esc(provider.provider)}')">Desconectar</button>`);
     }else if(provider.connectReady&&provider.connectionMode==='oauth'){
-      action=`<button class="secondary small" onclick="merchantConnectProviderFromUi('${esc(provider.provider)}')">Conectar ${esc(provider.displayName)}</button>`;
+      actions.push(`<button class="secondary small" onclick="merchantConnectProviderFromUi('${esc(provider.provider)}')">Conectar ${esc(provider.displayName)}</button>`);
+    }
+    if(!connected&&manualMethods.length){
+      actions.push(manualDeclared
+        ?`<button class="ghost small" onclick="merchantStopProviderManualUseFromUi('${esc(provider.provider)}')">Parar uso manual</button>`
+        :`<button class="secondary small" onclick="merchantUseProviderManuallyFromUi('${esc(provider.provider)}')">Eu uso este PSP</button>`
+      );
     }
     const note=provider.provider==='nubank'
-      ?'Pode continuar sendo usado em Pix/link da revenda; por enquanto a confirmação é manual.'
+      ?'Pode ser usado agora pela revenda com confirmação manual. Se houver integração oficial adequada no futuro, a automação entra como uma camada separada.'
       :provider.provider==='stone'
-        ?'Estrutura pronta para conciliação/credenciais Stone; a ativação depende do credenciamento.'
+        ?'Pode ser usado agora sem compartilhar senha ou chave. A conciliação automática Stone permanece separada até homologação.'
         :provider.provider==='getnet'
-          ?'Estrutura pronta para terminal/Get Smart; a ativação depende do credenciamento.'
+          ?'Pode ser usado agora com confirmação da revenda. Terminal/Get Smart automático só será ativado quando houver integração homologada.'
           :provider.provider==='pagbank'
-            ?'Connect preparado. Quando as credenciais de parceiro do TAMÃO forem homologadas, a revenda autoriza a própria conta.'
+            ?'A revenda pode usar o PagBank manualmente agora; quando o Connect estiver pronto, poderá autorizar a própria conta sem mudar o fluxo do dinheiro.'
             :provider.notes||'O dinheiro da venda permanece na conta da revenda.';
+    const manualDetail=manualDeclared
+      ?`<div class="tiny"><strong>Uso declarado pela revenda.</strong> TAMÃO apenas registra o PSP; a confirmação continua manual e não há acesso às credenciais.</div>`
+      :!connected&&!manualMethods.length
+        ?`<div class="tiny muted">Ative Pix ou cartão nas formas aceitas para declarar este provedor.</div>`
+        :'';
     return `<article class="merchant-psp-card">
-      <div class="order-head"><div><strong>${esc(provider.displayName)}</strong><br><small>${esc(merchantVerificationLabel(provider.verificationLevel))}</small></div><span class="status-pill ${stateClass}">${esc(state)}</span></div>
+      <div class="order-head"><div><strong>${esc(provider.displayName)}</strong><br><small>${esc(merchantVerificationLabel(connected?provider.verificationLevel:'merchant'))}</small></div><span class="status-pill ${stateClass}">${esc(state)}</span></div>
       <div class="tiny muted">Aceita: ${esc((provider.supportedMethods||[]).map(x=>x==='card'?'cartão':x).join(' • ')||'—')}</div>
       <p class="tiny muted merchant-psp-note">${esc(note)}</p>
       ${connected?`<div class="tiny"><strong>Conta conectada.</strong> Recebimento direto na revenda • TAMÃO não recebe nem repassa.</div>`:''}
-      ${action}
+      ${manualDetail}
+      ${actions.length?`<div class="order-actions">${actions.join('')}</div>`:''}
     </article>`;
   }).join('');
   return `<div class="divider"></div>
-    <div class="section-head"><div><span class="section-kicker">RECEBIMENTO DIRETO</span><h3>Conexões para confirmação automática</h3><p>Use o provedor que a revenda já possui. Conectar um PSP nunca muda o dono do dinheiro: a venda continua sendo recebida pela própria revenda.</p></div></div>
-    <div class="notice"><strong>Mercado Pago não é obrigatório.</strong><br>Pix, dinheiro e cartão podem continuar ativos mesmo sem nenhuma conexão automática. PSPs conectados apenas elevam a força da confirmação da transação.</div>
+    <div class="section-head"><div><span class="section-kicker">RECEBIMENTO DIRETO</span><h3>Provedores que a revenda usa</h3><p>Informe o PSP já usado pela revenda. Ele pode começar em modo manual, sem senha ou chave de API, e ganhar confirmação automática depois quando houver integração homologada.</p></div></div>
+    <div class="notice"><strong>Mercado Pago não é obrigatório.</strong><br>Stone, Getnet, PagBank, Nubank e outros podem ser declarados sem entregar o dinheiro ao TAMÃO. O recebimento continua direto na revenda; automação e custódia são coisas diferentes.</div>
     <div class="merchant-psp-grid">${cards}</div>`;
 }
-
 function merchantLivePage(){
   const rt=globalThis.merchantRuntime||{};
   if(['disabled','loading'].includes(rt.status)){
@@ -906,6 +967,40 @@ async function merchantDisconnectProviderFromUi(provider){
   try{
     await merchantPaymentConnectLive(provider,'disconnect');
     toast(name+' desconectado');
+  }catch(e){toast(String(e?.message||e))}
+}
+async function merchantUseProviderManuallyFromUi(providerKey){
+  const rt=globalThis.merchantRuntime||{};
+  const provider=(rt.paymentProviders||[]).find(x=>x.provider===providerKey);
+  if(!provider)return toast('Provedor indisponível');
+  const methods=merchantProviderManualMethods(provider,rt);
+  if(!methods.length)return toast('Ative Pix ou cartão antes de declarar este provedor');
+  const existing=Array.isArray(rt.paymentRoutes)?rt.paymentRoutes:[];
+  const routes=existing
+    .filter(route=>!(route.provider===providerKey&&route?.metadata?.merchantDeclaredProvider===true))
+    .map(merchantSerializablePaymentRoute);
+  routes.push(...methods.map(method=>merchantProviderManualRoute(provider,method)));
+  if(routes.length>30)return toast('Limite de rotas atingido. Desative um provedor antes de adicionar outro.');
+  try{
+    await merchantUpdatePaymentRoutesLive(
+      routes,
+      'Revenda declarou uso manual de '+merchantProviderName(providerKey)+'; automação permanece desativada.'
+    );
+    toast(merchantProviderName(providerKey)+' registrado para uso manual');
+  }catch(e){toast(String(e?.message||e))}
+}
+async function merchantStopProviderManualUseFromUi(providerKey){
+  const rt=globalThis.merchantRuntime||{};
+  const name=merchantProviderName(providerKey);
+  if(!confirm('Parar de declarar uso manual de '+name+'? Isso não desconecta nenhuma conta homologada.'))return;
+  const existing=Array.isArray(rt.paymentRoutes)?rt.paymentRoutes:[];
+  const routes=existing
+    .filter(route=>!(route.provider===providerKey&&route?.metadata?.merchantDeclaredProvider===true))
+    .map(merchantSerializablePaymentRoute);
+  if(!routes.length)return toast('Mantenha ao menos uma forma de recebimento ativa');
+  try{
+    await merchantUpdatePaymentRoutesLive(routes,'Revenda removeu declaração de uso manual de '+name+'.');
+    toast('Uso manual de '+name+' removido');
   }catch(e){toast(String(e?.message||e))}
 }
 async function merchantConnectMercadoPagoFromUi(){
@@ -1357,3 +1452,7 @@ function formatDateTime(v){
 globalThis.merchantRequestBillingPackageFromUi=merchantRequestBillingPackageFromUi;
 globalThis.merchantNotifyStatementPaidFromUi=merchantNotifyStatementPaidFromUi;
 globalThis.merchantCancelBillingRequestFromUi=merchantCancelBillingRequestFromUi;
+globalThis.merchantConnectProviderFromUi=merchantConnectProviderFromUi;
+globalThis.merchantDisconnectProviderFromUi=merchantDisconnectProviderFromUi;
+globalThis.merchantUseProviderManuallyFromUi=merchantUseProviderManuallyFromUi;
+globalThis.merchantStopProviderManualUseFromUi=merchantStopProviderManualUseFromUi;
