@@ -37,3 +37,14 @@ verify_jwt = false
 # and every event is re-fetched from the provider before reconciliation.
 [functions.billing-payment-webhook-mercadopago]
 verify_jwt = false
+
+
+# Merchant payment connection management. JWT validation is performed inside
+# the function so the same publishable-key/session model is used consistently.
+[functions.merchant-payment-connect]
+verify_jwt = false
+
+# Mercado Pago redirects here before a TAMÃO user session exists.
+# Authenticity is enforced by a one-time high-entropy OAuth state plus PKCE.
+[functions.merchant-payment-oauth-callback]
+verify_jwt = false
