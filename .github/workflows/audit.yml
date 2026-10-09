@@ -67,6 +67,8 @@ jobs:
         run: node tests/payment-route-metadata-invariants-v1-140.mjs
       - name: Admin PSP homologation queue V1.141 regression contract
         run: node tests/admin-psp-homologation-queue-v1-141.mjs
+      - name: Evidence-backed PSP homologation V1.142 regression contract
+        run: node tests/evidence-backed-psp-homologation-v1-142.mjs
       - name: Remote admin gateway contract and portal report
         run: node tests/remote-admin-readiness.mjs
       - name: Runtime origin config contract
