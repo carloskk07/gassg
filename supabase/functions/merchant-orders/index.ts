@@ -528,33 +528,96 @@ Deno.serve(async(req:Request)=>{
     }
 
     let receivingAccount:any=null;
+    let receivingAccounts:any[]=[];
+    let paymentProviders:any[]=[];
+    let paymentRoutes:any[]=[];
+    let paymentRouteVersion=1;
     if(["owner","manager"].includes(selected.member_role)){
-      const {data:providerAccount,error:providerAccountError}=await admin
-        .from("merchant_payment_provider_accounts")
-        .select("provider,provider_account_id,status,capabilities,token_expires_at,connected_at,refreshed_at,revoked_at,last_error_code,last_error_at")
-        .eq("merchant_id",selected.merchant_id)
-        .eq("provider","mercadopago")
-        .maybeSingle();
-      if(providerAccountError)throw providerAccountError;
-      receivingAccount=providerAccount?{
-        provider:providerAccount.provider,
-        connected:providerAccount.status==="active",
-        status:providerAccount.status,
-        providerAccountId:providerAccount.provider_account_id??null,
-        capabilities:providerAccount.capabilities??{},
-        tokenExpiresAt:providerAccount.token_expires_at??null,
-        connectedAt:providerAccount.connected_at??null,
-        refreshedAt:providerAccount.refreshed_at??null,
-        revokedAt:providerAccount.revoked_at??null,
-        lastErrorCode:providerAccount.last_error_code??null,
-        lastErrorAt:providerAccount.last_error_at??null
-      }:{
+      const [
+        {data:providerAccounts,error:providerAccountsError},
+        {data:providerCatalog,error:providerCatalogError},
+        {data:routeRows,error:routeRowsError},
+        {data:routeSet,error:routeSetError}
+      ]=await Promise.all([
+        admin.from("merchant_payment_provider_accounts")
+          .select("id,provider,provider_account_id,status,capabilities,connection_mode,verification_level,credential_kind,metadata,token_expires_at,connected_at,refreshed_at,revoked_at,last_error_code,last_error_at")
+          .eq("merchant_id",selected.merchant_id)
+          .order("provider",{ascending:true}),
+        admin.from("payment_provider_catalog")
+          .select("provider_key,display_name,connection_mode,verification_level,adapter_status,supported_methods,supports_webhook,supports_lookup,requires_platform_credentials,customer_visible,funds_flow,sort_order,notes")
+          .order("sort_order",{ascending:true}),
+        admin.from("merchant_payment_routes")
+          .select("id,payment_method,provider,connection_id,channel,verification_mode,active,priority,customer_label,metadata,confirmed_at,updated_at")
+          .eq("merchant_id",selected.merchant_id)
+          .order("priority",{ascending:true}),
+        admin.from("merchant_payment_route_sets")
+          .select("version,updated_at")
+          .eq("merchant_id",selected.merchant_id)
+          .maybeSingle()
+      ]);
+      if(providerAccountsError)throw providerAccountsError;
+      if(providerCatalogError)throw providerCatalogError;
+      if(routeRowsError)throw routeRowsError;
+      if(routeSetError)throw routeSetError;
+
+      receivingAccounts=(providerAccounts??[]).map((row:any)=>({
+        id:row.id,
+        provider:row.provider,
+        connected:row.status==="active",
+        status:row.status,
+        providerAccountId:row.provider_account_id??null,
+        connectionMode:row.connection_mode??null,
+        verificationLevel:row.verification_level??null,
+        credentialKind:row.credential_kind??null,
+        capabilities:row.capabilities??{},
+        metadata:row.metadata??{},
+        tokenExpiresAt:row.token_expires_at??null,
+        connectedAt:row.connected_at??null,
+        refreshedAt:row.refreshed_at??null,
+        revokedAt:row.revoked_at??null,
+        lastErrorCode:row.last_error_code??null,
+        lastErrorAt:row.last_error_at??null,
+        fundsOwner:"merchant",
+        tamaoReceivesSaleProceeds:false
+      }));
+      receivingAccount=receivingAccounts.find((x:any)=>x.provider==="mercadopago")??{
         provider:"mercadopago",
         connected:false,
         status:"not_connected",
         providerAccountId:null,
-        capabilities:{directSalePaymentsEnabled:false}
+        capabilities:{directSalePaymentsEnabled:false},
+        fundsOwner:"merchant",
+        tamaoReceivesSaleProceeds:false
       };
+      paymentProviders=(providerCatalog??[]).map((row:any)=>({
+        provider:row.provider_key,
+        displayName:row.display_name,
+        connectionMode:row.connection_mode,
+        verificationLevel:row.verification_level,
+        adapterStatus:row.adapter_status,
+        supportedMethods:Array.isArray(row.supported_methods)?row.supported_methods:[],
+        supportsWebhook:row.supports_webhook===true,
+        supportsLookup:row.supports_lookup===true,
+        requiresPlatformCredentials:row.requires_platform_credentials===true,
+        customerVisible:row.customer_visible===true,
+        fundsFlow:row.funds_flow,
+        notes:row.notes??null
+      }));
+      paymentRoutes=(routeRows??[]).map((row:any)=>({
+        id:row.id,
+        paymentMethod:row.payment_method,
+        provider:row.provider,
+        connectionId:row.connection_id??null,
+        channel:row.channel,
+        verificationMode:row.verification_mode,
+        active:row.active===true,
+        priority:Number(row.priority||100),
+        customerLabel:row.customer_label??null,
+        metadata:row.metadata??{},
+        confirmedAt:row.confirmed_at??null,
+        updatedAt:row.updated_at
+      }));
+      paymentRouteVersion=Number(routeSet?.version||1);
     }
 
     const {data:deliveryMembers,error:deliveryMembersError}=await admin
@@ -630,6 +693,15 @@ Deno.serve(async(req:Request)=>{
       deliveryTeam,
       billing,
       receivingAccount,
+      receivingAccounts,
+      paymentProviders,
+      paymentRoutes,
+      paymentRouteVersion,
+      paymentArchitecture:{
+        fundsOwner:"merchant",
+        tamaoReceivesSaleProceeds:false,
+        platformBillingSeparated:true
+      },
       availableProducts,
       catalog:(catalog??[]).map((item)=>({
         productCode:item.product_code,
