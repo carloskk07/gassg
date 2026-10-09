@@ -688,6 +688,7 @@ function scopeAdminSummary(role:string,data:any){
   if(role==="operations"){
     return {
       ...data,
+      merchants:(data.merchants??[]).map((m:any)=>({...m,paymentAccount:null})),
       finance:{receivables:[],cashbackReimbursements:[],adjustments:[]},
       merchantBilling:{
         plans:[],
@@ -715,7 +716,8 @@ function scopeAdminSummary(role:string,data:any){
       applications:[],pilotPartners:[],
       merchants:(data.merchants??[]).map((m:any)=>({
         id:m.id,name:m.name,cnpj:m.cnpj,status:m.status,online:m.online,trust_score:m.trust_score,
-        delivery_fee_cents:m.delivery_fee_cents,price_confirmed_at:m.price_confirmed_at,last_seen_at:m.last_seen_at
+        delivery_fee_cents:m.delivery_fee_cents,price_confirmed_at:m.price_confirmed_at,last_seen_at:m.last_seen_at,
+        paymentAccount:m.paymentAccount??null
       })),
       productRegistry:{categories:[],products:[]},
       supportCases:[],
@@ -747,6 +749,7 @@ function scopeAdminSummary(role:string,data:any){
   if(role==="compliance"){
     return {
       ...data,
+      merchants:(data.merchants??[]).map((m:any)=>({...m,paymentAccount:null})),
       businessMetrics:{},commercialPolicy:null,
       merchantBilling:{plans:[],accounts:[],statements:[],paymentRequests:[],paymentEvents:[],refunds:[],refundRecoveries:[],providerCharges:[],paymentIngress:null,metrics:null,reconciliation:null},
       productRegistry:{categories:[],products:[]},
@@ -1189,6 +1192,13 @@ async function summary(admin:any,actorUserId:string){
         .order("created_at",{ascending:false})
         .limit(200)
     : Promise.resolve({data:[],error:null});
+  const merchantPaymentAccountsPromise=["superadmin","finance","readonly"].includes(actorRole)
+    ? admin.from("merchant_payment_provider_accounts")
+        .select("merchant_id,provider,provider_account_id,status,capabilities,token_expires_at,connected_at,refreshed_at,revoked_at,last_error_code,last_error_at,updated_at")
+        .eq("provider","mercadopago")
+        .order("updated_at",{ascending:false})
+        .limit(500)
+    : Promise.resolve({data:[],error:null});
   const billingRefundsPromise=["superadmin","finance","readonly"].includes(actorRole)
     ? admin.from("merchant_billing_payment_refunds")
         .select("id,provider,provider_event_id,original_reconciliation_key,refund_reconciliation_key,amount_cents,recoverable_amount_cents,excess_amount_cents,currency,occurred_at,received_at,status,payment_event_id,payment_request_id,merchant_id,original_payment_amount_cents,cumulative_refunded_cents,match_reason,reopened_refund_recovery_id,resolved_by,resolved_at,resolution_reference,created_at,updated_at")
@@ -1201,7 +1211,7 @@ async function summary(admin:any,actorUserId:string){
         .order("created_at",{ascending:false})
         .limit(200)
     : Promise.resolve({data:[],error:null});
-  const [billingPlans,billingAccounts,dailyStatements,billingPaymentRequests,billingMetrics,billingReconciliation,billingPaymentEvents,billingProviderCharges,billingRefunds,billingRefundRecoveries]=await Promise.all([
+  const [billingPlans,billingAccounts,dailyStatements,billingPaymentRequests,billingMetrics,billingReconciliation,billingPaymentEvents,billingProviderCharges,merchantPaymentAccounts,billingRefunds,billingRefundRecoveries]=await Promise.all([
     admin.from("merchant_billing_plans")
       .select("plan_key,display_name,billing_mode,platform_fee_bps,purchase_amount_cents,credit_grant_cents,active,sort_order,updated_at")
       .order("sort_order",{ascending:true}),
@@ -1221,10 +1231,11 @@ async function summary(admin:any,actorUserId:string){
     billingReconciliationPromise,
     billingPaymentEventsPromise,
     billingProviderChargesPromise,
+    merchantPaymentAccountsPromise,
     billingRefundsPromise,
     billingRefundRecoveriesPromise
   ]);
-  for(const result of [billingPlans,billingAccounts,dailyStatements,billingPaymentRequests,billingMetrics,billingReconciliation,billingPaymentEvents,billingProviderCharges,billingRefunds,billingRefundRecoveries]){
+  for(const result of [billingPlans,billingAccounts,dailyStatements,billingPaymentRequests,billingMetrics,billingReconciliation,billingPaymentEvents,billingProviderCharges,merchantPaymentAccounts,billingRefunds,billingRefundRecoveries]){
     if(result.error)throw result.error;
   }
 
@@ -1278,6 +1289,9 @@ async function summary(admin:any,actorUserId:string){
   const businessByMerchant=new Map((merchantBusinessDetails.data??[]).map((x:any)=>[x.merchant_id,x]));
   const merchantReadinessById=new Map<string,any>(
     (merchantReadiness.data??[]).map((x:any)=>[String(x.merchantId),x] as [string,any])
+  );
+  const paymentAccountByMerchant=new Map<string,any>(
+    (merchantPaymentAccounts.data??[]).map((x:any)=>[String(x.merchant_id),x] as [string,any])
   );
   const capabilitiesByMerchant=new Map<string,any[]>();
   for(const cap of capabilities.data??[]){
@@ -1354,7 +1368,8 @@ async function summary(admin:any,actorUserId:string){
       compliance:byMerchant.get(m.id)??null,
       businessDetails:businessByMerchant.get(m.id)??null,
       deliveryCapabilities:capabilitiesByMerchant.get(m.id)??[],
-      readiness:merchantReadinessById.get(m.id)??null
+      readiness:merchantReadinessById.get(m.id)??null,
+      paymentAccount:paymentAccountByMerchant.get(m.id)??null
     })),
     merchantReadiness:merchantReadiness.data??[],
     businessMetrics:businessMetrics.data??{},
