@@ -51,6 +51,8 @@ jobs:
         run: node tests/static-audit.mjs
       - name: Admin control plane V1.133 regression contract
         run: node tests/admin-control-plane-v1-133.mjs
+      - name: Admin command center V1.134 regression contract
+        run: node tests/admin-command-center-v1-134.mjs
       - name: Remote admin gateway contract and portal report
         run: node tests/remote-admin-readiness.mjs
       - name: Runtime origin config contract

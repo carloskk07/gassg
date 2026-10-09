@@ -444,6 +444,29 @@ function adminClearSearch(){
   adminRuntime.searchResults=[];
   render();
 }
+function adminFocusSearch(){
+  const input=document.getElementById('admin-global-search');
+  if(!input)return;
+  input.focus();
+  input.select();
+}
+function adminBindKeyboardShortcuts(){
+  if(globalThis.__tamaoAdminKeyboardBound)return;
+  globalThis.__tamaoAdminKeyboardBound=true;
+  document.addEventListener('keydown',event=>{
+    if(!adminPortalRequested()||adminRuntime.status!=='ready')return;
+    if((event.ctrlKey||event.metaKey)&&String(event.key).toLowerCase()==='k'){
+      event.preventDefault();
+      adminFocusSearch();
+      return;
+    }
+    if(event.key==='Escape'&&adminRuntime.detail){
+      event.preventDefault();
+      adminCloseDetail();
+    }
+  });
+}
+adminBindKeyboardShortcuts();
 function adminOpenSearchResult(type,id){
   if(['order','merchant','customer'].includes(String(type))){
     return adminOpenEntity(type,id);
@@ -624,13 +647,23 @@ function adminAttentionCenter(d){
   const items=adminAttentionItems(d);
   const critical=items.filter(x=>x.severity==='critical').length;
   const high=items.filter(x=>x.severity==='high').length;
+  const medium=items.filter(x=>x.severity==='medium').length;
   const action=(x)=>{
     if(x.type&&x.id)return "adminOpenEntity('"+String(x.type).replace(/'/g,'')+"','"+String(x.id).replace(/'/g,'')+"')";
     return "adminSetSection('"+String(x.section||'overview').replace(/'/g,'')+"')";
   };
   return `<section class="section admin-attention">
-    <div class="section-head"><div><span class="section-kicker">ATENÇÃO AGORA</span><h2>Fila operacional priorizada</h2><p>O painel reúne automaticamente os eventos que merecem ação administrativa primeiro.</p></div><div class="order-actions"><span class="status-pill ${critical?'offline':'online'}">${critical} crítico(s)</span><span class="status-pill ${high?'risk':'online'}">${high} alto(s)</span></div></div>
-    ${items.length?`<div class="admin-attention-list">${items.map(x=>`<button type="button" class="admin-attention-item ${esc(x.severity)}" onclick="${action(x)}"><span class="admin-attention-severity">${esc(adminSeverityLabel(x.severity))}</span><span><strong>${esc(x.title)}</strong><small>${esc(x.detail)}</small></span><span aria-hidden="true">›</span></button>`).join('')}</div>`:'<div class="notice success"><strong>Nenhuma intervenção prioritária agora.</strong><br>Filas críticas, pedidos em risco e sinais operacionais estão limpos.</div>'}
+    <div class="admin-command-card">
+      <div class="admin-command-head">
+        <div><span class="section-kicker">ATENÇÃO AGORA</span><h2>Decisões prioritárias</h2><p>Exceções operacionais, financeiras e de segurança ordenadas para você agir primeiro no que realmente importa.</p></div>
+        <div class="admin-severity-summary">
+          <span class="admin-severity-chip critical"><b>${critical}</b> crítico</span>
+          <span class="admin-severity-chip high"><b>${high}</b> alto</span>
+          <span class="admin-severity-chip medium"><b>${medium}</b> médio</span>
+        </div>
+      </div>
+      ${items.length?`<div class="admin-attention-list">${items.map((x,index)=>`<button type="button" class="admin-attention-item ${esc(x.severity)}" onclick="${action(x)}"><span class="admin-attention-rank">${String(index+1).padStart(2,'0')}</span><span class="admin-attention-severity">${esc(adminSeverityLabel(x.severity))}</span><span class="admin-attention-copy"><strong>${esc(x.title)}</strong><small>${esc(x.detail)}</small></span><span class="admin-attention-arrow" aria-hidden="true">→</span></button>`).join('')}</div>`:'<div class="admin-all-clear"><span aria-hidden="true">✓</span><div><strong>Nenhuma intervenção prioritária agora.</strong><small>Filas críticas, pedidos em risco e sinais operacionais estão limpos.</small></div></div>'}
+    </div>
   </section>`;
 }
 function adminRecentCustomers(d){
@@ -661,10 +694,11 @@ function adminGlobalSearchView(){
   const searched=adminRuntime.searchQuery;
   return `<div class="admin-global-search">
     <div class="admin-search-input-wrap">
-      <span aria-hidden="true">⌕</span>
-      <input id="admin-global-search" class="input" maxlength="120" autocomplete="off" placeholder="Buscar pedido, telefone, CNPJ, revenda, cliente…" value="${esc(searched||'')}" onkeydown="if(event.key==='Enter'){event.preventDefault();adminSearchFromUi()}">
-      <button class="secondary small" type="button" onclick="adminSearchFromUi()" ${adminRuntime.searchPending?'disabled aria-busy="true"':''}>${adminRuntime.searchPending?'Buscando…':'Buscar'}</button>
-      ${searched?'<button class="ghost small" type="button" onclick="adminClearSearch()">Limpar</button>':''}
+      <span class="admin-search-icon" aria-hidden="true">${adminNavIcon('audit')}</span>
+      <input id="admin-global-search" class="input" maxlength="120" autocomplete="off" placeholder="Buscar pedido, telefone, CNPJ, revenda ou cliente…" value="${esc(searched||'')}" onkeydown="if(event.key==='Enter'){event.preventDefault();adminSearchFromUi()}">
+      <kbd class="admin-search-shortcut">Ctrl K</kbd>
+      <button class="secondary small admin-search-submit" type="button" onclick="adminSearchFromUi()" ${adminRuntime.searchPending?'disabled aria-busy="true"':''}>${adminRuntime.searchPending?'Buscando…':'Buscar'}</button>
+      ${searched?'<button class="ghost small admin-search-clear" type="button" onclick="adminClearSearch()">Limpar</button>':''}
     </div>
     ${searched?`<div class="admin-search-results">
       <div class="tiny muted">${adminRuntime.searchPending?'Consultando control plane…':results.length+' resultado(s) para “'+esc(searched)+'”'}</div>
@@ -974,6 +1008,69 @@ function adminFirstSectionForRole(role=adminCurrentRole()){
     .find(section=>adminRoleCanSection(section,role))||'overview';
 }
 
+function adminSectionMeta(section=adminRuntime.section){
+  return ({
+    overview:{kicker:'CENTRAL DE COMANDO',title:'Visão geral',description:'Saúde do negócio, prioridades e decisões que exigem atenção agora.'},
+    orders:{kicker:'OPERAÇÃO EM TEMPO REAL',title:'Pedidos',description:'Acompanhe aceite, risco, entrega, suporte e intervenções auditadas.'},
+    customers:{kicker:'RELACIONAMENTO',title:'Clientes',description:'Visão operacional dos clientes recentes e acesso rápido ao histórico 360°.'},
+    partners:{kicker:'REDE DE REVENDA',title:'Parceiros',description:'Aquisição, onboarding, compliance e prontidão operacional das revendas.'},
+    catalog:{kicker:'OFERTA DA PLATAFORMA',title:'Catálogo',description:'Categorias, produtos e governança da oferta disponível na plataforma.'},
+    finance:{kicker:'CONTROLADORIA',title:'Financeiro',description:'Cobranças TAMÃO, crédito, D+1, PSP, conciliação, refunds e política econômica.'},
+    incidents:{kicker:'CONFIABILIDADE',title:'Incidentes',description:'Severidade, resposta, MTTA/MTTR e resolução auditável dos eventos operacionais.'},
+    audit:{kicker:'GOVERNANÇA',title:'Auditoria',description:'Trilha forense das decisões administrativas e mudanças sensíveis da plataforma.'},
+    system:{kicker:'SEGURANÇA & PLATAFORMA',title:'Sistema',description:'Saúde técnica, portais, PSP, RBAC e controles estruturais do ambiente.'}
+  })[String(section||'overview')]||{kicker:'CONTROL PLANE',title:'Administração',description:'Controle operacional do TAMÃO.'};
+}
+function adminRelativeTime(value){
+  if(!value)return 'sem sincronização';
+  const ms=Date.now()-Date.parse(value);
+  if(!Number.isFinite(ms))return 'agora';
+  const abs=Math.max(0,ms);
+  if(abs<45000)return 'agora';
+  const min=Math.round(abs/60000);
+  if(min<60)return 'há '+min+' min';
+  const hours=Math.round(min/60);
+  if(hours<24)return 'há '+hours+' h';
+  const days=Math.round(hours/24);
+  return 'há '+days+' d';
+}
+function adminNavIcon(id){
+  const paths={
+    overview:'<path d="M4 12a8 8 0 1 1 16 0v7a1 1 0 0 1-1 1h-5v-6h-4v6H5a1 1 0 0 1-1-1v-7Z"/><path d="M8 11h8"/>',
+    orders:'<rect x="4" y="3" width="16" height="18" rx="2"/><path d="M8 8h8M8 12h8M8 16h5"/>',
+    customers:'<circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/>',
+    partners:'<path d="M8 12a4 4 0 1 0-4-4 4 4 0 0 0 4 4Zm8 0a4 4 0 1 0-4-4"/><path d="M1 21a7 7 0 0 1 14 0M14 15a7 7 0 0 1 9 6"/>',
+    catalog:'<path d="M4 6h16v14H4z"/><path d="M8 6V3h8v3M8 11h8M8 15h5"/>',
+    finance:'<path d="M4 7h16v13H4z"/><path d="M7 4h10M8 11h8M8 15h5"/><circle cx="17" cy="16" r="1"/>',
+    incidents:'<path d="M12 3 2.5 20h19L12 3Z"/><path d="M12 9v5M12 17h.01"/>',
+    audit:'<path d="M4 4h16v16H4z"/><path d="M8 8h8M8 12h5M8 16h4"/><circle cx="17" cy="16" r="2.5"/>',
+    system:'<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .34 1.88l.06.06-2.83 2.83-.06-.06A1.7 1.7 0 0 0 15 19.4a1.7 1.7 0 0 0-1 .6 1.7 1.7 0 0 0-.4 1.1V21h-4v-.1A1.7 1.7 0 0 0 8.6 19.4a1.7 1.7 0 0 0-1.88.34l-.06.06-2.83-2.83.06-.06A1.7 1.7 0 0 0 4.6 15a1.7 1.7 0 0 0-.6-1 1.7 1.7 0 0 0-1.1-.4H3v-4h.1A1.7 1.7 0 0 0 4.6 8.6a1.7 1.7 0 0 0-.34-1.88l-.06-.06 2.83-2.83.06.06A1.7 1.7 0 0 0 9 4.6a1.7 1.7 0 0 0 1-.6 1.7 1.7 0 0 0 .4-1.1V3h4v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.88-.34l.06-.06 2.83 2.83-.06.06A1.7 1.7 0 0 0 19.4 9c.38.3.6.65.6 1v.4h1v4h-1v.1c0 .2-.2.4-.6.5Z"/>'
+  };
+  return '<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">'+(paths[id]||paths.overview)+'</svg>';
+}
+function adminOperationalStrip(d){
+  const readiness=d.launchReadiness||{};
+  const mode=String(readiness.operationMode||(readiness.commerceEnabled?'LIVE':'PRELAUNCH')).toUpperCase();
+  const blockers=Array.isArray(readiness.securityBlockers)?readiness.securityBlockers.length:0;
+  const warnings=Array.isArray(readiness.unresolvedWarnings)?readiness.unresolvedWarnings.length:0;
+  const incidents=(d.incidents||[]).filter(x=>x.status!=='resolved').length;
+  const billing=d.merchantBilling||{};
+  const ingress=billing.paymentIngress||{};
+  const e2e=adminBillingE2EState(d);
+  const provider=adminBillingProviderName(ingress.activeBillingProvider||adminRuntime.providerHealth?.provider);
+  const providerState=e2e.validated?'E2E validado':adminRuntime.providerHealth?.ok===true?'API validada':ingress.livePspReady?'configurado':'pendente';
+  const tone=blockers?'danger':warnings?'warning':'good';
+  return '<div class="admin-ops-strip '+tone+'">'+
+    '<div class="admin-ops-primary"><span class="admin-live-dot"></span><div><small>OPERAÇÃO</small><strong>'+esc(mode)+'</strong></div></div>'+
+    '<div class="admin-ops-item"><small>Prontidão</small><strong>'+(blockers?blockers+' bloqueio(s)':warnings?warnings+' pendência(s)':'sem bloqueios')+'</strong></div>'+
+    '<div class="admin-ops-item"><small>PSP</small><strong>'+esc(provider)+' • '+esc(providerState)+'</strong></div>'+
+    '<div class="admin-ops-item"><small>Incidentes</small><strong>'+incidents+' aberto(s)</strong></div>'+
+    '<div class="admin-ops-item admin-ops-sync"><small>Última atualização</small><strong>'+esc(adminRelativeTime(adminRuntime.lastSyncAt))+'</strong></div>'+
+  '</div>';
+}
+function adminExecutiveKpi({icon,label,value,detail='',tone='neutral'}){
+  return '<article class="admin-exec-kpi '+esc(tone)+'"><span class="admin-exec-icon" aria-hidden="true">'+esc(icon)+'</span><div><small>'+esc(label)+'</small><strong>'+value+'</strong>'+(detail?'<p>'+esc(detail)+'</p>':'')+'</div></article>';
+}
 function adminSetSection(section){
   const allowed=['overview','orders','customers','partners','catalog','finance','incidents','audit','system'];
   const requested=allowed.includes(String(section||''))?String(section):'overview';
@@ -991,7 +1088,7 @@ function adminMenuButton(id,label,icon,badge=''){
   if(!adminRoleCanSection(id))return '';
   const active=adminRuntime.section===id;
   return `<button class="admin-nav-item ${active?'active':''}" type="button" onclick="adminSetSection('${id}')" aria-current="${active?'page':'false'}">
-    <span class="admin-nav-icon" aria-hidden="true">${icon}</span>
+    <span class="admin-nav-icon" aria-hidden="true">${adminNavIcon(id)}</span>
     <span class="admin-nav-label">${esc(label)}</span>
     ${badge!==''?`<span class="admin-nav-badge">${esc(String(badge))}</span>`:''}
   </button>`;
@@ -1442,6 +1539,28 @@ function adminBillingPaymentEventCard(event){
   </article>`;
 }
 
+function adminFinanceOverview(d){
+  const billing=d.merchantBilling||{};
+  const metrics=billing.metrics||{};
+  const reconciliation=billing.reconciliation||{};
+  const pendingReviews=(billing.paymentEvents||[]).filter(x=>x.status==='review_required').length
+    +(billing.refunds||[]).filter(x=>x.status==='review_required').length;
+  const e2e=adminBillingE2EState(d);
+  const ingress=billing.paymentIngress||{};
+  const pspLabel=e2e.validated?'E2E validado':adminRuntime.providerHealth?.ok===true?'API validada':ingress.livePspReady?'Configurado':'Pendente';
+  return `<section class="section admin-finance-overview">
+    <div class="section-head"><div><span class="section-kicker">POSIÇÃO FINANCEIRA</span><h2>Visão executiva</h2><p>O que o TAMÃO tem a receber, o que está em risco e a situação real do PSP.</p></div><span class="status-pill ${Number(metrics.overdueStatementCount||0)||pendingReviews?'risk':'online'}">${Number(metrics.overdueStatementCount||0)||pendingReviews?'EXIGE ATENÇÃO':'SEM PENDÊNCIA CRÍTICA'}</span></div>
+    <div class="admin-exec-grid finance">
+      ${adminExecutiveKpi({icon:'R$',label:'D+1 em aberto',value:adminMoney(metrics.openStatementCents),detail:Number(metrics.openStatementCount||0)+' fechamento(s)',tone:Number(metrics.overdueStatementCount||0)?'warning':'money'})}
+      ${adminExecutiveKpi({icon:'!',label:'Vencido',value:adminMoney(metrics.overdueStatementCents),detail:Number(metrics.overdueStatementCount||0)+' fechamento(s)',tone:Number(metrics.overdueStatementCount||0)?'danger':'neutral'})}
+      ${adminExecutiveKpi({icon:'↗',label:'Aguardando conferência',value:adminMoney(metrics.pendingPaymentCents),detail:Number(metrics.pendingPaymentCount||0)+' pagamento(s)',tone:Number(metrics.pendingPaymentCount||0)?'warning':'neutral'})}
+      ${adminExecutiveKpi({icon:'C',label:'Crédito pré-pago',value:adminMoney(metrics.prepaidCreditBalanceCents),detail:Number(metrics.prepaidAccountCount||0)+' conta(s)',tone:'money'})}
+      ${adminExecutiveKpi({icon:'↺',label:'Refunds em revisão',value:String(pendingReviews),detail:adminMoney(metrics.refundRecoveryOutstandingCents||0)+' em recuperação',tone:pendingReviews?'danger':'neutral'})}
+      ${adminExecutiveKpi({icon:'PSP',label:'Mercado Pago',value:esc(pspLabel),detail:reconciliation.healthy===true?'conciliação íntegra':'conciliação sob observação',tone:e2e.validated?'good':adminRuntime.providerHealth?.ok===true?'money':'warning'})}
+    </div>
+  </section>`;
+}
+
 function adminBillingMetricsView(metrics){
   if(!metrics)return '';
   const planMix=Array.isArray(metrics.planMix)?metrics.planMix:[];
@@ -1752,29 +1871,42 @@ function adminMerchantBillingSection(d){
     });
   return `<section class="section">
     <div class="section-head"><div><span class="section-kicker">COBRANÇA DAS REVENDAS</span><h2>Fechamento diário + pacotes</h2><p>Cada pedido mantém sua taxa auditável. À 00:05 o dia anterior é consolidado; o saldo vence no fim do dia seguinte. Crédito pré-pago reduz a taxa e evita pagamento diário enquanto houver saldo.</p></div><div class="order-actions"><span class="status-pill ${Number(metrics?.overdueStatementCount??overdue.length)?'offline':'online'}">${Number(metrics?.overdueStatementCount??overdue.length)} vencido(s)</span><span class="status-pill ${Number(metrics?.salesHoldCount??held.length)?'offline':'online'}">${Number(metrics?.salesHoldCount??held.length)} hold(s)</span></div></div>
-    ${paymentIngress?`<div class="card flat" style="margin-bottom:16px"><div class="section-head"><div><h3>Entrada Pix / PSP</h3><p>Configuração e disponibilidade real são estados diferentes. O painel só chama o PSP ativo de validado após uma consulta autenticada; segredos nunca saem do ambiente server-side.</p></div><span class="status-pill ${pspBadgeClass}">${esc(pspBadgeLabel)}</span></div>
-      <div class="tiny muted">Contrato HMAC normalizado: ${esc(paymentIngress.contract||'—')} • provedores configurados nesse contrato: ${Number(paymentIngress.providerCount||0)}${Array.isArray(paymentIngress.providers)&&paymentIngress.providers.length?' • '+paymentIngress.providers.map(esc).join(', '):''}</div>
-      <div class="tiny muted">Adaptadores nativos de PSP ativos: ${Number(paymentIngress.liveProviderCount||0)}${Array.isArray(paymentIngress.liveProviders)&&paymentIngress.liveProviders.length?' • '+paymentIngress.liveProviders.map(esc).join(', '):''}</div>
-      <div class="tiny muted">PSP ativo: <strong>${esc(paymentIngress.activeBillingProvider||'—')}</strong></div>
-      ${paymentIngress.adapterReadiness?.mercadopago?`<div class="tiny muted">Mercado Pago: adaptador ${paymentIngress.adapterReadiness.mercadopago.implemented?'implementado':'ausente'} • Access Token ${paymentIngress.adapterReadiness.mercadopago.accessTokenConfigured?'configurado':'pendente'} • webhook HMAC ${paymentIngress.adapterReadiness.mercadopago.webhookSecretConfigured?'configurado':'pendente'} • cobrança ${paymentIngress.adapterReadiness.mercadopago.chargeReady?'pronta':'pendente'} • recebimento ${paymentIngress.adapterReadiness.mercadopago.receiveReady?'pronto':'pendente'}</div>`:''}
-      ${paymentIngress.liveEndpoints?.mercadopago?`<div class="tiny muted">Webhook Mercado Pago único (Order): ${esc(paymentIngress.liveEndpoints.mercadopago)}</div>`:''}
-      ${paymentIngress.adapterReadiness?.woovi?`<div class="tiny muted">Woovi/OpenPix: adaptador ${paymentIngress.adapterReadiness.woovi.implemented?'implementado':'ausente'} • webhook ${paymentIngress.adapterReadiness.woovi.receiveReady?'pronto':'pendente'} • criação de cobrança ${paymentIngress.adapterReadiness.woovi.chargeReady?'pronta':'pendente'} • App ID ${paymentIngress.adapterReadiness.woovi.appIdConfigured?'configurado':'pendente'} • token privado ${paymentIngress.adapterReadiness.woovi.webhookAuthorizationConfigured?'configurado':'pendente'} • vínculo da empresa ${paymentIngress.adapterReadiness.woovi.companyBound?'configurado':'pendente'} • ambiente ${esc(paymentIngress.adapterReadiness.woovi.environment||'—')} • assinatura ${esc(paymentIngress.adapterReadiness.woovi.signature||'—')}</div>`:''}
-      ${paymentIngress.liveEndpoints?.woovi?`<div class="tiny muted">Webhook Woovi: ${esc(paymentIngress.liveEndpoints.woovi)}</div>`:''}
-      ${paymentIngress.liveEndpoints?.merchantPix?`<div class="tiny muted">Pix de cobrança TAMÃO → revenda: ${esc(paymentIngress.liveEndpoints.merchantPix)}</div>`:''}
-      ${paymentIngress.endpoint?`<div class="tiny muted">Ingress normalizado: ${esc(paymentIngress.endpoint)}</div>`:''}
-      <div style="margin-top:10px"><button class="secondary small" onclick="adminCheckBillingProviderHealth()" ${adminRuntime.providerHealthPending?'disabled':''}>${adminRuntime.providerHealthPending?'Testando conexão…':'Testar PSP ativo'}</button></div>
+    ${paymentIngress?`<div class="card flat admin-psp-card">
+      <div class="section-head admin-psp-head"><div><span class="section-kicker">PAGAMENTOS DA PLATAFORMA</span><h3>Entrada Pix / PSP</h3><p>Estado operacional primeiro. Credenciais, webhooks e endpoints técnicos permanecem server-side e auditáveis; segredos nunca saem do ambiente server-side.</p></div><span class="status-pill ${pspBadgeClass}">${esc(pspBadgeLabel)}</span></div>
+      <div class="admin-psp-status-grid">
+        <div class="admin-psp-status"><span class="admin-state-dot ${paymentIngress.livePspReady?'ok':'pending'}"></span><div><small>Provedor ativo</small><strong>${esc(adminBillingProviderName(paymentIngress.activeBillingProvider||'—'))}</strong></div></div>
+        <div class="admin-psp-status"><span class="admin-state-dot ${paymentIngress.adapterReadiness?.mercadopago?.accessTokenConfigured?'ok':'pending'}"></span><div><small>Access Token</small><strong>${paymentIngress.adapterReadiness?.mercadopago?.accessTokenConfigured?'Configurado':'Pendente'}</strong></div></div>
+        <div class="admin-psp-status"><span class="admin-state-dot ${paymentIngress.adapterReadiness?.mercadopago?.webhookSecretConfigured?'ok':'pending'}"></span><div><small>Webhook HMAC</small><strong>${paymentIngress.adapterReadiness?.mercadopago?.webhookSecretConfigured?'Configurado':'Pendente'}</strong></div></div>
+        <div class="admin-psp-status"><span class="admin-state-dot ${pspApiValidated?'ok':pspFailed?'bad':'pending'}"></span><div><small>API Mercado Pago</small><strong>${pspApiValidated?'Validada':pspFailed?'Falhando':'Não testada'}</strong></div></div>
+        <div class="admin-psp-status"><span class="admin-state-dot ${pspE2E.validated?'ok':'pending'}"></span><div><small>Pagamento E2E</small><strong>${pspE2E.validated?'Validado':'Aguardando prova real'}</strong></div></div>
+      </div>
+      <div class="admin-psp-actions"><button class="secondary small" onclick="adminCheckBillingProviderHealth()" ${adminRuntime.providerHealthPending?'disabled':''}>${adminRuntime.providerHealthPending?'Testando conexão…':'Testar PSP ativo'}</button><small>Teste sem gerar cobrança ou movimentar dinheiro.</small></div>
       ${adminBillingProviderHealthNotice(providerHealth)}
       ${paymentIngress.configValid===false
-        ?`<div class="notice danger" style="margin-top:10px"><strong>Configuração de webhook inválida.</strong><br>O mapa BILLING_PAYMENT_WEBHOOK_SECRETS não pôde ser validado. Nenhum recebimento automático deve ser considerado pronto.</div>`
+        ?`<div class="notice danger admin-psp-notice"><strong>Configuração de webhook inválida.</strong><br>O mapa BILLING_PAYMENT_WEBHOOK_SECRETS não pôde ser validado. Nenhum recebimento automático deve ser considerado pronto.</div>`
         :pspE2E.validated
-          ?`<div class="notice success" style="margin-top:10px"><strong>PSP validado de ponta a ponta.</strong><br>Além da API, já existe evidência de webhook financeiro real conciliado. O TAMÃO continua exigindo correlação, valor e evidência exatos antes de movimentar o financeiro.</div>`
+          ?`<div class="notice success admin-psp-notice"><strong>PSP validado de ponta a ponta.</strong><br>Além da API, já existe evidência de webhook financeiro real conciliado. O TAMÃO continua exigindo correlação, valor e evidência exatos antes de movimentar o financeiro.</div>`
           :pspApiValidated
-            ?`<div class="notice success" style="margin-top:10px"><strong>API do PSP validada; E2E financeiro ainda pendente.</strong><br>A credencial respondeu e os gates locais de cobrança + webhook estão configurados. O selo E2E só será concedido após um pagamento real gerar webhook e conciliação válidos.</div>`
+            ?`<div class="notice success admin-psp-notice"><strong>API do PSP validada; E2E financeiro ainda pendente.</strong><br>A credencial respondeu e os gates locais de cobrança + webhook estão configurados. O selo E2E só será concedido após um pagamento real gerar webhook e conciliação válidos.</div>`
           :paymentIngress.livePspReady
-            ?`<div class="notice" style="margin-top:10px"><strong>PSP configurado; prova real ainda pendente.</strong><br>Os requisitos server-side existem, mas presença de secret não comprova a credencial ou o webhook do PSP ativo. Use “Testar PSP ativo”.</div>`
+            ?`<div class="notice admin-psp-notice"><strong>PSP configurado; prova real ainda pendente.</strong><br>Os requisitos server-side existem, mas presença de secret não comprova a credencial ou o webhook do PSP ativo. Use “Testar PSP ativo”.</div>`
             :paymentIngress.normalizedIngressConfigured
-              ?`<div class="notice" style="margin-top:10px"><strong>Ingress técnico pronto; PSP real ainda não.</strong><br>Há secret para o contrato HMAC normalizado do TAMÃO, mas nenhum adaptador nativo de PSP está configurado. O fluxo manual continua disponível.</div>`
-              :`<div class="notice" style="margin-top:10px"><strong>PSP/Pix ainda não conectado.</strong><br>O motor interno de conciliação está pronto, mas não há integração automática validada. O fluxo manual continua disponível.</div>`}
+              ?`<div class="notice admin-psp-notice"><strong>Ingress técnico pronto; PSP real ainda não.</strong><br>Há secret para o contrato HMAC normalizado do TAMÃO, mas nenhum adaptador nativo de PSP está configurado. O fluxo manual continua disponível.</div>`
+              :`<div class="notice admin-psp-notice"><strong>PSP/Pix ainda não conectado.</strong><br>O motor interno de conciliação está pronto, mas não há integração automática validada. O fluxo manual continua disponível.</div>`}
+      <details class="admin-tech-details">
+        <summary><span>Detalhes técnicos da integração</span><small>contratos, adaptadores e endpoints</small></summary>
+        <div class="admin-tech-details-body">
+          <div class="tiny muted">Contrato HMAC normalizado: ${esc(paymentIngress.contract||'—')} • provedores configurados nesse contrato: ${Number(paymentIngress.providerCount||0)}${Array.isArray(paymentIngress.providers)&&paymentIngress.providers.length?' • '+paymentIngress.providers.map(esc).join(', '):''}</div>
+          <div class="tiny muted">Adaptadores nativos de PSP ativos: ${Number(paymentIngress.liveProviderCount||0)}${Array.isArray(paymentIngress.liveProviders)&&paymentIngress.liveProviders.length?' • '+paymentIngress.liveProviders.map(esc).join(', '):''}</div>
+          <div class="tiny muted">PSP ativo: <strong>${esc(paymentIngress.activeBillingProvider||'—')}</strong></div>
+          ${paymentIngress.adapterReadiness?.mercadopago?`<div class="tiny muted">Mercado Pago: adaptador ${paymentIngress.adapterReadiness.mercadopago.implemented?'implementado':'ausente'} • Access Token ${paymentIngress.adapterReadiness.mercadopago.accessTokenConfigured?'configurado':'pendente'} • webhook HMAC ${paymentIngress.adapterReadiness.mercadopago.webhookSecretConfigured?'configurado':'pendente'} • cobrança ${paymentIngress.adapterReadiness.mercadopago.chargeReady?'pronta':'pendente'} • recebimento ${paymentIngress.adapterReadiness.mercadopago.receiveReady?'pronto':'pendente'}</div>`:''}
+          ${paymentIngress.liveEndpoints?.mercadopago?`<div class="tiny muted">Webhook Mercado Pago único (Order): ${esc(paymentIngress.liveEndpoints.mercadopago)}</div>`:''}
+          ${paymentIngress.adapterReadiness?.woovi?`<div class="tiny muted">Woovi/OpenPix: adaptador ${paymentIngress.adapterReadiness.woovi.implemented?'implementado':'ausente'} • webhook ${paymentIngress.adapterReadiness.woovi.receiveReady?'pronto':'pendente'} • criação de cobrança ${paymentIngress.adapterReadiness.woovi.chargeReady?'pronta':'pendente'} • App ID ${paymentIngress.adapterReadiness.woovi.appIdConfigured?'configurado':'pendente'} • token privado ${paymentIngress.adapterReadiness.woovi.webhookAuthorizationConfigured?'configurado':'pendente'} • vínculo da empresa ${paymentIngress.adapterReadiness.woovi.companyBound?'configurado':'pendente'} • ambiente ${esc(paymentIngress.adapterReadiness.woovi.environment||'—')} • assinatura ${esc(paymentIngress.adapterReadiness.woovi.signature||'—')}</div>`:''}
+          ${paymentIngress.liveEndpoints?.woovi?`<div class="tiny muted">Webhook Woovi: ${esc(paymentIngress.liveEndpoints.woovi)}</div>`:''}
+          ${paymentIngress.liveEndpoints?.merchantPix?`<div class="tiny muted">Pix de cobrança TAMÃO → revenda: ${esc(paymentIngress.liveEndpoints.merchantPix)}</div>`:''}
+          ${paymentIngress.endpoint?`<div class="tiny muted">Ingress normalizado: ${esc(paymentIngress.endpoint)}</div>`:''}
+        </div>
+      </details>
     </div>`:''}
     ${adminMerchantPaymentAccountsSection(d)}
     ${adminBillingMetricsView(metrics)}
@@ -2168,24 +2300,28 @@ function adminPage(){
   const badge=(n)=>Number(n)>0?String(Number(n)):'';
 
   const overviewContent=`
+    <section class="section admin-overview-pulse">
+      <div class="section-head"><div><span class="section-kicker">NEGÓCIO • 30 DIAS</span><h2>Pulso da operação</h2><p>Indicadores server-side calculados apenas sobre fatos liquidados e estados reais do pedido.</p></div><span class="admin-data-freshness">Atualizado ${esc(adminRelativeTime(adminRuntime.lastSyncAt))}</span></div>
+      <div class="admin-exec-grid">
+        ${adminExecutiveKpi({icon:'R$',label:'GMV 30d',value:adminMoney(metrics.gmvCents30d),detail:Number(metrics.settledOrders30d||0)+' pedidos liquidados',tone:'money'})}
+        ${adminExecutiveKpi({icon:'T',label:'Receita TAMÃO 30d',value:adminMoney(metrics.platformFeeGeneratedCents30d),detail:'taxa da plataforma gerada',tone:'money'})}
+        ${adminExecutiveKpi({icon:'↗',label:'Pedidos ativos',value:String(controlOrders.filter(o=>!['DELIVERED','SETTLED','CANCELLED'].includes(o.status)).length),detail:activeOrderAttention+' em risco ou atraso',tone:activeOrderAttention?'warning':'neutral'})}
+        ${adminExecutiveKpi({icon:'◇',label:'Revendas ativas',value:String(active.length),detail:partnerAttention+' pendência(s) de parceiro',tone:partnerAttention?'warning':'neutral'})}
+        ${adminExecutiveKpi({icon:'₿',label:'Financeiro',value:String(actionableFinanceCount),detail:'item(ns) exigem decisão',tone:actionableFinanceCount?'danger':'neutral'})}
+        ${adminExecutiveKpi({icon:'!',label:'Incidentes',value:String(incidentAttention),detail:incidentAttention?'aberto(s) agora':'nenhum incidente aberto',tone:incidentAttention?'danger':'good'})}
+      </div>
+    </section>
     ${adminAttentionCenter(d)}
     ${currentRole==='superadmin'?adminLaunchControl(d.launchReadiness||{}):''}
-    <section class="section"><div class="section-head"><div><span class="section-kicker">NEGÓCIO • 30 DIAS</span><h2>Pulso da operação</h2><p>Indicadores server-side calculados apenas sobre fatos liquidados e estados reais do pedido.</p></div></div><div class="merchant-kpis">
-      <div class="kpi"><span class="label">GMV 30d</span><strong>${adminMoney(metrics.gmvCents30d)}</strong><small>${Number(metrics.settledOrders30d||0)} pedidos liquidados</small></div>
+    <section class="section admin-secondary-metrics"><div class="section-head"><div><span class="section-kicker">QUALIDADE & RETENÇÃO</span><h2>Indicadores de sustentação</h2></div></div><div class="merchant-kpis">
       <div class="kpi"><span class="label">Ticket médio</span><strong>${adminMoney(metrics.averageTicketCents30d)}</strong></div>
-      <div class="kpi"><span class="label">Clientes recorrentes</span><strong>${metrics.repeatRate30d==null?'—':Math.round(Number(metrics.repeatRate30d)*100)+'%'}</strong><small>${Number(metrics.repeatCustomers30d||0)} de ${Number(metrics.activeCustomers30d||0)} clientes ativos</small></div>
+      <div class="kpi"><span class="label">Clientes recorrentes</span><strong>${metrics.repeatRate30d==null?'—':Math.round(Number(metrics.repeatRate30d)*100)+'%'}</strong><small>${Number(metrics.repeatCustomers30d||0)} de ${Number(metrics.activeCustomers30d||0)} ativos</small></div>
       <div class="kpi"><span class="label">Cancelamentos</span><strong>${metrics.cancellationRate30d==null?'—':Math.round(Number(metrics.cancellationRate30d)*100)+'%'}</strong><small>${Number(metrics.cancelledOrders30d||0)} de ${Number(metrics.createdOrders30d||0)} pedidos</small></div>
       <div class="kpi"><span class="label">Pontualidade 90d</span><strong>${metrics.onTimeRate90d==null?'—':Math.round(Number(metrics.onTimeRate90d)*100)+'%'}</strong></div>
-      <div class="kpi"><span class="label">Taxa gerada 30d</span><strong>${adminMoney(metrics.platformFeeGeneratedCents30d)}</strong></div>
       <div class="kpi"><span class="label">Cashback 30d</span><strong>${adminMoney(metrics.cashbackGrantedCents30d)}</strong></div>
       <div class="kpi"><span class="label">Atendimentos abertos</span><strong>${Number(metrics.openSupportCases||openSupportCases.length)}</strong></div>
-    </div></section>
-    <section class="section"><div class="merchant-kpis">
       <div class="kpi"><span class="label">Cadastros pendentes</span><strong>${pending.length}</strong></div>
-      <div class="kpi"><span class="label">Parceiros piloto</span><strong>${pilotPartners.filter(x=>x.onboarding_status!=='cancelled').length}</strong></div>
-      <div class="kpi"><span class="label">Revendas ativas</span><strong>${active.length}</strong></div>
       <div class="kpi"><span class="label">Taxas a receber</span><strong>${adminMoney(openFees)}</strong></div>
-      <div class="kpi"><span class="label">Cashback a reembolsar</span><strong>${adminMoney(openCashback)}</strong></div>
     </div></section>`;
 
   const ordersContent=`
@@ -2204,6 +2340,7 @@ function adminPage(){
   const catalogContent=`${adminProductRegistrySection(d)}`;
 
   const financeContent=`
+    ${adminFinanceOverview(d)}
     ${adminMerchantBillingSection(d)}
     ${adminCommercialPolicySection(d)}
     <section class="section"><div class="section-head"><div><h2>Revisão de indicações</h2><p>Comissões suspeitas não amadurecem automaticamente. Aprovação ainda exige identidades permanentes e fim da quarentena.</p></div><span class="status-pill ${pendingReferralReviews.length?'offline':'online'}">${pendingReferralReviews.length} pendente(s)</span></div>${referralReviews.length?referralReviews.map(adminReferralReviewCard).join(''):'<div class="empty card">Nenhuma indicação exige revisão.</div>'}</section>
@@ -2238,23 +2375,35 @@ function adminPage(){
     ${adminAccessContent}
   `;
 
+  const sectionMeta=adminSectionMeta(adminRuntime.section);
+  const operationMode=String(d.launchReadiness?.operationMode||(d.launchReadiness?.commerceEnabled?'LIVE':'PRELAUNCH')).toUpperCase();
   const menu=`
     <nav class="admin-sidebar" aria-label="Áreas administrativas">
-      <div class="admin-nav-title">Painel</div>
+      <div class="admin-sidebar-brand"><span class="admin-sidebar-mark">T</span><div><strong>TAMÃO</strong><small>Control Plane</small></div></div>
+      <div class="admin-nav-group">Operação</div>
       ${adminMenuButton('overview','Visão geral','⌂')}
       ${adminMenuButton('orders','Pedidos','▣',badge(activeOrderAttention+openSupportCases.length))}
       ${adminMenuButton('customers','Clientes','◎')}
       ${adminMenuButton('partners','Parceiros','◇',badge(partnerAttention))}
       ${adminMenuButton('catalog','Catálogo','▤')}
       ${adminMenuButton('finance','Financeiro','₿',badge(actionableFinanceCount))}
+      <div class="admin-nav-group">Governança</div>
       ${adminMenuButton('incidents','Incidentes','!',badge(incidentAttention))}
       ${adminMenuButton('audit','Auditoria','⌕')}
       ${adminMenuButton('system','Segurança e sistema','⚙',badge(securityAttention))}
+      <div class="admin-sidebar-foot">
+        <span class="admin-sidebar-mode ${['LIVE','PILOT'].includes(operationMode)?'live':operationMode==='PAUSED'?'paused':'prelaunch'}"><i></i>${esc(operationMode)}</span>
+        <small>${esc(adminRoleLabel(currentRole))} • atualizado ${esc(adminRelativeTime(adminRuntime.lastSyncAt))}</small>
+      </div>
     </nav>`;
 
   return shell(`<section class="page admin-page">
-    <div class="status-bar admin-topbar"><div><div class="tiny muted">CONTROL PLANE REAL</div><h1 class="page-title" style="margin-bottom:2px">Administração TAMÃO</h1></div><div class="order-actions"><span class="status-pill">${esc(adminRoleLabel(currentRole))}</span><button class="secondary small" onclick="adminRefresh()">Atualizar</button><button class="ghost small" onclick="adminSignOut()">Sair</button></div></div>
-    ${adminRuntime.error?`<div class="notice danger" style="margin-top:12px">${esc(adminRuntime.error)}</div>`:''}
+    <header class="admin-page-header">
+      <div class="admin-page-heading"><span class="section-kicker">${esc(sectionMeta.kicker)}</span><h1>${esc(sectionMeta.title)}</h1><p>${esc(sectionMeta.description)}</p></div>
+      <div class="admin-page-actions"><span class="admin-role-chip">${esc(adminRoleLabel(currentRole))}</span><button class="secondary small" onclick="adminRefresh()" ${adminRuntime.actionPending?'disabled':''}><span aria-hidden="true">↻</span> Atualizar</button><button class="ghost small" onclick="adminSignOut()">Sair</button></div>
+    </header>
+    ${adminOperationalStrip(d)}
+    ${adminRuntime.error?`<div class="notice danger admin-page-error">${esc(adminRuntime.error)}</div>`:''}
     ${adminGlobalSearchView()}
     <div class="admin-workspace">
       ${menu}
