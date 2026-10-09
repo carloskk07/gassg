@@ -108,7 +108,7 @@ const ADMIN_ROLE_ACTIONS:Record<string,Set<string>>={
   ]),
   finance:new Set([
     "financial-action","review-referral","retry-reward","retry-accounting","reverse-order",
-    "commercial-policy","merchant-billing-plan","merchant-billing-action","merchant-billing-payment-request","merchant-billing-payment-event","merchant-billing-refund","merchant-billing-provider-cancel-retry","merchant-payment-capability","incident-action"
+    "commercial-policy","merchant-billing-plan","merchant-billing-action","merchant-billing-payment-request","merchant-billing-payment-event","merchant-billing-refund","merchant-billing-provider-cancel-retry","merchant-payment-capability","create-billing-webhook-probe","incident-action"
   ]),
   support:new Set(["order-control","support-case-status","incident-action"]),
   compliance:new Set([
@@ -322,7 +322,22 @@ function billingPaymentIngressReadiness(){
   };
 }
 
-async function mercadoPagoBillingProviderHealth(){
+async function latestVerifiedWebhookProbe(admin:any,provider:string){
+  const freshSince=new Date(Date.now()-24*60*60*1000).toISOString();
+  const {data,error}=await admin
+    .from("payment_webhook_probes")
+    .select("id,provider,status,verified_at,expires_at,requested_at")
+    .eq("provider",provider)
+    .eq("status","verified")
+    .gte("verified_at",freshSince)
+    .order("verified_at",{ascending:false})
+    .limit(1)
+    .maybeSingle();
+  if(error)throw error;
+  return data??null;
+}
+
+async function mercadoPagoBillingProviderHealth(admin:any){
   const readiness=billingPaymentIngressReadiness();
   const endpoint=String(readiness?.liveEndpoints?.mercadopago??"").trim();
   const accessToken=String(Deno.env.get("MERCADOPAGO_ACCESS_TOKEN")??"").trim();
@@ -413,7 +428,9 @@ async function mercadoPagoBillingProviderHealth(){
       webhookSecretConfigured:true,
       endpoint,
       endpointConfiguredLocally:true,
-      remoteWebhookRegistrationVerified:false,
+      remoteWebhookRegistrationVerified:Boolean(await latestVerifiedWebhookProbe(admin,"mercadopago")),
+      remoteWebhookVerifiedAt:(await latestVerifiedWebhookProbe(admin,"mercadopago"))?.verified_at??null,
+      remoteWebhookProofFreshHours:24,
       accountBound:accountId!=null,
       apiStatus:response.status,
       reason:null
@@ -433,9 +450,9 @@ async function mercadoPagoBillingProviderHealth(){
   }
 }
 
-async function billingProviderHealth(){
+async function billingProviderHealth(admin:any){
   if(BILLING_PIX_PROVIDER==="mercadopago"){
-    return await mercadoPagoBillingProviderHealth();
+    return await mercadoPagoBillingProviderHealth(admin);
   }
   if(BILLING_PIX_PROVIDER==="woovi"){
     return await wooviBillingProviderHealth();
@@ -706,6 +723,7 @@ function scopeAdminSummary(role:string,data:any){
         refunds:[],
         refundRecoveries:[],
         providerCharges:[],
+        webhookProbes:[],
         paymentIngress:null,
         metrics:null,
         reconciliation:null
@@ -746,7 +764,7 @@ function scopeAdminSummary(role:string,data:any){
       })),
       merchantPayments:{globalDirectPaymentsEnabled:false,fundsOwner:"merchant",tamaoReceivesSaleProceeds:false,providerCatalog:[],routes:[],verifications:[]},
       commercialPolicy:null,
-      merchantBilling:{plans:[],accounts:[],statements:[],paymentRequests:[],paymentEvents:[],refunds:[],refundRecoveries:[],providerCharges:[],paymentAccounts:[],paymentIngress:null,metrics:null,reconciliation:null},
+      merchantBilling:{plans:[],accounts:[],statements:[],paymentRequests:[],paymentEvents:[],refunds:[],refundRecoveries:[],providerCharges:[],webhookProbes:[],paymentAccounts:[],paymentIngress:null,metrics:null,reconciliation:null},
       productRegistry:{categories:[],products:[]},
       finance:{receivables:[],cashbackReimbursements:[],adjustments:[]},
       rewardFailures:[],accountingFailures:[],referralReviews:[],
@@ -761,7 +779,7 @@ function scopeAdminSummary(role:string,data:any){
       merchants:(data.merchants??[]).map((m:any)=>({...m,paymentAccount:null,paymentAccounts:[],paymentRoutes:[]})),
       merchantPayments:{globalDirectPaymentsEnabled:false,fundsOwner:"merchant",tamaoReceivesSaleProceeds:false,providerCatalog:[],routes:[],verifications:[]},
       businessMetrics:{},commercialPolicy:null,
-      merchantBilling:{plans:[],accounts:[],statements:[],paymentRequests:[],paymentEvents:[],refunds:[],refundRecoveries:[],providerCharges:[],paymentAccounts:[],paymentIngress:null,metrics:null,reconciliation:null},
+      merchantBilling:{plans:[],accounts:[],statements:[],paymentRequests:[],paymentEvents:[],refunds:[],refundRecoveries:[],providerCharges:[],webhookProbes:[],paymentAccounts:[],paymentIngress:null,metrics:null,reconciliation:null},
       productRegistry:{categories:[],products:[]},
       supportCases:[],controlOrders:[],
       finance:{receivables:[],cashbackReimbursements:[],adjustments:[]},
@@ -1202,6 +1220,12 @@ async function summary(admin:any,actorUserId:string){
         .order("created_at",{ascending:false})
         .limit(200)
     : Promise.resolve({data:[],error:null});
+  const billingWebhookProbesPromise=["superadmin","finance","readonly"].includes(actorRole)
+    ? admin.from("payment_webhook_probes")
+        .select("id,provider,resource_id,status,requested_at,expires_at,verified_at")
+        .order("requested_at",{ascending:false})
+        .limit(20)
+    : Promise.resolve({data:[],error:null});
   const merchantPaymentAccountsPromise=["superadmin","finance","readonly"].includes(actorRole)
     ? admin.from("merchant_payment_provider_accounts")
         .select("id,merchant_id,provider,provider_account_id,status,connection_mode,verification_level,credential_kind,capabilities,metadata,token_expires_at,connected_at,refreshed_at,revoked_at,last_error_code,last_error_at,updated_at")
@@ -1238,7 +1262,7 @@ async function summary(admin:any,actorUserId:string){
         .order("created_at",{ascending:false})
         .limit(200)
     : Promise.resolve({data:[],error:null});
-  const [billingPlans,billingAccounts,dailyStatements,billingPaymentRequests,billingMetrics,billingReconciliation,billingPaymentEvents,billingProviderCharges,merchantPaymentAccounts,merchantPaymentProviders,merchantPaymentRoutes,merchantSaleVerifications,billingRefunds,billingRefundRecoveries]=await Promise.all([
+  const [billingPlans,billingAccounts,dailyStatements,billingPaymentRequests,billingMetrics,billingReconciliation,billingPaymentEvents,billingProviderCharges,billingWebhookProbes,merchantPaymentAccounts,merchantPaymentProviders,merchantPaymentRoutes,merchantSaleVerifications,billingRefunds,billingRefundRecoveries]=await Promise.all([
     admin.from("merchant_billing_plans")
       .select("plan_key,display_name,billing_mode,platform_fee_bps,purchase_amount_cents,credit_grant_cents,active,sort_order,policy_version,updated_by,last_change_reason,updated_at")
       .order("sort_order",{ascending:true}),
@@ -1258,6 +1282,7 @@ async function summary(admin:any,actorUserId:string){
     billingReconciliationPromise,
     billingPaymentEventsPromise,
     billingProviderChargesPromise,
+    billingWebhookProbesPromise,
     merchantPaymentAccountsPromise,
     merchantPaymentProvidersPromise,
     merchantPaymentRoutesPromise,
@@ -1265,7 +1290,7 @@ async function summary(admin:any,actorUserId:string){
     billingRefundsPromise,
     billingRefundRecoveriesPromise
   ]);
-  for(const result of [billingPlans,billingAccounts,dailyStatements,billingPaymentRequests,billingMetrics,billingReconciliation,billingPaymentEvents,billingProviderCharges,merchantPaymentAccounts,merchantPaymentProviders,merchantPaymentRoutes,merchantSaleVerifications,billingRefunds,billingRefundRecoveries]){
+  for(const result of [billingPlans,billingAccounts,dailyStatements,billingPaymentRequests,billingMetrics,billingReconciliation,billingPaymentEvents,billingProviderCharges,billingWebhookProbes,merchantPaymentAccounts,merchantPaymentProviders,merchantPaymentRoutes,merchantSaleVerifications,billingRefunds,billingRefundRecoveries]){
     if(result.error)throw result.error;
   }
 
@@ -1434,6 +1459,7 @@ async function summary(admin:any,actorUserId:string){
       refunds:billingRefunds.data??[],
       refundRecoveries:billingRefundRecoveries.data??[],
       providerCharges:billingProviderCharges.data??[],
+      webhookProbes:billingWebhookProbes.data??[],
       paymentAccounts:merchantPaymentAccounts.data??[],
       paymentIngress:billingPaymentIngressReadiness(),
       metrics:billingMetrics.data??null,
@@ -1511,7 +1537,7 @@ Deno.serve(async(req:Request)=>{
       return json(await adminSystemHealth(admin),200,origin);
     }
     if(action==="billing-provider-health"){
-      return json(await billingProviderHealth(),200,origin);
+      return json(await billingProviderHealth(admin),200,origin);
     }
     if(action==="audit-search"){
       return json(await adminAuditSearch(admin,body,String(adminAccess.admin_role||"superadmin")),200,origin);
@@ -2055,6 +2081,16 @@ Deno.serve(async(req:Request)=>{
       payload={
         paymentRequestId:uuid(body.paymentRequestId,"payment request")
       };
+    }else if(action==="create-billing-webhook-probe"){
+      const provider=String(body.provider??"mercadopago").trim().toLowerCase();
+      if(provider!=="mercadopago"){
+        throw new DomainError(
+          "WEBHOOK_PROBE_PROVIDER_UNSUPPORTED",
+          "A prova automática de webhook está disponível apenas para Mercado Pago nesta versão.",
+          400
+        );
+      }
+      payload={provider};
     }else if(action==="merchant-billing-refund"){
       const refundAction=String(body.refundAction??"").trim().toLowerCase();
       if(!["mark-recovered","dismiss-unrelated","dismiss-excess"].includes(refundAction)){
@@ -2222,6 +2258,14 @@ Deno.serve(async(req:Request)=>{
         p_provider:payload.provider,
         p_enabled:payload.enabled,
         p_reference:payload.reference,
+        p_idempotency_key:idempotencyKey,
+        p_request_hash:requestHash
+      };
+    }else if(action==="create-billing-webhook-probe"){
+      rpcName="admin_create_payment_webhook_probe";
+      rpcArgs={
+        p_actor_user_id:user.id,
+        p_provider:payload.provider,
         p_idempotency_key:idempotencyKey,
         p_request_hash:requestHash
       };
