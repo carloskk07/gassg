@@ -72,10 +72,9 @@ export function safeMercadoPagoUrl(value){
     const host=url.hostname.toLowerCase();
     if(
       host==="mercadopago.com"
-      ||host==="www.mercadopago.com"
       ||host.endsWith(".mercadopago.com")
-      ||host==="mercadolibre.com"
-      ||host.endsWith(".mercadolibre.com")
+      ||host==="mercadopago.com.br"
+      ||host.endsWith(".mercadopago.com.br")
     )return url.toString();
   }catch{}
   return null;
