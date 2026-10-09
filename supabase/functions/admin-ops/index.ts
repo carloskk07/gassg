@@ -688,7 +688,12 @@ function scopeAdminSummary(role:string,data:any){
   if(role==="operations"){
     return {
       ...data,
-      merchants:(data.merchants??[]).map((m:any)=>({...m,paymentAccount:null})),
+      merchants:(data.merchants??[]).map((m:any)=>({...m,paymentAccount:null,paymentAccounts:[],paymentRoutes:[]})),
+      merchantPayments:{
+        globalDirectPaymentsEnabled:data.merchantPayments?.globalDirectPaymentsEnabled===true,
+        fundsOwner:"merchant",tamaoReceivesSaleProceeds:false,
+        providerCatalog:[],routes:[]
+      },
       finance:{receivables:[],cashbackReimbursements:[],adjustments:[]},
       merchantBilling:{
         plans:[],
@@ -717,7 +722,9 @@ function scopeAdminSummary(role:string,data:any){
       merchants:(data.merchants??[]).map((m:any)=>({
         id:m.id,name:m.name,cnpj:m.cnpj,status:m.status,online:m.online,trust_score:m.trust_score,
         delivery_fee_cents:m.delivery_fee_cents,price_confirmed_at:m.price_confirmed_at,last_seen_at:m.last_seen_at,
-        paymentAccount:m.paymentAccount??null
+        paymentAccount:m.paymentAccount??null,
+        paymentAccounts:m.paymentAccounts??[],
+        paymentRoutes:m.paymentRoutes??[]
       })),
       productRegistry:{categories:[],products:[]},
       supportCases:[],
@@ -734,8 +741,10 @@ function scopeAdminSummary(role:string,data:any){
       merchants:(data.merchants??[]).map((m:any)=>({
         id:m.id,name:m.name,status:m.status,online:m.online,trust_score:m.trust_score,
         delivery_fee_cents:m.delivery_fee_cents,base_eta_minutes:m.base_eta_minutes,
-        price_confirmed_at:m.price_confirmed_at,last_seen_at:m.last_seen_at
+        price_confirmed_at:m.price_confirmed_at,last_seen_at:m.last_seen_at,
+        paymentAccounts:[],paymentRoutes:[]
       })),
+      merchantPayments:{globalDirectPaymentsEnabled:false,fundsOwner:"merchant",tamaoReceivesSaleProceeds:false,providerCatalog:[],routes:[]},
       commercialPolicy:null,
       merchantBilling:{plans:[],accounts:[],statements:[],paymentRequests:[],paymentEvents:[],refunds:[],refundRecoveries:[],providerCharges:[],paymentAccounts:[],paymentIngress:null,metrics:null,reconciliation:null},
       productRegistry:{categories:[],products:[]},
@@ -749,7 +758,8 @@ function scopeAdminSummary(role:string,data:any){
   if(role==="compliance"){
     return {
       ...data,
-      merchants:(data.merchants??[]).map((m:any)=>({...m,paymentAccount:null})),
+      merchants:(data.merchants??[]).map((m:any)=>({...m,paymentAccount:null,paymentAccounts:[],paymentRoutes:[]})),
+      merchantPayments:{globalDirectPaymentsEnabled:false,fundsOwner:"merchant",tamaoReceivesSaleProceeds:false,providerCatalog:[],routes:[]},
       businessMetrics:{},commercialPolicy:null,
       merchantBilling:{plans:[],accounts:[],statements:[],paymentRequests:[],paymentEvents:[],refunds:[],refundRecoveries:[],providerCharges:[],paymentAccounts:[],paymentIngress:null,metrics:null,reconciliation:null},
       productRegistry:{categories:[],products:[]},
