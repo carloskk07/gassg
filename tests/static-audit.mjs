@@ -83,7 +83,13 @@ assert.ok(auditWorkflow.includes('run: bash scripts/audit-edge-functions.sh')&&p
 assert.ok(edgeFunctionAudit.includes('set -euo pipefail')&&edgeFunctionAudit.includes('deno check'),'autoridade compartilhada de Edge precisa falhar fechado e type-checkar todas as funções');
 assert.ok(edgeFunctionAudit.includes('supabase/functions/billing-payment-webhook/index.ts)')&&edgeFunctionAudit.includes('x-tamao-signature')&&edgeFunctionAudit.includes('MAX_SKEW_SECONDS=300'),'auditoria compartilhada precisa reconhecer webhook HMAC público pelo contrato criptográfico, não por JWT de usuário');
 assert.ok(edgeFunctionAudit.includes('supabase/functions/billing-payment-webhook-woovi/index.ts)')&&edgeFunctionAudit.includes('x-webhook-signature')&&edgeFunctionAudit.includes('RSASSA-PKCS1-v1_5')&&edgeFunctionAudit.includes('OPENPIX:CHARGE_COMPLETED'),'auditoria compartilhada precisa preservar o adapter Woovi para migração futura');
-assert.ok(edgeFunctionAudit.includes('supabase/functions/billing-payment-webhook-mercadopago/index.ts)')&&edgeFunctionAudit.includes('verifyMercadoPagoWebhook')&&edgeFunctionAudit.includes('FOREIGN_ORDER_REFERENCE'),'auditoria compartilhada precisa reconhecer webhook Mercado Pago assinado e isolar movimentações alheias ao TAMÃO');
+assert.ok(
+  edgeFunctionAudit.includes('supabase/functions/billing-payment-webhook-mercadopago/index.ts')
+  &&edgeFunctionAudit.includes('verifyMercadoPagoWebhook')
+  &&edgeFunctionAudit.includes('merchant_sale_payment_attempts')
+  &&edgeFunctionAudit.includes('route:"platform_billing"'),
+  'auditoria compartilhada precisa reconhecer o único webhook Mercado Pago e seus dois domínios financeiros'
+);
 assert.ok(edgeFunctionAudit.includes('supabase/functions/merchant-billing-pix/index.ts)')&&edgeFunctionAudit.includes('merchant_billing_pix_charge_prepare_provider')&&edgeFunctionAudit.includes('BILLING_PIX_PROVIDER'),'auditoria compartilhada precisa manter criação Pix autenticada e neutra por PSP');
 assert.ok(edgeFunctionAudit.includes('ADMIN_LIVE_ORIGIN="https://admin.tamao.com.br"')&&edgeFunctionAudit.includes('ADMIN_PAGES_ORIGIN="https://tamao-sg-admin.pages.dev"'),'autoridade compartilhada precisa preservar isolamento estrito do admin');
 assert.ok(!pagesWorkflow.includes("grep -q 'auth.getUser' \"$f\""),'GitHub Pages não pode voltar a manter uma cópia divergente da regra genérica de autenticação Edge');
