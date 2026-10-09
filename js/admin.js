@@ -647,13 +647,23 @@ function adminAttentionCenter(d){
   const items=adminAttentionItems(d);
   const critical=items.filter(x=>x.severity==='critical').length;
   const high=items.filter(x=>x.severity==='high').length;
+  const medium=items.filter(x=>x.severity==='medium').length;
   const action=(x)=>{
     if(x.type&&x.id)return "adminOpenEntity('"+String(x.type).replace(/'/g,'')+"','"+String(x.id).replace(/'/g,'')+"')";
     return "adminSetSection('"+String(x.section||'overview').replace(/'/g,'')+"')";
   };
   return `<section class="section admin-attention">
-    <div class="section-head"><div><span class="section-kicker">ATENÇÃO AGORA</span><h2>Fila operacional priorizada</h2><p>O painel reúne automaticamente os eventos que merecem ação administrativa primeiro.</p></div><div class="order-actions"><span class="status-pill ${critical?'offline':'online'}">${critical} crítico(s)</span><span class="status-pill ${high?'risk':'online'}">${high} alto(s)</span></div></div>
-    ${items.length?`<div class="admin-attention-list">${items.map(x=>`<button type="button" class="admin-attention-item ${esc(x.severity)}" onclick="${action(x)}"><span class="admin-attention-severity">${esc(adminSeverityLabel(x.severity))}</span><span><strong>${esc(x.title)}</strong><small>${esc(x.detail)}</small></span><span aria-hidden="true">›</span></button>`).join('')}</div>`:'<div class="notice success"><strong>Nenhuma intervenção prioritária agora.</strong><br>Filas críticas, pedidos em risco e sinais operacionais estão limpos.</div>'}
+    <div class="admin-command-card">
+      <div class="admin-command-head">
+        <div><span class="section-kicker">ATENÇÃO AGORA</span><h2>Decisões prioritárias</h2><p>Exceções operacionais, financeiras e de segurança ordenadas para você agir primeiro no que realmente importa.</p></div>
+        <div class="admin-severity-summary">
+          <span class="admin-severity-chip critical"><b>${critical}</b> crítico</span>
+          <span class="admin-severity-chip high"><b>${high}</b> alto</span>
+          <span class="admin-severity-chip medium"><b>${medium}</b> médio</span>
+        </div>
+      </div>
+      ${items.length?`<div class="admin-attention-list">${items.map((x,index)=>`<button type="button" class="admin-attention-item ${esc(x.severity)}" onclick="${action(x)}"><span class="admin-attention-rank">${String(index+1).padStart(2,'0')}</span><span class="admin-attention-severity">${esc(adminSeverityLabel(x.severity))}</span><span class="admin-attention-copy"><strong>${esc(x.title)}</strong><small>${esc(x.detail)}</small></span><span class="admin-attention-arrow" aria-hidden="true">→</span></button>`).join('')}</div>`:'<div class="admin-all-clear"><span aria-hidden="true">✓</span><div><strong>Nenhuma intervenção prioritária agora.</strong><small>Filas críticas, pedidos em risco e sinais operacionais estão limpos.</small></div></div>'}
+    </div>
   </section>`;
 }
 function adminRecentCustomers(d){
@@ -1527,6 +1537,3943 @@ function adminBillingPaymentEventCard(event){
     ${matched&&event.payment_request_id?`<div class="notice success" style="margin-top:10px"><strong>Correspondência exata encontrada.</strong><br>Valor e identificador coincidem com uma solicitação pendente.</div><div class="order-actions"><button class="primary small" onclick="adminResolveBillingPaymentRequest('${esc(event.payment_request_id)}','approve','${esc(event.id)}')">Confirmar evento conciliado</button></div>`:''}
     ${review?`<div class="notice" style="margin-top:10px"><strong>Revisão obrigatória.</strong><br>O evento não movimentou saldo porque não houve correspondência exata e única.</div><div class="order-actions"><button class="secondary small" onclick="adminBillingPaymentEventAction('${esc(event.id)}','recheck')">Reprocessar conciliação</button><button class="ghost small" onclick="adminBillingPaymentEventAction('${esc(event.id)}','ignore')">Ignorar evento</button></div>`:''}
   </article>`;
+}
+
+function adminFinanceOverview(d){
+  const billing=d.merchantBilling||{};
+  const metrics=billing.metrics||{};
+  const reconciliation=billing.reconciliation||{};
+  const pendingReviews=(billing.paymentEvents||[]).filter(x=>x.status==='review_required').length
+    +(billing.refunds||[]).filter(x=>x.status==='review_required').length;
+  const e2e=adminBillingE2EState(d);
+  const ingress=billing.paymentIngress||{};
+  const pspLabel=e2e.validated?'E2E validado':adminRuntime.providerHealth?.ok===true?'API validada':ingress.livePspReady?'Configurado':'Pendente';
+  return `<section class="section admin-finance-overview">
+    <div class="section-head"><div><span class="section-kicker">POSIÇÃO FINANCEIRA</span><h2>Visão executiva</h2><p>O que o TAMÃO tem a receber, o que está em risco e a situação real do PSP.</p></div><span class="status-pill ${Number(metrics.overdueStatementCount||0)||pendingReviews?'risk':'online'}">${Number(metrics.overdueStatementCount||0)||pendingReviews?'EXIGE ATENÇÃO':'SEM PENDÊNCIA CRÍTICA'}</span></div>
+    <div class="admin-exec-grid finance">
+      ${adminExecutiveKpi({icon:'R
+  if(!metrics)return '';
+  const planMix=Array.isArray(metrics.planMix)?metrics.planMix:[];
+  const sla=metrics.queueSla||{};
+  const buckets=metrics.pendingAgeBuckets||{};
+  const oldest=metrics.oldestPendingRequestedAt
+    ? new Date(metrics.oldestPendingRequestedAt).toLocaleString('pt-BR')
+    : null;
+  const slaBreaches=Number(sla.breachCount||0);
+  return `<div class="card flat" style="margin-bottom:16px">
+    <div class="section-head"><div><h3>Cockpit financeiro</h3><p>Totais exatos calculados no servidor sobre toda a base, sem depender do limite das listas abaixo.</p></div><span class="status-pill ${Number(metrics.overdueStatementCount||0)>0?'offline':'online'}">${Number(metrics.overdueStatementCount||0)>0?'ATENÇÃO':'SAUDÁVEL'}</span></div>
+    <div class="merchant-kpis">
+      <div class="kpi"><span class="label">Crédito em circulação</span><strong>${adminMoney(metrics.prepaidCreditBalanceCents)}</strong><small>${Number(metrics.prepaidAccountCount||0)} conta(s) pré-paga(s)</small></div>
+      <div class="kpi"><span class="label">Reservado em pedidos</span><strong>${adminMoney(metrics.prepaidCreditReservedCents)}</strong><small>disponível ${adminMoney(metrics.prepaidCreditAvailableCents)}</small></div>
+      <div class="kpi"><span class="label">D+1 em aberto</span><strong>${adminMoney(metrics.openStatementCents)}</strong><small>${Number(metrics.openStatementCount||0)} fechamento(s)</small></div>
+      <div class="kpi"><span class="label">Vencido</span><strong>${adminMoney(metrics.overdueStatementCents)}</strong><small>${Number(metrics.overdueStatementCount||0)} fechamento(s)</small></div>
+      <div class="kpi"><span class="label">Vence em até 24h</span><strong>${adminMoney(metrics.dueWithin24hCents)}</strong><small>${Number(metrics.dueWithin24hCount||0)} fechamento(s)</small></div>
+      <div class="kpi"><span class="label">Aguardando conferência</span><strong>${adminMoney(metrics.pendingPaymentCents)}</strong><small>${Number(metrics.pendingPaymentCount||0)} pagamento(s)</small></div>
+      <div class="kpi"><span class="label">Recuperações de refund</span><strong>${adminMoney(metrics.refundRecoveryOutstandingCents||0)}</strong><small>${Number(metrics.refundRecoveryOutstandingCount||0)} obrigação(ões) em aberto • ${Number(sla.refundRecoveryOpenBreachCount||0)} fora de 24h</small></div>
+      <div class="kpi"><span class="label">Conciliados prontos</span><strong>${Number(sla.matchedAwaitingApprovalCount||0)}</strong><small>${Number(sla.matchedApprovalBreachCount||0)} fora do SLA de ${Number(sla.matchedApprovalTargetHours||2)}h</small></div>
+      <div class="kpi"><span class="label">Eventos em revisão</span><strong>${Number(sla.reviewEventCount||0)}</strong><small>${Number(sla.reviewEventBreachCount||0)} fora do SLA de ${Number(sla.eventReviewTargetHours||4)}h</small></div>
+      <div class="kpi"><span class="label">SLA financeiro</span><strong>${slaBreaches}</strong><small>${slaBreaches?'item(ns) exigem prioridade':'fila dentro do prazo'}</small></div>
+      <div class="kpi"><span class="label">Vendas em hold</span><strong>${Number(metrics.salesHoldCount||0)}</strong><small>de ${Number(metrics.accountCount||0)} conta(s)</small></div>
+    </div>
+    <div class="tiny muted" style="margin-top:10px">Pacotes a conferir: ${Number(metrics.pendingPackageCount||0)} • ${adminMoney(metrics.pendingPackageCents)} · D+1 informado: ${Number(metrics.pendingStatementPaymentCount||0)} • ${adminMoney(metrics.pendingStatementPaymentCents)} · recuperação informada: ${Number(metrics.pendingRefundRecoveryCount||0)} • ${adminMoney(metrics.pendingRefundRecoveryCents||0)}${oldest?' · solicitação pendente mais antiga: '+esc(oldest):''}</div>
+    <div class="tiny muted" style="margin-top:6px">Idade da fila: &lt;1h ${Number(buckets.under1hCount||0)} · 1–4h ${Number(buckets.from1To4hCount||0)} · 4–24h ${Number(buckets.from4To24hCount||0)} · &gt;24h ${Number(buckets.over24hCount||0)} (${adminMoney(buckets.over24hCents||0)})</div>
+    ${slaBreaches?`<div class="notice" style="margin-top:10px"><strong>SLA financeiro vencido.</strong><br>Priorize pagamentos já conciliados há mais de ${Number(sla.matchedApprovalTargetHours||2)}h, eventos em revisão há mais de ${Number(sla.eventReviewTargetHours||4)}h, obrigações de recuperação ainda sem tentativa de pagamento há mais de ${Number(sla.refundRecoveryOpenTargetHours||24)}h e avisos sem conciliação há mais de ${Number(sla.pendingEscalationHours||24)}h. Nenhum item é cancelado automaticamente.</div>`:''}
+    ${planMix.length?`<div class="order-actions" style="margin-top:10px">${planMix.map(p=>`<span class="status-pill">${esc(p.displayName||p.planKey)}: ${Number(p.accountCount||0)} conta(s) • ${(Number(p.platformFeeBps||0)/100).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2})}%</span>`).join('')}</div>`:''}
+    <div class="notice" style="margin-top:10px"><strong>Leitura contábil.</strong><br>Crédito em circulação é saldo pré-pago ainda disponível para taxas; “aguardando conferência” é apenas valor informado pela revenda e não vira crédito nem quitação até aprovação administrativa.</div>
+  </div>`;
+}
+
+function adminBillingReconciliationMessage(issue){
+  const labels={
+    account_ledger_balance_mismatch:'Saldo da conta diverge do razão de créditos.',
+    account_reserved_order_mismatch:'Reserva financeira diverge dos pedidos ainda não liquidados.',
+    flex_with_prepaid_credit:'Conta em Flex ainda carrega crédito ou reserva pré-paga.',
+    approved_package_without_ledger_credit:'Pacote aprovado sem crédito correspondente no ledger.',
+    linked_package_credit_not_approved:'Crédito de pacote ligado a uma solicitação que não está aprovada.',
+    approved_statement_not_paid:'Pagamento D+1 aprovado sem fechamento marcado como pago.',
+    pending_statement_terms_changed:'Aviso de pagamento está pendente, mas os termos do fechamento mudaram.',
+    resolved_statement_has_open_receivable:'Fechamento resolvido ainda possui recebível aberto.',
+    overdue_without_sales_hold:'Fechamento vencido ainda não gerou hold de novas vendas.',
+    sales_hold_without_overdue_statement:'Hold financeiro existe sem fechamento vencido correspondente.',
+    pending_payment_review_over_24h:'Aviso de pagamento sem conciliação exata aguarda ação há mais de 24 horas.',
+    matched_payment_approval_sla_over_2h:'Pagamento já conciliado aguarda confirmação do Financeiro há mais de 2 horas.',
+    payment_event_review_sla_over_4h:'Evento de pagamento permanece em revisão há mais de 4 horas.',
+    refund_review_recovery_mismatch:'Refund ligado não possui obrigação de recuperação exata e coerente.',
+    refund_recovery_request_mismatch:'Obrigação de recuperação diverge da solicitação financeira vinculada.',
+    resolved_refund_without_recovered_obligation:'Refund foi marcado como recuperado sem obrigação + pagamento aprovados.',
+    recovered_obligation_refund_not_resolved:'Obrigação foi recuperada, mas o refund não foi encerrado de forma coerente.',
+    refund_review_without_sales_hold:'Refund ligado está em revisão sem hold efetivo de novas vendas.',
+    refund_hold_without_review:'Existe hold de refund sem refund vinculado ainda em revisão.',
+    refund_recovery_open_over_24h:'Obrigação de recuperação está aberta há mais de 24 horas sem tentativa de pagamento.'
+  };
+  return labels[String(issue?.issueType||'')]||String(issue?.issueType||'Divergência financeira');
+}
+
+function adminBillingReconciliationView(reconciliation){
+  if(!reconciliation)return '';
+  const issues=Array.isArray(reconciliation.issues)?reconciliation.issues:[];
+  const critical=Number(reconciliation.criticalCount||0);
+  const warnings=Number(reconciliation.warningCount||0);
+  const healthy=reconciliation.healthy===true&&critical===0&&warnings===0;
+  const issueRows=issues.map(issue=>{
+    const severity=String(issue.severity||'warning');
+    const merchant=adminMerchantName(issue.merchantId);
+    const expected=Number(issue.expectedCents||0);
+    const actual=Number(issue.actualCents||0);
+    const amountDiff=expected!==actual
+      ? `<div class="tiny muted">Esperado: ${adminMoney(expected)} • atual: ${adminMoney(actual)}</div>`
+      : '';
+    const age=Number(issue.ageHours);
+    return `<div class="list-row"><div><strong>${esc(adminBillingReconciliationMessage(issue))}</strong><br><small>${esc(merchant)} • ${esc(issue.entityId||'—')}${Number.isFinite(age)?' • '+age.toLocaleString('pt-BR',{maximumFractionDigits:1})+'h':''}</small>${amountDiff}</div><span class="status-pill ${severity==='critical'?'offline':'risk'}">${severity==='critical'?'CRÍTICO':'ATENÇÃO'}</span></div>`;
+  }).join('');
+  return `<div class="card flat" style="margin-bottom:16px">
+    <div class="section-head"><div><h3>Reconciliação financeira</h3><p>Auditoria independente entre conta, ledger, reservas de pedidos, solicitações de pagamento, fechamentos D+1, refunds e obrigações de recuperação.</p></div><span class="status-pill ${healthy?'online':'offline'}">${healthy?'ÍNTEGRA':critical+' crítico(s)'}</span></div>
+    <div class="tiny muted">Divergências: ${Number(reconciliation.issueCount||0)} • críticas: ${critical} • alertas: ${warnings} • pagamentos aguardando revisão há mais de 24h: ${Number(reconciliation.stalePendingReviewCount||0)} • recuperações abertas >24h: ${Number(reconciliation.refundRecoveryOpenSlaBreachCount||0)}</div>
+    ${issueRows?`<div class="list" style="margin-top:10px">${issueRows}</div>`:'<div class="notice success" style="margin-top:10px"><strong>Conciliação fechada.</strong><br>Nenhuma divergência encontrada entre os registros financeiros auditados.</div>'}
+    ${Number(reconciliation.issueCount||0)>issues.length?`<div class="tiny muted" style="margin-top:8px">Mostrando as primeiras ${issues.length} divergências de ${Number(reconciliation.issueCount||0)}.</div>`:''}
+  </div>`;
+}
+
+function adminBillingRefundReasonLabel(reason){
+  return ({
+    original_payment_not_found:'pagamento original não localizado no TAMÃO',
+    refund_before_finance_approval:'refund chegou antes da aprovação financeira',
+    refund_before_finance_approval_manual_reference:'refund antes da aprovação identificado pela referência manual da revenda',
+    multiple_manual_payment_candidates:'mais de uma solicitação manual usa o mesmo identificador bancário',
+    partial_refund_confirmed:'reembolso parcial confirmado pelo PSP',
+    full_refund_confirmed:'reembolso total confirmado pelo PSP',
+    refund_total_exceeds_original:'soma de reembolsos excede o pagamento original',
+    refund_of_recovery_payment:'reembolso de um pagamento usado para quitar recuperação anterior'
+  })[String(reason||'')]||String(reason||'—');
+}
+function adminBillingRefundCard(refund){
+  const billing=adminRuntime.data?.merchantBilling||{};
+  const recoveries=billing.refundRecoveries||[];
+  const requests=billing.paymentRequests||[];
+  const recovery=recoveries.find(x=>x.refund_id===refund.id)||null;
+  const reopenedRecovery=refund.reopened_refund_recovery_id
+    ?recoveries.find(x=>x.id===refund.reopened_refund_recovery_id)||null
+    :null;
+  const recoveryRequest=recovery?.recovery_payment_request_id
+    ?requests.find(x=>x.id===recovery.recovery_payment_request_id)||null
+    :null;
+  const review=refund.status==='review_required';
+  const linked=Boolean(refund.payment_request_id&&refund.merchant_id);
+  const original=refund.original_payment_amount_cents==null
+    ?null:Number(refund.original_payment_amount_cents);
+  const cumulative=refund.cumulative_refunded_cents==null
+    ?null:Number(refund.cumulative_refunded_cents);
+  const progress=original&&cumulative!=null
+    ?` • acumulado ${adminMoney(cumulative)} / ${adminMoney(original)}`
+    :'';
+  const persistedRecoverable=refund.recoverable_amount_cents==null
+    ?null:Number(refund.recoverable_amount_cents);
+  const persistedExcess=refund.excess_amount_cents==null
+    ?null:Number(refund.excess_amount_cents);
+  const statusLabel=({
+    review_required:'REVISÃO',
+    resolved_recovered:
+      persistedExcess>0?'EXPOSIÇÃO RECUPERADA':'RECUPERADO',
+    ignored_unrelated:'NÃO RELACIONADO',
+    resolved_excess:'EXCESSO RECONHECIDO',
+    resolved_preapproval:'DEVOLVIDO ANTES DA APROVAÇÃO',
+    resolved_recovery_reopened:'RECUPERAÇÃO REABERTA'
+  })[String(refund.status||'')]||String(refund.status||'—').toUpperCase();
+
+  let recoveryState='';
+  if(review&&linked){
+    const refunded=Number(refund.amount_cents||0);
+    const recoverable=Number(
+      recovery?.outstanding_cents
+      ??persistedRecoverable
+      ??recovery?.amount_cents
+      ??0
+    );
+    const excess=persistedExcess==null
+      ?Math.max(0,refunded-recoverable)
+      :persistedExcess;
+    if(!recovery&&refund.match_reason==='refund_total_exceeds_original'){
+      recoveryState='<div class="notice" style="margin-top:8px"><strong>Exposição original já totalmente coberta.</strong><br>Este fato do PSP permanece auditável, mas nenhum valor adicional foi convertido em dívida. O Financeiro precisa reconhecer o excesso para encerrar a revisão e liberar o hold quando não houver outra pendência.</div>';
+    }else if(!recovery){
+      recoveryState='<div class="notice danger" style="margin-top:8px"><strong>Obrigação de recuperação ausente.</strong><br>Este refund está ligado e ainda possui exposição econômica, mas a obrigação não apareceu. Não encerre manualmente; atualize/reconcilie o backend.</div>';
+    }else if(recovery.status==='open'){
+      recoveryState=`<div class="notice" style="margin-top:8px"><strong>Obrigação aberta: ${adminMoney(recoverable)}.</strong><br>A revenda precisa pagar somente a exposição recuperável. O hold permanece ativo e uma referência administrativa sozinha não resolve o caso.${excess>0?' Excesso do PSP não convertido em dívida: '+adminMoney(excess)+'.':''}</div>`;
+    }else if(recovery.status==='payment_pending'){
+      recoveryState=`<div class="notice risk" style="margin-top:8px"><strong>Pagamento de recuperação pendente: ${adminMoney(recoverable)}.</strong><br>${recoveryRequest?'Solicitação '+esc(recoveryRequest.id)+' está na fila financeira.':'A obrigação possui solicitação vinculada; atualize a fila para conferir.'} Aprove somente após valor exato + identificador da transação.${excess>0?' Excesso fora da obrigação: '+adminMoney(excess)+'.':''}</div>`;
+    }else if(recovery.status==='recovered'){
+      recoveryState=`<div class="notice success" style="margin-top:8px"><strong>Recuperação economicamente comprovada.</strong><br>O pagamento de ${adminMoney(recoverable)} foi aprovado pela autoridade financeira.${excess>0?' O excesso de '+adminMoney(excess)+' não virou dívida.':''}</div>`;
+    }
+  }
+
+  const actions=review&&!linked
+    ?`<div class="order-actions"><button class="ghost small" onclick="adminResolveBillingRefund('${esc(refund.id)}','dismiss-unrelated')">Marcar não relacionado</button></div>`
+    :review&&linked&&refund.match_reason==='refund_total_exceeds_original'&&!recovery
+      ?`<div class="order-actions"><button class="secondary small" onclick="adminResolveBillingRefund('${esc(refund.id)}','dismiss-excess')">Reconhecer excesso do PSP</button></div>`
+      :'';
+
+  return `<article class="order-card">
+    <div class="order-head"><div><strong>${linked?esc(adminMerchantName(refund.merchant_id)):'Refund sem vínculo TAMÃO'}</strong><br><small>${esc(refund.provider||'—')} • ${esc(formatDateTime(refund.occurred_at))}</small></div><span class="status-pill ${review?'offline':'online'}">${esc(statusLabel)}</span></div>
+    <div class="tiny muted">Refund: ${esc(refund.refund_reconciliation_key||'—')} • original: ${esc(refund.original_reconciliation_key||'—')}</div>
+    <div class="tiny muted">Valor devolvido: ${adminMoney(refund.amount_cents)}${progress}</div>
+    ${linked&&persistedRecoverable!=null&&persistedExcess!=null
+      ?refund.status==='resolved_preapproval'
+        ?`<div class="tiny muted">Alocação econômica: recuperável R$ 0,00 • não recuperável porque nenhum benefício foi concedido ${adminMoney(persistedExcess)} • prova ${adminMoney(persistedRecoverable+persistedExcess)} = refund</div>`
+        :`<div class="tiny muted">Alocação econômica: recuperável ${adminMoney(persistedRecoverable)} • excedente não cobrável ${adminMoney(persistedExcess)} • prova ${adminMoney(persistedRecoverable+persistedExcess)} = refund</div>`
+      :''}
+    <div class="tiny muted">Motor: ${esc(adminBillingRefundReasonLabel(refund.match_reason))}</div>
+    ${linked&&!refund.payment_event_id?`<div class="tiny muted">Âncora financeira: confirmação Pix manual exata (sem payment_event original). EndToEndId e valor foram conferidos contra a solicitação.</div>`:''}
+    ${refund.status==='resolved_preapproval'?'<div class="notice success" style="margin-top:8px"><strong>Sem exposição da revenda.</strong><br>O PSP devolveu o pagamento antes da aprovação financeira. A solicitação foi cancelada automaticamente; nenhum crédito, quitação ou obrigação de recuperação foi criado.</div>':''}
+    ${refund.status==='resolved_recovery_reopened'&&reopenedRecovery?`<div class="notice" style="margin-top:8px"><strong>Pagamento da recuperação foi reembolsado pelo PSP.</strong><br>A obrigação original foi reaberta sem criar uma dívida encadeada. Saldo atual: ${adminMoney(reopenedRecovery.outstanding_cents)} de ${adminMoney(reopenedRecovery.amount_cents)} originalmente alocados.</div>`:''}
+    ${recovery?`<div class="tiny muted">Obrigação de recuperação: ${esc(recovery.id)} • saldo ${adminMoney(recovery.outstanding_cents)} / alocado ${adminMoney(recovery.amount_cents)} • ${esc(String(recovery.status||'—').toUpperCase())}</div>`:''}
+    ${refund.resolution_reference?`<div class="tiny muted">Resolução: ${esc(refund.resolution_reference)}</div>`:''}
+    ${review&&linked?'<div class="notice danger" style="margin-top:8px"><strong>Hold financeiro ativo.</strong><br>Novas vendas e novos benefícios financeiros permanecem suspensos até a recuperação comprovada.</div>':''}
+    ${recoveryState}
+    ${actions}
+  </article>`;
+}
+
+function adminBillingProviderChargeRow(charge){
+  const cancelRetry=charge.status==='cancelled'
+    &&['PROVIDER_CANCEL_REQUIRED','PROVIDER_CANCEL_FAILED'].includes(String(charge.last_error_code||''));
+  const retryButton=cancelRetry&&charge.payment_request_id
+    ? `<br><button class="secondary small" style="margin-top:6px" onclick="adminRetryBillingProviderCancel('${esc(charge.payment_request_id)}')">Repetir cancelamento no PSP</button>`
+    : '';
+  const pendingNote=cancelRetry
+    ? '<br><small>Cancelamento externo pendente; a cobrança local já está encerrada.</small>'
+    : '';
+  return `<div class="list-row"><div><strong>${esc(adminMerchantName(charge.merchant_id))}</strong><br><small>${esc(charge.provider||'—')} • correlação ${esc(charge.correlation_id||'—')}${charge.end_to_end_id?' • EndToEndId '+esc(charge.end_to_end_id):''}</small>${pendingNote}</div><div style="text-align:right"><strong>${adminMoney(charge.amount_cents)}</strong><br><span class="status-pill ${charge.status==='completed'?'online':charge.last_error_code?'offline':charge.status==='expired'||charge.status==='cancelled'?'':'risk'}">${esc(String(charge.status||'—').toUpperCase())}</span>${charge.expired_at?`<br><small>expirou ${esc(formatDateTime(charge.expired_at))}</small>`:''}${charge.last_error_code?`<br><small>${esc(charge.last_error_code)}</small>`:''}${retryButton}</div></div>`;
+}
+
+
+function adminBillingProviderName(value){
+  const provider=String(value||'').trim().toLowerCase();
+  if(provider==='mercadopago')return 'Mercado Pago';
+  if(provider==='woovi')return 'Woovi/OpenPix';
+  return provider?provider:'PSP ativo';
+}
+function adminBillingProviderCredentialLabel(value){
+  return String(value||'').trim().toLowerCase()==='mercadopago'?'Access Token':'credencial API';
+}
+function adminBillingE2EState(d=adminRuntime.data){
+  const billing=d?.merchantBilling||{};
+  const ingress=billing.paymentIngress||{};
+  const active=String(ingress.activeBillingProvider||adminRuntime.providerHealth?.provider||'').trim().toLowerCase();
+  if(!active)return {validated:false,event:null,provider:null};
+  const events=Array.isArray(billing.paymentEvents)?billing.paymentEvents:[];
+  const event=events.find(x=>String(x.provider||'').trim().toLowerCase()===active
+    &&['matched_exact','applied','already_applied','refunded'].includes(String(x.status||'')))||null;
+  return {validated:Boolean(event),event,provider:active};
+}
+function adminBillingProviderHealthNotice(h){
+  if(!h)return '';
+  const ok=h.ok===true;
+  const provider=adminBillingProviderName(h.provider);
+  const e2e=adminBillingE2EState();
+  let detail='';
+  if(h.provider==='mercadopago'){
+    detail='Access Token '+(h.credentialValid===true?'válido':h.credentialValid===false?'inválido':'não confirmado')
+      +' • criação '+(h.chargeReady?'pronta':'não confirmada')
+      +' • webhook HMAC local '+(h.receiveReady?'configurado':'não confirmado')
+      +' • conta '+(h.accountBound?'vinculada':'não confirmada')
+      +' • registro remoto do webhook '+(h.remoteWebhookRegistrationVerified===true?'verificado':'ainda não provado automaticamente');
+  }else{
+    detail='credencial '+(h.credentialValid===true?'válida':h.credentialValid===false?'inválida':'não confirmada')
+      +' • webhook pagamento '+(h.chargeWebhookReady?'ativo':'não confirmado')
+      +' • expiração '+(h.chargeExpiredWebhookReady?'ativa':'não confirmada')
+      +' • refund '+(h.refundWebhookReady?'ativo':'não confirmado')
+      +' • empresa '+(h.companyBound?'vinculada':'não confirmada');
+  }
+  if(h.reason)detail+=' • '+esc(h.reason);
+  const e2eCopy=e2e.validated
+    ?' • webhook financeiro real observado e conciliado'
+    :' • E2E financeiro ainda não comprovado por um pagamento real';
+  return '<div class="notice '+(ok?'success':'danger')+'" style="margin-top:10px"><strong>'+(ok?'API '+provider+' validada.':'Teste real '+provider+' requer atenção.')+'</strong><br>'+detail+e2eCopy+'</div>';
+}
+
+function adminMerchantPaymentAccountCard(merchant){
+  const account=merchant?.paymentAccount||null;
+  const connected=account?.status==='active';
+  const directEnabled=account?.capabilities?.directSalePaymentsEnabled===true;
+  const globalEnabled=adminRuntime.data?.merchantPayments?.globalDirectPaymentsEnabled===true;
+  const accountRef=String(account?.provider_account_id||'');
+  const safeAccountRef=accountRef?('•••• '+accountRef.slice(-6)):'—';
+  const statusLabel=!connected?'NÃO CONECTADO':directEnabled?'HOMOLOGADO':'AGUARDA HOMOLOGAÇÃO';
+  const statusClass=directEnabled&&globalEnabled?'online':connected?'risk':'';
+  let notice='';
+  if(!connected){
+    notice='<div class="notice" style="margin-top:8px">A revenda ainda não concluiu a autorização OAuth do próprio Mercado Pago.</div>';
+  }else if(directEnabled){
+    notice='<div class="notice success" style="margin-top:8px"><strong>Revenda homologada.</strong><br>A plataforma pode validar pagamentos feitos diretamente na conta desta revenda. O TAMÃO não recebe nem repassa o valor da venda.</div>';
+  }else{
+    notice='<div class="notice" style="margin-top:8px"><strong>Conta conectada, venda direta bloqueada.</strong><br>Valide a integração real desta revenda antes de homologar pagamentos online.</div>';
+  }
+  const action=connected
+    ?'<div class="order-actions"><button class="'+(directEnabled?'danger-btn':'secondary')+' small" onclick="adminSetMerchantPaymentCapability(\''+esc(merchant.id)+'\','+(directEnabled?'false':'true')+')">'+(directEnabled?'Suspender pagamentos diretos':'Homologar pagamentos diretos')+'</button></div>'
+    :'';
+  return '<article class="order-card">'
+    +'<div class="order-head"><div><div class="order-id">'+esc(merchant?.name||merchant?.id||'Revenda')+'</div><div class="tiny muted">Mercado Pago • conta '+esc(safeAccountRef)+'</div></div><span class="status-pill '+statusClass+'">'+esc(statusLabel)+'</span></div>'
+    +notice
+    +'<div class="tiny muted" style="margin-top:8px">Kill switch global: <strong>'+(globalEnabled?'ATIVO':'DESATIVADO')+'</strong> • conexão: '+esc(account?.status||'not_connected')+(account?.connected_at?' • desde '+esc(formatDateTime(account.connected_at)):'')+'</div>'
+    +action
+    +'</article>';
+}
+function adminMerchantPaymentAccountsSection(d){
+  const rows=(d.merchants||[]).filter(m=>m.paymentAccount);
+  const globalEnabled=d.merchantPayments?.globalDirectPaymentsEnabled===true;
+  return '<div class="section-head" style="margin-top:18px"><div><h3>Recebimento direto das revendas</h3><p>Cada revenda conecta a própria conta Mercado Pago. Homologação individual e kill switch global são independentes; nenhuma venda passa pela conta do TAMÃO.</p></div><span class="status-pill '+(globalEnabled?'online':'risk')+'">GLOBAL '+(globalEnabled?'ATIVO':'DESATIVADO')+'</span></div>'
+    +(rows.length?'<div class="admin-entity-grid">'+rows.map(adminMerchantPaymentAccountCard).join('')+'</div>':'<div class="empty card">Nenhuma revenda conectou uma conta Mercado Pago ainda.</div>');
+}
+
+function adminMerchantBillingSection(d){
+  const billing=d.merchantBilling||{};
+  const plans=billing.plans||[];
+  const accounts=billing.accounts||[];
+  const statements=billing.statements||[];
+  const paymentRequests=billing.paymentRequests||[];
+  const paymentEvents=billing.paymentEvents||[];
+  const refunds=billing.refunds||[];
+  const refundRecoveries=billing.refundRecoveries||[];
+  const providerCharges=billing.providerCharges||[];
+  const paymentIngress=billing.paymentIngress||null;
+  const providerHealth=adminRuntime.providerHealth;
+  const pspApiValidated=providerHealth?.ok===true;
+  const pspE2E=adminBillingE2EState(d);
+  const pspFailed=Boolean(providerHealth)&&providerHealth?.ok===false;
+  const pspConfigured=paymentIngress?.livePspReady===true;
+  const pspBadgeLabel=pspE2E.validated?'E2E VALIDADO':pspApiValidated?'API VALIDADA':pspFailed?'PSP FALHANDO':pspConfigured?'PSP CONFIGURADO':paymentIngress?.normalizedIngressConfigured?'INGRESS PRONTO':'PENDENTE';
+  const pspBadgeClass=pspE2E.validated||pspApiValidated?'online':pspFailed?'offline':pspConfigured||paymentIngress?.normalizedIngressConfigured?'risk':'';
+  const metrics=billing.metrics||null;
+  const reconciliation=billing.reconciliation||null;
+  const pendingPaymentRequests=paymentRequests
+    .filter(x=>x.status==='pending')
+    .sort((a,b)=>Date.parse(a.requested_at||0)-Date.parse(b.requested_at||0));
+  const openStatements=statements.filter(x=>['open','overdue'].includes(x.status));
+  const overdue=openStatements.filter(x=>x.status==='overdue');
+  const held=accounts.filter(x=>x.sales_hold);
+  const pendingRefunds=refunds
+    .filter(x=>x.status==='review_required')
+    .sort((a,b)=>Date.parse(a.occurred_at||0)-Date.parse(b.occurred_at||0));
+  const actionableEvents=paymentEvents
+    .filter(x=>['matched_exact','review_required'].includes(x.status))
+    .sort((a,b)=>{
+      const priority=(x)=>x.status==='matched_exact'?0:1;
+      return priority(a)-priority(b)||Date.parse(a.updated_at||a.received_at||0)-Date.parse(b.updated_at||b.received_at||0);
+    });
+  return `<section class="section">
+    <div class="section-head"><div><span class="section-kicker">COBRANÇA DAS REVENDAS</span><h2>Fechamento diário + pacotes</h2><p>Cada pedido mantém sua taxa auditável. À 00:05 o dia anterior é consolidado; o saldo vence no fim do dia seguinte. Crédito pré-pago reduz a taxa e evita pagamento diário enquanto houver saldo.</p></div><div class="order-actions"><span class="status-pill ${Number(metrics?.overdueStatementCount??overdue.length)?'offline':'online'}">${Number(metrics?.overdueStatementCount??overdue.length)} vencido(s)</span><span class="status-pill ${Number(metrics?.salesHoldCount??held.length)?'offline':'online'}">${Number(metrics?.salesHoldCount??held.length)} hold(s)</span></div></div>
+    ${paymentIngress?`<div class="card flat" style="margin-bottom:16px"><div class="section-head"><div><h3>Entrada Pix / PSP</h3><p>Configuração e disponibilidade real são estados diferentes. O painel só chama o PSP ativo de validado após uma consulta autenticada; segredos nunca saem do ambiente server-side.</p></div><span class="status-pill ${pspBadgeClass}">${esc(pspBadgeLabel)}</span></div>
+      <div class="tiny muted">Contrato HMAC normalizado: ${esc(paymentIngress.contract||'—')} • provedores configurados nesse contrato: ${Number(paymentIngress.providerCount||0)}${Array.isArray(paymentIngress.providers)&&paymentIngress.providers.length?' • '+paymentIngress.providers.map(esc).join(', '):''}</div>
+      <div class="tiny muted">Adaptadores nativos de PSP ativos: ${Number(paymentIngress.liveProviderCount||0)}${Array.isArray(paymentIngress.liveProviders)&&paymentIngress.liveProviders.length?' • '+paymentIngress.liveProviders.map(esc).join(', '):''}</div>
+      <div class="tiny muted">PSP ativo: <strong>${esc(paymentIngress.activeBillingProvider||'—')}</strong></div>
+      ${paymentIngress.adapterReadiness?.mercadopago?`<div class="tiny muted">Mercado Pago: adaptador ${paymentIngress.adapterReadiness.mercadopago.implemented?'implementado':'ausente'} • Access Token ${paymentIngress.adapterReadiness.mercadopago.accessTokenConfigured?'configurado':'pendente'} • webhook HMAC ${paymentIngress.adapterReadiness.mercadopago.webhookSecretConfigured?'configurado':'pendente'} • cobrança ${paymentIngress.adapterReadiness.mercadopago.chargeReady?'pronta':'pendente'} • recebimento ${paymentIngress.adapterReadiness.mercadopago.receiveReady?'pronto':'pendente'}</div>`:''}
+      ${paymentIngress.liveEndpoints?.mercadopago?`<div class="tiny muted">Webhook Mercado Pago único (Order): ${esc(paymentIngress.liveEndpoints.mercadopago)}</div>`:''}
+      ${paymentIngress.adapterReadiness?.woovi?`<div class="tiny muted">Woovi/OpenPix: adaptador ${paymentIngress.adapterReadiness.woovi.implemented?'implementado':'ausente'} • webhook ${paymentIngress.adapterReadiness.woovi.receiveReady?'pronto':'pendente'} • criação de cobrança ${paymentIngress.adapterReadiness.woovi.chargeReady?'pronta':'pendente'} • App ID ${paymentIngress.adapterReadiness.woovi.appIdConfigured?'configurado':'pendente'} • token privado ${paymentIngress.adapterReadiness.woovi.webhookAuthorizationConfigured?'configurado':'pendente'} • vínculo da empresa ${paymentIngress.adapterReadiness.woovi.companyBound?'configurado':'pendente'} • ambiente ${esc(paymentIngress.adapterReadiness.woovi.environment||'—')} • assinatura ${esc(paymentIngress.adapterReadiness.woovi.signature||'—')}</div>`:''}
+      ${paymentIngress.liveEndpoints?.woovi?`<div class="tiny muted">Webhook Woovi: ${esc(paymentIngress.liveEndpoints.woovi)}</div>`:''}
+      ${paymentIngress.liveEndpoints?.merchantPix?`<div class="tiny muted">Pix de cobrança TAMÃO → revenda: ${esc(paymentIngress.liveEndpoints.merchantPix)}</div>`:''}
+      ${paymentIngress.endpoint?`<div class="tiny muted">Ingress normalizado: ${esc(paymentIngress.endpoint)}</div>`:''}
+      <div style="margin-top:10px"><button class="secondary small" onclick="adminCheckBillingProviderHealth()" ${adminRuntime.providerHealthPending?'disabled':''}>${adminRuntime.providerHealthPending?'Testando conexão…':'Testar PSP ativo'}</button></div>
+      ${adminBillingProviderHealthNotice(providerHealth)}
+      ${paymentIngress.configValid===false
+        ?`<div class="notice danger" style="margin-top:10px"><strong>Configuração de webhook inválida.</strong><br>O mapa BILLING_PAYMENT_WEBHOOK_SECRETS não pôde ser validado. Nenhum recebimento automático deve ser considerado pronto.</div>`
+        :pspE2E.validated
+          ?`<div class="notice success" style="margin-top:10px"><strong>PSP validado de ponta a ponta.</strong><br>Além da API, já existe evidência de webhook financeiro real conciliado. O TAMÃO continua exigindo correlação, valor e evidência exatos antes de movimentar o financeiro.</div>`
+          :pspApiValidated
+            ?`<div class="notice success" style="margin-top:10px"><strong>API do PSP validada; E2E financeiro ainda pendente.</strong><br>A credencial respondeu e os gates locais de cobrança + webhook estão configurados. O selo E2E só será concedido após um pagamento real gerar webhook e conciliação válidos.</div>`
+          :paymentIngress.livePspReady
+            ?`<div class="notice" style="margin-top:10px"><strong>PSP configurado; prova real ainda pendente.</strong><br>Os requisitos server-side existem, mas presença de secret não comprova a credencial ou o webhook do PSP ativo. Use “Testar PSP ativo”.</div>`
+            :paymentIngress.normalizedIngressConfigured
+              ?`<div class="notice" style="margin-top:10px"><strong>Ingress técnico pronto; PSP real ainda não.</strong><br>Há secret para o contrato HMAC normalizado do TAMÃO, mas nenhum adaptador nativo de PSP está configurado. O fluxo manual continua disponível.</div>`
+              :`<div class="notice" style="margin-top:10px"><strong>PSP/Pix ainda não conectado.</strong><br>O motor interno de conciliação está pronto, mas não há integração automática validada. O fluxo manual continua disponível.</div>`}
+    </div>`:''}
+    ${adminMerchantPaymentAccountsSection(d)}
+    ${adminBillingMetricsView(metrics)}
+    ${adminBillingReconciliationView(reconciliation)}
+    ${pendingRefunds.length?`<div class="section-head" style="margin-top:18px"><div><h3>Reembolsos do PSP exigem decisão</h3><p>Refund confirmado nunca desfaz crédito ou quitação silenciosamente. Refund ligado cria obrigação de recuperação no valor exato; o hold só cai depois que o pagamento dessa obrigação for conciliado e aprovado.</p></div><span class="status-pill offline">${pendingRefunds.length} em revisão</span></div>${pendingRefunds.map(adminBillingRefundCard).join('')}`:''}
+    ${refunds.some(x=>x.status!=='review_required')?`<details class="card flat" style="margin-bottom:16px"><summary><strong>Histórico de refunds do PSP</strong></summary><div style="margin-top:10px">${refunds.filter(x=>x.status!=='review_required').slice(0,50).map(adminBillingRefundCard).join('')}</div></details>`:''}
+    ${providerCharges.length?`<details class="card flat" style="margin-bottom:16px"><summary><strong>Cobranças Pix geradas pelo TAMÃO</strong> • ${providerCharges.length}</summary><div class="list" style="margin-top:10px">${providerCharges.slice(0,50).map(adminBillingProviderChargeRow).join('')}</div></details>`:''}
+    ${actionableEvents.length?`<div class="section-head" style="margin-top:18px"><div><h3>Eventos de pagamento</h3><p>Eventos autenticados do provedor são conciliados por valor + identificador. Ambiguidades nunca movimentam saldo automaticamente.</p></div><span class="status-pill ${actionableEvents.some(x=>x.status==='review_required')?'risk':'online'}">${actionableEvents.length} evento(s)</span></div>${actionableEvents.map(adminBillingPaymentEventCard).join('')}`:''}
+    ${plans.length?`<div class="admin-entity-grid">${plans.map(adminBillingPlanCard).join('')}</div>`:'<div class="notice">Motor de cobrança diária ainda não está ativo neste ambiente.</div>'}
+    <div class="section-head" style="margin-top:18px"><div><h3>Pagamentos aguardando conferência</h3><p>Aprovar é uma ação financeira: pacote gera crédito; fechamento diário é quitado. A referência da revenda, sozinha, nunca movimenta saldo.</p></div><span class="status-pill ${pendingPaymentRequests.length?'risk':'online'}">${pendingPaymentRequests.length} pendente(s)</span></div>
+    ${pendingPaymentRequests.length?pendingPaymentRequests.map(adminBillingPaymentRequestCard).join(''):'<div class="empty card">Nenhum pagamento aguarda conferência.</div>'}
+    ${paymentRequests.some(x=>x.status!=='pending')?`<details class="card flat" style="margin-top:12px"><summary><strong>Histórico de solicitações financeiras</strong></summary><div style="margin-top:10px">${paymentRequests.filter(x=>x.status!=='pending').slice(0,50).map(adminBillingPaymentRequestCard).join('')}</div></details>`:''}
+    ${accounts.length?`<div class="section-head" style="margin-top:18px"><div><h3>Contas de cobrança</h3><p>Saldo, reservas e bloqueio financeiro por revenda.</p></div></div><div class="admin-entity-grid">${accounts.map(adminBillingAccountCard).join('')}</div>`:''}
+    <div class="section-head" style="margin-top:18px"><div><h3>Fechamentos diários</h3><p>Prioridade para vencidos e abertos; históricos liquidados permanecem auditáveis.</p></div></div>
+    ${openStatements.length?openStatements.map(adminBillingStatementCard).join(''):'<div class="empty card">Nenhum fechamento em aberto.</div>'}
+    ${statements.some(x=>!['open','overdue'].includes(x.status))?`<details class="card flat" style="margin-top:12px"><summary><strong>Histórico recente</strong></summary><div style="margin-top:10px">${statements.filter(x=>!['open','overdue'].includes(x.status)).slice(0,30).map(adminBillingStatementCard).join('')}</div></details>`:''}
+  </section>`;
+}
+
+function adminReceivableRow(x){
+  return `<div class="list-row"><div><strong>${esc(adminMerchantName(x.merchant_id))}</strong><br><small>Taxa da plataforma • pedido ${esc(x.order_id)}</small></div><div style="text-align:right"><strong>${adminMoney(x.platform_fee_cents)}</strong><div class="order-actions"><button class="secondary small" onclick="adminFinancial('platform_receivable','${x.order_id}','paid')">Pago</button><button class="ghost small" onclick="adminFinancial('platform_receivable','${x.order_id}','waived')">Abonar</button></div></div></div>`;
+}
+function adminReimbursementRow(x){
+  return `<div class="list-row"><div><strong>${esc(adminMerchantName(x.merchant_id))}</strong><br><small>Reembolso de cashback • pedido ${esc(x.order_id)}</small></div><div style="text-align:right"><strong>${adminMoney(x.cashback_cents)}</strong><div class="order-actions"><button class="secondary small" onclick="adminFinancial('cashback_reimbursement','${x.order_id}','paid')">Pago</button></div></div></div>`;
+}
+function adminAdjustmentRow(x){
+  const direction=x.direction==='merchant_owes_platform'?'Revenda → plataforma':'Plataforma → revenda';
+  return `<div class="list-row"><div><strong>${esc(adminMerchantName(x.merchant_id))}</strong><br><small>${esc(direction)} • ${esc(x.adjustment_type)} • pedido ${esc(x.order_id)}</small></div><div style="text-align:right"><strong>${adminMoney(x.amount_cents)}</strong><div class="order-actions"><button class="secondary small" onclick="adminFinancial('settlement_adjustment','${x.id}','paid')">Liquidado</button><button class="ghost small" onclick="adminFinancial('settlement_adjustment','${x.id}','waived')">Abonar</button></div></div></div>`;
+}
+
+function adminRewardFailureCard(x){
+  const dead=!!x.dead_lettered_at;
+  const next=x.next_retry_at?new Date(x.next_retry_at).toLocaleString('pt-BR'):'—';
+  const last=x.last_attempt_at?new Date(x.last_attempt_at).toLocaleString('pt-BR'):new Date(x.updated_at||x.created_at).toLocaleString('pt-BR');
+  return `<article class="order-card">
+    <div class="order-head"><div><div class="order-id">Pedido ${esc(x.order_id)}</div><div class="tiny muted">Tentativas: ${Number(x.attempts||0)} • última: ${esc(last)}</div></div><span class="status-pill ${dead?'offline':''}">${dead?'DEAD LETTER':'RETRY'}</span></div>
+    <div class="order-line"><strong>Último erro:</strong> ${esc(x.last_error||'Falha de processamento')}</div>
+    ${x.last_sqlstate?`<div class="tiny muted">SQLSTATE: ${esc(x.last_sqlstate)}</div>`:''}
+    <div class="tiny muted">${dead?'Retry automático interrompido para evitar loop infinito.':'Próxima tentativa automática: '+esc(next)}</div>
+    <div class="order-actions"><button class="${dead?'primary':'secondary'} small" onclick="adminRetryReward('${x.order_id}')">Reprocessar agora</button></div>
+  </article>`;
+}
+
+function adminAccountingFailureCard(x){
+  const dead=!!x.dead_lettered_at;
+  const next=x.next_retry_at?new Date(x.next_retry_at).toLocaleString('pt-BR'):'—';
+  const last=x.last_attempt_at?new Date(x.last_attempt_at).toLocaleString('pt-BR'):new Date(x.updated_at||x.created_at).toLocaleString('pt-BR');
+  return `<article class="order-card">
+    <div class="order-head"><div><div class="order-id">Pedido ${esc(x.order_id)}</div><div class="tiny muted">Tentativas: ${Number(x.attempts||0)} • última: ${esc(last)}</div></div><span class="status-pill ${dead?'offline':''}">${dead?'DEAD LETTER':'RETRY'}</span></div>
+    <div class="order-line"><strong>Falha contábil:</strong> ${esc(x.last_error||'Falha ao registrar settlement')}</div>
+    ${x.last_sqlstate?`<div class="tiny muted">SQLSTATE: ${esc(x.last_sqlstate)}</div>`:''}
+    <div class="tiny muted">${dead?'Retry automático interrompido; exige revisão administrativa.':'Próxima tentativa automática: '+esc(next)}</div>
+    <div class="order-actions"><button class="${dead?'primary':'secondary'} small" onclick="adminRetryAccounting('${x.order_id}')">Reprocessar contabilidade</button></div>
+  </article>`;
+}
+
+function adminSupportCaseCard(x){
+  const category={
+    late:'Atraso',
+    wrong_item:'Produto incorreto',
+    price_payment:'Preço ou pagamento',
+    no_show:'Entrega não apareceu',
+    delivery:'Problema na entrega',
+    other:'Outro problema'
+  }[x.category]||String(x.category||'Problema');
+  const statusLabel={
+    open:'ABERTO',
+    in_review:'EM ANÁLISE',
+    resolved:'RESOLVIDO',
+    closed:'ENCERRADO'
+  }[x.status]||String(x.status||'—').toUpperCase();
+  const statusClass=['resolved','closed'].includes(x.status)?'online':x.status==='open'?'offline':'risk';
+  return `<article class="order-card">
+    <div class="order-head"><div><div class="order-id">${esc(category)}</div><div class="tiny muted">Pedido ${esc(x.order_id)} • aberto em ${new Date(x.created_at).toLocaleString('pt-BR')}</div></div><span class="status-pill ${statusClass}">${esc(statusLabel)}</span></div>
+    ${x.message?`<div class="order-line"><strong>Cliente:</strong> ${esc(x.message)}</div>`:''}
+    ${x.resolution_note?`<div class="notice success" style="margin-top:10px"><strong>Tratativa:</strong><br>${esc(x.resolution_note)}</div>`:''}
+    ${!['resolved','closed'].includes(x.status)?`<div class="order-actions">${x.status==='open'?`<button class="secondary small" onclick="adminSetSupportStatus('${x.id}','in_review')">Assumir análise</button>`:''}<button class="primary small" onclick="adminSetSupportStatus('${x.id}','resolved')">Resolver</button><button class="ghost small" onclick="adminSetSupportStatus('${x.id}','closed')">Encerrar</button></div>`:''}
+  </article>`;
+}
+
+function adminProductionRequirementLabel(code){
+  return ({
+    admin_required:'Administrador ativo',
+    real_supply_required:'Primeira oferta real',
+    merchant_owner_required:'Responsável da revenda',
+    merchant_payment_required:'Forma de pagamento',
+    offerable_supply_required:'Capacidade de atender agora',
+    live_portals_verification_required:'Portais live e Turnstile'
+  })[String(code||'')]||String(code||'Pendência');
+}
+function adminSecurityBlockerLabel(code){
+  return ({
+    browser_sensitive_table_acl:'Acesso direto do navegador a tabelas sensíveis detectado.',
+    sensitive_table_rls_disabled:'RLS desativado em tabela sensível.',
+    admin_rpc_browser_exposure:'RPC administrativa privilegiada exposta ao navegador.',
+    live_portals_verification_required:'Portais oficiais sem verificação técnica recente e consistente.'
+  })[String(code||'')]||String(code||'Bloqueio técnico');
+}
+function adminLaunchControl(readiness={}){
+  const security=Array.isArray(readiness.securityBlockers)?readiness.securityBlockers:[];
+  const warningDetails=Array.isArray(readiness.warningDetails)?readiness.warningDetails:[];
+  const mode=String(readiness.operationMode|| (readiness.commerceEnabled?'LIVE':'PRELAUNCH')).toUpperCase();
+  const readinessState=String(readiness.readinessState|| (security.length?'BLOCKED_SECURITY':warningDetails.length?'READY_WITH_WARNINGS':'READY'));
+  const canActivate=readiness.canActivateOperation===true;
+  const verifiedAt=readiness.portalsVerifiedAt
+    ? new Date(readiness.portalsVerifiedAt).toLocaleString('pt-BR')
+    : 'ainda não verificados';
+  const sourceSha=String(readiness.portalsSourceSha||'');
+  const stateClass=readinessState==='READY'?'online':readinessState==='BLOCKED_SECURITY'?'offline':'risk';
+  const modeClass=['PILOT','LIVE'].includes(mode)?'online':mode==='PAUSED'?'offline':'risk';
+  const warnings=warningDetails.map(item=>{
+    const confirmed=item.confirmed===true;
+    const expiry=item.expiresAt?new Date(item.expiresAt).toLocaleString('pt-BR'):null;
+    return `<article class="order-card">
+      <div class="order-head"><div><div class="order-id">${esc(adminProductionRequirementLabel(item.key))}</div><div class="tiny muted">${esc(item.condition||'Pendência operacional')}</div></div><span class="status-pill ${confirmed?'online':'risk'}">${confirmed?'CONFIRMADO PELO ADMIN':esc(item.status||'PENDENTE')}</span></div>
+      <div class="order-line"><strong>Risco:</strong> ${esc(item.risk||'Pendência operacional.')}</div>
+      <div class="order-line"><strong>Recomendação:</strong> ${esc(item.recommendation||'Revisar antes de operar.')}</div>
+      ${item.reason?`<div class="notice success" style="margin-top:10px"><strong>Decisão registrada:</strong> ${esc(item.reason)}${expiry?' • válida até '+esc(expiry):''}</div>`:''}
+      ${!confirmed?`<div class="order-actions"><button class="secondary small" onclick="adminConfirmLaunchRequirement('${String(item.key).replace(/'/g,'')}')">Revisar e confirmar</button></div>`:''}
+    </article>`;
+  }).join('');
+  const securityHtml=security.length
+    ? `<div class="notice danger"><strong>Bloqueios críticos — não podem ser ignorados</strong><br>${security.map(x=>'• '+esc(adminSecurityBlockerLabel(x))).join('<br>')}</div>`
+    : '<div class="notice success"><strong>Segurança estrutural sem bloqueios detectados.</strong><br>RLS, ACLs privilegiadas e autoridade administrativa permanecem fail-closed.</div>';
+
+  return `<section class="section"><div class="section-head"><div><span class="section-kicker">CENTRAL DE PRODUÇÃO</span><h2>Operação real sob controle do administrador</h2><p>Segurança técnica continua obrigatória. Pendências comerciais e operacionais são exibidas com risco, recomendação e decisão auditada.</p></div><div class="order-actions"><span class="status-pill ${stateClass}">${esc(readinessState)}</span><span class="status-pill ${modeClass}">${esc(mode)}</span></div></div>
+    <div class="merchant-kpis">
+      <div class="kpi"><span class="label">Admins ativos</span><strong>${Number(readiness.activeAdminCount||0)}</strong></div>
+      <div class="kpi"><span class="label">Revendas configuradas</span><strong>${Number(readiness.configuredMerchantCount||0)}</strong></div>
+      <div class="kpi"><span class="label">Owner pronto</span><strong>${Number(readiness.ownerReadyMerchantCount||0)}</strong></div>
+      <div class="kpi"><span class="label">Pagamento pronto</span><strong>${Number(readiness.paymentReadyMerchantCount||0)}</strong></div>
+      <div class="kpi"><span class="label">Ofertável agora</span><strong>${Number(readiness.offerReadyMerchantCount||0)}</strong><small>${readiness.availableNow?'há oferta real possível':'nenhuma oferta real possível'}</small></div>
+      <div class="kpi"><span class="label">Portais</span><strong>${readiness.portalsFresh?'OK':'ATENÇÃO'}</strong><small>${esc(verifiedAt)}</small></div>
+    </div>
+    <div class="card flat form-stack" style="margin-top:12px">
+      ${securityHtml}
+      ${warningDetails.length?`<div><strong>Alertas operacionais</strong><div class="tiny muted" style="margin-top:4px">Resolva a condição ou registre conscientemente a decisão administrativa antes de ativar PILOT/LIVE.</div></div>${warnings}`:'<div class="notice success"><strong>Checklist operacional recomendado concluído.</strong></div>'}
+      ${sourceSha?`<small class="field-help">Bundle live atestado: <code>${esc(sourceSha.slice(0,12))}…</code></small>`:''}
+      <div class="order-actions">
+        <button class="secondary" onclick="adminVerifyLaunchPortals()">Verificar portais live</button>
+        ${['PILOT','LIVE'].includes(mode)
+          ?'<button class="danger-btn" onclick="adminSetOperationMode(\'PAUSED\')">Pausar novos pedidos</button>'
+          :`<button class="primary" ${canActivate?'':'disabled'} onclick="adminSetOperationMode('PILOT')">ATIVAR OPERAÇÃO PILOTO</button>`}
+        ${mode==='PILOT'?`<button class="secondary" ${canActivate?'':'disabled'} onclick="adminSetOperationMode('LIVE')">Promover para LIVE</button>`:''}
+        ${mode==='PAUSED'?'<button class="ghost" onclick="adminSetOperationMode(\'PRELAUNCH\')">Voltar a PRELAUNCH</button>':''}
+      </div>
+      <small class="field-help">${security.length?'A ativação está bloqueada por segurança.':canActivate?'A autoridade server-side permite ativação explícita.':'Há alertas ainda não confirmados.'} O kill switch preserva pedidos existentes e bloqueia apenas novos pedidos.</small>
+    </div>
+  </section>`;
+}
+
+function adminOrderStatusLabel(status){
+  return ({
+    OFFERED_TO_MERCHANT:'AGUARDANDO PARCEIRO',
+    MERCHANT_ACCEPTED:'ACEITO',
+    PREPARING:'PREPARANDO',
+    AT_RISK:'EM RISCO',
+    REASSIGNING:'REATRIBUINDO',
+    REQUOTE_REQUIRED:'CONFIRMAÇÃO DE PREÇO',
+    OUT_FOR_DELIVERY:'A CAMINHO',
+    ARRIVING:'CHEGANDO',
+    DELIVERED:'ENTREGUE',
+    SETTLED:'CONCLUÍDO',
+    CANCELLED:'CANCELADO'
+  })[String(status||'')]||String(status||'—');
+}
+function adminOrderIsLate(o){
+  const now=Date.now();
+  if(['DELIVERED','SETTLED','CANCELLED'].includes(o.status))return false;
+  const promised=Date.parse(o.promised_by||'');
+  const dispatch=Date.parse(o.dispatch_due_at||'');
+  if(Number.isFinite(promised)&&promised<now)return true;
+  if(['PREPARING','AT_RISK'].includes(o.status)&&Number.isFinite(dispatch)&&dispatch<now)return true;
+  return false;
+}
+function adminControlOrderCard(o){
+  const merchant=(adminRuntime.data?.merchants||[]).find(x=>x.id===o.merchant_id);
+  const proposed=(adminRuntime.data?.merchants||[]).find(x=>x.id===o.proposed_merchant_id);
+  const items=(o.items||[]).map(i=>`${Number(i.quantity||0)}× ${esc(i.product_name||i.product_code||'Item')}`).join(' • ');
+  const late=adminOrderIsLate(o);
+  const risk=['AT_RISK','REASSIGNING','REQUOTE_REQUIRED'].includes(o.status)||late;
+  const rescueable=['OFFERED_TO_MERCHANT','PREPARING','AT_RISK','REASSIGNING','REQUOTE_REQUIRED'].includes(o.status)&&!o.dispatched_at;
+  const cancellable=rescueable;
+  const postDispatchIncident=['OUT_FOR_DELIVERY','ARRIVING'].includes(o.status)&&!!o.dispatched_at;
+  const customerPhone=String(o.customer_phone_digits||'').replace(/\D/g,'');
+  const merchantWhatsapp=String(merchant?.businessDetails?.whatsapp||'').replace(/\D/g,'');
+  const statusClass=['DELIVERED','SETTLED'].includes(o.status)?'online':o.status==='CANCELLED'?'offline':risk?'offline':'risk';
+  const destination=[o.address_text,o.address_complement,o.delivery_reference].filter(Boolean).join(' • ');
+  return `<article class="order-card ${risk?'new':''}">
+    <div class="order-head"><div><div class="order-id">${esc(o.public_code||o.id)}</div><div class="tiny muted">${items||'Itens não carregados'}</div></div><div style="text-align:right"><span class="status-pill ${statusClass}">${esc(adminOrderStatusLabel(o.status))}</span>${late?'<div class="tiny" style="margin-top:4px"><strong>ATRASADO</strong></div>':''}</div></div>
+    <div class="order-line"><strong>${adminMoney(o.total_cents)}</strong> • pagamento ${esc(String(o.payment_method||'—').toUpperCase())} • versão ${Number(o.version||0)}</div>
+    <div class="order-line"><strong>Revenda:</strong> ${esc(merchant?.name||o.supplier_name_snapshot||'Ainda não definida')}${proposed?' • alternativa '+esc(proposed.name):''}</div>
+    ${destination?`<div class="order-line"><strong>Entrega:</strong> ${esc(destination)}</div>`:''}
+    ${o.risk_reason?`<div class="notice danger" style="margin-top:8px"><strong>Risco:</strong> ${esc(o.risk_reason)}</div>`:''}
+    <div class="tiny muted">Atualizado ${esc(formatDateTime(o.updated_at))}${o.promised_by?' • prometido '+esc(formatDateTime(o.promised_by)):''}</div>
+    <div class="order-actions">
+      <button class="ghost small" onclick="adminOpenEntity('order','${o.id}')">Abrir 360°</button>
+      ${customerPhone?`<button class="ghost small" onclick="adminOpenWhatsapp('${customerPhone}')">Cliente</button>`:''}
+      ${merchantWhatsapp?`<button class="ghost small" onclick="adminOpenWhatsapp('${merchantWhatsapp}')">Revenda</button>`:''}
+      <button class="secondary small" onclick="adminOrderControl('${o.id}',${Number(o.version||0)},'note')">Registrar observação</button>
+      ${rescueable?`<button class="secondary small" onclick="adminOrderControl('${o.id}',${Number(o.version||0)},'rescue')">Buscar outra revenda</button>`:''}
+      ${cancellable?`<button class="danger-btn small" onclick="adminOrderControl('${o.id}',${Number(o.version||0)},'cancel')">Cancelar antes da saída</button>`:''}
+      ${postDispatchIncident?`<button class="danger-btn small" onclick="adminOrderControl('${o.id}',${Number(o.version||0)},'cancel-after-dispatch')">Encerrar entrega com falha</button>`:''}
+    </div>
+    ${postDispatchIncident?'<small class="field-help">Use apenas quando a entrega falhou definitivamente depois da saída. O pedido será encerrado e o cashback liberado, mas o estoque NÃO será devolvido automaticamente; a revenda deve reconciliar fisicamente o produto.</small>':''}
+  </article>`;
+}
+function adminControlTower(d){
+  const orders=d.controlOrders||[];
+  const terminal=new Set(['DELIVERED','SETTLED','CANCELLED']);
+  const active=orders.filter(o=>!terminal.has(o.status));
+  const waiting=active.filter(o=>o.status==='OFFERED_TO_MERCHANT');
+  const risks=active.filter(o=>['AT_RISK','REASSIGNING','REQUOTE_REQUIRED'].includes(o.status)||adminOrderIsLate(o));
+  const delivery=active.filter(o=>['OUT_FOR_DELIVERY','ARRIVING'].includes(o.status));
+  const visible=[...active,...orders.filter(o=>terminal.has(o.status)).slice(0,12)];
+  return `<section class="section">
+    <div class="section-head"><div><span class="section-kicker">TORRE DE CONTROLE</span><h2>Pedidos agora</h2><p>Visão operacional com intervenção auditada. Resgate preserva estoque, capacidade, compliance e confirmação de preço.</p></div><span class="status-pill ${risks.length?'offline':'online'}">${risks.length} em risco</span></div>
+    <div class="merchant-kpis">
+      <div class="kpi"><span class="label">Ativos</span><strong>${active.length}</strong></div>
+      <div class="kpi"><span class="label">Aguardando aceite</span><strong>${waiting.length}</strong></div>
+      <div class="kpi"><span class="label">Em risco/atrasados</span><strong>${risks.length}</strong></div>
+      <div class="kpi"><span class="label">Em entrega</span><strong>${delivery.length}</strong></div>
+    </div>
+    <div style="margin-top:12px">${visible.length?visible.map(adminControlOrderCard).join(''):'<div class="empty card">Nenhum pedido real registrado ainda.</div>'}</div>
+  </section>`;
+}
+
+function adminBpsPct(bps){
+  const n=Number(bps||0)/100;
+  return Number.isInteger(n)?String(n):n.toFixed(2).replace(/0+$/,'').replace(/\.$/,'');
+}
+function adminProductRegistrySection(d){
+  const registry=d.productRegistry||{};
+  const categories=Array.isArray(registry.categories)?registry.categories:[];
+  const profiles=Array.isArray(registry.products)?registry.products:[];
+  const general=profiles.filter(x=>x.delivery_class==='household_general');
+  const glpGas=profiles.filter(x=>/^P([1-9][0-9]?)$/.test(String(x.product_code||'')));
+  const glpContainers=profiles.filter(x=>/^P([1-9][0-9]?)_CONTAINER$/.test(String(x.product_code||'')));
+  const selectableCategories=categories.filter(x=>x.active&&x.category_key!=='glp');
+  const categoryOptions=categories.map(cat=>`<option value="${esc(cat.category_key)}">${esc(cat.category_name)}</option>`).join('');
+  const categoryCards=categories.map(cat=>`<div class="list-row">
+    <div><strong>${esc(cat.category_name)}</strong><br><small>${esc(cat.category_key)} • ordem ${Number(cat.sort_order||100)}</small></div>
+    <div class="order-actions"><span class="status-pill ${cat.active?'online':'offline'}">${cat.active?'ATIVA':'PAUSADA'}</span><button class="${cat.active?'danger-btn':'secondary'} small" onclick="adminToggleProductCategory('${esc(cat.category_key)}',${cat.active?'false':'true'},${Number(cat.sort_order||100)})">${cat.active?'Pausar':'Ativar'}</button></div>
+  </div>`).join('');
+  const productRows=general.map(item=>`<div class="list-row admin-registry-product" data-product-search="${esc((String(item.product_name||'')+' '+String(item.product_code||'')).toLowerCase())}" data-product-category="${esc(item.category_key||'')}">
+    <div><strong>${esc(item.product_name)}</strong><br><small>${esc(item.product_code)} • ${esc(item.category_key)} • ordem ${Number(item.sort_order||100)}</small></div>
+    <div class="order-actions"><span class="status-pill ${item.active?'online':'offline'}">${item.active?'ATIVO':'PAUSADO'}</span><button class="${item.active?'danger-btn':'secondary'} small" onclick="adminSetProductActive('${esc(item.product_code)}',${item.active?'false':'true'})">${item.active?'Pausar':'Ativar'}</button></div>
+  </div>`).join('');
+  return `<section class="section">
+    <div class="section-head"><div><span class="section-kicker">CATÁLOGO DA PLATAFORMA</span><h2>Categorias e produtos</h2><p>Produtos gerais podem ser criados sem novo deploy. A família GLP P1–P90 e seus vasilhames permanece canônica e protegida.</p></div></div>
+    <div class="merchant-kpis">
+      <div class="kpi"><span class="label">Categorias</span><strong>${categories.length}</strong></div>
+      <div class="kpi"><span class="label">Produtos gerais</span><strong>${general.length}</strong></div>
+      <div class="kpi"><span class="label">Cargas GLP</span><strong>${glpGas.length}</strong></div>
+      <div class="kpi"><span class="label">Vasilhames GLP</span><strong>${glpContainers.length}</strong></div>
+    </div>
+    <div class="card flat" style="margin-top:12px">
+      <div class="field-row">
+        <div class="input-wrap"><label for="registry-search">Buscar produto</label><input id="registry-search" class="input" maxlength="120" placeholder="Nome ou código" oninput="adminFilterRegistry()"></div>
+        <div class="input-wrap"><label for="registry-category-filter">Filtrar categoria</label><select id="registry-category-filter" class="input" onchange="adminFilterRegistry()"><option value="">Todas</option>${categoryOptions}</select></div>
+      </div>
+      <small class="field-help">O filtro é somente visual; ativação e pausa continuam sendo decisões auditadas no servidor.</small>
+    </div>
+    <div class="card flat form-stack" style="margin-top:12px">
+      <h3>Nova categoria</h3>
+      <div class="field-row">
+        <div class="input-wrap"><label for="registry-category-key">Chave</label><input id="registry-category-key" class="input" maxlength="40" placeholder="bebidas"></div>
+        <div class="input-wrap"><label for="registry-category-name">Nome</label><input id="registry-category-name" class="input" maxlength="80" placeholder="Bebidas"></div>
+        <div class="input-wrap"><label for="registry-category-sort">Ordem</label><input id="registry-category-sort" class="input" type="number" min="0" max="10000" step="1" value="100"></div>
+      </div>
+      <button class="secondary" onclick="adminCreateProductCategory()">Criar categoria</button>
+      <div class="divider"></div>
+      <h3>Novo produto geral</h3>
+      <div class="field-row">
+        <div class="input-wrap"><label for="registry-product-code">Código</label><input id="registry-product-code" class="input" maxlength="32" placeholder="SODA2L"></div>
+        <div class="input-wrap"><label for="registry-product-name">Nome</label><input id="registry-product-name" class="input" maxlength="120" placeholder="Refrigerante 2 L"></div>
+      </div>
+      <div class="field-row">
+        <div class="input-wrap"><label for="registry-product-category">Categoria</label><select id="registry-product-category" class="input">${selectableCategories.map(cat=>`<option value="${esc(cat.category_key)}">${esc(cat.category_name)}</option>`).join('')}</select></div>
+        <div class="input-wrap"><label for="registry-product-sort">Ordem</label><input id="registry-product-sort" class="input" type="number" min="0" max="10000" step="1" value="100"></div>
+      </div>
+      <label class="check-row"><input id="registry-product-visible" type="checkbox" checked><span><strong>Visível ao cliente</strong><small>Só aparece na vitrine quando houver oferta configurada.</small></span></label>
+      <label class="check-row"><input id="registry-product-merchant" type="checkbox" checked><span><strong>Revendas podem adicionar ao catálogo</strong><small>A revenda ainda precisa definir preço, estoque e disponibilidade.</small></span></label>
+      <button class="primary" onclick="adminCreateRegistryProduct()" ${selectableCategories.length?'':'disabled'}>Cadastrar produto</button>
+      ${selectableCategories.length?'':'<div class="notice danger">Crie ou ative uma categoria geral antes de cadastrar produto.</div>'}
+    </div>
+    <div class="card flat" style="margin-top:12px"><h3>Categorias</h3><div class="list">${categoryCards||'<div class="tiny muted">Nenhuma categoria cadastrada.</div>'}</div></div>
+    <div class="card flat" style="margin-top:12px"><h3>Produtos gerais • <span id="registry-visible-count">${general.length}</span> visível(is)</h3><div class="list">${productRows||'<div class="tiny muted">Nenhum produto geral cadastrado.</div>'}</div></div>
+  </section>`;
+}
+
+function adminCommercialPolicySection(d){
+  const p=d.commercialPolicy;
+  if(!p)return `<section class="section"><div class="notice danger"><strong>Política comercial indisponível.</strong><br>O painel não conseguiu carregar a autoridade financeira.</div></section>`;
+  const fee=Number(p.platform_fee_bps||0);
+  const variable=Number(p.variable_cost_bps||0);
+  const contribution=Number(p.minimum_contribution_bps||0);
+  const cashback=Number(p.cashback_bps||0);
+  const referral=Number(p.direct_referral_bps||0);
+  const rewards=cashback+referral;
+  const headroom=Math.max(0,fee-variable-contribution-rewards);
+  const per100=(bps)=>adminMoney(Math.floor(10000*Number(bps||0)/10000));
+  return `<section class="section">
+    <div class="section-head"><div><span class="section-kicker">ECONOMIA GLOBAL E INCENTIVOS</span><h2>Política econômica</h2><p>Custos, contribuição mínima, cashback e indicação são globais. Para revendas reais, a taxa efetiva TAMÃO vem do plano de cobrança da revenda; o percentual global abaixo é apenas fallback/compatibilidade. Pedidos existentes preservam o snapshot vigente quando foram criados.</p></div><span class="status-pill ${p.active?'online':'offline'}">V${Number(p.policy_version||1)} • ${p.active?'ATIVA':'INATIVA'}</span></div>
+    <div class="merchant-kpis">
+      <div class="kpi"><span class="label">Taxa global de fallback</span><strong>${adminBpsPct(fee)}%</strong><small>não substitui a taxa do plano da revenda</small></div>
+      <div class="kpi"><span class="label">Reserva variável</span><strong>${adminBpsPct(variable)}%</strong><small>${per100(variable)} por R$ 100</small></div>
+      <div class="kpi"><span class="label">Contribuição mínima</span><strong>${adminBpsPct(contribution)}%</strong><small>${per100(contribution)} por R$ 100</small></div>
+      <div class="kpi"><span class="label">Cashback</span><strong>${adminBpsPct(cashback)}%</strong><small>${per100(cashback)} por R$ 100</small></div>
+      <div class="kpi"><span class="label">Indicação</span><strong>${adminBpsPct(referral)}%</strong><small>${per100(referral)} por R$ 100</small></div>
+      <div class="kpi"><span class="label">Folga econômica</span><strong>${adminBpsPct(headroom)}%</strong><small>${per100(headroom)} por R$ 100 no pior caso</small></div>
+    </div>
+    <div class="card flat form-stack" style="margin-top:12px">
+      <label class="check-row"><input id="policy-active" type="checkbox" ${p.active?'checked':''} onchange="adminPreviewCommercialPolicy()"><span><strong>Política ativa para novos pedidos</strong><small>Desativar durante PILOT/LIVE é bloqueado pelo servidor; pause a operação primeiro.</small></span></label>
+      <div class="field-row">
+        <div class="input-wrap"><label for="policy-fee">Taxa fallback/legado (%)</label><input id="policy-fee" type="number" min="0" max="50" step="0.05" class="input" value="${adminBpsPct(fee)}" oninput="adminPreviewCommercialPolicy()"></div>
+        <div class="input-wrap"><label for="policy-variable">Reserva de custo (%)</label><input id="policy-variable" type="number" min="0" max="50" step="0.05" class="input" value="${adminBpsPct(variable)}" oninput="adminPreviewCommercialPolicy()"></div>
+      </div>
+      <div class="field-row">
+        <div class="input-wrap"><label for="policy-contribution">Contribuição mínima (%)</label><input id="policy-contribution" type="number" min="0" max="50" step="0.05" class="input" value="${adminBpsPct(contribution)}" oninput="adminPreviewCommercialPolicy()"></div>
+        <div class="input-wrap"><label for="policy-cashback">Cashback (%)</label><input id="policy-cashback" type="number" min="0" max="50" step="0.05" class="input" value="${adminBpsPct(cashback)}" oninput="adminPreviewCommercialPolicy()"></div>
+      </div>
+      <div class="field-row">
+        <div class="input-wrap"><label for="policy-referral">Indicação direta (%)</label><input id="policy-referral" type="number" min="0" max="50" step="0.05" class="input" value="${adminBpsPct(referral)}" oninput="adminPreviewCommercialPolicy()"></div>
+        <div class="input-wrap"><label for="policy-hold">Carência da indicação (horas)</label><input id="policy-hold" type="number" min="0" max="2160" step="1" class="input" value="${Number(p.commission_hold_hours||0)}"></div>
+      </div>
+      <div id="policy-preview" class="notice"><strong>Prévia por R$ 100:</strong><br>Taxa ${per100(fee)} • custo ${per100(variable)} • contribuição mínima ${per100(contribution)} • cashback ${per100(cashback)} • indicação ${per100(referral)} • folga ${per100(headroom)}.</div>
+      <div class="input-wrap"><label for="policy-reason">Motivo da alteração</label><input id="policy-reason" class="input" maxlength="1000" placeholder="Ex.: ajustar cashback do piloto após revisão de margem"></div>
+      <button class="primary" onclick="adminSaveCommercialPolicy(${Number(p.policy_version||1)})">Salvar política para pedidos futuros</button>
+      ${p.last_change_reason?`<small class="field-help">Última decisão: ${esc(p.last_change_reason)} • ${esc(formatDateTime(p.updated_at))}</small>`:''}
+    </div>
+  </section>`;
+}
+
+function adminPage(){
+  if(!adminPortalRequested()){
+    return shell('<section class="page"><div class="notice danger">Administração só está disponível no portal protegido.</div></section>');
+  }
+  if(['disabled','loading'].includes(adminRuntime.status)){
+    return shell('<section class="page"><h1 class="page-title">Administração</h1><div class="empty card">Conectando ao control plane…</div></section>');
+  }
+  if(adminRuntime.status==='unsafe-origin'){
+    return shell('<section class="page"><span class="eyebrow">CONTROL PLANE BLOQUEADO</span><h1 class="page-title">Origem administrativa não isolada</h1><div class="notice danger">Por segurança, o painel admin não autentica em uma origem compartilhada como GitHub Pages. Use localhost para desenvolvimento ou configure uma origem dedicada para administração.</div></section>');
+  }
+  if(adminRuntime.status==='unauthenticated')return adminLoginView();
+  if(adminRuntime.status==='no-access')return adminNoAccessView();
+  if(adminRuntime.status==='bootstrap-error')return adminBootstrapErrorView();
+  if(adminRuntime.status!=='ready'||!adminRuntime.data){
+    return shell(`<section class="page"><h1 class="page-title">Administração</h1><div class="notice danger"><strong>Não foi possível carregar o painel.</strong><br>${esc(adminRuntime.error||'Tente novamente.')}</div><button class="secondary full" style="margin-top:12px" onclick="adminRefresh()">Tentar novamente</button></section>`);
+  }
+
+  const d=adminRuntime.data;
+  const currentRole=adminCurrentRole();
+  if(!adminRoleCanSection(adminRuntime.section,currentRole)){
+    adminRuntime.section=adminFirstSectionForRole(currentRole);
+  }
+  const pending=(d.applications||[]).filter(x=>x.status==='pending');
+  const pilotPartners=d.pilotPartners||[];
+  const active=(d.merchants||[]).filter(x=>x.status==='active');
+  const referralReviews=d.referralReviews||[];
+  const pendingReferralReviews=referralReviews.filter(x=>x.risk_status==='review_required'&&x.financialState!=='reversed'&&!x.financialReversedAt);
+  const rewardFailures=d.rewardFailures||[];
+  const deadRewardFailures=rewardFailures.filter(x=>!!x.dead_lettered_at);
+  const accountingFailures=d.accountingFailures||[];
+  const deadAccountingFailures=accountingFailures.filter(x=>!!x.dead_lettered_at);
+  const receivables=d.finance?.receivables||[];
+  const reimbursements=d.finance?.cashbackReimbursements||[];
+  const adjustments=d.finance?.adjustments||[];
+  const platformAdmins=d.platformAdmins||[];
+  const supportCases=d.supportCases||[];
+  const openSupportCases=supportCases.filter(x=>['open','in_review'].includes(x.status));
+  const controlOrders=d.controlOrders||[];
+  const metrics=d.businessMetrics||{};
+  const openFees=receivables.reduce((s,x)=>s+Number(x.platform_fee_cents||0),0);
+  const openCashback=reimbursements.reduce((s,x)=>s+Number(x.cashback_cents||0),0);
+  const openAdjustments=adjustments.reduce((s,x)=>s+Number(x.amount_cents||0),0);
+  const billing=d.merchantBilling||{};
+  const actionableFinanceCount=
+    pendingReferralReviews.length
+    +deadRewardFailures.length
+    +deadAccountingFailures.length
+    +(billing.paymentRequests||[]).filter(x=>x.status==='pending').length
+    +(billing.paymentEvents||[]).filter(x=>x.status==='review_required').length
+    +(billing.refunds||[]).filter(x=>x.status==='review_required').length
+    +(billing.statements||[]).filter(x=>x.status==='overdue').length
+    +(billing.accounts||[]).filter(x=>x.sales_hold===true).length;
+  const activeOrderAttention=controlOrders.filter(x=>['AT_RISK','REASSIGNING','REQUOTE_REQUIRED'].includes(x.status)||adminOrderIsLate(x)).length;
+  const partnerAttention=pending.length+pilotPartners.filter(x=>!['cancelled','converted'].includes(String(x.onboarding_status||''))).length;
+  const incidentAttention=(d.incidents||[]).filter(x=>x.status!=='resolved').length;
+  const securityAttention=(d.launchReadiness?.securityBlockers||[]).length;
+  const badge=(n)=>Number(n)>0?String(Number(n)):'';
+
+  const overviewContent=`
+    <section class="section admin-overview-pulse">
+      <div class="section-head"><div><span class="section-kicker">NEGÓCIO • 30 DIAS</span><h2>Pulso da operação</h2><p>Indicadores server-side calculados apenas sobre fatos liquidados e estados reais do pedido.</p></div><span class="admin-data-freshness">Atualizado ${esc(adminRelativeTime(adminRuntime.lastSyncAt))}</span></div>
+      <div class="admin-exec-grid">
+        ${adminExecutiveKpi({icon:'R
+
+  const ordersContent=`
+    ${adminControlTower({...d,controlOrders})}
+    <section class="section"><div class="section-head"><div><h2>Atendimento de pedidos</h2><p>Problemas registrados pelo cliente entram aqui com vínculo ao pedido, status e trilha administrativa.</p></div><span class="status-pill ${openSupportCases.length?'offline':'online'}">${openSupportCases.length} aberto(s)</span></div>${supportCases.length?supportCases.map(adminSupportCaseCard).join(''):'<div class="empty card">Nenhum atendimento registrado.</div>'}</section>`;
+
+  const customersContent=adminCustomersSection(d);
+
+  const partnersContent=`
+    ${adminPrelaunchLeadsSection(d)}
+    ${adminPublicRequestsSection(d)}
+    <section class="section"><div class="section-head"><div><h2>Parceiros piloto em preparação</h2><p>Interesse comercial registrado antes do cadastro jurídico. Esses registros não participam das ofertas e não contam como revenda ativa.</p></div></div>${pilotPartners.length?pilotPartners.map(adminPilotPartnerCard).join(''):'<div class="empty card">Nenhum parceiro piloto em preparação.</div>'}</section>
+    <section class="section"><div class="section-head"><div><h2>Cadastros de parceiros</h2><p>Aprovação cria a revenda como pendente e vincula o solicitante como owner. Não coloca a operação online.</p></div></div>${(d.applications||[]).length?(d.applications||[]).map(adminApplicationCard).join(''):'<div class="empty card">Nenhum cadastro recebido.</div>'}</section>
+    <section class="section"><div class="section-head"><div><h2>Validação e ativação</h2><p>CNPJ é obrigatório para toda revenda ativa. Qualquer produto GLP ativo exige também validação ANP.</p></div></div>${(d.merchants||[]).length?(d.merchants||[]).map(adminMerchantCard).join(''):'<div class="empty card">Nenhuma revenda criada.</div>'}</section>`;
+
+  const catalogContent=`${adminProductRegistrySection(d)}`;
+
+  const financeContent=`
+    ${adminFinanceOverview(d)}
+    ${adminMerchantBillingSection(d)}
+    ${adminCommercialPolicySection(d)}
+    <section class="section"><div class="section-head"><div><h2>Revisão de indicações</h2><p>Comissões suspeitas não amadurecem automaticamente. Aprovação ainda exige identidades permanentes e fim da quarentena.</p></div><span class="status-pill ${pendingReferralReviews.length?'offline':'online'}">${pendingReferralReviews.length} pendente(s)</span></div>${referralReviews.length?referralReviews.map(adminReferralReviewCard).join(''):'<div class="empty card">Nenhuma indicação exige revisão.</div>'}</section>
+    <section class="section"><div class="section-head"><div><h2>Fila de benefícios</h2><p>Falhas transitórias usam backoff. Dead-letter exige revisão manual; a entrega do pedido permanece concluída.</p></div><span class="status-pill ${deadRewardFailures.length?'offline':'online'}">${deadRewardFailures.length} dead-letter</span></div>${rewardFailures.length?rewardFailures.map(adminRewardFailureCard).join(''):'<div class="empty card">Nenhuma dívida de processamento de benefícios.</div>'}</section>
+    <section class="section"><div class="section-head"><div><h2>Fila contábil de settlement</h2><p>Taxa da plataforma e reembolso de cashback são processados independentemente dos benefícios.</p></div><span class="status-pill ${deadAccountingFailures.length?'offline':'online'}">${deadAccountingFailures.length} dead-letter</span></div>${accountingFailures.length?accountingFailures.map(adminAccountingFailureCard).join(''):'<div class="empty card">Nenhuma dívida contábil de settlement.</div>'}</section>
+    <section class="section"><div class="section-head"><div><h2>Conciliação financeira</h2><p>Taxa da plataforma, cashback usado e ajustes são contas separadas.</p></div></div>
+      <div class="card flat"><h3>Taxas da plataforma</h3><div class="list">${receivables.length?receivables.map(adminReceivableRow).join(''):'<div class="tiny muted">Nenhuma taxa em aberto.</div>'}</div></div>
+      <div class="card flat" style="margin-top:12px"><h3>Cashback a reembolsar</h3><div class="list">${reimbursements.length?reimbursements.map(adminReimbursementRow).join(''):'<div class="tiny muted">Nenhum reembolso em aberto.</div>'}</div></div>
+      <div class="card flat" style="margin-top:12px"><h3>Ajustes de reversão • ${adminMoney(openAdjustments)}</h3><div class="list">${adjustments.length?adjustments.map(adminAdjustmentRow).join(''):'<div class="tiny muted">Nenhum ajuste em aberto.</div>'}</div></div>
+    </section>
+    <section class="section"><div class="card flat form-stack"><h3>Reversão financeira auditada</h3><p class="muted tiny">Somente para um pedido já liquidado que teve estorno/refund confirmado. O histórico operacional de entrega permanece.</p><div class="input-wrap"><label for="admin-reverse-order">ID do pedido</label><input id="admin-reverse-order" class="input" placeholder="UUID do pedido"></div><div class="input-wrap"><label for="admin-reverse-reason">Motivo</label><input id="admin-reverse-reason" class="input" maxlength="240" placeholder="Motivo confirmado"></div><div class="input-wrap"><label for="admin-reverse-ref">Referência</label><input id="admin-reverse-ref" class="input" maxlength="120" placeholder="ID do estorno/comprovante"></div><button class="danger-btn" onclick="adminReverseOrder()">Executar reversão</button></div></section>`;
+
+  const incidentsContent=adminIncidentCenter(d);
+  const auditContent=adminAuditView(d);
+
+  const adminAccessContent=currentRole==='superadmin'
+    ? `<section class="section"><div class="section-head"><div><span class="section-kicker">ACESSO ADMINISTRATIVO</span><h2>Administradores da plataforma</h2><p>RBAC explícito: Superadmin, Operações, Financeiro, Suporte, Compliance e Somente leitura. O último Superadmin ativo não pode ser removido nem rebaixado.</p></div><div class="order-actions"><span class="status-pill online">${platformAdmins.filter(x=>x.active).length} ativo(s)</span><span class="status-pill">${esc(adminRoleLabel(currentRole))}</span></div></div>
+      <div class="card flat form-stack">
+        <div class="list">${platformAdmins.length?platformAdmins.map(x=>`<div class="list-row admin-access-row"><div><strong>${esc(x.user_id)}</strong><br><small>${x.active?'Administrador ativo':'Acesso administrativo suspenso'} • ${esc(adminRoleLabel(x.admin_role))}</small></div><div class="order-actions"><select id="admin-role-${esc(x.user_id)}" class="input small-input" aria-label="Perfil administrativo">${adminRoleOptions(x.admin_role)}</select><button class="secondary small" onclick="adminChangePlatformAdminRole('${esc(x.user_id)}')">Salvar perfil</button><span class="status-pill ${x.active?'online':'offline'}">${x.active?'ATIVO':'INATIVO'}</span><button class="${x.active?'danger-btn':'secondary'} small" onclick="adminSetPlatformAdmin('${esc(x.user_id)}',${x.active?'false':'true'},document.getElementById('admin-role-${esc(x.user_id)}')?.value)">${x.active?'Desativar':'Ativar'}</button></div></div>`).join(''):'<div class="tiny muted">Nenhum administrador bootstrapado ainda.</div>'}</div>
+        <div class="divider"></div>
+        <div class="input-wrap"><label for="admin-new-user-email">E-mail da conta permanente</label><input id="admin-new-user-email" class="input" type="email" maxlength="160" autocomplete="off" placeholder="pessoa@empresa.com"><small class="field-help">A conta precisa ser permanente e confirmada antes de receber acesso administrativo.</small></div>
+        <div class="input-wrap"><label for="admin-new-user-role">Perfil inicial</label><select id="admin-new-user-role" class="input"><option value="readonly">Somente leitura</option><option value="support">Suporte</option><option value="compliance">Compliance</option><option value="operations">Operações</option><option value="finance">Financeiro</option><option value="superadmin">Superadmin</option></select><small class="field-help">Use Superadmin somente para quem precisa controlar acessos e modo operacional.</small></div>
+        <button class="secondary" onclick="adminAddPlatformAdmin()">Adicionar administrador</button>
+      </div>
+    </section>`
+    : currentRole==='readonly'
+      ? `<section class="section"><div class="section-head"><div><span class="section-kicker">ACESSO ADMINISTRATIVO</span><h2>Administradores</h2><p>Consulta sem permissão para alterar perfis ou acessos.</p></div></div><div class="list">${platformAdmins.map(x=>`<div class="list-row"><div><strong>${esc(x.user_id)}</strong><br><small>${esc(adminRoleLabel(x.admin_role))}</small></div><span class="status-pill ${x.active?'online':'offline'}">${x.active?'ATIVO':'INATIVO'}</span></div>`).join('')}</div></section>`
+      : '';
+
+  const systemContent=`
+    ${adminSystemHealthView()}
+    ${adminAccessContent}
+  `;
+
+  const sectionMeta=adminSectionMeta(adminRuntime.section);
+  const operationMode=String(d.launchReadiness?.operationMode||(d.launchReadiness?.commerceEnabled?'LIVE':'PRELAUNCH')).toUpperCase();
+  const menu=`
+    <nav class="admin-sidebar" aria-label="Áreas administrativas">
+      <div class="admin-sidebar-brand"><span class="admin-sidebar-mark">T</span><div><strong>TAMÃO</strong><small>Control Plane</small></div></div>
+      <div class="admin-nav-group">Operação</div>
+      ${adminMenuButton('overview','Visão geral','⌂')}
+      ${adminMenuButton('orders','Pedidos','▣',badge(activeOrderAttention+openSupportCases.length))}
+      ${adminMenuButton('customers','Clientes','◎')}
+      ${adminMenuButton('partners','Parceiros','◇',badge(partnerAttention))}
+      ${adminMenuButton('catalog','Catálogo','▤')}
+      ${adminMenuButton('finance','Financeiro','₿',badge(actionableFinanceCount))}
+      <div class="admin-nav-group">Governança</div>
+      ${adminMenuButton('incidents','Incidentes','!',badge(incidentAttention))}
+      ${adminMenuButton('audit','Auditoria','⌕')}
+      ${adminMenuButton('system','Segurança e sistema','⚙',badge(securityAttention))}
+      <div class="admin-sidebar-foot">
+        <span class="admin-sidebar-mode ${['LIVE','PILOT'].includes(operationMode)?'live':operationMode==='PAUSED'?'paused':'prelaunch'}"><i></i>${esc(operationMode)}</span>
+        <small>${esc(adminRoleLabel(currentRole))} • atualizado ${esc(adminRelativeTime(adminRuntime.lastSyncAt))}</small>
+      </div>
+    </nav>`;
+
+  return shell(`<section class="page admin-page">
+    <header class="admin-page-header">
+      <div class="admin-page-heading"><span class="section-kicker">${esc(sectionMeta.kicker)}</span><h1>${esc(sectionMeta.title)}</h1><p>${esc(sectionMeta.description)}</p></div>
+      <div class="admin-page-actions"><span class="admin-role-chip">${esc(adminRoleLabel(currentRole))}</span><button class="secondary small" onclick="adminRefresh()" ${adminRuntime.actionPending?'disabled':''}><span aria-hidden="true">↻</span> Atualizar</button><button class="ghost small" onclick="adminSignOut()">Sair</button></div>
+    </header>
+    ${adminOperationalStrip(d)}
+    ${adminRuntime.error?`<div class="notice danger admin-page-error">${esc(adminRuntime.error)}</div>`:''}
+    ${adminGlobalSearchView()}
+    <div class="admin-workspace">
+      ${menu}
+      <main class="admin-main">
+        ${adminPanel('overview',overviewContent)}
+        ${adminPanel('orders',ordersContent)}
+        ${adminPanel('customers',customersContent)}
+        ${adminPanel('partners',partnersContent)}
+        ${adminPanel('catalog',catalogContent)}
+        ${adminPanel('finance',financeContent)}
+        ${adminPanel('incidents',incidentsContent)}
+        ${adminPanel('audit',auditContent)}
+        ${adminPanel('system',systemContent)}
+      </main>
+    </div>
+    ${adminDetailView()}
+  </section>`);
+}
+
+function adminFilterRegistry(){
+  const query=String(document.getElementById('registry-search')?.value||'').trim().toLowerCase();
+  const category=String(document.getElementById('registry-category-filter')?.value||'').trim();
+  let visible=0;
+  document.querySelectorAll('.admin-registry-product').forEach(row=>{
+    const hay=String(row.dataset.productSearch||'');
+    const cat=String(row.dataset.productCategory||'');
+    const show=(!query||hay.includes(query))&&(!category||cat===category);
+    row.hidden=!show;
+    if(show)visible++;
+  });
+  const count=document.getElementById('registry-visible-count');
+  if(count)count.textContent=String(visible);
+}
+
+async function adminCreateProductCategory(){
+  const categoryKey=String(document.getElementById('registry-category-key')?.value||'').trim().toLowerCase();
+  const categoryName=String(document.getElementById('registry-category-name')?.value||'').trim();
+  const sortOrder=Number(document.getElementById('registry-category-sort')?.value||100);
+  if(!/^[a-z][a-z0-9_]{1,39}$/.test(categoryKey))return toast('Use uma chave simples, como bebidas ou limpeza');
+  if(categoryName.length<2)return toast('Informe o nome da categoria');
+  if(!Number.isSafeInteger(sortOrder)||sortOrder<0||sortOrder>10000)return toast('Ordem inválida');
+  const reason=prompt('Motivo para criar/atualizar esta categoria:')||'';
+  if(reason.trim().length<3)return toast('Informe o motivo');
+  try{
+    await adminPerform('product-registry',{
+      registryAction:'upsert-category',categoryKey,categoryName,
+      active:true,sortOrder,reason
+    });
+    toast('Categoria salva');
+  }catch(e){toast(String(e?.message||e))}
+}
+async function adminToggleProductCategory(categoryKey,active,sortOrder){
+  const category=(adminRuntime.data?.productRegistry?.categories||[]).find(x=>x.category_key===categoryKey);
+  const categoryName=String(category?.category_name||categoryKey);
+  const reason=prompt((active?'Motivo para ativar ':'Motivo para pausar ')+categoryName+':')||'';
+  if(reason.trim().length<3)return toast('Informe o motivo');
+  if(!active&&!confirm('Pausar esta categoria? SKUs ativos das revendas serão pausados e precisarão ser reconfirmados antes de voltar a vender.'))return;
+  try{
+    await adminPerform('product-registry',{
+      registryAction:'upsert-category',categoryKey,categoryName,
+      active:active===true,sortOrder:Number(sortOrder||100),reason
+    });
+    toast(active?'Categoria ativada':'Categoria pausada');
+  }catch(e){toast(String(e?.message||e))}
+}
+async function adminCreateRegistryProduct(){
+  const productCode=String(document.getElementById('registry-product-code')?.value||'').trim().toUpperCase();
+  const productName=String(document.getElementById('registry-product-name')?.value||'').trim();
+  const categoryKey=String(document.getElementById('registry-product-category')?.value||'').trim().toLowerCase();
+  const sortOrder=Number(document.getElementById('registry-product-sort')?.value||100);
+  const customerVisible=document.getElementById('registry-product-visible')?.checked===true;
+  const merchantAddAllowed=document.getElementById('registry-product-merchant')?.checked===true;
+  if(!/^[A-Z][A-Z0-9_]{1,31}$/.test(productCode))return toast('Código inválido. Use letras, números e underscore.');
+  if(/^P[0-9]/.test(productCode))return toast('Códigos Pxx são reservados à família GLP canônica');
+  if(productName.length<2)return toast('Informe o nome do produto');
+  if(!categoryKey||categoryKey==='glp')return toast('Escolha uma categoria geral');
+  if(!Number.isSafeInteger(sortOrder)||sortOrder<0||sortOrder>10000)return toast('Ordem inválida');
+  const reason=prompt('Motivo para cadastrar/atualizar este produto:')||'';
+  if(reason.trim().length<3)return toast('Informe o motivo');
+  try{
+    await adminPerform('product-registry',{
+      registryAction:'upsert-product',
+      categoryKey,productCode,productName,
+      deliveryClass:'household_general',
+      requiresIsolatedDelivery:false,
+      customerVisible,merchantAddAllowed,
+      active:false,sortOrder,reason
+    });
+    toast('Produto criado como PAUSADO. Revise os dados e ative explicitamente quando estiver pronto para publicação.');
+  }catch(e){toast(String(e?.message||e))}
+}
+async function adminSetProductActive(productCode,active){
+  const reason=prompt((active?'Motivo para ativar ':'Motivo para pausar ')+productCode+':')||'';
+  if(reason.trim().length<3)return toast('Informe o motivo');
+  if(!active&&!confirm('Pausar este produto? Itens ativos das revendas serão pausados e não serão reativados automaticamente.'))return;
+  try{
+    await adminPerform('product-registry',{
+      registryAction:'set-product-active',
+      productCode,active:active===true,sortOrder:100,reason
+    });
+    toast(active?'Produto ativado':'Produto pausado');
+  }catch(e){toast(String(e?.message||e))}
+}
+
+function adminPolicyFieldBps(id){
+  const n=Number(document.getElementById(id)?.value);
+  if(!Number.isFinite(n)||n<0||n>50)return null;
+  return Math.round(n*100);
+}
+function adminPreviewCommercialPolicy(){
+  const el=document.getElementById('policy-preview');
+  if(!el)return;
+  const fee=adminPolicyFieldBps('policy-fee');
+  const variable=adminPolicyFieldBps('policy-variable');
+  const contribution=adminPolicyFieldBps('policy-contribution');
+  const cashback=adminPolicyFieldBps('policy-cashback');
+  const referral=adminPolicyFieldBps('policy-referral');
+  if([fee,variable,contribution,cashback,referral].some(x=>x==null)){
+    el.className='notice danger';
+    el.innerHTML='<strong>Prévia indisponível.</strong><br>Revise os percentuais.';
+    return;
+  }
+  const headroom=fee-variable-contribution-cashback-referral;
+  const cents=(bps)=>adminMoney(Math.floor(10000*bps/10000));
+  el.className='notice '+(headroom>=0?'success':'danger');
+  el.innerHTML='<strong>Prévia por R$ 100:</strong><br>Taxa '+cents(fee)+' • custo '+cents(variable)+' • contribuição mínima '+cents(contribution)+' • cashback '+cents(cashback)+' • indicação '+cents(referral)+' • folga '+cents(Math.max(0,headroom))+(headroom<0?' • <strong>POLÍTICA NÃO FINANCIADA</strong>':'');
+}
+async function adminSaveCommercialPolicy(expectedVersion){
+  const active=document.getElementById('policy-active')?.checked===true;
+  const platformFeeBps=adminPolicyFieldBps('policy-fee');
+  const variableCostBps=adminPolicyFieldBps('policy-variable');
+  const minimumContributionBps=adminPolicyFieldBps('policy-contribution');
+  const cashbackBps=adminPolicyFieldBps('policy-cashback');
+  const directReferralBps=adminPolicyFieldBps('policy-referral');
+  const commissionHoldHours=Number(document.getElementById('policy-hold')?.value);
+  const reason=document.getElementById('policy-reason')?.value.trim()||'';
+  if([platformFeeBps,variableCostBps,minimumContributionBps,cashbackBps,directReferralBps].some(x=>x==null)){
+    return toast('Revise os percentuais da política');
+  }
+  if(!Number.isSafeInteger(commissionHoldHours)||commissionHoldHours<0||commissionHoldHours>2160){
+    return toast('A carência precisa estar entre 0 e 2160 horas');
+  }
+  if(reason.length<3)return toast('Informe o motivo da alteração');
+  if(active&&platformFeeBps<variableCostBps+minimumContributionBps+cashbackBps+directReferralBps){
+    return toast('A taxa TAMÃO não financia custos, contribuição mínima e recompensas informadas');
+  }
+  if(!confirm('Salvar esta política para PEDIDOS FUTUROS? Pedidos existentes manterão seus snapshots atuais.'))return;
+  try{
+    await adminPerform('commercial-policy',{
+      expectedVersion,
+      active,
+      platformFeeBps,
+      variableCostBps,
+      minimumContributionBps,
+      cashbackBps,
+      directReferralBps,
+      commissionHoldHours,
+      reason
+    });
+    toast('Política comercial atualizada para pedidos futuros');
+  }catch(e){toast(String(e?.message||e))}
+}
+
+function adminOpenWhatsapp(phone){
+  const digits=String(phone||'').replace(/\D/g,'');
+  if(digits.length<10)return toast('Contato indisponível');
+  window.open('https://wa.me/'+digits,'_blank','noopener,noreferrer');
+}
+async function adminOrderControl(orderId,expectedVersion,controlAction){
+  const labels={
+    note:'Registrar uma observação administrativa neste pedido:',
+    rescue:'Motivo para buscar outra revenda:',
+    cancel:'Motivo para cancelar o pedido antes da saída:',
+    'cancel-after-dispatch':'Descreva a falha confirmada depois da saída:'
+  };
+  const reason=prompt(labels[controlAction]||'Motivo da intervenção:')||'';
+  if(reason.trim().length<3)return toast('Informe o motivo da intervenção');
+  if(controlAction==='rescue'&&!confirm('Buscar outra revenda agora? O sistema revalidará estoque, preço, compliance, pagamento e capacidade. Se a nova condição for mais cara, o cliente deverá confirmar.'))return;
+  if(controlAction==='cancel'&&!confirm('Cancelar este pedido antes da saída? Estoque reservado e cashback serão restaurados quando aplicável.'))return;
+  if(controlAction==='cancel-after-dispatch'&&!confirm('Encerrar esta entrega após a saída? O cashback será liberado e o PIN invalidado, mas o estoque NÃO será restaurado automaticamente. Use somente após confirmar que a entrega falhou.'))return;
+  try{
+    const result=await adminPerform('order-control',{orderId,expectedVersion,controlAction,reason});
+    toast(controlAction==='note'?'Observação registrada':controlAction==='rescue'?'Resgate executado':controlAction==='cancel-after-dispatch'?'Entrega falhada encerrada; revisar estoque físico':'Pedido cancelado');
+    return result;
+  }catch(e){toast(String(e?.message||e))}
+}
+
+async function adminVerifyLaunchPortals(){
+  try{
+    const result=await adminPerform('verify-launch-portals',{});
+    if(result?.ok)toast('Os três portais live foram verificados');
+  }catch(e){toast(String(e?.message||e))}
+}
+async function adminConfirmLaunchRequirement(requirementKey){
+  const reason=prompt('Explique por que esta pendência pode ser assumida agora pelo administrador:')||'';
+  if(reason.trim().length<3)return toast('Informe o motivo da decisão');
+  const hoursText=prompt('Validade da confirmação em horas. Deixe vazio para não expirar:','24');
+  if(hoursText===null)return;
+  let expiresAt=null;
+  if(String(hoursText).trim()){
+    const hours=Number(hoursText);
+    if(!Number.isFinite(hours)||hours<=0||hours>8760)return toast('Informe uma validade entre 1 e 8760 horas');
+    expiresAt=new Date(Date.now()+hours*60*60*1000).toISOString();
+  }
+  const evidence=prompt('Evidência ou referência opcional:','')||'';
+  if(!confirm('Estou ciente do risco e desejo registrar esta decisão administrativa.'))return;
+  try{
+    await adminPerform('confirm-launch-requirement',{
+      requirementKey,
+      status:'confirmed',
+      reason,
+      evidence,
+      expiresAt,
+      source:'admin-panel'
+    });
+    toast('Decisão registrada na auditoria');
+  }catch(e){toast(String(e?.message||e))}
+}
+function adminRequireTypedConfirmation(expected,message){
+  const value=prompt(message+'\n\nDigite exatamente: '+expected);
+  return value===expected;
+}
+async function adminSetOperationMode(mode){
+  const target=String(mode||'').toUpperCase();
+  const labels={PRELAUNCH:'voltar ao pré-lançamento',PILOT:'ativar a operação piloto',LIVE:'ativar a operação normal',PAUSED:'pausar novos pedidos'};
+  if(!labels[target])return toast('Modo operacional inválido');
+  const reason=prompt('Motivo para '+labels[target]+':')||'';
+  if(reason.trim().length<3)return toast('Informe o motivo da mudança');
+  const confirmText=target==='PAUSED'
+    ?'Pausar novos pedidos agora? Pedidos existentes e o painel continuarão acessíveis.'
+    :target==='LIVE'
+      ?'Ativar LIVE agora? Esta ação libera a operação normal conforme o checklist confirmado.'
+      :target==='PILOT'
+        ?'Ativar PILOT agora? Pedidos reais serão permitidos em operação controlada.'
+        :'Voltar a PRELAUNCH? Novos pedidos reais ficarão bloqueados.';
+  if(!confirm(confirmText))return;
+  if(target==='LIVE'&&!adminRequireTypedConfirmation('ATIVAR LIVE','Confirmação reforçada para liberar operação normal.'))return toast('Ativação LIVE cancelada');
+  try{
+    await adminPerform('set-operation-mode',{mode:target,reason});
+    toast('Modo operacional atualizado para '+target);
+  }catch(e){toast(String(e?.message||e))}
+}
+async function adminSetCommerceEnabled(enabled){
+  return adminSetOperationMode(enabled?'PILOT':'PAUSED');
+}
+
+async function adminSetSupportStatus(caseId,status){
+  const label=status==='in_review'?'colocar este atendimento em análise':status==='resolved'?'resolver este atendimento':'encerrar este atendimento';
+  let resolutionNote='';
+  if(['resolved','closed'].includes(status)){
+    resolutionNote=prompt('Descreva a solução ou motivo do encerramento:')||'';
+    if(resolutionNote.trim().length<3)return toast('Informe como o atendimento foi tratado');
+  }
+  if(!confirm('Confirma '+label+'?'))return;
+  try{
+    await adminPerform('support-case-status',{caseId,status,resolutionNote});
+    toast(status==='in_review'?'Atendimento em análise':status==='resolved'?'Atendimento resolvido':'Atendimento encerrado');
+  }catch(e){toast(String(e?.message||e))}
+}
+
+function adminGeneratePilotInviteToken(){
+  const bytes=new Uint8Array(32);
+  crypto.getRandomValues(bytes);
+  let binary='';
+  for(const byte of bytes)binary+=String.fromCharCode(byte);
+  return btoa(binary).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');
+}
+function adminPilotInviteLink(token){
+  const configured=String(globalThis.CHAMA_MERCHANT_ORIGIN||'https://parceiro.tamao.com.br').trim();
+  const url=new URL(configured||'https://parceiro.tamao.com.br',location.href);
+  url.pathname='/';
+  url.search='';
+  url.searchParams.set('pilot',token);
+  url.hash='merchant-join';
+  return url.toString();
+}
+async function adminIssuePilotInvite(id){
+  const p=(adminRuntime.data?.pilotPartners||[]).find(x=>x.id===id);
+  if(!p)return toast('Parceiro piloto não encontrado');
+  if(['converted','cancelled'].includes(String(p.onboarding_status||'')))return toast('Este parceiro não pode receber novo convite');
+  const daysRaw=prompt('Validade do novo convite em dias (1 a 90):','14');
+  if(daysRaw==null)return;
+  const days=Number(daysRaw);
+  if(!Number.isInteger(days)||days<1||days>90)return toast('Informe uma validade entre 1 e 90 dias');
+  if(p.activeInvite&&!confirm('Já existe um convite ativo. Rotacionar agora invalidará o link anterior. Continuar?'))return;
+  const token=adminGeneratePilotInviteToken();
+  const expiresAt=new Date(Date.now()+days*24*60*60*1000).toISOString();
+  try{
+    const result=await adminPerform('pilot-invite',{pilotPartnerId:id,inviteAction:'issue',token,expiresAt});
+    const link=adminPilotInviteLink(token);
+    try{await navigator.clipboard?.writeText(link)}catch{}
+    prompt('Convite criado'+(Number(result?.rotatedPreviousCount||0)>0?' e o link anterior foi revogado':'')+'. Copie este link agora e envie ao parceiro. Por segurança, ele não poderá ser recuperado depois; se for perdido, rotacione o convite:',link);
+    toast('Convite piloto criado com validade até '+new Date(result?.expiresAt||expiresAt).toLocaleString('pt-BR'));
+  }catch(e){toast(String(e?.message||e))}
+}
+async function adminRevokePilotInvite(id){
+  const p=(adminRuntime.data?.pilotPartners||[]).find(x=>x.id===id);
+  if(!p)return toast('Parceiro piloto não encontrado');
+  if(!confirm('Revogar o convite ativo deste parceiro? O link deixará de funcionar imediatamente.'))return;
+  try{
+    const result=await adminPerform('pilot-invite',{pilotPartnerId:id,inviteAction:'revoke'});
+    toast(Number(result?.revokedCount||0)>0?'Convite revogado':'Nenhum convite ativo para revogar');
+  }catch(e){toast(String(e?.message||e))}
+}
+
+async function adminConvertPilotPartner(id){
+  const p=(adminRuntime.data?.pilotPartners||[]).find(x=>x.id===id);
+  if(!p)return toast('Parceiro piloto não encontrado');
+  const prefix='pilot-'+id;
+  const value=(suffix)=>document.getElementById(prefix+'-'+suffix)?.value?.trim()||'';
+  const checked=(suffix)=>document.getElementById(prefix+'-'+suffix)?.checked===true;
+  const paymentMethods=[];
+  if(checked('pay-pix'))paymentMethods.push('pix');
+  if(checked('pay-cash'))paymentMethods.push('cash');
+  if(checked('pay-card'))paymentMethods.push('card');
+  const required={
+    legalName:value('legal'),cnpj:value('cnpj'),responsibleName:value('responsible'),
+    phone:value('phone'),whatsapp:value('whatsapp'),postalCode:value('postal'),
+    city:value('city'),addressText:value('address')
+  };
+  if(Object.values(required).some(x=>!x))return toast('Preencha os dados reais obrigatórios da revenda');
+  const ownerUserId=null;
+  const availableStock=Number(value('stock')||0);
+  const deliveryFeeCents=Math.round(Number(value('fee')||0)*100);
+  const baseEtaMinutes=Number(value('eta')||30);
+  const radiusText=value('radius');
+  if(!confirm('Criar esta revenda como PENDENTE? Compliance não será marcado como verificado e a revenda não ficará online automaticamente.'))return;
+  try{
+    const result=await adminPerform('assisted-merchant-onboarding',{
+      draftId:id,
+      tradeName:p.display_name,
+      ...required,
+      state:'RS',
+      ownerUserId,
+      ownerDisplayName:value('owner-name')||null,
+      productCode:p.proposed_product_code,
+      productName:adminProductName(p.proposed_product_code),
+      pricingMode:p.pricing_mode||'fixed',
+      minPriceCents:Number(p.min_delivered_price_cents||p.proposed_delivered_price_cents),
+      preferredPriceCents:Number(p.preferred_delivered_price_cents||p.proposed_delivered_price_cents),
+      maxPriceCents:Number(p.max_delivered_price_cents||p.proposed_delivered_price_cents),
+      pricingStrategy:p.pricing_strategy||'balanced',
+      availableStock,
+      paymentMethods,
+      deliveryFeeCents,
+      baseEtaMinutes,
+      acceptsCitywide:checked('citywide'),
+      serviceRadiusKm:radiusText===''?null:Number(radiusText),
+      adminNotes:value('notes')||null
+    });
+    toast(result?.alreadyConverted?'Parceiro já estava convertido':'Revenda criada como pendente');
+  }catch(e){toast(String(e?.message||e))}
+}
+
+async function adminApproveApplication(id){
+  try{await adminPerform('approve-application',{applicationId:id});toast('Cadastro aprovado para validação')}catch(e){toast(String(e?.message||e))}
+}
+async function adminRejectApplication(id){
+  const reason=prompt('Motivo da rejeição:');
+  if(!reason)return;
+  try{await adminPerform('reject-application',{applicationId:id,reason});toast('Cadastro rejeitado')}catch(e){toast(String(e?.message||e))}
+}
+async function adminSaveCompliance(id){
+  const cnpjStatus=document.getElementById('cnpj-'+id)?.value||'pending';
+  const anpStatus=document.getElementById('anp-'+id)?.value||'pending';
+  const anpReference=document.getElementById('anpref-'+id)?.value.trim()||'';
+  const notes=document.getElementById('notes-'+id)?.value.trim()||'';
+  if(cnpjStatus==='verified'&&notes.length<5)return toast('Registre a fonte/evidência usada para verificar o CNPJ');
+  if(anpStatus==='verified'&&anpReference.length<3)return toast('Informe a referência da consulta ANP');
+  if((cnpjStatus==='rejected'||anpStatus==='rejected')&&notes.length<5)return toast('Documente a evidência da rejeição');
+  try{
+    await adminPerform('verify-merchant',{merchantId:id,cnpjStatus,anpStatus,anpReference,notes});
+    toast('Validação salva');
+  }catch(e){toast(String(e?.message||e))}
+}
+async function adminSaveDeliveryCapability(id){
+  const active=document.getElementById('mixed-'+id)?.checked===true;
+  const notes=document.getElementById('mixednotes-'+id)?.value.trim()||'';
+  if(active&&!confirm('Confirma que esta revenda foi validada operacionalmente para cesta mista com GLP?'))return;
+  try{
+    await adminPerform('set-delivery-capability',{merchantId:id,active,notes});
+    toast(active?'Capacidade logística verificada':'Capacidade logística revogada');
+  }catch(e){toast(String(e?.message||e))}
+}
+
+async function adminSetMerchantPaymentCapability(merchantId,enabled){
+  const merchant=(adminRuntime.data?.merchants||[]).find(x=>x.id===merchantId);
+  const name=merchant?.name||'esta revenda';
+  const reference=prompt(
+    enabled
+      ?'Referência da homologação E2E (ticket, teste ou evidência):'
+      :'Motivo/referência da suspensão:'
+  )||'';
+  if(reference.trim().length<3)return toast('Informe uma referência auditável');
+  const message=enabled
+    ?'Homologar pagamento direto para '+name+'? O dinheiro continuará indo direto à conta Mercado Pago da revenda. O kill switch global permanece independente.'
+    :'Suspender pagamento direto para '+name+'? Checkouts já iniciados continuam sujeitos ao controle financeiro e a cancelamento/reembolso seguro.';
+  if(!confirm(message))return;
+  if(enabled&&!adminRequireTypedConfirmation('HOMOLOGAR','A homologação permite validar pagamentos feitos diretamente na conta da revenda quando o kill switch global estiver ativo.'))return toast('Homologação cancelada');
+  try{
+    const result=await adminPerform('merchant-payment-capability',{
+      merchantId,
+      enabled:enabled===true,
+      reference:reference.trim()
+    });
+    toast(result?.directSalePaymentsEnabled?'Pagamentos diretos homologados para a revenda':'Pagamentos diretos suspensos para a revenda');
+  }catch(e){toast(String(e?.message||e))}
+}
+
+async function adminSetMerchantStatus(id,action){
+  const label=action==='activate-merchant'?'ativar':'suspender';
+  if(!confirm('Confirma '+label+' esta revenda?'))return;
+  try{await adminPerform(action,{merchantId:id});toast('Status atualizado')}catch(e){toast(String(e?.message||e))}
+}
+async function adminReviewReferral(orderId,decision){
+  const notes=prompt(decision==='approved'?'Observação da aprovação (opcional):':'Motivo da rejeição / evidência:')||'';
+  if(decision==='rejected'&&!notes.trim())return toast('Informe o motivo da rejeição');
+  if(!confirm(decision==='approved'?'Aprovar esta comissão após a revisão de risco?':'Rejeitar esta comissão? O pedido e cashback do comprador continuarão válidos.'))return;
+  try{
+    await adminPerform('review-referral',{orderId,decision,notes});
+    toast(decision==='approved'?'Comissão aprovada para continuar na validação':'Comissão rejeitada e saldo pendente ajustado');
+  }catch(e){toast(String(e?.message||e))}
+}
+async function adminRetryReward(orderId){
+  if(!confirm('Reprocessar os benefícios deste pedido agora? A entrega não será alterada.'))return;
+  try{
+    const result=await adminPerform('retry-reward',{orderId});
+    if(result?.ok){
+      toast(result?.alreadyResolved?'A dívida já estava resolvida':'Benefícios reprocessados com sucesso');
+    }else{
+      toast('O reprocessamento falhou e permaneceu registrado para revisão');
+    }
+  }catch(e){toast(String(e?.message||e))}
+}
+
+async function adminRetryAccounting(orderId){
+  if(!confirm('Reprocessar a contabilidade deste pedido agora? A entrega e os benefícios não serão alterados.'))return;
+  try{
+    const result=await adminPerform('retry-accounting',{orderId});
+    if(result?.ok){
+      toast(result?.alreadyResolved?'A dívida contábil já estava resolvida':'Contabilidade reprocessada com sucesso');
+    }else{
+      toast('A contabilidade continuou em falha e permaneceu registrada');
+    }
+  }catch(e){toast(String(e?.message||e))}
+}
+
+async function adminSetPlatformAdmin(targetUserId,active,adminRole=null){
+  const current=(adminRuntime.data?.platformAdmins||[]).find(x=>x.user_id===targetUserId);
+  const role=adminRole||document.getElementById('admin-role-'+targetUserId)?.value||current?.admin_role||'readonly';
+  if(active!==true&&!confirm('Desativar este administrador? O último Superadmin ativo nunca pode ser removido.'))return;
+  try{
+    await adminPerform('set-platform-admin',{targetUserId,active:active===true,adminRole:role});
+    toast(active?'Acesso administrativo atualizado':'Administrador desativado');
+  }catch(e){toast(String(e?.message||e))}
+}
+async function adminChangePlatformAdminRole(targetUserId){
+  const current=(adminRuntime.data?.platformAdmins||[]).find(x=>x.user_id===targetUserId);
+  if(!current)return toast('Administrador não encontrado');
+  const role=document.getElementById('admin-role-'+targetUserId)?.value||current.admin_role;
+  if(role===current.admin_role)return toast('O perfil já está selecionado');
+  if(!confirm('Alterar o perfil deste administrador para '+adminRoleLabel(role)+'?'))return;
+  if(role==='superadmin'&&!adminRequireTypedConfirmation('SUPERADMIN','Elevar uma conta a Superadmin concede autoridade máxima sobre o control plane.'))return toast('Alteração cancelada');
+  return adminSetPlatformAdmin(targetUserId,current.active,role);
+}
+async function adminAddPlatformAdmin(){
+  const targetEmail=document.querySelector('#admin-new-user-email')?.value.trim().toLowerCase()||'';
+  const adminRole=document.querySelector('#admin-new-user-role')?.value||'readonly';
+  if(targetEmail.length<3||targetEmail.length>160||!/^\S+@\S+\.\S+$/.test(targetEmail)){
+    return toast('Informe um e-mail válido de conta permanente');
+  }
+  if(adminRole==='superadmin'&&!adminRequireTypedConfirmation('SUPERADMIN','Conceder Superadmin a uma nova conta entrega autoridade máxima sobre o control plane.'))return toast('Inclusão cancelada');
+  try{
+    await adminPerform('set-platform-admin',{targetEmail,active:true,adminRole});
+    toast('Administrador adicionado como '+adminRoleLabel(adminRole));
+  }catch(e){toast(String(e?.message||e))}
+}
+
+async function adminResolveBillingRefund(refundId,refundAction){
+  const billing=adminRuntime.data?.merchantBilling||{};
+  const refund=(billing.refunds||[]).find(x=>x.id===refundId);
+  if(!refund)return toast('Refund financeiro não encontrado');
+  if(refund.status!=='review_required')return toast('Este refund já foi resolvido');
+
+  const recovery=(billing.refundRecoveries||[]).find(x=>x.refund_id===refund.id)||null;
+
+  if(refundAction==='dismiss-unrelated'){
+    if(refund.payment_request_id||refund.merchant_id){
+      return toast('Refund ligado não pode ser descartado como não relacionado.');
+    }
+    const reference=prompt('Explique por que este refund não pertence a uma cobrança TAMÃO:')||'';
+    if(reference.trim().length<3)return toast('Informe a referência da resolução');
+    if(!confirm('Confirmar que este refund não está relacionado ao TAMÃO? Esta opção só funciona para item sem revenda/solicitação vinculada.'))return;
+    try{
+      await adminPerform('merchant-billing-refund',{
+        refundId,
+        refundAction:'dismiss-unrelated',
+        reference
+      });
+      toast('Refund encerrado como não relacionado');
+    }catch(e){toast(String(e?.message||e))}
+    return;
+  }
+
+  if(refundAction==='dismiss-excess'){
+    if(!refund.payment_request_id||!refund.merchant_id){
+      return toast('Somente refund ligado pode ser reconhecido como excesso.');
+    }
+    if(refund.match_reason!=='refund_total_exceeds_original'){
+      return toast('Este refund não excede a exposição original.');
+    }
+    if(recovery){
+      return toast('Ainda existe valor recuperável. Quite/aprove a obrigação antes de tratar o excesso.');
+    }
+    const reference=prompt('Referência para reconhecer que este valor excede a exposição original e não deve virar dívida:')||'';
+    if(reference.trim().length<3)return toast('Informe a referência da resolução');
+    if(!confirm('Reconhecer este refund como excesso acima do pagamento original? O fato do PSP permanecerá auditável, mas nenhum valor adicional será cobrado da revenda.'))return;
+    try{
+      await adminPerform('merchant-billing-refund',{
+        refundId,
+        refundAction:'dismiss-excess',
+        reference
+      });
+      toast('Excesso do PSP reconhecido sem criar dívida adicional');
+    }catch(e){toast(String(e?.message||e))}
+    return;
+  }
+
+  toast('Refund ligado só pode ser recuperado por pagamento aprovado; excesso só pode ser reconhecido quando não houver exposição restante.');
+}
+
+async function adminBillingPaymentEventAction(paymentEventId,eventAction){
+  const event=(adminRuntime.data?.merchantBilling?.paymentEvents||[]).find(x=>x.id===paymentEventId);
+  if(!event)return toast('Evento financeiro não encontrado');
+  if(eventAction==='ignore'){
+    if(event.status!=='review_required')return toast('Somente eventos em revisão podem ser ignorados');
+    const reason=prompt('Motivo para ignorar este evento financeiro:')||'';
+    if(reason.trim().length<3)return toast('Informe o motivo');
+    if(!confirm('Ignorar este evento sem apagar seu histórico? Ele continuará auditável.'))return;
+    try{
+      await adminPerform('merchant-billing-payment-event',{paymentEventId,eventAction,reason});
+      toast('Evento encerrado como ignorado');
+    }catch(e){toast(String(e?.message||e))}
+    return;
+  }
+  if(eventAction!=='recheck')return toast('Ação financeira inválida');
+  try{
+    await adminPerform('merchant-billing-payment-event',{paymentEventId,eventAction,reason:null});
+    toast('Conciliação reprocessada');
+  }catch(e){toast(String(e?.message||e))}
+}
+
+async function adminResolveBillingPaymentRequest(paymentRequestId,requestAction,reconciledEventId=null){
+  const billing=adminRuntime.data?.merchantBilling||{};
+  const request=(billing.paymentRequests||[]).find(x=>x.id===paymentRequestId);
+  if(!request)return toast('Solicitação financeira não encontrada');
+  if(request.status!=='pending')return toast('Esta solicitação já foi resolvida');
+  const approve=requestAction==='approve';
+  const expectedCents=Number(request.expected_amount_cents||0);
+  const reconciledEvent=reconciledEventId
+    ?(billing.paymentEvents||[]).find(x=>x.id===reconciledEventId)
+    :null;
+  if(reconciledEventId&&(
+    !reconciledEvent
+    ||reconciledEvent.status!=='matched_exact'
+    ||reconciledEvent.payment_request_id!==request.id
+  )){
+    return toast('O evento conciliado mudou. Atualize o painel antes de aprovar.');
+  }
+  let receivedAmountCents=null;
+  let paymentMethod=null;
+  let reconciliationKey=null;
+  if(approve&&reconciledEvent){
+    receivedAmountCents=Number(reconciledEvent.amount_cents||0);
+    paymentMethod=String(reconciledEvent.payment_method||'');
+    reconciliationKey=String(reconciledEvent.reconciliation_key||'').trim();
+    if(receivedAmountCents!==expectedCents){
+      return toast('O evento não possui o valor exato desta solicitação.');
+    }
+  }else if(approve){
+    const defaultAmount=(expectedCents/100).toFixed(2).replace('.',',');
+    const receivedRaw=prompt('Valor efetivamente recebido (R$):',defaultAmount);
+    if(receivedRaw==null)return;
+    receivedAmountCents=adminParseMoneyToCents(receivedRaw);
+    if(receivedAmountCents==null)return toast('Informe um valor recebido válido');
+    if(receivedAmountCents!==expectedCents){
+      return toast('Valor recebido diferente do esperado. Não é possível aprovar esta solicitação.');
+    }
+    const methodRaw=prompt('Forma confirmada: pix, transferencia, dinheiro, cartao ou outro','pix');
+    if(methodRaw==null)return;
+    paymentMethod=adminNormalizePaymentMethod(methodRaw);
+    if(!paymentMethod)return toast('Informe uma forma de pagamento válida');
+    const keyHint=paymentMethod==='pix'
+      ? 'Identificador único da transação (EndToEndId do Pix):'
+      : 'Identificador único da transação/recibo:';
+    reconciliationKey=prompt(keyHint)||'';
+    reconciliationKey=reconciliationKey.trim().replace(/\s+/g,' ');
+    if(reconciliationKey.length<6||reconciliationKey.length>160){
+      return toast('Informe um identificador único da transação entre 6 e 160 caracteres');
+    }
+  }
+  const defaultReference=reconciledEvent
+    ?'Evento '+reconciledEvent.provider+' • '+reconciledEvent.provider_event_id
+    :'';
+  const reference=prompt(
+    approve?'Referência/observação da conferência financeira:':'Motivo da rejeição:',
+    defaultReference
+  )||'';
+  if(reference.trim().length<3)return toast('Informe uma referência');
+  const amount=adminMoney(expectedCents);
+  const approvalEffect=request.request_kind==='package_purchase'
+    ?'creditará o pacote na conta da revenda.'
+    :request.request_kind==='refund_recovery'
+      ?'comprovará a recuperação do refund e permitirá retirar o hold se não houver outra pendência.'
+      :'quitará o fechamento diário.';
+  const message=approve
+    ? 'Confirmar recebimento exato de '+amount+' via '+adminPaymentMethodLabel(paymentMethod)+'? Esta ação '+approvalEffect
+    : 'Rejeitar esta solicitação de '+amount+'? Nenhum saldo será movimentado.';
+  if(!confirm(message))return;
+  try{
+    await adminPerform('merchant-billing-payment-request',{
+      paymentRequestId,
+      requestAction,
+      reference,
+      receivedAmountCents,
+      paymentMethod,
+      reconciliationKey,
+      paymentEventId:reconciledEvent?.id??null
+    });
+    toast(approve?'Pagamento confirmado com valor conciliado':'Solicitação rejeitada');
+  }catch(e){toast(String(e?.message||e))}
+}
+async function adminSaveBillingPlan(planKey,expectedVersion){
+  const safeId=String(planKey).replace(/[^a-z0-9_-]/gi,'');
+  const feePct=Number(document.getElementById('billing-plan-fee-'+safeId)?.value);
+  if(!Number.isFinite(feePct)||feePct<=0||feePct>100)return toast('Informe uma taxa válida entre 0,01% e 100%');
+  const platformFeeBps=Math.round(feePct*100);
+  const active=planKey==='flex_daily'?true:document.getElementById('billing-plan-active-'+safeId)?.checked===true;
+  const reason=prompt('Motivo para alterar este plano de cobrança:')||'';
+  if(reason.trim().length<3)return toast('Informe o motivo da alteração');
+  if(!confirm('Salvar esta alteração somente para PEDIDOS FUTUROS? Pedidos já criados manterão suas taxas snapshotadas.'))return;
+  try{
+    await adminPerform('merchant-billing-plan',{planKey,expectedVersion,platformFeeBps,active,reason});
+    toast('Plano de cobrança atualizado para pedidos futuros');
+  }catch(e){toast(String(e?.message||e))}
+}
+
+async function adminSetMerchantFlex(merchantId){
+  const reference=prompt('Motivo/referência para voltar ao Flex:')||'';
+  if(reference.trim().length<3)return toast('Informe uma referência');
+  if(!confirm('Voltar '+adminMerchantName(merchantId)+' ao Flex Diário? Só será permitido sem crédito pré-pago disponível ou reservado.'))return;
+  try{
+    await adminPerform('merchant-billing-action',{merchantId,billingAction:'set-flex',reference});
+    toast('Plano Flex ativado');
+  }catch(e){toast(String(e?.message||e))}
+}
+async function adminResolveDailyStatement(merchantId,statementId,billingAction){
+  if(billingAction!=='waive-statement'){
+    return toast('Quitação D+1 exige uma solicitação de pagamento informada pela revenda.');
+  }
+  const reference=prompt('Motivo/referência do abono:')||'';
+  if(reference.trim().length<3)return toast('Informe a referência');
+  if(!confirm('Abonar este fechamento diário?'))return;
+  try{
+    await adminPerform('merchant-billing-action',{merchantId,statementId,billingAction,reference});
+    toast('Fechamento diário abonado');
+  }catch(e){toast(String(e?.message||e))}
+}
+
+async function adminFinancial(kind,targetId,financialAction){
+  const reference=prompt('Referência da conciliação (opcional):')||'';
+  try{
+    await adminPerform('financial-action',{kind,targetId,financialAction,reference});
+    toast('Conciliação registrada');
+  }catch(e){toast(String(e?.message||e))}
+}
+async function adminReverseOrder(){
+  const orderId=document.querySelector('#admin-reverse-order')?.value.trim()||'';
+  const reason=document.querySelector('#admin-reverse-reason')?.value.trim()||'';
+  const reference=document.querySelector('#admin-reverse-ref')?.value.trim()||'';
+  if(!orderId||reason.length<3)return toast('Informe pedido e motivo');
+  if(!confirm('Esta ação estornará benefícios e recebíveis do pedido. Confirmar?'))return;
+  if(!adminRequireTypedConfirmation('ESTORNAR '+orderId,'Confirmação reforçada de reversão financeira.'))return toast('Reversão cancelada');
+  try{
+    await adminPerform('reverse-order',{orderId,reason,reference});
+    toast('Reversão financeira registrada');
+  }catch(e){toast(String(e?.message||e))}
+}
+
+globalThis.adminRuntime=adminRuntime;
+globalThis.adminPortalRequested=adminPortalRequested;
+globalThis.adminReady=adminReady;
+globalThis.adminBackendInit=adminBackendInit;
+globalThis.adminSendLogin=adminSendLogin;
+globalThis.adminRetryBootstrapFromUi=adminRetryBootstrapFromUi;
+globalThis.adminSignOut=adminSignOut;
+globalThis.adminRefresh=adminRefresh;
+globalThis.adminPoll=adminPoll;
+globalThis.adminPage=adminPage;
+globalThis.adminRetryReward=adminRetryReward;
+globalThis.adminRetryAccounting=adminRetryAccounting;
+globalThis.adminSetPlatformAdmin=adminSetPlatformAdmin;
+globalThis.adminAddPlatformAdmin=adminAddPlatformAdmin;
+globalThis.adminChangePlatformAdminRole=adminChangePlatformAdminRole;
+globalThis.adminCreateIncident=adminCreateIncident;
+globalThis.adminIncidentAction=adminIncidentAction;
+globalThis.adminAuditSearch=adminAuditSearch;
+globalThis.adminResolveBillingPaymentRequest=adminResolveBillingPaymentRequest;
+globalThis.adminSaveBillingPlan=adminSaveBillingPlan;
+globalThis.adminSetMerchantFlex=adminSetMerchantFlex;
+globalThis.adminResolveDailyStatement=adminResolveDailyStatement;
+globalThis.openAdminPortal=openAdminPortal;
+
+
+globalThis.adminFilterRegistry=adminFilterRegistry;
+globalThis.adminCreateProductCategory=adminCreateProductCategory;
+globalThis.adminToggleProductCategory=adminToggleProductCategory;
+globalThis.adminCreateRegistryProduct=adminCreateRegistryProduct;
+globalThis.adminSetProductActive=adminSetProductActive;
+globalThis.adminPreviewCommercialPolicy=adminPreviewCommercialPolicy;
+globalThis.adminSaveCommercialPolicy=adminSaveCommercialPolicy;
+globalThis.adminOpenWhatsapp=adminOpenWhatsapp;
+globalThis.adminOrderControl=adminOrderControl;
+globalThis.adminVerifyLaunchPortals=adminVerifyLaunchPortals;
+globalThis.adminConfirmLaunchRequirement=adminConfirmLaunchRequirement;
+globalThis.adminSetOperationMode=adminSetOperationMode;
+globalThis.adminSetCommerceEnabled=adminSetCommerceEnabled;
+globalThis.adminSetSupportStatus=adminSetSupportStatus;
+globalThis.adminIssuePilotInvite=adminIssuePilotInvite;
+globalThis.adminRevokePilotInvite=adminRevokePilotInvite;
+globalThis.adminConvertPilotPartner=adminConvertPilotPartner;
+,label:'D+1 em aberto',value:adminMoney(metrics.openStatementCents),detail:Number(metrics.openStatementCount||0)+' fechamento(s)',tone:Number(metrics.overdueStatementCount||0)?'warning':'money'})}
+      ${adminExecutiveKpi({icon:'!',label:'Vencido',value:adminMoney(metrics.overdueStatementCents),detail:Number(metrics.overdueStatementCount||0)+' fechamento(s)',tone:Number(metrics.overdueStatementCount||0)?'danger':'neutral'})}
+      ${adminExecutiveKpi({icon:'↗',label:'Aguardando conferência',value:adminMoney(metrics.pendingPaymentCents),detail:Number(metrics.pendingPaymentCount||0)+' pagamento(s)',tone:Number(metrics.pendingPaymentCount||0)?'warning':'neutral'})}
+      ${adminExecutiveKpi({icon:'C',label:'Crédito pré-pago',value:adminMoney(metrics.prepaidCreditBalanceCents),detail:Number(metrics.prepaidAccountCount||0)+' conta(s)',tone:'money'})}
+      ${adminExecutiveKpi({icon:'↺',label:'Refunds em revisão',value:String(pendingReviews),detail:adminMoney(metrics.refundRecoveryOutstandingCents||0)+' em recuperação',tone:pendingReviews?'danger':'neutral'})}
+      ${adminExecutiveKpi({icon:'PSP',label:'Mercado Pago',value:esc(pspLabel),detail:reconciliation.healthy===true?'conciliação íntegra':'conciliação sob observação',tone:e2e.validated?'good':adminRuntime.providerHealth?.ok===true?'money':'warning'})}
+    </div>
+  </section>`;
+}
+
+function adminBillingMetricsView(metrics){
+  if(!metrics)return '';
+  const planMix=Array.isArray(metrics.planMix)?metrics.planMix:[];
+  const sla=metrics.queueSla||{};
+  const buckets=metrics.pendingAgeBuckets||{};
+  const oldest=metrics.oldestPendingRequestedAt
+    ? new Date(metrics.oldestPendingRequestedAt).toLocaleString('pt-BR')
+    : null;
+  const slaBreaches=Number(sla.breachCount||0);
+  return `<div class="card flat" style="margin-bottom:16px">
+    <div class="section-head"><div><h3>Cockpit financeiro</h3><p>Totais exatos calculados no servidor sobre toda a base, sem depender do limite das listas abaixo.</p></div><span class="status-pill ${Number(metrics.overdueStatementCount||0)>0?'offline':'online'}">${Number(metrics.overdueStatementCount||0)>0?'ATENÇÃO':'SAUDÁVEL'}</span></div>
+    <div class="merchant-kpis">
+      <div class="kpi"><span class="label">Crédito em circulação</span><strong>${adminMoney(metrics.prepaidCreditBalanceCents)}</strong><small>${Number(metrics.prepaidAccountCount||0)} conta(s) pré-paga(s)</small></div>
+      <div class="kpi"><span class="label">Reservado em pedidos</span><strong>${adminMoney(metrics.prepaidCreditReservedCents)}</strong><small>disponível ${adminMoney(metrics.prepaidCreditAvailableCents)}</small></div>
+      <div class="kpi"><span class="label">D+1 em aberto</span><strong>${adminMoney(metrics.openStatementCents)}</strong><small>${Number(metrics.openStatementCount||0)} fechamento(s)</small></div>
+      <div class="kpi"><span class="label">Vencido</span><strong>${adminMoney(metrics.overdueStatementCents)}</strong><small>${Number(metrics.overdueStatementCount||0)} fechamento(s)</small></div>
+      <div class="kpi"><span class="label">Vence em até 24h</span><strong>${adminMoney(metrics.dueWithin24hCents)}</strong><small>${Number(metrics.dueWithin24hCount||0)} fechamento(s)</small></div>
+      <div class="kpi"><span class="label">Aguardando conferência</span><strong>${adminMoney(metrics.pendingPaymentCents)}</strong><small>${Number(metrics.pendingPaymentCount||0)} pagamento(s)</small></div>
+      <div class="kpi"><span class="label">Recuperações de refund</span><strong>${adminMoney(metrics.refundRecoveryOutstandingCents||0)}</strong><small>${Number(metrics.refundRecoveryOutstandingCount||0)} obrigação(ões) em aberto • ${Number(sla.refundRecoveryOpenBreachCount||0)} fora de 24h</small></div>
+      <div class="kpi"><span class="label">Conciliados prontos</span><strong>${Number(sla.matchedAwaitingApprovalCount||0)}</strong><small>${Number(sla.matchedApprovalBreachCount||0)} fora do SLA de ${Number(sla.matchedApprovalTargetHours||2)}h</small></div>
+      <div class="kpi"><span class="label">Eventos em revisão</span><strong>${Number(sla.reviewEventCount||0)}</strong><small>${Number(sla.reviewEventBreachCount||0)} fora do SLA de ${Number(sla.eventReviewTargetHours||4)}h</small></div>
+      <div class="kpi"><span class="label">SLA financeiro</span><strong>${slaBreaches}</strong><small>${slaBreaches?'item(ns) exigem prioridade':'fila dentro do prazo'}</small></div>
+      <div class="kpi"><span class="label">Vendas em hold</span><strong>${Number(metrics.salesHoldCount||0)}</strong><small>de ${Number(metrics.accountCount||0)} conta(s)</small></div>
+    </div>
+    <div class="tiny muted" style="margin-top:10px">Pacotes a conferir: ${Number(metrics.pendingPackageCount||0)} • ${adminMoney(metrics.pendingPackageCents)} · D+1 informado: ${Number(metrics.pendingStatementPaymentCount||0)} • ${adminMoney(metrics.pendingStatementPaymentCents)} · recuperação informada: ${Number(metrics.pendingRefundRecoveryCount||0)} • ${adminMoney(metrics.pendingRefundRecoveryCents||0)}${oldest?' · solicitação pendente mais antiga: '+esc(oldest):''}</div>
+    <div class="tiny muted" style="margin-top:6px">Idade da fila: &lt;1h ${Number(buckets.under1hCount||0)} · 1–4h ${Number(buckets.from1To4hCount||0)} · 4–24h ${Number(buckets.from4To24hCount||0)} · &gt;24h ${Number(buckets.over24hCount||0)} (${adminMoney(buckets.over24hCents||0)})</div>
+    ${slaBreaches?`<div class="notice" style="margin-top:10px"><strong>SLA financeiro vencido.</strong><br>Priorize pagamentos já conciliados há mais de ${Number(sla.matchedApprovalTargetHours||2)}h, eventos em revisão há mais de ${Number(sla.eventReviewTargetHours||4)}h, obrigações de recuperação ainda sem tentativa de pagamento há mais de ${Number(sla.refundRecoveryOpenTargetHours||24)}h e avisos sem conciliação há mais de ${Number(sla.pendingEscalationHours||24)}h. Nenhum item é cancelado automaticamente.</div>`:''}
+    ${planMix.length?`<div class="order-actions" style="margin-top:10px">${planMix.map(p=>`<span class="status-pill">${esc(p.displayName||p.planKey)}: ${Number(p.accountCount||0)} conta(s) • ${(Number(p.platformFeeBps||0)/100).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2})}%</span>`).join('')}</div>`:''}
+    <div class="notice" style="margin-top:10px"><strong>Leitura contábil.</strong><br>Crédito em circulação é saldo pré-pago ainda disponível para taxas; “aguardando conferência” é apenas valor informado pela revenda e não vira crédito nem quitação até aprovação administrativa.</div>
+  </div>`;
+}
+
+function adminBillingReconciliationMessage(issue){
+  const labels={
+    account_ledger_balance_mismatch:'Saldo da conta diverge do razão de créditos.',
+    account_reserved_order_mismatch:'Reserva financeira diverge dos pedidos ainda não liquidados.',
+    flex_with_prepaid_credit:'Conta em Flex ainda carrega crédito ou reserva pré-paga.',
+    approved_package_without_ledger_credit:'Pacote aprovado sem crédito correspondente no ledger.',
+    linked_package_credit_not_approved:'Crédito de pacote ligado a uma solicitação que não está aprovada.',
+    approved_statement_not_paid:'Pagamento D+1 aprovado sem fechamento marcado como pago.',
+    pending_statement_terms_changed:'Aviso de pagamento está pendente, mas os termos do fechamento mudaram.',
+    resolved_statement_has_open_receivable:'Fechamento resolvido ainda possui recebível aberto.',
+    overdue_without_sales_hold:'Fechamento vencido ainda não gerou hold de novas vendas.',
+    sales_hold_without_overdue_statement:'Hold financeiro existe sem fechamento vencido correspondente.',
+    pending_payment_review_over_24h:'Aviso de pagamento sem conciliação exata aguarda ação há mais de 24 horas.',
+    matched_payment_approval_sla_over_2h:'Pagamento já conciliado aguarda confirmação do Financeiro há mais de 2 horas.',
+    payment_event_review_sla_over_4h:'Evento de pagamento permanece em revisão há mais de 4 horas.',
+    refund_review_recovery_mismatch:'Refund ligado não possui obrigação de recuperação exata e coerente.',
+    refund_recovery_request_mismatch:'Obrigação de recuperação diverge da solicitação financeira vinculada.',
+    resolved_refund_without_recovered_obligation:'Refund foi marcado como recuperado sem obrigação + pagamento aprovados.',
+    recovered_obligation_refund_not_resolved:'Obrigação foi recuperada, mas o refund não foi encerrado de forma coerente.',
+    refund_review_without_sales_hold:'Refund ligado está em revisão sem hold efetivo de novas vendas.',
+    refund_hold_without_review:'Existe hold de refund sem refund vinculado ainda em revisão.',
+    refund_recovery_open_over_24h:'Obrigação de recuperação está aberta há mais de 24 horas sem tentativa de pagamento.'
+  };
+  return labels[String(issue?.issueType||'')]||String(issue?.issueType||'Divergência financeira');
+}
+
+function adminBillingReconciliationView(reconciliation){
+  if(!reconciliation)return '';
+  const issues=Array.isArray(reconciliation.issues)?reconciliation.issues:[];
+  const critical=Number(reconciliation.criticalCount||0);
+  const warnings=Number(reconciliation.warningCount||0);
+  const healthy=reconciliation.healthy===true&&critical===0&&warnings===0;
+  const issueRows=issues.map(issue=>{
+    const severity=String(issue.severity||'warning');
+    const merchant=adminMerchantName(issue.merchantId);
+    const expected=Number(issue.expectedCents||0);
+    const actual=Number(issue.actualCents||0);
+    const amountDiff=expected!==actual
+      ? `<div class="tiny muted">Esperado: ${adminMoney(expected)} • atual: ${adminMoney(actual)}</div>`
+      : '';
+    const age=Number(issue.ageHours);
+    return `<div class="list-row"><div><strong>${esc(adminBillingReconciliationMessage(issue))}</strong><br><small>${esc(merchant)} • ${esc(issue.entityId||'—')}${Number.isFinite(age)?' • '+age.toLocaleString('pt-BR',{maximumFractionDigits:1})+'h':''}</small>${amountDiff}</div><span class="status-pill ${severity==='critical'?'offline':'risk'}">${severity==='critical'?'CRÍTICO':'ATENÇÃO'}</span></div>`;
+  }).join('');
+  return `<div class="card flat" style="margin-bottom:16px">
+    <div class="section-head"><div><h3>Reconciliação financeira</h3><p>Auditoria independente entre conta, ledger, reservas de pedidos, solicitações de pagamento, fechamentos D+1, refunds e obrigações de recuperação.</p></div><span class="status-pill ${healthy?'online':'offline'}">${healthy?'ÍNTEGRA':critical+' crítico(s)'}</span></div>
+    <div class="tiny muted">Divergências: ${Number(reconciliation.issueCount||0)} • críticas: ${critical} • alertas: ${warnings} • pagamentos aguardando revisão há mais de 24h: ${Number(reconciliation.stalePendingReviewCount||0)} • recuperações abertas >24h: ${Number(reconciliation.refundRecoveryOpenSlaBreachCount||0)}</div>
+    ${issueRows?`<div class="list" style="margin-top:10px">${issueRows}</div>`:'<div class="notice success" style="margin-top:10px"><strong>Conciliação fechada.</strong><br>Nenhuma divergência encontrada entre os registros financeiros auditados.</div>'}
+    ${Number(reconciliation.issueCount||0)>issues.length?`<div class="tiny muted" style="margin-top:8px">Mostrando as primeiras ${issues.length} divergências de ${Number(reconciliation.issueCount||0)}.</div>`:''}
+  </div>`;
+}
+
+function adminBillingRefundReasonLabel(reason){
+  return ({
+    original_payment_not_found:'pagamento original não localizado no TAMÃO',
+    refund_before_finance_approval:'refund chegou antes da aprovação financeira',
+    refund_before_finance_approval_manual_reference:'refund antes da aprovação identificado pela referência manual da revenda',
+    multiple_manual_payment_candidates:'mais de uma solicitação manual usa o mesmo identificador bancário',
+    partial_refund_confirmed:'reembolso parcial confirmado pelo PSP',
+    full_refund_confirmed:'reembolso total confirmado pelo PSP',
+    refund_total_exceeds_original:'soma de reembolsos excede o pagamento original',
+    refund_of_recovery_payment:'reembolso de um pagamento usado para quitar recuperação anterior'
+  })[String(reason||'')]||String(reason||'—');
+}
+function adminBillingRefundCard(refund){
+  const billing=adminRuntime.data?.merchantBilling||{};
+  const recoveries=billing.refundRecoveries||[];
+  const requests=billing.paymentRequests||[];
+  const recovery=recoveries.find(x=>x.refund_id===refund.id)||null;
+  const reopenedRecovery=refund.reopened_refund_recovery_id
+    ?recoveries.find(x=>x.id===refund.reopened_refund_recovery_id)||null
+    :null;
+  const recoveryRequest=recovery?.recovery_payment_request_id
+    ?requests.find(x=>x.id===recovery.recovery_payment_request_id)||null
+    :null;
+  const review=refund.status==='review_required';
+  const linked=Boolean(refund.payment_request_id&&refund.merchant_id);
+  const original=refund.original_payment_amount_cents==null
+    ?null:Number(refund.original_payment_amount_cents);
+  const cumulative=refund.cumulative_refunded_cents==null
+    ?null:Number(refund.cumulative_refunded_cents);
+  const progress=original&&cumulative!=null
+    ?` • acumulado ${adminMoney(cumulative)} / ${adminMoney(original)}`
+    :'';
+  const persistedRecoverable=refund.recoverable_amount_cents==null
+    ?null:Number(refund.recoverable_amount_cents);
+  const persistedExcess=refund.excess_amount_cents==null
+    ?null:Number(refund.excess_amount_cents);
+  const statusLabel=({
+    review_required:'REVISÃO',
+    resolved_recovered:
+      persistedExcess>0?'EXPOSIÇÃO RECUPERADA':'RECUPERADO',
+    ignored_unrelated:'NÃO RELACIONADO',
+    resolved_excess:'EXCESSO RECONHECIDO',
+    resolved_preapproval:'DEVOLVIDO ANTES DA APROVAÇÃO',
+    resolved_recovery_reopened:'RECUPERAÇÃO REABERTA'
+  })[String(refund.status||'')]||String(refund.status||'—').toUpperCase();
+
+  let recoveryState='';
+  if(review&&linked){
+    const refunded=Number(refund.amount_cents||0);
+    const recoverable=Number(
+      recovery?.outstanding_cents
+      ??persistedRecoverable
+      ??recovery?.amount_cents
+      ??0
+    );
+    const excess=persistedExcess==null
+      ?Math.max(0,refunded-recoverable)
+      :persistedExcess;
+    if(!recovery&&refund.match_reason==='refund_total_exceeds_original'){
+      recoveryState='<div class="notice" style="margin-top:8px"><strong>Exposição original já totalmente coberta.</strong><br>Este fato do PSP permanece auditável, mas nenhum valor adicional foi convertido em dívida. O Financeiro precisa reconhecer o excesso para encerrar a revisão e liberar o hold quando não houver outra pendência.</div>';
+    }else if(!recovery){
+      recoveryState='<div class="notice danger" style="margin-top:8px"><strong>Obrigação de recuperação ausente.</strong><br>Este refund está ligado e ainda possui exposição econômica, mas a obrigação não apareceu. Não encerre manualmente; atualize/reconcilie o backend.</div>';
+    }else if(recovery.status==='open'){
+      recoveryState=`<div class="notice" style="margin-top:8px"><strong>Obrigação aberta: ${adminMoney(recoverable)}.</strong><br>A revenda precisa pagar somente a exposição recuperável. O hold permanece ativo e uma referência administrativa sozinha não resolve o caso.${excess>0?' Excesso do PSP não convertido em dívida: '+adminMoney(excess)+'.':''}</div>`;
+    }else if(recovery.status==='payment_pending'){
+      recoveryState=`<div class="notice risk" style="margin-top:8px"><strong>Pagamento de recuperação pendente: ${adminMoney(recoverable)}.</strong><br>${recoveryRequest?'Solicitação '+esc(recoveryRequest.id)+' está na fila financeira.':'A obrigação possui solicitação vinculada; atualize a fila para conferir.'} Aprove somente após valor exato + identificador da transação.${excess>0?' Excesso fora da obrigação: '+adminMoney(excess)+'.':''}</div>`;
+    }else if(recovery.status==='recovered'){
+      recoveryState=`<div class="notice success" style="margin-top:8px"><strong>Recuperação economicamente comprovada.</strong><br>O pagamento de ${adminMoney(recoverable)} foi aprovado pela autoridade financeira.${excess>0?' O excesso de '+adminMoney(excess)+' não virou dívida.':''}</div>`;
+    }
+  }
+
+  const actions=review&&!linked
+    ?`<div class="order-actions"><button class="ghost small" onclick="adminResolveBillingRefund('${esc(refund.id)}','dismiss-unrelated')">Marcar não relacionado</button></div>`
+    :review&&linked&&refund.match_reason==='refund_total_exceeds_original'&&!recovery
+      ?`<div class="order-actions"><button class="secondary small" onclick="adminResolveBillingRefund('${esc(refund.id)}','dismiss-excess')">Reconhecer excesso do PSP</button></div>`
+      :'';
+
+  return `<article class="order-card">
+    <div class="order-head"><div><strong>${linked?esc(adminMerchantName(refund.merchant_id)):'Refund sem vínculo TAMÃO'}</strong><br><small>${esc(refund.provider||'—')} • ${esc(formatDateTime(refund.occurred_at))}</small></div><span class="status-pill ${review?'offline':'online'}">${esc(statusLabel)}</span></div>
+    <div class="tiny muted">Refund: ${esc(refund.refund_reconciliation_key||'—')} • original: ${esc(refund.original_reconciliation_key||'—')}</div>
+    <div class="tiny muted">Valor devolvido: ${adminMoney(refund.amount_cents)}${progress}</div>
+    ${linked&&persistedRecoverable!=null&&persistedExcess!=null
+      ?refund.status==='resolved_preapproval'
+        ?`<div class="tiny muted">Alocação econômica: recuperável R$ 0,00 • não recuperável porque nenhum benefício foi concedido ${adminMoney(persistedExcess)} • prova ${adminMoney(persistedRecoverable+persistedExcess)} = refund</div>`
+        :`<div class="tiny muted">Alocação econômica: recuperável ${adminMoney(persistedRecoverable)} • excedente não cobrável ${adminMoney(persistedExcess)} • prova ${adminMoney(persistedRecoverable+persistedExcess)} = refund</div>`
+      :''}
+    <div class="tiny muted">Motor: ${esc(adminBillingRefundReasonLabel(refund.match_reason))}</div>
+    ${linked&&!refund.payment_event_id?`<div class="tiny muted">Âncora financeira: confirmação Pix manual exata (sem payment_event original). EndToEndId e valor foram conferidos contra a solicitação.</div>`:''}
+    ${refund.status==='resolved_preapproval'?'<div class="notice success" style="margin-top:8px"><strong>Sem exposição da revenda.</strong><br>O PSP devolveu o pagamento antes da aprovação financeira. A solicitação foi cancelada automaticamente; nenhum crédito, quitação ou obrigação de recuperação foi criado.</div>':''}
+    ${refund.status==='resolved_recovery_reopened'&&reopenedRecovery?`<div class="notice" style="margin-top:8px"><strong>Pagamento da recuperação foi reembolsado pelo PSP.</strong><br>A obrigação original foi reaberta sem criar uma dívida encadeada. Saldo atual: ${adminMoney(reopenedRecovery.outstanding_cents)} de ${adminMoney(reopenedRecovery.amount_cents)} originalmente alocados.</div>`:''}
+    ${recovery?`<div class="tiny muted">Obrigação de recuperação: ${esc(recovery.id)} • saldo ${adminMoney(recovery.outstanding_cents)} / alocado ${adminMoney(recovery.amount_cents)} • ${esc(String(recovery.status||'—').toUpperCase())}</div>`:''}
+    ${refund.resolution_reference?`<div class="tiny muted">Resolução: ${esc(refund.resolution_reference)}</div>`:''}
+    ${review&&linked?'<div class="notice danger" style="margin-top:8px"><strong>Hold financeiro ativo.</strong><br>Novas vendas e novos benefícios financeiros permanecem suspensos até a recuperação comprovada.</div>':''}
+    ${recoveryState}
+    ${actions}
+  </article>`;
+}
+
+function adminBillingProviderChargeRow(charge){
+  const cancelRetry=charge.status==='cancelled'
+    &&['PROVIDER_CANCEL_REQUIRED','PROVIDER_CANCEL_FAILED'].includes(String(charge.last_error_code||''));
+  const retryButton=cancelRetry&&charge.payment_request_id
+    ? `<br><button class="secondary small" style="margin-top:6px" onclick="adminRetryBillingProviderCancel('${esc(charge.payment_request_id)}')">Repetir cancelamento no PSP</button>`
+    : '';
+  const pendingNote=cancelRetry
+    ? '<br><small>Cancelamento externo pendente; a cobrança local já está encerrada.</small>'
+    : '';
+  return `<div class="list-row"><div><strong>${esc(adminMerchantName(charge.merchant_id))}</strong><br><small>${esc(charge.provider||'—')} • correlação ${esc(charge.correlation_id||'—')}${charge.end_to_end_id?' • EndToEndId '+esc(charge.end_to_end_id):''}</small>${pendingNote}</div><div style="text-align:right"><strong>${adminMoney(charge.amount_cents)}</strong><br><span class="status-pill ${charge.status==='completed'?'online':charge.last_error_code?'offline':charge.status==='expired'||charge.status==='cancelled'?'':'risk'}">${esc(String(charge.status||'—').toUpperCase())}</span>${charge.expired_at?`<br><small>expirou ${esc(formatDateTime(charge.expired_at))}</small>`:''}${charge.last_error_code?`<br><small>${esc(charge.last_error_code)}</small>`:''}${retryButton}</div></div>`;
+}
+
+
+function adminBillingProviderName(value){
+  const provider=String(value||'').trim().toLowerCase();
+  if(provider==='mercadopago')return 'Mercado Pago';
+  if(provider==='woovi')return 'Woovi/OpenPix';
+  return provider?provider:'PSP ativo';
+}
+function adminBillingProviderCredentialLabel(value){
+  return String(value||'').trim().toLowerCase()==='mercadopago'?'Access Token':'credencial API';
+}
+function adminBillingE2EState(d=adminRuntime.data){
+  const billing=d?.merchantBilling||{};
+  const ingress=billing.paymentIngress||{};
+  const active=String(ingress.activeBillingProvider||adminRuntime.providerHealth?.provider||'').trim().toLowerCase();
+  if(!active)return {validated:false,event:null,provider:null};
+  const events=Array.isArray(billing.paymentEvents)?billing.paymentEvents:[];
+  const event=events.find(x=>String(x.provider||'').trim().toLowerCase()===active
+    &&['matched_exact','applied','already_applied','refunded'].includes(String(x.status||'')))||null;
+  return {validated:Boolean(event),event,provider:active};
+}
+function adminBillingProviderHealthNotice(h){
+  if(!h)return '';
+  const ok=h.ok===true;
+  const provider=adminBillingProviderName(h.provider);
+  const e2e=adminBillingE2EState();
+  let detail='';
+  if(h.provider==='mercadopago'){
+    detail='Access Token '+(h.credentialValid===true?'válido':h.credentialValid===false?'inválido':'não confirmado')
+      +' • criação '+(h.chargeReady?'pronta':'não confirmada')
+      +' • webhook HMAC local '+(h.receiveReady?'configurado':'não confirmado')
+      +' • conta '+(h.accountBound?'vinculada':'não confirmada')
+      +' • registro remoto do webhook '+(h.remoteWebhookRegistrationVerified===true?'verificado':'ainda não provado automaticamente');
+  }else{
+    detail='credencial '+(h.credentialValid===true?'válida':h.credentialValid===false?'inválida':'não confirmada')
+      +' • webhook pagamento '+(h.chargeWebhookReady?'ativo':'não confirmado')
+      +' • expiração '+(h.chargeExpiredWebhookReady?'ativa':'não confirmada')
+      +' • refund '+(h.refundWebhookReady?'ativo':'não confirmado')
+      +' • empresa '+(h.companyBound?'vinculada':'não confirmada');
+  }
+  if(h.reason)detail+=' • '+esc(h.reason);
+  const e2eCopy=e2e.validated
+    ?' • webhook financeiro real observado e conciliado'
+    :' • E2E financeiro ainda não comprovado por um pagamento real';
+  return '<div class="notice '+(ok?'success':'danger')+'" style="margin-top:10px"><strong>'+(ok?'API '+provider+' validada.':'Teste real '+provider+' requer atenção.')+'</strong><br>'+detail+e2eCopy+'</div>';
+}
+
+function adminMerchantPaymentAccountCard(merchant){
+  const account=merchant?.paymentAccount||null;
+  const connected=account?.status==='active';
+  const directEnabled=account?.capabilities?.directSalePaymentsEnabled===true;
+  const globalEnabled=adminRuntime.data?.merchantPayments?.globalDirectPaymentsEnabled===true;
+  const accountRef=String(account?.provider_account_id||'');
+  const safeAccountRef=accountRef?('•••• '+accountRef.slice(-6)):'—';
+  const statusLabel=!connected?'NÃO CONECTADO':directEnabled?'HOMOLOGADO':'AGUARDA HOMOLOGAÇÃO';
+  const statusClass=directEnabled&&globalEnabled?'online':connected?'risk':'';
+  let notice='';
+  if(!connected){
+    notice='<div class="notice" style="margin-top:8px">A revenda ainda não concluiu a autorização OAuth do próprio Mercado Pago.</div>';
+  }else if(directEnabled){
+    notice='<div class="notice success" style="margin-top:8px"><strong>Revenda homologada.</strong><br>A plataforma pode validar pagamentos feitos diretamente na conta desta revenda. O TAMÃO não recebe nem repassa o valor da venda.</div>';
+  }else{
+    notice='<div class="notice" style="margin-top:8px"><strong>Conta conectada, venda direta bloqueada.</strong><br>Valide a integração real desta revenda antes de homologar pagamentos online.</div>';
+  }
+  const action=connected
+    ?'<div class="order-actions"><button class="'+(directEnabled?'danger-btn':'secondary')+' small" onclick="adminSetMerchantPaymentCapability(\''+esc(merchant.id)+'\','+(directEnabled?'false':'true')+')">'+(directEnabled?'Suspender pagamentos diretos':'Homologar pagamentos diretos')+'</button></div>'
+    :'';
+  return '<article class="order-card">'
+    +'<div class="order-head"><div><div class="order-id">'+esc(merchant?.name||merchant?.id||'Revenda')+'</div><div class="tiny muted">Mercado Pago • conta '+esc(safeAccountRef)+'</div></div><span class="status-pill '+statusClass+'">'+esc(statusLabel)+'</span></div>'
+    +notice
+    +'<div class="tiny muted" style="margin-top:8px">Kill switch global: <strong>'+(globalEnabled?'ATIVO':'DESATIVADO')+'</strong> • conexão: '+esc(account?.status||'not_connected')+(account?.connected_at?' • desde '+esc(formatDateTime(account.connected_at)):'')+'</div>'
+    +action
+    +'</article>';
+}
+function adminMerchantPaymentAccountsSection(d){
+  const rows=(d.merchants||[]).filter(m=>m.paymentAccount);
+  const globalEnabled=d.merchantPayments?.globalDirectPaymentsEnabled===true;
+  return '<div class="section-head" style="margin-top:18px"><div><h3>Recebimento direto das revendas</h3><p>Cada revenda conecta a própria conta Mercado Pago. Homologação individual e kill switch global são independentes; nenhuma venda passa pela conta do TAMÃO.</p></div><span class="status-pill '+(globalEnabled?'online':'risk')+'">GLOBAL '+(globalEnabled?'ATIVO':'DESATIVADO')+'</span></div>'
+    +(rows.length?'<div class="admin-entity-grid">'+rows.map(adminMerchantPaymentAccountCard).join('')+'</div>':'<div class="empty card">Nenhuma revenda conectou uma conta Mercado Pago ainda.</div>');
+}
+
+function adminMerchantBillingSection(d){
+  const billing=d.merchantBilling||{};
+  const plans=billing.plans||[];
+  const accounts=billing.accounts||[];
+  const statements=billing.statements||[];
+  const paymentRequests=billing.paymentRequests||[];
+  const paymentEvents=billing.paymentEvents||[];
+  const refunds=billing.refunds||[];
+  const refundRecoveries=billing.refundRecoveries||[];
+  const providerCharges=billing.providerCharges||[];
+  const paymentIngress=billing.paymentIngress||null;
+  const providerHealth=adminRuntime.providerHealth;
+  const pspApiValidated=providerHealth?.ok===true;
+  const pspE2E=adminBillingE2EState(d);
+  const pspFailed=Boolean(providerHealth)&&providerHealth?.ok===false;
+  const pspConfigured=paymentIngress?.livePspReady===true;
+  const pspBadgeLabel=pspE2E.validated?'E2E VALIDADO':pspApiValidated?'API VALIDADA':pspFailed?'PSP FALHANDO':pspConfigured?'PSP CONFIGURADO':paymentIngress?.normalizedIngressConfigured?'INGRESS PRONTO':'PENDENTE';
+  const pspBadgeClass=pspE2E.validated||pspApiValidated?'online':pspFailed?'offline':pspConfigured||paymentIngress?.normalizedIngressConfigured?'risk':'';
+  const metrics=billing.metrics||null;
+  const reconciliation=billing.reconciliation||null;
+  const pendingPaymentRequests=paymentRequests
+    .filter(x=>x.status==='pending')
+    .sort((a,b)=>Date.parse(a.requested_at||0)-Date.parse(b.requested_at||0));
+  const openStatements=statements.filter(x=>['open','overdue'].includes(x.status));
+  const overdue=openStatements.filter(x=>x.status==='overdue');
+  const held=accounts.filter(x=>x.sales_hold);
+  const pendingRefunds=refunds
+    .filter(x=>x.status==='review_required')
+    .sort((a,b)=>Date.parse(a.occurred_at||0)-Date.parse(b.occurred_at||0));
+  const actionableEvents=paymentEvents
+    .filter(x=>['matched_exact','review_required'].includes(x.status))
+    .sort((a,b)=>{
+      const priority=(x)=>x.status==='matched_exact'?0:1;
+      return priority(a)-priority(b)||Date.parse(a.updated_at||a.received_at||0)-Date.parse(b.updated_at||b.received_at||0);
+    });
+  return `<section class="section">
+    <div class="section-head"><div><span class="section-kicker">COBRANÇA DAS REVENDAS</span><h2>Fechamento diário + pacotes</h2><p>Cada pedido mantém sua taxa auditável. À 00:05 o dia anterior é consolidado; o saldo vence no fim do dia seguinte. Crédito pré-pago reduz a taxa e evita pagamento diário enquanto houver saldo.</p></div><div class="order-actions"><span class="status-pill ${Number(metrics?.overdueStatementCount??overdue.length)?'offline':'online'}">${Number(metrics?.overdueStatementCount??overdue.length)} vencido(s)</span><span class="status-pill ${Number(metrics?.salesHoldCount??held.length)?'offline':'online'}">${Number(metrics?.salesHoldCount??held.length)} hold(s)</span></div></div>
+    ${paymentIngress?`<div class="card flat" style="margin-bottom:16px"><div class="section-head"><div><h3>Entrada Pix / PSP</h3><p>Configuração e disponibilidade real são estados diferentes. O painel só chama o PSP ativo de validado após uma consulta autenticada; segredos nunca saem do ambiente server-side.</p></div><span class="status-pill ${pspBadgeClass}">${esc(pspBadgeLabel)}</span></div>
+      <div class="tiny muted">Contrato HMAC normalizado: ${esc(paymentIngress.contract||'—')} • provedores configurados nesse contrato: ${Number(paymentIngress.providerCount||0)}${Array.isArray(paymentIngress.providers)&&paymentIngress.providers.length?' • '+paymentIngress.providers.map(esc).join(', '):''}</div>
+      <div class="tiny muted">Adaptadores nativos de PSP ativos: ${Number(paymentIngress.liveProviderCount||0)}${Array.isArray(paymentIngress.liveProviders)&&paymentIngress.liveProviders.length?' • '+paymentIngress.liveProviders.map(esc).join(', '):''}</div>
+      <div class="tiny muted">PSP ativo: <strong>${esc(paymentIngress.activeBillingProvider||'—')}</strong></div>
+      ${paymentIngress.adapterReadiness?.mercadopago?`<div class="tiny muted">Mercado Pago: adaptador ${paymentIngress.adapterReadiness.mercadopago.implemented?'implementado':'ausente'} • Access Token ${paymentIngress.adapterReadiness.mercadopago.accessTokenConfigured?'configurado':'pendente'} • webhook HMAC ${paymentIngress.adapterReadiness.mercadopago.webhookSecretConfigured?'configurado':'pendente'} • cobrança ${paymentIngress.adapterReadiness.mercadopago.chargeReady?'pronta':'pendente'} • recebimento ${paymentIngress.adapterReadiness.mercadopago.receiveReady?'pronto':'pendente'}</div>`:''}
+      ${paymentIngress.liveEndpoints?.mercadopago?`<div class="tiny muted">Webhook Mercado Pago único (Order): ${esc(paymentIngress.liveEndpoints.mercadopago)}</div>`:''}
+      ${paymentIngress.adapterReadiness?.woovi?`<div class="tiny muted">Woovi/OpenPix: adaptador ${paymentIngress.adapterReadiness.woovi.implemented?'implementado':'ausente'} • webhook ${paymentIngress.adapterReadiness.woovi.receiveReady?'pronto':'pendente'} • criação de cobrança ${paymentIngress.adapterReadiness.woovi.chargeReady?'pronta':'pendente'} • App ID ${paymentIngress.adapterReadiness.woovi.appIdConfigured?'configurado':'pendente'} • token privado ${paymentIngress.adapterReadiness.woovi.webhookAuthorizationConfigured?'configurado':'pendente'} • vínculo da empresa ${paymentIngress.adapterReadiness.woovi.companyBound?'configurado':'pendente'} • ambiente ${esc(paymentIngress.adapterReadiness.woovi.environment||'—')} • assinatura ${esc(paymentIngress.adapterReadiness.woovi.signature||'—')}</div>`:''}
+      ${paymentIngress.liveEndpoints?.woovi?`<div class="tiny muted">Webhook Woovi: ${esc(paymentIngress.liveEndpoints.woovi)}</div>`:''}
+      ${paymentIngress.liveEndpoints?.merchantPix?`<div class="tiny muted">Pix de cobrança TAMÃO → revenda: ${esc(paymentIngress.liveEndpoints.merchantPix)}</div>`:''}
+      ${paymentIngress.endpoint?`<div class="tiny muted">Ingress normalizado: ${esc(paymentIngress.endpoint)}</div>`:''}
+      <div style="margin-top:10px"><button class="secondary small" onclick="adminCheckBillingProviderHealth()" ${adminRuntime.providerHealthPending?'disabled':''}>${adminRuntime.providerHealthPending?'Testando conexão…':'Testar PSP ativo'}</button></div>
+      ${adminBillingProviderHealthNotice(providerHealth)}
+      ${paymentIngress.configValid===false
+        ?`<div class="notice danger" style="margin-top:10px"><strong>Configuração de webhook inválida.</strong><br>O mapa BILLING_PAYMENT_WEBHOOK_SECRETS não pôde ser validado. Nenhum recebimento automático deve ser considerado pronto.</div>`
+        :pspE2E.validated
+          ?`<div class="notice success" style="margin-top:10px"><strong>PSP validado de ponta a ponta.</strong><br>Além da API, já existe evidência de webhook financeiro real conciliado. O TAMÃO continua exigindo correlação, valor e evidência exatos antes de movimentar o financeiro.</div>`
+          :pspApiValidated
+            ?`<div class="notice success" style="margin-top:10px"><strong>API do PSP validada; E2E financeiro ainda pendente.</strong><br>A credencial respondeu e os gates locais de cobrança + webhook estão configurados. O selo E2E só será concedido após um pagamento real gerar webhook e conciliação válidos.</div>`
+          :paymentIngress.livePspReady
+            ?`<div class="notice" style="margin-top:10px"><strong>PSP configurado; prova real ainda pendente.</strong><br>Os requisitos server-side existem, mas presença de secret não comprova a credencial ou o webhook do PSP ativo. Use “Testar PSP ativo”.</div>`
+            :paymentIngress.normalizedIngressConfigured
+              ?`<div class="notice" style="margin-top:10px"><strong>Ingress técnico pronto; PSP real ainda não.</strong><br>Há secret para o contrato HMAC normalizado do TAMÃO, mas nenhum adaptador nativo de PSP está configurado. O fluxo manual continua disponível.</div>`
+              :`<div class="notice" style="margin-top:10px"><strong>PSP/Pix ainda não conectado.</strong><br>O motor interno de conciliação está pronto, mas não há integração automática validada. O fluxo manual continua disponível.</div>`}
+    </div>`:''}
+    ${adminMerchantPaymentAccountsSection(d)}
+    ${adminBillingMetricsView(metrics)}
+    ${adminBillingReconciliationView(reconciliation)}
+    ${pendingRefunds.length?`<div class="section-head" style="margin-top:18px"><div><h3>Reembolsos do PSP exigem decisão</h3><p>Refund confirmado nunca desfaz crédito ou quitação silenciosamente. Refund ligado cria obrigação de recuperação no valor exato; o hold só cai depois que o pagamento dessa obrigação for conciliado e aprovado.</p></div><span class="status-pill offline">${pendingRefunds.length} em revisão</span></div>${pendingRefunds.map(adminBillingRefundCard).join('')}`:''}
+    ${refunds.some(x=>x.status!=='review_required')?`<details class="card flat" style="margin-bottom:16px"><summary><strong>Histórico de refunds do PSP</strong></summary><div style="margin-top:10px">${refunds.filter(x=>x.status!=='review_required').slice(0,50).map(adminBillingRefundCard).join('')}</div></details>`:''}
+    ${providerCharges.length?`<details class="card flat" style="margin-bottom:16px"><summary><strong>Cobranças Pix geradas pelo TAMÃO</strong> • ${providerCharges.length}</summary><div class="list" style="margin-top:10px">${providerCharges.slice(0,50).map(adminBillingProviderChargeRow).join('')}</div></details>`:''}
+    ${actionableEvents.length?`<div class="section-head" style="margin-top:18px"><div><h3>Eventos de pagamento</h3><p>Eventos autenticados do provedor são conciliados por valor + identificador. Ambiguidades nunca movimentam saldo automaticamente.</p></div><span class="status-pill ${actionableEvents.some(x=>x.status==='review_required')?'risk':'online'}">${actionableEvents.length} evento(s)</span></div>${actionableEvents.map(adminBillingPaymentEventCard).join('')}`:''}
+    ${plans.length?`<div class="admin-entity-grid">${plans.map(adminBillingPlanCard).join('')}</div>`:'<div class="notice">Motor de cobrança diária ainda não está ativo neste ambiente.</div>'}
+    <div class="section-head" style="margin-top:18px"><div><h3>Pagamentos aguardando conferência</h3><p>Aprovar é uma ação financeira: pacote gera crédito; fechamento diário é quitado. A referência da revenda, sozinha, nunca movimenta saldo.</p></div><span class="status-pill ${pendingPaymentRequests.length?'risk':'online'}">${pendingPaymentRequests.length} pendente(s)</span></div>
+    ${pendingPaymentRequests.length?pendingPaymentRequests.map(adminBillingPaymentRequestCard).join(''):'<div class="empty card">Nenhum pagamento aguarda conferência.</div>'}
+    ${paymentRequests.some(x=>x.status!=='pending')?`<details class="card flat" style="margin-top:12px"><summary><strong>Histórico de solicitações financeiras</strong></summary><div style="margin-top:10px">${paymentRequests.filter(x=>x.status!=='pending').slice(0,50).map(adminBillingPaymentRequestCard).join('')}</div></details>`:''}
+    ${accounts.length?`<div class="section-head" style="margin-top:18px"><div><h3>Contas de cobrança</h3><p>Saldo, reservas e bloqueio financeiro por revenda.</p></div></div><div class="admin-entity-grid">${accounts.map(adminBillingAccountCard).join('')}</div>`:''}
+    <div class="section-head" style="margin-top:18px"><div><h3>Fechamentos diários</h3><p>Prioridade para vencidos e abertos; históricos liquidados permanecem auditáveis.</p></div></div>
+    ${openStatements.length?openStatements.map(adminBillingStatementCard).join(''):'<div class="empty card">Nenhum fechamento em aberto.</div>'}
+    ${statements.some(x=>!['open','overdue'].includes(x.status))?`<details class="card flat" style="margin-top:12px"><summary><strong>Histórico recente</strong></summary><div style="margin-top:10px">${statements.filter(x=>!['open','overdue'].includes(x.status)).slice(0,30).map(adminBillingStatementCard).join('')}</div></details>`:''}
+  </section>`;
+}
+
+function adminReceivableRow(x){
+  return `<div class="list-row"><div><strong>${esc(adminMerchantName(x.merchant_id))}</strong><br><small>Taxa da plataforma • pedido ${esc(x.order_id)}</small></div><div style="text-align:right"><strong>${adminMoney(x.platform_fee_cents)}</strong><div class="order-actions"><button class="secondary small" onclick="adminFinancial('platform_receivable','${x.order_id}','paid')">Pago</button><button class="ghost small" onclick="adminFinancial('platform_receivable','${x.order_id}','waived')">Abonar</button></div></div></div>`;
+}
+function adminReimbursementRow(x){
+  return `<div class="list-row"><div><strong>${esc(adminMerchantName(x.merchant_id))}</strong><br><small>Reembolso de cashback • pedido ${esc(x.order_id)}</small></div><div style="text-align:right"><strong>${adminMoney(x.cashback_cents)}</strong><div class="order-actions"><button class="secondary small" onclick="adminFinancial('cashback_reimbursement','${x.order_id}','paid')">Pago</button></div></div></div>`;
+}
+function adminAdjustmentRow(x){
+  const direction=x.direction==='merchant_owes_platform'?'Revenda → plataforma':'Plataforma → revenda';
+  return `<div class="list-row"><div><strong>${esc(adminMerchantName(x.merchant_id))}</strong><br><small>${esc(direction)} • ${esc(x.adjustment_type)} • pedido ${esc(x.order_id)}</small></div><div style="text-align:right"><strong>${adminMoney(x.amount_cents)}</strong><div class="order-actions"><button class="secondary small" onclick="adminFinancial('settlement_adjustment','${x.id}','paid')">Liquidado</button><button class="ghost small" onclick="adminFinancial('settlement_adjustment','${x.id}','waived')">Abonar</button></div></div></div>`;
+}
+
+function adminRewardFailureCard(x){
+  const dead=!!x.dead_lettered_at;
+  const next=x.next_retry_at?new Date(x.next_retry_at).toLocaleString('pt-BR'):'—';
+  const last=x.last_attempt_at?new Date(x.last_attempt_at).toLocaleString('pt-BR'):new Date(x.updated_at||x.created_at).toLocaleString('pt-BR');
+  return `<article class="order-card">
+    <div class="order-head"><div><div class="order-id">Pedido ${esc(x.order_id)}</div><div class="tiny muted">Tentativas: ${Number(x.attempts||0)} • última: ${esc(last)}</div></div><span class="status-pill ${dead?'offline':''}">${dead?'DEAD LETTER':'RETRY'}</span></div>
+    <div class="order-line"><strong>Último erro:</strong> ${esc(x.last_error||'Falha de processamento')}</div>
+    ${x.last_sqlstate?`<div class="tiny muted">SQLSTATE: ${esc(x.last_sqlstate)}</div>`:''}
+    <div class="tiny muted">${dead?'Retry automático interrompido para evitar loop infinito.':'Próxima tentativa automática: '+esc(next)}</div>
+    <div class="order-actions"><button class="${dead?'primary':'secondary'} small" onclick="adminRetryReward('${x.order_id}')">Reprocessar agora</button></div>
+  </article>`;
+}
+
+function adminAccountingFailureCard(x){
+  const dead=!!x.dead_lettered_at;
+  const next=x.next_retry_at?new Date(x.next_retry_at).toLocaleString('pt-BR'):'—';
+  const last=x.last_attempt_at?new Date(x.last_attempt_at).toLocaleString('pt-BR'):new Date(x.updated_at||x.created_at).toLocaleString('pt-BR');
+  return `<article class="order-card">
+    <div class="order-head"><div><div class="order-id">Pedido ${esc(x.order_id)}</div><div class="tiny muted">Tentativas: ${Number(x.attempts||0)} • última: ${esc(last)}</div></div><span class="status-pill ${dead?'offline':''}">${dead?'DEAD LETTER':'RETRY'}</span></div>
+    <div class="order-line"><strong>Falha contábil:</strong> ${esc(x.last_error||'Falha ao registrar settlement')}</div>
+    ${x.last_sqlstate?`<div class="tiny muted">SQLSTATE: ${esc(x.last_sqlstate)}</div>`:''}
+    <div class="tiny muted">${dead?'Retry automático interrompido; exige revisão administrativa.':'Próxima tentativa automática: '+esc(next)}</div>
+    <div class="order-actions"><button class="${dead?'primary':'secondary'} small" onclick="adminRetryAccounting('${x.order_id}')">Reprocessar contabilidade</button></div>
+  </article>`;
+}
+
+function adminSupportCaseCard(x){
+  const category={
+    late:'Atraso',
+    wrong_item:'Produto incorreto',
+    price_payment:'Preço ou pagamento',
+    no_show:'Entrega não apareceu',
+    delivery:'Problema na entrega',
+    other:'Outro problema'
+  }[x.category]||String(x.category||'Problema');
+  const statusLabel={
+    open:'ABERTO',
+    in_review:'EM ANÁLISE',
+    resolved:'RESOLVIDO',
+    closed:'ENCERRADO'
+  }[x.status]||String(x.status||'—').toUpperCase();
+  const statusClass=['resolved','closed'].includes(x.status)?'online':x.status==='open'?'offline':'risk';
+  return `<article class="order-card">
+    <div class="order-head"><div><div class="order-id">${esc(category)}</div><div class="tiny muted">Pedido ${esc(x.order_id)} • aberto em ${new Date(x.created_at).toLocaleString('pt-BR')}</div></div><span class="status-pill ${statusClass}">${esc(statusLabel)}</span></div>
+    ${x.message?`<div class="order-line"><strong>Cliente:</strong> ${esc(x.message)}</div>`:''}
+    ${x.resolution_note?`<div class="notice success" style="margin-top:10px"><strong>Tratativa:</strong><br>${esc(x.resolution_note)}</div>`:''}
+    ${!['resolved','closed'].includes(x.status)?`<div class="order-actions">${x.status==='open'?`<button class="secondary small" onclick="adminSetSupportStatus('${x.id}','in_review')">Assumir análise</button>`:''}<button class="primary small" onclick="adminSetSupportStatus('${x.id}','resolved')">Resolver</button><button class="ghost small" onclick="adminSetSupportStatus('${x.id}','closed')">Encerrar</button></div>`:''}
+  </article>`;
+}
+
+function adminProductionRequirementLabel(code){
+  return ({
+    admin_required:'Administrador ativo',
+    real_supply_required:'Primeira oferta real',
+    merchant_owner_required:'Responsável da revenda',
+    merchant_payment_required:'Forma de pagamento',
+    offerable_supply_required:'Capacidade de atender agora',
+    live_portals_verification_required:'Portais live e Turnstile'
+  })[String(code||'')]||String(code||'Pendência');
+}
+function adminSecurityBlockerLabel(code){
+  return ({
+    browser_sensitive_table_acl:'Acesso direto do navegador a tabelas sensíveis detectado.',
+    sensitive_table_rls_disabled:'RLS desativado em tabela sensível.',
+    admin_rpc_browser_exposure:'RPC administrativa privilegiada exposta ao navegador.',
+    live_portals_verification_required:'Portais oficiais sem verificação técnica recente e consistente.'
+  })[String(code||'')]||String(code||'Bloqueio técnico');
+}
+function adminLaunchControl(readiness={}){
+  const security=Array.isArray(readiness.securityBlockers)?readiness.securityBlockers:[];
+  const warningDetails=Array.isArray(readiness.warningDetails)?readiness.warningDetails:[];
+  const mode=String(readiness.operationMode|| (readiness.commerceEnabled?'LIVE':'PRELAUNCH')).toUpperCase();
+  const readinessState=String(readiness.readinessState|| (security.length?'BLOCKED_SECURITY':warningDetails.length?'READY_WITH_WARNINGS':'READY'));
+  const canActivate=readiness.canActivateOperation===true;
+  const verifiedAt=readiness.portalsVerifiedAt
+    ? new Date(readiness.portalsVerifiedAt).toLocaleString('pt-BR')
+    : 'ainda não verificados';
+  const sourceSha=String(readiness.portalsSourceSha||'');
+  const stateClass=readinessState==='READY'?'online':readinessState==='BLOCKED_SECURITY'?'offline':'risk';
+  const modeClass=['PILOT','LIVE'].includes(mode)?'online':mode==='PAUSED'?'offline':'risk';
+  const warnings=warningDetails.map(item=>{
+    const confirmed=item.confirmed===true;
+    const expiry=item.expiresAt?new Date(item.expiresAt).toLocaleString('pt-BR'):null;
+    return `<article class="order-card">
+      <div class="order-head"><div><div class="order-id">${esc(adminProductionRequirementLabel(item.key))}</div><div class="tiny muted">${esc(item.condition||'Pendência operacional')}</div></div><span class="status-pill ${confirmed?'online':'risk'}">${confirmed?'CONFIRMADO PELO ADMIN':esc(item.status||'PENDENTE')}</span></div>
+      <div class="order-line"><strong>Risco:</strong> ${esc(item.risk||'Pendência operacional.')}</div>
+      <div class="order-line"><strong>Recomendação:</strong> ${esc(item.recommendation||'Revisar antes de operar.')}</div>
+      ${item.reason?`<div class="notice success" style="margin-top:10px"><strong>Decisão registrada:</strong> ${esc(item.reason)}${expiry?' • válida até '+esc(expiry):''}</div>`:''}
+      ${!confirmed?`<div class="order-actions"><button class="secondary small" onclick="adminConfirmLaunchRequirement('${String(item.key).replace(/'/g,'')}')">Revisar e confirmar</button></div>`:''}
+    </article>`;
+  }).join('');
+  const securityHtml=security.length
+    ? `<div class="notice danger"><strong>Bloqueios críticos — não podem ser ignorados</strong><br>${security.map(x=>'• '+esc(adminSecurityBlockerLabel(x))).join('<br>')}</div>`
+    : '<div class="notice success"><strong>Segurança estrutural sem bloqueios detectados.</strong><br>RLS, ACLs privilegiadas e autoridade administrativa permanecem fail-closed.</div>';
+
+  return `<section class="section"><div class="section-head"><div><span class="section-kicker">CENTRAL DE PRODUÇÃO</span><h2>Operação real sob controle do administrador</h2><p>Segurança técnica continua obrigatória. Pendências comerciais e operacionais são exibidas com risco, recomendação e decisão auditada.</p></div><div class="order-actions"><span class="status-pill ${stateClass}">${esc(readinessState)}</span><span class="status-pill ${modeClass}">${esc(mode)}</span></div></div>
+    <div class="merchant-kpis">
+      <div class="kpi"><span class="label">Admins ativos</span><strong>${Number(readiness.activeAdminCount||0)}</strong></div>
+      <div class="kpi"><span class="label">Revendas configuradas</span><strong>${Number(readiness.configuredMerchantCount||0)}</strong></div>
+      <div class="kpi"><span class="label">Owner pronto</span><strong>${Number(readiness.ownerReadyMerchantCount||0)}</strong></div>
+      <div class="kpi"><span class="label">Pagamento pronto</span><strong>${Number(readiness.paymentReadyMerchantCount||0)}</strong></div>
+      <div class="kpi"><span class="label">Ofertável agora</span><strong>${Number(readiness.offerReadyMerchantCount||0)}</strong><small>${readiness.availableNow?'há oferta real possível':'nenhuma oferta real possível'}</small></div>
+      <div class="kpi"><span class="label">Portais</span><strong>${readiness.portalsFresh?'OK':'ATENÇÃO'}</strong><small>${esc(verifiedAt)}</small></div>
+    </div>
+    <div class="card flat form-stack" style="margin-top:12px">
+      ${securityHtml}
+      ${warningDetails.length?`<div><strong>Alertas operacionais</strong><div class="tiny muted" style="margin-top:4px">Resolva a condição ou registre conscientemente a decisão administrativa antes de ativar PILOT/LIVE.</div></div>${warnings}`:'<div class="notice success"><strong>Checklist operacional recomendado concluído.</strong></div>'}
+      ${sourceSha?`<small class="field-help">Bundle live atestado: <code>${esc(sourceSha.slice(0,12))}…</code></small>`:''}
+      <div class="order-actions">
+        <button class="secondary" onclick="adminVerifyLaunchPortals()">Verificar portais live</button>
+        ${['PILOT','LIVE'].includes(mode)
+          ?'<button class="danger-btn" onclick="adminSetOperationMode(\'PAUSED\')">Pausar novos pedidos</button>'
+          :`<button class="primary" ${canActivate?'':'disabled'} onclick="adminSetOperationMode('PILOT')">ATIVAR OPERAÇÃO PILOTO</button>`}
+        ${mode==='PILOT'?`<button class="secondary" ${canActivate?'':'disabled'} onclick="adminSetOperationMode('LIVE')">Promover para LIVE</button>`:''}
+        ${mode==='PAUSED'?'<button class="ghost" onclick="adminSetOperationMode(\'PRELAUNCH\')">Voltar a PRELAUNCH</button>':''}
+      </div>
+      <small class="field-help">${security.length?'A ativação está bloqueada por segurança.':canActivate?'A autoridade server-side permite ativação explícita.':'Há alertas ainda não confirmados.'} O kill switch preserva pedidos existentes e bloqueia apenas novos pedidos.</small>
+    </div>
+  </section>`;
+}
+
+function adminOrderStatusLabel(status){
+  return ({
+    OFFERED_TO_MERCHANT:'AGUARDANDO PARCEIRO',
+    MERCHANT_ACCEPTED:'ACEITO',
+    PREPARING:'PREPARANDO',
+    AT_RISK:'EM RISCO',
+    REASSIGNING:'REATRIBUINDO',
+    REQUOTE_REQUIRED:'CONFIRMAÇÃO DE PREÇO',
+    OUT_FOR_DELIVERY:'A CAMINHO',
+    ARRIVING:'CHEGANDO',
+    DELIVERED:'ENTREGUE',
+    SETTLED:'CONCLUÍDO',
+    CANCELLED:'CANCELADO'
+  })[String(status||'')]||String(status||'—');
+}
+function adminOrderIsLate(o){
+  const now=Date.now();
+  if(['DELIVERED','SETTLED','CANCELLED'].includes(o.status))return false;
+  const promised=Date.parse(o.promised_by||'');
+  const dispatch=Date.parse(o.dispatch_due_at||'');
+  if(Number.isFinite(promised)&&promised<now)return true;
+  if(['PREPARING','AT_RISK'].includes(o.status)&&Number.isFinite(dispatch)&&dispatch<now)return true;
+  return false;
+}
+function adminControlOrderCard(o){
+  const merchant=(adminRuntime.data?.merchants||[]).find(x=>x.id===o.merchant_id);
+  const proposed=(adminRuntime.data?.merchants||[]).find(x=>x.id===o.proposed_merchant_id);
+  const items=(o.items||[]).map(i=>`${Number(i.quantity||0)}× ${esc(i.product_name||i.product_code||'Item')}`).join(' • ');
+  const late=adminOrderIsLate(o);
+  const risk=['AT_RISK','REASSIGNING','REQUOTE_REQUIRED'].includes(o.status)||late;
+  const rescueable=['OFFERED_TO_MERCHANT','PREPARING','AT_RISK','REASSIGNING','REQUOTE_REQUIRED'].includes(o.status)&&!o.dispatched_at;
+  const cancellable=rescueable;
+  const postDispatchIncident=['OUT_FOR_DELIVERY','ARRIVING'].includes(o.status)&&!!o.dispatched_at;
+  const customerPhone=String(o.customer_phone_digits||'').replace(/\D/g,'');
+  const merchantWhatsapp=String(merchant?.businessDetails?.whatsapp||'').replace(/\D/g,'');
+  const statusClass=['DELIVERED','SETTLED'].includes(o.status)?'online':o.status==='CANCELLED'?'offline':risk?'offline':'risk';
+  const destination=[o.address_text,o.address_complement,o.delivery_reference].filter(Boolean).join(' • ');
+  return `<article class="order-card ${risk?'new':''}">
+    <div class="order-head"><div><div class="order-id">${esc(o.public_code||o.id)}</div><div class="tiny muted">${items||'Itens não carregados'}</div></div><div style="text-align:right"><span class="status-pill ${statusClass}">${esc(adminOrderStatusLabel(o.status))}</span>${late?'<div class="tiny" style="margin-top:4px"><strong>ATRASADO</strong></div>':''}</div></div>
+    <div class="order-line"><strong>${adminMoney(o.total_cents)}</strong> • pagamento ${esc(String(o.payment_method||'—').toUpperCase())} • versão ${Number(o.version||0)}</div>
+    <div class="order-line"><strong>Revenda:</strong> ${esc(merchant?.name||o.supplier_name_snapshot||'Ainda não definida')}${proposed?' • alternativa '+esc(proposed.name):''}</div>
+    ${destination?`<div class="order-line"><strong>Entrega:</strong> ${esc(destination)}</div>`:''}
+    ${o.risk_reason?`<div class="notice danger" style="margin-top:8px"><strong>Risco:</strong> ${esc(o.risk_reason)}</div>`:''}
+    <div class="tiny muted">Atualizado ${esc(formatDateTime(o.updated_at))}${o.promised_by?' • prometido '+esc(formatDateTime(o.promised_by)):''}</div>
+    <div class="order-actions">
+      <button class="ghost small" onclick="adminOpenEntity('order','${o.id}')">Abrir 360°</button>
+      ${customerPhone?`<button class="ghost small" onclick="adminOpenWhatsapp('${customerPhone}')">Cliente</button>`:''}
+      ${merchantWhatsapp?`<button class="ghost small" onclick="adminOpenWhatsapp('${merchantWhatsapp}')">Revenda</button>`:''}
+      <button class="secondary small" onclick="adminOrderControl('${o.id}',${Number(o.version||0)},'note')">Registrar observação</button>
+      ${rescueable?`<button class="secondary small" onclick="adminOrderControl('${o.id}',${Number(o.version||0)},'rescue')">Buscar outra revenda</button>`:''}
+      ${cancellable?`<button class="danger-btn small" onclick="adminOrderControl('${o.id}',${Number(o.version||0)},'cancel')">Cancelar antes da saída</button>`:''}
+      ${postDispatchIncident?`<button class="danger-btn small" onclick="adminOrderControl('${o.id}',${Number(o.version||0)},'cancel-after-dispatch')">Encerrar entrega com falha</button>`:''}
+    </div>
+    ${postDispatchIncident?'<small class="field-help">Use apenas quando a entrega falhou definitivamente depois da saída. O pedido será encerrado e o cashback liberado, mas o estoque NÃO será devolvido automaticamente; a revenda deve reconciliar fisicamente o produto.</small>':''}
+  </article>`;
+}
+function adminControlTower(d){
+  const orders=d.controlOrders||[];
+  const terminal=new Set(['DELIVERED','SETTLED','CANCELLED']);
+  const active=orders.filter(o=>!terminal.has(o.status));
+  const waiting=active.filter(o=>o.status==='OFFERED_TO_MERCHANT');
+  const risks=active.filter(o=>['AT_RISK','REASSIGNING','REQUOTE_REQUIRED'].includes(o.status)||adminOrderIsLate(o));
+  const delivery=active.filter(o=>['OUT_FOR_DELIVERY','ARRIVING'].includes(o.status));
+  const visible=[...active,...orders.filter(o=>terminal.has(o.status)).slice(0,12)];
+  return `<section class="section">
+    <div class="section-head"><div><span class="section-kicker">TORRE DE CONTROLE</span><h2>Pedidos agora</h2><p>Visão operacional com intervenção auditada. Resgate preserva estoque, capacidade, compliance e confirmação de preço.</p></div><span class="status-pill ${risks.length?'offline':'online'}">${risks.length} em risco</span></div>
+    <div class="merchant-kpis">
+      <div class="kpi"><span class="label">Ativos</span><strong>${active.length}</strong></div>
+      <div class="kpi"><span class="label">Aguardando aceite</span><strong>${waiting.length}</strong></div>
+      <div class="kpi"><span class="label">Em risco/atrasados</span><strong>${risks.length}</strong></div>
+      <div class="kpi"><span class="label">Em entrega</span><strong>${delivery.length}</strong></div>
+    </div>
+    <div style="margin-top:12px">${visible.length?visible.map(adminControlOrderCard).join(''):'<div class="empty card">Nenhum pedido real registrado ainda.</div>'}</div>
+  </section>`;
+}
+
+function adminBpsPct(bps){
+  const n=Number(bps||0)/100;
+  return Number.isInteger(n)?String(n):n.toFixed(2).replace(/0+$/,'').replace(/\.$/,'');
+}
+function adminProductRegistrySection(d){
+  const registry=d.productRegistry||{};
+  const categories=Array.isArray(registry.categories)?registry.categories:[];
+  const profiles=Array.isArray(registry.products)?registry.products:[];
+  const general=profiles.filter(x=>x.delivery_class==='household_general');
+  const glpGas=profiles.filter(x=>/^P([1-9][0-9]?)$/.test(String(x.product_code||'')));
+  const glpContainers=profiles.filter(x=>/^P([1-9][0-9]?)_CONTAINER$/.test(String(x.product_code||'')));
+  const selectableCategories=categories.filter(x=>x.active&&x.category_key!=='glp');
+  const categoryOptions=categories.map(cat=>`<option value="${esc(cat.category_key)}">${esc(cat.category_name)}</option>`).join('');
+  const categoryCards=categories.map(cat=>`<div class="list-row">
+    <div><strong>${esc(cat.category_name)}</strong><br><small>${esc(cat.category_key)} • ordem ${Number(cat.sort_order||100)}</small></div>
+    <div class="order-actions"><span class="status-pill ${cat.active?'online':'offline'}">${cat.active?'ATIVA':'PAUSADA'}</span><button class="${cat.active?'danger-btn':'secondary'} small" onclick="adminToggleProductCategory('${esc(cat.category_key)}',${cat.active?'false':'true'},${Number(cat.sort_order||100)})">${cat.active?'Pausar':'Ativar'}</button></div>
+  </div>`).join('');
+  const productRows=general.map(item=>`<div class="list-row admin-registry-product" data-product-search="${esc((String(item.product_name||'')+' '+String(item.product_code||'')).toLowerCase())}" data-product-category="${esc(item.category_key||'')}">
+    <div><strong>${esc(item.product_name)}</strong><br><small>${esc(item.product_code)} • ${esc(item.category_key)} • ordem ${Number(item.sort_order||100)}</small></div>
+    <div class="order-actions"><span class="status-pill ${item.active?'online':'offline'}">${item.active?'ATIVO':'PAUSADO'}</span><button class="${item.active?'danger-btn':'secondary'} small" onclick="adminSetProductActive('${esc(item.product_code)}',${item.active?'false':'true'})">${item.active?'Pausar':'Ativar'}</button></div>
+  </div>`).join('');
+  return `<section class="section">
+    <div class="section-head"><div><span class="section-kicker">CATÁLOGO DA PLATAFORMA</span><h2>Categorias e produtos</h2><p>Produtos gerais podem ser criados sem novo deploy. A família GLP P1–P90 e seus vasilhames permanece canônica e protegida.</p></div></div>
+    <div class="merchant-kpis">
+      <div class="kpi"><span class="label">Categorias</span><strong>${categories.length}</strong></div>
+      <div class="kpi"><span class="label">Produtos gerais</span><strong>${general.length}</strong></div>
+      <div class="kpi"><span class="label">Cargas GLP</span><strong>${glpGas.length}</strong></div>
+      <div class="kpi"><span class="label">Vasilhames GLP</span><strong>${glpContainers.length}</strong></div>
+    </div>
+    <div class="card flat" style="margin-top:12px">
+      <div class="field-row">
+        <div class="input-wrap"><label for="registry-search">Buscar produto</label><input id="registry-search" class="input" maxlength="120" placeholder="Nome ou código" oninput="adminFilterRegistry()"></div>
+        <div class="input-wrap"><label for="registry-category-filter">Filtrar categoria</label><select id="registry-category-filter" class="input" onchange="adminFilterRegistry()"><option value="">Todas</option>${categoryOptions}</select></div>
+      </div>
+      <small class="field-help">O filtro é somente visual; ativação e pausa continuam sendo decisões auditadas no servidor.</small>
+    </div>
+    <div class="card flat form-stack" style="margin-top:12px">
+      <h3>Nova categoria</h3>
+      <div class="field-row">
+        <div class="input-wrap"><label for="registry-category-key">Chave</label><input id="registry-category-key" class="input" maxlength="40" placeholder="bebidas"></div>
+        <div class="input-wrap"><label for="registry-category-name">Nome</label><input id="registry-category-name" class="input" maxlength="80" placeholder="Bebidas"></div>
+        <div class="input-wrap"><label for="registry-category-sort">Ordem</label><input id="registry-category-sort" class="input" type="number" min="0" max="10000" step="1" value="100"></div>
+      </div>
+      <button class="secondary" onclick="adminCreateProductCategory()">Criar categoria</button>
+      <div class="divider"></div>
+      <h3>Novo produto geral</h3>
+      <div class="field-row">
+        <div class="input-wrap"><label for="registry-product-code">Código</label><input id="registry-product-code" class="input" maxlength="32" placeholder="SODA2L"></div>
+        <div class="input-wrap"><label for="registry-product-name">Nome</label><input id="registry-product-name" class="input" maxlength="120" placeholder="Refrigerante 2 L"></div>
+      </div>
+      <div class="field-row">
+        <div class="input-wrap"><label for="registry-product-category">Categoria</label><select id="registry-product-category" class="input">${selectableCategories.map(cat=>`<option value="${esc(cat.category_key)}">${esc(cat.category_name)}</option>`).join('')}</select></div>
+        <div class="input-wrap"><label for="registry-product-sort">Ordem</label><input id="registry-product-sort" class="input" type="number" min="0" max="10000" step="1" value="100"></div>
+      </div>
+      <label class="check-row"><input id="registry-product-visible" type="checkbox" checked><span><strong>Visível ao cliente</strong><small>Só aparece na vitrine quando houver oferta configurada.</small></span></label>
+      <label class="check-row"><input id="registry-product-merchant" type="checkbox" checked><span><strong>Revendas podem adicionar ao catálogo</strong><small>A revenda ainda precisa definir preço, estoque e disponibilidade.</small></span></label>
+      <button class="primary" onclick="adminCreateRegistryProduct()" ${selectableCategories.length?'':'disabled'}>Cadastrar produto</button>
+      ${selectableCategories.length?'':'<div class="notice danger">Crie ou ative uma categoria geral antes de cadastrar produto.</div>'}
+    </div>
+    <div class="card flat" style="margin-top:12px"><h3>Categorias</h3><div class="list">${categoryCards||'<div class="tiny muted">Nenhuma categoria cadastrada.</div>'}</div></div>
+    <div class="card flat" style="margin-top:12px"><h3>Produtos gerais • <span id="registry-visible-count">${general.length}</span> visível(is)</h3><div class="list">${productRows||'<div class="tiny muted">Nenhum produto geral cadastrado.</div>'}</div></div>
+  </section>`;
+}
+
+function adminCommercialPolicySection(d){
+  const p=d.commercialPolicy;
+  if(!p)return `<section class="section"><div class="notice danger"><strong>Política comercial indisponível.</strong><br>O painel não conseguiu carregar a autoridade financeira.</div></section>`;
+  const fee=Number(p.platform_fee_bps||0);
+  const variable=Number(p.variable_cost_bps||0);
+  const contribution=Number(p.minimum_contribution_bps||0);
+  const cashback=Number(p.cashback_bps||0);
+  const referral=Number(p.direct_referral_bps||0);
+  const rewards=cashback+referral;
+  const headroom=Math.max(0,fee-variable-contribution-rewards);
+  const per100=(bps)=>adminMoney(Math.floor(10000*Number(bps||0)/10000));
+  return `<section class="section">
+    <div class="section-head"><div><span class="section-kicker">ECONOMIA GLOBAL E INCENTIVOS</span><h2>Política econômica</h2><p>Custos, contribuição mínima, cashback e indicação são globais. Para revendas reais, a taxa efetiva TAMÃO vem do plano de cobrança da revenda; o percentual global abaixo é apenas fallback/compatibilidade. Pedidos existentes preservam o snapshot vigente quando foram criados.</p></div><span class="status-pill ${p.active?'online':'offline'}">V${Number(p.policy_version||1)} • ${p.active?'ATIVA':'INATIVA'}</span></div>
+    <div class="merchant-kpis">
+      <div class="kpi"><span class="label">Taxa global de fallback</span><strong>${adminBpsPct(fee)}%</strong><small>não substitui a taxa do plano da revenda</small></div>
+      <div class="kpi"><span class="label">Reserva variável</span><strong>${adminBpsPct(variable)}%</strong><small>${per100(variable)} por R$ 100</small></div>
+      <div class="kpi"><span class="label">Contribuição mínima</span><strong>${adminBpsPct(contribution)}%</strong><small>${per100(contribution)} por R$ 100</small></div>
+      <div class="kpi"><span class="label">Cashback</span><strong>${adminBpsPct(cashback)}%</strong><small>${per100(cashback)} por R$ 100</small></div>
+      <div class="kpi"><span class="label">Indicação</span><strong>${adminBpsPct(referral)}%</strong><small>${per100(referral)} por R$ 100</small></div>
+      <div class="kpi"><span class="label">Folga econômica</span><strong>${adminBpsPct(headroom)}%</strong><small>${per100(headroom)} por R$ 100 no pior caso</small></div>
+    </div>
+    <div class="card flat form-stack" style="margin-top:12px">
+      <label class="check-row"><input id="policy-active" type="checkbox" ${p.active?'checked':''} onchange="adminPreviewCommercialPolicy()"><span><strong>Política ativa para novos pedidos</strong><small>Desativar durante PILOT/LIVE é bloqueado pelo servidor; pause a operação primeiro.</small></span></label>
+      <div class="field-row">
+        <div class="input-wrap"><label for="policy-fee">Taxa fallback/legado (%)</label><input id="policy-fee" type="number" min="0" max="50" step="0.05" class="input" value="${adminBpsPct(fee)}" oninput="adminPreviewCommercialPolicy()"></div>
+        <div class="input-wrap"><label for="policy-variable">Reserva de custo (%)</label><input id="policy-variable" type="number" min="0" max="50" step="0.05" class="input" value="${adminBpsPct(variable)}" oninput="adminPreviewCommercialPolicy()"></div>
+      </div>
+      <div class="field-row">
+        <div class="input-wrap"><label for="policy-contribution">Contribuição mínima (%)</label><input id="policy-contribution" type="number" min="0" max="50" step="0.05" class="input" value="${adminBpsPct(contribution)}" oninput="adminPreviewCommercialPolicy()"></div>
+        <div class="input-wrap"><label for="policy-cashback">Cashback (%)</label><input id="policy-cashback" type="number" min="0" max="50" step="0.05" class="input" value="${adminBpsPct(cashback)}" oninput="adminPreviewCommercialPolicy()"></div>
+      </div>
+      <div class="field-row">
+        <div class="input-wrap"><label for="policy-referral">Indicação direta (%)</label><input id="policy-referral" type="number" min="0" max="50" step="0.05" class="input" value="${adminBpsPct(referral)}" oninput="adminPreviewCommercialPolicy()"></div>
+        <div class="input-wrap"><label for="policy-hold">Carência da indicação (horas)</label><input id="policy-hold" type="number" min="0" max="2160" step="1" class="input" value="${Number(p.commission_hold_hours||0)}"></div>
+      </div>
+      <div id="policy-preview" class="notice"><strong>Prévia por R$ 100:</strong><br>Taxa ${per100(fee)} • custo ${per100(variable)} • contribuição mínima ${per100(contribution)} • cashback ${per100(cashback)} • indicação ${per100(referral)} • folga ${per100(headroom)}.</div>
+      <div class="input-wrap"><label for="policy-reason">Motivo da alteração</label><input id="policy-reason" class="input" maxlength="1000" placeholder="Ex.: ajustar cashback do piloto após revisão de margem"></div>
+      <button class="primary" onclick="adminSaveCommercialPolicy(${Number(p.policy_version||1)})">Salvar política para pedidos futuros</button>
+      ${p.last_change_reason?`<small class="field-help">Última decisão: ${esc(p.last_change_reason)} • ${esc(formatDateTime(p.updated_at))}</small>`:''}
+    </div>
+  </section>`;
+}
+
+function adminPage(){
+  if(!adminPortalRequested()){
+    return shell('<section class="page"><div class="notice danger">Administração só está disponível no portal protegido.</div></section>');
+  }
+  if(['disabled','loading'].includes(adminRuntime.status)){
+    return shell('<section class="page"><h1 class="page-title">Administração</h1><div class="empty card">Conectando ao control plane…</div></section>');
+  }
+  if(adminRuntime.status==='unsafe-origin'){
+    return shell('<section class="page"><span class="eyebrow">CONTROL PLANE BLOQUEADO</span><h1 class="page-title">Origem administrativa não isolada</h1><div class="notice danger">Por segurança, o painel admin não autentica em uma origem compartilhada como GitHub Pages. Use localhost para desenvolvimento ou configure uma origem dedicada para administração.</div></section>');
+  }
+  if(adminRuntime.status==='unauthenticated')return adminLoginView();
+  if(adminRuntime.status==='no-access')return adminNoAccessView();
+  if(adminRuntime.status==='bootstrap-error')return adminBootstrapErrorView();
+  if(adminRuntime.status!=='ready'||!adminRuntime.data){
+    return shell(`<section class="page"><h1 class="page-title">Administração</h1><div class="notice danger"><strong>Não foi possível carregar o painel.</strong><br>${esc(adminRuntime.error||'Tente novamente.')}</div><button class="secondary full" style="margin-top:12px" onclick="adminRefresh()">Tentar novamente</button></section>`);
+  }
+
+  const d=adminRuntime.data;
+  const currentRole=adminCurrentRole();
+  if(!adminRoleCanSection(adminRuntime.section,currentRole)){
+    adminRuntime.section=adminFirstSectionForRole(currentRole);
+  }
+  const pending=(d.applications||[]).filter(x=>x.status==='pending');
+  const pilotPartners=d.pilotPartners||[];
+  const active=(d.merchants||[]).filter(x=>x.status==='active');
+  const referralReviews=d.referralReviews||[];
+  const pendingReferralReviews=referralReviews.filter(x=>x.risk_status==='review_required'&&x.financialState!=='reversed'&&!x.financialReversedAt);
+  const rewardFailures=d.rewardFailures||[];
+  const deadRewardFailures=rewardFailures.filter(x=>!!x.dead_lettered_at);
+  const accountingFailures=d.accountingFailures||[];
+  const deadAccountingFailures=accountingFailures.filter(x=>!!x.dead_lettered_at);
+  const receivables=d.finance?.receivables||[];
+  const reimbursements=d.finance?.cashbackReimbursements||[];
+  const adjustments=d.finance?.adjustments||[];
+  const platformAdmins=d.platformAdmins||[];
+  const supportCases=d.supportCases||[];
+  const openSupportCases=supportCases.filter(x=>['open','in_review'].includes(x.status));
+  const controlOrders=d.controlOrders||[];
+  const metrics=d.businessMetrics||{};
+  const openFees=receivables.reduce((s,x)=>s+Number(x.platform_fee_cents||0),0);
+  const openCashback=reimbursements.reduce((s,x)=>s+Number(x.cashback_cents||0),0);
+  const openAdjustments=adjustments.reduce((s,x)=>s+Number(x.amount_cents||0),0);
+  const billing=d.merchantBilling||{};
+  const actionableFinanceCount=
+    pendingReferralReviews.length
+    +deadRewardFailures.length
+    +deadAccountingFailures.length
+    +(billing.paymentRequests||[]).filter(x=>x.status==='pending').length
+    +(billing.paymentEvents||[]).filter(x=>x.status==='review_required').length
+    +(billing.refunds||[]).filter(x=>x.status==='review_required').length
+    +(billing.statements||[]).filter(x=>x.status==='overdue').length
+    +(billing.accounts||[]).filter(x=>x.sales_hold===true).length;
+  const activeOrderAttention=controlOrders.filter(x=>['AT_RISK','REASSIGNING','REQUOTE_REQUIRED'].includes(x.status)||adminOrderIsLate(x)).length;
+  const partnerAttention=pending.length+pilotPartners.filter(x=>!['cancelled','converted'].includes(String(x.onboarding_status||''))).length;
+  const incidentAttention=(d.incidents||[]).filter(x=>x.status!=='resolved').length;
+  const securityAttention=(d.launchReadiness?.securityBlockers||[]).length;
+  const badge=(n)=>Number(n)>0?String(Number(n)):'';
+
+  const overviewContent=`
+    ${adminAttentionCenter(d)}
+    ${currentRole==='superadmin'?adminLaunchControl(d.launchReadiness||{}):''}
+    <section class="section"><div class="section-head"><div><span class="section-kicker">NEGÓCIO • 30 DIAS</span><h2>Pulso da operação</h2><p>Indicadores server-side calculados apenas sobre fatos liquidados e estados reais do pedido.</p></div></div><div class="merchant-kpis">
+      <div class="kpi"><span class="label">GMV 30d</span><strong>${adminMoney(metrics.gmvCents30d)}</strong><small>${Number(metrics.settledOrders30d||0)} pedidos liquidados</small></div>
+      <div class="kpi"><span class="label">Ticket médio</span><strong>${adminMoney(metrics.averageTicketCents30d)}</strong></div>
+      <div class="kpi"><span class="label">Clientes recorrentes</span><strong>${metrics.repeatRate30d==null?'—':Math.round(Number(metrics.repeatRate30d)*100)+'%'}</strong><small>${Number(metrics.repeatCustomers30d||0)} de ${Number(metrics.activeCustomers30d||0)} clientes ativos</small></div>
+      <div class="kpi"><span class="label">Cancelamentos</span><strong>${metrics.cancellationRate30d==null?'—':Math.round(Number(metrics.cancellationRate30d)*100)+'%'}</strong><small>${Number(metrics.cancelledOrders30d||0)} de ${Number(metrics.createdOrders30d||0)} pedidos</small></div>
+      <div class="kpi"><span class="label">Pontualidade 90d</span><strong>${metrics.onTimeRate90d==null?'—':Math.round(Number(metrics.onTimeRate90d)*100)+'%'}</strong></div>
+      <div class="kpi"><span class="label">Taxa gerada 30d</span><strong>${adminMoney(metrics.platformFeeGeneratedCents30d)}</strong></div>
+      <div class="kpi"><span class="label">Cashback 30d</span><strong>${adminMoney(metrics.cashbackGrantedCents30d)}</strong></div>
+      <div class="kpi"><span class="label">Atendimentos abertos</span><strong>${Number(metrics.openSupportCases||openSupportCases.length)}</strong></div>
+    </div></section>
+    <section class="section"><div class="merchant-kpis">
+      <div class="kpi"><span class="label">Cadastros pendentes</span><strong>${pending.length}</strong></div>
+      <div class="kpi"><span class="label">Parceiros piloto</span><strong>${pilotPartners.filter(x=>x.onboarding_status!=='cancelled').length}</strong></div>
+      <div class="kpi"><span class="label">Revendas ativas</span><strong>${active.length}</strong></div>
+      <div class="kpi"><span class="label">Taxas a receber</span><strong>${adminMoney(openFees)}</strong></div>
+      <div class="kpi"><span class="label">Cashback a reembolsar</span><strong>${adminMoney(openCashback)}</strong></div>
+    </div></section>`;
+
+  const ordersContent=`
+    ${adminControlTower({...d,controlOrders})}
+    <section class="section"><div class="section-head"><div><h2>Atendimento de pedidos</h2><p>Problemas registrados pelo cliente entram aqui com vínculo ao pedido, status e trilha administrativa.</p></div><span class="status-pill ${openSupportCases.length?'offline':'online'}">${openSupportCases.length} aberto(s)</span></div>${supportCases.length?supportCases.map(adminSupportCaseCard).join(''):'<div class="empty card">Nenhum atendimento registrado.</div>'}</section>`;
+
+  const customersContent=adminCustomersSection(d);
+
+  const partnersContent=`
+    ${adminPrelaunchLeadsSection(d)}
+    ${adminPublicRequestsSection(d)}
+    <section class="section"><div class="section-head"><div><h2>Parceiros piloto em preparação</h2><p>Interesse comercial registrado antes do cadastro jurídico. Esses registros não participam das ofertas e não contam como revenda ativa.</p></div></div>${pilotPartners.length?pilotPartners.map(adminPilotPartnerCard).join(''):'<div class="empty card">Nenhum parceiro piloto em preparação.</div>'}</section>
+    <section class="section"><div class="section-head"><div><h2>Cadastros de parceiros</h2><p>Aprovação cria a revenda como pendente e vincula o solicitante como owner. Não coloca a operação online.</p></div></div>${(d.applications||[]).length?(d.applications||[]).map(adminApplicationCard).join(''):'<div class="empty card">Nenhum cadastro recebido.</div>'}</section>
+    <section class="section"><div class="section-head"><div><h2>Validação e ativação</h2><p>CNPJ é obrigatório para toda revenda ativa. Qualquer produto GLP ativo exige também validação ANP.</p></div></div>${(d.merchants||[]).length?(d.merchants||[]).map(adminMerchantCard).join(''):'<div class="empty card">Nenhuma revenda criada.</div>'}</section>`;
+
+  const catalogContent=`${adminProductRegistrySection(d)}`;
+
+  const financeContent=`
+    ${adminMerchantBillingSection(d)}
+    ${adminCommercialPolicySection(d)}
+    <section class="section"><div class="section-head"><div><h2>Revisão de indicações</h2><p>Comissões suspeitas não amadurecem automaticamente. Aprovação ainda exige identidades permanentes e fim da quarentena.</p></div><span class="status-pill ${pendingReferralReviews.length?'offline':'online'}">${pendingReferralReviews.length} pendente(s)</span></div>${referralReviews.length?referralReviews.map(adminReferralReviewCard).join(''):'<div class="empty card">Nenhuma indicação exige revisão.</div>'}</section>
+    <section class="section"><div class="section-head"><div><h2>Fila de benefícios</h2><p>Falhas transitórias usam backoff. Dead-letter exige revisão manual; a entrega do pedido permanece concluída.</p></div><span class="status-pill ${deadRewardFailures.length?'offline':'online'}">${deadRewardFailures.length} dead-letter</span></div>${rewardFailures.length?rewardFailures.map(adminRewardFailureCard).join(''):'<div class="empty card">Nenhuma dívida de processamento de benefícios.</div>'}</section>
+    <section class="section"><div class="section-head"><div><h2>Fila contábil de settlement</h2><p>Taxa da plataforma e reembolso de cashback são processados independentemente dos benefícios.</p></div><span class="status-pill ${deadAccountingFailures.length?'offline':'online'}">${deadAccountingFailures.length} dead-letter</span></div>${accountingFailures.length?accountingFailures.map(adminAccountingFailureCard).join(''):'<div class="empty card">Nenhuma dívida contábil de settlement.</div>'}</section>
+    <section class="section"><div class="section-head"><div><h2>Conciliação financeira</h2><p>Taxa da plataforma, cashback usado e ajustes são contas separadas.</p></div></div>
+      <div class="card flat"><h3>Taxas da plataforma</h3><div class="list">${receivables.length?receivables.map(adminReceivableRow).join(''):'<div class="tiny muted">Nenhuma taxa em aberto.</div>'}</div></div>
+      <div class="card flat" style="margin-top:12px"><h3>Cashback a reembolsar</h3><div class="list">${reimbursements.length?reimbursements.map(adminReimbursementRow).join(''):'<div class="tiny muted">Nenhum reembolso em aberto.</div>'}</div></div>
+      <div class="card flat" style="margin-top:12px"><h3>Ajustes de reversão • ${adminMoney(openAdjustments)}</h3><div class="list">${adjustments.length?adjustments.map(adminAdjustmentRow).join(''):'<div class="tiny muted">Nenhum ajuste em aberto.</div>'}</div></div>
+    </section>
+    <section class="section"><div class="card flat form-stack"><h3>Reversão financeira auditada</h3><p class="muted tiny">Somente para um pedido já liquidado que teve estorno/refund confirmado. O histórico operacional de entrega permanece.</p><div class="input-wrap"><label for="admin-reverse-order">ID do pedido</label><input id="admin-reverse-order" class="input" placeholder="UUID do pedido"></div><div class="input-wrap"><label for="admin-reverse-reason">Motivo</label><input id="admin-reverse-reason" class="input" maxlength="240" placeholder="Motivo confirmado"></div><div class="input-wrap"><label for="admin-reverse-ref">Referência</label><input id="admin-reverse-ref" class="input" maxlength="120" placeholder="ID do estorno/comprovante"></div><button class="danger-btn" onclick="adminReverseOrder()">Executar reversão</button></div></section>`;
+
+  const incidentsContent=adminIncidentCenter(d);
+  const auditContent=adminAuditView(d);
+
+  const adminAccessContent=currentRole==='superadmin'
+    ? `<section class="section"><div class="section-head"><div><span class="section-kicker">ACESSO ADMINISTRATIVO</span><h2>Administradores da plataforma</h2><p>RBAC explícito: Superadmin, Operações, Financeiro, Suporte, Compliance e Somente leitura. O último Superadmin ativo não pode ser removido nem rebaixado.</p></div><div class="order-actions"><span class="status-pill online">${platformAdmins.filter(x=>x.active).length} ativo(s)</span><span class="status-pill">${esc(adminRoleLabel(currentRole))}</span></div></div>
+      <div class="card flat form-stack">
+        <div class="list">${platformAdmins.length?platformAdmins.map(x=>`<div class="list-row admin-access-row"><div><strong>${esc(x.user_id)}</strong><br><small>${x.active?'Administrador ativo':'Acesso administrativo suspenso'} • ${esc(adminRoleLabel(x.admin_role))}</small></div><div class="order-actions"><select id="admin-role-${esc(x.user_id)}" class="input small-input" aria-label="Perfil administrativo">${adminRoleOptions(x.admin_role)}</select><button class="secondary small" onclick="adminChangePlatformAdminRole('${esc(x.user_id)}')">Salvar perfil</button><span class="status-pill ${x.active?'online':'offline'}">${x.active?'ATIVO':'INATIVO'}</span><button class="${x.active?'danger-btn':'secondary'} small" onclick="adminSetPlatformAdmin('${esc(x.user_id)}',${x.active?'false':'true'},document.getElementById('admin-role-${esc(x.user_id)}')?.value)">${x.active?'Desativar':'Ativar'}</button></div></div>`).join(''):'<div class="tiny muted">Nenhum administrador bootstrapado ainda.</div>'}</div>
+        <div class="divider"></div>
+        <div class="input-wrap"><label for="admin-new-user-email">E-mail da conta permanente</label><input id="admin-new-user-email" class="input" type="email" maxlength="160" autocomplete="off" placeholder="pessoa@empresa.com"><small class="field-help">A conta precisa ser permanente e confirmada antes de receber acesso administrativo.</small></div>
+        <div class="input-wrap"><label for="admin-new-user-role">Perfil inicial</label><select id="admin-new-user-role" class="input"><option value="readonly">Somente leitura</option><option value="support">Suporte</option><option value="compliance">Compliance</option><option value="operations">Operações</option><option value="finance">Financeiro</option><option value="superadmin">Superadmin</option></select><small class="field-help">Use Superadmin somente para quem precisa controlar acessos e modo operacional.</small></div>
+        <button class="secondary" onclick="adminAddPlatformAdmin()">Adicionar administrador</button>
+      </div>
+    </section>`
+    : currentRole==='readonly'
+      ? `<section class="section"><div class="section-head"><div><span class="section-kicker">ACESSO ADMINISTRATIVO</span><h2>Administradores</h2><p>Consulta sem permissão para alterar perfis ou acessos.</p></div></div><div class="list">${platformAdmins.map(x=>`<div class="list-row"><div><strong>${esc(x.user_id)}</strong><br><small>${esc(adminRoleLabel(x.admin_role))}</small></div><span class="status-pill ${x.active?'online':'offline'}">${x.active?'ATIVO':'INATIVO'}</span></div>`).join('')}</div></section>`
+      : '';
+
+  const systemContent=`
+    ${adminSystemHealthView()}
+    ${adminAccessContent}
+  `;
+
+  const menu=`
+    <nav class="admin-sidebar" aria-label="Áreas administrativas">
+      <div class="admin-nav-title">Painel</div>
+      ${adminMenuButton('overview','Visão geral','⌂')}
+      ${adminMenuButton('orders','Pedidos','▣',badge(activeOrderAttention+openSupportCases.length))}
+      ${adminMenuButton('customers','Clientes','◎')}
+      ${adminMenuButton('partners','Parceiros','◇',badge(partnerAttention))}
+      ${adminMenuButton('catalog','Catálogo','▤')}
+      ${adminMenuButton('finance','Financeiro','₿',badge(actionableFinanceCount))}
+      ${adminMenuButton('incidents','Incidentes','!',badge(incidentAttention))}
+      ${adminMenuButton('audit','Auditoria','⌕')}
+      ${adminMenuButton('system','Segurança e sistema','⚙',badge(securityAttention))}
+    </nav>`;
+
+  return shell(`<section class="page admin-page">
+    <div class="status-bar admin-topbar"><div><div class="tiny muted">CONTROL PLANE REAL</div><h1 class="page-title" style="margin-bottom:2px">Administração TAMÃO</h1></div><div class="order-actions"><span class="status-pill">${esc(adminRoleLabel(currentRole))}</span><button class="secondary small" onclick="adminRefresh()">Atualizar</button><button class="ghost small" onclick="adminSignOut()">Sair</button></div></div>
+    ${adminRuntime.error?`<div class="notice danger" style="margin-top:12px">${esc(adminRuntime.error)}</div>`:''}
+    ${adminGlobalSearchView()}
+    <div class="admin-workspace">
+      ${menu}
+      <main class="admin-main">
+        ${adminPanel('overview',overviewContent)}
+        ${adminPanel('orders',ordersContent)}
+        ${adminPanel('customers',customersContent)}
+        ${adminPanel('partners',partnersContent)}
+        ${adminPanel('catalog',catalogContent)}
+        ${adminPanel('finance',financeContent)}
+        ${adminPanel('incidents',incidentsContent)}
+        ${adminPanel('audit',auditContent)}
+        ${adminPanel('system',systemContent)}
+      </main>
+    </div>
+    ${adminDetailView()}
+  </section>`);
+}
+
+function adminFilterRegistry(){
+  const query=String(document.getElementById('registry-search')?.value||'').trim().toLowerCase();
+  const category=String(document.getElementById('registry-category-filter')?.value||'').trim();
+  let visible=0;
+  document.querySelectorAll('.admin-registry-product').forEach(row=>{
+    const hay=String(row.dataset.productSearch||'');
+    const cat=String(row.dataset.productCategory||'');
+    const show=(!query||hay.includes(query))&&(!category||cat===category);
+    row.hidden=!show;
+    if(show)visible++;
+  });
+  const count=document.getElementById('registry-visible-count');
+  if(count)count.textContent=String(visible);
+}
+
+async function adminCreateProductCategory(){
+  const categoryKey=String(document.getElementById('registry-category-key')?.value||'').trim().toLowerCase();
+  const categoryName=String(document.getElementById('registry-category-name')?.value||'').trim();
+  const sortOrder=Number(document.getElementById('registry-category-sort')?.value||100);
+  if(!/^[a-z][a-z0-9_]{1,39}$/.test(categoryKey))return toast('Use uma chave simples, como bebidas ou limpeza');
+  if(categoryName.length<2)return toast('Informe o nome da categoria');
+  if(!Number.isSafeInteger(sortOrder)||sortOrder<0||sortOrder>10000)return toast('Ordem inválida');
+  const reason=prompt('Motivo para criar/atualizar esta categoria:')||'';
+  if(reason.trim().length<3)return toast('Informe o motivo');
+  try{
+    await adminPerform('product-registry',{
+      registryAction:'upsert-category',categoryKey,categoryName,
+      active:true,sortOrder,reason
+    });
+    toast('Categoria salva');
+  }catch(e){toast(String(e?.message||e))}
+}
+async function adminToggleProductCategory(categoryKey,active,sortOrder){
+  const category=(adminRuntime.data?.productRegistry?.categories||[]).find(x=>x.category_key===categoryKey);
+  const categoryName=String(category?.category_name||categoryKey);
+  const reason=prompt((active?'Motivo para ativar ':'Motivo para pausar ')+categoryName+':')||'';
+  if(reason.trim().length<3)return toast('Informe o motivo');
+  if(!active&&!confirm('Pausar esta categoria? SKUs ativos das revendas serão pausados e precisarão ser reconfirmados antes de voltar a vender.'))return;
+  try{
+    await adminPerform('product-registry',{
+      registryAction:'upsert-category',categoryKey,categoryName,
+      active:active===true,sortOrder:Number(sortOrder||100),reason
+    });
+    toast(active?'Categoria ativada':'Categoria pausada');
+  }catch(e){toast(String(e?.message||e))}
+}
+async function adminCreateRegistryProduct(){
+  const productCode=String(document.getElementById('registry-product-code')?.value||'').trim().toUpperCase();
+  const productName=String(document.getElementById('registry-product-name')?.value||'').trim();
+  const categoryKey=String(document.getElementById('registry-product-category')?.value||'').trim().toLowerCase();
+  const sortOrder=Number(document.getElementById('registry-product-sort')?.value||100);
+  const customerVisible=document.getElementById('registry-product-visible')?.checked===true;
+  const merchantAddAllowed=document.getElementById('registry-product-merchant')?.checked===true;
+  if(!/^[A-Z][A-Z0-9_]{1,31}$/.test(productCode))return toast('Código inválido. Use letras, números e underscore.');
+  if(/^P[0-9]/.test(productCode))return toast('Códigos Pxx são reservados à família GLP canônica');
+  if(productName.length<2)return toast('Informe o nome do produto');
+  if(!categoryKey||categoryKey==='glp')return toast('Escolha uma categoria geral');
+  if(!Number.isSafeInteger(sortOrder)||sortOrder<0||sortOrder>10000)return toast('Ordem inválida');
+  const reason=prompt('Motivo para cadastrar/atualizar este produto:')||'';
+  if(reason.trim().length<3)return toast('Informe o motivo');
+  try{
+    await adminPerform('product-registry',{
+      registryAction:'upsert-product',
+      categoryKey,productCode,productName,
+      deliveryClass:'household_general',
+      requiresIsolatedDelivery:false,
+      customerVisible,merchantAddAllowed,
+      active:false,sortOrder,reason
+    });
+    toast('Produto criado como PAUSADO. Revise os dados e ative explicitamente quando estiver pronto para publicação.');
+  }catch(e){toast(String(e?.message||e))}
+}
+async function adminSetProductActive(productCode,active){
+  const reason=prompt((active?'Motivo para ativar ':'Motivo para pausar ')+productCode+':')||'';
+  if(reason.trim().length<3)return toast('Informe o motivo');
+  if(!active&&!confirm('Pausar este produto? Itens ativos das revendas serão pausados e não serão reativados automaticamente.'))return;
+  try{
+    await adminPerform('product-registry',{
+      registryAction:'set-product-active',
+      productCode,active:active===true,sortOrder:100,reason
+    });
+    toast(active?'Produto ativado':'Produto pausado');
+  }catch(e){toast(String(e?.message||e))}
+}
+
+function adminPolicyFieldBps(id){
+  const n=Number(document.getElementById(id)?.value);
+  if(!Number.isFinite(n)||n<0||n>50)return null;
+  return Math.round(n*100);
+}
+function adminPreviewCommercialPolicy(){
+  const el=document.getElementById('policy-preview');
+  if(!el)return;
+  const fee=adminPolicyFieldBps('policy-fee');
+  const variable=adminPolicyFieldBps('policy-variable');
+  const contribution=adminPolicyFieldBps('policy-contribution');
+  const cashback=adminPolicyFieldBps('policy-cashback');
+  const referral=adminPolicyFieldBps('policy-referral');
+  if([fee,variable,contribution,cashback,referral].some(x=>x==null)){
+    el.className='notice danger';
+    el.innerHTML='<strong>Prévia indisponível.</strong><br>Revise os percentuais.';
+    return;
+  }
+  const headroom=fee-variable-contribution-cashback-referral;
+  const cents=(bps)=>adminMoney(Math.floor(10000*bps/10000));
+  el.className='notice '+(headroom>=0?'success':'danger');
+  el.innerHTML='<strong>Prévia por R$ 100:</strong><br>Taxa '+cents(fee)+' • custo '+cents(variable)+' • contribuição mínima '+cents(contribution)+' • cashback '+cents(cashback)+' • indicação '+cents(referral)+' • folga '+cents(Math.max(0,headroom))+(headroom<0?' • <strong>POLÍTICA NÃO FINANCIADA</strong>':'');
+}
+async function adminSaveCommercialPolicy(expectedVersion){
+  const active=document.getElementById('policy-active')?.checked===true;
+  const platformFeeBps=adminPolicyFieldBps('policy-fee');
+  const variableCostBps=adminPolicyFieldBps('policy-variable');
+  const minimumContributionBps=adminPolicyFieldBps('policy-contribution');
+  const cashbackBps=adminPolicyFieldBps('policy-cashback');
+  const directReferralBps=adminPolicyFieldBps('policy-referral');
+  const commissionHoldHours=Number(document.getElementById('policy-hold')?.value);
+  const reason=document.getElementById('policy-reason')?.value.trim()||'';
+  if([platformFeeBps,variableCostBps,minimumContributionBps,cashbackBps,directReferralBps].some(x=>x==null)){
+    return toast('Revise os percentuais da política');
+  }
+  if(!Number.isSafeInteger(commissionHoldHours)||commissionHoldHours<0||commissionHoldHours>2160){
+    return toast('A carência precisa estar entre 0 e 2160 horas');
+  }
+  if(reason.length<3)return toast('Informe o motivo da alteração');
+  if(active&&platformFeeBps<variableCostBps+minimumContributionBps+cashbackBps+directReferralBps){
+    return toast('A taxa TAMÃO não financia custos, contribuição mínima e recompensas informadas');
+  }
+  if(!confirm('Salvar esta política para PEDIDOS FUTUROS? Pedidos existentes manterão seus snapshots atuais.'))return;
+  try{
+    await adminPerform('commercial-policy',{
+      expectedVersion,
+      active,
+      platformFeeBps,
+      variableCostBps,
+      minimumContributionBps,
+      cashbackBps,
+      directReferralBps,
+      commissionHoldHours,
+      reason
+    });
+    toast('Política comercial atualizada para pedidos futuros');
+  }catch(e){toast(String(e?.message||e))}
+}
+
+function adminOpenWhatsapp(phone){
+  const digits=String(phone||'').replace(/\D/g,'');
+  if(digits.length<10)return toast('Contato indisponível');
+  window.open('https://wa.me/'+digits,'_blank','noopener,noreferrer');
+}
+async function adminOrderControl(orderId,expectedVersion,controlAction){
+  const labels={
+    note:'Registrar uma observação administrativa neste pedido:',
+    rescue:'Motivo para buscar outra revenda:',
+    cancel:'Motivo para cancelar o pedido antes da saída:',
+    'cancel-after-dispatch':'Descreva a falha confirmada depois da saída:'
+  };
+  const reason=prompt(labels[controlAction]||'Motivo da intervenção:')||'';
+  if(reason.trim().length<3)return toast('Informe o motivo da intervenção');
+  if(controlAction==='rescue'&&!confirm('Buscar outra revenda agora? O sistema revalidará estoque, preço, compliance, pagamento e capacidade. Se a nova condição for mais cara, o cliente deverá confirmar.'))return;
+  if(controlAction==='cancel'&&!confirm('Cancelar este pedido antes da saída? Estoque reservado e cashback serão restaurados quando aplicável.'))return;
+  if(controlAction==='cancel-after-dispatch'&&!confirm('Encerrar esta entrega após a saída? O cashback será liberado e o PIN invalidado, mas o estoque NÃO será restaurado automaticamente. Use somente após confirmar que a entrega falhou.'))return;
+  try{
+    const result=await adminPerform('order-control',{orderId,expectedVersion,controlAction,reason});
+    toast(controlAction==='note'?'Observação registrada':controlAction==='rescue'?'Resgate executado':controlAction==='cancel-after-dispatch'?'Entrega falhada encerrada; revisar estoque físico':'Pedido cancelado');
+    return result;
+  }catch(e){toast(String(e?.message||e))}
+}
+
+async function adminVerifyLaunchPortals(){
+  try{
+    const result=await adminPerform('verify-launch-portals',{});
+    if(result?.ok)toast('Os três portais live foram verificados');
+  }catch(e){toast(String(e?.message||e))}
+}
+async function adminConfirmLaunchRequirement(requirementKey){
+  const reason=prompt('Explique por que esta pendência pode ser assumida agora pelo administrador:')||'';
+  if(reason.trim().length<3)return toast('Informe o motivo da decisão');
+  const hoursText=prompt('Validade da confirmação em horas. Deixe vazio para não expirar:','24');
+  if(hoursText===null)return;
+  let expiresAt=null;
+  if(String(hoursText).trim()){
+    const hours=Number(hoursText);
+    if(!Number.isFinite(hours)||hours<=0||hours>8760)return toast('Informe uma validade entre 1 e 8760 horas');
+    expiresAt=new Date(Date.now()+hours*60*60*1000).toISOString();
+  }
+  const evidence=prompt('Evidência ou referência opcional:','')||'';
+  if(!confirm('Estou ciente do risco e desejo registrar esta decisão administrativa.'))return;
+  try{
+    await adminPerform('confirm-launch-requirement',{
+      requirementKey,
+      status:'confirmed',
+      reason,
+      evidence,
+      expiresAt,
+      source:'admin-panel'
+    });
+    toast('Decisão registrada na auditoria');
+  }catch(e){toast(String(e?.message||e))}
+}
+function adminRequireTypedConfirmation(expected,message){
+  const value=prompt(message+'\n\nDigite exatamente: '+expected);
+  return value===expected;
+}
+async function adminSetOperationMode(mode){
+  const target=String(mode||'').toUpperCase();
+  const labels={PRELAUNCH:'voltar ao pré-lançamento',PILOT:'ativar a operação piloto',LIVE:'ativar a operação normal',PAUSED:'pausar novos pedidos'};
+  if(!labels[target])return toast('Modo operacional inválido');
+  const reason=prompt('Motivo para '+labels[target]+':')||'';
+  if(reason.trim().length<3)return toast('Informe o motivo da mudança');
+  const confirmText=target==='PAUSED'
+    ?'Pausar novos pedidos agora? Pedidos existentes e o painel continuarão acessíveis.'
+    :target==='LIVE'
+      ?'Ativar LIVE agora? Esta ação libera a operação normal conforme o checklist confirmado.'
+      :target==='PILOT'
+        ?'Ativar PILOT agora? Pedidos reais serão permitidos em operação controlada.'
+        :'Voltar a PRELAUNCH? Novos pedidos reais ficarão bloqueados.';
+  if(!confirm(confirmText))return;
+  if(target==='LIVE'&&!adminRequireTypedConfirmation('ATIVAR LIVE','Confirmação reforçada para liberar operação normal.'))return toast('Ativação LIVE cancelada');
+  try{
+    await adminPerform('set-operation-mode',{mode:target,reason});
+    toast('Modo operacional atualizado para '+target);
+  }catch(e){toast(String(e?.message||e))}
+}
+async function adminSetCommerceEnabled(enabled){
+  return adminSetOperationMode(enabled?'PILOT':'PAUSED');
+}
+
+async function adminSetSupportStatus(caseId,status){
+  const label=status==='in_review'?'colocar este atendimento em análise':status==='resolved'?'resolver este atendimento':'encerrar este atendimento';
+  let resolutionNote='';
+  if(['resolved','closed'].includes(status)){
+    resolutionNote=prompt('Descreva a solução ou motivo do encerramento:')||'';
+    if(resolutionNote.trim().length<3)return toast('Informe como o atendimento foi tratado');
+  }
+  if(!confirm('Confirma '+label+'?'))return;
+  try{
+    await adminPerform('support-case-status',{caseId,status,resolutionNote});
+    toast(status==='in_review'?'Atendimento em análise':status==='resolved'?'Atendimento resolvido':'Atendimento encerrado');
+  }catch(e){toast(String(e?.message||e))}
+}
+
+function adminGeneratePilotInviteToken(){
+  const bytes=new Uint8Array(32);
+  crypto.getRandomValues(bytes);
+  let binary='';
+  for(const byte of bytes)binary+=String.fromCharCode(byte);
+  return btoa(binary).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');
+}
+function adminPilotInviteLink(token){
+  const configured=String(globalThis.CHAMA_MERCHANT_ORIGIN||'https://parceiro.tamao.com.br').trim();
+  const url=new URL(configured||'https://parceiro.tamao.com.br',location.href);
+  url.pathname='/';
+  url.search='';
+  url.searchParams.set('pilot',token);
+  url.hash='merchant-join';
+  return url.toString();
+}
+async function adminIssuePilotInvite(id){
+  const p=(adminRuntime.data?.pilotPartners||[]).find(x=>x.id===id);
+  if(!p)return toast('Parceiro piloto não encontrado');
+  if(['converted','cancelled'].includes(String(p.onboarding_status||'')))return toast('Este parceiro não pode receber novo convite');
+  const daysRaw=prompt('Validade do novo convite em dias (1 a 90):','14');
+  if(daysRaw==null)return;
+  const days=Number(daysRaw);
+  if(!Number.isInteger(days)||days<1||days>90)return toast('Informe uma validade entre 1 e 90 dias');
+  if(p.activeInvite&&!confirm('Já existe um convite ativo. Rotacionar agora invalidará o link anterior. Continuar?'))return;
+  const token=adminGeneratePilotInviteToken();
+  const expiresAt=new Date(Date.now()+days*24*60*60*1000).toISOString();
+  try{
+    const result=await adminPerform('pilot-invite',{pilotPartnerId:id,inviteAction:'issue',token,expiresAt});
+    const link=adminPilotInviteLink(token);
+    try{await navigator.clipboard?.writeText(link)}catch{}
+    prompt('Convite criado'+(Number(result?.rotatedPreviousCount||0)>0?' e o link anterior foi revogado':'')+'. Copie este link agora e envie ao parceiro. Por segurança, ele não poderá ser recuperado depois; se for perdido, rotacione o convite:',link);
+    toast('Convite piloto criado com validade até '+new Date(result?.expiresAt||expiresAt).toLocaleString('pt-BR'));
+  }catch(e){toast(String(e?.message||e))}
+}
+async function adminRevokePilotInvite(id){
+  const p=(adminRuntime.data?.pilotPartners||[]).find(x=>x.id===id);
+  if(!p)return toast('Parceiro piloto não encontrado');
+  if(!confirm('Revogar o convite ativo deste parceiro? O link deixará de funcionar imediatamente.'))return;
+  try{
+    const result=await adminPerform('pilot-invite',{pilotPartnerId:id,inviteAction:'revoke'});
+    toast(Number(result?.revokedCount||0)>0?'Convite revogado':'Nenhum convite ativo para revogar');
+  }catch(e){toast(String(e?.message||e))}
+}
+
+async function adminConvertPilotPartner(id){
+  const p=(adminRuntime.data?.pilotPartners||[]).find(x=>x.id===id);
+  if(!p)return toast('Parceiro piloto não encontrado');
+  const prefix='pilot-'+id;
+  const value=(suffix)=>document.getElementById(prefix+'-'+suffix)?.value?.trim()||'';
+  const checked=(suffix)=>document.getElementById(prefix+'-'+suffix)?.checked===true;
+  const paymentMethods=[];
+  if(checked('pay-pix'))paymentMethods.push('pix');
+  if(checked('pay-cash'))paymentMethods.push('cash');
+  if(checked('pay-card'))paymentMethods.push('card');
+  const required={
+    legalName:value('legal'),cnpj:value('cnpj'),responsibleName:value('responsible'),
+    phone:value('phone'),whatsapp:value('whatsapp'),postalCode:value('postal'),
+    city:value('city'),addressText:value('address')
+  };
+  if(Object.values(required).some(x=>!x))return toast('Preencha os dados reais obrigatórios da revenda');
+  const ownerUserId=null;
+  const availableStock=Number(value('stock')||0);
+  const deliveryFeeCents=Math.round(Number(value('fee')||0)*100);
+  const baseEtaMinutes=Number(value('eta')||30);
+  const radiusText=value('radius');
+  if(!confirm('Criar esta revenda como PENDENTE? Compliance não será marcado como verificado e a revenda não ficará online automaticamente.'))return;
+  try{
+    const result=await adminPerform('assisted-merchant-onboarding',{
+      draftId:id,
+      tradeName:p.display_name,
+      ...required,
+      state:'RS',
+      ownerUserId,
+      ownerDisplayName:value('owner-name')||null,
+      productCode:p.proposed_product_code,
+      productName:adminProductName(p.proposed_product_code),
+      pricingMode:p.pricing_mode||'fixed',
+      minPriceCents:Number(p.min_delivered_price_cents||p.proposed_delivered_price_cents),
+      preferredPriceCents:Number(p.preferred_delivered_price_cents||p.proposed_delivered_price_cents),
+      maxPriceCents:Number(p.max_delivered_price_cents||p.proposed_delivered_price_cents),
+      pricingStrategy:p.pricing_strategy||'balanced',
+      availableStock,
+      paymentMethods,
+      deliveryFeeCents,
+      baseEtaMinutes,
+      acceptsCitywide:checked('citywide'),
+      serviceRadiusKm:radiusText===''?null:Number(radiusText),
+      adminNotes:value('notes')||null
+    });
+    toast(result?.alreadyConverted?'Parceiro já estava convertido':'Revenda criada como pendente');
+  }catch(e){toast(String(e?.message||e))}
+}
+
+async function adminApproveApplication(id){
+  try{await adminPerform('approve-application',{applicationId:id});toast('Cadastro aprovado para validação')}catch(e){toast(String(e?.message||e))}
+}
+async function adminRejectApplication(id){
+  const reason=prompt('Motivo da rejeição:');
+  if(!reason)return;
+  try{await adminPerform('reject-application',{applicationId:id,reason});toast('Cadastro rejeitado')}catch(e){toast(String(e?.message||e))}
+}
+async function adminSaveCompliance(id){
+  const cnpjStatus=document.getElementById('cnpj-'+id)?.value||'pending';
+  const anpStatus=document.getElementById('anp-'+id)?.value||'pending';
+  const anpReference=document.getElementById('anpref-'+id)?.value.trim()||'';
+  const notes=document.getElementById('notes-'+id)?.value.trim()||'';
+  if(cnpjStatus==='verified'&&notes.length<5)return toast('Registre a fonte/evidência usada para verificar o CNPJ');
+  if(anpStatus==='verified'&&anpReference.length<3)return toast('Informe a referência da consulta ANP');
+  if((cnpjStatus==='rejected'||anpStatus==='rejected')&&notes.length<5)return toast('Documente a evidência da rejeição');
+  try{
+    await adminPerform('verify-merchant',{merchantId:id,cnpjStatus,anpStatus,anpReference,notes});
+    toast('Validação salva');
+  }catch(e){toast(String(e?.message||e))}
+}
+async function adminSaveDeliveryCapability(id){
+  const active=document.getElementById('mixed-'+id)?.checked===true;
+  const notes=document.getElementById('mixednotes-'+id)?.value.trim()||'';
+  if(active&&!confirm('Confirma que esta revenda foi validada operacionalmente para cesta mista com GLP?'))return;
+  try{
+    await adminPerform('set-delivery-capability',{merchantId:id,active,notes});
+    toast(active?'Capacidade logística verificada':'Capacidade logística revogada');
+  }catch(e){toast(String(e?.message||e))}
+}
+
+async function adminSetMerchantPaymentCapability(merchantId,enabled){
+  const merchant=(adminRuntime.data?.merchants||[]).find(x=>x.id===merchantId);
+  const name=merchant?.name||'esta revenda';
+  const reference=prompt(
+    enabled
+      ?'Referência da homologação E2E (ticket, teste ou evidência):'
+      :'Motivo/referência da suspensão:'
+  )||'';
+  if(reference.trim().length<3)return toast('Informe uma referência auditável');
+  const message=enabled
+    ?'Homologar pagamento direto para '+name+'? O dinheiro continuará indo direto à conta Mercado Pago da revenda. O kill switch global permanece independente.'
+    :'Suspender pagamento direto para '+name+'? Checkouts já iniciados continuam sujeitos ao controle financeiro e a cancelamento/reembolso seguro.';
+  if(!confirm(message))return;
+  if(enabled&&!adminRequireTypedConfirmation('HOMOLOGAR','A homologação permite validar pagamentos feitos diretamente na conta da revenda quando o kill switch global estiver ativo.'))return toast('Homologação cancelada');
+  try{
+    const result=await adminPerform('merchant-payment-capability',{
+      merchantId,
+      enabled:enabled===true,
+      reference:reference.trim()
+    });
+    toast(result?.directSalePaymentsEnabled?'Pagamentos diretos homologados para a revenda':'Pagamentos diretos suspensos para a revenda');
+  }catch(e){toast(String(e?.message||e))}
+}
+
+async function adminSetMerchantStatus(id,action){
+  const label=action==='activate-merchant'?'ativar':'suspender';
+  if(!confirm('Confirma '+label+' esta revenda?'))return;
+  try{await adminPerform(action,{merchantId:id});toast('Status atualizado')}catch(e){toast(String(e?.message||e))}
+}
+async function adminReviewReferral(orderId,decision){
+  const notes=prompt(decision==='approved'?'Observação da aprovação (opcional):':'Motivo da rejeição / evidência:')||'';
+  if(decision==='rejected'&&!notes.trim())return toast('Informe o motivo da rejeição');
+  if(!confirm(decision==='approved'?'Aprovar esta comissão após a revisão de risco?':'Rejeitar esta comissão? O pedido e cashback do comprador continuarão válidos.'))return;
+  try{
+    await adminPerform('review-referral',{orderId,decision,notes});
+    toast(decision==='approved'?'Comissão aprovada para continuar na validação':'Comissão rejeitada e saldo pendente ajustado');
+  }catch(e){toast(String(e?.message||e))}
+}
+async function adminRetryReward(orderId){
+  if(!confirm('Reprocessar os benefícios deste pedido agora? A entrega não será alterada.'))return;
+  try{
+    const result=await adminPerform('retry-reward',{orderId});
+    if(result?.ok){
+      toast(result?.alreadyResolved?'A dívida já estava resolvida':'Benefícios reprocessados com sucesso');
+    }else{
+      toast('O reprocessamento falhou e permaneceu registrado para revisão');
+    }
+  }catch(e){toast(String(e?.message||e))}
+}
+
+async function adminRetryAccounting(orderId){
+  if(!confirm('Reprocessar a contabilidade deste pedido agora? A entrega e os benefícios não serão alterados.'))return;
+  try{
+    const result=await adminPerform('retry-accounting',{orderId});
+    if(result?.ok){
+      toast(result?.alreadyResolved?'A dívida contábil já estava resolvida':'Contabilidade reprocessada com sucesso');
+    }else{
+      toast('A contabilidade continuou em falha e permaneceu registrada');
+    }
+  }catch(e){toast(String(e?.message||e))}
+}
+
+async function adminSetPlatformAdmin(targetUserId,active,adminRole=null){
+  const current=(adminRuntime.data?.platformAdmins||[]).find(x=>x.user_id===targetUserId);
+  const role=adminRole||document.getElementById('admin-role-'+targetUserId)?.value||current?.admin_role||'readonly';
+  if(active!==true&&!confirm('Desativar este administrador? O último Superadmin ativo nunca pode ser removido.'))return;
+  try{
+    await adminPerform('set-platform-admin',{targetUserId,active:active===true,adminRole:role});
+    toast(active?'Acesso administrativo atualizado':'Administrador desativado');
+  }catch(e){toast(String(e?.message||e))}
+}
+async function adminChangePlatformAdminRole(targetUserId){
+  const current=(adminRuntime.data?.platformAdmins||[]).find(x=>x.user_id===targetUserId);
+  if(!current)return toast('Administrador não encontrado');
+  const role=document.getElementById('admin-role-'+targetUserId)?.value||current.admin_role;
+  if(role===current.admin_role)return toast('O perfil já está selecionado');
+  if(!confirm('Alterar o perfil deste administrador para '+adminRoleLabel(role)+'?'))return;
+  if(role==='superadmin'&&!adminRequireTypedConfirmation('SUPERADMIN','Elevar uma conta a Superadmin concede autoridade máxima sobre o control plane.'))return toast('Alteração cancelada');
+  return adminSetPlatformAdmin(targetUserId,current.active,role);
+}
+async function adminAddPlatformAdmin(){
+  const targetEmail=document.querySelector('#admin-new-user-email')?.value.trim().toLowerCase()||'';
+  const adminRole=document.querySelector('#admin-new-user-role')?.value||'readonly';
+  if(targetEmail.length<3||targetEmail.length>160||!/^\S+@\S+\.\S+$/.test(targetEmail)){
+    return toast('Informe um e-mail válido de conta permanente');
+  }
+  if(adminRole==='superadmin'&&!adminRequireTypedConfirmation('SUPERADMIN','Conceder Superadmin a uma nova conta entrega autoridade máxima sobre o control plane.'))return toast('Inclusão cancelada');
+  try{
+    await adminPerform('set-platform-admin',{targetEmail,active:true,adminRole});
+    toast('Administrador adicionado como '+adminRoleLabel(adminRole));
+  }catch(e){toast(String(e?.message||e))}
+}
+
+async function adminResolveBillingRefund(refundId,refundAction){
+  const billing=adminRuntime.data?.merchantBilling||{};
+  const refund=(billing.refunds||[]).find(x=>x.id===refundId);
+  if(!refund)return toast('Refund financeiro não encontrado');
+  if(refund.status!=='review_required')return toast('Este refund já foi resolvido');
+
+  const recovery=(billing.refundRecoveries||[]).find(x=>x.refund_id===refund.id)||null;
+
+  if(refundAction==='dismiss-unrelated'){
+    if(refund.payment_request_id||refund.merchant_id){
+      return toast('Refund ligado não pode ser descartado como não relacionado.');
+    }
+    const reference=prompt('Explique por que este refund não pertence a uma cobrança TAMÃO:')||'';
+    if(reference.trim().length<3)return toast('Informe a referência da resolução');
+    if(!confirm('Confirmar que este refund não está relacionado ao TAMÃO? Esta opção só funciona para item sem revenda/solicitação vinculada.'))return;
+    try{
+      await adminPerform('merchant-billing-refund',{
+        refundId,
+        refundAction:'dismiss-unrelated',
+        reference
+      });
+      toast('Refund encerrado como não relacionado');
+    }catch(e){toast(String(e?.message||e))}
+    return;
+  }
+
+  if(refundAction==='dismiss-excess'){
+    if(!refund.payment_request_id||!refund.merchant_id){
+      return toast('Somente refund ligado pode ser reconhecido como excesso.');
+    }
+    if(refund.match_reason!=='refund_total_exceeds_original'){
+      return toast('Este refund não excede a exposição original.');
+    }
+    if(recovery){
+      return toast('Ainda existe valor recuperável. Quite/aprove a obrigação antes de tratar o excesso.');
+    }
+    const reference=prompt('Referência para reconhecer que este valor excede a exposição original e não deve virar dívida:')||'';
+    if(reference.trim().length<3)return toast('Informe a referência da resolução');
+    if(!confirm('Reconhecer este refund como excesso acima do pagamento original? O fato do PSP permanecerá auditável, mas nenhum valor adicional será cobrado da revenda.'))return;
+    try{
+      await adminPerform('merchant-billing-refund',{
+        refundId,
+        refundAction:'dismiss-excess',
+        reference
+      });
+      toast('Excesso do PSP reconhecido sem criar dívida adicional');
+    }catch(e){toast(String(e?.message||e))}
+    return;
+  }
+
+  toast('Refund ligado só pode ser recuperado por pagamento aprovado; excesso só pode ser reconhecido quando não houver exposição restante.');
+}
+
+async function adminBillingPaymentEventAction(paymentEventId,eventAction){
+  const event=(adminRuntime.data?.merchantBilling?.paymentEvents||[]).find(x=>x.id===paymentEventId);
+  if(!event)return toast('Evento financeiro não encontrado');
+  if(eventAction==='ignore'){
+    if(event.status!=='review_required')return toast('Somente eventos em revisão podem ser ignorados');
+    const reason=prompt('Motivo para ignorar este evento financeiro:')||'';
+    if(reason.trim().length<3)return toast('Informe o motivo');
+    if(!confirm('Ignorar este evento sem apagar seu histórico? Ele continuará auditável.'))return;
+    try{
+      await adminPerform('merchant-billing-payment-event',{paymentEventId,eventAction,reason});
+      toast('Evento encerrado como ignorado');
+    }catch(e){toast(String(e?.message||e))}
+    return;
+  }
+  if(eventAction!=='recheck')return toast('Ação financeira inválida');
+  try{
+    await adminPerform('merchant-billing-payment-event',{paymentEventId,eventAction,reason:null});
+    toast('Conciliação reprocessada');
+  }catch(e){toast(String(e?.message||e))}
+}
+
+async function adminResolveBillingPaymentRequest(paymentRequestId,requestAction,reconciledEventId=null){
+  const billing=adminRuntime.data?.merchantBilling||{};
+  const request=(billing.paymentRequests||[]).find(x=>x.id===paymentRequestId);
+  if(!request)return toast('Solicitação financeira não encontrada');
+  if(request.status!=='pending')return toast('Esta solicitação já foi resolvida');
+  const approve=requestAction==='approve';
+  const expectedCents=Number(request.expected_amount_cents||0);
+  const reconciledEvent=reconciledEventId
+    ?(billing.paymentEvents||[]).find(x=>x.id===reconciledEventId)
+    :null;
+  if(reconciledEventId&&(
+    !reconciledEvent
+    ||reconciledEvent.status!=='matched_exact'
+    ||reconciledEvent.payment_request_id!==request.id
+  )){
+    return toast('O evento conciliado mudou. Atualize o painel antes de aprovar.');
+  }
+  let receivedAmountCents=null;
+  let paymentMethod=null;
+  let reconciliationKey=null;
+  if(approve&&reconciledEvent){
+    receivedAmountCents=Number(reconciledEvent.amount_cents||0);
+    paymentMethod=String(reconciledEvent.payment_method||'');
+    reconciliationKey=String(reconciledEvent.reconciliation_key||'').trim();
+    if(receivedAmountCents!==expectedCents){
+      return toast('O evento não possui o valor exato desta solicitação.');
+    }
+  }else if(approve){
+    const defaultAmount=(expectedCents/100).toFixed(2).replace('.',',');
+    const receivedRaw=prompt('Valor efetivamente recebido (R$):',defaultAmount);
+    if(receivedRaw==null)return;
+    receivedAmountCents=adminParseMoneyToCents(receivedRaw);
+    if(receivedAmountCents==null)return toast('Informe um valor recebido válido');
+    if(receivedAmountCents!==expectedCents){
+      return toast('Valor recebido diferente do esperado. Não é possível aprovar esta solicitação.');
+    }
+    const methodRaw=prompt('Forma confirmada: pix, transferencia, dinheiro, cartao ou outro','pix');
+    if(methodRaw==null)return;
+    paymentMethod=adminNormalizePaymentMethod(methodRaw);
+    if(!paymentMethod)return toast('Informe uma forma de pagamento válida');
+    const keyHint=paymentMethod==='pix'
+      ? 'Identificador único da transação (EndToEndId do Pix):'
+      : 'Identificador único da transação/recibo:';
+    reconciliationKey=prompt(keyHint)||'';
+    reconciliationKey=reconciliationKey.trim().replace(/\s+/g,' ');
+    if(reconciliationKey.length<6||reconciliationKey.length>160){
+      return toast('Informe um identificador único da transação entre 6 e 160 caracteres');
+    }
+  }
+  const defaultReference=reconciledEvent
+    ?'Evento '+reconciledEvent.provider+' • '+reconciledEvent.provider_event_id
+    :'';
+  const reference=prompt(
+    approve?'Referência/observação da conferência financeira:':'Motivo da rejeição:',
+    defaultReference
+  )||'';
+  if(reference.trim().length<3)return toast('Informe uma referência');
+  const amount=adminMoney(expectedCents);
+  const approvalEffect=request.request_kind==='package_purchase'
+    ?'creditará o pacote na conta da revenda.'
+    :request.request_kind==='refund_recovery'
+      ?'comprovará a recuperação do refund e permitirá retirar o hold se não houver outra pendência.'
+      :'quitará o fechamento diário.';
+  const message=approve
+    ? 'Confirmar recebimento exato de '+amount+' via '+adminPaymentMethodLabel(paymentMethod)+'? Esta ação '+approvalEffect
+    : 'Rejeitar esta solicitação de '+amount+'? Nenhum saldo será movimentado.';
+  if(!confirm(message))return;
+  try{
+    await adminPerform('merchant-billing-payment-request',{
+      paymentRequestId,
+      requestAction,
+      reference,
+      receivedAmountCents,
+      paymentMethod,
+      reconciliationKey,
+      paymentEventId:reconciledEvent?.id??null
+    });
+    toast(approve?'Pagamento confirmado com valor conciliado':'Solicitação rejeitada');
+  }catch(e){toast(String(e?.message||e))}
+}
+async function adminSaveBillingPlan(planKey,expectedVersion){
+  const safeId=String(planKey).replace(/[^a-z0-9_-]/gi,'');
+  const feePct=Number(document.getElementById('billing-plan-fee-'+safeId)?.value);
+  if(!Number.isFinite(feePct)||feePct<=0||feePct>100)return toast('Informe uma taxa válida entre 0,01% e 100%');
+  const platformFeeBps=Math.round(feePct*100);
+  const active=planKey==='flex_daily'?true:document.getElementById('billing-plan-active-'+safeId)?.checked===true;
+  const reason=prompt('Motivo para alterar este plano de cobrança:')||'';
+  if(reason.trim().length<3)return toast('Informe o motivo da alteração');
+  if(!confirm('Salvar esta alteração somente para PEDIDOS FUTUROS? Pedidos já criados manterão suas taxas snapshotadas.'))return;
+  try{
+    await adminPerform('merchant-billing-plan',{planKey,expectedVersion,platformFeeBps,active,reason});
+    toast('Plano de cobrança atualizado para pedidos futuros');
+  }catch(e){toast(String(e?.message||e))}
+}
+
+async function adminSetMerchantFlex(merchantId){
+  const reference=prompt('Motivo/referência para voltar ao Flex:')||'';
+  if(reference.trim().length<3)return toast('Informe uma referência');
+  if(!confirm('Voltar '+adminMerchantName(merchantId)+' ao Flex Diário? Só será permitido sem crédito pré-pago disponível ou reservado.'))return;
+  try{
+    await adminPerform('merchant-billing-action',{merchantId,billingAction:'set-flex',reference});
+    toast('Plano Flex ativado');
+  }catch(e){toast(String(e?.message||e))}
+}
+async function adminResolveDailyStatement(merchantId,statementId,billingAction){
+  if(billingAction!=='waive-statement'){
+    return toast('Quitação D+1 exige uma solicitação de pagamento informada pela revenda.');
+  }
+  const reference=prompt('Motivo/referência do abono:')||'';
+  if(reference.trim().length<3)return toast('Informe a referência');
+  if(!confirm('Abonar este fechamento diário?'))return;
+  try{
+    await adminPerform('merchant-billing-action',{merchantId,statementId,billingAction,reference});
+    toast('Fechamento diário abonado');
+  }catch(e){toast(String(e?.message||e))}
+}
+
+async function adminFinancial(kind,targetId,financialAction){
+  const reference=prompt('Referência da conciliação (opcional):')||'';
+  try{
+    await adminPerform('financial-action',{kind,targetId,financialAction,reference});
+    toast('Conciliação registrada');
+  }catch(e){toast(String(e?.message||e))}
+}
+async function adminReverseOrder(){
+  const orderId=document.querySelector('#admin-reverse-order')?.value.trim()||'';
+  const reason=document.querySelector('#admin-reverse-reason')?.value.trim()||'';
+  const reference=document.querySelector('#admin-reverse-ref')?.value.trim()||'';
+  if(!orderId||reason.length<3)return toast('Informe pedido e motivo');
+  if(!confirm('Esta ação estornará benefícios e recebíveis do pedido. Confirmar?'))return;
+  if(!adminRequireTypedConfirmation('ESTORNAR '+orderId,'Confirmação reforçada de reversão financeira.'))return toast('Reversão cancelada');
+  try{
+    await adminPerform('reverse-order',{orderId,reason,reference});
+    toast('Reversão financeira registrada');
+  }catch(e){toast(String(e?.message||e))}
+}
+
+globalThis.adminRuntime=adminRuntime;
+globalThis.adminPortalRequested=adminPortalRequested;
+globalThis.adminReady=adminReady;
+globalThis.adminBackendInit=adminBackendInit;
+globalThis.adminSendLogin=adminSendLogin;
+globalThis.adminRetryBootstrapFromUi=adminRetryBootstrapFromUi;
+globalThis.adminSignOut=adminSignOut;
+globalThis.adminRefresh=adminRefresh;
+globalThis.adminPoll=adminPoll;
+globalThis.adminPage=adminPage;
+globalThis.adminRetryReward=adminRetryReward;
+globalThis.adminRetryAccounting=adminRetryAccounting;
+globalThis.adminSetPlatformAdmin=adminSetPlatformAdmin;
+globalThis.adminAddPlatformAdmin=adminAddPlatformAdmin;
+globalThis.adminChangePlatformAdminRole=adminChangePlatformAdminRole;
+globalThis.adminCreateIncident=adminCreateIncident;
+globalThis.adminIncidentAction=adminIncidentAction;
+globalThis.adminAuditSearch=adminAuditSearch;
+globalThis.adminResolveBillingPaymentRequest=adminResolveBillingPaymentRequest;
+globalThis.adminSaveBillingPlan=adminSaveBillingPlan;
+globalThis.adminSetMerchantFlex=adminSetMerchantFlex;
+globalThis.adminResolveDailyStatement=adminResolveDailyStatement;
+globalThis.openAdminPortal=openAdminPortal;
+
+
+globalThis.adminFilterRegistry=adminFilterRegistry;
+globalThis.adminCreateProductCategory=adminCreateProductCategory;
+globalThis.adminToggleProductCategory=adminToggleProductCategory;
+globalThis.adminCreateRegistryProduct=adminCreateRegistryProduct;
+globalThis.adminSetProductActive=adminSetProductActive;
+globalThis.adminPreviewCommercialPolicy=adminPreviewCommercialPolicy;
+globalThis.adminSaveCommercialPolicy=adminSaveCommercialPolicy;
+globalThis.adminOpenWhatsapp=adminOpenWhatsapp;
+globalThis.adminOrderControl=adminOrderControl;
+globalThis.adminVerifyLaunchPortals=adminVerifyLaunchPortals;
+globalThis.adminConfirmLaunchRequirement=adminConfirmLaunchRequirement;
+globalThis.adminSetOperationMode=adminSetOperationMode;
+globalThis.adminSetCommerceEnabled=adminSetCommerceEnabled;
+globalThis.adminSetSupportStatus=adminSetSupportStatus;
+globalThis.adminIssuePilotInvite=adminIssuePilotInvite;
+globalThis.adminRevokePilotInvite=adminRevokePilotInvite;
+globalThis.adminConvertPilotPartner=adminConvertPilotPartner;
+,label:'GMV 30d',value:adminMoney(metrics.gmvCents30d),detail:Number(metrics.settledOrders30d||0)+' pedidos liquidados',tone:'money'})}
+        ${adminExecutiveKpi({icon:'T',label:'Receita TAMÃO 30d',value:adminMoney(metrics.platformFeeGeneratedCents30d),detail:'taxa da plataforma gerada',tone:'money'})}
+        ${adminExecutiveKpi({icon:'↗',label:'Pedidos ativos',value:String(controlOrders.filter(o=>!['DELIVERED','SETTLED','CANCELLED'].includes(o.status)).length),detail:activeOrderAttention+' em risco ou atraso',tone:activeOrderAttention?'warning':'neutral'})}
+        ${adminExecutiveKpi({icon:'◇',label:'Revendas ativas',value:String(active.length),detail:partnerAttention+' pendência(s) de parceiro',tone:partnerAttention?'warning':'neutral'})}
+        ${adminExecutiveKpi({icon:'₿',label:'Financeiro',value:String(actionableFinanceCount),detail:'item(ns) exigem decisão',tone:actionableFinanceCount?'danger':'neutral'})}
+        ${adminExecutiveKpi({icon:'!',label:'Incidentes',value:String(incidentAttention),detail:incidentAttention?'aberto(s) agora':'nenhum incidente aberto',tone:incidentAttention?'danger':'good'})}
+      </div>
+    </section>
+    ${adminAttentionCenter(d)}
+    ${currentRole==='superadmin'?adminLaunchControl(d.launchReadiness||{}):''}
+    <section class="section admin-secondary-metrics"><div class="section-head"><div><span class="section-kicker">QUALIDADE & RETENÇÃO</span><h2>Indicadores de sustentação</h2></div></div><div class="merchant-kpis">
+      <div class="kpi"><span class="label">Ticket médio</span><strong>${adminMoney(metrics.averageTicketCents30d)}</strong></div>
+      <div class="kpi"><span class="label">Clientes recorrentes</span><strong>${metrics.repeatRate30d==null?'—':Math.round(Number(metrics.repeatRate30d)*100)+'%'}</strong><small>${Number(metrics.repeatCustomers30d||0)} de ${Number(metrics.activeCustomers30d||0)} ativos</small></div>
+      <div class="kpi"><span class="label">Cancelamentos</span><strong>${metrics.cancellationRate30d==null?'—':Math.round(Number(metrics.cancellationRate30d)*100)+'%'}</strong><small>${Number(metrics.cancelledOrders30d||0)} de ${Number(metrics.createdOrders30d||0)} pedidos</small></div>
+      <div class="kpi"><span class="label">Pontualidade 90d</span><strong>${metrics.onTimeRate90d==null?'—':Math.round(Number(metrics.onTimeRate90d)*100)+'%'}</strong></div>
+      <div class="kpi"><span class="label">Cashback 30d</span><strong>${adminMoney(metrics.cashbackGrantedCents30d)}</strong></div>
+      <div class="kpi"><span class="label">Atendimentos abertos</span><strong>${Number(metrics.openSupportCases||openSupportCases.length)}</strong></div>
+      <div class="kpi"><span class="label">Cadastros pendentes</span><strong>${pending.length}</strong></div>
+      <div class="kpi"><span class="label">Taxas a receber</span><strong>${adminMoney(openFees)}</strong></div>
+    </div></section>`;
+
+  const ordersContent=`
+    ${adminControlTower({...d,controlOrders})}
+    <section class="section"><div class="section-head"><div><h2>Atendimento de pedidos</h2><p>Problemas registrados pelo cliente entram aqui com vínculo ao pedido, status e trilha administrativa.</p></div><span class="status-pill ${openSupportCases.length?'offline':'online'}">${openSupportCases.length} aberto(s)</span></div>${supportCases.length?supportCases.map(adminSupportCaseCard).join(''):'<div class="empty card">Nenhum atendimento registrado.</div>'}</section>`;
+
+  const customersContent=adminCustomersSection(d);
+
+  const partnersContent=`
+    ${adminPrelaunchLeadsSection(d)}
+    ${adminPublicRequestsSection(d)}
+    <section class="section"><div class="section-head"><div><h2>Parceiros piloto em preparação</h2><p>Interesse comercial registrado antes do cadastro jurídico. Esses registros não participam das ofertas e não contam como revenda ativa.</p></div></div>${pilotPartners.length?pilotPartners.map(adminPilotPartnerCard).join(''):'<div class="empty card">Nenhum parceiro piloto em preparação.</div>'}</section>
+    <section class="section"><div class="section-head"><div><h2>Cadastros de parceiros</h2><p>Aprovação cria a revenda como pendente e vincula o solicitante como owner. Não coloca a operação online.</p></div></div>${(d.applications||[]).length?(d.applications||[]).map(adminApplicationCard).join(''):'<div class="empty card">Nenhum cadastro recebido.</div>'}</section>
+    <section class="section"><div class="section-head"><div><h2>Validação e ativação</h2><p>CNPJ é obrigatório para toda revenda ativa. Qualquer produto GLP ativo exige também validação ANP.</p></div></div>${(d.merchants||[]).length?(d.merchants||[]).map(adminMerchantCard).join(''):'<div class="empty card">Nenhuma revenda criada.</div>'}</section>`;
+
+  const catalogContent=`${adminProductRegistrySection(d)}`;
+
+  const financeContent=`
+    ${adminMerchantBillingSection(d)}
+    ${adminCommercialPolicySection(d)}
+    <section class="section"><div class="section-head"><div><h2>Revisão de indicações</h2><p>Comissões suspeitas não amadurecem automaticamente. Aprovação ainda exige identidades permanentes e fim da quarentena.</p></div><span class="status-pill ${pendingReferralReviews.length?'offline':'online'}">${pendingReferralReviews.length} pendente(s)</span></div>${referralReviews.length?referralReviews.map(adminReferralReviewCard).join(''):'<div class="empty card">Nenhuma indicação exige revisão.</div>'}</section>
+    <section class="section"><div class="section-head"><div><h2>Fila de benefícios</h2><p>Falhas transitórias usam backoff. Dead-letter exige revisão manual; a entrega do pedido permanece concluída.</p></div><span class="status-pill ${deadRewardFailures.length?'offline':'online'}">${deadRewardFailures.length} dead-letter</span></div>${rewardFailures.length?rewardFailures.map(adminRewardFailureCard).join(''):'<div class="empty card">Nenhuma dívida de processamento de benefícios.</div>'}</section>
+    <section class="section"><div class="section-head"><div><h2>Fila contábil de settlement</h2><p>Taxa da plataforma e reembolso de cashback são processados independentemente dos benefícios.</p></div><span class="status-pill ${deadAccountingFailures.length?'offline':'online'}">${deadAccountingFailures.length} dead-letter</span></div>${accountingFailures.length?accountingFailures.map(adminAccountingFailureCard).join(''):'<div class="empty card">Nenhuma dívida contábil de settlement.</div>'}</section>
+    <section class="section"><div class="section-head"><div><h2>Conciliação financeira</h2><p>Taxa da plataforma, cashback usado e ajustes são contas separadas.</p></div></div>
+      <div class="card flat"><h3>Taxas da plataforma</h3><div class="list">${receivables.length?receivables.map(adminReceivableRow).join(''):'<div class="tiny muted">Nenhuma taxa em aberto.</div>'}</div></div>
+      <div class="card flat" style="margin-top:12px"><h3>Cashback a reembolsar</h3><div class="list">${reimbursements.length?reimbursements.map(adminReimbursementRow).join(''):'<div class="tiny muted">Nenhum reembolso em aberto.</div>'}</div></div>
+      <div class="card flat" style="margin-top:12px"><h3>Ajustes de reversão • ${adminMoney(openAdjustments)}</h3><div class="list">${adjustments.length?adjustments.map(adminAdjustmentRow).join(''):'<div class="tiny muted">Nenhum ajuste em aberto.</div>'}</div></div>
+    </section>
+    <section class="section"><div class="card flat form-stack"><h3>Reversão financeira auditada</h3><p class="muted tiny">Somente para um pedido já liquidado que teve estorno/refund confirmado. O histórico operacional de entrega permanece.</p><div class="input-wrap"><label for="admin-reverse-order">ID do pedido</label><input id="admin-reverse-order" class="input" placeholder="UUID do pedido"></div><div class="input-wrap"><label for="admin-reverse-reason">Motivo</label><input id="admin-reverse-reason" class="input" maxlength="240" placeholder="Motivo confirmado"></div><div class="input-wrap"><label for="admin-reverse-ref">Referência</label><input id="admin-reverse-ref" class="input" maxlength="120" placeholder="ID do estorno/comprovante"></div><button class="danger-btn" onclick="adminReverseOrder()">Executar reversão</button></div></section>`;
+
+  const incidentsContent=adminIncidentCenter(d);
+  const auditContent=adminAuditView(d);
+
+  const adminAccessContent=currentRole==='superadmin'
+    ? `<section class="section"><div class="section-head"><div><span class="section-kicker">ACESSO ADMINISTRATIVO</span><h2>Administradores da plataforma</h2><p>RBAC explícito: Superadmin, Operações, Financeiro, Suporte, Compliance e Somente leitura. O último Superadmin ativo não pode ser removido nem rebaixado.</p></div><div class="order-actions"><span class="status-pill online">${platformAdmins.filter(x=>x.active).length} ativo(s)</span><span class="status-pill">${esc(adminRoleLabel(currentRole))}</span></div></div>
+      <div class="card flat form-stack">
+        <div class="list">${platformAdmins.length?platformAdmins.map(x=>`<div class="list-row admin-access-row"><div><strong>${esc(x.user_id)}</strong><br><small>${x.active?'Administrador ativo':'Acesso administrativo suspenso'} • ${esc(adminRoleLabel(x.admin_role))}</small></div><div class="order-actions"><select id="admin-role-${esc(x.user_id)}" class="input small-input" aria-label="Perfil administrativo">${adminRoleOptions(x.admin_role)}</select><button class="secondary small" onclick="adminChangePlatformAdminRole('${esc(x.user_id)}')">Salvar perfil</button><span class="status-pill ${x.active?'online':'offline'}">${x.active?'ATIVO':'INATIVO'}</span><button class="${x.active?'danger-btn':'secondary'} small" onclick="adminSetPlatformAdmin('${esc(x.user_id)}',${x.active?'false':'true'},document.getElementById('admin-role-${esc(x.user_id)}')?.value)">${x.active?'Desativar':'Ativar'}</button></div></div>`).join(''):'<div class="tiny muted">Nenhum administrador bootstrapado ainda.</div>'}</div>
+        <div class="divider"></div>
+        <div class="input-wrap"><label for="admin-new-user-email">E-mail da conta permanente</label><input id="admin-new-user-email" class="input" type="email" maxlength="160" autocomplete="off" placeholder="pessoa@empresa.com"><small class="field-help">A conta precisa ser permanente e confirmada antes de receber acesso administrativo.</small></div>
+        <div class="input-wrap"><label for="admin-new-user-role">Perfil inicial</label><select id="admin-new-user-role" class="input"><option value="readonly">Somente leitura</option><option value="support">Suporte</option><option value="compliance">Compliance</option><option value="operations">Operações</option><option value="finance">Financeiro</option><option value="superadmin">Superadmin</option></select><small class="field-help">Use Superadmin somente para quem precisa controlar acessos e modo operacional.</small></div>
+        <button class="secondary" onclick="adminAddPlatformAdmin()">Adicionar administrador</button>
+      </div>
+    </section>`
+    : currentRole==='readonly'
+      ? `<section class="section"><div class="section-head"><div><span class="section-kicker">ACESSO ADMINISTRATIVO</span><h2>Administradores</h2><p>Consulta sem permissão para alterar perfis ou acessos.</p></div></div><div class="list">${platformAdmins.map(x=>`<div class="list-row"><div><strong>${esc(x.user_id)}</strong><br><small>${esc(adminRoleLabel(x.admin_role))}</small></div><span class="status-pill ${x.active?'online':'offline'}">${x.active?'ATIVO':'INATIVO'}</span></div>`).join('')}</div></section>`
+      : '';
+
+  const systemContent=`
+    ${adminSystemHealthView()}
+    ${adminAccessContent}
+  `;
+
+  const menu=`
+    <nav class="admin-sidebar" aria-label="Áreas administrativas">
+      <div class="admin-nav-title">Painel</div>
+      ${adminMenuButton('overview','Visão geral','⌂')}
+      ${adminMenuButton('orders','Pedidos','▣',badge(activeOrderAttention+openSupportCases.length))}
+      ${adminMenuButton('customers','Clientes','◎')}
+      ${adminMenuButton('partners','Parceiros','◇',badge(partnerAttention))}
+      ${adminMenuButton('catalog','Catálogo','▤')}
+      ${adminMenuButton('finance','Financeiro','₿',badge(actionableFinanceCount))}
+      ${adminMenuButton('incidents','Incidentes','!',badge(incidentAttention))}
+      ${adminMenuButton('audit','Auditoria','⌕')}
+      ${adminMenuButton('system','Segurança e sistema','⚙',badge(securityAttention))}
+    </nav>`;
+
+  return shell(`<section class="page admin-page">
+    <div class="status-bar admin-topbar"><div><div class="tiny muted">CONTROL PLANE REAL</div><h1 class="page-title" style="margin-bottom:2px">Administração TAMÃO</h1></div><div class="order-actions"><span class="status-pill">${esc(adminRoleLabel(currentRole))}</span><button class="secondary small" onclick="adminRefresh()">Atualizar</button><button class="ghost small" onclick="adminSignOut()">Sair</button></div></div>
+    ${adminRuntime.error?`<div class="notice danger" style="margin-top:12px">${esc(adminRuntime.error)}</div>`:''}
+    ${adminGlobalSearchView()}
+    <div class="admin-workspace">
+      ${menu}
+      <main class="admin-main">
+        ${adminPanel('overview',overviewContent)}
+        ${adminPanel('orders',ordersContent)}
+        ${adminPanel('customers',customersContent)}
+        ${adminPanel('partners',partnersContent)}
+        ${adminPanel('catalog',catalogContent)}
+        ${adminPanel('finance',financeContent)}
+        ${adminPanel('incidents',incidentsContent)}
+        ${adminPanel('audit',auditContent)}
+        ${adminPanel('system',systemContent)}
+      </main>
+    </div>
+    ${adminDetailView()}
+  </section>`);
+}
+
+function adminFilterRegistry(){
+  const query=String(document.getElementById('registry-search')?.value||'').trim().toLowerCase();
+  const category=String(document.getElementById('registry-category-filter')?.value||'').trim();
+  let visible=0;
+  document.querySelectorAll('.admin-registry-product').forEach(row=>{
+    const hay=String(row.dataset.productSearch||'');
+    const cat=String(row.dataset.productCategory||'');
+    const show=(!query||hay.includes(query))&&(!category||cat===category);
+    row.hidden=!show;
+    if(show)visible++;
+  });
+  const count=document.getElementById('registry-visible-count');
+  if(count)count.textContent=String(visible);
+}
+
+async function adminCreateProductCategory(){
+  const categoryKey=String(document.getElementById('registry-category-key')?.value||'').trim().toLowerCase();
+  const categoryName=String(document.getElementById('registry-category-name')?.value||'').trim();
+  const sortOrder=Number(document.getElementById('registry-category-sort')?.value||100);
+  if(!/^[a-z][a-z0-9_]{1,39}$/.test(categoryKey))return toast('Use uma chave simples, como bebidas ou limpeza');
+  if(categoryName.length<2)return toast('Informe o nome da categoria');
+  if(!Number.isSafeInteger(sortOrder)||sortOrder<0||sortOrder>10000)return toast('Ordem inválida');
+  const reason=prompt('Motivo para criar/atualizar esta categoria:')||'';
+  if(reason.trim().length<3)return toast('Informe o motivo');
+  try{
+    await adminPerform('product-registry',{
+      registryAction:'upsert-category',categoryKey,categoryName,
+      active:true,sortOrder,reason
+    });
+    toast('Categoria salva');
+  }catch(e){toast(String(e?.message||e))}
+}
+async function adminToggleProductCategory(categoryKey,active,sortOrder){
+  const category=(adminRuntime.data?.productRegistry?.categories||[]).find(x=>x.category_key===categoryKey);
+  const categoryName=String(category?.category_name||categoryKey);
+  const reason=prompt((active?'Motivo para ativar ':'Motivo para pausar ')+categoryName+':')||'';
+  if(reason.trim().length<3)return toast('Informe o motivo');
+  if(!active&&!confirm('Pausar esta categoria? SKUs ativos das revendas serão pausados e precisarão ser reconfirmados antes de voltar a vender.'))return;
+  try{
+    await adminPerform('product-registry',{
+      registryAction:'upsert-category',categoryKey,categoryName,
+      active:active===true,sortOrder:Number(sortOrder||100),reason
+    });
+    toast(active?'Categoria ativada':'Categoria pausada');
+  }catch(e){toast(String(e?.message||e))}
+}
+async function adminCreateRegistryProduct(){
+  const productCode=String(document.getElementById('registry-product-code')?.value||'').trim().toUpperCase();
+  const productName=String(document.getElementById('registry-product-name')?.value||'').trim();
+  const categoryKey=String(document.getElementById('registry-product-category')?.value||'').trim().toLowerCase();
+  const sortOrder=Number(document.getElementById('registry-product-sort')?.value||100);
+  const customerVisible=document.getElementById('registry-product-visible')?.checked===true;
+  const merchantAddAllowed=document.getElementById('registry-product-merchant')?.checked===true;
+  if(!/^[A-Z][A-Z0-9_]{1,31}$/.test(productCode))return toast('Código inválido. Use letras, números e underscore.');
+  if(/^P[0-9]/.test(productCode))return toast('Códigos Pxx são reservados à família GLP canônica');
+  if(productName.length<2)return toast('Informe o nome do produto');
+  if(!categoryKey||categoryKey==='glp')return toast('Escolha uma categoria geral');
+  if(!Number.isSafeInteger(sortOrder)||sortOrder<0||sortOrder>10000)return toast('Ordem inválida');
+  const reason=prompt('Motivo para cadastrar/atualizar este produto:')||'';
+  if(reason.trim().length<3)return toast('Informe o motivo');
+  try{
+    await adminPerform('product-registry',{
+      registryAction:'upsert-product',
+      categoryKey,productCode,productName,
+      deliveryClass:'household_general',
+      requiresIsolatedDelivery:false,
+      customerVisible,merchantAddAllowed,
+      active:false,sortOrder,reason
+    });
+    toast('Produto criado como PAUSADO. Revise os dados e ative explicitamente quando estiver pronto para publicação.');
+  }catch(e){toast(String(e?.message||e))}
+}
+async function adminSetProductActive(productCode,active){
+  const reason=prompt((active?'Motivo para ativar ':'Motivo para pausar ')+productCode+':')||'';
+  if(reason.trim().length<3)return toast('Informe o motivo');
+  if(!active&&!confirm('Pausar este produto? Itens ativos das revendas serão pausados e não serão reativados automaticamente.'))return;
+  try{
+    await adminPerform('product-registry',{
+      registryAction:'set-product-active',
+      productCode,active:active===true,sortOrder:100,reason
+    });
+    toast(active?'Produto ativado':'Produto pausado');
+  }catch(e){toast(String(e?.message||e))}
+}
+
+function adminPolicyFieldBps(id){
+  const n=Number(document.getElementById(id)?.value);
+  if(!Number.isFinite(n)||n<0||n>50)return null;
+  return Math.round(n*100);
+}
+function adminPreviewCommercialPolicy(){
+  const el=document.getElementById('policy-preview');
+  if(!el)return;
+  const fee=adminPolicyFieldBps('policy-fee');
+  const variable=adminPolicyFieldBps('policy-variable');
+  const contribution=adminPolicyFieldBps('policy-contribution');
+  const cashback=adminPolicyFieldBps('policy-cashback');
+  const referral=adminPolicyFieldBps('policy-referral');
+  if([fee,variable,contribution,cashback,referral].some(x=>x==null)){
+    el.className='notice danger';
+    el.innerHTML='<strong>Prévia indisponível.</strong><br>Revise os percentuais.';
+    return;
+  }
+  const headroom=fee-variable-contribution-cashback-referral;
+  const cents=(bps)=>adminMoney(Math.floor(10000*bps/10000));
+  el.className='notice '+(headroom>=0?'success':'danger');
+  el.innerHTML='<strong>Prévia por R$ 100:</strong><br>Taxa '+cents(fee)+' • custo '+cents(variable)+' • contribuição mínima '+cents(contribution)+' • cashback '+cents(cashback)+' • indicação '+cents(referral)+' • folga '+cents(Math.max(0,headroom))+(headroom<0?' • <strong>POLÍTICA NÃO FINANCIADA</strong>':'');
+}
+async function adminSaveCommercialPolicy(expectedVersion){
+  const active=document.getElementById('policy-active')?.checked===true;
+  const platformFeeBps=adminPolicyFieldBps('policy-fee');
+  const variableCostBps=adminPolicyFieldBps('policy-variable');
+  const minimumContributionBps=adminPolicyFieldBps('policy-contribution');
+  const cashbackBps=adminPolicyFieldBps('policy-cashback');
+  const directReferralBps=adminPolicyFieldBps('policy-referral');
+  const commissionHoldHours=Number(document.getElementById('policy-hold')?.value);
+  const reason=document.getElementById('policy-reason')?.value.trim()||'';
+  if([platformFeeBps,variableCostBps,minimumContributionBps,cashbackBps,directReferralBps].some(x=>x==null)){
+    return toast('Revise os percentuais da política');
+  }
+  if(!Number.isSafeInteger(commissionHoldHours)||commissionHoldHours<0||commissionHoldHours>2160){
+    return toast('A carência precisa estar entre 0 e 2160 horas');
+  }
+  if(reason.length<3)return toast('Informe o motivo da alteração');
+  if(active&&platformFeeBps<variableCostBps+minimumContributionBps+cashbackBps+directReferralBps){
+    return toast('A taxa TAMÃO não financia custos, contribuição mínima e recompensas informadas');
+  }
+  if(!confirm('Salvar esta política para PEDIDOS FUTUROS? Pedidos existentes manterão seus snapshots atuais.'))return;
+  try{
+    await adminPerform('commercial-policy',{
+      expectedVersion,
+      active,
+      platformFeeBps,
+      variableCostBps,
+      minimumContributionBps,
+      cashbackBps,
+      directReferralBps,
+      commissionHoldHours,
+      reason
+    });
+    toast('Política comercial atualizada para pedidos futuros');
+  }catch(e){toast(String(e?.message||e))}
+}
+
+function adminOpenWhatsapp(phone){
+  const digits=String(phone||'').replace(/\D/g,'');
+  if(digits.length<10)return toast('Contato indisponível');
+  window.open('https://wa.me/'+digits,'_blank','noopener,noreferrer');
+}
+async function adminOrderControl(orderId,expectedVersion,controlAction){
+  const labels={
+    note:'Registrar uma observação administrativa neste pedido:',
+    rescue:'Motivo para buscar outra revenda:',
+    cancel:'Motivo para cancelar o pedido antes da saída:',
+    'cancel-after-dispatch':'Descreva a falha confirmada depois da saída:'
+  };
+  const reason=prompt(labels[controlAction]||'Motivo da intervenção:')||'';
+  if(reason.trim().length<3)return toast('Informe o motivo da intervenção');
+  if(controlAction==='rescue'&&!confirm('Buscar outra revenda agora? O sistema revalidará estoque, preço, compliance, pagamento e capacidade. Se a nova condição for mais cara, o cliente deverá confirmar.'))return;
+  if(controlAction==='cancel'&&!confirm('Cancelar este pedido antes da saída? Estoque reservado e cashback serão restaurados quando aplicável.'))return;
+  if(controlAction==='cancel-after-dispatch'&&!confirm('Encerrar esta entrega após a saída? O cashback será liberado e o PIN invalidado, mas o estoque NÃO será restaurado automaticamente. Use somente após confirmar que a entrega falhou.'))return;
+  try{
+    const result=await adminPerform('order-control',{orderId,expectedVersion,controlAction,reason});
+    toast(controlAction==='note'?'Observação registrada':controlAction==='rescue'?'Resgate executado':controlAction==='cancel-after-dispatch'?'Entrega falhada encerrada; revisar estoque físico':'Pedido cancelado');
+    return result;
+  }catch(e){toast(String(e?.message||e))}
+}
+
+async function adminVerifyLaunchPortals(){
+  try{
+    const result=await adminPerform('verify-launch-portals',{});
+    if(result?.ok)toast('Os três portais live foram verificados');
+  }catch(e){toast(String(e?.message||e))}
+}
+async function adminConfirmLaunchRequirement(requirementKey){
+  const reason=prompt('Explique por que esta pendência pode ser assumida agora pelo administrador:')||'';
+  if(reason.trim().length<3)return toast('Informe o motivo da decisão');
+  const hoursText=prompt('Validade da confirmação em horas. Deixe vazio para não expirar:','24');
+  if(hoursText===null)return;
+  let expiresAt=null;
+  if(String(hoursText).trim()){
+    const hours=Number(hoursText);
+    if(!Number.isFinite(hours)||hours<=0||hours>8760)return toast('Informe uma validade entre 1 e 8760 horas');
+    expiresAt=new Date(Date.now()+hours*60*60*1000).toISOString();
+  }
+  const evidence=prompt('Evidência ou referência opcional:','')||'';
+  if(!confirm('Estou ciente do risco e desejo registrar esta decisão administrativa.'))return;
+  try{
+    await adminPerform('confirm-launch-requirement',{
+      requirementKey,
+      status:'confirmed',
+      reason,
+      evidence,
+      expiresAt,
+      source:'admin-panel'
+    });
+    toast('Decisão registrada na auditoria');
+  }catch(e){toast(String(e?.message||e))}
+}
+function adminRequireTypedConfirmation(expected,message){
+  const value=prompt(message+'\n\nDigite exatamente: '+expected);
+  return value===expected;
+}
+async function adminSetOperationMode(mode){
+  const target=String(mode||'').toUpperCase();
+  const labels={PRELAUNCH:'voltar ao pré-lançamento',PILOT:'ativar a operação piloto',LIVE:'ativar a operação normal',PAUSED:'pausar novos pedidos'};
+  if(!labels[target])return toast('Modo operacional inválido');
+  const reason=prompt('Motivo para '+labels[target]+':')||'';
+  if(reason.trim().length<3)return toast('Informe o motivo da mudança');
+  const confirmText=target==='PAUSED'
+    ?'Pausar novos pedidos agora? Pedidos existentes e o painel continuarão acessíveis.'
+    :target==='LIVE'
+      ?'Ativar LIVE agora? Esta ação libera a operação normal conforme o checklist confirmado.'
+      :target==='PILOT'
+        ?'Ativar PILOT agora? Pedidos reais serão permitidos em operação controlada.'
+        :'Voltar a PRELAUNCH? Novos pedidos reais ficarão bloqueados.';
+  if(!confirm(confirmText))return;
+  if(target==='LIVE'&&!adminRequireTypedConfirmation('ATIVAR LIVE','Confirmação reforçada para liberar operação normal.'))return toast('Ativação LIVE cancelada');
+  try{
+    await adminPerform('set-operation-mode',{mode:target,reason});
+    toast('Modo operacional atualizado para '+target);
+  }catch(e){toast(String(e?.message||e))}
+}
+async function adminSetCommerceEnabled(enabled){
+  return adminSetOperationMode(enabled?'PILOT':'PAUSED');
+}
+
+async function adminSetSupportStatus(caseId,status){
+  const label=status==='in_review'?'colocar este atendimento em análise':status==='resolved'?'resolver este atendimento':'encerrar este atendimento';
+  let resolutionNote='';
+  if(['resolved','closed'].includes(status)){
+    resolutionNote=prompt('Descreva a solução ou motivo do encerramento:')||'';
+    if(resolutionNote.trim().length<3)return toast('Informe como o atendimento foi tratado');
+  }
+  if(!confirm('Confirma '+label+'?'))return;
+  try{
+    await adminPerform('support-case-status',{caseId,status,resolutionNote});
+    toast(status==='in_review'?'Atendimento em análise':status==='resolved'?'Atendimento resolvido':'Atendimento encerrado');
+  }catch(e){toast(String(e?.message||e))}
+}
+
+function adminGeneratePilotInviteToken(){
+  const bytes=new Uint8Array(32);
+  crypto.getRandomValues(bytes);
+  let binary='';
+  for(const byte of bytes)binary+=String.fromCharCode(byte);
+  return btoa(binary).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');
+}
+function adminPilotInviteLink(token){
+  const configured=String(globalThis.CHAMA_MERCHANT_ORIGIN||'https://parceiro.tamao.com.br').trim();
+  const url=new URL(configured||'https://parceiro.tamao.com.br',location.href);
+  url.pathname='/';
+  url.search='';
+  url.searchParams.set('pilot',token);
+  url.hash='merchant-join';
+  return url.toString();
+}
+async function adminIssuePilotInvite(id){
+  const p=(adminRuntime.data?.pilotPartners||[]).find(x=>x.id===id);
+  if(!p)return toast('Parceiro piloto não encontrado');
+  if(['converted','cancelled'].includes(String(p.onboarding_status||'')))return toast('Este parceiro não pode receber novo convite');
+  const daysRaw=prompt('Validade do novo convite em dias (1 a 90):','14');
+  if(daysRaw==null)return;
+  const days=Number(daysRaw);
+  if(!Number.isInteger(days)||days<1||days>90)return toast('Informe uma validade entre 1 e 90 dias');
+  if(p.activeInvite&&!confirm('Já existe um convite ativo. Rotacionar agora invalidará o link anterior. Continuar?'))return;
+  const token=adminGeneratePilotInviteToken();
+  const expiresAt=new Date(Date.now()+days*24*60*60*1000).toISOString();
+  try{
+    const result=await adminPerform('pilot-invite',{pilotPartnerId:id,inviteAction:'issue',token,expiresAt});
+    const link=adminPilotInviteLink(token);
+    try{await navigator.clipboard?.writeText(link)}catch{}
+    prompt('Convite criado'+(Number(result?.rotatedPreviousCount||0)>0?' e o link anterior foi revogado':'')+'. Copie este link agora e envie ao parceiro. Por segurança, ele não poderá ser recuperado depois; se for perdido, rotacione o convite:',link);
+    toast('Convite piloto criado com validade até '+new Date(result?.expiresAt||expiresAt).toLocaleString('pt-BR'));
+  }catch(e){toast(String(e?.message||e))}
+}
+async function adminRevokePilotInvite(id){
+  const p=(adminRuntime.data?.pilotPartners||[]).find(x=>x.id===id);
+  if(!p)return toast('Parceiro piloto não encontrado');
+  if(!confirm('Revogar o convite ativo deste parceiro? O link deixará de funcionar imediatamente.'))return;
+  try{
+    const result=await adminPerform('pilot-invite',{pilotPartnerId:id,inviteAction:'revoke'});
+    toast(Number(result?.revokedCount||0)>0?'Convite revogado':'Nenhum convite ativo para revogar');
+  }catch(e){toast(String(e?.message||e))}
+}
+
+async function adminConvertPilotPartner(id){
+  const p=(adminRuntime.data?.pilotPartners||[]).find(x=>x.id===id);
+  if(!p)return toast('Parceiro piloto não encontrado');
+  const prefix='pilot-'+id;
+  const value=(suffix)=>document.getElementById(prefix+'-'+suffix)?.value?.trim()||'';
+  const checked=(suffix)=>document.getElementById(prefix+'-'+suffix)?.checked===true;
+  const paymentMethods=[];
+  if(checked('pay-pix'))paymentMethods.push('pix');
+  if(checked('pay-cash'))paymentMethods.push('cash');
+  if(checked('pay-card'))paymentMethods.push('card');
+  const required={
+    legalName:value('legal'),cnpj:value('cnpj'),responsibleName:value('responsible'),
+    phone:value('phone'),whatsapp:value('whatsapp'),postalCode:value('postal'),
+    city:value('city'),addressText:value('address')
+  };
+  if(Object.values(required).some(x=>!x))return toast('Preencha os dados reais obrigatórios da revenda');
+  const ownerUserId=null;
+  const availableStock=Number(value('stock')||0);
+  const deliveryFeeCents=Math.round(Number(value('fee')||0)*100);
+  const baseEtaMinutes=Number(value('eta')||30);
+  const radiusText=value('radius');
+  if(!confirm('Criar esta revenda como PENDENTE? Compliance não será marcado como verificado e a revenda não ficará online automaticamente.'))return;
+  try{
+    const result=await adminPerform('assisted-merchant-onboarding',{
+      draftId:id,
+      tradeName:p.display_name,
+      ...required,
+      state:'RS',
+      ownerUserId,
+      ownerDisplayName:value('owner-name')||null,
+      productCode:p.proposed_product_code,
+      productName:adminProductName(p.proposed_product_code),
+      pricingMode:p.pricing_mode||'fixed',
+      minPriceCents:Number(p.min_delivered_price_cents||p.proposed_delivered_price_cents),
+      preferredPriceCents:Number(p.preferred_delivered_price_cents||p.proposed_delivered_price_cents),
+      maxPriceCents:Number(p.max_delivered_price_cents||p.proposed_delivered_price_cents),
+      pricingStrategy:p.pricing_strategy||'balanced',
+      availableStock,
+      paymentMethods,
+      deliveryFeeCents,
+      baseEtaMinutes,
+      acceptsCitywide:checked('citywide'),
+      serviceRadiusKm:radiusText===''?null:Number(radiusText),
+      adminNotes:value('notes')||null
+    });
+    toast(result?.alreadyConverted?'Parceiro já estava convertido':'Revenda criada como pendente');
+  }catch(e){toast(String(e?.message||e))}
+}
+
+async function adminApproveApplication(id){
+  try{await adminPerform('approve-application',{applicationId:id});toast('Cadastro aprovado para validação')}catch(e){toast(String(e?.message||e))}
+}
+async function adminRejectApplication(id){
+  const reason=prompt('Motivo da rejeição:');
+  if(!reason)return;
+  try{await adminPerform('reject-application',{applicationId:id,reason});toast('Cadastro rejeitado')}catch(e){toast(String(e?.message||e))}
+}
+async function adminSaveCompliance(id){
+  const cnpjStatus=document.getElementById('cnpj-'+id)?.value||'pending';
+  const anpStatus=document.getElementById('anp-'+id)?.value||'pending';
+  const anpReference=document.getElementById('anpref-'+id)?.value.trim()||'';
+  const notes=document.getElementById('notes-'+id)?.value.trim()||'';
+  if(cnpjStatus==='verified'&&notes.length<5)return toast('Registre a fonte/evidência usada para verificar o CNPJ');
+  if(anpStatus==='verified'&&anpReference.length<3)return toast('Informe a referência da consulta ANP');
+  if((cnpjStatus==='rejected'||anpStatus==='rejected')&&notes.length<5)return toast('Documente a evidência da rejeição');
+  try{
+    await adminPerform('verify-merchant',{merchantId:id,cnpjStatus,anpStatus,anpReference,notes});
+    toast('Validação salva');
+  }catch(e){toast(String(e?.message||e))}
+}
+async function adminSaveDeliveryCapability(id){
+  const active=document.getElementById('mixed-'+id)?.checked===true;
+  const notes=document.getElementById('mixednotes-'+id)?.value.trim()||'';
+  if(active&&!confirm('Confirma que esta revenda foi validada operacionalmente para cesta mista com GLP?'))return;
+  try{
+    await adminPerform('set-delivery-capability',{merchantId:id,active,notes});
+    toast(active?'Capacidade logística verificada':'Capacidade logística revogada');
+  }catch(e){toast(String(e?.message||e))}
+}
+
+async function adminSetMerchantPaymentCapability(merchantId,enabled){
+  const merchant=(adminRuntime.data?.merchants||[]).find(x=>x.id===merchantId);
+  const name=merchant?.name||'esta revenda';
+  const reference=prompt(
+    enabled
+      ?'Referência da homologação E2E (ticket, teste ou evidência):'
+      :'Motivo/referência da suspensão:'
+  )||'';
+  if(reference.trim().length<3)return toast('Informe uma referência auditável');
+  const message=enabled
+    ?'Homologar pagamento direto para '+name+'? O dinheiro continuará indo direto à conta Mercado Pago da revenda. O kill switch global permanece independente.'
+    :'Suspender pagamento direto para '+name+'? Checkouts já iniciados continuam sujeitos ao controle financeiro e a cancelamento/reembolso seguro.';
+  if(!confirm(message))return;
+  if(enabled&&!adminRequireTypedConfirmation('HOMOLOGAR','A homologação permite validar pagamentos feitos diretamente na conta da revenda quando o kill switch global estiver ativo.'))return toast('Homologação cancelada');
+  try{
+    const result=await adminPerform('merchant-payment-capability',{
+      merchantId,
+      enabled:enabled===true,
+      reference:reference.trim()
+    });
+    toast(result?.directSalePaymentsEnabled?'Pagamentos diretos homologados para a revenda':'Pagamentos diretos suspensos para a revenda');
+  }catch(e){toast(String(e?.message||e))}
+}
+
+async function adminSetMerchantStatus(id,action){
+  const label=action==='activate-merchant'?'ativar':'suspender';
+  if(!confirm('Confirma '+label+' esta revenda?'))return;
+  try{await adminPerform(action,{merchantId:id});toast('Status atualizado')}catch(e){toast(String(e?.message||e))}
+}
+async function adminReviewReferral(orderId,decision){
+  const notes=prompt(decision==='approved'?'Observação da aprovação (opcional):':'Motivo da rejeição / evidência:')||'';
+  if(decision==='rejected'&&!notes.trim())return toast('Informe o motivo da rejeição');
+  if(!confirm(decision==='approved'?'Aprovar esta comissão após a revisão de risco?':'Rejeitar esta comissão? O pedido e cashback do comprador continuarão válidos.'))return;
+  try{
+    await adminPerform('review-referral',{orderId,decision,notes});
+    toast(decision==='approved'?'Comissão aprovada para continuar na validação':'Comissão rejeitada e saldo pendente ajustado');
+  }catch(e){toast(String(e?.message||e))}
+}
+async function adminRetryReward(orderId){
+  if(!confirm('Reprocessar os benefícios deste pedido agora? A entrega não será alterada.'))return;
+  try{
+    const result=await adminPerform('retry-reward',{orderId});
+    if(result?.ok){
+      toast(result?.alreadyResolved?'A dívida já estava resolvida':'Benefícios reprocessados com sucesso');
+    }else{
+      toast('O reprocessamento falhou e permaneceu registrado para revisão');
+    }
+  }catch(e){toast(String(e?.message||e))}
+}
+
+async function adminRetryAccounting(orderId){
+  if(!confirm('Reprocessar a contabilidade deste pedido agora? A entrega e os benefícios não serão alterados.'))return;
+  try{
+    const result=await adminPerform('retry-accounting',{orderId});
+    if(result?.ok){
+      toast(result?.alreadyResolved?'A dívida contábil já estava resolvida':'Contabilidade reprocessada com sucesso');
+    }else{
+      toast('A contabilidade continuou em falha e permaneceu registrada');
+    }
+  }catch(e){toast(String(e?.message||e))}
+}
+
+async function adminSetPlatformAdmin(targetUserId,active,adminRole=null){
+  const current=(adminRuntime.data?.platformAdmins||[]).find(x=>x.user_id===targetUserId);
+  const role=adminRole||document.getElementById('admin-role-'+targetUserId)?.value||current?.admin_role||'readonly';
+  if(active!==true&&!confirm('Desativar este administrador? O último Superadmin ativo nunca pode ser removido.'))return;
+  try{
+    await adminPerform('set-platform-admin',{targetUserId,active:active===true,adminRole:role});
+    toast(active?'Acesso administrativo atualizado':'Administrador desativado');
+  }catch(e){toast(String(e?.message||e))}
+}
+async function adminChangePlatformAdminRole(targetUserId){
+  const current=(adminRuntime.data?.platformAdmins||[]).find(x=>x.user_id===targetUserId);
+  if(!current)return toast('Administrador não encontrado');
+  const role=document.getElementById('admin-role-'+targetUserId)?.value||current.admin_role;
+  if(role===current.admin_role)return toast('O perfil já está selecionado');
+  if(!confirm('Alterar o perfil deste administrador para '+adminRoleLabel(role)+'?'))return;
+  if(role==='superadmin'&&!adminRequireTypedConfirmation('SUPERADMIN','Elevar uma conta a Superadmin concede autoridade máxima sobre o control plane.'))return toast('Alteração cancelada');
+  return adminSetPlatformAdmin(targetUserId,current.active,role);
+}
+async function adminAddPlatformAdmin(){
+  const targetEmail=document.querySelector('#admin-new-user-email')?.value.trim().toLowerCase()||'';
+  const adminRole=document.querySelector('#admin-new-user-role')?.value||'readonly';
+  if(targetEmail.length<3||targetEmail.length>160||!/^\S+@\S+\.\S+$/.test(targetEmail)){
+    return toast('Informe um e-mail válido de conta permanente');
+  }
+  if(adminRole==='superadmin'&&!adminRequireTypedConfirmation('SUPERADMIN','Conceder Superadmin a uma nova conta entrega autoridade máxima sobre o control plane.'))return toast('Inclusão cancelada');
+  try{
+    await adminPerform('set-platform-admin',{targetEmail,active:true,adminRole});
+    toast('Administrador adicionado como '+adminRoleLabel(adminRole));
+  }catch(e){toast(String(e?.message||e))}
+}
+
+async function adminResolveBillingRefund(refundId,refundAction){
+  const billing=adminRuntime.data?.merchantBilling||{};
+  const refund=(billing.refunds||[]).find(x=>x.id===refundId);
+  if(!refund)return toast('Refund financeiro não encontrado');
+  if(refund.status!=='review_required')return toast('Este refund já foi resolvido');
+
+  const recovery=(billing.refundRecoveries||[]).find(x=>x.refund_id===refund.id)||null;
+
+  if(refundAction==='dismiss-unrelated'){
+    if(refund.payment_request_id||refund.merchant_id){
+      return toast('Refund ligado não pode ser descartado como não relacionado.');
+    }
+    const reference=prompt('Explique por que este refund não pertence a uma cobrança TAMÃO:')||'';
+    if(reference.trim().length<3)return toast('Informe a referência da resolução');
+    if(!confirm('Confirmar que este refund não está relacionado ao TAMÃO? Esta opção só funciona para item sem revenda/solicitação vinculada.'))return;
+    try{
+      await adminPerform('merchant-billing-refund',{
+        refundId,
+        refundAction:'dismiss-unrelated',
+        reference
+      });
+      toast('Refund encerrado como não relacionado');
+    }catch(e){toast(String(e?.message||e))}
+    return;
+  }
+
+  if(refundAction==='dismiss-excess'){
+    if(!refund.payment_request_id||!refund.merchant_id){
+      return toast('Somente refund ligado pode ser reconhecido como excesso.');
+    }
+    if(refund.match_reason!=='refund_total_exceeds_original'){
+      return toast('Este refund não excede a exposição original.');
+    }
+    if(recovery){
+      return toast('Ainda existe valor recuperável. Quite/aprove a obrigação antes de tratar o excesso.');
+    }
+    const reference=prompt('Referência para reconhecer que este valor excede a exposição original e não deve virar dívida:')||'';
+    if(reference.trim().length<3)return toast('Informe a referência da resolução');
+    if(!confirm('Reconhecer este refund como excesso acima do pagamento original? O fato do PSP permanecerá auditável, mas nenhum valor adicional será cobrado da revenda.'))return;
+    try{
+      await adminPerform('merchant-billing-refund',{
+        refundId,
+        refundAction:'dismiss-excess',
+        reference
+      });
+      toast('Excesso do PSP reconhecido sem criar dívida adicional');
+    }catch(e){toast(String(e?.message||e))}
+    return;
+  }
+
+  toast('Refund ligado só pode ser recuperado por pagamento aprovado; excesso só pode ser reconhecido quando não houver exposição restante.');
+}
+
+async function adminBillingPaymentEventAction(paymentEventId,eventAction){
+  const event=(adminRuntime.data?.merchantBilling?.paymentEvents||[]).find(x=>x.id===paymentEventId);
+  if(!event)return toast('Evento financeiro não encontrado');
+  if(eventAction==='ignore'){
+    if(event.status!=='review_required')return toast('Somente eventos em revisão podem ser ignorados');
+    const reason=prompt('Motivo para ignorar este evento financeiro:')||'';
+    if(reason.trim().length<3)return toast('Informe o motivo');
+    if(!confirm('Ignorar este evento sem apagar seu histórico? Ele continuará auditável.'))return;
+    try{
+      await adminPerform('merchant-billing-payment-event',{paymentEventId,eventAction,reason});
+      toast('Evento encerrado como ignorado');
+    }catch(e){toast(String(e?.message||e))}
+    return;
+  }
+  if(eventAction!=='recheck')return toast('Ação financeira inválida');
+  try{
+    await adminPerform('merchant-billing-payment-event',{paymentEventId,eventAction,reason:null});
+    toast('Conciliação reprocessada');
+  }catch(e){toast(String(e?.message||e))}
+}
+
+async function adminResolveBillingPaymentRequest(paymentRequestId,requestAction,reconciledEventId=null){
+  const billing=adminRuntime.data?.merchantBilling||{};
+  const request=(billing.paymentRequests||[]).find(x=>x.id===paymentRequestId);
+  if(!request)return toast('Solicitação financeira não encontrada');
+  if(request.status!=='pending')return toast('Esta solicitação já foi resolvida');
+  const approve=requestAction==='approve';
+  const expectedCents=Number(request.expected_amount_cents||0);
+  const reconciledEvent=reconciledEventId
+    ?(billing.paymentEvents||[]).find(x=>x.id===reconciledEventId)
+    :null;
+  if(reconciledEventId&&(
+    !reconciledEvent
+    ||reconciledEvent.status!=='matched_exact'
+    ||reconciledEvent.payment_request_id!==request.id
+  )){
+    return toast('O evento conciliado mudou. Atualize o painel antes de aprovar.');
+  }
+  let receivedAmountCents=null;
+  let paymentMethod=null;
+  let reconciliationKey=null;
+  if(approve&&reconciledEvent){
+    receivedAmountCents=Number(reconciledEvent.amount_cents||0);
+    paymentMethod=String(reconciledEvent.payment_method||'');
+    reconciliationKey=String(reconciledEvent.reconciliation_key||'').trim();
+    if(receivedAmountCents!==expectedCents){
+      return toast('O evento não possui o valor exato desta solicitação.');
+    }
+  }else if(approve){
+    const defaultAmount=(expectedCents/100).toFixed(2).replace('.',',');
+    const receivedRaw=prompt('Valor efetivamente recebido (R$):',defaultAmount);
+    if(receivedRaw==null)return;
+    receivedAmountCents=adminParseMoneyToCents(receivedRaw);
+    if(receivedAmountCents==null)return toast('Informe um valor recebido válido');
+    if(receivedAmountCents!==expectedCents){
+      return toast('Valor recebido diferente do esperado. Não é possível aprovar esta solicitação.');
+    }
+    const methodRaw=prompt('Forma confirmada: pix, transferencia, dinheiro, cartao ou outro','pix');
+    if(methodRaw==null)return;
+    paymentMethod=adminNormalizePaymentMethod(methodRaw);
+    if(!paymentMethod)return toast('Informe uma forma de pagamento válida');
+    const keyHint=paymentMethod==='pix'
+      ? 'Identificador único da transação (EndToEndId do Pix):'
+      : 'Identificador único da transação/recibo:';
+    reconciliationKey=prompt(keyHint)||'';
+    reconciliationKey=reconciliationKey.trim().replace(/\s+/g,' ');
+    if(reconciliationKey.length<6||reconciliationKey.length>160){
+      return toast('Informe um identificador único da transação entre 6 e 160 caracteres');
+    }
+  }
+  const defaultReference=reconciledEvent
+    ?'Evento '+reconciledEvent.provider+' • '+reconciledEvent.provider_event_id
+    :'';
+  const reference=prompt(
+    approve?'Referência/observação da conferência financeira:':'Motivo da rejeição:',
+    defaultReference
+  )||'';
+  if(reference.trim().length<3)return toast('Informe uma referência');
+  const amount=adminMoney(expectedCents);
+  const approvalEffect=request.request_kind==='package_purchase'
+    ?'creditará o pacote na conta da revenda.'
+    :request.request_kind==='refund_recovery'
+      ?'comprovará a recuperação do refund e permitirá retirar o hold se não houver outra pendência.'
+      :'quitará o fechamento diário.';
+  const message=approve
+    ? 'Confirmar recebimento exato de '+amount+' via '+adminPaymentMethodLabel(paymentMethod)+'? Esta ação '+approvalEffect
+    : 'Rejeitar esta solicitação de '+amount+'? Nenhum saldo será movimentado.';
+  if(!confirm(message))return;
+  try{
+    await adminPerform('merchant-billing-payment-request',{
+      paymentRequestId,
+      requestAction,
+      reference,
+      receivedAmountCents,
+      paymentMethod,
+      reconciliationKey,
+      paymentEventId:reconciledEvent?.id??null
+    });
+    toast(approve?'Pagamento confirmado com valor conciliado':'Solicitação rejeitada');
+  }catch(e){toast(String(e?.message||e))}
+}
+async function adminSaveBillingPlan(planKey,expectedVersion){
+  const safeId=String(planKey).replace(/[^a-z0-9_-]/gi,'');
+  const feePct=Number(document.getElementById('billing-plan-fee-'+safeId)?.value);
+  if(!Number.isFinite(feePct)||feePct<=0||feePct>100)return toast('Informe uma taxa válida entre 0,01% e 100%');
+  const platformFeeBps=Math.round(feePct*100);
+  const active=planKey==='flex_daily'?true:document.getElementById('billing-plan-active-'+safeId)?.checked===true;
+  const reason=prompt('Motivo para alterar este plano de cobrança:')||'';
+  if(reason.trim().length<3)return toast('Informe o motivo da alteração');
+  if(!confirm('Salvar esta alteração somente para PEDIDOS FUTUROS? Pedidos já criados manterão suas taxas snapshotadas.'))return;
+  try{
+    await adminPerform('merchant-billing-plan',{planKey,expectedVersion,platformFeeBps,active,reason});
+    toast('Plano de cobrança atualizado para pedidos futuros');
+  }catch(e){toast(String(e?.message||e))}
+}
+
+async function adminSetMerchantFlex(merchantId){
+  const reference=prompt('Motivo/referência para voltar ao Flex:')||'';
+  if(reference.trim().length<3)return toast('Informe uma referência');
+  if(!confirm('Voltar '+adminMerchantName(merchantId)+' ao Flex Diário? Só será permitido sem crédito pré-pago disponível ou reservado.'))return;
+  try{
+    await adminPerform('merchant-billing-action',{merchantId,billingAction:'set-flex',reference});
+    toast('Plano Flex ativado');
+  }catch(e){toast(String(e?.message||e))}
+}
+async function adminResolveDailyStatement(merchantId,statementId,billingAction){
+  if(billingAction!=='waive-statement'){
+    return toast('Quitação D+1 exige uma solicitação de pagamento informada pela revenda.');
+  }
+  const reference=prompt('Motivo/referência do abono:')||'';
+  if(reference.trim().length<3)return toast('Informe a referência');
+  if(!confirm('Abonar este fechamento diário?'))return;
+  try{
+    await adminPerform('merchant-billing-action',{merchantId,statementId,billingAction,reference});
+    toast('Fechamento diário abonado');
+  }catch(e){toast(String(e?.message||e))}
+}
+
+async function adminFinancial(kind,targetId,financialAction){
+  const reference=prompt('Referência da conciliação (opcional):')||'';
+  try{
+    await adminPerform('financial-action',{kind,targetId,financialAction,reference});
+    toast('Conciliação registrada');
+  }catch(e){toast(String(e?.message||e))}
+}
+async function adminReverseOrder(){
+  const orderId=document.querySelector('#admin-reverse-order')?.value.trim()||'';
+  const reason=document.querySelector('#admin-reverse-reason')?.value.trim()||'';
+  const reference=document.querySelector('#admin-reverse-ref')?.value.trim()||'';
+  if(!orderId||reason.length<3)return toast('Informe pedido e motivo');
+  if(!confirm('Esta ação estornará benefícios e recebíveis do pedido. Confirmar?'))return;
+  if(!adminRequireTypedConfirmation('ESTORNAR '+orderId,'Confirmação reforçada de reversão financeira.'))return toast('Reversão cancelada');
+  try{
+    await adminPerform('reverse-order',{orderId,reason,reference});
+    toast('Reversão financeira registrada');
+  }catch(e){toast(String(e?.message||e))}
+}
+
+globalThis.adminRuntime=adminRuntime;
+globalThis.adminPortalRequested=adminPortalRequested;
+globalThis.adminReady=adminReady;
+globalThis.adminBackendInit=adminBackendInit;
+globalThis.adminSendLogin=adminSendLogin;
+globalThis.adminRetryBootstrapFromUi=adminRetryBootstrapFromUi;
+globalThis.adminSignOut=adminSignOut;
+globalThis.adminRefresh=adminRefresh;
+globalThis.adminPoll=adminPoll;
+globalThis.adminPage=adminPage;
+globalThis.adminRetryReward=adminRetryReward;
+globalThis.adminRetryAccounting=adminRetryAccounting;
+globalThis.adminSetPlatformAdmin=adminSetPlatformAdmin;
+globalThis.adminAddPlatformAdmin=adminAddPlatformAdmin;
+globalThis.adminChangePlatformAdminRole=adminChangePlatformAdminRole;
+globalThis.adminCreateIncident=adminCreateIncident;
+globalThis.adminIncidentAction=adminIncidentAction;
+globalThis.adminAuditSearch=adminAuditSearch;
+globalThis.adminResolveBillingPaymentRequest=adminResolveBillingPaymentRequest;
+globalThis.adminSaveBillingPlan=adminSaveBillingPlan;
+globalThis.adminSetMerchantFlex=adminSetMerchantFlex;
+globalThis.adminResolveDailyStatement=adminResolveDailyStatement;
+globalThis.openAdminPortal=openAdminPortal;
+
+
+globalThis.adminFilterRegistry=adminFilterRegistry;
+globalThis.adminCreateProductCategory=adminCreateProductCategory;
+globalThis.adminToggleProductCategory=adminToggleProductCategory;
+globalThis.adminCreateRegistryProduct=adminCreateRegistryProduct;
+globalThis.adminSetProductActive=adminSetProductActive;
+globalThis.adminPreviewCommercialPolicy=adminPreviewCommercialPolicy;
+globalThis.adminSaveCommercialPolicy=adminSaveCommercialPolicy;
+globalThis.adminOpenWhatsapp=adminOpenWhatsapp;
+globalThis.adminOrderControl=adminOrderControl;
+globalThis.adminVerifyLaunchPortals=adminVerifyLaunchPortals;
+globalThis.adminConfirmLaunchRequirement=adminConfirmLaunchRequirement;
+globalThis.adminSetOperationMode=adminSetOperationMode;
+globalThis.adminSetCommerceEnabled=adminSetCommerceEnabled;
+globalThis.adminSetSupportStatus=adminSetSupportStatus;
+globalThis.adminIssuePilotInvite=adminIssuePilotInvite;
+globalThis.adminRevokePilotInvite=adminRevokePilotInvite;
+globalThis.adminConvertPilotPartner=adminConvertPilotPartner;
+,label:'D+1 em aberto',value:adminMoney(metrics.openStatementCents),detail:Number(metrics.openStatementCount||0)+' fechamento(s)',tone:Number(metrics.overdueStatementCount||0)?'warning':'money'})}
+      ${adminExecutiveKpi({icon:'!',label:'Vencido',value:adminMoney(metrics.overdueStatementCents),detail:Number(metrics.overdueStatementCount||0)+' fechamento(s)',tone:Number(metrics.overdueStatementCount||0)?'danger':'neutral'})}
+      ${adminExecutiveKpi({icon:'↗',label:'Aguardando conferência',value:adminMoney(metrics.pendingPaymentCents),detail:Number(metrics.pendingPaymentCount||0)+' pagamento(s)',tone:Number(metrics.pendingPaymentCount||0)?'warning':'neutral'})}
+      ${adminExecutiveKpi({icon:'C',label:'Crédito pré-pago',value:adminMoney(metrics.prepaidCreditBalanceCents),detail:Number(metrics.prepaidAccountCount||0)+' conta(s)',tone:'money'})}
+      ${adminExecutiveKpi({icon:'↺',label:'Refunds em revisão',value:String(pendingReviews),detail:adminMoney(metrics.refundRecoveryOutstandingCents||0)+' em recuperação',tone:pendingReviews?'danger':'neutral'})}
+      ${adminExecutiveKpi({icon:'PSP',label:'Mercado Pago',value:esc(pspLabel),detail:reconciliation.healthy===true?'conciliação íntegra':'conciliação sob observação',tone:e2e.validated?'good':adminRuntime.providerHealth?.ok===true?'money':'warning'})}
+    </div>
+  </section>`;
 }
 
 function adminBillingMetricsView(metrics){
