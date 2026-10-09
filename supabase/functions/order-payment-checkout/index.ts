@@ -13,7 +13,8 @@ import {
 import {
   mercadoPagoFetch,
   readMercadoPagoJson,
-  safeMercadoPagoUrl
+  safeMercadoPagoUrl,
+  moneyToCents
 } from "../_shared/mercadopago.js";
 
 const SUPABASE_URL=Deno.env.get("SUPABASE_URL")??"";
@@ -93,7 +94,7 @@ function encryptionKey(){
 async function sellerAccessToken(admin:any,merchantId:string,key:string){
   const {data,error}=await admin
     .from("merchant_payment_provider_accounts")
-    .select("status,access_token_ciphertext,access_token_nonce,token_expires_at,capabilities")
+    .select("provider_account_id,status,access_token_ciphertext,access_token_nonce,token_expires_at,capabilities")
     .eq("merchant_id",merchantId)
     .eq("provider","mercadopago")
     .maybeSingle();
@@ -119,12 +120,16 @@ async function sellerAccessToken(admin:any,merchantId:string,key:string){
       409
     );
   }
-  return await decryptPaymentSecret(
+  const accessToken=await decryptPaymentSecret(
     data.access_token_ciphertext,
     data.access_token_nonce,
     key,
     "provider-account:"+merchantId+":mercadopago:access"
   );
+  return {
+    accessToken,
+    providerAccountId:String(data.provider_account_id??"").trim()
+  };
 }
 function checkoutReturnUrl(orderId:string,result:string){
   const url=new URL("https://tamao.com.br/");
@@ -231,7 +236,7 @@ Deno.serve(async(req:Request)=>{
     }
 
     const secret=encryptionKey();
-    const accessToken=await sellerAccessToken(admin,merchantId,secret);
+    const seller=await sellerAccessToken(admin,merchantId,secret);
     const {data:orderMeta,error:orderError}=await admin
       .from("orders")
       .select("public_code,supplier_name_snapshot")
@@ -243,7 +248,7 @@ Deno.serve(async(req:Request)=>{
 
     const total=(amountCents/100).toFixed(2);
     const response=await mercadoPagoFetch("/v1/orders",{
-      accessToken,
+      accessToken:seller.accessToken,
       method:"POST",
       idempotencyKey:externalReference,
       body:{
@@ -280,12 +285,15 @@ Deno.serve(async(req:Request)=>{
     const providerOrderId=String(provider?.id??"").trim();
     const checkoutUrl=safeMercadoPagoUrl(provider?.checkout_url);
     const providerExternalReference=String(provider?.external_reference??"").trim();
-    const providerAmount=Math.round(Number(provider?.total_amount)*100);
+    const providerAmount=moneyToCents(provider?.total_amount);
+    const providerUserId=String(provider?.user_id??"").trim();
     if(
       providerOrderId.length<6
       ||!checkoutUrl
       ||providerExternalReference!==externalReference
       ||providerAmount!==amountCents
+      ||!seller.providerAccountId
+      ||providerUserId!==seller.providerAccountId
     ){
       throw new DomainError(
         "MERCHANT_CHECKOUT_PROVIDER_MISMATCH",
