@@ -30,3 +30,10 @@ verify_jwt = false
 # JWT verification remains inside the function to support the project key model consistently.
 [functions.merchant-billing-pix]
 verify_jwt = false
+
+
+# Mercado Pago billing webhook ingress for money owed to TAMÃO.
+# JWT is disabled because authenticity is enforced by Mercado Pago HMAC
+# and every event is re-fetched from the provider before reconciliation.
+[functions.billing-payment-webhook-mercadopago]
+verify_jwt = false
