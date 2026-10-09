@@ -1977,11 +1977,12 @@ function adminProductRegistrySection(d){
   const glpGas=profiles.filter(x=>/^P([1-9][0-9]?)$/.test(String(x.product_code||'')));
   const glpContainers=profiles.filter(x=>/^P([1-9][0-9]?)_CONTAINER$/.test(String(x.product_code||'')));
   const selectableCategories=categories.filter(x=>x.active&&x.category_key!=='glp');
+  const categoryOptions=categories.map(cat=>`<option value="${esc(cat.category_key)}">${esc(cat.category_name)}</option>`).join('');
   const categoryCards=categories.map(cat=>`<div class="list-row">
     <div><strong>${esc(cat.category_name)}</strong><br><small>${esc(cat.category_key)} • ordem ${Number(cat.sort_order||100)}</small></div>
     <div class="order-actions"><span class="status-pill ${cat.active?'online':'offline'}">${cat.active?'ATIVA':'PAUSADA'}</span><button class="${cat.active?'danger-btn':'secondary'} small" onclick="adminToggleProductCategory('${esc(cat.category_key)}',${cat.active?'false':'true'},${Number(cat.sort_order||100)})">${cat.active?'Pausar':'Ativar'}</button></div>
   </div>`).join('');
-  const productRows=general.map(item=>`<div class="list-row">
+  const productRows=general.map(item=>`<div class="list-row admin-registry-product" data-product-search="${esc((String(item.product_name||'')+' '+String(item.product_code||'')).toLowerCase())}" data-product-category="${esc(item.category_key||'')}">
     <div><strong>${esc(item.product_name)}</strong><br><small>${esc(item.product_code)} • ${esc(item.category_key)} • ordem ${Number(item.sort_order||100)}</small></div>
     <div class="order-actions"><span class="status-pill ${item.active?'online':'offline'}">${item.active?'ATIVO':'PAUSADO'}</span><button class="${item.active?'danger-btn':'secondary'} small" onclick="adminSetProductActive('${esc(item.product_code)}',${item.active?'false':'true'})">${item.active?'Pausar':'Ativar'}</button></div>
   </div>`).join('');
@@ -1992,6 +1993,13 @@ function adminProductRegistrySection(d){
       <div class="kpi"><span class="label">Produtos gerais</span><strong>${general.length}</strong></div>
       <div class="kpi"><span class="label">Cargas GLP</span><strong>${glpGas.length}</strong></div>
       <div class="kpi"><span class="label">Vasilhames GLP</span><strong>${glpContainers.length}</strong></div>
+    </div>
+    <div class="card flat" style="margin-top:12px">
+      <div class="field-row">
+        <div class="input-wrap"><label for="registry-search">Buscar produto</label><input id="registry-search" class="input" maxlength="120" placeholder="Nome ou código" oninput="adminFilterRegistry()"></div>
+        <div class="input-wrap"><label for="registry-category-filter">Filtrar categoria</label><select id="registry-category-filter" class="input" onchange="adminFilterRegistry()"><option value="">Todas</option>${categoryOptions}</select></div>
+      </div>
+      <small class="field-help">O filtro é somente visual; ativação e pausa continuam sendo decisões auditadas no servidor.</small>
     </div>
     <div class="card flat form-stack" style="margin-top:12px">
       <h3>Nova categoria</h3>
@@ -2017,7 +2025,7 @@ function adminProductRegistrySection(d){
       ${selectableCategories.length?'':'<div class="notice danger">Crie ou ative uma categoria geral antes de cadastrar produto.</div>'}
     </div>
     <div class="card flat" style="margin-top:12px"><h3>Categorias</h3><div class="list">${categoryCards||'<div class="tiny muted">Nenhuma categoria cadastrada.</div>'}</div></div>
-    <div class="card flat" style="margin-top:12px"><h3>Produtos gerais</h3><div class="list">${productRows||'<div class="tiny muted">Nenhum produto geral cadastrado.</div>'}</div></div>
+    <div class="card flat" style="margin-top:12px"><h3>Produtos gerais • <span id="registry-visible-count">${general.length}</span> visível(is)</h3><div class="list">${productRows||'<div class="tiny muted">Nenhum produto geral cadastrado.</div>'}</div></div>
   </section>`;
 }
 
@@ -2229,6 +2237,21 @@ function adminPage(){
   </section>`);
 }
 
+function adminFilterRegistry(){
+  const query=String(document.getElementById('registry-search')?.value||'').trim().toLowerCase();
+  const category=String(document.getElementById('registry-category-filter')?.value||'').trim();
+  let visible=0;
+  document.querySelectorAll('.admin-registry-product').forEach(row=>{
+    const hay=String(row.dataset.productSearch||'');
+    const cat=String(row.dataset.productCategory||'');
+    const show=(!query||hay.includes(query))&&(!category||cat===category);
+    row.hidden=!show;
+    if(show)visible++;
+  });
+  const count=document.getElementById('registry-visible-count');
+  if(count)count.textContent=String(visible);
+}
+
 async function adminCreateProductCategory(){
   const categoryKey=String(document.getElementById('registry-category-key')?.value||'').trim().toLowerCase();
   const categoryName=String(document.getElementById('registry-category-name')?.value||'').trim();
@@ -2281,9 +2304,9 @@ async function adminCreateRegistryProduct(){
       deliveryClass:'household_general',
       requiresIsolatedDelivery:false,
       customerVisible,merchantAddAllowed,
-      active:true,sortOrder,reason
+      active:false,sortOrder,reason
     });
-    toast('Produto salvo no catálogo da plataforma');
+    toast('Produto criado como PAUSADO. Revise os dados e ative explicitamente quando estiver pronto para publicação.');
   }catch(e){toast(String(e?.message||e))}
 }
 async function adminSetProductActive(productCode,active){
@@ -2888,6 +2911,7 @@ globalThis.adminResolveDailyStatement=adminResolveDailyStatement;
 globalThis.openAdminPortal=openAdminPortal;
 
 
+globalThis.adminFilterRegistry=adminFilterRegistry;
 globalThis.adminCreateProductCategory=adminCreateProductCategory;
 globalThis.adminToggleProductCategory=adminToggleProductCategory;
 globalThis.adminCreateRegistryProduct=adminCreateRegistryProduct;
