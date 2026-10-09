@@ -226,8 +226,6 @@ Deno.serve(async(req:Request)=>{
     };
     const eventHash=await sha256Hex(JSON.stringify(normalizedEvent));
     const providerEventId="order-state:"+eventHash.slice(0,64);
-    const payloadHash=await sha256Hex(raw);
-
     const {data:applied,error:applyError}=await admin.rpc(
       "apply_merchant_sale_payment_event",
       {
@@ -239,7 +237,10 @@ Deno.serve(async(req:Request)=>{
         p_amount_cents:amountCents,
         p_currency:"BRL",
         p_occurred_at:occurredAt(body,order),
-        p_raw_payload_sha256:payloadHash
+        // The durable evidence hash is derived from the authoritative provider
+        // snapshot, not the delivery wrapper, so repeated webhook deliveries of
+        // the same financial state collapse idempotently.
+        p_raw_payload_sha256:eventHash
       }
     );
     if(applyError)throw applyError;
