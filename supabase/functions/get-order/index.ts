@@ -189,7 +189,9 @@ Deno.serve(async(req:Request)=>{
     }
 
     let onlinePayment:any={
-      provider:"mercadopago",
+      provider:null,
+      paymentRouteId:null,
+      verificationLevel:null,
       available:false,
       canStart:false,
       status:"not_available",
@@ -197,55 +199,93 @@ Deno.serve(async(req:Request)=>{
       approvedAt:null,
       refundedAt:null,
       amountCents:Number(order.total_cents||0),
+      fundsOwner:"merchant",
       tamaoReceivesSaleProceeds:false
     };
     if(
       order.merchant_id
       &&["pix","card"].includes(String(order.payment_method??""))
     ){
+      let routeQuery=admin
+        .from("merchant_payment_routes")
+        .select("id,payment_method,provider,connection_id,verification_mode,priority")
+        .eq("merchant_id",order.merchant_id)
+        .eq("active",true)
+        .in("verification_mode",["provider_api","device"]);
+      routeQuery=order.payment_method==="card"
+        ?routeQuery.in("payment_method",["card","card_credit","card_debit"])
+        :routeQuery.eq("payment_method",order.payment_method);
       const [
-        {data:providerAccount,error:providerAccountError},
+        {data:routes,error:routesError},
+        {data:providerAccounts,error:providerAccountsError},
         {data:paymentAttempt,error:paymentAttemptError}
       ]=await Promise.all([
+        routeQuery.order("priority",{ascending:true}).limit(20),
         admin.from("merchant_payment_provider_accounts")
-          .select("status,capabilities")
+          .select("id,provider,status,capabilities")
           .eq("merchant_id",order.merchant_id)
-          .eq("provider","mercadopago")
-          .maybeSingle(),
+          .eq("status","active"),
         admin.from("merchant_sale_payment_attempts")
-          .select("status,checkout_url,expires_at,approved_at,refunded_at,amount_cents,merchant_id")
+          .select("status,provider,payment_route_id,verification_level,checkout_url,expires_at,approved_at,refunded_at,amount_cents,merchant_id")
           .eq("order_id",order.id)
           .order("created_at",{ascending:false})
           .limit(1)
           .maybeSingle()
       ]);
-      if(providerAccountError)throw providerAccountError;
+      if(routesError)throw routesError;
+      if(providerAccountsError)throw providerAccountsError;
       if(paymentAttemptError)throw paymentAttemptError;
 
-      const merchantEnabled=
-        providerAccount?.status==="active"
-        &&providerAccount?.capabilities?.directSalePaymentsEnabled===true;
+      const providerKeys=[...new Set((routes??[]).map((x:any)=>String(x.provider||"")).filter(Boolean))];
+      let catalogRows:any[]=[];
+      if(providerKeys.length){
+        const {data,error}=await admin
+          .from("payment_provider_catalog")
+          .select("provider_key,adapter_status,verification_level")
+          .in("provider_key",providerKeys);
+        if(error)throw error;
+        catalogRows=data??[];
+      }
+      const accountById=new Map((providerAccounts??[]).map((x:any)=>[String(x.id),x]));
+      const catalogByProvider=new Map(catalogRows.map((x:any)=>[String(x.provider_key),x]));
+      const selectedRoute=(routes??[]).find((route:any)=>{
+        const account=accountById.get(String(route.connection_id||""));
+        const provider=catalogByProvider.get(String(route.provider||""));
+        return account
+          &&account.provider===route.provider
+          &&account.capabilities?.directSalePaymentsEnabled===true
+          &&account.capabilities?.canValidateProviderTransactions===true
+          &&provider?.adapter_status==="implemented";
+      })??null;
+
       const orderEligible=[
         "MERCHANT_ACCEPTED","PREPARING","AT_RISK",
         "OUT_FOR_DELIVERY","ARRIVING"
       ].includes(order.status);
       const attemptStatus=String(paymentAttempt?.status??"not_started");
+      const attemptProvider=String(paymentAttempt?.provider??selectedRoute?.provider??"");
       const checkoutUrl=
         role==="customer"
+        &&attemptProvider==="mercadopago"
         &&["checkout_ready","pending"].includes(attemptStatus)
           ?safeMercadoPagoUrl(paymentAttempt?.checkout_url)
           :null;
       const terminalRetryable=["rejected","cancelled","expired"].includes(attemptStatus);
       const noAttempt=attemptStatus==="not_started";
+      const routeAvailable=Boolean(selectedRoute);
       onlinePayment={
-        provider:"mercadopago",
+        provider:attemptProvider||null,
+        paymentRouteId:paymentAttempt?.payment_route_id??selectedRoute?.id??null,
+        verificationLevel:paymentAttempt?.verification_level
+          ??catalogByProvider.get(String(selectedRoute?.provider||""))?.verification_level
+          ??null,
         available:
           MERCHANT_DIRECT_PAYMENTS_ENABLED
-          &&merchantEnabled
+          &&routeAvailable
           &&orderEligible,
         canStart:
           MERCHANT_DIRECT_PAYMENTS_ENABLED
-          &&merchantEnabled
+          &&routeAvailable
           &&orderEligible
           &&(noAttempt||terminalRetryable),
         status:attemptStatus,
@@ -254,6 +294,7 @@ Deno.serve(async(req:Request)=>{
         approvedAt:paymentAttempt?.approved_at??null,
         refundedAt:paymentAttempt?.refunded_at??null,
         amountCents:Number(paymentAttempt?.amount_cents??order.total_cents??0),
+        fundsOwner:"merchant",
         tamaoReceivesSaleProceeds:false
       };
     }
