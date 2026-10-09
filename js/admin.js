@@ -1575,7 +1575,9 @@ function adminBillingProviderHealthNotice(h){
       +' • conta '+(h.accountBound?'vinculada':'não confirmada');
   }else{
     detail='credencial '+(h.credentialValid===true?'válida':h.credentialValid===false?'inválida':'não confirmada')
-      +' • webhook '+(h.chargeWebhookReady?'ativo':'não confirmado')
+      +' • webhook pagamento '+(h.chargeWebhookReady?'ativo':'não confirmado')
+      +' • expiração '+(h.chargeExpiredWebhookReady?'ativa':'não confirmada')
+      +' • refund '+(h.refundWebhookReady?'ativo':'não confirmado')
       +' • empresa '+(h.companyBound?'vinculada':'não confirmada');
   }
   if(h.reason)detail+=' • '+esc(h.reason);
