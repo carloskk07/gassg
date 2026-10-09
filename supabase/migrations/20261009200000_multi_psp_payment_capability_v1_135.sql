@@ -622,6 +622,10 @@ begin
          or v_connection.status<>'active' then
         raise exception 'PAYMENT_ROUTE_CONNECTION_MISMATCH' using errcode='40001';
       end if;
+      if coalesce((v_connection.capabilities->>'canValidateProviderTransactions')::boolean,false)<>true
+         or coalesce((v_connection.capabilities->>'directSalePaymentsEnabled')::boolean,false)<>true then
+        raise exception 'PAYMENT_ROUTE_NOT_HOMOLOGATED' using errcode='40001';
+      end if;
     elsif v_connection_id is not null then
       select *
       into v_connection
