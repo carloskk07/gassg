@@ -422,7 +422,7 @@ async function handlePlatformBillingOrder(
       statusDetail,
       paymentResult:original.data,
       refundsProcessed:refunds.length,
-      tamaoReceivesSaleProceeds:false
+      tamaoReceivesPlatformBilling:true
     },200);
   }
 
