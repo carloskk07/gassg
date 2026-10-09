@@ -809,8 +809,8 @@ assert.ok(admin.includes('Entrada Pix / PSP')&&admin.includes('PSP/Pix ainda nã
 assert.ok(adminOpsSource.includes('PAYMENT_INGRESS_CONTRACT="tamao_normalized_hmac_v1"'),'contrato normalizado genérico precisa continuar explícito e separado dos adaptadores nativos');
 assert.ok(adminOpsSource.includes('normalizedIngressConfigured')&&adminOpsSource.includes('livePspReady')&&adminOpsSource.includes('liveProviderCount'),'readiness precisa separar secret técnico de PSP realmente suportado');
 assert.ok(admin.includes('INGRESS PRONTO')&&admin.includes('PSP CONFIGURADO')&&admin.includes('PSP VALIDADO')&&admin.includes('Ingress técnico pronto; PSP real ainda não.'),'UI precisa distinguir ingress técnico, PSP apenas configurado e PSP realmente validado');
-assert.ok(admin.includes('PSP configurado; prova real ainda pendente.')&&admin.includes('isso não comprova que a credencial ou o webhook estejam válidos na Woovi'),'painel não pode promover presença de secrets a prova de integração bancária real');
-assert.ok(adminOpsSource.includes('LIVE_PAYMENT_PROVIDER_ADAPTERS=new Set<string>(["woovi"])'),'v1.89 só pode declarar Woovi implementada quando o adaptador nativo estiver no código');
+assert.ok(admin.includes('PSP configurado; prova real ainda pendente.')&&admin.includes('presença de secret não comprova a credencial ou o webhook do PSP ativo')&&admin.includes('Testar PSP ativo'),'painel não pode promover presença de secrets a prova de integração bancária real');
+assert.ok(adminOpsSource.includes('LIVE_PAYMENT_PROVIDER_ADAPTERS=new Set<string>(["mercadopago","woovi"])'),'readiness só pode declarar Mercado Pago e Woovi implementados quando ambos os adaptadores nativos estiverem no código');
 assert.ok(adminOpsSource.includes('WOOVI_WEBHOOK_AUTHORIZATION')&&adminOpsSource.includes('WOOVI_COMPANY_ID')&&adminOpsSource.includes('wooviReady'),'Woovi só pode ficar live com token privado forte e vínculo da empresa');
 assert.ok(adminOpsSource.includes('webhookAuthorizationConfigured')&&adminOpsSource.includes('companyBound')&&adminOpsSource.includes('billing-payment-webhook-woovi'),'readiness do admin precisa explicar exatamente o que falta no adaptador Woovi');
 assert.ok(wooviPaymentWebhookSource.includes('WOOVI_PUBLIC_KEYS_URL="https://api.woovi.com/api/v1/webhook/public-keys"'),'adaptador Woovi precisa acompanhar rotação pela fonte oficial de chaves públicas');
@@ -821,7 +821,7 @@ assert.ok(wooviPaymentWebhookSource.indexOf('verifyWooviSignature(rawBody,signat
 assert.ok(wooviPaymentWebhookSource.includes('"OPENPIX:TRANSACTION_RECEIVED"')&&wooviPaymentWebhookSource.includes('"OPENPIX:CHARGE_COMPLETED"')&&wooviPaymentWebhookSource.includes('pix.endToEndId')&&wooviPaymentWebhookSource.includes('charge.correlationID'),'adaptador Woovi precisa cobrir Pix recebido e cobrança concluída preservando EndToEndId + correlação TAMÃO');
 assert.ok(wooviPaymentWebhookSource.includes('p_provider:"woovi"')&&wooviPaymentWebhookSource.includes('p_reconciliation_key:endToEndId')&&wooviPaymentWebhookSource.includes('p_payment_method:"pix"'),'evento Woovi precisa desembocar na autoridade provider-agnostic existente');
 assert.ok(wooviPaymentWebhookSource.includes('raw_payload_sha256')||wooviPaymentWebhookSource.includes('p_raw_payload_sha256:payloadHash'),'adaptador Woovi precisa preservar hash do payload bruto para auditoria');
-assert.ok(admin.includes('Woovi/OpenPix: adaptador')&&admin.includes('Webhook Woovi:')&&admin.includes('Geração Pix da revenda:'),'Financeiro precisa enxergar readiness dos dois sentidos do adaptador sem segredos');
+assert.ok(admin.includes('Mercado Pago: adaptador')&&admin.includes('Webhook Mercado Pago único (Order):')&&admin.includes('Woovi/OpenPix: adaptador')&&admin.includes('Geração Pix da revenda:'),'Financeiro precisa enxergar Mercado Pago ativo e Woovi fallback nos dois sentidos sem segredos');
 assert.ok(billingPaymentWebhookSource.includes('x-tamao-signature')&&billingPaymentWebhookSource.includes('hmacSha256Hex')&&billingPaymentWebhookSource.includes('constantTimeEqualHex'),'webhook de pagamentos precisa verificar HMAC antes de tocar o banco');
 assert.ok(billingPaymentWebhookSource.includes('MAX_SKEW_SECONDS=300')&&billingPaymentWebhookSource.includes('STALE_WEBHOOK'),'webhook precisa limitar replay temporal a cinco minutos');
 assert.ok(billingPaymentWebhookSource.includes('BILLING_PAYMENT_WEBHOOK_SECRETS')&&billingPaymentWebhookSource.includes('WEBHOOK_PROVIDER_NOT_CONFIGURED'),'provedor sem segredo configurado precisa falhar fechado');
@@ -881,6 +881,8 @@ assert.ok(
   &&mercadoPagoPaymentWebhookSource.includes('route:"platform_billing"'),
   'um único webhook Mercado Pago precisa autenticar e rotear separadamente venda da revenda e receita TAMÃO'
 );
+assert.ok(mercadoPagoPaymentWebhookSource.includes('tamaoReceivesPlatformBilling:true')&&mercadoPagoPaymentWebhookSource.includes('tamaoReceivesSaleProceeds:false'),'webhook unificado precisa distinguir semanticamente receita do TAMÃO de venda pertencente à revenda');
+assert.ok(admin.includes('Recebimento direto das revendas')&&admin.includes("adminPerform('merchant-payment-capability'")&&admin.includes('Homologar pagamentos diretos')&&admin.includes('Kill switch global'),'Financeiro precisa possuir homologação auditável por revenda sem confundir com o kill switch global');
 assert.ok(
   mercadoPagoPaymentWebhookSource.includes('providerUserId!==providerAccountId')
   &&mercadoPagoPaymentWebhookSource.includes('MERCADOPAGO_ORDER_ROUTE_NOT_READY')
