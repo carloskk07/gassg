@@ -22,7 +22,18 @@ const adminRuntime={
   detailPending:false,
   health:null,
   healthPending:false,
-  providerHealth:null,
+  providerHealth:(()=>{
+    try{
+      const cached=JSON.parse(sessionStorage.getItem('tamao-admin-provider-health-v1')||'null');
+      const health=cached?.health||null;
+      const cachedAt=Date.parse(cached?.cachedAt||health?.checkedAt||'');
+      if(!health||!Number.isFinite(cachedAt)||Date.now()-cachedAt>10*60*1000){
+        sessionStorage.removeItem('tamao-admin-provider-health-v1');
+        return null;
+      }
+      return health;
+    }catch{return null}
+  })(),
   providerHealthPending:false,
   auditResults:null,
   auditPending:false,
@@ -305,6 +316,9 @@ async function adminSignOut(){
   adminRuntime.detailPending=false;
   adminRuntime.health=null;
   adminRuntime.healthPending=false;
+  adminRuntime.providerHealth=null;
+  adminRuntime.providerHealthPending=false;
+  try{sessionStorage.removeItem('tamao-admin-provider-health-v1')}catch{}
   adminRuntime.auditResults=null;
   adminRuntime.auditPending=false;
   adminRuntime.status='unauthenticated';
@@ -326,6 +340,7 @@ async function adminRefresh({silent=false}={}){
     adminRuntime.status='ready';
     adminRuntime.error=null;
     adminRuntime.lastSyncAt=new Date().toISOString();
+    queueMicrotask(()=>adminEnsureProviderHealth().catch(()=>{}));
     return data;
   }catch(error){
     if(seq!==adminRuntime.refreshSeq)return null;
@@ -508,27 +523,55 @@ async function adminLoadSystemHealth({force=false}={}){
   }
 }
 
-async function adminCheckBillingProviderHealth(){
-  if(adminRuntime.providerHealthPending)return;
-  adminRuntime.providerHealthPending=true;
-  render();
+const ADMIN_PROVIDER_HEALTH_CACHE_MS=10*60*1000;
+function adminProviderHealthFresh(){
+  const checkedAt=Date.parse(adminRuntime.providerHealth?.checkedAt||'');
+  return Number.isFinite(checkedAt)&&Date.now()-checkedAt<ADMIN_PROVIDER_HEALTH_CACHE_MS;
+}
+function adminCacheProviderHealth(health){
+  adminRuntime.providerHealth=health||null;
   try{
-    adminRuntime.providerHealth=await adminInvoke({action:'billing-provider-health'});
-    const h=adminRuntime.providerHealth;
-    const provider=h?.provider==='mercadopago'?'Mercado Pago':h?.provider==='woovi'?'Woovi/OpenPix':'PSP ativo';
-    toast(h?.ok?provider+' validado':provider+' exige atenção: '+String(h?.reason||h?.status||'indisponível'));
+    if(health){
+      sessionStorage.setItem('tamao-admin-provider-health-v1',JSON.stringify({
+        cachedAt:new Date().toISOString(),
+        health
+      }));
+    }else{
+      sessionStorage.removeItem('tamao-admin-provider-health-v1');
+    }
+  }catch{}
+}
+async function adminCheckBillingProviderHealth({silent=false,force=true}={}){
+  if(adminRuntime.providerHealthPending)return adminRuntime.providerHealth;
+  if(!force&&adminProviderHealthFresh())return adminRuntime.providerHealth;
+  adminRuntime.providerHealthPending=true;
+  if(!silent)render();
+  try{
+    const health=await adminInvoke({action:'billing-provider-health'});
+    adminCacheProviderHealth(health);
+    const provider=health?.provider==='mercadopago'?'Mercado Pago':health?.provider==='woovi'?'Woovi/OpenPix':'PSP ativo';
+    if(!silent)toast(health?.ok?provider+' validado':provider+' exige atenção: '+String(health?.reason||health?.status||'indisponível'));
+    return health;
   }catch(error){
-    adminRuntime.providerHealth={
+    const health={
       ok:false,
       status:'unavailable',
       provider:null,
       reason:String(error?.message||error||'Diagnóstico do PSP indisponível'),
       checkedAt:new Date().toISOString()
     };
+    adminCacheProviderHealth(health);
+    return health;
   }finally{
     adminRuntime.providerHealthPending=false;
     render();
   }
+}
+async function adminEnsureProviderHealth(){
+  if(!adminReady()||adminRuntime.providerHealthPending||adminProviderHealthFresh())return adminRuntime.providerHealth;
+  const ingress=adminRuntime.data?.merchantBilling?.paymentIngress;
+  if(!ingress?.livePspReady)return adminRuntime.providerHealth;
+  return adminCheckBillingProviderHealth({silent:true,force:false});
 }
 
 async function adminRetryBillingProviderCancel(paymentRequestId){
