@@ -204,7 +204,8 @@ assert.ok(
   admin.includes('Recebimento direto multi-PSP')
   &&admin.includes('Arquitetura agnóstica de provedor.')
   &&admin.includes('adminMerchantPaymentProviderCatalog')
-  &&admin.includes('provider:String(provider'),
+  &&admin.includes('provider:providerKey')
+  &&admin.includes("const providerKey=String(provider||'').toLowerCase()"),
   'Admin não pode continuar comunicando Mercado Pago como requisito universal'
 );
 assert.ok(

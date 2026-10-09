@@ -114,8 +114,11 @@ assert.ok(admin.includes("adminRequireTypedConfirmation('SUPERADMIN'"),
   'elevação a Superadmin precisa de confirmação reforçada');
 assert.ok(admin.includes("adminRole==='superadmin'&&!adminRequireTypedConfirmation('SUPERADMIN'"),
   'novo Superadmin também precisa de confirmação reforçada');
-assert.ok(admin.includes("enabled&&!adminRequireTypedConfirmation('HOMOLOGAR'"),
-  'homologação de pagamento direto precisa de confirmação reforçada');
+assert.ok(
+  admin.includes("const typed=activationKind==='pilot'?'PILOTO':'REATIVAR'")
+  &&admin.includes('adminRequireTypedConfirmation(typed,copy)'),
+  'ativação/reativação de pagamento direto precisa de confirmação reforçada sem antecipar status HOMOLOGADO'
+);
 assert.ok(admin.includes('Formas de pagamento aceitas do cliente final'),
   'onboarding deve separar pagamento do cliente da cobrança de taxas TAMÃO');
 
