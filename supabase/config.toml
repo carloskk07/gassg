@@ -32,9 +32,10 @@ verify_jwt = false
 verify_jwt = false
 
 
-# Mercado Pago billing webhook ingress for money owed to TAMÃO.
-# JWT is disabled because authenticity is enforced by Mercado Pago HMAC
-# and every event is re-fetched from the provider before reconciliation.
+# Single Mercado Pago Order webhook ingress for both TAMÃO billing and
+# merchant-owned sales. JWT is disabled because HMAC authenticates delivery;
+# the handler routes only by exact local provider-order bindings and then
+# re-fetches the order with the owning account token before reconciliation.
 [functions.billing-payment-webhook-mercadopago]
 verify_jwt = false
 
@@ -55,7 +56,3 @@ verify_jwt = false
 [functions.order-payment-checkout]
 verify_jwt = false
 
-# Mercado Pago notifies merchant-owned sale payments here. JWT is intentionally
-# disabled: HMAC signature + exact provider lookup authenticate the event.
-[functions.merchant-sale-payment-webhook-mercadopago]
-verify_jwt = false
