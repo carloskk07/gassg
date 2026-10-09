@@ -1924,32 +1924,38 @@ function adminMerchantPaymentAccountCard({merchant,account}){
     .find(x=>x.provider_key===provider)||null;
   const connected=account?.status==='active';
   const directEnabled=account?.capabilities?.directSalePaymentsEnabled===true;
+  const canValidate=account?.capabilities?.canValidateProviderTransactions===true;
+  const homologated=connected&&directEnabled&&canValidate;
+  const inconsistent=connected&&directEnabled&&!canValidate;
   const globalEnabled=adminRuntime.data?.merchantPayments?.globalDirectPaymentsEnabled===true;
   const accountRef=String(account?.provider_account_id||'');
   const safeAccountRef=accountRef?('•••• '+accountRef.slice(-6)):'—';
   const adapterImplemented=catalog?.adapter_status==='implemented';
   const statusLabel=!connected
     ?String(account?.status||'NÃO CONECTADO').toUpperCase()
-    :directEnabled?'HOMOLOGADO'
-      :adapterImplemented?'AGUARDA HOMOLOGAÇÃO':'CONECTADO';
-  const statusClass=directEnabled&&globalEnabled?'online':connected?'risk':'';
+    :homologated?'HOMOLOGADO'
+      :inconsistent?'INCONSISTENTE'
+        :adapterImplemented?'AGUARDA E2E':'CONECTADO';
+  const statusClass=homologated&&globalEnabled?'online':inconsistent?'offline':connected?'risk':'';
   let notice='';
   if(!connected){
     notice='<div class="notice" style="margin-top:8px">A conexão deste provedor não está ativa.</div>';
-  }else if(directEnabled){
+  }else if(homologated){
     notice='<div class="notice success" style="margin-top:8px"><strong>Conexão homologada.</strong><br>O TAMÃO pode verificar transações neste provedor, mas o dinheiro continua indo diretamente para a revenda.</div>';
+  }else if(inconsistent){
+    notice='<div class="notice danger" style="margin-top:8px"><strong>Estado inconsistente.</strong><br>A capability de pagamento direto está ativa sem autoridade de validação do provedor. Suspenda a automação e revise a homologação.</div>';
   }else if(adapterImplemented){
-    notice='<div class="notice" style="margin-top:8px"><strong>Conta conectada, confirmação automática bloqueada.</strong><br>É necessária homologação E2E desta revenda/provedor antes de habilitar a rota automática.</div>';
+    notice='<div class="notice" style="margin-top:8px"><strong>Conta conectada, confirmação automática bloqueada.</strong><br>Execute a prova E2E desta revenda/provedor antes de habilitar a rota automática.</div>';
   }else{
     notice='<div class="notice" style="margin-top:8px"><strong>Conta conectada; adaptador de venda ainda não homologado.</strong><br>A conexão pode ser preparada sem liberar pagamentos automáticos ao cliente.</div>';
   }
   const action=connected&&adapterImplemented
-    ?'<div class="order-actions"><button class="'+(directEnabled?'danger-btn':'secondary')+' small" onclick="adminSetMerchantPaymentCapability(\''+esc(merchant.id)+'\',\''+esc(provider)+'\','+(directEnabled?'false':'true')+')">'+(directEnabled?'Suspender confirmação automática':'Homologar confirmação automática')+'</button></div>'
+    ?'<div class="order-actions"><button class="'+((homologated||inconsistent)?'danger-btn':'secondary')+' small" onclick="adminSetMerchantPaymentCapability(\''+esc(merchant.id)+'\',\''+esc(provider)+'\','+((homologated||inconsistent)?'false':'true')+')">'+((homologated||inconsistent)?'Suspender confirmação automática':'Homologar após E2E')+'</button></div>'
     :'';
   return '<article class="order-card">'
     +'<div class="order-head"><div><div class="order-id">'+esc(merchant?.name||merchant?.id||'Revenda')+'</div><div class="tiny muted">'+esc(providerName)+' • conta '+esc(safeAccountRef)+'</div></div><span class="status-pill '+statusClass+'">'+esc(statusLabel)+'</span></div>'
     +notice
-    +'<div class="tiny muted" style="margin-top:8px">Verificação: <strong>'+esc(adminMerchantPaymentVerificationLabel(account?.verification_level||catalog?.verification_level))+'</strong> • adaptador: '+esc(adminMerchantPaymentAdapterLabel(catalog?.adapter_status))+' • kill switch global: <strong>'+(globalEnabled?'ATIVO':'DESATIVADO')+'</strong>'+(account?.connected_at?' • desde '+esc(formatDateTime(account.connected_at)):'')+'</div>'
+    +'<div class="tiny muted" style="margin-top:8px">Verificação: <strong>'+esc(adminMerchantPaymentVerificationLabel(account?.verification_level||catalog?.verification_level))+'</strong> • adaptador: '+esc(adminMerchantPaymentAdapterLabel(catalog?.adapter_status))+' • validação do provedor: <strong>'+(canValidate?'ATIVA':'BLOQUEADA')+'</strong> • kill switch global: <strong>'+(globalEnabled?'ATIVO':'DESATIVADO')+'</strong>'+(account?.connected_at?' • desde '+esc(formatDateTime(account.connected_at)):'')+'</div>'
     +action
     +'</article>';
 }
@@ -2012,6 +2018,148 @@ function adminMerchantDeclaredPspRadar(d){
     +'<div class="notice"><strong>Sinal de produto, não prova financeira.</strong><br>Essas declarações dizem qual PSP a revenda usa; não confirmam pagamento e nunca liberam checkout automático.</div>'
     +'<div class="admin-entity-grid">'+cards+'</div>';
 }
+function adminMerchantPspHomologationQueue(d){
+  const catalog=(d.merchantPayments?.providerCatalog||[]).filter(x=>x.provider_key!=='manual');
+  const routes=Array.isArray(d.merchantPayments?.routes)?d.merchantPayments.routes:[];
+  const merchants=Array.isArray(d.merchants)?d.merchants:[];
+  if(!catalog.length)return '';
+
+  const declaredByProvider=new Map();
+  for(const route of routes){
+    if(
+      route?.active!==true
+      ||route?.provider==='manual'
+      ||route?.verification_mode!=='merchant_confirmed'
+      ||route?.connection_id!=null
+      ||route?.channel!=='external'
+    )continue;
+    const provider=String(route.provider||'').toLowerCase();
+    if(!declaredByProvider.has(provider))declaredByProvider.set(provider,new Set());
+    declaredByProvider.get(provider).add(String(route.merchant_id||''));
+  }
+
+  const accountsByProvider=new Map();
+  for(const merchant of merchants){
+    for(const account of merchant.paymentAccounts||[]){
+      const provider=String(account?.provider||'').toLowerCase();
+      if(!provider)continue;
+      if(!accountsByProvider.has(provider))accountsByProvider.set(provider,[]);
+      accountsByProvider.get(provider).push({merchant,account});
+    }
+  }
+
+  const models=catalog.map(definition=>{
+    const provider=String(definition.provider_key||'').toLowerCase();
+    const declaredMerchants=declaredByProvider.get(provider)?.size||0;
+    const accountRows=accountsByProvider.get(provider)||[];
+    const activeRows=accountRows.filter(row=>row.account?.status==='active');
+    const homologatedRows=activeRows.filter(row=>
+      row.account?.capabilities?.directSalePaymentsEnabled===true
+      &&row.account?.capabilities?.canValidateProviderTransactions===true
+    );
+    const inconsistentRows=activeRows.filter(row=>
+      row.account?.capabilities?.directSalePaymentsEnabled===true
+      &&row.account?.capabilities?.canValidateProviderTransactions!==true
+    );
+    const adapterStatus=String(definition.adapter_status||'planned');
+    const implemented=adapterStatus==='implemented';
+    const prepared=adapterStatus==='ready_for_credentials';
+    const manualOnly=adapterStatus==='manual_only'||definition.connection_mode==='manual';
+
+    let stage='PLANEJADO';
+    let stageClass='';
+    let nextAction='Planejar conector somente quando houver demanda observada.';
+    if(inconsistentRows.length){
+      stage='AÇÃO IMEDIATA';
+      stageClass='offline';
+      nextAction='Suspender capability inconsistente e repetir a homologação E2E.';
+    }else if(homologatedRows.length){
+      stage='HOMOLOGADO';
+      stageClass='online';
+      nextAction='Monitorar saúde, webhooks/lookups e regressão E2E.';
+    }else if(activeRows.length&&implemented){
+      stage='PRONTO PARA E2E';
+      stageClass='risk';
+      nextAction='Executar prova E2E da conta piloto; só depois liberar confirmação automática.';
+    }else if(activeRows.length){
+      stage='CONECTADO';
+      stageClass='risk';
+      nextAction='Concluir adaptador do provedor e depois executar E2E.';
+    }else if(implemented){
+      stage='IMPLEMENTADO';
+      stageClass='risk';
+      nextAction='Conectar uma conta piloto da revenda e executar homologação E2E.';
+    }else if(prepared){
+      stage='PREPARADO';
+      nextAction='Finalizar credenciais/OAuth/terminal e implementar validação transacional.';
+    }else if(manualOnly){
+      stage='MANUAL';
+      nextAction='Manter confirmação manual até existir integração oficial adequada.';
+    }
+
+    let priority='P3';
+    let priorityOrder=3;
+    if(inconsistentRows.length||activeRows.length&&implemented&&!homologatedRows.length){
+      priority='P0';
+      priorityOrder=0;
+    }else if(declaredMerchants>=2){
+      priority='P0';
+      priorityOrder=0;
+    }else if(declaredMerchants===1){
+      priority='P1';
+      priorityOrder=1;
+    }else if(implemented){
+      priority='P2';
+      priorityOrder=2;
+    }
+
+    return {
+      provider,
+      displayName:definition.display_name||adminBillingProviderName(provider),
+      definition,
+      declaredMerchants,
+      activeAccounts:activeRows.length,
+      homologatedAccounts:homologatedRows.length,
+      inconsistentAccounts:inconsistentRows.length,
+      stage,
+      stageClass,
+      nextAction,
+      priority,
+      priorityOrder
+    };
+  }).sort((a,b)=>
+    a.priorityOrder-b.priorityOrder
+    ||b.inconsistentAccounts-a.inconsistentAccounts
+    ||b.declaredMerchants-a.declaredMerchants
+    ||b.activeAccounts-a.activeAccounts
+    ||Number(a.definition.sort_order||999)-Number(b.definition.sort_order||999)
+  );
+
+  const cards=models.map(model=>{
+    const demand=model.declaredMerchants
+      ?model.declaredMerchants+' revenda'+(model.declaredMerchants===1?'':'s')+' declarou uso'
+      :'sem demanda declarada';
+    const accountSummary=model.activeAccounts
+      ?model.activeAccounts+' conta'+(model.activeAccounts===1?'':'s')+' ativa'+(model.activeAccounts===1?'':'s')
+      :'nenhuma conta conectada';
+    const proof=model.homologatedAccounts
+      ?model.homologatedAccounts+' homologada'+(model.homologatedAccounts===1?'':'s')
+      :'0 homologadas';
+    return '<article class="card flat">'
+      +'<div class="order-head"><div><strong>'+esc(model.displayName)+'</strong><br><small>'+esc(demand)+' • '+esc(accountSummary)+'</small></div><div style="text-align:right"><span class="status-pill '+model.stageClass+'">'+esc(model.stage)+'</span><br><small>'+esc(model.priority)+'</small></div></div>'
+      +'<div class="tiny muted" style="margin-top:8px">Adaptador: <strong>'+esc(adminMerchantPaymentAdapterLabel(model.definition.adapter_status))+'</strong> • modo: <strong>'+esc(String(model.definition.connection_mode||'—').toUpperCase())+'</strong> • '+esc(proof)+'</div>'
+      +(model.inconsistentAccounts?'<div class="notice danger" style="margin-top:8px"><strong>'+model.inconsistentAccounts+' inconsistência'+(model.inconsistentAccounts===1?'':'s')+'.</strong><br>Pagamento direto não pode permanecer habilitado sem validação do provedor.</div>':'')
+      +'<div class="notice" style="margin-top:8px"><strong>Próxima ação:</strong><br>'+esc(model.nextAction)+'</div>'
+      +'</article>';
+  }).join('');
+
+  const p0=models.filter(x=>x.priority==='P0').length;
+  const observed=models.filter(x=>x.declaredMerchants>0).length;
+  return '<div class="section-head" style="margin-top:16px"><div><span class="section-kicker">HOMOLOGAÇÃO MULTI-PSP</span><h3>Fila técnica de provedores</h3><p>Prioridade calculada por risco operacional, contas prontas para E2E e demanda declarada. Sem demanda, o TAMÃO não força integração nem troca de PSP.</p></div><span class="status-pill '+(p0?'risk':'')+'">'+p0+' P0 • '+observed+' COM DEMANDA</span></div>'
+    +'<div class="notice"><strong>Regra de autoridade.</strong><br>Conectar não significa homologar. Só existe status HOMOLOGADO quando a conta está ativa e possui simultaneamente <code>directSalePaymentsEnabled</code> e <code>canValidateProviderTransactions</code>. O dinheiro continua pertencendo à revenda.</div>'
+    +'<div class="admin-entity-grid">'+cards+'</div>';
+}
+
 function adminMerchantSaleVerificationSection(d){
   const rows=(d.merchantPayments?.verifications||[]).slice(0,20);
   const orderById=new Map((d.controlOrders||[]).map(x=>[String(x.id),x]));
@@ -2042,6 +2190,7 @@ function adminMerchantPaymentAccountsSection(d){
     +'<div class="notice"><strong>Arquitetura agnóstica de provedor.</strong><br>Mercado Pago não é obrigatório. Pix próprio, dinheiro e cartão na entrega continuam válidos; PagBank, Stone, Getnet e outros entram como conectores independentes.</div>'
     +adminMerchantPaymentProviderCatalog(d)
     +adminMerchantDeclaredPspRadar(d)
+    +adminMerchantPspHomologationQueue(d)
     +(rows.length?'<div class="admin-entity-grid" style="margin-top:12px">'+rows.map(adminMerchantPaymentAccountCard).join('')+'</div>':'<div class="empty card" style="margin-top:12px">Nenhuma revenda possui conexão automática com PSP ainda. Isso não impede uma revenda de operar com formas de pagamento manuais confirmadas.</div>')
     +adminMerchantSaleVerificationSection(d);
 }
