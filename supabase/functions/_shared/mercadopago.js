@@ -44,17 +44,17 @@ export async function mercadoPagoFetch(path,options){
   if(!mercadoPagoConfigured(accessToken))throw new Error("MERCADOPAGO_ACCESS_TOKEN_INVALID");
   const safePath=String(path??"");
   if(!safePath.startsWith("/")||safePath.includes("://"))throw new Error("MERCADOPAGO_PATH_INVALID");
-  const headers={
+  const headers=new Headers({
     "Accept":"application/json",
     "Authorization":"Bearer "+String(accessToken).trim()
-  };
-  if(body!=null)headers["Content-Type"]="application/json";
+  });
+  if(body!=null)headers.set("Content-Type","application/json");
   if(idempotencyKey){
     const key=String(idempotencyKey).trim();
     if(key.length<8||key.length>120||!/^[A-Za-z0-9._:-]+$/.test(key)){
       throw new Error("MERCADOPAGO_IDEMPOTENCY_KEY_INVALID");
     }
-    headers["X-Idempotency-Key"]=key;
+    headers.set("X-Idempotency-Key",key);
   }
   const controller=new AbortController();
   const timer=setTimeout(()=>controller.abort(),timeoutMs);
