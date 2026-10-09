@@ -687,6 +687,56 @@ async function liveGetOrder(orderId=liveRuntime.orderId,{silent=false}={}){
   return order;
 }
 
+async function liveStartMerchantPayment(){
+  const order=liveRuntime.order;
+  if(!order||liveRuntime.actionPending)return;
+  const online=order.onlinePayment||{};
+  if(online.status==='approved'){
+    toast('Pagamento já confirmado pela revenda');
+    return;
+  }
+  const existing=String(online.checkoutUrl||'');
+  if(existing){
+    if(!/^https:\/\/([a-z0-9-]+\.)*mercadopago\.com(?:\.br)?\//i.test(existing)){
+      throw new Error('Link de pagamento inválido');
+    }
+    location.href=existing;
+    return;
+  }
+  if(online.available!==true||online.canStart!==true){
+    throw new Error('Pagamento online direto ainda não está disponível para este pedido');
+  }
+
+  liveRuntime.actionPending=true;
+  liveRuntime.error=null;
+  render();
+  try{
+    const idempotencyKey=liveIdempotency('merchant-sale-payment');
+    const result=await retryAmbiguousOnce(()=>liveInvoke(
+      'order-payment-checkout',
+      {orderId:order.orderId},
+      {idempotencyKey}
+    ));
+    if(result?.alreadyPaid===true){
+      await liveGetOrder(order.orderId,{silent:true});
+      toast('Pagamento confirmado');
+      return;
+    }
+    const url=String(result?.checkoutUrl||'');
+    if(!/^https:\/\/([a-z0-9-]+\.)*mercadopago\.com(?:\.br)?\//i.test(url)){
+      throw new Error('O provedor não retornou um link de pagamento válido');
+    }
+    location.href=url;
+  }catch(error){
+    liveRuntime.error=String(error?.message||error);
+    toast(liveRuntime.error);
+    try{await liveGetOrder(order.orderId,{silent:true})}catch{}
+  }finally{
+    liveRuntime.actionPending=false;
+    render();
+  }
+}
+
 async function liveCustomerAction(action){
   const order=liveRuntime.order;
   if(!order||liveRuntime.actionPending)return;
@@ -1906,6 +1956,7 @@ globalThis.liveRefreshOffers=liveRefreshOffers;
 globalThis.liveScheduleOfferRefresh=liveScheduleOfferRefresh;
 globalThis.liveCreateOrder=liveCreateOrder;
 globalThis.liveGetOrder=liveGetOrder;
+globalThis.liveStartMerchantPayment=liveStartMerchantPayment;
 globalThis.liveCustomerAction=liveCustomerAction;
 globalThis.liveUpgradeAccount=liveUpgradeAccount;
 globalThis.livePoll=livePoll;
