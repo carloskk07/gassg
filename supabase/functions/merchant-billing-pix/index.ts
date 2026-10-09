@@ -8,6 +8,14 @@ import {
   requestFingerprint
 } from "../_shared/domain.js";
 import { cancelProviderChargesForPaymentRequest } from "../_shared/provider-charge-cancel.js";
+import {
+  mercadoPagoConfigured,
+  mercadoPagoFetch,
+  readMercadoPagoJson,
+  safeMercadoPagoUrl,
+  mercadoPagoQrDataUri,
+  moneyToCents
+} from "../_shared/mercadopago.js";
 
 const SUPABASE_URL=Deno.env.get("SUPABASE_URL")??"";
 const publishableKeys=JSON.parse(Deno.env.get("SUPABASE_PUBLISHABLE_KEYS")??"{}");
@@ -63,6 +71,18 @@ async function authenticatedUser(req:Request){
   }
   return assertPermanentMerchantUser(data.user);
 }
+function billingProvider(){
+  const provider=String(Deno.env.get("BILLING_PIX_PROVIDER")??"mercadopago")
+    .trim().toLowerCase();
+  if(!["mercadopago","woovi"].includes(provider)){
+    throw new DomainError(
+      "PIX_PROVIDER_INVALID",
+      "O provedor Pix configurado no servidor é inválido.",
+      503
+    );
+  }
+  return provider;
+}
 function idempotencyKey(req:Request){
   const key=String(req.headers.get("Idempotency-Key")??"").trim();
   if(key.length<12||key.length>120||!/^[A-Za-z0-9._:-]+$/.test(key)){
@@ -74,19 +94,6 @@ function idempotencyKey(req:Request){
   }
   return key;
 }
-function wooviBase(){
-  const raw=String(Deno.env.get("WOOVI_API_BASE_URL")??"https://api.woovi.com")
-    .trim()
-    .replace(/\/$/,"");
-  if(!WOOVI_BASES.has(raw)){
-    throw new DomainError(
-      "WOOVI_API_BASE_INVALID",
-      "Ambiente Woovi inválido no servidor.",
-      503
-    );
-  }
-  return raw;
-}
 function parseIso(value:unknown){
   const raw=String(value??"").trim();
   if(!raw||!Number.isFinite(Date.parse(raw)))return null;
@@ -95,6 +102,15 @@ function parseIso(value:unknown){
 function cleanText(value:unknown,max:number){
   const raw=String(value??"").trim();
   if(!raw||raw.length>max||/[\u0000-\u001f\u007f]/.test(raw))return null;
+  return raw;
+}
+function wooviBase(){
+  const raw=String(Deno.env.get("WOOVI_API_BASE_URL")??"https://api.woovi.com")
+    .trim()
+    .replace(/\/$/,"");
+  if(!WOOVI_BASES.has(raw)){
+    throw new DomainError("WOOVI_API_BASE_INVALID","Ambiente Woovi inválido no servidor.",503);
+  }
   return raw;
 }
 function safeWooviUrl(value:unknown,kind:"image"|"payment"){
@@ -109,13 +125,11 @@ function safeWooviUrl(value:unknown,kind:"image"|"payment"){
     const host=url.hostname.toLowerCase();
     if(kind==="image"){
       if(!["api.woovi.com","api.woovi-sandbox.com"].includes(host))return null;
-    }else{
-      if(!["woovi.com","www.woovi.com","woovi-sandbox.com","www.woovi-sandbox.com"].includes(host))return null;
+    }else if(!["woovi.com","www.woovi.com","woovi-sandbox.com","www.woovi-sandbox.com"].includes(host)){
+      return null;
     }
     return url.toString();
-  }catch{
-    return null;
-  }
+  }catch{return null}
 }
 function bytesToBase64(bytes:Uint8Array){
   let binary="";
@@ -125,19 +139,14 @@ function bytesToBase64(bytes:Uint8Array){
   }
   return btoa(binary);
 }
-async function qrDataUri(value:unknown){
+async function wooviQrDataUri(value:unknown){
   const safe=safeWooviUrl(value,"image");
   if(!safe)return null;
   if(safe.startsWith("data:image/png;base64,"))return safe;
-
   const controller=new AbortController();
   const timer=setTimeout(()=>controller.abort(),WOOVI_TIMEOUT_MS);
   try{
-    const res=await fetch(safe,{
-      method:"GET",
-      headers:{"Accept":"image/png"},
-      signal:controller.signal
-    });
+    const res=await fetch(safe,{method:"GET",headers:{"Accept":"image/png"},signal:controller.signal});
     if(!res.ok)return null;
     const type=String(res.headers.get("content-type")??"").toLowerCase();
     if(!type.startsWith("image/png"))return null;
@@ -146,20 +155,14 @@ async function qrDataUri(value:unknown){
     const bytes=new Uint8Array(await res.arrayBuffer());
     if(!bytes.length||bytes.length>MAX_QR_IMAGE_BYTES)return null;
     return "data:image/png;base64,"+bytesToBase64(bytes);
-  }catch{
-    return null;
-  }finally{
-    clearTimeout(timer);
-  }
+  }catch{return null}
+  finally{clearTimeout(timer)}
 }
 async function wooviFetch(url:string,init:RequestInit){
   const controller=new AbortController();
   const timer=setTimeout(()=>controller.abort(),WOOVI_TIMEOUT_MS);
-  try{
-    return await fetch(url,{...init,signal:controller.signal});
-  }finally{
-    clearTimeout(timer);
-  }
+  try{return await fetch(url,{...init,signal:controller.signal})}
+  finally{clearTimeout(timer)}
 }
 async function readWooviJson(res:Response){
   const text=await res.text();
@@ -167,33 +170,24 @@ async function readWooviJson(res:Response){
   if(!text)return {};
   try{return JSON.parse(text)}catch{throw new Error("WOOVI_INVALID_JSON")}
 }
-function normalizeCharge(data:any,correlationId:string,expectedAmountCents:number){
+function normalizeWooviCharge(data:any,correlationId:string,expectedAmountCents:number){
   const charge=data?.charge;
-  if(!charge||typeof charge!=="object"||Array.isArray(charge)){
-    throw new Error("WOOVI_CHARGE_MISSING");
-  }
+  if(!charge||typeof charge!=="object"||Array.isArray(charge))throw new Error("WOOVI_CHARGE_MISSING");
   const correlation=String(charge.correlationID??data?.correlationID??"").trim();
   const amount=Number(charge.value);
   const status=String(charge.status??"").trim().toUpperCase();
   const brCode=cleanText(charge.brCode??data?.brCode,8192);
   if(correlation!==correlationId)throw new Error("WOOVI_CORRELATION_MISMATCH");
-  if(!Number.isSafeInteger(amount)||amount!==expectedAmountCents){
-    throw new Error("WOOVI_AMOUNT_MISMATCH");
-  }
+  if(!Number.isSafeInteger(amount)||amount!==expectedAmountCents)throw new Error("WOOVI_AMOUNT_MISMATCH");
   if(!["ACTIVE","COMPLETED"].includes(status))throw new Error("WOOVI_CHARGE_NOT_ACTIVE");
   if(!brCode||brCode.length<20)throw new Error("WOOVI_BR_CODE_MISSING");
-
   const providerChargeId=cleanText(
-    charge.globalID
-      ??charge.identifier
-      ??charge.transactionID
-      ??charge.paymentLinkID
-      ??charge.correlationID,
+    charge.globalID??charge.identifier??charge.transactionID??charge.paymentLinkID??charge.correlationID,
     240
   );
   if(!providerChargeId)throw new Error("WOOVI_CHARGE_ID_MISSING");
-
   return {
+    provider:"woovi",
     status:status.toLowerCase(),
     correlationId:correlation,
     amountCents:amount,
@@ -201,6 +195,7 @@ function normalizeCharge(data:any,correlationId:string,expectedAmountCents:numbe
     providerTransactionId:cleanText(charge.transactionID??charge.identifier,240),
     brCode,
     qrCodeImage:safeWooviUrl(charge.qrCodeImage,"image"),
+    qrCodeDataUri:null,
     paymentLinkUrl:safeWooviUrl(charge.paymentLinkUrl,"payment"),
     expiresAt:parseIso(charge.expiresDate)
   };
@@ -210,29 +205,15 @@ async function getWooviCharge(base:string,appId:string,correlationId:string,expe
     base+"/api/v1/charge/"+encodeURIComponent(correlationId),
     {method:"GET",headers:{"Accept":"application/json","Authorization":appId}}
   );
-  if(!res.ok){
-    return {found:false,status:res.status,data:await readWooviJson(res)};
-  }
-  return {
-    found:true,
-    status:res.status,
-    charge:normalizeCharge(await readWooviJson(res),correlationId,expectedAmountCents)
-  };
+  if(!res.ok)return {found:false,status:res.status,data:await readWooviJson(res)};
+  return {found:true,status:res.status,charge:normalizeWooviCharge(await readWooviJson(res),correlationId,expectedAmountCents)};
 }
 async function createWooviCharge(
-  base:string,
-  appId:string,
-  correlationId:string,
-  expectedAmountCents:number,
-  comment:string
+  base:string,appId:string,correlationId:string,expectedAmountCents:number,comment:string
 ){
   const res=await wooviFetch(base+"/api/v1/charge",{
     method:"POST",
-    headers:{
-      "Accept":"application/json",
-      "Content-Type":"application/json",
-      "Authorization":appId
-    },
+    headers:{"Accept":"application/json","Content-Type":"application/json","Authorization":appId},
     body:JSON.stringify({
       correlationID:correlationId,
       value:expectedAmountCents,
@@ -242,11 +223,95 @@ async function createWooviCharge(
   });
   const data=await readWooviJson(res);
   if(!res.ok)return {ok:false,status:res.status,data};
+  return {ok:true,status:res.status,charge:normalizeWooviCharge(data,correlationId,expectedAmountCents)};
+}
+function mpPayment(order:any){
+  const payments=Array.isArray(order?.transactions?.payments)?order.transactions.payments:[];
+  return payments.find((p:any)=>
+    String(p?.payment_method?.id??"").toLowerCase()==="pix"
+    &&String(p?.payment_method?.type??"").toLowerCase()==="bank_transfer"
+  )??payments[0]??null;
+}
+function normalizeMercadoPagoOrder(order:any,correlationId:string,expectedAmountCents:number){
+  const orderId=cleanText(order?.id,240);
+  const externalReference=String(order?.external_reference??"").trim();
+  const amountCents=moneyToCents(order?.total_amount);
+  const status=String(order?.status??"").trim().toLowerCase();
+  const payment=mpPayment(order);
+  const paymentId=cleanText(payment?.id,240);
+  const method=payment?.payment_method??{};
+  const brCode=cleanText(method?.qr_code,8192);
+  if(!orderId)throw new Error("MERCADOPAGO_ORDER_ID_MISSING");
+  if(externalReference!==correlationId)throw new Error("MERCADOPAGO_CORRELATION_MISMATCH");
+  if(amountCents!==expectedAmountCents)throw new Error("MERCADOPAGO_AMOUNT_MISMATCH");
+  if(!paymentId)throw new Error("MERCADOPAGO_PAYMENT_ID_MISSING");
+  if(String(method?.id??"").toLowerCase()!=="pix"
+    ||String(method?.type??"").toLowerCase()!=="bank_transfer"){
+    throw new Error("MERCADOPAGO_PAYMENT_METHOD_MISMATCH");
+  }
+  if(!["action_required","processing","processed"].includes(status)){
+    throw new Error("MERCADOPAGO_ORDER_NOT_PAYABLE");
+  }
+  if(status!=="processed"&&(!brCode||brCode.length<20)){
+    throw new Error("MERCADOPAGO_QR_NOT_READY");
+  }
   return {
-    ok:true,
-    status:res.status,
-    charge:normalizeCharge(data,correlationId,expectedAmountCents)
+    provider:"mercadopago",
+    status:"active",
+    correlationId,
+    amountCents,
+    providerChargeId:orderId,
+    providerTransactionId:paymentId,
+    brCode:brCode??"",
+    qrCodeImage:null,
+    qrCodeDataUri:mercadoPagoQrDataUri(method?.qr_code_base64),
+    paymentLinkUrl:safeMercadoPagoUrl(method?.ticket_url),
+    expiresAt:new Date(Date.now()+86400_000).toISOString()
   };
+}
+async function createMercadoPagoOrder(
+  accessToken:string,
+  correlationId:string,
+  expectedAmountCents:number,
+  payerEmail:string
+){
+  const amount=(expectedAmountCents/100).toFixed(2);
+  const response=await mercadoPagoFetch("/v1/orders",{
+    accessToken,
+    method:"POST",
+    idempotencyKey:correlationId,
+    body:{
+      type:"online",
+      total_amount:amount,
+      external_reference:correlationId,
+      processing_mode:"automatic",
+      transactions:{
+        payments:[{
+          amount,
+          payment_method:{id:"pix",type:"bank_transfer"},
+          expiration_time:"P1D"
+        }]
+      },
+      payer:{email:payerEmail}
+    }
+  });
+  const data=await readMercadoPagoJson(response);
+  if(!response.ok)return {ok:false,status:response.status,data};
+  let order=data;
+  for(let attempt=0;attempt<3;attempt++){
+    try{
+      return {ok:true,status:response.status,charge:normalizeMercadoPagoOrder(order,correlationId,expectedAmountCents)};
+    }catch(error){
+      if(!(error instanceof Error)||error.message!=="MERCADOPAGO_QR_NOT_READY")throw error;
+      const orderId=String(order?.id??"").trim();
+      if(!orderId)throw error;
+      await new Promise((resolve)=>setTimeout(resolve,250*(attempt+1)));
+      const lookup=await mercadoPagoFetch("/v1/orders/"+encodeURIComponent(orderId),{accessToken});
+      order=await readMercadoPagoJson(lookup);
+      if(!lookup.ok)throw new Error("MERCADOPAGO_ORDER_LOOKUP_FAILED");
+    }
+  }
+  throw new Error("MERCADOPAGO_QR_NOT_READY");
 }
 function publicCharge(row:any){
   if(!row)return null;
@@ -266,6 +331,13 @@ function publicCharge(row:any){
     endToEndId:row.end_to_end_id??null
   };
 }
+function chargeComment(planKey:string|null,statementId:string|null,refundRecoveryId:string|null){
+  return planKey
+    ?"TAMÃO • pacote de crédito "+planKey
+    :statementId
+      ?"TAMÃO • fechamento "+String(statementId).slice(0,8)
+      :"TAMÃO • recuperação de refund "+String(refundRecoveryId).slice(0,8);
+}
 
 Deno.serve(async(req:Request)=>{
   const origin=req.headers.get("Origin");
@@ -274,8 +346,13 @@ Deno.serve(async(req:Request)=>{
   if(req.method!=="POST")return json({error:"METHOD_NOT_ALLOWED"},405,origin);
 
   try{
-    const appId=String(Deno.env.get("WOOVI_APP_ID")??"").trim();
-    if(appId.length<12){
+    const provider=billingProvider();
+    const mercadoPagoAccessToken=String(Deno.env.get("MERCADOPAGO_ACCESS_TOKEN")??"").trim();
+    const wooviAppId=String(Deno.env.get("WOOVI_APP_ID")??"").trim();
+    if(
+      (provider==="mercadopago"&&!mercadoPagoConfigured(mercadoPagoAccessToken))
+      ||(provider==="woovi"&&wooviAppId.length<12)
+    ){
       throw new DomainError(
         "PIX_PROVIDER_NOT_CONFIGURED",
         "A cobrança Pix automática ainda não está configurada.",
@@ -288,21 +365,12 @@ Deno.serve(async(req:Request)=>{
     const merchantId=String(body.merchantId??"").trim();
     const planKey=body.planKey==null?null:String(body.planKey).trim().toLowerCase();
     const statementId=body.statementId==null?null:String(body.statementId).trim();
-    const refundRecoveryId=body.refundRecoveryId==null
-      ?null
-      :String(body.refundRecoveryId).trim();
+    const refundRecoveryId=body.refundRecoveryId==null?null:String(body.refundRecoveryId).trim();
 
-    if(!UUID_RE.test(merchantId)){
-      throw new DomainError("INVALID_MERCHANT","Revenda inválida.",400);
-    }
-    const targetCount=[planKey,statementId,refundRecoveryId]
-      .filter((value)=>value!=null).length;
+    if(!UUID_RE.test(merchantId))throw new DomainError("INVALID_MERCHANT","Revenda inválida.",400);
+    const targetCount=[planKey,statementId,refundRecoveryId].filter((value)=>value!=null).length;
     if(targetCount!==1){
-      throw new DomainError(
-        "PIX_CHARGE_TARGET_REQUIRED",
-        "Informe exatamente uma cobrança financeira.",
-        400
-      );
+      throw new DomainError("PIX_CHARGE_TARGET_REQUIRED","Informe exatamente uma cobrança financeira.",400);
     }
     if(planKey!=null&&!/^[a-z][a-z0-9_]{1,39}$/.test(planKey)){
       throw new DomainError("INVALID_BILLING_PLAN","Pacote de crédito inválido.",400);
@@ -311,36 +379,25 @@ Deno.serve(async(req:Request)=>{
       throw new DomainError("INVALID_STATEMENT","Fechamento diário inválido.",400);
     }
     if(refundRecoveryId!=null&&!UUID_RE.test(refundRecoveryId)){
-      throw new DomainError(
-        "INVALID_REFUND_RECOVERY",
-        "Obrigação de recuperação inválida.",
-        400
-      );
+      throw new DomainError("INVALID_REFUND_RECOVERY","Obrigação de recuperação inválida.",400);
     }
 
     const key=idempotencyKey(req);
-    const admin=createClient(SUPABASE_URL,SECRET_KEY,{
-      auth:{persistSession:false,autoRefreshToken:false}
-    });
-    await enforceApiQuota(admin,{
-      userId:user.id,
-      actionName:"merchant-billing-pix",
-      limit:30,
-      windowSeconds:60
-    });
+    const admin=createClient(SUPABASE_URL,SECRET_KEY,{auth:{persistSession:false,autoRefreshToken:false}});
+    await enforceApiQuota(admin,{userId:user.id,actionName:"merchant-billing-pix",limit:30,windowSeconds:60});
 
     const requestHash=await requestFingerprint("merchant-billing-pix-charge",{
-      merchantId,planKey,statementId,refundRecoveryId
+      merchantId,planKey,statementId,refundRecoveryId,provider
     });
-
     const {data:prepared,error:prepareError}=await admin.rpc(
-      "merchant_billing_pix_charge_prepare",
+      "merchant_billing_pix_charge_prepare_provider",
       {
         p_actor_user_id:user.id,
         p_merchant_id:merchantId,
         p_plan_key:planKey,
         p_statement_id:statementId,
         p_refund_recovery_id:refundRecoveryId,
+        p_provider:provider,
         p_idempotency_key:key,
         p_request_hash:requestHash
       }
@@ -348,46 +405,22 @@ Deno.serve(async(req:Request)=>{
     if(prepareError){
       const message=String(prepareError.message??prepareError);
       if(message.includes("MERCHANT_FINANCE_PERMISSION_DENIED")){
-        throw new DomainError(
-          "MERCHANT_FINANCE_PERMISSION_DENIED",
-          "Somente owner ou gerente pode gerar cobranças Pix.",
-          403
-        );
+        throw new DomainError("MERCHANT_FINANCE_PERMISSION_DENIED","Somente owner ou gerente pode gerar cobranças Pix.",403);
       }
       if(message.includes("PACKAGE_REQUEST_ALREADY_PENDING")){
-        throw new DomainError(
-          "PACKAGE_REQUEST_ALREADY_PENDING",
-          "Já existe outro pacote aguardando pagamento.",
-          409
-        );
+        throw new DomainError("PACKAGE_REQUEST_ALREADY_PENDING","Já existe outro pacote aguardando pagamento.",409);
       }
       if(message.includes("STATEMENT_NOT_PAYABLE")){
-        throw new DomainError(
-          "STATEMENT_NOT_PAYABLE",
-          "Este fechamento já foi resolvido ou não possui saldo a pagar.",
-          409
-        );
+        throw new DomainError("STATEMENT_NOT_PAYABLE","Este fechamento já foi resolvido ou não possui saldo a pagar.",409);
       }
       if(message.includes("REFUND_RECOVERY_NOT_FOUND")){
-        throw new DomainError(
-          "REFUND_RECOVERY_NOT_FOUND",
-          "A obrigação de recuperação não foi encontrada.",
-          404
-        );
+        throw new DomainError("REFUND_RECOVERY_NOT_FOUND","A obrigação de recuperação não foi encontrada.",404);
       }
       if(message.includes("REFUND_RECOVERY_NOT_PAYABLE")){
-        throw new DomainError(
-          "REFUND_RECOVERY_NOT_PAYABLE",
-          "Esta recuperação já foi resolvida ou não está mais disponível para pagamento.",
-          409
-        );
+        throw new DomainError("REFUND_RECOVERY_NOT_PAYABLE","Esta recuperação já foi resolvida ou não está mais disponível para pagamento.",409);
       }
       if(message.includes("IDEMPOTENCY_CONFLICT")){
-        throw new DomainError(
-          "IDEMPOTENCY_CONFLICT",
-          "Esta tentativa já foi usada com outro conteúdo.",
-          409
-        );
+        throw new DomainError("IDEMPOTENCY_CONFLICT","Esta tentativa já foi usada com outro conteúdo.",409);
       }
       throw prepareError;
     }
@@ -396,16 +429,14 @@ Deno.serve(async(req:Request)=>{
     const correlationId=String(prepared?.correlationId??"");
     const paymentRequestId=String(prepared?.paymentRequestId??"");
     const expectedAmountCents=Number(prepared?.expectedAmountCents??0);
-    if(!UUID_RE.test(chargeId)
-       ||!UUID_RE.test(paymentRequestId)
-       ||!UUID_RE.test(correlationId)
-       ||!Number.isSafeInteger(expectedAmountCents)
-       ||expectedAmountCents<=0){
-      throw new DomainError(
-        "PIX_CHARGE_PREPARE_INVALID",
-        "O servidor não conseguiu preparar a cobrança Pix.",
-        503
-      );
+    if(
+      !UUID_RE.test(chargeId)
+      ||!UUID_RE.test(paymentRequestId)
+      ||!UUID_RE.test(correlationId)
+      ||!Number.isSafeInteger(expectedAmountCents)
+      ||expectedAmountCents<=0
+    ){
+      throw new DomainError("PIX_CHARGE_PREPARE_INVALID","O servidor não conseguiu preparar a cobrança Pix.",503);
     }
 
     const {data:existing,error:existingError}=await admin
@@ -417,58 +448,77 @@ Deno.serve(async(req:Request)=>{
     if(existingError)throw existingError;
 
     if(existing?.br_code&&["active","completed"].includes(existing.status)){
-      return json({
-        ok:true,
-        paymentRequestId,
-        recovered:true,
-        charge:publicCharge(existing)
-      },200,origin);
+      return json({ok:true,paymentRequestId,recovered:true,charge:publicCharge(existing)},200,origin);
+    }
+    if(existing?.status==="completed"){
+      return json({ok:true,paymentRequestId,recovered:true,charge:publicCharge(existing)},200,origin);
     }
 
-    const base=wooviBase();
     let providerCharge:any=null;
-
-    const recovered=await getWooviCharge(
-      base,appId,correlationId,expectedAmountCents
-    );
-    if(recovered.found){
-      providerCharge=recovered.charge;
-    }else{
-      const created=await createWooviCharge(
-        base,
-        appId,
+    let recovered=false;
+    if(provider==="mercadopago"){
+      const email=String(user.email??"").trim().toLowerCase();
+      if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)){
+        throw new DomainError(
+          "BILLING_PAYER_EMAIL_REQUIRED",
+          "A conta da revenda precisa ter um e-mail válido para gerar o Pix.",
+          409
+        );
+      }
+      const created=await createMercadoPagoOrder(
+        mercadoPagoAccessToken,
         correlationId,
         expectedAmountCents,
-        planKey
-          ? "TAMÃO • pacote de crédito "+planKey
-          : statementId
-            ? "TAMÃO • fechamento "+String(statementId).slice(0,8)
-            : "TAMÃO • recuperação de refund "+String(refundRecoveryId).slice(0,8)
+        email
       );
-
-      if(created.ok){
-        providerCharge=created.charge;
-      }else{
-        const recoveredAfterCreate=await getWooviCharge(
-          base,appId,correlationId,expectedAmountCents
+      if(!created.ok){
+        await admin.rpc("merchant_billing_provider_charge_record_error",{
+          p_charge_id:chargeId,
+          p_error_code:"MERCADOPAGO_ORDER_CREATE_FAILED"
+        });
+        throw new DomainError(
+          "PIX_CHARGE_CREATE_FAILED",
+          "Não foi possível gerar o Pix agora. Tente novamente; a tentativa é idempotente.",
+          503
         );
-        if(recoveredAfterCreate.found){
-          providerCharge=recoveredAfterCreate.charge;
+      }
+      providerCharge=created.charge;
+      recovered=existing?.provider_charge_id!=null;
+    }else{
+      const base=wooviBase();
+      const found=await getWooviCharge(base,wooviAppId,correlationId,expectedAmountCents);
+      if(found.found){
+        providerCharge=found.charge;
+        recovered=true;
+      }else{
+        const created=await createWooviCharge(
+          base,wooviAppId,correlationId,expectedAmountCents,
+          chargeComment(planKey,statementId,refundRecoveryId)
+        );
+        if(created.ok){
+          providerCharge=created.charge;
         }else{
-          await admin.rpc("merchant_billing_provider_charge_record_error",{
-            p_charge_id:chargeId,
-            p_error_code:"WOOVI_CHARGE_CREATE_FAILED"
-          });
-          throw new DomainError(
-            "PIX_CHARGE_CREATE_FAILED",
-            "Não foi possível gerar o Pix agora. Tente novamente; a tentativa é idempotente.",
-            503
-          );
+          const after=await getWooviCharge(base,wooviAppId,correlationId,expectedAmountCents);
+          if(after.found){
+            providerCharge=after.charge;
+            recovered=true;
+          }else{
+            await admin.rpc("merchant_billing_provider_charge_record_error",{
+              p_charge_id:chargeId,p_error_code:"WOOVI_CHARGE_CREATE_FAILED"
+            });
+            throw new DomainError(
+              "PIX_CHARGE_CREATE_FAILED",
+              "Não foi possível gerar o Pix agora. Tente novamente; a tentativa é idempotente.",
+              503
+            );
+          }
         }
       }
     }
 
-    const qr=await qrDataUri(providerCharge.qrCodeImage);
+    const qr=provider==="woovi"
+      ?await wooviQrDataUri(providerCharge.qrCodeImage)
+      :providerCharge.qrCodeDataUri;
 
     const {data:committed,error:commitError}=await admin.rpc(
       "merchant_billing_provider_charge_commit",
@@ -480,17 +530,14 @@ Deno.serve(async(req:Request)=>{
         p_qr_code_data_uri:qr,
         p_payment_link_url:providerCharge.paymentLinkUrl,
         p_expires_at:providerCharge.expiresAt,
-        p_status:providerCharge.status
+        p_status:"active"
       }
     );
     if(commitError)throw commitError;
 
     if(committed?.status==="cancelled"){
-      try{
-        await cancelProviderChargesForPaymentRequest(admin,paymentRequestId);
-      }catch(cancelError){
-        console.error("late Pix creation cancellation failed",String(cancelError));
-      }
+      try{await cancelProviderChargesForPaymentRequest(admin,paymentRequestId)}
+      catch(cancelError){console.error("late Pix creation cancellation failed",String(cancelError))}
       throw new DomainError(
         "PIX_REQUEST_CANCELLED",
         "A solicitação financeira foi cancelada enquanto o Pix era gerado. O QR não deve ser usado.",
@@ -500,8 +547,9 @@ Deno.serve(async(req:Request)=>{
 
     return json({
       ok:true,
+      provider,
       paymentRequestId,
-      recovered:recovered.found===true,
+      recovered,
       charge:{
         id:committed?.chargeId,
         paymentRequestId:committed?.paymentRequestId,
@@ -519,10 +567,7 @@ Deno.serve(async(req:Request)=>{
     if(error instanceof DomainError){
       return json({error:error.code,message:error.message},error.status,origin);
     }
-    console.error("merchant-billing-pix failed",String(error));
-    return json({
-      error:"PIX_CHARGE_UNAVAILABLE",
-      message:"Não foi possível gerar a cobrança Pix agora."
-    },503,origin);
+    console.error("merchant-billing-pix failed",error instanceof Error?error.message:String(error));
+    return json({error:"PIX_CHARGE_UNAVAILABLE",message:"Não foi possível gerar a cobrança Pix agora."},503,origin);
   }
 });
