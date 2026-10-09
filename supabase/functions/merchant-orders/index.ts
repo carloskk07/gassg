@@ -39,6 +39,37 @@ const ACTIVE_STATUSES=[
   "OUT_FOR_DELIVERY","ARRIVING"
 ];
 
+function providerConnectReadiness(provider:string){
+  const encryption=String(Deno.env.get("MERCHANT_PAYMENT_TOKEN_ENCRYPTION_KEY")??"").trim();
+  const encryptionReady=encryption.length>=40&&encryption.length<=120;
+  if(provider==="mercadopago"){
+    const clientId=String(Deno.env.get("MERCADOPAGO_CLIENT_ID")??"").trim();
+    const redirectUri=String(Deno.env.get("MERCADOPAGO_OAUTH_REDIRECT_URI")??"").trim();
+    return {
+      connectReady:clientId.length>=5&&redirectUri.startsWith("https://")&&encryptionReady,
+      setupState:"oauth"
+    };
+  }
+  if(provider==="pagbank"){
+    const clientId=String(Deno.env.get("PAGBANK_CLIENT_ID")??"").trim();
+    const clientSecret=String(Deno.env.get("PAGBANK_CLIENT_SECRET")??"").trim();
+    const authToken=String(Deno.env.get("PAGBANK_AUTH_TOKEN")??"").trim();
+    const redirectUri=String(Deno.env.get("PAGBANK_OAUTH_REDIRECT_URI")??"").trim();
+    return {
+      connectReady:clientId.length>=5&&clientSecret.length>=8&&authToken.length>=12
+        &&redirectUri.startsWith("https://")&&encryptionReady,
+      setupState:"oauth"
+    };
+  }
+  if(["stone","getnet","pagarme","asaas","cielo","rede","woovi"].includes(provider)){
+    return {connectReady:false,setupState:"credentials_required"};
+  }
+  if(provider==="nubank"||provider==="manual"){
+    return {connectReady:false,setupState:"manual_only"};
+  }
+  return {connectReady:false,setupState:"planned"};
+}
+
 function originAllowed(origin:string|null){
   if(!origin)return true;
   if(/^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(origin))return true;
@@ -589,20 +620,25 @@ Deno.serve(async(req:Request)=>{
         fundsOwner:"merchant",
         tamaoReceivesSaleProceeds:false
       };
-      paymentProviders=(providerCatalog??[]).map((row:any)=>({
-        provider:row.provider_key,
-        displayName:row.display_name,
-        connectionMode:row.connection_mode,
-        verificationLevel:row.verification_level,
-        adapterStatus:row.adapter_status,
-        supportedMethods:Array.isArray(row.supported_methods)?row.supported_methods:[],
-        supportsWebhook:row.supports_webhook===true,
-        supportsLookup:row.supports_lookup===true,
-        requiresPlatformCredentials:row.requires_platform_credentials===true,
-        customerVisible:row.customer_visible===true,
-        fundsFlow:row.funds_flow,
-        notes:row.notes??null
-      }));
+      paymentProviders=(providerCatalog??[]).map((row:any)=>{
+        const readiness=providerConnectReadiness(row.provider_key);
+        return {
+          provider:row.provider_key,
+          displayName:row.display_name,
+          connectionMode:row.connection_mode,
+          verificationLevel:row.verification_level,
+          adapterStatus:row.adapter_status,
+          supportedMethods:Array.isArray(row.supported_methods)?row.supported_methods:[],
+          supportsWebhook:row.supports_webhook===true,
+          supportsLookup:row.supports_lookup===true,
+          requiresPlatformCredentials:row.requires_platform_credentials===true,
+          customerVisible:row.customer_visible===true,
+          fundsFlow:row.funds_flow,
+          notes:row.notes??null,
+          connectReady:readiness.connectReady,
+          setupState:readiness.setupState
+        };
+      });
       paymentRoutes=(routeRows??[]).map((row:any)=>({
         id:row.id,
         paymentMethod:row.payment_method,
