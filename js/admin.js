@@ -2287,24 +2287,28 @@ function adminPage(){
   const badge=(n)=>Number(n)>0?String(Number(n)):'';
 
   const overviewContent=`
+    <section class="section admin-overview-pulse">
+      <div class="section-head"><div><span class="section-kicker">NEGÓCIO • 30 DIAS</span><h2>Pulso da operação</h2><p>Indicadores server-side calculados apenas sobre fatos liquidados e estados reais do pedido.</p></div><span class="admin-data-freshness">Atualizado ${esc(adminRelativeTime(adminRuntime.lastSyncAt))}</span></div>
+      <div class="admin-exec-grid">
+        ${adminExecutiveKpi({icon:'R$',label:'GMV 30d',value:adminMoney(metrics.gmvCents30d),detail:Number(metrics.settledOrders30d||0)+' pedidos liquidados',tone:'money'})}
+        ${adminExecutiveKpi({icon:'T',label:'Receita TAMÃO 30d',value:adminMoney(metrics.platformFeeGeneratedCents30d),detail:'taxa da plataforma gerada',tone:'money'})}
+        ${adminExecutiveKpi({icon:'↗',label:'Pedidos ativos',value:String(controlOrders.filter(o=>!['DELIVERED','SETTLED','CANCELLED'].includes(o.status)).length),detail:activeOrderAttention+' em risco ou atraso',tone:activeOrderAttention?'warning':'neutral'})}
+        ${adminExecutiveKpi({icon:'◇',label:'Revendas ativas',value:String(active.length),detail:partnerAttention+' pendência(s) de parceiro',tone:partnerAttention?'warning':'neutral'})}
+        ${adminExecutiveKpi({icon:'₿',label:'Financeiro',value:String(actionableFinanceCount),detail:'item(ns) exigem decisão',tone:actionableFinanceCount?'danger':'neutral'})}
+        ${adminExecutiveKpi({icon:'!',label:'Incidentes',value:String(incidentAttention),detail:incidentAttention?'aberto(s) agora':'nenhum incidente aberto',tone:incidentAttention?'danger':'good'})}
+      </div>
+    </section>
     ${adminAttentionCenter(d)}
     ${currentRole==='superadmin'?adminLaunchControl(d.launchReadiness||{}):''}
-    <section class="section"><div class="section-head"><div><span class="section-kicker">NEGÓCIO • 30 DIAS</span><h2>Pulso da operação</h2><p>Indicadores server-side calculados apenas sobre fatos liquidados e estados reais do pedido.</p></div></div><div class="merchant-kpis">
-      <div class="kpi"><span class="label">GMV 30d</span><strong>${adminMoney(metrics.gmvCents30d)}</strong><small>${Number(metrics.settledOrders30d||0)} pedidos liquidados</small></div>
+    <section class="section admin-secondary-metrics"><div class="section-head"><div><span class="section-kicker">QUALIDADE & RETENÇÃO</span><h2>Indicadores de sustentação</h2></div></div><div class="merchant-kpis">
       <div class="kpi"><span class="label">Ticket médio</span><strong>${adminMoney(metrics.averageTicketCents30d)}</strong></div>
-      <div class="kpi"><span class="label">Clientes recorrentes</span><strong>${metrics.repeatRate30d==null?'—':Math.round(Number(metrics.repeatRate30d)*100)+'%'}</strong><small>${Number(metrics.repeatCustomers30d||0)} de ${Number(metrics.activeCustomers30d||0)} clientes ativos</small></div>
+      <div class="kpi"><span class="label">Clientes recorrentes</span><strong>${metrics.repeatRate30d==null?'—':Math.round(Number(metrics.repeatRate30d)*100)+'%'}</strong><small>${Number(metrics.repeatCustomers30d||0)} de ${Number(metrics.activeCustomers30d||0)} ativos</small></div>
       <div class="kpi"><span class="label">Cancelamentos</span><strong>${metrics.cancellationRate30d==null?'—':Math.round(Number(metrics.cancellationRate30d)*100)+'%'}</strong><small>${Number(metrics.cancelledOrders30d||0)} de ${Number(metrics.createdOrders30d||0)} pedidos</small></div>
       <div class="kpi"><span class="label">Pontualidade 90d</span><strong>${metrics.onTimeRate90d==null?'—':Math.round(Number(metrics.onTimeRate90d)*100)+'%'}</strong></div>
-      <div class="kpi"><span class="label">Taxa gerada 30d</span><strong>${adminMoney(metrics.platformFeeGeneratedCents30d)}</strong></div>
       <div class="kpi"><span class="label">Cashback 30d</span><strong>${adminMoney(metrics.cashbackGrantedCents30d)}</strong></div>
       <div class="kpi"><span class="label">Atendimentos abertos</span><strong>${Number(metrics.openSupportCases||openSupportCases.length)}</strong></div>
-    </div></section>
-    <section class="section"><div class="merchant-kpis">
       <div class="kpi"><span class="label">Cadastros pendentes</span><strong>${pending.length}</strong></div>
-      <div class="kpi"><span class="label">Parceiros piloto</span><strong>${pilotPartners.filter(x=>x.onboarding_status!=='cancelled').length}</strong></div>
-      <div class="kpi"><span class="label">Revendas ativas</span><strong>${active.length}</strong></div>
       <div class="kpi"><span class="label">Taxas a receber</span><strong>${adminMoney(openFees)}</strong></div>
-      <div class="kpi"><span class="label">Cashback a reembolsar</span><strong>${adminMoney(openCashback)}</strong></div>
     </div></section>`;
 
   const ordersContent=`
@@ -2323,6 +2327,7 @@ function adminPage(){
   const catalogContent=`${adminProductRegistrySection(d)}`;
 
   const financeContent=`
+    ${adminFinanceOverview(d)}
     ${adminMerchantBillingSection(d)}
     ${adminCommercialPolicySection(d)}
     <section class="section"><div class="section-head"><div><h2>Revisão de indicações</h2><p>Comissões suspeitas não amadurecem automaticamente. Aprovação ainda exige identidades permanentes e fim da quarentena.</p></div><span class="status-pill ${pendingReferralReviews.length?'offline':'online'}">${pendingReferralReviews.length} pendente(s)</span></div>${referralReviews.length?referralReviews.map(adminReferralReviewCard).join(''):'<div class="empty card">Nenhuma indicação exige revisão.</div>'}</section>
@@ -2357,23 +2362,35 @@ function adminPage(){
     ${adminAccessContent}
   `;
 
+  const sectionMeta=adminSectionMeta(adminRuntime.section);
+  const operationMode=String(d.launchReadiness?.operationMode||(d.launchReadiness?.commerceEnabled?'LIVE':'PRELAUNCH')).toUpperCase();
   const menu=`
     <nav class="admin-sidebar" aria-label="Áreas administrativas">
-      <div class="admin-nav-title">Painel</div>
+      <div class="admin-sidebar-brand"><span class="admin-sidebar-mark">T</span><div><strong>TAMÃO</strong><small>Control Plane</small></div></div>
+      <div class="admin-nav-group">Operação</div>
       ${adminMenuButton('overview','Visão geral','⌂')}
       ${adminMenuButton('orders','Pedidos','▣',badge(activeOrderAttention+openSupportCases.length))}
       ${adminMenuButton('customers','Clientes','◎')}
       ${adminMenuButton('partners','Parceiros','◇',badge(partnerAttention))}
       ${adminMenuButton('catalog','Catálogo','▤')}
       ${adminMenuButton('finance','Financeiro','₿',badge(actionableFinanceCount))}
+      <div class="admin-nav-group">Governança</div>
       ${adminMenuButton('incidents','Incidentes','!',badge(incidentAttention))}
       ${adminMenuButton('audit','Auditoria','⌕')}
       ${adminMenuButton('system','Segurança e sistema','⚙',badge(securityAttention))}
+      <div class="admin-sidebar-foot">
+        <span class="admin-sidebar-mode ${['LIVE','PILOT'].includes(operationMode)?'live':operationMode==='PAUSED'?'paused':'prelaunch'}"><i></i>${esc(operationMode)}</span>
+        <small>${esc(adminRoleLabel(currentRole))} • atualizado ${esc(adminRelativeTime(adminRuntime.lastSyncAt))}</small>
+      </div>
     </nav>`;
 
   return shell(`<section class="page admin-page">
-    <div class="status-bar admin-topbar"><div><div class="tiny muted">CONTROL PLANE REAL</div><h1 class="page-title" style="margin-bottom:2px">Administração TAMÃO</h1></div><div class="order-actions"><span class="status-pill">${esc(adminRoleLabel(currentRole))}</span><button class="secondary small" onclick="adminRefresh()">Atualizar</button><button class="ghost small" onclick="adminSignOut()">Sair</button></div></div>
-    ${adminRuntime.error?`<div class="notice danger" style="margin-top:12px">${esc(adminRuntime.error)}</div>`:''}
+    <header class="admin-page-header">
+      <div class="admin-page-heading"><span class="section-kicker">${esc(sectionMeta.kicker)}</span><h1>${esc(sectionMeta.title)}</h1><p>${esc(sectionMeta.description)}</p></div>
+      <div class="admin-page-actions"><span class="admin-role-chip">${esc(adminRoleLabel(currentRole))}</span><button class="secondary small" onclick="adminRefresh()" ${adminRuntime.actionPending?'disabled':''}><span aria-hidden="true">↻</span> Atualizar</button><button class="ghost small" onclick="adminSignOut()">Sair</button></div>
+    </header>
+    ${adminOperationalStrip(d)}
+    ${adminRuntime.error?`<div class="notice danger admin-page-error">${esc(adminRuntime.error)}</div>`:''}
     ${adminGlobalSearchView()}
     <div class="admin-workspace">
       ${menu}
