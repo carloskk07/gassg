@@ -35,7 +35,8 @@ const TEST_TURNSTILE_KEYS=new Set([
 const PORTAL_PROBE_TIMEOUT_MS=5000;
 const UUID_RE=/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const PAYMENT_INGRESS_CONTRACT="tamao_normalized_hmac_v1";
-const LIVE_PAYMENT_PROVIDER_ADAPTERS=new Set<string>(["woovi"]);
+const LIVE_PAYMENT_PROVIDER_ADAPTERS=new Set<string>(["mercadopago","woovi"]);
+const BILLING_PIX_PROVIDER=String(Deno.env.get("BILLING_PIX_PROVIDER")??"mercadopago").trim().toLowerCase();
 
 function originAllowed(origin:string|null){
   if(!origin)return true;
@@ -223,6 +224,17 @@ function billingPaymentIngressReadiness(){
   const configuredProviders=[...providers].sort();
   const normalizedIngressConfigured=configValid&&configuredProviders.length>0;
 
+  const mercadoPagoAccessToken=String(Deno.env.get("MERCADOPAGO_ACCESS_TOKEN")??"").trim();
+  const mercadoPagoWebhookSecret=String(Deno.env.get("MERCADOPAGO_WEBHOOK_SECRET")??"");
+  const mercadoPagoChargeReady=
+    LIVE_PAYMENT_PROVIDER_ADAPTERS.has("mercadopago")
+    &&mercadoPagoAccessToken.length>=20
+    &&!/[\u0000-\u001f\u007f\s]/.test(mercadoPagoAccessToken);
+  const mercadoPagoWebhookReady=
+    LIVE_PAYMENT_PROVIDER_ADAPTERS.has("mercadopago")
+    &&mercadoPagoWebhookSecret.length>=16;
+  const mercadoPagoReady=mercadoPagoChargeReady&&mercadoPagoWebhookReady;
+
   const wooviAuthorization=String(Deno.env.get("WOOVI_WEBHOOK_AUTHORIZATION")??"");
   const wooviCompanyId=String(Deno.env.get("WOOVI_COMPANY_ID")??"").trim();
   const wooviAppId=String(Deno.env.get("WOOVI_APP_ID")??"").trim();
@@ -245,13 +257,21 @@ function billingPaymentIngressReadiness(){
   const wooviReady=wooviWebhookReady&&wooviChargeReady;
 
   const liveProviders=[
+    ...(mercadoPagoReady?["mercadopago"]:[]),
     ...(wooviReady?["woovi"]:[])
   ].sort();
+  const activeProviderReady=
+    BILLING_PIX_PROVIDER==="mercadopago"
+      ?mercadoPagoReady
+      :BILLING_PIX_PROVIDER==="woovi"
+        ?wooviReady
+        :false;
 
   return {
     configured:normalizedIngressConfigured,
     normalizedIngressConfigured,
-    livePspReady:configValid&&liveProviders.length>0,
+    livePspReady:configValid&&activeProviderReady,
+    activeBillingProvider:BILLING_PIX_PROVIDER,
     configValid,
     contract:PAYMENT_INGRESS_CONTRACT,
     providerCount:configuredProviders.length,
@@ -259,6 +279,17 @@ function billingPaymentIngressReadiness(){
     liveProviderCount:liveProviders.length,
     liveProviders,
     adapterReadiness:{
+      mercadopago:{
+        implemented:LIVE_PAYMENT_PROVIDER_ADAPTERS.has("mercadopago"),
+        accessTokenConfigured:mercadoPagoChargeReady,
+        webhookSecretConfigured:mercadoPagoWebhookReady,
+        receiveReady:mercadoPagoWebhookReady,
+        chargeReady:mercadoPagoChargeReady,
+        ready:mercadoPagoReady,
+        events:["order"],
+        signature:"HMAC-SHA256",
+        authoritativeLookup:"GET /v1/orders/{id}"
+      },
       woovi:{
         implemented:LIVE_PAYMENT_PROVIDER_ADAPTERS.has("woovi"),
         webhookAuthorizationConfigured:wooviAuthorization.length>=24,
@@ -277,6 +308,9 @@ function billingPaymentIngressReadiness(){
       ?SUPABASE_URL.replace(/\/$/,"")+"/functions/v1/billing-payment-webhook"
       :null,
     liveEndpoints:{
+      mercadopago:SUPABASE_URL
+        ?SUPABASE_URL.replace(/\/$/,"")+"/functions/v1/billing-payment-webhook-mercadopago"
+        :null,
       woovi:SUPABASE_URL
         ?SUPABASE_URL.replace(/\/$/,"")+"/functions/v1/billing-payment-webhook-woovi"
         :null,
@@ -284,6 +318,133 @@ function billingPaymentIngressReadiness(){
         ?SUPABASE_URL.replace(/\/$/,"")+"/functions/v1/merchant-billing-pix"
         :null
     }
+  };
+}
+
+async function mercadoPagoBillingProviderHealth(){
+  const readiness=billingPaymentIngressReadiness();
+  const endpoint=String(readiness?.liveEndpoints?.mercadopago??"").trim();
+  const accessToken=String(Deno.env.get("MERCADOPAGO_ACCESS_TOKEN")??"").trim();
+  const webhookSecret=String(Deno.env.get("MERCADOPAGO_WEBHOOK_SECRET")??"");
+  const checkedAt=new Date().toISOString();
+  const tokenShapeValid=
+    accessToken.length>=20&&!/[\u0000-\u001f\u007f\s]/.test(accessToken);
+  const webhookSecretConfigured=webhookSecret.length>=16;
+
+  if(!tokenShapeValid||!webhookSecretConfigured||!endpoint){
+    return {
+      ok:false,
+      provider:"mercadopago",
+      status:"not_configured",
+      checkedAt,
+      credentialValid:false,
+      chargeReady:tokenShapeValid,
+      receiveReady:webhookSecretConfigured,
+      webhookSecretConfigured,
+      endpoint,
+      reason:
+        !tokenShapeValid?"MERCADOPAGO_ACCESS_TOKEN_MISSING":
+        !webhookSecretConfigured?"MERCADOPAGO_WEBHOOK_SECRET_MISSING":
+        "MERCADOPAGO_WEBHOOK_ENDPOINT_MISSING"
+    };
+  }
+
+  const controller=new AbortController();
+  const timer=setTimeout(()=>controller.abort(),7000);
+  try{
+    const response=await fetch("https://api.mercadolibre.com/users/me",{
+      method:"GET",
+      headers:{
+        "Accept":"application/json",
+        "Authorization":"Bearer "+accessToken
+      },
+      signal:controller.signal
+    });
+    const raw=await response.text();
+    if(raw.length>200000){
+      return {
+        ok:false,provider:"mercadopago",status:"provider_invalid_response",
+        checkedAt,credentialValid:response.status!==401,
+        chargeReady:false,receiveReady:webhookSecretConfigured,
+        webhookSecretConfigured,endpoint,apiStatus:response.status,
+        reason:"MERCADOPAGO_RESPONSE_TOO_LARGE"
+      };
+    }
+    if(response.status===401){
+      return {
+        ok:false,provider:"mercadopago",status:"invalid_credentials",
+        checkedAt,credentialValid:false,chargeReady:false,
+        receiveReady:webhookSecretConfigured,webhookSecretConfigured,
+        endpoint,apiStatus:401,reason:"MERCADOPAGO_ACCESS_TOKEN_REJECTED"
+      };
+    }
+    if(!response.ok){
+      return {
+        ok:false,provider:"mercadopago",
+        status:response.status===429?"rate_limited":"provider_unavailable",
+        checkedAt,credentialValid:null,chargeReady:false,
+        receiveReady:webhookSecretConfigured,webhookSecretConfigured,
+        endpoint,apiStatus:response.status,
+        reason:"MERCADOPAGO_CREDENTIAL_HEALTH_HTTP_"+response.status
+      };
+    }
+    let accountId:null|string=null;
+    try{
+      const payload=raw?JSON.parse(raw):{};
+      const id=String(payload?.id??"").trim();
+      accountId=id||null;
+    }catch{
+      return {
+        ok:false,provider:"mercadopago",status:"provider_invalid_response",
+        checkedAt,credentialValid:true,chargeReady:false,
+        receiveReady:webhookSecretConfigured,webhookSecretConfigured,
+        endpoint,apiStatus:response.status,reason:"MERCADOPAGO_INVALID_JSON"
+      };
+    }
+    return {
+      ok:true,
+      provider:"mercadopago",
+      status:"healthy",
+      checkedAt,
+      credentialValid:true,
+      chargeReady:true,
+      receiveReady:true,
+      webhookSecretConfigured:true,
+      endpoint,
+      endpointConfiguredLocally:true,
+      remoteWebhookRegistrationVerified:false,
+      accountBound:accountId!=null,
+      apiStatus:response.status,
+      reason:null
+    };
+  }catch(error){
+    return {
+      ok:false,provider:"mercadopago",status:"provider_unavailable",
+      checkedAt,credentialValid:null,chargeReady:false,
+      receiveReady:webhookSecretConfigured,webhookSecretConfigured,
+      endpoint,
+      reason:error instanceof DOMException&&error.name==="AbortError"
+        ?"MERCADOPAGO_HEALTH_TIMEOUT"
+        :"MERCADOPAGO_HEALTH_FETCH_FAILED"
+    };
+  }finally{
+    clearTimeout(timer);
+  }
+}
+
+async function billingProviderHealth(){
+  if(BILLING_PIX_PROVIDER==="mercadopago"){
+    return await mercadoPagoBillingProviderHealth();
+  }
+  if(BILLING_PIX_PROVIDER==="woovi"){
+    return await wooviBillingProviderHealth();
+  }
+  return {
+    ok:false,
+    provider:BILLING_PIX_PROVIDER,
+    status:"invalid_config",
+    checkedAt:new Date().toISOString(),
+    reason:"BILLING_PIX_PROVIDER_INVALID"
   };
 }
 
@@ -838,7 +999,7 @@ async function adminSystemHealth(admin:any){
   const [portals,readiness,paymentProvider,openSupport,rewardDebt,accountingDebt,overdueReceivables,overdueCashback,activeMerchants]=await Promise.all([
     verifyLivePortals(),
     admin.rpc("platform_launch_readiness"),
-    wooviBillingProviderHealth(),
+    billingProviderHealth(),
     admin.from("support_cases").select("id",{count:"exact",head:true}).in("status",["open","in_review"]),
     admin.from("reward_processing_failures").select("order_id",{count:"exact",head:true}).is("resolved_at",null),
     admin.from("settlement_accounting_failures").select("order_id",{count:"exact",head:true}).is("resolved_at",null),
@@ -1283,7 +1444,7 @@ Deno.serve(async(req:Request)=>{
       return json(await adminSystemHealth(admin),200,origin);
     }
     if(action==="billing-provider-health"){
-      return json(await wooviBillingProviderHealth(),200,origin);
+      return json(await billingProviderHealth(),200,origin);
     }
     if(action==="audit-search"){
       return json(await adminAuditSearch(admin,body,String(adminAccess.admin_role||"superadmin")),200,origin);
