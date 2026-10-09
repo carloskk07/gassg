@@ -527,6 +527,36 @@ Deno.serve(async(req:Request)=>{
       };
     }
 
+    let receivingAccount:any=null;
+    if(["owner","manager"].includes(selected.member_role)){
+      const {data:providerAccount,error:providerAccountError}=await admin
+        .from("merchant_payment_provider_accounts")
+        .select("provider,provider_account_id,status,capabilities,token_expires_at,connected_at,refreshed_at,revoked_at,last_error_code,last_error_at")
+        .eq("merchant_id",selected.merchant_id)
+        .eq("provider","mercadopago")
+        .maybeSingle();
+      if(providerAccountError)throw providerAccountError;
+      receivingAccount=providerAccount?{
+        provider:providerAccount.provider,
+        connected:providerAccount.status==="active",
+        status:providerAccount.status,
+        providerAccountId:providerAccount.provider_account_id??null,
+        capabilities:providerAccount.capabilities??{},
+        tokenExpiresAt:providerAccount.token_expires_at??null,
+        connectedAt:providerAccount.connected_at??null,
+        refreshedAt:providerAccount.refreshed_at??null,
+        revokedAt:providerAccount.revoked_at??null,
+        lastErrorCode:providerAccount.last_error_code??null,
+        lastErrorAt:providerAccount.last_error_at??null
+      }:{
+        provider:"mercadopago",
+        connected:false,
+        status:"not_connected",
+        providerAccountId:null,
+        capabilities:{directSalePaymentsEnabled:false}
+      };
+    }
+
     const {data:deliveryMembers,error:deliveryMembersError}=await admin
       .from("merchant_members")
       .select("user_id,member_role,display_name,created_at")
@@ -599,6 +629,7 @@ Deno.serve(async(req:Request)=>{
         })),
       deliveryTeam,
       billing,
+      receivingAccount,
       availableProducts,
       catalog:(catalog??[]).map((item)=>({
         productCode:item.product_code,
