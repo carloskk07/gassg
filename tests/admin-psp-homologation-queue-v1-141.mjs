@@ -15,7 +15,8 @@ assert.ok(
 for(const stage of [
   'AÇÃO IMEDIATA',
   'HOMOLOGADO',
-  'PRONTO PARA E2E',
+  'PILOTO ATIVO',
+  'PRONTO PARA PILOTO',
   'CONECTADO',
   'IMPLEMENTADO',
   'PREPARADO',
@@ -28,8 +29,8 @@ for(const stage of [
 assert.ok(
   admin.includes("row.account?.capabilities?.directSalePaymentsEnabled===true")
   &&admin.includes("row.account?.capabilities?.canValidateProviderTransactions===true")
-  &&admin.includes("homologated=connected&&directEnabled&&canValidate"),
-  'HOMOLOGADO exige conta ativa e as duas capabilities financeiras'
+  &&admin.includes("homologated=connected&&directEnabled&&canValidate&&e2eValidated"),
+  'HOMOLOGADO exige conta ativa, as duas capabilities financeiras e prova E2E'
 );
 
 assert.ok(
@@ -51,7 +52,7 @@ assert.ok(
 
 assert.ok(
   admin.includes('Sem demanda, o TAMÃO não força integração nem troca de PSP.')
-  &&admin.includes('Conectar não significa homologar.')
+  &&admin.includes('Conectar ou ativar um piloto não significa homologar.')
   &&admin.includes('O dinheiro continua pertencendo à revenda.'),
   'fila não pode sugerir lock-in, custódia ou homologação implícita'
 );

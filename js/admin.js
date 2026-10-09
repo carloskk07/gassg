@@ -1925,7 +1925,9 @@ function adminMerchantPaymentAccountCard({merchant,account}){
   const connected=account?.status==='active';
   const directEnabled=account?.capabilities?.directSalePaymentsEnabled===true;
   const canValidate=account?.capabilities?.canValidateProviderTransactions===true;
-  const homologated=connected&&directEnabled&&canValidate;
+  const e2eValidated=account?.capabilities?.e2eValidated===true;
+  const homologated=connected&&directEnabled&&canValidate&&e2eValidated;
+  const pilotActive=connected&&directEnabled&&canValidate&&!e2eValidated;
   const inconsistent=connected&&directEnabled&&!canValidate;
   const globalEnabled=adminRuntime.data?.merchantPayments?.globalDirectPaymentsEnabled===true;
   const accountRef=String(account?.provider_account_id||'');
@@ -1934,28 +1936,32 @@ function adminMerchantPaymentAccountCard({merchant,account}){
   const statusLabel=!connected
     ?String(account?.status||'NÃO CONECTADO').toUpperCase()
     :homologated?'HOMOLOGADO'
-      :inconsistent?'INCONSISTENTE'
-        :adapterImplemented?'AGUARDA E2E':'CONECTADO';
+      :pilotActive?'PILOTO ATIVO'
+        :inconsistent?'INCONSISTENTE'
+          :adapterImplemented?'PRONTO PARA PILOTO':'CONECTADO';
   const statusClass=homologated&&globalEnabled?'online':inconsistent?'offline':connected?'risk':'';
   let notice='';
   if(!connected){
     notice='<div class="notice" style="margin-top:8px">A conexão deste provedor não está ativa.</div>';
   }else if(homologated){
-    notice='<div class="notice success" style="margin-top:8px"><strong>Conexão homologada.</strong><br>O TAMÃO pode verificar transações neste provedor, mas o dinheiro continua indo diretamente para a revenda.</div>';
+    notice='<div class="notice success" style="margin-top:8px"><strong>Conexão homologada com prova real.</strong><br>Já existe evidência E2E verificada do provedor/terminal para esta revenda. O dinheiro continua indo diretamente para a revenda.</div>';
+  }else if(pilotActive){
+    notice='<div class="notice" style="margin-top:8px"><strong>Piloto controlado ativo.</strong><br>A automação está liberada para produzir a primeira prova real. O status só vira HOMOLOGADO após uma venda liquidada gerar evidência verificada do próprio provedor/terminal.</div>';
   }else if(inconsistent){
     notice='<div class="notice danger" style="margin-top:8px"><strong>Estado inconsistente.</strong><br>A capability de pagamento direto está ativa sem autoridade de validação do provedor. Suspenda a automação e revise a homologação.</div>';
   }else if(adapterImplemented){
-    notice='<div class="notice" style="margin-top:8px"><strong>Conta conectada, confirmação automática bloqueada.</strong><br>Execute a prova E2E desta revenda/provedor antes de habilitar a rota automática.</div>';
+    notice='<div class="notice" style="margin-top:8px"><strong>Conta conectada, automação ainda bloqueada.</strong><br>Ative um piloto controlado para produzir a primeira prova E2E real. Conectar a conta, sozinho, não equivale a homologação.</div>';
   }else{
     notice='<div class="notice" style="margin-top:8px"><strong>Conta conectada; adaptador de venda ainda não homologado.</strong><br>A conexão pode ser preparada sem liberar pagamentos automáticos ao cliente.</div>';
   }
+  const directActive=homologated||pilotActive||inconsistent;
   const action=connected&&adapterImplemented
-    ?'<div class="order-actions"><button class="'+((homologated||inconsistent)?'danger-btn':'secondary')+' small" onclick="adminSetMerchantPaymentCapability(\''+esc(merchant.id)+'\',\''+esc(provider)+'\','+((homologated||inconsistent)?'false':'true')+')">'+((homologated||inconsistent)?'Suspender confirmação automática':'Homologar após E2E')+'</button></div>'
+    ?'<div class="order-actions"><button class="'+(directActive?'danger-btn':'secondary')+' small" onclick="adminSetMerchantPaymentCapability(\''+esc(merchant.id)+'\',\''+esc(provider)+'\','+(directActive?'false':'true')+')">'+(directActive?'Suspender confirmação automática':(e2eValidated?'Reativar confirmação automática':'Ativar piloto controlado'))+'</button></div>'
     :'';
   return '<article class="order-card">'
     +'<div class="order-head"><div><div class="order-id">'+esc(merchant?.name||merchant?.id||'Revenda')+'</div><div class="tiny muted">'+esc(providerName)+' • conta '+esc(safeAccountRef)+'</div></div><span class="status-pill '+statusClass+'">'+esc(statusLabel)+'</span></div>'
     +notice
-    +'<div class="tiny muted" style="margin-top:8px">Verificação: <strong>'+esc(adminMerchantPaymentVerificationLabel(account?.verification_level||catalog?.verification_level))+'</strong> • adaptador: '+esc(adminMerchantPaymentAdapterLabel(catalog?.adapter_status))+' • validação do provedor: <strong>'+(canValidate?'ATIVA':'BLOQUEADA')+'</strong> • kill switch global: <strong>'+(globalEnabled?'ATIVO':'DESATIVADO')+'</strong>'+(account?.connected_at?' • desde '+esc(formatDateTime(account.connected_at)):'')+'</div>'
+    +'<div class="tiny muted" style="margin-top:8px">Verificação: <strong>'+esc(adminMerchantPaymentVerificationLabel(account?.verification_level||catalog?.verification_level))+'</strong> • adaptador: '+esc(adminMerchantPaymentAdapterLabel(catalog?.adapter_status))+' • validação do provedor: <strong>'+(canValidate?'ATIVA':'BLOQUEADA')+'</strong> • prova E2E: <strong>'+(e2eValidated?'VALIDADA':'PENDENTE')+'</strong> • kill switch global: <strong>'+(globalEnabled?'ATIVO':'DESATIVADO')+'</strong>'+(account?.connected_at?' • desde '+esc(formatDateTime(account.connected_at)):'')+'</div>'
     +action
     +'</article>';
 }
@@ -2056,6 +2062,12 @@ function adminMerchantPspHomologationQueue(d){
     const homologatedRows=activeRows.filter(row=>
       row.account?.capabilities?.directSalePaymentsEnabled===true
       &&row.account?.capabilities?.canValidateProviderTransactions===true
+      &&row.account?.capabilities?.e2eValidated===true
+    );
+    const pilotRows=activeRows.filter(row=>
+      row.account?.capabilities?.directSalePaymentsEnabled===true
+      &&row.account?.capabilities?.canValidateProviderTransactions===true
+      &&row.account?.capabilities?.e2eValidated!==true
     );
     const inconsistentRows=activeRows.filter(row=>
       row.account?.capabilities?.directSalePaymentsEnabled===true
@@ -2076,11 +2088,15 @@ function adminMerchantPspHomologationQueue(d){
     }else if(homologatedRows.length){
       stage='HOMOLOGADO';
       stageClass='online';
-      nextAction='Monitorar saúde, webhooks/lookups e regressão E2E.';
-    }else if(activeRows.length&&implemented){
-      stage='PRONTO PARA E2E';
+      nextAction='Monitorar saúde, webhooks/lookups e regressão da prova E2E.';
+    }else if(pilotRows.length){
+      stage='PILOTO ATIVO';
       stageClass='risk';
-      nextAction='Executar prova E2E da conta piloto; só depois liberar confirmação automática.';
+      nextAction='Acompanhar a primeira venda real até liquidação; a evidência do provedor promoverá a conta para HOMOLOGADO.';
+    }else if(activeRows.length&&implemented){
+      stage='PRONTO PARA PILOTO';
+      stageClass='risk';
+      nextAction='Ativar piloto controlado; a primeira venda liquidada deve produzir a prova E2E antes do status HOMOLOGADO.';
     }else if(activeRows.length){
       stage='CONECTADO';
       stageClass='risk';
@@ -2099,7 +2115,7 @@ function adminMerchantPspHomologationQueue(d){
 
     let priority='P3';
     let priorityOrder=3;
-    if(inconsistentRows.length||activeRows.length&&implemented&&!homologatedRows.length){
+    if(inconsistentRows.length||pilotRows.length||activeRows.length&&implemented&&!homologatedRows.length){
       priority='P0';
       priorityOrder=0;
     }else if(declaredMerchants>=2){
@@ -2120,6 +2136,7 @@ function adminMerchantPspHomologationQueue(d){
       declaredMerchants,
       activeAccounts:activeRows.length,
       homologatedAccounts:homologatedRows.length,
+      pilotAccounts:pilotRows.length,
       inconsistentAccounts:inconsistentRows.length,
       stage,
       stageClass,
@@ -2144,7 +2161,9 @@ function adminMerchantPspHomologationQueue(d){
       :'nenhuma conta conectada';
     const proof=model.homologatedAccounts
       ?model.homologatedAccounts+' homologada'+(model.homologatedAccounts===1?'':'s')
-      :'0 homologadas';
+      :model.pilotAccounts
+        ?model.pilotAccounts+' piloto'+(model.pilotAccounts===1?'':'s')+' sem prova E2E'
+        :'0 homologadas';
     return '<article class="card flat">'
       +'<div class="order-head"><div><strong>'+esc(model.displayName)+'</strong><br><small>'+esc(demand)+' • '+esc(accountSummary)+'</small></div><div style="text-align:right"><span class="status-pill '+model.stageClass+'">'+esc(model.stage)+'</span><br><small>'+esc(model.priority)+'</small></div></div>'
       +'<div class="tiny muted" style="margin-top:8px">Adaptador: <strong>'+esc(adminMerchantPaymentAdapterLabel(model.definition.adapter_status))+'</strong> • modo: <strong>'+esc(String(model.definition.connection_mode||'—').toUpperCase())+'</strong> • '+esc(proof)+'</div>'
@@ -2156,7 +2175,7 @@ function adminMerchantPspHomologationQueue(d){
   const p0=models.filter(x=>x.priority==='P0').length;
   const observed=models.filter(x=>x.declaredMerchants>0).length;
   return '<div class="section-head" style="margin-top:16px"><div><span class="section-kicker">HOMOLOGAÇÃO MULTI-PSP</span><h3>Fila técnica de provedores</h3><p>Prioridade calculada por risco operacional, contas prontas para E2E e demanda declarada. Sem demanda, o TAMÃO não força integração nem troca de PSP.</p></div><span class="status-pill '+(p0?'risk':'')+'">'+p0+' P0 • '+observed+' COM DEMANDA</span></div>'
-    +'<div class="notice"><strong>Regra de autoridade.</strong><br>Conectar não significa homologar. Só existe status HOMOLOGADO quando a conta está ativa e possui simultaneamente <code>directSalePaymentsEnabled</code> e <code>canValidateProviderTransactions</code>. O dinheiro continua pertencendo à revenda.</div>'
+    +'<div class="notice"><strong>Regra de autoridade.</strong><br>Conectar ou ativar um piloto não significa homologar. Só existe status HOMOLOGADO quando a conta está ativa, possui <code>directSalePaymentsEnabled</code> + <code>canValidateProviderTransactions</code> e já recebeu <code>e2eValidated=true</code> a partir de uma venda liquidada com evidência verificada do provedor/terminal. O dinheiro continua pertencendo à revenda.</div>'
     +'<div class="admin-entity-grid">'+cards+'</div>';
 }
 
