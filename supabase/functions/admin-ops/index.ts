@@ -8,6 +8,7 @@ import {
   sha256Hex
 } from "../_shared/domain.js";
 import { cancelProviderChargesForPaymentRequest } from "../_shared/provider-charge-cancel.js";
+import { paymentEncryptionConfigured } from "../_shared/payment-secrets.js";
 
 const SUPABASE_URL=Deno.env.get("SUPABASE_URL")??"";
 const publishableKeys=JSON.parse(Deno.env.get("SUPABASE_PUBLISHABLE_KEYS")??"{}");
@@ -107,7 +108,7 @@ const ADMIN_ROLE_ACTIONS:Record<string,Set<string>>={
   ]),
   finance:new Set([
     "financial-action","review-referral","retry-reward","retry-accounting","reverse-order",
-    "commercial-policy","merchant-billing-action","merchant-billing-payment-request","merchant-billing-payment-event","merchant-billing-refund","merchant-billing-provider-cancel-retry","incident-action"
+    "commercial-policy","merchant-billing-action","merchant-billing-payment-request","merchant-billing-payment-event","merchant-billing-refund","merchant-billing-provider-cancel-retry","merchant-payment-capability","incident-action"
   ]),
   support:new Set(["order-control","support-case-status","incident-action"]),
   compliance:new Set([
@@ -1874,6 +1875,41 @@ Deno.serve(async(req:Request)=>{
         statementId,
         reference:cleanText(body.reference,{min:3,max:240,name:"referência financeira"})
       };
+    }else if(action==="merchant-payment-capability"){
+      const enabled=body.enabled===true;
+      const reference=cleanText(body.reference,{
+        min:3,max:240,name:"referência da homologação de pagamento"
+      });
+      if(enabled){
+        const oauthClientId=String(Deno.env.get("MERCADOPAGO_CLIENT_ID")??"").trim();
+        const oauthClientSecret=String(Deno.env.get("MERCADOPAGO_CLIENT_SECRET")??"").trim();
+        const oauthRedirect=String(Deno.env.get("MERCADOPAGO_OAUTH_REDIRECT_URI")??"").trim();
+        const webhookSecret=String(Deno.env.get("MERCADOPAGO_WEBHOOK_SECRET")??"").trim();
+        const encryptionKey=String(Deno.env.get("MERCHANT_PAYMENT_TOKEN_ENCRYPTION_KEY")??"").trim();
+        let redirectValid=false;
+        try{
+          const parsed=new URL(oauthRedirect);
+          redirectValid=parsed.protocol==="https:"&&!parsed.username&&!parsed.password;
+        }catch{}
+        if(
+          oauthClientId.length<5
+          ||oauthClientSecret.length<10
+          ||!redirectValid
+          ||webhookSecret.length<16
+          ||!paymentEncryptionConfigured(encryptionKey)
+        ){
+          throw new DomainError(
+            "MERCHANT_PAYMENT_RUNTIME_NOT_READY",
+            "OAuth, webhook e criptografia precisam estar configurados antes de homologar pagamentos diretos.",
+            503
+          );
+        }
+      }
+      payload={
+        merchantId:uuid(body.merchantId,"merchant"),
+        enabled,
+        reference
+      };
     }else if(action==="merchant-billing-payment-request"){
       const requestAction=String(body.requestAction??"").trim().toLowerCase();
       if(!["approve","reject"].includes(requestAction)){
@@ -2065,6 +2101,16 @@ Deno.serve(async(req:Request)=>{
         p_action:payload.billingAction,
         p_plan_key:payload.planKey,
         p_statement_id:payload.statementId,
+        p_reference:payload.reference,
+        p_idempotency_key:idempotencyKey,
+        p_request_hash:requestHash
+      };
+    }else if(action==="merchant-payment-capability"){
+      rpcName="admin_merchant_payment_capability_action";
+      rpcArgs={
+        p_actor_user_id:user.id,
+        p_merchant_id:payload.merchantId,
+        p_enabled:payload.enabled,
         p_reference:payload.reference,
         p_idempotency_key:idempotencyKey,
         p_request_hash:requestHash
@@ -2333,6 +2379,14 @@ Deno.serve(async(req:Request)=>{
       return json({...data,providerCancellation},200,origin);
     }
 
+    if(action==="merchant-payment-capability"){
+      return json({
+        ...data,
+        directPaymentsGlobalEnabled:
+          String(Deno.env.get("MERCHANT_DIRECT_PAYMENTS_ENABLED")??"").trim()==="1"
+      },200,origin);
+    }
+
     return json(data,200,origin);
 
 
@@ -2347,6 +2401,18 @@ Deno.serve(async(req:Request)=>{
     }
     if(message.includes("ADMIN_PERMISSION_DENIED")){
       return json({error:"ADMIN_PERMISSION_DENIED",message:"Seu perfil administrativo não possui permissão para esta ação."},403,origin);
+    }
+    if(message.includes("MERCHANT_PAYMENT_ACCOUNT_NOT_CONNECTED")){
+      return json({error:"MERCHANT_PAYMENT_ACCOUNT_NOT_CONNECTED",message:"A revenda precisa conectar a própria conta Mercado Pago antes da homologação."},409,origin);
+    }
+    if(message.includes("MERCHANT_PAYMENT_ACCOUNT_NOT_READY")){
+      return json({error:"MERCHANT_PAYMENT_ACCOUNT_NOT_READY",message:"A conexão Mercado Pago da revenda ainda não está pronta para pagamentos diretos."},409,origin);
+    }
+    if(message.includes("MERCHANT_PAYMENT_REVIEW_REQUIRED")){
+      return json({error:"MERCHANT_PAYMENT_REVIEW_REQUIRED",message:"Existe uma transação da revenda em revisão; resolva-a antes de reativar pagamentos diretos."},409,origin);
+    }
+    if(message.includes("MERCHANT_PAYMENT_CAPABILITY_REFERENCE_REQUIRED")){
+      return json({error:"MERCHANT_PAYMENT_CAPABILITY_REFERENCE_REQUIRED",message:"Informe a referência da homologação ou desativação."},400,origin);
     }
     if(message.includes("LAST_SUPERADMIN_CANNOT_BE_REMOVED")){
       return json({error:"LAST_SUPERADMIN_CANNOT_BE_REMOVED",message:"O último Superadmin ativo não pode ser removido nem rebaixado."},409,origin);
