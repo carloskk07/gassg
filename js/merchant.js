@@ -512,7 +512,6 @@ function merchantVerificationLabel(value){
     device:'Automática pelo terminal',
     merchant:'Confirmação da revenda',
     provider_api:'API/webhook',
-    device:'Terminal',
     merchant_confirmed:'Revenda confirma',
     customer_receipt:'Comprovante do cliente'
   })[String(value||'')]||String(value||'—');
