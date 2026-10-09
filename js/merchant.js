@@ -951,8 +951,8 @@ async function merchantLiveSavePaymentMethods(){
     if(paymentMethod==='cash')return methods.cash;
     return true;
   };
-  const existing=Array.isArray(globalThis.merchantRuntime?.paymentRoutes)
-    ?globalThis.merchantRuntime.paymentRoutes:[];
+  const rt=globalThis.merchantRuntime||{};
+  const existing=Array.isArray(rt.paymentRoutes)?rt.paymentRoutes:[];
   const preserved=existing
     .filter(route=>route.provider!=='manual'&&selected(route.paymentMethod))
     .map(route=>({
@@ -966,6 +966,48 @@ async function merchantLiveSavePaymentMethods(){
       customerLabel:route.customerLabel||null,
       metadata:route.metadata||{}
     }));
+  const automaticKeys=new Set(
+    preserved.map(route=>[route.paymentMethod,route.provider,route.channel].join('|'))
+  );
+  const accounts=Array.isArray(rt.receivingAccounts)?rt.receivingAccounts:[];
+  const providers=Array.isArray(rt.paymentProviders)?rt.paymentProviders:[];
+  for(const account of accounts){
+    if(
+      account?.connected!==true
+      ||account?.capabilities?.directSalePaymentsEnabled!==true
+      ||account?.capabilities?.canValidateProviderTransactions!==true
+    )continue;
+    const provider=providers.find(x=>x.provider===account.provider);
+    if(!provider||provider.adapterStatus!=='implemented')continue;
+    const supported=Array.isArray(provider.supportedMethods)?provider.supportedMethods:[];
+    const desired=[];
+    if(methods.pix&&supported.includes('pix'))desired.push('pix');
+    if(methods.card){
+      const cardMethods=['card','card_credit','card_debit'].filter(x=>supported.includes(x));
+      desired.push(...cardMethods);
+    }
+    for(const paymentMethod of desired){
+      const device=provider.verificationLevel==='device';
+      const channel=device?'delivery':'online';
+      const key=[paymentMethod,provider.provider,channel].join('|');
+      if(automaticKeys.has(key))continue;
+      preserved.push({
+        paymentMethod,
+        provider:provider.provider,
+        connectionId:account.id,
+        channel,
+        verificationMode:device?'device':'provider_api',
+        active:true,
+        priority:100+Number(provider.sortOrder||100),
+        customerLabel:
+          paymentMethod==='pix'?'Pix':
+          paymentMethod==='card_credit'?'Cartão de crédito':
+          paymentMethod==='card_debit'?'Cartão de débito':'Cartão',
+        metadata:{autoManaged:true}
+      });
+      automaticKeys.add(key);
+    }
+  }
   const extraManual=existing
     .filter(route=>route.provider==='manual'&&!['pix','card','cash'].includes(route.paymentMethod))
     .map(route=>({
