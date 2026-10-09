@@ -688,7 +688,12 @@ function scopeAdminSummary(role:string,data:any){
   if(role==="operations"){
     return {
       ...data,
-      merchants:(data.merchants??[]).map((m:any)=>({...m,paymentAccount:null})),
+      merchants:(data.merchants??[]).map((m:any)=>({...m,paymentAccount:null,paymentAccounts:[],paymentRoutes:[]})),
+      merchantPayments:{
+        globalDirectPaymentsEnabled:data.merchantPayments?.globalDirectPaymentsEnabled===true,
+        fundsOwner:"merchant",tamaoReceivesSaleProceeds:false,
+        providerCatalog:[],routes:[],verifications:[]
+      },
       finance:{receivables:[],cashbackReimbursements:[],adjustments:[]},
       merchantBilling:{
         plans:[],
@@ -717,7 +722,9 @@ function scopeAdminSummary(role:string,data:any){
       merchants:(data.merchants??[]).map((m:any)=>({
         id:m.id,name:m.name,cnpj:m.cnpj,status:m.status,online:m.online,trust_score:m.trust_score,
         delivery_fee_cents:m.delivery_fee_cents,price_confirmed_at:m.price_confirmed_at,last_seen_at:m.last_seen_at,
-        paymentAccount:m.paymentAccount??null
+        paymentAccount:m.paymentAccount??null,
+        paymentAccounts:m.paymentAccounts??[],
+        paymentRoutes:m.paymentRoutes??[]
       })),
       productRegistry:{categories:[],products:[]},
       supportCases:[],
@@ -734,8 +741,10 @@ function scopeAdminSummary(role:string,data:any){
       merchants:(data.merchants??[]).map((m:any)=>({
         id:m.id,name:m.name,status:m.status,online:m.online,trust_score:m.trust_score,
         delivery_fee_cents:m.delivery_fee_cents,base_eta_minutes:m.base_eta_minutes,
-        price_confirmed_at:m.price_confirmed_at,last_seen_at:m.last_seen_at
+        price_confirmed_at:m.price_confirmed_at,last_seen_at:m.last_seen_at,
+        paymentAccounts:[],paymentRoutes:[]
       })),
+      merchantPayments:{globalDirectPaymentsEnabled:false,fundsOwner:"merchant",tamaoReceivesSaleProceeds:false,providerCatalog:[],routes:[],verifications:[]},
       commercialPolicy:null,
       merchantBilling:{plans:[],accounts:[],statements:[],paymentRequests:[],paymentEvents:[],refunds:[],refundRecoveries:[],providerCharges:[],paymentAccounts:[],paymentIngress:null,metrics:null,reconciliation:null},
       productRegistry:{categories:[],products:[]},
@@ -749,7 +758,8 @@ function scopeAdminSummary(role:string,data:any){
   if(role==="compliance"){
     return {
       ...data,
-      merchants:(data.merchants??[]).map((m:any)=>({...m,paymentAccount:null})),
+      merchants:(data.merchants??[]).map((m:any)=>({...m,paymentAccount:null,paymentAccounts:[],paymentRoutes:[]})),
+      merchantPayments:{globalDirectPaymentsEnabled:false,fundsOwner:"merchant",tamaoReceivesSaleProceeds:false,providerCatalog:[],routes:[],verifications:[]},
       businessMetrics:{},commercialPolicy:null,
       merchantBilling:{plans:[],accounts:[],statements:[],paymentRequests:[],paymentEvents:[],refunds:[],refundRecoveries:[],providerCharges:[],paymentAccounts:[],paymentIngress:null,metrics:null,reconciliation:null},
       productRegistry:{categories:[],products:[]},
@@ -1194,9 +1204,26 @@ async function summary(admin:any,actorUserId:string){
     : Promise.resolve({data:[],error:null});
   const merchantPaymentAccountsPromise=["superadmin","finance","readonly"].includes(actorRole)
     ? admin.from("merchant_payment_provider_accounts")
-        .select("merchant_id,provider,provider_account_id,status,capabilities,token_expires_at,connected_at,refreshed_at,revoked_at,last_error_code,last_error_at,updated_at")
-        .eq("provider","mercadopago")
+        .select("id,merchant_id,provider,provider_account_id,status,connection_mode,verification_level,credential_kind,capabilities,metadata,token_expires_at,connected_at,refreshed_at,revoked_at,last_error_code,last_error_at,updated_at")
         .order("updated_at",{ascending:false})
+        .limit(1000)
+    : Promise.resolve({data:[],error:null});
+  const merchantPaymentProvidersPromise=["superadmin","finance","readonly"].includes(actorRole)
+    ? admin.from("payment_provider_catalog")
+        .select("provider_key,display_name,connection_mode,verification_level,adapter_status,supported_methods,supports_webhook,supports_lookup,requires_platform_credentials,funds_flow,sort_order,notes")
+        .order("sort_order",{ascending:true})
+    : Promise.resolve({data:[],error:null});
+  const merchantPaymentRoutesPromise=["superadmin","finance","readonly"].includes(actorRole)
+    ? admin.from("merchant_payment_routes")
+        .select("id,merchant_id,payment_method,provider,connection_id,channel,verification_mode,active,priority,customer_label,confirmed_at,updated_at")
+        .order("merchant_id",{ascending:true})
+        .order("priority",{ascending:true})
+        .limit(2000)
+    : Promise.resolve({data:[],error:null});
+  const merchantSaleVerificationsPromise=["superadmin","finance","readonly"].includes(actorRole)
+    ? admin.from("merchant_sale_payment_verifications")
+        .select("id,order_id,payment_attempt_id,merchant_id,provider,verification_level,evidence_type,provider_transaction_id,amount_cents,currency,status,funds_owner,occurred_at,verified_at,created_at")
+        .order("created_at",{ascending:false})
         .limit(500)
     : Promise.resolve({data:[],error:null});
   const billingRefundsPromise=["superadmin","finance","readonly"].includes(actorRole)
@@ -1211,7 +1238,7 @@ async function summary(admin:any,actorUserId:string){
         .order("created_at",{ascending:false})
         .limit(200)
     : Promise.resolve({data:[],error:null});
-  const [billingPlans,billingAccounts,dailyStatements,billingPaymentRequests,billingMetrics,billingReconciliation,billingPaymentEvents,billingProviderCharges,merchantPaymentAccounts,billingRefunds,billingRefundRecoveries]=await Promise.all([
+  const [billingPlans,billingAccounts,dailyStatements,billingPaymentRequests,billingMetrics,billingReconciliation,billingPaymentEvents,billingProviderCharges,merchantPaymentAccounts,merchantPaymentProviders,merchantPaymentRoutes,merchantSaleVerifications,billingRefunds,billingRefundRecoveries]=await Promise.all([
     admin.from("merchant_billing_plans")
       .select("plan_key,display_name,billing_mode,platform_fee_bps,purchase_amount_cents,credit_grant_cents,active,sort_order,policy_version,updated_by,last_change_reason,updated_at")
       .order("sort_order",{ascending:true}),
@@ -1232,10 +1259,13 @@ async function summary(admin:any,actorUserId:string){
     billingPaymentEventsPromise,
     billingProviderChargesPromise,
     merchantPaymentAccountsPromise,
+    merchantPaymentProvidersPromise,
+    merchantPaymentRoutesPromise,
+    merchantSaleVerificationsPromise,
     billingRefundsPromise,
     billingRefundRecoveriesPromise
   ]);
-  for(const result of [billingPlans,billingAccounts,dailyStatements,billingPaymentRequests,billingMetrics,billingReconciliation,billingPaymentEvents,billingProviderCharges,merchantPaymentAccounts,billingRefunds,billingRefundRecoveries]){
+  for(const result of [billingPlans,billingAccounts,dailyStatements,billingPaymentRequests,billingMetrics,billingReconciliation,billingPaymentEvents,billingProviderCharges,merchantPaymentAccounts,merchantPaymentProviders,merchantPaymentRoutes,merchantSaleVerifications,billingRefunds,billingRefundRecoveries]){
     if(result.error)throw result.error;
   }
 
@@ -1290,9 +1320,18 @@ async function summary(admin:any,actorUserId:string){
   const merchantReadinessById=new Map<string,any>(
     (merchantReadiness.data??[]).map((x:any)=>[String(x.merchantId),x] as [string,any])
   );
-  const paymentAccountByMerchant=new Map<string,any>(
-    (merchantPaymentAccounts.data??[]).map((x:any)=>[String(x.merchant_id),x] as [string,any])
-  );
+  const paymentAccountsByMerchant=new Map<string,any[]>();
+  for(const account of merchantPaymentAccounts.data??[]){
+    const key=String(account.merchant_id);
+    if(!paymentAccountsByMerchant.has(key))paymentAccountsByMerchant.set(key,[]);
+    paymentAccountsByMerchant.get(key)!.push(account);
+  }
+  const paymentRoutesByMerchant=new Map<string,any[]>();
+  for(const route of merchantPaymentRoutes.data??[]){
+    const key=String(route.merchant_id);
+    if(!paymentRoutesByMerchant.has(key))paymentRoutesByMerchant.set(key,[]);
+    paymentRoutesByMerchant.get(key)!.push(route);
+  }
   const capabilitiesByMerchant=new Map<string,any[]>();
   for(const cap of capabilities.data??[]){
     if(!capabilitiesByMerchant.has(cap.merchant_id))capabilitiesByMerchant.set(cap.merchant_id,[]);
@@ -1369,7 +1408,9 @@ async function summary(admin:any,actorUserId:string){
       businessDetails:businessByMerchant.get(m.id)??null,
       deliveryCapabilities:capabilitiesByMerchant.get(m.id)??[],
       readiness:merchantReadinessById.get(m.id)??null,
-      paymentAccount:paymentAccountByMerchant.get(m.id)??null
+      paymentAccounts:paymentAccountsByMerchant.get(String(m.id))??[],
+      paymentAccount:(paymentAccountsByMerchant.get(String(m.id))??[]).find((x:any)=>x.provider==="mercadopago")??null,
+      paymentRoutes:paymentRoutesByMerchant.get(String(m.id))??[]
     })),
     merchantReadiness:merchantReadiness.data??[],
     businessMetrics:businessMetrics.data??{},
@@ -1377,7 +1418,12 @@ async function summary(admin:any,actorUserId:string){
     commercialPolicy:commercialPolicy.data??null,
     merchantPayments:{
       globalDirectPaymentsEnabled:
-        String(Deno.env.get("MERCHANT_DIRECT_PAYMENTS_ENABLED")??"").trim()==="1"
+        String(Deno.env.get("MERCHANT_DIRECT_PAYMENTS_ENABLED")??"").trim()==="1",
+      fundsOwner:"merchant",
+      tamaoReceivesSaleProceeds:false,
+      providerCatalog:merchantPaymentProviders.data??[],
+      routes:merchantPaymentRoutes.data??[],
+      verifications:merchantSaleVerifications.data??[]
     },
     merchantBilling:{
       plans:billingPlans.data??[],
@@ -1928,10 +1974,21 @@ Deno.serve(async(req:Request)=>{
       };
     }else if(action==="merchant-payment-capability"){
       const enabled=body.enabled===true;
+      const provider=String(body.provider??"mercadopago").trim().toLowerCase();
+      if(!/^[a-z][a-z0-9_]{1,39}$/.test(provider)||provider==="manual"){
+        throw new DomainError("PAYMENT_PROVIDER_INVALID","Provedor de pagamento inválido.",400);
+      }
       const reference=cleanText(body.reference,{
         min:3,max:240,name:"referência da homologação de pagamento"
       });
       if(enabled){
+        if(provider!=="mercadopago"){
+          throw new DomainError(
+            "MERCHANT_PAYMENT_ADAPTER_NOT_IMPLEMENTED",
+            "Este provedor já existe na camada multi-PSP, mas ainda não possui o ciclo completo de venda automática homologado.",
+            409
+          );
+        }
         const oauthClientId=String(Deno.env.get("MERCADOPAGO_CLIENT_ID")??"").trim();
         const oauthClientSecret=String(Deno.env.get("MERCADOPAGO_CLIENT_SECRET")??"").trim();
         const oauthRedirect=String(Deno.env.get("MERCADOPAGO_OAUTH_REDIRECT_URI")??"").trim();
@@ -1958,6 +2015,7 @@ Deno.serve(async(req:Request)=>{
       }
       payload={
         merchantId:uuid(body.merchantId,"merchant"),
+        provider,
         enabled,
         reference
       };
@@ -2157,10 +2215,11 @@ Deno.serve(async(req:Request)=>{
         p_request_hash:requestHash
       };
     }else if(action==="merchant-payment-capability"){
-      rpcName="admin_merchant_payment_capability_action";
+      rpcName="admin_merchant_provider_payment_capability_action";
       rpcArgs={
         p_actor_user_id:user.id,
         p_merchant_id:payload.merchantId,
+        p_provider:payload.provider,
         p_enabled:payload.enabled,
         p_reference:payload.reference,
         p_idempotency_key:idempotencyKey,
@@ -2467,10 +2526,13 @@ Deno.serve(async(req:Request)=>{
       return json({error:"ADMIN_PERMISSION_DENIED",message:"Seu perfil administrativo não possui permissão para esta ação."},403,origin);
     }
     if(message.includes("MERCHANT_PAYMENT_ACCOUNT_NOT_CONNECTED")){
-      return json({error:"MERCHANT_PAYMENT_ACCOUNT_NOT_CONNECTED",message:"A revenda precisa conectar a própria conta Mercado Pago antes da homologação."},409,origin);
+      return json({error:"MERCHANT_PAYMENT_ACCOUNT_NOT_CONNECTED",message:"A revenda precisa conectar a própria conta deste provedor antes da homologação."},409,origin);
     }
     if(message.includes("MERCHANT_PAYMENT_ACCOUNT_NOT_READY")){
-      return json({error:"MERCHANT_PAYMENT_ACCOUNT_NOT_READY",message:"A conexão Mercado Pago da revenda ainda não está pronta para pagamentos diretos."},409,origin);
+      return json({error:"MERCHANT_PAYMENT_ACCOUNT_NOT_READY",message:"A conexão da revenda com este provedor ainda não está pronta para confirmação automática."},409,origin);
+    }
+    if(message.includes("INVALID_MERCHANT_PAYMENT_CAPABILITY")){
+      return json({error:"INVALID_MERCHANT_PAYMENT_CAPABILITY",message:"Este provedor ainda não possui um adaptador de venda direta homologado no TAMÃO."},409,origin);
     }
     if(message.includes("MERCHANT_PAYMENT_REVIEW_REQUIRED")){
       return json({error:"MERCHANT_PAYMENT_REVIEW_REQUIRED",message:"Existe uma transação da revenda em revisão; resolva-a antes de reativar pagamentos diretos."},409,origin);

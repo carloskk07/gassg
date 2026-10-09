@@ -53,6 +53,8 @@ jobs:
         run: node tests/admin-control-plane-v1-133.mjs
       - name: Admin command center V1.134 regression contract
         run: node tests/admin-command-center-v1-134.mjs
+      - name: Multi-PSP payment capability V1.135 regression contract
+        run: node tests/payment-capability-multi-psp-v1-135.mjs
       - name: Remote admin gateway contract and portal report
         run: node tests/remote-admin-readiness.mjs
       - name: Runtime origin config contract

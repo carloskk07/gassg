@@ -117,7 +117,7 @@ Deno.serve(async(req:Request)=>{
     const merchantId=String(body.merchantId??"");
     const action=String(body.action??"");
     if(!UUID_RE.test(merchantId))throw new DomainError("INVALID_MERCHANT","Revenda inválida.",400);
-    if(!["heartbeat","set-online","update-product","update-logistics","update-capacity","update-scheduling","update-payment-methods","update-member-profile","request-billing-package","notify-billing-payment","notify-refund-recovery-payment","cancel-billing-request"].includes(action)){
+    if(!["heartbeat","set-online","update-product","update-logistics","update-capacity","update-scheduling","update-payment-methods","update-payment-routes","update-member-profile","request-billing-package","notify-billing-payment","notify-refund-recovery-payment","cancel-billing-request"].includes(action)){
       throw new DomainError("INVALID_ACTION","Ação inválida.",400);
     }
 
@@ -279,6 +279,87 @@ Deno.serve(async(req:Request)=>{
       },200,origin);
     }
 
+    if(action==="update-payment-routes"){
+      if(!canManage(role)){
+        throw new DomainError(
+          "MERCHANT_PAYMENT_PERMISSION_DENIED",
+          "Somente owner ou gerente pode configurar recebimentos.",
+          403
+        );
+      }
+      const expectedVersion=Number(body.expectedVersion);
+      const routes=Array.isArray(body.routes)?body.routes:null;
+      const reason=String(body.reason??"Atualização das formas de recebimento da revenda.")
+        .trim().replace(/\s+/g," ");
+      if(!Number.isInteger(expectedVersion)||expectedVersion<1){
+        throw new DomainError(
+          "PAYMENT_ROUTE_VERSION_REQUIRED",
+          "Atualize o painel antes de salvar as formas de recebimento.",
+          409
+        );
+      }
+      if(!routes||routes.length<1||routes.length>30){
+        throw new DomainError(
+          "PAYMENT_ROUTES_ARRAY_REQUIRED",
+          "Configure ao menos uma rota de pagamento válida.",
+          400
+        );
+      }
+      if(reason.length<3||reason.length>1000){
+        throw new DomainError("PAYMENT_ROUTE_REASON_REQUIRED","Informe o motivo da alteração.",400);
+      }
+      const idempotencyKey=mutationIdempotencyKey(req);
+      const requestHash=await requestFingerprint("merchant-payment-routes",{
+        merchantId,expectedVersion,routes,reason
+      });
+      const {data,error}=await admin.rpc("merchant_payment_routes_action",{
+        p_actor_user_id:user.id,
+        p_merchant_id:merchantId,
+        p_expected_version:expectedVersion,
+        p_routes:routes,
+        p_reason:reason,
+        p_idempotency_key:idempotencyKey,
+        p_request_hash:requestHash
+      });
+      if(error){
+        const message=String(error.message??error);
+        if(message.includes("PAYMENT_ROUTE_VERSION_CONFLICT")){
+          throw new DomainError(
+            "PAYMENT_ROUTE_VERSION_CONFLICT",
+            "As formas de recebimento mudaram em outra sessão. Atualize o painel antes de salvar.",
+            409
+          );
+        }
+        if(message.includes("PAYMENT_PROVIDER_METHOD_UNSUPPORTED")){
+          throw new DomainError(
+            "PAYMENT_PROVIDER_METHOD_UNSUPPORTED",
+            "O provedor escolhido não suporta este meio de pagamento.",
+            409
+          );
+        }
+        if(message.includes("PAYMENT_ROUTE_CONNECTION_REQUIRED")
+           ||message.includes("PAYMENT_ROUTE_CONNECTION_MISMATCH")){
+          throw new DomainError(
+            "PAYMENT_ROUTE_CONNECTION_REQUIRED",
+            "Esta confirmação automática exige uma conexão ativa com o provedor.",
+            409
+          );
+        }
+        if(message.includes("PAYMENT_ROUTE_DUPLICATE")){
+          throw new DomainError(
+            "PAYMENT_ROUTE_DUPLICATE",
+            "Há uma forma de recebimento duplicada.",
+            409
+          );
+        }
+        if(message.includes("IDEMPOTENCY_CONFLICT")){
+          throw new DomainError("IDEMPOTENCY_CONFLICT","Esta tentativa já foi usada com outro conteúdo.",409);
+        }
+        throw error;
+      }
+      return json(data,200,origin);
+    }
+
     if(action==="heartbeat"){
       if(!canOperate(role))throw new DomainError("MERCHANT_ACCESS_DENIED","Seu papel não pode manter a operação ativa.",403);
       const {error}=await admin.from("merchants").update({last_seen_at:now}).eq("id",merchantId);
@@ -325,16 +406,16 @@ Deno.serve(async(req:Request)=>{
           );
         }
 
-        const {count:paymentCount,error:paymentError}=await admin
-          .from("merchant_payment_methods")
+        const {count:paymentRouteCount,error:paymentRouteError}=await admin
+          .from("merchant_payment_routes")
           .select("*",{count:"exact",head:true})
           .eq("merchant_id",merchantId)
           .eq("active",true);
-        if(paymentError)throw paymentError;
-        if(!paymentCount){
+        if(paymentRouteError)throw paymentRouteError;
+        if(!paymentRouteCount){
           throw new DomainError(
             "PAYMENT_METHOD_REQUIRED",
-            "Ative pelo menos uma forma de pagamento antes de ficar online.",
+            "Ative pelo menos uma forma de recebimento antes de ficar online.",
             409
           );
         }

@@ -490,6 +490,80 @@ async function merchantCancelBillingRequestFromUi(paymentRequestId){
   }catch(e){toast(String(e?.message||e))}
 }
 
+function merchantProviderName(provider){
+  const key=String(provider||'').toLowerCase();
+  return ({
+    mercadopago:'Mercado Pago',
+    pagbank:'PagBank',
+    stone:'Stone',
+    getnet:'Getnet',
+    pagarme:'Pagar.me',
+    asaas:'Asaas',
+    cielo:'Cielo',
+    rede:'Rede',
+    woovi:'Woovi/OpenPix',
+    nubank:'Nu Empresas',
+    manual:'Sem integração automática'
+  })[key]||String(provider||'PSP');
+}
+function merchantVerificationLabel(value){
+  return ({
+    provider:'Automática pelo provedor',
+    device:'Automática pelo terminal',
+    merchant:'Confirmação da revenda',
+    provider_api:'API/webhook',
+    merchant_confirmed:'Revenda confirma',
+    customer_receipt:'Comprovante do cliente'
+  })[String(value||'')]||String(value||'—');
+}
+function merchantPaymentConnectionsView(rt){
+  const providers=(rt.paymentProviders||[]).filter(p=>p.provider!=='manual');
+  const accounts=rt.receivingAccounts||[];
+  if(!providers.length)return '';
+  const priority=['mercadopago','pagbank','stone','getnet','pagarme','asaas','nubank','cielo','rede','woovi'];
+  const ordered=[...providers].sort((a,b)=>{
+    const ai=priority.indexOf(a.provider),bi=priority.indexOf(b.provider);
+    return (ai<0?999:ai)-(bi<0?999:bi);
+  });
+  const cards=ordered.map(provider=>{
+    const account=accounts.find(a=>a.provider===provider.provider)||null;
+    const connected=account?.connected===true;
+    const directEnabled=account?.capabilities?.directSalePaymentsEnabled===true;
+    const state=connected
+      ? directEnabled?'HOMOLOGADO':'CONECTADO'
+      : provider.setupState==='manual_only'?'MANUAL'
+      : provider.connectReady?'DISPONÍVEL'
+      : provider.adapterStatus==='planned'?'PLANEJADO':'CREDENCIAMENTO';
+    const stateClass=connected?(directEnabled?'online':'risk'):'';
+    let action='';
+    if(connected){
+      action=`<button class="secondary small" onclick="merchantDisconnectProviderFromUi('${esc(provider.provider)}')">Desconectar</button>`;
+    }else if(provider.connectReady&&provider.connectionMode==='oauth'){
+      action=`<button class="secondary small" onclick="merchantConnectProviderFromUi('${esc(provider.provider)}')">Conectar ${esc(provider.displayName)}</button>`;
+    }
+    const note=provider.provider==='nubank'
+      ?'Pode continuar sendo usado em Pix/link da revenda; por enquanto a confirmação é manual.'
+      :provider.provider==='stone'
+        ?'Estrutura pronta para conciliação/credenciais Stone; a ativação depende do credenciamento.'
+        :provider.provider==='getnet'
+          ?'Estrutura pronta para terminal/Get Smart; a ativação depende do credenciamento.'
+          :provider.provider==='pagbank'
+            ?'Connect preparado. Quando as credenciais de parceiro do TAMÃO forem homologadas, a revenda autoriza a própria conta.'
+            :provider.notes||'O dinheiro da venda permanece na conta da revenda.';
+    return `<article class="merchant-psp-card">
+      <div class="order-head"><div><strong>${esc(provider.displayName)}</strong><br><small>${esc(merchantVerificationLabel(provider.verificationLevel))}</small></div><span class="status-pill ${stateClass}">${esc(state)}</span></div>
+      <div class="tiny muted">Aceita: ${esc((provider.supportedMethods||[]).map(x=>x==='card'?'cartão':x).join(' • ')||'—')}</div>
+      <p class="tiny muted merchant-psp-note">${esc(note)}</p>
+      ${connected?`<div class="tiny"><strong>Conta conectada.</strong> Recebimento direto na revenda • TAMÃO não recebe nem repassa.</div>`:''}
+      ${action}
+    </article>`;
+  }).join('');
+  return `<div class="divider"></div>
+    <div class="section-head"><div><span class="section-kicker">RECEBIMENTO DIRETO</span><h3>Conexões para confirmação automática</h3><p>Use o provedor que a revenda já possui. Conectar um PSP nunca muda o dono do dinheiro: a venda continua sendo recebida pela própria revenda.</p></div></div>
+    <div class="notice"><strong>Mercado Pago não é obrigatório.</strong><br>Pix, dinheiro e cartão podem continuar ativos mesmo sem nenhuma conexão automática. PSPs conectados apenas elevam a força da confirmação da transação.</div>
+    <div class="merchant-psp-grid">${cards}</div>`;
+}
+
 function merchantLivePage(){
   const rt=globalThis.merchantRuntime||{};
   if(['disabled','loading'].includes(rt.status)){
@@ -501,21 +575,7 @@ function merchantLivePage(){
   if(rt.status==='unauthenticated')return merchantLiveLoginView();
   if(rt.status==='no-access')return merchantLiveNoAccess();
   if(rt.status!=='ready'||!rt.merchant){
-    const receivingAccountCard=manage
-    ? receivingAccount?.connected
-      ? `<div class="divider"></div>
-        <h3>Recebimento direto da revenda</h3>
-        <div class="notice success"><strong>Mercado Pago conectado.</strong><br>Conta autorizada para validação segura de transações. O dinheiro das vendas pertence à revenda e não passa pela conta do TAMÃO.</div>
-        <div class="tiny muted" style="margin-top:8px">Pagamentos automáticos de clientes permanecem desativados até a homologação E2E. Esta conexão não cria split nem repasse.</div>
-        <button class="secondary" style="margin-top:10px" onclick="merchantDisconnectMercadoPagoFromUi()">Desconectar Mercado Pago</button>`
-      : `<div class="divider"></div>
-        <h3>Recebimento direto da revenda</h3>
-        <p class="muted tiny">Conecte sua própria conta Mercado Pago. Quando a validação automática for homologada, o cliente poderá pagar diretamente à revenda e o TAMÃO receberá apenas a confirmação da transação.</p>
-        <button class="secondary" onclick="merchantConnectMercadoPagoFromUi()">Conectar Mercado Pago</button>
-        <div class="tiny muted" style="margin-top:8px">O TAMÃO não recebe nem repassa o valor da venda nesta modalidade.</div>`
-    : '';
-
-  return shell(`<section class="page"><h1 class="page-title">Painel da revenda</h1><div class="notice danger"><strong>Não foi possível carregar a operação.</strong><br>${esc(rt.error||'Tente novamente.')}</div><button class="secondary full" style="margin-top:12px" onclick="merchantLiveRefresh()">Tentar novamente</button></section>`);
+    return shell(`<section class="page"><h1 class="page-title">Painel da revenda</h1><div class="notice danger"><strong>Não foi possível carregar a operação.</strong><br>${esc(rt.error||'Tente novamente.')}</div><button class="secondary full" style="margin-top:12px" onclick="merchantLiveRefresh()">Tentar novamente</button></section>`);
   }
 
   const m=rt.merchant;
@@ -538,6 +598,7 @@ function merchantLivePage(){
   const orders=rt.orders||[];
   const billing=rt.billing||null;
   const receivingAccount=rt.receivingAccount||null;
+  const paymentConnectionsCard=manage?merchantPaymentConnectionsView(rt):'';
   const financialHold=billing?.account?.salesHold===true;
   const freshness=merchantLiveFreshness();
   const freshnessProblems=[];
@@ -610,13 +671,13 @@ function merchantLivePage(){
       <div class="input-wrap"><label for="live-capacity">Máximo de pedidos ativos ao mesmo tempo</label><input id="live-capacity" inputmode="numeric" type="number" min="1" max="100" class="input" value="${capacity}"><small class="field-help">Ao atingir este limite, a revenda deixa de receber novas ofertas até liberar capacidade. Pedidos existentes não são cancelados.</small></div>
       <button class="secondary" onclick="merchantLiveSaveCapacity()">Salvar capacidade</button>
       <div class="divider"></div>
-      <h3>Formas de pagamento</h3>
-      <p class="muted tiny">O TAMÃO só mostra sua revenda ao cliente quando a forma escolhida estiver ativa aqui.</p>
+      <h3>Formas de pagamento aceitas do cliente</h3>
+      <p class="muted tiny">Escolha o que sua revenda realmente aceita. Nenhuma dessas opções exige Mercado Pago ou qualquer outro PSP específico.</p>
       <label class="check-row"><input id="live-payment-pix" type="checkbox" ${paymentMethods.pix?'checked':''}><span><strong>Pix</strong><small>Pagamento via Pix aceito pela operação.</small></span></label>
       <label class="check-row"><input id="live-payment-card" type="checkbox" ${paymentMethods.card?'checked':''}><span><strong>Cartão</strong><small>Cartão aceito na entrega conforme sua operação.</small></span></label>
       <label class="check-row"><input id="live-payment-cash" type="checkbox" ${paymentMethods.cash?'checked':''}><span><strong>Dinheiro</strong><small>Dinheiro aceito; o pedido pode informar troco.</small></span></label>
       <button class="secondary" onclick="merchantLiveSavePaymentMethods()">Salvar formas de pagamento</button>
-      ${receivingAccountCard}
+      ${paymentConnectionsCard}
       <div class="divider"></div>
       <h3>Pedidos agendados</h3>
       <label class="check-row"><input id="live-scheduled-orders" type="checkbox" ${acceptsScheduledOrders?'checked':''}><span><strong>Aceitar entregas agendadas</strong><small>Quando ativo, clientes podem escolher janelas futuras de até 72 horas. O horário aparece antes do aceite.</small></span></label>
@@ -833,20 +894,48 @@ async function merchantLiveSaveCapacity(){
   }catch(e){toast(String(e?.message||e))}
 }
 
+async function merchantConnectProviderFromUi(provider){
+  const name=merchantProviderName(provider);
+  try{
+    await merchantPaymentConnectLive(provider,'start');
+  }catch(e){toast(String(e?.message||e))}
+}
+async function merchantDisconnectProviderFromUi(provider){
+  const name=merchantProviderName(provider);
+  if(!confirm('Desconectar '+name+' desta revenda? Nenhum dinheiro será movimentado.'))return;
+  try{
+    await merchantPaymentConnectLive(provider,'disconnect');
+    toast(name+' desconectado');
+  }catch(e){toast(String(e?.message||e))}
+}
 async function merchantConnectMercadoPagoFromUi(){
-  try{
-    await merchantPaymentConnectLive('start');
-  }catch(e){toast(String(e?.message||e))}
+  return merchantConnectProviderFromUi('mercadopago');
 }
-
 async function merchantDisconnectMercadoPagoFromUi(){
-  if(!confirm('Desconectar o Mercado Pago desta revenda? Nenhum dinheiro será movimentado.'))return;
-  try{
-    await merchantPaymentConnectLive('disconnect');
-    toast('Mercado Pago desconectado');
-  }catch(e){toast(String(e?.message||e))}
+  return merchantDisconnectProviderFromUi('mercadopago');
 }
 
+function merchantManualPaymentRoute(paymentMethod){
+  if(paymentMethod==='pix'){
+    return {
+      paymentMethod:'pix',provider:'manual',channel:'external',
+      verificationMode:'merchant_confirmed',active:true,priority:900,
+      customerLabel:'Pix'
+    };
+  }
+  if(paymentMethod==='card'){
+    return {
+      paymentMethod:'card',provider:'manual',channel:'delivery',
+      verificationMode:'merchant_confirmed',active:true,priority:900,
+      customerLabel:'Cartão na entrega'
+    };
+  }
+  return {
+    paymentMethod:'cash',provider:'manual',channel:'delivery',
+    verificationMode:'merchant_confirmed',active:true,priority:900,
+    customerLabel:'Dinheiro'
+  };
+}
 async function merchantLiveSavePaymentMethods(){
   const methods={
     pix:document.querySelector('#live-payment-pix')?.checked===true,
@@ -854,9 +943,96 @@ async function merchantLiveSavePaymentMethods(){
     cash:document.querySelector('#live-payment-cash')?.checked===true
   };
   if(!Object.values(methods).some(Boolean))return toast('Ative pelo menos uma forma de pagamento');
+
+  const selected=(paymentMethod)=>{
+    if(paymentMethod==='pix')return methods.pix;
+    if(['card','card_credit','card_debit'].includes(paymentMethod))return methods.card;
+    if(paymentMethod==='cash')return methods.cash;
+    return true;
+  };
+  const rt=globalThis.merchantRuntime||{};
+  const existing=Array.isArray(rt.paymentRoutes)?rt.paymentRoutes:[];
+  const preserved=existing
+    .filter(route=>route.provider!=='manual'&&selected(route.paymentMethod))
+    .map(route=>({
+      paymentMethod:route.paymentMethod,
+      provider:route.provider,
+      connectionId:route.connectionId||null,
+      channel:route.channel,
+      verificationMode:route.verificationMode,
+      active:route.active===true,
+      priority:Number(route.priority||100),
+      customerLabel:route.customerLabel||null,
+      metadata:route.metadata||{}
+    }));
+  const automaticKeys=new Set(
+    preserved.map(route=>[route.paymentMethod,route.provider,route.channel].join('|'))
+  );
+  const accounts=Array.isArray(rt.receivingAccounts)?rt.receivingAccounts:[];
+  const providers=Array.isArray(rt.paymentProviders)?rt.paymentProviders:[];
+  for(const account of accounts){
+    if(
+      account?.connected!==true
+      ||account?.capabilities?.directSalePaymentsEnabled!==true
+      ||account?.capabilities?.canValidateProviderTransactions!==true
+    )continue;
+    const provider=providers.find(x=>x.provider===account.provider);
+    if(!provider||provider.adapterStatus!=='implemented')continue;
+    const supported=Array.isArray(provider.supportedMethods)?provider.supportedMethods:[];
+    const desired=[];
+    if(methods.pix&&supported.includes('pix'))desired.push('pix');
+    if(methods.card){
+      const cardMethods=['card','card_credit','card_debit'].filter(x=>supported.includes(x));
+      desired.push(...cardMethods);
+    }
+    for(const paymentMethod of desired){
+      const device=provider.verificationLevel==='device';
+      const channel=device?'delivery':'online';
+      const key=[paymentMethod,provider.provider,channel].join('|');
+      if(automaticKeys.has(key))continue;
+      preserved.push({
+        paymentMethod,
+        provider:provider.provider,
+        connectionId:account.id,
+        channel,
+        verificationMode:device?'device':'provider_api',
+        active:true,
+        priority:100+Number(provider.sortOrder||100),
+        customerLabel:
+          paymentMethod==='pix'?'Pix':
+          paymentMethod==='card_credit'?'Cartão de crédito':
+          paymentMethod==='card_debit'?'Cartão de débito':'Cartão',
+        metadata:{autoManaged:true}
+      });
+      automaticKeys.add(key);
+    }
+  }
+  const extraManual=existing
+    .filter(route=>route.provider==='manual'&&!['pix','card','cash'].includes(route.paymentMethod))
+    .map(route=>({
+      paymentMethod:route.paymentMethod,
+      provider:'manual',
+      connectionId:null,
+      channel:route.channel,
+      verificationMode:route.verificationMode,
+      active:route.active===true,
+      priority:Number(route.priority||900),
+      customerLabel:route.customerLabel||null,
+      metadata:route.metadata||{}
+    }));
+  const routes=[
+    ...preserved,
+    ...extraManual,
+    ...(methods.pix?[merchantManualPaymentRoute('pix')]:[]),
+    ...(methods.card?[merchantManualPaymentRoute('card')]:[]),
+    ...(methods.cash?[merchantManualPaymentRoute('cash')]:[])
+  ];
   try{
-    await merchantUpdatePaymentMethodsLive(methods);
-    toast('Formas de pagamento atualizadas');
+    await merchantUpdatePaymentRoutesLive(
+      routes,
+      'Revenda atualizou os meios aceitos pelo cliente.'
+    );
+    toast('Formas de pagamento atualizadas sem alterar quem recebe o dinheiro');
   }catch(e){toast(String(e?.message||e))}
 }
 

@@ -996,6 +996,10 @@ const merchantRuntime={
   availableProducts:[],
   billing:null,
   receivingAccount:null,
+  receivingAccounts:[],
+  paymentProviders:[],
+  paymentRoutes:[],
+  paymentRouteVersion:1,
   orders:[],
   selectedMerchantId:localStorage.getItem('chama-merchant-selected-v1')||null,
   actionPending:false,
@@ -1296,6 +1300,10 @@ async function merchantSignOut(){
   merchantRuntime.availableProducts=[];
   merchantRuntime.billing=null;
   merchantRuntime.receivingAccount=null;
+  merchantRuntime.receivingAccounts=[];
+  merchantRuntime.paymentProviders=[];
+  merchantRuntime.paymentRoutes=[];
+  merchantRuntime.paymentRouteVersion=1;
   merchantRuntime.orders=[];
   merchantRuntime.selectedMerchantId=null;
   localStorage.removeItem('chama-merchant-selected-v1');
@@ -1324,6 +1332,10 @@ async function merchantRefresh({silent=false,recoverSelection=true}={}){
     merchantRuntime.availableProducts=data.availableProducts??[];
     merchantRuntime.billing=data.billing??null;
     merchantRuntime.receivingAccount=data.receivingAccount??null;
+    merchantRuntime.receivingAccounts=Array.isArray(data.receivingAccounts)?data.receivingAccounts:[];
+    merchantRuntime.paymentProviders=Array.isArray(data.paymentProviders)?data.paymentProviders:[];
+    merchantRuntime.paymentRoutes=Array.isArray(data.paymentRoutes)?data.paymentRoutes:[];
+    merchantRuntime.paymentRouteVersion=Number(data.paymentRouteVersion||1);
     merchantRuntime.orders=data.orders??[];
     merchantProcessOrderAlerts(merchantRuntime.orders,merchantRuntime.merchant);
     merchantRuntime.selectedMerchantId=data.merchant?.merchantId??merchantRuntime.selectedMerchantId;
@@ -1571,14 +1583,18 @@ async function merchantCompleteDeliveryLive(orderId,pin,paymentConfirmed){
   }
 }
 
-async function merchantPaymentConnectLive(action='status'){
+async function merchantPaymentConnectLive(provider='mercadopago',action='status'){
   const merchantId=merchantRuntime.merchant?.merchantId;
   if(!merchantId)throw new Error('Revenda não selecionada');
   if(!['owner','manager'].includes(String(merchantRuntime.merchant?.memberRole||''))){
     throw new Error('Seu papel não pode gerenciar a conta de recebimento');
   }
-  const normalized=String(action||'status').trim().toLowerCase();
-  if(!['status','start','disconnect'].includes(normalized)){
+  const normalizedProvider=String(provider||'').trim().toLowerCase();
+  const normalizedAction=String(action||'status').trim().toLowerCase();
+  if(!/^[a-z][a-z0-9_]{1,39}$/.test(normalizedProvider)){
+    throw new Error('Provedor de pagamento inválido');
+  }
+  if(!['status','start','disconnect'].includes(normalizedAction)){
     throw new Error('Ação de conexão de pagamento inválida');
   }
   merchantRuntime.actionPending=true;
@@ -1587,16 +1603,62 @@ async function merchantPaymentConnectLive(action='status'){
   try{
     const result=await merchantInvoke('merchant-payment-connect',{
       merchantId,
-      action:normalized
+      provider:normalizedProvider,
+      action:normalizedAction
     });
-    if(normalized==='start'){
-      const url=String(result?.authorizationUrl||'');
-      if(!/^https:\/\/auth\.mercadopago\.com\/authorization\?/.test(url)){
-        throw new Error('URL de autorização Mercado Pago inválida');
+    if(normalizedAction==='start'){
+      const raw=String(result?.authorizationUrl||'');
+      let url=null;
+      try{url=new URL(raw)}catch{}
+      const allowedHosts=new Set(
+        normalizedProvider==='mercadopago'
+          ?['auth.mercadopago.com']
+          :normalizedProvider==='pagbank'
+            ?['connect.pagseguro.uol.com.br','connect.sandbox.pagseguro.uol.com.br']
+            :[]
+      );
+      if(!url||url.protocol!=='https:'||!allowedHosts.has(url.hostname)){
+        throw new Error('URL de autorização do provedor inválida');
       }
-      location.href=url;
+      location.href=url.toString();
       return result;
     }
+    await merchantRefresh({silent:true});
+    return result;
+  }catch(error){
+    merchantRuntime.error=String(error?.message||error);
+    try{await merchantRefresh({silent:true})}catch{}
+    throw error;
+  }finally{
+    merchantRuntime.actionPending=false;
+    render();
+  }
+}
+
+async function merchantUpdatePaymentRoutesLive(routes,reason='Atualização das formas de recebimento'){
+  const merchantId=merchantRuntime.merchant?.merchantId;
+  if(!merchantId)throw new Error('Revenda não selecionada');
+  if(!['owner','manager'].includes(String(merchantRuntime.merchant?.memberRole||''))){
+    throw new Error('Seu papel não pode configurar recebimentos');
+  }
+  if(!Array.isArray(routes)||routes.length<1||routes.length>30){
+    throw new Error('Configure ao menos uma forma de recebimento válida');
+  }
+  const expectedVersion=Number(merchantRuntime.paymentRouteVersion||1);
+  const cleanReason=String(reason||'').trim().replace(/\s+/g,' ');
+  if(cleanReason.length<3||cleanReason.length>1000)throw new Error('Motivo da alteração inválido');
+  merchantRuntime.actionPending=true;
+  merchantRuntime.error=null;
+  render();
+  try{
+    const idempotencyKey=liveIdempotency('merchant-payment-routes');
+    const result=await retryAmbiguousOnce(()=>merchantInvoke('merchant-ops',{
+      merchantId,
+      action:'update-payment-routes',
+      expectedVersion,
+      routes,
+      reason:cleanReason
+    },{idempotencyKey}));
     await merchantRefresh({silent:true});
     return result;
   }catch(error){
@@ -1984,6 +2046,7 @@ globalThis.merchantAssignDeliveryLive=merchantAssignDeliveryLive;
 globalThis.merchantUpdateMemberProfileLive=merchantUpdateMemberProfileLive;
 globalThis.merchantCompleteDeliveryLive=merchantCompleteDeliveryLive;
 globalThis.merchantPaymentConnectLive=merchantPaymentConnectLive;
+globalThis.merchantUpdatePaymentRoutesLive=merchantUpdatePaymentRoutesLive;
 globalThis.merchantBillingRequestLive=merchantBillingRequestLive;
 globalThis.merchantRequestBillingPackageLive=merchantRequestBillingPackageLive;
 globalThis.merchantNotifyBillingPaymentLive=merchantNotifyBillingPaymentLive;
