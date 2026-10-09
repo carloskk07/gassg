@@ -1497,12 +1497,23 @@ Deno.serve(async(req:Request)=>{
       if(!["pending","verified","not_required","rejected"].includes(anpStatus)){
         throw new DomainError("INVALID_ANP_STATUS","Status ANP inválido.",400);
       }
+      const anpReference=body.anpReference==null?null:(cleanText(body.anpReference,{min:0,max:240,name:"referência ANP"})||null);
+      const notes=body.notes==null?null:(cleanText(body.notes,{min:0,max:1000,name:"evidência de compliance"})||null);
+      if(cnpjStatus==="verified"&&(!notes||notes.length<5)){
+        throw new DomainError("CNPJ_EVIDENCE_REQUIRED","Registre a fonte/evidência usada para verificar o CNPJ.",400);
+      }
+      if(anpStatus==="verified"&&(!anpReference||anpReference.length<3)){
+        throw new DomainError("ANP_REFERENCE_REQUIRED","Informe a referência da consulta ANP.",400);
+      }
+      if((cnpjStatus==="rejected"||anpStatus==="rejected")&&(!notes||notes.length<5)){
+        throw new DomainError("COMPLIANCE_REJECTION_EVIDENCE_REQUIRED","Documente a evidência da rejeição de compliance.",400);
+      }
       payload={
         merchantId:uuid(body.merchantId,"merchant"),
         cnpjStatus,
         anpStatus,
-        anpReference:body.anpReference==null?null:(cleanText(body.anpReference,{min:0,max:240,name:"referência ANP"})||null),
-        notes:body.notes==null?null:(cleanText(body.notes,{min:0,max:1000,name:"observações"})||null)
+        anpReference,
+        notes
       };
     }else if(action==="activate-merchant"||action==="suspend-merchant"){
       payload={merchantId:uuid(body.merchantId,"merchant")};
