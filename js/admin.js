@@ -383,15 +383,6 @@ async function adminPerform(action,payload={}){
 async function adminPoll(){
   if(!adminReady()||adminRuntime.actionPending||adminRuntime.pollPending||document.visibilityState==='hidden')return;
   const now=Date.now();
-  for(const refund of d.merchantBilling?.refunds||[]){
-    if(refund.status==='review_required'){
-      const linked=Boolean(refund.merchant_id&&refund.payment_request_id);
-      push(linked?'critical':'high',
-        linked?'Refund do PSP bloqueia revenda':'Refund do PSP sem vínculo',
-        (linked?adminMerchantName(refund.merchant_id)+' • ':'')+adminMoney(refund.amount_cents)+' • '+String(refund.match_reason||'review_required'),
-        {section:'finance'});
-    }
-  }
   if(adminRuntime.lastPollAt&&now-adminRuntime.lastPollAt<15000)return;
   adminRuntime.lastPollAt=now;
   adminRuntime.pollPending=true;
@@ -558,6 +549,47 @@ function adminAttentionItems(d){
   for(const x of d.finance?.cashbackReimbursements||[]){
     if(x.due_at&&Date.parse(x.due_at)<now)push('high','Cashback vencido',adminMerchantName(x.merchant_id)+' • '+adminMoney(x.cashback_cents),{section:'finance'});
   }
+  const billing=d.merchantBilling||{};
+  for(const refund of billing.refunds||[]){
+    if(refund.status==='review_required'){
+      const linked=Boolean(refund.merchant_id&&refund.payment_request_id);
+      push(linked?'critical':'high',
+        linked?'Refund do PSP bloqueia revenda':'Refund do PSP sem vínculo',
+        (linked?adminMerchantName(refund.merchant_id)+' • ':'')+adminMoney(refund.amount_cents)+' • '+adminBillingRefundReasonLabel(refund.match_reason),
+        {section:'finance'});
+    }
+  }
+  for(const statement of billing.statements||[]){
+    if(statement.status==='overdue'){
+      push('critical','Fechamento diário vencido',
+        adminMerchantName(statement.merchant_id)+' • '+adminMoney(statement.amount_due_cents),
+        {section:'finance'});
+    }
+  }
+  for(const request of billing.paymentRequests||[]){
+    if(request.status==='pending'){
+      const age=now-Date.parse(request.requested_at||request.updated_at||new Date().toISOString());
+      if(age>24*60*60*1000){
+        push('high','Pagamento aguardando conferência há +24h',
+          adminMerchantName(request.merchant_id)+' • '+adminMoney(request.expected_amount_cents),
+          {section:'finance'});
+      }
+    }
+  }
+  for(const event of billing.paymentEvents||[]){
+    if(event.status==='review_required'){
+      push('high','Evento financeiro exige revisão',
+        String(event.provider||'PSP')+' • '+adminMoney(event.amount_cents)+' • '+adminBillingPaymentMatchReasonLabel(event.match_reason),
+        {section:'finance'});
+    }
+  }
+  for(const account of billing.accounts||[]){
+    if(account.sales_hold){
+      push('critical','Revenda em hold financeiro',
+        adminMerchantName(account.merchant_id)+' • '+String(account.sales_hold_reason||'débito financeiro'),
+        {section:'finance'});
+    }
+  }
   for(const x of d.supportCases||[]){
     if(['open','in_review'].includes(x.status)){
       const age=now-Date.parse(x.created_at||x.updated_at||new Date().toISOString());
@@ -713,6 +745,9 @@ function adminSystemHealthView(){
   const status=String(h.status||'critical');
   const cls=status==='healthy'?'online':status==='degraded'?'risk':'offline';
   const portals=h.portals?.probes||[];
+  const providerName=adminBillingProviderName(h.paymentProvider?.provider);
+  const credentialLabel=adminBillingProviderCredentialLabel(h.paymentProvider?.provider);
+  const e2e=adminBillingE2EState();
   return `<section class="section">
     <div class="section-head"><div><span class="section-kicker">SAÚDE DO SISTEMA</span><h2>Control plane ${status==='healthy'?'saudável':status==='degraded'?'degradado':'crítico'}</h2><p>Última checagem: ${esc(formatDateTime(h.checkedAt))} • ${Number(h.latencyMs||0)} ms</p></div><div class="order-actions"><span class="status-pill ${cls}">${esc(status.toUpperCase())}</span><button class="secondary small" onclick="adminLoadSystemHealth({force:true})">Atualizar</button></div></div>
     ${h.error?`<div class="notice danger">${esc(h.error)}</div>`:''}
@@ -720,7 +755,8 @@ function adminSystemHealthView(){
       <div class="kpi"><span class="label">Edge admin-ops</span><strong>${h.edge?.ok?'OK':'FALHA'}</strong></div>
       <div class="kpi"><span class="label">Banco</span><strong>${h.database?.ok?'OK':'FALHA'}</strong><small>${esc(h.database?.operationMode||'—')}</small></div>
       <div class="kpi"><span class="label">Portais</span><strong>${h.portals?.ok?'3/3':'ATENÇÃO'}</strong><small>${esc(h.portals?.sourceSha?.slice(0,8)||'SHA divergente')}</small></div>
-      <div class="kpi"><span class="label">Woovi</span><strong>${h.paymentProvider?.ok?'OK':String(h.paymentProvider?.status||'PENDENTE').toUpperCase()}</strong><small>${h.paymentProvider?.credentialValid===true?'AppID válido':h.paymentProvider?.credentialValid===false?'AppID rejeitado':'sem prova de API'}</small></div>
+      <div class="kpi"><span class="label">${esc(providerName)}</span><strong>${h.paymentProvider?.ok?'API OK':String(h.paymentProvider?.status||'PENDENTE').toUpperCase()}</strong><small>${h.paymentProvider?.credentialValid===true?esc(credentialLabel)+' válido':h.paymentProvider?.credentialValid===false?esc(credentialLabel)+' rejeitado':'sem prova de API'}</small></div>
+      <div class="kpi"><span class="label">PSP E2E</span><strong>${e2e.validated?'VALIDADO':'PENDENTE'}</strong><small>${e2e.validated?'webhook real conciliado':'aguarda pagamento real de prova'}</small></div>
       <div class="kpi"><span class="label">Suporte aberto</span><strong>${Number(h.queues?.openSupport||0)}</strong></div>
       <div class="kpi"><span class="label">Reward failures</span><strong>${Number(h.queues?.rewardFailures||0)}</strong></div>
       <div class="kpi"><span class="label">Accounting failures</span><strong>${Number(h.queues?.accountingFailures||0)}</strong></div>
@@ -888,7 +924,7 @@ function adminAuditView(d){
       <button class="secondary" onclick="adminAuditSearch()" ${adminRuntime.auditPending?'disabled aria-busy="true"':''}>${adminRuntime.auditPending?'Pesquisando…':'Pesquisar auditoria'}</button>
     </div>
     <div class="list" style="margin-top:12px">
-      ${rows.length?rows.map(x=>`<div class="list-row"><div><strong>${esc(x.action)}</strong><br><small>${esc(x.target_type)} • ${esc(x.target_id||'—')} • ator ${esc(String(x.actor_user_id||'').slice(0,8))}</small></div><small>${esc(formatDateTime(x.created_at))}</small></div>`).join(''):'<div class="empty card">Nenhuma ação encontrada.</div>'}
+      ${rows.length?rows.map(x=>`<details class="card flat admin-audit-row"><summary><span><strong>${esc(x.action)}</strong><small>${esc(x.target_type)} • ${esc(x.target_id||'—')} • ator ${esc(String(x.actor_user_id||'').slice(0,8))}</small></span><small>${esc(formatDateTime(x.created_at))}</small></summary><pre class="tiny admin-audit-metadata">${esc(JSON.stringify(x.metadata||{},null,2))}</pre></details>`).join(''):'<div class="empty card">Nenhuma ação encontrada.</div>'}
     </div>
   </section>`;
 }
@@ -1563,16 +1599,37 @@ function adminBillingProviderChargeRow(charge){
 }
 
 
+function adminBillingProviderName(value){
+  const provider=String(value||'').trim().toLowerCase();
+  if(provider==='mercadopago')return 'Mercado Pago';
+  if(provider==='woovi')return 'Woovi/OpenPix';
+  return provider?provider:'PSP ativo';
+}
+function adminBillingProviderCredentialLabel(value){
+  return String(value||'').trim().toLowerCase()==='mercadopago'?'Access Token':'credencial API';
+}
+function adminBillingE2EState(d=adminRuntime.data){
+  const billing=d?.merchantBilling||{};
+  const ingress=billing.paymentIngress||{};
+  const active=String(ingress.activeBillingProvider||adminRuntime.providerHealth?.provider||'').trim().toLowerCase();
+  if(!active)return {validated:false,event:null,provider:null};
+  const events=Array.isArray(billing.paymentEvents)?billing.paymentEvents:[];
+  const event=events.find(x=>String(x.provider||'').trim().toLowerCase()===active
+    &&['matched_exact','applied','already_applied','refunded'].includes(String(x.status||'')))||null;
+  return {validated:Boolean(event),event,provider:active};
+}
 function adminBillingProviderHealthNotice(h){
   if(!h)return '';
   const ok=h.ok===true;
-  const provider=h.provider==='mercadopago'?'Mercado Pago':h.provider==='woovi'?'Woovi/OpenPix':'PSP ativo';
+  const provider=adminBillingProviderName(h.provider);
+  const e2e=adminBillingE2EState();
   let detail='';
   if(h.provider==='mercadopago'){
-    detail='credencial API '+(h.credentialValid===true?'válida':h.credentialValid===false?'inválida':'não confirmada')
+    detail='Access Token '+(h.credentialValid===true?'válido':h.credentialValid===false?'inválido':'não confirmado')
       +' • criação '+(h.chargeReady?'pronta':'não confirmada')
-      +' • webhook HMAC '+(h.receiveReady?'configurado':'não confirmado')
-      +' • conta '+(h.accountBound?'vinculada':'não confirmada');
+      +' • webhook HMAC local '+(h.receiveReady?'configurado':'não confirmado')
+      +' • conta '+(h.accountBound?'vinculada':'não confirmada')
+      +' • registro remoto do webhook '+(h.remoteWebhookRegistrationVerified===true?'verificado':'ainda não provado automaticamente');
   }else{
     detail='credencial '+(h.credentialValid===true?'válida':h.credentialValid===false?'inválida':'não confirmada')
       +' • webhook pagamento '+(h.chargeWebhookReady?'ativo':'não confirmado')
@@ -1581,7 +1638,10 @@ function adminBillingProviderHealthNotice(h){
       +' • empresa '+(h.companyBound?'vinculada':'não confirmada');
   }
   if(h.reason)detail+=' • '+esc(h.reason);
-  return '<div class="notice '+(ok?'success':'danger')+'" style="margin-top:10px"><strong>'+(ok?'Teste real '+provider+' aprovado.':'Teste real '+provider+' requer atenção.')+'</strong><br>'+detail+'</div>';
+  const e2eCopy=e2e.validated
+    ?' • webhook financeiro real observado e conciliado'
+    :' • E2E financeiro ainda não comprovado por um pagamento real';
+  return '<div class="notice '+(ok?'success':'danger')+'" style="margin-top:10px"><strong>'+(ok?'API '+provider+' validada.':'Teste real '+provider+' requer atenção.')+'</strong><br>'+detail+e2eCopy+'</div>';
 }
 
 function adminMerchantPaymentAccountCard(merchant){
@@ -1630,11 +1690,12 @@ function adminMerchantBillingSection(d){
   const providerCharges=billing.providerCharges||[];
   const paymentIngress=billing.paymentIngress||null;
   const providerHealth=adminRuntime.providerHealth;
-  const pspValidated=providerHealth?.ok===true;
+  const pspApiValidated=providerHealth?.ok===true;
+  const pspE2E=adminBillingE2EState(d);
   const pspFailed=Boolean(providerHealth)&&providerHealth?.ok===false;
   const pspConfigured=paymentIngress?.livePspReady===true;
-  const pspBadgeLabel=pspValidated?'PSP VALIDADO':pspFailed?'PSP FALHANDO':pspConfigured?'PSP CONFIGURADO':paymentIngress?.normalizedIngressConfigured?'INGRESS PRONTO':'PENDENTE';
-  const pspBadgeClass=pspValidated?'online':pspFailed?'offline':pspConfigured||paymentIngress?.normalizedIngressConfigured?'risk':'';
+  const pspBadgeLabel=pspE2E.validated?'E2E VALIDADO':pspApiValidated?'API VALIDADA':pspFailed?'PSP FALHANDO':pspConfigured?'PSP CONFIGURADO':paymentIngress?.normalizedIngressConfigured?'INGRESS PRONTO':'PENDENTE';
+  const pspBadgeClass=pspE2E.validated||pspApiValidated?'online':pspFailed?'offline':pspConfigured||paymentIngress?.normalizedIngressConfigured?'risk':'';
   const metrics=billing.metrics||null;
   const reconciliation=billing.reconciliation||null;
   const pendingPaymentRequests=paymentRequests
@@ -1655,21 +1716,23 @@ function adminMerchantBillingSection(d){
   return `<section class="section">
     <div class="section-head"><div><span class="section-kicker">COBRANÇA DAS REVENDAS</span><h2>Fechamento diário + pacotes</h2><p>Cada pedido mantém sua taxa auditável. À 00:05 o dia anterior é consolidado; o saldo vence no fim do dia seguinte. Crédito pré-pago reduz a taxa e evita pagamento diário enquanto houver saldo.</p></div><div class="order-actions"><span class="status-pill ${Number(metrics?.overdueStatementCount??overdue.length)?'offline':'online'}">${Number(metrics?.overdueStatementCount??overdue.length)} vencido(s)</span><span class="status-pill ${Number(metrics?.salesHoldCount??held.length)?'offline':'online'}">${Number(metrics?.salesHoldCount??held.length)} hold(s)</span></div></div>
     ${paymentIngress?`<div class="card flat" style="margin-bottom:16px"><div class="section-head"><div><h3>Entrada Pix / PSP</h3><p>Configuração e disponibilidade real são estados diferentes. O painel só chama o PSP ativo de validado após uma consulta autenticada; segredos nunca saem do ambiente server-side.</p></div><span class="status-pill ${pspBadgeClass}">${esc(pspBadgeLabel)}</span></div>
-      <div class="tiny muted">Contrato técnico: ${esc(paymentIngress.contract||'—')} • secrets válidos: ${Number(paymentIngress.providerCount||0)}${Array.isArray(paymentIngress.providers)&&paymentIngress.providers.length?' • '+paymentIngress.providers.map(esc).join(', '):''}</div>
+      <div class="tiny muted">Contrato HMAC normalizado: ${esc(paymentIngress.contract||'—')} • provedores configurados nesse contrato: ${Number(paymentIngress.providerCount||0)}${Array.isArray(paymentIngress.providers)&&paymentIngress.providers.length?' • '+paymentIngress.providers.map(esc).join(', '):''}</div>
       <div class="tiny muted">Adaptadores nativos de PSP ativos: ${Number(paymentIngress.liveProviderCount||0)}${Array.isArray(paymentIngress.liveProviders)&&paymentIngress.liveProviders.length?' • '+paymentIngress.liveProviders.map(esc).join(', '):''}</div>
       <div class="tiny muted">PSP ativo: <strong>${esc(paymentIngress.activeBillingProvider||'—')}</strong></div>
       ${paymentIngress.adapterReadiness?.mercadopago?`<div class="tiny muted">Mercado Pago: adaptador ${paymentIngress.adapterReadiness.mercadopago.implemented?'implementado':'ausente'} • Access Token ${paymentIngress.adapterReadiness.mercadopago.accessTokenConfigured?'configurado':'pendente'} • webhook HMAC ${paymentIngress.adapterReadiness.mercadopago.webhookSecretConfigured?'configurado':'pendente'} • cobrança ${paymentIngress.adapterReadiness.mercadopago.chargeReady?'pronta':'pendente'} • recebimento ${paymentIngress.adapterReadiness.mercadopago.receiveReady?'pronto':'pendente'}</div>`:''}
       ${paymentIngress.liveEndpoints?.mercadopago?`<div class="tiny muted">Webhook Mercado Pago único (Order): ${esc(paymentIngress.liveEndpoints.mercadopago)}</div>`:''}
       ${paymentIngress.adapterReadiness?.woovi?`<div class="tiny muted">Woovi/OpenPix: adaptador ${paymentIngress.adapterReadiness.woovi.implemented?'implementado':'ausente'} • webhook ${paymentIngress.adapterReadiness.woovi.receiveReady?'pronto':'pendente'} • criação de cobrança ${paymentIngress.adapterReadiness.woovi.chargeReady?'pronta':'pendente'} • App ID ${paymentIngress.adapterReadiness.woovi.appIdConfigured?'configurado':'pendente'} • token privado ${paymentIngress.adapterReadiness.woovi.webhookAuthorizationConfigured?'configurado':'pendente'} • vínculo da empresa ${paymentIngress.adapterReadiness.woovi.companyBound?'configurado':'pendente'} • ambiente ${esc(paymentIngress.adapterReadiness.woovi.environment||'—')} • assinatura ${esc(paymentIngress.adapterReadiness.woovi.signature||'—')}</div>`:''}
       ${paymentIngress.liveEndpoints?.woovi?`<div class="tiny muted">Webhook Woovi: ${esc(paymentIngress.liveEndpoints.woovi)}</div>`:''}
-      ${paymentIngress.liveEndpoints?.merchantPix?`<div class="tiny muted">Geração Pix da revenda: ${esc(paymentIngress.liveEndpoints.merchantPix)}</div>`:''}
+      ${paymentIngress.liveEndpoints?.merchantPix?`<div class="tiny muted">Pix de cobrança TAMÃO → revenda: ${esc(paymentIngress.liveEndpoints.merchantPix)}</div>`:''}
       ${paymentIngress.endpoint?`<div class="tiny muted">Ingress normalizado: ${esc(paymentIngress.endpoint)}</div>`:''}
       <div style="margin-top:10px"><button class="secondary small" onclick="adminCheckBillingProviderHealth()" ${adminRuntime.providerHealthPending?'disabled':''}>${adminRuntime.providerHealthPending?'Testando conexão…':'Testar PSP ativo'}</button></div>
       ${adminBillingProviderHealthNotice(providerHealth)}
       ${paymentIngress.configValid===false
         ?`<div class="notice danger" style="margin-top:10px"><strong>Configuração de webhook inválida.</strong><br>O mapa BILLING_PAYMENT_WEBHOOK_SECRETS não pôde ser validado. Nenhum recebimento automático deve ser considerado pronto.</div>`
-        :pspValidated
-          ?`<div class="notice success" style="margin-top:10px"><strong>PSP validado em tempo real.</strong><br>A credencial do PSP ativo respondeu e os gates de cobrança + webhook estão configurados. O TAMÃO continua exigindo correlação, valor e evidência exatos antes de movimentar o financeiro.</div>`
+        :pspE2E.validated
+          ?`<div class="notice success" style="margin-top:10px"><strong>PSP validado de ponta a ponta.</strong><br>Além da API, já existe evidência de webhook financeiro real conciliado. O TAMÃO continua exigindo correlação, valor e evidência exatos antes de movimentar o financeiro.</div>`
+          :pspApiValidated
+            ?`<div class="notice success" style="margin-top:10px"><strong>API do PSP validada; E2E financeiro ainda pendente.</strong><br>A credencial respondeu e os gates locais de cobrança + webhook estão configurados. O selo E2E só será concedido após um pagamento real gerar webhook e conciliação válidos.</div>`
           :paymentIngress.livePspReady
             ?`<div class="notice" style="margin-top:10px"><strong>PSP configurado; prova real ainda pendente.</strong><br>Os requisitos server-side existem, mas presença de secret não comprova a credencial ou o webhook do PSP ativo. Use “Testar PSP ativo”.</div>`
             :paymentIngress.normalizedIngressConfigured
@@ -1970,9 +2033,9 @@ function adminCommercialPolicySection(d){
   const headroom=Math.max(0,fee-variable-contribution-rewards);
   const per100=(bps)=>adminMoney(Math.floor(10000*Number(bps||0)/10000));
   return `<section class="section">
-    <div class="section-head"><div><span class="section-kicker">ECONOMIA E INCENTIVOS</span><h2>Política comercial</h2><p>As alterações são snapshotadas somente em pedidos novos. Pedidos existentes preservam a regra vigente quando foram criados.</p></div><span class="status-pill ${p.active?'online':'offline'}">V${Number(p.policy_version||1)} • ${p.active?'ATIVA':'INATIVA'}</span></div>
+    <div class="section-head"><div><span class="section-kicker">ECONOMIA GLOBAL E INCENTIVOS</span><h2>Política econômica</h2><p>Custos, contribuição mínima, cashback e indicação são globais. Para revendas reais, a taxa efetiva TAMÃO vem do plano de cobrança da revenda; o percentual global abaixo é apenas fallback/compatibilidade. Pedidos existentes preservam o snapshot vigente quando foram criados.</p></div><span class="status-pill ${p.active?'online':'offline'}">V${Number(p.policy_version||1)} • ${p.active?'ATIVA':'INATIVA'}</span></div>
     <div class="merchant-kpis">
-      <div class="kpi"><span class="label">Taxa TAMÃO</span><strong>${adminBpsPct(fee)}%</strong><small>${per100(fee)} por R$ 100</small></div>
+      <div class="kpi"><span class="label">Taxa global de fallback</span><strong>${adminBpsPct(fee)}%</strong><small>não substitui a taxa do plano da revenda</small></div>
       <div class="kpi"><span class="label">Reserva variável</span><strong>${adminBpsPct(variable)}%</strong><small>${per100(variable)} por R$ 100</small></div>
       <div class="kpi"><span class="label">Contribuição mínima</span><strong>${adminBpsPct(contribution)}%</strong><small>${per100(contribution)} por R$ 100</small></div>
       <div class="kpi"><span class="label">Cashback</span><strong>${adminBpsPct(cashback)}%</strong><small>${per100(cashback)} por R$ 100</small></div>
@@ -1982,7 +2045,7 @@ function adminCommercialPolicySection(d){
     <div class="card flat form-stack" style="margin-top:12px">
       <label class="check-row"><input id="policy-active" type="checkbox" ${p.active?'checked':''} onchange="adminPreviewCommercialPolicy()"><span><strong>Política ativa para novos pedidos</strong><small>Desativar durante PILOT/LIVE é bloqueado pelo servidor; pause a operação primeiro.</small></span></label>
       <div class="field-row">
-        <div class="input-wrap"><label for="policy-fee">Taxa TAMÃO (%)</label><input id="policy-fee" type="number" min="0" max="50" step="0.05" class="input" value="${adminBpsPct(fee)}" oninput="adminPreviewCommercialPolicy()"></div>
+        <div class="input-wrap"><label for="policy-fee">Taxa fallback/legado (%)</label><input id="policy-fee" type="number" min="0" max="50" step="0.05" class="input" value="${adminBpsPct(fee)}" oninput="adminPreviewCommercialPolicy()"></div>
         <div class="input-wrap"><label for="policy-variable">Reserva de custo (%)</label><input id="policy-variable" type="number" min="0" max="50" step="0.05" class="input" value="${adminBpsPct(variable)}" oninput="adminPreviewCommercialPolicy()"></div>
       </div>
       <div class="field-row">
@@ -2043,6 +2106,21 @@ function adminPage(){
   const openFees=receivables.reduce((s,x)=>s+Number(x.platform_fee_cents||0),0);
   const openCashback=reimbursements.reduce((s,x)=>s+Number(x.cashback_cents||0),0);
   const openAdjustments=adjustments.reduce((s,x)=>s+Number(x.amount_cents||0),0);
+  const billing=d.merchantBilling||{};
+  const actionableFinanceCount=
+    pendingReferralReviews.length
+    +deadRewardFailures.length
+    +deadAccountingFailures.length
+    +(billing.paymentRequests||[]).filter(x=>x.status==='pending').length
+    +(billing.paymentEvents||[]).filter(x=>x.status==='review_required').length
+    +(billing.refunds||[]).filter(x=>x.status==='review_required').length
+    +(billing.statements||[]).filter(x=>x.status==='overdue').length
+    +(billing.accounts||[]).filter(x=>x.sales_hold===true).length;
+  const activeOrderAttention=controlOrders.filter(x=>['AT_RISK','REASSIGNING','REQUOTE_REQUIRED'].includes(x.status)||adminOrderIsLate(x)).length;
+  const partnerAttention=pending.length+pilotPartners.filter(x=>!['cancelled','converted'].includes(String(x.onboarding_status||''))).length;
+  const incidentAttention=(d.incidents||[]).filter(x=>x.status!=='resolved').length;
+  const securityAttention=(d.launchReadiness?.securityBlockers||[]).length;
+  const badge=(n)=>Number(n)>0?String(Number(n)):'';
 
   const overviewContent=`
     ${adminAttentionCenter(d)}
@@ -2119,14 +2197,14 @@ function adminPage(){
     <nav class="admin-sidebar" aria-label="Áreas administrativas">
       <div class="admin-nav-title">Painel</div>
       ${adminMenuButton('overview','Visão geral','⌂')}
-      ${adminMenuButton('orders','Pedidos','▣',controlOrders.length+openSupportCases.length)}
-      ${adminMenuButton('customers','Clientes','◎',adminRecentCustomers(d).length)}
-      ${adminMenuButton('partners','Parceiros','◇',pending.length+pilotPartners.filter(x=>x.onboarding_status!=='cancelled').length)}
+      ${adminMenuButton('orders','Pedidos','▣',badge(activeOrderAttention+openSupportCases.length))}
+      ${adminMenuButton('customers','Clientes','◎')}
+      ${adminMenuButton('partners','Parceiros','◇',badge(partnerAttention))}
       ${adminMenuButton('catalog','Catálogo','▤')}
-      ${adminMenuButton('finance','Financeiro','₿',pendingReferralReviews.length+deadRewardFailures.length+deadAccountingFailures.length)}
-      ${adminMenuButton('incidents','Incidentes','!',(d.incidents||[]).filter(x=>x.status!=='resolved').length)}
+      ${adminMenuButton('finance','Financeiro','₿',badge(actionableFinanceCount))}
+      ${adminMenuButton('incidents','Incidentes','!',badge(incidentAttention))}
       ${adminMenuButton('audit','Auditoria','⌕')}
-      ${adminMenuButton('system','Segurança e sistema','⚙',platformAdmins.filter(x=>x.active).length)}
+      ${adminMenuButton('system','Segurança e sistema','⚙',badge(securityAttention))}
     </nav>`;
 
   return shell(`<section class="page admin-page">
@@ -2335,6 +2413,10 @@ async function adminConfirmLaunchRequirement(requirementKey){
     toast('Decisão registrada na auditoria');
   }catch(e){toast(String(e?.message||e))}
 }
+function adminRequireTypedConfirmation(expected,message){
+  const value=prompt(message+'\n\nDigite exatamente: '+expected);
+  return value===expected;
+}
 async function adminSetOperationMode(mode){
   const target=String(mode||'').toUpperCase();
   const labels={PRELAUNCH:'voltar ao pré-lançamento',PILOT:'ativar a operação piloto',LIVE:'ativar a operação normal',PAUSED:'pausar novos pedidos'};
@@ -2349,6 +2431,7 @@ async function adminSetOperationMode(mode){
         ?'Ativar PILOT agora? Pedidos reais serão permitidos em operação controlada.'
         :'Voltar a PRELAUNCH? Novos pedidos reais ficarão bloqueados.';
   if(!confirm(confirmText))return;
+  if(target==='LIVE'&&!adminRequireTypedConfirmation('ATIVAR LIVE','Confirmação reforçada para liberar operação normal.'))return toast('Ativação LIVE cancelada');
   try{
     await adminPerform('set-operation-mode',{mode:target,reason});
     toast('Modo operacional atualizado para '+target);
@@ -2570,6 +2653,7 @@ async function adminChangePlatformAdminRole(targetUserId){
   const role=document.getElementById('admin-role-'+targetUserId)?.value||current.admin_role;
   if(role===current.admin_role)return toast('O perfil já está selecionado');
   if(!confirm('Alterar o perfil deste administrador para '+adminRoleLabel(role)+'?'))return;
+  if(role==='superadmin'&&!adminRequireTypedConfirmation('SUPERADMIN','Elevar uma conta a Superadmin concede autoridade máxima sobre o control plane.'))return toast('Alteração cancelada');
   return adminSetPlatformAdmin(targetUserId,current.active,role);
 }
 async function adminAddPlatformAdmin(){
@@ -2773,6 +2857,7 @@ async function adminReverseOrder(){
   const reference=document.querySelector('#admin-reverse-ref')?.value.trim()||'';
   if(!orderId||reason.length<3)return toast('Informe pedido e motivo');
   if(!confirm('Esta ação estornará benefícios e recebíveis do pedido. Confirmar?'))return;
+  if(!adminRequireTypedConfirmation('ESTORNAR '+orderId,'Confirmação reforçada de reversão financeira.'))return toast('Reversão cancelada');
   try{
     await adminPerform('reverse-order',{orderId,reason,reference});
     toast('Reversão financeira registrada');
