@@ -91,7 +91,7 @@ function encryptionKey(){
   }
   return key;
 }
-async function sellerAccessToken(admin:any,merchantId:string,key:string){
+async function mercadoPagoSellerAccessToken(admin:any,merchantId:string,key:string){
   const {data,error}=await admin
     .from("merchant_payment_provider_accounts")
     .select("provider_account_id,status,access_token_ciphertext,access_token_nonce,token_expires_at,capabilities")
@@ -155,8 +155,13 @@ Deno.serve(async(req:Request)=>{
     const user=await authenticatedUser(req);
     const body=await readJsonBody(req);
     const orderId=String(body.orderId??"").trim();
+    const requestedRouteId=body.paymentRouteId==null
+      ?null:String(body.paymentRouteId).trim();
     if(!UUID_RE.test(orderId)){
       throw new DomainError("INVALID_ORDER","Pedido inválido.",400);
+    }
+    if(requestedRouteId&&!UUID_RE.test(requestedRouteId)){
+      throw new DomainError("INVALID_PAYMENT_ROUTE","Forma de pagamento inválida.",400);
     }
     const key=idempotencyKey(req);
     const admin=createClient(SUPABASE_URL,SECRET_KEY,{
@@ -168,15 +173,68 @@ Deno.serve(async(req:Request)=>{
       limit:15,
       windowSeconds:60
     });
+
+    const {data:orderAuthority,error:orderAuthorityError}=await admin
+      .from("orders")
+      .select("id,merchant_id,payment_method,customer_id")
+      .eq("id",orderId)
+      .eq("customer_id",user.id)
+      .maybeSingle();
+    if(orderAuthorityError)throw orderAuthorityError;
+    if(!orderAuthority?.merchant_id){
+      throw new DomainError("ORDER_NOT_FOUND","Pedido não encontrado.",404);
+    }
+
+    let routeQuery=admin
+      .from("merchant_payment_routes")
+      .select("id,merchant_id,payment_method,provider,connection_id,channel,verification_mode,active,priority")
+      .eq("merchant_id",orderAuthority.merchant_id)
+      .eq("active",true)
+      .in("verification_mode",["provider_api","device"]);
+    if(requestedRouteId){
+      routeQuery=routeQuery.eq("id",requestedRouteId);
+    }else if(orderAuthority.payment_method==="card"){
+      routeQuery=routeQuery.in("payment_method",["card","card_credit","card_debit"]);
+    }else{
+      routeQuery=routeQuery.eq("payment_method",orderAuthority.payment_method);
+    }
+    const {data:routeRows,error:routeError}=await routeQuery
+      .order("priority",{ascending:true})
+      .limit(10);
+    if(routeError)throw routeError;
+    const route=(routeRows??[])[0]??null;
+    if(!route){
+      throw new DomainError(
+        "NO_AUTOMATED_PAYMENT_ROUTE",
+        "Esta revenda aceita o pagamento, mas ainda não possui confirmação automática disponível para este meio.",
+        409
+      );
+    }
+
+    const {data:providerDefinition,error:providerDefinitionError}=await admin
+      .from("payment_provider_catalog")
+      .select("provider_key,display_name,adapter_status,connection_mode,verification_level")
+      .eq("provider_key",route.provider)
+      .maybeSingle();
+    if(providerDefinitionError)throw providerDefinitionError;
+    if(!providerDefinition||providerDefinition.adapter_status!=="implemented"){
+      throw new DomainError(
+        "PAYMENT_ADAPTER_NOT_IMPLEMENTED",
+        "Este provedor já está modelado no TAMÃO, mas o fluxo automático de venda ainda não foi homologado.",
+        409
+      );
+    }
+
     const requestHash=await requestFingerprint(
-      "merchant-sale-payment-checkout",
-      {orderId}
+      "merchant-sale-payment-checkout:v2",
+      {orderId,paymentRouteId:route.id,provider:route.provider}
     );
     const {data:prepared,error:prepareError}=await admin.rpc(
-      "prepare_merchant_sale_payment_attempt",
+      "prepare_merchant_sale_payment_attempt_v2",
       {
         p_actor_user_id:user.id,
         p_order_id:orderId,
+        p_payment_route_id:route.id,
         p_idempotency_key:key,
         p_request_hash:requestHash
       }
@@ -189,8 +247,11 @@ Deno.serve(async(req:Request)=>{
       if(message.includes("ORDER_NOT_PAYABLE")){
         throw new DomainError("ORDER_NOT_PAYABLE","O pedido ainda não pode receber pagamento online.",409);
       }
-      if(message.includes("ORDER_PAYMENT_METHOD_NOT_ONLINE")){
-        throw new DomainError("ORDER_PAYMENT_METHOD_NOT_ONLINE","Este pedido não usa pagamento online.",409);
+      if(message.includes("PAYMENT_ROUTE_NOT_AVAILABLE")||message.includes("ORDER_PAYMENT_ROUTE_MISMATCH")){
+        throw new DomainError("NO_AUTOMATED_PAYMENT_ROUTE","A rota automática escolhida não está disponível para este pedido.",409);
+      }
+      if(message.includes("PAYMENT_ROUTE_NOT_AUTOMATED")||message.includes("PAYMENT_ROUTE_CONNECTION_REQUIRED")){
+        throw new DomainError("NO_AUTOMATED_PAYMENT_ROUTE","Esta forma de pagamento exige confirmação manual ou uma conexão ativa.",409);
       }
       if(message.includes("MERCHANT_DIRECT_PAYMENT_NOT_ENABLED")){
         throw new DomainError("MERCHANT_DIRECT_PAYMENT_NOT_ENABLED","Esta revenda ainda não habilitou pagamento online direto.",409);
@@ -235,8 +296,16 @@ Deno.serve(async(req:Request)=>{
       },200,origin);
     }
 
+    const providerKey=String(prepared?.provider??"").trim().toLowerCase();
+    if(providerKey!=="mercadopago"){
+      throw new DomainError(
+        "PAYMENT_ADAPTER_NOT_IMPLEMENTED",
+        "O adaptador deste provedor ainda não está homologado para checkout automático.",
+        409
+      );
+    }
     const secret=encryptionKey();
-    const seller=await sellerAccessToken(admin,merchantId,secret);
+    const seller=await mercadoPagoSellerAccessToken(admin,merchantId,secret);
     const {data:orderMeta,error:orderError}=await admin
       .from("orders")
       .select("public_code,supplier_name_snapshot")
@@ -317,7 +386,10 @@ Deno.serve(async(req:Request)=>{
       ok:true,
       attemptId,
       orderId,
-      provider:"mercadopago",
+      provider:providerKey,
+      paymentRouteId:prepared?.paymentRouteId??route.id,
+      verificationLevel:prepared?.verificationLevel??providerDefinition.verification_level,
+      fundsOwner:"merchant",
       status:committed?.status??"checkout_ready",
       checkoutUrl:committed?.checkoutUrl??checkoutUrl,
       expiresAt:committed?.expiresAt??expiresAt,
