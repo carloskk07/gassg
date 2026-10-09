@@ -86,19 +86,19 @@ if(pix.status===503&&pix.body?.error==='PIX_PROVIDER_NOT_CONFIGURED'){
   accessTokenConfigured=true;
 }
 
-// The public webhook validates server-side provider configuration before the
-// signature. An unsigned empty request is therefore a safe presence probe:
-// 503 means token/secret incomplete; 401 proves both presence gates passed.
+// The unified public webhook needs only its HMAC secret before signature
+// verification. A syntactically valid fake order ID with no signature is a
+// safe secret-presence probe and cannot reach provider lookup or the database.
 const webhook=await jsonPost('/functions/v1/billing-payment-webhook-mercadopago',{
-  body:{}
+  body:{type:'order',data:{id:'readiness-probe-order'}}
 });
-if(webhook.status===503&&webhook.body?.error==='MERCADOPAGO_ADAPTER_NOT_CONFIGURED'){
-  problems.push('MERCADOPAGO_ACCESS_TOKEN e/ou MERCADOPAGO_WEBHOOK_SECRET ausentes/inválidos');
+if(webhook.status===503&&webhook.body?.error==='MERCADOPAGO_WEBHOOK_NOT_CONFIGURED'){
+  problems.push('MERCADOPAGO_WEBHOOK_SECRET ausente/inválido');
 }else{
   assert.equal(
     webhook.status,
     401,
-    'webhook Mercado Pago precisa alcançar validação HMAC após gate de configuração'
+    'webhook Mercado Pago precisa alcançar validação HMAC após gate do segredo'
   );
   assert.equal(
     webhook.body?.error,
