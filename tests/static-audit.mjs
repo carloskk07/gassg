@@ -376,9 +376,10 @@ assert.ok(
   'probe Pix precisa distinguir credencial Mercado Pago ausente de autenticação de usuário ausente'
 );
 assert.ok(
-  remoteFinancePspReadiness.includes('MERCADOPAGO_ADAPTER_NOT_CONFIGURED')
-  &&remoteFinancePspReadiness.includes('INVALID_MERCADOPAGO_SIGNATURE'),
-  'probe webhook precisa provar token + segredo HMAC presentes sem conhecer seus valores'
+  remoteFinancePspReadiness.includes('MERCADOPAGO_WEBHOOK_NOT_CONFIGURED')
+  &&remoteFinancePspReadiness.includes('INVALID_MERCADOPAGO_SIGNATURE')
+  &&remoteFinancePspReadiness.includes("id:'readiness-probe-order'"),
+  'probe webhook precisa provar o segredo HMAC sem conhecer seu valor nem consultar uma order real'
 );
 assert.ok(remoteFinancePspReadiness.includes('secretsExposed:false'),'gate PSP precisa afirmar explicitamente que nenhum valor secreto é emitido');
 assert.ok(
@@ -387,8 +388,8 @@ assert.ok(
   'gate PSP precisa acumular diagnóstico do Access Token sem abortar antes do webhook'
 );
 assert.ok(
-  remoteFinancePspReadiness.includes("problems.push('MERCADOPAGO_ACCESS_TOKEN e/ou MERCADOPAGO_WEBHOOK_SECRET ausentes/inválidos')"),
-  'gate PSP precisa acumular diagnóstico do adapter assinado na mesma execução'
+  remoteFinancePspReadiness.includes("problems.push('MERCADOPAGO_WEBHOOK_SECRET ausente/inválido')"),
+  'gate PSP precisa diagnosticar Access Token e segredo de webhook separadamente'
 );
 assert.ok(
   remoteFinancePspReadiness.includes("'Mercado Pago PSP runtime incompleto: '+problems.join('; ')"),
@@ -628,7 +629,22 @@ const billingPaymentWebhookSource=read('supabase/functions/billing-payment-webho
 const wooviPaymentWebhookSource=read('supabase/functions/billing-payment-webhook-woovi/index.ts');
 const mercadoPagoPaymentWebhookSource=read('supabase/functions/billing-payment-webhook-mercadopago/index.ts');
 const mercadoPagoSharedSource=read('supabase/functions/_shared/mercadopago.js');
+const paymentSecretsSource=read('supabase/functions/_shared/payment-secrets.js');
+const merchantSalePaymentControlSource=read('supabase/functions/_shared/merchant-sale-payment-control.js');
+const merchantPaymentConnectSource=read('supabase/functions/merchant-payment-connect/index.ts');
+const merchantPaymentOauthCallbackSource=read('supabase/functions/merchant-payment-oauth-callback/index.ts');
+const orderPaymentCheckoutSource=read('supabase/functions/order-payment-checkout/index.ts');
+const completeDeliveryPaymentSource=read('supabase/functions/complete-delivery/index.ts');
+const customerActionPaymentSource=read('supabase/functions/customer-action/index.ts');
+const merchantActionPaymentSource=read('supabase/functions/merchant-action/index.ts');
+const getOrderPaymentSource=read('supabase/functions/get-order/index.ts');
 const merchantBillingPixSource=read('supabase/functions/merchant-billing-pix/index.ts');
+const mercadoPagoPaymentBoundaryMigration=read('supabase/migrations/20261009003357_mercadopago_payment_boundary_v1_121.sql');
+const merchantPaymentOauthMigration=read('supabase/migrations/20261009004250_merchant_payment_oauth_authority_v1_122.sql');
+const merchantSalePaymentAuthorityMigration=read('supabase/migrations/20261009004636_merchant_sale_payment_authority_v1_123.sql');
+const merchantSalePaymentOrderGuardMigration=read('supabase/migrations/20261009005043_merchant_sale_payment_order_guard_v1_125.sql');
+const merchantSalePaymentReleaseMigration=read('supabase/migrations/20261009005411_merchant_sale_payment_release_serialization_v1_127.sql');
+const merchantPaymentCapabilityMigration=read('supabase/migrations/20261009005938_admin_merchant_payment_capability_v1_129.sql');
 assert.ok(merchantBillingIndexes.includes('merchant_billing_accounts_plan_key_idx')&&merchantBillingIndexes.includes('merchant_daily_statements_resolved_by_idx')&&merchantBillingIndexes.includes('merchant_fee_credit_ledger_created_by_idx')&&merchantBillingIndexes.includes('merchant_fee_credit_ledger_order_id_idx')&&merchantBillingIndexes.includes('merchant_fee_credit_ledger_plan_key_idx'),'billing v1.72 precisa cobrir as FKs apontadas pelo advisor do banco');
 assert.ok(merchantBillingMigration.includes("'flex_daily','Flex Diário','postpaid_daily',850")&&merchantBillingMigration.includes("'credit_3000','Crédito 3.000','prepaid_credit',650"),'billing v1.72 precisa manter Flex premium e pacotes pré-pagos com desconto progressivo');
 assert.ok(merchantBillingMigration.includes('BILLING_PLAN_BELOW_ECONOMIC_FLOOR')&&merchantBillingMigration.includes('variable_cost_bps')&&merchantBillingMigration.includes('minimum_contribution_bps'),'pacotes não podem cair abaixo do piso econômico completo');
@@ -850,12 +866,88 @@ assert.ok(
 );
 assert.ok(
   mercadoPagoPaymentWebhookSource.includes('verifyMercadoPagoWebhook')
-  &&mercadoPagoPaymentWebhookSource.includes('"/v1/orders/"')
-  &&mercadoPagoPaymentWebhookSource.includes('FOREIGN_ORDER_REFERENCE')
+  &&mercadoPagoPaymentWebhookSource.includes('merchant_sale_payment_attempts')
+  &&mercadoPagoPaymentWebhookSource.includes('decryptPaymentSecret')
+  &&mercadoPagoPaymentWebhookSource.includes('apply_merchant_sale_payment_event')
   &&mercadoPagoPaymentWebhookSource.includes('ingest_merchant_billing_payment_event')
-  &&mercadoPagoPaymentWebhookSource.includes('ingest_merchant_billing_payment_refund'),
-  'webhook Mercado Pago precisa autenticar, reconsultar a order e reconciliar somente cobranças TAMÃO'
+  &&mercadoPagoPaymentWebhookSource.includes('ingest_merchant_billing_payment_refund')
+  &&mercadoPagoPaymentWebhookSource.includes('route:"merchant_sale"')
+  &&mercadoPagoPaymentWebhookSource.includes('route:"platform_billing"'),
+  'um único webhook Mercado Pago precisa autenticar e rotear separadamente venda da revenda e receita TAMÃO'
 );
+assert.ok(
+  mercadoPagoPaymentWebhookSource.includes('providerUserId!==providerAccountId')
+  &&mercadoPagoPaymentWebhookSource.includes('MERCADOPAGO_ORDER_ROUTE_NOT_READY')
+  &&!functionConfig.includes('[functions.merchant-sale-payment-webhook-mercadopago]'),
+  'ingresso Mercado Pago precisa vincular seller exato, preservar retry na corrida e manter uma única URL Order'
+);
+assert.ok(
+  merchantPaymentConnectSource.includes('merchant_payment_oauth_states')
+  &&merchantPaymentConnectSource.includes('code_challenge_method","S256"')
+  &&merchantPaymentConnectSource.includes('encryptPaymentSecret')
+  &&merchantPaymentConnectSource.includes('https://auth.mercadopago.com/authorization'),
+  'OAuth de revenda precisa usar state de uso único, PKCE S256 e verifier criptografado'
+);
+assert.ok(
+  merchantPaymentOauthCallbackSource.includes('consume_merchant_payment_oauth_state')
+  &&merchantPaymentOauthCallbackSource.includes('https://api.mercadopago.com/oauth/token')
+  &&merchantPaymentOauthCallbackSource.includes('https://api.mercadolibre.com/users/me')
+  &&merchantPaymentOauthCallbackSource.includes('directSalePaymentsEnabled:false'),
+  'callback OAuth precisa consumir state uma vez, validar seller e nascer com pagamento direto desativado'
+);
+assert.ok(
+  paymentSecretsSource.includes('AES-GCM')
+  &&paymentSecretsSource.includes('bytes.length!==32')
+  &&paymentSecretsSource.includes('additionalData'),
+  'tokens de sellers precisam permanecer criptografados com chave de 256 bits e AAD contextual'
+);
+assert.ok(
+  orderPaymentCheckoutSource.includes('MERCHANT_DIRECT_PAYMENTS_ENABLED')
+  &&orderPaymentCheckoutSource.includes('directSalePaymentsEnabled')
+  &&orderPaymentCheckoutSource.includes('prepare_merchant_sale_payment_attempt')
+  &&orderPaymentCheckoutSource.includes('processing_mode:"manual"')
+  &&orderPaymentCheckoutSource.includes('providerUserId!==seller.providerAccountId')
+  &&!orderPaymentCheckoutSource.includes('marketplace_fee')
+  &&orderPaymentCheckoutSource.includes('tamaoReceivesSaleProceeds:false'),
+  'checkout direto precisa ter dois gates, seller exato, valor autoritativo e nenhuma comissão/split na fase PF'
+);
+assert.ok(
+  merchantSalePaymentControlSource.includes('"/refund"')
+  &&merchantSalePaymentControlSource.includes('"/cancel"')
+  &&merchantSalePaymentControlSource.includes('released_for_order_change_at')
+  &&customerActionPaymentSource.includes('releaseMerchantSalePaymentBeforeOrderChange')
+  &&merchantActionPaymentSource.includes('releaseMerchantSalePaymentBeforeOrderChange'),
+  'cancelamento/rematching só pode ocorrer depois de cancelar ou reembolsar a order no PSP'
+);
+assert.ok(
+  completeDeliveryPaymentSource.includes('p_payment_confirmed_by_merchant')
+  &&completeDeliveryPaymentSource.includes('SALE_PAYMENT_STILL_PENDING')
+  &&merchantSalePaymentOrderGuardMigration.includes('SALE_PAYMENT_CANCEL_OR_REFUND_REQUIRED')
+  &&merchantSalePaymentReleaseMigration.includes('SALE_PAYMENT_ORDER_CHANGE_PENDING'),
+  'entrega e mutações do pedido precisam respeitar evidência PSP e barreira de serialização financeira'
+);
+assert.ok(
+  getOrderPaymentSource.includes('MERCHANT_DIRECT_PAYMENTS_ENABLED')
+  &&getOrderPaymentSource.includes('tamaoReceivesSaleProceeds:false')
+  &&backend.includes('liveStartMerchantPayment')
+  &&merchant.includes('Conectar Mercado Pago'),
+  'portais precisam expor apenas estado seguro e deixar explícito que a venda não passa pelo TAMÃO'
+);
+assert.ok(
+  mercadoPagoPaymentBoundaryMigration.includes('merchant_payment_provider_accounts')
+  &&mercadoPagoPaymentBoundaryMigration.includes('merchant_sale_payment_attempts')
+  &&merchantPaymentOauthMigration.includes('consume_merchant_payment_oauth_state')
+  &&merchantSalePaymentAuthorityMigration.includes('apply_merchant_sale_payment_event')
+  &&merchantPaymentCapabilityMigration.includes('admin_merchant_payment_capability_action'),
+  'migrations versionadas precisam reconstruir conexão OAuth, venda direta e homologação administrativa'
+);
+assert.ok(
+  adminOpsSource.includes('"merchant-payment-capability"')
+  &&adminOpsSource.includes('MERCHANT_PAYMENT_RUNTIME_NOT_READY')
+  &&merchantPaymentCapabilityMigration.includes("v_role not in ('superadmin','finance')"),
+  'somente Financeiro/Superadmin pode homologar pagamento direto e somente com runtime seguro'
+);
+
 assert.ok(
   merchantBillingPixSource.includes('WOOVI_APP_ID')
   &&merchantBillingPixSource.includes('getWooviCharge(')
