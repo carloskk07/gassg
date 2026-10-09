@@ -1800,9 +1800,19 @@ function adminBillingProviderChargeRow(charge){
 
 function adminBillingProviderName(value){
   const provider=String(value||'').trim().toLowerCase();
-  if(provider==='mercadopago')return 'Mercado Pago';
-  if(provider==='woovi')return 'Woovi/OpenPix';
-  return provider?provider:'PSP ativo';
+  return ({
+    mercadopago:'Mercado Pago',
+    pagbank:'PagBank',
+    stone:'Stone',
+    getnet:'Getnet',
+    pagarme:'Pagar.me',
+    asaas:'Asaas',
+    cielo:'Cielo',
+    rede:'Rede',
+    woovi:'Woovi/OpenPix',
+    nubank:'Nu Empresas',
+    manual:'Sem integração automática'
+  })[provider]||(provider||'PSP ativo');
 }
 function adminBillingProviderCredentialLabel(value){
   return String(value||'').trim().toLowerCase()==='mercadopago'?'Access Token':'credencial API';
@@ -1843,38 +1853,82 @@ function adminBillingProviderHealthNotice(h){
   return '<div class="notice '+(ok?'success':'danger')+'" style="margin-top:10px"><strong>'+(ok?'API '+provider+' validada.':'Teste real '+provider+' requer atenção.')+'</strong><br>'+detail+e2eCopy+'</div>';
 }
 
-function adminMerchantPaymentAccountCard(merchant){
-  const account=merchant?.paymentAccount||null;
+function adminMerchantPaymentAdapterLabel(status){
+  return ({
+    implemented:'IMPLEMENTADO',
+    ready_for_credentials:'PREPARADO',
+    manual_only:'MANUAL',
+    planned:'PLANEJADO'
+  })[String(status||'')]||String(status||'—').toUpperCase();
+}
+function adminMerchantPaymentVerificationLabel(value){
+  return ({
+    provider:'PROVEDOR',
+    device:'TERMINAL',
+    merchant:'MANUAL'
+  })[String(value||'')]||String(value||'—').toUpperCase();
+}
+function adminMerchantPaymentAccountCard({merchant,account}){
+  const provider=String(account?.provider||'').toLowerCase();
+  const providerName=adminBillingProviderName(provider);
+  const catalog=(adminRuntime.data?.merchantPayments?.providerCatalog||[])
+    .find(x=>x.provider_key===provider)||null;
   const connected=account?.status==='active';
   const directEnabled=account?.capabilities?.directSalePaymentsEnabled===true;
   const globalEnabled=adminRuntime.data?.merchantPayments?.globalDirectPaymentsEnabled===true;
   const accountRef=String(account?.provider_account_id||'');
   const safeAccountRef=accountRef?('•••• '+accountRef.slice(-6)):'—';
-  const statusLabel=!connected?'NÃO CONECTADO':directEnabled?'HOMOLOGADO':'AGUARDA HOMOLOGAÇÃO';
+  const adapterImplemented=catalog?.adapter_status==='implemented';
+  const statusLabel=!connected
+    ?String(account?.status||'NÃO CONECTADO').toUpperCase()
+    :directEnabled?'HOMOLOGADO'
+      :adapterImplemented?'AGUARDA HOMOLOGAÇÃO':'CONECTADO';
   const statusClass=directEnabled&&globalEnabled?'online':connected?'risk':'';
   let notice='';
   if(!connected){
-    notice='<div class="notice" style="margin-top:8px">A revenda ainda não concluiu a autorização OAuth do próprio Mercado Pago.</div>';
+    notice='<div class="notice" style="margin-top:8px">A conexão deste provedor não está ativa.</div>';
   }else if(directEnabled){
-    notice='<div class="notice success" style="margin-top:8px"><strong>Revenda homologada.</strong><br>A plataforma pode validar pagamentos feitos diretamente na conta desta revenda. O TAMÃO não recebe nem repassa o valor da venda.</div>';
+    notice='<div class="notice success" style="margin-top:8px"><strong>Conexão homologada.</strong><br>O TAMÃO pode verificar transações neste provedor, mas o dinheiro continua indo diretamente para a revenda.</div>';
+  }else if(adapterImplemented){
+    notice='<div class="notice" style="margin-top:8px"><strong>Conta conectada, confirmação automática bloqueada.</strong><br>É necessária homologação E2E desta revenda/provedor antes de habilitar a rota automática.</div>';
   }else{
-    notice='<div class="notice" style="margin-top:8px"><strong>Conta conectada, venda direta bloqueada.</strong><br>Valide a integração real desta revenda antes de homologar pagamentos online.</div>';
+    notice='<div class="notice" style="margin-top:8px"><strong>Conta conectada; adaptador de venda ainda não homologado.</strong><br>A conexão pode ser preparada sem liberar pagamentos automáticos ao cliente.</div>';
   }
-  const action=connected
-    ?'<div class="order-actions"><button class="'+(directEnabled?'danger-btn':'secondary')+' small" onclick="adminSetMerchantPaymentCapability(\''+esc(merchant.id)+'\','+(directEnabled?'false':'true')+')">'+(directEnabled?'Suspender pagamentos diretos':'Homologar pagamentos diretos')+'</button></div>'
+  const action=connected&&adapterImplemented
+    ?'<div class="order-actions"><button class="'+(directEnabled?'danger-btn':'secondary')+' small" onclick="adminSetMerchantPaymentCapability(\''+esc(merchant.id)+'\',\''+esc(provider)+'\','+(directEnabled?'false':'true')+')">'+(directEnabled?'Suspender confirmação automática':'Homologar confirmação automática')+'</button></div>'
     :'';
   return '<article class="order-card">'
-    +'<div class="order-head"><div><div class="order-id">'+esc(merchant?.name||merchant?.id||'Revenda')+'</div><div class="tiny muted">Mercado Pago • conta '+esc(safeAccountRef)+'</div></div><span class="status-pill '+statusClass+'">'+esc(statusLabel)+'</span></div>'
+    +'<div class="order-head"><div><div class="order-id">'+esc(merchant?.name||merchant?.id||'Revenda')+'</div><div class="tiny muted">'+esc(providerName)+' • conta '+esc(safeAccountRef)+'</div></div><span class="status-pill '+statusClass+'">'+esc(statusLabel)+'</span></div>'
     +notice
-    +'<div class="tiny muted" style="margin-top:8px">Kill switch global: <strong>'+(globalEnabled?'ATIVO':'DESATIVADO')+'</strong> • conexão: '+esc(account?.status||'not_connected')+(account?.connected_at?' • desde '+esc(formatDateTime(account.connected_at)):'')+'</div>'
+    +'<div class="tiny muted" style="margin-top:8px">Verificação: <strong>'+esc(adminMerchantPaymentVerificationLabel(account?.verification_level||catalog?.verification_level))+'</strong> • adaptador: '+esc(adminMerchantPaymentAdapterLabel(catalog?.adapter_status))+' • kill switch global: <strong>'+(globalEnabled?'ATIVO':'DESATIVADO')+'</strong>'+(account?.connected_at?' • desde '+esc(formatDateTime(account.connected_at)):'')+'</div>'
     +action
     +'</article>';
 }
+function adminMerchantPaymentProviderCatalog(d){
+  const providers=(d.merchantPayments?.providerCatalog||[]).filter(x=>x.provider_key!=='manual');
+  if(!providers.length)return '';
+  return '<div class="admin-entity-grid admin-provider-catalog">'
+    +providers.map(provider=>{
+      const implemented=provider.adapter_status==='implemented';
+      const prepared=provider.adapter_status==='ready_for_credentials';
+      const cls=implemented?'online':prepared?'risk':'';
+      return '<article class="card flat"><div class="order-head"><div><strong>'+esc(provider.display_name)+'</strong><br><small>'+esc(adminMerchantPaymentVerificationLabel(provider.verification_level))+' • '+esc(String(provider.connection_mode||'').toUpperCase())+'</small></div><span class="status-pill '+cls+'">'+esc(adminMerchantPaymentAdapterLabel(provider.adapter_status))+'</span></div><div class="tiny muted">Métodos: '+esc((provider.supported_methods||[]).join(' • ')||'—')+'</div></article>';
+    }).join('')
+    +'</div>';
+}
 function adminMerchantPaymentAccountsSection(d){
-  const rows=(d.merchants||[]).filter(m=>m.paymentAccount);
+  const merchants=d.merchants||[];
+  const rows=[];
+  for(const merchant of merchants){
+    for(const account of merchant.paymentAccounts||[]){
+      rows.push({merchant,account});
+    }
+  }
   const globalEnabled=d.merchantPayments?.globalDirectPaymentsEnabled===true;
-  return '<div class="section-head" style="margin-top:18px"><div><h3>Recebimento direto das revendas</h3><p>Cada revenda conecta a própria conta Mercado Pago. Homologação individual e kill switch global são independentes; nenhuma venda passa pela conta do TAMÃO.</p></div><span class="status-pill '+(globalEnabled?'online':'risk')+'">GLOBAL '+(globalEnabled?'ATIVO':'DESATIVADO')+'</span></div>'
-    +(rows.length?'<div class="admin-entity-grid">'+rows.map(adminMerchantPaymentAccountCard).join('')+'</div>':'<div class="empty card">Nenhuma revenda conectou uma conta Mercado Pago ainda.</div>');
+  return '<div class="section-head" style="margin-top:18px"><div><span class="section-kicker">VENDA DO CLIENTE → REVENDA</span><h3>Recebimento direto multi-PSP</h3><p>A revenda pode usar o provedor que já possui. Conectar ou homologar um PSP serve apenas para confirmar a transação; nenhuma venda passa pela conta do TAMÃO.</p></div><span class="status-pill '+(globalEnabled?'online':'risk')+'">AUTOMAÇÃO GLOBAL '+(globalEnabled?'ATIVA':'DESATIVADA')+'</span></div>'
+    +'<div class="notice"><strong>Arquitetura agnóstica de provedor.</strong><br>Mercado Pago não é obrigatório. Pix próprio, dinheiro e cartão na entrega continuam válidos; PagBank, Stone, Getnet e outros entram como conectores independentes.</div>'
+    +adminMerchantPaymentProviderCatalog(d)
+    +(rows.length?'<div class="admin-entity-grid" style="margin-top:12px">'+rows.map(adminMerchantPaymentAccountCard).join('')+'</div>':'<div class="empty card" style="margin-top:12px">Nenhuma revenda possui conexão automática com PSP ainda. Isso não impede uma revenda de operar com formas de pagamento manuais confirmadas.</div>');
 }
 
 function adminMerchantBillingSection(d){
@@ -2832,27 +2886,29 @@ async function adminSaveDeliveryCapability(id){
   }catch(e){toast(String(e?.message||e))}
 }
 
-async function adminSetMerchantPaymentCapability(merchantId,enabled){
+async function adminSetMerchantPaymentCapability(merchantId,provider,enabled){
   const merchant=(adminRuntime.data?.merchants||[]).find(x=>x.id===merchantId);
   const name=merchant?.name||'esta revenda';
+  const providerName=adminBillingProviderName(provider);
   const reference=prompt(
     enabled
-      ?'Referência da homologação E2E (ticket, teste ou evidência):'
-      :'Motivo/referência da suspensão:'
+      ?'Referência da homologação E2E de '+providerName+' (ticket, teste ou evidência):'
+      :'Motivo/referência da suspensão de '+providerName+':'
   )||'';
   if(reference.trim().length<3)return toast('Informe uma referência auditável');
   const message=enabled
-    ?'Homologar pagamento direto para '+name+'? O dinheiro continuará indo direto à conta Mercado Pago da revenda. O kill switch global permanece independente.'
-    :'Suspender pagamento direto para '+name+'? Checkouts já iniciados continuam sujeitos ao controle financeiro e a cancelamento/reembolso seguro.';
+    ?'Homologar confirmação automática via '+providerName+' para '+name+'? O dinheiro continuará indo diretamente à revenda. O kill switch global permanece independente.'
+    :'Suspender confirmação automática via '+providerName+' para '+name+'? Transações já iniciadas continuam sujeitas ao controle seguro.';
   if(!confirm(message))return;
-  if(enabled&&!adminRequireTypedConfirmation('HOMOLOGAR','A homologação permite validar pagamentos feitos diretamente na conta da revenda quando o kill switch global estiver ativo.'))return toast('Homologação cancelada');
+  if(enabled&&!adminRequireTypedConfirmation('HOMOLOGAR','A homologação permite ao TAMÃO validar transações neste provedor sem receber o dinheiro da venda.'))return toast('Homologação cancelada');
   try{
     const result=await adminPerform('merchant-payment-capability',{
       merchantId,
+      provider:String(provider||'').toLowerCase(),
       enabled:enabled===true,
       reference:reference.trim()
     });
-    toast(result?.directSalePaymentsEnabled?'Pagamentos diretos homologados para a revenda':'Pagamentos diretos suspensos para a revenda');
+    toast(result?.enabled?'Confirmação automática homologada em '+providerName:'Confirmação automática suspensa em '+providerName);
   }catch(e){toast(String(e?.message||e))}
 }
 
