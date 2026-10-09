@@ -7,16 +7,17 @@ const adminOps=read('supabase/functions/admin-ops/index.ts');
 const merchant=read('js/merchant.js');
 
 assert.ok(
-  adminOps.includes('customer_label,metadata,confirmed_at,updated_at'),
-  'admin-ops precisa transportar metadata das rotas multi-PSP para distinguir adoção manual'
+  adminOps.includes('provider,connection_id,channel,verification_mode,active,priority,customer_label,confirmed_at,updated_at'),
+  'radar precisa funcionar com o snapshot administrativo já implantado, sem exigir redeploy da Edge Function'
 );
 
 assert.ok(
   admin.includes('function adminMerchantDeclaredPspRadar(d)')
   &&admin.includes("route?.verification_mode==='merchant_confirmed'")
   &&admin.includes("route?.metadata?.merchantDeclaredProvider===true")
+  &&admin.includes("route?.connection_id==null&&route?.channel==='external'")
   &&admin.includes("route?.provider!=='manual'"),
-  'radar deve contar somente PSP externo explicitamente declarado pela revenda'
+  'radar deve reconhecer tanto o marcador V1.138 quanto a assinatura estrutural da rota manual externa já disponível no snapshot live'
 );
 
 assert.ok(
@@ -53,4 +54,4 @@ assert.ok(
   'telemetria de adoção deve permanecer dentro do snapshot administrativo autenticado'
 );
 
-console.log('V1.139 passou: admin recebe metadata e mostra radar de adoção PSP sem tratar declaração como prova financeira.');
+console.log('V1.139.1 passou: radar de adoção PSP funciona com o snapshot live sem tratar declaração como prova financeira.');

@@ -1972,7 +1972,10 @@ function adminMerchantDeclaredPspRadar(d){
     route?.active===true
     &&route?.provider!=='manual'
     &&route?.verification_mode==='merchant_confirmed'
-    &&route?.metadata?.merchantDeclaredProvider===true
+    &&(
+      route?.metadata?.merchantDeclaredProvider===true
+      ||(route?.connection_id==null&&route?.channel==='external')
+    )
   );
   if(!declared.length){
     return '<div class="card flat" style="margin-top:12px"><div class="order-head"><div><strong>Demanda real por PSP</strong><br><small>Nenhuma revenda declarou um provedor externo em uso manual ainda.</small></div><span class="status-pill">0 DECLARAÇÕES</span></div><div class="tiny muted" style="margin-top:8px">Quando uma revenda marcar “Eu uso este PSP”, ela aparecerá aqui sem expor credenciais nem movimentar dinheiro.</div></div>';
@@ -2005,7 +2008,7 @@ function adminMerchantDeclaredPspRadar(d){
       +'<div class="list" style="margin-top:8px">'+merchants+'</div></article>';
   }).join('');
   const totalMerchants=new Set(declared.map(route=>String(route.merchant_id||''))).size;
-  return '<div class="section-head" style="margin-top:14px"><div><span class="section-kicker">DEMANDA OBSERVADA</span><h3>PSPs realmente usados pelas revendas</h3><p>Este radar nasce da declaração operacional da própria revenda. Use-o para priorizar integrações automáticas onde existe demanda real, sem exigir troca de provedor.</p></div><span class="status-pill risk">'+totalMerchants+' REVENDA'+(totalMerchants===1?'':'S')+'</span></div>'
+  return '<div class="section-head" style="margin-top:14px"><div><span class="section-kicker">DEMANDA OBSERVADA</span><h3>PSPs realmente usados pelas revendas</h3><p>Este radar nasce das rotas manuais externas configuradas pela própria revenda. Use-o para priorizar integrações automáticas onde existe demanda real, sem exigir troca de provedor.</p></div><span class="status-pill risk">'+totalMerchants+' REVENDA'+(totalMerchants===1?'':'S')+'</span></div>'
     +'<div class="notice"><strong>Sinal de produto, não prova financeira.</strong><br>Essas declarações dizem qual PSP a revenda usa; não confirmam pagamento e nunca liberam checkout automático.</div>'
     +'<div class="admin-entity-grid">'+cards+'</div>';
 }
