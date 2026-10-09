@@ -17,6 +17,16 @@ const publishableKeys=JSON.parse(Deno.env.get("SUPABASE_PUBLISHABLE_KEYS")??"{}"
 const secretKeys=JSON.parse(Deno.env.get("SUPABASE_SECRET_KEYS")??"{}");
 const PUBLISHABLE_KEY=publishableKeys.default??Deno.env.get("SUPABASE_ANON_KEY")??"";
 const SECRET_KEY=secretKeys.default??Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")??"";
+const BILLING_PIX_PROVIDER=String(Deno.env.get("BILLING_PIX_PROVIDER")??"mercadopago").trim().toLowerCase();
+const MERCADOPAGO_ACCESS_TOKEN=String(Deno.env.get("MERCADOPAGO_ACCESS_TOKEN")??"").trim();
+const WOOVI_APP_ID=String(Deno.env.get("WOOVI_APP_ID")??"").trim();
+const WOOVI_API_BASE=String(Deno.env.get("WOOVI_API_BASE_URL")??"https://api.woovi.com").trim().replace(/\/$/,"");
+const BILLING_PIX_PROVIDER_READY=
+  BILLING_PIX_PROVIDER==="mercadopago"
+    ?MERCADOPAGO_ACCESS_TOKEN.length>=20&&!/[\u0000-\u001f\u007f\s]/.test(MERCADOPAGO_ACCESS_TOKEN)
+    :BILLING_PIX_PROVIDER==="woovi"
+      ?WOOVI_APP_ID.length>=12&&["https://api.woovi.com","https://api.woovi-sandbox.com"].includes(WOOVI_API_BASE)
+      :false;
 const MERCHANT_ALLOWED_ORIGIN=(Deno.env.get("MERCHANT_ALLOWED_ORIGIN")??"").trim();
 const MERCHANT_PRIMARY_ORIGINS=new Set([
   "https://tamao-sg-revenda.pages.dev",
@@ -325,6 +335,7 @@ Deno.serve(async(req:Request)=>{
       paymentRequests:[],
       providerCharges:[],
       refundRecoveries:[],
+      pixProvider:BILLING_PIX_PROVIDER,
       pixProviderReady:false
     };
     if(["owner","manager"].includes(selected.member_role)){
@@ -433,11 +444,14 @@ Deno.serve(async(req:Request)=>{
           approvalSource:r.approval_source,
           pixCharge:(()=>{
             const charges:any[]=(billingProviderCharges??[]).filter(
-              (x:any)=>x.payment_request_id===r.id&&x.provider==="woovi"
+              (x:any)=>x.payment_request_id===r.id
             );
             const charge:any=
               charges.find((x:any)=>x.status==="completed")
-              ??charges.find((x:any)=>["active","preparing"].includes(x.status))
+              ??charges.find((x:any)=>
+                x.provider===BILLING_PIX_PROVIDER
+                &&["active","preparing"].includes(x.status)
+              )
               ??charges[0]
               ??null;
             if(!charge)return null;
@@ -486,12 +500,8 @@ Deno.serve(async(req:Request)=>{
           createdAt:recovery.created_at,
           updatedAt:recovery.updated_at
         })),
-        pixProviderReady:
-          String(Deno.env.get("WOOVI_APP_ID")??"").trim().length>=12
-          &&["https://api.woovi.com","https://api.woovi-sandbox.com"].includes(
-            String(Deno.env.get("WOOVI_API_BASE_URL")??"https://api.woovi.com")
-              .trim().replace(/\/$/,"")
-          )
+        pixProvider:BILLING_PIX_PROVIDER,
+        pixProviderReady:BILLING_PIX_PROVIDER_READY
       };
     }else{
       const {data:billingAccount,error:billingAccountError}=await admin
@@ -512,6 +522,7 @@ Deno.serve(async(req:Request)=>{
         paymentRequests:[],
         providerCharges:[],
         refundRecoveries:[],
+        pixProvider:BILLING_PIX_PROVIDER,
         pixProviderReady:false
       };
     }
