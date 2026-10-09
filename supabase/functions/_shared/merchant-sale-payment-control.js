@@ -193,7 +193,9 @@ export async function releaseMerchantSalePaymentBeforeOrderChange(
         cancelled_at:now,
         updated_at:now,
         last_error_code:null,
-        last_error_at:null
+        last_error_at:null,
+        released_for_order_change_at:now,
+        release_action:"local_cancel"
       })
       .eq("id",attempt.id)
       .eq("status","preparing");
@@ -297,10 +299,23 @@ export async function releaseMerchantSalePaymentBeforeOrderChange(
     );
   }
 
+  const releaseAction=String(applied?.status)==="refunded"?"refund":"cancel";
+  const releasedAt=new Date().toISOString();
+  const {error:releaseMarkError}=await admin
+    .from("merchant_sale_payment_attempts")
+    .update({
+      released_for_order_change_at:releasedAt,
+      release_action:releaseAction,
+      updated_at:releasedAt
+    })
+    .eq("id",attempt.id)
+    .in("status",["cancelled","expired","refunded","rejected"]);
+  if(releaseMarkError)throw releaseMarkError;
+
   return {
     needed:true,
     terminal:true,
-    action:String(applied?.status)==="refunded"?"refund":"cancel",
+    action:releaseAction,
     status:applied?.status??null
   };
 }
