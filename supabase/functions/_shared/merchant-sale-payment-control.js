@@ -53,6 +53,7 @@ function snapshot(order,attempt,forcedStatus=null){
   }
   return {
     provider:"mercadopago",
+    sellerId:String(order?.user_id??"").trim(),
     orderId:String(order?.id??"").trim(),
     paymentId:String(payment?.id??"").trim()||null,
     externalReference:String(order?.external_reference??"").trim(),
@@ -64,9 +65,11 @@ function snapshot(order,attempt,forcedStatus=null){
     ).trim().slice(0,240)||null
   };
 }
-function assertSnapshot(s,attempt){
+function assertSnapshot(s,attempt,providerAccountId){
   if(
-    s.orderId!==String(attempt.provider_order_id??"")
+    !providerAccountId
+    ||s.sellerId!==providerAccountId
+    ||s.orderId!==String(attempt.provider_order_id??"")
     ||s.externalReference!==String(attempt.external_reference??"")
     ||s.amountCents!==Number(attempt.amount_cents)
     ||String(attempt.currency)!=="BRL"
@@ -145,12 +148,16 @@ async function sellerAccessToken(admin,attempt){
     );
   }
 
-  return await decryptPaymentSecret(
+  const accessToken=await decryptPaymentSecret(
     account.access_token_ciphertext,
     account.access_token_nonce,
     key,
     "provider-account:"+attempt.merchant_id+":mercadopago:access"
   );
+  return {
+    accessToken,
+    providerAccountId:String(account.provider_account_id??"").trim()
+  };
 }
 
 export async function releaseMerchantSalePaymentBeforeOrderChange(
@@ -199,10 +206,10 @@ export async function releaseMerchantSalePaymentBeforeOrderChange(
     };
   }
 
-  const accessToken=await sellerAccessToken(admin,attempt);
-  let order=await fetchOrder(accessToken,attempt.provider_order_id);
+  const seller=await sellerAccessToken(admin,attempt);
+  let order=await fetchOrder(seller.accessToken,attempt.provider_order_id);
   let state=snapshot(order,attempt);
-  assertSnapshot(state,attempt);
+  assertSnapshot(state,attempt,seller.providerAccountId);
 
   const paid=
     state.status==="processed"
@@ -217,7 +224,7 @@ export async function releaseMerchantSalePaymentBeforeOrderChange(
     const response=await mercadoPagoFetch(
       "/v1/orders/"+encodeURIComponent(attempt.provider_order_id)+"/refund",
       {
-        accessToken,
+        accessToken:seller.accessToken,
         method:"POST",
         idempotencyKey:"refund:"+attempt.external_reference
       }
@@ -233,9 +240,9 @@ export async function releaseMerchantSalePaymentBeforeOrderChange(
         409
       );
     }
-    order=await fetchOrder(accessToken,attempt.provider_order_id);
+    order=await fetchOrder(seller.accessToken,attempt.provider_order_id);
     state=snapshot(order,attempt);
-    assertSnapshot(state,attempt);
+    assertSnapshot(state,attempt,seller.providerAccountId);
     if(state.refundCents<Number(attempt.amount_cents)){
       throw new MerchantSalePaymentControlError(
         "MERCHANT_PROVIDER_REFUND_NOT_CONFIRMED",
@@ -251,7 +258,7 @@ export async function releaseMerchantSalePaymentBeforeOrderChange(
       const response=await mercadoPagoFetch(
         "/v1/orders/"+encodeURIComponent(attempt.provider_order_id)+"/cancel",
         {
-          accessToken,
+          accessToken:seller.accessToken,
           method:"POST",
           idempotencyKey:"cancel:"+attempt.external_reference
         }
@@ -264,9 +271,9 @@ export async function releaseMerchantSalePaymentBeforeOrderChange(
           409
         );
       }
-      order=await fetchOrder(accessToken,attempt.provider_order_id);
+      order=await fetchOrder(seller.accessToken,attempt.provider_order_id);
       state=snapshot(order,attempt);
-      assertSnapshot(state,attempt);
+      assertSnapshot(state,attempt,seller.providerAccountId);
     }
     if(!["canceled","cancelled","expired"].includes(state.status)){
       throw new MerchantSalePaymentControlError(
