@@ -919,7 +919,15 @@ assert.ok(
   &&mercadoPagoWebhookProofMigration.includes("'financialMutationAttempted',false"),
   'autoridade de prova remota precisa ser curta, server-only, auditável e não financeira'
 );
-assert.ok(admin.includes('Recebimento direto multi-PSP')&&admin.includes("adminPerform('merchant-payment-capability'")&&admin.includes('Homologar confirmação automática')&&admin.includes('AUTOMAÇÃO GLOBAL')&&admin.includes('Mercado Pago não é obrigatório'),'Financeiro precisa homologar cada PSP de forma independente sem confundir conexão, automação e kill switch global');
+assert.ok(
+  admin.includes('Recebimento direto multi-PSP')
+  &&admin.includes("adminPerform('merchant-payment-capability'")
+  &&admin.includes('Ativar piloto controlado')
+  &&admin.includes("activationKind==='pilot'?'PILOTO':'REATIVAR'")
+  &&admin.includes('AUTOMAÇÃO GLOBAL')
+  &&admin.includes('Mercado Pago não é obrigatório'),
+  'Financeiro precisa ativar piloto/reativar cada PSP de forma independente sem confundir conexão, prova E2E, automação e kill switch global'
+);
 assert.ok(
   mercadoPagoPaymentWebhookSource.includes('providerUserId!==providerAccountId')
   &&mercadoPagoPaymentWebhookSource.includes('MERCADOPAGO_ORDER_ROUTE_NOT_READY')
