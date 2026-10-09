@@ -3,6 +3,7 @@ import fs from 'node:fs';
 
 const read=(path)=>fs.readFileSync(new URL('../'+path,import.meta.url),'utf8');
 const migration=read('supabase/migrations/20261009200000_multi_psp_payment_capability_v1_135.sql');
+const providerFkIndexes=read('supabase/migrations/20261009203000_multi_psp_provider_fk_indexes_v1_135_1.sql');
 const merchantOrders=read('supabase/functions/merchant-orders/index.ts');
 const merchantOps=read('supabase/functions/merchant-ops/index.ts');
 const paymentConnect=read('supabase/functions/merchant-payment-connect/index.ts');
@@ -80,6 +81,13 @@ assert.ok(
   migration.includes('merchant_payment_route_sets_updated_by_idx')
   &&migration.includes('merchant_sale_payment_verifications_merchant_provider_idx'),
   'novas FKs operacionais precisam nascer indexadas'
+);
+assert.ok(
+  providerFkIndexes.includes('merchant_payment_routes_provider_idx')
+  &&providerFkIndexes.includes('on public.merchant_payment_routes(provider)')
+  &&providerFkIndexes.includes('merchant_sale_payment_verifications_provider_idx')
+  &&providerFkIndexes.includes('on public.merchant_sale_payment_verifications(provider)'),
+  'FKs para o catálogo de providers precisam possuir índices de cobertura'
 );
 
 assert.ok(
