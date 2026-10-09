@@ -10,9 +10,7 @@ import {
 } from "./mercadopago.js";
 
 export class MerchantSalePaymentControlError extends Error{
-  code:string;
-  status:number;
-  constructor(code:string,message=code,status=409){
+  constructor(code,message=code,status=409){
     super(message);
     this.name="MerchantSalePaymentControlError";
     this.code=code;
@@ -20,26 +18,26 @@ export class MerchantSalePaymentControlError extends Error{
   }
 }
 
-function primaryPayment(order:any){
+function primaryPayment(order){
   const payments=Array.isArray(order?.transactions?.payments)
     ?order.transactions.payments
     :[];
   return payments[0]??null;
 }
-function refunds(order:any){
+function refunds(order){
   return Array.isArray(order?.transactions?.refunds)
     ?order.transactions.refunds
     :[];
 }
-function refundedCents(order:any){
-  return refunds(order).reduce((sum:number,item:any)=>{
+function refundedCents(order){
+  return refunds(order).reduce((sum,item)=>{
     const status=String(item?.status??"").trim().toLowerCase();
     if(status&& !["processed","approved","refunded"].includes(status))return sum;
     const cents=moneyToCents(item?.amount);
     return sum+(cents??0);
   },0);
 }
-function snapshot(order:any,attempt:any,forcedStatus:string|null=null){
+function snapshot(order,attempt,forcedStatus=null){
   const payment=primaryPayment(order);
   const amountCents=moneyToCents(order?.total_amount);
   const refundCents=refundedCents(order);
@@ -66,7 +64,7 @@ function snapshot(order:any,attempt:any,forcedStatus:string|null=null){
     ).trim().slice(0,240)||null
   };
 }
-function assertSnapshot(s:any,attempt:any){
+function assertSnapshot(s,attempt){
   if(
     s.orderId!==String(attempt.provider_order_id??"")
     ||s.externalReference!==String(attempt.external_reference??"")
@@ -80,7 +78,7 @@ function assertSnapshot(s:any,attempt:any){
     );
   }
 }
-async function fetchOrder(accessToken:string,providerOrderId:string){
+async function fetchOrder(accessToken,providerOrderId){
   const response=await mercadoPagoFetch(
     "/v1/orders/"+encodeURIComponent(providerOrderId),
     {accessToken}
@@ -95,7 +93,7 @@ async function fetchOrder(accessToken:string,providerOrderId:string){
   }
   return data;
 }
-async function applySnapshot(admin:any,attempt:any,s:any){
+async function applySnapshot(admin,attempt,s){
   const evidence=await sha256Hex(JSON.stringify(s));
   const providerEventId="control:"+evidence.slice(0,64);
   const {data,error}=await admin.rpc(
@@ -115,7 +113,7 @@ async function applySnapshot(admin:any,attempt:any,s:any){
   if(error)throw error;
   return data;
 }
-async function sellerAccessToken(admin:any,attempt:any){
+async function sellerAccessToken(admin,attempt){
   const key=String(
     Deno.env.get("MERCHANT_PAYMENT_TOKEN_ENCRYPTION_KEY")??""
   ).trim();
@@ -156,8 +154,8 @@ async function sellerAccessToken(admin:any,attempt:any){
 }
 
 export async function releaseMerchantSalePaymentBeforeOrderChange(
-  admin:any,
-  orderId:string
+  admin,
+  orderId
 ){
   const {data:attempt,error}=await admin
     .from("merchant_sale_payment_attempts")
