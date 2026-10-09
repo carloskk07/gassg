@@ -48,3 +48,14 @@ verify_jwt = false
 # Authenticity is enforced by a one-time high-entropy OAuth state plus PKCE.
 [functions.merchant-payment-oauth-callback]
 verify_jwt = false
+
+
+# Customer starts a direct checkout against the merchant-owned Mercado Pago
+# account. JWT/session validation is enforced inside the handler.
+[functions.order-payment-checkout]
+verify_jwt = false
+
+# Mercado Pago notifies merchant-owned sale payments here. JWT is intentionally
+# disabled: HMAC signature + exact provider lookup authenticate the event.
+[functions.merchant-sale-payment-webhook-mercadopago]
+verify_jwt = false
