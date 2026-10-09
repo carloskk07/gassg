@@ -1147,7 +1147,7 @@ begin
        select 1 from public.payment_provider_catalog
        where provider_key=v_provider
          and provider_key<>'manual'
-         and adapter_status in ('implemented','ready_for_credentials')
+         and adapter_status='implemented'
      ) then
     raise exception 'INVALID_MERCHANT_PAYMENT_CAPABILITY' using errcode='22023';
   end if;
