@@ -63,6 +63,8 @@ function mapRpcError(error:{message?:string}|null){
     INVALID_TRANSITION:[409,"O pedido ainda não está pronto para confirmar entrega."],
     PIN_LOCKED:[423,"PIN bloqueado após muitas tentativas."],
     PIN_UNAVAILABLE:[409,"PIN indisponível para este pedido."],
+    PAYMENT_CONFIRMATION_REQUIRED:[409,"Confirme o recebimento do pagamento antes de concluir."],
+    SALE_PAYMENT_STILL_PENDING:[409,"O pagamento online ainda está em processamento. Aguarde a confirmação ou cancele o checkout antes de concluir manualmente."],
     IDEMPOTENCY_CONFLICT:[409,"A mesma chave foi usada para outra requisição."]
   };
   for(const [code,[status,text]] of Object.entries(map)){
@@ -85,11 +87,14 @@ Deno.serve(async(req:Request)=>{
     if(!UUID_RE.test(orderId))throw new DomainError("INVALID_ORDER","Pedido inválido.",400);
 
     const pin=validateDeliveryPin(body.pin);
-    if(body.paymentConfirmed!==true){
-      throw new DomainError("PAYMENT_CONFIRMATION_REQUIRED","Confirme o recebimento do pagamento antes de concluir.",400);
-    }
+    const paymentConfirmedByMerchant=body.paymentConfirmed===true;
     const expectedVersion=asPositiveInt(body.expectedVersion,"expectedVersion",{min:1,max:Number.MAX_SAFE_INTEGER});
-    const requestHash=await requestFingerprint("complete-delivery",{orderId,pin,expectedVersion,paymentConfirmed:true});
+    const requestHash=await requestFingerprint("complete-delivery",{
+      orderId,
+      pin,
+      expectedVersion,
+      paymentConfirmedByMerchant
+    });
 
     const admin=createClient(SUPABASE_URL,SECRET_KEY,{auth:{persistSession:false,autoRefreshToken:false}});
     await enforceApiQuota(admin,{userId:user.id,actionName:"complete-delivery",limit:20,windowSeconds:60});
@@ -99,7 +104,8 @@ Deno.serve(async(req:Request)=>{
       p_pin_code:pin,
       p_expected_version:expectedVersion,
       p_idempotency_key:idempotencyKey,
-      p_request_hash:requestHash
+      p_request_hash:requestHash,
+      p_payment_confirmed_by_merchant:paymentConfirmedByMerchant
     });
 
     if(error){
