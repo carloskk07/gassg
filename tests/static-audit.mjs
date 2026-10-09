@@ -1658,6 +1658,13 @@ for(const entry of fs.readdirSync(functionRoot,{withFileTypes:true})){
   }else if(entry.name==='merchant-payment-oauth-callback'){
     assert.ok(source.includes('req.method!=="GET"')&&source.includes('consume_merchant_payment_oauth_state'),entry.name+' precisa ser callback GET com state de uso único');
     assert.ok(source.includes('decryptPaymentSecret')&&source.includes('code_verifier')&&source.includes('verifyMercadoPagoSellerToken')&&source.includes('verifyPagBankSellerToken'),entry.name+' precisa provar state/PKCE quando aplicável e identidade da conta antes de persistir tokens');
+  }else if(entry.name==='portal-readiness-attestor'){
+    assert.ok(source.includes('req.method!=="POST"')&&source.includes('readJsonBody(req,{maxBytes:4096})'),entry.name+' precisa aceitar somente POST com corpo mínimo');
+    assert.ok(source.includes('https://token.actions.githubusercontent.com/.well-known/jwks')&&source.includes('tamao-portal-attestor')&&source.includes('RSASSA-PKCS1-v1_5')&&source.includes('crypto.subtle.verify'),entry.name+' precisa autenticar GitHub OIDC criptograficamente');
+    assert.ok(source.includes('repository!==REPOSITORY')&&source.includes('repository_id')&&source.includes('repository_owner_id')&&source.includes('workflow_ref')&&source.includes('refs/heads/main'),entry.name+' precisa vincular OIDC ao repositório/workflow/main exatos');
+    assert.ok(source.includes('https://api.github.com/repos/carloskk07/gassg/commits/main')&&source.includes('canonicalSha!==expectedSourceSha'),entry.name+' precisa provar o SHA canônico no GitHub');
+    assert.ok(source.includes('https://tamao.com.br')&&source.includes('https://parceiro.tamao.com.br')&&source.includes('https://admin.tamao.com.br'),entry.name+' precisa provar os três portais oficiais');
+    assert.ok(source.includes('record_automated_portal_attestation')&&!source.includes('admin_operation_mode_action')&&!source.includes('platform_launch_confirmations'),entry.name+' só pode atualizar evidência factual de portais');
   }else{
     assert.ok(source.includes('readJsonBody(req)'),entry.name+' precisa limitar JSON');
     assert.ok(source.includes('enforceApiQuota(admin'),entry.name+' precisa aplicar quota server-side');
