@@ -7,6 +7,7 @@ const admin=read('js/admin.js');
 const adminOps=read('supabase/functions/admin-ops/index.ts');
 const css=read('css/components.css');
 const migration=read('supabase/migrations/20261009150000_admin_billing_plan_governance_v1_133.sql');
+const migrationIndex=read('supabase/migrations/20261009151500_billing_plan_history_fk_index_v1_133_1.sql');
 
 const poll=admin.slice(
   admin.indexOf('async function adminPoll()'),
@@ -78,6 +79,10 @@ assert.match(migration,/future-orders-only/,
   'alteração de plano precisa preservar snapshots históricos');
 assert.match(migration,/revoke all on table public\.merchant_billing_plan_history\s+from public,anon,authenticated/i,
   'histórico financeiro não pode ficar exposto ao browser');
+assert.match(migrationIndex,/merchant_billing_plan_history_changed_by_idx/i,
+  'FK changed_by do histórico precisa de índice cobrindo a remoção/consulta de admins');
+assert.match(migrationIndex,/on public\.merchant_billing_plan_history\(changed_by\)/i,
+  'índice da FK precisa cobrir changed_by diretamente');
 
 assert.ok(admin.includes("active:false,sortOrder,reason"),
   'produto novo deve nascer pausado para revisão explícita');
