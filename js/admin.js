@@ -1965,6 +1965,50 @@ function adminMerchantPaymentProviderCatalog(d){
     }).join('')
     +'</div>';
 }
+function adminMerchantDeclaredPspRadar(d){
+  const routes=Array.isArray(d.merchantPayments?.routes)?d.merchantPayments.routes:[];
+  const catalog=Array.isArray(d.merchantPayments?.providerCatalog)?d.merchantPayments.providerCatalog:[];
+  const declared=routes.filter(route=>
+    route?.active===true
+    &&route?.provider!=='manual'
+    &&route?.verification_mode==='merchant_confirmed'
+    &&route?.metadata?.merchantDeclaredProvider===true
+  );
+  if(!declared.length){
+    return '<div class="card flat" style="margin-top:12px"><div class="order-head"><div><strong>Demanda real por PSP</strong><br><small>Nenhuma revenda declarou um provedor externo em uso manual ainda.</small></div><span class="status-pill">0 DECLARAÇÕES</span></div><div class="tiny muted" style="margin-top:8px">Quando uma revenda marcar “Eu uso este PSP”, ela aparecerá aqui sem expor credenciais nem movimentar dinheiro.</div></div>';
+  }
+  const groups=new Map();
+  for(const route of declared){
+    const key=String(route.provider||'').toLowerCase();
+    if(!groups.has(key))groups.set(key,{provider:key,merchantMethods:new Map(),routes:0});
+    const group=groups.get(key);
+    group.routes++;
+    const merchantId=String(route.merchant_id||'');
+    if(!group.merchantMethods.has(merchantId))group.merchantMethods.set(merchantId,new Set());
+    group.merchantMethods.get(merchantId).add(String(route.payment_method||'').toLowerCase());
+  }
+  const ranked=[...groups.values()].sort((a,b)=>
+    b.merchantMethods.size-a.merchantMethods.size
+    ||b.routes-a.routes
+    ||a.provider.localeCompare(b.provider,'pt-BR')
+  );
+  const cards=ranked.map(group=>{
+    const definition=catalog.find(x=>x.provider_key===group.provider)||null;
+    const providerName=definition?.display_name||adminBillingProviderName(group.provider);
+    const adapter=adminMerchantPaymentAdapterLabel(definition?.adapter_status);
+    const merchants=[...group.merchantMethods.entries()].map(([merchantId,methods])=>{
+      const methodLabel=[...methods].map(method=>adminPaymentMethodLabel(method)).join(' • ');
+      return '<div class="list-row"><span>'+esc(adminMerchantName(merchantId))+'</span><small>'+esc(methodLabel||'manual')+'</small></div>';
+    }).join('');
+    return '<article class="card flat"><div class="order-head"><div><strong>'+esc(providerName)+'</strong><br><small>Uso declarado pelas revendas</small></div><span class="status-pill risk">'+group.merchantMethods.size+' REVENDA'+(group.merchantMethods.size===1?'':'S')+'</span></div>'
+      +'<div class="tiny muted" style="margin-top:8px">Adaptador: <strong>'+esc(adapter)+'</strong> • confirmação atual: <strong>MANUAL</strong> • credenciais: <strong>NÃO COLETADAS</strong></div>'
+      +'<div class="list" style="margin-top:8px">'+merchants+'</div></article>';
+  }).join('');
+  const totalMerchants=new Set(declared.map(route=>String(route.merchant_id||''))).size;
+  return '<div class="section-head" style="margin-top:14px"><div><span class="section-kicker">DEMANDA OBSERVADA</span><h3>PSPs realmente usados pelas revendas</h3><p>Este radar nasce da declaração operacional da própria revenda. Use-o para priorizar integrações automáticas onde existe demanda real, sem exigir troca de provedor.</p></div><span class="status-pill risk">'+totalMerchants+' REVENDA'+(totalMerchants===1?'':'S')+'</span></div>'
+    +'<div class="notice"><strong>Sinal de produto, não prova financeira.</strong><br>Essas declarações dizem qual PSP a revenda usa; não confirmam pagamento e nunca liberam checkout automático.</div>'
+    +'<div class="admin-entity-grid">'+cards+'</div>';
+}
 function adminMerchantSaleVerificationSection(d){
   const rows=(d.merchantPayments?.verifications||[]).slice(0,20);
   const orderById=new Map((d.controlOrders||[]).map(x=>[String(x.id),x]));
@@ -1994,6 +2038,7 @@ function adminMerchantPaymentAccountsSection(d){
   return '<div class="section-head" style="margin-top:18px"><div><span class="section-kicker">VENDA DO CLIENTE → REVENDA</span><h3>Recebimento direto multi-PSP</h3><p>A revenda pode usar o provedor que já possui. Conectar ou homologar um PSP serve apenas para confirmar a transação; nenhuma venda passa pela conta do TAMÃO.</p></div><span class="status-pill '+(globalEnabled?'online':'risk')+'">AUTOMAÇÃO GLOBAL '+(globalEnabled?'ATIVA':'DESATIVADA')+'</span></div>'
     +'<div class="notice"><strong>Arquitetura agnóstica de provedor.</strong><br>Mercado Pago não é obrigatório. Pix próprio, dinheiro e cartão na entrega continuam válidos; PagBank, Stone, Getnet e outros entram como conectores independentes.</div>'
     +adminMerchantPaymentProviderCatalog(d)
+    +adminMerchantDeclaredPspRadar(d)
     +(rows.length?'<div class="admin-entity-grid" style="margin-top:12px">'+rows.map(adminMerchantPaymentAccountCard).join('')+'</div>':'<div class="empty card" style="margin-top:12px">Nenhuma revenda possui conexão automática com PSP ainda. Isso não impede uma revenda de operar com formas de pagamento manuais confirmadas.</div>')
     +adminMerchantSaleVerificationSection(d);
 }
