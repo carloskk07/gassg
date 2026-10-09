@@ -737,7 +737,7 @@ function scopeAdminSummary(role:string,data:any){
         price_confirmed_at:m.price_confirmed_at,last_seen_at:m.last_seen_at
       })),
       commercialPolicy:null,
-      merchantBilling:{plans:[],accounts:[],statements:[],paymentRequests:[],paymentEvents:[],refunds:[],refundRecoveries:[],providerCharges:[],paymentIngress:null,metrics:null,reconciliation:null},
+      merchantBilling:{plans:[],accounts:[],statements:[],paymentRequests:[],paymentEvents:[],refunds:[],refundRecoveries:[],providerCharges:[],paymentAccounts:[],paymentIngress:null,metrics:null,reconciliation:null},
       productRegistry:{categories:[],products:[]},
       finance:{receivables:[],cashbackReimbursements:[],adjustments:[]},
       rewardFailures:[],accountingFailures:[],referralReviews:[],
@@ -751,7 +751,7 @@ function scopeAdminSummary(role:string,data:any){
       ...data,
       merchants:(data.merchants??[]).map((m:any)=>({...m,paymentAccount:null})),
       businessMetrics:{},commercialPolicy:null,
-      merchantBilling:{plans:[],accounts:[],statements:[],paymentRequests:[],paymentEvents:[],refunds:[],refundRecoveries:[],providerCharges:[],paymentIngress:null,metrics:null,reconciliation:null},
+      merchantBilling:{plans:[],accounts:[],statements:[],paymentRequests:[],paymentEvents:[],refunds:[],refundRecoveries:[],providerCharges:[],paymentAccounts:[],paymentIngress:null,metrics:null,reconciliation:null},
       productRegistry:{categories:[],products:[]},
       supportCases:[],controlOrders:[],
       finance:{receivables:[],cashbackReimbursements:[],adjustments:[]},
@@ -1375,6 +1375,10 @@ async function summary(admin:any,actorUserId:string){
     businessMetrics:businessMetrics.data??{},
     launchReadiness:launchReadiness.data??{},
     commercialPolicy:commercialPolicy.data??null,
+    merchantPayments:{
+      globalDirectPaymentsEnabled:
+        String(Deno.env.get("MERCHANT_DIRECT_PAYMENTS_ENABLED")??"").trim()==="1"
+    },
     merchantBilling:{
       plans:billingPlans.data??[],
       accounts:billingAccounts.data??[],
@@ -1384,6 +1388,7 @@ async function summary(admin:any,actorUserId:string){
       refunds:billingRefunds.data??[],
       refundRecoveries:billingRefundRecoveries.data??[],
       providerCharges:billingProviderCharges.data??[],
+      paymentAccounts:merchantPaymentAccounts.data??[],
       paymentIngress:billingPaymentIngressReadiness(),
       metrics:billingMetrics.data??null,
       reconciliation:billingReconciliation.data??null
