@@ -417,6 +417,7 @@ async function mercadoPagoBillingProviderHealth(admin:any){
         endpoint,apiStatus:response.status,reason:"MERCADOPAGO_INVALID_JSON"
       };
     }
+    const remoteWebhookProof=await latestVerifiedWebhookProbe(admin,"mercadopago");
     return {
       ok:true,
       provider:"mercadopago",
@@ -428,8 +429,8 @@ async function mercadoPagoBillingProviderHealth(admin:any){
       webhookSecretConfigured:true,
       endpoint,
       endpointConfiguredLocally:true,
-      remoteWebhookRegistrationVerified:Boolean(await latestVerifiedWebhookProbe(admin,"mercadopago")),
-      remoteWebhookVerifiedAt:(await latestVerifiedWebhookProbe(admin,"mercadopago"))?.verified_at??null,
+      remoteWebhookRegistrationVerified:Boolean(remoteWebhookProof),
+      remoteWebhookVerifiedAt:remoteWebhookProof?.verified_at??null,
       remoteWebhookProofFreshHours:24,
       accountBound:accountId!=null,
       apiStatus:response.status,
