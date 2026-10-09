@@ -23,10 +23,24 @@ export function mercadoPagoConfigured(accessToken){
   const token=String(accessToken??"").trim();
   return token.length>=20&&!/[\u0000-\u001f\u007f\s]/.test(token);
 }
-export async function mercadoPagoFetch(
-  path,
-  {accessToken,method="GET",body=null,idempotencyKey=null,timeoutMs=MP_TIMEOUT_MS}={}
-){
+/**
+ * @param {string} path
+ * @param {{
+ *   accessToken: string,
+ *   method?: string,
+ *   body?: unknown,
+ *   idempotencyKey?: string | null,
+ *   timeoutMs?: number
+ * }} options
+ */
+export async function mercadoPagoFetch(path,options){
+  const {
+    accessToken,
+    method="GET",
+    body=null,
+    idempotencyKey=null,
+    timeoutMs=MP_TIMEOUT_MS
+  }=options;
   if(!mercadoPagoConfigured(accessToken))throw new Error("MERCADOPAGO_ACCESS_TOKEN_INVALID");
   const safePath=String(path??"");
   if(!safePath.startsWith("/")||safePath.includes("://"))throw new Error("MERCADOPAGO_PATH_INVALID");
