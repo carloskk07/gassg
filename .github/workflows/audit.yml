@@ -49,6 +49,8 @@ jobs:
         run: node tests/service-worker-integrity.mjs
       - name: Static trust and asset audit
         run: node tests/static-audit.mjs
+      - name: Admin control plane V1.133 regression contract
+        run: node tests/admin-control-plane-v1-133.mjs
       - name: Remote admin gateway contract and portal report
         run: node tests/remote-admin-readiness.mjs
       - name: Runtime origin config contract

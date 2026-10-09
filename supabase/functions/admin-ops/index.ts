@@ -108,7 +108,7 @@ const ADMIN_ROLE_ACTIONS:Record<string,Set<string>>={
   ]),
   finance:new Set([
     "financial-action","review-referral","retry-reward","retry-accounting","reverse-order",
-    "commercial-policy","merchant-billing-action","merchant-billing-payment-request","merchant-billing-payment-event","merchant-billing-refund","merchant-billing-provider-cancel-retry","merchant-payment-capability","incident-action"
+    "commercial-policy","merchant-billing-plan","merchant-billing-action","merchant-billing-payment-request","merchant-billing-payment-event","merchant-billing-refund","merchant-billing-provider-cancel-retry","merchant-payment-capability","incident-action"
   ]),
   support:new Set(["order-control","support-case-status","incident-action"]),
   compliance:new Set([
@@ -1213,7 +1213,7 @@ async function summary(admin:any,actorUserId:string){
     : Promise.resolve({data:[],error:null});
   const [billingPlans,billingAccounts,dailyStatements,billingPaymentRequests,billingMetrics,billingReconciliation,billingPaymentEvents,billingProviderCharges,merchantPaymentAccounts,billingRefunds,billingRefundRecoveries]=await Promise.all([
     admin.from("merchant_billing_plans")
-      .select("plan_key,display_name,billing_mode,platform_fee_bps,purchase_amount_cents,credit_grant_cents,active,sort_order,updated_at")
+      .select("plan_key,display_name,billing_mode,platform_fee_bps,purchase_amount_cents,credit_grant_cents,active,sort_order,policy_version,updated_by,last_change_reason,updated_at")
       .order("sort_order",{ascending:true}),
     admin.from("merchant_billing_accounts")
       .select("merchant_id,plan_key,credit_balance_cents,credit_reserved_cents,sales_hold,sales_hold_reason,sales_hold_at,last_daily_close_date,updated_at")
@@ -1497,12 +1497,23 @@ Deno.serve(async(req:Request)=>{
       if(!["pending","verified","not_required","rejected"].includes(anpStatus)){
         throw new DomainError("INVALID_ANP_STATUS","Status ANP inválido.",400);
       }
+      const anpReference=body.anpReference==null?null:(cleanText(body.anpReference,{min:0,max:240,name:"referência ANP"})||null);
+      const notes=body.notes==null?null:(cleanText(body.notes,{min:0,max:1000,name:"evidência de compliance"})||null);
+      if(cnpjStatus==="verified"&&(!notes||notes.length<5)){
+        throw new DomainError("CNPJ_EVIDENCE_REQUIRED","Registre a fonte/evidência usada para verificar o CNPJ.",400);
+      }
+      if(anpStatus==="verified"&&(!anpReference||anpReference.length<3)){
+        throw new DomainError("ANP_REFERENCE_REQUIRED","Informe a referência da consulta ANP.",400);
+      }
+      if((cnpjStatus==="rejected"||anpStatus==="rejected")&&(!notes||notes.length<5)){
+        throw new DomainError("COMPLIANCE_REJECTION_EVIDENCE_REQUIRED","Documente a evidência da rejeição de compliance.",400);
+      }
       payload={
         merchantId:uuid(body.merchantId,"merchant"),
         cnpjStatus,
         anpStatus,
-        anpReference:body.anpReference==null?null:(cleanText(body.anpReference,{min:0,max:240,name:"referência ANP"})||null),
-        notes:body.notes==null?null:(cleanText(body.notes,{min:0,max:1000,name:"observações"})||null)
+        anpReference,
+        notes
       };
     }else if(action==="activate-merchant"||action==="suspend-merchant"){
       payload={merchantId:uuid(body.merchantId,"merchant")};
@@ -1611,6 +1622,26 @@ Deno.serve(async(req:Request)=>{
         }
       }
       payload=common;
+    }else if(action==="merchant-billing-plan"){
+      const planKey=String(body.planKey??"").trim().toLowerCase();
+      const expectedVersion=Number(body.expectedVersion);
+      const platformFeeBps=Number(body.platformFeeBps);
+      if(!/^[a-z][a-z0-9_]{1,63}$/.test(planKey)){
+        throw new DomainError("INVALID_BILLING_PLAN_KEY","Plano de cobrança inválido.",400);
+      }
+      if(!Number.isSafeInteger(expectedVersion)||expectedVersion<1){
+        throw new DomainError("INVALID_BILLING_PLAN_VERSION","Versão do plano inválida.",400);
+      }
+      if(!Number.isSafeInteger(platformFeeBps)||platformFeeBps<1||platformFeeBps>10000){
+        throw new DomainError("INVALID_BILLING_PLAN_FEE","Taxa do plano inválida.",400);
+      }
+      payload={
+        planKey,
+        expectedVersion,
+        platformFeeBps,
+        active:body.active===true,
+        reason:cleanText(body.reason,{min:3,max:1000,name:"motivo da alteração do plano"})
+      };
     }else if(action==="commercial-policy"){
       const expectedVersion=Number(body.expectedVersion);
       const asBps=(value:unknown,name:string)=>{
@@ -2210,6 +2241,19 @@ Deno.serve(async(req:Request)=>{
         p_request_hash:requestHash
       };
     }
+    else if(action==="merchant-billing-plan"){
+      rpcName="admin_merchant_billing_plan_action";
+      rpcArgs={
+        p_actor_user_id:user.id,
+        p_plan_key:payload.planKey,
+        p_expected_version:payload.expectedVersion,
+        p_platform_fee_bps:payload.platformFeeBps,
+        p_active:payload.active,
+        p_reason:payload.reason,
+        p_idempotency_key:idempotencyKey,
+        p_request_hash:requestHash
+      };
+    }
     else if(action==="commercial-policy"){
       rpcName="admin_commercial_policy_action";
       rpcArgs={
@@ -2439,6 +2483,15 @@ Deno.serve(async(req:Request)=>{
     }
     if(message.includes("INVALID_ADMIN_ROLE")){
       return json({error:"INVALID_ADMIN_ROLE",message:"Perfil administrativo inválido."},400,origin);
+    }
+    if(message.includes("BILLING_PLAN_VERSION_CONFLICT")){
+      return json({error:"BILLING_PLAN_VERSION_CONFLICT",message:"Este plano de cobrança mudou em outra sessão. Atualize o painel antes de salvar novamente."},409,origin);
+    }
+    if(message.includes("BILLING_PLAN_BELOW_ECONOMIC_FLOOR")){
+      return json({error:"BILLING_PLAN_BELOW_ECONOMIC_FLOOR",message:"A taxa do plano não cobre o piso econômico atual de custos, contribuição e incentivos."},409,origin);
+    }
+    if(message.includes("FLEX_BILLING_PLAN_MUST_REMAIN_ACTIVE")){
+      return json({error:"FLEX_BILLING_PLAN_MUST_REMAIN_ACTIVE",message:"O Flex Diário é o fallback financeiro obrigatório e não pode ser desativado."},409,origin);
     }
     if(message.includes("INCIDENT_NOT_FOUND")){
       return json({error:"INCIDENT_NOT_FOUND",message:"Incidente não encontrado."},404,origin);

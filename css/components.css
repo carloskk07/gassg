@@ -751,3 +751,46 @@ button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-vis
 @media(max-width:420px){
   .pilot-step-grid{grid-template-columns:1fr}
 }
+
+
+/* TAMÃO V1.133 — forensic admin rows and governed registry */
+.admin-audit-row{
+  padding:0;
+  overflow:hidden;
+}
+.admin-audit-row summary{
+  list-style:none;
+  cursor:pointer;
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:14px;
+  padding:13px 14px;
+}
+.admin-audit-row summary::-webkit-details-marker{display:none}
+.admin-audit-row summary span{min-width:0}
+.admin-audit-row summary strong,
+.admin-audit-row summary small{display:block}
+.admin-audit-row summary small{margin-top:3px;color:var(--muted)}
+.admin-audit-row summary::after{
+  content:"›";
+  color:var(--brand);
+  font-size:1.15rem;
+  font-weight:900;
+  transition:transform .16s ease;
+}
+.admin-audit-row[open] summary::after{transform:rotate(90deg)}
+.admin-audit-metadata{
+  margin:0;
+  padding:12px 14px 15px;
+  border-top:1px solid var(--line);
+  background:#f7faf8;
+  white-space:pre-wrap;
+  overflow-wrap:anywhere;
+  font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+  line-height:1.45;
+}
+.admin-registry-product[hidden]{display:none!important}
+@media(max-width:560px){
+  .admin-audit-row summary{align-items:flex-start;flex-wrap:wrap}
+}
