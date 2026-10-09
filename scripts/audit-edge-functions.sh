@@ -144,3 +144,13 @@ for f in $(find supabase/functions -mindepth 2 -maxdepth 2 -name 'index.ts' | so
       ;;
   esac
 done
+
+
+# Mercado Pago provider cancellation authority: local cancellation must not
+# leave a remotely payable Order behind, including late-create races.
+CANCEL_HELPER="supabase/functions/_shared/provider-charge-cancel.js"
+grep -q 'cancelMercadoPagoCharge' "$CANCEL_HELPER" || { echo "Mercado Pago provider cancellation authority missing"; exit 1; }
+grep -q 'MERCADOPAGO_CANCEL_BINDING_MISMATCH' "$CANCEL_HELPER" || { echo "Mercado Pago cancellation missing binding proof"; exit 1; }
+grep -q 'MERCADOPAGO_PAYMENT_ALREADY_RECEIVED' "$CANCEL_HELPER" || { echo "Mercado Pago cancellation must refuse paid orders"; exit 1; }
+grep -q '"/v1/orders/"' "$CANCEL_HELPER" || { echo "Mercado Pago cancellation missing authoritative Orders API lookup"; exit 1; }
+grep -q 'charge.provider==="mercadopago"' "$CANCEL_HELPER" || { echo "Mercado Pago cancellation not wired into provider dispatcher"; exit 1; }
