@@ -864,13 +864,37 @@ function adminIncidentCard(item,admins){
     ${item.resolution_note?`<div class="notice success" style="margin-top:10px"><strong>Resolução</strong><br>${esc(item.resolution_note)}</div>`:''}
   </article>`;
 }
+function adminIncidentDuration(ms){
+  if(!Number.isFinite(ms)||ms<0)return '—';
+  const minutes=Math.round(ms/60000);
+  if(minutes<60)return minutes+' min';
+  const hours=minutes/60;
+  if(hours<48)return hours.toLocaleString('pt-BR',{maximumFractionDigits:1})+' h';
+  return (hours/24).toLocaleString('pt-BR',{maximumFractionDigits:1})+' d';
+}
+function adminIncidentMedian(values){
+  const clean=values.filter(Number.isFinite).sort((a,b)=>a-b);
+  if(!clean.length)return null;
+  const mid=Math.floor(clean.length/2);
+  return clean.length%2?clean[mid]:(clean[mid-1]+clean[mid])/2;
+}
 function adminIncidentCenter(d){
   const incidents=d.incidents||[];
   const open=incidents.filter(x=>x.status!=='resolved');
   const resolved=incidents.filter(x=>x.status==='resolved');
+  const criticalOpen=open.filter(x=>x.severity==='critical').length;
+  const highOpen=open.filter(x=>x.severity==='high').length;
+  const mtta=adminIncidentMedian(incidents.map(x=>x.acknowledged_at?Date.parse(x.acknowledged_at)-Date.parse(x.created_at):NaN));
+  const mttr=adminIncidentMedian(resolved.map(x=>x.resolved_at?Date.parse(x.resolved_at)-Date.parse(x.created_at):NaN));
   const readOnly=adminCurrentRole()==='readonly';
   return `<section class="section">
-    <div class="section-head"><div><span class="section-kicker">INCIDENTES</span><h2>Central de Incidentes</h2><p>Eventos críticos ganham responsável, severidade, status e resolução auditável.</p></div><span class="status-pill ${open.length?'risk':'online'}">${open.length} aberto(s)</span></div>
+    <div class="section-head"><div><span class="section-kicker">INCIDENTES</span><h2>Central de Incidentes</h2><p>Eventos críticos ganham responsável, severidade, status, MTTA/MTTR e resolução auditável.</p></div><span class="status-pill ${open.length?'risk':'online'}">${open.length} aberto(s)</span></div>
+    <div class="merchant-kpis" style="margin-bottom:12px">
+      <div class="kpi"><span class="label">Críticos abertos</span><strong>${criticalOpen}</strong></div>
+      <div class="kpi"><span class="label">Altos abertos</span><strong>${highOpen}</strong></div>
+      <div class="kpi"><span class="label">MTTA mediano</span><strong>${adminIncidentDuration(mtta)}</strong><small>criação → reconhecimento</small></div>
+      <div class="kpi"><span class="label">MTTR mediano</span><strong>${adminIncidentDuration(mttr)}</strong><small>criação → resolução</small></div>
+    </div>
     ${readOnly
       ? '<div class="notice">Perfil Somente leitura: incidentes podem ser consultados, mas não alterados.</div>'
       : `<div class="card flat form-stack">
@@ -1279,9 +1303,19 @@ function adminBillingStatementStatus(status){
 function adminBillingPlanCard(plan){
   const fee=(Number(plan.platform_fee_bps||0)/100).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2});
   const prepaid=plan.billing_mode==='prepaid_credit';
+  const version=Number(plan.policy_version||1);
+  const flex=plan.plan_key==='flex_daily';
+  const inputId='billing-plan-fee-'+String(plan.plan_key).replace(/[^a-z0-9_-]/gi,'');
+  const activeId='billing-plan-active-'+String(plan.plan_key).replace(/[^a-z0-9_-]/gi,'');
   return `<article class="card flat">
-    <div class="order-head"><div><strong>${esc(plan.display_name)}</strong><br><small>${prepaid?'Crédito pré-pago':'Pós-pago diário'}</small></div><span class="status-pill ${plan.active?'online':'offline'}">${fee}%</span></div>
+    <div class="order-head"><div><strong>${esc(plan.display_name)}</strong><br><small>${prepaid?'Crédito pré-pago':'Pós-pago diário'} • versão ${version}</small></div><span class="status-pill ${plan.active?'online':'offline'}">${plan.active?'ATIVO':'PAUSADO'}</span></div>
     ${prepaid?`<div class="order-line"><strong>Pacote:</strong> ${adminMoney(plan.purchase_amount_cents)} → ${adminMoney(plan.credit_grant_cents)} em crédito de taxas</div>`:'<div class="order-line">Sem compra antecipada • fechamento diário D+1</div>'}
+    <div class="field-row" style="margin-top:12px">
+      <div class="input-wrap"><label for="${inputId}">Taxa efetiva TAMÃO (%)</label><input id="${inputId}" class="input" type="number" min="0.01" max="100" step="0.05" value="${fee}"></div>
+      <label class="check-row"><input id="${activeId}" type="checkbox" ${plan.active?'checked':''} ${flex?'disabled':''}><span><strong>${flex?'Fallback obrigatório':'Plano disponível'}</strong><small>${flex?'O Flex Diário não pode ser desativado.':'Pausar afeta apenas novas seleções; pedidos já criados mantêm o snapshot.'}</small></span></label>
+    </div>
+    <div class="order-actions"><button class="secondary small" onclick="adminSaveBillingPlan('${esc(plan.plan_key)}',${version})">Salvar plano</button></div>
+    ${plan.last_change_reason?`<small class="field-help">Última decisão: ${esc(plan.last_change_reason)} • ${esc(formatDateTime(plan.updated_at))}</small>`:''}
   </article>`;
 }
 function adminBillingAccountCard(account){
@@ -2845,6 +2879,21 @@ async function adminResolveBillingPaymentRequest(paymentRequestId,requestAction,
     toast(approve?'Pagamento confirmado com valor conciliado':'Solicitação rejeitada');
   }catch(e){toast(String(e?.message||e))}
 }
+async function adminSaveBillingPlan(planKey,expectedVersion){
+  const safeId=String(planKey).replace(/[^a-z0-9_-]/gi,'');
+  const feePct=Number(document.getElementById('billing-plan-fee-'+safeId)?.value);
+  if(!Number.isFinite(feePct)||feePct<=0||feePct>100)return toast('Informe uma taxa válida entre 0,01% e 100%');
+  const platformFeeBps=Math.round(feePct*100);
+  const active=planKey==='flex_daily'?true:document.getElementById('billing-plan-active-'+safeId)?.checked===true;
+  const reason=prompt('Motivo para alterar este plano de cobrança:')||'';
+  if(reason.trim().length<3)return toast('Informe o motivo da alteração');
+  if(!confirm('Salvar esta alteração somente para PEDIDOS FUTUROS? Pedidos já criados manterão suas taxas snapshotadas.'))return;
+  try{
+    await adminPerform('merchant-billing-plan',{planKey,expectedVersion,platformFeeBps,active,reason});
+    toast('Plano de cobrança atualizado para pedidos futuros');
+  }catch(e){toast(String(e?.message||e))}
+}
+
 async function adminSetMerchantFlex(merchantId){
   const reference=prompt('Motivo/referência para voltar ao Flex:')||'';
   if(reference.trim().length<3)return toast('Informe uma referência');
@@ -2906,6 +2955,7 @@ globalThis.adminCreateIncident=adminCreateIncident;
 globalThis.adminIncidentAction=adminIncidentAction;
 globalThis.adminAuditSearch=adminAuditSearch;
 globalThis.adminResolveBillingPaymentRequest=adminResolveBillingPaymentRequest;
+globalThis.adminSaveBillingPlan=adminSaveBillingPlan;
 globalThis.adminSetMerchantFlex=adminSetMerchantFlex;
 globalThis.adminResolveDailyStatement=adminResolveDailyStatement;
 globalThis.openAdminPortal=openAdminPortal;
