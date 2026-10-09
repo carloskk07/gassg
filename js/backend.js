@@ -945,6 +945,7 @@ const merchantRuntime={
   catalog:[],
   availableProducts:[],
   billing:null,
+  receivingAccount:null,
   orders:[],
   selectedMerchantId:localStorage.getItem('chama-merchant-selected-v1')||null,
   actionPending:false,
@@ -1244,6 +1245,7 @@ async function merchantSignOut(){
   merchantRuntime.catalog=[];
   merchantRuntime.availableProducts=[];
   merchantRuntime.billing=null;
+  merchantRuntime.receivingAccount=null;
   merchantRuntime.orders=[];
   merchantRuntime.selectedMerchantId=null;
   localStorage.removeItem('chama-merchant-selected-v1');
@@ -1271,6 +1273,7 @@ async function merchantRefresh({silent=false,recoverSelection=true}={}){
     merchantRuntime.catalog=data.catalog??[];
     merchantRuntime.availableProducts=data.availableProducts??[];
     merchantRuntime.billing=data.billing??null;
+    merchantRuntime.receivingAccount=data.receivingAccount??null;
     merchantRuntime.orders=data.orders??[];
     merchantProcessOrderAlerts(merchantRuntime.orders,merchantRuntime.merchant);
     merchantRuntime.selectedMerchantId=data.merchant?.merchantId??merchantRuntime.selectedMerchantId;
@@ -1508,6 +1511,44 @@ async function merchantCompleteDeliveryLive(orderId,pin,paymentConfirmed){
     },{idempotencyKey}));
     if(result?.ok===false)throw Object.assign(new Error(result.error==='PIN_LOCKED'?'PIN bloqueado. Abra suporte.':'PIN incorreto.'),{code:result.error});
     await merchantRefresh({silent:true});
+  }catch(error){
+    merchantRuntime.error=String(error?.message||error);
+    try{await merchantRefresh({silent:true})}catch{}
+    throw error;
+  }finally{
+    merchantRuntime.actionPending=false;
+    render();
+  }
+}
+
+async function merchantPaymentConnectLive(action='status'){
+  const merchantId=merchantRuntime.merchant?.merchantId;
+  if(!merchantId)throw new Error('Revenda não selecionada');
+  if(!['owner','manager'].includes(String(merchantRuntime.merchant?.memberRole||''))){
+    throw new Error('Seu papel não pode gerenciar a conta de recebimento');
+  }
+  const normalized=String(action||'status').trim().toLowerCase();
+  if(!['status','start','disconnect'].includes(normalized)){
+    throw new Error('Ação de conexão de pagamento inválida');
+  }
+  merchantRuntime.actionPending=true;
+  merchantRuntime.error=null;
+  render();
+  try{
+    const result=await merchantInvoke('merchant-payment-connect',{
+      merchantId,
+      action:normalized
+    });
+    if(normalized==='start'){
+      const url=String(result?.authorizationUrl||'');
+      if(!/^https:\/\/auth\.mercadopago\.com\/authorization\?/.test(url)){
+        throw new Error('URL de autorização Mercado Pago inválida');
+      }
+      location.href=url;
+      return result;
+    }
+    await merchantRefresh({silent:true});
+    return result;
   }catch(error){
     merchantRuntime.error=String(error?.message||error);
     try{await merchantRefresh({silent:true})}catch{}
@@ -1891,6 +1932,7 @@ globalThis.merchantOpenTeam=merchantOpenTeam;
 globalThis.merchantAssignDeliveryLive=merchantAssignDeliveryLive;
 globalThis.merchantUpdateMemberProfileLive=merchantUpdateMemberProfileLive;
 globalThis.merchantCompleteDeliveryLive=merchantCompleteDeliveryLive;
+globalThis.merchantPaymentConnectLive=merchantPaymentConnectLive;
 globalThis.merchantBillingRequestLive=merchantBillingRequestLive;
 globalThis.merchantRequestBillingPackageLive=merchantRequestBillingPackageLive;
 globalThis.merchantNotifyBillingPaymentLive=merchantNotifyBillingPaymentLive;
