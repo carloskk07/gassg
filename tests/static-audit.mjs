@@ -671,6 +671,7 @@ const merchantSalePaymentReleaseMigration=read('supabase/migrations/202610090054
 const merchantPaymentCapabilityMigration=read('supabase/migrations/20261009005938_admin_merchant_payment_capability_v1_129.sql');
 const lateProviderIdentityCancelMigration=read('supabase/migrations/20261009024100_late_provider_identity_cancel_v1_131.sql');
 const multiPspPaymentCapabilityMigration=read('supabase/migrations/20261009200000_multi_psp_payment_capability_v1_135.sql');
+const mercadoPagoWebhookProofMigration=read('supabase/migrations/20261009213000_mp_webhook_remote_proof_v1_137.sql');
 assert.ok(merchantBillingIndexes.includes('merchant_billing_accounts_plan_key_idx')&&merchantBillingIndexes.includes('merchant_daily_statements_resolved_by_idx')&&merchantBillingIndexes.includes('merchant_fee_credit_ledger_created_by_idx')&&merchantBillingIndexes.includes('merchant_fee_credit_ledger_order_id_idx')&&merchantBillingIndexes.includes('merchant_fee_credit_ledger_plan_key_idx'),'billing v1.72 precisa cobrir as FKs apontadas pelo advisor do banco');
 assert.ok(merchantBillingMigration.includes("'flex_daily','Flex Diário','postpaid_daily',850")&&merchantBillingMigration.includes("'credit_3000','Crédito 3.000','prepaid_credit',650"),'billing v1.72 precisa manter Flex premium e pacotes pré-pagos com desconto progressivo');
 assert.ok(merchantBillingMigration.includes('BILLING_PLAN_BELOW_ECONOMIC_FLOOR')&&merchantBillingMigration.includes('variable_cost_bps')&&merchantBillingMigration.includes('minimum_contribution_bps'),'pacotes não podem cair abaixo do piso econômico completo');
@@ -898,10 +899,26 @@ assert.ok(
   &&mercadoPagoPaymentWebhookSource.includes('ingest_merchant_billing_payment_event')
   &&mercadoPagoPaymentWebhookSource.includes('ingest_merchant_billing_payment_refund')
   &&mercadoPagoPaymentWebhookSource.includes('route:"merchant_sale"')
-  &&mercadoPagoPaymentWebhookSource.includes('route:"platform_billing"'),
-  'um único webhook Mercado Pago precisa autenticar e rotear separadamente venda da revenda e receita TAMÃO'
+  &&mercadoPagoPaymentWebhookSource.includes('route:"platform_billing"')
+  &&mercadoPagoPaymentWebhookSource.includes('route:"webhook_probe"'),
+  'um único webhook Mercado Pago precisa autenticar e rotear separadamente venda da revenda, receita TAMÃO e prova não financeira'
 );
 assert.ok(mercadoPagoPaymentWebhookSource.includes('tamaoReceivesPlatformBilling:true')&&mercadoPagoPaymentWebhookSource.includes('tamaoReceivesSaleProceeds:false'),'webhook unificado precisa distinguir semanticamente receita do TAMÃO de venda pertencente à revenda');
+assert.ok(
+  mercadoPagoPaymentWebhookSource.indexOf('verifyMercadoPagoWebhook(req,webhookSecret,dataId)')
+    <mercadoPagoPaymentWebhookSource.indexOf('WEBHOOK_PROBE_RE.test(dataId)')
+  &&mercadoPagoPaymentWebhookSource.includes('consume_payment_webhook_probe')
+  &&mercadoPagoPaymentWebhookSource.includes('financialMutationAttempted:false'),
+  'prova remota Mercado Pago só pode existir depois do HMAC oficial e nunca pode mutar financeiro'
+);
+assert.ok(
+  mercadoPagoWebhookProofMigration.includes('payment_webhook_probes')
+  &&mercadoPagoWebhookProofMigration.includes("v_role not in ('superadmin','finance')")
+  &&mercadoPagoWebhookProofMigration.includes("interval '15 minutes'")
+  &&mercadoPagoWebhookProofMigration.includes("'signatureVerified',true")
+  &&mercadoPagoWebhookProofMigration.includes("'financialMutationAttempted',false"),
+  'autoridade de prova remota precisa ser curta, server-only, auditável e não financeira'
+);
 assert.ok(admin.includes('Recebimento direto multi-PSP')&&admin.includes("adminPerform('merchant-payment-capability'")&&admin.includes('Homologar confirmação automática')&&admin.includes('AUTOMAÇÃO GLOBAL')&&admin.includes('Mercado Pago não é obrigatório'),'Financeiro precisa homologar cada PSP de forma independente sem confundir conexão, automação e kill switch global');
 assert.ok(
   mercadoPagoPaymentWebhookSource.includes('providerUserId!==providerAccountId')
@@ -1003,10 +1020,13 @@ assert.ok(pspHealthEventDedup.includes("e.match_reason='no_exact_pending_request
 assert.ok(pspHealthEventDedup.includes("status='review_required'")&&pspHealthEventDedup.includes("match_reason='duplicate_transaction_event'"),'evidência conflitante precisa continuar em revisão, nunca ser ocultada como duplicata benigna');
 assert.ok(pspHealthEventDedup.includes("('applied','already_applied','ignored','superseded')")&&pspHealthEventDedup.includes('admin_merchant_billing_payment_event_action'),'reprocessar evento superseded precisa ser terminal/replay-safe e não reabrir conciliação');
 assert.ok(adminOpsSource.includes('billing-provider-health')&&adminOpsSource.includes('billingProviderHealth')&&adminOpsSource.includes('mercadoPagoBillingProviderHealth')&&adminOpsSource.includes('wooviBillingProviderHealth'),'admin precisa oferecer health-check real provider-aware do PSP como ação de leitura autenticada');
+assert.ok(adminOpsSource.includes('latestVerifiedWebhookProbe')&&adminOpsSource.includes('remoteWebhookRegistrationVerified')&&adminOpsSource.includes('remoteWebhookProofFreshHours:24'),'health-check Mercado Pago precisa elevar registro remoto apenas após prova assinada recente');
+assert.ok(adminOpsSource.includes('"create-billing-webhook-probe"')&&adminOpsSource.includes('admin_create_payment_webhook_probe')&&adminOpsSource.includes('webhookProbes:billingWebhookProbes.data??[]'),'Financeiro precisa criar e acompanhar prova remota sem gerar cobrança');
 assert.ok(adminOpsSource.includes('/api/v1/webhook?url=')&&adminOpsSource.includes('"Authorization":appId'),'health-check Woovi precisa validar o AppID pela API oficial sem criar cobrança');
 assert.ok(adminOpsSource.includes('WOOVI_CHARGE_WEBHOOK_MISSING')&&adminOpsSource.includes('WOOVI_CHARGE_WEBHOOK_AUTH_MISMATCH')&&adminOpsSource.includes('chargeWebhookReady'),'health-check precisa provar webhook CHARGE_COMPLETED ativo e com autorização exata');
 assert.ok(adminOpsSource.includes('transactionWebhookActive')&&adminOpsSource.includes('OPENPIX:TRANSACTION_RECEIVED'),'health-check precisa tornar visível se o evento genérico irmão também está ativo');
 assert.ok(admin.includes('Testar PSP ativo')&&admin.includes('adminCheckBillingProviderHealth'),'Financeiro precisa conseguir executar a prova real do PSP ativo sem sair do painel');
+assert.ok(admin.includes('Gerar prova Webhook')&&admin.includes('adminGenerateBillingWebhookProbe')&&admin.includes('Order (Mercado Pago)')&&admin.includes('Data ID')&&admin.includes('Webhook remoto comprovado criptograficamente.'),'Financeiro precisa comprovar webhook remoto pelo simulador oficial sem confundir com pagamento');
 assert.ok(admin.includes("pspApiValidated=providerHealth?.ok===true")&&admin.includes("pspE2E=adminBillingE2EState(d)")&&admin.includes("pspFailed=Boolean(providerHealth)&&providerHealth?.ok===false")&&admin.includes("pspConfigured=paymentIngress?.livePspReady===true"),'v1.133 precisa separar PSP configurado, API autenticada, E2E e falha');
 assert.ok(admin.includes("pspBadgeLabel=pspE2E.validated?'E2E VALIDADO':pspApiValidated?'API VALIDADA':pspFailed?'PSP FALHANDO':pspConfigured?'PSP CONFIGURADO'"),'badge financeiro só pode dizer E2E validado após evidência financeira reconciliada');
 assert.ok(admin.includes('API do PSP validada; E2E financeiro ainda pendente.')&&admin.includes('PSP configurado; prova real ainda pendente.')&&admin.includes('PSP validado de ponta a ponta.'),'copy do Financeiro precisa distinguir configuração, API autenticada e prova financeira E2E');
@@ -1655,6 +1675,8 @@ for(const entry of fs.readdirSync(functionRoot,{withFileTypes:true})){
     assert.ok(source.includes('MAX_BODY_BYTES=65536')&&source.includes('TextEncoder().encode(raw).byteLength>MAX_BODY_BYTES'),entry.name+' precisa limitar o corpo bruto antes do parse');
     assert.ok(source.includes('verifyMercadoPagoWebhook(req,webhookSecret,dataId)')&&source.includes('INVALID_MERCADOPAGO_SIGNATURE'),entry.name+' precisa autenticar o ingresso por HMAC antes do roteamento financeiro');
     assert.ok(source.includes('merchant_sale_payment_attempts')&&source.includes('handlePlatformBillingOrder')&&source.includes('handleMerchantSaleOrder'),entry.name+' precisa rotear venda da revenda e cobrança do TAMÃO por vínculo exato');
+    assert.ok(source.includes('WEBHOOK_PROBE_RE')&&source.includes('handleWebhookProbe')&&source.includes('consume_payment_webhook_probe'),entry.name+' precisa reconhecer prova assinada reservada sem consulta financeira');
+    assert.ok(source.indexOf('verifyMercadoPagoWebhook(req,webhookSecret,dataId)')<source.indexOf('WEBHOOK_PROBE_RE.test(dataId)'),entry.name+' precisa validar HMAC antes de consumir prova remota');
   }else if(entry.name==='merchant-payment-oauth-callback'){
     assert.ok(source.includes('req.method!=="GET"')&&source.includes('consume_merchant_payment_oauth_state'),entry.name+' precisa ser callback GET com state de uso único');
     assert.ok(source.includes('decryptPaymentSecret')&&source.includes('code_verifier')&&source.includes('verifyMercadoPagoSellerToken')&&source.includes('verifyPagBankSellerToken'),entry.name+' precisa provar state/PKCE quando aplicável e identidade da conta antes de persistir tokens');

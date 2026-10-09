@@ -1623,6 +1623,26 @@ body:has(.admin-page) .shell{
 .admin-psp-notice{
   margin-top:10px;
 }
+.admin-webhook-probe-code{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:10px;
+  margin:10px 0 7px;
+  padding:9px 10px;
+  border:1px solid #dce6e0;
+  border-radius:11px;
+  background:#fff;
+}
+.admin-webhook-probe-code code{
+  min-width:0;
+  overflow-wrap:anywhere;
+  font-size:10px;
+  font-weight:850;
+}
+.admin-webhook-probe-code button{
+  flex:0 0 auto;
+}
 .admin-tech-details{
   margin-top:12px;
   border:1px solid #e1e8e4;
@@ -1677,6 +1697,8 @@ body:has(.admin-page) .shell{
 @media(max-width:440px){
   .admin-psp-status-grid{grid-template-columns:1fr}
   .admin-tech-details summary{align-items:flex-start;flex-direction:column}
+  .admin-webhook-probe-code{align-items:stretch;flex-direction:column}
+  .admin-webhook-probe-code button{width:100%}
 }
 
 

@@ -574,6 +574,54 @@ async function adminEnsureProviderHealth(){
   return adminCheckBillingProviderHealth({silent:true,force:false});
 }
 
+function adminLatestBillingWebhookProbe(d=adminRuntime.data,provider='mercadopago'){
+  const rows=Array.isArray(d?.merchantBilling?.webhookProbes)
+    ?d.merchantBilling.webhookProbes:[];
+  return rows
+    .filter(x=>String(x.provider||'').toLowerCase()===String(provider||'').toLowerCase())
+    .sort((a,b)=>Date.parse(b.requested_at||0)-Date.parse(a.requested_at||0))[0]||null;
+}
+function adminFreshVerifiedWebhookProbe(d=adminRuntime.data,provider='mercadopago'){
+  const rows=Array.isArray(d?.merchantBilling?.webhookProbes)
+    ?d.merchantBilling.webhookProbes:[];
+  const cutoff=Date.now()-24*60*60*1000;
+  return rows
+    .filter(x=>
+      String(x.provider||'').toLowerCase()===String(provider||'').toLowerCase()
+      &&x.status==='verified'
+      &&Date.parse(x.verified_at||0)>=cutoff
+    )
+    .sort((a,b)=>Date.parse(b.verified_at||0)-Date.parse(a.verified_at||0))[0]||null;
+}
+async function adminCopyText(value,label='Valor'){
+  const text=String(value||'');
+  if(!text)return toast('Nada para copiar');
+  try{
+    await navigator.clipboard.writeText(text);
+    toast(label+' copiado');
+  }catch{
+    prompt('Copie este valor:',text);
+  }
+}
+async function adminGenerateBillingWebhookProbe(){
+  const ingress=adminRuntime.data?.merchantBilling?.paymentIngress||{};
+  if(String(ingress.activeBillingProvider||'').toLowerCase()!=='mercadopago'){
+    return toast('A prova remota desta versão está disponível para Mercado Pago.');
+  }
+  if(
+    ingress.adapterReadiness?.mercadopago?.webhookSecretConfigured!==true
+    ||ingress.liveEndpoints?.mercadopago==null
+  ){
+    return toast('Configure primeiro o webhook HMAC e o endpoint Mercado Pago.');
+  }
+  try{
+    const result=await adminPerform('create-billing-webhook-probe',{provider:'mercadopago'});
+    if(!result?.resourceId)return toast('Não foi possível gerar o ID de prova');
+    try{await navigator.clipboard.writeText(result.resourceId)}catch{}
+    toast('ID de prova criado e copiado. Nenhuma cobrança foi gerada.');
+  }catch(e){toast(String(e?.message||e))}
+}
+
 async function adminRetryBillingProviderCancel(paymentRequestId){
   if(!paymentRequestId)return toast('Solicitação financeira inválida');
   if(!confirm('Repetir o cancelamento desta cobrança no PSP? A solicitação financeira continuará encerrada.'))return;
@@ -1834,11 +1882,12 @@ function adminBillingProviderHealthNotice(h){
   const e2e=adminBillingE2EState();
   let detail='';
   if(h.provider==='mercadopago'){
+    const verifiedAt=h.remoteWebhookVerifiedAt?formatDateTime(h.remoteWebhookVerifiedAt):null;
     detail='Access Token '+(h.credentialValid===true?'válido':h.credentialValid===false?'inválido':'não confirmado')
       +' • criação '+(h.chargeReady?'pronta':'não confirmada')
       +' • webhook HMAC local '+(h.receiveReady?'configurado':'não confirmado')
       +' • conta '+(h.accountBound?'vinculada':'não confirmada')
-      +' • registro remoto do webhook '+(h.remoteWebhookRegistrationVerified===true?'verificado':'ainda não provado automaticamente');
+      +' • registro remoto do webhook '+(h.remoteWebhookRegistrationVerified===true?'verificado'+(verifiedAt?' em '+verifiedAt:''):'ainda não comprovado por notificação assinada');
   }else{
     detail='credencial '+(h.credentialValid===true?'válida':h.credentialValid===false?'inválida':'não confirmada')
       +' • webhook pagamento '+(h.chargeWebhookReady?'ativo':'não confirmado')
@@ -1959,8 +2008,14 @@ function adminMerchantBillingSection(d){
   const refunds=billing.refunds||[];
   const refundRecoveries=billing.refundRecoveries||[];
   const providerCharges=billing.providerCharges||[];
+  const webhookProbes=billing.webhookProbes||[];
   const paymentIngress=billing.paymentIngress||null;
   const providerHealth=adminRuntime.providerHealth;
+  const latestWebhookProbe=adminLatestBillingWebhookProbe(d,'mercadopago');
+  const verifiedWebhookProbe=adminFreshVerifiedWebhookProbe(d,'mercadopago');
+  const remoteWebhookVerified=
+    providerHealth?.remoteWebhookRegistrationVerified===true
+    ||Boolean(verifiedWebhookProbe);
   const pspApiValidated=providerHealth?.ok===true;
   const pspE2E=adminBillingE2EState(d);
   const pspFailed=Boolean(providerHealth)&&providerHealth?.ok===false;
@@ -1993,16 +2048,33 @@ function adminMerchantBillingSection(d){
         <div class="admin-psp-status"><span class="admin-state-dot ${paymentIngress.adapterReadiness?.mercadopago?.accessTokenConfigured?'ok':'pending'}"></span><div><small>Access Token</small><strong>${paymentIngress.adapterReadiness?.mercadopago?.accessTokenConfigured?'Configurado':'Pendente'}</strong></div></div>
         <div class="admin-psp-status"><span class="admin-state-dot ${paymentIngress.adapterReadiness?.mercadopago?.webhookSecretConfigured?'ok':'pending'}"></span><div><small>Webhook HMAC</small><strong>${paymentIngress.adapterReadiness?.mercadopago?.webhookSecretConfigured?'Configurado':'Pendente'}</strong></div></div>
         <div class="admin-psp-status"><span class="admin-state-dot ${pspApiValidated?'ok':pspFailed?'bad':'pending'}"></span><div><small>API Mercado Pago</small><strong>${pspApiValidated?'Validada':pspFailed?'Falhando':'Não testada'}</strong></div></div>
-        <div class="admin-psp-status"><span class="admin-state-dot ${pspE2E.validated?'ok':'pending'}"></span><div><small>Pagamento E2E</small><strong>${pspE2E.validated?'Validado':'Aguardando prova real'}</strong></div></div>
+        <div class="admin-psp-status"><span class="admin-state-dot ${remoteWebhookVerified?'ok':'pending'}"></span><div><small>Webhook remoto</small><strong>${remoteWebhookVerified?'Assinatura comprovada':latestWebhookProbe?.status==='pending'?'Prova aguardando envio':'Não comprovado'}</strong></div></div>
+        <div class="admin-psp-status"><span class="admin-state-dot ${pspE2E.validated?'ok':'pending'}"></span><div><small>Pagamento E2E</small><strong>${pspE2E.validated?'Validado':'Aguardando pagamento real'}</strong></div></div>
       </div>
-      <div class="admin-psp-actions"><button class="secondary small" onclick="adminCheckBillingProviderHealth()" ${adminRuntime.providerHealthPending?'disabled':''}>${adminRuntime.providerHealthPending?'Testando conexão…':'Testar PSP ativo'}</button><small>Teste sem gerar cobrança ou movimentar dinheiro.</small></div>
+      <div class="admin-psp-actions">
+        <button class="secondary small" onclick="adminCheckBillingProviderHealth()" ${adminRuntime.providerHealthPending?'disabled':''}>${adminRuntime.providerHealthPending?'Testando conexão…':'Testar PSP ativo'}</button>
+        ${paymentIngress.activeBillingProvider==='mercadopago'&&!remoteWebhookVerified
+          ?`<button class="secondary small" onclick="adminGenerateBillingWebhookProbe()" ${adminRuntime.actionPending?'disabled':''}>Gerar prova Webhook</button>`
+          :''}
+        <small>Os dois testes são não financeiros: não criam Pix, cobrança, saldo ou crédito.</small>
+      </div>
+      ${latestWebhookProbe&&latestWebhookProbe.status==='pending'&&Date.parse(latestWebhookProbe.expires_at)>Date.now()
+        ?`<div class="notice admin-psp-notice">
+          <strong>Prova Webhook pronta para o simulador oficial.</strong><br>
+          No Mercado Pago, abra Webhooks → Configurar notificações → Simular, escolha o endpoint de produção e o evento <strong>Order (Mercado Pago)</strong>. No campo Data ID, cole:
+          <div class="admin-webhook-probe-code"><code>${esc(latestWebhookProbe.resource_id)}</code><button type="button" class="ghost small" onclick="adminCopyText('${esc(latestWebhookProbe.resource_id)}','Data ID')">Copiar ID</button></div>
+          <small>Expira ${esc(formatDateTime(latestWebhookProbe.expires_at))}. A prova só é aceita se o Mercado Pago assinar a notificação com o HMAC configurado; nenhuma tabela financeira é alterada.</small>
+        </div>`
+        :remoteWebhookVerified
+          ?`<div class="notice success admin-psp-notice"><strong>Webhook remoto comprovado criptograficamente.</strong><br>O endpoint recebeu uma notificação assinada pelo Mercado Pago e validou o HMAC oficial${(providerHealth?.remoteWebhookVerifiedAt||verifiedWebhookProbe?.verified_at)?' em '+esc(formatDateTime(providerHealth?.remoteWebhookVerifiedAt||verifiedWebhookProbe?.verified_at)):''}. Esta prova confirma transporte + assinatura, não um pagamento.</div>`
+          :''}
       ${adminBillingProviderHealthNotice(providerHealth)}
       ${paymentIngress.configValid===false
         ?`<div class="notice danger admin-psp-notice"><strong>Configuração de webhook inválida.</strong><br>O mapa BILLING_PAYMENT_WEBHOOK_SECRETS não pôde ser validado. Nenhum recebimento automático deve ser considerado pronto.</div>`
         :pspE2E.validated
           ?`<div class="notice success admin-psp-notice"><strong>PSP validado de ponta a ponta.</strong><br>Além da API, já existe evidência de webhook financeiro real conciliado. O TAMÃO continua exigindo correlação, valor e evidência exatos antes de movimentar o financeiro.</div>`
           :pspApiValidated
-            ?`<div class="notice success admin-psp-notice"><strong>API do PSP validada; E2E financeiro ainda pendente.</strong><br>A credencial respondeu e os gates locais de cobrança + webhook estão configurados. O selo E2E só será concedido após um pagamento real gerar webhook e conciliação válidos.</div>`
+            ?`<div class="notice success admin-psp-notice"><strong>API do PSP validada; E2E financeiro ainda pendente.</strong><br>A credencial respondeu e os gates locais estão prontos${remoteWebhookVerified?', inclusive o webhook remoto assinado':''}. O selo E2E financeiro continua separado e só será concedido após um pagamento real ser conciliado.</div>`
           :paymentIngress.livePspReady
             ?`<div class="notice admin-psp-notice"><strong>PSP configurado; prova real ainda pendente.</strong><br>Os requisitos server-side existem, mas presença de secret não comprova a credencial ou o webhook do PSP ativo. Use “Testar PSP ativo”.</div>`
             :paymentIngress.normalizedIngressConfigured
@@ -3229,6 +3301,8 @@ globalThis.adminCreateIncident=adminCreateIncident;
 globalThis.adminIncidentAction=adminIncidentAction;
 globalThis.adminAuditSearch=adminAuditSearch;
 globalThis.adminResolveBillingPaymentRequest=adminResolveBillingPaymentRequest;
+globalThis.adminGenerateBillingWebhookProbe=adminGenerateBillingWebhookProbe;
+globalThis.adminCopyText=adminCopyText;
 globalThis.adminSaveBillingPlan=adminSaveBillingPlan;
 globalThis.adminSetMerchantFlex=adminSetMerchantFlex;
 globalThis.adminResolveDailyStatement=adminResolveDailyStatement;

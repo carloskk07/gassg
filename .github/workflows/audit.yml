@@ -57,6 +57,8 @@ jobs:
         run: node tests/payment-capability-multi-psp-v1-135.mjs
       - name: Portal OIDC attestation V1.136 regression contract
         run: node tests/portal-oidc-attestation-v1-136.mjs
+      - name: Mercado Pago webhook remote proof V1.137 regression contract
+        run: node tests/mp-webhook-remote-proof-v1-137.mjs
       - name: Remote admin gateway contract and portal report
         run: node tests/remote-admin-readiness.mjs
       - name: Runtime origin config contract
