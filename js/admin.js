@@ -647,13 +647,23 @@ function adminAttentionCenter(d){
   const items=adminAttentionItems(d);
   const critical=items.filter(x=>x.severity==='critical').length;
   const high=items.filter(x=>x.severity==='high').length;
+  const medium=items.filter(x=>x.severity==='medium').length;
   const action=(x)=>{
     if(x.type&&x.id)return "adminOpenEntity('"+String(x.type).replace(/'/g,'')+"','"+String(x.id).replace(/'/g,'')+"')";
     return "adminSetSection('"+String(x.section||'overview').replace(/'/g,'')+"')";
   };
   return `<section class="section admin-attention">
-    <div class="section-head"><div><span class="section-kicker">ATENÇÃO AGORA</span><h2>Fila operacional priorizada</h2><p>O painel reúne automaticamente os eventos que merecem ação administrativa primeiro.</p></div><div class="order-actions"><span class="status-pill ${critical?'offline':'online'}">${critical} crítico(s)</span><span class="status-pill ${high?'risk':'online'}">${high} alto(s)</span></div></div>
-    ${items.length?`<div class="admin-attention-list">${items.map(x=>`<button type="button" class="admin-attention-item ${esc(x.severity)}" onclick="${action(x)}"><span class="admin-attention-severity">${esc(adminSeverityLabel(x.severity))}</span><span><strong>${esc(x.title)}</strong><small>${esc(x.detail)}</small></span><span aria-hidden="true">›</span></button>`).join('')}</div>`:'<div class="notice success"><strong>Nenhuma intervenção prioritária agora.</strong><br>Filas críticas, pedidos em risco e sinais operacionais estão limpos.</div>'}
+    <div class="admin-command-card">
+      <div class="admin-command-head">
+        <div><span class="section-kicker">ATENÇÃO AGORA</span><h2>Decisões prioritárias</h2><p>Exceções operacionais, financeiras e de segurança ordenadas para você agir primeiro no que realmente importa.</p></div>
+        <div class="admin-severity-summary">
+          <span class="admin-severity-chip critical"><b>${critical}</b> crítico</span>
+          <span class="admin-severity-chip high"><b>${high}</b> alto</span>
+          <span class="admin-severity-chip medium"><b>${medium}</b> médio</span>
+        </div>
+      </div>
+      ${items.length?`<div class="admin-attention-list">${items.map((x,index)=>`<button type="button" class="admin-attention-item ${esc(x.severity)}" onclick="${action(x)}"><span class="admin-attention-rank">${String(index+1).padStart(2,'0')}</span><span class="admin-attention-severity">${esc(adminSeverityLabel(x.severity))}</span><span class="admin-attention-copy"><strong>${esc(x.title)}</strong><small>${esc(x.detail)}</small></span><span class="admin-attention-arrow" aria-hidden="true">→</span></button>`).join('')}</div>`:'<div class="admin-all-clear"><span aria-hidden="true">✓</span><div><strong>Nenhuma intervenção prioritária agora.</strong><small>Filas críticas, pedidos em risco e sinais operacionais estão limpos.</small></div></div>'}
+    </div>
   </section>`;
 }
 function adminRecentCustomers(d){
@@ -1527,6 +1537,28 @@ function adminBillingPaymentEventCard(event){
     ${matched&&event.payment_request_id?`<div class="notice success" style="margin-top:10px"><strong>Correspondência exata encontrada.</strong><br>Valor e identificador coincidem com uma solicitação pendente.</div><div class="order-actions"><button class="primary small" onclick="adminResolveBillingPaymentRequest('${esc(event.payment_request_id)}','approve','${esc(event.id)}')">Confirmar evento conciliado</button></div>`:''}
     ${review?`<div class="notice" style="margin-top:10px"><strong>Revisão obrigatória.</strong><br>O evento não movimentou saldo porque não houve correspondência exata e única.</div><div class="order-actions"><button class="secondary small" onclick="adminBillingPaymentEventAction('${esc(event.id)}','recheck')">Reprocessar conciliação</button><button class="ghost small" onclick="adminBillingPaymentEventAction('${esc(event.id)}','ignore')">Ignorar evento</button></div>`:''}
   </article>`;
+}
+
+function adminFinanceOverview(d){
+  const billing=d.merchantBilling||{};
+  const metrics=billing.metrics||{};
+  const reconciliation=billing.reconciliation||{};
+  const pendingReviews=(billing.paymentEvents||[]).filter(x=>x.status==='review_required').length
+    +(billing.refunds||[]).filter(x=>x.status==='review_required').length;
+  const e2e=adminBillingE2EState(d);
+  const ingress=billing.paymentIngress||{};
+  const pspLabel=e2e.validated?'E2E validado':adminRuntime.providerHealth?.ok===true?'API validada':ingress.livePspReady?'Configurado':'Pendente';
+  return `<section class="section admin-finance-overview">
+    <div class="section-head"><div><span class="section-kicker">POSIÇÃO FINANCEIRA</span><h2>Visão executiva</h2><p>O que o TAMÃO tem a receber, o que está em risco e a situação real do PSP.</p></div><span class="status-pill ${Number(metrics.overdueStatementCount||0)||pendingReviews?'risk':'online'}">${Number(metrics.overdueStatementCount||0)||pendingReviews?'EXIGE ATENÇÃO':'SEM PENDÊNCIA CRÍTICA'}</span></div>
+    <div class="admin-exec-grid finance">
+      ${adminExecutiveKpi({icon:'R$',label:'D+1 em aberto',value:adminMoney(metrics.openStatementCents),detail:Number(metrics.openStatementCount||0)+' fechamento(s)',tone:Number(metrics.overdueStatementCount||0)?'warning':'money'})}
+      ${adminExecutiveKpi({icon:'!',label:'Vencido',value:adminMoney(metrics.overdueStatementCents),detail:Number(metrics.overdueStatementCount||0)+' fechamento(s)',tone:Number(metrics.overdueStatementCount||0)?'danger':'neutral'})}
+      ${adminExecutiveKpi({icon:'↗',label:'Aguardando conferência',value:adminMoney(metrics.pendingPaymentCents),detail:Number(metrics.pendingPaymentCount||0)+' pagamento(s)',tone:Number(metrics.pendingPaymentCount||0)?'warning':'neutral'})}
+      ${adminExecutiveKpi({icon:'C',label:'Crédito pré-pago',value:adminMoney(metrics.prepaidCreditBalanceCents),detail:Number(metrics.prepaidAccountCount||0)+' conta(s)',tone:'money'})}
+      ${adminExecutiveKpi({icon:'↺',label:'Refunds em revisão',value:String(pendingReviews),detail:adminMoney(metrics.refundRecoveryOutstandingCents||0)+' em recuperação',tone:pendingReviews?'danger':'neutral'})}
+      ${adminExecutiveKpi({icon:'PSP',label:'Mercado Pago',value:esc(pspLabel),detail:reconciliation.healthy===true?'conciliação íntegra':'conciliação sob observação',tone:e2e.validated?'good':adminRuntime.providerHealth?.ok===true?'money':'warning'})}
+    </div>
+  </section>`;
 }
 
 function adminBillingMetricsView(metrics){
