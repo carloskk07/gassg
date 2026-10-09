@@ -1561,6 +1561,41 @@ function adminBillingProviderChargeRow(charge){
     : '';
   return `<div class="list-row"><div><strong>${esc(adminMerchantName(charge.merchant_id))}</strong><br><small>${esc(charge.provider||'—')} • correlação ${esc(charge.correlation_id||'—')}${charge.end_to_end_id?' • EndToEndId '+esc(charge.end_to_end_id):''}</small>${pendingNote}</div><div style="text-align:right"><strong>${adminMoney(charge.amount_cents)}</strong><br><span class="status-pill ${charge.status==='completed'?'online':charge.last_error_code?'offline':charge.status==='expired'||charge.status==='cancelled'?'':'risk'}">${esc(String(charge.status||'—').toUpperCase())}</span>${charge.expired_at?`<br><small>expirou ${esc(formatDateTime(charge.expired_at))}</small>`:''}${charge.last_error_code?`<br><small>${esc(charge.last_error_code)}</small>`:''}${retryButton}</div></div>`;
 }
+
+function adminMerchantPaymentAccountCard(merchant){
+  const account=merchant?.paymentAccount||null;
+  const connected=account?.status==='active';
+  const directEnabled=account?.capabilities?.directSalePaymentsEnabled===true;
+  const globalEnabled=adminRuntime.data?.merchantPayments?.globalDirectPaymentsEnabled===true;
+  const accountRef=String(account?.provider_account_id||'');
+  const safeAccountRef=accountRef?('•••• '+accountRef.slice(-6)):'—';
+  const statusLabel=!connected?'NÃO CONECTADO':directEnabled?'HOMOLOGADO':'AGUARDA HOMOLOGAÇÃO';
+  const statusClass=directEnabled&&globalEnabled?'online':connected?'risk':'';
+  let notice='';
+  if(!connected){
+    notice='<div class="notice" style="margin-top:8px">A revenda ainda não concluiu a autorização OAuth do próprio Mercado Pago.</div>';
+  }else if(directEnabled){
+    notice='<div class="notice success" style="margin-top:8px"><strong>Revenda homologada.</strong><br>A plataforma pode validar pagamentos feitos diretamente na conta desta revenda. O TAMÃO não recebe nem repassa o valor da venda.</div>';
+  }else{
+    notice='<div class="notice" style="margin-top:8px"><strong>Conta conectada, venda direta bloqueada.</strong><br>Valide a integração real desta revenda antes de homologar pagamentos online.</div>';
+  }
+  const action=connected
+    ?'<div class="order-actions"><button class="'+(directEnabled?'danger-btn':'secondary')+' small" onclick="adminSetMerchantPaymentCapability(\''+esc(merchant.id)+'\','+(directEnabled?'false':'true')+')">'+(directEnabled?'Suspender pagamentos diretos':'Homologar pagamentos diretos')+'</button></div>'
+    :'';
+  return '<article class="order-card">'
+    +'<div class="order-head"><div><div class="order-id">'+esc(merchant?.name||merchant?.id||'Revenda')+'</div><div class="tiny muted">Mercado Pago • conta '+esc(safeAccountRef)+'</div></div><span class="status-pill '+statusClass+'">'+esc(statusLabel)+'</span></div>'
+    +notice
+    +'<div class="tiny muted" style="margin-top:8px">Kill switch global: <strong>'+(globalEnabled?'ATIVO':'DESATIVADO')+'</strong> • conexão: '+esc(account?.status||'not_connected')+(account?.connected_at?' • desde '+esc(formatDateTime(account.connected_at)):'')+'</div>'
+    +action
+    +'</article>';
+}
+function adminMerchantPaymentAccountsSection(d){
+  const rows=(d.merchants||[]).filter(m=>m.paymentAccount);
+  const globalEnabled=d.merchantPayments?.globalDirectPaymentsEnabled===true;
+  return '<div class="section-head" style="margin-top:18px"><div><h3>Recebimento direto das revendas</h3><p>Cada revenda conecta a própria conta Mercado Pago. Homologação individual e kill switch global são independentes; nenhuma venda passa pela conta do TAMÃO.</p></div><span class="status-pill '+(globalEnabled?'online':'risk')+'">GLOBAL '+(globalEnabled?'ATIVO':'DESATIVADO')+'</span></div>'
+    +(rows.length?'<div class="admin-entity-grid">'+rows.map(adminMerchantPaymentAccountCard).join('')+'</div>':'<div class="empty card">Nenhuma revenda conectou uma conta Mercado Pago ainda.</div>');
+}
+
 function adminMerchantBillingSection(d){
   const billing=d.merchantBilling||{};
   const plans=billing.plans||[];
@@ -1616,6 +1651,7 @@ function adminMerchantBillingSection(d){
               ?`<div class="notice" style="margin-top:10px"><strong>Ingress técnico pronto; PSP real ainda não.</strong><br>Há secret para o contrato HMAC normalizado do TAMÃO, mas nenhum adaptador nativo de PSP está configurado. O fluxo manual continua disponível.</div>`
               :`<div class="notice" style="margin-top:10px"><strong>PSP/Pix ainda não conectado.</strong><br>O motor interno de conciliação está pronto, mas não há integração automática validada. O fluxo manual continua disponível.</div>`}
     </div>`:''}
+    ${adminMerchantPaymentAccountsSection(d)}
     ${adminBillingMetricsView(metrics)}
     ${adminBillingReconciliationView(reconciliation)}
     ${pendingRefunds.length?`<div class="section-head" style="margin-top:18px"><div><h3>Reembolsos do PSP exigem decisão</h3><p>Refund confirmado nunca desfaz crédito ou quitação silenciosamente. Refund ligado cria obrigação de recuperação no valor exato; o hold só cai depois que o pagamento dessa obrigação for conciliado e aprovado.</p></div><span class="status-pill offline">${pendingRefunds.length} em revisão</span></div>${pendingRefunds.map(adminBillingRefundCard).join('')}`:''}
@@ -2432,6 +2468,30 @@ async function adminSaveDeliveryCapability(id){
     toast(active?'Capacidade logística verificada':'Capacidade logística revogada');
   }catch(e){toast(String(e?.message||e))}
 }
+
+async function adminSetMerchantPaymentCapability(merchantId,enabled){
+  const merchant=(adminRuntime.data?.merchants||[]).find(x=>x.id===merchantId);
+  const name=merchant?.name||'esta revenda';
+  const reference=prompt(
+    enabled
+      ?'Referência da homologação E2E (ticket, teste ou evidência):'
+      :'Motivo/referência da suspensão:'
+  )||'';
+  if(reference.trim().length<3)return toast('Informe uma referência auditável');
+  const message=enabled
+    ?'Homologar pagamento direto para '+name+'? O dinheiro continuará indo direto à conta Mercado Pago da revenda. O kill switch global permanece independente.'
+    :'Suspender pagamento direto para '+name+'? Checkouts já iniciados continuam sujeitos ao controle financeiro e a cancelamento/reembolso seguro.';
+  if(!confirm(message))return;
+  try{
+    const result=await adminPerform('merchant-payment-capability',{
+      merchantId,
+      enabled:enabled===true,
+      reference:reference.trim()
+    });
+    toast(result?.directSalePaymentsEnabled?'Pagamentos diretos homologados para a revenda':'Pagamentos diretos suspensos para a revenda');
+  }catch(e){toast(String(e?.message||e))}
+}
+
 async function adminSetMerchantStatus(id,action){
   const label=action==='activate-merchant'?'ativar':'suspender';
   if(!confirm('Confirma '+label+' esta revenda?'))return;
