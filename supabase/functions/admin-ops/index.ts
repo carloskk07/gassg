@@ -1240,7 +1240,7 @@ async function summary(admin:any,actorUserId:string){
     : Promise.resolve({data:[],error:null});
   const merchantPaymentRoutesPromise=["superadmin","finance","readonly"].includes(actorRole)
     ? admin.from("merchant_payment_routes")
-        .select("id,merchant_id,payment_method,provider,connection_id,channel,verification_mode,active,priority,customer_label,confirmed_at,updated_at")
+        .select("id,merchant_id,payment_method,provider,connection_id,channel,verification_mode,active,priority,customer_label,metadata,confirmed_at,updated_at")
         .order("merchant_id",{ascending:true})
         .order("priority",{ascending:true})
         .limit(2000)
