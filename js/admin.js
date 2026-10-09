@@ -3195,26 +3195,46 @@ async function adminSaveDeliveryCapability(id){
 async function adminSetMerchantPaymentCapability(merchantId,provider,enabled){
   const merchant=(adminRuntime.data?.merchants||[]).find(x=>x.id===merchantId);
   const name=merchant?.name||'esta revenda';
-  const providerName=adminBillingProviderName(provider);
+  const providerKey=String(provider||'').toLowerCase();
+  const providerName=adminBillingProviderName(providerKey);
+  const account=(merchant?.paymentAccounts||[]).find(x=>String(x?.provider||'').toLowerCase()===providerKey)||null;
+  const e2eValidated=account?.capabilities?.e2eValidated===true;
+  const activationKind=e2eValidated?'reactivation':'pilot';
   const reference=prompt(
     enabled
-      ?'Referência da homologação E2E de '+providerName+' (ticket, teste ou evidência):'
+      ?activationKind==='pilot'
+        ?'Referência do piloto controlado de '+providerName+' (ticket, plano ou teste acompanhado):'
+        :'Referência da reativação de '+providerName+' (E2E já validado):'
       :'Motivo/referência da suspensão de '+providerName+':'
   )||'';
   if(reference.trim().length<3)return toast('Informe uma referência auditável');
-  const message=enabled
-    ?'Homologar confirmação automática via '+providerName+' para '+name+'? O dinheiro continuará indo diretamente à revenda. O kill switch global permanece independente.'
-    :'Suspender confirmação automática via '+providerName+' para '+name+'? Transações já iniciadas continuam sujeitas ao controle seguro.';
+  const message=!enabled
+    ?'Suspender confirmação automática via '+providerName+' para '+name+'? Transações já iniciadas continuam sujeitas ao controle seguro.'
+    :activationKind==='pilot'
+      ?'Ativar piloto controlado via '+providerName+' para '+name+'? Isso NÃO significa homologação. O status só será promovido após uma venda liquidada gerar prova E2E verificada. O dinheiro continuará indo diretamente à revenda.'
+      :'Reativar confirmação automática via '+providerName+' para '+name+'? Esta conta já possui prova E2E persistida. O dinheiro continuará indo diretamente à revenda.';
   if(!confirm(message))return;
-  if(enabled&&!adminRequireTypedConfirmation('HOMOLOGAR','A homologação permite ao TAMÃO validar transações neste provedor sem receber o dinheiro da venda.'))return toast('Homologação cancelada');
+  if(enabled){
+    const typed=activationKind==='pilot'?'PILOTO':'REATIVAR';
+    const copy=activationKind==='pilot'
+      ?'O piloto libera automação controlada para produzir a primeira prova E2E real; não concede status HOMOLOGADO.'
+      :'A reativação reutiliza uma prova E2E já registrada, sem alterar quem recebe o dinheiro.';
+    if(!adminRequireTypedConfirmation(typed,copy))return toast(activationKind==='pilot'?'Ativação do piloto cancelada':'Reativação cancelada');
+  }
   try{
     const result=await adminPerform('merchant-payment-capability',{
       merchantId,
-      provider:String(provider||'').toLowerCase(),
+      provider:providerKey,
       enabled:enabled===true,
       reference:reference.trim()
     });
-    toast(result?.enabled?'Confirmação automática homologada em '+providerName:'Confirmação automática suspensa em '+providerName);
+    toast(
+      !result?.enabled
+        ?'Confirmação automática suspensa em '+providerName
+        :activationKind==='pilot'
+          ?'Piloto controlado ativado em '+providerName+' — aguardando prova E2E real'
+          :'Confirmação automática reativada em '+providerName+' — prova E2E já validada'
+    );
   }catch(e){toast(String(e?.message||e))}
 }
 
