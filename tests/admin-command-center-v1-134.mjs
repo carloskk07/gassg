@@ -72,6 +72,20 @@ assert.ok(admin.includes('admin-psp-status-grid')
   &&admin.includes('API Mercado Pago'),
   'PSP deve mostrar estados operacionais em um grid legível');
 
+assert.ok(admin.includes('tamao-admin-provider-health-v1')
+  &&admin.includes('ADMIN_PROVIDER_HEALTH_CACHE_MS=10*60*1000')
+  &&admin.includes('adminEnsureProviderHealth()')
+  &&admin.includes("queueMicrotask(()=>adminEnsureProviderHealth().catch(()=>{}))"),
+  'saúde do PSP precisa sobreviver a reload curto e ser renovada sem polling externo agressivo');
+
+assert.ok(admin.includes("adminCheckBillingProviderHealth({silent=false,force=true}={})")
+  &&admin.includes("adminCheckBillingProviderHealth({silent:true,force:false})"),
+  'health-check manual deve continuar explícito enquanto o refresh automático permanece silencioso');
+
+assert.ok(admin.includes("sessionStorage.removeItem('tamao-admin-provider-health-v1')")
+  &&admin.includes('adminProviderHealthFresh()'),
+  'cache sanitizado do PSP precisa expirar e ser removido no logout');
+
 assert.ok(admin.includes('<details class="admin-tech-details">')
   &&admin.includes('Detalhes técnicos da integração')
   &&admin.includes('Webhook Mercado Pago único (Order):')
