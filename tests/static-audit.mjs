@@ -670,6 +670,7 @@ const merchantSalePaymentOrderGuardMigration=read('supabase/migrations/202610090
 const merchantSalePaymentReleaseMigration=read('supabase/migrations/20261009005411_merchant_sale_payment_release_serialization_v1_127.sql');
 const merchantPaymentCapabilityMigration=read('supabase/migrations/20261009005938_admin_merchant_payment_capability_v1_129.sql');
 const lateProviderIdentityCancelMigration=read('supabase/migrations/20261009024100_late_provider_identity_cancel_v1_131.sql');
+const multiPspPaymentCapabilityMigration=read('supabase/migrations/20261009200000_multi_psp_payment_capability_v1_135.sql');
 assert.ok(merchantBillingIndexes.includes('merchant_billing_accounts_plan_key_idx')&&merchantBillingIndexes.includes('merchant_daily_statements_resolved_by_idx')&&merchantBillingIndexes.includes('merchant_fee_credit_ledger_created_by_idx')&&merchantBillingIndexes.includes('merchant_fee_credit_ledger_order_id_idx')&&merchantBillingIndexes.includes('merchant_fee_credit_ledger_plan_key_idx'),'billing v1.72 precisa cobrir as FKs apontadas pelo advisor do banco');
 assert.ok(merchantBillingMigration.includes("'flex_daily','Flex Diário','postpaid_daily',850")&&merchantBillingMigration.includes("'credit_3000','Crédito 3.000','prepaid_credit',650"),'billing v1.72 precisa manter Flex premium e pacotes pré-pagos com desconto progressivo');
 assert.ok(merchantBillingMigration.includes('BILLING_PLAN_BELOW_ECONOMIC_FLOOR')&&merchantBillingMigration.includes('variable_cost_bps')&&merchantBillingMigration.includes('minimum_contribution_bps'),'pacotes não podem cair abaixo do piso econômico completo');
@@ -901,7 +902,7 @@ assert.ok(
   'um único webhook Mercado Pago precisa autenticar e rotear separadamente venda da revenda e receita TAMÃO'
 );
 assert.ok(mercadoPagoPaymentWebhookSource.includes('tamaoReceivesPlatformBilling:true')&&mercadoPagoPaymentWebhookSource.includes('tamaoReceivesSaleProceeds:false'),'webhook unificado precisa distinguir semanticamente receita do TAMÃO de venda pertencente à revenda');
-assert.ok(admin.includes('Recebimento direto das revendas')&&admin.includes("adminPerform('merchant-payment-capability'")&&admin.includes('Homologar pagamentos diretos')&&admin.includes('Kill switch global'),'Financeiro precisa possuir homologação auditável por revenda sem confundir com o kill switch global');
+assert.ok(admin.includes('Recebimento direto multi-PSP')&&admin.includes("adminPerform('merchant-payment-capability'")&&admin.includes('Homologar confirmação automática')&&admin.includes('AUTOMAÇÃO GLOBAL')&&admin.includes('Mercado Pago não é obrigatório'),'Financeiro precisa homologar cada PSP de forma independente sem confundir conexão, automação e kill switch global');
 assert.ok(
   mercadoPagoPaymentWebhookSource.includes('providerUserId!==providerAccountId')
   &&mercadoPagoPaymentWebhookSource.includes('MERCADOPAGO_ORDER_ROUTE_NOT_READY')
@@ -931,12 +932,15 @@ assert.ok(
 assert.ok(
   orderPaymentCheckoutSource.includes('MERCHANT_DIRECT_PAYMENTS_ENABLED')
   &&orderPaymentCheckoutSource.includes('directSalePaymentsEnabled')
-  &&orderPaymentCheckoutSource.includes('prepare_merchant_sale_payment_attempt')
+  &&orderPaymentCheckoutSource.includes('prepare_merchant_sale_payment_attempt_v2')
+  &&orderPaymentCheckoutSource.includes('merchant_payment_routes')
+  &&orderPaymentCheckoutSource.includes('PAYMENT_ADAPTER_NOT_IMPLEMENTED')
   &&orderPaymentCheckoutSource.includes('processing_mode:"manual"')
   &&orderPaymentCheckoutSource.includes('providerUserId!==seller.providerAccountId')
   &&!orderPaymentCheckoutSource.includes('marketplace_fee')
+  &&orderPaymentCheckoutSource.includes('fundsOwner:"merchant"')
   &&orderPaymentCheckoutSource.includes('tamaoReceivesSaleProceeds:false'),
-  'checkout direto precisa ter dois gates, seller exato, valor autoritativo e nenhuma comissão/split na fase PF'
+  'checkout direto precisa resolver rota multi-PSP, falhar fechado em adaptador incompleto, provar seller/valor e nunca criar split'
 );
 assert.ok(
   merchantSalePaymentControlSource.includes('"/refund"')
@@ -955,10 +959,13 @@ assert.ok(
 );
 assert.ok(
   getOrderPaymentSource.includes('MERCHANT_DIRECT_PAYMENTS_ENABLED')
+  &&getOrderPaymentSource.includes('merchant_payment_routes')
+  &&getOrderPaymentSource.includes('fundsOwner:"merchant"')
   &&getOrderPaymentSource.includes('tamaoReceivesSaleProceeds:false')
   &&backend.includes('liveStartMerchantPayment')
-  &&merchant.includes('Conectar Mercado Pago'),
-  'portais precisam expor apenas estado seguro e deixar explícito que a venda não passa pelo TAMÃO'
+  &&merchant.includes('Conexões para confirmação automática')
+  &&merchant.includes('Mercado Pago não é obrigatório.'),
+  'portais precisam resolver pagamento por capacidade, manter fallback manual e deixar explícito que a venda não passa pelo TAMÃO'
 );
 assert.ok(
   mercadoPagoPaymentBoundaryMigration.includes('merchant_payment_provider_accounts')
@@ -970,9 +977,12 @@ assert.ok(
 );
 assert.ok(
   adminOpsSource.includes('"merchant-payment-capability"')
+  &&adminOpsSource.includes('admin_merchant_provider_payment_capability_action')
+  &&adminOpsSource.includes('MERCHANT_PAYMENT_ADAPTER_NOT_IMPLEMENTED')
   &&adminOpsSource.includes('MERCHANT_PAYMENT_RUNTIME_NOT_READY')
-  &&merchantPaymentCapabilityMigration.includes("v_role not in ('superadmin','finance')"),
-  'somente Financeiro/Superadmin pode homologar pagamento direto e somente com runtime seguro'
+  &&multiPspPaymentCapabilityMigration.includes("v_role not in ('superadmin','finance')")
+  &&multiPspPaymentCapabilityMigration.includes("adapter_status='implemented'"),
+  'somente Financeiro/Superadmin pode homologar um provider e apenas quando o adaptador completo estiver implementado e o runtime seguro'
 );
 
 assert.ok(
