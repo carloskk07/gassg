@@ -57,6 +57,7 @@ const livePortalWorkflow=read('.github/workflows/build-live-portals.yml');
 const launchReadinessWorkflow=read('.github/workflows/launch-readiness.yml');
 const remoteAdminTurnstile=read('tests/remote-admin-turnstile.mjs');
 const remoteFinancePspReadiness=read('tests/remote-finance-psp-readiness.mjs');
+const remoteDirectPaymentKillSwitch=read('tests/remote-direct-payment-kill-switch.mjs');
 const auditWorkflow=read('.github/workflows/audit.yml');
 const pagesWorkflow=read('.github/workflows/pages.yml');
 const edgeFunctionAudit=read('scripts/audit-edge-functions.sh');
@@ -374,6 +375,23 @@ assert.ok(launchReadinessWorkflow.includes('TAMAO_EXPECTED_SOURCE_SHA: ${{ githu
 
 assert.ok(launchReadinessWorkflow.includes('node tests/remote-admin-turnstile.mjs'),'gate de lançamento precisa continuar executando o smoke real do Turnstile');
 
+assert.ok(launchReadinessWorkflow.includes('node tests/remote-direct-payment-kill-switch.mjs'),'gate de lançamento precisa provar que venda direta da revenda continua desligada durante homologação');
+assert.ok(
+  launchReadinessWorkflow.indexOf('node tests/remote-direct-payment-kill-switch.mjs')
+  <launchReadinessWorkflow.indexOf('node tests/remote-finance-psp-readiness.mjs'),
+  'kill switch de venda direta precisa ser provado antes do gate de PSP'
+);
+assert.ok(
+  remoteDirectPaymentKillSwitch.includes('MERCHANT_DIRECT_PAYMENTS_NOT_LAUNCHED')
+  &&remoteDirectPaymentKillSwitch.includes("response.status===401&&body?.error==='UNAUTHORIZED'")
+  &&remoteDirectPaymentKillSwitch.includes('financialMutationAttempted:false'),
+  'probe de kill switch precisa distinguir feature OFF de autenticação alcançada sem iniciar checkout'
+);
+assert.ok(
+  remoteDirectPaymentKillSwitch.includes("assert.equal(\n    report.globalDirectPaymentsEnabled,\n    false")
+  &&remoteDirectPaymentKillSwitch.includes("assert.equal(\n    report.failClosed,\n    true"),
+  'launch readiness precisa falhar se venda direta for habilitada prematuramente ou deixar de falhar fechado'
+);
 assert.ok(launchReadinessWorkflow.includes('node tests/remote-finance-psp-readiness.mjs'),'gate de lançamento precisa provar configuração runtime do PSP antes de aprovar produção');
 assert.ok(
   remoteFinancePspReadiness.includes('PIX_PROVIDER_NOT_CONFIGURED')
