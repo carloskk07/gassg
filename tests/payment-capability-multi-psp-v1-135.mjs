@@ -172,6 +172,12 @@ assert.ok(
   'Pix/dinheiro/cartão manuais precisam continuar funcionando sem conta PSP'
 );
 assert.ok(
+  merchant.includes("account?.capabilities?.directSalePaymentsEnabled!==true")
+  &&merchant.includes("provider.adapterStatus!=='implemented'")
+  &&merchant.includes("metadata:{autoManaged:true}"),
+  'PSP homologado deve virar rota automática por trás da escolha simples Pix/cartão, sem exigir configuração técnica da revenda'
+);
+assert.ok(
   css.includes('TAMÃO V1.135 — Multi-PSP merchant capability')
   &&css.includes('.merchant-psp-grid'),
   'UI multi-PSP precisa permanecer responsiva'
