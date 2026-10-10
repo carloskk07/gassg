@@ -79,7 +79,7 @@ for(const key of ['upsert_anp_prospect_batch','discover_expansion_city','expansi
 }
 assert.ok(sql.includes('prospect_status text')===false,'importação não modifica estágio humano');
 assert.ok(sql.includes('on conflict(cnpj) do update set'));
-assert.ok(sql.includes('status not in (\\'closed\\',\\'converted\\')'));
+assert.ok(sql.includes("l.status not in ('closed','converted')"));
 assert.ok(sql.includes('unique(lead_id,postal_code,notification_type)'));
 assert.ok(sql.includes('on conflict(lead_id,postal_code,notification_type) do nothing'));
 assert.ok(sql.includes('if not public.market_city_ready(v_row.city,v_row.state)'));
