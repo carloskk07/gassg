@@ -70,9 +70,9 @@ const active=fn({cnpj,prospect_status:'contacted',invitation:{status:'active',ex
 assert.ok(active.includes('Rotacionar convite')&&active.includes('Revogar'));
 const already=fn({cnpj,prospect_status:'onboarding',invitation:{status:'claimed'},application:{status:'pending'}});
 assert.ok(already.includes('Convite utilizado')&&!already.includes('Rotacionar convite'));
-const read=vm.runInNewContext(ui.slice(begin,end+2)+';adminProspectInvitationControls',{
+const readonlyEditor=vm.runInNewContext(ui.slice(begin,end+2)+';adminProspectInvitationControls',{
  esc,adminCurrentRole:()=> 'readonly',formatDateTime:()=> '12/10/2026'
 });
-const noEdit=read({cnpj,prospect_status:'contacted',invitation:{status:'active'},application:null});
+const noEdit=readonlyEditor({cnpj,prospect_status:'contacted',invitation:{status:'active'},application:null});
 assert.ok(noEdit.includes('Convite ativo')&&!noEdit.includes('onclick='));
 console.log('V1.155: convites ANP bound-CNPJ, expiration, replay, staff roles, portal flow, XSS');
