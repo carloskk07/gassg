@@ -9,7 +9,7 @@ const acquisition=get('js/acquisition.js');
 const adminAcquisition=get('js/admin-acquisition.js');
 const customer=get('js/customer.js');
 assert.match(sql,/alter table public.prelaunch_leads[\s\S]+city_ibge_code text/);
-for(const table of ['market_cities','anp_glp_prospects','anp_prospect_refreshes']){
+for(const table of ['market_cities','market_city_interests','anp_glp_prospects','anp_prospect_refreshes']){
   assert.ok(sql.includes('create table if not exists public.'+table));
   assert.ok(sql.includes('alter table public.'+table+' enable row level security;'));
   assert.ok(sql.includes('revoke all on public.'+table+' from public,anon,authenticated;'));
@@ -19,6 +19,9 @@ assert.ok(!sql.includes('on conflict (state,city_key) do update set commerce_ena
 assert.match(capture,/resolveLeadCity\(postalCode\)/);
 assert.match(capture,/market_cities"\)\.upsert/);
 assert.match(capture,/city_ibge_code:resolvedCity\.ibgeCode/);
+assert.match(capture,/market_city_interests"\)\.upsert/);
+assert.ok(adminOps.includes('admin.from("market_city_interests")'),'demanda por CEP não pode ser contada somente do último cadastro do telefone');
+assert.ok(adminAcquisition.includes('d?.marketCityInterests'),'cidades no painel precisam refletir interesses independentes por CEP');
 assert.match(capture,/region:resolvedCity\?/);
 assert.match(capture,/if\(!postalCode\)return null/);
 assert.ok(!capture.includes('POSTAL_CODE_OUTSIDE_SERVICE_AREA'),'captura consentida aceita CEP fora de São Gabriel');
