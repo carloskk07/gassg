@@ -37,6 +37,9 @@ const adminRuntime={
   providerHealthPending:false,
   paymentPreflights:{},
   prospectReport:null,
+  expansionRadar:[],
+  expansionRadarLoading:false,
+  expansionRadarError:null,
   prospectLoading:false,
   prospectError:null,
   prospectCity:'São Gabriel',
@@ -1216,7 +1219,10 @@ function adminSetSection(section){
   try{sessionStorage.setItem('tamao-admin-section',next)}catch{}
   render();
   if(next==='system')adminLoadSystemHealth().catch(()=>{});
-  if(next==='prospects')adminLoadProspects().catch(()=>{});
+  if(next==='prospects'){
+    adminLoadProspects().catch(()=>{});
+    adminLoadExpansionRadar().catch(()=>{});
+  }
   requestAnimationFrame(()=>{
     document.querySelector('.admin-main')?.scrollIntoView({block:'start'});
   });

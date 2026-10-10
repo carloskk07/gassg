@@ -99,13 +99,13 @@ async function requireAdmin(admin:any,userId:string){
   if(!data)throw new DomainError("ADMIN_ACCESS_DENIED","Esta conta não possui acesso administrativo.",403);
   return data;
 }
-const ADMIN_READ_ACTIONS=new Set(["summary","search","entity-detail","system-health","billing-provider-health","audit-search","incident-list","merchant-payment-preflight","prospect-intelligence","expansion-notifications"]);
+const ADMIN_READ_ACTIONS=new Set(["summary","search","entity-detail","system-health","billing-provider-health","audit-search","incident-list","merchant-payment-preflight","prospect-intelligence","expansion-notifications","expansion-radar"]);
 const ADMIN_ROLE_ACTIONS:Record<string,Set<string>>={
   superadmin:new Set(["*"]),
   operations:new Set([
     "approve-application","reject-application","verify-merchant","activate-merchant","suspend-merchant",
     "set-delivery-capability","order-control","support-case-status","lead-status","public-request-status",
-    "pilot-invite","assisted-merchant-onboarding","product-registry","verify-launch-portals","incident-action","market-city-pause","city-notification-status"
+    "pilot-invite","assisted-merchant-onboarding","product-registry","verify-launch-portals","incident-action","market-city-pause","city-notification-status","prospect-crm"
   ]),
   finance:new Set([
     "financial-action","review-referral","retry-reward","retry-accounting","reverse-order",
@@ -114,7 +114,7 @@ const ADMIN_ROLE_ACTIONS:Record<string,Set<string>>={
   support:new Set(["order-control","support-case-status","incident-action"]),
   compliance:new Set([
     "approve-application","reject-application","verify-merchant","activate-merchant","suspend-merchant",
-    "set-delivery-capability","incident-action"
+    "set-delivery-capability","incident-action","prospect-crm"
   ]),
   readonly:new Set()
 };
@@ -1162,7 +1162,7 @@ async function prospectIntelligence(admin:any,cityInput:unknown,stateInput:unkno
   const updated=sync.updated===true;
   const [{data:prospects,error:prospectError},{data:refresh,error:refreshError},{count:interestCount,error:interestError}]=await Promise.all([
     admin.from("anp_glp_prospects")
-      .select("cnpj,legal_name,address_text,distributor,anp_authorization,sigaf_status,prospect_status,source_checked_at")
+      .select("cnpj,legal_name,address_text,distributor,anp_authorization,sigaf_status,prospect_status,notes,follow_up_at,last_contacted_at,contact_attempts,crm_version,source_checked_at")
       .eq("state",state).eq("city_key",cityKey).order("legal_name",{ascending:true}).limit(200),
     admin.from("anp_prospect_refreshes").select("last_checked_at,last_count,status").eq("state",state).eq("city_key",cityKey).maybeSingle(),
     admin.from("market_city_interests").select("lead_id",{count:"exact",head:true}).eq("state",state).ilike("city",city)
@@ -1635,6 +1635,14 @@ Deno.serve(async(req:Request)=>{
     const adminAccess=await requireAdmin(admin,user.id);
     requireAdminAction(String(adminAccess.admin_role||"superadmin"),action);
 
+    if(action==="expansion-radar"){
+      if(!["superadmin","operations","compliance","readonly"].includes(String(adminAccess.admin_role))){
+        throw new DomainError("ADMIN_PERMISSION_DENIED","Seu perfil não pode consultar cidades.",403);
+      }
+      const {data,error}=await admin.rpc("admin_expansion_radar",{p_limit:60});
+      if(error)throw error;
+      return json({cities:data||[],criterion:"operational_priority_v1",automatedMarketActivation:false},200,origin);
+    }
     if(action==="prospect-intelligence"){
       if(!["superadmin","operations","compliance","readonly"].includes(String(adminAccess.admin_role))){
         throw new DomainError("ADMIN_PERMISSION_DENIED","Seu perfil não pode consultar prospectos.",403);
@@ -1700,6 +1708,33 @@ Deno.serve(async(req:Request)=>{
       throw new DomainError("INVALID_IDEMPOTENCY_KEY","Chave de idempotência obrigatória para mutações administrativas.",400);
     }
 
+    if(action==="prospect-crm"){
+      const cnpj=String(body.cnpj||"").replace(/\D/g,"");
+      if(!/^[0-9]{14}$/.test(cnpj))throw new DomainError("INVALID_PROSPECT_CNPJ","CNPJ inválido.",400);
+      const version=Number(body.expectedVersion);
+      if(!Number.isSafeInteger(version)||version<0)throw new DomainError("INVALID_PROSPECT_VERSION","Atualize a lista antes de salvar.",400);
+      const status=String(body.status||"");
+      if(!["uncontacted","contacted","interested","onboarding","partner","dismissed"].includes(status))
+        throw new DomainError("INVALID_PROSPECT_STATUS","Etapa inválida.",400);
+      const note=cleanText(body.note,{min:5,max:1000,name:"histórico da negociação"});
+      const channel=String(body.contactChannel||"");
+      if(channel&&!["phone","whatsapp","email","in_person"].includes(channel))
+        throw new DomainError("INVALID_CONTACT_CHANNEL","Canal inválido.",400);
+      let followUpDate:string|null=null;
+      if(body.followUpDate!=null&&String(body.followUpDate).trim()){
+        const day=String(body.followUpDate).trim();
+        if(!/^\d{4}-\d{2}-\d{2}$/.test(day)||!Number.isFinite(Date.parse(day+"T15:00:00Z")))
+          throw new DomainError("INVALID_FOLLOW_UP_DATE","Data inválida.",400);
+        followUpDate=day+"T15:00:00Z";
+      }
+      const {data,error}=await admin.rpc("admin_update_anp_prospect",{
+        p_actor_user_id:user.id,p_cnpj:cnpj,p_expected_version:version,
+        p_next_status:status,p_note:note,p_follow_up_at:followUpDate,
+        p_contact_channel:channel||null
+      });
+      if(error)throw error;
+      return json(data,200,origin);
+    }
     if(action==="city-notification-status"){
       const status=String(body.status||"");
       if(!["sent","skipped"].includes(status))throw new DomainError("INVALID_NOTIFICATION_ACTION","Status inválido.",400);
