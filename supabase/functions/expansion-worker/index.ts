@@ -14,7 +14,7 @@ const REPOSITORY_ID="1399072319";
 const REPOSITORY_OWNER_ID="171106109";
 const MAIN_REF="refs/heads/main";
 const WORKFLOW_REF="carloskk07/gassg/.github/workflows/expansion-sync.yml@refs/heads/main";
-const ALLOWED_EVENTS=new Set(["schedule","workflow_dispatch"]);
+const ALLOWED_EVENTS=new Set(["push","schedule","workflow_dispatch"]);
 const GITHUB_MAIN_API="https://api.github.com/repos/carloskk07/gassg/commits/main";
 
 function json(body:unknown,status=200){
