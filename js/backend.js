@@ -792,10 +792,13 @@ async function liveOpenSupportCase(category,message=''){
   return result;
 }
 
+const CUSTOMER_FINANCIAL_REFRESH_MS=5*60*1000;
+const CUSTOMER_MARKET_REFRESH_MS=3*60*1000;
+
 async function liveSyncFinancialProfile({force=false}={}){
   if(!liveReady())return false;
   const now=Date.now();
-  if(!force&&liveRuntime.lastFinancialSyncAttemptAt&&now-liveRuntime.lastFinancialSyncAttemptAt<60000){
+  if(!force&&liveRuntime.lastFinancialSyncAttemptAt&&now-liveRuntime.lastFinancialSyncAttemptAt<CUSTOMER_FINANCIAL_REFRESH_MS){
     return false;
   }
   liveRuntime.lastFinancialSyncAttemptAt=now;
@@ -886,7 +889,7 @@ async function liveUpgradeAccount(email){
 async function liveSyncMarketStatus({force=false}={}){
   if(!liveReady())return null;
   const now=Date.now();
-  if(!force&&liveRuntime.marketStatus&&now-liveRuntime.lastMarketStatusAt<60000)return liveRuntime.marketStatus;
+  if(!force&&liveRuntime.marketStatus&&now-liveRuntime.lastMarketStatusAt<CUSTOMER_MARKET_REFRESH_MS)return liveRuntime.marketStatus;
   const seq=++liveRuntime.marketStatusSeq;
   const data=await liveInvoke('market-status',{});
   if(seq!==liveRuntime.marketStatusSeq)return liveRuntime.marketStatus;
@@ -1965,12 +1968,23 @@ async function merchantHeartbeat(){
   }
 }
 
+// Apenas pedidos aguardando o parceiro exigem polling de 5s.
+// Entregas em andamento mantêm 10s; revenda online sem pedido usa 15s.
+// Com operação offline e sem pedidos, o painel economiza chamadas usando 60s.
+// Não altera o heartbeat (60s) nem a elegibilidade no servidor (10 min).
+function merchantPollingIntervalMs(orders,online){
+  const list=Array.isArray(orders)?orders:[];
+  if(list.some(order=>String(order?.status||'')==='OFFERED_TO_MERCHANT'))return 5000;
+  if(list.some(order=>!['SETTLED','CANCELLED'].includes(String(order?.status||''))))return 10000;
+  return online===true?15000:60000;
+}
+
 async function merchantPoll(){
   if(!merchantReady()||merchantRuntime.actionPending||merchantRuntime.pollPending||document.visibilityState==='hidden')return;
   const now=Date.now();
   const activeOrders=(merchantRuntime.orders||[]).some(order=>!['SETTLED','CANCELLED'].includes(String(order?.status||'')));
   const urgent=merchantRuntime.merchant?.online===true||activeOrders;
-  const minIntervalMs=urgent?5000:30000;
+  const minIntervalMs=merchantPollingIntervalMs(merchantRuntime.orders,merchantRuntime.merchant?.online===true);
   if(merchantRuntime.lastPollAt&&now-merchantRuntime.lastPollAt<minIntervalMs)return;
   merchantRuntime.lastPollAt=now;
   merchantRuntime.pollPending=true;
