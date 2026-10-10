@@ -574,6 +574,83 @@ function adminProspectCrmEditor(record){
     '</div></details>';
 }
 
+
+async function adminLoadEnablement(){
+  if(!adminReady()||adminRuntime.enablementLoading)return;
+  adminRuntime.enablementLoading=true;
+  adminRuntime.enablementError=null;
+  render();
+  try{
+    const response=await adminInvoke({action:'merchant-enablement'});
+    if(response?.readOnly!==true||response?.source!=='market_city_offer_scope'
+       ||!Array.isArray(response?.merchants)){
+      throw new Error('Resposta de habilitação não verificada');
+    }
+    adminRuntime.enablementMerchants=response.merchants;
+    adminRuntime.enablementLoaded=true;
+    adminRuntime.enablementCheckedAt=response.asOf||new Date().toISOString();
+  }catch(error){adminRuntime.enablementError=String(error?.message||error)}
+  finally{adminRuntime.enablementLoading=false;render()}
+}
+function adminEnablementCheckRow(check){
+  const ok=check?.ok===true;
+  return '<div class="list-row" style="align-items:flex-start">'+
+    '<div style="flex:1"><strong>'+(ok?'✓ ':'• ')+esc(check?.label||'Requisito')+'</strong>'+
+      (ok?'':'<div class="tiny muted" style="margin-top:4px">'+esc(check?.action||'Revisar requisito')+'</div>')+
+      '<small>'+esc(check?.scope==='global'?'Controle da plataforma':check?.scope==='city'?'Controle da cidade':
+        check?.scope==='realtime'?'Condição temporária':'Configuração da revenda')+'</small></div>'+
+    '<span class="status-pill '+(ok?'online':'offline')+'">'+(ok?'Conforme':'Pendente')+'</span></div>';
+}
+function adminEnablementMerchantCard(entry){
+  const checks=Array.isArray(entry?.checks)?entry.checks:[];
+  const failed=checks.filter(x=>x?.ok!==true);
+  const ready=entry?.ready===true;
+  const name=String(entry?.merchant_name||'Revenda');
+  const state=String(entry?.state||'');
+  const city=String(entry?.city||'');
+  const main=failed.find(x=>x.key!=='quote_authority')||failed[0]||null;
+  const location=city&&state?city+' / '+state:'Município ainda não informado';
+  return '<article class="card flat" style="margin-bottom:12px">'+
+    '<div class="section-head"><div><span class="section-kicker">'+esc(location)+'</span><h3>'+esc(name)+'</h3>'+
+      '<p class="tiny muted">CNPJ '+esc(entry?.cnpj||'não confirmado')+' • Cadastro '+esc(entry?.merchant_status||'desconhecido')+'</p></div>'+
+      '<span class="status-pill '+(ready?'online':'offline')+'">'+(ready?'Apta para cotação':failed.length+' bloqueio(s)')+'</span></div>'+
+    (main&&!ready?'<p class="tiny"><strong>Próxima ação:</strong> '+esc(main.action||'Revisar habilitação')+'</p>':
+       '<p class="tiny"><strong>Verificação atual:</strong> todos os requisitos do motor de cotações foram satisfeitos neste instante.</p>')+
+    '<details><summary>Verificar todos os '+checks.length+' requisitos ('+failed.length+' pendente(s))</summary>'+
+      '<div class="list" style="margin-top:12px">'+checks.map(adminEnablementCheckRow).join('')+'</div></details>'+
+    '</article>';
+}
+function adminEnablementSection(d){
+  const items=Array.isArray(adminRuntime.enablementMerchants)?adminRuntime.enablementMerchants:[];
+  const loaded=adminRuntime.enablementLoaded===true;
+  const fetching=adminRuntime.enablementLoading===true;
+  const ready=items.filter(x=>x?.ready===true).length;
+  const blocked=items.length-ready;
+  const withIssues=items.filter(x=>(x?.blocker_count||0)>0);
+  const global=withIssues.filter(x=>(x?.checks||[]).some(c=>c?.scope==='global'&&c?.ok!==true)).length;
+  const filtered=items.slice().sort((a,b)=>(a.ready===true)-(b.ready===true)
+    ||Number(b.blocker_count||0)-Number(a.blocker_count||0)
+    ||String(a.merchant_name||'').localeCompare(String(b.merchant_name||''),'pt-BR'));
+  return '<section class="section">'+
+    '<div class="section-head"><div><span class="section-kicker">JORNADA DA REVENDA</span><h2>Central de habilitação operacional</h2>'+
+      '<p>Entenda cada requisito que impede uma revenda de aparecer nas ofertas. Este diagnóstico é somente leitura, reflete as regras vigentes e nunca substitui o motor de cotações.</p></div>'+
+      '<button type="button" class="secondary small" onclick="adminLoadEnablement()" '+(fetching?'disabled':'')+'>↻ Revalidar agora</button></div>'+
+    (adminRuntime.enablementError?'<div class="notice danger">'+esc(adminRuntime.enablementError)+'</div>':'')+
+    '<div class="merchant-kpis">'+
+      '<div class="kpi"><span class="label">Revendas avaliadas</span><strong>'+items.length+'</strong></div>'+
+      '<div class="kpi"><span class="label">Aptas agora</span><strong>'+ready+'</strong><small>Prontidão pode mudar a qualquer momento</small></div>'+
+      '<div class="kpi"><span class="label">Com bloqueios</span><strong>'+blocked+'</strong></div>'+
+      '<div class="kpi"><span class="label">Afetadas por controles globais</span><strong>'+global+'</strong></div>'+
+    '</div>'+
+    '<div class="tiny muted" style="margin:10px 0">Diagnóstico '+esc(adminRelativeTime(adminRuntime.enablementCheckedAt))+
+       ' • Limite de 80 revendas recentes por consulta • Itens ANP sem cadastro ainda não são revendas operacionais.</div>'+
+    (filtered.length?filtered.map(adminEnablementMerchantCard).join(''):
+      '<div class="empty card">'+(fetching?'Verificando habilitação…':!loaded?'Clique em Revalidar agora para consultar os requisitos.':
+        'Nenhuma revenda operacional cadastrada. Comece em Parceiros ou convide estabelecimentos identificados em Prospectos.')+'</div>')+
+    '<div class="notice"><strong>Sem liberações automáticas.</strong> A confirmação de documentos, a regularidade ANP, os recebimentos e a ativação comercial continuam sujeitos às permissões existentes. Um bloqueio não é resolvido apenas por ser exibido neste painel.</div>'+
+  '</section>';
+}
+
 function adminProspectsSection(d){
   const grouped=new Map();
   for(const lead of d?.marketCityInterests||[]){
