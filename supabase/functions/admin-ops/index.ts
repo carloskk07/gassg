@@ -1649,6 +1649,11 @@ Deno.serve(async(req:Request)=>{
       const state=String(body.state||"").trim().toUpperCase();
       const key=marketCityKey(city);
       if(!/^[A-Z]{2}$/.test(state)||!key)throw new DomainError("INVALID_PROSPECT_CITY","Região inválida.",400);
+      const {data:coverageReady,error:coverageError}=await admin.rpc("market_city_ready",{
+        p_city:city,p_state:state
+      });
+      if(coverageError)throw coverageError;
+      if(coverageReady!==true)return json({notifications:[],coverageReady:false},200,origin);
       const {data,error}=await admin.from("city_opening_notifications")
         .select("id,lead_id,postal_code,city,state,status,queued_at,handled_at,prelaunch_leads(contact_name,phone,status,consent_at)")
         .eq("state",state).eq("status","queued").order("queued_at",{ascending:true}).limit(100);
