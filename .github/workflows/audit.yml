@@ -83,6 +83,8 @@ jobs:
         run: node tests/jr-public-price-reference-v1-148.mjs
       - name: Customer availability-first V1.149 regression contract
         run: node tests/customer-availability-first-v1-149.mjs
+      - name: Adaptive polling and quota budget V1.150 regression contract
+        run: node tests/adaptive-polling-v1-150.mjs
       - name: Remote admin gateway contract and portal report
         run: node tests/remote-admin-readiness.mjs
       - name: Runtime origin config contract
