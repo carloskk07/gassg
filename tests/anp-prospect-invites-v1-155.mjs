@@ -1,0 +1,78 @@
+import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import vm from 'node:vm';
+const read=p=>fs.readFileSync(new URL('../'+p,import.meta.url),'utf8');
+const sql=read('supabase/migrations/20261010193000_anp_prospect_invitations_v1_155.sql');
+const adminOps=read('supabase/functions/admin-ops/index.ts');
+const submit=read('supabase/functions/submit-merchant-application/index.ts');
+const client=read('js/backend.js');
+const growth=read('js/growth.js');
+const merchant=read('js/merchant.js');
+const ui=read('js/admin-acquisition.js');
+for(const name of ['admin_anp_prospect_invite_action','validate_anp_prospect_invite','claim_anp_prospect_invite']){
+ assert.ok(sql.includes('function public.'+name+'('),name);
+ assert.ok(sql.includes('grant execute on function public.'+name+'('),'only service role grant '+name);
+}
+assert.ok(sql.includes("alter table public.anp_prospect_invites enable row level security;"));
+assert.ok(sql.includes("revoke all on public.anp_prospect_invites from public,anon,authenticated"));
+assert.ok(sql.includes("token_hash text not null unique"));
+assert.ok(sql.includes("anp_prospect_invites_one_unclaimed_idx"));
+assert.ok(sql.includes("p_expires_at>statement_timestamp()+interval '30 days'"));
+assert.ok(sql.includes("v_count>=8"),'issuer must be rate-limited');
+assert.ok(sql.includes("a.admin_role in ('superadmin','operations','compliance')"));
+assert.ok(sql.includes('p_rotate'),'rotation must be explicit');
+assert.ok(sql.includes("PROSPECT_INVITE_CNPJ_MISMATCH"));
+assert.ok(sql.includes("PROSPECT_INVITE_ALREADY_CLAIMED"));
+assert.ok(sql.includes("PROSPECT_APPLICATION_ALREADY_EXISTS"));
+assert.ok(sql.includes('and applicant_user_id=p_user_id for update'),'claim requires exact applicant');
+assert.ok(sql.includes("u.is_anonymous is false"));
+assert.ok(sql.includes("v_app.status not in ('pending','rejected')"));
+assert.ok(sql.includes("claimed_by=p_user_id and application_id=v_app.id"),'claimed retry must match user and application');
+assert.ok(sql.includes("prospect_status='onboarding'"),'claim updates CRM only after real application');
+assert.ok(!sql.includes('update public.merchants set'),'invite cannot activate merchant');
+assert.ok(!sql.includes('update public.market_cities set'),'invite cannot enable city');
+assert.ok(sql.includes("platform_admin_audit"));
+assert.ok(!adminOps.includes('token_hash,expires_at,claimed_at,application_id,revoked_at,created_at'),'hash not included in admin response');
+assert.ok(adminOps.includes('.select("id,cnpj,expires_at,claimed_at,application_id,revoked_at,created_at")'));
+assert.ok(adminOps.includes('"prospect-invite"'));
+assert.ok(adminOps.includes('await sha256Hex(token)'),'hash in edge before database');
+assert.ok(adminOps.includes('admin_anp_prospect_invite_action'));
+assert.ok(adminOps.includes('prospects:enrichedProspects'));
+assert.ok(adminOps.includes('merchant_applications'));
+assert.ok(submit.includes('validate_anp_prospect_invite'));
+assert.ok(submit.includes('claim_anp_prospect_invite'));
+assert.ok(submit.includes('p_user_id:user.id,p_application_id:applicationId,p_token:token'));
+assert.ok(submit.includes('MULTIPLE_PARTNER_INVITES'));
+assert.equal((submit.match(/const prospectInvite=await attachAnpProspectInvite/g)||[]).length,3);
+assert.ok(client.includes('history.replaceState(null,'));
+assert.ok(client.includes("url.searchParams.delete('prospect')"));
+assert.ok(client.includes("hashParams.delete('prospect')"));
+assert.ok(client.includes('localStorage.removeItem(MERCHANT_PROSPECT_INVITE_STORAGE)'));
+assert.ok(growth.includes('currentMerchantProspectInviteToken()'));
+assert.ok(growth.includes('...(prospectInviteToken?{prospectInviteToken}:{})'));
+assert.ok(growth.includes('clearCurrentMerchantProspectInviteToken()'));
+assert.ok(merchant.includes('prospectInvite'));
+assert.ok(ui.includes('function adminIssueAnpProspectInvite(cnpj)'));
+assert.ok(ui.includes('function adminRevokeAnpProspectInvite(cnpj)'));
+assert.ok(ui.includes('adminProspectInvitationControls(x)'));
+assert.ok(ui.includes('https://parceiro.tamao.com.br/'));
+assert.ok(ui.includes('merchant-join?prospect='));
+assert.ok(ui.includes("o link não poderá ser recuperado"));
+const esc=s=>String(s).replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;').replaceAll('"','&quot;').replaceAll("'",'&#39;');
+const begin=ui.indexOf('function adminProspectInvitationControls(');
+const end=ui.indexOf('\n}',begin);
+assert.ok(begin>=0&&end>begin);
+const fn=vm.runInNewContext(ui.slice(begin,end+2)+';adminProspectInvitationControls',{
+ esc,adminCurrentRole:()=> 'operations',formatDateTime:()=> '12/10/2026'
+});
+const cnpj='39774375000144';
+const active=fn({cnpj,prospect_status:'contacted',invitation:{status:'active',expiresAt:'2026-10-12'},application:null});
+assert.ok(active.includes('Rotacionar convite')&&active.includes('Revogar'));
+const already=fn({cnpj,prospect_status:'onboarding',invitation:{status:'claimed'},application:{status:'pending'}});
+assert.ok(already.includes('Convite utilizado')&&!already.includes('Rotacionar convite'));
+const read=vm.runInNewContext(ui.slice(begin,end+2)+';adminProspectInvitationControls',{
+ esc,adminCurrentRole:()=> 'readonly',formatDateTime:()=> '12/10/2026'
+});
+const noEdit=read({cnpj,prospect_status:'contacted',invitation:{status:'active'},application:null});
+assert.ok(noEdit.includes('Convite ativo')&&!noEdit.includes('onclick='));
+console.log('V1.155: convites ANP bound-CNPJ, expiration, replay, staff roles, portal flow, XSS');
