@@ -577,11 +577,13 @@ function adminProspectCrmEditor(record){
 
 async function adminLoadEnablement(){
   if(!adminReady()||adminRuntime.enablementLoading)return;
+  const requestingUser=String(adminRuntime.session?.user?.id||'');
   adminRuntime.enablementLoading=true;
   adminRuntime.enablementError=null;
   render();
   try{
     const response=await adminInvoke({action:'merchant-enablement'});
+    if(!adminReady()||String(adminRuntime.session?.user?.id||'')!==requestingUser)return;
     if(response?.readOnly!==true||response?.source!=='market_city_offer_scope'
        ||!Array.isArray(response?.merchants)){
       throw new Error('Resposta de habilitação não verificada');
