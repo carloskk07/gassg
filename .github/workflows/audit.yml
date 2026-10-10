@@ -97,6 +97,8 @@ jobs:
         run: node tests/anp-prospect-invites-v1-155.mjs
       - name: Resumable merchant onboarding V1.156 regression contract
         run: node tests/resumable-onboarding-v1-156.mjs
+      - name: Merchant enablement center V1.157 regression contract
+        run: node tests/merchant-enablement-v1-157.mjs
       - name: Remote admin gateway contract and portal report
         run: node tests/remote-admin-readiness.mjs
       - name: Runtime origin config contract

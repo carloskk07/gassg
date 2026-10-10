@@ -99,7 +99,7 @@ async function requireAdmin(admin:any,userId:string){
   if(!data)throw new DomainError("ADMIN_ACCESS_DENIED","Esta conta não possui acesso administrativo.",403);
   return data;
 }
-const ADMIN_READ_ACTIONS=new Set(["summary","search","entity-detail","system-health","billing-provider-health","audit-search","incident-list","merchant-payment-preflight","prospect-intelligence","expansion-notifications","expansion-radar"]);
+const ADMIN_READ_ACTIONS=new Set(["summary","search","entity-detail","system-health","billing-provider-health","audit-search","incident-list","merchant-payment-preflight","prospect-intelligence","expansion-notifications","expansion-radar","merchant-enablement"]);
 const ADMIN_ROLE_ACTIONS:Record<string,Set<string>>={
   superadmin:new Set(["*"]),
   operations:new Set([
@@ -1711,6 +1711,16 @@ Deno.serve(async(req:Request)=>{
     const adminAccess=await requireAdmin(admin,user.id);
     requireAdminAction(String(adminAccess.admin_role||"superadmin"),action);
 
+    if(action==="merchant-enablement"){
+      if(!["superadmin","operations","compliance","readonly"].includes(String(adminAccess.admin_role))){
+        throw new DomainError("ADMIN_PERMISSION_DENIED","Perfil sem autorização para consultar habilitação.",403);
+      }
+      // Admin-only diagnostic, never a mutation or an alternate authority for checkout.
+      const {data,error}=await admin.rpc("admin_merchant_enablement_v1_157",{p_limit:80});
+      if(error)throw error;
+      return json({merchants:data||[],asOf:new Date().toISOString(),
+        source:"market_city_offer_scope",readOnly:true},200,origin);
+    }
     if(action==="expansion-radar"){
       if(!["superadmin","operations","compliance","readonly"].includes(String(adminAccess.admin_role))){
         throw new DomainError("ADMIN_PERMISSION_DENIED","Seu perfil não pode consultar cidades.",403);

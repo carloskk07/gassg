@@ -40,6 +40,11 @@ const adminRuntime={
   expansionRadar:[],
   expansionRadarLoading:false,
   expansionRadarError:null,
+  enablementMerchants:[],
+  enablementLoading:false,
+  enablementLoaded:false,
+  enablementError:null,
+  enablementCheckedAt:null,
   prospectLoading:false,
   prospectError:null,
   prospectCity:'São Gabriel',
@@ -52,7 +57,7 @@ const adminRuntime={
   section:(()=>{
     try{
       const saved=sessionStorage.getItem('tamao-admin-section');
-      return ['overview','orders','customers','partners','prospects','catalog','finance','incidents','audit','system'].includes(saved)?saved:'overview';
+      return ['overview','orders','customers','partners','prospects','enablement','catalog','finance','incidents','audit','system'].includes(saved)?saved:'overview';
     }catch{return 'overview'}
   })()
 };
@@ -334,6 +339,11 @@ async function adminSignOut(){
   try{sessionStorage.removeItem('tamao-admin-provider-health-v1')}catch{}
   adminRuntime.auditResults=null;
   adminRuntime.auditPending=false;
+  adminRuntime.enablementMerchants=[];
+  adminRuntime.enablementLoaded=false;
+  adminRuntime.enablementLoading=false;
+  adminRuntime.enablementError=null;
+  adminRuntime.enablementCheckedAt=null;
   adminRuntime.status='unauthenticated';
   adminRuntime.error=null;
   adminRuntime.notice=null;
@@ -360,6 +370,8 @@ async function adminRefresh({silent=false}={}){
     if(error?.code==='ADMIN_ACCESS_DENIED'||error?.status===403&&error?.code==='ADMIN_ACCESS_DENIED'){
       adminRuntime.status='no-access';
       adminRuntime.data=null;
+      adminRuntime.enablementMerchants=[];
+      adminRuntime.enablementLoaded=false;
       adminRuntime.error=null;
       return null;
     }
@@ -372,6 +384,8 @@ async function adminRefresh({silent=false}={}){
       adminRuntime.detail=null;
       adminRuntime.health=null;
       adminRuntime.auditResults=null;
+      adminRuntime.enablementMerchants=[];
+      adminRuntime.enablementLoaded=false;
       adminRuntime.error='Sua sessão expirou. Entre novamente.';
       return null;
     }
@@ -1117,6 +1131,7 @@ const ADMIN_SECTION_ROLES={
   customers:new Set(['superadmin','operations','finance','support']),
   partners:new Set(['superadmin','operations','compliance']),
   prospects:new Set(['superadmin','readonly','operations','compliance']),
+  enablement:new Set(['superadmin','readonly','operations','compliance']),
   catalog:new Set(['superadmin','operations']),
   finance:new Set(['superadmin','finance']),
   incidents:new Set(['superadmin','readonly','operations','finance','support','compliance']),
@@ -1127,7 +1142,7 @@ function adminRoleCanSection(section,role=adminCurrentRole()){
   return ADMIN_SECTION_ROLES[String(section)]?.has(String(role))===true;
 }
 function adminFirstSectionForRole(role=adminCurrentRole()){
-  return ['overview','orders','customers','partners','prospects','catalog','finance','incidents','audit','system']
+  return ['overview','orders','customers','partners','prospects','enablement','catalog','finance','incidents','audit','system']
     .find(section=>adminRoleCanSection(section,role))||'overview';
 }
 
@@ -1138,6 +1153,7 @@ function adminSectionMeta(section=adminRuntime.section){
     customers:{kicker:'RELACIONAMENTO',title:'Clientes',description:'Visão operacional dos clientes recentes e acesso rápido ao histórico 360°.'},
     partners:{kicker:'REDE DE REVENDA',title:'Parceiros',description:'Aquisição, onboarding, compliance e prontidão operacional das revendas.'},
     prospects:{kicker:'EXPANSÃO NACIONAL',title:'Prospectos',description:'Demanda por município e revendas GLP da fonte oficial ANP.'},
+    enablement:{kicker:'HABILITAÇÃO OPERACIONAL',title:'Central de habilitação',description:'Requisitos comprovados de cada revenda, seus bloqueios e próximas ações.'},
     catalog:{kicker:'OFERTA DA PLATAFORMA',title:'Catálogo',description:'Categorias, produtos e governança da oferta disponível na plataforma.'},
     finance:{kicker:'CONTROLADORIA',title:'Financeiro',description:'Cobranças TAMÃO, crédito, D+1, PSP, conciliação, refunds e política econômica.'},
     incidents:{kicker:'CONFIABILIDADE',title:'Incidentes',description:'Severidade, resposta, MTTA/MTTR e resolução auditável dos eventos operacionais.'},
@@ -1165,6 +1181,7 @@ function adminNavIcon(id){
     customers:'<circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/>',
     prospects:'<path d="M3 4h18v16H3zM7 9h4M7 13h8M7 17h10"/>',
     partners:'<path d="M8 12a4 4 0 1 0-4-4 4 4 0 0 0 4 4Zm8 0a4 4 0 1 0-4-4"/><path d="M1 21a7 7 0 0 1 14 0M14 15a7 7 0 0 1 9 6"/>',
+    enablement:'<path d="M12 3l8 4v5c0 5-4 8-8 9-4-1-8-4-8-9V7l8-4Z"/><path d="m8 12 3 3 5-6"/>',
     catalog:'<path d="M4 6h16v14H4z"/><path d="M8 6V3h8v3M8 11h8M8 15h5"/>',
     finance:'<path d="M4 7h16v13H4z"/><path d="M7 4h10M8 11h8M8 15h5"/><circle cx="17" cy="16" r="1"/>',
     incidents:'<path d="M12 3 2.5 20h19L12 3Z"/><path d="M12 9v5M12 17h.01"/>',
@@ -1212,7 +1229,7 @@ function adminExecutiveKpi({icon,label,value,detail='',tone='neutral'}){
   return '<article class="admin-exec-kpi '+esc(tone)+'"><span class="admin-exec-icon" aria-hidden="true">'+esc(icon)+'</span><div><small>'+esc(label)+'</small><strong>'+value+'</strong>'+(detail?'<p>'+esc(detail)+'</p>':'')+'</div></article>';
 }
 function adminSetSection(section){
-  const allowed=['overview','orders','customers','partners','prospects','catalog','finance','incidents','audit','system'];
+  const allowed=['overview','orders','customers','partners','prospects','enablement','catalog','finance','incidents','audit','system'];
   const requested=allowed.includes(String(section||''))?String(section):'overview';
   const next=adminRoleCanSection(requested)?requested:adminFirstSectionForRole();
   adminRuntime.section=next;
@@ -1223,6 +1240,7 @@ function adminSetSection(section){
     adminLoadProspects().catch(()=>{});
     adminLoadExpansionRadar().catch(()=>{});
   }
+  if(next==='enablement')adminLoadEnablement().catch(()=>{});
   requestAnimationFrame(()=>{
     document.querySelector('.admin-main')?.scrollIntoView({block:'start'});
   });
@@ -3066,6 +3084,7 @@ function adminPage(){
       ${adminMenuButton('customers','Clientes','◎')}
       ${adminMenuButton('partners','Parceiros','◇',badge(partnerAttention))}
       ${adminMenuButton('prospects','Prospectos','⌕')}
+      ${adminMenuButton('enablement','Habilitação','✓')}
       ${adminMenuButton('catalog','Catálogo','▤')}
       ${adminMenuButton('finance','Financeiro','₿',badge(actionableFinanceCount))}
       <div class="admin-nav-group">Governança</div>
@@ -3094,6 +3113,7 @@ function adminPage(){
         ${adminPanel('customers',customersContent)}
         ${adminPanel('partners',partnersContent)}
         ${adminPanel('prospects',adminProspectsSection(d))}
+        ${adminPanel('enablement',adminEnablementSection(d))}
         ${adminPanel('catalog',catalogContent)}
         ${adminPanel('finance',financeContent)}
         ${adminPanel('incidents',incidentsContent)}
