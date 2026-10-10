@@ -309,6 +309,14 @@ Deno.serve(async(req:Request)=>{
       throw new DomainError("SALE_PAYMENT_PREPARE_INVALID","Não foi possível preparar o pagamento.",503);
     }
     preparedAttemptId=attemptId;
+    if(prepared?.status==="review_required"){
+      issueRecorded=true;
+      throw new DomainError(
+        "MERCHANT_PAYMENT_REVIEW_REQUIRED",
+        "Este pagamento está em revisão para evitar uma segunda tentativa automática antes de confirmar o resultado do provedor.",
+        409
+      );
+    }
     if(prepared?.status==="approved"){
       return json({
         ok:true,
