@@ -112,6 +112,22 @@ Deno.serve(async(req:Request)=>{
     const user=await authenticatedUser(req);
     const body=await readJsonBody(req);
 
+    // Recover only this authenticated person's applications, never search by CNPJ
+    // without the applicant owner filter. A read cannot update status or claim invites.
+    if(body.action==="my-applications"){
+      const admin=createClient(SUPABASE_URL,SECRET_KEY,{auth:{persistSession:false,autoRefreshToken:false}});
+      await enforceApiQuota(admin,{userId:user.id,actionName:"merchant-my-applications",limit:20,windowSeconds:3600});
+      const {data,error}=await admin.from("merchant_applications")
+        .select("id,cnpj,company_name,responsible_name,phone,address_text,status,created_at,updated_at")
+        .eq("applicant_user_id",user.id)
+        .order("updated_at",{ascending:false}).limit(20);
+      if(error)throw error;
+      return json({applications:data||[]},200,origin);
+    }
+    if(body.action!=null&&body.action!=="submit"){
+      throw new DomainError("INVALID_APPLICATION_ACTION","Ação de cadastro inválida.",400);
+    }
+
     const cnpj=normalizeCnpj(body.cnpj);
     if(!isValidCnpj(cnpj))throw new DomainError("INVALID_CNPJ","CNPJ inválido no formato atual.",400);
 
