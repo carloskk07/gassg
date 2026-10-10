@@ -142,6 +142,15 @@ function storedMerchantProspectInviteToken(){
   try{localStorage.removeItem(MERCHANT_PROSPECT_INVITE_STORAGE)}catch{}
   return '';
 }
+function merchantProspectInviteDetails(){
+  try{
+    const saved=JSON.parse(localStorage.getItem(MERCHANT_PROSPECT_INVITE_STORAGE)||'null');
+    if(!validMerchantProspectInviteToken(saved?.token)||Number(saved?.expiresAt)<=Date.now())return null;
+    const cnpj=String(saved.cnpj||'');
+    const companyName=String(saved.companyName||'').slice(0,90);
+    return {cnpj:/^[0-9]{14}$/.test(cnpj)?cnpj:'',companyName};
+  }catch{return null}
+}
 function merchantProspectInviteFromUrl(){
   const url=new URL(location.href);
   const raw=url.hash.replace(/^#/,'');
@@ -152,6 +161,8 @@ function merchantProspectInviteFromUrl(){
   const fromQuery=String(url.searchParams.get('prospect')||'');
   const token=validMerchantProspectInviteToken(fromHash)?fromHash:
     validMerchantProspectInviteToken(fromQuery)?fromQuery:'';
+  const cnpj=String(hashParams.get('cnpj')||'');
+  const companyName=String(hashParams.get('empresa')||'').trim().slice(0,90);
   let changed=false;
   if(url.searchParams.has('prospect')){url.searchParams.delete('prospect');changed=true}
   if(hashParams.has('prospect')){
@@ -159,10 +170,16 @@ function merchantProspectInviteFromUrl(){
     url.hash='#'+route+(hashParams.toString()?'?'+hashParams.toString():'');
     changed=true;
   }
+  if(hashParams.has('cnpj')||hashParams.has('empresa')){
+    hashParams.delete('cnpj');hashParams.delete('empresa');
+    url.hash='#'+route+(hashParams.toString()?'?'+hashParams.toString():'');
+    changed=true;
+  }
   if(changed)history.replaceState(null,'',url.pathname+url.search+url.hash);
   if(token)try{
     localStorage.setItem(MERCHANT_PROSPECT_INVITE_STORAGE,JSON.stringify({
-      token,expiresAt:Date.now()+MERCHANT_PROSPECT_INVITE_TTL_MS
+      token,cnpj:/^[0-9]{14}$/.test(cnpj)?cnpj:'',companyName,
+      expiresAt:Date.now()+MERCHANT_PROSPECT_INVITE_TTL_MS
     }));
   }catch{}
   return token;
@@ -2120,6 +2137,7 @@ globalThis.captureSupabaseImplicitSessionFromUrl=captureSupabaseImplicitSessionF
 globalThis.clearSupabaseAuthFragment=clearSupabaseAuthFragment;
 globalThis.merchantPilotInviteToken=merchantPilotInviteToken;
 globalThis.merchantProspectInviteToken=merchantProspectInviteToken;
+globalThis.merchantProspectInviteDetails=merchantProspectInviteDetails;
 globalThis.clearMerchantProspectInviteToken=clearMerchantProspectInviteToken;
 globalThis.clearMerchantPilotInviteToken=clearMerchantPilotInviteToken;
 globalThis.merchantClaimPilotInviteLive=merchantClaimPilotInviteLive;
