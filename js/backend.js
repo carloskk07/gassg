@@ -1063,6 +1063,10 @@ const merchantRuntime={
   deliveryTeam:[],
   team:null,
   teamLoading:false,
+  enablement:null,
+  enablementLoading:false,
+  enablementError:null,
+  enablementFetchedAt:0,
   catalog:[],
   availableProducts:[],
   billing:null,
@@ -1343,6 +1347,46 @@ async function merchantInvoke(name,body={},options={}){
   return data;
 }
 
+const MERCHANT_ENABLEMENT_CACHE_MS=3*60*1000;
+function merchantClearEnablement(){
+  merchantRuntime.enablement=null;
+  merchantRuntime.enablementLoading=false;
+  merchantRuntime.enablementError=null;
+  merchantRuntime.enablementFetchedAt=0;
+}
+async function merchantLoadEnablement({force=false}={}){
+  const merchant=merchantRuntime.merchant;
+  const merchantId=String(merchant?.merchantId||'');
+  const userId=String(merchantRuntime.session?.user?.id||'');
+  if(!merchantReady()||!['owner','manager'].includes(String(merchant?.memberRole||''))||!merchantId||!userId)return null;
+  if(merchantRuntime.enablementLoading)return null;
+  if(!force&&merchantRuntime.enablementFetchedAt&&Date.now()-merchantRuntime.enablementFetchedAt<MERCHANT_ENABLEMENT_CACHE_MS)return merchantRuntime.enablement;
+  merchantRuntime.enablementLoading=true;
+  merchantRuntime.enablementFetchedAt=Date.now();
+  merchantRuntime.enablementError=null;
+  try{
+    const response=await merchantInvoke('merchant-ops',{merchantId,action:'enablement'});
+    if(!merchantReady()||String(merchantRuntime.session?.user?.id||'')!==userId
+      ||String(merchantRuntime.merchant?.merchantId||'')!==merchantId)return null;
+    if(response?.readOnly!==true||response.source!=='market_city_offer_scope'
+      ||response.merchantId!==merchantId||response.diagnostic?.merchant_id!==merchantId
+      ||!Array.isArray(response.diagnostic?.checks)){
+      throw new Error('O diagnóstico não corresponde à revenda selecionada');
+    }
+    merchantRuntime.enablement=response.diagnostic;
+    return response.diagnostic;
+  }catch(error){
+    if(merchantReady()&&String(merchantRuntime.session?.user?.id||'')===userId
+       &&String(merchantRuntime.merchant?.merchantId||'')===merchantId){
+      merchantRuntime.enablementError=String(error?.message||error);
+    }
+    return null;
+  }finally{
+    merchantRuntime.enablementLoading=false;
+    if(merchantReady())render();
+  }
+}
+
 async function merchantLoadOwnApplications(){
   if(!merchantRuntime.session?.access_token)return [];
   const result=await merchantInvoke('submit-merchant-application',{action:'my-applications'});
@@ -1392,6 +1436,7 @@ async function merchantSignOut(){
   merchantRuntime.deliveryTeam=[];
   merchantRuntime.team=null;
   merchantRuntime.teamLoading=false;
+  merchantClearEnablement();
   merchantRuntime.catalog=[];
   merchantRuntime.availableProducts=[];
   merchantRuntime.billing=null;
@@ -1421,7 +1466,9 @@ async function merchantRefresh({silent=false,recoverSelection=true}={}){
     if(merchantRuntime.selectedMerchantId)body.merchantId=merchantRuntime.selectedMerchantId;
     const data=await merchantInvoke('merchant-orders',body);
     if(seq!==merchantRuntime.refreshSeq)return data;
+    const previousMerchantId=String(merchantRuntime.merchant?.merchantId||'');
     merchantRuntime.merchant=data.merchant??null;
+    if(previousMerchantId!==String(merchantRuntime.merchant?.merchantId||''))merchantClearEnablement();
     merchantRuntime.memberships=data.memberships??[];
     merchantRuntime.deliveryTeam=data.deliveryTeam??[];
     merchantRuntime.catalog=data.catalog??[];
@@ -1440,6 +1487,8 @@ async function merchantRefresh({silent=false,recoverSelection=true}={}){
     merchantRuntime.error=null;
     merchantRuntime.accessReason=null;
     merchantRuntime.lastSyncAt=new Date().toISOString();
+    if(['owner','manager'].includes(String(merchantRuntime.merchant?.memberRole||'')))
+      queueMicrotask(()=>merchantLoadEnablement().catch(()=>{}));
     return data;
   }catch(error){
     if(seq!==merchantRuntime.refreshSeq)return null;
@@ -1456,6 +1505,7 @@ async function merchantRefresh({silent=false,recoverSelection=true}={}){
       || error?.status===403&&['MERCHANT_ACCESS_DENIED','MERCHANT_ROLE_NOT_ENABLED'].includes(error?.code)
     ){
       merchantRuntime.status='no-access';
+      merchantClearEnablement();
       merchantRuntime.merchant=null;
       merchantRuntime.orders=[];
       merchantRuntime.deliveryTeam=[];
@@ -1471,6 +1521,7 @@ async function merchantRefresh({silent=false,recoverSelection=true}={}){
     if(error?.status===401){
       merchantRuntime.status='unauthenticated';
       merchantRuntime.session=null;
+      merchantClearEnablement();
       merchantRuntime.error='Sua sessão expirou. Entre novamente.';
       merchantRuntime.accessReason=null;
       return null;
@@ -1487,6 +1538,7 @@ async function merchantSelectLive(merchantId){
   merchantAlerts.knownOrderIds=new Set();
   merchantRuntime.team=null;
   merchantRuntime.teamLoading=false;
+  merchantClearEnablement();
   merchantRuntime.selectedMerchantId=String(merchantId||'')||null;
   if(merchantRuntime.selectedMerchantId){
     localStorage.setItem('chama-merchant-selected-v1',merchantRuntime.selectedMerchantId);
