@@ -41,6 +41,16 @@ function normalizeText(value,max){
 function locationAllowed(city,state){
   return normalizePlace(city)===TARGET_CITY&&normalizePlace(state)===TARGET_STATE;
 }
+// Supplier evidence, not registration or ANP prospecting, opens new municipalities.
+// Existing original-city postal verification is retained for an empty marketplace.
+async function cityServiceEligible(admin,city,state){
+  if(locationAllowed(city,state))return true;
+  const {data,error}=await admin.rpc("market_city_ready",{
+    p_city:String(city||""),p_state:String(state||"")
+  });
+  if(error)throw new DomainError("MARKET_CITY_GATE_UNAVAILABLE","Não foi possível confirmar a cobertura desta cidade.",503);
+  return data===true;
+}
 
 async function fetchJson(url){
   const controller=new AbortController();
@@ -48,7 +58,7 @@ async function fetchJson(url){
   try{
     const response=await fetch(url,{
       method:"GET",
-      headers:{"Accept":"application/json","User-Agent":"TAMAO-Sao-Gabriel/1.0"},
+      headers:{"Accept":"application/json","User-Agent":"TAMAO/1.0"},
       signal:controller.signal
     });
     if(response.status===404)return {kind:"not-found"};
@@ -179,11 +189,16 @@ export async function validateServicePostalCode(admin,value){
     throw new DomainError("POSTAL_CACHE_BACKEND_FAILED","Não foi possível validar o CEP agora.",503);
   }
 
-  if(cached&&cached.service_area_allowed!==true){
-    throw new DomainError("POSTAL_CODE_OUTSIDE_SERVICE_AREA","Este CEP não pertence à área atendida em São Gabriel/RS.",422);
-  }
-
   if(cached&&String(cached.street??"").trim()){
+    const allowed=await cityServiceEligible(admin,cached.city,cached.state);
+    if(cached.service_area_allowed!==allowed){
+      const {error:scopeError}=await admin.from("postal_code_validation_cache")
+        .update({service_area_allowed:allowed,updated_at:new Date().toISOString()})
+        .eq("postal_code",postalCode);
+      if(scopeError)throw new DomainError("POSTAL_CACHE_BACKEND_FAILED","Não foi possível confirmar a cobertura agora.",503);
+    }
+    if(!allowed)throw new DomainError("POSTAL_CODE_OUTSIDE_SERVICE_AREA",
+      "Ainda não há atendimento habilitado neste CEP. Registre seu interesse para ser avisado.",422);
     return {
       postalCode,
       city:cached.city,
@@ -197,7 +212,7 @@ export async function validateServicePostalCode(admin,value){
   }
 
   const resolved=await resolveExternally(postalCode);
-  const allowed=locationAllowed(resolved.city,resolved.state);
+  const allowed=await cityServiceEligible(admin,resolved.city,resolved.state);
   const now=new Date().toISOString();
   const {error:writeError}=await admin
     .from("postal_code_validation_cache")
@@ -219,7 +234,7 @@ export async function validateServicePostalCode(admin,value){
   }
 
   if(!allowed){
-    throw new DomainError("POSTAL_CODE_OUTSIDE_SERVICE_AREA","Este CEP não pertence à área atendida em São Gabriel/RS.",422);
+    throw new DomainError("POSTAL_CODE_OUTSIDE_SERVICE_AREA","Ainda não há atendimento habilitado neste CEP. Registre seu interesse para ser avisado.",422);
   }
 
   return {
