@@ -137,12 +137,38 @@ function checkoutReturnUrl(orderId:string,result:string){
   url.searchParams.set("payment",result);
   return url.toString();
 }
+async function recordAttemptIssue(
+  admin:any,
+  attemptId:string|null,
+  errorCode:string,
+  disposition:"terminal_rejected"|"review_required"
+){
+  if(!attemptId)return null;
+  const {data,error}=await admin.rpc(
+    "record_merchant_sale_payment_attempt_issue",
+    {
+      p_attempt_id:attemptId,
+      p_error_code:errorCode,
+      p_disposition:disposition
+    }
+  );
+  if(error){
+    console.error("merchant sale payment issue recording failed",String(error.message??error));
+    return null;
+  }
+  return data??null;
+}
 
 Deno.serve(async(req:Request)=>{
   const origin=req.headers.get("Origin");
   if(!originAllowed(origin))return json({error:"ORIGIN_NOT_ALLOWED"},403,origin);
   if(req.method==="OPTIONS")return new Response("ok",{headers:cors(origin)});
   if(req.method!=="POST")return json({error:"METHOD_NOT_ALLOWED"},405,origin);
+
+  let admin:any=null;
+  let preparedAttemptId:string|null=null;
+  let providerRequestStarted=false;
+  let issueRecorded=false;
 
   try{
     if(!directPaymentsEnabled()){
@@ -164,7 +190,7 @@ Deno.serve(async(req:Request)=>{
       throw new DomainError("INVALID_PAYMENT_ROUTE","Forma de pagamento inválida.",400);
     }
     const key=idempotencyKey(req);
-    const admin=createClient(SUPABASE_URL,SECRET_KEY,{
+    admin=createClient(SUPABASE_URL,SECRET_KEY,{
       auth:{persistSession:false,autoRefreshToken:false}
     });
     await enforceApiQuota(admin,{
@@ -256,6 +282,13 @@ Deno.serve(async(req:Request)=>{
       if(message.includes("MERCHANT_DIRECT_PAYMENT_NOT_ENABLED")){
         throw new DomainError("MERCHANT_DIRECT_PAYMENT_NOT_ENABLED","Esta revenda ainda não habilitou pagamento online direto.",409);
       }
+      if(message.includes("MERCHANT_PAYMENT_PILOT_IN_FLIGHT")){
+        throw new DomainError(
+          "MERCHANT_PAYMENT_PILOT_IN_FLIGHT",
+          "Esta revenda está concluindo o primeiro pagamento piloto neste provedor. Use outra forma de pagamento enquanto a prova E2E é concluída.",
+          409
+        );
+      }
       if(message.includes("IDEMPOTENCY_CONFLICT")){
         throw new DomainError("IDEMPOTENCY_CONFLICT","Esta tentativa já foi usada com outro pedido.",409);
       }
@@ -275,6 +308,7 @@ Deno.serve(async(req:Request)=>{
     ){
       throw new DomainError("SALE_PAYMENT_PREPARE_INVALID","Não foi possível preparar o pagamento.",503);
     }
+    preparedAttemptId=attemptId;
     if(prepared?.status==="approved"){
       return json({
         ok:true,
@@ -316,7 +350,10 @@ Deno.serve(async(req:Request)=>{
     if(!orderMeta)throw new DomainError("ORDER_NOT_FOUND","Pedido não encontrado.",404);
 
     const total=(amountCents/100).toFixed(2);
-    const response=await mercadoPagoFetch("/v1/orders",{
+    providerRequestStarted=true;
+    let response:Response;
+    try{
+      response=await mercadoPagoFetch("/v1/orders",{
       accessToken:seller.accessToken,
       method:"POST",
       idempotencyKey:externalReference,
@@ -338,8 +375,25 @@ Deno.serve(async(req:Request)=>{
         }
       }
     });
+    }catch(providerError){
+      await recordAttemptIssue(
+        admin,
+        preparedAttemptId,
+        "PROVIDER_CHECKOUT_OUTCOME_UNKNOWN",
+        "review_required"
+      );
+      issueRecorded=true;
+      throw providerError;
+    }
     const provider=await readMercadoPagoJson(response);
     if(!response.ok){
+      await recordAttemptIssue(
+        admin,
+        preparedAttemptId,
+        "PROVIDER_CHECKOUT_REJECTED",
+        "terminal_rejected"
+      );
+      issueRecorded=true;
       console.error(
         "merchant sale checkout provider failure",
         "HTTP_"+response.status
@@ -364,9 +418,16 @@ Deno.serve(async(req:Request)=>{
       ||!seller.providerAccountId
       ||providerUserId!==seller.providerAccountId
     ){
+      await recordAttemptIssue(
+        admin,
+        preparedAttemptId,
+        "PROVIDER_CHECKOUT_RESPONSE_MISMATCH",
+        "review_required"
+      );
+      issueRecorded=true;
       throw new DomainError(
         "MERCHANT_CHECKOUT_PROVIDER_MISMATCH",
-        "O checkout retornou dados divergentes e foi bloqueado.",
+        "O checkout retornou dados divergentes e foi bloqueado para revisão.",
         503
       );
     }
@@ -380,7 +441,16 @@ Deno.serve(async(req:Request)=>{
         p_expires_at:expiresAt
       }
     );
-    if(commitError)throw commitError;
+    if(commitError){
+      await recordAttemptIssue(
+        admin,
+        preparedAttemptId,
+        "PROVIDER_CHECKOUT_COMMIT_FAILED",
+        "review_required"
+      );
+      issueRecorded=true;
+      throw commitError;
+    }
 
     return json({
       ok:true,
@@ -389,6 +459,8 @@ Deno.serve(async(req:Request)=>{
       provider:providerKey,
       paymentRouteId:prepared?.paymentRouteId??route.id,
       verificationLevel:prepared?.verificationLevel??providerDefinition.verification_level,
+      pilotMode:prepared?.pilotGuard===true,
+      e2eValidated:prepared?.e2eValidated===true,
       fundsOwner:"merchant",
       status:committed?.status??"checkout_ready",
       checkoutUrl:committed?.checkoutUrl??checkoutUrl,
@@ -396,6 +468,17 @@ Deno.serve(async(req:Request)=>{
       tamaoReceivesSaleProceeds:false
     },200,origin);
   }catch(error){
+    if(admin&&preparedAttemptId&&!issueRecorded){
+      await recordAttemptIssue(
+        admin,
+        preparedAttemptId,
+        providerRequestStarted
+          ?"PROVIDER_CHECKOUT_OUTCOME_UNKNOWN"
+          :"LOCAL_CHECKOUT_PREPARATION_FAILED",
+        providerRequestStarted?"review_required":"terminal_rejected"
+      );
+      issueRecorded=true;
+    }
     if(error instanceof DomainError){
       return json({error:error.code,message:error.message},error.status,origin);
     }
