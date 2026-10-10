@@ -10,24 +10,24 @@ assert.ok(
 );
 
 assert.ok(
-  admin.includes("const typed=activationKind==='pilot'?'ATIVAR PILOTO':'REATIVAR'")
-  &&admin.includes('Preflight aprovado.')
-  &&admin.includes('não concede status HOMOLOGADO'),
-  'piloto precisa exigir confirmação explícita diferente de homologação'
+  admin.includes("const typed=activationKind==='pilot'?'ATIVAR PAGAMENTOS':'REATIVAR'")
+  &&admin.includes('Verificação aprovada.')
+  &&admin.includes('mantém a primeira transação sob controle reforçado'),
+  'ativação precisa exigir confirmação explícita sem fabricar validação transacional'
 );
 
 assert.ok(
-  admin.includes('Referência do primeiro piloto real de ')
+  admin.includes('Referência da ativação de ')
   &&admin.includes('Referência da reativação de ')
   &&!admin.includes('Referência da homologação E2E de '),
-  'prompt não pode continuar chamando ativação inicial de homologação'
+  'prompt deve tratar a mudança como ativação e não homologação'
 );
 
 assert.ok(
-  admin.includes('Primeiro piloto real ativado em ')
-  &&admin.includes('aguardando prova E2E')
-  &&admin.includes('prova E2E já validada'),
-  'feedback precisa distinguir piloto pendente de reativação com prova existente'
+  admin.includes('Confirmação automática ativada em ')
+  &&admin.includes('aguardando validação transacional')
+  &&admin.includes('integração já verificada'),
+  'feedback precisa distinguir ativação pendente de reativação já verificada'
 );
 
 assert.ok(
