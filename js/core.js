@@ -157,7 +157,7 @@ function freshSeed(){
     mode:'customer',
     user:testDemo
       ? internalPilot
-        ? {name:'Cliente piloto',cashback:0,cashbackDebt:0,purchases:0,referralCode:'PILOTOJR',commissionAvailable:0,commissionPending:0,referredBy:null,cashEarningEligible:true,identityType:'pilot'}
+        ? {name:'Cliente interno',cashback:0,cashbackDebt:0,purchases:0,referralCode:'INTERNOJR',commissionAvailable:0,commissionPending:0,referredBy:null,cashEarningEligible:true,identityType:'pilot'}
         : {name:'Carlos',cashback:7.50,cashbackDebt:0,purchases:4,referralCode:'CARLOS27',commissionAvailable:0,commissionPending:0,referredBy:null,cashEarningEligible:true,identityType:'test'}
       : {name:'',cashback:0,cashbackDebt:0,purchases:0,referralCode:'',commissionAvailable:0,commissionPending:0,referredBy:null,cashEarningEligible:false,identityType:'uninitialized'},
     address:'',
