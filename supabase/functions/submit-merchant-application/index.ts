@@ -56,7 +56,7 @@ async function attachPilotInvite(admin:any,userId:string,applicationId:string,va
   const token=String(value??"").trim();
   if(!token)return null;
   if(token.length<20||token.length>240||!/^[A-Za-z0-9_-]+$/.test(token)){
-    throw new DomainError("INVALID_PILOT_INVITE","Convite piloto inválido.",400);
+    throw new DomainError("INVALID_PILOT_INVITE","Convite de parceiro inválido.",400);
   }
   const {data,error}=await admin.rpc("claim_pilot_partner_invite",{
     p_user_id:userId,
@@ -66,22 +66,22 @@ async function attachPilotInvite(admin:any,userId:string,applicationId:string,va
   if(!error)return data??null;
   const message=String(error.message||error.details||error.hint||"");
   if(message.includes("PILOT_INVITE_EXPIRED")){
-    throw new DomainError("PILOT_INVITE_EXPIRED","Este convite piloto expirou. Solicite um novo link.",409);
+    throw new DomainError("PILOT_INVITE_EXPIRED","Este convite de parceiro expirou. Solicite um novo link.",409);
   }
   if(message.includes("PILOT_INVITE_REVOKED")){
-    throw new DomainError("PILOT_INVITE_REVOKED","Este convite piloto foi revogado.",409);
+    throw new DomainError("PILOT_INVITE_REVOKED","Este convite de parceiro foi revogado.",409);
   }
   if(message.includes("PILOT_INVITE_ALREADY_CLAIMED")){
-    throw new DomainError("PILOT_INVITE_ALREADY_CLAIMED","Este convite piloto já foi usado por outra conta.",409);
+    throw new DomainError("PILOT_INVITE_ALREADY_CLAIMED","Este convite de parceiro já foi usado por outra conta.",409);
   }
   if(message.includes("PILOT_PARTNER_ALREADY_CONVERTED")){
-    throw new DomainError("PILOT_PARTNER_ALREADY_CONVERTED","Este parceiro piloto já foi convertido em revenda.",409);
+    throw new DomainError("PILOT_PARTNER_ALREADY_CONVERTED","Este parceiro já foi convertido em revenda.",409);
   }
   if(message.includes("APPLICATION_PILOT_LINK_CONFLICT")){
-    throw new DomainError("APPLICATION_PILOT_LINK_CONFLICT","Este cadastro já está ligado a outro convite piloto.",409);
+    throw new DomainError("APPLICATION_PILOT_LINK_CONFLICT","Este cadastro já está ligado a outro convite de parceiro.",409);
   }
   if(message.includes("INVALID_PILOT_INVITE")){
-    throw new DomainError("INVALID_PILOT_INVITE","Convite piloto inválido.",400);
+    throw new DomainError("INVALID_PILOT_INVITE","Convite de parceiro inválido.",400);
   }
   throw error;
 }
