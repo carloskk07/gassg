@@ -459,9 +459,14 @@ async function adminSaveProspect(cnpj,expectedVersion){
   }catch(error){toast(String(error?.message||error))}
 }
 
-function adminAnpProspectInviteLink(token){
+function adminAnpProspectInviteLink(token,prospect){
   const url=new URL('https://parceiro.tamao.com.br/');
-  url.hash='merchant-join?prospect='+encodeURIComponent(token);
+  const params=new URLSearchParams();
+  params.set('prospect',token);
+  if(/^[0-9]{14}$/.test(String(prospect?.cnpj||'')))params.set('cnpj',prospect.cnpj);
+  const company=String(prospect?.legal_name||'').trim().slice(0,90);
+  if(company)params.set('empresa',company);
+  url.hash='merchant-join?'+params.toString();
   return url.toString();
 }
 async function adminIssueAnpProspectInvite(cnpj){
@@ -482,7 +487,7 @@ async function adminIssueAnpProspectInvite(cnpj){
       cnpj,inviteAction:'issue',token,expiresAt,rotate:isActive
     });
     await adminLoadProspects();
-    const link=adminAnpProspectInviteLink(token);
+    const link=adminAnpProspectInviteLink(token,prospect);
     try{await navigator.clipboard?.writeText(link)}catch{}
     prompt('Convite criado. Copie o link e envie ao responsável somente após avaliar a abordagem. Por segurança, o link não poderá ser recuperado; se perdê-lo, será necessário gerar outro:',link);
     toast('Convite de cadastro criado para o CNPJ '+cnpj);
