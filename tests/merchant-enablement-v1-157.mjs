@@ -47,6 +47,8 @@ assert.ok(ui.includes("async function adminLoadEnablement()"));
 assert.ok(ui.includes("function adminEnablementMerchantCard(entry)"));
 assert.ok(ui.includes("function adminEnablementCheckRow(check)"));
 assert.ok(ui.includes('Revalidar agora'));
+assert.ok(admin.includes('adminRuntime.enablementMerchants=[]'),'signout/auth failure must clear privileged diagnostics');
+assert.ok(ui.includes("String(adminRuntime.session?.user?.id||'')!==requestingUser"),'drop responses after identity changes');
 assert.ok(ui.includes('Sem liberações automáticas.'));
 assert.ok(!ui.includes("adminPerform('merchant-enablement'"));
 const cut=(source,name)=>{const begin=source.indexOf('function '+name+'(');assert.ok(begin>=0);const end=source.indexOf('\n}',begin);assert.ok(end>begin);return source.slice(begin,end+2);};
