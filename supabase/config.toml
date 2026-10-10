@@ -64,3 +64,8 @@ verify_jwt = false
 # all three production portals before a server-only readiness mutation.
 [functions.portal-readiness-attestor]
 verify_jwt = false
+
+# Hourly commercial expansion worker, authenticated by signed GitHub Actions OIDC.
+# The Edge Function verifies RSA signature, repository/workflow claims and main SHA.
+[functions.expansion-worker]
+verify_jwt = false

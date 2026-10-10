@@ -9,6 +9,7 @@ import {
 } from "../_shared/domain.js";
 import { cancelProviderChargesForPaymentRequest } from "../_shared/provider-charge-cancel.js";
 import { paymentEncryptionConfigured } from "../_shared/payment-secrets.js";
+import {refreshAnpProspects,cityKey as marketCityKey} from "../_shared/anp-prospects.js";
 
 const SUPABASE_URL=Deno.env.get("SUPABASE_URL")??"";
 const publishableKeys=JSON.parse(Deno.env.get("SUPABASE_PUBLISHABLE_KEYS")??"{}");
@@ -98,13 +99,13 @@ async function requireAdmin(admin:any,userId:string){
   if(!data)throw new DomainError("ADMIN_ACCESS_DENIED","Esta conta não possui acesso administrativo.",403);
   return data;
 }
-const ADMIN_READ_ACTIONS=new Set(["summary","search","entity-detail","system-health","billing-provider-health","audit-search","incident-list","merchant-payment-preflight","prospect-intelligence"]);
+const ADMIN_READ_ACTIONS=new Set(["summary","search","entity-detail","system-health","billing-provider-health","audit-search","incident-list","merchant-payment-preflight","prospect-intelligence","expansion-notifications"]);
 const ADMIN_ROLE_ACTIONS:Record<string,Set<string>>={
   superadmin:new Set(["*"]),
   operations:new Set([
     "approve-application","reject-application","verify-merchant","activate-merchant","suspend-merchant",
     "set-delivery-capability","order-control","support-case-status","lead-status","public-request-status",
-    "pilot-invite","assisted-merchant-onboarding","product-registry","verify-launch-portals","incident-action","market-city-pause"
+    "pilot-invite","assisted-merchant-onboarding","product-registry","verify-launch-portals","incident-action","market-city-pause","city-notification-status"
   ]),
   finance:new Set([
     "financial-action","review-referral","retry-reward","retry-accounting","reverse-order",
@@ -1148,47 +1149,6 @@ async function adminSystemHealth(admin:any){
 }
 
 
-function marketCityKey(city:string){
-  return city.normalize("NFD").replace(/[\u0300-\u036f]/g,"")
-    .replace(/[^A-Za-z0-9 ]/g," ").replace(/\s+/g," ").trim().toUpperCase().slice(0,120);
-}
-function anpField(row:any,...keys:string[]){
-  for(const key of keys){
-    const value=row?.[key];
-    if(value!=null&&String(value).trim())return String(value).trim();
-  }
-  return "";
-}
-function anpProspectRows(payload:any,state:string,cityKey:string,city:string){
-  // The public API can change its envelope; unknown formats must fail closed.
-  const candidates=Array.isArray(payload)?payload:
-    [payload?.dados,payload?.data,payload?.resultado,payload?.resultados,payload?.registros,payload?.items,payload?.revendedores,payload?.content]
-      .find(Array.isArray);
-  if(!Array.isArray(candidates))throw new Error("ANP_RESPONSE_FORMAT_UNKNOWN");
-  const rows:any[]=[];
-  const unique=new Set<string>();
-  for(const row of candidates.slice(0,5000)){
-    const cnpj=anpField(row,"cnpj","CNPJ","Cnpj").replace(/\D/g,"");
-    if(!/^[0-9]{14}$/.test(cnpj)||unique.has(cnpj))continue;
-    const name=anpField(row,"razaoSocial","RazaoSocial","Razão Social","RazãoSocial","razao_social","RAZAO_SOCIAL","nomeRazaoSocial","NomeRazaoSocial");
-    if(!name)continue;
-    const uf=anpField(row,"uf","UF","estado").toUpperCase();
-    const municipality=anpField(row,"municipio","Municipio","Município","municipioNome");
-    if(uf&&uf!==state)continue;
-    if(municipality&&marketCityKey(municipality)!==cityKey)continue;
-    unique.add(cnpj);
-    rows.push({
-      cnpj,state,city_key:cityKey,city_name:city,
-      legal_name:name.slice(0,240),
-      address_text:anpField(row,"endereco","Endereco","Endereço","logradouro").slice(0,240)||null,
-      distributor:anpField(row,"distribuidora","Distribuidora","distribuidor","bandeira").slice(0,160)||null,
-      anp_authorization:anpField(row,"autorizacao","Autorizacao","Autorização").slice(0,120)||null,
-      sigaf_status:anpField(row,"statusSigaf","StatusSigaf","statusSIGAF","situacaoSigaf").slice(0,100)||null,
-      source_checked_at:new Date().toISOString()
-    });
-  }
-  return rows;
-}
 async function prospectIntelligence(admin:any,cityInput:unknown,stateInput:unknown,force=false){
   const city=cleanText(cityInput,{min:2,max:120,name:"município"});
   const state=String(stateInput||"").trim().toUpperCase();
@@ -1197,48 +1157,9 @@ async function prospectIntelligence(admin:any,cityInput:unknown,stateInput:unkno
   if(!validUF.has(state)||!(/^[A-Z0-9 ]{2,120}$/.test(cityKey))){
     throw new DomainError("INVALID_PROSPECT_CITY","Informe cidade e UF válidas.",400);
   }
-  // Discovery is not activation. Only verified merchant eligibility can authorize commerce.
-  const {error:cityError}=await admin.from("market_cities").upsert({
-    state,city_key:cityKey,city_name:city
-  },{onConflict:"state,city_key",ignoreDuplicates:true});
-  if(cityError)throw cityError;
-  const {data:previous,error:previousError}=await admin.from("anp_prospect_refreshes")
-    .select("last_checked_at,last_count,status,last_error").eq("state",state).eq("city_key",cityKey).maybeSingle();
-  if(previousError)throw previousError;
-  const elapsed=Date.now()-Date.parse(previous?.last_checked_at||"");
-  const due=!Number.isFinite(elapsed)||elapsed>(previous?.status==="unavailable"?60*60*1000:24*60*60*1000);
-  let warning:string|null=null;
-  let updated=false;
-  if(due||force===true&&elapsed>15*60*1000){
-    const controller=new AbortController();
-    const timer=setTimeout(()=>controller.abort(),7500);
-    try{
-      const url="https://revendedoresapi.anp.gov.br/v1/glp?municipio="+encodeURIComponent(cityKey)+"&uf="+encodeURIComponent(state);
-      const response=await fetch(url,{headers:{"Accept":"application/json"},signal:controller.signal});
-      if(!response.ok)throw new Error("ANP_HTTP_"+response.status);
-      const body=await response.text();
-      if(body.length>5_000_000)throw new Error("ANP_RESPONSE_TOO_LARGE");
-      const rows=anpProspectRows(JSON.parse(body),state,cityKey,city);
-      // Never alter negotiation status already set by the TAMÃO team.
-      for(let offset=0;offset<rows.length;offset+=200){
-        const {error}=await admin.from("anp_glp_prospects")
-          .upsert(rows.slice(offset,offset+200),{onConflict:"cnpj",ignoreDuplicates:true});
-        if(error)throw error;
-      }
-      const {error}=await admin.from("anp_prospect_refreshes").upsert({
-        state,city_key:cityKey,last_checked_at:new Date().toISOString(),last_count:rows.length,status:"ok",last_error:null
-      },{onConflict:"state,city_key"});
-      if(error)throw error;
-      updated=true;
-    }catch(error){
-      warning="Não foi possível atualizar os dados oficiais da ANP nesta tentativa.";
-      const {error:markerError}=await admin.from("anp_prospect_refreshes").upsert({
-        state,city_key:cityKey,last_checked_at:new Date().toISOString(),last_count:Number(previous?.last_count||0),status:"unavailable",
-        last_error:String(error instanceof Error?error.message:"ANP_UNAVAILABLE").slice(0,240)
-      },{onConflict:"state,city_key"});
-      if(markerError)console.error("anp prospect status storage failed",markerError.code||"error");
-    }finally{clearTimeout(timer)}
-  }
+  const sync=await refreshAnpProspects(admin,city,state,{force});
+  const warning=sync.status==="unavailable"?"Não foi possível atualizar a ANP. Último resultado conhecido preservado.":null;
+  const updated=sync.updated===true;
   const [{data:prospects,error:prospectError},{data:refresh,error:refreshError},{count:interestCount,error:interestError}]=await Promise.all([
     admin.from("anp_glp_prospects")
       .select("cnpj,legal_name,address_text,distributor,anp_authorization,sigaf_status,prospect_status,source_checked_at")
@@ -1720,6 +1641,26 @@ Deno.serve(async(req:Request)=>{
       }
       return json(await prospectIntelligence(admin,body.city,body.state,body.force===true),200,origin);
     }
+    if(action==="expansion-notifications"){
+      if(!["superadmin","operations"].includes(String(adminAccess.admin_role))){
+        throw new DomainError("ADMIN_PERMISSION_DENIED","Seu perfil não pode consultar avisos.",403);
+      }
+      const city=cleanText(body.city,{min:2,max:120,name:"cidade"});
+      const state=String(body.state||"").trim().toUpperCase();
+      const key=marketCityKey(city);
+      if(!/^[A-Z]{2}$/.test(state)||!key)throw new DomainError("INVALID_PROSPECT_CITY","Região inválida.",400);
+      const {data:coverageReady,error:coverageError}=await admin.rpc("market_city_ready",{
+        p_city:city,p_state:state
+      });
+      if(coverageError)throw coverageError;
+      if(coverageReady!==true)return json({notifications:[],coverageReady:false},200,origin);
+      const {data,error}=await admin.from("city_opening_notifications")
+        .select("id,lead_id,postal_code,city,state,status,queued_at,handled_at,prelaunch_leads(contact_name,phone,status,consent_at)")
+        .eq("state",state).eq("status","queued").order("queued_at",{ascending:true}).limit(100);
+      if(error)throw error;
+      return json({notifications:(data||[]).filter((n:any)=>marketCityKey(n.city)===key
+        &&n.prelaunch_leads?.consent_at&&n.prelaunch_leads?.status!=="closed")},200,origin);
+    }
     if(action==="summary"){
       return json(await summary(admin,user.id),200,origin);
     }
@@ -1759,6 +1700,18 @@ Deno.serve(async(req:Request)=>{
       throw new DomainError("INVALID_IDEMPOTENCY_KEY","Chave de idempotência obrigatória para mutações administrativas.",400);
     }
 
+    if(action==="city-notification-status"){
+      const status=String(body.status||"");
+      if(!["sent","skipped"].includes(status))throw new DomainError("INVALID_NOTIFICATION_ACTION","Status inválido.",400);
+      const {data,error}=await admin.rpc("admin_handle_city_notification",{
+        p_actor_user_id:user.id,
+        p_notification_id:uuid(body.notificationId,"notification"),
+        p_status:status,
+        p_note:cleanText(body.note,{min:5,max:240,name:"justificativa"})
+      });
+      if(error)throw error;
+      return json(data,200,origin);
+    }
     if(action==="market-city-pause"){
       const city=cleanText(body.city,{min:2,max:120,name:"cidade"});
       const state=String(body.state||"").trim().toUpperCase();

@@ -89,6 +89,8 @@ jobs:
         run: node tests/national-expansion-v1-151.mjs
       - name: Multicity commerce and quote isolation V1.152 regression contract
         run: node tests/multicity-commerce-boundary-v1-152.mjs
+      - name: ANP expansion automation and notification safety V1.153 regression contract
+        run: node tests/expansion-intelligence-v1-153.mjs
       - name: Remote admin gateway contract and portal report
         run: node tests/remote-admin-readiness.mjs
       - name: Runtime origin config contract

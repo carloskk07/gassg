@@ -288,7 +288,9 @@ async function adminLoadProspects({force=false}={}){
       adminRuntime.prospectReport=response;
     }
   }catch(error){adminRuntime.prospectError=String(error?.message||error)}
-  finally{adminRuntime.prospectLoading=false;render()}
+  finally{adminRuntime.prospectLoading=false;render();
+    if(['superadmin','operations'].includes(String(adminCurrentRole())))adminLoadCityNotifications().catch(()=>{});
+  }
 }
 function adminProspectSelectCity(value){
   const text=String(value||'');
@@ -326,6 +328,70 @@ async function adminPauseMarketCity(paused){
     toast(paused?'Cidade pausada para novas cotações':'Pausa removida; ofertas dependem de revendas aptas');
   }catch(e){toast(String(e?.message||e))}
 }
+
+async function adminLoadCityNotifications(){
+  if(!adminReady()||adminRuntime.cityNotificationsPending)return;
+  if(!['superadmin','operations'].includes(String(adminCurrentRole())))return;
+  const city=adminRuntime.prospectCity,state=adminRuntime.prospectState;
+  adminRuntime.cityNotificationsPending=true;
+  adminRuntime.cityNotificationsError=null;
+  try{
+    const data=await adminInvoke({action:'expansion-notifications',city,state});
+    if(adminRuntime.prospectCity===city&&adminRuntime.prospectState===state){
+      adminRuntime.cityNotifications=Array.isArray(data?.notifications)?data.notifications:[];
+    }
+  }catch(e){
+    adminRuntime.cityNotificationsError=String(e?.message||e);
+  }finally{
+    adminRuntime.cityNotificationsPending=false;
+    render();
+  }
+}
+async function adminMarkCityNotification(notificationId,status){
+  if(!['superadmin','operations'].includes(String(adminCurrentRole())))return;
+  if(!['sent','skipped'].includes(status))return;
+  const question=status==='sent'
+    ?'Confirma que você JÁ ENVIOU a mensagem pelo WhatsApp? O TAMÃO ainda não envia automaticamente.'
+    :'Informe por que este contato não deve receber o aviso:';
+  let note=prompt(question,status==='sent'?'Mensagem enviada manualmente pelo WhatsApp':'Contato não realizado');
+  if(note==null)return;
+  note=String(note).trim();
+  if(note.length<5)return toast('Informe uma confirmação ou justificativa');
+  try{
+    await adminPerform('city-notification-status',{notificationId,status,note});
+    await adminLoadCityNotifications();
+    toast(status==='sent'?'Envio manual confirmado':'Contato retirado da fila');
+  }catch(e){toast(String(e?.message||e))}
+}
+function adminCityNotificationsSection(){
+  if(!['superadmin','operations'].includes(String(adminCurrentRole())))return '';
+  const rows=adminRuntime.cityNotifications||[];
+  const pending=adminRuntime.cityNotificationsPending;
+  return '<div class="section-head" style="margin-top:20px"><div>'+
+    '<span class="section-kicker">AVISOS DE DISPONIBILIDADE</span><h3>Contatos autorizados nesta cidade</h3>'+
+    '<p>A fila é gerada automaticamente quando há revenda apta. A mensagem ainda deve ser enviada manualmente pelo operador, e só depois confirmada.</p></div>'+
+    '<span class="status-pill">'+rows.length+' aguardando</span></div>'+
+    (adminRuntime.cityNotificationsError?'<div class="notice danger">'+esc(adminRuntime.cityNotificationsError)+'</div>':'')+
+    '<div class="card flat"><div class="list">'+
+    (rows.length?rows.map(item=>{
+      const lead=item.prelaunch_leads||{};
+      const raw=String(lead.phone||'').replace(/\D/g,'');
+      const phone=adminLeadWhatsApp(raw);
+      const city=String(item.city||'');
+      const name=adminFirstName(lead.contact_name);
+      const message='Olá'+(name?', '+name:'')+'! Aqui é do TAMÃO. Já há uma revenda habilitada em '+city+'/'+item.state+'. Consulte a disponibilidade de gás, água e outros produtos para seu CEP '+String(item.postal_code||'')+' em https://tamao.com.br. O preço e o prazo dependem da consulta no site. Se não quiser receber avisos, responda SAIR.';
+      const link='https://wa.me/'+phone+'?text='+encodeURIComponent(message);
+      return '<div class="list-row"><div><strong>'+esc(lead.contact_name||'Interessado')+'</strong><br>'+
+        '<small>'+esc(city)+'/'+esc(item.state)+' • CEP '+esc(item.postal_code)+' • '+esc(phone)+'</small></div>'+
+        '<div class="order-actions">'+
+          '<a class="secondary small" href="'+esc(link)+'" rel="noopener noreferrer" target="_blank">Abrir WhatsApp</a>'+
+          '<button class="primary small" onclick="adminMarkCityNotification(\''+esc(item.id)+'\',\'sent\')">Confirmar envio</button>'+
+          '<button class="ghost small" onclick="adminMarkCityNotification(\''+esc(item.id)+'\',\'skipped\')">Não contatar</button>'+
+        '</div></div>';
+    }).join(''):pending?'<div class="muted">Carregando fila…</div>':'<div class="muted">Nenhum aviso pendente nesta cidade.</div>')+
+    '</div></div>';
+}
+
 function adminProspectsSection(d){
   const grouped=new Map();
   for(const lead of d?.marketCityInterests||[]){
@@ -371,7 +437,7 @@ function adminProspectsSection(d){
       '<div class="order-actions"><button class="primary" onclick="adminProspectSearchCity()" '+(adminRuntime.prospectLoading?'disabled':'')+'>Consultar na ANP</button>'+
       '<button class="secondary" onclick="adminLoadProspects({force:true})" '+(adminRuntime.prospectLoading?'disabled':'')+'>Atualizar fonte</button></div>'+
       '<small class="field-help">Fonte: API pública ANP GLP. O servidor reutiliza o resultado durante até 24 horas e mantém o último dado conhecido quando a fonte falha.</small>'+
-    '</div>'+placeholder+error+summary+
+    '</div>'+placeholder+error+summary+adminCityNotificationsSection()+
     '<div class="notice"><strong>Ativação por elegibilidade, nunca apenas por cadastro.</strong> Uma cidade somente poderá abrir para compras após confirmação de revenda apta, regularidade ANP quando GLP, estoque, preço, área de entrega, capacidade e recebimento. O registro da ANP não equivale a autorização de parceria.</div>'+
   '</section>';
 }

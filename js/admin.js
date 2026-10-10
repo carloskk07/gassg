@@ -41,6 +41,9 @@ const adminRuntime={
   prospectError:null,
   prospectCity:'São Gabriel',
   prospectState:'RS',
+  cityNotifications:[],
+  cityNotificationsPending:false,
+  cityNotificationsError:null,
   auditResults:null,
   auditPending:false,
   section:(()=>{
