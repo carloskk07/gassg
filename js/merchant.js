@@ -639,6 +639,87 @@ function merchantPaymentConnectionsView(rt){
     <div class="notice"><strong>Mercado Pago não é obrigatório.</strong><br>Stone, Getnet, PagBank, Nubank e outros podem ser declarados sem entregar o dinheiro ao TAMÃO. O recebimento continua direto na revenda; automação e custódia são coisas diferentes.</div>
     <div class="merchant-psp-grid">${cards}</div>`;
 }
+function merchantEnablementFocus(key){
+  const selectors={
+    delivery_area:'#live-citywide',
+    delivery_fee:'#live-delivery-fee',
+    payment_method:'#live-payment-pix',
+    payment_route:'.merchant-psp-grid',
+    online:'#merchant-online-toggle',
+    heartbeat:'#merchant-online-toggle'
+  };
+  if(key==='inventory'){go('catalog');return}
+  const el=document.querySelector(selectors[key]||'');
+  if(!el)return toast('Configuração indisponível nesta tela. Atualize o painel.');
+  el.scrollIntoView({behavior:'smooth',block:'center'});
+  if(typeof el.focus==='function')el.focus({preventScroll:true});
+}
+function merchantEnablementCheckView(check){
+  const ok=check?.ok===true;
+  const merchantStep=check?.owner==='merchant';
+  const buttonKeys=new Set(['inventory','delivery_area','delivery_fee','payment_method','payment_route','online']);
+  const key=String(check?.key||'');
+  const actionButton=!ok&&merchantStep&&buttonKeys.has(key)
+    ?'<button type="button" class="secondary small" onclick="merchantEnablementFocus(\''+esc(key)+'\')">'+
+       (key==='inventory'?'Abrir catálogo':'Ir para configuração')+'</button>':'';
+  return '<div class="list-row" style="align-items:start"><div style="flex:1">'+
+    '<strong>'+(ok?'✓ ':'○ ')+esc(check?.label||'Etapa')+'</strong>'+
+    (!ok?'<div class="tiny muted" style="margin-top:4px">'+esc(check?.action||'Revise este requisito')+'</div>':'')+
+    (!ok?'<small>'+esc(merchantStep?'Ação da revenda':check?.scope==='realtime'?'Disponibilidade temporária':
+        check?.owner==='admin'?'Depende do TAMÃO':'Verificação do sistema')+'</small>':'')+
+    '</div><div class="order-actions">'+actionButton+
+      '<span class="status-pill '+(ok?'online':'offline')+'">'+(ok?'Conforme':'Pendente')+'</span>'+
+    '</div></div>';
+}
+function merchantEnablementAssistantView(rt){
+  const m=rt?.merchant;
+  if(!m||!['owner','manager'].includes(String(m.memberRole||'')))return '';
+  const diagnostic=rt.enablement?.merchant_id===m.merchantId?rt.enablement:null;
+  const checks=Array.isArray(diagnostic?.checks)?diagnostic.checks:[];
+  const missing=checks.filter(item=>item?.ok!==true);
+  const merchantIssues=missing.filter(item=>item?.owner==='merchant'&&item.key!=='quote_authority');
+  const otherIssues=missing.filter(item=>item?.owner!=='merchant'&&item.key!=='quote_authority');
+  const fine=checks.filter(item=>item?.ok===true);
+  const ready=diagnostic?.ready===true&&missing.length===0;
+  const timestamp=String(diagnostic?.checked_at||'');
+  const checkedMs=Date.parse(timestamp);
+  const outdated=Number.isFinite(checkedMs)&&Date.now()-checkedMs>3*60*1000;
+  const lead=merchantIssues[0]||otherIssues[0]||null;
+  const state=ready?'Apta naquele momento':
+    !diagnostic?rt.enablementLoading?'Verificando requisitos':'Verificação ainda não concluída':
+    merchantIssues.length?'Configurações pendentes':'Aguardando validações';
+  return '<section class="section" id="merchant-enablement">'+
+    '<div class="section-head"><div><span class="section-kicker">PRÓXIMOS PASSOS</span>'+
+      '<h2>Preparar minha revenda</h2>'+
+      '<p>Veja exatamente o que ainda precisa de atenção para participar das ofertas na sua cidade. A confirmação final acontece sempre no servidor.</p></div>'+
+      '<button class="secondary small" type="button" onclick="merchantEnablementRecheck()" '+
+        (rt.enablementLoading?'disabled':'')+'>↻ Revalidar</button></div>'+
+    '<div class="card flat">'+
+      '<div class="status-bar"><strong>'+esc(state)+'</strong><span class="status-pill '+(ready&&!outdated?'online':'offline')+'">'+
+        (diagnostic?missing.length+' pendência(s)':'Aguardando consulta')+'</span></div>'+
+      (timestamp?'<small>Verificado '+esc(formatDateTime(timestamp))+
+        (outdated?' • dados antigos; revalide para confirmar':' • condições podem mudar')+'</small>':'')+
+      (rt.enablementError?'<div class="notice danger" style="margin-top:10px">Não foi possível verificar os requisitos: '+esc(rt.enablementError)+'</div>':'')+
+      (!diagnostic?'<p class="muted tiny">'+(rt.enablementLoading?'Consultando as condições atuais…':'Use Revalidar para consultar a situação da revenda.')+'</p>':
+       '<div class="merchant-kpis" style="margin-top:12px">'+
+        '<div class="kpi"><span class="label">Da revenda</span><strong>'+merchantIssues.length+'</strong></div>'+
+        '<div class="kpi"><span class="label">Outras verificações</span><strong>'+otherIssues.length+'</strong></div>'+
+        '<div class="kpi"><span class="label">Atendidas</span><strong>'+fine.length+'/'+checks.length+'</strong></div>'+
+       '</div>'+
+       (lead?'<p class="tiny" style="margin-top:10px"><strong>Primeira ação:</strong> '+esc(lead.action||'Revisar requisitos')+'</p>':
+        '<p class="tiny" style="margin-top:10px">Não há pendências apontadas nesta verificação. A disponibilidade final continua sujeita ao motor de cotações.</p>')+
+       (merchantIssues.length?'<h3 style="margin-top:14px">O que sua revenda pode resolver</h3><div class="list">'+merchantIssues.map(merchantEnablementCheckView).join('')+'</div>':'')+
+       (otherIssues.length?'<h3 style="margin-top:14px">Validações e condições adicionais</h3><div class="list">'+otherIssues.map(merchantEnablementCheckView).join('')+'</div>':'')+
+       '<details style="margin-top:12px"><summary>Ver '+fine.length+' requisitos já atendidos</summary><div class="list">'+fine.map(merchantEnablementCheckView).join('')+'</div></details>')+
+      '<div class="tiny muted" style="margin-top:12px">Este roteiro não aprova documentos, não libera pagamentos e não altera a situação comercial da revenda.</div>'+
+    '</div></section>';
+}
+async function merchantEnablementRecheck(){
+  try{await merchantLoadEnablement({force:true})}
+  catch(error){toast(String(error?.message||error))}
+}
+
+
 function merchantLivePage(){
   const rt=globalThis.merchantRuntime||{};
   if(['disabled','loading'].includes(rt.status)){
@@ -678,7 +759,7 @@ function merchantLivePage(){
   const freshness=merchantLiveFreshness();
   const freshnessProblems=[];
   if(!freshness.deliveryFresh)freshnessProblems.push('taxa de entrega vencida');
-  if(m.acceptsCitywide===false)freshnessProblems.push('atendimento em São Gabriel desativado');
+  if(m.acceptsCitywide===false)freshnessProblems.push('atendimento na cidade desativado');
   if(freshness.staleProducts.length)freshnessProblems.push('preço vencido: '+freshness.staleProducts.map(x=>x.productName||x.productCode).join(', '));
   if(!freshness.offerable.length)freshnessProblems.push('nenhum produto ativo com estoque');
   if(!Object.values(paymentMethods).some(Boolean))freshnessProblems.push('nenhuma forma de pagamento confirmada');
@@ -713,10 +794,11 @@ function merchantLivePage(){
     ${freshnessNotice}
     ${financialHold?'<div class="notice danger" style="margin-top:12px"><strong>Novas vendas suspensas por pendência financeira.</strong><br>Regularize o fechamento vencido. Pedidos já aceitos continuam disponíveis normalmente.</div>':''}
     ${merchantAlertControl()}
+    ${merchantEnablementAssistantView(rt)}
 
     <div class="card flat form-stack" style="margin-top:14px">
       ${memberships.length>1?`<div class="input-wrap"><label for="merchant-live-select">Operação</label><select id="merchant-live-select" class="input" onchange="merchantLiveSelect(this.value)">${memberships.map(x=>`<option value="${esc(x.merchantId)}" ${x.merchantId===m.merchantId?'selected':''}>${esc(x.name)} • ${esc(x.memberRole)}</option>`).join('')}</select></div>`:''}
-      <div class="order-actions"><button class="secondary small" onclick="merchantLiveRefresh()">Atualizar</button>${manage?'<button class="secondary small" onclick="merchantOpenTeam()">Equipe</button>':''}${operate?`<button class="${m.online?'danger-btn':'primary'} small" onclick="merchantLiveToggleOnline(${m.online?'false':'true'})" ${!m.online&&!canGoOnline?'disabled title="'+(financialHold?'Regularize o fechamento financeiro vencido antes de ficar online':'Regularize compliance, preços e logística antes de ficar online')+'"':''}>${m.online?'Pausar novos pedidos':'Ficar online'}</button>`:''}<button class="ghost small" onclick="merchantLiveLogout()">Sair</button></div>
+      <div class="order-actions"><button class="secondary small" onclick="merchantLiveRefresh()">Atualizar</button>${manage?'<button class="secondary small" onclick="merchantOpenTeam()">Equipe</button>':''}${operate?`<button id="merchant-online-toggle" class="${m.online?'danger-btn':'primary'} small" onclick="merchantLiveToggleOnline(${m.online?'false':'true'})" ${!m.online&&!canGoOnline?'disabled title="'+(financialHold?'Regularize o fechamento financeiro vencido antes de ficar online':'Regularize compliance, preços e logística antes de ficar online')+'"':''}>${m.online?'Pausar novos pedidos':'Ficar online'}</button>`:''}<button class="ghost small" onclick="merchantLiveLogout()">Sair</button></div>
     </div>
 
     <section class="section"><div class="merchant-kpis">
@@ -739,7 +821,7 @@ function merchantLivePage(){
       <div class="divider"></div>
       <h3>Entrega</h3>
       <div class="field-row"><div class="input-wrap"><label for="live-delivery-fee">Taxa de entrega</label><input id="live-delivery-fee" inputmode="decimal" type="number" min="0" max="1000" step="0.10" class="input" value="${(Number(m.deliveryFeeCents||0)/100).toFixed(2)}"></div><div class="input-wrap"><label for="live-eta">ETA base (min)</label><input id="live-eta" inputmode="numeric" type="number" min="5" max="180" class="input" value="${Number(m.baseEtaMinutes||30)}"></div></div>
-      <label class="check-row"><input id="live-citywide" type="checkbox" ${m.acceptsCitywide!==false?'checked':''}><span><strong>Atende São Gabriel</strong><small>Usado no filtro de disponibilidade e ofertas.</small></span></label>
+      <label class="check-row"><input id="live-citywide" type="checkbox" ${m.acceptsCitywide!==false?'checked':''}><span><strong>Atende minha cidade</strong><small>Usado no filtro de ofertas da cidade cadastrada.</small></span></label>
       <button class="secondary" onclick="merchantLiveSaveLogistics()">Salvar logística</button>
       <div class="divider"></div>
       <h3>Capacidade simultânea</h3>
@@ -958,7 +1040,7 @@ async function merchantLiveSaveLogistics(){
   const eta=Number(document.querySelector('#live-eta')?.value);
   const citywide=document.querySelector('#live-citywide')?.checked===true;
   if(!Number.isFinite(fee)||fee<0||!Number.isInteger(eta)||eta<5||eta>180)return toast('Revise taxa e ETA');
-  try{await merchantUpdateLogisticsLive(Math.round(fee*100),eta,citywide);toast(citywide?'Logística atualizada':'Logística atualizada. Novos pedidos foram pausados até reativar São Gabriel.')}catch(e){toast(String(e?.message||e))}
+  try{await merchantUpdateLogisticsLive(Math.round(fee*100),eta,citywide);toast(citywide?'Logística atualizada':'Logística atualizada. Novos pedidos foram pausados até reativar a cobertura da cidade.')}catch(e){toast(String(e?.message||e))}
 }
 async function merchantLiveSaveCapacity(){
   const capacity=Number(document.querySelector('#live-capacity')?.value);
