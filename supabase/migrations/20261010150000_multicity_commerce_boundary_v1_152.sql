@@ -118,3 +118,58 @@ create trigger quotes_city_scope_guard
 
 -- Cached service_area_allowed is an address verification hint, never
 -- sufficient authority to bypass live municipal merchant checks.
+
+
+-- Admin override is transactional and audited; no client can enable a city.
+create or replace function public.admin_set_market_city_pause(
+  p_actor_user_id uuid,
+  p_city text,
+  p_state text,
+  p_paused boolean,
+  p_reason text
+)
+returns jsonb
+language plpgsql security definer
+set search_path to pg_catalog
+as $func$
+declare
+  v_key text:=public.market_city_key(p_city);
+  v_state text:=upper(trim(coalesce(p_state,'')));
+  v_previous boolean;
+begin
+  if not exists(
+    select 1 from public.platform_admins a where a.user_id=p_actor_user_id
+      and a.active and a.admin_role in ('superadmin','operations')
+  ) then
+    raise exception 'ADMIN_PERMISSION_DENIED' using errcode='42501';
+  end if;
+  if p_paused is null or v_state!~'^[A-Z]{2}$' or char_length(v_key)<2
+     or char_length(v_key)>120 or p_city is null or char_length(p_city)>120
+     or trim(coalesce(p_reason,''))='' or char_length(p_reason)>240 then
+    raise exception 'INVALID_CITY_PAUSE' using errcode='22023';
+  end if;
+  insert into public.market_cities(state,city_key,city_name)
+  values(v_state,v_key,trim(p_city))
+  on conflict (state,city_key) do nothing;
+
+  select admin_paused into v_previous from public.market_cities
+  where state=v_state and city_key=v_key for update;
+
+  if v_previous is distinct from p_paused then
+    update public.market_cities set
+      admin_paused=p_paused,
+      paused_at=case when p_paused then clock_timestamp() else null end,
+      updated_at=clock_timestamp()
+    where state=v_state and city_key=v_key;
+
+    insert into public.platform_admin_audit(actor_user_id,action,target_type,target_id,metadata)
+    values(p_actor_user_id,'market-city-pause','market_city',v_state||'/'||v_key,
+      jsonb_build_object('previous',v_previous,'paused',p_paused,'reason',p_reason));
+  end if;
+  return jsonb_build_object('city',trim(p_city),'state',v_state,'paused',p_paused,
+    'changed',v_previous is distinct from p_paused);
+end;
+$func$;
+revoke all on function public.admin_set_market_city_pause(uuid,text,text,boolean,text)
+from public,anon,authenticated;
+grant execute on function public.admin_set_market_city_pause(uuid,text,text,boolean,text) to service_role;
