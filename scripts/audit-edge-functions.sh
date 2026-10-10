@@ -129,6 +129,18 @@ for f in $(find supabase/functions -mindepth 2 -maxdepth 2 -name 'index.ts' | so
       grep -q 'tamaoReceivesSaleProceeds:false' "$f" || { echo "$f missing explicit no-repass contract"; exit 1; }
       grep -q '\[functions.order-payment-checkout\]' supabase/config.toml || { echo "$f missing config.toml entry"; exit 1; }
       ;;
+    supabase/functions/expansion-worker/index.ts)
+      grep -q 'tamao-expansion-worker' "$f" || { echo "$f missing dedicated OIDC audience"; exit 1; }
+      grep -q 'RSASSA-PKCS1-v1_5' "$f" || { echo "$f missing OIDC RSA signature check"; exit 1; }
+      grep -q 'crypto.subtle.verify' "$f" || { echo "$f missing OIDC crypto verification"; exit 1; }
+      grep -q 'repository_id' "$f" || { echo "$f missing immutable GitHub identity"; exit 1; }
+      grep -q 'workflow_ref' "$f" || { echo "$f missing exact workflow binding"; exit 1; }
+      grep -q 'githubMainSha()' "$f" || { echo "$f missing canonical main SHA proof"; exit 1; }
+      grep -q 'queue_ready_city_notifications' "$f" || { echo "$f missing server queue operation"; exit 1; }
+      grep -q 'readJsonBody(req,{maxBytes:4096})' "$f" || { echo "$f missing request cap"; exit 1; }
+      ! grep -q 'auth.getUser' "$f" || { echo "$f should authorize GitHub OIDC, not user JWT"; exit 1; }
+      grep -q '\[functions.expansion-worker\]' supabase/config.toml || { echo "$f missing config.toml OIDC auth opt-out"; exit 1; }
+      ;;
     supabase/functions/portal-readiness-attestor/index.ts)
       grep -q 'https://token.actions.githubusercontent.com/.well-known/jwks' "$f" || { echo "$f missing GitHub OIDC JWKS"; exit 1; }
       grep -q 'tamao-portal-attestor' "$f" || { echo "$f missing dedicated OIDC audience"; exit 1; }
