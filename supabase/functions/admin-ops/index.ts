@@ -1182,7 +1182,7 @@ function anpProspectRows(payload:any,state:string,cityKey:string,city:string){
       legal_name:name.slice(0,240),
       address_text:anpField(row,"endereco","Endereco","Endereço","logradouro").slice(0,240)||null,
       distributor:anpField(row,"distribuidora","Distribuidora","distribuidor","bandeira").slice(0,160)||null,
-      authorization:anpField(row,"autorizacao","Autorizacao","Autorização").slice(0,120)||null,
+      anp_authorization:anpField(row,"autorizacao","Autorizacao","Autorização").slice(0,120)||null,
       sigaf_status:anpField(row,"statusSigaf","StatusSigaf","statusSIGAF","situacaoSigaf").slice(0,100)||null,
       source_checked_at:new Date().toISOString()
     });
@@ -1241,7 +1241,7 @@ async function prospectIntelligence(admin:any,cityInput:unknown,stateInput:unkno
   }
   const [{data:prospects,error:prospectError},{data:refresh,error:refreshError},{count:interestCount,error:interestError}]=await Promise.all([
     admin.from("anp_glp_prospects")
-      .select("cnpj,legal_name,address_text,distributor,authorization,sigaf_status,prospect_status,source_checked_at")
+      .select("cnpj,legal_name,address_text,distributor,anp_authorization,sigaf_status,prospect_status,source_checked_at")
       .eq("state",state).eq("city_key",cityKey).order("legal_name",{ascending:true}).limit(200),
     admin.from("anp_prospect_refreshes").select("last_checked_at,last_count,status").eq("state",state).eq("city_key",cityKey).maybeSingle(),
     admin.from("market_city_interests").select("lead_id",{count:"exact",head:true}).eq("state",state).ilike("city",city)
