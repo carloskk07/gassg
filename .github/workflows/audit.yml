@@ -77,6 +77,8 @@ jobs:
         run: node tests/admin-psp-pilot-center-v1-145.mjs
       - name: First real PSP pilot preflight V1.146 regression contract
         run: node tests/first-real-psp-pilot-preflight-v1-146.mjs
+      - name: Production trust language V1.147 regression contract
+        run: node tests/production-language-v1-147.mjs
       - name: Remote admin gateway contract and portal report
         run: node tests/remote-admin-readiness.mjs
       - name: Runtime origin config contract
