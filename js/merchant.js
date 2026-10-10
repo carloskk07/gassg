@@ -649,7 +649,8 @@ function merchantEnablementFocus(key){
     heartbeat:'#merchant-online-toggle'
   };
   if(key==='inventory'){go('catalog');return}
-  const el=document.querySelector(selectors[key]||'');
+  if(!Object.prototype.hasOwnProperty.call(selectors,key))return toast('Etapa sem configuração direta. Consulte o requisito.');
+  const el=document.querySelector(selectors[key]);
   if(!el)return toast('Configuração indisponível nesta tela. Atualize o painel.');
   el.scrollIntoView({behavior:'smooth',block:'center'});
   if(typeof el.focus==='function')el.focus({preventScroll:true});
@@ -678,7 +679,7 @@ function merchantEnablementAssistantView(rt){
   const checks=Array.isArray(diagnostic?.checks)?diagnostic.checks:[];
   const missing=checks.filter(item=>item?.ok!==true);
   const merchantIssues=missing.filter(item=>item?.owner==='merchant'&&item.key!=='quote_authority');
-  const otherIssues=missing.filter(item=>item?.owner!=='merchant'&&item.key!=='quote_authority');
+  const otherIssues=missing.filter(item=>item?.owner!=='merchant');
   const fine=checks.filter(item=>item?.ok===true);
   const ready=diagnostic?.ready===true&&missing.length===0;
   const timestamp=String(diagnostic?.checked_at||'');
