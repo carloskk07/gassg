@@ -1694,6 +1694,12 @@ for(const entry of fs.readdirSync(functionRoot,{withFileTypes:true})){
   }else if(entry.name==='merchant-payment-oauth-callback'){
     assert.ok(source.includes('req.method!=="GET"')&&source.includes('consume_merchant_payment_oauth_state'),entry.name+' precisa ser callback GET com state de uso único');
     assert.ok(source.includes('decryptPaymentSecret')&&source.includes('code_verifier')&&source.includes('verifyMercadoPagoSellerToken')&&source.includes('verifyPagBankSellerToken'),entry.name+' precisa provar state/PKCE quando aplicável e identidade da conta antes de persistir tokens');
+  }else if(entry.name==='expansion-worker'){
+    assert.ok(source.includes('req.method!=="POST"')&&source.includes('readJsonBody(req,{maxBytes:4096})'),'expansion-worker precisa limitar método/corpo');
+    assert.ok(source.includes('tamao-expansion-worker')&&source.includes('RSASSA-PKCS1-v1_5')&&source.includes('crypto.subtle.verify'),'expansion-worker exige GitHub OIDC assinado');
+    assert.ok(source.includes('repository_id')&&source.includes('repository_owner_id')&&source.includes('workflow_ref'),'expansion-worker precisa validar repositório e workflow');
+    assert.ok(source.includes('githubMainSha()')&&source.includes('queue_ready_city_notifications'),'expansion-worker precisa vincular execução ao main e fila consentida');
+    assert.ok(source.includes('automaticallySent:0')&&!source.includes('admin_operation_mode_action'),'expansion-worker não envia mensagens nem ativa cidades por conta própria');
   }else if(entry.name==='portal-readiness-attestor'){
     assert.ok(source.includes('req.method!=="POST"')&&source.includes('readJsonBody(req,{maxBytes:4096})'),entry.name+' precisa aceitar somente POST com corpo mínimo');
     assert.ok(source.includes('https://token.actions.githubusercontent.com/.well-known/jwks')&&source.includes('tamao-portal-attestor')&&source.includes('RSASSA-PKCS1-v1_5')&&source.includes('crypto.subtle.verify'),entry.name+' precisa autenticar GitHub OIDC criptograficamente');
