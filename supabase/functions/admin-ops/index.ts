@@ -171,7 +171,7 @@ function merchantPaymentRuntimeReadiness(provider:string){
     {key:"runtime-oauth-redirect",ok:redirectValid,label:"OAuth redirect HTTPS",detail:redirectValid?"válido":"inválido ou ausente"},
     {key:"runtime-webhook-secret",ok:webhookSecret.length>=16,label:"Webhook HMAC",detail:webhookSecret.length>=16?"configurado":"ausente"},
     {key:"runtime-encryption",ok:paymentEncryptionConfigured(encryptionKey),label:"Criptografia de credenciais",detail:paymentEncryptionConfigured(encryptionKey)?"configurada":"ausente"},
-    {key:"global-kill-switch",ok:globalDirectPaymentsEnabled,label:"Kill-switch global liberado",detail:globalDirectPaymentsEnabled?"tráfego automático permitido":"tráfego automático bloqueado"}
+    {key:"global-kill-switch",ok:globalDirectPaymentsEnabled,label:"Controle global de pagamentos",detail:globalDirectPaymentsEnabled?"tráfego automático permitido":"tráfego automático bloqueado"}
   ];
   return {
     ok:gates.every(g=>g.ok),
@@ -1843,7 +1843,7 @@ Deno.serve(async(req:Request)=>{
     }else if(action==="pilot-invite"){
       const inviteAction=String(body.inviteAction??"").trim().toLowerCase();
       if(!["issue","revoke"].includes(inviteAction)){
-        throw new DomainError("INVALID_PILOT_INVITE_ACTION","Ação de convite piloto inválida.",400);
+        throw new DomainError("INVALID_PILOT_INVITE_ACTION","Ação de convite de parceiro inválida.",400);
       }
       const draftId=uuid(body.pilotPartnerId,"pilotPartner");
       let tokenHash:null|string=null;
@@ -2090,14 +2090,14 @@ Deno.serve(async(req:Request)=>{
       }
       const merchantId=uuid(body.merchantId,"merchant");
       const reference=cleanText(body.reference,{
-        min:3,max:240,name:"referência do piloto ou suspensão de pagamento"
+        min:3,max:240,name:"referência de ativação ou suspensão de pagamento"
       });
       if(enabled){
         const preflight=await merchantPaymentPreflight(admin,user.id,merchantId,provider);
         if(preflight.readyForActivation!==true){
           throw new DomainError(
             "MERCHANT_PAYMENT_PREFLIGHT_FAILED",
-            "O piloto não pode ser ativado enquanto o checklist obrigatório possuir bloqueios.",
+            "A confirmação automática não pode ser ativada enquanto a verificação obrigatória possuir bloqueios.",
             409
           );
         }
@@ -2633,31 +2633,31 @@ Deno.serve(async(req:Request)=>{
       return json({error:"ADMIN_PERMISSION_DENIED",message:"Seu perfil administrativo não possui permissão para esta ação."},403,origin);
     }
     if(message.includes("MERCHANT_PAYMENT_ACCOUNT_NOT_CONNECTED")){
-      return json({error:"MERCHANT_PAYMENT_ACCOUNT_NOT_CONNECTED",message:"A revenda precisa conectar a própria conta deste provedor antes da homologação."},409,origin);
+      return json({error:"MERCHANT_PAYMENT_ACCOUNT_NOT_CONNECTED",message:"A revenda precisa conectar a própria conta deste provedor antes de ativar a confirmação automática."},409,origin);
     }
     if(message.includes("MERCHANT_PAYMENT_ACCOUNT_NOT_READY")){
       return json({error:"MERCHANT_PAYMENT_ACCOUNT_NOT_READY",message:"A conexão da revenda com este provedor ainda não está pronta para confirmação automática."},409,origin);
     }
     if(message.includes("MERCHANT_PAYMENT_PREFLIGHT_FAILED")){
-      return json({error:"MERCHANT_PAYMENT_PREFLIGHT_FAILED",message:"O checklist do primeiro piloto ainda possui bloqueios. Execute o preflight antes de ativar."},409,origin);
+      return json({error:"MERCHANT_PAYMENT_PREFLIGHT_FAILED",message:"A verificação de ativação ainda possui bloqueios. Resolva os requisitos antes de ativar a confirmação automática."},409,origin);
     }
     if(message.includes("MERCHANT_PAYMENT_MERCHANT_NOT_ACTIVE")){
-      return json({error:"MERCHANT_PAYMENT_MERCHANT_NOT_ACTIVE",message:"A revenda precisa estar operacionalmente ativa antes do primeiro piloto automático."},409,origin);
+      return json({error:"MERCHANT_PAYMENT_MERCHANT_NOT_ACTIVE",message:"A revenda precisa estar operacionalmente ativa antes de habilitar pagamentos automáticos."},409,origin);
     }
     if(message.includes("MERCHANT_PAYMENT_AUTOMATED_ROUTE_REQUIRED")){
-      return json({error:"MERCHANT_PAYMENT_AUTOMATED_ROUTE_REQUIRED",message:"A conta PSP ainda não possui uma rota automática ativa e vinculada para este piloto."},409,origin);
+      return json({error:"MERCHANT_PAYMENT_AUTOMATED_ROUTE_REQUIRED",message:"A conta PSP ainda não possui uma rota automática ativa e vinculada para esta configuração."},409,origin);
     }
     if(message.includes("MERCHANT_PAYMENT_PILOT_IN_FLIGHT")){
-      return json({error:"MERCHANT_PAYMENT_PILOT_IN_FLIGHT",message:"Já existe um piloto automático vivo para esta revenda e PSP."},409,origin);
+      return json({error:"MERCHANT_PAYMENT_PILOT_IN_FLIGHT",message:"Já existe uma transação automática em validação para esta revenda e PSP."},409,origin);
     }
     if(message.includes("INVALID_MERCHANT_PAYMENT_CAPABILITY")){
-      return json({error:"INVALID_MERCHANT_PAYMENT_CAPABILITY",message:"Este provedor ainda não possui um adaptador de venda direta homologado no TAMÃO."},409,origin);
+      return json({error:"INVALID_MERCHANT_PAYMENT_CAPABILITY",message:"A confirmação automática ainda não está disponível para este provedor no TAMÃO."},409,origin);
     }
     if(message.includes("MERCHANT_PAYMENT_REVIEW_REQUIRED")){
       return json({error:"MERCHANT_PAYMENT_REVIEW_REQUIRED",message:"Existe uma transação da revenda em revisão; resolva-a antes de reativar pagamentos diretos."},409,origin);
     }
     if(message.includes("MERCHANT_PAYMENT_CAPABILITY_REFERENCE_REQUIRED")){
-      return json({error:"MERCHANT_PAYMENT_CAPABILITY_REFERENCE_REQUIRED",message:"Informe a referência da homologação ou desativação."},400,origin);
+      return json({error:"MERCHANT_PAYMENT_CAPABILITY_REFERENCE_REQUIRED",message:"Informe a referência da ativação, reativação ou suspensão."},400,origin);
     }
     if(message.includes("LAST_SUPERADMIN_CANNOT_BE_REMOVED")){
       return json({error:"LAST_SUPERADMIN_CANNOT_BE_REMOVED",message:"O último Superadmin ativo não pode ser removido nem rebaixado."},409,origin);
@@ -2777,19 +2777,19 @@ Deno.serve(async(req:Request)=>{
       return json({error:"ADMIN_ORDER_REASON_REQUIRED",message:"Informe o motivo da intervenção administrativa."},400,origin);
     }
     if(message.includes("PILOT_PARTNER_NOT_FOUND")){
-      return json({error:"PILOT_PARTNER_NOT_FOUND",message:"Parceiro piloto não encontrado."},404,origin);
+      return json({error:"PILOT_PARTNER_NOT_FOUND",message:"Parceiro não encontrado."},404,origin);
     }
     if(message.includes("PILOT_PARTNER_CANCELLED")){
-      return json({error:"PILOT_PARTNER_CANCELLED",message:"Este parceiro piloto foi cancelado."},409,origin);
+      return json({error:"PILOT_PARTNER_CANCELLED",message:"Este cadastro de parceiro foi cancelado."},409,origin);
     }
     if(message.includes("PILOT_PARTNER_INVITE_NOT_ALLOWED")){
-      return json({error:"PILOT_PARTNER_INVITE_NOT_ALLOWED",message:"Este parceiro piloto já foi convertido/cancelado e não pode receber novo convite."},409,origin);
+      return json({error:"PILOT_PARTNER_INVITE_NOT_ALLOWED",message:"Este parceiro já foi convertido ou cancelado e não pode receber novo convite."},409,origin);
     }
     if(message.includes("INVALID_PILOT_INVITE_EXPIRY")){
       return json({error:"INVALID_PILOT_INVITE_EXPIRY",message:"Validade do convite inválida."},400,origin);
     }
     if(message.includes("INVALID_PILOT_INVITE_ACTION")||message.includes("INVALID_PILOT_INVITE_TOKEN_HASH")){
-      return json({error:"INVALID_PILOT_INVITE_ACTION",message:"Não foi possível validar a operação de convite piloto."},400,origin);
+      return json({error:"INVALID_PILOT_INVITE_ACTION",message:"Não foi possível validar a operação de convite de parceiro."},400,origin);
     }
     if(message.includes("OWNER_USER_NOT_FOUND")){
       return json({error:"OWNER_USER_NOT_FOUND",message:"A conta owner informada não existe ou ainda é anônima."},404,origin);
