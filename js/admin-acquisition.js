@@ -7,11 +7,12 @@ function adminFirstName(value){
 }
 function adminLeadWhatsAppText(x){
   const first=adminFirstName(x.contact_name);
+  const region=x.city&&x.state?x.city+'/'+x.state:'sua região';
   if(x.lead_type==='merchant'){
     const company=String(x.business_name||'sua empresa').trim();
-    return 'Olá'+(first?', '+first:'')+'! Aqui é do TAMÃO. Recebemos o interesse da '+company+' em participar como parceiro em São Gabriel. Quero entender rapidamente sua operação e explicar os próximos passos, sem compromisso. Podemos conversar por aqui?';
+    return 'Olá'+(first?', '+first:'')+'! Aqui é do TAMÃO. Recebemos o interesse da '+company+' em participar como parceiro na região de '+region+'. Quero entender rapidamente sua operação e explicar os próximos passos, sem compromisso. Podemos conversar por aqui?';
   }
-  return 'Olá'+(first?', '+first:'')+'! Aqui é do TAMÃO. Você entrou na nossa lista de abertura em São Gabriel. Estamos organizando a cobertura por região e queremos confirmar seu interesse antes da abertura. Posso te avisar por aqui quando houver novidade para o seu CEP?';
+  return 'Olá'+(first?', '+first:'')+'! Aqui é do TAMÃO. Você registrou interesse no TAMÃO para '+region+'. Estamos organizando a cobertura local e queremos confirmar seu interesse antes da abertura. Posso te avisar por aqui quando houver novidade para o seu CEP?';
 }
 function adminPublicRequestWhatsAppText(x){
   const first=adminFirstName(x.contact_name);
@@ -271,4 +272,85 @@ function adminPublicRequestsSection(data){
       '<div class="grid cards-3" style="margin-top:14px">'+(requests.length?requests.slice(0,60).map(adminPublicRequestCard).join(''):'<div class="empty card">Nenhuma solicitação pública recebida.</div>')+'</div>',
     '</section>'
   ].join('');
+}
+
+
+async function adminLoadProspects({force=false}={}){
+  if(!adminReady()||adminRuntime.prospectLoading)return;
+  adminRuntime.prospectLoading=true;
+  adminRuntime.prospectError=null;
+  render();
+  try{
+    const response=await adminInvoke({action:'prospect-intelligence',
+      city:adminRuntime.prospectCity,state:adminRuntime.prospectState,force});
+    if(response?.state===adminRuntime.prospectState
+       &&String(response?.city||'').toUpperCase()===adminRuntime.prospectCity.toUpperCase()){
+      adminRuntime.prospectReport=response;
+    }
+  }catch(error){adminRuntime.prospectError=String(error?.message||error)}
+  finally{adminRuntime.prospectLoading=false;render()}
+}
+function adminProspectSelectCity(value){
+  const text=String(value||'');
+  const sep=text.indexOf('|');
+  if(sep<1)return;
+  const uf=text.slice(0,sep),city=text.slice(sep+1);
+  if(!/^[A-Z]{2}$/.test(uf)||city.length<2||city.length>120)return;
+  adminRuntime.prospectCity=city;
+  adminRuntime.prospectState=uf;
+  adminRuntime.prospectReport=null;
+  adminLoadProspects().catch(()=>{});
+}
+function adminProspectSearchCity(){
+  const city=String(document.getElementById('prospect-city')?.value||'').trim();
+  const uf=String(document.getElementById('prospect-uf')?.value||'').trim().toUpperCase();
+  if(city.length<2||city.length>120||!/^[A-Z]{2}$/.test(uf))return toast('Informe cidade e UF válidas');
+  adminRuntime.prospectCity=city;
+  adminRuntime.prospectState=uf;
+  adminRuntime.prospectReport=null;
+  adminLoadProspects().catch(()=>{});
+}
+function adminProspectsSection(d){
+  const grouped=new Map();
+  for(const lead of d?.marketCityInterests||[]){
+    if(!lead.city||!lead.state)continue;
+    const key=String(lead.state).toUpperCase()+'|'+String(lead.city);
+    grouped.set(key,(grouped.get(key)||0)+1);
+  }
+  const selected=adminRuntime.prospectState+'|'+adminRuntime.prospectCity;
+  if(!grouped.has(selected))grouped.set(selected,0);
+  const cityOptions=[...grouped.entries()].sort((a,b)=>b[1]-a[1]||a[0].localeCompare(b[0],'pt-BR'))
+    .map(([key,count])=>'<option '+(key===selected?'selected':'')+' value="'+esc(key)+'">'+esc(key.replace('|',' • '))+' ('+count+' lead'+(count===1?'':'s')+' recente'+(count===1?'':'s')+')</option>').join('');
+  const report=adminRuntime.prospectReport;
+  const matches=report&&report.state===adminRuntime.prospectState
+    &&String(report.city).toUpperCase()===adminRuntime.prospectCity.toUpperCase();
+  const prospects=matches?(report.prospects||[]):[];
+  const placeholder=adminRuntime.prospectLoading?'<div class="notice">Consultando dados oficiais e demanda local…</div>':'';
+  const error=adminRuntime.prospectError?'<div class="notice danger">'+esc(adminRuntime.prospectError)+'</div>':'';
+  const summary=matches?'<div class="merchant-kpis">'+
+    '<div class="kpi"><span class="label">Interessados</span><strong>'+Number(report.interestCount||0)+'</strong><small>CEP identificado e consentimento</small></div>'+
+    '<div class="kpi"><span class="label">Revendas na ANP</span><strong>'+(report.sourceStatus==='ok'?Number(report.availableCount||0):'—')+'</strong><small>Empresas prospectáveis, não parceiros</small></div>'+
+    '<div class="kpi"><span class="label">Fonte consultada</span><strong>'+esc(adminRelativeTime(report.checkedAt))+'</strong><small>'+esc(report.sourceStatus||'não confirmada')+'</small></div></div>'+
+    (report.warning?'<div class="notice">'+esc(report.warning)+'</div>':'')+
+    '<div class="section-head"><div><h3>Empresas registradas na ANP</h3><p>Confirmar dados e interesse antes do convite. Importação não habilita recebimento de pedidos.</p></div></div>'+
+    '<div class="card flat"><div class="list">'+
+    (prospects.length?prospects.map(x=>'<div class="list-row"><div><strong>'+esc(x.legal_name||'Revenda GLP')+'</strong><br>'+
+      '<small>CNPJ '+esc(x.cnpj||'')+' • '+esc(x.address_text||adminRuntime.prospectCity)+' • '+esc(x.distributor||'Sem vínculo identificado')+'</small></div>'+
+      '<span class="status-pill">'+esc(x.prospect_status||'uncontacted')+'</span></div>').join('')
+      :'<div class="muted">Nenhum registro consultável para esta cidade. Confira o estado da fonte; ausência de resposta não significa ausência de revendedores.</div>')+
+    '</div></div>':'';
+  return '<section class="section">'+
+    '<div class="section-head"><div><span class="section-kicker">EXPANSÃO NACIONAL</span><h2>Inteligência de cidades e prospectos</h2><p>Acompanhe demanda de clientes e revendas GLP da fonte oficial. A operação comercial continua protegida.</p></div></div>'+
+    '<div class="card flat form-stack">'+
+      '<div class="input-wrap"><label for="prospect-area">Cidades com demanda nos cadastros recentes</label>'+
+      '<select id="prospect-area" class="input" onchange="adminProspectSelectCity(this.value)">'+cityOptions+'</select></div>'+
+      '<div class="field-row"><div class="input-wrap"><label for="prospect-city">Município</label>'+
+      '<input id="prospect-city" class="input" maxlength="120" value="'+esc(adminRuntime.prospectCity)+'" placeholder="Ex.: Santa Maria"></div>'+
+      '<div class="input-wrap"><label for="prospect-uf">UF</label><input id="prospect-uf" class="input" maxlength="2" value="'+esc(adminRuntime.prospectState)+'" placeholder="RS"></div></div>'+
+      '<div class="order-actions"><button class="primary" onclick="adminProspectSearchCity()" '+(adminRuntime.prospectLoading?'disabled':'')+'>Consultar na ANP</button>'+
+      '<button class="secondary" onclick="adminLoadProspects({force:true})" '+(adminRuntime.prospectLoading?'disabled':'')+'>Atualizar fonte</button></div>'+
+      '<small class="field-help">Fonte: API pública ANP GLP. O servidor reutiliza o resultado durante até 24 horas e mantém o último dado conhecido quando a fonte falha.</small>'+
+    '</div>'+placeholder+error+summary+
+    '<div class="notice"><strong>Ativação por elegibilidade, nunca apenas por cadastro.</strong> Uma cidade somente poderá abrir para compras após confirmação de revenda apta, regularidade ANP quando GLP, estoque, preço, área de entrega, capacidade e recebimento. O registro da ANP não equivale a autorização de parceria.</div>'+
+  '</section>';
 }

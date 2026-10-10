@@ -51,6 +51,35 @@ function clientIp(req:Request){
   ).trim().slice(0,128);
 }
 
+
+// City detection never blocks consented lead capture; the source is independently
+// resolved on the server, not accepted from user-supplied city/UF text.
+function canonicalCityKey(city:string){
+  return city.normalize("NFD").replace(/[\u0300-\u036f]/g,"").replace(/[^A-Za-z0-9 ]/g," ")
+    .replace(/\s+/g," ").trim().toUpperCase().slice(0,120);
+}
+async function resolveLeadCity(postalCode:string|null){
+  if(!postalCode)return null;
+  const controller=new AbortController();
+  const timeout=setTimeout(()=>controller.abort(),3500);
+  try{
+    const response=await fetch("https://viacep.com.br/ws/"+postalCode+"/json/",{
+      headers:{"Accept":"application/json"},signal:controller.signal
+    });
+    if(!response.ok)return null;
+    const data=await response.json();
+    if(data?.erro)return null;
+    const city=String(data?.localidade||"").trim().slice(0,120);
+    const state=String(data?.uf||"").trim().toUpperCase();
+    const ibgeCode=String(data?.ibge||"").replace(/\D/g,"");
+    if(!city||!(/^[A-Z]{2}$/.test(state)))return null;
+    const cityKey=canonicalCityKey(city);
+    if(!/^[A-Z0-9 ]{2,120}$/.test(cityKey))return null;
+    return {city,state,cityKey,ibgeCode:/^[0-9]{7}$/.test(ibgeCode)?ibgeCode:null};
+  }catch{return null}
+  finally{clearTimeout(timeout)}
+}
+
 Deno.serve(async(req:Request)=>{
   const origin=req.headers.get("Origin");
   if(req.method==="OPTIONS"){
@@ -171,6 +200,34 @@ Deno.serve(async(req:Request)=>{
       },429,origin);
     }
 
+    // Preserve leads even when the CEP provider is offline or times out.
+    const resolvedCity=await resolveLeadCity(postalCode);
+    if(resolvedCity&&result?.leadId){
+      const {error:cityError}=await admin.from("market_cities").upsert({
+        state:resolvedCity.state,
+        city_key:resolvedCity.cityKey,
+        city_name:resolvedCity.city,
+        ibge_code:resolvedCity.ibgeCode
+      },{onConflict:"state,city_key",ignoreDuplicates:true});
+      if(!cityError){
+        const {error:leadGeoError}=await admin.from("prelaunch_leads").update({
+          city:resolvedCity.city,state:resolvedCity.state,city_ibge_code:resolvedCity.ibgeCode
+        }).eq("id",result.leadId);
+        if(leadGeoError)console.error("lead city enrichment failed",leadGeoError.code||"error");
+      }else{
+        console.error("city discovery failed",cityError.code||"error");
+      }
+    }
+    if(result?.leadId&&postalCode){
+      const {error:interestError}=await admin.from("market_city_interests").upsert({
+        lead_id:result.leadId,
+        postal_code:postalCode,
+        ...(resolvedCity?{
+          city:resolvedCity.city,state:resolvedCity.state,ibge_code:resolvedCity.ibgeCode
+        }:{})
+      },{onConflict:"lead_id,postal_code",ignoreDuplicates:true});
+      if(interestError)console.error("lead city interest storage failed",interestError.code||"error");
+    }
     const reused=result?.reused===true;
     const replayed=result?.replayed===true;
     return json({
@@ -178,6 +235,7 @@ Deno.serve(async(req:Request)=>{
       accepted:true,
       leadId:result?.leadId,
       leadType:String(result?.leadType||leadType),
+      region:resolvedCity?{city:resolvedCity.city,state:resolvedCity.state,ibgeCode:resolvedCity.ibgeCode}:null,
       reused,
       replayed,
       message:leadType==="merchant"
