@@ -235,9 +235,20 @@ Deno.serve(async (req: Request) => {
       serviceState:postal.state
     };
 
+    // Never allow another municipality's merchant into candidate selection.
+    // This gate validates current compliance, heartbeat, stock and city pause.
+    const {data:cityMerchantIds,error:cityMerchantError}=await admin.rpc(
+      "market_city_offer_scope",{p_city:postal.city,p_state:postal.state}
+    );
+    if(cityMerchantError)throw cityMerchantError;
+    if(!Array.isArray(cityMerchantIds)||cityMerchantIds.length===0){
+      return json({offers:[],regionAvailable:false,...addressMeta},200,origin);
+    }
+
     const { data: merchants, error: merchantError } = await admin
       .from("merchants")
       .select("id,trust_score,delivery_fee_cents,base_eta_minutes,max_active_orders,accepts_scheduled_orders")
+      .in("id",cityMerchantIds)
       .eq("status", "active")
       .eq("online", true)
       .eq("accepts_citywide", true)
