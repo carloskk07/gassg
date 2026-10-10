@@ -197,7 +197,7 @@ await auditDom('privacy');
 await evaluate("go('terms')");
 await waitFor("document.body.innerText.includes('Termos de Uso')","terms route");
 body=await text();
-assert.match(body,/Situação atual/);
+assert.match(body,/Disponibilidade do serviço/);
 assert.match(body,/nenhuma ação cria pedido, cobrança ou reserva real de estoque/i);
 assert.match(body,/não promete volume de pedidos, faturamento ou renda/i);
 await auditDom('terms');
