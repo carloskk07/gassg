@@ -46,7 +46,7 @@ for(const forbidden of [
 
 assert.ok(
   customer.includes("'Consultar disponibilidade'")
-  &&customer.includes('confirmar disponibilidade e valor final')
+  &&customer.includes('confirmar disponibilidade, revenda e valor final')
   &&customer.includes('Nenhuma opção disponível para este CEP agora.')
   &&!customer.includes('DEMONSTRAÇÃO DO PRÉ-LANÇAMENTO'),
   'cliente deve receber preço de referência com disponibilidade real, não cards fictícios de pré-lançamento'
