@@ -1067,6 +1067,7 @@ const merchantRuntime={
   enablementLoading:false,
   enablementError:null,
   enablementFetchedAt:0,
+  enablementSeq:0,
   catalog:[],
   availableProducts:[],
   billing:null,
@@ -1349,6 +1350,7 @@ async function merchantInvoke(name,body={},options={}){
 
 const MERCHANT_ENABLEMENT_CACHE_MS=3*60*1000;
 function merchantClearEnablement(){
+  merchantRuntime.enablementSeq++;
   merchantRuntime.enablement=null;
   merchantRuntime.enablementLoading=false;
   merchantRuntime.enablementError=null;
@@ -1361,12 +1363,13 @@ async function merchantLoadEnablement({force=false}={}){
   if(!merchantReady()||!['owner','manager'].includes(String(merchant?.memberRole||''))||!merchantId||!userId)return null;
   if(merchantRuntime.enablementLoading)return null;
   if(!force&&merchantRuntime.enablementFetchedAt&&Date.now()-merchantRuntime.enablementFetchedAt<MERCHANT_ENABLEMENT_CACHE_MS)return merchantRuntime.enablement;
+  const attemptSeq=++merchantRuntime.enablementSeq;
   merchantRuntime.enablementLoading=true;
   merchantRuntime.enablementFetchedAt=Date.now();
   merchantRuntime.enablementError=null;
   try{
     const response=await merchantInvoke('merchant-ops',{merchantId,action:'enablement'});
-    if(!merchantReady()||String(merchantRuntime.session?.user?.id||'')!==userId
+    if(attemptSeq!==merchantRuntime.enablementSeq||!merchantReady()||String(merchantRuntime.session?.user?.id||'')!==userId
       ||String(merchantRuntime.merchant?.merchantId||'')!==merchantId)return null;
     if(response?.readOnly!==true||response.source!=='market_city_offer_scope'
       ||response.merchantId!==merchantId||response.diagnostic?.merchant_id!==merchantId
@@ -1376,15 +1379,21 @@ async function merchantLoadEnablement({force=false}={}){
     merchantRuntime.enablement=response.diagnostic;
     return response.diagnostic;
   }catch(error){
-    if(merchantReady()&&String(merchantRuntime.session?.user?.id||'')===userId
+    if(attemptSeq===merchantRuntime.enablementSeq&&merchantReady()&&String(merchantRuntime.session?.user?.id||'')===userId
        &&String(merchantRuntime.merchant?.merchantId||'')===merchantId){
       merchantRuntime.enablementError=String(error?.message||error);
     }
     return null;
   }finally{
-    merchantRuntime.enablementLoading=false;
-    if(merchantReady())render();
+    if(attemptSeq===merchantRuntime.enablementSeq){
+      merchantRuntime.enablementLoading=false;
+      if(merchantReady())render();
+    }
   }
+}
+function merchantEnablementAfterChange(){
+  if(merchantReady()&&['owner','manager'].includes(String(merchantRuntime.merchant?.memberRole||'')))
+    queueMicrotask(()=>merchantLoadEnablement({force:true}).catch(()=>{}));
 }
 
 async function merchantLoadOwnApplications(){
@@ -1487,7 +1496,7 @@ async function merchantRefresh({silent=false,recoverSelection=true}={}){
     merchantRuntime.error=null;
     merchantRuntime.accessReason=null;
     merchantRuntime.lastSyncAt=new Date().toISOString();
-    if(['owner','manager'].includes(String(merchantRuntime.merchant?.memberRole||'')))
+    if(['owner','manager'].includes(String(merchantRuntime.merchant?.memberRole||''))&&!merchantRuntime.enablementFetchedAt)
       queueMicrotask(()=>merchantLoadEnablement().catch(()=>{}));
     return data;
   }catch(error){
@@ -1808,6 +1817,7 @@ async function merchantUpdatePaymentRoutesLive(routes,reason='Atualização das 
       reason:cleanReason
     },{idempotencyKey}));
     await merchantRefresh({silent:true});
+    merchantEnablementAfterChange();
     return result;
   }catch(error){
     merchantRuntime.error=String(error?.message||error);
@@ -1930,6 +1940,7 @@ async function merchantSetOnlineLive(online){
       ()=>merchantInvoke('merchant-ops',{merchantId,action:'set-online',online:online===true})
     );
     await merchantRefresh({silent:true});
+    merchantEnablementAfterChange();
   }finally{
     merchantRuntime.actionPending=false;render();
   }
@@ -1961,6 +1972,7 @@ async function merchantUpdateProductLive(productCode,priceCents,availableStock,a
     }catch(error){
       if(['CATALOG_VERSION_CONFLICT','CATALOG_VERSION_REQUIRED'].includes(String(error?.code||''))){
         await merchantRefresh({silent:true});
+    merchantEnablementAfterChange();
       }
       throw error;
     }
@@ -2005,6 +2017,7 @@ async function merchantUpdateLogisticsLive(deliveryFeeCents,baseEtaMinutes,accep
       acceptsCitywide:acceptsCitywide===true
     });
     await merchantRefresh({silent:true});
+    merchantEnablementAfterChange();
   }finally{
     merchantRuntime.actionPending=false;render();
   }
@@ -2045,6 +2058,7 @@ async function merchantUpdatePaymentMethodsLive(methods){
   try{
     await merchantConfigMutation('update-payment-methods',payload);
     await merchantRefresh({silent:true});
+    merchantEnablementAfterChange();
   }finally{
     merchantRuntime.actionPending=false;render();
   }
