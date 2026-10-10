@@ -2,6 +2,18 @@ const PRELAUNCH_EXAMPLE_PRICES={
   P13:11990,P20:18990,P45:41990,WATER20:1590,CHARCOAL4:1990,WOOD:2490,ICE5:1250
 };
 
+const PUBLIC_P13_REFERENCE=Object.freeze({
+  minimum:115.90,
+  usual:120.00,
+  maximum:125.00,
+  deliveryIncluded:true
+});
+
+function publicP13PriceReference(){
+  const p=PUBLIC_P13_REFERENCE;
+  return `<div class="notice success" style="margin-top:14px" aria-label="Preço de referência do P13"><strong>Referência de preço • P13</strong><br><strong>R$ 120,00</strong> como valor usual • faixa de <strong>R$ 115,90 a R$ 125,00</strong> • entrega incluída.<br><span class="tiny">Referência comercial local. A disponibilidade, a revenda disponível e o valor final são confirmados para o seu CEP antes do pedido.</span></div>`;
+}
+
 function prelaunchExampleOffers(cart={P13:1}){
   let subtotal=0;
   for(const [code,qtyRaw] of Object.entries(cart||{})){
@@ -187,10 +199,14 @@ function home(){
   }
 
   const p=testDemo?minPrice():null;
+  const showPublicP13Reference=!testDemo&&(
+    preview
+    ||(ready&&market?.realSupplyConfigured===false)
+  );
   const priceText=testDemo
     ? (p==null?'Indisponível':BRL.format(p))
-    : preview
-      ? 'Consultar disponibilidade'
+    : showPublicP13Reference
+      ? BRL.format(PUBLIC_P13_REFERENCE.usual)+' ref.'
       : ready&&!market
         ? 'Consultar preço'
         : ready&&market?.realSupplyConfigured
@@ -203,8 +219,8 @@ function home(){
     ? internalPilot
       ? 'Ambiente interno: faixa comercial P13 confirmada; os demais dados desta visualização não representam operação pública.'
       : 'Ambiente isolado de teste automatizado'
-    : preview
-      ? 'Informe seu CEP para consultar a disponibilidade de atendimento em São Gabriel.'
+    : showPublicP13Reference
+      ? 'Referência local de preço do P13. Consulte seu CEP para confirmar disponibilidade, revenda e valor final.'
       : ready&&!market
         ? 'Não foi possível confirmar o panorama geral agora. Informe seu endereço para consultar as opções diretamente.'
         : ready&&market?.realSupplyConfigured
@@ -277,6 +293,7 @@ function home(){
     </div>
 
     <div class="trust-row"><span class="trust-chip">✓ Total antes de pedir</span><span class="trust-chip">✓ Parceiro precisa aceitar</span><span class="trust-chip">✓ Entrega acompanhada</span></div>
+    ${showPublicP13Reference?publicP13PriceReference():''}
     ${internalPilot?'<div class="notice" style="margin-top:14px"><strong>Ambiente de validação interna.</strong><br>Nenhuma ação nesta prévia gera pedido real, cobrança ou baixa de estoque. O dado comercial real carregado no cenário é a faixa P13: R$ 115,90 mínimo, R$ 120,00 normal e R$ 125,00 máximo, com entrega incluída.</div>':''}
   </div>
   <div class="hero-visual" aria-label="Resumo visual dos benefícios do TAMÃO">
