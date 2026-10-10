@@ -77,7 +77,7 @@ assert.ok(
 );
 
 assert.ok(
-  merchant.includes("pilotInvite?'CONVITE DE PARCEIRO':'PAINEL DA REVENDA'")
+  merchant.includes("pilotInvite||prospectInvite?'CONVITE DE PARCEIRO':'PAINEL DA REVENDA'")
   &&merchant.includes("directEnabled?'INTEGRAÇÃO VERIFICADA':'CONECTADO'")
   &&merchant.includes('Faixa automática de preço')
   &&!merchant.includes('Faixa automática do piloto'),

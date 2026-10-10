@@ -458,6 +458,72 @@ async function adminSaveProspect(cnpj,expectedVersion){
     toast('Negociação atualizada e registrada na auditoria');
   }catch(error){toast(String(error?.message||error))}
 }
+
+function adminAnpProspectInviteLink(token,prospect){
+  const url=new URL('https://parceiro.tamao.com.br/');
+  const params=new URLSearchParams();
+  params.set('prospect',token);
+  if(/^[0-9]{14}$/.test(String(prospect?.cnpj||'')))params.set('cnpj',prospect.cnpj);
+  const company=String(prospect?.legal_name||'').trim().slice(0,90);
+  if(company)params.set('empresa',company);
+  url.hash='merchant-join?'+params.toString();
+  return url.toString();
+}
+async function adminIssueAnpProspectInvite(cnpj){
+  if(!['superadmin','operations','compliance'].includes(String(adminCurrentRole())))return;
+  const prospect=(adminRuntime.prospectReport?.prospects||[]).find(x=>x.cnpj===cnpj);
+  if(!prospect)return toast('Atualize a lista de prospectos');
+  if(['partner','dismissed'].includes(String(prospect.prospect_status)))return toast('Empresa não elegível para novo convite');
+  const isActive=prospect.invitation?.status==='active';
+  if(isActive&&!confirm('Já existe convite ativo. Rotacionar revogará o link anterior. Continuar?'))return;
+  const daysRaw=prompt('Validade do convite em dias (1 a 30):','14');
+  if(daysRaw==null)return;
+  const days=Number(daysRaw);
+  if(!Number.isSafeInteger(days)||days<1||days>30)return toast('Informe uma validade de 1 a 30 dias');
+  const token=adminGeneratePilotInviteToken();
+  const expiresAt=new Date(Date.now()+days*24*60*60*1000).toISOString();
+  try{
+    await adminPerform('prospect-invite',{
+      cnpj,inviteAction:'issue',token,expiresAt,rotate:isActive
+    });
+    await adminLoadProspects();
+    const link=adminAnpProspectInviteLink(token,prospect);
+    try{await navigator.clipboard?.writeText(link)}catch{}
+    prompt('Convite criado. Copie o link e envie ao responsável somente após avaliar a abordagem. Por segurança, o link não poderá ser recuperado; se perdê-lo, será necessário gerar outro:',link);
+    toast('Convite de cadastro criado para o CNPJ '+cnpj);
+  }catch(error){toast(String(error?.message||error))}
+}
+async function adminRevokeAnpProspectInvite(cnpj){
+  if(!['superadmin','operations','compliance'].includes(String(adminCurrentRole())))return;
+  if(!confirm('Revogar o convite ativo deste CNPJ? O link deixará de ser aceito.'))return;
+  try{
+    await adminPerform('prospect-invite',{cnpj,inviteAction:'revoke'});
+    await adminLoadProspects();
+    toast('Convite revogado');
+  }catch(error){toast(String(error?.message||error))}
+}
+function adminProspectInvitationControls(record){
+  const cnpj=String(record?.cnpj||'').replace(/\D/g,'');
+  if(!/^[0-9]{14}$/.test(cnpj))return '';
+  const inv=record.invitation||{status:'none'};
+  const status=String(inv.status||'none');
+  const label={
+    none:'Ainda não convidada',active:'Convite ativo',expired:'Convite expirado',
+    revoked:'Convite revogado',claimed:'Convite utilizado'
+  }[status]||'Convite sem confirmação';
+  const canAct=['superadmin','operations','compliance'].includes(String(adminCurrentRole()))
+    &&!['dismissed','partner'].includes(String(record.prospect_status));
+  const app=record.application||null;
+  return '<div class="tiny muted" style="margin-top:8px"><strong>'+esc(label)+'</strong>'+
+    (status==='active'&&inv.expiresAt?' • vence '+esc(formatDateTime(inv.expiresAt)):'')+
+    (app?' • Cadastro '+esc(app.status||'em análise'):' • Cadastro ainda não identificado')+'</div>'+
+    (canAct?'<div class="order-actions" style="margin-top:8px">'+
+      (status!=='claimed'?'<button type="button" class="secondary small" onclick="adminIssueAnpProspectInvite(\''+cnpj+'\')">'+
+        (status==='active'?'Rotacionar convite':'Gerar convite')+'</button>':'')+
+      (status==='active'?'<button type="button" class="ghost small" onclick="adminRevokeAnpProspectInvite(\''+cnpj+'\')">Revogar</button>':'')+
+    '</div>':'');
+}
+
 function adminProspectCrmEditor(record){
   const cnpj=String(record.cnpj||'').replace(/\D/g,'');
   if(!/^[0-9]{14}$/.test(cnpj))return '';
@@ -524,7 +590,7 @@ function adminProspectsSection(d){
         '<div class="tiny muted">'+Number(x.contact_attempts||0)+' contato(s) registrado(s)'+
           (followUp?' • Retorno: '+esc(followUp)+(overdue?' (vencido)':''):'')+
           (x.last_contacted_at?' • Último contato: '+esc(String(x.last_contacted_at).slice(0,10)):'')+'</div>'+
-        adminProspectCrmEditor(x)+'</div></div>';
+        adminProspectInvitationControls(x)+adminProspectCrmEditor(x)+'</div></div>';
     }).join('')
       :'<div class="muted">Nenhum registro consultável para esta cidade. Confira o estado da fonte; ausência de resposta não significa ausência de revendedores.</div>')+
     '</div></div>':'';

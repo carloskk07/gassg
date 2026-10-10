@@ -86,6 +86,22 @@ async function attachPilotInvite(admin:any,userId:string,applicationId:string,va
   throw error;
 }
 
+async function attachAnpProspectInvite(admin:any,userId:string,applicationId:string,token:string){
+  if(!token)return null;
+  const {data,error}=await admin.rpc("claim_anp_prospect_invite",{
+    p_user_id:userId,p_application_id:applicationId,p_token:token
+  });
+  if(error){
+    const detail=String(error.message||"");
+    if(detail.includes("PROSPECT_INVITE_")){
+      throw new DomainError("PROSPECT_INVITE_CLAIM_FAILED",
+        "O cadastro foi salvo, mas o convite não pôde ser associado. Entre em contato com o TAMÃO.",409);
+    }
+    throw error;
+  }
+  return data??null;
+}
+
 Deno.serve(async(req:Request)=>{
   const origin=req.headers.get("Origin");
   if(!originAllowed(origin))return json({error:"ORIGIN_NOT_ALLOWED"},403,origin);
@@ -110,6 +126,18 @@ Deno.serve(async(req:Request)=>{
 
     const admin=createClient(SUPABASE_URL,SECRET_KEY,{auth:{persistSession:false,autoRefreshToken:false}});
     await enforceApiQuota(admin,{userId:user.id,actionName:"submit-merchant-application",limit:5,windowSeconds:3600});
+    const prospectInviteToken=String(body.prospectInviteToken||"").trim();
+    if(prospectInviteToken){
+      if(body.pilotInviteToken)throw new DomainError("MULTIPLE_PARTNER_INVITES","Use somente um convite por cadastro.",400);
+      if(!/^[A-Za-z0-9_-]{32,128}$/.test(prospectInviteToken)||!/^[0-9]{14}$/.test(cnpj)){
+        throw new DomainError("INVALID_PROSPECT_INVITE","Convite incompatível com o CNPJ informado.",400);
+      }
+      const {error:inviteError}=await admin.rpc("validate_anp_prospect_invite",{
+        p_token:prospectInviteToken,p_cnpj:cnpj,p_user_id:user.id
+      });
+      if(inviteError)throw new DomainError("PROSPECT_INVITE_INVALID",
+        "Convite inválido, expirado ou destinado a outra empresa. Confirme o link e o CNPJ.",409);
+    }
     const {data:existing,error:existingError}=await admin
       .from("merchant_applications")
       .select("id,cnpj,company_name,status,created_at")
@@ -167,6 +195,7 @@ Deno.serve(async(req:Request)=>{
       }
 
       const pilotPartner=await attachPilotInvite(admin,user.id,data.id,body.pilotInviteToken);
+      const prospectInvite=await attachAnpProspectInvite(admin,user.id,data.id,prospectInviteToken);
       return json({
         applicationId:data.id,
         cnpj:data.cnpj,
@@ -176,7 +205,8 @@ Deno.serve(async(req:Request)=>{
         updatedAt:data.updated_at,
         reused:true,
         resubmitted:existing.status==="rejected",
-        pilotPartner
+        pilotPartner,
+        prospectInvite
       },200,origin);
     }
 
@@ -207,6 +237,7 @@ Deno.serve(async(req:Request)=>{
           .maybeSingle();
         if(retryExisting?.status==="pending"){
           const pilotPartner=await attachPilotInvite(admin,user.id,retryExisting.id,body.pilotInviteToken);
+          const prospectInvite=await attachAnpProspectInvite(admin,user.id,retryExisting.id,prospectInviteToken);
           return json({
             applicationId:retryExisting.id,
             cnpj:retryExisting.cnpj,
@@ -215,7 +246,8 @@ Deno.serve(async(req:Request)=>{
             createdAt:retryExisting.created_at,
             reused:true,
             resubmitted:false,
-            pilotPartner
+            pilotPartner,
+            prospectInvite
           },200,origin);
         }
         return json({error:"APPLICATION_EXISTS",message:"Este CNPJ já possui cadastro pendente ou aprovado."},409,origin);
@@ -224,6 +256,7 @@ Deno.serve(async(req:Request)=>{
     }
 
     const pilotPartner=await attachPilotInvite(admin,user.id,data.id,body.pilotInviteToken);
+    const prospectInvite=await attachAnpProspectInvite(admin,user.id,data.id,prospectInviteToken);
     return json({
       applicationId:data.id,
       cnpj:data.cnpj,
@@ -232,7 +265,8 @@ Deno.serve(async(req:Request)=>{
       createdAt:data.created_at,
       reused:false,
       resubmitted:false,
-      pilotPartner
+      pilotPartner,
+      prospectInvite
     },201,origin);
   }catch(error){
     if(error instanceof DomainError)return json({error:error.code,message:error.message},error.status,origin);

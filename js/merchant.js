@@ -5,11 +5,12 @@ function merchantRealPortalRequired(){
 function merchantLiveLoginView(){
   const rt=globalThis.merchantRuntime||{};
   const pilotInvite=String(globalThis.merchantPilotInviteToken?.()||'').trim();
+  const prospectInvite=String(globalThis.merchantProspectInviteToken?.()||'').trim();
   return shell(`<section class="page">
-    <span class="eyebrow">${pilotInvite?'CONVITE DE PARCEIRO':'PAINEL DA REVENDA'}</span>
-    <h1 class="page-title">${pilotInvite?'Entre para continuar seu cadastro':'Acessar operação'}</h1>
-    <p class="muted">${pilotInvite?'Use o e-mail que ficará responsável pela operação. Depois do link de acesso, você volta direto ao cadastro da empresa.':'Use o e-mail vinculado à sua revenda. O acesso é separado da sessão do cliente.'}</p>
-    ${pilotInvite?'<div class="notice success" style="margin-top:14px"><strong>Convite reconhecido.</strong><br>Suas condições comerciais já estão preservadas no TAMÃO. Entrar não coloca a revenda online nem libera pedidos.</div>':''}
+    <span class="eyebrow">${pilotInvite||prospectInvite?'CONVITE DE PARCEIRO':'PAINEL DA REVENDA'}</span>
+    <h1 class="page-title">${pilotInvite||prospectInvite?'Entre para continuar seu cadastro':'Acessar operação'}</h1>
+    <p class="muted">${pilotInvite||prospectInvite?'Use o e-mail que ficará responsável pela operação. Depois do link de acesso, você volta direto ao cadastro da empresa.':'Use o e-mail vinculado à sua revenda. O acesso é separado da sessão do cliente.'}</p>
+    ${pilotInvite?'<div class="notice success" style="margin-top:14px"><strong>Convite reconhecido.</strong><br>Suas condições comerciais já estão preservadas no TAMÃO. Entrar não coloca a revenda online nem libera pedidos.</div>':''}${prospectInvite?'<div class="notice success" style="margin-top:14px"><strong>Convite reconhecido.</strong><br>Seu cadastro será associado à empresa convidada após conferir o CNPJ. A ativação comercial exige validações adicionais.</div>':''}
     ${rt.notice?`<div class="notice success" style="margin-top:14px">${esc(rt.notice)}</div>`:''}
     ${rt.error?`<div class="notice danger" style="margin-top:14px">${esc(rt.error)}</div>`:''}
     <div class="card flat form-stack" style="margin-top:16px">

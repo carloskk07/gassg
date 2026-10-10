@@ -475,6 +475,12 @@ function currentMerchantPilotInviteToken(){
 function clearCurrentMerchantPilotInviteToken(){
   globalThis.clearMerchantPilotInviteToken?.();
 }
+function currentMerchantProspectInviteToken(){
+  return String(globalThis.merchantProspectInviteToken?.()||'').trim();
+}
+function clearCurrentMerchantProspectInviteToken(){
+  globalThis.clearMerchantProspectInviteToken?.();
+}
 function merchantJoin(){
   if(globalThis.merchantPortalRequested?.()){
     const rt=globalThis.merchantRuntime||{};
@@ -484,8 +490,10 @@ function merchantJoin(){
     if(rt.status==='unauthenticated')return merchantLiveLoginView();
   }
   if(globalThis.__CHAMA_TEST__!==true&&!globalThis.merchantPortalRequested?.())return merchantRealPortalRequired();
-  const pilotInvite=globalThis.merchantPortalRequested?.()?currentMerchantPilotInviteToken():'';
-  return shell(`<section class="page"><button class="back" onclick="go('merchants')">← Para revendas</button><h1 class="page-title">Quero ser parceiro</h1><p class="muted">${globalThis.merchantPortalRequested?.()?'Preencha os dados para enviar sua empresa para análise.':'Acesse o portal de parceiros para continuar o cadastro.'}</p>${pilotInvite?'<div class="notice success" style="margin-bottom:14px"><strong>Convite de parceiro reconhecido.</strong><br>Seus dados serão vinculados às condições comerciais já registradas. A operação continuará offline até aprovação, compliance, estoque e disponibilidade serem confirmados.</div>':''}<div class="card flat form-stack"><div class="field-row"><div class="input-wrap"><label for="j-cnpj">CNPJ</label><input id="j-cnpj" autocapitalize="characters" maxlength="18" class="input" placeholder="00.000.000/0000-00 ou alfanumérico"></div><div class="input-wrap"><label for="j-name">Nome da empresa</label><input id="j-name" maxlength="90" class="input" placeholder="Nome da revenda"></div></div><div class="field-row"><div class="input-wrap"><label for="j-owner">Responsável</label><input id="j-owner" maxlength="90" class="input" placeholder="Nome do responsável"></div><div class="input-wrap"><label for="j-phone">WhatsApp</label><input id="j-phone" inputmode="tel" maxlength="20" class="input" placeholder="(55) 99999-9999"></div></div><div class="input-wrap"><label for="j-address">Endereço</label><input id="j-address" maxlength="160" class="input" placeholder="Endereço da empresa"></div><button class="primary" onclick="joinMerchant()">Enviar para análise</button></div><div class="notice" style="margin-top:14px">O cadastro não coloca a empresa online automaticamente. A operação entra nas ofertas somente depois da aprovação e, quando houver GLP, da validação regulatória aplicável.</div></section>`)
+  const prospectInvite=globalThis.merchantPortalRequested?.()?currentMerchantProspectInviteToken():'';
+  const pilotInvite=prospectInvite?'':globalThis.merchantPortalRequested?.()?currentMerchantPilotInviteToken():'';
+  const prospectDetails=prospectInvite?globalThis.merchantProspectInviteDetails?.():null;
+  return shell(`<section class="page"><button class="back" onclick="go('merchants')">← Para revendas</button><h1 class="page-title">Quero ser parceiro</h1><p class="muted">${globalThis.merchantPortalRequested?.()?'Preencha os dados para enviar sua empresa para análise.':'Acesse o portal de parceiros para continuar o cadastro.'}</p>${pilotInvite?'<div class="notice success" style="margin-bottom:14px"><strong>Convite de parceiro reconhecido.</strong><br>Seus dados serão vinculados às condições comerciais já registradas. A operação continuará offline até aprovação, compliance, estoque e disponibilidade serem confirmados.</div>':''}${prospectInvite?'<div class="notice success" style="margin-bottom:14px"><strong>Convite de revenda reconhecido.</strong><br>Preencha os dados reais da empresa identificada na ANP. O cadastro será associado ao CNPJ convidado para análise, sem ativar vendas automaticamente.</div>':''}<div class="card flat form-stack"><div class="field-row"><div class="input-wrap"><label for="j-cnpj">CNPJ</label><input id="j-cnpj" value="${esc(prospectDetails?.cnpj||'')}" autocapitalize="characters" maxlength="18" class="input" placeholder="00.000.000/0000-00 ou alfanumérico"></div><div class="input-wrap"><label for="j-name">Nome da empresa</label><input id="j-name" value="${esc(prospectDetails?.companyName||'')}" maxlength="90" class="input" placeholder="Nome da revenda"></div></div><div class="field-row"><div class="input-wrap"><label for="j-owner">Responsável</label><input id="j-owner" maxlength="90" class="input" placeholder="Nome do responsável"></div><div class="input-wrap"><label for="j-phone">WhatsApp</label><input id="j-phone" inputmode="tel" maxlength="20" class="input" placeholder="(55) 99999-9999"></div></div><div class="input-wrap"><label for="j-address">Endereço</label><input id="j-address" maxlength="160" class="input" placeholder="Endereço da empresa"></div><button class="primary" onclick="joinMerchant()">Enviar para análise</button></div><div class="notice" style="margin-top:14px">O cadastro não coloca a empresa online automaticamente. A operação entra nas ofertas somente depois da aprovação e, quando houver GLP, da validação regulatória aplicável.</div></section>`)
 }
 function onlyDigits(v){return String(v||'').replace(/\D/g,'')}
 function isValidPhoneShape(v){const n=onlyDigits(v);return n.length===10||n.length===11}
@@ -502,17 +510,20 @@ async function joinMerchant(){
   if(globalThis.merchantPortalRequested?.()){
     if(!globalThis.merchantRuntime?.session?.access_token)return toast('Entre com seu e-mail antes de enviar o cadastro');
     try{
-      const pilotInviteToken=currentMerchantPilotInviteToken();
+      const prospectInviteToken=currentMerchantProspectInviteToken();
+      const pilotInviteToken=prospectInviteToken?'':currentMerchantPilotInviteToken();
       const result=await merchantSubmitApplicationLive({
         cnpj,
         companyName:name.slice(0,90),
         responsibleName:owner.slice(0,90),
         phone,
         address:address.slice(0,160),
-        ...(pilotInviteToken?{pilotInviteToken}:{})
+        ...(pilotInviteToken?{pilotInviteToken}:{}),
+        ...(prospectInviteToken?{prospectInviteToken}:{})
       });
-      toast(result?.pilotPartner?.pilotPartnerName?'Cadastro vinculado e enviado para análise':'Cadastro enviado para análise');
+      toast(result?.prospectInvite?.linked?'Convite vinculado. Cadastro enviado para análise':result?.pilotPartner?.pilotPartnerName?'Cadastro vinculado e enviado para análise':'Cadastro enviado para análise');
       if(result?.pilotPartner)clearCurrentMerchantPilotInviteToken();
+      if(result?.prospectInvite?.linked)clearCurrentMerchantProspectInviteToken();
       globalThis.merchantRuntime.notice=result?.pilotPartner?.pilotPartnerName
         ? 'Cadastro vinculado ao parceiro '+String(result.pilotPartner.pilotPartnerName)+'. Aguarde a aprovação e as validações operacionais.'
         : 'Cadastro '+String(result?.companyName||name)+' recebido. Aguarde a validação e o vínculo da operação.';

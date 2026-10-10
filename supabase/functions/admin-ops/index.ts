@@ -105,7 +105,7 @@ const ADMIN_ROLE_ACTIONS:Record<string,Set<string>>={
   operations:new Set([
     "approve-application","reject-application","verify-merchant","activate-merchant","suspend-merchant",
     "set-delivery-capability","order-control","support-case-status","lead-status","public-request-status",
-    "pilot-invite","assisted-merchant-onboarding","product-registry","verify-launch-portals","incident-action","market-city-pause","city-notification-status","prospect-crm"
+    "pilot-invite","assisted-merchant-onboarding","product-registry","verify-launch-portals","incident-action","market-city-pause","city-notification-status","prospect-crm","prospect-invite"
   ]),
   finance:new Set([
     "financial-action","review-referral","retry-reward","retry-accounting","reverse-order",
@@ -114,7 +114,7 @@ const ADMIN_ROLE_ACTIONS:Record<string,Set<string>>={
   support:new Set(["order-control","support-case-status","incident-action"]),
   compliance:new Set([
     "approve-application","reject-application","verify-merchant","activate-merchant","suspend-merchant",
-    "set-delivery-capability","incident-action","prospect-crm"
+    "set-delivery-capability","incident-action","prospect-crm","prospect-invite"
   ]),
   readonly:new Set()
 };
@@ -1168,12 +1168,38 @@ async function prospectIntelligence(admin:any,cityInput:unknown,stateInput:unkno
     admin.from("market_city_interests").select("lead_id",{count:"exact",head:true}).eq("state",state).ilike("city",city)
   ]);
   if(prospectError||refreshError||interestError)throw prospectError||refreshError||interestError;
+  const prospectCnpjs=(prospects||[]).map((p:any)=>String(p.cnpj)).filter((x:string)=>/^[0-9]{14}$/.test(x));
+  const [invites,applications]=prospectCnpjs.length?await Promise.all([
+    admin.from("anp_prospect_invites")
+      .select("id,cnpj,expires_at,claimed_at,application_id,revoked_at,created_at")
+      .in("cnpj",prospectCnpjs).order("created_at",{ascending:false}).limit(500),
+    admin.from("merchant_applications")
+      .select("id,cnpj,status,created_at")
+      .in("cnpj",prospectCnpjs).order("created_at",{ascending:false}).limit(500)
+  ]):[{data:[],error:null},{data:[],error:null}];
+  if(invites.error||applications.error)throw invites.error||applications.error;
+  const latestInvites=new Map<string,any>();
+  for(const item of invites.data||[])if(!latestInvites.has(item.cnpj))latestInvites.set(item.cnpj,item);
+  const latestApps=new Map<string,any>();
+  for(const item of applications.data||[])if(!latestApps.has(item.cnpj))latestApps.set(item.cnpj,item);
+  const enrichedProspects=(prospects||[]).map((p:any)=>{
+    const invite=latestInvites.get(p.cnpj)||null;
+    const app=latestApps.get(p.cnpj)||null;
+    let inviteStatus="none";
+    if(invite?.claimed_at)inviteStatus="claimed";
+    else if(invite?.revoked_at)inviteStatus="revoked";
+    else if(invite?.expires_at&&Date.parse(invite.expires_at)<=Date.now())inviteStatus="expired";
+    else if(invite)inviteStatus="active";
+    return {...p,invitation:invite?{
+      status:inviteStatus,expiresAt:invite.expires_at,claimedAt:invite.claimed_at
+    }:{status:"none"},application:app?{id:app.id,status:app.status}:null};
+  });
   const [{data:merchantScope,error:scopeError},{data:citySetting,error:citySettingError}]=await Promise.all([
     admin.rpc("market_city_offer_scope",{p_city:city,p_state:state}),
     admin.from("market_cities").select("admin_paused").eq("state",state).eq("city_key",cityKey).maybeSingle()
   ]);
   if(scopeError||citySettingError)throw scopeError||citySettingError;
-  return {city,state,cityKey,interestCount:interestCount||0,prospects:prospects||[],
+  return {city,state,cityKey,interestCount:interestCount||0,prospects:enrichedProspects,
     eligibleMerchantCount:Array.isArray(merchantScope)?merchantScope.length:0,
     cityPaused:citySetting?.admin_paused===true,
     availableCount:Number(refresh?.last_count||0),updated,checkedAt:refresh?.last_checked_at||null,
@@ -1731,6 +1757,37 @@ Deno.serve(async(req:Request)=>{
         p_actor_user_id:user.id,p_cnpj:cnpj,p_expected_version:version,
         p_next_status:status,p_note:note,p_follow_up_at:followUpDate,
         p_contact_channel:channel||null
+      });
+      if(error)throw error;
+      return json(data,200,origin);
+    }
+    if(action==="prospect-invite"){
+      if(!["superadmin","operations","compliance"].includes(String(adminAccess.admin_role))){
+        throw new DomainError("ADMIN_PERMISSION_DENIED","Perfil não autorizado a convidar revendas.",403);
+      }
+      const cnpj=String(body.cnpj||"").replace(/\D/g,"");
+      const inviteAction=String(body.inviteAction||"");
+      if(!/^[0-9]{14}$/.test(cnpj)||!["issue","revoke"].includes(inviteAction)){
+        throw new DomainError("INVALID_PROSPECT_INVITE_ACTION","Convite inválido.",400);
+      }
+      let tokenHash:string|null=null;
+      let expiresAt:string|null=null;
+      if(inviteAction==="issue"){
+        const token=String(body.token||"").trim();
+        if(!/^[A-Za-z0-9_-]{32,128}$/.test(token)){
+          throw new DomainError("INVALID_PROSPECT_INVITE_TOKEN","Token inválido.",400);
+        }
+        tokenHash=await sha256Hex(token);
+        const expiration=new Date(String(body.expiresAt||""));
+        if(!Number.isFinite(expiration.getTime())||expiration.getTime()<=Date.now()+5*60*1000
+           ||expiration.getTime()>Date.now()+30*24*60*60*1000){
+          throw new DomainError("INVALID_PROSPECT_INVITE_EXPIRY","Validade inválida.",400);
+        }
+        expiresAt=expiration.toISOString();
+      }
+      const {data,error}=await admin.rpc("admin_anp_prospect_invite_action",{
+        p_actor_user_id:user.id,p_cnpj:cnpj,p_action:inviteAction,
+        p_token_hash:tokenHash,p_expires_at:expiresAt,p_rotate:body.rotate===true
       });
       if(error)throw error;
       return json(data,200,origin);
