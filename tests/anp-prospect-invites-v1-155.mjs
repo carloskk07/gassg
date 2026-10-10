@@ -37,7 +37,7 @@ assert.ok(adminOps.includes('.select("id,cnpj,expires_at,claimed_at,application_
 assert.ok(adminOps.includes('"prospect-invite"'));
 assert.ok(adminOps.includes('await sha256Hex(token)'),'hash in edge before database');
 assert.ok(adminOps.includes('admin_anp_prospect_invite_action'));
-assert.ok(adminOps.includes('prospects:enrichedProspects'));
+assert.ok(adminOps.includes('prospects:commercialProspects')&&adminOps.includes('const enrichedProspects=(prospects||[]).map'), 'convites preservados com avaliação operacional adicional');
 assert.ok(adminOps.includes('merchant_applications'));
 assert.ok(submit.includes('validate_anp_prospect_invite'));
 assert.ok(submit.includes('claim_anp_prospect_invite'));
