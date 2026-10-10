@@ -47,7 +47,7 @@ create table if not exists public.anp_glp_prospects (
   legal_name text not null,
   address_text text,
   distributor text,
-  authorization text,
+  anp_authorization text,
   sigaf_status text,
   source text not null default 'ANP_API_GLP',
   source_checked_at timestamptz not null,
