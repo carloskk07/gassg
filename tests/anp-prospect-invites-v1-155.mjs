@@ -41,7 +41,7 @@ assert.ok(adminOps.includes('prospects:enrichedProspects'));
 assert.ok(adminOps.includes('merchant_applications'));
 assert.ok(submit.includes('validate_anp_prospect_invite'));
 assert.ok(submit.includes('claim_anp_prospect_invite'));
-assert.ok(submit.includes('p_user_id:user.id,p_application_id:applicationId,p_token:token'));
+assert.ok(submit.includes('p_user_id:userId,p_application_id:applicationId,p_token:token'));
 assert.ok(submit.includes('MULTIPLE_PARTNER_INVITES'));
 assert.equal((submit.match(/const prospectInvite=await attachAnpProspectInvite/g)||[]).length,3);
 assert.ok(client.includes('history.replaceState(null,'));
