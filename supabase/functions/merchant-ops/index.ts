@@ -117,7 +117,7 @@ Deno.serve(async(req:Request)=>{
     const merchantId=String(body.merchantId??"");
     const action=String(body.action??"");
     if(!UUID_RE.test(merchantId))throw new DomainError("INVALID_MERCHANT","Revenda inválida.",400);
-    if(!["heartbeat","set-online","update-product","update-logistics","update-capacity","update-scheduling","update-payment-methods","update-payment-routes","update-member-profile","request-billing-package","notify-billing-payment","notify-refund-recovery-payment","cancel-billing-request"].includes(action)){
+    if(!["enablement","heartbeat","set-online","update-product","update-logistics","update-capacity","update-scheduling","update-payment-methods","update-payment-routes","update-member-profile","request-billing-package","notify-billing-payment","notify-refund-recovery-payment","cancel-billing-request"].includes(action)){
       throw new DomainError("INVALID_ACTION","Ação inválida.",400);
     }
 
@@ -134,6 +134,23 @@ Deno.serve(async(req:Request)=>{
     if(!membership)throw new DomainError("MERCHANT_ACCESS_DENIED","Você não possui acesso a esta revenda.",403);
 
     const role=membership.member_role;
+    if(action==="enablement"){
+      if(!canManage(role)){
+        throw new DomainError("MERCHANT_ACCESS_DENIED",
+          "Somente proprietário ou gerente pode consultar os requisitos da revenda.",403);
+      }
+      const {data,error}=await admin.rpc("merchant_enablement_diagnostic_v1_158",{
+        p_actor_user_id:user.id,p_merchant_id:merchantId
+      });
+      if(error)throw error;
+      const diagnostic=Array.isArray(data)?data.find((x:any)=>x.merchant_id===merchantId):null;
+      if(!diagnostic){
+        throw new DomainError("MERCHANT_ACCESS_DENIED",
+          "Não foi possível confirmar os requisitos desta revenda.",403);
+      }
+      return json({merchantId,diagnostic,readOnly:true,source:"market_city_offer_scope"},
+        200,origin);
+    }
     const now=new Date().toISOString();
 
     if(["request-billing-package","notify-billing-payment","notify-refund-recovery-payment","cancel-billing-request"].includes(action)){
@@ -401,7 +418,7 @@ Deno.serve(async(req:Request)=>{
         if(merchant.accepts_citywide!==true){
           throw new DomainError(
             "DELIVERY_AREA_REQUIRED",
-            "Ative o atendimento em São Gabriel antes de colocar a revenda online.",
+            "Ative o atendimento no município cadastrado antes de colocar a revenda online.",
             409
           );
         }
