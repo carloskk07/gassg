@@ -218,6 +218,16 @@ Deno.serve(async(req:Request)=>{
         console.error("city discovery failed",cityError.code||"error");
       }
     }
+    if(result?.leadId&&postalCode){
+      const {error:interestError}=await admin.from("market_city_interests").upsert({
+        lead_id:result.leadId,
+        postal_code:postalCode,
+        ...(resolvedCity?{
+          city:resolvedCity.city,state:resolvedCity.state,ibge_code:resolvedCity.ibgeCode
+        }:{})
+      },{onConflict:"lead_id,postal_code",ignoreDuplicates:true});
+      if(interestError)console.error("lead city interest storage failed",interestError.code||"error");
+    }
     const reused=result?.reused===true;
     const replayed=result?.replayed===true;
     return json({
