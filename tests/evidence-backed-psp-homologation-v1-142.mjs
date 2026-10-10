@@ -24,8 +24,8 @@ assert.ok(
 
 assert.ok(
   admin.includes('Integração de pagamento verificada.')
-  &&admin.includes('uma venda liquidada gerar evidência verificada do próprio provedor/terminal')
-  &&admin.includes('e2eValidated=true'),
+  &&admin.includes('evidência transacional confirmada pelo provedor/terminal')
+  &&admin.includes("e2eValidated=account?.capabilities?.e2eValidated===true"),
   'integração verificada não pode ser apenas um rótulo de conexão/capability'
 );
 
