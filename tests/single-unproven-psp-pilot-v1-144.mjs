@@ -47,7 +47,7 @@ assert.ok(
 
 assert.ok(
   migration.includes('record_merchant_sale_payment_attempt_issue')
-  &&migration.includes("p_disposition not in ('terminal_rejected','review_required')")
+  &&migration.includes("v_disposition not in ('terminal_rejected','review_required')")
   &&migration.includes("v_attempt.provider_order_id is null")
   &&migration.includes("v_attempt.status='preparing'")
   &&migration.includes("set status='rejected'")
