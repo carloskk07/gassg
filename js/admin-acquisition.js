@@ -7,11 +7,12 @@ function adminFirstName(value){
 }
 function adminLeadWhatsAppText(x){
   const first=adminFirstName(x.contact_name);
+  const region=x.city&&x.state?x.city+'/'+x.state:'sua região';
   if(x.lead_type==='merchant'){
     const company=String(x.business_name||'sua empresa').trim();
-    return 'Olá'+(first?', '+first:'')+'! Aqui é do TAMÃO. Recebemos o interesse da '+company+' em participar como parceiro em São Gabriel. Quero entender rapidamente sua operação e explicar os próximos passos, sem compromisso. Podemos conversar por aqui?';
+    return 'Olá'+(first?', '+first:'')+'! Aqui é do TAMÃO. Recebemos o interesse da '+company+' em participar como parceiro na região de '+region+'. Quero entender rapidamente sua operação e explicar os próximos passos, sem compromisso. Podemos conversar por aqui?';
   }
-  return 'Olá'+(first?', '+first:'')+'! Aqui é do TAMÃO. Você entrou na nossa lista de abertura em São Gabriel. Estamos organizando a cobertura por região e queremos confirmar seu interesse antes da abertura. Posso te avisar por aqui quando houver novidade para o seu CEP?';
+  return 'Olá'+(first?', '+first:'')+'! Aqui é do TAMÃO. Você registrou interesse no TAMÃO para '+region+'. Estamos organizando a cobertura local e queremos confirmar seu interesse antes da abertura. Posso te avisar por aqui quando houver novidade para o seu CEP?';
 }
 function adminPublicRequestWhatsAppText(x){
   const first=adminFirstName(x.contact_name);
