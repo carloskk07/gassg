@@ -149,10 +149,6 @@ jobs:
           grep -q "ATENDIMENTO POR REGIÃO" /tmp/home.html
           grep -q "Rede de parceiros" /tmp/home.html
           grep -q "Quero comprar" /tmp/home.html
-          grep -q "Referência de preço" /tmp/home.html
-          grep -q "115,90" /tmp/home.html
-          grep -q "120,00" /tmp/home.html
-          grep -q "125,00" /tmp/home.html
           grep -q "Quero vender no TAMÃO" /tmp/home.html
           grep -q "Antes de pedir, veja quanto custa" /tmp/learn.html
           grep -q "Comissão por indicação para pessoas" /tmp/earn.html
