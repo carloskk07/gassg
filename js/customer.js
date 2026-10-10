@@ -196,7 +196,7 @@ function home(){
         : ready&&market?.realSupplyConfigured
           ? 'Consultar preço'
           : ready
-            ? 'Chegando em breve'
+            ? 'Consultar disponibilidade'
             : 'Conectando…';
 
   const freshness=testDemo
