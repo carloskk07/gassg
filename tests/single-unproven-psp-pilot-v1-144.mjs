@@ -57,7 +57,7 @@ assert.ok(
 
 assert.ok(
   checkout.includes('MERCHANT_PAYMENT_PILOT_IN_FLIGHT')
-  &&checkout.includes('primeiro pagamento piloto')
+  &&checkout.includes('transação automática em validação')
   &&checkout.includes('recordAttemptIssue(')
   &&checkout.includes('"PROVIDER_CHECKOUT_REJECTED"')
   &&checkout.includes('"PROVIDER_CHECKOUT_OUTCOME_UNKNOWN"')
@@ -77,7 +77,7 @@ assert.ok(
   checkout.includes('pilotMode:prepared?.pilotGuard===true')
   &&checkout.includes('e2eValidated:prepared?.e2eValidated===true')
   &&checkout.includes('tamaoReceivesSaleProceeds:false'),
-  'resposta precisa preservar piloto/E2E e ausência de custódia pelo TAMÃO'
+  'resposta precisa preservar pilot_guard/evidência e ausência de custódia pelo TAMÃO'
 );
 
 assert.ok(
