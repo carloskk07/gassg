@@ -923,7 +923,8 @@ assert.ok(
   admin.includes('Recebimento direto multi-PSP')
   &&admin.includes("adminPerform('merchant-payment-capability'")
   &&admin.includes('Ativar piloto controlado')
-  &&admin.includes("activationKind==='pilot'?'PILOTO':'REATIVAR'")
+  &&admin.includes("const typed=activationKind==='pilot'?'ATIVAR PILOTO':'REATIVAR'")
+  &&admin.includes('Executar preflight')
   &&admin.includes('AUTOMAÇÃO GLOBAL')
   &&admin.includes('Mercado Pago não é obrigatório'),
   'Financeiro precisa ativar piloto/reativar cada PSP de forma independente sem confundir conexão, prova E2E, automação e kill switch global'
