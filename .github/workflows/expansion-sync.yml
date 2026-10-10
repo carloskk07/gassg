@@ -1,6 +1,9 @@
 name: TAMÃO city expansion sync
 
 on:
+  push:
+    branches: [main]
+    paths: ['.github/workflows/expansion-sync.yml']
   workflow_dispatch:
   schedule:
     - cron: '19 * * * *'
