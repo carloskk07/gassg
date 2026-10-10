@@ -339,6 +339,11 @@ async function adminSignOut(){
   try{sessionStorage.removeItem('tamao-admin-provider-health-v1')}catch{}
   adminRuntime.auditResults=null;
   adminRuntime.auditPending=false;
+  adminRuntime.enablementMerchants=[];
+  adminRuntime.enablementLoaded=false;
+  adminRuntime.enablementLoading=false;
+  adminRuntime.enablementError=null;
+  adminRuntime.enablementCheckedAt=null;
   adminRuntime.status='unauthenticated';
   adminRuntime.error=null;
   adminRuntime.notice=null;
@@ -365,6 +370,8 @@ async function adminRefresh({silent=false}={}){
     if(error?.code==='ADMIN_ACCESS_DENIED'||error?.status===403&&error?.code==='ADMIN_ACCESS_DENIED'){
       adminRuntime.status='no-access';
       adminRuntime.data=null;
+      adminRuntime.enablementMerchants=[];
+      adminRuntime.enablementLoaded=false;
       adminRuntime.error=null;
       return null;
     }
@@ -377,6 +384,8 @@ async function adminRefresh({silent=false}={}){
       adminRuntime.detail=null;
       adminRuntime.health=null;
       adminRuntime.auditResults=null;
+      adminRuntime.enablementMerchants=[];
+      adminRuntime.enablementLoaded=false;
       adminRuntime.error='Sua sessão expirou. Entre novamente.';
       return null;
     }
