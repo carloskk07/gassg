@@ -1,3 +1,21 @@
+
+function rememberedMarketRegion(postal=state.postalCode){
+  try{
+    const cached=JSON.parse(localStorage.getItem('tamao-market-region-v1')||'null');
+    if(cached?.postalCode!==String(postal||'').replace(/\D/g,''))return null;
+    if(!/^[A-Z]{2}$/.test(String(cached.state||'')))return null;
+    const city=String(cached.city||'').trim().slice(0,120);
+    return city.length>=2?{city,state:cached.state}:null;
+  }catch{return null}
+}
+function rememberMarketRegion(region,postalCode){
+  const postal=String(postalCode||'').replace(/\D/g,'');
+  const city=String(region?.city||'').trim().slice(0,120);
+  const state=String(region?.state||'').trim().toUpperCase();
+  if(!/^[0-9]{8}$/.test(postal)||city.length<2||!/^[A-Z]{2}$/.test(state))return;
+  try{localStorage.setItem('tamao-market-region-v1',JSON.stringify({postalCode:postal,city,state}))}catch{}
+}
+
 function prelaunchLeadSent(type){
   try{return localStorage.getItem('tamao-prelaunch-'+type+'-sent-v1')==='1'}catch{return false}
 }
@@ -101,6 +119,11 @@ async function submitPrelaunchCustomerLead(){
   try{
     const data=await globalThis.prelaunchLeadSubmit({leadType:'customer',contactName,phone,postalCode,interests,consent,website});
     markPrelaunchLeadSent('customer');
+    if(data?.region){
+      state.postalCode=postalCode;
+      rememberMarketRegion(data.region,postalCode);
+      save();
+    }
     if(result){result.textContent=String(data?.message||'Cadastro recebido.');result.className='lead-result success'}
     if(button)button.textContent='Cadastro recebido ✓';
   }catch(error){
