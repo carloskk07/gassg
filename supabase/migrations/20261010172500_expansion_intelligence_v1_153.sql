@@ -184,3 +184,25 @@ $func$;
 revoke all on function public.admin_handle_city_notification(uuid,uuid,text,text)
 from public,anon,authenticated;
 grant execute on function public.admin_handle_city_notification(uuid,uuid,text,text) to service_role;
+
+
+-- Serve the oldest stale city first, not just the first rows of a growing table.
+create or replace function public.expansion_due_cities(p_limit integer default 4)
+returns table(city text,state text,city_key text)
+language sql stable security definer
+set search_path to pg_catalog
+as $func$
+select c.city_name,c.state,c.city_key
+from public.market_cities c
+left join public.anp_prospect_refreshes r
+  on r.state=c.state and r.city_key=c.city_key
+where r.last_checked_at is null
+  or r.last_checked_at<=statement_timestamp() -
+    (case when r.status='unavailable' then interval '1 hour'
+          else interval '24 hours' end)
+order by r.last_checked_at asc nulls first,c.discovered_at asc
+limit least(greatest(coalesce(p_limit,4),1),5);
+$func$;
+revoke all on function public.expansion_due_cities(integer)
+from public,anon,authenticated;
+grant execute on function public.expansion_due_cities(integer) to service_role;
