@@ -466,7 +466,7 @@ assert.ok(!read('supabase/functions/get-offers/index.ts').includes('.from("quote
 assert.ok(read('supabase/functions/get-offers/index.ts').includes('get-offers-hour'),'consulta de oferta precisa também de quota horária');
 
 assert.ok(backend.includes("customer-summary"),'frontend live deve usar projeção financeira mínima');
-assert.ok(backend.includes('lastFinancialSyncAttemptAt')&&backend.includes('now-liveRuntime.lastFinancialSyncAttemptAt<60000'),'resumo financeiro deve ter retry periódico limitado');
+assert.ok(backend.includes('lastFinancialSyncAttemptAt')&&backend.includes('now-liveRuntime.lastFinancialSyncAttemptAt<CUSTOMER_FINANCIAL_REFRESH_MS')&&backend.includes('const CUSTOMER_FINANCIAL_REFRESH_MS=5*60*1000;'),'resumo financeiro deve ter refresh passivo limitado, mantendo force após conclusão');
 assert.ok(backend.includes('changed=(await liveSyncFinancialProfile())||changed'),'polling deve atualizar cashback/comissão mesmo sem pedido ativo');
 assert.ok(!backend.includes(".from('wallet_entries')"),'frontend não pode ler ledger financeiro bruto');
 assert.ok(!backend.includes(".from('profiles')"),'frontend não pode ler tabela de perfis diretamente');
@@ -1501,7 +1501,7 @@ assert.ok(backend.includes('return result;'),'runtime da revenda precisa devolve
 assert.ok(backend.includes('function retryAmbiguousOnce(operation)'),'runtime precisa centralizar retry de falhas de transporte ambíguas');
 assert.ok(backend.includes('lastPollAt:0'),'polling da revenda precisa manter relógio próprio');
 assert.ok(backend.includes("merchantRuntime.merchant?.online===true||activeOrders"),'polling da revenda precisa distinguir operação urgente de painel ocioso');
-assert.ok(backend.includes('urgent?5000:30000'),'revenda online/pedido ativo precisa manter 5s; offline sem pedido deve cair para 30s');
+assert.ok(backend.includes('merchantPollingIntervalMs(merchantRuntime.orders,merchantRuntime.merchant?.online===true)')&&backend.includes("'OFFERED_TO_MERCHANT'))return 5000")&&backend.includes('return online===true?15000:60000;'),'revenda com aceite pendente mantém 5s; outras situações usam intervalo adaptativo');
 assert.ok(backend.includes('if(urgent)await merchantHeartbeat()'),'heartbeat não deve rodar em painel offline ocioso');
 assert.ok(backend.includes("MERCHANT_PILOT_INVITE_STORAGE='tamao-pilot-invite-v1'")&&backend.includes('MERCHANT_PILOT_INVITE_TTL_MS'),'convite piloto deve sair da URL e permanecer apenas em armazenamento transitório com expiração');
 assert.ok(backend.includes('merchantPilotInviteFromUrl')&&backend.includes("history.replaceState(null,'',url.pathname+url.search+url.hash)"),'token piloto legado em query/hash deve ser capturado e removido imediatamente da barra de endereço');
