@@ -21,12 +21,12 @@ assert.ok(
 assert.ok(
   admin.includes('function adminMerchantPspPilotCenter(d)')
   &&admin.includes('Central de primeiro pagamento automático')
-  &&admin.includes('PILOTO EM CURSO')
+  &&admin.includes('VALIDAÇÃO EM CURSO')
   &&admin.includes('AGUARDA LIQUIDAÇÃO')
   &&admin.includes('AGUARDA 1ª VENDA')
-  &&admin.includes('E2E VALIDADO')
+  &&admin.includes('INTEGRAÇÃO VERIFICADA')
   &&admin.includes("stage='REVISÃO'"),
-  'Admin precisa materializar o ciclo operacional completo do primeiro piloto'
+  'Admin precisa materializar o ciclo operacional completo da primeira validação automática'
 );
 
 assert.ok(
@@ -38,7 +38,7 @@ assert.ok(
 );
 
 assert.ok(
-  admin.includes('Slot piloto bloqueado por segurança.')
+  admin.includes('Validação automática bloqueada por segurança.')
   &&admin.includes('O TAMÃO não deve criar uma segunda cobrança automática até existir prova do resultado.')
   &&admin.includes('Não libere nova tentativa. Suspenda a automação e confira o PSP'),
   'review_required precisa permanecer fail-closed e orientar investigação'
@@ -47,9 +47,9 @@ assert.ok(
 assert.ok(
   admin.includes("adminSetMerchantPaymentCapability(\\'")
   &&admin.includes("false)\">Suspender automação</button>")
-  &&admin.includes('não existe botão para forçar homologação')
-  &&admin.includes('não transforma manualmente um PSP em HOMOLOGADO'),
-  'central só pode suspender autoridade; não pode forçar prova/homologação'
+  &&admin.includes('não existe atalho para forçar validação')
+  &&admin.includes('não transforma manualmente uma integração em verificada'),
+  'central só pode suspender autoridade; não pode forçar evidência/validação'
 );
 
 assert.ok(
@@ -60,10 +60,10 @@ assert.ok(
 
 assert.ok(
   admin.includes("if(status==='review_required')")
-  &&admin.includes("'critical','Piloto PSP exige revisão'")
+  &&admin.includes("'critical','Pagamento automático exige revisão'")
   &&admin.includes("age>2*60*60*1000")
-  &&admin.includes("'high','Piloto PSP aberto há +2h'"),
-  'central de atenção precisa elevar revisão e piloto excessivamente antigo'
+  &&admin.includes("'high','Validação de pagamento aberta há +2h'"),
+  'central de atenção precisa elevar revisão e validação excessivamente antiga'
 );
 
 assert.ok(
@@ -76,17 +76,17 @@ assert.ok(
 // Modelo pequeno da precedência visual: revisão > E2E > aprovado > live > espera > encerrado.
 function stage({status,e2e,hasAttempt,direct=true,canValidate=true}){
   if(status==='review_required')return 'REVISÃO';
-  if(e2e)return 'E2E VALIDADO';
+  if(e2e)return 'INTEGRAÇÃO VERIFICADA';
   if(status==='approved')return 'AGUARDA LIQUIDAÇÃO';
-  if(['preparing','checkout_ready','pending'].includes(status))return 'PILOTO EM CURSO';
+  if(['preparing','checkout_ready','pending'].includes(status))return 'VALIDAÇÃO EM CURSO';
   if(!hasAttempt&&direct&&canValidate)return 'AGUARDA 1ª VENDA';
-  return 'PILOTO ENCERRADO';
+  return 'VALIDAÇÃO ENCERRADA';
 }
 assert.equal(stage({status:'review_required',e2e:false,hasAttempt:true}),'REVISÃO');
 assert.equal(stage({status:'approved',e2e:false,hasAttempt:true}),'AGUARDA LIQUIDAÇÃO');
-assert.equal(stage({status:'pending',e2e:false,hasAttempt:true}),'PILOTO EM CURSO');
+assert.equal(stage({status:'pending',e2e:false,hasAttempt:true}),'VALIDAÇÃO EM CURSO');
 assert.equal(stage({status:'',e2e:false,hasAttempt:false}),'AGUARDA 1ª VENDA');
-assert.equal(stage({status:'approved',e2e:true,hasAttempt:true}),'E2E VALIDADO');
-assert.equal(stage({status:'rejected',e2e:false,hasAttempt:true}),'PILOTO ENCERRADO');
+assert.equal(stage({status:'approved',e2e:true,hasAttempt:true}),'INTEGRAÇÃO VERIFICADA');
+assert.equal(stage({status:'rejected',e2e:false,hasAttempt:true}),'VALIDAÇÃO ENCERRADA');
 
 console.log('V1.145 passou: Admin enxerga e opera pilotos PSP sem autoridade para fabricar homologação.');
