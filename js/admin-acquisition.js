@@ -312,7 +312,7 @@ function adminProspectSearchCity(){
 }
 function adminProspectsSection(d){
   const grouped=new Map();
-  for(const lead of d?.prelaunchLeads||[]){
+  for(const lead of d?.marketCityInterests||[]){
     if(!lead.city||!lead.state)continue;
     const key=String(lead.state).toUpperCase()+'|'+String(lead.city);
     grouped.set(key,(grouped.get(key)||0)+1);
