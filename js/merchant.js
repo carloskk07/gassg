@@ -6,7 +6,7 @@ function merchantLiveLoginView(){
   const rt=globalThis.merchantRuntime||{};
   const pilotInvite=String(globalThis.merchantPilotInviteToken?.()||'').trim();
   return shell(`<section class="page">
-    <span class="eyebrow">${pilotInvite?'CONVITE DE PARCEIRO PILOTO':'PAINEL REAL DA REVENDA'}</span>
+    <span class="eyebrow">${pilotInvite?'CONVITE DE PARCEIRO':'PAINEL DA REVENDA'}</span>
     <h1 class="page-title">${pilotInvite?'Entre para continuar seu cadastro':'Acessar operação'}</h1>
     <p class="muted">${pilotInvite?'Use o e-mail que ficará responsável pela operação. Depois do link de acesso, você volta direto ao cadastro da empresa.':'Use o e-mail vinculado à sua revenda. O acesso é separado da sessão do cliente.'}</p>
     ${pilotInvite?'<div class="notice success" style="margin-top:14px"><strong>Convite reconhecido.</strong><br>Suas condições comerciais já estão preservadas no TAMÃO. Entrar não coloca a revenda online nem libera pedidos.</div>':''}
@@ -28,7 +28,7 @@ function merchantLiveNoAccess(){
     <span class="eyebrow">CONTA AUTENTICADA</span>
     <h1 class="page-title">${roleBlocked?'Seu acesso ainda não habilita o painel':'Revenda ainda não vinculada'}</h1>
     <p class="muted">${roleBlocked
-      ? 'Você entrou como '+esc(email)+', mas seu papel atual não possui acesso operacional neste piloto.'
+      ? 'Você entrou como '+esc(email)+', mas seu papel atual não possui acesso operacional a esta conta.'
       : 'Você entrou como '+esc(email)+', mas esta conta ainda não possui uma operação ativa.'}</p>
     ${rt.notice?`<div class="notice success" style="margin-top:16px"><strong>Cadastro recebido.</strong><br>${esc(rt.notice)}</div>`:''}
     ${roleBlocked
@@ -579,7 +579,7 @@ function merchantPaymentConnectionsView(rt){
     const manualDeclared=merchantProviderManualDeclared(provider.provider,rt);
     const manualMethods=merchantProviderManualMethods(provider,rt);
     const state=connected
-      ? directEnabled?'HOMOLOGADO':'CONECTADO'
+      ? directEnabled?'INTEGRAÇÃO VERIFICADA':'CONECTADO'
       : manualDeclared?'EM USO • MANUAL'
       : provider.setupState==='manual_only'?'MANUAL DISPONÍVEL'
       : provider.connectReady?'AUTOMAÇÃO DISPONÍVEL'
@@ -600,9 +600,9 @@ function merchantPaymentConnectionsView(rt){
     const note=provider.provider==='nubank'
       ?'Pode ser usado agora pela revenda com confirmação manual. Se houver integração oficial adequada no futuro, a automação entra como uma camada separada.'
       :provider.provider==='stone'
-        ?'Pode ser usado agora sem compartilhar senha ou chave. A conciliação automática Stone permanece separada até homologação.'
+        ?'Pode ser usado agora sem compartilhar senha ou chave. A confirmação automática Stone permanece separada até a integração estar disponível para esta conta.'
         :provider.provider==='getnet'
-          ?'Pode ser usado agora com confirmação da revenda. Terminal/Get Smart automático só será ativado quando houver integração homologada.'
+          ?'Pode ser usado agora com confirmação da revenda. Terminal/Get Smart automático só será ativado quando a integração estiver disponível para esta conta.'
           :provider.provider==='pagbank'
             ?'A revenda pode usar o PagBank manualmente agora; quando o Connect estiver pronto, poderá autorizar a própria conta sem mudar o fluxo do dinheiro.'
             :provider.notes||'O dinheiro da venda permanece na conta da revenda.';
@@ -621,7 +621,7 @@ function merchantPaymentConnectionsView(rt){
     </article>`;
   }).join('');
   return `<div class="divider"></div>
-    <div class="section-head"><div><span class="section-kicker">RECEBIMENTO DIRETO</span><h3>Provedores que a revenda usa</h3><p>Informe o PSP já usado pela revenda. Ele pode começar em modo manual, sem senha ou chave de API, e ganhar confirmação automática depois quando houver integração homologada.</p></div></div>
+    <div class="section-head"><div><span class="section-kicker">RECEBIMENTO DIRETO</span><h3>Provedores que a revenda usa</h3><p>Informe o PSP já usado pela revenda. Você pode começar com confirmação pela própria revenda, sem compartilhar senha ou chave de API, e ativar confirmação automática quando a integração estiver disponível.</p></div></div>
     <div class="notice"><strong>Mercado Pago não é obrigatório.</strong><br>Stone, Getnet, PagBank, Nubank e outros podem ser declarados sem entregar o dinheiro ao TAMÃO. O recebimento continua direto na revenda; automação e custódia são coisas diferentes.</div>
     <div class="merchant-psp-grid">${cards}</div>`;
 }
@@ -725,7 +725,7 @@ function merchantLivePage(){
       <div class="divider"></div>
       <h3>Entrega</h3>
       <div class="field-row"><div class="input-wrap"><label for="live-delivery-fee">Taxa de entrega</label><input id="live-delivery-fee" inputmode="decimal" type="number" min="0" max="1000" step="0.10" class="input" value="${(Number(m.deliveryFeeCents||0)/100).toFixed(2)}"></div><div class="input-wrap"><label for="live-eta">ETA base (min)</label><input id="live-eta" inputmode="numeric" type="number" min="5" max="180" class="input" value="${Number(m.baseEtaMinutes||30)}"></div></div>
-      <label class="check-row"><input id="live-citywide" type="checkbox" ${m.acceptsCitywide!==false?'checked':''}><span><strong>Atende São Gabriel</strong><small>Usado no filtro de ofertas do piloto.</small></span></label>
+      <label class="check-row"><input id="live-citywide" type="checkbox" ${m.acceptsCitywide!==false?'checked':''}><span><strong>Atende São Gabriel</strong><small>Usado no filtro de disponibilidade e ofertas.</small></span></label>
       <button class="secondary" onclick="merchantLiveSaveLogistics()">Salvar logística</button>
       <div class="divider"></div>
       <h3>Capacidade simultânea</h3>
@@ -992,7 +992,7 @@ async function merchantUseProviderManuallyFromUi(providerKey){
 async function merchantStopProviderManualUseFromUi(providerKey){
   const rt=globalThis.merchantRuntime||{};
   const name=merchantProviderName(providerKey);
-  if(!confirm('Parar de declarar uso manual de '+name+'? Isso não desconecta nenhuma conta homologada.'))return;
+  if(!confirm('Parar de declarar uso manual de '+name+'? Isso não desconecta nenhuma integração automática já configurada.'))return;
   const existing=Array.isArray(rt.paymentRoutes)?rt.paymentRoutes:[];
   const routes=existing
     .filter(route=>!(route.provider===providerKey&&route?.metadata?.merchantDeclaredProvider===true))
@@ -1177,9 +1177,9 @@ function merchantPage(){
   const internalPilot=globalThis.CHAMA_INTERNAL_PILOT===true;
   const policy=m.pricingP13||{mode:'fixed',min:m.priceP13,preferred:m.priceP13,max:m.priceP13,strategy:'balanced'};
   const autoPrice=Number(productPrice(m,'P13',1));
-  return shell(`<section class="page"><div class="status-bar"><div><div class="tiny muted">${internalPilot?'PAINEL DA REVENDA — PILOTO INTERNO':'PAINEL DA REVENDA — DEMONSTRAÇÃO'}</div><h1 class="page-title" style="margin-bottom:2px">${esc(m.name)}</h1></div><span class="status-pill ${m.online?'online':'offline'}">${m.online?'● ONLINE':'OFFLINE'}</span></div>
-${internalPilot?'<div class="notice" style="margin-top:12px"><strong>Operação simulada.</strong><br>Faixa comercial P13 confirmada: R$ 115,90 mínimo, R$ 120,00 normal e R$ 125,00 máximo, com entrega incluída. Estoque, ETA, trust, aceite, pagamento e entrega desta tela continuam sendo testes locais.</div>':''}
-<div class="card flat form-stack"><div class="input-wrap"><label for="merchant-select">Operação demonstrada</label><select id="merchant-select" class="input" onchange="selectMerchant(this.value)">${state.merchants.map(x=>`<option value="${x.id}" ${x.id===m.id?'selected':''}>${esc(x.name)}</option>`).join('')}</select></div><button class="${m.online?'secondary':'primary'}" onclick="toggleOnline('${m.id}')">${m.online?'Pausar novos pedidos':'Ficar online'}</button></div>
+  return shell(`<section class="page"><div class="status-bar"><div><div class="tiny muted">${internalPilot?'PAINEL DA REVENDA — AMBIENTE INTERNO':'PAINEL DA REVENDA'}</div><h1 class="page-title" style="margin-bottom:2px">${esc(m.name)}</h1></div><span class="status-pill ${m.online?'online':'offline'}">${m.online?'● ONLINE':'OFFLINE'}</span></div>
+${internalPilot?'<div class="notice" style="margin-top:12px"><strong>Ambiente interno.</strong><br>Faixa comercial P13 configurada para validação. As ações desta tela não alteram a operação pública.</div>':''}
+<div class="card flat form-stack"><div class="input-wrap"><label for="merchant-select">Revenda</label><select id="merchant-select" class="input" onchange="selectMerchant(this.value)">${state.merchants.map(x=>`<option value="${x.id}" ${x.id===m.id?'selected':''}>${esc(x.name)}</option>`).join('')}</select></div><button class="${m.online?'secondary':'primary'}" onclick="toggleOnline('${m.id}')">${m.online?'Pausar novos pedidos':'Ficar online'}</button></div>
 ${!fresh?'<div class="notice danger" style="margin-top:12px"><strong>Preço expirado.</strong> A oferta não aparece ao cliente até ser reconfirmada.</div>':''}
 <section class="section"><div class="merchant-kpis"><div class="kpi"><span class="label">${policy.mode==='range'?'Preço automático agora':'Preço P13'}</span><strong>${BRL.format(autoPrice)}</strong>${policy.mode==='range'?'<small>normal '+BRL.format(m.priceP13)+'</small>':''}</div><div class="kpi"><span class="label">Estoque P13</span><strong>${m.inventory.P13}</strong></div><div class="kpi"><span class="label">${internalPilot?'Trust simulado':'Trust'}</span><strong>${m.trust}</strong></div><div class="kpi"><span class="label">Pedidos ativos</span><strong>${orders.length}</strong></div></div></section>
 <div class="card flat form-stack">
@@ -1193,7 +1193,7 @@ ${!fresh?'<div class="notice danger" style="margin-top:12px"><strong>Preço expi
   <div class="input-wrap"><label for="m-price-max">Máximo autorizado</label><input id="m-price-max" inputmode="decimal" type="number" min="0.01" max="9999" step="0.10" class="input" value="${policy.max}" ${policy.mode==='range'?'':'disabled'}></div>
   <div class="input-wrap"><label for="m-pricing-strategy">Estratégia</label><select id="m-pricing-strategy" class="input" ${policy.mode==='range'?'':'disabled'}><option value="volume" ${policy.strategy==='volume'?'selected':''}>Priorizar volume</option><option value="balanced" ${policy.strategy==='balanced'?'selected':''}>Equilibrado</option><option value="margin" ${policy.strategy==='margin'?'selected':''}>Priorizar margem</option></select></div>
 </div>
-<div class="notice"><strong>${policy.mode==='range'?'Faixa automática do piloto':'Preço fixo'}.</strong><br>${policy.mode==='range'?'O TAMÃO ajusta somente entre '+BRL.format(policy.min)+' e '+BRL.format(policy.max)+', usando estoque e carga desta revenda.':'O preço não muda automaticamente.'} ${internalPilot?'Nada nesta tela altera a condição comercial real do JR.':''}</div>
+<div class="notice"><strong>${policy.mode==='range'?'Faixa automática de preço':'Preço fixo'}.</strong><br>${policy.mode==='range'?'O TAMÃO ajusta somente entre '+BRL.format(policy.min)+' e '+BRL.format(policy.max)+', usando estoque e carga desta revenda.':'O preço não muda automaticamente.'} ${internalPilot?'Nada nesta tela altera a condição comercial real do JR.':''}</div>
 <button class="secondary" onclick="merchantUpdate('${m.id}')">Confirmar política e estoque</button><div class="tiny muted">Última confirmação: ${esc(formatDateTime(m.priceConfirmedAt))}</div></div>
 <section class="section"><div class="section-head"><div><h2>Pedidos que exigem ação</h2><p>${internalPilot?'Use estes pedidos para treinar aceite, saída, chegada e conclusão. Nenhuma ação é real.':'Aceitar significa assumir compromisso real de atendimento.'}</p></div></div>${orders.length?orders.map(merchantOrder).join(''):`<div class="empty card">Nenhum pedido ativo para esta revenda.</div>`}</section></section>`)
 }
@@ -1235,7 +1235,7 @@ function merchantUpdate(id){
   const pricingMax=document.querySelector('#m-price-max')?.value;
   const pricingStrategy=document.querySelector('#m-pricing-strategy')?.value||'balanced';
   const r=updateMerchant(id,{priceP13:price,stockP13:stock,pricingMode,pricingMin,pricingMax,pricingStrategy});
-  toast(r.ok?(pricingMode==='range'?'Faixa do piloto confirmada':'Preço e estoque confirmados'):r.error);render();
+  toast(r.ok?(pricingMode==='range'?'Faixa de preço confirmada':'Preço e estoque confirmados'):r.error);render();
 }
 function merchantAction(id,action){
   let r={ok:false,error:'Ação inválida'};
