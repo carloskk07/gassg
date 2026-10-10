@@ -36,12 +36,17 @@ const adminRuntime={
   })(),
   providerHealthPending:false,
   paymentPreflights:{},
+  prospectReport:null,
+  prospectLoading:false,
+  prospectError:null,
+  prospectCity:'São Gabriel',
+  prospectState:'RS',
   auditResults:null,
   auditPending:false,
   section:(()=>{
     try{
       const saved=sessionStorage.getItem('tamao-admin-section');
-      return ['overview','orders','customers','partners','catalog','finance','incidents','audit','system'].includes(saved)?saved:'overview';
+      return ['overview','orders','customers','partners','prospects','catalog','finance','incidents','audit','system'].includes(saved)?saved:'overview';
     }catch{return 'overview'}
   })()
 };
@@ -1105,6 +1110,7 @@ const ADMIN_SECTION_ROLES={
   orders:new Set(['superadmin','operations','finance','support']),
   customers:new Set(['superadmin','operations','finance','support']),
   partners:new Set(['superadmin','operations','compliance']),
+  prospects:new Set(['superadmin','readonly','operations','compliance']),
   catalog:new Set(['superadmin','operations']),
   finance:new Set(['superadmin','finance']),
   incidents:new Set(['superadmin','readonly','operations','finance','support','compliance']),
@@ -1115,7 +1121,7 @@ function adminRoleCanSection(section,role=adminCurrentRole()){
   return ADMIN_SECTION_ROLES[String(section)]?.has(String(role))===true;
 }
 function adminFirstSectionForRole(role=adminCurrentRole()){
-  return ['overview','orders','customers','partners','catalog','finance','incidents','audit','system']
+  return ['overview','orders','customers','partners','prospects','catalog','finance','incidents','audit','system']
     .find(section=>adminRoleCanSection(section,role))||'overview';
 }
 
@@ -1125,6 +1131,7 @@ function adminSectionMeta(section=adminRuntime.section){
     orders:{kicker:'OPERAÇÃO EM TEMPO REAL',title:'Pedidos',description:'Acompanhe aceite, risco, entrega, suporte e intervenções auditadas.'},
     customers:{kicker:'RELACIONAMENTO',title:'Clientes',description:'Visão operacional dos clientes recentes e acesso rápido ao histórico 360°.'},
     partners:{kicker:'REDE DE REVENDA',title:'Parceiros',description:'Aquisição, onboarding, compliance e prontidão operacional das revendas.'},
+    prospects:{kicker:'EXPANSÃO NACIONAL',title:'Prospectos',description:'Demanda por município e revendas GLP da fonte oficial ANP.'},
     catalog:{kicker:'OFERTA DA PLATAFORMA',title:'Catálogo',description:'Categorias, produtos e governança da oferta disponível na plataforma.'},
     finance:{kicker:'CONTROLADORIA',title:'Financeiro',description:'Cobranças TAMÃO, crédito, D+1, PSP, conciliação, refunds e política econômica.'},
     incidents:{kicker:'CONFIABILIDADE',title:'Incidentes',description:'Severidade, resposta, MTTA/MTTR e resolução auditável dos eventos operacionais.'},
@@ -1150,6 +1157,7 @@ function adminNavIcon(id){
     overview:'<path d="M4 12a8 8 0 1 1 16 0v7a1 1 0 0 1-1 1h-5v-6h-4v6H5a1 1 0 0 1-1-1v-7Z"/><path d="M8 11h8"/>',
     orders:'<rect x="4" y="3" width="16" height="18" rx="2"/><path d="M8 8h8M8 12h8M8 16h5"/>',
     customers:'<circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/>',
+    prospects:'<path d="M3 4h18v16H3zM7 9h4M7 13h8M7 17h10"/>',
     partners:'<path d="M8 12a4 4 0 1 0-4-4 4 4 0 0 0 4 4Zm8 0a4 4 0 1 0-4-4"/><path d="M1 21a7 7 0 0 1 14 0M14 15a7 7 0 0 1 9 6"/>',
     catalog:'<path d="M4 6h16v14H4z"/><path d="M8 6V3h8v3M8 11h8M8 15h5"/>',
     finance:'<path d="M4 7h16v13H4z"/><path d="M7 4h10M8 11h8M8 15h5"/><circle cx="17" cy="16" r="1"/>',
@@ -1198,13 +1206,14 @@ function adminExecutiveKpi({icon,label,value,detail='',tone='neutral'}){
   return '<article class="admin-exec-kpi '+esc(tone)+'"><span class="admin-exec-icon" aria-hidden="true">'+esc(icon)+'</span><div><small>'+esc(label)+'</small><strong>'+value+'</strong>'+(detail?'<p>'+esc(detail)+'</p>':'')+'</div></article>';
 }
 function adminSetSection(section){
-  const allowed=['overview','orders','customers','partners','catalog','finance','incidents','audit','system'];
+  const allowed=['overview','orders','customers','partners','prospects','catalog','finance','incidents','audit','system'];
   const requested=allowed.includes(String(section||''))?String(section):'overview';
   const next=adminRoleCanSection(requested)?requested:adminFirstSectionForRole();
   adminRuntime.section=next;
   try{sessionStorage.setItem('tamao-admin-section',next)}catch{}
   render();
   if(next==='system')adminLoadSystemHealth().catch(()=>{});
+  if(next==='prospects')adminLoadProspects().catch(()=>{});
   requestAnimationFrame(()=>{
     document.querySelector('.admin-main')?.scrollIntoView({block:'start'});
   });
@@ -3047,6 +3056,7 @@ function adminPage(){
       ${adminMenuButton('orders','Pedidos','▣',badge(activeOrderAttention+openSupportCases.length))}
       ${adminMenuButton('customers','Clientes','◎')}
       ${adminMenuButton('partners','Parceiros','◇',badge(partnerAttention))}
+      ${adminMenuButton('prospects','Prospectos','⌕')}
       ${adminMenuButton('catalog','Catálogo','▤')}
       ${adminMenuButton('finance','Financeiro','₿',badge(actionableFinanceCount))}
       <div class="admin-nav-group">Governança</div>
@@ -3074,6 +3084,7 @@ function adminPage(){
         ${adminPanel('orders',ordersContent)}
         ${adminPanel('customers',customersContent)}
         ${adminPanel('partners',partnersContent)}
+        ${adminPanel('prospects',adminProspectsSection(d))}
         ${adminPanel('catalog',catalogContent)}
         ${adminPanel('finance',financeContent)}
         ${adminPanel('incidents',incidentsContent)}
