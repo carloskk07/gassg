@@ -1,0 +1,43 @@
+name: TAMÃO city expansion sync
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '19 * * * *'
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: tamao-city-expansion
+  cancel-in-progress: false
+
+jobs:
+  anp-intelligence:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - name: Request signed GitHub OIDC identity and update ANP prospect intelligence
+        env:
+          EXPECTED_SHA: ${{ github.sha }}
+          WORKER_URL: https://lgugwujpunhslavewffd.supabase.co/functions/v1/expansion-worker
+        run: |
+          set -euo pipefail
+          OIDC_RESPONSE="$(curl --fail --silent --show-error \
+            -H "Authorization: bearer ${ACTIONS_ID_TOKEN_REQUEST_TOKEN}" \
+            "${ACTIONS_ID_TOKEN_REQUEST_URL}&audience=tamao-expansion-worker")"
+          OIDC_TOKEN="$(printf '%s' "${OIDC_RESPONSE}" | jq -er '.value')"
+          PAYLOAD="$(jq -cn --arg sha "${EXPECTED_SHA}" '{expectedSourceSha:$sha}')"
+          RESULT="$(curl --fail --silent --show-error \
+            --connect-timeout 12 --max-time 115 \
+            --request POST \
+            -H "Authorization: Bearer ${OIDC_TOKEN}" \
+            -H "Content-Type: application/json" \
+            --data "${PAYLOAD}" "${WORKER_URL}")"
+          printf '%s\n' "${RESULT}" | jq -e '
+            .ok == true
+            and .source == "github_oidc_expansion"
+            and .sourceSha == env.EXPECTED_SHA
+            and .notifications.automaticallySent == 0
+          '
