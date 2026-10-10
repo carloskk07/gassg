@@ -401,7 +401,7 @@ Deno.serve(async(req:Request)=>{
         if(merchant.accepts_citywide!==true){
           throw new DomainError(
             "DELIVERY_AREA_REQUIRED",
-            "Ative o atendimento em São Gabriel antes de ficar online neste piloto.",
+            "Ative o atendimento em São Gabriel antes de colocar a revenda online.",
             409
           );
         }
