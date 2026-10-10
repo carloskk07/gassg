@@ -218,7 +218,7 @@ Deno.serve(async(req:Request)=>{
       const synced=await refreshAnpProspects(admin,row.city,row.state);
       results.push({city:row.city,state:row.state,status:synced.status,
         imported:synced.updated?Number(synced.lastCount):0,
-        error:synced.status==="unavailable"?synced.error:null});
+        error:("error" in synced?String(synced.error):null)});
     }
     const {data:notifications,error:notifyError}=await admin.rpc("queue_ready_city_notifications");
     if(notifyError)throw notifyError;
