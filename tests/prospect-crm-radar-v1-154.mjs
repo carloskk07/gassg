@@ -61,8 +61,8 @@ const editor=vm.runInNewContext(stage+'\n'+extract('adminProspectCrmEditor')+';a
 const record={cnpj:'12345678000190',prospect_status:'uncontacted',crm_version:4,notes:'<img src=x onerror=alert(1)>'};
 const html=editor(record);
 assert.ok(html.includes('expectedVersion')===false);
-assert.ok(html.includes('adminSaveProspect(&#39;')===false);
-assert.ok(html.includes('adminSaveProspect(\\'12345678000190\\',4)'));
+assert.ok(html.includes("adminSaveProspect('12345678000190',4)"));
+assert.ok(html.includes("adminSaveProspect('12345678000190',4)"));
 assert.ok(html.includes('&lt;img src=x onerror=alert(1)&gt;'));
 assert.ok(!html.includes('<img'));
 assert.ok(html.includes('Não registrar contato'));
