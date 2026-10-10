@@ -81,6 +81,13 @@ assert.ok(html.includes('&lt;script&gt;alert(1)&lt;/script&gt;'));
 assert.ok(html.includes('&lt;img src=x onerror=alert(1)&gt;'));
 assert.ok(!html.includes('<script>')&&!html.includes('<img'));
 assert.ok(html.includes('Ir para configuração'));
+assert.ok(ui.includes("Object.prototype.hasOwnProperty.call(selectors,key)"));
+const authority=sandbox.draw({...rt,enablement:{...rt.enablement,checks:[{
+  key:'quote_authority',label:'Autorização final para novas cotações',ok:false,
+  owner:'system',scope:'realtime',action:'Revalidar condições'
+}]}});
+assert.ok(authority.includes('Autorização final para novas cotações'),'diagnóstico deve explicar recusa final');
+assert.ok(authority.includes('Validações e condições adicionais'));
 assert.ok(!sandbox.draw({...rt,merchant:{merchantId:'c1',memberRole:'operator'}}),'operator does not view sensitive readiness');
 assert.ok(!sandbox.draw({...rt,merchant:{merchantId:'c1',memberRole:'driver'}}),'driver denied');
 const missing=sandbox.draw({...rt,enablement:{...rt.enablement,merchant_id:'different'}});
