@@ -820,7 +820,7 @@ function shell(content){
     :merchantPortal
       ? '<button onclick="go(\'merchant\')">Operação</button><button onclick="go(\'catalog\')">Catálogo</button><button onclick="go(\'merchants\')">Parceiros</button>'
       : prelaunchPublic
-        ? '<button onclick="go(\'home\')">Início</button><button onclick="openPrelaunchCustomerLead()">Lista de abertura</button><button onclick="go(\'learn\')">Como funciona</button><button onclick="go(\'merchants\')">Para empresas</button><button onclick="go(\'contact\')">Contato</button>'
+        ? '<button onclick="go(\'home\')">Início</button><button onclick="openPrelaunchCustomerLead()">Disponibilidade</button><button onclick="go(\'learn\')">Como funciona</button><button onclick="go(\'merchants\')">Para empresas</button><button onclick="go(\'contact\')">Contato</button>'
         : '<button onclick="go(\'home\')">Início</button><button onclick="go(\'learn\')">Como funciona</button><button onclick="go(\'earn\')">Ganhe</button><button onclick="go(\'club\')">Clube</button><button onclick="go(\'merchants\')">Para revendas</button>';
   const switcher=adminPortal
     ? '<div class="mode-pill" aria-label="Alternar ambiente"><button onclick="openCustomerPortal()">Site</button><button class="active" onclick="go(\'admin\')">Admin</button></div>'
@@ -851,7 +851,7 @@ function bottomNav(r){
       :testDemo&&state.mode==='merchant'
         ?[['merchant','🏪','Operação','go'],['merchant-orders','📦','Pedidos','go'],['catalog','🧺','Catálogo','go'],['merchant-metrics','📊','Desempenho','go'],['merchants','➕','Parceiros','go']]
         :prelaunchPublic
-          ?[['home','⌂','Início','go'],['early-access','🔔','Abertura','lead'],['learn','🛡️','Como funciona','go'],['merchants','🏪','Vender','go'],['contact','💬','Contato','go']]
+          ?[['home','⌂','Início','go'],['early-access','🔔','Disponibilidade','lead'],['learn','🛡️','Como funciona','go'],['merchants','🏪','Vender','go'],['contact','💬','Contato','go']]
           :[['home','⌂','Início','go'],['order','🔥','Pedir','start'],['tracking','📍','Pedido','go'],['earn','💰','Ganhe','go'],['club','★','Clube','go']];
   return `<nav class="bottom-nav" aria-label="Navegação principal">${items.map(([id,ic,l,act])=>{
     const active=r===id;
