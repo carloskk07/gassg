@@ -4,7 +4,8 @@ import vm from 'node:vm';
 
 const source=fs.readFileSync(new URL('../js/backend.js',import.meta.url),'utf8');
 const sliceFunction=name=>{
-  const start=source.indexOf('function '+name+'(');
+  const functionStart=source.indexOf('function '+name+'(');
+  const start=source.slice(functionStart-6,functionStart)==='async '?functionStart-6:functionStart;
   assert.ok(start>=0,'função '+name+' precisa existir');
   const finish=source.indexOf('\n}',start);
   assert.ok(finish>start,'função '+name+' deve terminar em linha própria');
