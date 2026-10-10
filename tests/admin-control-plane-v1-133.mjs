@@ -39,10 +39,10 @@ assert.ok(admin.includes("function adminBillingProviderName"),
   'nome do PSP deve ser dinâmico');
 assert.ok(admin.includes("Access Token"),
   'Mercado Pago deve usar nomenclatura Access Token');
-assert.ok(admin.includes("PSP E2E"),
-  'saúde do sistema deve separar API de prova E2E');
-assert.ok(admin.includes("API do PSP validada; E2E financeiro ainda pendente."),
-  'API válida não pode ser promovida silenciosamente a E2E');
+assert.ok(admin.includes("PSP transacional"),
+  'saúde do sistema deve separar API de validação transacional');
+assert.ok(admin.includes("API do PSP validada; integração transacional ainda pendente."),
+  'API válida não pode ser promovida silenciosamente a integração verificada');
 assert.ok(admin.includes("Pix de cobrança TAMÃO → revenda"),
   'Pix de cobrança da plataforma precisa ter semântica inequívoca');
 assert.ok(!admin.includes('<span class="label">Woovi</span>'),
@@ -106,8 +106,8 @@ assert.ok(adminOps.includes('ANP_REFERENCE_REQUIRED'),
 
 assert.ok(admin.includes('MTTA mediano')&&admin.includes('MTTR mediano'),
   'incidentes precisam expor métricas operacionais');
-assert.ok(admin.includes("adminRequireTypedConfirmation('ATIVAR LIVE'"),
-  'LIVE precisa de confirmação reforçada');
+assert.ok(admin.includes("adminRequireTypedConfirmation('CONFIRMAR OPERAÇÃO'"),
+  'operação normal precisa de confirmação reforçada');
 assert.ok(admin.includes("adminRequireTypedConfirmation('ESTORNAR '+orderId"),
   'reversão financeira precisa de confirmação reforçada');
 assert.ok(admin.includes("adminRequireTypedConfirmation('SUPERADMIN'"),
@@ -115,10 +115,10 @@ assert.ok(admin.includes("adminRequireTypedConfirmation('SUPERADMIN'"),
 assert.ok(admin.includes("adminRole==='superadmin'&&!adminRequireTypedConfirmation('SUPERADMIN'"),
   'novo Superadmin também precisa de confirmação reforçada');
 assert.ok(
-  admin.includes("const typed=activationKind==='pilot'?'ATIVAR PILOTO':'REATIVAR'")
+  admin.includes("const typed=activationKind==='pilot'?'ATIVAR PAGAMENTOS':'REATIVAR'")
   &&admin.includes('adminRequireTypedConfirmation(typed,copy)')
   &&admin.includes('adminRunMerchantPaymentPreflight'),
-  'ativação/reativação de pagamento direto precisa de confirmação reforçada sem antecipar status HOMOLOGADO'
+  'ativação/reativação de pagamento direto precisa de confirmação reforçada sem antecipar integração verificada'
 );
 assert.ok(admin.includes('Formas de pagamento aceitas do cliente final'),
   'onboarding deve separar pagamento do cliente da cobrança de taxas TAMÃO');

@@ -197,8 +197,8 @@ await auditDom('privacy');
 await evaluate("go('terms')");
 await waitFor("document.body.innerText.includes('Termos de Uso')","terms route");
 body=await text();
-assert.match(body,/Situação atual/);
-assert.match(body,/nenhuma ação cria pedido, cobrança ou reserva real de estoque/i);
+assert.match(body,/Disponibilidade do serviço/);
+assert.match(body,/regiões sem oferta ativa não criam cobrança nem reserva de estoque/i);
 assert.match(body,/não promete volume de pedidos, faturamento ou renda/i);
 await auditDom('terms');
 
@@ -227,7 +227,7 @@ body=await text();
 assert.match(body,/7,5%/);
 assert.match(body,/Sem exclusividade/);
 assert.match(body,/Você não precisa ser sempre o mais barato/);
-assert.match(body,/PARCEIRO FUNDADOR/);
+assert.match(body,/VENDA PELO TAMÃO/);
 assert.equal(await evaluate("document.querySelector('#merchant-sim-product-cost').value"),'');
 assert.equal(await evaluate("document.querySelector('#merchant-sim-contribution').textContent"),'—');
 assert.match(await evaluate("document.querySelector('#merchant-sim-costs').textContent"),/Informe o custo do produto/);
@@ -318,10 +318,10 @@ await auditDom('refer');
 // Internal pilot on GitHub Pages reuses the proven simulation engine with a
 // single JR supplier. Exercise the complete customer ↔ merchant path separately.
 await evaluate("globalThis.CHAMA_INTERNAL_PILOT=true; reset(); render()");
-await waitFor("document.body.innerText.includes('PILOTO INTERNO') && document.body.innerText.includes('Gas e Lenheira do JR')","internal pilot home");
+await waitFor("document.body.innerText.includes('AMBIENTE INTERNO') && document.body.innerText.includes('Gas e Lenheira do JR')","internal pilot home");
 body=await text();
 assert.match(body,/115,90/);
-assert.match(body,/SEM PEDIDOS REAIS/);
+assert.match(body,/AMBIENTE INTERNO/);
 assert.equal(await evaluate("state.merchants.length"),1);
 assert.equal(await evaluate("state.merchants[0].id"),'JR-PILOT');
 assert.equal(await evaluate("state.merchants[0].priceP13"),120);
@@ -332,16 +332,16 @@ assert.deepEqual(
 assert.equal(await evaluate("productPrice(state.merchants[0],'P13',1)"),117.95);
 
 await evaluate("go('merchants')");
-await waitFor("document.body.innerText.includes('Experimentar painel da revenda') && document.body.innerText.includes('PARCEIRO FUNDADOR')","pilot merchant conversion landing");
+await waitFor("document.body.innerText.includes('Abrir ambiente interno') && document.body.innerText.includes('VENDA PELO TAMÃO')","pilot merchant conversion landing");
 body=await text();
 assert.match(body,/Sem exclusividade/);
 assert.match(body,/SIMULADOR DE MARGEM INCREMENTAL/);
-await evaluate("[...document.querySelectorAll('button')].find(b=>b.textContent.includes('Experimentar painel da revenda')).click()");
-await waitFor("location.hash==='#merchant' && document.body.innerText.includes('PAINEL DA REVENDA — PILOTO INTERNO')","pilot merchant CTA");
+await evaluate("[...document.querySelectorAll('button')].find(b=>b.textContent.includes('Abrir ambiente interno')).click()");
+await waitFor("location.hash==='#merchant' && document.body.innerText.includes('PAINEL DA REVENDA — AMBIENTE INTERNO')","pilot merchant CTA");
 
 // JR now starts with the confirmed commercial range. Change only the
 // simulated strategy to prove that the engine remains inside the authorized bounds.
-await waitFor("document.body.innerText.includes('Faixa automática do piloto')","pilot confirmed pricing range visible");
+await waitFor("document.body.innerText.includes('Faixa automática de preço')","pilot confirmed pricing range visible");
 await evaluate("document.querySelector('#m-pricing-strategy').value='volume'; merchantUpdate('JR-PILOT')");
 assert.deepEqual(
   JSON.parse(await evaluate("JSON.stringify(state.merchants[0].pricingP13)")),
@@ -365,9 +365,9 @@ assert.deepEqual(JSON.parse(await evaluate("JSON.stringify(offers()[0].roles)"))
 await evaluate("checkout('JR-PILOT')");
 await waitFor("location.hash==='#tracking' && document.body.innerText.includes('Aguardando parceiro')","pilot tracking pending");
 await evaluate("setMode('merchant')");
-await waitFor("document.body.innerText.includes('PAINEL DA REVENDA — PILOTO INTERNO') && document.querySelector('.order-card.new')","pilot merchant pending");
+await waitFor("document.body.innerText.includes('PAINEL DA REVENDA — AMBIENTE INTERNO') && document.querySelector('.order-card.new')","pilot merchant pending");
 body=await text();
-assert.match(body,/Nenhuma ação é real/);
+assert.match(body,/não alteram a operação pública/);
 await evaluate("document.querySelector('.order-card.new .primary').click()");
 await waitFor("document.body.innerText.includes('Confirmar saída')","pilot merchant accepted");
 await evaluate("[...document.querySelectorAll('button')].find(b=>b.textContent.includes('Confirmar saída')).click()");

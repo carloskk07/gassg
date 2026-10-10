@@ -36,7 +36,19 @@ for(const {role,path:dir} of built){
   const sw=fs.readFileSync(path.join(dir,'sw.js'),'utf8');
   assert.ok(sw.includes('tamao-sg-test-sha'),'service worker precisa versionar cache pelo sourceSha do bundle');
   assert.ok(fs.existsSync(path.join(dir,'robots.txt')));
-  assert.match(fs.readFileSync(path.join(dir,'robots.txt'),'utf8'),/Disallow:\s*\//);
+  const robots=fs.readFileSync(path.join(dir,'robots.txt'),'utf8');
+  const html=fs.readFileSync(path.join(dir,'index.html'),'utf8');
+  const headers=fs.readFileSync(path.join(dir,'_headers'),'utf8');
+  if(role==='customer'){
+    assert.match(robots,/Allow:\s*\//);
+    assert.ok(fs.existsSync(path.join(dir,'sitemap.xml')));
+    assert.ok(html.includes('name="robots" content="index,follow,max-image-preview:large"'));
+    assert.ok(!headers.includes('X-Robots-Tag: noindex'));
+  }else{
+    assert.match(robots,/Disallow:\s*\//);
+    assert.ok(html.includes('name="robots" content="noindex,nofollow,noarchive,nosnippet"'));
+    assert.ok(headers.includes('X-Robots-Tag: noindex'));
+  }
   assert.ok(fs.existsSync(path.join(dir,'_headers')));
   assert.ok(fs.existsSync(path.join(dir,'_redirects')));
   assert.ok(!fs.existsSync(path.join(dir,'supabase')));
@@ -47,7 +59,6 @@ for(const {role,path:dir} of built){
   assert.ok(runtime.includes('globalThis.CHAMA_PORTAL_ROLE='+JSON.stringify(role)+';'));
   for(const origin of Object.values(origins))assert.ok(runtime.includes(origin));
 
-  const html=fs.readFileSync(path.join(dir,'index.html'),'utf8');
   assert.ok(html.includes('data-chama-portal="'+role+'"'));
 
   const manifest=JSON.parse(fs.readFileSync(path.join(dir,'manifest.webmanifest'),'utf8'));

@@ -7,16 +7,16 @@ const migration=fs.readFileSync(new URL('../supabase/migrations/20261009231500_p
 
 assert.ok(
   admin.includes('function adminMerchantPspHomologationQueue(d)')
-  &&admin.includes('HOMOLOGAÇÃO MULTI-PSP')
+  &&admin.includes('INTEGRAÇÕES MULTI-PSP')
   &&admin.includes('Fila técnica de provedores'),
-  'admin precisa ter uma fila explícita de homologação multi-PSP'
+  'admin precisa ter uma fila explícita de integrações multi-PSP'
 );
 
 for(const stage of [
   'AÇÃO IMEDIATA',
-  'HOMOLOGADO',
-  'PILOTO ATIVO',
-  'PRONTO PARA PILOTO',
+  'INTEGRAÇÃO VERIFICADA',
+  'AUTOMAÇÃO ATIVA',
+  'PRONTO PARA ATIVAR',
   'CONECTADO',
   'IMPLEMENTADO',
   'PREPARADO',
@@ -30,15 +30,15 @@ assert.ok(
   admin.includes("row.account?.capabilities?.directSalePaymentsEnabled===true")
   &&admin.includes("row.account?.capabilities?.canValidateProviderTransactions===true")
   &&admin.includes("homologated=connected&&directEnabled&&canValidate&&e2eValidated"),
-  'HOMOLOGADO exige conta ativa, as duas capabilities financeiras e prova E2E'
+  'integração verificada exige conta ativa, as capabilities financeiras e evidência transacional'
 );
 
 assert.ok(
   admin.includes("directEnabled&&!canValidate")
   &&admin.includes("statusLabel=!connected")
   &&admin.includes("'INCONSISTENTE'")
-  &&admin.includes('Suspenda a automação e revise a homologação'),
-  'estado parcial não pode aparecer como homologado'
+  &&admin.includes('Suspenda a automação e revise a integração'),
+  'estado parcial não pode aparecer como integração verificada'
 );
 
 assert.ok(
@@ -52,9 +52,9 @@ assert.ok(
 
 assert.ok(
   admin.includes('Sem demanda, o TAMÃO não força integração nem troca de PSP.')
-  &&admin.includes('Conectar ou ativar um piloto não significa homologar.')
+  &&admin.includes('Conectar uma conta não significa validar a integração.')
   &&admin.includes('O dinheiro continua pertencendo à revenda.'),
-  'fila não pode sugerir lock-in, custódia ou homologação implícita'
+  'fila não pode sugerir lock-in, custódia ou validação implícita'
 );
 
 assert.ok(

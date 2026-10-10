@@ -24,7 +24,7 @@ function exampleOfferCard(o){
 }
 
 function prelaunchExampleSection(cart={P13:1}){
-  return `<section class="section prelaunch-examples"><div class="section-head"><div><span class="section-kicker">DEMONSTRAÇÃO DO PRÉ-LANÇAMENTO</span><h2>Veja como será comparar as opções</h2><p>Os cards abaixo servem somente para mostrar a experiência. Não representam revendas nem preços reais e não podem gerar pedido.</p></div></div><div class="offer-stack">${prelaunchExampleOffers(cart).map(exampleOfferCard).join('')}</div></section>`;
+  return `<section class="section prelaunch-examples"><div class="section-head"><div><span class="section-kicker">EXEMPLO DE INTERFACE</span><h2>Visualização interna de comparação</h2><p>Conteúdo reservado ao ambiente interno de validação.</p></div></div><div class="offer-stack">${prelaunchExampleOffers(cart).map(exampleOfferCard).join('')}</div></section>`;
 }
 
 function customerProductName(code,p=products[code]){
@@ -190,21 +190,21 @@ function home(){
   const priceText=testDemo
     ? (p==null?'Indisponível':BRL.format(p))
     : preview
-      ? 'Lista de abertura'
+      ? 'Consultar disponibilidade'
       : ready&&!market
         ? 'Consultar preço'
         : ready&&market?.realSupplyConfigured
           ? 'Consultar preço'
           : ready
-            ? 'Chegando em breve'
+            ? 'Consultar disponibilidade'
             : 'Conectando…';
 
   const freshness=testDemo
     ? internalPilot
-      ? 'Piloto interno: faixa comercial P13 confirmada pelo parceiro; estoque, prazo e demais dados desta simulação são testes.'
+      ? 'Ambiente interno: faixa comercial P13 confirmada; os demais dados desta visualização não representam operação pública.'
       : 'Ambiente isolado de teste automatizado'
     : preview
-      ? 'Pré-lançamento em São Gabriel: conheça a experiência antes da abertura.'
+      ? 'Informe seu CEP para consultar a disponibilidade de atendimento em São Gabriel.'
       : ready&&!market
         ? 'Não foi possível confirmar o panorama geral agora. Informe seu endereço para consultar as opções diretamente.'
         : ready&&market?.realSupplyConfigured
@@ -214,9 +214,9 @@ function home(){
               : 'Há parceiros elegíveis para consulta agora.'
             : 'Parceiros cadastrados; a disponibilidade é confirmada a cada consulta.'
           : ready
-            ? 'Estamos formando a primeira rede de parceiros locais.'
+            ? 'A disponibilidade é confirmada conforme sua região e as revendas cadastradas.'
             : globalThis.liveRuntime?.status==='unsafe-origin'
-            ? 'Pré-lançamento nesta origem provisória.'
+            ? 'Use o endereço oficial do TAMÃO para consultar disponibilidade.'
             : 'Conectando ao serviço.';
 
   const disabled=!testDemo&&!ready&&!preview;
@@ -237,23 +237,23 @@ function home(){
   const merchantFeeLabel=(Math.max(0,feeBps)/100).toLocaleString('pt-BR',{maximumFractionDigits:2})+'%';
   const acquisitionOpen=!testDemo&&(preview||!ready||market?.realSupplyConfigured===false);
   const eyebrow=testDemo
-    ? internalPilot?'● PILOTO INTERNO — SEM PEDIDOS REAIS':'● TESTE AUTOMATIZADO'
+    ? internalPilot?'● AMBIENTE INTERNO — SEM PEDIDOS':'● AMBIENTE DE TESTE'
     : preview
-      ? '● PRÉ-LANÇAMENTO EM SÃO GABRIEL'
+      ? '● TAMÃO • SÃO GABRIEL'
       : '● TAMÃO • SÃO GABRIEL';
-  const primaryLabel=internalPilot?'Simular pedido':acquisitionOpen?'Quero ser avisado':'Ver preços e prazos';
+  const primaryLabel=internalPilot?'Validar jornada':acquisitionOpen?'Consultar disponibilidade':'Ver preços e prazos';
   const primaryAction=acquisitionOpen?'openPrelaunchCustomerLead()':'startHomeOrder()';
   const singleMarket=internalPilot||(ready&&market?.availableNow&&Number(market?.availableMerchantCount||0)===1);
   const heroJourney=singleMarket
     ? internalPilot
-      ? 'Simule a jornada completa com o primeiro parceiro piloto: pedido, aceite, preparação, saída, chegada, pagamento e benefícios.'
+      ? 'Valide a jornada completa do ambiente interno: pedido, aceite, preparação, saída, chegada, pagamento e benefícios.'
       : 'Informe onde quer receber, veja o preço total e o prazo do parceiro disponível e acompanhe cada etapa até a entrega.'
     : 'Informe onde quer receber, compare as opções disponíveis e acompanhe cada etapa até a entrega.';
   const intentSection=acquisitionOpen
-    ? `<section class="section intent-section"><div class="section-head"><div><span class="section-kicker">COMECE POR AQUI</span><h2>Você quer comprar ou vender pelo TAMÃO?</h2><p>No pré-lançamento, cada caminho leva direto ao próximo passo possível hoje.</p></div></div>
+    ? `<section class="section intent-section"><div class="section-head"><div><span class="section-kicker">COMECE POR AQUI</span><h2>Você quer comprar ou vender pelo TAMÃO?</h2><p>Escolha o que precisa e siga o fluxo correspondente.</p></div></div>
 <div class="intent-grid prelaunch-intent-grid">
-  <button class="intent-card intent-primary" onclick="openPrelaunchCustomerLead()"><span class="intent-icon">🔔</span><span><strong>Quero comprar</strong><small>Entre na lista e seja avisado quando houver disponibilidade para sua região.</small></span><b>→</b></button>
-  <button class="intent-card" onclick="go('learn')"><span class="intent-icon">🛡️</span><span><strong>Quero entender primeiro</strong><small>Veja preço, confirmação, entrega e proteção antes da abertura.</small></span><b>→</b></button>
+  <button class="intent-card intent-primary" onclick="openPrelaunchCustomerLead()"><span class="intent-icon">🔔</span><span><strong>Quero comprar</strong><small>Consulte atendimento para sua região e receba um aviso se ainda não houver cobertura.</small></span><b>→</b></button>
+  <button class="intent-card" onclick="go('learn')"><span class="intent-icon">🛡️</span><span><strong>Quero entender primeiro</strong><small>Veja como funcionam preço, confirmação, entrega e proteção.</small></span><b>→</b></button>
   <button class="intent-card" onclick="go('merchants')"><span class="intent-icon">🏪</span><span><strong>Quero vender no TAMÃO</strong><small>Conheça custos e registre o interesse da sua empresa.</small></span><b>→</b></button>
 </div></section>`
     : `<section class="section intent-section"><div class="section-head"><div><span class="section-kicker">ESCOLHA SEU CAMINHO</span><h2>Comprar, economizar, indicar ou vender.</h2><p>Cada objetivo tem uma jornada própria no TAMÃO.</p></div></div>
@@ -310,11 +310,11 @@ ${intentSection}
 </div></section>
 
 <section class="section"><div class="section-head"><div><span class="section-kicker">MAIS QUE GÁS</span><h2>Complete o que está faltando em casa.</h2><p>Você também pode pedir itens disponíveis sem colocar gás na cesta.</p></div></div>
-<div class="quick-grid">${homeProductEntries.length?homeProductEntries.map(([k,p])=>`<button class="quick-card" onclick="quickProduct('${k}')" ${disabled?'disabled':''}><div class="quick-icon">${p.icon}</div><div class="quick-title">${esc(customerProductName(k,p))}</div><div class="quick-sub">${preview?'Ver experiência':'Consultar agora'}</div></button>`).join(''):'<div class="empty card">Nenhum produto está configurado para consulta agora.</div>'}</div></section>
+<div class="quick-grid">${homeProductEntries.length?homeProductEntries.map(([k,p])=>`<button class="quick-card" onclick="quickProduct('${k}')" ${disabled?'disabled':''}><div class="quick-icon">${p.icon}</div><div class="quick-title">${esc(customerProductName(k,p))}</div><div class="quick-sub">${preview?'Consultar disponibilidade':'Consultar agora'}</div></button>`).join(''):'<div class="empty card">Nenhum produto está configurado para consulta agora.</div>'}</div></section>
 
-${internalPilot?`<section class="section"><div class="card flat"><span class="section-kicker">PARCEIRO DO PILOTO INTERNO</span><h2 style="margin-top:6px">Gas e Lenheira do JR</h2><p class="muted">P13 com faixa comercial confirmada: <strong>R$ 115,90 mínimo, R$ 120,00 normal e R$ 125,00 máximo</strong>, com entrega incluída. O preço automático permanece dentro desses limites; estoque, distância, ETA e trust desta tela continuam simulados.</p><button class="secondary" onclick="setMode('merchant')">Abrir painel simulado da revenda</button></div></section>`:preview?`<section class="section"><div class="card flat"><span class="section-kicker">PRIMEIRO PARCEIRO PILOTO</span><h2 style="margin-top:6px">Gas e Lenheira do JR está em preparação para entrar no TAMÃO.</h2><p class="muted">O interesse comercial já foi registrado. A operação só será liberada para pedidos depois do cadastro real, validações aplicáveis e configuração operacional da revenda.</p></div></section>`:''}
+${internalPilot?`<section class="section"><div class="card flat"><span class="section-kicker">AMBIENTE INTERNO</span><h2 style="margin-top:6px">Gas e Lenheira do JR</h2><p class="muted">Faixa comercial P13 configurada para validação interna. Esta visualização não altera a operação pública.</p><button class="secondary" onclick="setMode('merchant')">Abrir painel interno da revenda</button></div></section>`:''}
 
-${preview?prelaunchExampleSection({P13:1}):''}
+
 
 <section class="section"><div class="section-head"><div><span class="section-kicker">CONFIANÇA NA ENTREGA</span><h2>O status só avança quando existe confirmação.</h2></div></div>
 <div class="grid cards-3">
@@ -349,14 +349,14 @@ function orderPage(){
 
   let liveNotice='';
   if(internalPilot){
-    liveNotice='<div class="notice" style="margin-bottom:14px"><strong>Piloto interno.</strong><br>Este pedido é uma simulação completa. Não gera venda, cobrança, entrega ou alteração no banco operacional.</div>';
+    liveNotice='<div class="notice" style="margin-bottom:14px"><strong>Ambiente interno.</strong><br>Esta jornada não gera venda, cobrança, entrega ou alteração no banco operacional.</div>';
   }else if(!testDemo&&preview){
-    liveNotice='<div class="notice" style="margin-bottom:14px"><strong>Pré-lançamento.</strong><br>Você pode percorrer a experiência, mas os cards marcados como EXEMPLO não criam pedido nem cobrança.</div>';
+    liveNotice='<div class="notice" style="margin-bottom:14px"><strong>Disponibilidade ainda não confirmada para esta região.</strong><br>Informe seus dados para receber um aviso quando houver atendimento.</div>';
   }else if(!testDemo&&liveMode&&!ready){
     const message=liveRuntime?.status==='loading'
       ? 'Preparando a consulta…'
       : liveRuntime?.status==='unsafe-origin'
-        ? 'Compras reais ainda não estão liberadas nesta versão de pré-lançamento.'
+        ? 'A compra online não está disponível por esta origem. Acesse o endereço oficial do TAMÃO.'
         : 'O serviço de pedidos está indisponível agora. Nenhum pedido foi criado.';
     liveNotice=`<div class="notice ${liveRuntime?.status==='unavailable'?'danger':''}" style="margin-bottom:14px"><strong>Compra online</strong><br>${esc(message)}</div>`;
   }
@@ -364,7 +364,7 @@ function orderPage(){
   let offerBlock='';
   if(hasItems&&hasAddress){
     if(preview){
-      offerBlock=`<div class="offer-stack">${prelaunchExampleOffers(state.cart).map(exampleOfferCard).join('')}</div>`;
+      offerBlock='<div class="notice"><strong>Nenhuma opção disponível para este CEP agora.</strong><br>Cadastre um aviso de disponibilidade e consulte novamente quando houver atendimento na região.</div>';
     }else if(testDemo&&os.length){
       offerBlock=`<div class="offer-stack">${os.map(offerCard).join('')}</div>`;
     }else if(ready&&liveRuntime.loadingOffers){
@@ -374,7 +374,7 @@ function orderPage(){
     }else if(ready&&os.length){
       offerBlock=`<div class="offer-stack">${os.map(offerCard).join('')}</div>`;
     }else if(ready&&liveRuntime.commerceLaunchBlocked){
-      offerBlock='<div class="notice"><strong>Pré-lançamento controlado.</strong><br>O TAMÃO ainda não liberou pedidos reais. A abertura só acontece depois da validação do administrador, da primeira revenda e dos portais live.</div>';
+      offerBlock='<div class="notice"><strong>Pedidos temporariamente indisponíveis.</strong><br>Novas compras estão pausadas no momento. Pedidos existentes continuam acompanháveis normalmente.</div>';
     }else if(ready&&liveRuntime.deliveryCompatibilityBlocked){
       offerBlock='<div class="notice"><strong>Não encontramos uma operação habilitada para entregar esta combinação de itens agora.</strong><br>Se precisar com urgência, tente separar o GLP dos demais produtos ou consulte novamente depois.</div>';
     }else if(ready&&liveRuntime.paymentMethodUnavailable){
@@ -393,7 +393,7 @@ function orderPage(){
   }
 
   const paymentBlock=preview
-    ? '<div class="notice">Forma de pagamento e cashback serão habilitados somente quando houver uma oferta real.</div>'
+    ? '<div class="notice">As formas de pagamento aparecem quando houver uma opção disponível para esta consulta.</div>'
     : `<div class="card flat form-stack"><div class="input-wrap"><label for="payment-method">Como você pretende pagar?</label><select id="payment-method" class="input" onchange="setPaymentMethod(this.value)"><option value="pix" ${state.checkout.paymentMethod==='pix'?'selected':''}>Pix</option><option value="card" ${state.checkout.paymentMethod==='card'?'selected':''}>Cartão</option><option value="cash" ${state.checkout.paymentMethod==='cash'?'selected':''}>Dinheiro</option></select><small class="field-help">Esta é sua preferência de pagamento. O parceiro vê a forma solicitada antes de assumir o pedido.</small></div>${state.checkout.paymentMethod==='cash'?`<div class="input-wrap"><label for="cash-tender">Precisa de troco? Troco para quanto?</label><input id="cash-tender" class="input" type="number" inputmode="decimal" min="1" max="10000" step="0.01" placeholder="Ex.: 150,00" value="${state.checkout.cashTenderCents?esc((state.checkout.cashTenderCents/100).toFixed(2)):''}" onchange="setCashTender(this.value)"><small class="field-help">Deixe vazio se não precisar informar troco. O entregador verá este valor antes de sair.</small></div>`:''}${state.user.cashback>0?`<label class="check-row"><input type="checkbox" ${state.checkout.useCashback?'checked':''} onchange="toggleCashback(this.checked)"><span><strong>Usar cashback</strong><small>Saldo disponível: ${BRL.format(state.user.cashback)}</small></span></label>`:''}</div>`;
 
   const containerBlock=hasGlp
@@ -413,11 +413,11 @@ ${pendingOrder?`<div class="notice" style="margin-bottom:14px"><strong>Você já
   </div>
   ${state.address?`<div class="notice success"><strong>Endereço confirmado pelo servidor.</strong><br>${esc(state.address)}</div>`:'<div class="notice">A rua não é digitada manualmente: ela vem do CEP validado.</div>'}`}
   <button class="primary" onclick="setAddress()">${hasAddress?'Atualizar endereço':'Validar endereço'}</button>
-  <small class="field-help">${testDemo?'Dados apenas da simulação.':'Nenhuma cotação real é criada antes da validação de CEP + número.'}</small>
+  <small class="field-help">${testDemo?'Dados do ambiente interno.':'Nenhuma cotação é criada antes da validação de CEP + número.'}</small>
 </div>
 ${hasAddress?`<div class="card flat form-stack" style="margin-top:12px">
   <h3>Dados para a entrega</h3>
-  <div class="input-wrap"><label for="delivery-phone">Telefone com DDD</label><input id="delivery-phone" class="input" type="tel" inputmode="tel" autocomplete="tel" maxlength="18" placeholder="Ex.: (55) 99999-1234" value="${esc(formatDeliveryPhone(state.checkout.customerPhoneDigits))}" onchange="deliveryDetailsChanged()"><small class="field-help">Obrigatório somente para concluir um pedido real. A revenda recebe o contato apenas depois de aceitar.</small></div>
+  <div class="input-wrap"><label for="delivery-phone">Telefone com DDD</label><input id="delivery-phone" class="input" type="tel" inputmode="tel" autocomplete="tel" maxlength="18" placeholder="Ex.: (55) 99999-1234" value="${esc(formatDeliveryPhone(state.checkout.customerPhoneDigits))}" onchange="deliveryDetailsChanged()"><small class="field-help">Obrigatório para concluir o pedido. A revenda recebe o contato apenas depois de aceitar.</small></div>
   <div class="field-row">
     <div class="input-wrap"><label for="address-complement">Complemento</label><input id="address-complement" class="input" maxlength="120" placeholder="Ex.: casa dos fundos, ap. 202" value="${esc(state.checkout.addressComplement||'')}" onchange="deliveryDetailsChanged()"></div>
     <div class="input-wrap"><label for="delivery-reference">Ponto de referência</label><input id="delivery-reference" class="input" maxlength="160" placeholder="Ex.: ao lado da farmácia" value="${esc(state.checkout.deliveryReference||'')}" onchange="deliveryDetailsChanged()"></div>
@@ -427,7 +427,7 @@ ${hasAddress?`<div class="card flat form-stack" style="margin-top:12px">
 <section class="section"><div class="section-head"><div><h2>Sua cesta</h2><p>Adicione somente o que você precisa. Gás não é obrigatório para comprar os demais itens.</p></div></div><div class="card flat">${Object.entries(products).filter(([,p])=>p.hidden!==true).map(([k,p])=>cartRow(k,p)).join('')}</div></section>
 ${deliveryScheduleBlock()}
 ${containerBlock}
-${hasItems&&hasAddress?`<section class="section"><div class="section-head"><div><h2>Como pretende pagar</h2><p>${preview?'Prévia visual sem cobrança.':'Escolha a forma e confira novamente antes do pedido.'}</p></div></div>${paymentBlock}</section><section class="section"><div class="section-head"><div><span class="section-kicker">${singleSupplier?'OPÇÃO DISPONÍVEL':'COMPARE ANTES DE PEDIR'}</span><h2>${preview?'Veja como as opções aparecerão':singleSupplier?'Preço total e prazo do parceiro disponível':'Preço total e prazo lado a lado'}</h2><p>${preview?'Os valores abaixo são somente ilustrativos.':internalPilot?'Há um único fornecedor no cenário interno. A faixa comercial P13 vem da conversa com o parceiro; o preço desta simulação é calculado dentro dela. Prazo, estoque e trust são simulados.':singleSupplier?'Há um parceiro elegível para esta cesta agora. Você vê a condição real sem opções fictícias.':'Escolha a opção que faz mais sentido para você.'}</p></div></div><div class="mini-protection">🛡️ <strong>Proteção TAMÃO:</strong> ${internalPilot?'nesta simulação, se o JR recusar ou ficar indisponível o pedido é encerrado, porque não existe segundo fornecedor no cenário.':singleSupplier?'o parceiro precisa aceitar. Se ele não puder atender e ainda não houver outra revenda elegível, o pedido é encerrado sem inventar uma alternativa.':'o parceiro precisa aceitar e qualquer alternativa mais cara depende da sua aprovação.'}</div>${offerBlock}</section>`:hasItems&&!hasAddress?'<div class="notice">Informe o endereço para ver preço e prazo.</div>':!hasItems?'<div class="notice">Adicione pelo menos um produto para consultar as opções.</div>':''}</section>`)
+${hasItems&&hasAddress?`<section class="section"><div class="section-head"><div><h2>Como pretende pagar</h2><p>${preview?'As formas disponíveis serão mostradas quando houver atendimento para sua consulta.':'Escolha a forma e confira novamente antes do pedido.'}</p></div></div>${paymentBlock}</section><section class="section"><div class="section-head"><div><span class="section-kicker">${singleSupplier?'OPÇÃO DISPONÍVEL':'COMPARE ANTES DE PEDIR'}</span><h2>${preview?'Disponibilidade para sua região':singleSupplier?'Preço total e prazo do parceiro disponível':'Preço total e prazo lado a lado'}</h2><p>${preview?'As opções aparecem aqui assim que houver uma revenda disponível para esta cesta e CEP.':internalPilot?'Há um único fornecedor no cenário interno. A faixa comercial P13 vem da conversa com o parceiro; o preço desta simulação é calculado dentro dela. Prazo, estoque e trust são simulados.':singleSupplier?'Há um parceiro elegível para esta cesta agora. Você vê a condição real sem opções fictícias.':'Escolha a opção que faz mais sentido para você.'}</p></div></div><div class="mini-protection">🛡️ <strong>Proteção TAMÃO:</strong> ${internalPilot?'nesta simulação, se o JR recusar ou ficar indisponível o pedido é encerrado, porque não existe segundo fornecedor no cenário.':singleSupplier?'o parceiro precisa aceitar. Se ele não puder atender e ainda não houver outra revenda elegível, o pedido é encerrado sem inventar uma alternativa.':'o parceiro precisa aceitar e qualquer alternativa mais cara depende da sua aprovação.'}</div>${offerBlock}</section>`:hasItems&&!hasAddress?'<div class="notice">Informe o endereço para ver preço e prazo.</div>':!hasItems?'<div class="notice">Adicione pelo menos um produto para consultar as opções.</div>':''}</section>`)
 }
 function cartRow(k,p){
   const q=state.cart[k]||0;
@@ -763,7 +763,7 @@ ${['OUT_FOR_DELIVERY','ARRIVING'].includes(o.status)?`<div class="notice success
 ${o.status==='SETTLED'&&o.cashbackEarned?`<div class="notice success" style="margin-top:14px"><strong>+${BRL.format(o.cashbackEarned)} de cashback</strong><br>Crédito já disponível para uma próxima compra.</div>`:''}
 ${live&&['OFFERED_TO_MERCHANT','REQUOTE_REQUIRED'].includes(o.status)?`<button class="ghost full" style="margin-top:10px" onclick="cancelPending('${o.id}')">Cancelar antes do aceite</button>`:''}
 ${live&&['PREPARING','AT_RISK'].includes(o.status)?`<button class="danger-btn full" style="margin-top:10px" onclick="cancelBeforeDispatch('${o.id}')">Cancelar antes da saída</button>`:''}
-<div class="card flat support-card" style="margin-top:14px"><strong>Precisa de ajuda?</strong><p class="muted tiny">Atraso, diferença de preço, problema com o produto ou entrega contestada podem ser tratados a partir deste pedido.</p><button class="secondary full" onclick="toast('Suporte do pedido aberto — demonstração')">Pedir ajuda</button></div>
+<div class="card flat support-card" style="margin-top:14px"><strong>Precisa de ajuda?</strong><p class="muted tiny">Atraso, diferença de preço, problema com o produto ou entrega contestada podem ser tratados a partir deste pedido.</p><button class="secondary full" onclick="toast('Canal de suporte aberto para este pedido')">Pedir ajuda</button></div>
 </section>`)
 }
 function eventTimeline(o){

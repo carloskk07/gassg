@@ -37,12 +37,12 @@ function openPrelaunchCustomerLead(){
 }
 function prelaunchTransparencyBand(){
   return [
-    '<section class="section prelaunch-transparency" aria-label="Situação atual do TAMÃO">',
-      '<div class="section-head"><div><span class="section-kicker">ONDE ESTAMOS AGORA</span><h2>Pré-lançamento de verdade, sem fingir que a operação já está pronta.</h2><p>Estamos validando a primeira rede local antes de liberar pedidos reais.</p></div></div>',
+    '<section class="section prelaunch-transparency" aria-label="Atendimento TAMÃO">',
+      '<div class="section-head"><div><span class="section-kicker">ATENDIMENTO POR REGIÃO</span><h2>Consulte sua região e veja o próximo passo.</h2><p>A disponibilidade é confirmada pelo CEP e pela capacidade das revendas cadastradas.</p></div></div>',
       '<div class="prelaunch-transparency-grid">',
-        '<article><span class="prelaunch-step">1</span><div><strong>São Gabriel primeiro</strong><p>O lançamento inicial está sendo preparado para São Gabriel/RS.</p></div></article>',
-        '<article><span class="prelaunch-step">2</span><div><strong>Primeiro parceiro piloto em preparação</strong><p>A Gas e Lenheira do JR está na etapa de preparação. Isso ainda não significa operação pública ativa.</p></div></article>',
-        '<article><span class="prelaunch-step">3</span><div><strong>Seu CEP ajuda a priorizar cobertura</strong><p>Entrar na lista mostra onde existe demanda. O cadastro não cria pedido nem cobrança.</p></div></article>',
+        '<article><span class="prelaunch-step">1</span><div><strong>Atendimento local</strong><p>O TAMÃO organiza a disponibilidade conforme a região informada e as revendas aptas a atender.</p></div></article>',
+        '<article><span class="prelaunch-step">2</span><div><strong>Rede de parceiros</strong><p>Empresas entram na plataforma após cadastro, configuração operacional e validações aplicáveis.</p></div></article>',
+        '<article><span class="prelaunch-step">3</span><div><strong>Disponibilidade pelo seu CEP</strong><p>Se ainda não houver atendimento, você pode deixar um contato para receber o aviso quando a região estiver disponível.</p></div></article>',
       '</div>',
     '</section>'
   ].join('');
@@ -50,14 +50,14 @@ function prelaunchTransparencyBand(){
 
 function prelaunchCustomerLeadSection(){
   if(prelaunchLeadSent('customer')){
-    return '<section class="section lead-section" id="early-access"><div class="lead-success-card"><span class="lead-success-icon">✓</span><div><span class="section-kicker">LISTA DE ABERTURA</span><h2>Seu interesse já foi registrado.</h2><p>Quando houver disponibilidade para sua região, o TAMÃO poderá avisar pelo WhatsApp informado.</p></div><button class="secondary" onclick="go(\'learn\')">Conhecer o TAMÃO</button></div></section>';
+    return '<section class="section lead-section" id="early-access"><div class="lead-success-card"><span class="lead-success-icon">✓</span><div><span class="section-kicker">AVISO DE DISPONIBILIDADE</span><h2>Seu contato já foi registrado.</h2><p>Quando houver disponibilidade para sua região, o TAMÃO poderá avisar pelo WhatsApp informado.</p></div><button class="secondary" onclick="go(\'learn\')">Conhecer o TAMÃO</button></div></section>';
   }
   const rawPostal=leadPostalDigits(state.postalCode||'');
   const postal=rawPostal.length===8?rawPostal.replace(/^(\d{5})(\d{3})$/,'$1-$2'):rawPostal;
   return [
     '<section class="section lead-section" id="early-access"><div class="lead-shell">',
-      '<div class="lead-copy"><span class="section-kicker">ABERTURA EM SÃO GABRIEL</span><h2>Seja um dos primeiros a usar o TAMÃO.</h2>',
-      '<p>Deixe seu WhatsApp e CEP. Além de avisar na abertura, isso mostra em quais regiões existe demanda real para buscarmos parceiros primeiro.</p>',
+      '<div class="lead-copy"><span class="section-kicker">CONSULTAR DISPONIBILIDADE</span><h2>Quer receber pelo TAMÃO nesta região?</h2>',
+      '<p>Informe seu WhatsApp e CEP. Se ainda não houver uma revenda disponível para atender, avisamos quando a cobertura chegar à sua região.</p>',
       '<div class="lead-proof"><span>✓ Cadastro gratuito</span><span>✓ Sem pedido automático</span><span>✓ Você escolhe quando comprar</span></div></div>',
       '<div class="lead-form card flat">',
         '<div class="field-row"><div class="input-wrap"><label for="prelaunch-name">Seu nome <small>(opcional)</small></label><input id="prelaunch-name" class="input" maxlength="120" autocomplete="name" placeholder="Como podemos chamar você?"></div>',
@@ -72,8 +72,8 @@ function prelaunchCustomerLeadSection(){
           '<label><input type="checkbox" name="prelaunch-interest" value="other"><span>＋ Outros</span></label>',
         '</fieldset>',
         '<input id="prelaunch-website" class="lead-trap" tabindex="-1" autocomplete="off" aria-hidden="true" aria-label="Não preencher este campo" name="website" value="">',
-        '<label class="check-row lead-consent"><input id="prelaunch-consent" type="checkbox"><span><strong>Quero receber o aviso de abertura pelo WhatsApp.</strong><small>Usaremos estes dados para contato de pré-lançamento e disponibilidade. Nenhuma compra é criada por este cadastro.</small></span></label><div class="lead-privacy-note">Saiba como tratamos seus dados no <button class="text-link" onclick="go(\'privacy\')">Aviso de Privacidade</button>.</div>',
-        '<button id="prelaunch-submit" class="primary full" onclick="submitPrelaunchCustomerLead()">Quero ser avisado na abertura</button>',
+        '<label class="check-row lead-consent"><input id="prelaunch-consent" type="checkbox"><span><strong>Quero receber um aviso de disponibilidade pelo WhatsApp.</strong><small>Usaremos estes dados somente para informar disponibilidade e atendimento. Nenhuma compra é criada por este cadastro.</small></span></label><div class="lead-privacy-note">Saiba como tratamos seus dados no <button class="text-link" onclick="go(\'privacy\')">Aviso de Privacidade</button>.</div>',
+        '<button id="prelaunch-submit" class="primary full" onclick="submitPrelaunchCustomerLead()">Quero receber aviso de disponibilidade</button>',
         '<div id="prelaunch-result" class="lead-result" role="status" aria-live="polite"></div>',
       '</div></div>',
       '<div class="lead-partner-link"><span>Tem uma revenda ou comércio local?</span><button class="ghost small" onclick="go(\'merchants\')">Quero vender no TAMÃO →</button></div>',
@@ -95,7 +95,7 @@ async function submitPrelaunchCustomerLead(){
   if(!interests.length)return toast('Marque pelo menos um produto de interesse');
   if(!consent)return toast('Confirme que podemos avisar você pelo WhatsApp');
   if(!globalThis.prelaunchLeadSubmit)return toast('Cadastro temporariamente indisponível');
-  const oldText=button?.textContent||'Quero ser avisado na abertura';
+  const oldText=button?.textContent||'Quero receber aviso de disponibilidade';
   if(button){button.disabled=true;button.textContent='Salvando…'}
   if(result){result.textContent='';result.className='lead-result'}
   try{
@@ -110,12 +110,12 @@ async function submitPrelaunchCustomerLead(){
 }
 function prelaunchMerchantLeadSection(){
   if(prelaunchLeadSent('merchant')){
-    return '<section class="section" id="partner-interest"><div class="lead-success-card partner"><span class="lead-success-icon">✓</span><div><span class="section-kicker">PARCEIRO FUNDADOR</span><h2>Interesse da sua empresa já registrado.</h2><p>O TAMÃO poderá entrar em contato pelo WhatsApp informado para conhecer sua operação e orientar os próximos passos.</p></div></div></section>';
+    return '<section class="section" id="partner-interest"><div class="lead-success-card partner"><span class="lead-success-icon">✓</span><div><span class="section-kicker">CADASTRO DE PARCEIRO</span><h2>Interesse da sua empresa já registrado.</h2><p>O TAMÃO poderá entrar em contato pelo WhatsApp informado para conhecer sua operação e orientar os próximos passos.</p></div></div></section>';
   }
   return [
     '<section class="section" id="partner-interest"><div class="partner-lead-shell">',
-      '<div class="lead-copy"><span class="section-kicker">PRIMEIROS PARCEIROS</span><h2>Cadastre o interesse em menos de 1 minuto.</h2>',
-      '<p>Este primeiro contato não exige CNPJ nem coloca sua empresa online. Queremos entender o que você vende e falar com você antes do cadastro operacional completo.</p>',
+      '<div class="lead-copy"><span class="section-kicker">VENDA PELO TAMÃO</span><h2>Cadastre sua empresa em menos de 1 minuto.</h2>',
+      '<p>Comece com os dados básicos da sua empresa. Depois, o TAMÃO orienta o cadastro operacional necessário para receber pedidos.</p>',
       '<div class="lead-proof"><span>✓ Sem exclusividade</span><span>✓ Sem mensalidade no modelo atual</span><span>✓ Você controla preço e disponibilidade</span></div></div>',
       '<div class="lead-form card flat">',
         '<div class="input-wrap"><label for="partner-business">Nome da empresa</label><input id="partner-business" class="input" maxlength="120" autocomplete="organization" placeholder="Nome da revenda ou comércio"></div>',

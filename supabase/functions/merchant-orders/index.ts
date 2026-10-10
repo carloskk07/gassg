@@ -233,7 +233,7 @@ Deno.serve(async(req:Request)=>{
     }
 
     if(!isOperationalMerchantRole(selected.member_role)){
-      return json({error:"MERCHANT_ROLE_NOT_ENABLED",message:"Este papel ainda não possui painel operacional no piloto."},403,origin);
+      return json({error:"MERCHANT_ROLE_NOT_ENABLED",message:"Este papel não possui acesso ao painel operacional desta conta."},403,origin);
     }
 
     const membershipMerchantIds=operationalMerchantMemberships(memberships)

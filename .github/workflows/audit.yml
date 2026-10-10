@@ -77,6 +77,8 @@ jobs:
         run: node tests/admin-psp-pilot-center-v1-145.mjs
       - name: First real PSP pilot preflight V1.146 regression contract
         run: node tests/first-real-psp-pilot-preflight-v1-146.mjs
+      - name: Production trust language V1.147 regression contract
+        run: node tests/production-language-v1-147.mjs
       - name: Remote admin gateway contract and portal report
         run: node tests/remote-admin-readiness.mjs
       - name: Runtime origin config contract
@@ -141,9 +143,9 @@ jobs:
           grep -Fq "Pediu? Tá na mão." /tmp/home.html
           grep -q "PROTEÇÃO TAMÃO" /tmp/home.html
           grep -q "Botijão de cozinha 13 kg" /tmp/home.html
-          grep -q "Quero ser avisado na abertura" /tmp/home.html
-          grep -q "ONDE ESTAMOS AGORA" /tmp/home.html
-          grep -q "Primeiro parceiro piloto em preparação" /tmp/home.html
+          grep -q "Quero receber aviso de disponibilidade" /tmp/home.html
+          grep -q "ATENDIMENTO POR REGIÃO" /tmp/home.html
+          grep -q "Rede de parceiros" /tmp/home.html
           grep -q "Quero comprar" /tmp/home.html
           grep -q "Quero vender no TAMÃO" /tmp/home.html
           grep -q "Antes de pedir, veja quanto custa" /tmp/learn.html
@@ -153,9 +155,9 @@ jobs:
           grep -q "Indique um novo comprador" /tmp/refer.html
           grep -q "Transforme capacidade de entrega em novas vendas" /tmp/merchants.html
           grep -q "SIMULADOR DE MARGEM INCREMENTAL" /tmp/merchants.html
-          grep -q "Cadastre o interesse em menos de 1 minuto" /tmp/merchants.html
-          grep -q "Quero ser parceiro fundador" /tmp/merchants.html
-          grep -q "PARCEIRO FUNDADOR" /tmp/merchants.html
+          grep -q "Cadastre sua empresa em menos de 1 minuto" /tmp/merchants.html
+          grep -q "Cadastrar minha empresa" /tmp/merchants.html
+          grep -q "VENDA PELO TAMÃO" /tmp/merchants.html
           grep -q "Aviso de Privacidade" /tmp/privacy.html
           grep -q "Seus direitos" /tmp/privacy.html
           grep -q "Termos de Uso" /tmp/terms.html

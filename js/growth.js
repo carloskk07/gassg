@@ -294,7 +294,7 @@ function learn(){
       <details><summary>E se ninguém aceitar?</summary><p>O pedido não é apresentado como confirmado sem aceite real. O sistema pode tentar outras opções elegíveis dentro das regras do pedido e informa quando não houver atendimento disponível.</p></details>
       <details><summary>Como a entrega é concluída?</summary><p>A conclusão exige confirmação de pagamento e o código de recebimento do pedido. Informe esse código somente quando o pedido estiver com você.</p></details>
       <details><summary>Como funciona o cashback?</summary><p>Compras elegíveis podem gerar crédito para reduzir compras futuras dentro do TAMÃO. O saldo aparece no Clube TAMÃO.</p></details>
-      <details><summary>Também posso ganhar indicando pessoas?</summary><p>Sim. No piloto, a primeira compra qualificada de cada novo cliente indicado pode gerar comissão após entrega, pagamento e validação. Compras posteriores do mesmo cliente não geram outra comissão de aquisição.</p></details>
+      <details><summary>Também posso ganhar indicando pessoas?</summary><p>Sim. Quando a campanha de indicação estiver disponível, a primeira compra qualificada de cada novo cliente indicado pode gerar comissão após entrega, pagamento e validação. Compras posteriores do mesmo cliente não geram outra comissão de aquisição.</p></details>
       <details><summary>Tenho uma revenda. Posso vender outros produtos além de gás?</summary><p>Sim. A proposta inclui gás e produtos relacionados, com preço e estoque controlados por SKU. GLP exige a validação regulatória aplicável.</p></details>
     </div></section>
 
@@ -317,13 +317,13 @@ async function activateCashAccount(){
     if(el)el.value='';
   }catch(e){
     const msg=String(e?.message||e);
-    toast(/manual linking|identity linking/i.test(msg)?'Ativação por e-mail ainda precisa ser habilitada no Auth do piloto':msg);
+    toast(/manual linking|identity linking/i.test(msg)?'A ativação por e-mail está temporariamente indisponível':msg);
   }
 }
 
 async function shareReferral(){
   const url=referralUrl();
-  if(!url)return toast('Link real de indicação ainda indisponível');
+  if(!url)return toast('Link de indicação indisponível no momento');
   const text=`Use o TAMÃO para consultar preço e pedir gás e outros itens em São Gabriel: ${url}`;
   try{
     if(navigator.share){
@@ -345,7 +345,7 @@ function merchantsLanding(){
   const portal=globalThis.merchantPortalRequested?.()===true;
   const internalPilot=globalThis.CHAMA_INTERNAL_PILOT===true;
   const cta=internalPilot?"setMode('merchant')":"openPrelaunchMerchantLead()";
-  const ctaLabel=internalPilot?'Experimentar painel da revenda':'Quero ser parceiro fundador';
+  const ctaLabel=internalPilot?'Abrir ambiente interno':'Cadastrar minha empresa';
   const jrPrice=115.90;
   const merchantFeeLabel=policyPercent(merchantPilotFeeRate());
   const initial=merchantMarginExample({salePrice:jrPrice,orders:50});
@@ -427,17 +427,17 @@ function merchantsLanding(){
       <div class="how-card"><span>4</span><div><strong>Conclua com prova</strong><p>Pagamento confirmado e código de recebimento encerram a entrega com rastreabilidade.</p></div></div>
     </div></section>
 
-    <section class="section"><div class="section-head"><div><span class="section-kicker">COMO O DINHEIRO FUNCIONA</span><h2>Venda, taxa e repasse são coisas diferentes.</h2><p>Antes da abertura pública, o fluxo financeiro real será validado ponta a ponta. O TAMÃO não promete prazo de repasse antes dessa comprovação.</p></div></div>
+    <section class="section"><div class="section-head"><div><span class="section-kicker">COMO O DINHEIRO FUNCIONA</span><h2>Venda, recebimento e taxa TAMÃO são separados.</h2><p>O valor da venda pertence à revenda. Quando o cliente paga por um meio cadastrado pela empresa, o recebimento acontece diretamente na conta ou operação da própria revenda; o TAMÃO registra e concilia somente o que precisa para operar a plataforma.</p></div></div>
       <div class="money-flow">
         <div><span>1</span><strong>Pedido</strong><small>Preço e política financeira ficam registrados.</small></div>
         <b>→</b>
-        <div><span>2</span><strong>Pagamento</strong><small>A forma solicitada acompanha o pedido.</small></div>
+        <div><span>2</span><strong>Pagamento</strong><small>O cliente paga pela forma disponível da própria revenda.</small></div>
         <b>→</b>
         <div><span>3</span><strong>Conclusão</strong><small>Pagamento + código confirmam a entrega.</small></div>
         <b>→</b>
-        <div><span>4</span><strong>Conciliação</strong><small>Taxa TAMÃO, cashback e ajustes ficam separados contabilmente.</small></div>
+        <div><span>4</span><strong>Conciliação</strong><small>A venda da revenda e as cobranças do TAMÃO permanecem separadas.</small></div>
       </div>
-      <div class="notice" style="margin-top:12px"><strong>Repasse ainda em validação operacional.</strong><br>Pix, dinheiro, cartão, cashback, estorno e conciliação precisam ser comprovados no piloto real antes de o TAMÃO publicar um prazo de repasse.</div>
+      <div class="notice success" style="margin-top:12px"><strong>O TAMÃO não recebe a venda para depois repassar.</strong><br>O recebimento do cliente fica com a revenda. Taxas e créditos devidos ao TAMÃO são tratados separadamente no financeiro da plataforma.</div>
     </section>
 
     <section class="section"><div class="section-head"><div><span class="section-kicker">O QUE VOCÊ CONTROLA</span><h2>Sua operação continua sendo sua.</h2></div></div>
@@ -449,7 +449,7 @@ function merchantsLanding(){
       </div>
     </section>
 
-    <section class="section"><div class="founder-band"><div><span class="section-kicker light">PARCEIRO FUNDADOR — SÃO GABRIEL</span><h2>Entre cedo para ajudar a definir a operação antes da abertura pública.</h2><p>Os primeiros parceiros do piloto recebem onboarding acompanhado, acesso antecipado às ferramentas e canal direto de feedback. Isso não garante volume de pedidos nem renda; o objetivo é construir a operação junto com empresas locais.</p></div><div class="founder-points"><span>✓ Onboarding acompanhado</span><span>✓ Acesso antecipado ao painel</span><span>✓ Feedback direto nas melhorias</span><span>✓ Histórico de participação no piloto</span></div></div></section>
+    <section class="section"><div class="founder-band"><div><span class="section-kicker light">VENDA PELO TAMÃO — SÃO GABRIEL</span><h2>Adicione o TAMÃO aos canais que sua empresa já usa.</h2><p>O cadastro é acompanhado, sua empresa mantém controle de preço, estoque e disponibilidade e pode usar seus próprios meios de recebimento. O TAMÃO não promete volume de pedidos nem renda.</p></div><div class="founder-points"><span>✓ Cadastro acompanhado</span><span>✓ Painel da revenda</span><span>✓ Controle da operação</span><span>✓ Sem exclusividade</span></div></div></section>
 
     <section class="section"><div class="merchant-requirements"><div><span class="section-kicker light">PARA ATIVAR DE VERDADE</span><h2>Cadastro curto, ativação responsável.</h2><p>Para vender ao público, precisamos identificar a empresa e o responsável. Operação com GLP passa também pela validação regulatória aplicável.</p></div>
       <div class="requirement-list"><span>✓ CNPJ e dados da empresa</span><span>✓ Responsável e contato</span><span>✓ Endereço da operação</span><span>✓ Validação ANP quando houver GLP</span></div>
@@ -461,12 +461,12 @@ function merchantsLanding(){
       <details><summary>Posso continuar vendendo pelo WhatsApp e telefone?</summary><p>Sim. A proposta atual não exige exclusividade. O TAMÃO é um canal adicional.</p></details>
       <details><summary>Quando existe a taxa de ${merchantFeeLabel}?</summary><p>Na política comercial atual, a taxa da plataforma incide sobre o valor bruto de cada pedido concluído. O percentual exibido é sincronizado com a política vigente para novos pedidos.</p></details>
       <details><summary>Quem define preço, estoque e entrega?</summary><p>A própria revenda controla preço por produto, estoque, taxa de entrega, prazo operacional e disponibilidade.</p></details>
-      <details><summary>Quando o dinheiro é repassado?</summary><p>O fluxo real de cobrança, conciliação e repasse ainda está em validação. O TAMÃO não publica prazo antes de comprovar o processo ponta a ponta.</p></details>
+      <details><summary>Como recebo o dinheiro da venda?</summary><p>O recebimento do cliente é feito pela própria revenda conforme as formas de pagamento cadastradas. O TAMÃO não precisa receber o valor da venda para depois repassar à empresa.</p></details>
       <details><summary>O que acontece se eu aceitar e depois não conseguir entregar?</summary><p>O sistema pode iniciar uma tentativa de rescue antes da saída. Falhas depois do aceite afetam a experiência e devem ser evitadas mantendo preço, estoque e disponibilidade atualizados.</p></details>
       <details><summary>Posso vender além do P13?</summary><p>Sim. O catálogo suporta outros tamanhos de GLP e produtos como água, carvão, lenha e gelo, sujeitos às validações aplicáveis.</p></details>
     </div></section>
 
-    <section class="section"><div class="soft-band"><div><span class="section-kicker">${internalPilot?'TESTE ANTES DE CADASTRAR':'ENTRADA NO PILOTO'}</span><h2>${internalPilot?'Experimente a operação completa agora.':'Veja custo, requisitos e operação antes de ativar.'}</h2><p>${internalPilot?'O painel do JR neste laboratório é simulado e não cria venda real. Use-o para entender a rotina antes de cadastrar os dados definitivos.':'Enviar o cadastro não coloca a empresa online automaticamente e não cria cobrança. A ativação depende da aprovação e das validações aplicáveis.'}</p></div><button class="primary" onclick="${cta}">${ctaLabel}</button></div></section>
+    <section class="section"><div class="soft-band"><div><span class="section-kicker">${internalPilot?'AMBIENTE INTERNO':'CADASTRO DE PARCEIRO'}</span><h2>${internalPilot?'Conheça a rotina operacional.':'Veja custos, requisitos e cadastre sua empresa.'}</h2><p>${internalPilot?'Este ambiente é reservado à validação interna e não altera a operação pública.':'Enviar o cadastro não coloca a empresa online automaticamente e não cria cobrança. A ativação acontece depois da aprovação e das validações aplicáveis.'}</p></div><button class="primary" onclick="${cta}">${ctaLabel}</button></div></section>
   </section>`)
 }
 function currentMerchantPilotInviteToken(){
@@ -485,7 +485,7 @@ function merchantJoin(){
   }
   if(globalThis.__CHAMA_TEST__!==true&&!globalThis.merchantPortalRequested?.())return merchantRealPortalRequired();
   const pilotInvite=globalThis.merchantPortalRequested?.()?currentMerchantPilotInviteToken():'';
-  return shell(`<section class="page"><button class="back" onclick="go('merchants')">← Para revendas</button><h1 class="page-title">Quero ser parceiro</h1><p class="muted">${globalThis.merchantPortalRequested?.()?'Preencha os dados para enviar sua empresa para análise.':'Ambiente isolado de teste.'}</p>${pilotInvite?'<div class="notice success" style="margin-bottom:14px"><strong>Convite de parceiro piloto detectado.</strong><br>Seus dados serão vinculados às condições comerciais já registradas. A operação continuará offline até aprovação, compliance, estoque e disponibilidade serem confirmados.</div>':''}<div class="card flat form-stack"><div class="field-row"><div class="input-wrap"><label for="j-cnpj">CNPJ</label><input id="j-cnpj" autocapitalize="characters" maxlength="18" class="input" placeholder="00.000.000/0000-00 ou alfanumérico"></div><div class="input-wrap"><label for="j-name">Nome da empresa</label><input id="j-name" maxlength="90" class="input" placeholder="Nome da revenda"></div></div><div class="field-row"><div class="input-wrap"><label for="j-owner">Responsável</label><input id="j-owner" maxlength="90" class="input" placeholder="Nome do responsável"></div><div class="input-wrap"><label for="j-phone">WhatsApp</label><input id="j-phone" inputmode="tel" maxlength="20" class="input" placeholder="(55) 99999-9999"></div></div><div class="input-wrap"><label for="j-address">Endereço</label><input id="j-address" maxlength="160" class="input" placeholder="Endereço da empresa"></div><button class="primary" onclick="joinMerchant()">Enviar para análise</button></div><div class="notice" style="margin-top:14px">O cadastro não coloca a empresa online automaticamente. A operação entra nas ofertas somente depois da aprovação e, quando houver GLP, da validação regulatória aplicável.</div></section>`)
+  return shell(`<section class="page"><button class="back" onclick="go('merchants')">← Para revendas</button><h1 class="page-title">Quero ser parceiro</h1><p class="muted">${globalThis.merchantPortalRequested?.()?'Preencha os dados para enviar sua empresa para análise.':'Acesse o portal de parceiros para continuar o cadastro.'}</p>${pilotInvite?'<div class="notice success" style="margin-bottom:14px"><strong>Convite de parceiro reconhecido.</strong><br>Seus dados serão vinculados às condições comerciais já registradas. A operação continuará offline até aprovação, compliance, estoque e disponibilidade serem confirmados.</div>':''}<div class="card flat form-stack"><div class="field-row"><div class="input-wrap"><label for="j-cnpj">CNPJ</label><input id="j-cnpj" autocapitalize="characters" maxlength="18" class="input" placeholder="00.000.000/0000-00 ou alfanumérico"></div><div class="input-wrap"><label for="j-name">Nome da empresa</label><input id="j-name" maxlength="90" class="input" placeholder="Nome da revenda"></div></div><div class="field-row"><div class="input-wrap"><label for="j-owner">Responsável</label><input id="j-owner" maxlength="90" class="input" placeholder="Nome do responsável"></div><div class="input-wrap"><label for="j-phone">WhatsApp</label><input id="j-phone" inputmode="tel" maxlength="20" class="input" placeholder="(55) 99999-9999"></div></div><div class="input-wrap"><label for="j-address">Endereço</label><input id="j-address" maxlength="160" class="input" placeholder="Endereço da empresa"></div><button class="primary" onclick="joinMerchant()">Enviar para análise</button></div><div class="notice" style="margin-top:14px">O cadastro não coloca a empresa online automaticamente. A operação entra nas ofertas somente depois da aprovação e, quando houver GLP, da validação regulatória aplicável.</div></section>`)
 }
 function onlyDigits(v){return String(v||'').replace(/\D/g,'')}
 function isValidPhoneShape(v){const n=onlyDigits(v);return n.length===10||n.length===11}
@@ -511,10 +511,10 @@ async function joinMerchant(){
         address:address.slice(0,160),
         ...(pilotInviteToken?{pilotInviteToken}:{})
       });
-      toast(result?.pilotPartner?.pilotPartnerName?'Cadastro piloto vinculado e enviado para análise':'Cadastro real enviado para análise');
+      toast(result?.pilotPartner?.pilotPartnerName?'Cadastro vinculado e enviado para análise':'Cadastro enviado para análise');
       if(result?.pilotPartner)clearCurrentMerchantPilotInviteToken();
       globalThis.merchantRuntime.notice=result?.pilotPartner?.pilotPartnerName
-        ? 'Cadastro vinculado ao parceiro piloto '+String(result.pilotPartner.pilotPartnerName)+'. Aguarde a aprovação e as validações operacionais.'
+        ? 'Cadastro vinculado ao parceiro '+String(result.pilotPartner.pilotPartnerName)+'. Aguarde a aprovação e as validações operacionais.'
         : 'Cadastro '+String(result?.companyName||name)+' recebido. Aguarde a validação e o vínculo da operação.';
       go('merchant');
       render();

@@ -289,7 +289,7 @@ async function backendInit(){
   }
   if(!customerOriginSafe()){
     liveRuntime.status='unsafe-origin';
-    liveRuntime.error='O piloto real do cliente exige uma origem dedicada e isolada.';
+    liveRuntime.error='A compra online exige o endereço oficial e seguro do TAMÃO.';
     return false;
   }
   if(liveRuntime.status==='ready')return true;
@@ -1904,13 +1904,13 @@ async function merchantUpdatePaymentMethodsLive(methods){
 
 function merchantPilotInviteErrorMessage(error){
   const raw=String(error?.message||error?.details||error?.hint||error||'');
-  if(raw.includes('PILOT_INVITE_EXPIRED'))return 'Este convite piloto expirou. Solicite um novo link.';
-  if(raw.includes('PILOT_INVITE_REVOKED'))return 'Este convite piloto foi revogado.';
-  if(raw.includes('PILOT_INVITE_ALREADY_CLAIMED'))return 'Este convite piloto já foi usado por outra conta.';
-  if(raw.includes('PILOT_PARTNER_ALREADY_CONVERTED'))return 'Este parceiro piloto já foi convertido em revenda.';
-  if(raw.includes('APPLICATION_PILOT_LINK_CONFLICT'))return 'Este cadastro já está ligado a outro convite piloto.';
-  if(raw.includes('INVALID_PILOT_INVITE'))return 'Convite piloto inválido.';
-  return raw||'Não foi possível vincular o convite piloto';
+  if(raw.includes('PILOT_INVITE_EXPIRED'))return 'Este convite de parceiro expirou. Solicite um novo link.';
+  if(raw.includes('PILOT_INVITE_REVOKED'))return 'Este convite de parceiro foi revogado.';
+  if(raw.includes('PILOT_INVITE_ALREADY_CLAIMED'))return 'Este convite de parceiro já foi usado por outra conta.';
+  if(raw.includes('PILOT_PARTNER_ALREADY_CONVERTED'))return 'Este parceiro já foi convertido em revenda.';
+  if(raw.includes('APPLICATION_PILOT_LINK_CONFLICT'))return 'Este cadastro já está ligado a outro convite de parceiro.';
+  if(raw.includes('INVALID_PILOT_INVITE'))return 'Convite de parceiro inválido.';
+  return raw||'Não foi possível vincular o convite de parceiro';
 }
 
 async function merchantClaimPilotInviteLive(applicationId,pilotInviteToken){

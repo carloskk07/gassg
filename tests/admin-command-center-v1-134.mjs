@@ -68,9 +68,9 @@ assert.ok(adminPage.includes('adminFinanceOverview(d)')
   'Financeiro precisa abrir com visão executiva antes da implementação detalhada');
 
 assert.ok(admin.includes('admin-psp-status-grid')
-  &&admin.includes('Pagamento E2E')
+  &&admin.includes('Validação transacional')
   &&admin.includes('API Mercado Pago'),
-  'PSP deve mostrar estados operacionais em um grid legível');
+  'PSP deve mostrar configuração, API e validação transacional em um grid legível');
 
 assert.ok(admin.includes('tamao-admin-provider-health-v1')
   &&admin.includes('ADMIN_PROVIDER_HEALTH_CACHE_MS=10*60*1000')

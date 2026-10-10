@@ -33,9 +33,9 @@ assert.ok(
 assert.ok(
   merchant.includes("connectionId:null")
   &&merchant.includes("fundsOwner:'merchant'")
-  &&merchant.includes('sem senha ou chave de API')
+  &&merchant.includes('sem compartilhar senha ou chave de API')
   &&merchant.includes('TAMÃO não recebe nem repassa'),
-  'fallback não pode pedir segredo, custódia ou repasse da venda'
+  'fallback não pode pedir segredo nem criar custódia ou repasse da venda'
 );
 
 assert.ok(

@@ -100,18 +100,18 @@ assert.ok(
 );
 
 assert.ok(
-  admin.includes('Executar preflight')
-  &&admin.includes('Preflight V1.146 aprovado.')
-  &&admin.includes('Preflight bloqueado.')
+  admin.includes('Verificar ativação')
+  &&admin.includes('Verificação de ativação aprovada.')
+  &&admin.includes('Ativação bloqueada.')
   &&admin.includes('adminRunMerchantPaymentPreflight')
-  &&admin.includes('disabled title="Execute e aprove o preflight antes da ativação"'),
-  'Admin deve exigir checklist visível antes de habilitar o botão do piloto'
+  &&admin.includes('disabled title="Conclua a verificação antes da ativação"'),
+  'Admin deve exigir verificação visível antes de habilitar a confirmação automática'
 );
 
 assert.ok(
-  admin.includes("const typed=activationKind==='pilot'?'ATIVAR PILOTO':'REATIVAR'")
+  admin.includes("const typed=activationKind==='pilot'?'ATIVAR PAGAMENTOS':'REATIVAR'")
   &&admin.includes('const fresh=await adminRunMerchantPaymentPreflight')
-  &&admin.includes('O estado mudou depois da confirmação. O piloto permaneceu bloqueado.'),
+  &&admin.includes('O estado mudou depois da confirmação. A ativação permaneceu bloqueada.'),
   'ativação deve usar confirmação reforçada e revalidar imediatamente antes da escrita'
 );
 

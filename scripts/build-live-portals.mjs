@@ -37,8 +37,9 @@ export function assertProductionTurnstile(env=process.env){
   return key;
 }
 
-function headers(){
-  return [
+function headers(portal){
+  const role=validatePortalRole(portal,{required:true});
+  const lines=[
     '/*',
     '  X-Content-Type-Options: nosniff',
     '  X-Frame-Options: DENY',
@@ -52,15 +53,43 @@ function headers(){
     '/js/runtime-config.js',
     '  Cache-Control: no-cache, no-store, must-revalidate',
     ''
-  ].join('\n');
+  ];
+  if(role!=='customer'){
+    lines.splice(7,0,'  X-Robots-Tag: noindex, nofollow, noarchive, nosnippet');
+  }
+  return lines.join('\n');
 }
 
 function patchIndex(html,portal){
   const role=validatePortalRole(portal,{required:true});
   const meta=PORTALS[role];
+  const robots=role==='customer'
+    ? 'index,follow,max-image-preview:large'
+    : 'noindex,nofollow,noarchive,nosnippet';
   return html
     .replace(/<title>[^<]*<\/title>/,`<title>${meta.title}</title>`)
+    .replace(/<meta name="robots" content="[^"]*" \/>/,`<meta name="robots" content="${robots}" />`)
     .replace('<body>',`<body data-chama-portal="${role}">`);
+}
+
+function writePortalRobots(target,role){
+  if(role==='customer'){
+    fs.writeFileSync(
+      path.join(target,'robots.txt'),
+      'User-agent: *\nAllow: /\n\nSitemap: https://tamao.com.br/sitemap.xml\n',
+      'utf8'
+    );
+    fs.writeFileSync(
+      path.join(target,'sitemap.xml'),
+      '<?xml version="1.0" encoding="UTF-8"?>\n'
+        +'<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n'
+        +'  <url><loc>https://tamao.com.br/</loc></url>\n'
+        +'</urlset>\n',
+      'utf8'
+    );
+    return;
+  }
+  fs.writeFileSync(path.join(target,'robots.txt'),'User-agent: *\nDisallow: /\n','utf8');
 }
 
 function patchManifest(raw,portal){
@@ -115,7 +144,8 @@ export function buildLivePortals(env=process.env,{outputRoot=env.PORTAL_BUILD_OU
     fs.writeFileSync(path.join(target,'index.html'),patchIndex(indexRaw,role),'utf8');
     fs.writeFileSync(path.join(target,'manifest.webmanifest'),patchManifest(manifestRaw,role),'utf8');
     fs.writeFileSync(path.join(target,'sw.js'),patchServiceWorker(serviceWorkerRaw,sourceSha),'utf8');
-    fs.writeFileSync(path.join(target,'_headers'),headers(),'utf8');
+    writePortalRobots(target,role);
+    fs.writeFileSync(path.join(target,'_headers'),headers(role),'utf8');
     fs.writeFileSync(path.join(target,'_redirects'),'/* /index.html 200\n','utf8');
     fs.writeFileSync(path.join(target,'portal-build.json'),JSON.stringify({
       schemaVersion:1,

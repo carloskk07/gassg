@@ -712,7 +712,7 @@ function adminAttentionItems(d){
     if(attempt.pilot_guard!==true)continue;
     const status=String(attempt.status||'');
     if(status==='review_required'){
-      push('critical','Piloto PSP exige revisão',
+      push('critical','Pagamento automático exige revisão',
         adminMerchantName(attempt.merchant_id)+' • '+adminBillingProviderName(attempt.provider)+' • '+adminMerchantPilotIssueLabel(attempt.last_error_code),
         attempt.order_id?{type:'order',id:attempt.order_id}:{section:'finance'});
       continue;
@@ -720,7 +720,7 @@ function adminAttentionItems(d){
     if(['preparing','checkout_ready','pending','approved'].includes(status)){
       const age=now-Date.parse(attempt.created_at||attempt.updated_at||new Date().toISOString());
       if(age>2*60*60*1000){
-        push('high','Piloto PSP aberto há +2h',
+        push('high','Validação de pagamento aberta há +2h',
           adminMerchantName(attempt.merchant_id)+' • '+adminBillingProviderName(attempt.provider)+' • '+status.toUpperCase(),
           attempt.order_id?{type:'order',id:attempt.order_id}:{section:'finance'});
       }
@@ -903,7 +903,7 @@ function adminSystemHealthView(){
       <div class="kpi"><span class="label">Banco</span><strong>${h.database?.ok?'OK':'FALHA'}</strong><small>${esc(h.database?.operationMode||'—')}</small></div>
       <div class="kpi"><span class="label">Portais</span><strong>${h.portals?.ok?'3/3':'ATENÇÃO'}</strong><small>${esc(h.portals?.sourceSha?.slice(0,8)||'SHA divergente')}</small></div>
       <div class="kpi"><span class="label">${esc(providerName)}</span><strong>${h.paymentProvider?.ok?'API OK':String(h.paymentProvider?.status||'PENDENTE').toUpperCase()}</strong><small>${h.paymentProvider?.credentialValid===true?esc(credentialLabel)+' válido':h.paymentProvider?.credentialValid===false?esc(credentialLabel)+' rejeitado':'sem prova de API'}</small></div>
-      <div class="kpi"><span class="label">PSP E2E</span><strong>${e2e.validated?'VALIDADO':'PENDENTE'}</strong><small>${e2e.validated?'webhook real conciliado':'aguarda pagamento real de prova'}</small></div>
+      <div class="kpi"><span class="label">PSP transacional</span><strong>${e2e.validated?'VALIDADO':'PENDENTE'}</strong><small>${e2e.validated?'transação verificada e conciliada':'aguarda primeira transação verificada'}</small></div>
       <div class="kpi"><span class="label">Suporte aberto</span><strong>${Number(h.queues?.openSupport||0)}</strong></div>
       <div class="kpi"><span class="label">Reward failures</span><strong>${Number(h.queues?.rewardFailures||0)}</strong></div>
       <div class="kpi"><span class="label">Accounting failures</span><strong>${Number(h.queues?.accountingFailures||0)}</strong></div>
@@ -1159,6 +1159,21 @@ function adminNavIcon(id){
   };
   return '<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">'+(paths[id]||paths.overview)+'</svg>';
 }
+function adminOperationModeLabel(mode){
+  return ({
+    PRELAUNCH:'CONFIGURAÇÃO',
+    PILOT:'OPERAÇÃO ATIVA',
+    LIVE:'OPERAÇÃO NORMAL',
+    PAUSED:'OPERAÇÃO PAUSADA'
+  })[String(mode||'').toUpperCase()]||String(mode||'—').toUpperCase();
+}
+function adminReadinessStateLabel(state){
+  return ({
+    READY:'PRONTO',
+    READY_WITH_WARNINGS:'ATENÇÃO',
+    BLOCKED_SECURITY:'BLOQUEADO'
+  })[String(state||'').toUpperCase()]||String(state||'—').toUpperCase();
+}
 function adminOperationalStrip(d){
   const readiness=d.launchReadiness||{};
   const mode=String(readiness.operationMode||(readiness.commerceEnabled?'LIVE':'PRELAUNCH')).toUpperCase();
@@ -1169,7 +1184,7 @@ function adminOperationalStrip(d){
   const ingress=billing.paymentIngress||{};
   const e2e=adminBillingE2EState(d);
   const provider=adminBillingProviderName(ingress.activeBillingProvider||adminRuntime.providerHealth?.provider);
-  const providerState=e2e.validated?'E2E validado':adminRuntime.providerHealth?.ok===true?'API validada':ingress.livePspReady?'configurado':'pendente';
+  const providerState=e2e.validated?'integração verificada':adminRuntime.providerHealth?.ok===true?'API validada':ingress.livePspReady?'configurado':'pendente';
   const tone=blockers?'danger':warnings?'warning':'good';
   return '<div class="admin-ops-strip '+tone+'">'+
     '<div class="admin-ops-primary"><span class="admin-live-dot"></span><div><small>OPERAÇÃO</small><strong>'+esc(mode)+'</strong></div></div>'+
@@ -1396,7 +1411,7 @@ function adminPilotPartnerCard(p){
     revoked:'REVOGADO'
   }[String(onboarding.inviteStatus||'none')]||String(onboarding.inviteStatus||'').toUpperCase();
   return `<article class="order-card">
-    <div class="order-head"><div><div class="order-id">${esc(p.display_name)}</div><div class="tiny muted">Parceiro piloto • ${esc(p.proposed_product_code)}</div></div><span class="status-pill ${statusClass}">${esc(statusLabel)}</span></div>
+    <div class="order-head"><div><div class="order-id">${esc(p.display_name)}</div><div class="tiny muted">Cadastro de parceiro • ${esc(p.proposed_product_code)}</div></div><span class="status-pill ${statusClass}">${esc(statusLabel)}</span></div>
     <div class="order-line"><strong>${p.pricing_mode==='range'?'Faixa comercial confirmada':'Preço comercial informado'}:</strong> ${p.pricing_mode==='range'?adminMoney(p.min_delivered_price_cents)+' mínimo • '+adminMoney(p.preferred_delivered_price_cents)+' normal • '+adminMoney(p.max_delivered_price_cents)+' máximo':adminMoney(p.proposed_delivered_price_cents)} ${p.delivery_included?'com entrega incluída':'antes da entrega'}</div>
     ${p.pricing_mode==='range'?`<div class="order-line"><strong>Estratégia inicial:</strong> ${esc(({volume:'Priorizar volume',balanced:'Equilibrado',margin:'Priorizar margem'})[p.pricing_strategy]||p.pricing_strategy||'—')}</div>`:''}
     <div class="order-line"><strong>Status do preço:</strong> ${p.price_status==='confirmed'?'confirmado':'proposto — ainda não publicar como oferta real'}</div>
@@ -1409,7 +1424,7 @@ function adminPilotPartnerCard(p){
     ${adminPilotInviteControls(p,id)}
     ${p.onboarding_status==='converted'?`<div class="notice success" style="margin-top:10px"><strong>Revenda criada.</strong><br>ID: ${esc(p.merchant_id||'—')}. Compliance e ativação continuam separados.</div>`:''}
     ${convertible?`<div class="divider"></div>
-      <div class="notice"><strong>Converter parceiro piloto em revenda</strong><br>Cria cadastro, dados comerciais, catálogo, estoque inicial e pagamentos selecionados. Compliance permanece <strong>pendente</strong>. A conversão só é liberada quando o convite estiver ligado à conta permanente do parceiro.</div>
+      <div class="notice"><strong>Concluir cadastro e criar revenda</strong><br>Cria cadastro, dados comerciais, catálogo, estoque inicial e pagamentos selecionados. Compliance permanece <strong>pendente</strong>. A conversão só é liberada quando o convite estiver ligado à conta permanente do parceiro.</div>
       <div class="field-row">
         <div class="input-wrap"><label for="${prefix}-legal">Razão social</label><input id="${prefix}-legal" class="input" maxlength="180" value="${esc(prefill.legal)}" placeholder="Razão social real"></div>
         <div class="input-wrap"><label for="${prefix}-cnpj">CNPJ</label><input id="${prefix}-cnpj" class="input" maxlength="24" value="${esc(prefill.cnpj)}" placeholder="CNPJ real"></div>
@@ -1658,7 +1673,7 @@ function adminFinanceOverview(d){
     +(billing.refunds||[]).filter(x=>x.status==='review_required').length;
   const e2e=adminBillingE2EState(d);
   const ingress=billing.paymentIngress||{};
-  const pspLabel=e2e.validated?'E2E validado':adminRuntime.providerHealth?.ok===true?'API validada':ingress.livePspReady?'Configurado':'Pendente';
+  const pspLabel=e2e.validated?'Integração verificada':adminRuntime.providerHealth?.ok===true?'API validada':ingress.livePspReady?'Configurado':'Pendente';
   return `<section class="section admin-finance-overview">
     <div class="section-head"><div><span class="section-kicker">POSIÇÃO FINANCEIRA</span><h2>Visão executiva</h2><p>O que o TAMÃO tem a receber, o que está em risco e a situação real do PSP.</p></div><span class="status-pill ${Number(metrics.overdueStatementCount||0)||pendingReviews?'risk':'online'}">${Number(metrics.overdueStatementCount||0)||pendingReviews?'EXIGE ATENÇÃO':'SEM PENDÊNCIA CRÍTICA'}</span></div>
     <div class="admin-exec-grid finance">
@@ -1918,8 +1933,8 @@ function adminBillingProviderHealthNotice(h){
   if(h.reason)detail+=' • '+esc(h.reason);
   const e2eCopy=e2e.validated
     ?' • webhook financeiro real observado e conciliado'
-    :' • E2E financeiro ainda não comprovado por um pagamento real';
-  return '<div class="notice '+(ok?'success':'danger')+'" style="margin-top:10px"><strong>'+(ok?'API '+provider+' validada.':'Teste real '+provider+' requer atenção.')+'</strong><br>'+detail+e2eCopy+'</div>';
+    :' • validação transacional ainda pendente';
+  return '<div class="notice '+(ok?'success':'danger')+'" style="margin-top:10px"><strong>'+(ok?'API '+provider+' validada.':'Integração '+provider+' requer atenção.')+'</strong><br>'+detail+e2eCopy+'</div>';
 }
 
 function adminMerchantPaymentAdapterLabel(status){
@@ -1969,15 +1984,15 @@ async function adminRunMerchantPaymentPreflight(merchantId,provider,{silent=fals
 }
 function adminMerchantPaymentPreflightView(merchantId,provider){
   const state=adminRuntime.paymentPreflights[adminPaymentPreflightKey(merchantId,provider)]||null;
-  if(!state)return '<div class="tiny muted" style="margin-top:8px">Preflight ainda não executado nesta sessão.</div>';
+  if(!state)return '<div class="tiny muted" style="margin-top:8px">Verificação de ativação ainda não executada nesta sessão.</div>';
   const gates=Array.isArray(state.gates)?state.gates:[];
   const blocked=gates.filter(g=>g?.ok!==true);
   const rows=gates.map(g=>
     '<div class="list-row"><div><strong>'+esc(g.label||g.key||'Gate')+'</strong><br><small>'+esc(g.detail||'—')+'</small></div><span class="status-pill '+(g.ok===true?'online':'offline')+'">'+(g.ok===true?'OK':'BLOQUEADO')+'</span></div>'
   ).join('');
   const summary=state.readyForActivation===true
-    ?'<div class="notice success" style="margin-top:8px"><strong>Preflight V1.146 aprovado.</strong><br>Todos os gates obrigatórios estão verdes. A ativação ainda será revalidada imediatamente antes da escrita.</div>'
-    :'<div class="notice danger" style="margin-top:8px"><strong>Preflight bloqueado.</strong><br>'+blocked.length+' gate(s) impedem o primeiro piloto. Nenhuma capability foi alterada.</div>';
+    ?'<div class="notice success" style="margin-top:8px"><strong>Verificação de ativação aprovada.</strong><br>Todos os requisitos obrigatórios estão atendidos. O estado será conferido novamente antes da ativação.</div>'
+    :'<div class="notice danger" style="margin-top:8px"><strong>Ativação bloqueada.</strong><br>'+blocked.length+' requisito(s) ainda precisam ser resolvidos. Nenhuma configuração financeira foi alterada.</div>';
   return summary
     +'<details class="card flat" style="margin-top:8px"><summary><strong>Checklist técnico ('+(gates.length-blocked.length)+'/'+gates.length+')</strong></summary><div class="list" style="margin-top:8px">'+(rows||'<div class="tiny muted">Sem gates retornados.</div>')+'</div><div class="tiny muted" style="margin-top:8px">Verificado '+esc(adminRelativeTime(state.checkedAt))+'.</div></details>';
 }
@@ -2000,24 +2015,24 @@ function adminMerchantPaymentAccountCard({merchant,account}){
   const adapterImplemented=catalog?.adapter_status==='implemented';
   const statusLabel=!connected
     ?String(account?.status||'NÃO CONECTADO').toUpperCase()
-    :homologated?'HOMOLOGADO'
-      :pilotActive?'PILOTO ATIVO'
+    :homologated?'INTEGRAÇÃO VERIFICADA'
+      :pilotActive?'AUTOMAÇÃO ATIVA'
         :inconsistent?'INCONSISTENTE'
-          :adapterImplemented?'PRONTO PARA PILOTO':'CONECTADO';
+          :adapterImplemented?'PRONTO PARA ATIVAR':'CONECTADO';
   const statusClass=homologated&&globalEnabled?'online':inconsistent?'offline':connected?'risk':'';
   let notice='';
   if(!connected){
     notice='<div class="notice" style="margin-top:8px">A conexão deste provedor não está ativa.</div>';
   }else if(homologated){
-    notice='<div class="notice success" style="margin-top:8px"><strong>Conexão homologada com prova real.</strong><br>Já existe evidência E2E verificada do provedor/terminal para esta revenda. O dinheiro continua indo diretamente para a revenda.</div>';
+    notice='<div class="notice success" style="margin-top:8px"><strong>Integração de pagamento verificada.</strong><br>Já existe evidência transacional confirmada pelo provedor/terminal para esta revenda. O dinheiro continua indo diretamente para a revenda.</div>';
   }else if(pilotActive){
-    notice='<div class="notice" style="margin-top:8px"><strong>Piloto controlado ativo.</strong><br>A automação está liberada para produzir a primeira prova real. O status só vira HOMOLOGADO após uma venda liquidada gerar evidência verificada do próprio provedor/terminal.</div>';
+    notice='<div class="notice" style="margin-top:8px"><strong>Confirmação automática ativa.</strong><br>A integração está liberada e aguarda a primeira transação liquidada para registrar a verificação operacional do provedor/terminal.</div>';
   }else if(inconsistent){
-    notice='<div class="notice danger" style="margin-top:8px"><strong>Estado inconsistente.</strong><br>A capability de pagamento direto está ativa sem autoridade de validação do provedor. Suspenda a automação e revise a homologação.</div>';
+    notice='<div class="notice danger" style="margin-top:8px"><strong>Estado inconsistente.</strong><br>A capability de pagamento direto está ativa sem autoridade de validação do provedor. Suspenda a automação e revise a integração.</div>';
   }else if(adapterImplemented){
-    notice='<div class="notice" style="margin-top:8px"><strong>Conta conectada, automação ainda bloqueada.</strong><br>Ative um piloto controlado para produzir a primeira prova E2E real. Conectar a conta, sozinho, não equivale a homologação.</div>';
+    notice='<div class="notice" style="margin-top:8px"><strong>Conta conectada, automação ainda desativada.</strong><br>Execute a verificação de ativação e habilite a confirmação automática quando todos os requisitos estiverem atendidos.</div>';
   }else{
-    notice='<div class="notice" style="margin-top:8px"><strong>Conta conectada; adaptador de venda ainda não homologado.</strong><br>A conexão pode ser preparada sem liberar pagamentos automáticos ao cliente.</div>';
+    notice='<div class="notice" style="margin-top:8px"><strong>Conta conectada; automação ainda indisponível para este provedor.</strong><br>A revenda pode continuar usando a forma de recebimento cadastrada enquanto a confirmação automática não estiver disponível.</div>';
   }
   const directActive=homologated||pilotActive||inconsistent;
   const preflight=adminRuntime.paymentPreflights[adminPaymentPreflightKey(merchant.id,provider)]||null;
@@ -2025,12 +2040,12 @@ function adminMerchantPaymentAccountCard({merchant,account}){
   const action=connected&&adapterImplemented
     ?directActive
       ?'<div class="order-actions"><button class="danger-btn small" onclick="adminSetMerchantPaymentCapability(\''+esc(merchant.id)+'\',\''+esc(provider)+'\',false)">Suspender confirmação automática</button></div>'
-      :'<div class="order-actions"><button class="secondary small" onclick="adminRunMerchantPaymentPreflight(\''+esc(merchant.id)+'\',\''+esc(provider)+'\').catch(e=>toast(String(e?.message||e)))">Executar preflight</button><button class="primary small" '+(preflightReady?'':'disabled title="Execute e aprove o preflight antes da ativação"')+' onclick="adminSetMerchantPaymentCapability(\''+esc(merchant.id)+'\',\''+esc(provider)+'\',true)">'+(e2eValidated?'Reativar confirmação automática':'Ativar piloto controlado')+'</button></div>'
+      :'<div class="order-actions"><button class="secondary small" onclick="adminRunMerchantPaymentPreflight(\''+esc(merchant.id)+'\',\''+esc(provider)+'\').catch(e=>toast(String(e?.message||e)))">Verificar ativação</button><button class="primary small" '+(preflightReady?'':'disabled title="Conclua a verificação antes da ativação"')+' onclick="adminSetMerchantPaymentCapability(\''+esc(merchant.id)+'\',\''+esc(provider)+'\',true)">'+(e2eValidated?'Reativar confirmação automática':'Ativar confirmação automática')+'</button></div>'
     :'';
   return '<article class="order-card">'
     +'<div class="order-head"><div><div class="order-id">'+esc(merchant?.name||merchant?.id||'Revenda')+'</div><div class="tiny muted">'+esc(providerName)+' • conta '+esc(safeAccountRef)+'</div></div><span class="status-pill '+statusClass+'">'+esc(statusLabel)+'</span></div>'
     +notice
-    +'<div class="tiny muted" style="margin-top:8px">Verificação: <strong>'+esc(adminMerchantPaymentVerificationLabel(account?.verification_level||catalog?.verification_level))+'</strong> • adaptador: '+esc(adminMerchantPaymentAdapterLabel(catalog?.adapter_status))+' • validação do provedor: <strong>'+(canValidate?'ATIVA':'BLOQUEADA')+'</strong> • prova E2E: <strong>'+(e2eValidated?'VALIDADA':'PENDENTE')+'</strong> • kill switch global: <strong>'+(globalEnabled?'ATIVO':'DESATIVADO')+'</strong>'+(account?.connected_at?' • desde '+esc(formatDateTime(account.connected_at)):'')+'</div>'
+    +'<div class="tiny muted" style="margin-top:8px">Verificação: <strong>'+esc(adminMerchantPaymentVerificationLabel(account?.verification_level||catalog?.verification_level))+'</strong> • adaptador: '+esc(adminMerchantPaymentAdapterLabel(catalog?.adapter_status))+' • validação do provedor: <strong>'+(canValidate?'ATIVA':'BLOQUEADA')+'</strong> • integração verificada: <strong>'+(e2eValidated?'VALIDADA':'PENDENTE')+'</strong> • controle global: <strong>'+(globalEnabled?'ATIVO':'DESATIVADO')+'</strong>'+(account?.connected_at?' • desde '+esc(formatDateTime(account.connected_at)):'')+'</div>'
     +(!directActive&&connected&&adapterImplemented?adminMerchantPaymentPreflightView(merchant.id,provider):'')
     +action
     +'</article>';
@@ -2154,27 +2169,27 @@ function adminMerchantPspHomologationQueue(d){
     if(inconsistentRows.length){
       stage='AÇÃO IMEDIATA';
       stageClass='offline';
-      nextAction='Suspender capability inconsistente e repetir a homologação E2E.';
+      nextAction='Suspender a configuração inconsistente e repetir a verificação da integração.';
     }else if(homologatedRows.length){
-      stage='HOMOLOGADO';
+      stage='INTEGRAÇÃO VERIFICADA';
       stageClass='online';
-      nextAction='Monitorar saúde, webhooks/lookups e regressão da prova E2E.';
+      nextAction='Monitorar saúde da integração, webhooks/lookups e conciliação.';
     }else if(pilotRows.length){
-      stage='PILOTO ATIVO';
+      stage='AUTOMAÇÃO ATIVA';
       stageClass='risk';
-      nextAction='Acompanhar a primeira venda real até liquidação; a evidência do provedor promoverá a conta para HOMOLOGADO.';
+      nextAction='Acompanhar a primeira transação até liquidação; a evidência do provedor marcará a integração como verificada.';
     }else if(activeRows.length&&implemented){
-      stage='PRONTO PARA PILOTO';
+      stage='PRONTO PARA ATIVAR';
       stageClass='risk';
-      nextAction='Ativar piloto controlado; a primeira venda liquidada deve produzir a prova E2E antes do status HOMOLOGADO.';
+      nextAction='Ativar confirmação automática; a primeira venda liquidada deve produzir a evidência transacional necessária para verificar a integração.';
     }else if(activeRows.length){
       stage='CONECTADO';
       stageClass='risk';
-      nextAction='Concluir adaptador do provedor e depois executar E2E.';
+      nextAction='Concluir o adaptador do provedor e depois validar uma transação.';
     }else if(implemented){
       stage='IMPLEMENTADO';
       stageClass='risk';
-      nextAction='Conectar uma conta piloto da revenda e executar homologação E2E.';
+      nextAction='Conectar a conta da revenda e executar a validação transacional.';
     }else if(prepared){
       stage='PREPARADO';
       nextAction='Finalizar credenciais/OAuth/terminal e implementar validação transacional.';
@@ -2230,10 +2245,10 @@ function adminMerchantPspHomologationQueue(d){
       ?model.activeAccounts+' conta'+(model.activeAccounts===1?'':'s')+' ativa'+(model.activeAccounts===1?'':'s')
       :'nenhuma conta conectada';
     const proof=model.homologatedAccounts
-      ?model.homologatedAccounts+' homologada'+(model.homologatedAccounts===1?'':'s')
+      ?model.homologatedAccounts+' verificada'+(model.homologatedAccounts===1?'':'s')
       :model.pilotAccounts
-        ?model.pilotAccounts+' piloto'+(model.pilotAccounts===1?'':'s')+' sem prova E2E'
-        :'0 homologadas';
+        ?model.pilotAccounts+' conta'+(model.pilotAccounts===1?'':'s')+' com automação ativa aguardando validação'
+        :'0 verificadas';
     return '<article class="card flat">'
       +'<div class="order-head"><div><strong>'+esc(model.displayName)+'</strong><br><small>'+esc(demand)+' • '+esc(accountSummary)+'</small></div><div style="text-align:right"><span class="status-pill '+model.stageClass+'">'+esc(model.stage)+'</span><br><small>'+esc(model.priority)+'</small></div></div>'
       +'<div class="tiny muted" style="margin-top:8px">Adaptador: <strong>'+esc(adminMerchantPaymentAdapterLabel(model.definition.adapter_status))+'</strong> • modo: <strong>'+esc(String(model.definition.connection_mode||'—').toUpperCase())+'</strong> • '+esc(proof)+'</div>'
@@ -2244,8 +2259,8 @@ function adminMerchantPspHomologationQueue(d){
 
   const p0=models.filter(x=>x.priority==='P0').length;
   const observed=models.filter(x=>x.declaredMerchants>0).length;
-  return '<div class="section-head" style="margin-top:16px"><div><span class="section-kicker">HOMOLOGAÇÃO MULTI-PSP</span><h3>Fila técnica de provedores</h3><p>Prioridade calculada por risco operacional, contas prontas para E2E e demanda declarada. Sem demanda, o TAMÃO não força integração nem troca de PSP.</p></div><span class="status-pill '+(p0?'risk':'')+'">'+p0+' P0 • '+observed+' COM DEMANDA</span></div>'
-    +'<div class="notice"><strong>Regra de autoridade.</strong><br>Conectar ou ativar um piloto não significa homologar. Só existe status HOMOLOGADO quando a conta está ativa, possui <code>directSalePaymentsEnabled</code> + <code>canValidateProviderTransactions</code> e já recebeu <code>e2eValidated=true</code> a partir de uma venda liquidada com evidência verificada do provedor/terminal. O dinheiro continua pertencendo à revenda.</div>'
+  return '<div class="section-head" style="margin-top:16px"><div><span class="section-kicker">INTEGRAÇÕES MULTI-PSP</span><h3>Fila técnica de provedores</h3><p>Prioridade calculada por risco operacional, contas prontas para validação transacional e demanda declarada. Sem demanda, o TAMÃO não força integração nem troca de PSP.</p></div><span class="status-pill '+(p0?'risk':'')+'">'+p0+' P0 • '+observed+' COM DEMANDA</span></div>'
+    +'<div class="notice"><strong>Regra de autoridade.</strong><br>Conectar uma conta não significa validar a integração. O status de integração verificada só aparece após uma venda liquidada gerar evidência confirmada pelo provedor/terminal. O dinheiro continua pertencendo à revenda.</div>'
     +'<div class="admin-entity-grid">'+cards+'</div>';
 }
 
@@ -2322,37 +2337,37 @@ function adminMerchantPspPilotCenter(d){
     let stage='AGUARDA 1ª VENDA';
     let stageClass='risk';
     let order=2;
-    let nextAction='Aguardar a primeira venda real; apenas uma tentativa piloto poderá permanecer viva neste PSP.';
+    let nextAction='Aguardar a primeira transação validável; somente uma transação automática pendente poderá permanecer ativa neste PSP.';
     if(status==='review_required'){
       stage='REVISÃO';
       stageClass='offline';
       order=0;
       nextAction='Não libere nova tentativa. Suspenda a automação e confira o PSP até determinar o resultado real.';
     }else if(e2eValidated){
-      stage='E2E VALIDADO';
+      stage='INTEGRAÇÃO VERIFICADA';
       stageClass='online';
       order=3;
-      nextAction='Prova real registrada. A conta pode operar fora da contenção de primeiro piloto.';
+      nextAction='Evidência transacional registrada. A integração está verificada para operação automática.';
     }else if(status==='approved'){
       stage='AGUARDA LIQUIDAÇÃO';
       stageClass='risk';
       order=1;
-      nextAction='O PSP aprovou a transação; aguarde entrega/liquidação para a prova E2E promover a conta.';
+      nextAction='O PSP aprovou a transação; aguarde entrega/liquidação para concluir a verificação da integração.';
     }else if(liveAttempt){
-      stage='PILOTO EM CURSO';
+      stage='VALIDAÇÃO EM CURSO';
       stageClass='risk';
       order=1;
-      nextAction='Acompanhe este único piloto até resultado terminal ou liquidação. Outra ordem do mesmo PSP permanece bloqueada.';
+      nextAction='Acompanhe esta transação até resultado terminal ou liquidação. Outra ordem automática do mesmo PSP permanece bloqueada.';
     }else if(latestAttempt){
-      stage='PILOTO ENCERRADO';
+      stage='VALIDAÇÃO ENCERRADA';
       stageClass='';
       order=4;
       nextAction=directEnabled&&canValidate
-        ?'A tentativa anterior encerrou sem prova E2E; uma nova venda poderá ocupar o slot piloto.'
+        ?'A tentativa anterior encerrou sem evidência conclusiva; uma nova transação poderá iniciar outra validação.'
         :'Automação suspensa ou indisponível; mantenha confirmação manual até nova decisão.';
     }
 
-    const anchor=stage==='E2E VALIDADO'
+    const anchor=stage==='INTEGRAÇÃO VERIFICADA'
       ?caps.e2eValidatedAt||verification?.verified_at||verification?.created_at||latestAttempt?.updated_at
       :status==='review_required'
         ?latestAttempt?.last_error_at||latestAttempt?.updated_at||latestAttempt?.created_at
@@ -2368,9 +2383,9 @@ function adminMerchantPspPilotCenter(d){
   );
 
   const review=models.filter(x=>x.stage==='REVISÃO').length;
-  const inFlight=models.filter(x=>['PILOTO EM CURSO','AGUARDA LIQUIDAÇÃO'].includes(x.stage)).length;
+  const inFlight=models.filter(x=>['VALIDAÇÃO EM CURSO','AGUARDA LIQUIDAÇÃO'].includes(x.stage)).length;
   const waiting=models.filter(x=>x.stage==='AGUARDA 1ª VENDA').length;
-  const validated=models.filter(x=>x.stage==='E2E VALIDADO').length;
+  const validated=models.filter(x=>x.stage==='INTEGRAÇÃO VERIFICADA').length;
   const active=models.filter(x=>x.order<4);
   const readOnly=adminCurrentRole()==='readonly';
 
@@ -2389,11 +2404,11 @@ function adminMerchantPspPilotCenter(d){
       ?'tentativa '+String(attempt.id||'').slice(0,8)
         +' • '+adminRelativeTime(attempt.created_at)
         +' • '+maskedRef
-      :(model.account?.connected_at?'conta conectada '+adminRelativeTime(model.account.connected_at):'conta pronta para piloto');
+      :(model.account?.connected_at?'conta conectada '+adminRelativeTime(model.account.connected_at):'conta pronta para ativação');
     const reviewNotice=model.stage==='REVISÃO'
-      ?'<div class="notice danger" style="margin-top:8px"><strong>Slot piloto bloqueado por segurança.</strong><br>'+esc(adminMerchantPilotIssueLabel(errorCode))+(errorCode?' • '+esc(errorCode):'')+'. O TAMÃO não deve criar uma segunda cobrança automática até existir prova do resultado.</div>'
-      :model.stage==='E2E VALIDADO'
-        ?'<div class="notice success" style="margin-top:8px"><strong>Prova E2E registrada.</strong><br>'+(model.verification?'Evidência '+esc(adminMerchantPaymentVerificationLabel(model.verification.verification_level))+' em '+esc(formatDateTime(model.verification.verified_at||model.verification.created_at))+'.':'Conta promovida por evidência transacional persistida.')+'</div>'
+      ?'<div class="notice danger" style="margin-top:8px"><strong>Validação automática bloqueada por segurança.</strong><br>'+esc(adminMerchantPilotIssueLabel(errorCode))+(errorCode?' • '+esc(errorCode):'')+'. O TAMÃO não deve criar uma segunda cobrança automática até existir prova do resultado.</div>'
+      :model.stage==='INTEGRAÇÃO VERIFICADA'
+        ?'<div class="notice success" style="margin-top:8px"><strong>Integração verificada.</strong><br>'+(model.verification?'Evidência '+esc(adminMerchantPaymentVerificationLabel(model.verification.verification_level))+' em '+esc(formatDateTime(model.verification.verified_at||model.verification.created_at))+'.':'Conta promovida por evidência transacional persistida.')+'</div>'
         :'';
     const canSuspend=!readOnly&&model.directEnabled&&model.canValidate&&!model.e2eValidated;
     return '<article class="card flat">'
@@ -2410,16 +2425,16 @@ function adminMerchantPspPilotCenter(d){
   }).join('');
 
   const recentClosed=models.filter(x=>x.order===4).slice(0,20);
-  return '<div class="section-head" style="margin-top:16px"><div><span class="section-kicker">PILOTOS PSP</span><h3>Central de primeiro pagamento automático</h3><p>Uma revenda sem prova E2E pode ter somente um piloto vivo por PSP. Resultado ambíguo permanece bloqueado até investigação; não existe botão para forçar homologação.</p></div><span class="status-pill '+(review?'offline':inFlight?'risk':'online')+'">'+review+' REVISÃO • '+inFlight+' EM CURSO</span></div>'
+  return '<div class="section-head" style="margin-top:16px"><div><span class="section-kicker">PAGAMENTOS AUTOMÁTICOS</span><h3>Central de validação transacional</h3><p>Antes da primeira evidência transacional conclusiva, cada revenda pode manter somente uma transação automática pendente por PSP. Resultado ambíguo permanece bloqueado até investigação; não existe atalho para forçar validação.</p></div><span class="status-pill '+(review?'offline':inFlight?'risk':'online')+'">'+review+' REVISÃO • '+inFlight+' EM CURSO</span></div>'
     +'<div class="merchant-kpis" style="margin-bottom:12px">'
     +'<div class="kpi"><span class="label">Em revisão</span><strong>'+review+'</strong><small>fail-closed</small></div>'
-    +'<div class="kpi"><span class="label">Pilotos vivos</span><strong>'+inFlight+'</strong><small>1 por revenda/PSP</small></div>'
+    +'<div class="kpi"><span class="label">Validações em curso</span><strong>'+inFlight+'</strong><small>1 por revenda/PSP</small></div>'
     +'<div class="kpi"><span class="label">Aguardando 1ª venda</span><strong>'+waiting+'</strong></div>'
-    +'<div class="kpi"><span class="label">E2E validado</span><strong>'+validated+'</strong><small>prova real</small></div>'
+    +'<div class="kpi"><span class="label">Integrações verificadas</span><strong>'+validated+'</strong><small>prova real</small></div>'
     +'</div>'
-    +'<div class="notice"><strong>Autoridade financeira preservada.</strong><br>Esta central observa e pode suspender automação, mas não aprova pagamento, não altera evidência e não transforma manualmente um PSP em HOMOLOGADO.</div>'
-    +(cards?'<div class="admin-entity-grid" style="margin-top:12px">'+cards+'</div>':'<div class="empty card" style="margin-top:12px">Nenhuma conta está em piloto, revisão ou homologação E2E neste momento.</div>')
-    +(recentClosed.length?'<details class="card flat" style="margin-top:12px"><summary><strong>Pilotos encerrados recentemente ('+recentClosed.length+')</strong></summary><div class="list" style="margin-top:10px">'+recentClosed.map(model=>{const a=model.attempt;return '<div class="list-row"><div><strong>'+esc(model.merchant?.name||adminMerchantName(model.merchantId))+' • '+esc(adminBillingProviderName(model.provider))+'</strong><br><small>'+esc(a?.status||'—')+' • '+esc(a?.last_error_code||'sem erro')+'</small></div><small>'+esc(a?.updated_at?formatDateTime(a.updated_at):'—')+'</small></div>';}).join('')+'</div></details>':'');
+    +'<div class="notice"><strong>Autoridade financeira preservada.</strong><br>Esta central observa e pode suspender automação, mas não aprova pagamento, não altera evidência e não transforma manualmente uma integração em verificada.</div>'
+    +(cards?'<div class="admin-entity-grid" style="margin-top:12px">'+cards+'</div>':'<div class="empty card" style="margin-top:12px">Nenhuma conta está em ativação, revisão ou validação transacional neste momento.</div>')
+    +(recentClosed.length?'<details class="card flat" style="margin-top:12px"><summary><strong>Validações encerradas recentemente ('+recentClosed.length+')</strong></summary><div class="list" style="margin-top:10px">'+recentClosed.map(model=>{const a=model.attempt;return '<div class="list-row"><div><strong>'+esc(model.merchant?.name||adminMerchantName(model.merchantId))+' • '+esc(adminBillingProviderName(model.provider))+'</strong><br><small>'+esc(a?.status||'—')+' • '+esc(a?.last_error_code||'sem erro')+'</small></div><small>'+esc(a?.updated_at?formatDateTime(a.updated_at):'—')+'</small></div>';}).join('')+'</div></details>':'');
 }
 
 function adminMerchantSaleVerificationSection(d){
@@ -2448,7 +2463,7 @@ function adminMerchantPaymentAccountsSection(d){
     }
   }
   const globalEnabled=d.merchantPayments?.globalDirectPaymentsEnabled===true;
-  return '<div class="section-head" style="margin-top:18px"><div><span class="section-kicker">VENDA DO CLIENTE → REVENDA</span><h3>Recebimento direto multi-PSP</h3><p>A revenda pode usar o provedor que já possui. Conectar ou homologar um PSP serve apenas para confirmar a transação; nenhuma venda passa pela conta do TAMÃO.</p></div><span class="status-pill '+(globalEnabled?'online':'risk')+'">AUTOMAÇÃO GLOBAL '+(globalEnabled?'ATIVA':'DESATIVADA')+'</span></div>'
+  return '<div class="section-head" style="margin-top:18px"><div><span class="section-kicker">VENDA DO CLIENTE → REVENDA</span><h3>Recebimento direto multi-PSP</h3><p>A revenda pode usar o provedor que já possui. Conectar ou validar um PSP serve apenas para confirmar a transação; nenhuma venda passa pela conta do TAMÃO.</p></div><span class="status-pill '+(globalEnabled?'online':'risk')+'">AUTOMAÇÃO GLOBAL '+(globalEnabled?'ATIVA':'DESATIVADA')+'</span></div>'
     +'<div class="notice"><strong>Arquitetura agnóstica de provedor.</strong><br>Mercado Pago não é obrigatório. Pix próprio, dinheiro e cartão na entrega continuam válidos; PagBank, Stone, Getnet e outros entram como conectores independentes.</div>'
     +adminMerchantPaymentProviderCatalog(d)
     +adminMerchantDeclaredPspRadar(d)
@@ -2480,7 +2495,7 @@ function adminMerchantBillingSection(d){
   const pspE2E=adminBillingE2EState(d);
   const pspFailed=Boolean(providerHealth)&&providerHealth?.ok===false;
   const pspConfigured=paymentIngress?.livePspReady===true;
-  const pspBadgeLabel=pspE2E.validated?'E2E VALIDADO':pspApiValidated?'API VALIDADA':pspFailed?'PSP FALHANDO':pspConfigured?'PSP CONFIGURADO':paymentIngress?.normalizedIngressConfigured?'INGRESS PRONTO':'PENDENTE';
+  const pspBadgeLabel=pspE2E.validated?'INTEGRAÇÃO VERIFICADA':pspApiValidated?'API VALIDADA':pspFailed?'PSP FALHANDO':pspConfigured?'PSP CONFIGURADO':paymentIngress?.normalizedIngressConfigured?'INGRESS PRONTO':'PENDENTE';
   const pspBadgeClass=pspE2E.validated||pspApiValidated?'online':pspFailed?'offline':pspConfigured||paymentIngress?.normalizedIngressConfigured?'risk':'';
   const metrics=billing.metrics||null;
   const reconciliation=billing.reconciliation||null;
@@ -2509,7 +2524,7 @@ function adminMerchantBillingSection(d){
         <div class="admin-psp-status"><span class="admin-state-dot ${paymentIngress.adapterReadiness?.mercadopago?.webhookSecretConfigured?'ok':'pending'}"></span><div><small>Webhook HMAC</small><strong>${paymentIngress.adapterReadiness?.mercadopago?.webhookSecretConfigured?'Configurado':'Pendente'}</strong></div></div>
         <div class="admin-psp-status"><span class="admin-state-dot ${pspApiValidated?'ok':pspFailed?'bad':'pending'}"></span><div><small>API Mercado Pago</small><strong>${pspApiValidated?'Validada':pspFailed?'Falhando':'Não testada'}</strong></div></div>
         <div class="admin-psp-status"><span class="admin-state-dot ${remoteWebhookVerified?'ok':'pending'}"></span><div><small>Webhook remoto</small><strong>${remoteWebhookVerified?'Assinatura comprovada':latestWebhookProbe?.status==='pending'?'Prova aguardando envio':'Não comprovado'}</strong></div></div>
-        <div class="admin-psp-status"><span class="admin-state-dot ${pspE2E.validated?'ok':'pending'}"></span><div><small>Pagamento E2E</small><strong>${pspE2E.validated?'Validado':'Aguardando pagamento real'}</strong></div></div>
+        <div class="admin-psp-status"><span class="admin-state-dot ${pspE2E.validated?'ok':'pending'}"></span><div><small>Validação transacional</small><strong>${pspE2E.validated?'Validado':'Aguardando primeira transação verificada'}</strong></div></div>
       </div>
       <div class="admin-psp-actions">
         <button class="secondary small" onclick="adminCheckBillingProviderHealth()" ${adminRuntime.providerHealthPending?'disabled':''}>${adminRuntime.providerHealthPending?'Testando conexão…':'Testar PSP ativo'}</button>
@@ -2532,13 +2547,13 @@ function adminMerchantBillingSection(d){
       ${paymentIngress.configValid===false
         ?`<div class="notice danger admin-psp-notice"><strong>Configuração de webhook inválida.</strong><br>O mapa BILLING_PAYMENT_WEBHOOK_SECRETS não pôde ser validado. Nenhum recebimento automático deve ser considerado pronto.</div>`
         :pspE2E.validated
-          ?`<div class="notice success admin-psp-notice"><strong>PSP validado de ponta a ponta.</strong><br>Além da API, já existe evidência de webhook financeiro real conciliado. O TAMÃO continua exigindo correlação, valor e evidência exatos antes de movimentar o financeiro.</div>`
+          ?`<div class="notice success admin-psp-notice"><strong>Integração financeira verificada.</strong><br>Além da API, já existe evidência de transação e webhook financeiro conciliados. O TAMÃO continua exigindo correlação, valor e evidência exatos antes de movimentar o financeiro.</div>`
           :pspApiValidated
-            ?`<div class="notice success admin-psp-notice"><strong>API do PSP validada; E2E financeiro ainda pendente.</strong><br>A credencial respondeu e os gates locais estão prontos${remoteWebhookVerified?', inclusive o webhook remoto assinado':''}. O selo E2E financeiro continua separado e só será concedido após um pagamento real ser conciliado.</div>`
+            ?`<div class="notice success admin-psp-notice"><strong>API do PSP validada; integração transacional ainda pendente.</strong><br>A credencial respondeu e os requisitos locais estão prontos${remoteWebhookVerified?', inclusive o webhook remoto assinado':''}. A integração será marcada como verificada após uma transação real ser conciliada.</div>`
           :paymentIngress.livePspReady
-            ?`<div class="notice admin-psp-notice"><strong>PSP configurado; prova real ainda pendente.</strong><br>Os requisitos server-side existem, mas presença de secret não comprova a credencial ou o webhook do PSP ativo. Use “Testar PSP ativo”.</div>`
+            ?`<div class="notice admin-psp-notice"><strong>PSP configurado; validação transacional pendente.</strong><br>Os requisitos server-side existem, mas a configuração por si só não comprova credencial, webhook e conciliação do PSP. Use “Testar PSP ativo”.</div>`
             :paymentIngress.normalizedIngressConfigured
-              ?`<div class="notice admin-psp-notice"><strong>Ingress técnico pronto; PSP real ainda não.</strong><br>Há secret para o contrato HMAC normalizado do TAMÃO, mas nenhum adaptador nativo de PSP está configurado. O fluxo manual continua disponível.</div>`
+              ?`<div class="notice admin-psp-notice"><strong>Canal técnico pronto; PSP automático não configurado.</strong><br>O contrato HMAC normalizado do TAMÃO está disponível, mas nenhum adaptador nativo de PSP está configurado. A confirmação pela revenda continua disponível.</div>`
               :`<div class="notice admin-psp-notice"><strong>PSP/Pix ainda não conectado.</strong><br>O motor interno de conciliação está pronto, mas não há integração automática validada. O fluxo manual continua disponível.</div>`}
       <details class="admin-tech-details">
         <summary><span>Detalhes técnicos da integração</span><small>contratos, adaptadores e endpoints</small></summary>
@@ -2679,7 +2694,7 @@ function adminLaunchControl(readiness={}){
     ? `<div class="notice danger"><strong>Bloqueios críticos — não podem ser ignorados</strong><br>${security.map(x=>'• '+esc(adminSecurityBlockerLabel(x))).join('<br>')}</div>`
     : '<div class="notice success"><strong>Segurança estrutural sem bloqueios detectados.</strong><br>RLS, ACLs privilegiadas e autoridade administrativa permanecem fail-closed.</div>';
 
-  return `<section class="section"><div class="section-head"><div><span class="section-kicker">CENTRAL DE PRODUÇÃO</span><h2>Operação real sob controle do administrador</h2><p>Segurança técnica continua obrigatória. Pendências comerciais e operacionais são exibidas com risco, recomendação e decisão auditada.</p></div><div class="order-actions"><span class="status-pill ${stateClass}">${esc(readinessState)}</span><span class="status-pill ${modeClass}">${esc(mode)}</span></div></div>
+  return `<section class="section"><div class="section-head"><div><span class="section-kicker">CENTRAL DE PRODUÇÃO</span><h2>Operação real sob controle do administrador</h2><p>Segurança técnica continua obrigatória. Pendências comerciais e operacionais são exibidas com risco, recomendação e decisão auditada.</p></div><div class="order-actions"><span class="status-pill ${stateClass}">${esc(adminReadinessStateLabel(readinessState))}</span><span class="status-pill ${modeClass}">${esc(adminOperationModeLabel(mode))}</span></div></div>
     <div class="merchant-kpis">
       <div class="kpi"><span class="label">Admins ativos</span><strong>${Number(readiness.activeAdminCount||0)}</strong></div>
       <div class="kpi"><span class="label">Revendas configuradas</span><strong>${Number(readiness.configuredMerchantCount||0)}</strong></div>
@@ -2690,17 +2705,17 @@ function adminLaunchControl(readiness={}){
     </div>
     <div class="card flat form-stack" style="margin-top:12px">
       ${securityHtml}
-      ${warningDetails.length?`<div><strong>Alertas operacionais</strong><div class="tiny muted" style="margin-top:4px">Resolva a condição ou registre conscientemente a decisão administrativa antes de ativar PILOT/LIVE.</div></div>${warnings}`:'<div class="notice success"><strong>Checklist operacional recomendado concluído.</strong></div>'}
+      ${warningDetails.length?`<div><strong>Alertas operacionais</strong><div class="tiny muted" style="margin-top:4px">Resolva a condição ou registre conscientemente a decisão administrativa antes de ativar novos pedidos.</div></div>${warnings}`:'<div class="notice success"><strong>Checklist operacional recomendado concluído.</strong></div>'}
       ${sourceSha?`<small class="field-help">Bundle live atestado: <code>${esc(sourceSha.slice(0,12))}…</code></small>`:''}
       <div class="order-actions">
         <button class="secondary" onclick="adminVerifyLaunchPortals()">Verificar portais live</button>
         ${['PILOT','LIVE'].includes(mode)
           ?'<button class="danger-btn" onclick="adminSetOperationMode(\'PAUSED\')">Pausar novos pedidos</button>'
-          :`<button class="primary" ${canActivate?'':'disabled'} onclick="adminSetOperationMode('PILOT')">ATIVAR OPERAÇÃO PILOTO</button>`}
-        ${mode==='PILOT'?`<button class="secondary" ${canActivate?'':'disabled'} onclick="adminSetOperationMode('LIVE')">Promover para LIVE</button>`:''}
-        ${mode==='PAUSED'?'<button class="ghost" onclick="adminSetOperationMode(\'PRELAUNCH\')">Voltar a PRELAUNCH</button>':''}
+          :`<button class="primary" ${canActivate?'':'disabled'} onclick="adminSetOperationMode('PILOT')">ATIVAR OPERAÇÃO</button>`}
+        ${mode==='PILOT'?`<button class="secondary" ${canActivate?'':'disabled'} onclick="adminSetOperationMode('LIVE')">Confirmar operação normal</button>`:''}
+        ${mode==='PAUSED'?'<button class="ghost" onclick="adminSetOperationMode(\'PRELAUNCH\')">Voltar para configuração</button>':''}
       </div>
-      <small class="field-help">${security.length?'A ativação está bloqueada por segurança.':canActivate?'A autoridade server-side permite ativação explícita.':'Há alertas ainda não confirmados.'} O kill switch preserva pedidos existentes e bloqueia apenas novos pedidos.</small>
+      <small class="field-help">${security.length?'A ativação está bloqueada por segurança.':canActivate?'A autoridade server-side permite ativação explícita.':'Há alertas ainda não confirmados.'} O controle de novos pedidos preserva pedidos existentes e bloqueia apenas novas compras.</small>
     </div>
   </section>`;
 }
@@ -2867,7 +2882,7 @@ function adminCommercialPolicySection(d){
       <div class="kpi"><span class="label">Folga econômica</span><strong>${adminBpsPct(headroom)}%</strong><small>${per100(headroom)} por R$ 100 no pior caso</small></div>
     </div>
     <div class="card flat form-stack" style="margin-top:12px">
-      <label class="check-row"><input id="policy-active" type="checkbox" ${p.active?'checked':''} onchange="adminPreviewCommercialPolicy()"><span><strong>Política ativa para novos pedidos</strong><small>Desativar durante PILOT/LIVE é bloqueado pelo servidor; pause a operação primeiro.</small></span></label>
+      <label class="check-row"><input id="policy-active" type="checkbox" ${p.active?'checked':''} onchange="adminPreviewCommercialPolicy()"><span><strong>Política ativa para novos pedidos</strong><small>Para desativar durante a operação, pause novos pedidos primeiro.</small></span></label>
       <div class="field-row">
         <div class="input-wrap"><label for="policy-fee">Taxa fallback/legado (%)</label><input id="policy-fee" type="number" min="0" max="50" step="0.05" class="input" value="${adminBpsPct(fee)}" oninput="adminPreviewCommercialPolicy()"></div>
         <div class="input-wrap"><label for="policy-variable">Reserva de custo (%)</label><input id="policy-variable" type="number" min="0" max="50" step="0.05" class="input" value="${adminBpsPct(variable)}" oninput="adminPreviewCommercialPolicy()"></div>
@@ -2881,7 +2896,7 @@ function adminCommercialPolicySection(d){
         <div class="input-wrap"><label for="policy-hold">Carência da indicação (horas)</label><input id="policy-hold" type="number" min="0" max="2160" step="1" class="input" value="${Number(p.commission_hold_hours||0)}"></div>
       </div>
       <div id="policy-preview" class="notice"><strong>Prévia por R$ 100:</strong><br>Taxa ${per100(fee)} • custo ${per100(variable)} • contribuição mínima ${per100(contribution)} • cashback ${per100(cashback)} • indicação ${per100(referral)} • folga ${per100(headroom)}.</div>
-      <div class="input-wrap"><label for="policy-reason">Motivo da alteração</label><input id="policy-reason" class="input" maxlength="1000" placeholder="Ex.: ajustar cashback do piloto após revisão de margem"></div>
+      <div class="input-wrap"><label for="policy-reason">Motivo da alteração</label><input id="policy-reason" class="input" maxlength="1000" placeholder="Ex.: ajustar cashback após revisão de margem"></div>
       <button class="primary" onclick="adminSaveCommercialPolicy(${Number(p.policy_version||1)})">Salvar política para pedidos futuros</button>
       ${p.last_change_reason?`<small class="field-help">Última decisão: ${esc(p.last_change_reason)} • ${esc(formatDateTime(p.updated_at))}</small>`:''}
     </div>
@@ -2980,7 +2995,7 @@ function adminPage(){
   const partnersContent=`
     ${adminPrelaunchLeadsSection(d)}
     ${adminPublicRequestsSection(d)}
-    <section class="section"><div class="section-head"><div><h2>Parceiros piloto em preparação</h2><p>Interesse comercial registrado antes do cadastro jurídico. Esses registros não participam das ofertas e não contam como revenda ativa.</p></div></div>${pilotPartners.length?pilotPartners.map(adminPilotPartnerCard).join(''):'<div class="empty card">Nenhum parceiro piloto em preparação.</div>'}</section>
+    <section class="section"><div class="section-head"><div><h2>Parceiros em cadastramento</h2><p>Interesses comerciais registrados antes da conclusão do cadastro operacional. Esses registros não participam das ofertas e não contam como revenda ativa.</p></div></div>${pilotPartners.length?pilotPartners.map(adminPilotPartnerCard).join(''):'<div class="empty card">Nenhum parceiro aguardando conclusão de cadastro.</div>'}</section>
     <section class="section"><div class="section-head"><div><h2>Cadastros de parceiros</h2><p>Aprovação cria a revenda como pendente e vincula o solicitante como owner. Não coloca a operação online.</p></div></div>${(d.applications||[]).length?(d.applications||[]).map(adminApplicationCard).join(''):'<div class="empty card">Nenhum cadastro recebido.</div>'}</section>
     <section class="section"><div class="section-head"><div><h2>Validação e ativação</h2><p>CNPJ é obrigatório para toda revenda ativa. Qualquer produto GLP ativo exige também validação ANP.</p></div></div>${(d.merchants||[]).length?(d.merchants||[]).map(adminMerchantCard).join(''):'<div class="empty card">Nenhuma revenda criada.</div>'}</section>`;
 
@@ -3039,7 +3054,7 @@ function adminPage(){
       ${adminMenuButton('audit','Auditoria','⌕')}
       ${adminMenuButton('system','Segurança e sistema','⚙',badge(securityAttention))}
       <div class="admin-sidebar-foot">
-        <span class="admin-sidebar-mode ${['LIVE','PILOT'].includes(operationMode)?'live':operationMode==='PAUSED'?'paused':'prelaunch'}"><i></i>${esc(operationMode)}</span>
+        <span class="admin-sidebar-mode ${['LIVE','PILOT'].includes(operationMode)?'live':operationMode==='PAUSED'?'paused':'prelaunch'}"><i></i>${esc(adminOperationModeLabel(operationMode))}</span>
         <small>${esc(adminRoleLabel(currentRole))} • atualizado ${esc(adminRelativeTime(adminRuntime.lastSyncAt))}</small>
       </div>
     </nav>`;
@@ -3275,22 +3290,22 @@ function adminRequireTypedConfirmation(expected,message){
 }
 async function adminSetOperationMode(mode){
   const target=String(mode||'').toUpperCase();
-  const labels={PRELAUNCH:'voltar ao pré-lançamento',PILOT:'ativar a operação piloto',LIVE:'ativar a operação normal',PAUSED:'pausar novos pedidos'};
+  const labels={PRELAUNCH:'voltar para configuração',PILOT:'ativar a operação',LIVE:'confirmar a operação normal',PAUSED:'pausar novos pedidos'};
   if(!labels[target])return toast('Modo operacional inválido');
   const reason=prompt('Motivo para '+labels[target]+':')||'';
   if(reason.trim().length<3)return toast('Informe o motivo da mudança');
   const confirmText=target==='PAUSED'
     ?'Pausar novos pedidos agora? Pedidos existentes e o painel continuarão acessíveis.'
     :target==='LIVE'
-      ?'Ativar LIVE agora? Esta ação libera a operação normal conforme o checklist confirmado.'
+      ?'Confirmar a operação normal agora? Esta ação mantém novos pedidos liberados conforme o checklist confirmado.'
       :target==='PILOT'
-        ?'Ativar PILOT agora? Pedidos reais serão permitidos em operação controlada.'
-        :'Voltar a PRELAUNCH? Novos pedidos reais ficarão bloqueados.';
+        ?'Ativar a operação agora? Novos pedidos serão permitidos conforme as regras e limites configurados.'
+        :'Voltar para configuração? Novos pedidos ficarão bloqueados.';
   if(!confirm(confirmText))return;
-  if(target==='LIVE'&&!adminRequireTypedConfirmation('ATIVAR LIVE','Confirmação reforçada para liberar operação normal.'))return toast('Ativação LIVE cancelada');
+  if(target==='LIVE'&&!adminRequireTypedConfirmation('CONFIRMAR OPERAÇÃO','Confirmação reforçada para manter a operação normal.'))return toast('Confirmação da operação cancelada');
   try{
     await adminPerform('set-operation-mode',{mode:target,reason});
-    toast('Modo operacional atualizado para '+target);
+    toast('Modo operacional atualizado para '+adminOperationModeLabel(target));
   }catch(e){toast(String(e?.message||e))}
 }
 async function adminSetCommerceEnabled(enabled){
@@ -3329,7 +3344,7 @@ function adminPilotInviteLink(token){
 }
 async function adminIssuePilotInvite(id){
   const p=(adminRuntime.data?.pilotPartners||[]).find(x=>x.id===id);
-  if(!p)return toast('Parceiro piloto não encontrado');
+  if(!p)return toast('Parceiro não encontrado');
   if(['converted','cancelled'].includes(String(p.onboarding_status||'')))return toast('Este parceiro não pode receber novo convite');
   const daysRaw=prompt('Validade do novo convite em dias (1 a 90):','14');
   if(daysRaw==null)return;
@@ -3343,12 +3358,12 @@ async function adminIssuePilotInvite(id){
     const link=adminPilotInviteLink(token);
     try{await navigator.clipboard?.writeText(link)}catch{}
     prompt('Convite criado'+(Number(result?.rotatedPreviousCount||0)>0?' e o link anterior foi revogado':'')+'. Copie este link agora e envie ao parceiro. Por segurança, ele não poderá ser recuperado depois; se for perdido, rotacione o convite:',link);
-    toast('Convite piloto criado com validade até '+new Date(result?.expiresAt||expiresAt).toLocaleString('pt-BR'));
+    toast('Convite de parceiro criado com validade até '+new Date(result?.expiresAt||expiresAt).toLocaleString('pt-BR'));
   }catch(e){toast(String(e?.message||e))}
 }
 async function adminRevokePilotInvite(id){
   const p=(adminRuntime.data?.pilotPartners||[]).find(x=>x.id===id);
-  if(!p)return toast('Parceiro piloto não encontrado');
+  if(!p)return toast('Parceiro não encontrado');
   if(!confirm('Revogar o convite ativo deste parceiro? O link deixará de funcionar imediatamente.'))return;
   try{
     const result=await adminPerform('pilot-invite',{pilotPartnerId:id,inviteAction:'revoke'});
@@ -3358,7 +3373,7 @@ async function adminRevokePilotInvite(id){
 
 async function adminConvertPilotPartner(id){
   const p=(adminRuntime.data?.pilotPartners||[]).find(x=>x.id===id);
-  if(!p)return toast('Parceiro piloto não encontrado');
+  if(!p)return toast('Parceiro não encontrado');
   const prefix='pilot-'+id;
   const value=(suffix)=>document.getElementById(prefix+'-'+suffix)?.value?.trim()||'';
   const checked=(suffix)=>document.getElementById(prefix+'-'+suffix)?.checked===true;
@@ -3453,7 +3468,7 @@ async function adminSetMerchantPaymentCapability(merchantId,provider,enabled){
     }
     if(preflight?.readyForActivation!==true){
       const blocked=(preflight?.blockingGates||[]).join(', ');
-      return toast('Piloto bloqueado pelo preflight V1.146'+(blocked?' • '+blocked:''));
+      return toast('Ativação bloqueada pela verificação obrigatória'+(blocked?' • '+blocked:''));
     }
   }
 
@@ -3464,8 +3479,8 @@ async function adminSetMerchantPaymentCapability(merchantId,provider,enabled){
   const reference=prompt(
     enabled
       ?activationKind==='pilot'
-        ?'Referência do primeiro piloto real de '+providerName+' (ticket, plano ou acompanhamento):'
-        :'Referência da reativação de '+providerName+' (E2E já validado):'
+        ?'Referência da ativação de '+providerName+' (ticket, plano ou acompanhamento):'
+        :'Referência da reativação de '+providerName+' (integração já verificada):'
       :'Motivo/referência da suspensão de '+providerName+':'
   )||'';
   if(reference.trim().length<3)return toast('Informe uma referência auditável');
@@ -3473,24 +3488,24 @@ async function adminSetMerchantPaymentCapability(merchantId,provider,enabled){
   const message=!enabled
     ?'Suspender confirmação automática via '+providerName+' para '+name+'? Transações já iniciadas continuam sujeitas ao controle seguro.'
     :activationKind==='pilot'
-      ?'Preflight aprovado. Ativar o primeiro piloto real via '+providerName+' para '+name+'? Somente uma tentativa piloto poderá ficar viva até a prova E2E. O dinheiro continuará indo diretamente à revenda.'
-      :'Preflight aprovado. Reativar confirmação automática via '+providerName+' para '+name+'? Esta conta já possui prova E2E persistida e o dinheiro continuará indo diretamente à revenda.';
+      ?'Verificação aprovada. Ativar confirmação automática via '+providerName+' para '+name+'? A primeira transação será acompanhada de forma controlada até existir evidência conclusiva. O dinheiro continuará indo diretamente à revenda.'
+      :'Verificação aprovada. Reativar confirmação automática via '+providerName+' para '+name+'? Esta conta já possui evidência transacional persistida e o dinheiro continuará indo diretamente à revenda.';
   if(!confirm(message))return;
 
   if(enabled){
-    const typed=activationKind==='pilot'?'ATIVAR PILOTO':'REATIVAR';
+    const typed=activationKind==='pilot'?'ATIVAR PAGAMENTOS':'REATIVAR';
     const copy=activationKind==='pilot'
-      ?'Todos os gates do preflight estão verdes. A ativação libera tráfego automático real para produzir a primeira prova E2E; não concede status HOMOLOGADO.'
-      :'Todos os gates do preflight estão verdes. A reativação reutiliza uma prova E2E já registrada, sem alterar quem recebe o dinheiro.';
+      ?'Todos os requisitos da verificação estão atendidos. A ativação libera a confirmação automática e mantém a primeira transação sob controle reforçado até a validação transacional.'
+      :'Todos os requisitos da verificação estão atendidos. A reativação reutiliza a evidência transacional já registrada, sem alterar quem recebe o dinheiro.';
     if(!adminRequireTypedConfirmation(typed,copy)){
-      return toast(activationKind==='pilot'?'Ativação do piloto cancelada':'Reativação cancelada');
+      return toast(activationKind==='pilot'?'Ativação dos pagamentos cancelada':'Reativação cancelada');
     }
 
     try{
       const fresh=await adminRunMerchantPaymentPreflight(merchantId,providerKey,{silent:true});
       if(fresh?.readyForActivation!==true){
         render();
-        return toast('O estado mudou depois da confirmação. O piloto permaneceu bloqueado.');
+        return toast('O estado mudou depois da confirmação. A ativação permaneceu bloqueada.');
       }
     }catch(e){
       render();
@@ -3510,8 +3525,8 @@ async function adminSetMerchantPaymentCapability(merchantId,provider,enabled){
       !result?.enabled
         ?'Confirmação automática suspensa em '+providerName
         :result?.activationKind==='pilot'
-          ?'Primeiro piloto real ativado em '+providerName+' — aguardando prova E2E'
-          :'Confirmação automática reativada em '+providerName+' — prova E2E já validada'
+          ?'Confirmação automática ativada em '+providerName+' — aguardando validação transacional'
+          :'Confirmação automática reativada em '+providerName+' — integração já verificada'
     );
   }catch(e){toast(String(e?.message||e))}
 }

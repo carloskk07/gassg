@@ -11,22 +11,22 @@ assert.ok(
   admin.includes("const e2eValidated=account?.capabilities?.e2eValidated===true")
   &&admin.includes("const pilotActive=connected&&directEnabled&&canValidate&&!e2eValidated")
   &&admin.includes("const homologated=connected&&directEnabled&&canValidate&&e2eValidated"),
-  'UI precisa separar piloto ativo de homologação baseada em evidência'
+  'UI precisa separar automação ativa de integração verificada por evidência'
 );
 
 assert.ok(
-  admin.includes("'PILOTO ATIVO'")
-  &&admin.includes("'PRONTO PARA PILOTO'")
-  &&admin.includes('Ativar piloto controlado')
-  &&admin.includes('prova E2E: <strong>'),
-  'admin precisa mostrar explicitamente o ciclo piloto → prova → homologado'
+  admin.includes("'AUTOMAÇÃO ATIVA'")
+  &&admin.includes("'PRONTO PARA ATIVAR'")
+  &&admin.includes('Ativar confirmação automática')
+  &&admin.includes('integração verificada: <strong>'),
+  'admin precisa mostrar explicitamente o ciclo ativação → evidência → integração verificada'
 );
 
 assert.ok(
-  admin.includes('Conexão homologada com prova real.')
-  &&admin.includes('uma venda liquidada gerar evidência verificada do próprio provedor/terminal')
-  &&admin.includes('e2eValidated=true'),
-  'HOMOLOGADO não pode ser apenas um rótulo de conexão/capability'
+  admin.includes('Integração de pagamento verificada.')
+  &&admin.includes('evidência transacional confirmada pelo provedor/terminal')
+  &&admin.includes("e2eValidated=account?.capabilities?.e2eValidated===true"),
+  'integração verificada não pode ser apenas um rótulo de conexão/capability'
 );
 
 assert.ok(
