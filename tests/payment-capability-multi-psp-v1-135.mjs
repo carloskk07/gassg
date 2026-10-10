@@ -209,10 +209,10 @@ assert.ok(
   'Admin não pode continuar comunicando Mercado Pago como requisito universal'
 );
 assert.ok(
-  admin.includes('AUTOMAÇÃO GLOBAL')
+  admin.includes('controle global')
   &&admin.includes('nenhuma venda passa pela conta do TAMÃO')
   &&admin.includes('Mercado Pago não é obrigatório'),
-  'Admin deve manter kill switch e propriedade dos fundos semanticamente explícitos'
+  'Admin deve manter controle global e propriedade dos fundos semanticamente explícitos'
 );
 
 assert.ok(!merchant.includes('PAGBANK_CLIENT_SECRET')&&!admin.includes('PAGBANK_CLIENT_SECRET'),
