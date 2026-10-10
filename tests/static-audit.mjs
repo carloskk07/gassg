@@ -1776,7 +1776,7 @@ assert.ok(merchantApplicationSource.includes('resubmitted:existing.status==="rej
 assert.ok(merchantApplicationSource.includes('.in("status",["pending","rejected"])'),'reenvio não pode reabrir cadastro aprovado por corrida TOCTOU');
 assert.ok(merchantApplicationSource.includes('APPLICATION_STATE_CHANGED'),'mudança concorrente de estado precisa falhar de forma explícita');
 assert.ok(merchantApplicationSource.includes('retryExisting?.status==="pending"'),'retry após ACK perdido deve recuperar cadastro pendente do mesmo solicitante');
-assert.ok(merchant.includes('Cadastro recebido.')&&merchant.includes('Cadastrar / atualizar empresa'),'feedback de onboarding deve persistir após o toast');
+assert.ok(merchant.includes('Cadastro recebido.')&&merchant.includes("applicationStatus==='pending'?'Revisar cadastro'"),'feedback de onboarding deve persistir após o toast');
 const pilotInviteAuthority=read('supabase/migrations/20261004185000_pilot_partner_invite_v1_69.sql');
 assert.ok(pilotInviteAuthority.includes('pilot_partner_drafts_product_registry_fkey')&&pilotInviteAuthority.includes('references public.product_delivery_profiles(product_code)'),'rascunho piloto deve usar o mesmo registro canônico de produto do restante da plataforma');
 assert.ok(pilotInviteAuthority.includes('create table if not exists public.pilot_partner_invites')&&pilotInviteAuthority.includes('token_hash text not null unique')&&pilotInviteAuthority.includes("digest(p_token,'sha256')"),'convite piloto precisa armazenar somente hash SHA-256, nunca token em claro');
