@@ -68,6 +68,7 @@ const pilotBoundaryMigration=read('supabase/migrations/20261005071000_pilot_oper
 const orderLaunchRetryHardening=read('supabase/migrations/20261005105517_order_launch_mode_retry_hardening_v1_70_2.sql');
 const orderReplayAuthority=read('supabase/migrations/20261005105701_order_idempotent_replay_authority_v1_70_2_1.sql');
 const orderReplayReassert=read('supabase/migrations/20261005130000_reassert_order_idempotent_replay_v1_70_11.sql');
+const firstRealPspPilotPreflight=read('supabase/migrations/20261010014500_first_real_psp_pilot_preflight_v1_146.sql');
 
 assert.ok(!customer.includes('desktop-only" style="display:block"'),'desktop-only não pode ser forçado a display:block no mobile');
 assert.ok(customer.includes('esc(o.address)'),'endereço do pedido deve ser escapado antes de entrar no HTML');
@@ -923,7 +924,8 @@ assert.ok(
   admin.includes('Recebimento direto multi-PSP')
   &&admin.includes("adminPerform('merchant-payment-capability'")
   &&admin.includes('Ativar piloto controlado')
-  &&admin.includes("activationKind==='pilot'?'PILOTO':'REATIVAR'")
+  &&admin.includes("const typed=activationKind==='pilot'?'ATIVAR PILOTO':'REATIVAR'")
+  &&admin.includes('Executar preflight')
   &&admin.includes('AUTOMAÇÃO GLOBAL')
   &&admin.includes('Mercado Pago não é obrigatório'),
   'Financeiro precisa ativar piloto/reativar cada PSP de forma independente sem confundir conexão, prova E2E, automação e kill switch global'
@@ -1005,11 +1007,13 @@ assert.ok(
 assert.ok(
   adminOpsSource.includes('"merchant-payment-capability"')
   &&adminOpsSource.includes('admin_merchant_provider_payment_capability_action')
-  &&adminOpsSource.includes('MERCHANT_PAYMENT_ADAPTER_NOT_IMPLEMENTED')
-  &&adminOpsSource.includes('MERCHANT_PAYMENT_RUNTIME_NOT_READY')
-  &&multiPspPaymentCapabilityMigration.includes("v_role not in ('superadmin','finance')")
-  &&multiPspPaymentCapabilityMigration.includes("adapter_status='implemented'"),
-  'somente Financeiro/Superadmin pode homologar um provider e apenas quando o adaptador completo estiver implementado e o runtime seguro'
+  &&adminOpsSource.includes('merchantPaymentRuntimeReadiness')
+  &&adminOpsSource.includes('"global-kill-switch"')
+  &&adminOpsSource.includes('MERCHANT_PAYMENT_PREFLIGHT_FAILED')
+  &&firstRealPspPilotPreflight.includes("v_role not in ('superadmin','finance')")
+  &&firstRealPspPilotPreflight.includes("v_definition.adapter_status<>'implemented'")
+  &&firstRealPspPilotPreflight.includes("v_definition.funds_flow<>'merchant_direct'"),
+  'somente Financeiro/Superadmin pode ativar um provider e apenas com preflight, adaptador implementado, funds-flow direto e runtime seguro'
 );
 
 assert.ok(

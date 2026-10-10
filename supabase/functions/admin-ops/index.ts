@@ -98,7 +98,7 @@ async function requireAdmin(admin:any,userId:string){
   if(!data)throw new DomainError("ADMIN_ACCESS_DENIED","Esta conta não possui acesso administrativo.",403);
   return data;
 }
-const ADMIN_READ_ACTIONS=new Set(["summary","search","entity-detail","system-health","billing-provider-health","audit-search","incident-list"]);
+const ADMIN_READ_ACTIONS=new Set(["summary","search","entity-detail","system-health","billing-provider-health","audit-search","incident-list","merchant-payment-preflight"]);
 const ADMIN_ROLE_ACTIONS:Record<string,Set<string>>={
   superadmin:new Set(["*"]),
   operations:new Set([
@@ -138,6 +138,69 @@ async function fetchTextWithTimeout(url:string){
     clearTimeout(timer);
   }
 }
+function merchantPaymentRuntimeReadiness(provider:string){
+  const key=String(provider||"").trim().toLowerCase();
+  const globalDirectPaymentsEnabled=
+    String(Deno.env.get("MERCHANT_DIRECT_PAYMENTS_ENABLED")??"").trim()==="1";
+  if(key!=="mercadopago"){
+    return {
+      ok:false,
+      provider:key,
+      globalDirectPaymentsEnabled,
+      gates:[{
+        key:"runtime-adapter",
+        ok:false,
+        label:"Adaptador runtime publicado",
+        detail:"Checkout automático ainda não publicado para este PSP."
+      }]
+    };
+  }
+  const oauthClientId=String(Deno.env.get("MERCADOPAGO_CLIENT_ID")??"").trim();
+  const oauthClientSecret=String(Deno.env.get("MERCADOPAGO_CLIENT_SECRET")??"").trim();
+  const oauthRedirect=String(Deno.env.get("MERCADOPAGO_OAUTH_REDIRECT_URI")??"").trim();
+  const webhookSecret=String(Deno.env.get("MERCADOPAGO_WEBHOOK_SECRET")??"").trim();
+  const encryptionKey=String(Deno.env.get("MERCHANT_PAYMENT_TOKEN_ENCRYPTION_KEY")??"").trim();
+  let redirectValid=false;
+  try{
+    const parsed=new URL(oauthRedirect);
+    redirectValid=parsed.protocol==="https:"&&!parsed.username&&!parsed.password;
+  }catch{}
+  const gates=[
+    {key:"runtime-client-id",ok:oauthClientId.length>=5,label:"OAuth Client ID",detail:oauthClientId.length>=5?"configurado":"ausente"},
+    {key:"runtime-client-secret",ok:oauthClientSecret.length>=10,label:"OAuth Client Secret",detail:oauthClientSecret.length>=10?"configurado":"ausente"},
+    {key:"runtime-oauth-redirect",ok:redirectValid,label:"OAuth redirect HTTPS",detail:redirectValid?"válido":"inválido ou ausente"},
+    {key:"runtime-webhook-secret",ok:webhookSecret.length>=16,label:"Webhook HMAC",detail:webhookSecret.length>=16?"configurado":"ausente"},
+    {key:"runtime-encryption",ok:paymentEncryptionConfigured(encryptionKey),label:"Criptografia de credenciais",detail:paymentEncryptionConfigured(encryptionKey)?"configurada":"ausente"},
+    {key:"global-kill-switch",ok:globalDirectPaymentsEnabled,label:"Kill-switch global liberado",detail:globalDirectPaymentsEnabled?"tráfego automático permitido":"tráfego automático bloqueado"}
+  ];
+  return {
+    ok:gates.every(g=>g.ok),
+    provider:key,
+    globalDirectPaymentsEnabled,
+    gates
+  };
+}
+async function merchantPaymentPreflight(admin:any,actorUserId:string,merchantId:string,provider:string){
+  const {data,error}=await admin.rpc("admin_merchant_provider_payment_preflight",{
+    p_actor_user_id:actorUserId,
+    p_merchant_id:merchantId,
+    p_provider:provider
+  });
+  if(error)throw error;
+  const runtime=merchantPaymentRuntimeReadiness(provider);
+  const dbGates=Array.isArray(data?.gates)?data.gates:[];
+  const gates=[...dbGates,...runtime.gates];
+  return {
+    ...data,
+    runtimeReady:runtime.ok,
+    globalDirectPaymentsEnabled:runtime.globalDirectPaymentsEnabled,
+    readyForActivation:data?.readyForCapabilityActivation===true&&runtime.ok,
+    readyForTraffic:data?.readyForCapabilityActivation===true&&runtime.ok,
+    gates,
+    blockingGates:gates.filter((g:any)=>g?.ok!==true).map((g:any)=>String(g?.key||"unknown"))
+  };
+}
+
 function runtimeAssignment(source:string,key:string){
   const pattern=new RegExp("globalThis\\."+key+"=([^;]+);");
   const match=pattern.exec(source);
@@ -1554,6 +1617,18 @@ Deno.serve(async(req:Request)=>{
     if(action==="incident-list"){
       return json(await adminIncidentList(admin),200,origin);
     }
+    if(action==="merchant-payment-preflight"){
+      const merchantId=uuid(body.merchantId,"merchant");
+      const provider=String(body.provider??"mercadopago").trim().toLowerCase();
+      if(!/^[a-z][a-z0-9_]{1,39}$/.test(provider)||provider==="manual"){
+        throw new DomainError("PAYMENT_PROVIDER_INVALID","Provedor de pagamento inválido.",400);
+      }
+      return json(
+        await merchantPaymentPreflight(admin,user.id,merchantId,provider),
+        200,
+        origin
+      );
+    }
 
     const idempotencyKey=String(req.headers.get("Idempotency-Key")??"").trim();
     if(idempotencyKey.length<12||idempotencyKey.length>120){
@@ -2013,43 +2088,22 @@ Deno.serve(async(req:Request)=>{
       if(!/^[a-z][a-z0-9_]{1,39}$/.test(provider)||provider==="manual"){
         throw new DomainError("PAYMENT_PROVIDER_INVALID","Provedor de pagamento inválido.",400);
       }
+      const merchantId=uuid(body.merchantId,"merchant");
       const reference=cleanText(body.reference,{
-        min:3,max:240,name:"referência da homologação de pagamento"
+        min:3,max:240,name:"referência do piloto ou suspensão de pagamento"
       });
       if(enabled){
-        if(provider!=="mercadopago"){
+        const preflight=await merchantPaymentPreflight(admin,user.id,merchantId,provider);
+        if(preflight.readyForActivation!==true){
           throw new DomainError(
-            "MERCHANT_PAYMENT_ADAPTER_NOT_IMPLEMENTED",
-            "Este provedor já existe na camada multi-PSP, mas ainda não possui o ciclo completo de venda automática homologado.",
+            "MERCHANT_PAYMENT_PREFLIGHT_FAILED",
+            "O piloto não pode ser ativado enquanto o checklist obrigatório possuir bloqueios.",
             409
-          );
-        }
-        const oauthClientId=String(Deno.env.get("MERCADOPAGO_CLIENT_ID")??"").trim();
-        const oauthClientSecret=String(Deno.env.get("MERCADOPAGO_CLIENT_SECRET")??"").trim();
-        const oauthRedirect=String(Deno.env.get("MERCADOPAGO_OAUTH_REDIRECT_URI")??"").trim();
-        const webhookSecret=String(Deno.env.get("MERCADOPAGO_WEBHOOK_SECRET")??"").trim();
-        const encryptionKey=String(Deno.env.get("MERCHANT_PAYMENT_TOKEN_ENCRYPTION_KEY")??"").trim();
-        let redirectValid=false;
-        try{
-          const parsed=new URL(oauthRedirect);
-          redirectValid=parsed.protocol==="https:"&&!parsed.username&&!parsed.password;
-        }catch{}
-        if(
-          oauthClientId.length<5
-          ||oauthClientSecret.length<10
-          ||!redirectValid
-          ||webhookSecret.length<16
-          ||!paymentEncryptionConfigured(encryptionKey)
-        ){
-          throw new DomainError(
-            "MERCHANT_PAYMENT_RUNTIME_NOT_READY",
-            "OAuth, webhook e criptografia precisam estar configurados antes de homologar pagamentos diretos.",
-            503
           );
         }
       }
       payload={
-        merchantId:uuid(body.merchantId,"merchant"),
+        merchantId,
         provider,
         enabled,
         reference
@@ -2583,6 +2637,18 @@ Deno.serve(async(req:Request)=>{
     }
     if(message.includes("MERCHANT_PAYMENT_ACCOUNT_NOT_READY")){
       return json({error:"MERCHANT_PAYMENT_ACCOUNT_NOT_READY",message:"A conexão da revenda com este provedor ainda não está pronta para confirmação automática."},409,origin);
+    }
+    if(message.includes("MERCHANT_PAYMENT_PREFLIGHT_FAILED")){
+      return json({error:"MERCHANT_PAYMENT_PREFLIGHT_FAILED",message:"O checklist do primeiro piloto ainda possui bloqueios. Execute o preflight antes de ativar."},409,origin);
+    }
+    if(message.includes("MERCHANT_PAYMENT_MERCHANT_NOT_ACTIVE")){
+      return json({error:"MERCHANT_PAYMENT_MERCHANT_NOT_ACTIVE",message:"A revenda precisa estar operacionalmente ativa antes do primeiro piloto automático."},409,origin);
+    }
+    if(message.includes("MERCHANT_PAYMENT_AUTOMATED_ROUTE_REQUIRED")){
+      return json({error:"MERCHANT_PAYMENT_AUTOMATED_ROUTE_REQUIRED",message:"A conta PSP ainda não possui uma rota automática ativa e vinculada para este piloto."},409,origin);
+    }
+    if(message.includes("MERCHANT_PAYMENT_PILOT_IN_FLIGHT")){
+      return json({error:"MERCHANT_PAYMENT_PILOT_IN_FLIGHT",message:"Já existe um piloto automático vivo para esta revenda e PSP."},409,origin);
     }
     if(message.includes("INVALID_MERCHANT_PAYMENT_CAPABILITY")){
       return json({error:"INVALID_MERCHANT_PAYMENT_CAPABILITY",message:"Este provedor ainda não possui um adaptador de venda direta homologado no TAMÃO."},409,origin);

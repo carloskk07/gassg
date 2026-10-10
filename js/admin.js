@@ -35,6 +35,7 @@ const adminRuntime={
     }catch{return null}
   })(),
   providerHealthPending:false,
+  paymentPreflights:{},
   auditResults:null,
   auditPending:false,
   section:(()=>{
@@ -318,6 +319,7 @@ async function adminSignOut(){
   adminRuntime.healthPending=false;
   adminRuntime.providerHealth=null;
   adminRuntime.providerHealthPending=false;
+  adminRuntime.paymentPreflights={};
   try{sessionStorage.removeItem('tamao-admin-provider-health-v1')}catch{}
   adminRuntime.auditResults=null;
   adminRuntime.auditPending=false;
@@ -1935,6 +1937,51 @@ function adminMerchantPaymentVerificationLabel(value){
     merchant:'MANUAL'
   })[String(value||'')]||String(value||'—').toUpperCase();
 }
+function adminPaymentPreflightKey(merchantId,provider){
+  return String(merchantId||'')+'|'+String(provider||'').toLowerCase();
+}
+async function adminRunMerchantPaymentPreflight(merchantId,provider,{silent=false}={}){
+  const providerKey=String(provider||'').toLowerCase();
+  const key=adminPaymentPreflightKey(merchantId,providerKey);
+  try{
+    const result=await adminInvoke({
+      action:'merchant-payment-preflight',
+      merchantId,
+      provider:providerKey
+    });
+    adminRuntime.paymentPreflights[key]={
+      ...result,
+      checkedAt:new Date().toISOString()
+    };
+    if(!silent)render();
+    return adminRuntime.paymentPreflights[key];
+  }catch(error){
+    adminRuntime.paymentPreflights[key]={
+      ok:false,
+      readyForActivation:false,
+      error:String(error?.message||error),
+      checkedAt:new Date().toISOString(),
+      gates:[]
+    };
+    if(!silent)render();
+    throw error;
+  }
+}
+function adminMerchantPaymentPreflightView(merchantId,provider){
+  const state=adminRuntime.paymentPreflights[adminPaymentPreflightKey(merchantId,provider)]||null;
+  if(!state)return '<div class="tiny muted" style="margin-top:8px">Preflight ainda não executado nesta sessão.</div>';
+  const gates=Array.isArray(state.gates)?state.gates:[];
+  const blocked=gates.filter(g=>g?.ok!==true);
+  const rows=gates.map(g=>
+    '<div class="list-row"><div><strong>'+esc(g.label||g.key||'Gate')+'</strong><br><small>'+esc(g.detail||'—')+'</small></div><span class="status-pill '+(g.ok===true?'online':'offline')+'">'+(g.ok===true?'OK':'BLOQUEADO')+'</span></div>'
+  ).join('');
+  const summary=state.readyForActivation===true
+    ?'<div class="notice success" style="margin-top:8px"><strong>Preflight V1.146 aprovado.</strong><br>Todos os gates obrigatórios estão verdes. A ativação ainda será revalidada imediatamente antes da escrita.</div>'
+    :'<div class="notice danger" style="margin-top:8px"><strong>Preflight bloqueado.</strong><br>'+blocked.length+' gate(s) impedem o primeiro piloto. Nenhuma capability foi alterada.</div>';
+  return summary
+    +'<details class="card flat" style="margin-top:8px"><summary><strong>Checklist técnico ('+(gates.length-blocked.length)+'/'+gates.length+')</strong></summary><div class="list" style="margin-top:8px">'+(rows||'<div class="tiny muted">Sem gates retornados.</div>')+'</div><div class="tiny muted" style="margin-top:8px">Verificado '+esc(adminRelativeTime(state.checkedAt))+'.</div></details>';
+}
+
 function adminMerchantPaymentAccountCard({merchant,account}){
   const provider=String(account?.provider||'').toLowerCase();
   const providerName=adminBillingProviderName(provider);
@@ -1973,13 +2020,18 @@ function adminMerchantPaymentAccountCard({merchant,account}){
     notice='<div class="notice" style="margin-top:8px"><strong>Conta conectada; adaptador de venda ainda não homologado.</strong><br>A conexão pode ser preparada sem liberar pagamentos automáticos ao cliente.</div>';
   }
   const directActive=homologated||pilotActive||inconsistent;
+  const preflight=adminRuntime.paymentPreflights[adminPaymentPreflightKey(merchant.id,provider)]||null;
+  const preflightReady=preflight?.readyForActivation===true;
   const action=connected&&adapterImplemented
-    ?'<div class="order-actions"><button class="'+(directActive?'danger-btn':'secondary')+' small" onclick="adminSetMerchantPaymentCapability(\''+esc(merchant.id)+'\',\''+esc(provider)+'\','+(directActive?'false':'true')+')">'+(directActive?'Suspender confirmação automática':(e2eValidated?'Reativar confirmação automática':'Ativar piloto controlado'))+'</button></div>'
+    ?directActive
+      ?'<div class="order-actions"><button class="danger-btn small" onclick="adminSetMerchantPaymentCapability(\''+esc(merchant.id)+'\',\''+esc(provider)+'\',false)">Suspender confirmação automática</button></div>'
+      :'<div class="order-actions"><button class="secondary small" onclick="adminRunMerchantPaymentPreflight(\''+esc(merchant.id)+'\',\''+esc(provider)+'\').catch(e=>toast(String(e?.message||e)))">Executar preflight</button><button class="primary small" '+(preflightReady?'':'disabled title="Execute e aprove o preflight antes da ativação"')+' onclick="adminSetMerchantPaymentCapability(\''+esc(merchant.id)+'\',\''+esc(provider)+'\',true)">'+(e2eValidated?'Reativar confirmação automática':'Ativar piloto controlado')+'</button></div>'
     :'';
   return '<article class="order-card">'
     +'<div class="order-head"><div><div class="order-id">'+esc(merchant?.name||merchant?.id||'Revenda')+'</div><div class="tiny muted">'+esc(providerName)+' • conta '+esc(safeAccountRef)+'</div></div><span class="status-pill '+statusClass+'">'+esc(statusLabel)+'</span></div>'
     +notice
     +'<div class="tiny muted" style="margin-top:8px">Verificação: <strong>'+esc(adminMerchantPaymentVerificationLabel(account?.verification_level||catalog?.verification_level))+'</strong> • adaptador: '+esc(adminMerchantPaymentAdapterLabel(catalog?.adapter_status))+' • validação do provedor: <strong>'+(canValidate?'ATIVA':'BLOQUEADA')+'</strong> • prova E2E: <strong>'+(e2eValidated?'VALIDADA':'PENDENTE')+'</strong> • kill switch global: <strong>'+(globalEnabled?'ATIVO':'DESATIVADO')+'</strong>'+(account?.connected_at?' • desde '+esc(formatDateTime(account.connected_at)):'')+'</div>'
+    +(!directActive&&connected&&adapterImplemented?adminMerchantPaymentPreflightView(merchant.id,provider):'')
     +action
     +'</article>';
 }
@@ -3390,29 +3442,62 @@ async function adminSetMerchantPaymentCapability(merchantId,provider,enabled){
   const providerKey=String(provider||'').toLowerCase();
   const providerName=adminBillingProviderName(providerKey);
   const account=(merchant?.paymentAccounts||[]).find(x=>String(x?.provider||'').toLowerCase()===providerKey)||null;
-  const e2eValidated=account?.capabilities?.e2eValidated===true;
+
+  let preflight=null;
+  if(enabled){
+    try{
+      preflight=await adminRunMerchantPaymentPreflight(merchantId,providerKey,{silent:true});
+      render();
+    }catch(e){
+      return toast(String(e?.message||e));
+    }
+    if(preflight?.readyForActivation!==true){
+      const blocked=(preflight?.blockingGates||[]).join(', ');
+      return toast('Piloto bloqueado pelo preflight V1.146'+(blocked?' • '+blocked:''));
+    }
+  }
+
+  const e2eValidated=preflight
+    ?preflight.e2eValidated===true
+    :account?.capabilities?.e2eValidated===true;
   const activationKind=e2eValidated?'reactivation':'pilot';
   const reference=prompt(
     enabled
       ?activationKind==='pilot'
-        ?'Referência do piloto controlado de '+providerName+' (ticket, plano ou teste acompanhado):'
+        ?'Referência do primeiro piloto real de '+providerName+' (ticket, plano ou acompanhamento):'
         :'Referência da reativação de '+providerName+' (E2E já validado):'
       :'Motivo/referência da suspensão de '+providerName+':'
   )||'';
   if(reference.trim().length<3)return toast('Informe uma referência auditável');
+
   const message=!enabled
     ?'Suspender confirmação automática via '+providerName+' para '+name+'? Transações já iniciadas continuam sujeitas ao controle seguro.'
     :activationKind==='pilot'
-      ?'Ativar piloto controlado via '+providerName+' para '+name+'? Isso NÃO significa homologação. O status só será promovido após uma venda liquidada gerar prova E2E verificada. O dinheiro continuará indo diretamente à revenda.'
-      :'Reativar confirmação automática via '+providerName+' para '+name+'? Esta conta já possui prova E2E persistida. O dinheiro continuará indo diretamente à revenda.';
+      ?'Preflight aprovado. Ativar o primeiro piloto real via '+providerName+' para '+name+'? Somente uma tentativa piloto poderá ficar viva até a prova E2E. O dinheiro continuará indo diretamente à revenda.'
+      :'Preflight aprovado. Reativar confirmação automática via '+providerName+' para '+name+'? Esta conta já possui prova E2E persistida e o dinheiro continuará indo diretamente à revenda.';
   if(!confirm(message))return;
+
   if(enabled){
-    const typed=activationKind==='pilot'?'PILOTO':'REATIVAR';
+    const typed=activationKind==='pilot'?'ATIVAR PILOTO':'REATIVAR';
     const copy=activationKind==='pilot'
-      ?'O piloto libera automação controlada para produzir a primeira prova E2E real; não concede status HOMOLOGADO.'
-      :'A reativação reutiliza uma prova E2E já registrada, sem alterar quem recebe o dinheiro.';
-    if(!adminRequireTypedConfirmation(typed,copy))return toast(activationKind==='pilot'?'Ativação do piloto cancelada':'Reativação cancelada');
+      ?'Todos os gates do preflight estão verdes. A ativação libera tráfego automático real para produzir a primeira prova E2E; não concede status HOMOLOGADO.'
+      :'Todos os gates do preflight estão verdes. A reativação reutiliza uma prova E2E já registrada, sem alterar quem recebe o dinheiro.';
+    if(!adminRequireTypedConfirmation(typed,copy)){
+      return toast(activationKind==='pilot'?'Ativação do piloto cancelada':'Reativação cancelada');
+    }
+
+    try{
+      const fresh=await adminRunMerchantPaymentPreflight(merchantId,providerKey,{silent:true});
+      if(fresh?.readyForActivation!==true){
+        render();
+        return toast('O estado mudou depois da confirmação. O piloto permaneceu bloqueado.');
+      }
+    }catch(e){
+      render();
+      return toast(String(e?.message||e));
+    }
   }
+
   try{
     const result=await adminPerform('merchant-payment-capability',{
       merchantId,
@@ -3420,11 +3505,12 @@ async function adminSetMerchantPaymentCapability(merchantId,provider,enabled){
       enabled:enabled===true,
       reference:reference.trim()
     });
+    delete adminRuntime.paymentPreflights[adminPaymentPreflightKey(merchantId,providerKey)];
     toast(
       !result?.enabled
         ?'Confirmação automática suspensa em '+providerName
-        :activationKind==='pilot'
-          ?'Piloto controlado ativado em '+providerName+' — aguardando prova E2E real'
+        :result?.activationKind==='pilot'
+          ?'Primeiro piloto real ativado em '+providerName+' — aguardando prova E2E'
           :'Confirmação automática reativada em '+providerName+' — prova E2E já validada'
     );
   }catch(e){toast(String(e?.message||e))}
