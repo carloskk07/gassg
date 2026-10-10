@@ -2547,13 +2547,13 @@ function adminMerchantBillingSection(d){
       ${paymentIngress.configValid===false
         ?`<div class="notice danger admin-psp-notice"><strong>Configuração de webhook inválida.</strong><br>O mapa BILLING_PAYMENT_WEBHOOK_SECRETS não pôde ser validado. Nenhum recebimento automático deve ser considerado pronto.</div>`
         :pspE2E.validated
-          ?`<div class="notice success admin-psp-notice"><strong>PSP validado de ponta a ponta.</strong><br>Além da API, já existe evidência de webhook financeiro real conciliado. O TAMÃO continua exigindo correlação, valor e evidência exatos antes de movimentar o financeiro.</div>`
+          ?`<div class="notice success admin-psp-notice"><strong>Integração financeira verificada.</strong><br>Além da API, já existe evidência de transação e webhook financeiro conciliados. O TAMÃO continua exigindo correlação, valor e evidência exatos antes de movimentar o financeiro.</div>`
           :pspApiValidated
             ?`<div class="notice success admin-psp-notice"><strong>API do PSP validada; integração transacional ainda pendente.</strong><br>A credencial respondeu e os requisitos locais estão prontos${remoteWebhookVerified?', inclusive o webhook remoto assinado':''}. A integração será marcada como verificada após uma transação real ser conciliada.</div>`
           :paymentIngress.livePspReady
-            ?`<div class="notice admin-psp-notice"><strong>PSP configurado; prova real ainda pendente.</strong><br>Os requisitos server-side existem, mas presença de secret não comprova a credencial ou o webhook do PSP ativo. Use “Testar PSP ativo”.</div>`
+            ?`<div class="notice admin-psp-notice"><strong>PSP configurado; validação transacional pendente.</strong><br>Os requisitos server-side existem, mas a configuração por si só não comprova credencial, webhook e conciliação do PSP. Use “Testar PSP ativo”.</div>`
             :paymentIngress.normalizedIngressConfigured
-              ?`<div class="notice admin-psp-notice"><strong>Ingress técnico pronto; PSP real ainda não.</strong><br>Há secret para o contrato HMAC normalizado do TAMÃO, mas nenhum adaptador nativo de PSP está configurado. O fluxo manual continua disponível.</div>`
+              ?`<div class="notice admin-psp-notice"><strong>Canal técnico pronto; PSP automático não configurado.</strong><br>O contrato HMAC normalizado do TAMÃO está disponível, mas nenhum adaptador nativo de PSP está configurado. A confirmação pela revenda continua disponível.</div>`
               :`<div class="notice admin-psp-notice"><strong>PSP/Pix ainda não conectado.</strong><br>O motor interno de conciliação está pronto, mas não há integração automática validada. O fluxo manual continua disponível.</div>`}
       <details class="admin-tech-details">
         <summary><span>Detalhes técnicos da integração</span><small>contratos, adaptadores e endpoints</small></summary>
