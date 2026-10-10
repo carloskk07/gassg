@@ -127,10 +127,58 @@ function clearMerchantPilotInviteToken(){
   if(changed)history.replaceState(null,'',url.pathname+url.search+url.hash);
 }
 
+
+const MERCHANT_PROSPECT_INVITE_STORAGE='tamao-prospect-invite-v1';
+const MERCHANT_PROSPECT_INVITE_TTL_MS=2*60*60*1000;
+function validMerchantProspectInviteToken(value){
+  return /^[A-Za-z0-9_-]{32,128}$/.test(String(value||'').trim());
+}
+function storedMerchantProspectInviteToken(){
+  try{
+    const value=JSON.parse(localStorage.getItem(MERCHANT_PROSPECT_INVITE_STORAGE)||'null');
+    const token=String(value?.token||'');
+    if(validMerchantProspectInviteToken(token)&&Number(value?.expiresAt)>Date.now())return token;
+  }catch{}
+  try{localStorage.removeItem(MERCHANT_PROSPECT_INVITE_STORAGE)}catch{}
+  return '';
+}
+function merchantProspectInviteFromUrl(){
+  const url=new URL(location.href);
+  const raw=url.hash.replace(/^#/,'');
+  const split=raw.indexOf('?');
+  const route=split>=0?raw.slice(0,split):raw;
+  const hashParams=new URLSearchParams(split>=0?raw.slice(split+1):'');
+  const fromHash=String(hashParams.get('prospect')||'');
+  const fromQuery=String(url.searchParams.get('prospect')||'');
+  const token=validMerchantProspectInviteToken(fromHash)?fromHash:
+    validMerchantProspectInviteToken(fromQuery)?fromQuery:'';
+  let changed=false;
+  if(url.searchParams.has('prospect')){url.searchParams.delete('prospect');changed=true}
+  if(hashParams.has('prospect')){
+    hashParams.delete('prospect');
+    url.hash='#'+route+(hashParams.toString()?'?'+hashParams.toString():'');
+    changed=true;
+  }
+  if(changed)history.replaceState(null,'',url.pathname+url.search+url.hash);
+  if(token)try{
+    localStorage.setItem(MERCHANT_PROSPECT_INVITE_STORAGE,JSON.stringify({
+      token,expiresAt:Date.now()+MERCHANT_PROSPECT_INVITE_TTL_MS
+    }));
+  }catch{}
+  return token;
+}
+function merchantProspectInviteToken(){
+  return merchantProspectInviteFromUrl()||storedMerchantProspectInviteToken();
+}
+function clearMerchantProspectInviteToken(){
+  try{localStorage.removeItem(MERCHANT_PROSPECT_INVITE_STORAGE)}catch{}
+}
+
 const customerPortalParams=new URLSearchParams(location.search);
 const configuredPortalRole=String(globalThis.CHAMA_PORTAL_ROLE||'').trim().toLowerCase();
-if(configuredPortalRole==='merchant'||customerPortalParams.get('merchant')==='1'||customerPortalParams.has('pilot')||location.hash.includes('pilot=')){
+if(configuredPortalRole==='merchant'||customerPortalParams.get('merchant')==='1'||customerPortalParams.has('pilot')||location.hash.includes('pilot=')||customerPortalParams.has('prospect')||location.hash.includes('prospect=')){
   merchantPilotInviteFromUrl();
+  merchantProspectInviteFromUrl();
 }
 const liveRuntime={
   requested:globalThis.__CHAMA_TEST__===true
@@ -2071,6 +2119,8 @@ globalThis.merchantUpdateLogisticsLive=merchantUpdateLogisticsLive;
 globalThis.captureSupabaseImplicitSessionFromUrl=captureSupabaseImplicitSessionFromUrl;
 globalThis.clearSupabaseAuthFragment=clearSupabaseAuthFragment;
 globalThis.merchantPilotInviteToken=merchantPilotInviteToken;
+globalThis.merchantProspectInviteToken=merchantProspectInviteToken;
+globalThis.clearMerchantProspectInviteToken=clearMerchantProspectInviteToken;
 globalThis.clearMerchantPilotInviteToken=clearMerchantPilotInviteToken;
 globalThis.merchantClaimPilotInviteLive=merchantClaimPilotInviteLive;
 globalThis.merchantSubmitApplicationLive=merchantSubmitApplicationLive;
