@@ -20,7 +20,7 @@ assert.ok(
 
 assert.ok(
   admin.includes('function adminMerchantPspPilotCenter(d)')
-  &&admin.includes('Central de primeiro pagamento automático')
+  &&admin.includes('Central de validação transacional')
   &&admin.includes('VALIDAÇÃO EM CURSO')
   &&admin.includes('AGUARDA LIQUIDAÇÃO')
   &&admin.includes('AGUARDA 1ª VENDA')
@@ -34,7 +34,7 @@ assert.ok(
   &&admin.includes('verificationByAttempt')
   &&admin.includes("x?.status==='verified'")
   &&admin.includes("caps.e2eValidated===true||Boolean(verification)"),
-  'central precisa cruzar pilot_guard com prova E2E real em vez de inferir só pela interface'
+  'central precisa cruzar pilot_guard com evidência transacional real em vez de inferir só pela interface'
 );
 
 assert.ok(
@@ -55,7 +55,7 @@ assert.ok(
 assert.ok(
   !admin.includes("adminPerform('merchant-payment-pilot-resolve'")
   &&!admin.includes("adminPerform('merchant-payment-e2e-override'"),
-  'V1.145 não pode introduzir mutation administrativa para limpar revisão ou fabricar E2E'
+  'V1.145 não pode introduzir mutation administrativa para limpar revisão ou fabricar evidência'
 );
 
 assert.ok(
@@ -73,7 +73,7 @@ assert.ok(
   'observabilidade V1.145 não pode enfraquecer a contenção transacional V1.144'
 );
 
-// Modelo pequeno da precedência visual: revisão > E2E > aprovado > live > espera > encerrado.
+// Modelo pequeno da precedência visual: revisão > integração verificada > aprovado > live > espera > encerrado.
 function stage({status,e2e,hasAttempt,direct=true,canValidate=true}){
   if(status==='review_required')return 'REVISÃO';
   if(e2e)return 'INTEGRAÇÃO VERIFICADA';
@@ -89,4 +89,4 @@ assert.equal(stage({status:'',e2e:false,hasAttempt:false}),'AGUARDA 1ª VENDA');
 assert.equal(stage({status:'approved',e2e:true,hasAttempt:true}),'INTEGRAÇÃO VERIFICADA');
 assert.equal(stage({status:'rejected',e2e:false,hasAttempt:true}),'VALIDAÇÃO ENCERRADA');
 
-console.log('V1.145 passou: Admin enxerga e opera pilotos PSP sem autoridade para fabricar homologação.');
+console.log('V1.145 passou: Admin enxerga validações PSP sem autoridade para fabricar evidência ou integração verificada.');
