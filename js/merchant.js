@@ -25,6 +25,18 @@ function merchantLiveNoAccess(){
   const rt=globalThis.merchantRuntime||{};
   const email=rt.session?.user?.email||'conta autenticada';
   const roleBlocked=rt.accessReason==='MERCHANT_ROLE_NOT_ENABLED';
+  const application=globalThis.merchantOwnApplicationForInvite?.()||null;
+  const applicationStatus=String(application?.status||'');
+  const applicationNotice=applicationStatus==='pending'
+    ?'<div class="notice" style="margin-top:14px"><strong>Cadastro em análise</strong><br>'+
+      esc(application.company_name||'Sua empresa')+' já foi recebida. Não é necessário criar outro cadastro; você pode corrigir informações antes da aprovação.</div>'
+    :applicationStatus==='rejected'
+      ?'<div class="notice danger" style="margin-top:14px"><strong>Cadastro precisa de correção</strong><br>Revise os dados e reenvie para avaliação.</div>'
+      :applicationStatus==='approved'
+        ?'<div class="notice success" style="margin-top:14px"><strong>Cadastro aprovado</strong><br>O acesso operacional depende do vínculo e habilitação da revenda.</div>'
+        :'';
+  const applicationAction=applicationStatus==='rejected'?'Corrigir e reenviar':
+    applicationStatus==='pending'?'Revisar cadastro':'Cadastrar empresa';
   return shell(`<section class="page">
     <span class="eyebrow">CONTA AUTENTICADA</span>
     <h1 class="page-title">${roleBlocked?'Seu acesso ainda não habilita o painel':'Revenda ainda não vinculada'}</h1>
@@ -32,9 +44,10 @@ function merchantLiveNoAccess(){
       ? 'Você entrou como '+esc(email)+', mas seu papel atual não possui acesso operacional a esta conta.'
       : 'Você entrou como '+esc(email)+', mas esta conta ainda não possui uma operação ativa.'}</p>
     ${rt.notice?`<div class="notice success" style="margin-top:16px"><strong>Cadastro recebido.</strong><br>${esc(rt.notice)}</div>`:''}
+    ${applicationNotice}
     ${roleBlocked
       ? '<div class="notice" style="margin-top:16px"><strong>Acesso operacional limitado.</strong><br>Seu papel atual ainda não possui uma experiência habilitada nesta operação.</div>'
-      : '<div class="card flat" style="margin-top:16px"><h3>Quer participar?</h3><p class="muted tiny">Envie ou atualize o cadastro da empresa. Um cadastro rejeitado pode ser corrigido e reenviado para nova análise.</p><button class="primary full" onclick="go(\'merchant-join\')">Cadastrar / atualizar empresa</button></div>'}
+      : applicationStatus==='approved'?'': '<div class="card flat" style="margin-top:16px"><h3>Seu cadastro</h3><p class="muted tiny">Use a inscrição existente para revisar ou corrigir informações. O TAMÃO não cria outra inscrição para o mesmo CNPJ e responsável.</p><button class="primary full" onclick="go(\'merchant-join\')">'+applicationAction+'</button></div>'}
     <button class="ghost full" style="margin-top:12px" onclick="merchantLiveLogout()">Sair desta conta</button>
   </section>`);
 }

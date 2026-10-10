@@ -30,7 +30,7 @@ window.addEventListener('load',async()=>{
     render();
   }else if(globalThis.merchantPortalRequested?.()){
     await merchantBackendInit();
-    const invitedPartner=Boolean(globalThis.merchantPilotInviteToken?.());
+    const invitedPartner=Boolean(globalThis.merchantPilotInviteToken?.()||globalThis.merchantProspectInviteToken?.());
     if(invitedPartner&&globalThis.merchantRuntime?.status==='no-access'){
       if(route()!=='merchant-join')go('merchant-join');
     }else if(!['merchant','merchant-orders','merchant-team','catalog','merchant-metrics','merchants','merchant-join'].includes(route())){

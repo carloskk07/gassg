@@ -524,6 +524,30 @@ function adminProspectInvitationControls(record){
     '</div>':'');
 }
 
+function adminProspectOnboardingProgress(record){
+  const p=record?.onboarding||{};
+  const status=String(p.step||'prospect');
+  const steps=[
+    {key:'prospect',label:'ANP'},
+    {key:'invited',label:'Convite'},
+    {key:'application',label:'Cadastro'},
+    {key:'merchant',label:'Revenda'},
+    {key:'ready',label:'Ofertas'}
+  ];
+  const stageIndex=Math.max(0,steps.findIndex(step=>step.key===status));
+  const text=steps.map((step,index)=>(index<=stageIndex?'✓ ':'○ ')+step.label).join('  ·  ');
+  const next=String(p.nextStep||'Qualificar empresa e gerar convite');
+  const needsFollowup=p.reminderRecommended===true
+    ?'<span class="status-pill">Convite sem cadastro há mais de 3 dias</span>':'';
+  const application=String(p.applicationState||'');
+  return '<div class="card flat" style="margin-top:8px"><strong>Caminho até a operação</strong>'+
+    '<p class="tiny muted" style="white-space:normal">'+esc(text)+'</p>'+
+    '<div class="tiny"><strong>Próxima ação:</strong> '+esc(next)+'</div>'+
+    (application==='rejected'?'<div class="tiny muted">O cadastro precisa ser reenviado antes de seguir.</div>':'')+
+    (status==='merchant'?'<div class="tiny muted">Revenda registrada não significa que possa receber pedidos. A autoridade de ofertas confirma elegibilidade em tempo real.</div>':'')+
+    needsFollowup+'</div>';
+}
+
 function adminProspectCrmEditor(record){
   const cnpj=String(record.cnpj||'').replace(/\D/g,'');
   if(!/^[0-9]{14}$/.test(cnpj))return '';
@@ -590,7 +614,7 @@ function adminProspectsSection(d){
         '<div class="tiny muted">'+Number(x.contact_attempts||0)+' contato(s) registrado(s)'+
           (followUp?' • Retorno: '+esc(followUp)+(overdue?' (vencido)':''):'')+
           (x.last_contacted_at?' • Último contato: '+esc(String(x.last_contacted_at).slice(0,10)):'')+'</div>'+
-        adminProspectInvitationControls(x)+adminProspectCrmEditor(x)+'</div></div>';
+        adminProspectInvitationControls(x)+adminProspectOnboardingProgress(x)+adminProspectCrmEditor(x)+'</div></div>';
     }).join('')
       :'<div class="muted">Nenhum registro consultável para esta cidade. Confira o estado da fonte; ausência de resposta não significa ausência de revendedores.</div>')+
     '</div></div>':'';

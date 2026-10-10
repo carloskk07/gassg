@@ -1182,6 +1182,31 @@ async function prospectIntelligence(admin:any,cityInput:unknown,stateInput:unkno
   for(const item of invites.data||[])if(!latestInvites.has(item.cnpj))latestInvites.set(item.cnpj,item);
   const latestApps=new Map<string,any>();
   for(const item of applications.data||[])if(!latestApps.has(item.cnpj))latestApps.set(item.cnpj,item);
+  // A merchant must match BOTH the prospect CNPJ and the registered municipality.
+  // Company registration in another city must not be reported as local supply.
+  const {data:merchantRows,error:merchantLookupError}=prospectCnpjs.length
+    ?await admin.from("merchants")
+      .select("id,cnpj,status,online")
+      .in("cnpj",prospectCnpjs).limit(300)
+    :{data:[],error:null};
+  if(merchantLookupError)throw merchantLookupError;
+  const merchantIds=(merchantRows||[]).map((m:any)=>m.id);
+  const {data:merchantCities,error:merchantCityError}=merchantIds.length
+    ?await admin.from("merchant_business_details").select("merchant_id,city,state")
+      .in("merchant_id",merchantIds).limit(300)
+    :{data:[],error:null};
+  if(merchantCityError)throw merchantCityError;
+  const cityByMerchant=new Map<string,any>();
+  for(const cityRow of merchantCities||[])cityByMerchant.set(String(cityRow.merchant_id),cityRow);
+  const localMerchantByCnpj=new Map<string,any>();
+  for(const m of merchantRows||[]){
+    const companyCnpj=String(m.cnpj||"").replace(/\D/g,"");
+    const location=cityByMerchant.get(String(m.id));
+    if(!location||String(location.state||"").toUpperCase()!==state
+      ||marketCityKey(location.city)!==cityKey)continue;
+    const existing=localMerchantByCnpj.get(companyCnpj);
+    if(!existing||String(existing.status)!=="active")localMerchantByCnpj.set(companyCnpj,m);
+  }
   const enrichedProspects=(prospects||[]).map((p:any)=>{
     const invite=latestInvites.get(p.cnpj)||null;
     const app=latestApps.get(p.cnpj)||null;
@@ -1190,8 +1215,9 @@ async function prospectIntelligence(admin:any,cityInput:unknown,stateInput:unkno
     else if(invite?.revoked_at)inviteStatus="revoked";
     else if(invite?.expires_at&&Date.parse(invite.expires_at)<=Date.now())inviteStatus="expired";
     else if(invite)inviteStatus="active";
-    return {...p,invitation:invite?{
-      status:inviteStatus,expiresAt:invite.expires_at,claimedAt:invite.claimed_at
+    const merchant=localMerchantByCnpj.get(String(p.cnpj))||null;
+    return {...p,merchant:merchant?{id:merchant.id,status:merchant.status,online:merchant.online}:null,invitation:invite?{
+      status:inviteStatus,expiresAt:invite.expires_at,claimedAt:invite.claimed_at,createdAt:invite.created_at
     }:{status:"none"},application:app?{id:app.id,status:app.status}:null};
   });
   const [{data:merchantScope,error:scopeError},{data:citySetting,error:citySettingError}]=await Promise.all([
@@ -1199,7 +1225,31 @@ async function prospectIntelligence(admin:any,cityInput:unknown,stateInput:unkno
     admin.from("market_cities").select("admin_paused").eq("state",state).eq("city_key",cityKey).maybeSingle()
   ]);
   if(scopeError||citySettingError)throw scopeError||citySettingError;
-  return {city,state,cityKey,interestCount:interestCount||0,prospects:enrichedProspects,
+  const eligibleIds=new Set(Array.isArray(merchantScope)?merchantScope.map((id:any)=>String(id)):[]);
+  const commercialProspects=enrichedProspects.map((p:any)=>{
+    const app=String(p.application?.status||"");
+    const inv=String(p.invitation?.status||"none");
+    const merchant=String(p.merchant?.status||"");
+    const ready=Boolean(p.merchant?.id&&eligibleIds.has(String(p.merchant.id)));
+    const dormantInvite=inv==="active"
+      &&Date.now()-Date.parse(String(p.invitation?.createdAt||""))>3*24*60*60*1000;
+    let nextStep=ready?"Revenda disponível para receber cotações":
+      merchant==="active"?"Revisar requisitos operacionais de venda e cobertura":
+      merchant?"Concluir habilitação operacional da revenda":
+      app==="approved"?"Vincular empresa aprovada a uma revenda operacional":
+      app==="pending"?"Analisar cadastro enviado pela empresa":
+      app==="rejected"?"Solicitar correção do cadastro ao responsável":
+      inv==="claimed"?"Conferir vínculo do convite com o cadastro":
+      inv==="active"?(dormantInvite?"Acompanhar convite enviado sem cadastro concluído":"Aguardar cadastro do responsável"):
+      "Qualificar empresa e gerar convite";
+    return {...p,onboarding:{
+      step:ready?"ready":merchant?"merchant":app?"application":inv==="active"?"invited":"prospect",
+      hasContact:Boolean(p.last_contacted_at),inviteState:inv,applicationState:app||null,
+      merchantState:merchant||null,ready,reminderRecommended:dormantInvite,
+      nextStep
+    }};
+  });
+  return {city,state,cityKey,interestCount:interestCount||0,prospects:commercialProspects,
     eligibleMerchantCount:Array.isArray(merchantScope)?merchantScope.length:0,
     cityPaused:citySetting?.admin_paused===true,
     availableCount:Number(refresh?.last_count||0),updated,checkedAt:refresh?.last_checked_at||null,

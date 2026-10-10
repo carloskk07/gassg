@@ -1057,6 +1057,9 @@ const merchantRuntime={
   session:null,
   merchant:null,
   memberships:[],
+  ownApplications:[],
+  ownApplicationsLoaded:false,
+  applicationFetchError:null,
   deliveryTeam:[],
   team:null,
   teamLoading:false,
@@ -1291,6 +1294,12 @@ async function merchantBackendInit(){
     }
 
     await merchantRefresh({silent:true});
+    if(merchantRuntime.status==='no-access'){
+      // Failing this auxiliary read must never turn a valid login into an error.
+      try{await merchantLoadOwnApplications()}catch(error){
+        merchantRuntime.applicationFetchError=String(error?.message||error);
+      }
+    }
     return merchantRuntime.status==='ready';
   }catch(error){
     merchantRuntime.status='unavailable';
@@ -1334,6 +1343,22 @@ async function merchantInvoke(name,body={},options={}){
   return data;
 }
 
+async function merchantLoadOwnApplications(){
+  if(!merchantRuntime.session?.access_token)return [];
+  const result=await merchantInvoke('submit-merchant-application',{action:'my-applications'});
+  merchantRuntime.ownApplications=Array.isArray(result?.applications)?result.applications:[];
+  merchantRuntime.ownApplicationsLoaded=true;
+  merchantRuntime.applicationFetchError=null;
+  return merchantRuntime.ownApplications;
+}
+function merchantOwnApplicationForInvite(){
+  const all=merchantRuntime.ownApplications||[];
+  const hinted=globalThis.merchantProspectInviteDetails?.();
+  const cnpj=String(hinted?.cnpj||'').replace(/\D/g,'');
+  if(cnpj)return all.find(x=>String(x.cnpj||'').replace(/\D/g,'')===cnpj)||null;
+  return all[0]||null;
+}
+
 async function merchantSendLogin(email){
   if(!merchantRuntime.client)await merchantBackendInit();
   const value=String(email||'').trim().toLowerCase();
@@ -1361,6 +1386,9 @@ async function merchantSignOut(){
   merchantRuntime.session=null;
   merchantRuntime.merchant=null;
   merchantRuntime.memberships=[];
+  merchantRuntime.ownApplications=[];
+  merchantRuntime.ownApplicationsLoaded=false;
+  merchantRuntime.applicationFetchError=null;
   merchantRuntime.deliveryTeam=[];
   merchantRuntime.team=null;
   merchantRuntime.teamLoading=false;
@@ -2007,6 +2035,19 @@ async function merchantClaimPilotInviteLive(applicationId,pilotInviteToken){
 async function merchantSubmitApplicationLive(payload){
   if(!merchantRuntime.session?.access_token)throw new Error('Entre com seu e-mail antes de enviar o cadastro');
   const result=await retryAmbiguousOnce(()=>merchantInvoke('submit-merchant-application',payload));
+  // Keep the returned application on screen, even if the subsequent refresh fails.
+  if(result?.applicationId){
+    merchantRuntime.ownApplications=[{
+      id:result.applicationId,cnpj:String(result.cnpj||payload.cnpj),
+      company_name:String(result.companyName||payload.companyName||''),
+      responsible_name:String(payload.responsibleName||''),
+      phone:String(payload.phone||''),address_text:String(payload.address||''),
+      status:String(result.status||'pending'),
+      created_at:result.createdAt||new Date().toISOString(),
+      updated_at:result.updatedAt||new Date().toISOString()
+    },...(merchantRuntime.ownApplications||[]).filter(x=>x.id!==result.applicationId)];
+    merchantRuntime.ownApplicationsLoaded=true;
+  }
   const pilotInviteToken=String(payload?.pilotInviteToken||'').trim();
   if(pilotInviteToken&&!result?.pilotPartner&&result?.applicationId){
     result.pilotPartner=await merchantClaimPilotInviteLive(result.applicationId,pilotInviteToken);
@@ -2138,6 +2179,7 @@ globalThis.clearSupabaseAuthFragment=clearSupabaseAuthFragment;
 globalThis.merchantPilotInviteToken=merchantPilotInviteToken;
 globalThis.merchantProspectInviteToken=merchantProspectInviteToken;
 globalThis.merchantProspectInviteDetails=merchantProspectInviteDetails;
+globalThis.merchantOwnApplicationForInvite=merchantOwnApplicationForInvite;
 globalThis.clearMerchantProspectInviteToken=clearMerchantProspectInviteToken;
 globalThis.clearMerchantPilotInviteToken=clearMerchantPilotInviteToken;
 globalThis.merchantClaimPilotInviteLive=merchantClaimPilotInviteLive;
