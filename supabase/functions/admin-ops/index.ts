@@ -710,7 +710,7 @@ function scopeAdminSummary(role:string,data:any){
       merchantPayments:{
         globalDirectPaymentsEnabled:data.merchantPayments?.globalDirectPaymentsEnabled===true,
         fundsOwner:"merchant",tamaoReceivesSaleProceeds:false,
-        providerCatalog:[],routes:[],verifications:[]
+        providerCatalog:[],routes:[],verifications:[],attempts:[]
       },
       finance:{receivables:[],cashbackReimbursements:[],adjustments:[]},
       merchantBilling:{
@@ -763,7 +763,7 @@ function scopeAdminSummary(role:string,data:any){
         price_confirmed_at:m.price_confirmed_at,last_seen_at:m.last_seen_at,
         paymentAccounts:[],paymentRoutes:[]
       })),
-      merchantPayments:{globalDirectPaymentsEnabled:false,fundsOwner:"merchant",tamaoReceivesSaleProceeds:false,providerCatalog:[],routes:[],verifications:[]},
+      merchantPayments:{globalDirectPaymentsEnabled:false,fundsOwner:"merchant",tamaoReceivesSaleProceeds:false,providerCatalog:[],routes:[],verifications:[],attempts:[]},
       commercialPolicy:null,
       merchantBilling:{plans:[],accounts:[],statements:[],paymentRequests:[],paymentEvents:[],refunds:[],refundRecoveries:[],providerCharges:[],webhookProbes:[],paymentAccounts:[],paymentIngress:null,metrics:null,reconciliation:null},
       productRegistry:{categories:[],products:[]},
@@ -778,7 +778,7 @@ function scopeAdminSummary(role:string,data:any){
     return {
       ...data,
       merchants:(data.merchants??[]).map((m:any)=>({...m,paymentAccount:null,paymentAccounts:[],paymentRoutes:[]})),
-      merchantPayments:{globalDirectPaymentsEnabled:false,fundsOwner:"merchant",tamaoReceivesSaleProceeds:false,providerCatalog:[],routes:[],verifications:[]},
+      merchantPayments:{globalDirectPaymentsEnabled:false,fundsOwner:"merchant",tamaoReceivesSaleProceeds:false,providerCatalog:[],routes:[],verifications:[],attempts:[]},
       businessMetrics:{},commercialPolicy:null,
       merchantBilling:{plans:[],accounts:[],statements:[],paymentRequests:[],paymentEvents:[],refunds:[],refundRecoveries:[],providerCharges:[],webhookProbes:[],paymentAccounts:[],paymentIngress:null,metrics:null,reconciliation:null},
       productRegistry:{categories:[],products:[]},
@@ -1251,6 +1251,12 @@ async function summary(admin:any,actorUserId:string){
         .order("created_at",{ascending:false})
         .limit(500)
     : Promise.resolve({data:[],error:null});
+  const merchantSaleAttemptsPromise=["superadmin","finance","readonly"].includes(actorRole)
+    ? admin.from("merchant_sale_payment_attempts")
+        .select("id,order_id,merchant_id,provider,checkout_mode,amount_cents,currency,status,payment_route_id,payment_method_snapshot,verification_level,funds_owner,provider_order_id,provider_payment_id,provider_status,expires_at,approved_at,rejected_at,cancelled_at,refunded_at,last_error_code,last_error_at,pilot_guard,created_at,updated_at")
+        .order("created_at",{ascending:false})
+        .limit(500)
+    : Promise.resolve({data:[],error:null});
   const billingRefundsPromise=["superadmin","finance","readonly"].includes(actorRole)
     ? admin.from("merchant_billing_payment_refunds")
         .select("id,provider,provider_event_id,original_reconciliation_key,refund_reconciliation_key,amount_cents,recoverable_amount_cents,excess_amount_cents,currency,occurred_at,received_at,status,payment_event_id,payment_request_id,merchant_id,original_payment_amount_cents,cumulative_refunded_cents,match_reason,reopened_refund_recovery_id,resolved_by,resolved_at,resolution_reference,created_at,updated_at")
@@ -1263,7 +1269,7 @@ async function summary(admin:any,actorUserId:string){
         .order("created_at",{ascending:false})
         .limit(200)
     : Promise.resolve({data:[],error:null});
-  const [billingPlans,billingAccounts,dailyStatements,billingPaymentRequests,billingMetrics,billingReconciliation,billingPaymentEvents,billingProviderCharges,billingWebhookProbes,merchantPaymentAccounts,merchantPaymentProviders,merchantPaymentRoutes,merchantSaleVerifications,billingRefunds,billingRefundRecoveries]=await Promise.all([
+  const [billingPlans,billingAccounts,dailyStatements,billingPaymentRequests,billingMetrics,billingReconciliation,billingPaymentEvents,billingProviderCharges,billingWebhookProbes,merchantPaymentAccounts,merchantPaymentProviders,merchantPaymentRoutes,merchantSaleVerifications,merchantSaleAttempts,billingRefunds,billingRefundRecoveries]=await Promise.all([
     admin.from("merchant_billing_plans")
       .select("plan_key,display_name,billing_mode,platform_fee_bps,purchase_amount_cents,credit_grant_cents,active,sort_order,policy_version,updated_by,last_change_reason,updated_at")
       .order("sort_order",{ascending:true}),
@@ -1288,10 +1294,11 @@ async function summary(admin:any,actorUserId:string){
     merchantPaymentProvidersPromise,
     merchantPaymentRoutesPromise,
     merchantSaleVerificationsPromise,
+    merchantSaleAttemptsPromise,
     billingRefundsPromise,
     billingRefundRecoveriesPromise
   ]);
-  for(const result of [billingPlans,billingAccounts,dailyStatements,billingPaymentRequests,billingMetrics,billingReconciliation,billingPaymentEvents,billingProviderCharges,billingWebhookProbes,merchantPaymentAccounts,merchantPaymentProviders,merchantPaymentRoutes,merchantSaleVerifications,billingRefunds,billingRefundRecoveries]){
+  for(const result of [billingPlans,billingAccounts,dailyStatements,billingPaymentRequests,billingMetrics,billingReconciliation,billingPaymentEvents,billingProviderCharges,billingWebhookProbes,merchantPaymentAccounts,merchantPaymentProviders,merchantPaymentRoutes,merchantSaleVerifications,merchantSaleAttempts,billingRefunds,billingRefundRecoveries]){
     if(result.error)throw result.error;
   }
 
@@ -1449,7 +1456,8 @@ async function summary(admin:any,actorUserId:string){
       tamaoReceivesSaleProceeds:false,
       providerCatalog:merchantPaymentProviders.data??[],
       routes:merchantPaymentRoutes.data??[],
-      verifications:merchantSaleVerifications.data??[]
+      verifications:merchantSaleVerifications.data??[],
+      attempts:merchantSaleAttempts.data??[]
     },
     merchantBilling:{
       plans:billingPlans.data??[],
