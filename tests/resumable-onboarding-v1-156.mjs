@@ -25,7 +25,7 @@ assert.ok(backend.includes('ownApplications:[]'));
 assert.ok(backend.includes('merchantRuntime.ownApplications=[]'), 'signout clears PII');
 assert.ok(backend.includes('ownApplicationsLoaded:true')===false);
 assert.ok(backend.includes('merchantOwnApplicationForInvite'));
-assert.ok(backend.includes('return all.find(x=>String(x.cnpj||').toString(), 'only same CNPJ when invited');
+assert.ok(backend.includes("if(cnpj)return all.find(x=>String(x.cnpj||'')"), 'only same CNPJ when invited');
 assert.ok(bootstrap.includes("globalThis.merchantProspectInviteToken?.()"),'magic-link callback redirect');
 assert.ok(growth.includes("globalThis.merchantOwnApplicationForInvite?.()"));
 assert.ok(growth.includes("prefillCnpj=String(prospectDetails?.cnpj||ownApplication?.cnpj||'')"));
