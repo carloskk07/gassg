@@ -98,7 +98,7 @@ grant execute on function public.admin_anp_prospect_invite_action(uuid,text,text
 
 -- Validate token and CNPJ *before* the application is modified.
 create or replace function public.validate_anp_prospect_invite(
-  p_token text,p_cnpj text
+  p_token text,p_cnpj text,p_user_id uuid default null
 )
 returns jsonb
 language plpgsql stable security definer
@@ -117,14 +117,14 @@ begin
  if not found then raise exception 'PROSPECT_INVITE_CNPJ_MISMATCH' using errcode='42501'; end if;
  if v_invite.revoked_at is not null then raise exception 'PROSPECT_INVITE_REVOKED' using errcode='42501'; end if;
  if v_invite.expires_at<=statement_timestamp() then raise exception 'PROSPECT_INVITE_EXPIRED' using errcode='42501'; end if;
- if v_invite.claimed_at is not null then
+ if v_invite.claimed_at is not null and v_invite.claimed_by is distinct from p_user_id then
    raise exception 'PROSPECT_INVITE_ALREADY_CLAIMED' using errcode='42501';
  end if;
  return jsonb_build_object('cnpj',v_invite.cnpj,'inviteId',v_invite.id);
 end;
 $func$;
-revoke all on function public.validate_anp_prospect_invite(text,text) from public,anon,authenticated;
-grant execute on function public.validate_anp_prospect_invite(text,text) to service_role;
+revoke all on function public.validate_anp_prospect_invite(text,text,uuid) from public,anon,authenticated;
+grant execute on function public.validate_anp_prospect_invite(text,text,uuid) to service_role;
 
 -- Claim is strictly bound to the authenticated permanent user and their own application.
 create or replace function public.claim_anp_prospect_invite(
@@ -151,7 +151,16 @@ begin
  if not found or v_app.status not in ('pending','rejected') then
     raise exception 'PROSPECT_APPLICATION_NOT_ELIGIBLE' using errcode='42501';
  end if;
- perform public.validate_anp_prospect_invite(p_token,regexp_replace(v_app.cnpj,'[^0-9]','','g'));
+ perform public.validate_anp_prospect_invite(p_token,regexp_replace(v_app.cnpj,'[^0-9]','','g'),p_user_id);
+ select * into v_invite from public.anp_prospect_invites
+  where token_hash=encode(extensions.digest(p_token,'sha256'),'hex')
+    and cnpj=regexp_replace(v_app.cnpj,'[^0-9]','','g')
+    and claimed_by=p_user_id and application_id=v_app.id
+    and claimed_at is not null;
+ if found then
+   return jsonb_build_object('inviteId',v_invite.id,'cnpj',v_invite.cnpj,
+     'applicationId',v_app.id,'applicationStatus',v_app.status,'linked',true,'reused',true);
+ end if;
  select * into v_invite from public.anp_prospect_invites
   where token_hash=encode(extensions.digest(p_token,'sha256'),'hex')
     and cnpj=regexp_replace(v_app.cnpj,'[^0-9]','','g')
