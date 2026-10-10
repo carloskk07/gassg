@@ -53,6 +53,13 @@ begin
    raise exception 'PROSPECT_NOT_INVITABLE' using errcode='42501';
  end if;
  if p_action='issue' then
+   if exists (
+     select 1 from public.merchant_applications a
+     where regexp_replace(a.cnpj,'[^0-9]','','g')=p_cnpj
+       and a.status in ('pending','approved')
+   ) then
+     raise exception 'PROSPECT_APPLICATION_ALREADY_EXISTS' using errcode='40001';
+   end if;
    if p_token_hash is null or p_token_hash !~ '^[0-9a-f]{64}$'
       or p_expires_at is null
       or p_expires_at<=statement_timestamp()+interval '5 minutes'
@@ -116,7 +123,9 @@ begin
    and cnpj=p_cnpj;
  if not found then raise exception 'PROSPECT_INVITE_CNPJ_MISMATCH' using errcode='42501'; end if;
  if v_invite.revoked_at is not null then raise exception 'PROSPECT_INVITE_REVOKED' using errcode='42501'; end if;
- if v_invite.expires_at<=statement_timestamp() then raise exception 'PROSPECT_INVITE_EXPIRED' using errcode='42501'; end if;
+ if v_invite.expires_at<=statement_timestamp() and v_invite.claimed_by is distinct from p_user_id then
+   raise exception 'PROSPECT_INVITE_EXPIRED' using errcode='42501';
+ end if;
  if v_invite.claimed_at is not null and v_invite.claimed_by is distinct from p_user_id then
    raise exception 'PROSPECT_INVITE_ALREADY_CLAIMED' using errcode='42501';
  end if;
