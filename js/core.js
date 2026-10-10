@@ -358,7 +358,7 @@ function reset(){
   save();
   location.hash='#home';
   render();
-  toast(globalThis.CHAMA_INTERNAL_PILOT===true?'Piloto interno reiniciado':'Demonstração reiniciada');
+  toast(globalThis.CHAMA_INTERNAL_PILOT===true?'Ambiente interno reiniciado':'Ambiente de validação reiniciado');
 }
 function route(){return (location.hash.replace('#','')||'home').split('?')[0]}
 function go(r){location.hash='#'+r}
@@ -669,7 +669,7 @@ function dispatchOrder(id){
 }
 function arrivingOrder(id){
   const o=orderById(id);if(!o)return {ok:false,error:'Pedido não encontrado'};
-  const r=transition(o,'ARRIVING','Entregador chegando','A chegada próxima foi confirmada no modo de demonstração.');
+  const r=transition(o,'ARRIVING','Entregador chegando','A chegada próxima foi confirmada no ambiente interno.');
   if(r.ok){o.arrivingAt=nowIso();save()}return r;
 }
 function grantRewards(o){
@@ -701,7 +701,7 @@ function deliverOrder(id,pin,paymentConfirmed=false){
   let r=transition(o,'DELIVERED','Entregue ✓','PIN validado com sucesso.');if(!r.ok)return r;
   o.deliveredAt=nowIso();
   const m=merchantById(o.merchantId);if(m)m.delivered++;
-  r=transition(o,'SETTLED','Pedido concluído','Entrega e pagamento conciliados na demonstração; benefícios foram processados.');
+  r=transition(o,'SETTLED','Pedido concluído','Entrega e pagamento conciliados no ambiente interno; benefícios foram processados.');
   if(r.ok){o.settledAt=nowIso();grantRewards(o);save()}
   return r;
 }
@@ -785,25 +785,25 @@ function runtimeStrip(){
   }
   if(globalThis.__CHAMA_TEST__===true){
     if(globalThis.CHAMA_INTERNAL_PILOT===true){
-      return '<div class="demo-strip"><span>🧪 PILOTO INTERNO • nenhum pedido, pagamento ou estoque desta tela é real</span><button onclick="reset()">Reiniciar piloto</button></div>';
+      return '<div class="demo-strip"><span>🧪 AMBIENTE INTERNO • nenhuma ação desta tela altera a operação pública</span><button onclick="reset()">Reiniciar ambiente</button></div>';
     }
     return '<div class="demo-strip"><span>Ambiente isolado de teste automatizado</span><button onclick="reset()">Reiniciar teste</button></div>';
   }
   const mode=globalThis.liveBanner?.()||'connecting';
   const preview=globalThis.prelaunchExamplesEnabled?.()===true;
   if(mode==='live'){
-    if(preview)return '<div class="demo-strip"><span>PRÉ-LANÇAMENTO • conheça a experiência enquanto formamos a primeira rede de parceiros</span></div>';
+    if(preview)return '<div class="demo-strip"><span>ATENDIMENTO POR REGIÃO • consulte seu CEP para verificar disponibilidade</span></div>';
     return '<div class="demo-strip live-strip"><span>● OPERAÇÃO ATIVA • consulte opções reais para o seu endereço</span></div>';
   }
   if(mode==='connecting')return '<div class="demo-strip live-strip"><span>Preparando sua experiência…</span></div>';
   if(globalThis.liveRuntime?.status==='unsafe-origin'){
-    return '<div class="demo-strip"><span>PRÉ-LANÇAMENTO • compras reais serão liberadas na abertura oficial desta experiência</span></div>';
+    return '<div class="demo-strip"><span>ATENDIMENTO INDISPONÍVEL NESTA ORIGEM • use o endereço oficial do TAMÃO</span></div>';
   }
   return '<div class="demo-strip blocked-strip"><span>Serviço temporariamente indisponível • nenhum pedido foi criado</span></div>';
 }
 function siteFooter({adminPortal=false}={}){
   if(adminPortal)return '';
-  return '<footer class="site-footer"><div class="shell site-footer-inner"><div><strong>TAMÃO</strong><small>Pediu? Tá na mão. • Pré-lançamento em São Gabriel/RS</small></div><nav aria-label="Informações legais"><button onclick="go(\'privacy\')">Privacidade</button><button onclick="go(\'terms\')">Termos</button><button onclick="go(\'contact\')">Contato</button></nav></div></footer>';
+  return '<footer class="site-footer"><div class="shell site-footer-inner"><div><strong>TAMÃO</strong><small>Pediu? Tá na mão. • São Gabriel/RS</small></div><nav aria-label="Informações legais"><button onclick="go(\'privacy\')">Privacidade</button><button onclick="go(\'terms\')">Termos</button><button onclick="go(\'contact\')">Contato</button></nav></div></footer>';
 }
 function shell(content){
   const r=route();
