@@ -2367,7 +2367,7 @@ function adminMerchantPspPilotCenter(d){
         :'Automação suspensa ou indisponível; mantenha confirmação manual até nova decisão.';
     }
 
-    const anchor=stage==='E2E VALIDADO'
+    const anchor=stage==='INTEGRAÇÃO VERIFICADA'
       ?caps.e2eValidatedAt||verification?.verified_at||verification?.created_at||latestAttempt?.updated_at
       :status==='review_required'
         ?latestAttempt?.last_error_at||latestAttempt?.updated_at||latestAttempt?.created_at
@@ -2524,7 +2524,7 @@ function adminMerchantBillingSection(d){
         <div class="admin-psp-status"><span class="admin-state-dot ${paymentIngress.adapterReadiness?.mercadopago?.webhookSecretConfigured?'ok':'pending'}"></span><div><small>Webhook HMAC</small><strong>${paymentIngress.adapterReadiness?.mercadopago?.webhookSecretConfigured?'Configurado':'Pendente'}</strong></div></div>
         <div class="admin-psp-status"><span class="admin-state-dot ${pspApiValidated?'ok':pspFailed?'bad':'pending'}"></span><div><small>API Mercado Pago</small><strong>${pspApiValidated?'Validada':pspFailed?'Falhando':'Não testada'}</strong></div></div>
         <div class="admin-psp-status"><span class="admin-state-dot ${remoteWebhookVerified?'ok':'pending'}"></span><div><small>Webhook remoto</small><strong>${remoteWebhookVerified?'Assinatura comprovada':latestWebhookProbe?.status==='pending'?'Prova aguardando envio':'Não comprovado'}</strong></div></div>
-        <div class="admin-psp-status"><span class="admin-state-dot ${pspE2E.validated?'ok':'pending'}"></span><div><small>Validação transacional</small><strong>${pspE2E.validated?'Validado':'Aguardando pagamento real'}</strong></div></div>
+        <div class="admin-psp-status"><span class="admin-state-dot ${pspE2E.validated?'ok':'pending'}"></span><div><small>Validação transacional</small><strong>${pspE2E.validated?'Validado':'Aguardando primeira transação verificada'}</strong></div></div>
       </div>
       <div class="admin-psp-actions">
         <button class="secondary small" onclick="adminCheckBillingProviderHealth()" ${adminRuntime.providerHealthPending?'disabled':''}>${adminRuntime.providerHealthPending?'Testando conexão…':'Testar PSP ativo'}</button>
@@ -2882,7 +2882,7 @@ function adminCommercialPolicySection(d){
       <div class="kpi"><span class="label">Folga econômica</span><strong>${adminBpsPct(headroom)}%</strong><small>${per100(headroom)} por R$ 100 no pior caso</small></div>
     </div>
     <div class="card flat form-stack" style="margin-top:12px">
-      <label class="check-row"><input id="policy-active" type="checkbox" ${p.active?'checked':''} onchange="adminPreviewCommercialPolicy()"><span><strong>Política ativa para novos pedidos</strong><small>Desativar durante PILOT/LIVE é bloqueado pelo servidor; pause a operação primeiro.</small></span></label>
+      <label class="check-row"><input id="policy-active" type="checkbox" ${p.active?'checked':''} onchange="adminPreviewCommercialPolicy()"><span><strong>Política ativa para novos pedidos</strong><small>Para desativar durante a operação, pause novos pedidos primeiro.</small></span></label>
       <div class="field-row">
         <div class="input-wrap"><label for="policy-fee">Taxa fallback/legado (%)</label><input id="policy-fee" type="number" min="0" max="50" step="0.05" class="input" value="${adminBpsPct(fee)}" oninput="adminPreviewCommercialPolicy()"></div>
         <div class="input-wrap"><label for="policy-variable">Reserva de custo (%)</label><input id="policy-variable" type="number" min="0" max="50" step="0.05" class="input" value="${adminBpsPct(variable)}" oninput="adminPreviewCommercialPolicy()"></div>
@@ -3297,12 +3297,12 @@ async function adminSetOperationMode(mode){
   const confirmText=target==='PAUSED'
     ?'Pausar novos pedidos agora? Pedidos existentes e o painel continuarão acessíveis.'
     :target==='LIVE'
-      ?'Ativar LIVE agora? Esta ação libera a operação normal conforme o checklist confirmado.'
+      ?'Confirmar a operação normal agora? Esta ação mantém novos pedidos liberados conforme o checklist confirmado.'
       :target==='PILOT'
         ?'Ativar a operação agora? Novos pedidos serão permitidos conforme as regras e limites configurados.'
         :'Voltar para configuração? Novos pedidos ficarão bloqueados.';
   if(!confirm(confirmText))return;
-  if(target==='LIVE'&&!adminRequireTypedConfirmation('ATIVAR LIVE','Confirmação reforçada para liberar operação normal.'))return toast('Ativação LIVE cancelada');
+  if(target==='LIVE'&&!adminRequireTypedConfirmation('CONFIRMAR OPERAÇÃO','Confirmação reforçada para manter a operação normal.'))return toast('Confirmação da operação cancelada');
   try{
     await adminPerform('set-operation-mode',{mode:target,reason});
     toast('Modo operacional atualizado para '+adminOperationModeLabel(target));
