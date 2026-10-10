@@ -2,6 +2,19 @@ const PRELAUNCH_EXAMPLE_PRICES={
   P13:11990,P20:18990,P45:41990,WATER20:1590,CHARCOAL4:1990,WOOD:2490,ICE5:1250
 };
 
+const JR_PUBLIC_P13_REFERENCE=Object.freeze({
+  merchant:'Gas e Lenheira do JR',
+  minimum:115.90,
+  usual:120.00,
+  maximum:125.00,
+  deliveryIncluded:true
+});
+
+function jrPublicPriceReference(){
+  const p=JR_PUBLIC_P13_REFERENCE;
+  return `<div class="notice success" style="margin-top:14px" aria-label="Preço de referência Gas e Lenheira do JR"><strong>${esc(p.merchant)} • P13</strong><br><strong>R$ 120,00</strong> como valor usual informado • faixa de <strong>R$ 115,90 a R$ 125,00</strong> • entrega incluída.<br><span class="tiny">Referência comercial informada pela revenda. A disponibilidade e o valor final são confirmados para o seu CEP antes do pedido.</span></div>`;
+}
+
 function prelaunchExampleOffers(cart={P13:1}){
   let subtotal=0;
   for(const [code,qtyRaw] of Object.entries(cart||{})){
@@ -187,10 +200,14 @@ function home(){
   }
 
   const p=testDemo?minPrice():null;
+  const showJrPublicReference=!testDemo&&(
+    preview
+    ||(ready&&market?.realSupplyConfigured===false)
+  );
   const priceText=testDemo
     ? (p==null?'Indisponível':BRL.format(p))
-    : preview
-      ? 'Consultar disponibilidade'
+    : showJrPublicReference
+      ? BRL.format(JR_PUBLIC_P13_REFERENCE.usual)+' ref.'
       : ready&&!market
         ? 'Consultar preço'
         : ready&&market?.realSupplyConfigured
@@ -203,8 +220,8 @@ function home(){
     ? internalPilot
       ? 'Ambiente interno: faixa comercial P13 confirmada; os demais dados desta visualização não representam operação pública.'
       : 'Ambiente isolado de teste automatizado'
-    : preview
-      ? 'Informe seu CEP para consultar a disponibilidade de atendimento em São Gabriel.'
+    : showJrPublicReference
+      ? 'Preço de referência informado pela Gas e Lenheira do JR. Consulte seu CEP para confirmar disponibilidade e valor final.'
       : ready&&!market
         ? 'Não foi possível confirmar o panorama geral agora. Informe seu endereço para consultar as opções diretamente.'
         : ready&&market?.realSupplyConfigured
@@ -277,6 +294,7 @@ function home(){
     </div>
 
     <div class="trust-row"><span class="trust-chip">✓ Total antes de pedir</span><span class="trust-chip">✓ Parceiro precisa aceitar</span><span class="trust-chip">✓ Entrega acompanhada</span></div>
+    ${showJrPublicReference?jrPublicPriceReference():''}
     ${internalPilot?'<div class="notice" style="margin-top:14px"><strong>Ambiente de validação interna.</strong><br>Nenhuma ação nesta prévia gera pedido real, cobrança ou baixa de estoque. O dado comercial real carregado no cenário é a faixa P13: R$ 115,90 mínimo, R$ 120,00 normal e R$ 125,00 máximo, com entrega incluída.</div>':''}
   </div>
   <div class="hero-visual" aria-label="Resumo visual dos benefícios do TAMÃO">
