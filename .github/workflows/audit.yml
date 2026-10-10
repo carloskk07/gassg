@@ -93,6 +93,8 @@ jobs:
         run: node tests/expansion-intelligence-v1-153.mjs
       - name: Commercial prospect CRM and city opportunity radar V1.154 regression contract
         run: node tests/prospect-crm-radar-v1-154.mjs
+      - name: ANP prospect invitations and merchant signup V1.155 regression contract
+        run: node tests/anp-prospect-invites-v1-155.mjs
       - name: Remote admin gateway contract and portal report
         run: node tests/remote-admin-readiness.mjs
       - name: Runtime origin config contract
