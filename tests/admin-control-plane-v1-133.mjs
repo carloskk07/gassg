@@ -115,8 +115,9 @@ assert.ok(admin.includes("adminRequireTypedConfirmation('SUPERADMIN'"),
 assert.ok(admin.includes("adminRole==='superadmin'&&!adminRequireTypedConfirmation('SUPERADMIN'"),
   'novo Superadmin também precisa de confirmação reforçada');
 assert.ok(
-  admin.includes("const typed=activationKind==='pilot'?'PILOTO':'REATIVAR'")
-  &&admin.includes('adminRequireTypedConfirmation(typed,copy)'),
+  admin.includes("const typed=activationKind==='pilot'?'ATIVAR PILOTO':'REATIVAR'")
+  &&admin.includes('adminRequireTypedConfirmation(typed,copy)')
+  &&admin.includes('adminRunMerchantPaymentPreflight'),
   'ativação/reativação de pagamento direto precisa de confirmação reforçada sem antecipar status HOMOLOGADO'
 );
 assert.ok(admin.includes('Formas de pagamento aceitas do cliente final'),
