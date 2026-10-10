@@ -1244,7 +1244,7 @@ async function prospectIntelligence(admin:any,cityInput:unknown,stateInput:unkno
       .select("cnpj,legal_name,address_text,distributor,authorization,sigaf_status,prospect_status,source_checked_at")
       .eq("state",state).eq("city_key",cityKey).order("legal_name",{ascending:true}).limit(200),
     admin.from("anp_prospect_refreshes").select("last_checked_at,last_count,status").eq("state",state).eq("city_key",cityKey).maybeSingle(),
-    admin.from("prelaunch_leads").select("id",{count:"exact",head:true}).eq("state",state).ilike("city",city)
+    admin.from("market_city_interests").select("lead_id",{count:"exact",head:true}).eq("state",state).ilike("city",city)
   ]);
   if(prospectError||refreshError||interestError)throw prospectError||refreshError||interestError;
   return {city,state,cityKey,interestCount:interestCount||0,prospects:prospects||[],
@@ -1323,6 +1323,10 @@ async function summary(admin:any,actorUserId:string){
   for(const result of [apps,merchants,compliance,capabilities,referralReviews,rewardFailures,accountingFailures,receivables,reimbursements,adjustments,platformAdmins,prelaunchLeads,publicRequests,audit,incidents]){
     if(result.error)throw result.error;
   }
+  const {data:marketCityInterests,error:marketCityInterestError}=await admin
+    .from("market_city_interests").select("city,state,last_seen_at")
+    .not("city","is",null).order("last_seen_at",{ascending:false}).limit(1000);
+  if(marketCityInterestError)throw marketCityInterestError;
   const currentAdmin=(platformAdmins.data??[]).find((x:any)=>x.user_id===actorUserId)??null;
   const actorRole=String(currentAdmin?.admin_role||"superadmin");
   const pilotPartners=await admin
@@ -1660,6 +1664,7 @@ async function summary(admin:any,actorUserId:string){
     currentAdmin,
     platformAdmins:platformAdmins.data??[],
     prelaunchLeads:prelaunchLeads.data??[],
+    marketCityInterests:marketCityInterests??[],
     acquisitionMetrics:acquisitionMetrics.data??{},
     publicRequests:publicRequests.data??[],
     rewardFailures:rewardFailures.data??[],
