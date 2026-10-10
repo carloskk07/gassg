@@ -41,5 +41,5 @@ assert.ok(acquisition.includes('rememberMarketRegion(data.region,postalCode)'),'
 assert.ok(acquisition.includes("if(type!=='customer')return saved==='1'"),'cadastros por CEP não podem ficar bloqueados por envio anterior');
 assert.ok(customer.includes('const outsideOriginalMarket='),'mercado fora da região é reconhecido');
 assert.ok(customer.includes('!outsideOriginalMarket&&('),'preço de referência São Gabriel não pode ser nacionalizado');
-assert.ok(customer.includes('Receber aviso na minha cidade'),'CTA para municípios sem cobertura');
+assert.ok(customer.includes('Consultar minha cidade'),'CTA por município precisa consultar ofertas antes do aviso');
 console.log('V1.151: demanda nacional, ANP autenticada, consentimento por CEP e ativação comercial fechada.');

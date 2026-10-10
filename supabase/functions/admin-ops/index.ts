@@ -104,7 +104,7 @@ const ADMIN_ROLE_ACTIONS:Record<string,Set<string>>={
   operations:new Set([
     "approve-application","reject-application","verify-merchant","activate-merchant","suspend-merchant",
     "set-delivery-capability","order-control","support-case-status","lead-status","public-request-status",
-    "pilot-invite","assisted-merchant-onboarding","product-registry","verify-launch-portals","incident-action"
+    "pilot-invite","assisted-merchant-onboarding","product-registry","verify-launch-portals","incident-action","market-city-pause"
   ]),
   finance:new Set([
     "financial-action","review-referral","retry-reward","retry-accounting","reverse-order",
@@ -1247,7 +1247,14 @@ async function prospectIntelligence(admin:any,cityInput:unknown,stateInput:unkno
     admin.from("market_city_interests").select("lead_id",{count:"exact",head:true}).eq("state",state).ilike("city",city)
   ]);
   if(prospectError||refreshError||interestError)throw prospectError||refreshError||interestError;
+  const [{data:merchantScope,error:scopeError},{data:citySetting,error:citySettingError}]=await Promise.all([
+    admin.rpc("market_city_offer_scope",{p_city:city,p_state:state}),
+    admin.from("market_cities").select("admin_paused").eq("state",state).eq("city_key",cityKey).maybeSingle()
+  ]);
+  if(scopeError||citySettingError)throw scopeError||citySettingError;
   return {city,state,cityKey,interestCount:interestCount||0,prospects:prospects||[],
+    eligibleMerchantCount:Array.isArray(merchantScope)?merchantScope.length:0,
+    cityPaused:citySetting?.admin_paused===true,
     availableCount:Number(refresh?.last_count||0),updated,checkedAt:refresh?.last_checked_at||null,
     sourceStatus:refresh?.status||"unavailable",warning,source:"ANP API Revendedores GLP",
     commerceAutomaticallyActivated:false};
@@ -1750,6 +1757,19 @@ Deno.serve(async(req:Request)=>{
     const idempotencyKey=String(req.headers.get("Idempotency-Key")??"").trim();
     if(idempotencyKey.length<12||idempotencyKey.length>120){
       throw new DomainError("INVALID_IDEMPOTENCY_KEY","Chave de idempotência obrigatória para mutações administrativas.",400);
+    }
+
+    if(action==="market-city-pause"){
+      const city=cleanText(body.city,{min:2,max:120,name:"cidade"});
+      const state=String(body.state||"").trim().toUpperCase();
+      const paused=body.paused;
+      if(typeof paused!=="boolean")throw new DomainError("INVALID_CITY_PAUSE","Estado da cidade inválido.",400);
+      const reason=cleanText(body.reason,{min:5,max:240,name:"justificativa"});
+      const {data,error}=await admin.rpc("admin_set_market_city_pause",{
+        p_actor_user_id:user.id,p_city:city,p_state:state,p_paused:paused,p_reason:reason
+      });
+      if(error)throw error;
+      return json(data,200,origin);
     }
 
     let payload:Record<string,unknown>;

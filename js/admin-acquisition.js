@@ -310,6 +310,22 @@ function adminProspectSearchCity(){
   adminRuntime.prospectReport=null;
   adminLoadProspects().catch(()=>{});
 }
+async function adminPauseMarketCity(paused){
+  if(!['superadmin','operations'].includes(String(adminCurrentRole())))return toast('Sem permissão para alterar cidades');
+  const verb=paused?'pausar':'retomar';
+  const region=adminRuntime.prospectCity+'/'+adminRuntime.prospectState;
+  const reason=prompt('Informe o motivo para '+verb+' a operação em '+region+':','');
+  if(reason==null)return;
+  if(reason.trim().length<5)return toast('Informe uma justificativa de pelo menos 5 caracteres');
+  try{
+    await adminPerform('market-city-pause',{
+      city:adminRuntime.prospectCity,state:adminRuntime.prospectState,
+      paused:paused===true,reason:reason.trim()
+    });
+    await adminLoadProspects();
+    toast(paused?'Cidade pausada para novas cotações':'Pausa removida; ofertas dependem de revendas aptas');
+  }catch(e){toast(String(e?.message||e))}
+}
 function adminProspectsSection(d){
   const grouped=new Map();
   for(const lead of d?.marketCityInterests||[]){
@@ -329,9 +345,14 @@ function adminProspectsSection(d){
   const error=adminRuntime.prospectError?'<div class="notice danger">'+esc(adminRuntime.prospectError)+'</div>':'';
   const summary=matches?'<div class="merchant-kpis">'+
     '<div class="kpi"><span class="label">Interessados</span><strong>'+Number(report.interestCount||0)+'</strong><small>CEP identificado e consentimento</small></div>'+
+    '<div class="kpi"><span class="label">Revendas aptas agora</span><strong>'+Number(report.eligibleMerchantCount||0)+'</strong><small>Cadastro, conformidade, estoque, preço e presença</small></div>'+
     '<div class="kpi"><span class="label">Revendas na ANP</span><strong>'+(report.sourceStatus==='ok'?Number(report.availableCount||0):'—')+'</strong><small>Empresas prospectáveis, não parceiros</small></div>'+
     '<div class="kpi"><span class="label">Fonte consultada</span><strong>'+esc(adminRelativeTime(report.checkedAt))+'</strong><small>'+esc(report.sourceStatus||'não confirmada')+'</small></div></div>'+
     (report.warning?'<div class="notice">'+esc(report.warning)+'</div>':'')+
+    '<div class="card flat"><strong>Comércio por cidade: '+(report.cityPaused?'PAUSADO PELO ADMIN':Number(report.eligibleMerchantCount||0)>0?'PRONTO PARA RECEBER COTAÇÕES':'AGUARDANDO REVENDA APTA')+'</strong>'+
+      (['superadmin','operations'].includes(String(adminCurrentRole()))?
+        '<div class="order-actions" style="margin-top:12px"><button class="'+(report.cityPaused?'secondary':'danger-btn')+' small" onclick="adminPauseMarketCity('+(report.cityPaused?'false':'true')+')">'+(report.cityPaused?'Remover pausa administrativa':'Pausar cidade')+'</button></div>':'')+
+      '<p class="tiny muted">A habilitação é derivada de fornecedores válidos em tempo real. A ação administrativa é auditada e não ativa a cidade sozinha.</p></div>'+
     '<div class="section-head"><div><h3>Empresas registradas na ANP</h3><p>Confirmar dados e interesse antes do convite. Importação não habilita recebimento de pedidos.</p></div></div>'+
     '<div class="card flat"><div class="list">'+
     (prospects.length?prospects.map(x=>'<div class="list-row"><div><strong>'+esc(x.legal_name||'Revenda GLP')+'</strong><br>'+

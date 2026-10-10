@@ -90,10 +90,15 @@ test('CEP exige exatamente oito dígitos',()=>{
   throwsCode(()=>normalizePostalCode('abcdefgh'),'INVALID_POSTAL_CODE');
 });
 
-function postalAdmin({cached=null,cacheError=null}={}){
+function postalAdmin({cached=null,cacheError=null,cityReady=false}={}){
   const writes=[];
   return {
     writes,
+    rpc:async (name,args)=>{
+      assert.equal(name,'market_city_ready');
+      assert.equal(typeof args?.p_city,'string');
+      return {data:cityReady,error:null};
+    },
     from(table){
       assert.equal(table,'postal_code_validation_cache');
       const chain={
@@ -101,7 +106,8 @@ function postalAdmin({cached=null,cacheError=null}={}){
         eq(){return chain},
         gte(){return chain},
         maybeSingle:async()=>({data:cached,error:cacheError}),
-        upsert:async(row)=>{writes.push(row);return {error:null}}
+        upsert:async(row)=>{writes.push(row);return {error:null}},
+        update:(row)=>{writes.push(row);return chain}
       };
       return chain;
     }
@@ -127,12 +133,23 @@ await test('CEP em cache permitido não chama provedores externos',async()=>{
 await test('CEP cacheado fora de São Gabriel falha fechado',async()=>{
   const admin=postalAdmin({cached:{
     postal_code:'90000000',city:'Porto Alegre',state:'RS',ibge_code:'4314902',
-    provider:'viacep',service_area_allowed:false,verified_at:new Date().toISOString()
+    provider:'viacep',service_area_allowed:false,street:'Av. Borges de Medeiros',verified_at:new Date().toISOString()
   }});
   await assert.rejects(
     ()=>validateServicePostalCode(admin,'90000000'),
     e=>e instanceof DomainError&&e.code==='POSTAL_CODE_OUTSIDE_SERVICE_AREA'&&e.status===422
   );
+});
+
+await test('CEP cacheado de cidade nova passa após revenda qualificada',async()=>{
+  const admin=postalAdmin({cityReady:true,cached:{
+    postal_code:'90000000',city:'Porto Alegre',state:'RS',ibge_code:'4314902',
+    provider:'viacep',service_area_allowed:false,street:'Av. Borges de Medeiros',verified_at:new Date().toISOString()
+  }});
+  const result=await validateServicePostalCode(admin,'90000000');
+  assert.equal(result.city,'Porto Alegre');
+  assert.equal(admin.writes.length,1);
+  assert.equal(admin.writes[0].service_area_allowed,true);
 });
 
 await test('resolvedor usa ViaCEP quando BrasilAPI fica indisponível',async()=>{
