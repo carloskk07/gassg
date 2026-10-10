@@ -27,6 +27,10 @@ assert.ok(sql.includes("before insert or update of merchant_id,postal_code on pu
 assert.ok(sql.includes("pc.service_area_allowed"));
 assert.ok(sql.includes("if not new.merchant_id=any(v_ids)"));
 assert.ok(sql.includes("raise exception 'MERCHANT_CITY_NOT_READY'"));
+assert.ok(sql.includes('orders_city_reassignment_guard'));
+assert.ok(sql.includes("before update of merchant_id,proposed_merchant_id on public.orders"));
+assert.ok(sql.includes('ORDER_PROPOSED_MERCHANT_CITY_CONFLICT'));
+assert.ok(sql.includes('ORDER_MERCHANT_CITY_CONFLICT'));
 assert.ok(sql.includes('admin_set_market_city_pause'));
 assert.ok(sql.includes("a.admin_role in ('superadmin','operations')"));
 assert.ok(sql.includes("'market-city-pause','market_city'"));
