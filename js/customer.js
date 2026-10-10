@@ -3,7 +3,6 @@ const PRELAUNCH_EXAMPLE_PRICES={
 };
 
 const JR_PUBLIC_P13_REFERENCE=Object.freeze({
-  merchant:'Gas e Lenheira do JR',
   minimum:115.90,
   usual:120.00,
   maximum:125.00,
@@ -12,7 +11,7 @@ const JR_PUBLIC_P13_REFERENCE=Object.freeze({
 
 function jrPublicPriceReference(){
   const p=JR_PUBLIC_P13_REFERENCE;
-  return `<div class="notice success" style="margin-top:14px" aria-label="Preço de referência Gas e Lenheira do JR"><strong>${esc(p.merchant)} • P13</strong><br><strong>R$ 120,00</strong> como valor usual informado • faixa de <strong>R$ 115,90 a R$ 125,00</strong> • entrega incluída.<br><span class="tiny">Referência comercial informada pela revenda. A disponibilidade e o valor final são confirmados para o seu CEP antes do pedido.</span></div>`;
+  return `<div class="notice success" style="margin-top:14px" aria-label="Preço de referência do P13"><strong>Referência de preço • P13</strong><br><strong>R$ 120,00</strong> como valor usual • faixa de <strong>R$ 115,90 a R$ 125,00</strong> • entrega incluída.<br><span class="tiny">Referência comercial local. A disponibilidade, a revenda disponível e o valor final são confirmados para o seu CEP antes do pedido.</span></div>`;
 }
 
 function prelaunchExampleOffers(cart={P13:1}){
@@ -221,7 +220,7 @@ function home(){
       ? 'Ambiente interno: faixa comercial P13 confirmada; os demais dados desta visualização não representam operação pública.'
       : 'Ambiente isolado de teste automatizado'
     : showJrPublicReference
-      ? 'Preço de referência informado pela Gas e Lenheira do JR. Consulte seu CEP para confirmar disponibilidade e valor final.'
+      ? 'Referência local de preço do P13. Consulte seu CEP para confirmar disponibilidade, revenda e valor final.'
       : ready&&!market
         ? 'Não foi possível confirmar o panorama geral agora. Informe seu endereço para consultar as opções diretamente.'
         : ready&&market?.realSupplyConfigured
