@@ -392,6 +392,98 @@ function adminCityNotificationsSection(){
     '</div></div>';
 }
 
+
+const PROSPECT_STAGE_LABELS={
+  uncontacted:'Não contatada',contacted:'Contatada',interested:'Interessada',
+  onboarding:'Em cadastro',partner:'Parceira confirmada',dismissed:'Descartada'
+};
+async function adminLoadExpansionRadar(){
+  if(!adminReady()||adminRuntime.expansionRadarLoading)return;
+  adminRuntime.expansionRadarLoading=true;
+  adminRuntime.expansionRadarError=null;
+  try{
+    const result=await adminInvoke({action:'expansion-radar'});
+    adminRuntime.expansionRadar=Array.isArray(result?.cities)?result.cities:[];
+  }catch(error){adminRuntime.expansionRadarError=String(error?.message||error)}
+  finally{adminRuntime.expansionRadarLoading=false;render()}
+}
+function adminRadarCityCard(city){
+  const key=String(city.state||'')+'|'+String(city.city||'');
+  const state=String(city.state||'');
+  const paused=city.admin_paused===true;
+  const customers=Number(city.interested_customers||0);
+  const prospects=Number(city.anp_prospects||0);
+  const score=Number(city.priority_score||0);
+  const eligible=Number(city.eligible_merchants||0);
+  const stage=paused?'Operação pausada':eligible>0?'Com atendimento':'Buscando parceiros';
+  return '<button type="button" class="card flat" data-city="'+esc(key)+'" onclick="adminProspectSelectCity(this.dataset.city)" style="text-align:left;cursor:pointer">'+
+    '<div class="status-bar"><strong>'+esc(city.city||'Cidade')+' / '+esc(state)+'</strong><span class="status-pill">'+esc(stage)+'</span></div>'+
+    '<div class="tiny muted">Índice de trabalho '+score+' • '+customers+' interessado'+(customers===1?'':'s')+
+      ' • '+prospects+' registro'+(prospects===1?'':'s')+' ANP</div>'+
+    '<div class="tiny muted">'+Number(city.uncontacted||0)+' sem contato • '+Number(city.onboarding||0)+' em cadastro'+
+      (Number(city.overdue_followups||0)?' • '+Number(city.overdue_followups||0)+' retorno(s) vencido(s)':'')+'</div>'+
+    '<small>Fonte ANP: '+esc(city.anp_source_status==='ok'?'consultada':city.anp_source_status==='unavailable'?'indisponível':'a verificar')+
+      ' • Revendas aptas: '+eligible+'</small>'+
+  '</button>';
+}
+function adminExpansionRadarSection(){
+  const items=Array.isArray(adminRuntime.expansionRadar)?adminRuntime.expansionRadar:[];
+  const loading=adminRuntime.expansionRadarLoading;
+  const error=adminRuntime.expansionRadarError;
+  return '<div class="section-head"><div><span class="section-kicker">RADAR COMERCIAL</span><h3>Cidades em ordem de atenção</h3>'+
+    '<p>Índice interno calculado de interesses consentidos, empresas ANP, negociações e retornos vencidos. Não é previsão de vendas ou tamanho do mercado.</p></div>'+
+    '<button type="button" class="secondary small" onclick="adminLoadExpansionRadar()" '+(loading?'disabled':'')+'>Atualizar radar</button></div>'+
+    (error?'<div class="notice danger">'+esc(error)+'</div>':'')+
+    '<div class="grid cards-3">'+(items.length?items.slice(0,6).map(adminRadarCityCard).join(''):
+      '<div class="empty card">'+(loading?'Analisando cidades…':'Nenhuma cidade identificada ainda.')+'</div>')+'</div>'+
+    (items.length>6?'<details class="card flat" style="margin-top:10px"><summary>Ver todas as '+items.length+' cidades priorizadas</summary>'+
+      '<div class="grid cards-3" style="margin-top:12px">'+items.slice(6).map(adminRadarCityCard).join('')+'</div></details>':'');
+}
+async function adminSaveProspect(cnpj,expectedVersion){
+  if(!['superadmin','operations','compliance'].includes(String(adminCurrentRole())))return;
+  const id=String(cnpj||'').replace(/\D/g,'');
+  if(!/^[0-9]{14}$/.test(id))return toast('CNPJ inválido');
+  const stage=String(document.getElementById('prospect-stage-'+id)?.value||'');
+  const note=String(document.getElementById('prospect-note-'+id)?.value||'').trim();
+  const followUpDate=String(document.getElementById('prospect-follow-up-'+id)?.value||'');
+  const contactChannel=String(document.getElementById('prospect-channel-'+id)?.value||'');
+  if(note.length<5||note.length>1000)return toast('Descreva o próximo passo ou contato em pelo menos cinco caracteres');
+  if(stage==='contacted'&&!contactChannel)return toast('Para registrar um contato, informe o canal utilizado');
+  try{
+    await adminPerform('prospect-crm',{
+      cnpj:id,expectedVersion:Number(expectedVersion),status:stage,
+      note,followUpDate,contactChannel
+    });
+    await Promise.all([adminLoadProspects(),adminLoadExpansionRadar()]);
+    toast('Negociação atualizada e registrada na auditoria');
+  }catch(error){toast(String(error?.message||error))}
+}
+function adminProspectCrmEditor(record){
+  const cnpj=String(record.cnpj||'').replace(/\D/g,'');
+  if(!/^[0-9]{14}$/.test(cnpj))return '';
+  if(!['superadmin','operations','compliance'].includes(String(adminCurrentRole())))return '';
+  const choices=Object.entries(PROSPECT_STAGE_LABELS)
+    .map(([value,label])=>'<option value="'+value+'" '+(value===record.prospect_status?'selected':'')+'>'+esc(label)+'</option>').join('');
+  const date=String(record.follow_up_at||'').slice(0,10);
+  return '<details class="card flat" style="margin-top:8px"><summary>Gerenciar negociação</summary>'+
+    '<div class="form-stack" style="margin-top:12px">'+
+      '<div class="field-row"><div class="input-wrap"><label for="prospect-stage-'+cnpj+'">Etapa comercial</label>'+
+        '<select id="prospect-stage-'+cnpj+'" class="input">'+choices+'</select></div>'+
+      '<div class="input-wrap"><label for="prospect-follow-up-'+cnpj+'">Próximo contato</label>'+
+        '<input type="date" id="prospect-follow-up-'+cnpj+'" class="input" value="'+esc(date)+'"></div></div>'+
+      '<div class="input-wrap"><label for="prospect-channel-'+cnpj+'">Contato realizado nesta atualização?</label>'+
+        '<select id="prospect-channel-'+cnpj+'" class="input"><option value="">Não registrar contato</option>'+
+          '<option value="phone">Telefone</option><option value="whatsapp">WhatsApp</option>'+
+          '<option value="email">E-mail</option><option value="in_person">Presencial</option></select></div>'+
+      '<div class="input-wrap"><label for="prospect-note-'+cnpj+'">Histórico / próxima ação</label>'+
+        '<textarea id="prospect-note-'+cnpj+'" class="input" maxlength="1000" rows="3" placeholder="Descreva o que foi combinado e a próxima ação.">'+
+          esc(record.notes||'')+'</textarea></div>'+
+      '<div class="order-actions"><button type="button" class="primary small" onclick="adminSaveProspect(\''+cnpj+'\','+
+        Number(record.crm_version||0)+')" '+(adminRuntime.actionPending?'disabled':'')+'>Salvar negociação</button>'+
+      '<span class="tiny muted">Marque contato somente após realizá-lo. “Parceira confirmada” exige cadastro ativo no TAMÃO.</span></div>'+
+    '</div></details>';
+}
+
 function adminProspectsSection(d){
   const grouped=new Map();
   for(const lead of d?.marketCityInterests||[]){
@@ -410,7 +502,7 @@ function adminProspectsSection(d){
   const placeholder=adminRuntime.prospectLoading?'<div class="notice">Consultando dados oficiais e demanda local…</div>':'';
   const error=adminRuntime.prospectError?'<div class="notice danger">'+esc(adminRuntime.prospectError)+'</div>':'';
   const summary=matches?'<div class="merchant-kpis">'+
-    '<div class="kpi"><span class="label">Interessados</span><strong>'+Number(report.interestCount||0)+'</strong><small>CEP identificado e consentimento</small></div>'+
+    '<div class="kpi"><span class="label">Interesses por CEP</span><strong>'+Number(report.interestCount||0)+'</strong><small>CEP identificado e consentimento</small></div>'+
     '<div class="kpi"><span class="label">Revendas aptas agora</span><strong>'+Number(report.eligibleMerchantCount||0)+'</strong><small>Cadastro, conformidade, estoque, preço e presença</small></div>'+
     '<div class="kpi"><span class="label">Revendas na ANP</span><strong>'+(report.sourceStatus==='ok'?Number(report.availableCount||0):'—')+'</strong><small>Empresas prospectáveis, não parceiros</small></div>'+
     '<div class="kpi"><span class="label">Fonte consultada</span><strong>'+esc(adminRelativeTime(report.checkedAt))+'</strong><small>'+esc(report.sourceStatus||'não confirmada')+'</small></div></div>'+
@@ -421,9 +513,19 @@ function adminProspectsSection(d){
       '<p class="tiny muted">A habilitação é derivada de fornecedores válidos em tempo real. A ação administrativa é auditada e não ativa a cidade sozinha.</p></div>'+
     '<div class="section-head"><div><h3>Empresas registradas na ANP</h3><p>Confirmar dados e interesse antes do convite. Importação não habilita recebimento de pedidos.</p></div></div>'+
     '<div class="card flat"><div class="list">'+
-    (prospects.length?prospects.map(x=>'<div class="list-row"><div><strong>'+esc(x.legal_name||'Revenda GLP')+'</strong><br>'+
-      '<small>CNPJ '+esc(x.cnpj||'')+' • '+esc(x.address_text||adminRuntime.prospectCity)+' • '+esc(x.distributor||'Sem vínculo identificado')+'</small></div>'+
-      '<span class="status-pill">'+esc(x.prospect_status||'uncontacted')+'</span></div>').join('')
+    (prospects.length?prospects.map(x=>{
+      const followUp=x.follow_up_at?String(x.follow_up_at).slice(0,10):null;
+      const overdue=Boolean(followUp&&new Date(x.follow_up_at)<new Date()&&
+        !['partner','dismissed'].includes(x.prospect_status));
+      return '<div class="list-row"><div style="width:100%"><div class="status-bar"><strong>'+esc(x.legal_name||'Revenda GLP')+'</strong>'+
+        '<span class="status-pill">'+esc(PROSPECT_STAGE_LABELS[x.prospect_status]||x.prospect_status||'Não contatada')+'</span></div>'+
+        '<small>CNPJ '+esc(x.cnpj||'')+' • '+esc(x.address_text||adminRuntime.prospectCity)+
+          ' • '+esc(x.distributor||'Sem vínculo identificado')+'</small>'+
+        '<div class="tiny muted">'+Number(x.contact_attempts||0)+' contato(s) registrado(s)'+
+          (followUp?' • Retorno: '+esc(followUp)+(overdue?' (vencido)':''):'')+
+          (x.last_contacted_at?' • Último contato: '+esc(String(x.last_contacted_at).slice(0,10)):'')+'</div>'+
+        adminProspectCrmEditor(x)+'</div></div>';
+    }).join('')
       :'<div class="muted">Nenhum registro consultável para esta cidade. Confira o estado da fonte; ausência de resposta não significa ausência de revendedores.</div>')+
     '</div></div>':'';
   return '<section class="section">'+
@@ -437,7 +539,7 @@ function adminProspectsSection(d){
       '<div class="order-actions"><button class="primary" onclick="adminProspectSearchCity()" '+(adminRuntime.prospectLoading?'disabled':'')+'>Consultar na ANP</button>'+
       '<button class="secondary" onclick="adminLoadProspects({force:true})" '+(adminRuntime.prospectLoading?'disabled':'')+'>Atualizar fonte</button></div>'+
       '<small class="field-help">Fonte: API pública ANP GLP. O servidor reutiliza o resultado durante até 24 horas e mantém o último dado conhecido quando a fonte falha.</small>'+
-    '</div>'+placeholder+error+summary+adminCityNotificationsSection()+
+    '</div>'+adminExpansionRadarSection()+placeholder+error+summary+adminCityNotificationsSection()+
     '<div class="notice"><strong>Ativação por elegibilidade, nunca apenas por cadastro.</strong> Uma cidade somente poderá abrir para compras após confirmação de revenda apta, regularidade ANP quando GLP, estoque, preço, área de entrega, capacidade e recebimento. O registro da ANP não equivale a autorização de parceria.</div>'+
   '</section>';
 }
