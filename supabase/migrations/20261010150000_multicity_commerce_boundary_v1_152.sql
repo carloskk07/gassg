@@ -95,6 +95,13 @@ declare
   v_state text;
   v_ids uuid[];
 begin
+  -- The canonical quote constructor inserts a draft without CEP and then
+  -- create_quote_snapshot_v2 immediately updates postal_code in the same tx.
+  -- Permit that transient INSERT only. The UPDATE is the authorization gate.
+  if new.postal_code is null then
+    if tg_op='INSERT' then return new; end if;
+    raise exception 'QUOTE_POSTAL_REQUIRED' using errcode='40001';
+  end if;
   select pc.city,pc.state into v_city,v_state
   from public.postal_code_validation_cache pc
   where pc.postal_code=new.postal_code
