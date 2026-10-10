@@ -168,6 +168,18 @@ begin
   if v_row.status<>'queued' then
     raise exception 'NOTIFICATION_ALREADY_HANDLED' using errcode='55000';
   end if;
+  if p_status='sent' then
+    if not public.market_city_ready(v_row.city,v_row.state) then
+      raise exception 'CITY_COVERAGE_NOT_READY' using errcode='40001';
+    end if;
+    if not exists(
+      select 1 from public.prelaunch_leads l
+      where l.id=v_row.lead_id and l.lead_type='customer'
+        and l.consent_at is not null and l.status not in ('closed','converted')
+    ) then
+      raise exception 'CONTACT_NOT_ALLOWED' using errcode='42501';
+    end if;
+  end if;
   update public.city_opening_notifications
     set status=p_status,handled_at=clock_timestamp(),handled_by=p_actor_user_id,
         sent_at=case when p_status='sent' then clock_timestamp() else null end,
