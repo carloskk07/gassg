@@ -98,7 +98,7 @@ async function requireAdmin(admin:any,userId:string){
   if(!data)throw new DomainError("ADMIN_ACCESS_DENIED","Esta conta não possui acesso administrativo.",403);
   return data;
 }
-const ADMIN_READ_ACTIONS=new Set(["summary","search","entity-detail","system-health","billing-provider-health","audit-search","incident-list","merchant-payment-preflight"]);
+const ADMIN_READ_ACTIONS=new Set(["summary","search","entity-detail","system-health","billing-provider-health","audit-search","incident-list","merchant-payment-preflight","prospect-intelligence"]);
 const ADMIN_ROLE_ACTIONS:Record<string,Set<string>>={
   superadmin:new Set(["*"]),
   operations:new Set([
@@ -1147,6 +1147,112 @@ async function adminSystemHealth(admin:any){
   };
 }
 
+
+function marketCityKey(city:string){
+  return city.normalize("NFD").replace(/[\u0300-\u036f]/g,"")
+    .replace(/[^A-Za-z0-9 ]/g," ").replace(/\s+/g," ").trim().toUpperCase().slice(0,120);
+}
+function anpField(row:any,...keys:string[]){
+  for(const key of keys){
+    const value=row?.[key];
+    if(value!=null&&String(value).trim())return String(value).trim();
+  }
+  return "";
+}
+function anpProspectRows(payload:any,state:string,cityKey:string,city:string){
+  // The public API can change its envelope; unknown formats must fail closed.
+  const candidates=Array.isArray(payload)?payload:
+    [payload?.dados,payload?.data,payload?.resultado,payload?.resultados,payload?.registros,payload?.items,payload?.revendedores,payload?.content]
+      .find(Array.isArray);
+  if(!Array.isArray(candidates))throw new Error("ANP_RESPONSE_FORMAT_UNKNOWN");
+  const rows:any[]=[];
+  const unique=new Set<string>();
+  for(const row of candidates.slice(0,5000)){
+    const cnpj=anpField(row,"cnpj","CNPJ","Cnpj").replace(/\D/g,"");
+    if(!/^[0-9]{14}$/.test(cnpj)||unique.has(cnpj))continue;
+    const name=anpField(row,"razaoSocial","RazaoSocial","Razão Social","RazãoSocial","razao_social","RAZAO_SOCIAL","nomeRazaoSocial","NomeRazaoSocial");
+    if(!name)continue;
+    const uf=anpField(row,"uf","UF","estado").toUpperCase();
+    const municipality=anpField(row,"municipio","Municipio","Município","municipioNome");
+    if(uf&&uf!==state)continue;
+    if(municipality&&marketCityKey(municipality)!==cityKey)continue;
+    unique.add(cnpj);
+    rows.push({
+      cnpj,state,city_key:cityKey,city_name:city,
+      legal_name:name.slice(0,240),
+      address_text:anpField(row,"endereco","Endereco","Endereço","logradouro").slice(0,240)||null,
+      distributor:anpField(row,"distribuidora","Distribuidora","distribuidor","bandeira").slice(0,160)||null,
+      authorization:anpField(row,"autorizacao","Autorizacao","Autorização").slice(0,120)||null,
+      sigaf_status:anpField(row,"statusSigaf","StatusSigaf","statusSIGAF","situacaoSigaf").slice(0,100)||null,
+      source_checked_at:new Date().toISOString()
+    });
+  }
+  return rows;
+}
+async function prospectIntelligence(admin:any,cityInput:unknown,stateInput:unknown,force=false){
+  const city=cleanText(cityInput,{min:2,max:120,name:"município"});
+  const state=String(stateInput||"").trim().toUpperCase();
+  const validUF=new Set(["AC","AL","AP","AM","BA","CE","DF","ES","GO","MA","MT","MS","MG","PA","PB","PR","PE","PI","RJ","RN","RS","RO","RR","SC","SP","SE","TO"]);
+  const cityKey=marketCityKey(city);
+  if(!validUF.has(state)||!(/^[A-Z0-9 ]{2,120}$/.test(cityKey))){
+    throw new DomainError("INVALID_PROSPECT_CITY","Informe cidade e UF válidas.",400);
+  }
+  // Discovery is not activation. Only verified merchant eligibility can authorize commerce.
+  const {error:cityError}=await admin.from("market_cities").upsert({
+    state,city_key:cityKey,city_name:city
+  },{onConflict:"state,city_key",ignoreDuplicates:true});
+  if(cityError)throw cityError;
+  const {data:previous,error:previousError}=await admin.from("anp_prospect_refreshes")
+    .select("last_checked_at,last_count,status,last_error").eq("state",state).eq("city_key",cityKey).maybeSingle();
+  if(previousError)throw previousError;
+  const elapsed=Date.now()-Date.parse(previous?.last_checked_at||"");
+  const due=!Number.isFinite(elapsed)||elapsed>(previous?.status==="unavailable"?60*60*1000:24*60*60*1000);
+  let warning:string|null=null;
+  let updated=false;
+  if(due||force===true&&elapsed>15*60*1000){
+    const controller=new AbortController();
+    const timer=setTimeout(()=>controller.abort(),7500);
+    try{
+      const url="https://revendedoresapi.anp.gov.br/v1/glp?municipio="+encodeURIComponent(cityKey)+"&uf="+encodeURIComponent(state);
+      const response=await fetch(url,{headers:{"Accept":"application/json"},signal:controller.signal});
+      if(!response.ok)throw new Error("ANP_HTTP_"+response.status);
+      const body=await response.text();
+      if(body.length>5_000_000)throw new Error("ANP_RESPONSE_TOO_LARGE");
+      const rows=anpProspectRows(JSON.parse(body),state,cityKey,city);
+      // Never alter negotiation status already set by the TAMÃO team.
+      for(let offset=0;offset<rows.length;offset+=200){
+        const {error}=await admin.from("anp_glp_prospects")
+          .upsert(rows.slice(offset,offset+200),{onConflict:"cnpj",ignoreDuplicates:true});
+        if(error)throw error;
+      }
+      const {error}=await admin.from("anp_prospect_refreshes").upsert({
+        state,city_key:cityKey,last_checked_at:new Date().toISOString(),last_count:rows.length,status:"ok",last_error:null
+      },{onConflict:"state,city_key"});
+      if(error)throw error;
+      updated=true;
+    }catch(error){
+      warning="Não foi possível atualizar os dados oficiais da ANP nesta tentativa.";
+      const {error:markerError}=await admin.from("anp_prospect_refreshes").upsert({
+        state,city_key:cityKey,last_checked_at:new Date().toISOString(),last_count:Number(previous?.last_count||0),status:"unavailable",
+        last_error:String(error instanceof Error?error.message:"ANP_UNAVAILABLE").slice(0,240)
+      },{onConflict:"state,city_key"});
+      if(markerError)console.error("anp prospect status storage failed",markerError.code||"error");
+    }finally{clearTimeout(timer)}
+  }
+  const [{data:prospects,error:prospectError},{data:refresh,error:refreshError},{count:interestCount,error:interestError}]=await Promise.all([
+    admin.from("anp_glp_prospects")
+      .select("cnpj,legal_name,address_text,distributor,authorization,sigaf_status,prospect_status,source_checked_at")
+      .eq("state",state).eq("city_key",cityKey).order("legal_name",{ascending:true}).limit(200),
+    admin.from("anp_prospect_refreshes").select("last_checked_at,last_count,status").eq("state",state).eq("city_key",cityKey).maybeSingle(),
+    admin.from("prelaunch_leads").select("id",{count:"exact",head:true}).eq("state",state).ilike("city",city)
+  ]);
+  if(prospectError||refreshError||interestError)throw prospectError||refreshError||interestError;
+  return {city,state,cityKey,interestCount:interestCount||0,prospects:prospects||[],
+    availableCount:Number(refresh?.last_count||0),updated,checkedAt:refresh?.last_checked_at||null,
+    sourceStatus:refresh?.status||"unavailable",warning,source:"ANP API Revendedores GLP",
+    commerceAutomaticallyActivated:false};
+}
+
 async function summary(admin:any,actorUserId:string){
   const [apps,merchants,compliance,capabilities,referralReviews,rewardFailures,accountingFailures,receivables,reimbursements,adjustments,platformAdmins,prelaunchLeads,publicRequests,audit,incidents]=await Promise.all([
     admin.from("merchant_applications")
@@ -1198,7 +1304,7 @@ async function summary(admin:any,actorUserId:string){
       .order("created_at",{ascending:true})
       .limit(100),
     admin.from("prelaunch_leads")
-      .select("id,lead_type,contact_name,business_name,phone,postal_code,interests,note,admin_note,status,submission_count,source,medium,campaign,content,term,referrer,landing_path,contacted_at,qualified_at,converted_at,closed_at,created_at,updated_at")
+      .select("id,lead_type,contact_name,business_name,phone,postal_code,city,state,city_ibge_code,interests,note,admin_note,status,submission_count,source,medium,campaign,content,term,referrer,landing_path,contacted_at,qualified_at,converted_at,closed_at,created_at,updated_at")
       .order("created_at",{ascending:false})
       .limit(200),
     admin.from("public_requests")
@@ -1596,6 +1702,12 @@ Deno.serve(async(req:Request)=>{
     const adminAccess=await requireAdmin(admin,user.id);
     requireAdminAction(String(adminAccess.admin_role||"superadmin"),action);
 
+    if(action==="prospect-intelligence"){
+      if(!["superadmin","operations","compliance","readonly"].includes(String(adminAccess.admin_role))){
+        throw new DomainError("ADMIN_PERMISSION_DENIED","Seu perfil não pode consultar prospectos.",403);
+      }
+      return json(await prospectIntelligence(admin,body.city,body.state,body.force===true),200,origin);
+    }
     if(action==="summary"){
       return json(await summary(admin,user.id),200,origin);
     }
