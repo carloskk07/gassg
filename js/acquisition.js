@@ -17,10 +17,18 @@ function rememberMarketRegion(region,postalCode){
 }
 
 function prelaunchLeadSent(type){
-  try{return localStorage.getItem('tamao-prelaunch-'+type+'-sent-v1')==='1'}catch{return false}
+  try{
+    const saved=localStorage.getItem('tamao-prelaunch-'+type+'-sent-v1');
+    if(type!=='customer')return saved==='1';
+    const postal=leadPostalDigits(state.postalCode||'');
+    return postal.length===8&&saved===postal;
+  }catch{return false}
 }
 function markPrelaunchLeadSent(type){
-  try{localStorage.setItem('tamao-prelaunch-'+type+'-sent-v1','1')}catch{}
+  try{
+    const value=type==='customer'?leadPostalDigits(document.querySelector('#prelaunch-postal')?.value||state.postalCode||''):'1';
+    localStorage.setItem('tamao-prelaunch-'+type+'-sent-v1',value);
+  }catch{}
 }
 function leadCheckedValues(name){
   return [...document.querySelectorAll('input[name="'+name+'"]:checked')].map(el=>String(el.value||''));
