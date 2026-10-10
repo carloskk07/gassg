@@ -69,6 +69,14 @@ async function startHomeOrder(){
   go('order');
 }
 
+// Consulta ofertas reais quando a sessão está pronta; na indisponibilidade, oferece aviso.
+function startCustomerAvailability(){
+  if(globalThis.__CHAMA_TEST__===true||globalThis.liveReady?.()===true){
+    return startHomeOrder();
+  }
+  return openPrelaunchCustomerLead();
+}
+
 function hasGlpCart(cart=state.cart){
   return Object.entries(cart||{}).some(([code,qty])=>Number(qty)>0&&glpKgForProductCode(code)!==null);
 }
@@ -258,7 +266,7 @@ function home(){
       ? '● TAMÃO • SÃO GABRIEL'
       : '● TAMÃO • SÃO GABRIEL';
   const primaryLabel=internalPilot?'Validar jornada':acquisitionOpen?'Consultar disponibilidade':'Ver preços e prazos';
-  const primaryAction=acquisitionOpen?'openPrelaunchCustomerLead()':'startHomeOrder()';
+  const primaryAction='startCustomerAvailability()';
   const singleMarket=internalPilot||(ready&&market?.availableNow&&Number(market?.availableMerchantCount||0)===1);
   const heroJourney=singleMarket
     ? internalPilot
@@ -268,7 +276,7 @@ function home(){
   const intentSection=acquisitionOpen
     ? `<section class="section intent-section"><div class="section-head"><div><span class="section-kicker">COMECE POR AQUI</span><h2>Você quer comprar ou vender pelo TAMÃO?</h2><p>Escolha o que precisa e siga o fluxo correspondente.</p></div></div>
 <div class="intent-grid prelaunch-intent-grid">
-  <button class="intent-card intent-primary" onclick="openPrelaunchCustomerLead()"><span class="intent-icon">🔔</span><span><strong>Quero comprar</strong><small>Consulte atendimento para sua região e receba um aviso se ainda não houver cobertura.</small></span><b>→</b></button>
+  <button class="intent-card intent-primary" onclick="startCustomerAvailability()"><span class="intent-icon">📍</span><span><strong>Quero comprar</strong><small>Informe seu CEP e consulte as opções. Se não houver atendimento, você pode receber um aviso.</small></span><b>→</b></button>
   <button class="intent-card" onclick="go('learn')"><span class="intent-icon">🛡️</span><span><strong>Quero entender primeiro</strong><small>Veja como funcionam preço, confirmação, entrega e proteção.</small></span><b>→</b></button>
   <button class="intent-card" onclick="go('merchants')"><span class="intent-icon">🏪</span><span><strong>Quero vender no TAMÃO</strong><small>Conheça custos e registre o interesse da sua empresa.</small></span><b>→</b></button>
 </div></section>`
@@ -381,7 +389,7 @@ function orderPage(){
   let offerBlock='';
   if(hasItems&&hasAddress){
     if(preview){
-      offerBlock='<div class="notice"><strong>Nenhuma opção disponível para este CEP agora.</strong><br>Cadastre um aviso de disponibilidade e consulte novamente quando houver atendimento na região.</div>';
+      offerBlock='<div class="notice"><strong>Nenhuma opção disponível para este CEP agora.</strong><br>Você pode receber um aviso quando a região tiver atendimento.<div class="order-actions"><button class="secondary small" onclick="openPrelaunchCustomerLead()">Receber aviso de disponibilidade</button></div></div>';
     }else if(testDemo&&os.length){
       offerBlock=`<div class="offer-stack">${os.map(offerCard).join('')}</div>`;
     }else if(ready&&liveRuntime.loadingOffers){
