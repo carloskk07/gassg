@@ -174,7 +174,7 @@ Deno.serve(async(req:Request)=>{
     if(!directPaymentsEnabled()){
       throw new DomainError(
         "MERCHANT_DIRECT_PAYMENTS_NOT_LAUNCHED",
-        "Pagamento online direto à revenda ainda está em homologação.",
+        "Pagamento online direto à revenda está temporariamente indisponível.",
         503
       );
     }
@@ -246,7 +246,7 @@ Deno.serve(async(req:Request)=>{
     if(!providerDefinition||providerDefinition.adapter_status!=="implemented"){
       throw new DomainError(
         "PAYMENT_ADAPTER_NOT_IMPLEMENTED",
-        "Este provedor já está modelado no TAMÃO, mas o fluxo automático de venda ainda não foi homologado.",
+        "A confirmação automática ainda não está disponível para este provedor. Use outra forma de pagamento cadastrada pela revenda.",
         409
       );
     }
@@ -285,7 +285,7 @@ Deno.serve(async(req:Request)=>{
       if(message.includes("MERCHANT_PAYMENT_PILOT_IN_FLIGHT")){
         throw new DomainError(
           "MERCHANT_PAYMENT_PILOT_IN_FLIGHT",
-          "Esta revenda está concluindo o primeiro pagamento piloto neste provedor. Use outra forma de pagamento enquanto a prova E2E é concluída.",
+          "Esta revenda possui uma transação automática em validação neste provedor. Use outra forma de pagamento enquanto a confirmação é concluída.",
           409
         );
       }
@@ -342,7 +342,7 @@ Deno.serve(async(req:Request)=>{
     if(providerKey!=="mercadopago"){
       throw new DomainError(
         "PAYMENT_ADAPTER_NOT_IMPLEMENTED",
-        "O adaptador deste provedor ainda não está homologado para checkout automático.",
+        "O checkout automático ainda não está disponível para este provedor.",
         409
       );
     }
