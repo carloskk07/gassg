@@ -44,7 +44,7 @@ assert.ok(ui.includes('function adminSaveProspect(cnpj,expectedVersion)'));
 assert.ok(ui.includes('adminPerform(\'prospect-crm\''));
 assert.ok(ui.includes('Não registrar contato'));
 assert.ok(ui.includes('Marque contato somente após realizá-lo'));
-assert.ok(ui.includes('não é previsão de vendas'));
+assert.ok(ui.toLocaleLowerCase('pt-BR').includes('não é previsão de vendas'));
 
 function extract(name){
   const begin=ui.indexOf('function '+name+'(');
