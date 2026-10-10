@@ -706,6 +706,24 @@ function adminAttentionItems(d){
         {section:'finance'});
     }
   }
+  for(const attempt of d.merchantPayments?.attempts||[]){
+    if(attempt.pilot_guard!==true)continue;
+    const status=String(attempt.status||'');
+    if(status==='review_required'){
+      push('critical','Piloto PSP exige revisão',
+        adminMerchantName(attempt.merchant_id)+' • '+adminBillingProviderName(attempt.provider)+' • '+adminMerchantPilotIssueLabel(attempt.last_error_code),
+        attempt.order_id?{type:'order',id:attempt.order_id}:{section:'finance'});
+      continue;
+    }
+    if(['preparing','checkout_ready','pending','approved'].includes(status)){
+      const age=now-Date.parse(attempt.created_at||attempt.updated_at||new Date().toISOString());
+      if(age>2*60*60*1000){
+        push('high','Piloto PSP aberto há +2h',
+          adminMerchantName(attempt.merchant_id)+' • '+adminBillingProviderName(attempt.provider)+' • '+status.toUpperCase(),
+          attempt.order_id?{type:'order',id:attempt.order_id}:{section:'finance'});
+      }
+    }
+  }
   for(const x of d.supportCases||[]){
     if(['open','in_review'].includes(x.status)){
       const age=now-Date.parse(x.created_at||x.updated_at||new Date().toISOString());
@@ -2179,6 +2197,179 @@ function adminMerchantPspHomologationQueue(d){
     +'<div class="admin-entity-grid">'+cards+'</div>';
 }
 
+function adminMerchantPilotIssueLabel(code){
+  return ({
+    PROVIDER_CHECKOUT_OUTCOME_UNKNOWN:'resultado remoto desconhecido',
+    PROVIDER_CHECKOUT_RESPONSE_MISMATCH:'resposta divergente do PSP',
+    PROVIDER_CHECKOUT_COMMIT_FAILED:'checkout remoto não consolidado localmente',
+    PROVIDER_CHECKOUT_REJECTED:'PSP rejeitou a criação do checkout',
+    LOCAL_CHECKOUT_PREPARATION_FAILED:'falha local antes do checkout'
+  })[String(code||'')]||String(code||'sem erro registrado').replaceAll('_',' ').toLowerCase();
+}
+function adminMerchantPspPilotCenter(d){
+  const attempts=(d.merchantPayments?.attempts||[]).filter(x=>x?.pilot_guard===true);
+  const verifications=(d.merchantPayments?.verifications||[]).filter(x=>x?.status==='verified');
+  const merchants=Array.isArray(d.merchants)?d.merchants:[];
+  const orderById=new Map((d.controlOrders||[]).map(x=>[String(x.id),x]));
+  const merchantById=new Map(merchants.map(x=>[String(x.id),x]));
+  const accountByKey=new Map();
+  const attemptByKey=new Map();
+  const verificationByAttempt=new Map();
+
+  for(const merchant of merchants){
+    for(const account of merchant.paymentAccounts||[]){
+      const provider=String(account?.provider||'').toLowerCase();
+      if(!provider)continue;
+      accountByKey.set(String(merchant.id)+'|'+provider,{merchant,account});
+    }
+  }
+  for(const attempt of attempts){
+    const key=String(attempt.merchant_id||'')+'|'+String(attempt.provider||'').toLowerCase();
+    if(!attemptByKey.has(key))attemptByKey.set(key,[]);
+    attemptByKey.get(key).push(attempt);
+  }
+  for(const rows of attemptByKey.values()){
+    rows.sort((a,b)=>Date.parse(b.created_at||b.updated_at||0)-Date.parse(a.created_at||a.updated_at||0));
+  }
+  for(const verification of verifications){
+    if(!verification.payment_attempt_id)continue;
+    const key=String(verification.payment_attempt_id);
+    const current=verificationByAttempt.get(key);
+    if(!current||Date.parse(verification.verified_at||verification.created_at||0)>Date.parse(current.verified_at||current.created_at||0)){
+      verificationByAttempt.set(key,verification);
+    }
+  }
+
+  const keys=new Set(attemptByKey.keys());
+  for(const [key,row] of accountByKey){
+    const account=row.account||{};
+    const caps=account.capabilities||{};
+    if(
+      account.status==='active'
+      &&caps.canValidateProviderTransactions===true
+      &&(caps.directSalePaymentsEnabled===true||caps.e2eValidated===true)
+    )keys.add(key);
+  }
+
+  const LIVE=new Set(['preparing','checkout_ready','pending','approved','review_required']);
+  const models=[...keys].map(key=>{
+    const [merchantId,provider]=key.split('|');
+    const accountRow=accountByKey.get(key)||{};
+    const merchant=accountRow.merchant||merchantById.get(merchantId)||{id:merchantId,name:adminMerchantName(merchantId)};
+    const account=accountRow.account||null;
+    const allAttempts=attemptByKey.get(key)||[];
+    const liveAttempt=allAttempts.find(x=>LIVE.has(String(x.status||'')))||null;
+    const latestAttempt=liveAttempt||allAttempts[0]||null;
+    const verification=latestAttempt?verificationByAttempt.get(String(latestAttempt.id))||null:null;
+    const caps=account?.capabilities||{};
+    const e2eValidated=caps.e2eValidated===true||Boolean(verification);
+    const directEnabled=caps.directSalePaymentsEnabled===true;
+    const canValidate=caps.canValidateProviderTransactions===true;
+    const status=String(latestAttempt?.status||'');
+
+    let stage='AGUARDA 1ª VENDA';
+    let stageClass='risk';
+    let order=2;
+    let nextAction='Aguardar a primeira venda real; apenas uma tentativa piloto poderá permanecer viva neste PSP.';
+    if(status==='review_required'){
+      stage='REVISÃO';
+      stageClass='offline';
+      order=0;
+      nextAction='Não libere nova tentativa. Suspenda a automação e confira o PSP até determinar o resultado real.';
+    }else if(e2eValidated){
+      stage='E2E VALIDADO';
+      stageClass='online';
+      order=3;
+      nextAction='Prova real registrada. A conta pode operar fora da contenção de primeiro piloto.';
+    }else if(status==='approved'){
+      stage='AGUARDA LIQUIDAÇÃO';
+      stageClass='risk';
+      order=1;
+      nextAction='O PSP aprovou a transação; aguarde entrega/liquidação para a prova E2E promover a conta.';
+    }else if(liveAttempt){
+      stage='PILOTO EM CURSO';
+      stageClass='risk';
+      order=1;
+      nextAction='Acompanhe este único piloto até resultado terminal ou liquidação. Outra ordem do mesmo PSP permanece bloqueada.';
+    }else if(latestAttempt){
+      stage='PILOTO ENCERRADO';
+      stageClass='';
+      order=4;
+      nextAction=directEnabled&&canValidate
+        ?'A tentativa anterior encerrou sem prova E2E; uma nova venda poderá ocupar o slot piloto.'
+        :'Automação suspensa ou indisponível; mantenha confirmação manual até nova decisão.';
+    }
+
+    const anchor=stage==='E2E VALIDADO'
+      ?caps.e2eValidatedAt||verification?.verified_at||verification?.created_at||latestAttempt?.updated_at
+      :status==='review_required'
+        ?latestAttempt?.last_error_at||latestAttempt?.updated_at||latestAttempt?.created_at
+        :latestAttempt?.created_at||account?.updated_at||account?.connected_at;
+    return {
+      key,merchantId,provider,merchant,account,attempt:latestAttempt,verification,
+      e2eValidated,directEnabled,canValidate,stage,stageClass,order,nextAction,anchor
+    };
+  }).sort((a,b)=>
+    a.order-b.order
+    ||Date.parse(a.anchor||0)-Date.parse(b.anchor||0)
+    ||String(a.merchant?.name||'').localeCompare(String(b.merchant?.name||''))
+  );
+
+  const review=models.filter(x=>x.stage==='REVISÃO').length;
+  const inFlight=models.filter(x=>['PILOTO EM CURSO','AGUARDA LIQUIDAÇÃO'].includes(x.stage)).length;
+  const waiting=models.filter(x=>x.stage==='AGUARDA 1ª VENDA').length;
+  const validated=models.filter(x=>x.stage==='E2E VALIDADO').length;
+  const active=models.filter(x=>x.order<4);
+  const readOnly=adminCurrentRole()==='readonly';
+
+  const cards=active.map(model=>{
+    const attempt=model.attempt;
+    const orderRow=attempt?orderById.get(String(attempt.order_id)):null;
+    const providerRef=attempt?.provider_payment_id||attempt?.provider_order_id||'';
+    const maskedRef=providerRef?'•••• '+String(providerRef).slice(-8):'sem ID externo';
+    const errorCode=String(attempt?.last_error_code||'');
+    const paymentLine=attempt
+      ?(orderRow?.public_code||String(attempt.order_id||'').slice(0,8))
+        +' • '+adminPaymentMethodLabel(attempt.payment_method_snapshot||orderRow?.payment_method)
+        +' • '+adminMoney(attempt.amount_cents)
+      :'nenhuma tentativa criada';
+    const detail=attempt
+      ?'tentativa '+String(attempt.id||'').slice(0,8)
+        +' • '+adminRelativeTime(attempt.created_at)
+        +' • '+maskedRef
+      :(model.account?.connected_at?'conta conectada '+adminRelativeTime(model.account.connected_at):'conta pronta para piloto');
+    const reviewNotice=model.stage==='REVISÃO'
+      ?'<div class="notice danger" style="margin-top:8px"><strong>Slot piloto bloqueado por segurança.</strong><br>'+esc(adminMerchantPilotIssueLabel(errorCode))+(errorCode?' • '+esc(errorCode):'')+'. O TAMÃO não deve criar uma segunda cobrança automática até existir prova do resultado.</div>'
+      :model.stage==='E2E VALIDADO'
+        ?'<div class="notice success" style="margin-top:8px"><strong>Prova E2E registrada.</strong><br>'+(model.verification?'Evidência '+esc(adminMerchantPaymentVerificationLabel(model.verification.verification_level))+' em '+esc(formatDateTime(model.verification.verified_at||model.verification.created_at))+'.':'Conta promovida por evidência transacional persistida.')+'</div>'
+        :'';
+    const canSuspend=!readOnly&&model.directEnabled&&model.canValidate&&!model.e2eValidated;
+    return '<article class="card flat">'
+      +'<div class="order-head"><div><strong>'+esc(model.merchant?.name||adminMerchantName(model.merchantId))+' • '+esc(adminBillingProviderName(model.provider))+'</strong><br><small>'+esc(paymentLine)+'</small></div><span class="status-pill '+model.stageClass+'">'+esc(model.stage)+'</span></div>'
+      +'<div class="tiny muted" style="margin-top:8px">'+esc(detail)+(model.anchor?' • '+esc(adminRelativeTime(model.anchor)):'' )+'</div>'
+      +(attempt?.provider_status?'<div class="tiny muted">Status PSP: <strong>'+esc(String(attempt.provider_status).toUpperCase())+'</strong> • nível '+esc(adminMerchantPaymentVerificationLabel(attempt.verification_level))+'</div>':'')
+      +reviewNotice
+      +'<div class="notice" style="margin-top:8px"><strong>Próxima ação:</strong><br>'+esc(model.nextAction)+'</div>'
+      +'<div class="order-actions">'
+      +(attempt?.order_id?'<button class="secondary small" onclick="adminOpenEntity(\'order\',\''+esc(attempt.order_id)+'\')">Abrir pedido</button>':'')
+      +'<button class="ghost small" onclick="adminOpenEntity(\'merchant\',\''+esc(model.merchantId)+'\')">Revenda 360°</button>'
+      +(canSuspend?'<button class="danger-btn small" onclick="adminSetMerchantPaymentCapability(\''+esc(model.merchantId)+'\',\''+esc(model.provider)+'\',false)">Suspender automação</button>':'')
+      +'</div></article>';
+  }).join('');
+
+  const recentClosed=models.filter(x=>x.order===4).slice(0,20);
+  return '<div class="section-head" style="margin-top:16px"><div><span class="section-kicker">PILOTOS PSP</span><h3>Central de primeiro pagamento automático</h3><p>Uma revenda sem prova E2E pode ter somente um piloto vivo por PSP. Resultado ambíguo permanece bloqueado até investigação; não existe botão para forçar homologação.</p></div><span class="status-pill '+(review?'offline':inFlight?'risk':'online')+'">'+review+' REVISÃO • '+inFlight+' EM CURSO</span></div>'
+    +'<div class="merchant-kpis" style="margin-bottom:12px">'
+    +'<div class="kpi"><span class="label">Em revisão</span><strong>'+review+'</strong><small>fail-closed</small></div>'
+    +'<div class="kpi"><span class="label">Pilotos vivos</span><strong>'+inFlight+'</strong><small>1 por revenda/PSP</small></div>'
+    +'<div class="kpi"><span class="label">Aguardando 1ª venda</span><strong>'+waiting+'</strong></div>'
+    +'<div class="kpi"><span class="label">E2E validado</span><strong>'+validated+'</strong><small>prova real</small></div>'
+    +'</div>'
+    +'<div class="notice"><strong>Autoridade financeira preservada.</strong><br>Esta central observa e pode suspender automação, mas não aprova pagamento, não altera evidência e não transforma manualmente um PSP em HOMOLOGADO.</div>'
+    +(cards?'<div class="admin-entity-grid" style="margin-top:12px">'+cards+'</div>':'<div class="empty card" style="margin-top:12px">Nenhuma conta está em piloto, revisão ou homologação E2E neste momento.</div>')
+    +(recentClosed.length?'<details class="card flat" style="margin-top:12px"><summary><strong>Pilotos encerrados recentemente ('+recentClosed.length+')</strong></summary><div class="list" style="margin-top:10px">'+recentClosed.map(model=>{const a=model.attempt;return '<div class="list-row"><div><strong>'+esc(model.merchant?.name||adminMerchantName(model.merchantId))+' • '+esc(adminBillingProviderName(model.provider))+'</strong><br><small>'+esc(a?.status||'—')+' • '+esc(a?.last_error_code||'sem erro')+'</small></div><small>'+esc(a?.updated_at?formatDateTime(a.updated_at):'—')+'</small></div>';}).join('')+'</div></details>':'');
+}
+
 function adminMerchantSaleVerificationSection(d){
   const rows=(d.merchantPayments?.verifications||[]).slice(0,20);
   const orderById=new Map((d.controlOrders||[]).map(x=>[String(x.id),x]));
@@ -2210,6 +2401,7 @@ function adminMerchantPaymentAccountsSection(d){
     +adminMerchantPaymentProviderCatalog(d)
     +adminMerchantDeclaredPspRadar(d)
     +adminMerchantPspHomologationQueue(d)
+    +adminMerchantPspPilotCenter(d)
     +(rows.length?'<div class="admin-entity-grid" style="margin-top:12px">'+rows.map(adminMerchantPaymentAccountCard).join('')+'</div>':'<div class="empty card" style="margin-top:12px">Nenhuma revenda possui conexão automática com PSP ainda. Isso não impede uma revenda de operar com formas de pagamento manuais confirmadas.</div>')
     +adminMerchantSaleVerificationSection(d);
 }
