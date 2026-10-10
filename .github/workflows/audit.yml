@@ -71,6 +71,8 @@ jobs:
         run: node tests/evidence-backed-psp-homologation-v1-142.mjs
       - name: Admin payment pilot authority V1.143 regression contract
         run: node tests/admin-payment-pilot-authority-v1-143.mjs
+      - name: Single unproven PSP pilot V1.144 regression contract
+        run: node tests/single-unproven-psp-pilot-v1-144.mjs
       - name: Remote admin gateway contract and portal report
         run: node tests/remote-admin-readiness.mjs
       - name: Runtime origin config contract
