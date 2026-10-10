@@ -79,6 +79,8 @@ jobs:
         run: node tests/first-real-psp-pilot-preflight-v1-146.mjs
       - name: Production trust language V1.147 regression contract
         run: node tests/production-language-v1-147.mjs
+      - name: JR public price reference V1.148 regression contract
+        run: node tests/jr-public-price-reference-v1-148.mjs
       - name: Remote admin gateway contract and portal report
         run: node tests/remote-admin-readiness.mjs
       - name: Runtime origin config contract
@@ -147,6 +149,9 @@ jobs:
           grep -q "ATENDIMENTO POR REGIÃO" /tmp/home.html
           grep -q "Rede de parceiros" /tmp/home.html
           grep -q "Quero comprar" /tmp/home.html
+          grep -q "Gas e Lenheira do JR" /tmp/home.html
+          grep -q "R$ 120,00" /tmp/home.html
+          grep -q "R$ 115,90 a R$ 125,00" /tmp/home.html
           grep -q "Quero vender no TAMÃO" /tmp/home.html
           grep -q "Antes de pedir, veja quanto custa" /tmp/learn.html
           grep -q "Comissão por indicação para pessoas" /tmp/earn.html
