@@ -122,7 +122,7 @@ assert.ok(html.includes('./js/legal.js'),'camada de privacidade, termos e contat
 assert.ok(bootstrap.includes('privacy:privacyPage')&&bootstrap.includes('terms:termsPage')&&bootstrap.includes('contact:contactPage'),'router público precisa expor páginas de confiança');
 assert.ok(core.includes('function siteFooter')&&core.includes('Privacidade</button>')&&core.includes('Termos</button>')&&core.includes('Contato</button>'),'shell público precisa manter acesso persistente a privacidade, termos e contato');
 assert.ok(legal.includes('Aviso de Privacidade')&&legal.includes('Seus direitos')&&legal.includes('Exercer um direito de privacidade'),'aviso de privacidade precisa explicar direitos e oferecer canal acionável');
-assert.ok(legal.includes('Termos de Uso')&&legal.includes('Situação atual')&&legal.includes('Parceiro Fundador'),'termos de pré-lançamento precisam distinguir demonstração, cliente e parceiro');
+assert.ok(legal.includes('Termos de Uso')&&legal.includes('Disponibilidade do serviço')&&legal.includes('Empresas parceiras'),'termos públicos precisam distinguir disponibilidade, cliente e empresa parceira sem linguagem experimental');
 assert.ok(legal.includes('Fale com o TAMÃO')&&legal.includes('Privacidade / LGPD')&&legal.includes('submitPublicRequest'),'canal oficial precisa aceitar contato e solicitações de privacidade');
 assert.ok(backend.includes('submit-public-request')&&backend.includes('publicRequestSubmit'),'frontend precisa enviar o canal público ao endpoint dedicado');
 assert.ok(publicRequest.includes('ALLOWED_ORIGINS')&&publicRequest.includes('consume_prelaunch_lead_quota'),'canal público precisa de allowlist de origem e rate limit server-side');
@@ -151,11 +151,11 @@ assert.ok(adminAcquisition.includes('adminSetPublicRequestStatus')&&adminAcquisi
 assert.ok(read('supabase/functions/admin-ops/index.ts').includes('admin_prelaunch_lead_action')&&read('supabase/functions/admin-ops/index.ts').includes('admin_public_request_action'),'admin API precisa usar autoridades transacionais de aquisição');
 assert.ok(read('supabase/migrations/20261003202000_launch_ops_v1_51.sql').includes('PRELAUNCH_LEAD_FINAL')&&read('supabase/migrations/20261003202000_launch_ops_v1_51.sql').includes('PUBLIC_REQUEST_ALREADY_CLOSED'),'pipeline precisa falhar fechado em estados finais');
 assert.ok(read('supabase/functions/admin-ops/index.ts').includes('prelaunch_leads')&&read('supabase/functions/admin-ops/index.ts').includes('prelaunchLeads'),'summary protegido deve transportar leads para o admin');
-assert.ok(customer.includes('acquisitionOpen')&&customer.includes('prelaunchCustomerLeadSection'),'pré-lançamento precisa converter tráfego em lista de abertura');
-assert.ok(customer.includes('prelaunchTransparencyBand')&&customer.includes('COMECE POR AQUI')&&customer.includes('Quero comprar'),'home de pré-lançamento precisa concentrar a decisão em compra, entendimento e parceria');
-assert.ok(acquisition.includes('ONDE ESTAMOS AGORA')&&acquisition.includes('Primeiro parceiro piloto em preparação')&&acquisition.includes('O cadastro não cria pedido nem cobrança'),'pré-lançamento precisa comunicar estado real sem fabricar prova social');
+assert.ok(customer.includes('acquisitionOpen')&&customer.includes('prelaunchCustomerLeadSection'),'ausência de oferta precisa converter tráfego em aviso de disponibilidade');
+assert.ok(customer.includes('prelaunchTransparencyBand')&&customer.includes('COMECE POR AQUI')&&customer.includes('Quero comprar'),'home sem supply precisa concentrar a decisão em disponibilidade, entendimento e parceria');
+assert.ok(acquisition.includes('ATENDIMENTO POR REGIÃO')&&acquisition.includes('Rede de parceiros')&&acquisition.includes('Nenhuma compra é criada por este cadastro'),'aquisição precisa comunicar disponibilidade real sem fabricar prova social');
 assert.ok(core.includes("prelaunchPublic||!merchantOriginReady?\"go('merchants')\":\"openMerchantPortal()\""),'switcher público não pode mandar revenda para portal ainda inexistente');
-assert.ok(core.includes("['early-access','🔔','Abertura','lead']")&&core.includes("act==='lead'?\"openPrelaunchCustomerLead()\""),'navegação mobile de pré-lançamento precisa levar à lista de abertura');
+assert.ok(core.includes("['early-access','🔔','Disponibilidade','lead']")&&core.includes("act==='lead'?\"openPrelaunchCustomerLead()\""),'navegação mobile sem supply precisa levar ao aviso de disponibilidade');
 assert.ok(acquisition.includes("if(!section)")&&acquisition.includes("if(route()!=='home')go('home')"),'CTA da lista deve funcionar mesmo quando acionado fora da home');
 assert.ok(analytics.includes("['tamao.com.br','www.tamao.com.br'].includes(host)"),'analytics não pode medir laboratório, localhost ou preview');
 assert.ok(analytics.includes("prelaunchExamplesEnabled?.()===true"),'analytics first-party precisa desligar automaticamente fora do pré-lançamento');
@@ -173,8 +173,8 @@ assert.ok(publicHashedQuotaMigration.includes('create table if not exists public
 assert.ok(publicHashedQuotaMigration.includes('consume_hashed_api_quota')&&publicHashedQuotaMigration.includes("grant execute on function public.consume_hashed_api_quota(text,text,integer,integer)\nto service_role"),'quota por hash precisa ser autoridade server-only');
 assert.ok(publicHashedQuotaMigration.includes('revoke all on table public.public_hashed_rate_limits from public, anon, authenticated'),'browser não pode acessar contadores técnicos de quota');
 assert.ok(adminAcquisition.includes('ENTRADAS')&&adminAcquisition.includes('VIRAM FORMULÁRIO')&&adminAcquisition.includes('landingToLeadPct'),'admin precisa exibir funil desde entrada até lead');
-assert.ok(legal.includes('Medição agregada do pré-lançamento')&&legal.includes('Meta Pixel')&&legal.includes('Google Analytics'),'privacidade precisa explicar a medição first-party e ausência de trackers terceiros');
-assert.ok(acquisition.includes('Quero ser avisado na abertura')&&acquisition.includes('Quero conversar sobre parceria'),'aquisição precisa ter CTAs próprios para cliente e parceiro');
+assert.ok(legal.includes('Medição agregada de uso')&&legal.includes('sessionStorage')&&legal.includes('tecnologia que altere materialmente o tratamento de dados'),'privacidade precisa explicar medição agregada e governança de novas tecnologias');
+assert.ok(acquisition.includes('Quero receber aviso de disponibilidade')&&acquisition.includes('Quero conversar sobre parceria'),'aquisição precisa ter CTAs próprios para cliente e parceiro');
 assert.ok(acquisition.includes("utm_source")||backend.includes("utm_source"),'captação precisa preservar atribuição de campanha');
 assert.ok(backend.includes("capture-prelaunch-lead")&&backend.includes("prelaunchAttribution"),'frontend precisa enviar leads ao endpoint dedicado');
 assert.ok(leadCapture.includes('ALLOWED_ORIGINS')&&leadCapture.includes('capture_prelaunch_lead_idempotent'),'lead público precisa de allowlist de origem e autoridade transacional server-side');
@@ -193,10 +193,10 @@ assert.ok(customer.includes('<h1>Pediu? Tá na mão.</h1>')&&customer.includes('
 assert.ok(!/\bChama\b/.test([customer,merchant,growth,admin,backend].join('\n')),'copy pública não pode regredir para a marca anterior');
 assert.ok(core.includes("const STORAGE='chama-sg-state-v2'")&&backend.includes('CHAMA_CUSTOMER_ORIGIN'),'rebrand não pode quebrar identificadores técnicos legados nesta versão');
 assert.ok(customer.includes('PROTEÇÃO TAMÃO')&&customer.includes('qualquer alternativa mais cara'),'home precisa explicar rescue e requote como proteção compreensível ao cliente');
-assert.ok(customer.includes('PRIMEIRO PARCEIRO PILOTO')&&customer.includes('Gas e Lenheira do JR'),'pré-lançamento deve mostrar o primeiro parceiro piloto sem fingir operação ativa');
-assert.ok(customer.includes('PILOTO INTERNO — SEM PEDIDOS REAIS')&&customer.includes('R$ 115,90 mínimo')&&customer.includes('R$ 120,00 normal')&&customer.includes('R$ 125,00 máximo'),'GitHub Pages deve comunicar claramente a faixa comercial interna do JR');
-assert.ok(customer.includes('🧪 Simulação operacional')&&customer.includes('Sem validação jurídica nesta tela'),'oferta do piloto interno não pode fingir verificação regulatória');
-assert.ok(merchant.includes('PAINEL DA REVENDA — PILOTO INTERNO')&&merchant.includes('Nenhuma ação é real.'),'painel simulado da revenda deve ser inequivocamente não operacional');
+assert.ok(!customer.includes('PRIMEIRO PARCEIRO PILOTO')&&!customer.includes('Gas e Lenheira do JR está em preparação'),'site público sem supply não deve fabricar parceiro, prova social ou operação ativa');
+assert.ok(customer.includes('AMBIENTE INTERNO — SEM PEDIDOS')&&customer.includes('R$ 115,90 mínimo')&&customer.includes('R$ 120,00 normal')&&customer.includes('R$ 125,00 máximo'),'GitHub Pages deve manter a faixa comercial interna do JR restrita ao ambiente de validação');
+assert.ok(customer.includes('🧪 Simulação operacional')&&customer.includes('Sem validação jurídica nesta tela'),'oferta do ambiente interno não pode fingir verificação regulatória');
+assert.ok(merchant.includes('PAINEL DA REVENDA — AMBIENTE INTERNO')&&merchant.includes('As ações desta tela não alteram a operação pública.'),'painel interno da revenda deve ser inequivocamente separado da operação pública');
 assert.ok(customer.includes('Há um parceiro elegível para esta cesta agora.')&&customer.includes('sem opções fictícias'),'modo single-supplier deve explicar ao cliente que existe apenas uma opção real');
 assert.ok(backend.includes("available:'Disponível agora'")&&backend.includes("marketMode"),'runtime cliente precisa transportar e rotular mercado de fornecedor único');
 assert.ok(customer.includes("go('learn')")&&customer.includes("go('earn')"),'home precisa possuir CTAs claros para descoberta e renda');
@@ -218,9 +218,9 @@ assert.ok(growth.includes('Obrigatório para estimar contribuição e margem.'),
 assert.ok(growth.includes('Sem exclusividade')&&growth.includes('canal adicional'),'parceria precisa deixar claro que não substitui telefone/WhatsApp/canais próprios');
 assert.ok(growth.includes('Você não precisa ser sempre o mais barato')&&growth.includes('Distribuição saudável'),'landing precisa explicar distribuição sem prometer rodízio cego');
 assert.ok(growth.includes('AUMENTE O TICKET DA ENTREGA')&&growth.includes('Uma corrida pode carregar mais que um botijão'),'multiproduto deve ser vendido como aumento de ticket');
-assert.ok(growth.includes('COMO O DINHEIRO FUNCIONA')&&growth.includes('Repasse ainda em validação operacional'),'parceiro precisa entender separação entre pedido, pagamento, conclusão e conciliação');
-assert.ok(growth.includes('PARCEIRO FUNDADOR — SÃO GABRIEL')&&growth.includes('não garante volume de pedidos nem renda'),'programa fundador precisa gerar oportunidade sem promessa de demanda');
-assert.ok(growth.includes("internalPilot?'Experimentar painel da revenda'"),'piloto interno deve oferecer experiência do painel em vez de portal live indisponível');
+assert.ok(growth.includes('Venda, recebimento e taxa TAMÃO são separados.')&&growth.includes('O TAMÃO não recebe a venda para depois repassar.'),'parceiro precisa entender que venda da revenda e cobranças TAMÃO são fluxos separados');
+assert.ok(growth.includes('VENDA PELO TAMÃO — SÃO GABRIEL')&&growth.includes('não promete volume de pedidos nem renda'),'parceria precisa gerar oportunidade sem promessa de demanda');
+assert.ok(growth.includes("internalPilot?'Abrir ambiente interno'"),'ambiente interno deve permanecer separado do portal de parceiros');
 assert.ok(customer.includes('✓ Operação elegível'),'oferta real deve comunicar elegibilidade operacional sem expor a revenda antes do aceite');
 assert.ok(growth.includes('Não é promessa de renda'),'marketing de indicação precisa explicar que simulação não é renda garantida');
 assert.ok(growth.includes('primeira compra qualificada de cada novo cliente indicado'),'marketing deve refletir aquisição apenas na primeira compra qualificada');
@@ -257,8 +257,8 @@ assert.ok(publicBuild.includes("TAMAO_DEPLOY_TARGET")&&publicBuild.includes("TAM
 assert.ok(publicBuild.includes("Content-Security-Policy:")&&publicBuild.includes("X-Frame-Options: DENY")&&publicBuild.includes("Permissions-Policy:"),'Cloudflare build precisa gerar headers de segurança');
 assert.ok(publicBuild.includes("X-Robots-Tag: noindex")&&publicBuild.includes("sitemap.xml"),'build precisa governar noindex e sitemap sem edição manual');
 assert.ok(publicBuild.includes("CHAMA_CUSTOMER_ORIGIN precisa coincidir")&&publicBuild.includes("Turnstile de teste é proibido"),'runtime real precisa falhar fechado para origem/chave incorretas');
-assert.ok(html.includes('name="robots" content="noindex,nofollow,noarchive,nosnippet"'),'pré-lançamento interno não deve ser indexado por buscadores');
-assert.ok(exists('robots.txt')&&read('robots.txt').includes('Disallow: /'),'pré-lançamento interno precisa bloquear crawling também por robots.txt');
+assert.ok(html.includes('name="robots" content="index,follow,max-image-preview:large"'),'domínio oficial deve permitir indexação pública');
+assert.ok(exists('robots.txt')&&read('robots.txt').includes('Allow: /')&&read('robots.txt').includes('https://tamao.com.br/sitemap.xml'),'robots público deve permitir crawling e apontar para o sitemap oficial');
 assert.ok(sw.includes("./robots.txt"),'PWA precisa conservar a política de robots offline');
 const runtimeConfig=read('js/runtime-config.js');
 assert.ok(runtimeConfig.includes("CHAMA_CUSTOMER_ORIGIN=''")&&runtimeConfig.includes("CHAMA_MERCHANT_ORIGIN=''")&&runtimeConfig.includes("CHAMA_ADMIN_ORIGIN=''"),'GitHub Pages deve falhar fechado sem origins privilegiadas');
@@ -270,11 +270,11 @@ assert.ok(!backend.includes("sb_secret_"),'frontend jamais pode conter secret ke
 assert.ok(!backend.includes("service_role"),'frontend jamais pode depender de service_role');
 assert.ok(backend.includes("signInAnonymously"),'modo live do cliente precisa de Auth anônimo');
 assert.ok(backend.includes("customerPortalParams.get('merchant')!=='1'&&customerPortalParams.get('admin')!=='1'"),'cliente real deve ser o modo padrão fora dos portais privilegiados');
-assert.ok(backend.includes('prelaunchExamplesEnabled'),'exemplos precisam de gate explícito de pré-lançamento');
+assert.ok(backend.includes('prelaunchExamplesEnabled'),'compatibilidade técnica de supply inicial precisa permanecer explicitamente governada');
 assert.ok(backend.includes("liveInvoke('market-status'"),'frontend deve consultar autoridade server-side antes de decidir exemplos');
-assert.ok(customer.includes('EXEMPLO — NÃO COMPRÁVEL'),'exemplo visual precisa ser rotulado como não comprável');
-assert.ok(customer.includes('disabled>Disponível quando houver parceiro real'),'exemplo jamais pode acionar checkout');
-assert.ok(customer.includes('prelaunchExamplesEnabled'),'cliente deve remover exemplos quando o backend indicar supply real');
+assert.ok(customer.includes('EXEMPLO — NÃO COMPRÁVEL'),'fixture visual interno precisa continuar claramente não comprável');
+assert.ok(customer.includes('disabled>Disponível quando houver parceiro real'),'fixture visual interno jamais pode acionar checkout');
+assert.ok(customer.includes('prelaunchExamplesEnabled')&&!customer.includes("${preview?prelaunchExampleSection({P13:1}):''}"),'cliente pode manter fixture interna, mas nunca deve renderizá-la como oferta pública');
 assert.ok(customer.includes('ready&&!market')&&customer.includes('Não foi possível confirmar o panorama geral agora'),'falha de market-status não pode ser apresentada como ausência de parceiros');
 assert.ok(core.includes('merchants:testDemo')&&core.includes("freshMerchant('JR-PILOT','Gas e Lenheira do JR — SIMULAÇÃO',120.00")&&core.includes("min:115.90,preferred:120.00,max:125.00,strategy:'balanced'"),'revendas sintéticas devem existir somente no runtime de teste e o piloto interno deve usar a faixa comercial JR confirmada');
 assert.ok(core.includes("eligible[0].roles=['Disponível agora']"),'piloto interno com fornecedor único não pode criar concorrência fictícia');
@@ -586,7 +586,7 @@ for(const fn of ['get-offers','create-order','customer-action','customer-summary
 }
 assert.ok(read('supabase/functions/get-order/index.ts').includes('CUSTOMER_ORIGIN_REQUIRED'),'get-order precisa exigir origem dedicada para papel customer');
 assert.ok(read('supabase/functions/get-order/index.ts').includes('CUSTOMER_ALLOWED_ORIGIN'),'get-order precisa separar origem customer de merchant');
-assert.ok(core.includes('compras reais serão liberadas na abertura oficial desta experiência'),'pré-lançamento deve deixar claro que compras reais ainda não estão liberadas');
+assert.ok(core.includes('ATENDIMENTO INDISPONÍVEL NESTA ORIGEM')&&core.includes('use o endereço oficial do TAMÃO'),'origens não oficiais devem falhar fechado sem linguagem de lançamento');
 assert.ok(sw.includes("./js/admin.js"),'runtime admin precisa estar no cache da PWA');
 assert.ok(admin.includes("storageKey:'chama-sg-admin-auth-v1'"),'sessão admin deve ser isolada das sessões cliente/revenda');
 assert.ok(backend.includes("storage:sessionStorage")&&backend.includes("storageKey:'chama-sg-merchant-auth-v1'"),'sessão da revenda deve ser tab-scoped em sessionStorage');
@@ -830,8 +830,8 @@ assert.ok(adminOpsSource.includes('paymentIngress:null'),'perfis não financeiro
 assert.ok(admin.includes('Entrada Pix / PSP')&&admin.includes('PSP/Pix ainda não conectado.')&&admin.includes('segredos nunca saem do ambiente server-side'),'Financeiro precisa enxergar claramente se o PSP está realmente conectado sem exposição de segredo');
 assert.ok(adminOpsSource.includes('PAYMENT_INGRESS_CONTRACT="tamao_normalized_hmac_v1"'),'contrato normalizado genérico precisa continuar explícito e separado dos adaptadores nativos');
 assert.ok(adminOpsSource.includes('normalizedIngressConfigured')&&adminOpsSource.includes('livePspReady')&&adminOpsSource.includes('liveProviderCount'),'readiness precisa separar secret técnico de PSP realmente suportado');
-assert.ok(admin.includes('INGRESS PRONTO')&&admin.includes('PSP CONFIGURADO')&&admin.includes('API VALIDADA')&&admin.includes('E2E VALIDADO')&&admin.includes('Ingress técnico pronto; PSP real ainda não.'),'UI precisa distinguir ingress técnico, PSP configurado, API autenticada e prova E2E financeira');
-assert.ok(admin.includes('PSP configurado; prova real ainda pendente.')&&admin.includes('presença de secret não comprova a credencial ou o webhook do PSP ativo')&&admin.includes('API do PSP validada; E2E financeiro ainda pendente.')&&admin.includes('Testar PSP ativo'),'painel não pode promover presença de secrets ou API válida a prova E2E de integração bancária');
+assert.ok(admin.includes('INGRESS PRONTO')&&admin.includes('PSP CONFIGURADO')&&admin.includes('API VALIDADA')&&admin.includes('INTEGRAÇÃO VERIFICADA')&&admin.includes('Canal técnico pronto; PSP automático não configurado.'),'UI precisa distinguir canal técnico, PSP configurado, API autenticada e integração transacional verificada');
+assert.ok(admin.includes('PSP configurado; validação transacional pendente.')&&admin.includes('configuração por si só não comprova credencial, webhook e conciliação do PSP')&&admin.includes('API do PSP validada; integração transacional ainda pendente.')&&admin.includes('Testar PSP ativo'),'painel não pode promover configuração ou API válida a integração financeira verificada');
 assert.ok(adminOpsSource.includes('LIVE_PAYMENT_PROVIDER_ADAPTERS=new Set<string>(["mercadopago","woovi"])'),'readiness só pode declarar Mercado Pago e Woovi implementados quando ambos os adaptadores nativos estiverem no código');
 assert.ok(adminOpsSource.includes('WOOVI_WEBHOOK_AUTHORIZATION')&&adminOpsSource.includes('WOOVI_COMPANY_ID')&&adminOpsSource.includes('wooviReady'),'Woovi só pode ficar live com token privado forte e vínculo da empresa');
 assert.ok(adminOpsSource.includes('webhookAuthorizationConfigured')&&adminOpsSource.includes('companyBound')&&adminOpsSource.includes('billing-payment-webhook-woovi'),'readiness do admin precisa explicar exatamente o que falta no adaptador Woovi');
@@ -923,12 +923,12 @@ assert.ok(
 assert.ok(
   admin.includes('Recebimento direto multi-PSP')
   &&admin.includes("adminPerform('merchant-payment-capability'")
-  &&admin.includes('Ativar piloto controlado')
-  &&admin.includes("const typed=activationKind==='pilot'?'ATIVAR PILOTO':'REATIVAR'")
-  &&admin.includes('Executar preflight')
-  &&admin.includes('AUTOMAÇÃO GLOBAL')
+  &&admin.includes('Ativar confirmação automática')
+  &&admin.includes("const typed=activationKind==='pilot'?'ATIVAR PAGAMENTOS':'REATIVAR'")
+  &&admin.includes('Verificar ativação')
+  &&admin.includes('controle global')
   &&admin.includes('Mercado Pago não é obrigatório'),
-  'Financeiro precisa ativar piloto/reativar cada PSP de forma independente sem confundir conexão, prova E2E, automação e kill switch global'
+  'Financeiro precisa ativar/reativar cada PSP de forma independente sem confundir conexão, validação transacional, automação e controle global'
 );
 assert.ok(
   mercadoPagoPaymentWebhookSource.includes('providerUserId!==providerAccountId')
@@ -1042,8 +1042,8 @@ assert.ok(adminOpsSource.includes('transactionWebhookActive')&&adminOpsSource.in
 assert.ok(admin.includes('Testar PSP ativo')&&admin.includes('adminCheckBillingProviderHealth'),'Financeiro precisa conseguir executar a prova real do PSP ativo sem sair do painel');
 assert.ok(admin.includes('Gerar prova Webhook')&&admin.includes('adminGenerateBillingWebhookProbe')&&admin.includes('Order (Mercado Pago)')&&admin.includes('Data ID')&&admin.includes('Webhook remoto comprovado criptograficamente.'),'Financeiro precisa comprovar webhook remoto pelo simulador oficial sem confundir com pagamento');
 assert.ok(admin.includes("pspApiValidated=providerHealth?.ok===true")&&admin.includes("pspE2E=adminBillingE2EState(d)")&&admin.includes("pspFailed=Boolean(providerHealth)&&providerHealth?.ok===false")&&admin.includes("pspConfigured=paymentIngress?.livePspReady===true"),'v1.133 precisa separar PSP configurado, API autenticada, E2E e falha');
-assert.ok(admin.includes("pspBadgeLabel=pspE2E.validated?'E2E VALIDADO':pspApiValidated?'API VALIDADA':pspFailed?'PSP FALHANDO':pspConfigured?'PSP CONFIGURADO'"),'badge financeiro só pode dizer E2E validado após evidência financeira reconciliada');
-assert.ok(admin.includes('API do PSP validada; E2E financeiro ainda pendente.')&&admin.includes('PSP configurado; prova real ainda pendente.')&&admin.includes('PSP validado de ponta a ponta.'),'copy do Financeiro precisa distinguir configuração, API autenticada e prova financeira E2E');
+assert.ok(admin.includes("pspBadgeLabel=pspE2E.validated?'INTEGRAÇÃO VERIFICADA':pspApiValidated?'API VALIDADA':pspFailed?'PSP FALHANDO':pspConfigured?'PSP CONFIGURADO'"),'badge financeiro só pode dizer integração verificada após evidência financeira reconciliada');
+assert.ok(admin.includes('API do PSP validada; integração transacional ainda pendente.')&&admin.includes('PSP configurado; validação transacional pendente.')&&admin.includes('Integração financeira verificada.'),'copy do Financeiro precisa distinguir configuração, API autenticada e evidência financeira reconciliada');
 assert.ok(!admin.includes('PSP real conectado.'),'v1.92 não pode manter linguagem que confunde secret presente com conexão provada');
 assert.ok(adminOpsSource.includes('paymentProviderDegraded=paymentProvider?.ok!==true')&&adminOpsSource.includes('operationalQueueDegraded||paymentProviderDegraded'),'system-health precisa degradar quando o PSP não está realmente saudável');
 assert.ok(adminOpsSource.includes('nunca silenciosamente desliga commerce')||adminOpsSource.includes('never silently disables commerce')||adminOpsSource.includes('never silently disables commerce'),'contrato do health-check deve preservar fallback manual sem bloquear comércio');
@@ -1311,7 +1311,7 @@ assert.ok(orderReplayReassert.includes("'canonicalAddress',v_order.address_text"
 assert.ok(read('supabase/functions/create-order/index.ts').includes('create_order_from_quote_v8')&&read('supabase/functions/create-order/index.ts').includes('COMMERCE_NOT_ENABLED'),'checkout deve usar autoridade V8 e traduzir kill switch');
 assert.ok(read('supabase/functions/market-status/index.ts').includes('commerce_launch_status')&&read('supabase/functions/market-status/index.ts').includes('operationMode')&&read('supabase/functions/market-status/index.ts').includes('launchMode:operationMode.toLowerCase()'),'market status precisa propagar PRELAUNCH/PILOT/LIVE/PAUSED sem inferir modo apenas por booleano');
 assert.ok(backend.includes('commerceLaunchBlocked')&&backend.includes('commerceEnabled:data?.commerceEnabled===true'),'runtime cliente precisa carregar o estado de lançamento');
-assert.ok(customer.includes('Pré-lançamento controlado.')&&customer.includes('administrador, da primeira revenda e dos portais live'),'cliente precisa distinguir launch fechado de indisponibilidade de parceiro');
+assert.ok(customer.includes('Pedidos temporariamente indisponíveis.')&&customer.includes('Novas compras estão pausadas no momento.'),'cliente precisa distinguir operação pausada de ausência de parceiro');
 const effectiveAclReadiness=read('supabase/migrations/20261006030000_effective_browser_acl_readiness_v1_70_20.sql');
 assert.ok(effectiveAclReadiness.includes("has_table_privilege('anon',c.oid,'SELECT')")&&effectiveAclReadiness.includes("has_table_privilege('authenticated',c.oid,'SELECT')"),'readiness precisa medir privilégios efetivos de tabela, inclusive herdados de PUBLIC');
 assert.ok(effectiveAclReadiness.includes("p.prosecdef")&&effectiveAclReadiness.includes("has_function_privilege('anon',p.oid,'EXECUTE')")&&effectiveAclReadiness.includes("has_function_privilege('authenticated',p.oid,'EXECUTE')"),'readiness precisa detectar SECURITY DEFINER efetivamente exposto ao browser');
@@ -1356,7 +1356,7 @@ assert.ok(admin.includes('Qualquer produto GLP ativo exige também validação A
 assert.ok(adminOpsSource.includes('pilot_partner_drafts'),'admin precisa projetar parceiros piloto ainda sem cadastro jurídico');
 assert.ok(adminOpsSource.includes('min_delivered_price_cents')&&adminOpsSource.includes('preferred_delivered_price_cents')&&adminOpsSource.includes('max_delivered_price_cents'),'admin precisa projetar mínimo/normal/máximo do parceiro piloto');
 assert.ok(admin.includes('Faixa comercial confirmada')&&admin.includes('Estratégia inicial'),'admin deve mostrar a faixa comercial confirmada sem confundir com preço único');
-assert.ok(admin.includes('AGUARDANDO DADOS REAIS')&&admin.includes('Converter em revenda pendente')&&admin.includes('Compliance permanece')&&admin.includes('adminConvertPilotPartner'),'admin deve converter o piloto por jornada assistida sem fabricar verificação ou ativação');
+assert.ok(admin.includes('AGUARDANDO DADOS REAIS')&&admin.includes('Converter em revenda pendente')&&admin.includes('Compliance permanece')&&admin.includes('adminConvertPilotPartner'),'admin deve concluir cadastro assistido sem fabricar verificação ou ativação');
 const assistedOnboardingSchema=read('supabase/migrations/20261004143500_assisted_merchant_onboarding_v1_63.sql');
 const assistedOnboardingAuthority=read('supabase/migrations/20261004143600_assisted_merchant_onboarding_authority_v1_63_1.sql');
 assert.ok(assistedOnboardingSchema.includes('merchant_business_details')&&assistedOnboardingSchema.includes('enable row level security')&&assistedOnboardingSchema.includes('revoke all on table public.merchant_business_details from public, anon, authenticated'),'dados cadastrais assistidos precisam permanecer server-only');
@@ -1783,7 +1783,7 @@ assert.ok(pilotInviteAuthority.includes("'pilotTermsSeeded',v_pilot_terms_seeded
 assert.ok(merchantApplicationSource.includes('claim_pilot_partner_invite')&&merchantApplicationSource.includes('body.pilotInviteToken'),'endpoint de cadastro precisa vincular o convite apenas no backend autenticado');
 assert.ok(backend.includes('merchantPilotInviteToken();')&&backend.includes("redirect.hash=''")&&!backend.includes("redirect.searchParams.set('pilot'"),'magic link da revenda precisa preservar a jornada piloto em armazenamento transitório e reservar o fragmento para a autenticação');
 assert.ok(backend.includes('function validMerchantPilotInviteToken')&&backend.includes('function clearMerchantPilotInviteToken')&&growth.includes('currentMerchantPilotInviteToken()')&&growth.includes('clearCurrentMerchantPilotInviteToken()'),'frontend precisa validar, consumir e apagar o convite pela autoridade sanitizada do runtime');
-assert.ok(growth.includes('Convite de parceiro piloto detectado.')&&growth.includes('A operação continuará offline'),'UI do convite não pode prometer ativação automática');
+assert.ok(growth.includes('Convite de parceiro reconhecido.')&&growth.includes('A operação continuará offline'),'UI do convite não pode prometer ativação automática');
 const pilotInviteIndexes=read('supabase/migrations/20261004185800_pilot_partner_invite_fk_indexes_v1_69_1.sql');
 assert.ok(pilotInviteIndexes.includes('pilot_partner_invites_claimed_user_idx')&&pilotInviteIndexes.includes('pilot_partner_invites_application_idx'),'FKs de claim/application do convite piloto precisam de índices de cobertura');
 const pilotClaimFallback=read('supabase/migrations/20261004193000_pilot_partner_claim_fallback_v1_69_3.sql');
