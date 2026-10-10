@@ -329,7 +329,7 @@ function adminProspectsSection(d){
   const error=adminRuntime.prospectError?'<div class="notice danger">'+esc(adminRuntime.prospectError)+'</div>':'';
   const summary=matches?'<div class="merchant-kpis">'+
     '<div class="kpi"><span class="label">Interessados</span><strong>'+Number(report.interestCount||0)+'</strong><small>CEP identificado e consentimento</small></div>'+
-    '<div class="kpi"><span class="label">Revendas na ANP</span><strong>'+Number(report.availableCount||0)+'</strong><small>Empresas prospectáveis, não parceiros</small></div>'+
+    '<div class="kpi"><span class="label">Revendas na ANP</span><strong>'+(report.sourceStatus==='ok'?Number(report.availableCount||0):'—')+'</strong><small>Empresas prospectáveis, não parceiros</small></div>'+
     '<div class="kpi"><span class="label">Fonte consultada</span><strong>'+esc(adminRelativeTime(report.checkedAt))+'</strong><small>'+esc(report.sourceStatus||'não confirmada')+'</small></div></div>'+
     (report.warning?'<div class="notice">'+esc(report.warning)+'</div>':'')+
     '<div class="section-head"><div><h3>Empresas registradas na ANP</h3><p>Confirmar dados e interesse antes do convite. Importação não habilita recebimento de pedidos.</p></div></div>'+
