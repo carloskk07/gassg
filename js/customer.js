@@ -763,7 +763,7 @@ ${['OUT_FOR_DELIVERY','ARRIVING'].includes(o.status)?`<div class="notice success
 ${o.status==='SETTLED'&&o.cashbackEarned?`<div class="notice success" style="margin-top:14px"><strong>+${BRL.format(o.cashbackEarned)} de cashback</strong><br>Crédito já disponível para uma próxima compra.</div>`:''}
 ${live&&['OFFERED_TO_MERCHANT','REQUOTE_REQUIRED'].includes(o.status)?`<button class="ghost full" style="margin-top:10px" onclick="cancelPending('${o.id}')">Cancelar antes do aceite</button>`:''}
 ${live&&['PREPARING','AT_RISK'].includes(o.status)?`<button class="danger-btn full" style="margin-top:10px" onclick="cancelBeforeDispatch('${o.id}')">Cancelar antes da saída</button>`:''}
-<div class="card flat support-card" style="margin-top:14px"><strong>Precisa de ajuda?</strong><p class="muted tiny">Atraso, diferença de preço, problema com o produto ou entrega contestada podem ser tratados a partir deste pedido.</p><button class="secondary full" onclick="toast('Suporte do pedido aberto — demonstração')">Pedir ajuda</button></div>
+<div class="card flat support-card" style="margin-top:14px"><strong>Precisa de ajuda?</strong><p class="muted tiny">Atraso, diferença de preço, problema com o produto ou entrega contestada podem ser tratados a partir deste pedido.</p><button class="secondary full" onclick="toast('Canal de suporte aberto para este pedido')">Pedir ajuda</button></div>
 </section>`)
 }
 function eventTimeline(o){
