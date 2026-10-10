@@ -71,10 +71,6 @@ async function startHomeOrder(){
 
 // Consulta ofertas reais quando a sessão está pronta; na indisponibilidade, oferece aviso.
 function startCustomerAvailability(){
-  const region=typeof rememberedMarketRegion==='function'?rememberedMarketRegion():null;
-  if(region&&!(region.city.toLocaleUpperCase('pt-BR')==='SÃO GABRIEL'&&region.state==='RS')){
-    return openPrelaunchCustomerLead();
-  }
   if(globalThis.__CHAMA_TEST__===true||globalThis.liveReady?.()===true){
     return startHomeOrder();
   }
@@ -270,7 +266,7 @@ function home(){
   const eyebrow=testDemo
     ? internalPilot?'● AMBIENTE INTERNO — SEM PEDIDOS':'● AMBIENTE DE TESTE'
     : '● TAMÃO • '+regionLabel.toUpperCase();
-  const primaryLabel=internalPilot?'Validar jornada':outsideOriginalMarket?'Receber aviso na minha cidade':acquisitionOpen?'Consultar disponibilidade':'Ver preços e prazos';
+  const primaryLabel=internalPilot?'Validar jornada':outsideOriginalMarket?'Consultar minha cidade':acquisitionOpen?'Consultar disponibilidade':'Ver preços e prazos';
   const primaryAction='startCustomerAvailability()';
   const singleMarket=internalPilot||(ready&&market?.availableNow&&Number(market?.availableMerchantCount||0)===1);
   const heroJourney=singleMarket
@@ -296,7 +292,7 @@ function home(){
   return shell(`<section class="hero marketing-hero"><div class="hero-grid"><div>
     <span class="eyebrow">${eyebrow}</span>
     <h1>Pediu? Tá na mão.</h1>
-    <p><strong>Gás, água e essenciais perto de você.</strong> ${esc(outsideOriginalMarket?'Recebemos interesse de clientes em '+regionLabel+'. Você pode registrar seu CEP para ser avisado quando houver cobertura na cidade.':heroJourney)}</p>
+    <p><strong>Gás, água e essenciais perto de você.</strong> ${esc(outsideOriginalMarket?'Consulte a cobertura de '+regionLabel+' pelo CEP. Quando ainda não houver ofertas, você poderá receber um aviso de disponibilidade.':heroJourney)}</p>
 
     <div class="purchase-starter" aria-label="Iniciar compra de gás">
       <div class="starter-product"><div class="starter-product-icon">🔥</div><div><span class="starter-label">MAIS PROCURADO</span><strong>Botijão de cozinha 13 kg</strong><small>P13 • GLP</small></div><div class="starter-price"><small>CONSULTA</small><b>${priceText}</b></div></div>
