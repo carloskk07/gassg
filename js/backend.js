@@ -1972,11 +1972,11 @@ async function merchantUpdateProductLive(productCode,priceCents,availableStock,a
     }catch(error){
       if(['CATALOG_VERSION_CONFLICT','CATALOG_VERSION_REQUIRED'].includes(String(error?.code||''))){
         await merchantRefresh({silent:true});
-    merchantEnablementAfterChange();
       }
       throw error;
     }
     await merchantRefresh({silent:true});
+    merchantEnablementAfterChange();
   }finally{
     merchantRuntime.actionPending=false;render();
   }
