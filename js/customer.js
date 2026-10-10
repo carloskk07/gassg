@@ -71,6 +71,10 @@ async function startHomeOrder(){
 
 // Consulta ofertas reais quando a sessão está pronta; na indisponibilidade, oferece aviso.
 function startCustomerAvailability(){
+  const region=typeof rememberedMarketRegion==='function'?rememberedMarketRegion():null;
+  if(region&&!(region.city.toLocaleUpperCase('pt-BR')==='SÃO GABRIEL'&&region.state==='RS')){
+    return openPrelaunchCustomerLead();
+  }
   if(globalThis.__CHAMA_TEST__===true||globalThis.liveReady?.()===true){
     return startHomeOrder();
   }
@@ -189,6 +193,9 @@ function home(){
   const ready=globalThis.liveReady?.()===true;
   const preview=!testDemo&&globalThis.prelaunchExamplesEnabled?.()===true;
   const market=globalThis.liveRuntime?.marketStatus||null;
+  const rememberedRegion=!testDemo&&typeof rememberedMarketRegion==='function'?rememberedMarketRegion():null;
+  const regionLabel=rememberedRegion?rememberedRegion.city+' • '+rememberedRegion.state:'São Gabriel • RS';
+  const outsideOriginalMarket=Boolean(rememberedRegion&&!(rememberedRegion.city.toLocaleUpperCase('pt-BR')==='SÃO GABRIEL'&&rememberedRegion.state==='RS'));
   const lastOrder=ready?globalThis.liveRuntime?.lastOrderTemplate:null;
   const prediction=ready?globalThis.liveRuntime?.reorderPrediction:null;
   let reorderCard='';
@@ -207,7 +214,7 @@ function home(){
   }
 
   const p=testDemo?minPrice():null;
-  const showPublicP13Reference=!testDemo&&(
+  const showPublicP13Reference=!testDemo&&!outsideOriginalMarket&&(
     preview
     ||(ready&&market?.realSupplyConfigured===false)
   );
@@ -259,13 +266,11 @@ function home(){
     );
   const feeBps=Number(market?.commercialPolicy?.platformFeeBps??750);
   const merchantFeeLabel=(Math.max(0,feeBps)/100).toLocaleString('pt-BR',{maximumFractionDigits:2})+'%';
-  const acquisitionOpen=!testDemo&&(preview||!ready||market?.realSupplyConfigured===false);
+  const acquisitionOpen=!testDemo&&(outsideOriginalMarket||preview||!ready||market?.realSupplyConfigured===false);
   const eyebrow=testDemo
     ? internalPilot?'● AMBIENTE INTERNO — SEM PEDIDOS':'● AMBIENTE DE TESTE'
-    : preview
-      ? '● TAMÃO • SÃO GABRIEL'
-      : '● TAMÃO • SÃO GABRIEL';
-  const primaryLabel=internalPilot?'Validar jornada':acquisitionOpen?'Consultar disponibilidade':'Ver preços e prazos';
+    : '● TAMÃO • '+regionLabel.toUpperCase();
+  const primaryLabel=internalPilot?'Validar jornada':outsideOriginalMarket?'Receber aviso na minha cidade':acquisitionOpen?'Consultar disponibilidade':'Ver preços e prazos';
   const primaryAction='startCustomerAvailability()';
   const singleMarket=internalPilot||(ready&&market?.availableNow&&Number(market?.availableMerchantCount||0)===1);
   const heroJourney=singleMarket
@@ -291,7 +296,7 @@ function home(){
   return shell(`<section class="hero marketing-hero"><div class="hero-grid"><div>
     <span class="eyebrow">${eyebrow}</span>
     <h1>Pediu? Tá na mão.</h1>
-    <p><strong>Gás, água e essenciais perto de você.</strong> ${esc(heroJourney)}</p>
+    <p><strong>Gás, água e essenciais perto de você.</strong> ${esc(outsideOriginalMarket?'Recebemos interesse de clientes em '+regionLabel+'. Você pode registrar seu CEP para ser avisado quando houver cobertura na cidade.':heroJourney)}</p>
 
     <div class="purchase-starter" aria-label="Iniciar compra de gás">
       <div class="starter-product"><div class="starter-product-icon">🔥</div><div><span class="starter-label">MAIS PROCURADO</span><strong>Botijão de cozinha 13 kg</strong><small>P13 • GLP</small></div><div class="starter-price"><small>CONSULTA</small><b>${priceText}</b></div></div>
