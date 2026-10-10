@@ -173,3 +173,50 @@ $func$;
 revoke all on function public.admin_set_market_city_pause(uuid,text,text,boolean,text)
 from public,anon,authenticated;
 grant execute on function public.admin_set_market_city_pause(uuid,text,text,boolean,text) to service_role;
+
+
+-- Existing order lifecycle may reassign merchants. Re-evaluate only when the
+-- supplier changes; old orders are never blocked from status/settlement updates.
+create or replace function public.assert_order_merchant_city_scope()
+returns trigger
+language plpgsql security definer
+set search_path to pg_catalog
+as $func$
+declare
+  v_city text;
+  v_state text;
+  v_allowed uuid[];
+begin
+  if new.merchant_id is not distinct from old.merchant_id
+     and new.proposed_merchant_id is not distinct from old.proposed_merchant_id then
+    return new;
+  end if;
+  if new.postal_code is null then
+    raise exception 'ORDER_POSTAL_REQUIRED_FOR_REASSIGNMENT' using errcode='40001';
+  end if;
+  select pc.city,pc.state into v_city,v_state
+  from public.postal_code_validation_cache pc
+  where pc.postal_code=new.postal_code
+    and pc.service_area_allowed
+    and pc.verified_at>=statement_timestamp()-interval '30 days';
+  if not found then
+    raise exception 'ORDER_CITY_NOT_VERIFIED' using errcode='40001';
+  end if;
+  v_allowed:=public.market_city_offer_scope(v_city,v_state);
+  if new.merchant_id is distinct from old.merchant_id
+     and (new.merchant_id is null or not(new.merchant_id=any(v_allowed))) then
+    raise exception 'ORDER_MERCHANT_CITY_CONFLICT' using errcode='40001';
+  end if;
+  if new.proposed_merchant_id is distinct from old.proposed_merchant_id
+     and new.proposed_merchant_id is not null
+     and not(new.proposed_merchant_id=any(v_allowed)) then
+    raise exception 'ORDER_PROPOSED_MERCHANT_CITY_CONFLICT' using errcode='40001';
+  end if;
+  return new;
+end;
+$func$;
+revoke all on function public.assert_order_merchant_city_scope() from public,anon,authenticated;
+drop trigger if exists orders_city_reassignment_guard on public.orders;
+create trigger orders_city_reassignment_guard
+  before update of merchant_id,proposed_merchant_id on public.orders
+  for each row execute function public.assert_order_merchant_city_scope();
