@@ -55,8 +55,10 @@ const windows=fs.readFileSync(path.join(root,'scripts/release-db-backup-windows.
 for(const phrase of [
  'Read-Host', '-AsSecureString', 'ZeroFreeBSTR', 'pg_dump',
  'Find-PgTool', 'Get-FileHash', 'Remove-Item Env:PGPASSWORD',
- 'PGSSLMODE', 'RESTORE', 'TAMAO', 'CheckOnly'
+ 'PGSSLMODE', 'TAMAO', 'CheckOnly'
 ])assert.ok(windows.includes(phrase),'Windows backup guard missing: '+phrase);
+assert.ok(windows.toLowerCase().includes('restaure') && windows.includes("Find-PgTool 'pg_restore'"),
+ 'Backup must instruct an isolated restore and verify archive tool');
 assert.ok(!windows.includes('Write-Host $env:PGPASSWORD')&&!windows.includes('Start-Transcript'),
  'Windows flow must not leak credentials into terminal history or output');
 const runbook=fs.readFileSync(path.join(root,'release/RUNBOOK-V1-164.md'),'utf8');
