@@ -190,7 +190,7 @@ function home(){
   const preview=!testDemo&&globalThis.prelaunchExamplesEnabled?.()===true;
   const market=globalThis.liveRuntime?.marketStatus||null;
   const rememberedRegion=!testDemo&&typeof rememberedMarketRegion==='function'?rememberedMarketRegion():null;
-  const regionLabel=rememberedRegion?rememberedRegion.city+' • '+rememberedRegion.state:'São Gabriel • RS';
+  const regionLabel=rememberedRegion?rememberedRegion.city+' • '+rememberedRegion.state'Informe seu CEP';
   const outsideOriginalMarket=Boolean(rememberedRegion&&!(rememberedRegion.city.toLocaleUpperCase('pt-BR')==='SÃO GABRIEL'&&rememberedRegion.state==='RS'));
   const lastOrder=ready?globalThis.liveRuntime?.lastOrderTemplate:null;
   const prediction=ready?globalThis.liveRuntime?.reorderPrediction:null;
@@ -434,7 +434,7 @@ ${pendingOrder?`<div class="notice" style="margin-bottom:14px"><strong>Você já
     <div class="input-wrap"><label for="postal-code">CEP</label><input id="postal-code" class="input" autocomplete="postal-code" inputmode="numeric" maxlength="9" placeholder="Ex.: 97300-000" value="${esc(String(state.postalCode||'').replace(/^(\d{5})(\d{0,3}).*$/,(m,a,b)=>b?a+'-'+b:a))}"><small class="field-help">Opcional na simulação.</small></div>
     <div class="input-wrap"><label for="address">Endereço de entrega</label><input id="address" class="input" autocomplete="street-address" maxlength="160" placeholder="Ex.: Rua General Câmara, 123" value="${esc(state.address||'')}"></div>
   </div>`:`<div class="field-row">
-    <div class="input-wrap"><label for="postal-code">CEP</label><input id="postal-code" class="input" autocomplete="postal-code" inputmode="numeric" maxlength="9" placeholder="Ex.: 97300-000" value="${esc(String(state.postalCode||'').replace(/^(\d{5})(\d{0,3}).*$/,(m,a,b)=>b?a+'-'+b:a))}" onchange="deliveryAddressDraftChanged()"><small class="field-help">O servidor confirma rua, bairro e atendimento em São Gabriel/RS.</small></div>
+    <div class="input-wrap"><label for="postal-code">CEP</label><input id="postal-code" class="input" autocomplete="postal-code" inputmode="numeric" maxlength="9" placeholder="Ex.: 97300-000" value="${esc(String(state.postalCode||'').replace(/^(\d{5})(\d{0,3}).*$/,(m,a,b)=>b?a+'-'+b:a))}" onchange="deliveryAddressDraftChanged()"><small class="field-help">O servidor confirma rua, bairro e atendimento para o CEP informado.</small></div>
     <div class="input-wrap"><label for="address-number">Número</label><input id="address-number" class="input" autocomplete="address-line2" inputmode="text" maxlength="7" placeholder="Ex.: 123" value="${esc(state.addressNumber||'')}" onchange="deliveryAddressDraftChanged()"><small class="field-help">Use números e, se necessário, uma letra.</small></div>
   </div>
   ${state.address?`<div class="notice success"><strong>Endereço confirmado pelo servidor.</strong><br>${esc(state.address)}</div>`:'<div class="notice">A rua não é digitada manualmente: ela vem do CEP validado.</div>'}`}

@@ -461,7 +461,7 @@ function merchantsLanding(){
       </div>
     </section>
 
-    <section class="section"><div class="founder-band"><div><span class="section-kicker light">VENDA PELO TAMÃO — SÃO GABRIEL</span><h2>Adicione o TAMÃO aos canais que sua empresa já usa.</h2><p>O cadastro é acompanhado, sua empresa mantém controle de preço, estoque e disponibilidade e pode usar seus próprios meios de recebimento. O TAMÃO não promete volume de pedidos nem renda.</p></div><div class="founder-points"><span>✓ Cadastro acompanhado</span><span>✓ Painel da revenda</span><span>✓ Controle da operação</span><span>✓ Sem exclusividade</span></div></div></section>
+    <section class="section"><div class="founder-band"><div><span class="section-kicker light">VENDA PELO TAMÃO — SUA CIDADE</span><h2>Adicione o TAMÃO aos canais que sua empresa já usa.</h2><p>O cadastro é acompanhado, sua empresa mantém controle de preço, estoque e disponibilidade e pode usar seus próprios meios de recebimento. O TAMÃO não promete volume de pedidos nem renda.</p></div><div class="founder-points"><span>✓ Cadastro acompanhado</span><span>✓ Painel da revenda</span><span>✓ Controle da operação</span><span>✓ Sem exclusividade</span></div></div></section>
 
     <section class="section"><div class="merchant-requirements"><div><span class="section-kicker light">PARA ATIVAR DE VERDADE</span><h2>Cadastro curto, ativação responsável.</h2><p>Para vender ao público, precisamos identificar a empresa e o responsável. Operação com GLP passa também pela validação regulatória aplicável.</p></div>
       <div class="requirement-list"><span>✓ CNPJ e dados da empresa</span><span>✓ Responsável e contato</span><span>✓ Endereço da operação</span><span>✓ Validação ANP quando houver GLP</span></div>
