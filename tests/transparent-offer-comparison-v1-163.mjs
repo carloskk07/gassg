@@ -62,7 +62,7 @@ assert.ok(initial.includes('R$ 108,00')&&initial.includes('R$ 12,00'),
 assert.ok(initial.includes('Incluída sem custo adicional'),'Zero fee described honestly');
 assert.ok(initial.includes('Pedir')===false,'CTA must explain it sends a real order for confirmation');
 assert.ok(initial.includes('Enviar pedido para confirmação'));
-assert.ok(initial.includes('Pag')&&initial.includes('Pix na entrega'),'Direct merchant payment must be visible');
+assert.ok(initial.includes('Você paga diretamente à revenda')&&initial.includes('Pix na entrega'),'Direct merchant payment must be visible');
 assert.ok(initial.includes('Menor total desta consulta')&&initial.includes('Menor prazo máximo previsto'),
   'Comparison labels anchored to distinct actual numeric minima');
 assert.ok(initial.includes('OPÇÃO DISPONÍVEL AGORA')===false,
