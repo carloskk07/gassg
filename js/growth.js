@@ -246,20 +246,21 @@ function earn(){
   const referralRateLabel=policyPercent(referralPilotRate());
   const merchantFeeLabel=policyPercent(merchantPilotFeeRate());
   return shell(`<section class="page">
-    <span class="eyebrow">BENEFÍCIOS E OPORTUNIDADES</span>
-    <h1 class="page-title">Comissão por indicação para pessoas. Mais vendas para empresas.</h1>
-    <p class="muted page-lead">São caminhos diferentes: quem compra pode indicar novos clientes elegíveis; quem já tem uma empresa pode usar o TAMÃO como canal adicional de vendas. Nenhum dos dois é promessa de renda fixa.</p>
+    <span class="eyebrow">MAIS FORMAS DE APROVEITAR O TAMÃO</span>
+    <h1 class="page-title">Comprar bem já é bom. Descubra o que mais o TAMÃO pode oferecer.</h1>
+    <p class="muted page-lead">Você pode conhecer os benefícios por indicação de novos clientes ou levar sua empresa para um novo canal de vendas. Cada possibilidade tem regras próprias e depende de disponibilidade e validação.</p>
+    <div class="conversion-mini-proof"><span>✓ Compra e indicação são diferentes</span><span>✓ Regras visíveis</span><span>✓ Sem promessa de renda</span></div>
 
     <div class="opportunity-grid main-opportunities">
-      <article class="opportunity-card person-opportunity"><div class="opportunity-icon">🤝</div><span class="section-kicker">PARA PESSOAS</span><h2>Indique quem realmente pode comprar</h2><p>Compartilhe seu link pessoal. A primeira compra qualificada de cada novo cliente indicado pode gerar comissão depois de entregue, paga e validada.</p>
+      <article class="opportunity-card person-opportunity"><div class="opportunity-icon">🤝</div><span class="section-kicker">PARA QUEM GOSTA DE COMPARTILHAR</span><h2>Gostou da ideia? Conte para alguém.</h2><p>Compartilhe seu link pessoal. A primeira compra qualificada de cada novo cliente indicado pode gerar comissão depois de entregue, paga e validada.</p>
         <ul class="clean-list"><li>Política comercial atual: ${referralRateLabel} da primeira compra qualificada</li><li>Uma comissão de aquisição por novo cliente elegível</li><li>Saldo “a liberar” separado do saldo disponível</li><li>Nenhum pagamento por simples recrutamento</li></ul>
         <div class="opportunity-example"><small>Exemplo matemático</small><strong>R$ 120 × ${referralRateLabel} = ${BRL.format(referralExample(120))}</strong><span>Não é promessa de renda; a venda precisa cumprir todos os gates.</span></div>
-        <button class="primary full" onclick="go('refer')">Simular minha indicação</button>
+        <button class="primary full" onclick="go('refer')">Conhecer as indicações →</button>
       </article>
-      <article class="opportunity-card business-opportunity"><div class="opportunity-icon">🏪</div><span class="section-kicker">PARA EMPRESAS</span><h2>Transforme pedidos adicionais em faturamento incremental</h2><p>Use o TAMÃO como um canal adicional para gás, água e outros itens, sem abandonar telefone, WhatsApp, balcão ou sua base atual de clientes.</p>
+      <article class="opportunity-card business-opportunity"><div class="opportunity-icon">🏪</div><span class="section-kicker">PARA QUEM JÁ TEM UM NEGÓCIO</span><h2>Mais um caminho para conquistar pedidos.</h2><p>Use o TAMÃO como um canal adicional para gás, água e outros itens, sem abandonar telefone, WhatsApp, balcão ou sua base atual de clientes.</p>
         <ul class="clean-list"><li>Você define preços, estoque e taxa de entrega</li><li>Escolhe quando ficar online</li><li>Decide se aceita cada pedido</li><li>Pode aumentar o ticket com vários produtos na mesma entrega</li></ul>
         <div class="opportunity-example"><small>Política comercial atual</small><strong>Taxa TAMÃO: ${merchantFeeLabel} por pedido concluído</strong><span>Ex.: R$ 120 bruto → ${BRL.format(merchantSample.fee)} de taxa → ${BRL.format(merchantSample.merchantNet)} antes dos custos próprios e impostos.</span></div>
-        <button class="primary full" onclick="go('merchants')">Ver parceria e simulador</button>
+        <button class="primary full" onclick="go('merchants')">Quero conhecer a parceria →</button>
       </article>
     </div>
 
@@ -269,24 +270,29 @@ function earn(){
 
 function learn(){
   return shell(`<section class="page">
-    <span class="eyebrow">SAIBA MAIS</span>
-    <h1 class="page-title">Antes de pedir, veja quanto custa, quanto demora e o que acontece se algo der errado.</h1>
-    <p class="muted page-lead">O TAMÃO foi desenhado para tirar as principais dúvidas antes da compra: total, prazo, confirmação do parceiro e acompanhamento até o recebimento.</p>
+    <span class="eyebrow">COMO FUNCIONA O TAMÃO</span>
+    <h1 class="page-title">Pedir o que falta pode ser muito mais simples.</h1>
+    <p class="muted page-lead">A ideia é você gastar menos tempo procurando e ter mais clareza para escolher. Veja o preço total, a previsão de entrega e a confirmação da revenda, quando houver ofertas para o seu endereço.</p>
+    <div class="journey-invite">
+      <span class="journey-invite-icon" aria-hidden="true">🏡</span>
+      <div><strong>Do gás à água, o que você precisa está no mesmo lugar.</strong><span>Você escolhe, a revenda confirma e o TAMÃO mostra o andamento.</span></div>
+      <button class="primary" onclick="startCustomerAvailability()">Consultar minha região →</button>
+    </div>
 
-    <section class="section"><div class="section-head"><div><span class="section-kicker">PASSO A PASSO</span><h2>Comprar é um fluxo de quatro etapas</h2></div></div><div class="how-grid">
+    <section class="section"><div class="section-head"><div><span class="section-kicker">SEM COMPLICAÇÃO</span><h2>Quatro passos e você sabe o que esperar.</h2></div></div><div class="how-grid">
       <div class="how-card"><span>1</span><div><strong>Monte sua cesta</strong><p>Escolha gás e/ou produtos essenciais disponíveis.</p></div></div>
       <div class="how-card"><span>2</span><div><strong>Confirme seu endereço</strong><p>Usamos a cesta e o endereço para procurar opções elegíveis.</p></div></div>
       <div class="how-card"><span>3</span><div><strong>Escolha uma opção</strong><p>Compare valor total e previsão de entrega antes de confirmar.</p></div></div>
       <div class="how-card"><span>4</span><div><strong>Acompanhe</strong><p>Aceite, preparação, saída e conclusão aparecem como etapas distintas.</p></div></div>
     </div></section>
 
-    <section class="section"><div class="section-head"><div><span class="section-kicker">O QUE MUDA PARA VOCÊ</span><h2>Menos dúvida durante a compra</h2></div></div><div class="grid cards-3">
+    <section class="section"><div class="section-head"><div><span class="section-kicker">MAIS TRANQUILIDADE</span><h2>Sem precisar ficar adivinhando.</h2></div></div><div class="grid cards-3">
       <div class="card feature-card"><div class="feature-icon">💲</div><h3>Valor antes de confirmar</h3><p>Você vê o total da opção antes de criar o pedido.</p></div>
       <div class="card feature-card"><div class="feature-icon">✅</div><h3>Parceiro precisa confirmar</h3><p>Enviar o pedido não significa que você já ficará esperando: a operação precisa aceitar antes de assumir a entrega.</p></div>
       <div class="card feature-card"><div class="feature-icon">📍</div><h3>Acompanhamento por etapas</h3><p>Preparando, a caminho e chegando são estados separados.</p></div>
     </div></section>
 
-    <section class="section"><div class="section-head"><div><span class="section-kicker">DÚVIDAS FREQUENTES</span><h2>Antes de comprar</h2></div></div><div class="faq-list">
+    <section class="section"><div class="section-head"><div><span class="section-kicker">A GENTE EXPLICA</span><h2>O que você gostaria de saber?</h2></div></div><div class="faq-list">
       <details open><summary>Preciso comprar gás para pedir água, carvão, lenha ou gelo?</summary><p>Não. Quando houver oferta real para o produto, você pode montar uma cesta sem gás.</p></details>
       <details><summary>O preço pode mudar depois que eu escolho?</summary><p>A opção escolhida é protegida para o pedido. Se for necessária uma alternativa mais cara durante uma reatribuição, o sistema pede seu aceite antes de trocar a condição.</p></details>
       <details><summary>Como sei que alguém realmente assumiu meu pedido?</summary><p>O parceiro precisa aceitar o pedido. Depois, a saída também precisa ser confirmada antes de aparecer “A caminho”.</p></details>
@@ -298,7 +304,7 @@ function learn(){
       <details><summary>Tenho uma revenda. Posso vender outros produtos além de gás?</summary><p>Sim. A proposta inclui gás e produtos relacionados, com preço e estoque controlados por SKU. GLP exige a validação regulatória aplicável.</p></details>
     </div></section>
 
-    <div class="dual-cta"><button class="primary" onclick="quickProduct('P13')">🔥 Ver preços e prazos</button><button class="secondary" onclick="go('earn')">🤝 Indicação e parceria</button></div>
+    <div class="dual-cta"><button class="primary" onclick="startCustomerAvailability()">Consultar ofertas na minha região →</button><button class="secondary" onclick="go('merchants')">Minha empresa pode vender?</button></div>
   </section>`)
 }
 
@@ -346,43 +352,44 @@ function merchantsLanding(){
   const internalPilot=globalThis.CHAMA_INTERNAL_PILOT===true;
   const cta=internalPilot?"setMode('merchant')":"openPrelaunchMerchantLead()";
   const ctaLabel=internalPilot?'Abrir ambiente interno':'Cadastrar minha empresa';
-  const jrPrice=115.90;
+  const referenceTicket=120.00;
   const merchantFeeLabel=policyPercent(merchantPilotFeeRate());
-  const initial=merchantMarginExample({salePrice:jrPrice,orders:50});
+  const initial=merchantMarginExample({salePrice:referenceTicket,orders:50});
 
   return shell(`<section class="page merchant-landing">
-    <span class="eyebrow">PARA EMPRESAS LOCAIS</span>
-    <h1 class="page-title">Transforme capacidade de entrega em novas vendas — sem perder o controle da sua operação.</h1>
-    <p class="muted page-lead">O TAMÃO foi desenhado como um canal adicional: você continua vendendo por telefone, WhatsApp, balcão e seus próprios canais. <strong>Você continua no controle</strong> e decide quando e o que quer atender.</p>
+    <span class="eyebrow">TAMÃO PARA REVENDEDORES E COMÉRCIOS</span>
+    <h1 class="page-title">Sua empresa já vende. <span class="headline-accent">Que tal ser encontrada por mais clientes?</span></h1>
+    <p class="muted page-lead">O TAMÃO pode ser mais uma porta de entrada para pedidos na sua região. Você segue vendendo no balcão, no WhatsApp e pelo telefone — <strong>e continua no comando dos seus preços, estoque e entregas.</strong></p>
+    <div class="conversion-mini-proof"><span>✓ Sem exclusividade</span><span>✓ Recebimento direto na revenda</span><span>✓ Você decide quando ficar online</span></div>
 
     <div class="merchant-commercial-strip merchant-value-strip">
       <div><small>POLÍTICA COMERCIAL ATUAL</small><strong>${merchantFeeLabel}</strong><span>sobre o valor bruto de cada pedido concluído</span></div>
-      <p><strong>Sem mensalidade apresentada no modelo atual.</strong> A taxa só nasce quando o pedido é concluído. Seus custos, tributos, pagamento e entrega continuam sendo parte da sua própria operação.</p>
+      <p><strong>Você não precisa pagar uma mensalidade para começar no modelo atual.</strong> A taxa comercial incide sobre pedidos concluídos; o pagamento do cliente vai diretamente para a sua revenda. Custos próprios e tributos continuam sob responsabilidade da empresa.</p>
     </div>
 
     ${internalPilot?`<div class="notice success" style="margin-top:14px"><strong>Você está no laboratório interno do TAMÃO.</strong><br>Abra o painel da Gas e Lenheira do JR, simule pedidos e veja a operação antes de qualquer cadastro real.</div>`:''}
 
     <div class="hero-actions merchant-hero-actions">
-      <button class="primary" onclick="${cta}">${ctaLabel}</button>
-      <button class="secondary" onclick="document.getElementById('merchant-margin')?.scrollIntoView({behavior:'smooth'})">Simular margem</button>
+      <button class="primary" onclick="${cta}">${internalPilot?ctaLabel:'Quero levar minha empresa ao TAMÃO →'}</button>
+      <button class="secondary" onclick="document.getElementById('merchant-margin')?.scrollIntoView({behavior:'smooth'})">Ver quanto custa vender</button>
     </div>
 
     ${internalPilot?'':prelaunchMerchantLeadSection()}
 
-    <section class="section"><div class="section-head"><div><span class="section-kicker">O QUE VOCÊ ESTÁ COMPRANDO COM A TAXA</span><h2>Não é apenas um pedido. É aquisição, operação e recorrência em um único canal.</h2><p>O objetivo é trazer demanda incremental sem exigir que sua empresa abandone os canais que já funcionam.</p></div></div>
+    <section class="section"><div class="section-head"><div><span class="section-kicker">UMA NOVA VITRINE PARA SUA EMPRESA</span><h2>Seu trabalho merece chegar a quem está procurando.</h2><p>Um canal adicional para ser encontrado, receber pedidos e organizar a entrega, sem precisar abandonar os canais que já funcionam.</p></div></div>
       <div class="grid cards-3 partner-benefits">
-        <div class="card"><div class="feature-icon">📈</div><h3>Novos pedidos</h3><p class="muted tiny">Apareça para clientes que já estão procurando gás e itens relacionados na sua área de atendimento.</p></div>
-        <div class="card"><div class="feature-icon">🧺</div><h3>Mais itens por entrega</h3><p class="muted tiny">Use o mesmo deslocamento para vender GLP, água, carvão, lenha, gelo e outros itens do seu catálogo.</p></div>
-        <div class="card"><div class="feature-icon">🔁</div><h3>Mais chance de recompra</h3><p class="muted tiny">Cashback e histórico ajudam o TAMÃO a estimular novas compras sem transformar a revenda em um programa de pontos manual.</p></div>
+        <div class="card"><div class="feature-icon">📈</div><h3>Mais oportunidades de venda</h3><p class="muted tiny">Seja uma opção para quem consulta gás e itens essenciais na área atendida pela sua empresa.</p></div>
+        <div class="card"><div class="feature-icon">🧺</div><h3>Mais valor em cada entrega</h3><p class="muted tiny">Apresente água, carvão, lenha, gelo e outros produtos compatíveis da sua loja na mesma jornada de compra.</p></div>
+        <div class="card"><div class="feature-icon">🔁</div><h3>Clientes que podem voltar</h3><p class="muted tiny">Histórico de compra e benefícios elegíveis podem facilitar a lembrança e a reposição dos itens do dia a dia.</p></div>
       </div>
       <div class="merchant-no-lockin"><span>✓ Sem exclusividade</span><span>✓ Sem obrigação de aceitar</span><span>✓ Online/offline quando quiser</span><span>✓ Preço e estoque sob seu controle</span></div>
     </section>
 
-    <section class="section" id="merchant-margin"><div class="section-head"><div><span class="section-kicker">SIMULADOR DE MARGEM INCREMENTAL</span><h2>Veja o que uma venda adicional deixa depois dos custos que você informar.</h2><p>Receita não é lucro. Por isso o TAMÃO separa venda bruta, taxa da plataforma e custos próprios da sua empresa.</p></div></div>
+    <section class="section" id="merchant-margin"><div class="section-head"><div><span class="section-kicker">FAÇA AS CONTAS DO SEU JEITO</span><h2>Uma venda a mais vale quanto para o seu negócio?</h2><p>Experimente cenários com seus próprios custos. O simulador separa faturamento, taxa TAMÃO e despesas para ajudar você a decidir com clareza.</p></div></div>
       <div class="calculator-card merchant-calculator merchant-margin-calculator">
         <div class="calculator-inputs merchant-margin-inputs">
           <div class="input-wrap"><label for="merchant-sim-orders">Pedidos adicionais</label><input id="merchant-sim-orders" class="input" type="number" inputmode="numeric" min="1" max="10000" value="50" oninput="updateMerchantSimulator()"></div>
-          <div class="input-wrap"><label for="merchant-sim-ticket">Preço médio por pedido (R$)</label><input id="merchant-sim-ticket" class="input" type="number" inputmode="decimal" min="0.01" step="0.01" value="115.90" oninput="updateMerchantSimulator()"></div>
+          <div class="input-wrap"><label for="merchant-sim-ticket">Preço médio por pedido (R$)</label><input id="merchant-sim-ticket" class="input" type="number" inputmode="decimal" min="0.01" step="0.01" value="120.00" oninput="updateMerchantSimulator()"></div>
           <div class="input-wrap"><label for="merchant-sim-product-cost">Custo do produto por pedido (R$)</label><input id="merchant-sim-product-cost" class="input" type="number" inputmode="decimal" min="0" step="0.01" placeholder="Informe seu custo real" oninput="updateMerchantSimulator()"><small>Obrigatório para estimar contribuição e margem.</small></div>
           <div class="input-wrap"><label for="merchant-sim-delivery-cost">Custo médio de entrega (R$)</label><input id="merchant-sim-delivery-cost" class="input" type="number" inputmode="decimal" min="0" step="0.01" value="0" oninput="updateMerchantSimulator()"></div>
           <div class="input-wrap"><label for="merchant-sim-payment-cost">Custo médio do pagamento (R$)</label><input id="merchant-sim-payment-cost" class="input" type="number" inputmode="decimal" min="0" step="0.01" value="0" oninput="updateMerchantSimulator()"></div>
@@ -400,7 +407,7 @@ function merchantsLanding(){
       <div class="notice" style="margin-top:12px"><strong>Use os seus custos reais.</strong><br>O simulador não conhece seu custo de compra, folha, combustível, impostos, manutenção ou despesas fixas. Ele serve para testar cenários — não para prometer lucro.</div>
     </section>
 
-    <section class="section"><div class="section-head"><div><span class="section-kicker">COMO OS PEDIDOS SÃO DISTRIBUÍDOS</span><h2>Você não precisa ser sempre o mais barato para participar.</h2><p>O TAMÃO tenta preservar valor para o cliente sem concentrar toda a operação em uma única revenda.</p></div></div>
+    <section class="section"><div class="section-head"><div><span class="section-kicker">ESPAÇO PARA DIFERENTES REVENDEDORES</span><h2>Oportunidade não depende apenas do menor preço.</h2><p>Preço total, prazo, capacidade de atender e histórico operacional ajudam a apresentar opções relevantes ao cliente.</p></div></div>
       <div class="distribution-grid">
         <div class="distribution-card"><span>1</span><strong>Preço total</strong><p>O cliente precisa enxergar uma condição competitiva.</p></div>
         <div class="distribution-card"><span>2</span><strong>Prazo real</strong><p>ETA e capacidade de entrega entram na escolha.</p></div>
@@ -410,7 +417,7 @@ function merchantsLanding(){
       <div class="notice" style="margin-top:12px"><strong>Regra importante:</strong> menor carga não transforma uma opção claramente pior em “recomendada”. O balanceamento só atua entre ofertas de qualidade próxima.</div>
     </section>
 
-    <section class="section"><div class="section-head"><div><span class="section-kicker">AUMENTE O TICKET DA ENTREGA</span><h2>Uma corrida pode carregar mais que um botijão.</h2><p>O cliente pode chegar pelo gás e acrescentar produtos que sua empresa já vende.</p></div></div>
+    <section class="section"><div class="section-head"><div><span class="section-kicker">APROVEITE MELHOR SUA ESTRUTURA</span><h2>Uma entrega. Mais possibilidades para sua empresa.</h2><p>Mostre outros produtos que você já comercializa, respeitando as regras de transporte e as autorizações aplicáveis.</p></div></div>
       <div class="ticket-grid">
         <div class="ticket-product">🔥 <strong>GLP</strong><span>P1 a P90 conforme catálogo e validação</span></div>
         <div class="ticket-product">💧 <strong>Água</strong><span>Galões e outros formatos no catálogo</span></div>
@@ -449,24 +456,26 @@ function merchantsLanding(){
       </div>
     </section>
 
-    <section class="section"><div class="founder-band"><div><span class="section-kicker light">VENDA PELO TAMÃO — SÃO GABRIEL</span><h2>Adicione o TAMÃO aos canais que sua empresa já usa.</h2><p>O cadastro é acompanhado, sua empresa mantém controle de preço, estoque e disponibilidade e pode usar seus próprios meios de recebimento. O TAMÃO não promete volume de pedidos nem renda.</p></div><div class="founder-points"><span>✓ Cadastro acompanhado</span><span>✓ Painel da revenda</span><span>✓ Controle da operação</span><span>✓ Sem exclusividade</span></div></div></section>
+    <section class="section"><div class="founder-band"><div><span class="section-kicker light">SUA EMPRESA. SUA CIDADE. SEU MERCADO.</span><h2>Seu próximo cliente pode começar procurando pelo TAMÃO.</h2><p>O cadastro é acompanhado, sua empresa mantém controle de preço, estoque e disponibilidade e pode usar seus próprios meios de recebimento. O TAMÃO não promete volume de pedidos nem renda.</p></div><div class="founder-points"><span>✓ Cadastro acompanhado</span><span>✓ Painel da revenda</span><span>✓ Controle da operação</span><span>✓ Sem exclusividade</span></div></div></section>
 
-    <section class="section"><div class="merchant-requirements"><div><span class="section-kicker light">PARA ATIVAR DE VERDADE</span><h2>Cadastro curto, ativação responsável.</h2><p>Para vender ao público, precisamos identificar a empresa e o responsável. Operação com GLP passa também pela validação regulatória aplicável.</p></div>
-      <div class="requirement-list"><span>✓ CNPJ e dados da empresa</span><span>✓ Responsável e contato</span><span>✓ Endereço da operação</span><span>✓ Validação ANP quando houver GLP</span></div>
+    <section class="section"><div class="merchant-requirements"><div><span class="section-kicker light">COMECE COM O BÁSICO</span><h2>Entrar é simples. Vender exige confiança.</h2><p>Comece informando seus dados. Para receber pedidos, o TAMÃO verifica a empresa, os poderes do responsável e, quando houver GLP, as autorizações aplicáveis.</p></div>
+      <div class="requirement-list"><span>✓ Dados e CNPJ da empresa</span><span>✓ Responsável autorizado</span><span>✓ Endereço e área de atendimento</span><span>✓ ANP vigente para comercializar GLP</span></div>
     </div></section>
 
-    <section class="section"><div class="section-head"><div><span class="section-kicker">DÚVIDAS DE QUEM VENDE</span><h2>As perguntas que um dono de revenda deveria fazer antes de entrar.</h2></div></div><div class="faq-list">
+    <section class="section"><div class="section-head"><div><span class="section-kicker">RESPOSTAS PARA DECIDIR COM TRANQUILIDADE</span><h2>A parceria faz sentido para minha empresa?</h2></div></div><div class="faq-list">
       <details open><summary>Sou obrigado a aceitar todo pedido?</summary><p>Não. Você decide pedido por pedido e pode ficar offline. Recusar antes do aceite é melhor do que assumir uma entrega que já sabe que não conseguirá cumprir.</p></details>
       <details><summary>Se eu não for o mais barato, fico sem pedidos?</summary><p>Não necessariamente. O TAMÃO considera preço total, prazo e confiança. Entre parceiros próximos em qualidade, carga atual e volume recente ajudam a evitar concentração.</p></details>
       <details><summary>Posso continuar vendendo pelo WhatsApp e telefone?</summary><p>Sim. A proposta atual não exige exclusividade. O TAMÃO é um canal adicional.</p></details>
       <details><summary>Quando existe a taxa de ${merchantFeeLabel}?</summary><p>Na política comercial atual, a taxa da plataforma incide sobre o valor bruto de cada pedido concluído. O percentual exibido é sincronizado com a política vigente para novos pedidos.</p></details>
       <details><summary>Quem define preço, estoque e entrega?</summary><p>A própria revenda controla preço por produto, estoque, taxa de entrega, prazo operacional e disponibilidade.</p></details>
-      <details><summary>Como recebo o dinheiro da venda?</summary><p>O recebimento do cliente é feito pela própria revenda conforme as formas de pagamento cadastradas. O TAMÃO não precisa receber o valor da venda para depois repassar à empresa.</p></details>
+      <details><summary>Como recebo o dinheiro da venda?</summary><p>O cliente paga diretamente à sua revenda pela forma disponível para o pedido. O TAMÃO não recebe o valor da venda para depois repassar.</p></details>
+      <details><summary>Preciso ter Mercado Pago ou contratar um novo serviço?</summary><p>Não para receber na entrega. A revenda pode disponibilizar dinheiro, Pix ou cartão na maquininha, conforme o que realmente aceita. Integrações automáticas com provedores dependem de homologação.</p></details>
+      <details><summary>Tenho que pagar para começar?</summary><p>No plano comercial diário atual, não há exigência de comprar um pacote de crédito antecipadamente para se cadastrar. A taxa TAMÃO é apurada sobre pedidos concluídos, conforme a política comercial vigente.</p></details>
       <details><summary>O que acontece se eu aceitar e depois não conseguir entregar?</summary><p>O sistema pode iniciar uma tentativa de rescue antes da saída. Falhas depois do aceite afetam a experiência e devem ser evitadas mantendo preço, estoque e disponibilidade atualizados.</p></details>
       <details><summary>Posso vender além do P13?</summary><p>Sim. O catálogo suporta outros tamanhos de GLP e produtos como água, carvão, lenha e gelo, sujeitos às validações aplicáveis.</p></details>
     </div></section>
 
-    <section class="section"><div class="soft-band"><div><span class="section-kicker">${internalPilot?'AMBIENTE INTERNO':'CADASTRO DE PARCEIRO'}</span><h2>${internalPilot?'Conheça a rotina operacional.':'Veja custos, requisitos e cadastre sua empresa.'}</h2><p>${internalPilot?'Este ambiente é reservado à validação interna e não altera a operação pública.':'Enviar o cadastro não coloca a empresa online automaticamente e não cria cobrança. A ativação acontece depois da aprovação e das validações aplicáveis.'}</p></div><button class="primary" onclick="${cta}">${ctaLabel}</button></div></section>
+    <section class="section"><div class="soft-band"><div><span class="section-kicker">${internalPilot?'AMBIENTE INTERNO':'VAMOS CONVERSAR SOBRE SUA EMPRESA?'}</span><h2>${internalPilot?'Conheça a rotina operacional.':'Uma nova vitrine começa com um passo simples.'}</h2><p>${internalPilot?'Este ambiente é reservado à validação interna e não altera a operação pública.':'Enviar o cadastro não coloca a empresa online automaticamente e não cria cobrança. A ativação acontece depois da aprovação e das validações aplicáveis.'}</p></div><button class="primary" onclick="${cta}">${internalPilot?ctaLabel:'Quero começar minha parceria →'}</button></div></section>
   </section>`)
 }
 function currentMerchantPilotInviteToken(){
@@ -504,7 +513,7 @@ function merchantJoin(){
         :'';
   const prefillCnpj=String(prospectDetails?.cnpj||ownApplication?.cnpj||'');
   const prefillCompany=String(ownApplication?.company_name||prospectDetails?.companyName||'');
-  return shell(`<section class="page"><button class="back" onclick="go('merchants')">← Para revendas</button><h1 class="page-title">Quero ser parceiro</h1><p class="muted">${globalThis.merchantPortalRequested?.()?'Preencha os dados para enviar sua empresa para análise.':'Acesse o portal de parceiros para continuar o cadastro.'}</p>${pilotInvite?'<div class="notice success" style="margin-bottom:14px"><strong>Convite de parceiro reconhecido.</strong><br>Seus dados serão vinculados às condições comerciais já registradas. A operação continuará offline até aprovação, compliance, estoque e disponibilidade serem confirmados.</div>':''}${prospectInvite?'<div class="notice success" style="margin-bottom:14px"><strong>Convite de revenda reconhecido.</strong><br>Preencha os dados reais da empresa identificada na ANP. O cadastro será associado ao CNPJ convidado para análise, sem ativar vendas automaticamente.</div>':''}${ownNotice}<div class="card flat form-stack"><div class="field-row"><div class="input-wrap"><label for="j-cnpj">CNPJ</label><input id="j-cnpj" value="${esc(prefillCnpj)}" autocapitalize="characters" maxlength="18" class="input" placeholder="00.000.000/0000-00 ou alfanumérico"></div><div class="input-wrap"><label for="j-name">Nome da empresa</label><input id="j-name" value="${esc(prefillCompany)}" maxlength="90" class="input" placeholder="Nome da revenda"></div></div><div class="field-row"><div class="input-wrap"><label for="j-owner">Responsável</label><input id="j-owner" value="${esc(ownApplication?.responsible_name||'')}" maxlength="90" class="input" placeholder="Nome do responsável"></div><div class="input-wrap"><label for="j-phone">WhatsApp</label><input id="j-phone" value="${esc(ownApplication?.phone||'')}" inputmode="tel" maxlength="20" class="input" placeholder="(55) 99999-9999"></div></div><div class="input-wrap"><label for="j-address">Endereço</label><input id="j-address" value="${esc(ownApplication?.address_text||'')}" maxlength="160" class="input" placeholder="Endereço da empresa"></div><button class="primary" onclick="joinMerchant()" ${ownStatus==='approved'?'disabled title="Empresa já aprovada"':''}>${ownStatus==='rejected'?'Reenviar cadastro corrigido':ownStatus==='pending'?'Atualizar cadastro':'Enviar para análise'}</button></div><div class="notice" style="margin-top:14px">O cadastro não coloca a empresa online automaticamente. A operação entra nas ofertas somente depois da aprovação e, quando houver GLP, da validação regulatória aplicável.</div></section>`)
+  return shell(`<section class="page"><button class="back" onclick="go('merchants')">← Para revendas</button><h1 class="page-title">Sua empresa tem lugar no TAMÃO.</h1><p class="muted">${globalThis.merchantPortalRequested?.()?'Conte um pouco sobre seu negócio. Nossa equipe poderá validar os dados e orientar a habilitação comercial.':'Acesse o portal de parceiros e comece o cadastro da sua empresa.'}</p>${pilotInvite?'<div class="notice success" style="margin-bottom:14px"><strong>Convite de parceiro reconhecido.</strong><br>Seus dados serão vinculados às condições comerciais já registradas. A operação continuará offline até aprovação, compliance, estoque e disponibilidade serem confirmados.</div>':''}${prospectInvite?'<div class="notice success" style="margin-bottom:14px"><strong>Convite de revenda reconhecido.</strong><br>Preencha os dados reais da empresa identificada na ANP. O cadastro será associado ao CNPJ convidado para análise, sem ativar vendas automaticamente.</div>':''}${ownNotice}<div class="card flat form-stack"><div class="field-row"><div class="input-wrap"><label for="j-cnpj">CNPJ</label><input id="j-cnpj" value="${esc(prefillCnpj)}" autocapitalize="characters" maxlength="18" class="input" placeholder="00.000.000/0000-00 ou alfanumérico"></div><div class="input-wrap"><label for="j-name">Nome da empresa</label><input id="j-name" value="${esc(prefillCompany)}" maxlength="90" class="input" placeholder="Nome da revenda"></div></div><div class="field-row"><div class="input-wrap"><label for="j-owner">Responsável</label><input id="j-owner" value="${esc(ownApplication?.responsible_name||'')}" maxlength="90" class="input" placeholder="Nome do responsável"></div><div class="input-wrap"><label for="j-phone">WhatsApp</label><input id="j-phone" value="${esc(ownApplication?.phone||'')}" inputmode="tel" maxlength="20" class="input" placeholder="(55) 99999-9999"></div></div><div class="input-wrap"><label for="j-address">Endereço</label><input id="j-address" value="${esc(ownApplication?.address_text||'')}" maxlength="160" class="input" placeholder="Endereço da empresa"></div><button class="primary" onclick="joinMerchant()" ${ownStatus==='approved'?'disabled title="Empresa já aprovada"':''}>${ownStatus==='rejected'?'Reenviar meus dados corrigidos':ownStatus==='pending'?'Salvar meus dados atualizados':'Enviar cadastro da minha empresa →'}</button></div><div class="notice" style="margin-top:14px">O cadastro não coloca a empresa online automaticamente. A operação entra nas ofertas somente depois da aprovação e, quando houver GLP, da validação regulatória aplicável.</div></section>`)
 }
 function onlyDigits(v){return String(v||'').replace(/\D/g,'')}
 function isValidPhoneShape(v){const n=onlyDigits(v);return n.length===10||n.length===11}
