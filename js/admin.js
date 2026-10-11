@@ -1503,6 +1503,17 @@ function adminMerchantCard(m){
   const c=m.compliance||{};
   const readiness=m.readiness||null;
   const active=m.status==='active';
+  const representation=m.representationReview||null;
+  const ownerUserId=String(m.activeOwnerUserId||'');
+  const representationCurrent=Boolean(
+    representation&&representation.revoked_at==null
+    &&representation.owner_user_id===ownerUserId
+    &&representation.merchant_cnpj===m.cnpj
+    &&Date.parse(representation.expires_at)>Date.now()
+  );
+  const canVerifyRepresentation=['superadmin','operations','compliance'].includes(adminCurrentRole());
+  const representationKindId='rep-kind-'+m.id;
+  const representationEvidenceId='rep-evidence-'+m.id;
   const cnpjId='cnpj-'+m.id;
   const anpId='anp-'+m.id;
   const refId='anpref-'+m.id;
@@ -1522,6 +1533,24 @@ function adminMerchantCard(m){
     <div class="input-wrap"><label for="${refId}">Referência ANP</label><input id="${refId}" class="input" maxlength="240" value="${esc(c.anp_reference||'')}" placeholder="Número/consulta/evidência"></div>
     <div class="input-wrap"><label for="${notesId}">Evidência / observações de compliance</label><input id="${notesId}" class="input" maxlength="1000" value="${esc(c.notes||'')}" placeholder="Fonte consultada, data, resultado e referência da validação"><small>Ao marcar CNPJ como verificado, registre aqui a fonte/evidência. ANP verificada também exige a referência acima.</small></div>
     ${c.verified_by?`<div class="tiny muted">Última decisão de compliance por admin ${esc(String(c.verified_by).slice(0,8))} • ${esc(formatDateTime(c.updated_at))}</div>`:''}
+    <div class="divider"></div>
+    <section class="section" aria-label="Representação legal da revenda">
+      <h4>Representação legal — confirmação administrativa</h4>
+      <div class="notice ${representationCurrent?'success':''}">
+        <strong>${representationCurrent?'Representante com revisão vigente':'Representação ainda não validada'}</strong>
+        <div class="tiny muted">Proprietário da conta: ${ownerUserId?esc(ownerUserId.slice(0,8))+'…':'nenhuma conta vinculada'}.
+        ${representation?.verified_at?' Última revisão: '+esc(formatDateTime(representation.verified_at)):''}
+        ${representation?.expires_at?' • Válida até '+esc(formatDateTime(representation.expires_at)):''}
+        ${representation?.revoked_at?' • Revogada em '+esc(formatDateTime(representation.revoked_at)):''}</div>
+      </div>
+      <p class="tiny muted">Aprovar cadastro não comprova poder de representação. Confira fonte oficial, contrato social ou procuração antes de confirmar. Nenhum documento pessoal é armazenado aqui.</p>
+      ${canVerifyRepresentation?`<div class="field-row">
+        <div class="input-wrap"><label for="${representationKindId}">Poder de representação</label><select id="${representationKindId}" class="input"><option value="legal_representative" ${representation?.authority_kind==='legal_representative'?'selected':''}>Representante legal</option><option value="authorized_delegate" ${representation?.authority_kind==='authorized_delegate'?'selected':''}>Procurador autorizado</option></select></div>
+        <div class="input-wrap"><label for="${representationEvidenceId}">Referência da evidência</label><input id="${representationEvidenceId}" class="input" maxlength="240" placeholder="Fonte, registro, protocolo ou procuração"></div>
+      </div>
+      <div class="order-actions"><button class="secondary small" onclick="adminReviewMerchantRepresentation('${m.id}','verify','${esc(ownerUserId)}')" ${ownerUserId?'':'disabled title="Vincule primeiro o proprietário confirmado"'}>Validar representante</button>
+      ${representationCurrent?`<button class="danger-btn small" onclick="adminReviewMerchantRepresentation('${m.id}','revoke',null)">Revogar autorização</button>`:''}</div>`:''}
+    </section>
     <div class="divider"></div>
     <label class="check-row"><input id="${mixedId}" type="checkbox" ${mixed?.active?'checked':''}><span><strong>Capacidade logística verificada para cesta mista com GLP</strong><small>Ative somente após validação operacional específica. CNPJ e ANP precisam estar verificados.</small></span></label>
     <div class="input-wrap"><label for="${mixedNotesId}">Evidência / observação logística</label><input id="${mixedNotesId}" class="input" maxlength="1000" value="${esc(mixed?.notes||'')}" placeholder="Veículo, procedimento, evidência ou referência da validação"></div>
@@ -3468,6 +3497,24 @@ async function adminRejectApplication(id){
   if(!reason)return;
   try{await adminPerform('reject-application',{applicationId:id,reason});toast('Cadastro rejeitado')}catch(e){toast(String(e?.message||e))}
 }
+async function adminReviewMerchantRepresentation(id,decision,ownerUserId){
+  const kind=document.getElementById('rep-kind-'+id)?.value||'legal_representative';
+  const evidenceReference=String(document.getElementById('rep-evidence-'+id)?.value||'').trim();
+  if(evidenceReference.length<8)return toast('Informe a fonte documental ou referência verificada (mínimo 8 caracteres).');
+  if(decision==='verify'&&!ownerUserId)return toast('Esta revenda ainda não tem proprietário vinculado.');
+  const msg=decision==='verify'
+    ?'Você verificou documentalmente que o proprietário da conta representa esta empresa e está autorizado a vender em nome dela?'
+    :'Confirma revogar agora a autorização do representante? Novos pedidos dessa revenda serão bloqueados.';
+  if(!confirm(msg))return;
+  try{
+    const result=await adminPerform('merchant-representation-review',{
+      merchantId:id,ownerUserId:decision==='verify'?ownerUserId:null,
+      decision,authorityKind:decision==='verify'?kind:null,evidenceReference
+    });
+    toast(result?.representationCurrent?'Representante validado e registrado em auditoria':'Representação revogada. Novas vendas bloqueadas.');
+  }catch(e){toast(String(e?.message||e));}
+}
+
 async function adminSaveCompliance(id){
   const cnpjStatus=document.getElementById('cnpj-'+id)?.value||'pending';
   const anpStatus=document.getElementById('anp-'+id)?.value||'pending';
