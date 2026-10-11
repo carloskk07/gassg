@@ -194,13 +194,21 @@ jobs:
         run: |
           $tokens = $null
           $errors = $null
-          [void][System.Management.Automation.Language.Parser]::ParseFile(
-            (Join-Path $PWD 'scripts/release-db-backup-windows.ps1'),
-            [ref]$tokens,
-            [ref]$errors
-          )
-          if ($errors.Count -gt 0) {
-            $errors | ForEach-Object { Write-Error $_.Message }
-            exit 1
+          foreach ($path in @(
+            'scripts/release-db-backup-windows.ps1',
+            'scripts/release-db-restore-windows.ps1'
+          )) {
+            $tokens = $null
+            $errors = $null
+            [void][System.Management.Automation.Language.Parser]::ParseFile(
+              (Join-Path $PWD $path),
+              [ref]$tokens,
+              [ref]$errors
+            )
+            if ($errors.Count -gt 0) {
+              $errors | ForEach-Object { Write-Error ($path + ': ' + $_.Message) }
+              exit 1
+            }
+            Write-Host "WINDOWS_SCRIPT_SYNTAX_OK: $path"
           }
-          Write-Host "WINDOWS_SCRIPT_SYNTAX_OK - no connection or backup created"
+          Write-Host "NO_PRODUCTION_CONNECTION: Windows scripts parsed only"
