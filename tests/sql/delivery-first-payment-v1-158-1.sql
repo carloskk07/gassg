@@ -42,6 +42,16 @@ begin
   if not public.merchant_delivery_payment_allowed(v_merchant,'pix') then
     raise exception 'TEST_FAIL: Declared Stone Pix on delivery denied';
   end if;
+  if not (v_merchant=any(public.market_filter_delivery_payment_merchants(
+    array[v_merchant]::uuid[],'pix'
+  ))) then
+    raise exception 'TEST_FAIL: Merchant filter differs from COD authorization';
+  end if;
+  if cardinality(public.market_filter_delivery_payment_merchants(
+    array[v_merchant]::uuid[],'card'
+  ))<>0 then
+    raise exception 'TEST_FAIL: Merchant filter allowed nonexistent card';
+  end if;
   if public.merchant_delivery_payment_allowed(v_merchant,'card') then
     raise exception 'TEST_FAIL: Unconfigured card route accepted';
   end if;
