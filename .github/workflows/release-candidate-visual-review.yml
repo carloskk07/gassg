@@ -1,0 +1,95 @@
+name: TAMÃO release-candidate visual review (no deploy)
+
+on:
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: tamao-release-review
+  cancel-in-progress: true
+
+jobs:
+  review:
+    if: startsWith(github.head_ref || github.ref_name, 'release/v1-164-')
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout exact release candidate
+        uses: actions/checkout@v6
+
+      - name: Integrated source and staged migration gate
+        run: node scripts/release-integration-preflight.mjs
+
+      - name: Production publication must remain blocked
+        run: |
+          set -euo pipefail
+          if node scripts/release-integration-preflight.mjs --production; then
+            echo "ERROR: Release candidate must not authorize production."
+            exit 1
+          fi
+
+      - name: Build public offline review bundle (no real runtime)
+        run: |
+          set -euo pipefail
+          TAMAO_DEPLOY_TARGET=cloudflare node scripts/build-public-site.mjs /tmp/tamao-release-review
+          test -f /tmp/tamao-release-review/_headers
+          grep -q "X-Robots-Tag: noindex" /tmp/tamao-release-review/_headers
+          grep -q "Disallow: /" /tmp/tamao-release-review/robots.txt
+          test ! -e /tmp/tamao-release-review/sitemap.xml
+          test ! -e /tmp/tamao-release-review/supabase
+          test ! -e /tmp/tamao-release-review/tests
+          test ! -e /tmp/tamao-release-review/scripts
+
+      - name: Capture real browser visual evidence
+        run: |
+          set -euo pipefail
+          python3 -m http.server 4178 --directory /tmp/tamao-release-review >/tmp/tamao-rc-server.log 2>&1 &
+          HTTP_PID=$!
+          trap 'kill "$HTTP_PID" 2>/dev/null || true' EXIT
+          sleep 2
+          CHROME="$(command -v google-chrome || command -v chromium || command -v chromium-browser)"
+          test -n "$CHROME"
+          mkdir -p release-review-screenshots
+          for spec in \
+            "home:320:800" \
+            "home:390:844" \
+            "home:1440:900" \
+            "learn:390:844" \
+            "merchants:390:844" \
+            "merchants:1440:900" \
+            "order:390:844" \
+            "tracking:390:844"; do
+            IFS=: read -r ROUTE WIDTH HEIGHT <<< "$spec"
+            OUT="release-review-screenshots/$ROUTE-$WIDTH.png"
+            "$CHROME" --headless=new --no-sandbox --disable-gpu \
+              --hide-scrollbars --disable-dev-shm-usage \
+              --window-size="$WIDTH,$HEIGHT" --virtual-time-budget=2400 \
+              --user-data-dir="/tmp/tamao-rc-$ROUTE-$WIDTH" \
+              --screenshot="$OUT" "http://127.0.0.1:4178/#$ROUTE" \
+              >/tmp/tamao-rc-browser.log 2>&1
+            test -s "$OUT"
+            test "$(wc -c < "$OUT")" -gt 4000
+          done
+          cat > release-review-screenshots/REVIEW.txt <<EOF
+          TAMÃO integrated release candidate — VISUAL REVIEW ONLY
+          Commit: $GITHUB_SHA
+          No actual merchant or customer data used.
+          Offline build, no production publication or approval.
+          Screenshots: home (320/390/1440), learn (390),
+          merchants (390/1440), order (390), tracking (390).
+          Commerce remains blocked until database migrations, Edge Functions,
+          real merchant documents, official portal attestation and payment E2E
+          are separately verified.
+          EOF
+
+      - name: Keep visual review in Actions artifacts, not on the public web
+        uses: actions/upload-artifact@v4
+        with:
+          name: tamao-v1-164-visual-review
+          path: release-review-screenshots
+          retention-days: 7
+          if-no-files-found: error
