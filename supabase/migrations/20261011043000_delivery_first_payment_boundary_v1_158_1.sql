@@ -34,6 +34,47 @@ where exists(
     )
 );
 
+-- Prior multi-PSP metadata policy treated a manually declared provider as
+-- EXTERNAL only. A partner can legitimately accept Pix or a card on delivery
+-- using Stone/Getnet/PagBank without connecting its PSP to TAMÃO. Keep the
+-- security metadata invariant, allow DELIVERY, and retain legacy EXTERNAL
+-- for historical read compatibility (EXTERNAL never authorizes COD offers).
+alter table public.merchant_payment_routes
+  drop constraint if exists merchant_payment_routes_declared_provider_metadata_check;
+alter table public.merchant_payment_routes
+  add constraint merchant_payment_routes_declared_provider_metadata_check
+  check (
+    coalesce((metadata->>'merchantDeclaredProvider')::boolean,false)<>true
+    or (
+      provider<>'manual'
+      and verification_mode='merchant_confirmed'
+      and connection_id is null
+      and channel in ('external','delivery')
+      and coalesce((metadata->>'manualProviderFallback')::boolean,false)=true
+      and coalesce((metadata->>'automaticVerification')::boolean,false)=false
+      and metadata->>'fundsOwner'='merchant'
+    )
+  );
+
+-- Existing active merchant-declared PSP routes can participate in delivery
+-- without credential migration; do not overwrite an already declared
+-- delivery route or touch any automated/provider-verified connection.
+update public.merchant_payment_routes r
+set channel='delivery',
+    updated_at=clock_timestamp()
+where r.channel='external'
+  and r.active
+  and r.verification_mode='merchant_confirmed'
+  and r.connection_id is null
+  and coalesce((r.metadata->>'merchantDeclaredProvider')::boolean,false)
+  and not exists (
+    select 1 from public.merchant_payment_routes existing
+    where existing.merchant_id=r.merchant_id
+      and existing.payment_method=r.payment_method
+      and existing.provider=r.provider
+      and existing.channel='delivery'
+  );
+
 -- A legacy manual/external Pix route records acceptance of Pix without
 -- authorizing a hosted checkout. Convert only that explicitly active,
 -- merchant-confirmed route into Pix accepted at the moment of delivery.
