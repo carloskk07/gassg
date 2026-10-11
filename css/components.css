@@ -1976,3 +1976,70 @@ body:has(.admin-page) .shell{
 @media(prefers-reduced-motion:reduce){
  .checkout-comparison .offer-comparison-card,.offer-sort button{transition:none}
 }
+
+
+/* V1.164 — buyer-focused, confirmed order progress */
+.customer-tracking-overview{
+  margin:14px 0 15px;padding:18px 19px;border:1px solid #cae6d4;
+  background:linear-gradient(135deg,#f0faf3,#fffdf7);border-radius:19px;
+  color:#214a37;
+}
+.customer-tracking-overview>strong{font-size:18px;line-height:1.35;display:block}
+.customer-tracking-overview>p{font-size:13px;line-height:1.6;margin:6px 0 12px}
+.customer-next-step{
+  display:flex;gap:10px;align-items:flex-start;padding:11px 12px;
+  border-radius:12px;background:#fff;border:1px solid #dceadf;
+  font-size:12px;line-height:1.5
+}
+.customer-next-step>span:first-child{color:#188156;font-weight:900;font-size:18px;line-height:1}
+.customer-next-step strong{display:block;font-size:11px;text-transform:uppercase;letter-spacing:.04em}
+.customer-progress{margin:15px 0 20px;overflow-x:auto}
+.customer-progress ol{
+  display:grid;grid-template-columns:repeat(4,minmax(0,1fr));
+  list-style:none;margin:0;padding:12px 8px;gap:6px;
+  border:1px solid var(--line);border-radius:17px;background:#fff
+}
+.customer-progress li{
+  display:flex;align-items:flex-start;flex-direction:column;gap:6px;
+  padding:7px 8px;min-width:0;position:relative;color:#66756d
+}
+.customer-progress-dot{
+  flex:none;display:grid;place-items:center;width:29px;height:29px;
+  border:2px solid #d2ded7;border-radius:50%;font-size:12px;font-weight:900;
+  background:#f9fbf9;color:#66796e;
+}
+.customer-progress-copy{min-width:0}
+.customer-progress-copy strong{font-size:11px;line-height:1.25;display:block;overflow-wrap:anywhere}
+.customer-progress-copy small{display:block;margin-top:3px;font-size:10px;line-height:1.25}
+.customer-progress li.current .customer-progress-dot{
+  background:#fff4db;color:#785100;border-color:#f2c45c
+}
+.customer-progress li.current strong{color:#604614}
+.customer-progress li.complete .customer-progress-dot{
+  background:#148056;color:#fff;border-color:#148056
+}
+.customer-progress li.complete strong{color:#176444}
+.customer-requote{border-color:#e5cb77}
+.customer-requote-prices{
+  display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin:11px 0
+}
+.customer-requote-prices>span{
+  display:grid;gap:3px;padding:11px;background:#fff;border-radius:11px;
+  color:#596a5e;font-size:12px
+}
+.customer-requote-prices strong{font-size:19px;color:#183e2a}
+.customer-requote p{font-size:12px;line-height:1.55}
+.customer-requote .order-actions{flex-wrap:wrap}
+@media(max-width:420px){
+  .customer-tracking-overview{padding:14px 13px;border-radius:15px}
+  .customer-tracking-overview>strong{font-size:16px}
+  .customer-progress ol{gap:1px;padding:7px 3px}
+  .customer-progress li{padding:6px 3px}
+  .customer-progress-dot{width:25px;height:25px;font-size:11px}
+  .customer-progress-copy strong{font-size:10px}
+  .customer-progress-copy small{font-size:9px}
+  .customer-requote-prices strong{font-size:16px}
+}
+@media(prefers-reduced-motion:reduce){
+ .customer-progress-dot,.customer-tracking-overview{transition:none}
+}
