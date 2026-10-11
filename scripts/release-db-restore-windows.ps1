@@ -96,17 +96,7 @@ try {
     throw 'RESTORE_FAILED: restauração parcial no banco local. Não há aprovação para migração.'
   }
   $tables = & $psql -X -A -t -q -v ON_ERROR_STOP=1 -d $Target -c "select count(*) from pg_class c join pg_namespace n on n.oid=c.relnamespace where c.relkind in ('r','p') and n.nspname not in ('pg_catalog','information_schema')"
-  if ($LASTEXITCODE -ne 0 -or (($tables | Out-String).Trim() -notmatch '^[1-9][0-9]*
-    throw 'RESTORE_FAILED: nenhuma tabela restaurada ou verificação local falhou.'
-  }
-  Write-Host ('ISOLATED_RESTORE_OK: ' + ($tables | Out-String).Trim() + ' tabelas restauradas no banco local ' + $Target)
-  Write-Host 'Ainda é necessário validar RLS, permissões, funções e extensões do Supabase.'
-} finally {
-  foreach ($key in $previousEnv.Keys) {
-    [Environment]::SetEnvironmentVariable($key,$previousEnv[$key],'Process')
-  }
-}
-)) {
+  if ($LASTEXITCODE -ne 0 -or (($tables | Out-String).Trim() -notmatch '^[1-9][0-9]*$')) {
     throw 'RESTORE_FAILED: nenhuma tabela restaurada ou verificação local falhou.'
   }
   Write-Host ('ISOLATED_RESTORE_OK: ' + ($tables | Out-String).Trim() + ' tabelas restauradas no banco local ' + $Target)
