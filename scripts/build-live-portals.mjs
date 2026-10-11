@@ -66,10 +66,42 @@ function patchIndex(html,portal){
   const robots=role==='customer'
     ? 'index,follow,max-image-preview:large'
     : 'noindex,nofollow,noarchive,nosnippet';
-  return html
+  // Every portal has its own canonical/social identity. A partner sharing
+  // parceiro.tamao.com.br must never produce a preview pointing at the shop.
+  const identity={
+    customer:{
+      origin:'https://tamao.com.br',
+      description:'Faltou em casa? Tá na mão. Consulte a disponibilidade de gás, água e essenciais no seu CEP e encontre as opções da sua região.',
+      socialTitle:'TAMÃO — Pediu? Tá na mão.'
+    },
+    merchant:{
+      origin:'https://parceiro.tamao.com.br',
+      description:'Sua empresa pode alcançar mais clientes da região. Conheça o TAMÃO, cadastre sua revenda e configure sua operação para vender quando estiver habilitada.',
+      socialTitle:'TAMÃO para Revendas — Sua empresa, mais oportunidades'
+    },
+    admin:{
+      origin:'https://admin.tamao.com.br',
+      description:'Acesso restrito à administração operacional do TAMÃO.',
+      socialTitle:'TAMÃO — Administração'
+    }
+  }[role];
+  const replaceMeta=(src,attr,key,value)=>{
+    const rx=new RegExp('(<meta '+attr+'="'+key.replace(/[.*+?^\x24{}()|[\]\\]/g,'\\$&')+'" content=")[^"]*(" \\/>)');
+    return src.replace(rx,(_all,a,b)=>a+value+b);
+  };
+  let patched=html
     .replace(/<title>[^<]*<\/title>/,`<title>${meta.title}</title>`)
-    .replace(/<meta name="robots" content="[^"]*" \/>/,`<meta name="robots" content="${robots}" />`)
+    .replace(/<link rel="canonical" href="[^"]*" \/>/,`<link rel="canonical" href="${identity.origin}/" />`)
     .replace('<body>',`<body data-chama-portal="${role}">`);
+  patched=replaceMeta(patched,'name','robots',robots);
+  patched=replaceMeta(patched,'name','description',identity.description);
+  patched=replaceMeta(patched,'property','og:url',identity.origin+'/');
+  patched=replaceMeta(patched,'property','og:title',identity.socialTitle);
+  patched=replaceMeta(patched,'property','og:description',identity.description);
+  patched=replaceMeta(patched,'name','twitter:title',identity.socialTitle);
+  patched=replaceMeta(patched,'name','twitter:description',identity.description);
+  // Restricted admin is intentionally not a marketing landing page.
+  return patched;
 }
 
 function writePortalRobots(target,role){
