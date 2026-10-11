@@ -122,12 +122,46 @@ select p_merchant_id is not null
         or (p_payment_method='card'
           and r.payment_method in ('card_credit','card_debit'))
       )
-      and r.verification_mode='merchant_confirmed'
+      and (
+        r.verification_mode='merchant_confirmed'
+        or (
+          r.verification_mode='device'
+          and exists (
+            select 1 from public.merchant_payment_provider_accounts a
+            where a.id=r.connection_id
+              and a.merchant_id=r.merchant_id
+              and a.provider=r.provider
+              and a.status='active'
+              and coalesce((a.capabilities->>'canValidateProviderTransactions')::boolean,false)
+              and coalesce((a.capabilities->>'directSalePaymentsEnabled')::boolean,false)
+          )
+        )
+      )
   );
 $func$;
 revoke all on function public.merchant_delivery_payment_allowed(uuid,text)
   from public,anon,authenticated;
 grant execute on function public.merchant_delivery_payment_allowed(uuid,text)
+  to service_role;
+
+-- One server authority for available COD routes, including optionally
+-- connected terminals. Client-side input cannot promote an online/external
+-- route or an unsupported provider to on-delivery status.
+create or replace function public.market_filter_delivery_payment_merchants(
+  p_merchant_ids uuid[],p_payment_method text
+)
+returns uuid[]
+language sql stable security definer
+set search_path to pg_catalog
+as $func$
+  select coalesce(array_agg(x.merchant_id order by x.merchant_id),array[]::uuid[])
+  from (select distinct unnest(p_merchant_ids) merchant_id) x
+  where x.merchant_id is not null
+    and public.merchant_delivery_payment_allowed(x.merchant_id,p_payment_method);
+$func$;
+revoke all on function public.market_filter_delivery_payment_merchants(uuid[],text)
+  from public,anon,authenticated;
+grant execute on function public.market_filter_delivery_payment_merchants(uuid[],text)
   to service_role;
 
 -- Do not rely only on get-offers: creating a quote or replaying create-order
