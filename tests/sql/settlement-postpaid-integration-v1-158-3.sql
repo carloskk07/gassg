@@ -8,6 +8,7 @@ declare
   v_user uuid;
   v_order uuid;
   v_cancelled uuid;
+  v_cashback uuid;
   v_result jsonb;
   v_due timestamptz;
   v_fee integer;
@@ -98,6 +99,74 @@ begin
     raise exception 'TEST_FAIL: immutable applied credit changed';
   end if;
 
+  -- Cashback reimbursement must have the exact same business-day due date.
+  insert into public.orders(
+    public_code,customer_id,status,address_text,address_number,postal_code,
+    customer_phone_digits,payment_method,gross_total_cents,total_cents,
+    cashback_reserved_cents,delivery_fee_cents_snapshot,
+    merchant_id,attempted_merchant_ids,version,
+    supplier_name_snapshot,accepted_at,delivery_assigned_at,
+    dispatched_at,arriving_at,delivered_at,settled_at,
+    payment_confirmed_at,payment_confirmation_method,pin_hash,financial_state
+  )
+  select 'CASH-'||substr(v_merchant::text,1,12),
+    customer_id,'SETTLED',address_text,address_number,postal_code,
+    customer_phone_digits,payment_method,gross_total_cents,
+    gross_total_cents-200,200,delivery_fee_cents_snapshot,
+    merchant_id,attempted_merchant_ids,3,
+    supplier_name_snapshot,accepted_at,delivery_assigned_at,
+    dispatched_at,arriving_at,delivered_at,settled_at,
+    payment_confirmed_at,payment_confirmation_method,pin_hash,'settled'
+  from public.orders where id=v_order
+  returning id into v_cashback;
+  insert into public.order_items(
+    order_id,product_code,product_name,quantity,unit_price_cents,line_total_cents
+  ) values(v_cashback,'CHARCOAL4','Carvão teste',1,12000,12000);
+
+  perform public.ensure_order_settlement_accounting(v_cashback);
+  if not exists(
+    select 1 from public.merchant_cashback_reimbursements cr
+    where cr.order_id=v_cashback
+      and cr.cashback_cents=200
+      and cr.due_at=v_due
+  ) then
+    raise exception 'TEST_FAIL: cashback reimbursement due mismatch';
+  end if;
+  perform public.ensure_order_settlement_accounting(v_cashback);
+  if (select count(*) from public.merchant_cashback_reimbursements
+      where order_id=v_cashback)<>1 then
+    raise exception 'TEST_FAIL: duplicate cashback reimbursement';
+  end if;
+
+  -- Canceled order must not be eligible for receivable or statement.
+  insert into public.orders(
+    public_code,customer_id,status,address_text,address_number,postal_code,
+    customer_phone_digits,payment_method,gross_total_cents,total_cents,
+    delivery_fee_cents_snapshot,merchant_id,attempted_merchant_ids,
+    financial_state
+  ) values(
+    'CANCEL-'||substr(v_merchant::text,1,12),v_user,'CANCELLED',
+    'Rua Teste, 20 - São Gabriel/RS','20','97300000',
+    '51999998888','cash',12000,12000,0,v_merchant,
+    array[v_merchant],'pending'
+  ) returning id into v_cancelled;
+  insert into public.order_items(
+    order_id,product_code,product_name,quantity,unit_price_cents,line_total_cents
+  ) values(v_cancelled,'CHARCOAL4','Carvão teste',1,12000,12000);
+
+  v_rejected:=false;
+  begin
+    perform public.ensure_order_settlement_accounting(v_cancelled);
+  exception when sqlstate '40001' then
+    v_rejected:=true;
+  end;
+  if not v_rejected then
+    raise exception 'TEST_FAIL: canceled order charged a platform fee';
+  end if;
+  if exists(select 1 from public.platform_receivables where order_id=v_cancelled) then
+    raise exception 'TEST_FAIL: canceled order created receivable';
+  end if;
+
   perform public.close_merchant_daily_finance(
     (statement_timestamp() at time zone 'America/Sao_Paulo')::date
   );
@@ -106,7 +175,7 @@ begin
     from public.merchant_daily_statements s
     join public.platform_receivables p on p.daily_statement_id=s.id
     where p.order_id=v_order and s.merchant_id=v_merchant
-      and s.gross_fee_cents=v_fee and s.amount_due_cents=v_fee
+      and s.gross_fee_cents=2*v_fee and s.amount_due_cents=2*v_fee
       and s.due_at=v_due and p.due_at=v_due
   ) then
     raise exception 'TEST_FAIL: daily statement failed to reconcile receivable';
@@ -118,7 +187,7 @@ begin
       where merchant_id=v_merchant)<>1 then
     raise exception 'TEST_FAIL: repeated daily close made duplicate statement';
   end if;
-  raise notice 'PASS: settlement, immutable credit, charge replay, daily close replay';
+  raise notice 'PASS: settlement, cashback, cancellation, immutable credit, charge replay, daily close replay';
 end;
 $settlement_test$;
 rollback;
