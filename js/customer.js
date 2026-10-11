@@ -454,13 +454,13 @@ function orderPage(){
     if(preview){
       offerBlock='<div class="notice"><strong>Nenhuma opção disponível para este CEP agora.</strong><br>Você pode receber um aviso quando a região tiver atendimento.<div class="order-actions"><button class="secondary small" onclick="openPrelaunchCustomerLead()">Receber aviso de disponibilidade</button></div></div>';
     }else if(testDemo&&os.length){
-      offerBlock=`<div class="offer-stack">${os.map(offerCard).join('')}</div>`;
+      offerBlock=checkoutOfferComparison(os);
     }else if(ready&&liveRuntime.loadingOffers){
       offerBlock='<div class="empty card">Procurando opções para sua cesta…</div>';
     }else if(ready&&liveRuntime.error){
       offerBlock=`<div class="notice danger"><strong>Não foi possível atualizar as opções.</strong><br>${esc(liveRuntime.error)}<br><button class="secondary small" style="margin-top:10px" onclick="liveRefreshOffers().catch(()=>{})">Tentar novamente</button></div>`;
     }else if(ready&&os.length){
-      offerBlock=`<div class="offer-stack">${os.map(offerCard).join('')}</div>`;
+      offerBlock=checkoutOfferComparison(os);
     }else if(ready&&liveRuntime.commerceLaunchBlocked){
       offerBlock='<div class="notice"><strong>Pedidos temporariamente indisponíveis.</strong><br>Novas compras estão pausadas no momento. Pedidos existentes continuam acompanháveis normalmente.</div>';
     }else if(ready&&liveRuntime.deliveryCompatibilityBlocked){
@@ -528,16 +528,88 @@ function cartRow(k,p){
   const label=customerProductName(k,p);
   return `<div class="cart-item"><div class="product-left"><div class="product-icon">${p.icon}</div><div><strong>${esc(label)}</strong><div class="tiny muted">${esc(customerProductMeta(k))}</div></div></div><div class="qty" aria-label="Quantidade de ${esc(label)}"><button aria-label="Diminuir" onclick="qty('${k}',-1)">−</button><strong>${q}</strong><button aria-label="Aumentar" onclick="qty('${k}',1)">+</button></div></div>`
 }
-function offerCard(o){
+// Sorting never changes backend recommendation or creates a new quote.
+let checkoutOfferSort='recommended';
+function sortedCheckoutOffers(all,mode=checkoutOfferSort){
+  const offers=Array.isArray(all)?all.slice():[];
+  const ranked=offers.map((offer,index)=>({offer,index}));
+  if(mode==='lowest')ranked.sort((a,b)=>Number(a.offer.total)-Number(b.offer.total)||a.index-b.index);
+  if(mode==='soonest')ranked.sort((a,b)=>
+    Number(a.offer.etaMax??a.offer.eta)-Number(b.offer.etaMax??b.offer.eta)
+    ||a.index-b.index);
+  return ranked.map(x=>x.offer);
+}
+function offerComparisonFacts(all){
+  if(!Array.isArray(all)||all.length<2)return {uniquePrice:null,uniqueTime:null};
+  const money=all.map(o=>Math.round(Number(o.total)*100));
+  const estimates=all.map(o=>Number(o.etaMax??o.eta));
+  const lowest=Math.min(...money),soonest=Math.min(...estimates);
+  return {
+    uniquePrice:money.filter(n=>n===lowest).length===1?lowest:null,
+    uniqueTime:estimates.filter(n=>n===soonest).length===1?soonest:null
+  };
+}
+function checkoutOfferCards(all){
+  const facts=offerComparisonFacts(all);
+  return sortedCheckoutOffers(all).map(o=>offerCard(o,facts)).join('');
+}
+function checkoutOfferComparison(all){
+  if(!Array.isArray(all)||!all.length)return '';
+  const controls=all.length>1?`<div class="offer-sort" role="group" aria-label="Ordenar ofertas">
+    <button type="button" aria-pressed="${checkoutOfferSort==='recommended'}" onclick="setCheckoutOfferSort('recommended')">Sugeridas</button>
+    <button type="button" aria-pressed="${checkoutOfferSort==='lowest'}" onclick="setCheckoutOfferSort('lowest')">Menor total</button>
+    <button type="button" aria-pressed="${checkoutOfferSort==='soonest'}" onclick="setCheckoutOfferSort('soonest')">Menor prazo</button>
+  </div>`:''; 
+  return `<section class="checkout-comparison" aria-label="Comparar opções de entrega">
+    <div class="comparison-intro">
+      <span class="section-kicker">COMPARE COM TRANQUILIDADE</span>
+      <h2>${all.length===1?'Encontramos uma opção para sua cesta':'Compare '+all.length+' opções para sua cesta'}</h2>
+      <p>O total já considera a entrega. Preço e prazo são da consulta atual, sujeitos à validade da oferta e ao aceite da revenda.</p>
+    </div>
+    ${controls}
+    <div id="checkout-offer-choices" class="offer-stack">${checkoutOfferCards(all)}</div>
+  </section>`;
+}
+function setCheckoutOfferSort(mode){
+  if(!['recommended','lowest','soonest'].includes(mode))return;
+  checkoutOfferSort=mode;
+  const container=document.getElementById('checkout-offer-choices');
+  if(!container)return;
+  const current=globalThis.__CHAMA_TEST__===true?offers():globalThis.liveRuntime?.offers||[];
+  // Sorting only rearranges server-confirmed, non-expired options.
+  const eligible=current.filter(o=>!o.live||Date.parse(o.expiresAt)>Date.now()+1000);
+  container.innerHTML=checkoutOfferCards(eligible);
+  document.querySelectorAll('.offer-sort button').forEach(button=>{
+    const requested=button.getAttribute('onclick')?.match(/'([^']+)'/)?.[1];
+    button.setAttribute('aria-pressed',String(requested===mode));
+  });
+}
+function offerCard(o,facts={}){
   const internalPilot=globalThis.CHAMA_INTERNAL_PILOT===true;
-  const recommended=o.roles.includes('Recomendado');
-  const available=o.roles.includes('Disponível agora');
+  const roles=Array.isArray(o.roles)?o.roles:[];
+  const recommended=roles.includes('Recomendado');
+  const available=roles.includes('Disponível agora');
   const featured=recommended||available;
-  const discount=state.checkout.useCashback?Math.min(state.user.cashback,o.total):0;
-  const payable=roundMoney(o.total-discount);
-  const labels=o.roles.join(' • ');
-  const etaEnd=o.etaMax??(o.eta+7);
-  const distanceChip=o.distance!=null?`<span class="meta-chip">${Number(o.distance).toFixed(1)} km</span>`:'';
+  const gross=Math.max(0,Number(o.total)||0);
+  const balance=Number(state.user?.cashback||0);
+  const discount=state.checkout.useCashback&&Number.isFinite(balance)
+    ?Math.min(Math.max(0,balance),gross):0;
+  const payable=roundMoney(Math.max(0,gross-discount));
+  const totalCents=Math.round(gross*100);
+  const fee=Number(o.deliveryFee);
+  const hasBreakdown=o.deliveryFee!=null&&Number.isFinite(fee)&&fee>=0&&fee<=gross;
+  const safeId=String(o.id||'');
+  const allowedId=/^[A-Za-z0-9-]{1,70}$/.test(safeId);
+  // A disabled HTML button can still execute injected markup when parsed.
+  // Never place a malformed quote identifier in any HTML attribute.
+  const safeAction=allowedId?`onclick="checkout('${safeId}')"`:'';
+  const etaStart=Math.max(0,Math.round(Number(o.eta)||0));
+  const etaEnd=Math.max(etaStart,Math.round(Number(o.etaMax??(etaStart+7))));
+  const validPrice=facts.uniquePrice!=null&&facts.uniquePrice===totalCents;
+  const validTime=facts.uniqueTime!=null&&facts.uniqueTime===Number(o.etaMax??o.eta);
+  const labels=roles.join(' • ');
+  const distanceChip=o.distance!=null&&Number.isFinite(Number(o.distance))
+    ?`<span class="meta-chip">${Number(o.distance).toFixed(1)} km</span>`:'';
   const proof=[];
   if(Number(o.completedOrders)>0)proof.push(`<span class="meta-chip">✓ ${Number(o.completedOrders)} entregas concluídas em 90 dias</span>`);
   if(o.completionRate!=null)proof.push(`<span class="meta-chip">${Math.round(Number(o.completionRate)*100)}% concluídos após aceite</span>`);
@@ -547,12 +619,46 @@ function offerCard(o){
     proof.push(`<span class="meta-chip">Aceite médio: ${secs<120?secs+' s':Math.round(secs/60)+' min'}</span>`);
   }
   if(Number(o.feedbackCount)>=3&&o.positiveFeedbackRate!=null)proof.push(`<span class="meta-chip">${Math.round(Number(o.positiveFeedbackRate)*100)}% avaliações positivas (${Number(o.feedbackCount)})</span>`);
-  if(o.comparisonSavings>0)proof.push(`<span class="meta-chip">Economiza ${BRL.format(o.comparisonSavings)} nesta comparação</span>`);
+  if(o.comparisonSavings>0)proof.push(`<span class="meta-chip">${BRL.format(o.comparisonSavings)} abaixo da maior oferta desta consulta</span>`);
   const demandLabel={normal:'Operação normal',elevated:'Demanda moderada',high:'Demanda alta'}[o.demandLevel]||'Operação disponível';
   proof.push(`<span class="meta-chip">${esc(demandLabel)}</span>`);
-  const proofHtml=proof.join('');
-  return `<article class="offer ${featured?'selected':''}">${available?'<div class="best-badge">OPÇÃO DISPONÍVEL AGORA</div>':recommended?'<div class="best-badge">MELHOR EQUILÍBRIO</div>':''}<div class="offer-label">${esc(labels)}</div><div class="offer-main"><div><div class="offer-price">${BRL.format(payable)}</div><div class="tiny muted">${discount>0?`estimativa após ${BRL.format(discount)} de cashback`:'total com entrega'}</div></div><div class="offer-eta"><strong>${o.eta}–${etaEnd} min</strong><small>previsão</small></div></div><div class="offer-meta">${distanceChip}${internalPilot?'<span class="meta-chip">🧪 Simulação operacional</span><span class="meta-chip">Sem validação jurídica nesta tela</span>':'<span class="meta-chip">✓ Operação elegível</span><span class="meta-chip">Parceiro local verificado</span>'}<span class="meta-chip">${internalPilot?'Trust simulado':'Confiança'} ${o.trust}/100</span>${proofHtml}<span class="meta-chip">Pagamento na entrega: ${esc(paymentLabel(state.checkout.paymentMethod))}</span></div><div class="offer-assurance">${internalPilot?'🧪 O pedido abaixo percorre todas as etapas localmente e não gera venda real.':'🔒 O nome do parceiro aparece após o aceite real. Se for necessária uma alternativa mais cara, você decide antes.'}</div><button class="${featured?'primary':'secondary'} full" style="margin-top:13px" onclick="checkout('${o.id}')" ${globalThis.liveRuntime?.actionPending?'disabled':''}>Pedir por ${BRL.format(payable)}</button></article>`
+  const payment=esc(paymentLabel(state.checkout.paymentMethod));
+  const breakdown=hasBreakdown?`<div class="offer-breakdown">
+    <span>Produtos <strong>${BRL.format(roundMoney(gross-fee))}</strong></span>
+    <span>Entrega <strong>${fee===0?'Incluída sem custo adicional':BRL.format(fee)}</strong></span>
+  </div>`:`<p class="offer-total-note">Valor total da cesta com a entrega incluída.</p>`;
+  const cashback=discount>0?`<div class="offer-cashback">
+    <span>Cashback solicitado (estimativa)</span><strong>− ${BRL.format(discount)}</strong>
+    <small>Estimativa após cashback: ${BRL.format(payable)}. O valor aplicável é confirmado na criação do pedido.</small>
+  </div>`:'';
+  return `<article class="offer offer-comparison-card ${featured?'selected':''}">
+    ${available?'<div class="best-badge">OPÇÃO DISPONÍVEL AGORA</div>':recommended?'<div class="best-badge">MELHOR EQUILÍBRIO</div>':''}
+    <div class="offer-label">${esc(labels)}</div>
+    ${internalPilot?'<div class="offer-internal-flag">🧪 Simulação operacional • Sem cobrança real</div>':''}
+    ${validPrice||validTime?`<div class="offer-distinctions">${validPrice?'<span>Menor total desta consulta</span>':''}${validTime?'<span>Menor prazo máximo previsto</span>':''}</div>`:''}
+    <div class="offer-main offer-price-row">
+      <div><small class="offer-amount-label">TOTAL COM ENTREGA</small>
+        <div class="offer-price">${BRL.format(gross)}</div>
+        <div class="tiny muted">Valor apresentado antes de eventual cashback</div>
+      </div>
+      <div class="offer-eta"><small>PREVISÃO DE ENTREGA</small><strong>${etaStart}–${etaEnd} min</strong><small>Após confirmação da revenda</small></div>
+    </div>
+    ${breakdown}${cashback}
+    <div class="offer-payment"><span aria-hidden="true">✓</span><span>Você paga diretamente à revenda: <strong>${payment} na entrega</strong></span></div>
+    <details class="offer-details"><summary>Por que esta opção apareceu?</summary>
+      <div class="offer-meta">${distanceChip}
+        ${internalPilot?'<span class="meta-chip">🧪 Simulação operacional</span><span class="meta-chip">Sem validação jurídica nesta tela</span>':'<span class="meta-chip">✓ Operação elegível</span><span class="meta-chip">Parceiro local verificado</span>'}
+        <span class="meta-chip">${internalPilot?'Trust simulado':'Confiança'} ${o.trust}/100</span>${proof.join('')}
+      </div>
+    </details>
+    <div class="offer-assurance">${internalPilot?'🧪 Simulação: nenhuma venda ou cobrança real.':'🔒 A revenda precisa aceitar o pedido. Se uma alternativa aumentar o total, você confirma antes da troca.'}</div>
+    <button class="${featured?'primary':'secondary'} full offer-submit" type="button"
+      ${safeAction} ${!allowedId||globalThis.liveRuntime?.actionPending?'disabled':''}>
+      ${internalPilot?'Simular pedido':'Enviar pedido para confirmação'} <span aria-hidden="true">→</span>
+    </button>
+  </article>`;
 }
+
 function deliveryAddressDraftChanged(){
   if(globalThis.__CHAMA_TEST__===true)return;
   const postalCode=String(document.querySelector('#postal-code')?.value||'').replace(/\D/g,'').slice(0,8);

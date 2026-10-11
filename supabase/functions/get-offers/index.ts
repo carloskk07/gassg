@@ -542,6 +542,14 @@ Deno.serve(async (req: Request) => {
       safe.feedbackCount=candidate.feedbackCount;
       safe.positiveFeedbackRate=candidate.positiveFeedbackRate;
       safe.demandLevel=candidate.demandLevel;
+      // Only expose the delivery component when it balances exactly with
+      // the canonical quoted total. Never send the merchant's private identity.
+      if(Number.isSafeInteger(candidate.deliveryFeeCents)
+        &&candidate.deliveryFeeCents>=0
+        &&candidate.deliveryFeeCents<=Number(quote.grossTotalCents)
+        &&candidate.totalCents===Number(quote.grossTotalCents)){
+        safe.deliveryFeeCents=candidate.deliveryFeeCents;
+      }
       safe.deliveryWindowStart=deliveryWindow?.start??null;
       safe.deliveryWindowEnd=deliveryWindow?.end??null;
 

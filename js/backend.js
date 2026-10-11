@@ -528,6 +528,11 @@ function liveOfferView(raw){
     quoteId:raw.quoteId,
     roles:[roleMap[raw.label]||'Opção'],
     total:Number(raw.totalCents||0)/100,
+    deliveryFee:raw.deliveryFeeCents==null
+      ||!Number.isSafeInteger(Number(raw.deliveryFeeCents))
+      ||Number(raw.deliveryFeeCents)<0
+      ||Number(raw.deliveryFeeCents)>Number(raw.totalCents)
+        ?null:Number(raw.deliveryFeeCents)/100,
     eta:Number(raw.etaMinMinutes||0),
     etaMax:Number(raw.etaMaxMinutes||raw.etaMinMinutes||0),
     trust:Number(raw.trustScore||0),

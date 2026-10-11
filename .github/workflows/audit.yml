@@ -79,6 +79,8 @@ jobs:
         run: node tests/first-real-psp-pilot-preflight-v1-146.mjs
       - name: Production trust language V1.147 regression contract
         run: node tests/production-language-v1-147.mjs
+      - name: Transparent mobile offer comparison V1.163 regression contract
+        run: node tests/transparent-offer-comparison-v1-163.mjs
       - name: Automatic address and anti-stale offers V1.162 regression contract
         run: node tests/auto-address-lookup-v1-162.mjs
       - name: CEP-to-checkout continuity V1.161 regression contract

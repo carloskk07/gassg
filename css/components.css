@@ -1869,3 +1869,110 @@ body:has(.admin-page) .shell{
   border-color:#18875c;outline:3px solid rgba(31,148,96,.22);outline-offset:2px;
 }
 @media(max-width:420px){.order-handoff-note{padding:12px;margin-top:9px}}
+
+
+/* V1.163 — price-first, mobile-accessible, truthful offer comparison */
+.checkout-comparison{margin:20px 0 26px;min-width:0}
+.checkout-comparison .comparison-intro{margin-bottom:13px}
+.checkout-comparison .comparison-intro h2{
+  margin:4px 0 6px;font-size:clamp(21px,3.2vw,28px);line-height:1.2;
+  color:var(--ink);letter-spacing:-.025em;text-wrap:balance
+}
+.checkout-comparison .comparison-intro p{
+  margin:0;color:var(--muted);font-size:13px;line-height:1.5;max-width:660px
+}
+.offer-sort{display:flex;align-items:center;gap:7px;flex-wrap:wrap;margin:13px 0}
+.offer-sort button{
+  cursor:pointer;background:#fff;border:1px solid #d4dfd9;color:#34594a;
+  border-radius:999px;padding:10px 13px;min-height:42px;
+  font:inherit;font-weight:800;font-size:12px;white-space:nowrap
+}
+.offer-sort button[aria-pressed="true"]{
+  color:#fff;background:#146647;border-color:#146647;box-shadow:0 3px 12px rgba(10,78,48,.12)
+}
+.offer-sort button:focus-visible,.offer-details summary:focus-visible{
+  outline:3px solid #c78e1e;outline-offset:2px
+}
+.checkout-comparison .offer-stack{display:grid;gap:13px;min-width:0}
+.checkout-comparison .offer-comparison-card{
+  min-width:0;padding:18px;border:1px solid #dce8de;border-radius:20px;
+  box-shadow:0 7px 24px rgba(13,55,36,.035)
+}
+.checkout-comparison .offer-comparison-card.selected{
+  padding:17px;border:2px solid #188156;box-shadow:0 10px 32px rgba(11,107,69,.095)
+}
+.offer-comparison-card .offer-label{padding-right:140px}
+.offer-comparison-card .offer-distinctions{
+  display:flex;flex-wrap:wrap;gap:7px;margin:7px 0 8px
+}
+.offer-distinctions span{
+  padding:5px 9px;border-radius:8px;background:#e9f5ed;color:#12613f;
+  font-size:11px;font-weight:850
+}
+.offer-comparison-card .offer-price-row{
+  align-items:center;display:flex;flex-wrap:wrap;gap:13px;
+  margin:13px 0 10px
+}
+.offer-amount-label{color:#547163;font-size:10px;font-weight:900;letter-spacing:.07em}
+.offer-comparison-card .offer-price{
+  font-size:clamp(29px,4vw,37px);letter-spacing:-.05em;
+  line-height:1.05;margin:5px 0
+}
+.offer-comparison-card .offer-eta{
+  text-align:right;display:grid;gap:3px;flex-shrink:0
+}
+.offer-comparison-card .offer-eta strong{font-size:17px;color:#134a36}
+.offer-comparison-card .offer-eta small{font-size:10px;line-height:1.35}
+.offer-breakdown{
+  border-top:1px solid #e5eee8;margin-top:12px;padding-top:9px;
+  display:grid;gap:7px
+}
+.offer-breakdown>span{
+  display:flex;align-items:baseline;justify-content:space-between;gap:12px;
+  color:#65736e;font-size:12px
+}
+.offer-breakdown strong{color:#203c30;font-size:13px;white-space:nowrap}
+.offer-total-note{color:var(--muted);margin:10px 0 2px;font-size:12px}
+.offer-cashback{
+  margin-top:10px;border:1px solid #ccecd8;border-radius:12px;
+  background:#f1fbf4;padding:10px 11px;display:grid;grid-template-columns:1fr auto;gap:3px 8px;
+  color:#12603f;font-size:12px
+}
+.offer-cashback strong{font-size:14px;white-space:nowrap}
+.offer-cashback small{grid-column:1/-1;color:#326a4d;line-height:1.45}
+.offer-payment{
+  display:flex;align-items:flex-start;gap:8px;font-size:12px;color:#2e5745;
+  margin:12px 0 9px;line-height:1.5
+}
+.offer-payment>span:first-child{color:#188156;font-weight:900}
+.offer-details{border-top:1px solid #e6ede8;margin:12px 0 10px;padding-top:9px}
+.offer-details summary{
+  cursor:pointer;color:#245e43;font-weight:800;font-size:12px;min-height:32px
+}
+.offer-details .offer-meta{padding:5px 0 3px}
+.offer-comparison-card .offer-assurance{
+  margin:10px 0 3px;border-radius:10px;font-size:12px;line-height:1.5
+}
+.offer-comparison-card .offer-submit{
+  min-height:52px;margin-top:13px;display:flex;align-items:center;
+  justify-content:center;gap:9px
+}
+@media(min-width:900px){
+ .checkout-comparison .offer-stack{grid-template-columns:repeat(2,minmax(0,1fr))}
+ .offer-comparison-card .offer-price-row{align-items:flex-start}
+}
+@media(max-width:420px){
+ .checkout-comparison .offer-comparison-card{padding:15px;border-radius:16px}
+ .checkout-comparison .offer-comparison-card.selected{padding:14px}
+ .offer-sort{gap:6px}
+ .offer-sort button{min-height:42px;padding:8px 10px;font-size:11px}
+ .offer-comparison-card .best-badge{position:static;display:inline-block;margin:0 0 9px}
+ .offer-comparison-card .offer-label{padding-right:0}
+ .offer-comparison-card .offer-price-row{align-items:flex-start}
+ .offer-comparison-card .offer-eta{text-align:left}
+ .offer-comparison-card .offer-price{font-size:31px}
+ .offer-payment{font-size:11px}
+}
+@media(prefers-reduced-motion:reduce){
+ .checkout-comparison .offer-comparison-card,.offer-sort button{transition:none}
+}
