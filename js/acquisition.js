@@ -40,16 +40,25 @@ function leadPostalDigits(value){
   return String(value||'').replace(/\D/g,'').slice(0,8);
 }
 function openPrelaunchCustomerLead(){
-  const enteredPostal=leadPostalDigits(document.querySelector('#home-address')?.value||'');
+  const postalSource=document.querySelector('#home-address')||document.querySelector('#postal-code');
+  const typed=String(postalSource?.value||'').trim();
+  const enteredPostal=leadPostalDigits(typed);
+  if(typed&&enteredPostal.length!==8){
+    postalSource?.focus();
+    return toast('Informe um CEP válido com 8 dígitos');
+  }
   if(enteredPostal.length===8&&enteredPostal!==leadPostalDigits(state.postalCode||'')){
     state.postalCode=enteredPostal;
+    state.address='';
+    state.addressNumber='';
     save();
-    render(); // A prior city's completed notification must not hide the new CEP form.
+    render(); // New CEP must not inherit a previous regional notification.
   }
   const section=document.getElementById('early-access');
   if(!section){
     if(route()!=='home')go('home');
     setTimeout(()=>{
+      if(route()!=='home')return;
       const targetSection=document.getElementById('early-access');
       if(!targetSection)return;
       const target=document.querySelector('#prelaunch-postal');
@@ -80,7 +89,26 @@ function prelaunchTransparencyBand(){
   ].join('');
 }
 
+function customerLeadInterestSelection(cart=state.cart){
+  const codes=Object.entries(cart||{}).filter(([,qty])=>Number(qty)>0)
+    .map(([code])=>String(code||'').trim().toUpperCase())
+    .filter(code=>!code.endsWith('_CONTAINER'));
+  if(!codes.length)return new Set(['gas']);
+  const interests=new Set();
+  for(const code of codes){
+    const category=String(products[code]?.categoryKey||'').toLowerCase();
+    if(/^P[0-9]+$/.test(code)||category==='glp')interests.add('gas');
+    else if(code==='WATER20'||category==='water')interests.add('water');
+    else if(code==='CHARCOAL4')interests.add('charcoal');
+    else if(code==='WOOD')interests.add('firewood');
+    else if(code==='ICE5'||category==='ice')interests.add('ice');
+    else interests.add('other');
+  }
+  return interests;
+}
 function prelaunchCustomerLeadSection(){
+  const selectedInterests=customerLeadInterestSelection();
+  const checkedInterest=key=>selectedInterests.has(key)?' checked':'';
   const verifiedRegion=rememberedMarketRegion();
   const friendlyCity=verifiedRegion?esc(verifiedRegion.city):'sua região';
   if(prelaunchLeadSent('customer')){
@@ -98,12 +126,12 @@ function prelaunchCustomerLeadSection(){
         '<div class="input-wrap"><label for="prelaunch-phone">WhatsApp</label><input id="prelaunch-phone" class="input" maxlength="20" inputmode="tel" autocomplete="tel" placeholder="(55) 99999-9999"></div></div>',
         '<div class="input-wrap"><label for="prelaunch-postal">CEP onde você quer receber</label><input id="prelaunch-postal" class="input" maxlength="9" inputmode="numeric" autocomplete="postal-code" value="'+esc(postal)+'" placeholder="97300-000"></div>',
         '<fieldset class="lead-interests"><legend>O que você gostaria de pedir?</legend>',
-          '<label><input type="checkbox" name="prelaunch-interest" value="gas" checked><span>🔥 Gás</span></label>',
-          '<label><input type="checkbox" name="prelaunch-interest" value="water"><span>💧 Água</span></label>',
-          '<label><input type="checkbox" name="prelaunch-interest" value="charcoal"><span>🔥 Carvão</span></label>',
-          '<label><input type="checkbox" name="prelaunch-interest" value="firewood"><span>🪵 Lenha</span></label>',
-          '<label><input type="checkbox" name="prelaunch-interest" value="ice"><span>🧊 Gelo</span></label>',
-          '<label><input type="checkbox" name="prelaunch-interest" value="other"><span>＋ Outros</span></label>',
+          '<label><input type="checkbox" name="prelaunch-interest" value="gas"'+checkedInterest('gas')+'><span>🔥 Gás</span></label>',
+          '<label><input type="checkbox" name="prelaunch-interest" value="water"'+checkedInterest('water')+'><span>💧 Água</span></label>',
+          '<label><input type="checkbox" name="prelaunch-interest" value="charcoal"'+checkedInterest('charcoal')+'><span>🔥 Carvão</span></label>',
+          '<label><input type="checkbox" name="prelaunch-interest" value="firewood"'+checkedInterest('firewood')+'><span>🪵 Lenha</span></label>',
+          '<label><input type="checkbox" name="prelaunch-interest" value="ice"'+checkedInterest('ice')+'><span>🧊 Gelo</span></label>',
+          '<label><input type="checkbox" name="prelaunch-interest" value="other"'+checkedInterest('other')+'><span>＋ Outros</span></label>',
         '</fieldset>',
         '<input id="prelaunch-website" class="lead-trap" tabindex="-1" autocomplete="off" aria-hidden="true" aria-label="Não preencher este campo" name="website" value="">',
         '<label class="check-row lead-consent"><input id="prelaunch-consent" type="checkbox"><span><strong>Quero receber um aviso de disponibilidade pelo WhatsApp.</strong><small>Usaremos estes dados somente para informar disponibilidade e atendimento. Nenhuma compra é criada por este cadastro.</small></span></label><div class="lead-privacy-note">Saiba como tratamos seus dados no <button class="text-link" onclick="go(\'privacy\')">Aviso de Privacidade</button>.</div>',
@@ -179,8 +207,17 @@ function prelaunchMerchantLeadSection(){
   ].join('');
 }
 function openPrelaunchMerchantLead(){
-  document.getElementById('partner-interest')?.scrollIntoView({behavior:'smooth',block:'start'});
-  setTimeout(()=>document.querySelector('#partner-business')?.focus(),350);
+  const focusMerchantLead=()=>{
+    if(route()!=='merchants')return;
+    document.getElementById('partner-interest')?.scrollIntoView({behavior:'smooth',block:'start'});
+    document.querySelector('#partner-business')?.focus({preventScroll:true});
+  };
+  if(route()!=='merchants'){
+    go('merchants');
+    setTimeout(focusMerchantLead,160);
+    return;
+  }
+  focusMerchantLead();
 }
 async function submitPrelaunchMerchantLead(){
   const button=document.querySelector('#partner-submit');
