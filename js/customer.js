@@ -634,6 +634,7 @@ function offerCard(o,facts={}){
   return `<article class="offer offer-comparison-card ${featured?'selected':''}">
     ${available?'<div class="best-badge">OPÇÃO DISPONÍVEL AGORA</div>':recommended?'<div class="best-badge">MELHOR EQUILÍBRIO</div>':''}
     <div class="offer-label">${esc(labels)}</div>
+    ${internalPilot?'<div class="offer-internal-flag">🧪 Simulação operacional • Sem cobrança real</div>':''}
     ${validPrice||validTime?`<div class="offer-distinctions">${validPrice?'<span>Menor total desta consulta</span>':''}${validTime?'<span>Menor prazo máximo previsto</span>':''}</div>`:''}
     <div class="offer-main offer-price-row">
       <div><small class="offer-amount-label">TOTAL COM ENTREGA</small>
