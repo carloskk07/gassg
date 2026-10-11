@@ -105,6 +105,8 @@ jobs:
         run: node tests/delivery-first-payment-v1-158-1.mjs
       - name: Product-scoped ANP merchant authority V1.158.2 regression contract
         run: node tests/merchant-basket-compliance-v1-158-2.mjs
+      - name: Daily settlement financial invariants V1.158.3 regression contract
+        run: node tests/settlement-daily-integrity-v1-158-3.mjs
       - name: Remote admin gateway contract and portal report
         run: node tests/remote-admin-readiness.mjs
       - name: Runtime origin config contract
