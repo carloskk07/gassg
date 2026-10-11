@@ -33,7 +33,7 @@ const required=[
   'public.merchant_basket_compliance_current(m.id,array[ci.product_code])',
   'revoke all on function public.merchant_basket_compliance_current',
 ];
-for(const part of required)assert.ok(sql.includes(part),'Missing SQL regulatory rule: '+part);
+for(const part of required)assert.ok(sql.toLowerCase().includes(part.toLowerCase()),'Missing SQL regulatory rule: '+part);
 
 for(const name of [
  'enforce_active_merchant_compliance','admin_set_merchant_status',
