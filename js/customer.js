@@ -224,7 +224,7 @@ function home(){
     ?(visibleCodes.includes('P13')?'P13':visibleCodes.slice().sort((a,b)=>Number(products[a].sortOrder||100)-Number(products[b].sortOrder||100))[0])
     :'P13';
   const featuredProduct=products[featuredCode]||products.P13;
-  const featuredName=customerProductName(featuredCode,featuredProduct);
+  const featuredName=featuredCode==='P13'?'Botijão de cozinha 13 kg':customerProductName(featuredCode,featuredProduct);
   const featuredIcon=featuredProduct?.icon||'🧺';
   const showPublicP13Reference=!testDemo&&featuredCode==='P13'&&!outsideOriginalMarket&&(
     preview
@@ -317,9 +317,10 @@ function home(){
 
     <div class="purchase-starter" aria-label="Consultar produtos e atendimento da sua região">
       <input id="home-featured-code" type="hidden" value="${esc(featuredCode)}">
-      <div class="starter-product"><div class="starter-product-icon">${featuredIcon}</div><div><span class="starter-label">COMECE PELO QUE PRECISA</span><strong>${esc(featuredName)}</strong><small>${esc(featuredCode)} • Consulta por CEP</small></div><div class="starter-price"><small>CONSULTA</small><b>${priceText}</b></div></div>
+      <div class="starter-product"><div class="starter-product-icon">${esc(featuredIcon)}</div><div><span class="starter-label">COMECE PELO QUE PRECISA</span><strong>${esc(featuredName)}</strong><small>${esc(featuredCode)} • Consulta por CEP</small></div><div class="starter-price"><small>CONSULTA</small><b>${priceText}</b></div></div>
       <label class="starter-address" for="home-address"><span>${testDemo?'Onde entregar?':'Onde você quer receber?'}</span><div><span aria-hidden="true">📍</span><input id="home-address" autocomplete="${testDemo?'street-address':'postal-code'}" inputmode="${testDemo?'text':'numeric'}" maxlength="${testDemo?'160':'9'}" placeholder="${testDemo?'Digite seu endereço':'Ex.: 97300-000'}" value="${esc(testDemo?(state.address||''):String(state.postalCode||'').replace(/^(\d{5})(\d{0,3}).*$/,(m,a,b)=>b?a+'-'+b:a))}" ${disabled&&!acquisitionOpen?'disabled':''}></div></label>
-      <button class="primary starter-cta" onclick="${primaryAction}" ${disabled&&!acquisitionOpen?'disabled':''}>🔥 ${primaryLabel}</button>
+      <button class="primary starter-cta" onclick="${primaryAction}" ${disabled&&!acquisitionOpen?'disabled':''}>${esc(featuredIcon)} ${primaryLabel}</button>
+      ${cityChecked&&!hasConfirmedCityOffers&&acquisitionOpen?`<div class="regional-action"><button class="ghost" onclick="openPrelaunchCustomerLead()">Sem opção para meu CEP? Quero receber um aviso →</button></div>`:''}
       <small class="starter-footnote">${esc(freshness)}</small>
     </div>
 
