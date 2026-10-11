@@ -162,9 +162,14 @@ typed.postal='9730';
 vm.runInContext('deliveryAddressDraftChanged()',draftContext);
 assert.equal(events.filter(x=>Array.isArray(x)).length,1,'Incomplete CEP suppresses automatic lookup');
 
-const inputTags=frontend.match(/id="(?:postal-code|address-number)"[^>]+>/g)||[];
-const realInputs=inputTags.filter(tag=>tag.includes('onchange="deliveryAddressDraftChanged()"'));
-assert.equal(realInputs.length,2,'Both real delivery address fields must exist');
+// The postal field uses a JS template interpolation with an arrow (=>) in
+// its value. Do not use a naive HTML regex that stops on the arrow's '>'.
+const postalAt=frontend.lastIndexOf('id="postal-code"');
+const numberAt=frontend.indexOf('id="address-number"');
+assert.ok(postalAt>=0&&numberAt>=0,'Both real delivery address fields must exist');
+const realInputs=[frontend.slice(postalAt,postalAt+680),frontend.slice(numberAt,numberAt+440)];
+assert.ok(realInputs.every(t=>t.includes('onchange="deliveryAddressDraftChanged()"')),
+  'Both address fields retain blur fallback');
 assert.ok(realInputs.every(t=>t.includes('oninput="deliveryAddressDraftChanged()"')),
   'Typing rather than blur must trigger debounce');
 assert.ok(frontend.includes('Consultaremos as ofertas automaticamente.'));
