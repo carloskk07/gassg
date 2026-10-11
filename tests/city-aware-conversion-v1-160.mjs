@@ -63,6 +63,8 @@ for(const snippet of [
   "Date.now()-Number(cityEvidence.checkedAt||0)<10*60*1000",
   "Date.parse(o.expiresAt)>Date.now()",
   "outsideOriginalMarket&&!hasConfirmedCityOffers",
+  "globalThis.liveRuntime?.marketMode==='single_supplier'",
+  "Number(globalThis.liveRuntime?.eligibleMerchantCount||0)===1",
   "cityChecked&&!hasConfirmedCityOffers",
   "visibleCodes.includes('P13')",
   'id="home-featured-code"',
@@ -86,6 +88,8 @@ for(const snippet of [
   "liveRuntime.offerRequestSeq"
 ])assert.ok(backend.includes(snippet),'Missing verified city quotation evidence: '+snippet);
 
+assert.ok(!customer.includes('market?.availableNow&&Number(market?.availableMerchantCount||0)===1'),
+ 'Global single-merchant status cannot imply one seller for a different city');
 assert.ok(offers.includes('serviceCity:postal.city')&&offers.includes('serviceState:postal.state'),
  'City identity must originate in server-side postal validation');
 assert.ok(core.includes("const locality=region?esc(region.city)+'/'+esc(region.state):'Consulte sua região'"),
