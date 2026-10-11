@@ -803,7 +803,10 @@ function runtimeStrip(){
 }
 function siteFooter({adminPortal=false}={}){
   if(adminPortal)return '';
-  return '<footer class="site-footer"><div class="shell site-footer-inner"><div><strong>TAMÃO</strong><small>Pediu? Tá na mão. • São Gabriel/RS</small></div><nav aria-label="Informações legais"><button onclick="go(\'privacy\')">Privacidade</button><button onclick="go(\'terms\')">Termos</button><button onclick="go(\'contact\')">Contato</button></nav></div></footer>';
+  const region=typeof rememberedMarketRegion==='function'&&globalThis.merchantPortalRequested?.()!==true
+    ?rememberedMarketRegion():null;
+  const locality=region?esc(region.city)+'/'+esc(region.state):'Consulte sua região';
+  return '<footer class="site-footer"><div class="shell site-footer-inner"><div><strong>TAMÃO</strong><small>Pediu? Tá na mão. • '+locality+'</small></div><nav aria-label="Informações legais"><button onclick="go(\'privacy\')">Privacidade</button><button onclick="go(\'terms\')">Termos</button><button onclick="go(\'contact\')">Contato</button></nav></div></footer>';
 }
 function shell(content){
   const r=route();

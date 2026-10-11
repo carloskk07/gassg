@@ -64,7 +64,9 @@ async function startHomeOrder(){
   }
   state.cart=normalizeCart({});
   state.checkout.glpContainerMode='exchange';
-  setCartProduct('P13',1);
+  const featured=String(document.querySelector('#home-featured-code')?.value||'P13').trim().toUpperCase();
+  const selected=/^[A-Z][A-Z0-9_]{1,31}$/.test(featured)&&products[featured]&&!products[featured].hidden?featured:'P13';
+  setCartProduct(selected,1);
   save();
   go('order');
 }
@@ -190,7 +192,13 @@ function home(){
   const preview=!testDemo&&globalThis.prelaunchExamplesEnabled?.()===true;
   const market=globalThis.liveRuntime?.marketStatus||null;
   const rememberedRegion=!testDemo&&typeof rememberedMarketRegion==='function'?rememberedMarketRegion():null;
-  const regionLabel=rememberedRegion?rememberedRegion.city+' • '+rememberedRegion.state:'São Gabriel • RS';
+  const regionLabel=rememberedRegion?rememberedRegion.city+' • '+rememberedRegion.state:'Informe seu CEP';
+  const cityEvidence=ready?globalThis.liveRuntime?.lastCityCheck:null;
+  const cityChecked=Boolean(cityEvidence
+    &&cityEvidence.postalCode===String(state.postalCode||'').replace(/\D/g,'')
+    &&Date.now()-Number(cityEvidence.checkedAt||0)<10*60*1000);
+  const hasConfirmedCityOffers=cityChecked&&Number(cityEvidence.offerCount||0)>0
+    &&(globalThis.liveRuntime?.offers||[]).some(o=>Date.parse(o.expiresAt)>Date.now());
   const outsideOriginalMarket=Boolean(rememberedRegion&&!(rememberedRegion.city.toLocaleUpperCase('pt-BR')==='SÃO GABRIEL'&&rememberedRegion.state==='RS'));
   const lastOrder=ready?globalThis.liveRuntime?.lastOrderTemplate:null;
   const prediction=ready?globalThis.liveRuntime?.reorderPrediction:null;
@@ -210,7 +218,15 @@ function home(){
   }
 
   const p=testDemo?minPrice():null;
-  const showPublicP13Reference=!testDemo&&!outsideOriginalMarket&&(
+  const supplyCodes=Array.isArray(market?.productCodes)?market.productCodes:[];
+  const visibleCodes=supplyCodes.filter(code=>products[code]&&!products[code].hidden);
+  const featuredCode=ready&&market?.realSupplyConfigured&&visibleCodes.length
+    ?(visibleCodes.includes('P13')?'P13':visibleCodes.slice().sort((a,b)=>Number(products[a].sortOrder||100)-Number(products[b].sortOrder||100))[0])
+    :'P13';
+  const featuredProduct=products[featuredCode]||products.P13;
+  const featuredName=featuredCode==='P13'?'Botijão de cozinha 13 kg':customerProductName(featuredCode,featuredProduct);
+  const featuredIcon=featuredProduct?.icon||'🧺';
+  const showPublicP13Reference=!testDemo&&featuredCode==='P13'&&!outsideOriginalMarket&&(
     preview
     ||(ready&&market?.realSupplyConfigured===false)
   );
@@ -235,11 +251,11 @@ function home(){
       : ready&&!market
         ? 'Não foi possível confirmar o panorama geral agora. Informe seu endereço para consultar as opções diretamente.'
         : ready&&market?.realSupplyConfigured
-          ? market?.availableNow
-            ? Number(market?.availableMerchantCount||0)===1
-              ? '1 parceiro elegível está disponível agora.'
-              : 'Há parceiros elegíveis para consulta agora.'
-            : 'Parceiros cadastrados; a disponibilidade é confirmada a cada consulta.'
+          ? hasConfirmedCityOffers
+            ? 'Sua última consulta encontrou ofertas válidas para este CEP. Confira condições e validade antes de pedir.'
+            : cityChecked
+              ? 'Nenhuma oferta elegível apareceu para este CEP na última consulta. Você pode pedir um aviso.'
+              : 'A disponibilidade depende do CEP e da cesta. Revendas de outras cidades não confirmam ofertas na sua.'
           : ready
             ? 'A disponibilidade é confirmada conforme sua região e as revendas cadastradas.'
             : globalThis.liveRuntime?.status==='unsafe-origin'
@@ -262,13 +278,18 @@ function home(){
     );
   const feeBps=Number(market?.commercialPolicy?.platformFeeBps??750);
   const merchantFeeLabel=(Math.max(0,feeBps)/100).toLocaleString('pt-BR',{maximumFractionDigits:2})+'%';
-  const acquisitionOpen=!testDemo&&(outsideOriginalMarket||preview||!ready||market?.realSupplyConfigured===false);
+  const acquisitionOpen=!testDemo&&(preview||!ready||market?.realSupplyConfigured===false
+    ||(outsideOriginalMarket&&!hasConfirmedCityOffers)
+    ||(cityChecked&&!hasConfirmedCityOffers));
   const eyebrow=testDemo
     ? internalPilot?'● AMBIENTE INTERNO — SEM PEDIDOS':'● AMBIENTE DE TESTE'
     : '● TAMÃO • '+regionLabel.toUpperCase();
-  const primaryLabel=internalPilot?'Validar jornada':outsideOriginalMarket?'Consultar minha cidade':acquisitionOpen?'Consultar disponibilidade':'Ver ofertas perto de mim';
+  const primaryLabel=internalPilot?'Validar jornada':hasConfirmedCityOffers?'Conferir ofertas do meu CEP':outsideOriginalMarket?'Consultar minha cidade':acquisitionOpen?'Consultar disponibilidade':'Ver ofertas perto de mim';
   const primaryAction='startCustomerAvailability()';
-  const singleMarket=internalPilot||(ready&&market?.availableNow&&Number(market?.availableMerchantCount||0)===1);
+  // Global merchant totals never certify a single seller for this city's basket.
+  const singleMarket=internalPilot||(hasConfirmedCityOffers
+    &&(globalThis.liveRuntime?.marketMode==='single_supplier'
+      ||Number(globalThis.liveRuntime?.eligibleMerchantCount||0)===1));
   const heroJourney=singleMarket
     ? internalPilot
       ? 'Valide a jornada completa do ambiente interno: pedido, aceite, preparação, saída, chegada, pagamento e benefícios.'
@@ -290,16 +311,19 @@ function home(){
 </div></section>`;
 
   return shell(`<section class="hero marketing-hero"><div class="hero-grid"><div>
-    <span class="eyebrow">${eyebrow}</span>
+    <span class="eyebrow">${esc(eyebrow)}</span>
+    ${rememberedRegion&&!testDemo?`<div class="local-welcome" aria-label="Sua região identificada"><span aria-hidden="true">📍</span><span><strong>Olá, ${esc(rememberedRegion.city)}!</strong><small>Consulta por CEP • ${esc(rememberedRegion.state)}. A disponibilidade depende das ofertas para seu endereço.</small></span></div>`:''}
     <div class="hero-overline">A VIDA NÃO PARA QUANDO ALGO FALTA.</div>
     <h1>Faltou em casa?<br><span class="hero-highlight">Tá na mão.</span></h1>
-    <p class="hero-lead"><strong>Gás, água e o essencial do dia a dia, em um só lugar.</strong> ${esc(outsideOriginalMarket?'Descubra a cobertura em '+regionLabel+' pelo CEP. Se não houver ofertas disponíveis, você poderá deixar seu contato para receber um aviso.':heroJourney)}</p>
+    <p class="hero-lead"><strong>Gás, água e o essencial do dia a dia, em um só lugar.</strong> ${esc(hasConfirmedCityOffers?'Já consultamos opções para o seu CEP. Confira preços e prazos atualizados antes de confirmar.':outsideOriginalMarket?'Veja quais opções atendem '+regionLabel+' pelo CEP. Se não houver ofertas, você poderá solicitar um aviso.':heroJourney)}</p>
     <div class="hero-emotional-promise"><span aria-hidden="true">✦</span><span>Menos tempo procurando. Mais clareza para escolher.</span></div>
 
-    <div class="purchase-starter" aria-label="Iniciar compra de gás">
-      <div class="starter-product"><div class="starter-product-icon">🔥</div><div><span class="starter-label">COMECE PELO GÁS</span><strong>Botijão de cozinha 13 kg</strong><small>P13 • GLP</small></div><div class="starter-price"><small>CONSULTA</small><b>${priceText}</b></div></div>
-      <label class="starter-address" for="home-address"><span>${testDemo?'Onde entregar?':'Onde você quer receber?'}</span><div><span aria-hidden="true">📍</span><input id="home-address" autocomplete="${testDemo?'street-address':'postal-code'}" inputmode="${testDemo?'text':'numeric'}" maxlength="${testDemo?'160':'9'}" placeholder="${testDemo?'Digite seu endereço':'Ex.: 97300-000'}" value="${esc(testDemo?(state.address||''):String(state.postalCode||'').replace(/^(\d{5})(\d{0,3}).*$/,(m,a,b)=>b?a+'-'+b:a))}" ${disabled?'disabled':''}></div></label>
-      <button class="primary starter-cta" onclick="${primaryAction}" ${disabled&&!acquisitionOpen?'disabled':''}>🔥 ${primaryLabel}</button>
+    <div class="purchase-starter" aria-label="Consultar produtos e atendimento da sua região">
+      <input id="home-featured-code" type="hidden" value="${esc(featuredCode)}">
+      <div class="starter-product"><div class="starter-product-icon">${esc(featuredIcon)}</div><div><span class="starter-label">COMECE PELO QUE PRECISA</span><strong>${esc(featuredName)}</strong><small>${esc(featuredCode)} • Consulta por CEP</small></div><div class="starter-price"><small>CONSULTA</small><b>${priceText}</b></div></div>
+      <label class="starter-address" for="home-address"><span>${testDemo?'Onde entregar?':'Onde você quer receber?'}</span><div><span aria-hidden="true">📍</span><input id="home-address" autocomplete="${testDemo?'street-address':'postal-code'}" inputmode="${testDemo?'text':'numeric'}" maxlength="${testDemo?'160':'9'}" placeholder="${testDemo?'Digite seu endereço':'Ex.: 97300-000'}" value="${esc(testDemo?(state.address||''):String(state.postalCode||'').replace(/^(\d{5})(\d{0,3}).*$/,(m,a,b)=>b?a+'-'+b:a))}" ${disabled&&!acquisitionOpen?'disabled':''}></div></label>
+      <button class="primary starter-cta" onclick="${primaryAction}" ${disabled&&!acquisitionOpen?'disabled':''}>${esc(featuredIcon)} ${primaryLabel}</button>
+      ${cityChecked&&!hasConfirmedCityOffers&&acquisitionOpen?`<div class="regional-action"><button class="ghost" onclick="openPrelaunchCustomerLead()">Sem opção para meu CEP? Quero receber um aviso →</button></div>`:''}
       <small class="starter-footnote">${esc(freshness)}</small>
     </div>
 

@@ -1830,3 +1830,24 @@ body:has(.admin-page) .shell{
   .intent-card,.quick-card,.primary,.secondary,.merchant-home-card{transition:none}
   .intent-card:hover,.quick-card:hover,.primary:hover{transform:none}
 }
+
+
+/* TAMÃO V1.160 — geographically honest, human regional welcome */
+.local-welcome{
+  margin:14px 0 3px;display:inline-flex;gap:10px;align-items:center;
+  max-width:100%;padding:10px 14px;border-radius:16px;
+  background:#fff;border:1px solid #d3e8d8;box-shadow:0 4px 16px rgba(12,70,43,.045);
+}
+.local-welcome>span:first-child{
+  flex:0 0 auto;display:grid;place-items:center;width:32px;height:32px;
+  border-radius:10px;background:#edf7f0;font-size:17px;
+}
+.local-welcome strong{display:block;color:var(--brand-deep);font-size:14px;line-height:1.25}
+.local-welcome small{display:block;color:var(--muted);font-size:11px;line-height:1.4;margin-top:2px}
+.regional-action{margin-top:9px}
+.regional-action .ghost{height:auto;min-height:38px;padding:6px 10px;font-size:12px}
+@media(max-width:420px){
+ .local-welcome{padding:9px 10px;align-items:flex-start}
+ .local-welcome strong{font-size:13px}
+ .local-welcome small{font-size:10px}
+}

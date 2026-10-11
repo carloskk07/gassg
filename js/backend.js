@@ -227,6 +227,7 @@ const liveRuntime={
   scheduledDeliveryUnavailable:false,
   paymentMethodUnavailable:false,
   postalValidated:false,
+  lastCityCheck:null,
   lastMarketStatusAt:0,
   lastFinancialSyncAt:0,
   lastFinancialSyncAttemptAt:0,
@@ -575,6 +576,8 @@ async function liveRefreshOffers({silent=false}={}){
     return [];
   }
   const postalCodeSnapshot=String(state.postalCode||'');
+  // City offer evidence is tied to the exact validated CEP, never to a global market total.
+  if(liveRuntime.lastCityCheck?.postalCode!==postalCodeSnapshot)liveRuntime.lastCityCheck=null;
   const addressNumberSnapshot=String(state.addressNumber||'').trim().toUpperCase();
   const itemsSnapshot=liveCartItems();
   const scheduleSnapshot=state.checkout.deliveryMode==='scheduled'
@@ -634,6 +637,22 @@ async function liveRefreshOffers({silent=false}={}){
     liveRuntime.offers=(data?.offers||[])
       .map(liveOfferView)
       .filter(o=>Number.isFinite(Date.parse(o.expiresAt))&&Date.parse(o.expiresAt)>Date.now());
+    const confirmedCity=String(data?.serviceCity||'').trim();
+    const confirmedState=String(data?.serviceState||'').trim().toUpperCase();
+    if(liveRuntime.postalValidated
+      &&confirmedCity.length>=2&&confirmedCity.length<=120
+      &&/^[A-Z]{2}$/.test(confirmedState)){
+      liveRuntime.lastCityCheck={
+        postalCode:postalCodeSnapshot,city:confirmedCity,state:confirmedState,
+        checkedAt:Date.now(),offerCount:liveRuntime.offers.length,
+        regionAvailable:data?.regionAvailable===true
+      };
+      if(typeof rememberMarketRegion==='function'){
+        rememberMarketRegion({city:confirmedCity,state:confirmedState},postalCodeSnapshot);
+      }
+    }else{
+      liveRuntime.lastCityCheck=null;
+    }
     liveRuntime.lastSyncAt=new Date().toISOString();
     return liveRuntime.offers;
   }catch(error){
@@ -646,6 +665,7 @@ async function liveRefreshOffers({silent=false}={}){
       liveRuntime.scheduledDeliveryUnavailable=false;
       liveRuntime.paymentMethodUnavailable=false;
       liveRuntime.postalValidated=false;
+      liveRuntime.lastCityCheck=null;
       liveRuntime.error=String(error?.message||error);
     }
     throw error;
