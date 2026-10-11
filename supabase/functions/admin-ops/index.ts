@@ -104,7 +104,7 @@ const ADMIN_ROLE_ACTIONS:Record<string,Set<string>>={
   superadmin:new Set(["*"]),
   operations:new Set([
     "approve-application","reject-application","verify-merchant","activate-merchant","suspend-merchant",
-    "set-delivery-capability","order-control","support-case-status","lead-status","public-request-status",
+    "set-delivery-capability","merchant-representation-review","order-control","support-case-status","lead-status","public-request-status",
     "pilot-invite","assisted-merchant-onboarding","product-registry","verify-launch-portals","incident-action","market-city-pause","city-notification-status","prospect-crm","prospect-invite"
   ]),
   finance:new Set([
@@ -114,7 +114,7 @@ const ADMIN_ROLE_ACTIONS:Record<string,Set<string>>={
   support:new Set(["order-control","support-case-status","incident-action"]),
   compliance:new Set([
     "approve-application","reject-application","verify-merchant","activate-merchant","suspend-merchant",
-    "set-delivery-capability","incident-action","prospect-crm","prospect-invite"
+    "set-delivery-capability","merchant-representation-review","incident-action","prospect-crm","prospect-invite"
   ]),
   readonly:new Set()
 };
@@ -1360,6 +1360,19 @@ async function summary(admin:any,actorUserId:string){
     .select("merchant_id,legal_name,trade_name,responsible_name,phone,whatsapp,postal_code,city,state,address_text,admin_notes,updated_at")
     .limit(100);
   if(merchantBusinessDetails.error)throw merchantBusinessDetails.error;
+  const [ownerMembers,representationReviews]=await Promise.all([
+    admin.from("merchant_members")
+      .select("merchant_id,user_id,member_role,active")
+      .eq("member_role","owner").eq("active",true)
+      .in("merchant_id",(merchants.data??[]).map((m:any)=>m.id))
+      .limit(400),
+    admin.from("merchant_representation_reviews")
+      .select("merchant_id,owner_user_id,authority_kind,merchant_cnpj,verified_at,expires_at,revoked_at")
+      .in("merchant_id",(merchants.data??[]).map((m:any)=>m.id))
+      .limit(150)
+  ]);
+  if(ownerMembers.error||representationReviews.error)throw ownerMembers.error||representationReviews.error;
+
   const commercialPolicy=await admin
     .from("reward_policy")
     .select("policy_key,active,platform_fee_bps,variable_cost_bps,minimum_contribution_bps,cashback_bps,direct_referral_bps,commission_hold_hours,policy_version,updated_at,updated_by,last_change_reason")
@@ -1527,6 +1540,8 @@ async function summary(admin:any,actorUserId:string){
 
   const byMerchant=new Map((compliance.data??[]).map((x:any)=>[x.merchant_id,x]));
   const businessByMerchant=new Map((merchantBusinessDetails.data??[]).map((x:any)=>[x.merchant_id,x]));
+  const activeOwnerByMerchant=new Map((ownerMembers.data??[]).map((x:any)=>[x.merchant_id,x.user_id]));
+  const representationByMerchant=new Map((representationReviews.data??[]).map((x:any)=>[x.merchant_id,x]));
   const merchantReadinessById=new Map<string,any>(
     (merchantReadiness.data??[]).map((x:any)=>[String(x.merchantId),x] as [string,any])
   );
@@ -1615,6 +1630,8 @@ async function summary(admin:any,actorUserId:string){
     merchants:(merchants.data??[]).map((m:any)=>({
       ...m,
       compliance:byMerchant.get(m.id)??null,
+      activeOwnerUserId:activeOwnerByMerchant.get(m.id)??null,
+      representationReview:representationByMerchant.get(m.id)??null,
       businessDetails:businessByMerchant.get(m.id)??null,
       deliveryCapabilities:capabilitiesByMerchant.get(m.id)??[],
       readiness:merchantReadinessById.get(m.id)??null,
@@ -1913,6 +1930,21 @@ Deno.serve(async(req:Request)=>{
         anpReference,
         notes
       };
+    }else if(action==="merchant-representation-review"){
+      const decision=String(body.decision??"");
+      if(!["verify","revoke"].includes(decision)){
+        throw new DomainError("INVALID_REPRESENTATION_DECISION","Ação de representação inválida.",400);
+      }
+      payload={
+        merchantId:uuid(body.merchantId,"merchant"),
+        ownerUserId:decision==="verify"?uuid(body.ownerUserId,"owner"):null,
+        decision,
+        authorityKind:decision==="verify"?String(body.authorityKind??""):null,
+        evidenceReference:cleanText(body.evidenceReference,{min:8,max:240,name:"referência documental"})
+      };
+      if(decision==="verify"&&!["legal_representative","authorized_delegate"].includes(String(payload.authorityKind))){
+        throw new DomainError("INVALID_REPRESENTATION_AUTHORITY","Tipo de representação inválido.",400);
+      }
     }else if(action==="activate-merchant"||action==="suspend-merchant"){
       payload={merchantId:uuid(body.merchantId,"merchant")};
     }else if(action==="set-delivery-capability"){
@@ -2497,7 +2529,19 @@ Deno.serve(async(req:Request)=>{
       p_idempotency_key:idempotencyKey,
       p_request_hash:requestHash
     };
-    if(action==="set-delivery-capability"){
+    if(action==="merchant-representation-review"){
+      rpcName="admin_merchant_representation_action";
+      rpcArgs={
+        p_actor_user_id:user.id,
+        p_merchant_id:payload.merchantId,
+        p_owner_user_id:payload.ownerUserId,
+        p_decision:payload.decision,
+        p_authority_kind:payload.authorityKind,
+        p_evidence_reference:payload.evidenceReference,
+        p_idempotency_key:idempotencyKey,
+        p_request_hash:requestHash
+      };
+    }else if(action==="set-delivery-capability"){
       rpcName="admin_delivery_capability_action";
       rpcArgs={
         p_actor_user_id:user.id,
