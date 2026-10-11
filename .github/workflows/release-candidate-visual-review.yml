@@ -27,6 +27,18 @@ jobs:
       - name: Customer-safe outage language for first-time visitors
         run: node tests/release-marketing-outage-v1-164.mjs
 
+      - name: Portal version and anti-early-publication contract tests
+        run: node tests/release-portal-readiness.mjs
+
+      - name: Check three official domains without changing production
+        env:
+          TAMAO_CANDIDATE_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+          TAMAO_EXPECTED_LIVE_SHA: ${{ github.event.pull_request.base.sha || '' }}
+          TAMAO_REPORT_FILE: release-review-screenshots/LIVE-PORTALS.json
+        run: |
+          mkdir -p release-review-screenshots
+          node scripts/release-portal-readiness.mjs
+
       - name: Production publication must remain blocked
         run: |
           set -euo pipefail
