@@ -888,6 +888,33 @@ function customerNextAction(status){
   return next[status]||'Atualize o acompanhamento para consultar o último estado confirmado.';
 }
 
+// A revised price is a decision, never an automatically paid amount.
+function customerRequoteDecision(order,previousTotal,proposedTotal,remainingSeconds){
+  if(order.status!=='REQUOTE_REQUIRED'||!Number.isFinite(proposedTotal)||proposedTotal<0)return '';
+  const expired=remainingSeconds===0;
+  const deadline=remainingSeconds==null
+    ?'Confira a validade da proposta ao atualizar o pedido.'
+    :expired
+      ?'O prazo indicado terminou. Atualize para verificar a condição atual.'
+      :'Prazo indicado: aproximadamente '+remainingSeconds+' segundos restantes.';
+  return '<div class="notice customer-requote" role="region" aria-label="Nova proposta para aprovação">'+
+    '<strong>Outra proposta precisa da sua autorização</strong>'+
+    '<div class="customer-requote-prices">'+
+      '<span>Valor anterior <strong>'+BRL.format(previousTotal)+'</strong></span>'+
+      '<span>Nova proposta <strong>'+BRL.format(proposedTotal)+'</strong></span>'+
+    '</div>'+
+    '<p>O novo valor não é aceito automaticamente. '+esc(deadline)+'</p>'+
+    '<div class="order-actions">'+
+      '<button class="primary small" onclick="confirmRequote()" '+
+        (expired||globalThis.liveRuntime?.actionPending?'disabled':'')+
+        '>Aceitar proposta de '+BRL.format(proposedTotal)+'</button>'+
+      '<button class="secondary small" onclick="cancelPending()" '+
+        (globalThis.liveRuntime?.actionPending?'disabled':'')+
+        '>Cancelar pedido</button>'+
+      '<button class="ghost small" onclick="liveGetOrder().catch(()=>{})">Atualizar proposta</button>'+
+    '</div></div>';
+}
+
 function liveCustomerCareBlock(o){
   const openCases=(o.supportCases||[]).filter(x=>['open','in_review'].includes(x.status));
   const caseCopy={
