@@ -97,7 +97,7 @@ assert.throws(
     CHAMA_TURNSTILE_SITE_KEY:testKey,
     CHAMA_ALLOW_TEST_TURNSTILE:'1'
   },{outputRoot:path.join(cfRoot,'forbidden-test-key'),publishDir:path.join(cfRoot,'forbidden-publish')}),
-  /test\\/demo key/,
+  /test.*demo key/,
   'Production Cloudflare build cannot inherit a CI-only Turnstile exception'
 );
 for(const [projectName,cfg] of Object.entries(CLOUDFLARE_PROJECTS)){
