@@ -70,7 +70,7 @@ if bash scripts/release-db-restore-isolated.sh "$archive" tamao_restore_fixture_
 fi
 PGDATABASE=tamao_restore_fixture_ci psql -Atq -v ON_ERROR_STOP=1 -c 'select 1' >/dev/null
 # Negative integrity proof must stop BEFORE creating any local target.
-printf '%s  %s\\n' "$expected_hash" "$tampered" > "$tampered.sha256"
+printf '%s  %s\n' "$expected_hash" "$tampered" > "$tampered.sha256"
 if bash scripts/release-db-restore-isolated.sh "$tampered" tamao_restore_corrupt_ci >/dev/null 2>&1; then
   echo "RESTORE_TAMPERED_ARCHIVE_ACCEPTED" >&2
   exit 8
