@@ -61,16 +61,37 @@ fi
 echo "TAMPERED_ARCHIVE_REJECTED"
 
 pg_restore --list "$archive" | grep -q 'tamao_backup_smoke'
-createdb -T template0 tamao_rc_restored
-PGDATABASE=tamao_rc_restored pg_restore --exit-on-error --no-owner --dbname=tamao_rc_restored "$archive"
-count="$(PGDATABASE=tamao_rc_restored psql -Atq -v ON_ERROR_STOP=1 -c 'select count(*) from public.tamao_backup_smoke')"
+# Restore through the same guarded helper operators can use offline.
+# The helper must create a NEW local database and reject a repeat target.
+bash scripts/release-db-restore-isolated.sh "$archive" tamao_restore_fixture_ci
+if bash scripts/release-db-restore-isolated.sh "$archive" tamao_restore_fixture_ci >/dev/null 2>&1; then
+  echo "RESTORE_EXISTING_TARGET_ACCEPTED" >&2
+  exit 8
+fi
+PGDATABASE=tamao_restore_fixture_ci psql -Atq -v ON_ERROR_STOP=1 -c 'select 1' >/dev/null
+# Negative integrity proof must stop BEFORE creating any local target.
+printf '%s  %s\\n' "$expected_hash" "$tampered" > "$tampered.sha256"
+if bash scripts/release-db-restore-isolated.sh "$tampered" tamao_restore_corrupt_ci >/dev/null 2>&1; then
+  echo "RESTORE_TAMPERED_ARCHIVE_ACCEPTED" >&2
+  exit 8
+fi
+if PGDATABASE=postgres psql -Atq -v ON_ERROR_STOP=1 -c "select 1 from pg_database where datname='tamao_restore_corrupt_ci'" | grep -qx 1; then
+  echo "RESTORE_TAMPERED_ARCHIVE_CREATED_TARGET" >&2
+  exit 8
+fi
+# No network target other than explicit local loopback is allowed.
+if PGHOST=example.invalid bash scripts/release-db-restore-isolated.sh "$archive" tamao_restore_remote_ci >/dev/null 2>&1; then
+  echo "REMOTE_RESTORE_TARGET_ACCEPTED" >&2
+  exit 8
+fi
+count="$(PGDATABASE=tamao_restore_fixture_ci psql -Atq -v ON_ERROR_STOP=1 -c 'select count(*) from public.tamao_backup_smoke')"
 [[ "$count" == "2" ]] || { echo "RESTORE_ROW_COUNT_MISMATCH" >&2; exit 8; }
 # Row count is insufficient to prove integrity: verify the expected fixture contents.
-rows="$(PGDATABASE=tamao_rc_restored psql -Atq -v ON_ERROR_STOP=1 -c "select string_agg(seq::text || ':' || label, ',' order by seq) from public.tamao_backup_smoke")"
+rows="$(PGDATABASE=tamao_restore_fixture_ci psql -Atq -v ON_ERROR_STOP=1 -c "select string_agg(seq::text || ':' || label, ',' order by seq) from public.tamao_backup_smoke")"
 [[ "$rows" == "1:fictional-water-delivery,2:fictional-gas-request" ]] || { echo "RESTORE_CONTENT_MISMATCH" >&2; exit 8; }
 # The restored reader must not gain write privileges.
-can_insert="$(PGDATABASE=tamao_rc_restored psql -Atq -v ON_ERROR_STOP=1 -c "select has_table_privilege('tamao_backup_fixture_reader','public.tamao_backup_smoke','INSERT')")"
+can_insert="$(PGDATABASE=tamao_restore_fixture_ci psql -Atq -v ON_ERROR_STOP=1 -c "select has_table_privilege('tamao_backup_fixture_reader','public.tamao_backup_smoke','INSERT')")"
 [[ "$can_insert" == "f" ]] || { echo "RESTORE_EXCESSIVE_PRIVILEGE" >&2; exit 8; }
-reader="$(PGDATABASE=tamao_rc_restored psql -Atq -v ON_ERROR_STOP=1 -c "select has_table_privilege('tamao_backup_fixture_reader','public.tamao_backup_smoke','SELECT')")"
+reader="$(PGDATABASE=tamao_restore_fixture_ci psql -Atq -v ON_ERROR_STOP=1 -c "select has_table_privilege('tamao_backup_fixture_reader','public.tamao_backup_smoke','SELECT')")"
 [[ "$reader" == "t" ]] || { echo "RESTORE_ACL_MISSING" >&2; exit 8; }
 echo "SYNTHETIC_TLS_BACKUP_RESTORED: two exact rows, SELECT grant and INSERT denial verified; no production data accessed"
