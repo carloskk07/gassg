@@ -24,6 +24,9 @@ jobs:
       - name: Integrated source and staged migration gate
         run: node scripts/release-integration-preflight.mjs
 
+      - name: Customer-safe outage language for first-time visitors
+        run: node tests/release-marketing-outage-v1-164.mjs
+
       - name: Production publication must remain blocked
         run: |
           set -euo pipefail
