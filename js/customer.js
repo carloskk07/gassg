@@ -50,29 +50,65 @@ function customerProductMeta(code){
   return 'Item essencial';
 }
 async function startHomeOrder(){
-  const el=document.querySelector('#home-address');
-  const value=el?.value.trim()||'';
-  if(globalThis.__CHAMA_TEST__===true){
+  const homeInput=document.querySelector('#home-address');
+  const value=String(homeInput?.value||'').trim();
+  const testDemo=globalThis.__CHAMA_TEST__===true;
+  if(testDemo){
     if(value&&value.length<5)return toast('Informe um endereço válido ou deixe em branco para preencher depois');
     if(value)state.address=value.slice(0,160);
   }else{
-    const postalCode=String(value||'').replace(/\D/g,'').slice(0,8);
-    if(value&&!/^[0-9]{8}$/.test(postalCode))return toast('Informe um CEP válido ou deixe em branco para preencher depois');
+    const postalCode=value.replace(/\D/g,'').slice(0,8);
+    if(value&&!/^[0-9]{8}$/.test(postalCode)){
+      homeInput?.focus();
+      return toast('Informe um CEP válido com 8 dígitos');
+    }
+    const changed=postalCode!==String(state.postalCode||'');
     state.postalCode=postalCode;
-    state.address='';
-    state.addressNumber='';
+    if(changed){
+      // Carry the postal code forward, but never carry a street, number or
+      // quotation certified for a different delivery address.
+      state.address='';
+      state.addressNumber='';
+      if(globalThis.liveRuntime){
+        liveRuntime.offers=[];
+        liveRuntime.postalValidated=false;
+        liveRuntime.lastCityCheck=null;
+        liveRuntime.lastSyncAt=null;
+        liveRuntime.error=null;
+      }
+    }
   }
-  state.cart=normalizeCart({});
-  state.checkout.glpContainerMode='exchange';
-  const featured=String(document.querySelector('#home-featured-code')?.value||'P13').trim().toUpperCase();
-  const selected=/^[A-Z][A-Z0-9_]{1,31}$/.test(featured)&&products[featured]&&!products[featured].hidden?featured:'P13';
-  setCartProduct(selected,1);
+
+  // Keep the existing cart when someone returns to the home page; don't turn
+  // "consult my order" into an accidental new basket of gas.
+  const alreadyHasItems=Object.values(state.cart||{}).some(qty=>Number(qty)>0);
+  if(!alreadyHasItems){
+    state.cart=normalizeCart({});
+    state.checkout.glpContainerMode='exchange';
+    const featured=String(document.querySelector('#home-featured-code')?.value||'P13').trim().toUpperCase();
+    const selected=/^[A-Z][A-Z0-9_]{1,31}$/.test(featured)&&products[featured]&&!products[featured].hidden?featured:'P13';
+    setCartProduct(selected,1);
+  }
   save();
   go('order');
+  if(!testDemo&&/^[0-9]{8}$/.test(String(state.postalCode||''))&&!state.addressNumber){
+    globalThis.setTimeout?.(()=>{
+      if(route()==='order')document.querySelector('#address-number')?.focus();
+    },120);
+  }
 }
 
 // Consulta ofertas reais quando a sessão está pronta; na indisponibilidade, oferece aviso.
 function startCustomerAvailability(){
+  const input=globalThis.document?.querySelector('#home-address');
+  if(globalThis.__CHAMA_TEST__!==true&&input){
+    const raw=String(input.value||'').trim();
+    if(!/^[0-9]{8}$/.test(raw.replace(/\D/g,''))){
+      input.focus();
+      toast('Informe um CEP com 8 dígitos para encontrar o caminho certo');
+      return;
+    }
+  }
   if(globalThis.__CHAMA_TEST__===true||globalThis.liveReady?.()===true){
     return startHomeOrder();
   }
@@ -321,7 +357,7 @@ function home(){
     <div class="purchase-starter" aria-label="Consultar produtos e atendimento da sua região">
       <input id="home-featured-code" type="hidden" value="${esc(featuredCode)}">
       <div class="starter-product"><div class="starter-product-icon">${esc(featuredIcon)}</div><div><span class="starter-label">COMECE PELO QUE PRECISA</span><strong>${esc(featuredName)}</strong><small>${esc(featuredCode)} • Consulta por CEP</small></div><div class="starter-price"><small>CONSULTA</small><b>${priceText}</b></div></div>
-      <label class="starter-address" for="home-address"><span>${testDemo?'Onde entregar?':'Onde você quer receber?'}</span><div><span aria-hidden="true">📍</span><input id="home-address" autocomplete="${testDemo?'street-address':'postal-code'}" inputmode="${testDemo?'text':'numeric'}" maxlength="${testDemo?'160':'9'}" placeholder="${testDemo?'Digite seu endereço':'Ex.: 97300-000'}" value="${esc(testDemo?(state.address||''):String(state.postalCode||'').replace(/^(\d{5})(\d{0,3}).*$/,(m,a,b)=>b?a+'-'+b:a))}" ${disabled&&!acquisitionOpen?'disabled':''}></div></label>
+      <label class="starter-address" for="home-address"><span>${testDemo?'Onde entregar?':'Onde você quer receber?'}</span><div><span aria-hidden="true">📍</span><input id="home-address" autocomplete="${testDemo?'street-address':'postal-code'}" inputmode="${testDemo?'text':'numeric'}" maxlength="${testDemo?'160':'9'}" placeholder="${testDemo?'Digite seu endereço':'Ex.: 97300-000'}" value="${esc(testDemo?(state.address||''):String(state.postalCode||'').replace(/^(\d{5})(\d{0,3}).*$/,(m,a,b)=>b?a+'-'+b:a))}" onkeydown="if(event.key==='Enter'){event.preventDefault();startCustomerAvailability()}" ${disabled&&!acquisitionOpen?'disabled':''}></div></label>
       <button class="primary starter-cta" onclick="${primaryAction}" ${disabled&&!acquisitionOpen?'disabled':''}>${esc(featuredIcon)} ${primaryLabel}</button>
       ${cityChecked&&!hasConfirmedCityOffers&&acquisitionOpen?`<div class="regional-action"><button class="ghost" onclick="openPrelaunchCustomerLead()">Sem opção para meu CEP? Quero receber um aviso →</button></div>`:''}
       <small class="starter-footnote">${esc(freshness)}</small>
@@ -436,7 +472,7 @@ function orderPage(){
     }else if(ready&&needsContainer&&liveRuntime.lastSyncAt){
       offerBlock='<div class="empty card"><strong>Nenhuma revenda consegue fornecer carga + vasilhame desta cesta agora.</strong><br><span class="muted tiny">A opção só aparece quando os dois itens possuem preço confirmado e estoque.</span></div>';
     }else if(ready&&liveRuntime.lastSyncAt){
-      offerBlock='<div class="empty card">Nenhum parceiro consegue atender esta cesta agora.</div>';
+      offerBlock='<div class="empty card"><strong>Nenhuma opção encontrada para esta cesta e CEP agora.</strong><p class="muted tiny">Você pode tentar outra combinação ou pedir um aviso quando houver atendimento.</p><div class="order-actions"><button class="secondary small" onclick="openPrelaunchCustomerLead()">Me avise quando houver disponibilidade →</button><button class="ghost small" onclick="liveRefreshOffers().catch(()=>{})">Consultar novamente</button></div></div>';
     }else if(ready){
       offerBlock='<div class="empty card"><button class="primary" onclick="liveRefreshOffers().catch(()=>{})">Procurar opções</button></div>';
     }else{
@@ -453,6 +489,7 @@ function orderPage(){
     : '';
 
   return shell(`<section class="page"><button class="back" onclick="go('home')">← Voltar</button><span class="eyebrow">PEDIR AGORA</span><h1 class="page-title">O que você precisa e onde devemos entregar?</h1><p class="muted page-lead">Depois do endereço, você compara total e prazo antes de escolher.</p>
+${!testDemo&&/^[0-9]{8}$/.test(String(state.postalCode||''))&&!state.addressNumber?`<div class="order-handoff-note" role="status"><span aria-hidden="true">✓</span><div><strong>Seu CEP já veio da consulta.</strong><small>Falta apenas informar o número para verificarmos as ofertas do seu endereço.</small></div></div>`:''}
 ${liveNotice}
 ${pendingOrder?`<div class="notice" style="margin-bottom:14px"><strong>Você já possui um pedido em andamento.</strong><br>Conclua ou cancele o pedido ${esc(pendingOrder.publicCode||pendingOrder.id)} antes de criar outro.<br><button class="ghost small" onclick="go('tracking')">Acompanhar pedido →</button></div>`:''}
 <div class="card flat form-stack order-address-card">
@@ -460,7 +497,7 @@ ${pendingOrder?`<div class="notice" style="margin-bottom:14px"><strong>Você já
     <div class="input-wrap"><label for="postal-code">CEP</label><input id="postal-code" class="input" autocomplete="postal-code" inputmode="numeric" maxlength="9" placeholder="Ex.: 97300-000" value="${esc(String(state.postalCode||'').replace(/^(\d{5})(\d{0,3}).*$/,(m,a,b)=>b?a+'-'+b:a))}"><small class="field-help">Opcional na simulação.</small></div>
     <div class="input-wrap"><label for="address">Endereço de entrega</label><input id="address" class="input" autocomplete="street-address" maxlength="160" placeholder="Ex.: Rua General Câmara, 123" value="${esc(state.address||'')}"></div>
   </div>`:`<div class="field-row">
-    <div class="input-wrap"><label for="postal-code">CEP</label><input id="postal-code" class="input" autocomplete="postal-code" inputmode="numeric" maxlength="9" placeholder="Ex.: 97300-000" value="${esc(String(state.postalCode||'').replace(/^(\d{5})(\d{0,3}).*$/,(m,a,b)=>b?a+'-'+b:a))}" onchange="deliveryAddressDraftChanged()"><small class="field-help">O servidor confirma rua, bairro e atendimento em São Gabriel/RS.</small></div>
+    <div class="input-wrap"><label for="postal-code">CEP</label><input id="postal-code" class="input" autocomplete="postal-code" inputmode="numeric" maxlength="9" placeholder="Ex.: 97300-000" value="${esc(String(state.postalCode||'').replace(/^(\d{5})(\d{0,3}).*$/,(m,a,b)=>b?a+'-'+b:a))}" onchange="deliveryAddressDraftChanged()"><small class="field-help">O servidor confirma rua, bairro e atendimento para o CEP informado.</small></div>
     <div class="input-wrap"><label for="address-number">Número</label><input id="address-number" class="input" autocomplete="address-line2" inputmode="text" maxlength="7" placeholder="Ex.: 123" value="${esc(state.addressNumber||'')}" onchange="deliveryAddressDraftChanged()"><small class="field-help">Use números e, se necessário, uma letra.</small></div>
   </div>
   ${state.address?`<div class="notice success"><strong>Endereço confirmado pelo servidor.</strong><br>${esc(state.address)}</div>`:'<div class="notice">A rua não é digitada manualmente: ela vem do CEP validado.</div>'}`}
