@@ -31,6 +31,12 @@ if [[ -L "$TAMAO_BACKUP_DIR" ]]; then
   echo "BACKUP_BLOCKED: symlink backup directory is not allowed" >&2
   exit 3
 fi
+# File mode 600 is not sufficient when the backup directory is shared.
+dir_perms="$(stat -c %a "$backups_dir")"
+if (( (8#$dir_perms & 8#77) != 0 )); then
+  echo "BACKUP_BLOCKED: destination directory grants group/other access (use chmod 700)" >&2
+  exit 3
+fi
 export PGSSLMODE=require PGCONNECT_TIMEOUT=15
 stamp="$(date -u +%Y%m%dT%H%M%SZ)"
 target="$backups_dir/tamao-prod-before-v1-164-$stamp.dump"
