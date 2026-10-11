@@ -161,7 +161,7 @@ function prelaunchMerchantLeadSection(){
           '<label><input type="checkbox" name="partner-interest" value="ice"><span>🧊 Gelo</span></label>',
           '<label><input type="checkbox" name="partner-interest" value="other"><span>＋ Outros</span></label>',
         '</fieldset>',
-        '<div class="input-wrap"><label for="partner-note">Algo que devemos saber? <small>(opcional)</small></label><textarea id="partner-note" class="input" rows="2" maxlength="500" placeholder="Ex.: entregamos em toda São Gabriel; temos frota própria."></textarea></div>',
+        '<div class="input-wrap"><label for="partner-note">Algo que devemos saber? <small>(opcional)</small></label><textarea id="partner-note" class="input" rows="2" maxlength="500" placeholder="Ex.: atendemos vários bairros da nossa cidade; temos frota própria."></textarea></div>',
         '<input id="partner-website" class="lead-trap" tabindex="-1" autocomplete="off" aria-hidden="true" aria-label="Não preencher este campo" name="website" value="">',
         '<label class="check-row lead-consent"><input id="partner-consent" type="checkbox"><span><strong>Autorizo o TAMÃO a entrar em contato pelo WhatsApp.</strong><small>Este envio registra apenas interesse comercial; a ativação exige cadastro e validações posteriores.</small></span></label><div class="lead-privacy-note">O uso destes dados está explicado no <button class="text-link" onclick="go(\'privacy\')">Aviso de Privacidade</button>.</div>',
         '<button id="partner-submit" class="primary full" onclick="submitPrelaunchMerchantLead()">Quero conversar sobre parceria</button>',
