@@ -39,10 +39,16 @@ jobs:
       - name: Check three official domains without changing production
         env:
           TAMAO_CANDIDATE_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
-          TAMAO_EXPECTED_LIVE_SHA: ${{ github.event.pull_request.base.sha || '' }}
           TAMAO_REPORT_FILE: release-review-screenshots/LIVE-PORTALS.json
         run: |
+          set -euo pipefail
           mkdir -p release-review-screenshots
+          # The PR's base.sha may be stale after a safe hotfix lands on main.
+          # Require the live portals to match the CURRENT stable main, not
+          # the SHA captured when the PR was first created.
+          TAMAO_EXPECTED_LIVE_SHA="$(git ls-remote origin refs/heads/main | awk '{print $1}')"
+          [[ "$TAMAO_EXPECTED_LIVE_SHA" =~ ^[0-9a-f]{40}$ ]] || exit 9
+          export TAMAO_EXPECTED_LIVE_SHA
           node scripts/release-portal-readiness.mjs
 
       - name: Production publication must remain blocked
