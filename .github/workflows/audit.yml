@@ -103,6 +103,8 @@ jobs:
         run: node tests/merchant-guided-enablement-v1-158.mjs
       - name: Delivery-first progressive payment V1.158.1 regression contract
         run: node tests/delivery-first-payment-v1-158-1.mjs
+      - name: Product-scoped ANP merchant authority V1.158.2 regression contract
+        run: node tests/merchant-basket-compliance-v1-158-2.mjs
       - name: Remote admin gateway contract and portal report
         run: node tests/remote-admin-readiness.mjs
       - name: Runtime origin config contract
