@@ -100,12 +100,12 @@ await waitFor("document.body.innerText.includes('Pediu? Tá na mão.')","home af
 
 let body=await text();
 assert.match(body,/Pediu\? Tá na mão\./);
-assert.match(body,/Quero pedir agora/);
-assert.match(body,/Quero entender melhor/);
+assert.match(body,/Preciso de algo para casa/);
+assert.match(body,/Quero comprar com confiança/);
 assert.match(body,/Botijão de cozinha 13 kg/);
-assert.match(body,/PROTEÇÃO TAMÃO/);
-assert.match(body,/Quero ganhar benefícios/);
-assert.match(body,/Quero vender no TAMÃO/);
+assert.match(body,/VOCÊ ACOMPANHA\. A GENTE ORGANIZA\./);
+assert.match(body,/Quero aproveitar benefícios/);
+assert.match(body,/Tenho uma empresa/);
 assert.match(body,/Ambiente isolado de teste automatizado/);
 const publicP13ReferenceHtml=await evaluate("publicP13PriceReference()");
 assert.match(publicP13ReferenceHtml,/Referência de preço/);
@@ -188,9 +188,9 @@ assert.match(await evaluate("adminRuntime.bootstrapError='Falha simulada';adminB
 await evaluate("adminRuntime.bootstrapStatus=null;adminRuntime.bootstrapError=null");
 
 await evaluate("go('learn')");
-await waitFor("document.body.innerText.includes('Antes de pedir, veja quanto custa')","learn route");
+await waitFor("document.body.innerText.includes('Pedir o que falta pode ser muito mais simples.')","learn route");
 body=await text();
-assert.match(body,/DÚVIDAS FREQUENTES/);
+assert.match(body,/A GENTE EXPLICA/);
 assert.match(body,/Parceiro precisa confirmar/);
 await auditDom('learn');
 
@@ -221,20 +221,20 @@ assert.equal(await evaluate("document.querySelector('#public-contact-value').typ
 await auditDom('contact');
 
 await evaluate("go('earn')");
-await waitFor("document.body.innerText.includes('Comissão por indicação para pessoas')","earn route");
+await waitFor("document.body.innerText.includes('Comprar bem já é bom.')","earn route");
 body=await text();
-assert.match(body,/Indique quem realmente pode comprar/);
-assert.match(body,/Transforme pedidos adicionais em faturamento incremental/);
+assert.match(body,/Gostou da ideia\? Conte para alguém\./);
+assert.match(body,/Mais um caminho para conquistar pedidos/);
 assert.match(body,/2%/);
 assert.match(body,/Taxa TAMÃO: 7,5% por pedido concluído/);
 await auditDom('earn');
 
 await evaluate("go('merchants')");
-await waitFor("document.body.innerText.includes('SIMULADOR DE MARGEM INCREMENTAL')","merchant commercial route");
+await waitFor("document.body.innerText.includes('FAÇA AS CONTAS DO SEU JEITO')","merchant commercial route");
 body=await text();
 assert.match(body,/7,5%/);
 assert.match(body,/Sem exclusividade/);
-assert.match(body,/Você não precisa ser sempre o mais barato/);
+assert.match(body,/Oportunidade não depende apenas do menor preço/);
 assert.match(body,/VENDA PELO TAMÃO/);
 assert.equal(await evaluate("document.querySelector('#merchant-sim-product-cost').value"),'');
 assert.equal(await evaluate("document.querySelector('#merchant-sim-contribution').textContent"),'—');
@@ -306,13 +306,13 @@ body=await text();
 assert.match(body,/cashback/i);
 
 await evaluate("go('club')");
-await waitFor("document.body.innerText.includes('Clube TAMÃO')","club route");
+await waitFor("document.body.innerText.includes('CLUBE TAMÃO')","club route");
 body=await text();
 assert.match(body,/R\$\s*7,65/);
 await auditDom('club');
 
 await evaluate("go('refer')");
-await waitFor("document.body.innerText.includes('Indique um novo comprador')","referral route");
+await waitFor("document.body.innerText.includes('Conhece alguém que também gostaria')","referral route");
 body=await text();
 assert.match(body,/Saldo disponível e saque são coisas diferentes/);
 assert.match(body,/R\$\s*24,00/);
@@ -343,7 +343,7 @@ await evaluate("go('merchants')");
 await waitFor("document.body.innerText.includes('Abrir ambiente interno') && document.body.innerText.includes('VENDA PELO TAMÃO')","pilot merchant conversion landing");
 body=await text();
 assert.match(body,/Sem exclusividade/);
-assert.match(body,/SIMULADOR DE MARGEM INCREMENTAL/);
+assert.match(body,/FAÇA AS CONTAS DO SEU JEITO/);
 await evaluate("[...document.querySelectorAll('button')].find(b=>b.textContent.includes('Abrir ambiente interno')).click()");
 await waitFor("location.hash==='#merchant' && document.body.innerText.includes('PAINEL DA REVENDA — AMBIENTE INTERNO')","pilot merchant CTA");
 
