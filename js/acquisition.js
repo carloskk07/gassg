@@ -40,6 +40,12 @@ function leadPostalDigits(value){
   return String(value||'').replace(/\D/g,'').slice(0,8);
 }
 function openPrelaunchCustomerLead(){
+  const enteredPostal=leadPostalDigits(document.querySelector('#home-address')?.value||'');
+  if(enteredPostal.length===8&&enteredPostal!==leadPostalDigits(state.postalCode||'')){
+    state.postalCode=enteredPostal;
+    save();
+    render(); // A prior city's completed notification must not hide the new CEP form.
+  }
   const section=document.getElementById('early-access');
   if(!section){
     if(route()!=='home')go('home');
@@ -75,14 +81,16 @@ function prelaunchTransparencyBand(){
 }
 
 function prelaunchCustomerLeadSection(){
+  const verifiedRegion=rememberedMarketRegion();
+  const friendlyCity=verifiedRegion?esc(verifiedRegion.city):'sua região';
   if(prelaunchLeadSent('customer')){
-    return '<section class="section lead-section" id="early-access"><div class="lead-success-card"><span class="lead-success-icon">✓</span><div><span class="section-kicker">AVISO DE DISPONIBILIDADE</span><h2>Combinado! Sua região está no nosso radar.</h2><p>Você já pediu para ser avisado. Quando houver atendimento, o TAMÃO poderá entrar em contato pelo WhatsApp informado.</p></div><button class="secondary" onclick="go(\'learn\')">Conhecer o TAMÃO</button></div></section>';
+    return '<section class="section lead-section" id="early-access"><div class="lead-success-card"><span class="lead-success-icon">✓</span><div><span class="section-kicker">AVISO DE DISPONIBILIDADE</span><h2>Combinado! '+friendlyCity+' está no nosso radar.</h2><p>Você já pediu para ser avisado neste CEP. Quando houver atendimento, o TAMÃO poderá entrar em contato pelo WhatsApp informado.</p></div><button class="secondary" onclick="go(\'learn\')">Conhecer o TAMÃO</button></div></section>';
   }
   const rawPostal=leadPostalDigits(state.postalCode||'');
   const postal=rawPostal.length===8?rawPostal.replace(/^(\d{5})(\d{3})$/,'$1-$2'):rawPostal;
   return [
     '<section class="section lead-section" id="early-access"><div class="lead-shell">',
-      '<div class="lead-copy"><span class="section-kicker">CONSULTAR DISPONIBILIDADE</span><h2>Ainda não encontrou uma opção? A gente lembra de você.</h2>',
+      '<div class="lead-copy"><span class="section-kicker">CONSULTAR DISPONIBILIDADE</span><h2>Sem oferta em '+friendlyCity+'? A gente pode avisar.</h2>',
       '<p>Deixe seu CEP e WhatsApp para pedir um aviso quando houver atendimento na sua região. Assim, você não precisa voltar ao site toda hora para conferir.</p>',
       '<div class="lead-proof"><span>✓ Gratuitamente</span><span>✓ Nenhum pedido é criado</span><span>✓ Você decide se quer comprar</span></div></div>',
       '<div class="lead-form card flat">',
