@@ -66,23 +66,7 @@ select p_merchant_id is not null
         or (p_payment_method='card'
           and r.payment_method in ('card_credit','card_debit'))
       )
-      and (
-        r.verification_mode='merchant_confirmed'
-        or (
-          r.verification_mode='device'
-          and exists (
-            select 1 from public.merchant_payment_provider_accounts a
-            where a.id=r.connection_id
-              and a.merchant_id=r.merchant_id
-              and a.provider=r.provider
-              and a.status='active'
-              and coalesce(
-                (a.capabilities->>'canValidateProviderTransactions')::boolean,
-                false
-              )
-          )
-        )
-      )
+      and r.verification_mode='merchant_confirmed'
   );
 $func$;
 revoke all on function public.merchant_delivery_payment_allowed(uuid,text)
