@@ -340,7 +340,7 @@ assert.deepEqual(
 assert.equal(await evaluate("productPrice(state.merchants[0],'P13',1)"),117.95);
 
 await evaluate("go('merchants')");
-await waitFor("document.body.innerText.includes('Abrir ambiente interno') && document.body.innerText.includes('VENDA PELO TAMÃO')","pilot merchant conversion landing");
+await waitFor("document.body.innerText.includes('Abrir ambiente interno') && document.body.innerText.includes('TAMÃO PARA REVENDEDORES')","pilot merchant conversion landing");
 body=await text();
 assert.match(body,/Sem exclusividade/);
 assert.match(body,/FAÇA AS CONTAS DO SEU JEITO/);
