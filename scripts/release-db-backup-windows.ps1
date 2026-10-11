@@ -64,30 +64,64 @@ $env:PGUSER = $DbUser
 $env:PGSSLMODE = 'require'
 $env:PGCONNECT_TIMEOUT = '15'
 $archive = $null
+$stagingArchive = $null
+$stagingHash = $null
+$hashFile = $null
+$archivePublished = $false
+$hashPublished = $false
 try {
   New-Item -ItemType Directory -Path $targetDir -Force | Out-Null
   $stamp = [DateTime]::UtcNow.ToString('yyyyMMddTHHmmssZ')
   $archive = Join-Path $targetDir "tamao-prod-before-v1-164-$stamp.dump"
-  if (Test-Path -LiteralPath $archive) { throw 'Arquivo de backup existente. Não sobrescrever.' }
-  & $dump --format=custom --no-owner --file=$archive
-  if ($LASTEXITCODE -ne 0) { throw 'Falha ao exportar o banco.' }
-  if (-not (Test-Path -LiteralPath $archive) -or
-      (Get-Item -LiteralPath $archive).Length -eq 0) { throw 'Arquivo vazio.' }
-  & $restore --list $archive | Out-Null
-  if ($LASTEXITCODE -ne 0) { throw 'Backup falhou na leitura de catálogo.' }
-  $hash = (Get-FileHash -LiteralPath $archive -Algorithm SHA256).Hash
   $hashFile = "$archive.sha256.txt"
-  "SHA256 $hash" | Set-Content -LiteralPath $hashFile -Encoding ascii
+  if ((Test-Path -LiteralPath $archive) -or (Test-Path -LiteralPath $hashFile)) {
+    throw 'Já existe um checkpoint ou checksum com este nome. Não sobrescrever.'
+  }
+  # Only a unique temporary file is written by pg_dump. A failed attempt does
+  # not overwrite or leave a seemingly valid production checkpoint.
+  $nonce = [Guid]::NewGuid().ToString('N')
+  $stagingArchive = Join-Path $targetDir ('.tamao-' + $nonce + '.partial')
+  $stagingHash = Join-Path $targetDir ('.tamao-' + $nonce + '.sha256.partial')
+  & $dump --format=custom --no-owner --file=$stagingArchive
+  if ($LASTEXITCODE -ne 0) { throw 'Falha ao exportar o banco.' }
+  if (-not (Test-Path -LiteralPath $stagingArchive) -or
+      (Get-Item -LiteralPath $stagingArchive).Length -eq 0) {
+    throw 'Arquivo de backup incompleto ou vazio.'
+  }
+  & $restore --list $stagingArchive | Out-Null
+  if ($LASTEXITCODE -ne 0) { throw 'Backup falhou na leitura de catálogo.' }
+  $hash = (Get-FileHash -LiteralPath $stagingArchive -Algorithm SHA256).Hash
+  "SHA256 $hash" | Set-Content -LiteralPath $stagingHash -Encoding ascii
+
+  # The two-argument File.Move refuses an existing target. Move inside the
+  # same directory so a concurrent invocation cannot overwrite a checkpoint.
+  [System.IO.File]::Move($stagingArchive, $archive)
+  $archivePublished = $true
+  [System.IO.File]::Move($stagingHash, $hashFile)
+  $hashPublished = $true
+  if ((Get-FileHash -LiteralPath $archive -Algorithm SHA256).Hash -ne $hash) {
+    throw 'Hash do checkpoint mudou após a publicação.'
+  }
   Write-Host ('Backup privado criado: ' + $archive)
   Write-Host ('Checksum registrado: ' + $hashFile)
   Write-Host 'Antes de migrar, RESTAURE este arquivo em um banco isolado e confira os dados.'
   Write-Host 'Não anexe o backup a chats, issues, PRs nem uploads públicos.'
 } catch {
-  if ($archive -and (Test-Path -LiteralPath $archive)) {
-    Remove-Item -LiteralPath $archive -Force
+  # Delete only files this invocation actually published, never the work of
+  # another concurrent backup process that happened to choose the same second.
+  if ($hashPublished -and (Test-Path -LiteralPath $hashFile)) {
+    Remove-Item -LiteralPath $hashFile -Force -ErrorAction SilentlyContinue
+  }
+  if ($archivePublished -and (Test-Path -LiteralPath $archive)) {
+    Remove-Item -LiteralPath $archive -Force -ErrorAction SilentlyContinue
   }
   throw
 } finally {
+  foreach ($partial in @($stagingArchive,$stagingHash)) {
+    if ($partial -and (Test-Path -LiteralPath $partial)) {
+      Remove-Item -LiteralPath $partial -Force -ErrorAction SilentlyContinue
+    }
+  }
   Remove-Item Env:PGPASSWORD -ErrorAction SilentlyContinue
   Remove-Item Env:PGHOST -ErrorAction SilentlyContinue
   Remove-Item Env:PGPORT -ErrorAction SilentlyContinue
