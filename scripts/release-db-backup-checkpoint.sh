@@ -46,7 +46,13 @@ trap cleanup EXIT
 pg_dump --format=custom --no-owner --file="$temp"
 pg_restore --list "$temp" >/dev/null
 [[ -s "$temp" ]] || { echo "BACKUP_FAILED: empty database archive" >&2; exit 4; }
-mv -n "$temp" "$target"
+# Hard-link in the same directory is atomic and refuses an existing destination.
+# Unlike mv -n, a conflicting writer cannot produce a false successful checkpoint.
+if ! ln "$temp" "$target"; then
+  echo "BACKUP_BLOCKED: checkpoint already exists or cannot be published safely" >&2
+  exit 3
+fi
+rm -f "$temp"
 chmod 600 "$target"
 sha256sum "$target" >"$target.sha256"
 chmod 600 "$target.sha256"
