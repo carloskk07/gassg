@@ -43,5 +43,49 @@
     "first-real-merchant-payment-and-delivery-homologation",
     "business-authorization-for-opening-commerce"
   ],
-  "notes": "Passing isolated GitHub tests does not authorize main merge or commerce. PostgreSQL transaction rollback tests are not applied migrations."
+  "notes": "Public acquisition and approved merchants can be staged independently of first completed real sale. No main merge is authorized without proving backend compatibility and reviewing Cloudflare auto publication. Commerce remains blocked until separate city/product gates pass.",
+  "releasePhases": {
+    "publicAcquisition": {
+      "desiredState": "ready-for-deployment-after-compatible-backend",
+      "commerceMustRemainDisabled": true,
+      "scope": [
+        "informational-pages",
+        "city-cep-inquiry",
+        "optional-consented-customer-notification",
+        "merchant-interest-and-onboarding"
+      ],
+      "prerequisites": [
+        "release-integrated-audit-passed",
+        "database-migrations-compatible-and-applied-before-new-edge-calls",
+        "five-edge-functions-compatible-and-deployed",
+        "three-official-portals-same-committed-source-sha-and-https",
+        "customer-opt-in-consent-and-delete-path-reviewed",
+        "no-fictional-local-offer-price-or-delivery-promises",
+        "cloudflare-git-auto-deploy-and-rollback-verified"
+      ],
+      "blockersNotRequired": [
+        "first-real-sale",
+        "merchant-anp-for-unavailable-GLP-merchant",
+        "PSP-seller-homologation-if-no-real-checkout"
+      ]
+    },
+    "commercePerCity": {
+      "desiredState": "blocked-until-merchant-elegibility",
+      "scope": [
+        "live-quotes",
+        "real-order-acceptance",
+        "payment-direct-to-merchant",
+        "delivery-pin",
+        "platform-fee-postpaid"
+      ],
+      "prerequisites": [
+        "all-public-acquisition-prerequisites",
+        "legally-verified-active-merchant-and-authorized-representative",
+        "product-specific-regulatory-gates-ANP-if-GLP",
+        "live-multi-city-cep-price-and-stock-eligibility",
+        "first-real-payment-and-delivery-homologation",
+        "admin-authorized-global-commerce-opening"
+      ]
+    }
+  }
 }
