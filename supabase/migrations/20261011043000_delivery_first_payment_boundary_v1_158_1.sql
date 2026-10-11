@@ -19,6 +19,21 @@ alter table public.orders
   add constraint orders_payment_timing_check
     check (payment_timing in ('on_delivery','prepaid'));
 
+-- Preserve historical payment evidence: an order that already had a hosted
+-- or Pix provider checkout must not silently become a delivery-only order.
+-- This is an evidence-based backfill, never a grant of new prepaid eligibility.
+update public.orders o
+set payment_timing='prepaid'
+where exists(
+  select 1 from public.merchant_sale_payment_attempts a
+  where a.order_id=o.id
+    and a.checkout_mode in ('hosted','pix','external_link')
+    and a.status in (
+      'preparing','checkout_ready','pending','approved','review_required',
+      'refunded','cancelled','expired','rejected'
+    )
+);
+
 -- A legacy manual/external Pix route records acceptance of Pix without
 -- authorizing a hosted checkout. Convert only that explicitly active,
 -- merchant-confirmed route into Pix accepted at the moment of delivery.
