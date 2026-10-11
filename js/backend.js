@@ -210,6 +210,9 @@ const liveRuntime={
   order:null,
   orderId:null,
   loadingOffers:false,
+  activeOfferFingerprint:null,
+  lastOfferFingerprint:null,
+  lastOfferCheckedAt:0,
   actionPending:false,
   error:null,
   deliveryCompatibilityBlocked:false,
@@ -544,22 +547,65 @@ function liveOfferView(raw){
 }
 
 let liveOfferTimer=null;
+const AUTO_OFFER_MIN_INTERVAL_MS=20000;
 function liveAddressDraftReady(){
   return /^[0-9]{8}$/.test(String(state.postalCode||''))
     && /^[0-9]{1,6}[A-Za-z]?$/.test(String(state.addressNumber||''))
     && hasCartItems();
 }
-function liveScheduleOfferRefresh(delay=350){
-  if(!liveReady())return;
+function liveOfferRequestFingerprint(){
+  if(!liveAddressDraftReady())return null;
+  return JSON.stringify({
+    postalCode:state.postalCode,
+    addressNumber:String(state.addressNumber||'').trim().toUpperCase(),
+    items:liveCartItems(),
+    paymentMethod:state.checkout.paymentMethod,
+    deliveryWindowStart:state.checkout.deliveryMode==='scheduled'
+      ?state.checkout.deliveryWindowStart:null,
+    deliveryWindowEnd:state.checkout.deliveryMode==='scheduled'
+      ?state.checkout.deliveryWindowEnd:null
+  });
+}
+// Called as soon as the user edits either address field. Invalidate in-flight
+// responses before debounce so old quotes cannot confirm a different address.
+function liveInvalidateOfferAddressDraft(){
   clearTimeout(liveOfferTimer);
+  liveOfferTimer=null;
+  ++liveRuntime.offerRequestSeq;
+  liveRuntime.offers=[];
+  liveRuntime.loadingOffers=false;
+  liveRuntime.activeOfferFingerprint=null;
+  liveRuntime.lastOfferFingerprint=null;
+  liveRuntime.lastOfferCheckedAt=0;
+  liveRuntime.postalValidated=false;
+  liveRuntime.lastCityCheck=null;
+  liveRuntime.lastSyncAt=null;
+  liveRuntime.error=null;
+}
+function liveScheduleOfferRefresh(delay=350){
+  clearTimeout(liveOfferTimer);
+  liveOfferTimer=null;
+  if(!liveReady()||!liveAddressDraftReady())return;
+  const scheduledFingerprint=liveOfferRequestFingerprint();
   liveOfferTimer=setTimeout(()=>{
-    if(liveAddressDraftReady()){
-      liveRefreshOffers().catch(()=>{});
-    }
-  },delay);
+    liveOfferTimer=null;
+    if(!liveReady()||!liveAddressDraftReady()||route()!=='order')return;
+    if(liveOfferRequestFingerprint()!==scheduledFingerprint)return;
+    if(liveRuntime.loadingOffers
+      &&liveRuntime.activeOfferFingerprint===scheduledFingerprint)return;
+    if(liveRuntime.lastOfferFingerprint===scheduledFingerprint
+      &&Date.now()-liveRuntime.lastOfferCheckedAt<AUTO_OFFER_MIN_INTERVAL_MS)return;
+    liveRefreshOffers().catch(()=>{});
+  },Math.max(150,Number(delay)||350));
 }
 
 async function liveRefreshOffers({silent=false}={}){
+  clearTimeout(liveOfferTimer);
+  liveOfferTimer=null;
+  const fingerprint=liveOfferRequestFingerprint();
+  if(fingerprint&&liveRuntime.loadingOffers&&liveRuntime.activeOfferFingerprint===fingerprint){
+    return liveRuntime.offers;
+  }
   const seq=++liveRuntime.offerRequestSeq;
   if(!liveReady()||!liveAddressDraftReady()){
     liveRuntime.offers=[];
@@ -572,6 +618,7 @@ async function liveRefreshOffers({silent=false}={}){
     liveRuntime.paymentMethodUnavailable=false;
     liveRuntime.postalValidated=false;
     liveRuntime.loadingOffers=false;
+    liveRuntime.activeOfferFingerprint=null;
     if(!silent)render();
     return [];
   }
@@ -597,6 +644,7 @@ async function liveRefreshOffers({silent=false}={}){
   liveRuntime.paymentMethodUnavailable=false;
   liveRuntime.postalValidated=false;
   liveRuntime.loadingOffers=true;
+  liveRuntime.activeOfferFingerprint=fingerprint;
   liveRuntime.error=null;
   if(!silent)render();
   try{
@@ -654,6 +702,8 @@ async function liveRefreshOffers({silent=false}={}){
       liveRuntime.lastCityCheck=null;
     }
     liveRuntime.lastSyncAt=new Date().toISOString();
+    liveRuntime.lastOfferFingerprint=fingerprint;
+    liveRuntime.lastOfferCheckedAt=Date.now();
     return liveRuntime.offers;
   }catch(error){
     if(seq===liveRuntime.offerRequestSeq){
@@ -667,11 +717,14 @@ async function liveRefreshOffers({silent=false}={}){
       liveRuntime.postalValidated=false;
       liveRuntime.lastCityCheck=null;
       liveRuntime.error=String(error?.message||error);
+      liveRuntime.lastOfferFingerprint=null;
+      liveRuntime.lastOfferCheckedAt=0;
     }
     throw error;
   }finally{
     if(seq===liveRuntime.offerRequestSeq){
       liveRuntime.loadingOffers=false;
+      liveRuntime.activeOfferFingerprint=null;
       if(!silent)render();
     }
   }
@@ -2222,6 +2275,8 @@ globalThis.liveBanner=liveBanner;
 globalThis.liveAddressDraftReady=liveAddressDraftReady;
 globalThis.liveRefreshOffers=liveRefreshOffers;
 globalThis.liveScheduleOfferRefresh=liveScheduleOfferRefresh;
+globalThis.liveInvalidateOfferAddressDraft=liveInvalidateOfferAddressDraft;
+globalThis.liveOfferRequestFingerprint=liveOfferRequestFingerprint;
 globalThis.liveCreateOrder=liveCreateOrder;
 globalThis.liveGetOrder=liveGetOrder;
 globalThis.liveStartMerchantPayment=liveStartMerchantPayment;
