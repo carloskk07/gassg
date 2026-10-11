@@ -32,7 +32,8 @@ assert.ok(growth.includes("prefillCnpj=String(prospectDetails?.cnpj||ownApplicat
 assert.ok(growth.includes("esc(ownApplication?.phone||'')"),'existing phone escaped');
 assert.ok(growth.includes("esc(ownApplication?.address_text||'')"),'existing address escaped');
 assert.ok(growth.includes('Cadastro já recebido.'));
-assert.ok(growth.includes('Reenviar cadastro corrigido'));
+assert.ok(growth.includes('Reenviar meus dados corrigidos'));
+assert.ok(growth.includes('Atualizar cadastro')||growth.includes('Salvar meus dados atualizados'),'resumable signup must keep update state');
 assert.ok(growth.includes("ownStatus==='approved'"),'approved app cannot resubmit from UI');
 assert.ok(merchant.includes('Cadastro em análise'));
 assert.ok(merchant.includes('Cadastro precisa de correção'));

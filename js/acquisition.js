@@ -76,15 +76,15 @@ function prelaunchTransparencyBand(){
 
 function prelaunchCustomerLeadSection(){
   if(prelaunchLeadSent('customer')){
-    return '<section class="section lead-section" id="early-access"><div class="lead-success-card"><span class="lead-success-icon">✓</span><div><span class="section-kicker">AVISO DE DISPONIBILIDADE</span><h2>Seu contato já foi registrado.</h2><p>Quando houver disponibilidade para sua região, o TAMÃO poderá avisar pelo WhatsApp informado.</p></div><button class="secondary" onclick="go(\'learn\')">Conhecer o TAMÃO</button></div></section>';
+    return '<section class="section lead-section" id="early-access"><div class="lead-success-card"><span class="lead-success-icon">✓</span><div><span class="section-kicker">AVISO DE DISPONIBILIDADE</span><h2>Combinado! Sua região está no nosso radar.</h2><p>Você já pediu para ser avisado. Quando houver atendimento, o TAMÃO poderá entrar em contato pelo WhatsApp informado.</p></div><button class="secondary" onclick="go(\'learn\')">Conhecer o TAMÃO</button></div></section>';
   }
   const rawPostal=leadPostalDigits(state.postalCode||'');
   const postal=rawPostal.length===8?rawPostal.replace(/^(\d{5})(\d{3})$/,'$1-$2'):rawPostal;
   return [
     '<section class="section lead-section" id="early-access"><div class="lead-shell">',
-      '<div class="lead-copy"><span class="section-kicker">CONSULTAR DISPONIBILIDADE</span><h2>Quer receber pelo TAMÃO nesta região?</h2>',
-      '<p>Informe seu WhatsApp e CEP. Se ainda não houver uma revenda disponível para atender, avisamos quando a cobertura chegar à sua região.</p>',
-      '<div class="lead-proof"><span>✓ Cadastro gratuito</span><span>✓ Sem pedido automático</span><span>✓ Você escolhe quando comprar</span></div></div>',
+      '<div class="lead-copy"><span class="section-kicker">CONSULTAR DISPONIBILIDADE</span><h2>Ainda não encontrou uma opção? A gente lembra de você.</h2>',
+      '<p>Deixe seu CEP e WhatsApp para pedir um aviso quando houver atendimento na sua região. Assim, você não precisa voltar ao site toda hora para conferir.</p>',
+      '<div class="lead-proof"><span>✓ Gratuitamente</span><span>✓ Nenhum pedido é criado</span><span>✓ Você decide se quer comprar</span></div></div>',
       '<div class="lead-form card flat">',
         '<div class="field-row"><div class="input-wrap"><label for="prelaunch-name">Seu nome <small>(opcional)</small></label><input id="prelaunch-name" class="input" maxlength="120" autocomplete="name" placeholder="Como podemos chamar você?"></div>',
         '<div class="input-wrap"><label for="prelaunch-phone">WhatsApp</label><input id="prelaunch-phone" class="input" maxlength="20" inputmode="tel" autocomplete="tel" placeholder="(55) 99999-9999"></div></div>',
@@ -99,7 +99,7 @@ function prelaunchCustomerLeadSection(){
         '</fieldset>',
         '<input id="prelaunch-website" class="lead-trap" tabindex="-1" autocomplete="off" aria-hidden="true" aria-label="Não preencher este campo" name="website" value="">',
         '<label class="check-row lead-consent"><input id="prelaunch-consent" type="checkbox"><span><strong>Quero receber um aviso de disponibilidade pelo WhatsApp.</strong><small>Usaremos estes dados somente para informar disponibilidade e atendimento. Nenhuma compra é criada por este cadastro.</small></span></label><div class="lead-privacy-note">Saiba como tratamos seus dados no <button class="text-link" onclick="go(\'privacy\')">Aviso de Privacidade</button>.</div>',
-        '<button id="prelaunch-submit" class="primary full" onclick="submitPrelaunchCustomerLead()">Quero receber aviso de disponibilidade</button>',
+        '<button id="prelaunch-submit" class="primary full" onclick="submitPrelaunchCustomerLead()">Me avise quando puder pedir →</button>',
         '<div id="prelaunch-result" class="lead-result" role="status" aria-live="polite"></div>',
       '</div></div>',
       '<div class="lead-partner-link"><span>Tem uma revenda ou comércio local?</span><button class="ghost small" onclick="go(\'merchants\')">Quero vender no TAMÃO →</button></div>',
@@ -141,13 +141,13 @@ async function submitPrelaunchCustomerLead(){
 }
 function prelaunchMerchantLeadSection(){
   if(prelaunchLeadSent('merchant')){
-    return '<section class="section" id="partner-interest"><div class="lead-success-card partner"><span class="lead-success-icon">✓</span><div><span class="section-kicker">CADASTRO DE PARCEIRO</span><h2>Interesse da sua empresa já registrado.</h2><p>O TAMÃO poderá entrar em contato pelo WhatsApp informado para conhecer sua operação e orientar os próximos passos.</p></div></div></section>';
+    return '<section class="section" id="partner-interest"><div class="lead-success-card partner"><span class="lead-success-icon">✓</span><div><span class="section-kicker">CADASTRO DE PARCEIRO</span><h2>Que bom ter sua empresa por aqui!</h2><p>Recebemos seu interesse. O TAMÃO poderá entrar em contato pelo WhatsApp para conhecer melhor o seu negócio e orientar os próximos passos.</p></div></div></section>';
   }
   return [
     '<section class="section" id="partner-interest"><div class="partner-lead-shell">',
-      '<div class="lead-copy"><span class="section-kicker">VENDA PELO TAMÃO</span><h2>Cadastre sua empresa em menos de 1 minuto.</h2>',
-      '<p>Comece com os dados básicos da sua empresa. Depois, o TAMÃO orienta o cadastro operacional necessário para receber pedidos.</p>',
-      '<div class="lead-proof"><span>✓ Sem exclusividade</span><span>✓ Sem mensalidade no modelo atual</span><span>✓ Você controla preço e disponibilidade</span></div></div>',
+      '<div class="lead-copy"><span class="section-kicker">VENDA PELO TAMÃO</span><h2>Vamos apresentar sua empresa ao TAMÃO?</h2>',
+      '<p>Conte o que você vende e deixe um contato. Este é o primeiro passo para conhecer um canal de vendas que respeita o ritmo da sua empresa.</p>',
+      '<div class="lead-proof"><span>✓ Seu negócio continua seu</span><span>✓ Sem mensalidade no modelo atual</span><span>✓ Você decide quais pedidos aceitar</span></div></div>',
       '<div class="lead-form card flat">',
         '<div class="input-wrap"><label for="partner-business">Nome da empresa</label><input id="partner-business" class="input" maxlength="120" autocomplete="organization" placeholder="Nome da revenda ou comércio"></div>',
         '<div class="field-row"><div class="input-wrap"><label for="partner-name">Seu nome</label><input id="partner-name" class="input" maxlength="120" autocomplete="name" placeholder="Responsável"></div>',
@@ -164,7 +164,7 @@ function prelaunchMerchantLeadSection(){
         '<div class="input-wrap"><label for="partner-note">Algo que devemos saber? <small>(opcional)</small></label><textarea id="partner-note" class="input" rows="2" maxlength="500" placeholder="Ex.: entregamos em toda São Gabriel; temos frota própria."></textarea></div>',
         '<input id="partner-website" class="lead-trap" tabindex="-1" autocomplete="off" aria-hidden="true" aria-label="Não preencher este campo" name="website" value="">',
         '<label class="check-row lead-consent"><input id="partner-consent" type="checkbox"><span><strong>Autorizo o TAMÃO a entrar em contato pelo WhatsApp.</strong><small>Este envio registra apenas interesse comercial; a ativação exige cadastro e validações posteriores.</small></span></label><div class="lead-privacy-note">O uso destes dados está explicado no <button class="text-link" onclick="go(\'privacy\')">Aviso de Privacidade</button>.</div>',
-        '<button id="partner-submit" class="primary full" onclick="submitPrelaunchMerchantLead()">Quero conversar sobre parceria</button>',
+        '<button id="partner-submit" class="primary full" onclick="submitPrelaunchMerchantLead()">Quero apresentar minha empresa →</button>',
         '<div id="partner-result" class="lead-result" role="status" aria-live="polite"></div>',
       '</div>',
     '</div></section>'

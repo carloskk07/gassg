@@ -266,7 +266,7 @@ function home(){
   const eyebrow=testDemo
     ? internalPilot?'● AMBIENTE INTERNO — SEM PEDIDOS':'● AMBIENTE DE TESTE'
     : '● TAMÃO • '+regionLabel.toUpperCase();
-  const primaryLabel=internalPilot?'Validar jornada':outsideOriginalMarket?'Consultar minha cidade':acquisitionOpen?'Consultar disponibilidade':'Ver preços e prazos';
+  const primaryLabel=internalPilot?'Validar jornada':outsideOriginalMarket?'Consultar minha cidade':acquisitionOpen?'Consultar disponibilidade':'Ver ofertas perto de mim';
   const primaryAction='startCustomerAvailability()';
   const singleMarket=internalPilot||(ready&&market?.availableNow&&Number(market?.availableMerchantCount||0)===1);
   const heroJourney=singleMarket
@@ -275,41 +275,43 @@ function home(){
       : 'Informe onde quer receber, veja o preço total e o prazo do parceiro disponível e acompanhe cada etapa até a entrega.'
     : 'Informe onde quer receber, compare as opções disponíveis e acompanhe cada etapa até a entrega.';
   const intentSection=acquisitionOpen
-    ? `<section class="section intent-section"><div class="section-head"><div><span class="section-kicker">COMECE POR AQUI</span><h2>Você quer comprar ou vender pelo TAMÃO?</h2><p>Escolha o que precisa e siga o fluxo correspondente.</p></div></div>
+    ? `<section class="section intent-section"><div class="section-head"><div><span class="section-kicker">COMECE POR AQUI</span><h2>Seu próximo passo é simples.</h2><p>Peça o que precisa, tire dúvidas ou cadastre seu negócio. Você escolhe por onde começar.</p></div></div>
 <div class="intent-grid prelaunch-intent-grid">
-  <button class="intent-card intent-primary" onclick="startCustomerAvailability()"><span class="intent-icon">📍</span><span><strong>Quero comprar</strong><small>Informe seu CEP e consulte as opções. Se não houver atendimento, você pode receber um aviso.</small></span><b>→</b></button>
-  <button class="intent-card" onclick="go('learn')"><span class="intent-icon">🛡️</span><span><strong>Quero entender primeiro</strong><small>Veja como funcionam preço, confirmação, entrega e proteção.</small></span><b>→</b></button>
-  <button class="intent-card" onclick="go('merchants')"><span class="intent-icon">🏪</span><span><strong>Quero vender no TAMÃO</strong><small>Conheça custos e registre o interesse da sua empresa.</small></span><b>→</b></button>
+  <button class="intent-card intent-primary" onclick="startCustomerAvailability()"><span class="intent-icon">📍</span><span><strong>Quero resolver o que faltou</strong><small>Consulte pelo CEP. Se a sua região ainda não tiver atendimento, peça para receber um aviso.</small></span><b>→</b></button>
+  <button class="intent-card" onclick="go('learn')"><span class="intent-icon">🛡️</span><span><strong>Quero comprar com confiança</strong><small>Veja como conferimos preço, confirmação e entrega.</small></span><b>→</b></button>
+  <button class="intent-card" onclick="go('merchants')"><span class="intent-icon">🏪</span><span><strong>Quero trazer minha empresa</strong><small>Descubra o canal de vendas e o que você continua controlando.</small></span><b>→</b></button>
 </div></section>`
-    : `<section class="section intent-section"><div class="section-head"><div><span class="section-kicker">ESCOLHA SEU CAMINHO</span><h2>Comprar, economizar, indicar ou vender.</h2><p>Cada objetivo tem uma jornada própria no TAMÃO.</p></div></div>
+    : `<section class="section intent-section"><div class="section-head"><div><span class="section-kicker">ESCOLHA SEU CAMINHO</span><h2>Tem espaço para você no TAMÃO.</h2><p>Compre com tranquilidade, conheça os benefícios ou leve sua empresa para mais clientes.</p></div></div>
 <div class="intent-grid">
-  <button class="intent-card intent-primary" onclick="quickProduct('P13')" ${disabled?'disabled':''}><span class="intent-icon">🔥</span><span><strong>Quero pedir agora</strong><small>Consulte preço total e prazo de entrega.</small></span><b>→</b></button>
-  <button class="intent-card" onclick="go('learn')"><span class="intent-icon">🛡️</span><span><strong>Quero entender melhor</strong><small>Veja como compra, pagamento e entrega funcionam.</small></span><b>→</b></button>
-  <button class="intent-card" onclick="go('earn')"><span class="intent-icon">🎁</span><span><strong>Quero ganhar benefícios</strong><small>Cashback e indicação aparecem separados e com regras claras.</small></span><b>→</b></button>
-  <button class="intent-card" onclick="go('merchants')"><span class="intent-icon">🏪</span><span><strong>Quero vender no TAMÃO</strong><small>Transforme a plataforma em um canal adicional para sua empresa.</small></span><b>→</b></button>
+  <button class="intent-card intent-primary" onclick="quickProduct('P13')" ${disabled?'disabled':''}><span class="intent-icon">🔥</span><span><strong>Preciso de algo para casa</strong><small>Veja produtos, valores e previsão de entrega para seu endereço.</small></span><b>→</b></button>
+  <button class="intent-card" onclick="go('learn')"><span class="intent-icon">🛡️</span><span><strong>Quero comprar com confiança</strong><small>Veja como funcionam o pedido, o pagamento e a entrega.</small></span><b>→</b></button>
+  <button class="intent-card" onclick="go('earn')"><span class="intent-icon">🎁</span><span><strong>Quero aproveitar benefícios</strong><small>Descubra cashback e indicações quando estiverem disponíveis.</small></span><b>→</b></button>
+  <button class="intent-card" onclick="go('merchants')"><span class="intent-icon">🏪</span><span><strong>Tenho uma empresa</strong><small>Mais um canal para ser encontrado, sem abrir mão dos seus clientes.</small></span><b>→</b></button>
 </div></section>`;
 
   return shell(`<section class="hero marketing-hero"><div class="hero-grid"><div>
     <span class="eyebrow">${eyebrow}</span>
-    <h1>Pediu? Tá na mão.</h1>
-    <p><strong>Gás, água e essenciais perto de você.</strong> ${esc(outsideOriginalMarket?'Consulte a cobertura de '+regionLabel+' pelo CEP. Quando ainda não houver ofertas, você poderá receber um aviso de disponibilidade.':heroJourney)}</p>
+    <div class="hero-overline">A VIDA NÃO PARA QUANDO ALGO FALTA.</div>
+    <h1>Faltou em casa?<br><span class="hero-highlight">Tá na mão.</span></h1>
+    <p class="hero-lead"><strong>Gás, água e o essencial do dia a dia, em um só lugar.</strong> ${esc(outsideOriginalMarket?'Descubra a cobertura em '+regionLabel+' pelo CEP. Se não houver ofertas disponíveis, você poderá deixar seu contato para receber um aviso.':heroJourney)}</p>
+    <div class="hero-emotional-promise"><span aria-hidden="true">✦</span><span>Menos tempo procurando. Mais clareza para escolher.</span></div>
 
     <div class="purchase-starter" aria-label="Iniciar compra de gás">
-      <div class="starter-product"><div class="starter-product-icon">🔥</div><div><span class="starter-label">MAIS PROCURADO</span><strong>Botijão de cozinha 13 kg</strong><small>P13 • GLP</small></div><div class="starter-price"><small>CONSULTA</small><b>${priceText}</b></div></div>
-      <label class="starter-address" for="home-address"><span>${testDemo?'Onde entregar?':'CEP de entrega'}</span><div><span aria-hidden="true">📍</span><input id="home-address" autocomplete="${testDemo?'street-address':'postal-code'}" inputmode="${testDemo?'text':'numeric'}" maxlength="${testDemo?'160':'9'}" placeholder="${testDemo?'Digite seu endereço':'Ex.: 97300-000'}" value="${esc(testDemo?(state.address||''):String(state.postalCode||'').replace(/^(\d{5})(\d{0,3}).*$/,(m,a,b)=>b?a+'-'+b:a))}" ${disabled?'disabled':''}></div></label>
+      <div class="starter-product"><div class="starter-product-icon">🔥</div><div><span class="starter-label">COMECE PELO GÁS</span><strong>Botijão de cozinha 13 kg</strong><small>P13 • GLP</small></div><div class="starter-price"><small>CONSULTA</small><b>${priceText}</b></div></div>
+      <label class="starter-address" for="home-address"><span>${testDemo?'Onde entregar?':'Onde você quer receber?'}</span><div><span aria-hidden="true">📍</span><input id="home-address" autocomplete="${testDemo?'street-address':'postal-code'}" inputmode="${testDemo?'text':'numeric'}" maxlength="${testDemo?'160':'9'}" placeholder="${testDemo?'Digite seu endereço':'Ex.: 97300-000'}" value="${esc(testDemo?(state.address||''):String(state.postalCode||'').replace(/^(\d{5})(\d{0,3}).*$/,(m,a,b)=>b?a+'-'+b:a))}" ${disabled?'disabled':''}></div></label>
       <button class="primary starter-cta" onclick="${primaryAction}" ${disabled&&!acquisitionOpen?'disabled':''}>🔥 ${primaryLabel}</button>
       <small class="starter-footnote">${esc(freshness)}</small>
     </div>
 
-    <div class="trust-row"><span class="trust-chip">✓ Total antes de pedir</span><span class="trust-chip">✓ Parceiro precisa aceitar</span><span class="trust-chip">✓ Entrega acompanhada</span></div>
+    <div class="trust-row" aria-label="O que você pode esperar"><span class="trust-chip">✓ Veja o valor antes</span><span class="trust-chip">✓ Pedido com aceite real</span><span class="trust-chip">✓ Acompanhe a entrega</span></div>
     ${showPublicP13Reference?publicP13PriceReference():''}
     ${internalPilot?'<div class="notice" style="margin-top:14px"><strong>Ambiente de validação interna.</strong><br>Nenhuma ação nesta prévia gera pedido real, cobrança ou baixa de estoque. O dado comercial real carregado no cenário é a faixa P13: R$ 115,90 mínimo, R$ 120,00 normal e R$ 125,00 máximo, com entrega incluída.</div>':''}
   </div>
   <div class="hero-visual" aria-label="Resumo visual dos benefícios do TAMÃO">
-    <div class="visual-top"><span class="visual-dot"></span><strong>Pediu? Tá na mão.</strong><span class="visual-live">TAMÃO</span></div>
+    <div class="visual-top"><span class="visual-dot"></span><strong>É assim que seu pedido avança</strong><span class="visual-live">EXEMPLO DE JORNADA</span></div>
     <div class="visual-product"><div class="visual-icon">🔥</div><div><strong>Botijão 13 kg</strong><small>Veja o total antes de pedir</small></div></div>
     <div class="visual-choice"><span><strong>Mais econômico</strong><small>Compare pelo total</small></span><span><strong>Mais rápido</strong><small>Compare pelo prazo</small></span></div>
-    <div class="visual-status"><span class="visual-check">✓</span><div><strong>Tá na mão: parceiro confirmou</strong><small>Você só vê “A caminho” depois da saída confirmada.</small></div></div>
+    <div class="visual-status"><span class="visual-check">✓</span><div><strong>Você sabe quando foi confirmado</strong><small>O status “A caminho” só aparece após a saída informada pela revenda.</small></div></div>
   </div></div></section>
 
 ${acquisitionOpen?prelaunchCustomerLeadSection():''}
@@ -318,16 +320,16 @@ ${reorderCard}
 
 ${intentSection}
 
-<section class="section"><div class="protection-band"><div class="protection-icon">🛡️</div><div><span class="section-kicker light">PROTEÇÃO TAMÃO</span><h2>Se uma entrega falhar antes de sair, o pedido não fica simplesmente abandonado.</h2><p>O TAMÃO pode procurar outra opção elegível. Se a alternativa aumentar o total, você precisa aceitar o novo valor antes da troca.</p></div><button class="secondary dark-secondary" onclick="go('learn')">Como funciona</button></div></section>
+<section class="section"><div class="protection-band"><div class="protection-icon">🛡️</div><div><span class="section-kicker light">VOCÊ ACOMPANHA. A GENTE ORGANIZA.</span><h2>Mais tranquilidade, inclusive quando um imprevisto acontece.</h2><p>Se uma revenda não conseguir sair para entregar, o TAMÃO pode procurar outra opção elegível. Qualquer alternativa mais cara depende da sua aprovação.</p></div><button class="secondary dark-secondary" onclick="go('learn')">Entenda sua proteção</button></div></section>
 
-<section class="section value-proof-section"><div class="section-head"><div><span class="section-kicker">POR QUE USAR O TAMÃO</span><h2>As respostas principais aparecem antes de você decidir.</h2></div></div>
+<section class="section value-proof-section"><div class="section-head"><div><span class="section-kicker">COMPRAR SEM ADIVINHAR</span><h2>Boas escolhas começam com informações claras.</h2></div></div>
 <div class="value-proof-grid">
-  <article class="value-proof"><span>01</span><div><strong>Quanto vai custar?</strong><p>Veja o valor total da opção antes de criar o pedido.</p></div></article>
-  <article class="value-proof"><span>02</span><div><strong>Quanto vai demorar?</strong><p>Compare a previsão de entrega e escolha pelo que importa para você.</p></div></article>
-  <article class="value-proof"><span>03</span><div><strong>Quem confirmou?</strong><p>O parceiro precisa aceitar. Depois você acompanha preparação, saída e chegada.</p></div></article>
+  <article class="value-proof"><span>01</span><div><strong>Preço sem surpresa na escolha</strong><p>Confira o total apresentado antes de confirmar seu pedido.</p></div></article>
+  <article class="value-proof"><span>02</span><div><strong>Tempo para se organizar</strong><p>Veja a previsão de entrega das opções disponíveis e escolha a mais conveniente.</p></div></article>
+  <article class="value-proof"><span>03</span><div><strong>Você sabe o que está acontecendo</strong><p>O parceiro confirma o pedido, e cada etapa fica visível até o recebimento.</p></div></article>
 </div></section>
 
-<section class="section"><div class="section-head"><div><span class="section-kicker">COMO FUNCIONA</span><h2>Da consulta até a sua porta</h2><p>Quatro passos claros, sem transformar um pedido enviado em entrega prometida.</p></div><button class="ghost small desktop-only" onclick="go('learn')">Ver detalhes →</button></div>
+<section class="section"><div class="section-head"><div><span class="section-kicker">É SIMPLES ASSIM</span><h2>Escolheu, confirmou, acompanhou.</h2><p>Você vê as etapas acontecerem, sem confundir pedido enviado com entrega confirmada.</p></div><button class="ghost small desktop-only" onclick="go('learn')">Ver detalhes →</button></div>
 <div class="how-grid">
   <div class="how-card"><span>1</span><div><strong>Escolha o que precisa</strong><p>Gás, água, carvão, lenha, gelo ou uma cesta com vários itens.</p></div></div>
   <div class="how-card"><span>2</span><div><strong>Informe onde entregar</strong><p>O TAMÃO procura opções capazes de atender sua cesta.</p></div></div>
@@ -335,23 +337,23 @@ ${intentSection}
   <div class="how-card"><span>4</span><div><strong>Acompanhe até receber</strong><p>Você vê quando o parceiro aceita, prepara, sai e conclui a entrega.</p></div></div>
 </div></section>
 
-<section class="section"><div class="section-head"><div><span class="section-kicker">MAIS QUE GÁS</span><h2>Complete o que está faltando em casa.</h2><p>Você também pode pedir itens disponíveis sem colocar gás na cesta.</p></div></div>
+<section class="section"><div class="section-head"><div><span class="section-kicker">O QUE PRECISA HOJE?</span><h2>O essencial da casa, do seu jeito.</h2><p>Gás, água, carvão, gelo e outros itens da sua região. Você pode pedir produtos disponíveis mesmo sem gás na cesta.</p></div></div>
 <div class="quick-grid">${homeProductEntries.length?homeProductEntries.map(([k,p])=>`<button class="quick-card" onclick="quickProduct('${k}')" ${disabled?'disabled':''}><div class="quick-icon">${p.icon}</div><div class="quick-title">${esc(customerProductName(k,p))}</div><div class="quick-sub">${preview?'Consultar disponibilidade':'Consultar agora'}</div></button>`).join(''):'<div class="empty card">Nenhum produto está configurado para consulta agora.</div>'}</div></section>
 
 ${internalPilot?`<section class="section"><div class="card flat"><span class="section-kicker">AMBIENTE INTERNO</span><h2 style="margin-top:6px">Gas e Lenheira do JR</h2><p class="muted">Faixa comercial P13 configurada para validação interna. Esta visualização não altera a operação pública.</p><button class="secondary" onclick="setMode('merchant')">Abrir painel interno da revenda</button></div></section>`:''}
 
 
 
-<section class="section"><div class="section-head"><div><span class="section-kicker">CONFIANÇA NA ENTREGA</span><h2>O status só avança quando existe confirmação.</h2></div></div>
+<section class="section"><div class="section-head"><div><span class="section-kicker">CUIDADO EM CADA ETAPA</span><h2>Confiança não é promessa. É confirmação.</h2></div></div>
 <div class="grid cards-3">
   <div class="card feature-card"><div class="feature-icon">🛡️</div><h3>Parceiro apto para a cesta</h3><p>Uma oferta real só aparece quando a operação atende os critérios aplicáveis aos produtos e à entrega.</p></div>
   <div class="card feature-card"><div class="feature-icon">📍</div><h3>“A caminho” significa saída</h3><p>Esse status só aparece depois que o parceiro confirma que o pedido realmente saiu.</p></div>
   <div class="card feature-card"><div class="feature-icon">🔐</div><h3>Entrega com código</h3><p>A conclusão exige pagamento confirmado e o código de recebimento do pedido.</p></div>
 </div></section>
 
-<section class="section"><div class="opportunity-band"><div><span class="section-kicker light">DEPOIS DA COMPRA</span><h2>Economize comprando. Receba comissão indicando. Venda com sua empresa.</h2><p>Cashback, comissão por indicação e receita da revenda são coisas diferentes — o TAMÃO mostra cada uma separadamente.</p></div><div class="opportunity-actions"><button class="primary light-primary" onclick="go('club')">Ver benefícios de compra</button><button class="secondary dark-secondary" onclick="go('earn')">Indicação ou parceria</button></div></div></section>
+<section class="section"><div class="opportunity-band"><div><span class="section-kicker light">BONS MOTIVOS PARA VOLTAR</span><h2>Seu dia a dia pode render mais benefícios.</h2><p>Conheça o Clube e as possibilidades de indicação quando estiverem habilitadas. Benefícios de compra, comissão e vendas da revenda têm regras próprias.</p></div><div class="opportunity-actions"><button class="primary light-primary" onclick="go('club')">Ver benefícios de compra</button><button class="secondary dark-secondary" onclick="go('earn')">Indicação ou parceria</button></div></div></section>
 
-<section class="section"><div class="section-head"><div><span class="section-kicker">PARA EMPRESAS LOCAIS</span><h2>Já vende gás, água, carvão, lenha, gelo ou outros itens?</h2><p>Use o TAMÃO como um canal adicional de vendas sem abrir mão do controle da sua operação.</p></div></div><div class="merchant-home-card"><div><span class="merchant-home-rate">${merchantFeeLabel}</span><small>taxa comercial atual por pedido concluído</small></div><div><strong>Você define preço, estoque e disponibilidade.</strong><p>Também decide se aceita cada pedido e pode ficar offline quando não quiser receber novas vendas.</p></div><button class="primary" onclick="go('merchants')">Ver parceria e custos</button></div></section>`)
+<section class="section"><div class="section-head"><div><span class="section-kicker">SUA EMPRESA TAMBÉM TEM LUGAR AQUI</span><h2>Quem já entrega bem merece ser mais encontrado.</h2><p>Você vende gás, água, lenha, carvão ou outros essenciais? Conheça um novo canal de vendas sem exclusividade e sem perder o controle da operação.</p></div></div><div class="merchant-home-card"><div><span class="merchant-home-rate">${merchantFeeLabel}</span><small>taxa comercial atual por pedido concluído</small></div><div><strong>Você define preço, estoque e disponibilidade.</strong><p>Também decide se aceita cada pedido e pode ficar offline quando não quiser receber novas vendas.</p></div><button class="primary" onclick="go('merchants')">Quero vender no TAMÃO →</button></div></section>`)
 }
 function orderPage(){
   const testDemo=globalThis.__CHAMA_TEST__===true;
