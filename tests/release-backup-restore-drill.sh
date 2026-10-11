@@ -41,6 +41,12 @@ createdb -T template0 tamao_rc_restored
 PGDATABASE=tamao_rc_restored pg_restore --exit-on-error --no-owner --dbname=tamao_rc_restored "$archive"
 count="$(PGDATABASE=tamao_rc_restored psql -Atq -v ON_ERROR_STOP=1 -c 'select count(*) from public.tamao_backup_smoke')"
 [[ "$count" == "2" ]] || { echo "RESTORE_ROW_COUNT_MISMATCH" >&2; exit 8; }
+# Row count is insufficient to prove integrity: verify the expected fixture contents.
+rows="$(PGDATABASE=tamao_rc_restored psql -Atq -v ON_ERROR_STOP=1 -c "select string_agg(seq::text || ':' || label, ',' order by seq) from public.tamao_backup_smoke")"
+[[ "$rows" == "1:fictional-water-delivery,2:fictional-gas-request" ]] || { echo "RESTORE_CONTENT_MISMATCH" >&2; exit 8; }
+# The restored reader must not gain write privileges.
+can_insert="$(PGDATABASE=tamao_rc_restored psql -Atq -v ON_ERROR_STOP=1 -c "select has_table_privilege('tamao_backup_fixture_reader','public.tamao_backup_smoke','INSERT')")"
+[[ "$can_insert" == "f" ]] || { echo "RESTORE_EXCESSIVE_PRIVILEGE" >&2; exit 8; }
 reader="$(PGDATABASE=tamao_rc_restored psql -Atq -v ON_ERROR_STOP=1 -c "select has_table_privilege('tamao_backup_fixture_reader','public.tamao_backup_smoke','SELECT')")"
 [[ "$reader" == "t" ]] || { echo "RESTORE_ACL_MISSING" >&2; exit 8; }
-echo "SYNTHETIC_TLS_BACKUP_RESTORED: two rows and granted read privilege verified; no production data accessed"
+echo "SYNTHETIC_TLS_BACKUP_RESTORED: two exact rows, SELECT grant and INSERT denial verified; no production data accessed"
