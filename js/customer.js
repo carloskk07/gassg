@@ -190,7 +190,7 @@ function home(){
   const preview=!testDemo&&globalThis.prelaunchExamplesEnabled?.()===true;
   const market=globalThis.liveRuntime?.marketStatus||null;
   const rememberedRegion=!testDemo&&typeof rememberedMarketRegion==='function'?rememberedMarketRegion():null;
-  const regionLabel=rememberedRegion?rememberedRegion.city+' • '+rememberedRegion.state'Informe seu CEP';
+  const regionLabel=rememberedRegion?rememberedRegion.city+' • '+rememberedRegion.state:'Informe seu CEP';
   const outsideOriginalMarket=Boolean(rememberedRegion&&!(rememberedRegion.city.toLocaleUpperCase('pt-BR')==='SÃO GABRIEL'&&rememberedRegion.state==='RS'));
   const lastOrder=ready?globalThis.liveRuntime?.lastOrderTemplate:null;
   const prediction=ready?globalThis.liveRuntime?.reorderPrediction:null;
