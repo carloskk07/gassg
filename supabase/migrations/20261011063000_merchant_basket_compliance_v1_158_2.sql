@@ -141,7 +141,7 @@ begin
 
   return new;
 end;
-$function$
+$function$;
 
 
 CREATE OR REPLACE FUNCTION public.enforce_compliance_continuity()
@@ -187,7 +187,7 @@ begin
 
   return case when tg_op='DELETE' then old else new end;
 end;
-$function$
+$function$;
 
 
 CREATE OR REPLACE FUNCTION public.process_compliance_expiry()
@@ -234,7 +234,7 @@ begin
 
   return jsonb_build_object('suspendedMerchants',v_count);
 end;
-$function$
+$function$;
 
 
 CREATE OR REPLACE FUNCTION public.admin_set_merchant_status(p_actor_user_id uuid, p_merchant_id uuid, p_status text)
@@ -313,7 +313,7 @@ begin
     'alreadyInState',false
   );
 end;
-$function$
+$function$;
 
 
 CREATE OR REPLACE FUNCTION public.create_order_from_quote(p_user_id uuid, p_quote_id uuid, p_payment_method text, p_use_cashback boolean, p_idempotency_key text, p_request_hash text, p_referral_code text DEFAULT NULL::text)
@@ -508,7 +508,7 @@ begin
 
   return v_result;
 end;
-$function$
+$function$;
 
 
 CREATE OR REPLACE FUNCTION public.create_quote_snapshot(p_user_id uuid, p_merchant_id uuid, p_address text, p_delivery_fee_cents integer, p_eta_min_minutes integer, p_eta_max_minutes integer, p_expires_at timestamp with time zone, p_items jsonb, p_fingerprint text)
@@ -749,7 +749,7 @@ begin
     'reused',false
   );
 end;
-$function$
+$function$;
 
 
 CREATE OR REPLACE FUNCTION public.merchant_order_action(p_user_id uuid, p_order_id uuid, p_action text, p_expected_version integer, p_idempotency_key text, p_request_hash text)
@@ -1175,7 +1175,7 @@ begin
 
   return v_result;
 end;
-$function$
+$function$;
 
 
 CREATE OR REPLACE FUNCTION public.system_rescue_order(p_order_id uuid, p_reason text)
@@ -1520,7 +1520,7 @@ begin
 
   return v_result;
 end;
-$function$
+$function$;
 
 
 CREATE OR REPLACE FUNCTION public.process_order_timeouts()
@@ -1668,7 +1668,7 @@ begin
     'etaRisked',v_eta_count
   );
 end;
-$function$
+$function$;
 
 
 CREATE OR REPLACE FUNCTION public.market_supply_status()
@@ -1737,7 +1737,7 @@ begin
     'productCodes',v_products
   );
 end;
-$function$
+$function$;
 
 
 CREATE OR REPLACE FUNCTION public.platform_launch_readiness()
@@ -2040,7 +2040,7 @@ begin
     'supply',v_supply
   );
 end;
-$function$
+$function$;
 
 
 CREATE OR REPLACE FUNCTION public.admin_merchant_readiness_snapshot(p_actor_user_id uuid)
@@ -2162,7 +2162,7 @@ begin
 
   return v_result;
 end;
-$function$
+$function$;
 
 
 CREATE OR REPLACE FUNCTION public.filter_delivery_compatible_merchants(p_merchant_ids uuid[], p_product_codes text[])
@@ -2175,7 +2175,7 @@ AS $function$
   from unnest(p_merchant_ids) m
   where public.merchant_cart_delivery_compatible(m,p_product_codes)
   and public.merchant_basket_compliance_current(m,p_product_codes);
-$function$
+$function$;
 
 
 -- A city is eligible if at least one SKU with current legal authority is sellable.
