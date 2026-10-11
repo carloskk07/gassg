@@ -190,3 +190,57 @@ revoke all on function public.guard_new_prepaid_attempt()
   from public,anon,authenticated;
 grant execute on function public.guard_new_prepaid_attempt()
   to service_role;
+
+-- Municipal readiness must mean that at least one customer checkout flow
+-- can actually work. Preserve geographic, ANP/compliance, stock, financial,
+-- launch and administrative pause gates from V1.152.
+create or replace function public.market_city_offer_scope(p_city text,p_state text)
+returns uuid[]
+language sql stable security definer
+set search_path to pg_catalog
+as $func$
+with requested as (
+  select public.market_city_key(p_city) as city_key,
+         upper(trim(coalesce(p_state,''))) as state
+)
+select coalesce(array_agg(m.id order by m.id),array[]::uuid[])
+from requested r
+join public.merchant_business_details d
+  on upper(trim(d.state))=r.state
+ and public.market_city_key(d.city)=r.city_key
+join public.merchants m on m.id=d.merchant_id
+where char_length(r.city_key)>=2
+  and r.state ~ '^[A-Z]{2}$'
+  and m.status='active'
+  and m.online
+  and m.accepts_citywide
+  and m.last_seen_at>=statement_timestamp()-interval '10 minutes'
+  and m.delivery_fee_confirmed_at>=statement_timestamp()-interval '24 hours'
+  and public.merchant_operational_compliance_current(m.id)
+  and public.merchant_allowed_in_operation_mode(m.id)
+  and public.merchant_financial_sales_allowed(m.id)
+  and exists (
+    select 1 from public.platform_launch_control lc
+    where lc.singleton and lc.commerce_enabled
+      and lc.operation_mode in ('LIVE','PILOT')
+  )
+  and not exists (
+    select 1 from public.market_cities mc
+    where mc.state=r.state and mc.city_key=r.city_key and mc.admin_paused
+  )
+  and exists (
+    select 1 from public.catalog_items ci
+    where ci.merchant_id=m.id and ci.active
+      and ci.available_stock>0 and ci.price_cents>0
+      and ci.price_confirmed_at>=statement_timestamp()-interval '24 hours'
+  )
+  and exists (
+    select 1 from public.merchant_payment_methods pm
+    where pm.merchant_id=m.id and pm.active
+      and public.merchant_delivery_payment_allowed(m.id,pm.payment_method)
+  );
+$func$;
+revoke all on function public.market_city_offer_scope(text,text)
+  from public,anon,authenticated;
+grant execute on function public.market_city_offer_scope(text,text)
+  to service_role;
