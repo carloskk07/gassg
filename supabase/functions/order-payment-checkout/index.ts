@@ -285,6 +285,10 @@ Deno.serve(async(req:Request)=>{
       if(message.includes("PAYMENT_ROUTE_NOT_AUTOMATED")||message.includes("PAYMENT_ROUTE_CONNECTION_REQUIRED")){
         throw new DomainError("NO_AUTOMATED_PAYMENT_ROUTE","Esta forma de pagamento exige confirmação manual ou uma conexão ativa.",409);
       }
+      if(message.includes("PREPAID_PAYMENT_NOT_AUTHORIZED")){
+        throw new DomainError("PREPAID_PAYMENT_NOT_AUTHORIZED",
+          "Pagamento antecipado não autorizado para este pedido.",409);
+      }
       if(message.includes("MERCHANT_DIRECT_PAYMENT_NOT_ENABLED")){
         throw new DomainError("MERCHANT_DIRECT_PAYMENT_NOT_ENABLED","Esta revenda ainda não habilitou pagamento online direto.",409);
       }
