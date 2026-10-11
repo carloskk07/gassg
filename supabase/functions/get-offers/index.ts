@@ -305,7 +305,22 @@ Deno.serve(async (req: Request) => {
       .eq("active",true);
     if(paymentError)throw paymentError;
     const paymentSet=new Set((paymentRows??[]).map((row)=>row.merchant_id));
-    const paymentEligibleMerchants=scheduleEligibleMerchants.filter((m)=>paymentSet.has(m.id));
+    // Current customer flow is delivery-only. A generic Pix/card flag or an
+    // external/online route cannot qualify as payment-on-delivery authority.
+    const {data:deliveryPaymentRoutes,error:deliveryRoutesError}=await admin
+      .from("merchant_payment_routes")
+      .select("merchant_id,payment_method")
+      .in("merchant_id",scheduledMerchantIds)
+      .eq("active",true)
+      .eq("channel","delivery")
+      .eq("verification_mode","merchant_confirmed");
+    if(deliveryRoutesError)throw deliveryRoutesError;
+    const deliveryPaymentSet=new Set((deliveryPaymentRoutes??[])
+      .filter((route)=>route.payment_method===paymentMethod
+        ||(paymentMethod==="card"&&["card_credit","card_debit"].includes(route.payment_method)))
+      .map((route)=>route.merchant_id));
+    const paymentEligibleMerchants=scheduleEligibleMerchants.filter((m)=>
+      paymentSet.has(m.id)&&deliveryPaymentSet.has(m.id));
     if(!paymentEligibleMerchants.length){
       return json({
         offers:[],
