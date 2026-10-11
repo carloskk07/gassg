@@ -1851,3 +1851,21 @@ body:has(.admin-page) .shell{
  .local-welcome strong{font-size:13px}
  .local-welcome small{font-size:10px}
 }
+
+
+/* TAMÃO V1.161 — clear handoff from postcode to validated delivery address */
+.order-handoff-note{
+  display:flex;align-items:flex-start;gap:11px;margin:12px 0 15px;
+  padding:13px 15px;background:linear-gradient(110deg,#ebf8f1,#fffdf5);
+  border:1px solid #c8e7d4;border-radius:15px;color:var(--brand-deep);
+}
+.order-handoff-note>span:first-child{
+  flex:none;display:grid;place-items:center;width:28px;height:28px;
+  border-radius:999px;background:#158052;color:white;font-weight:850;
+}
+.order-handoff-note strong{display:block;font-size:14px;line-height:1.35}
+.order-handoff-note small{display:block;font-size:12px;line-height:1.5;margin-top:2px;color:var(--muted)}
+.order-address-card input:focus-visible{
+  border-color:#18875c;outline:3px solid rgba(31,148,96,.22);outline-offset:2px;
+}
+@media(max-width:420px){.order-handoff-note{padding:12px;margin-top:9px}}
