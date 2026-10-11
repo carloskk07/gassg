@@ -600,6 +600,9 @@ function offerCard(o,facts={}){
   const hasBreakdown=o.deliveryFee!=null&&Number.isFinite(fee)&&fee>=0&&fee<=gross;
   const safeId=String(o.id||'');
   const allowedId=/^[A-Za-z0-9-]{1,70}$/.test(safeId);
+  // A disabled HTML button can still execute injected markup when parsed.
+  // Never place a malformed quote identifier in any HTML attribute.
+  const safeAction=allowedId?`onclick="checkout('${safeId}')"`:'';
   const etaStart=Math.max(0,Math.round(Number(o.eta)||0));
   const etaEnd=Math.max(etaStart,Math.round(Number(o.etaMax??(etaStart+7))));
   const validPrice=facts.uniquePrice!=null&&facts.uniquePrice===totalCents;
@@ -649,7 +652,7 @@ function offerCard(o,facts={}){
     </details>
     <div class="offer-assurance">${internalPilot?'🧪 Simulação: nenhuma venda ou cobrança real.':'🔒 A revenda precisa aceitar o pedido. Se uma alternativa aumentar o total, você confirma antes da troca.'}</div>
     <button class="${featured?'primary':'secondary'} full offer-submit" type="button"
-      onclick="checkout('${safeId}')" ${!allowedId||globalThis.liveRuntime?.actionPending?'disabled':''}>
+      ${safeAction} ${!allowedId||globalThis.liveRuntime?.actionPending?'disabled':''}>
       ${internalPilot?'Simular pedido':'Enviar pedido para confirmação'} <span aria-hidden="true">→</span>
     </button>
   </article>`;
