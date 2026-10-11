@@ -69,7 +69,7 @@ try {
   $stamp = [DateTime]::UtcNow.ToString('yyyyMMddTHHmmssZ')
   $archive = Join-Path $targetDir "tamao-prod-before-v1-164-$stamp.dump"
   if (Test-Path -LiteralPath $archive) { throw 'Arquivo de backup existente. Não sobrescrever.' }
-  & $dump --format=custom --no-owner --no-acl --file=$archive
+  & $dump --format=custom --no-owner --file=$archive
   if ($LASTEXITCODE -ne 0) { throw 'Falha ao exportar o banco.' }
   if (-not (Test-Path -LiteralPath $archive) -or
       (Get-Item -LiteralPath $archive).Length -eq 0) { throw 'Arquivo vazio.' }
