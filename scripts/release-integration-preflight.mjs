@@ -92,6 +92,23 @@ assert.deepEqual(origins,{
  merchant:'https://parceiro.tamao.com.br',
  admin:'https://admin.tamao.com.br'
 },'Unknown production portal origins');
+assert.equal(manifest.releasePhases?.publicAcquisition?.commerceMustRemainDisabled,true,
+ 'Public acquisition must leave all real orders disabled');
+assert.ok(manifest.releasePhases.publicAcquisition.scope.includes('optional-consented-customer-notification'),
+ 'Lead capture must remain optional and consented');
+assert.ok(manifest.releasePhases.publicAcquisition.blockersNotRequired.includes('first-real-sale'),
+ 'The first real sale must not be a circular precondition for publishing public pages');
+assert.ok(!manifest.releasePhases.commercePerCity.prerequisites.includes('first-real-payment-and-delivery-homologation'),
+ 'A city cannot require its first completed order before the first eligible sale');
+for(const required of [
+ 'legally-verified-active-merchant-and-authorized-representative',
+ 'product-specific-regulatory-gates-ANP-if-GLP',
+ 'direct-merchant-payment-route-homologated-before-launch',
+ 'admin-authorized-global-commerce-opening'
+]){
+ assert.ok(manifest.releasePhases.commercePerCity.prerequisites.includes(required),
+   'Commercial activation missing evidence: '+required);
+}
 assert.ok(manifest.manualEvidenceRequired.length>=7,
  'No release can proceed without DB, portal, merchant and GLP evidence');
 assert.ok(!process.argv.includes('--production')&&!process.argv.includes('--deploy'),
