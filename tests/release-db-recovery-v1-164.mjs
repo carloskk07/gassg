@@ -76,6 +76,23 @@ assert.ok(!windows.includes('& $dump --format=custom --no-owner --file=$archive'
  'pg_dump must not write a directly publishable production checkpoint');
 assert.ok(windows.includes('if ($archivePublished -and'),
  'Windows cleanup must only remove an archive published by the current run');
+const restoreShell=fs.readFileSync(path.join(root,'scripts/release-db-restore-isolated.sh'),'utf8');
+for(const marker of [
+ 'PGHOST=127.0.0.1','PGHOSTADDR=127.0.0.1',
+ 'tamao_restore_', 'sha256sum', 'pg_restore --exit-on-error',
+ 'createdb --template=template0','RESTORE_BLOCKED','ISOLATED_RESTORE_OK'
+])assert.ok(restoreShell.includes(marker),'Isolated restore guard missing: '+marker);
+assert.ok(!restoreShell.includes('dropdb')&&!restoreShell.includes('DROP DATABASE'),
+ 'Restoration cannot remove a database');
+const restoreWindows=fs.readFileSync(path.join(root,'scripts/release-db-restore-windows.ps1'),'utf8');
+for(const marker of [
+ 'ConfirmIsolatedLocalPostgres', '127.0.0.1',
+ 'tamao_restore_', 'Get-FileHash',
+ 'Find-LocalPgTool', 'pg_restore',
+ '--exit-on-error', 'RESTORE_BLOCKED'
+])assert.ok(restoreWindows.includes(marker),'Windows restore safeguard missing: '+marker);
+assert.ok(!restoreWindows.includes('Remove-Item -LiteralPath $Target'),
+ 'Windows recovery must not delete its target or any existing databases');
 const runbook=fs.readFileSync(path.join(root,'release/RUNBOOK-V1-164.md'),'utf8');
 assert.ok(runbook.includes('Marco A')&&runbook.includes('Marco B'));
 console.log('Release recovery: schema version drift/partial migration rejected; Free-plan pg_dump safeguards and private restore checkpoint verified.');
