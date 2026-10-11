@@ -26,6 +26,7 @@ function harness(){
   let onRoute='order';
   const ctx=vm.createContext({
     state,liveRuntime:runtime,
+    document:{activeElement:null,querySelector:()=>null,getElementById:()=>null},
     hasCartItems:()=>Object.values(state.cart).some(v=>v>0),
     liveCartItems:()=>Object.entries(state.cart).filter(([,v])=>v>0)
       .map(([productCode,quantity])=>({productCode,quantity})),
@@ -162,13 +163,19 @@ vm.runInContext('deliveryAddressDraftChanged()',draftContext);
 assert.equal(events.filter(x=>Array.isArray(x)).length,1,'Incomplete CEP suppresses automatic lookup');
 
 const inputTags=frontend.match(/id="(?:postal-code|address-number)"[^>]+>/g)||[];
-assert.equal(inputTags.length,2,'Both real delivery address fields must exist');
-assert.ok(inputTags.every(t=>t.includes('oninput="deliveryAddressDraftChanged()"')),
+const realInputs=inputTags.filter(tag=>tag.includes('onchange="deliveryAddressDraftChanged()"'));
+assert.equal(realInputs.length,2,'Both real delivery address fields must exist');
+assert.ok(realInputs.every(t=>t.includes('oninput="deliveryAddressDraftChanged()"')),
   'Typing rather than blur must trigger debounce');
 assert.ok(frontend.includes('Consultaremos as ofertas automaticamente.'));
 assert.ok(frontend.includes('Não foi possível concluir a consulta.'));
 assert.ok(frontend.includes('Tentar novamente'));
 assert.ok(!frontend.includes('O servidor confirma rua, bairro e atendimento em São Gabriel/RS.'));
+assert.ok(backend.includes('liveRefreshOffers({silent:true})')
+ &&backend.includes("replacement.focus({preventScroll:true})")
+ &&backend.includes("replacement.setSelectionRange(caret,caret)")
+ &&backend.includes("liveOfferRequestFingerprint()!==fingerprint"),
+ 'Automatic updates must not steal keyboard focus or render an old address');
 assert.ok(backend.includes('if(seq!==liveRuntime.offerRequestSeq)return liveRuntime.offers;'),
   'Older response must be rejected by monotonic request sequence');
 
