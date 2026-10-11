@@ -219,7 +219,7 @@ assert.ok(growth.includes('Sem exclusividade')&&growth.includes('canal adicional
 assert.ok(growth.includes('Você não precisa ser sempre o mais barato')&&growth.includes('Distribuição saudável'),'landing precisa explicar distribuição sem prometer rodízio cego');
 assert.ok(growth.includes('AUMENTE O TICKET DA ENTREGA')&&growth.includes('Uma corrida pode carregar mais que um botijão'),'multiproduto deve ser vendido como aumento de ticket');
 assert.ok(growth.includes('Venda, recebimento e taxa TAMÃO são separados.')&&growth.includes('O TAMÃO não recebe a venda para depois repassar.'),'parceiro precisa entender que venda da revenda e cobranças TAMÃO são fluxos separados');
-assert.ok(growth.includes('VENDA PELO TAMÃO — SÃO GABRIEL')&&growth.includes('não promete volume de pedidos nem renda'),'parceria precisa gerar oportunidade sem promessa de demanda');
+assert.ok(growth.includes('VENDA PELO TAMÃO — SUA CIDADE')&&growth.includes('não promete volume de pedidos nem renda'),'parceria precisa gerar oportunidade sem promessa de demanda');
 assert.ok(growth.includes("internalPilot?'Abrir ambiente interno'"),'ambiente interno deve permanecer separado do portal de parceiros');
 assert.ok(customer.includes('✓ Operação elegível'),'oferta real deve comunicar elegibilidade operacional sem expor a revenda antes do aceite');
 assert.ok(growth.includes('Não é promessa de renda'),'marketing de indicação precisa explicar que simulação não é renda garantida');
@@ -1624,7 +1624,7 @@ assert.ok(merchant.includes('Dados para entrega')&&merchant.includes('href="tel:
 assert.ok(getOrderSource.includes('delivery_pii_redacted_at')&&getOrderSource.includes('deliveryDataRedacted'),'projeção do pedido precisa informar minimização de dados sem expor política interna');
 assert.ok(customer.includes('Dados operacionais de entrega removidos.')&&customer.includes('histórico do pedido, itens, valores e eventos continua disponível'),'cliente precisa entender o que foi removido e o que foi preservado');
 assert.ok(core.includes("postalCode:''")&&core.includes("merged.postalCode=String(raw.postalCode||'').replace(/\\D/g,'').slice(0,8)"),'estado do cliente precisa persistir CEP normalizado');
-assert.ok(customer.includes('O servidor confirma rua, bairro e atendimento em São Gabriel/RS.')&&customer.includes("Informe um CEP válido com 8 dígitos"),'checkout precisa coletar CEP e explicar validação server-side do endereço');
+assert.ok(customer.includes('O servidor confirma rua, bairro e atendimento para o CEP informado.')&&customer.includes("Informe um CEP válido com 8 dígitos"),'checkout precisa coletar CEP e explicar validação server-side do endereço');
 assert.ok(backend.includes('postalCode:postalCodeSnapshot')&&backend.includes('postalValidated=data?.postalValidated===true'),'runtime deve vincular a consulta ao snapshot do CEP');
 const postalResolver=read('supabase/functions/_shared/postal-code.js');
 assert.ok(postalResolver.includes('brasilapi.com.br/api/cep/v1/')&&postalResolver.includes('viacep.com.br/ws/'),'CEP deve ter provedor primário e fallback explícito');
