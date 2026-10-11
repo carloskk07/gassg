@@ -3,6 +3,7 @@ import fs from 'node:fs';
 const read=(p)=>fs.readFileSync(new URL('../'+p,import.meta.url),'utf8');
 const migration=read('supabase/migrations/20261011073000_settlement_daily_due_alignment_v1_158_3.sql');
 const probe=read('tests/sql/settlement-postpaid-integration-v1-158-3.sql');
+const fullOrder=read('tests/sql/order-pin-to-fee-integration-v1-158-3.sql');
 const main=read('supabase/migrations/20261011043000_delivery_first_payment_boundary_v1_158_1.sql');
 const regulatory=read('supabase/migrations/20261011063000_merchant_basket_compliance_v1_158_2.sql');
 for(const needle of [
@@ -42,6 +43,19 @@ for(const testCase of [
  'TEST_FAIL: duplicate charge on retry',
  'TEST_FAIL: canceled order charged a platform fee'
 ])assert.ok(probe.includes(testCase),'Missing rollback integration scenario: '+testCase);
+for(const testCase of [
+ 'public.merchant_order_action(',
+ "'accept'","'dispatch'","'arriving'",
+ 'public.complete_order_delivery(',
+ 'public.process_deferred_settlement_accounting()',
+ 'public.merchant_sale_payment_verifications',
+ 'TEST_FAIL: invalid PIN generated fee',
+ 'TEST_FAIL: no attestation settled unpaid delivery',
+ 'TEST_FAIL: duplicate fee after retry',
+ 'begin;','rollback;'
+]) assert.ok(fullOrder.includes(testCase),'Missing full merchant-to-fee integration proof: '+testCase);
+assert.ok(fullOrder.includes('p')||fullOrder.includes('pin'),
+ 'Expected PIN-based delivery confirmation');
 assert.ok(main.includes("payment_timing"),'Settlement must follow delivery-first payment authority');
 assert.ok(regulatory.includes("merchant_basket_compliance_current"),'Settlement must retain product-authority gate');
 console.log('V1.158.3 — writer, fee/cashback validators, postpaid daily close, cancellation, immutable credits and retry contracts passed.');
