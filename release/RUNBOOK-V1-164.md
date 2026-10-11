@@ -51,6 +51,28 @@ restaurar uma cópia em banco **isolado**, conferir objetos/dados e guardar
 o checksum. O simples `pg_restore --list` não prova restauração
 bem-sucedida.
 
+### Alternativa guiada para Windows
+
+No Windows, use `scripts/release-db-backup-windows.ps1` com
+`-CheckOnly` para verificar a presença das ferramentas clientes do
+PostgreSQL sem contactar o servidor. Sem `-CheckOnly`, a rotina pede
+host e senha ocultamente, cria backup privado em
+`%LOCALAPPDATA%\\TAMAO\\Backups`, testa o catálogo do arquivo e
+registra SHA256. A senha **não** é escrita em argumentos, arquivo ou log.
+
+Exemplo (PowerShell instalado, no diretório do repositório):
+
+```powershell
+.\\scripts\\release-db-backup-windows.ps1 -CheckOnly
+.\\scripts\\release-db-backup-windows.ps1 -DbHost "HOST_CONFIRMED_DO_SUPABASE" -DbUser "postgres" -DbName "postgres"
+```
+
+O host e usuário devem vir das configurações reais de conexão do
+Supabase e não devem ser adivinhados. Se o projeto exigir o pooler
+e usuário com sufixo, informar `-Port` e `-DbUser` conforme o painel.
+**Nunca preencher senha diretamente na linha de comando.** O teste
+de restauração em base isolada continua necessário, inclusive no Windows.
+
 Outro bloqueio: a tabela `supabase_migrations.schema_migrations` deve
 corresponder **exatamente** aos prefixos de 14 dígitos e nomes dos
 arquivos no repositório. `scripts/release-migration-history.mjs`
