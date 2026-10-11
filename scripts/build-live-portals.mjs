@@ -1,4 +1,5 @@
 import fs from 'node:fs';
+import vm from 'node:vm';
 import os from 'node:os';
 import path from 'node:path';
 import {buildRuntimeConfig,validatePortalRole} from './generate-runtime-config.mjs';
@@ -18,6 +19,18 @@ const TEST_KEYS=new Set([
   '0x4AAAAAAAAAA-demo-site-key'
 ]);
 
+// Cloudflare may auto-deploy main; reject invalid public JavaScript BEFORE
+// clearing the output directory or writing a publishable bundle.
+export function validateClassicScriptSyntax(source,filename='public-script.js'){
+  new vm.Script(source,{filename});
+}
+function validateAllPublicScripts(){
+  const jsDir=path.join(ROOT,'js');
+  for(const file of fs.readdirSync(jsDir)){
+    if(!file.endsWith('.js'))continue;
+    validateClassicScriptSyntax(fs.readFileSync(path.join(jsDir,file),'utf8'),'js/'+file);
+  }
+}
 function copyDir(src,dst){
   fs.mkdirSync(dst,{recursive:true});
   for(const entry of fs.readdirSync(src,{withFileTypes:true})){
@@ -150,6 +163,7 @@ function patchServiceWorker(raw,sourceSha){
 
 export function buildLivePortals(env=process.env,{outputRoot=env.PORTAL_BUILD_OUTPUT||path.join(ROOT,'dist','live-portals')}={}){
   assertProductionTurnstile(env);
+  validateAllPublicScripts();
   const out=path.resolve(outputRoot);
   fs.rmSync(out,{recursive:true,force:true});
   fs.mkdirSync(out,{recursive:true});
