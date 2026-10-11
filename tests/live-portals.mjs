@@ -90,6 +90,16 @@ for(const {role,path:dir} of built){
 }
 
 const cfRoot=fs.mkdtempSync(path.join(os.tmpdir(),'tamao-cloudflare-portals-'));
+assert.throws(
+  ()=>buildCloudflarePortal({
+    CHAMA_CLOUDFLARE_PROJECT:'tamao-sg-cliente',
+    CHAMA_SOURCE_SHA:'1234567890123456789012345678901234567890',
+    CHAMA_TURNSTILE_SITE_KEY:testKey,
+    CHAMA_ALLOW_TEST_TURNSTILE:'1'
+  },{outputRoot:path.join(cfRoot,'forbidden-test-key'),publishDir:path.join(cfRoot,'forbidden-publish')}),
+  /test\\/demo key/,
+  'Production Cloudflare build cannot inherit a CI-only Turnstile exception'
+);
 for(const [projectName,cfg] of Object.entries(CLOUDFLARE_PROJECTS)){
   const outRoot=path.join(cfRoot,projectName,'build');
   const publishDir=path.join(cfRoot,projectName,'publish');
