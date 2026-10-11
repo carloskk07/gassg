@@ -115,6 +115,72 @@ jobs:
           retention-days: 7
           if-no-files-found: error
 
+  synthetic-db-restore:
+    if: startsWith(github.head_ref || github.ref_name, 'release/v1-164-')
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_DB: tamao_rc_fixture
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: synthetic_ci_only_not_real
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d tamao_rc_fixture"
+          --health-interval 5s
+          --health-timeout 4s
+          --health-retries 10
+    env:
+      PGHOST: 127.0.0.1
+      PGPORT: 5432
+      PGUSER: postgres
+      PGDATABASE: tamao_rc_fixture
+      PGPASSWORD: synthetic_ci_only_not_real
+      PGSSLMODE: require
+    steps:
+      - name: Checkout release candidate
+        uses: actions/checkout@v6
+
+      - name: Install matching PostgreSQL client tools
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq postgresql-client-16
+          pg_dump --version
+
+      - name: Enable TLS in disposable fixture database
+        env:
+          CI_DB_CONTAINER: ${{ job.services.postgres.id }}
+        run: |
+          set -euo pipefail
+          test -n "$CI_DB_CONTAINER"
+          docker exec -u postgres "$CI_DB_CONTAINER" bash -euc '
+            cd /var/lib/postgresql/data
+            openssl req -new -x509 -nodes -days 1 -newkey rsa:2048 \
+              -keyout server.key -out server.crt -subj "/CN=localhost" \
+              >/dev/null 2>&1
+            chmod 600 server.key
+            printf "\nssl = on\nssl_cert_file = '\''server.crt'\''\nssl_key_file = '\''server.key'\''\n" \
+              >> postgresql.conf
+            pg_ctl reload -D /var/lib/postgresql/data
+          '
+          for attempt in 1 2 3 4 5; do
+            if psql -Atq -c 'select ssl from pg_stat_ssl where pid=pg_backend_pid()' 2>/dev/null | grep -qx t; then
+              exit 0
+            fi
+            sleep 2
+          done
+          echo 'TLS_REQUIRED_FOR_RESTORE_DRILL'
+          exit 1
+
+      - name: Dump and restore synthetic source with permissions
+        run: |
+          set -euo pipefail
+          bash tests/release-backup-restore-drill.sh
+
   windows-backup-script:
     if: startsWith(github.head_ref || github.ref_name, 'release/v1-164-')
     runs-on: windows-latest
