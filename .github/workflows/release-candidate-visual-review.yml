@@ -24,6 +24,9 @@ jobs:
       - name: Integrated source and staged migration gate
         run: node scripts/release-integration-preflight.mjs
 
+      - name: Free-plan backup and migration-history contract tests
+        run: node tests/release-db-recovery-v1-164.mjs
+
       - name: Customer-safe outage language for first-time visitors
         run: node tests/release-marketing-outage-v1-164.mjs
 
