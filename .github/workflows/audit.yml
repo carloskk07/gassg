@@ -172,7 +172,6 @@ jobs:
           for route in home learn earn order club refer merchants privacy terms contact merchant admin; do
             "$CHROME" --headless=new --no-sandbox --disable-gpu --window-size=360,800 --virtual-time-budget=1200 --user-data-dir="/tmp/chrome-$route" --dump-dom "http://127.0.0.1:4173/#$route" > "/tmp/$route.html"
           done
-          set -x
           grep -Fq "Pediu? Tá na mão." /tmp/home.html
           grep -q "VOCÊ ACOMPANHA. A GENTE ORGANIZA." /tmp/home.html
           grep -q "Botijão de cozinha 13 kg" /tmp/home.html
