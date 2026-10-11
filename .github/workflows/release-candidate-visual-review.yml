@@ -27,6 +27,9 @@ jobs:
       - name: Free-plan backup and migration-history contract tests
         run: node tests/release-db-recovery-v1-164.mjs
 
+      - name: Syntax-check Unix PostgreSQL backup without credentials
+        run: bash -n scripts/release-db-backup-checkpoint.sh
+
       - name: Customer-safe outage language for first-time visitors
         run: node tests/release-marketing-outage-v1-164.mjs
 
