@@ -938,6 +938,7 @@ function liveTracking(){
   }
 
   const copy=statusCopy[o.status]||[o.status,''];
+  const guidance=customerOrderGuidance(o.status);
   const active=!['SETTLED','CANCELLED'].includes(o.status);
   const deadline=['OFFERED_TO_MERCHANT','REQUOTE_REQUIRED'].includes(o.status)&&o.offerExpiresAt
     ? Math.max(0,Math.ceil((Date.parse(o.offerExpiresAt)-Date.now())/1000))
@@ -948,10 +949,10 @@ function liveTracking(){
   const items=(o.items||[]).map(i=>`<div class="list-row"><span>${Number(i.quantity)}× ${esc(i.product_name||i.productName||i.product_code||'Item')}</span><strong>${BRL.format(Number(i.line_total_cents??i.lineTotalCents??0)/100)}</strong></div>`).join('');
   const careBlock=liveCustomerCareBlock(o);
   const scheduleNotice=o.deliveryWindowStart
-    ? `<div class="notice success" style="margin-top:12px"><strong>Entrega agendada: ${esc(formatDeliveryWindow(o.deliveryWindowStart,o.deliveryWindowEnd))}</strong><br>O parceiro recebeu essa janela antes de assumir o pedido. A saída deve acontecer perto do horário necessário para cumprir a janela.</div>`
+    ? `<div class="notice success" style="margin-top:12px"><strong>Janela de entrega solicitada: ${esc(formatDeliveryWindow(o.deliveryWindowStart,o.deliveryWindowEnd))}</strong><br>${['PREPARING','OUT_FOR_DELIVERY','ARRIVING','DELIVERED','SETTLED'].includes(o.status)?'A revenda recebeu a janela. Confira as confirmações de andamento abaixo.':'Essa janela ainda depende da confirmação da revenda.'}</div>`
     : '';
   const comparisonNotice=Number(o.comparisonSavingsCents||0)>0
-    ? `<div class="notice" style="margin-top:12px"><strong>Economia nesta comparação: ${BRL.format(Number(o.comparisonSavingsCents)/100)}</strong><br>Diferença entre a opção escolhida e a opção mais cara que foi realmente exibida na consulta que originou este pedido.</div>`
+    ? `<div class="notice" style="margin-top:12px"><strong>Diferença entre ofertas consultadas: ${BRL.format(Number(o.comparisonSavingsCents)/100)}</strong><br>Comparação com a maior proposta daquela consulta, não um desconto garantido.</div>`
     : '';
   const deliveryDetailsNotice=o.deliveryDataRedacted
     ? '<div class="notice" style="margin-top:12px"><strong>Dados operacionais de entrega removidos.</strong><br>O histórico do pedido, itens, valores e eventos continua disponível, mas telefone, localização detalhada e instruções de chegada já foram minimizados pela política de retenção.</div>'
@@ -980,7 +981,9 @@ function liveTracking(){
     : '';
 
   return shell(`<section class="page"><button class="back" onclick="go('home')">← Início</button>
-<div class="status-bar"><div><div class="tiny muted">PEDIDO ${esc(o.publicCode||o.orderId)}</div><h1 class="page-title" style="margin-bottom:3px">${esc(copy[0])}</h1></div><span class="status-pill ${['OUT_FOR_DELIVERY','ARRIVING','SETTLED','DELIVERED'].includes(o.status)?'online':o.status==='CANCELLED'?'offline':'risk'}">${o.status==='SETTLED'?'CONCLUÍDO':o.status==='CANCELLED'?'ENCERRADO':'AO VIVO'}</span></div>
+<div class="status-bar"><div><div class="tiny muted">PEDIDO ${esc(o.publicCode||o.orderId)}</div><h1 class="page-title" style="margin-bottom:3px">${esc(copy[0])}</h1></div><span class="status-pill ${['OUT_FOR_DELIVERY','ARRIVING','SETTLED','DELIVERED'].includes(o.status)?'online':o.status==='CANCELLED'?'offline':'risk'}">${o.status==='SETTLED'?'CONCLUÍDO':o.status==='CANCELLED'?'ENCERRADO':liveRuntime.error?'VERIFIQUE O STATUS':'EM ANDAMENTO'}</span></div>
+<div class="customer-tracking-overview" role="status" aria-live="polite"><strong>${esc(guidance[0])}</strong><p>${esc(guidance[1])}</p><div class="customer-next-step"><span aria-hidden="true">→</span><span><strong>O que fazer agora</strong>${esc(customerNextAction(o.status))}</span></div></div>
+${customerOrderProgress(o.status)}
 ${trackingSyncNotice}
 ${directPaymentNotice}
 
@@ -995,16 +998,16 @@ ${deliveryResponsibilityNotice}
 ${o.paymentMethod==='cash'&&o.cashTenderCents?`<div class="list-row"><span>Troco para</span><strong>${BRL.format(Number(o.cashTenderCents)/100)}</strong></div>`:''}
 ${items?'<div class="divider"></div>'+items:''}</div>
 
-${o.status==='OFFERED_TO_MERCHANT'?`<div class="notice" style="margin-top:14px"><strong>Aguardando o parceiro confirmar.</strong><br>O parceiro tem até 3 minutos para responder. ${deadline!=null?`Prazo restante aproximado: ${deadline}s.`:''}</div>`:''}
-${o.status==='REQUOTE_REQUIRED'&&proposed!=null?`<div class="notice" style="margin-top:14px"><strong>Encontramos outra opção.</strong><br>Novo total: ${BRL.format(proposed)}. Nada muda sem sua autorização. ${deadline!=null?`Esta condição expira em aproximadamente ${deadline}s.`:''}<div class="order-actions"><button class="primary small" onclick="confirmRequote('${o.orderId}')" ${liveRuntime.actionPending?'disabled':''}>Aceitar novo total</button><button class="secondary small" onclick="cancelPending('${o.orderId}')" ${liveRuntime.actionPending?'disabled':''}>Cancelar pedido</button></div></div>`:''}
+${o.status==='OFFERED_TO_MERCHANT'?`<div class="notice" style="margin-top:14px"><strong>Solicitação enviada à revenda.</strong><br>A entrega ainda depende de aceite. ${deadline!=null?`Prazo informado para resposta: aproximadamente ${deadline}s restantes.`:'Atualize para verificar a resposta.'}</div>`:''}
+${customerRequoteDecision(o,total,proposed,deadline)}
 ${o.status==='CANCELLED'?'<div class="notice danger" style="margin-top:14px">Este pedido foi encerrado. Cashback reservado, se houver, é devolvido pelo ledger.</div>':''}
 ${o.financialState==='reversed'?'<div class="notice danger" style="margin-top:14px"><strong>Liquidação financeira revertida.</strong><br>A entrega permanece no histórico, mas cashback, comissão de indicação e recebível da plataforma foram estornados.'+(o.financialReversalReason?' Motivo: '+esc(o.financialReversalReason)+'.':'')+'</div>':''}
 ${o.riskReason&&o.status!=='CANCELLED'?`<div class="notice danger" style="margin-top:14px"><strong>Acompanhamento prioritário.</strong><br>${esc(o.riskReason)}</div>`:''}
 
-<section class="section"><div class="section-head"><div><h2>Acompanhe a entrega</h2><p>Cada etapa aparece somente depois da respectiva confirmação.</p></div><button class="ghost small" onclick="liveGetOrder().catch(()=>{})">Atualizar</button></div><div class="card flat timeline">${liveEventTimeline(o)}</div></section>
-${o.deliveryPin&&['OUT_FOR_DELIVERY','ARRIVING'].includes(o.status)?`<div class="notice success"><strong>Código de recebimento: ${esc(o.deliveryPin)}</strong><br>Informe este código somente quando o pedido estiver na sua frente.</div>`:''}
-${active&&['OFFERED_TO_MERCHANT','REQUOTE_REQUIRED'].includes(o.status)?`<button class="ghost full" style="margin-top:10px" onclick="cancelPending('${o.orderId}')" ${liveRuntime.actionPending?'disabled':''}>Cancelar antes do aceite</button>`:''}
-${active&&['PREPARING','AT_RISK'].includes(o.status)?`<button class="danger-btn full" style="margin-top:10px" onclick="cancelBeforeDispatch('${o.orderId}')" ${liveRuntime.actionPending?'disabled':''}>Cancelar antes da saída</button>`:''}
+<section class="section"><div class="section-head"><div><h2>Acompanhe a entrega</h2><p>Cada etapa aparece somente depois da respectiva confirmação.</p></div><button class="ghost small" onclick="liveGetOrder().catch(()=>{})" ${liveRuntime.actionPending?'disabled':''}>Atualizar status</button></div><div class="card flat timeline">${liveEventTimeline(o)}</div></section>
+${o.deliveryPin&&['OUT_FOR_DELIVERY','ARRIVING'].includes(o.status)?`<div class="notice success"><strong>Código de recebimento: ${esc(o.deliveryPin)}</strong><br>Confira os itens e o valor combinado. Só compartilhe o código após receber e conferir a entrega.</div>`:''}
+${active&&['OFFERED_TO_MERCHANT','REQUOTE_REQUIRED'].includes(o.status)?`<button class="ghost full" style="margin-top:10px" onclick="cancelPending()" ${liveRuntime.actionPending?'disabled':''}>Cancelar antes do aceite</button>`:''}
+${active&&['PREPARING','AT_RISK'].includes(o.status)?`<button class="danger-btn full" style="margin-top:10px" onclick="cancelBeforeDispatch()" ${liveRuntime.actionPending?'disabled':''}>Cancelar antes da saída</button>`:''}
 ${careBlock}
 </section>`);
 }
