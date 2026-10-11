@@ -35,15 +35,16 @@
     "admin": "https://admin.tamao.com.br"
   },
   "manualEvidenceRequired": [
-    "supabase-postgres-migrations-persisted-in-order",
-    "server-edge-functions-deployed-and-permissions-reviewed",
-    "real-merchant-cnpj-and-representative-documents-verified",
-    "glp-anp-license-verified-before-gas-products",
-    "all-three-official-portal-shas-and-https-attested",
-    "first-real-merchant-payment-and-delivery-homologation",
-    "business-authorization-for-opening-commerce"
+    "production-migrations-applied-with-safe-recovery",
+    "server-edge-functions-compatible-and-verified",
+    "consented-customer-and-merchant-interest-forms-tested",
+    "all-three-official-portal-shas-https-and-oidc-attested",
+    "real-merchant-cnpj-and-representative-documents-verified-before-city-sales",
+    "glp-anp-license-verified-before-gas-sales",
+    "merchant-direct-payment-route-homologated-before-real-orders",
+    "administrator-authorizes-global-commercial-opening"
   ],
-  "notes": "Public acquisition and approved merchants can be staged independently of first completed real sale. No main merge is authorized without proving backend compatibility and reviewing Cloudflare auto publication. Commerce remains blocked until separate city/product gates pass.",
+  "notes": "Two distinct gates: public information and consented registration may deploy before any first sale with commerce disabled, after compatible backend and 3-portal attestation. Per-city commerce opens automatically only when a compliant eligible merchant exists and global commerce was explicitly authorized; the first real sale is monitored after activation.",
   "releasePhases": {
     "publicAcquisition": {
       "desiredState": "ready-for-deployment-after-compatible-backend",
