@@ -49,6 +49,8 @@ for(const marker of [
 ]){
  assert.ok(script.includes(marker),'Backup safeguard missing: '+marker);
 }
+assert.ok(!script.includes('--no-acl')&&!windows.includes('--no-acl'),
+ 'A recoverable backup must keep GRANT/REVOKE ACLs for an isolated Supabase restore');
 assert.ok(!script.includes('curl -X POST')&&!script.includes('gh release upload'),
  'Database archive must never be uploaded to a public provider');
 const windows=fs.readFileSync(path.join(root,'scripts/release-db-backup-windows.ps1'),'utf8');
