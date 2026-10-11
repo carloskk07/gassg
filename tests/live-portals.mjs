@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import {buildLivePortals,assertProductionTurnstile} from '../scripts/build-live-portals.mjs';
+import {buildLivePortals,assertProductionTurnstile,validateClassicScriptSyntax} from '../scripts/build-live-portals.mjs';
 import {buildCloudflarePortal,CLOUDFLARE_PROJECTS,PUBLIC_TURNSTILE_SITE_KEY} from '../scripts/build-cloudflare-portal.mjs';
 
 const origins={
@@ -11,6 +11,9 @@ const origins={
   CHAMA_ADMIN_ORIGIN:'https://admin.tamao.com.br'
 };
 const testKey='1x00000000000000000000AA';
+assert.doesNotThrow(()=>validateClassicScriptSyntax('const valid = 1;','valid.js'));
+assert.throws(()=>validateClassicScriptSyntax("const invalid = ;",'invalid.js'),SyntaxError,
+  'Cloudflare bundle compilation must fail on an invalid public script');
 
 assert.throws(
   ()=>assertProductionTurnstile({...origins,CHAMA_TURNSTILE_SITE_KEY:''}),
