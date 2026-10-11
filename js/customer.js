@@ -286,7 +286,10 @@ function home(){
     : '● TAMÃO • '+regionLabel.toUpperCase();
   const primaryLabel=internalPilot?'Validar jornada':hasConfirmedCityOffers?'Conferir ofertas do meu CEP':outsideOriginalMarket?'Consultar minha cidade':acquisitionOpen?'Consultar disponibilidade':'Ver ofertas perto de mim';
   const primaryAction='startCustomerAvailability()';
-  const singleMarket=internalPilot||(ready&&market?.availableNow&&Number(market?.availableMerchantCount||0)===1);
+  // Global merchant totals never certify a single seller for this city's basket.
+  const singleMarket=internalPilot||(hasConfirmedCityOffers
+    &&(globalThis.liveRuntime?.marketMode==='single_supplier'
+      ||Number(globalThis.liveRuntime?.eligibleMerchantCount||0)===1));
   const heroJourney=singleMarket
     ? internalPilot
       ? 'Valide a jornada completa do ambiente interno: pedido, aceite, preparação, saída, chegada, pagamento e benefícios.'
