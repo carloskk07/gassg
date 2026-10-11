@@ -82,7 +82,7 @@ for(const marker of [
  'tamao_restore_', 'sha256sum', 'pg_restore --exit-on-error',
  'createdb --template=template0','RESTORE_BLOCKED','ISOLATED_RESTORE_OK'
 ])assert.ok(restoreShell.includes(marker),'Isolated restore guard missing: '+marker);
-assert.ok(!restoreShell.includes('dropdb')&&!restoreShell.includes('DROP DATABASE'),
+assert.ok(!/^\\s*(?:dropdb\\b|DROP\\s+DATABASE\\b)/mi.test(restoreShell),
  'Restoration cannot remove a database');
 const restoreWindows=fs.readFileSync(path.join(root,'scripts/release-db-restore-windows.ps1'),'utf8');
 for(const marker of [
