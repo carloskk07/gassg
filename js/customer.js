@@ -831,6 +831,63 @@ const statusCopy={
   CANCELLED:['Cancelado','O pedido não será entregue.']
 };
 
+// V1.164 — only server status advances the visible buyer journey.
+function customerOrderGuidance(status){
+  const copy={
+    CREATED:['Pedido registrado','A solicitação foi registrada; uma revenda ainda precisa aceitar.'],
+    QUOTE_LOCKED:['Valor registrado','O preço foi registrado. Isso ainda não confirma a entrega.'],
+    OFFERED_TO_MERCHANT:['Aguardando aceite da revenda','A solicitação foi enviada. A entrega só fica combinada após a confirmação da revenda.'],
+    MERCHANT_ACCEPTED:['Revenda confirmou o pedido','A revenda aceitou. Preparação e saída ainda precisam ser confirmadas.'],
+    PREPARING:['Seu pedido está sendo preparado','A revenda está separando os itens. A saída ainda não foi confirmada.'],
+    AT_RISK:['Atenção ao andamento','Há risco de atraso. Consulte os eventos confirmados e acompanhe as atualizações.'],
+    REASSIGNING:['Procurando outra opção','A opção anterior não conseguiu continuar. Um valor maior exige sua aprovação.'],
+    REQUOTE_REQUIRED:['Uma decisão sua é necessária','Confira a proposta alternativa antes de aceitar ou cancelar.'],
+    OUT_FOR_DELIVERY:['A saída foi confirmada','A revenda informou a saída. Guarde o código até ter o pedido em mãos.'],
+    ARRIVING:['O entregador informou que está chegando','Confira os produtos e o valor combinado antes de compartilhar o código.'],
+    DELIVERED:['Recebimento registrado','A entrega foi registrada. A conciliação financeira pode estar em processamento.'],
+    SETTLED:['Pedido concluído','A entrega e a conciliação foram registradas. Você pode avaliar o atendimento.'],
+    CANCELLED:['Pedido encerrado','Não há entrega em andamento. Consulte o histórico financeiro, quando aplicável.']
+  };
+  return copy[status]||['Acompanhe seu pedido','Consulte as atualizações confirmadas.'];
+}
+function customerOrderMilestones(status){
+  const steps=['Pedido enviado','Revenda aceitou','Saiu para entrega','Recebimento registrado'];
+  const stage={
+    CREATED:0,QUOTE_LOCKED:0,OFFERED_TO_MERCHANT:0,
+    MERCHANT_ACCEPTED:1,PREPARING:1,AT_RISK:1,
+    REASSIGNING:0,REQUOTE_REQUIRED:0,
+    OUT_FOR_DELIVERY:2,ARRIVING:2,DELIVERED:3,SETTLED:3
+  }[status];
+  return {steps,stage:Number.isInteger(stage)?stage:-1};
+}
+function customerOrderProgress(status){
+  const result=customerOrderMilestones(status);
+  if(result.stage<0)return '';
+  return '<nav class="customer-progress" aria-label="Etapas do pedido"><ol>'+
+    result.steps.map((label,i)=>{
+      const done=i<result.stage||(i===result.stage&&['DELIVERED','SETTLED'].includes(status));
+      const current=i===result.stage&&!done;
+      const kind=done?'complete':current?'current':'pending';
+      const description=done?'Confirmada':current?'Etapa atual':'Aguardando';
+      return '<li class="'+kind+'" '+(current?'aria-current="step"':'')+'>'+
+        '<span class="customer-progress-dot" aria-hidden="true">'+(done?'✓':i+1)+'</span>'+
+        '<span class="customer-progress-copy"><strong>'+esc(label)+'</strong><small>'+description+'</small></span></li>';
+    }).join('')+'</ol></nav>';
+}
+function customerNextAction(status){
+  const next={
+    REQUOTE_REQUIRED:'Compare o valor anterior e a nova proposta antes de decidir.',
+    AT_RISK:'Confira os eventos e atualize o andamento para saber o que foi confirmado.',
+    REASSIGNING:'Aguarde uma nova opção ou atualize o andamento.',
+    ARRIVING:'Separe o código, mas só o compartilhe após conferir a entrega.',
+    OUT_FOR_DELIVERY:'Aguarde a chegada e não informe o código antecipadamente.',
+    OFFERED_TO_MERCHANT:'Aguarde o aceite. Você pode cancelar antes da confirmação.',
+    CANCELLED:'Se precisar, registre um atendimento vinculado ao pedido.',
+    SETTLED:'Consulte os benefícios e, se desejar, avalie o atendimento.'
+  };
+  return next[status]||'Atualize o acompanhamento para consultar o último estado confirmado.';
+}
+
 function liveCustomerCareBlock(o){
   const openCases=(o.supportCases||[]).filter(x=>['open','in_review'].includes(x.status));
   const caseCopy={
