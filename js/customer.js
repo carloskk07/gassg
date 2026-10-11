@@ -497,12 +497,17 @@ ${pendingOrder?`<div class="notice" style="margin-bottom:14px"><strong>Você já
     <div class="input-wrap"><label for="postal-code">CEP</label><input id="postal-code" class="input" autocomplete="postal-code" inputmode="numeric" maxlength="9" placeholder="Ex.: 97300-000" value="${esc(String(state.postalCode||'').replace(/^(\d{5})(\d{0,3}).*$/,(m,a,b)=>b?a+'-'+b:a))}"><small class="field-help">Opcional na simulação.</small></div>
     <div class="input-wrap"><label for="address">Endereço de entrega</label><input id="address" class="input" autocomplete="street-address" maxlength="160" placeholder="Ex.: Rua General Câmara, 123" value="${esc(state.address||'')}"></div>
   </div>`:`<div class="field-row">
-    <div class="input-wrap"><label for="postal-code">CEP</label><input id="postal-code" class="input" autocomplete="postal-code" inputmode="numeric" maxlength="9" placeholder="Ex.: 97300-000" value="${esc(String(state.postalCode||'').replace(/^(\d{5})(\d{0,3}).*$/,(m,a,b)=>b?a+'-'+b:a))}" onchange="deliveryAddressDraftChanged()"><small class="field-help">O servidor confirma rua, bairro e atendimento para o CEP informado.</small></div>
-    <div class="input-wrap"><label for="address-number">Número</label><input id="address-number" class="input" autocomplete="address-line2" inputmode="text" maxlength="7" placeholder="Ex.: 123" value="${esc(state.addressNumber||'')}" onchange="deliveryAddressDraftChanged()"><small class="field-help">Use números e, se necessário, uma letra.</small></div>
+    <div class="input-wrap"><label for="postal-code">CEP</label><input id="postal-code" class="input" autocomplete="postal-code" inputmode="numeric" maxlength="9" placeholder="Ex.: 97300-000" value="${esc(String(state.postalCode||'').replace(/^(\d{5})(\d{0,3}).*$/,(m,a,b)=>b?a+'-'+b:a))}" oninput="deliveryAddressDraftChanged()" onchange="deliveryAddressDraftChanged()"><small class="field-help">O servidor confirma rua, bairro e atendimento para o CEP informado.</small></div>
+    <div class="input-wrap"><label for="address-number">Número</label><input id="address-number" class="input" autocomplete="address-line2" inputmode="text" maxlength="7" placeholder="Ex.: 123" value="${esc(state.addressNumber||'')}" oninput="deliveryAddressDraftChanged()" onchange="deliveryAddressDraftChanged()"><small class="field-help">Use números e, se necessário, uma letra.</small></div>
   </div>
   ${state.address?`<div class="notice success"><strong>Endereço confirmado pelo servidor.</strong><br>${esc(state.address)}</div>`:'<div class="notice">A rua não é digitada manualmente: ela vem do CEP validado.</div>'}`}
-  <button class="primary" onclick="setAddress()">${hasAddress?'Atualizar endereço':'Validar endereço'}</button>
-  <small class="field-help">${testDemo?'Dados do ambiente interno.':'Nenhuma cotação é criada antes da validação de CEP + número.'}</small>
+  ${testDemo
+    ?`<button class="primary" onclick="setAddress()">Validar endereço de teste</button>`
+    :ready
+      ?`<div class="address-auto-status" id="address-auto-status" role="status" aria-live="polite"><span aria-hidden="true">📍</span><span>${liveRuntime.loadingOffers?'Consultando opções para seu endereço…':hasAddress?'Endereço confirmado. Compare as opções disponíveis abaixo.':liveRuntime.error?'Não foi possível concluir a consulta. Você pode tentar novamente.':'Informe CEP e número. Consultaremos as ofertas automaticamente.'}</span></div>
+        ${liveRuntime.error?`<button class="secondary small" onclick="setAddress()">Tentar novamente</button>`:''}`
+      :`<button class="primary" onclick="setAddress()">Consultar endereço</button>`}
+  <small class="field-help">${testDemo?'Dados do ambiente interno.':'Os preços só aparecem após o servidor validar CEP e número.'}</small>
 </div>
 ${hasAddress?`<div class="card flat form-stack" style="margin-top:12px">
   <h3>Dados para a entrega</h3>
@@ -553,16 +558,31 @@ function deliveryAddressDraftChanged(){
   const postalCode=String(document.querySelector('#postal-code')?.value||'').replace(/\D/g,'').slice(0,8);
   const addressNumber=String(document.querySelector('#address-number')?.value||'').trim().toUpperCase().replace(/\s+/g,'').slice(0,7);
   if(postalCode===String(state.postalCode||'')&&addressNumber===String(state.addressNumber||''))return;
+  // Invalidate old quotes immediately (before the input settles), and don't
+  // rebuild the form while the person is typing: that would steal keyboard focus.
+  globalThis.liveInvalidateOfferAddressDraft?.();
   state.postalCode=postalCode;
   state.addressNumber=addressNumber;
   state.address='';
   if(globalThis.liveRuntime){
     liveRuntime.offers=[];
     liveRuntime.postalValidated=false;
+    liveRuntime.lastCityCheck=null;
     liveRuntime.lastSyncAt=null;
     liveRuntime.error=null;
   }
   save();
+  const valid=/^[0-9]{8}$/.test(postalCode)
+    &&/^[0-9]{1,6}[A-Z]?$/.test(addressNumber);
+  const hint=document.querySelector('#address-auto-status span:last-child');
+  if(hint){
+    hint.textContent=valid&&globalThis.liveReady?.()
+      ?'CEP e número completos. Consultando ofertas automaticamente…'
+      :'Informe CEP e número para consultar ofertas automaticamente.';
+  }
+  if(valid&&globalThis.liveReady?.()&&hasCartItems()){
+    globalThis.liveScheduleOfferRefresh?.(650);
+  }
 }
 
 async function setAddress(){
@@ -591,6 +611,7 @@ async function setAddress(){
   state.postalCode=postalCode;
   state.addressNumber=addressNumber;
   if(changed){
+    globalThis.liveInvalidateOfferAddressDraft?.();
     state.address='';
     liveRuntime.offers=[];
     liveRuntime.postalValidated=false;
@@ -607,7 +628,7 @@ async function setAddress(){
     }
   }
   render();
-  setTimeout(()=>document.querySelector('.offer-stack')?.scrollIntoView({behavior:'smooth'}),100);
+  setTimeout(()=>{if(route()==='order')document.querySelector('.offer-stack')?.scrollIntoView({behavior:'smooth'});},100);
 }
 function formatDeliveryPhone(value){
   const d=String(value||'').replace(/\D/g,'').slice(0,11);
