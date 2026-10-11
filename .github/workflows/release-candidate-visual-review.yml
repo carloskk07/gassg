@@ -111,3 +111,27 @@ jobs:
           path: release-review-screenshots
           retention-days: 7
           if-no-files-found: error
+
+  windows-backup-script:
+    if: startsWith(github.head_ref || github.ref_name, 'release/v1-164-')
+    runs-on: windows-latest
+    timeout-minutes: 7
+    steps:
+      - name: Checkout candidate
+        uses: actions/checkout@v6
+
+      - name: Parse Windows backup script without production credentials
+        shell: pwsh
+        run: |
+          $tokens = $null
+          $errors = $null
+          [void][System.Management.Automation.Language.Parser]::ParseFile(
+            (Join-Path $PWD 'scripts/release-db-backup-windows.ps1'),
+            [ref]$tokens,
+            [ref]$errors
+          )
+          if ($errors.Count -gt 0) {
+            $errors | ForEach-Object { Write-Error $_.Message }
+            exit 1
+          }
+          Write-Host "WINDOWS_SCRIPT_SYNTAX_OK - no connection or backup created"
