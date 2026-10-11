@@ -43,7 +43,7 @@ chmod 600 "$temp"
 cleanup(){ [[ -e "$temp" ]] && rm -f "$temp"; }
 trap cleanup EXIT
 # Uses libpq PG* environment instead of writing credentials to argv or logs.
-pg_dump --format=custom --no-owner --no-acl --file="$temp"
+pg_dump --format=custom --no-owner --file="$temp"
 pg_restore --list "$temp" >/dev/null
 [[ -s "$temp" ]] || { echo "BACKUP_FAILED: empty database archive" >&2; exit 4; }
 mv -n "$temp" "$target"
