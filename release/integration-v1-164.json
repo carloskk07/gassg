@@ -1,0 +1,47 @@
+{
+  "releaseId": "TAMAO-V1.164-INTEGRATED-RC",
+  "targetBranch": "main",
+  "publicationMode": "review-only",
+  "commercialActivation": "blocked",
+  "sourceBranch": "release/v1-164-integrated-review",
+  "stagedPullRequests": [
+    205,
+    207,
+    208,
+    209,
+    210,
+    211,
+    212,
+    213,
+    214,
+    215
+  ],
+  "databaseMigrations": [
+    "20261011043000_delivery_first_payment_boundary_v1_158_1.sql",
+    "20261011063000_merchant_basket_compliance_v1_158_2.sql",
+    "20261011073000_settlement_daily_due_alignment_v1_158_3.sql",
+    "20261011083000_merchant_representation_authority_v1_158_4.sql"
+  ],
+  "serverFunctionsChanged": [
+    "admin-ops",
+    "create-order",
+    "get-offers",
+    "get-order",
+    "order-payment-checkout"
+  ],
+  "publicPortals": {
+    "customer": "https://tamao.com.br",
+    "merchant": "https://parceiro.tamao.com.br",
+    "admin": "https://admin.tamao.com.br"
+  },
+  "manualEvidenceRequired": [
+    "supabase-postgres-migrations-persisted-in-order",
+    "server-edge-functions-deployed-and-permissions-reviewed",
+    "real-merchant-cnpj-and-representative-documents-verified",
+    "glp-anp-license-verified-before-gas-products",
+    "all-three-official-portal-shas-and-https-attested",
+    "first-real-merchant-payment-and-delivery-homologation",
+    "business-authorization-for-opening-commerce"
+  ],
+  "notes": "Passing isolated GitHub tests does not authorize main merge or commerce. PostgreSQL transaction rollback tests are not applied migrations."
+}
