@@ -36,7 +36,7 @@ export PGHOST=127.0.0.1 PGHOSTADDR=127.0.0.1 PGSSLMODE=prefer PGCONNECT_TIMEOUT=
 unset PGSERVICE || true
 # Fail if there is an existing database of the same name; never reuse or drop.
 if psql -XAtq -d postgres -v ON_ERROR_STOP=1 -v target="$target" \
-  -c "select 1 from pg_database where datname=:'target'" 2>/dev/null | grep -qx 1; then
+  -c "select 1 from pg_database where datname='$target'" 2>/dev/null | grep -qx 1; then
   echo "RESTORE_BLOCKED: destination database already exists" >&2
   exit 3
 fi
