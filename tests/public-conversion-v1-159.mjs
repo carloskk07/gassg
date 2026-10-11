@@ -34,7 +34,7 @@ for(const [src,fragment] of [
  [growth,'Não para receber na entrega.'],
  [growth,'não para prometer lucro'],
  [growth,'Sem exclusividade'],
- [growth,'A taxa só nasce quando o pedido é concluído.'],
+ [growth,'A taxa comercial incide sobre pedidos concluídos'],
  [growth,'Quero levar minha empresa ao TAMÃO'],
  [acquisition,'AVISO DE DISPONIBILIDADE'],
  [acquisition,'Nenhum pedido é criado'],
