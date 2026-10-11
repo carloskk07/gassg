@@ -61,6 +61,25 @@ for(const {role,path:dir} of built){
 
   assert.ok(html.includes('data-chama-portal="'+role+'"'));
 
+  const portalOrigin={
+    customer:'https://tamao.com.br',
+    merchant:'https://parceiro.tamao.com.br',
+    admin:'https://admin.tamao.com.br'
+  }[role];
+  assert.ok(html.includes('<link rel="canonical" href="'+portalOrigin+'/" />'),
+    'Wrong canonical origin for '+role);
+  assert.ok(html.includes('<meta property="og:url" content="'+portalOrigin+'/" />'),
+    'Wrong share URL for '+role);
+  assert.ok(html.includes('<meta name="description" content="'),
+    'Missing search description for '+role);
+  if(role==='merchant'){
+    assert.match(html,/TAMÃO para Revendas — Sua empresa, mais oportunidades/);
+    assert.match(html,/Sua empresa pode alcançar mais clientes da região/);
+  }
+  if(role==='admin'){
+    assert.match(html,/Acesso restrito à administração operacional do TAMÃO/);
+  }
+
   const manifest=JSON.parse(fs.readFileSync(path.join(dir,'manifest.webmanifest'),'utf8'));
   assert.equal(manifest.start_url,'/');
   assert.equal(manifest.scope,'/');
