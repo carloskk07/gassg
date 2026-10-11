@@ -74,8 +74,9 @@ for(const name of [
  const fixture='tests/sql/'+name;
  assert.ok(fs.existsSync(path.join(root,fixture)),'Missing database rollback proof: '+fixture);
  const sql=textFile(fixture).toLowerCase();
- assert.match(sql,/^\s*begin\s*;/,'Test must start a transaction');
- assert.match(sql,/\brollback\s*;\s*$/,'Test must end with ROLLBACK, never persist synthetic commerce');
+ const executable=sql.replace(/^\s*--[^\n]*(?:\n|$)/gm,'').trimStart();
+ assert.match(executable,/^begin\s*;/,'Test must start a transaction after documentation comments');
+ assert.match(executable,/\brollback\s*;\s*$/,'Test must end with ROLLBACK, never persist synthetic commerce');
 }
 const audit=textFile('.github/workflows/audit.yml');
 for(const i of [158,159,160,161,162,163,164]){
