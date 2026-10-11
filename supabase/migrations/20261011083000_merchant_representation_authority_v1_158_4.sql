@@ -48,7 +48,6 @@ as $func$
     where r.merchant_id=p_merchant_id
       and m.cnpj=r.merchant_cnpj
       and r.revoked_at is null
-      and r.verified_at<=statement_timestamp()
       and r.expires_at>statement_timestamp()
       and u.is_anonymous is false
       and u.email_confirmed_at is not null
