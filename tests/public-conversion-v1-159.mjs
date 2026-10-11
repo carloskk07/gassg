@@ -58,7 +58,8 @@ assert.ok(
  'Real commercial policy and product costs must govern simulator'
 );
 assert.ok(customer.includes("market?.realSupplyConfigured===false")
- &&customer.includes("availableMerchantCount")
+ &&customer.includes("hasConfirmedCityOffers")
+ &&customer.includes("cityEvidence.postalCode===String(state.postalCode")
  &&customer.includes("rememberedMarketRegion"),
  'Home must not fabricate a live partner or hide geography'
 );
