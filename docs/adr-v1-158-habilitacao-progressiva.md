@@ -109,3 +109,20 @@ Implementação protegida na branch de revisão (não é homologação nem deplo
 - testes de contrato, sem substituir E2E e prova SQL no ambiente real.
 
 **Pendente antes de ativação:** executar migração controlada, provar que triggers convivem com RPCs e reatribuição, homologar revenda autorizada e representação, confirmar cobrança diária da taxa TAMÃO, provar isolamento GLP/não-GLP, testar Pix/maquininha reais e rollback. Esta fase entrega somente venda na entrega; prepaid segue bloqueado em novos pedidos até existir seleção explícita de cotação/pedido e verificação ponta a ponta.
+
+## Revisão técnica — ensaio transacional V1.158.1 (11/10/2026)
+
+- Migração aplicada apenas dentro de `BEGIN ... ROLLBACK` no PostgreSQL conectado: tabelas, constraints, funções e gatilhos foram compilados com sucesso; nenhum objeto da migração ficou persistido.
+- Ensaio SQL com revenda transitória validou `flex_daily` sem compra de créditos e `sales_hold=false`, Pix no canal `delivery` com provedor Stone declarado, rejeição de `external` como entrega, rejeição de tentativa `online` por rota manual, recusa de método/rota desativados e concordância entre `market_filter_delivery_payment_merchants` e `merchant_delivery_payment_allowed`.
+- Restrição anterior `merchant_payment_routes_declared_provider_metadata_check` bloqueava `delivery` para PSP declarado; foi ajustada para aceitar `external` legado e `delivery`, preservando `verification_mode=merchant_confirmed`, conexão nula e metadados de confirmação manual sem custódia.
+- A seleção de ofertas e o gatilho SQL de pedidos usam a mesma autoridade por forma de pagamento. Terminal `device` só é elegível se o vínculo com o PSP estiver ativo e com capacidade verificada.
+- Arquivo repetível de teste: `tests/sql/delivery-first-payment-v1-158-1.sql`; os objetos criados pelo ensaio são revertidos automaticamente.
+
+### Limites ainda abertos (não autorizar produção)
+
+1. **ANP por produto:** `merchant_anp_compliance_current` hoje considera qualquer GLP ativo no catálogo. Uma revenda com GLP ativo e autorização pendente pode permanecer bloqueada inclusive para água/lenha. Desacoplar exige gates por cesta em criação de cotação, novo pedido, aceite, reatribuição e resgate, preservando bloqueio de GLP em todos os caminhos. Não relaxar a função global isoladamente.
+2. **Validação real da revenda:** nenhuma revenda de produção está cadastrada no Supabase inspecionado; não há comprovante de representação legal, autorização ANP nem entrega real para homologação.
+3. **Fluxo financeiro:** a estrutura Flex Diário e a cobrança na liquidação existem, mas são necessários teste de entrega real, registro idempotente de receita TAMÃO, fechamento e contestação sob dados homologados.
+4. **Checkout antecipado:** continua intencionalmente indisponível para novos pedidos nesta fase, mesmo com um PSP cadastrado. A segunda etapa exigirá seleção explícita de modalidade, titularidade da conta e validação do webhook.
+
+**Política de merge:** manter PR em draft e nenhuma migração/deploy em produção até fechar os critérios acima.
