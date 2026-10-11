@@ -27,9 +27,9 @@ function club(){
   const comparisonSavings=Math.max(0,Number(globalThis.liveRuntime?.comparisonSavingsCents||0))/100;
   const cashbackEarned=Math.max(0,Number(globalThis.liveRuntime?.cashbackEarnedCents||0))/100;
   return shell(`<section class="page">
-    <span class="eyebrow">BENEFÍCIOS PARA QUEM COMPRA</span>
-    <h1 class="page-title">Clube TAMÃO</h1>
-    <p class="muted page-lead">Acompanhe o que suas compras já devolveram para você e use o saldo disponível para economizar nas próximas.</p>
+    <span class="eyebrow">CLUBE TAMÃO</span>
+    <h1 class="page-title">Comprar o que precisa também pode trazer vantagens.</h1>
+    <p class="muted page-lead">Acompanhe seu cashback de compras elegíveis, consulte seu histórico de benefícios e descubra quando há crédito disponível para usar em um novo pedido.</p>
     <div class="reward-hero"><div class="tiny" style="opacity:.75">SEU CASHBACK DISPONÍVEL</div><div class="balance">${BRL.format(state.user.cashback)}</div><div class="tiny">crédito para usar em novas compras</div><div class="progress"><div style="width:${pct}%"></div></div><strong>${esc(next)}</strong></div>
     <div class="earn-summary" style="margin-top:14px">
       <div class="earn-balance-card"><span>Economia nas comparações</span><strong>${BRL.format(comparisonSavings)}</strong><small>diferença acumulada contra a opção mais cara realmente exibida nas consultas que viraram pedidos concluídos</small></div>
@@ -207,9 +207,9 @@ function refer(){
   const referralRateLabel=policyPercent(referralPilotRate());
   return shell(`<section class="page">
     <button class="back" onclick="go('earn')">← Ganhar ou vender</button>
-    <span class="eyebrow">COMISSÃO POR INDICAÇÃO</span>
-    <h1 class="page-title">Indique um novo comprador. A primeira compra elegível pode gerar comissão.</h1>
-    <p class="muted page-lead">O TAMÃO usa indicação como aquisição de novos clientes: cadastro sozinho não gera valor e compras repetidas do mesmo indicado não criam uma nova comissão de aquisição.</p>
+    <span class="eyebrow">CONVIDE ALGUÉM PARA CONHECER</span>
+    <h1 class="page-title">Conhece alguém que também gostaria de pedir pelo TAMÃO?</h1>
+    <p class="muted page-lead">Compartilhe seu link quando as indicações estiverem disponíveis. Uma primeira compra válida de um novo cliente pode gerar comissão; só cadastrar alguém não gera pagamento, e a campanha tem regras de qualificação.</p>
     <div class="earn-summary">
       <div class="earn-balance-card"><span>Disponível</span><strong>${BRL.format(state.user.commissionAvailable)}</strong><small>saldo já liberado</small></div>
       <div class="earn-balance-card"><span>A liberar</span><strong>${BRL.format(state.user.commissionPending)}</strong><small>em validação</small></div>
