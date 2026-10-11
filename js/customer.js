@@ -276,7 +276,9 @@ function home(){
           ? 'Consultar preço'
           : ready
             ? 'Consultar disponibilidade'
-            : 'Conectando…';
+            : globalThis.liveRuntime?.status==='loading'
+              ? 'Conectando…'
+              : 'Consulta indisponível';
 
   const freshness=testDemo
     ? internalPilot
@@ -296,7 +298,9 @@ function home(){
             ? 'A disponibilidade é confirmada conforme sua região e as revendas cadastradas.'
             : globalThis.liveRuntime?.status==='unsafe-origin'
             ? 'Use o endereço oficial do TAMÃO para consultar disponibilidade.'
-            : 'Conectando ao serviço.';
+            : globalThis.liveRuntime?.status==='loading'
+              ? 'Conectando ao serviço.'
+              : 'Ofertas não verificadas agora. Nenhum pedido foi criado.';
 
   const disabled=!testDemo&&!ready&&!preview;
   const liveProductCodes=new Set(Array.isArray(market?.productCodes)?market.productCodes:[]);
