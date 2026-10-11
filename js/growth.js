@@ -327,17 +327,29 @@ async function activateCashAccount(){
   }
 }
 
+function referralSharePayload(url,region){
+  const city=String(region?.city||'').trim().slice(0,80);
+  const state=String(region?.state||'').trim().toUpperCase();
+  const place=city&&/^[A-Z]{2}$/.test(state)?`em ${city}/${state}`:'na sua região';
+  return {
+    title:'TAMÃO — Pediu? Tá na mão.',
+    text:`Conheça o TAMÃO! Consulte gás, água e itens essenciais ${place}, confira a disponibilidade pelo CEP e compartilhe: ${url}`,
+    url
+  };
+}
+
 async function shareReferral(){
   const url=referralUrl();
   if(!url)return toast('Link de indicação indisponível no momento');
-  const text=`Use o TAMÃO para consultar preço e pedir gás e outros itens em São Gabriel: ${url}`;
+  const region=typeof rememberedMarketRegion==='function'?rememberedMarketRegion():null;
+  const payload=referralSharePayload(url,region);
   try{
     if(navigator.share){
-      await navigator.share({title:'TAMÃO São Gabriel',text,url});
+      await navigator.share(payload);
       return;
     }
     if(navigator.clipboard?.writeText){
-      await navigator.clipboard.writeText(text);
+      await navigator.clipboard.writeText(payload.text);
       toast('Link copiado');
       return;
     }
