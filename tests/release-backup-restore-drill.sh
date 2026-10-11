@@ -36,6 +36,18 @@ archive="$(find "$TAMAO_BACKUP_DIR" -maxdepth 1 -name '*.dump' -type f -print -q
 [[ -s "$archive" ]] || { echo "EMPTY_ARCHIVE" >&2; exit 8; }
 [[ "$(stat -c %a "$archive")" == "600" ]] || { echo "PRIVATE_MODE_REQUIRED" >&2; exit 8; }
 sha256sum -c "$archive.sha256" >/dev/null
+# Negative proof: a modified archive must fail its recorded SHA-256 verification.
+# Work exclusively on a synthetic, private copy; never alter the original checkpoint.
+tampered="$source_archive_root/tampered.dump"
+cp -- "$archive" "$tampered"
+printf 'tampering-for-negative-test' >> "$tampered"
+expected_hash="$(cut -d ' ' -f 1 "$archive.sha256")"
+if printf '%s  %s\n' "$expected_hash" "$tampered" | sha256sum -c - >/dev/null 2>&1; then
+  echo "TAMPERED_ARCHIVE_ACCEPTED" >&2
+  exit 8
+fi
+echo "TAMPERED_ARCHIVE_REJECTED"
+
 pg_restore --list "$archive" | grep -q 'tamao_backup_smoke'
 createdb -T template0 tamao_rc_restored
 PGDATABASE=tamao_rc_restored pg_restore --exit-on-error --no-owner --dbname=tamao_rc_restored "$archive"
