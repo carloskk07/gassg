@@ -8,6 +8,8 @@ import {fileURLToPath} from 'node:url';
 // from a São Gabriel partner. City hints are optional, never offer evidence.
 const root=path.resolve(path.dirname(fileURLToPath(import.meta.url)),'..');
 const growth=fs.readFileSync(path.join(root,'js/growth.js'),'utf8');
+const customer=fs.readFileSync(path.join(root,'js/customer.js'),'utf8');
+const core=fs.readFileSync(path.join(root,'js/core.js'),'utf8');
 const acquisition=fs.readFileSync(path.join(root,'js/acquisition.js'),'utf8');
 const source=/function referralSharePayload\(url,region\)\s*\{[\s\S]*?^\}/m.exec(growth)?.[0];
 assert.ok(source,'A reusable, testable nationwide share formatter is required');
@@ -33,4 +35,8 @@ assert.ok(!acquisition.includes('Ex.: entregamos em toda São Gabriel'),
  'Partner onboarding cannot assume the founding city');
 assert.ok(acquisition.includes('atendemos vários bairros da nossa cidade'),
  'Partner onboarding needs a nationwide-ready example');
-console.log('Nationwide sharing and merchant lead copy passed.');
+assert.ok(customer.includes("'Informe seu CEP'"), 'Customer default location must not assume São Gabriel');
+assert.ok(!customer.includes('atendimento em São Gabriel/RS'), 'Delivery details must use the buyer postal code');
+assert.ok(core.includes("'Consulte sua região'"), 'Public footer must be region-aware');
+assert.ok(!growth.includes('VENDA PELO TAMÃO — SÃO GABRIEL'), 'Merchant CTA must be nationwide');
+console.log('Nationwide sharing, customer region and merchant acquisition copy passed.');
