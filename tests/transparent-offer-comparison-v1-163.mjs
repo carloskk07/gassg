@@ -102,7 +102,7 @@ const malformed=[
   {id:'safe',roles:['Alternativa'],total:100,eta:30,etaMax:40,trust:0}
 ];
 const risky=run('checkoutOfferComparison('+JSON.stringify(malformed)+')');
-assert.ok(!risky.includes('onclick="checkout(\'bad')'),'Invalid quote ID must never become actionable JS');
+assert.ok(!risky.includes('alert(1)'), 'Malformed quote IDs must not reach any output HTML');
 assert.ok(risky.includes('disabled'),'Malformed ID should fail closed');
 assert.ok(!risky.includes('R$ 500,00'),'Invalid breakdown cannot display excessive delivery fee');
 
