@@ -2043,3 +2043,6 @@ body:has(.admin-page) .shell{
 @media(prefers-reduced-motion:reduce){
  .customer-progress-dot,.customer-tracking-overview{transition:none}
 }
+
+/* Review V1.164: outage communication on information pages stays visible but calm. */
+.calm-strip{background:#edf7f0;border-bottom-color:#d1e7d9;color:#245e42}
