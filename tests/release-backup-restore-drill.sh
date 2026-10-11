@@ -28,6 +28,18 @@ SQL
 source_archive_root="$(mktemp -d "${RUNNER_TEMP:-/tmp}/tamao-restore-drill.XXXXXX")"
 trap 'rm -rf "$source_archive_root"' EXIT
 export TAMAO_BACKUP_DIR="$source_archive_root/private"
+# Negative security check: a group/world-accessible backup folder must be rejected.
+mkdir -p "$source_archive_root/insecure"
+chmod 755 "$source_archive_root/insecure"
+if TAMAO_BACKUP_DIR="$source_archive_root/insecure" bash scripts/release-db-backup-checkpoint.sh >/dev/null 2>&1; then
+  echo "INSECURE_BACKUP_DIR_ACCEPTED" >&2
+  exit 8
+fi
+[[ "$(find "$source_archive_root/insecure" -maxdepth 1 -name '*.dump' | wc -l)" == "0" ]] || {
+  echo "INSECURE_BACKUP_DIR_CREATED_ARCHIVE" >&2
+  exit 8
+}
+echo "INSECURE_BACKUP_DIR_REJECTED"
 bash scripts/release-db-backup-checkpoint.sh --preflight
 bash scripts/release-db-backup-checkpoint.sh
 archive_count="$(find "$TAMAO_BACKUP_DIR" -maxdepth 1 -name '*.dump' -type f | wc -l)"
