@@ -64,6 +64,18 @@ assert.ok(windows.toLowerCase().includes('restaure') && windows.includes("Find-P
  'Backup must instruct an isolated restore and verify archive tool');
 assert.ok(!windows.includes('Write-Host $env:PGPASSWORD')&&!windows.includes('Start-Transcript'),
  'Windows flow must not leak credentials into terminal history or output');
+for(const marker of [
+ '[Guid]::NewGuid()', '[System.IO.File]::Move($stagingArchive, $archive)',
+ '[System.IO.File]::Move($stagingHash, $hashFile)',
+ '$archivePublished = $true', '$hashPublished = $true',
+ 'Get-FileHash -LiteralPath $archive -Algorithm SHA256',
+ 'Remove-Item -LiteralPath $partial'
+]) assert.ok(windows.includes(marker),
+ 'Windows atomic backup safeguard missing: '+marker);
+assert.ok(!windows.includes('& $dump --format=custom --no-owner --file=$archive'),
+ 'pg_dump must not write a directly publishable production checkpoint');
+assert.ok(windows.includes('if ($archivePublished -and'),
+ 'Windows cleanup must only remove an archive published by the current run');
 const runbook=fs.readFileSync(path.join(root,'release/RUNBOOK-V1-164.md'),'utf8');
 assert.ok(runbook.includes('Marco A')&&runbook.includes('Marco B'));
 console.log('Release recovery: schema version drift/partial migration rejected; Free-plan pg_dump safeguards and private restore checkpoint verified.');
