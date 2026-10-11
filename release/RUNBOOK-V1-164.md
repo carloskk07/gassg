@@ -73,6 +73,52 @@ e usuário com sufixo, informar `-Port` e `-DbUser` conforme o painel.
 **Nunca preencher senha diretamente na linha de comando.** O teste
 de restauração em base isolada continua necessário, inclusive no Windows.
 
+### Restauração de verdade, somente em ambiente isolado
+
+O projeto inclui duas rotinas de restauração que **criam um banco novo**,
+exigem nome com prefixo `tamao_restore_`, conferem o SHA-256 e o catálogo
+antes de tentar recuperar dados:
+
+- Windows: `scripts/release-db-restore-windows.ps1`
+- Linux/WSL: `scripts/release-db-restore-isolated.sh`
+
+No Windows, com PostgreSQL cliente e uma instância **local descartável**
+preparada, a conferência do arquivo pode ocorrer sem acessar banco algum:
+
+```powershell
+.\\scripts\\release-db-restore-windows.ps1 -Archive "C:\\CAMINHO_PRIVADO\\tamao-prod-before-v1-164-ARQUIVO.dump" -CheckOnly
+```
+
+Somente após confirmar que `127.0.0.1` aponta para essa instância local
+**e não é túnel/port-forward para produção**, a recuperação pode ser
+executada em banco novo:
+
+```powershell
+.\\scripts\\release-db-restore-windows.ps1 -Archive "C:\\CAMINHO_PRIVADO\\tamao-prod-before-v1-164-ARQUIVO.dump" -Target "tamao_restore_ensaio_001" -LocalUser "postgres" -ConfirmIsolatedLocalPostgres
+```
+
+Para Linux/WSL, com credenciais da **instância local** em `PGUSER`
+e `PGHOST=127.0.0.1` (e `PGPORT` correspondente):
+
+```bash
+bash scripts/release-db-restore-isolated.sh /caminho/privado/arquivo.dump tamao_restore_ensaio_001
+```
+
+A instância local precisa ter versões, extensões e funções/roles
+**compatíveis com Supabase/PostgreSQL da origem**. Uma instalação PostgreSQL
+genérica pode rejeitar corretamente a restauração por falta dessas
+dependências; nesse caso **não** classificar a recuperação como aprovada.
+Os scripts **não eliminam bancos existentes nem executam DROP DATABASE**,
+mas o operador deve garantir que a porta local não esteja redirecionada para
+um servidor real.
+
+**Critério para comprovar o backup de produção:** dump da própria origem,
+checksum e catálogo íntegros, recuperação completa sem erros no ambiente
+compatível e validação dos objetos, permissões, RLS, funções, dados e
+dependências; coletar relatório somente com números e resultados sem PII.
+O teste sintético de CI continua sendo uma prova do procedimento, e
+**não** substitui esta validação real.
+
 Outro bloqueio: a tabela `supabase_migrations.schema_migrations` deve
 corresponder **exatamente** aos prefixos de 14 dígitos e nomes dos
 arquivos no repositório. `scripts/release-migration-history.mjs`
