@@ -51,6 +51,14 @@ for(const marker of [
 }
 assert.ok(!script.includes('curl -X POST')&&!script.includes('gh release upload'),
  'Database archive must never be uploaded to a public provider');
+const windows=fs.readFileSync(path.join(root,'scripts/release-db-backup-windows.ps1'),'utf8');
+for(const phrase of [
+ 'Read-Host', '-AsSecureString', 'ZeroFreeBSTR', 'pg_dump',
+ 'Find-PgTool', 'Get-FileHash', 'Remove-Item Env:PGPASSWORD',
+ 'PGSSLMODE', 'RESTORE', 'TAMAO', 'CheckOnly'
+])assert.ok(windows.includes(phrase),'Windows backup guard missing: '+phrase);
+assert.ok(!windows.includes('Write-Host $env:PGPASSWORD')&&!windows.includes('Start-Transcript'),
+ 'Windows flow must not leak credentials into terminal history or output');
 const runbook=fs.readFileSync(path.join(root,'release/RUNBOOK-V1-164.md'),'utf8');
 assert.ok(runbook.includes('Marco A')&&runbook.includes('Marco B'));
 console.log('Release recovery: schema version drift/partial migration rejected; Free-plan pg_dump safeguards and private restore checkpoint verified.');
