@@ -22,6 +22,48 @@ testes como será incorporado. As PRs originais permanecem abertas.
   das suas autorizações nesta rodada. Não há transação de pagamento real
   homologada pelo conjunto de testes sintéticos.
 
+## Checkpoint obrigatório do plano Free
+
+O Supabase deste projeto está no plano **Free**. Conforme a documentação
+oficial, os backups diários gerenciados são oferecidos nos planos Pro,
+Team e Enterprise; projetos Free precisam exportar seus próprios backups.
+**Não executar DDL persistente sem um checkpoint recuperável.**
+
+O script versionado `scripts/release-db-backup-checkpoint.sh` usa
+`pg_dump` em formato customizado, `pg_restore --list` e checksum
+SHA-256. O arquivo permanece **fora do repositório** com permissões
+restritas e não deve ser enviado para GitHub, Slack, chat ou log de CI.
+
+Fluxo de preparação, em um ambiente seguro com utilitários PostgreSQL
+instalados e credenciais libpq `PGHOST/PGDATABASE/PGUSER/PGPASSWORD`
+definidas fora do histórico do shell:
+
+```bash
+TAMAO_BACKUP_DIR=/caminho/seguro/fora/do/repositorio \
+  bash scripts/release-db-backup-checkpoint.sh --preflight
+TAMAO_BACKUP_DIR=/caminho/seguro/fora/do/repositorio \
+  bash scripts/release-db-backup-checkpoint.sh
+```
+
+**O preflight não cria backup.** Uma execução sem `--preflight`
+salva o dump apenas se a conexão PostgreSQL funcionar. Antes de migrar,
+restaurar uma cópia em banco **isolado**, conferir objetos/dados e guardar
+o checksum. O simples `pg_restore --list` não prova restauração
+bem-sucedida.
+
+Outro bloqueio: a tabela `supabase_migrations.schema_migrations` deve
+corresponder **exatamente** aos prefixos de 14 dígitos e nomes dos
+arquivos no repositório. `scripts/release-migration-history.mjs`
+compara um snapshot JSON somente leitura das migrations; status
+`NOT_APPLIED` exige implantação e `DRIFT_BLOCKED` proíbe promoção.
+Não cadastrar versões arbitrárias com timestamp diferente apenas para
+satisfazer a ferramenta. Não inserir registros artificiais no histórico.
+
+Esses checkpoints protegem a publicação. Nunca imprimir senhas ou
+`service_role` no relatório e não colocar cópia de dados reais em
+artefatos públicos. Os E2E com `BEGIN/ROLLBACK` existentes continuam
+importantes, mas **não substituem backup e restauração**.
+
 ## Dois marcos separados — divulgação e operação real
 
 ### Marco A: publicar site informativo e captar interessados (com vendas bloqueadas)
