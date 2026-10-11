@@ -336,14 +336,14 @@ function home(){
 <div class="intent-grid prelaunch-intent-grid">
   <button class="intent-card intent-primary" onclick="startCustomerAvailability()"><span class="intent-icon">📍</span><span><strong>Quero resolver o que faltou</strong><small>Consulte pelo CEP. Se a sua região ainda não tiver atendimento, peça para receber um aviso.</small></span><b>→</b></button>
   <button class="intent-card" onclick="go('learn')"><span class="intent-icon">🛡️</span><span><strong>Quero comprar com confiança</strong><small>Veja como conferimos preço, confirmação e entrega.</small></span><b>→</b></button>
-  <button class="intent-card" onclick="go('merchants')"><span class="intent-icon">🏪</span><span><strong>Quero trazer minha empresa</strong><small>Descubra o canal de vendas e o que você continua controlando.</small></span><b>→</b></button>
+  <button class="intent-card" onclick="openPrelaunchMerchantLead()"><span class="intent-icon">🏪</span><span><strong>Quero trazer minha empresa</strong><small>Descubra o canal de vendas e o que você continua controlando.</small></span><b>→</b></button>
 </div></section>`
     : `<section class="section intent-section"><div class="section-head"><div><span class="section-kicker">ESCOLHA SEU CAMINHO</span><h2>Tem espaço para você no TAMÃO.</h2><p>Compre com tranquilidade, conheça os benefícios ou leve sua empresa para mais clientes.</p></div></div>
 <div class="intent-grid">
   <button class="intent-card intent-primary" onclick="quickProduct('P13')" ${disabled?'disabled':''}><span class="intent-icon">🔥</span><span><strong>Preciso de algo para casa</strong><small>Veja produtos, valores e previsão de entrega para seu endereço.</small></span><b>→</b></button>
   <button class="intent-card" onclick="go('learn')"><span class="intent-icon">🛡️</span><span><strong>Quero comprar com confiança</strong><small>Veja como funcionam o pedido, o pagamento e a entrega.</small></span><b>→</b></button>
   <button class="intent-card" onclick="go('earn')"><span class="intent-icon">🎁</span><span><strong>Quero aproveitar benefícios</strong><small>Descubra cashback e indicações quando estiverem disponíveis.</small></span><b>→</b></button>
-  <button class="intent-card" onclick="go('merchants')"><span class="intent-icon">🏪</span><span><strong>Tenho uma empresa</strong><small>Mais um canal para ser encontrado, sem abrir mão dos seus clientes.</small></span><b>→</b></button>
+  <button class="intent-card" onclick="openPrelaunchMerchantLead()"><span class="intent-icon">🏪</span><span><strong>Tenho uma empresa</strong><small>Mais um canal para ser encontrado, sem abrir mão dos seus clientes.</small></span><b>→</b></button>
 </div></section>`;
 
   return shell(`<section class="hero marketing-hero"><div class="hero-grid"><div>
