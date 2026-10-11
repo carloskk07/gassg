@@ -1,6 +1,6 @@
 import fs from 'node:fs';
 import path from 'node:path';
-import {buildLivePortals} from './build-live-portals.mjs';
+import {buildLivePortals,assertProductionTurnstile} from './build-live-portals.mjs';
 import {validatePortalRole} from './generate-runtime-config.mjs';
 
 const ROOT=path.resolve(new URL('..',import.meta.url).pathname);
@@ -53,6 +53,9 @@ export function buildCloudflarePortal(
     CHAMA_ADMIN_ORIGIN:env.CHAMA_ADMIN_ORIGIN||CLOUDFLARE_PROJECTS['tamao-sg-admin'].origin
   };
 
+  // Cloudflare projects are public, never CI fixtures. Reject demonstration
+  // keys even if a stale testing override leaked into the deploy environment.
+  assertProductionTurnstile({...buildEnv,CHAMA_ALLOW_TEST_TURNSTILE:'0'});
   buildLivePortals(buildEnv,{outputRoot});
   const source=path.join(outputRoot,role);
   if(!fs.existsSync(source))throw new Error('portal bundle ausente para role '+role);
