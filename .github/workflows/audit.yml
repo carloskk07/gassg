@@ -101,6 +101,8 @@ jobs:
         run: node tests/merchant-enablement-v1-157.mjs
       - name: Owner-scoped merchant enablement V1.158 regression contract
         run: node tests/merchant-guided-enablement-v1-158.mjs
+      - name: Delivery-first progressive payment V1.158.1 regression contract
+        run: node tests/delivery-first-payment-v1-158-1.mjs
       - name: Remote admin gateway contract and portal report
         run: node tests/remote-admin-readiness.mjs
       - name: Runtime origin config contract

@@ -68,6 +68,7 @@ function mapRpcError(error: { message?: string; code?: string } | null) {
     SCHEDULED_DELIVERY_UNAVAILABLE: { status: 409, message: "Este parceiro não está mais aceitando pedidos agendados." },
     PAYMENT_METHOD_MISMATCH: { status: 409, message: "A forma de pagamento mudou depois da cotação. Atualize as opções." },
     PAYMENT_METHOD_UNAVAILABLE: { status: 409, message: "Este parceiro não aceita mais esta forma de pagamento. Atualize as opções." },
+    ORDER_DELIVERY_PAYMENT_ROUTE_NOT_AUTHORIZED: { status: 409, message: "A revenda não aceita mais esta modalidade na entrega. Atualize as ofertas." },
     INVALID_CUSTOMER_PHONE: { status: 400, message: "Informe um telefone válido com DDD." },
     INVALID_ADDRESS_COMPLEMENT: { status: 400, message: "Complemento de endereço inválido." },
     INVALID_DELIVERY_REFERENCE: { status: 400, message: "Referência de entrega inválida." },

@@ -305,7 +305,17 @@ Deno.serve(async (req: Request) => {
       .eq("active",true);
     if(paymentError)throw paymentError;
     const paymentSet=new Set((paymentRows??[]).map((row)=>row.merchant_id));
-    const paymentEligibleMerchants=scheduleEligibleMerchants.filter((m)=>paymentSet.has(m.id));
+    // Both customer offers and the SQL order guard use the same policy.
+    // Manual receipt at delivery needs no PSP; connected terminals qualify
+    // only if the server-side provider capability is still active.
+    const {data:deliveryEligibleIds,error:deliveryRoutesError}=await admin.rpc(
+      "market_filter_delivery_payment_merchants",
+      {p_merchant_ids:scheduledMerchantIds,p_payment_method:paymentMethod}
+    );
+    if(deliveryRoutesError)throw deliveryRoutesError;
+    const deliveryPaymentSet=new Set((deliveryEligibleIds??[]) as string[]);
+    const paymentEligibleMerchants=scheduleEligibleMerchants.filter((m)=>
+      paymentSet.has(m.id)&&deliveryPaymentSet.has(m.id));
     if(!paymentEligibleMerchants.length){
       return json({
         offers:[],
