@@ -58,7 +58,7 @@ begin
   end if;
 
   update public.merchant_compliance
-  set anp_status='verified',anp_verified_at=statement_timestamp()
+  set anp_status='verified',anp_reference='SIMULACAO-TRANSACIONAL',anp_verified_at=statement_timestamp()
   where merchant_id=v_id;
 
   if not public.merchant_basket_compliance_current(v_id,array['P13'])
