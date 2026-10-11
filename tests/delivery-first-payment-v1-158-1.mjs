@@ -90,7 +90,7 @@ ensureSourcePart(customer,[
   'Pix na entrega',
   'Cartão na maquininha da revenda',
   'Dinheiro na entrega',
-  'Pagamento na entrega:',
+  'Você paga diretamente à revenda:',
   'o.paymentTiming==="prepaid"'
 ], 'Customer journey must describe who receives payment and when');
 
