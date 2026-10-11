@@ -11,6 +11,7 @@ declare
   pin text;
   result jsonb;
   initial_fee integer;
+  rejected boolean:=false;
 begin
   insert into auth.users(id,aud,role,email)
   values(gen_random_uuid(),'authenticated','authenticated',
@@ -109,6 +110,34 @@ begin
 
   select version into current_version from public.orders where id=order_uuid;
   result:=public.complete_order_delivery(
+    merchant_user,order_uuid,
+    case when pin='0000' then '1111' else '0000' end,
+    current_version,
+    'v1583-wrongpin-'||substr(order_uuid::text,1,14),repeat('e',64),true
+  );
+  if result->>'error'<>'INVALID_PIN' or result->>'status'<>'ARRIVING' then
+    raise exception 'TEST_FAIL: incorrect PIN was not rejected';
+  end if;
+  if exists(select 1 from public.platform_receivables where order_id=order_uuid) then
+    raise exception 'TEST_FAIL: invalid PIN generated fee';
+  end if;
+
+  select version into current_version from public.orders where id=order_uuid;
+  begin
+    perform public.complete_order_delivery(
+      merchant_user,order_uuid,pin,current_version,
+      'v1583-unpaid-'||substr(order_uuid::text,1,14),repeat('f',64),false
+    );
+  exception when sqlstate '40001' then
+    rejected:=true;
+  end;
+  if not rejected or
+    (select status from public.orders where id=order_uuid)<>'ARRIVING' then
+    raise exception 'TEST_FAIL: no attestation settled unpaid delivery';
+  end if;
+
+  select version into current_version from public.orders where id=order_uuid;
+  result:=public.complete_order_delivery(
     merchant_user,order_uuid,pin,current_version,
     'v1583-complete-'||substr(order_uuid::text,1,14),
     repeat('d',64),true
@@ -143,7 +172,7 @@ begin
       and status='verified') then
     raise exception 'TEST_FAIL: merchant payment attestation missing';
   end if;
-  raise notice 'PASS: offer/accept/PIN/settled/postpaid/replay'; 
+  raise notice 'PASS: offer/accept/wrong PIN/unpaid reject/correct PIN/settled/postpaid/replay'; 
 end;
 $full_order$;
 rollback;
