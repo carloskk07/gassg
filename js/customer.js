@@ -976,7 +976,7 @@ function liveTracking(){
   const items=(o.items||[]).map(i=>`<div class="list-row"><span>${Number(i.quantity)}× ${esc(i.product_name||i.productName||i.product_code||'Item')}</span><strong>${BRL.format(Number(i.line_total_cents??i.lineTotalCents??0)/100)}</strong></div>`).join('');
   const careBlock=liveCustomerCareBlock(o);
   const scheduleNotice=o.deliveryWindowStart
-    ? `<div class="notice success" style="margin-top:12px"><strong>Janela de entrega solicitada: ${esc(formatDeliveryWindow(o.deliveryWindowStart,o.deliveryWindowEnd))}</strong><br>${['PREPARING','OUT_FOR_DELIVERY','ARRIVING','DELIVERED','SETTLED'].includes(o.status)?'A revenda recebeu a janela. Confira as confirmações de andamento abaixo.':'Essa janela ainda depende da confirmação da revenda.'}</div>`
+    ? `<div class="notice" style="margin-top:12px"><strong>Janela de entrega solicitada: ${esc(formatDeliveryWindow(o.deliveryWindowStart,o.deliveryWindowEnd))}</strong><br>${['PREPARING','OUT_FOR_DELIVERY','ARRIVING','DELIVERED','SETTLED'].includes(o.status)?'A revenda recebeu a janela. Confira as confirmações de andamento abaixo.':'Essa janela ainda depende da confirmação da revenda.'}</div>`
     : '';
   const comparisonNotice=Number(o.comparisonSavingsCents||0)>0
     ? `<div class="notice" style="margin-top:12px"><strong>Diferença entre ofertas consultadas: ${BRL.format(Number(o.comparisonSavingsCents)/100)}</strong><br>Comparação com a maior proposta daquela consulta, não um desconto garantido.</div>`
@@ -1017,7 +1017,7 @@ ${directPaymentNotice}
 <div class="card flat"><div class="price-lock"><span>🔒</span><div><strong>Total protegido: ${BRL.format(total)}</strong><br>${cashbackReserved>0?`Inclui ${BRL.format(cashbackReserved)} de cashback reservado. `:''}Se for necessária uma opção mais cara, você precisa aprovar antes.</div></div>
 <div class="divider"></div>
 <div class="list-row"><div><strong>${o.supplierName?esc(o.supplierName):'Parceiro em confirmação'}</strong><br><small>${o.supplierName?'Parceiro que aceitou o pedido':'O nome aparece depois que o pedido for aceito'}</small></div><div style="text-align:right"><strong>${BRL.format(total)}</strong><br><small>${o.postalCode?'CEP '+esc(String(o.postalCode).replace(/^(\d{5})(\d{3})$/,'$1-$2'))+' • ':''}${esc(o.address||'')}</small></div></div>
-<div class="list-row"><span>Pagamento</span><strong>${esc(paymentLabel(o.paymentMethod))}${o.paymentTiming==="prepaid"?" • online":" • na entrega"}</strong></div>
+<div class="list-row"><span>Pagamento direto à revenda</span><strong>${esc(paymentLabel(o.paymentMethod))}${o.paymentTiming==="prepaid"?" • online":" • na entrega"}</strong></div>
 ${scheduleNotice}
 ${comparisonNotice}
 ${deliveryDetailsNotice}
