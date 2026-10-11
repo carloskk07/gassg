@@ -740,7 +740,7 @@ ${directPaymentNotice}
 <div class="card flat"><div class="price-lock"><span>🔒</span><div><strong>Total protegido: ${BRL.format(total)}</strong><br>${cashbackReserved>0?`Inclui ${BRL.format(cashbackReserved)} de cashback reservado. `:''}Se for necessária uma opção mais cara, você precisa aprovar antes.</div></div>
 <div class="divider"></div>
 <div class="list-row"><div><strong>${o.supplierName?esc(o.supplierName):'Parceiro em confirmação'}</strong><br><small>${o.supplierName?'Parceiro que aceitou o pedido':'O nome aparece depois que o pedido for aceito'}</small></div><div style="text-align:right"><strong>${BRL.format(total)}</strong><br><small>${o.postalCode?'CEP '+esc(String(o.postalCode).replace(/^(\d{5})(\d{3})$/,'$1-$2'))+' • ':''}${esc(o.address||'')}</small></div></div>
-<div class="list-row"><span>Pagamento</span><strong>${paymentLabel(o.paymentMethod)}</strong></div>
+<div class="list-row"><span>Pagamento</span><strong>${esc(paymentLabel(o.paymentMethod))}${o.paymentTiming==="prepaid"?" • online":" • na entrega"}</strong></div>
 ${scheduleNotice}
 ${comparisonNotice}
 ${deliveryDetailsNotice}
