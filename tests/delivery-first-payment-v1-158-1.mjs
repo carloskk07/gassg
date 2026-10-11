@@ -22,7 +22,12 @@ ensureSourcePart(migration,[
   "check (payment_timing in ('on_delivery','prepaid'))",
   'create or replace function public.merchant_delivery_payment_allowed',
   "and r.channel='delivery'",
-  "and r.verification_mode='merchant_confirmed'",
+  "r.verification_mode='merchant_confirmed'",
+  "r.verification_mode='device'",
+  'create or replace function public.market_filter_delivery_payment_merchants',
+  'grant execute on function public.market_filter_delivery_payment_merchants',
+  "and channel in ('external','delivery')",
+  "merchant_payment_routes_declared_provider_metadata_check",
   "and pm.payment_method=p_payment_method and pm.active",
   "create trigger guard_new_order_delivery_payment_trg",
   'ORDER_DELIVERY_PAYMENT_ROUTE_NOT_AUTHORIZED',
@@ -46,13 +51,11 @@ ensureSourcePart(migration,[
 ], 'Server-only delivery and prepaid authorization must fail closed');
 
 ensureSourcePart(offers,[
-  '.from("merchant_payment_routes")',
-  '.eq("channel","delivery")',
-  '.eq("verification_mode","merchant_confirmed")',
-  '.eq("active",true)',
+  'market_filter_delivery_payment_merchants',
+  'p_merchant_ids:scheduledMerchantIds',
+  'p_payment_method:paymentMethod',
   'paymentSet.has(m.id)&&deliveryPaymentSet.has(m.id)',
-  'paymentMethod==="card"',
-], 'Offer creation must be linked to the delivery capability, not just method flag');
+], 'Offer creation must call the exact SQL delivery authority shared by the order guard');
 
 ensureSourcePart(orderRead,[
   'payment_timing',
@@ -98,7 +101,8 @@ const deliveryAllowed=(method,activeMethods,routes)=>
   &&activeMethods.includes(method)
   &&routes.some(route=>
     route.active===true && route.channel==='delivery'
-    &&route.verificationMode==='merchant_confirmed'
+    &&(route.verificationMode==='merchant_confirmed'
+      ||(route.verificationMode==='device'&&route.accountVerified===true))
     &&(route.paymentMethod===method
       ||(method==='card'&&['card_credit','card_debit'].includes(route.paymentMethod)))
   );
@@ -118,8 +122,10 @@ const cases=[
   {title:'Método desativado prevalece sobre rota',method:'pix',methods:[],routes:[manual('pix')],allowed:false},
   {title:'Rota desativada não libera venda',method:'card',methods:['card'],routes:[{...manual('card'),active:false}],allowed:false},
   {title:'Método divergente deve falhar',method:'cash',methods:['cash'],routes:[manual('pix')],allowed:false},
+  {title:'Terminal conectado e validado na entrega',method:'card',methods:['card'],routes:[{...manual('card'),verificationMode:'device',accountVerified:true}],allowed:true},
+  {title:'Terminal sem conexão validada',method:'card',methods:['card'],routes:[{...manual('card'),verificationMode:'device',accountVerified:false}],allowed:false},
 ];
 for(const t of cases){
   assert.equal(deliveryAllowed(t.method,t.methods,t.routes),t.allowed,t.title);
 }
-console.log('V1.158.1 passou: 10 cenários de pagamento na entrega e guardas estáticas de backend, SQL e UI.');
+console.log('V1.158.1 passou: 12 cenários de pagamento na entrega e guardas estáticas de backend, SQL e UI.');
