@@ -83,8 +83,14 @@
         "legally-verified-active-merchant-and-authorized-representative",
         "product-specific-regulatory-gates-ANP-if-GLP",
         "live-multi-city-cep-price-and-stock-eligibility",
-        "first-real-payment-and-delivery-homologation",
+        "direct-merchant-payment-route-homologated-before-launch",
         "admin-authorized-global-commerce-opening"
+      ],
+      "postActivationChecks": [
+        "observe-first-real-order-and-delivery",
+        "verify-real-sale-money-settles-direct-to-merchant",
+        "verify-first-platform-fee-reconciliation",
+        "freeze-unhealthy-city-without-disabling-other-cities"
       ]
     }
   }
