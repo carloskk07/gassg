@@ -277,19 +277,40 @@ function adminPublicRequestsSection(data){
 
 async function adminLoadProspects({force=false}={}){
   if(!adminReady()||adminRuntime.prospectLoading)return;
+  const requestingUser=String(adminRuntime.session?.user?.id||'');
+  const requestedCity=String(adminRuntime.prospectCity||'');
+  const requestedState=String(adminRuntime.prospectState||'');
   adminRuntime.prospectLoading=true;
   adminRuntime.prospectError=null;
+  adminRuntime.prospectLoadedAt=null;
+  adminRuntime.prospectLoadedFor=null;
   render();
   try{
     const response=await adminInvoke({action:'prospect-intelligence',
-      city:adminRuntime.prospectCity,state:adminRuntime.prospectState,force});
-    if(response?.state===adminRuntime.prospectState
-       &&String(response?.city||'').toUpperCase()===adminRuntime.prospectCity.toUpperCase()){
+      city:requestedCity,state:requestedState,force});
+    if(!adminReady()||String(adminRuntime.session?.user?.id||'')!==requestingUser)return;
+    if(response?.state===requestedState
+       &&String(response?.city||'').toUpperCase()===requestedCity.toUpperCase()
+       &&adminRuntime.prospectState===requestedState
+       &&String(adminRuntime.prospectCity||'').toUpperCase()===requestedCity.toUpperCase()){
       adminRuntime.prospectReport=response;
+      adminRuntime.prospectLoadedFor=Array.isArray(response.prospects)?requestingUser:null;
+      adminRuntime.prospectLoadedAt=Array.isArray(response.prospects)?new Date().toISOString():null;
     }
-  }catch(error){adminRuntime.prospectError=String(error?.message||error)}
-  finally{adminRuntime.prospectLoading=false;render();
-    if(['superadmin','operations'].includes(String(adminCurrentRole())))adminLoadCityNotifications().catch(()=>{});
+  }catch(error){
+    if(String(adminRuntime.session?.user?.id||'')!==requestingUser)return;
+    adminRuntime.prospectError=String(error?.message||error);
+    adminRuntime.prospectLoadedAt=null;
+    adminRuntime.prospectLoadedFor=null;
+  }finally{
+    adminRuntime.prospectLoading=false;render();
+    if(adminReady()&&String(adminRuntime.session?.user?.id||'')===requestingUser
+      &&(String(adminRuntime.prospectCity||'').toUpperCase()!==requestedCity.toUpperCase()
+        ||adminRuntime.prospectState!==requestedState)){
+      adminLoadProspects().catch(()=>{});
+    }else if(adminReady()&&['superadmin','operations'].includes(String(adminCurrentRole()))){
+      adminLoadCityNotifications().catch(()=>{});
+    }
   }
 }
 function adminProspectSelectCity(value){
@@ -301,6 +322,8 @@ function adminProspectSelectCity(value){
   adminRuntime.prospectCity=city;
   adminRuntime.prospectState=uf;
   adminRuntime.prospectReport=null;
+  adminRuntime.prospectLoadedAt=null;
+  adminRuntime.prospectLoadedFor=null;
   adminLoadProspects().catch(()=>{});
 }
 function adminProspectSearchCity(){
@@ -825,6 +848,111 @@ function adminProspectOnboardingProgress(record){
     needsFollowup+'</div>';
 }
 
+/* V1.200 — focused, read-only follow-up triage backed by the selected CRM snapshot. */
+function adminProspectFollowupSnapshot(report,now=Date.now()){
+  const same=report&&String(report.state||'').toUpperCase()===String(adminRuntime.prospectState||'').toUpperCase()
+    &&String(report.city||'').trim().toLowerCase()===String(adminRuntime.prospectCity||'').trim().toLowerCase();
+  const checked=Date.parse(String(adminRuntime.prospectLoadedAt||''));
+  const owner=String(adminRuntime.session?.user?.id||'');
+  const recent=Number.isFinite(checked)&&checked<=now+60000&&now-checked<=10*60000;
+  const fresh=!!same&&recent&&owner!==''&&owner===String(adminRuntime.prospectLoadedFor||'')
+    &&adminRuntime.prospectLoading!==true&&adminRuntime.prospectError==null
+    &&Array.isArray(report.prospects);
+  if(!fresh)return {valid:false,items:[],total:0,counts:null,limited:false};
+  const local=new Intl.DateTimeFormat('en-CA',{timeZone:'America/Sao_Paulo',
+    year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date(now));
+  const parts=local.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  const today=parts?local:[...new Intl.DateTimeFormat('en-GB',{timeZone:'America/Sao_Paulo',
+    year:'numeric',month:'2-digit',day:'2-digit'}).formatToParts(new Date(now))]
+    .filter(p=>['year','month','day'].includes(p.type)).reduce((a,x)=>({...a,[x.type]:x.value}),{});
+  const day=typeof today==='string'?today:`${today.year}-${today.month}-${today.day}`;
+  const kinds={overdue:0,today:0,first_contact:0,needs_date:0,scheduled:0,unconfirmed:0};
+  const items=[],seen=new Set();
+  const days=date=>{
+    const raw=String(date||'').slice(0,10);
+    if(!/^\d{4}-\d{2}-\d{2}$/.test(raw))return null;
+    const value=Date.parse(raw+'T00:00:00Z');
+    return Number.isFinite(value)&&new Date(value).toISOString().slice(0,10)===raw?raw:null;
+  };
+  for(const p of report.prospects){
+    const cnpj=String(p?.cnpj||'').replace(/\D/g,'');
+    if(!/^\d{14}$/.test(cnpj)||seen.has(cnpj))continue;
+    seen.add(cnpj);
+    const stage=String(p?.prospect_status||'uncontacted');
+    if(['partner','dismissed'].includes(stage))continue;
+    const due=days(p?.follow_up_at);
+    const hasUnknownDate=!!p?.follow_up_at&&!due;
+    const attempts=Number(p?.contact_attempts);
+    const first=stage==='uncontacted'&&!p?.last_contacted_at
+      &&(!Number.isFinite(attempts)||attempts===0);
+    const kind=hasUnknownDate?'unconfirmed':
+      due?(due<day?'overdue':due===day?'today':'scheduled'):
+      first?'first_contact':'needs_date';
+    kinds[kind]++;
+    items.push({cnpj,kind,stage,due,name:String(p.legal_name||'Revenda GLP').slice(0,160),
+      version:Number.isSafeInteger(Number(p.crm_version))?Number(p.crm_version):null});
+  }
+  const rank={overdue:0,today:1,first_contact:2,needs_date:3,unconfirmed:4,scheduled:5};
+  items.sort((a,b)=>rank[a.kind]-rank[b.kind]
+    ||(a.due||'').localeCompare(b.due||'')
+    ||a.name.localeCompare(b.name,'pt-BR')||a.cnpj.localeCompare(b.cnpj));
+  return {valid:true,items:items.slice(0,10),total:items.length,
+    counts:kinds,limited:report.prospects.length>=300,day};
+}
+function adminProspectFollowupView(report){
+  if(!adminRoleCanSection('prospects'))return '';
+  const s=adminProspectFollowupSnapshot(report);
+  if(!s.valid)return `<div class='notice'><strong>Próximos contatos ainda não confirmados.</strong>
+    Consulte ou atualize os prospectos desta cidade para organizar as negociações. Dados antigos ou incompletos não significam que todos os contatos estejam em dia.</div>`;
+  const labels={overdue:'Retorno vencido',today:'Contato para hoje',first_contact:'Primeira abordagem',
+    needs_date:'Definir próxima data',unconfirmed:'Data precisa de revisão',scheduled:'Contato agendado'};
+  const nums=s.counts;
+  const canManage=['superadmin','operations','compliance'].includes(String(adminCurrentRole()));
+  const cards=s.items.map(p=>`<div class='admin-prospect-followup-row'>
+    <div><span class='admin-prospect-followup-status ${p.kind}'>${labels[p.kind]}</span>
+      <strong>${esc(p.name)}</strong>
+      <small>CNPJ ${esc(p.cnpj)} • ${p.due?'Próximo contato: '+esc(p.due):'Sem data válida de próximo contato'}
+      </small></div>
+    <button type='button' class='secondary small' data-cnpj='${p.cnpj}'
+      onclick='adminOpenProspectFollowup(this.dataset.cnpj)' ${canManage?'':'disabled title="Apenas leitura neste perfil"'}>Ver negociação</button>
+  </div>`).join('');
+  return `<section class='admin-prospect-followup' aria-label='Próximos contatos de prospectos'>
+    <div class='section-head'><div><h3>Contatos para acompanhar</h3>
+      <p>Organize retornos e próximas ações desta cidade, sem registrar contatos que não aconteceram.</p></div></div>
+    <div class='admin-prospect-followup-counters'>
+      <div><strong>${nums.overdue}</strong><small>Vencidos</small></div>
+      <div><strong>${nums.today}</strong><small>Para hoje</small></div>
+      <div><strong>${nums.first_contact}</strong><small>Primeiro contato</small></div>
+      <div><strong>${nums.needs_date+nums.unconfirmed}</strong><small>Revisar agendamento</small></div>
+    </div>
+    ${s.limited?'<p class="tiny muted">O retorno da cidade atingiu 300 registros. Podem existir outros prospectos fora desta amostra.</p>':''}
+    <div class='card flat'><p class='tiny muted'>${s.total} negociação(ões) em andamento nesta consulta • até 10 atalhos exibidos.
+      ${nums.scheduled} contato(s) futuro(s). Uma negociação concluída ou descartada não entra na fila.</p>
+      ${cards?`<div class='admin-prospect-followup-list'>${cards}</div>`:
+        '<p class="tiny muted">Nenhuma negociação pendente identificada nesta amostra; isso não garante ausência de pendências em outras cidades.</p>'}
+      <p class='tiny muted'>Abra o cadastro, confira o histórico e registre uma próxima ação. O botão não envia mensagens, não marca contato, não cria convite e não altera o CRM.</p>
+    </div>
+  </section>`;
+}
+function adminOpenProspectFollowup(cnpj){
+  if(adminRuntime.status!=='ready'||!adminRoleCanSection('prospects'))return;
+  if(!['superadmin','operations','compliance'].includes(String(adminCurrentRole())))return;
+  if(!/^\d{14}$/.test(String(cnpj||'')))return;
+  const snapshot=adminProspectFollowupSnapshot(adminRuntime.prospectReport);
+  if(!snapshot.valid||!snapshot.items.some(p=>p.cnpj===cnpj))return;
+  const session=adminRuntime.session,loaded=adminRuntime.prospectLoadedAt;
+  requestAnimationFrame(()=>{
+    if(adminRuntime.status!=='ready'||adminRuntime.session!==session
+      ||adminRuntime.prospectLoadedAt!==loaded||!adminRoleCanSection('prospects'))return;
+    const details=document.getElementById('prospect-editor-'+cnpj);
+    if(!details)return toast('Registro não localizado. Atualize a consulta de prospectos.');
+    details.open=true;
+    const summary=details.querySelector('summary');
+    (summary||details).focus({preventScroll:true});
+    details.scrollIntoView({block:'center',behavior:'instant'});
+  });
+}
+
 function adminProspectCrmEditor(record){
   const cnpj=String(record.cnpj||'').replace(/\D/g,'');
   if(!/^[0-9]{14}$/.test(cnpj))return '';
@@ -832,7 +960,7 @@ function adminProspectCrmEditor(record){
   const choices=Object.entries(PROSPECT_STAGE_LABELS)
     .map(([value,label])=>'<option value="'+value+'" '+(value===record.prospect_status?'selected':'')+'>'+esc(label)+'</option>').join('');
   const date=String(record.follow_up_at||'').slice(0,10);
-  return '<details class="card flat" style="margin-top:8px"><summary>Gerenciar negociação</summary>'+
+  return '<details class="card flat" id="prospect-editor-'+cnpj+'" style="margin-top:8px"><summary tabindex="-1">Gerenciar negociação</summary>'+
     '<div class="form-stack" style="margin-top:12px">'+
       '<div class="field-row"><div class="input-wrap"><label for="prospect-stage-'+cnpj+'">Etapa comercial</label>'+
         '<select id="prospect-stage-'+cnpj+'" class="input">'+choices+'</select></div>'+
@@ -985,7 +1113,7 @@ function adminProspectsSection(d){
       '<div class="order-actions"><button class="primary" onclick="adminProspectSearchCity()" '+(adminRuntime.prospectLoading?'disabled':'')+'>Consultar na ANP</button>'+
       '<button class="secondary" onclick="adminLoadProspects({force:true})" '+(adminRuntime.prospectLoading?'disabled':'')+'>Atualizar fonte</button></div>'+
       '<small class="field-help">Fonte: API pública ANP GLP. O servidor reutiliza o resultado durante até 24 horas e mantém o último dado conhecido quando a fonte falha.</small>'+
-    '</div>'+adminExpansionRadarSection()+adminCommercialOpportunityView(d)+adminExpansionBridgeView(d)+placeholder+error+summary+adminCityNotificationsSection()+
+    '</div>'+adminExpansionRadarSection()+adminCommercialOpportunityView(d)+adminExpansionBridgeView(d)+placeholder+error+summary+adminProspectFollowupView(matches?report:null)+adminCityNotificationsSection()+
     '<div class="notice"><strong>Ativação por elegibilidade, nunca apenas por cadastro.</strong> Uma cidade somente poderá abrir para compras após confirmação de revenda apta, regularidade ANP quando GLP, estoque, preço, área de entrega, capacidade e recebimento. O registro da ANP não equivale a autorização de parceria.</div>'+
   '</section>';
 }

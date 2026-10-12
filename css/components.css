@@ -2706,3 +2706,25 @@ article[id^="admin-partner-work-"][tabindex="-1"]:focus{outline:3px solid var(--
 @media(max-width:1040px){.admin-commercial-center-list{grid-template-columns:1fr}.admin-commercial-center-stats{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media(max-width:550px){.admin-commercial-center-item{flex-wrap:wrap}.admin-commercial-center-item button{width:100%}.admin-commercial-center-toolbar>div{max-width:none;min-width:0}}
 @media(max-width:340px){.admin-commercial-center-item{padding:10px}.admin-commercial-center-item button{min-height:48px}.admin-commercial-center-stats>div{padding:10px}}
+
+/* V1.200 — direct CRM follow-up cards, still requiring deliberate admin record review */
+.admin-prospect-followup{margin:14px 0}
+.admin-prospect-followup>.section-head p{max-width:740px}
+.admin-prospect-followup-counters{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin:12px 0}
+.admin-prospect-followup-counters>div{border:1px solid var(--line);border-radius:12px;padding:13px;background:var(--surface,#fff);min-width:0}
+.admin-prospect-followup-counters strong{display:block;font-size:23px;font-variant-numeric:tabular-nums}
+.admin-prospect-followup-counters small{font-size:11px;display:block;color:var(--muted);line-height:1.4;margin-top:5px}
+.admin-prospect-followup-list{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px;margin:12px 0}
+.admin-prospect-followup-row{display:flex;align-items:center;justify-content:space-between;gap:12px;border:1px solid var(--line);border-radius:12px;padding:12px;min-width:0}
+.admin-prospect-followup-row>div{min-width:0}
+.admin-prospect-followup-row strong{display:block;font-size:13px;line-height:1.45;overflow-wrap:anywhere;margin-top:4px}
+.admin-prospect-followup-row small{display:block;font-size:11px;color:var(--muted);line-height:1.55;margin-top:4px}
+.admin-prospect-followup-status{font-size:10px;font-weight:800}
+.admin-prospect-followup-status.overdue{color:#9b3737}
+.admin-prospect-followup-status.today{color:var(--brand)}
+.admin-prospect-followup-row button{min-height:44px;flex:0 0 auto;white-space:normal}
+.admin-prospect-followup :focus-visible,#prospect-editor-focus:focus-visible{outline:3px solid var(--brand);outline-offset:3px}
+details[id^="prospect-editor-"] summary:focus-visible{outline:3px solid var(--brand);outline-offset:3px}
+@media(max-width:1020px){.admin-prospect-followup-list{grid-template-columns:1fr}}
+@media(max-width:640px){.admin-prospect-followup-counters{grid-template-columns:repeat(2,minmax(0,1fr))}.admin-prospect-followup-row{flex-wrap:wrap}.admin-prospect-followup-row button{width:100%}}
+@media(max-width:340px){.admin-prospect-followup-counters>div{padding:10px}.admin-prospect-followup-row{padding:10px}.admin-prospect-followup-row button{min-height:48px}}

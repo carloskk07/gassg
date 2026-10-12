@@ -107,6 +107,8 @@ jobs:
         run: node tests/admin-expansion-evidence-v1-198.mjs
       - name: Commercial opportunity center V1.199 regression
         run: node tests/admin-commercial-center-v1-199.mjs
+      - name: Prospect follow-up productivity V1.200 regression
+        run: node tests/admin-prospect-followups-v1-200.mjs
       - name: First real PSP pilot preflight V1.146 regression contract
         run: node tests/first-real-psp-pilot-preflight-v1-146.mjs
       - name: Production trust language V1.147 regression contract
