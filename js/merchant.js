@@ -1031,7 +1031,7 @@ function merchantOrderEventDate(value){
   return new Date(ms);
 }
 function merchantOrderScheduleDate(value){
-  if(typeof value!=='string'||!/^20\\d\\d-\\d\\d-\\d\\dT/.test(value))return null;
+  if(typeof value!=='string'||!/^20\d\d-\d\d-\d\dT/.test(value))return null;
   const ms=Date.parse(value);
   if(!Number.isFinite(ms)||ms<Date.UTC(2020,0,1)||ms>Date.now()+180*24*60*60*1000)return null;
   return new Date(ms);
