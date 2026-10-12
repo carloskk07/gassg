@@ -1447,8 +1447,12 @@ function catalog(){
 function merchantLiveCatalog(){
   const rt=globalThis.merchantRuntime||{};
   if(rt.status!=='ready')return merchantLivePage();
+  if(!['owner','manager'].includes(String(rt.merchant?.memberRole||''))){
+    return shell('<section class="page"><button class="back" onclick="go(\'merchant\')">← Operação</button><h1 class="page-title">Produtos da revenda</h1><div class="notice">Somente o proprietário ou gerente pode alterar preços e estoque. Sua equipe continua com acesso às funções do próprio papel.</div></section>');
+  }
 
-  const local=Object.entries(products).map(([code,p])=>{
+  const safeCatalogCode=code=>/^[A-Z][A-Z0-9_]{1,31}$/.test(String(code||''));
+  const local=Object.entries(products).filter(([code])=>safeCatalogCode(code)).map(([code,p])=>{
     const current=(rt.catalog||[]).find(x=>x.productCode===code);
     return {
       productCode:code,
@@ -1466,7 +1470,7 @@ function merchantLiveCatalog(){
 
   const localCodes=new Set(local.map(x=>x.productCode));
   const serverOnly=(rt.catalog||[])
-    .filter(item=>!localCodes.has(item.productCode))
+    .filter(item=>safeCatalogCode(item?.productCode)&&!localCodes.has(item.productCode))
     .map(item=>({
       productCode:String(item.productCode||'').toUpperCase(),
       productName:item.productName||item.productCode||'Produto',
@@ -1534,7 +1538,7 @@ function merchantLiveCatalog(){
   const addableProducts=(rt.availableProducts||[])
     .filter(item=>{
       const code=String(item.productCode||'').toUpperCase();
-      return code&&!catalogCodes.has(code)&&!localCodes.has(code);
+      return safeCatalogCode(code)&&!catalogCodes.has(code)&&!localCodes.has(code);
     })
     .sort((a,b)=>{
       const category=String(a.categoryName||'').localeCompare(String(b.categoryName||''),'pt-BR');
