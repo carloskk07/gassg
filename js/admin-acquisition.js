@@ -830,7 +830,7 @@ function adminCityEvolutionSnapshot(d,now=Date.now()){
     else if(!(radarTime>reference.radarTime&&merchantTime>reference.merchantTime)){
       status='waiting';
     }else if(rows.length!==reference.rows.length||
-      rows.some((r,i)=>r.key!==reference.rows[i]?.key)){
+      rows.some(r=>!reference.rows.some(old=>old.key===r.key))){
       status='coverage';
     }else{
       status='compared';
