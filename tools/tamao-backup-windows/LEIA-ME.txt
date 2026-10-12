@@ -1,0 +1,20 @@
+TAMÃO — Assistente de backup para Windows 10/11
+
+1. Extraia os três arquivos do ZIP para uma pasta.
+2. Clique duas vezes em "Iniciar Backup TAMÃO.cmd".
+3. Se as ferramentas PostgreSQL estiverem ausentes, clique "COMO INSTALAR".
+   Instale as Command Line Tools PostgreSQL 17 ou superior pelo site oficial.
+4. Informe no assistente a senha DO BANCO PostgreSQL, não a do login Supabase.
+5. Clique em CRIAR BACKUP PRIVADO e aguarde a mensagem de sucesso.
+
+Caso sua rede não suporte conexão direta IPv6, obtenha em Supabase > Connect
+os valores de host, porta e usuário do "Session pooler" e preencha na tela.
+
+O backup é guardado em %LOCALAPPDATA%\TAMAO\Backups, sem upload.
+Atenção: a criação do arquivo NÃO prova a capacidade de restauração.
+É necessário testar a restauração num PostgreSQL isolado antes de aplicar
+as quatro migrações. Não compartilhe senhas ou backups no chat/GitHub.
+
+O pacote NÃO contém PostgreSQL, não instala programas silenciosamente,
+não modifica o banco e não liga o comércio. Código-fonte acessível no
+repositório carloskk07/gassg, pasta tools/tamao-backup-windows.
