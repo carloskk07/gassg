@@ -37,7 +37,7 @@ const adminRuntime={
   providerHealthPending:false,
   paymentPreflights:{},
   saleRefundFilter:'all',
-  salePaymentHistory:{attempts:[],interruptedOrders:[],nextCursor:null,hasMore:false,loading:false,error:null},
+  salePaymentHistory:{attempts:[],interruptedOrders:[],nextCursor:null,hasMore:false,loading:false,error:null,started:false},
   prospectReport:null,
   expansionRadar:[],
   expansionRadarLoading:false,
@@ -338,7 +338,7 @@ async function adminSignOut(){
   adminRuntime.providerHealth=null;
   adminRuntime.providerHealthPending=false;
   adminRuntime.paymentPreflights={};
-  adminRuntime.salePaymentHistory={attempts:[],interruptedOrders:[],nextCursor:null,hasMore:false,loading:false,error:null};
+  adminRuntime.salePaymentHistory={attempts:[],interruptedOrders:[],nextCursor:null,hasMore:false,loading:false,error:null,started:false};
   try{sessionStorage.removeItem('tamao-admin-provider-health-v1')}catch{}
   adminRuntime.auditResults=null;
   adminRuntime.auditPending=false;
@@ -373,7 +373,7 @@ async function adminRefresh({silent=false}={}){
     if(error?.code==='ADMIN_ACCESS_DENIED'||error?.status===403&&error?.code==='ADMIN_ACCESS_DENIED'){
       adminRuntime.status='no-access';
       adminRuntime.data=null;
-      adminRuntime.salePaymentHistory={attempts:[],interruptedOrders:[],nextCursor:null,hasMore:false,loading:false,error:null};
+      adminRuntime.salePaymentHistory={attempts:[],interruptedOrders:[],nextCursor:null,hasMore:false,loading:false,error:null,started:false};
       adminRuntime.enablementMerchants=[];
       adminRuntime.enablementLoaded=false;
       adminRuntime.error=null;
@@ -383,7 +383,7 @@ async function adminRefresh({silent=false}={}){
       adminRuntime.status='unauthenticated';
       adminRuntime.session=null;
       adminRuntime.data=null;
-      adminRuntime.salePaymentHistory={attempts:[],interruptedOrders:[],nextCursor:null,hasMore:false,loading:false,error:null};
+      adminRuntime.salePaymentHistory={attempts:[],interruptedOrders:[],nextCursor:null,hasMore:false,loading:false,error:null,started:false};
       adminRuntime.searchQuery='';
       adminRuntime.searchResults=[];
       adminRuntime.detail=null;
@@ -2586,7 +2586,7 @@ async function adminLoadSalePaymentHistory(){
   const current=adminRuntime.salePaymentHistory||{};
   if(current.loading)return;
   const recent=adminRuntime.data.merchantPayments?.attempts||[];
-  const isFirst=(current.attempts||[]).length===0&&!current.nextCursor;
+  const isFirst=current.started!==true;
   if(isFirst&&recent.length<500)return;
   if(!isFirst&&!current.hasMore)return;
   const last=recent[recent.length-1];
@@ -2610,7 +2610,7 @@ async function adminLoadSalePaymentHistory(){
     adminRuntime.salePaymentHistory={
       attempts:[...attempts.values()],interruptedOrders:[...orders.values()],
       nextCursor:result.hasMore?result.nextCursor:null,hasMore:result.hasMore===true,
-      loading:false,error:null
+      loading:false,error:null,started:true
     };
   }catch(e){
     if(session===adminRuntime.session){
@@ -2640,7 +2640,7 @@ function adminInterruptedSalePaymentWatch(d){
   const limited=d.merchantPayments?.reviewSampleLimited===true;
   const historyState=adminRuntime.salePaymentHistory||{};
   const olderCount=Array.isArray(historyState.attempts)?historyState.attempts.length:0;
-  const historyAvailable=limited&&(olderCount===0||historyState.hasMore===true);
+  const historyAvailable=limited&&(historyState.started!==true||historyState.hasMore===true);
   const statusInfo={
     approved:{label:'APROVADO • CONFERIR ESTORNO',detail:'Pagamento aprovado registrado. Não há confirmação de estorno nesta tentativa; consulte o provedor e a revenda.'},
     review:{label:'RESULTADO EM REVISÃO',detail:'O resultado financeiro está indefinido. Confirme primeiro com o provedor; não suponha cobrança nem devolução.'},
