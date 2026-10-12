@@ -19,7 +19,7 @@ const merchant='22222222-2222-4222-8222-222222222222';
 const recorded=new Date(Date.now()-3600000).toISOString();
 const attempt=(i,status,more={})=>({
  id:id(i+80),order_id:id(i),merchant_id:merchant,provider:'mercadopago',
- amount_cents:11990,status,created_at:recorded,updated_at:recorded,...more
+ amount_cents:11990,status,created_at:recorded,updated_at:recorded,approved_at:recorded,...more
 });
 const ord=(i,status,more={})=>({
  id:id(i),public_code:'TAM-'+i,status,financial_state:'reversed',financial_reversed_at:recorded,...more
