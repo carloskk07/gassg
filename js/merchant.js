@@ -1030,6 +1030,12 @@ function merchantOrderEventDate(value){
   if(!Number.isFinite(ms)||ms>Date.now()+5*60*1000||ms<Date.UTC(2020,0,1))return null;
   return new Date(ms);
 }
+function merchantOrderScheduleDate(value){
+  if(typeof value!=='string'||!/^20\\d\\d-\\d\\d-\\d\\dT/.test(value))return null;
+  const ms=Date.parse(value);
+  if(!Number.isFinite(ms)||ms<Date.UTC(2020,0,1)||ms>Date.now()+180*24*60*60*1000)return null;
+  return new Date(ms);
+}
 function merchantOrderProgressView(order){
   const status=String(order?.status||'');
   const stages={
@@ -1060,8 +1066,8 @@ function merchantOrderProgressView(order){
     ARRIVING:'Chegada informada',
     DELIVERED:'Entrega concluída'
   }[status]||'Status em atualização';
-  const dispatchDeadline=merchantOrderEventDate(order?.dispatchDueAt);
-  const promised=merchantOrderEventDate(order?.promisedBy);
+  const dispatchDeadline=merchantOrderScheduleDate(order?.dispatchDueAt);
+  const promised=merchantOrderScheduleDate(order?.promisedBy);
   const formatDate=d=>d.toLocaleString('pt-BR',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'});
   const deadlines=[
     dispatchDeadline?'Prazo de saída registrado: '+formatDate(dispatchDeadline):'',
