@@ -21,7 +21,7 @@ const ctx=vm.createContext({
  formatDeliveryPhone:()=> '***',
  hhmm:()=> '14:30'
 });
-vm.runInContext(js.slice(begin,stop)+'\n'+js.slice(live,end),ctx);
+vm.runInContext(js.slice(begin,end),ctx);
 const evalIn=script=>vm.runInContext(script,ctx);
 const order=status=>{
  ctxData.error=null;
