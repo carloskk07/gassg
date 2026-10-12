@@ -1652,7 +1652,7 @@ function adminBillingStatementCard(statement){
   const overdue=statement.status==='overdue';
   const open=['open','overdue'].includes(statement.status);
   const paidByCredit=Number(statement.prepaid_credit_applied_cents||0);
-  return `<article class="order-card">
+  return `<article class="order-card" id="admin-finance-statement-${esc(statement.id)}" tabindex="-1">
     <div class="order-head"><div><div class="order-id">${esc(adminMerchantName(statement.merchant_id))} • ${esc(statement.business_date)}</div><div class="tiny muted">Fechado em ${esc(new Date(statement.closed_at).toLocaleString('pt-BR'))} • vence ${esc(new Date(statement.due_at).toLocaleString('pt-BR'))}</div></div><span class="status-pill ${statement.status==='paid'?'online':overdue?'offline':'risk'}">${esc(adminBillingStatementStatus(statement.status))}</span></div>
     <div class="merchant-kpis">
       <div class="kpi"><span class="label">Vendas</span><strong>${adminMoney(statement.gross_sales_cents)}</strong></div>
@@ -1688,7 +1688,7 @@ function adminBillingPaymentRequestCard(request){
     : request.request_kind==='refund_recovery'
       ? `${adminMoney(request.expected_amount_cents)} • obrigação ${esc(request.refund_recovery_id||'—')}`
       : `${adminMoney(request.expected_amount_cents)} • fechamento ${esc(request.statement_id||'—')}`;
-  return `<article class="order-card">
+  return `<article class="order-card" id="admin-finance-request-${esc(request.id)}" tabindex="-1">
     <div class="order-head"><div><div class="order-id">${esc(adminMerchantName(request.merchant_id))} • ${esc(title)}</div><div class="tiny muted">${esc(request.requested_at?new Date(request.requested_at).toLocaleString('pt-BR'):'—')} • ${detail}</div></div><span class="status-pill ${statusClass}">${esc(statusLabel)}</span></div>
     <div class="order-line"><strong>Referência informada pela revenda:</strong> ${esc(request.merchant_reference||'—')}</div>
     ${request.admin_reference?`<div class="tiny muted">Referência administrativa: ${esc(request.admin_reference)}</div>`:''}
@@ -1741,7 +1741,7 @@ function adminBillingPaymentEventCard(event){
   const review=status==='review_required';
   const statusClass=matched||status==='applied'||status==='already_applied'||status==='refunded'?'online':review?'risk':'';
   const merchant=event.merchant_id?adminMerchantName(event.merchant_id):'Sem revenda vinculada';
-  return `<article class="order-card">
+  return `<article class="order-card" id="admin-finance-event-${esc(event.id)}" tabindex="-1">
     <div class="order-head"><div><div class="order-id">${esc(event.provider)} • ${esc(event.provider_event_id)}</div><div class="tiny muted">${esc(event.received_at?new Date(event.received_at).toLocaleString('pt-BR'):'—')} • ${esc(merchant)}</div></div><span class="status-pill ${statusClass}">${esc(adminBillingPaymentEventLabel(status))}</span></div>
     <div class="order-line"><strong>Pagamento:</strong> ${adminMoney(event.amount_cents)} • ${esc(adminPaymentMethodLabel(event.payment_method))}</div>
     <div class="tiny muted">ID conciliável: ${esc(event.reconciliation_key)}${event.payer_reference?' • pagador '+esc(event.payer_reference):''}</div>
@@ -2037,6 +2037,101 @@ function adminFinanceDailyPrioritiesView(d){
   </section>`;
 }
 
+/* V1.193 — one-click finance record triage over the bounded privileged snapshot only. */
+function adminFinanceTriageRecords(d){
+  const b=d?.merchantBilling||{};
+  const required=['paymentRequests','paymentEvents','refunds','statements'];
+  if(!required.every(key=>Array.isArray(b[key])))return {valid:false,items:[],sampled:false,total:0};
+  const uuid=/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+  const seen=new Set(),items=[];
+  const add=(kind,record,priority,label,subtitle,cents,time)=>{
+    if(!uuid.test(String(record?.id||'')))return;
+    const id=String(record.id);
+    if(seen.has(kind+id))return;
+    seen.add(kind+id);
+    const money=Number.isSafeInteger(cents)&&cents>=0?cents:null;
+    const at=Date.parse(String(time||''));
+    items.push({kind,id,priority,label,subtitle,cents:money,
+      at:Number.isFinite(at)?at:null});
+  };
+  for(const r of b.refunds)if(r?.status==='review_required'){
+    add('refund',r,0,'Refund precisa de revisão',
+      r.merchant_id?adminMerchantName(r.merchant_id):'Revenda não vinculada',
+      r.amount_cents,r.occurred_at||r.received_at);
+  }
+  for(const e of b.paymentEvents)if(e?.status==='review_required'){
+    add('event',e,1,'Evento PSP com divergência',
+      e.merchant_id?adminMerchantName(e.merchant_id):'Sem revenda vinculada',
+      e.amount_cents,e.received_at||e.updated_at);
+  }
+  const exact=new Set(b.paymentEvents.filter(x=>x?.status==='matched_exact')
+    .map(x=>String(x.payment_request_id||'')));
+  for(const r of b.paymentRequests)if(r?.status==='pending'){
+    const matched=exact.has(String(r.id));
+    add('request',r,matched?2:4,
+      matched?'Pagamento conciliado para conferência':'Pagamento informado sem prova exata',
+      adminMerchantName(r.merchant_id),r.expected_amount_cents,r.requested_at);
+  }
+  for(const s of b.statements)if(s?.status==='overdue'){
+    add('statement',s,3,'D+1 vencido',
+      adminMerchantName(s.merchant_id),s.amount_due_cents,s.due_at);
+  }
+  items.sort((a,b)=>a.priority-b.priority
+    ||(a.at===null?1:0)-(b.at===null?1:0)
+    ||(a.at??0)-(b.at??0)
+    ||a.id.localeCompare(b.id));
+  return {valid:true,items:items.slice(0,8),total:items.length,
+    sampled:required.some(key=>b[key].length>=300)};
+}
+function adminFinanceTriageView(d){
+  if(!adminRoleCanSection('finance'))return '';
+  const state=adminFinanceTriageRecords(d);
+  const current=adminFinanceDailyPriorities(d);
+  const date=adminRuntime.lastSyncAt?formatDateTime(adminRuntime.lastSyncAt):'sem horário confirmado';
+  const freshness=current.fresh?'consulta recente':'consulta antiga: atualize antes de decidir';
+  if(!state.valid)return `<section class='section admin-finance-triage' aria-label='Fila de análise financeira'><div class='notice danger'><strong>Fila de análise indisponível.</strong><br>As listas necessárias não foram recebidas integralmente. Atualize o painel; dados ausentes não significam que não existam pendências.</div></section>`;
+  const cards=state.items.map(item=>`<div class='admin-finance-triage-row'>
+    <div><strong>${esc(item.label)}</strong><small>${esc(item.subtitle)} • ${item.cents===null?'valor não confirmado':adminMoney(item.cents)}</small></div>
+    <button type='button' class='secondary small' onclick="adminFocusFinanceRecord('${item.kind}','${item.id}')">Analisar</button>
+  </div>`).join('');
+  return `<section class='section admin-finance-triage' aria-label='Fila rápida de análise financeira'>
+    <div class='section-head'><div><span class='section-kicker'>ACESSO DIRETO</span>
+      <h2>Conferência sem procurar registros</h2>
+      <p>Abra o registro para conferir a prova e decidir no fluxo normal. Este atalho não aprova nem movimenta valores.</p></div></div>
+    <div class='card flat'><div class='admin-finance-triage-meta'>
+      <strong>${state.total} item(ns) na amostra carregada</strong>
+      <small>${esc(freshness)} • ${esc(date)}</small>
+    </div>
+    ${state.sampled?'<p class="tiny muted">Listas limitadas pelo servidor (até 300 por tipo). Podem existir registros anteriores fora desta fila.</p>':''}
+    ${state.total>8?`<p class='tiny muted'>Exibindo 8 de ${state.total} nesta amostra, priorizados por necessidade de revisão.</p>`:''}
+    ${state.items.length?`<div class='admin-finance-triage-list'>${cards}</div>`:
+      `<p class='tiny muted'>Nenhum item desses tipos na amostra carregada. Isso não comprova ausência de outras pendências.</p>`}
+    ${!current.fresh?`<div class='notice'><strong>Consulta desatualizada.</strong> Atualize os dados antes de confirmar qualquer decisão.</div>`:''}
+    </div>
+  </section>`;
+}
+function adminFocusFinanceRecord(kind,id){
+  if(!adminRoleCanSection('finance')||adminRuntime.status!=='ready')return;
+  const listKeys={request:'paymentRequests',event:'paymentEvents',
+    refund:'refunds',statement:'statements'};
+  if(!Object.hasOwn(listKeys,kind)
+    ||!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(String(id||'')))return;
+  const rows=adminRuntime.data?.merchantBilling?.[listKeys[kind]];
+  const item=Array.isArray(rows)?rows.find(x=>x?.id===id):null;
+  const allowed=kind==='request'?'pending':kind==='event'?'review_required':
+    kind==='refund'?'review_required':'overdue';
+  if(!item||item.status!==allowed){toast('Este registro mudou ou saiu da fila. Atualize os dados antes de decidir.');return;}
+  adminRuntime.financeWorkspace='billing';
+  render();
+  requestAnimationFrame(()=>{
+    if(adminRuntime.status!=='ready'||!adminRoleCanSection('finance'))return;
+    const target=document.getElementById('admin-finance-'+kind+'-'+id);
+    if(!target){toast('O registro não está visível. Atualize as cobranças.');return;}
+    target.focus({preventScroll:true});
+    target.scrollIntoView({block:'center',behavior:'instant'});
+  });
+}
+
 /* V1.191 — stable finance workspaces, never change financial authority. */
 const ADMIN_FINANCE_WORKSPACES=[{"id":"summary","label":"Resumo","detail":"Indicadores e evolução"},{"id":"billing","label":"Cobranças","detail":"Pagamentos D+1 e créditos"},{"id":"reconciliation","label":"Conciliação","detail":"Pendências, benefícios e ajustes"},{"id":"policy","label":"Regras e reversões","detail":"Ações administrativas sensíveis"}];
 function adminFinanceWorkspaceCurrent(){
@@ -2257,7 +2352,7 @@ function adminBillingRefundCard(refund){
       ?`<div class="order-actions"><button class="secondary small" onclick="adminResolveBillingRefund('${esc(refund.id)}','dismiss-excess')">Reconhecer excesso do PSP</button></div>`
       :'';
 
-  return `<article class="order-card">
+  return `<article class="order-card" id="admin-finance-refund-${esc(refund.id)}" tabindex="-1">
     <div class="order-head"><div><strong>${linked?esc(adminMerchantName(refund.merchant_id)):'Refund sem vínculo TAMÃO'}</strong><br><small>${esc(refund.provider||'—')} • ${esc(formatDateTime(refund.occurred_at))}</small></div><span class="status-pill ${review?'offline':'online'}">${esc(statusLabel)}</span></div>
     <div class="tiny muted">Refund: ${esc(refund.refund_reconciliation_key||'—')} • original: ${esc(refund.original_reconciliation_key||'—')}</div>
     <div class="tiny muted">Valor devolvido: ${adminMoney(refund.amount_cents)}${progress}</div>
@@ -3692,6 +3787,7 @@ function adminPage(){
   const financeContent=`
     ${adminFinanceWorkspaceNav()}
     ${adminFinanceDailyPrioritiesView(d)}
+    ${adminFinanceTriageView(d)}
     <div id='admin-finance-workspace-panel' class='admin-finance-workspace-panel'
       aria-label='Área financeira selecionada'>
       ${financeAreas[financeSelection]}
@@ -4526,6 +4622,7 @@ globalThis.adminSignOut=adminSignOut;
 globalThis.adminRefresh=adminRefresh;
 globalThis.adminLoadFinanceHistory=adminLoadFinanceHistory;
 globalThis.adminSetFinanceWorkspace=adminSetFinanceWorkspace;
+globalThis.adminFocusFinanceRecord=adminFocusFinanceRecord;
 globalThis.adminPoll=adminPoll;
 globalThis.adminPage=adminPage;
 globalThis.adminRetryReward=adminRetryReward;
