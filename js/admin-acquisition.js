@@ -615,6 +615,165 @@ function adminOpenExpansionBridgeCity(key,destination){
   });
 }
 
+
+/* V1.202 — one verified, navigation-only commercial decision per city. */
+function adminCityPipelineSnapshot(d,now=Date.now()){
+  const bridge=adminExpansionBridgeSnapshot(d,now);
+  if(!bridge.valid)return {valid:false,fresh:false,items:[],totals:null,limited:false};
+  if(!bridge.fresh)return {valid:true,fresh:false,items:[],totals:null,limited:bridge.sampled};
+  const ordering={paused:0,followup:1,merchant_review:2,first_contact:3,
+    onboarding:4,recruitment:5,operating:6,review:7};
+  const items=bridge.rows.map(row=>{
+    let kind='review',next='Conferir registros e atualizar as informações antes de decidir.';
+    if(row.paused){
+      kind='paused';next='Revisar a pausa administrativa antes de iniciar novas abordagens.';
+    }else if(Number.isSafeInteger(row.overdue)&&row.overdue>0){
+      kind='followup';next='Conferir '+row.overdue+' retorno(s) vencido(s) no CRM.';
+    }else if(row.hasMerchants&&row.needingReview>0){
+      kind='merchant_review';next='Conferir '+row.needingReview+' revenda(s) com pendências na amostra.';
+    }else if(Number.isSafeInteger(row.openProspects)&&row.openProspects>0){
+      kind='first_contact';next='Avaliar '+row.openProspects+' primeiro(s) contato(s) pendente(s).';
+    }else if(Number.isSafeInteger(row.onboarding)&&row.onboarding>0){
+      kind='onboarding';next='Acompanhar '+row.onboarding+' empresa(s) em cadastramento.';
+    }else if(Number.isSafeInteger(row.interests)&&row.interests>0&&row.available===0){
+      kind='recruitment';next='Há interesse registrado, mas nenhuma oferta confirmada nesta amostra.';
+    }else if(row.available!==null&&row.available>0){
+      kind='operating';next='Acompanhar a oferta confirmada na amostra, sem presumir disponibilidade permanente.';
+    }else if(row.hasRadar&&Number.isSafeInteger(row.anp)&&row.anp>0){
+      kind='recruitment';next='Consultar revendas registradas na ANP e avaliar possível parceria.';
+    }
+    return {...row,kind,next,priority:ordering[kind]};
+  });
+  items.sort((a,b)=>a.priority-b.priority
+    ||(b.overdue??-1)-(a.overdue??-1)
+    ||(b.ranking??-1)-(a.ranking??-1)
+    ||a.label.localeCompare(b.label,'pt-BR')||a.key.localeCompare(b.key));
+  const totals={all:items.length,paused:0,followup:0,merchant_review:0,
+    first_contact:0,onboarding:0,recruitment:0,operating:0,review:0};
+  for(const item of items)totals[item.kind]++;
+  return {valid:true,fresh:true,items,totals,limited:bridge.sampled||bridge.total>bridge.rows.length,
+    cityCount:bridge.total,missingLocation:bridge.missingLocation};
+}
+function adminCityPipelineUi(){
+  const scope=[String(adminRuntime.session?.user?.id||''),
+    String(adminRuntime.lastSyncAt||''),String(adminRuntime.expansionRadarCheckedAt||'')].join('|');
+  if(!adminRuntime.cityPipelineUi||adminRuntime.cityPipelineUi.scope!==scope){
+    adminRuntime.cityPipelineUi={scope,filter:'all',query:'',page:0};
+  }
+  return adminRuntime.cityPipelineUi;
+}
+function adminCityPipelineSetFilter(value){
+  if(adminRuntime.status!=='ready'||!adminRoleCanSection('prospects'))return;
+  const choices=['all','paused','followup','merchant_review','first_contact',
+    'onboarding','recruitment','operating','review'];
+  if(!choices.includes(value)||!adminCityPipelineSnapshot(adminRuntime.data).fresh)return;
+  const ui=adminCityPipelineUi();
+  ui.filter=value;ui.page=0;render();
+}
+function adminCityPipelineSetSearch(value){
+  if(adminRuntime.status!=='ready'||!adminRoleCanSection('prospects'))return;
+  if(!adminCityPipelineSnapshot(adminRuntime.data).fresh)return;
+  const query=String(value||'').trim().slice(0,80);
+  const ui=adminCityPipelineUi();
+  ui.query=query;ui.page=0;render();
+}
+function adminCityPipelinePage(direction){
+  if(adminRuntime.status!=='ready'||!adminRoleCanSection('prospects')||![-1,1].includes(direction))return;
+  const snapshot=adminCityPipelineSnapshot(adminRuntime.data);
+  if(!snapshot.fresh)return;
+  const ui=adminCityPipelineUi();
+  const subset=snapshot.items.filter(row=>(ui.filter==='all'||row.kind===ui.filter)
+    &&row.label.toLocaleLowerCase('pt-BR').includes(ui.query.toLocaleLowerCase('pt-BR')));
+  const last=Math.max(0,Math.ceil(subset.length/8)-1);
+  const page=Math.min(last,Math.max(0,ui.page+direction));
+  if(page===ui.page)return;
+  ui.page=page;render();
+}
+function adminCityPipelineOpen(key,destination){
+  if(adminRuntime.status!=='ready'||!adminRoleCanSection('prospects'))return;
+  if(!['prospects','partners'].includes(destination))return;
+  const snapshot=adminCityPipelineSnapshot(adminRuntime.data);
+  if(!snapshot.valid||!snapshot.fresh)return;
+  const row=snapshot.items.find(x=>x.key===key);
+  if(!row)return;
+  if(destination==='prospects'&&!row.hasRadar)return;
+  if(destination==='partners'&&(!row.hasMerchants||!adminRoleCanSection('partners')))return;
+  adminOpenExpansionBridgeCity(key,destination);
+}
+function adminCityPipelineView(d){
+  if(!adminRoleCanSection('prospects')||adminRuntime.status!=='ready')return '';
+  const snapshot=adminCityPipelineSnapshot(d);
+  const heading="<div class='section-head'><div><span class='section-kicker'>PLANEJAMENTO DE EXPANSÃO</span>"+
+    "<h3>Visão comercial por cidades</h3><p>Uma próxima ação sugerida por município, com base nos sinais comprovados das fontes atuais.</p></div></div>";
+  if(!snapshot.valid)return "<section class='section admin-city-pipeline'>"+heading+
+    "<div class='notice'>Consulte o radar e atualize os dados de revendas para comparar as cidades. Sem dados confirmados, não há ranking operacional.</div></section>";
+  if(!snapshot.fresh)return "<section class='section admin-city-pipeline'>"+heading+
+    "<div class='notice danger'>Informações desatualizadas. Atualize o radar e os cadastros antes de tomar decisões; não é possível concluir que não existem pendências.</div></section>";
+  const labels={all:'Todas as cidades',paused:'Pausa administrativa',followup:'Retornos vencidos',
+    merchant_review:'Revendas para revisão',first_contact:'Primeiro contato',
+    onboarding:'Em cadastramento',recruitment:'Captar novas revendas',
+    operating:'Oferta confirmada',review:'Conferir informações'};
+  const ui=adminCityPipelineUi();
+  const filter=Object.prototype.hasOwnProperty.call(labels,ui.filter)?ui.filter:'all';
+  const query=String(ui.query||'');
+  const rows=snapshot.items.filter(row=>(filter==='all'||row.kind===filter)
+    &&row.label.toLocaleLowerCase('pt-BR').includes(query.toLocaleLowerCase('pt-BR')));
+  const last=Math.max(0,Math.ceil(rows.length/8)-1);
+  const page=Math.min(last,Math.max(0,ui.page));ui.page=page;
+  const start=page*8;
+  const txt=value=>value===null?'—':String(value);
+  const cards=rows.slice(start,start+8).map(row=>{
+    const target=row.hasRadar?'prospects':row.hasMerchants?'partners':null;
+    const accessible=target&&(target==='prospects'||adminRoleCanSection('partners'));
+    return `<article class='admin-city-pipeline-row'>
+      <div class='admin-city-pipeline-main'>
+        <span class='admin-city-pipeline-kind'>${esc(labels[row.kind])}</span>
+        <strong>${esc(row.label)}</strong>
+        <small>${esc(row.next)}</small>
+        <small>Interesses: ${txt(row.interests)} • ANP verificada: ${txt(row.anp)} •
+          Revendas cadastradas: ${row.registered} • Ofertas confirmadas na amostra: ${txt(row.available)}</small>
+      </div>
+      <button type='button' class='secondary small' data-city-key='${esc(row.key)}'
+        data-target='${target||''}' onclick='adminCityPipelineOpen(this.dataset.cityKey,this.dataset.target)'
+        ${accessible?'':'disabled title="Sem registro consultável ou permissão"'}>Conferir cidade</button>
+    </article>`;
+  }).join('');
+  return `<section class='section admin-city-pipeline' aria-label='Visão comercial por cidades'>
+    ${heading}
+    ${snapshot.limited?'<div class="notice">Radar ou lista de revendas com amostra limitada. Esta visão pode não incluir todos os municípios.</div>':''}
+    <div class='admin-city-pipeline-kpis'>
+      <div><strong>${snapshot.totals.all}</strong><small>Cidades na amostra</small></div>
+      <div><strong>${snapshot.totals.followup}</strong><small>Com retornos vencidos prioritários</small></div>
+      <div><strong>${snapshot.totals.recruitment}</strong><small>Com captação sugerida</small></div>
+      <div><strong>${snapshot.totals.operating}</strong><small>Com ofertas confirmadas na amostra</small></div>
+    </div>
+    <div class='card flat'>
+      <div class='admin-city-pipeline-toolbar'>
+        <div><label for='admin-city-pipeline-filter'>Situação principal</label>
+          <select class='input' id='admin-city-pipeline-filter' onchange='adminCityPipelineSetFilter(this.value)'>
+            ${Object.entries(labels).map(([value,label])=>`<option value='${value}' ${filter===value?'selected':''}>${esc(label)} (${snapshot.totals[value]})</option>`).join('')}
+          </select></div>
+        <div><label for='admin-city-pipeline-search'>Buscar município ou UF</label>
+          <input class='input' id='admin-city-pipeline-search' type='search' maxlength='80'
+            value='${esc(query)}' placeholder='Ex.: São Gabriel' onchange='adminCityPipelineSetSearch(this.value)'>
+          <small>Pressione Enter ou saia do campo para aplicar.</small></div>
+      </div>
+      <p class='tiny muted'>${rows.length} cidade(s) nesta seleção •
+        ${rows.length?start+1:0}–${Math.min(start+8,rows.length)} exibida(s) •
+        ${snapshot.missingLocation} cadastro(s) sem município válido fora do agrupamento.</p>
+      ${cards?`<div class='admin-city-pipeline-list'>${cards}</div>`:
+        '<p class="tiny muted">Nenhuma cidade corresponde aos filtros nesta amostra. Isso não comprova ausência de demanda.</p>'}
+      <div class='admin-city-pipeline-paging'>
+        <button class='secondary small' type='button' onclick='adminCityPipelinePage(-1)' ${page===0?'disabled':''}>Anterior</button>
+        <small aria-live='polite'>Página ${page+1} de ${last+1}</small>
+        <button class='secondary small' type='button' onclick='adminCityPipelinePage(1)' ${page===last?'disabled':''}>Próximas</button>
+      </div>
+      <p class='tiny muted'>Cada cidade aparece uma vez, pela pendência considerada mais prioritária; outras pendências continuam nas listas detalhadas.
+        Consultar não gera contato, convite, ativação ou cobrança. ANP não equivale a parceria; índice de prioridade não é previsão de faturamento.</p>
+    </div>
+  </section>`;
+}
+
 /* V1.199 — navigation-only commercial priorities, sourced from the verified city bridge. */
 function adminCommercialOpportunitySnapshot(d,now=Date.now()){
   const bridge=adminExpansionBridgeSnapshot(d,now);
@@ -1170,7 +1329,7 @@ function adminProspectsSection(d){
       '<div class="order-actions"><button class="primary" onclick="adminProspectSearchCity()" '+(adminRuntime.prospectLoading?'disabled':'')+'>Consultar na ANP</button>'+
       '<button class="secondary" onclick="adminLoadProspects({force:true})" '+(adminRuntime.prospectLoading?'disabled':'')+'>Atualizar fonte</button></div>'+
       '<small class="field-help">Fonte: API pública ANP GLP. O servidor reutiliza o resultado durante até 24 horas e mantém o último dado conhecido quando a fonte falha.</small>'+
-    '</div>'+adminExpansionRadarSection()+adminCommercialOpportunityView(d)+adminExpansionBridgeView(d)+placeholder+error+summary+adminProspectFollowupView(matches?report:null)+adminCityNotificationsSection()+
+    '</div>'+adminExpansionRadarSection()+adminCityPipelineView(d)+adminCommercialOpportunityView(d)+adminExpansionBridgeView(d)+placeholder+error+summary+adminProspectFollowupView(matches?report:null)+adminCityNotificationsSection()+
     '<div class="notice"><strong>Ativação por elegibilidade, nunca apenas por cadastro.</strong> Uma cidade somente poderá abrir para compras após confirmação de revenda apta, regularidade ANP quando GLP, estoque, preço, área de entrega, capacidade e recebimento. O registro da ANP não equivale a autorização de parceria.</div>'+
   '</section>';
 }
