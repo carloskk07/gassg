@@ -321,26 +321,31 @@ function home(){
   const acquisitionOpen=!testDemo&&(preview||!ready||market?.realSupplyConfigured===false
     ||(outsideOriginalMarket&&!hasConfirmedCityOffers)
     ||(cityChecked&&!hasConfirmedCityOffers));
+  // A region without verified offers should show a concise path to consultation
+  // and opt-in, not a long catalogue that resembles available inventory.
+  const conciseHome=acquisitionOpen&&!testDemo;
   const eyebrow=testDemo
     ? internalPilot?'● AMBIENTE INTERNO — SEM PEDIDOS':'● AMBIENTE DE TESTE'
     : '● TAMÃO • '+regionLabel.toUpperCase();
-  const primaryLabel=internalPilot?'Validar jornada':hasConfirmedCityOffers?'Conferir ofertas do meu CEP':outsideOriginalMarket?'Consultar minha cidade':acquisitionOpen?'Consultar disponibilidade':'Ver ofertas perto de mim';
+  const primaryLabel=internalPilot?'Validar jornada':hasConfirmedCityOffers?'Conferir ofertas do meu CEP':acquisitionOpen?'Consultar meu CEP':'Ver ofertas perto de mim';
   const primaryAction='startCustomerAvailability()';
   // Global merchant totals never certify a single seller for this city's basket.
   const singleMarket=internalPilot||(hasConfirmedCityOffers
     &&(globalThis.liveRuntime?.marketMode==='single_supplier'
       ||Number(globalThis.liveRuntime?.eligibleMerchantCount||0)===1));
+  const firstVisitMessage=rememberedRegion
+    ? 'Quer conferir se já há entrega em '+rememberedRegion.city+'? Informe seu CEP. Se ainda não houver, você pode pedir um aviso.'
+    : 'Informe seu CEP para conferir se já há entrega na sua região. Se não houver, você pode pedir um aviso.';
   const heroJourney=singleMarket
     ? internalPilot
       ? 'Valide a jornada completa do ambiente interno: pedido, aceite, preparação, saída, chegada, pagamento e benefícios.'
       : 'Informe onde quer receber, veja o preço total e o prazo do parceiro disponível e acompanhe cada etapa até a entrega.'
     : 'Informe onde quer receber, compare as opções disponíveis e acompanhe cada etapa até a entrega.';
   const intentSection=acquisitionOpen
-    ? `<section class="section intent-section"><div class="section-head"><div><span class="section-kicker">COMECE POR AQUI</span><h2>O que você precisa resolver hoje?</h2><p>Consulte entregas, tire suas dúvidas ou conheça as opções para sua empresa.</p></div></div>
-<div class="intent-grid prelaunch-intent-grid">
-  <button class="intent-card intent-primary" onclick="startCustomerAvailability()"><span class="intent-icon">📍</span><span><strong>Consultar meu CEP</strong><small>Veja se já há uma revenda que atende seu endereço. Se não houver, você pode pedir um aviso.</small></span><b>→</b></button>
-  <button class="intent-card" onclick="go('learn')"><span class="intent-icon">🛡️</span><span><strong>Entender como funciona</strong><small>Saiba como funcionam o preço, o aceite da revenda e a entrega.</small></span><b>→</b></button>
-  <button class="intent-card" onclick="openPrelaunchMerchantLead()"><span class="intent-icon">🏪</span><span><strong>Cadastrar minha empresa</strong><small>Veja como vender pelo TAMÃO sem abrir mão dos seus preços e entregas.</small></span><b>→</b></button>
+    ? `<section class="section intent-section first-visit-intent"><div class="section-head"><div><span class="section-kicker">OUTRAS FORMAS DE PARTICIPAR</span><h2>Quer saber mais ou tem uma revenda?</h2><p>Veja como o TAMÃO funciona ou conte um pouco sobre sua empresa.</p></div></div>
+<div class="intent-grid prelaunch-intent-grid first-visit-intent-grid">
+  <button class="intent-card" onclick="go('learn')"><span class="intent-icon">🛡️</span><span><strong>Entender como funciona</strong><small>Saiba como são apresentados o preço, a confirmação e a entrega.</small></span><b>→</b></button>
+  <button class="intent-card intent-primary" onclick="openPrelaunchMerchantLead()"><span class="intent-icon">🏪</span><span><strong>Cadastrar minha empresa</strong><small>Você continua no controle dos preços, produtos e entregas.</small></span><b>→</b></button>
 </div></section>`
     : `<section class="section intent-section"><div class="section-head"><div><span class="section-kicker">ESCOLHA SEU CAMINHO</span><h2>O TAMÃO é para quem compra e para quem vende.</h2><p>Veja o que pode pedir, conheça os benefícios e saiba como participar com sua empresa.</p></div></div>
 <div class="intent-grid">
@@ -350,13 +355,13 @@ function home(){
   <button class="intent-card" onclick="openPrelaunchMerchantLead()"><span class="intent-icon">🏪</span><span><strong>Tenho uma empresa</strong><small>Mais uma forma de chegar aos clientes, mantendo seus canais de venda.</small></span><b>→</b></button>
 </div></section>`;
 
-  return shell(`<section class="hero marketing-hero"><div class="hero-grid"><div>
+  return shell(`<section class="hero marketing-hero ${conciseHome?'home-first-visit':''}"><div class="hero-grid"><div>
     <span class="eyebrow">${esc(eyebrow)}</span>
     ${rememberedRegion&&!testDemo?`<div class="local-welcome" aria-label="Sua região identificada"><span aria-hidden="true">📍</span><span><strong>Olá, ${esc(rememberedRegion.city)}!</strong><small>Consulta por CEP • ${esc(rememberedRegion.state)}. A disponibilidade depende das ofertas para seu endereço.</small></span></div>`:''}
-    <div class="hero-overline">O QUE VOCÊ PRECISA, MAIS PERTO DE CASA.</div>
+    <div class="hero-overline">${conciseHome?'CONSULTE ENTREGAS PERTO DE VOCÊ.':'O QUE VOCÊ PRECISA, MAIS PERTO DE CASA.'}</div>
     <h1>Faltou em casa?<br><span class="hero-highlight">Tá na mão.</span></h1>
-    <p class="hero-lead"><strong>Gás, água e o essencial do dia a dia, em um só lugar.</strong> ${esc(hasConfirmedCityOffers?'Já consultamos opções para o seu CEP. Confira preços e prazos atualizados antes de confirmar.':outsideOriginalMarket?'Veja quais opções atendem '+regionLabel+' pelo CEP. Se não houver ofertas, você poderá solicitar um aviso.':heroJourney)}</p>
-    <div class="hero-emotional-promise"><span aria-hidden="true">✦</span><span>Confira as opções da sua região sem precisar ligar de loja em loja.</span></div>
+    <p class="hero-lead"><strong>Gás, água e o essencial do dia a dia, em um só lugar.</strong> ${esc(hasConfirmedCityOffers?'Já consultamos opções para o seu CEP. Confira preços e prazos atualizados antes de confirmar.':conciseHome?firstVisitMessage:outsideOriginalMarket?'Veja quais opções atendem '+regionLabel+' pelo CEP. Se não houver ofertas, você poderá solicitar um aviso.':heroJourney)}</p>
+    <div class="hero-emotional-promise"><span aria-hidden="true">✦</span><span>${conciseHome?'Consulte a disponibilidade antes de fazer um pedido.':'Confira as opções da sua região sem precisar ligar de loja em loja.'}</span></div>
 
     <div class="purchase-starter" aria-label="Consultar produtos e atendimento da sua região">
       <input id="home-featured-code" type="hidden" value="${esc(featuredCode)}">
@@ -367,24 +372,26 @@ function home(){
       <small class="starter-footnote">${esc(freshness)}</small>
     </div>
 
-    <div class="trust-row" aria-label="O que você pode esperar"><span class="trust-chip">✓ Veja o valor antes</span><span class="trust-chip">✓ Pedido com aceite real</span><span class="trust-chip">✓ Acompanhe a entrega</span></div>
+    <div class="trust-row" aria-label="O que você pode esperar">${conciseHome?'<span class="trust-chip">✓ Consulta por CEP</span><span class="trust-chip">✓ Aviso opcional por WhatsApp</span><span class="trust-chip">✓ Sem pedido automático</span>':'<span class="trust-chip">✓ Veja o valor antes</span><span class="trust-chip">✓ Pedido com aceite real</span><span class="trust-chip">✓ Acompanhe a entrega</span>'}</div>
     ${showPublicP13Reference?publicP13PriceReference():''}
     ${internalPilot?'<div class="notice" style="margin-top:14px"><strong>Ambiente de validação interna.</strong><br>Nenhuma ação nesta prévia gera pedido real, cobrança ou baixa de estoque. O dado comercial real carregado no cenário é a faixa P13: R$ 115,90 mínimo, R$ 120,00 normal e R$ 125,00 máximo, com entrega incluída.</div>':''}
   </div>
-  <div class="hero-visual" aria-label="Resumo visual dos benefícios do TAMÃO">
+  ${!conciseHome?`<div class="hero-visual" aria-label="Resumo visual dos benefícios do TAMÃO">
     <div class="visual-top"><span class="visual-dot"></span><strong>Acompanhe cada etapa do pedido</strong><span class="visual-live">EXEMPLO DE JORNADA</span></div>
     <div class="visual-product"><div class="visual-icon">🔥</div><div><strong>Botijão 13 kg</strong><small>Veja o total antes de pedir</small></div></div>
     <div class="visual-choice"><span><strong>Menor total</strong><small>Veja o valor com a entrega</small></span><span><strong>Menor prazo</strong><small>Veja a previsão de chegada</small></span></div>
     <div class="visual-status"><span class="visual-check">✓</span><div><strong>Você sabe quando foi confirmado</strong><small>O status “A caminho” só aparece após a saída informada pela revenda.</small></div></div>
-  </div></div></section>
+  </div>`:''}
+</div></section>
 
+${conciseHome?intentSection:''}
 ${acquisitionOpen?prelaunchCustomerLeadSection():''}
-${acquisitionOpen?prelaunchTransparencyBand():''}
+${acquisitionOpen&&!conciseHome?prelaunchTransparencyBand():''}
 ${reorderCard}
 
-${intentSection}
+${conciseHome?'':intentSection}
 
-<section class="section"><div class="protection-band"><div class="protection-icon">🛡️</div><div><span class="section-kicker light">SEU PEDIDO, SEM FICAR NA DÚVIDA.</span><h2>E se a revenda não puder entregar?</h2><p>O TAMÃO pode buscar outra revenda que consiga atender. Se a nova opção custar mais, você decide se aceita antes de qualquer mudança.</p></div><button class="secondary dark-secondary" onclick="go('learn')">Entenda sua proteção</button></div></section>
+${conciseHome?'':`<section class="section"><div class="protection-band"><div class="protection-icon">🛡️</div><div><span class="section-kicker light">SEU PEDIDO, SEM FICAR NA DÚVIDA.</span><h2>E se a revenda não puder entregar?</h2><p>O TAMÃO pode buscar outra revenda que consiga atender. Se a nova opção custar mais, você decide se aceita antes de qualquer mudança.</p></div><button class="secondary dark-secondary" onclick="go('learn')">Entenda sua proteção</button></div></section>
 
 <section class="section value-proof-section"><div class="section-head"><div><span class="section-kicker">ANTES DE FAZER O PEDIDO</span><h2>Saiba o preço e o prazo antes de escolher.</h2></div></div>
 <div class="value-proof-grid">
@@ -417,7 +424,7 @@ ${internalPilot?`<section class="section"><div class="card flat"><span class="se
 
 <section class="section"><div class="opportunity-band"><div><span class="section-kicker light">CONHEÇA OS BENEFÍCIOS</span><h2>Benefícios para aproveitar nas próximas compras.</h2><p>Veja como funcionam o cashback e as indicações. Cada benefício tem suas próprias condições de participação.</p></div><div class="opportunity-actions"><button class="primary light-primary" onclick="go('club')">Ver benefícios de compra</button><button class="secondary dark-secondary" onclick="go('earn')">Indicação ou parceria</button></div></div></section>
 
-<section class="section"><div class="section-head"><div><span class="section-kicker">SUA EMPRESA TAMBÉM TEM LUGAR AQUI</span><h2>Sua revenda também pode vender pelo TAMÃO.</h2><p>Tem uma revenda de gás, água ou outros produtos? Você pode receber pedidos por mais um canal e continuar controlando seus preços, estoque e entregas.</p></div></div><div class="merchant-home-card"><div><span class="merchant-home-rate">${merchantFeeLabel}</span><small>taxa por pedido concluído</small></div><div><strong>Você define preço, estoque e disponibilidade.</strong><p>Também decide se aceita cada pedido e pode ficar offline quando não quiser receber novas vendas.</p></div><button class="primary" onclick="go('merchants')">Quero vender no TAMÃO →</button></div></section>`)
+<section class="section"><div class="section-head"><div><span class="section-kicker">SUA EMPRESA TAMBÉM TEM LUGAR AQUI</span><h2>Sua revenda também pode vender pelo TAMÃO.</h2><p>Tem uma revenda de gás, água ou outros produtos? Você pode receber pedidos por mais um canal e continuar controlando seus preços, estoque e entregas.</p></div></div><div class="merchant-home-card"><div><span class="merchant-home-rate">${merchantFeeLabel}</span><small>taxa por pedido concluído</small></div><div><strong>Você define preço, estoque e disponibilidade.</strong><p>Também decide se aceita cada pedido e pode ficar offline quando não quiser receber novas vendas.</p></div><button class="primary" onclick="go('merchants')">Quero vender no TAMÃO →</button></div></section>`}`)
 }
 function orderPage(){
   const testDemo=globalThis.__CHAMA_TEST__===true;
