@@ -700,6 +700,95 @@ function adminCityPipelineOpen(key,destination){
   if(destination==='partners'&&(!row.hasMerchants||!adminRoleCanSection('partners')))return;
   adminOpenExpansionBridgeCity(key,destination);
 }
+/* V1.203 — practical municipal expansion playbook backed only by verified source snapshots. */
+function adminCityPlanSteps(row){
+  const count=x=>Number.isSafeInteger(x)&&x>=0?x:null;
+  const interests=count(row.interests),anp=count(row.anp),uncontacted=count(row.openProspects),
+    overdue=count(row.overdue),onboarding=count(row.onboarding),available=count(row.available),
+    registered=count(row.registered),review=count(row.needingReview);
+  const result=[];
+  result.push({label:'Conferir interesse dos clientes',
+    state:interests===null?'unknown':interests>0?'observed':'attention',
+    detail:interests===null?'Quantidade de interessados não confirmada pela fonte.':
+      interests>0?interests+' interesse(s) registrado(s) na amostra; não representam pedidos.':
+      'Nenhum interesse identificado nesta amostra, sem concluir ausência de demanda.'});
+  result.push({label:'Localizar revendas e conferir ANP',
+    state:anp===null?'unknown':anp>0?'observed':'attention',
+    detail:anp===null?'A consulta ANP não está confirmada. Não presuma inexistência de revendas.':
+      anp>0?anp+' registro(s) GLP na ANP consultada; ainda não são parceiros.':
+      'Nenhum registro ANP identificado na consulta atual; revisar cobertura da fonte.'});
+  result.push({label:'Registrar contatos e próximos retornos',
+    state:(overdue!==null&&overdue>0)||(uncontacted!==null&&uncontacted>0)?'attention':
+      overdue===null||uncontacted===null?'unknown':'observed',
+    detail:overdue!==null&&overdue>0?overdue+' retorno(s) vencido(s). Conferir histórico e reagendar manualmente.':
+      uncontacted!==null&&uncontacted>0?uncontacted+' prospecto(s) aguardando abordagem. Confirmar contato realizado antes de registrá-lo.':
+      overdue===null||uncontacted===null?'Dados de contato incompletos: consultar o CRM da cidade.':
+      'Sem pendências de primeiro contato ou retorno nesta amostra; não comprova contato realizado.'});
+  result.push({label:'Acompanhar cadastro e habilitação da revenda',
+    state:review!==null&&review>0||onboarding!==null&&onboarding>0?'attention':
+      registered===null?'unknown':registered>0?'observed':'attention',
+    detail:(registered===null?'Cadastro de revendas não confirmado.':registered+' revenda(s) cadastrada(s) na amostra.')+
+      (onboarding!==null&&onboarding>0?' '+onboarding+' prospecto(s) sinalizado(s) em cadastramento.':'')+
+      (review!==null&&review>0?' '+review+' revenda(s) exigem revisão.':'')+
+      ' Cadastro não significa habilitação.'});
+  result.push({label:'Verificar elegibilidade e ofertas reais',
+    state:row.paused?'blocked':available===null?'unknown':available>0?'observed':'attention',
+    detail:row.paused?'Cidade pausada pelo administrador. Revisar a pausa antes de qualquer liberação.':
+      available===null?'Disponibilidade não verificada; a ausência de dados não significa ausência de ofertas.':
+      available>0?available+' revenda(s) com oferta confirmada na amostra; confirmar condições no momento do pedido.':
+      'Nenhuma oferta confirmada nesta amostra; habilitação exige requisitos reais de produto, estoque e entrega.'});
+  return result;
+}
+function adminCityPlanView(row){
+  const status={observed:'Sinal na fonte',attention:'Precisa de atenção',
+    unknown:'Não verificado',blocked:'Pausa administrativa'};
+  const steps=adminCityPlanSteps(row);
+  const list=steps.map((step,index)=>`<li class='admin-city-plan-step'>
+    <div><strong>${index+1}. ${esc(step.label)}</strong>
+      <span class='admin-city-plan-status ${step.state}'>${esc(status[step.state])}</span></div>
+    <small>${esc(step.detail)}</small></li>`).join('');
+  const canProspect=row.hasRadar===true;
+  const canPartners=row.hasMerchants===true&&adminRoleCanSection('partners');
+  return `<details class='admin-city-plan'>
+    <summary>Roteiro de expansão • 5 verificações</summary>
+    <p class='tiny muted'>Sinais de trabalho, não tarefas automaticamente concluídas. Reavalie os dados antes de agir.</p>
+    <ol class='admin-city-plan-steps'>${list}</ol>
+    <div class='admin-city-plan-actions'>
+      <button type='button' class='secondary small' data-city-key='${esc(row.key)}'
+        onclick='adminCityPipelineOpen(this.dataset.cityKey,"prospects")'
+        ${canProspect?'':'disabled title="Sem fonte ANP consultável nesta cidade"'}>Conferir prospectos</button>
+      <button type='button' class='secondary small' data-city-key='${esc(row.key)}'
+        onclick='adminCityPipelineOpen(this.dataset.cityKey,"partners")'
+        ${canPartners?'':'disabled title="Sem cadastro consultável ou permissão"'}>Conferir revendas</button>
+      <button type='button' class='secondary small' data-city-key='${esc(row.key)}'
+        onclick='adminCityPlanCopy(this.dataset.cityKey)'>Copiar resumo</button>
+    </div>
+    <p class='tiny muted'>Somente consultas e cópia local. Nenhuma mensagem, convite, cadastro ou ativação é feita por este roteiro.</p>
+  </details>`;
+}
+async function adminCityPlanCopy(key){
+  if(adminRuntime.status!=='ready'||!adminRoleCanSection('prospects'))return;
+  const session=adminRuntime.session;
+  const snapshot=adminCityPipelineSnapshot(adminRuntime.data);
+  if(!snapshot.valid||!snapshot.fresh)return;
+  const row=snapshot.items.find(x=>x.key===key);
+  if(!row)return;
+  const lines=['TAMÃO — Roteiro comercial de '+row.label,
+    'Resumo da amostra consultada; não é confirmação de abertura ou de ofertas.',
+    'Prioridade: '+row.next,
+    ...adminCityPlanSteps(row).map((step,i)=>(i+1)+'. '+step.label+' — '+step.detail)];
+  if(adminRuntime.session!==session||adminRuntime.status!=='ready')return;
+  try{
+    if(typeof navigator==='undefined'||!navigator.clipboard?.writeText)
+      throw new Error('Clipboard indisponível');
+    await navigator.clipboard.writeText(lines.join('\n'));
+    if(adminRuntime.status==='ready'&&adminRuntime.session===session)toast('Resumo da cidade copiado');
+  }catch{
+    if(adminRuntime.status==='ready'&&adminRuntime.session===session)
+      toast('Não foi possível copiar. Verifique a permissão da área de transferência.');
+  }
+}
+
 function adminCityPipelineView(d){
   if(!adminRoleCanSection('prospects')||adminRuntime.status!=='ready')return '';
   const snapshot=adminCityPipelineSnapshot(d);
@@ -732,6 +821,7 @@ function adminCityPipelineView(d){
         <small>${esc(row.next)}</small>
         <small>Interesses: ${txt(row.interests)} • ANP verificada: ${txt(row.anp)} •
           Revendas cadastradas: ${row.registered} • Ofertas confirmadas na amostra: ${txt(row.available)}</small>
+        ${adminCityPlanView(row)}
       </div>
       <button type='button' class='secondary small' data-city-key='${esc(row.key)}'
         data-target='${target||''}' onclick='adminCityPipelineOpen(this.dataset.cityKey,this.dataset.target)'
