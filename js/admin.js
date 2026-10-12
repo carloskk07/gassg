@@ -373,6 +373,7 @@ async function adminRefresh({silent=false}={}){
     if(error?.code==='ADMIN_ACCESS_DENIED'||error?.status===403&&error?.code==='ADMIN_ACCESS_DENIED'){
       adminRuntime.status='no-access';
       adminRuntime.data=null;
+      adminRuntime.salePaymentHistory={attempts:[],interruptedOrders:[],nextCursor:null,hasMore:false,loading:false,error:null};
       adminRuntime.enablementMerchants=[];
       adminRuntime.enablementLoaded=false;
       adminRuntime.error=null;
@@ -382,6 +383,7 @@ async function adminRefresh({silent=false}={}){
       adminRuntime.status='unauthenticated';
       adminRuntime.session=null;
       adminRuntime.data=null;
+      adminRuntime.salePaymentHistory={attempts:[],interruptedOrders:[],nextCursor:null,hasMore:false,loading:false,error:null};
       adminRuntime.searchQuery='';
       adminRuntime.searchResults=[];
       adminRuntime.detail=null;
