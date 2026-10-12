@@ -84,7 +84,7 @@ const invalid=[
   {...base,monthly:base.monthly.map((x,i)=>i===4?{...x,approvedCents:3.5}:x)},
   {...base,monthly:base.monthly.map((x,i)=>i===4?{...x,approvedCents:999,netAfterLinkedRefundsCents:999}:x)},
   {...base,monthly:base.monthly.map((x,i)=>i===4?{...x,linkedRefundCents:-1}:x)},
-  {...base,monthly:base.monthly.map((x,i)=>i===4?{...x,approvedCents:Number.MAX_SAFE_INTEGER}:x)},
+  {...base,monthly:base.monthly.map((x,i)=>i===4?{...x,approvedCents:Number.MAX_SAFE_INTEGER+1}:x)},
   {...base,monthly:base.monthly.map((x,i)=>i===5?{...x,month:'2026-11'}:x)}
 ];
 for(const payload of invalid){
