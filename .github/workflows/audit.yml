@@ -115,6 +115,8 @@ jobs:
         run: node tests/admin-city-pipeline-v1-202.mjs
       - name: City expansion playbook V1.203 regression
         run: node tests/admin-city-expansion-playbook-v1-203.mjs
+      - name: City commercial evidence evolution V1.204 regression
+        run: node tests/admin-city-evolution-v1-204.mjs
       - name: First real PSP pilot preflight V1.146 regression contract
         run: node tests/first-real-psp-pilot-preflight-v1-146.mjs
       - name: Production trust language V1.147 regression contract
