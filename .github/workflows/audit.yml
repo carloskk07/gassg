@@ -103,6 +103,8 @@ jobs:
         run: node tests/merchant-simple-flow-v1-169.mjs
       - name: Guided merchant essentials V1.170 regression
         run: node tests/merchant-essentials-v1-170.mjs
+      - name: Mobile catalog quickstart V1.171 regression
+        run: node tests/merchant-catalog-quickstart-v1-171.mjs
       - name: Public P13 price reference V1.148 regression contract
         run: node tests/jr-public-price-reference-v1-148.mjs
       - name: Customer availability-first V1.149 regression contract

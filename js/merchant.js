@@ -1069,7 +1069,9 @@ async function merchantLiveSelect(id){
 async function merchantLiveToggleOnline(online){
   try{await merchantSetOnlineLive(online);toast(online?'Revenda online':'Novos pedidos pausados')}catch(e){toast(String(e?.message||e))}
 }
+const merchantCatalogSaving=new Set();
 async function merchantLiveSaveProduct(code){
+  if(merchantCatalogSaving.has(code))return;
   const price=Number(document.getElementById('live-price-'+code)?.value);
   const stock=Number(document.getElementById('live-stock-'+code)?.value);
   const active=document.getElementById('live-active-'+code)?.checked===true;
@@ -1077,12 +1079,16 @@ async function merchantLiveSaveProduct(code){
   const pricingStrategy=String(document.getElementById('live-pricing-strategy-'+code)?.value||'balanced');
   const minPrice=Number(document.getElementById('live-min-price-'+code)?.value);
   const maxPrice=Number(document.getElementById('live-max-price-'+code)?.value);
-  if(!Number.isFinite(price)||price<=0||price>10000||!Number.isInteger(stock)||stock<0)return toast('Revise preço e estoque de '+code);
+  if(!Number.isFinite(price)||price<=0||price>10000||!Number.isInteger(stock)||stock<0||stock>100000)return toast('Revise preço e estoque de '+code);
   if(pricingMode==='range'){
     if(!Number.isFinite(minPrice)||!Number.isFinite(maxPrice)||minPrice<=0||maxPrice>10000||minPrice>price||price>maxPrice){
       return toast('Na faixa automática: mínimo ≤ preço normal ≤ máximo.');
     }
   }
+  const saveButton=document.getElementById('live-save-product-'+code);
+  const buttonText=saveButton?.textContent||'Salvar preço e estoque';
+  merchantCatalogSaving.add(code);
+  if(saveButton){saveButton.disabled=true;saveButton.textContent='Salvando…';}
   try{
     await merchantUpdateProductLive(code,Math.round(price*100),stock,active,{
       pricingMode,
@@ -1092,6 +1098,10 @@ async function merchantLiveSaveProduct(code){
     });
     toast(pricingMode==='range'?'Faixa de preço de '+code+' confirmada':'Preço fixo de '+code+' confirmado');
   }catch(e){toast(String(e?.message||e))}
+  finally{
+    merchantCatalogSaving.delete(code);
+    if(saveButton){saveButton.disabled=false;saveButton.textContent=buttonText;}
+  }
 }
 
 function merchantPricingModeChanged(code){
@@ -1437,8 +1447,12 @@ function catalog(){
 function merchantLiveCatalog(){
   const rt=globalThis.merchantRuntime||{};
   if(rt.status!=='ready')return merchantLivePage();
+  if(!['owner','manager'].includes(String(rt.merchant?.memberRole||''))){
+    return shell('<section class="page"><button class="back" onclick="go(\'merchant\')">← Operação</button><h1 class="page-title">Produtos da revenda</h1><div class="notice">Somente o proprietário ou gerente pode alterar preços e estoque. Sua equipe continua com acesso às funções do próprio papel.</div></section>');
+  }
 
-  const local=Object.entries(products).map(([code,p])=>{
+  const safeCatalogCode=code=>/^[A-Z][A-Z0-9_]{1,31}$/.test(String(code||''));
+  const local=Object.entries(products).filter(([code])=>safeCatalogCode(code)).map(([code,p])=>{
     const current=(rt.catalog||[]).find(x=>x.productCode===code);
     return {
       productCode:code,
@@ -1456,7 +1470,7 @@ function merchantLiveCatalog(){
 
   const localCodes=new Set(local.map(x=>x.productCode));
   const serverOnly=(rt.catalog||[])
-    .filter(item=>!localCodes.has(item.productCode))
+    .filter(item=>safeCatalogCode(item?.productCode)&&!localCodes.has(item.productCode))
     .map(item=>({
       productCode:String(item.productCode||'').toUpperCase(),
       productName:item.productName||item.productCode||'Produto',
@@ -1484,7 +1498,7 @@ function merchantLiveCatalog(){
       return a.productName.localeCompare(b.productName,'pt-BR');
     });
 
-  const rows=known.map(item=>{
+  const renderCatalogItem=item=>{
     const fresh=merchantTimestampFresh(item.priceConfirmedAt);
     const status=!item.active?'INATIVO':item.availableStock<=0?'SEM ESTOQUE':fresh?'CONFIRMADO':'PREÇO VENCIDO';
     const statusClass=item.active&&item.availableStock>0&&fresh?'online':item.active&&item.availableStock>0?'risk':'offline';
@@ -1498,26 +1512,33 @@ function merchantLiveCatalog(){
     <div class="card flat form-stack">
       <div class="status-bar"><div class="product-left"><div class="product-icon">${icon}</div><div><strong>${esc(item.productName)}</strong><br><small>${esc(item.productCode)} • ${esc(priceSummary)} • ${item.priceConfirmedAt?'confirmado '+new Date(item.priceConfirmedAt).toLocaleString('pt-BR'):'nunca confirmado'}</small></div></div><span class="status-pill ${statusClass}">${status}</span></div>
       <div class="field-row">
-        <div class="input-wrap"><label for="live-pricing-mode-${item.productCode}">Modo</label><select id="live-pricing-mode-${item.productCode}" class="input" onchange="merchantPricingModeChanged('${item.productCode}')"><option value="fixed" ${range?'':'selected'}>Preço fixo</option><option value="range" ${range?'selected':''}>Faixa automática</option></select></div>
-        <div class="input-wrap"><label for="live-price-${item.productCode}">Preço normal</label><input id="live-price-${item.productCode}" inputmode="decimal" type="number" min="0.01" max="10000" step="0.10" class="input" value="${item.priceCents>0?(item.priceCents/100).toFixed(2):''}"></div>
+        <div class="input-wrap"><label for="live-price-${item.productCode}">Preço ${range?'normal':'de venda'}</label><input id="live-price-${item.productCode}" inputmode="decimal" type="number" min="0.01" max="10000" step="0.10" class="input" value="${item.priceCents>0?(item.priceCents/100).toFixed(2):''}"></div>
         <div class="input-wrap"><label for="live-stock-${item.productCode}">Estoque</label><input id="live-stock-${item.productCode}" inputmode="numeric" type="number" min="0" max="100000" class="input" value="${item.availableStock}"></div>
       </div>
+      <details class="merchant-catalog-pricing" ${range?'open':''}><summary>${range?'Faixa de preço automática':'Preço automático e limites (opcional)'}</summary>
+      <div class="form-stack">
+        <div class="input-wrap"><label for="live-pricing-mode-${item.productCode}">Modo de preço</label><select id="live-pricing-mode-${item.productCode}" class="input" onchange="merchantPricingModeChanged('${item.productCode}')"><option value="fixed" ${range?'':'selected'}>Preço fixo</option><option value="range" ${range?'selected':''}>Faixa automática</option></select></div>
       <div class="field-row">
         <div class="input-wrap"><label for="live-min-price-${item.productCode}">Mínimo autorizado</label><input id="live-min-price-${item.productCode}" inputmode="decimal" type="number" min="0.01" max="10000" step="0.10" class="input" value="${(item.minPriceCents/100).toFixed(2)}" ${range?'':'disabled'}></div>
         <div class="input-wrap"><label for="live-max-price-${item.productCode}">Máximo autorizado</label><input id="live-max-price-${item.productCode}" inputmode="decimal" type="number" min="0.01" max="10000" step="0.10" class="input" value="${(item.maxPriceCents/100).toFixed(2)}" ${range?'':'disabled'}></div>
         <div class="input-wrap"><label for="live-pricing-strategy-${item.productCode}">Estratégia</label><select id="live-pricing-strategy-${item.productCode}" class="input" ${range?'':'disabled'}><option value="volume" ${item.pricingStrategy==='volume'?'selected':''}>Priorizar volume</option><option value="balanced" ${item.pricingStrategy==='balanced'?'selected':''}>Equilibrado</option><option value="margin" ${item.pricingStrategy==='margin'?'selected':''}>Priorizar margem</option></select></div>
       </div>
-      <div class="notice"><strong>${range?'Faixa autorizada':'Preço fixo'}.</strong><br>${range?'O TAMÃO pode escolher um preço somente entre o mínimo e o máximo, usando estoque e carga da sua própria operação. O preço de concorrentes não define o seu valor.':'O TAMÃO usa exatamente o preço normal informado neste SKU.'}</div>
+      <div class="notice"><strong>${range?'Faixa autorizada':'Preço fixo'}.</strong><br>${range?'O TAMÃO pode escolher um preço somente entre o mínimo e o máximo, usando estoque e carga da sua própria operação. O preço de concorrentes não define o seu valor.':'O TAMÃO usa exatamente o preço informado para este produto.'}</div>
+      </div></details>
       <label class="check-row"><input id="live-active-${item.productCode}" type="checkbox" ${item.active?'checked':''}><span><strong>Produto ativo</strong><small>Somente itens ativos e com estoque participam das ofertas.</small></span></label>
-      <button class="secondary" onclick="merchantLiveSaveProduct('${item.productCode}')">Salvar e confirmar política de preço</button>
+      <button class="secondary merchant-catalog-save" id="live-save-product-${item.productCode}" onclick="merchantLiveSaveProduct('${item.productCode}')">Salvar preço e estoque</button>
+      <small class="field-help">O preço precisa ser reconfirmado periodicamente. A elegibilidade de cada produto é verificada pelo sistema.</small>
     </div></details>`;
-  }).join('');
+  };
+  const currentCodes=new Set((rt.catalog||[]).map(item=>String(item.productCode||'').toUpperCase()));
+  const configuredRows=known.filter(item=>currentCodes.has(item.productCode)).map(renderCatalogItem).join('');
+  const optionalRows=known.filter(item=>!currentCodes.has(item.productCode)).map(renderCatalogItem).join('');
 
   const catalogCodes=new Set((rt.catalog||[]).map(item=>String(item.productCode||'').toUpperCase()));
   const addableProducts=(rt.availableProducts||[])
     .filter(item=>{
       const code=String(item.productCode||'').toUpperCase();
-      return code&&!catalogCodes.has(code)&&!localCodes.has(code);
+      return safeCatalogCode(code)&&!catalogCodes.has(code)&&!localCodes.has(code);
     })
     .sort((a,b)=>{
       const category=String(a.categoryName||'').localeCompare(String(b.categoryName||''),'pt-BR');
@@ -1560,7 +1581,19 @@ function merchantLiveCatalog(){
     <button class="primary" onclick="merchantLiveAddContainer()">Adicionar vasilhame</button>
   </div>`;
 
-  return shell(`<section class="page merchant-catalog-page"><button class="back" onclick="go('merchant')">← Operação</button><h1 class="page-title">Produtos da minha revenda</h1><p class="muted">Toque no produto que deseja vender para ajustar preço e estoque. Os produtos só entram nas ofertas quando estiverem ativos e aptos às regras aplicáveis. Cada SKU possui sua própria confirmação de preço.</p><div class="merchant-catalog-list">${rows}</div><details class="merchant-catalog-extra"><summary>Adicionar outro produto ou vasilhame</summary><div class="merchant-catalog-add-body">${addRegistered}${addGlp}${addContainer}</div></details></section>`);
+  return shell(`<section class="page merchant-catalog-page"><button class="back" onclick="go('merchant')">← Operação</button>
+    <span class="section-kicker">MINHA LOJA</span><h1 class="page-title">Produtos da minha revenda</h1>
+    <p class="muted">Comece pelos produtos que já cadastrou: toque para informar preço e estoque. Cada SKU possui sua própria confirmação de preço; somente itens elegíveis aparecem nas ofertas.</p>
+    <div class="merchant-catalog-head"><strong>Meus produtos</strong><span>${currentCodes.size} cadastrado(s)</span></div>
+    <div class="merchant-catalog-list">${configuredRows||'<div class="empty card">Sua lista está vazia. Abra “Adicionar produto” abaixo e escolha o que deseja vender.</div>'}</div>
+    <details class="merchant-catalog-extra"><summary>Adicionar outro produto ou vasilhame</summary><div class="merchant-catalog-add-body">
+      ${addRegistered}
+      ${optionalRows?'<details class="merchant-catalog-kind"><summary>Outros produtos comuns</summary><p class="muted tiny">Modelos para configurar: disponibilidade e requisitos serão verificados antes da venda.</p><div class="merchant-catalog-list">'+optionalRows+'</div></details>':''}
+      <details class="merchant-catalog-kind"><summary>Outro tamanho de gás</summary>${addGlp}</details>
+      <details class="merchant-catalog-kind"><summary>Vasilhames</summary>${addContainer}</details>
+    </div></details>
+    <p class="tiny muted">Cadastrar produto não libera vendas automaticamente. As regras de estoque, preço, categoria e entrega continuam sendo conferidas.</p>
+  </section>`);
 }
 
 async function merchantLiveAddRegisteredProduct(){
