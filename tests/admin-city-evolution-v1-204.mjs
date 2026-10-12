@@ -6,7 +6,8 @@ const source=read('js/admin-acquisition.js'),admin=read('js/admin.js');
 new vm.Script(source,{filename:'admin-acquisition.js'});
 new vm.Script(admin,{filename:'admin.js'});
 const fn=name=>{
- const a=source.indexOf('function '+name+'(');
+ const asyncAt=source.indexOf('async function '+name+'(');
+ const a=asyncAt>=0?asyncAt:source.indexOf('function '+name+'(');
  const b=source.indexOf('\n}',a);
  assert.ok(a>=0&&b>a,'Missing '+name);
  return source.slice(a,b+2);
