@@ -234,7 +234,7 @@ await waitFor("document.body.innerText.includes('FAÇA AS CONTAS DO SEU JEITO')"
 body=await text();
 assert.match(body,/7,5%/);
 assert.match(body,/Sem exclusividade/);
-assert.match(body,/Oportunidade não depende apenas do menor preço/);
+assert.match(body,/Preço importa\. Atendimento também\./);
 assert.match(body,/VENDA PELO TAMÃO/);
 assert.equal(await evaluate("document.querySelector('#merchant-sim-product-cost').value"),'');
 assert.equal(await evaluate("document.querySelector('#merchant-sim-contribution').textContent"),'—');
@@ -340,7 +340,7 @@ assert.deepEqual(
 assert.equal(await evaluate("productPrice(state.merchants[0],'P13',1)"),117.95);
 
 await evaluate("go('merchants')");
-await waitFor("document.body.innerText.includes('Abrir ambiente interno') && document.body.innerText.includes('TAMÃO PARA REVENDEDORES')","pilot merchant conversion landing");
+await waitFor("document.body.innerText.includes('Abrir ambiente interno') && document.body.innerText.includes('VENDA PELO TAMÃO')","pilot merchant conversion landing");
 body=await text();
 assert.match(body,/Sem exclusividade/);
 assert.match(body,/FAÇA AS CONTAS DO SEU JEITO/);
