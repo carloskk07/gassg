@@ -2736,3 +2736,24 @@ details[id^="prospect-editor-"] summary:focus-visible{outline:3px solid var(--br
 .admin-prospect-followup-paging{display:flex;align-items:center;justify-content:center;gap:12px;flex-wrap:wrap;margin:14px 0}
 .admin-prospect-followup-paging button{min-height:44px}
 @media(max-width:340px){.admin-prospect-followup-filters{gap:6px}.admin-prospect-followup-filters button{flex:1 1 125px}.admin-prospect-followup-paging{gap:8px}}
+
+/* V1.202 — one evidence-based commercial decision per municipality */
+.admin-city-pipeline-kpis{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:9px;margin:12px 0}
+.admin-city-pipeline-kpis>div{border:1px solid var(--line);border-radius:12px;padding:12px;min-width:0}
+.admin-city-pipeline-kpis strong{display:block;font-size:21px;font-variant-numeric:tabular-nums}
+.admin-city-pipeline-kpis small{font-size:11px;color:var(--muted);line-height:1.45}
+.admin-city-pipeline-toolbar{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;margin-bottom:12px}
+.admin-city-pipeline-toolbar label{display:block;margin:0 0 5px;font-weight:700;font-size:12px}
+.admin-city-pipeline-toolbar small{display:block;font-size:11px;color:var(--muted);margin-top:5px}
+.admin-city-pipeline-list{display:grid;gap:10px;margin:12px 0}
+.admin-city-pipeline-row{display:flex;align-items:center;justify-content:space-between;gap:12px;border:1px solid var(--line);border-radius:12px;padding:12px;min-width:0}
+.admin-city-pipeline-main{min-width:0;display:grid;gap:5px}
+.admin-city-pipeline-main strong{font-size:15px;overflow-wrap:anywhere}
+.admin-city-pipeline-main small{font-size:12px;color:var(--muted);overflow-wrap:anywhere}
+.admin-city-pipeline-kind{font-size:11px;font-weight:800;color:var(--brand)}
+.admin-city-pipeline-row button{min-height:44px;flex:0 0 auto;white-space:normal}
+.admin-city-pipeline-paging{display:flex;align-items:center;justify-content:center;gap:12px;flex-wrap:wrap;margin:12px 0}
+.admin-city-pipeline-paging button{min-height:44px}
+.admin-city-pipeline :focus-visible{outline:3px solid var(--brand);outline-offset:3px}
+@media(max-width:720px){.admin-city-pipeline-kpis{grid-template-columns:repeat(2,minmax(0,1fr))}.admin-city-pipeline-toolbar{grid-template-columns:1fr}.admin-city-pipeline-row{flex-wrap:wrap}.admin-city-pipeline-row button{width:100%}}
+@media(max-width:340px){.admin-city-pipeline-kpis>div,.admin-city-pipeline-row{padding:10px}.admin-city-pipeline-row button{min-height:48px}}
