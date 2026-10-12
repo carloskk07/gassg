@@ -47,10 +47,11 @@ registry.catalog=[];
 let page=ctx.page();
 for(const marker of ['live-new-registry-category','live-new-registry-search','live-new-registry-product',
  'merchantCatalogFilterRegistry()','live-new-registry-add','live-new-registry-count',
- 'live-new-glp-code','live-new-container-code','merchantCatalogGasOptions(rt)']){
+ 'live-new-glp-code','live-new-container-code']){
  assert.ok(page.includes(marker),marker);
 }
 assert.ok(page.includes('<optgroup label="Água">'));
+assert.ok(page.includes('value="P13"'),'gas select contains common 13kg size');
 assert.ok(!page.includes('<svg onload=alert(1)>'),'category escaped');
 assert.ok(!page.includes('<img src=x onerror=alert(1)>'),'product text escaped');
 assert.ok(page.includes('&lt;svg onload=alert(1)&gt;'),'escaped category visible');
