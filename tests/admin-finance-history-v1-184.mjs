@@ -57,6 +57,7 @@ const ui=vm.createContext({
 });
 vm.runInContext(
  pick(js,'adminInterruptedSalePaymentUrgency')+'\n'+
+ pick(js,'adminSalePaymentHistoryIsFresh')+'\n'+
  pick(js,'adminInterruptedSalePaymentRows')+'\n'+
  'async '+pick(js,'adminLoadSalePaymentHistory')+
  ';this.load=adminLoadSalePaymentHistory;this.rows=adminInterruptedSalePaymentRows;',ui);
