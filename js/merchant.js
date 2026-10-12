@@ -1535,7 +1535,7 @@ function merchantCatalogAdjustStock(code,delta){
   if(!field)return false;
   const raw=String(field.value||'').trim();
   const stock=Number(raw);
-  if(!/^\\d+$/.test(raw)||!Number.isInteger(stock)||stock<0||stock>100000){
+  if(!/^\d+$/.test(raw)||!Number.isInteger(stock)||stock<0||stock>100000){
     toast('Revise o estoque antes de ajustar');
     field.focus?.();
     return false;
@@ -1661,9 +1661,9 @@ function merchantLiveCatalog(){
   const optionalRows=known.filter(item=>!currentCodes.has(item.productCode)).map(renderCatalogItem).join('');
   const attentionRows=review.map(item=>{
     const check=needsReview(item);
-    return '<div class="merchant-catalog-attention-item"><div><strong>'+esc(item.productName)+'</strong>'+
-      '<span>'+esc(check.issues.join(' • '))+'</span></div>'+
-      '<button type="button" class="secondary small" onclick="merchantCatalogFocus(\\''+item.productCode+'\\',\\''+check.focus+'\\')">Revisar</button></div>';
+    return `<div class="merchant-catalog-attention-item"><div><strong>${esc(item.productName)}</strong>
+      <span>${esc(check.issues.join(' • '))}</span></div>
+      <button type="button" class="secondary small" onclick="merchantCatalogFocus('${item.productCode}','${check.focus}')">Revisar</button></div>`;
   }).join('');
   const reviewSection=review.length
     ?'<section class="merchant-catalog-attention" aria-label="Produtos que precisam de revisão"><div class="merchant-catalog-attention-head">'+
