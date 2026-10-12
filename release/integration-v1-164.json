@@ -17,10 +17,10 @@
     215
   ],
   "databaseMigrations": [
-    "20261011043000_delivery_first_payment_boundary_v1_158_1.sql",
-    "20261011063000_merchant_basket_compliance_v1_158_2.sql",
-    "20261011073000_settlement_daily_due_alignment_v1_158_3.sql",
-    "20261011083000_merchant_representation_authority_v1_158_4.sql"
+    "20261012042111_delivery_first_payment_boundary_v1_158_1.sql",
+    "20261012042134_merchant_basket_compliance_v1_158_2.sql",
+    "20261012042157_settlement_daily_due_alignment_v1_158_3.sql",
+    "20261012042201_merchant_representation_authority_v1_158_4.sql"
   ],
   "serverFunctionsChanged": [
     "admin-ops",
@@ -35,16 +35,17 @@
     "admin": "https://admin.tamao.com.br"
   },
   "manualEvidenceRequired": [
-    "production-migrations-applied-with-safe-recovery",
+    "production-migrations-applied-and-verified-commercial-gate-closed",
     "server-edge-functions-compatible-and-verified",
     "consented-customer-and-merchant-interest-forms-tested",
     "all-three-official-portal-shas-https-and-oidc-attested",
     "real-merchant-cnpj-and-representative-documents-verified-before-city-sales",
     "glp-anp-license-verified-before-gas-sales",
     "merchant-direct-payment-route-homologated-before-real-orders",
-    "administrator-authorizes-global-commercial-opening"
+    "administrator-authorizes-global-commercial-opening",
+    "supabase-pro-backups-enabled-and-restore-path-verified-before-first-sale"
   ],
-  "notes": "Two distinct gates: public information and consented registration may deploy before any first sale with commerce disabled, after compatible backend and 3-portal attestation. Per-city commerce opens automatically only when a compliant eligible merchant exists and global commerce was explicitly authorized; the first real sale is monitored after activation.",
+  "notes": "Two distinct gates: public information and consented registration may deploy before any first sale with commerce disabled, after compatible backend and 3-portal attestation. Per-city commerce opens automatically only when a compliant eligible merchant exists and global commerce was explicitly authorized; the first real sale is monitored after activation. Owner elected to defer Pro upgrade and recovery rehearsal until the commercial opening. No production backup restoration has been proven; commerce stays disabled.",
   "releasePhases": {
     "publicAcquisition": {
       "desiredState": "ready-for-deployment-after-compatible-backend",
@@ -85,7 +86,8 @@
         "product-specific-regulatory-gates-ANP-if-GLP",
         "live-multi-city-cep-price-and-stock-eligibility",
         "direct-merchant-payment-route-homologated-before-launch",
-        "admin-authorized-global-commerce-opening"
+        "admin-authorized-global-commerce-opening",
+        "supabase-pro-backup-policy-active-before-first-sale"
       ],
       "postActivationChecks": [
         "observe-first-real-order-and-delivery",
@@ -94,5 +96,8 @@
         "freeze-unhealthy-city-without-disabling-other-cities"
       ]
     }
-  }
+  },
+  "productionSchemaDeployed": true,
+  "productionMigrationEvidence": "release/production-schema-v1-164.json",
+  "recoveryStatus": "local-archive-integrity-passed-but-isolated-restore-not-proven; Pro planned before sales"
 }

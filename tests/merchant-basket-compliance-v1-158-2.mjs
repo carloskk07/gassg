@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 
-const sql=fs.readFileSync(new URL('../supabase/migrations/20261011063000_merchant_basket_compliance_v1_158_2.sql',import.meta.url),'utf8');
+const sql=fs.readFileSync(new URL('../supabase/migrations/20261012042134_merchant_basket_compliance_v1_158_2.sql',import.meta.url),'utf8');
 const edge=fs.readFileSync(new URL('../supabase/functions/get-offers/index.ts',import.meta.url),'utf8');
 const rollbackTest=fs.readFileSync(new URL('./sql/merchant-basket-compliance-v1-158-2.sql',import.meta.url),'utf8');
 

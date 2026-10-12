@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 const load=(p)=>fs.readFileSync(new URL('../'+p,import.meta.url),'utf8');
-const sql=load('supabase/migrations/20261011083000_merchant_representation_authority_v1_158_4.sql');
+const sql=load('supabase/migrations/20261012042201_merchant_representation_authority_v1_158_4.sql');
 const gateway=load('supabase/functions/admin-ops/index.ts');
 const panel=load('js/admin.js');
 const proof=load('tests/sql/merchant-representation-v1-158-4.sql');

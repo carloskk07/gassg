@@ -142,8 +142,8 @@ receber interesse de revendas ou avisar usuários de novas cidades.**
 Antes da publicação integrada desta versão:
 
 1. Aplicar controladamente as quatro migrations compatíveis
-   (`20261011043000`, `20261011063000`, `20261011073000`,
-   `20261011083000`) nesta ordem, com backup, janela de implantação
+   (`20261012042111`, `20261012042134`, `20261012042157`,
+   `20261012042201`) nesta ordem, com backup, janela de implantação
    e validação pós-aplicação. Os testes `BEGIN ... ROLLBACK` não instalam schema.
 2. Implantar as cinco Edge Functions correspondentes e comprovar RLS,
    autorizações, CORS, idempotência e compatibilidade do novo frontend.

@@ -13,6 +13,10 @@ const expected=manifest.databaseMigrations.map(f=>{
  return {version:match[1],name:match[2]};
 });
 assert.equal(expected.length,4);
+const actual=JSON.parse(fs.readFileSync(path.join(root,'release/production-schema-v1-164.json'),'utf8'));
+assert.deepEqual(actual.appliedMigrations,expected,'Production migration history must match shipped SQL source');
+assert.equal(inspectHistory(actual.appliedMigrations).status,'ALL_RECORDED');
+assert.equal(actual.commerceEnabled,false,'Do not implicitly authorize commercial orders');
 const empty=inspectHistory([]);
 assert.equal(empty.status,'NOT_APPLIED');
 assert.equal(empty.ok,true);

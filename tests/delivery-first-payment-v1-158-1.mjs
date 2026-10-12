@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 
 const read=(p)=>fs.readFileSync(new URL('../'+p,import.meta.url),'utf8');
-const migration=read('supabase/migrations/20261011043000_delivery_first_payment_boundary_v1_158_1.sql');
+const migration=read('supabase/migrations/20261012042111_delivery_first_payment_boundary_v1_158_1.sql');
 const offers=read('supabase/functions/get-offers/index.ts');
 const orderCreate=read('supabase/functions/create-order/index.ts');
 const orderRead=read('supabase/functions/get-order/index.ts');

@@ -13,10 +13,10 @@ const requireMatch=(src,pattern,message)=>assert.match(textFile(src),pattern,mes
 const requireContains=(src,fragment,message)=>assert.ok(textFile(src).includes(fragment),message);
 const expectedPrs=[205,207,208,209,210,211,212,213,214,215];
 const expectedMigrations=[
- '20261011043000_delivery_first_payment_boundary_v1_158_1.sql',
- '20261011063000_merchant_basket_compliance_v1_158_2.sql',
- '20261011073000_settlement_daily_due_alignment_v1_158_3.sql',
- '20261011083000_merchant_representation_authority_v1_158_4.sql'
+ '20261012042111_delivery_first_payment_boundary_v1_158_1.sql',
+ '20261012042134_merchant_basket_compliance_v1_158_2.sql',
+ '20261012042157_settlement_daily_due_alignment_v1_158_3.sql',
+ '20261012042201_merchant_representation_authority_v1_158_4.sql'
 ];
 assert.equal(manifest.targetBranch,'main');
 assert.equal(manifest.publicationMode,'review-only','This build is not a deploy authorization');

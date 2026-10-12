@@ -1,11 +1,11 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 const read=(p)=>fs.readFileSync(new URL('../'+p,import.meta.url),'utf8');
-const migration=read('supabase/migrations/20261011073000_settlement_daily_due_alignment_v1_158_3.sql');
+const migration=read('supabase/migrations/20261012042157_settlement_daily_due_alignment_v1_158_3.sql');
 const probe=read('tests/sql/settlement-postpaid-integration-v1-158-3.sql');
 const fullOrder=read('tests/sql/order-pin-to-fee-integration-v1-158-3.sql');
-const main=read('supabase/migrations/20261011043000_delivery_first_payment_boundary_v1_158_1.sql');
-const regulatory=read('supabase/migrations/20261011063000_merchant_basket_compliance_v1_158_2.sql');
+const main=read('supabase/migrations/20261012042111_delivery_first_payment_boundary_v1_158_1.sql');
+const regulatory=read('supabase/migrations/20261012042134_merchant_basket_compliance_v1_158_2.sql');
 for(const needle of [
  'public.merchant_settlement_daily_due_at',
  "at time zone 'America/Sao_Paulo'",
