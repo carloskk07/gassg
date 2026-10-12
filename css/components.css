@@ -2046,3 +2046,25 @@ body:has(.admin-page) .shell{
 
 /* Review V1.164: outage communication on information pages stays visible but calm. */
 .calm-strip{background:#edf7f0;border-bottom-color:#d1e7d9;color:#245e42}
+
+
+/* TAMÃO V1.167 — first visit: clear action, no fictional supply */
+.home-first-visit .hero-grid{display:block;max-width:1040px;margin-inline:auto}
+.home-first-visit .hero-grid>div:first-child{max-width:760px}
+.home-first-visit .hero-lead{max-width:650px;line-height:1.55}
+.home-first-visit .purchase-starter{max-width:650px}
+.home-first-visit .trust-row{max-width:650px;gap:8px}
+.first-visit-intent{max-width:1040px;margin-inline:auto}
+.first-visit-intent .section-head p{max-width:60ch}
+.first-visit-intent-grid{grid-template-columns:minmax(0,1fr);gap:12px}
+.first-visit-intent-grid .intent-card{min-width:0;min-height:94px}
+.home-first-visit .hero-overline{letter-spacing:.10em}
+@media(min-width:760px){
+  .first-visit-intent-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .home-first-visit .hero-grid{padding:38px 42px}
+}
+@media(max-width:520px){
+  .home-first-visit .hero-grid{padding:20px 16px}
+  .first-visit-intent .section-head h2{font-size:clamp(23px,6vw,30px)}
+  .first-visit-intent-grid .intent-card{min-height:0}
+}
