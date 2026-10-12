@@ -10,6 +10,7 @@ on:
       - 'scripts/release-db-restore-windows.ps1'
       - 'scripts/release-db-backup-checkpoint.sh'
       - 'scripts/release-db-restore-isolated.sh'
+      - 'tools/tamao-backup-windows/**'
       - '.github/workflows/recovery-tooling-check.yml'
 
 permissions:
@@ -27,7 +28,8 @@ jobs:
           foreach ($file in @(
             'scripts/backup-tamao-windows.ps1',
             'scripts/release-db-backup-windows.ps1',
-            'scripts/release-db-restore-windows.ps1'
+            'scripts/release-db-restore-windows.ps1',
+            'tools/tamao-backup-windows/Assistente-TAMAO.ps1'
           )) {
             $tokens = $null
             $errors = $null
@@ -41,6 +43,20 @@ jobs:
             Write-Host "SAFE_SYNTAX_ONLY: $file"
           }
           Write-Host "NO_DB_CREDENTIALS_OR_CONNECTIONS_USED"
+      - name: Windows GUI offline contract and component initialization
+        shell: pwsh
+        run: |
+          $script = 'tools/tamao-backup-windows/Assistente-TAMAO.ps1'
+          $contract = & powershell.exe -NoProfile -ExecutionPolicy Bypass -File $script -SelfTest
+          if ($LASTEXITCODE -ne 0 -or ($contract | Out-String) -notmatch 'TAMAO_GUI_OFFLINE_SELFTEST_OK') {
+            throw "Offline wizard contract failed: $contract"
+          }
+          $gui = & powershell.exe -NoProfile -STA -ExecutionPolicy Bypass -File $script -GuiSmokeTest
+          if ($LASTEXITCODE -ne 0 -or ($gui | Out-String) -notmatch 'TAMAO_GUI_INITIALIZATION_OK') {
+            throw "Windows Forms startup failed: $gui"
+          }
+          Write-Host "GUI_OFFLINE_TESTS_OK_NO_PRODUCTION_ACCESS"
+
 
   linux-syntax:
     runs-on: ubuntu-latest
