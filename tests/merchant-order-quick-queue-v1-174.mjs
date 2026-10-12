@@ -82,6 +82,10 @@ await action.run(item.orderId,'accept');
 assert.equal(calls,1);
 assert.equal(messages.at(-1),'Pedido aceito');
 assert.ok(cut('merchantLivePage').includes('merchantOrderQueueView(orders)'));
+assert.ok(cut('merchantLivePage').indexOf('id="merchant-live-orders"')<cut('merchantLivePage').indexOf('merchantSetupView(rt)'),
+ 'Live orders should appear before long setup details');
+assert.ok(cut('merchantDriverLivePage').indexOf('Pedidos atribuídos a você')<cut('merchantDriverLivePage').indexOf('merchantAlertControl()'),
+ 'Assigned driver orders should appear before secondary profile and alert settings');
 assert.ok(cut('merchantDriverLivePage').includes("merchantOrderQueueView(orders,'Nenhuma entrega atribuída a você agora.')"));
 assert.ok(backend.includes('merchantRuntime.actionPending=true;'));
 assert.ok(backend.includes('expectedVersion:order.version'));
