@@ -2757,3 +2757,19 @@ details[id^="prospect-editor-"] summary:focus-visible{outline:3px solid var(--br
 .admin-city-pipeline :focus-visible{outline:3px solid var(--brand);outline-offset:3px}
 @media(max-width:720px){.admin-city-pipeline-kpis{grid-template-columns:repeat(2,minmax(0,1fr))}.admin-city-pipeline-toolbar{grid-template-columns:1fr}.admin-city-pipeline-row{flex-wrap:wrap}.admin-city-pipeline-row button{width:100%}}
 @media(max-width:340px){.admin-city-pipeline-kpis>div,.admin-city-pipeline-row{padding:10px}.admin-city-pipeline-row button{min-height:48px}}
+
+/* V1.203 — evidence-scoped expansion playbook, mobile and keyboard accessible */
+.admin-city-plan{margin-top:10px;padding:9px 11px;border:1px solid var(--line);border-radius:10px}
+.admin-city-plan summary{cursor:pointer;font-weight:700;font-size:13px;min-height:44px;display:flex;align-items:center}
+.admin-city-plan-steps{list-style:none;padding:0;margin:10px 0;display:grid;gap:8px}
+.admin-city-plan-step{border-top:1px solid var(--line);padding-top:9px;min-width:0}
+.admin-city-plan-step>div{display:flex;gap:8px;align-items:center;justify-content:space-between;flex-wrap:wrap}
+.admin-city-plan-step strong{font-size:12px}
+.admin-city-plan-step small{display:block;margin-top:5px;line-height:1.5}
+.admin-city-plan-status{font-size:10px;font-weight:700;color:var(--muted)}
+.admin-city-plan-status.blocked,.admin-city-plan-status.attention{color:#9b3737}
+.admin-city-plan-status.observed{color:var(--brand)}
+.admin-city-plan-actions{display:flex;flex-wrap:wrap;gap:8px;margin:12px 0}
+.admin-city-plan-actions button{min-height:44px;white-space:normal}
+@media(max-width:720px){.admin-city-plan-actions button{width:100%}}
+@media(max-width:340px){.admin-city-plan{padding:8px}.admin-city-plan-actions button{min-height:48px}}
