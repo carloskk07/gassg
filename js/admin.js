@@ -1745,6 +1745,90 @@ function adminBillingPaymentEventCard(event){
   </article>`;
 }
 
+/* V1.187 — management reading, not an accounting cash statement.
+   Exact server aggregates and bounded receipt samples must never be summed together. */
+function adminFinanceManagementSnapshot(d){
+  const billing=d?.merchantBilling||{};
+  const requests=Array.isArray(billing.paymentRequests)?billing.paymentRequests:[];
+  const kinds={
+    package_purchase:{count:0,cents:0},
+    daily_statement:{count:0,cents:0},
+    refund_recovery:{count:0,cents:0}
+  };
+  const safeCents=value=>{
+    if(value===null||value===undefined||value==='')return null;
+    const n=Number(value);
+    return Number.isSafeInteger(n)&&n>=0?n:null;
+  };
+  const seen=new Set();
+  let amountUnavailable=0;
+  for(const req of requests){
+    if(!req||req.status!=='approved'||!Object.hasOwn(kinds,req.request_kind))continue;
+    const id=String(req.id||'');
+    if(!id||seen.has(id))continue;
+    seen.add(id);
+    const amount=safeCents(req.received_amount_cents);
+    const bucket=kinds[req.request_kind];
+    bucket.count++;
+    if(amount===null||!Number.isSafeInteger(bucket.cents+amount)){
+      amountUnavailable++;
+    }else bucket.cents+=amount;
+  }
+  return {
+    generated30d:safeCents(d?.businessMetrics?.platformFeeGeneratedCents30d),
+    openDaily:safeCents(billing.metrics?.openStatementCents),
+    overdueDaily:safeCents(billing.metrics?.overdueStatementCents),
+    pendingReview:safeCents(billing.metrics?.pendingPaymentCents),
+    disputes:safeCents(billing.reconciliation?.issueCount),
+    kinds,approvedCount:seen.size,amountUnavailable,
+    recordsShown:requests.length,recordsCapped:requests.length>=300,
+    totalsAvailable:!!billing.metrics&&!!billing.reconciliation&&!!d?.businessMetrics,
+    directMerchantPayments:billedDirect(d)
+  };
+}
+function billedDirect(d){
+  return d?.merchantPayments?.fundsOwner==='merchant'
+    &&d?.merchantPayments?.tamaoReceivesSaleProceeds===false;
+}
+function adminFinanceManagementView(d){
+  if(!adminRoleCanSection('finance'))return '';
+  const s=adminFinanceManagementSnapshot(d);
+  const money=value=>value===null?'—':adminMoney(value);
+  const bucket=(kind,label,detail)=>{
+    const b=s.kinds[kind];
+    return `<div class='admin-managerial-row'><div><strong>${label}</strong><small>${detail} • ${b.count} confirmação(ões) na amostra</small></div><strong>${adminMoney(b.cents)}</strong></div>`;
+  };
+  const updated=adminRuntime.lastSyncAt&&Number.isFinite(Date.parse(adminRuntime.lastSyncAt))
+    ?formatDateTime(adminRuntime.lastSyncAt):'horário da atualização indisponível';
+  return `<section class='section admin-finance-management' aria-label='Resumo financeiro gerencial'>
+    <div class='section-head'><div><span class='section-kicker'>CONTROLE GERENCIAL</span><h2>O dinheiro do TAMÃO, sem confundir com as vendas</h2><p>Taxas geradas, cobranças em aberto e recebimentos registrados têm naturezas diferentes. Consulte cada grupo separadamente.</p></div><span class='admin-data-freshness'>Dados de ${esc(updated)}</span></div>
+    ${!s.totalsAvailable?`<div class='notice danger'><strong>Indicadores completos indisponíveis.</strong><br>Não interprete valores ausentes como zero. Atualize o painel e confira a conciliação.</div>`:''}
+    <div class='admin-managerial-grid'>
+      <div class='admin-managerial-stat'><small>Taxas TAMÃO geradas • 30 dias</small><strong>${money(s.generated30d)}</strong><span>Receita por competência; não comprova dinheiro recebido.</span></div>
+      <div class='admin-managerial-stat'><small>D+1 ainda a receber</small><strong>${money(s.openDaily)}</strong><span>Inclui o vencido de ${money(s.overdueDaily)}. Não some os dois valores.</span></div>
+      <div class='admin-managerial-stat'><small>Pagamentos informados • conferência</small><strong>${money(s.pendingReview)}</strong><span>Não é receita confirmada nem crédito liberado.</span></div>
+      <div class='admin-managerial-stat'><small>Divergências na conciliação</small><strong>${s.disputes===null?'—':s.disputes}</strong><span>${s.disputes===null?'Sem diagnóstico disponível':s.disputes?'Necessitam revisão do Financeiro':'Nenhuma divergência informada pelo servidor'}.</span></div>
+    </div>
+    <div class='admin-managerial-details'>
+      <div class='card flat'><h3>Recebimentos registrados por finalidade</h3>
+        <p class='tiny muted'>Amostra das ${s.recordsShown} solicitações mais recentes carregadas (limite de 300). Apenas aprovadas, usando valores recebidos registrados; não é extrato bancário nem total histórico.</p>
+        <div class='admin-managerial-rows'>
+          ${bucket('package_purchase','Pacotes de crédito','Entrada antecipada para taxas futuras; não contabilizar tudo como receita')} 
+          ${bucket('daily_statement','Cobranças diárias D+1','Pagamento de taxas já apuradas')} 
+          ${bucket('refund_recovery','Recuperações de refund','Ressarcimentos; não são nova venda')} 
+        </div>
+        <small class='tiny muted'>${s.approvedCount} solicitação(ões) aprovada(s) com finalidade conhecida na amostra.${s.amountUnavailable?' '+s.amountUnavailable+' sem valor monetário confiável (excluídas das somas).':''}${s.recordsCapped?' Há registros anteriores fora da amostra.':''} Valores brutos, sem subtrair refunds ou ajustes posteriores.</small>
+      </div>
+      <div class='card flat'><h3>Separação financeira</h3>
+        <div class='admin-managerial-rule'><strong>Vendas dos clientes</strong><span>${s.directMerchantPayments?'Pagas diretamente à revenda':'Rota de fundos sem confirmação neste resumo; conferir configuração'}. Não entram na receita do TAMÃO.</span></div>
+        <div class='admin-managerial-rule'><strong>Crédito pré-pago</strong><span>Saldo disponível para taxas futuras é obrigação operacional, não caixa livre nem taxa já ganha.</span></div>
+        <div class='admin-managerial-rule'><strong>Conciliação</strong><span>Consulte o PSP e os registros contábeis antes de aprovar ou reverter qualquer pagamento.</span></div>
+        <p class='tiny muted'>Este resumo é somente leitura e não inicia cobranças, repasses ou estornos.</p>
+      </div>
+    </div>
+  </section>`;
+}
+
 function adminFinanceOverview(d){
   const billing=d.merchantBilling||{};
   const metrics=billing.metrics||{};
@@ -3331,6 +3415,7 @@ function adminPage(){
 
   const financeContent=`
     ${adminFinanceOverview(d)}
+    ${adminFinanceManagementView(d)}
     ${adminInterruptedSalePaymentWatch(d)}
     ${adminMerchantBillingSection(d)}
     ${adminCommercialPolicySection(d)}
