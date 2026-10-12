@@ -1600,6 +1600,81 @@ function adminPilotPartnerCard(p){
   </article>`;
 }
 
+/* V1.196 — evidence-specific merchant checkpoints, not an automatic approval score. */
+function adminMerchantProgressSnapshot(m,now=Date.now()){
+  if(!m||typeof m!=='object')return {valid:false,steps:[],done:0,total:7,unknown:7,ready:false,conflict:false,notice:'Cadastro não carregado'};
+  const has=(obj,key)=>obj!==null&&typeof obj==='object'&&Object.prototype.hasOwnProperty.call(obj,key);
+  const c=m.compliance||{};
+  const owner=String(m.activeOwnerUserId||'');
+  const ownerIsKnown=has(m,'activeOwnerUserId');
+  const uuid=/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+  const ownerValid=uuid.test(owner);
+  const status=(raw,positive,negative=[])=>positive.includes(raw)?'done':negative.includes(raw)?'blocked':
+    raw===null||raw===undefined?'unknown':'pending';
+  const ownerState=ownerValid?'done':ownerIsKnown?'pending':'unknown';
+  const cnpjState=status(c.cnpj_status,['verified'],['rejected']);
+  const anpState=status(c.anp_status,['verified','not_required'],['rejected']);
+  const rep=m.representationReview||null;
+  const expiry=Date.parse(String(rep?.expires_at||''));
+  const repVerified=!!rep&&rep.revoked_at==null
+    &&ownerValid&&rep.owner_user_id===owner&&rep.merchant_cnpj===m.cnpj
+    &&Number.isFinite(expiry)&&expiry>now;
+  const repState=repVerified?'done':rep?.revoked_at?'blocked':rep?'pending':
+    ownerState==='unknown'?'unknown':'pending';
+  const activation=status(m.status,['active'],['suspended','rejected']);
+  const presence=typeof m.online==='boolean'?(m.online?'done':'pending'):'unknown';
+  const sourceReady=m.readiness?.offerReady;
+  const prereqsOk=[ownerState,cnpjState,anpState,repState,activation,presence].every(s=>s==='done');
+  const conflict=sourceReady===true&&!prereqsOk;
+  const offerState=conflict?'unknown':
+    sourceReady===true?'done':sourceReady===false?'pending':'unknown';
+  const steps=[
+    {key:'owner',label:'Responsável vinculado',status:ownerState,detail:ownerState==='done'?'Conta permanente vinculada':'Confirmar o proprietário da conta'},
+    {key:'cnpj',label:'CNPJ verificado',status:cnpjState,detail:cnpjState==='done'?'Situação confirmada pelo administrativo':'Verificar documento e fonte oficial'},
+    {key:'anp',label:'Exigência ANP verificada',status:anpState,detail:c.anp_status==='not_required'?'Não exigida conforme registro de compliance':'Verificar situação ANP quando aplicável'},
+    {key:'representation',label:'Representação legal vigente',status:repState,detail:repState==='done'?'Poder de representação válido nesta consulta':'Conferir autorização e prazo de validade'},
+    {key:'activation',label:'Cadastro operacional ativo',status:activation,detail:activation==='done'?'Ativado administrativamente':'A ativação exige análise individual'},
+    {key:'presence',label:'Revenda online',status:presence,detail:presence==='done'?'Presença informada no servidor':'Responsável precisa estar disponível no portal'},
+    {key:'offer',label:'Oferta disponível',status:offerState,detail:conflict?'Prontidão declarada diverge das outras evidências':offerState==='done'?'Prontidão para oferta confirmada pelo servidor':'Conferir produto, estoque, preço, área e prazo'}
+  ];
+  const done=steps.filter(x=>x.status==='done').length;
+  const unknown=steps.filter(x=>x.status==='unknown').length;
+  const next=String(m.readiness?.nextAction||'');
+  const label=conflict?'Evidências divergentes':
+    sourceReady===true&&prereqsOk?'Ofertável segundo o servidor':
+    m.status==='suspended'?'Revenda suspensa':
+    unknown?'Dados ainda não confirmados':'Etapas por concluir';
+  return {valid:true,steps,done,total:steps.length,unknown,ready:sourceReady===true&&prereqsOk,
+    conflict,next,label};
+}
+function adminMerchantProgressView(m){
+  if(!adminRoleCanSection('partners'))return '';
+  const p=adminMerchantProgressSnapshot(m);
+  if(!p.valid)return '';
+  const statusLabel={done:'Concluído',pending:'Pendente',blocked:'Requer revisão',unknown:'Não confirmado'};
+  const rows=p.steps.map(step=>`<li class='admin-merchant-progress-step ${step.status}'>
+    <span class='admin-merchant-progress-dot' aria-hidden='true'>${step.status==='done'?'✓':'·'}</span>
+    <div><strong>${esc(step.label)}</strong><small>${esc(step.detail)}</small></div>
+    <span class='admin-merchant-progress-tag'>${statusLabel[step.status]}</span>
+  </li>`).join('');
+  const next=p.next&&p.next!=='ready'?adminPilotNextActionCopy({onboarding:{nextAction:p.next}}):null;
+  return `<section class='admin-merchant-progress' aria-label='Etapas de habilitação da revenda'>
+    <div class='admin-merchant-progress-head'>
+      <div><strong>Evolução da revenda</strong><small>${p.done} de ${p.total} verificações com evidência positiva
+      ${p.unknown?' • '+p.unknown+' sem confirmação':''}</small></div>
+      <span class='status-pill ${p.ready?'online':p.conflict?'offline':''}'>${esc(p.label)}</span>
+    </div>
+    <div class='admin-merchant-progress-track' role='meter' aria-label='Verificações positivas'
+      aria-valuemin='0' aria-valuemax='${p.total}' aria-valuenow='${p.done}'
+      aria-valuetext='${p.done} de ${p.total} verificações positivas'>
+      <span style='width:${Math.round(p.done*100/p.total)}%'></span></div>
+    <ul class='admin-merchant-progress-steps'>${rows}</ul>
+    ${p.conflict?'<div class="notice danger"><strong>Revisão obrigatória.</strong> Os indicadores de prontidão e as demais evidências não coincidem; não trate esta revenda como habilitada.</div>':''}
+    ${next?`<p class='tiny muted'><strong>Próximo passo:</strong> ${esc(next)}</p>`:''}
+    <p class='tiny muted'>Estes marcos são informativos, não equivalem a uma aprovação. Somente os controles administrativos e as regras do servidor podem validar ou ativar revendas.</p>
+  </section>`;
+}
+
 function adminMerchantCard(m){
   const c=m.compliance||{};
   const readiness=m.readiness||null;
@@ -1625,6 +1700,7 @@ function adminMerchantCard(m){
   return `<article class="order-card" id="admin-partner-work-merchant-${esc(m.id)}" tabindex="-1">
     <div class="order-head"><div><div class="order-id">${esc(m.name)}</div><div class="tiny muted">${esc(m.cnpj)}</div></div>${adminStatusPill(m.status)}</div>
     <div class="order-line">Online: <strong>${m.online?'sim':'não'}</strong> • Trust: ${Number(m.trust_score||0)}/100</div>
+    ${adminMerchantProgressView(m)}
     ${readiness?`<div class="notice ${readiness.offerReady?'success':''}" style="margin-top:10px"><strong>${readiness.offerReady?'Revenda ofertável':'Próximo passo operacional'}</strong><br>${esc(adminPilotNextActionCopy({onboarding:{nextAction:readiness.nextAction}}))}</div>`:''}
     ${m.businessDetails?`<div class="order-line"><strong>Responsável:</strong> ${esc(m.businessDetails.responsible_name)} • ${esc(m.businessDetails.city)}/${esc(m.businessDetails.state)} • WhatsApp ${esc(m.businessDetails.whatsapp)}</div>`:''}
     <div class="field-row" style="margin-top:12px">
