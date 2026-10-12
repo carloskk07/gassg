@@ -873,6 +873,14 @@ function merchantLiveOrder(o){
   const currentRole=String(globalThis.merchantRuntime?.merchant?.memberRole||'');
   const canAssignDelivery=['owner','manager'].includes(currentRole);
   const deliveryTeam=globalThis.merchantRuntime?.deliveryTeam||[];
+  const nextStepCopy={
+    OFFERED_TO_MERCHANT:'Confirme se consegue preparar e entregar este pedido.',
+    MERCHANT_ACCEPTED:'Prepare os itens e confirme somente quando sair para entregar.',
+    PREPARING:'Quando iniciar a entrega, confirme a saída.',
+    AT_RISK:'Verifique o problema antes de confirmar a saída.',
+    OUT_FOR_DELIVERY:'Ao se aproximar do endereço, avise que está chegando.',
+    ARRIVING:'Confira a entrega, o código informado pelo cliente e o pagamento.'
+  }[o.status]||'';
   const assignedLabel=o.assignedDeliveryUserId
     ? merchantDeliveryMemberLabel(o.assignedDeliveryUserId)
     : '';
@@ -892,7 +900,7 @@ function merchantLiveOrder(o){
     const dispatchButton=scheduleState.scheduled&&!scheduleState.ready
       ? `<button class="primary small" disabled>Saída ainda bloqueada</button><span class="tiny muted">Liberada por volta de ${scheduleState.opensAt?esc(new Date(scheduleState.opensAt).toLocaleString('pt-BR')):'mais perto da janela'}</span>`
       : `<button class="primary small" onclick="merchantLiveAction('${o.orderId}','dispatch')">Confirmar saída</button>`;
-    actions=`${dispatchButton}<select id="reason-${o.orderId}" class="input" style="max-width:220px;height:40px"><option value="stock_issue">Problema de estoque</option><option value="vehicle_issue">Problema no veículo</option><option value="staffing_issue">Equipe indisponível</option><option value="other_operational">Outro problema operacional</option></select><button class="danger-btn small" onclick="merchantLiveCannotFulfill('${o.orderId}')">Não consigo concluir</button>`;
+    actions=`${dispatchButton}<details class="merchant-order-exception"><summary>Não consigo concluir este pedido</summary><div class="form-stack"><label for="reason-${o.orderId}">Qual foi o problema?</label><select id="reason-${o.orderId}" class="input"><option value="stock_issue">Problema de estoque</option><option value="vehicle_issue">Problema no veículo</option><option value="staffing_issue">Equipe indisponível</option><option value="other_operational">Outro problema operacional</option></select><button class="danger-btn small" onclick="merchantLiveCannotFulfill('${o.orderId}')">Não consigo concluir</button></div></details>`;
   }else if(o.status==='OUT_FOR_DELIVERY'){
     actions=`<button class="secondary small" onclick="merchantLiveAction('${o.orderId}','arriving')">Estou chegando</button>`;
   }else if(o.status==='ARRIVING'){
@@ -906,7 +914,8 @@ function merchantLiveOrder(o){
     ${assignedLabel?`<div class="notice success" style="margin-top:10px"><strong>Responsável pela entrega:</strong> ${esc(assignedLabel)}</div>`:''}
     ${assignmentControl}
     ${o.riskReason?`<div class="notice danger" style="margin-top:10px">${esc(o.riskReason)}</div>`:''}
-    <div class="order-actions">${actions}</div>
+    ${nextStepCopy?`<div class="merchant-order-next"><strong>Próxima ação</strong><span>${esc(nextStepCopy)}</span></div>`:'' }
+    <div class="order-actions merchant-live-actions">${actions}</div>
   </article>`;
 }
 
