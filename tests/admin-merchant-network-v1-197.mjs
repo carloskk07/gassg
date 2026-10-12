@@ -103,7 +103,6 @@ const target={focus:options=>{focused++;assert.equal(options.preventScroll,true)
  scrollIntoView:options=>{scrolled++;assert.equal(options.block,'center');assert.equal(options.behavior,'instant')}};
 dom['admin-partner-work-merchant-'+id(1)]=target;
 ctx.open(id(1));
-console.log('FOCUS_DIAG',JSON.stringify({status:rt.status,role,rendered,focused,scrolled,message:ctx.lastToast,record:ctx.snap(data,now).rows.find(x=>x.id===id(1)),dom:Object.keys(dom),gate:vm.runInContext("({permission:adminRoleCanSection('partners'),status:adminRuntime.status})",ctx),regular:/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id(1)),openFn:ctx.open.toString().slice(0,350)}));
 assert.equal(focused,1);assert.equal(scrolled,1);
 ctx.open('../../logout');assert.equal(focused,1);
 ctx.open(id(999));assert.equal(focused,1);
