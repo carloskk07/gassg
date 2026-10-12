@@ -95,6 +95,8 @@ jobs:
         run: node tests/city-aware-conversion-v1-160.mjs
       - name: Human-centered public conversion V1.159 regression contract
         run: node tests/public-conversion-v1-159.mjs
+      - name: First-visit city availability V1.167 regression
+        run: node tests/first-visit-clarity-v1-167.mjs
       - name: Public P13 price reference V1.148 regression contract
         run: node tests/jr-public-price-reference-v1-148.mjs
       - name: Customer availability-first V1.149 regression contract
@@ -187,13 +189,13 @@ jobs:
             "$CHROME" --headless=new --no-sandbox --disable-gpu --window-size=360,800 --virtual-time-budget=1200 --user-data-dir="/tmp/chrome-$route" --dump-dom "http://127.0.0.1:4173/#$route" > "/tmp/$route.html"
           done
           grep -Fq "Pediu? Tá na mão." /tmp/home.html
-          grep -q "SEU PEDIDO, SEM FICAR NA DÚVIDA." /tmp/home.html
+          grep -q "✓ Sem pedido automático" /tmp/home.html
           grep -q "Botijão de cozinha 13 kg" /tmp/home.html
           grep -q "Me avise quando puder pedir" /tmp/home.html
-          grep -q "ATENDIMENTO POR REGIÃO" /tmp/home.html
-          grep -q "Revendas cadastradas" /tmp/home.html
+          grep -q "CONSULTE ENTREGAS PERTO DE VOCÊ." /tmp/home.html
+          grep -q "Quer saber mais ou tem uma revenda?" /tmp/home.html
           grep -q "Entender como funciona" /tmp/home.html
-          grep -q "Quero vender no TAMÃO" /tmp/home.html
+          grep -q "Cadastrar minha empresa" /tmp/home.html
           grep -q "Quer pedir gás, água ou outros itens? Veja como funciona." /tmp/learn.html
           grep -q "Comprar pelo TAMÃO também pode trazer benefícios." /tmp/earn.html
           grep -q "O que você precisa e onde devemos entregar" /tmp/order.html
