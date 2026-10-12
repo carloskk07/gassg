@@ -1,5 +1,5 @@
 function merchantRealPortalRequired(){
-  return shell('<section class="page"><span class="eyebrow">ÁREA DA REVENDA</span><h1 class="page-title">Acesso operacional real</h1><p class="muted">A operação da revenda não possui modo fictício em produção.</p><button class="primary full" onclick="openMerchantPortal()">Entrar / cadastrar revenda</button></section>');
+  return shell('<section class="page"><span class="eyebrow">ÁREA DA REVENDA</span><h1 class="page-title">Área da minha revenda</h1><p class="muted">Entre ou cadastre sua empresa para configurar produtos, entregas e recebimentos.</p><button class="primary full" onclick="openMerchantPortal()">Entrar ou cadastrar minha revenda</button></section>');
 }
 
 function merchantLiveLoginView(){
@@ -8,16 +8,16 @@ function merchantLiveLoginView(){
   const prospectInvite=String(globalThis.merchantProspectInviteToken?.()||'').trim();
   return shell(`<section class="page">
     <span class="eyebrow">${pilotInvite||prospectInvite?'CONVITE DE PARCEIRO':'PAINEL DA REVENDA'}</span>
-    <h1 class="page-title">${pilotInvite||prospectInvite?'Entre para continuar seu cadastro':'Acessar operação'}</h1>
-    <p class="muted">${pilotInvite||prospectInvite?'Use o e-mail que ficará responsável pela operação. Depois do link de acesso, você volta direto ao cadastro da empresa.':'Use o e-mail vinculado à sua revenda. O acesso é separado da sessão do cliente.'}</p>
-    ${pilotInvite?'<div class="notice success" style="margin-top:14px"><strong>Convite reconhecido.</strong><br>Suas condições comerciais já estão preservadas no TAMÃO. Entrar não coloca a revenda online nem libera pedidos.</div>':''}${prospectInvite?'<div class="notice success" style="margin-top:14px"><strong>Convite reconhecido.</strong><br>Seu cadastro será associado à empresa convidada após conferir o CNPJ. A ativação comercial exige validações adicionais.</div>':''}
+    <h1 class="page-title">${pilotInvite||prospectInvite?'Entre para continuar seu cadastro':'Entrar no painel da revenda'}</h1>
+    <p class="muted">${pilotInvite||prospectInvite?'Informe o e-mail do responsável. Enviaremos um link para você continuar o cadastro da empresa.':'Informe o e-mail cadastrado na revenda. Enviaremos um link seguro de acesso.'}</p>
+    ${pilotInvite?'<div class="notice success" style="margin-top:14px"><strong>Convite reconhecido.</strong><br>Seu convite já foi identificado. Você pode continuar o cadastro; as vendas só começam depois da habilitação.</div>':''}${prospectInvite?'<div class="notice success" style="margin-top:14px"><strong>Convite reconhecido.</strong><br>Vamos conferir o CNPJ para vincular seu cadastro à empresa convidada. A liberação para vender acontece em uma etapa separada.</div>':''}
     ${rt.notice?`<div class="notice success" style="margin-top:14px">${esc(rt.notice)}</div>`:''}
     ${rt.error?`<div class="notice danger" style="margin-top:14px">${esc(rt.error)}</div>`:''}
     <div class="card flat form-stack" style="margin-top:16px">
       <div class="input-wrap"><label for="merchant-email">E-mail</label><input id="merchant-email" type="email" autocomplete="email" class="input" maxlength="160" placeholder="voce@empresa.com"></div>
       <button class="primary" onclick="merchantLoginFromUi()">Enviar link de acesso</button>
     </div>
-    <div class="notice" style="margin-top:14px">Somente contas permanentes podem operar revendas. Cadastro de empresa e acesso operacional são aprovados separadamente.</div>
+    <div class="notice" style="margin-top:14px">O cadastro da empresa passa por conferência antes da liberação das vendas. Você já pode preencher os dados agora.</div>
   </section>`);
 }
 
@@ -39,15 +39,15 @@ function merchantLiveNoAccess(){
     applicationStatus==='pending'?'Revisar cadastro':'Cadastrar empresa';
   return shell(`<section class="page">
     <span class="eyebrow">CONTA AUTENTICADA</span>
-    <h1 class="page-title">${roleBlocked?'Seu acesso ainda não habilita o painel':'Revenda ainda não vinculada'}</h1>
+    <h1 class="page-title">${roleBlocked?'Seu acesso à revenda ainda não foi liberado':'Ainda não encontramos uma revenda vinculada'}</h1>
     <p class="muted">${roleBlocked
-      ? 'Você entrou como '+esc(email)+', mas seu papel atual não possui acesso operacional a esta conta.'
-      : 'Você entrou como '+esc(email)+', mas esta conta ainda não possui uma operação ativa.'}</p>
+      ? 'Você entrou como '+esc(email)+', mas esta conta ainda não tem permissão para administrar a revenda.'
+      : 'Você entrou como '+esc(email)+', mas ainda não há uma revenda ativa vinculada a este e-mail.'}</p>
     ${rt.notice?`<div class="notice success" style="margin-top:16px"><strong>Cadastro recebido.</strong><br>${esc(rt.notice)}</div>`:''}
     ${applicationNotice}
     ${roleBlocked
-      ? '<div class="notice" style="margin-top:16px"><strong>Acesso operacional limitado.</strong><br>Seu papel atual ainda não possui uma experiência habilitada nesta operação.</div>'
-      : applicationStatus==='approved'?'': '<div class="card flat" style="margin-top:16px"><h3>Seu cadastro</h3><p class="muted tiny">Use a inscrição existente para revisar ou corrigir informações. O TAMÃO não cria outra inscrição para o mesmo CNPJ e responsável.</p><button class="primary full" onclick="go(\'merchant-join\')">'+applicationAction+'</button></div>'}
+      ? '<div class="notice" style="margin-top:16px"><strong>Acesso à revenda ainda não liberado.</strong><br>Seu usuário ainda não tem permissão para operar esta revenda.</div>'
+      : applicationStatus==='approved'?'': '<div class="card flat" style="margin-top:16px"><h3>Seu cadastro</h3><p class="muted tiny">Se precisar corrigir alguma informação, atualize o cadastro já enviado.</p><button class="primary full" onclick="go(\'merchant-join\')">'+applicationAction+'</button></div>'}
     <button class="ghost full" style="margin-top:12px" onclick="merchantLiveLogout()">Sair desta conta</button>
   </section>`);
 }
@@ -691,8 +691,8 @@ function merchantEnablementAssistantView(rt){
     merchantIssues.length?'Configurações pendentes':'Aguardando validações';
   return '<section class="section" id="merchant-enablement">'+
     '<div class="section-head"><div><span class="section-kicker">PRÓXIMOS PASSOS</span>'+
-      '<h2>Preparar minha revenda</h2>'+
-      '<p>Veja exatamente o que ainda precisa de atenção para participar das ofertas na sua cidade. A confirmação final acontece sempre no servidor.</p></div>'+
+      '<h2>Deixar minha revenda pronta para vender</h2>'+
+      '<p>Confira o que ainda falta para sua empresa aparecer nas consultas. Algumas etapas dependem da análise do TAMÃO.</p></div>'+
       '<button class="secondary small" type="button" onclick="merchantEnablementRecheck()" '+
         (rt.enablementLoading?'disabled':'')+'>↻ Revalidar</button></div>'+
     '<div class="card flat">'+
@@ -708,11 +708,11 @@ function merchantEnablementAssistantView(rt){
         '<div class="kpi"><span class="label">Atendidas</span><strong>'+fine.length+'/'+checks.length+'</strong></div>'+
        '</div>'+
        (lead?'<p class="tiny" style="margin-top:10px"><strong>Primeira ação:</strong> '+esc(lead.action||'Revisar requisitos')+'</p>':
-        '<p class="tiny" style="margin-top:10px">Não há pendências apontadas nesta verificação. A disponibilidade final continua sujeita ao motor de cotações.</p>')+
+        '<p class="tiny" style="margin-top:10px">Não encontramos pendências agora. Sua revenda só aparece para os clientes quando houver produtos e entrega disponíveis para o endereço consultado.</p>')+
        (merchantIssues.length?'<h3 style="margin-top:14px">O que sua revenda pode resolver</h3><div class="list">'+merchantIssues.map(merchantEnablementCheckView).join('')+'</div>':'')+
        (otherIssues.length?'<h3 style="margin-top:14px">Validações e condições adicionais</h3><div class="list">'+otherIssues.map(merchantEnablementCheckView).join('')+'</div>':'')+
        '<details style="margin-top:12px"><summary>Ver '+fine.length+' requisitos já atendidos</summary><div class="list">'+fine.map(merchantEnablementCheckView).join('')+'</div></details>')+
-      '<div class="tiny muted" style="margin-top:12px">Este roteiro não aprova documentos, não libera pagamentos e não altera a situação comercial da revenda.</div>'+
+      '<div class="tiny muted" style="margin-top:12px">Esta consulta mostra o que falta. A aprovação dos documentos e a liberação das vendas são feitas separadamente.</div>'+
     '</div></section>';
 }
 async function merchantEnablementRecheck(){
@@ -724,7 +724,7 @@ async function merchantEnablementRecheck(){
 function merchantLivePage(){
   const rt=globalThis.merchantRuntime||{};
   if(['disabled','loading'].includes(rt.status)){
-    return shell('<section class="page"><h1 class="page-title">Painel da revenda</h1><div class="empty card">Conectando à operação real…</div></section>');
+    return shell('<section class="page"><h1 class="page-title">Painel da revenda</h1><div class="empty card">Carregando o painel da sua revenda…</div></section>');
   }
   if(rt.status==='unsafe-origin'){
     return shell('<section class="page"><span class="eyebrow">PAINEL REAL BLOQUEADO</span><h1 class="page-title">Origem da revenda não isolada</h1><div class="notice danger"><strong>Não autenticamos operações da revenda em uma origem compartilhada.</strong><br>Use localhost para desenvolvimento ou uma origem dedicada configurada para o painel da revenda.</div></section>');
@@ -766,7 +766,7 @@ function merchantLivePage(){
   if(!Object.values(paymentMethods).some(Boolean))freshnessProblems.push('nenhuma forma de pagamento confirmada');
   const commercialReady=freshness.allFresh&&m.acceptsCitywide!==false&&Object.values(paymentMethods).some(Boolean);
   const freshnessNotice=!commercialReady
-    ? '<div class="notice danger" style="margin-top:12px"><strong>Confirmação comercial incompleta.</strong><br>'+esc(freshnessProblems.join(' • '))+'. A revenda só participa das ofertas com área atendida, taxa e SKUs ofertáveis confirmados.</div>'
+    ? '<div class="notice danger" style="margin-top:12px"><strong>Ainda falta confirmar alguns dados para vender.</strong><br>'+esc(freshnessProblems.join(' • '))+'. Sua revenda aparece nas consultas quando tiver área de atendimento, frete, preços e estoque confirmados.</div>'
     : '';
 
   const compliance=m.compliance||{};
