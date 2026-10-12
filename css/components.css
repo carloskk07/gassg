@@ -2113,3 +2113,50 @@ body:has(.admin-page) .shell{
  .merchant-live-actions>button{min-height:48px}
  .merchant-order-exception .form-stack button{min-height:46px;width:100%}
 }
+
+/* V1.170 — one clear starting path for real merchants on narrow phones */
+.merchant-essentials{margin:17px 0 20px;padding:18px;border:1px solid #d0e6d6;border-radius:20px;background:#f9fcfa;min-width:0}
+.merchant-essentials-heading{display:flex;align-items:flex-start;justify-content:space-between;flex-wrap:wrap;gap:12px}
+.merchant-essentials-heading h2{font-size:clamp(19px,2.8vw,26px);line-height:1.25;letter-spacing:-.025em;margin:4px 0 7px}
+.merchant-essentials-heading p{font-size:13px;color:var(--muted);line-height:1.5;margin:0}
+.merchant-essentials-count{white-space:nowrap;font-size:12px;color:#17603f;background:#e7f5ec;border:1px solid #d3e7db;padding:7px 10px;border-radius:20px;font-weight:800}
+.merchant-essentials-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin-top:16px}
+.merchant-essentials-step{min-width:0;display:grid;grid-template-columns:28px minmax(0,1fr);gap:10px;padding:15px 12px;background:white;border:1px solid #dce8de;border-radius:16px;align-content:start}
+.merchant-essentials-number{height:27px;width:27px;display:grid;place-items:center;border-radius:50%;background:#edf6ef;color:#116344;font-weight:850}
+.merchant-essentials-content{min-width:0;display:grid;gap:6px}
+.merchant-essentials-content strong{font-size:14px;color:var(--ink);line-height:1.25}
+.merchant-essentials-content span{font-size:12px;line-height:1.5;color:var(--muted)}
+.merchant-essentials-content button{justify-self:start;margin-top:4px;min-height:44px;max-width:100%}
+.merchant-essentials-step>.status-pill{grid-column:2;justify-self:start}
+.merchant-essentials-disclaimer{font-size:11px;color:var(--muted);margin:14px 0 0;line-height:1.5}
+.merchant-settings-drawer,.merchant-diagnostic-drawer,.merchant-catalog-extra{min-width:0;margin:14px 0}
+.merchant-settings-drawer>summary,.merchant-diagnostic-drawer>summary,.merchant-catalog-extra>summary{
+ cursor:pointer;border-radius:14px;border:1px solid #d8e4dc;padding:14px 16px;background:white;color:#19573d;font-weight:800;line-height:1.4;min-height:49px
+}
+.merchant-settings-drawer>summary span{display:block;font-size:12px;font-weight:500;color:var(--muted);margin-top:4px}
+.merchant-settings-drawer[open]>summary,.merchant-diagnostic-drawer[open]>summary,.merchant-catalog-extra[open]>summary{background:#edf8f1}
+.merchant-settings-drawer>.card{margin-top:12px}
+.merchant-diagnostic-drawer .section{margin-top:13px}
+.merchant-settings-advanced{min-width:0}
+.merchant-settings-advanced>summary{cursor:pointer;min-height:44px;display:flex;align-items:center;font-size:13px;font-weight:800;color:#315c46}
+.merchant-settings-advanced>.form-stack{padding:10px 0}
+.merchant-catalog-page .merchant-catalog-list{display:grid;gap:11px;margin:18px 0}
+.merchant-catalog-entry{min-width:0;border:1px solid #dbe6dd;border-radius:15px;background:#fff}
+.merchant-catalog-entry>summary{cursor:pointer;padding:13px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;min-height:60px}
+.merchant-catalog-entry[open]>summary{background:#f1f9f3;border-radius:15px 15px 0 0}
+.merchant-catalog-summary-name{min-width:0;display:grid;gap:4px;font-weight:800;font-size:14px;overflow-wrap:anywhere}
+.merchant-catalog-summary-name small{color:var(--muted);font-weight:500;font-size:11px;line-height:1.4}
+.merchant-catalog-entry>.card{margin:0;border:0;border-top:1px solid #dbe6dd;border-radius:0 0 15px 15px}
+.merchant-catalog-add-body{padding:12px 0}
+.merchant-catalog-entry summary:focus-visible,.merchant-settings-drawer>summary:focus-visible,
+.merchant-diagnostic-drawer>summary:focus-visible,.merchant-catalog-extra>summary:focus-visible,
+.merchant-settings-advanced>summary:focus-visible{outline:3px solid #c78e1e;outline-offset:3px}
+@media(max-width:840px){.merchant-essentials-grid{grid-template-columns:minmax(0,1fr)}}
+@media(max-width:520px){
+ .merchant-essentials{padding:13px;margin:12px 0 15px;border-radius:16px}
+ .merchant-essentials-heading h2{font-size:20px}
+ .merchant-essentials-step{padding:12px}
+ .merchant-essentials-content button{min-height:46px}
+ .merchant-settings-drawer .field-row,.merchant-catalog-entry .field-row{display:grid;grid-template-columns:minmax(0,1fr);gap:12px}
+ .merchant-settings-drawer input,.merchant-settings-drawer select,.merchant-catalog-entry input,.merchant-catalog-entry select{font-size:16px;max-width:100%;min-width:0}
+}
