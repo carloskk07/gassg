@@ -100,11 +100,11 @@ await waitFor("document.body.innerText.includes('Pediu? Tá na mão.')","home af
 
 let body=await text();
 assert.match(body,/Pediu\? Tá na mão\./);
-assert.match(body,/Preciso de algo para casa/);
-assert.match(body,/Quero comprar com confiança/);
+assert.match(body,/Consultar produtos/);
+assert.match(body,/Entender como funciona/);
 assert.match(body,/Botijão de cozinha 13 kg/);
-assert.match(body,/VOCÊ ACOMPANHA\. A GENTE ORGANIZA\./);
-assert.match(body,/Quero aproveitar benefícios/);
+assert.match(body,/SEU PEDIDO, SEM FICAR NA DÚVIDA\./);
+assert.match(body,/Conhecer os benefícios/);
 assert.match(body,/Tenho uma empresa/);
 assert.match(body,/Ambiente isolado de teste automatizado/);
 const publicP13ReferenceHtml=await evaluate("publicP13PriceReference()");
@@ -188,7 +188,7 @@ assert.match(await evaluate("adminRuntime.bootstrapError='Falha simulada';adminB
 await evaluate("adminRuntime.bootstrapStatus=null;adminRuntime.bootstrapError=null");
 
 await evaluate("go('learn')");
-await waitFor("document.body.innerText.includes('Pedir o que falta pode ser muito mais simples.')","learn route");
+await waitFor("document.body.innerText.includes('Quer pedir gás, água ou outros itens? Veja como funciona.')","learn route");
 body=await text();
 assert.match(body,/A GENTE EXPLICA/);
 assert.match(body,/Parceiro precisa confirmar/);
@@ -221,10 +221,10 @@ assert.equal(await evaluate("document.querySelector('#public-contact-value').typ
 await auditDom('contact');
 
 await evaluate("go('earn')");
-await waitFor("document.body.innerText.includes('Comprar bem já é bom.')","earn route");
+await waitFor("document.body.innerText.includes('Comprar pelo TAMÃO também pode trazer benefícios.')","earn route");
 body=await text();
-assert.match(body,/Gostou da ideia\? Conte para alguém\./);
-assert.match(body,/Mais um caminho para conquistar pedidos/);
+assert.match(body,/Conhece alguém que gostaria de usar o TAMÃO\?/);
+assert.match(body,/Sua empresa pode vender por mais um canal/);
 assert.match(body,/2%/);
 assert.match(body,/Taxa TAMÃO: 7,5% por pedido concluído/);
 await auditDom('earn');
@@ -312,12 +312,12 @@ assert.match(body,/R\$\s*7,65/);
 await auditDom('club');
 
 await evaluate("go('refer')");
-await waitFor("document.body.innerText.includes('Conhece alguém que também gostaria')","referral route");
+await waitFor("document.body.innerText.includes('Tem alguém que gostaria de conhecer o TAMÃO?')","referral route");
 body=await text();
-assert.match(body,/Saldo disponível e saque são coisas diferentes/);
+assert.match(body,/Saldo liberado ainda não significa saque por Pix/);
 assert.match(body,/R\$\s*24,00/);
 assert.match(body,/primeira compra qualificada/i);
-assert.match(body,/Compras repetidas do mesmo cliente não geram novas comissões/i);
+assert.match(body,/Compras seguintes do mesmo cliente não geram outra comissão de indicação/i);
 assert.equal(await evaluate("[...document.querySelectorAll('button')].some(b=>b.textContent.includes('Saque Pix ainda não disponível')&&b.disabled)"),true);
 await evaluate("document.querySelector('#ref-sim-clients').value='25'; document.querySelector('#ref-sim-ticket').value='150'; updateReferralSimulator()");
 assert.match(await evaluate("document.querySelector('#ref-sim-total').textContent"),/75,00/);
