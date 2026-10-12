@@ -116,7 +116,7 @@ assert.ok(!html.includes('adminPerform('));
 assert.ok(!html.includes('adminSaveProspect('));
 assert.ok(!html.includes('adminPauseMarketCity('));
 assert.ok(!html.includes('adminSetMerchantStatus('));
-assert.ok(html.includes('Sem revenda'));
+assert.ok(html.includes('Nenhuma revenda dessa cidade na amostra'));
 ctx.open('RS:sao-gabriel','prospects');
 assert.equal(prospectSelections.length,1);
 assert.equal(prospectSelections[0],'RS|Sao Gabriel');
