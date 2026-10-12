@@ -398,6 +398,9 @@ async function adminRefresh({silent=false}={}){
   adminRuntime.expansionRadarLoaded=false;
   adminRuntime.expansionRadarCheckedAt=null;
   adminRuntime.expansionRadarError=null;
+      adminRuntime.prospectReport=null;
+      adminRuntime.prospectLoadedAt=null;
+      adminRuntime.prospectLoadedFor=null;
       adminRuntime.error=null;
       return null;
     }
@@ -418,6 +421,9 @@ async function adminRefresh({silent=false}={}){
   adminRuntime.expansionRadarLoaded=false;
   adminRuntime.expansionRadarCheckedAt=null;
   adminRuntime.expansionRadarError=null;
+      adminRuntime.prospectReport=null;
+      adminRuntime.prospectLoadedAt=null;
+      adminRuntime.prospectLoadedFor=null;
       adminRuntime.error='Sua sessão expirou. Entre novamente.';
       return null;
     }
