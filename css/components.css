@@ -2405,3 +2405,15 @@ body:has(.admin-page) .shell{
  .customer-closed-next-actions{display:grid;grid-template-columns:minmax(0,1fr)}
  .customer-closed-next-actions>*{width:100%;min-height:50px}
 }
+
+/* V1.181 — compact buyer-visible payment record, separated from banking evidence */
+.customer-payment-evidence{padding:12px 13px;border:1px solid #e1e6e0;border-radius:12px;background:white;display:grid;gap:8px;min-width:0}
+.customer-payment-evidence>strong{font-size:13px;color:#295941;line-height:1.4}
+.customer-payment-evidence ul{padding-left:18px;margin:0;display:grid;gap:5px}
+.customer-payment-evidence li{font-size:12px;line-height:1.45;overflow-wrap:anywhere}
+.customer-payment-evidence small{font-size:11px;color:var(--muted);line-height:1.5}
+.customer-payment-ledger{border-top:1px solid #e9d9bd;padding-top:10px;font-size:12px;line-height:1.55}
+@media(max-width:520px){
+  .customer-payment-evidence{padding:11px}
+  .customer-payment-evidence li{font-size:12px}
+}
