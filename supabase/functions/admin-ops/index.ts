@@ -99,7 +99,7 @@ async function requireAdmin(admin:any,userId:string){
   if(!data)throw new DomainError("ADMIN_ACCESS_DENIED","Esta conta não possui acesso administrativo.",403);
   return data;
 }
-const ADMIN_READ_ACTIONS=new Set(["summary","search","entity-detail","system-health","billing-provider-health","audit-search","incident-list","merchant-payment-preflight","prospect-intelligence","expansion-notifications","expansion-radar","merchant-enablement","sale-payment-history","finance-receipts-history"]);
+const ADMIN_READ_ACTIONS=new Set(["summary","search","entity-detail","system-health","billing-provider-health","audit-search","incident-list","merchant-payment-preflight","prospect-intelligence","expansion-notifications","expansion-radar","merchant-enablement","sale-payment-history","finance-receipts-history","finance-merchant-performance"]);
 const ADMIN_ROLE_ACTIONS:Record<string,Set<string>>={
   superadmin:new Set(["*"]),
   operations:new Set([
@@ -1833,6 +1833,20 @@ Deno.serve(async(req:Request)=>{
     }
     if(action==="summary"){
       return json(await summary(admin,user.id),200,origin);
+    }
+    if(action==="finance-merchant-performance"){
+      if(!["superadmin","finance"].includes(String(adminAccess.admin_role||""))){
+        throw new DomainError("ADMIN_PERMISSION_DENIED","Seu perfil não permite consultar os indicadores financeiros das revendas.",403);
+      }
+      const {data,error}=await admin.rpc("admin_finance_merchant_performance_v1_190",{
+        p_actor_user_id:user.id
+      });
+      if(error)throw error;
+      if(data?.source!=="database_complete_per_merchant"||!Array.isArray(data?.rows)
+        ||data?.rowLimit!==200){
+        throw new DomainError("FINANCE_MERCHANT_METRICS_UNAVAILABLE","A posição financeira por revenda não está disponível.",503);
+      }
+      return json(data,200,origin);
     }
     if(action==="finance-receipts-history"){
       // The RPC is service-role only; the authenticated actor comes from the JWT.
