@@ -2637,3 +2637,27 @@ article[id^="admin-partner-work-"][tabindex="-1"]:focus{outline:3px solid var(--
 @media(max-width:730px){.admin-merchant-progress-steps{grid-template-columns:minmax(0,1fr)}}
 @media(max-width:390px){.admin-merchant-progress{padding:11px}.admin-merchant-progress-step{flex-wrap:wrap}.admin-merchant-progress-tag{max-width:none}}
 @media(prefers-reduced-motion:reduce){.admin-merchant-progress-track span{transition:none}}
+
+/* V1.197 — reliable city-by-city merchant network overview */
+.admin-merchant-network .section-head{align-items:flex-start}
+.admin-merchant-network .section-head p{max-width:760px}
+.admin-merchant-network-kpis{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin:14px 0}
+.admin-merchant-network-kpis>div{border:1px solid var(--line);border-radius:14px;background:var(--surface,#fff);padding:14px;min-width:0}
+.admin-merchant-network-kpis small{display:block;font-size:11px;line-height:1.4;color:var(--muted)}
+.admin-merchant-network-kpis strong{display:block;margin-top:5px;font-size:24px;line-height:1.1;font-variant-numeric:tabular-nums}
+.admin-merchant-network-filters{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;margin-bottom:12px}
+.admin-merchant-network-filters label{display:block;font-size:12px;font-weight:800;margin-bottom:6px}
+.admin-merchant-network-filters select{max-width:100%;height:48px;font-size:16px}
+.admin-merchant-network-list{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin:12px 0}
+.admin-merchant-network-row{display:flex;align-items:center;justify-content:space-between;gap:10px;border:1px solid var(--line);border-radius:12px;padding:12px;min-width:0}
+.admin-merchant-network-row>div{min-width:0}
+.admin-merchant-network-row strong{display:block;font-size:13px;line-height:1.45;overflow-wrap:anywhere}
+.admin-merchant-network-row small{display:block;font-size:11px;line-height:1.5;color:var(--muted);overflow-wrap:anywhere;margin-top:3px}
+.admin-merchant-network-state{display:inline-block;font-size:10px;line-height:1.5;font-weight:800;padding:3px 7px;margin-top:6px;border:1px solid var(--line);border-radius:99px}
+.admin-merchant-network-state.available{color:var(--brand)}
+.admin-merchant-network-row button{min-height:44px;flex:0 0 auto}
+.admin-merchant-network :focus-visible{outline:3px solid var(--brand);outline-offset:3px}
+@media(max-width:950px){.admin-merchant-network-list{grid-template-columns:1fr}}
+@media(max-width:640px){.admin-merchant-network-kpis{grid-template-columns:repeat(2,minmax(0,1fr))}.admin-merchant-network-filters{grid-template-columns:1fr}}
+@media(max-width:390px){.admin-merchant-network-kpis>div{padding:10px}.admin-merchant-network-row{flex-wrap:wrap}.admin-merchant-network-row button{width:100%}.admin-merchant-network .section-head{display:grid;gap:8px}}
+@media(max-width:340px){.admin-merchant-network-row{padding:10px}.admin-merchant-network-row button{min-height:48px}}
