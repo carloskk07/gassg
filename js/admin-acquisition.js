@@ -277,19 +277,35 @@ function adminPublicRequestsSection(data){
 
 async function adminLoadProspects({force=false}={}){
   if(!adminReady()||adminRuntime.prospectLoading)return;
+  const requestingUser=String(adminRuntime.session?.user?.id||'');
+  const requestedCity=String(adminRuntime.prospectCity||'');
+  const requestedState=String(adminRuntime.prospectState||'');
   adminRuntime.prospectLoading=true;
   adminRuntime.prospectError=null;
+  adminRuntime.prospectLoadedAt=null;
+  adminRuntime.prospectLoadedFor=null;
   render();
   try{
     const response=await adminInvoke({action:'prospect-intelligence',
-      city:adminRuntime.prospectCity,state:adminRuntime.prospectState,force});
-    if(response?.state===adminRuntime.prospectState
-       &&String(response?.city||'').toUpperCase()===adminRuntime.prospectCity.toUpperCase()){
+      city:requestedCity,state:requestedState,force});
+    if(!adminReady()||String(adminRuntime.session?.user?.id||'')!==requestingUser)return;
+    if(response?.state===requestedState
+       &&String(response?.city||'').toUpperCase()===requestedCity.toUpperCase()
+       &&adminRuntime.prospectState===requestedState
+       &&String(adminRuntime.prospectCity||'').toUpperCase()===requestedCity.toUpperCase()){
       adminRuntime.prospectReport=response;
+      adminRuntime.prospectLoadedFor=Array.isArray(response.prospects)?requestingUser:null;
+      adminRuntime.prospectLoadedAt=Array.isArray(response.prospects)?new Date().toISOString():null;
     }
-  }catch(error){adminRuntime.prospectError=String(error?.message||error)}
-  finally{adminRuntime.prospectLoading=false;render();
-    if(['superadmin','operations'].includes(String(adminCurrentRole())))adminLoadCityNotifications().catch(()=>{});
+  }catch(error){
+    if(String(adminRuntime.session?.user?.id||'')!==requestingUser)return;
+    adminRuntime.prospectError=String(error?.message||error);
+    adminRuntime.prospectLoadedAt=null;
+    adminRuntime.prospectLoadedFor=null;
+  }finally{
+    adminRuntime.prospectLoading=false;render();
+    if(adminReady()&&['superadmin','operations'].includes(String(adminCurrentRole())))
+      adminLoadCityNotifications().catch(()=>{});
   }
 }
 function adminProspectSelectCity(value){
@@ -301,6 +317,8 @@ function adminProspectSelectCity(value){
   adminRuntime.prospectCity=city;
   adminRuntime.prospectState=uf;
   adminRuntime.prospectReport=null;
+  adminRuntime.prospectLoadedAt=null;
+  adminRuntime.prospectLoadedFor=null;
   adminLoadProspects().catch(()=>{});
 }
 function adminProspectSearchCity(){
