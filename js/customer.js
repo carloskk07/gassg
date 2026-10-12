@@ -292,10 +292,10 @@ function home(){
           ? hasConfirmedCityOffers
             ? 'Sua última consulta encontrou ofertas válidas para este CEP. Confira condições e validade antes de pedir.'
             : cityChecked
-              ? 'Nenhuma oferta elegível apareceu para este CEP na última consulta. Você pode pedir um aviso.'
+              ? 'Ainda não encontramos uma revenda disponível para seu CEP. Você pode pedir um aviso.'
               : 'A disponibilidade depende do CEP e da cesta. Revendas de outras cidades não confirmam ofertas na sua.'
           : ready
-            ? 'A disponibilidade é confirmada conforme sua região e as revendas cadastradas.'
+            ? 'A consulta pelo CEP mostra se há uma revenda disponível para atender seu endereço.'
             : globalThis.liveRuntime?.status==='unsafe-origin'
             ? 'Use o endereço oficial do TAMÃO para consultar disponibilidade.'
             : globalThis.liveRuntime?.status==='loading'
@@ -456,7 +456,7 @@ function orderPage(){
   let offerBlock='';
   if(hasItems&&hasAddress){
     if(preview){
-      offerBlock='<div class="notice"><strong>Nenhuma opção disponível para este CEP agora.</strong><br>Você pode receber um aviso quando a região tiver atendimento.<div class="order-actions"><button class="secondary small" onclick="openPrelaunchCustomerLead()">Receber aviso de disponibilidade</button></div></div>';
+      offerBlock='<div class="notice"><strong>Ainda não encontramos uma revenda que entregue neste CEP.</strong><br>Você pode receber um aviso quando a região tiver atendimento.<div class="order-actions"><button class="secondary small" onclick="openPrelaunchCustomerLead()">Receber aviso de disponibilidade</button></div></div>';
     }else if(testDemo&&os.length){
       offerBlock=checkoutOfferComparison(os);
     }else if(ready&&liveRuntime.loadingOffers){
@@ -470,13 +470,13 @@ function orderPage(){
     }else if(ready&&liveRuntime.deliveryCompatibilityBlocked){
       offerBlock='<div class="notice"><strong>Não encontramos uma operação habilitada para entregar esta combinação de itens agora.</strong><br>Se precisar com urgência, tente separar o GLP dos demais produtos ou consulte novamente depois.</div>';
     }else if(ready&&liveRuntime.paymentMethodUnavailable){
-      offerBlock=`<div class="empty card"><strong>Nenhuma revenda elegível aceita ${esc(paymentLabel(state.checkout.paymentMethod))} para esta consulta agora.</strong><br><span class="muted tiny">Escolha outra forma de pagamento ou consulte novamente depois.</span></div>`;
+      offerBlock=`<div class="empty card"><strong>Não encontramos uma revenda que aceite ${esc(paymentLabel(state.checkout.paymentMethod))} neste pedido agora.</strong><br><span class="muted tiny">Escolha outra forma de pagamento ou consulte novamente depois.</span></div>`;
     }else if(ready&&liveRuntime.scheduledDeliveryUnavailable){
       offerBlock='<div class="empty card"><strong>Nenhuma revenda está aceitando essa janela agendada agora.</strong><br><span class="muted tiny">Escolha “Agora” ou outra janela para consultar novamente.</span></div>';
     }else if(ready&&needsContainer&&liveRuntime.lastSyncAt){
-      offerBlock='<div class="empty card"><strong>Nenhuma revenda consegue fornecer carga + vasilhame desta cesta agora.</strong><br><span class="muted tiny">A opção só aparece quando os dois itens possuem preço confirmado e estoque.</span></div>';
+      offerBlock='<div class="empty card"><strong>Ainda não encontramos uma revenda com carga e vasilhame disponíveis para este pedido.</strong><br><span class="muted tiny">A opção só aparece quando os dois itens possuem preço confirmado e estoque.</span></div>';
     }else if(ready&&liveRuntime.lastSyncAt){
-      offerBlock='<div class="empty card"><strong>Nenhuma opção encontrada para esta cesta e CEP agora.</strong><p class="muted tiny">Você pode tentar outra combinação ou pedir um aviso quando houver atendimento.</p><div class="order-actions"><button class="secondary small" onclick="openPrelaunchCustomerLead()">Me avise quando houver disponibilidade →</button><button class="ghost small" onclick="liveRefreshOffers().catch(()=>{})">Consultar novamente</button></div></div>';
+      offerBlock='<div class="empty card"><strong>Ainda não há uma revenda disponível para entregar esses produtos no seu CEP.</strong><p class="muted tiny">Você pode tentar outra combinação ou pedir um aviso quando houver atendimento.</p><div class="order-actions"><button class="secondary small" onclick="openPrelaunchCustomerLead()">Me avise quando houver disponibilidade →</button><button class="ghost small" onclick="liveRefreshOffers().catch(()=>{})">Consultar novamente</button></div></div>';
     }else if(ready){
       offerBlock='<div class="empty card"><button class="primary" onclick="liveRefreshOffers().catch(()=>{})">Procurar opções</button></div>';
     }else{
@@ -525,7 +525,7 @@ ${hasAddress?`<div class="card flat form-stack" style="margin-top:12px">
 <section class="section"><div class="section-head"><div><h2>Sua cesta</h2><p>Adicione somente o que você precisa. Gás não é obrigatório para comprar os demais itens.</p></div></div><div class="card flat">${Object.entries(products).filter(([,p])=>p.hidden!==true).map(([k,p])=>cartRow(k,p)).join('')}</div></section>
 ${deliveryScheduleBlock()}
 ${containerBlock}
-${hasItems&&hasAddress?`<section class="section"><div class="section-head"><div><h2>Como pretende pagar</h2><p>${preview?'As formas disponíveis serão mostradas quando houver atendimento para sua consulta.':'Escolha a forma e confira novamente antes do pedido.'}</p></div></div>${paymentBlock}</section><section class="section"><div class="section-head"><div><span class="section-kicker">${singleSupplier?'OPÇÃO DISPONÍVEL':'COMPARE ANTES DE PEDIR'}</span><h2>${preview?'Disponibilidade para sua região':singleSupplier?'Preço total e prazo do parceiro disponível':'Preço total e prazo lado a lado'}</h2><p>${preview?'As opções aparecem aqui assim que houver uma revenda disponível para esta cesta e CEP.':internalPilot?'Há um único fornecedor no cenário interno. A faixa comercial P13 vem da conversa com o parceiro; o preço desta simulação é calculado dentro dela. Prazo, estoque e trust são simulados.':singleSupplier?'Há um parceiro elegível para esta cesta agora. Você vê a condição real sem opções fictícias.':'Escolha a opção que faz mais sentido para você.'}</p></div></div><div class="mini-protection">🛡️ <strong>Proteção TAMÃO:</strong> ${internalPilot?'nesta simulação, se o JR recusar ou ficar indisponível o pedido é encerrado, porque não existe segundo fornecedor no cenário.':singleSupplier?'o parceiro precisa aceitar. Se ele não puder atender e ainda não houver outra revenda elegível, o pedido é encerrado sem inventar uma alternativa.':'o parceiro precisa aceitar e qualquer alternativa mais cara depende da sua aprovação.'}</div>${offerBlock}</section>`:hasItems&&!hasAddress?'<div class="notice">Informe o endereço para ver preço e prazo.</div>':!hasItems?'<div class="notice">Adicione pelo menos um produto para consultar as opções.</div>':''}</section>`)
+${hasItems&&hasAddress?`<section class="section"><div class="section-head"><div><h2>Como pretende pagar</h2><p>${preview?'As formas disponíveis serão mostradas quando houver atendimento para sua consulta.':'Escolha a forma e confira novamente antes do pedido.'}</p></div></div>${paymentBlock}</section><section class="section"><div class="section-head"><div><span class="section-kicker">${singleSupplier?'OPÇÃO DISPONÍVEL':'COMPARE ANTES DE PEDIR'}</span><h2>${preview?'Disponibilidade para sua região':singleSupplier?'Preço total e prazo do parceiro disponível':'Preço total e prazo lado a lado'}</h2><p>${preview?'As opções aparecem aqui assim que houver uma revenda disponível para esta cesta e CEP.':internalPilot?'Há um único fornecedor no cenário interno. A faixa comercial P13 vem da conversa com o parceiro; o preço desta simulação é calculado dentro dela. Prazo, estoque e trust são simulados.':singleSupplier?'Há uma revenda para este pedido. Confira o preço e o prazo antes de decidir.':'Escolha a opção que faz mais sentido para você.'}</p></div></div><div class="mini-protection">🛡️ <strong>Proteção do pedido:</strong> ${internalPilot?'nesta simulação, se o JR recusar ou ficar indisponível o pedido é encerrado, porque não existe segundo fornecedor no cenário.':singleSupplier?'o parceiro precisa aceitar. Se ele não puder atender e ainda não houver outra revenda elegível, o pedido é encerrado sem inventar uma alternativa.':'o parceiro precisa aceitar e qualquer alternativa mais cara depende da sua aprovação.'}</div>${offerBlock}</section>`:hasItems&&!hasAddress?'<div class="notice">Informe o endereço para ver preço e prazo.</div>':!hasItems?'<div class="notice">Adicione pelo menos um produto para consultar as opções.</div>':''}</section>`)
 }
 function cartRow(k,p){
   const q=state.cart[k]||0;
@@ -651,7 +651,7 @@ function offerCard(o,facts={}){
     <div class="offer-payment"><span aria-hidden="true">✓</span><span>Você paga diretamente à revenda: <strong>${payment} na entrega</strong></span></div>
     <details class="offer-details"><summary>Por que esta opção apareceu?</summary>
       <div class="offer-meta">${distanceChip}
-        ${internalPilot?'<span class="meta-chip">🧪 Simulação operacional</span><span class="meta-chip">Sem validação jurídica nesta tela</span>':'<span class="meta-chip">✓ Operação elegível</span><span class="meta-chip">Parceiro local verificado</span>'}
+        ${internalPilot?'<span class="meta-chip">🧪 Simulação operacional</span><span class="meta-chip">Sem validação jurídica nesta tela</span>':'<span class="meta-chip">✓ Revenda apta a atender</span><span class="meta-chip">Revenda cadastrada</span>'}
         <span class="meta-chip">${internalPilot?'Trust simulado':'Confiança'} ${o.trust}/100</span>${proof.join('')}
       </div>
     </details>
