@@ -1,0 +1,56 @@
+name: TAMÃO recovery tooling checks (offline only)
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'scripts/backup-tamao-windows.ps1'
+      - 'scripts/release-db-backup-windows.ps1'
+      - 'scripts/release-db-restore-windows.ps1'
+      - 'scripts/release-db-backup-checkpoint.sh'
+      - 'scripts/release-db-restore-isolated.sh'
+      - '.github/workflows/recovery-tooling-check.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  windows-parse:
+    runs-on: windows-latest
+    timeout-minutes: 7
+    steps:
+      - uses: actions/checkout@v6
+      - name: Parse all recovery PowerShell scripts without credentials
+        shell: pwsh
+        run: |
+          foreach ($file in @(
+            'scripts/backup-tamao-windows.ps1',
+            'scripts/release-db-backup-windows.ps1',
+            'scripts/release-db-restore-windows.ps1'
+          )) {
+            $tokens = $null
+            $errors = $null
+            [void][System.Management.Automation.Language.Parser]::ParseFile(
+              (Join-Path $PWD $file),[ref]$tokens,[ref]$errors
+            )
+            if ($errors.Count -gt 0) {
+              $errors | ForEach-Object { Write-Error ($file + ': ' + $_.Message) }
+              exit 1
+            }
+            Write-Host "SAFE_SYNTAX_ONLY: $file"
+          }
+          Write-Host "NO_DB_CREDENTIALS_OR_CONNECTIONS_USED"
+
+  linux-syntax:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v6
+      - name: Syntax-check offline PostgreSQL recovery shell scripts
+        run: |
+          set -euo pipefail
+          bash -n scripts/release-db-backup-checkpoint.sh
+          bash -n scripts/release-db-restore-isolated.sh
+          bash scripts/release-db-restore-isolated.sh --help
+          echo "NO_PRODUCTION_ACCESS_AND_NO_BACKUP_DATA"
