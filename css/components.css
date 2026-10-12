@@ -2388,3 +2388,20 @@ body:has(.admin-page) .shell{
  .customer-incident-actions{display:grid;grid-template-columns:minmax(0,1fr);gap:8px}
  .customer-incident-actions>*{width:100%;min-height:48px}
 }
+
+/* V1.180 — payment clarity and next actions on reassigned/closed buyer orders */
+.customer-interrupted-payment{display:grid;gap:7px;margin:15px 0;padding:15px;border:1px solid #e4d7bb;border-radius:15px;background:#fffcf6;min-width:0}
+.customer-interrupted-payment>strong{font-size:15px;line-height:1.4;color:#725125}
+.customer-interrupted-payment>p{font-size:13px;line-height:1.55;margin:0}
+.customer-interrupted-payment>small{font-size:11px;line-height:1.5;color:var(--muted)}
+.customer-closed-next{margin:15px 0;padding:16px;border:1px solid #d5e3d9;border-radius:16px;background:#f8fcf9;display:grid;gap:8px}
+.customer-closed-next>strong{font-size:16px;color:#255c41}
+.customer-closed-next>p{font-size:13px;line-height:1.5;margin:0;color:var(--muted)}
+.customer-closed-next-actions{display:flex;flex-wrap:wrap;gap:9px;margin-top:5px}
+.customer-closed-next-actions>*{min-height:48px}
+@media(max-width:520px){
+ .customer-interrupted-payment{padding:12px}
+ .customer-closed-next{padding:13px}
+ .customer-closed-next-actions{display:grid;grid-template-columns:minmax(0,1fr)}
+ .customer-closed-next-actions>*{width:100%;min-height:50px}
+}

@@ -863,7 +863,7 @@ function customerOrderGuidance(status){
     ARRIVING:['O entregador informou que está chegando','Confira os produtos e o valor combinado antes de compartilhar o código.'],
     DELIVERED:['Recebimento registrado','A entrega foi registrada. A conciliação financeira pode estar em processamento.'],
     SETTLED:['Pedido concluído','A entrega e a conciliação foram registradas. Você pode avaliar o atendimento.'],
-    CANCELLED:['Pedido encerrado','Não há entrega em andamento. Consulte o histórico financeiro, quando aplicável.']
+    CANCELLED:['Pedido encerrado','Esta solicitação foi encerrada e não há entrega em andamento. A situação de eventual pagamento depende da confirmação do provedor.']
   };
   return copy[status]||['Acompanhe seu pedido','Consulte as atualizações confirmadas.'];
 }
@@ -899,7 +899,7 @@ function customerNextAction(status){
     ARRIVING:'Separe o código, mas só o compartilhe após conferir a entrega.',
     OUT_FOR_DELIVERY:'Aguarde a chegada e não informe o código antecipadamente.',
     OFFERED_TO_MERCHANT:'Aguarde o aceite. Você pode cancelar antes da confirmação.',
-    CANCELLED:'Se precisar, registre um atendimento vinculado ao pedido.',
+    CANCELLED:'Você pode consultar novas ofertas ou registrar um atendimento sobre o pedido encerrado.',
     SETTLED:'Consulte os benefícios e, se desejar, avalie o atendimento.'
   };
   return next[status]||'Atualize o acompanhamento para consultar o último estado confirmado.';
@@ -961,6 +961,57 @@ function customerIncidentStatusView(order){
     '<a class="customer-incident-help" href="#customer-care">Falar sobre este pedido</a>'+
     '</div></section>';
 }
+
+/* V1.180 — do not infer a refund, a replacement merchant or a payment capture.
+   The public order response is the only source for provider-confirmed payment status. */
+function customerInterruptedPaymentView(order){
+  const status=String(order?.status||'');
+  if(!['REASSIGNING','CANCELLED'].includes(status))return '';
+  const cancelled=status==='CANCELLED';
+  const onDelivery=order?.paymentTiming==='on_delivery'||(order?.paymentMethod==='cash'&&order?.paymentTiming!=='prepaid');
+  const payment=order?.onlinePayment&&typeof order.onlinePayment==='object'?order.onlinePayment:{};
+  const verification=String(payment.status||'');
+  const fields={
+    refunded:{
+      label:'Reembolso confirmado pelo provedor',
+      detail:'A reversão informada pelo provedor está registrada. Consulte a transação na conta de pagamento da revenda para acompanhar a disponibilização dos recursos.'
+    },
+    approved:{
+      label:'Transação aprovada anteriormente',
+      detail:'Existe uma aprovação registrada, mas não há confirmação de reembolso nesta consulta. Confira a transação no provedor e registre um atendimento se precisar.'
+    },
+    review_required:{
+      label:'Pagamento em revisão',
+      detail:'O estado do pagamento ainda depende de verificação. Não considere um reembolso concluído sem confirmação do provedor.'
+    }
+  };
+  const known=Object.prototype.hasOwnProperty.call(fields,verification)?fields[verification]:null;
+  let label,detail;
+  if(known){
+    ({label,detail}=known);
+  }else if(onDelivery){
+    label='Pagamento previsto na entrega';
+    detail='Esta consulta não indica um pagamento antecipado confirmado. Se você já pagou por algum meio, confira o comprovante e solicite atendimento.';
+  }else{
+    label='Situação do pagamento ainda não confirmada';
+    detail='Esta consulta não confirma cobrança nem reembolso. Se você já pagou, confira no provedor e registre um atendimento com os dados do pedido.';
+  }
+  return '<section class="customer-interrupted-payment" aria-label="Situação do pagamento">'+
+    '<strong>'+esc(label)+'</strong><p>'+esc(detail)+'</p>'+
+    '<small>'+(cancelled?'O pedido está encerrado. ':'Uma nova revenda ainda não foi confirmada. ')+
+    'O TAMÃO não recebe nem repassa diretamente o valor da venda.</small></section>';
+}
+function customerClosedOrderChoices(order){
+  if(String(order?.status||'')!=='CANCELLED')return '';
+  return '<section class="customer-closed-next" aria-label="O que fazer após o encerramento">'+
+    '<strong>Precisa fazer outro pedido?</strong>'+
+    '<p>Esta solicitação foi encerrada. Você pode consultar novas ofertas, sem reutilizar automaticamente o pedido anterior.</p>'+
+    '<div class="customer-closed-next-actions">'+
+    '<button type="button" class="primary small" onclick="go(\'home\')">Consultar novas ofertas</button>'+
+    '<a href="#customer-care" class="customer-incident-help">Preciso de ajuda com este pedido</a>'+
+    '</div></section>';
+}
+
 function customerSupplierPresentation(order){
   const confirmed=['MERCHANT_ACCEPTED','PREPARING','AT_RISK','OUT_FOR_DELIVERY',
     'ARRIVING','DELIVERED','SETTLED'].includes(String(order?.status||''));
@@ -1040,6 +1091,7 @@ function liveTracking(){
   const copy=statusCopy[o.status]||[o.status,''];
   const guidance=customerOrderGuidance(o.status);
   const supplier=customerSupplierPresentation(o);
+  const interrupted=['CANCELLED','REASSIGNING'].includes(o.status);
   const active=!['SETTLED','CANCELLED'].includes(o.status);
   const deadline=['OFFERED_TO_MERCHANT','REQUOTE_REQUIRED'].includes(o.status)&&o.offerExpiresAt
     ? Math.max(0,Math.ceil((Date.parse(o.offerExpiresAt)-Date.now())/1000))
@@ -1087,7 +1139,7 @@ function liveTracking(){
 ${customerOrderProgress(o.status)}
 ${customerIncidentStatusView(o)}
 ${trackingSyncNotice}
-${directPaymentNotice}
+${interrupted?customerInterruptedPaymentView(o):directPaymentNotice}
 
 <div class="card flat"><div class="price-lock"><span>🔒</span><div><strong>Total protegido: ${BRL.format(total)}</strong><br>${cashbackReserved>0?`Inclui ${BRL.format(cashbackReserved)} de cashback reservado. `:''}Se for necessária uma opção mais cara, você precisa aprovar antes.</div></div>
 <div class="divider"></div>
@@ -1102,7 +1154,7 @@ ${items?'<div class="divider"></div>'+items:''}</div>
 
 ${o.status==='OFFERED_TO_MERCHANT'?`<div class="notice" style="margin-top:14px"><strong>Solicitação enviada à revenda.</strong><br>A entrega ainda depende de aceite. ${deadline!=null?`Prazo informado para resposta: aproximadamente ${deadline}s restantes.`:'Atualize para verificar a resposta.'}</div>`:''}
 ${customerRequoteDecision(o,total,proposed,deadline)}
-${o.status==='CANCELLED'?'<div class="notice danger" style="margin-top:14px">Este pedido foi encerrado. Cashback reservado, se houver, é devolvido pelo ledger.</div>':''}
+${customerClosedOrderChoices(o)}
 ${o.financialState==='reversed'?'<div class="notice danger" style="margin-top:14px"><strong>Liquidação financeira revertida.</strong><br>A entrega permanece no histórico, mas cashback, comissão de indicação e recebível da plataforma foram estornados.'+(o.financialReversalReason?' Motivo: '+esc(o.financialReversalReason)+'.':'')+'</div>':''}
 ${o.status==='AT_RISK'?'<div class="notice" style="margin-top:14px"><strong>Acompanhamento prioritário.</strong><br>Consulte o andamento confirmado e use o atendimento do pedido se precisar de ajuda.</div>':''}
 
