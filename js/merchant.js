@@ -639,6 +639,69 @@ function merchantPaymentConnectionsView(rt){
     <div class="notice"><strong>Mercado Pago não é obrigatório.</strong><br>Stone, Getnet, PagBank, Nubank e outros podem ser declarados sem entregar o dinheiro ao TAMÃO. O recebimento continua direto na revenda; automação e custódia são coisas diferentes.</div>
     <div class="merchant-psp-grid">${cards}</div>`;
 }
+
+/* V1.170 — checklist visual; only server authorization determines if sales are enabled. */
+function merchantSetupSnapshot(rt){
+  const m=rt?.merchant||{};
+  const stock=Array.isArray(rt?.catalog)?rt.catalog:[];
+  const offered=stock.filter(item=>item?.active===true&&Number(item.availableStock)>0&&
+    Number(item.priceCents)>0&&merchantTimestampFresh(item.priceConfirmedAt));
+  const delivery=m.acceptsCitywide===true&&merchantTimestampFresh(m.deliveryFeeConfirmedAt);
+  const methods=m.paymentMethods||{};
+  const enabled=['pix','card','cash'].filter(key=>methods[key]===true);
+  const matches=key=>enabled.includes(key)||(['card_credit','card_debit'].includes(key)&&enabled.includes('card'));
+  const routed=Array.isArray(rt?.paymentRoutes)&&rt.paymentRoutes.some(route=>
+    route?.active===true&&matches(String(route.paymentMethod||'')));
+  return [
+    {key:'products',title:'Produtos e preços',
+      detail:offered.length?offered.length+' produto(s) com preço atual e estoque':'Informe os preços e os estoques',
+      done:offered.length>0},
+    {key:'delivery',title:'Entregas',
+      detail:delivery?'Área e taxa de entrega confirmadas':'Escolha sua área, taxa e prazo de entrega',
+      done:delivery},
+    {key:'payment',title:'Recebimentos',
+      detail:enabled.length&&routed?'Forma de pagamento e rota configuradas':'Escolha como o cliente poderá pagar à sua revenda',
+      done:Boolean(enabled.length&&routed)}
+  ];
+}
+function merchantSetupView(rt){
+  if(!['owner','manager'].includes(String(rt?.merchant?.memberRole||'')))return '';
+  const steps=merchantSetupSnapshot(rt);
+  const done=steps.filter(item=>item.done).length;
+  return '<section class="merchant-essentials" aria-label="Preparação da revenda">'+
+    '<div class="merchant-essentials-heading"><div><span class="section-kicker">COMECE PELO ESSENCIAL</span>'+
+    '<h2>Prepare sua revenda para vender</h2>'+
+    '<p>Produtos, entregas e recebimentos. Você pode revisar cada informação quando precisar.</p></div>'+
+    '<span class="merchant-essentials-count">'+done+' de 3 preenchidos</span></div>'+
+    '<div class="merchant-essentials-grid">'+steps.map((item,i)=>
+      '<div class="merchant-essentials-step"><span aria-hidden="true" class="merchant-essentials-number">'+(i+1)+'</span>'+
+      '<div class="merchant-essentials-content"><strong>'+esc(item.title)+'</strong>'+
+      '<span>'+esc(item.detail)+'</span>'+
+      '<button type="button" class="secondary small" onclick="merchantSetupGo(\''+item.key+'\')">'+
+      (item.done?'Revisar':'Configurar')+'</button></div>'+
+      '<span class="status-pill '+(item.done?'online':'offline')+'">'+(item.done?'Preenchido':'A revisar')+'</span></div>'
+    ).join('')+'</div>'+
+    '<p class="merchant-essentials-disclaimer">Esses ajustes não liberam vendas automaticamente. A aprovação, a elegibilidade do catálogo e as condições da cidade são verificadas separadamente pelo TAMÃO.</p>'+
+  '</section>';
+}
+function merchantRevealControl(selector){
+  const el=document.querySelector(selector);
+  if(!el)return false;
+  let node=el.parentElement;
+  while(node){
+    if(node.tagName==='DETAILS')node.open=true;
+    node=node.parentElement;
+  }
+  el.scrollIntoView?.({behavior:'smooth',block:'center'});
+  el.focus?.({preventScroll:true});
+  return true;
+}
+function merchantSetupGo(key){
+  if(key==='products'){go('catalog');return;}
+  const selectors={delivery:'#live-delivery-fee',payment:'#live-payment-pix'};
+  if(!Object.prototype.hasOwnProperty.call(selectors,key))return;
+  if(!merchantRevealControl(selectors[key]))toast('Não foi possível abrir a configuração. Atualize o painel.');
+}
 function merchantEnablementFocus(key){
   const selectors={
     delivery_area:'#live-citywide',
@@ -650,10 +713,7 @@ function merchantEnablementFocus(key){
   };
   if(key==='inventory'){go('catalog');return}
   if(!Object.prototype.hasOwnProperty.call(selectors,key))return toast('Etapa sem configuração direta. Consulte o requisito.');
-  const el=document.querySelector(selectors[key]);
-  if(!el)return toast('Configuração indisponível nesta tela. Atualize o painel.');
-  el.scrollIntoView({behavior:'smooth',block:'center'});
-  if(typeof el.focus==='function')el.focus({preventScroll:true});
+  if(!merchantRevealControl(selectors[key]))return toast('Configuração indisponível nesta tela. Atualize o painel.');
 }
 function merchantEnablementCheckView(check){
   const ok=check?.ok===true;
@@ -794,8 +854,11 @@ function merchantLivePage(){
     ${complianceNotice}
     ${freshnessNotice}
     ${financialHold?'<div class="notice danger" style="margin-top:12px"><strong>Novas vendas suspensas por pendência financeira.</strong><br>Regularize o fechamento vencido. Pedidos já aceitos continuam disponíveis normalmente.</div>':''}
+    ${merchantSetupView(rt)}
     ${merchantAlertControl()}
-    ${merchantEnablementAssistantView(rt)}
+    <details class="merchant-diagnostic-drawer"><summary>Verificações de documentos e habilitação</summary>
+      ${merchantEnablementAssistantView(rt)}
+    </details>
 
     <div class="card flat form-stack" style="margin-top:14px">
       ${memberships.length>1?`<div class="input-wrap"><label for="merchant-live-select">Operação</label><select id="merchant-live-select" class="input" onchange="merchantLiveSelect(this.value)">${memberships.map(x=>`<option value="${esc(x.merchantId)}" ${x.merchantId===m.merchantId?'selected':''}>${esc(x.name)} • ${esc(x.memberRole)}</option>`).join('')}</select></div>`:''}
@@ -812,9 +875,11 @@ function merchantLivePage(){
       <div class="kpi"><span class="label">No prazo</span><strong>${performance.onTimeRate==null?'—':Math.round(Number(performance.onTimeRate)*100)+'%'}</strong></div>
     </div></section>
 
+    <section class="section" id="merchant-live-orders"><div class="section-head"><div><h2>Pedidos que exigem ação</h2><p>Aceite, saída e recebimento só são registrados depois de confirmação no sistema.</p></div></div>${orders.length?orders.map(merchantLiveOrder).join(''):'<div class="empty card">Nenhum pedido ativo para esta revenda.</div>'}</section>
+
     ${merchantBillingLiveView(rt)}
 
-    ${manage?`<div class="card flat form-stack">
+    ${manage?`<details id="merchant-operation-settings" class="merchant-settings-drawer"><summary>Configurações da revenda <span>Preços, entregas, pagamentos e outras opções</span></summary><div class="card flat form-stack">
       <h3>Preço e estoque P13</h3>
       ${p13?.pricingMode==='range'?'<div class="notice"><strong>Faixa automática ativa.</strong><br>Autorizada de '+BRL.format(Number(p13.minPriceCents||0)/100)+' a '+BRL.format(Number(p13.maxPriceCents||0)/100)+'. Este atalho altera o preço normal e o estoque; edite limites e estratégia no catálogo.</div>':''}
       <div class="field-row"><div class="input-wrap"><label for="live-p13-price">${p13?.pricingMode==='range'?'Preço normal':'Preço'}</label><input id="live-p13-price" inputmode="decimal" type="number" min="0.01" max="10000" step="0.10" class="input" value="${p13?(Number(p13.priceCents||0)/100).toFixed(2):''}"></div><div class="input-wrap"><label for="live-p13-stock">Estoque disponível</label><input id="live-p13-stock" inputmode="numeric" type="number" min="0" max="100000" class="input" value="${p13?Number(p13.availableStock||0):0}"></div></div>
@@ -825,9 +890,9 @@ function merchantLivePage(){
       <label class="check-row"><input id="live-citywide" type="checkbox" ${m.acceptsCitywide!==false?'checked':''}><span><strong>Atende minha cidade</strong><small>Usado no filtro de ofertas da cidade cadastrada.</small></span></label>
       <button class="secondary" onclick="merchantLiveSaveLogistics()">Salvar logística</button>
       <div class="divider"></div>
-      <h3>Capacidade simultânea</h3>
+      <details class="merchant-settings-advanced"><summary>Capacidade de atendimento</summary><div class="form-stack"><h3>Capacidade simultânea</h3>
       <div class="input-wrap"><label for="live-capacity">Máximo de pedidos ativos ao mesmo tempo</label><input id="live-capacity" inputmode="numeric" type="number" min="1" max="100" class="input" value="${capacity}"><small class="field-help">Ao atingir este limite, a revenda deixa de receber novas ofertas até liberar capacidade. Pedidos existentes não são cancelados.</small></div>
-      <button class="secondary" onclick="merchantLiveSaveCapacity()">Salvar capacidade</button>
+      <button class="secondary" onclick="merchantLiveSaveCapacity()">Salvar capacidade</button></div></details>
       <div class="divider"></div>
       <h3>Formas de pagamento aceitas do cliente</h3>
       <p class="muted tiny">Escolha o que sua revenda realmente aceita. Nenhuma dessas opções exige Mercado Pago ou qualquer outro PSP específico.</p>
@@ -837,12 +902,11 @@ function merchantLivePage(){
       <button class="secondary" onclick="merchantLiveSavePaymentMethods()">Salvar formas de pagamento</button>
       ${paymentConnectionsCard}
       <div class="divider"></div>
-      <h3>Pedidos agendados</h3>
+      <details class="merchant-settings-advanced"><summary>Agendamento de entregas</summary><div class="form-stack"><h3>Pedidos agendados</h3>
       <label class="check-row"><input id="live-scheduled-orders" type="checkbox" ${acceptsScheduledOrders?'checked':''}><span><strong>Aceitar entregas agendadas</strong><small>Quando ativo, clientes podem escolher janelas futuras de até 72 horas. O horário aparece antes do aceite.</small></span></label>
-      <button class="secondary" onclick="merchantLiveSaveScheduling()">Salvar agendamento</button>
-    </div>`:''}
+      <button class="secondary" onclick="merchantLiveSaveScheduling()">Salvar agendamento</button></div></details>
+    </div></details>`:''}
 
-    <section class="section"><div class="section-head"><div><h2>Pedidos que exigem ação</h2><p>Dados vêm do backend real. Status só muda depois de confirmação server-side.</p></div></div>${orders.length?orders.map(merchantLiveOrder).join(''):'<div class="empty card">Nenhum pedido ativo para esta revenda.</div>'}</section>
   </section>`);
 }
 
@@ -1430,7 +1494,8 @@ function merchantLiveCatalog(){
     const priceSummary=range
       ? 'Faixa '+BRL.format(item.minPriceCents/100)+' – '+BRL.format(item.maxPriceCents/100)+' • normal '+BRL.format(item.priceCents/100)+' • '+strategyLabel
       : 'Preço fixo '+(item.priceCents>0?BRL.format(item.priceCents/100):'—');
-    return `<div class="card flat form-stack" style="margin-bottom:12px">
+    return `<details class="merchant-catalog-entry"><summary><span class="merchant-catalog-summary-name">${icon} ${esc(item.productName)}<small>${esc(priceSummary)} • estoque ${Number(item.availableStock)}</small></span><span class="status-pill ${statusClass}">${status}</span></summary>
+    <div class="card flat form-stack">
       <div class="status-bar"><div class="product-left"><div class="product-icon">${icon}</div><div><strong>${esc(item.productName)}</strong><br><small>${esc(item.productCode)} • ${esc(priceSummary)} • ${item.priceConfirmedAt?'confirmado '+new Date(item.priceConfirmedAt).toLocaleString('pt-BR'):'nunca confirmado'}</small></div></div><span class="status-pill ${statusClass}">${status}</span></div>
       <div class="field-row">
         <div class="input-wrap"><label for="live-pricing-mode-${item.productCode}">Modo</label><select id="live-pricing-mode-${item.productCode}" class="input" onchange="merchantPricingModeChanged('${item.productCode}')"><option value="fixed" ${range?'':'selected'}>Preço fixo</option><option value="range" ${range?'selected':''}>Faixa automática</option></select></div>
@@ -1445,7 +1510,7 @@ function merchantLiveCatalog(){
       <div class="notice"><strong>${range?'Faixa autorizada':'Preço fixo'}.</strong><br>${range?'O TAMÃO pode escolher um preço somente entre o mínimo e o máximo, usando estoque e carga da sua própria operação. O preço de concorrentes não define o seu valor.':'O TAMÃO usa exatamente o preço normal informado neste SKU.'}</div>
       <label class="check-row"><input id="live-active-${item.productCode}" type="checkbox" ${item.active?'checked':''}><span><strong>Produto ativo</strong><small>Somente itens ativos e com estoque participam das ofertas.</small></span></label>
       <button class="secondary" onclick="merchantLiveSaveProduct('${item.productCode}')">Salvar e confirmar política de preço</button>
-    </div>`;
+    </div></details>`;
   }).join('');
 
   const catalogCodes=new Set((rt.catalog||[]).map(item=>String(item.productCode||'').toUpperCase()));
@@ -1495,7 +1560,7 @@ function merchantLiveCatalog(){
     <button class="primary" onclick="merchantLiveAddContainer()">Adicionar vasilhame</button>
   </div>`;
 
-  return shell(`<section class="page"><button class="back" onclick="go('merchant')">← Operação</button><h1 class="page-title">Catálogo real</h1><p class="muted">Cada SKU possui sua própria confirmação de preço e política comercial. Produtos gerais liberados pela administração entram sem novo deploy; GLP mantém regras próprias.</p><div style="margin-top:16px">${addRegistered}${addGlp}${addContainer}${rows}</div></section>`);
+  return shell(`<section class="page merchant-catalog-page"><button class="back" onclick="go('merchant')">← Operação</button><h1 class="page-title">Produtos da minha revenda</h1><p class="muted">Toque no produto que deseja vender para ajustar preço e estoque. Os produtos só entram nas ofertas quando estiverem ativos e aptos às regras aplicáveis. Cada SKU possui sua própria confirmação de preço.</p><div class="merchant-catalog-list">${rows}</div><details class="merchant-catalog-extra"><summary>Adicionar outro produto ou vasilhame</summary><div class="merchant-catalog-add-body">${addRegistered}${addGlp}${addContainer}</div></details></section>`);
 }
 
 async function merchantLiveAddRegisteredProduct(){
