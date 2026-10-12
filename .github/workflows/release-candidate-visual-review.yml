@@ -223,7 +223,8 @@ jobs:
           $errors = $null
           foreach ($path in @(
             'scripts/release-db-backup-windows.ps1',
-            'scripts/release-db-restore-windows.ps1'
+            'scripts/release-db-restore-windows.ps1',
+            'tools/tamao-backup-windows/Assistente-TAMAO.ps1'
           )) {
             $tokens = $null
             $errors = $null
@@ -239,3 +240,13 @@ jobs:
             Write-Host "WINDOWS_SCRIPT_SYNTAX_OK: $path"
           }
           Write-Host "NO_PRODUCTION_CONNECTION: Windows scripts parsed only"
+      - name: Exercise backup wizard offline self-test on Windows PowerShell
+        shell: pwsh
+        run: |
+          $result = & powershell.exe -NoProfile -ExecutionPolicy Bypass -File "tools/tamao-backup-windows/Assistente-TAMAO.ps1" -SelfTest
+          if ($LASTEXITCODE -ne 0 -or ($result | Out-String) -notmatch 'TAMAO_GUI_OFFLINE_SELFTEST_OK') {
+            throw "Windows wizard self-test failed: $result"
+          }
+          Write-Host $result
+          Write-Host "NO_NETWORK_NO_DATABASE_ACCESS"
+
