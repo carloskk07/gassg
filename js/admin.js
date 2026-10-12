@@ -1800,7 +1800,7 @@ function adminSetMerchantNetworkFilter(type,value){
 }
 function adminOpenMerchantNetworkRecord(id){
   if(!adminRoleCanSection('partners')||adminRuntime.status!=='ready'
-    ||!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(String(id||'')))return;
+    ||!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(String(id||'')))return;
   const snap=adminMerchantNetworkSnapshot(adminRuntime.data);
   const record=snap.rows.find(x=>x.id===id);
   if(!record){toast('Revenda não encontrada. Atualize o painel.');return;}
