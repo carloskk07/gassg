@@ -25,8 +25,8 @@ assert.deepEqual(exercise({test:true}),{calls:['real_consultation'],result:'real
 
 assert.ok(source.includes("const primaryAction='startCustomerAvailability()'"),
   'o botão principal da home deve respeitar a mesma autoridade');
-assert.ok(source.includes('onclick="startCustomerAvailability()"><span class="intent-icon">'),
-  'o cartão Quero comprar também deve priorizar a consulta');
+assert.ok(source.includes('const primaryAction=\'startCustomerAvailability()\'')&&source.includes('class="primary starter-cta" onclick="${primaryAction}"'),
+  'o CTA principal por CEP deve usar o mesmo fluxo seguro, sem cartão duplicado');
 assert.ok(source.includes('Ainda não encontramos uma revenda que entregue neste CEP.') &&
   source.includes('onclick="openPrelaunchCustomerLead()">Receber aviso de disponibilidade'),
   'sem oferta, deve haver CTA explícito para aviso com consentimento, e não um pedido falso');
