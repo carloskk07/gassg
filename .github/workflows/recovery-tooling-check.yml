@@ -29,7 +29,8 @@ jobs:
             'scripts/backup-tamao-windows.ps1',
             'scripts/release-db-backup-windows.ps1',
             'scripts/release-db-restore-windows.ps1',
-            'tools/tamao-backup-windows/Assistente-TAMAO.ps1'
+            'tools/tamao-backup-windows/Assistente-TAMAO.ps1',
+            'tools/tamao-backup-windows/Verificar-Backup-TAMAO.ps1'
           )) {
             $tokens = $null
             $errors = $null
@@ -56,6 +57,20 @@ jobs:
             throw "Windows Forms startup failed: $gui"
           }
           Write-Host "GUI_OFFLINE_TESTS_OK_NO_PRODUCTION_ACCESS"
+      - name: Test independent local archive validator without remote access
+        shell: pwsh
+        run: |
+          $path = 'tools/tamao-backup-windows/Verificar-Backup-TAMAO.ps1'
+          $selftest = & powershell.exe -NoProfile -ExecutionPolicy Bypass -File $path -SelfTest
+          if ($LASTEXITCODE -ne 0 -or ($selftest | Out-String) -notmatch 'TAMAO_RESTORE_PREFLIGHT_SELFTEST_OK') {
+            throw "Archive validator failed to reject tampered data: $selftest"
+          }
+          $startup = & powershell.exe -NoProfile -STA -ExecutionPolicy Bypass -File $path -GuiSmokeTest
+          if ($LASTEXITCODE -ne 0 -or ($startup | Out-String) -notmatch 'TAMAO_RESTORE_PREFLIGHT_GUI_OK') {
+            throw "Verifier GUI could not initialize: $startup"
+          }
+          Write-Host 'TAMAO_BACKUP_INTEGRITY_CHECKS_OK; NO_DB_RESTORE_ATTEMPTED'
+
       - name: Verify UTF-8 BOM, pinned vendor hash and portable-only installer
         shell: pwsh
         run: |
