@@ -1,4 +1,4 @@
-# TAMÃO — assistente local de backup PostgreSQL para Windows 10/11.
+﻿# TAMÃO — assistente local de backup PostgreSQL para Windows 10/11.
 # Não envia informações à Internet, exceto a conexão de leitura PostgreSQL
 # iniciada explicitamente pelo usuário com o próprio Supabase.
 # Nunca cria banco, modifica tabelas, envia dump ao GitHub ou ativa vendas.
@@ -9,6 +9,8 @@ Set-StrictMode -Version Latest
 
 function Get-PostgresClients {
   $candidates = New-Object 'System.Collections.Generic.List[string]'
+  $portable=Join-Path $env:LOCALAPPDATA 'TAMAO\Tools\pgsql-17.11-3\pgsql\bin\pg_dump.exe'
+  if (Test-Path -LiteralPath $portable -PathType Leaf) { [void]$candidates.Add($portable) }
   $found = Get-Command pg_dump.exe -ErrorAction SilentlyContinue
   if ($found) { [void]$candidates.Add($found.Source) }
   $roots = @($env:ProgramFiles, [Environment]::GetEnvironmentVariable('ProgramFiles(x86)'), $env:ProgramW6432, $env:LOCALAPPDATA) |
@@ -36,6 +38,122 @@ function Get-PostgresClients {
     return [pscustomobject]@{ Dump=$dump; Restore=$restore; Version=$version; Major=$major }
   }
   return $null
+}
+
+
+# Pacote binário oficial EnterpriseDB 17.11-3. O checksum foi publicado
+# pelo mantenedor em https://github.com/EnterpriseDB/edb-installers/issues/682
+$script:portableUrl='https://get.enterprisedb.com/postgresql/postgresql-17.11-3-windows-x64-binaries.zip'
+$script:portableSha256='4b8db0930c38f6ef845db919551dedda3b6b845aeb0927b3d79a6e8e9e4537cf'
+$script:portableParent=Join-Path $env:LOCALAPPDATA 'TAMAO\Tools'
+$script:portableFolder=Join-Path $script:portableParent 'pgsql-17.11-3'
+$script:installing=$false
+
+function Expand-PinnedPostgresArchive([string]$ZipPath,[string]$InstallPath) {
+  Add-Type -AssemblyName System.IO.Compression.FileSystem
+  $zip=[System.IO.Compression.ZipFile]::OpenRead($ZipPath)
+  $root=[IO.Path]::GetFullPath($InstallPath).TrimEnd('\')+'\'
+  $count=0
+  [long]$total=0
+  $sawDump=$false
+  $sawRestore=$false
+  try {
+    foreach ($entry in $zip.Entries) {
+      $name=$entry.FullName.Replace('\','/')
+      # Only client executable dependencies and catalog files. No server, docs,
+      # service configuration, startup scripts or executables are RUN from zip.
+      if (-not ($name.StartsWith('pgsql/bin/',[StringComparison]::Ordinal) -or
+                 $name.StartsWith('pgsql/share/',[StringComparison]::Ordinal))) { continue }
+      if ($name.EndsWith('/')) { continue }
+      if ($name -match '(^|/)\.\.?(/|$)|:' -or $name.StartsWith('/')) {
+        throw 'O arquivo do fornecedor contém um caminho inseguro.'
+      }
+      $count++
+      $total += [long]$entry.Length
+      if ($count -gt 7000 -or $total -gt 1600000000) {
+        throw 'O pacote excedeu os limites de extração de segurança.'
+      }
+      $destination=[IO.Path]::GetFullPath((Join-Path $InstallPath ($name.Replace('/','\'))))
+      if (-not $destination.StartsWith($root,[StringComparison]::OrdinalIgnoreCase)) {
+        throw 'Extração bloqueada: caminho fora da pasta portátil.'
+      }
+      $parent=Split-Path -Parent $destination
+      if (-not (Test-Path -LiteralPath $parent)) { [void](New-Item -ItemType Directory -Path $parent -Force) }
+      [System.IO.Compression.ZipFileExtensions]::ExtractToFile($entry,$destination)
+      if ($name -eq 'pgsql/bin/pg_dump.exe') { $sawDump=$true }
+      if ($name -eq 'pgsql/bin/pg_restore.exe') { $sawRestore=$true }
+    }
+  } finally { $zip.Dispose() }
+  if (-not ($sawDump -and $sawRestore)) {
+    throw 'Pacote do fornecedor não contém pg_dump e pg_restore na estrutura esperada.'
+  }
+}
+
+function Install-PortablePostgresClients {
+  if (-not [Environment]::Is64BitOperatingSystem) {
+    throw 'A versão portátil automática requer Windows de 64 bits.'
+  }
+  if (Test-Path -LiteralPath $script:portableFolder) {
+    throw 'Já existe uma pasta portátil não reconhecida. Não vou sobrescrevê-la.'
+  }
+  [void](New-Item -ItemType Directory -Path $script:portableParent -Force)
+  $token=[guid]::NewGuid().ToString('N')
+  $download=Join-Path $script:portableParent ('.pgsql-'+$token+'.zip.partial')
+  $staging=Join-Path $script:portableParent ('.pgsql-'+$token+'.installing')
+  $job=$null
+  $published=$false
+  try {
+    Set-Status 'Baixando ferramentas oficiais da EnterpriseDB. Isso pode levar alguns minutos...'
+    # Separate Windows PowerShell job prevents blocking the form; never calls
+    # shell installer, requests elevation or downloads from arbitrary domains.
+    $job=Start-Job -ArgumentList @($script:portableUrl,$download) -ScriptBlock {
+      param($url,$dest)
+      [Net.ServicePointManager]::SecurityProtocol=[Net.SecurityProtocolType]::Tls12
+      $ProgressPreference='SilentlyContinue'
+      Invoke-WebRequest -Uri $url -OutFile $dest -UseBasicParsing -MaximumRedirection 5 -ErrorAction Stop
+    }
+    while ($job.State -eq 'NotStarted' -or $job.State -eq 'Running') {
+      Start-Sleep -Milliseconds 350
+      if (Test-Path -LiteralPath $download) {
+        $mb=[Math]::Round((Get-Item -LiteralPath $download).Length/1MB,1)
+        Set-Status ('Baixando ferramentas oficiais... '+$mb+' MB recebidos.')
+      } else { [System.Windows.Forms.Application]::DoEvents() }
+    }
+    if ($job.State -ne 'Completed') {
+      $null=Receive-Job -Job $job -ErrorAction SilentlyContinue
+      throw 'Não foi possível baixar o pacote portátil do site oficial. Use a instalação manual.'
+    }
+    $null=Receive-Job -Job $job -ErrorAction Stop
+    if (-not (Test-Path -LiteralPath $download -PathType Leaf)) {
+      throw 'O pacote não foi recebido.'
+    }
+    Set-Status 'Conferindo assinatura de integridade SHA-256 do fornecedor...'
+    $actual=(Get-FileHash -LiteralPath $download -Algorithm SHA256).Hash.ToLowerInvariant()
+    if ($actual -ne $script:portableSha256) {
+      throw 'A verificação SHA-256 não corresponde ao fornecedor. Pacote rejeitado.'
+    }
+    [void](New-Item -ItemType Directory -Path $staging -Force)
+    Set-Status 'Extraindo apenas ferramentas portáteis, sem instalar servidor...'
+    Expand-PinnedPostgresArchive $download $staging
+    $bin=Join-Path $staging 'pgsql\bin'
+    foreach ($exe in @('pg_dump.exe','pg_restore.exe')) {
+      $version=(& (Join-Path $bin $exe) --version 2>$null | Out-String).Trim()
+      if ($LASTEXITCODE -ne 0 -or $version -notmatch '\(PostgreSQL\)\s+17\.') {
+        throw 'As ferramentas portáteis não iniciaram corretamente. Use a instalação manual.'
+      }
+    }
+    [IO.Directory]::Move($staging,$script:portableFolder)
+    $published=$true
+    Set-Status 'Ferramentas PostgreSQL 17 prontas, sem servidor instalado.'
+  } finally {
+    if ($job) { Remove-Job -Job $job -Force -ErrorAction SilentlyContinue }
+    if (Test-Path -LiteralPath $download) {
+      Remove-Item -LiteralPath $download -Force -ErrorAction SilentlyContinue
+    }
+    if (-not $published -and (Test-Path -LiteralPath $staging)) {
+      Remove-Item -LiteralPath $staging -Recurse -Force -ErrorAction SilentlyContinue
+    }
+  }
 }
 
 function Test-ConnectionFields([string]$HostName, [string]$PortNumber, [string]$DatabaseName, [string]$UserName) {
@@ -239,7 +357,7 @@ function Refresh-Tools {
     $toolStatus.Text='Falta instalar PostgreSQL Command Line Tools 17 ou superior.'
     $toolStatus.ForeColor=[System.Drawing.Color]::FromArgb(175,56,47)
     $startButton.Enabled=$false
-    $installButton.Text=if ($installButton.Tag -eq 'opened') { 'VERIFICAR NOVAMENTE' } else { 'COMO INSTALAR' }
+    $installButton.Text='BAIXAR FERRAMENTAS'
   } else {
     $toolStatus.Text='Ferramentas encontradas: '+$script:tools.Version
     $toolStatus.ForeColor=$teal
@@ -249,15 +367,38 @@ function Refresh-Tools {
 }
 
 $installButton.Add_Click({
-  if ($null -ne $script:tools -or $installButton.Tag -eq 'opened') {
+  if ($script:installing) { return }
+  if ($null -ne $script:tools) { Refresh-Tools; return }
+  $msg='O TAMÃO pode baixar gratuitamente ferramentas portáteis PostgreSQL 17.11-3 do site oficial da EnterpriseDB. Um pacote grande será baixado, conferido por SHA-256 e extraído só para seu usuário. Não instala servidor nem solicita acesso de administrador. Continuar?'
+  $answer=[System.Windows.Forms.MessageBox]::Show(
+    $msg,'Obter ferramentas PostgreSQL',
+    [System.Windows.Forms.MessageBoxButtons]::YesNo,
+    [System.Windows.Forms.MessageBoxIcon]::Question)
+  if ($answer -ne [System.Windows.Forms.DialogResult]::Yes) { return }
+  $script:installing=$true
+  $installButton.Enabled=$false
+  try {
+    Install-PortablePostgresClients
     Refresh-Tools
-    return
+    if ($null -eq $script:tools) { throw 'As ferramentas baixadas não foram detectadas.' }
+    [System.Windows.Forms.MessageBox]::Show(
+      'Ferramentas prontas! Agora informe a senha PostgreSQL na janela e clique em CRIAR BACKUP PRIVADO.',
+      'TAMÃO',[System.Windows.Forms.MessageBoxButtons]::OK,
+      [System.Windows.Forms.MessageBoxIcon]::Information) | Out-Null
+  } catch {
+    Set-Status $_.Exception.Message $true
+    $retry=[System.Windows.Forms.MessageBox]::Show(
+      $_.Exception.Message + [Environment]::NewLine + [Environment]::NewLine +
+      'Deseja abrir o site oficial para instalar manualmente Command Line Tools?',
+      'Ferramentas não instaladas',[System.Windows.Forms.MessageBoxButtons]::YesNo,
+      [System.Windows.Forms.MessageBoxIcon]::Warning)
+    if ($retry -eq [System.Windows.Forms.DialogResult]::Yes) {
+      [System.Diagnostics.Process]::Start('https://www.postgresql.org/download/windows/') | Out-Null
+    }
+  } finally {
+    $script:installing=$false
+    $installButton.Enabled=$true
   }
-  $msg='Abra a página oficial do PostgreSQL para Windows e instale apenas Command Line Tools, versão 17 ou superior (se o instalador oferecer seleção de componentes). Depois volte aqui e clique em VERIFICAR NOVAMENTE.'
-  [System.Windows.Forms.MessageBox]::Show($msg,'Instalação das ferramentas',[System.Windows.Forms.MessageBoxButtons]::OK,[System.Windows.Forms.MessageBoxIcon]::Information) | Out-Null
-  $installButton.Tag='opened'
-  [System.Diagnostics.Process]::Start('https://www.postgresql.org/download/windows/') | Out-Null
-  Refresh-Tools
 })
 $folderButton.Add_Click({
   if (Test-Path -LiteralPath $script:targetDir -PathType Container) {
@@ -268,6 +409,10 @@ $folderButton.Add_Click({
 })
 $form.Add_FormClosing({
   param($sender,$eventArgs)
+  if ($script:installing) {
+    $eventArgs.Cancel=$true
+    return
+  }
   if ($script:running) {
     $eventArgs.Cancel=$true
     $script:cancelRequested=$true
