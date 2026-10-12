@@ -35,6 +35,7 @@ function render({ready=true,available=false,city='São Gabriel',postalCode='9730
    },
    rememberedMarketRegion:()=>({city,state:'RS'}),
    minPrice:()=>120,
+   customerProductName:(code,product)=>product?.name||code,
    BRL:{format:value=>'R$ '+Number(value).toFixed(2)},
    PUBLIC_P13_REFERENCE:{usual:120},
    esc:value=>String(value??'').replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('"','&quot;'),
