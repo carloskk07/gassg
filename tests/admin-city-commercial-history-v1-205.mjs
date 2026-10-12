@@ -63,9 +63,9 @@ assert.equal(context.compare([list[0],{...list[1],cityCount:9}],null).status,'co
 assert.equal(context.compare([list[0],{...list[1],rows:[list[1].rows[1],list[1].rows[0]]}],null).status,'comparable',
  'Reordered city identities stay comparable');
 assert.equal(context.compare([list[0],{...list[1],rows:makeRows(1).map(x=>({...x,registered:null}))}],null)
- .changes[0].metrics.registered,null,'Unknown historical metrics never become zero');
+ .changes.length,0,'Unknown historical metrics never become artificial zero differences');
 assert.equal(context.view().includes('Evolução registrada no banco'),true);
-assert.equal(context.view().includes('registrados'),true);
+assert.ok(context.view().includes('Retratos oficiais por cidade'));
 await context.load();
 assert.equal(readCalls,1);
 assert.equal(runtime.cityHistory.items.length,2);
