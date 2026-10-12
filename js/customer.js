@@ -838,8 +838,8 @@ const statusCopy={
   OFFERED_TO_MERCHANT:['Aguardando parceiro','O parceiro precisa confirmar que realmente vai atender.'],
   MERCHANT_ACCEPTED:['Parceiro confirmou ✓','O pedido possui compromisso real de atendimento.'],
   PREPARING:['Em preparação','Itens reservados e entrega sendo preparada.'],
-  AT_RISK:['Acompanhamento prioritário','Detectamos risco de atraso e estamos acompanhando.'],
-  REASSIGNING:['Buscando outra opção','A primeira opção não conseguiu continuar.'],
+  AT_RISK:['Acompanhamento prioritário','O pedido exige atenção antes de avançar.'],
+  REASSIGNING:['Procurando outra opção','A revenda anterior não conseguiu continuar. Ainda não há substituição confirmada.'],
   REQUOTE_REQUIRED:['Sua confirmação é necessária','Encontramos outra opção com condição diferente.'],
   OUT_FOR_DELIVERY:['A caminho ✓','O parceiro confirmou efetivamente a saída.'],
   ARRIVING:['Chegando','O entregador está próximo do endereço.'],
@@ -856,9 +856,9 @@ function customerOrderGuidance(status){
     OFFERED_TO_MERCHANT:['Aguardando aceite da revenda','A solicitação foi enviada. A entrega só fica combinada após a confirmação da revenda.'],
     MERCHANT_ACCEPTED:['Revenda confirmou o pedido','A revenda aceitou. Preparação e saída ainda precisam ser confirmadas.'],
     PREPARING:['Seu pedido está sendo preparado','A revenda está separando os itens. A saída ainda não foi confirmada.'],
-    AT_RISK:['Atenção ao andamento','Há risco de atraso. Consulte os eventos confirmados e acompanhe as atualizações.'],
-    REASSIGNING:['Procurando outra opção','A opção anterior não conseguiu continuar. Um valor maior exige sua aprovação.'],
-    REQUOTE_REQUIRED:['Uma decisão sua é necessária','Confira a proposta alternativa antes de aceitar ou cancelar.'],
+    AT_RISK:['Pedido precisa de atenção','Houve um imprevisto operacional. Confira o estado confirmado antes de tomar uma decisão.'],
+    REASSIGNING:['Procurando outra revenda','O pedido está sendo reavaliado. Ainda não existe outra entrega confirmada; um valor maior exige sua aprovação.'],
+    REQUOTE_REQUIRED:['Sua aprovação é necessária','Uma alternativa com outras condições está disponível para sua análise. Nada muda sem sua escolha.'],
     OUT_FOR_DELIVERY:['A saída foi confirmada','A revenda informou a saída. Guarde o código até ter o pedido em mãos.'],
     ARRIVING:['O entregador informou que está chegando','Confira os produtos e o valor combinado antes de compartilhar o código.'],
     DELIVERED:['Recebimento registrado','A entrega foi registrada. A conciliação financeira pode estar em processamento.'],
@@ -895,7 +895,7 @@ function customerNextAction(status){
   const next={
     REQUOTE_REQUIRED:'Compare o valor anterior e a nova proposta antes de decidir.',
     AT_RISK:'Confira os eventos e atualize o andamento para saber o que foi confirmado.',
-    REASSIGNING:'Aguarde uma nova opção ou atualize o andamento.',
+    REASSIGNING:'Atualize o acompanhamento para saber se surgiu uma alternativa. Ainda não há nova revenda confirmada.',
     ARRIVING:'Separe o código, mas só o compartilhe após conferir a entrega.',
     OUT_FOR_DELIVERY:'Aguarde a chegada e não informe o código antecipadamente.',
     OFFERED_TO_MERCHANT:'Aguarde o aceite. Você pode cancelar antes da confirmação.',
@@ -932,6 +932,62 @@ function customerRequoteDecision(order,previousTotal,proposedTotal,remainingSeco
     '</div></div>';
 }
 
+
+/* V1.179 — buyer-facing incident notices omit internal merchant diagnostics. */
+function customerIncidentStatusView(order){
+  const content={
+    AT_RISK:{
+      heading:'Estamos verificando um imprevisto',
+      text:'O pedido precisa de atenção da operação. A entrega ainda não foi concluída. Acompanhe as atualizações confirmadas.',
+      action:'Se precisar, você pode registrar um atendimento vinculado ao pedido.'
+    },
+    REASSIGNING:{
+      heading:'Seu pedido está sendo reavaliado',
+      text:'A revenda anterior não conseguiu continuar. O sistema está verificando outras possibilidades, mas nenhuma nova entrega está garantida.',
+      action:'Seu valor não aumenta automaticamente. Atualize para consultar o resultado ou peça ajuda abaixo.'
+    },
+    REQUOTE_REQUIRED:{
+      heading:'Há uma nova proposta para você avaliar',
+      text:'Confira o valor atualizado no quadro de aprovação. A troca de proposta depende da sua autorização.',
+      action:'Não é necessário pagar uma diferença sem aprovar primeiro as novas condições.'
+    }
+  }[String(order?.status||'')];
+  if(!content)return '';
+  return '<section class="customer-incident-status" aria-label="Atualização importante do pedido">'+
+    '<strong>'+esc(content.heading)+'</strong><p>'+esc(content.text)+'</p><p>'+esc(content.action)+'</p>'+
+    '<div class="customer-incident-actions">'+
+    '<button type="button" class="secondary small" onclick="liveGetOrder().catch(()=>{})" '+
+      (globalThis.liveRuntime?.actionPending===true?'disabled':'')+'>Atualizar pedido</button>'+
+    '<a class="customer-incident-help" href="#customer-care">Falar sobre este pedido</a>'+
+    '</div></section>';
+}
+function customerSupplierPresentation(order){
+  const confirmed=['MERCHANT_ACCEPTED','PREPARING','AT_RISK','OUT_FOR_DELIVERY',
+    'ARRIVING','DELIVERED','SETTLED'].includes(String(order?.status||''));
+  const supplierName=confirmed?String(order?.supplierName||'').trim():'';
+  return {name:supplierName||'Revenda em confirmação',
+    detail:supplierName?'Revenda vinculada ao estado atual do pedido'
+      :'O nome aparece quando houver uma revenda confirmada'};
+}
+function customerPublicTimelineEvent(event){
+  const code=String(event?.type||'').trim().toLowerCase();
+  const labels={
+    order_created:'Pedido registrado',quote_locked:'Valor do pedido registrado',
+    merchant_offered:'Solicitação enviada à revenda',
+    merchant_accepted:'Revenda aceitou o pedido',order_accepted:'Revenda aceitou o pedido',
+    preparing:'Pedido em preparação',merchant_dispatched:'Saída para entrega informada',
+    out_for_delivery:'Saída para entrega informada',
+    arriving:'Chegada informada',order_delivered:'Recebimento registrado',
+    delivered:'Recebimento registrado',order_settled:'Pedido concluído',
+    settled:'Pedido concluído',order_cancelled:'Pedido encerrado',
+    cancelled:'Pedido encerrado',reassigning:'Pedido em reavaliação',
+    requote_required:'Nova proposta aguardando sua decisão',
+    at_risk:'Pedido precisa de atenção'
+  };
+  return Object.prototype.hasOwnProperty.call(labels,code)
+    ?labels[code]:'Atualização registrada no pedido';
+}
+
 function liveCustomerCareBlock(o){
   const openCases=(o.supportCases||[]).filter(x=>['open','in_review'].includes(x.status));
   const caseCopy={
@@ -950,7 +1006,7 @@ function liveCustomerCareBlock(o){
       ? `<div class="notice success" style="margin-top:14px"><strong>Avaliação registrada ${Number(o.feedback.rating)===5?'👍':'👎'}</strong><br>Ela entra nos indicadores de qualidade do parceiro sem expor seus dados.</div>`
       : `<div class="card flat" style="margin-top:14px"><strong>Tudo certo com a entrega?</strong><p class="muted tiny">Uma resposta curta ajuda a melhorar a seleção de parceiros.</p><div class="order-actions"><button class="secondary small" onclick="submitDeliveryFeedbackFromUi(5)">👍 Tudo certo</button><button class="ghost small" onclick="submitDeliveryFeedbackFromUi(1)">👎 Tive problema</button></div></div>`
     : '';
-  return `${feedback}<div class="card flat support-card" style="margin-top:14px"><strong>Precisa de ajuda com este pedido?</strong><p class="muted tiny">Registre o problema aqui. A solicitação fica vinculada ao pedido e entra na trilha de auditoria.</p>${existing}<div class="form-stack" style="margin-top:12px"><div class="input-wrap"><label for="support-category">Tipo de problema</label><select id="support-category" class="input"><option value="late">Atraso</option><option value="wrong_item">Produto incorreto</option><option value="price_payment">Preço ou pagamento</option><option value="no_show">Entrega não apareceu</option><option value="delivery">Problema na entrega</option><option value="other">Outro problema</option></select></div><div class="input-wrap"><label for="support-message">Conte em poucas palavras</label><textarea id="support-message" class="input" maxlength="1000" rows="3" placeholder="Ex.: o pedido chegou, mas veio um item diferente."></textarea></div><button class="secondary full" onclick="openSupportCaseFromUi()" ${globalThis.liveRuntime?.actionPending?'disabled':''}>Registrar problema</button></div></div>`;
+  return `${feedback}<div class="card flat support-card" id="customer-care" style="margin-top:14px"><strong>Precisa de ajuda com este pedido?</strong><p class="muted tiny">Registre o problema aqui. A solicitação fica vinculada ao pedido e entra na trilha de auditoria.</p>${existing}<div class="form-stack" style="margin-top:12px"><div class="input-wrap"><label for="support-category">Tipo de problema</label><select id="support-category" class="input"><option value="late">Atraso</option><option value="wrong_item">Produto incorreto</option><option value="price_payment">Preço ou pagamento</option><option value="no_show">Entrega não apareceu</option><option value="delivery">Problema na entrega</option><option value="other">Outro problema</option></select></div><div class="input-wrap"><label for="support-message">Conte em poucas palavras</label><textarea id="support-message" class="input" maxlength="1000" rows="3" placeholder="Ex.: o pedido chegou, mas veio um item diferente."></textarea></div><button class="secondary full" onclick="openSupportCaseFromUi()" ${globalThis.liveRuntime?.actionPending?'disabled':''}>Registrar problema</button></div></div>`;
 }
 
 async function submitDeliveryFeedbackFromUi(rating){
@@ -983,6 +1039,7 @@ function liveTracking(){
 
   const copy=statusCopy[o.status]||[o.status,''];
   const guidance=customerOrderGuidance(o.status);
+  const supplier=customerSupplierPresentation(o);
   const active=!['SETTLED','CANCELLED'].includes(o.status);
   const deadline=['OFFERED_TO_MERCHANT','REQUOTE_REQUIRED'].includes(o.status)&&o.offerExpiresAt
     ? Math.max(0,Math.ceil((Date.parse(o.offerExpiresAt)-Date.now())/1000))
@@ -1028,12 +1085,13 @@ function liveTracking(){
 <div class="status-bar"><div><div class="tiny muted">PEDIDO ${esc(o.publicCode||o.orderId)}</div><h1 class="page-title" style="margin-bottom:3px">${esc(copy[0])}</h1></div><span class="status-pill ${['OUT_FOR_DELIVERY','ARRIVING','SETTLED','DELIVERED'].includes(o.status)?'online':o.status==='CANCELLED'?'offline':'risk'}">${o.status==='SETTLED'?'CONCLUÍDO':o.status==='CANCELLED'?'ENCERRADO':liveRuntime.error?'VERIFIQUE O STATUS':'EM ANDAMENTO'}</span></div>
 <div class="customer-tracking-overview" role="status" aria-live="polite"><strong>${esc(guidance[0])}</strong><p>${esc(guidance[1])}</p><div class="customer-next-step"><span aria-hidden="true">→</span><span><strong>O que fazer agora</strong>${esc(customerNextAction(o.status))}</span></div></div>
 ${customerOrderProgress(o.status)}
+${customerIncidentStatusView(o)}
 ${trackingSyncNotice}
 ${directPaymentNotice}
 
 <div class="card flat"><div class="price-lock"><span>🔒</span><div><strong>Total protegido: ${BRL.format(total)}</strong><br>${cashbackReserved>0?`Inclui ${BRL.format(cashbackReserved)} de cashback reservado. `:''}Se for necessária uma opção mais cara, você precisa aprovar antes.</div></div>
 <div class="divider"></div>
-<div class="list-row"><div><strong>${o.supplierName?esc(o.supplierName):'Parceiro em confirmação'}</strong><br><small>${o.supplierName?'Parceiro que aceitou o pedido':'O nome aparece depois que o pedido for aceito'}</small></div><div style="text-align:right"><strong>${BRL.format(total)}</strong><br><small>${o.postalCode?'CEP '+esc(String(o.postalCode).replace(/^(\d{5})(\d{3})$/,'$1-$2'))+' • ':''}${esc(o.address||'')}</small></div></div>
+<div class="list-row"><div><strong>${esc(supplier.name)}</strong><br><small>${esc(supplier.detail)}</small></div><div style="text-align:right"><strong>${BRL.format(total)}</strong><br><small>${o.postalCode?'CEP '+esc(String(o.postalCode).replace(/^(\d{5})(\d{3})$/,'$1-$2'))+' • ':''}${esc(o.address||'')}</small></div></div>
 <div class="list-row"><span>Pagamento direto à revenda</span><strong>${esc(paymentLabel(o.paymentMethod))}${o.paymentTiming==="prepaid"?" • online":" • na entrega"}</strong></div>
 ${scheduleNotice}
 ${comparisonNotice}
@@ -1046,7 +1104,7 @@ ${o.status==='OFFERED_TO_MERCHANT'?`<div class="notice" style="margin-top:14px">
 ${customerRequoteDecision(o,total,proposed,deadline)}
 ${o.status==='CANCELLED'?'<div class="notice danger" style="margin-top:14px">Este pedido foi encerrado. Cashback reservado, se houver, é devolvido pelo ledger.</div>':''}
 ${o.financialState==='reversed'?'<div class="notice danger" style="margin-top:14px"><strong>Liquidação financeira revertida.</strong><br>A entrega permanece no histórico, mas cashback, comissão de indicação e recebível da plataforma foram estornados.'+(o.financialReversalReason?' Motivo: '+esc(o.financialReversalReason)+'.':'')+'</div>':''}
-${o.riskReason&&o.status!=='CANCELLED'?`<div class="notice danger" style="margin-top:14px"><strong>Acompanhamento prioritário.</strong><br>${esc(o.riskReason)}</div>`:''}
+${o.status==='AT_RISK'?'<div class="notice" style="margin-top:14px"><strong>Acompanhamento prioritário.</strong><br>Consulte o andamento confirmado e use o atendimento do pedido se precisar de ajuda.</div>':''}
 
 <section class="section"><div class="section-head"><div><h2>Acompanhe a entrega</h2><p>Cada etapa aparece somente depois da respectiva confirmação.</p></div><button class="ghost small" onclick="liveGetOrder().catch(()=>{})" ${liveRuntime.actionPending?'disabled':''}>Atualizar status</button></div><div class="card flat timeline">${liveEventTimeline(o)}</div></section>
 ${o.deliveryPin&&['OUT_FOR_DELIVERY','ARRIVING'].includes(o.status)?`<div class="notice success"><strong>Código de recebimento: ${esc(o.deliveryPin)}</strong><br>Confira os itens e o valor combinado. Só compartilhe o código após receber e conferir a entrega.</div>`:''}
@@ -1057,9 +1115,13 @@ ${careBlock}
 }
 
 function liveEventTimeline(o){
-  const events=o.events||[];
+  const events=Array.isArray(o.events)?o.events:[];
   if(!events.length)return '<div class="muted tiny">Nenhum evento registrado.</div>';
-  return events.map((e,i)=>`<div class="event ${i<events.length-1?'done':'current'}"><div class="event-dot"><span class="dot"></span></div><div><div class="event-title">${esc(e.title||e.type||'Evento')}</div><div class="event-time">${e.createdAt?hhmm(new Date(e.createdAt)):'—'}</div><div class="event-desc">${esc(e.detail||'')}</div></div></div>`).join('');
+  return events.map((e,i)=>'<div class="event '+(i<events.length-1?'done':'current')+'">'+
+    '<div class="event-dot"><span class="dot"></span></div><div><div class="event-title">'+
+    esc(customerPublicTimelineEvent(e))+'</div><div class="event-time">'+
+    (e.createdAt&&Number.isFinite(Date.parse(String(e.createdAt)))?hhmm(new Date(e.createdAt)):'—')+
+    '</div><div class="event-desc">Informação registrada no histórico do pedido.</div></div></div>').join('');
 }
 
 function tracking(){
