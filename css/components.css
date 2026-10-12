@@ -2068,3 +2068,22 @@ body:has(.admin-page) .shell{
   .first-visit-intent .section-head h2{font-size:clamp(23px,6vw,30px)}
   .first-visit-intent-grid .intent-card{min-height:0}
 }
+
+/* TAMÃO V1.168 — calm, thumb-friendly first-contact forms */
+.customer-lead-form,.partner-lead-form{min-width:0}
+.customer-lead-form .input-wrap,.partner-lead-form .input-wrap{min-width:0}
+.customer-lead-form input,.partner-lead-form input,.partner-lead-form textarea{max-width:100%;font-size:16px}
+.customer-lead-form .field-hint{display:block;color:var(--muted);font-size:12px;line-height:1.45;margin-top:5px}
+.customer-lead-form #prelaunch-submit,.partner-lead-form #partner-submit{min-height:50px;font-size:15px;white-space:normal}
+.customer-lead-form .lead-consent,.partner-lead-form .lead-consent{align-items:flex-start}
+.customer-lead-form .lead-consent input,.partner-lead-form .lead-consent input{flex:0 0 auto}
+.lead-interests input:focus-visible+span{outline:3px solid rgba(11,107,69,.35);outline-offset:2px}
+@media(max-width:520px){
+ .home-first-visit .starter-cta{min-height:54px}
+ .home-first-visit .starter-address>div{min-height:54px}
+ .lead-section .lead-shell{gap:12px;padding:14px;border-radius:22px}
+ .customer-lead-form,.partner-lead-form{padding:15px}
+ .customer-lead-form .lead-interests span,.partner-lead-form .lead-interests span{min-height:44px}
+ .customer-lead-form .lead-proof,.partner-lead-form .lead-proof{gap:7px}
+ .customer-lead-form .lead-consent,.partner-lead-form .lead-consent{line-height:1.5}
+}
