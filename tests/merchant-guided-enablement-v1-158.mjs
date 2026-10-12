@@ -50,8 +50,8 @@ assert.ok(ui.includes('merchantEnablementAssistantView(rt)'));
 assert.ok(ui.includes('merchantEnablementFocus(key)'));
 assert.ok(ui.includes("if(key==='inventory'){go('catalog');return}"));
 assert.ok(ui.includes("merchantEnablementRecheck()"));
-assert.ok(ui.includes('Somente')===false||ui.includes('Preparar minha revenda'));
-assert.ok(ui.includes('Este roteiro não aprova documentos, não libera pagamentos'));
+assert.ok(ui.includes('Deixar minha revenda pronta para vender'),'a revenda deve identificar a ação principal sem jargão');
+assert.ok(ui.includes('A aprovação dos documentos e a liberação das vendas são feitas separadamente.'),'a consulta não pode fingir liberação de vendas');
 assert.ok(ui.includes('Atende minha cidade'),'no municipality hardcoding');
 assert.ok(!ui.includes('Atende São Gabriel'));
 

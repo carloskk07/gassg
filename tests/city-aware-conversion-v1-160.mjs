@@ -72,7 +72,7 @@ for(const snippet of [
   'Sem opção para meu CEP? Quero receber um aviso',
   "esc(rememberedRegion.city)",
   "esc(eyebrow)",
-  'Nenhuma oferta elegível apareceu para este CEP',
+  'Ainda não encontramos uma revenda disponível para seu CEP',
   "disabled&&!acquisitionOpen"
 ])assert.ok(customer.includes(snippet),'Missing city-accurate CTA condition: '+snippet);
 
