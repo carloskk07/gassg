@@ -2319,3 +2319,33 @@ body:has(.admin-page) .shell{
  .merchant-order-progress-body{padding:12px}
  .merchant-order-milestone{grid-template-columns:17px minmax(0,1fr);gap:10px}
 }
+
+/* V1.177 — timely attention without inventing a confirmed delay */
+.merchant-order-attention-summary{padding:14px 15px;background:#fff9f1;border:1px solid #e9d9bc;border-radius:16px;display:grid;gap:11px;min-width:0}
+.merchant-order-attention-heading{display:grid;gap:4px}
+.merchant-order-attention-heading strong{font-size:15px;color:#84531d}
+.merchant-order-attention-heading p{font-size:12px;line-height:1.45;color:var(--muted);margin:0}
+.merchant-order-attention-list{display:grid;gap:7px}
+.merchant-order-attention-item{padding:10px 11px;border:1px solid #eedfc9;background:white;border-radius:11px;display:flex;align-items:center;justify-content:space-between;gap:12px;min-width:0}
+.merchant-order-attention-item>div{display:grid;gap:3px;min-width:0}
+.merchant-order-attention-item strong{font-size:13px;overflow-wrap:anywhere}
+.merchant-order-attention-item span{font-size:12px;line-height:1.4;color:#8a5a23}
+.merchant-order-attention-item>button{min-height:44px;flex-shrink:0}
+.merchant-order-attention-summary>small{font-size:11px;color:var(--muted)}
+.merchant-order-attention-summary>button{justify-self:start;min-height:44px}
+.merchant-order-attention-inline{display:grid;gap:4px;border:1px solid #e3d3b9;background:#fffaf3;padding:11px 12px;border-radius:12px;margin:11px 0 0}
+.merchant-order-attention-inline strong{font-size:13px;color:#7c501e;line-height:1.4}
+.merchant-order-attention-inline span{font-size:12px;line-height:1.5}
+.merchant-order-attention-inline small{font-size:11px;line-height:1.4;color:var(--muted)}
+.merchant-order-attention-risk{background:#fff6f3;border-color:#e6c8c3}
+.merchant-order-attention-risk strong{color:#92453b}
+.merchant-order-attention-soon{background:#f5fbf6;border-color:#d6e6dc}
+.merchant-order-attention-soon strong{color:#295f46}
+.order-card:focus-visible{outline:3px solid #d5a048;outline-offset:3px}
+@media(max-width:540px){
+  .merchant-order-attention-summary{padding:12px}
+  .merchant-order-attention-item{flex-direction:column;align-items:stretch;gap:9px}
+  .merchant-order-attention-item>button{min-height:48px;width:100%}
+  .merchant-order-attention-summary>button{width:100%;min-height:48px}
+  .merchant-order-attention-inline{padding:10px}
+}
