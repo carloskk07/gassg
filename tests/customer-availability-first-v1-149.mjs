@@ -27,7 +27,7 @@ assert.ok(source.includes("const primaryAction='startCustomerAvailability()'"),
   'o botão principal da home deve respeitar a mesma autoridade');
 assert.ok(source.includes('onclick="startCustomerAvailability()"><span class="intent-icon">'),
   'o cartão Quero comprar também deve priorizar a consulta');
-assert.ok(source.includes('Nenhuma opção disponível para este CEP agora.') &&
+assert.ok(source.includes('Ainda não encontramos uma revenda que entregue neste CEP.') &&
   source.includes('onclick="openPrelaunchCustomerLead()">Receber aviso de disponibilidade'),
   'sem oferta, deve haver CTA explícito para aviso com consentimento, e não um pedido falso');
 assert.ok(source.includes("showPublicP13Reference=!testDemo") &&
