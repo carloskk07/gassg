@@ -1586,7 +1586,7 @@ function merchantLiveCatalog(){
     <p class="muted">Comece pelos produtos que já cadastrou: toque para informar preço e estoque. Cada SKU possui sua própria confirmação de preço; somente itens elegíveis aparecem nas ofertas.</p>
     <div class="merchant-catalog-head"><strong>Meus produtos</strong><span>${currentCodes.size} cadastrado(s)</span></div>
     <div class="merchant-catalog-list">${configuredRows||'<div class="empty card">Sua lista está vazia. Abra “Adicionar produto” abaixo e escolha o que deseja vender.</div>'}</div>
-    <details class="merchant-catalog-extra"><summary>Adicionar produto ou vasilhame</summary><div class="merchant-catalog-add-body">
+    <details class="merchant-catalog-extra"><summary>Adicionar outro produto ou vasilhame</summary><div class="merchant-catalog-add-body">
       ${addRegistered}
       ${optionalRows?'<details class="merchant-catalog-kind"><summary>Outros produtos comuns</summary><p class="muted tiny">Modelos para configurar: disponibilidade e requisitos serão verificados antes da venda.</p><div class="merchant-catalog-list">'+optionalRows+'</div></details>':''}
       <details class="merchant-catalog-kind"><summary>Outro tamanho de gás</summary>${addGlp}</details>
