@@ -693,6 +693,14 @@ function adminAttentionItems(d){
     if(x.due_at&&Date.parse(x.due_at)<now)push('high','Cashback vencido',adminMerchantName(x.merchant_id)+' • '+adminMoney(x.cashback_cents),{section:'finance'});
   }
   const billing=d.merchantBilling||{};
+  for(const row of adminInterruptedSalePaymentRows(d).filter(x=>x.kind!=='refunded').slice(0,10)){
+    push(row.kind==='conflicting'?'critical':'high',
+      'Conferir pagamento de pedido interrompido',
+      (row.order.public_code||String(row.order.id).slice(0,8))+' • '+adminBillingProviderName(row.attempt.provider)+
+        ' • '+(row.kind==='approved'?'aprovado sem estorno registrado':
+        row.kind==='review'?'resultado em revisão':'registros inconsistentes'),
+      {section:'finance'});
+  }
   for(const refund of billing.refunds||[]){
     if(refund.status==='review_required'){
       const linked=Boolean(refund.merchant_id&&refund.payment_request_id);
@@ -2502,6 +2510,95 @@ function adminMerchantPspPilotCenter(d){
     +(recentClosed.length?'<details class="card flat" style="margin-top:12px"><summary><strong>Validações encerradas recentemente ('+recentClosed.length+')</strong></summary><div class="list" style="margin-top:10px">'+recentClosed.map(model=>{const a=model.attempt;return '<div class="list-row"><div><strong>'+esc(model.merchant?.name||adminMerchantName(model.merchantId))+' • '+esc(adminBillingProviderName(model.provider))+'</strong><br><small>'+esc(a?.status||'—')+' • '+esc(a?.last_error_code||'sem erro')+'</small></div><small>'+esc(a?.updated_at?formatDateTime(a.updated_at):'—')+'</small></div>';}).join('')+'</div></details>':'');
 }
 
+
+/* V1.182 — sale proceeds belong to merchants; review candidates are not
+   verified refund debts and never authorize an automatic refund. */
+function adminInterruptedSalePaymentRows(d){
+  const payments=d?.merchantPayments||{};
+  const orders=new Map((payments.interruptedOrders||[]).map(row=>[String(row.id),row]));
+  const attempts=Array.isArray(payments.attempts)?payments.attempts:[];
+  const rows=[];
+  for(const attempt of attempts){
+    const order=orders.get(String(attempt?.order_id||''));
+    if(!order||!['CANCELLED','REASSIGNING'].includes(String(order.status||'')))continue;
+    const status=String(attempt?.status||'');
+    let kind='';
+    let priority=4;
+    if(status==='approved'&&attempt.refunded_at){
+      kind='conflicting';priority=0;
+    }else if(status==='approved'){
+      kind='approved';priority=1;
+    }else if(status==='review_required'){
+      kind='review';priority=2;
+    }else if(status==='refunded'){
+      kind='refunded';priority=3;
+    }
+    if(kind)rows.push({order,attempt,kind,priority});
+  }
+  return rows.sort((a,b)=>a.priority-b.priority
+    ||Date.parse(a.attempt.updated_at||a.attempt.created_at||0)-
+       Date.parse(b.attempt.updated_at||b.attempt.created_at||0));
+}
+function adminInterruptedSalePaymentWatch(d){
+  if(!['superadmin','finance','readonly'].includes(adminCurrentRole()))return '';
+  const rows=adminInterruptedSalePaymentRows(d);
+  const active=rows.filter(x=>x.kind!=='refunded');
+  const approved=active.filter(x=>x.kind==='approved').length;
+  const reviews=active.filter(x=>x.kind==='review').length;
+  const contradictory=active.filter(x=>x.kind==='conflicting').length;
+  const history=rows.filter(x=>x.kind==='refunded');
+  const limited=d.merchantPayments?.reviewSampleLimited===true;
+  const statusInfo={
+    approved:{label:'APROVADO • CONFERIR ESTORNO',detail:'Pagamento aprovado registrado. Não há confirmação de estorno nesta tentativa; consulte o provedor e a revenda.'},
+    review:{label:'RESULTADO EM REVISÃO',detail:'O resultado financeiro está indefinido. Confirme primeiro com o provedor; não suponha cobrança nem devolução.'},
+    conflicting:{label:'REGISTROS INCONSISTENTES',detail:'Há data de reembolso, mas a situação ainda consta como aprovada. Verifique a trilha do provedor antes de concluir.'},
+    refunded:{label:'REEMBOLSO REGISTRADO',detail:'O registro local indica reembolso desta tentativa. O crédito efetivo depende da instituição financeira.'}
+  };
+  const render=row=>{
+    const {attempt,order,kind}=row,details=statusInfo[kind];
+    const cents=Number(attempt.amount_cents);
+    const amount=Number.isSafeInteger(cents)&&cents>0?adminMoney(cents):'Valor não confirmado';
+    const date=attempt.refunded_at&&kind==='refunded'?attempt.refunded_at:
+      attempt.approved_at&&kind==='approved'?attempt.approved_at:attempt.updated_at||attempt.created_at;
+    const validDate=date&&Number.isFinite(Date.parse(String(date)))?formatDateTime(date):'sem horário confirmado';
+    const safeId=/^[0-9a-f-]{36}$/i.test(String(order.id||''))?String(order.id):'';
+    return '<article class="order-card admin-sale-refund-card">'+
+      '<div class="order-head"><div><strong>'+esc(order.public_code||String(order.id||'').slice(0,8))+
+      '</strong><div class="tiny muted">'+esc(adminMerchantName(attempt.merchant_id))+
+      ' • '+esc(adminBillingProviderName(attempt.provider))+'</div></div>'+
+      '<span class="status-pill '+(kind==='refunded'?'online':'risk')+'">'+esc(details.label)+'</span></div>'+
+      '<div class="order-line"><strong>'+esc(amount)+'</strong> • '+esc(order.status==='CANCELLED'?'Pedido encerrado':'Pedido em reavaliação')+'</div>'+
+      '<div class="tiny muted">Registro: '+esc(validDate)+' • tentativa '+esc(String(attempt.id||'').slice(0,8))+
+      ' • estado financeiro interno '+esc(String(order.financial_state||'não informado'))+'</div>'+
+      '<p class="tiny">'+esc(details.detail)+'</p>'+
+      (order.financial_reversed_at?'<div class="tiny muted">Há reversão contábil interna. Isso não comprova estorno da venda.</div>':'')+
+      (safeId?'<div class="order-actions"><button class="secondary small" onclick="adminOpenEntity(\'order\',\''+
+        esc(safeId)+'\')">Conferir pedido</button></div>':'')+
+      '</article>';
+  };
+  return '<section class="section admin-sale-refund-watch">'+
+    '<div class="section-head"><div><span class="section-kicker">VENDAS DIRETAS • REVISÃO</span>'+
+    '<h2>Pagamentos de pedidos interrompidos</h2>'+
+    '<p>Identifique cobranças aprovadas em pedidos cancelados ou em reavaliação. '+
+    'Esta fila é de conferência: não faz estornos, não movimenta recursos e não integra o caixa TAMÃO.</p></div>'+
+    '<span class="status-pill '+(active.length?'risk':'online')+'">'+active.length+' PARA CONFERIR</span></div>'+
+    '<div class="merchant-kpis">'+
+    '<div class="kpi"><span class="label">Aprovados sem estorno registrado</span><strong>'+approved+'</strong></div>'+
+    '<div class="kpi"><span class="label">Resultado em revisão</span><strong>'+reviews+'</strong></div>'+
+    '<div class="kpi"><span class="label">Divergências</span><strong>'+contradictory+'</strong></div>'+
+    '<div class="kpi"><span class="label">Reembolsos registrados</span><strong>'+history.length+'</strong></div>'+
+    '</div>'+
+    (limited?'<div class="notice">Amostra limitada às 500 tentativas de pagamento mais recentes. Estes números não representam a totalidade da base.</div>':
+      '<div class="tiny muted">Conferência com base nas tentativas retornadas; não equivale a extrato completo do provedor.</div>')+
+    (active.length?'<div class="admin-entity-grid">'+active.slice(0,30).map(render).join('')+'</div>':
+      '<div class="empty card">Nenhum registro nesta amostra exige conferência de estorno. Confira também a conciliação diretamente no PSP.</div>')+
+    (active.length>30?'<div class="tiny muted">Exibindo os primeiros 30 registros priorizados; outros estão incluídos nos contadores da amostra.</div>':'')+
+    (history.length?'<details class="card flat"><summary>Reembolsos registrados ('+history.length+')</summary>'+
+      '<div class="admin-entity-grid">'+history.slice(0,20).map(render).join('')+'</div></details>':'')+
+    '<div class="notice"><strong>Regra financeira.</strong> Toda verificação ou solicitação de estorno deve ocorrer na conta da própria revenda e ser comprovada pelo provedor. Não use esta fila para aprovar ou executar reembolsos automaticamente.</div>'+
+    '</section>';
+}
+
 function adminMerchantSaleVerificationSection(d){
   const rows=(d.merchantPayments?.verifications||[]).slice(0,20);
   const orderById=new Map((d.controlOrders||[]).map(x=>[String(x.id),x]));
@@ -3068,6 +3165,7 @@ function adminPage(){
 
   const financeContent=`
     ${adminFinanceOverview(d)}
+    ${adminInterruptedSalePaymentWatch(d)}
     ${adminMerchantBillingSection(d)}
     ${adminCommercialPolicySection(d)}
     <section class="section"><div class="section-head"><div><h2>Revisão de indicações</h2><p>Comissões suspeitas não amadurecem automaticamente. Aprovação ainda exige identidades permanentes e fim da quarentena.</p></div><span class="status-pill ${pendingReferralReviews.length?'offline':'online'}">${pendingReferralReviews.length} pendente(s)</span></div>${referralReviews.length?referralReviews.map(adminReferralReviewCard).join(''):'<div class="empty card">Nenhuma indicação exige revisão.</div>'}</section>

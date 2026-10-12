@@ -774,7 +774,7 @@ function scopeAdminSummary(role:string,data:any){
       merchantPayments:{
         globalDirectPaymentsEnabled:data.merchantPayments?.globalDirectPaymentsEnabled===true,
         fundsOwner:"merchant",tamaoReceivesSaleProceeds:false,
-        providerCatalog:[],routes:[],verifications:[],attempts:[]
+        providerCatalog:[],routes:[],verifications:[],attempts:[],interruptedOrders:[],reviewSampleLimited:false
       },
       finance:{receivables:[],cashbackReimbursements:[],adjustments:[]},
       merchantBilling:{
@@ -827,7 +827,7 @@ function scopeAdminSummary(role:string,data:any){
         price_confirmed_at:m.price_confirmed_at,last_seen_at:m.last_seen_at,
         paymentAccounts:[],paymentRoutes:[]
       })),
-      merchantPayments:{globalDirectPaymentsEnabled:false,fundsOwner:"merchant",tamaoReceivesSaleProceeds:false,providerCatalog:[],routes:[],verifications:[],attempts:[]},
+      merchantPayments:{globalDirectPaymentsEnabled:false,fundsOwner:"merchant",tamaoReceivesSaleProceeds:false,providerCatalog:[],routes:[],verifications:[],attempts:[],interruptedOrders:[],reviewSampleLimited:false},
       commercialPolicy:null,
       merchantBilling:{plans:[],accounts:[],statements:[],paymentRequests:[],paymentEvents:[],refunds:[],refundRecoveries:[],providerCharges:[],webhookProbes:[],paymentAccounts:[],paymentIngress:null,metrics:null,reconciliation:null},
       productRegistry:{categories:[],products:[]},
@@ -842,7 +842,7 @@ function scopeAdminSummary(role:string,data:any){
     return {
       ...data,
       merchants:(data.merchants??[]).map((m:any)=>({...m,paymentAccount:null,paymentAccounts:[],paymentRoutes:[]})),
-      merchantPayments:{globalDirectPaymentsEnabled:false,fundsOwner:"merchant",tamaoReceivesSaleProceeds:false,providerCatalog:[],routes:[],verifications:[],attempts:[]},
+      merchantPayments:{globalDirectPaymentsEnabled:false,fundsOwner:"merchant",tamaoReceivesSaleProceeds:false,providerCatalog:[],routes:[],verifications:[],attempts:[],interruptedOrders:[],reviewSampleLimited:false},
       businessMetrics:{},commercialPolicy:null,
       merchantBilling:{plans:[],accounts:[],statements:[],paymentRequests:[],paymentEvents:[],refunds:[],refundRecoveries:[],providerCharges:[],webhookProbes:[],paymentAccounts:[],paymentIngress:null,metrics:null,reconciliation:null},
       productRegistry:{categories:[],products:[]},
@@ -1492,6 +1492,20 @@ async function summary(admin:any,actorUserId:string){
     if(result.error)throw result.error;
   }
 
+  // V1.182: bounded, read-only financial review for interrupted buyer payments.
+  // Access is inherited from the privileged summary; never expose to operational roles.
+  const saleAttemptIds=[...new Set((merchantSaleAttempts.data??[])
+    .map((a:any)=>String(a.order_id||""))
+    .filter((id:string)=>UUID_RE.test(id)))];
+  const interruptedSaleOrders=saleAttemptIds.length
+    ? await admin.from("orders")
+        .select("id,public_code,status,financial_state,financial_reversed_at,updated_at")
+        .in("id",saleAttemptIds)
+        .in("status",["CANCELLED","REASSIGNING"])
+        .limit(500)
+    : {data:[],error:null};
+  if(interruptedSaleOrders.error)throw interruptedSaleOrders.error;
+
   const controlOrders=await admin
     .from("orders")
     .select("id,public_code,status,customer_id,merchant_id,proposed_merchant_id,supplier_name_snapshot,payment_method,gross_total_cents,total_cents,risk_reason,offer_expires_at,accepted_at,dispatch_due_at,dispatched_at,arriving_at,promised_by,version,address_text,postal_code,address_complement,delivery_reference,customer_phone_digits,created_at,updated_at")
@@ -1651,7 +1665,9 @@ async function summary(admin:any,actorUserId:string){
       providerCatalog:merchantPaymentProviders.data??[],
       routes:merchantPaymentRoutes.data??[],
       verifications:merchantSaleVerifications.data??[],
-      attempts:merchantSaleAttempts.data??[]
+      attempts:merchantSaleAttempts.data??[],
+      interruptedOrders:interruptedSaleOrders.data??[],
+      reviewSampleLimited:(merchantSaleAttempts.data??[]).length>=500
     },
     merchantBilling:{
       plans:billingPlans.data??[],

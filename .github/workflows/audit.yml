@@ -75,6 +75,8 @@ jobs:
         run: node tests/single-unproven-psp-pilot-v1-144.mjs
       - name: Admin PSP pilot center V1.145 regression contract
         run: node tests/admin-psp-pilot-center-v1-145.mjs
+      - name: Admin interrupted sale payment review V1.182 regression
+        run: node tests/admin-sale-refund-watch-v1-182.mjs
       - name: First real PSP pilot preflight V1.146 regression contract
         run: node tests/first-real-psp-pilot-preflight-v1-146.mjs
       - name: Production trust language V1.147 regression contract
