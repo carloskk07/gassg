@@ -108,7 +108,7 @@ function merchantDriverLivePage(rt){
       <button class="secondary" onclick="merchantLiveSaveMemberProfile()">Salvar nome</button>
       <div class="order-actions"><button class="secondary small" onclick="merchantLiveRefresh()">Atualizar entregas</button><button class="ghost small" onclick="merchantLiveLogout()">Sair</button></div>
     </div>
-    <section class="section"><div class="section-head"><div><h2>Pedidos atribuídos a você</h2><p>Saída, chegada e conclusão continuam protegidas pela versão do pedido e pelas autoridades do servidor.</p></div></div>${orders.length?orders.map(merchantLiveOrder).join(''):'<div class="empty card">Nenhuma entrega atribuída a você agora.</div>'}</section>
+    <section class="section"><div class="section-head"><div><h2>Pedidos atribuídos a você</h2><p>Saída, chegada e conclusão continuam protegidas pela versão do pedido e pelas autoridades do servidor.</p></div></div>${merchantOrderQueueView(orders,'Nenhuma entrega atribuída a você agora.')}</section>
   </section>`);
 }
 
@@ -875,7 +875,7 @@ function merchantLivePage(){
       <div class="kpi"><span class="label">No prazo</span><strong>${performance.onTimeRate==null?'—':Math.round(Number(performance.onTimeRate)*100)+'%'}</strong></div>
     </div></section>
 
-    <section class="section" id="merchant-live-orders"><div class="section-head"><div><h2>Pedidos que exigem ação</h2><p>Aceite, saída e recebimento só são registrados depois de confirmação no sistema.</p></div></div>${orders.length?orders.map(merchantLiveOrder).join(''):'<div class="empty card">Nenhum pedido ativo para esta revenda.</div>'}</section>
+    <section class="section" id="merchant-live-orders"><div class="section-head"><div><h2>Pedidos que exigem ação</h2><p>Aceite, saída e recebimento só são registrados depois de confirmação no sistema.</p></div></div>${merchantOrderQueueView(orders)}</section>
 
     ${merchantBillingLiveView(rt)}
 
@@ -929,6 +929,38 @@ function merchantFormatPhone(value){
   return d;
 }
 
+/* V1.174: order queue is UI-only; every transition is confirmed by the server. */
+function merchantOrderQueueView(orders,emptyCopy='Nenhum pedido ativo para esta revenda.'){
+  const all=Array.isArray(orders)?orders:[];
+  if(!all.length)return '<div class="empty card">'+esc(emptyCopy)+'</div>';
+  const groups=[
+    {key:'offers',title:'Novos pedidos para aceitar',hint:'Confirme se pode atender antes do prazo.',statuses:['OFFERED_TO_MERCHANT']},
+    {key:'risk',title:'Pedidos que precisam de atenção',hint:'Confira o problema antes de continuar.',statuses:['AT_RISK']},
+    {key:'delivery',title:'Entregas em andamento',hint:'Registre chegada e conclusão somente quando acontecerem.',statuses:['OUT_FOR_DELIVERY','ARRIVING']},
+    {key:'preparing',title:'Pedidos em preparação',hint:'Confirme a saída somente quando iniciar a entrega.',statuses:['MERCHANT_ACCEPTED','PREPARING']}
+  ];
+  const known=new Set(groups.flatMap(group=>group.statuses));
+  const unknown=all.filter(order=>!known.has(String(order?.status||'')));
+  if(unknown.length)groups.push({key:'other',title:'Outros pedidos',
+    hint:'Confira o estado atual antes de agir.',statuses:[...new Set(unknown.map(order=>String(order?.status||'')))]});
+  const queues=groups.map(group=>({...group,orders:all.filter(order=>group.statuses.includes(String(order?.status||'')))}));
+  const titles={offers:'Para aceitar',risk:'Precisam atenção',delivery:'Em entrega',preparing:'Preparando'};
+  const stats=queues.filter(group=>group.key!=='other').map(group=>
+    '<div class="merchant-order-queue-stat"><strong>'+group.orders.length+'</strong><span>'+titles[group.key]+'</span></div>').join('');
+  const sections=queues.filter(group=>group.orders.length).map(group=>{
+    const sorted=group.key==='offers'?[...group.orders].sort((a,b)=>{
+      const at=Date.parse(String(a.offerExpiresAt||'')),bt=Date.parse(String(b.offerExpiresAt||''));
+      return (Number.isFinite(at)?at:Number.MAX_SAFE_INTEGER)-(Number.isFinite(bt)?bt:Number.MAX_SAFE_INTEGER);
+    }):group.orders;
+    return '<section class="merchant-order-queue-group merchant-order-group-'+group.key+'">'+
+      '<div class="merchant-order-queue-heading"><div><h3>'+esc(group.title)+'</h3><p>'+esc(group.hint)+'</p></div>'+
+      '<span class="merchant-order-queue-count">'+sorted.length+'</span></div>'+
+      sorted.map(merchantLiveOrder).join('')+'</section>';
+  }).join('');
+  return '<div class="merchant-order-queue" aria-label="Fila de pedidos da revenda">'+
+    '<div class="merchant-order-queue-stats">'+stats+'</div>'+sections+'</div>';
+}
+
 function merchantLiveOrder(o){
   const items=(o.items||[]).map(i=>`${Number(i.quantity)}× ${esc(i.productName||i.productCode||'Item')}`).join(' • ');
   const total=BRL.format(Number(o.totalCents||0)/100);
@@ -971,15 +1003,15 @@ function merchantLiveOrder(o){
     actions=`<label class="sr-only" for="live-pin-${o.orderId}">PIN de entrega</label><input id="live-pin-${o.orderId}" inputmode="numeric" maxlength="4" class="input pin-input" placeholder="PIN"><label class="check-row"><input id="live-paid-${o.orderId}" type="checkbox"><span><strong>Pagamento recebido</strong><small>Obrigatório para liquidar o pedido.</small></span></label><button class="primary small" onclick="merchantLiveDeliver('${o.orderId}')">Confirmar entrega</button>`;
   }
 
-  return `<article class="order-card ${o.status==='OFFERED_TO_MERCHANT'?'new':''}">
+  return `<article class="order-card ${o.status==='OFFERED_TO_MERCHANT'?'new':''}" id="merchant-order-card-${esc(o.orderId)}">
     <div class="order-head"><div><div class="order-id">${esc(o.publicCode||o.orderId)}</div><div class="order-line">${items||'Itens do pedido'}</div></div><div style="text-align:right"><strong>${total}</strong><div class="tiny muted">${esc(copy[0])}</div></div></div>
     <div class="order-line">${address}</div><div class="order-line">Pagamento: ${esc(paymentLabel(o.paymentMethod))}</div>${o.paymentMethod==='cash'&&o.cashTenderCents?`<div class="order-line"><strong>Troco para: ${BRL.format(Number(o.cashTenderCents)/100)}</strong></div>`:''}${o.deliveryWindowStart?`<div class="notice success" style="margin-top:10px"><strong>Entrega agendada</strong><br>${esc(formatDeliveryWindow(o.deliveryWindowStart,o.deliveryWindowEnd))}</div>`:''}
-    ${deliveryContact}
+    ${deliveryContact?`<details class="merchant-order-contact" ${['OUT_FOR_DELIVERY','ARRIVING'].includes(o.status)?'open':''}><summary>Endereço e contato para entrega</summary>${deliveryContact}</details>`:''}
     ${assignedLabel?`<div class="notice success" style="margin-top:10px"><strong>Responsável pela entrega:</strong> ${esc(assignedLabel)}</div>`:''}
     ${assignmentControl}
     ${o.riskReason?`<div class="notice danger" style="margin-top:10px">${esc(o.riskReason)}</div>`:''}
     ${nextStepCopy?`<div class="merchant-order-next"><strong>Próxima ação</strong><span>${esc(nextStepCopy)}</span></div>`:'' }
-    <div class="order-actions merchant-live-actions">${actions}</div>
+    <div class="order-actions merchant-live-actions"><fieldset class="merchant-order-action-fieldset" ${globalThis.merchantRuntime?.actionPending===true?'disabled':''}>${actions}</fieldset></div>
   </article>`;
 }
 
@@ -1320,6 +1352,7 @@ async function merchantLiveSaveScheduling(){
 }
 
 async function merchantLiveAction(id,action){
+  if(globalThis.merchantRuntime?.actionPending===true)return;
   try{
     const result=await merchantPerformAction(id,action);
     if(action==='accept'&&result?.autoRescued){
@@ -1336,10 +1369,12 @@ async function merchantLiveAction(id,action){
   }catch(e){toast(String(e?.message||e))}
 }
 async function merchantLiveCannotFulfill(id){
+  if(globalThis.merchantRuntime?.actionPending===true)return;
   const reason=document.getElementById('reason-'+id)?.value||'other_operational';
   try{await merchantPerformAction(id,'cannot-fulfill',reason);toast('Pedido devolvido ao matching com estoque recomposto')}catch(e){toast(String(e?.message||e))}
 }
 async function merchantLiveDeliver(id){
+  if(globalThis.merchantRuntime?.actionPending===true)return;
   const pin=document.getElementById('live-pin-'+id)?.value.trim()||'';
   const paid=document.getElementById('live-paid-'+id)?.checked===true;
   try{await merchantCompleteDeliveryLive(id,pin,paid);toast('Entrega e pagamento confirmados')}catch(e){toast(String(e?.message||e))}
