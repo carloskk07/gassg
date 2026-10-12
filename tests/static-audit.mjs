@@ -1704,7 +1704,14 @@ for(const entry of fs.readdirSync(functionRoot,{withFileTypes:true})){
     assert.ok(source.includes('req.method!=="POST"')&&source.includes('readJsonBody(req,{maxBytes:4096})'),entry.name+' precisa aceitar somente POST com corpo mínimo');
     assert.ok(source.includes('https://token.actions.githubusercontent.com/.well-known/jwks')&&source.includes('tamao-portal-attestor')&&source.includes('RSASSA-PKCS1-v1_5')&&source.includes('crypto.subtle.verify'),entry.name+' precisa autenticar GitHub OIDC criptograficamente');
     assert.ok(source.includes('repository!==REPOSITORY')&&source.includes('repository_id')&&source.includes('repository_owner_id')&&source.includes('workflow_ref')&&source.includes('refs/heads/main'),entry.name+' precisa vincular OIDC ao repositório/workflow/main exatos');
-    assert.ok(source.includes('https://api.github.com/repos/carloskk07/gassg/commits/main')&&source.includes('canonicalSha!==expectedSourceSha'),entry.name+' precisa provar o SHA canônico no GitHub');
+    assert.ok(
+      source.includes('https://api.github.com/repos/carloskk07/gassg/git/ref/heads/main')
+      &&source.includes('canonicalSha!==expectedSourceSha')
+      &&source.includes('data?.object?.sha')
+      &&source.includes('data?.ref!=="refs/heads/main"')
+      &&!source.includes('github.com/repos/carloskk07/gassg/commits/main'),
+      entry.name+' precisa provar o SHA canônico pelo Git ref autenticado sem payload gigante'
+    );
     assert.ok(source.includes('https://tamao.com.br')&&source.includes('https://parceiro.tamao.com.br')&&source.includes('https://admin.tamao.com.br'),entry.name+' precisa provar os três portais oficiais');
     assert.ok(source.includes('record_automated_portal_attestation')&&!source.includes('admin_operation_mode_action')&&!source.includes('platform_launch_confirmations'),entry.name+' só pode atualizar evidência factual de portais');
   }else{
