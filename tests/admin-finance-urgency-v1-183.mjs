@@ -73,7 +73,7 @@ const data={merchantPayments:{
   attempt(4,'approved',{approved_at:null}),
   attempt(5,'approved',{refunded_at:hours(1)}),
   attempt(6,'refunded',{refunded_at:hours(1)}),
-  attempt(7,'approved',{approved_at:hours(30)}),
+  attempt(7,'approved',{approved_at:hours(1)}),
   attempt(8,'approved',{approved_at:hours(60)})
  ],
  interruptedOrders:[
