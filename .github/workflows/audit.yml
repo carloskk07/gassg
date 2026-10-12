@@ -95,6 +95,8 @@ jobs:
         run: node tests/admin-finance-priorities-v1-192.mjs
       - name: One-click finance record triage V1.193 regression
         run: node tests/admin-finance-oneclick-v1-193.mjs
+      - name: Guided evidence payment review V1.194 regression
+        run: node tests/admin-finance-guided-review-v1-194.mjs
       - name: First real PSP pilot preflight V1.146 regression contract
         run: node tests/first-real-psp-pilot-preflight-v1-146.mjs
       - name: Production trust language V1.147 regression contract
