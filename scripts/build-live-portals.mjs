@@ -9,7 +9,7 @@ const STATIC_FILES=['index.html','manifest.webmanifest','sw.js','robots.txt'];
 const STATIC_DIRS=['css','js','icons'];
 const PORTALS={
   customer:{name:'TAMÃO — Cliente',shortName:'TAMÃO',title:'TAMÃO — Pediu? Tá na mão.'},
-  merchant:{name:'TAMÃO — Revenda',shortName:'TAMÃO Revenda',title:'TAMÃO Revenda — Operação'},
+  merchant:{name:'TAMÃO — Revenda',shortName:'TAMÃO Revenda',title:'TAMÃO para Revendas — Cadastre sua empresa'},
   admin:{name:'TAMÃO — Administração',shortName:'TAMÃO Admin',title:'TAMÃO Admin — Controle'}
 };
 const TEST_KEYS=new Set([
@@ -67,7 +67,7 @@ function headers(portal){
     '  Cache-Control: no-cache, no-store, must-revalidate',
     ''
   ];
-  if(role!=='customer'){
+  if(role==='admin'){
     lines.splice(7,0,'  X-Robots-Tag: noindex, nofollow, noarchive, nosnippet');
   }
   return lines.join('\n');
@@ -76,7 +76,7 @@ function headers(portal){
 function patchIndex(html,portal){
   const role=validatePortalRole(portal,{required:true});
   const meta=PORTALS[role];
-  const robots=role==='customer'
+  const robots=role!=='admin'
     ? 'index,follow,max-image-preview:large'
     : 'noindex,nofollow,noarchive,nosnippet';
   // Every portal has its own canonical/social identity. A partner sharing
@@ -118,17 +118,18 @@ function patchIndex(html,portal){
 }
 
 function writePortalRobots(target,role){
-  if(role==='customer'){
+  if(role!=='admin'){
+    const origin=role==='customer'?'https://tamao.com.br':'https://parceiro.tamao.com.br';
     fs.writeFileSync(
       path.join(target,'robots.txt'),
-      'User-agent: *\nAllow: /\n\nSitemap: https://tamao.com.br/sitemap.xml\n',
+      'User-agent: *\nAllow: /\n\nSitemap: '+origin+'/sitemap.xml\n',
       'utf8'
     );
     fs.writeFileSync(
       path.join(target,'sitemap.xml'),
       '<?xml version="1.0" encoding="UTF-8"?>\n'
         +'<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n'
-        +'  <url><loc>https://tamao.com.br/</loc></url>\n'
+        +'  <url><loc>'+origin+'/</loc></url>\n'
         +'</urlset>\n',
       'utf8'
     );
