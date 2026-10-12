@@ -2187,3 +2187,15 @@ body:has(.admin-page) .shell{
   .merchant-catalog-kind>.merchant-catalog-list{margin:8px}
   .merchant-catalog-pricing>.form-stack{padding:0 10px 10px}
 }
+
+/* V1.172 — registry suggestions reflect actual authorized categories; mobile-first fields */
+.merchant-catalog-chooser{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;min-width:0}
+.merchant-catalog-chooser .input-wrap{min-width:0}
+.merchant-catalog-add-btn{min-height:50px;font-weight:800;max-width:100%}
+.merchant-catalog-add-btn:disabled{opacity:.62;cursor:wait}
+#live-new-registry-count{display:block;line-height:1.5}
+@media(max-width:560px){
+  .merchant-catalog-chooser{grid-template-columns:minmax(0,1fr);gap:10px}
+  .merchant-catalog-chooser input,.merchant-catalog-chooser select{font-size:16px;max-width:100%}
+  .merchant-catalog-add-btn{width:100%;min-height:52px}
+}

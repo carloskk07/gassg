@@ -1444,6 +1444,72 @@ function catalog(){
   const m=merchantById(state.selectedMerchant)||state.merchants[0];
   return shell(`<section class="page"><h1 class="page-title">Meu catálogo</h1><p class="muted">A revenda não fica limitada ao P13. Cada produto tem preço e disponibilidade próprios.</p><div class="list">${Object.entries(products).map(([k,p])=>{const price=productPrice(m,k);const stock=inventoryFor(m,k);return `<div class="list-row"><div class="product-left"><div class="product-icon">${p.icon}</div><div><strong>${esc(p.name)}</strong><br><small>${price==null?'Não oferecido':`${BRL.format(price)} • estoque ${stock}`}</small></div></div><span class="status-pill ${price==null||stock<=0?'offline':'online'}">${price==null?'INATIVO':stock<=0?'SEM ESTOQUE':'ATIVO'}</span></div>`}).join('')}</div><div class="notice" style="margin-top:14px">No produto real, cada categoria terá regras de compatibilidade logística e conformidade próprias.</div></section>`)
 }
+
+/* V1.172: product suggestions are derived solely from the live authorized registry. */
+function merchantCatalogAvailableChoices(rt){
+  const current=new Set((rt?.catalog||[]).map(item=>String(item?.productCode||'').toUpperCase()));
+  return (Array.isArray(rt?.availableProducts)?rt.availableProducts:[])
+    .map(item=>({
+      productCode:String(item?.productCode||'').trim().toUpperCase(),
+      productName:String(item?.productName||'').trim().slice(0,130),
+      categoryName:String(item?.categoryName||'Outros').trim().slice(0,70)||'Outros'
+    }))
+    .filter(item=>/^[A-Z][A-Z0-9_]{1,31}$/.test(item.productCode)
+      &&!/^P([1-9][0-9]?)(?:_CONTAINER)?$/.test(item.productCode)
+      &&!current.has(item.productCode)
+      &&!Object.prototype.hasOwnProperty.call(products,item.productCode))
+    .sort((a,b)=>a.categoryName.localeCompare(b.categoryName,'pt-BR')
+      ||a.productName.localeCompare(b.productName,'pt-BR'));
+}
+function merchantCatalogFilterChoices(choices,category='',search=''){
+  const normalize=value=>String(value||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLocaleLowerCase('pt-BR');
+  const needle=normalize(search.trim());
+  return choices.filter(item=>(!category||item.categoryName===category)
+    &&(!needle||normalize(item.productName+' '+item.productCode+' '+item.categoryName).includes(needle)));
+}
+function merchantCatalogFilterRegistry(){
+  const select=document.getElementById('live-new-registry-product');
+  if(!select)return;
+  const rt=globalThis.merchantRuntime||{};
+  const cat=String(document.getElementById('live-new-registry-category')?.value||'');
+  const search=String(document.getElementById('live-new-registry-search')?.value||'');
+  const choices=merchantCatalogFilterChoices(merchantCatalogAvailableChoices(rt),cat,search);
+  const existing=String(select.value||'');
+  const fragment=document.createDocumentFragment();
+  if(!choices.length){
+    const option=document.createElement('option');
+    option.value='';option.textContent='Nenhum produto encontrado';
+    fragment.appendChild(option);
+  }else{
+    let group=null,category='';
+    for(const item of choices){
+      if(item.categoryName!==category){
+        category=item.categoryName;
+        group=document.createElement('optgroup');
+        group.label=category;fragment.appendChild(group);
+      }
+      const option=document.createElement('option');
+      option.value=item.productCode;
+      option.textContent=item.productName||item.productCode;
+      group.appendChild(option);
+    }
+  }
+  select.replaceChildren(fragment);
+  if(choices.some(item=>item.productCode===existing))select.value=existing;
+  const count=document.getElementById('live-new-registry-count');
+  if(count)count.textContent=choices.length
+    ?choices.length+' produto(s) para escolher':'Nenhum produto encontrado. Ajuste a busca ou a categoria.';
+  const add=document.getElementById('live-new-registry-add');
+  if(add)add.disabled=choices.length===0;
+}
+function merchantCatalogGasOptions(rt,container=false){
+  const existing=new Set((rt?.catalog||[]).map(item=>String(item?.productCode||'').toUpperCase()));
+  const preferred=[13,20,45];
+  const numbers=[...preferred,...Array.from({length:90},(_,index)=>index+1).filter(n=>!preferred.includes(n))];
+  return numbers.filter(n=>!existing.has('P'+n+(container?'_CONTAINER':'')))
+    .map(n=>'<option value="P'+n+'">'+n+' kg (P'+n+')</option>').join('');
+}
+
 function merchantLiveCatalog(){
   const rt=globalThis.merchantRuntime||{};
   if(rt.status!=='ready')return merchantLivePage();
@@ -1534,28 +1600,29 @@ function merchantLiveCatalog(){
   const configuredRows=known.filter(item=>currentCodes.has(item.productCode)).map(renderCatalogItem).join('');
   const optionalRows=known.filter(item=>!currentCodes.has(item.productCode)).map(renderCatalogItem).join('');
 
-  const catalogCodes=new Set((rt.catalog||[]).map(item=>String(item.productCode||'').toUpperCase()));
-  const addableProducts=(rt.availableProducts||[])
-    .filter(item=>{
-      const code=String(item.productCode||'').toUpperCase();
-      return safeCatalogCode(code)&&!catalogCodes.has(code)&&!localCodes.has(code);
-    })
-    .sort((a,b)=>{
-      const category=String(a.categoryName||'').localeCompare(String(b.categoryName||''),'pt-BR');
-      return category||String(a.productName||'').localeCompare(String(b.productName||''),'pt-BR');
-    });
+  const addableProducts=merchantCatalogAvailableChoices(rt);
+  const addableCategories=[...new Set(addableProducts.map(item=>item.categoryName))];
   const addRegistered=addableProducts.length
     ? `<div class="card flat form-stack" style="margin-bottom:16px">
         <h3>Adicionar produto do catálogo TAMÃO</h3>
-        <p class="muted tiny">Aqui aparecem produtos gerais liberados pela administração. GLP e vasilhames continuam nos fluxos específicos abaixo.</p>
+        <p class="muted tiny">Escolha um produto disponibilizado pelo TAMÃO. Você define o preço e o estoque da sua revenda.</p>
+        <div class="merchant-catalog-chooser">
+          <div class="input-wrap"><label for="live-new-registry-category">Categoria</label><select id="live-new-registry-category" class="input" onchange="merchantCatalogFilterRegistry()">
+            <option value="">Todas as categorias</option>
+            ${addableCategories.map(category=>`<option value="${esc(category)}">${esc(category)}</option>`).join('')}
+          </select></div>
+          <div class="input-wrap"><label for="live-new-registry-search">Buscar pelo nome (opcional)</label>
+            <input type="search" id="live-new-registry-search" class="input" autocomplete="off" placeholder="Ex.: água, carvão, lenha" oninput="merchantCatalogFilterRegistry()">
+          </div>
+        </div>
         <div class="input-wrap"><label for="live-new-registry-product">Produto</label><select id="live-new-registry-product" class="input">
-          ${addableProducts.map(item=>`<option value="${esc(item.productCode)}">${esc(item.categoryName||'Outros')} • ${esc(item.productName)}</option>`).join('')}
-        </select></div>
+          ${addableCategories.map(category=>`<optgroup label="${esc(category)}">${addableProducts.filter(item=>item.categoryName===category).map(item=>`<option value="${esc(item.productCode)}">${esc(item.productName||item.productCode)}</option>`).join('')}</optgroup>`).join('')}
+        </select><small class="field-help" id="live-new-registry-count" aria-live="polite">${addableProducts.length} produto(s) para escolher</small></div>
         <div class="field-row">
           <div class="input-wrap"><label for="live-new-registry-price">Preço</label><input id="live-new-registry-price" inputmode="decimal" type="number" min="0.01" max="10000" step="0.10" class="input" placeholder="0,00"></div>
           <div class="input-wrap"><label for="live-new-registry-stock">Estoque</label><input id="live-new-registry-stock" inputmode="numeric" type="number" min="0" max="100000" class="input" value="0"></div>
         </div>
-        <button class="primary" onclick="merchantLiveAddRegisteredProduct()">Adicionar e confirmar</button>
+        <button class="primary merchant-catalog-add-btn" id="live-new-registry-add" onclick="merchantLiveAddRegisteredProduct()">Adicionar produto</button>
       </div>`
     : '';
 
@@ -1563,7 +1630,7 @@ function merchantLiveCatalog(){
     <h3>Adicionar cilindro GLP</h3>
     <p class="muted tiny">Códigos P1 a P90 seguem automaticamente as regras regulatórias e logísticas de GLP.</p>
     <div class="field-row">
-      <div class="input-wrap"><label for="live-new-glp-code">Código</label><input id="live-new-glp-code" class="input" maxlength="3" placeholder="P20"></div>
+      <div class="input-wrap"><label for="live-new-glp-code">Tamanho do botijão</label><select id="live-new-glp-code" class="input">${merchantCatalogGasOptions(rt)}</select></div>
       <div class="input-wrap"><label for="live-new-glp-price">Preço</label><input id="live-new-glp-price" inputmode="decimal" type="number" min="0.01" max="10000" step="0.10" class="input" placeholder="0,00"></div>
       <div class="input-wrap"><label for="live-new-glp-stock">Estoque</label><input id="live-new-glp-stock" inputmode="numeric" type="number" min="0" max="100000" class="input" value="0"></div>
     </div>
@@ -1574,7 +1641,7 @@ function merchantLiveCatalog(){
     <h3>Adicionar vasilhame</h3>
     <p class="muted tiny">Cadastre o recipiente separadamente da carga. Ex.: P13 cria o SKU P13_CONTAINER.</p>
     <div class="field-row">
-      <div class="input-wrap"><label for="live-new-container-code">Tamanho GLP</label><input id="live-new-container-code" class="input" maxlength="3" placeholder="P13"></div>
+      <div class="input-wrap"><label for="live-new-container-code">Tamanho do vasilhame</label><select id="live-new-container-code" class="input">${merchantCatalogGasOptions(rt,true)}</select></div>
       <div class="input-wrap"><label for="live-new-container-price">Preço do vasilhame</label><input id="live-new-container-price" inputmode="decimal" type="number" min="0.01" max="10000" step="0.10" class="input" placeholder="0,00"></div>
       <div class="input-wrap"><label for="live-new-container-stock">Estoque</label><input id="live-new-container-stock" inputmode="numeric" type="number" min="0" max="100000" class="input" value="0"></div>
     </div>
@@ -1598,17 +1665,26 @@ function merchantLiveCatalog(){
 
 async function merchantLiveAddRegisteredProduct(){
   const code=String(document.getElementById('live-new-registry-product')?.value||'').trim().toUpperCase();
-  const available=(globalThis.merchantRuntime?.availableProducts||[]).find(item=>String(item.productCode||'').toUpperCase()===code);
+  const available=merchantCatalogAvailableChoices(globalThis.merchantRuntime||{}).find(item=>item.productCode===code);
   const price=Number(document.getElementById('live-new-registry-price')?.value);
   const stock=Number(document.getElementById('live-new-registry-stock')?.value);
   if(!available)return toast('Escolha um produto liberado pela administração');
   if(!Number.isFinite(price)||price<=0||price>10000||!Number.isInteger(stock)||stock<0||stock>100000){
     return toast('Revise preço e estoque');
   }
+  if(merchantCatalogSaving.has(code))return;
+  const button=document.getElementById('live-new-registry-add');
+  const previous=button?.textContent||'Adicionar produto';
+  merchantCatalogSaving.add(code);
+  if(button){button.disabled=true;button.textContent='Adicionando…';}
   try{
     await merchantUpdateProductLive(code,Math.round(price*100),stock,true);
     toast(String(available.productName||code)+' adicionado ao catálogo');
   }catch(e){toast(String(e?.message||e))}
+  finally{
+    merchantCatalogSaving.delete(code);
+    if(button){button.disabled=false;button.textContent=previous;}
+  }
 }
 
 async function merchantLiveAddGlp(){

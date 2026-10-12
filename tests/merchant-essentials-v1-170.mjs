@@ -29,7 +29,7 @@ const base={
  shell:html=>html,document:null
 };
 const sandbox=vm.createContext(base);
-vm.runInContext(['merchantSetupSnapshot','merchantSetupView','merchantRevealControl','merchantSetupGo','merchantLiveCatalog']
+vm.runInContext(['merchantSetupSnapshot','merchantSetupView','merchantRevealControl','merchantSetupGo','merchantCatalogAvailableChoices','merchantCatalogGasOptions','merchantLiveCatalog']
  .map(extract).join('\n')+';this.snapshot=merchantSetupSnapshot;this.renderSetup=merchantSetupView;this.renderCatalog=merchantLiveCatalog;this.show=merchantRevealControl;this.goSetup=merchantSetupGo;',sandbox);
 const evaluate=expr=>vm.runInContext(expr,sandbox);
 const steps=JSON.parse(evaluate('JSON.stringify(snapshot(globalThis.merchantRuntime))'));

@@ -33,7 +33,7 @@ const context=vm.createContext({
  WOOD:{name:'Lenha',icon:'🪵'}},BRL:currency,shell:s=>s,
  merchantTimestampFresh:()=>true
 });
-vm.runInContext(excerpt('function merchantLiveCatalog(')+';this.renderCatalog=merchantLiveCatalog;',context);
+vm.runInContext([excerpt('function merchantCatalogAvailableChoices('),excerpt('function merchantCatalogGasOptions('),excerpt('function merchantLiveCatalog(')].join('\n')+';this.renderCatalog=merchantLiveCatalog;',context);
 let html=context.renderCatalog();
 assert.ok(html.includes('Produtos da minha revenda'));
 assert.ok(html.includes('merchant-catalog-list'));
