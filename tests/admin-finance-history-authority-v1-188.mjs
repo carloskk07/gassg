@@ -105,7 +105,7 @@ assert.ok(edge.includes('"finance-receipts-history"'));
 assert.ok(edge.includes('admin.rpc("admin_finance_receipts_history_v1_188"'));
 assert.ok(edge.includes('p_actor_user_id:user.id'));
 assert.ok(edge.includes('["superadmin","finance"].includes(String(adminAccess.admin_role||""))'));
-const sql=read('supabase/migrations/20261012191500_finance_authoritative_history_v1_188.sql');
+const sql=read('supabase/migrations/20261012191906_finance_authoritative_history_v1_188.sql');
 assert.ok(sql.includes("security definer")&&sql.includes("set search_path = pg_catalog"));
 assert.ok(sql.includes("revoke all on function public.admin_finance_receipts_history_v1_188(uuid) from public, anon, authenticated;"));
 assert.ok(sql.includes("grant execute on function public.admin_finance_receipts_history_v1_188(uuid) to service_role;"));
