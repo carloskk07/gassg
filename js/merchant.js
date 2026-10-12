@@ -1494,7 +1494,8 @@ function merchantLiveCatalog(){
     const priceSummary=range
       ? 'Faixa '+BRL.format(item.minPriceCents/100)+' – '+BRL.format(item.maxPriceCents/100)+' • normal '+BRL.format(item.priceCents/100)+' • '+strategyLabel
       : 'Preço fixo '+(item.priceCents>0?BRL.format(item.priceCents/100):'—');
-    return `<div class="card flat form-stack" style="margin-bottom:12px">
+    return `<details class="merchant-catalog-entry"><summary><span class="merchant-catalog-summary-name">${icon} ${esc(item.productName)}<small>${esc(priceSummary)} • estoque ${Number(item.availableStock)}</small></span><span class="status-pill ${statusClass}">${status}</span></summary>
+    <div class="card flat form-stack">
       <div class="status-bar"><div class="product-left"><div class="product-icon">${icon}</div><div><strong>${esc(item.productName)}</strong><br><small>${esc(item.productCode)} • ${esc(priceSummary)} • ${item.priceConfirmedAt?'confirmado '+new Date(item.priceConfirmedAt).toLocaleString('pt-BR'):'nunca confirmado'}</small></div></div><span class="status-pill ${statusClass}">${status}</span></div>
       <div class="field-row">
         <div class="input-wrap"><label for="live-pricing-mode-${item.productCode}">Modo</label><select id="live-pricing-mode-${item.productCode}" class="input" onchange="merchantPricingModeChanged('${item.productCode}')"><option value="fixed" ${range?'':'selected'}>Preço fixo</option><option value="range" ${range?'selected':''}>Faixa automática</option></select></div>
@@ -1509,7 +1510,7 @@ function merchantLiveCatalog(){
       <div class="notice"><strong>${range?'Faixa autorizada':'Preço fixo'}.</strong><br>${range?'O TAMÃO pode escolher um preço somente entre o mínimo e o máximo, usando estoque e carga da sua própria operação. O preço de concorrentes não define o seu valor.':'O TAMÃO usa exatamente o preço normal informado neste SKU.'}</div>
       <label class="check-row"><input id="live-active-${item.productCode}" type="checkbox" ${item.active?'checked':''}><span><strong>Produto ativo</strong><small>Somente itens ativos e com estoque participam das ofertas.</small></span></label>
       <button class="secondary" onclick="merchantLiveSaveProduct('${item.productCode}')">Salvar e confirmar política de preço</button>
-    </div>`;
+    </div></details>`;
   }).join('');
 
   const catalogCodes=new Set((rt.catalog||[]).map(item=>String(item.productCode||'').toUpperCase()));
@@ -1559,7 +1560,7 @@ function merchantLiveCatalog(){
     <button class="primary" onclick="merchantLiveAddContainer()">Adicionar vasilhame</button>
   </div>`;
 
-  return shell(`<section class="page"><button class="back" onclick="go('merchant')">← Operação</button><h1 class="page-title">Catálogo real</h1><p class="muted">Cada SKU possui sua própria confirmação de preço e política comercial. Produtos gerais liberados pela administração entram sem novo deploy; GLP mantém regras próprias.</p><div style="margin-top:16px">${addRegistered}${addGlp}${addContainer}${rows}</div></section>`);
+  return shell(`<section class="page merchant-catalog-page"><button class="back" onclick="go('merchant')">← Operação</button><h1 class="page-title">Produtos da minha revenda</h1><p class="muted">Toque no produto que deseja vender para ajustar preço e estoque. Os produtos só entram nas ofertas quando estiverem ativos e aptos às regras aplicáveis.</p><div class="merchant-catalog-list">${rows}</div><details class="merchant-catalog-extra"><summary>Adicionar outro produto ou vasilhame</summary><div class="merchant-catalog-add-body">${addRegistered}${addGlp}${addContainer}</div></details></section>`);
 }
 
 async function merchantLiveAddRegisteredProduct(){
