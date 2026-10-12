@@ -2,10 +2,13 @@ TAMÃO — Assistente de backup para Windows 10/11
 
 1. Extraia os três arquivos do ZIP para uma pasta.
 2. Clique duas vezes em "Iniciar Backup TAMÃO.cmd".
-3. Se as ferramentas PostgreSQL estiverem ausentes, clique "COMO INSTALAR".
-   Instale as Command Line Tools PostgreSQL 17 ou superior pelo site oficial.
-4. Informe no assistente a senha DO BANCO PostgreSQL, não a do login Supabase.
-5. Clique em CRIAR BACKUP PRIVADO e aguarde a mensagem de sucesso.
+3. Clique em BAIXAR FERRAMENTAS. Autorize o download oficial PostgreSQL
+   17.11-3 da EnterpriseDB. O TAMÃO verifica SHA-256 antes de extrair apenas
+   as ferramentas para seu usuário, sem instalar servidor ou serviço.
+   Pode ser um download grande. Se o site estiver indisponível, use o link
+   oficial de instalação manual oferecido na tela.
+4. Informe a senha DO BANCO PostgreSQL, não a do login Supabase.
+5. Clique em CRIAR BACKUP PRIVADO e aguarde a confirmação.
 
 Caso sua rede não suporte conexão direta IPv6, obtenha em Supabase > Connect
 os valores de host, porta e usuário do "Session pooler" e preencha na tela.
@@ -18,3 +21,11 @@ as quatro migrações. Não compartilhe senhas ou backups no chat/GitHub.
 O pacote NÃO contém PostgreSQL, não instala programas silenciosamente,
 não modifica o banco e não liga o comércio. Código-fonte acessível no
 repositório carloskk07/gassg, pasta tools/tamao-backup-windows.
+
+Referência do hash SHA-256 informado pelo fabricante:
+https://github.com/EnterpriseDB/edb-installers/issues/682
+Arquivo portátil oficial:
+https://get.enterprisedb.com/postgresql/postgresql-17.11-3-windows-x64-binaries.zip
+
+Se os acentos aparecem como TAMÃƒO, substitua o arquivo
+Assistente-TAMAO.ps1 pela versão mais recente (UTF-8 com BOM).

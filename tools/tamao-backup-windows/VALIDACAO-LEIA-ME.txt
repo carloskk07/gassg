@@ -1,0 +1,19 @@
+TAMÃO — validação privada do backup, sem senha
+
+1. Extraia o ZIP do verificador em uma pasta.
+2. Abra "VERIFICAR BACKUP TAMÃO.cmd" com dois cliques.
+3. O programa procura o arquivo mais recente em
+   %LOCALAPPDATA%\TAMAO\Backups. Se necessário, escolha outro.
+4. Clique em "VERIFICAR ARQUIVO COMPLETO".
+5. Aguarde: checksum SHA-256, catálogo e leitura integral do dump.
+6. Clique em "Copiar resultado". Envie SOMENTE o código de resultado
+   (BACKUP_INTEGRITY_OK...), nunca o backup ou a senha.
+
+Esta checagem NÃO faz uma restauração do banco, NÃO prova que todas
+as funções e extensões Supabase podem ser recuperadas e NÃO autoriza
+as quatro migrações comerciais de produção. Para teste real será
+necessário um ambiente PostgreSQL isolado compatível com Supabase,
+preferencialmente gerenciado pela Supabase CLI / Docker local.
+
+Os scripts não acessam o banco online e não enviam o conteúdo do
+backup. O PostgreSQL pg_restore é executado em modo de leitura local.
