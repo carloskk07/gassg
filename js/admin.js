@@ -45,6 +45,8 @@ const adminRuntime={
   prospectLoadedFor:null,
   prospectFollowupUi:null,
   cityPipelineUi:null,
+  cityEvolutionBaseline:null,
+  cityEvolutionRefreshing:false,
   expansionRadar:[],
   expansionRadarLoaded:false,
   expansionRadarCheckedAt:null,
@@ -365,6 +367,8 @@ async function adminSignOut(){
   adminRuntime.prospectLoadedFor=null;
   adminRuntime.prospectFollowupUi=null;
   adminRuntime.cityPipelineUi=null;
+  adminRuntime.cityEvolutionBaseline=null;
+  adminRuntime.cityEvolutionRefreshing=false;
   adminRuntime.expansionRadarError=null;
   adminRuntime.commercialOpportunityFilter='all';
   adminRuntime.status='unauthenticated';
@@ -407,6 +411,8 @@ async function adminRefresh({silent=false}={}){
       adminRuntime.prospectLoadedFor=null;
   adminRuntime.prospectFollowupUi=null;
   adminRuntime.cityPipelineUi=null;
+  adminRuntime.cityEvolutionBaseline=null;
+  adminRuntime.cityEvolutionRefreshing=false;
       adminRuntime.error=null;
       return null;
     }
@@ -432,6 +438,8 @@ async function adminRefresh({silent=false}={}){
       adminRuntime.prospectLoadedFor=null;
   adminRuntime.prospectFollowupUi=null;
   adminRuntime.cityPipelineUi=null;
+  adminRuntime.cityEvolutionBaseline=null;
+  adminRuntime.cityEvolutionRefreshing=false;
       adminRuntime.error='Sua sessão expirou. Entre novamente.';
       return null;
     }
