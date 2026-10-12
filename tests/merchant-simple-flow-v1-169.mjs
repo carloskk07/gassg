@@ -7,8 +7,9 @@ const growth=read('js/growth.js');
 const merchant=read('js/merchant.js');
 const css=read('css/components.css');
 function functionSource(source,name){
-  const start=source.indexOf('function '+name+'(');
+  let start=source.indexOf('function '+name+'(');
   assert.ok(start>=0,'Missing function '+name);
+  if(source.slice(start-6,start)==='async ')start-=6;
   const end=source.indexOf('\n}',start);
   assert.ok(end>start,'Missing closing brace for '+name);
   return source.slice(start,end+2);
