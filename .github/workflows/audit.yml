@@ -85,6 +85,8 @@ jobs:
         run: node tests/national-expansion-referral-v1-165.mjs
       - name: Real-status buyer tracking V1.164 regression contract
         run: node tests/customer-tracking-confidence-v1-164.mjs
+      - name: Buyer incident tracking V1.179 regression
+        run: node tests/customer-incident-tracking-v1-179.mjs
       - name: Transparent mobile offer comparison V1.163 regression contract
         run: node tests/transparent-offer-comparison-v1-163.mjs
       - name: Automatic address and anti-stale offers V1.162 regression contract
