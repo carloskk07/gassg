@@ -1006,16 +1006,18 @@ function merchantDeliveryAttentionView(rt){
   if(!['owner','manager'].includes(role))return '';
   const pending=merchantDeliveryUnassigned(rt?.orders);
   if(!pending.length)return '';
+  const hasMembers=merchantDeliveryCandidates(rt).length>0;
   const rows=pending.slice(0,4).map(order=>{
     const id=String(order.orderId||'');
     const safe=/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(id);
     return '<div class="merchant-delivery-reminder-row"><span>'+esc(order.publicCode||'Pedido')+
-      '</span>'+(safe?'<button class="secondary small" type="button" onclick="merchantFocusDeliveryAssignment(\''+id+'\')">Escolher responsável</button>':'')+'</div>';
+      '</span>'+(safe&&hasMembers?'<button class="secondary small" type="button" onclick="merchantFocusDeliveryAssignment(\''+id+'\')">Escolher responsável</button>':'')+'</div>';
   }).join('');
   return '<section class="merchant-delivery-reminders" aria-label="Entregas sem responsável">'+
     '<div class="merchant-delivery-reminders-title"><strong>'+pending.length+' '+(pending.length===1?'pedido precisa':'pedidos precisam')+
     ' de responsável</strong><span>Antes da saída, distribua as entregas entre sua equipe.</span></div>'+
     '<div class="merchant-delivery-reminder-items">'+rows+'</div>'+
+    (!hasMembers?'<button class="secondary small" type="button" onclick="merchantOpenTeam()">Adicionar alguém à equipe</button>':'')+
     (pending.length>4?'<small>Outros pedidos sem responsável aparecem na fila de preparação.</small>':'')+
     '</section>';
 }
