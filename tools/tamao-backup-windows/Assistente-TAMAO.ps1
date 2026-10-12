@@ -3,7 +3,7 @@
 # iniciada explicitamente pelo usuário com o próprio Supabase.
 # Nunca cria banco, modifica tabelas, envia dump ao GitHub ou ativa vendas.
 [CmdletBinding()]
-param([switch]$SelfTest)
+param([switch]$SelfTest,[switch]$GuiSmokeTest)
 $ErrorActionPreference = 'Stop'
 Set-StrictMode -Version Latest
 
@@ -341,5 +341,10 @@ $startButton.Add_Click({
 })
 
 $form.Add_Shown({ Refresh-Tools })
+if ($GuiSmokeTest) {
+  $form.Dispose()
+  Write-Output 'TAMAO_GUI_INITIALIZATION_OK'
+  exit 0
+}
 [void]$form.ShowDialog()
 $form.Dispose()
