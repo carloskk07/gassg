@@ -37,7 +37,8 @@ const ctx=vm.createContext({adminRuntime:state,Date,Number,Object,String,Array,M
  adminExpansionBridgeSnapshot:()=>({valid,fresh,rows:cities,total:cities.length,sampled,missingLocation:2}),
  adminOpenExpansionBridgeCity:(key,destination)=>navigation.push([key,destination]),
  render:()=>renders++});
-const names=['adminCityPlanSteps','adminCityPlanView','adminCityPipelineSnapshot','adminCityPipelineUi','adminCityPipelineSetFilter',
+const names=['adminCityEvolutionStage','adminCityEvolutionSnapshot','adminCityEvolutionView','adminCityEvolutionCityNote',
+ 'adminCityPlanSteps','adminCityPlanView','adminCityPipelineSnapshot','adminCityPipelineUi','adminCityPipelineSetFilter',
  'adminCityPipelineSetSearch','adminCityPipelinePage','adminCityPipelineOpen','adminCityPipelineView'];
 vm.runInContext(names.map(extract).join('\n')+
  '\nthis.snapshot=adminCityPipelineSnapshot;this.view=adminCityPipelineView;'+

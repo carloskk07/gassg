@@ -789,6 +789,158 @@ async function adminCityPlanCopy(key){
   }
 }
 
+/* V1.204 — city commercial evidence signals and session-only comparable reference. */
+function adminCityEvolutionStage(row){
+  const count=x=>Number.isSafeInteger(x)&&x>=0?x:null;
+  const available=count(row.available),registered=count(row.registered),
+    onboarding=count(row.onboarding),anp=count(row.anp),
+    uncontacted=count(row.openProspects),interests=count(row.interests);
+  if(row.paused===true)return {id:'paused',label:'Pausada pelo administrador'};
+  if(available!==null&&available>0)return {id:'offer',label:'Oferta verificada na amostra'};
+  if(registered!==null&&registered>0)return {id:'registered',label:'Revenda cadastrada; oferta pendente'};
+  if(onboarding!==null&&onboarding>0)return {id:'onboarding',label:'Cadastramento sinalizado'};
+  if(anp!==null&&anp>0||uncontacted!==null&&uncontacted>0)
+    return {id:'prospecting',label:'Prospecção identificada'};
+  if(interests!==null&&interests>0)return {id:'interest',label:'Interesse registrado'};
+  return {id:'unknown',label:'Evidência comercial inconclusiva'};
+}
+function adminCityEvolutionSnapshot(d,now=Date.now()){
+  const src=adminCityPipelineSnapshot(d,now);
+  if(!src.valid)return {valid:false,fresh:false,rows:[],totals:null,status:'invalid'};
+  if(!src.fresh)return {valid:true,fresh:false,rows:[],totals:null,status:'stale'};
+  const counts={paused:0,offer:0,registered:0,onboarding:0,prospecting:0,interest:0,unknown:0};
+  const safe=x=>Number.isSafeInteger(x)&&x>=0?x:null;
+  const rows=src.items.map(item=>{
+    const stage=adminCityEvolutionStage(item);
+    counts[stage.id]++;
+    return {key:item.key,label:item.label,paused:item.paused===true,stage:stage.id,
+      stageLabel:stage.label,interests:safe(item.interests),registered:safe(item.registered),
+      available:safe(item.available),overdue:safe(item.overdue)};
+  });
+  let reference=adminRuntime.cityEvolutionBaseline||null,status='none',changes=new Map();
+  const user=String(adminRuntime.session?.user?.id||'');
+  if(reference&&reference.user!==user)reference=null;
+  if(reference){
+    const aged=now-reference.capturedAt;
+    const sameRange=Number.isFinite(aged)&&aged>=0&&aged<=24*60*60*1000;
+    const radarTime=Date.parse(String(adminRuntime.expansionRadarCheckedAt||''));
+    const merchantTime=Date.parse(String(adminRuntime.lastSyncAt||''));
+    if(!sameRange){status='expired';}
+    else if(src.limited||reference.limited){status='limited';}
+    else if(!(radarTime>reference.radarTime&&merchantTime>reference.merchantTime)){
+      status='waiting';
+    }else if(rows.length!==reference.rows.length||
+      rows.some(r=>!reference.rows.some(old=>old.key===r.key))){
+      status='coverage';
+    }else{
+      status='compared';
+      const earlier=new Map(reference.rows.map(row=>[row.key,row]));
+      for(const row of rows){
+        const old=earlier.get(row.key);
+        if(!old)continue;
+        const delta={};
+        for(const key of ['interests','registered','available','overdue']){
+          delta[key]=old[key]!==null&&row[key]!==null?row[key]-old[key]:null;
+        }
+        changes.set(row.key,{from:old.stage,to:row.stage,fromLabel:old.stageLabel,
+          toLabel:row.stageLabel,delta});
+      }
+    }
+  }
+  return {valid:true,fresh:true,rows,totals:counts,status,changes,reference,
+    limited:src.limited,cityCount:src.cityCount};
+}
+function adminCityEvolutionCapture(){
+  if(adminRuntime.status!=='ready'||!adminRoleCanSection('prospects'))return;
+  const snapshot=adminCityEvolutionSnapshot(adminRuntime.data);
+  if(!snapshot.valid||!snapshot.fresh||snapshot.limited)return;
+  const radarTime=Date.parse(String(adminRuntime.expansionRadarCheckedAt||''));
+  const merchantTime=Date.parse(String(adminRuntime.lastSyncAt||''));
+  if(!Number.isFinite(radarTime)||!Number.isFinite(merchantTime))return;
+  const user=String(adminRuntime.session?.user?.id||'');
+  if(!user)return;
+  adminRuntime.cityEvolutionBaseline={user,capturedAt:Date.now(),radarTime,merchantTime,
+    rows:snapshot.rows.map(({key,stage,stageLabel,interests,registered,available,overdue})=>
+      ({key,stage,stageLabel,interests,registered,available,overdue})),
+    limited:false};
+  render();
+}
+function adminCityEvolutionClear(){
+  if(adminRuntime.status!=='ready'||!adminRoleCanSection('prospects'))return;
+  adminRuntime.cityEvolutionBaseline=null;
+  render();
+}
+async function adminCityEvolutionRefresh(){
+  if(adminRuntime.status!=='ready'||!adminRoleCanSection('prospects')||
+    adminRuntime.cityEvolutionRefreshing)return;
+  const session=adminRuntime.session;
+  adminRuntime.cityEvolutionRefreshing=true;
+  render();
+  try{
+    await adminRefresh({silent:true});
+    if(adminRuntime.status!=='ready'||adminRuntime.session!==session||
+      !adminRoleCanSection('prospects'))return;
+    await adminLoadExpansionRadar();
+  }catch{
+    if(adminRuntime.status==='ready'&&adminRuntime.session===session)
+      toast('Não foi possível atualizar as duas fontes. Confira os avisos do painel.');
+  }finally{
+    if(adminRuntime.session===session){
+      adminRuntime.cityEvolutionRefreshing=false;
+      render();
+    }
+  }
+}
+function adminCityEvolutionCityNote(key,evolution){
+  const row=evolution.rows.find(x=>x.key===key);
+  if(!row)return '';
+  const current=`<span class='admin-evolution-stage'>Momento observado: ${esc(row.stageLabel)}</span>`;
+  if(evolution.status!=='compared')return current;
+  const change=evolution.changes.get(key);
+  if(!change)return current;
+  const labels={interests:'interesses',registered:'revendas cadastradas',
+    available:'ofertas verificadas',overdue:'retornos vencidos'};
+  const differences=Object.entries(change.delta).filter(([,v])=>v!==null&&v!==0)
+    .map(([key,v])=>labels[key]+' '+(v>0?'+':'')+v);
+  const stageChange=change.from===change.to?'Mesmo tipo de sinal':
+    'Mudança de sinal: '+change.fromLabel+' → '+change.toLabel;
+  return current+`<small class='admin-evolution-delta'>${esc(stageChange)}${differences.length?' • '+esc(differences.join(' • ')):''}</small>`;
+}
+function adminCityEvolutionView(evolution){
+  const heading="<div class='section-head'><div><span class='section-kicker'>AVANÇO COMERCIAL</span>"+
+    "<h4>Como estão evoluindo as cidades?</h4><p>Compare duas consultas verificadas, sem supor que os mesmos clientes se tornaram compradores.</p></div></div>";
+  const status=evolution.status;
+  const actions=`<div class='admin-evolution-actions'>
+    <button type='button' class='secondary small' onclick='adminCityEvolutionCapture()'
+      ${evolution.limited?'disabled title="Amostra parcial não pode ser referência confiável"':''}>Marcar referência</button>
+    <button type='button' class='secondary small' onclick='adminCityEvolutionRefresh()'
+      ${adminRuntime.cityEvolutionRefreshing?'disabled':''}>Atualizar as duas fontes</button>
+    ${evolution.reference?"<button type='button' class='secondary small' onclick='adminCityEvolutionClear()'>Limpar referência</button>":''}
+  </div>`;
+  const notice=status==='none'?'Marque uma referência para começar. Ela fica apenas nesta sessão administrativa; não é histórico permanente.':
+    status==='waiting'?'Referência guardada. Atualize o radar e os cadastros para comparar duas consultas distintas.':
+    status==='expired'?'A referência tem mais de 24 horas. Marque uma nova para evitar comparações indevidas.':
+    status==='coverage'?'A cobertura de municípios mudou entre consultas; não calculamos variações de amostras diferentes. Marque nova referência.':
+    status==='limited'?'A amostra de uma das consultas é limitada; não é seguro comparar mudanças.':
+    status==='compared'?'Comparação de sinais concluída. Diferenças de contagens não comprovam conversão individual, vendas ou crescimento do mercado.':
+    'Conferência das fontes necessária.';
+  const indicators=[
+    ['interest','Interesse registrado'],['prospecting','Prospecção identificada'],
+    ['onboarding','Em cadastramento'],['registered','Revenda cadastrada'],
+    ['offer','Oferta verificada'],['paused','Pausadas'],['unknown','Inconclusivas']
+  ];
+  const cards=indicators.map(([key,label])=>
+    `<div><strong>${evolution.totals[key]}</strong><small>${label}</small></div>`).join('');
+  return `<div class='admin-city-evolution' aria-label='Evolução de sinais comerciais por cidade'>
+    ${heading}
+    <div class='admin-evolution-kpis'>${cards}</div>
+    <p class='tiny muted'>${evolution.rows.length} cidade(s) na amostra atual, agrupadas pelo sinal comercial mais avançado identificado. Etapas são indicativas, não um funil de clientes únicos.</p>
+    ${evolution.limited?'<div class="notice">Amostra parcial: os indicadores não representam toda a rede.</div>':''}
+    <div class='notice' role='status'>${esc(notice)}</div>
+    ${actions}
+  </div>`;
+}
+
 function adminCityPipelineView(d){
   if(!adminRoleCanSection('prospects')||adminRuntime.status!=='ready')return '';
   const snapshot=adminCityPipelineSnapshot(d);
@@ -811,6 +963,7 @@ function adminCityPipelineView(d){
   const page=Math.min(last,Math.max(0,ui.page));ui.page=page;
   const start=page*8;
   const txt=value=>value===null?'—':String(value);
+  const evolution=adminCityEvolutionSnapshot(d);
   const cards=rows.slice(start,start+8).map(row=>{
     const target=row.hasRadar?'prospects':row.hasMerchants?'partners':null;
     const accessible=target&&(target==='prospects'||adminRoleCanSection('partners'));
@@ -818,6 +971,7 @@ function adminCityPipelineView(d){
       <div class='admin-city-pipeline-main'>
         <span class='admin-city-pipeline-kind'>${esc(labels[row.kind])}</span>
         <strong>${esc(row.label)}</strong>
+        ${adminCityEvolutionCityNote(row.key,evolution)}
         <small>${esc(row.next)}</small>
         <small>Interesses: ${txt(row.interests)} • ANP verificada: ${txt(row.anp)} •
           Revendas cadastradas: ${row.registered} • Ofertas confirmadas na amostra: ${txt(row.available)}</small>
@@ -830,6 +984,7 @@ function adminCityPipelineView(d){
   }).join('');
   return `<section class='section admin-city-pipeline' aria-label='Visão comercial por cidades'>
     ${heading}
+    ${adminCityEvolutionView(evolution)}
     ${snapshot.limited?'<div class="notice">Radar ou lista de revendas com amostra limitada. Esta visão pode não incluir todos os municípios.</div>':''}
     <div class='admin-city-pipeline-kpis'>
       <div><strong>${snapshot.totals.all}</strong><small>Cidades na amostra</small></div>
