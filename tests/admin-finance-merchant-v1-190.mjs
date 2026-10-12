@@ -138,7 +138,7 @@ assert.ok(edge.includes('enforceApiQuota'));
 assert.ok(edge.includes('"Cache-Control":"no-store"'));
 assert.ok(edge.includes('originAllowed(origin)'));
 assert.ok(edge.includes('Deno.serve'));
-assert.ok(admin.includes("body?.action==='finance-merchant-performance'?'admin-finance-merchant':'admin-ops'"));
+assert.ok(source.includes("body?.action==='finance-merchant-performance'?'admin-finance-merchant':'admin-ops'"));
 assert.ok(!read('supabase/functions/admin-ops/index.ts').includes('admin_finance_merchant_performance_v1_190'));
 const sql=read('supabase/migrations/20261012193939_finance_merchant_performance_v1_190.sql');
 assert.ok(sql.includes('SECURITY DEFINER'));
