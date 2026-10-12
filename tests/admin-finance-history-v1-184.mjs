@@ -73,6 +73,9 @@ assert.equal(rt.salePaymentHistory.attempts.length,2,'Duplicate attempt cannot b
 assert.equal(rt.salePaymentHistory.hasMore,false);
 await ui.load();
 assert.equal(calls,2,'No extra request after exhausted');
+rt.salePaymentHistory={attempts:[],interruptedOrders:[],nextCursor:null,hasMore:false,loading:false,error:null,started:true};
+await ui.load();
+assert.equal(calls,2,'Exhausted history stays exhausted even when that page contained no interrupted orders');
 role='operations';
 rt.salePaymentHistory={attempts:[],interruptedOrders:[],nextCursor:null,hasMore:false,loading:false,error:null};
 await ui.load();
