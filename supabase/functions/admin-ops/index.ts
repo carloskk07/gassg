@@ -99,7 +99,7 @@ async function requireAdmin(admin:any,userId:string){
   if(!data)throw new DomainError("ADMIN_ACCESS_DENIED","Esta conta não possui acesso administrativo.",403);
   return data;
 }
-const ADMIN_READ_ACTIONS=new Set(["summary","search","entity-detail","system-health","billing-provider-health","audit-search","incident-list","merchant-payment-preflight","prospect-intelligence","expansion-notifications","expansion-radar","merchant-enablement"]);
+const ADMIN_READ_ACTIONS=new Set(["summary","search","entity-detail","system-health","billing-provider-health","audit-search","incident-list","merchant-payment-preflight","prospect-intelligence","expansion-notifications","expansion-radar","merchant-enablement","sale-payment-history"]);
 const ADMIN_ROLE_ACTIONS:Record<string,Set<string>>={
   superadmin:new Set(["*"]),
   operations:new Set([
@@ -124,6 +124,47 @@ function requireAdminAction(role:string,action:string){
   if(allowed.has("*")||allowed.has(action))return;
   throw new DomainError("ADMIN_PERMISSION_DENIED","Seu perfil administrativo não possui permissão para esta ação.",403);
 }
+
+/* V1.184 — finance-only read pagination beyond the 500-attempt summary.
+   A validated keyset avoids offset drift when new payments are created. */
+async function financeSalePaymentHistory(admin:any,body:any){
+  const cursor=body?.cursor;
+  const createdAt=String(cursor?.createdAt||"");
+  const cursorId=String(cursor?.id||"");
+  if(!/^20\d{2}-\d\d-\d\dT[0-9:.+-]+Z$/.test(createdAt)
+    ||!Number.isFinite(Date.parse(createdAt))
+    ||Date.parse(createdAt)>Date.now()+5*60*1000
+    ||!UUID_RE.test(cursorId)){
+    throw new DomainError("INVALID_FINANCE_CURSOR","Atualize os dados financeiros antes de consultar o histórico.",400);
+  }
+  const pageSize=200;
+  const {data:attempts,error}=await admin.from("merchant_sale_payment_attempts")
+    .select("id,order_id,merchant_id,provider,amount_cents,status,approved_at,refunded_at,last_error_at,created_at,updated_at")
+    .or("created_at.lt."+createdAt+",and(created_at.eq."+createdAt+",id.lt."+cursorId+")")
+    .order("created_at",{ascending:false})
+    .order("id",{ascending:false})
+    .limit(pageSize);
+  if(error)throw error;
+  const found=attempts||[];
+  const ids=[...new Set(found.map((r:any)=>String(r.order_id||"")).filter((id:string)=>UUID_RE.test(id)))];
+  const orders=ids.length?await admin.from("orders")
+    .select("id,public_code,status,financial_state,financial_reversed_at,updated_at")
+    .in("id",ids).in("status",["CANCELLED","REASSIGNING"]).limit(pageSize)
+    :{data:[],error:null};
+  if(orders.error)throw orders.error;
+  const last=found[found.length-1];
+  return {
+    attempts:found,
+    interruptedOrders:orders.data||[],
+    nextCursor:last&&found.length===pageSize
+      ?{createdAt:last.created_at,id:last.id}:null,
+    hasMore:found.length===pageSize,
+    batchSize:found.length,
+    readOnly:true,
+    source:"historic_sale_attempts_keyset"
+  };
+}
+
 async function fetchTextWithTimeout(url:string){
   const controller=new AbortController();
   const timer=setTimeout(()=>controller.abort(),PORTAL_PROBE_TIMEOUT_MS);
@@ -1445,6 +1486,7 @@ async function summary(admin:any,actorUserId:string){
     ? admin.from("merchant_sale_payment_attempts")
         .select("id,order_id,merchant_id,provider,checkout_mode,amount_cents,currency,status,payment_route_id,payment_method_snapshot,verification_level,funds_owner,provider_order_id,provider_payment_id,provider_status,expires_at,approved_at,rejected_at,cancelled_at,refunded_at,last_error_code,last_error_at,pilot_guard,created_at,updated_at")
         .order("created_at",{ascending:false})
+        .order("id",{ascending:false})
         .limit(500)
     : Promise.resolve({data:[],error:null});
   const billingRefundsPromise=["superadmin","finance","readonly"].includes(actorRole)
@@ -1790,6 +1832,12 @@ Deno.serve(async(req:Request)=>{
     }
     if(action==="summary"){
       return json(await summary(admin,user.id),200,origin);
+    }
+    if(action==="sale-payment-history"){
+      if(!["superadmin","finance","readonly"].includes(String(adminAccess.admin_role||""))){
+        throw new DomainError("ADMIN_PERMISSION_DENIED","Este perfil não pode consultar pagamentos de vendas.",403);
+      }
+      return json(await financeSalePaymentHistory(admin,body),200,origin);
     }
     if(action==="search"){
       return json(await adminSearch(admin,body.query,String(adminAccess.admin_role||"superadmin")),200,origin);
