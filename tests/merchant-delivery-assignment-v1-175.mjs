@@ -93,6 +93,8 @@ rt.actionPending=false;
 const backup=rt.deliveryTeam;rt.deliveryTeam=[];
 card=ctx.card({...rt.orders[0],items:[],totalCents:1000});
 assert.ok(card.includes('Gerenciar equipe'),'Empty roster offers actionable path');
+assert.ok(ctx.attention(rt).includes('Adicionar alguém à equipe'),'No selectable team offers a team setup path');
+assert.ok(!ctx.attention(rt).includes('merchantFocusDeliveryAssignment('),'No useless shortcut when team is empty');
 rt.deliveryTeam=backup;
 const focusDoc={
  parentElement:null,
