@@ -2773,3 +2773,17 @@ details[id^="prospect-editor-"] summary:focus-visible{outline:3px solid var(--br
 .admin-city-plan-actions button{min-height:44px;white-space:normal}
 @media(max-width:720px){.admin-city-plan-actions button{width:100%}}
 @media(max-width:340px){.admin-city-plan{padding:8px}.admin-city-plan-actions button{min-height:48px}}
+
+/* V1.204 — contextual commercial evidence comparison (not lead conversion rates) */
+.admin-city-evolution{margin:12px 0 18px;border:1px solid var(--line);border-radius:14px;padding:14px;min-width:0}
+.admin-evolution-kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(118px,1fr));gap:8px;margin:12px 0}
+.admin-evolution-kpis>div{padding:10px;border:1px solid var(--line);border-radius:10px;min-width:0}
+.admin-evolution-kpis strong{display:block;font-size:19px;font-variant-numeric:tabular-nums}
+.admin-evolution-kpis small{font-size:11px;color:var(--muted)}
+.admin-evolution-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
+.admin-evolution-actions button{min-height:44px;white-space:normal}
+.admin-evolution-stage{display:inline-flex;align-items:center;font-size:11px;font-weight:700;color:var(--brand);overflow-wrap:anywhere}
+.admin-evolution-delta{display:block;font-size:11px;line-height:1.5;color:var(--muted)}
+.admin-city-evolution :focus-visible{outline:3px solid var(--brand);outline-offset:3px}
+@media(max-width:720px){.admin-evolution-actions button{flex:1 1 100%}.admin-city-evolution{padding:11px}}
+@media(max-width:340px){.admin-evolution-kpis{grid-template-columns:repeat(2,minmax(0,1fr))}.admin-evolution-actions button{min-height:48px}}
