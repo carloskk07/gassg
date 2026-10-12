@@ -131,7 +131,7 @@ async function financeSalePaymentHistory(admin:any,body:any){
   const cursor=body?.cursor;
   const createdAt=String(cursor?.createdAt||"");
   const cursorId=String(cursor?.id||"");
-  if(!/^20\d{2}-\d\d-\d\dT[0-9:.+-]+Z$/.test(createdAt)
+  if(!/^20\d{2}-\d\d-\d\dT\d\d:\d\d:\d\d(?:\.\d{1,6})?(?:Z|[+-]\d\d:\d\d)$/.test(createdAt)
     ||!Number.isFinite(Date.parse(createdAt))
     ||Date.parse(createdAt)>Date.now()+5*60*1000
     ||!UUID_RE.test(cursorId)){
@@ -153,8 +153,9 @@ async function financeSalePaymentHistory(admin:any,body:any){
     :{data:[],error:null};
   if(orders.error)throw orders.error;
   const last=found[found.length-1];
+  const eligible=new Set((orders.data||[]).map((o:any)=>String(o.id)));
   return {
-    attempts:found,
+    attempts:found.filter((a:any)=>eligible.has(String(a.order_id||""))),
     interruptedOrders:orders.data||[],
     nextCursor:last&&found.length===pageSize
       ?{createdAt:last.created_at,id:last.id}:null,
