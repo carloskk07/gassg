@@ -943,7 +943,12 @@ function adminOpenProspectFollowup(cnpj){
   const session=adminRuntime.session,loaded=adminRuntime.prospectLoadedAt;
   requestAnimationFrame(()=>{
     if(adminRuntime.status!=='ready'||adminRuntime.session!==session
-      ||adminRuntime.prospectLoadedAt!==loaded||!adminRoleCanSection('prospects'))return;
+      ||adminRuntime.prospectLoadedAt!==loaded||!adminRoleCanSection('prospects')
+      ||!['superadmin','operations','compliance'].includes(String(adminCurrentRole())))return;
+    // Revalidate after the animation boundary: changing city, report, authorization or
+    // load status must never open an editor belonging to a previous CRM snapshot.
+    const current=adminProspectFollowupSnapshot(adminRuntime.prospectReport);
+    if(!current.valid||!current.items.some(item=>item.cnpj===cnpj))return;
     const details=document.getElementById('prospect-editor-'+cnpj);
     if(!details)return toast('Registro não localizado. Atualize a consulta de prospectos.');
     details.open=true;
