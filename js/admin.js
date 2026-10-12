@@ -42,6 +42,8 @@ const adminRuntime={
   financeWorkspace:'summary',
   prospectReport:null,
   expansionRadar:[],
+  expansionRadarLoaded:false,
+  expansionRadarCheckedAt:null,
   expansionRadarLoading:false,
   expansionRadarError:null,
   enablementMerchants:[],
@@ -350,6 +352,10 @@ async function adminSignOut(){
   adminRuntime.enablementLoading=false;
   adminRuntime.enablementError=null;
   adminRuntime.enablementCheckedAt=null;
+  adminRuntime.expansionRadar=[];
+  adminRuntime.expansionRadarLoaded=false;
+  adminRuntime.expansionRadarCheckedAt=null;
+  adminRuntime.expansionRadarError=null;
   adminRuntime.status='unauthenticated';
   adminRuntime.error=null;
   adminRuntime.notice=null;
@@ -381,6 +387,10 @@ async function adminRefresh({silent=false}={}){
   adminRuntime.financeHistory={data:null,loading:false,error:null,checkedAt:null};
       adminRuntime.enablementMerchants=[];
       adminRuntime.enablementLoaded=false;
+  adminRuntime.expansionRadar=[];
+  adminRuntime.expansionRadarLoaded=false;
+  adminRuntime.expansionRadarCheckedAt=null;
+  adminRuntime.expansionRadarError=null;
       adminRuntime.error=null;
       return null;
     }
@@ -397,6 +407,10 @@ async function adminRefresh({silent=false}={}){
       adminRuntime.auditResults=null;
       adminRuntime.enablementMerchants=[];
       adminRuntime.enablementLoaded=false;
+  adminRuntime.expansionRadar=[];
+  adminRuntime.expansionRadarLoaded=false;
+  adminRuntime.expansionRadarCheckedAt=null;
+  adminRuntime.expansionRadarError=null;
       adminRuntime.error='Sua sessão expirou. Entre novamente.';
       return null;
     }

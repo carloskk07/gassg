@@ -398,13 +398,22 @@ const PROSPECT_STAGE_LABELS={
   onboarding:'Em cadastro',partner:'Parceira confirmada',dismissed:'Descartada'
 };
 async function adminLoadExpansionRadar(){
+  const requestingUser=String(adminRuntime.session?.user?.id||'');
   if(!adminReady()||adminRuntime.expansionRadarLoading)return;
   adminRuntime.expansionRadarLoading=true;
   adminRuntime.expansionRadarError=null;
   try{
     const result=await adminInvoke({action:'expansion-radar'});
-    adminRuntime.expansionRadar=Array.isArray(result?.cities)?result.cities:[];
-  }catch(error){adminRuntime.expansionRadarError=String(error?.message||error)}
+    if(!adminReady()||String(adminRuntime.session?.user?.id||'')!==requestingUser)return;
+    if(!Array.isArray(result?.cities))throw new Error('Radar de expansão sem lista de cidades verificável');
+    adminRuntime.expansionRadar=result.cities;
+    adminRuntime.expansionRadarLoaded=true;
+    adminRuntime.expansionRadarCheckedAt=new Date().toISOString();
+  }catch(error){
+    adminRuntime.expansionRadarError=String(error?.message||error);
+    adminRuntime.expansionRadarLoaded=false;
+    adminRuntime.expansionRadarCheckedAt=null;
+  }
   finally{adminRuntime.expansionRadarLoading=false;render()}
 }
 function adminRadarCityCard(city){
@@ -439,6 +448,150 @@ function adminExpansionRadarSection(){
     (items.length>6?'<details class="card flat" style="margin-top:10px"><summary>Ver todas as '+items.length+' cidades priorizadas</summary>'+
       '<div class="grid cards-3" style="margin-top:12px">'+items.slice(6).map(adminRadarCityCard).join('')+'</div></details>':'');
 }
+/* V1.198 — evidence-based crosswalk between ANP/lead radar and city-level operational merchants. */
+function adminExpansionBridgeSnapshot(d,now=Date.now()){
+  const network=adminMerchantNetworkSnapshot(d,now);
+  const radarLoaded=adminRuntime.expansionRadarLoaded===true;
+  const radarRows=adminRuntime.expansionRadar;
+  if(!network.valid||!radarLoaded||!Array.isArray(radarRows))
+    return {valid:false,rows:[],networkValid:network.valid,radarLoaded,radarFresh:false,networkFresh:network.fresh};
+  const age=Date.parse(String(adminRuntime.expansionRadarCheckedAt||''));
+  const radarFresh=Number.isFinite(age)&&age<=now+60000&&now-age<=30*60000;
+  const fresh=network.fresh&&radarFresh;
+  const sane=x=>Number.isSafeInteger(x)&&x>=0?x:null;
+  const keyFrom=(city,state)=>{
+    const town=String(city||'').trim().replace(/\s+/g,' ').slice(0,100);
+    const uf=String(state||'').trim().toUpperCase();
+    if(!town||!/^[A-Z]{2}$/.test(uf))return null;
+    const clean=town.normalize('NFD').replace(/[\u0300-\u036f]/g,'')
+      .toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'');
+    return clean?uf+':'+clean:null;
+  };
+  const radar=new Map();
+  let duplicates=0,invalidCities=0;
+  for(const city of radarRows){
+    const key=keyFrom(city?.city,city?.state);
+    if(!key){invalidCities++;continue;}
+    if(radar.has(key)){duplicates++;continue;}
+    radar.set(key,city);
+  }
+  const networkGrouped=new Map();
+  for(const row of network.rows){
+    if(row.cityKey==='__unknown__')continue;
+    const list=networkGrouped.get(row.cityKey)||[];
+    list.push(row);
+    networkGrouped.set(row.cityKey,list);
+  }
+  const allKeys=new Set([...radar.keys(),...networkGrouped.keys()]);
+  const result=[];
+  for(const key of allKeys){
+    const source=radar.get(key)||null;
+    const members=networkGrouped.get(key)||[];
+    const label=source?String(source.city||'').trim().slice(0,100)+'/'+String(source.state||'').trim().toUpperCase():
+      String(members[0]?.cityLabel||'Cidade não identificada');
+    const registered=members.length;
+    const available=fresh?members.filter(m=>m.category==='available').length:null;
+    const active=members.filter(m=>m.status==='active').length;
+    const needingReview=members.filter(m=>m.category==='review'||m.category==='pending'||m.category==='unknown').length;
+    const interests=source?sane(source.interested_customers):null;
+    const anp=(source?.anp_source_status==='ok')?sane(source.anp_prospects):null;
+    const openProspects=source?sane(source.uncontacted):null;
+    const overdue=source?sane(source.overdue_followups):null;
+    const onboarding=source?sane(source.onboarding):null;
+    const ranking=source?sane(source.priority_score):null;
+    const eligibleRadar=source?sane(source.eligible_merchants):null;
+    const stage=source?.admin_paused===true?'Pausada administrativamente':
+      !fresh?'Conferência de fontes necessária':
+      available>0?'Oferta confirmada na amostra':
+      registered>0?'Revendas cadastradas, oferta não confirmada':
+      (interests!==null&&interests>0)||(anp!==null&&anp>0)?'Oportunidade para prospecção':
+      'Sem sinais suficientes de demanda';
+    result.push({key,label,registered,active,available,needingReview,
+      interests,anp,openProspects,overdue,onboarding,ranking,eligibleRadar,
+      stage,paused:source?.admin_paused===true,
+      hasRadar:!!source,hasMerchants:registered>0,sourceState:source?.anp_source_status||null});
+  }
+  result.sort((a,b)=>(b.ranking??-1)-(a.ranking??-1)
+    ||(b.overdue??-1)-(a.overdue??-1)
+    ||a.label.localeCompare(b.label,'pt-BR'));
+  return {valid:true,rows:result.slice(0,100),total:result.length,networkFresh:network.fresh,radarFresh,fresh,
+    sampled:network.sampled||radarRows.length>=100,duplicates,invalidCities,missingLocation:network.rows.filter(r=>r.cityKey==='__unknown__').length};
+}
+function adminExpansionBridgeView(d){
+  if(!adminRoleCanSection('prospects'))return '';
+  const snapshot=adminExpansionBridgeSnapshot(d);
+  if(!snapshot.valid)return `<section class='section admin-expansion-bridge' aria-label='Oportunidades por município'>
+    <div class='section-head'><div><span class='section-kicker'>PANORAMA COMERCIAL</span><h3>Da demanda à revenda disponível</h3></div></div>
+    <div class='notice'>${snapshot.networkValid?'O radar comercial ainda não foi consultado com sucesso.':'A lista de revendas ainda não foi carregada.'}
+      Atualize o radar e os dados administrativos para cruzar as informações.</div></section>`;
+  const txt=value=>value===null?'—':String(value);
+  const items=snapshot.rows.slice(0,12).map(row=>`<div class='admin-expansion-bridge-row'>
+    <div class='admin-expansion-bridge-main'><strong>${esc(row.label)}</strong>
+      <small>${esc(row.stage)}</small>
+      <span class='tiny muted'>Índice interno: ${txt(row.ranking)} • Retornos vencidos: ${txt(row.overdue)}</span></div>
+    <div class='admin-expansion-bridge-numbers'>
+      <div><small>Interesses registrados</small><strong>${txt(row.interests)}</strong></div>
+      <div><small>Prospectos ANP*</small><strong>${txt(row.anp)}</strong></div>
+      <div><small>Revendas cadastradas</small><strong>${row.registered}</strong></div>
+      <div><small>Ofertáveis verificadas</small><strong>${txt(row.available)}</strong></div>
+    </div>
+    <div class='admin-expansion-bridge-actions'>
+      ${row.hasRadar?`<button type='button' class='secondary small' data-area='${esc(row.key)}'
+        onclick="adminOpenExpansionBridgeCity(this.dataset.area,'prospects')">Ver prospectos</button>`:''}
+      <button type='button' class='secondary small' data-area='${esc(row.key)}'
+        onclick="adminOpenExpansionBridgeCity(this.dataset.area,'partners')" ${row.hasMerchants?'':'disabled title="Nenhuma revenda dessa cidade na amostra"'}>Ver revendas</button>
+    </div>
+  </div>`).join('');
+  return `<section class='section admin-expansion-bridge' aria-label='Oportunidades por município'>
+    <div class='section-head'><div><span class='section-kicker'>EXPANSÃO CONECTADA À OPERAÇÃO</span>
+      <h3>Da demanda à revenda disponível</h3>
+      <p>Compare sinais comerciais, registros ANP e situação das revendas existentes, sem confundir interesse com venda.</p></div>
+      <span class='admin-data-freshness'>${snapshot.fresh?'Fontes recentes':'Verificação necessária'}</span></div>
+    ${!snapshot.fresh?'<div class="notice danger">Radar ou rede de revendas com dados antigos. A disponibilidade atual e a prioridade de contato devem ser confirmadas novamente.</div>':''}
+    ${snapshot.sampled?'<div class="notice">Há limites na amostra do radar ou de revendas. Os totais não representam necessariamente toda a rede nacional.</div>':''}
+    ${snapshot.duplicates||snapshot.invalidCities?`<div class='notice'>${snapshot.duplicates} cidade(s) repetida(s) e ${snapshot.invalidCities} localização(ões) inválida(s) no radar foram deixadas de fora da consolidação.</div>`:''}
+    <div class='card flat'>
+      <p class='tiny muted'>${snapshot.total} município(s) identificado(s) nas fontes recebidas; mostrando até 12.
+        ${snapshot.missingLocation} revenda(s) sem município/UF confirmados ficaram fora do agrupamento.
+        *A contagem ANP aparece somente quando a consulta da fonte foi confirmada.</p>
+      ${items?`<div class='admin-expansion-bridge-list'>${items}</div>`:'<div class="empty">Nenhuma cidade disponível nas informações atuais.</div>'}
+      <p class='tiny muted'>“Ofertável” exige evidências válidas do painel de revendas e informação recente. O índice do radar não é previsão de receita; ANP não significa parceria. O radar e os cadastros operacionais têm critérios e horários próprios.</p>
+    </div>
+  </section>`;
+}
+function adminOpenExpansionBridgeCity(key,destination){
+  if(!adminRoleCanSection('prospects')||adminRuntime.status!=='ready')return;
+  if(!['prospects','partners'].includes(destination))return;
+  const state=adminExpansionBridgeSnapshot(adminRuntime.data);
+  if(!state.valid)return;
+  const row=state.rows.find(x=>x.key===key);
+  if(!row)return;
+  const session=adminRuntime.session;
+  if(destination==='prospects'){
+    if(!row.hasRadar)return;
+    const source=adminRuntime.expansionRadar.find(x=>{
+      const uf=String(x?.state||'').trim().toUpperCase();
+      const city=String(x?.city||'').trim().normalize('NFD')
+        .replace(/[\u0300-\u036f]/g,'').toLowerCase()
+        .replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'');
+      return uf+':'+city===key;
+    });
+    if(!source)return;
+    adminProspectSelectCity(String(source.state).trim().toUpperCase()+'|'+String(source.city).trim());
+    return;
+  }
+  if(!adminRoleCanSection('partners')||!row.hasMerchants)return;
+  const network=adminMerchantNetworkSnapshot(adminRuntime.data);
+  if(!network.valid||!network.cities.some(x=>x.key===key))return;
+  adminRuntime.merchantNetworkCity=key;
+  adminRuntime.merchantNetworkStatus='all';
+  adminSetSection('partners');
+  requestAnimationFrame(()=>{
+    if(adminRuntime.status!=='ready'||adminRuntime.session!==session||!adminRoleCanSection('partners'))return;
+    document.getElementById('admin-network-city')?.focus({preventScroll:true});
+  });
+}
+
 async function adminSaveProspect(cnpj,expectedVersion){
   if(!['superadmin','operations','compliance'].includes(String(adminCurrentRole())))return;
   const id=String(cnpj||'').replace(/\D/g,'');
@@ -708,7 +861,7 @@ function adminProspectsSection(d){
       '<div class="order-actions"><button class="primary" onclick="adminProspectSearchCity()" '+(adminRuntime.prospectLoading?'disabled':'')+'>Consultar na ANP</button>'+
       '<button class="secondary" onclick="adminLoadProspects({force:true})" '+(adminRuntime.prospectLoading?'disabled':'')+'>Atualizar fonte</button></div>'+
       '<small class="field-help">Fonte: API pública ANP GLP. O servidor reutiliza o resultado durante até 24 horas e mantém o último dado conhecido quando a fonte falha.</small>'+
-    '</div>'+adminExpansionRadarSection()+placeholder+error+summary+adminCityNotificationsSection()+
+    '</div>'+adminExpansionRadarSection()+adminExpansionBridgeView(d)+placeholder+error+summary+adminCityNotificationsSection()+
     '<div class="notice"><strong>Ativação por elegibilidade, nunca apenas por cadastro.</strong> Uma cidade somente poderá abrir para compras após confirmação de revenda apta, regularidade ANP quando GLP, estoque, preço, área de entrega, capacidade e recebimento. O registro da ANP não equivale a autorização de parceria.</div>'+
   '</section>';
 }
