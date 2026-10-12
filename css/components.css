@@ -2558,3 +2558,21 @@ body:has(.admin-page) .shell{
 @media(max-width:1020px){.admin-finance-priority-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media(max-width:530px){.admin-finance-priority-grid{grid-template-columns:minmax(0,1fr)}.admin-finance-priorities .section-head{display:grid;gap:8px}.admin-finance-priority-card p{min-height:0}}
 @media(max-width:340px){.admin-finance-priority-card{padding:12px}.admin-finance-priority-card button{min-height:48px}}
+
+/* V1.193 — one-click read-only navigation to precise finance records */
+.admin-finance-triage .section-head{align-items:flex-start}
+.admin-finance-triage .section-head p{max-width:700px}
+.admin-finance-triage-meta{display:flex;justify-content:space-between;flex-wrap:wrap;gap:8px;align-items:center}
+.admin-finance-triage-meta strong{font-size:13px}
+.admin-finance-triage-meta small{font-size:11px;color:var(--muted)}
+.admin-finance-triage-list{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px;margin-top:12px}
+.admin-finance-triage-row{display:flex;align-items:center;justify-content:space-between;gap:10px;border:1px solid var(--line);padding:11px;border-radius:11px;min-width:0}
+.admin-finance-triage-row>div{min-width:0}
+.admin-finance-triage-row strong{display:block;line-height:1.35;font-size:12px}
+.admin-finance-triage-row small{display:block;line-height:1.45;margin-top:4px;color:var(--muted);font-size:11px;overflow-wrap:anywhere}
+.admin-finance-triage-row button{flex-shrink:0;min-height:44px}
+.admin-finance-triage .card>.notice{margin-top:12px}
+article[id^="admin-finance-"][tabindex="-1"]:focus{outline:3px solid var(--brand);outline-offset:3px}
+@media(max-width:920px){.admin-finance-triage-list{grid-template-columns:minmax(0,1fr)}}
+@media(max-width:500px){.admin-finance-triage .section-head{display:grid;gap:7px}.admin-finance-triage-row{flex-wrap:wrap}.admin-finance-triage-row button{width:100%}}
+@media(max-width:340px){.admin-finance-triage-row{padding:10px}.admin-finance-triage-row button{min-height:48px}}
