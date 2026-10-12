@@ -2520,7 +2520,7 @@ function adminInterruptedSalePaymentRows(d){
   const rows=[];
   for(const attempt of attempts){
     const order=orders.get(String(attempt?.order_id||''));
-    if(!order)continue;
+    if(!order||!['CANCELLED','REASSIGNING'].includes(String(order.status||'')))continue;
     const status=String(attempt?.status||'');
     let kind='';
     let priority=4;
