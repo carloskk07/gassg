@@ -2661,3 +2661,24 @@ article[id^="admin-partner-work-"][tabindex="-1"]:focus{outline:3px solid var(--
 @media(max-width:640px){.admin-merchant-network-kpis{grid-template-columns:repeat(2,minmax(0,1fr))}.admin-merchant-network-filters{grid-template-columns:1fr}}
 @media(max-width:390px){.admin-merchant-network-kpis>div{padding:10px}.admin-merchant-network-row{flex-wrap:wrap}.admin-merchant-network-row button{width:100%}.admin-merchant-network .section-head{display:grid;gap:8px}}
 @media(max-width:340px){.admin-merchant-network-row{padding:10px}.admin-merchant-network-row button{min-height:48px}}
+
+/* V1.198 — verified city expansion crosswalk; independent business and regulatory sources */
+.admin-expansion-bridge .section-head{align-items:flex-start}
+.admin-expansion-bridge .section-head p{max-width:730px}
+.admin-expansion-bridge-list{display:grid;grid-template-columns:1fr;gap:10px;margin:12px 0}
+.admin-expansion-bridge-row{display:grid;grid-template-columns:minmax(160px,1.3fr) minmax(0,2fr) minmax(126px,.8fr);align-items:center;gap:14px;padding:13px;border:1px solid var(--line);border-radius:13px;min-width:0}
+.admin-expansion-bridge-main{min-width:0}
+.admin-expansion-bridge-main strong{font-size:13px;line-height:1.45;display:block;overflow-wrap:anywhere}
+.admin-expansion-bridge-main small{display:block;font-size:11px;line-height:1.5;color:var(--muted);margin-top:4px}
+.admin-expansion-bridge-main .tiny{font-size:10px}
+.admin-expansion-bridge-numbers{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px}
+.admin-expansion-bridge-numbers>div{min-width:0}
+.admin-expansion-bridge-numbers small{display:block;font-size:10px;line-height:1.35;color:var(--muted)}
+.admin-expansion-bridge-numbers strong{display:block;font-size:19px;line-height:1.25;margin-top:5px;font-variant-numeric:tabular-nums}
+.admin-expansion-bridge-actions{display:grid;gap:6px}
+.admin-expansion-bridge-actions button{width:100%;min-height:44px;white-space:normal;font-size:11px}
+.admin-expansion-bridge-actions button:disabled{opacity:.55;cursor:not-allowed}
+.admin-expansion-bridge :focus-visible{outline:3px solid var(--brand);outline-offset:3px}
+@media(max-width:1120px){.admin-expansion-bridge-row{grid-template-columns:minmax(0,1fr) minmax(0,2fr)}.admin-expansion-bridge-actions{grid-column:1/-1;grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:660px){.admin-expansion-bridge-row{grid-template-columns:minmax(0,1fr)}.admin-expansion-bridge-numbers{grid-template-columns:repeat(2,minmax(0,1fr))}.admin-expansion-bridge-actions{grid-column:auto}.admin-expansion-bridge .section-head{display:grid;gap:8px}}
+@media(max-width:340px){.admin-expansion-bridge-row{padding:10px}.admin-expansion-bridge-actions{grid-template-columns:1fr}.admin-expansion-bridge-actions button{min-height:48px}}
