@@ -979,7 +979,7 @@ function adminProspectFollowupView(report){
       ${available.length} nesta categoria • ${available.length?start+1:0}–${Math.min(start+10,available.length)} exibidas.
       ${nums.scheduled} contato(s) futuro(s). Negociações concluídas ou descartadas não entram na fila.</p>
       ${cards?`<div class='admin-prospect-followup-list'>${cards}</div>`:
-        '<p class="tiny muted">Nenhuma negociação nesta categoria da amostra consultada; isso não garante ausência de pendências em outras cidades.</p>'}
+        ui.filter==='all'?'<p class="tiny muted">Nenhuma negociação pendente identificada nesta amostra; isso não garante ausência de pendências em outras cidades.</p>':'<p class="tiny muted">Nenhuma negociação nesta categoria da amostra consultada; isso não garante ausência de pendências em outras cidades.</p>'}
       <div class='admin-prospect-followup-paging'>
         <button type='button' class='secondary small' onclick='adminChangeProspectFollowupPage(-1)'
           ${page===0?'disabled':''}>Anterior</button>
