@@ -1651,6 +1651,8 @@ function adminMerchantProgressView(m){
   if(!adminRoleCanSection('partners'))return '';
   const p=adminMerchantProgressSnapshot(m);
   if(!p.valid)return '';
+  const checkedAt=Date.parse(String(adminRuntime.lastSyncAt||''));
+  const fresh=Number.isFinite(checkedAt)&&checkedAt<=Date.now()+60000&&Date.now()-checkedAt<=5*60000;
   const statusLabel={done:'Concluído',pending:'Pendente',blocked:'Requer revisão',unknown:'Não confirmado'};
   const rows=p.steps.map(step=>`<li class='admin-merchant-progress-step ${step.status}'>
     <span class='admin-merchant-progress-dot' aria-hidden='true'>${step.status==='done'?'✓':'·'}</span>
@@ -1662,13 +1664,14 @@ function adminMerchantProgressView(m){
     <div class='admin-merchant-progress-head'>
       <div><strong>Evolução da revenda</strong><small>${p.done} de ${p.total} verificações com evidência positiva
       ${p.unknown?' • '+p.unknown+' sem confirmação':''}</small></div>
-      <span class='status-pill ${p.ready?'online':p.conflict?'offline':''}'>${esc(p.label)}</span>
+      <span class='status-pill ${p.ready&&fresh?'online':p.conflict?'offline':''}'>${esc(fresh?p.label:'Consulta desatualizada')}</span>
     </div>
     <div class='admin-merchant-progress-track' role='meter' aria-label='Verificações positivas'
       aria-valuemin='0' aria-valuemax='${p.total}' aria-valuenow='${p.done}'
       aria-valuetext='${p.done} de ${p.total} verificações positivas'>
       <span style='width:${Math.round(p.done*100/p.total)}%'></span></div>
     <ul class='admin-merchant-progress-steps'>${rows}</ul>
+    ${!fresh?'<div class="notice danger"><strong>Dados antigos.</strong> Atualize o painel antes de interpretar o estado atual da revenda.</div>':''}
     ${p.conflict?'<div class="notice danger"><strong>Revisão obrigatória.</strong> Os indicadores de prontidão e as demais evidências não coincidem; não trate esta revenda como habilitada.</div>':''}
     ${next?`<p class='tiny muted'><strong>Próximo passo:</strong> ${esc(next)}</p>`:''}
     <p class='tiny muted'>Estes marcos são informativos, não equivalem a uma aprovação. Somente os controles administrativos e as regras do servidor podem validar ou ativar revendas.</p>
