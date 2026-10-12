@@ -39,6 +39,7 @@ const adminRuntime={
   saleRefundFilter:'all',
   salePaymentHistory:{attempts:[],interruptedOrders:[],nextCursor:null,hasMore:false,loading:false,error:null,started:false,checkedAt:null},
   financeHistory:{data:null,loading:false,error:null,checkedAt:null},
+  financeWorkspace:'summary',
   prospectReport:null,
   expansionRadar:[],
   expansionRadarLoading:false,
@@ -1976,6 +1977,44 @@ function adminFinanceManagementView(d){
   </section>`;
 }
 
+/* V1.191 — stable finance workspaces, never change financial authority. */
+const ADMIN_FINANCE_WORKSPACES=[{"id":"summary","label":"Resumo","detail":"Indicadores e evolução"},{"id":"billing","label":"Cobranças","detail":"Pagamentos D+1 e créditos"},{"id":"reconciliation","label":"Conciliação","detail":"Pendências, benefícios e ajustes"},{"id":"policy","label":"Regras e reversões","detail":"Ações administrativas sensíveis"}];
+function adminFinanceWorkspaceCurrent(){
+  const selected=String(adminRuntime.financeWorkspace||'summary');
+  return ADMIN_FINANCE_WORKSPACES.some(item=>item.id===selected)?selected:'summary';
+}
+function adminFinanceWorkspaceNav(){
+  if(!adminRoleCanSection('finance'))return '';
+  const selected=adminFinanceWorkspaceCurrent();
+  return `<section class='admin-finance-workspace-nav' aria-label='Navegação interna do Financeiro'>
+    <div class='section-head'><div><span class='section-kicker'>CENTRAL FINANCEIRA</span>
+      <h2>O que você precisa acompanhar?</h2>
+      <p>Escolha uma área. Você pode voltar ao resumo a qualquer momento, sem perder os dados já consultados.</p></div></div>
+    <nav class='admin-finance-areas' aria-label='Áreas do Financeiro'>
+      ${ADMIN_FINANCE_WORKSPACES.map(item=>`<button type='button'
+        id='admin-finance-switch-${item.id}'
+        class='admin-finance-area ${selected===item.id?'active':''}'
+        aria-pressed='${selected===item.id}'
+        onclick="adminSetFinanceWorkspace('${item.id}')">
+        <strong>${item.label}</strong><small>${item.detail}</small>
+      </button>`).join('')}
+    </nav>
+  </section>`;
+}
+function adminSetFinanceWorkspace(workspace){
+  if(!adminRoleCanSection('finance'))return;
+  const key=String(workspace||'');
+  if(!ADMIN_FINANCE_WORKSPACES.some(item=>item.id===key))return;
+  adminRuntime.financeWorkspace=key;
+  render();
+  requestAnimationFrame(()=>{
+    document.getElementById('admin-finance-switch-'+key)?.focus({preventScroll:true});
+    document.getElementById('admin-finance-workspace-panel')?.scrollIntoView({
+      behavior:'instant',block:'start'
+    });
+  });
+}
+
 function adminFinanceOverview(d){
   const billing=d.merchantBilling||{};
   const metrics=billing.metrics||{};
@@ -3560,13 +3599,16 @@ function adminPage(){
 
   const catalogContent=`${adminProductRegistrySection(d)}`;
 
-  const financeContent=`
+  const financeSummaryContent=`
     ${adminFinanceOverview(d)}
     ${adminFinanceManagementView(d)}
     ${adminFinanceHistoryView()}
+`;
+  const financeBillingContent=`
     ${adminInterruptedSalePaymentWatch(d)}
     ${adminMerchantBillingSection(d)}
-    ${adminCommercialPolicySection(d)}
+`;
+  const financeReconciliationContent=`
     <section class="section"><div class="section-head"><div><h2>Revisão de indicações</h2><p>Comissões suspeitas não amadurecem automaticamente. Aprovação ainda exige identidades permanentes e fim da quarentena.</p></div><span class="status-pill ${pendingReferralReviews.length?'offline':'online'}">${pendingReferralReviews.length} pendente(s)</span></div>${referralReviews.length?referralReviews.map(adminReferralReviewCard).join(''):'<div class="empty card">Nenhuma indicação exige revisão.</div>'}</section>
     <section class="section"><div class="section-head"><div><h2>Fila de benefícios</h2><p>Falhas transitórias usam backoff. Dead-letter exige revisão manual; a entrega do pedido permanece concluída.</p></div><span class="status-pill ${deadRewardFailures.length?'offline':'online'}">${deadRewardFailures.length} dead-letter</span></div>${rewardFailures.length?rewardFailures.map(adminRewardFailureCard).join(''):'<div class="empty card">Nenhuma dívida de processamento de benefícios.</div>'}</section>
     <section class="section"><div class="section-head"><div><h2>Fila contábil de settlement</h2><p>Taxa da plataforma e reembolso de cashback são processados independentemente dos benefícios.</p></div><span class="status-pill ${deadAccountingFailures.length?'offline':'online'}">${deadAccountingFailures.length} dead-letter</span></div>${accountingFailures.length?accountingFailures.map(adminAccountingFailureCard).join(''):'<div class="empty card">Nenhuma dívida contábil de settlement.</div>'}</section>
@@ -3575,7 +3617,25 @@ function adminPage(){
       <div class="card flat" style="margin-top:12px"><h3>Cashback a reembolsar</h3><div class="list">${reimbursements.length?reimbursements.map(adminReimbursementRow).join(''):'<div class="tiny muted">Nenhum reembolso em aberto.</div>'}</div></div>
       <div class="card flat" style="margin-top:12px"><h3>Ajustes de reversão • ${adminMoney(openAdjustments)}</h3><div class="list">${adjustments.length?adjustments.map(adminAdjustmentRow).join(''):'<div class="tiny muted">Nenhum ajuste em aberto.</div>'}</div></div>
     </section>
-    <section class="section"><div class="card flat form-stack"><h3>Reversão financeira auditada</h3><p class="muted tiny">Somente para um pedido já liquidado que teve estorno/refund confirmado. O histórico operacional de entrega permanece.</p><div class="input-wrap"><label for="admin-reverse-order">ID do pedido</label><input id="admin-reverse-order" class="input" placeholder="UUID do pedido"></div><div class="input-wrap"><label for="admin-reverse-reason">Motivo</label><input id="admin-reverse-reason" class="input" maxlength="240" placeholder="Motivo confirmado"></div><div class="input-wrap"><label for="admin-reverse-ref">Referência</label><input id="admin-reverse-ref" class="input" maxlength="120" placeholder="ID do estorno/comprovante"></div><button class="danger-btn" onclick="adminReverseOrder()">Executar reversão</button></div></section>`;
+`;
+  const financePolicyContent=`
+    ${adminCommercialPolicySection(d)}
+    <section class="section"><div class="card flat form-stack"><h3>Reversão financeira auditada</h3><p class="muted tiny">Somente para um pedido já liquidado que teve estorno/refund confirmado. O histórico operacional de entrega permanece.</p><div class="input-wrap"><label for="admin-reverse-order">ID do pedido</label><input id="admin-reverse-order" class="input" placeholder="UUID do pedido"></div><div class="input-wrap"><label for="admin-reverse-reason">Motivo</label><input id="admin-reverse-reason" class="input" maxlength="240" placeholder="Motivo confirmado"></div><div class="input-wrap"><label for="admin-reverse-ref">Referência</label><input id="admin-reverse-ref" class="input" maxlength="120" placeholder="ID do estorno/comprovante"></div><button class="danger-btn" onclick="adminReverseOrder()">Executar reversão</button></div></section>
+`;
+  const financeAreas={
+    summary:financeSummaryContent,
+    billing:financeBillingContent,
+    reconciliation:financeReconciliationContent,
+    policy:financePolicyContent
+  };
+  const financeSelection=adminFinanceWorkspaceCurrent();
+  const financeContent=`
+    ${adminFinanceWorkspaceNav()}
+    <div id='admin-finance-workspace-panel' class='admin-finance-workspace-panel'
+      aria-label='Área financeira selecionada'>
+      ${financeAreas[financeSelection]}
+    </div>`;
+
 
   const incidentsContent=adminIncidentCenter(d);
   const auditContent=adminAuditView(d);
@@ -4404,6 +4464,7 @@ globalThis.adminRetryBootstrapFromUi=adminRetryBootstrapFromUi;
 globalThis.adminSignOut=adminSignOut;
 globalThis.adminRefresh=adminRefresh;
 globalThis.adminLoadFinanceHistory=adminLoadFinanceHistory;
+globalThis.adminSetFinanceWorkspace=adminSetFinanceWorkspace;
 globalThis.adminPoll=adminPoll;
 globalThis.adminPage=adminPage;
 globalThis.adminRetryReward=adminRetryReward;
