@@ -122,7 +122,8 @@ const db={
  }
 };
 const api=vm.createContext({UUID_RE:regex,DomainError,Date,Set});
-vm.runInContext('async '+pick(edge,'financeSalePaymentHistory')+
+const historicalHandler=pick(edge,'financeSalePaymentHistory').replace(/:\s*(?:any|string)(?=[,)])/g,'');
+vm.runInContext('async '+historicalHandler+
  ';this.history=financeSalePaymentHistory;',api);
 const actual=await api.history(db,{cursor:{createdAt:lastDate,id:lastId}});
 assert.equal(actual.readOnly,true);
