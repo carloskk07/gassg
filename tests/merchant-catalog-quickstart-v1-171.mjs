@@ -40,8 +40,8 @@ assert.ok(html.includes('merchant-catalog-list'));
 assert.ok(html.includes('2 cadastrado(s)'),'Only configured product count is shown');
 assert.ok(html.includes('Botijão 13 kg')&&html.includes('Botijão 45 kg'));
 assert.ok(html.includes('Outros produtos comuns'),'Optional local templates must be available');
-assert.ok(html.includes('Adicionar produto ou vasilhame'));
-assert.ok(html.indexOf('Meus produtos')<html.indexOf('Adicionar produto ou vasilhame'),
+assert.ok(html.includes('Adicionar outro produto ou vasilhame'));
+assert.ok(html.indexOf('Meus produtos')<html.indexOf('Adicionar outro produto ou vasilhame'),
  'Existing catalog precedes new product choices');
 assert.ok(html.includes('live-price-P13')&&html.includes('live-stock-P13'),'Basic price and stock controls');
 assert.ok(html.includes('merchant-catalog-save'));
