@@ -2728,3 +2728,11 @@ details[id^="prospect-editor-"] summary:focus-visible{outline:3px solid var(--br
 @media(max-width:1020px){.admin-prospect-followup-list{grid-template-columns:1fr}}
 @media(max-width:640px){.admin-prospect-followup-counters{grid-template-columns:repeat(2,minmax(0,1fr))}.admin-prospect-followup-row{flex-wrap:wrap}.admin-prospect-followup-row button{width:100%}}
 @media(max-width:340px){.admin-prospect-followup-counters>div{padding:10px}.admin-prospect-followup-row{padding:10px}.admin-prospect-followup-row button{min-height:48px}}
+
+/* V1.201 — usable filters and pagination for every prospect in the current city sample */
+.admin-prospect-followup-filters{display:flex;flex-wrap:wrap;gap:8px;margin:12px 0}
+.admin-prospect-followup-filters button{min-height:44px;max-width:100%;white-space:normal;text-align:left}
+.admin-prospect-followup-filters button[aria-pressed="true"]{background:var(--brand);color:#fff;border-color:var(--brand)}
+.admin-prospect-followup-paging{display:flex;align-items:center;justify-content:center;gap:12px;flex-wrap:wrap;margin:14px 0}
+.admin-prospect-followup-paging button{min-height:44px}
+@media(max-width:340px){.admin-prospect-followup-filters{gap:6px}.admin-prospect-followup-filters button{flex:1 1 125px}.admin-prospect-followup-paging{gap:8px}}
