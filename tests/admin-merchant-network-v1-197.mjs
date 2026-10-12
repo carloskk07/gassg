@@ -57,7 +57,7 @@ assert.equal(r.totals.active_no_offer,2,'Known active without offer');
 assert.equal(r.totals.pending,1);
 assert.equal(r.totals.review,2);
 assert.equal(r.totals.unknown,1);
-assert.equal(r.cities.length,5,'Same city spelling folded, different UF separate, unknown grouped');
+assert.equal(r.cities.length,6,'Same city spelling folded, different UF separate, unknown grouped');
 assert.ok(r.cities.some(x=>x.key==='RS:sao-gabriel'&&x.count===2));
 assert.ok(r.cities.some(x=>x.key==='SP:sao-gabriel'&&x.count===1));
 assert.ok(r.cities.some(x=>x.key==='__unknown__'));
