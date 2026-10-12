@@ -36,6 +36,7 @@ const adminRuntime={
   })(),
   providerHealthPending:false,
   paymentPreflights:{},
+  saleRefundFilter:'all',
   prospectReport:null,
   expansionRadar:[],
   expansionRadarLoading:false,
@@ -694,11 +695,13 @@ function adminAttentionItems(d){
   }
   const billing=d.merchantBilling||{};
   for(const row of adminInterruptedSalePaymentRows(d).filter(x=>x.kind!=='refunded').slice(0,10)){
-    push(row.kind==='conflicting'?'critical':'high',
+    const urgency=adminInterruptedSalePaymentUrgency(row);
+    push(urgency.level==='critical'?'critical':'high',
       'Conferir pagamento de pedido interrompido',
       (row.order.public_code||String(row.order.id).slice(0,8))+' • '+adminBillingProviderName(row.attempt.provider)+
         ' • '+(row.kind==='approved'?'aprovado sem estorno registrado':
-        row.kind==='review'?'resultado em revisão':'registros inconsistentes'),
+        row.kind==='review'?'resultado em revisão':'registros inconsistentes')+
+        ' • '+urgency.label,
       {section:'finance'});
   }
   for(const refund of billing.refunds||[]){
@@ -2513,6 +2516,34 @@ function adminMerchantPspPilotCenter(d){
 
 /* V1.182 — sale proceeds belong to merchants; review candidates are not
    verified refund debts and never authorize an automatic refund. */
+
+/* V1.183 — age is derived from trustworthy recorded timestamps, never from a
+   promised banking SLA. The alert is recomputed on each dashboard refresh. */
+function adminInterruptedSalePaymentUrgency(row,now=Date.now()){
+  const kind=String(row?.kind||'');
+  if(kind==='refunded')return {level:'done',rank:4,label:'Reembolso registrado',anchor:null};
+  if(kind==='conflicting')return {level:'critical',rank:0,label:'Divergência de registros — conferir já',anchor:null};
+  const attempt=row?.attempt||{};
+  const anchorRaw=kind==='approved'?attempt.approved_at
+    :kind==='review'?attempt.last_error_at||attempt.updated_at||attempt.created_at:null;
+  const ms=typeof anchorRaw==='string'&&/^20\d\d-\d\d-\d\dT/.test(anchorRaw)?Date.parse(anchorRaw):NaN;
+  if(!Number.isFinite(now)||!Number.isFinite(ms)||ms<Date.UTC(2020,0,1)||ms>now+5*60000){
+    return {level:'unknown',rank:3,label:'Horário da pendência não comprovado',anchor:null};
+  }
+  const hours=(now-ms)/3600000;
+  const basis=kind==='approved'?'desde a aprovação':'desde a última atualização conhecida';
+  if(hours>=24)return {level:'critical',rank:0,label:'Mais de 24h '+basis+' — prioridade de conferência',anchor:ms};
+  if(hours>=4)return {level:'warning',rank:1,label:'Mais de 4h '+basis+' — conferir',anchor:ms};
+  return {level:'recent',rank:2,label:'Atualização recente — em acompanhamento',anchor:ms};
+}
+function adminSetSaleRefundFilter(value){
+  const filter=String(value||'');
+  if(!['all','critical','approved','review'].includes(filter))return;
+  if(!['superadmin','finance','readonly'].includes(adminCurrentRole()))return;
+  adminRuntime.saleRefundFilter=filter;
+  render();
+}
+
 function adminInterruptedSalePaymentRows(d){
   const payments=d?.merchantPayments||{};
   const orders=new Map((payments.interruptedOrders||[]).map(row=>[String(row.id),row]));
@@ -2535,9 +2566,12 @@ function adminInterruptedSalePaymentRows(d){
     }
     if(kind)rows.push({order,attempt,kind,priority});
   }
-  return rows.sort((a,b)=>a.priority-b.priority
-    ||Date.parse(a.attempt.updated_at||a.attempt.created_at||0)-
-       Date.parse(b.attempt.updated_at||b.attempt.created_at||0));
+  return rows.sort((a,b)=>{
+    const ua=adminInterruptedSalePaymentUrgency(a);
+    const ub=adminInterruptedSalePaymentUrgency(b);
+    return ua.rank-ub.rank||a.priority-b.priority
+      ||(ua.anchor??Number.POSITIVE_INFINITY)-(ub.anchor??Number.POSITIVE_INFINITY);
+  });
 }
 function adminInterruptedSalePaymentWatch(d){
   if(!['superadmin','finance','readonly'].includes(adminCurrentRole()))return '';
@@ -2547,6 +2581,14 @@ function adminInterruptedSalePaymentWatch(d){
   const reviews=active.filter(x=>x.kind==='review').length;
   const contradictory=active.filter(x=>x.kind==='conflicting').length;
   const history=rows.filter(x=>x.kind==='refunded');
+  const urgent=active.filter(x=>adminInterruptedSalePaymentUrgency(x).level==='critical').length;
+  const aging=active.filter(x=>adminInterruptedSalePaymentUrgency(x).level==='warning').length;
+  const filter=['all','critical','approved','review'].includes(adminRuntime.saleRefundFilter)
+    ?adminRuntime.saleRefundFilter:'all';
+  const visible=active.filter(x=>filter==='all'||
+    filter==='critical'&&adminInterruptedSalePaymentUrgency(x).level==='critical'||
+    filter==='approved'&&['approved','conflicting'].includes(x.kind)||
+    filter==='review'&&x.kind==='review');
   const limited=d.merchantPayments?.reviewSampleLimited===true;
   const statusInfo={
     approved:{label:'APROVADO • CONFERIR ESTORNO',detail:'Pagamento aprovado registrado. Não há confirmação de estorno nesta tentativa; consulte o provedor e a revenda.'},
@@ -2556,6 +2598,7 @@ function adminInterruptedSalePaymentWatch(d){
   };
   const render=row=>{
     const {attempt,order,kind}=row,details=statusInfo[kind];
+    const urgency=adminInterruptedSalePaymentUrgency(row);
     const cents=Number(attempt.amount_cents);
     const amount=Number.isSafeInteger(cents)&&cents>0?adminMoney(cents):'Valor não confirmado';
     const date=attempt.refunded_at&&kind==='refunded'?attempt.refunded_at:
@@ -2570,6 +2613,8 @@ function adminInterruptedSalePaymentWatch(d){
       '<div class="order-line"><strong>'+esc(amount)+'</strong> • '+esc(order.status==='CANCELLED'?'Pedido encerrado':'Pedido em reavaliação')+'</div>'+
       '<div class="tiny muted">Registro: '+esc(validDate)+' • tentativa '+esc(String(attempt.id||'').slice(0,8))+
       ' • estado financeiro interno '+esc(String(order.financial_state||'não informado'))+'</div>'+
+      '<div class="admin-sale-refund-urgency '+esc(urgency.level)+'" role="status">'+
+        esc(urgency.label)+'</div>'+
       '<p class="tiny">'+esc(details.detail)+'</p>'+
       (order.financial_reversed_at?'<div class="tiny muted">Há reversão contábil interna. Isso não comprova estorno da venda.</div>':'')+
       (safeId?'<div class="order-actions"><button class="secondary small" onclick="adminOpenEntity(\'order\',\''+
@@ -2587,12 +2632,19 @@ function adminInterruptedSalePaymentWatch(d){
     '<div class="kpi"><span class="label">Resultado em revisão</span><strong>'+reviews+'</strong></div>'+
     '<div class="kpi"><span class="label">Divergências</span><strong>'+contradictory+'</strong></div>'+
     '<div class="kpi"><span class="label">Reembolsos registrados</span><strong>'+history.length+'</strong></div>'+
+    '<div class="kpi"><span class="label">Prioridade de conferência</span><strong>'+urgent+'</strong><small>divergências ou registro com mais de 24h</small></div>'+
+    '<div class="kpi"><span class="label">Atenção após 4h</span><strong>'+aging+'</strong><small>tempo desde o registro disponível</small></div>'+
     '</div>'+
+    '<div class="admin-sale-refund-filters" role="group" aria-label="Filtrar pendências financeiras">'+
+    [['all','Todas',active.length],['critical','Prioritárias',urgent],['approved','Aprovadas',approved+contradictory],['review','Em revisão',reviews]]
+      .map(([key,label,count])=>'<button type="button" class="secondary small '+(filter===key?'selected':'')+
+        '" aria-pressed="'+(filter===key?'true':'false')+'" onclick="adminSetSaleRefundFilter(\''+key+'\')">'+
+        esc(label)+' ('+count+')</button>').join('')+'</div>'+
     (limited?'<div class="notice">Amostra limitada às 500 tentativas de pagamento mais recentes. Estes números não representam a totalidade da base.</div>':
       '<div class="tiny muted">Conferência com base nas tentativas retornadas; não equivale a extrato completo do provedor.</div>')+
-    (active.length?'<div class="admin-entity-grid">'+active.slice(0,30).map(render).join('')+'</div>':
-      '<div class="empty card">Nenhum registro nesta amostra exige conferência de estorno. Confira também a conciliação diretamente no PSP.</div>')+
-    (active.length>30?'<div class="tiny muted">Exibindo os primeiros 30 registros priorizados; outros estão incluídos nos contadores da amostra.</div>':'')+
+    (visible.length?'<div class="admin-entity-grid">'+visible.slice(0,30).map(render).join('')+'</div>':
+      '<div class="empty card">'+(active.length?'Nenhuma ocorrência corresponde ao filtro selecionado.':'Nenhum registro nesta amostra exige conferência de estorno. Confira também a conciliação diretamente no PSP.')+'</div>')+
+    (visible.length>30?'<div class="tiny muted">Exibindo os primeiros 30 registros do filtro; outros estão incluídos nos contadores da amostra.</div>':'')+
     (history.length?'<details class="card flat"><summary>Reembolsos registrados ('+history.length+')</summary>'+
       '<div class="admin-entity-grid">'+history.slice(0,20).map(render).join('')+'</div></details>':'')+
     '<div class="notice"><strong>Regra financeira.</strong> Toda verificação ou solicitação de estorno deve ocorrer na conta da própria revenda e ser comprovada pelo provedor. Não use esta fila para aprovar ou executar reembolsos automaticamente.</div>'+

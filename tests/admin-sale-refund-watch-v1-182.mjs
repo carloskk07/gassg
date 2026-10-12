@@ -19,7 +19,7 @@ const merchant='22222222-2222-4222-8222-222222222222';
 const recorded=new Date(Date.now()-3600000).toISOString();
 const attempt=(i,status,more={})=>({
  id:id(i+80),order_id:id(i),merchant_id:merchant,provider:'mercadopago',
- amount_cents:11990,status,created_at:recorded,updated_at:recorded,...more
+ amount_cents:11990,status,created_at:recorded,updated_at:recorded,approved_at:recorded,...more
 });
 const ord=(i,status,more={})=>({
  id:id(i),public_code:'TAM-'+i,status,financial_state:'reversed',financial_reversed_at:recorded,...more
@@ -40,14 +40,16 @@ const data={merchantPayments:{
  reviewSampleLimited:false
 }};
 let role='finance';
-const ctx=vm.createContext({
+const adminRuntime={saleRefundFilter:'all'};
+const ctx=vm.createContext({adminRuntime,render:()=>{},
+
  esc,adminCurrentRole:()=>role,adminMerchantName:()=>'Revenda autorizada',
  adminBillingProviderName:p=>p==='mercadopago'?'Mercado Pago':String(p),
  adminMoney:c=>'R$ '+(Number(c)/100).toFixed(2).replace('.',','),
  formatDateTime:()=> '12/10/2026 14:00',
  adminOpenEntity:()=>{}
 });
-vm.runInContext(cut('adminInterruptedSalePaymentRows')+'\n'+cut('adminInterruptedSalePaymentWatch')+
+vm.runInContext(cut('adminInterruptedSalePaymentUrgency')+'\n'+cut('adminInterruptedSalePaymentRows')+'\n'+cut('adminInterruptedSalePaymentWatch')+
  ';this.rows=adminInterruptedSalePaymentRows;this.watch=adminInterruptedSalePaymentWatch;',ctx);
 const classified=ctx.rows(data);
 assert.equal(classified.length,5,'Only payment attempts linked to interrupted orders in returned server set');
