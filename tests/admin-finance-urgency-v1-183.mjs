@@ -130,7 +130,7 @@ ctx.setFilter('all');
 
 const limited={merchantPayments:{...data.merchantPayments,reviewSampleLimited:true}};
 html=ctx.watch(limited);
-assert.ok(html.includes('amostra'));
+assert.ok(html.includes('Amostra limitada'));
 assert.ok(html.includes('não representam a totalidade da base'));
 assert.ok(css.includes('.admin-sale-refund-filters button.selected'));
 assert.ok(css.includes('.admin-sale-refund-urgency.critical'));
