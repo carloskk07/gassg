@@ -592,6 +592,130 @@ function adminOpenExpansionBridgeCity(key,destination){
   });
 }
 
+/* V1.199 — navigation-only commercial priorities, sourced from the verified city bridge. */
+function adminCommercialOpportunitySnapshot(d,now=Date.now()){
+  const bridge=adminExpansionBridgeSnapshot(d,now);
+  if(!bridge.valid)return {valid:false,fresh:false,items:[],totals:null,limited:false};
+  if(!bridge.fresh)return {valid:true,fresh:false,items:[],totals:null,limited:bridge.sampled,
+    cityCount:bridge.total,missingLocation:bridge.missingLocation};
+  const priorities={overdue:0,paused:1,first_contact:2,onboarding:3,supply_gap:4,merchant_review:5};
+  const labels={
+    overdue:'Retorno comercial vencido',
+    paused:'Cidade com operação pausada',
+    first_contact:'Prospectos aguardando contato',
+    onboarding:'Parceiros em cadastramento',
+    supply_gap:'Interesse sem oferta confirmada',
+    merchant_review:'Revendas aguardando revisão'
+  };
+  const items=[],totals={overdue:0,paused:0,first_contact:0,onboarding:0,supply_gap:0,merchant_review:0};
+  for(const city of bridge.rows){
+    const add=(kind,count,detail)=>{
+      if(!Number.isSafeInteger(count)||count<=0)return;
+      totals[kind]++;
+      items.push({key:city.key,city:city.label,kind,priority:priorities[kind],count,
+        detail,ranking:city.ranking??null,hasRadar:city.hasRadar,hasMerchants:city.hasMerchants,
+        paused:city.paused});
+    };
+    if(city.paused){
+      add('paused',1,'A situação de pausa deve ser revisada pelo administrador. Não iniciar contato automaticamente.');
+      continue;
+    }
+    if(city.hasRadar){
+      add('overdue',city.overdue,city.overdue===1?'1 acompanhamento com prazo vencido.':'Retornos com prazo vencido exigem análise.');
+      add('first_contact',city.openProspects,'Registros identificados para primeira abordagem; confirme o contato antes de registrar.');
+      add('onboarding',city.onboarding,'Parceiros indicados no radar como em cadastramento, sem garantia de habilitação.');
+      if(city.interests!==null&&city.interests>0&&city.available===0){
+        add('supply_gap',city.interests,'Interesses registrados nesta cidade, mas sem revenda com oferta confirmada na amostra.');
+      }
+    }
+    if(city.hasMerchants&&city.needingReview>0){
+      add('merchant_review',city.needingReview,'Revendas com pendências ou status incompleto na amostra administrativa.');
+    }
+  }
+  items.sort((a,b)=>a.priority-b.priority
+    ||(b.ranking??-1)-(a.ranking??-1)
+    ||b.count-a.count
+    ||a.city.localeCompare(b.city,'pt-BR')
+    ||a.key.localeCompare(b.key));
+  return {valid:true,fresh:true,items,totals,limited:bridge.sampled||bridge.total>bridge.rows.length,
+    cityCount:bridge.total,missingLocation:bridge.missingLocation,labels};
+}
+function adminCommercialOpportunityView(d){
+  if(!adminRoleCanSection('prospects'))return '';
+  const snap=adminCommercialOpportunitySnapshot(d);
+  if(!snap.valid)return `<section class='section admin-commercial-center' aria-label='Central de oportunidades'>
+    <div class='section-head'><div><span class='section-kicker'>ACOMPANHAMENTO COMERCIAL</span><h3>Oportunidades que merecem atenção</h3></div></div>
+    <div class='notice'>A central precisa dos dados atuais do radar de expansão e da rede de revendas. Atualize as consultas para iniciar a análise.</div>
+  </section>`;
+  if(!snap.fresh)return `<section class='section admin-commercial-center' aria-label='Central de oportunidades'>
+    <div class='section-head'><div><span class='section-kicker'>ACOMPANHAMENTO COMERCIAL</span><h3>Oportunidades que merecem atenção</h3></div></div>
+    <div class='notice danger'><strong>Conferência desatualizada.</strong> Atualize o radar e o painel administrativo antes de definir prioridades. Dados antigos não significam ausência de retornos, contatos ou parceiros.</div>
+  </section>`;
+  const filterNames={all:'Todas as prioridades',overdue:'Retornos vencidos',paused:'Cidades pausadas',
+    first_contact:'Sem primeiro contato',onboarding:'Em cadastramento',supply_gap:'Sem oferta confirmada',
+    merchant_review:'Revendas para revisão'};
+  const request=String(adminRuntime.commercialOpportunityFilter||'all');
+  const filter=Object.prototype.hasOwnProperty.call(filterNames,request)?request:'all';
+  const shown=snap.items.filter(x=>filter==='all'||x.kind===filter);
+  const rows=shown.slice(0,12).map(item=>{
+    const target=item.kind==='merchant_review'?'partners':'prospects';
+    const enabled=target==='prospects'?item.hasRadar:item.hasMerchants&&adminRoleCanSection('partners');
+    return `<article class='admin-commercial-center-item'>
+      <div><span class='admin-commercial-center-kind'>${esc(snap.labels[item.kind])}</span>
+        <strong>${esc(item.city)}</strong>
+        <small>${esc(item.detail)}</small>
+        <small>Registros nesta categoria: ${item.count}${item.ranking!==null?' • Índice interno de trabalho: '+item.ranking:''}</small></div>
+      <button type='button' class='secondary small' data-opportunity-city='${esc(item.key)}'
+        data-opportunity-kind='${item.kind}'
+        onclick="adminOpenCommercialOpportunity(this.dataset.opportunityCity,this.dataset.opportunityKind)"
+        ${enabled?'':'disabled title="Sem permissão ou registro consultável nesta área"'}>Conferir registros</button>
+    </article>`;
+  }).join('');
+  const totals=snap.totals;
+  const countLabel=(key,label)=>`<div><strong>${totals[key]}</strong><small>${label}</small></div>`;
+  return `<section class='section admin-commercial-center' aria-label='Central de oportunidades'>
+    <div class='section-head'><div><span class='section-kicker'>ACOMPANHAMENTO COMERCIAL</span>
+      <h3>Oportunidades que merecem atenção</h3>
+      <p>Organize retornos, novos contatos e habilitações sem perder a origem de cada informação.</p></div>
+      <span class='admin-data-freshness'>Fontes recentes</span></div>
+    ${snap.limited?'<div class="notice">A análise utiliza amostras limitadas. Pode haver outros municípios e registros fora das listas consultadas.</div>':''}
+    <div class='admin-commercial-center-stats'>
+      ${countLabel('overdue','Cidades com retornos vencidos')}
+      ${countLabel('first_contact','Cidades com primeiros contatos pendentes')}
+      ${countLabel('onboarding','Cidades com parceiros em cadastramento')}
+      ${countLabel('supply_gap','Cidades com interesses e sem oferta confirmada')}
+    </div>
+    <div class='card flat'>
+      <div class='admin-commercial-center-toolbar'><div><label for='admin-commercial-filter'>Prioridades</label>
+        <select class='input' id='admin-commercial-filter' onchange="adminSetCommercialOpportunityFilter(this.value)">
+          ${Object.entries(filterNames).map(([key,label])=>`<option value='${key}' ${key===filter?'selected':''}>${esc(label)}</option>`).join('')}
+        </select></div><small>${shown.length} item(ns) na amostra${shown.length>12?' • exibindo os primeiros 12':''}</small></div>
+      ${shown.length?`<div class='admin-commercial-center-list'>${rows}</div>`:
+        '<p class="tiny muted">Nenhuma oportunidade deste tipo foi identificada na amostra atual. Isso não comprova ausência de demandas em outras cidades.</p>'}
+      <p class='tiny muted'>Contagens representam municípios com pelo menos um sinal; um município pode aparecer em várias categorias.
+        Registros ANP não são revendas parceiras; o índice comercial não é previsão de vendas. Consultar um item não envia mensagens, não cria convite e não ativa cidades.</p>
+    </div>
+  </section>`;
+}
+function adminSetCommercialOpportunityFilter(value){
+  if(adminRuntime.status!=='ready'||!adminRoleCanSection('prospects'))return;
+  const allowed=['all','overdue','paused','first_contact','onboarding','supply_gap','merchant_review'];
+  if(!allowed.includes(String(value||'')))return;
+  adminRuntime.commercialOpportunityFilter=String(value);
+  render();
+  requestAnimationFrame(()=>document.getElementById('admin-commercial-filter')?.focus({preventScroll:true}));
+}
+function adminOpenCommercialOpportunity(key,kind){
+  if(adminRuntime.status!=='ready'||!adminRoleCanSection('prospects'))return;
+  const snap=adminCommercialOpportunitySnapshot(adminRuntime.data);
+  if(!snap.valid||!snap.fresh)return;
+  const item=snap.items.find(x=>x.key===key&&x.kind===kind);
+  if(!item)return;
+  const destination=kind==='merchant_review'?'partners':'prospects';
+  if(destination==='partners'&&!adminRoleCanSection('partners'))return;
+  adminOpenExpansionBridgeCity(key,destination);
+}
+
 async function adminSaveProspect(cnpj,expectedVersion){
   if(!['superadmin','operations','compliance'].includes(String(adminCurrentRole())))return;
   const id=String(cnpj||'').replace(/\D/g,'');
@@ -861,7 +985,7 @@ function adminProspectsSection(d){
       '<div class="order-actions"><button class="primary" onclick="adminProspectSearchCity()" '+(adminRuntime.prospectLoading?'disabled':'')+'>Consultar na ANP</button>'+
       '<button class="secondary" onclick="adminLoadProspects({force:true})" '+(adminRuntime.prospectLoading?'disabled':'')+'>Atualizar fonte</button></div>'+
       '<small class="field-help">Fonte: API pública ANP GLP. O servidor reutiliza o resultado durante até 24 horas e mantém o último dado conhecido quando a fonte falha.</small>'+
-    '</div>'+adminExpansionRadarSection()+adminExpansionBridgeView(d)+placeholder+error+summary+adminCityNotificationsSection()+
+    '</div>'+adminExpansionRadarSection()+adminCommercialOpportunityView(d)+adminExpansionBridgeView(d)+placeholder+error+summary+adminCityNotificationsSection()+
     '<div class="notice"><strong>Ativação por elegibilidade, nunca apenas por cadastro.</strong> Uma cidade somente poderá abrir para compras após confirmação de revenda apta, regularidade ANP quando GLP, estoque, preço, área de entrega, capacidade e recebimento. O registro da ANP não equivale a autorização de parceria.</div>'+
   '</section>';
 }

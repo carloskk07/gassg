@@ -46,6 +46,7 @@ const adminRuntime={
   expansionRadarCheckedAt:null,
   expansionRadarLoading:false,
   expansionRadarError:null,
+  commercialOpportunityFilter:'all',
   enablementMerchants:[],
   enablementLoading:false,
   enablementLoaded:false,
@@ -356,6 +357,7 @@ async function adminSignOut(){
   adminRuntime.expansionRadarLoaded=false;
   adminRuntime.expansionRadarCheckedAt=null;
   adminRuntime.expansionRadarError=null;
+  adminRuntime.commercialOpportunityFilter='all';
   adminRuntime.status='unauthenticated';
   adminRuntime.error=null;
   adminRuntime.notice=null;
