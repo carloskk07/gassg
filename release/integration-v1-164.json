@@ -1,7 +1,7 @@
 {
   "releaseId": "TAMAO-V1.164-INTEGRATED-RC",
   "targetBranch": "main",
-  "publicationMode": "review-only",
+  "publicationMode": "public-acquisition-live",
   "commercialActivation": "blocked",
   "sourceBranch": "release/v1-164-integrated-review",
   "stagedPullRequests": [
@@ -45,10 +45,10 @@
     "administrator-authorizes-global-commercial-opening",
     "supabase-pro-backups-enabled-and-restore-path-verified-before-first-sale"
   ],
-  "notes": "Two distinct gates: public information and consented registration may deploy before any first sale with commerce disabled, after compatible backend and 3-portal attestation. Per-city commerce opens automatically only when a compliant eligible merchant exists and global commerce was explicitly authorized; the first real sale is monitored after activation. Owner elected to defer Pro upgrade and recovery rehearsal until the commercial opening. No production backup restoration has been proven; commerce stays disabled.",
+  "notes": "Two distinct gates: public information and consented registration may deploy before any first sale with commerce disabled, after compatible backend and 3-portal attestation. Per-city commerce opens automatically only when a compliant eligible merchant exists and global commerce was explicitly authorized; the first real sale is monitored after activation. Owner elected to defer Pro upgrade and recovery rehearsal until the commercial opening. No production backup restoration has been proven; commerce stays disabled. On public portal deployment, do not publish fake availability: show real city interest and partner onboarding only until commerce eligibility is verified.",
   "releasePhases": {
     "publicAcquisition": {
-      "desiredState": "ready-for-deployment-after-compatible-backend",
+      "desiredState": "production-acquisition-enabled-no-sales",
       "commerceMustRemainDisabled": true,
       "scope": [
         "informational-pages",

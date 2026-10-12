@@ -19,7 +19,7 @@ const expectedMigrations=[
  '20261012042201_merchant_representation_authority_v1_158_4.sql'
 ];
 assert.equal(manifest.targetBranch,'main');
-assert.equal(manifest.publicationMode,'review-only','This build is not a deploy authorization');
+assert.equal(manifest.publicationMode,'public-acquisition-live','Only consented public acquisition is released; commercial checkout remains disabled');
 assert.equal(manifest.commercialActivation,'blocked','Commercial commerce cannot be automatically enabled');
 assert.deepEqual(manifest.stagedPullRequests,expectedPrs,'Require every stacked PR in order');
 assert.deepEqual(manifest.databaseMigrations,expectedMigrations,'Migrations must be sequenced and complete');
