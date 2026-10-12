@@ -72,6 +72,16 @@ for(const checkedAt of ['bad-date',minutes(-30)]){
  rt.salePaymentHistory.checkedAt=checkedAt;
  assert.equal(ctx.isFresh(rt.salePaymentHistory,now),false);
 }
+// V1.186: a legacy or malformed archive must never be mistaken for current evidence.
+for(const checkedAt of [null,undefined,'',0]) {
+ rt.salePaymentHistory.checkedAt=checkedAt;
+ assert.equal(ctx.isFresh(rt.salePaymentHistory,now),false);
+ assert.equal(ctx.rows(rt.data).length,0,'Unstamped archive must not trigger financial alerts');
+ const unsafeHtml=ctx.watch(rt.data);
+ assert.ok(unsafeHtml.includes('Histórico antigo desatualizado'));
+ assert.ok(unsafeHtml.includes('Revalidar histórico'));
+ assert.ok(!unsafeHtml.includes('TAM-HIST'));
+}
 rt.salePaymentHistory.checkedAt=minutes(4);
 assert.equal(ctx.rows(rt.data).length,1);
 
