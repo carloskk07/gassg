@@ -117,6 +117,8 @@ jobs:
         run: node tests/merchant-order-milestones-v1-176.mjs
       - name: Verified order deadline attention V1.177 regression
         run: node tests/merchant-order-attention-v1-177.mjs
+      - name: Guided merchant incident handling V1.178 regression
+        run: node tests/merchant-incident-guidance-v1-178.mjs
       - name: Public P13 price reference V1.148 regression contract
         run: node tests/jr-public-price-reference-v1-148.mjs
       - name: Customer availability-first V1.149 regression contract

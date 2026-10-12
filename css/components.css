@@ -2349,3 +2349,26 @@ body:has(.admin-page) .shell{
   .merchant-order-attention-summary>button{width:100%;min-height:48px}
   .merchant-order-attention-inline{padding:10px}
 }
+
+/* V1.178 — incident support: explicit reason and safe human confirmation */
+.merchant-incident-risk-guide{margin:11px 0 0;padding:13px 14px;background:#fff8ed;border:1px solid #e9d7b9;border-radius:12px;display:grid;gap:7px}
+.merchant-incident-risk-guide strong{font-size:13px;color:#745022}
+.merchant-incident-risk-guide p{font-size:12px;line-height:1.55;margin:0}
+.merchant-incident-risk-guide small{font-size:11px;color:var(--muted);line-height:1.45}
+.merchant-incident-reason{min-width:0}
+.merchant-incident-form{padding:12px;margin-top:8px;background:#fcfaf7;border:1px solid #eee4d8;border-radius:12px;min-width:0;display:grid;gap:10px}
+.merchant-incident-intro{font-size:12px;line-height:1.5;color:var(--muted);margin:0}
+.merchant-incident-form label:not(.check-row){font-size:12px;font-weight:800}
+.merchant-incident-form select{min-height:47px;max-width:100%}
+.merchant-incident-guide{background:#fff;border:1px solid #e6ddcf;padding:11px 12px;font-size:12px;line-height:1.6;border-radius:10px;color:#5a4c38;overflow-wrap:anywhere}
+.merchant-incident-ack{border:1px solid #eed5cc;padding:11px 12px;border-radius:11px;background:#fff}
+.merchant-incident-ack span{min-width:0}
+.merchant-incident-ack small{display:block;line-height:1.45;margin-top:4px}
+.merchant-incident-form .danger-btn{min-height:49px;max-width:100%;white-space:normal}
+.merchant-incident-form .danger-btn:disabled{opacity:.46;cursor:not-allowed}
+@media(max-width:540px){
+ .merchant-incident-risk-guide{padding:12px}
+ .merchant-incident-form{padding:11px}
+ .merchant-incident-form select{font-size:16px}
+ .merchant-incident-form .danger-btn{width:100%;min-height:52px}
+}

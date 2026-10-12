@@ -74,6 +74,8 @@ vm.runInContext([
  pick('merchantOrderProgressView'),
  pick('merchantOrderAttention'),
  pick('merchantOrderAttentionCard'),
+ pick('merchantIncidentAdvice'),
+ pick('merchantIncidentRiskGuide'),
  pick('merchantLiveOrder')
 ].join('\n')+';this.card=merchantLiveOrder;',cardCtx);
 const item={
