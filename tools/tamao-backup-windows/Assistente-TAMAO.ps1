@@ -1,6 +1,6 @@
 ﻿# TAMÃO — assistente local de backup PostgreSQL para Windows 10/11.
-# Não envia informações à Internet, exceto a conexão de leitura PostgreSQL
-# iniciada explicitamente pelo usuário com o próprio Supabase.
+# A rede é usada apenas sob ação do usuário: download HTTPS do pacote oficial
+# de ferramentas (SHA-256 verificado) e conexão PostgreSQL ao Supabase.
 # Nunca cria banco, modifica tabelas, envia dump ao GitHub ou ativa vendas.
 [CmdletBinding()]
 param([switch]$SelfTest,[switch]$GuiSmokeTest)
