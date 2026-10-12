@@ -39,6 +39,7 @@ const adminRuntime={
   saleRefundFilter:'all',
   salePaymentHistory:{attempts:[],interruptedOrders:[],nextCursor:null,hasMore:false,loading:false,error:null,started:false,checkedAt:null},
   financeHistory:{data:null,loading:false,error:null,checkedAt:null},
+  merchantFinance:{data:null,loading:false,error:null,checkedAt:null},
   prospectReport:null,
   expansionRadar:[],
   expansionRadarLoading:false,
@@ -183,7 +184,8 @@ async function adminInvoke(body={},options={}){
     'Authorization':'Bearer '+token
   };
   if(options.idempotencyKey)headers['Idempotency-Key']=options.idempotencyKey;
-  const response=await globalThis.chamaFetch(CHAMA_BACKEND.url+'/functions/v1/admin-ops',{
+  const endpoint=body?.action==='finance-merchant-performance'?'admin-finance-merchant':'admin-ops';
+  const response=await globalThis.chamaFetch(CHAMA_BACKEND.url+'/functions/v1/'+endpoint,{
     method:'POST',
     headers,
     body:JSON.stringify(body),
@@ -341,6 +343,7 @@ async function adminSignOut(){
   adminRuntime.paymentPreflights={};
   adminRuntime.salePaymentHistory={attempts:[],interruptedOrders:[],nextCursor:null,hasMore:false,loading:false,error:null,started:false,checkedAt:null};
   adminRuntime.financeHistory={data:null,loading:false,error:null,checkedAt:null};
+  adminRuntime.merchantFinance={data:null,loading:false,error:null,checkedAt:null};
   try{sessionStorage.removeItem('tamao-admin-provider-health-v1')}catch{}
   adminRuntime.auditResults=null;
   adminRuntime.auditPending=false;
@@ -370,6 +373,7 @@ async function adminRefresh({silent=false}={}){
     adminRuntime.lastSyncAt=new Date().toISOString();
     queueMicrotask(()=>adminEnsureProviderHealth().catch(()=>{}));
     if(adminRuntime.section==='finance')queueMicrotask(()=>adminLoadFinanceHistory().catch(()=>{}));
+    if(adminRuntime.section==='finance')queueMicrotask(()=>adminLoadMerchantFinance().catch(()=>{}));
     return data;
   }catch(error){
     if(seq!==adminRuntime.refreshSeq)return null;
@@ -378,6 +382,7 @@ async function adminRefresh({silent=false}={}){
       adminRuntime.data=null;
       adminRuntime.salePaymentHistory={attempts:[],interruptedOrders:[],nextCursor:null,hasMore:false,loading:false,error:null,started:false,checkedAt:null};
   adminRuntime.financeHistory={data:null,loading:false,error:null,checkedAt:null};
+  adminRuntime.merchantFinance={data:null,loading:false,error:null,checkedAt:null};
       adminRuntime.enablementMerchants=[];
       adminRuntime.enablementLoaded=false;
       adminRuntime.error=null;
@@ -389,6 +394,7 @@ async function adminRefresh({silent=false}={}){
       adminRuntime.data=null;
       adminRuntime.salePaymentHistory={attempts:[],interruptedOrders:[],nextCursor:null,hasMore:false,loading:false,error:null,started:false,checkedAt:null};
   adminRuntime.financeHistory={data:null,loading:false,error:null,checkedAt:null};
+  adminRuntime.merchantFinance={data:null,loading:false,error:null,checkedAt:null};
       adminRuntime.searchQuery='';
       adminRuntime.searchResults=[];
       adminRuntime.detail=null;
@@ -1262,6 +1268,7 @@ function adminSetSection(section){
   }
   if(next==='enablement')adminLoadEnablement().catch(()=>{});
   if(next==='finance')adminLoadFinanceHistory().catch(()=>{});
+  if(next==='finance')adminLoadMerchantFinance().catch(()=>{});
   requestAnimationFrame(()=>{
     document.querySelector('.admin-main')?.scrollIntoView({block:'start'});
   });
@@ -1856,6 +1863,121 @@ function adminFinanceMonthlyComparisonView(data){
     <div class='card flat'><h3>Valores aprovados mês a mês</h3><div class='admin-finance-month-bars'>${bars}</div>
       <p class='tiny muted'>Escala relativa ao maior mês exibido; os valores exatos ficam à direita. O mês atual é parcial. Inclui pacotes, D+1 e recuperações; não é receita por competência, lucro ou saldo no PSP.</p>
     </div>
+  </section>`;
+}
+
+/* V1.190 — source-authoritative, scoped merchant finance, no direct financial actions. */
+function adminMerchantFinanceIsFresh(state,now=Date.now()){
+  if(!state?.data||!state.checkedAt)return false;
+  const t=Date.parse(state.checkedAt);
+  return Number.isFinite(t)&&t<=now+60000&&now-t<=10*60000;
+}
+function adminMerchantFinanceValidate(data){
+  const integers=['creditBalanceCents','creditReservedCents','recordedFees30dCents','openReceivablesCents','openStatementCount','openStatementCents','overdueStatementCount','overdueStatementCents','approvedPaymentCount','approvedDailyCents','approvedPackagesCents','approvedRecoveriesCents','pendingPaymentCount','pendingPaymentCents','unverifiableApprovedCount','linkedRefundCount','linkedRefundCents'];
+  const numberSafe=n=>Number.isSafeInteger(n)&&n>=0;
+  if(data?.source!=='database_complete_per_merchant'||data.rowLimit!==200
+    ||!numberSafe(data.totalMerchants)||!Array.isArray(data.rows)
+    ||data.rows.length>200||data.rows.length>data.totalMerchants
+    ||!Number.isFinite(Date.parse(String(data.generatedAt||''))))return false;
+  const ids=new Set();
+  for(const row of data.rows){
+    if(!row||typeof row.merchantId!=='string'
+      ||!/^[0-9a-f]{8}-[0-9a-f-]{27,}$/i.test(row.merchantId)
+      ||ids.has(row.merchantId)
+      ||typeof row.merchantName!=='string'
+      ||typeof row.city!=='string'
+      ||typeof row.state!=='string'
+      ||typeof row.salesHold!=='boolean'
+      ||!integers.every(key=>numberSafe(row[key]))
+      ||row.overdueStatementCents>row.openStatementCents
+      ||row.overdueStatementCount>row.openStatementCount
+      ||row.creditReservedCents>row.creditBalanceCents
+    )return false;
+    ids.add(row.merchantId);
+  }
+  return true;
+}
+async function adminLoadMerchantFinance({force=false}={}){
+  if(adminRuntime.status!=='ready'||!adminRuntime.session)return;
+  if(!['superadmin','finance'].includes(adminCurrentRole()))return;
+  const old=adminRuntime.merchantFinance||{};
+  if(old.loading||(!force&&adminMerchantFinanceIsFresh(old)))return;
+  const session=adminRuntime.session;
+  adminRuntime.merchantFinance={...old,loading:true,error:null};
+  render();
+  try{
+    const data=await adminInvoke({action:'finance-merchant-performance'});
+    if(session!==adminRuntime.session||adminRuntime.status!=='ready'
+      ||!['superadmin','finance'].includes(adminCurrentRole()))return;
+    if(!adminMerchantFinanceValidate(data))throw new Error('Indicadores por revenda indisponíveis ou inconsistentes.');
+    adminRuntime.merchantFinance={data,loading:false,error:null,checkedAt:new Date().toISOString()};
+  }catch(e){
+    if(session===adminRuntime.session)
+      adminRuntime.merchantFinance={...old,loading:false,error:String(e?.message||e),checkedAt:old.checkedAt||null};
+  }finally{if(session===adminRuntime.session)render();}
+}
+function adminMerchantFinanceFilter(value){
+  const query=String(value||'').trim().toLocaleLowerCase('pt-BR');
+  let visible=0;
+  document.querySelectorAll('.admin-merchant-finance-row').forEach(row=>{
+    const match=String(row.dataset.search||'').includes(query);
+    row.hidden=!match;
+    if(match)visible++;
+  });
+  const count=document.getElementById('admin-merchant-finance-visible');
+  if(count)count.textContent=String(visible);
+  const empty=document.getElementById('admin-merchant-finance-no-match');
+  if(empty)empty.hidden=visible>0;
+}
+function adminMerchantFinanceView(){
+  if(!adminRoleCanSection('finance'))return '';
+  const state=adminRuntime.merchantFinance||{};
+  const data=state.data;
+  const recent=adminMerchantFinanceIsFresh(state);
+  const m=c=>adminMoney(c);
+  const riskCount=data?data.rows.filter(r=>r.overdueStatementCents>0||r.salesHold).length:0;
+  const cards=data?data.rows.map(r=>{
+    const city=r.city+' / '+r.state;
+    const attention=r.overdueStatementCents>0||r.salesHold;
+    const label=attention?'REVISÃO':'SEM ATRASO D+1 REGISTRADO';
+    const search=(r.merchantName+' '+city).toLocaleLowerCase('pt-BR');
+    return `<article class='card flat admin-merchant-finance-row' data-search='${esc(search)}'>
+      <div class='order-head'><div><strong>${esc(r.merchantName)}</strong><br><small>${esc(city)} • ${esc(r.planKey||'Plano não informado')}</small></div><span class='status-pill ${attention?'offline':'online'}'>${label}</span></div>
+      <div class='admin-merchant-finance-kpis'>
+        <div><small>Taxas registradas • 30 dias</small><strong>${m(r.recordedFees30dCents)}</strong></div>
+        <div><small>D+1 em aberto</small><strong>${m(r.openStatementCents)}</strong><small>${Number(r.openStatementCount)} fechamento(s)</small></div>
+        <div><small>D+1 vencido (incluído no aberto)</small><strong>${m(r.overdueStatementCents)}</strong><small>${Number(r.overdueStatementCount)} vencimento(s)</small></div>
+        <div><small>Crédito pré-pago em conta</small><strong>${m(r.creditBalanceCents)}</strong><small>${m(r.creditReservedCents)} reservado(s)</small></div>
+      </div>
+      <details class='admin-merchant-finance-details'><summary>Ver recebimentos e pendências</summary>
+        <div class='admin-managerial-rows'>
+          <div class='admin-managerial-row'><span>Taxas D+1 aprovadas</span><strong>${m(r.approvedDailyCents)}</strong></div>
+          <div class='admin-managerial-row'><span>Pacotes aprovados (adiantamento)</span><strong>${m(r.approvedPackagesCents)}</strong></div>
+          <div class='admin-managerial-row'><span>Recuperações aprovadas</span><strong>${m(r.approvedRecoveriesCents)}</strong></div>
+          <div class='admin-managerial-row'><span>Refunds vinculados (PSP)</span><strong>${m(r.linkedRefundCents)}</strong></div>
+          <div class='admin-managerial-row'><span>Pagamento informado, pendente de aprovação</span><strong>${m(r.pendingPaymentCents)}</strong></div>
+        </div>
+        ${r.unverifiableApprovedCount?`<div class='notice danger'>${Number(r.unverifiableApprovedCount)} aprovação(ões) sem valor ou data verificável.</div>`:''}
+        <p class='tiny muted'>${Number(r.approvedPaymentCount)} pagamento(s) aprovado(s) e ${Number(r.pendingPaymentCount)} em conferência. Histórico acumulado; não é extrato bancário.</p>
+      </details>
+    </article>`;
+  }).join(''):'';
+  return `<section class='section admin-merchant-finance' aria-label='Desempenho financeiro por revenda'>
+    <div class='section-head'><div><span class='section-kicker'>CONTROLADORIA POR REVENDA</span><h2>Desempenho financeiro dos parceiros</h2><p>Taxas do TAMÃO, recebimentos e pendências separados por revenda e município. A receita das vendas continua pertencendo à revenda.</p></div>
+      <button type='button' class='secondary small' onclick='adminLoadMerchantFinance({force:true})' ${state.loading?'disabled':''}>${state.loading?'Consultando…':'Atualizar revendas'}</button></div>
+    ${state.error?`<div class='notice danger'>${esc(state.error)}</div>`:''}
+    ${!data?`<div class='empty card'>${state.loading?'Consultando posição financeira por revenda…':'A consulta financeira por revenda ainda não foi validada.'}</div>`:
+    `<p class='tiny muted'>Fonte: banco completo por revenda • ${esc(formatDateTime(data.generatedAt))} • ${recent?'atualizado':'desatualizado — confirme novamente'}. ${Number(data.totalMerchants)} revenda(s) cadastrada(s); ${data.rows.length} exibida(s), ordenadas por atraso e valores em aberto.</p>
+      ${data.totalMerchants>data.rows.length?`<div class='notice'>Exibição limitada às 200 revendas prioritárias. Os valores desta lista não representam toda a operação.</div>`:''}
+      ${data.rows.length?`<div class='admin-merchant-finance-tools'>
+        <label for='admin-merchant-finance-search'>Buscar revenda ou município</label>
+        <input id='admin-merchant-finance-search' type='search' class='input' placeholder='Revenda, município ou UF' oninput='adminMerchantFinanceFilter(this.value)' autocomplete='off'>
+        <span class='tiny muted'><span id='admin-merchant-finance-visible'>${data.rows.length}</span> na lista • ${riskCount} com alerta de atraso ou bloqueio</span>
+      </div>
+      <div class='admin-merchant-finance-list'>${cards}</div>
+      <div id='admin-merchant-finance-no-match' class='empty card' hidden>Nenhuma revenda encontrada nesta lista.</div>`:
+      `<div class='empty card'>Nenhuma revenda cadastrada. O painel exibirá os resultados automaticamente quando houver parceiros com dados reais.</div>`}
+      <p class='tiny muted'>D+1 vencido faz parte do total aberto; não somar. Taxas registradas não provam recebimento. Pacotes pré-pagos, saldo de crédito e recuperações não devem ser confundidos com receita por competência. Consultas somente leitura.</p>`}
   </section>`;
 }
 
@@ -3564,6 +3686,7 @@ function adminPage(){
     ${adminFinanceOverview(d)}
     ${adminFinanceManagementView(d)}
     ${adminFinanceHistoryView()}
+    ${adminMerchantFinanceView()}
     ${adminInterruptedSalePaymentWatch(d)}
     ${adminMerchantBillingSection(d)}
     ${adminCommercialPolicySection(d)}
@@ -4404,6 +4527,8 @@ globalThis.adminRetryBootstrapFromUi=adminRetryBootstrapFromUi;
 globalThis.adminSignOut=adminSignOut;
 globalThis.adminRefresh=adminRefresh;
 globalThis.adminLoadFinanceHistory=adminLoadFinanceHistory;
+globalThis.adminLoadMerchantFinance=adminLoadMerchantFinance;
+globalThis.adminMerchantFinanceFilter=adminMerchantFinanceFilter;
 globalThis.adminPoll=adminPoll;
 globalThis.adminPage=adminPage;
 globalThis.adminRetryReward=adminRetryReward;

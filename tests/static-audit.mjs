@@ -599,7 +599,15 @@ assert.ok(backend.includes('shouldCreateUser:true,captchaToken'),'magic link da 
 assert.ok(admin.includes("challenge('admin_login')"),'login admin deve resolver Turnstile antes do magic link');
 assert.ok(read('supabase/functions/admin-auth/index.ts').includes('shouldCreateUser:mode==="bootstrap_reserved"')&&read('supabase/functions/admin-auth/index.ts').includes('captchaToken'),'Edge admin deve enviar captcha e só criar conta para a reserva inicial');
 
-assert.ok(admin.includes("/functions/v1/admin-ops"),'admin deve operar somente pela Edge Function protegida');
+assert.ok(admin.includes("body?.action==='finance-merchant-performance'?'admin-finance-merchant':'admin-ops'")
+  &&admin.includes("CHAMA_BACKEND.url+'/functions/v1/'+endpoint"),
+  'admin deve operar somente por Edge Functions com roteamento restrito a endpoints protegidos');
+const financeGateway=read('supabase/functions/admin-finance-merchant/index.ts');
+assert.ok(financeGateway.includes('auth.getUser(token)')
+  &&financeGateway.includes('platform_admins')
+  &&financeGateway.includes('["superadmin","finance"].includes(access.admin_role)')
+  &&financeGateway.includes('admin.rpc("admin_finance_merchant_performance_v1_190"'),
+  'relatório por revenda deve revalidar sessão e autoridade financeira no servidor');
 assert.ok(!admin.includes("service_role")&&!admin.includes("sb_secret_"),'frontend admin jamais pode conter autoridade server-side');
 assert.ok(read('supabase/functions/admin-ops/index.ts').includes('platform_admins'),'Edge admin deve exigir allowlist server-side');
 assert.ok(read('supabase/functions/admin-ops/index.ts').includes('ADMIN_ACCESS_DENIED'),'Edge admin deve negar conta fora da allowlist');
