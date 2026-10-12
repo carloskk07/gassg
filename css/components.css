@@ -2199,3 +2199,28 @@ body:has(.admin-page) .shell{
   .merchant-catalog-chooser input,.merchant-catalog-chooser select{font-size:16px;max-width:100%}
   .merchant-catalog-add-btn{width:100%;min-height:52px}
 }
+
+/* V1.173 — daily catalog maintenance: review-needed first, explicit save */
+.merchant-catalog-attention{margin:18px 0 14px;border:1px solid #e8d7bd;border-radius:17px;background:#fffaf4;padding:16px;min-width:0}
+.merchant-catalog-attention-head{display:flex;align-items:baseline;justify-content:space-between;flex-wrap:wrap;gap:8px}
+.merchant-catalog-attention-head h2{font-size:17px;line-height:1.3;margin:0}
+.merchant-catalog-attention-head span{font-size:12px;font-weight:800;color:#895b23}
+.merchant-catalog-attention>p{font-size:12px;line-height:1.5;color:var(--muted);margin:8px 0 14px}
+.merchant-catalog-attention-items{display:grid;gap:8px}
+.merchant-catalog-attention-item{display:flex;align-items:center;justify-content:space-between;gap:12px;background:white;border:1px solid #e9decd;border-radius:12px;padding:11px;min-width:0}
+.merchant-catalog-attention-item>div{min-width:0;display:grid;gap:4px}
+.merchant-catalog-attention-item strong{font-size:13px;overflow-wrap:anywhere}
+.merchant-catalog-attention-item span{font-size:12px;line-height:1.45;color:#885a21}
+.merchant-catalog-attention-item button{min-height:44px;flex-shrink:0}
+.merchant-catalog-all-clear{display:grid;gap:5px;padding:13px 15px;border:1px solid #d6e6d9;background:#f8fcf9;border-radius:14px;margin:16px 0}
+.merchant-catalog-all-clear strong{font-size:13px;color:#245c42}
+.merchant-catalog-all-clear span{font-size:12px;line-height:1.4;color:var(--muted)}
+.merchant-catalog-stock-controls{display:grid;grid-template-columns:47px minmax(0,1fr) 47px;align-items:center;gap:7px;min-width:0}
+.merchant-catalog-stock-controls>.secondary{min-height:47px;padding:0;font-size:22px;font-weight:700}
+.merchant-catalog-stock-controls>.input{text-align:center;min-width:0;max-width:100%;font-size:16px}
+@media(max-width:520px){
+  .merchant-catalog-attention{padding:12px}
+  .merchant-catalog-attention-item{align-items:start;flex-wrap:wrap;gap:9px}
+  .merchant-catalog-attention-item button{min-height:46px;max-width:100%}
+  .merchant-catalog-stock-controls{grid-template-columns:47px minmax(0,1fr) 47px}
+}
