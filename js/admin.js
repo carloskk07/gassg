@@ -184,7 +184,8 @@ async function adminInvoke(body={},options={}){
     'Authorization':'Bearer '+token
   };
   if(options.idempotencyKey)headers['Idempotency-Key']=options.idempotencyKey;
-  const response=await globalThis.chamaFetch(CHAMA_BACKEND.url+'/functions/v1/admin-ops',{
+  const endpoint=body?.action==='finance-merchant-performance'?'admin-finance-merchant':'admin-ops';
+  const response=await globalThis.chamaFetch(CHAMA_BACKEND.url+'/functions/v1/'+endpoint,{
     method:'POST',
     headers,
     body:JSON.stringify(body),
