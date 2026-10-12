@@ -1977,6 +1977,66 @@ function adminFinanceManagementView(d){
   </section>`;
 }
 
+/* V1.192 — source-aware daily finance triage; never approve, charge or settle from navigation. */
+function adminFinanceDailyPriorities(d,now=Date.now()){
+  const metrics=d?.merchantBilling?.metrics;
+  const reconciliation=d?.merchantBilling?.reconciliation;
+  const safe=value=>Number.isSafeInteger(value)&&value>=0?value:null;
+  const updated=Date.parse(String(adminRuntime.lastSyncAt||''));
+  const fresh=Number.isFinite(updated)&&updated<=now+60_000&&now-updated<=120_000;
+  const overdue=safe(metrics?.overdueStatementCount);
+  const overdueCents=safe(metrics?.overdueStatementCents);
+  const open=safe(metrics?.openStatementCount);
+  const openCents=safe(metrics?.openStatementCents);
+  const pending=safe(metrics?.pendingPaymentCount);
+  const pendingCents=safe(metrics?.pendingPaymentCents);
+  const disputes=safe(reconciliation?.issueCount);
+  const sla=safe(metrics?.queueSla?.breachCount);
+  const counts=[overdue,open,pending,disputes,sla];
+  const money=[overdueCents,openCents,pendingCents];
+  const consistent=counts.every(v=>v!==null)&&money.every(v=>v!==null)
+    &&overdue<=open&&overdueCents<=openCents;
+  return {fresh,consistent,
+    ready:consistent&&fresh,
+    overdue,overdueCents,open,openCents,pending,pendingCents,disputes,sla,
+    attention:consistent?[overdue,pending,disputes,sla].some(v=>v>0):null};
+}
+function adminFinanceDailyPrioritiesView(d){
+  if(!adminRoleCanSection('finance'))return '';
+  const p=adminFinanceDailyPriorities(d);
+  const lines=[
+    {id:'overdue',value:p.overdue,title:'D+1 vencido',detail:p.overdueCents===null?'Valor indisponível':adminMoney(p.overdueCents)+' já incluídos no D+1 em aberto.',area:'billing',action:'Ver cobranças'},
+    {id:'pending',value:p.pending,title:'Pagamentos informados',detail:p.pendingCents===null?'Valor indisponível':adminMoney(p.pendingCents)+' aguardando conferência; não são recebimentos confirmados.',area:'billing',action:'Conferir pagamentos'},
+    {id:'disputes',value:p.disputes,title:'Divergências de conciliação',detail:'Registros que precisam de análise antes de qualquer ajuste.',area:'reconciliation',action:'Ver conciliação'},
+    {id:'sla',value:p.sla,title:'Itens fora do SLA',detail:'Podem se sobrepor aos grupos acima; não somar as contagens.',area:'reconciliation',action:'Revisar pendências'}
+  ];
+  const active=lines.filter(x=>x.value!==null&&x.value>0);
+  const unknown=lines.filter(x=>x.value===null);
+  const cards=active.map(x=>`<div class='admin-finance-priority-card'>
+    <div class='admin-finance-priority-top'><strong>${esc(x.title)}</strong><span class='admin-finance-priority-count'>${x.value}</span></div>
+    <p>${esc(x.detail)}</p>
+    <button type='button' class='secondary small' onclick="adminSetFinanceWorkspace('${x.area}')">${esc(x.action)}</button>
+  </div>`).join('');
+  const check=unknown.length?`<p class='tiny muted'>Indicadores sem confirmação: ${unknown.map(x=>esc(x.title)).join(', ')}.</p>`:'';
+  const freshness=p.fresh?'Dados recentes':'Consulta desatualizada ou sem horário válido';
+  const message=!p.consistent?'Não foi possível validar todos os indicadores financeiros. Atualize antes de concluir que não há pendências.'
+    :!p.fresh?'Os indicadores podem ter mudado desde a última atualização. Consulte novamente antes de agir.'
+    :!p.attention?'Nenhuma pendência identificada nestes quatro indicadores. Isso não substitui a conciliação financeira.':'Priorize a conferência; nenhuma cobrança ou ajuste será executado automaticamente.';
+  return `<section class='section admin-finance-priorities' aria-label='Prioridades de análise financeira'>
+    <div class='section-head'><div><span class='section-kicker'>PRIORIDADES DO FINANCEIRO</span>
+      <h2>O que precisa de atenção?</h2>
+      <p>Atalhos de análise baseados nos totais informados pelo servidor. Nenhuma ação financeira é automática.</p></div>
+      <span class='admin-data-freshness'>${esc(freshness)}</span></div>
+    ${!p.ready?`<div class='notice danger'><strong>Conferência necessária.</strong> ${esc(message)}
+      <button type='button' class='secondary small' onclick='adminRefresh({silent:false})'>Atualizar dados</button></div>`:''}
+    ${p.ready&&p.attention?`<div class='admin-finance-priority-grid'>${cards}</div>`:''}
+    ${p.ready&&!p.attention?`<div class='admin-finance-priority-clear'><strong>Nenhuma prioridade identificada nos indicadores verificados.</strong><p>${esc(message)}</p></div>`:''}
+    ${!p.ready&&cards?`<div class='admin-finance-priority-grid is-stale'>${cards}</div>`:''}
+    ${check}
+    <p class='tiny muted'>D+1 vencido faz parte do aberto. Uma mesma pendência pode aparecer na conciliação e no SLA; não somar estes números. Pagamentos e valores de vendas das revendas não são receita do TAMÃO.</p>
+  </section>`;
+}
+
 /* V1.191 — stable finance workspaces, never change financial authority. */
 const ADMIN_FINANCE_WORKSPACES=[{"id":"summary","label":"Resumo","detail":"Indicadores e evolução"},{"id":"billing","label":"Cobranças","detail":"Pagamentos D+1 e créditos"},{"id":"reconciliation","label":"Conciliação","detail":"Pendências, benefícios e ajustes"},{"id":"policy","label":"Regras e reversões","detail":"Ações administrativas sensíveis"}];
 function adminFinanceWorkspaceCurrent(){
@@ -3631,6 +3691,7 @@ function adminPage(){
   const financeSelection=adminFinanceWorkspaceCurrent();
   const financeContent=`
     ${adminFinanceWorkspaceNav()}
+    ${adminFinanceDailyPrioritiesView(d)}
     <div id='admin-finance-workspace-panel' class='admin-finance-workspace-panel'
       aria-label='Área financeira selecionada'>
       ${financeAreas[financeSelection]}
