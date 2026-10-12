@@ -5,7 +5,8 @@ const read=p=>fs.readFileSync(new URL('../'+p,import.meta.url),'utf8');
 const source=read('js/admin-acquisition.js');
 new vm.Script(source,{filename:'admin-acquisition.js'});
 const fn=name=>{
-  const a=source.indexOf('function '+name+'('),b=source.indexOf('\n}',a);
+  const asyncAt=source.indexOf('async function '+name+'(');
+  const a=asyncAt>=0?asyncAt:source.indexOf('function '+name+'('),b=source.indexOf('\n}',a);
   assert.ok(a>=0&&b>a,'Missing '+name);return source.slice(a,b+2);
 };
 let role='operations',fresh=true,valid=true,copied='',calls=0,notifications=[];
