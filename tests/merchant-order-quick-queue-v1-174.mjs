@@ -45,7 +45,7 @@ const runtime={merchant:{memberRole:'operator'},deliveryTeam:[],actionPending:fa
 const cardCtx=vm.createContext({globalThis:{merchantRuntime:runtime},esc,BRL:{format:v=>'R$ '+Number(v).toFixed(2)},
  statusCopy:{},paymentLabel:()=> 'Pix',merchantScheduledDispatchState:()=>({scheduled:false,ready:true}),
  merchantDeliveryMemberLabel:()=> 'Entregador',merchantFormatPhone:v=>String(v)});
-vm.runInContext(cut('merchantDeliveryCandidates')+'\n'+cut('merchantOrderEventDate')+'\n'+cut('merchantOrderProgressView')+'\n'+cut('merchantLiveOrder')+';this.card=merchantLiveOrder;',cardCtx);
+vm.runInContext(cut('merchantDeliveryCandidates')+'\n'+cut('merchantOrderEventDate')+'\n'+cut('merchantOrderScheduleDate')+'\n'+cut('merchantOrderProgressView')+'\n'+cut('merchantLiveOrder')+';this.card=merchantLiveOrder;',cardCtx);
 const item={
  orderId:'11111111-1111-4111-8111-111111111111',publicCode:'TAM-1234',status:'PREPARING',
  items:[{quantity:1,productName:'Gás 13 kg'}],totalCents:12000,
