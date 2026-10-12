@@ -111,7 +111,7 @@ assert.equal(focusCtx.focusAssign('invalid-id'),false);
 let called=0;
 const btn={disabled:false,textContent:'Confirmar responsável'};
 const selected={value:b};
-const elements={'delivery-'+order1:selected,'delivery-save-'+order1:btn};
+const elements={['delivery-'+order1]:selected,['delivery-save-'+order1]:btn};
 const messages=[];
 const actionCtx=vm.createContext({
  globalThis:{merchantRuntime:rt},
