@@ -301,6 +301,42 @@ Deno.serve(async(req:Request)=>{
       };
     }
 
+    // V1.181: the original merchant may be detached during reassign/cancellation.
+    // Read only the authenticated customer's own order's latest recorded payment attempt.
+    // A payment attempt is not a receipt or a live banking balance.
+    if(
+      role==="customer"
+      &&["CANCELLED","REASSIGNING"].includes(order.status)
+      &&order.payment_timing==="prepaid"
+      &&["pix","card"].includes(String(order.payment_method??""))
+    ){
+      const {data:attempt,error:attemptError}=await admin
+        .from("merchant_sale_payment_attempts")
+        .select("status,provider,verification_level,approved_at,refunded_at,amount_cents")
+        .eq("order_id",order.id)
+        .order("created_at",{ascending:false})
+        .limit(1)
+        .maybeSingle();
+      if(attemptError)throw attemptError;
+      const state=String(attempt?.status??"not_available");
+      const visibleStates=new Set(["approved","refunded","review_required"]);
+      const safeState=visibleStates.has(state)?state:"not_available";
+      onlinePayment={
+        ...onlinePayment,
+        available:false,
+        canStart:false,
+        checkoutUrl:null,
+        status:safeState,
+        provider:attempt?.provider==="mercadopago"?"mercadopago":null,
+        verificationLevel:attempt?.verification_level??null,
+        approvedAt:attempt?.approved_at??null,
+        refundedAt:attempt?.refunded_at??null,
+        amountCents:Number(attempt?.amount_cents??order.total_cents??0),
+        fundsOwner:"merchant",
+        tamaoReceivesSaleProceeds:false
+      };
+    }
+
     const deliveryDetailsVisible=role==="customer"||order.status!=="OFFERED_TO_MERCHANT";
 
     const safeOrder={
