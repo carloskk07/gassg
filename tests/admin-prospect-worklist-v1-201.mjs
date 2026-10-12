@@ -10,8 +10,8 @@ function fn(name){
   return source.slice(start,end+2);
 }
 const now=Date.now(), cn=n=>String(n).padStart(14,'0');
-const yesterday=new Intl.DateTimeFormat('en-CA',{timeZone:'America/Sao_Paulo',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date(now-86400000));
-const tomorrow=new Intl.DateTimeFormat('en-CA',{timeZone:'America/Sao_Paulo',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date(now+86400000));
+function day(t){const p=Object.fromEntries(new Intl.DateTimeFormat('en-GB',{timeZone:'America/Sao_Paulo',year:'numeric',month:'2-digit',day:'2-digit'}).formatToParts(new Date(t)).map(x=>[x.type,x.value]));return p.year+'-'+p.month+'-'+p.day}
+const yesterday=day(now-86400000),tomorrow=day(now+86400000);
 const report={state:'RS',city:'São Gabriel',prospects:[
   ...Array.from({length:12},(_,i)=>({cnpj:cn(i+1),legal_name:'Vencido '+i,prospect_status:'contacted',follow_up_at:yesterday})),
   ...Array.from({length:23},(_,i)=>({cnpj:cn(i+40),legal_name:'Primeira '+i,prospect_status:'uncontacted',contact_attempts:0})),
