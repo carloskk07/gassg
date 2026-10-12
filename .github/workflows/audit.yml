@@ -189,7 +189,7 @@ jobs:
             "$CHROME" --headless=new --no-sandbox --disable-gpu --window-size=360,800 --virtual-time-budget=1200 --user-data-dir="/tmp/chrome-$route" --dump-dom "http://127.0.0.1:4173/#$route" > "/tmp/$route.html"
           done
           grep -Fq "Pediu? Tá na mão." /tmp/home.html
-          grep -q "SEU PEDIDO, SEM FICAR NA DÚVIDA." /tmp/home.html
+          grep -q "✓ Sem pedido automático" /tmp/home.html
           grep -q "Botijão de cozinha 13 kg" /tmp/home.html
           grep -q "Me avise quando puder pedir" /tmp/home.html
           grep -q "CONSULTE ENTREGAS PERTO DE VOCÊ." /tmp/home.html
