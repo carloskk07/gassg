@@ -902,13 +902,14 @@ function adminProspectFollowupView(report){
   const labels={overdue:'Retorno vencido',today:'Contato para hoje',first_contact:'Primeira abordagem',
     needs_date:'Definir próxima data',unconfirmed:'Data precisa de revisão',scheduled:'Contato agendado'};
   const nums=s.counts;
+  const canManage=['superadmin','operations','compliance'].includes(String(adminCurrentRole()));
   const cards=s.items.map(p=>`<div class='admin-prospect-followup-row'>
     <div><span class='admin-prospect-followup-status ${p.kind}'>${labels[p.kind]}</span>
       <strong>${esc(p.name)}</strong>
       <small>CNPJ ${esc(p.cnpj)} • ${p.due?'Próximo contato: '+esc(p.due):'Sem data válida de próximo contato'}
       </small></div>
     <button type='button' class='secondary small' data-cnpj='${p.cnpj}'
-      onclick='adminOpenProspectFollowup(this.dataset.cnpj)'>Ver negociação</button>
+      onclick='adminOpenProspectFollowup(this.dataset.cnpj)' ${canManage?'':'disabled title="Apenas leitura neste perfil"'}>Ver negociação</button>
   </div>`).join('');
   return `<section class='admin-prospect-followup' aria-label='Próximos contatos de prospectos'>
     <div class='section-head'><div><h3>Contatos para acompanhar</h3>
