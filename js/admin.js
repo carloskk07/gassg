@@ -1368,9 +1368,88 @@ function adminBootstrapErrorView(){
   </section>`);
 }
 
+/* V1.195 — source-limited partner triage, navigation only. */
+function adminMerchantOperationsQueue(d){
+  if(!d||!['applications','pilotPartners','merchants'].every(k=>Array.isArray(d[k])))return {valid:false,items:[],total:0,sampled:false};
+  const uuid=/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+  const rows=[],seen=new Set();
+  const add=(type,r,priority,title,why,time)=>{
+    const id=String(r?.id||'');
+    if(!uuid.test(id)||seen.has(type+':'+id))return;
+    seen.add(type+':'+id);
+    const timestamp=Date.parse(String(time||''));
+    rows.push({type,id,priority,title:String(title||'Cadastro'),why:String(why||'Confira os detalhes'),timestamp:Number.isFinite(timestamp)?timestamp:null});
+  };
+  for(const a of d.applications)if(a?.status==='pending')
+    add('application',a,0,a.company_name||'Cadastro recebido','Cadastro aguardando análise. Aprovação não valida compliance nem ativa a revenda.',a.created_at);
+  for(const p of d.pilotPartners){
+    if(['converted','cancelled'].includes(String(p?.onboarding_status||'')))continue;
+    const next=String(p?.onboarding?.nextAction||'');
+    const priority=next==='review_and_convert'?1:['issue_invite','issue_new_invite'].includes(next)?2:['partner_claim_invite','partner_resubmit'].includes(next)?4:3;
+    add('pilot',p,priority,p.display_name||'Parceiro em entrada',next?adminPilotNextActionCopy(p):'Confira o convite e o próximo passo operacional.',p.updated_at||p.created_at);
+  }
+  for(const m of d.merchants){
+    if(m?.readiness?.offerReady===true)continue;
+    const next=String(m?.readiness?.nextAction||'');
+    const priority=['verify_compliance','assign_owner','activate_merchant'].includes(next)?1:
+      ['confirm_payment','confirm_offer','confirm_logistics'].includes(next)?2:
+      m?.status==='suspended'?1:['go_online','refresh_heartbeat'].includes(next)?4:3;
+    add('merchant',m,priority,m.name||'Revenda cadastrada',
+      next?adminPilotNextActionCopy({onboarding:{nextAction:next}}):'Prontidão não confirmada; confira compliance, oferta e habilitação.',
+      m.updated_at||m.created_at);
+  }
+  rows.sort((a,b)=>a.priority-b.priority||Number(a.timestamp===null)-Number(b.timestamp===null)
+    ||(a.timestamp??0)-(b.timestamp??0)||a.type.localeCompare(b.type)||a.id.localeCompare(b.id));
+  return {valid:true,items:rows.slice(0,8),total:rows.length,
+    sampled:['applications','pilotPartners','merchants'].some(k=>d[k].length>=300)};
+}
+function adminMerchantOperationsQueueView(d){
+  if(!adminRoleCanSection('partners'))return '';
+  const q=adminMerchantOperationsQueue(d);
+  if(!q.valid)return `<section class='section admin-partner-worklist'><div class='notice danger'><strong>Fila de parceiros indisponível.</strong> Cadastros ou revendas não foram recebidos integralmente. Atualize o painel.</div></section>`;
+  const age=Date.parse(String(adminRuntime.lastSyncAt||''));
+  const fresh=Number.isFinite(age)&&age<=Date.now()+60000&&Date.now()-age<=5*60000;
+  const cards=q.items.map(r=>`<div class='admin-partner-work-row'>
+    <div><strong>${esc(r.title)}</strong><small>${esc(r.why)}</small>
+    <span class='admin-partner-work-kind'>${r.type==='application'?'Cadastro recebido':r.type==='pilot'?'Parceiro em entrada':'Revenda cadastrada'}</span></div>
+    <button type='button' class='secondary small' onclick="adminFocusMerchantOperationsRecord('${r.type}','${r.id}')">Ver pendência</button>
+  </div>`).join('');
+  return `<section class='section admin-partner-worklist' aria-label='Fila operacional de parceiros'>
+    <div class='section-head'><div><span class='section-kicker'>REDE DE REVENDA</span><h2>Parceiros que precisam de atenção</h2>
+    <p>Veja os próximos passos e abra diretamente o cadastro correspondente.</p></div>
+    <span class='admin-data-freshness'>${fresh?'Consulta recente':'Dados desatualizados'}</span></div>
+    <div class='card flat'><div class='admin-partner-work-heading'>
+      <strong>${q.total} registro(s) com atenção na amostra</strong><span class='tiny muted'>Até 8 atalhos por prioridade</span></div>
+      ${!fresh?'<div class="notice danger">Atualize os dados antes de tomar decisões administrativas.</div>':''}
+      ${q.sampled?'<p class="tiny muted">Uma lista atingiu 300 registros. Outros parceiros podem estar fora da amostra.</p>':''}
+      ${q.items.length?`<div class='admin-partner-work-grid'>${cards}</div>`:'<p class="tiny muted">Nenhuma pendência identificada nesta amostra. Isso não comprova que todas as revendas estejam habilitadas.</p>'}
+      <p class='tiny muted'>A fila apenas navega: não aprova cadastro, não valida CNPJ ou ANP e não ativa revendas.</p>
+    </div>
+  </section>`;
+}
+function adminFocusMerchantOperationsRecord(type,id){
+  if(adminRuntime.status!=='ready'||!adminRoleCanSection('partners'))return;
+  if(!['application','pilot','merchant'].includes(type)
+    ||!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(String(id||'')))return;
+  const q=adminMerchantOperationsQueue(adminRuntime.data);
+  if(!q.valid||!q.items.some(r=>r.type===type&&r.id===id)){
+    toast('Este registro mudou ou saiu da fila. Atualize os dados antes de continuar.');
+    return;
+  }
+  const session=adminRuntime.session;
+  adminRuntime.section='partners';
+  render();
+  requestAnimationFrame(()=>{
+    if(adminRuntime.status!=='ready'||adminRuntime.session!==session||!adminRoleCanSection('partners'))return;
+    const card=document.getElementById('admin-partner-work-'+type+'-'+id);
+    if(!card){toast('O registro não está visível. Atualize o painel.');return;}
+    card.focus({preventScroll:true});
+    card.scrollIntoView({block:'center',behavior:'instant'});
+  });
+}
 function adminApplicationCard(a){
   const pending=a.status==='pending';
-  return `<article class="order-card">
+  return `<article class="order-card" id="admin-partner-work-application-${esc(a.id)}" tabindex="-1">
     <div class="order-head"><div><div class="order-id">${esc(a.company_name)}</div><div class="tiny muted">${esc(a.cnpj)}</div></div>${adminStatusPill(a.status)}</div>
     <div class="order-line"><strong>Responsável:</strong> ${esc(a.responsible_name)}</div>
     <div class="order-line"><strong>WhatsApp:</strong> ${esc(a.phone)}</div>
@@ -1468,7 +1547,7 @@ function adminPilotPartnerCard(p){
     expired:'EXPIRADO',
     revoked:'REVOGADO'
   }[String(onboarding.inviteStatus||'none')]||String(onboarding.inviteStatus||'').toUpperCase();
-  return `<article class="order-card">
+  return `<article class="order-card" id="admin-partner-work-pilot-${esc(p.id)}" tabindex="-1">
     <div class="order-head"><div><div class="order-id">${esc(p.display_name)}</div><div class="tiny muted">Cadastro de parceiro • ${esc(p.proposed_product_code)}</div></div><span class="status-pill ${statusClass}">${esc(statusLabel)}</span></div>
     <div class="order-line"><strong>${p.pricing_mode==='range'?'Faixa comercial confirmada':'Preço comercial informado'}:</strong> ${p.pricing_mode==='range'?adminMoney(p.min_delivered_price_cents)+' mínimo • '+adminMoney(p.preferred_delivered_price_cents)+' normal • '+adminMoney(p.max_delivered_price_cents)+' máximo':adminMoney(p.proposed_delivered_price_cents)} ${p.delivery_included?'com entrega incluída':'antes da entrega'}</div>
     ${p.pricing_mode==='range'?`<div class="order-line"><strong>Estratégia inicial:</strong> ${esc(({volume:'Priorizar volume',balanced:'Equilibrado',margin:'Priorizar margem'})[p.pricing_strategy]||p.pricing_strategy||'—')}</div>`:''}
@@ -1543,7 +1622,7 @@ function adminMerchantCard(m){
   const mixed=(m.deliveryCapabilities||[]).find(x=>x.capability_code==='regulated_glp_mixed_load_verified');
   const mixedId='mixed-'+m.id;
   const mixedNotesId='mixednotes-'+m.id;
-  return `<article class="order-card">
+  return `<article class="order-card" id="admin-partner-work-merchant-${esc(m.id)}" tabindex="-1">
     <div class="order-head"><div><div class="order-id">${esc(m.name)}</div><div class="tiny muted">${esc(m.cnpj)}</div></div>${adminStatusPill(m.status)}</div>
     <div class="order-line">Online: <strong>${m.online?'sim':'não'}</strong> • Trust: ${Number(m.trust_score||0)}/100</div>
     ${readiness?`<div class="notice ${readiness.offerReady?'success':''}" style="margin-top:10px"><strong>${readiness.offerReady?'Revenda ofertável':'Próximo passo operacional'}</strong><br>${esc(adminPilotNextActionCopy({onboarding:{nextAction:readiness.nextAction}}))}</div>`:''}
@@ -3848,6 +3927,7 @@ function adminPage(){
   const customersContent=adminCustomersSection(d);
 
   const partnersContent=`
+    ${adminMerchantOperationsQueueView(d)}
     ${adminPrelaunchLeadsSection(d)}
     ${adminPublicRequestsSection(d)}
     <section class="section"><div class="section-head"><div><h2>Parceiros em cadastramento</h2><p>Interesses comerciais registrados antes da conclusão do cadastro operacional. Esses registros não participam das ofertas e não contam como revenda ativa.</p></div></div>${pilotPartners.length?pilotPartners.map(adminPilotPartnerCard).join(''):'<div class="empty card">Nenhum parceiro aguardando conclusão de cadastro.</div>'}</section>
@@ -4734,6 +4814,7 @@ globalThis.adminSignOut=adminSignOut;
 globalThis.adminRefresh=adminRefresh;
 globalThis.adminLoadFinanceHistory=adminLoadFinanceHistory;
 globalThis.adminSetFinanceWorkspace=adminSetFinanceWorkspace;
+globalThis.adminFocusMerchantOperationsRecord=adminFocusMerchantOperationsRecord;
 globalThis.adminFocusFinanceRecord=adminFocusFinanceRecord;
 globalThis.adminPoll=adminPoll;
 globalThis.adminPage=adminPage;
