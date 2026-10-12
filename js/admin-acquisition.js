@@ -409,7 +409,11 @@ async function adminLoadExpansionRadar(){
     adminRuntime.expansionRadar=result.cities;
     adminRuntime.expansionRadarLoaded=true;
     adminRuntime.expansionRadarCheckedAt=new Date().toISOString();
-  }catch(error){adminRuntime.expansionRadarError=String(error?.message||error)}
+  }catch(error){
+    adminRuntime.expansionRadarError=String(error?.message||error);
+    adminRuntime.expansionRadarLoaded=false;
+    adminRuntime.expansionRadarCheckedAt=null;
+  }
   finally{adminRuntime.expansionRadarLoading=false;render()}
 }
 function adminRadarCityCard(city){
