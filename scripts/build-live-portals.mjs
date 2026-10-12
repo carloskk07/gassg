@@ -9,7 +9,7 @@ const STATIC_FILES=['index.html','manifest.webmanifest','sw.js','robots.txt'];
 const STATIC_DIRS=['css','js','icons'];
 const PORTALS={
   customer:{name:'TAMÃO — Cliente',shortName:'TAMÃO',title:'TAMÃO — Pediu? Tá na mão.'},
-  merchant:{name:'TAMÃO — Revenda',shortName:'TAMÃO Revenda',title:'TAMÃO para Revendas — Cadastre sua empresa'},
+  merchant:{name:'TAMÃO — Revenda',shortName:'TAMÃO Revenda',title:'TAMÃO Revenda — Operação'},
   admin:{name:'TAMÃO — Administração',shortName:'TAMÃO Admin',title:'TAMÃO Admin — Controle'}
 };
 const TEST_KEYS=new Set([
