@@ -99,6 +99,8 @@ jobs:
         run: node tests/admin-finance-guided-review-v1-194.mjs
       - name: Partner onboarding worklist V1.195 regression
         run: node tests/admin-partner-worklist-v1-195.mjs
+      - name: Merchant evidence progress V1.196 regression
+        run: node tests/admin-merchant-progress-v1-196.mjs
       - name: First real PSP pilot preflight V1.146 regression contract
         run: node tests/first-real-psp-pilot-preflight-v1-146.mjs
       - name: Production trust language V1.147 regression contract
