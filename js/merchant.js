@@ -933,6 +933,79 @@ function merchantFormatPhone(value){
 }
 
 /* V1.174: order queue is UI-only; every transition is confirmed by the server. */
+
+/* V1.177: attention signals are advisory, based on server timestamps and the browser clock.
+   They never change order status, imply delivery, or permit a backend transition. */
+function merchantOrderAttention(order,now=Date.now()){
+  const status=String(order?.status||'');
+  const preparing=['PREPARING','AT_RISK'].includes(status);
+  const enRoute=['OUT_FOR_DELIVERY','ARRIVING'].includes(status);
+  if(!preparing&&!enRoute)return status==='AT_RISK'
+    ?{level:'risk',label:'Imprevisto operacional',detail:'Verifique a situação registrada e as ações disponíveis.'}
+    :null;
+  const deadline=merchantOrderScheduleDate(preparing?order?.dispatchDueAt:order?.promisedBy);
+  const delta=deadline?deadline.getTime()-now:null;
+  const validClock=Number.isFinite(now)&&now>=Date.UTC(2020,0,1);
+  const late=validClock&&delta!==null&&Number.isFinite(delta)&&delta<0;
+  const soon=validClock&&delta!==null&&Number.isFinite(delta)&&delta>=0&&delta<=15*60*1000;
+  if(status==='AT_RISK')return {
+    level:'risk',label:'Imprevisto operacional',
+    detail:late?'A referência de saída já passou. Confira a situação antes de agir.'
+      :'Verifique o problema informado e o próximo passo do pedido.'
+  };
+  if(late)return {
+    level:'late',label:preparing?'Revisar prazo de saída':'Revisar previsão de entrega',
+    detail:preparing?'O prazo de saída registrado já passou. Confira a situação atual.'
+      :'A previsão registrada já passou. Verifique com a equipe antes de confirmar a entrega.'
+  };
+  if(soon)return {
+    level:'soon',label:preparing?'Prazo de saída próximo':'Previsão de entrega próxima',
+    detail:preparing?'Confira se tudo está pronto para iniciar a entrega.'
+      :'Acompanhe o pedido e registre a chegada quando acontecer.'
+  };
+  return null;
+}
+function merchantFocusLiveOrder(orderId){
+  const id=String(orderId||'');
+  if(!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(id))return false;
+  const card=document.getElementById('merchant-order-card-'+id);
+  if(!card)return false;
+  card.scrollIntoView?.({behavior:'smooth',block:'center'});
+  card.focus?.({preventScroll:true});
+  return true;
+}
+function merchantOrderAttentionSummary(orders){
+  const attention=(Array.isArray(orders)?orders:[])
+    .map(order=>({order,signal:merchantOrderAttention(order)}))
+    .filter(item=>item.signal)
+    .sort((a,b)=>{
+      const levels={risk:0,late:1,soon:2};
+      return (levels[a.signal.level]??3)-(levels[b.signal.level]??3);
+    });
+  if(!attention.length)return '';
+  const rows=attention.slice(0,5).map(({order,signal})=>{
+    const id=String(order?.orderId||'');
+    const valid=/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(id);
+    return '<div class="merchant-order-attention-item"><div><strong>'+esc(order?.publicCode||'Pedido')+
+      '</strong><span>'+esc(signal.label)+'</span></div>'+
+      (valid?'<button type="button" class="secondary small" onclick="merchantFocusLiveOrder(\''+id+'\')">Ver pedido</button>':'')+'</div>';
+  }).join('');
+  return '<section class="merchant-order-attention-summary" aria-label="Pedidos que precisam de atenção">'+
+    '<div class="merchant-order-attention-heading"><strong>'+attention.length+
+      (attention.length===1?' pedido merece atenção':' pedidos merecem atenção')+'</strong>'+
+      '<p>Referências de prazo e imprevistos do sistema. Confira a situação antes de agir.</p></div>'+
+    '<div class="merchant-order-attention-list">'+rows+'</div>'+
+    (attention.length>5?'<small>Há outros pedidos sinalizados nas seções abaixo.</small>':'')+
+    '<button type="button" class="ghost small" onclick="merchantLiveRefresh()">Atualizar pedidos</button>'+
+    '</section>';
+}
+function merchantOrderAttentionCard(order){
+  const signal=merchantOrderAttention(order);
+  return signal?'<div class="merchant-order-attention-inline merchant-order-attention-'+signal.level+
+    '" role="status"><strong>'+esc(signal.label)+'</strong><span>'+esc(signal.detail)+
+    '</span><small>Verifique as informações atuais. Este aviso não altera o pedido.</small></div>':'';
+}
+
 function merchantOrderQueueView(orders,emptyCopy='Nenhum pedido ativo para esta revenda.'){
   const all=Array.isArray(orders)?orders:[];
   if(!all.length)return '<div class="empty card">'+esc(emptyCopy)+'</div>';
@@ -961,6 +1034,7 @@ function merchantOrderQueueView(orders,emptyCopy='Nenhum pedido ativo para esta 
       sorted.map(merchantLiveOrder).join('')+'</section>';
   }).join('');
   return '<div class="merchant-order-queue" aria-label="Fila de pedidos da revenda">'+
+    merchantOrderAttentionSummary(all)+
     '<div class="merchant-order-queue-stats">'+stats+'</div>'+sections+'</div>';
 }
 
@@ -1139,8 +1213,9 @@ function merchantLiveOrder(o){
     actions=`<label class="sr-only" for="live-pin-${o.orderId}">PIN de entrega</label><input id="live-pin-${o.orderId}" inputmode="numeric" maxlength="4" class="input pin-input" placeholder="PIN"><label class="check-row"><input id="live-paid-${o.orderId}" type="checkbox"><span><strong>Pagamento recebido</strong><small>Obrigatório para liquidar o pedido.</small></span></label><button class="primary small" onclick="merchantLiveDeliver('${o.orderId}')">Confirmar entrega</button>`;
   }
 
-  return `<article class="order-card ${o.status==='OFFERED_TO_MERCHANT'?'new':''}" id="merchant-order-card-${esc(o.orderId)}">
+  return `<article tabindex="-1" class="order-card ${o.status==='OFFERED_TO_MERCHANT'?'new':''}" id="merchant-order-card-${esc(o.orderId)}">
     <div class="order-head"><div><div class="order-id">${esc(o.publicCode||o.orderId)}</div><div class="order-line">${items||'Itens do pedido'}</div></div><div style="text-align:right"><strong>${total}</strong><div class="tiny muted">${esc(copy[0])}</div></div></div>
+    ${merchantOrderAttentionCard(o)}
     ${merchantOrderProgressView(o)}
     <div class="order-line">${address}</div><div class="order-line">Pagamento: ${esc(paymentLabel(o.paymentMethod))}</div>${o.paymentMethod==='cash'&&o.cashTenderCents?`<div class="order-line"><strong>Troco para: ${BRL.format(Number(o.cashTenderCents)/100)}</strong></div>`:''}${o.deliveryWindowStart?`<div class="notice success" style="margin-top:10px"><strong>Entrega agendada</strong><br>${esc(formatDeliveryWindow(o.deliveryWindowStart,o.deliveryWindowEnd))}</div>`:''}
     ${deliveryContact?`<details class="merchant-order-contact" ${['OUT_FOR_DELIVERY','ARRIVING'].includes(o.status)?'open':''}><summary>Endereço e contato para entrega</summary>${deliveryContact}</details>`:''}

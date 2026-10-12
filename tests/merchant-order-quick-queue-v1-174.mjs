@@ -14,7 +14,7 @@ const cut=(name,async=false)=>{
 const esc=v=>String(v??'').replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;')
  .replaceAll('"','&quot;').replaceAll("'",'&#39;');
 const queue=vm.createContext({esc,merchantLiveOrder:o=>'<article data-id="'+esc(o.orderId)+'"></article>'});
-vm.runInContext(cut('merchantOrderQueueView')+';this.draw=merchantOrderQueueView;',queue);
+vm.runInContext(cut('merchantOrderScheduleDate')+'\n'+cut('merchantOrderAttention')+'\n'+cut('merchantOrderAttentionSummary')+'\n'+cut('merchantOrderQueueView')+';this.draw=merchantOrderQueueView;',queue);
 const orders=[
  {orderId:'prep',status:'PREPARING'},
  {orderId:'later',status:'OFFERED_TO_MERCHANT',offerExpiresAt:'2026-10-12T20:00:00Z'},
@@ -45,7 +45,7 @@ const runtime={merchant:{memberRole:'operator'},deliveryTeam:[],actionPending:fa
 const cardCtx=vm.createContext({globalThis:{merchantRuntime:runtime},esc,BRL:{format:v=>'R$ '+Number(v).toFixed(2)},
  statusCopy:{},paymentLabel:()=> 'Pix',merchantScheduledDispatchState:()=>({scheduled:false,ready:true}),
  merchantDeliveryMemberLabel:()=> 'Entregador',merchantFormatPhone:v=>String(v)});
-vm.runInContext(cut('merchantDeliveryCandidates')+'\n'+cut('merchantOrderEventDate')+'\n'+cut('merchantOrderScheduleDate')+'\n'+cut('merchantOrderProgressView')+'\n'+cut('merchantLiveOrder')+';this.card=merchantLiveOrder;',cardCtx);
+vm.runInContext(cut('merchantDeliveryCandidates')+'\n'+cut('merchantOrderEventDate')+'\n'+cut('merchantOrderScheduleDate')+'\n'+cut('merchantOrderProgressView')+'\n'+cut('merchantOrderAttention')+'\n'+cut('merchantOrderAttentionCard')+'\n'+cut('merchantLiveOrder')+';this.card=merchantLiveOrder;',cardCtx);
 const item={
  orderId:'11111111-1111-4111-8111-111111111111',publicCode:'TAM-1234',status:'PREPARING',
  items:[{quantity:1,productName:'Gás 13 kg'}],totalCents:12000,

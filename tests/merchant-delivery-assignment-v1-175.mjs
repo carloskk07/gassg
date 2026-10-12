@@ -49,7 +49,7 @@ const ctx=vm.createContext({
  merchantDeliveryMemberLabel:()=> 'Responsável',
  merchantFormatPhone:v=>String(v)
 });
-vm.runInContext(['merchantDeliveryCandidates','merchantDeliveryUnassigned','merchantDeliveryAttentionView','merchantOrderEventDate','merchantOrderScheduleDate','merchantOrderProgressView','merchantLiveOrder']
+vm.runInContext(['merchantDeliveryCandidates','merchantDeliveryUnassigned','merchantDeliveryAttentionView','merchantOrderEventDate','merchantOrderScheduleDate','merchantOrderProgressView','merchantOrderAttention','merchantOrderAttentionCard','merchantLiveOrder']
  .map(take).join('\n')+';this.candidates=merchantDeliveryCandidates;this.unassigned=merchantDeliveryUnassigned;this.attention=merchantDeliveryAttentionView;this.card=merchantLiveOrder;',ctx);
 const candidates=ctx.candidates(rt);
 assert.equal(candidates.length,4,'Only eligible active member roles with valid IDs');
