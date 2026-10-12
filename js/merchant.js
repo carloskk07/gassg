@@ -1161,7 +1161,7 @@ function merchantIncidentAdvice(reason){
   const choices={
     stock_issue:{
       title:'Falta ou divergência de estoque',
-      guidance:'Confira a quantidade física e o item reservado. Se não conseguir cumprir este pedido, registre a impossibilidade e depois atualize o estoque do catálogo.',
+      guidance:'Confira o estoque físico e a quantidade reservada. Se não conseguir cumprir este pedido, registre a impossibilidade e depois atualize o estoque do catálogo.',
       next:'Revisar estoque no catálogo após a confirmação.'
     },
     vehicle_issue:{
