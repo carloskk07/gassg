@@ -91,6 +91,8 @@ jobs:
         run: node tests/admin-finance-monthly-v1-189.mjs
       - name: Mobile finance workspaces V1.191 regression
         run: node tests/admin-finance-workspace-v1-191.mjs
+      - name: Trusted finance priorities V1.192 regression
+        run: node tests/admin-finance-priorities-v1-192.mjs
       - name: First real PSP pilot preflight V1.146 regression contract
         run: node tests/first-real-psp-pilot-preflight-v1-146.mjs
       - name: Production trust language V1.147 regression contract
