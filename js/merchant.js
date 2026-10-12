@@ -1510,6 +1510,49 @@ function merchantCatalogGasOptions(rt,container=false){
     .map(n=>'<option value="P'+n+'">'+n+' kg (P'+n+')</option>').join('');
 }
 
+
+/* V1.173 — UI-only catalog maintenance. All edits still require explicit server confirmation. */
+function merchantCatalogFocus(code,target='price'){
+  if(!/^[A-Z][A-Z0-9_]{1,31}$/.test(String(code||'')))return false;
+  const card=document.getElementById('merchant-catalog-item-'+code);
+  if(!card)return false;
+  let parent=card.parentElement;
+  while(parent){
+    if(parent.tagName==='DETAILS')parent.open=true;
+    parent=parent.parentElement;
+  }
+  card.open=true;
+  const selector=(target==='stock'?'live-stock-':'live-price-')+code;
+  const field=document.getElementById(selector);
+  if(!field)return false;
+  field.scrollIntoView?.({behavior:'smooth',block:'center'});
+  field.focus?.({preventScroll:true});
+  return true;
+}
+function merchantCatalogAdjustStock(code,delta){
+  if(!/^[A-Z][A-Z0-9_]{1,31}$/.test(String(code||''))||![-1,1].includes(delta))return false;
+  const field=document.getElementById('live-stock-'+code);
+  if(!field)return false;
+  const raw=String(field.value||'').trim();
+  const stock=Number(raw);
+  if(!/^\\d+$/.test(raw)||!Number.isInteger(stock)||stock<0||stock>100000){
+    toast('Revise o estoque antes de ajustar');
+    field.focus?.();
+    return false;
+  }
+  const next=stock+delta;
+  if(next<0||next>100000)return false;
+  field.value=String(next);
+  const note=document.getElementById('merchant-catalog-pending-'+code);
+  if(note)note.textContent='Alteração ainda não salva. Toque em Salvar preço e estoque para confirmar.';
+  return true;
+}
+function merchantCatalogMarkEdited(code){
+  if(!/^[A-Z][A-Z0-9_]{1,31}$/.test(String(code||'')))return;
+  const note=document.getElementById('merchant-catalog-pending-'+code);
+  if(note)note.textContent='Alteração ainda não salva. Toque em Salvar preço e estoque para confirmar.';
+}
+
 function merchantLiveCatalog(){
   const rt=globalThis.merchantRuntime||{};
   if(rt.status!=='ready')return merchantLivePage();
@@ -1564,6 +1607,16 @@ function merchantLiveCatalog(){
       return a.productName.localeCompare(b.productName,'pt-BR');
     });
 
+  const needsReview=item=>{
+    if(item?.active!==true)return {needed:false,issues:[],focus:'price'};
+    const issues=[];
+    const stock=Number(item.availableStock);
+    const price=Number(item.priceCents);
+    if(!Number.isInteger(stock)||stock<=0)issues.push('Sem estoque');
+    if(!Number.isFinite(price)||price<=0)issues.push('Preço não informado');
+    else if(!merchantTimestampFresh(item.priceConfirmedAt))issues.push('Preço precisa de confirmação');
+    return {needed:issues.length>0,issues,focus:issues.includes('Sem estoque')?'stock':'price'};
+  };
   const renderCatalogItem=item=>{
     const fresh=merchantTimestampFresh(item.priceConfirmedAt);
     const status=!item.active?'INATIVO':item.availableStock<=0?'SEM ESTOQUE':fresh?'CONFIRMADO':'PREÇO VENCIDO';
@@ -1574,12 +1627,16 @@ function merchantLiveCatalog(){
     const priceSummary=range
       ? 'Faixa '+BRL.format(item.minPriceCents/100)+' – '+BRL.format(item.maxPriceCents/100)+' • normal '+BRL.format(item.priceCents/100)+' • '+strategyLabel
       : 'Preço fixo '+(item.priceCents>0?BRL.format(item.priceCents/100):'—');
-    return `<details class="merchant-catalog-entry"><summary><span class="merchant-catalog-summary-name">${icon} ${esc(item.productName)}<small>${esc(priceSummary)} • estoque ${Number(item.availableStock)}</small></span><span class="status-pill ${statusClass}">${status}</span></summary>
+    return `<details class="merchant-catalog-entry" id="merchant-catalog-item-${item.productCode}"><summary><span class="merchant-catalog-summary-name">${icon} ${esc(item.productName)}<small>${esc(priceSummary)} • estoque ${Number(item.availableStock)}</small></span><span class="status-pill ${statusClass}">${status}</span></summary>
     <div class="card flat form-stack">
       <div class="status-bar"><div class="product-left"><div class="product-icon">${icon}</div><div><strong>${esc(item.productName)}</strong><br><small>${esc(item.productCode)} • ${esc(priceSummary)} • ${item.priceConfirmedAt?'confirmado '+new Date(item.priceConfirmedAt).toLocaleString('pt-BR'):'nunca confirmado'}</small></div></div><span class="status-pill ${statusClass}">${status}</span></div>
       <div class="field-row">
-        <div class="input-wrap"><label for="live-price-${item.productCode}">Preço ${range?'normal':'de venda'}</label><input id="live-price-${item.productCode}" inputmode="decimal" type="number" min="0.01" max="10000" step="0.10" class="input" value="${item.priceCents>0?(item.priceCents/100).toFixed(2):''}"></div>
-        <div class="input-wrap"><label for="live-stock-${item.productCode}">Estoque</label><input id="live-stock-${item.productCode}" inputmode="numeric" type="number" min="0" max="100000" class="input" value="${item.availableStock}"></div>
+        <div class="input-wrap"><label for="live-price-${item.productCode}">Preço ${range?'normal':'de venda'}</label><input id="live-price-${item.productCode}" inputmode="decimal" type="number" min="0.01" max="10000" step="0.10" class="input" oninput="merchantCatalogMarkEdited('${item.productCode}')" value="${item.priceCents>0?(item.priceCents/100).toFixed(2):''}"></div>
+        <div class="input-wrap"><label for="live-stock-${item.productCode}">Estoque</label>
+          <div class="merchant-catalog-stock-controls"><button type="button" class="secondary" aria-label="Diminuir estoque de ${esc(item.productName)} em um" onclick="merchantCatalogAdjustStock('${item.productCode}',-1)">−</button>
+          <input id="live-stock-${item.productCode}" inputmode="numeric" type="number" min="0" max="100000" step="1" class="input" oninput="merchantCatalogMarkEdited('${item.productCode}')" value="${item.availableStock}">
+          <button type="button" class="secondary" aria-label="Aumentar estoque de ${esc(item.productName)} em um" onclick="merchantCatalogAdjustStock('${item.productCode}',1)">+</button></div>
+        </div>
       </div>
       <details class="merchant-catalog-pricing" ${range?'open':''}><summary>${range?'Faixa de preço automática':'Preço automático e limites (opcional)'}</summary>
       <div class="form-stack">
@@ -1593,12 +1650,28 @@ function merchantLiveCatalog(){
       </div></details>
       <label class="check-row"><input id="live-active-${item.productCode}" type="checkbox" ${item.active?'checked':''}><span><strong>Produto ativo</strong><small>Somente itens ativos e com estoque participam das ofertas.</small></span></label>
       <button class="secondary merchant-catalog-save" id="live-save-product-${item.productCode}" onclick="merchantLiveSaveProduct('${item.productCode}')">Salvar preço e estoque</button>
-      <small class="field-help">O preço precisa ser reconfirmado periodicamente. A elegibilidade de cada produto é verificada pelo sistema.</small>
+      <small class="field-help" id="merchant-catalog-pending-${item.productCode}" aria-live="polite">Mudanças nos campos e no estoque só entram em vigor após salvar. O preço precisa ser reconfirmado periodicamente.</small>
     </div></details>`;
   };
   const currentCodes=new Set((rt.catalog||[]).map(item=>String(item.productCode||'').toUpperCase()));
-  const configuredRows=known.filter(item=>currentCodes.has(item.productCode)).map(renderCatalogItem).join('');
+  const configured=known.filter(item=>currentCodes.has(item.productCode));
+  const review= configured.filter(item=>needsReview(item).needed);
+  const ordered=[...review,...configured.filter(item=>!needsReview(item).needed)];
+  const configuredRows=ordered.map(renderCatalogItem).join('');
   const optionalRows=known.filter(item=>!currentCodes.has(item.productCode)).map(renderCatalogItem).join('');
+  const attentionRows=review.map(item=>{
+    const check=needsReview(item);
+    return '<div class="merchant-catalog-attention-item"><div><strong>'+esc(item.productName)+'</strong>'+
+      '<span>'+esc(check.issues.join(' • '))+'</span></div>'+
+      '<button type="button" class="secondary small" onclick="merchantCatalogFocus(\\''+item.productCode+'\\',\\''+check.focus+'\\')">Revisar</button></div>';
+  }).join('');
+  const reviewSection=review.length
+    ?'<section class="merchant-catalog-attention" aria-label="Produtos que precisam de revisão"><div class="merchant-catalog-attention-head">'+
+      '<h2>Produtos que precisam de atenção</h2><span>'+review.length+' para revisar</span></div>'+
+      '<p>Ajuste o estoque ou confirme o preço atual. Nenhuma alteração será enviada sem você salvar.</p>'+
+      '<div class="merchant-catalog-attention-items">'+attentionRows+'</div></section>'
+    :'<div class="merchant-catalog-all-clear"><strong>Sem pendências nos produtos ativos.</strong>'+
+      '<span>'+(!configured.length?'Adicione seu primeiro produto para começar.':'Você pode revisar preços e estoques quando precisar.')+'</span></div>';
 
   const addableProducts=merchantCatalogAvailableChoices(rt);
   const addableCategories=[...new Set(addableProducts.map(item=>item.categoryName))];
@@ -1651,7 +1724,8 @@ function merchantLiveCatalog(){
   return shell(`<section class="page merchant-catalog-page"><button class="back" onclick="go('merchant')">← Operação</button>
     <span class="section-kicker">MINHA LOJA</span><h1 class="page-title">Produtos da minha revenda</h1>
     <p class="muted">Comece pelos produtos que já cadastrou: toque para informar preço e estoque. Cada SKU possui sua própria confirmação de preço; somente itens elegíveis aparecem nas ofertas.</p>
-    <div class="merchant-catalog-head"><strong>Meus produtos</strong><span>${currentCodes.size} cadastrado(s)</span></div>
+    ${reviewSection}
+    <div class="merchant-catalog-head"><strong>Meus produtos</strong><span>${configured.length} cadastrado(s)</span></div>
     <div class="merchant-catalog-list">${configuredRows||'<div class="empty card">Sua lista está vazia. Abra “Adicionar produto” abaixo e escolha o que deseja vender.</div>'}</div>
     <details class="merchant-catalog-extra"><summary>Adicionar outro produto ou vasilhame</summary><div class="merchant-catalog-add-body">
       ${addRegistered}
