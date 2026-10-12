@@ -799,6 +799,11 @@ function runtimeStrip(){
   if(globalThis.liveRuntime?.status==='unsafe-origin'){
     return '<div class="demo-strip"><span>ATENDIMENTO INDISPONÍVEL NESTA ORIGEM • use o endereço oficial do TAMÃO</span></div>';
   }
+  // Marketing routes may remain useful during a backend interruption. Be
+  // transparent but do not give them the urgent checkout failure treatment.
+  if(['home','learn','earn','club','refer','merchants','privacy','terms','contact'].includes(route())){
+    return '<div class="demo-strip calm-strip"><span>Consulta indisponível no momento. Conheça o TAMÃO e tente novamente em instantes.</span></div>';
+  }
   return '<div class="demo-strip blocked-strip"><span>Serviço temporariamente indisponível • nenhum pedido foi criado</span></div>';
 }
 function siteFooter({adminPortal=false}={}){

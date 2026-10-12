@@ -1,0 +1,43 @@
+{
+  "release": "TAMAO-V1.164-INTEGRATED-RC",
+  "projectRef": "lgugwujpunhslavewffd",
+  "appliedMigrations": [
+    {
+      "version": "20261012042111",
+      "name": "delivery_first_payment_boundary_v1_158_1"
+    },
+    {
+      "version": "20261012042134",
+      "name": "merchant_basket_compliance_v1_158_2"
+    },
+    {
+      "version": "20261012042157",
+      "name": "settlement_daily_due_alignment_v1_158_3"
+    },
+    {
+      "version": "20261012042201",
+      "name": "merchant_representation_authority_v1_158_4"
+    }
+  ],
+  "commerceEnabled": false,
+  "rlsPublicTables": 82,
+  "publicTables": 82,
+  "authUsersAtDeployment": 56,
+  "merchantsAtDeployment": 0,
+  "ordersAtDeployment": 0,
+  "edgeFunctionsVersioned": {
+    "create-order": 23,
+    "get-order": 26,
+    "get-offers": 31,
+    "order-payment-checkout": 8,
+    "admin-ops": 87
+  },
+  "recovery": "backup SHA256 and archive stream validated by user; NO successful real isolated restore",
+  "noSaleUntil": [
+    "explicit administrator authorization",
+    "verified merchant and representative",
+    "ANP if GLP",
+    "live direct merchant payment route",
+    "Supabase Pro backup policy active"
+  ]
+}

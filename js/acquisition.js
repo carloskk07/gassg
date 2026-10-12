@@ -40,10 +40,25 @@ function leadPostalDigits(value){
   return String(value||'').replace(/\D/g,'').slice(0,8);
 }
 function openPrelaunchCustomerLead(){
+  const postalSource=document.querySelector('#home-address')||document.querySelector('#postal-code');
+  const typed=String(postalSource?.value||'').trim();
+  const enteredPostal=leadPostalDigits(typed);
+  if(typed&&enteredPostal.length!==8){
+    postalSource?.focus();
+    return toast('Informe um CEP válido com 8 dígitos');
+  }
+  if(enteredPostal.length===8&&enteredPostal!==leadPostalDigits(state.postalCode||'')){
+    state.postalCode=enteredPostal;
+    state.address='';
+    state.addressNumber='';
+    save();
+    render(); // New CEP must not inherit a previous regional notification.
+  }
   const section=document.getElementById('early-access');
   if(!section){
     if(route()!=='home')go('home');
     setTimeout(()=>{
+      if(route()!=='home')return;
       const targetSection=document.getElementById('early-access');
       if(!targetSection)return;
       const target=document.querySelector('#prelaunch-postal');
@@ -74,32 +89,53 @@ function prelaunchTransparencyBand(){
   ].join('');
 }
 
+function customerLeadInterestSelection(cart=state.cart){
+  const codes=Object.entries(cart||{}).filter(([,qty])=>Number(qty)>0)
+    .map(([code])=>String(code||'').trim().toUpperCase())
+    .filter(code=>!code.endsWith('_CONTAINER'));
+  if(!codes.length)return new Set(['gas']);
+  const interests=new Set();
+  for(const code of codes){
+    const category=String(products[code]?.categoryKey||'').toLowerCase();
+    if(/^P[0-9]+$/.test(code)||category==='glp')interests.add('gas');
+    else if(code==='WATER20'||category==='water')interests.add('water');
+    else if(code==='CHARCOAL4')interests.add('charcoal');
+    else if(code==='WOOD')interests.add('firewood');
+    else if(code==='ICE5'||category==='ice')interests.add('ice');
+    else interests.add('other');
+  }
+  return interests;
+}
 function prelaunchCustomerLeadSection(){
+  const selectedInterests=customerLeadInterestSelection();
+  const checkedInterest=key=>selectedInterests.has(key)?' checked':'';
+  const verifiedRegion=rememberedMarketRegion();
+  const friendlyCity=verifiedRegion?esc(verifiedRegion.city):'sua região';
   if(prelaunchLeadSent('customer')){
-    return '<section class="section lead-section" id="early-access"><div class="lead-success-card"><span class="lead-success-icon">✓</span><div><span class="section-kicker">AVISO DE DISPONIBILIDADE</span><h2>Seu contato já foi registrado.</h2><p>Quando houver disponibilidade para sua região, o TAMÃO poderá avisar pelo WhatsApp informado.</p></div><button class="secondary" onclick="go(\'learn\')">Conhecer o TAMÃO</button></div></section>';
+    return '<section class="section lead-section" id="early-access"><div class="lead-success-card"><span class="lead-success-icon">✓</span><div><span class="section-kicker">AVISO DE DISPONIBILIDADE</span><h2>Combinado! '+friendlyCity+' está no nosso radar.</h2><p>Você já pediu para ser avisado neste CEP. Quando houver atendimento, o TAMÃO poderá entrar em contato pelo WhatsApp informado.</p></div><button class="secondary" onclick="go(\'learn\')">Conhecer o TAMÃO</button></div></section>';
   }
   const rawPostal=leadPostalDigits(state.postalCode||'');
   const postal=rawPostal.length===8?rawPostal.replace(/^(\d{5})(\d{3})$/,'$1-$2'):rawPostal;
   return [
     '<section class="section lead-section" id="early-access"><div class="lead-shell">',
-      '<div class="lead-copy"><span class="section-kicker">CONSULTAR DISPONIBILIDADE</span><h2>Quer receber pelo TAMÃO nesta região?</h2>',
-      '<p>Informe seu WhatsApp e CEP. Se ainda não houver uma revenda disponível para atender, avisamos quando a cobertura chegar à sua região.</p>',
-      '<div class="lead-proof"><span>✓ Cadastro gratuito</span><span>✓ Sem pedido automático</span><span>✓ Você escolhe quando comprar</span></div></div>',
+      '<div class="lead-copy"><span class="section-kicker">CONSULTAR DISPONIBILIDADE</span><h2>Sem oferta em '+friendlyCity+'? A gente pode avisar.</h2>',
+      '<p>Deixe seu CEP e WhatsApp para pedir um aviso quando houver atendimento na sua região. Assim, você não precisa voltar ao site toda hora para conferir.</p>',
+      '<div class="lead-proof"><span>✓ Gratuitamente</span><span>✓ Nenhum pedido é criado</span><span>✓ Você decide se quer comprar</span></div></div>',
       '<div class="lead-form card flat">',
         '<div class="field-row"><div class="input-wrap"><label for="prelaunch-name">Seu nome <small>(opcional)</small></label><input id="prelaunch-name" class="input" maxlength="120" autocomplete="name" placeholder="Como podemos chamar você?"></div>',
         '<div class="input-wrap"><label for="prelaunch-phone">WhatsApp</label><input id="prelaunch-phone" class="input" maxlength="20" inputmode="tel" autocomplete="tel" placeholder="(55) 99999-9999"></div></div>',
         '<div class="input-wrap"><label for="prelaunch-postal">CEP onde você quer receber</label><input id="prelaunch-postal" class="input" maxlength="9" inputmode="numeric" autocomplete="postal-code" value="'+esc(postal)+'" placeholder="97300-000"></div>',
         '<fieldset class="lead-interests"><legend>O que você gostaria de pedir?</legend>',
-          '<label><input type="checkbox" name="prelaunch-interest" value="gas" checked><span>🔥 Gás</span></label>',
-          '<label><input type="checkbox" name="prelaunch-interest" value="water"><span>💧 Água</span></label>',
-          '<label><input type="checkbox" name="prelaunch-interest" value="charcoal"><span>🔥 Carvão</span></label>',
-          '<label><input type="checkbox" name="prelaunch-interest" value="firewood"><span>🪵 Lenha</span></label>',
-          '<label><input type="checkbox" name="prelaunch-interest" value="ice"><span>🧊 Gelo</span></label>',
-          '<label><input type="checkbox" name="prelaunch-interest" value="other"><span>＋ Outros</span></label>',
+          '<label><input type="checkbox" name="prelaunch-interest" value="gas"'+checkedInterest('gas')+'><span>🔥 Gás</span></label>',
+          '<label><input type="checkbox" name="prelaunch-interest" value="water"'+checkedInterest('water')+'><span>💧 Água</span></label>',
+          '<label><input type="checkbox" name="prelaunch-interest" value="charcoal"'+checkedInterest('charcoal')+'><span>🔥 Carvão</span></label>',
+          '<label><input type="checkbox" name="prelaunch-interest" value="firewood"'+checkedInterest('firewood')+'><span>🪵 Lenha</span></label>',
+          '<label><input type="checkbox" name="prelaunch-interest" value="ice"'+checkedInterest('ice')+'><span>🧊 Gelo</span></label>',
+          '<label><input type="checkbox" name="prelaunch-interest" value="other"'+checkedInterest('other')+'><span>＋ Outros</span></label>',
         '</fieldset>',
         '<input id="prelaunch-website" class="lead-trap" tabindex="-1" autocomplete="off" aria-hidden="true" aria-label="Não preencher este campo" name="website" value="">',
         '<label class="check-row lead-consent"><input id="prelaunch-consent" type="checkbox"><span><strong>Quero receber um aviso de disponibilidade pelo WhatsApp.</strong><small>Usaremos estes dados somente para informar disponibilidade e atendimento. Nenhuma compra é criada por este cadastro.</small></span></label><div class="lead-privacy-note">Saiba como tratamos seus dados no <button class="text-link" onclick="go(\'privacy\')">Aviso de Privacidade</button>.</div>',
-        '<button id="prelaunch-submit" class="primary full" onclick="submitPrelaunchCustomerLead()">Quero receber aviso de disponibilidade</button>',
+        '<button id="prelaunch-submit" class="primary full" onclick="submitPrelaunchCustomerLead()">Me avise quando puder pedir →</button>',
         '<div id="prelaunch-result" class="lead-result" role="status" aria-live="polite"></div>',
       '</div></div>',
       '<div class="lead-partner-link"><span>Tem uma revenda ou comércio local?</span><button class="ghost small" onclick="go(\'merchants\')">Quero vender no TAMÃO →</button></div>',
@@ -141,13 +177,13 @@ async function submitPrelaunchCustomerLead(){
 }
 function prelaunchMerchantLeadSection(){
   if(prelaunchLeadSent('merchant')){
-    return '<section class="section" id="partner-interest"><div class="lead-success-card partner"><span class="lead-success-icon">✓</span><div><span class="section-kicker">CADASTRO DE PARCEIRO</span><h2>Interesse da sua empresa já registrado.</h2><p>O TAMÃO poderá entrar em contato pelo WhatsApp informado para conhecer sua operação e orientar os próximos passos.</p></div></div></section>';
+    return '<section class="section" id="partner-interest"><div class="lead-success-card partner"><span class="lead-success-icon">✓</span><div><span class="section-kicker">CADASTRO DE PARCEIRO</span><h2>Que bom ter sua empresa por aqui!</h2><p>Recebemos seu interesse. O TAMÃO poderá entrar em contato pelo WhatsApp para conhecer melhor o seu negócio e orientar os próximos passos.</p></div></div></section>';
   }
   return [
     '<section class="section" id="partner-interest"><div class="partner-lead-shell">',
-      '<div class="lead-copy"><span class="section-kicker">VENDA PELO TAMÃO</span><h2>Cadastre sua empresa em menos de 1 minuto.</h2>',
-      '<p>Comece com os dados básicos da sua empresa. Depois, o TAMÃO orienta o cadastro operacional necessário para receber pedidos.</p>',
-      '<div class="lead-proof"><span>✓ Sem exclusividade</span><span>✓ Sem mensalidade no modelo atual</span><span>✓ Você controla preço e disponibilidade</span></div></div>',
+      '<div class="lead-copy"><span class="section-kicker">VENDA PELO TAMÃO</span><h2>Vamos apresentar sua empresa ao TAMÃO?</h2>',
+      '<p>Conte o que você vende e deixe um contato. Este é o primeiro passo para conhecer um canal de vendas que respeita o ritmo da sua empresa.</p>',
+      '<div class="lead-proof"><span>✓ Seu negócio continua seu</span><span>✓ Sem mensalidade no modelo atual</span><span>✓ Você decide quais pedidos aceitar</span></div></div>',
       '<div class="lead-form card flat">',
         '<div class="input-wrap"><label for="partner-business">Nome da empresa</label><input id="partner-business" class="input" maxlength="120" autocomplete="organization" placeholder="Nome da revenda ou comércio"></div>',
         '<div class="field-row"><div class="input-wrap"><label for="partner-name">Seu nome</label><input id="partner-name" class="input" maxlength="120" autocomplete="name" placeholder="Responsável"></div>',
@@ -164,15 +200,24 @@ function prelaunchMerchantLeadSection(){
         '<div class="input-wrap"><label for="partner-note">Algo que devemos saber? <small>(opcional)</small></label><textarea id="partner-note" class="input" rows="2" maxlength="500" placeholder="Ex.: atendemos vários bairros da nossa cidade; temos frota própria."></textarea></div>',
         '<input id="partner-website" class="lead-trap" tabindex="-1" autocomplete="off" aria-hidden="true" aria-label="Não preencher este campo" name="website" value="">',
         '<label class="check-row lead-consent"><input id="partner-consent" type="checkbox"><span><strong>Autorizo o TAMÃO a entrar em contato pelo WhatsApp.</strong><small>Este envio registra apenas interesse comercial; a ativação exige cadastro e validações posteriores.</small></span></label><div class="lead-privacy-note">O uso destes dados está explicado no <button class="text-link" onclick="go(\'privacy\')">Aviso de Privacidade</button>.</div>',
-        '<button id="partner-submit" class="primary full" onclick="submitPrelaunchMerchantLead()">Quero conversar sobre parceria</button>',
+        '<button id="partner-submit" class="primary full" onclick="submitPrelaunchMerchantLead()">Quero apresentar minha empresa →</button>',
         '<div id="partner-result" class="lead-result" role="status" aria-live="polite"></div>',
       '</div>',
     '</div></section>'
   ].join('');
 }
 function openPrelaunchMerchantLead(){
-  document.getElementById('partner-interest')?.scrollIntoView({behavior:'smooth',block:'start'});
-  setTimeout(()=>document.querySelector('#partner-business')?.focus(),350);
+  const focusMerchantLead=()=>{
+    if(route()!=='merchants')return;
+    document.getElementById('partner-interest')?.scrollIntoView({behavior:'smooth',block:'start'});
+    document.querySelector('#partner-business')?.focus({preventScroll:true});
+  };
+  if(route()!=='merchants'){
+    go('merchants');
+    setTimeout(focusMerchantLead,160);
+    return;
+  }
+  focusMerchantLead();
 }
 async function submitPrelaunchMerchantLead(){
   const button=document.querySelector('#partner-submit');

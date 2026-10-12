@@ -81,6 +81,18 @@ jobs:
         run: node tests/production-language-v1-147.mjs
       - name: National expansion referral and merchant copy V1.165 regression
         run: node tests/national-expansion-referral-v1-165.mjs
+      - name: Real-status buyer tracking V1.164 regression contract
+        run: node tests/customer-tracking-confidence-v1-164.mjs
+      - name: Transparent mobile offer comparison V1.163 regression contract
+        run: node tests/transparent-offer-comparison-v1-163.mjs
+      - name: Automatic address and anti-stale offers V1.162 regression contract
+        run: node tests/auto-address-lookup-v1-162.mjs
+      - name: CEP-to-checkout continuity V1.161 regression contract
+        run: node tests/one-flow-cep-checkout-v1-161.mjs
+      - name: Verified-city conversion V1.160 regression contract
+        run: node tests/city-aware-conversion-v1-160.mjs
+      - name: Human-centered public conversion V1.159 regression contract
+        run: node tests/public-conversion-v1-159.mjs
       - name: Public P13 price reference V1.148 regression contract
         run: node tests/jr-public-price-reference-v1-148.mjs
       - name: Customer availability-first V1.149 regression contract
@@ -103,6 +115,14 @@ jobs:
         run: node tests/merchant-enablement-v1-157.mjs
       - name: Owner-scoped merchant enablement V1.158 regression contract
         run: node tests/merchant-guided-enablement-v1-158.mjs
+      - name: Delivery-first progressive payment V1.158.1 regression contract
+        run: node tests/delivery-first-payment-v1-158-1.mjs
+      - name: Product-scoped ANP merchant authority V1.158.2 regression contract
+        run: node tests/merchant-basket-compliance-v1-158-2.mjs
+      - name: Daily settlement financial invariants V1.158.3 regression contract
+        run: node tests/settlement-daily-integrity-v1-158-3.mjs
+      - name: Verified merchant representation V1.158.4 regression contract
+        run: node tests/merchant-representation-v1-158-4.mjs
       - name: Remote admin gateway contract and portal report
         run: node tests/remote-admin-readiness.mjs
       - name: Runtime origin config contract
@@ -165,22 +185,22 @@ jobs:
             "$CHROME" --headless=new --no-sandbox --disable-gpu --window-size=360,800 --virtual-time-budget=1200 --user-data-dir="/tmp/chrome-$route" --dump-dom "http://127.0.0.1:4173/#$route" > "/tmp/$route.html"
           done
           grep -Fq "Pediu? Tá na mão." /tmp/home.html
-          grep -q "PROTEÇÃO TAMÃO" /tmp/home.html
+          grep -q "VOCÊ ACOMPANHA. A GENTE ORGANIZA." /tmp/home.html
           grep -q "Botijão de cozinha 13 kg" /tmp/home.html
-          grep -q "Quero receber aviso de disponibilidade" /tmp/home.html
+          grep -q "Me avise quando puder pedir" /tmp/home.html
           grep -q "ATENDIMENTO POR REGIÃO" /tmp/home.html
           grep -q "Rede de parceiros" /tmp/home.html
           grep -q "Quero comprar" /tmp/home.html
           grep -q "Quero vender no TAMÃO" /tmp/home.html
-          grep -q "Antes de pedir, veja quanto custa" /tmp/learn.html
-          grep -q "Comissão por indicação para pessoas" /tmp/earn.html
+          grep -q "Pedir o que falta pode ser muito mais simples." /tmp/learn.html
+          grep -q "Comprar bem já é bom." /tmp/earn.html
           grep -q "O que você precisa e onde devemos entregar" /tmp/order.html
-          grep -q "Clube TAMÃO" /tmp/club.html
-          grep -q "Indique um novo comprador" /tmp/refer.html
-          grep -q "Transforme capacidade de entrega em novas vendas" /tmp/merchants.html
-          grep -q "SIMULADOR DE MARGEM INCREMENTAL" /tmp/merchants.html
-          grep -q "Cadastre sua empresa em menos de 1 minuto" /tmp/merchants.html
-          grep -q "Cadastrar minha empresa" /tmp/merchants.html
+          grep -q "CLUBE TAMÃO" /tmp/club.html
+          grep -q "Conhece alguém que também gostaria" /tmp/refer.html
+          grep -q "Sua empresa já vende." /tmp/merchants.html
+          grep -q "FAÇA AS CONTAS DO SEU JEITO" /tmp/merchants.html
+          grep -q "Vamos apresentar sua empresa ao TAMÃO?" /tmp/merchants.html
+          grep -q "Quero levar minha empresa ao TAMÃO" /tmp/merchants.html
           grep -q "VENDA PELO TAMÃO" /tmp/merchants.html
           grep -q "Aviso de Privacidade" /tmp/privacy.html
           grep -q "Seus direitos" /tmp/privacy.html

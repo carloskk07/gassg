@@ -19,8 +19,8 @@ const TEST_KEYS=new Set([
   '0x4AAAAAAAAAA-demo-site-key'
 ]);
 
-// Reject invalid public JavaScript before clearing the output or writing
-// publishable Cloudflare assets. Parsing does not execute any site code.
+// Cloudflare may auto-deploy main; reject invalid public JavaScript BEFORE
+// clearing the output directory or writing a publishable bundle.
 export function validateClassicScriptSyntax(source,filename='public-script.js'){
   new vm.Script(source,{filename});
 }

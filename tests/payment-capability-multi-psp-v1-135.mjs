@@ -178,7 +178,8 @@ assert.ok(
 assert.ok(
   merchant.includes("provider:'manual'")
   &&merchant.includes("verificationMode:'merchant_confirmed'")
-  &&merchant.includes("customerLabel:'Pix'"),
+  &&merchant.includes("paymentMethod:'pix',provider:'manual',channel:'delivery'")
+  &&merchant.includes("customerLabel:'Pix na entrega'"),
   'Pix/dinheiro/cartão manuais precisam continuar funcionando sem conta PSP'
 );
 assert.ok(

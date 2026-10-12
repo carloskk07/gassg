@@ -44,20 +44,10 @@ if ([string]::IsNullOrWhiteSpace($DbHost)) {
 if ([string]::IsNullOrWhiteSpace($Destination)) {
   $Destination = Join-Path $env:LOCALAPPDATA 'TAMAO\Backups'
 }
-# A standalone .ps1 saved in Downloads is NOT necessarily inside a Git
-# checkout. Only interpret the parent as a repository when markers exist.
-$parentDir = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..'))
-$repoMarkers = @('.git','package.json','supabase')
-$isProjectScripts = (Split-Path $PSScriptRoot -Leaf) -eq 'scripts' -and
-  [bool](@($repoMarkers | Where-Object {
-    Test-Path -LiteralPath (Join-Path $parentDir $_)
-  }).Count)
+$repo = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..')).TrimEnd('\') + '\'
 $targetDir = [IO.Path]::GetFullPath($Destination).TrimEnd('\') + '\'
-if ($isProjectScripts) {
-  $repo = $parentDir.TrimEnd('\') + '\'
-  if ($targetDir.StartsWith($repo,[StringComparison]::OrdinalIgnoreCase)) {
-    throw 'Por segurança, grave o backup fora do repositório GitHub.'
-  }
+if ($targetDir.StartsWith($repo,[StringComparison]::OrdinalIgnoreCase)) {
+  throw 'Por segurança, grave o backup fora do repositório GitHub.'
 }
 if ($Port -lt 1 -or $Port -gt 65535) { throw 'Porta inválida.' }
 $secure = Read-Host 'Senha PostgreSQL (entrada oculta)' -AsSecureString

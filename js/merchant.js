@@ -564,7 +564,7 @@ function merchantProviderManualRoute(provider,paymentMethod){
     paymentMethod,
     provider:String(provider?.provider||''),
     connectionId:null,
-    channel:'external',
+    channel:'delivery',
     verificationMode:'merchant_confirmed',
     active:true,
     priority:Math.min(850,650+Number(provider?.sortOrder||100)),
@@ -1110,9 +1110,9 @@ async function merchantDisconnectMercadoPagoFromUi(){
 function merchantManualPaymentRoute(paymentMethod){
   if(paymentMethod==='pix'){
     return {
-      paymentMethod:'pix',provider:'manual',channel:'external',
+      paymentMethod:'pix',provider:'manual',channel:'delivery',
       verificationMode:'merchant_confirmed',active:true,priority:900,
-      customerLabel:'Pix'
+      customerLabel:'Pix na entrega'
     };
   }
   if(paymentMethod==='card'){

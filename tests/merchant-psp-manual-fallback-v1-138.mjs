@@ -26,8 +26,8 @@ assert.ok(
   &&merchant.includes('manualProviderFallback:true')
   &&merchant.includes('automaticVerification:false')
   &&merchant.includes("verificationMode:'merchant_confirmed'")
-  &&merchant.includes("channel:'external'"),
-  'rota declarada precisa ser explicitamente manual, externa e sem alegação de automação'
+  &&merchant.includes("channel:'delivery'"),
+  'rota declarada precisa ser explicitamente manual, na entrega e sem alegação de automação'
 );
 
 assert.ok(
@@ -46,7 +46,8 @@ assert.ok(
 );
 
 assert.ok(
-  checkout.includes('.in("verification_mode",["provider_api","device"])')
+  checkout.includes('.eq("channel","online")')
+  &&checkout.includes('.eq("verification_mode","provider_api")')
   &&checkout.includes('NO_AUTOMATED_PAYMENT_ROUTE')
   &&!checkout.includes('.in("verification_mode",["provider_api","device","merchant_confirmed"])'),
   'checkout automático jamais pode consumir rota manual declarada como se fosse PSP homologado'

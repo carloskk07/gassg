@@ -1,0 +1,261 @@
+name: TAMÃO release-candidate visual review (no deploy)
+
+on:
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: tamao-release-review
+  cancel-in-progress: true
+
+jobs:
+  review:
+    if: startsWith(github.head_ref || github.ref_name, 'release/v1-164-')
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout exact release candidate
+        uses: actions/checkout@v6
+
+      - name: Integrated source and staged migration gate
+        run: node scripts/release-integration-preflight.mjs
+
+      - name: Free-plan backup and migration-history contract tests
+        run: node tests/release-db-recovery-v1-164.mjs
+
+      - name: Syntax-check Unix PostgreSQL backup without credentials
+        run: bash -n scripts/release-db-backup-checkpoint.sh
+
+      - name: Customer-safe outage language for first-time visitors
+        run: node tests/release-marketing-outage-v1-164.mjs
+
+      - name: Portal version and anti-early-publication contract tests
+        run: node tests/release-portal-readiness.mjs
+
+      - name: Check three official domains without changing production
+        env:
+          TAMAO_CANDIDATE_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+          TAMAO_REPORT_FILE: release-review-screenshots/LIVE-PORTALS.json
+        run: |
+          set -euo pipefail
+          mkdir -p release-review-screenshots
+          # The PR's base.sha may be stale after a safe hotfix lands on main.
+          # Require the live portals to match the CURRENT stable main, not
+          # the SHA captured when the PR was first created.
+          TAMAO_EXPECTED_LIVE_SHA="$(git ls-remote origin refs/heads/main | awk '{print $1}')"
+          [[ "$TAMAO_EXPECTED_LIVE_SHA" =~ ^[0-9a-f]{40}$ ]] || exit 9
+          export TAMAO_EXPECTED_LIVE_SHA
+          node scripts/release-portal-readiness.mjs
+
+      - name: Production publication must remain blocked
+        run: |
+          set -euo pipefail
+          if node scripts/release-integration-preflight.mjs --production; then
+            echo "ERROR: Release candidate must not authorize production."
+            exit 1
+          fi
+
+      - name: Build public offline review bundle (no real runtime)
+        run: |
+          set -euo pipefail
+          TAMAO_DEPLOY_TARGET=cloudflare node scripts/build-public-site.mjs /tmp/tamao-release-review
+          test -f /tmp/tamao-release-review/_headers
+          grep -q "X-Robots-Tag: noindex" /tmp/tamao-release-review/_headers
+          grep -q "Disallow: /" /tmp/tamao-release-review/robots.txt
+          test ! -e /tmp/tamao-release-review/sitemap.xml
+          test ! -e /tmp/tamao-release-review/supabase
+          test ! -e /tmp/tamao-release-review/tests
+          test ! -e /tmp/tamao-release-review/scripts
+
+      - name: Capture real browser visual evidence
+        run: |
+          set -euo pipefail
+          python3 -m http.server 4178 --directory /tmp/tamao-release-review >/tmp/tamao-rc-server.log 2>&1 &
+          HTTP_PID=$!
+          trap 'kill "$HTTP_PID" 2>/dev/null || true' EXIT
+          sleep 2
+          CHROME="$(command -v google-chrome || command -v chromium || command -v chromium-browser)"
+          test -n "$CHROME"
+          mkdir -p release-review-screenshots
+          for spec in \
+            "home:320:800" \
+            "home:390:844" \
+            "home:1440:900" \
+            "learn:390:844" \
+            "merchants:390:844" \
+            "merchants:1440:900" \
+            "order:390:844" \
+            "tracking:390:844"; do
+            IFS=: read -r ROUTE WIDTH HEIGHT <<< "$spec"
+            OUT="release-review-screenshots/$ROUTE-$WIDTH.png"
+            "$CHROME" --headless=new --no-sandbox --disable-gpu \
+              --hide-scrollbars --disable-dev-shm-usage \
+              --window-size="$WIDTH,$HEIGHT" --virtual-time-budget=2400 \
+              --user-data-dir="/tmp/tamao-rc-$ROUTE-$WIDTH" \
+              --screenshot="$OUT" "http://127.0.0.1:4178/#$ROUTE" \
+              >/tmp/tamao-rc-browser.log 2>&1
+            test -s "$OUT"
+            test "$(wc -c < "$OUT")" -gt 4000
+          done
+          cat > release-review-screenshots/REVIEW.txt <<EOF
+          TAMÃO integrated release candidate — VISUAL REVIEW ONLY
+          Commit: $GITHUB_SHA
+          No actual merchant or customer data used.
+          Offline build, no production publication or approval.
+          Screenshots: home (320/390/1440), learn (390),
+          merchants (390/1440), order (390), tracking (390).
+          Commerce remains blocked until database migrations, Edge Functions,
+          real merchant documents, official portal attestation and payment E2E
+          are separately verified.
+          EOF
+
+      - name: Keep visual review in Actions artifacts, not on the public web
+        uses: actions/upload-artifact@v4
+        with:
+          name: tamao-v1-164-visual-review
+          path: release-review-screenshots
+          retention-days: 7
+          if-no-files-found: error
+
+  synthetic-db-restore:
+    if: startsWith(github.head_ref || github.ref_name, 'release/v1-164-')
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_DB: tamao_rc_fixture
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: synthetic_ci_only_not_real
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d tamao_rc_fixture"
+          --health-interval 5s
+          --health-timeout 4s
+          --health-retries 10
+    env:
+      PGHOST: 127.0.0.1
+      PGPORT: 5432
+      PGUSER: postgres
+      PGDATABASE: tamao_rc_fixture
+      PGPASSWORD: synthetic_ci_only_not_real
+      PGSSLMODE: require
+    steps:
+      - name: Checkout release candidate
+        uses: actions/checkout@v6
+
+      - name: Verify bundled PostgreSQL 17 clients
+        env:
+          CI_DB_CONTAINER: ${{ job.services.postgres.id }}
+        run: |
+          set -euo pipefail
+          test -n "$CI_DB_CONTAINER"
+          docker exec "$CI_DB_CONTAINER" pg_dump --version | grep -q 'PostgreSQL) 17'
+          docker exec "$CI_DB_CONTAINER" pg_restore --version | grep -q 'PostgreSQL) 17'
+          echo "PG17_SERVER_AND_CLIENT_MATCH"
+
+      - name: Enable TLS in disposable fixture database
+        env:
+          CI_DB_CONTAINER: ${{ job.services.postgres.id }}
+        run: |
+          set -euo pipefail
+          test -n "$CI_DB_CONTAINER"
+          docker exec -u postgres "$CI_DB_CONTAINER" bash -euc '
+            cd /var/lib/postgresql/data
+            openssl req -new -x509 -nodes -days 1 -newkey rsa:2048 \
+              -keyout server.key -out server.crt -subj "/CN=localhost" \
+              >/dev/null 2>&1
+            chmod 600 server.key
+            printf "\\nssl = on\\nssl_cert_file = '\''server.crt'\''\\nssl_key_file = '\''server.key'\''\\n" \
+              >> postgresql.conf
+            pg_ctl reload -D /var/lib/postgresql/data
+          '
+          for attempt in 1 2 3 4 5; do
+            if docker exec -u postgres \
+              -e PGHOST=127.0.0.1 -e PGDATABASE=tamao_rc_fixture \
+              -e PGPASSWORD=synthetic_ci_only_not_real -e PGSSLMODE=require \
+              "$CI_DB_CONTAINER" psql -Atq \
+                -c 'select ssl from pg_stat_ssl where pid=pg_backend_pid()' \
+                2>/dev/null | grep -qx t; then
+              exit 0
+            fi
+            sleep 2
+          done
+          echo 'TLS_REQUIRED_FOR_RESTORE_DRILL'
+          exit 1
+
+      - name: Dump and restore synthetic source with permissions
+        env:
+          CI_DB_CONTAINER: ${{ job.services.postgres.id }}
+        run: |
+          set -euo pipefail
+          test -n "$CI_DB_CONTAINER"
+          # Run the exact fixture and scripts INSIDE the disposable PG17 image
+          # rather than installing a possibly missing client package on runner.
+          docker exec -u root "$CI_DB_CONTAINER" mkdir -p /tmp/tamao-ci
+          docker cp scripts "$CI_DB_CONTAINER":/tmp/tamao-ci/
+          docker cp tests "$CI_DB_CONTAINER":/tmp/tamao-ci/
+          docker exec -u root "$CI_DB_CONTAINER" chown -R postgres:postgres /tmp/tamao-ci
+          docker exec -u postgres -w /tmp/tamao-ci \
+            -e GITHUB_ACTIONS=true -e PGHOST=127.0.0.1 -e PGPORT=5432 \
+            -e PGUSER=postgres -e PGDATABASE=tamao_rc_fixture \
+            -e PGPASSWORD=synthetic_ci_only_not_real -e PGSSLMODE=require \
+            "$CI_DB_CONTAINER" bash tests/release-backup-restore-drill.sh
+
+  windows-backup-script:
+    if: startsWith(github.head_ref || github.ref_name, 'release/v1-164-')
+    runs-on: windows-latest
+    timeout-minutes: 7
+    steps:
+      - name: Checkout candidate
+        uses: actions/checkout@v6
+
+      - name: Parse Windows backup script without production credentials
+        shell: pwsh
+        run: |
+          $tokens = $null
+          $errors = $null
+          foreach ($path in @(
+            'scripts/release-db-backup-windows.ps1',
+            'scripts/release-db-restore-windows.ps1',
+            'tools/tamao-backup-windows/Assistente-TAMAO.ps1'
+          )) {
+            $tokens = $null
+            $errors = $null
+            [void][System.Management.Automation.Language.Parser]::ParseFile(
+              (Join-Path $PWD $path),
+              [ref]$tokens,
+              [ref]$errors
+            )
+            if ($errors.Count -gt 0) {
+              $errors | ForEach-Object { Write-Error ($path + ': ' + $_.Message) }
+              exit 1
+            }
+            Write-Host "WINDOWS_SCRIPT_SYNTAX_OK: $path"
+          }
+          Write-Host "NO_PRODUCTION_CONNECTION: Windows scripts parsed only"
+      - name: Exercise backup wizard offline self-test on Windows PowerShell
+        shell: pwsh
+        run: |
+          $result = & powershell.exe -NoProfile -ExecutionPolicy Bypass -File "tools/tamao-backup-windows/Assistente-TAMAO.ps1" -SelfTest
+          if ($LASTEXITCODE -ne 0 -or ($result | Out-String) -notmatch 'TAMAO_GUI_OFFLINE_SELFTEST_OK') {
+            throw "Windows wizard self-test failed: $result"
+          }
+          Write-Host $result
+          Write-Host "NO_NETWORK_NO_DATABASE_ACCESS"
+      - name: Initialize Windows Forms UI without database connection
+        shell: pwsh
+        run: |
+          $result = & powershell.exe -NoProfile -STA -ExecutionPolicy Bypass -File "tools/tamao-backup-windows/Assistente-TAMAO.ps1" -GuiSmokeTest
+          if ($LASTEXITCODE -ne 0 -or ($result | Out-String) -notmatch 'TAMAO_GUI_INITIALIZATION_OK') {
+            throw "Windows Forms initialization failed: $result"
+          }
+          Write-Host $result
+
+

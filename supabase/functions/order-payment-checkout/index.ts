@@ -202,7 +202,7 @@ Deno.serve(async(req:Request)=>{
 
     const {data:orderAuthority,error:orderAuthorityError}=await admin
       .from("orders")
-      .select("id,merchant_id,payment_method,customer_id")
+      .select("id,merchant_id,payment_method,payment_timing,customer_id")
       .eq("id",orderId)
       .eq("customer_id",user.id)
       .maybeSingle();
@@ -211,12 +211,18 @@ Deno.serve(async(req:Request)=>{
       throw new DomainError("ORDER_NOT_FOUND","Pedido não encontrado.",404);
     }
 
+    if(orderAuthority.payment_timing!=="prepaid"){
+      throw new DomainError("ORDER_PAYMENT_ON_DELIVERY",
+        "Este pedido será pago diretamente à revenda na entrega.",409);
+    }
+
     let routeQuery=admin
       .from("merchant_payment_routes")
       .select("id,merchant_id,payment_method,provider,connection_id,channel,verification_mode,active,priority")
       .eq("merchant_id",orderAuthority.merchant_id)
       .eq("active",true)
-      .in("verification_mode",["provider_api","device"]);
+      .eq("channel","online")
+      .eq("verification_mode","provider_api");
     if(requestedRouteId){
       routeQuery=routeQuery.eq("id",requestedRouteId);
     }else if(orderAuthority.payment_method==="card"){
@@ -278,6 +284,10 @@ Deno.serve(async(req:Request)=>{
       }
       if(message.includes("PAYMENT_ROUTE_NOT_AUTOMATED")||message.includes("PAYMENT_ROUTE_CONNECTION_REQUIRED")){
         throw new DomainError("NO_AUTOMATED_PAYMENT_ROUTE","Esta forma de pagamento exige confirmação manual ou uma conexão ativa.",409);
+      }
+      if(message.includes("PREPAID_PAYMENT_NOT_AUTHORIZED")){
+        throw new DomainError("PREPAID_PAYMENT_NOT_AUTHORIZED",
+          "Pagamento antecipado não autorizado para este pedido.",409);
       }
       if(message.includes("MERCHANT_DIRECT_PAYMENT_NOT_ENABLED")){
         throw new DomainError("MERCHANT_DIRECT_PAYMENT_NOT_ENABLED","Esta revenda ainda não habilitou pagamento online direto.",409);

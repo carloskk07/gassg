@@ -1,0 +1,103 @@
+{
+  "releaseId": "TAMAO-V1.164-INTEGRATED-RC",
+  "targetBranch": "main",
+  "publicationMode": "public-acquisition-live",
+  "commercialActivation": "blocked",
+  "sourceBranch": "release/v1-164-integrated-review",
+  "stagedPullRequests": [
+    205,
+    207,
+    208,
+    209,
+    210,
+    211,
+    212,
+    213,
+    214,
+    215
+  ],
+  "databaseMigrations": [
+    "20261012042111_delivery_first_payment_boundary_v1_158_1.sql",
+    "20261012042134_merchant_basket_compliance_v1_158_2.sql",
+    "20261012042157_settlement_daily_due_alignment_v1_158_3.sql",
+    "20261012042201_merchant_representation_authority_v1_158_4.sql"
+  ],
+  "serverFunctionsChanged": [
+    "admin-ops",
+    "create-order",
+    "get-offers",
+    "get-order",
+    "order-payment-checkout"
+  ],
+  "publicPortals": {
+    "customer": "https://tamao.com.br",
+    "merchant": "https://parceiro.tamao.com.br",
+    "admin": "https://admin.tamao.com.br"
+  },
+  "manualEvidenceRequired": [
+    "production-migrations-applied-and-verified-commercial-gate-closed",
+    "server-edge-functions-compatible-and-verified",
+    "consented-customer-and-merchant-interest-forms-tested",
+    "all-three-official-portal-shas-https-and-oidc-attested",
+    "real-merchant-cnpj-and-representative-documents-verified-before-city-sales",
+    "glp-anp-license-verified-before-gas-sales",
+    "merchant-direct-payment-route-homologated-before-real-orders",
+    "administrator-authorizes-global-commercial-opening",
+    "supabase-pro-backups-enabled-and-restore-path-verified-before-first-sale"
+  ],
+  "notes": "Two distinct gates: public information and consented registration may deploy before any first sale with commerce disabled, after compatible backend and 3-portal attestation. Per-city commerce opens automatically only when a compliant eligible merchant exists and global commerce was explicitly authorized; the first real sale is monitored after activation. Owner elected to defer Pro upgrade and recovery rehearsal until the commercial opening. No production backup restoration has been proven; commerce stays disabled. On public portal deployment, do not publish fake availability: show real city interest and partner onboarding only until commerce eligibility is verified.",
+  "releasePhases": {
+    "publicAcquisition": {
+      "desiredState": "production-acquisition-enabled-no-sales",
+      "commerceMustRemainDisabled": true,
+      "scope": [
+        "informational-pages",
+        "city-cep-inquiry",
+        "optional-consented-customer-notification",
+        "merchant-interest-and-onboarding"
+      ],
+      "prerequisites": [
+        "release-integrated-audit-passed",
+        "database-migrations-compatible-and-applied-before-new-edge-calls",
+        "five-edge-functions-compatible-and-deployed",
+        "three-official-portals-same-committed-source-sha-and-https",
+        "customer-opt-in-consent-and-delete-path-reviewed",
+        "no-fictional-local-offer-price-or-delivery-promises",
+        "cloudflare-git-auto-deploy-and-rollback-verified"
+      ],
+      "blockersNotRequired": [
+        "first-real-sale",
+        "merchant-anp-for-unavailable-GLP-merchant",
+        "PSP-seller-homologation-if-no-real-checkout"
+      ]
+    },
+    "commercePerCity": {
+      "desiredState": "blocked-until-merchant-elegibility",
+      "scope": [
+        "live-quotes",
+        "real-order-acceptance",
+        "payment-direct-to-merchant",
+        "delivery-pin",
+        "platform-fee-postpaid"
+      ],
+      "prerequisites": [
+        "all-public-acquisition-prerequisites",
+        "legally-verified-active-merchant-and-authorized-representative",
+        "product-specific-regulatory-gates-ANP-if-GLP",
+        "live-multi-city-cep-price-and-stock-eligibility",
+        "direct-merchant-payment-route-homologated-before-launch",
+        "admin-authorized-global-commerce-opening",
+        "supabase-pro-backup-policy-active-before-first-sale"
+      ],
+      "postActivationChecks": [
+        "observe-first-real-order-and-delivery",
+        "verify-real-sale-money-settles-direct-to-merchant",
+        "verify-first-platform-fee-reconciliation",
+        "freeze-unhealthy-city-without-disabling-other-cities"
+      ]
+    }
+  },
+  "productionSchemaDeployed": true,
+  "productionMigrationEvidence": "release/production-schema-v1-164.json",
+  "recoveryStatus": "local-archive-integrity-passed-but-isolated-restore-not-proven; Pro planned before sales"
+}

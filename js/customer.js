@@ -50,27 +50,65 @@ function customerProductMeta(code){
   return 'Item essencial';
 }
 async function startHomeOrder(){
-  const el=document.querySelector('#home-address');
-  const value=el?.value.trim()||'';
-  if(globalThis.__CHAMA_TEST__===true){
+  const homeInput=document.querySelector('#home-address');
+  const value=String(homeInput?.value||'').trim();
+  const testDemo=globalThis.__CHAMA_TEST__===true;
+  if(testDemo){
     if(value&&value.length<5)return toast('Informe um endereço válido ou deixe em branco para preencher depois');
     if(value)state.address=value.slice(0,160);
   }else{
-    const postalCode=String(value||'').replace(/\D/g,'').slice(0,8);
-    if(value&&!/^[0-9]{8}$/.test(postalCode))return toast('Informe um CEP válido ou deixe em branco para preencher depois');
+    const postalCode=value.replace(/\D/g,'').slice(0,8);
+    if(value&&!/^[0-9]{8}$/.test(postalCode)){
+      homeInput?.focus();
+      return toast('Informe um CEP válido com 8 dígitos');
+    }
+    const changed=postalCode!==String(state.postalCode||'');
     state.postalCode=postalCode;
-    state.address='';
-    state.addressNumber='';
+    if(changed){
+      // Carry the postal code forward, but never carry a street, number or
+      // quotation certified for a different delivery address.
+      state.address='';
+      state.addressNumber='';
+      if(globalThis.liveRuntime){
+        liveRuntime.offers=[];
+        liveRuntime.postalValidated=false;
+        liveRuntime.lastCityCheck=null;
+        liveRuntime.lastSyncAt=null;
+        liveRuntime.error=null;
+      }
+    }
   }
-  state.cart=normalizeCart({});
-  state.checkout.glpContainerMode='exchange';
-  setCartProduct('P13',1);
+
+  // Keep the existing cart when someone returns to the home page; don't turn
+  // "consult my order" into an accidental new basket of gas.
+  const alreadyHasItems=Object.values(state.cart||{}).some(qty=>Number(qty)>0);
+  if(!alreadyHasItems){
+    state.cart=normalizeCart({});
+    state.checkout.glpContainerMode='exchange';
+    const featured=String(document.querySelector('#home-featured-code')?.value||'P13').trim().toUpperCase();
+    const selected=/^[A-Z][A-Z0-9_]{1,31}$/.test(featured)&&products[featured]&&!products[featured].hidden?featured:'P13';
+    setCartProduct(selected,1);
+  }
   save();
   go('order');
+  if(!testDemo&&/^[0-9]{8}$/.test(String(state.postalCode||''))&&!state.addressNumber){
+    globalThis.setTimeout?.(()=>{
+      if(route()==='order')document.querySelector('#address-number')?.focus();
+    },120);
+  }
 }
 
 // Consulta ofertas reais quando a sessão está pronta; na indisponibilidade, oferece aviso.
 function startCustomerAvailability(){
+  const input=globalThis.document?.querySelector('#home-address');
+  if(globalThis.__CHAMA_TEST__!==true&&input){
+    const raw=String(input.value||'').trim();
+    if(!/^[0-9]{8}$/.test(raw.replace(/\D/g,''))){
+      input.focus();
+      toast('Informe um CEP com 8 dígitos para encontrar o caminho certo');
+      return;
+    }
+  }
   if(globalThis.__CHAMA_TEST__===true||globalThis.liveReady?.()===true){
     return startHomeOrder();
   }
@@ -191,6 +229,12 @@ function home(){
   const market=globalThis.liveRuntime?.marketStatus||null;
   const rememberedRegion=!testDemo&&typeof rememberedMarketRegion==='function'?rememberedMarketRegion():null;
   const regionLabel=rememberedRegion?rememberedRegion.city+' • '+rememberedRegion.state:'Informe seu CEP';
+  const cityEvidence=ready?globalThis.liveRuntime?.lastCityCheck:null;
+  const cityChecked=Boolean(cityEvidence
+    &&cityEvidence.postalCode===String(state.postalCode||'').replace(/\D/g,'')
+    &&Date.now()-Number(cityEvidence.checkedAt||0)<10*60*1000);
+  const hasConfirmedCityOffers=cityChecked&&Number(cityEvidence.offerCount||0)>0
+    &&(globalThis.liveRuntime?.offers||[]).some(o=>Date.parse(o.expiresAt)>Date.now());
   const outsideOriginalMarket=Boolean(rememberedRegion&&!(rememberedRegion.city.toLocaleUpperCase('pt-BR')==='SÃO GABRIEL'&&rememberedRegion.state==='RS'));
   const lastOrder=ready?globalThis.liveRuntime?.lastOrderTemplate:null;
   const prediction=ready?globalThis.liveRuntime?.reorderPrediction:null;
@@ -210,7 +254,15 @@ function home(){
   }
 
   const p=testDemo?minPrice():null;
-  const showPublicP13Reference=!testDemo&&!outsideOriginalMarket&&(
+  const supplyCodes=Array.isArray(market?.productCodes)?market.productCodes:[];
+  const visibleCodes=supplyCodes.filter(code=>products[code]&&!products[code].hidden);
+  const featuredCode=ready&&market?.realSupplyConfigured&&visibleCodes.length
+    ?(visibleCodes.includes('P13')?'P13':visibleCodes.slice().sort((a,b)=>Number(products[a].sortOrder||100)-Number(products[b].sortOrder||100))[0])
+    :'P13';
+  const featuredProduct=products[featuredCode]||products.P13;
+  const featuredName=featuredCode==='P13'?'Botijão de cozinha 13 kg':customerProductName(featuredCode,featuredProduct);
+  const featuredIcon=featuredProduct?.icon||'🧺';
+  const showPublicP13Reference=!testDemo&&featuredCode==='P13'&&!outsideOriginalMarket&&(
     preview
     ||(ready&&market?.realSupplyConfigured===false)
   );
@@ -224,7 +276,9 @@ function home(){
           ? 'Consultar preço'
           : ready
             ? 'Consultar disponibilidade'
-            : 'Conectando…';
+            : globalThis.liveRuntime?.status==='loading'
+              ? 'Conectando…'
+              : 'Consulta indisponível';
 
   const freshness=testDemo
     ? internalPilot
@@ -235,16 +289,18 @@ function home(){
       : ready&&!market
         ? 'Não foi possível confirmar o panorama geral agora. Informe seu endereço para consultar as opções diretamente.'
         : ready&&market?.realSupplyConfigured
-          ? market?.availableNow
-            ? Number(market?.availableMerchantCount||0)===1
-              ? '1 parceiro elegível está disponível agora.'
-              : 'Há parceiros elegíveis para consulta agora.'
-            : 'Parceiros cadastrados; a disponibilidade é confirmada a cada consulta.'
+          ? hasConfirmedCityOffers
+            ? 'Sua última consulta encontrou ofertas válidas para este CEP. Confira condições e validade antes de pedir.'
+            : cityChecked
+              ? 'Nenhuma oferta elegível apareceu para este CEP na última consulta. Você pode pedir um aviso.'
+              : 'A disponibilidade depende do CEP e da cesta. Revendas de outras cidades não confirmam ofertas na sua.'
           : ready
             ? 'A disponibilidade é confirmada conforme sua região e as revendas cadastradas.'
             : globalThis.liveRuntime?.status==='unsafe-origin'
             ? 'Use o endereço oficial do TAMÃO para consultar disponibilidade.'
-            : 'Conectando ao serviço.';
+            : globalThis.liveRuntime?.status==='loading'
+              ? 'Conectando ao serviço.'
+              : 'Ofertas não verificadas agora. Nenhum pedido foi criado.';
 
   const disabled=!testDemo&&!ready&&!preview;
   const liveProductCodes=new Set(Array.isArray(market?.productCodes)?market.productCodes:[]);
@@ -262,54 +318,64 @@ function home(){
     );
   const feeBps=Number(market?.commercialPolicy?.platformFeeBps??750);
   const merchantFeeLabel=(Math.max(0,feeBps)/100).toLocaleString('pt-BR',{maximumFractionDigits:2})+'%';
-  const acquisitionOpen=!testDemo&&(outsideOriginalMarket||preview||!ready||market?.realSupplyConfigured===false);
+  const acquisitionOpen=!testDemo&&(preview||!ready||market?.realSupplyConfigured===false
+    ||(outsideOriginalMarket&&!hasConfirmedCityOffers)
+    ||(cityChecked&&!hasConfirmedCityOffers));
   const eyebrow=testDemo
     ? internalPilot?'● AMBIENTE INTERNO — SEM PEDIDOS':'● AMBIENTE DE TESTE'
     : '● TAMÃO • '+regionLabel.toUpperCase();
-  const primaryLabel=internalPilot?'Validar jornada':outsideOriginalMarket?'Consultar minha cidade':acquisitionOpen?'Consultar disponibilidade':'Ver preços e prazos';
+  const primaryLabel=internalPilot?'Validar jornada':hasConfirmedCityOffers?'Conferir ofertas do meu CEP':outsideOriginalMarket?'Consultar minha cidade':acquisitionOpen?'Consultar disponibilidade':'Ver ofertas perto de mim';
   const primaryAction='startCustomerAvailability()';
-  const singleMarket=internalPilot||(ready&&market?.availableNow&&Number(market?.availableMerchantCount||0)===1);
+  // Global merchant totals never certify a single seller for this city's basket.
+  const singleMarket=internalPilot||(hasConfirmedCityOffers
+    &&(globalThis.liveRuntime?.marketMode==='single_supplier'
+      ||Number(globalThis.liveRuntime?.eligibleMerchantCount||0)===1));
   const heroJourney=singleMarket
     ? internalPilot
       ? 'Valide a jornada completa do ambiente interno: pedido, aceite, preparação, saída, chegada, pagamento e benefícios.'
       : 'Informe onde quer receber, veja o preço total e o prazo do parceiro disponível e acompanhe cada etapa até a entrega.'
     : 'Informe onde quer receber, compare as opções disponíveis e acompanhe cada etapa até a entrega.';
   const intentSection=acquisitionOpen
-    ? `<section class="section intent-section"><div class="section-head"><div><span class="section-kicker">COMECE POR AQUI</span><h2>Você quer comprar ou vender pelo TAMÃO?</h2><p>Escolha o que precisa e siga o fluxo correspondente.</p></div></div>
+    ? `<section class="section intent-section"><div class="section-head"><div><span class="section-kicker">COMECE POR AQUI</span><h2>Seu próximo passo é simples.</h2><p>Peça o que precisa, tire dúvidas ou cadastre seu negócio. Você escolhe por onde começar.</p></div></div>
 <div class="intent-grid prelaunch-intent-grid">
-  <button class="intent-card intent-primary" onclick="startCustomerAvailability()"><span class="intent-icon">📍</span><span><strong>Quero comprar</strong><small>Informe seu CEP e consulte as opções. Se não houver atendimento, você pode receber um aviso.</small></span><b>→</b></button>
-  <button class="intent-card" onclick="go('learn')"><span class="intent-icon">🛡️</span><span><strong>Quero entender primeiro</strong><small>Veja como funcionam preço, confirmação, entrega e proteção.</small></span><b>→</b></button>
-  <button class="intent-card" onclick="go('merchants')"><span class="intent-icon">🏪</span><span><strong>Quero vender no TAMÃO</strong><small>Conheça custos e registre o interesse da sua empresa.</small></span><b>→</b></button>
+  <button class="intent-card intent-primary" onclick="startCustomerAvailability()"><span class="intent-icon">📍</span><span><strong>Quero resolver o que faltou</strong><small>Consulte pelo CEP. Se a sua região ainda não tiver atendimento, peça para receber um aviso.</small></span><b>→</b></button>
+  <button class="intent-card" onclick="go('learn')"><span class="intent-icon">🛡️</span><span><strong>Quero comprar com confiança</strong><small>Veja como conferimos preço, confirmação e entrega.</small></span><b>→</b></button>
+  <button class="intent-card" onclick="openPrelaunchMerchantLead()"><span class="intent-icon">🏪</span><span><strong>Quero trazer minha empresa</strong><small>Descubra o canal de vendas e o que você continua controlando.</small></span><b>→</b></button>
 </div></section>`
-    : `<section class="section intent-section"><div class="section-head"><div><span class="section-kicker">ESCOLHA SEU CAMINHO</span><h2>Comprar, economizar, indicar ou vender.</h2><p>Cada objetivo tem uma jornada própria no TAMÃO.</p></div></div>
+    : `<section class="section intent-section"><div class="section-head"><div><span class="section-kicker">ESCOLHA SEU CAMINHO</span><h2>Tem espaço para você no TAMÃO.</h2><p>Compre com tranquilidade, conheça os benefícios ou leve sua empresa para mais clientes.</p></div></div>
 <div class="intent-grid">
-  <button class="intent-card intent-primary" onclick="quickProduct('P13')" ${disabled?'disabled':''}><span class="intent-icon">🔥</span><span><strong>Quero pedir agora</strong><small>Consulte preço total e prazo de entrega.</small></span><b>→</b></button>
-  <button class="intent-card" onclick="go('learn')"><span class="intent-icon">🛡️</span><span><strong>Quero entender melhor</strong><small>Veja como compra, pagamento e entrega funcionam.</small></span><b>→</b></button>
-  <button class="intent-card" onclick="go('earn')"><span class="intent-icon">🎁</span><span><strong>Quero ganhar benefícios</strong><small>Cashback e indicação aparecem separados e com regras claras.</small></span><b>→</b></button>
-  <button class="intent-card" onclick="go('merchants')"><span class="intent-icon">🏪</span><span><strong>Quero vender no TAMÃO</strong><small>Transforme a plataforma em um canal adicional para sua empresa.</small></span><b>→</b></button>
+  <button class="intent-card intent-primary" onclick="quickProduct('P13')" ${disabled?'disabled':''}><span class="intent-icon">🔥</span><span><strong>Preciso de algo para casa</strong><small>Veja produtos, valores e previsão de entrega para seu endereço.</small></span><b>→</b></button>
+  <button class="intent-card" onclick="go('learn')"><span class="intent-icon">🛡️</span><span><strong>Quero comprar com confiança</strong><small>Veja como funcionam o pedido, o pagamento e a entrega.</small></span><b>→</b></button>
+  <button class="intent-card" onclick="go('earn')"><span class="intent-icon">🎁</span><span><strong>Quero aproveitar benefícios</strong><small>Descubra cashback e indicações quando estiverem disponíveis.</small></span><b>→</b></button>
+  <button class="intent-card" onclick="openPrelaunchMerchantLead()"><span class="intent-icon">🏪</span><span><strong>Tenho uma empresa</strong><small>Mais um canal para ser encontrado, sem abrir mão dos seus clientes.</small></span><b>→</b></button>
 </div></section>`;
 
   return shell(`<section class="hero marketing-hero"><div class="hero-grid"><div>
-    <span class="eyebrow">${eyebrow}</span>
-    <h1>Pediu? Tá na mão.</h1>
-    <p><strong>Gás, água e essenciais perto de você.</strong> ${esc(outsideOriginalMarket?'Consulte a cobertura de '+regionLabel+' pelo CEP. Quando ainda não houver ofertas, você poderá receber um aviso de disponibilidade.':heroJourney)}</p>
+    <span class="eyebrow">${esc(eyebrow)}</span>
+    ${rememberedRegion&&!testDemo?`<div class="local-welcome" aria-label="Sua região identificada"><span aria-hidden="true">📍</span><span><strong>Olá, ${esc(rememberedRegion.city)}!</strong><small>Consulta por CEP • ${esc(rememberedRegion.state)}. A disponibilidade depende das ofertas para seu endereço.</small></span></div>`:''}
+    <div class="hero-overline">A VIDA NÃO PARA QUANDO ALGO FALTA.</div>
+    <h1>Faltou em casa?<br><span class="hero-highlight">Tá na mão.</span></h1>
+    <p class="hero-lead"><strong>Gás, água e o essencial do dia a dia, em um só lugar.</strong> ${esc(hasConfirmedCityOffers?'Já consultamos opções para o seu CEP. Confira preços e prazos atualizados antes de confirmar.':outsideOriginalMarket?'Veja quais opções atendem '+regionLabel+' pelo CEP. Se não houver ofertas, você poderá solicitar um aviso.':heroJourney)}</p>
+    <div class="hero-emotional-promise"><span aria-hidden="true">✦</span><span>Menos tempo procurando. Mais clareza para escolher.</span></div>
 
-    <div class="purchase-starter" aria-label="Iniciar compra de gás">
-      <div class="starter-product"><div class="starter-product-icon">🔥</div><div><span class="starter-label">MAIS PROCURADO</span><strong>Botijão de cozinha 13 kg</strong><small>P13 • GLP</small></div><div class="starter-price"><small>CONSULTA</small><b>${priceText}</b></div></div>
-      <label class="starter-address" for="home-address"><span>${testDemo?'Onde entregar?':'CEP de entrega'}</span><div><span aria-hidden="true">📍</span><input id="home-address" autocomplete="${testDemo?'street-address':'postal-code'}" inputmode="${testDemo?'text':'numeric'}" maxlength="${testDemo?'160':'9'}" placeholder="${testDemo?'Digite seu endereço':'Ex.: 97300-000'}" value="${esc(testDemo?(state.address||''):String(state.postalCode||'').replace(/^(\d{5})(\d{0,3}).*$/,(m,a,b)=>b?a+'-'+b:a))}" ${disabled?'disabled':''}></div></label>
-      <button class="primary starter-cta" onclick="${primaryAction}" ${disabled&&!acquisitionOpen?'disabled':''}>🔥 ${primaryLabel}</button>
+    <div class="purchase-starter" aria-label="Consultar produtos e atendimento da sua região">
+      <input id="home-featured-code" type="hidden" value="${esc(featuredCode)}">
+      <div class="starter-product"><div class="starter-product-icon">${esc(featuredIcon)}</div><div><span class="starter-label">COMECE PELO QUE PRECISA</span><strong>${esc(featuredName)}</strong><small>${esc(featuredCode)} • Consulta por CEP</small></div><div class="starter-price"><small>CONSULTA</small><b>${priceText}</b></div></div>
+      <label class="starter-address" for="home-address"><span>${testDemo?'Onde entregar?':'Onde você quer receber?'}</span><div><span aria-hidden="true">📍</span><input id="home-address" autocomplete="${testDemo?'street-address':'postal-code'}" inputmode="${testDemo?'text':'numeric'}" maxlength="${testDemo?'160':'9'}" placeholder="${testDemo?'Digite seu endereço':'Ex.: 97300-000'}" value="${esc(testDemo?(state.address||''):String(state.postalCode||'').replace(/^(\d{5})(\d{0,3}).*$/,(m,a,b)=>b?a+'-'+b:a))}" onkeydown="if(event.key==='Enter'){event.preventDefault();startCustomerAvailability()}" ${disabled&&!acquisitionOpen?'disabled':''}></div></label>
+      <button class="primary starter-cta" onclick="${primaryAction}" ${disabled&&!acquisitionOpen?'disabled':''}>${esc(featuredIcon)} ${primaryLabel}</button>
+      ${cityChecked&&!hasConfirmedCityOffers&&acquisitionOpen?`<div class="regional-action"><button class="ghost" onclick="openPrelaunchCustomerLead()">Sem opção para meu CEP? Quero receber um aviso →</button></div>`:''}
       <small class="starter-footnote">${esc(freshness)}</small>
     </div>
 
-    <div class="trust-row"><span class="trust-chip">✓ Total antes de pedir</span><span class="trust-chip">✓ Parceiro precisa aceitar</span><span class="trust-chip">✓ Entrega acompanhada</span></div>
+    <div class="trust-row" aria-label="O que você pode esperar"><span class="trust-chip">✓ Veja o valor antes</span><span class="trust-chip">✓ Pedido com aceite real</span><span class="trust-chip">✓ Acompanhe a entrega</span></div>
     ${showPublicP13Reference?publicP13PriceReference():''}
     ${internalPilot?'<div class="notice" style="margin-top:14px"><strong>Ambiente de validação interna.</strong><br>Nenhuma ação nesta prévia gera pedido real, cobrança ou baixa de estoque. O dado comercial real carregado no cenário é a faixa P13: R$ 115,90 mínimo, R$ 120,00 normal e R$ 125,00 máximo, com entrega incluída.</div>':''}
   </div>
   <div class="hero-visual" aria-label="Resumo visual dos benefícios do TAMÃO">
-    <div class="visual-top"><span class="visual-dot"></span><strong>Pediu? Tá na mão.</strong><span class="visual-live">TAMÃO</span></div>
+    <div class="visual-top"><span class="visual-dot"></span><strong>É assim que seu pedido avança</strong><span class="visual-live">EXEMPLO DE JORNADA</span></div>
     <div class="visual-product"><div class="visual-icon">🔥</div><div><strong>Botijão 13 kg</strong><small>Veja o total antes de pedir</small></div></div>
     <div class="visual-choice"><span><strong>Mais econômico</strong><small>Compare pelo total</small></span><span><strong>Mais rápido</strong><small>Compare pelo prazo</small></span></div>
-    <div class="visual-status"><span class="visual-check">✓</span><div><strong>Tá na mão: parceiro confirmou</strong><small>Você só vê “A caminho” depois da saída confirmada.</small></div></div>
+    <div class="visual-status"><span class="visual-check">✓</span><div><strong>Você sabe quando foi confirmado</strong><small>O status “A caminho” só aparece após a saída informada pela revenda.</small></div></div>
   </div></div></section>
 
 ${acquisitionOpen?prelaunchCustomerLeadSection():''}
@@ -318,16 +384,16 @@ ${reorderCard}
 
 ${intentSection}
 
-<section class="section"><div class="protection-band"><div class="protection-icon">🛡️</div><div><span class="section-kicker light">PROTEÇÃO TAMÃO</span><h2>Se uma entrega falhar antes de sair, o pedido não fica simplesmente abandonado.</h2><p>O TAMÃO pode procurar outra opção elegível. Se a alternativa aumentar o total, você precisa aceitar o novo valor antes da troca.</p></div><button class="secondary dark-secondary" onclick="go('learn')">Como funciona</button></div></section>
+<section class="section"><div class="protection-band"><div class="protection-icon">🛡️</div><div><span class="section-kicker light">VOCÊ ACOMPANHA. A GENTE ORGANIZA.</span><h2>Mais tranquilidade, inclusive quando um imprevisto acontece.</h2><p>Se uma revenda não conseguir sair para entregar, o TAMÃO pode procurar outra opção elegível. Qualquer alternativa mais cara depende da sua aprovação.</p></div><button class="secondary dark-secondary" onclick="go('learn')">Entenda sua proteção</button></div></section>
 
-<section class="section value-proof-section"><div class="section-head"><div><span class="section-kicker">POR QUE USAR O TAMÃO</span><h2>As respostas principais aparecem antes de você decidir.</h2></div></div>
+<section class="section value-proof-section"><div class="section-head"><div><span class="section-kicker">COMPRAR SEM ADIVINHAR</span><h2>Boas escolhas começam com informações claras.</h2></div></div>
 <div class="value-proof-grid">
-  <article class="value-proof"><span>01</span><div><strong>Quanto vai custar?</strong><p>Veja o valor total da opção antes de criar o pedido.</p></div></article>
-  <article class="value-proof"><span>02</span><div><strong>Quanto vai demorar?</strong><p>Compare a previsão de entrega e escolha pelo que importa para você.</p></div></article>
-  <article class="value-proof"><span>03</span><div><strong>Quem confirmou?</strong><p>O parceiro precisa aceitar. Depois você acompanha preparação, saída e chegada.</p></div></article>
+  <article class="value-proof"><span>01</span><div><strong>Preço sem surpresa na escolha</strong><p>Confira o total apresentado antes de confirmar seu pedido.</p></div></article>
+  <article class="value-proof"><span>02</span><div><strong>Tempo para se organizar</strong><p>Veja a previsão de entrega das opções disponíveis e escolha a mais conveniente.</p></div></article>
+  <article class="value-proof"><span>03</span><div><strong>Você sabe o que está acontecendo</strong><p>O parceiro confirma o pedido, e cada etapa fica visível até o recebimento.</p></div></article>
 </div></section>
 
-<section class="section"><div class="section-head"><div><span class="section-kicker">COMO FUNCIONA</span><h2>Da consulta até a sua porta</h2><p>Quatro passos claros, sem transformar um pedido enviado em entrega prometida.</p></div><button class="ghost small desktop-only" onclick="go('learn')">Ver detalhes →</button></div>
+<section class="section"><div class="section-head"><div><span class="section-kicker">É SIMPLES ASSIM</span><h2>Escolheu, confirmou, acompanhou.</h2><p>Você vê as etapas acontecerem, sem confundir pedido enviado com entrega confirmada.</p></div><button class="ghost small desktop-only" onclick="go('learn')">Ver detalhes →</button></div>
 <div class="how-grid">
   <div class="how-card"><span>1</span><div><strong>Escolha o que precisa</strong><p>Gás, água, carvão, lenha, gelo ou uma cesta com vários itens.</p></div></div>
   <div class="how-card"><span>2</span><div><strong>Informe onde entregar</strong><p>O TAMÃO procura opções capazes de atender sua cesta.</p></div></div>
@@ -335,23 +401,23 @@ ${intentSection}
   <div class="how-card"><span>4</span><div><strong>Acompanhe até receber</strong><p>Você vê quando o parceiro aceita, prepara, sai e conclui a entrega.</p></div></div>
 </div></section>
 
-<section class="section"><div class="section-head"><div><span class="section-kicker">MAIS QUE GÁS</span><h2>Complete o que está faltando em casa.</h2><p>Você também pode pedir itens disponíveis sem colocar gás na cesta.</p></div></div>
+<section class="section"><div class="section-head"><div><span class="section-kicker">O QUE PRECISA HOJE?</span><h2>O essencial da casa, do seu jeito.</h2><p>Gás, água, carvão, gelo e outros itens da sua região. Você pode pedir produtos disponíveis mesmo sem gás na cesta.</p></div></div>
 <div class="quick-grid">${homeProductEntries.length?homeProductEntries.map(([k,p])=>`<button class="quick-card" onclick="quickProduct('${k}')" ${disabled?'disabled':''}><div class="quick-icon">${p.icon}</div><div class="quick-title">${esc(customerProductName(k,p))}</div><div class="quick-sub">${preview?'Consultar disponibilidade':'Consultar agora'}</div></button>`).join(''):'<div class="empty card">Nenhum produto está configurado para consulta agora.</div>'}</div></section>
 
 ${internalPilot?`<section class="section"><div class="card flat"><span class="section-kicker">AMBIENTE INTERNO</span><h2 style="margin-top:6px">Gas e Lenheira do JR</h2><p class="muted">Faixa comercial P13 configurada para validação interna. Esta visualização não altera a operação pública.</p><button class="secondary" onclick="setMode('merchant')">Abrir painel interno da revenda</button></div></section>`:''}
 
 
 
-<section class="section"><div class="section-head"><div><span class="section-kicker">CONFIANÇA NA ENTREGA</span><h2>O status só avança quando existe confirmação.</h2></div></div>
+<section class="section"><div class="section-head"><div><span class="section-kicker">CUIDADO EM CADA ETAPA</span><h2>Confiança não é promessa. É confirmação.</h2></div></div>
 <div class="grid cards-3">
   <div class="card feature-card"><div class="feature-icon">🛡️</div><h3>Parceiro apto para a cesta</h3><p>Uma oferta real só aparece quando a operação atende os critérios aplicáveis aos produtos e à entrega.</p></div>
   <div class="card feature-card"><div class="feature-icon">📍</div><h3>“A caminho” significa saída</h3><p>Esse status só aparece depois que o parceiro confirma que o pedido realmente saiu.</p></div>
   <div class="card feature-card"><div class="feature-icon">🔐</div><h3>Entrega com código</h3><p>A conclusão exige pagamento confirmado e o código de recebimento do pedido.</p></div>
 </div></section>
 
-<section class="section"><div class="opportunity-band"><div><span class="section-kicker light">DEPOIS DA COMPRA</span><h2>Economize comprando. Receba comissão indicando. Venda com sua empresa.</h2><p>Cashback, comissão por indicação e receita da revenda são coisas diferentes — o TAMÃO mostra cada uma separadamente.</p></div><div class="opportunity-actions"><button class="primary light-primary" onclick="go('club')">Ver benefícios de compra</button><button class="secondary dark-secondary" onclick="go('earn')">Indicação ou parceria</button></div></div></section>
+<section class="section"><div class="opportunity-band"><div><span class="section-kicker light">BONS MOTIVOS PARA VOLTAR</span><h2>Seu dia a dia pode render mais benefícios.</h2><p>Conheça o Clube e as possibilidades de indicação quando estiverem habilitadas. Benefícios de compra, comissão e vendas da revenda têm regras próprias.</p></div><div class="opportunity-actions"><button class="primary light-primary" onclick="go('club')">Ver benefícios de compra</button><button class="secondary dark-secondary" onclick="go('earn')">Indicação ou parceria</button></div></div></section>
 
-<section class="section"><div class="section-head"><div><span class="section-kicker">PARA EMPRESAS LOCAIS</span><h2>Já vende gás, água, carvão, lenha, gelo ou outros itens?</h2><p>Use o TAMÃO como um canal adicional de vendas sem abrir mão do controle da sua operação.</p></div></div><div class="merchant-home-card"><div><span class="merchant-home-rate">${merchantFeeLabel}</span><small>taxa comercial atual por pedido concluído</small></div><div><strong>Você define preço, estoque e disponibilidade.</strong><p>Também decide se aceita cada pedido e pode ficar offline quando não quiser receber novas vendas.</p></div><button class="primary" onclick="go('merchants')">Ver parceria e custos</button></div></section>`)
+<section class="section"><div class="section-head"><div><span class="section-kicker">SUA EMPRESA TAMBÉM TEM LUGAR AQUI</span><h2>Quem já entrega bem merece ser mais encontrado.</h2><p>Você vende gás, água, lenha, carvão ou outros essenciais? Conheça um novo canal de vendas sem exclusividade e sem perder o controle da operação.</p></div></div><div class="merchant-home-card"><div><span class="merchant-home-rate">${merchantFeeLabel}</span><small>taxa comercial atual por pedido concluído</small></div><div><strong>Você define preço, estoque e disponibilidade.</strong><p>Também decide se aceita cada pedido e pode ficar offline quando não quiser receber novas vendas.</p></div><button class="primary" onclick="go('merchants')">Quero vender no TAMÃO →</button></div></section>`)
 }
 function orderPage(){
   const testDemo=globalThis.__CHAMA_TEST__===true;
@@ -392,13 +458,13 @@ function orderPage(){
     if(preview){
       offerBlock='<div class="notice"><strong>Nenhuma opção disponível para este CEP agora.</strong><br>Você pode receber um aviso quando a região tiver atendimento.<div class="order-actions"><button class="secondary small" onclick="openPrelaunchCustomerLead()">Receber aviso de disponibilidade</button></div></div>';
     }else if(testDemo&&os.length){
-      offerBlock=`<div class="offer-stack">${os.map(offerCard).join('')}</div>`;
+      offerBlock=checkoutOfferComparison(os);
     }else if(ready&&liveRuntime.loadingOffers){
       offerBlock='<div class="empty card">Procurando opções para sua cesta…</div>';
     }else if(ready&&liveRuntime.error){
       offerBlock=`<div class="notice danger"><strong>Não foi possível atualizar as opções.</strong><br>${esc(liveRuntime.error)}<br><button class="secondary small" style="margin-top:10px" onclick="liveRefreshOffers().catch(()=>{})">Tentar novamente</button></div>`;
     }else if(ready&&os.length){
-      offerBlock=`<div class="offer-stack">${os.map(offerCard).join('')}</div>`;
+      offerBlock=checkoutOfferComparison(os);
     }else if(ready&&liveRuntime.commerceLaunchBlocked){
       offerBlock='<div class="notice"><strong>Pedidos temporariamente indisponíveis.</strong><br>Novas compras estão pausadas no momento. Pedidos existentes continuam acompanháveis normalmente.</div>';
     }else if(ready&&liveRuntime.deliveryCompatibilityBlocked){
@@ -410,7 +476,7 @@ function orderPage(){
     }else if(ready&&needsContainer&&liveRuntime.lastSyncAt){
       offerBlock='<div class="empty card"><strong>Nenhuma revenda consegue fornecer carga + vasilhame desta cesta agora.</strong><br><span class="muted tiny">A opção só aparece quando os dois itens possuem preço confirmado e estoque.</span></div>';
     }else if(ready&&liveRuntime.lastSyncAt){
-      offerBlock='<div class="empty card">Nenhum parceiro consegue atender esta cesta agora.</div>';
+      offerBlock='<div class="empty card"><strong>Nenhuma opção encontrada para esta cesta e CEP agora.</strong><p class="muted tiny">Você pode tentar outra combinação ou pedir um aviso quando houver atendimento.</p><div class="order-actions"><button class="secondary small" onclick="openPrelaunchCustomerLead()">Me avise quando houver disponibilidade →</button><button class="ghost small" onclick="liveRefreshOffers().catch(()=>{})">Consultar novamente</button></div></div>';
     }else if(ready){
       offerBlock='<div class="empty card"><button class="primary" onclick="liveRefreshOffers().catch(()=>{})">Procurar opções</button></div>';
     }else{
@@ -420,13 +486,14 @@ function orderPage(){
 
   const paymentBlock=preview
     ? '<div class="notice">As formas de pagamento aparecem quando houver uma opção disponível para esta consulta.</div>'
-    : `<div class="card flat form-stack"><div class="input-wrap"><label for="payment-method">Como você pretende pagar?</label><select id="payment-method" class="input" onchange="setPaymentMethod(this.value)"><option value="pix" ${state.checkout.paymentMethod==='pix'?'selected':''}>Pix</option><option value="card" ${state.checkout.paymentMethod==='card'?'selected':''}>Cartão</option><option value="cash" ${state.checkout.paymentMethod==='cash'?'selected':''}>Dinheiro</option></select><small class="field-help">Esta é sua preferência de pagamento. O parceiro vê a forma solicitada antes de assumir o pedido.</small></div>${state.checkout.paymentMethod==='cash'?`<div class="input-wrap"><label for="cash-tender">Precisa de troco? Troco para quanto?</label><input id="cash-tender" class="input" type="number" inputmode="decimal" min="1" max="10000" step="0.01" placeholder="Ex.: 150,00" value="${state.checkout.cashTenderCents?esc((state.checkout.cashTenderCents/100).toFixed(2)):''}" onchange="setCashTender(this.value)"><small class="field-help">Deixe vazio se não precisar informar troco. O entregador verá este valor antes de sair.</small></div>`:''}${state.user.cashback>0?`<label class="check-row"><input type="checkbox" ${state.checkout.useCashback?'checked':''} onchange="toggleCashback(this.checked)"><span><strong>Usar cashback</strong><small>Saldo disponível: ${BRL.format(state.user.cashback)}</small></span></label>`:''}</div>`;
+    : `<div class="card flat form-stack"><div class="input-wrap"><label for="payment-method">Como você pretende pagar?</label><select id="payment-method" class="input" onchange="setPaymentMethod(this.value)"><option value="pix" ${state.checkout.paymentMethod==='pix'?'selected':''}>Pix na entrega</option><option value="card" ${state.checkout.paymentMethod==='card'?'selected':''}>Cartão na maquininha da revenda</option><option value="cash" ${state.checkout.paymentMethod==='cash'?'selected':''}>Dinheiro na entrega</option></select><small class="field-help">Você paga diretamente à revenda quando receber. Pagamento antecipado só será oferecido em uma etapa separada, após habilitação financeira.</small></div>${state.checkout.paymentMethod==='cash'?`<div class="input-wrap"><label for="cash-tender">Precisa de troco? Troco para quanto?</label><input id="cash-tender" class="input" type="number" inputmode="decimal" min="1" max="10000" step="0.01" placeholder="Ex.: 150,00" value="${state.checkout.cashTenderCents?esc((state.checkout.cashTenderCents/100).toFixed(2)):''}" onchange="setCashTender(this.value)"><small class="field-help">Deixe vazio se não precisar informar troco. O entregador verá este valor antes de sair.</small></div>`:''}${state.user.cashback>0?`<label class="check-row"><input type="checkbox" ${state.checkout.useCashback?'checked':''} onchange="toggleCashback(this.checked)"><span><strong>Usar cashback</strong><small>Saldo disponível: ${BRL.format(state.user.cashback)}</small></span></label>`:''}</div>`;
 
   const containerBlock=hasGlp
     ? `<section class="section"><div class="section-head"><div><h2>Como será o botijão?</h2><p>O preço da oferta muda conforme existe ou não um recipiente para troca.</p></div></div><div class="card flat form-stack"><label class="check-row"><input type="radio" name="glp-container" value="exchange" ${state.checkout.glpContainerMode!=='needs_container'?'checked':''} onchange="setGlpContainerMode('exchange')"><span><strong>Tenho botijão vazio para troca</strong><small>Você entrega o recipiente compatível e compra somente a carga cheia.</small></span></label><label class="check-row"><input type="radio" name="glp-container" value="needs_container" ${state.checkout.glpContainerMode==='needs_container'?'checked':''} onchange="setGlpContainerMode('needs_container')"><span><strong>Não tenho vasilhame</strong><small>O TAMÃO inclui automaticamente um vasilhame do mesmo tamanho para cada carga de GLP.</small></span></label>${needsContainer?'<div class="notice"><strong>Vasilhame incluído na consulta.</strong><br>A oferta só aparece se a revenda tiver preço confirmado e estoque tanto da carga quanto do recipiente.</div>':'<div class="notice success"><strong>Compra por troca.</strong><br>O total considera que haverá um botijão vazio compatível para entregar ao parceiro.</div>'}</div></section>`
     : '';
 
   return shell(`<section class="page"><button class="back" onclick="go('home')">← Voltar</button><span class="eyebrow">PEDIR AGORA</span><h1 class="page-title">O que você precisa e onde devemos entregar?</h1><p class="muted page-lead">Depois do endereço, você compara total e prazo antes de escolher.</p>
+${!testDemo&&/^[0-9]{8}$/.test(String(state.postalCode||''))&&!state.addressNumber?`<div class="order-handoff-note" role="status"><span aria-hidden="true">✓</span><div><strong>Seu CEP já veio da consulta.</strong><small>Falta apenas informar o número para verificarmos as ofertas do seu endereço.</small></div></div>`:''}
 ${liveNotice}
 ${pendingOrder?`<div class="notice" style="margin-bottom:14px"><strong>Você já possui um pedido em andamento.</strong><br>Conclua ou cancele o pedido ${esc(pendingOrder.publicCode||pendingOrder.id)} antes de criar outro.<br><button class="ghost small" onclick="go('tracking')">Acompanhar pedido →</button></div>`:''}
 <div class="card flat form-stack order-address-card">
@@ -434,12 +501,17 @@ ${pendingOrder?`<div class="notice" style="margin-bottom:14px"><strong>Você já
     <div class="input-wrap"><label for="postal-code">CEP</label><input id="postal-code" class="input" autocomplete="postal-code" inputmode="numeric" maxlength="9" placeholder="Ex.: 97300-000" value="${esc(String(state.postalCode||'').replace(/^(\d{5})(\d{0,3}).*$/,(m,a,b)=>b?a+'-'+b:a))}"><small class="field-help">Opcional na simulação.</small></div>
     <div class="input-wrap"><label for="address">Endereço de entrega</label><input id="address" class="input" autocomplete="street-address" maxlength="160" placeholder="Ex.: Rua General Câmara, 123" value="${esc(state.address||'')}"></div>
   </div>`:`<div class="field-row">
-    <div class="input-wrap"><label for="postal-code">CEP</label><input id="postal-code" class="input" autocomplete="postal-code" inputmode="numeric" maxlength="9" placeholder="Ex.: 97300-000" value="${esc(String(state.postalCode||'').replace(/^(\d{5})(\d{0,3}).*$/,(m,a,b)=>b?a+'-'+b:a))}" onchange="deliveryAddressDraftChanged()"><small class="field-help">O servidor confirma rua, bairro e atendimento para o CEP informado.</small></div>
-    <div class="input-wrap"><label for="address-number">Número</label><input id="address-number" class="input" autocomplete="address-line2" inputmode="text" maxlength="7" placeholder="Ex.: 123" value="${esc(state.addressNumber||'')}" onchange="deliveryAddressDraftChanged()"><small class="field-help">Use números e, se necessário, uma letra.</small></div>
+    <div class="input-wrap"><label for="postal-code">CEP</label><input id="postal-code" class="input" autocomplete="postal-code" inputmode="numeric" maxlength="9" placeholder="Ex.: 97300-000" value="${esc(String(state.postalCode||'').replace(/^(\d{5})(\d{0,3}).*$/,(m,a,b)=>b?a+'-'+b:a))}" oninput="deliveryAddressDraftChanged()" onchange="deliveryAddressDraftChanged()"><small class="field-help">O servidor confirma rua, bairro e atendimento para o CEP informado.</small></div>
+    <div class="input-wrap"><label for="address-number">Número</label><input id="address-number" class="input" autocomplete="address-line2" inputmode="text" maxlength="7" placeholder="Ex.: 123" value="${esc(state.addressNumber||'')}" oninput="deliveryAddressDraftChanged()" onchange="deliveryAddressDraftChanged()"><small class="field-help">Use números e, se necessário, uma letra.</small></div>
   </div>
   ${state.address?`<div class="notice success"><strong>Endereço confirmado pelo servidor.</strong><br>${esc(state.address)}</div>`:'<div class="notice">A rua não é digitada manualmente: ela vem do CEP validado.</div>'}`}
-  <button class="primary" onclick="setAddress()">${hasAddress?'Atualizar endereço':'Validar endereço'}</button>
-  <small class="field-help">${testDemo?'Dados do ambiente interno.':'Nenhuma cotação é criada antes da validação de CEP + número.'}</small>
+  ${testDemo
+    ?`<button class="primary" onclick="setAddress()">Validar endereço de teste</button>`
+    :ready
+      ?`<div class="address-auto-status" id="address-auto-status" role="status" aria-live="polite"><span aria-hidden="true">📍</span><span>${liveRuntime.loadingOffers?'Consultando opções para seu endereço…':hasAddress?'Endereço confirmado. Compare as opções disponíveis abaixo.':liveRuntime.error?'Não foi possível concluir a consulta. Você pode tentar novamente.':'Informe CEP e número. Consultaremos as ofertas automaticamente.'}</span></div>
+        ${liveRuntime.error?`<button class="secondary small" onclick="setAddress()">Tentar novamente</button>`:''}`
+      :`<button class="primary" onclick="setAddress()">Consultar endereço</button>`}
+  <small class="field-help">${testDemo?'Dados do ambiente interno.':'Os preços só aparecem após o servidor validar CEP e número.'}</small>
 </div>
 ${hasAddress?`<div class="card flat form-stack" style="margin-top:12px">
   <h3>Dados para a entrega</h3>
@@ -460,16 +532,88 @@ function cartRow(k,p){
   const label=customerProductName(k,p);
   return `<div class="cart-item"><div class="product-left"><div class="product-icon">${p.icon}</div><div><strong>${esc(label)}</strong><div class="tiny muted">${esc(customerProductMeta(k))}</div></div></div><div class="qty" aria-label="Quantidade de ${esc(label)}"><button aria-label="Diminuir" onclick="qty('${k}',-1)">−</button><strong>${q}</strong><button aria-label="Aumentar" onclick="qty('${k}',1)">+</button></div></div>`
 }
-function offerCard(o){
+// Sorting never changes backend recommendation or creates a new quote.
+let checkoutOfferSort='recommended';
+function sortedCheckoutOffers(all,mode=checkoutOfferSort){
+  const offers=Array.isArray(all)?all.slice():[];
+  const ranked=offers.map((offer,index)=>({offer,index}));
+  if(mode==='lowest')ranked.sort((a,b)=>Number(a.offer.total)-Number(b.offer.total)||a.index-b.index);
+  if(mode==='soonest')ranked.sort((a,b)=>
+    Number(a.offer.etaMax??a.offer.eta)-Number(b.offer.etaMax??b.offer.eta)
+    ||a.index-b.index);
+  return ranked.map(x=>x.offer);
+}
+function offerComparisonFacts(all){
+  if(!Array.isArray(all)||all.length<2)return {uniquePrice:null,uniqueTime:null};
+  const money=all.map(o=>Math.round(Number(o.total)*100));
+  const estimates=all.map(o=>Number(o.etaMax??o.eta));
+  const lowest=Math.min(...money),soonest=Math.min(...estimates);
+  return {
+    uniquePrice:money.filter(n=>n===lowest).length===1?lowest:null,
+    uniqueTime:estimates.filter(n=>n===soonest).length===1?soonest:null
+  };
+}
+function checkoutOfferCards(all){
+  const facts=offerComparisonFacts(all);
+  return sortedCheckoutOffers(all).map(o=>offerCard(o,facts)).join('');
+}
+function checkoutOfferComparison(all){
+  if(!Array.isArray(all)||!all.length)return '';
+  const controls=all.length>1?`<div class="offer-sort" role="group" aria-label="Ordenar ofertas">
+    <button type="button" aria-pressed="${checkoutOfferSort==='recommended'}" onclick="setCheckoutOfferSort('recommended')">Sugeridas</button>
+    <button type="button" aria-pressed="${checkoutOfferSort==='lowest'}" onclick="setCheckoutOfferSort('lowest')">Menor total</button>
+    <button type="button" aria-pressed="${checkoutOfferSort==='soonest'}" onclick="setCheckoutOfferSort('soonest')">Menor prazo</button>
+  </div>`:''; 
+  return `<section class="checkout-comparison" aria-label="Comparar opções de entrega">
+    <div class="comparison-intro">
+      <span class="section-kicker">COMPARE COM TRANQUILIDADE</span>
+      <h2>${all.length===1?'Encontramos uma opção para sua cesta':'Compare '+all.length+' opções para sua cesta'}</h2>
+      <p>O total já considera a entrega. Preço e prazo são da consulta atual, sujeitos à validade da oferta e ao aceite da revenda.</p>
+    </div>
+    ${controls}
+    <div id="checkout-offer-choices" class="offer-stack">${checkoutOfferCards(all)}</div>
+  </section>`;
+}
+function setCheckoutOfferSort(mode){
+  if(!['recommended','lowest','soonest'].includes(mode))return;
+  checkoutOfferSort=mode;
+  const container=document.getElementById('checkout-offer-choices');
+  if(!container)return;
+  const current=globalThis.__CHAMA_TEST__===true?offers():globalThis.liveRuntime?.offers||[];
+  // Sorting only rearranges server-confirmed, non-expired options.
+  const eligible=current.filter(o=>!o.live||Date.parse(o.expiresAt)>Date.now()+1000);
+  container.innerHTML=checkoutOfferCards(eligible);
+  document.querySelectorAll('.offer-sort button').forEach(button=>{
+    const requested=button.getAttribute('onclick')?.match(/'([^']+)'/)?.[1];
+    button.setAttribute('aria-pressed',String(requested===mode));
+  });
+}
+function offerCard(o,facts={}){
   const internalPilot=globalThis.CHAMA_INTERNAL_PILOT===true;
-  const recommended=o.roles.includes('Recomendado');
-  const available=o.roles.includes('Disponível agora');
+  const roles=Array.isArray(o.roles)?o.roles:[];
+  const recommended=roles.includes('Recomendado');
+  const available=roles.includes('Disponível agora');
   const featured=recommended||available;
-  const discount=state.checkout.useCashback?Math.min(state.user.cashback,o.total):0;
-  const payable=roundMoney(o.total-discount);
-  const labels=o.roles.join(' • ');
-  const etaEnd=o.etaMax??(o.eta+7);
-  const distanceChip=o.distance!=null?`<span class="meta-chip">${Number(o.distance).toFixed(1)} km</span>`:'';
+  const gross=Math.max(0,Number(o.total)||0);
+  const balance=Number(state.user?.cashback||0);
+  const discount=state.checkout.useCashback&&Number.isFinite(balance)
+    ?Math.min(Math.max(0,balance),gross):0;
+  const payable=roundMoney(Math.max(0,gross-discount));
+  const totalCents=Math.round(gross*100);
+  const fee=Number(o.deliveryFee);
+  const hasBreakdown=o.deliveryFee!=null&&Number.isFinite(fee)&&fee>=0&&fee<=gross;
+  const safeId=String(o.id||'');
+  const allowedId=/^[A-Za-z0-9-]{1,70}$/.test(safeId);
+  // A disabled HTML button can still execute injected markup when parsed.
+  // Never place a malformed quote identifier in any HTML attribute.
+  const safeAction=allowedId?`onclick="checkout('${safeId}')"`:'';
+  const etaStart=Math.max(0,Math.round(Number(o.eta)||0));
+  const etaEnd=Math.max(etaStart,Math.round(Number(o.etaMax??(etaStart+7))));
+  const validPrice=facts.uniquePrice!=null&&facts.uniquePrice===totalCents;
+  const validTime=facts.uniqueTime!=null&&facts.uniqueTime===Number(o.etaMax??o.eta);
+  const labels=roles.join(' • ');
+  const distanceChip=o.distance!=null&&Number.isFinite(Number(o.distance))
+    ?`<span class="meta-chip">${Number(o.distance).toFixed(1)} km</span>`:'';
   const proof=[];
   if(Number(o.completedOrders)>0)proof.push(`<span class="meta-chip">✓ ${Number(o.completedOrders)} entregas concluídas em 90 dias</span>`);
   if(o.completionRate!=null)proof.push(`<span class="meta-chip">${Math.round(Number(o.completionRate)*100)}% concluídos após aceite</span>`);
@@ -479,27 +623,76 @@ function offerCard(o){
     proof.push(`<span class="meta-chip">Aceite médio: ${secs<120?secs+' s':Math.round(secs/60)+' min'}</span>`);
   }
   if(Number(o.feedbackCount)>=3&&o.positiveFeedbackRate!=null)proof.push(`<span class="meta-chip">${Math.round(Number(o.positiveFeedbackRate)*100)}% avaliações positivas (${Number(o.feedbackCount)})</span>`);
-  if(o.comparisonSavings>0)proof.push(`<span class="meta-chip">Economiza ${BRL.format(o.comparisonSavings)} nesta comparação</span>`);
+  if(o.comparisonSavings>0)proof.push(`<span class="meta-chip">${BRL.format(o.comparisonSavings)} abaixo da maior oferta desta consulta</span>`);
   const demandLabel={normal:'Operação normal',elevated:'Demanda moderada',high:'Demanda alta'}[o.demandLevel]||'Operação disponível';
   proof.push(`<span class="meta-chip">${esc(demandLabel)}</span>`);
-  const proofHtml=proof.join('');
-  return `<article class="offer ${featured?'selected':''}">${available?'<div class="best-badge">OPÇÃO DISPONÍVEL AGORA</div>':recommended?'<div class="best-badge">MELHOR EQUILÍBRIO</div>':''}<div class="offer-label">${esc(labels)}</div><div class="offer-main"><div><div class="offer-price">${BRL.format(payable)}</div><div class="tiny muted">${discount>0?`estimativa após ${BRL.format(discount)} de cashback`:'total com entrega'}</div></div><div class="offer-eta"><strong>${o.eta}–${etaEnd} min</strong><small>previsão</small></div></div><div class="offer-meta">${distanceChip}${internalPilot?'<span class="meta-chip">🧪 Simulação operacional</span><span class="meta-chip">Sem validação jurídica nesta tela</span>':'<span class="meta-chip">✓ Operação elegível</span><span class="meta-chip">Parceiro local verificado</span>'}<span class="meta-chip">${internalPilot?'Trust simulado':'Confiança'} ${o.trust}/100</span>${proofHtml}<span class="meta-chip">Pagamento solicitado: ${esc(paymentLabel(state.checkout.paymentMethod))}</span></div><div class="offer-assurance">${internalPilot?'🧪 O pedido abaixo percorre todas as etapas localmente e não gera venda real.':'🔒 O nome do parceiro aparece após o aceite real. Se for necessária uma alternativa mais cara, você decide antes.'}</div><button class="${featured?'primary':'secondary'} full" style="margin-top:13px" onclick="checkout('${o.id}')" ${globalThis.liveRuntime?.actionPending?'disabled':''}>Pedir por ${BRL.format(payable)}</button></article>`
+  const payment=esc(paymentLabel(state.checkout.paymentMethod));
+  const breakdown=hasBreakdown?`<div class="offer-breakdown">
+    <span>Produtos <strong>${BRL.format(roundMoney(gross-fee))}</strong></span>
+    <span>Entrega <strong>${fee===0?'Incluída sem custo adicional':BRL.format(fee)}</strong></span>
+  </div>`:`<p class="offer-total-note">Valor total da cesta com a entrega incluída.</p>`;
+  const cashback=discount>0?`<div class="offer-cashback">
+    <span>Cashback solicitado (estimativa)</span><strong>− ${BRL.format(discount)}</strong>
+    <small>Estimativa após cashback: ${BRL.format(payable)}. O valor aplicável é confirmado na criação do pedido.</small>
+  </div>`:'';
+  return `<article class="offer offer-comparison-card ${featured?'selected':''}">
+    ${available?'<div class="best-badge">OPÇÃO DISPONÍVEL AGORA</div>':recommended?'<div class="best-badge">MELHOR EQUILÍBRIO</div>':''}
+    <div class="offer-label">${esc(labels)}</div>
+    ${internalPilot?'<div class="offer-internal-flag">🧪 Simulação operacional • Sem cobrança real</div>':''}
+    ${validPrice||validTime?`<div class="offer-distinctions">${validPrice?'<span>Menor total desta consulta</span>':''}${validTime?'<span>Menor prazo máximo previsto</span>':''}</div>`:''}
+    <div class="offer-main offer-price-row">
+      <div><small class="offer-amount-label">TOTAL COM ENTREGA</small>
+        <div class="offer-price">${BRL.format(gross)}</div>
+        <div class="tiny muted">Valor apresentado antes de eventual cashback</div>
+      </div>
+      <div class="offer-eta"><small>PREVISÃO DE ENTREGA</small><strong>${etaStart}–${etaEnd} min</strong><small>Após confirmação da revenda</small></div>
+    </div>
+    ${breakdown}${cashback}
+    <div class="offer-payment"><span aria-hidden="true">✓</span><span>Você paga diretamente à revenda: <strong>${payment} na entrega</strong></span></div>
+    <details class="offer-details"><summary>Por que esta opção apareceu?</summary>
+      <div class="offer-meta">${distanceChip}
+        ${internalPilot?'<span class="meta-chip">🧪 Simulação operacional</span><span class="meta-chip">Sem validação jurídica nesta tela</span>':'<span class="meta-chip">✓ Operação elegível</span><span class="meta-chip">Parceiro local verificado</span>'}
+        <span class="meta-chip">${internalPilot?'Trust simulado':'Confiança'} ${o.trust}/100</span>${proof.join('')}
+      </div>
+    </details>
+    <div class="offer-assurance">${internalPilot?'🧪 Simulação: nenhuma venda ou cobrança real.':'🔒 A revenda precisa aceitar o pedido. Se uma alternativa aumentar o total, você confirma antes da troca.'}</div>
+    <button class="${featured?'primary':'secondary'} full offer-submit" type="button"
+      ${safeAction} ${!allowedId||globalThis.liveRuntime?.actionPending?'disabled':''}>
+      ${internalPilot?'Simular pedido':'Enviar pedido para confirmação'} <span aria-hidden="true">→</span>
+    </button>
+  </article>`;
 }
+
 function deliveryAddressDraftChanged(){
   if(globalThis.__CHAMA_TEST__===true)return;
   const postalCode=String(document.querySelector('#postal-code')?.value||'').replace(/\D/g,'').slice(0,8);
   const addressNumber=String(document.querySelector('#address-number')?.value||'').trim().toUpperCase().replace(/\s+/g,'').slice(0,7);
   if(postalCode===String(state.postalCode||'')&&addressNumber===String(state.addressNumber||''))return;
+  // Invalidate old quotes immediately (before the input settles), and don't
+  // rebuild the form while the person is typing: that would steal keyboard focus.
+  globalThis.liveInvalidateOfferAddressDraft?.();
   state.postalCode=postalCode;
   state.addressNumber=addressNumber;
   state.address='';
   if(globalThis.liveRuntime){
     liveRuntime.offers=[];
     liveRuntime.postalValidated=false;
+    liveRuntime.lastCityCheck=null;
     liveRuntime.lastSyncAt=null;
     liveRuntime.error=null;
   }
   save();
+  const valid=/^[0-9]{8}$/.test(postalCode)
+    &&/^[0-9]{1,6}[A-Z]?$/.test(addressNumber);
+  const hint=document.querySelector('#address-auto-status span:last-child');
+  if(hint){
+    hint.textContent=valid&&globalThis.liveReady?.()
+      ?'CEP e número completos. Consultando ofertas automaticamente…'
+      :'Informe CEP e número para consultar ofertas automaticamente.';
+  }
+  if(valid&&globalThis.liveReady?.()&&hasCartItems()){
+    globalThis.liveScheduleOfferRefresh?.(650);
+  }
 }
 
 async function setAddress(){
@@ -528,6 +721,7 @@ async function setAddress(){
   state.postalCode=postalCode;
   state.addressNumber=addressNumber;
   if(changed){
+    globalThis.liveInvalidateOfferAddressDraft?.();
     state.address='';
     liveRuntime.offers=[];
     liveRuntime.postalValidated=false;
@@ -544,7 +738,7 @@ async function setAddress(){
     }
   }
   render();
-  setTimeout(()=>document.querySelector('.offer-stack')?.scrollIntoView({behavior:'smooth'}),100);
+  setTimeout(()=>{if(route()==='order')document.querySelector('.offer-stack')?.scrollIntoView({behavior:'smooth'});},100);
 }
 function formatDeliveryPhone(value){
   const d=String(value||'').replace(/\D/g,'').slice(0,11);
@@ -641,6 +835,90 @@ const statusCopy={
   CANCELLED:['Cancelado','O pedido não será entregue.']
 };
 
+// V1.164 — only server status advances the visible buyer journey.
+function customerOrderGuidance(status){
+  const copy={
+    CREATED:['Pedido registrado','A solicitação foi registrada; uma revenda ainda precisa aceitar.'],
+    QUOTE_LOCKED:['Valor registrado','O preço foi registrado. Isso ainda não confirma a entrega.'],
+    OFFERED_TO_MERCHANT:['Aguardando aceite da revenda','A solicitação foi enviada. A entrega só fica combinada após a confirmação da revenda.'],
+    MERCHANT_ACCEPTED:['Revenda confirmou o pedido','A revenda aceitou. Preparação e saída ainda precisam ser confirmadas.'],
+    PREPARING:['Seu pedido está sendo preparado','A revenda está separando os itens. A saída ainda não foi confirmada.'],
+    AT_RISK:['Atenção ao andamento','Há risco de atraso. Consulte os eventos confirmados e acompanhe as atualizações.'],
+    REASSIGNING:['Procurando outra opção','A opção anterior não conseguiu continuar. Um valor maior exige sua aprovação.'],
+    REQUOTE_REQUIRED:['Uma decisão sua é necessária','Confira a proposta alternativa antes de aceitar ou cancelar.'],
+    OUT_FOR_DELIVERY:['A saída foi confirmada','A revenda informou a saída. Guarde o código até ter o pedido em mãos.'],
+    ARRIVING:['O entregador informou que está chegando','Confira os produtos e o valor combinado antes de compartilhar o código.'],
+    DELIVERED:['Recebimento registrado','A entrega foi registrada. A conciliação financeira pode estar em processamento.'],
+    SETTLED:['Pedido concluído','A entrega e a conciliação foram registradas. Você pode avaliar o atendimento.'],
+    CANCELLED:['Pedido encerrado','Não há entrega em andamento. Consulte o histórico financeiro, quando aplicável.']
+  };
+  return copy[status]||['Acompanhe seu pedido','Consulte as atualizações confirmadas.'];
+}
+function customerOrderMilestones(status){
+  const steps=['Pedido enviado','Revenda aceitou','Saiu para entrega','Recebimento registrado'];
+  const stage={
+    CREATED:0,QUOTE_LOCKED:0,OFFERED_TO_MERCHANT:0,
+    MERCHANT_ACCEPTED:1,PREPARING:1,AT_RISK:1,
+    REASSIGNING:0,REQUOTE_REQUIRED:0,
+    OUT_FOR_DELIVERY:2,ARRIVING:2,DELIVERED:3,SETTLED:3
+  }[status];
+  return {steps,stage:Number.isInteger(stage)?stage:-1};
+}
+function customerOrderProgress(status){
+  const result=customerOrderMilestones(status);
+  if(result.stage<0)return '';
+  return '<nav class="customer-progress" aria-label="Etapas do pedido"><ol>'+
+    result.steps.map((label,i)=>{
+      const done=i<result.stage||(i===result.stage&&['DELIVERED','SETTLED'].includes(status));
+      const current=i===result.stage&&!done;
+      const kind=done?'complete':current?'current':'pending';
+      const description=done?'Confirmada':current?'Etapa atual':'Aguardando';
+      return '<li class="'+kind+'" '+(current?'aria-current="step"':'')+'>'+
+        '<span class="customer-progress-dot" aria-hidden="true">'+(done?'✓':i+1)+'</span>'+
+        '<span class="customer-progress-copy"><strong>'+esc(label)+'</strong><small>'+description+'</small></span></li>';
+    }).join('')+'</ol></nav>';
+}
+function customerNextAction(status){
+  const next={
+    REQUOTE_REQUIRED:'Compare o valor anterior e a nova proposta antes de decidir.',
+    AT_RISK:'Confira os eventos e atualize o andamento para saber o que foi confirmado.',
+    REASSIGNING:'Aguarde uma nova opção ou atualize o andamento.',
+    ARRIVING:'Separe o código, mas só o compartilhe após conferir a entrega.',
+    OUT_FOR_DELIVERY:'Aguarde a chegada e não informe o código antecipadamente.',
+    OFFERED_TO_MERCHANT:'Aguarde o aceite. Você pode cancelar antes da confirmação.',
+    CANCELLED:'Se precisar, registre um atendimento vinculado ao pedido.',
+    SETTLED:'Consulte os benefícios e, se desejar, avalie o atendimento.'
+  };
+  return next[status]||'Atualize o acompanhamento para consultar o último estado confirmado.';
+}
+
+// A revised price is a decision, never an automatically paid amount.
+function customerRequoteDecision(order,previousTotal,proposedTotal,remainingSeconds){
+  if(order.status!=='REQUOTE_REQUIRED'||!Number.isFinite(proposedTotal)||proposedTotal<0)return '';
+  const expired=remainingSeconds===0;
+  const deadline=remainingSeconds==null
+    ?'Confira a validade da proposta ao atualizar o pedido.'
+    :expired
+      ?'O prazo indicado terminou. Atualize para verificar a condição atual.'
+      :'Prazo indicado: aproximadamente '+remainingSeconds+' segundos restantes.';
+  return '<div class="notice customer-requote" role="region" aria-label="Nova proposta para aprovação">'+
+    '<strong>Outra proposta precisa da sua autorização</strong>'+
+    '<div class="customer-requote-prices">'+
+      '<span>Valor anterior <strong>'+BRL.format(previousTotal)+'</strong></span>'+
+      '<span>Nova proposta <strong>'+BRL.format(proposedTotal)+'</strong></span>'+
+    '</div>'+
+    '<p>O novo valor não é aceito automaticamente. '+esc(deadline)+'</p>'+
+    '<div class="order-actions">'+
+      '<button class="primary small" onclick="confirmRequote()" '+
+        (expired||globalThis.liveRuntime?.actionPending?'disabled':'')+
+        '>Aceitar proposta de '+BRL.format(proposedTotal)+'</button>'+
+      '<button class="secondary small" onclick="cancelPending()" '+
+        (globalThis.liveRuntime?.actionPending?'disabled':'')+
+        '>Cancelar pedido</button>'+
+      '<button class="ghost small" onclick="liveGetOrder().catch(()=>{})">Atualizar proposta</button>'+
+    '</div></div>';
+}
+
 function liveCustomerCareBlock(o){
   const openCases=(o.supportCases||[]).filter(x=>['open','in_review'].includes(x.status));
   const caseCopy={
@@ -691,6 +969,7 @@ function liveTracking(){
   }
 
   const copy=statusCopy[o.status]||[o.status,''];
+  const guidance=customerOrderGuidance(o.status);
   const active=!['SETTLED','CANCELLED'].includes(o.status);
   const deadline=['OFFERED_TO_MERCHANT','REQUOTE_REQUIRED'].includes(o.status)&&o.offerExpiresAt
     ? Math.max(0,Math.ceil((Date.parse(o.offerExpiresAt)-Date.now())/1000))
@@ -701,10 +980,10 @@ function liveTracking(){
   const items=(o.items||[]).map(i=>`<div class="list-row"><span>${Number(i.quantity)}× ${esc(i.product_name||i.productName||i.product_code||'Item')}</span><strong>${BRL.format(Number(i.line_total_cents??i.lineTotalCents??0)/100)}</strong></div>`).join('');
   const careBlock=liveCustomerCareBlock(o);
   const scheduleNotice=o.deliveryWindowStart
-    ? `<div class="notice success" style="margin-top:12px"><strong>Entrega agendada: ${esc(formatDeliveryWindow(o.deliveryWindowStart,o.deliveryWindowEnd))}</strong><br>O parceiro recebeu essa janela antes de assumir o pedido. A saída deve acontecer perto do horário necessário para cumprir a janela.</div>`
+    ? `<div class="notice" style="margin-top:12px"><strong>Janela de entrega solicitada: ${esc(formatDeliveryWindow(o.deliveryWindowStart,o.deliveryWindowEnd))}</strong><br>${['PREPARING','OUT_FOR_DELIVERY','ARRIVING','DELIVERED','SETTLED'].includes(o.status)?'A revenda recebeu a janela. Confira as confirmações de andamento abaixo.':'Essa janela ainda depende da confirmação da revenda.'}</div>`
     : '';
   const comparisonNotice=Number(o.comparisonSavingsCents||0)>0
-    ? `<div class="notice" style="margin-top:12px"><strong>Economia nesta comparação: ${BRL.format(Number(o.comparisonSavingsCents)/100)}</strong><br>Diferença entre a opção escolhida e a opção mais cara que foi realmente exibida na consulta que originou este pedido.</div>`
+    ? `<div class="notice" style="margin-top:12px"><strong>Diferença entre ofertas consultadas: ${BRL.format(Number(o.comparisonSavingsCents)/100)}</strong><br>Comparação com a maior proposta daquela consulta, não um desconto garantido.</div>`
     : '';
   const deliveryDetailsNotice=o.deliveryDataRedacted
     ? '<div class="notice" style="margin-top:12px"><strong>Dados operacionais de entrega removidos.</strong><br>O histórico do pedido, itens, valores e eventos continua disponível, mas telefone, localização detalhada e instruções de chegada já foram minimizados pela política de retenção.</div>'
@@ -733,14 +1012,16 @@ function liveTracking(){
     : '';
 
   return shell(`<section class="page"><button class="back" onclick="go('home')">← Início</button>
-<div class="status-bar"><div><div class="tiny muted">PEDIDO ${esc(o.publicCode||o.orderId)}</div><h1 class="page-title" style="margin-bottom:3px">${esc(copy[0])}</h1></div><span class="status-pill ${['OUT_FOR_DELIVERY','ARRIVING','SETTLED','DELIVERED'].includes(o.status)?'online':o.status==='CANCELLED'?'offline':'risk'}">${o.status==='SETTLED'?'CONCLUÍDO':o.status==='CANCELLED'?'ENCERRADO':'AO VIVO'}</span></div>
+<div class="status-bar"><div><div class="tiny muted">PEDIDO ${esc(o.publicCode||o.orderId)}</div><h1 class="page-title" style="margin-bottom:3px">${esc(copy[0])}</h1></div><span class="status-pill ${['OUT_FOR_DELIVERY','ARRIVING','SETTLED','DELIVERED'].includes(o.status)?'online':o.status==='CANCELLED'?'offline':'risk'}">${o.status==='SETTLED'?'CONCLUÍDO':o.status==='CANCELLED'?'ENCERRADO':liveRuntime.error?'VERIFIQUE O STATUS':'EM ANDAMENTO'}</span></div>
+<div class="customer-tracking-overview" role="status" aria-live="polite"><strong>${esc(guidance[0])}</strong><p>${esc(guidance[1])}</p><div class="customer-next-step"><span aria-hidden="true">→</span><span><strong>O que fazer agora</strong>${esc(customerNextAction(o.status))}</span></div></div>
+${customerOrderProgress(o.status)}
 ${trackingSyncNotice}
 ${directPaymentNotice}
 
 <div class="card flat"><div class="price-lock"><span>🔒</span><div><strong>Total protegido: ${BRL.format(total)}</strong><br>${cashbackReserved>0?`Inclui ${BRL.format(cashbackReserved)} de cashback reservado. `:''}Se for necessária uma opção mais cara, você precisa aprovar antes.</div></div>
 <div class="divider"></div>
 <div class="list-row"><div><strong>${o.supplierName?esc(o.supplierName):'Parceiro em confirmação'}</strong><br><small>${o.supplierName?'Parceiro que aceitou o pedido':'O nome aparece depois que o pedido for aceito'}</small></div><div style="text-align:right"><strong>${BRL.format(total)}</strong><br><small>${o.postalCode?'CEP '+esc(String(o.postalCode).replace(/^(\d{5})(\d{3})$/,'$1-$2'))+' • ':''}${esc(o.address||'')}</small></div></div>
-<div class="list-row"><span>Pagamento</span><strong>${paymentLabel(o.paymentMethod)}</strong></div>
+<div class="list-row"><span>Pagamento direto à revenda</span><strong>${esc(paymentLabel(o.paymentMethod))}${o.paymentTiming==="prepaid"?" • online":" • na entrega"}</strong></div>
 ${scheduleNotice}
 ${comparisonNotice}
 ${deliveryDetailsNotice}
@@ -748,16 +1029,16 @@ ${deliveryResponsibilityNotice}
 ${o.paymentMethod==='cash'&&o.cashTenderCents?`<div class="list-row"><span>Troco para</span><strong>${BRL.format(Number(o.cashTenderCents)/100)}</strong></div>`:''}
 ${items?'<div class="divider"></div>'+items:''}</div>
 
-${o.status==='OFFERED_TO_MERCHANT'?`<div class="notice" style="margin-top:14px"><strong>Aguardando o parceiro confirmar.</strong><br>O parceiro tem até 3 minutos para responder. ${deadline!=null?`Prazo restante aproximado: ${deadline}s.`:''}</div>`:''}
-${o.status==='REQUOTE_REQUIRED'&&proposed!=null?`<div class="notice" style="margin-top:14px"><strong>Encontramos outra opção.</strong><br>Novo total: ${BRL.format(proposed)}. Nada muda sem sua autorização. ${deadline!=null?`Esta condição expira em aproximadamente ${deadline}s.`:''}<div class="order-actions"><button class="primary small" onclick="confirmRequote('${o.orderId}')" ${liveRuntime.actionPending?'disabled':''}>Aceitar novo total</button><button class="secondary small" onclick="cancelPending('${o.orderId}')" ${liveRuntime.actionPending?'disabled':''}>Cancelar pedido</button></div></div>`:''}
+${o.status==='OFFERED_TO_MERCHANT'?`<div class="notice" style="margin-top:14px"><strong>Solicitação enviada à revenda.</strong><br>A entrega ainda depende de aceite. ${deadline!=null?`Prazo informado para resposta: aproximadamente ${deadline}s restantes.`:'Atualize para verificar a resposta.'}</div>`:''}
+${customerRequoteDecision(o,total,proposed,deadline)}
 ${o.status==='CANCELLED'?'<div class="notice danger" style="margin-top:14px">Este pedido foi encerrado. Cashback reservado, se houver, é devolvido pelo ledger.</div>':''}
 ${o.financialState==='reversed'?'<div class="notice danger" style="margin-top:14px"><strong>Liquidação financeira revertida.</strong><br>A entrega permanece no histórico, mas cashback, comissão de indicação e recebível da plataforma foram estornados.'+(o.financialReversalReason?' Motivo: '+esc(o.financialReversalReason)+'.':'')+'</div>':''}
 ${o.riskReason&&o.status!=='CANCELLED'?`<div class="notice danger" style="margin-top:14px"><strong>Acompanhamento prioritário.</strong><br>${esc(o.riskReason)}</div>`:''}
 
-<section class="section"><div class="section-head"><div><h2>Acompanhe a entrega</h2><p>Cada etapa aparece somente depois da respectiva confirmação.</p></div><button class="ghost small" onclick="liveGetOrder().catch(()=>{})">Atualizar</button></div><div class="card flat timeline">${liveEventTimeline(o)}</div></section>
-${o.deliveryPin&&['OUT_FOR_DELIVERY','ARRIVING'].includes(o.status)?`<div class="notice success"><strong>Código de recebimento: ${esc(o.deliveryPin)}</strong><br>Informe este código somente quando o pedido estiver na sua frente.</div>`:''}
-${active&&['OFFERED_TO_MERCHANT','REQUOTE_REQUIRED'].includes(o.status)?`<button class="ghost full" style="margin-top:10px" onclick="cancelPending('${o.orderId}')" ${liveRuntime.actionPending?'disabled':''}>Cancelar antes do aceite</button>`:''}
-${active&&['PREPARING','AT_RISK'].includes(o.status)?`<button class="danger-btn full" style="margin-top:10px" onclick="cancelBeforeDispatch('${o.orderId}')" ${liveRuntime.actionPending?'disabled':''}>Cancelar antes da saída</button>`:''}
+<section class="section"><div class="section-head"><div><h2>Acompanhe a entrega</h2><p>Cada etapa aparece somente depois da respectiva confirmação.</p></div><button class="ghost small" onclick="liveGetOrder().catch(()=>{})" ${liveRuntime.actionPending?'disabled':''}>Atualizar status</button></div><div class="card flat timeline">${liveEventTimeline(o)}</div></section>
+${o.deliveryPin&&['OUT_FOR_DELIVERY','ARRIVING'].includes(o.status)?`<div class="notice success"><strong>Código de recebimento: ${esc(o.deliveryPin)}</strong><br>Confira os itens e o valor combinado. Só compartilhe o código após receber e conferir a entrega.</div>`:''}
+${active&&['OFFERED_TO_MERCHANT','REQUOTE_REQUIRED'].includes(o.status)?`<button class="ghost full" style="margin-top:10px" onclick="cancelPending()" ${liveRuntime.actionPending?'disabled':''}>Cancelar antes do aceite</button>`:''}
+${active&&['PREPARING','AT_RISK'].includes(o.status)?`<button class="danger-btn full" style="margin-top:10px" onclick="cancelBeforeDispatch()" ${liveRuntime.actionPending?'disabled':''}>Cancelar antes da saída</button>`:''}
 ${careBlock}
 </section>`);
 }

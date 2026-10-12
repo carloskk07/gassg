@@ -58,7 +58,8 @@ assert.ok(
 );
 
 assert.ok(
-  checkout.includes('.in("verification_mode",["provider_api","device"])'),
+  checkout.includes('.eq("channel","online")')
+  &&checkout.includes('.eq("verification_mode","provider_api")'),
   'checkout automático continua limitado a rotas com autoridade automática'
 );
 
