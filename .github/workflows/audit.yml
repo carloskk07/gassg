@@ -89,6 +89,8 @@ jobs:
         run: node tests/customer-incident-tracking-v1-179.mjs
       - name: Closed buyer order and payment evidence V1.180 regression
         run: node tests/customer-closed-payment-v1-180.mjs
+      - name: Buyer financial evidence V1.181 regression
+        run: node tests/customer-financial-evidence-v1-181.mjs
       - name: Transparent mobile offer comparison V1.163 regression contract
         run: node tests/transparent-offer-comparison-v1-163.mjs
       - name: Automatic address and anti-stale offers V1.162 regression contract

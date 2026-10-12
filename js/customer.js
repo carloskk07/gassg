@@ -964,6 +964,40 @@ function customerIncidentStatusView(order){
 
 /* V1.180 — do not infer a refund, a replacement merchant or a payment capture.
    The public order response is the only source for provider-confirmed payment status. */
+/* V1.181 — payment evidence is the last recorded provider attempt, not a bank receipt. */
+function customerPaymentEvidenceTime(value){
+  if(typeof value!=='string'||!/^20\d{2}-\d{2}-\d{2}T/.test(value))return '';
+  const ms=Date.parse(value);
+  if(!Number.isFinite(ms)||ms<Date.UTC(2020,0,1)||ms>Date.now()+5*60000)return '';
+  return new Date(ms).toLocaleString('pt-BR',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'});
+}
+function customerPaymentEvidenceDetails(order){
+  const payment=order?.onlinePayment&&typeof order.onlinePayment==='object'?order.onlinePayment:{};
+  const status=String(payment.status||'');
+  if(!['approved','refunded','review_required'].includes(status))return '';
+  const provider=payment.provider==='mercadopago'?'Mercado Pago':'Provedor de pagamento';
+  const time=customerPaymentEvidenceTime(status==='refunded'?payment.refundedAt
+    :status==='approved'?payment.approvedAt:null);
+  const rawAmount=payment.amountCents;
+  const amount=Number(rawAmount);
+  const amountText=rawAmount!==null&&rawAmount!==undefined&&
+    Number.isSafeInteger(amount)&&amount>0&&amount<=1000000000
+      ?'Valor associado à tentativa: '+BRL.format(amount/100):'';
+  const description=status==='refunded'
+    ?'Reembolso registrado para esta tentativa'
+    :status==='approved'?'Aprovação registrada para esta tentativa'
+      :'Transação sinalizada para revisão';
+  const entries=[
+    provider,
+    description,
+    time?'Registro de '+(status==='refunded'?'reembolso':'aprovação')+': '+time:'',
+    amountText
+  ].filter(Boolean);
+  return '<div class="customer-payment-evidence"><strong>Informações do registro financeiro</strong>'+
+    '<ul>'+entries.map(line=>'<li>'+esc(line)+'</li>').join('')+'</ul>'+
+    '<small>Esses dados refletem o último registro consultado pelo TAMÃO. Não são um comprovante bancário, nem demonstram quando os recursos ficam disponíveis.</small></div>';
+}
+
 function customerInterruptedPaymentView(order){
   const status=String(order?.status||'');
   if(!['REASSIGNING','CANCELLED'].includes(status))return '';
@@ -996,8 +1030,12 @@ function customerInterruptedPaymentView(order){
     label='Situação do pagamento ainda não confirmada';
     detail='Esta consulta não confirma cobrança nem reembolso. Se você já pagou, confira no provedor e registre um atendimento com os dados do pedido.';
   }
+  const reversal=customerPaymentEvidenceTime(order?.financialReversedAt);
   return '<section class="customer-interrupted-payment" aria-label="Situação do pagamento">'+
     '<strong>'+esc(label)+'</strong><p>'+esc(detail)+'</p>'+
+    customerPaymentEvidenceDetails(order)+
+    (reversal?'<p class="customer-payment-ledger">Ajuste interno do pedido registrado em '+esc(reversal)+
+      '. Isso não confirma reembolso da transação junto ao provedor.</p>':'')+
     '<small>'+(cancelled?'O pedido está encerrado. ':'Uma nova revenda ainda não foi confirmada. ')+
     'O TAMÃO não recebe nem repassa diretamente o valor da venda.</small></section>';
 }
