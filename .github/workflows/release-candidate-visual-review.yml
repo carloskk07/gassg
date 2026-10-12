@@ -150,12 +150,15 @@ jobs:
       - name: Checkout release candidate
         uses: actions/checkout@v6
 
-      - name: Install matching PostgreSQL client tools
+      - name: Verify bundled PostgreSQL 17 clients
+        env:
+          CI_DB_CONTAINER: ${{ job.services.postgres.id }}
         run: |
           set -euo pipefail
-          sudo apt-get update -qq
-          sudo apt-get install -y -qq postgresql-client-17
-          pg_dump --version
+          test -n "$CI_DB_CONTAINER"
+          docker exec "$CI_DB_CONTAINER" pg_dump --version | grep -q 'PostgreSQL) 17'
+          docker exec "$CI_DB_CONTAINER" pg_restore --version | grep -q 'PostgreSQL) 17'
+          echo "PG17_SERVER_AND_CLIENT_MATCH"
 
       - name: Enable TLS in disposable fixture database
         env:
@@ -169,12 +172,17 @@ jobs:
               -keyout server.key -out server.crt -subj "/CN=localhost" \
               >/dev/null 2>&1
             chmod 600 server.key
-            printf "\nssl = on\nssl_cert_file = '\''server.crt'\''\nssl_key_file = '\''server.key'\''\n" \
+            printf "\\nssl = on\\nssl_cert_file = '\''server.crt'\''\\nssl_key_file = '\''server.key'\''\\n" \
               >> postgresql.conf
             pg_ctl reload -D /var/lib/postgresql/data
           '
           for attempt in 1 2 3 4 5; do
-            if psql -Atq -c 'select ssl from pg_stat_ssl where pid=pg_backend_pid()' 2>/dev/null | grep -qx t; then
+            if docker exec -u postgres \
+              -e PGHOST=127.0.0.1 -e PGDATABASE=tamao_rc_fixture \
+              -e PGPASSWORD=synthetic_ci_only_not_real -e PGSSLMODE=require \
+              "$CI_DB_CONTAINER" psql -Atq \
+                -c 'select ssl from pg_stat_ssl where pid=pg_backend_pid()' \
+                2>/dev/null | grep -qx t; then
               exit 0
             fi
             sleep 2
@@ -183,9 +191,22 @@ jobs:
           exit 1
 
       - name: Dump and restore synthetic source with permissions
+        env:
+          CI_DB_CONTAINER: ${{ job.services.postgres.id }}
         run: |
           set -euo pipefail
-          bash tests/release-backup-restore-drill.sh
+          test -n "$CI_DB_CONTAINER"
+          # Run the exact fixture and scripts INSIDE the disposable PG17 image
+          # rather than installing a possibly missing client package on runner.
+          docker exec -u root "$CI_DB_CONTAINER" mkdir -p /tmp/tamao-ci
+          docker cp scripts "$CI_DB_CONTAINER":/tmp/tamao-ci/
+          docker cp tests "$CI_DB_CONTAINER":/tmp/tamao-ci/
+          docker exec -u root "$CI_DB_CONTAINER" chown -R postgres:postgres /tmp/tamao-ci
+          docker exec -u postgres -w /tmp/tamao-ci \
+            -e GITHUB_ACTIONS=true -e PGHOST=127.0.0.1 -e PGPORT=5432 \
+            -e PGUSER=postgres -e PGDATABASE=tamao_rc_fixture \
+            -e PGPASSWORD=synthetic_ci_only_not_real -e PGSSLMODE=require \
+            "$CI_DB_CONTAINER" bash tests/release-backup-restore-drill.sh
 
   windows-backup-script:
     if: startsWith(github.head_ref || github.ref_name, 'release/v1-164-')
