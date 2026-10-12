@@ -105,6 +105,8 @@ jobs:
         run: node tests/admin-merchant-network-v1-197.mjs
       - name: Expansion evidence and city bridge V1.198 regression
         run: node tests/admin-expansion-evidence-v1-198.mjs
+      - name: Commercial opportunity center V1.199 regression
+        run: node tests/admin-commercial-center-v1-199.mjs
       - name: First real PSP pilot preflight V1.146 regression contract
         run: node tests/first-real-psp-pilot-preflight-v1-146.mjs
       - name: Production trust language V1.147 regression contract
