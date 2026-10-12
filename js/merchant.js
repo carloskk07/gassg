@@ -855,7 +855,7 @@ function merchantLivePage(){
     ${complianceNotice}
     ${freshnessNotice}
     ${financialHold?'<div class="notice danger" style="margin-top:12px"><strong>Novas vendas suspensas por pendência financeira.</strong><br>Regularize o fechamento vencido. Pedidos já aceitos continuam disponíveis normalmente.</div>':''}
-    <section class="section" id="merchant-live-orders"><div class="section-head"><div><h2>Pedidos que exigem ação</h2><p>Aceite, saída e recebimento só são registrados depois de confirmação no sistema.</p></div></div>${merchantOrderQueueView(orders)}</section>
+    <section class="section" id="merchant-live-orders"><div class="section-head"><div><h2>Pedidos que exigem ação</h2><p>Aceite, saída e recebimento só são registrados depois de confirmação no sistema.</p></div></div>${merchantDeliveryAttentionView(rt)}${merchantOrderQueueView(orders)}</section>
 
     ${merchantSetupView(rt)}
     ${merchantAlertControl()}
@@ -964,6 +964,62 @@ function merchantOrderQueueView(orders,emptyCopy='Nenhum pedido ativo para esta 
     '<div class="merchant-order-queue-stats">'+stats+'</div>'+sections+'</div>';
 }
 
+
+/* V1.175: suggestions use current server-scoped assignments, never implied availability. */
+function merchantDeliveryCandidates(rt){
+  const people=Array.isArray(rt?.deliveryTeam)?rt.deliveryTeam:[];
+  const orders=Array.isArray(rt?.orders)?rt.orders:[];
+  const count=new Map();
+  for(const order of orders){
+    const id=String(order?.assignedDeliveryUserId||'');
+    if(id&&['PREPARING','AT_RISK','OUT_FOR_DELIVERY','ARRIVING'].includes(order?.status)){
+      count.set(id,(count.get(id)||0)+1);
+    }
+  }
+  return people.filter(member=>
+    /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(String(member?.userId||''))&&
+    ['owner','manager','operator','driver'].includes(String(member?.memberRole||''))
+  ).map(member=>({...member,assignedCount:count.get(String(member.userId))||0}))
+    .sort((a,b)=>(a.memberRole==='driver'?0:1)-(b.memberRole==='driver'?0:1)
+      ||a.assignedCount-b.assignedCount
+      ||String(a.displayName||'').localeCompare(String(b.displayName||''),'pt-BR'));
+}
+function merchantDeliveryUnassigned(orders){
+  return (Array.isArray(orders)?orders:[]).filter(order=>
+    ['PREPARING','AT_RISK'].includes(String(order?.status||''))
+    &&!order?.assignedDeliveryUserId);
+}
+function merchantFocusDeliveryAssignment(orderId){
+  const id=String(orderId||'');
+  if(!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(id))return false;
+  const select=document.getElementById('delivery-'+id);
+  if(!select)return false;
+  for(let parent=select.parentElement;parent;parent=parent.parentElement){
+    if(parent.tagName==='DETAILS')parent.open=true;
+  }
+  select.scrollIntoView?.({block:'center',behavior:'smooth'});
+  select.focus?.({preventScroll:true});
+  return true;
+}
+function merchantDeliveryAttentionView(rt){
+  const role=String(rt?.merchant?.memberRole||'');
+  if(!['owner','manager'].includes(role))return '';
+  const pending=merchantDeliveryUnassigned(rt?.orders);
+  if(!pending.length)return '';
+  const rows=pending.slice(0,4).map(order=>{
+    const id=String(order.orderId||'');
+    const safe=/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(id);
+    return '<div class="merchant-delivery-reminder-row"><span>'+esc(order.publicCode||'Pedido')+
+      '</span>'+(safe?'<button class="secondary small" type="button" onclick="merchantFocusDeliveryAssignment(\''+id+'\')">Escolher responsável</button>':'')+'</div>';
+  }).join('');
+  return '<section class="merchant-delivery-reminders" aria-label="Entregas sem responsável">'+
+    '<div class="merchant-delivery-reminders-title"><strong>'+pending.length+' '+(pending.length===1?'pedido precisa':'pedidos precisam')+
+    ' de responsável</strong><span>Antes da saída, distribua as entregas entre sua equipe.</span></div>'+
+    '<div class="merchant-delivery-reminder-items">'+rows+'</div>'+
+    (pending.length>4?'<small>Outros pedidos sem responsável aparecem na fila de preparação.</small>':'')+
+    '</section>';
+}
+
 function merchantLiveOrder(o){
   const items=(o.items||[]).map(i=>`${Number(i.quantity)}× ${esc(i.productName||i.productCode||'Item')}`).join(' • ');
   const total=BRL.format(Number(o.totalCents||0)/100);
@@ -971,7 +1027,7 @@ function merchantLiveOrder(o){
   const address=o.addressVisible&&o.address?'📍 '+esc(o.address):'📍 Endereço protegido até o aceite';
   const currentRole=String(globalThis.merchantRuntime?.merchant?.memberRole||'');
   const canAssignDelivery=['owner','manager'].includes(currentRole);
-  const deliveryTeam=globalThis.merchantRuntime?.deliveryTeam||[];
+  const deliveryTeam=merchantDeliveryCandidates(globalThis.merchantRuntime||{});
   const nextStepCopy={
     OFFERED_TO_MERCHANT:'Confirme se consegue preparar e entregar este pedido.',
     MERCHANT_ACCEPTED:'Prepare os itens e confirme somente quando sair para entregar.',
@@ -983,8 +1039,22 @@ function merchantLiveOrder(o){
   const assignedLabel=o.assignedDeliveryUserId
     ? merchantDeliveryMemberLabel(o.assignedDeliveryUserId)
     : '';
-  const assignmentControl=canAssignDelivery&&['PREPARING','AT_RISK'].includes(o.status)&&deliveryTeam.length
-    ? `<div class="form-stack" style="margin-top:10px"><div class="input-wrap"><label for="delivery-${o.orderId}">Responsável pela entrega</label><select id="delivery-${o.orderId}" class="input"><option value="">Escolher responsável</option>${deliveryTeam.map(member=>`<option value="${esc(member.userId)}" ${member.userId===o.assignedDeliveryUserId?'selected':''}>${esc(member.displayName)} • ${esc(member.memberRole)}</option>`).join('')}</select></div><button class="secondary small" onclick="merchantLiveAssignDelivery('${o.orderId}')">${o.assignedDeliveryUserId?'Alterar responsável':'Atribuir entrega'}</button></div>`
+  const needsAssignment=canAssignDelivery&&['PREPARING','AT_RISK'].includes(o.status);
+  const assignmentChoices=deliveryTeam.map(member=>`<option value="${esc(member.userId)}" ${member.userId===o.assignedDeliveryUserId?'selected':''}>${esc(member.displayName||'Membro da equipe')} • ${member.memberRole==='driver'?'Motorista':'Equipe'} • ${member.assignedCount} ${member.assignedCount===1?'pedido ativo':'pedidos ativos'}</option>`).join('');
+  const assignmentForm=needsAssignment&&deliveryTeam.length
+    ? `<fieldset class="merchant-delivery-assign-form form-stack" ${globalThis.merchantRuntime?.actionPending===true?'disabled':''}>
+        <div class="input-wrap"><label for="delivery-${o.orderId}">Quem fará a entrega?</label>
+          <select id="delivery-${o.orderId}" class="input" onchange="merchantDeliveryAssignmentChanged('${o.orderId}')"><option value="">Escolha uma pessoa da equipe</option>${assignmentChoices}</select>
+          <small class="field-help">Os números mostram apenas pedidos ativos neste painel; não indicam disponibilidade.</small>
+        </div>
+        <span class="merchant-delivery-unsaved" id="delivery-feedback-${o.orderId}" aria-live="polite">A atribuição só será confirmada depois de salvar.</span>
+        <button type="button" id="delivery-save-${o.orderId}" class="secondary small" onclick="merchantLiveAssignDelivery('${o.orderId}')">${o.assignedDeliveryUserId?'Salvar alteração':'Confirmar responsável'}</button>
+      </fieldset>`
+    :needsAssignment
+      ? '<div class="merchant-delivery-no-team"><strong>Escolha quem fará a entrega.</strong><span>Adicione uma pessoa à sua equipe para atribuir este pedido.</span><button type="button" class="secondary small" onclick="merchantOpenTeam()">Gerenciar equipe</button></div>'
+      :'';
+  const assignmentControl=needsAssignment
+    ? `<div class="merchant-delivery-assignment"><div class="merchant-delivery-assignment-heading"><strong>${o.assignedDeliveryUserId?'Responsável definido':'Entrega sem responsável'}</strong><small>${o.assignedDeliveryUserId?'Você pode alterar antes de sair para entregar.':'Escolha alguém da equipe antes de iniciar a entrega.'}</small></div>${o.assignedDeliveryUserId?`<details class="merchant-delivery-change"><summary>Alterar responsável</summary>${assignmentForm}</details>`:assignmentForm}</div>`
     : '';
   const deliveryContact=o.deliveryDetailsVisible
     ? `<div class="notice" style="margin-top:10px"><strong>Dados para entrega</strong>${o.postalCode?`<br>CEP: ${esc(String(o.postalCode).replace(/^(\d{5})(\d{3})$/,'$1-$2'))}`:''}<br>${o.customerPhone?`Telefone: <a href="tel:${esc(String(o.customerPhone))}">${esc(merchantFormatPhone(o.customerPhone))}</a>`:'Telefone não informado'}${o.addressComplement?`<br>Complemento: ${esc(o.addressComplement)}`:''}${o.deliveryReference?`<br>Referência: ${esc(o.deliveryReference)}`:''}${o.deliveryNotes?`<br>Instruções: ${esc(o.deliveryNotes)}`:''}</div>`
@@ -1083,13 +1153,29 @@ async function merchantLoginFromUi(){
 async function merchantLiveRefresh(){
   try{await merchantRefresh();toast('Operação atualizada')}catch(e){toast(String(e?.message||e))}
 }
+function merchantDeliveryAssignmentChanged(id){
+  const note=document.getElementById('delivery-feedback-'+id);
+  if(note)note.textContent='Alteração ainda não salva. Confirme para enviar ao sistema.';
+}
 async function merchantLiveAssignDelivery(id){
+  const rt=globalThis.merchantRuntime||{};
+  if(rt.actionPending===true)return;
+  if(!['owner','manager'].includes(String(rt.merchant?.memberRole||'')))return toast('Somente o proprietário ou gerente pode atribuir entregas');
+  const order=(rt.orders||[]).find(item=>item.orderId===id);
+  if(!order||!['PREPARING','AT_RISK'].includes(order.status))return toast('Atualize os pedidos antes de escolher o responsável');
   const deliveryUserId=String(document.getElementById('delivery-'+id)?.value||'');
   if(!deliveryUserId)return toast('Escolha um responsável pela entrega');
+  if(!merchantDeliveryCandidates(rt).some(member=>member.userId===deliveryUserId))return toast('Responsável indisponível na equipe atual. Atualize o painel');
+  if(order.assignedDeliveryUserId===deliveryUserId)return toast('Este responsável já está atribuído ao pedido');
+  const button=document.getElementById('delivery-save-'+id);
+  if(button){button.disabled=true;button.textContent='Confirmando…';}
   try{
     await merchantAssignDeliveryLive(id,deliveryUserId);
-    toast('Responsável pela entrega atualizado');
+    toast('Responsável pela entrega confirmado');
   }catch(e){toast(String(e?.message||e))}
+  finally{
+    if(button){button.disabled=false;button.textContent=order.assignedDeliveryUserId?'Salvar alteração':'Confirmar responsável';}
+  }
 }
 async function merchantLiveSaveMemberProfile(){
   const name=String(document.getElementById('driver-display-name')?.value||'').trim();
