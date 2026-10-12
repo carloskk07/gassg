@@ -97,7 +97,7 @@ const document={
 };
 const submitContext=vm.createContext({
  document,globalThis:userGlobal,onlyDigits:v=>String(v).replace(/\D/g,''),
- isValidCnpjShape:()=>true,isValidPhoneShape:v=>{const n=String(v).replace(/\\D/g,'');return n.length===10||n.length===11;},
+ isValidCnpjShape:()=>true,isValidPhoneShape:v=>{const n=String(v).replace(/[^0-9]/g,'');return n.length===10||n.length===11;},
  merchantJoinInvalid:(id)=>focused.push(id),toast:()=>{},go:()=>{},render:()=>{},
  merchantSubmitApplicationLive:()=>{submitted++;return held;},
  currentMerchantProspectInviteToken:()=>'',currentMerchantPilotInviteToken:()=>''
