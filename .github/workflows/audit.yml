@@ -85,6 +85,8 @@ jobs:
         run: node tests/admin-finance-evidence-freshness-v1-185.mjs
       - name: Source-aware finance management V1.187 regression
         run: node tests/admin-finance-management-v1-187.mjs
+      - name: Server-authoritative finance history V1.188 regression
+        run: node tests/admin-finance-history-authority-v1-188.mjs
       - name: First real PSP pilot preflight V1.146 regression contract
         run: node tests/first-real-psp-pilot-preflight-v1-146.mjs
       - name: Production trust language V1.147 regression contract
