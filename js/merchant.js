@@ -1022,6 +1022,59 @@ function merchantDeliveryAttentionView(rt){
     '</section>';
 }
 
+
+/* V1.176 — trusted order milestones use only server timestamps and server status. */
+function merchantOrderEventDate(value){
+  if(typeof value!=='string'||!/^20\d\d-\d\d-\d\dT/.test(value))return null;
+  const ms=Date.parse(value);
+  if(!Number.isFinite(ms)||ms>Date.now()+5*60*1000||ms<Date.UTC(2020,0,1))return null;
+  return new Date(ms);
+}
+function merchantOrderProgressView(order){
+  const status=String(order?.status||'');
+  const stages={
+    OFFERED_TO_MERCHANT:0,MERCHANT_ACCEPTED:1,PREPARING:1,AT_RISK:1,
+    OUT_FOR_DELIVERY:2,ARRIVING:3,DELIVERED:4
+  };
+  const stage=Object.prototype.hasOwnProperty.call(stages,status)?stages[status]:-1;
+  const names=['Pedido registrado','Aceite da revenda','Saída para entrega','Chegada informada','Entrega concluída'];
+  const stamps=[order?.createdAt,order?.acceptedAt,order?.dispatchedAt,order?.arrivingAt,order?.deliveredAt];
+  const events=names.map((name,i)=>{
+    const timestamp=merchantOrderEventDate(stamps[i]);
+    const recorded=!!timestamp&&i<=stage;
+    const isCurrent=i===stage;
+    const label=recorded
+      ?'Confirmado em '+timestamp.toLocaleString('pt-BR',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'})
+      :isCurrent?'Etapa atual informada pelo sistema'+(i>0?' (sem horário neste registro)':'')
+        :i<stage?'Etapa anterior (sem horário neste registro)':'Aguardando confirmação';
+    return '<li class="merchant-order-milestone '+(recorded?'recorded':isCurrent?'current':'waiting')+'">'+
+      '<span class="merchant-order-milestone-dot" aria-hidden="true"></span>'+
+      '<div><strong>'+esc(name)+'</strong><small>'+esc(label)+'</small></div></li>';
+  }).join('');
+  const currentLabel={
+    OFFERED_TO_MERCHANT:'Aguardando aceite da revenda',
+    MERCHANT_ACCEPTED:'Aceito pela revenda',
+    PREPARING:'Em preparação',
+    AT_RISK:'Atenção operacional necessária',
+    OUT_FOR_DELIVERY:'Saiu para entrega',
+    ARRIVING:'Chegada informada',
+    DELIVERED:'Entrega concluída'
+  }[status]||'Status em atualização';
+  const dispatchDeadline=merchantOrderEventDate(order?.dispatchDueAt);
+  const promised=merchantOrderEventDate(order?.promisedBy);
+  const formatDate=d=>d.toLocaleString('pt-BR',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'});
+  const deadlines=[
+    dispatchDeadline?'Prazo de saída registrado: '+formatDate(dispatchDeadline):'',
+    promised?'Previsão de entrega registrada: '+formatDate(promised):''
+  ].filter(Boolean);
+  return '<details class="merchant-order-progress"'+(status==='AT_RISK'?' open':'')+'>'+
+    '<summary><span>Acompanhar etapas <small>'+esc(currentLabel)+'</small></span></summary>'+
+    '<div class="merchant-order-progress-body"><ol class="merchant-order-milestones">'+events+'</ol>'+
+    (deadlines.length?'<p class="merchant-order-predictions">'+esc(deadlines.join(' • '))+
+      '<small>Previsões não são confirmações de entrega.</small></p>':'')+
+    '</div></details>';
+}
+
 function merchantLiveOrder(o){
   const items=(o.items||[]).map(i=>`${Number(i.quantity)}× ${esc(i.productName||i.productCode||'Item')}`).join(' • ');
   const total=BRL.format(Number(o.totalCents||0)/100);
@@ -1066,7 +1119,9 @@ function merchantLiveOrder(o){
   if(o.status==='OFFERED_TO_MERCHANT'){
     const secs=o.offerExpiresAt?Math.max(0,Math.ceil((Date.parse(o.offerExpiresAt)-Date.now())/1000)):0;
     actions=`<button class="primary small" onclick="merchantLiveAction('${o.orderId}','accept')">Aceitar pedido</button><button class="danger-btn small" onclick="merchantLiveAction('${o.orderId}','reject')">Não consigo atender</button><span class="tiny muted">Prazo ~${secs}s</span>`;
-  }else if(['PREPARING','AT_RISK','MERCHANT_ACCEPTED'].includes(o.status)){
+  }else if(o.status==='MERCHANT_ACCEPTED'){
+    actions='<span class="merchant-order-transition-note">Pedido aceito. A preparação será atualizada pelo sistema antes de liberar a saída.</span>';
+  }else if(['PREPARING','AT_RISK'].includes(o.status)){
     const scheduleState=merchantScheduledDispatchState(o);
     const dispatchButton=scheduleState.scheduled&&!scheduleState.ready
       ? `<button class="primary small" disabled>Saída ainda bloqueada</button><span class="tiny muted">Liberada por volta de ${scheduleState.opensAt?esc(new Date(scheduleState.opensAt).toLocaleString('pt-BR')):'mais perto da janela'}</span>`
@@ -1080,6 +1135,7 @@ function merchantLiveOrder(o){
 
   return `<article class="order-card ${o.status==='OFFERED_TO_MERCHANT'?'new':''}" id="merchant-order-card-${esc(o.orderId)}">
     <div class="order-head"><div><div class="order-id">${esc(o.publicCode||o.orderId)}</div><div class="order-line">${items||'Itens do pedido'}</div></div><div style="text-align:right"><strong>${total}</strong><div class="tiny muted">${esc(copy[0])}</div></div></div>
+    ${merchantOrderProgressView(o)}
     <div class="order-line">${address}</div><div class="order-line">Pagamento: ${esc(paymentLabel(o.paymentMethod))}</div>${o.paymentMethod==='cash'&&o.cashTenderCents?`<div class="order-line"><strong>Troco para: ${BRL.format(Number(o.cashTenderCents)/100)}</strong></div>`:''}${o.deliveryWindowStart?`<div class="notice success" style="margin-top:10px"><strong>Entrega agendada</strong><br>${esc(formatDeliveryWindow(o.deliveryWindowStart,o.deliveryWindowEnd))}</div>`:''}
     ${deliveryContact?`<details class="merchant-order-contact" ${['OUT_FOR_DELIVERY','ARRIVING'].includes(o.status)?'open':''}><summary>Endereço e contato para entrega</summary>${deliveryContact}</details>`:''}
     ${assignedLabel?`<div class="notice success" style="margin-top:10px"><strong>Responsável pela entrega:</strong> ${esc(assignedLabel)}</div>`:''}
