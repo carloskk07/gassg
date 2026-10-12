@@ -32,12 +32,27 @@ jobs:
             "${ACTIONS_ID_TOKEN_REQUEST_URL}&audience=tamao-portal-attestor")"
           OIDC_TOKEN="$(printf '%s' "${OIDC_RESPONSE}" | jq -er '.value')"
           PAYLOAD="$(jq -cn --arg sha "${EXPECTED_SHA}" '{expectedSourceSha:$sha}')"
-          RESULT="$(curl --fail --silent --show-error \
+          # Never print the GitHub OIDC token or raw server response to CI logs.
+          # Keep a short, machine-readable rejection code to diagnose future 503s.
+          RESPONSE_FILE="$(mktemp)"
+          trap 'rm -f "$RESPONSE_FILE"' EXIT
+          if ! HTTP_STATUS="$(curl --silent --show-error --max-time 65 \
+            --output "$RESPONSE_FILE" --write-out '%{http_code}' \
             --request POST \
             -H "Authorization: Bearer ${OIDC_TOKEN}" \
             -H "Content-Type: application/json" \
             --data "${PAYLOAD}" \
-            "${ATTEST_URL}")"
+            "${ATTEST_URL}")"; then
+            echo "::error::Portal attestation network request failed"
+            exit 1
+          fi
+          if [[ "$HTTP_STATUS" != 200 ]]; then
+            ERROR_CODE="$(jq -r '.error // empty' "$RESPONSE_FILE" 2>/dev/null || true)"
+            [[ "$ERROR_CODE" =~ ^[A-Z0-9_]{1,80}$ ]] || ERROR_CODE=UNSPECIFIED
+            echo "::error::Portal attestation HTTP ${HTTP_STATUS}; code=${ERROR_CODE}"
+            exit 1
+          fi
+          RESULT="$(cat "$RESPONSE_FILE")"
           printf '%s\n' "${RESULT}" | jq -e --arg sha "${EXPECTED_SHA}" '
             .ok == true
             and .source == "github_oidc_edge"
