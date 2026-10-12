@@ -192,12 +192,12 @@ assert.ok(core.includes('brand-name">TAMÃO')&&core.includes('Pediu? Tá na mão
 assert.ok(customer.includes('Faltou em casa?')&&customer.includes('Tá na mão.')&&customer.includes('Gás, água e o essencial do dia a dia'),'hero deve apresentar o problema do cliente, a marca e as categorias sem promessas fictícias');
 assert.ok(!/\bChama\b/.test([customer,merchant,growth,admin,backend].join('\n')),'copy pública não pode regredir para a marca anterior');
 assert.ok(core.includes("const STORAGE='chama-sg-state-v2'")&&backend.includes('CHAMA_CUSTOMER_ORIGIN'),'rebrand não pode quebrar identificadores técnicos legados nesta versão');
-assert.ok(customer.includes('VOCÊ ACOMPANHA. A GENTE ORGANIZA.')&&customer.includes('Qualquer alternativa mais cara depende da sua aprovação.'),'home precisa explicar rescue e requote como proteção compreensível ao cliente');
+assert.ok(customer.includes('SEU PEDIDO, SEM FICAR NA DÚVIDA.')&&customer.includes('Se a nova opção custar mais, você decide se aceita'),'home precisa explicar rescue e requote como proteção compreensível ao cliente');
 assert.ok(!customer.includes('PRIMEIRO PARCEIRO PILOTO')&&!customer.includes('Gas e Lenheira do JR está em preparação'),'site público sem supply não deve fabricar parceiro, prova social ou operação ativa');
 assert.ok(customer.includes('AMBIENTE INTERNO — SEM PEDIDOS')&&customer.includes('R$ 115,90 mínimo')&&customer.includes('R$ 120,00 normal')&&customer.includes('R$ 125,00 máximo'),'GitHub Pages deve manter a faixa comercial interna do JR restrita ao ambiente de validação');
 assert.ok(customer.includes('🧪 Simulação operacional')&&customer.includes('Sem validação jurídica nesta tela'),'oferta do ambiente interno não pode fingir verificação regulatória');
 assert.ok(merchant.includes('PAINEL DA REVENDA — AMBIENTE INTERNO')&&merchant.includes('As ações desta tela não alteram a operação pública.'),'painel interno da revenda deve ser inequivocamente separado da operação pública');
-assert.ok(customer.includes('Há um parceiro elegível para esta cesta agora.')&&customer.includes('sem opções fictícias'),'modo single-supplier deve explicar ao cliente que existe apenas uma opção real');
+assert.ok(customer.includes('Há uma revenda para este pedido.')&&customer.includes('Confira o preço e o prazo antes de decidir.'),'modo single-supplier deve explicar ao cliente que existe apenas uma opção real');
 assert.ok(backend.includes("available:'Disponível agora'")&&backend.includes("marketMode"),'runtime cliente precisa transportar e rotular mercado de fornecedor único');
 assert.ok(customer.includes("go('learn')")&&customer.includes("go('earn')"),'home precisa possuir CTAs claros para descoberta e renda');
 assert.ok(growth.includes('function learn()'),'jornada Saiba mais precisa existir');
