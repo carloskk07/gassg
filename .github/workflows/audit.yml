@@ -89,6 +89,8 @@ jobs:
         run: node tests/admin-finance-history-authority-v1-188.mjs
       - name: Closed-month finance comparison V1.189 regression
         run: node tests/admin-finance-monthly-v1-189.mjs
+      - name: Merchant financial performance V1.190 regression
+        run: node tests/admin-finance-merchant-v1-190.mjs
       - name: First real PSP pilot preflight V1.146 regression contract
         run: node tests/first-real-psp-pilot-preflight-v1-146.mjs
       - name: Production trust language V1.147 regression contract
