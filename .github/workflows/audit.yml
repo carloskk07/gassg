@@ -111,6 +111,8 @@ jobs:
         run: node tests/admin-prospect-followups-v1-200.mjs
       - name: Prospect filtered worklist V1.201 regression
         run: node tests/admin-prospect-worklist-v1-201.mjs
+      - name: City commercial decisions V1.202 regression
+        run: node tests/admin-city-pipeline-v1-202.mjs
       - name: First real PSP pilot preflight V1.146 regression contract
         run: node tests/first-real-psp-pilot-preflight-v1-146.mjs
       - name: Production trust language V1.147 regression contract
