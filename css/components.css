@@ -2787,3 +2787,19 @@ details[id^="prospect-editor-"] summary:focus-visible{outline:3px solid var(--br
 .admin-city-evolution :focus-visible{outline:3px solid var(--brand);outline-offset:3px}
 @media(max-width:720px){.admin-evolution-actions button{flex:1 1 100%}.admin-city-evolution{padding:11px}}
 @media(max-width:340px){.admin-evolution-kpis{grid-template-columns:repeat(2,minmax(0,1fr))}.admin-evolution-actions button{min-height:48px}}
+
+/* V1.205 — persistent evidence history, responsive and keyboard-accessible */
+.admin-city-history-actions{display:flex;gap:8px;flex-wrap:wrap;margin:12px 0}
+.admin-city-history-actions button{min-height:44px;white-space:normal}
+.admin-city-history-compare{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:12px;margin:12px 0}
+.admin-city-history-compare>div{min-width:0}
+.admin-city-history-compare strong,.admin-city-history-compare small{display:block;overflow-wrap:anywhere}
+.admin-city-history-compare small{font-size:12px;color:var(--muted);line-height:1.5}
+.admin-city-history-compare label{display:block;font-size:12px;font-weight:700;margin-bottom:6px}
+.admin-city-history-list{display:grid;gap:8px;margin:12px 0}
+.admin-city-history-item{min-width:0;padding:10px;border:1px solid var(--line);border-radius:10px}
+.admin-city-history-item strong,.admin-city-history-item small{display:block;overflow-wrap:anywhere}
+.admin-city-history-item small{font-size:12px;color:var(--muted);line-height:1.5;margin-top:4px}
+.admin-city-history :focus-visible{outline:3px solid var(--brand);outline-offset:3px}
+@media(max-width:720px){.admin-city-history-compare{grid-template-columns:minmax(0,1fr)}.admin-city-history-actions button{width:100%}}
+@media(max-width:340px){.admin-city-history-actions button{min-height:48px}.admin-city-history-item{padding:8px}}
