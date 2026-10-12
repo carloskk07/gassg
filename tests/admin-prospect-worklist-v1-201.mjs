@@ -106,7 +106,7 @@ assert.ok(css.includes('@media(max-width:340px)'));
 assert.ok(!helpers.map(fn).join('\n').includes("adminPerform("),'View actions must not write CRM or payments');
 const admin=read('js/admin.js');
 assert.ok(admin.includes('prospectFollowupUi:null'),'UI state must initialize empty');
-assert.equal((admin.match(/adminRuntime\\.prospectFollowupUi=null;/g)||[]).length,3,
+assert.equal((admin.match(/adminRuntime[.]prospectFollowupUi=null;/g)||[]).length,3,
   'Sign-out, loss of access, and expired session must clear user-scoped UI state');
 assert.ok(read('.github/workflows/audit.yml').includes('node tests/admin-prospect-worklist-v1-201.mjs'));
 console.log('V1.201 passed: all records, category filters, pagination, user/city freshness, RBAC, no implicit writes and mobile.');
