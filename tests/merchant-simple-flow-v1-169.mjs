@@ -98,7 +98,7 @@ const document={
 const submitContext=vm.createContext({
  document,globalThis:userGlobal,onlyDigits:v=>String(v).replace(/\D/g,''),
  isValidCnpjShape:()=>true,isValidPhoneShape:()=>true,
- merchantJoinInvalid:()=>{},toast:()=>{},go:()=>{},render:()=>{},
+ merchantJoinInvalid:(id)=>focused.push(id),toast:()=>{},go:()=>{},render:()=>{},
  merchantSubmitApplicationLive:()=>{submitted++;return held;},
  currentMerchantProspectInviteToken:()=>'',currentMerchantPilotInviteToken:()=>''
 });
