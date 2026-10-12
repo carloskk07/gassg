@@ -109,6 +109,8 @@ jobs:
         run: node tests/merchant-category-chooser-v1-172.mjs
       - name: Daily merchant catalog maintenance V1.173 regression
         run: node tests/merchant-catalog-maintenance-v1-173.mjs
+      - name: Merchant order priority queue V1.174 regression
+        run: node tests/merchant-order-quick-queue-v1-174.mjs
       - name: Public P13 price reference V1.148 regression contract
         run: node tests/jr-public-price-reference-v1-148.mjs
       - name: Customer availability-first V1.149 regression contract
