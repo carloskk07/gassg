@@ -896,8 +896,41 @@ function adminProspectFollowupSnapshot(report,now=Date.now()){
   items.sort((a,b)=>rank[a.kind]-rank[b.kind]
     ||(a.due||'').localeCompare(b.due||'')
     ||a.name.localeCompare(b.name,'pt-BR')||a.cnpj.localeCompare(b.cnpj));
-  return {valid:true,items:items.slice(0,10),total:items.length,
+  return {valid:true,items:items.slice(0,10),allItems:items,total:items.length,
     counts:kinds,limited:report.prospects.length>=300,day};
+}
+/* V1.201 — local pagination and filters; state is scoped to the signed-in user's fresh city snapshot. */
+const ADMIN_PROSPECT_FOLLOWUP_FILTERS=['all','overdue','today','first_contact','needs_date','unconfirmed','scheduled'];
+function adminProspectFollowupUi(report){
+  const scope=[String(adminRuntime.session?.user?.id||''),String(report?.state||''),
+    String(report?.city||''),String(adminRuntime.prospectLoadedAt||'')].join('|');
+  if(!adminRuntime.prospectFollowupUi||adminRuntime.prospectFollowupUi.scope!==scope){
+    adminRuntime.prospectFollowupUi={scope,filter:'all',page:0};
+  }
+  return adminRuntime.prospectFollowupUi;
+}
+function adminSelectProspectFollowupFilter(kind){
+  if(adminRuntime.status!=='ready'||!adminRoleCanSection('prospects')
+    ||!ADMIN_PROSPECT_FOLLOWUP_FILTERS.includes(kind))return;
+  if(!adminProspectFollowupSnapshot(adminRuntime.prospectReport).valid)return;
+  const ui=adminProspectFollowupUi(adminRuntime.prospectReport);
+  ui.filter=kind;
+  ui.page=0;
+  render();
+}
+function adminChangeProspectFollowupPage(direction){
+  if(adminRuntime.status!=='ready'||!adminRoleCanSection('prospects')
+    ||![-1,1].includes(direction))return;
+  const report=adminRuntime.prospectReport;
+  const s=adminProspectFollowupSnapshot(report);
+  if(!s.valid)return;
+  const ui=adminProspectFollowupUi(report);
+  const available=s.allItems.filter(p=>ui.filter==='all'||p.kind===ui.filter).length;
+  const maxPage=Math.max(0,Math.ceil(available/10)-1);
+  const next=Math.min(maxPage,Math.max(0,ui.page+direction));
+  if(next===ui.page)return;
+  ui.page=next;
+  render();
 }
 function adminProspectFollowupView(report){
   if(!adminRoleCanSection('prospects'))return '';
@@ -908,7 +941,20 @@ function adminProspectFollowupView(report){
     needs_date:'Definir próxima data',unconfirmed:'Data precisa de revisão',scheduled:'Contato agendado'};
   const nums=s.counts;
   const canManage=['superadmin','operations','compliance'].includes(String(adminCurrentRole()));
-  const cards=s.items.map(p=>`<div class='admin-prospect-followup-row'>
+  const ui=adminProspectFollowupUi(report);
+  const kinds=[['all','Todas',s.total],['overdue','Vencidos',nums.overdue],
+    ['today','Hoje',nums.today],['first_contact','Primeira abordagem',nums.first_contact],
+    ['needs_date','Sem data',nums.needs_date],['unconfirmed','Data inválida',nums.unconfirmed],
+    ['scheduled','Agendados',nums.scheduled]];
+  const available=s.allItems.filter(p=>ui.filter==='all'||p.kind===ui.filter);
+  const lastPage=Math.max(0,Math.ceil(available.length/10)-1);
+  const page=Math.min(lastPage,Math.max(0,ui.page));
+  ui.page=page;
+  const start=page*10;
+  const filters=kinds.map(([key,label,count])=>`<button type='button' class='secondary small'
+      aria-pressed='${ui.filter===key?'true':'false'}' data-kind='${key}'
+      onclick='adminSelectProspectFollowupFilter(this.dataset.kind)'>${label} (${count})</button>`).join('');
+  const cards=available.slice(start,start+10).map(p=>`<div class='admin-prospect-followup-row'>
     <div><span class='admin-prospect-followup-status ${p.kind}'>${labels[p.kind]}</span>
       <strong>${esc(p.name)}</strong>
       <small>CNPJ ${esc(p.cnpj)} • ${p.due?'Próximo contato: '+esc(p.due):'Sem data válida de próximo contato'}
@@ -926,10 +972,21 @@ function adminProspectFollowupView(report){
       <div><strong>${nums.needs_date+nums.unconfirmed}</strong><small>Revisar agendamento</small></div>
     </div>
     ${s.limited?'<p class="tiny muted">O retorno da cidade atingiu 300 registros. Podem existir outros prospectos fora desta amostra.</p>':''}
-    <div class='card flat'><p class='tiny muted'>${s.total} negociação(ões) em andamento nesta consulta • até 10 atalhos exibidos.
-      ${nums.scheduled} contato(s) futuro(s). Uma negociação concluída ou descartada não entra na fila.</p>
+    <div class='admin-prospect-followup-filters' role='group' aria-label='Filtrar negociações por situação'>
+      ${filters}
+    </div>
+    <div class='card flat'><p class='tiny muted'>${s.total} negociação(ões) nesta consulta •
+      ${available.length} nesta categoria • ${available.length?start+1:0}–${Math.min(start+10,available.length)} exibidas.
+      ${nums.scheduled} contato(s) futuro(s). Negociações concluídas ou descartadas não entram na fila.</p>
       ${cards?`<div class='admin-prospect-followup-list'>${cards}</div>`:
-        '<p class="tiny muted">Nenhuma negociação pendente identificada nesta amostra; isso não garante ausência de pendências em outras cidades.</p>'}
+        '<p class="tiny muted">Nenhuma negociação nesta categoria da amostra consultada; isso não garante ausência de pendências em outras cidades.</p>'}
+      <div class='admin-prospect-followup-paging'>
+        <button type='button' class='secondary small' onclick='adminChangeProspectFollowupPage(-1)'
+          ${page===0?'disabled':''}>Anterior</button>
+        <span class='tiny muted' aria-live='polite'>Página ${page+1} de ${lastPage+1}</span>
+        <button type='button' class='secondary small' onclick='adminChangeProspectFollowupPage(1)'
+          ${page===lastPage?'disabled':''}>Próximos</button>
+      </div>
       <p class='tiny muted'>Abra o cadastro, confira o histórico e registre uma próxima ação. O botão não envia mensagens, não marca contato, não cria convite e não altera o CRM.</p>
     </div>
   </section>`;
@@ -939,7 +996,7 @@ function adminOpenProspectFollowup(cnpj){
   if(!['superadmin','operations','compliance'].includes(String(adminCurrentRole())))return;
   if(!/^\d{14}$/.test(String(cnpj||'')))return;
   const snapshot=adminProspectFollowupSnapshot(adminRuntime.prospectReport);
-  if(!snapshot.valid||!snapshot.items.some(p=>p.cnpj===cnpj))return;
+  if(!snapshot.valid||!snapshot.allItems.some(p=>p.cnpj===cnpj))return;
   const session=adminRuntime.session,loaded=adminRuntime.prospectLoadedAt;
   requestAnimationFrame(()=>{
     if(adminRuntime.status!=='ready'||adminRuntime.session!==session
