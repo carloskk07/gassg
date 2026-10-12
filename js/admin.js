@@ -1664,11 +1664,113 @@ function adminBillingStatementCard(statement){
     ${statement.resolution_reference?`<div class="tiny muted">Referência: ${esc(statement.resolution_reference)}</div>`:''}
   </article>`;
 }
+/* V1.194 — guided financial evidence review; never removes server-side approval safeguards. */
+function adminBillingGuidedReview(request,matchedEvent,hasConflict=false){
+  if(!adminRoleCanSection('finance')||request?.status!=='pending')return '';
+  const id=String(request.id||'');
+  if(!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id))return '';
+  const base='admin-billing-review-'+id;
+  const amount=Number(request.expected_amount_cents);
+  const valid=Number.isSafeInteger(amount)&&amount>0;
+  const money=valid?adminMoney(amount):'Valor indisponível';
+  const effect=request.request_kind==='package_purchase'
+    ?'Crédito pré-pago será concedido, não é receita ganha automaticamente.'
+    :request.request_kind==='refund_recovery'
+      ?'Recuperação de refund: confirmar obrigação exata, sem criar nova venda.'
+      :'Fechamento D+1 será quitado. A venda pertence à revenda.';
+  const age=Date.parse(String(adminRuntime.lastSyncAt||''));
+  const fresh=Number.isFinite(age)&&age<=Date.now()+60000&&Date.now()-age<=5*60000;
+  const safeEvent=matchedEvent&&matchedEvent.status==='matched_exact'
+    &&matchedEvent.payment_request_id===request.id;
+  const disabled=!valid||hasConflict||!fresh;
+  const why=hasConflict?'Há mais de um evento PSP conciliado para esta solicitação. A confirmação está bloqueada até revisão.'
+    :!valid?'A cobrança não possui um valor válido. Não é possível confirmar.'
+    :!fresh?'O painel está desatualizado. Atualize os dados antes da conferência.'
+    :'';
+  const defaultNote=safeEvent
+    ?'Evento '+String(matchedEvent.provider||'')+' • '+String(matchedEvent.provider_event_id||'')
+    :'';
+  const evidence=safeEvent
+    ?`<div class='admin-billing-guide-evidence'><strong>Prova PSP vinculada</strong>
+       <p>${esc(matchedEvent.provider||'Provedor não informado')} • ${adminMoney(matchedEvent.amount_cents)} • ${esc(adminPaymentMethodLabel(matchedEvent.payment_method))}</p>
+       <small>Transação ${esc(matchedEvent.reconciliation_key||'não informada')} • Evento ${esc(matchedEvent.provider_event_id||'não informado')}</small>
+       <p>Os dados da transação são obtidos do evento; não podem ser alterados neste formulário.</p></div>`
+    :`<div class='admin-billing-guide-fields'>
+       <label for='${base}-amount'>Valor recebido, conferido no banco/PSP</label>
+       <input id='${base}-amount' class='input' type='text' inputmode='decimal'
+         autocomplete='off' maxlength='24' placeholder='Ex.: 125,90' value='${valid?esc((amount/100).toFixed(2).replace('.',',')):''}'>
+       <label for='${base}-method'>Meio de pagamento realmente recebido</label>
+       <select id='${base}-method' class='input'>
+         <option value=''>Selecione após conferir</option>
+         <option value='pix'>Pix</option>
+         <option value='bank_transfer'>Transferência</option>
+         <option value='cash'>Dinheiro</option>
+         <option value='card'>Cartão</option>
+         <option value='other'>Outro</option>
+       </select>
+       <label for='${base}-key'>Identificador único da transação ou recibo</label>
+       <input id='${base}-key' class='input' type='text' maxlength='160'
+         autocomplete='off' placeholder='ID do Pix (EndToEndId) ou do comprovante'>
+       <p class='tiny muted'>Sem uma prova única de recebimento, não confirme esta solicitação.</p>
+     </div>`;
+  return `<details class='admin-billing-guided-review' id='${base}'>
+    <summary>Revisar recebimento em 3 etapas</summary>
+    <div class='admin-billing-guide-body'>
+      <div class='admin-billing-guide-step'><span>1</span><div><strong>Confira a cobrança</strong>
+        <p>${esc(adminMerchantName(request.merchant_id))} • ${money} • ${esc(request.merchant_reference||'Sem referência da revenda')}</p>
+        <small>${esc(effect)}</small></div></div>
+      <div class='admin-billing-guide-step'><span>2</span><div><strong>Confira a origem do dinheiro</strong>
+        ${evidence}</div></div>
+      <div class='admin-billing-guide-step'><span>3</span><div><strong>Registre a evidência e confirme</strong>
+        <label for='${base}-note'>Observação da conferência financeira</label>
+        <textarea id='${base}-note' class='input' rows='2' maxlength='240'
+          placeholder='Referência ou observação verificável'>${esc(defaultNote)}</textarea>
+        <label class='admin-billing-guide-check'>
+          <input type='checkbox' id='${base}-checked'>
+          <span>Conferi o recebimento e a referência em fonte financeira confiável.</span>
+        </label>
+        ${why?`<div class='notice danger'>${esc(why)}</div>`:''}
+        <button type='button' class='primary small' ${disabled?'disabled':''}
+          onclick="adminSubmitBillingGuidedReview('${id}')">Confirmar recebimento com revisão</button>
+      </div></div>
+    </div>
+  </details>`;
+}
+async function adminSubmitBillingGuidedReview(id){
+  if(!adminRoleCanSection('finance')||adminRuntime.status!=='ready'
+    ||!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(String(id||'')))return;
+  const bill=adminRuntime.data?.merchantBilling||{};
+  const request=(bill.paymentRequests||[]).find(x=>x.id===id&&x.status==='pending');
+  if(!request)return toast('Solicitação alterada. Atualize o painel antes de decidir.');
+  const events=(bill.paymentEvents||[]).filter(x=>x.status==='matched_exact'&&x.payment_request_id===id);
+  if(events.length>1)return toast('Conciliação ambígua. A confirmação foi bloqueada.');
+  const last=Date.parse(String(adminRuntime.lastSyncAt||''));
+  if(!Number.isFinite(last)||last>Date.now()+60000||Date.now()-last>5*60000)
+    return toast('Atualize os dados antes de confirmar o pagamento.');
+  const root=document.getElementById('admin-billing-review-'+id);
+  if(!root||!root.querySelector)return toast('Formulário de conferência não encontrado.');
+  if(!root.querySelector('#admin-billing-review-'+id+'-checked')?.checked)
+    return toast('Confirme que verificou o recebimento na fonte financeira.');
+  const text=field=>String(root.querySelector('#admin-billing-review-'+id+'-'+field)?.value||'').trim();
+  const reference=text('note');
+  if(reference.length<3||reference.length>240)return toast('Informe uma observação válida para a auditoria.');
+  const matched=events[0]||null;
+  const review={confirmed:true,reference};
+  if(!matched){
+    review.receivedRaw=text('amount');
+    review.paymentMethod=text('method');
+    review.reconciliationKey=text('key');
+  }
+  return adminResolveBillingPaymentRequest(id,'approve',matched?.id||null,review);
+}
+
 function adminBillingPaymentRequestCard(request){
   const plans=adminRuntime.data?.merchantBilling?.plans||[];
   const events=adminRuntime.data?.merchantBilling?.paymentEvents||[];
   const plan=plans.find(p=>p.plan_key===request.plan_key);
-  const matchedEvent=events.find(e=>e.status==='matched_exact'&&e.payment_request_id===request.id)||null;
+  const matches=events.filter(e=>e.status==='matched_exact'&&e.payment_request_id===request.id);
+  const matchedEvent=matches.length===1?matches[0]:null;
+  const hasConflict=matches.length>1;
   const pending=request.status==='pending';
   const approved=request.status==='approved';
   const title=request.request_kind==='package_purchase'
@@ -1693,10 +1795,10 @@ function adminBillingPaymentRequestCard(request){
     <div class="order-line"><strong>Referência informada pela revenda:</strong> ${esc(request.merchant_reference||'—')}</div>
     ${request.admin_reference?`<div class="tiny muted">Referência administrativa: ${esc(request.admin_reference)}</div>`:''}
     ${approved&&request.received_amount_cents!=null?`<div class="tiny muted">Recebido: ${adminMoney(request.received_amount_cents)} • ${esc(adminPaymentMethodLabel(request.payment_method))}${request.reconciliation_key?' • ID '+esc(request.reconciliation_key):''} • origem ${esc(request.approval_source==='provider_event'?'evento do provedor':'conferência manual')}</div>`:''}
-    ${pending?`${matchedEvent?`<div class="notice success" style="margin-top:10px"><strong>Conciliação automática pronta.</strong><br>${esc(matchedEvent.provider)} confirmou ${adminMoney(matchedEvent.amount_cents)} • ${esc(adminPaymentMethodLabel(matchedEvent.payment_method))} • ID ${esc(matchedEvent.reconciliation_key)}.</div>`:`<div class="notice" style="margin-top:10px"><strong>Nenhum crédito ou quitação ocorreu ainda.</strong><br>Confira o recebimento no meio financeiro antes de aprovar. A aprovação exige valor recebido exato, meio de pagamento e referência.</div>`}
+    ${pending?`${matchedEvent?`<div class="notice success" style="margin-top:10px"><strong>Conciliação pronta para revisão.</strong><br>${esc(matchedEvent.provider)} • ${adminMoney(matchedEvent.amount_cents)} • ${esc(matchedEvent.reconciliation_key)}</div>`:`<div class="notice" style="margin-top:10px"><strong>Recebimento ainda não comprovado.</strong><br>Confira no banco/PSP antes de confirmar; a informação da revenda não é prova de pagamento.</div>`}
+      ${adminBillingGuidedReview(request,matchedEvent,hasConflict)}
       <div class="order-actions">
-        ${matchedEvent?`<button class="primary small" onclick="adminResolveBillingPaymentRequest('${esc(request.id)}','approve','${esc(matchedEvent.id)}')">Confirmar evento conciliado</button><span class="tiny muted">Aprovação manual desabilitada: existe prova exata do PSP.</span>`:`<button class="primary small" onclick="adminResolveBillingPaymentRequest('${esc(request.id)}','approve')">Confirmar recebimento</button>`}
-        <button class="danger-btn small" onclick="adminResolveBillingPaymentRequest('${esc(request.id)}','reject')">Rejeitar</button>
+        <button class="danger-btn small" onclick="adminResolveBillingPaymentRequest('${esc(request.id)}','reject')">Rejeitar com justificativa</button>
       </div>`:''}
   </article>`;
 }
@@ -1747,7 +1849,7 @@ function adminBillingPaymentEventCard(event){
     <div class="tiny muted">ID conciliável: ${esc(event.reconciliation_key)}${event.payer_reference?' • pagador '+esc(event.payer_reference):''}</div>
     ${event.match_reason?`<div class="tiny muted">Conciliação: ${esc(adminBillingPaymentMatchReasonLabel(event.match_reason))}</div>`:''}
     ${event.provider_correlation_id?`<div class="tiny muted">Correlação TAMÃO/PSP: ${esc(event.provider_correlation_id)}</div>`:''}
-    ${matched&&event.payment_request_id?`<div class="notice success" style="margin-top:10px"><strong>Correspondência exata encontrada.</strong><br>Valor e identificador coincidem com uma solicitação pendente.</div><div class="order-actions"><button class="primary small" onclick="adminResolveBillingPaymentRequest('${esc(event.payment_request_id)}','approve','${esc(event.id)}')">Confirmar evento conciliado</button></div>`:''}
+    ${matched&&event.payment_request_id?`<div class="notice success" style="margin-top:10px"><strong>Correspondência exata encontrada.</strong><br>Valor e identificador coincidem com uma solicitação pendente.</div><div class="order-actions"><button class="secondary small" onclick="adminFocusFinanceRecord('request','${esc(event.payment_request_id)}')">Revisar solicitação conciliada</button></div>`:''}
     ${review?`<div class="notice" style="margin-top:10px"><strong>Revisão obrigatória.</strong><br>O evento não movimentou saldo porque não houve correspondência exata e única.</div><div class="order-actions"><button class="secondary small" onclick="adminBillingPaymentEventAction('${esc(event.id)}','recheck')">Reprocessar conciliação</button><button class="ghost small" onclick="adminBillingPaymentEventAction('${esc(event.id)}','ignore')">Ignorar evento</button></div>`:''}
   </article>`;
 }
@@ -4475,7 +4577,7 @@ async function adminBillingPaymentEventAction(paymentEventId,eventAction){
   }catch(e){toast(String(e?.message||e))}
 }
 
-async function adminResolveBillingPaymentRequest(paymentRequestId,requestAction,reconciledEventId=null){
+async function adminResolveBillingPaymentRequest(paymentRequestId,requestAction,reconciledEventId=null,review=null){
   const billing=adminRuntime.data?.merchantBilling||{};
   const request=(billing.paymentRequests||[]).find(x=>x.id===paymentRequestId);
   if(!request)return toast('Solicitação financeira não encontrada');
@@ -4492,6 +4594,7 @@ async function adminResolveBillingPaymentRequest(paymentRequestId,requestAction,
   )){
     return toast('O evento conciliado mudou. Atualize o painel antes de aprovar.');
   }
+  if(approve&&review&&review.confirmed!==true)return toast('Conferência do recebimento não confirmada.');
   let receivedAmountCents=null;
   let paymentMethod=null;
   let reconciliationKey=null;
@@ -4501,6 +4604,16 @@ async function adminResolveBillingPaymentRequest(paymentRequestId,requestAction,
     reconciliationKey=String(reconciledEvent.reconciliation_key||'').trim();
     if(receivedAmountCents!==expectedCents){
       return toast('O evento não possui o valor exato desta solicitação.');
+    }
+  }else if(approve&&review){
+    if(review.confirmed!==true)return toast('Confirme a conferência do recebimento.');
+    receivedAmountCents=adminParseMoneyToCents(review.receivedRaw);
+    if(receivedAmountCents!==expectedCents)return toast('Valor recebido diferente do esperado. Não é possível aprovar esta solicitação.');
+    paymentMethod=adminNormalizePaymentMethod(review.paymentMethod);
+    if(!paymentMethod)return toast('Informe uma forma de pagamento válida');
+    reconciliationKey=String(review.reconciliationKey||'').trim().replace(/\s+/g,' ');
+    if(reconciliationKey.length<6||reconciliationKey.length>160){
+      return toast('Informe um identificador único da transação entre 6 e 160 caracteres');
     }
   }else if(approve){
     const defaultAmount=(expectedCents/100).toFixed(2).replace('.',',');
@@ -4527,10 +4640,9 @@ async function adminResolveBillingPaymentRequest(paymentRequestId,requestAction,
   const defaultReference=reconciledEvent
     ?'Evento '+reconciledEvent.provider+' • '+reconciledEvent.provider_event_id
     :'';
-  const reference=prompt(
-    approve?'Referência/observação da conferência financeira:':'Motivo da rejeição:',
-    defaultReference
-  )||'';
+  const reference=review&&approve
+    ?String(review.reference||'')
+    :prompt(approve?'Referência/observação da conferência financeira:':'Motivo da rejeição:',defaultReference)||'';
   if(reference.trim().length<3)return toast('Informe uma referência');
   const amount=adminMoney(expectedCents);
   const approvalEffect=request.request_kind==='package_purchase'
@@ -4634,6 +4746,7 @@ globalThis.adminCreateIncident=adminCreateIncident;
 globalThis.adminIncidentAction=adminIncidentAction;
 globalThis.adminAuditSearch=adminAuditSearch;
 globalThis.adminResolveBillingPaymentRequest=adminResolveBillingPaymentRequest;
+globalThis.adminSubmitBillingGuidedReview=adminSubmitBillingGuidedReview;
 globalThis.adminGenerateBillingWebhookProbe=adminGenerateBillingWebhookProbe;
 globalThis.adminCopyText=adminCopyText;
 globalThis.adminSaveBillingPlan=adminSaveBillingPlan;

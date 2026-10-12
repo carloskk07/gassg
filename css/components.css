@@ -2576,3 +2576,24 @@ article[id^="admin-finance-"][tabindex="-1"]:focus{outline:3px solid var(--brand
 @media(max-width:920px){.admin-finance-triage-list{grid-template-columns:minmax(0,1fr)}}
 @media(max-width:500px){.admin-finance-triage .section-head{display:grid;gap:7px}.admin-finance-triage-row{flex-wrap:wrap}.admin-finance-triage-row button{width:100%}}
 @media(max-width:340px){.admin-finance-triage-row{padding:10px}.admin-finance-triage-row button{min-height:48px}}
+
+/* V1.194 — payment evidence review in one accessible inline form */
+.admin-billing-guided-review{margin-top:12px;border:1px solid var(--line);border-radius:13px;padding:12px;background:var(--surface,#fff)}
+.admin-billing-guided-review>summary{cursor:pointer;min-height:44px;display:flex;align-items:center;font-weight:800;line-height:1.4}
+.admin-billing-guided-review[open]>summary{margin-bottom:12px}
+.admin-billing-guide-body{display:grid;gap:13px}
+.admin-billing-guide-step{display:grid;grid-template-columns:26px minmax(0,1fr);gap:10px;min-width:0}
+.admin-billing-guide-step>span{height:26px;width:26px;border-radius:999px;background:var(--brand-soft);display:grid;place-items:center;font-weight:900}
+.admin-billing-guide-step strong{font-size:13px}
+.admin-billing-guide-step p{font-size:12px;color:var(--muted);line-height:1.55;margin:5px 0}
+.admin-billing-guide-step small{display:block;color:var(--muted);line-height:1.55;overflow-wrap:anywhere}
+.admin-billing-guide-step label{display:block;font-size:12px;font-weight:700;margin:9px 0 5px}
+.admin-billing-guide-fields{display:grid;gap:4px;max-width:520px}
+.admin-billing-guide-fields input,.admin-billing-guide-fields select,.admin-billing-guide-step textarea{max-width:100%;min-height:46px;font-size:16px}
+.admin-billing-guide-step textarea{display:block;height:auto;min-height:76px;resize:vertical;padding:12px 14px}
+.admin-billing-guide-evidence{border:1px solid var(--line);padding:10px;border-radius:10px}
+.admin-billing-guide-check{display:flex!important;align-items:flex-start;gap:10px;line-height:1.5;cursor:pointer}
+.admin-billing-guide-check input{width:20px;height:20px;flex:0 0 auto;accent-color:var(--brand)}
+.admin-billing-guide-step button{min-height:44px;margin:9px 0 4px}
+.admin-billing-guided-review :focus-visible{outline:3px solid var(--brand);outline-offset:3px}
+@media(max-width:500px){.admin-billing-guided-review{padding:10px}.admin-billing-guide-step{grid-template-columns:24px minmax(0,1fr);gap:8px}.admin-billing-guide-step button{width:100%}}
