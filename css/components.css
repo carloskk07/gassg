@@ -2464,3 +2464,27 @@ body:has(.admin-page) .shell{
 .admin-sale-history-freshness:has(+ .admin-sale-history-actions) {overflow-wrap:anywhere}
 .admin-sale-history-actions button:disabled{opacity:.6;cursor:not-allowed}
 @media(max-width:560px){.admin-sale-history-freshness{padding:11px;font-size:12px}}
+
+/* V1.187 — explicit accounting boundaries in the finance cockpit */
+.admin-finance-management{border-top:1px solid var(--line);padding-top:19px}
+.admin-finance-management .section-head{align-items:flex-start}
+.admin-finance-management .section-head p{max-width:720px}
+.admin-managerial-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin:14px 0}
+.admin-managerial-stat{border:1px solid var(--line);background:var(--surface,#fff);border-radius:14px;padding:15px;min-width:0}
+.admin-managerial-stat small{display:block;color:var(--muted);font-size:11px;line-height:1.4}
+.admin-managerial-stat>strong{display:block;font-size:clamp(20px,2vw,27px);line-height:1.18;margin:8px 0;overflow-wrap:anywhere;font-variant-numeric:tabular-nums}
+.admin-managerial-stat>span{display:block;color:var(--muted);font-size:11px;line-height:1.5}
+.admin-managerial-details{display:grid;grid-template-columns:minmax(0,1.35fr) minmax(0,1fr);gap:12px}
+.admin-managerial-details .card{min-width:0}
+.admin-managerial-details h3{font-size:16px;margin:0 0 6px}
+.admin-managerial-rows{margin:10px 0}
+.admin-managerial-row{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;padding:10px 0;border-bottom:1px solid var(--line)}
+.admin-managerial-row strong{font-size:13px}
+.admin-managerial-row>strong{white-space:nowrap;font-variant-numeric:tabular-nums}
+.admin-managerial-row small{display:block;color:var(--muted);font-size:11px;line-height:1.5;margin-top:3px}
+.admin-managerial-rule{display:grid;gap:4px;padding:9px 0;border-bottom:1px solid var(--line)}
+.admin-managerial-rule strong{font-size:13px}
+.admin-managerial-rule span{font-size:12px;line-height:1.5;color:var(--muted)}
+@media(max-width:1000px){.admin-managerial-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:680px){.admin-managerial-details{grid-template-columns:minmax(0,1fr)}.admin-managerial-grid{grid-template-columns:minmax(0,1fr) minmax(0,1fr)}}
+@media(max-width:420px){.admin-managerial-grid{grid-template-columns:minmax(0,1fr)}.admin-managerial-stat>strong{font-size:25px}.admin-managerial-row{flex-wrap:wrap}}
