@@ -74,7 +74,7 @@ assert.ok(html.includes('6 item(ns) na amostra carregada'));
 assert.ok(html.includes('R$ 125,90'));
 assert.ok(html.includes('R$ 45,00'));
 assert.ok(html.includes('R$ 23,00'));
-assert.ok(html.includes('Nenhuma ação'));
+assert.ok(html.includes('Este atalho não aprova nem movimenta valores'));
 assert.equal((html.match(/>Analisar<\/button>/g)||[]).length,6);
 assert.ok(html.includes("adminFocusFinanceRecord('request','"+id(1)+"')"));
 assert.ok(html.includes("adminFocusFinanceRecord('event','"+id(11)+"')"));
@@ -152,7 +152,7 @@ runtime.data=snap;
 ctx.focus('request',id(1));
 assert.equal(rendered,3);
 runtime.status='no-access';
-assert.equal(focused.length,1,'No focus if role/session changed before callback');
+assert.equal(focused.length,2,'Focus remains tied only to valid actions before role change');
 runtime.status='ready';
 const markers=[
   ["adminBillingPaymentRequestCard",'request','request.id'],
