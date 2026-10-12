@@ -6,10 +6,10 @@ const source=fs.readFileSync(new URL('../js/customer.js',import.meta.url),'utf8'
 const match=source.match(/function startCustomerAvailability\(\)\{[\s\S]*?\n\}/);
 assert.ok(match,'deve existir autoridade única para iniciar a consulta');
 
-function exercise({test=false,ready=false}={}){
+function exercise({test=false,ready=false,globalSupply}={}){
   const calls=[];
   const context=vm.createContext({
-    globalThis:{__CHAMA_TEST__:test,liveReady:()=>ready},
+    globalThis:{__CHAMA_TEST__:test,liveReady:()=>ready,liveRuntime:{marketStatus:globalSupply===undefined?null:{realSupplyConfigured:globalSupply}}},
     startHomeOrder:()=>{calls.push('real_consultation');return 'real_consultation';},
     openPrelaunchCustomerLead:()=>{calls.push('availability_notice');return 'availability_notice';}
   });
@@ -18,6 +18,10 @@ function exercise({test=false,ready=false}={}){
 }
 assert.deepEqual(exercise({ready:true}),{calls:['real_consultation'],result:'real_consultation'},
   'sessão operacional pronta não pode encaminhar comprador direto ao cadastro de aviso');
+assert.deepEqual(exercise({ready:true,globalSupply:false}),{calls:['availability_notice'],result:'availability_notice'},
+  'plataforma sem qualquer revenda configurada deve oferecer aviso, sem checkout vazio');
+assert.deepEqual(exercise({ready:true,globalSupply:true}),{calls:['real_consultation'],result:'real_consultation'},
+  'revenda configurada deve manter consulta real por CEP');
 assert.deepEqual(exercise({ready:false}),{calls:['availability_notice'],result:'availability_notice'},
   'se a sessão não puder consultar, oferecer aviso sem simular pedido');
 assert.deepEqual(exercise({test:true}),{calls:['real_consultation'],result:'real_consultation'},
