@@ -968,7 +968,7 @@ function customerInterruptedPaymentView(order){
   const status=String(order?.status||'');
   if(!['REASSIGNING','CANCELLED'].includes(status))return '';
   const cancelled=status==='CANCELLED';
-  const prepaid=order?.paymentTiming==='prepaid'&&['pix','card'].includes(String(order?.paymentMethod||''));
+  const onDelivery=order?.paymentTiming==='on_delivery'||(order?.paymentMethod==='cash'&&order?.paymentTiming!=='prepaid');
   const payment=order?.onlinePayment&&typeof order.onlinePayment==='object'?order.onlinePayment:{};
   const verification=String(payment.status||'');
   const fields={
@@ -987,11 +987,11 @@ function customerInterruptedPaymentView(order){
   };
   const known=Object.prototype.hasOwnProperty.call(fields,verification)?fields[verification]:null;
   let label,detail;
-  if(!prepaid){
-    label='Pagamento na entrega';
-    detail='O pedido não está em etapa de entrega. Se recebeu alguma cobrança ou já pagou por outro meio, confira o comprovante e solicite atendimento.';
-  }else if(known){
+  if(known){
     ({label,detail}=known);
+  }else if(onDelivery){
+    label='Pagamento previsto na entrega';
+    detail='Esta consulta não indica um pagamento antecipado confirmado. Se você já pagou por algum meio, confira o comprovante e solicite atendimento.';
   }else{
     label='Situação do pagamento ainda não confirmada';
     detail='Esta consulta não confirma cobrança nem reembolso. Se você já pagou, confira no provedor e registre um atendimento com os dados do pedido.';
