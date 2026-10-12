@@ -49,7 +49,7 @@ const ctx=vm.createContext({adminRuntime,render:()=>{},
  formatDateTime:()=> '12/10/2026 14:00',
  adminOpenEntity:()=>{}
 });
-vm.runInContext(cut('adminInterruptedSalePaymentUrgency')+'\n'+cut('adminInterruptedSalePaymentRows')+'\n'+cut('adminInterruptedSalePaymentWatch')+
+vm.runInContext(cut('adminInterruptedSalePaymentUrgency')+'\n'+cut('adminSalePaymentHistoryIsFresh')+'\n'+cut('adminInterruptedSalePaymentRows')+'\n'+cut('adminInterruptedSalePaymentWatch')+
  ';this.rows=adminInterruptedSalePaymentRows;this.watch=adminInterruptedSalePaymentWatch;',ctx);
 const classified=ctx.rows(data);
 assert.equal(classified.length,5,'Only payment attempts linked to interrupted orders in returned server set');

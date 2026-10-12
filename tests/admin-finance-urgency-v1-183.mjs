@@ -38,6 +38,7 @@ const ctx=vm.createContext({
 });
 vm.runInContext([
  pick('adminInterruptedSalePaymentUrgency'),
+ pick('adminSalePaymentHistoryIsFresh'),
  pick('adminSetSaleRefundFilter'),
  pick('adminInterruptedSalePaymentRows'),
  pick('adminInterruptedSalePaymentWatch')
