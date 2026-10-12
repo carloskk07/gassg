@@ -304,8 +304,13 @@ async function adminLoadProspects({force=false}={}){
     adminRuntime.prospectLoadedFor=null;
   }finally{
     adminRuntime.prospectLoading=false;render();
-    if(adminReady()&&['superadmin','operations'].includes(String(adminCurrentRole())))
+    if(adminReady()&&String(adminRuntime.session?.user?.id||'')===requestingUser
+      &&(String(adminRuntime.prospectCity||'').toUpperCase()!==requestedCity.toUpperCase()
+        ||adminRuntime.prospectState!==requestedState)){
+      adminLoadProspects().catch(()=>{});
+    }else if(adminReady()&&['superadmin','operations'].includes(String(adminCurrentRole()))){
       adminLoadCityNotifications().catch(()=>{});
+    }
   }
 }
 function adminProspectSelectCity(value){
