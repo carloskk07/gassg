@@ -56,7 +56,7 @@ const orderContext=vm.createContext({
   merchantScheduledDispatchState:()=>({scheduled:false,ready:true}),
   merchantDeliveryMemberLabel:()=> 'Responsável'
 });
-vm.runInContext(functionSource(merchant,'merchantLiveOrder')+';this.drawMerchantOrder=merchantLiveOrder;',orderContext);
+vm.runInContext(functionSource(merchant,'merchantDeliveryCandidates')+'\n'+functionSource(merchant,'merchantLiveOrder')+';this.drawMerchantOrder=merchantLiveOrder;',orderContext);
 const draw=status=>orderContext.drawMerchantOrder({
   orderId:'00000000-0000-4000-8000-000000000013',publicCode:'TAM-13',
   status,items:[{quantity:1,productName:'Botijão 13 kg'}],
