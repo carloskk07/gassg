@@ -79,6 +79,8 @@ jobs:
         run: node tests/admin-sale-refund-watch-v1-182.mjs
       - name: Admin financial review urgency V1.183 regression
         run: node tests/admin-finance-urgency-v1-183.mjs
+      - name: Historical sale payment review V1.184 regression
+        run: node tests/admin-finance-history-v1-184.mjs
       - name: First real PSP pilot preflight V1.146 regression contract
         run: node tests/first-real-psp-pilot-preflight-v1-146.mjs
       - name: Production trust language V1.147 regression contract

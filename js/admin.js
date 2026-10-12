@@ -37,6 +37,7 @@ const adminRuntime={
   providerHealthPending:false,
   paymentPreflights:{},
   saleRefundFilter:'all',
+  salePaymentHistory:{attempts:[],interruptedOrders:[],nextCursor:null,hasMore:false,loading:false,error:null,started:false},
   prospectReport:null,
   expansionRadar:[],
   expansionRadarLoading:false,
@@ -337,6 +338,7 @@ async function adminSignOut(){
   adminRuntime.providerHealth=null;
   adminRuntime.providerHealthPending=false;
   adminRuntime.paymentPreflights={};
+  adminRuntime.salePaymentHistory={attempts:[],interruptedOrders:[],nextCursor:null,hasMore:false,loading:false,error:null,started:false};
   try{sessionStorage.removeItem('tamao-admin-provider-health-v1')}catch{}
   adminRuntime.auditResults=null;
   adminRuntime.auditPending=false;
@@ -371,6 +373,7 @@ async function adminRefresh({silent=false}={}){
     if(error?.code==='ADMIN_ACCESS_DENIED'||error?.status===403&&error?.code==='ADMIN_ACCESS_DENIED'){
       adminRuntime.status='no-access';
       adminRuntime.data=null;
+      adminRuntime.salePaymentHistory={attempts:[],interruptedOrders:[],nextCursor:null,hasMore:false,loading:false,error:null,started:false};
       adminRuntime.enablementMerchants=[];
       adminRuntime.enablementLoaded=false;
       adminRuntime.error=null;
@@ -380,6 +383,7 @@ async function adminRefresh({silent=false}={}){
       adminRuntime.status='unauthenticated';
       adminRuntime.session=null;
       adminRuntime.data=null;
+      adminRuntime.salePaymentHistory={attempts:[],interruptedOrders:[],nextCursor:null,hasMore:false,loading:false,error:null,started:false};
       adminRuntime.searchQuery='';
       adminRuntime.searchResults=[];
       adminRuntime.detail=null;
@@ -2546,8 +2550,10 @@ function adminSetSaleRefundFilter(value){
 
 function adminInterruptedSalePaymentRows(d){
   const payments=d?.merchantPayments||{};
-  const orders=new Map((payments.interruptedOrders||[]).map(row=>[String(row.id),row]));
-  const attempts=Array.isArray(payments.attempts)?payments.attempts:[];
+  const history=adminRuntime.salePaymentHistory||{};
+  const orders=new Map([...payments.interruptedOrders||[],...history.interruptedOrders||[]].map(row=>[String(row.id),row]));
+  const attempts=[...new Map([...payments.attempts||[],...history.attempts||[]]
+    .filter(row=>row&&typeof row.id==='string').map(row=>[String(row.id),row])).values()];
   const rows=[];
   for(const attempt of attempts){
     const order=orders.get(String(attempt?.order_id||''));
@@ -2573,6 +2579,48 @@ function adminInterruptedSalePaymentRows(d){
       ||(ua.anchor??Number.POSITIVE_INFINITY)-(ub.anchor??Number.POSITIVE_INFINITY);
   });
 }
+
+async function adminLoadSalePaymentHistory(){
+  if(!['superadmin','finance','readonly'].includes(adminCurrentRole()))return;
+  if(adminRuntime.status!=='ready'||!adminRuntime.data)return;
+  const current=adminRuntime.salePaymentHistory||{};
+  if(current.loading)return;
+  const recent=adminRuntime.data.merchantPayments?.attempts||[];
+  const isFirst=current.started!==true;
+  if(isFirst&&recent.length<500)return;
+  if(!isFirst&&!current.hasMore)return;
+  const last=recent[recent.length-1];
+  const cursor=isFirst?{createdAt:last?.created_at,id:last?.id}:current.nextCursor;
+  if(!cursor?.createdAt||!cursor?.id)return;
+  const session=adminRuntime.session;
+  adminRuntime.salePaymentHistory={...current,loading:true,error:null};
+  render();
+  try{
+    const result=await adminInvoke({action:'sale-payment-history',cursor});
+    if(session!==adminRuntime.session||adminRuntime.status!=='ready')return;
+    if(result?.readOnly!==true||!Array.isArray(result.attempts)
+       ||!Array.isArray(result.interruptedOrders)||result.attempts.length>200){
+      throw new Error('O histórico retornou um formato inesperado. Atualize e tente novamente.');
+    }
+    const existing=adminRuntime.salePaymentHistory;
+    const attempts=new Map((existing.attempts||[]).map(x=>[String(x.id),x]));
+    for(const item of result.attempts)if(item&&typeof item.id==='string')attempts.set(item.id,item);
+    const orders=new Map((existing.interruptedOrders||[]).map(x=>[String(x.id),x]));
+    for(const item of result.interruptedOrders)if(item&&typeof item.id==='string')orders.set(item.id,item);
+    adminRuntime.salePaymentHistory={
+      attempts:[...attempts.values()],interruptedOrders:[...orders.values()],
+      nextCursor:result.hasMore?result.nextCursor:null,hasMore:result.hasMore===true,
+      loading:false,error:null,started:true
+    };
+  }catch(e){
+    if(session===adminRuntime.session){
+      adminRuntime.salePaymentHistory={
+        ...adminRuntime.salePaymentHistory,loading:false,error:String(e?.message||e)
+      };
+    }
+  }finally{if(session===adminRuntime.session)render();}
+}
+
 function adminInterruptedSalePaymentWatch(d){
   if(!['superadmin','finance','readonly'].includes(adminCurrentRole()))return '';
   const rows=adminInterruptedSalePaymentRows(d);
@@ -2590,6 +2638,9 @@ function adminInterruptedSalePaymentWatch(d){
     filter==='approved'&&['approved','conflicting'].includes(x.kind)||
     filter==='review'&&x.kind==='review');
   const limited=d.merchantPayments?.reviewSampleLimited===true;
+  const historyState=adminRuntime.salePaymentHistory||{};
+  const olderCount=Array.isArray(historyState.attempts)?historyState.attempts.length:0;
+  const historyAvailable=limited&&(historyState.started!==true||historyState.hasMore===true);
   const statusInfo={
     approved:{label:'APROVADO • CONFERIR ESTORNO',detail:'Pagamento aprovado registrado. Não há confirmação de estorno nesta tentativa; consulte o provedor e a revenda.'},
     review:{label:'RESULTADO EM REVISÃO',detail:'O resultado financeiro está indefinido. Confirme primeiro com o provedor; não suponha cobrança nem devolução.'},
@@ -2640,8 +2691,17 @@ function adminInterruptedSalePaymentWatch(d){
       .map(([key,label,count])=>'<button type="button" class="secondary small '+(filter===key?'selected':'')+
         '" aria-pressed="'+(filter===key?'true':'false')+'" onclick="adminSetSaleRefundFilter(\''+key+'\')">'+
         esc(label)+' ('+count+')</button>').join('')+'</div>'+
-    (limited?'<div class="notice">Amostra limitada às 500 tentativas de pagamento mais recentes. Estes números não representam a totalidade da base.</div>':
+    (limited?'<div class="notice">Amostra limitada às 500 tentativas de pagamento mais recentes.'+
+      (olderCount?' Mais '+olderCount+' tentativas históricas consultadas.':'')+
+      ' Estes números não representam a totalidade da base enquanto houver histórico não consultado.</div>':
       '<div class="tiny muted">Conferência com base nas tentativas retornadas; não equivale a extrato completo do provedor.</div>')+
+    (historyAvailable?
+      '<div class="admin-sale-history-actions"><button type="button" class="secondary" onclick="adminLoadSalePaymentHistory()" '+
+        (historyState.loading?'disabled':'')+'>'+
+        (historyState.loading?'Consultando histórico…':'Consultar tentativas mais antigas')+'</button>'+
+        '<small>Consulta paginada de até 200 tentativas por vez. Os alertas antigos continuam no banco e são exibidos quando consultados.</small></div>':
+      olderCount?'<div class="tiny muted">Não há mais tentativas antigas nesta consulta.</div>':'')+
+    (historyState.error?'<div class="notice danger" role="alert">'+esc(historyState.error)+'</div>':'')+
     (visible.length?'<div class="admin-entity-grid">'+visible.slice(0,30).map(render).join('')+'</div>':
       '<div class="empty card">'+(active.length?'Nenhuma ocorrência corresponde ao filtro selecionado.':'Nenhum registro nesta amostra exige conferência de estorno. Confira também a conciliação diretamente no PSP.')+'</div>')+
     (visible.length>30?'<div class="tiny muted">Exibindo os primeiros 30 registros do filtro; outros estão incluídos nos contadores da amostra.</div>':'')+
