@@ -16,7 +16,7 @@ const esc=x=>String(x??'').replaceAll('&','&amp;').replaceAll('<','&lt;')
  .replaceAll('>','&gt;').replaceAll('"','&quot;').replaceAll("'",'&#39;');
 const date=minutesAgo=>new Date(Date.now()-minutesAgo*60000).toISOString();
 const context=vm.createContext({esc});
-vm.runInContext([pick('merchantOrderEventDate'),pick('merchantOrderProgressView')]
+vm.runInContext([pick('merchantOrderEventDate'),pick('merchantOrderScheduleDate'),pick('merchantOrderProgressView')]
  .join('\n')+';this.timeline=merchantOrderProgressView;this.event=merchantOrderEventDate;',context);
 const order={
  status:'ARRIVING',
@@ -35,6 +35,7 @@ assert.ok(markup.includes('Previsões não são confirmações de entrega.'));
 assert.ok(!markup.includes('Entrega concluída</strong><small>Confirmado em'),'Must never claim delivery happened without proof');
 assert.ok(!markup.includes('<script'));
 assert.ok(context.event(date(-60))===null,'Future event rejected');
+assert.ok(markup.includes('Previsão de entrega registrada'),'Future schedules must remain visible as estimates');
 assert.ok(context.event('yesterday')===null,'Non-ISO event rejected');
 assert.ok(context.event('2024-13-99T00:00:00Z')===null,'Invalid calendar event rejected');
 assert.ok(context.event(null)===null,'Null event rejected');
@@ -69,6 +70,7 @@ const cardCtx=vm.createContext({
 vm.runInContext([
  pick('merchantDeliveryCandidates'),
  pick('merchantOrderEventDate'),
+ pick('merchantOrderScheduleDate'),
  pick('merchantOrderProgressView'),
  pick('merchantLiveOrder')
 ].join('\n')+';this.card=merchantLiveOrder;',cardCtx);
