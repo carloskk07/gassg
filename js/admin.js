@@ -2638,9 +2638,9 @@ function adminInterruptedSalePaymentWatch(d){
     filter==='approved'&&['approved','conflicting'].includes(x.kind)||
     filter==='review'&&x.kind==='review');
   const limited=d.merchantPayments?.reviewSampleLimited===true;
-  const history=adminRuntime.salePaymentHistory||{};
-  const olderCount=Array.isArray(history.attempts)?history.attempts.length:0;
-  const historyAvailable=limited&&(olderCount===0||history.hasMore===true);
+  const historyState=adminRuntime.salePaymentHistory||{};
+  const olderCount=Array.isArray(historyState.attempts)?historyState.attempts.length:0;
+  const historyAvailable=limited&&(olderCount===0||historyState.hasMore===true);
   const statusInfo={
     approved:{label:'APROVADO • CONFERIR ESTORNO',detail:'Pagamento aprovado registrado. Não há confirmação de estorno nesta tentativa; consulte o provedor e a revenda.'},
     review:{label:'RESULTADO EM REVISÃO',detail:'O resultado financeiro está indefinido. Confirme primeiro com o provedor; não suponha cobrança nem devolução.'},
@@ -2697,11 +2697,11 @@ function adminInterruptedSalePaymentWatch(d){
       '<div class="tiny muted">Conferência com base nas tentativas retornadas; não equivale a extrato completo do provedor.</div>')+
     (historyAvailable?
       '<div class="admin-sale-history-actions"><button type="button" class="secondary" onclick="adminLoadSalePaymentHistory()" '+
-        (history.loading?'disabled':'')+'>'+
-        (history.loading?'Consultando histórico…':'Consultar tentativas mais antigas')+'</button>'+
+        (historyState.loading?'disabled':'')+'>'+
+        (historyState.loading?'Consultando histórico…':'Consultar tentativas mais antigas')+'</button>'+
         '<small>Consulta paginada de até 200 tentativas por vez. Os alertas antigos continuam no banco e são exibidos quando consultados.</small></div>':
       olderCount?'<div class="tiny muted">Não há mais tentativas antigas nesta consulta.</div>':'')+
-    (history.error?'<div class="notice danger" role="alert">'+esc(history.error)+'</div>':'')+
+    (historyState.error?'<div class="notice danger" role="alert">'+esc(historyState.error)+'</div>':'')+
     (visible.length?'<div class="admin-entity-grid">'+visible.slice(0,30).map(render).join('')+'</div>':
       '<div class="empty card">'+(active.length?'Nenhuma ocorrência corresponde ao filtro selecionado.':'Nenhum registro nesta amostra exige conferência de estorno. Confira também a conciliação diretamente no PSP.')+'</div>')+
     (visible.length>30?'<div class="tiny muted">Exibindo os primeiros 30 registros do filtro; outros estão incluídos nos contadores da amostra.</div>':'')+
