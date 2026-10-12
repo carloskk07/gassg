@@ -100,6 +100,7 @@ function merchantDriverLivePage(rt){
   return shell(`<section class="page">
     <div class="status-bar"><div><div class="tiny muted">MINHAS ENTREGAS</div><h1 class="page-title" style="margin-bottom:2px">${esc(m.name||'Revenda')}</h1></div><span class="status-pill online">MOTORISTA</span></div>
     <div class="notice success" style="margin-top:14px"><strong>Visão restrita por atribuição.</strong><br>Você vê somente pedidos que a operação vinculou à sua conta. Catálogo, preços, compliance e pedidos de outros responsáveis não aparecem aqui.</div>
+    <section class="section"><div class="section-head"><div><h2>Pedidos atribuídos a você</h2><p>Saída, chegada e conclusão continuam protegidas pela versão do pedido e pelas autoridades do servidor.</p></div></div>${merchantOrderQueueView(orders,'Nenhuma entrega atribuída a você agora.')}</section>
     ${merchantAlertControl()}
     <div class="card flat form-stack" style="margin-top:14px">
       <h3>Seu nome operacional</h3>
@@ -108,7 +109,7 @@ function merchantDriverLivePage(rt){
       <button class="secondary" onclick="merchantLiveSaveMemberProfile()">Salvar nome</button>
       <div class="order-actions"><button class="secondary small" onclick="merchantLiveRefresh()">Atualizar entregas</button><button class="ghost small" onclick="merchantLiveLogout()">Sair</button></div>
     </div>
-    <section class="section"><div class="section-head"><div><h2>Pedidos atribuídos a você</h2><p>Saída, chegada e conclusão continuam protegidas pela versão do pedido e pelas autoridades do servidor.</p></div></div>${merchantOrderQueueView(orders,'Nenhuma entrega atribuída a você agora.')}</section>
+
   </section>`);
 }
 
@@ -854,6 +855,8 @@ function merchantLivePage(){
     ${complianceNotice}
     ${freshnessNotice}
     ${financialHold?'<div class="notice danger" style="margin-top:12px"><strong>Novas vendas suspensas por pendência financeira.</strong><br>Regularize o fechamento vencido. Pedidos já aceitos continuam disponíveis normalmente.</div>':''}
+    <section class="section" id="merchant-live-orders"><div class="section-head"><div><h2>Pedidos que exigem ação</h2><p>Aceite, saída e recebimento só são registrados depois de confirmação no sistema.</p></div></div>${merchantOrderQueueView(orders)}</section>
+
     ${merchantSetupView(rt)}
     ${merchantAlertControl()}
     <details class="merchant-diagnostic-drawer"><summary>Verificações de documentos e habilitação</summary>
@@ -875,7 +878,7 @@ function merchantLivePage(){
       <div class="kpi"><span class="label">No prazo</span><strong>${performance.onTimeRate==null?'—':Math.round(Number(performance.onTimeRate)*100)+'%'}</strong></div>
     </div></section>
 
-    <section class="section" id="merchant-live-orders"><div class="section-head"><div><h2>Pedidos que exigem ação</h2><p>Aceite, saída e recebimento só são registrados depois de confirmação no sistema.</p></div></div>${merchantOrderQueueView(orders)}</section>
+
 
     ${merchantBillingLiveView(rt)}
 
