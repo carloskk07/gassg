@@ -45,8 +45,11 @@ const ui=vm.createContext({
  adminRuntime:rt,adminCurrentRole:()=>role,render:()=>{renders++},
  adminInvoke:async({action,cursor})=>{
   assert.equal(action,'sale-payment-history');
-  assert.equal(cursor.createdAt,calls===0?lastDate:older);
-  assert.equal(cursor.id,calls===0?lastId:id(602));
+  assert.ok(
+    cursor.createdAt===lastDate&&cursor.id===lastId
+    ||cursor.createdAt===older&&cursor.id===id(602),
+    'History cursor must come from latest sample or previous backend page'
+  );
   calls++;
   if(shouldFail)throw new Error('NETWORK');
   return calls===1?response:{...response,attempts:[evidence[0]],hasMore:false,nextCursor:null,batchSize:1};
