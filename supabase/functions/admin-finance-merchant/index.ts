@@ -1,6 +1,6 @@
 import "jsr:@supabase/functions-js@2.117.2/edge-runtime.d.ts";
 import {createClient} from "npm:@supabase/supabase-js@2.117.2";
-import {enforceApiQuota} from "../_shared/domain.js";
+import {enforceApiQuota,readJsonBody} from "../_shared/domain.js";
 
 // V1.190: isolated, read-only, finance-only RPC gateway.
 // JWT validation happens in the handler, matching admin-ops' publishable-key model.
@@ -48,6 +48,9 @@ Deno.serve(async (req:Request)=>{
     const {data:auth,error:authError}=await identity.auth.getUser(token);
     if(authError||!auth.user)return reply({error:"UNAUTHORIZED"},401,origin);
     if(auth.user.is_anonymous===true)return reply({error:"PERMANENT_IDENTITY_REQUIRED"},403,origin);
+    const body=await readJsonBody(req);
+    if(body?.action!=="finance-merchant-performance")
+      return reply({error:"INVALID_ACTION"},400,origin);
     const admin=createClient(URL,SECRET,{
       auth:{persistSession:false,autoRefreshToken:false}
     });
@@ -71,7 +74,9 @@ Deno.serve(async (req:Request)=>{
     return reply(data,200,origin);
   }catch(e){
     const status=Number((e as {status?:number})?.status);
-    return reply({error:status===429?"RATE_LIMITED":"FINANCE_REPORT_UNAVAILABLE"},
-      status===429?429:503,origin);
+    const responseStatus=[400,413,429].includes(status)?status:503;
+    return reply({error:responseStatus===429?"RATE_LIMITED":
+      responseStatus===413?"PAYLOAD_TOO_LARGE":responseStatus===400?"INVALID_REQUEST":"FINANCE_REPORT_UNAVAILABLE"},
+      responseStatus,origin);
   }
 });
