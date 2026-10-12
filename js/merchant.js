@@ -1560,7 +1560,7 @@ function merchantLiveCatalog(){
     <button class="primary" onclick="merchantLiveAddContainer()">Adicionar vasilhame</button>
   </div>`;
 
-  return shell(`<section class="page merchant-catalog-page"><button class="back" onclick="go('merchant')">← Operação</button><h1 class="page-title">Produtos da minha revenda</h1><p class="muted">Toque no produto que deseja vender para ajustar preço e estoque. Os produtos só entram nas ofertas quando estiverem ativos e aptos às regras aplicáveis.</p><div class="merchant-catalog-list">${rows}</div><details class="merchant-catalog-extra"><summary>Adicionar outro produto ou vasilhame</summary><div class="merchant-catalog-add-body">${addRegistered}${addGlp}${addContainer}</div></details></section>`);
+  return shell(`<section class="page merchant-catalog-page"><button class="back" onclick="go('merchant')">← Operação</button><h1 class="page-title">Produtos da minha revenda</h1><p class="muted">Toque no produto que deseja vender para ajustar preço e estoque. Os produtos só entram nas ofertas quando estiverem ativos e aptos às regras aplicáveis. Cada SKU possui sua própria confirmação de preço.</p><div class="merchant-catalog-list">${rows}</div><details class="merchant-catalog-extra"><summary>Adicionar outro produto ou vasilhame</summary><div class="merchant-catalog-add-body">${addRegistered}${addGlp}${addContainer}</div></details></section>`);
 }
 
 async function merchantLiveAddRegisteredProduct(){
