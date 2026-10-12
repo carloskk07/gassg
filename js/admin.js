@@ -693,6 +693,14 @@ function adminAttentionItems(d){
     if(x.due_at&&Date.parse(x.due_at)<now)push('high','Cashback vencido',adminMerchantName(x.merchant_id)+' • '+adminMoney(x.cashback_cents),{section:'finance'});
   }
   const billing=d.merchantBilling||{};
+  for(const row of adminInterruptedSalePaymentRows(d).filter(x=>x.kind!=='refunded').slice(0,10)){
+    push(row.kind==='conflicting'?'critical':'high',
+      'Conferir pagamento de pedido interrompido',
+      (row.order.public_code||String(row.order.id).slice(0,8))+' • '+adminBillingProviderName(row.attempt.provider)+
+        ' • '+(row.kind==='approved'?'aprovado sem estorno registrado':
+        row.kind==='review'?'resultado em revisão':'registros inconsistentes'),
+      {section:'finance'});
+  }
   for(const refund of billing.refunds||[]){
     if(refund.status==='review_required'){
       const linked=Boolean(refund.merchant_id&&refund.payment_request_id);
