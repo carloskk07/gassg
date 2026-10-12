@@ -97,6 +97,8 @@ jobs:
         run: node tests/public-conversion-v1-159.mjs
       - name: First-visit city availability V1.167 regression
         run: node tests/first-visit-clarity-v1-167.mjs
+      - name: Mobile lead form accessibility V1.168 regression
+        run: node tests/mobile-lead-forms-v1-168.mjs
       - name: Public P13 price reference V1.148 regression contract
         run: node tests/jr-public-price-reference-v1-148.mjs
       - name: Customer availability-first V1.149 regression contract
