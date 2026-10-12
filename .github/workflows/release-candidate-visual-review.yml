@@ -249,4 +249,13 @@ jobs:
           }
           Write-Host $result
           Write-Host "NO_NETWORK_NO_DATABASE_ACCESS"
+      - name: Initialize Windows Forms UI without database connection
+        shell: pwsh
+        run: |
+          $result = & powershell.exe -NoProfile -STA -ExecutionPolicy Bypass -File "tools/tamao-backup-windows/Assistente-TAMAO.ps1" -GuiSmokeTest
+          if ($LASTEXITCODE -ne 0 -or ($result | Out-String) -notmatch 'TAMAO_GUI_INITIALIZATION_OK') {
+            throw "Windows Forms initialization failed: $result"
+          }
+          Write-Host $result
+
 
