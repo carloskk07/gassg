@@ -2291,3 +2291,31 @@ body:has(.admin-page) .shell{
  .merchant-delivery-assign-form button{width:100%;min-height:52px}
  .merchant-delivery-assign-form select{font-size:16px;max-width:100%}
 }
+
+/* V1.176 — operational timeline: timestamps are evidence, not promises */
+.merchant-order-progress{border:1px solid #dce7df;border-radius:13px;margin:12px 0 11px;background:#fafdfa;min-width:0}
+.merchant-order-progress>summary{display:flex;align-items:center;min-height:48px;cursor:pointer;padding:11px 13px;color:#21583e;font-weight:780;font-size:13px}
+.merchant-order-progress>summary span{display:grid;gap:3px;min-width:0}
+.merchant-order-progress>summary small{font-size:11px;font-weight:600;color:var(--muted);line-height:1.35}
+.merchant-order-progress>summary:focus-visible{outline:3px solid #d39d43;outline-offset:3px}
+.merchant-order-progress[open]>summary{border-bottom:1px solid #e1eae3}
+.merchant-order-progress-body{padding:13px 15px 15px}
+.merchant-order-milestones{display:grid;gap:0;list-style:none;margin:0;padding:0}
+.merchant-order-milestone{display:grid;grid-template-columns:17px minmax(0,1fr);gap:11px;position:relative;padding:0 0 16px}
+.merchant-order-milestone:last-child{padding-bottom:0}
+.merchant-order-milestone:not(:last-child):before{content:"";position:absolute;left:7px;top:16px;bottom:2px;width:2px;background:#e4e9e5}
+.merchant-order-milestone-dot{width:16px;height:16px;margin-top:2px;border:2px solid #c6d2ca;background:white;border-radius:50%}
+.merchant-order-milestone.recorded .merchant-order-milestone-dot{background:#247e55;border-color:#247e55}
+.merchant-order-milestone.current .merchant-order-milestone-dot{background:#efc882;border-color:#b87b25}
+.merchant-order-milestone>div{display:grid;gap:3px;min-width:0}
+.merchant-order-milestone strong{font-size:12px;line-height:1.4}
+.merchant-order-milestone small{font-size:11px;color:var(--muted);line-height:1.35}
+.merchant-order-milestone.waiting strong{color:var(--muted);font-weight:650}
+.merchant-order-predictions{font-size:11px;line-height:1.55;color:#654f28;background:#fff9ed;border:1px solid #f1dfb9;border-radius:10px;padding:10px;margin:13px 0 0}
+.merchant-order-predictions small{display:block;color:#7a6750;font-size:11px;margin-top:5px}
+.merchant-order-transition-note{font-size:12px;line-height:1.5;color:#6d5940}
+@media(max-width:540px){
+ .merchant-order-progress>summary{min-height:50px}
+ .merchant-order-progress-body{padding:12px}
+ .merchant-order-milestone{grid-template-columns:17px minmax(0,1fr);gap:10px}
+}

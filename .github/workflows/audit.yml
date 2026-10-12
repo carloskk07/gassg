@@ -113,6 +113,8 @@ jobs:
         run: node tests/merchant-order-quick-queue-v1-174.mjs
       - name: Guided delivery team assignment V1.175 regression
         run: node tests/merchant-delivery-assignment-v1-175.mjs
+      - name: Evidence-based order milestone timeline V1.176 regression
+        run: node tests/merchant-order-milestones-v1-176.mjs
       - name: Public P13 price reference V1.148 regression contract
         run: node tests/jr-public-price-reference-v1-148.mjs
       - name: Customer availability-first V1.149 regression contract
