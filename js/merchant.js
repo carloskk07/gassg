@@ -1155,6 +1155,56 @@ function merchantOrderProgressView(order){
     '</div></details>';
 }
 
+
+/* V1.178 — support a responsible decision; these instructions never mutate the order. */
+function merchantIncidentAdvice(reason){
+  const choices={
+    stock_issue:{
+      title:'Falta ou divergência de estoque',
+      guidance:'Confira a quantidade física e o item reservado. Se não conseguir cumprir este pedido, registre a impossibilidade e depois atualize o estoque do catálogo.',
+      next:'Revisar estoque no catálogo após a confirmação.'
+    },
+    vehicle_issue:{
+      title:'Problema com o veículo',
+      guidance:'Verifique se existe transporte adequado e seguro para a entrega. Se não houver como cumprir o pedido, registre a impossibilidade.',
+      next:'Não confirme saída sem o transporte realmente disponível.'
+    },
+    staffing_issue:{
+      title:'Equipe indisponível',
+      guidance:'Consulte quem pode realizar a entrega. Proprietário e gerente podem revisar os responsáveis no painel. Se não conseguir atender, registre a impossibilidade.',
+      next:'Não atribua a entrega a alguém sem confirmação da equipe.'
+    },
+    other_operational:{
+      title:'Outro imprevisto operacional',
+      guidance:'Confira os dados do pedido e o que impede a entrega. Caso não consiga concluir, informe a impossibilidade ao sistema.',
+      next:'Não confirme saída ou entrega antes da execução real.'
+    }
+  };
+  return Object.prototype.hasOwnProperty.call(choices,reason)?choices[reason]:null;
+}
+function merchantIncidentRiskGuide(order){
+  if(order?.status!=='AT_RISK')return '';
+  const advice=merchantIncidentAdvice(String(order?.riskReason||''));
+  return '<div class="merchant-incident-risk-guide"><strong>Como proceder com este imprevisto</strong><p>'+
+    esc(advice?.guidance||'Confira o problema informado pelo sistema e se ainda é possível cumprir o pedido. Se não for possível, selecione o motivo correto em “Não consigo concluir este pedido”.')+
+    '</p><small>Nenhuma alternativa ou novo responsável é confirmado automaticamente por este aviso.</small></div>';
+}
+function merchantIncidentChoiceChanged(id){
+  const select=document.getElementById('reason-'+id);
+  const advice=merchantIncidentAdvice(String(select?.value||''));
+  const box=document.getElementById('merchant-incident-guide-'+id);
+  if(box)box.textContent=advice?advice.guidance+' '+advice.next:'Selecione o motivo para ver como proceder.';
+  const confirmation=document.getElementById('merchant-incident-confirm-'+id);
+  if(confirmation)confirmation.checked=false;
+  merchantIncidentAcknowledged(id);
+}
+function merchantIncidentAcknowledged(id){
+  const reason=String(document.getElementById('reason-'+id)?.value||'');
+  const checked=document.getElementById('merchant-incident-confirm-'+id)?.checked===true;
+  const button=document.getElementById('merchant-incident-submit-'+id);
+  if(button)button.disabled=!(checked&&merchantIncidentAdvice(reason));
+}
+
 function merchantLiveOrder(o){
   const items=(o.items||[]).map(i=>`${Number(i.quantity)}× ${esc(i.productName||i.productCode||'Item')}`).join(' • ');
   const total=BRL.format(Number(o.totalCents||0)/100);
@@ -1206,7 +1256,28 @@ function merchantLiveOrder(o){
     const dispatchButton=scheduleState.scheduled&&!scheduleState.ready
       ? `<button class="primary small" disabled>Saída ainda bloqueada</button><span class="tiny muted">Liberada por volta de ${scheduleState.opensAt?esc(new Date(scheduleState.opensAt).toLocaleString('pt-BR')):'mais perto da janela'}</span>`
       : `<button class="primary small" onclick="merchantLiveAction('${o.orderId}','dispatch')">Confirmar saída</button>`;
-    actions=`${dispatchButton}<details class="merchant-order-exception"><summary>Não consigo concluir este pedido</summary><div class="form-stack"><label for="reason-${o.orderId}">Qual foi o problema?</label><select id="reason-${o.orderId}" class="input"><option value="stock_issue">Problema de estoque</option><option value="vehicle_issue">Problema no veículo</option><option value="staffing_issue">Equipe indisponível</option><option value="other_operational">Outro problema operacional</option></select><button class="danger-btn small" onclick="merchantLiveCannotFulfill('${o.orderId}')">Não consigo concluir</button></div></details>`;
+    actions=`${dispatchButton}<details class="merchant-order-exception merchant-incident-reason">
+      <summary>Não consigo concluir este pedido</summary>
+      <div class="merchant-incident-form form-stack">
+        <p class="merchant-incident-intro">Informe o que impede sua revenda de concluir esta entrega. Nenhuma alteração será feita antes da confirmação.</p>
+        <label for="reason-${o.orderId}">O que aconteceu?</label>
+        <select id="reason-${o.orderId}" class="input" onchange="merchantIncidentChoiceChanged('${o.orderId}')">
+          <option value="">Selecione o motivo</option>
+          <option value="stock_issue">Problema de estoque</option>
+          <option value="vehicle_issue">Problema com o veículo</option>
+          <option value="staffing_issue">Equipe indisponível</option>
+          <option value="other_operational">Outro problema operacional</option>
+        </select>
+        <div class="merchant-incident-guide" id="merchant-incident-guide-${o.orderId}" aria-live="polite">Selecione o motivo para ver como proceder.</div>
+        <label class="check-row merchant-incident-ack">
+          <input id="merchant-incident-confirm-${o.orderId}" type="checkbox" onchange="merchantIncidentAcknowledged('${o.orderId}')">
+          <span><strong>Confirmo que não conseguirei cumprir este pedido</strong>
+            <small>O TAMÃO registrará a impossibilidade e reavaliará o pedido conforme suas regras. Isso não garante outra revenda disponível.</small>
+          </span>
+        </label>
+        <button type="button" id="merchant-incident-submit-${o.orderId}" class="danger-btn small" disabled onclick="merchantLiveCannotFulfill('${o.orderId}')">Registrar impossibilidade</button>
+      </div>
+    </details>`;
   }else if(o.status==='OUT_FOR_DELIVERY'){
     actions=`<button class="secondary small" onclick="merchantLiveAction('${o.orderId}','arriving')">Estou chegando</button>`;
   }else if(o.status==='ARRIVING'){
@@ -1216,6 +1287,7 @@ function merchantLiveOrder(o){
   return `<article tabindex="-1" class="order-card ${o.status==='OFFERED_TO_MERCHANT'?'new':''}" id="merchant-order-card-${esc(o.orderId)}">
     <div class="order-head"><div><div class="order-id">${esc(o.publicCode||o.orderId)}</div><div class="order-line">${items||'Itens do pedido'}</div></div><div style="text-align:right"><strong>${total}</strong><div class="tiny muted">${esc(copy[0])}</div></div></div>
     ${merchantOrderAttentionCard(o)}
+    ${merchantIncidentRiskGuide(o)}
     ${merchantOrderProgressView(o)}
     <div class="order-line">${address}</div><div class="order-line">Pagamento: ${esc(paymentLabel(o.paymentMethod))}</div>${o.paymentMethod==='cash'&&o.cashTenderCents?`<div class="order-line"><strong>Troco para: ${BRL.format(Number(o.cashTenderCents)/100)}</strong></div>`:''}${o.deliveryWindowStart?`<div class="notice success" style="margin-top:10px"><strong>Entrega agendada</strong><br>${esc(formatDeliveryWindow(o.deliveryWindowStart,o.deliveryWindowEnd))}</div>`:''}
     ${deliveryContact?`<details class="merchant-order-contact" ${['OUT_FOR_DELIVERY','ARRIVING'].includes(o.status)?'open':''}><summary>Endereço e contato para entrega</summary>${deliveryContact}</details>`:''}
@@ -1597,9 +1669,21 @@ async function merchantLiveAction(id,action){
   }catch(e){toast(String(e?.message||e))}
 }
 async function merchantLiveCannotFulfill(id){
-  if(globalThis.merchantRuntime?.actionPending===true)return;
-  const reason=document.getElementById('reason-'+id)?.value||'other_operational';
-  try{await merchantPerformAction(id,'cannot-fulfill',reason);toast('Pedido devolvido ao matching com estoque recomposto')}catch(e){toast(String(e?.message||e))}
+  const rt=globalThis.merchantRuntime||{};
+  if(rt.actionPending===true)return;
+  const order=(Array.isArray(rt.orders)?rt.orders:[]).find(item=>item.orderId===id);
+  if(!order||!['PREPARING','AT_RISK'].includes(String(order.status||''))){
+    return toast('Atualize o pedido antes de registrar a impossibilidade.');
+  }
+  const reason=String(document.getElementById('reason-'+id)?.value||'');
+  if(!merchantIncidentAdvice(reason))return toast('Selecione o motivo correto do imprevisto.');
+  if(document.getElementById('merchant-incident-confirm-'+id)?.checked!==true){
+    return toast('Confirme que sua revenda não conseguirá cumprir este pedido.');
+  }
+  try{
+    await merchantPerformAction(id,'cannot-fulfill',reason);
+    toast('Impossibilidade registrada. Confira o estado atualizado do pedido.');
+  }catch(e){toast(String(e?.message||e))}
 }
 async function merchantLiveDeliver(id){
   if(globalThis.merchantRuntime?.actionPending===true)return;
