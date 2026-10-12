@@ -2087,3 +2087,29 @@ body:has(.admin-page) .shell{
  .customer-lead-form .lead-proof,.partner-lead-form .lead-proof{gap:7px}
  .customer-lead-form .lead-consent,.partner-lead-form .lead-consent{line-height:1.5}
 }
+
+/* TAMÃO V1.169 — single-screen merchant registration and clear order actions */
+.merchant-join-form{min-width:0;gap:13px}
+.merchant-join-form .field-row{min-width:0}
+.merchant-join-form .input-wrap{min-width:0}
+.merchant-join-form .input{font-size:16px;max-width:100%;min-height:48px}
+.merchant-join-form .field-hint{display:block;font-size:12px;line-height:1.5;color:var(--muted);margin-top:5px}
+.merchant-join-intro{display:grid;gap:4px;margin-top:6px}
+.merchant-join-intro strong{font-size:15px;color:var(--ink)}
+.merchant-join-intro small,.merchant-join-footer{font-size:12px;line-height:1.5;color:var(--muted)}
+.merchant-join-form button[type="submit"]{min-height:52px;white-space:normal}
+.merchant-join-form .input[aria-invalid="true"]{border-color:#ad3946;outline:2px solid rgba(173,57,70,.18)}
+.merchant-order-next{display:grid;gap:4px;background:#f2f8f4;border:1px solid #d8e9df;border-radius:12px;padding:10px 12px;margin-top:12px;line-height:1.45;font-size:12px}
+.merchant-order-next strong{color:#185538;font-size:11px}
+.merchant-order-exception{width:100%;border-top:1px solid var(--line);padding-top:10px;margin-top:6px}
+.merchant-order-exception summary{cursor:pointer;min-height:44px;display:flex;align-items:center;color:#8c3440;font-weight:750;font-size:12px}
+.merchant-order-exception summary:focus-visible{outline:3px solid #c78e1e;outline-offset:2px}
+.merchant-order-exception .form-stack{padding:9px 0 3px;gap:10px}
+.merchant-order-exception .form-stack .input{max-width:100%;min-height:44px}
+.merchant-live-actions{align-items:center}
+@media(max-width:520px){
+ .merchant-join-form{padding:16px}
+ .merchant-join-form .field-row{display:grid;grid-template-columns:minmax(0,1fr);gap:12px}
+ .merchant-live-actions>button{min-height:48px}
+ .merchant-order-exception .form-stack button{min-height:46px;width:100%}
+}
