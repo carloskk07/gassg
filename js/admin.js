@@ -38,6 +38,7 @@ const adminRuntime={
   paymentPreflights:{},
   saleRefundFilter:'all',
   salePaymentHistory:{attempts:[],interruptedOrders:[],nextCursor:null,hasMore:false,loading:false,error:null,started:false,checkedAt:null},
+  financeHistory:{data:null,loading:false,error:null,checkedAt:null},
   prospectReport:null,
   expansionRadar:[],
   expansionRadarLoading:false,
@@ -339,6 +340,7 @@ async function adminSignOut(){
   adminRuntime.providerHealthPending=false;
   adminRuntime.paymentPreflights={};
   adminRuntime.salePaymentHistory={attempts:[],interruptedOrders:[],nextCursor:null,hasMore:false,loading:false,error:null,started:false,checkedAt:null};
+  adminRuntime.financeHistory={data:null,loading:false,error:null,checkedAt:null};
   try{sessionStorage.removeItem('tamao-admin-provider-health-v1')}catch{}
   adminRuntime.auditResults=null;
   adminRuntime.auditPending=false;
@@ -367,6 +369,7 @@ async function adminRefresh({silent=false}={}){
     adminRuntime.error=null;
     adminRuntime.lastSyncAt=new Date().toISOString();
     queueMicrotask(()=>adminEnsureProviderHealth().catch(()=>{}));
+    if(adminRuntime.section==='finance')queueMicrotask(()=>adminLoadFinanceHistory().catch(()=>{}));
     return data;
   }catch(error){
     if(seq!==adminRuntime.refreshSeq)return null;
@@ -374,6 +377,7 @@ async function adminRefresh({silent=false}={}){
       adminRuntime.status='no-access';
       adminRuntime.data=null;
       adminRuntime.salePaymentHistory={attempts:[],interruptedOrders:[],nextCursor:null,hasMore:false,loading:false,error:null,started:false,checkedAt:null};
+  adminRuntime.financeHistory={data:null,loading:false,error:null,checkedAt:null};
       adminRuntime.enablementMerchants=[];
       adminRuntime.enablementLoaded=false;
       adminRuntime.error=null;
@@ -384,6 +388,7 @@ async function adminRefresh({silent=false}={}){
       adminRuntime.session=null;
       adminRuntime.data=null;
       adminRuntime.salePaymentHistory={attempts:[],interruptedOrders:[],nextCursor:null,hasMore:false,loading:false,error:null,started:false,checkedAt:null};
+  adminRuntime.financeHistory={data:null,loading:false,error:null,checkedAt:null};
       adminRuntime.searchQuery='';
       adminRuntime.searchResults=[];
       adminRuntime.detail=null;
@@ -1256,6 +1261,7 @@ function adminSetSection(section){
     adminLoadExpansionRadar().catch(()=>{});
   }
   if(next==='enablement')adminLoadEnablement().catch(()=>{});
+  if(next==='finance')adminLoadFinanceHistory().catch(()=>{});
   requestAnimationFrame(()=>{
     document.querySelector('.admin-main')?.scrollIntoView({block:'start'});
   });
@@ -1745,6 +1751,73 @@ function adminBillingPaymentEventCard(event){
   </article>`;
 }
 
+/* V1.188 — database-wide historical numbers, never estimated from recent rows. */
+function adminFinanceHistoryIsFresh(state,now=Date.now()){
+  if(!state?.data||!state.checkedAt)return false;
+  const t=Date.parse(state.checkedAt);
+  return Number.isFinite(t)&&t<=now+60000&&now-t<=10*60000;
+}
+async function adminLoadFinanceHistory({force=false}={}){
+  if(adminRuntime.status!=='ready'||!adminRuntime.session)return;
+  if(!['superadmin','finance'].includes(adminCurrentRole()))return;
+  const state=adminRuntime.financeHistory||{};
+  if(state.loading||(!force&&adminFinanceHistoryIsFresh(state)))return;
+  const session=adminRuntime.session;
+  adminRuntime.financeHistory={...state,loading:true,error:null};
+  render();
+  try{
+    const data=await adminInvoke({action:'finance-receipts-history'});
+    if(session!==adminRuntime.session||adminRuntime.status!=='ready'||!['superadmin','finance'].includes(adminCurrentRole()))return;
+    const numeric=v=>Number.isSafeInteger(v)&&v>=0;
+    if(data?.source!=='database_complete'||!Array.isArray(data.monthly)||data.monthly.length!==6
+      ||!data.kindTotals||!Number.isFinite(Date.parse(String(data.generatedAt||'')))
+      ||!['package_purchase','statement_payment','refund_recovery'].every(key=>{
+        const row=data.kindTotals[key];
+        return row&&['approvedCents','linkedRefundCents','approved30dCents','linkedRefund30dCents','approvedCount','linkedRefundCount'].every(field=>numeric(row[field]));
+      })||!numeric(data.unlinkedRefundCount)||!numeric(data.unlinkedRefundCents)
+      ||!numeric(data.unverifiableApprovedCount)||!data.monthly.every(row=>
+        /^\d{4}-\d{2}$/.test(String(row.month||''))
+        &&numeric(row.approvedCents)&&numeric(row.linkedRefundCents)&&numeric(row.approvedCount)))
+      throw new Error('Os totais históricos retornaram um formato inesperado.');
+    adminRuntime.financeHistory={data,loading:false,error:null,checkedAt:new Date().toISOString()};
+  }catch(e){
+    if(session===adminRuntime.session){
+      adminRuntime.financeHistory={...state,loading:false,error:String(e?.message||e),checkedAt:state.checkedAt||null};
+    }
+  }finally{if(session===adminRuntime.session)render();}
+}
+function adminFinanceHistoryView(){
+  if(!adminRoleCanSection('finance'))return '';
+  const state=adminRuntime.financeHistory||{};
+  const data=state.data;
+  const fresh=adminFinanceHistoryIsFresh(state);
+  const types=[
+    ['package_purchase','Pacotes de crédito','Pré-pagamento para taxas futuras; não equivale a receita ganha'],
+    ['statement_payment','Taxas diárias D+1','Cobranças de taxas já apuradas'],
+    ['refund_recovery','Recuperações de refund','Ressarcimentos, não vendas novas']
+  ];
+  const rows=data?types.map(([kind,label,detail])=>{
+    const x=data.kindTotals[kind];
+    if(!x)return '';
+    return `<div class='admin-managerial-row'><div><strong>${esc(label)}</strong><small>${esc(detail)} • ${Number(x.approvedCount)} aprovação(ões) no histórico</small></div><div class='admin-finance-history-amount'><strong>${adminMoney(x.approvedCents)}</strong><small>Reembolsos vinculados: ${adminMoney(x.linkedRefundCents)}</small><small>Após reembolsos: ${adminMoney(x.netAfterLinkedRefundsCents)}</small><small>Últimos 30 dias: ${adminMoney(x.approved30dCents)}</small></div></div>`;
+  }).join(''):'';
+  const months=data?data.monthly.map(row=>
+    `<tr><th scope='row'>${esc(row.month)}</th><td>${adminMoney(row.approvedCents)}</td><td>${adminMoney(row.linkedRefundCents)}</td><td>${adminMoney(row.netAfterLinkedRefundsCents)}</td></tr>`
+  ).join(''):'';
+  const warnings=data&&(Number(data.unlinkedRefundCount)>0||Number(data.unverifiableApprovedCount)>0)
+    ?`<div class='notice danger'><strong>Dados para conferir.</strong><br>${Number(data.unlinkedRefundCount)} reembolso(s) não vinculado(s) a aprovações • ${adminMoney(data.unlinkedRefundCents)} • ${Number(data.unverifiableApprovedCount)} aprovação(ões) sem classificação ou comprovação completa. O líquido exibido considera apenas reembolsos vinculados.</div>`:'';
+  return `<section class='section admin-finance-history' aria-label='Histórico financeiro completo'>
+    <div class='section-head'><div><span class='section-kicker'>HISTÓRICO CONSOLIDADO</span><h2>Recebimentos aprovados no TAMÃO</h2><p>Todos os registros elegíveis do banco, sem limite de paginação. Aprovado pelo Financeiro não substitui o extrato do provedor.</p></div><button type='button' class='secondary small' onclick='adminLoadFinanceHistory({force:true})' ${state.loading?'disabled':''}>${state.loading?'Conferindo…':'Atualizar histórico'}</button></div>
+    ${state.error?`<div class='notice danger'>${esc(state.error)}</div>`:''}
+    ${!data?`<div class='card flat'><p class='tiny muted'>${state.loading?'Consultando histórico completo…':'Ainda não há consulta histórica validada nesta sessão.'}</p></div>`:
+    `<div class='tiny muted'>Fonte: banco completo • gerado em ${esc(formatDateTime(data.generatedAt))} • ${fresh?'Consulta recente':'Consulta desatualizada: confirme novamente'}</div>
+     ${warnings}
+     <div class='card flat'><h3>Histórico por tipo de recebimento</h3>${rows}</div>
+     <div class='card flat' style='margin-top:12px'><h3>Evolução dos últimos seis meses</h3><div class='admin-finance-history-scroll'><table><thead><tr><th>Mês</th><th>Aprovado</th><th>Refund vinculado</th><th>Após refunds</th></tr></thead><tbody>${months}</tbody></table></div></div>
+     <p class='tiny muted'>Períodos mensais em horário de Brasília. O total após refunds é uma leitura operacional, não saldo bancário nem lucro líquido. Crédito antecipado e recuperação seguem separados da receita por competência.</p>`}
+  </section>`;
+}
+
 /* V1.187 — management reading, not an accounting cash statement.
    Exact server aggregates and bounded receipt samples must never be summed together. */
 function adminFinanceManagementSnapshot(d){
@@ -1752,7 +1825,7 @@ function adminFinanceManagementSnapshot(d){
   const requests=Array.isArray(billing.paymentRequests)?billing.paymentRequests:[];
   const kinds={
     package_purchase:{count:0,cents:0},
-    daily_statement:{count:0,cents:0},
+    statement_payment:{count:0,cents:0},
     refund_recovery:{count:0,cents:0}
   };
   const safeCents=value=>{
@@ -1814,7 +1887,7 @@ function adminFinanceManagementView(d){
         <p class='tiny muted'>Amostra das ${s.recordsShown} solicitações mais recentes carregadas (limite de 300). Apenas aprovadas, usando valores recebidos registrados; não é extrato bancário nem total histórico.</p>
         <div class='admin-managerial-rows'>
           ${bucket('package_purchase','Pacotes de crédito','Entrada antecipada para taxas futuras; não contabilizar tudo como receita')} 
-          ${bucket('daily_statement','Cobranças diárias D+1','Pagamento de taxas já apuradas')} 
+          ${bucket('statement_payment','Cobranças diárias D+1','Pagamento de taxas já apuradas')} 
           ${bucket('refund_recovery','Recuperações de refund','Ressarcimentos; não são nova venda')} 
         </div>
         <small class='tiny muted'>${s.approvedCount} solicitação(ões) aprovada(s) com finalidade conhecida na amostra.${s.amountUnavailable?' '+s.amountUnavailable+' sem valor monetário confiável (excluídas das somas).':''}${s.recordsCapped?' Há registros anteriores fora da amostra.':''} Valores brutos, sem subtrair refunds ou ajustes posteriores.</small>
@@ -3416,6 +3489,7 @@ function adminPage(){
   const financeContent=`
     ${adminFinanceOverview(d)}
     ${adminFinanceManagementView(d)}
+    ${adminFinanceHistoryView()}
     ${adminInterruptedSalePaymentWatch(d)}
     ${adminMerchantBillingSection(d)}
     ${adminCommercialPolicySection(d)}
@@ -4255,6 +4329,7 @@ globalThis.adminSendLogin=adminSendLogin;
 globalThis.adminRetryBootstrapFromUi=adminRetryBootstrapFromUi;
 globalThis.adminSignOut=adminSignOut;
 globalThis.adminRefresh=adminRefresh;
+globalThis.adminLoadFinanceHistory=adminLoadFinanceHistory;
 globalThis.adminPoll=adminPoll;
 globalThis.adminPage=adminPage;
 globalThis.adminRetryReward=adminRetryReward;

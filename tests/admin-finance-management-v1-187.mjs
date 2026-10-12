@@ -34,10 +34,10 @@ const d={
     reconciliation:{issueCount:2},
     paymentRequests:[
       entry('p1','package_purchase','approved',10000),
-      entry('p2','daily_statement','approved',500),
+      entry('p2','statement_payment','approved',500),
       entry('p3','refund_recovery','approved',200),
-      entry('p4','daily_statement','pending',50000),
-      entry('p5','daily_statement','rejected',8000),
+      entry('p4','statement_payment','pending',50000),
+      entry('p5','statement_payment','rejected',8000),
       entry('p1','package_purchase','approved',10000),
       entry('p6','package_purchase','approved',null),
       entry('p7','unknown_type','approved',9999)
@@ -56,7 +56,7 @@ assert.equal(s.pendingReview,7000);
 assert.equal(s.disputes,2);
 assert.equal(s.kinds.package_purchase.count,2);
 assert.equal(s.kinds.package_purchase.cents,10000,'Do not double-count duplicate IDs or unknown amounts');
-assert.equal(s.kinds.daily_statement.cents,500,'Do not include self-reported pending payments');
+assert.equal(s.kinds.statement_payment.cents,500,'Do not include self-reported pending payments');
 assert.equal(s.kinds.refund_recovery.cents,200,'Recovery is not a new platform sale');
 assert.equal(s.approvedCount,4);
 assert.equal(s.amountUnavailable,1);
@@ -88,7 +88,7 @@ assert.ok(ctx.view(withoutMetrics).includes('—'),'Missing cannot become zero')
 const unproven=ctx.view({...d,merchantPayments:{fundsOwner:'platform',tamaoReceivesSaleProceeds:true}});
 assert.ok(unproven.includes('Rota de fundos sem confirmação'));
 const cappedData={...d,merchantBilling:{...d.merchantBilling,
-  paymentRequests:Array.from({length:300},(_,i)=>entry('x'+i,'daily_statement','pending',50))}};
+  paymentRequests:Array.from({length:300},(_,i)=>entry('x'+i,'statement_payment','pending',50))}};
 assert.equal(ctx.snapshot(cappedData).recordsCapped,true);
 assert.ok(ctx.view(cappedData).includes('Há registros anteriores fora da amostra'));
 role='readonly';

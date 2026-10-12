@@ -2488,3 +2488,17 @@ body:has(.admin-page) .shell{
 @media(max-width:1000px){.admin-managerial-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media(max-width:680px){.admin-managerial-details{grid-template-columns:minmax(0,1fr)}.admin-managerial-grid{grid-template-columns:minmax(0,1fr) minmax(0,1fr)}}
 @media(max-width:420px){.admin-managerial-grid{grid-template-columns:minmax(0,1fr)}.admin-managerial-stat>strong{font-size:25px}.admin-managerial-row{flex-wrap:wrap}}
+
+/* V1.188 — finance history is read-only and scrolls on narrow viewports */
+.admin-finance-history .section-head{align-items:flex-start}
+.admin-finance-history .section-head p{max-width:670px}
+.admin-finance-history .admin-managerial-row{align-items:flex-start}
+.admin-finance-history-amount{min-width:160px;text-align:right}
+.admin-finance-history-amount>strong{font-size:15px;display:block;font-variant-numeric:tabular-nums}
+.admin-finance-history-amount small{display:block;color:var(--muted);font-size:11px;line-height:1.5;margin-top:3px}
+.admin-finance-history-scroll{overflow-x:auto;max-width:100%;-webkit-overflow-scrolling:touch}
+.admin-finance-history-scroll table{width:100%;border-collapse:collapse;font-size:12px;text-align:right;min-width:470px}
+.admin-finance-history-scroll th,.admin-finance-history-scroll td{padding:10px 8px;border-bottom:1px solid var(--line);white-space:nowrap;font-variant-numeric:tabular-nums}
+.admin-finance-history-scroll th:first-child{text-align:left}
+.admin-finance-history-scroll thead th{font-weight:700;font-size:11px}
+@media(max-width:520px){.admin-finance-history .section-head{display:grid;gap:10px}.admin-finance-history-amount{min-width:0}.admin-finance-history .admin-managerial-row{flex-wrap:wrap}.admin-finance-history-amount{text-align:left}}
