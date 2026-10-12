@@ -2597,3 +2597,20 @@ article[id^="admin-finance-"][tabindex="-1"]:focus{outline:3px solid var(--brand
 .admin-billing-guide-step button{min-height:44px;margin:9px 0 4px}
 .admin-billing-guided-review :focus-visible{outline:3px solid var(--brand);outline-offset:3px}
 @media(max-width:500px){.admin-billing-guided-review{padding:10px}.admin-billing-guide-step{grid-template-columns:24px minmax(0,1fr);gap:8px}.admin-billing-guide-step button{width:100%}}
+
+/* V1.195 — action-focused queue for partner onboarding and merchant readiness */
+.admin-partner-worklist .section-head{align-items:flex-start}
+.admin-partner-worklist .section-head p{max-width:720px}
+.admin-partner-work-heading{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px}
+.admin-partner-work-heading strong{font-size:13px}
+.admin-partner-work-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin:14px 0}
+.admin-partner-work-row{display:flex;justify-content:space-between;align-items:center;gap:12px;border:1px solid var(--line);border-radius:12px;padding:12px;min-width:0}
+.admin-partner-work-row>div{min-width:0}
+.admin-partner-work-row strong{display:block;font-size:13px;line-height:1.45;overflow-wrap:anywhere}
+.admin-partner-work-row small{display:block;font-size:12px;line-height:1.5;color:var(--muted);margin-top:5px;overflow-wrap:anywhere}
+.admin-partner-work-kind{display:inline-block;font-size:10px;font-weight:800;color:var(--muted);margin-top:6px}
+.admin-partner-work-row button{min-height:44px;flex-shrink:0}
+article[id^="admin-partner-work-"][tabindex="-1"]:focus{outline:3px solid var(--brand);outline-offset:3px}
+@media(max-width:980px){.admin-partner-work-grid{grid-template-columns:1fr}}
+@media(max-width:500px){.admin-partner-work-row{flex-wrap:wrap}.admin-partner-work-row button{width:100%}.admin-partner-worklist .section-head{display:grid;gap:7px}}
+@media(max-width:340px){.admin-partner-work-row{padding:10px}.admin-partner-work-row button{min-height:48px}}
