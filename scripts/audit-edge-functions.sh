@@ -150,7 +150,11 @@ for f in $(find supabase/functions -mindepth 2 -maxdepth 2 -name 'index.ts' | so
       grep -q 'repository_id' "$f" || { echo "$f missing immutable repository id binding"; exit 1; }
       grep -q 'repository_owner_id' "$f" || { echo "$f missing immutable owner id binding"; exit 1; }
       grep -q 'workflow_ref' "$f" || { echo "$f missing exact workflow claim binding"; exit 1; }
-      grep -q 'https://api.github.com/repos/carloskk07/gassg/commits/main' "$f" || { echo "$f missing independent GitHub main proof"; exit 1; }
+      grep -Fq 'https://api.github.com/repos/carloskk07/gassg/git/ref/heads/main' "$f" || { echo "$f missing independent GitHub main ref proof"; exit 1; }
+      grep -Fq 'data?.object?.sha' "$f" || { echo "$f missing immutable commit SHA extraction"; exit 1; }
+      grep -Fq 'data?.ref!=="refs/heads/main"' "$f" || { echo "$f missing canonical ref identity check"; exit 1; }
+      grep -Fq 'canonicalSha!==expectedSourceSha' "$f" || { echo "$f missing canonical SHA match"; exit 1; }
+      ! grep -Fq 'github.com/repos/carloskk07/gassg/commits/main' "$f" || { echo "$f uses oversized commit endpoint"; exit 1; }
       grep -q 'record_automated_portal_attestation' "$f" || { echo "$f missing server-only portal attestation authority"; exit 1; }
       grep -q 'readJsonBody(req,{maxBytes:4096})' "$f" || { echo "$f missing small payload cap"; exit 1; }
       ! grep -q 'admin_operation_mode_action' "$f" || { echo "$f must not mutate operation mode"; exit 1; }
