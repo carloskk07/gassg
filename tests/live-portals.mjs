@@ -42,13 +42,24 @@ for(const {role,path:dir} of built){
   const robots=fs.readFileSync(path.join(dir,'robots.txt'),'utf8');
   const html=fs.readFileSync(path.join(dir,'index.html'),'utf8');
   const headers=fs.readFileSync(path.join(dir,'_headers'),'utf8');
-  if(role==='customer'){
+  if(role!=='admin'){
+    const canonical=role==='customer'?'https://tamao.com.br/':'https://parceiro.tamao.com.br/';
     assert.match(robots,/Allow:\s*\//);
+    assert.ok(robots.includes('Sitemap: '+canonical+'sitemap.xml'),
+      'Public portal should advertise its own sitemap: '+role);
+    assert.ok(!robots.includes('Disallow: /'),'Public acquisition must be crawlable: '+role);
     assert.ok(fs.existsSync(path.join(dir,'sitemap.xml')));
+    const sitemap=fs.readFileSync(path.join(dir,'sitemap.xml'),'utf8');
+    assert.ok(sitemap.includes('<loc>'+canonical+'</loc>'),'Sitemap must use the correct portal origin');
+    const other=role==='customer'?'https://parceiro.tamao.com.br/':'https://tamao.com.br/';
+    assert.ok(!sitemap.includes('<loc>'+other+'</loc>'),'Sitemap must not advertise the other portal');
     assert.ok(html.includes('name="robots" content="index,follow,max-image-preview:large"'));
-    assert.ok(!headers.includes('X-Robots-Tag: noindex'));
+    assert.ok(!headers.includes('X-Robots-Tag: noindex'),
+      'Public lead acquisition cannot be blocked via HTTP headers');
   }else{
     assert.match(robots,/Disallow:\s*\//);
+    assert.ok(!fs.existsSync(path.join(dir,'sitemap.xml')),
+      'Administrative routes must never have a sitemap');
     assert.ok(html.includes('name="robots" content="noindex,nofollow,noarchive,nosnippet"'));
     assert.ok(headers.includes('X-Robots-Tag: noindex'));
   }
