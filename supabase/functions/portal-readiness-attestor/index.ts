@@ -17,7 +17,7 @@ const WORKFLOW_REF=
   "carloskk07/gassg/.github/workflows/launch-readiness.yml@refs/heads/main";
 const ALLOWED_EVENTS=new Set(["push","schedule","workflow_dispatch"]);
 const GITHUB_MAIN_API=
-  "https://api.github.com/repos/carloskk07/gassg/commits/main";
+  "https://api.github.com/repos/carloskk07/gassg/git/ref/heads/main";
 
 const PORTALS={
   customer:{origin:"https://tamao.com.br",title:"TAMÃO — Pediu? Tá na mão."},
@@ -207,8 +207,13 @@ async function githubMainSha(){
       503
     );
   }
-  const data=await boundedJson(response,"GitHub main",500_000);
-  const sha=String(data?.sha??"").trim().toLowerCase();
+  // GitHub /commits/main may include hundreds of file patches and exceed 500 KB.
+  // The Git ref is a tiny authoritative SHA pointer, even after huge merges.
+  const data=await boundedJson(response,"GitHub main",30_000);
+  if(data?.ref!=="refs/heads/main"||data?.object?.type!=="commit"){
+    throw new DomainError("GITHUB_MAIN_INVALID","Referência canônica do GitHub inválida.",503);
+  }
+  const sha=String(data?.object?.sha??"").trim().toLowerCase();
   if(!/^[0-9a-f]{40}$/.test(sha)){
     throw new DomainError("GITHUB_MAIN_INVALID","SHA canônico do GitHub inválido.",503);
   }
@@ -357,6 +362,7 @@ Deno.serve(async(req:Request)=>{
     },200);
   }catch(error){
     if(error instanceof DomainError){
+      console.warn("portal-readiness-attestor policy gate",error.code,error.status);
       return json({error:error.code,message:error.message},error.status);
     }
     console.error(

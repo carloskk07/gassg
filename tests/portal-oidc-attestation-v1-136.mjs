@@ -56,8 +56,11 @@ assert.ok(
   'claims OIDC precisam prender repo, IDs imutáveis, workflow, branch e runner'
 );
 assert.ok(
-  attestor.includes('https://api.github.com/repos/carloskk07/gassg/commits/main')
-  &&attestor.includes('canonicalSha!==expectedSourceSha'),
+  attestor.includes('https://api.github.com/repos/carloskk07/gassg/git/ref/heads/main')
+  &&attestor.includes('canonicalSha!==expectedSourceSha')
+  &&attestor.includes('data?.object?.sha')
+  &&attestor.includes('data?.ref!=="refs/heads/main"')
+  &&!attestor.includes('github.com/repos/carloskk07/gassg/commits/main'),
   'OIDC sozinho não basta: endpoint precisa revalidar o SHA canônico do main'
 );
 for(const origin of [
