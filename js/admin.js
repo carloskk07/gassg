@@ -1849,7 +1849,7 @@ function adminBillingPaymentEventCard(event){
     <div class="tiny muted">ID conciliável: ${esc(event.reconciliation_key)}${event.payer_reference?' • pagador '+esc(event.payer_reference):''}</div>
     ${event.match_reason?`<div class="tiny muted">Conciliação: ${esc(adminBillingPaymentMatchReasonLabel(event.match_reason))}</div>`:''}
     ${event.provider_correlation_id?`<div class="tiny muted">Correlação TAMÃO/PSP: ${esc(event.provider_correlation_id)}</div>`:''}
-    ${matched&&event.payment_request_id?`<div class="notice success" style="margin-top:10px"><strong>Correspondência exata encontrada.</strong><br>Valor e identificador coincidem com uma solicitação pendente.</div><div class="order-actions"><button class="primary small" onclick="adminResolveBillingPaymentRequest('${esc(event.payment_request_id)}','approve','${esc(event.id)}')">Confirmar evento conciliado</button></div>`:''}
+    ${matched&&event.payment_request_id?`<div class="notice success" style="margin-top:10px"><strong>Correspondência exata encontrada.</strong><br>Valor e identificador coincidem com uma solicitação pendente.</div><div class="order-actions"><button class="secondary small" onclick="adminFocusFinanceRecord('request','${esc(event.payment_request_id)}')">Revisar solicitação conciliada</button></div>`:''}
     ${review?`<div class="notice" style="margin-top:10px"><strong>Revisão obrigatória.</strong><br>O evento não movimentou saldo porque não houve correspondência exata e única.</div><div class="order-actions"><button class="secondary small" onclick="adminBillingPaymentEventAction('${esc(event.id)}','recheck')">Reprocessar conciliação</button><button class="ghost small" onclick="adminBillingPaymentEventAction('${esc(event.id)}','ignore')">Ignorar evento</button></div>`:''}
   </article>`;
 }
@@ -4594,6 +4594,7 @@ async function adminResolveBillingPaymentRequest(paymentRequestId,requestAction,
   )){
     return toast('O evento conciliado mudou. Atualize o painel antes de aprovar.');
   }
+  if(approve&&review&&review.confirmed!==true)return toast('Conferência do recebimento não confirmada.');
   let receivedAmountCents=null;
   let paymentMethod=null;
   let reconciliationKey=null;
