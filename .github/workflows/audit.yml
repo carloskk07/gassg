@@ -99,6 +99,8 @@ jobs:
         run: node tests/first-visit-clarity-v1-167.mjs
       - name: Mobile lead form accessibility V1.168 regression
         run: node tests/mobile-lead-forms-v1-168.mjs
+      - name: Simple merchant signup and order next step V1.169 regression
+        run: node tests/merchant-simple-flow-v1-169.mjs
       - name: Public P13 price reference V1.148 regression contract
         run: node tests/jr-public-price-reference-v1-148.mjs
       - name: Customer availability-first V1.149 regression contract
