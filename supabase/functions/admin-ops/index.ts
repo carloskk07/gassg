@@ -99,13 +99,13 @@ async function requireAdmin(admin:any,userId:string){
   if(!data)throw new DomainError("ADMIN_ACCESS_DENIED","Esta conta não possui acesso administrativo.",403);
   return data;
 }
-const ADMIN_READ_ACTIONS=new Set(["summary","search","entity-detail","system-health","billing-provider-health","audit-search","incident-list","merchant-payment-preflight","prospect-intelligence","expansion-notifications","expansion-radar","merchant-enablement","sale-payment-history","finance-receipts-history"]);
+const ADMIN_READ_ACTIONS=new Set(["summary","search","entity-detail","system-health","billing-provider-health","audit-search","incident-list","merchant-payment-preflight","prospect-intelligence","expansion-notifications","expansion-radar","merchant-enablement","sale-payment-history","finance-receipts-history","commercial-history-list"]);
 const ADMIN_ROLE_ACTIONS:Record<string,Set<string>>={
   superadmin:new Set(["*"]),
   operations:new Set([
     "approve-application","reject-application","verify-merchant","activate-merchant","suspend-merchant",
     "set-delivery-capability","merchant-representation-review","order-control","support-case-status","lead-status","public-request-status",
-    "pilot-invite","assisted-merchant-onboarding","product-registry","verify-launch-portals","incident-action","market-city-pause","city-notification-status","prospect-crm","prospect-invite"
+    "pilot-invite","assisted-merchant-onboarding","product-registry","verify-launch-portals","incident-action","market-city-pause","city-notification-status","prospect-crm","prospect-invite","commercial-history-capture"
   ]),
   finance:new Set([
     "financial-action","review-referral","retry-reward","retry-accounting","reverse-order",
@@ -1797,6 +1797,19 @@ Deno.serve(async(req:Request)=>{
       return json({merchants:data||[],asOf:new Date().toISOString(),
         source:"market_city_offer_scope",readOnly:true},200,origin);
     }
+    if(action==="commercial-history-list"){
+      if(!["superadmin","operations","compliance","readonly"].includes(String(adminAccess.admin_role))){
+        throw new DomainError("ADMIN_PERMISSION_DENIED","Perfil sem acesso ao histórico comercial.",403);
+      }
+      const {data,error}=await admin.rpc("admin_list_city_commercial_history_v1_205",{
+        p_actor_user_id:user.id
+      });
+      if(error)throw error;
+      if(data?.source!=="database_authoritative"||!Array.isArray(data?.snapshots)){
+        throw new DomainError("COMMERCIAL_HISTORY_NOT_READY","Histórico comercial ainda não está disponível.",503);
+      }
+      return json(data,200,origin);
+    }
     if(action==="expansion-radar"){
       if(!["superadmin","operations","compliance","readonly"].includes(String(adminAccess.admin_role))){
         throw new DomainError("ADMIN_PERMISSION_DENIED","Seu perfil não pode consultar cidades.",403);
@@ -1891,6 +1904,21 @@ Deno.serve(async(req:Request)=>{
       throw new DomainError("INVALID_IDEMPOTENCY_KEY","Chave de idempotência obrigatória para mutações administrativas.",400);
     }
 
+    if(action==="commercial-history-capture"){
+      if(!["superadmin","operations"].includes(String(adminAccess.admin_role))){
+        throw new DomainError("ADMIN_PERMISSION_DENIED","Somente a administração comercial pode registrar o histórico.",403);
+      }
+      // One immutable server-computed snapshot per UTC hour across admins.
+      // The idempotency header and DB uniqueness protect repeated taps.
+      const {data,error}=await admin.rpc("admin_capture_city_commercial_history_v1_205",{
+        p_actor_user_id:user.id
+      });
+      if(error)throw error;
+      if(!data?.id||data?.source!=="server_authoritative"){
+        throw new DomainError("COMMERCIAL_HISTORY_WRITE_FAILED","Histórico comercial não confirmado.",503);
+      }
+      return json(data,200,origin);
+    }
     if(action==="prospect-crm"){
       const cnpj=String(body.cnpj||"").replace(/\D/g,"");
       if(!/^[0-9]{14}$/.test(cnpj))throw new DomainError("INVALID_PROSPECT_CNPJ","CNPJ inválido.",400);
