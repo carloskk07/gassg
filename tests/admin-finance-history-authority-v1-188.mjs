@@ -48,6 +48,8 @@ const ctx=vm.createContext({
   adminInvoke:async()=>{remoteCalls++;return remote();}
 });
 vm.runInContext(cut('adminFinanceHistoryIsFresh')+'\nasync '+cut('adminLoadFinanceHistory')
+  +'\n'+cut('adminFinanceMonthlyComparison')
+  +'\n'+cut('adminFinanceMonthlyComparisonView')
   +'\n'+cut('adminFinanceHistoryView')
   +';this.fresh=adminFinanceHistoryIsFresh;this.load=adminLoadFinanceHistory;this.view=adminFinanceHistoryView;',ctx);
 assert.ok(ctx.view().includes('Ainda não há consulta histórica validada'));

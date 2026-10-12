@@ -1786,6 +1786,79 @@ async function adminLoadFinanceHistory({force=false}={}){
     }
   }finally{if(session===adminRuntime.session)render();}
 }
+/* V1.189 — only completed Brazilian calendar months compared; no revenue inference. */
+function adminFinanceMonthlyComparison(data){
+  const fail=reason=>({ok:false,reason});
+  if(data?.source!=='database_complete'||!Array.isArray(data.monthly)||data.monthly.length!==6)
+    return fail('Não há seis meses consecutivos com fonte verificável.');
+  const generatedAt=new Date(data.generatedAt);
+  if(!Number.isFinite(generatedAt.getTime()))return fail('Data de referência indisponível.');
+  const parts=new Intl.DateTimeFormat('en-US',{timeZone:'America/Sao_Paulo',year:'numeric',month:'2-digit'}).formatToParts(generatedAt);
+  const year=parts.find(x=>x.type==='year')?.value;
+  const month=parts.find(x=>x.type==='month')?.value;
+  const referenceMonth=year&&month?year+'-'+month:null;
+  const rows=data.monthly;
+  let previousIndex=null;
+  for(const r of rows){
+    if(!/^\d{4}-(0[1-9]|1[0-2])$/.test(String(r?.month||'')))
+      return fail('Períodos mensais inconsistentes.');
+    const [yy,mm]=r.month.split('-').map(Number);
+    const index=yy*12+mm-1;
+    if(previousIndex!==null&&index!==previousIndex+1)
+      return fail('Há meses ausentes ou repetidos no histórico.');
+    previousIndex=index;
+    if(!['approvedCents','linkedRefundCents','approvedCount'].every(k=>
+      Number.isSafeInteger(r[k])&&r[k]>=0))
+      return fail('Valores mensais inválidos.');
+    if(!Number.isSafeInteger(r.approvedCents-r.linkedRefundCents)||
+      r.netAfterLinkedRefundsCents!==r.approvedCents-r.linkedRefundCents)
+      return fail('Os totais e reembolsos não conferem.');
+  }
+  if(rows[5].month!==referenceMonth)
+    return fail('Período atual diferente da referência do servidor.');
+  const previous=rows[3],latest=rows[4],partial=rows[5];
+  const delta=(a,b)=>Number.isSafeInteger(a-b)?a-b:null;
+  const approvedDelta=delta(latest.approvedCents,previous.approvedCents);
+  const refundDelta=delta(latest.linkedRefundCents,previous.linkedRefundCents);
+  const netDelta=delta(latest.netAfterLinkedRefundsCents,previous.netAfterLinkedRefundsCents);
+  const countDelta=delta(latest.approvedCount,previous.approvedCount);
+  if([approvedDelta,refundDelta,netDelta,countDelta].some(x=>x===null))
+    return fail('Variação fora do limite seguro de cálculo.');
+  const percentage=previous.approvedCents>0?100*approvedDelta/previous.approvedCents:null;
+  return {ok:true,previous,latest,partial,referenceMonth,approvedDelta,refundDelta,
+    netDelta,countDelta,percentage:Number.isFinite(percentage)?percentage:null,
+    firstActivity:previous.approvedCents===0&&latest.approvedCents>0,
+    noActivity:previous.approvedCents===0&&latest.approvedCents===0};
+}
+function adminFinanceMonthlyComparisonView(data){
+  if(!adminRoleCanSection('finance'))return '';
+  const m=adminFinanceMonthlyComparison(data);
+  if(!m.ok)return `<div class='notice danger admin-finance-monthly'><strong>Comparação indisponível.</strong><br>${esc(m.reason)} Não foram calculadas variações a partir de períodos incompletos.</div>`;
+  const signedMoney=c=>(c>0?'+':c<0?'−':'')+adminMoney(Math.abs(c));
+  const percentage=m.noActivity?'Sem movimentação nos meses comparados'
+    :m.firstActivity?'Início de atividade no último mês fechado'
+    :m.percentage===null?'Sem base percentual comparável'
+    :(m.percentage>0?'+':'')+m.percentage.toLocaleString('pt-BR',{maximumFractionDigits:1})+'% ante o mês anterior';
+  const largest=Math.max(...data.monthly.map(r=>r.approvedCents),0);
+  const bars=data.monthly.map(r=>{
+    const progress=largest>0?Math.round(r.approvedCents/largest*100):0;
+    const current=r.month===m.referenceMonth;
+    return `<div class='admin-finance-month-row'><span>${esc(r.month)}${current?' <small>(parcial)</small>':''}</span><div class='admin-finance-month-track' aria-hidden='true'><i style='width:${progress}%'></i></div><strong>${adminMoney(r.approvedCents)}</strong></div>`;
+  }).join('');
+  return `<section class='admin-finance-monthly' aria-label='Comparação financeira entre meses fechados'>
+    <div class='section-head'><div><span class='section-kicker'>DESEMPENHO ENTRE MESES</span><h3>${esc(m.latest.month)} comparado com ${esc(m.previous.month)}</h3><p>Apenas meses encerrados são comparados. ${esc(m.referenceMonth)} está em andamento e aparece apenas na evolução, sem projeção.</p></div></div>
+    <div class='admin-finance-trend-grid'>
+      <div class='admin-managerial-stat'><small>Aprovações registradas • ${esc(m.latest.month)}</small><strong>${adminMoney(m.latest.approvedCents)}</strong><span>${esc(percentage)} • diferença ${signedMoney(m.approvedDelta)}</span></div>
+      <div class='admin-managerial-stat'><small>Após reembolsos vinculados</small><strong>${adminMoney(m.latest.netAfterLinkedRefundsCents)}</strong><span>Diferença ante ${esc(m.previous.month)}: ${signedMoney(m.netDelta)}. Pode ser negativo.</span></div>
+      <div class='admin-managerial-stat'><small>Reembolsos vinculados</small><strong>${adminMoney(m.latest.linkedRefundCents)}</strong><span>Variação: ${signedMoney(m.refundDelta)}. Podem se referir a aprovações antigas.</span></div>
+      <div class='admin-managerial-stat'><small>Quantidade de aprovações</small><strong>${Number(m.latest.approvedCount)}</strong><span>Variação: ${m.countDelta>0?'+':''}${m.countDelta} evento(s)</span></div>
+    </div>
+    <div class='card flat'><h3>Valores aprovados mês a mês</h3><div class='admin-finance-month-bars'>${bars}</div>
+      <p class='tiny muted'>Escala relativa ao maior mês exibido; os valores exatos ficam à direita. O mês atual é parcial. Inclui pacotes, D+1 e recuperações; não é receita por competência, lucro ou saldo no PSP.</p>
+    </div>
+  </section>`;
+}
+
 function adminFinanceHistoryView(){
   if(!adminRoleCanSection('finance'))return '';
   const state=adminRuntime.financeHistory||{};
@@ -1813,6 +1886,7 @@ function adminFinanceHistoryView(){
     `<div class='tiny muted'>Fonte: banco completo • gerado em ${esc(formatDateTime(data.generatedAt))} • ${fresh?'Consulta recente':'Consulta desatualizada: confirme novamente'}</div>
      ${warnings}
      <div class='card flat'><h3>Histórico por tipo de recebimento</h3>${rows}</div>
+     ${adminFinanceMonthlyComparisonView(data)}
      <div class='card flat' style='margin-top:12px'><h3>Evolução dos últimos seis meses</h3><div class='admin-finance-history-scroll'><table><thead><tr><th>Mês</th><th>Aprovado</th><th>Refund vinculado</th><th>Após refunds</th></tr></thead><tbody>${months}</tbody></table></div></div>
      <p class='tiny muted'>Períodos mensais em horário de Brasília. O total após refunds é uma leitura operacional, não saldo bancário nem lucro líquido. Crédito antecipado e recuperação seguem separados da receita por competência.</p>`}
   </section>`;

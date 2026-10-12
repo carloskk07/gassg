@@ -2502,3 +2502,19 @@ body:has(.admin-page) .shell{
 .admin-finance-history-scroll th:first-child{text-align:left}
 .admin-finance-history-scroll thead th{font-weight:700;font-size:11px}
 @media(max-width:520px){.admin-finance-history .section-head{display:grid;gap:10px}.admin-finance-history-amount{min-width:0}.admin-finance-history .admin-managerial-row{flex-wrap:wrap}.admin-finance-history-amount{text-align:left}}
+
+/* V1.189 — month-over-month financial analysis on all screen sizes */
+.admin-finance-monthly{margin:15px 0 18px;border-top:1px solid var(--line);padding-top:17px}
+.admin-finance-monthly .section-head{align-items:flex-start}
+.admin-finance-monthly .section-head p{max-width:690px}
+.admin-finance-trend-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin:12px 0}
+.admin-finance-month-bars{display:grid;gap:11px;padding:14px 0}
+.admin-finance-month-row{display:grid;grid-template-columns:110px minmax(0,1fr) 120px;align-items:center;gap:11px;min-width:0;font-size:12px;font-variant-numeric:tabular-nums}
+.admin-finance-month-row>span small{display:inline;color:var(--muted);font-size:10px}
+.admin-finance-month-row>strong{font-size:12px;text-align:right;white-space:nowrap}
+.admin-finance-month-track{height:12px;border:1px solid var(--line);border-radius:9px;overflow:hidden;background:var(--surface,#fff)}
+.admin-finance-month-track i{display:block;height:100%;background:var(--brand,#207a55);border-radius:inherit;max-width:100%}
+@media(max-width:1050px){.admin-finance-trend-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:620px){.admin-finance-trend-grid{grid-template-columns:minmax(0,1fr)}.admin-finance-month-row{grid-template-columns:90px minmax(0,1fr) 95px;gap:7px}.admin-finance-month-row>strong{font-size:11px}}
+@media(max-width:340px){.admin-finance-month-row{grid-template-columns:75px minmax(0,1fr) 85px;gap:5px;font-size:11px}.admin-finance-month-row>strong{font-size:10px}}
+@media(prefers-reduced-motion:reduce){.admin-finance-month-track i{transition:none}}
