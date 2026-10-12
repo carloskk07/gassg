@@ -37,7 +37,7 @@ const adminRuntime={
   providerHealthPending:false,
   paymentPreflights:{},
   saleRefundFilter:'all',
-  salePaymentHistory:{attempts:[],interruptedOrders:[],nextCursor:null,hasMore:false,loading:false,error:null,started:false},
+  salePaymentHistory:{attempts:[],interruptedOrders:[],nextCursor:null,hasMore:false,loading:false,error:null,started:false,checkedAt:null},
   prospectReport:null,
   expansionRadar:[],
   expansionRadarLoading:false,
@@ -338,7 +338,7 @@ async function adminSignOut(){
   adminRuntime.providerHealth=null;
   adminRuntime.providerHealthPending=false;
   adminRuntime.paymentPreflights={};
-  adminRuntime.salePaymentHistory={attempts:[],interruptedOrders:[],nextCursor:null,hasMore:false,loading:false,error:null,started:false};
+  adminRuntime.salePaymentHistory={attempts:[],interruptedOrders:[],nextCursor:null,hasMore:false,loading:false,error:null,started:false,checkedAt:null};
   try{sessionStorage.removeItem('tamao-admin-provider-health-v1')}catch{}
   adminRuntime.auditResults=null;
   adminRuntime.auditPending=false;
@@ -373,7 +373,7 @@ async function adminRefresh({silent=false}={}){
     if(error?.code==='ADMIN_ACCESS_DENIED'||error?.status===403&&error?.code==='ADMIN_ACCESS_DENIED'){
       adminRuntime.status='no-access';
       adminRuntime.data=null;
-      adminRuntime.salePaymentHistory={attempts:[],interruptedOrders:[],nextCursor:null,hasMore:false,loading:false,error:null,started:false};
+      adminRuntime.salePaymentHistory={attempts:[],interruptedOrders:[],nextCursor:null,hasMore:false,loading:false,error:null,started:false,checkedAt:null};
       adminRuntime.enablementMerchants=[];
       adminRuntime.enablementLoaded=false;
       adminRuntime.error=null;
@@ -383,7 +383,7 @@ async function adminRefresh({silent=false}={}){
       adminRuntime.status='unauthenticated';
       adminRuntime.session=null;
       adminRuntime.data=null;
-      adminRuntime.salePaymentHistory={attempts:[],interruptedOrders:[],nextCursor:null,hasMore:false,loading:false,error:null,started:false};
+      adminRuntime.salePaymentHistory={attempts:[],interruptedOrders:[],nextCursor:null,hasMore:false,loading:false,error:null,started:false,checkedAt:null};
       adminRuntime.searchQuery='';
       adminRuntime.searchResults=[];
       adminRuntime.detail=null;
@@ -2548,11 +2548,25 @@ function adminSetSaleRefundFilter(value){
   render();
 }
 
+/* V1.185: a historical snapshot is not live PSP reconciliation.
+   Never present its unresolved flags as current once evidence is old. */
+function adminSalePaymentHistoryIsFresh(history,now=Date.now()){
+  if(!history||history.started!==true)return true;
+  if(!history.checkedAt)return true; // Legacy runtime state; refreshed responses stamp this.
+  const ms=Date.parse(String(history.checkedAt));
+  return Number.isFinite(ms)&&Number.isFinite(now)&&ms<=now+5*60*1000
+    &&ms>=now-10*60*1000;
+}
+
 function adminInterruptedSalePaymentRows(d){
   const payments=d?.merchantPayments||{};
   const history=adminRuntime.salePaymentHistory||{};
-  const orders=new Map([...payments.interruptedOrders||[],...history.interruptedOrders||[]].map(row=>[String(row.id),row]));
-  const attempts=[...new Map([...payments.attempts||[],...history.attempts||[]]
+  const fresh=adminSalePaymentHistoryIsFresh(history);
+  const archived=fresh?history:{attempts:[],interruptedOrders:[]};
+  // Freshly polled records are authoritative over the older on-demand snapshot.
+  const orders=new Map([...archived.interruptedOrders||[],...payments.interruptedOrders||[],...(d?.controlOrders||[])]
+    .filter(row=>row&&typeof row.id==='string').map(row=>[String(row.id),row]));
+  const attempts=[...new Map([...archived.attempts||[],...payments.attempts||[]]
     .filter(row=>row&&typeof row.id==='string').map(row=>[String(row.id),row])).values()];
   const rows=[];
   for(const attempt of attempts){
@@ -2584,7 +2598,7 @@ async function adminLoadSalePaymentHistory(){
   if(!['superadmin','finance','readonly'].includes(adminCurrentRole()))return;
   if(adminRuntime.status!=='ready'||!adminRuntime.data)return;
   const current=adminRuntime.salePaymentHistory||{};
-  if(current.loading)return;
+  if(current.loading||!adminSalePaymentHistoryIsFresh(current))return;
   const recent=adminRuntime.data.merchantPayments?.attempts||[];
   const isFirst=current.started!==true;
   if(isFirst&&recent.length<500)return;
@@ -2610,7 +2624,7 @@ async function adminLoadSalePaymentHistory(){
     adminRuntime.salePaymentHistory={
       attempts:[...attempts.values()],interruptedOrders:[...orders.values()],
       nextCursor:result.hasMore?result.nextCursor:null,hasMore:result.hasMore===true,
-      loading:false,error:null,started:true
+      loading:false,error:null,started:true,checkedAt:existing.checkedAt||new Date().toISOString()
     };
   }catch(e){
     if(session===adminRuntime.session){
@@ -2619,6 +2633,33 @@ async function adminLoadSalePaymentHistory(){
       };
     }
   }finally{if(session===adminRuntime.session)render();}
+}
+
+async function adminRevalidateSalePaymentHistory(){
+  if(!['superadmin','finance','readonly'].includes(adminCurrentRole()))return;
+  if(adminRuntime.status!=='ready'||!adminRuntime.data)return;
+  if(adminRuntime.salePaymentHistory?.loading)return;
+  const currentSession=adminRuntime.session;
+  try{
+    await adminRefresh({silent:true});
+    if(currentSession!==adminRuntime.session||adminRuntime.status!=='ready')return;
+    adminRuntime.salePaymentHistory={
+      attempts:[],interruptedOrders:[],nextCursor:null,hasMore:false,
+      loading:false,error:null,started:false,checkedAt:null
+    };
+    render();
+    if((adminRuntime.data.merchantPayments?.attempts||[]).length>=500){
+      await adminLoadSalePaymentHistory();
+    }
+  }catch(e){
+    if(currentSession===adminRuntime.session){
+      adminRuntime.salePaymentHistory={
+        ...(adminRuntime.salePaymentHistory||{}),loading:false,
+        error:'Não foi possível revalidar os registros: '+String(e?.message||e)
+      };
+      render();
+    }
+  }
 }
 
 function adminInterruptedSalePaymentWatch(d){
@@ -2639,8 +2680,11 @@ function adminInterruptedSalePaymentWatch(d){
     filter==='review'&&x.kind==='review');
   const limited=d.merchantPayments?.reviewSampleLimited===true;
   const historyState=adminRuntime.salePaymentHistory||{};
-  const olderCount=Array.isArray(historyState.attempts)?historyState.attempts.length:0;
-  const historyAvailable=limited&&(historyState.started!==true||historyState.hasMore===true);
+  const historicalFresh=adminSalePaymentHistoryIsFresh(historyState);
+  const olderCount=historicalFresh&&Array.isArray(historyState.attempts)?historyState.attempts.length:0;
+  const historyAvailable=limited&&historicalFresh&&(historyState.started!==true||historyState.hasMore===true);
+  const archiveCheckedAt=historyState.checkedAt&&Number.isFinite(Date.parse(historyState.checkedAt))
+    ?formatDateTime(historyState.checkedAt):null;
   const statusInfo={
     approved:{label:'APROVADO • CONFERIR ESTORNO',detail:'Pagamento aprovado registrado. Não há confirmação de estorno nesta tentativa; consulte o provedor e a revenda.'},
     review:{label:'RESULTADO EM REVISÃO',detail:'O resultado financeiro está indefinido. Confirme primeiro com o provedor; não suponha cobrança nem devolução.'},
@@ -2695,6 +2739,16 @@ function adminInterruptedSalePaymentWatch(d){
       (olderCount?' Mais '+olderCount+' tentativas históricas consultadas.':'')+
       ' Estes números não representam a totalidade da base enquanto houver histórico não consultado.</div>':
       '<div class="tiny muted">Conferência com base nas tentativas retornadas; não equivale a extrato completo do provedor.</div>')+
+    (historyState.started===true?
+      '<div class="admin-sale-history-freshness" role="status">'+
+      (historicalFresh?
+        'Histórico consultado em '+esc(archiveCheckedAt||'horário indisponível')+
+        '. As situações do provedor podem mudar após essa consulta.'
+        :'Histórico antigo desatualizado. Suas ocorrências foram retiradas dos indicadores até uma nova conferência.')+
+      '</div>':'')+
+    (historyState.started===true?
+      '<div class="admin-sale-history-actions"><button type="button" class="secondary" onclick="adminRevalidateSalePaymentHistory()" '+
+      (historyState.loading?'disabled':'')+'>Revalidar histórico</button></div>':'')+
     (historyAvailable?
       '<div class="admin-sale-history-actions"><button type="button" class="secondary" onclick="adminLoadSalePaymentHistory()" '+
         (historyState.loading?'disabled':'')+'>'+
