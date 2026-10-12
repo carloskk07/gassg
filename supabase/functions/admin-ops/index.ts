@@ -99,7 +99,7 @@ async function requireAdmin(admin:any,userId:string){
   if(!data)throw new DomainError("ADMIN_ACCESS_DENIED","Esta conta não possui acesso administrativo.",403);
   return data;
 }
-const ADMIN_READ_ACTIONS=new Set(["summary","search","entity-detail","system-health","billing-provider-health","audit-search","incident-list","merchant-payment-preflight","prospect-intelligence","expansion-notifications","expansion-radar","merchant-enablement","sale-payment-history"]);
+const ADMIN_READ_ACTIONS=new Set(["summary","search","entity-detail","system-health","billing-provider-health","audit-search","incident-list","merchant-payment-preflight","prospect-intelligence","expansion-notifications","expansion-radar","merchant-enablement","sale-payment-history","finance-receipts-history"]);
 const ADMIN_ROLE_ACTIONS:Record<string,Set<string>>={
   superadmin:new Set(["*"]),
   operations:new Set([
@@ -1833,6 +1833,21 @@ Deno.serve(async(req:Request)=>{
     }
     if(action==="summary"){
       return json(await summary(admin,user.id),200,origin);
+    }
+    if(action==="finance-receipts-history"){
+      // The RPC is service-role only; the authenticated actor comes from the JWT.
+      // Finance-only allowlist is checked again inside PostgreSQL.
+      if(!["superadmin","finance"].includes(String(adminAccess.admin_role||""))){
+        throw new DomainError("ADMIN_PERMISSION_DENIED","Este perfil não pode consultar o histórico consolidado.",403);
+      }
+      const {data,error}=await admin.rpc("admin_finance_receipts_history_v1_188",{
+        p_actor_user_id:user.id
+      });
+      if(error)throw error;
+      if(data?.source!=="database_complete"||!Array.isArray(data?.monthly)||!data?.kindTotals){
+        throw new DomainError("FINANCE_HISTORY_NOT_READY","Histórico financeiro não disponível. Atualize e confira a migração.",503);
+      }
+      return json(data,200,origin);
     }
     if(action==="sale-payment-history"){
       if(!["superadmin","finance","readonly"].includes(String(adminAccess.admin_role||""))){
