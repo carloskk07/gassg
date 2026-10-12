@@ -115,7 +115,7 @@ assert.deepEqual(routeActions,['go:merchants','scroll','focus'],
 for(const piece of [
   "id=\"home-address\"", "onkeydown=\"if(event.key==='Enter')",
   "Falta apenas informar o número",
-  "Nenhuma opção encontrada para esta cesta e CEP agora.",
+  "Ainda não há uma revenda disponível para entregar esses produtos no seu CEP.",
   "Me avise quando houver disponibilidade",
   "O servidor confirma rua, bairro e atendimento para o CEP informado",
   'openPrelaunchMerchantLead()'
