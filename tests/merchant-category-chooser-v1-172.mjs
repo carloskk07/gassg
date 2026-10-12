@@ -90,7 +90,7 @@ fields['live-new-registry-search'].value='';
 fields['live-new-registry-category'].value='';
 filterCtx.refresh();
 assert.equal(fields['live-new-registry-add'].disabled,false);
-assert.equal(fields['live-new-registry-product'].children.length,4,'categories populated from real registry');
+assert.equal(fields['live-new-registry-product'].children.length,5,'categories populated from real registry');
 assert.ok(fields['live-new-registry-product'].children.some(c=>c.label==='<svg onload=alert(1)>'),'DOM API text, not innerHTML');
 const sizes=ctx.gas(registry,false);
 assert.ok(sizes.includes('value="P13"'));
