@@ -3,7 +3,7 @@
 # Requer PostgreSQL client tools e acesso de banco autorizado.
 [CmdletBinding()]
 param(
-  [string]$DbHost = '',
+  [string]$DbHost = 'db.lgugwujpunhslavewffd.supabase.co',
   [int]$Port = 5432,
   [string]$DbName = 'postgres',
   [string]$DbUser = 'postgres',
