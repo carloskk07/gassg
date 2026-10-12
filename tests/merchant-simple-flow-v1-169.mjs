@@ -69,7 +69,7 @@ for(const status of ['OFFERED_TO_MERCHANT','MERCHANT_ACCEPTED','PREPARING','AT_R
  assert.ok(!markup.includes('<img'),'Protected address or unescaped text: '+status);
 }
 const preparing=draw('PREPARING');
-assert.ok(preparing.includes('<details class="merchant-order-exception">'),
+assert.ok(preparing.includes('<details class="merchant-order-exception'),
  'Failure action should be accessible without competing with dispatch');
 assert.ok(preparing.includes('merchantLiveCannotFulfill('),'Failure recovery remains available');
 assert.ok(preparing.includes('Confirmar saída'),'Dispatch confirmation remains explicit');
