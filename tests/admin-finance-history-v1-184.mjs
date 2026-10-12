@@ -154,7 +154,7 @@ assert.ok(edge.includes('["superadmin","finance","readonly"].includes(String(adm
 assert.ok(edge.includes('"sale-payment-history"'));
 assert.ok(edge.includes('hasMore:found.length===pageSize'));
 assert.ok(edge.includes('const eligible=new Set'));
-assert.ok(js.includes('adminRuntime.salePaymentHistory={attempts:[],interruptedOrders:[],nextCursor:null,hasMore:false,loading:false,error:null};'),'Historical record purged on signout');
+assert.ok(js.includes('adminRuntime.salePaymentHistory={attempts:[],interruptedOrders:[],nextCursor:null,hasMore:false,loading:false,error:null,started:false};'),'Historical record purged on signout and access loss');
 assert.ok(css.includes('.admin-sale-history-actions'));
 assert.ok(css.includes('@media(max-width:560px)'));
 assert.ok(read('.github/workflows/audit.yml').includes('node tests/admin-finance-history-v1-184.mjs'));
