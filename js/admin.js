@@ -1678,6 +1678,144 @@ function adminMerchantProgressView(m){
   </section>`;
 }
 
+/* V1.197 — auditable city-by-city merchant network view; never inferred national totals. */
+function adminMerchantNetworkSnapshot(d,now=Date.now()){
+  if(!d||!Array.isArray(d.merchants))return {valid:false,rows:[],cities:[],totals:null,fresh:false,sampled:false};
+  const synced=Date.parse(String(adminRuntime.lastSyncAt||''));
+  const fresh=Number.isFinite(synced)&&synced<=now+60000&&now-synced<=5*60000;
+  const uuid=/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+  const rows=[],cities=new Map(),seen=new Set();
+  const counts={registered:0,active:0,available:0,active_no_offer:0,pending:0,review:0,unknown:0};
+  for(const m of d.merchants){
+    const id=String(m?.id||'');
+    if(!uuid.test(id)||seen.has(id))continue;
+    seen.add(id);
+    const city=String(m?.businessDetails?.city||'').trim().replace(/\s+/g,' ').slice(0,100);
+    const state=String(m?.businessDetails?.state||'').trim().toUpperCase();
+    const validLocation=!!city&&/^[A-Z]{2}$/.test(state);
+    const normalized=validLocation?city.normalize('NFD').replace(/[\u0300-\u036f]/g,'')
+      .toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,''):'';
+    const cityKey=validLocation&&normalized?state+':'+normalized:'__unknown__';
+    const cityLabel=cityKey==='__unknown__'?'Cidade não informada':city+'/'+state;
+    if(!cities.has(cityKey))cities.set(cityKey,cityLabel);
+    const progress=adminMerchantProgressSnapshot(m,now);
+    const status=String(m?.status||'');
+    const blocked=status==='suspended'||status==='rejected'||progress.conflict
+      ||progress.steps.some(x=>x.status==='blocked');
+    const available=fresh&&progress.ready===true&&status==='active';
+    const category=blocked?'review':available?'available':
+      status==='active'&&m?.readiness?.offerReady===false?'active_no_offer':
+      status==='pending'?'pending':'unknown';
+    const name=String(m?.name||'Revenda sem nome').trim().slice(0,130);
+    const next=String(m?.readiness?.nextAction||'');
+    rows.push({id,name,cityKey,cityLabel,status,category,next,
+      offerSource:m?.readiness?.offerReady===true?'ready':m?.readiness?.offerReady===false?'not_ready':'unknown'});
+    counts.registered++;
+    if(status==='active')counts.active++;
+    counts[category]++;
+  }
+  rows.sort((a,b)=>a.cityLabel.localeCompare(b.cityLabel,'pt-BR')
+    ||a.name.localeCompare(b.name,'pt-BR')||a.id.localeCompare(b.id));
+  const cityOptions=Array.from(cities.entries()).map(([key,label])=>({key,label,
+    count:rows.filter(x=>x.cityKey===key).length}))
+    .sort((a,b)=>a.label.localeCompare(b.label,'pt-BR'));
+  return {valid:true,rows,cities:cityOptions,totals:counts,fresh,
+    sampled:d.merchants.length>=300,sourceCount:d.merchants.length};
+}
+function adminMerchantNetworkView(d){
+  if(!adminRoleCanSection('partners'))return '';
+  const snap=adminMerchantNetworkSnapshot(d);
+  if(!snap.valid)return `<section class='section admin-merchant-network' aria-label='Rede de revendas por cidade'>
+    <div class='notice danger'><strong>Rede indisponível.</strong> A lista de revendas não chegou completa. Atualize os dados antes de avaliar a operação.</div></section>`;
+  const categoryLabels={all:'Todas as situações',available:'Ofertáveis confirmadas',
+    active_no_offer:'Ativas sem oferta confirmada',pending:'Aguardando ativação',
+    review:'Exigem revisão',unknown:'Dados insuficientes'};
+  const rawCity=String(adminRuntime.merchantNetworkCity||'all');
+  const city=rawCity==='all'||snap.cities.some(c=>c.key===rawCity)?rawCity:'all';
+  const rawCategory=String(adminRuntime.merchantNetworkStatus||'all');
+  const category=Object.prototype.hasOwnProperty.call(categoryLabels,rawCategory)?rawCategory:'all';
+  const shown=snap.rows.filter(x=>(city==='all'||x.cityKey===city)
+    &&(category==='all'||x.category===category));
+  const labels={available:'Ofertável (verificada)',active_no_offer:'Ativa, oferta não confirmada',
+    pending:'Pendente de ativação',review:'Requer revisão',unknown:'Estado insuficiente'};
+  const cards=shown.slice(0,40).map(x=>`<article class='admin-merchant-network-row'>
+    <div><strong>${esc(x.name)}</strong><small>${esc(x.cityLabel)}</small>
+      <span class='admin-merchant-network-state ${x.category}'>${esc(labels[x.category])}</span>
+      ${x.next&&x.next!=='ready'?`<small>Próxima ação: ${esc(adminPilotNextActionCopy({onboarding:{nextAction:x.next}}))}</small>`:''}
+    </div>
+    <button type='button' class='secondary small'
+      onclick="adminOpenMerchantNetworkRecord('${x.id}')">Abrir revenda</button>
+  </article>`).join('');
+  const selectCity=`<label for='admin-network-city'>Município e UF</label><select class='input' id='admin-network-city'
+    onchange="adminSetMerchantNetworkFilter('city',this.value)">
+      <option value='all' ${city==='all'?'selected':''}>Todas as cidades</option>
+      ${snap.cities.map(x=>`<option value='${esc(x.key)}' ${city===x.key?'selected':''}>${esc(x.label)} (${x.count})</option>`).join('')}
+    </select>`;
+  const selectStatus=`<label for='admin-network-status'>Situação</label><select class='input' id='admin-network-status'
+    onchange="adminSetMerchantNetworkFilter('status',this.value)">
+      ${Object.entries(categoryLabels).map(([key,label])=>`<option value='${key}' ${category===key?'selected':''}>${esc(label)}</option>`).join('')}
+    </select>`;
+  const countText=x=>snap.fresh?String(x):'—';
+  return `<section class='section admin-merchant-network' aria-label='Rede de revendas por cidade'>
+    <div class='section-head'><div><span class='section-kicker'>REDE POR MUNICÍPIO</span>
+      <h2>Como está nossa rede de revendas?</h2>
+      <p>Cadastro e disponibilidade para venda são situações diferentes. Os números refletem a amostra de revendas carregada.</p></div>
+      <span class='admin-data-freshness'>${snap.fresh?'Consulta recente':'Consulta desatualizada'}</span></div>
+    ${!snap.fresh?'<div class="notice danger">Os indicadores de disponibilidade não são atuais. Atualize a página antes de concluir que uma revenda pode vender.</div>':''}
+    ${snap.sampled?'<div class="notice">A lista atingiu 300 registros. Os resultados podem não representar a rede completa; não use este painel como total nacional.</div>':''}
+    <div class='admin-merchant-network-kpis'>
+      <div><small>Cadastradas na amostra</small><strong>${snap.totals.registered}</strong></div>
+      <div><small>Ativas no cadastro</small><strong>${snap.totals.active}</strong></div>
+      <div><small>Ofertáveis verificadas</small><strong>${countText(snap.totals.available)}</strong></div>
+      <div><small>Aguardando ativação</small><strong>${snap.totals.pending}</strong></div>
+      <div><small>Exigem revisão</small><strong>${snap.totals.review}</strong></div>
+      <div><small>Dados insuficientes</small><strong>${snap.totals.unknown}</strong></div>
+    </div>
+    <div class='card flat'>
+      <div class='admin-merchant-network-filters'><div>${selectCity}</div><div>${selectStatus}</div></div>
+      <p class='tiny muted'>${shown.length} de ${snap.rows.length} revenda(s) da amostra correspondem aos filtros.${shown.length>40?' Exibindo as primeiras 40.':''}
+      Ativas e ofertáveis são contagens sobrepostas; não somar. Cidade não informada fica separada de cidades com nome semelhante.</p>
+      ${shown.length?`<div class='admin-merchant-network-list'>${cards}</div>`:
+        '<div class="empty">Nenhuma revenda corresponde a estes filtros na amostra carregada.</div>'}
+      <p class='tiny muted'>Filtros e atalhos não ativam, bloqueiam nem alteram revendas. Confirme sempre a situação no cadastro completo.</p>
+    </div>
+  </section>`;
+}
+function adminSetMerchantNetworkFilter(type,value){
+  if(!adminRoleCanSection('partners')||adminRuntime.status!=='ready')return;
+  const snap=adminMerchantNetworkSnapshot(adminRuntime.data);
+  if(!snap.valid)return;
+  const key=String(value||'');
+  if(type==='city'){
+    if(key!=='all'&&!snap.cities.some(c=>c.key===key))return;
+    adminRuntime.merchantNetworkCity=key;
+  }else if(type==='status'){
+    if(!['all','available','active_no_offer','pending','review','unknown'].includes(key))return;
+    adminRuntime.merchantNetworkStatus=key;
+  }else return;
+  render();
+  requestAnimationFrame(()=>{
+    document.getElementById(type==='city'?'admin-network-city':'admin-network-status')?.focus({preventScroll:true});
+  });
+}
+function adminOpenMerchantNetworkRecord(id){
+  if(!adminRoleCanSection('partners')||adminRuntime.status!=='ready'
+    ||!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(String(id||'')))return;
+  const snap=adminMerchantNetworkSnapshot(adminRuntime.data);
+  const record=snap.rows.find(x=>x.id===id);
+  if(!record){toast('Revenda não encontrada. Atualize o painel.');return;}
+  const session=adminRuntime.session;
+  adminRuntime.section='partners';
+  render();
+  requestAnimationFrame(()=>{
+    if(adminRuntime.status!=='ready'||adminRuntime.session!==session||!adminRoleCanSection('partners'))return;
+    const target=document.getElementById('admin-partner-work-merchant-'+id);
+    if(!target){toast('Cadastro não localizado. Atualize a lista de revendas.');return;}
+    target.focus({preventScroll:true});
+    target.scrollIntoView({block:'center',behavior:'instant'});
+  });
+}
+
 function adminMerchantCard(m){
   const c=m.compliance||{};
   const readiness=m.readiness||null;
@@ -4006,6 +4144,7 @@ function adminPage(){
   const customersContent=adminCustomersSection(d);
 
   const partnersContent=`
+    ${adminMerchantNetworkView(d)}
     ${adminMerchantOperationsQueueView(d)}
     ${adminPrelaunchLeadsSection(d)}
     ${adminPublicRequestsSection(d)}
@@ -4894,6 +5033,8 @@ globalThis.adminRefresh=adminRefresh;
 globalThis.adminLoadFinanceHistory=adminLoadFinanceHistory;
 globalThis.adminSetFinanceWorkspace=adminSetFinanceWorkspace;
 globalThis.adminFocusMerchantOperationsRecord=adminFocusMerchantOperationsRecord;
+globalThis.adminSetMerchantNetworkFilter=adminSetMerchantNetworkFilter;
+globalThis.adminOpenMerchantNetworkRecord=adminOpenMerchantNetworkRecord;
 globalThis.adminFocusFinanceRecord=adminFocusFinanceRecord;
 globalThis.adminPoll=adminPoll;
 globalThis.adminPage=adminPage;
