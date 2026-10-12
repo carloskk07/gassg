@@ -109,6 +109,12 @@ function startCustomerAvailability(){
       return;
     }
   }
+  // When the platform confirms there are no configured sellers anywhere,
+  // go straight to the opt-in form instead of a checkout with no offers.
+  if(globalThis.__CHAMA_TEST__!==true
+    &&globalThis.liveRuntime?.marketStatus?.realSupplyConfigured===false){
+    return openPrelaunchCustomerLead();
+  }
   if(globalThis.__CHAMA_TEST__===true||globalThis.liveReady?.()===true){
     return startHomeOrder();
   }
