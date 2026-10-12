@@ -1069,7 +1069,9 @@ async function merchantLiveSelect(id){
 async function merchantLiveToggleOnline(online){
   try{await merchantSetOnlineLive(online);toast(online?'Revenda online':'Novos pedidos pausados')}catch(e){toast(String(e?.message||e))}
 }
+const merchantCatalogSaving=new Set();
 async function merchantLiveSaveProduct(code){
+  if(merchantCatalogSaving.has(code))return;
   const price=Number(document.getElementById('live-price-'+code)?.value);
   const stock=Number(document.getElementById('live-stock-'+code)?.value);
   const active=document.getElementById('live-active-'+code)?.checked===true;
@@ -1077,12 +1079,16 @@ async function merchantLiveSaveProduct(code){
   const pricingStrategy=String(document.getElementById('live-pricing-strategy-'+code)?.value||'balanced');
   const minPrice=Number(document.getElementById('live-min-price-'+code)?.value);
   const maxPrice=Number(document.getElementById('live-max-price-'+code)?.value);
-  if(!Number.isFinite(price)||price<=0||price>10000||!Number.isInteger(stock)||stock<0)return toast('Revise preço e estoque de '+code);
+  if(!Number.isFinite(price)||price<=0||price>10000||!Number.isInteger(stock)||stock<0||stock>100000)return toast('Revise preço e estoque de '+code);
   if(pricingMode==='range'){
     if(!Number.isFinite(minPrice)||!Number.isFinite(maxPrice)||minPrice<=0||maxPrice>10000||minPrice>price||price>maxPrice){
       return toast('Na faixa automática: mínimo ≤ preço normal ≤ máximo.');
     }
   }
+  const saveButton=document.getElementById('live-save-product-'+code);
+  const buttonText=saveButton?.textContent||'Salvar preço e estoque';
+  merchantCatalogSaving.add(code);
+  if(saveButton){saveButton.disabled=true;saveButton.textContent='Salvando…';}
   try{
     await merchantUpdateProductLive(code,Math.round(price*100),stock,active,{
       pricingMode,
@@ -1092,6 +1098,10 @@ async function merchantLiveSaveProduct(code){
     });
     toast(pricingMode==='range'?'Faixa de preço de '+code+' confirmada':'Preço fixo de '+code+' confirmado');
   }catch(e){toast(String(e?.message||e))}
+  finally{
+    merchantCatalogSaving.delete(code);
+    if(saveButton){saveButton.disabled=false;saveButton.textContent=buttonText;}
+  }
 }
 
 function merchantPricingModeChanged(code){
