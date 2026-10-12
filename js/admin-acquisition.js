@@ -941,6 +941,150 @@ function adminCityEvolutionView(evolution){
   </div>`;
 }
 
+/* V1.205 — immutable, server-derived commercial history (no individual conversion inference). */
+function adminCityHistoryReset(){
+  adminRuntime.cityHistory={items:[],loading:false,loaded:false,error:null,loadedFor:null,chosen:null};
+}
+async function adminLoadCityHistory({force=false}={}){
+  if(!adminReady()||!adminRoleCanSection('prospects'))return;
+  if(!adminRuntime.cityHistory)adminCityHistoryReset();
+  const state=adminRuntime.cityHistory;
+  const user=String(adminRuntime.session?.user?.id||'');
+  if(state.loading||!user||!force&&(state.loaded&&state.loadedFor===user))return;
+  state.loading=true;state.error=null;
+  try{
+    const data=await adminInvoke({action:'commercial-history-list'});
+    if(!adminReady()||!adminRoleCanSection('prospects')||
+      String(adminRuntime.session?.user?.id||'')!==user)return;
+    if(data?.source!=='database_authoritative'||!Array.isArray(data?.snapshots))
+      throw new Error('O servidor não confirmou a origem do histórico.');
+    state.items=data.snapshots.slice(0,16);
+    state.loaded=true;
+    state.loadedFor=user;
+    if(!state.items.some(x=>x.id===state.chosen))state.chosen=null;
+  }catch(error){
+    if(adminReady()&&String(adminRuntime.session?.user?.id||'')===user){
+      state.error=String(error?.message||error);
+      state.loaded=false;state.items=[];
+    }
+  }finally{
+    if(adminRuntime.cityHistory===state){state.loading=false;render();}
+  }
+}
+async function adminCaptureCityHistory(){
+  if(!adminReady()||!['superadmin','operations'].includes(String(adminCurrentRole())))return;
+  if(!adminRuntime.cityHistory)adminCityHistoryReset();
+  const state=adminRuntime.cityHistory;
+  if(state.loading||state.saving)return;
+  const user=String(adminRuntime.session?.user?.id||'');
+  state.saving=true;state.error=null;render();
+  try{
+    const result=await adminInvoke({action:'commercial-history-capture'},
+      {idempotencyKey:adminIdempotency('commercial-history')});
+    if(!adminReady()||String(adminRuntime.session?.user?.id||'')!==user)return;
+    if(result?.source!=='server_authoritative'||!result.id)
+      throw new Error('O registro não foi confirmado pelo banco.');
+    toast(result.inserted?'Retrato comercial registrado no histórico.':
+      'Já existe um retrato deste horário; nenhum registro duplicado foi criado.');
+    await adminLoadCityHistory({force:true});
+  }catch(error){
+    if(adminReady()&&String(adminRuntime.session?.user?.id||'')===user)
+      state.error=String(error?.message||error);
+  }finally{
+    if(adminRuntime.cityHistory===state){state.saving=false;render();}
+  }
+}
+function adminChooseCityHistory(id){
+  if(!adminReady()||!adminRoleCanSection('prospects'))return;
+  const state=adminRuntime.cityHistory;
+  if(!state?.loaded||state.loadedFor!==String(adminRuntime.session?.user?.id||''))return;
+  if(id!==''&&!state.items.some(x=>x.id===id))return;
+  state.chosen=id||null;render();
+}
+function adminCityHistoryCompare(items,chosen){
+  const rows=Array.isArray(items)?items:[];
+  const latest=rows[0]||null;
+  const older=rows.find(x=>x.id===chosen&&x.id!==latest?.id)||rows[1]||null;
+  if(!latest||!older)return {status:'insufficient',latest,older,changes:[]};
+  if(latest.sampled||older.sampled)return {status:'sampled',latest,older,changes:[]};
+  if(!Array.isArray(latest.rows)||!Array.isArray(older.rows)||
+    latest.rows.length!==older.rows.length||
+    latest.cityCount!==older.cityCount||
+    latest.rows.some(x=>!older.rows.some(y=>y.key===x.key))){
+    return {status:'coverage',latest,older,changes:[]};
+  }
+  const count=x=>Number.isSafeInteger(x)&&x>=0?x:null;
+  const old=new Map(older.rows.map(x=>[x.key,x]));
+  const changes=latest.rows.map(row=>{
+    const prior=old.get(row.key);
+    const metrics={};
+    for(const key of ['interests','registered','eligible','overdue']){
+      const before=count(prior?.[key]),after=count(row[key]);
+      metrics[key]=before!==null&&after!==null?after-before:null;
+    }
+    return {key:String(row.key),label:String(row.label),metrics,
+      pausedChanged:row.paused!==prior.paused};
+  }).filter(item=>item.pausedChanged||
+    Object.values(item.metrics).some(value=>value!==null&&value!==0));
+  return {status:'comparable',latest,older,changes};
+}
+function adminCityCommercialHistoryView(){
+  if(!adminRoleCanSection('prospects')||!adminReady())return '';
+  const state=adminRuntime.cityHistory||{items:[],loading:false,loaded:false,error:null,chosen:null};
+  const permitted=['superadmin','operations'].includes(String(adminCurrentRole()));
+  const items=state.loadedFor===String(adminRuntime.session?.user?.id||'')&&
+    Array.isArray(state.items)?state.items:[];
+  const compare=adminCityHistoryCompare(items,state.chosen);
+  const labelDate=value=>{
+    const t=Date.parse(String(value||''));
+    return Number.isFinite(t)?new Date(t).toLocaleString('pt-BR'):'Data não verificada';
+  };
+  const note=compare.status==='insufficient'?'Registre dois retratos em horários diferentes para comparar a evolução.':
+    compare.status==='sampled'?'Uma das consultas contém apenas parte dos municípios. Diferenças não serão calculadas.':
+    compare.status==='coverage'?'Os municípios não são os mesmos nas duas consultas. Diferenças bloqueadas para evitar conclusões incorretas.':
+    'Comparação de contagens entre duas capturas do servidor, sem provar conversão de pessoas, vendas ou participação de mercado.';
+  const metricLabels={interests:'interesses',registered:'revendas cadastradas',
+    eligible:'revendas aptas',overdue:'retornos vencidos'};
+  const changed=compare.changes.slice(0,12).map(row=>{
+    const deltas=Object.entries(row.metrics).filter(([,v])=>v!==null&&v!==0)
+      .map(([key,v])=>metricLabels[key]+': '+(v>0?'+':'')+v);
+    if(row.pausedChanged)deltas.push('pausa administrativa alterada');
+    return `<div class='admin-city-history-item'><strong>${esc(row.label)}</strong>
+      <small>${esc(deltas.join(' • '))}</small></div>`;
+  }).join('');
+  return `<section class='section admin-city-history' aria-label='Histórico comercial persistente'>
+    <div class='section-head'><div><span class='section-kicker'>HISTÓRICO COMERCIAL</span>
+      <h3>Evolução registrada no banco</h3><p>Retratos oficiais por cidade, guardados para consultas futuras e auditados no servidor.</p></div></div>
+    <div class='admin-city-history-actions'>
+      <button type='button' class='secondary small' onclick='adminLoadCityHistory({force:true})'
+        ${state.loading?'disabled':''}>Consultar histórico</button>
+      ${permitted?`<button type='button' class='primary small' onclick='adminCaptureCityHistory()'
+        ${state.loading||state.saving?'disabled':''}>Registrar retrato agora</button>`:''}
+    </div>
+    ${state.error?`<div class='notice danger'>${esc(state.error)}</div>`:''}
+    ${state.loading?'<p class="tiny muted">Consultando histórico do servidor…</p>':''}
+    ${!state.loaded&&!state.loading&&!state.error?'<p class="tiny muted">O histórico será consultado ao abrir Prospectos.</p>':''}
+    <p class='tiny muted'>Até 16 retratos recentes, no máximo um por hora para toda a administração. Os números são calculados no Supabase e não enviados pelo navegador. Nenhuma pessoa ou transação é armazenada nesta série.</p>
+    ${items.length?`<div class='admin-city-history-compare'>
+      <div><strong>Retrato mais recente</strong><small>${esc(labelDate(items[0].capturedAt))}
+        • ${Number(items[0].cityCount)||0} cidade(s) registradas
+        ${items[0].sampled?' • Amostra limitada':''}</small></div>
+      <div><label for='admin-history-reference'>Comparar com</label>
+        <select class='input' id='admin-history-reference' onchange='adminChooseCityHistory(this.value)'>
+          ${items.slice(1).map(x=>`<option value='${esc(x.id)}'
+            ${x.id===compare.older?.id?'selected':''}>${esc(labelDate(x.capturedAt))}${x.sampled?' (amostra)':''}</option>`).join('')}
+        </select></div>
+    </div>`:''}
+    <div class='notice'>${esc(note)}</div>
+    ${compare.status==='comparable'?`<p class='tiny muted'>${compare.changes.length} cidade(s) com sinais alterados.
+      ${compare.changes.length>12?'Exibindo as primeiras 12.':''}</p>
+      ${changed?`<div class='admin-city-history-list'>${changed}</div>`:
+        '<p class="tiny muted">Nenhuma mudança detectada nessas contagens entre as duas consultas.</p>'}`:''}
+    <p class='tiny muted'>Registros ANP não são parceiros confirmados; revenda apta neste retrato não garante oferta futura.
+      Esta série não mede taxa de conversão, faturamento ou vendas reais.</p>
+  </section>`;
+}
+
 function adminCityPipelineView(d){
   if(!adminRoleCanSection('prospects')||adminRuntime.status!=='ready')return '';
   const snapshot=adminCityPipelineSnapshot(d);
@@ -1574,7 +1718,7 @@ function adminProspectsSection(d){
       '<div class="order-actions"><button class="primary" onclick="adminProspectSearchCity()" '+(adminRuntime.prospectLoading?'disabled':'')+'>Consultar na ANP</button>'+
       '<button class="secondary" onclick="adminLoadProspects({force:true})" '+(adminRuntime.prospectLoading?'disabled':'')+'>Atualizar fonte</button></div>'+
       '<small class="field-help">Fonte: API pública ANP GLP. O servidor reutiliza o resultado durante até 24 horas e mantém o último dado conhecido quando a fonte falha.</small>'+
-    '</div>'+adminExpansionRadarSection()+adminCityPipelineView(d)+adminCommercialOpportunityView(d)+adminExpansionBridgeView(d)+placeholder+error+summary+adminProspectFollowupView(matches?report:null)+adminCityNotificationsSection()+
+    '</div>'+adminExpansionRadarSection()+adminCityPipelineView(d)+adminCommercialOpportunityView(d)+adminExpansionBridgeView(d)+adminCityCommercialHistoryView()+placeholder+error+summary+adminProspectFollowupView(matches?report:null)+adminCityNotificationsSection()+
     '<div class="notice"><strong>Ativação por elegibilidade, nunca apenas por cadastro.</strong> Uma cidade somente poderá abrir para compras após confirmação de revenda apta, regularidade ANP quando GLP, estoque, preço, área de entrega, capacidade e recebimento. O registro da ANP não equivale a autorização de parceria.</div>'+
   '</section>';
 }
