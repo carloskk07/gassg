@@ -34,7 +34,7 @@ const esc=x=>String(x??'').replaceAll('&','&amp;').replaceAll('<','&lt;').replac
 const ctx=vm.createContext({adminRuntime:state,Date,Number,String,Object,Array,Map,Set,Intl,Math,esc,
  adminCurrentRole:()=>role,adminRoleCanSection:key=>key==='prospects'&&['operations','superadmin','compliance','readonly'].includes(role),
  requestAnimationFrame:callback=>callback(),document:{getElementById:id=>id==='prospect-editor-'+cn(1)?details:null},toast:()=>{}});
-vm.runInContext(['adminProspectFollowupSnapshot','adminProspectFollowupView','adminOpenProspectFollowup'].map(fn).join('\n')+
+vm.runInContext(['adminProspectFollowupSnapshot','adminProspectFollowupUi','adminProspectFollowupView','adminOpenProspectFollowup'].map(fn).join('\n')+
  '\nthis.snapshot=adminProspectFollowupSnapshot;this.view=adminProspectFollowupView;this.open=adminOpenProspectFollowup;',ctx);
 let s=ctx.snapshot(report,now);
 assert.equal(s.valid,true);assert.equal(s.total,6);
