@@ -2614,3 +2614,26 @@ article[id^="admin-partner-work-"][tabindex="-1"]:focus{outline:3px solid var(--
 @media(max-width:980px){.admin-partner-work-grid{grid-template-columns:1fr}}
 @media(max-width:500px){.admin-partner-work-row{flex-wrap:wrap}.admin-partner-work-row button{width:100%}.admin-partner-worklist .section-head{display:grid;gap:7px}}
 @media(max-width:340px){.admin-partner-work-row{padding:10px}.admin-partner-work-row button{min-height:48px}}
+
+/* V1.196 — evidence-backed merchant onboarding milestones, never a substitute for approval */
+.admin-merchant-progress{margin-top:12px;border:1px solid var(--line);border-radius:14px;padding:14px;background:var(--surface,#fff);min-width:0}
+.admin-merchant-progress-head{display:flex;align-items:flex-start;justify-content:space-between;flex-wrap:wrap;gap:10px}
+.admin-merchant-progress-head>div{min-width:0}
+.admin-merchant-progress-head strong{font-size:14px;line-height:1.4}
+.admin-merchant-progress-head small{display:block;font-size:11px;line-height:1.55;color:var(--muted);margin-top:4px}
+.admin-merchant-progress-track{width:100%;height:9px;border-radius:99px;background:var(--line);overflow:hidden;margin:12px 0}
+.admin-merchant-progress-track span{display:block;height:100%;background:var(--brand);border-radius:99px;transition:width .2s}
+.admin-merchant-progress-steps{padding:0;margin:0 0 10px;list-style:none;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px}
+.admin-merchant-progress-step{min-width:0;border:1px solid var(--line);border-radius:11px;padding:10px;display:flex;align-items:flex-start;gap:8px}
+.admin-merchant-progress-dot{height:23px;min-width:23px;display:grid;place-items:center;border:1px solid var(--line);border-radius:50%;font-size:12px;font-weight:800}
+.admin-merchant-progress-step.done .admin-merchant-progress-dot{background:var(--brand-soft);border-color:var(--brand);color:var(--brand)}
+.admin-merchant-progress-step>div{min-width:0;flex:1}
+.admin-merchant-progress-step strong{font-size:11px;line-height:1.4;display:block;overflow-wrap:anywhere}
+.admin-merchant-progress-step small{font-size:10px;line-height:1.5;display:block;margin-top:3px;color:var(--muted);overflow-wrap:anywhere}
+.admin-merchant-progress-tag{font-size:10px;line-height:1.4;font-weight:800;text-align:right;max-width:98px;flex-shrink:0;overflow-wrap:anywhere}
+.admin-merchant-progress-step.unknown .admin-merchant-progress-tag{color:var(--muted)}
+.admin-merchant-progress-step.blocked .admin-merchant-progress-tag{color:#9a3b3b}
+.admin-merchant-progress>.notice{margin-top:10px}
+@media(max-width:730px){.admin-merchant-progress-steps{grid-template-columns:minmax(0,1fr)}}
+@media(max-width:390px){.admin-merchant-progress{padding:11px}.admin-merchant-progress-step{flex-wrap:wrap}.admin-merchant-progress-tag{max-width:none}}
+@media(prefers-reduced-motion:reduce){.admin-merchant-progress-track span{transition:none}}
