@@ -2552,7 +2552,7 @@ function adminSetSaleRefundFilter(value){
    Never present its unresolved flags as current once evidence is old. */
 function adminSalePaymentHistoryIsFresh(history,now=Date.now()){
   if(!history||history.started!==true)return true;
-  if(!history.checkedAt)return true; // Legacy runtime state; refreshed responses stamp this.
+  if(!history.checkedAt)return false; // Missing proof of consultation is not fresh evidence.
   const ms=Date.parse(String(history.checkedAt));
   return Number.isFinite(ms)&&Number.isFinite(now)&&ms<=now+5*60*1000
     &&ms>=now-10*60*1000;
