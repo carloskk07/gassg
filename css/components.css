@@ -2255,3 +2255,39 @@ body:has(.admin-page) .shell{
  .merchant-order-queue-heading h3{font-size:16px}
  .merchant-order-queue-stat{padding:10px}
 }
+
+/* V1.175 — a clear, human assignment step, no automatic driver selection */
+.merchant-delivery-reminders{margin:14px 0 18px;padding:15px;border:1px solid #e7d6bb;border-radius:16px;background:#fffbf4;min-width:0}
+.merchant-delivery-reminders-title{display:grid;gap:4px}
+.merchant-delivery-reminders-title strong{font-size:15px;line-height:1.35;color:#744a1c}
+.merchant-delivery-reminders-title span,.merchant-delivery-reminders>small{color:var(--muted);font-size:12px;line-height:1.45}
+.merchant-delivery-reminder-items{display:grid;gap:7px;margin-top:12px}
+.merchant-delivery-reminder-row{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:9px 11px;background:white;border:1px solid #eee2d0;border-radius:11px}
+.merchant-delivery-reminder-row span{font-size:13px;font-weight:750;overflow-wrap:anywhere}
+.merchant-delivery-reminder-row button{min-height:44px}
+.merchant-delivery-assignment{display:grid;gap:10px;background:#f8fbf9;border:1px solid #dae7dd;border-radius:13px;padding:13px;margin-top:13px;min-width:0}
+.merchant-delivery-assignment-heading{display:grid;gap:4px}
+.merchant-delivery-assignment-heading strong{font-size:14px;line-height:1.4;color:#1c5a3f}
+.merchant-delivery-assignment-heading small{font-size:12px;color:var(--muted);line-height:1.4}
+.merchant-delivery-assign-form{display:grid;gap:10px;border:0;padding:0;margin:0;min-width:0}
+.merchant-delivery-assign-form:disabled{opacity:.64}
+.merchant-delivery-assign-form .input-wrap{min-width:0}
+.merchant-delivery-assign-form select{min-height:48px}
+.merchant-delivery-assign-form button{min-height:48px;font-weight:780}
+.merchant-delivery-unsaved{color:#7a5a28;font-size:12px;line-height:1.45}
+.merchant-delivery-change{border:1px solid #dee8e0;border-radius:12px;background:white}
+.merchant-delivery-change>summary{min-height:46px;display:flex;align-items:center;padding:10px 13px;font-size:13px;font-weight:760;cursor:pointer;color:#245842}
+.merchant-delivery-change>summary:focus-visible{outline:3px solid #d19a36;outline-offset:2px}
+.merchant-delivery-change>.merchant-delivery-assign-form{padding:12px}
+.merchant-delivery-no-team{display:grid;gap:8px}
+.merchant-delivery-no-team strong{font-size:13px}
+.merchant-delivery-no-team span{font-size:12px;color:var(--muted)}
+.merchant-delivery-no-team button{min-height:44px}
+@media(max-width:540px){
+ .merchant-delivery-reminders{padding:12px}
+ .merchant-delivery-reminder-row{align-items:stretch;flex-direction:column;gap:8px}
+ .merchant-delivery-reminder-row button{min-height:48px;width:100%}
+ .merchant-delivery-assignment{padding:11px}
+ .merchant-delivery-assign-form button{width:100%;min-height:52px}
+ .merchant-delivery-assign-form select{font-size:16px;max-width:100%}
+}
