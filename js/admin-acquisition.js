@@ -1,3 +1,112 @@
+// V1.235 — administrative preview diagnostics; never public ad impressions.
+let adminAdsPreviewSummary=null;
+let adminAdsPreviewBusy=false;
+async function adminAdsPreviewSummaryLoadFromUi(){
+  if(adminAdsPreviewBusy)return;
+  const adminId=String(adminRuntime?.session?.user?.id||'');
+  if(!adminId||!['superadmin','operations','compliance','finance','readonly'].includes(String(adminCurrentRole())))return;
+  adminAdsPreviewBusy=true;
+  try{
+    const data=await adminInvoke({action:'ads-preview-summary'});
+    if(data?.source!=='admin_ads_preview_summary_v1_235'||data.windowDays!==30
+       ||!Number.isSafeInteger(data.previewChallenges)||data.previewChallenges<0
+       ||!Number.isSafeInteger(data.clientReportedPreviews)||data.clientReportedPreviews<0
+       ||data.clientReportedPreviews>data.previewChallenges
+       ||data.previewOnly!==true||data.independentlyVerified!==false
+       ||data.adsLive!==false||data.noCharge!==true||data.readyToSell!==false
+       ||data.verifiedAdImpressions!==0||data.billableImpressions!==0
+       ||data.adsRevenueCents!==0)throw new Error('Diagnóstico sem validação de origem.');
+    if(String(adminRuntime?.session?.user?.id||'')!==adminId)return;
+    adminAdsPreviewSummary={...data,loadedFor:adminId};
+  }catch(e){if(String(adminRuntime?.session?.user?.id||'')===adminId){
+    adminAdsPreviewSummary=null;toast(String(e?.message||e));
+  }}finally{adminAdsPreviewBusy=false;render();}
+}
+function adminAdsPreviewSummarySection(){
+  if(!['superadmin','operations','compliance','finance','readonly'].includes(String(adminCurrentRole())))return '';
+  const data=adminAdsPreviewSummary?.loadedFor===String(adminRuntime?.session?.user?.id||'')
+    ?adminAdsPreviewSummary:null;
+  return '<section class="section admin-ads-preview-summary">'+
+   '<div class="section-head"><div><span class="section-kicker">TAMÃO ADS • QUALIDADE</span>'+
+   '<h3>Diagnóstico de visualização interna</h3>'+
+   '<p>Testes de peças por administradores — não são anúncios ao público.</p></div>'+
+   '<button type="button" class="secondary small" onclick="adminAdsPreviewSummaryLoadFromUi()">Consultar testes</button></div>'+
+   (data?'<div class="merchant-kpis">'+
+     '<div class="kpi"><span class="label">Pré-visualizações emitidas</span><strong>'+data.previewChallenges+'</strong></div>'+
+     '<div class="kpi"><span class="label">Relatos do navegador</span><strong>'+data.clientReportedPreviews+'</strong></div>'+
+     '<div class="kpi"><span class="label">Impressões comerciais</span><strong>0</strong></div>'+
+     '<div class="kpi"><span class="label">Receita Ads</span><strong>R$ 0</strong></div></div>':
+     '<p class="muted tiny">Consulte os testes internos das últimas quatro semanas.</p>')+
+   '<p class="tiny muted">Relatos não são provas independentes de impressão. '+
+   'Não há publicidade veiculada, compromisso de compra ou cobrança.</p></section>';
+}
+async function adminAdsPreviewRunFromUi(merchantId){
+  if(!['superadmin','compliance'].includes(String(adminCurrentRole())))return;
+  const adminId=String(adminRuntime?.session?.user?.id||'');
+  if(!adminId||!/^[0-9a-f-]{36}$/i.test(String(merchantId)))return;
+  const campaign=adminAdsCampaignQueue?.rows?.find(c=>c.merchantId===merchantId&&c.status==='approved_creative');
+  if(!campaign)return toast('Atualize a fila: apenas peças conferidas podem ser testadas.');
+  if(!('IntersectionObserver' in window))return toast('O navegador não suporta medir a visibilidade de elementos.');
+  let packet;
+  try{packet=await adminPerform('ads-preview-issue',{merchantId,requestId:crypto.randomUUID()});}
+  catch(e){return toast(String(e?.message||e));}
+  if(String(adminRuntime?.session?.user?.id||'')!==adminId)return;
+  if(packet?.source!=='ads_preview_proof_v1_235'||packet.operation!=='issue'
+    ||packet.previewOnly!==true||packet.clientReported!==true
+    ||packet.independentlyVerified!==false||packet.billable!==false
+    ||packet.noCharge!==true||packet.adsLive!==false
+    ||packet.creativeVersion!==campaign.version
+    ||packet.merchantId!==merchantId
+    ||!/^[0-9a-f-]{36}$/i.test(String(packet.challengeId||'')))
+    return toast('Dados de prévia desatualizados ou inválidos.');
+  const overlay=document.createElement('div');
+  overlay.className='ads-preview-diagnostic-overlay';
+  overlay.style.cssText='position:fixed;inset:0;z-index:99999;background:rgba(0,0,0,.85);display:flex;align-items:center;justify-content:center;padding:20px';
+  overlay.innerHTML='<section role="dialog" aria-modal="true" aria-label="Prévia interna TAMÃO Ads" '+
+    'style="width:min(96vw,540px);max-height:85vh;overflow:auto;padding:20px;border-radius:14px;background:white;color:#111">'+
+    '<p class="tiny">PRÉVIA INTERNA • NÃO É PUBLICIDADE ATIVA</p>'+
+    '<article class="card flat" id="ads-preview-creative-v1-235">'+
+    '<small>'+esc([packet.city,packet.state].filter(Boolean).join('/'))+'</small>'+
+    '<h3>'+esc(packet.title)+'</h3><p>'+esc(packet.description)+'</p></article>'+
+    '<p id="ads-preview-status-v1-235">Mantenha esta peça visível por 1,5 segundo com a aba ativa.</p>'+
+    '<button type="button" class="secondary small" id="ads-preview-close-v1-235">Fechar</button></section>';
+  document.body.appendChild(overlay);
+  const creative=overlay.querySelector('#ads-preview-creative-v1-235');
+  const message=overlay.querySelector('#ads-preview-status-v1-235');
+  let visibleRatio=0,seenMs=0,lastAt=performance.now(),stopped=false,busy=false;
+  const observer=new IntersectionObserver(entries=>{
+    for(const e of entries)if(e.target===creative)
+      visibleRatio=e.isIntersecting?e.intersectionRatio:0;
+  },{threshold:[0,.5,.75,1]});
+  observer.observe(creative);
+  let interval=0;
+  const finish=()=>{stopped=true;clearInterval(interval);observer.disconnect();overlay.remove();};
+  overlay.querySelector('#ads-preview-close-v1-235').onclick=finish;
+  interval=setInterval(async()=>{
+    if(stopped||busy)return;
+    const now=performance.now();
+    const delta=Math.max(0,Math.min(120,now-lastAt));lastAt=now;
+    if(document.visibilityState==='visible'&&document.hasFocus()&&visibleRatio>=.5)
+      seenMs+=delta;
+    else seenMs=0;
+    if(seenMs<1700)return;
+    busy=true;clearInterval(interval);observer.disconnect();
+    message.textContent='Registrando diagnóstico interno…';
+    try{
+      const result=await adminPerform('ads-preview-confirm',{
+        merchantId,challengeId:packet.challengeId,
+        visibleMs:Math.max(1500,Math.min(15000,Math.floor(seenMs))),
+        visiblePercent:Math.max(50,Math.min(100,Math.floor(visibleRatio*100)))
+      });
+      if(result?.recorded!==true||result.previewOnly!==true
+        ||result.clientReported!==true||result.independentlyVerified!==false
+        ||result.billable!==false||result.adsLive!==false||result.noCharge!==true)
+        throw new Error('O teste não foi confirmado.');
+      if(!stopped)message.textContent='Relato experimental registrado. Nenhum anúncio ou impressão faturável foi criado.';
+      await adminAdsPreviewSummaryLoadFromUi();
+    }catch(e){if(!stopped)message.textContent='O teste não foi confirmado: '+String(e?.message||e);}
+  },100);
+}
 // TAMÃO Ads V1.234 — observed marketing events, never paid ad impressions.
 let adminAdsAudienceState=null;
 let adminAdsAudienceBusy=false;
@@ -134,6 +243,9 @@ function adminAdsCampaignSection(){
     needs_changes:'Ajustes solicitados',withdrawn:'Retirada'};
   const rows=data?.rows?.map(x=>{
     if(!/^[0-9a-f-]{36}$/i.test(String(x.merchantId||'')))return '';
+    const diag=canReview&&x.status==='approved_creative'?
+      '<div class="order-actions"><button class="secondary small" type="button" onclick="adminAdsPreviewRunFromUi(\''+
+        x.merchantId+'\')">Testar prévia interna</button></div>':'';
     const fields=canReview&&x.status==='submitted'?
       '<label>Justificativa para a revisão<textarea id="ads-review-note-'+x.merchantId+
       '" rows="2" minlength="12" maxlength="500" placeholder="Explique o que foi conferido ou precisa mudar"></textarea></label>'+
@@ -147,7 +259,7 @@ function adminAdsCampaignSection(){
       ' • '+esc(x.category||'Geral')+' • versão '+Number(x.version||1)+'</p>'+
       '<strong>'+esc(x.title||'')+'</strong><p>'+esc(x.description||'')+'</p>'+
       (x.reviewNote?'<p class="tiny muted">Nota: '+esc(x.reviewNote)+'</p>':'')+
-      fields+'</div>';
+      fields+diag+'</div>';
   }).join('')||'';
   return '<section class="section admin-ads-campaigns">'+
    '<div class="section-head"><div><span class="section-kicker">TAMÃO ADS • CONFORMIDADE</span>'+
@@ -611,6 +723,7 @@ function adminPrelaunchLeadsSection(data){
       adminAdsDemandSection(),
       adminAdsCampaignSection(),
       adminAdsAudienceSection(),
+      adminAdsPreviewSummarySection(),
       adminGrowthReferralReviewSection(),
       '<div class="section-head acquisition-queue-head"><div><span class="section-kicker">FILA OPERACIONAL</span><h3>Leads recentes para atendimento</h3><p>Até 200 contatos mais recentes. Ordenados por estágio e antiguidade para reduzir esquecimento.</p></div><span class="status-pill '+(Number(metrics.staleNew24h||0)?'offline':'online')+'">'+Number(metrics.new||0)+' novo(s)</span></div>',
       '<div class="grid cards-3" style="margin-top:14px">'+(ordered.length?ordered.slice(0,200).map(adminPrelaunchLeadCard).join(''):'<div class="empty card">Nenhum lead captado ainda.</div>')+'</div>',
