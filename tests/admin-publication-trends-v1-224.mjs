@@ -59,7 +59,7 @@ const val={
 const html=ctx.view(val);
 assert.ok(html.includes('Sem problema de atestação observado na amostra'));
 assert.ok(html.includes('Execuções automáticas aprovadas'));
-assert.ok(html.includes('não é monitoramento de disponibilidade'));
+assert.ok(html.includes('Não é monitoramento de disponibilidade'));
 assert.ok(html.includes('Percentual de disponibilidade não calculado'));
 assert.ok(!html.includes('100%'));
 const insufficient={...val,monitor:{status:'awaiting_first',scheduled:true,lastSucceededAt:null},
