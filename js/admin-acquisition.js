@@ -943,7 +943,7 @@ function adminCityEvolutionView(evolution){
 
 /* V1.205 — immutable, server-derived commercial history (no individual conversion inference). */
 function adminCityHistoryReset(){
-  adminRuntime.cityHistory={items:[],loading:false,loaded:false,error:null,loadedFor:null,chosen:null,scheduler:null};
+  adminRuntime.cityHistory={items:[],loading:false,loaded:false,error:null,loadedFor:null,chosen:null,scheduler:null,health:null};
 }
 async function adminLoadCityHistory({force=false}={}){
   if(!adminReady()||!adminRoleCanSection('prospects'))return;
@@ -963,11 +963,12 @@ async function adminLoadCityHistory({force=false}={}){
     state.loadedFor=user;
     state.scheduler=data.scheduler?.cadence==='daily'&&typeof data.scheduler.active==='boolean'
       ?data.scheduler:null;
+    state.health=adminCityHistoryValidatedHealth(data.health);
     if(!state.items.some(x=>x.id===state.chosen))state.chosen=null;
   }catch(error){
     if(adminReady()&&String(adminRuntime.session?.user?.id||'')===user){
       state.error=String(error?.message||error);
-      state.loaded=false;state.items=[];state.scheduler=null;
+      state.loaded=false;state.items=[];state.scheduler=null;state.health=null;
     }
   }finally{
     if(adminRuntime.cityHistory===state){state.loading=false;render();}
@@ -1030,9 +1031,69 @@ function adminCityHistoryCompare(items,chosen){
     Object.values(item.metrics).some(value=>value!==null&&value!==0));
   return {status:'comparable',latest,older,changes};
 }
+/* V1.207 — sanitize server-computed cron health; never infer healthy from "active". */
+function adminCityHistoryValidatedHealth(value){
+  const allowed=['healthy','awaiting_first','in_grace','missing_capture','run_failed',
+    'job_missing','job_disabled','job_changed','watchdog_missing',
+    'watchdog_disabled','watchdog_changed','watchdog_late'];
+  if(!value||!allowed.includes(value.status))return null;
+  const fields=['asOf','expectedAt','firstDueAt','lastCaptureAt',
+    'lastScheduledAt','lastWatchdogAt'];
+  for(const field of fields){
+    const t=value[field];
+    if(t!==null&&t!==undefined&&!Number.isFinite(Date.parse(String(t))))return null;
+  }
+  const check=x=>x===null||x===undefined||typeof x==='string'&&x.length<=40;
+  if(!check(value.cronRunStatus)||!check(value.lastWatchdogStatus))return null;
+  return {
+    status:value.status,asOf:String(value.asOf||''),
+    expectedAt:String(value.expectedAt||''),
+    lastCaptureAt:value.lastCaptureAt||null,
+    lastScheduledAt:value.lastScheduledAt||null,
+    lastWatchdogAt:value.lastWatchdogAt||null,
+    lastWatchdogStatus:value.lastWatchdogStatus||null,
+    cronRunStatus:value.cronRunStatus||null,
+    captureJobActive:value.captureJobActive===true,
+    watchdogJobActive:value.watchdogJobActive===true
+  };
+}
+function adminCityHistoryHealthView(value){
+  const labels={
+    healthy:['Captura diária confirmada','Último período esperado com captura comprovada no banco.','ok'],
+    awaiting_first:['Primeira execução programada','O horário da primeira coleta ainda não chegou.','neutral'],
+    in_grace:['Coleta dentro do prazo','A execução prevista ainda está dentro da janela de tolerância de 40 minutos.','neutral'],
+    missing_capture:['Captura diária atrasada','Passou a tolerância de 40 minutos e não há confirmação válida de captura automática.','danger'],
+    run_failed:['Falha registrada pelo agendador','O PostgreSQL registrou falha na execução programada.','danger'],
+    job_missing:['Agendamento de captura ausente','A tarefa diária não está registrada no PostgreSQL.','danger'],
+    job_disabled:['Agendamento de captura desativado','A tarefa diária foi desativada.','danger'],
+    job_changed:['Configuração de captura alterada','Horário, executor ou comando não correspondem à configuração esperada.','danger'],
+    watchdog_missing:['Monitor independente ausente','A verificação diária não está registrada no PostgreSQL.','danger'],
+    watchdog_disabled:['Monitor independente desativado','A verificação diária está desativada.','danger'],
+    watchdog_changed:['Configuração do monitor alterada','A tarefa de verificação não corresponde à configuração esperada.','danger'],
+    watchdog_late:['Verificação independente atrasada','A captura existe, mas o monitor não registrou a conferência esperada.','danger']
+  };
+  if(!value)return "<div class='notice'>Saúde das capturas não verificada pelo servidor. Consulte o histórico novamente.</div>";
+  const [title,detail,level]=labels[value.status]||labels.awaiting_first;
+  const date=x=>{
+    if(!x)return 'Ainda não registrada';
+    const t=Date.parse(String(x));
+    return Number.isFinite(t)?new Date(t).toLocaleString('pt-BR'):'Data não verificada';
+  };
+  return `<div class='admin-history-health' role='status' aria-live='polite'>
+    <div class='notice ${level==='danger'?'danger':''}'>
+      <strong>${esc(title)}</strong>
+      <p>${esc(detail)}</p>
+      <p class='tiny'>Próximo período de referência: ${esc(date(value.expectedAt))} •
+        Última captura automática: ${esc(date(value.lastScheduledAt))} •
+        Última verificação do monitor: ${esc(date(value.lastWatchdogAt))}</p>
+      ${level==='danger'?'<p class="tiny">Confira a execução no Supabase Cron e os registros de falha antes de considerar o histórico atual.</p>':''}
+    </div>
+  </div>`;
+}
+
 function adminCityCommercialHistoryView(){
   if(!adminRoleCanSection('prospects')||!adminReady())return '';
-  const state=adminRuntime.cityHistory||{items:[],loading:false,loaded:false,error:null,chosen:null,scheduler:null};
+  const state=adminRuntime.cityHistory||{items:[],loading:false,loaded:false,error:null,chosen:null,scheduler:null,health:null};
   const permitted=['superadmin','operations'].includes(String(adminCurrentRole()));
   const items=state.loadedFor===String(adminRuntime.session?.user?.id||'')&&
     Array.isArray(state.items)?state.items:[];
@@ -1067,7 +1128,7 @@ function adminCityCommercialHistoryView(){
     ${state.loading?'<p class="tiny muted">Consultando histórico do servidor…</p>':''}
     ${!state.loaded&&!state.loading&&!state.error?'<p class="tiny muted">O histórico será consultado ao abrir Prospectos.</p>':''}
     <p class='tiny muted'>Até 16 retratos recentes, no máximo um por hora para toda a administração. Capturas diárias são feitas pelo PostgreSQL, sem depender de abrir o painel.</p>
-    ${state.loaded&&state.loadedFor===String(adminRuntime.session?.user?.id||'')?`<p class='tiny muted' role='status'>Agendamento diário: ${state.scheduler?.active===true?'ativo, às 09h18 (horário de Brasília)':state.scheduler?.active===false?'inativo — conferência necessária':'não verificado'}.</p>`:''}
+    ${state.loaded&&state.loadedFor===String(adminRuntime.session?.user?.id||'')?adminCityHistoryHealthView(state.health):''}
     ${items.length?`<div class='admin-city-history-compare'>
       <div><strong>Retrato mais recente</strong><small>${esc(labelDate(items[0].capturedAt))}
         • ${Number(items[0].cityCount)||0} cidade(s) registradas
