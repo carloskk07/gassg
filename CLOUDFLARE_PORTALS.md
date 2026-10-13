@@ -106,12 +106,12 @@ Os projetos oficiais permanecem exatamente:
    variables → Actions → New repository secret**, cadastrar:
    - `CLOUDFLARE_ACCOUNT_ID`: ID da conta.
    - `CLOUDFLARE_API_TOKEN`: token com permissão **Pages Write**.
-4. Após criar os segredos, executar uma única vez o workflow
+4. **Opcional para recuperação automática:** após criar os segredos, executar uma única vez o workflow
    **Actions → TAMÃO Cloudflare official production deploy → Run workflow → main**
    para publicar o commit atual. Publicações posteriores ocorrerão a cada
    atualização integrada em `main`.
 
-Se algum segredo faltar, o workflow falha explicitamente e não simula publicação.
+O workflow primeiro espera a propagação da integração Git nativa e exige prova do SHA correto nos três domínios. **Se essa publicação já estiver comprovada, os segredos não são necessários e nenhum segundo upload ocorre.** Somente quando a publicação nativa não se confirma, tenta a recuperação direta usando os dois segredos. Se nessa situação algum segredo faltar, o workflow falha explicitamente e não simula publicação.
 Nunca inserir o token em commit, arquivo público, comentário de PR nem mensagem.
 
 ### Segurança operacional
