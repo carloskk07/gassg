@@ -367,11 +367,35 @@ function toast(msg){
   t.textContent=msg;t.classList.add('show');
   clearTimeout(toast._timer);toast._timer=setTimeout(()=>t.classList.remove('show'),2600);
 }
+const GROWTH_REF_STORAGE='tamao-growth-first-ref-v1-226';
+const GROWTH_REF_TTL_MS=30*24*60*60*1000;
+function growthAttributionCode(){
+  try{
+    const item=JSON.parse(localStorage.getItem(GROWTH_REF_STORAGE)||'null');
+    const value=String(item?.code||'').trim().toUpperCase();
+    if(/^[A-Z0-9]{5,40}$/.test(value)&&
+      Number.isFinite(Number(item?.expiresAt))&&
+      Number(item.expiresAt)>Date.now())return value;
+    if(item)localStorage.removeItem(GROWTH_REF_STORAGE);
+  }catch{}
+  const local=String(state?.user?.referredBy||'').trim().toUpperCase();
+  return /^[A-Z0-9]{5,40}$/.test(local)?local:'';
+}
 function parseReferral(){
   try{
-    const ref=new URLSearchParams(location.search).get('ref');
-    if(ref&&ref!==state.user.referralCode&&!state.user.referredBy){
-      state.user.referredBy=ref.trim().slice(0,40); save();
+    const raw=String(new URLSearchParams(location.search).get('ref')||'')
+      .trim().toUpperCase();
+    const existing=growthAttributionCode();
+    if(!existing&&/^[A-Z0-9]{5,40}$/.test(raw)&&
+      raw!==String(state?.user?.referralCode||'').toUpperCase()){
+      // Only a campaign hint, never economic authorization. First touch wins
+      // locally; Supabase still validates the code and eligible conversion.
+      try{localStorage.setItem(GROWTH_REF_STORAGE,JSON.stringify({
+        code:raw,expiresAt:Date.now()+GROWTH_REF_TTL_MS
+      }));}catch{}
+      state.user.referredBy=raw;
+    }else if(existing&&!state.user.referredBy){
+      state.user.referredBy=existing;
     }
   }catch{}
 }
