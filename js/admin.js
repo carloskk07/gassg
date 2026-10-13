@@ -1387,12 +1387,21 @@ function adminOperationalAlertModel(groups){
     'missing_observation','evidence_unverified','unverified'];
   if(cronMonitor?.available===true){
     const checked=Date.parse(String(cronMonitor.checkedAt||''));
+    const validTime=value=>value===null||
+      typeof value==='string'&&Number.isFinite(Date.parse(value));
     const valid=cronMonitor.valid===true&&cronMonitor.noOutageClaim===true&&
       cronStates.includes(cronMonitor.status)&&
       ['none','info','warning','high'].includes(cronMonitor.severity)&&
       Number.isFinite(checked)&&
+      validTime(cronMonitor.expectedSlotAt)&&cronMonitor.expectedSlotAt!==null&&
+      validTime(cronMonitor.graceUntil)&&cronMonitor.graceUntil!==null&&
+      validTime(cronMonitor.nextDueAt)&&cronMonitor.nextDueAt!==null&&
+      validTime(cronMonitor.lastRunAt)&&validTime(cronMonitor.lastSuccessAt)&&
+      Number.isSafeInteger(cronMonitor.missingSlots)&&
+      cronMonitor.missingSlots>=0&&cronMonitor.missingSlots<=168&&
       ['cause','impact','action','recoveryCriteria'].every(key=>
-        typeof cronMonitor[key]==='string'&&cronMonitor[key].length>=20);
+        typeof cronMonitor[key]==='string'&&
+        cronMonitor[key].length>=20&&cronMonitor[key].length<=550);
     if(!valid)unavailable.push('Diagnóstico do agendador OIDC');
     else if(!['healthy','run_processing'].includes(cronMonitor.status)){
       const critical=cronMonitor.severity==='high';
