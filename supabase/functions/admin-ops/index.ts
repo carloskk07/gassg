@@ -2244,13 +2244,14 @@ Deno.serve(async(req:Request)=>{
         ||(decision==="verified_identity"&&evidenceReference.length<8)){
         throw new DomainError("INVALID_REFERRAL_REVIEW","Decisão ou comprovação inválida.",400);
       }
+      // No identity/evidence booleans from the browser. SQL recomputes every
+      // company, owner, code and inviter check from canonical database records.
       const {data,error}=await admin.rpc("admin_review_growth_referral_v1_230",{
         p_actor_user_id:user.id,
         p_application_id:uuid(body.applicationId,"application_id"),
-        p_decision:decision,p_reason:reason,
-        p_cnpj_match:body.cnpjMatch===true,
-        p_owner_match:body.ownerMatch===true,
-        p_inviter_valid:body.inviterValid===true,
+        p_request_id:uuid(body.reviewRequestId,"review_request_id"),
+        p_decision:decision,
+        p_reason:reason,
         p_evidence_reference:evidenceReference||null
       });
       if(error)throw error;
