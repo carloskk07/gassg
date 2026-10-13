@@ -10,7 +10,8 @@ const names=['adminOperationalFollowupsSafe','adminOperationalAlertModel',
  'adminOperationalAlertHistoryDate','adminOperationalMyQueueModel',
  'adminOperationalMyQueueView','adminOperationalConfirmAck'];
 function extract(name){
- const start=Math.max(ui.indexOf('async function '+name+'('),ui.indexOf('function '+name+'('));
+ const asyncStart=ui.indexOf('async function '+name+'(');
+ const start=asyncStart>=0?asyncStart:ui.indexOf('function '+name+'(');
  const end=ui.indexOf('\n}',start);
  assert.ok(start>=0&&end>start,'Missing '+name);
  return ui.slice(start,end+2);
