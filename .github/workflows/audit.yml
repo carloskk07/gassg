@@ -145,6 +145,8 @@ jobs:
         run: node tests/cloudflare-production-deploy-v1-216.mjs
       - name: Cloudflare native reconciliation V1.217/V1.218 regression
         run: node tests/cloudflare-native-reconcile-v1-217.mjs
+      - name: Publication evidence visibility V1.220 regression
+        run: node tests/admin-publication-health-v1-220.mjs
       - name: First real PSP pilot preflight V1.146 regression contract
         run: node tests/first-real-psp-pilot-preflight-v1-146.mjs
       - name: Production trust language V1.147 regression contract

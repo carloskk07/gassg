@@ -10,6 +10,7 @@ import {
 import { cancelProviderChargesForPaymentRequest } from "../_shared/provider-charge-cancel.js";
 import { paymentEncryptionConfigured } from "../_shared/payment-secrets.js";
 import {refreshAnpProspects,cityKey as marketCityKey} from "../_shared/anp-prospects.js";
+import {publicationSummary} from "./publication-health.js";
 
 const SUPABASE_URL=Deno.env.get("SUPABASE_URL")??"";
 const publishableKeys=JSON.parse(Deno.env.get("SUPABASE_PUBLISHABLE_KEYS")??"{}");
@@ -1223,12 +1224,42 @@ async function adminIncidentList(admin:any){
   return {incidents:result.data??[]};
 }
 
+// GitHub is a public, read-only source of deployment evidence. No token is
+// needed; a rate limit or outage is reported as unknown, never as healthy.
+async function publicationGithubEvidence(){
+  const read=async(path:string)=>{
+    const controller=new AbortController();
+    const timer=setTimeout(()=>controller.abort(),5000);
+    try{
+      const response=await fetch("https://api.github.com/repos/carloskk07/gassg"+path,{
+        headers:{"Accept":"application/vnd.github+json","User-Agent":"TAMAO-Admin-Health/1.0"},
+        signal:controller.signal
+      });
+      if(!response.ok)throw new Error("GITHUB_HTTP_"+response.status);
+      return await response.json();
+    }finally{clearTimeout(timer);}
+  };
+  try{
+    const [main,runs]=await Promise.all([
+      read("/git/ref/heads/main"),
+      read("/actions/runs?branch=main&per_page=60")
+    ]);
+    const headSha=String(main?.object?.sha||"").toLowerCase();
+    if(main?.ref!=="refs/heads/main"||main?.object?.type!=="commit"||
+      !/^[a-f0-9]{40}$/.test(headSha)||!Array.isArray(runs?.workflow_runs))
+      throw new Error("GITHUB_EVIDENCE_INVALID");
+    return {headSha,runs:runs.workflow_runs.slice(0,60),error:null};
+  }catch{
+    return {headSha:null,runs:[],error:"GITHUB_EVIDENCE_UNAVAILABLE"};
+  }
+}
+
 async function adminSystemHealth(admin:any){
   const started=Date.now();
   const now=new Date();
   const heartbeatCutoff=now.getTime()-15*60*1000;
   const priceCutoff=now.getTime()-24*60*60*1000;
-  const [portals,readiness,paymentProvider,openSupport,rewardDebt,accountingDebt,overdueReceivables,overdueCashback,activeMerchants]=await Promise.all([
+  const [portals,readiness,paymentProvider,openSupport,rewardDebt,accountingDebt,overdueReceivables,overdueCashback,activeMerchants,githubPublication,latestPortalAttestation]=await Promise.all([
     verifyLivePortals(),
     admin.rpc("platform_launch_readiness"),
     billingProviderHealth(admin),
@@ -1237,11 +1268,21 @@ async function adminSystemHealth(admin:any){
     admin.from("settlement_accounting_failures").select("order_id",{count:"exact",head:true}).is("resolved_at",null),
     admin.from("platform_receivables").select("order_id",{count:"exact",head:true}).eq("status","open").lt("due_at",now.toISOString()),
     admin.from("merchant_cashback_reimbursements").select("order_id",{count:"exact",head:true}).eq("status","open").lt("due_at",now.toISOString()),
-    admin.from("merchants").select("id,last_seen_at,price_confirmed_at").eq("status","active").limit(1000)
+    admin.from("merchants").select("id,last_seen_at,price_confirmed_at").eq("status","active").limit(1000),
+    publicationGithubEvidence(),
+    admin.from("platform_portal_attestations")
+      .select("source_sha,attestation_source,run_id,run_attempt,verified_at")
+      .order("verified_at",{ascending:false}).limit(1).maybeSingle()
   ]);
   for(const result of [readiness,openSupport,rewardDebt,accountingDebt,overdueReceivables,overdueCashback,activeMerchants]){
     if(result.error)throw result.error;
   }
+  const publication=publicationSummary({
+    headSha:githubPublication.headSha,runs:githubPublication.runs,
+    githubError:githubPublication.error,portals,readiness:readiness.data,
+    attestation:latestPortalAttestation.error?null:latestPortalAttestation.data,
+    checkedAt:now.toISOString()
+  });
   const activeMerchantRows=activeMerchants.data??[];
   const staleMerchantHeartbeat=activeMerchantRows.filter((m:any)=>{
     const ts=Date.parse(String(m.last_seen_at??""));
@@ -1277,6 +1318,7 @@ async function adminSystemHealth(admin:any){
     edge:{ok:true,service:"admin-ops"},
     database:{ok:true,operationMode:readiness.data?.operationMode??null,commerceEnabled:readiness.data?.commerceEnabled===true},
     portals,
+    publication,
     paymentProvider,
     queues,
     readiness:readiness.data??{}

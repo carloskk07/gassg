@@ -984,6 +984,34 @@ function adminDetailView(){
   }
   return `<div class="admin-drawer-backdrop" onclick="adminCloseDetail()"><aside class="admin-drawer" onclick="event.stopPropagation()">${content}</aside></div>`;
 }
+function adminPublicationHealthView(p){
+ if(!p||p.source!=='publication_v1_220')return '<div class="notice">Diagnóstico da publicação indisponível.</div>';
+ const labels={healthy:'Confirmada',attention:'Exige atenção',checking:'Verificando',unverified:'Sem comprovação'};
+ const brief=x=>/^[0-9a-f]{40}$/.test(String(x||''))?String(x).slice(0,12):'não confirmado';
+ const flow=(p.workflows||[]).map(x=>{
+   const state={ok:'Aprovado',checking:'Executando',unknown:'Sem confirmação',attention:'Exige atenção'}[x.status]||'Sem confirmação';
+   const link=typeof x.url==='string'&&/^https:\/\/github\.com\/carloskk07\/gassg\/actions\/runs\/\d+$/.test(x.url)
+     ?' <a href="'+esc(x.url)+'" target="_blank" rel="noopener noreferrer">Ver execução</a>':'';
+   return '<div class="order-line"><strong>'+esc(x.name)+'</strong> — '+esc(state)+link+'</div>';
+ }).join('');
+ const probes=(p.portals?.probes||[]).map(x=>'<div class="order-line">'+
+   esc(({customer:'Clientes',merchant:'Revendas',admin:'Administração'})[x.role]||x.role)+
+   ': '+esc(brief(x.sourceSha))+' • '+(x.ok&&p.headSha&&x.sourceSha===p.headSha?'Versão atual':x.ok?'Versão diferente':'Não validado')+'</div>').join('');
+ const findings=(p.issues||[]).map(x=>'<div class="order-line">• '+esc(x)+'</div>').join('');
+ return '<section class="section"><div class="section-head"><div><span class="section-kicker">RASTREABILIDADE</span>'+
+ '<h3>Publicação GitHub, Cloudflare e Supabase</h3>'+
+ '<p>Diagnóstico somente para leitura. Não autoriza alterações operacionais.</p></div>'+
+ '<span class="status-pill '+(p.status==='healthy'?'online':'risk')+'">'+
+ esc(labels[p.status]||'Sem comprovação')+'</span></div>'+
+ '<div class="merchant-kpis"><div class="kpi"><span class="label">GitHub main</span><strong>'+esc(brief(p.headSha))+'</strong></div>'+
+ '<div class="kpi"><span class="label">Cloudflare</span><strong>'+esc(brief(p.portals?.sourceSha))+'</strong></div>'+
+ '<div class="kpi"><span class="label">Atestação Supabase</span><strong>'+
+ (p.attestation?.status==='ok'?'Vigente':'Pendente')+'</strong></div></div>'+
+ '<div class="card flat"><h4>Três portais</h4>'+probes+'</div>'+
+ '<div class="card flat"><h4>Automação GitHub</h4>'+flow+'</div>'+
+ (findings?'<div class="notice"><strong>Verificar</strong>'+findings+'</div>':'')+
+ '<small class="muted">Última consulta: '+esc(formatDateTime(p.checkedAt))+'</small></section>';
+}
 function adminSystemHealthView(){
   const h=adminRuntime.health;
   if(adminRuntime.healthPending&&!h)return '<section class="section"><div class="empty card">Executando diagnóstico do control plane…</div></section>';
@@ -991,6 +1019,7 @@ function adminSystemHealthView(){
   const status=String(h.status||'critical');
   const cls=status==='healthy'?'online':status==='degraded'?'risk':'offline';
   const portals=h.portals?.probes||[];
+  const publicationSection=adminPublicationHealthView(h.publication);
   const providerName=adminBillingProviderName(h.paymentProvider?.provider);
   const credentialLabel=adminBillingProviderCredentialLabel(h.paymentProvider?.provider);
   const e2e=adminBillingE2EState();
@@ -1010,7 +1039,8 @@ function adminSystemHealthView(){
       <div class="kpi"><span class="label">Preço vencido</span><strong>${Number(h.queues?.staleMerchantPrice||0)}</strong></div>
     </div>
     ${h.paymentProvider?.ok===false?`<div class="notice" style="margin-bottom:12px"><strong>Cobrança automática degradada.</strong><br>A falha do PSP aparece no diagnóstico, mas o TAMÃO não bloqueia vendas automaticamente: o Financeiro mantém a conferência manual como contingência. Motivo: ${esc(h.paymentProvider?.reason||h.paymentProvider?.status||'indisponível')}.</div>`:''}
-    <div class="admin-health-portals">${portals.map(p=>`<div class="card flat"><div class="order-head"><strong>${esc(String(p.role||'').toUpperCase())}</strong><span class="status-pill ${p.ok?'online':'offline'}">${p.ok?'OK':'FALHA'}</span></div><small>${esc(p.origin||'')}</small><div class="tiny muted">${esc(p.sourceSha?.slice(0,12)||p.error||'sem SHA')}</div></div>`).join('')}</div>
+    <div class="admin-health-portals">${portals.map(p=>`<div class="card flat"><div class="order-head"><strong>${esc(String(p.role||'').toUpperCase())}</strong><span class="status-pill ${p.ok?'online':'offline'}">${p.ok?'OK':'FALHA'}</span></div><small>${esc(p.origin||'')}</small><div class="tiny muted">${esc(p.sourceSha?.slice(0,12)||p.error||'sem SHA')}</div></div>`).join('')}</div>    ${publicationSection}
+
   </section>`;
 }
 
