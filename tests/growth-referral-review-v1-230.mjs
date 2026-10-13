@@ -15,4 +15,10 @@ for(const term of [
 assert.ok(!/grant\s+(insert|update|delete|all)\s+on\s+table\s+public\.growth_referral_reviews_v1_230\s+to\s+service_role/i.test(sql));
 assert.ok(!/update\s+public\.growth_merchant_application_attributions_v1_229/i.test(sql));
 assert.ok(!/insert\s+into\s+public\.(merchant_fee_credit_ledger|merchant_billing_accounts|platform_receivables)/i.test(sql));
+const edge=fs.readFileSync(new URL('../supabase/functions/admin-ops/index.ts',import.meta.url),'utf8');
+const ui=fs.readFileSync(new URL('../js/admin-acquisition.js',import.meta.url),'utf8');
+const vm=await import('node:vm');
+new vm.Script(ui,{filename:'admin-acquisition.js'});
+for(const x of ['action==="growth-referral-review-queue"','action==="growth-referral-review"','admin_review_growth_referral_v1_230','admin_growth_referral_review_queue_v1_230','p_actor_user_id:user.id','p_cnpj_match:body.cnpjMatch===true'])assert.ok(edge.includes(x),'missing auth integration '+x);
+for(const x of ['adminGrowthReferralReviewSection()','adminLoadGrowthReferralReviewQueue','adminReviewGrowthReferral','growth-referral-review-queue'])assert.ok(ui.includes(x),'missing UI '+x);
 console.log('V1.230 PASS — admin review design, evidence gates, append-only audit, no payouts');
