@@ -2240,7 +2240,7 @@ Deno.serve(async(req:Request)=>{
         &&ints.every(k=>Number.isSafeInteger(data?.[k])&&data[k]>=0)
         &&data.activeDays<=30
         &&(data.lastEventDate===null||
-          /^20\\d{2}-\\d{2}-\\d{2}$/.test(String(data.lastEventDate)))
+          /^20\d{2}-\d{2}-\d{2}$/.test(String(data.lastEventDate)))
         &&quality&&
           ["uniqueVisitorsVerified","cityOfVisitorVerified","invalidTrafficFiltered",
            "actualAdDeliveryImplemented","trackingConsentVerifiedForAds",
@@ -2253,7 +2253,7 @@ Deno.serve(async(req:Request)=>{
         &&commercial?.verifiedAdClicks===0
         &&commercial?.adsRevenueCents===0
         &&Array.isArray(data?.daily)&&data.daily.length===14
-        &&data.daily.every((d:any)=>/^20\\d{2}-\\d{2}-\\d{2}$/.test(String(d.date))
+        &&data.daily.every((d:any)=>/^20\d{2}-\d{2}-\d{2}$/.test(String(d.date))
           &&Number.isSafeInteger(d.landingEvents)&&d.landingEvents>=0
           &&Number.isSafeInteger(d.formEvents)&&d.formEvents>=0)
         &&Array.isArray(data?.cityDemand)&&data.cityDemand.length<=20
