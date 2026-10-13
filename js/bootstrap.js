@@ -63,13 +63,14 @@ window.addEventListener('load',async()=>{
 
 Object.assign(window,{
   go,setMode,startOrder,quickProduct,setAddress,deliveryAddressDraftChanged,qty,checkout,setPaymentMethod,toggleCashback,
-  confirmRequote,cancelBeforeDispatch,cancelPending,shareReferral,activateCashAccount,joinMerchant,selectMerchant,toggleOnline,
+  confirmRequote,cancelBeforeDispatch,cancelPending,shareReferral,shareTamaoGrowthInvite,activateCashAccount,joinMerchant,selectMerchant,toggleOnline,
   merchantUpdate,merchantAction,reset,
   merchantLoginFromUi,merchantLiveRefresh,merchantLiveSelect,merchantLiveToggleOnline,
   merchantLiveSaveP13,merchantLiveSaveProduct,merchantLiveSaveLogistics,merchantLiveAction,merchantLiveCannotFulfill,
   merchantLiveDeliver,merchantLiveAssignDelivery,merchantLiveSaveMemberProfile,
   merchantEnableAlertsFromUi,merchantDisableAlertsFromUi,
   merchantOpenTeam,merchantTeamReloadFromUi,merchantTeamInviteFromUi,merchantTeamRevokeMemberFromUi,merchantTeamRevokeInviteFromUi,copyMerchantTeamInstructions,
+  merchantGrowthLoadFromUi,merchantGrowthShareFromUi,
   merchantLiveLogout,
   adminLoginFromUi,adminRetryBootstrapFromUi,adminRefresh,adminSignOut,adminApproveApplication,adminRejectApplication,
   adminSaveCompliance,adminSetMerchantStatus,adminFinancial,adminReverseOrder
