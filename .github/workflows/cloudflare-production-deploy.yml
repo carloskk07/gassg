@@ -24,6 +24,20 @@ jobs:
       CF_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
       CF_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
     steps:
+      - uses: actions/checkout@v6
+      - name: Require current official main commit
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ "$GITHUB_REF" != "refs/heads/main" || "$GITHUB_REPOSITORY" != "carloskk07/gassg" ]]; then
+            echo '::error::Only the canonical main branch can publish to official TAMÃO domains.'
+            exit 1
+          fi
+          git fetch --no-tags --depth=1 origin refs/heads/main
+          if [[ "$(git rev-parse FETCH_HEAD)" != "$GITHUB_SHA" ]]; then
+            echo '::error::A newer official main commit exists; refusing stale portal deployment.'
+            exit 1
+          fi
       - id: gate
         name: Require two deployment secrets
         shell: bash
