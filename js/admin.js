@@ -23,6 +23,7 @@ const adminRuntime={
   health:null,
   healthPending:false,
   operationalAlerts:{data:null,loadedFor:null,role:null,loading:false,error:null,checkedAt:null},
+  operationalAlertFilter:'all',
   providerHealth:(()=>{
     try{
       const cached=JSON.parse(sessionStorage.getItem('tamao-admin-provider-health-v1')||'null');
@@ -1378,6 +1379,77 @@ function adminOperationalAlertHistoryView(value){
     +'</section>';
 }
 
+/* V1.210 — explainable and role-neutral triage of already-authorized live signals.
+   Historical bonuses require a healthy fresh independent hourly monitor.
+   This never predicts financial harm, public outages or automated human assignment. */
+function adminOperationalAlertTriage(alerts,lifecycle,verifiedAt){
+  if(!Array.isArray(alerts))return [];
+  const at=Date.parse(String(verifiedAt||''));
+  const monitor=lifecycle?.monitor;
+  const last=Date.parse(String(monitor?.checkedAt||''));
+  const evidenceReady=monitor?.status==='current'&&Number.isFinite(at)&&
+    Number.isFinite(last)&&at>=last&&at-last<=90*60000;
+  const owner={
+    incidents:{team:'Operações',task:'Revisar a fila e confirmar os responsáveis'},
+    support:{team:'Atendimento',task:'Conferir os chamados pendentes'},
+    finance:{team:'Financeiro',task:'Conferir falhas de processamento e conciliação'},
+    portals:{team:'Operações / Tecnologia',task:'Verificar versão e segurança dos domínios oficiais'},
+    capture:{team:'Operações',task:'Conferir a captura e o agendador no Supabase'}
+  };
+  const sevScore={critical:90,high:64,medium:32};
+  const cap=n=>Math.max(0,Math.min(100,n));
+  return alerts.filter(x=>owner[x?.id]&&Object.hasOwn(sevScore,x?.severity))
+    .map(item=>{
+      const reasons=[];
+      let score=sevScore[item.severity];
+      reasons.push(item.severity==='critical'?'Gravidade crítica confirmada':
+        item.severity==='high'?'Atenção prioritária pela natureza da pendência':
+        'Pendência operacional a acompanhar');
+      const row=evidenceReady&&item.id!=='portals'?
+        lifecycle.states.find(x=>x.source===item.id):null;
+      const historyConfirmed=Boolean(row?.status==='active'&&
+        Number.isFinite(Date.parse(String(row.checkedAt||'')))&&
+        at-Date.parse(row.checkedAt)>=0&&
+        at-Date.parse(row.checkedAt)<=90*60000);
+      if(historyConfirmed){
+        if(row.consecutiveChecks>=3){
+          score+=12;reasons.push('Recorrência comprovada em 3 ou mais verificações');
+        }else if(row.consecutiveChecks===2){
+          score+=6;reasons.push('Pendência mantida por 2 verificações');
+        }
+        const worsening=lifecycle.events.find(e=>e.source===item.id&&
+          e.previous==='active'&&e.status==='active'&&
+          Number.isFinite(Date.parse(String(e.at||'')))&&
+          Date.parse(e.at)<=Date.parse(row.checkedAt)+60000);
+        const worseningAt=Date.parse(String(worsening?.at||''));
+        const obsAt=Date.parse(String(row.checkedAt||''));
+        if(Number.isFinite(worseningAt)&&Number.isFinite(obsAt)&&
+          obsAt-worseningAt>=0&&obsAt-worseningAt<=75*60000){
+          score+=10;reasons.push('Agravamento verificado na última hora');
+        }
+      }
+      const count=Number(row?.count);
+      if(historyConfirmed&&Number.isSafeInteger(count)&&
+        count>=5&&item.id!=='capture'){
+        score+=count>=10?8:4;
+        reasons.push(count>=10?'Dez ou mais pendências registradas':
+          'Cinco ou mais pendências registradas');
+      }
+      score=cap(score);
+      const priority=score>=80?'immediate':score>=55?'high':'watch';
+      const labels={immediate:'Ação imediata',high:'Prioritário',watch:'Acompanhar'};
+      return {...item,triage:{score,priority,label:labels[priority],
+        owner:owner[item.id].team,nextAction:owner[item.id].task,
+        reasons,historyConfirmed,historyChecked:evidenceReady}};
+    }).sort((a,b)=>b.triage.score-a.triage.score||
+      a.id.localeCompare(b.id,'pt-BR'));
+}
+function adminOperationalAlertSetFilter(value){
+  if(!adminReady()||!adminRoleCanSection('alerts'))return;
+  if(!['all','immediate','high','watch'].includes(String(value)))return;
+  adminRuntime.operationalAlertFilter=String(value);
+  render();
+}
 function adminOperationalAlertBadge(){
   const current=adminOperationalAlertsCurrent();
   if(!current)return '';
@@ -1397,13 +1469,24 @@ function adminOperationalAlertsView(){
   const content=present?.model||null;
   const ago=state.checkedAt?Date.parse(state.checkedAt):NaN;
   const stale=Number.isFinite(ago)&&Date.now()-ago>5*60*1000;
-  const severityLabel={critical:'Crítico',high:'Prioritário',medium:'Acompanhar'};
-  const items=(content?.alerts||[]).map(item=>{
+  const ranked=content?adminOperationalAlertTriage(content.alerts,present?.lifecycle,present?.checkedAt):[];
+  const allowedFilter=['all','immediate','high','watch'];
+  const filter=allowedFilter.includes(adminRuntime.operationalAlertFilter)?
+    adminRuntime.operationalAlertFilter:'all';
+  const visible=ranked.filter(x=>filter==='all'||x.triage.priority===filter);
+  const items=visible.map(item=>{
     const canOpen=adminRoleCanSection(item.target);
     const history=adminOperationalAlertHistoryNote(item.id,present?.lifecycle);
-    return `<article class='admin-ops-alert-item'>
-      <div><span class='status-pill ${item.severity==='critical'||item.severity==='high'?'risk':''}'>${esc(severityLabel[item.severity])}</span>
-        <h3>${esc(item.title)}</h3><p>${esc(item.detail)}</p>${history}</div>
+    const t=item.triage;
+    return `<article class='admin-ops-alert-item admin-ops-alert-priority-${t.priority}'>
+      <div><span class='status-pill ${t.priority==='immediate'?'risk':''}'>${esc(t.label)}</span>
+        <h3>${esc(item.title)}</h3><p>${esc(item.detail)}</p>
+        <p class='admin-ops-alert-triage-reason'>${esc(t.reasons.join(' • '))}</p>
+        <p class='tiny muted'><strong>Área responsável:</strong> ${esc(t.owner)}.
+          ${esc(t.nextAction)}.</p>
+        ${!t.historyChecked&&item.id!=='portals'?
+          '<small class="tiny muted">Histórico horário indisponível; prioridade baseada somente na consulta atual.</small>':''}
+        ${history}</div>
       <button type='button' class='secondary small' ${canOpen?'':'disabled'}
         onclick="adminOperationalAlertsOpen('${item.target}')">Conferir área</button>
     </article>`;
@@ -1426,7 +1509,21 @@ function adminOperationalAlertsView(){
       <div><strong>${content.alerts.filter(x=>x.severity==='critical'||x.severity==='high').length}</strong><small>Alta prioridade</small></div>
       <div><strong>${content.unavailable.length}</strong><small>Fontes não confirmadas</small></div>
     </div>
-    ${items?`<div class='admin-ops-alert-list'>${items}</div>`:content.unavailable.length===0?
+    ${ranked.length?`<div class='admin-ops-alert-triage'>
+      <div><strong>Ordem sugerida de atendimento</strong>
+        <small>Critérios: gravidade, persistência, agravamento recente e volume comprovado. Esta é uma regra transparente de triagem, não uma previsão de impacto.</small></div>
+      <label for='admin-alert-priority-filter'>Mostrar
+        <select id='admin-alert-priority-filter' class='input'
+          onchange='adminOperationalAlertSetFilter(this.value)'>
+          <option value='all' ${filter==='all'?'selected':''}>Todas as prioridades</option>
+          <option value='immediate' ${filter==='immediate'?'selected':''}>Ação imediata</option>
+          <option value='high' ${filter==='high'?'selected':''}>Prioritário</option>
+          <option value='watch' ${filter==='watch'?'selected':''}>Acompanhar</option>
+        </select></label>
+    </div>`:''}
+    ${items?`<div class='admin-ops-alert-list'>${items}</div>`:
+      ranked.length?'<p class="notice">Nenhuma pendência nesta prioridade. Mude o filtro para ver os demais alertas.</p>':
+      content.unavailable.length===0?
       '<p class="notice success">Nenhuma pendência identificada nas fontes autorizadas nesta consulta. Isso não comprova ausência de problemas fora dessas fontes.</p>':
       '<p class="notice">Não há pendências confirmadas nas fontes acessíveis; o diagnóstico é parcial.</p>'}
     ${content.unavailable.length?`<p class='notice danger'>Fontes indisponíveis nesta consulta: ${gaps}. Não interpretar ausência de dados como situação regular.</p>`:''}

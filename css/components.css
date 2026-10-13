@@ -2831,3 +2831,16 @@ details[id^="prospect-editor-"] summary:focus-visible{outline:3px solid var(--br
 .admin-ops-alert-history-row strong{font-size:.9rem;overflow-wrap:anywhere}
 .admin-ops-alert-history-row small{color:var(--muted);overflow-wrap:anywhere}
 @media(max-width:390px){.admin-ops-alert-history-row{flex-direction:column}}
+
+/* V1.210 — explainable priority triage, accessible at 320px */
+.admin-ops-alert-triage{display:flex;justify-content:space-between;align-items:end;gap:12px;flex-wrap:wrap;border:1px solid var(--line);border-radius:12px;padding:12px;margin:12px 0}
+.admin-ops-alert-triage>div{flex:1 1 210px;min-width:0}
+.admin-ops-alert-triage strong,.admin-ops-alert-triage small{display:block}
+.admin-ops-alert-triage small{font-size:.84rem;color:var(--muted);line-height:1.55;margin-top:5px}
+.admin-ops-alert-triage label{flex:0 1 245px;min-width:0;font-size:.85rem}
+.admin-ops-alert-triage select{display:block;width:100%;min-height:44px;margin-top:5px}
+.admin-ops-alert-triage-reason{font-size:.88rem;margin:9px 0 7px!important;line-height:1.5}
+.admin-ops-alert-priority-immediate{border-inline-start:4px solid #a53625}
+.admin-ops-alert-priority-high{border-inline-start:4px solid #ad752a}
+.admin-ops-alert-priority-watch{border-inline-start:4px solid var(--line)}
+@media(max-width:480px){.admin-ops-alert-triage label{flex-basis:100%}.admin-ops-alert-triage select{width:100%}}

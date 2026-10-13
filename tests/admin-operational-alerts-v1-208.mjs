@@ -13,6 +13,7 @@ const extract=name=>{
   return source.slice(start,end+2);
 };
 const names=['adminLoadOperationalAlerts','adminOperationalAlertModel',
+  'adminOperationalAlertTriage','adminOperationalAlertSetFilter',
   'adminOperationalAlertLifecycle','adminOperationalAlertHistoryDate',
   'adminOperationalAlertHistoryNote','adminOperationalAlertHistoryView','adminOperationalAlertsCurrent',
   'adminOperationalAlertBadge','adminOperationalAlertsOpen','adminOperationalAlertsView'];
