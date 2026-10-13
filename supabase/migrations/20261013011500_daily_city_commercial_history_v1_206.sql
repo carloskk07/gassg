@@ -110,7 +110,10 @@ begin
     order by captured_at desc,id desc limit 16
   ) s;
   return jsonb_build_object('source','database_authoritative',
-    'snapshots',v_history,'limit',16,'containsPersonalData',false);
+    'snapshots',v_history,'limit',16,'containsPersonalData',false,
+    'scheduler',jsonb_build_object('active',exists(select 1 from cron.job j
+      where j.jobname='tamao-city-commercial-history-daily-v1-206' and j.active),
+      'cadence','daily','utcTime','12:18'));
 end;
 $fn$;
 revoke all on function public.admin_list_city_commercial_history_v1_205(uuid)
