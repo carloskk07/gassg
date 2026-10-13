@@ -943,7 +943,7 @@ function adminCityEvolutionView(evolution){
 
 /* V1.205 — immutable, server-derived commercial history (no individual conversion inference). */
 function adminCityHistoryReset(){
-  adminRuntime.cityHistory={items:[],loading:false,loaded:false,error:null,loadedFor:null,chosen:null};
+  adminRuntime.cityHistory={items:[],loading:false,loaded:false,error:null,loadedFor:null,chosen:null,scheduler:null};
 }
 async function adminLoadCityHistory({force=false}={}){
   if(!adminReady()||!adminRoleCanSection('prospects'))return;
@@ -961,11 +961,13 @@ async function adminLoadCityHistory({force=false}={}){
     state.items=data.snapshots.slice(0,16);
     state.loaded=true;
     state.loadedFor=user;
+    state.scheduler=data.scheduler?.cadence==='daily'&&typeof data.scheduler.active==='boolean'
+      ?data.scheduler:null;
     if(!state.items.some(x=>x.id===state.chosen))state.chosen=null;
   }catch(error){
     if(adminReady()&&String(adminRuntime.session?.user?.id||'')===user){
       state.error=String(error?.message||error);
-      state.loaded=false;state.items=[];
+      state.loaded=false;state.items=[];state.scheduler=null;
     }
   }finally{
     if(adminRuntime.cityHistory===state){state.loading=false;render();}
@@ -1030,7 +1032,7 @@ function adminCityHistoryCompare(items,chosen){
 }
 function adminCityCommercialHistoryView(){
   if(!adminRoleCanSection('prospects')||!adminReady())return '';
-  const state=adminRuntime.cityHistory||{items:[],loading:false,loaded:false,error:null,chosen:null};
+  const state=adminRuntime.cityHistory||{items:[],loading:false,loaded:false,error:null,chosen:null,scheduler:null};
   const permitted=['superadmin','operations'].includes(String(adminCurrentRole()));
   const items=state.loadedFor===String(adminRuntime.session?.user?.id||'')&&
     Array.isArray(state.items)?state.items:[];
@@ -1039,7 +1041,7 @@ function adminCityCommercialHistoryView(){
     const t=Date.parse(String(value||''));
     return Number.isFinite(t)?new Date(t).toLocaleString('pt-BR'):'Data não verificada';
   };
-  const note=compare.status==='insufficient'?'Registre dois retratos em horários diferentes para comparar a evolução.':
+  const note=compare.status==='insufficient'?'A comparação exige dois retratos de horários diferentes; a coleta diária é automática quando o agendamento está ativo.':
     compare.status==='sampled'?'Uma das consultas contém apenas parte dos municípios. Diferenças não serão calculadas.':
     compare.status==='coverage'?'Os municípios não são os mesmos nas duas consultas. Diferenças bloqueadas para evitar conclusões incorretas.':
     'Comparação de contagens entre duas capturas do servidor, sem provar conversão de pessoas, vendas ou participação de mercado.';
@@ -1064,15 +1066,16 @@ function adminCityCommercialHistoryView(){
     ${state.error?`<div class='notice danger'>${esc(state.error)}</div>`:''}
     ${state.loading?'<p class="tiny muted">Consultando histórico do servidor…</p>':''}
     ${!state.loaded&&!state.loading&&!state.error?'<p class="tiny muted">O histórico será consultado ao abrir Prospectos.</p>':''}
-    <p class='tiny muted'>Até 16 retratos recentes, no máximo um por hora para toda a administração. Os números são calculados no Supabase e não enviados pelo navegador. Nenhuma pessoa ou transação é armazenada nesta série.</p>
+    <p class='tiny muted'>Até 16 retratos recentes, no máximo um por hora para toda a administração. Capturas diárias são feitas pelo PostgreSQL, sem depender de abrir o painel.</p>
+    ${state.loaded&&state.loadedFor===String(adminRuntime.session?.user?.id||'')?`<p class='tiny muted' role='status'>Agendamento diário: ${state.scheduler?.active===true?'ativo, às 09h18 (horário de Brasília)':state.scheduler?.active===false?'inativo — conferência necessária':'não verificado'}.</p>`:''}
     ${items.length?`<div class='admin-city-history-compare'>
       <div><strong>Retrato mais recente</strong><small>${esc(labelDate(items[0].capturedAt))}
         • ${Number(items[0].cityCount)||0} cidade(s) registradas
-        ${items[0].sampled?' • Amostra limitada':''}</small></div>
+        ${items[0].sampled?' • Amostra limitada':''} • ${items[0].origin==='scheduled'?'Automático':'Manual'}</small></div>
       <div><label for='admin-history-reference'>Comparar com</label>
         <select class='input' id='admin-history-reference' onchange='adminChooseCityHistory(this.value)'>
           ${items.slice(1).map(x=>`<option value='${esc(x.id)}'
-            ${x.id===compare.older?.id?'selected':''}>${esc(labelDate(x.capturedAt))}${x.sampled?' (amostra)':''}</option>`).join('')}
+            ${x.id===compare.older?.id?'selected':''}>${esc(labelDate(x.capturedAt))}${x.sampled?' (amostra)':''}${x.origin==='scheduled'?' (automático)':' (manual)'}</option>`).join('')}
         </select></div>
     </div>`:''}
     <div class='notice'>${esc(note)}</div>

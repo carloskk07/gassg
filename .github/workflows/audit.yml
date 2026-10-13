@@ -119,6 +119,8 @@ jobs:
         run: node tests/admin-city-evolution-v1-204.mjs
       - name: Persistent commercial city history V1.205 regression
         run: node tests/admin-city-commercial-history-v1-205.mjs
+      - name: Automatic city history V1.206 regression
+        run: node tests/admin-city-auto-history-v1-206.mjs
       - name: First real PSP pilot preflight V1.146 regression contract
         run: node tests/first-real-psp-pilot-preflight-v1-146.mjs
       - name: Production trust language V1.147 regression contract
