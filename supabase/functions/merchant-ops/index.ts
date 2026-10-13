@@ -153,12 +153,12 @@ Deno.serve(async(req:Request)=>{
       const version=body.version===null||body.version===undefined?0:Number(body.version);
       if(!Number.isSafeInteger(version)||version<0||version>2147483646)
         throw new DomainError("ADS_CAMPAIGN_VERSION_INVALID","Atualize a proposta antes de salvar.",409);
-      const requestId=operation==="view"?null:String(body.requestId??"");
+      const requestId=String(body.requestId??"");
       if(operation!=="view"&&!UUID_RE.test(requestId))
         throw new DomainError("ADS_CAMPAIGN_REQUEST_INVALID","Identificação da ação inválida.",400);
       const {data,error}=await admin.rpc("merchant_ads_campaign_v1_233",{
         p_actor:user.id,p_merchant:merchantId,p_action:operation,
-        p_request:requestId,p_title:title,p_description:description,
+        p_request:operation==="view"?null:requestId,p_title:title,p_description:description,
         p_category:category,p_version:version
       });
       if(error)throw error;
