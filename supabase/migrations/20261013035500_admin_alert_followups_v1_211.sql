@@ -44,9 +44,8 @@ set search_path=pg_catalog
 as $fn$
  select case
  when p_source='finance' then p_role in ('superadmin','finance')
- when p_source='capture' then p_role in
-   (case when p_write then 'superadmin' else 'superadmin' end,
-    'operations') or (not p_write and p_role in ('compliance','readonly'))
+ when p_source='capture' then p_role in ('superadmin','operations')
+   or (not p_write and p_role in ('compliance','readonly'))
  when p_source='support' then p_role in ('superadmin','operations','support')
  when p_source='incidents' then p_role in ('superadmin','operations','support')
    or (not p_write and p_role in ('finance','compliance','readonly'))
@@ -127,7 +126,8 @@ begin
  if v_owner_role is null or not public.admin_alert_source_allowed_v1_211(v_owner_role,p_source,true)
  then raise exception 'INVALID_ALERT_OWNER' using errcode='22023';end if;
  if p_status not in ('open','monitoring','closed') or p_status is null or
-   p_due_at is null or p_due_at < v_now-interval '1 minute' or
+   p_due_at is null or
+   (p_status<>'closed' and p_due_at<v_now-interval '1 minute') or
    p_due_at>v_now+interval '90 days' or
    p_note is null or char_length(btrim(p_note)) not between 6 and 240 or
    p_expected_revision is null or p_expected_revision<0 then
@@ -165,7 +165,9 @@ begin
  values(p_source,v_event,v_revision,p_actor_id,p_owner_id,p_due_at,p_status);
  insert into public.platform_admin_audit
    (actor_user_id,action,target_type,target_id,metadata)
- values(p_actor_id,'operational_alert_followup','alert_group',p_source,
+ values(p_actor_id,case when p_source='finance' then
+     'operational_alert_followup_financial' else 'operational_alert_followup' end,
+   'alert_group',p_source,
    jsonb_build_object('revision',v_revision,'event',v_event,
      'ownerId',p_owner_id,'dueAt',p_due_at,'status',p_status));
  return jsonb_build_object('source','server_authoritative',
