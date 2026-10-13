@@ -100,7 +100,7 @@ async function requireAdmin(admin:any,userId:string){
   if(!data)throw new DomainError("ADMIN_ACCESS_DENIED","Esta conta não possui acesso administrativo.",403);
   return data;
 }
-const ADMIN_READ_ACTIONS=new Set(["summary","search","entity-detail","system-health","billing-provider-health","audit-search","incident-list","merchant-payment-preflight","prospect-intelligence","expansion-notifications","expansion-radar","merchant-enablement","sale-payment-history","finance-receipts-history","commercial-history-list","operational-alerts","ads-demand","ads-audience-readiness","ads-preview-summary","ads-campaign-queue","growth-referral-review-queue"]);
+const ADMIN_READ_ACTIONS=new Set(["summary","search","entity-detail","system-health","billing-provider-health","audit-search","incident-list","merchant-payment-preflight","prospect-intelligence","expansion-notifications","expansion-radar","merchant-enablement","sale-payment-history","finance-receipts-history","commercial-history-list","operational-alerts","ads-demand","ads-audience-readiness","ads-preview-summary","ads-placement-readiness","ads-campaign-queue","growth-referral-review-queue"]);
 const ADMIN_ROLE_ACTIONS:Record<string,Set<string>>={
   superadmin:new Set(["*"]),
   operations:new Set([
@@ -2219,6 +2219,31 @@ Deno.serve(async(req:Request)=>{
       if(error)throw error;
       return json({notifications:(data||[]).filter((n:any)=>marketCityKey(n.city)===key
         &&n.prelaunch_leads?.consent_at&&n.prelaunch_leads?.status!=="closed")},200,origin);
+    }
+    if(action==="ads-placement-readiness"){
+      if(!["superadmin","operations","compliance","finance","readonly"].includes(String(adminAccess.admin_role)))
+        throw new DomainError("ADMIN_PERMISSION_DENIED","Consulta de publicidade não autorizada.",403);
+      const {data,error}=await admin.rpc("admin_ads_placement_readiness_v1_236",{
+        p_actor:user.id
+      });
+      if(error)throw error;
+      if(data?.source!=="admin_ads_placement_readiness_v1_236"
+         ||data?.publicEnabled!==false
+         ||data?.billingEnabled!==false
+         ||data?.verifiedDeliveryEnabled!==false
+         ||data?.organicRankingUnaffected!==true
+         ||data?.readOnly!==true||data?.noCharge!==true
+         ||data?.readyToSell!==false
+         ||data?.verifiedAdImpressions!==0
+         ||data?.billableImpressions!==0
+         ||data?.adsRevenueCents!==0
+         ||!Number.isSafeInteger(data.approvedCreatives)||data.approvedCreatives<0
+         ||!Number.isSafeInteger(data.potentialMerchantCreatives)
+         ||data.potentialMerchantCreatives<0
+         ||data.potentialMerchantCreatives>data.approvedCreatives)
+        throw new DomainError("ADS_PLACEMENT_STATE_INVALID",
+          "Controle de publicidade não confirmado pelo servidor.",503);
+      return json(data,200,origin);
     }
     if(action==="ads-preview-summary"){
       if(!["superadmin","operations","compliance","finance","readonly"].includes(String(adminAccess.admin_role)))

@@ -470,6 +470,8 @@ Deno.serve(async (req: Request) => {
     const expiresAt = new Date(Date.now() + QUOTE_TTL_MS).toISOString();
     const publicOffers: any[] = [];
     const quoteRecords:Array<{quoteId:string;totalCents:number;safe:any}>=[];
+    // Separate advertising context. Never mutates chooseOffers, quote scores or ordering.
+    const quotedMerchantIds:string[]=[];
 
     for (const { candidate, label } of chosen) {
       const fingerprint=await requestFingerprint("quote-snapshot",{
@@ -554,6 +556,7 @@ Deno.serve(async (req: Request) => {
       safe.deliveryWindowEnd=deliveryWindow?.end??null;
 
       if(hasMerchantLeak(safe))throw new Error("Merchant identity leak detected");
+      quotedMerchantIds.push(candidate.merchantId);
       quoteRecords.push({
         quoteId:String(quote.quoteId),
         totalCents:Number(quote.grossTotalCents),
@@ -575,8 +578,45 @@ Deno.serve(async (req: Request) => {
       }
     }
 
+    // Sponsorship is independently gated in PostgreSQL and is not an offer.
+    // Fail closed: advertising availability must never block ordering gas/water.
+    let sponsoredSlot:null|Record<string,unknown>=null;
+    if(publicOffers.length>0){
+      try{
+        const {data:placement,error:placementError}=await admin.rpc(
+          "ads_sponsored_slot_v1_236",{
+            p_city:postal.city,p_state:postal.state,
+            p_offer_merchants:quotedMerchantIds,
+            p_product_codes:items.map(x=>x.productCode)
+          }
+        );
+        if(placementError)throw placementError;
+        const ad=placement?.sponsoredSlot;
+        if(placement?.source==="ads_sponsored_slot_v1_236"
+           &&placement?.publicEnabled===true
+           &&placement?.billingEnabled===false
+           &&placement?.verifiedDeliveryEnabled===false
+           &&placement?.noCharge===true
+           &&ad?.label==="Patrocinado"&&ad?.nonBillable===true
+           &&typeof ad.title==="string"&&ad.title.length<=80&&ad.title.length>=12
+           &&typeof ad.description==="string"&&ad.description.length<=240
+           &&typeof ad.advertiser==="string"&&ad.advertiser.length<=120
+           &&ad.city===postal.city&&ad.state===postal.state
+           &&ad.adId===null&&ad.clickUrl===null){
+          sponsoredSlot={
+            label:"Patrocinado",title:ad.title,description:ad.description,
+            advertiser:ad.advertiser,city:ad.city,state:ad.state,
+            nonBillable:true
+          };
+        }
+      }catch(error){
+        console.error("Sponsored slot not available",error instanceof Error?error.message:"unknown");
+      }
+    }
+
     return json({
       offers:publicOffers,
+      sponsoredSlot,
       marketMode:candidates.length===1?"single_supplier":"marketplace",
       eligibleMerchantCount:candidates.length,
       displayedOfferCount:publicOffers.length,
