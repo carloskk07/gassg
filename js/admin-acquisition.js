@@ -1,3 +1,49 @@
+// V1.236 — controlled editorial ad slot: intentionally locked for public use.
+let adminAdsPlacementState=null;
+let adminAdsPlacementBusy=false;
+async function adminAdsPlacementLoadFromUi(){
+  if(adminAdsPlacementBusy)return;
+  const identity=String(adminRuntime?.session?.user?.id||'');
+  if(!identity||!['superadmin','operations','compliance','finance','readonly'].includes(String(adminCurrentRole())))return;
+  adminAdsPlacementBusy=true;
+  try{
+    const data=await adminInvoke({action:'ads-placement-readiness'});
+    if(data?.source!=='admin_ads_placement_readiness_v1_236'
+       ||data.publicEnabled!==false||data.billingEnabled!==false
+       ||data.verifiedDeliveryEnabled!==false||data.readyToSell!==false
+       ||data.organicRankingUnaffected!==true||data.readOnly!==true
+       ||data.noCharge!==true||data.billableImpressions!==0
+       ||data.verifiedAdImpressions!==0||data.adsRevenueCents!==0
+       ||!Number.isSafeInteger(data.approvedCreatives)||data.approvedCreatives<0
+       ||!Number.isSafeInteger(data.potentialMerchantCreatives)
+       ||data.potentialMerchantCreatives<0)
+      throw new Error('Controle de publicidade não pôde ser confirmado.');
+    if(identity!==String(adminRuntime?.session?.user?.id||''))return;
+    adminAdsPlacementState={...data,loadedFor:identity};
+  }catch(e){
+    if(identity===String(adminRuntime?.session?.user?.id||'')){
+      adminAdsPlacementState=null;toast(String(e?.message||e));
+    }
+  }finally{adminAdsPlacementBusy=false;render();}
+}
+function adminAdsPlacementSection(){
+  if(!['superadmin','operations','compliance','finance','readonly'].includes(String(adminCurrentRole())))return '';
+  const adminId=String(adminRuntime?.session?.user?.id||'');
+  const data=adminAdsPlacementState?.loadedFor===adminId?adminAdsPlacementState:null;
+  return '<section class="section admin-ads-placement">'+
+    '<div class="section-head"><div><span class="section-kicker">TAMÃO ADS • CONTROLES DE EXIBIÇÃO</span>'+
+    '<h3>Preparação do espaço patrocinado</h3>'+
+    '<p>Publicidade fora da lista orgânica. A exibição pública e qualquer cobrança estão bloqueadas.</p></div>'+
+    '<button class="secondary small" type="button" onclick="adminAdsPlacementLoadFromUi()">Conferir bloqueios</button></div>'+
+    (data?'<div class="merchant-kpis">'+
+      '<div class="kpi"><span class="label">Criativos revisados</span><strong>'+data.approvedCreatives+'</strong></div>'+
+      '<div class="kpi"><span class="label">Revendas com peça potencialmente elegível</span><strong>'+data.potentialMerchantCreatives+'</strong></div>'+
+      '<div class="kpi"><span class="label">Espaços publicados</span><strong>0</strong></div>'+
+      '<div class="kpi"><span class="label">Receita de publicidade</span><strong>R$ 0</strong></div></div>':
+      '<p class="muted tiny">Consulte os bloqueios antes de qualquer experimento público.</p>')+
+    '<p class="tiny muted">O banco impede ativação pública nesta versão. Sem impressões verificadas, sem faturamento e sem alteração de classificação de ofertas.</p>'+
+    '</section>';
+}
 // V1.235 — administrative preview diagnostics; never public ad impressions.
 let adminAdsPreviewSummary=null;
 let adminAdsPreviewBusy=false;
@@ -724,6 +770,7 @@ function adminPrelaunchLeadsSection(data){
       adminAdsCampaignSection(),
       adminAdsAudienceSection(),
       adminAdsPreviewSummarySection(),
+      adminAdsPlacementSection(),
       adminGrowthReferralReviewSection(),
       '<div class="section-head acquisition-queue-head"><div><span class="section-kicker">FILA OPERACIONAL</span><h3>Leads recentes para atendimento</h3><p>Até 200 contatos mais recentes. Ordenados por estágio e antiguidade para reduzir esquecimento.</p></div><span class="status-pill '+(Number(metrics.staleNew24h||0)?'offline':'online')+'">'+Number(metrics.new||0)+' novo(s)</span></div>',
       '<div class="grid cards-3" style="margin-top:14px">'+(ordered.length?ordered.slice(0,200).map(adminPrelaunchLeadCard).join(''):'<div class="empty card">Nenhum lead captado ainda.</div>')+'</div>',
