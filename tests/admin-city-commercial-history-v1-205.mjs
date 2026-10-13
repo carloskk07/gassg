@@ -46,7 +46,8 @@ const context=vm.createContext({
  esc
 });
 const funcs=['adminCityHistoryReset','adminLoadCityHistory','adminCaptureCityHistory',
- 'adminChooseCityHistory','adminCityHistoryCompare','adminCityCommercialHistoryView'];
+ 'adminChooseCityHistory','adminCityHistoryCompare',
+ 'adminCityHistoryValidatedHealth','adminCityHistoryHealthView','adminCityCommercialHistoryView'];
 vm.runInContext(funcs.map(extract).join('\n')+
  '\nthis.reset=adminCityHistoryReset;this.load=adminLoadCityHistory;'+
  'this.capture=adminCaptureCityHistory;this.choose=adminChooseCityHistory;'+
