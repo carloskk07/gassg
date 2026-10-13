@@ -27,7 +27,7 @@ assert.ok(!sql.includes('create table')&&!sql.includes('net.http_post')&&
   !sql.includes('commerce_enabled')&&!sql.includes('alter role')&&!sql.includes('grant select'));
 assert.ok(edge.includes('admin.rpc("admin_portal_attestation_trends_v1_224"'));
 assert.ok(edge.includes("publicationTrends={available:true,valid:false}"));
-assert.ok(edge.includes("groups:{incidents,support,finance,capture,portals,publication,publicationHistory,publicationTrends}"));
+assert.ok(edge.includes("groups:{incidents,support,finance,capture,portals,publication,publicationHistory,publicationTrends,publicationMonitor}"));
 assert.ok(edge.includes("data?.trend?.coveragePercentage===null"));
 assert.ok(edge.includes("p_actor_user_id:actorId"));
 assert.ok(audit.includes('node tests/admin-publication-trends-v1-224.mjs'));

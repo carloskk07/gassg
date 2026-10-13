@@ -281,3 +281,27 @@ observações OIDC e as reincidências. Nenhuma taxa de disponibilidade ou
 percentual de uptime é calculado; essas observações não medem quedas de
 sites e não autorizam operações financeiras. Observações manuais não são
 confundidas com execuções automáticas no registro do cron.
+
+## V1.225 — Diagnóstico antecipado de interrupções do monitor horário
+
+A função privada `admin_portal_attestation_monitor_v1_225` compara os
+registros nativos `cron.job_run_details` com a janela esperada de
+**:53 UTC**, tolerando cinco minutos antes de sinalizar ausência da
+execução programada. Consulta também a observação OIDC correspondente.
+Classifica configurações ausentes/alteradas/desativadas, execução com falha,
+execução travada, janela perdida, múltiplas janelas perdidas, observação
+faltante e evidência de atestação não confirmada.
+
+O diagnóstico é calculado no relógio do banco a cada consulta autenticada
+da Central de Alertas; não há nova escrita, novas permissões nem outro
+processo agendado. A proteção contra alarme prematuro e a ausência de
+historico inicial são explícitas. A RPC verifica novamente o perfil
+administrativo no PostgreSQL, concede `EXECUTE` somente a `service_role`
+e não expõe dados pessoais, tokens ou mensagens brutas do cron.
+
+Na Central de Alertas, o novo diagnóstico ganha sua própria prioridade,
+causa provável, impacto, ação humana e prova de recuperação. Nenhum ajuste
+no cron ocorre automaticamente. A execução normal só é confirmada quando
+a última janela tem um log nativo de sucesso **e** uma observação OIDC
+correspondente. Este diagnóstico monitora a coleta de provas, **não**
+indisponibilidade de sites ou aceitação financeira.
