@@ -95,7 +95,7 @@ assert.equal(unknown.alerts[0].severity,'medium','Unavailable API should not imp
 assert.equal(sandbox.model({...quiet}).alerts.length,0,'Legacy source continues to work');
 
 assert.ok(edge.includes('publicationAlertInsight(current,github.runs,checkedAt)'));
-assert.ok(edge.includes('groups:{incidents,support,finance,capture,portals,publication,publicationHistory}'));
+assert.ok(edge.includes('groups:{incidents,support,finance,capture,portals,publication,publicationHistory,publicationTrends}'));
 assert.ok(edge.includes('if(portalRole)tasks.push('),'Limited roles only');
 assert.ok(edge.includes('admin.from("platform_portal_attestations")'));
 assert.ok(edge.includes('admin.rpc("platform_launch_readiness")'));
