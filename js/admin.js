@@ -2053,7 +2053,7 @@ function adminOperationalAlertsView(){
       adminOperationalFollowupsDormantView(adminOperationalFollowupsSafe(present.rawFollowups),ranked):''}
     ${adminOperationalFollowupsEventsView(adminOperationalFollowupsSafe(present?.rawFollowups))}
     ${adminOperationalAlertHistoryView(present?.lifecycle||null)}
-    ${adminPublicationEpisodeHistoryView(present?.rawPublicationHistory)}
+    ${typeof adminPublicationEpisodeHistoryView==='function'?adminPublicationEpisodeHistoryView(present?.rawPublicationHistory):''}
     <p class='tiny muted'>Incidentes são agrupados sem divulgar descrições pessoais. Alertas não marcam chamados como resolvidos e não substituem as verificações específicas de cada área. Notificações externas não estão habilitadas.</p>`:
     '<p class="notice">Consulte os alertas para receber um diagnóstico atual. Sem verificação, nenhuma conclusão de normalidade pode ser apresentada.</p>'}
   </section>`;
