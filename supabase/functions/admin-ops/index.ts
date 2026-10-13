@@ -10,7 +10,7 @@ import {
 import { cancelProviderChargesForPaymentRequest } from "../_shared/provider-charge-cancel.js";
 import { paymentEncryptionConfigured } from "../_shared/payment-secrets.js";
 import {refreshAnpProspects,cityKey as marketCityKey} from "../_shared/anp-prospects.js";
-import {publicationSummary} from "./publication-health.js";
+import {publicationSummary,publicationAlertInsight} from "./publication-health.js";
 
 const SUPABASE_URL=Deno.env.get("SUPABASE_URL")??"";
 const publishableKeys=JSON.parse(Deno.env.get("SUPABASE_PUBLISHABLE_KEYS")??"{}");
@@ -1151,6 +1151,7 @@ async function adminOperationalAlerts(admin:any,role:string,actorId:string){
   let finance={available:financeRole,valid:false,rewardFailures:null,accountingFailures:null};
   let capture={available:captureRole,valid:false,health:null};
   let portals={available:portalRole,valid:false,verified:false};
+  let publication:any={available:portalRole,valid:false};
   const tasks=[];
   if(operationalRole)tasks.push((async()=>{
     const r=await fetchCount(()=>admin.from("support_cases").select("id",{count:"exact",head:true}).in("status",["open","in_review"]));
@@ -1178,10 +1179,40 @@ async function adminOperationalAlerts(admin:any,role:string,actorId:string){
   })());
   if(portalRole)tasks.push((async()=>{
     try{
-      const verification=await verifyLivePortals();
+      // Share the same live portal probe with the legacy gate. No second
+      // counter/alert is created if detailed publication evidence is present.
+      const [verification,github,readiness,lastAttestation]=await Promise.all([
+        verifyLivePortals(),
+        publicationGithubEvidence(),
+        admin.rpc("platform_launch_readiness"),
+        admin.from("platform_portal_attestations")
+          .select("source_sha,attestation_source,run_id,run_attempt,verified_at")
+          .order("verified_at",{ascending:false}).limit(1).maybeSingle()
+      ]);
       if(typeof verification?.ok==="boolean")
         portals={available:true,valid:true,verified:verification.ok===true};
-    }catch{}
+      const current=publicationSummary({
+        headSha:github.headSha,runs:github.runs,portals:verification,
+        readiness:readiness.error?null:readiness.data,
+        attestation:lastAttestation.error?null:lastAttestation.data,
+        githubError:github.error,checkedAt
+      });
+      const history=publicationAlertInsight(current,github.runs,checkedAt);
+      // System health remains the detailed drill-down. The alert only exposes
+      // an allowlisted summary, not the underlying private attestation row.
+      publication={available:true,valid:true,status:current.status,
+        checkedAt,sourceSha:current.headSha,
+        recurrence:history,
+        guidance:current.guidance.slice(0,8).map((g:any)=>({
+          code:g.code,level:g.level,problem:g.problem,impact:g.impact,
+          action:g.action,recoveryCriteria:g.recoveryCriteria
+        })),
+        recovery:{verified:current.recovery.verified===true,
+          historicalRestorationProven:false}};
+    }catch{
+      // An unavailable source must never silently clear a current warning.
+      publication={available:true,valid:false};
+    }
   })());
   await Promise.all(tasks);
   // V1.211: durable human follow-ups are returned only after PostgreSQL role scoping.
@@ -1211,7 +1242,7 @@ async function adminOperationalAlerts(admin:any,role:string,actorId:string){
     }
   }catch{}
   return {source:"operational_alerts_v1_208",checkedAt,
-    groups:{incidents,support,finance,capture,portals},lifecycle,followups,readOnly:true,
+    groups:{incidents,support,finance,capture,portals,publication},lifecycle,followups,readOnly:true,
     noExternalNotifications:true};
 }
 

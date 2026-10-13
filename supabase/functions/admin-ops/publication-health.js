@@ -112,3 +112,49 @@ export function publicationSummary({headSha,runs,portals,readiness,attestation,g
    attestation:{status:dbOk?'ok':'attention',sourceSha:shaOk(attestation?.source_sha)?attestation.source_sha:null,verifiedAt:attestation?.verified_at||null,fresh,oidc},
    workflows,issues,guidance,recovery};
 }
+
+/* V1.222: recurrence counts verified GitHub workflow run *identities*
+   for the exact main SHA, not portal outages or invented DB episodes.
+   This is a bounded, read-only historical observation. */
+export function publicationAlertInsight(snapshot,runs,checkedAt){
+ const checked=Date.parse(String(checkedAt||''));
+ const sha=snapshot?.headSha;
+ if(snapshot?.source!=='publication_v1_220'||!shaOk(sha)||
+   !Number.isFinite(checked)||!Array.isArray(runs))return {
+   valid:false,reason:'HISTORICAL_SOURCE_UNVERIFIED',historyAvailable:false
+ };
+ const names=new Set(WORKFLOW_NAMES);
+ const candidates=runs.filter(run=>
+   names.has(run?.name)&&run?.head_sha===sha&&run?.head_branch==='main'&&
+   run?.head_repository?.full_name==='carloskk07/gassg'&&
+   Number.isSafeInteger(run?.id)&&run.id>0&&run?.status==='completed'&&
+   ['failure','success'].includes(run?.conclusion)&&
+   ['push','schedule','workflow_dispatch'].includes(run?.event)&&
+   Number.isFinite(Date.parse(run?.updated_at||''))&&
+   Date.parse(run.updated_at)<=checked+300000&&
+   checked-Date.parse(run.updated_at)<=7*24*3600000
+ );
+ const latest=new Map();
+ for(const run of candidates){
+   const key=run.name+':'+run.id;
+   const prev=latest.get(key);
+   if(!prev||Date.parse(run.updated_at)>Date.parse(prev.updated_at))latest.set(key,run);
+ }
+ const distinct=[...latest.values()];
+ const failures=distinct.filter(r=>r.conclusion==='failure');
+ const lastFailure=failures.map(x=>x.updated_at).sort().at(-1)||null;
+ const successAfterFailure=lastFailure!==null&&distinct.some(x=>
+   x.conclusion==='success'&&Date.parse(x.updated_at)>Date.parse(lastFailure));
+ const verified=snapshot?.recovery?.verified===true&&snapshot.status==='healthy';
+ return {
+   valid:true,source:'github_actions_main_sha_7d',historyAvailable:true,
+   failedRuns:failures.length,recurrent:failures.length>=2,lastFailureAt:lastFailure,
+   lastFailureFollowedBySuccess:successAfterFailure,
+   resolutionState:verified?'current_conformity':snapshot.status==='checking'?'checking':'requires_review',
+   currentEvidenceVerified:verified,
+   historicalResolutionProven:false,
+   // At most the current snapshot can prove present conformity. A workflow
+   // success after a failure does not prove when all portals normalized.
+   scope:'workflow_failures_same_sha_only'
+ };
+}
