@@ -191,6 +191,49 @@ function adminAcquisitionCampaigns(metrics){
     return '<div class="acquisition-campaign-row"><div><span class="status-pill">'+audience+'</span><strong>'+esc(origin||'direto')+'</strong><small>'+esc(x.campaign||'sem_campanha')+creative+' • '+Number(x.landingViews||0)+' entrada(s) • '+Number(x.formViews||0)+' formulário(s) • '+Number(x.total||0)+' lead(s)</small></div><div class="campaign-rates"><span><small>Entrada → form.</small><strong>'+adminMetricPercent(x.landingToFormPct)+'</strong></span><span><small>Entrada → lead</small><strong>'+adminMetricPercent(x.landingToLeadPct)+'</strong></span><span><small>Qualificação</small><strong>'+adminMetricPercent(x.qualificationRatePct)+'</strong></span><span><small>Conversão</small><strong>'+adminMetricPercent(x.conversionRatePct)+'</strong></span></div></div>';
   }).join('')+'</div></div>';
 }
+function adminGrowthNetworkOverviewView(raw){
+  if(!raw||raw.available!==true)return '';
+  const counts=['attributedLeads','customerInvitedLeads','merchantInvitedLeads',
+    'customerInterests','merchantInterests','crmConvertedLeads','last30d',
+    'merchantsWithInviteCode'];
+  const verified=raw.valid===true&&raw.source==='growth_network_server_v1_227'&&
+    raw.readOnly===true&&raw.noPayout===true&&raw.noPersonalData===true&&
+    raw.leadScope==='consented_prelaunch_leads_only'&&
+    raw.crmConversionIsNotOrderSettlement===true&&
+    counts.every(k=>Number.isSafeInteger(raw[k])&&raw[k]>=0)&&
+    Array.isArray(raw.merchantBreakdown)&&raw.merchantBreakdown.length<=12&&
+    raw.customerInvitedLeads+raw.merchantInvitedLeads===raw.attributedLeads&&
+    raw.customerInterests+raw.merchantInterests===raw.attributedLeads;
+  if(!verified)return '<section class="section"><div class="notice danger">Atribuição da Rede TAMÃO indisponível ou inconsistente. Nenhum indicador foi validado.</div></section>';
+  const rows=raw.merchantBreakdown.map(r=>{
+    const name=String(r?.name||'').trim();
+    const customer=Number(r?.customerInterests),merchant=Number(r?.merchantInterests),
+      crm=Number(r?.crmConvertedLeads);
+    if(!name||name.length>160||![customer,merchant,crm].every(n=>
+      Number.isSafeInteger(n)&&n>=0))return '';
+    return '<div class="list-row"><div><strong>'+esc(name)+'</strong>'+
+      '<br><small>'+customer+' cliente(s) interessado(s) • '+
+      merchant+' empresa(s) interessada(s) • '+crm+
+      ' marcado(s) como convertido(s) no CRM</small></div></div>';
+  }).filter(Boolean).join('');
+  return '<section class="section admin-growth-network-overview">'+
+    '<div class="section-head"><div><span class="section-kicker">REDE TAMÃO</span>'+
+    '<h3>Indicações que chegaram ao funil</h3>'+
+    '<p>Cadastros consentidos e atribuídos no servidor. Números de interesse não são vendas.</p></div>'+
+    '<span class="status-pill">'+raw.attributedLeads+' atribuição(ões)</span></div>'+
+    '<div class="merchant-kpis">'+
+      '<div class="kpi"><span class="label">Novos contatos indicados</span><strong>'+raw.attributedLeads+'</strong></div>'+
+      '<div class="kpi"><span class="label">Origem: clientes</span><strong>'+raw.customerInvitedLeads+'</strong></div>'+
+      '<div class="kpi"><span class="label">Origem: revendas</span><strong>'+raw.merchantInvitedLeads+'</strong></div>'+
+      '<div class="kpi"><span class="label">Empresas interessadas</span><strong>'+raw.merchantInterests+'</strong></div>'+
+      '<div class="kpi"><span class="label">Marcados como convertidos no CRM</span><strong>'+raw.crmConvertedLeads+'</strong></div>'+
+      '<div class="kpi"><span class="label">Revendas com código de convite</span><strong>'+raw.merchantsWithInviteCode+'</strong></div>'+
+    '</div>'+
+    (rows?'<div class="card flat"><h4>Revendas que trouxeram interessados</h4>'+
+      '<div class="list">'+rows+'</div></div>':'')+
+    '<p class="tiny muted">Métrica de pré-cadastro: não representa ativação de revenda, primeira compra, liquidação financeira ou recompensa. Sem créditos de indicação de revendas habilitados.</p>'+
+    '</section>';
+}
 function adminPrelaunchLeadsSection(data){
   const leads=Array.isArray(data?.prelaunchLeads)?data.prelaunchLeads:[];
   const metrics=adminAcquisitionMetrics(data,leads);
@@ -215,6 +258,7 @@ function adminPrelaunchLeadsSection(data){
         '<div class="funnel-stage"><span>6</span><div><small>CONVERTIDOS</small><strong>'+Number(metrics.converted||0)+'</strong><p>'+adminMetricPercent(metrics.conversionRatePct)+' dos leads</p></div></div>',
       '</div>',
       adminAcquisitionCampaigns(metrics),
+      adminGrowthNetworkOverviewView(data?.growthNetwork),
       '<div class="section-head acquisition-queue-head"><div><span class="section-kicker">FILA OPERACIONAL</span><h3>Leads recentes para atendimento</h3><p>Até 200 contatos mais recentes. Ordenados por estágio e antiguidade para reduzir esquecimento.</p></div><span class="status-pill '+(Number(metrics.staleNew24h||0)?'offline':'online')+'">'+Number(metrics.new||0)+' novo(s)</span></div>',
       '<div class="grid cards-3" style="margin-top:14px">'+(ordered.length?ordered.slice(0,200).map(adminPrelaunchLeadCard).join(''):'<div class="empty card">Nenhum lead captado ainda.</div>')+'</div>',
     '</section>'
