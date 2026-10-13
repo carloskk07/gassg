@@ -164,7 +164,30 @@ try{
     await sleep(500);
   }
   assert.equal(liveHost,'admin.tamao.com.br','Chromium não abriu o portal admin real');
-  await sleep(2500);
+  // Defer scripts may initialize after Chrome reports the target hostname.
+  // Wait boundedly for the genuine first-party Turnstile helper, never stub it.
+  let helperEvidence={found:false,readyState:'unknown',scriptDeclared:false,keyPresent:false};
+  for(let attempt=0;attempt<50;attempt++){
+    const probe=await call('Runtime.evaluate',{
+      expression:`(()=>{
+        const script=[...document.scripts].find(s=>
+          String(s.getAttribute('src')||'').includes('js/turnstile.js'));
+        return {
+          found:typeof globalThis.chamaTurnstile?.preload==='function',
+          readyState:String(document.readyState||'unknown'),
+          scriptDeclared:Boolean(script),
+          keyPresent:String(globalThis.CHAMA_TURNSTILE_SITE_KEY||'').length>=6
+        };
+      })()`,
+      returnByValue:true
+    });
+    helperEvidence=probe.result?.value||helperEvidence;
+    if(helperEvidence.found)break;
+    await sleep(500);
+  }
+  assert.ok(helperEvidence.found,
+    'Turnstile first-party helper ausente após carregamento limitado: '+
+    JSON.stringify(helperEvidence));
 
   const setup=await call('Runtime.evaluate',{
     expression:`(async()=>{
