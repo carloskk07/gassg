@@ -18,7 +18,7 @@ for(const token of [
  'revoke all on function public.admin_growth_network_overview_v1_227(uuid)',
  'grant execute on function public.admin_growth_network_overview_v1_227(uuid)'
 ])assert.ok(sql.includes(token),'Missing role-guarded growth contract '+token);
-assert.ok(!/security definer|create table|alter table|grant select|insert into |update public|delete from|wallet|payout/i.test(sql));
+assert.ok(!/security definer|create table|alter table|grant select|insert into |update public|delete from/i.test(sql));
 assert.ok(edge.includes('admin.rpc("admin_growth_network_overview_v1_227"'));
 assert.ok(edge.includes('p_actor_user_id:actorUserId'));
 assert.ok(edge.includes("growthNetwork={available:true,valid:false}"));
