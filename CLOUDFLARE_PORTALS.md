@@ -208,3 +208,24 @@ mesmo SHA, atestação OIDC vigente e execução de publicação/prontidão apro
 Isso é uma prova de estado **na consulta atual**, não uma afirmação sobre quando
 um incidente histórico foi resolvido. A atualização segue manual pelo botão
 existente de diagnóstico; nenhum reparo ocorre sem revisão administrativa.
+
+## V1.222 — integração com a Central de Alertas
+
+Na aba **Alertas**, os perfis com permissão para a publicação
+(`superadmin`, `operations`, `readonly`) recebem um grupo único de
+**publicação**. O sinal substitui o indicador antigo de portais na mesma
+consulta para evitar duplicação. A consulta reaproveita a verificação
+dos três portais, lê o commit oficial do GitHub, a prontidão e a última
+atestação OIDC privada. Fontes indisponíveis ficam não comprovadas,
+nunca saudáveis por omissão.
+
+O item informa gravidade, problema, impacto, correção humana indicada
+e critério de verificação, com navegação para **Sistema**. Não cria
+incidentes, follow-ups, nem habilita mutações. A prioridade pode subir
+quando o histórico GitHub comprovar **duas ou mais execuções com falha**
+da mesma branch/repositório/commit e nos últimos sete dias, descontando
+execuções duplicadas por ID. Esse histórico não mede indisponibilidade
+dos portais e não substitui o monitor horário existente, que continua
+limitado às fontes de banco. A prova de conformidade atual depende do
+estado GitHub/Cloudflare/Supabase e nunca prova a data histórica de
+resolução de um incidente.
