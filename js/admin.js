@@ -47,7 +47,7 @@ const adminRuntime={
   cityPipelineUi:null,
   cityEvolutionBaseline:null,
   cityEvolutionRefreshing:false,
-  cityHistory:{items:[],loading:false,loaded:false,error:null,loadedFor:null,chosen:null,saving:false,scheduler:null},
+  cityHistory:{items:[],loading:false,loaded:false,error:null,loadedFor:null,chosen:null,saving:false,scheduler:null,health:null},
   expansionRadar:[],
   expansionRadarLoaded:false,
   expansionRadarCheckedAt:null,
@@ -369,7 +369,7 @@ async function adminSignOut(){
   adminRuntime.prospectFollowupUi=null;
   adminRuntime.cityPipelineUi=null;
   adminRuntime.cityEvolutionBaseline=null;
-  adminRuntime.cityHistory={items:[],loading:false,loaded:false,error:null,loadedFor:null,chosen:null,saving:false,scheduler:null};
+  adminRuntime.cityHistory={items:[],loading:false,loaded:false,error:null,loadedFor:null,chosen:null,saving:false,scheduler:null,health:null};
   adminRuntime.cityEvolutionRefreshing=false;
   adminRuntime.expansionRadarError=null;
   adminRuntime.commercialOpportunityFilter='all';
@@ -414,7 +414,7 @@ async function adminRefresh({silent=false}={}){
   adminRuntime.prospectFollowupUi=null;
   adminRuntime.cityPipelineUi=null;
   adminRuntime.cityEvolutionBaseline=null;
-  adminRuntime.cityHistory={items:[],loading:false,loaded:false,error:null,loadedFor:null,chosen:null,saving:false,scheduler:null};
+  adminRuntime.cityHistory={items:[],loading:false,loaded:false,error:null,loadedFor:null,chosen:null,saving:false,scheduler:null,health:null};
   adminRuntime.cityEvolutionRefreshing=false;
       adminRuntime.error=null;
       return null;
@@ -442,7 +442,7 @@ async function adminRefresh({silent=false}={}){
   adminRuntime.prospectFollowupUi=null;
   adminRuntime.cityPipelineUi=null;
   adminRuntime.cityEvolutionBaseline=null;
-  adminRuntime.cityHistory={items:[],loading:false,loaded:false,error:null,loadedFor:null,chosen:null,saving:false,scheduler:null};
+  adminRuntime.cityHistory={items:[],loading:false,loaded:false,error:null,loadedFor:null,chosen:null,saving:false,scheduler:null,health:null};
   adminRuntime.cityEvolutionRefreshing=false;
       adminRuntime.error='Sua sessão expirou. Entre novamente.';
       return null;
