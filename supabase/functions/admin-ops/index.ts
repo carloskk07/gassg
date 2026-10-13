@@ -100,7 +100,7 @@ async function requireAdmin(admin:any,userId:string){
   if(!data)throw new DomainError("ADMIN_ACCESS_DENIED","Esta conta não possui acesso administrativo.",403);
   return data;
 }
-const ADMIN_READ_ACTIONS=new Set(["summary","search","entity-detail","system-health","billing-provider-health","audit-search","incident-list","merchant-payment-preflight","prospect-intelligence","expansion-notifications","expansion-radar","merchant-enablement","sale-payment-history","finance-receipts-history","commercial-history-list","operational-alerts"]);
+const ADMIN_READ_ACTIONS=new Set(["summary","search","entity-detail","system-health","billing-provider-health","audit-search","incident-list","merchant-payment-preflight","prospect-intelligence","expansion-notifications","expansion-radar","merchant-enablement","sale-payment-history","finance-receipts-history","commercial-history-list","operational-alerts","growth-referral-review-queue"]);
 const ADMIN_ROLE_ACTIONS:Record<string,Set<string>>={
   superadmin:new Set(["*"]),
   operations:new Set([
@@ -114,7 +114,7 @@ const ADMIN_ROLE_ACTIONS:Record<string,Set<string>>={
   ]),
   support:new Set(["order-control","support-case-status","incident-action","operational-alert-ack"]),
   compliance:new Set([
-    "approve-application","reject-application","verify-merchant","activate-merchant","suspend-merchant",
+    "growth-referral-review","approve-application","reject-application","verify-merchant","activate-merchant","suspend-merchant",
     "set-delivery-capability","merchant-representation-review","incident-action","prospect-crm","prospect-invite"
   ]),
   readonly:new Set()
@@ -2219,6 +2219,45 @@ Deno.serve(async(req:Request)=>{
       if(error)throw error;
       return json({notifications:(data||[]).filter((n:any)=>marketCityKey(n.city)===key
         &&n.prelaunch_leads?.consent_at&&n.prelaunch_leads?.status!=="closed")},200,origin);
+    }
+    if(action==="growth-referral-review-queue"){
+      const {data,error}=await admin.rpc("admin_growth_referral_review_queue_v1_230",{
+        p_actor_user_id:user.id
+      });
+      if(error)throw error;
+      if(data?.source!=="growth_referral_review_queue_v1_230"
+        ||data.readOnly!==true||data.noPayout!==true
+        ||data.rewardEligible!==false||!Array.isArray(data.rows)
+        ||data.rows.length>50){
+        throw new DomainError("GROWTH_REFERRAL_QUEUE_INVALID","Fila indisponível.",503);
+      }
+      return json(data,200,origin);
+    }
+    if(action==="growth-referral-review"){
+      if(!["superadmin","compliance"].includes(String(adminAccess.admin_role))){
+        throw new DomainError("ADMIN_PERMISSION_DENIED","Somente conformidade pode revisar indicações.",403);
+      }
+      const decision=String(body.decision??"");
+      const reason=cleanText(body.reason,{min:12,max:800,name:"justificativa"});
+      const evidenceReference=cleanText(body.evidenceReference,{max:160,name:"referência"});
+      if(!["verified_identity","rejected","needs_evidence"].includes(decision)
+        ||(decision==="verified_identity"&&evidenceReference.length<8)){
+        throw new DomainError("INVALID_REFERRAL_REVIEW","Decisão ou comprovação inválida.",400);
+      }
+      const {data,error}=await admin.rpc("admin_review_growth_referral_v1_230",{
+        p_actor_user_id:user.id,
+        p_application_id:uuid(body.applicationId,"application_id"),
+        p_decision:decision,p_reason:reason,
+        p_cnpj_match:body.cnpjMatch===true,
+        p_owner_match:body.ownerMatch===true,
+        p_inviter_valid:body.inviterValid===true,
+        p_evidence_reference:evidenceReference||null
+      });
+      if(error)throw error;
+      if(data?.recorded!==true||data.noPayout!==true||data.rewardEligible!==false){
+        throw new DomainError("GROWTH_REFERRAL_REVIEW_INVALID","Resultado de revisão inválido.",503);
+      }
+      return json(data,200,origin);
     }
     if(action==="summary"){
       return json(await summary(admin,user.id),200,origin);
