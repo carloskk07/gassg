@@ -54,9 +54,9 @@ for(const part of [
 ])assert.ok(adminEdge.includes(part),'Admin backend missing '+part);
 for(const part of [
  'merchantAdsCampaignSection(m)',
- "merchantAdsCampaignAct('view')",
- "merchantAdsCampaignAct('submit')",
- "merchantAdsCampaignAct('withdraw')",
+
+
+
  "merchantInvoke('merchant-ops',payload)",
  "crypto.randomUUID()",
  "rt.adsCampaign?.merchantId===id",
@@ -69,5 +69,8 @@ for(const part of [
  "data.noCharge!==true||data.adsLive!==false",
  "adminRuntime?.session?.user?.id"
 ])assert.ok(admin.includes(part),'Admin UX missing '+part);
+for(const operation of ['view','submit','withdraw'])
+  assert.ok(merchant.includes('merchantAdsCampaignAct('+String.fromCharCode(92)+"'"+operation),
+    'Merchant button missing '+operation);
 assert.match(workflow,/- name: TAMÃO Ads V1\.233 creative approval without publication\s+run: node tests\/merchant-ads-campaign-v1-233\.mjs/);
 console.log('V1.233 PASS — merchant draft, creative review, RBAC, versions, no billing or placement');
