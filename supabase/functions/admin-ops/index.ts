@@ -1145,9 +1145,11 @@ async function adminOperationalAlerts(admin:any,role:string,actorId:string){
   const operationalRole=["superadmin","operations","support"].includes(role);
   const financeRole=["superadmin","finance"].includes(role);
   const captureRole=["superadmin","operations","compliance","readonly"].includes(role);
+  const portalRole=["superadmin","operations","readonly"].includes(role);
   let support={available:operationalRole,valid:false,open:null};
   let finance={available:financeRole,valid:false,rewardFailures:null,accountingFailures:null};
   let capture={available:captureRole,valid:false,health:null};
+  let portals={available:portalRole,valid:false,verified:false};
   const tasks=[];
   if(operationalRole)tasks.push((async()=>{
     const r=await fetchCount(()=>admin.from("support_cases").select("id",{count:"exact",head:true}).in("status",["open","in_review"]));
@@ -1173,9 +1175,16 @@ async function adminOperationalAlerts(admin:any,role:string,actorId:string){
       }
     }catch{}
   })());
+  if(portalRole)tasks.push((async()=>{
+    try{
+      const verification=await verifyLivePortals();
+      if(typeof verification?.ok==="boolean")
+        portals={available:true,valid:true,verified:verification.ok===true};
+    }catch{}
+  })());
   await Promise.all(tasks);
   return {source:"operational_alerts_v1_208",checkedAt,
-    groups:{incidents,support,finance,capture},readOnly:true,
+    groups:{incidents,support,finance,capture,portals},readOnly:true,
     noExternalNotifications:true};
 }
 
