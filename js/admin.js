@@ -1381,6 +1381,30 @@ function adminOperationalAlertModel(groups){
   }
   if(groups.publicationTrends?.available===true&&
     groups.publicationTrends.valid!==true)unavailable.push('Tendências da atestação');
+  const cronMonitor=groups.publicationMonitor;
+  const cronStates=['healthy','job_missing','job_disabled','job_changed','awaiting_first',
+    'missed_run','interrupted','run_failed','run_stalled','run_processing',
+    'missing_observation','evidence_unverified','unverified'];
+  if(cronMonitor?.available===true){
+    const checked=Date.parse(String(cronMonitor.checkedAt||''));
+    const valid=cronMonitor.valid===true&&cronMonitor.noOutageClaim===true&&
+      cronStates.includes(cronMonitor.status)&&
+      ['none','info','warning','high'].includes(cronMonitor.severity)&&
+      Number.isFinite(checked)&&
+      ['cause','impact','action','recoveryCriteria'].every(key=>
+        typeof cronMonitor[key]==='string'&&cronMonitor[key].length>=20);
+    if(!valid)unavailable.push('Diagnóstico do agendador OIDC');
+    else if(!['healthy','run_processing'].includes(cronMonitor.status)){
+      const critical=cronMonitor.severity==='high';
+      const title=critical?'Monitor de atestação OIDC requer correção':
+        cronMonitor.status==='awaiting_first'?'Primeira execução automática ainda não comprovada':
+        'Monitor de atestação OIDC requer acompanhamento';
+      add('portal-monitor',critical?'high':'medium',title,
+        String(cronMonitor.cause)+' Isso não prova indisponibilidade dos portais.','system');
+      alerts[alerts.length-1].monitor=cronMonitor;
+    }
+  }
+
   const weight={critical:0,high:1,medium:2};
   alerts.sort((a,b)=>weight[a.severity]-weight[b.severity]);
   return {alerts,unavailable};
@@ -1396,7 +1420,8 @@ function adminOperationalAlertsCurrent(){
     lifecycle:adminOperationalAlertLifecycle(x.data.lifecycle),
     rawFollowups:x.data.followups||null,
     rawPublicationHistory:x.data.groups?.publicationHistory||null,
-    rawPublicationTrends:x.data.groups?.publicationTrends||null};
+    rawPublicationTrends:x.data.groups?.publicationTrends||null,
+    rawPublicationMonitor:x.data.groups?.publicationMonitor||null};
 }
 /* V1.209: lifecycle provenance never overrules the live alert consultation. */
 function adminOperationalAlertLifecycle(value){
@@ -1813,6 +1838,7 @@ function adminOperationalAlertTriage(alerts,lifecycle,verifiedAt){
     support:{team:'Atendimento',task:'Conferir os chamados pendentes'},
     finance:{team:'Financeiro',task:'Conferir falhas de processamento e conciliação'},
     portals:{team:'Operações / Tecnologia',task:'Verificar versão e segurança dos domínios oficiais'},
+    'portal-monitor':{team:'Operações / Tecnologia',task:'Conferir o agendamento OIDC no Supabase e suas evidências'},
     capture:{team:'Operações',task:'Conferir a captura e o agendador no Supabase'}
   };
   const sevScore={critical:90,high:64,medium:32};
@@ -2030,6 +2056,42 @@ function adminPublicationTrendView(value){
     ' Percentual de disponibilidade não calculado. Zero episódios não significa ausência de falhas fora das observações.</p>'+
     '</section>';
 }
+function adminPublicationCronMonitorView(value){
+  if(!value||value.available!==true)return '';
+  const validStates=['healthy','job_missing','job_disabled','job_changed','awaiting_first',
+    'missed_run','interrupted','run_failed','run_stalled','run_processing',
+    'missing_observation','evidence_unverified','unverified'];
+  const time=x=>x===null||typeof x==='string'&&Number.isFinite(Date.parse(x));
+  const ok=value.valid===true&&value.noOutageClaim===true&&
+    validStates.includes(value.status)&&['none','info','warning','high'].includes(value.severity)&&
+    time(value.checkedAt)&&value.checkedAt!==null&&
+    time(value.expectedSlotAt)&&value.expectedSlotAt!==null&&
+    time(value.graceUntil)&&value.graceUntil!==null&&
+    time(value.nextDueAt)&&value.nextDueAt!==null&&
+    time(value.lastRunAt)&&time(value.lastSuccessAt)&&
+    Number.isSafeInteger(value.missingSlots)&&value.missingSlots>=0&&value.missingSlots<=168&&
+    ['cause','impact','action','recoveryCriteria'].every(key=>
+      typeof value[key]==='string'&&value[key].length>=20&&value[key].length<=550);
+  if(!ok)return '<section class="section"><p class="notice danger">Diagnóstico do monitor OIDC não confirmado. Confira o agendamento no Supabase.</p></section>';
+  const normal=value.status==='healthy';
+  const fmt=x=>x?esc(adminOperationalAlertHistoryDate(x)):'sem registro';
+  return '<section class="section admin-publication-cron-monitor" aria-label="Diagnóstico do agendador OIDC">'+
+    '<div class="section-head"><div><h3>Saúde do monitor automático</h3>'+
+    '<p>O agendamento é avaliado pelo relógio do banco. A janela das 53 min de cada hora tem tolerância de cinco minutos.</p></div>'+
+    '<span class="status-pill '+(normal?'online':'risk')+'">'+
+    (normal?'Execução comprovada':value.status==='run_processing'?'Em execução':'Requer conferência')+
+    '</span></div>'+
+    '<div class="card flat"><p><strong>Constatação:</strong> '+esc(value.cause)+'</p>'+
+    '<p><strong>Impacto:</strong> '+esc(value.impact)+'</p>'+
+    (normal?'':'<p><strong>Próxima ação:</strong> '+esc(value.action)+'</p>')+
+    '<p><strong>Como confirmar recuperação:</strong> '+esc(value.recoveryCriteria)+'</p>'+
+    '<p class="tiny muted">Última execução: '+fmt(value.lastRunAt)+
+    ' • última execução aprovada: '+fmt(value.lastSuccessAt)+
+    ' • próxima programada: '+fmt(value.nextDueAt)+'</p>'+
+    (value.missingSlots>0?'<p class="tiny muted">Janelas sem nova execução registrada: '+
+      value.missingSlots+'</p>':'')+
+    '<small class="muted">Diagnóstico somente para leitura, sem correção automática. Não é prova de queda do site.</small></div></section>';
+}
 function adminOperationalAlertsView(){
   if(!adminReady()||!adminRoleCanSection('alerts'))return '';
   const state=adminRuntime.operationalAlerts;
@@ -2048,6 +2110,7 @@ function adminOperationalAlertsView(){
     const followupHtml=adminOperationalFollowupEditView(item.id,adminOperationalFollowupsSafe(present?.rawFollowups));
     const t=item.triage;
     const publication=item.id==='portals'?item.publication:null;
+    const scheduledMonitor=item.id==='portal-monitor'?item.monitor:null;
     const recurrence=publication?.recurrence;
     const recurrenceLine=publication?'<p class="tiny muted">'+(
       recurrence?.valid===true&&recurrence.historyAvailable===true
@@ -2067,6 +2130,10 @@ function adminOperationalAlertsView(){
         ? 'Estado atual validado; histórico de resolução não foi comprovado.'
         : 'Resolução não comprovada. Atualize a consulta após revisar as evidências.')+
       '</p>':'';
+    const monitorInstructions=scheduledMonitor?
+      '<p class="tiny muted"><strong>Impacto:</strong> '+esc(scheduledMonitor.impact)+
+      ' <strong>Próxima ação:</strong> '+esc(scheduledMonitor.action)+
+      ' <strong>Normalização:</strong> '+esc(scheduledMonitor.recoveryCriteria)+'</p>':'';
     return `<article class='admin-ops-alert-item admin-ops-alert-priority-${t.priority}'>
       <div><span class='status-pill ${t.priority==='immediate'?'risk':''}'>${esc(t.label)}</span>
         <h3>${esc(item.title)}</h3><p>${esc(item.detail)}</p>
@@ -2075,7 +2142,7 @@ function adminOperationalAlertsView(){
           ${esc(t.nextAction)}.</p>
         ${!t.historyChecked&&item.id!=='portals'?
           '<small class="tiny muted">Histórico horário indisponível; prioridade baseada somente na consulta atual.</small>':''}
-        ${history}${followupHtml}${recurrenceLine}${publicationNotes}${resolutionLine}</div>
+        ${history}${followupHtml}${recurrenceLine}${publicationNotes}${resolutionLine}${monitorInstructions}</div>
       <button type='button' class='secondary small' ${canOpen?'':'disabled'}
         onclick="adminOperationalAlertsOpen('${item.target}')">Conferir área</button>
     </article>`;
@@ -2126,6 +2193,7 @@ function adminOperationalAlertsView(){
     ${adminOperationalAlertHistoryView(present?.lifecycle||null)}
     ${typeof adminPublicationEpisodeHistoryView==='function'?adminPublicationEpisodeHistoryView(present?.rawPublicationHistory):''}
     ${typeof adminPublicationTrendView==='function'?adminPublicationTrendView(present?.rawPublicationTrends):''}
+    ${typeof adminPublicationCronMonitorView==='function'?adminPublicationCronMonitorView(present?.rawPublicationMonitor):''}
     <p class='tiny muted'>Incidentes são agrupados sem divulgar descrições pessoais. Alertas não marcam chamados como resolvidos e não substituem as verificações específicas de cada área. Notificações externas não estão habilitadas.</p>`:
     '<p class="notice">Consulte os alertas para receber um diagnóstico atual. Sem verificação, nenhuma conclusão de normalidade pode ser apresentada.</p>'}
   </section>`;
