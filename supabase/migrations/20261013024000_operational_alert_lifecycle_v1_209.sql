@@ -123,7 +123,10 @@ begin
         last_cleared_at=v_cleared,checked_at=v_now,
         consecutive_checks=v_streak,episodes=v_episodes
        where source=v_kind;
-      if v_prior.status<>v_next then
+      -- Log meaningful count growth once per database observation, not on each admin visit.
+      if v_prior.status<>v_next or
+        (v_prior.status='active' and v_next='active'
+         and v_count>coalesce(v_prior.current_count,0)) then
         insert into tamao_internal.operational_alert_events_v1_209
           (source,previous_status,new_status,observed_at,count_at_change)
         values(v_kind,v_prior.status,v_next,v_now,v_count);
