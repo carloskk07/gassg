@@ -100,7 +100,7 @@ async function requireAdmin(admin:any,userId:string){
   if(!data)throw new DomainError("ADMIN_ACCESS_DENIED","Esta conta não possui acesso administrativo.",403);
   return data;
 }
-const ADMIN_READ_ACTIONS=new Set(["summary","search","entity-detail","system-health","billing-provider-health","audit-search","incident-list","merchant-payment-preflight","prospect-intelligence","expansion-notifications","expansion-radar","merchant-enablement","sale-payment-history","finance-receipts-history","commercial-history-list","operational-alerts","ads-demand","ads-audience-readiness","ads-preview-summary","ads-placement-readiness","ads-pilot-preflight","ads-campaign-queue","growth-referral-review-queue"]);
+const ADMIN_READ_ACTIONS=new Set(["summary","search","entity-detail","system-health","billing-provider-health","audit-search","incident-list","merchant-payment-preflight","prospect-intelligence","expansion-notifications","expansion-radar","merchant-enablement","sale-payment-history","finance-receipts-history","commercial-history-list","operational-alerts","ads-demand","ads-audience-readiness","ads-preview-summary","ads-placement-readiness","ads-pilot-preflight","commercial-activation","ads-campaign-queue","growth-referral-review-queue"]);
 const ADMIN_ROLE_ACTIONS:Record<string,Set<string>>={
   superadmin:new Set(["*"]),
   operations:new Set([
@@ -2219,6 +2219,54 @@ Deno.serve(async(req:Request)=>{
       if(error)throw error;
       return json({notifications:(data||[]).filter((n:any)=>marketCityKey(n.city)===key
         &&n.prelaunch_leads?.consent_at&&n.prelaunch_leads?.status!=="closed")},200,origin);
+    }
+    if(action==="commercial-activation"){
+      if(!["superadmin","operations","compliance","finance","readonly"].includes(String(adminAccess.admin_role)))
+        throw new DomainError("ADMIN_PERMISSION_DENIED","Perfil sem acesso à ativação comercial.",403);
+      const {data,error}=await admin.rpc("admin_commercial_activation_v1_238",{
+        p_actor:user.id
+      });
+      if(error)throw error;
+      const counts=data?.counts;
+      const keys=[
+        "anpProspects","anpUncontacted","anpContacted","anpInterested",
+        "anpOnboarding","invitationsPending","invitationsClaimed",
+        "merchantLeads","merchantNewLeads","merchantApplications",
+        "merchantPendingApplications","merchantsRegistered","merchantsActive",
+        "merchantsActiveOnline","adsOptedIn","adsCreativesReviewed"
+      ];
+      const actions=[
+        "review_applications","respond_merchant_leads","contact_anp_prospects",
+        "followup_prospects","acquire_first_merchant","enable_partner_operation",
+        "collect_voluntary_ads_interest","review_creative","validate_first_campaign"
+      ];
+      const valid=data?.source==="admin_commercial_activation_v1_238"
+        &&data?.readOnly===true
+        &&data?.stage==="commercial_merchant_activation"
+        &&data?.dataMeaning==="independent_operational_populations"
+        &&data?.noContactsExposed===true&&data?.noMessagesSent===true
+        &&data?.noSyntheticMerchants===true
+        &&data?.adsLive===false&&data?.adsRevenueCents===0
+        &&data?.noCharge===true
+        &&Number.isFinite(Date.parse(String(data?.generatedAt||"")))
+        &&counts&&keys.every(k=>Number.isSafeInteger(counts[k])&&counts[k]>=0)
+        &&counts.anpUncontacted+counts.anpContacted+
+            counts.anpInterested+counts.anpOnboarding<=counts.anpProspects
+        &&counts.merchantNewLeads<=counts.merchantLeads
+        &&counts.merchantPendingApplications<=counts.merchantApplications
+        &&counts.merchantsActive<=counts.merchantsRegistered
+        &&counts.merchantsActiveOnline<=counts.merchantsActive
+        &&actions.includes(data?.nextAction)
+        &&Array.isArray(data?.prospectCities)&&data.prospectCities.length<=20
+        &&data.prospectCities.every((c:any)=>c&&typeof c.city==="string"
+          &&c.city.length>=2&&c.city.length<=100
+          &&/^[A-Z]{2}$/.test(String(c.state))
+          &&["prospects","uncontacted","interested","onboarding"]
+            .every(k=>Number.isSafeInteger(c[k])&&c[k]>=0)
+          &&c.uncontacted+c.interested+c.onboarding<=c.prospects);
+      if(!valid)throw new DomainError("COMMERCIAL_ACTIVATION_INVALID",
+        "A ativação comercial não pôde ser verificada.",503);
+      return json(data,200,origin);
     }
     if(action==="ads-pilot-preflight"){
       if(!["superadmin","operations","compliance","finance","readonly"].includes(String(adminAccess.admin_role))){
