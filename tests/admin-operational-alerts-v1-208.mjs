@@ -18,7 +18,7 @@ const names=['adminLoadOperationalAlerts','adminOperationalAlertModel',
   'adminOperationalFollowupEditView','adminOperationalFollowupsEventsView','adminOperationalFollowupsEscalationsView','adminOperationalFollowupsDormantView',
   'adminOperationalMyQueueModel','adminOperationalMyQueueView','adminOperationalFollowupFocus',
   'adminOperationalAlertLifecycle','adminOperationalAlertHistoryDate',
-  'adminOperationalAlertHistoryNote','adminOperationalAlertHistoryView','adminOperationalAlertsCurrent',
+  'adminOperationalAlertHistoryNote','adminOperationalAlertHistoryView','adminPublicationEpisodeHistoryView','adminOperationalAlertsCurrent',
   'adminOperationalAlertBadge','adminOperationalAlertsOpen','adminOperationalAlertsView'];
 let reads=0,renders=0,requests=[],role='superadmin';
 const runtime={status:'ready',session:{user:{id:'admin-A'}},
