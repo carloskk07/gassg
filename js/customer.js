@@ -571,6 +571,21 @@ function checkoutOfferCards(all){
   const facts=offerComparisonFacts(all);
   return sortedCheckoutOffers(all).map(o=>offerCard(o,facts)).join('');
 }
+function checkoutSponsoredEditorial(){
+  // Separate information space; never affects sorting, quote totals or checkout.
+  // Server-side rollout is locked OFF until delivery integrity is established.
+  const slot=globalThis.liveRuntime?.sponsoredSlot;
+  if(!slot||slot.label!=='Patrocinado'||slot.nonBillable!==true||
+     !slot.title||!slot.description||!slot.advertiser)return '';
+  return '<aside class="card checkout-sponsored-editorial" aria-label="Publicidade patrocinada" '+
+    'style="margin:14px 0;padding:16px;border:1px solid var(--border,#d0d6dd)">'+
+    '<span class="section-kicker">PATROCINADO</span>'+
+    '<p class="tiny muted">Publicidade identificada • não altera as ofertas apresentadas abaixo</p>'+
+    '<h3>'+esc(slot.title)+'</h3><p>'+esc(slot.description)+'</p>'+
+    '<p class="tiny muted">Anunciante: '+esc(slot.advertiser)+' • '+
+     esc([slot.city,slot.state].filter(Boolean).join('/')+
+    '</p></aside>';
+}
 function checkoutOfferComparison(all){
   if(!Array.isArray(all)||!all.length)return '';
   const controls=all.length>1?`<div class="offer-sort" role="group" aria-label="Ordenar ofertas">
@@ -584,6 +599,7 @@ function checkoutOfferComparison(all){
       <h2>${all.length===1?'Encontramos uma opção para sua cesta':'Compare '+all.length+' opções para sua cesta'}</h2>
       <p>O total já considera a entrega. Preço e prazo são da consulta atual, sujeitos à validade da oferta e ao aceite da revenda.</p>
     </div>
+    ${checkoutSponsoredEditorial()}
     ${controls}
     <div id="checkout-offer-choices" class="offer-stack">${checkoutOfferCards(all)}</div>
   </section>`;
