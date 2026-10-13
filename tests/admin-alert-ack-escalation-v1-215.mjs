@@ -21,7 +21,7 @@ const form=(source,ownerId,urgency,ackStatus)=>({
  source,ownerId,dueAt:due,status:'open',
  note:'Confirmar ciência e tratamento.',revision:3,updatedAt:now,
  overdue:false,ownerEligible:true,urgency,ackStatus,
- acknowledgedAt:null
+ acknowledgedAt:ackStatus==='acknowledged'?now:null
 });
 let role='superadmin';
 const esc=s=>String(s??'').replaceAll('&','&amp;').replaceAll('<','&lt;')
