@@ -1346,6 +1346,7 @@ function adminOperationalAlertModel(groups){
           typeof g.impact==='string'&&typeof g.action==='string'&&
           typeof g.recoveryCriteria==='string').slice(0,5),
         recurrence:pub.recurrence||null,
+        history:groups.publicationHistory?.valid===true?groups.publicationHistory:null,
         recovery:pub.recovery
       };
     }
@@ -1374,6 +1375,10 @@ function adminOperationalAlertModel(groups){
       add('capture','high',label,'Acompanhe a prova do agendador e do histórico de cidades.','prospects');
     }
   }
+  if(groups.publicationHistory?.available===true&&
+    groups.publicationHistory.valid!==true){
+    unavailable.push('Histórico de atestação dos portais');
+  }
   const weight={critical:0,high:1,medium:2};
   alerts.sort((a,b)=>weight[a.severity]-weight[b.severity]);
   return {alerts,unavailable};
@@ -1387,7 +1392,8 @@ function adminOperationalAlertsCurrent(){
   if(!Number.isFinite(age)||age<0||age>5*60*1000)return null;
   return {model:adminOperationalAlertModel(x.data.groups),checkedAt:x.checkedAt,
     lifecycle:adminOperationalAlertLifecycle(x.data.lifecycle),
-    rawFollowups:x.data.followups||null};
+    rawFollowups:x.data.followups||null,
+    rawPublicationHistory:x.data.groups?.publicationHistory||null};
 }
 /* V1.209: lifecycle provenance never overrules the live alert consultation. */
 function adminOperationalAlertLifecycle(value){
@@ -1856,6 +1862,25 @@ function adminOperationalAlertTriage(alerts,lifecycle,verifiedAt){
         reasons.push('Reincidência: '+item.publication.recurrence.failedRuns+
           ' execuções GitHub com falha para o mesmo commit em sete dias');
       }
+      // Episodes span releases, unlike same-commit GitHub failure history.
+      // Only a current, independent PostgreSQL monitor may raise priority.
+      const episodeHistory=item.id==='portals'?item.publication?.history:null;
+      const monitoredAt=Date.parse(String(episodeHistory?.monitor?.checkedAt||''));
+      const freshHistory=episodeHistory?.valid===true&&
+        episodeHistory?.monitor?.status==='current'&&
+        Number.isFinite(monitoredAt)&&at-monitoredAt>=0&&
+        at-monitoredAt<=90*60000&&Array.isArray(episodeHistory.episodes);
+      if(freshHistory){
+        const recent=episodeHistory.episodes.filter(e=>{
+          const opened=Date.parse(String(e?.openedAt||''));
+          return Number.isFinite(opened)&&at-opened>=0&&
+            at-opened<=30*24*3600000;
+        });
+        if(recent.length>=2){
+          score+=10;
+          reasons.push(recent.length+' episódios de prova OIDC vencida em 30 dias');
+        }
+      }
       score=cap(score);
       const priority=score>=80?'immediate':score>=55?'high':'watch';
       const labels={immediate:'Ação imediata',high:'Prioritário',watch:'Acompanhar'};
@@ -1882,6 +1907,57 @@ function adminOperationalAlertsOpen(target){
   if(!['incidents','orders','finance','prospects','system'].includes(String(target)))return;
   if(!adminRoleCanSection(target))return;
   adminSetSection(target);
+}
+function adminPublicationEpisodeHistoryView(value){
+  if(!value||value.available!==true)return '';
+  const statuses=['current','stale','awaiting_first','job_missing',
+    'job_disabled','job_changed','unverified'];
+  if(value.valid!==true||!statuses.includes(value.monitor?.status)||
+    !Array.isArray(value.episodes)||value.episodes.length>12||
+    value.noOutageClaim!==true){
+    return '<section class="section"><div class="notice">Histórico de publicação não comprovado pelo monitor PostgreSQL. Não considerar ausência de registros como normalização.</div></section>';
+  }
+  const monitor=value.monitor;
+  const current=monitor.status==='current';
+  const at=Date.parse(String(monitor.checkedAt||''));
+  const fresh=current&&Number.isFinite(at)&&Date.now()-at>=0&&
+    Date.now()-at<=90*60000;
+  const unique=new Set();
+  const rows=[];
+  for(const x of value.episodes){
+    const id=Number(x?.id);
+    const opened=Date.parse(String(x?.openedAt||''));
+    const last=Date.parse(String(x?.lastObservedAt||''));
+    const resolved=x?.resolvedAt===null?null:Date.parse(String(x.resolvedAt||''));
+    if(!Number.isSafeInteger(id)||id<1||unique.has(id)||
+      !Number.isFinite(opened)||!Number.isFinite(last)||last<opened||
+      (resolved!==null&&(!Number.isFinite(resolved)||resolved<opened))||
+      !Number.isSafeInteger(x?.observations)||x.observations<1||
+      (resolved!==null&&x.recoveredByOidc!==true)){
+      return '<div class="notice">Histórico inconsistente. Consulte novamente o servidor.</div>';
+    }
+    unique.add(id);
+    const duration=resolved===null?null:Math.round((resolved-opened)/60000);
+    rows.push('<div class="list-row"><div><strong>'+
+      (resolved!==null?'Atestação recuperada por nova prova OIDC':'Atestação sem normalização registrada')+
+      '</strong><br><small>Início observado: '+esc(adminOperationalAlertHistoryDate(x.openedAt))+
+      (resolved!==null?' • Normalização observada: '+
+        esc(adminOperationalAlertHistoryDate(x.resolvedAt))+
+        ' • '+duration+' min entre observações':' • Acompanhamento ainda aberto')+
+      '</small><br><small>Verificações com problema: '+x.observations+
+      ' • Motivo: '+esc(x.latestReason||'não informado')+'</small></div></div>');
+  }
+  return '<section class="section admin-publication-episodes" aria-label="Histórico de atestações dos portais">'+
+    '<div class="section-head"><div><h3>Histórico de provas de publicação</h3>'+
+    '<p>Ocorrências horárias persistentes da vigência OIDC entre diferentes versões; não é uma medição de indisponibilidade dos sites.</p></div></div>'+
+    '<div class="notice '+(fresh?'':'danger')+'">'+
+      (fresh?'Monitor PostgreSQL atualizado':'Monitor sem confirmação atual: '+esc(monitor.status))+
+      ' • última observação: '+esc(adminOperationalAlertHistoryDate(monitor.checkedAt))+
+    '</div>'+
+    (rows.length?'<div class="list">'+rows.join('')+'</div>':
+      '<p class="tiny muted">Nenhum episódio foi registrado desde a instalação deste histórico. Isso não comprova ausência de falhas anteriores.</p>')+
+    '<p class="tiny muted">Os horários correspondem à primeira constatação e à recuperação comprovada pela consulta horária, não ao início/fim exato de uma eventual falha do site.</p>'+
+    '</section>';
 }
 function adminOperationalAlertsView(){
   if(!adminReady()||!adminRoleCanSection('alerts'))return '';
@@ -1977,6 +2053,7 @@ function adminOperationalAlertsView(){
       adminOperationalFollowupsDormantView(adminOperationalFollowupsSafe(present.rawFollowups),ranked):''}
     ${adminOperationalFollowupsEventsView(adminOperationalFollowupsSafe(present?.rawFollowups))}
     ${adminOperationalAlertHistoryView(present?.lifecycle||null)}
+    ${typeof adminPublicationEpisodeHistoryView==='function'?adminPublicationEpisodeHistoryView(present?.rawPublicationHistory):''}
     <p class='tiny muted'>Incidentes são agrupados sem divulgar descrições pessoais. Alertas não marcam chamados como resolvidos e não substituem as verificações específicas de cada área. Notificações externas não estão habilitadas.</p>`:
     '<p class="notice">Consulte os alertas para receber um diagnóstico atual. Sem verificação, nenhuma conclusão de normalidade pode ser apresentada.</p>'}
   </section>`;

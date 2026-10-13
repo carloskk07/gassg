@@ -229,3 +229,30 @@ dos portais e não substitui o monitor horário existente, que continua
 limitado às fontes de banco. A prova de conformidade atual depende do
 estado GitHub/Cloudflare/Supabase e nunca prova a data histórica de
 resolução de um incidente.
+
+## V1.223 — Episódios duráveis da vigência da atestação OIDC
+
+O banco registra **observações horárias** independentes do navegador na
+função privada `tamao_internal.record_portal_attestation_history_v1_223()`,
+agendada pelo `pg_cron` às **:53 UTC**. Sem webhooks ou credenciais externas.
+A fonte é a última prova imutável `github_oidc_edge` mais
+`platform_launch_readiness()`. São verificados o prazo de 60 minutos,
+`portalsFresh` e o SHA coerente entre os registros.
+
+Um problema confirmado abre um episódio persistente privado. Verificações
+seguintes do mesmo episódio aumentam sua contagem, não criam duplicatas.
+Uma nova atestação OIDC válida e consistente permite registrar a normalização
+**na próxima observação horária**. Falhas de leitura e cron ausente/desatualizado
+não fecham episódios e não são apresentados como saúde confirmada.
+
+A RPC `admin_portal_attestation_history_v1_223` é limitada ao service-role
+da Edge e aos administradores com perfis Superadmin, Operações ou Somente leitura.
+Retorna os últimos 12 episódios e saúde do cron, sem identificadores de cliente,
+tokens ou evidência OIDC completa. O histórico é mostrado na Central de Alertas
+mesmo quando o diagnóstico atual está sem pendências e pode contribuir para
+a prioridade dos alertas se houver reincidência de episódios em 30 dias.
+
+**Escopo rigoroso:** os horários são de *observação de prova OIDC
+vencida ou recuperada*. Não são horários de queda/retorno dos sites.
+A recuperação de prova é marcada somente após correspondência SHA,
+prontidão e atestação assinada. Os controles financeiros não são alterados.

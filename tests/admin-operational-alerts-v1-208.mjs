@@ -18,7 +18,7 @@ const names=['adminLoadOperationalAlerts','adminOperationalAlertModel',
   'adminOperationalFollowupEditView','adminOperationalFollowupsEventsView','adminOperationalFollowupsEscalationsView','adminOperationalFollowupsDormantView',
   'adminOperationalMyQueueModel','adminOperationalMyQueueView','adminOperationalFollowupFocus',
   'adminOperationalAlertLifecycle','adminOperationalAlertHistoryDate',
-  'adminOperationalAlertHistoryNote','adminOperationalAlertHistoryView','adminOperationalAlertsCurrent',
+  'adminOperationalAlertHistoryNote','adminOperationalAlertHistoryView','adminPublicationEpisodeHistoryView','adminOperationalAlertsCurrent',
   'adminOperationalAlertBadge','adminOperationalAlertsOpen','adminOperationalAlertsView'];
 let reads=0,renders=0,requests=[],role='superadmin';
 const runtime={status:'ready',session:{user:{id:'admin-A'}},
@@ -129,7 +129,7 @@ assert.ok(edge.includes('action==="operational-alerts"'));
 assert.ok(edge.includes('adminOperationalAlerts(admin,role,user.id)'));
 assert.ok(edge.includes('p_actor_user_id:actorId'));
 assert.ok(edge.includes('verifyLivePortals()'));
-assert.ok(edge.includes('groups:{incidents,support,finance,capture,portals,publication}'),
+assert.ok(edge.includes('groups:{incidents,support,finance,capture,portals,publication,publicationHistory}'),
  'V1.208 groups retained, with the new V1.222 publication evidence added');
 assert.ok(edge.includes('.select("id",{count:"exact",head:true})'));
 assert.ok(!edge.includes('p_actor_user_id:null //'));

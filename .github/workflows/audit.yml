@@ -151,6 +151,8 @@ jobs:
         run: node tests/admin-publication-recovery-v1-221.mjs
       - name: Admin publication alerts and recurrence V1.222 regression
         run: node tests/admin-publication-alerts-v1-222.mjs
+      - name: Independent portal attestation history V1.223 regression
+        run: node tests/admin-publication-history-v1-223.mjs
       - name: First real PSP pilot preflight V1.146 regression contract
         run: node tests/first-real-psp-pilot-preflight-v1-146.mjs
       - name: Production trust language V1.147 regression contract

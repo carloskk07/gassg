@@ -1215,6 +1215,31 @@ async function adminOperationalAlerts(admin:any,role:string,actorId:string){
     }
   })());
   await Promise.all(tasks);
+  // V1.223: separate hourly historical evidence. Never infer an outage from a
+  // missed OIDC proof or a healthy browser probe from an old SQL episode.
+  let publicationHistory:any={available:false,valid:false};
+  if(portalRole){
+    try{
+      const {data,error}=await admin.rpc("admin_portal_attestation_history_v1_223",{
+        p_actor_user_id:actorId
+      });
+      const allowed=['current','stale','awaiting_first','job_missing',
+        'job_disabled','job_changed','unverified'];
+      if(!error&&data?.source==='postgres_authoritative_v1_223'&&
+        data?.readOnly===true&&data?.noOutageClaim===true&&
+        data?.noPersonalData===true&&
+        Array.isArray(data?.episodes)&&data.episodes.length<=12&&
+        allowed.includes(data?.monitor?.status)){
+        publicationHistory={available:true,valid:true,monitor:data.monitor,
+          state:data.state,episodes:data.episodes,
+          recurrenceScope:data.recurrenceScope,noOutageClaim:true};
+      }else{
+        publicationHistory={available:true,valid:false};
+      }
+    }catch{
+      publicationHistory={available:true,valid:false};
+    }
+  }
   // V1.211: durable human follow-ups are returned only after PostgreSQL role scoping.
   // An unavailable RPC is explicitly marked unverified, never an empty task list.
   let followups={available:false,checkedAt:null,items:[],owners:[],events:[]};
@@ -1242,7 +1267,7 @@ async function adminOperationalAlerts(admin:any,role:string,actorId:string){
     }
   }catch{}
   return {source:"operational_alerts_v1_208",checkedAt,
-    groups:{incidents,support,finance,capture,portals,publication},lifecycle,followups,readOnly:true,
+    groups:{incidents,support,finance,capture,portals,publication,publicationHistory},lifecycle,followups,readOnly:true,
     noExternalNotifications:true};
 }
 
