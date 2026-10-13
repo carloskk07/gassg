@@ -1455,7 +1455,7 @@ function adminOperationalFollowupEditView(source,followups){
     +' • '+(item.overdue?'<strong class="admin-alert-overdue">Prazo vencido</strong>':'Prazo: '+esc(dateDisplay(item.dueAt)))
     +' • Revisão '+item.revision+'</div>':
     '<p class="tiny muted">Ainda não há um acompanhamento com responsável definido.</p>';
-  if(!canWrite)return '<div class="admin-alert-followup">'+row+
+  if(!canWrite)return '<div id="admin-followup-details-'+source+'" class="admin-alert-followup" tabindex="-1">'+row+
     (item?'<p class="tiny muted">Responsável: '+esc(item.ownerId.slice(-8))+
       ' • Justificativa: '+esc(item.note)+'</p>':'')+'</div>';
   const ownerOptions=owners.map(o=>'<option value="'+esc(o.id)+'" '+
@@ -1469,7 +1469,7 @@ function adminOperationalFollowupEditView(source,followups){
   };
   const ownerId='admin-followup-owner-'+source,dueId='admin-followup-due-'+source,
     statusId='admin-followup-status-'+source,noteId='admin-followup-note-'+source;
-  return '<details class="admin-alert-followup"><summary>Responsável e prazo'+
+  return '<details id="admin-followup-details-'+source+'" class="admin-alert-followup"><summary>Responsável e prazo'+
     (item?.overdue?' • PRAZO VENCIDO':'')+
     (item?' • revisão '+item.revision:'')+'</summary>'+row+
     '<div class="admin-alert-followup-form">'+
@@ -1542,6 +1542,66 @@ function adminOperationalFollowupsEventsView(followups){
       '<p class="tiny muted">Ainda não há mudanças de acompanhamento registradas.</p>')+
     '</details>';
 }
+/* V1.213 — A signed-in admin's own queue, using role-scoped DB assignments only. */
+function adminOperationalMyQueueModel(followups,actorId){
+  const validUuid=/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+  if(!followups||!validUuid.test(String(actorId||'')))return null;
+  const user=String(actorId).toLowerCase();
+  const urgencyOrder={owner_unavailable:0,severely_overdue:1,overdue:2,due_soon:3,on_track:4,closed:5};
+  const items=followups.items.filter(x=>x.status!=='closed'&&x.ownerId.toLowerCase()===user)
+    .slice().sort((a,b)=>urgencyOrder[a.urgency]-urgencyOrder[b.urgency]||
+      Date.parse(a.dueAt)-Date.parse(b.dueAt)||a.source.localeCompare(b.source));
+  return {items,total:items.length,
+    critical:items.filter(x=>urgencyOrder[x.urgency]<=2).length,
+    dueSoon:items.filter(x=>x.urgency==='due_soon').length};
+}
+function adminOperationalMyQueueView(followups,actorId){
+  const queue=adminOperationalMyQueueModel(followups,actorId);
+  if(!queue)return '<section class="admin-my-alert-queue"><h3>Meus acompanhamentos</h3>'+
+    '<p class="notice">Atribuições pessoais não verificadas nesta consulta. Atualize a central de alertas.</p></section>';
+  const labels={incidents:'Incidentes',support:'Atendimentos',
+    finance:'Processamento financeiro',capture:'Capturas comerciais'};
+  const urgency={owner_unavailable:'Responsável sem autorização',
+    severely_overdue:'Atraso de 24 horas ou mais',overdue:'Prazo vencido',
+    due_soon:'Vence em até 2 horas',on_track:'Dentro do prazo'};
+  const rows=queue.items.map(x=>{
+    const urgent=['owner_unavailable','severely_overdue','overdue'].includes(x.urgency);
+    return '<article class="admin-my-alert-queue-item'+(urgent?' urgent':'')+'">'+
+      '<div><strong>'+esc(labels[x.source])+'</strong>'+
+      '<p>'+esc(urgency[x.urgency])+' • '+esc(adminOperationalAlertHistoryDate(x.dueAt))+'</p>'+
+      '<small>Situação: '+esc(x.status==='monitoring'?'Em acompanhamento':'Aberto')+
+      ' • revisão '+x.revision+'</small></div>'+
+      '<button class="secondary small" type="button" onclick="adminOperationalFollowupFocus(\''+
+        x.source+'\')">Abrir acompanhamento</button>'+
+      '</article>';
+  }).join('');
+  return '<section class="admin-my-alert-queue" aria-label="Minhas responsabilidades">'+
+    '<div class="admin-my-alert-queue-head"><div><h3>Meus acompanhamentos</h3>'+
+      '<p class="tiny muted">Tarefas atribuídas ao seu acesso administrativo, ordenadas pelo prazo e pela urgência verificados no banco.</p></div>'+
+      '<span class="status-pill'+(queue.critical?' risk':'')+'">'+queue.total+' em aberto</span></div>'+
+    (rows?'<div class="admin-my-alert-queue-list">'+rows+'</div>':
+      '<p class="notice">Nenhum acompanhamento em aberto atribuído a você nesta consulta. Isso não significa ausência de problemas da plataforma.</p>')+
+    '</section>';
+}
+function adminOperationalFollowupFocus(source){
+  if(!adminReady()||!adminRoleCanSection('alerts')||
+    !['incidents','support','finance','capture'].includes(String(source)))return;
+  const current=adminOperationalAlertsCurrent();
+  const followups=adminOperationalFollowupsSafe(current?.rawFollowups);
+  if(!followups?.items.some(x=>x.source===source))return;
+  adminRuntime.operationalAlertFilter='all';
+  render();
+  requestAnimationFrame(()=>{
+    if(!adminReady()||!adminRoleCanSection('alerts')||
+      !adminOperationalAlertsCurrent()?.rawFollowups)return;
+    const node=document.getElementById('admin-followup-details-'+source);
+    if(!node)return;
+    if(node.tagName==='DETAILS')node.open=true;
+    node.scrollIntoView({block:'center'});
+    (node.querySelector('summary')||node).focus?.({preventScroll:true});
+  });
+}
+
 function adminOperationalFollowupsEscalationsView(followups){
   if(!followups)return '<p class="notice">Prazos e responsáveis não verificados nesta consulta.</p>';
   const critical=['owner_unavailable','severely_overdue','overdue'];
@@ -1736,6 +1796,8 @@ function adminOperationalAlertsView(){
       '<p class="notice success">Nenhuma pendência identificada nas fontes autorizadas nesta consulta. Isso não comprova ausência de problemas fora dessas fontes.</p>':
       '<p class="notice">Não há pendências confirmadas nas fontes acessíveis; o diagnóstico é parcial.</p>'}
     ${content.unavailable.length?`<p class='notice danger'>Fontes indisponíveis nesta consulta: ${gaps}. Não interpretar ausência de dados como situação regular.</p>`:''}
+    ${present?adminOperationalMyQueueView(
+      adminOperationalFollowupsSafe(present.rawFollowups),adminRuntime.session?.user?.id):''}
     ${present?adminOperationalFollowupsEscalationsView(
       adminOperationalFollowupsSafe(present.rawFollowups)):''}
     ${present&&adminOperationalFollowupsSafe(present.rawFollowups)?
