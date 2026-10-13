@@ -148,6 +148,7 @@ Deno.serve(async(req:Request)=>{
       referrer:clean(body.referrer,500),
       landing_path:clean(body.landingPath,240)
     };
+    const referralCode=String(body.referralCode??"").trim().toUpperCase();
     const normalized={
       lead_type:leadType,
       contact_name:contactName,
@@ -158,7 +159,9 @@ Deno.serve(async(req:Request)=>{
       note:clean(body.note,500),
       ...campaign
     };
-    const requestHash=await sha256Hex(JSON.stringify(normalized));
+    // Attribution is server-validated later and included in request identity;
+    // no user-supplied code is authoritative evidence of a reward.
+    const requestHash=await sha256Hex(JSON.stringify({...normalized,referralCode:referralCode||null}));
     const admin=createClient(SUPABASE_URL,SECRET_KEY,{auth:{persistSession:false,autoRefreshToken:false}});
 
     const ip=clientIp(req);
@@ -200,6 +203,25 @@ Deno.serve(async(req:Request)=>{
       },429,origin);
     }
 
+    // Only newly accepted consented leads can be attributed. Replays and
+    // deduplicated leads cannot receive a new attribution after the fact.
+    let referralCaptured=false;
+    if(result?.leadId&&result?.reused!==true&&result?.replayed!==true&&
+       /^[A-Z0-9]{5,40}$/.test(referralCode)){
+      try{
+        const {data:attribution,error:attributionError}=await admin.rpc(
+          "record_growth_lead_attribution_v1_226",{
+            p_lead_id:result.leadId,p_referral_code:referralCode
+          });
+        if(attributionError)throw attributionError;
+        referralCaptured=attribution?.recorded===true;
+      }catch(error){
+        // Capture is important and must not fail because the optional growth
+        // recorder is temporarily unavailable. Never claim an unrecorded invite.
+        console.warn("growth_attribution_not_confirmed",
+          error instanceof Error?error.name:"rpc_error");
+      }
+    }
     // Preserve leads even when the CEP provider is offline or times out.
     const resolvedCity=await resolveLeadCity(postalCode);
     if(resolvedCity&&result?.leadId){
@@ -238,6 +260,7 @@ Deno.serve(async(req:Request)=>{
       region:resolvedCity?{city:resolvedCity.city,state:resolvedCity.state,ibgeCode:resolvedCity.ibgeCode}:null,
       reused,
       replayed,
+      referralCaptured,
       message:leadType==="merchant"
         ?"Interesse recebido. O TAMÃO pode entrar em contato pelo WhatsApp informado."
         :"Você entrou na lista de abertura. O TAMÃO pode avisar pelo WhatsApp informado."
