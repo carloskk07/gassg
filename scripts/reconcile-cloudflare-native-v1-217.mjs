@@ -5,6 +5,8 @@ import {pathToFileURL} from 'node:url';
 
 const REPO='carloskk07/gassg';
 const DEPLOY_WORKFLOW='cloudflare-production-deploy.yml';
+// First attempt + at most one automatic rerun. Persistent failures need human review.
+const MAX_RUN_ATTEMPTS=2;
 const SHA_RE=/^[0-9a-f]{40}$/;
 const base='https://api.github.com';
 
@@ -72,6 +74,29 @@ export async function reconcileNativeDelivery({env,request,report=()=>{}}){
   }
   if(latest.conclusion!=='failure'){
     return {status:'skipped_not_failed',runId:latest.id};
+  }
+  // Do not retry the same failed workflow indefinitely on every scheduled
+  // readiness attestation. Re-read run details rather than trust a stale list.
+  const detail=await fetchAPI('/actions/runs/'+latest.id);
+  const authentic=detail?.id===latest.id&&detail?.head_sha===canonical&&
+    detail?.head_branch==='main'&&detail?.head_repository?.full_name===REPO&&
+    detail?.path==='.github/workflows/'+DEPLOY_WORKFLOW&&
+    (detail?.event==='push'||detail?.event==='workflow_dispatch');
+  if(!authentic){
+    report('Matching deploy run identity could not be verified. No retry.');
+    return {status:'skipped_unverified_run',runId:latest.id};
+  }
+  if(!Number.isSafeInteger(detail.run_attempt)||detail.run_attempt<1){
+    report('Run attempt count unavailable. No speculative retry.');
+    return {status:'skipped_attempt_unverified',runId:latest.id};
+  }
+  if(detail.run_attempt>=MAX_RUN_ATTEMPTS){
+    report('Automatic retry already used for this run. Manual review required.');
+    return {status:'retry_limit_reached',runId:latest.id};
+  }
+  if(detail.status!=='completed'||detail.conclusion!=='failure'){
+    report('Run changed while inspecting deployment history. No retry.');
+    return {status:'skipped_changed_run',runId:latest.id};
   }
   // Recheck the canonical branch after inspection to reduce TOCTOU risk.
   const now=await fetchAPI('/branches/main');
