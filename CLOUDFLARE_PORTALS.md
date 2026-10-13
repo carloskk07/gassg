@@ -172,3 +172,21 @@ Para diagnósticos, os logs da função registram somente papel do portal,
 etapa e classificação do erro (`STALE_SOURCE_SHA`, `HTTP_NNN`,
 `NETWORK`) e número da tentativa, sem tokens ou dados de clientes.
 Após três tentativas, o HTTP 503 é mantido para sinalizar falha real.
+
+## V1.220 — Saúde de publicação no painel administrativo
+
+Na aba **Sistema**, uma consulta autenticada de `admin-ops` reúne:
+- HEAD canônico da `main` no GitHub por API pública (somente leitura);
+- commits de cliente, revenda e administração no Cloudflare;
+- último atestado real `github_oidc_edge` da tabela privada
+  `platform_portal_attestations`, sua idade e a prontidão do banco;
+- últimas execuções do workflow de publicação e de prontidão pertencentes ao
+  repositório e commit oficiais.
+
+O painel apresenta a versão abreviada, situação e motivos legíveis, sem
+depender de segredos GitHub ou Cloudflare. Falta de dados, falha do GitHub,
+atestado expirado (acima de 60 min), divergência de SHA e execução com falha
+não podem aparecer como publicação comprovada. O resultado é apenas um
+diagnóstico; não atualiza tabelas, altera modo de operação, publica arquivos
+ou modifica políticas financeiras. O gate de prontidão oficial continua
+sendo a autoridade de publicação.
