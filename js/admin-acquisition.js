@@ -1,3 +1,59 @@
+let adminAdsDemandState=null;
+let adminAdsDemandBusy=false;
+async function adminAdsDemandLoadFromUi(){
+  if(adminAdsDemandBusy)return;
+  const adminId=String(adminRuntime?.session?.user?.id||'');
+  if(!adminId)return toast('Faça login no painel antes de consultar.');
+  if(!['superadmin','operations','compliance','finance','readonly'].includes(String(adminCurrentRole())))
+    return;
+  adminAdsDemandBusy=true;
+  try{
+    const data=await adminInvoke({action:'ads-demand'});
+    if(data?.source!=='admin_ads_demand_v1_232'||data.adsLive!==false||
+       data.noRevenue!==true||data.noCharge!==true||
+       !Number.isSafeInteger(data.totalInterested)||data.totalInterested<0||
+       !Number.isSafeInteger(data.recent30d)||data.recent30d<0||
+       !Array.isArray(data.rows)||data.rows.length>50)
+      throw new Error('Fila de publicidade não confirmada pelo servidor.');
+    if(String(adminRuntime?.session?.user?.id||'')!==adminId)return;
+    adminAdsDemandState={...data,loadedFor:adminId};
+  }catch(e){
+    if(String(adminRuntime?.session?.user?.id||'')===adminId){
+      adminAdsDemandState=null;
+      toast(String(e?.message||'Não foi possível consultar as revendas interessadas.'));
+    }
+  }finally{adminAdsDemandBusy=false;render();}
+}
+function adminAdsDemandSection(){
+  if(!['superadmin','operations','compliance','finance','readonly'].includes(String(adminCurrentRole())))
+    return '';
+  const adminId=String(adminRuntime?.session?.user?.id||'');
+  const data=adminAdsDemandState?.loadedFor===adminId?adminAdsDemandState:null;
+  const goals={new_customers:'Conquistar clientes',local_visibility:'Visibilidade local',
+    new_area:'Novas regiões',unsure:'Conhecer possibilidades'};
+  const budgets={unsure:'A definir',upto_99:'Até R$ 99',100_299:'R$ 100–299',
+    '300_999':'R$ 300–999','1000_plus':'R$ 1.000 ou mais'};
+  const rows=data?.rows?.map(x=>
+      '<div class="list-row"><div><strong>'+esc(x.companyName||'Revenda')+
+      '</strong><br><small>'+esc([x.city,x.state].filter(Boolean).join('/')||'Cidade não informada')+
+      ' • '+esc(goals[x.goal]||'A definir')+' • '+esc(budgets[x.budgetBand]||'A definir')+
+      '</small></div><small>'+esc(x.updatedAt?new Date(x.updatedAt).toLocaleDateString('pt-BR'):'')+
+      '</small></div>').join('')||'';
+  return '<section class="section admin-ads-demand">'+
+    '<div class="section-head"><div><span class="section-kicker">TAMÃO NEGÓCIOS • ADS</span>'+
+    '<h3>Interesse de revendas em publicidade local</h3>'+
+    '<p>Pesquisa voluntária. Nenhuma campanha, cobrança ou receita de anúncios ativada.</p></div>'+
+    '<button class="secondary small" onclick="adminAdsDemandLoadFromUi()" '+
+    (adminAdsDemandBusy?'disabled':'')+'>Consultar interessados</button></div>'+
+    (data?'<div class="merchant-kpis">'+
+      '<div class="kpi"><span class="label">Revendas interessadas</span><strong>'+data.totalInterested+'</strong></div>'+
+      '<div class="kpi"><span class="label">Atualizações em 30 dias</span><strong>'+data.recent30d+'</strong></div>'+
+      '<div class="kpi"><span class="label">Receita de anúncios</span><strong>R$ 0</strong><small>Campanhas pagas não habilitadas</small></div>'+
+      '</div><div class="list" style="margin-top:12px">'+
+      (rows||'<p class="muted">Ainda não existem revendas interessadas registradas.</p>')+'</div>':
+      '<p class="muted tiny">Consulte para descobrir objetivos e investimento potencial por cidade, sem dados pessoais.</p>')+
+    '</section>';
+}
 let adminGrowthReferralReviewQueue=null;
 let adminGrowthReferralReviewBusy=false;
 async function adminLoadGrowthReferralReviewQueue(){
@@ -390,6 +446,7 @@ function adminPrelaunchLeadsSection(data){
       adminAcquisitionCampaigns(metrics),
       adminGrowthNetworkOverviewView(data?.growthNetwork),
       adminGrowthApplicationFunnelView(data?.growthApplicationFunnel),
+      adminAdsDemandSection(),
       adminGrowthReferralReviewSection(),
       '<div class="section-head acquisition-queue-head"><div><span class="section-kicker">FILA OPERACIONAL</span><h3>Leads recentes para atendimento</h3><p>Até 200 contatos mais recentes. Ordenados por estágio e antiguidade para reduzir esquecimento.</p></div><span class="status-pill '+(Number(metrics.staleNew24h||0)?'offline':'online')+'">'+Number(metrics.new||0)+' novo(s)</span></div>',
       '<div class="grid cards-3" style="margin-top:14px">'+(ordered.length?ordered.slice(0,200).map(adminPrelaunchLeadCard).join(''):'<div class="empty card">Nenhum lead captado ainda.</div>')+'</div>',

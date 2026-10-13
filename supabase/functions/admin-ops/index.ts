@@ -100,7 +100,7 @@ async function requireAdmin(admin:any,userId:string){
   if(!data)throw new DomainError("ADMIN_ACCESS_DENIED","Esta conta não possui acesso administrativo.",403);
   return data;
 }
-const ADMIN_READ_ACTIONS=new Set(["summary","search","entity-detail","system-health","billing-provider-health","audit-search","incident-list","merchant-payment-preflight","prospect-intelligence","expansion-notifications","expansion-radar","merchant-enablement","sale-payment-history","finance-receipts-history","commercial-history-list","operational-alerts","growth-referral-review-queue"]);
+const ADMIN_READ_ACTIONS=new Set(["summary","search","entity-detail","system-health","billing-provider-health","audit-search","incident-list","merchant-payment-preflight","prospect-intelligence","expansion-notifications","expansion-radar","merchant-enablement","sale-payment-history","finance-receipts-history","commercial-history-list","operational-alerts","ads-demand","growth-referral-review-queue"]);
 const ADMIN_ROLE_ACTIONS:Record<string,Set<string>>={
   superadmin:new Set(["*"]),
   operations:new Set([
@@ -2219,6 +2219,31 @@ Deno.serve(async(req:Request)=>{
       if(error)throw error;
       return json({notifications:(data||[]).filter((n:any)=>marketCityKey(n.city)===key
         &&n.prelaunch_leads?.consent_at&&n.prelaunch_leads?.status!=="closed")},200,origin);
+    }
+    if(action==="ads-demand"){
+      if(!["superadmin","operations","compliance","finance","readonly"].includes(String(adminAccess.admin_role)))
+        throw new DomainError("ADMIN_PERMISSION_DENIED","Sem autorização para consultar demanda de anúncios.",403);
+      const {data,error}=await admin.rpc("admin_ads_demand_v1_232",{
+        p_actor_user_id:user.id
+      });
+      if(error)throw error;
+      const safe=data?.source==="admin_ads_demand_v1_232"
+        &&data?.adsLive===false&&data?.noRevenue===true&&data?.noCharge===true
+        &&Number.isSafeInteger(data?.totalInterested)&&data.totalInterested>=0
+        &&Number.isSafeInteger(data?.recent30d)&&data.recent30d>=0
+        &&data.recent30d<=data.totalInterested
+        &&Array.isArray(data?.rows)&&data.rows.length<=50
+        &&data.rows.length<=data.totalInterested
+        &&data.rows.every((r:any)=>r&&UUID_RE.test(String(r.merchantId||""))
+          &&typeof r.companyName==="string"&&r.companyName.length<=120
+          &&typeof r.city==="string"&&r.city.length<=100
+          &&typeof r.state==="string"&&r.state.length<=2
+          &&["new_customers","local_visibility","new_area","unsure"].includes(r.goal)
+          &&["unsure","upto_99","100_299","300_999","1000_plus"].includes(r.budgetBand)
+          &&Number.isFinite(Date.parse(r.updatedAt||"")));
+      if(!safe)throw new DomainError("ADS_DEMAND_INVALID",
+        "A demanda de publicidade não pôde ser confirmada.",503);
+      return json(data,200,origin);
     }
     if(action==="growth-referral-review-queue"){
       const {data,error}=await admin.rpc("admin_growth_referral_review_queue_v1_230",{

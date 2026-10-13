@@ -175,6 +175,8 @@ jobs:
         run: node tests/growth-referral-review-index-v1-230-2.mjs
       - name: TAMÃO Negócios V1.231 business pulse and growth UX
         run: node tests/merchant-business-pulse-v1-231.mjs
+      - name: TAMÃO Ads V1.232 demand and security contract
+        run: node tests/merchant-ads-demand-v1-232.mjs
       - name: First real PSP pilot preflight V1.146 regression contract
         run: node tests/first-real-psp-pilot-preflight-v1-146.mjs
       - name: Production trust language V1.147 regression contract

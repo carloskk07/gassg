@@ -1,3 +1,98 @@
+// V1.232 — expression of interest, not a purchase of advertising.
+function merchantAdsInterestSection(merchant){
+  if(!['owner','manager'].includes(String(merchant?.memberRole||'')))return '';
+  const rt=globalThis.merchantRuntime||{};
+  const id=String(merchant?.merchantId||'');
+  const data=rt.adsInterest?.merchantId===id&&
+    rt.adsInterest?.source==='merchant_ads_interest_v1_232'&&
+    rt.adsInterest?.noCharge===true&&rt.adsInterest?.adsLive===false?rt.adsInterest:null;
+  const active=data?.interested===true;
+  const status=active?
+    '<div class="notice success"><strong>Interesse registrado.</strong> Isso não cria anúncio nem cobrança. Você pode alterar ou retirar a qualquer momento.</div>':
+    '<p class="muted tiny">Você pode participar da pesquisa sobre divulgação local. Não há compromisso de compra.</p>';
+  const goals=[
+    ['new_customers','Conquistar novos clientes'],
+    ['local_visibility','Dar mais visibilidade à revenda'],
+    ['new_area','Chegar a novas regiões'],
+    ['unsure','Quero conhecer as opções']
+  ];
+  const budgets=[
+    ['unsure','Ainda não defini'],
+    ['upto_99','Até R$ 99 por mês'],
+    ['100_299','R$ 100 a R$ 299 por mês'],
+    ['300_999','R$ 300 a R$ 999 por mês'],
+    ['1000_plus','R$ 1.000 ou mais por mês']
+  ];
+  const selected=(value,current)=>value===current?' selected':'';
+  return '<section class="section merchant-ads-interest" id="merchant-ads-interest">'+
+    '<div class="section-head"><div><span class="section-kicker">TAMÃO ADS</span>'+
+    '<h2>Ajude a criar a divulgação ideal para sua revenda</h2>'+
+    '<p>Conte como gostaria de alcançar mais clientes na sua cidade.</p></div>'+
+    '<button class="ghost small" type="button" onclick="merchantAdsInterestLoadFromUi()" '+
+    (rt.adsInterestLoading?'disabled':'')+'>Consultar situação</button></div>'+
+    '<div class="card flat">'+status+
+    '<div class="grid cards-2" style="margin-top:12px">'+
+    '<div class="input-wrap"><label for="merchant-ads-goal">Qual é seu objetivo?</label>'+
+    '<select class="input" id="merchant-ads-goal">'+
+    goals.map(x=>'<option value="'+x[0]+'"'+selected(x[0],data?.goal||'new_customers')+'>'+esc(x[1])+'</option>').join('')+
+    '</select></div>'+
+    '<div class="input-wrap"><label for="merchant-ads-budget">Quanto consideraria investir, se o serviço existir?</label>'+
+    '<select class="input" id="merchant-ads-budget">'+
+    budgets.map(x=>'<option value="'+x[0]+'"'+selected(x[0],data?.budgetBand||'unsure')+'>'+esc(x[1])+'</option>').join('')+
+    '</select></div></div>'+
+    '<label class="tiny" style="display:flex;align-items:flex-start;gap:8px;margin-top:12px">'+
+    '<input id="merchant-ads-consent" type="checkbox" style="margin-top:3px"/>'+
+    '<span>Quero registrar o interesse da minha revenda para o TAMÃO avaliar o serviço de publicidade local. '+
+    'Entendo que isto não é uma contratação, não gera cobrança e não autoriza anúncio.</span></label>'+
+    '<div class="order-actions" style="margin-top:12px">'+
+    '<button class="primary small" type="button" onclick="merchantAdsInterestRegisterFromUi()" '+
+      (rt.adsInterestLoading?'disabled':'')+'>'+(active?'Atualizar meu interesse':'Tenho interesse')+'</button>'+
+    (active?'<button class="secondary small" type="button" onclick="merchantAdsInterestWithdrawFromUi()">Retirar interesse</button>':'')+
+    '</div>'+
+    (rt.adsInterestError?'<p class="notice danger">'+esc(rt.adsInterestError)+'</p>':'')+
+    '<p class="tiny muted">Esta é apenas uma pesquisa de demanda, sem descontos, posição especial nas ofertas ou pagamento. '+
+    'O ranking orgânico das revendas não muda.</p></div></section>';
+}
+async function merchantAdsInterestCall(operation,fields={}){
+  const rt=globalThis.merchantRuntime;
+  const merchantId=String(rt?.merchant?.merchantId||'');
+  if(!merchantId||!['owner','manager'].includes(String(rt?.merchant?.memberRole||'')))
+    return toast('Apenas proprietário ou gerente pode consultar esta opção.');
+  if(rt.adsInterestLoading)return;
+  rt.adsInterestLoading=true;rt.adsInterestError=null;
+  try{
+    const data=await merchantInvoke('merchant-ops',{action:'ads-interest',merchantId,operation,...fields});
+    if(data?.source!=='merchant_ads_interest_v1_232'||
+       data.merchantId!==merchantId||data.noCharge!==true||data.adsLive!==false||
+       typeof data.interested!=='boolean')
+      throw new Error('Resposta do registro de interesse não confirmada.');
+    if(String(rt.merchant?.merchantId)!==merchantId)return;
+    rt.adsInterest=data;
+    if(operation!=='view')toast(data.interested?'Interesse salvo. Nenhuma cobrança foi criada.':'Interesse retirado.');
+  }catch(e){
+    if(String(rt?.merchant?.merchantId)===merchantId){
+      rt.adsInterestError=String(e?.message||'Não foi possível salvar seu interesse.');
+      toast(rt.adsInterestError);
+    }
+  }finally{rt.adsInterestLoading=false;render();}
+}
+function merchantAdsInterestLoadFromUi(){
+  return merchantAdsInterestCall('view');
+}
+function merchantAdsInterestRegisterFromUi(){
+  const consent=document.getElementById('merchant-ads-consent')?.checked===true;
+  if(!consent)return toast('Confirme que deseja registrar seu interesse sem contratação.');
+  const goal=String(document.getElementById('merchant-ads-goal')?.value||'');
+  const budgetBand=String(document.getElementById('merchant-ads-budget')?.value||'');
+  if(!['new_customers','local_visibility','new_area','unsure'].includes(goal)||
+     !['unsure','upto_99','100_299','300_999','1000_plus'].includes(budgetBand))
+    return toast('Selecione opções válidas.');
+  return merchantAdsInterestCall('register',{goal,budgetBand,consent:true});
+}
+function merchantAdsInterestWithdrawFromUi(){
+  if(!confirm('Retirar o interesse da sua revenda em publicidade? Não há cobrança a cancelar.'))return;
+  return merchantAdsInterestCall('withdraw');
+}
 // TAMÃO Negócios V1.231 — figures from the authenticated server, never fake samples.
 function merchantBusinessPulseSection(merchant){
   if(!['owner','manager'].includes(String(merchant?.memberRole||'')))return '';
@@ -1017,6 +1112,7 @@ function merchantLivePage(){
 
     ${merchantSetupView(rt)}
     ${merchantBusinessPulseSection(m)}
+    ${merchantAdsInterestSection(m)}
     ${merchantGrowthNetworkSection(m)}
     ${merchantAlertControl()}
     <details class="merchant-diagnostic-drawer"><summary>Verificações de documentos e habilitação</summary>
