@@ -24,7 +24,8 @@ let reply=()=>({source:'operational_alerts_v1_208',checkedAt:new Date().toISOStr
  groups:{incidents:{valid:true,open:5,critical:1,high:2},
   support:{available:true,valid:true,open:2},
   finance:{available:true,valid:true,rewardFailures:1,accountingFailures:1},
-  capture:{available:true,valid:true,health:{status:'awaiting_first'}}}});
+  capture:{available:true,valid:true,health:{status:'awaiting_first'}},
+  portals:{available:true,valid:true,verified:true}}});
 const can=section=>({
  alerts:['superadmin','operations','support','finance','compliance','readonly'],
  incidents:['superadmin','operations','support','finance','compliance','readonly'],
@@ -59,9 +60,10 @@ ctxt.open('wrong-page');assert.ok(!requests.some(r=>r.navigate==='wrong-page'));
 const missing={incidents:{valid:false,open:null,critical:null,high:null},
  support:{available:true,valid:false,open:null},
  finance:{available:true,valid:false,rewardFailures:null,accountingFailures:null},
- capture:{available:true,valid:false,health:null}};
+ capture:{available:true,valid:false,health:null},
+ portals:{available:true,valid:false,verified:false}};
 assert.equal(ctxt.model(missing).alerts.length,0);
-assert.equal(ctxt.model(missing).unavailable.length,4);
+assert.equal(ctxt.model(missing).unavailable.length,5);
 const missingHtml=ctxt.model(missing);
 assert.ok(missingHtml.unavailable.includes('Incidentes'));
 reply=()=>({source:'operational_alerts_v1_208',checkedAt:new Date().toISOString(),readOnly:true,groups:missing});
@@ -71,11 +73,16 @@ assert.ok(!ctxt.view().includes('Nenhuma pendência identificada nas fontes auto
 const quiet={incidents:{valid:true,open:0,critical:0,high:0},
  support:{available:true,valid:true,open:0},
  finance:{available:true,valid:true,rewardFailures:0,accountingFailures:0},
- capture:{available:true,valid:true,health:{status:'healthy'}}};
+ capture:{available:true,valid:true,health:{status:'healthy'}},
+ portals:{available:true,valid:true,verified:true}};
 reply=()=>({source:'operational_alerts_v1_208',checkedAt:new Date().toISOString(),readOnly:true,groups:quiet});
 await ctxt.load({force:true});
 assert.ok(ctxt.view().includes('Nenhuma pendência identificada nas fontes autorizadas'));
 assert.equal(ctxt.badge(),'');
+const failedPortals=ctxt.model({...quiet,portals:{available:true,valid:true,verified:false}});
+assert.equal(failedPortals.alerts.length,1);
+assert.equal(failedPortals.alerts[0].target,'system');
+assert.ok(failedPortals.alerts[0].detail.includes('não prova indisponibilidade total'));
 for(const status of ['missing_capture','job_disabled','watchdog_late','run_failed']){
  const x=ctxt.model({...quiet,capture:{available:true,valid:true,health:{status}}});
  assert.equal(x.alerts.length,1,status);
@@ -115,6 +122,8 @@ assert.ok(edge.includes('"operational-alerts"'));
 assert.ok(edge.includes('action==="operational-alerts"'));
 assert.ok(edge.includes('adminOperationalAlerts(admin,role,user.id)'));
 assert.ok(edge.includes('p_actor_user_id:actorId'));
+assert.ok(edge.includes('verifyLivePortals()'));
+assert.ok(edge.includes('groups:{incidents,support,finance,capture,portals}'));
 assert.ok(edge.includes('.select("id",{count:"exact",head:true})'));
 assert.ok(!edge.includes('p_actor_user_id:null //'));
 const injectedNames=names.map(extract).join('\n');
