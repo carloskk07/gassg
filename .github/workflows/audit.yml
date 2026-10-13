@@ -149,6 +149,8 @@ jobs:
         run: node tests/admin-publication-health-v1-220.mjs
       - name: Admin publication recovery guidance V1.221 regression
         run: node tests/admin-publication-recovery-v1-221.mjs
+      - name: Admin publication alerts and recurrence V1.222 regression
+        run: node tests/admin-publication-alerts-v1-222.mjs
       - name: First real PSP pilot preflight V1.146 regression contract
         run: node tests/first-real-psp-pilot-preflight-v1-146.mjs
       - name: Production trust language V1.147 regression contract
