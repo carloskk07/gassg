@@ -2821,3 +2821,13 @@ details[id^="prospect-editor-"] summary:focus-visible{outline:3px solid var(--br
 .admin-ops-alerts .notice{overflow-wrap:anywhere}
 @media(max-width:650px){.admin-ops-alert-kpis{grid-template-columns:repeat(2,minmax(0,1fr))}.admin-ops-alert-item{align-items:stretch;flex-direction:column}.admin-ops-alert-item button{width:100%}}
 @media(max-width:350px){.admin-ops-alert-kpis{grid-template-columns:minmax(0,1fr)}}
+
+/* V1.209 — grouped operational alert history; compact on 320px mobile */
+.admin-ops-alert-provenance{display:block;margin-top:8px;color:var(--muted);line-height:1.6;overflow-wrap:anywhere}
+.admin-ops-alert-history{border-top:1px solid var(--line);margin-top:20px;padding-top:16px}
+.admin-ops-alert-history h3{font-size:1.05rem;margin-bottom:12px}
+.admin-ops-alert-history-list{display:grid;gap:8px;margin-top:12px}
+.admin-ops-alert-history-row{display:flex;justify-content:space-between;flex-wrap:wrap;gap:6px 14px;border:1px solid var(--line);padding:10px 12px;border-radius:10px}
+.admin-ops-alert-history-row strong{font-size:.9rem;overflow-wrap:anywhere}
+.admin-ops-alert-history-row small{color:var(--muted);overflow-wrap:anywhere}
+@media(max-width:390px){.admin-ops-alert-history-row{flex-direction:column}}

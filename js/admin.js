@@ -1292,8 +1292,92 @@ function adminOperationalAlertsCurrent(){
     x.role!==String(adminCurrentRole()))return null;
   const age=Date.now()-Date.parse(String(x.checkedAt||''));
   if(!Number.isFinite(age)||age<0||age>5*60*1000)return null;
-  return {model:adminOperationalAlertModel(x.data.groups),checkedAt:x.checkedAt};
+  return {model:adminOperationalAlertModel(x.data.groups),checkedAt:x.checkedAt,
+    lifecycle:adminOperationalAlertLifecycle(x.data.lifecycle)};
 }
+/* V1.209: lifecycle provenance never overrules the live alert consultation. */
+function adminOperationalAlertLifecycle(value){
+  if(value?.available!==true||!value.monitor)return null;
+  const allowedStatus=['current','stale','awaiting_first','job_missing','job_disabled','job_changed','unverified'];
+  if(!allowedStatus.includes(value.monitor.status)||!Array.isArray(value.states)||
+    !Array.isArray(value.events)||value.states.length>4||value.events.length>12)return null;
+  const sources=['incidents','support','finance','capture'];
+  const states=['active','clear','unknown'];
+  const timestamp=x=>x===null||x===undefined||
+    typeof x==='string'&&Number.isFinite(Date.parse(x));
+  if(!timestamp(value.monitor.checkedAt)||!timestamp(value.monitor.asOf))return null;
+  const unique=new Set();
+  const cleanStates=[];
+  for(const row of value.states){
+    if(!sources.includes(row?.source)||unique.has(row.source)||!states.includes(row.status)||
+      !timestamp(row.checkedAt)||!timestamp(row.openSince)||
+      !timestamp(row.lastClearedAt)||!timestamp(row.lastPositiveAt)||
+      !Number.isSafeInteger(row.consecutiveChecks)||row.consecutiveChecks<0||
+      !Number.isSafeInteger(row.episodes)||row.episodes<0||
+      row.count!==null&&(!Number.isSafeInteger(row.count)||row.count<0))return null;
+    unique.add(row.source);cleanStates.push(row);
+  }
+  const cleanEvents=[];
+  for(const event of value.events){
+    if(!sources.includes(event?.source)||!states.includes(event.status)||
+      event.previous!==null&&!states.includes(event.previous)||!timestamp(event.at)||
+      event.count!==null&&(!Number.isSafeInteger(event.count)||event.count<0))return null;
+    cleanEvents.push(event);
+  }
+  return {monitor:value.monitor,states:cleanStates,events:cleanEvents};
+}
+function adminOperationalAlertHistoryDate(value){
+  const ms=Date.parse(String(value||''));
+  return Number.isFinite(ms)?new Date(ms).toLocaleString('pt-BR'):'Horário não confirmado';
+}
+function adminOperationalAlertHistoryNote(source,lifecycle){
+  if(!lifecycle||lifecycle.monitor.status!=='current')return '';
+  const state=lifecycle.states.find(s=>s.source===source);
+  if(!state||state.status!=='active')return '';
+  const label=state.consecutiveChecks>=3?'Recorrente (3 ou mais verificações)':
+    state.consecutiveChecks===2?'Persistente em duas verificações':'Primeira detecção registrada';
+  return '<small class="admin-ops-alert-provenance">Histórico horário: '+esc(label)
+    +' • desde '+esc(adminOperationalAlertHistoryDate(state.openSince))
+    +' • '+state.consecutiveChecks+' verificação(ões) consecutiva(s)</small>';
+}
+function adminOperationalAlertHistoryView(value){
+  const sourceLabels={incidents:'Incidentes',support:'Atendimentos',
+    finance:'Processamento financeiro',capture:'Capturas comerciais'};
+  if(!value)return '<div class="notice">Acompanhamento recorrente não confirmado pelo servidor. Os alertas acima são apenas da consulta atual.</div>';
+  const status=value.monitor.status;
+  const statusLabels={
+    current:'Verificações horárias atualizadas',
+    awaiting_first:'Primeira verificação horária ainda não realizada',
+    stale:'Acompanhamento horário desatualizado',
+    job_missing:'Agendamento de acompanhamento ausente',
+    job_disabled:'Agendamento de acompanhamento desativado',
+    job_changed:'Configuração do acompanhamento alterada',
+    unverified:'Não foi possível verificar o relógio do acompanhamento'
+  };
+  const good=status==='current';
+  const entries=value.events.slice(0,8).map(event=>{
+    const title=event.status==='active'&&event.previous==='active'?'Agravamento observado':
+      event.status==='active'?'Problema detectado':
+      event.status==='unknown'?'Fonte não confirmada':
+      event.previous==='active'?'Normalização confirmada':'Fonte novamente verificada';
+    return '<div class="admin-ops-alert-history-row"><strong>'
+      +esc(sourceLabels[event.source])+' — '+esc(title)+'</strong><small>'
+      +esc(adminOperationalAlertHistoryDate(event.at))+'</small></div>';
+  }).join('');
+  return '<section class="admin-ops-alert-history" aria-label="Acompanhamento recorrente">'
+    +'<h3>Acompanhamento dos problemas</h3>'
+    +'<div class="notice '+(good?'':'danger')+'" role="status"><strong>'
+    +esc(statusLabels[status])+'</strong><p>Última conferência: '
+    +esc(adminOperationalAlertHistoryDate(value.monitor.checkedAt))+'. '
+    +(good?'Problemas repetidos são reconhecidos após três observações horárias consecutivas.':
+      'Não considerar silêncio do monitor como confirmação de normalização.')
+    +'</p></div>'
+    +'<p class="tiny muted">Histórico de transições apenas para fontes do banco, sem valores pessoais ou financeiros. A verificação dos portais é pontual, não histórica.</p>'
+    +(entries?'<div class="admin-ops-alert-history-list">'+entries+'</div>':
+      '<p class="tiny muted">Sem mudanças de estado confirmadas desde o início deste acompanhamento.</p>')
+    +'</section>';
+}
+
 function adminOperationalAlertBadge(){
   const current=adminOperationalAlertsCurrent();
   if(!current)return '';
@@ -1316,9 +1400,10 @@ function adminOperationalAlertsView(){
   const severityLabel={critical:'Crítico',high:'Prioritário',medium:'Acompanhar'};
   const items=(content?.alerts||[]).map(item=>{
     const canOpen=adminRoleCanSection(item.target);
+    const history=adminOperationalAlertHistoryNote(item.id,present?.lifecycle);
     return `<article class='admin-ops-alert-item'>
       <div><span class='status-pill ${item.severity==='critical'||item.severity==='high'?'risk':''}'>${esc(severityLabel[item.severity])}</span>
-        <h3>${esc(item.title)}</h3><p>${esc(item.detail)}</p></div>
+        <h3>${esc(item.title)}</h3><p>${esc(item.detail)}</p>${history}</div>
       <button type='button' class='secondary small' ${canOpen?'':'disabled'}
         onclick="adminOperationalAlertsOpen('${item.target}')">Conferir área</button>
     </article>`;
@@ -1345,6 +1430,7 @@ function adminOperationalAlertsView(){
       '<p class="notice success">Nenhuma pendência identificada nas fontes autorizadas nesta consulta. Isso não comprova ausência de problemas fora dessas fontes.</p>':
       '<p class="notice">Não há pendências confirmadas nas fontes acessíveis; o diagnóstico é parcial.</p>'}
     ${content.unavailable.length?`<p class='notice danger'>Fontes indisponíveis nesta consulta: ${gaps}. Não interpretar ausência de dados como situação regular.</p>`:''}
+    ${adminOperationalAlertHistoryView(present?.lifecycle||null)}
     <p class='tiny muted'>Incidentes são agrupados sem divulgar descrições pessoais. Alertas não marcam chamados como resolvidos e não substituem as verificações específicas de cada área. Notificações externas não estão habilitadas.</p>`:
     '<p class="notice">Consulte os alertas para receber um diagnóstico atual. Sem verificação, nenhuma conclusão de normalidade pode ser apresentada.</p>'}
   </section>`;

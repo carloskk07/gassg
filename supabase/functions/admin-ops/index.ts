@@ -1183,8 +1183,20 @@ async function adminOperationalAlerts(admin:any,role:string,actorId:string){
     }catch{}
   })());
   await Promise.all(tasks);
+  // V1.209: hourly database provenance; unknown on any RPC error (never fake a cleared alert).
+  let lifecycle={available:false,monitor:null,states:[],events:[]};
+  try{
+    const {data,error}=await admin.rpc("admin_operational_alert_lifecycle_v1_209",{
+      p_actor_user_id:actorId
+    });
+    if(!error&&data?.source==="database_authoritative"&&data?.readOnly===true&&
+      Array.isArray(data?.states)&&Array.isArray(data?.events)&&data?.monitor){
+      lifecycle={available:true,monitor:data.monitor,
+        states:data.states,events:data.events};
+    }
+  }catch{}
   return {source:"operational_alerts_v1_208",checkedAt,
-    groups:{incidents,support,finance,capture,portals},readOnly:true,
+    groups:{incidents,support,finance,capture,portals},lifecycle,readOnly:true,
     noExternalNotifications:true};
 }
 
