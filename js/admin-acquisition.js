@@ -1,3 +1,99 @@
+// TAMÃO Ads V1.237 — live, read-only pilot checks for each real merchant.
+const adminAdsPilotCache=new Map();
+const adminAdsPilotPending=new Set();
+async function adminAdsPilotCheckFromUi(merchantId,expectedVersion){
+  const identity=String(adminRuntime?.session?.user?.id||'');
+  if(!identity||!['superadmin','operations','compliance','finance','readonly'].includes(String(adminCurrentRole())))
+    return;
+  if(!/^[0-9a-f-]{36}$/i.test(String(merchantId)))return;
+  const row=adminAdsCampaignQueue?.loadedFor===identity
+    ?adminAdsCampaignQueue.rows?.find(c=>c.merchantId===merchantId):null;
+  if(!row||row.version!==expectedVersion){
+    return toast('Atualize a fila antes de conferir a campanha.');
+  }
+  const key=identity+':'+merchantId;
+  if(adminAdsPilotPending.has(key))return;
+  adminAdsPilotPending.add(key);
+  try{
+    const data=await adminInvoke({action:'ads-pilot-preflight',merchantId});
+    const checks=data?.checks;
+    const commercial=data?.commercial;
+    const evidence=data?.evidence;
+    const names=[
+      'creativeExists','creativeReviewed','advertiserOptedIn','merchantActiveOnline',
+      'campaignCityMatchesMerchant','merchantEligibleForRealOffers',
+      'eligibleCategoryProductExists','internalPreviewClientReported',
+      'publicPlacementLocked','billingLocked','verifiedDeliveryLocked'
+    ];
+    const proof=[
+      'visitorCityVerified','clientPreviewIndependentlyVerified',
+      'endToEndCustomerAdDeliveryVerified','adFraudDefenseVerified',
+      'customerBasketAvailabilityProven'
+    ];
+    if(data?.source!=='admin_ads_pilot_preflight_v1_237'
+       ||data?.merchantId!==merchantId||data?.readOnly!==true
+       ||!checks||!names.every(k=>typeof checks[k]==='boolean')
+       ||data.internalPrerequisitesMet!==names.every(k=>checks[k]===true)
+       ||!evidence||!proof.every(k=>evidence[k]===false)
+       ||commercial?.publicAdsLive!==false||commercial?.readyToSell!==false
+       ||commercial?.noCharge!==true||commercial?.billableImpressions!==0
+       ||commercial?.verifiedAdImpressions!==0||commercial?.adsRevenueCents!==0){
+       throw new Error('Diagnóstico sem validação de origem.');
+    }
+    if(identity!==String(adminRuntime?.session?.user?.id||''))return;
+    if(data.campaignVersion!==expectedVersion){
+      adminAdsPilotCache.delete(key);
+      throw new Error('A proposta foi alterada. Consulte a fila novamente.');
+    }
+    adminAdsPilotCache.set(key,{data,checkedAt:Date.now()});
+  }catch(e){
+    if(identity===String(adminRuntime?.session?.user?.id||'')){
+      adminAdsPilotCache.delete(key);
+      toast(String(e?.message||e));
+    }
+  }finally{
+    adminAdsPilotPending.delete(key);
+    render();
+  }
+}
+function adminAdsPilotReadinessFragment(row,adminId){
+  const key=adminId+':'+row.merchantId;
+  const saved=adminAdsPilotCache.get(key);
+  const freshness=saved&&Date.now()-saved.checkedAt<=120000
+    &&saved.data?.campaignVersion===row.version;
+  const data=freshness?saved.data:null;
+  const labels={
+    creativeExists:'Proposta cadastrada',
+    creativeReviewed:'Peça revisada por conformidade',
+    advertiserOptedIn:'Revenda confirmou interesse',
+    merchantActiveOnline:'Revenda ativa e online',
+    campaignCityMatchesMerchant:'Cidade corresponde ao cadastro',
+    merchantEligibleForRealOffers:'Habilitada na regra real de ofertas',
+    eligibleCategoryProductExists:'Produto compatível disponível e regular',
+    internalPreviewClientReported:'Prévia interna relatada pelo navegador',
+    publicPlacementLocked:'Exibição pública bloqueada',
+    billingLocked:'Cobrança bloqueada',
+    verifiedDeliveryLocked:'Impressões faturáveis bloqueadas'
+  };
+  const checkList=data?
+    '<div class="list" style="margin-top:10px">'+Object.entries(labels).map(([key,label])=>
+      '<div class="list-row"><span>'+esc(label)+'</span><strong>'+
+      (data.checks[key]===true?'✓':'Pendente')+'</strong></div>').join('')+'</div>'+
+    '<p class="tiny muted">'+
+      (data.internalPrerequisitesMet?
+        'Os requisitos internos desta etapa estão atendidos. Isso ainda não autoriza veiculação ou cobrança.':
+        'O piloto ainda depende dos requisitos pendentes acima.')+'</p>'+
+    '<div class="notice">Publicidade pública: <strong>desligada</strong> • Impressões verificadas: <strong>0</strong> • Receita Ads: <strong>R$ 0</strong>. '+
+    'A cidade dos visitantes, a entrega ao consumidor e a resistência a tráfego artificial ainda não foram comprovadas.</div>':
+    '<p class="tiny muted">Conferência individual com dados atuais do banco, sem liberar anúncios.</p>';
+  return '<div class="card flat" style="margin-top:12px">'+
+    '<div class="section-head"><div><strong>Pré-requisitos do piloto</strong>'+
+    '<p class="tiny muted">Apenas diagnóstico operacional. Não altera a campanha.</p></div>'+
+    '<button class="secondary small" type="button" '+
+      'onclick="adminAdsPilotCheckFromUi(&quot;'+row.merchantId+'&quot;,'+Number(row.version)+')" '+
+      (adminAdsPilotPending.has(key)?'disabled':'')+'>Conferir requisitos</button></div>'+
+    checkList+'</div>';
+}
 // V1.236 — controlled editorial ad slot: intentionally locked for public use.
 let adminAdsPlacementState=null;
 let adminAdsPlacementBusy=false;
@@ -305,7 +401,7 @@ function adminAdsCampaignSection(){
       ' • '+esc(x.category||'Geral')+' • versão '+Number(x.version||1)+'</p>'+
       '<strong>'+esc(x.title||'')+'</strong><p>'+esc(x.description||'')+'</p>'+
       (x.reviewNote?'<p class="tiny muted">Nota: '+esc(x.reviewNote)+'</p>':'')+
-      fields+diag+'</div>';
+      fields+diag+adminAdsPilotReadinessFragment(x,adminId)+'</div>';
   }).join('')||'';
   return '<section class="section admin-ads-campaigns">'+
    '<div class="section-head"><div><span class="section-kicker">TAMÃO ADS • CONFORMIDADE</span>'+
