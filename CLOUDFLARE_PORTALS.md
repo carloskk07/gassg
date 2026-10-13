@@ -153,3 +153,22 @@ que falhou antes de tentar recuperar a publicação:
 O código de retorno do reconciliador aparece no log como `CF_NATIVE_RECONCILE`.
 Um workflow de conciliação concluído com sucesso pode indicar uma recusa
 segura de nova tentativa; não substitui a prova do deploy nem da prontidão.
+
+## V1.219 — atestação OIDC resistente à propagação transitória
+
+A Edge Function `portal-readiness-attestor` espera uma janela curta apenas
+quando o Cloudflare devolve SHA antigo válido, falha de rede ou HTTP
+temporário (404, 408, 425, 429 ou 5xx) durante as leituras de evidência.
+São no máximo **três verificações completas** dos três portais, com esperas
+de **1,5 s e 3 s** entre elas. Nenhuma evidência parcial é reaproveitada.
+
+Qualquer role, origem, metadata inválida, HTML, runtime ou Turnstile
+divergente continua bloqueando a atestação imediatamente. A identidade GitHub
+OIDC, branch e SHA canônico são conferidos antes da leitura; o SHA canônico
+é revalidado novamente antes do único registro persistido na função SQL.
+A rotina não reexecuta escritas financeiras nem relaxa permissões.
+
+Para diagnósticos, os logs da função registram somente papel do portal,
+etapa e classificação do erro (`STALE_SOURCE_SHA`, `HTTP_NNN`,
+`NETWORK`) e número da tentativa, sem tokens ou dados de clientes.
+Após três tentativas, o HTTP 503 é mantido para sinalizar falha real.
