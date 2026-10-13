@@ -11,7 +11,7 @@ const extract=name=>{
 };
 const names=['adminOperationalAlertTriage','adminOperationalAlertSetFilter',
  'adminOperationalAlertsCurrent','adminOperationalFollowupsSafe','adminOperationalFollowupCanWrite',
-  'adminOperationalFollowupEditView','adminOperationalFollowupsEventsView','adminOperationalFollowupsDormantView',
+  'adminOperationalFollowupEditView','adminOperationalFollowupsEventsView','adminOperationalFollowupsEscalationsView','adminOperationalFollowupsDormantView',
   'adminOperationalAlertLifecycle',
  'adminOperationalAlertModel','adminOperationalAlertHistoryDate',
  'adminOperationalAlertHistoryNote','adminOperationalAlertHistoryView',
