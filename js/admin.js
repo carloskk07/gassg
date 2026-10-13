@@ -984,6 +984,34 @@ function adminDetailView(){
   }
   return `<div class="admin-drawer-backdrop" onclick="adminCloseDetail()"><aside class="admin-drawer" onclick="event.stopPropagation()">${content}</aside></div>`;
 }
+function adminPublicationRecoveryView(p){
+  if(!p||p.readOnly!==true)return '';
+  const recovery=p.recovery||{};
+  const checks=Array.isArray(recovery.checks)?recovery.checks:[];
+  const guidance=Array.isArray(p.guidance)?p.guidance:[];
+  const proven=recovery.verified===true&&p.status==='healthy'&&checks.length===4&&
+    checks.every(item=>item.ok===true)&&guidance.length===0;
+  const list=checks.map(item=>'<div class="order-line"><strong>'+
+    (item.ok===true?'Confirmado: ':'Não confirmado: ')+esc(item.label||'Verificação')+
+    '</strong> — '+esc(item.evidence||'sem evidência')+'</div>').join('');
+  const advisory=guidance.slice(0,10).map(item=>
+    '<article class="card flat"><h4>'+esc(item.problem||'Situação a conferir')+'</h4>'+
+    '<p><strong>Impacto:</strong> '+esc(item.impact||'Não determinado')+'</p>'+
+    '<p><strong>Próxima ação:</strong> '+esc(item.action||'Conferir evidências')+'</p>'+
+    '<p><strong>Como confirmar:</strong> '+esc(item.recoveryCriteria||'Repetir diagnóstico')+'</p>'+
+    '<small class="muted">Orientação administrativa. Nenhuma correção foi executada automaticamente.</small>'+
+    '</article>').join('');
+  const heading=proven?'Conformidade atual comprovada':'Plano de verificação e recuperação';
+  const description=proven
+    ?'A consulta atual confirmou as quatro evidências para a mesma versão. Não comprova quando uma falha anterior foi resolvida.'
+    :'Prioridades sugeridas com base nos dados disponíveis. Sem prova completa, não consideramos a publicação recuperada.';
+  return '<section class="section admin-publication-recovery" aria-label="Orientações para publicação">'+
+    '<div class="section-head"><div><h3>'+heading+'</h3><p>'+description+'</p></div></div>'+
+    '<div class="card flat"><h4>Comprovações necessárias</h4>'+list+'</div>'+
+    (advisory?'<div class="list">'+advisory+'</div>':'')+
+    '<p class="tiny muted">Diagnóstico consultivo, somente leitura. Atualize Sistema para obter uma nova observação.</p>'+
+    '</section>';
+}
 function adminPublicationHealthView(p){
  if(!p||p.source!=='publication_v1_220')return '<div class="notice">Diagnóstico da publicação indisponível.</div>';
  const labels={healthy:'Confirmada',attention:'Exige atenção',checking:'Verificando',unverified:'Sem comprovação'};
@@ -1010,6 +1038,7 @@ function adminPublicationHealthView(p){
  '<div class="card flat"><h4>Três portais</h4>'+probes+'</div>'+
  '<div class="card flat"><h4>Automação GitHub</h4>'+flow+'</div>'+
  (findings?'<div class="notice"><strong>Verificar</strong>'+findings+'</div>':'')+
+ adminPublicationRecoveryView(p)+
  '<small class="muted">Última consulta: '+esc(formatDateTime(p.checkedAt))+'</small></section>';
 }
 function adminSystemHealthView(){
