@@ -12,7 +12,9 @@ const extract=name=>{
   assert.ok(start>=0&&end>start,'Missing function '+name);
   return source.slice(start,end+2);
 };
-const names=['adminLoadOperationalAlerts','adminOperationalAlertModel','adminOperationalAlertsCurrent',
+const names=['adminLoadOperationalAlerts','adminOperationalAlertModel',
+  'adminOperationalAlertLifecycle','adminOperationalAlertHistoryDate',
+  'adminOperationalAlertHistoryNote','adminOperationalAlertHistoryView','adminOperationalAlertsCurrent',
   'adminOperationalAlertBadge','adminOperationalAlertsOpen','adminOperationalAlertsView'];
 let reads=0,renders=0,requests=[],role='superadmin';
 const runtime={status:'ready',session:{user:{id:'admin-A'}},
