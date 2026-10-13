@@ -1259,6 +1259,13 @@ function adminOperationalAlertModel(groups){
         fin.rewardFailures+' recompensa(s) • '+fin.accountingFailures+' contabilização(ões) pendente(s).','finance');
     }else unavailable.push('Processamento financeiro');
   }
+  const portal=groups.portals;
+  if(portal?.available===true){
+    if(portal.valid===true&&typeof portal.verified==='boolean'){
+      if(!portal.verified)add('portals','high','Verificação dos portais oficiais não aprovada',
+        'Confira origem, versão e controles dos três domínios; isso não prova indisponibilidade total.','system');
+    }else unavailable.push('Portais oficiais');
+  }
   const cap=groups.capture;
   if(cap?.available===true){
     const states=['healthy','awaiting_first','in_grace','missing_capture','run_failed','job_missing','job_disabled','job_changed','watchdog_missing','watchdog_disabled','watchdog_changed','watchdog_late'];
@@ -1295,7 +1302,7 @@ function adminOperationalAlertBadge(){
 }
 function adminOperationalAlertsOpen(target){
   if(!adminReady()||!adminRoleCanSection('alerts'))return;
-  if(!['incidents','orders','finance','prospects'].includes(String(target)))return;
+  if(!['incidents','orders','finance','prospects','system'].includes(String(target)))return;
   if(!adminRoleCanSection(target))return;
   adminSetSection(target);
 }
