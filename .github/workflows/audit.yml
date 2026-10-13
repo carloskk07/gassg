@@ -177,6 +177,8 @@ jobs:
         run: node tests/merchant-business-pulse-v1-231.mjs
       - name: TAMÃO Ads V1.232 demand and security contract
         run: node tests/merchant-ads-demand-v1-232.mjs
+      - name: TAMÃO Ads V1.233 creative approval without publication
+        run: node tests/merchant-ads-campaign-v1-233.mjs
       - name: First real PSP pilot preflight V1.146 regression contract
         run: node tests/first-real-psp-pilot-preflight-v1-146.mjs
       - name: Production trust language V1.147 regression contract
