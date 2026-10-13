@@ -1615,10 +1615,8 @@ function adminOperationalMyQueueView(followups,actorId){
       ' • revisão '+x.revision+'</small>'+
       '<small class="admin-alert-ack-label">'+esc(ackLabel[x.ackStatus]||'Ciência ainda não verificada')+'</small></div>'+
       '<div class="admin-alert-ack-actions">'+
-      (needsAck?'<button class="primary small" type="button" onclick="adminOperationalConfirmAck(\\''+
-        x.source+'\\','+x.revision+')">Confirmar ciência</button>':'')+
-      '<button class="secondary small" type="button" onclick="adminOperationalFollowupFocus(\\''+
-        x.source+'\\')">Abrir acompanhamento</button></div>'+
+      (needsAck?`<button class="primary small" type="button" onclick="adminOperationalConfirmAck('${x.source}',${x.revision})">Confirmar ciência</button>`:'')+
+      `<button class="secondary small" type="button" onclick="adminOperationalFollowupFocus('${x.source}')">Abrir acompanhamento</button>`+
       '</article>';
   }).join('');
   return '<section class="admin-my-alert-queue" aria-label="Minhas responsabilidades">'+
