@@ -988,10 +988,15 @@ function adminPublicationHealthView(p){
  if(!p||p.source!=='publication_v1_220')return '<div class="notice">Diagnóstico da publicação indisponível.</div>';
  const labels={healthy:'Confirmada',attention:'Exige atenção',checking:'Verificando',unverified:'Sem comprovação'};
  const brief=x=>/^[0-9a-f]{40}$/.test(String(x||''))?String(x).slice(0,12):'não confirmado';
- const flow=(p.workflows||[]).map(x=>'<div class="order-line"><strong>'+esc(x.name)+'</strong> — '+esc(x.status)+'</div>').join('');
+ const flow=(p.workflows||[]).map(x=>{
+   const state={ok:'Aprovado',checking:'Executando',unknown:'Sem confirmação',attention:'Exige atenção'}[x.status]||'Sem confirmação';
+   const link=typeof x.url==='string'&&/^https:\/\/github\.com\/carloskk07\/gassg\/actions\/runs\/\d+$/.test(x.url)
+     ?' <a href="'+esc(x.url)+'" target="_blank" rel="noopener noreferrer">Ver execução</a>':'';
+   return '<div class="order-line"><strong>'+esc(x.name)+'</strong> — '+esc(state)+link+'</div>';
+ }).join('');
  const probes=(p.portals?.probes||[]).map(x=>'<div class="order-line">'+
    esc(({customer:'Clientes',merchant:'Revendas',admin:'Administração'})[x.role]||x.role)+
-   ': '+esc(brief(x.sourceSha))+' • '+(x.ok?'Conferido':'Não validado')+'</div>').join('');
+   ': '+esc(brief(x.sourceSha))+' • '+(x.ok&&p.headSha&&x.sourceSha===p.headSha?'Versão atual':x.ok?'Versão diferente':'Não validado')+'</div>').join('');
  const findings=(p.issues||[]).map(x=>'<div class="order-line">• '+esc(x)+'</div>').join('');
  return '<section class="section"><div class="section-head"><div><span class="section-kicker">RASTREABILIDADE</span>'+
  '<h3>Publicação GitHub, Cloudflare e Supabase</h3>'+
