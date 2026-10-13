@@ -1151,7 +1151,7 @@ async function adminOperationalAlerts(admin:any,role:string,actorId:string){
   let finance={available:financeRole,valid:false,rewardFailures:null,accountingFailures:null};
   let capture={available:captureRole,valid:false,health:null};
   let portals={available:portalRole,valid:false,verified:false};
-  let publication={available:portalRole,valid:false};
+  let publication:any={available:portalRole,valid:false};
   const tasks=[];
   if(operationalRole)tasks.push((async()=>{
     const r=await fetchCount(()=>admin.from("support_cases").select("id",{count:"exact",head:true}).in("status",["open","in_review"]));
