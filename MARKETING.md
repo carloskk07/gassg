@@ -203,3 +203,29 @@ vínculo do cadastro indicado ao CNPJ habilitado, a taxa TAMÃO
 independente da empresa indicadora e aprovação financeira. O motor
 imutável atual de crédito pré-pago também exige um caminho contábil
 específico para concessões e reversões desse tipo.
+
+## V1.229 — Convite vinculado ao cadastro real de empresa
+
+O convite recebido no site `tamao.com.br` atravessa o redirecionamento
+para `parceiro.tamao.com.br`, levando somente o código de referência.
+O cadastro autenticado da revenda mostra um campo opcional de indicação
+pré-preenchido. O backend valida o código e vincula o **primeiro cadastro
+novo** de empresa ao CNPJ enviado, com unicidade do CNPJ na tabela
+privada de atribuições. Correções e reenvios da mesma solicitação não
+substituem quem indicou a empresa.
+
+Um lead anterior com o mesmo código, telefone consentido e tipo
+`merchant` é vinculado apenas como *candidato não verificado*; isso
+não prova a identidade da empresa nem habilita remuneração. O backend
+rejeita autoindicação identificável e indicação de empresa com o
+mesmo CNPJ da revenda indicadora.
+
+A área de Aquisição no Admin mostra cadastros com indicação,
+aprovados, relacionados a CNPJ/proprietário e revendas ativas
+correspondentes. Não apresenta essas etapas como comissão,
+receita recebida ou venda liquidada.
+
+Os dados são privados, com RPCs `security invoker` restritas ao
+`service_role`. Toda associação permanece com `status=unverified`
+e `reward_eligible=false` **impostos pelo banco**. A V1.229
+não cria pagamento, crédito, saque ou alteração financeira.
