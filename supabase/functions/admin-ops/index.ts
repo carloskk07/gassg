@@ -100,7 +100,7 @@ async function requireAdmin(admin:any,userId:string){
   if(!data)throw new DomainError("ADMIN_ACCESS_DENIED","Esta conta não possui acesso administrativo.",403);
   return data;
 }
-const ADMIN_READ_ACTIONS=new Set(["summary","search","entity-detail","system-health","billing-provider-health","audit-search","incident-list","merchant-payment-preflight","prospect-intelligence","expansion-notifications","expansion-radar","merchant-enablement","sale-payment-history","finance-receipts-history","commercial-history-list","operational-alerts","ads-demand","ads-campaign-queue","growth-referral-review-queue"]);
+const ADMIN_READ_ACTIONS=new Set(["summary","search","entity-detail","system-health","billing-provider-health","audit-search","incident-list","merchant-payment-preflight","prospect-intelligence","expansion-notifications","expansion-radar","merchant-enablement","sale-payment-history","finance-receipts-history","commercial-history-list","operational-alerts","ads-demand","ads-audience-readiness","ads-campaign-queue","growth-referral-review-queue"]);
 const ADMIN_ROLE_ACTIONS:Record<string,Set<string>>={
   superadmin:new Set(["*"]),
   operations:new Set([
@@ -2219,6 +2219,52 @@ Deno.serve(async(req:Request)=>{
       if(error)throw error;
       return json({notifications:(data||[]).filter((n:any)=>marketCityKey(n.city)===key
         &&n.prelaunch_leads?.consent_at&&n.prelaunch_leads?.status!=="closed")},200,origin);
+    }
+    if(action==="ads-audience-readiness"){
+      if(!["superadmin","operations","compliance","finance","readonly"].includes(String(adminAccess.admin_role))){
+        throw new DomainError("ADMIN_PERMISSION_DENIED","Perfil sem acesso aos indicadores de audiência.",403);
+      }
+      const {data,error}=await admin.rpc("admin_ads_audience_readiness_v1_234",{
+        p_actor_user_id:user.id
+      });
+      if(error)throw error;
+      const ints=["landingCustomerEvents","landingMerchantEvents","customerFormEvents",
+        "merchantFormEvents","last7dEvents","activeDays"];
+      const quality=data?.evidence;
+      const commercial=data?.commercial;
+      const valid=data?.source==="admin_ads_audience_readiness_v1_234"
+        &&data?.readOnly===true&&data?.periodDays===30&&data?.timezone==="UTC"
+        &&data?.metricType==="unverified_anonymous_site_events"
+        &&data?.marketingEventSource==="prelaunch_marketing_event_daily"
+        &&Number.isFinite(Date.parse(String(data?.generatedAt||"")))
+        &&ints.every(k=>Number.isSafeInteger(data?.[k])&&data[k]>=0)
+        &&data.activeDays<=30
+        &&(data.lastEventDate===null||
+          /^20\\d{2}-\\d{2}-\\d{2}$/.test(String(data.lastEventDate)))
+        &&quality&&
+          ["uniqueVisitorsVerified","cityOfVisitorVerified","invalidTrafficFiltered",
+           "actualAdDeliveryImplemented","trackingConsentVerifiedForAds",
+           "eventDedupAcrossClientsVerified"].every(k=>quality[k]===false)
+        &&quality.sourceCanBeSpoofed===true
+        &&commercial?.adsLive===false&&commercial?.noCharge===true
+        &&commercial?.readyToSell===false
+        &&commercial?.verifiedAdImpressions===0
+        &&commercial?.billableImpressions===0
+        &&commercial?.verifiedAdClicks===0
+        &&commercial?.adsRevenueCents===0
+        &&Array.isArray(data?.daily)&&data.daily.length===14
+        &&data.daily.every((d:any)=>/^20\\d{2}-\\d{2}-\\d{2}$/.test(String(d.date))
+          &&Number.isSafeInteger(d.landingEvents)&&d.landingEvents>=0
+          &&Number.isSafeInteger(d.formEvents)&&d.formEvents>=0)
+        &&Array.isArray(data?.cityDemand)&&data.cityDemand.length<=20
+        &&data.cityDemand.every((c:any)=>c&&typeof c.city==="string"
+          &&c.city.length>=2&&c.city.length<=100
+          &&/^[A-Z]{2}$/.test(String(c.state))
+          &&["interestedMerchants","submittedCreatives","approvedCreatives"]
+            .every(k=>Number.isSafeInteger(c[k])&&c[k]>=0));
+      if(!valid)throw new DomainError("ADS_AUDIENCE_EVIDENCE_INVALID",
+        "Não foi possível validar a origem e os limites da audiência.",503);
+      return json(data,200,origin);
     }
     if(action==="ads-campaign-queue"){
       if(!["superadmin","operations","compliance","finance","readonly"].includes(String(adminAccess.admin_role)))
