@@ -256,3 +256,28 @@ a prioridade dos alertas se houver reincidência de episódios em 30 dias.
 vencida ou recuperada*. Não são horários de queda/retorno dos sites.
 A recuperação de prova é marcada somente após correspondência SHA,
 prontidão e atestação assinada. Os controles financeiros não são alterados.
+
+## V1.224 — Tendências verificáveis do monitor OIDC
+
+A RPC de leitura `admin_portal_attestation_trends_v1_224`, acessível
+exclusivamente ao service-role através do Admin autenticado e autorizada
+novamente pela função SQL, cruza **três evidências distintas**:
+
+- Registro de execuções do próprio `pg_cron` (`cron.job_run_details`):
+  execução mais recente, última execução concluída com sucesso e
+  contagens de sucesso/falha nas últimas 24 horas;
+- Observações privadas de atestação OIDC registradas nas últimas 24 horas:
+  válidas, com problema ou desconhecidas;
+- Episódios documentados de atestação nos últimos 30 dias: abertos,
+  resolvidos por prova OIDC e persistentes ou recorrentes.
+
+Uma avaliação de tendência só é permitida após **pelo menos três execuções
+automáticas concluídas com sucesso e três observações registradas**,
+com agendador válido e recente. Configuração divergente, execução atrasada,
+falha da última execução ou leitura parcial mostram status **não comprovado**.
+
+A Central de Alertas mostra separadamente o estado do agendador, as
+observações OIDC e as reincidências. Nenhuma taxa de disponibilidade ou
+percentual de uptime é calculado; essas observações não medem quedas de
+sites e não autorizam operações financeiras. Observações manuais não são
+confundidas com execuções automáticas no registro do cron.
