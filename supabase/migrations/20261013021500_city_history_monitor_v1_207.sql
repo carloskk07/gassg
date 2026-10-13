@@ -12,7 +12,7 @@ create table if not exists tamao_internal.city_history_health_checks_v1_207(
   checked_at timestamptz not null default clock_timestamp(),
   status text not null check (status in (
     'healthy','missing_capture','run_failed','in_grace',
-    'job_missing','job_disabled','job_changed','watchdog_missing','watchdog_disabled','watchdog_changed'
+    'job_missing','job_disabled','job_changed','watchdog_missing','watchdog_disabled','watchdog_changed','watchdog_late'
   )),
   cron_run_status text,
   slot_capture_origin text check (slot_capture_origin in ('manual','scheduled'))
@@ -138,6 +138,7 @@ declare
   v_due timestamptz;
   v_status text;
   v_inserted boolean:=false;
+  v_affected integer:=0;
 begin
   if session_user<>'postgres' then
     raise exception 'HISTORY_MONITOR_CRON_ONLY' using errcode='42501';
@@ -152,7 +153,8 @@ begin
     (due_at,status,cron_run_status,slot_capture_origin)
   values(v_due,v_status,v_health->>'cronRunStatus',v_health->>'slotCaptureOrigin')
   on conflict(due_at) do nothing;
-  get diagnostics v_inserted = row_count;
+  get diagnostics v_affected = row_count;
+  v_inserted:=v_affected>0;
   return jsonb_build_object('recorded',v_inserted,'status',v_status,'expectedAt',v_due);
 end;
 $fn$;
