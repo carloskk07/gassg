@@ -190,3 +190,21 @@ não podem aparecer como publicação comprovada. O resultado é apenas um
 diagnóstico; não atualiza tabelas, altera modo de operação, publica arquivos
 ou modifica políticas financeiras. O gate de prontidão oficial continua
 sendo a autoridade de publicação.
+
+## V1.221 — orientação e comprovação de recuperação no Admin
+
+A área Sistema reúne um **plano consultivo** para cada divergência: problema,
+impacto, próxima ação humana e critério para encerrar a verificação.
+
+O backend classifica separadamente falhas de disponibilidade do GitHub,
+divergências ou ausência de provas nos portais, atestação OIDC ausente/vencida
+e falhas, ausência ou execução pendente dos workflows oficiais. Cada motivo
+exibe como confirmar a normalização. Não há botões de repetição automática,
+modificação de regras ou utilização de credenciais Cloudflare no navegador.
+
+Quando todas as provas coincidem, o quadro mostra **conformidade atual
+comprovada**, com quatro verificações: commit `main`, os três portais no
+mesmo SHA, atestação OIDC vigente e execução de publicação/prontidão aprovadas.
+Isso é uma prova de estado **na consulta atual**, não uma afirmação sobre quando
+um incidente histórico foi resolvido. A atualização segue manual pelo botão
+existente de diagnóstico; nenhum reparo ocorre sem revisão administrativa.
