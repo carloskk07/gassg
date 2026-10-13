@@ -43,7 +43,7 @@ for(const part of [
  'if(action==="ads-campaign")','"ads-campaign","ads-interest"',
  'if(!canManage(role))','p_actor:user.id,p_merchant:merchantId,p_action:operation',
  'data?.adsLive!==false||data?.noCharge!==true',
- "if(operation==='save'",
+ 'if(operation==="save"',
 ])assert.ok(merchantEdge.includes(part),'Merchant backend missing '+part);
 for(const part of [
  'if(action==="ads-campaign-queue")',
