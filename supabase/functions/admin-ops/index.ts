@@ -1183,6 +1183,20 @@ async function adminOperationalAlerts(admin:any,role:string,actorId:string){
     }catch{}
   })());
   await Promise.all(tasks);
+  // V1.211: durable human follow-ups are returned only after PostgreSQL role scoping.
+  // An unavailable RPC is explicitly marked unverified, never an empty task list.
+  let followups={available:false,checkedAt:null,items:[],owners:[],events:[]};
+  try{
+    const {data,error}=await admin.rpc("admin_list_alert_followups_v1_211",{
+      p_actor_id:actorId
+    });
+    if(!error&&data?.source==="database_authoritative"&&data?.readOnly===true&&
+      Array.isArray(data?.followups)&&Array.isArray(data?.owners)&&
+      Array.isArray(data?.events)&&typeof data?.checkedAt==="string"){
+      followups={available:true,checkedAt:data.checkedAt,
+        items:data.followups,owners:data.owners,events:data.events};
+    }
+  }catch{}
   // V1.209: hourly database provenance; unknown on any RPC error (never fake a cleared alert).
   let lifecycle={available:false,monitor:null,states:[],events:[]};
   try{
@@ -1196,7 +1210,7 @@ async function adminOperationalAlerts(admin:any,role:string,actorId:string){
     }
   }catch{}
   return {source:"operational_alerts_v1_208",checkedAt,
-    groups:{incidents,support,finance,capture,portals},lifecycle,readOnly:true,
+    groups:{incidents,support,finance,capture,portals},lifecycle,followups,readOnly:true,
     noExternalNotifications:true};
 }
 
@@ -1990,6 +2004,32 @@ Deno.serve(async(req:Request)=>{
       throw new DomainError("INVALID_IDEMPOTENCY_KEY","Chave de idempotência obrigatória para mutações administrativas.",400);
     }
 
+    if(action==="operational-alert-followup"){
+      const source=String(body.source||"");
+      if(!["incidents","support","finance","capture"].includes(source)){
+        throw new DomainError("INVALID_ALERT_SOURCE","Grupo operacional inválido.",400);
+      }
+      const ownerId=uuid(body.ownerId,"administrador responsável");
+      const dueAt=new Date(String(body.dueAt||""));
+      const status=String(body.followupStatus||"");
+      const note=String(body.note||"").trim();
+      const revision=Number(body.expectedRevision);
+      if(!Number.isFinite(dueAt.getTime())||!["open","monitoring","closed"].includes(status)||
+         note.length<6||note.length>240||!Number.isSafeInteger(revision)||
+         revision<0||revision>100000){
+        throw new DomainError("INVALID_ALERT_FOLLOWUP","Informe responsável, prazo e justificativa válidos.",400);
+      }
+      const {data,error}=await admin.rpc("admin_set_alert_followup_v1_211",{
+        p_actor_id:user.id,p_source:source,p_owner_id:ownerId,
+        p_due_at:dueAt.toISOString(),p_status:status,
+        p_note:note,p_expected_revision:revision
+      });
+      if(error)throw error;
+      if(data?.source!=="server_authoritative"||!Number.isSafeInteger(data?.revision)){
+        throw new DomainError("ALERT_FOLLOWUP_WRITE_FAILED","Acompanhamento não confirmado.",503);
+      }
+      return json(data,200,origin);
+    }
     if(action==="commercial-history-capture"){
       if(!["superadmin","operations"].includes(String(adminAccess.admin_role))){
         throw new DomainError("ADMIN_PERMISSION_DENIED","Somente a administração comercial pode registrar o histórico.",403);

@@ -10,7 +10,9 @@ const extract=name=>{
  assert.ok(start>=0&&end>start,'Missing '+name);return src.slice(start,end+2);
 };
 const names=['adminOperationalAlertTriage','adminOperationalAlertSetFilter',
- 'adminOperationalAlertsCurrent','adminOperationalAlertLifecycle',
+ 'adminOperationalAlertsCurrent','adminOperationalFollowupsSafe','adminOperationalFollowupCanWrite',
+  'adminOperationalFollowupEditView','adminOperationalFollowupsEventsView','adminOperationalFollowupsDormantView',
+  'adminOperationalAlertLifecycle',
  'adminOperationalAlertModel','adminOperationalAlertHistoryDate',
  'adminOperationalAlertHistoryNote','adminOperationalAlertHistoryView',
  'adminOperationalAlertBadge','adminOperationalAlertsOpen','adminOperationalAlertsView'];

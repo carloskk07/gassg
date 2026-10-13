@@ -1294,7 +1294,8 @@ function adminOperationalAlertsCurrent(){
   const age=Date.now()-Date.parse(String(x.checkedAt||''));
   if(!Number.isFinite(age)||age<0||age>5*60*1000)return null;
   return {model:adminOperationalAlertModel(x.data.groups),checkedAt:x.checkedAt,
-    lifecycle:adminOperationalAlertLifecycle(x.data.lifecycle)};
+    lifecycle:adminOperationalAlertLifecycle(x.data.lifecycle),
+    rawFollowups:x.data.followups||null};
 }
 /* V1.209: lifecycle provenance never overrules the live alert consultation. */
 function adminOperationalAlertLifecycle(value){
@@ -1382,6 +1383,171 @@ function adminOperationalAlertHistoryView(value){
 /* V1.210 — explainable and role-neutral triage of already-authorized live signals.
    Historical bonuses require a healthy fresh independent hourly monitor.
    This never predicts financial harm, public outages or automated human assignment. */
+/* V1.211 — authorized, audited human followups. Distinct from an incident's actual status. */
+function adminOperationalFollowupsSafe(value){
+  if(value?.available!==true||!Array.isArray(value.items)||!Array.isArray(value.owners)||
+     !Array.isArray(value.events)||value.items.length>4||value.owners.length>100||
+     value.events.length>20)return null;
+  const uuid=/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+  const sources=['incidents','support','finance','capture'];
+  const statuses=['open','monitoring','closed'];
+  const roles=['superadmin','operations','finance','support','compliance'];
+  const allowed={
+    superadmin:sources,operations:['incidents','support','capture'],
+    support:['incidents','support'],finance:['incidents','finance'],
+    compliance:['incidents','capture'],readonly:['incidents','capture']
+  }[adminCurrentRole()]||[];
+  const owners=[],items=[],events=[],seen=new Set();
+  for(const o of value.owners){
+    if(!uuid.test(String(o?.id||''))||!roles.includes(o?.role))return null;
+    owners.push({id:o.id,role:o.role});
+  }
+  for(const x of value.items){
+    if(!sources.includes(x?.source)||!allowed.includes(x.source)||
+      seen.has(x.source)||!uuid.test(String(x.ownerId||''))||
+      !statuses.includes(x.status)||!Number.isSafeInteger(x.revision)||
+      x.revision<1||typeof x.note!=='string'||x.note.length>240||
+      !Number.isFinite(Date.parse(String(x.dueAt||'')))||
+      !Number.isFinite(Date.parse(String(x.updatedAt||'')))||
+      typeof x.overdue!=='boolean')return null;
+    seen.add(x.source);items.push(x);
+  }
+  for(const e of value.events){
+    if(!sources.includes(e?.source)||!allowed.includes(e.source)||
+      !['created','updated','closed','reopened','overdue'].includes(e.kind)||
+      !Number.isFinite(Date.parse(String(e.at||'')))||
+      !Number.isSafeInteger(e.revision)||e.revision<1)return null;
+    events.push(e);
+  }
+  return {items,owners,events};
+}
+function adminOperationalFollowupCanWrite(source){
+  const role=adminCurrentRole();
+  return role==='superadmin'||
+    (source==='finance'&&role==='finance')||
+    (['incidents','support'].includes(source)&&['operations','support'].includes(role))||
+    (source==='capture'&&role==='operations');
+}
+function adminOperationalFollowupEditView(source,followups){
+  if(!['incidents','support','finance','capture'].includes(source))return '';
+  if(!followups)return '<p class="tiny muted">Responsável e prazo não verificados nesta consulta.</p>';
+  const item=followups.items.find(x=>x.source===source)||null;
+  const allowedOwnerRoles={
+    incidents:['superadmin','operations','support'],
+    support:['superadmin','operations','support'],
+    finance:['superadmin','finance'],
+    capture:['superadmin','operations']
+  }[source];
+  const owners=followups.owners.filter(x=>allowedOwnerRoles.includes(x.role));
+  const canWrite=adminOperationalFollowupCanWrite(source);
+  const dateDisplay=t=>{
+    const ms=Date.parse(String(t||''));
+    return Number.isFinite(ms)?new Date(ms).toLocaleString('pt-BR'):'Prazo não definido';
+  };
+  const statusName={open:'Aberto',monitoring:'Em acompanhamento',closed:'Acompanhamento encerrado'};
+  const row=item?'<div class="admin-alert-followup-summary"><strong>Acompanhamento: '+esc(statusName[item.status])+'</strong>'
+    +' • '+(item.overdue?'<strong class="admin-alert-overdue">Prazo vencido</strong>':'Prazo: '+esc(dateDisplay(item.dueAt)))
+    +' • Revisão '+item.revision+'</div>':
+    '<p class="tiny muted">Ainda não há um acompanhamento com responsável definido.</p>';
+  if(!canWrite)return '<div class="admin-alert-followup">'+row+
+    (item?'<p class="tiny muted">Responsável: '+esc(item.ownerId.slice(-8))+
+      ' • Justificativa: '+esc(item.note)+'</p>':'')+'</div>';
+  const ownerOptions=owners.map(o=>'<option value="'+esc(o.id)+'" '+
+    (o.id===item?.ownerId?'selected':'')+'>'+esc(o.role)+' • '+esc(o.id.slice(-8))+'</option>').join('');
+  const due=new Date(Date.now()+24*3600000);
+  const localDue=new Date(due.getTime()-due.getTimezoneOffset()*60000).toISOString().slice(0,16);
+  const local=x=>{
+    const t=new Date(x);
+    return Number.isFinite(t.getTime())?
+      new Date(t.getTime()-t.getTimezoneOffset()*60000).toISOString().slice(0,16):localDue;
+  };
+  const ownerId='admin-followup-owner-'+source,dueId='admin-followup-due-'+source,
+    statusId='admin-followup-status-'+source,noteId='admin-followup-note-'+source;
+  return '<details class="admin-alert-followup"><summary>Responsável e prazo'+
+    (item?.overdue?' • PRAZO VENCIDO':'')+
+    (item?' • revisão '+item.revision:'')+'</summary>'+row+
+    '<div class="admin-alert-followup-form">'+
+      '<label for="'+ownerId+'">Administrador responsável<select id="'+ownerId+'">'+
+      '<option value="">Selecione um administrador</option>'+ownerOptions+'</select></label>'+
+      '<label for="'+dueId+'">Prazo<input type="datetime-local" id="'+dueId+'" value="'+
+        esc(item?local(item.dueAt):localDue)+'"></label>'+
+      '<label for="'+statusId+'">Situação<select id="'+statusId+'">'+
+        ['open','monitoring','closed'].map(x=>'<option value="'+x+'" '+
+          (x===(item?.status||'open')?'selected':'')+'>'+esc(statusName[x])+'</option>').join('')+
+      '</select></label>'+
+      '<label for="'+noteId+'">Justificativa<textarea id="'+noteId+'" rows="2" maxlength="240"'+
+      ' placeholder="Explique o encaminhamento.">'+esc(item?.note||'')+'</textarea></label>'+
+      '<button type="button" class="primary small" onclick="adminOperationalSaveFollowup('+
+        "'"+source+"'"+')" '+(!owners.length?'disabled':'')+'>Salvar acompanhamento</button>'+
+    '</div><small>Encerrar este acompanhamento não significa que a fonte original foi resolvida. '+
+    'O histórico registra quem alterou o responsável ou o prazo.</small></details>';
+}
+async function adminOperationalSaveFollowup(source){
+  if(!adminReady()||!adminRoleCanSection('alerts')||
+    !adminOperationalFollowupCanWrite(source)||
+    !['incidents','support','finance','capture'].includes(source))return;
+  const current=adminOperationalAlertsCurrent();
+  const followups=adminOperationalFollowupsSafe(current?.rawFollowups);
+  if(!current||!followups)return toast('Atualize os alertas antes de alterar o acompanhamento.');
+  const item=followups.items.find(x=>x.source===source);
+  const ownerId=document.getElementById('admin-followup-owner-'+source)?.value||'';
+  const status=document.getElementById('admin-followup-status-'+source)?.value||'';
+  const dueLocal=document.getElementById('admin-followup-due-'+source)?.value||'';
+  const note=String(document.getElementById('admin-followup-note-'+source)?.value||'').trim();
+  const due=new Date(dueLocal);
+  const owner=followups.owners.find(x=>x.id===ownerId);
+  if(!owner||!adminOperationalFollowupCanWrite(source)||!Number.isFinite(due.getTime())||
+      !['open','monitoring','closed'].includes(status)||note.length<6||note.length>240){
+    return toast('Confira responsável, prazo e justificativa (6 a 240 caracteres).');
+  }
+  const user=String(adminRuntime.session?.user?.id||''),role=adminCurrentRole();
+  try{
+    await adminPerform('operational-alert-followup',{
+      source,ownerId,followupStatus:status,
+      dueAt:due.toISOString(),note,expectedRevision:item?.revision||0
+    });
+    if(adminReady()&&user===String(adminRuntime.session?.user?.id||'')&&role===adminCurrentRole()){
+      await adminLoadOperationalAlerts({force:true});
+      toast('Acompanhamento registrado com trilha de auditoria.');
+    }
+  }catch(error){
+    if(adminReady()&&user===String(adminRuntime.session?.user?.id||'')){
+      await adminLoadOperationalAlerts({force:true}).catch(()=>{});
+      toast('Alteração não confirmada. Verifique a revisão atual antes de repetir.');
+    }
+  }
+}
+
+function adminOperationalFollowupsEventsView(followups){
+  if(!followups)return '';
+  const sourceLabels={incidents:'Incidentes',support:'Atendimentos',
+    finance:'Financeiro',capture:'Capturas comerciais'};
+  const kindLabels={created:'Acompanhamento criado',updated:'Responsável, prazo ou situação atualizado',
+    closed:'Acompanhamento encerrado',reopened:'Acompanhamento reaberto',
+    overdue:'Prazo vencido registrado pelo monitor'};
+  const events=followups.events.slice(0,8);
+  return '<details class="admin-alert-followup-events"><summary>Histórico auditável dos acompanhamentos</summary>'+
+    (events.length?'<div class="admin-ops-alert-history-list">'+
+      events.map(e=>'<div class="admin-ops-alert-history-row"><strong>'+
+      esc(sourceLabels[e.source])+' — '+esc(kindLabels[e.kind])+'</strong><small>'+
+      esc(adminOperationalAlertHistoryDate(e.at))+
+      ' • revisão '+e.revision+(e.actorId?' • administrador '+esc(String(e.actorId).slice(-8)):
+        ' • monitor automático')+'</small></div>').join('')+'</div>':
+      '<p class="tiny muted">Ainda não há mudanças de acompanhamento registradas.</p>')+
+    '</details>';
+}
+function adminOperationalFollowupsDormantView(followups,ranked){
+  const alerts=new Set(ranked.map(x=>x.id));
+  const entries=followups.items.filter(x=>!alerts.has(x.source));
+  if(!entries.length)return '';
+  const labels={incidents:'Incidentes',support:'Atendimentos',
+    finance:'Processamento financeiro',capture:'Capturas comerciais'};
+  return '<section class="admin-alert-followup-dormant"><h3>Acompanhamentos sem alerta ativo nesta consulta</h3>'+
+    '<p class="tiny muted">O desaparecimento do alerta não encerra automaticamente o compromisso. Revise o estado e a justificativa.</p>'+
+    entries.map(x=>'<article class="card flat"><strong>'+esc(labels[x.source])+'</strong>'+
+      adminOperationalFollowupEditView(x.source,followups)+'</article>').join('')+
+    '</section>';
+}
 function adminOperationalAlertTriage(alerts,lifecycle,verifiedAt){
   if(!Array.isArray(alerts))return [];
   const at=Date.parse(String(verifiedAt||''));
@@ -1477,6 +1643,7 @@ function adminOperationalAlertsView(){
   const items=visible.map(item=>{
     const canOpen=adminRoleCanSection(item.target);
     const history=adminOperationalAlertHistoryNote(item.id,present?.lifecycle);
+    const followupHtml=adminOperationalFollowupEditView(item.id,adminOperationalFollowupsSafe(present?.rawFollowups));
     const t=item.triage;
     return `<article class='admin-ops-alert-item admin-ops-alert-priority-${t.priority}'>
       <div><span class='status-pill ${t.priority==='immediate'?'risk':''}'>${esc(t.label)}</span>
@@ -1486,7 +1653,7 @@ function adminOperationalAlertsView(){
           ${esc(t.nextAction)}.</p>
         ${!t.historyChecked&&item.id!=='portals'?
           '<small class="tiny muted">Histórico horário indisponível; prioridade baseada somente na consulta atual.</small>':''}
-        ${history}</div>
+        ${history}${followupHtml}</div>
       <button type='button' class='secondary small' ${canOpen?'':'disabled'}
         onclick="adminOperationalAlertsOpen('${item.target}')">Conferir área</button>
     </article>`;
@@ -1527,6 +1694,9 @@ function adminOperationalAlertsView(){
       '<p class="notice success">Nenhuma pendência identificada nas fontes autorizadas nesta consulta. Isso não comprova ausência de problemas fora dessas fontes.</p>':
       '<p class="notice">Não há pendências confirmadas nas fontes acessíveis; o diagnóstico é parcial.</p>'}
     ${content.unavailable.length?`<p class='notice danger'>Fontes indisponíveis nesta consulta: ${gaps}. Não interpretar ausência de dados como situação regular.</p>`:''}
+    ${present&&adminOperationalFollowupsSafe(present.rawFollowups)?
+      adminOperationalFollowupsDormantView(adminOperationalFollowupsSafe(present.rawFollowups),ranked):''}
+    ${adminOperationalFollowupsEventsView(adminOperationalFollowupsSafe(present?.rawFollowups))}
     ${adminOperationalAlertHistoryView(present?.lifecycle||null)}
     <p class='tiny muted'>Incidentes são agrupados sem divulgar descrições pessoais. Alertas não marcam chamados como resolvidos e não substituem as verificações específicas de cada área. Notificações externas não estão habilitadas.</p>`:
     '<p class="notice">Consulte os alertas para receber um diagnóstico atual. Sem verificação, nenhuma conclusão de normalidade pode ser apresentada.</p>'}
