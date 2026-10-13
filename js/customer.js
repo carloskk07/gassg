@@ -350,6 +350,7 @@ function home(){
   const intentSection=acquisitionOpen
     ? `<section class="section intent-section first-visit-intent"><div class="section-head"><div><span class="section-kicker">OUTRAS FORMAS DE PARTICIPAR</span><h2>Quer saber mais ou tem uma revenda?</h2><p>Veja como o TAMÃO funciona ou conte um pouco sobre sua empresa.</p></div></div>
 <div class="intent-grid prelaunch-intent-grid first-visit-intent-grid">
+  <button class="intent-card" onclick="go('earn')"><span class="intent-icon">🤝</span><span><strong>Indique o TAMÃO</strong><small>Compartilhe com amigos e ajude a trazer novas revendas para sua cidade.</small></span><b>→</b></button>
   <button class="intent-card" onclick="go('learn')"><span class="intent-icon">🛡️</span><span><strong>Entender como funciona</strong><small>Saiba como são apresentados o preço, a confirmação e a entrega.</small></span><b>→</b></button>
   <button class="intent-card intent-primary" onclick="openPrelaunchMerchantLead()"><span class="intent-icon">🏪</span><span><strong>Cadastrar minha empresa</strong><small>Você continua no controle dos preços, produtos e entregas.</small></span><b>→</b></button>
 </div></section>`
