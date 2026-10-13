@@ -165,8 +165,8 @@ revoke all on function public.admin_ads_preview_proof_v1_235(uuid,uuid,text,uuid
 grant execute on function public.admin_ads_preview_proof_v1_235(uuid,uuid,text,uuid,uuid,integer,integer)
  to service_role;
 
-create or replace function public.admin_ads_preview_summary_v1_235(p_actor uuid)
-returns jsonb language plpgsql stable security invoker
+create or replace function ads_internal_v1_235.preview_summary(p_actor uuid)
+returns jsonb language plpgsql stable security definer
 set search_path=pg_catalog as $fn$
 declare v_issued bigint;v_reports bigint;v_last timestamptz;
 begin
@@ -188,6 +188,15 @@ begin
    'adsRevenueCents',0,'adsLive',false,'noCharge',true,'readyToSell',false);
 end;
 $fn$;
+revoke all on function ads_internal_v1_235.preview_summary(uuid)
+ from public,anon,authenticated,service_role;
+grant execute on function ads_internal_v1_235.preview_summary(uuid) to service_role;
+
+create or replace function public.admin_ads_preview_summary_v1_235(p_actor uuid)
+returns jsonb language sql stable security invoker
+set search_path=pg_catalog as $wrapper$
+ select ads_internal_v1_235.preview_summary($1)
+$wrapper$;
 revoke all on function public.admin_ads_preview_summary_v1_235(uuid)
  from public,anon,authenticated,service_role;
 grant execute on function public.admin_ads_preview_summary_v1_235(uuid) to service_role;
