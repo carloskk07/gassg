@@ -1,3 +1,89 @@
+// TAMÃO Ads V1.233 — private creative proposals, never served as paid placement.
+function merchantAdsCampaignSection(merchant){
+  if(!['owner','manager'].includes(String(merchant?.memberRole||'')))return '';
+  const rt=globalThis.merchantRuntime||{};
+  const id=String(merchant?.merchantId||'');
+  const packet=rt.adsCampaign?.merchantId===id&&rt.adsCampaign.source==='merchant_ads_campaign_v1_233'&&
+    rt.adsCampaign.noCharge===true&&rt.adsCampaign.adsLive===false?rt.adsCampaign:null;
+  const c=packet?.campaign||null;
+  const statusLabels={draft:'Rascunho',submitted:'Enviada para revisão',
+    approved_creative:'Peça revisada • não publicada',needs_changes:'Ajustes solicitados',
+    withdrawn:'Retirada'};
+  const canEdit=!c||['draft','needs_changes','withdrawn'].includes(c.status);
+  const categories=[['all','Toda a revenda'],['glp','Gás'],['water','Água'],
+    ['ice','Gelo'],['barbecue','Churrasco e carvão']];
+  const rows=categories.map(x=>'<option value="'+x[0]+'" '+
+    (x[0]===(c?.category_key||'all')?'selected':'')+'>'+esc(x[1])+'</option>').join('');
+  const controls=canEdit?'<div class="form-stack">'+
+    '<div class="input-wrap"><label for="ads-campaign-title">Título da divulgação</label>'+
+    '<input class="input" id="ads-campaign-title" maxlength="80" placeholder="Ex.: Sua revenda mais perto de você" value="'+esc(c?.title||'')+'"/></div>'+
+    '<div class="input-wrap"><label for="ads-campaign-description">Apresentação</label>'+
+    '<textarea class="input" id="ads-campaign-description" rows="3" maxlength="240" placeholder="Conte como sua revenda atende os clientes, sem prometer preço ou prazo não confirmado.">'+esc(c?.description||'')+'</textarea></div>'+
+    '<div class="input-wrap"><label for="ads-campaign-category">Categoria de interesse</label>'+
+    '<select class="input" id="ads-campaign-category">'+rows+'</select></div>'+
+    '<div class="order-actions">'+
+      '<button class="secondary small" onclick="merchantAdsCampaignAct(\'save\')" type="button">Salvar rascunho</button>'+
+      (c?.status==='draft'?'<button class="primary small" onclick="merchantAdsCampaignAct(\'submit\')" type="button">Enviar para revisão</button>':'')+
+    '</div></div>':
+    '<div class="card flat"><strong>'+esc(c?.title||'')+'</strong><p class="muted">'+
+      esc(c?.description||'')+'</p></div>';
+  return '<section class="section merchant-ads-campaigns" id="merchant-ads-campaigns">'+
+    '<div class="section-head"><div><span class="section-kicker">TAMÃO ADS • CAMPANHAS</span>'+
+    '<h2>Prepare a apresentação da sua revenda</h2>'+
+    '<p>Crie uma proposta para análise. Não há anúncio publicado, cobrança ou destaque na busca.</p></div>'+
+    '<button type="button" class="secondary small" onclick="merchantAdsCampaignAct(\'view\')">Consultar proposta</button></div>'+
+    '<div class="card flat">'+
+    (c?'<p class="tiny"><strong>'+esc(statusLabels[c.status]||'Em preparação')+'</strong>'+
+      ' • '+esc([c.target_city,c.target_state].filter(Boolean).join('/'))+
+      ' • versão '+Number(c.version||1)+'</p>':'<p class="muted tiny">Nenhuma proposta carregada. Você pode começar pelo rascunho.</p>')+
+    (c?.review_note?'<div class="notice">'+esc(c.review_note)+'</div>':'')+
+    controls+
+    (c&&['draft','submitted','approved_creative','needs_changes'].includes(c.status)?
+      '<div class="order-actions" style="margin-top:10px">'+
+      '<button class="ghost small" type="button" onclick="merchantAdsCampaignAct(\'withdraw\')">Retirar proposta</button></div>':'')+
+    (rt.adsCampaignError?'<div class="notice danger">'+esc(rt.adsCampaignError)+'</div>':'')+
+    '<p class="tiny muted">A revisão não contrata nem veicula publicidade. '+
+    'Para enviar, é preciso ter interesse registrado, revenda ativa e catálogo compatível. '+
+    'Preço e prazo de entrega permanecem definidos pelo sistema de pedidos.</p>'+
+    '</div></section>';
+}
+async function merchantAdsCampaignAct(operation){
+  const rt=globalThis.merchantRuntime;
+  const merchantId=String(rt?.merchant?.merchantId||'');
+  if(!merchantId||!['owner','manager'].includes(String(rt?.merchant?.memberRole||'')))
+    return toast('Apenas proprietário ou gerente pode preparar campanhas.');
+  if(rt.adsCampaignLoading)return;
+  const existing=rt.adsCampaign?.merchantId===merchantId?rt.adsCampaign.campaign:null;
+  const version=existing?.version||0;
+  const payload={action:'ads-campaign',merchantId,operation,version};
+  if(operation==='save'){
+    payload.title=String(document.getElementById('ads-campaign-title')?.value||'').trim();
+    payload.description=String(document.getElementById('ads-campaign-description')?.value||'').trim();
+    payload.category=String(document.getElementById('ads-campaign-category')?.value||'all');
+    if(payload.title.length<12||payload.title.length>80||
+       payload.description.length<30||payload.description.length>240)
+      return toast('Título de 12 a 80 caracteres e descrição de 30 a 240 caracteres.');
+  }
+  if(operation==='submit'&&!existing)return toast('Salve a proposta antes de enviar.');
+  if(operation==='submit'&&!confirm('Enviar a peça para análise? Isso não cria anúncio nem cobrança.'))return;
+  if(operation==='withdraw'&&!confirm('Retirar a proposta? Isso não cancela qualquer cobrança, pois não há contratação.'))return;
+  if(operation!=='view')payload.requestId=crypto.randomUUID();
+  rt.adsCampaignLoading=true;rt.adsCampaignError=null;
+  try{
+    const data=await merchantInvoke('merchant-ops',payload);
+    if(data?.source!=='merchant_ads_campaign_v1_233'||data.merchantId!==merchantId||
+      data.noCharge!==true||data.adsLive!==false)
+      throw new Error('Não foi possível verificar o estado da campanha.');
+    if(String(rt.merchant?.merchantId)!==merchantId)return;
+    rt.adsCampaign=data;
+    if(operation!=='view')toast('Proposta atualizada, sem cobrança ou publicação.');
+  }catch(e){
+    if(String(rt?.merchant?.merchantId)===merchantId){
+      rt.adsCampaignError=String(e?.message||'Não foi possível atualizar a campanha.');
+      toast(rt.adsCampaignError);
+    }
+  }finally{rt.adsCampaignLoading=false;render();}
+}
 // V1.232 — expression of interest, not a purchase of advertising.
 function merchantAdsInterestSection(merchant){
   if(!['owner','manager'].includes(String(merchant?.memberRole||'')))return '';
@@ -1113,6 +1199,7 @@ function merchantLivePage(){
     ${merchantSetupView(rt)}
     ${merchantBusinessPulseSection(m)}
     ${merchantAdsInterestSection(m)}
+    ${merchantAdsCampaignSection(m)}
     ${merchantGrowthNetworkSection(m)}
     ${merchantAlertControl()}
     <details class="merchant-diagnostic-drawer"><summary>Verificações de documentos e habilitação</summary>

@@ -117,7 +117,7 @@ Deno.serve(async(req:Request)=>{
     const merchantId=String(body.merchantId??"");
     const action=String(body.action??"");
     if(!UUID_RE.test(merchantId))throw new DomainError("INVALID_MERCHANT","Revenda inválida.",400);
-    if(!["ads-interest","business-pulse","growth-network","enablement","heartbeat","set-online","update-product","update-logistics","update-capacity","update-scheduling","update-payment-methods","update-payment-routes","update-member-profile","request-billing-package","notify-billing-payment","notify-refund-recovery-payment","cancel-billing-request"].includes(action)){
+    if(!["ads-campaign","ads-interest","business-pulse","growth-network","enablement","heartbeat","set-online","update-product","update-logistics","update-capacity","update-scheduling","update-payment-methods","update-payment-routes","update-member-profile","request-billing-package","notify-billing-payment","notify-refund-recovery-payment","cancel-billing-request"].includes(action)){
       throw new DomainError("INVALID_ACTION","Ação inválida.",400);
     }
 
@@ -134,6 +134,50 @@ Deno.serve(async(req:Request)=>{
     if(!membership)throw new DomainError("MERCHANT_ACCESS_DENIED","Você não possui acesso a esta revenda.",403);
 
     const role=membership.member_role;
+    if(action==="ads-campaign"){
+      if(!canManage(role))throw new DomainError("MERCHANT_ACCESS_DENIED",
+        "Somente proprietário ou gerente pode revisar campanhas.",403);
+      const operation=String(body.operation??"view");
+      if(!["view","save","submit","withdraw"].includes(operation))
+        throw new DomainError("ADS_CAMPAIGN_ACTION_INVALID","Ação de campanha inválida.",400);
+      const title=operation==="save"?String(body.title??"").trim():"";
+      const description=operation==="save"?String(body.description??"").trim():"";
+      const category=operation==="save"?String(body.category??"all"):"all";
+      if(operation==="save"&&(
+        title.length<12||title.length>80||description.length<30||description.length>240
+        ||!/^(all|[a-z][a-z0-9_]{1,39})$/.test(category)
+        ||/[\u0000-\u001f\u007f]/.test(title+description))){
+        throw new DomainError("ADS_CAMPAIGN_CREATIVE_INVALID",
+          "Informe título (12–80) e apresentação (30–240) válidos.",400);
+      }
+      const version=body.version===null||body.version===undefined?0:Number(body.version);
+      if(!Number.isSafeInteger(version)||version<0||version>2147483646)
+        throw new DomainError("ADS_CAMPAIGN_VERSION_INVALID","Atualize a proposta antes de salvar.",409);
+      const requestId=String(body.requestId??"");
+      if(operation!=="view"&&!UUID_RE.test(requestId))
+        throw new DomainError("ADS_CAMPAIGN_REQUEST_INVALID","Identificação da ação inválida.",400);
+      const {data,error}=await admin.rpc("merchant_ads_campaign_v1_233",{
+        p_actor:user.id,p_merchant:merchantId,p_action:operation,
+        p_request:operation==="view"?null:requestId,p_title:title,p_description:description,
+        p_category:category,p_version:version
+      });
+      if(error)throw error;
+      const c=data?.campaign;
+      if(data?.source!=="merchant_ads_campaign_v1_233"
+        ||data?.merchantId!==merchantId||data?.adsLive!==false||data?.noCharge!==true
+        ||(operation==="view"&&data?.readOnly!==true)
+        ||(c!==null&&c!==undefined&&(
+          c.merchant_id!==merchantId||
+          !["draft","submitted","approved_creative","needs_changes","withdrawn"].includes(c.status)
+          ||!Number.isSafeInteger(c.version)||c.version<1||
+          typeof c.title!=="string"||c.title.length>80||
+          typeof c.description!=="string"||c.description.length>240||
+          c.ads_live!==false||c.no_charge!==true))){
+        throw new DomainError("ADS_CAMPAIGN_RESPONSE_INVALID",
+          "Proposta de campanha não confirmada pelo servidor.",503);
+      }
+      return json(data,200,origin);
+    }
     if(action==="ads-interest"){
       if(!canManage(role))throw new DomainError("MERCHANT_ACCESS_DENIED",
         "Somente proprietário ou gerente pode consultar a divulgação da revenda.",403);

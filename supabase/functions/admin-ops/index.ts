@@ -100,7 +100,7 @@ async function requireAdmin(admin:any,userId:string){
   if(!data)throw new DomainError("ADMIN_ACCESS_DENIED","Esta conta não possui acesso administrativo.",403);
   return data;
 }
-const ADMIN_READ_ACTIONS=new Set(["summary","search","entity-detail","system-health","billing-provider-health","audit-search","incident-list","merchant-payment-preflight","prospect-intelligence","expansion-notifications","expansion-radar","merchant-enablement","sale-payment-history","finance-receipts-history","commercial-history-list","operational-alerts","ads-demand","growth-referral-review-queue"]);
+const ADMIN_READ_ACTIONS=new Set(["summary","search","entity-detail","system-health","billing-provider-health","audit-search","incident-list","merchant-payment-preflight","prospect-intelligence","expansion-notifications","expansion-radar","merchant-enablement","sale-payment-history","finance-receipts-history","commercial-history-list","operational-alerts","ads-demand","ads-campaign-queue","growth-referral-review-queue"]);
 const ADMIN_ROLE_ACTIONS:Record<string,Set<string>>={
   superadmin:new Set(["*"]),
   operations:new Set([
@@ -114,7 +114,7 @@ const ADMIN_ROLE_ACTIONS:Record<string,Set<string>>={
   ]),
   support:new Set(["order-control","support-case-status","incident-action","operational-alert-ack"]),
   compliance:new Set([
-    "growth-referral-review","approve-application","reject-application","verify-merchant","activate-merchant","suspend-merchant",
+    "growth-referral-review","ads-campaign-review","approve-application","reject-application","verify-merchant","activate-merchant","suspend-merchant",
     "set-delivery-capability","merchant-representation-review","incident-action","prospect-crm","prospect-invite"
   ]),
   readonly:new Set()
@@ -2219,6 +2219,44 @@ Deno.serve(async(req:Request)=>{
       if(error)throw error;
       return json({notifications:(data||[]).filter((n:any)=>marketCityKey(n.city)===key
         &&n.prelaunch_leads?.consent_at&&n.prelaunch_leads?.status!=="closed")},200,origin);
+    }
+    if(action==="ads-campaign-queue"){
+      if(!["superadmin","operations","compliance","finance","readonly"].includes(String(adminAccess.admin_role)))
+        throw new DomainError("ADMIN_PERMISSION_DENIED","Perfil sem acesso às propostas de anúncios.",403);
+      const {data,error}=await admin.rpc("admin_ads_campaign_queue_v1_233",{p_actor:user.id});
+      if(error)throw error;
+      if(data?.source!=="admin_ads_campaign_queue_v1_233"
+        ||data.noCharge!==true||data.adsLive!==false
+        ||!Number.isSafeInteger(data.submittedCount)||data.submittedCount<0
+        ||!Array.isArray(data.rows)||data.rows.length>50
+        ||data.rows.some((r:any)=>!r||!UUID_RE.test(String(r.merchantId||""))
+          ||!Number.isSafeInteger(r.version)||r.version<1
+          ||!["draft","submitted","approved_creative","needs_changes","withdrawn"].includes(r.status)
+          ||typeof r.title!=="string"||r.title.length>80
+          ||typeof r.description!=="string"||r.description.length>240)){
+        throw new DomainError("ADS_CAMPAIGN_QUEUE_INVALID","Fila de campanhas não validada.",503);
+      }
+      return json(data,200,origin);
+    }
+    if(action==="ads-campaign-review"){
+      if(!["superadmin","compliance"].includes(String(adminAccess.admin_role)))
+        throw new DomainError("ADMIN_PERMISSION_DENIED","Apenas conformidade pode revisar peças.",403);
+      const decision=String(body.decision??"");
+      const note=String(body.note??"").trim();
+      const version=Number(body.version);
+      if(!["approved_creative","needs_changes"].includes(decision)
+        ||note.length<12||note.length>500
+        ||!Number.isSafeInteger(version)||version<1)
+        throw new DomainError("ADS_CAMPAIGN_REVIEW_INVALID","Justificativa, decisão ou versão inválida.",400);
+      const {data,error}=await admin.rpc("admin_ads_campaign_review_v1_233",{
+        p_actor:user.id,p_merchant:uuid(body.merchantId,"merchantId"),
+        p_request:uuid(body.requestId,"requestId"),p_version:version,
+        p_decision:decision,p_note:note
+      });
+      if(error)throw error;
+      if(data?.recorded!==true||data.noCharge!==true||data.adsLive!==false)
+        throw new DomainError("ADS_CAMPAIGN_REVIEW_UNVERIFIED","Revisão não confirmada.",503);
+      return json(data,200,origin);
     }
     if(action==="ads-demand"){
       if(!["superadmin","operations","compliance","finance","readonly"].includes(String(adminAccess.admin_role)))
