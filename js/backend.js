@@ -467,7 +467,8 @@ function prelaunchAttribution(){
     content:safe('utm_content',120),
     term:safe('utm_term',120),
     referrer:String(document.referrer||'').slice(0,500)||null,
-    landingPath:String(location.pathname+location.search+location.hash).slice(0,240)
+    landingPath:String(location.pathname+location.search+location.hash).slice(0,240),
+    referralCode:typeof growthAttributionCode==='function'?growthAttributionCode()||null:null
   };
 }
 
@@ -776,7 +777,11 @@ async function liveCreateOrder(quoteId){
     quoteId,
     paymentMethod:state.checkout.paymentMethod,
     useCashback:state.checkout.useCashback===true,
-    referralCode:state.user.referredBy||null,
+    referralCode:(()=>{
+      const code=typeof growthAttributionCode==='function'?growthAttributionCode():
+        String(state.user.referredBy||'');
+      return /^TMR[A-F0-9]{24}$/.test(code)?null:code||null;
+    })(),
     cashTenderCents:state.checkout.paymentMethod==='cash'?state.checkout.cashTenderCents:null,
     customerPhone:state.checkout.customerPhoneDigits||'',
     addressComplement:state.checkout.addressComplement||null,
