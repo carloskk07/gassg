@@ -207,6 +207,7 @@ const liveRuntime={
   client:null,
   session:null,
   offers:[],
+  sponsoredSlot:null,
   order:null,
   orderId:null,
   loadingOffers:false,
@@ -579,6 +580,7 @@ function liveInvalidateOfferAddressDraft(){
   liveOfferTimer=null;
   ++liveRuntime.offerRequestSeq;
   liveRuntime.offers=[];
+  liveRuntime.sponsoredSlot=null;
   liveRuntime.loadingOffers=false;
   liveRuntime.activeOfferFingerprint=null;
   liveRuntime.lastOfferFingerprint=null;
@@ -635,6 +637,7 @@ async function liveRefreshOffers({silent=false}={}){
   const seq=++liveRuntime.offerRequestSeq;
   if(!liveReady()||!liveAddressDraftReady()){
     liveRuntime.offers=[];
+  liveRuntime.sponsoredSlot=null;
     liveRuntime.deliveryCompatibilityBlocked=false;
     liveRuntime.commerceLaunchBlocked=false;
     liveRuntime.marketMode=null;
@@ -661,6 +664,7 @@ async function liveRefreshOffers({silent=false}={}){
     : {start:null,end:null};
   const paymentMethodSnapshot=state.checkout.paymentMethod;
   liveRuntime.offers=[];
+  liveRuntime.sponsoredSlot=null;
   liveRuntime.deliveryCompatibilityBlocked=false;
   liveRuntime.commerceLaunchBlocked=false;
   liveRuntime.marketMode=null;
@@ -711,6 +715,22 @@ async function liveRefreshOffers({silent=false}={}){
     liveRuntime.offers=(data?.offers||[])
       .map(liveOfferView)
       .filter(o=>Number.isFinite(Date.parse(o.expiresAt))&&Date.parse(o.expiresAt)>Date.now());
+    // A sponsored editorial card is never a quote and never enters sorting,
+    // checkout, recommendation labels, or the seller selection algorithm.
+    const paid=data?.sponsoredSlot;
+    if(liveRuntime.offers.length>0&&paid&&paid.label==='Patrocinado'
+       &&paid.nonBillable===true&&typeof paid.title==='string'
+       &&paid.title.length>=12&&paid.title.length<=80
+       &&typeof paid.description==='string'&&paid.description.length<=240
+       &&typeof paid.advertiser==='string'&&paid.advertiser.length<=120
+       &&typeof paid.city==='string'&&typeof paid.state==='string'
+       &&paid.city===String(data.serviceCity||'').trim()
+       &&paid.state===String(data.serviceState||'').trim().toUpperCase()){
+      liveRuntime.sponsoredSlot={
+        label:'Patrocinado',title:paid.title,description:paid.description,
+        advertiser:paid.advertiser,city:paid.city,state:paid.state,nonBillable:true
+      };
+    }
     const confirmedCity=String(data?.serviceCity||'').trim();
     const confirmedState=String(data?.serviceState||'').trim().toUpperCase();
     if(liveRuntime.postalValidated
@@ -734,6 +754,7 @@ async function liveRefreshOffers({silent=false}={}){
   }catch(error){
     if(seq===liveRuntime.offerRequestSeq){
       liveRuntime.offers=[];
+  liveRuntime.sponsoredSlot=null;
       liveRuntime.deliveryCompatibilityBlocked=false;
       liveRuntime.marketMode=null;
       liveRuntime.eligibleMerchantCount=0;
