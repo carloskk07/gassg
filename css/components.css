@@ -2860,3 +2860,12 @@ details[id^="prospect-editor-"] summary:focus-visible{outline:3px solid var(--br
 .admin-alert-followup-dormant h3{font-size:1rem}
 .admin-alert-followup-dormant article{margin-top:12px}
 @media(max-width:640px){.admin-alert-followup-form{grid-template-columns:minmax(0,1fr)}.admin-alert-followup-form button{width:100%}}
+
+/* V1.212: escalation UI */
+.admin-alert-escalations{margin:18px 0;border-top:1px solid var(--line);padding-top:15px}
+.admin-alert-escalation-list{display:grid;gap:10px}
+.admin-alert-escalation-row{display:flex;justify-content:space-between;gap:12px;border:1px solid var(--line);border-radius:10px;padding:12px}
+.admin-alert-escalation-row.critical{border-inline-start:4px solid currentColor}
+.admin-alert-escalation-row p{margin:4px 0}
+.admin-alert-escalation-row small{overflow-wrap:anywhere}
+@media(max-width:550px){.admin-alert-escalation-row{flex-direction:column}}

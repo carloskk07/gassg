@@ -7,7 +7,7 @@ const edge=read('supabase/functions/admin-ops/index.ts');
 const sql=read('supabase/migrations/20261013035500_admin_alert_followups_v1_211.sql');
 new vm.Script(source,{filename:'admin.js'});
 const names=['adminOperationalFollowupsSafe','adminOperationalFollowupCanWrite',
- 'adminOperationalFollowupEditView','adminOperationalFollowupsEventsView','adminOperationalFollowupsDormantView',
+ 'adminOperationalFollowupEditView','adminOperationalFollowupsEventsView','adminOperationalFollowupsEscalationsView','adminOperationalFollowupsDormantView',
  'adminOperationalSaveFollowup','adminOperationalAlertModel','adminOperationalAlertsCurrent',
  'adminOperationalAlertTriage','adminOperationalAlertLifecycle',
  'adminOperationalAlertHistoryDate','adminOperationalAlertHistoryNote',
@@ -27,7 +27,7 @@ const now=new Date().toISOString();
 const tomorrow=new Date(Date.now()+36*3600000).toISOString();
 const item=(source='finance',extra={})=>({
  source,ownerId:owner,dueAt:tomorrow,status:'open',note:'Revisar a conciliação da fonte.',
- revision:2,updatedAt:now,overdue:false,...extra
+ revision:2,updatedAt:now,overdue:false,ownerEligible:true,urgency:'on_track',...extra
 });
 const value={available:true,checkedAt:now,items:[item()],
  owners:[{id:owner,role:'finance'},{id:other,role:'superadmin'}],

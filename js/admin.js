@@ -1409,7 +1409,9 @@ function adminOperationalFollowupsSafe(value){
       x.revision<1||typeof x.note!=='string'||x.note.length>240||
       !Number.isFinite(Date.parse(String(x.dueAt||'')))||
       !Number.isFinite(Date.parse(String(x.updatedAt||'')))||
-      typeof x.overdue!=='boolean')return null;
+      typeof x.overdue!=='boolean'||typeof x.ownerEligible!=='boolean'||
+      !['closed','owner_unavailable','severely_overdue','overdue','due_soon','on_track'].includes(x.urgency))
+      return null;
     seen.add(x.source);items.push(x);
   }
   for(const e of value.events){
@@ -1445,7 +1447,11 @@ function adminOperationalFollowupEditView(source,followups){
     return Number.isFinite(ms)?new Date(ms).toLocaleString('pt-BR'):'Prazo não definido';
   };
   const statusName={open:'Aberto',monitoring:'Em acompanhamento',closed:'Acompanhamento encerrado'};
+  const urgencyName={closed:'Encerrado',owner_unavailable:'Responsável sem acesso autorizado',
+    severely_overdue:'Prazo vencido há 24 horas ou mais',
+    overdue:'Prazo vencido',due_soon:'Vence em até 2 horas',on_track:'Dentro do prazo'};
   const row=item?'<div class="admin-alert-followup-summary"><strong>Acompanhamento: '+esc(statusName[item.status])+'</strong>'
+    +' • <strong>'+esc(urgencyName[item.urgency])+'</strong>'
     +' • '+(item.overdue?'<strong class="admin-alert-overdue">Prazo vencido</strong>':'Prazo: '+esc(dateDisplay(item.dueAt)))
     +' • Revisão '+item.revision+'</div>':
     '<p class="tiny muted">Ainda não há um acompanhamento com responsável definido.</p>';
@@ -1535,6 +1541,42 @@ function adminOperationalFollowupsEventsView(followups){
         ' • monitor automático')+'</small></div>').join('')+'</div>':
       '<p class="tiny muted">Ainda não há mudanças de acompanhamento registradas.</p>')+
     '</details>';
+}
+function adminOperationalFollowupsEscalationsView(followups){
+  if(!followups)return '<p class="notice">Prazos e responsáveis não verificados nesta consulta.</p>';
+  const critical=['owner_unavailable','severely_overdue','overdue'];
+  const watch=['due_soon'];
+  const urgent=followups.items.filter(x=>critical.includes(x.urgency)||watch.includes(x.urgency));
+  if(!urgent.length)return '';
+  const sourceName={incidents:'Incidentes',support:'Atendimentos',
+    finance:'Processamento financeiro',capture:'Capturas comerciais'};
+  const urgencyName={
+    owner_unavailable:'Responsável sem acesso atual',
+    severely_overdue:'Atraso superior a 24 horas',
+    overdue:'Prazo vencido',due_soon:'Prazo próximo (até 2 horas)'
+  };
+  const rank={owner_unavailable:0,severely_overdue:1,overdue:2,due_soon:3};
+  urgent.sort((a,b)=>rank[a.urgency]-rank[b.urgency]||
+    Date.parse(a.dueAt)-Date.parse(b.dueAt));
+  const urgentCount=urgent.filter(x=>critical.includes(x.urgency)).length;
+  const rows=urgent.map(item=>{
+    const time=adminOperationalAlertHistoryDate(item.dueAt);
+    const isCritical=critical.includes(item.urgency);
+    return '<div class="admin-alert-escalation-row '+(isCritical?'critical':'')+'">'+
+      '<div><strong>'+esc(sourceName[item.source])+'</strong>'+
+      '<p>'+esc(urgencyName[item.urgency])+' • '+esc(time)+'</p>'+
+      '<small>Administrador '+esc(String(item.ownerId).slice(-8))+
+        ' • revisão '+item.revision+'</small></div>'+
+      '<small>'+esc(isCritical?'Conferir o responsável e replanejar ou concluir o acompanhamento.':
+        'Confirmar que o prazo ainda pode ser atendido.')+'</small></div>';
+  }).join('');
+  return '<section class="admin-alert-escalations" aria-label="Escalonamento de prazos">'+
+    '<h3>Prazos que exigem atenção</h3>'+
+    '<p class="tiny muted">'+urgentCount+' situação(ões) crítica(s) e '+
+    (urgent.length-urgentCount)+' com prazo próximo. Os registros não são reatribuídos automaticamente.</p>'+
+    '<div class="admin-alert-escalation-list">'+rows+'</div>'+
+    '<p class="tiny muted">Para agir, abra “Responsável e prazo” no acompanhamento do grupo correspondente. '+
+    'Encerrar o acompanhamento não resolve a ocorrência original.</p></section>';
 }
 function adminOperationalFollowupsDormantView(followups,ranked){
   const alerts=new Set(ranked.map(x=>x.id));
@@ -1694,6 +1736,8 @@ function adminOperationalAlertsView(){
       '<p class="notice success">Nenhuma pendência identificada nas fontes autorizadas nesta consulta. Isso não comprova ausência de problemas fora dessas fontes.</p>':
       '<p class="notice">Não há pendências confirmadas nas fontes acessíveis; o diagnóstico é parcial.</p>'}
     ${content.unavailable.length?`<p class='notice danger'>Fontes indisponíveis nesta consulta: ${gaps}. Não interpretar ausência de dados como situação regular.</p>`:''}
+    ${present?adminOperationalFollowupsEscalationsView(
+      adminOperationalFollowupsSafe(present.rawFollowups)):''}
     ${present&&adminOperationalFollowupsSafe(present.rawFollowups)?
       adminOperationalFollowupsDormantView(adminOperationalFollowupsSafe(present.rawFollowups),ranked):''}
     ${adminOperationalFollowupsEventsView(adminOperationalFollowupsSafe(present?.rawFollowups))}

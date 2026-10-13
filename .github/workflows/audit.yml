@@ -131,6 +131,8 @@ jobs:
         run: node tests/admin-operational-triage-v1-210.mjs
       - name: Admin alert ownership V1.211 regression
         run: node tests/admin-alert-ownership-v1-211.mjs
+      - name: Alert owner and deadline escalation V1.212 regression
+        run: node tests/admin-alert-escalation-v1-212.mjs
       - name: First real PSP pilot preflight V1.146 regression contract
         run: node tests/first-real-psp-pilot-preflight-v1-146.mjs
       - name: Production trust language V1.147 regression contract
