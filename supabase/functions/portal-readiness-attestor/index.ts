@@ -1,6 +1,7 @@
 import "jsr:@supabase/functions-js@2.117.2/edge-runtime.d.ts";
 import { createClient } from "npm:@supabase/supabase-js@2.117.2";
 import { DomainError, readJsonBody } from "../_shared/domain.js";
+import { PortalPropagationPending, isTransientPortalHttp, verifyPortalSetWithPropagation } from "./propagation.js";
 
 const SUPABASE_URL=Deno.env.get("SUPABASE_URL")??"";
 const secretKeys=JSON.parse(Deno.env.get("SUPABASE_SECRET_KEYS")??"{}");
@@ -219,14 +220,28 @@ async function githubMainSha(){
   }
   return sha;
 }
+async function fetchPortalEvidence(url:string,role:string,stage:string){
+  try{
+    return await resilientFetch(url,{},stage+" "+role);
+  }catch{
+    // After resilientFetch's own bounded network retries, only a read-only
+    // portal evidence probe may be retried. Never retry OAuth or RPC writes.
+    throw new PortalPropagationPending(role,stage,"NETWORK");
+  }
+}
+function requirePortalEvidenceOk(response:Response,role:string,stage:string){
+  if(response.status===200)return;
+  if(isTransientPortalHttp(response.status)){
+    throw new PortalPropagationPending(role,stage,"HTTP_"+response.status);
+  }
+  throw new DomainError("PORTAL_ATTESTATION_FAILED",role+" "+stage+" HTTP "+response.status,503);
+}
 async function verifyPortal(role:string,cfg:{origin:string;title:string},expectedSha:string){
   const nonce=Date.now()+"-"+role;
-  const buildResponse=await resilientFetch(
-    cfg.origin+"/portal-build.json?attest="+nonce,{},"portal-build "+role
+  const buildResponse=await fetchPortalEvidence(
+    cfg.origin+"/portal-build.json?attest="+nonce,role,"build"
   );
-  if(buildResponse.status!==200){
-    throw new DomainError("PORTAL_ATTESTATION_FAILED",role+" portal-build HTTP "+buildResponse.status,503);
-  }
+  requirePortalEvidenceOk(buildResponse,role,"build");
   const build=await boundedJson(buildResponse,"portal-build "+role,200_000);
   if(
     build?.schemaVersion!==1
@@ -234,17 +249,23 @@ async function verifyPortal(role:string,cfg:{origin:string;title:string},expecte
     ||build?.customerOrigin!==PORTALS.customer.origin
     ||build?.merchantOrigin!==PORTALS.merchant.origin
     ||build?.adminOrigin!==PORTALS.admin.origin
-    ||String(build?.sourceSha??"").toLowerCase()!==expectedSha
   ){
-    throw new DomainError("PORTAL_ATTESTATION_FAILED",role+" portal-build divergente.",503);
+    // Role and origin mismatches indicate security/configuration drift, not
+    // normal Cloudflare propagation. They must fail without retry.
+    throw new DomainError("PORTAL_ATTESTATION_FAILED",role+" portal-build identity mismatch.",503);
+  }
+  const observedSha=String(build?.sourceSha??"").trim().toLowerCase();
+  if(!/^[0-9a-f]{40}$/.test(observedSha)){
+    throw new DomainError("PORTAL_ATTESTATION_FAILED",role+" portal-build SHA invalid.",503);
+  }
+  if(observedSha!==expectedSha){
+    throw new PortalPropagationPending(role,"build","STALE_SOURCE_SHA");
   }
 
-  const runtimeResponse=await resilientFetch(
-    cfg.origin+"/js/runtime-config.js?attest="+nonce,{},"runtime "+role
+  const runtimeResponse=await fetchPortalEvidence(
+    cfg.origin+"/js/runtime-config.js?attest="+nonce,role,"runtime"
   );
-  if(runtimeResponse.status!==200){
-    throw new DomainError("PORTAL_ATTESTATION_FAILED",role+" runtime HTTP "+runtimeResponse.status,503);
-  }
+  requirePortalEvidenceOk(runtimeResponse,role,"runtime");
   const runtime=await boundedText(runtimeResponse,"runtime "+role,300_000);
   if(!runtime.includes("globalThis.CHAMA_PORTAL_ROLE="+JSON.stringify(role)+";")){
     throw new DomainError("PORTAL_ATTESTATION_FAILED",role+" runtime role divergente.",503);
@@ -262,12 +283,10 @@ async function verifyPortal(role:string,cfg:{origin:string;title:string},expecte
     throw new DomainError("PORTAL_ATTESTATION_FAILED",role+" Turnstile inválido.",503);
   }
 
-  const htmlResponse=await resilientFetch(
-    cfg.origin+"/?attest="+nonce,{},"html "+role
+  const htmlResponse=await fetchPortalEvidence(
+    cfg.origin+"/?attest="+nonce,role,"html"
   );
-  if(htmlResponse.status!==200){
-    throw new DomainError("PORTAL_ATTESTATION_FAILED",role+" HTML HTTP "+htmlResponse.status,503);
-  }
+  requirePortalEvidenceOk(htmlResponse,role,"html");
   const html=await boundedText(htmlResponse,"html "+role,1_000_000);
   if(
     !html.includes('data-chama-portal="'+role+'"')
@@ -317,9 +336,18 @@ Deno.serve(async(req:Request)=>{
       );
     }
 
-    const portals=await Promise.all(
-      Object.entries(PORTALS).map(([role,cfg])=>verifyPortal(role,cfg,expectedSourceSha))
+    const portals=await verifyPortalSetWithPropagation(
+      Object.entries(PORTALS),
+      (role:string,cfg:{origin:string;title:string})=>verifyPortal(role,cfg,expectedSourceSha),
+      {report:({role,stage,reason,attempt}:{role:string;stage:string;reason:string;attempt:number})=>
+        console.warn("portal-readiness-attestor propagation retry",role,stage,reason,attempt)}
     );
+    // The canonical branch can advance during propagation. Never persist
+    // attestations for a superseded revision, even if all portals matched it.
+    const latestCanonicalSha=await githubMainSha();
+    if(latestCanonicalSha!==expectedSourceSha){
+      throw new DomainError("EXPECTED_SOURCE_NOT_MAIN","Commit foi substituído durante a prova.",409);
+    }
     const evidence={
       schemaVersion:1,
       allPortalsReady:true,
@@ -361,6 +389,13 @@ Deno.serve(async(req:Request)=>{
       readiness:data?.readiness??null
     },200);
   }catch(error){
+    if(error instanceof PortalPropagationPending){
+      console.warn("portal-readiness-attestor propagation exhausted",error.role,error.stage,error.reason);
+      return json({
+        error:"PORTAL_ATTESTATION_FAILED",
+        message:"A publicação ainda não apresentou provas consistentes nos três portais."
+      },503);
+    }
     if(error instanceof DomainError){
       console.warn("portal-readiness-attestor policy gate",error.code,error.status);
       return json({error:error.code,message:error.message},error.status);
