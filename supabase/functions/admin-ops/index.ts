@@ -99,7 +99,7 @@ async function requireAdmin(admin:any,userId:string){
   if(!data)throw new DomainError("ADMIN_ACCESS_DENIED","Esta conta não possui acesso administrativo.",403);
   return data;
 }
-const ADMIN_READ_ACTIONS=new Set(["summary","search","entity-detail","system-health","billing-provider-health","audit-search","incident-list","merchant-payment-preflight","prospect-intelligence","expansion-notifications","expansion-radar","merchant-enablement","sale-payment-history","finance-receipts-history","commercial-history-list"]);
+const ADMIN_READ_ACTIONS=new Set(["summary","search","entity-detail","system-health","billing-provider-health","audit-search","incident-list","merchant-payment-preflight","prospect-intelligence","expansion-notifications","expansion-radar","merchant-enablement","sale-payment-history","finance-receipts-history","commercial-history-list","operational-alerts"]);
 const ADMIN_ROLE_ACTIONS:Record<string,Set<string>>={
   superadmin:new Set(["*"]),
   operations:new Set([
@@ -1121,6 +1121,64 @@ async function adminAuditSearch(admin:any,body:any,role:string){
   });
   return {results:rows,limit};
 }
+/* V1.208 — all groups are checked from the service-role database per request.
+   No incident text, identifiers or customer data leave this diagnostic endpoint. */
+async function adminOperationalAlerts(admin:any,role:string,actorId:string){
+  const checkedAt=new Date().toISOString();
+  const fetchCount=async(makeQuery:()=>any)=>{
+    try{
+      const result=await makeQuery();
+      if(result.error||!Number.isSafeInteger(result.count)||result.count<0)
+        return {valid:false,count:null};
+      return {valid:true,count:result.count};
+    }catch{return {valid:false,count:null};}
+  };
+  const [all,critical,high]=await Promise.all([
+    fetchCount(()=>admin.from("platform_incidents").select("id",{count:"exact",head:true}).neq("status","resolved")),
+    fetchCount(()=>admin.from("platform_incidents").select("id",{count:"exact",head:true}).neq("status","resolved").eq("severity","critical")),
+    fetchCount(()=>admin.from("platform_incidents").select("id",{count:"exact",head:true}).neq("status","resolved").eq("severity","high"))
+  ]);
+  const incidents=all.valid&&critical.valid&&high.valid&&
+    all.count>=critical.count+high.count
+      ?{valid:true,open:all.count,critical:critical.count,high:high.count}
+      :{valid:false,open:null,critical:null,high:null};
+  const operationalRole=["superadmin","operations","support"].includes(role);
+  const financeRole=["superadmin","finance"].includes(role);
+  const captureRole=["superadmin","operations","compliance","readonly"].includes(role);
+  let support={available:operationalRole,valid:false,open:null};
+  let finance={available:financeRole,valid:false,rewardFailures:null,accountingFailures:null};
+  let capture={available:captureRole,valid:false,health:null};
+  const tasks=[];
+  if(operationalRole)tasks.push((async()=>{
+    const r=await fetchCount(()=>admin.from("support_cases").select("id",{count:"exact",head:true}).in("status",["open","in_review"]));
+    support={available:true,valid:r.valid,open:r.count};
+  })());
+  if(financeRole)tasks.push((async()=>{
+    const [rewards,accounting]=await Promise.all([
+      fetchCount(()=>admin.from("reward_processing_failures").select("order_id",{count:"exact",head:true}).is("resolved_at",null)),
+      fetchCount(()=>admin.from("settlement_accounting_failures").select("order_id",{count:"exact",head:true}).is("resolved_at",null))
+    ]);
+    finance={available:true,valid:rewards.valid&&accounting.valid,
+      rewardFailures:rewards.valid?rewards.count:null,
+      accountingFailures:accounting.valid?accounting.count:null};
+  })());
+  if(captureRole)tasks.push((async()=>{
+    try{
+      const {data,error}=await admin.rpc("admin_list_city_commercial_history_v1_205",{
+        p_actor_user_id:actorId
+      });
+      if(!error&&data?.source==="database_authoritative"&&data?.health&&
+        typeof data.health.status==="string"){
+        capture={available:true,valid:true,health:data.health};
+      }
+    }catch{}
+  })());
+  await Promise.all(tasks);
+  return {source:"operational_alerts_v1_208",checkedAt,
+    groups:{incidents,support,finance,capture},readOnly:true,
+    noExternalNotifications:true};
+}
+
 async function adminIncidentList(admin:any){
   const result=await admin.from("platform_incidents")
     .select("id,title,description,severity,status,source,entity_type,entity_id,assigned_admin_id,created_by,acknowledged_at,acknowledged_by,resolved_at,resolved_by,resolution_note,created_at,updated_at")
@@ -1796,6 +1854,13 @@ Deno.serve(async(req:Request)=>{
       if(error)throw error;
       return json({merchants:data||[],asOf:new Date().toISOString(),
         source:"market_city_offer_scope",readOnly:true},200,origin);
+    }
+    if(action==="operational-alerts"){
+      const role=String(adminAccess.admin_role||"");
+      if(!["superadmin","operations","finance","support","compliance","readonly"].includes(role)){
+        throw new DomainError("ADMIN_PERMISSION_DENIED","Perfil sem acesso à central de alertas.",403);
+      }
+      return json(await adminOperationalAlerts(admin,role,user.id),200,origin);
     }
     if(action==="commercial-history-list"){
       if(!["superadmin","operations","compliance","readonly"].includes(String(adminAccess.admin_role))){
