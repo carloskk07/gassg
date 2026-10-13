@@ -234,6 +234,60 @@ function adminGrowthNetworkOverviewView(raw){
     '<p class="tiny muted">Métrica de pré-cadastro: não representa ativação de revenda, primeira compra, liquidação financeira ou recompensa. Sem créditos de indicação de revendas habilitados.</p>'+
     '</section>';
 }
+function adminGrowthApplicationFunnelView(raw){
+  if(!raw||raw.available!==true)return '';
+  const counters=['applicationsAttributed','contactCandidatesUnverified',
+    'applicationsApproved','approvedCnpjOwnerMatches','activeMatchedMerchants',
+    'invitedByMerchants','invitedByCustomers'];
+  const valid=raw.valid===true&&raw.source==='growth_cnpj_application_funnel_v1_229'&&
+    raw.readOnly===true&&raw.noPayout===true&&
+    raw.noPersonalContactData===true&&
+    raw.attributionNeverFinancialProof===true&&raw.firstLevelOnly===true&&
+    counters.every(k=>Number.isSafeInteger(raw[k])&&raw[k]>=0)&&
+    raw.invitedByMerchants+raw.invitedByCustomers===raw.applicationsAttributed&&
+    raw.approvedCnpjOwnerMatches<=raw.applicationsApproved&&
+    raw.activeMatchedMerchants<=raw.approvedCnpjOwnerMatches&&
+    raw.contactCandidatesUnverified<=raw.applicationsAttributed&&
+    Array.isArray(raw.rows)&&raw.rows.length<=12;
+  if(!valid)return '<section class="section"><div class="notice danger">Vínculos de CNPJ indicados não puderam ser comprovados. Nenhum resultado foi considerado válido.</div></section>';
+  const statusNames={pending:'Cadastro em análise',approved:'Cadastro aprovado',rejected:'Revisão necessária'};
+  const rows=raw.rows.map(row=>{
+    if(!row||!['merchant','customer'].includes(row.inviterKind)||
+      !Object.hasOwn(statusNames,String(row.applicationStatus))||
+      typeof row.companyName!=='string'||row.companyName.length<2||
+      row.companyName.length>120||
+      !/^[0-9A-Z]{4}$/.test(String(row.cnpjSuffix||''))||
+      typeof row.merchantLinked!=='boolean'||
+      typeof row.activeMerchant!=='boolean'||
+      typeof row.leadCandidate!=='boolean'||
+      row.verified!==false||row.rewardEligible!==false)return '';
+    const stage=row.activeMerchant?'Empresa ativa com CNPJ/vínculo correspondente':
+      row.merchantLinked?'Cadastro aprovado e revenda vinculada':
+      statusNames[row.applicationStatus];
+    return '<div class="list-row"><div><strong>'+esc(row.companyName)+'</strong>'+
+      '<br><small>CNPJ final ••••'+esc(row.cnpjSuffix)+' • indicação de '+
+      (row.inviterKind==='merchant'?'revenda':'cliente')+' • '+esc(stage)+'</small>'+
+      '<br><small>'+ (row.leadCandidate
+        ?'Contato anterior compatível: vínculo ainda não verificado'
+        :'Sem vínculo anterior de lead comprovado')+'</small></div></div>';
+  }).filter(Boolean).join('');
+  return '<section class="section admin-growth-cnpj-funnel">'+
+    '<div class="section-head"><div><span class="section-kicker">REDE TAMÃO • CNPJ</span>'+
+    '<h3>Convite até cadastro de revenda</h3>'+
+    '<p>Ligação entre o convite e a solicitação autenticada da empresa, sem atribuir pagamentos.</p></div></div>'+
+    '<div class="merchant-kpis">'+
+      '<div class="kpi"><span class="label">Empresas com convite registrado</span><strong>'+raw.applicationsAttributed+'</strong></div>'+
+      '<div class="kpi"><span class="label">Indicações por revendas</span><strong>'+raw.invitedByMerchants+'</strong></div>'+
+      '<div class="kpi"><span class="label">Indicações por clientes</span><strong>'+raw.invitedByCustomers+'</strong></div>'+
+      '<div class="kpi"><span class="label">Cadastros aprovados</span><strong>'+raw.applicationsApproved+'</strong></div>'+
+      '<div class="kpi"><span class="label">CNPJ e proprietário relacionados</span><strong>'+raw.approvedCnpjOwnerMatches+'</strong></div>'+
+      '<div class="kpi"><span class="label">Revendas ativas relacionadas</span><strong>'+raw.activeMatchedMerchants+'</strong></div>'+
+    '</div>'+
+    (rows?'<div class="card flat"><h4>Últimas solicitações indicadas</h4>'+
+      '<div class="list">'+rows+'</div></div>':'')+
+    '<p class="tiny muted">Correspondência de telefone é apenas um indício não verificado. Aprovação, CNPJ e vínculo de proprietário não comprovam receita do TAMÃO. Nenhuma comissão de revenda é liberada nesta etapa.</p>'+
+    '</section>';
+}
 function adminPrelaunchLeadsSection(data){
   const leads=Array.isArray(data?.prelaunchLeads)?data.prelaunchLeads:[];
   const metrics=adminAcquisitionMetrics(data,leads);
@@ -259,6 +313,7 @@ function adminPrelaunchLeadsSection(data){
       '</div>',
       adminAcquisitionCampaigns(metrics),
       adminGrowthNetworkOverviewView(data?.growthNetwork),
+      adminGrowthApplicationFunnelView(data?.growthApplicationFunnel),
       '<div class="section-head acquisition-queue-head"><div><span class="section-kicker">FILA OPERACIONAL</span><h3>Leads recentes para atendimento</h3><p>Até 200 contatos mais recentes. Ordenados por estágio e antiguidade para reduzir esquecimento.</p></div><span class="status-pill '+(Number(metrics.staleNew24h||0)?'offline':'online')+'">'+Number(metrics.new||0)+' novo(s)</span></div>',
       '<div class="grid cards-3" style="margin-top:14px">'+(ordered.length?ordered.slice(0,200).map(adminPrelaunchLeadCard).join(''):'<div class="empty card">Nenhum lead captado ainda.</div>')+'</div>',
     '</section>'
