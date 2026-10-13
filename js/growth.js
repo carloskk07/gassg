@@ -45,6 +45,25 @@ function club(){
   </section>`)
 }
 
+function tamaoGrowthInviteUrl(audience='customer'){
+  const code=String(state.user?.referralCode||'').trim().toUpperCase();
+  const activeCode=/^[A-Z0-9]{5,40}$/.test(code)?code:'';
+  const base='https://tamao.com.br/';
+  return base+(activeCode?'?ref='+encodeURIComponent(activeCode):'')+
+    (audience==='merchant'?'#merchants':'#home');
+}
+async function shareTamaoGrowthInvite(audience='customer'){
+  const merchant=audience==='merchant';
+  const url=tamaoGrowthInviteUrl(merchant?'merchant':'customer');
+  const message=merchant
+    ?'Conhece uma revenda que gostaria de vender mais? Veja como participar do TAMÃO: '+url
+    :'Conheça o TAMÃO! Consulte gás, água e outros produtos na sua região: '+url;
+  try{
+    if(navigator.share){await navigator.share({title:'TAMÃO — Pediu? Tá na mão.',text:message,url});return;}
+    if(navigator.clipboard?.writeText){await navigator.clipboard.writeText(message);toast('Convite copiado para compartilhar');return;}
+    toast('Compartilhe o endereço: '+url);
+  }catch(e){if(e?.name!=='AbortError')toast('Não foi possível compartilhar; copie o endereço da página');}
+}
 function referralUrl(){
   if(!state.user.referralCode)return '';
   const base=`${location.origin}${location.pathname}`;
@@ -208,7 +227,7 @@ function refer(){
     <button class="back" onclick="go('earn')">← Ganhar ou vender</button>
     <span class="eyebrow">CONVIDE ALGUÉM PARA CONHECER</span>
     <h1 class="page-title">Tem alguém que gostaria de conhecer o TAMÃO?</h1>
-    <p class="muted page-lead">Quando a campanha estiver disponível, compartilhe seu link. A comissão depende da primeira compra válida de um novo cliente, não apenas do cadastro.</p>
+    <p class="muted page-lead">Compartilhe seu link pessoal quando estiver disponível. Benefícios financeiros dependem da campanha ativa, de uma primeira compra elegível e da validação da operação.</p>
     <div class="earn-summary">
       <div class="earn-balance-card"><span>Disponível</span><strong>${BRL.format(state.user.commissionAvailable)}</strong><small>saldo já liberado</small></div>
       <div class="earn-balance-card"><span>A liberar</span><strong>${BRL.format(state.user.commissionPending)}</strong><small>em validação</small></div>
@@ -240,15 +259,35 @@ function refer(){
   </section>`)
 }
 
+function growthNetworkIntro(){
+  const authenticated=Boolean(state.user?.referralCode);
+  return `<section class="section growth-network-intro" aria-label="Convide pessoas e revendas">
+    <div class="section-head"><div><span class="section-kicker">REDE TAMÃO</span>
+      <h2>Convide pessoas. Ajude sua cidade a ter mais opções.</h2>
+      <p>Você pode compartilhar o TAMÃO com amigos ou apresentar uma revenda da sua região.</p></div></div>
+    <div class="grid cards-3">
+      <article class="card"><div class="feature-icon">🤝</div>
+        <h3>Convide amigos</h3><p class="muted tiny">Mais pessoas podem conhecer e consultar o TAMÃO. Benefícios por indicação dependem das campanhas elegíveis.</p>
+        <button class="secondary full" onclick="shareTamaoGrowthInvite('customer')">Compartilhar com amigos</button></article>
+      <article class="card"><div class="feature-icon">🏪</div>
+        <h3>Conhece uma revenda?</h3><p class="muted tiny">Apresente o TAMÃO a uma empresa. Ela poderá se cadastrar e atender clientes após as verificações necessárias.</p>
+        <button class="primary full" onclick="shareTamaoGrowthInvite('merchant')">Convidar uma revenda</button></article>
+      <article class="card"><div class="feature-icon">📋</div><h3>Acompanhe suas indicações</h3>
+        <p class="muted tiny">${authenticated?'Seu link pessoal está disponível. Os benefícios financeiros só são liberados conforme as regras.':'Seu código pessoal aparece após entrar na sua conta. Compartilhamentos sem código não geram atribuição.'}</p>
+        <button class="ghost full" onclick="go('refer')">Minhas indicações →</button></article>
+    </div>
+  </section>`;
+}
 function earn(){
   const merchantSample=merchantEconomicsExample(120);
   const referralRateLabel=policyPercent(referralPilotRate());
   const merchantFeeLabel=policyPercent(merchantPilotFeeRate());
   return shell(`<section class="page">
-    <span class="eyebrow">MAIS FORMAS DE APROVEITAR O TAMÃO</span>
+    <span class="eyebrow">REDE TAMÃO • COMPARTILHAR E CRESCER</span>
     <h1 class="page-title">Comprar pelo TAMÃO também pode trazer benefícios.</h1>
     <p class="muted page-lead">Conheça os benefícios de compra, saiba como funcionam as indicações e veja como cadastrar sua empresa para vender pelo TAMÃO.</p>
     <div class="conversion-mini-proof"><span>✓ Compra e indicação são diferentes</span><span>✓ Regras visíveis</span><span>✓ Sem promessa de renda</span></div>
+    ${growthNetworkIntro()}
 
     <div class="opportunity-grid main-opportunities">
       <article class="opportunity-card person-opportunity"><div class="opportunity-icon">🤝</div><span class="section-kicker">PARA QUEM GOSTA DE COMPARTILHAR</span><h2>Conhece alguém que gostaria de usar o TAMÃO?</h2><p>Quando a campanha estiver ativa, você poderá compartilhar seu link. Uma indicação pode gerar comissão após a primeira compra válida ser entregue, paga e aprovada.</p>
