@@ -189,6 +189,8 @@ jobs:
         run: node tests/ads-pilot-preflight-v1-237.mjs
       - name: TAMÃO V1.238 real commercial activation contract
         run: node tests/commercial-activation-v1-238.mjs
+      - name: Turnstile smoke Chrome cleanup V1.238.1
+        run: node tests/turnstile-smoke-cleanup-v1-238-1.mjs
       - name: First real PSP pilot preflight V1.146 regression contract
         run: node tests/first-real-psp-pilot-preflight-v1-146.mjs
       - name: Production trust language V1.147 regression contract

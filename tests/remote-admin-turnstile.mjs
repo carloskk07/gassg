@@ -22,10 +22,28 @@ function compactDiagnostics(value){
 }
 
 async function stopChrome(chrome){
-  if(!chrome||chrome.exitCode!==null)return;
+  if(!chrome||chrome.exitCode!==null||chrome.signalCode!==null)return;
   chrome.kill('SIGTERM');
-  for(let i=0;i<20&&chrome.exitCode===null;i++)await sleep(100);
-  if(chrome.exitCode===null)chrome.kill('SIGKILL');
+  for(let i=0;i<20&&chrome.exitCode===null&&chrome.signalCode===null;i++)await sleep(100);
+  if(chrome.exitCode===null&&chrome.signalCode===null){
+    chrome.kill('SIGKILL');
+    // Chrome can still have profile-writer subprocesses after SIGKILL.
+    for(let i=0;i<20&&chrome.exitCode===null&&chrome.signalCode===null;i++)await sleep(100);
+  }
+}
+
+function cleanupChromeProfile(profile){
+  try{
+    rmSync(profile,{recursive:true,force:true,maxRetries:20,retryDelay:200});
+  }catch(error){
+    // Chrome may still be flushing its ephemeral profile after a successful
+    // configuration smoke. Do not report a healthy Turnstile as broken.
+    if(['ENOTEMPTY','EBUSY','EPERM'].includes(String(error?.code||''))){
+      console.warn('Chrome profile cleanup deferred:',String(error.code));
+      return;
+    }
+    throw error;
+  }
 }
 
 async function waitDebugger({port,chrome,diagnostics}){
@@ -58,7 +76,7 @@ async function launchChrome(){
   for(let attempt=1;attempt<=CHROME_START_ATTEMPTS;attempt++){
     const port=DEBUG_PORT_BASE+attempt-1;
     const profile='/tmp/tamao-turnstile-probe-'+process.pid+'-'+attempt;
-    rmSync(profile,{recursive:true,force:true});
+    cleanupChromeProfile(profile);
     const diagnostics={stderr:'',spawnError:''};
     const chrome=spawn(binary,[
       '--headless=new',
@@ -87,7 +105,7 @@ async function launchChrome(){
     }catch(error){
       failures.push('tentativa '+attempt+': '+String(error?.message||error));
       await stopChrome(chrome);
-      rmSync(profile,{recursive:true,force:true});
+      cleanupChromeProfile(profile);
       if(attempt<CHROME_START_ATTEMPTS)await sleep(500);
     }
   }
@@ -255,5 +273,5 @@ try{
   ws.close();
 }finally{
   await stopChrome(chrome);
-  rmSync(profile,{recursive:true,force:true});
+  cleanupChromeProfile(profile);
 }
