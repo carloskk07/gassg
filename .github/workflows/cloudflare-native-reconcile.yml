@@ -1,0 +1,45 @@
+name: TAMÃO Cloudflare native delivery reconcile
+
+# Read-only evidence from the existing strict launch readiness workflow is required.
+# Only a verified exact-main success may retry a previously failed Cloudflare run.
+# Never builds, publishes, handles Cloudflare tokens or changes platform state itself.
+on:
+  workflow_run:
+    workflows:
+      - TAMÃO launch readiness
+    types:
+      - completed
+
+permissions:
+  contents: read
+  actions: write
+
+concurrency:
+  group: tamao-native-delivery-reconcile
+  cancel-in-progress: false
+
+jobs:
+  reconcile:
+    if: >-
+      github.event.workflow_run.conclusion == 'success' &&
+      github.event.workflow_run.head_branch == 'main' &&
+      github.event.workflow_run.head_repository.full_name == 'carloskk07/gassg' &&
+      github.repository == 'carloskk07/gassg'
+    runs-on: ubuntu-latest
+    timeout-minutes: 4
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: main
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Reconcile only the previously failed matching native deployment
+        env:
+          GH_TOKEN: ${{ github.token }}
+          EVIDENCE_SHA: ${{ github.event.workflow_run.head_sha }}
+          EVIDENCE_REPOSITORY: ${{ github.event.workflow_run.head_repository.full_name }}
+          EVIDENCE_BRANCH: ${{ github.event.workflow_run.head_branch }}
+          EVIDENCE_CONCLUSION: ${{ github.event.workflow_run.conclusion }}
+        run: node scripts/reconcile-cloudflare-native-v1-217.mjs
