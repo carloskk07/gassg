@@ -2844,3 +2844,19 @@ details[id^="prospect-editor-"] summary:focus-visible{outline:3px solid var(--br
 .admin-ops-alert-priority-high{border-inline-start:4px solid #ad752a}
 .admin-ops-alert-priority-watch{border-inline-start:4px solid var(--line)}
 @media(max-width:480px){.admin-ops-alert-triage label{flex-basis:100%}.admin-ops-alert-triage select{width:100%}}
+
+/* V1.211 — accessible operational follow-up management */
+.admin-alert-followup{margin-top:12px;border:1px solid var(--line);border-radius:10px;padding:10px 12px;max-width:100%}
+.admin-alert-followup>summary{cursor:pointer;font-weight:650;min-height:30px}
+.admin-alert-followup-summary{padding:8px 0;font-size:.85rem;line-height:1.5;overflow-wrap:anywhere}
+.admin-alert-overdue{color:#ba483d}
+.admin-alert-followup-form{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;margin:10px 0}
+.admin-alert-followup-form label{display:block;font-size:.86rem;min-width:0}
+.admin-alert-followup-form label:has(textarea){grid-column:1/-1}
+.admin-alert-followup-form input,.admin-alert-followup-form select,.admin-alert-followup-form textarea{width:100%;max-width:100%;min-height:44px;margin-top:5px}
+.admin-alert-followup-form textarea{min-height:76px}
+.admin-alert-followup-form button{min-height:44px;justify-self:start}
+.admin-alert-followup-dormant{margin-top:20px}
+.admin-alert-followup-dormant h3{font-size:1rem}
+.admin-alert-followup-dormant article{margin-top:12px}
+@media(max-width:640px){.admin-alert-followup-form{grid-template-columns:minmax(0,1fr)}.admin-alert-followup-form button{width:100%}}
