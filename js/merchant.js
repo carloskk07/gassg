@@ -1,3 +1,79 @@
+// TAMÃO Negócios V1.231 — figures from the authenticated server, never fake samples.
+function merchantBusinessPulseSection(merchant){
+  if(!['owner','manager'].includes(String(merchant?.memberRole||'')))return '';
+  const merchantId=String(merchant?.merchantId||'');
+  const rt=globalThis.merchantRuntime||{};
+  const d=rt.businessPulse?.merchantId===merchantId?rt.businessPulse:null;
+  const keys=['ordersCreated','settledOrders','cancelledOrders','reversedOrders','activeOrders','settledSalesCents'];
+  const m=d?.metrics;
+  const valid=d?.source==='merchant_business_pulse_v1_231'&&
+    d.readOnly===true&&d.salesNotPlatformRevenue===true&&
+    d.adsBillingEnabled===false&&d.proBillingEnabled===false&&d.periodDays===30&&
+    m&&keys.every(k=>Number.isSafeInteger(m[k])&&m[k]>=0)&&
+    m.ordersCreated===m.settledOrders+m.cancelledOrders+m.reversedOrders+m.activeOrders&&
+    Array.isArray(d.topProducts)&&d.topProducts.length<=5;
+  const metric=(label,value,detail='')=>
+    '<div class="kpi"><span class="label">'+esc(label)+'</span><strong>'+esc(value)+
+    '</strong>'+(detail?'<small>'+esc(detail)+'</small>':'')+'</div>';
+  const cards=valid?
+    '<div class="merchant-kpis" style="margin-top:14px">'+
+      metric('Pedidos recebidos',String(m.ordersCreated),'Criados nos últimos 30 dias')+
+      metric('Vendas concluídas',String(m.settledOrders),'Sem reversão financeira')+
+      metric('Vendas registradas',BRL.format(m.settledSalesCents/100),'Valor dos pedidos, não lucro')+
+      metric('Cancelados',String(m.cancelledOrders))+
+      metric('Revertidos',String(m.reversedOrders),'Excluídos do total concluído')+
+      metric('Em andamento',String(m.activeOrders))+
+    '</div>'+
+    (d.topProducts.length?
+      '<h3 style="margin-top:14px">Produtos mais vendidos</h3><div class="list">'+
+      d.topProducts.map(x=>'<div class="list-row"><div><strong>'+esc(x.name)+
+        '</strong><br><small>'+Number(x.quantity)+' unidade(s) concluída(s)</small></div>'+
+        '<strong>'+esc(BRL.format(Number(x.salesCents)/100))+'</strong></div>').join('')+
+      '</div>':'<p class="muted tiny" style="margin-top:12px">Os produtos aparecerão aqui após vendas concluídas.</p>')+
+    '<p class="tiny muted">Indicadores baseados nos pedidos criados nos últimos 30 dias e posteriormente liquidados, sem reversão. Não incluem vendas fora do TAMÃO, custos, taxas de pagamento ou lucro.</p>':
+    '<p class="muted">'+(rt.businessPulseLoading?'Consultando vendas confirmadas…':
+      'Consulte seus números para acompanhar a movimentação real da sua revenda.')+'</p>';
+  return '<section class="section merchant-business-pulse" id="merchant-business-pulse">'+
+    '<div class="section-head"><div><span class="section-kicker">TAMÃO NEGÓCIOS</span>'+
+    '<h2>Vender, acompanhar e crescer</h2>'+
+    '<p>Uma visão simples das suas vendas e caminhos para divulgar sua revenda.</p></div>'+
+    '<button class="secondary small" onclick="merchantBusinessPulseLoadFromUi()" '+
+    (rt.businessPulseLoading?'disabled':'')+'>Atualizar meus números</button></div>'+
+    '<div class="card flat">'+cards+
+      (rt.businessPulseError?'<div class="notice danger">'+esc(rt.businessPulseError)+'</div>':'')+
+    '</div>'+
+    '<div class="grid cards-3" style="margin-top:14px">'+
+      '<div class="card"><h3>Organize sua oferta</h3><p class="muted tiny">Preços, estoque e produtos atualizados ajudam os clientes a comprar com segurança.</p>'+
+      '<button class="secondary small" onclick="go(\'catalog\')">Revisar meu catálogo</button></div>'+
+      '<div class="card"><h3>Amplie sua rede</h3><p class="muted tiny">Convide clientes e outras revendas pelo seu link de indicação, sem custo de adesão.</p>'+
+      '<button class="secondary small" onclick="merchantGrowthLoadFromUi()">Consultar minha rede</button></div>'+
+      '<div class="card"><h3>Divulgação e ferramentas Pro</h3>'+
+      '<p class="muted tiny">Estamos estruturando anúncios identificados e recursos opcionais para empresas. Ainda não existem compra de anúncios nem assinatura Pro habilitadas.</p></div>'+
+    '</div></section>';
+}
+async function merchantBusinessPulseLoadFromUi(){
+  const rt=globalThis.merchantRuntime;
+  const id=String(rt?.merchant?.merchantId||'');
+  if(!id||!['owner','manager'].includes(String(rt?.merchant?.memberRole||'')))
+    return toast('Somente proprietário ou gerente pode acessar os indicadores.');
+  if(rt.businessPulseLoading)return;
+  rt.businessPulseLoading=true;
+  rt.businessPulseError=null;
+  try{
+    const data=await merchantInvoke('merchant-ops',{merchantId:id,action:'business-pulse'});
+    if(data?.source!=='merchant_business_pulse_v1_231'||
+       data.merchantId!==id||data.readOnly!==true||
+       data.salesNotPlatformRevenue!==true||
+       data.adsBillingEnabled!==false||data.proBillingEnabled!==false)
+      throw new Error('Não foi possível validar os indicadores retornados pelo servidor.');
+    // Late responses from a previously selected revenda must never overwrite it.
+    if(String(rt.merchant?.merchantId)!==id)return;
+    rt.businessPulse=data;
+  }catch(e){
+    if(String(rt?.merchant?.merchantId)===id)
+      rt.businessPulseError=String(e?.message||'Não foi possível carregar os números.');
+  }finally{rt.businessPulseLoading=false;render();}
+}
 function merchantGrowthNetworkSection(merchant){
   const role=String(merchant?.memberRole||'');
   if(!['owner','manager'].includes(role))return '';
@@ -940,6 +1016,7 @@ function merchantLivePage(){
     <section class="section" id="merchant-live-orders"><div class="section-head"><div><h2>Pedidos que exigem ação</h2><p>Aceite, saída e recebimento só são registrados depois de confirmação no sistema.</p></div></div>${merchantDeliveryAttentionView(rt)}${merchantOrderQueueView(orders)}</section>
 
     ${merchantSetupView(rt)}
+    ${merchantBusinessPulseSection(m)}
     ${merchantGrowthNetworkSection(m)}
     ${merchantAlertControl()}
     <details class="merchant-diagnostic-drawer"><summary>Verificações de documentos e habilitação</summary>
