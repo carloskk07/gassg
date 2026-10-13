@@ -63,7 +63,7 @@ const ctx=vm.createContext({Date,Number,Object,Array,String,Map,adminRuntime:run
   render:()=>renderCount++
 });
 const names=['adminCityHistoryReset','adminLoadCityHistory','adminCityHistoryCompare',
-  'adminCityCommercialHistoryView'];
+  'adminCityHistoryValidatedHealth','adminCityHistoryHealthView','adminCityCommercialHistoryView'];
 vm.runInContext(names.map(extract).join('\n')+
  '\nthis.load=adminLoadCityHistory;this.view=adminCityCommercialHistoryView;'+
  'this.reset=adminCityHistoryReset;this.compare=adminCityHistoryCompare;',ctx);
