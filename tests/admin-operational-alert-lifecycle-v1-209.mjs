@@ -72,7 +72,7 @@ for(const marker of [
  "when v_next='active' and v_prior.status='active'",
  "when v_next='active' then 1 else 0",
  "when v_next='clear' and v_prior.status='active'",
- "v_next:='unknown'",
+ "v_next:=case when not v_valid then 'unknown'",
  "v_prior.status='active' and v_next='active'",
  "v_count>coalesce(v_prior.current_count,0)",
  'exception when others then',
