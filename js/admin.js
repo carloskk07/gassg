@@ -1379,6 +1379,8 @@ function adminOperationalAlertModel(groups){
     groups.publicationHistory.valid!==true){
     unavailable.push('Histórico de atestação dos portais');
   }
+  if(groups.publicationTrends?.available===true&&
+    groups.publicationTrends.valid!==true)unavailable.push('Tendências da atestação');
   const weight={critical:0,high:1,medium:2};
   alerts.sort((a,b)=>weight[a.severity]-weight[b.severity]);
   return {alerts,unavailable};
@@ -1393,7 +1395,8 @@ function adminOperationalAlertsCurrent(){
   return {model:adminOperationalAlertModel(x.data.groups),checkedAt:x.checkedAt,
     lifecycle:adminOperationalAlertLifecycle(x.data.lifecycle),
     rawFollowups:x.data.followups||null,
-    rawPublicationHistory:x.data.groups?.publicationHistory||null};
+    rawPublicationHistory:x.data.groups?.publicationHistory||null,
+    rawPublicationTrends:x.data.groups?.publicationTrends||null};
 }
 /* V1.209: lifecycle provenance never overrules the live alert consultation. */
 function adminOperationalAlertLifecycle(value){
@@ -1959,6 +1962,74 @@ function adminPublicationEpisodeHistoryView(value){
     '<p class="tiny muted">Os horários correspondem à primeira constatação e à recuperação comprovada pela consulta horária, não ao início/fim exato de uma eventual falha do site.</p>'+
     '</section>';
 }
+function adminPublicationTrendView(value){
+  if(!value||value.available!==true)return '';
+  const monitors=['current','stale','awaiting_first','job_missing','job_disabled',
+    'job_changed','unverified','run_failed'];
+  const trends=['monitor_unverified','insufficient_evidence',
+    'persistent_attestation_issue','recurrent_attestation_issue',
+    'attestation_attention','no_recent_attestation_issue_observed'];
+  const count=n=>Number.isSafeInteger(n)&&n>=0;
+  const h=value.last24h||{},m=value.last30d||{},monitor=value.monitor||{};
+  const numeric=[h.scheduledSuccesses,h.scheduledFailures,h.observedSlots,
+    h.clearObservations,h.activeObservations,h.unknownObservations,
+    m.episodes,m.resolved,m.open,m.persistentOpen];
+  const consistent=count(h.observedSlots)&&
+    h.clearObservations+h.activeObservations+h.unknownObservations===h.observedSlots&&
+    m.resolved+m.open<=m.episodes;
+  if(value.valid!==true||value.noOutageClaim!==true||
+    !monitors.includes(monitor.status)||!trends.includes(value.trend?.status)||
+    value.trend?.scope!=='OIDC_evidence_only_not_portal_uptime'||
+    value.trend?.coveragePercentage!==null||!numeric.every(count)||!consistent){
+    return '<section class="section"><div class="notice danger">Tendências da publicação indisponíveis ou inconsistentes. Nenhuma conclusão de estabilidade foi comprovada.</div></section>';
+  }
+  const label={
+    monitor_unverified:'Monitor automático não comprovado',
+    insufficient_evidence:'Amostra ainda insuficiente',
+    persistent_attestation_issue:'Atestação com problema persistente',
+    recurrent_attestation_issue:'Episódios recorrentes de atestação',
+    attestation_attention:'Atestação requer verificação',
+    no_recent_attestation_issue_observed:'Sem problema de atestação observado na amostra'
+  }[value.trend.status];
+  const cronConfirmed=monitor.status==='current'&&h.scheduledSuccesses>=3;
+  const clean=value.trend.status==='no_recent_attestation_issue_observed'&&cronConfirmed;
+  const schedulerLabel={
+    current:'Agendamento com execução recente comprovada',
+    stale:'Agendamento sem execução bem-sucedida recente',
+    awaiting_first:'Nenhuma execução automática registrada',
+    job_missing:'Agendamento não encontrado',
+    job_disabled:'Agendamento desativado',
+    job_changed:'Agendamento com configuração divergente',
+    unverified:'Execuções automáticas não comprovadas',
+    run_failed:'Última execução automática falhou'
+  }[monitor.status];
+  const last=typeof monitor.lastSucceededAt==='string'?
+    esc(adminOperationalAlertHistoryDate(monitor.lastSucceededAt)):'não confirmada';
+  return '<section class="section admin-publication-trends" aria-label="Tendências da atestação OIDC">'+
+    '<div class="section-head"><div><h3>Tendências das provas de publicação</h3>'+
+    '<p>Histórico do agendador PostgreSQL e das observações OIDC. Não é monitoramento de disponibilidade dos sites.</p></div>'+
+    '<span class="status-pill '+(clean?'online':'risk')+'">'+esc(label)+'</span></div>'+
+    '<div class="notice '+(cronConfirmed?'':'danger')+'">'+esc(schedulerLabel)+
+    ' • última execução automática aprovada: '+last+'</div>'+
+    '<div class="merchant-kpis">'+
+      '<div class="kpi"><span class="label">Execuções automáticas aprovadas (24h)</span><strong>'+
+        h.scheduledSuccesses+'</strong></div>'+
+      '<div class="kpi"><span class="label">Execuções automáticas com falha (24h)</span><strong>'+
+        h.scheduledFailures+'</strong></div>'+
+      '<div class="kpi"><span class="label">Observações OIDC (24h)</span><strong>'+
+        h.observedSlots+'</strong><small>'+h.clearObservations+' válidas • '+
+        h.activeObservations+' com problema • '+h.unknownObservations+' desconhecidas</small></div>'+
+      '<div class="kpi"><span class="label">Episódios documentados (30 dias)</span><strong>'+
+        m.episodes+'</strong><small>'+m.open+' abertos • '+m.resolved+
+        ' recuperados na observação horária</small></div>'+
+    '</div>'+
+    '<p class="tiny muted">'+
+      (h.scheduledSuccesses<3||h.observedSlots<3
+        ? 'São necessárias ao menos três execuções automáticas aprovadas e três observações antes de avaliar uma tendência.'
+        : 'A tendência considera apenas evidências observadas, sem extrapolar períodos não medidos.')+
+    ' Percentual de disponibilidade não calculado. Zero episódios não significa ausência de falhas fora das observações.</p>'+
+    '</section>';
+}
 function adminOperationalAlertsView(){
   if(!adminReady()||!adminRoleCanSection('alerts'))return '';
   const state=adminRuntime.operationalAlerts;
@@ -2054,6 +2125,7 @@ function adminOperationalAlertsView(){
     ${adminOperationalFollowupsEventsView(adminOperationalFollowupsSafe(present?.rawFollowups))}
     ${adminOperationalAlertHistoryView(present?.lifecycle||null)}
     ${typeof adminPublicationEpisodeHistoryView==='function'?adminPublicationEpisodeHistoryView(present?.rawPublicationHistory):''}
+    ${typeof adminPublicationTrendView==='function'?adminPublicationTrendView(present?.rawPublicationTrends):''}
     <p class='tiny muted'>Incidentes são agrupados sem divulgar descrições pessoais. Alertas não marcam chamados como resolvidos e não substituem as verificações específicas de cada área. Notificações externas não estão habilitadas.</p>`:
     '<p class="notice">Consulte os alertas para receber um diagnóstico atual. Sem verificação, nenhuma conclusão de normalidade pode ser apresentada.</p>'}
   </section>`;
