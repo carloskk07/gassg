@@ -124,7 +124,7 @@ begin
          and mm.user_id=v_attr.inviter_user_id and mm.active);
  end if;
  if p_decision='verified_identity' and
-   (not (v_cnpj_ok and v_owner_ok and v_inviter_ok)
+   (not (coalesce(v_cnpj_ok,false) and coalesce(v_owner_ok,false) and coalesce(v_inviter_ok,false))
     or v_reference is null) then
    raise exception 'REFERRAL_REVIEW_EVIDENCE_INCOMPLETE' using errcode='22023';
  end if;
