@@ -1,3 +1,82 @@
+// V1.233 creative review — approval never enables delivery or billing.
+let adminAdsCampaignQueue=null;
+let adminAdsCampaignBusy=false;
+async function adminAdsCampaignLoadFromUi(){
+  if(adminAdsCampaignBusy)return;
+  if(!['superadmin','operations','compliance','finance','readonly'].includes(String(adminCurrentRole())))return;
+  const adminId=String(adminRuntime?.session?.user?.id||'');
+  if(!adminId)return;
+  adminAdsCampaignBusy=true;
+  try{
+    const data=await adminInvoke({action:'ads-campaign-queue'});
+    if(data?.source!=='admin_ads_campaign_queue_v1_233'
+       ||data.noCharge!==true||data.adsLive!==false
+       ||!Number.isSafeInteger(data.submittedCount)||data.submittedCount<0
+       ||!Array.isArray(data.rows)||data.rows.length>50)
+      throw new Error('A fila de campanhas não foi confirmada.');
+    if(String(adminRuntime?.session?.user?.id||'')!==adminId)return;
+    adminAdsCampaignQueue={...data,loadedFor:adminId};
+  }catch(e){
+    if(String(adminRuntime?.session?.user?.id||'')===adminId){
+      adminAdsCampaignQueue=null;toast(String(e?.message||e));
+    }
+  }finally{adminAdsCampaignBusy=false;render();}
+}
+async function adminAdsCampaignReview(merchantId,version,decision){
+  if(!['superadmin','compliance'].includes(String(adminCurrentRole())))return;
+  const queue=adminAdsCampaignQueue?.rows||[];
+  const row=queue.find(x=>x.merchantId===merchantId&&x.version===version&&x.status==='submitted');
+  if(!row||!['approved_creative','needs_changes'].includes(decision))
+    return toast('Atualize a fila e escolha uma proposta enviada.');
+  const note=String(document.getElementById('ads-review-note-'+merchantId)?.value||'').trim();
+  if(note.length<12||note.length>500)return toast('Registre uma justificativa entre 12 e 500 caracteres.');
+  if(!confirm((decision==='approved_creative'?'Conferir a peça':'Pedir ajustes')+
+      '? Não será publicado nem cobrado nenhum anúncio.'))return;
+  try{
+    const data=await adminPerform('ads-campaign-review',{
+      merchantId,version,decision,note,requestId:crypto.randomUUID()
+    });
+    if(data?.recorded!==true||data.noCharge!==true||data.adsLive!==false)
+      throw new Error('O registro da revisão não foi confirmado.');
+    toast('Análise registrada. A publicidade continua desativada.');
+    await adminAdsCampaignLoadFromUi();
+  }catch(e){toast(String(e?.message||e));}
+}
+function adminAdsCampaignSection(){
+  if(!['superadmin','operations','compliance','finance','readonly'].includes(String(adminCurrentRole())))return '';
+  const adminId=String(adminRuntime?.session?.user?.id||'');
+  const data=adminAdsCampaignQueue?.loadedFor===adminId?adminAdsCampaignQueue:null;
+  const canReview=['superadmin','compliance'].includes(String(adminCurrentRole()));
+  const states={draft:'Rascunho',submitted:'Aguardando revisão',approved_creative:'Peça conferida — não publicada',
+    needs_changes:'Ajustes solicitados',withdrawn:'Retirada'};
+  const rows=data?.rows?.map(x=>{
+    if(!/^[0-9a-f-]{36}$/i.test(String(x.merchantId||'')))return '';
+    const fields=canReview&&x.status==='submitted'?
+      '<label>Justificativa para a revisão<textarea id="ads-review-note-'+x.merchantId+
+      '" rows="2" minlength="12" maxlength="500" placeholder="Explique o que foi conferido ou precisa mudar"></textarea></label>'+
+      '<div class="order-actions">'+
+      '<button class="secondary small" onclick="adminAdsCampaignReview(\''+x.merchantId+'\','+Number(x.version)+',\'needs_changes\')">Solicitar ajustes</button>'+
+      '<button class="primary small" onclick="adminAdsCampaignReview(\''+x.merchantId+'\','+Number(x.version)+',\'approved_creative\')">Aprovar somente a peça</button>'+
+      '</div>':'';
+    return '<div class="card flat"><div class="status-bar"><strong>'+esc(x.companyName||'Revenda')+
+      '</strong><span class="status-pill">'+esc(states[x.status]||'Em análise')+'</span></div>'+
+      '<p class="tiny muted">'+esc([x.city,x.state].filter(Boolean).join('/')||'Localização pendente')+
+      ' • '+esc(x.category||'Geral')+' • versão '+Number(x.version||1)+'</p>'+
+      '<strong>'+esc(x.title||'')+'</strong><p>'+esc(x.description||'')+'</p>'+
+      (x.reviewNote?'<p class="tiny muted">Nota: '+esc(x.reviewNote)+'</p>':'')+
+      fields+'</div>';
+  }).join('')||'';
+  return '<section class="section admin-ads-campaigns">'+
+   '<div class="section-head"><div><span class="section-kicker">TAMÃO ADS • CONFORMIDADE</span>'+
+   '<h3>Central de propostas publicitárias</h3>'+
+   '<p>Revisão de títulos, mensagens e categorias locais. Aprovar a peça não libera exibição, compra ou destaque.</p></div>'+
+   '<button class="secondary small" onclick="adminAdsCampaignLoadFromUi()">Consultar propostas</button></div>'+
+   (data?'<p class="tiny muted">Aguardando revisão: <strong>'+data.submittedCount+
+     '</strong> • até 50 propostas mais recentes</p><div class="grid cards-2">'+
+     (rows||'<p class="muted">Nenhuma proposta cadastrada.</p>')+'</div>':
+     '<p class="muted tiny">Clique em Consultar propostas para analisar os materiais.</p>')+
+   '</section>';
+}
 let adminAdsDemandState=null;
 let adminAdsDemandBusy=false;
 async function adminAdsDemandLoadFromUi(){
@@ -447,6 +526,7 @@ function adminPrelaunchLeadsSection(data){
       adminGrowthNetworkOverviewView(data?.growthNetwork),
       adminGrowthApplicationFunnelView(data?.growthApplicationFunnel),
       adminAdsDemandSection(),
+      adminAdsCampaignSection(),
       adminGrowthReferralReviewSection(),
       '<div class="section-head acquisition-queue-head"><div><span class="section-kicker">FILA OPERACIONAL</span><h3>Leads recentes para atendimento</h3><p>Até 200 contatos mais recentes. Ordenados por estágio e antiguidade para reduzir esquecimento.</p></div><span class="status-pill '+(Number(metrics.staleNew24h||0)?'offline':'online')+'">'+Number(metrics.new||0)+' novo(s)</span></div>',
       '<div class="grid cards-3" style="margin-top:14px">'+(ordered.length?ordered.slice(0,200).map(adminPrelaunchLeadCard).join(''):'<div class="empty card">Nenhum lead captado ainda.</div>')+'</div>',
