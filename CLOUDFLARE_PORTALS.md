@@ -84,3 +84,52 @@ Quando `tamao.com.br` estiver sob Cloudflare:
 - admin → `https://admin.tamao.com.br`
 
 A migração de `pages.dev` para esses hosts será feita numa versão posterior, depois de HTTPS e DNS passarem na prova.
+
+## Publicação oficial autenticada — V1.216
+
+O workflow GitHub Actions **TAMÃO Cloudflare official production deploy** envia os
+pacotes isolados para os três projetos Pages existentes. É diferente do workflow
+`Build isolated live portals`, que apenas produz artefatos de testes e pacotes
+publicáveis, mas não faz upload ao Cloudflare.
+
+Os projetos oficiais permanecem exatamente:
+- `tamao-sg-cliente` → `tamao.com.br`
+- `tamao-sg-revenda` → `parceiro.tamao.com.br`
+- `tamao-sg-admin` → `admin.tamao.com.br`
+
+### Habilitação única de credenciais (sem compartilhá-las por chat)
+
+1. No painel Cloudflare, localizar **Account ID** de 32 caracteres hexadecimais.
+2. Criar um **API Token** de escopo mínimo: **Account → Cloudflare Pages → Edit**
+   somente para a conta que hospeda os três projetos.
+3. No GitHub do repositório `carloskk07/gassg`, em **Settings → Secrets and
+   variables → Actions → New repository secret**, cadastrar:
+   - `CLOUDFLARE_ACCOUNT_ID`: ID da conta.
+   - `CLOUDFLARE_API_TOKEN`: token com permissão **Pages Write**.
+4. Após criar os segredos, executar uma única vez o workflow
+   **Actions → TAMÃO Cloudflare official production deploy → Run workflow → main**
+   para publicar o commit atual. Publicações posteriores ocorrerão a cada
+   atualização integrada em `main`.
+
+Se algum segredo faltar, o workflow falha explicitamente e não simula publicação.
+Nunca inserir o token em commit, arquivo público, comentário de PR nem mensagem.
+
+### Segurança operacional
+
+- Só `main` e acionamento manual podem publicar; PRs não publicam.
+- Os três projetos mantêm **roles e origens próprias**; nenhum bundle privado,
+  pasta `supabase` ou testes é enviado.
+- O SHA publicado precisa ser **exatamente** `github.sha`; não se aceita
+  deploy antigo como sucesso.
+- A etapa final só é aprovada quando os três domínios oficiais apresentam o
+  mesmo SHA remoto. Publicação parcial mantém o bloqueio de prontidão.
+- Token/Account ID não são expostos em logs. O build exige o site key
+  Turnstile público de produção.
+- Os três projetos Cloudflare Pages podem continuar conectados ao GitHub:
+  `wrangler pages deploy` também é aceito em projetos Git-integrados.
+- Caso a integração Git original falhe, esse caminho de deploy autenticado
+  restaura o site sem migrar domínio ou criar novos projetos.
+
+Referências oficiais:
+- https://developers.cloudflare.com/pages/how-to/use-direct-upload-with-continuous-integration/
+- https://developers.cloudflare.com/pages/configuration/git-integration/
