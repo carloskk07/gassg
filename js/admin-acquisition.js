@@ -20,14 +20,13 @@ async function adminReviewGrowthReferral(applicationId,decision){
   if(!['superadmin','compliance'].includes(String(adminCurrentRole())))return;
   if(!/^[0-9a-f-]{36}$/i.test(String(applicationId)))return;
   if(!['verified_identity','rejected','needs_evidence'].includes(decision))return;
-  const reason=prompt('Justificativa documentada (mínimo 12 caracteres):');
-  if(reason===null)return;
+  const reason=String(document.getElementById('growth-review-note-'+applicationId)?.value||'').trim();
   if(reason.trim().length<12||reason.trim().length>800)return toast('Justificativa deve ter de 12 a 800 caracteres');
   let evidenceReference='';
   const row=adminGrowthReferralReviewQueue?.rows?.find(x=>x.applicationId===applicationId);
   if(!row||['verified_identity','rejected'].includes(row.latestDecision))return toast('A indicação já foi analisada. Atualize a fila.');
   if(decision==='verified_identity'){
-    evidenceReference=prompt('Referência interna da evidência (8 a 160 caracteres; não cole documentos pessoais):')||'';
+    evidenceReference=String(document.getElementById('growth-review-proof-'+applicationId)?.value||'').trim();
     if(evidenceReference.trim().length<8||evidenceReference.trim().length>160)return toast('Informe uma referência de evidência válida');
     if(!row.cnpjMatches||!row.ownerMatches)return toast('Conferência do CNPJ e responsável ainda pendente.');
   }
@@ -55,10 +54,15 @@ function adminGrowthReferralReviewSection(){
         '<button class="secondary small" onclick="adminReviewGrowthReferral(\''+x.applicationId+'\',\'needs_evidence\')">Pedir evidências</button>'+
         '<button class="secondary small" onclick="adminReviewGrowthReferral(\''+x.applicationId+'\',\'rejected\')">Rejeitar</button>'+
         '<button class="primary small" onclick="adminReviewGrowthReferral(\''+x.applicationId+'\',\'verified_identity\')">Conferir identidade</button></div>':'';
+      const fields=canReview&&!['verified_identity','rejected'].includes(x.latestDecision)?
+        '<label>Justificativa da análise<textarea id="growth-review-note-'+x.applicationId+
+        '" rows="3" minlength="12" maxlength="800" placeholder="Explique o motivo da decisão"></textarea></label>'+
+        '<label>Referência da evidência (sem documentos pessoais)<input id="growth-review-proof-'+x.applicationId+
+        '" maxlength="160" placeholder="Protocolo ou referência interna" /></label>':'';
       return '<article class="card flat"><strong>'+esc(label)+'</strong>'+
         '<p class="tiny muted">CNPJ final '+esc(x.cnpjSuffix||'')+
         ' • '+esc(state)+' • '+(x.cnpjMatches?'CNPJ vinculado':'CNPJ pendente')+
-        ' • '+(x.ownerMatches?'responsável vinculado':'responsável pendente')+'</p>'+btn+'</article>';
+        ' • '+(x.ownerMatches?'responsável vinculado':'responsável pendente')+'</p>'+fields+btn+'</article>';
     }).filter(Boolean).join('');
   }
   return '<section class="section admin-growth-referral-review">'+
