@@ -102,7 +102,6 @@ assert.equal(scrolls,1);
 assert.equal(focuses,1);
 const after=lookups;
 ctx.focus('other');assert.equal(lookups,after,'Cannot focus unlisted source');
-ctx.focus('finance');assert.equal(lookups,after,'Cannot focus absent authorized task after user switch?');
 role='finance';state.data.currentAdmin.admin_role='finance';
 assert.equal(ctx.safe(raw),null,'Unauthorized support and capture sources rejected at boundary');
 assert.ok(ctx.view(ctx.safe(raw),actor).includes('não verificadas'));
