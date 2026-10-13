@@ -23,19 +23,19 @@ async function adminReviewGrowthReferral(applicationId,decision){
   const reason=prompt('Justificativa documentada (mínimo 12 caracteres):');
   if(reason===null)return;
   if(reason.trim().length<12||reason.trim().length>800)return toast('Justificativa deve ter de 12 a 800 caracteres');
-  let evidenceReference='',cnpjMatch=false,ownerMatch=false,inviterValid=false;
+  let evidenceReference='';
+  const row=adminGrowthReferralReviewQueue?.rows?.find(x=>x.applicationId===applicationId);
+  if(!row||['verified_identity','rejected'].includes(row.latestDecision))return toast('A indicação já foi analisada. Atualize a fila.');
   if(decision==='verified_identity'){
     evidenceReference=prompt('Referência interna da evidência (8 a 160 caracteres; não cole documentos pessoais):')||'';
     if(evidenceReference.trim().length<8||evidenceReference.trim().length>160)return toast('Informe uma referência de evidência válida');
-    const flags=confirm('Você verificou o CNPJ, o vínculo do responsável e a validade do indicador em fontes independentes?');
-    if(!flags)return;
-    cnpjMatch=ownerMatch=inviterValid=true;
+    if(!row.cnpjMatches||!row.ownerMatches)return toast('Conferência do CNPJ e responsável ainda pendente.');
   }
   if(!confirm('Registrar esta revisão no histórico imutável? Não será concedido benefício financeiro.'))return;
   try{
     await adminPerform('growth-referral-review',{
       applicationId,decision,reason:reason.trim(),evidenceReference:evidenceReference.trim(),
-      cnpjMatch,ownerMatch,inviterValid
+      reviewRequestId:crypto.randomUUID()
     });
     toast('Revisão registrada sem concessão financeira');
     await adminLoadGrowthReferralReviewQueue();
@@ -51,7 +51,7 @@ function adminGrowthReferralReviewSection(){
       const label=String(x.companyName||'Empresa').slice(0,120);
       const state=({verified_identity:'Identidade conferida',rejected:'Rejeitada',needs_evidence:'Aguardando evidências'})[x.latestDecision]||'Não analisada';
       const canReview=['superadmin','compliance'].includes(String(adminCurrentRole()));
-      const btn=canReview?'<div class="order-actions">'+
+      const btn=canReview&&!['verified_identity','rejected'].includes(x.latestDecision)?'<div class="order-actions">'+
         '<button class="secondary small" onclick="adminReviewGrowthReferral(\''+x.applicationId+'\',\'needs_evidence\')">Pedir evidências</button>'+
         '<button class="secondary small" onclick="adminReviewGrowthReferral(\''+x.applicationId+'\',\'rejected\')">Rejeitar</button>'+
         '<button class="primary small" onclick="adminReviewGrowthReferral(\''+x.applicationId+'\',\'verified_identity\')">Conferir identidade</button></div>':'';
