@@ -1,3 +1,86 @@
+// TAMÃO Ads V1.234 — observed marketing events, never paid ad impressions.
+let adminAdsAudienceState=null;
+let adminAdsAudienceBusy=false;
+async function adminAdsAudienceLoadFromUi(){
+  if(adminAdsAudienceBusy)return;
+  const adminId=String(adminRuntime?.session?.user?.id||'');
+  if(!adminId||!['superadmin','operations','compliance','finance','readonly'].includes(String(adminCurrentRole())))
+    return toast('Você precisa de acesso autorizado ao painel.');
+  adminAdsAudienceBusy=true;
+  try{
+    const data=await adminInvoke({action:'ads-audience-readiness'});
+    const names=['landingCustomerEvents','landingMerchantEvents',
+      'customerFormEvents','merchantFormEvents','last7dEvents','activeDays'];
+    const verified=data?.source==='admin_ads_audience_readiness_v1_234'
+      &&data?.readOnly===true&&data?.periodDays===30
+      &&data?.metricType==='unverified_anonymous_site_events'
+      &&data?.evidence?.uniqueVisitorsVerified===false
+      &&data?.evidence?.cityOfVisitorVerified===false
+      &&data?.evidence?.invalidTrafficFiltered===false
+      &&data?.commercial?.readyToSell===false
+      &&data?.commercial?.adsLive===false
+      &&data?.commercial?.noCharge===true
+      &&data?.commercial?.billableImpressions===0
+      &&data?.commercial?.adsRevenueCents===0
+      &&names.every(x=>Number.isSafeInteger(data[x])&&data[x]>=0)
+      &&Array.isArray(data.daily)&&data.daily.length===14
+      &&Array.isArray(data.cityDemand)&&data.cityDemand.length<=20;
+    if(!verified)throw new Error('Não foi possível comprovar a classificação dos indicadores.');
+    if(String(adminRuntime?.session?.user?.id||'')!==adminId)return;
+    adminAdsAudienceState={...data,loadedFor:adminId};
+  }catch(e){
+    if(String(adminRuntime?.session?.user?.id||'')===adminId){
+      adminAdsAudienceState=null;
+      toast(String(e?.message||'Falha na consulta de audiência.'));
+    }
+  }finally{adminAdsAudienceBusy=false;render();}
+}
+function adminAdsAudienceSection(){
+  if(!['superadmin','operations','compliance','finance','readonly'].includes(String(adminCurrentRole())))
+    return '';
+  const adminId=String(adminRuntime?.session?.user?.id||'');
+  const data=adminAdsAudienceState?.loadedFor===adminId?adminAdsAudienceState:null;
+  const stat=(label,count,detail='')=>
+    '<div class="kpi"><span class="label">'+esc(label)+'</span>'+
+    '<strong>'+Number(count).toLocaleString('pt-BR')+'</strong>'+
+    (detail?'<small>'+esc(detail)+'</small>':'')+'</div>';
+  const breakdown=data?
+    '<div class="merchant-kpis" style="margin-top:12px">'+
+      stat('Acessos registrados • clientes',data.landingCustomerEvents,'30 dias • eventos, não pessoas')+
+      stat('Acessos registrados • revendas',data.landingMerchantEvents,'30 dias • eventos, não pessoas')+
+      stat('Aberturas do formulário • clientes',data.customerFormEvents)+
+      stat('Aberturas do formulário • revendas',data.merchantFormEvents)+
+      stat('Eventos registrados • 7 dias',data.last7dEvents)+
+      stat('Dias com algum evento',data.activeDays,'Dentro dos últimos 30 dias')+
+    '</div>'+
+    '<p class="tiny muted">Fonte: contadores de eventos anônimos aceitos no site público. '+ 
+      'Não indicam visitantes únicos, conversões, tráfego livre de robôs ou localização de visitantes.</p>'+
+    '<h4 style="margin-top:14px">Sinais por dia — últimas duas semanas (UTC)</h4>'+
+    '<div class="list">'+data.daily.map(d=>
+      '<div class="list-row"><small>'+esc(String(d.date||''))+'</small>'+
+      '<span>'+Number(d.landingEvents).toLocaleString('pt-BR')+
+      ' acesso(s) registrado(s) • '+Number(d.formEvents).toLocaleString('pt-BR')+
+      ' formulário(s) aberto(s)</span></div>').join('')+'</div>'+
+    '<h4 style="margin-top:14px">Demanda declarada pelas revendas, por cidade</h4>'+
+    (data.cityDemand.length?'<div class="list">'+data.cityDemand.map(c=>
+      '<div class="list-row"><strong>'+esc([c.city,c.state].filter(Boolean).join('/'))+
+      '</strong><small>'+Number(c.interestedMerchants)+' interesse(s) • '+
+      Number(c.submittedCreatives)+' peça(s) enviada(s) • '+
+      Number(c.approvedCreatives)+' conferida(s)</small></div>').join('')+'</div>':
+      '<p class="muted tiny">Ainda não há procura por publicidade associada a revendas cadastradas.</p>')+
+    '<div class="notice"><strong>Portão comercial fechado:</strong> 0 impressões publicitárias comprovadas, '+
+      '0 cliques validados e R$ 0 em receita de anúncios. '+ 
+      'Não existem medição geográfica confiável, deduplicação de visitantes, filtragem auditada de tráfego inválido '+ 
+      'nem anúncio efetivamente veiculado. Nenhum desses contadores pode fundamentar uma cobrança.</div>':
+    '<p class="muted tiny">Consulte os eventos observados e a procura das revendas, sem confundir acesso ao site com exibição publicitária.</p>';
+  return '<section class="section admin-ads-audience-readiness">'+
+    '<div class="section-head"><div><span class="section-kicker">TAMÃO ADS • MEDIÇÃO</span>'+
+    '<h3>Audiência observada e prontidão de anúncios</h3>'+
+    '<p>Acompanhe os sinais de acesso ao TAMÃO sem prometer alcance local não comprovado.</p></div>'+
+    '<button class="secondary small" type="button" onclick="adminAdsAudienceLoadFromUi()" '+
+      (adminAdsAudienceBusy?'disabled':'')+'>Conferir audiência</button></div>'+
+    breakdown+'</section>';
+}
 // V1.233 creative review — approval never enables delivery or billing.
 let adminAdsCampaignQueue=null;
 let adminAdsCampaignBusy=false;
@@ -527,6 +610,7 @@ function adminPrelaunchLeadsSection(data){
       adminGrowthApplicationFunnelView(data?.growthApplicationFunnel),
       adminAdsDemandSection(),
       adminAdsCampaignSection(),
+      adminAdsAudienceSection(),
       adminGrowthReferralReviewSection(),
       '<div class="section-head acquisition-queue-head"><div><span class="section-kicker">FILA OPERACIONAL</span><h3>Leads recentes para atendimento</h3><p>Até 200 contatos mais recentes. Ordenados por estágio e antiguidade para reduzir esquecimento.</p></div><span class="status-pill '+(Number(metrics.staleNew24h||0)?'offline':'online')+'">'+Number(metrics.new||0)+' novo(s)</span></div>',
       '<div class="grid cards-3" style="margin-top:14px">'+(ordered.length?ordered.slice(0,200).map(adminPrelaunchLeadCard).join(''):'<div class="empty card">Nenhum lead captado ainda.</div>')+'</div>',
