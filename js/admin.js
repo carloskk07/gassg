@@ -22,6 +22,7 @@ const adminRuntime={
   detailPending:false,
   health:null,
   healthPending:false,
+  operationalAlerts:{data:null,loadedFor:null,role:null,loading:false,error:null,checkedAt:null},
   providerHealth:(()=>{
     try{
       const cached=JSON.parse(sessionStorage.getItem('tamao-admin-provider-health-v1')||'null');
@@ -71,7 +72,7 @@ const adminRuntime={
   section:(()=>{
     try{
       const saved=sessionStorage.getItem('tamao-admin-section');
-      return ['overview','orders','customers','partners','prospects','enablement','catalog','finance','incidents','audit','system'].includes(saved)?saved:'overview';
+      return ['overview','orders','customers','partners','prospects','enablement','catalog','finance','alerts','incidents','audit','system'].includes(saved)?saved:'overview';
     }catch{return 'overview'}
   })()
 };
@@ -347,6 +348,7 @@ async function adminSignOut(){
   adminRuntime.detailPending=false;
   adminRuntime.health=null;
   adminRuntime.healthPending=false;
+  adminRuntime.operationalAlerts={data:null,loadedFor:null,role:null,loading:false,error:null,checkedAt:null};
   adminRuntime.providerHealth=null;
   adminRuntime.providerHealthPending=false;
   adminRuntime.paymentPreflights={};
@@ -394,12 +396,14 @@ async function adminRefresh({silent=false}={}){
     adminRuntime.lastSyncAt=new Date().toISOString();
     queueMicrotask(()=>adminEnsureProviderHealth().catch(()=>{}));
     if(adminRuntime.section==='finance')queueMicrotask(()=>adminLoadFinanceHistory().catch(()=>{}));
+    if(adminRuntime.section==='alerts')queueMicrotask(()=>adminLoadOperationalAlerts().catch(()=>{}));
     return data;
   }catch(error){
     if(seq!==adminRuntime.refreshSeq)return null;
     if(error?.code==='ADMIN_ACCESS_DENIED'||error?.status===403&&error?.code==='ADMIN_ACCESS_DENIED'){
       adminRuntime.status='no-access';
       adminRuntime.data=null;
+      adminRuntime.operationalAlerts={data:null,loadedFor:null,role:null,loading:false,error:null,checkedAt:null};
       adminRuntime.salePaymentHistory={attempts:[],interruptedOrders:[],nextCursor:null,hasMore:false,loading:false,error:null,started:false,checkedAt:null};
   adminRuntime.financeHistory={data:null,loading:false,error:null,checkedAt:null};
       adminRuntime.enablementMerchants=[];
@@ -423,6 +427,7 @@ async function adminRefresh({silent=false}={}){
       adminRuntime.status='unauthenticated';
       adminRuntime.session=null;
       adminRuntime.data=null;
+      adminRuntime.operationalAlerts={data:null,loadedFor:null,role:null,loading:false,error:null,checkedAt:null};
       adminRuntime.salePaymentHistory={attempts:[],interruptedOrders:[],nextCursor:null,hasMore:false,loading:false,error:null,started:false,checkedAt:null};
   adminRuntime.financeHistory={data:null,loading:false,error:null,checkedAt:null};
       adminRuntime.searchQuery='';
@@ -1193,6 +1198,151 @@ function adminAuditView(d){
   </section>`;
 }
 
+
+/* V1.208 — one fresh, scoped, read-only diagnostic request per consultation. */
+async function adminLoadOperationalAlerts({force=false}={}){
+  if(!adminReady()||!adminRoleCanSection('alerts'))return;
+  const state=adminRuntime.operationalAlerts;
+  const user=String(adminRuntime.session?.user?.id||'');
+  const role=String(adminCurrentRole());
+  if(!user||state.loading)return;
+  const age=Date.now()-Date.parse(String(state.checkedAt||''));
+  if(!force&&state.data&&state.loadedFor===user&&state.role===role
+    &&Number.isFinite(age)&&age>=0&&age<60000)return;
+  state.loading=true;state.error=null;render();
+  try{
+    const result=await adminInvoke({action:'operational-alerts'});
+    if(!adminReady()||!adminRoleCanSection('alerts')||
+      String(adminRuntime.session?.user?.id||'')!==user||
+      String(adminCurrentRole())!==role||adminRuntime.operationalAlerts!==state)return;
+    const ts=Date.parse(String(result?.checkedAt||''));
+    if(result?.source!=='operational_alerts_v1_208'||result?.readOnly!==true
+      ||!result.groups||!Number.isFinite(ts)||Math.abs(Date.now()-ts)>120000)
+      throw new Error('O servidor não confirmou uma consulta atual de alertas.');
+    state.data=result;state.checkedAt=result.checkedAt;state.loadedFor=user;state.role=role;
+  }catch(error){
+    if(adminReady()&&adminRuntime.operationalAlerts===state&&
+       String(adminRuntime.session?.user?.id||'')===user){
+      state.error=String(error?.message||error||'Falha ao consultar alertas.');
+      state.data=null;state.checkedAt=null;state.loadedFor=null;state.role=null;
+    }
+  }finally{
+    if(adminRuntime.operationalAlerts===state){state.loading=false;render();}
+  }
+}
+function adminOperationalAlertModel(groups){
+  const alerts=[],unavailable=[];
+  if(!groups||typeof groups!=='object')return {alerts,unavailable:['Fontes administrativas']};
+  const clean=x=>Number.isSafeInteger(x)&&x>=0?x:null;
+  const add=(id,severity,title,detail,target)=>{
+    alerts.push({id,severity,title,detail,target});
+  };
+  const inc=groups.incidents;
+  if(inc?.valid===true&&clean(inc.open)!==null&&clean(inc.critical)!==null&&
+      clean(inc.high)!==null&&inc.critical+inc.high<=inc.open){
+    if(inc.open>0)add('incidents',inc.critical>0?'critical':inc.high>0?'high':'medium',
+      inc.open+' incidente(s) não resolvido(s)',
+      inc.critical+' crítico(s) • '+inc.high+' alto(s) — conferir responsáveis e andamento.','incidents');
+  }else unavailable.push('Incidentes');
+  const sup=groups.support;
+  if(sup?.available===true){
+    if(sup.valid===true&&clean(sup.open)!==null){
+      if(sup.open>0)add('support','medium',sup.open+' atendimento(s) pendente(s)',
+        'Chamados abertos ou em análise. Conferir a fila de pedidos.','orders');
+    }else unavailable.push('Atendimentos');
+  }
+  const fin=groups.finance;
+  if(fin?.available===true){
+    if(fin.valid===true&&clean(fin.rewardFailures)!==null&&clean(fin.accountingFailures)!==null){
+      if(fin.rewardFailures+fin.accountingFailures>0)add('finance','high',
+        (fin.rewardFailures+fin.accountingFailures)+' falha(s) de processamento financeiro',
+        fin.rewardFailures+' recompensa(s) • '+fin.accountingFailures+' contabilização(ões) pendente(s).','finance');
+    }else unavailable.push('Processamento financeiro');
+  }
+  const cap=groups.capture;
+  if(cap?.available===true){
+    const states=['healthy','awaiting_first','in_grace','missing_capture','run_failed','job_missing','job_disabled','job_changed','watchdog_missing','watchdog_disabled','watchdog_changed','watchdog_late'];
+    if(cap.valid!==true||!states.includes(cap.health?.status))unavailable.push('Capturas comerciais');
+    else if(!['healthy','awaiting_first','in_grace'].includes(cap.health.status)){
+      const label=({
+        run_failed:'Falha de captura confirmada',missing_capture:'Captura diária não confirmada',
+        job_missing:'Agendamento de captura ausente',job_disabled:'Captura automática desativada',
+        job_changed:'Configuração de captura alterada',watchdog_missing:'Monitor de capturas ausente',
+        watchdog_disabled:'Monitor de capturas desativado',watchdog_changed:'Configuração do monitor alterada',
+        watchdog_late:'Monitor de capturas atrasado'
+      })[cap.health.status]||'Verificação das capturas necessária';
+      add('capture','high',label,'Acompanhe a prova do agendador e do histórico de cidades.','prospects');
+    }
+  }
+  const weight={critical:0,high:1,medium:2};
+  alerts.sort((a,b)=>weight[a.severity]-weight[b.severity]);
+  return {alerts,unavailable};
+}
+function adminOperationalAlertsCurrent(){
+  if(!adminReady()||!adminRoleCanSection('alerts'))return null;
+  const x=adminRuntime.operationalAlerts;
+  if(!x?.data||x.loadedFor!==String(adminRuntime.session?.user?.id||'')||
+    x.role!==String(adminCurrentRole()))return null;
+  const age=Date.now()-Date.parse(String(x.checkedAt||''));
+  if(!Number.isFinite(age)||age<0||age>5*60*1000)return null;
+  return {model:adminOperationalAlertModel(x.data.groups),checkedAt:x.checkedAt};
+}
+function adminOperationalAlertBadge(){
+  const current=adminOperationalAlertsCurrent();
+  if(!current)return '';
+  const n=current.model.alerts.length;
+  return n?String(n):'';
+}
+function adminOperationalAlertsOpen(target){
+  if(!adminReady()||!adminRoleCanSection('alerts'))return;
+  if(!['incidents','orders','finance','prospects'].includes(String(target)))return;
+  if(!adminRoleCanSection(target))return;
+  adminSetSection(target);
+}
+function adminOperationalAlertsView(){
+  if(!adminReady()||!adminRoleCanSection('alerts'))return '';
+  const state=adminRuntime.operationalAlerts;
+  const present=adminOperationalAlertsCurrent();
+  const content=present?.model||null;
+  const ago=state.checkedAt?Date.parse(state.checkedAt):NaN;
+  const stale=Number.isFinite(ago)&&Date.now()-ago>5*60*1000;
+  const severityLabel={critical:'Crítico',high:'Prioritário',medium:'Acompanhar'};
+  const items=(content?.alerts||[]).map(item=>{
+    const canOpen=adminRoleCanSection(item.target);
+    return `<article class='admin-ops-alert-item'>
+      <div><span class='status-pill ${item.severity==='critical'||item.severity==='high'?'risk':''}'>${esc(severityLabel[item.severity])}</span>
+        <h3>${esc(item.title)}</h3><p>${esc(item.detail)}</p></div>
+      <button type='button' class='secondary small' ${canOpen?'':'disabled'}
+        onclick="adminOperationalAlertsOpen('${item.target}')">Conferir área</button>
+    </article>`;
+  }).join('');
+  const gaps=(content?.unavailable||[]).map(x=>`<span>${esc(x)}</span>`).join(' • ');
+  return `<section class='section admin-ops-alerts' aria-label='Central de alertas operacionais'>
+    <div class='section-head'><div><span class='section-kicker'>SINAIS VERIFICADOS</span>
+      <h2>O que precisa de atenção?</h2>
+      <p>Alertas consolidados diretamente do servidor, sem criar incidentes, movimentar dinheiro ou acionar parceiros.</p></div></div>
+    <div class='admin-ops-alert-toolbar'>
+      <button type='button' class='secondary small' onclick='adminLoadOperationalAlerts({force:true})'
+        ${state.loading?'disabled':''}>Atualizar diagnóstico</button>
+      <small>Verificação ${present?esc(new Date(present.checkedAt).toLocaleString('pt-BR')):'ainda não confirmada'} • leitura pontual, não monitoramento contínuo no navegador.</small>
+    </div>
+    ${state.loading?'<p class="notice">Consultando fontes administrativas…</p>':''}
+    ${state.error?`<div class='notice danger'>Falha ao atualizar: ${esc(state.error)}</div>`:''}
+    ${stale&&!present?'<div class="notice danger">Diagnóstico antigo. Atualize para conferir o estado atual.</div>':''}
+    ${content?`<div class='admin-ops-alert-kpis'>
+      <div><strong>${content.alerts.length}</strong><small>Grupos com pendências</small></div>
+      <div><strong>${content.alerts.filter(x=>x.severity==='critical'||x.severity==='high').length}</strong><small>Alta prioridade</small></div>
+      <div><strong>${content.unavailable.length}</strong><small>Fontes não confirmadas</small></div>
+    </div>
+    ${items?`<div class='admin-ops-alert-list'>${items}</div>`:content.unavailable.length===0?
+      '<p class="notice success">Nenhuma pendência identificada nas fontes autorizadas nesta consulta. Isso não comprova ausência de problemas fora dessas fontes.</p>':
+      '<p class="notice">Não há pendências confirmadas nas fontes acessíveis; o diagnóstico é parcial.</p>'}
+    ${content.unavailable.length?`<p class='notice danger'>Fontes indisponíveis nesta consulta: ${gaps}. Não interpretar ausência de dados como situação regular.</p>`:''}
+    <p class='tiny muted'>Incidentes são agrupados sem divulgar descrições pessoais. Alertas não marcam chamados como resolvidos e não substituem as verificações específicas de cada área. Notificações externas não estão habilitadas.</p>`:
+    '<p class="notice">Consulte os alertas para receber um diagnóstico atual. Sem verificação, nenhuma conclusão de normalidade pode ser apresentada.</p>'}
+  </section>`;
+}
+
 const ADMIN_SECTION_ROLES={
   overview:new Set(['superadmin','readonly','operations','finance','support','compliance']),
   orders:new Set(['superadmin','operations','finance','support']),
@@ -1202,6 +1352,7 @@ const ADMIN_SECTION_ROLES={
   enablement:new Set(['superadmin','readonly','operations','compliance']),
   catalog:new Set(['superadmin','operations']),
   finance:new Set(['superadmin','finance']),
+  alerts:new Set(['superadmin','readonly','operations','finance','support','compliance']),
   incidents:new Set(['superadmin','readonly','operations','finance','support','compliance']),
   audit:new Set(['superadmin','readonly','operations','finance','support','compliance']),
   system:new Set(['superadmin','readonly','operations'])
@@ -1210,7 +1361,7 @@ function adminRoleCanSection(section,role=adminCurrentRole()){
   return ADMIN_SECTION_ROLES[String(section)]?.has(String(role))===true;
 }
 function adminFirstSectionForRole(role=adminCurrentRole()){
-  return ['overview','orders','customers','partners','prospects','enablement','catalog','finance','incidents','audit','system']
+  return ['overview','orders','customers','partners','prospects','enablement','catalog','finance','alerts','incidents','audit','system']
     .find(section=>adminRoleCanSection(section,role))||'overview';
 }
 
@@ -1224,6 +1375,7 @@ function adminSectionMeta(section=adminRuntime.section){
     enablement:{kicker:'HABILITAÇÃO OPERACIONAL',title:'Central de habilitação',description:'Requisitos comprovados de cada revenda, seus bloqueios e próximas ações.'},
     catalog:{kicker:'OFERTA DA PLATAFORMA',title:'Catálogo',description:'Categorias, produtos e governança da oferta disponível na plataforma.'},
     finance:{kicker:'CONTROLADORIA',title:'Financeiro',description:'Cobranças TAMÃO, crédito, D+1, PSP, conciliação, refunds e política econômica.'},
+    alerts:{kicker:'ATENÇÃO OPERACIONAL',title:'Central de alertas',description:'Sinais oficiais reunidos com horário de verificação, responsáveis e acesso às áreas de tratamento.'},
     incidents:{kicker:'CONFIABILIDADE',title:'Incidentes',description:'Severidade, resposta, MTTA/MTTR e resolução auditável dos eventos operacionais.'},
     audit:{kicker:'GOVERNANÇA',title:'Auditoria',description:'Trilha forense das decisões administrativas e mudanças sensíveis da plataforma.'},
     system:{kicker:'SEGURANÇA & PLATAFORMA',title:'Sistema',description:'Saúde técnica, portais, PSP, RBAC e controles estruturais do ambiente.'}
@@ -1252,6 +1404,7 @@ function adminNavIcon(id){
     enablement:'<path d="M12 3l8 4v5c0 5-4 8-8 9-4-1-8-4-8-9V7l8-4Z"/><path d="m8 12 3 3 5-6"/>',
     catalog:'<path d="M4 6h16v14H4z"/><path d="M8 6V3h8v3M8 11h8M8 15h5"/>',
     finance:'<path d="M4 7h16v13H4z"/><path d="M7 4h10M8 11h8M8 15h5"/><circle cx="17" cy="16" r="1"/>',
+    alerts:'<path d="M4 4h16v15H4zM8 9h8M8 13h5"/><path d="M8 22h8"/>',
     incidents:'<path d="M12 3 2.5 20h19L12 3Z"/><path d="M12 9v5M12 17h.01"/>',
     audit:'<path d="M4 4h16v16H4z"/><path d="M8 8h8M8 12h5M8 16h4"/><circle cx="17" cy="16" r="2.5"/>',
     system:'<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .34 1.88l.06.06-2.83 2.83-.06-.06A1.7 1.7 0 0 0 15 19.4a1.7 1.7 0 0 0-1 .6 1.7 1.7 0 0 0-.4 1.1V21h-4v-.1A1.7 1.7 0 0 0 8.6 19.4a1.7 1.7 0 0 0-1.88.34l-.06.06-2.83-2.83.06-.06A1.7 1.7 0 0 0 4.6 15a1.7 1.7 0 0 0-.6-1 1.7 1.7 0 0 0-1.1-.4H3v-4h.1A1.7 1.7 0 0 0 4.6 8.6a1.7 1.7 0 0 0-.34-1.88l-.06-.06 2.83-2.83.06.06A1.7 1.7 0 0 0 9 4.6a1.7 1.7 0 0 0 1-.6 1.7 1.7 0 0 0 .4-1.1V3h4v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.88-.34l.06-.06 2.83 2.83-.06.06A1.7 1.7 0 0 0 19.4 9c.38.3.6.65.6 1v.4h1v4h-1v.1c0 .2-.2.4-.6.5Z"/>'
@@ -1297,13 +1450,14 @@ function adminExecutiveKpi({icon,label,value,detail='',tone='neutral'}){
   return '<article class="admin-exec-kpi '+esc(tone)+'"><span class="admin-exec-icon" aria-hidden="true">'+esc(icon)+'</span><div><small>'+esc(label)+'</small><strong>'+value+'</strong>'+(detail?'<p>'+esc(detail)+'</p>':'')+'</div></article>';
 }
 function adminSetSection(section){
-  const allowed=['overview','orders','customers','partners','prospects','enablement','catalog','finance','incidents','audit','system'];
+  const allowed=['overview','orders','customers','partners','prospects','enablement','catalog','finance','alerts','incidents','audit','system'];
   const requested=allowed.includes(String(section||''))?String(section):'overview';
   const next=adminRoleCanSection(requested)?requested:adminFirstSectionForRole();
   adminRuntime.section=next;
   try{sessionStorage.setItem('tamao-admin-section',next)}catch{}
   render();
   if(next==='system')adminLoadSystemHealth().catch(()=>{});
+  if(next==='alerts')adminLoadOperationalAlerts({force:true}).catch(()=>{});
   if(next==='prospects'){
     adminLoadProspects().catch(()=>{});
     adminLoadExpansionRadar().catch(()=>{});
@@ -4242,6 +4396,7 @@ function adminPage(){
     </div>`;
 
 
+  const alertsContent=adminOperationalAlertsView();
   const incidentsContent=adminIncidentCenter(d);
   const auditContent=adminAuditView(d);
 
@@ -4279,6 +4434,7 @@ function adminPage(){
       ${adminMenuButton('catalog','Catálogo','▤')}
       ${adminMenuButton('finance','Financeiro','₿',badge(actionableFinanceCount))}
       <div class="admin-nav-group">Governança</div>
+      ${adminMenuButton('alerts','Alertas','!',adminOperationalAlertBadge())}
       ${adminMenuButton('incidents','Incidentes','!',badge(incidentAttention))}
       ${adminMenuButton('audit','Auditoria','⌕')}
       ${adminMenuButton('system','Segurança e sistema','⚙',badge(securityAttention))}
@@ -4307,6 +4463,7 @@ function adminPage(){
         ${adminPanel('enablement',adminEnablementSection(d))}
         ${adminPanel('catalog',catalogContent)}
         ${adminPanel('finance',financeContent)}
+        ${adminPanel('alerts',alertsContent)}
         ${adminPanel('incidents',incidentsContent)}
         ${adminPanel('audit',auditContent)}
         ${adminPanel('system',systemContent)}
