@@ -165,6 +165,8 @@ jobs:
         run: node tests/growth-admin-network-v1-227.mjs
       - name: Referral benefit economics V1.228 nonpayable scenario regression
         run: node tests/growth-merchant-economics-v1-228.mjs
+      - name: Merchant CNPJ first-touch referral V1.229 regression
+        run: node tests/growth-cnpj-attribution-v1-229.mjs
       - name: First real PSP pilot preflight V1.146 regression contract
         run: node tests/first-real-psp-pilot-preflight-v1-146.mjs
       - name: Production trust language V1.147 regression contract
