@@ -3,6 +3,7 @@ import fs from 'node:fs';
 import vm from 'node:vm';
 const read=p=>fs.readFileSync(new URL('../'+p,import.meta.url),'utf8');
 const sql=read('supabase/migrations/20261013213500_merchant_ads_demand_v1_232.sql');
+const indexes=read('supabase/migrations/20261013214000_merchant_ads_fk_indexes_v1_232_1.sql');
 const merchant=read('js/merchant.js');
 const admin=read('js/admin-acquisition.js');
 const edge=read('supabase/functions/merchant-ops/index.ts');
@@ -51,4 +52,7 @@ for(const k of [
  'adminRuntime?.session?.user?.id','Revendas interessadas','R$ 0'
 ])assert.ok(admin.includes(k),'Admin demand UI missing '+k);
 assert.match(workflow,/- name: TAMÃO Ads V1\.232 demand and security contract\s+run: node tests\/merchant-ads-demand-v1-232\.mjs/);
+assert.match(indexes,/on public\.merchant_ads_interest_v1_232\(updated_by\)/);
+assert.match(indexes,/on public\.merchant_ads_interest_events_v1_232\(actor_user_id\)/);
+assert.doesNotMatch(indexes,/\b(drop|update|delete|truncate)\b/i);
 console.log('V1.232 PASS — consented interest, withdraw, RBAC, no billing, admin aggregated demand');
