@@ -52,7 +52,7 @@ for(const term of [
   'p_actor:user.id,p_merchant:merchantId,p_operation:operation',
   'data?.independentlyVerified===false',
   'data?.billable===false',
-  'data?.readyToSell===false',
+  'data.readyToSell!==false',
   'visiblePercent>100',
   'data?.source==="ads_preview_proof_v1_235"'
 ])assert.ok(edge.includes(term),'Missing backend contract: '+term);
