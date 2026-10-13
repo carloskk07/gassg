@@ -41,7 +41,7 @@ assert.ok(!sql.includes('net.http_post')&&!sql.includes('commerce_enabled=true')
 assert.ok(edge.includes('admin.rpc("admin_portal_attestation_history_v1_223"'));
 assert.ok(edge.includes('p_actor_user_id:actorId'));
 assert.ok(edge.includes('publicationHistory={available:true,valid:false}'));
-assert.ok(edge.includes('groups:{incidents,support,finance,capture,portals,publication,publicationHistory,publicationTrends}'));
+assert.ok(edge.includes('groups:{incidents,support,finance,capture,portals,publication,publicationHistory,publicationTrends,publicationMonitor}'));
 assert.ok(ui.includes('adminPublicationEpisodeHistoryView(present?.rawPublicationHistory)'));
 assert.ok(ui.includes('Histórico de provas de publicação'));
 assert.ok(ui.includes('histórico de publicação não comprovado')||
