@@ -102,6 +102,30 @@ async function attachAnpProspectInvite(admin:any,userId:string,applicationId:str
   return data??null;
 }
 
+async function attachGrowthApplicationReferral(admin:any,userId:string,
+ applicationId:string,value:unknown){
+  const code=String(value??"").trim().toUpperCase();
+  if(!code)return null;
+  if(!/^[A-Z0-9]{5,40}$/.test(code)){
+    return {recorded:false,reason:"INVALID_CODE",verified:false,rewardEligible:false};
+  }
+  try{
+    const {data,error}=await admin.rpc("claim_growth_application_referral_v1_229",{
+      p_application_id:applicationId,p_actor_user_id:userId,p_code:code
+    });
+    if(error)throw error;
+    return {recorded:data?.recorded===true,
+      reason:String(data?.reason||"UNVERIFIED").slice(0,50),
+      verified:false,rewardEligible:false};
+  }catch(error){
+    // Optional growth attribution is never evidence for commercial approval.
+    // A failure must not silently convert the referral to a paid claim.
+    console.warn("growth_application_referral_unconfirmed",
+      error instanceof Error?error.name:"database_error");
+    return {recorded:false,reason:"ATTRIBUTION_UNAVAILABLE",
+      verified:false,rewardEligible:false};
+  }
+}
 Deno.serve(async(req:Request)=>{
   const origin=req.headers.get("Origin");
   if(!originAllowed(origin))return json({error:"ORIGIN_NOT_ALLOWED"},403,origin);
@@ -273,6 +297,8 @@ Deno.serve(async(req:Request)=>{
 
     const pilotPartner=await attachPilotInvite(admin,user.id,data.id,body.pilotInviteToken);
     const prospectInvite=await attachAnpProspectInvite(admin,user.id,data.id,prospectInviteToken);
+    const growthReferral=await attachGrowthApplicationReferral(
+      admin,user.id,data.id,body.referralCode);
     return json({
       applicationId:data.id,
       cnpj:data.cnpj,
@@ -282,7 +308,8 @@ Deno.serve(async(req:Request)=>{
       reused:false,
       resubmitted:false,
       pilotPartner,
-      prospectInvite
+      prospectInvite,
+      growthReferral
     },201,origin);
   }catch(error){
     if(error instanceof DomainError)return json({error:error.code,message:error.message},error.status,origin);
