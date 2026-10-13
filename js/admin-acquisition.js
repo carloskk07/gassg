@@ -1,3 +1,79 @@
+let adminGrowthReferralReviewQueue=null;
+let adminGrowthReferralReviewBusy=false;
+async function adminLoadGrowthReferralReviewQueue(){
+  if(adminGrowthReferralReviewBusy)return;
+  adminGrowthReferralReviewBusy=true;
+  try{
+    const data=await adminInvoke({action:'growth-referral-review-queue'});
+    if(data?.source!=='growth_referral_review_queue_v1_230'||
+       data?.readOnly!==true||data?.noPayout!==true||
+       data?.rewardEligible!==false||!Array.isArray(data.rows)||data.rows.length>50){
+      throw new Error('Resposta da fila de indicações inválida');
+    }
+    adminGrowthReferralReviewQueue=data;
+  }catch(e){
+    adminGrowthReferralReviewQueue=null;
+    toast(String(e?.message||e));
+  }finally{adminGrowthReferralReviewBusy=false;render();}
+}
+async function adminReviewGrowthReferral(applicationId,decision){
+  if(!['superadmin','compliance'].includes(String(adminCurrentRole())))return;
+  if(!/^[0-9a-f-]{36}$/i.test(String(applicationId)))return;
+  if(!['verified_identity','rejected','needs_evidence'].includes(decision))return;
+  const reason=String(document.getElementById('growth-review-note-'+applicationId)?.value||'').trim();
+  if(reason.trim().length<12||reason.trim().length>800)return toast('Justificativa deve ter de 12 a 800 caracteres');
+  let evidenceReference='';
+  const row=adminGrowthReferralReviewQueue?.rows?.find(x=>x.applicationId===applicationId);
+  if(!row||['verified_identity','rejected'].includes(row.latestDecision))return toast('A indicação já foi analisada. Atualize a fila.');
+  if(decision==='verified_identity'){
+    evidenceReference=String(document.getElementById('growth-review-proof-'+applicationId)?.value||'').trim();
+    if(evidenceReference.trim().length<8||evidenceReference.trim().length>160)return toast('Informe uma referência de evidência válida');
+    if(!row.cnpjMatches||!row.ownerMatches)return toast('Conferência do CNPJ e responsável ainda pendente.');
+  }
+  if(!confirm('Registrar esta revisão no histórico imutável? Não será concedido benefício financeiro.'))return;
+  try{
+    await adminPerform('growth-referral-review',{
+      applicationId,decision,reason:reason.trim(),evidenceReference:evidenceReference.trim(),
+      reviewRequestId:crypto.randomUUID()
+    });
+    toast('Revisão registrada sem concessão financeira');
+    await adminLoadGrowthReferralReviewQueue();
+  }catch(e){toast(String(e?.message||e))}
+}
+function adminGrowthReferralReviewSection(){
+  if(!['superadmin','operations','compliance','readonly'].includes(String(adminCurrentRole())))return '';
+  const data=adminGrowthReferralReviewQueue;
+  let rows='';
+  if(data&&Array.isArray(data.rows)){
+    rows=data.rows.map(x=>{
+      if(!x||!/^[0-9a-f-]{36}$/i.test(String(x.applicationId||'')))return '';
+      const label=String(x.companyName||'Empresa').slice(0,120);
+      const state=({verified_identity:'Identidade conferida',rejected:'Rejeitada',needs_evidence:'Aguardando evidências'})[x.latestDecision]||'Não analisada';
+      const canReview=['superadmin','compliance'].includes(String(adminCurrentRole()));
+      const btn=canReview&&!['verified_identity','rejected'].includes(x.latestDecision)?'<div class="order-actions">'+
+        '<button class="secondary small" onclick="adminReviewGrowthReferral(\''+x.applicationId+'\',\'needs_evidence\')">Pedir evidências</button>'+
+        '<button class="secondary small" onclick="adminReviewGrowthReferral(\''+x.applicationId+'\',\'rejected\')">Rejeitar</button>'+
+        '<button class="primary small" onclick="adminReviewGrowthReferral(\''+x.applicationId+'\',\'verified_identity\')">Conferir identidade</button></div>':'';
+      const fields=canReview&&!['verified_identity','rejected'].includes(x.latestDecision)?
+        '<label>Justificativa da análise<textarea id="growth-review-note-'+x.applicationId+
+        '" rows="3" minlength="12" maxlength="800" placeholder="Explique o motivo da decisão"></textarea></label>'+
+        '<label>Referência da evidência (sem documentos pessoais)<input id="growth-review-proof-'+x.applicationId+
+        '" maxlength="160" placeholder="Protocolo ou referência interna" /></label>':'';
+      return '<article class="card flat"><strong>'+esc(label)+'</strong>'+
+        '<p class="tiny muted">CNPJ final '+esc(x.cnpjSuffix||'')+
+        ' • '+esc(state)+' • '+(x.cnpjMatches?'CNPJ vinculado':'CNPJ pendente')+
+        ' • '+(x.ownerMatches?'responsável vinculado':'responsável pendente')+'</p>'+fields+btn+'</article>';
+    }).filter(Boolean).join('');
+  }
+  return '<section class="section admin-growth-referral-review">'+
+    '<div class="section-head"><div><span class="section-kicker">CONFORMIDADE • REDE TAMÃO</span>'+
+    '<h3>Validação administrativa das indicações</h3>'+
+    '<p>Histórico independente do convite. Conferir identidade não libera comissão nem créditos.</p></div>'+
+    '<button class="secondary small" onclick="adminLoadGrowthReferralReviewQueue()">Atualizar análises</button></div>'+
+    (data?(rows||'<p class="muted">Nenhum cadastro indicado encontrado.</p>'):
+      '<p class="muted">Use Atualizar análises para consultar a fila autorizada.</p>')+'</section>';
+}
+
 function adminLeadWhatsApp(raw){
   const digits=String(raw||'').replace(/\D/g,'');
   return digits.length===10||digits.length===11?'55'+digits:digits;
@@ -314,6 +390,7 @@ function adminPrelaunchLeadsSection(data){
       adminAcquisitionCampaigns(metrics),
       adminGrowthNetworkOverviewView(data?.growthNetwork),
       adminGrowthApplicationFunnelView(data?.growthApplicationFunnel),
+      adminGrowthReferralReviewSection(),
       '<div class="section-head acquisition-queue-head"><div><span class="section-kicker">FILA OPERACIONAL</span><h3>Leads recentes para atendimento</h3><p>Até 200 contatos mais recentes. Ordenados por estágio e antiguidade para reduzir esquecimento.</p></div><span class="status-pill '+(Number(metrics.staleNew24h||0)?'offline':'online')+'">'+Number(metrics.new||0)+' novo(s)</span></div>',
       '<div class="grid cards-3" style="margin-top:14px">'+(ordered.length?ordered.slice(0,200).map(adminPrelaunchLeadCard).join(''):'<div class="empty card">Nenhum lead captado ainda.</div>')+'</div>',
     '</section>'
