@@ -100,7 +100,7 @@ async function requireAdmin(admin:any,userId:string){
   if(!data)throw new DomainError("ADMIN_ACCESS_DENIED","Esta conta não possui acesso administrativo.",403);
   return data;
 }
-const ADMIN_READ_ACTIONS=new Set(["summary","search","entity-detail","system-health","billing-provider-health","audit-search","incident-list","merchant-payment-preflight","prospect-intelligence","expansion-notifications","expansion-radar","merchant-enablement","sale-payment-history","finance-receipts-history","commercial-history-list","operational-alerts","ads-demand","ads-audience-readiness","ads-campaign-queue","growth-referral-review-queue"]);
+const ADMIN_READ_ACTIONS=new Set(["summary","search","entity-detail","system-health","billing-provider-health","audit-search","incident-list","merchant-payment-preflight","prospect-intelligence","expansion-notifications","expansion-radar","merchant-enablement","sale-payment-history","finance-receipts-history","commercial-history-list","operational-alerts","ads-demand","ads-audience-readiness","ads-preview-summary","ads-campaign-queue","growth-referral-review-queue"]);
 const ADMIN_ROLE_ACTIONS:Record<string,Set<string>>={
   superadmin:new Set(["*"]),
   operations:new Set([
@@ -114,7 +114,7 @@ const ADMIN_ROLE_ACTIONS:Record<string,Set<string>>={
   ]),
   support:new Set(["order-control","support-case-status","incident-action","operational-alert-ack"]),
   compliance:new Set([
-    "growth-referral-review","ads-campaign-review","approve-application","reject-application","verify-merchant","activate-merchant","suspend-merchant",
+    "growth-referral-review","ads-campaign-review","ads-preview-issue","ads-preview-confirm","approve-application","reject-application","verify-merchant","activate-merchant","suspend-merchant",
     "set-delivery-capability","merchant-representation-review","incident-action","prospect-crm","prospect-invite"
   ]),
   readonly:new Set()
@@ -2219,6 +2219,63 @@ Deno.serve(async(req:Request)=>{
       if(error)throw error;
       return json({notifications:(data||[]).filter((n:any)=>marketCityKey(n.city)===key
         &&n.prelaunch_leads?.consent_at&&n.prelaunch_leads?.status!=="closed")},200,origin);
+    }
+    if(action==="ads-preview-summary"){
+      if(!["superadmin","operations","compliance","finance","readonly"].includes(String(adminAccess.admin_role)))
+        throw new DomainError("ADMIN_PERMISSION_DENIED","Perfil sem acesso ao diagnóstico de publicidade.",403);
+      const {data,error}=await admin.rpc("admin_ads_preview_summary_v1_235",{p_actor:user.id});
+      if(error)throw error;
+      if(data?.source!=="admin_ads_preview_summary_v1_235"
+        ||data?.windowDays!==30
+        ||!Number.isSafeInteger(data.previewChallenges)||data.previewChallenges<0
+        ||!Number.isSafeInteger(data.clientReportedPreviews)||data.clientReportedPreviews<0
+        ||data.clientReportedPreviews>data.previewChallenges
+        ||data.previewOnly!==true||data.independentlyVerified!==false
+        ||data.verifiedAdImpressions!==0||data.billableImpressions!==0
+        ||data.adsRevenueCents!==0||data.adsLive!==false
+        ||data.noCharge!==true||data.readyToSell!==false){
+        throw new DomainError("ADS_PREVIEW_SUMMARY_INVALID","Diagnóstico da publicidade inválido.",503);
+      }
+      return json(data,200,origin);
+    }
+    if(action==="ads-preview-issue"||action==="ads-preview-confirm"){
+      if(!["superadmin","compliance"].includes(String(adminAccess.admin_role)))
+        throw new DomainError("ADMIN_PERMISSION_DENIED","Somente conformidade pode testar peças publicitárias.",403);
+      const merchantId=uuid(body.merchantId,"merchantId");
+      const operation=action==="ads-preview-issue"?"issue":"confirm";
+      let requestId:null|string=null;
+      let challengeId:null|string=null;
+      let visibleMs:null|number=null;
+      let visiblePercent:null|number=null;
+      if(operation==="issue")requestId=uuid(body.requestId,"requestId");
+      else {
+        challengeId=uuid(body.challengeId,"challengeId");
+        visibleMs=Number(body.visibleMs);
+        visiblePercent=Number(body.visiblePercent);
+        if(!Number.isSafeInteger(visibleMs)||visibleMs<1500||visibleMs>15000
+          ||!Number.isSafeInteger(visiblePercent)||visiblePercent<50||visiblePercent>100)
+          throw new DomainError("ADS_PREVIEW_METRIC_INVALID","Tempo ou visibilidade fora dos limites.",400);
+      }
+      const {data,error}=await admin.rpc("admin_ads_preview_proof_v1_235",{
+        p_actor:user.id,p_merchant:merchantId,p_operation:operation,
+        p_request:requestId,p_challenge:challengeId,
+        p_visible_ms:visibleMs,p_visible_percent:visiblePercent
+      });
+      if(error)throw error;
+      const common=data?.source==="ads_preview_proof_v1_235"
+        &&data?.operation===operation&&data?.previewOnly===true
+        &&data?.clientReported===true&&data?.independentlyVerified===false
+        &&data?.billable===false&&data?.adsLive===false&&data?.noCharge===true;
+      if(!common||(operation==="issue"&&(
+        !UUID_RE.test(String(data?.challengeId||""))
+        ||data?.merchantId!==merchantId
+        ||!Number.isSafeInteger(data.creativeVersion)||data.creativeVersion<1
+        ||typeof data.title!=="string"||data.title.length>80
+        ||typeof data.description!=="string"||data.description.length>240
+        ||!Number.isFinite(Date.parse(String(data.expiresAt||"")))))
+       ||(operation==="confirm"&&(data.recorded!==true||typeof data.idempotent!=="boolean")))
+        throw new DomainError("ADS_PREVIEW_UNVERIFIED","Registro experimental não confirmado.",503);
+      return json(data,200,origin);
     }
     if(action==="ads-audience-readiness"){
       if(!["superadmin","operations","compliance","finance","readonly"].includes(String(adminAccess.admin_role))){
