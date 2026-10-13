@@ -22,6 +22,9 @@ on:
       - '.github/workflows/build-live-portals.yml'
       - '.github/workflows/cloudflare-production-deploy.yml'
       - 'tests/cloudflare-production-deploy-v1-216.mjs'
+      - '.github/workflows/cloudflare-native-reconcile.yml'
+      - 'scripts/reconcile-cloudflare-native-v1-217.mjs'
+      - 'tests/cloudflare-native-reconcile-v1-217.mjs'
       - 'scripts/build-cloudflare-portal.mjs'
 
 permissions:
