@@ -583,7 +583,7 @@ function checkoutSponsoredEditorial(){
     '<p class="tiny muted">Publicidade identificada • não altera as ofertas apresentadas abaixo</p>'+
     '<h3>'+esc(slot.title)+'</h3><p>'+esc(slot.description)+'</p>'+
     '<p class="tiny muted">Anunciante: '+esc(slot.advertiser)+' • '+
-     esc([slot.city,slot.state].filter(Boolean).join('/')+
+     esc([slot.city,slot.state].filter(Boolean).join('/'))+
     '</p></aside>';
 }
 function checkoutOfferComparison(all){
