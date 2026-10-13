@@ -159,3 +159,19 @@ que um lead equivale a um cliente ou parceiro já habilitado.
 A futura conversão em benefício exigirá confirmação administrativa e
 análise do orçamento real por pedido. Sem provedor real de ofertas, a
 página de indicações continua disponível sem criar transações.
+
+## V1.227 — Visibilidade da rede no Admin
+
+A área de **aquisição de clientes e parceiros** exibe dados agregados da
+Rede TAMÃO: novos interessados que chegaram por indicações validadas,
+origem (cliente/revenda), tipo de interesse (cliente/revenda), registros
+marcados como convertidos no CRM e revendas com código de convite.
+Administradores autorizados podem acompanhar um quadro resumido das
+revendas que geraram contatos, sem revelar dados pessoais dos
+interessados neste quadro.
+
+Esta fonte é estritamente de **pré-cadastro consentido**, não uma
+comprovação de compra, de habilitação da revenda ou de recebimento
+de comissão. Contagem de "convertidos no CRM" representa unicamente
+o estágio registrado pelo operador no CRM. O indicador de ganhos da rede
+permanece desativado e não movimenta crédito ou dinheiro.

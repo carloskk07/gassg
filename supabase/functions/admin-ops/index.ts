@@ -856,7 +856,7 @@ function scopeAdminSummary(role:string,data:any){
       supportCases:[],
       controlOrders:(data.controlOrders??[]).map(redactOrderForFinance),
       platformAdmins:adminSelf,
-      prelaunchLeads:[],acquisitionMetrics:{},publicRequests:[],
+      prelaunchLeads:[],acquisitionMetrics:{},growthNetwork:{available:false,valid:false},publicRequests:[],
       recentAudit:(data.recentAudit??[]).filter((x:any)=>String(x.action||"").match(/financial|billing|reward|referral|reverse|settlement|commercial/))
     };
   }
@@ -877,7 +877,7 @@ function scopeAdminSummary(role:string,data:any){
       finance:{receivables:[],cashbackReimbursements:[],adjustments:[]},
       rewardFailures:[],accountingFailures:[],referralReviews:[],
       platformAdmins:adminSelf,
-      prelaunchLeads:[],acquisitionMetrics:{},
+      prelaunchLeads:[],acquisitionMetrics:{},growthNetwork:{available:false,valid:false},
       recentAudit:[]
     };
   }
@@ -1888,6 +1888,28 @@ async function summary(admin:any,actorUserId:string){
     if(!capabilitiesByMerchant.has(cap.merchant_id))capabilitiesByMerchant.set(cap.merchant_id,[]);
     capabilitiesByMerchant.get(cap.merchant_id)!.push(cap);
   }
+  // V1.227: aggregate only; a CRM stage is not a verified paid order.
+  // Missing proof stays unavailable, never as an invented zero-count result.
+  let growthNetwork:any={available:false,valid:false};
+  if(['superadmin','operations','readonly','compliance'].includes(actorRole)){
+    try{
+      const {data,error}=await admin.rpc("admin_growth_network_overview_v1_227",{
+        p_actor_user_id:actorUserId
+      });
+      const fields=['attributedLeads','customerInvitedLeads','merchantInvitedLeads',
+        'customerInterests','merchantInterests','crmConvertedLeads','last30d',
+        'merchantsWithInviteCode'];
+      if(!error&&data?.source==='growth_network_server_v1_227'&&
+        data?.readOnly===true&&data?.noPayout===true&&
+        data?.noPersonalData===true&&
+        data?.crmConversionIsNotOrderSettlement===true&&
+        data?.leadScope==='consented_prelaunch_leads_only'&&
+        fields.every(k=>Number.isSafeInteger(data[k])&&data[k]>=0)&&
+        Array.isArray(data?.merchantBreakdown)&&data.merchantBreakdown.length<=12){
+        growthNetwork={available:true,valid:true,...data};
+      }else growthNetwork={available:true,valid:false};
+    }catch{growthNetwork={available:true,valid:false};}
+  }
   const summaryResult={
     applications:apps.data??[],
     pilotPartners:(pilotPartners.data??[]).map((p:any)=>{
@@ -2015,6 +2037,7 @@ async function summary(admin:any,actorUserId:string){
     prelaunchLeads:prelaunchLeads.data??[],
     marketCityInterests:marketCityInterests??[],
     acquisitionMetrics:acquisitionMetrics.data??{},
+    growthNetwork,
     publicRequests:publicRequests.data??[],
     rewardFailures:rewardFailures.data??[],
     accountingFailures:accountingFailures.data??[],
