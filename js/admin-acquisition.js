@@ -1043,8 +1043,9 @@ function adminCityHistoryValidatedHealth(value){
     const t=value[field];
     if(t!==null&&t!==undefined&&!Number.isFinite(Date.parse(String(t))))return null;
   }
-  const check=x=>x===null||x===undefined||typeof x==='string'&&x.length<=40;
-  if(!check(value.cronRunStatus)||!check(value.lastWatchdogStatus))return null;
+  if(value.cronRunStatus!=null&&
+    !['succeeded','failed','running','unknown'].includes(value.cronRunStatus))return null;
+  if(value.lastWatchdogStatus!=null&&!allowed.includes(value.lastWatchdogStatus))return null;
   return {
     status:value.status,asOf:String(value.asOf||''),
     expectedAt:String(value.expectedAt||''),
