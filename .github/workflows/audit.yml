@@ -163,6 +163,8 @@ jobs:
         run: node tests/growth-network-v1-226.mjs
       - name: Rede TAMÃO admin attribution funnel V1.227 regression
         run: node tests/growth-admin-network-v1-227.mjs
+      - name: Referral benefit economics V1.228 nonpayable scenario regression
+        run: node tests/growth-merchant-economics-v1-228.mjs
       - name: First real PSP pilot preflight V1.146 regression contract
         run: node tests/first-real-psp-pilot-preflight-v1-146.mjs
       - name: Production trust language V1.147 regression contract
