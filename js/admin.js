@@ -1665,7 +1665,7 @@ function adminOperationalFollowupsEscalationsView(followups){
   };
   const rank={owner_unavailable:0,severely_overdue:1,overdue:2,due_soon:3};
   urgent.sort((a,b)=>Number(b.ackStatus==='overdue')-Number(a.ackStatus==='overdue')||
-    rank[a.urgency]-rank[b.urgency]||
+    (rank[a.urgency]??4)-(rank[b.urgency]??4)||
     Date.parse(a.dueAt)-Date.parse(b.dueAt));
   const urgentCount=urgent.filter(x=>critical.includes(x.urgency)||x.ackStatus==='overdue').length;
   const rows=urgent.map(item=>{
