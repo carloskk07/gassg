@@ -338,8 +338,8 @@ Deno.serve(async(req:Request)=>{
 
     const portals=await verifyPortalSetWithPropagation(
       Object.entries(PORTALS),
-      (role,cfg)=>verifyPortal(role,cfg,expectedSourceSha),
-      {report:({role,stage,reason,attempt})=>
+      (role:string,cfg:{origin:string;title:string})=>verifyPortal(role,cfg,expectedSourceSha),
+      {report:({role,stage,reason,attempt}:{role:string;stage:string;reason:string;attempt:number})=>
         console.warn("portal-readiness-attestor propagation retry",role,stage,reason,attempt)}
     );
     // The canonical branch can advance during propagation. Never persist
