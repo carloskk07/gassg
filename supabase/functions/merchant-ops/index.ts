@@ -117,7 +117,7 @@ Deno.serve(async(req:Request)=>{
     const merchantId=String(body.merchantId??"");
     const action=String(body.action??"");
     if(!UUID_RE.test(merchantId))throw new DomainError("INVALID_MERCHANT","Revenda inválida.",400);
-    if(!["growth-network","enablement","heartbeat","set-online","update-product","update-logistics","update-capacity","update-scheduling","update-payment-methods","update-payment-routes","update-member-profile","request-billing-package","notify-billing-payment","notify-refund-recovery-payment","cancel-billing-request"].includes(action)){
+    if(!["business-pulse","growth-network","enablement","heartbeat","set-online","update-product","update-logistics","update-capacity","update-scheduling","update-payment-methods","update-payment-routes","update-member-profile","request-billing-package","notify-billing-payment","notify-refund-recovery-payment","cancel-billing-request"].includes(action)){
       throw new DomainError("INVALID_ACTION","Ação inválida.",400);
     }
 
@@ -134,6 +134,40 @@ Deno.serve(async(req:Request)=>{
     if(!membership)throw new DomainError("MERCHANT_ACCESS_DENIED","Você não possui acesso a esta revenda.",403);
 
     const role=membership.member_role;
+    if(action==="business-pulse"){
+      if(!canManage(role)){
+        throw new DomainError("MERCHANT_ACCESS_DENIED",
+          "Somente proprietário ou gerente pode consultar os indicadores comerciais.",403);
+      }
+      const {data,error}=await admin.rpc("merchant_business_pulse_v1_231",{
+        p_actor_user_id:user.id,p_merchant_id:merchantId
+      });
+      if(error)throw error;
+      const counts=["ordersCreated","settledOrders","cancelledOrders",
+        "reversedOrders","activeOrders","settledSalesCents"];
+      const metrics=data?.metrics;
+      const verified= data?.source==="merchant_business_pulse_v1_231"
+        &&data?.merchantId===merchantId
+        &&data?.periodDays===30
+        &&data?.readOnly===true
+        &&data?.salesNotPlatformRevenue===true
+        &&data?.adsBillingEnabled===false
+        &&data?.proBillingEnabled===false
+        &&Number.isFinite(Date.parse(data?.generatedAt||""))
+        &&metrics&&counts.every(k=>Number.isSafeInteger(metrics[k])&&metrics[k]>=0)
+        &&metrics.ordersCreated===metrics.settledOrders+metrics.cancelledOrders+
+          metrics.reversedOrders+metrics.activeOrders
+        &&Array.isArray(data.topProducts)&&data.topProducts.length<=5
+        &&data.topProducts.every((p:any)=>p&&typeof p.name==="string"
+          &&p.name.length<=100
+          &&Number.isSafeInteger(p.quantity)&&p.quantity>=0
+          &&Number.isSafeInteger(p.salesCents)&&p.salesCents>=0);
+      if(!verified){
+        throw new DomainError("BUSINESS_PULSE_INVALID",
+          "Indicadores comerciais indisponíveis ou inconsistentes.",503);
+      }
+      return json(data,200,origin);
+    }
     if(action==="growth-network"){
       if(!canManage(role))throw new DomainError("MERCHANT_ACCESS_DENIED",
         "Somente proprietário ou gerente pode consultar a rede de indicações.",403);
