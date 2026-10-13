@@ -1278,6 +1278,46 @@ async function adminOperationalAlerts(admin:any,role:string,actorId:string){
       }else publicationTrends={available:true,valid:false};
     }catch{publicationTrends={available:true,valid:false};}
   }
+  // V1.225: evaluate pg_cron's expected :53 UTC slot with a five-minute grace.
+  // Returned guidance is strictly read-only and restricted to portal admin roles.
+  let publicationMonitor:any={available:false,valid:false};
+  if(portalRole){
+    try{
+      const {data,error}=await admin.rpc("admin_portal_attestation_monitor_v1_225",{
+        p_actor_user_id:actorId
+      });
+      const statuses=['healthy','job_missing','job_disabled','job_changed',
+        'awaiting_first','missed_run','interrupted','run_failed','run_stalled',
+        'run_processing','missing_observation','evidence_unverified','unverified'];
+      const severities=['none','info','warning','high'];
+      const validTime=(value:any)=>value===null||typeof value==='string'&&
+        Number.isFinite(Date.parse(value));
+      if(!error&&data?.source==='postgres_cron_monitor_v1_225'&&
+        data?.readOnly===true&&data?.noPersonalData===true&&
+        data?.noOutageClaim===true&&data?.automaticRemediation===false&&
+        data?.scope==='postgres_oidc_monitor_not_portal_uptime'&&
+        statuses.includes(data?.status)&&severities.includes(data?.severity)&&
+        Number.isSafeInteger(data?.missingSlots)&&data.missingSlots>=0&&
+        data.missingSlots<=168&&
+        ['cause','impact','action','recoveryCriteria'].every(key=>
+          typeof data[key]==='string'&&data[key].length>=20&&
+          data[key].length<=550)&&
+        validTime(data?.checkedAt)&&data?.checkedAt!==null&&
+        validTime(data?.expectedSlotAt)&&data?.expectedSlotAt!==null&&
+        validTime(data?.graceUntil)&&data?.graceUntil!==null&&
+        validTime(data?.nextDueAt)&&data?.nextDueAt!==null&&
+        validTime(data?.lastRunAt)&&validTime(data?.lastSuccessAt)){
+        publicationMonitor={available:true,valid:true,
+          status:data.status,severity:data.severity,checkedAt:data.checkedAt,
+          expectedSlotAt:data.expectedSlotAt,graceUntil:data.graceUntil,
+          nextDueAt:data.nextDueAt,lastRunAt:data.lastRunAt,
+          lastRunStatus:data.lastRunStatus,lastSuccessAt:data.lastSuccessAt,
+          missingSlots:data.missingSlots,cause:data.cause,
+          impact:data.impact,action:data.action,
+          recoveryCriteria:data.recoveryCriteria,noOutageClaim:true};
+      }else publicationMonitor={available:true,valid:false};
+    }catch{publicationMonitor={available:true,valid:false};}
+  }
   // V1.211: durable human follow-ups are returned only after PostgreSQL role scoping.
   // An unavailable RPC is explicitly marked unverified, never an empty task list.
   let followups={available:false,checkedAt:null,items:[],owners:[],events:[]};
@@ -1305,7 +1345,7 @@ async function adminOperationalAlerts(admin:any,role:string,actorId:string){
     }
   }catch{}
   return {source:"operational_alerts_v1_208",checkedAt,
-    groups:{incidents,support,finance,capture,portals,publication,publicationHistory,publicationTrends},lifecycle,followups,readOnly:true,
+    groups:{incidents,support,finance,capture,portals,publication,publicationHistory,publicationTrends,publicationMonitor},lifecycle,followups,readOnly:true,
     noExternalNotifications:true};
 }
 
