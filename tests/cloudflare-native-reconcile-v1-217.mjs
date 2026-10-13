@@ -10,10 +10,12 @@ const evidence={
  EVIDENCE_BRANCH:'main',EVIDENCE_CONCLUSION:'success',
  EVIDENCE_SHA:sha,GH_TOKEN:'secret_action_token_mock'
 };
-const run=(id,status,conclusion,which=sha,at='2026-10-13T08:00:00Z')=>({
- id,status,conclusion,head_sha:which,head_branch:'main',created_at:at
+const run=(id,status,conclusion,which=sha,at='2026-10-13T08:00:00Z',attempt=1)=>({
+ id,status,conclusion,head_sha:which,head_branch:'main',created_at:at,
+ run_attempt:attempt,event:'push',path:'.github/workflows/cloudflare-production-deploy.yml',
+ head_repository:{full_name:'carloskk07/gassg'}
 });
-function mock({main=sha,runs=[run(72,'completed','failure')],beforePost=main,postStatus=201}={}){
+function mock({main=sha,runs=[run(72,'completed','failure')],beforePost=main,postStatus=201,detailOverride=null}={}){
  const visited=[];
  let branchCalls=0;
  const request=async(url,init)=>{
@@ -26,6 +28,10 @@ function mock({main=sha,runs=[run(72,'completed','failure')],beforePost=main,pos
      return new Response(JSON.stringify({workflow_runs:runs}),{status:200});
    if(url.includes('/rerun-failed-jobs'))
      return new Response('',{status:postStatus});
+   if(/\/actions\/runs\/\d+$/.test(url)){
+     const id=Number(url.split('/').pop());
+     return new Response(JSON.stringify(detailOverride||runs.find(r=>r.id===id)||{}),{status:200});
+   }
    throw new Error('Unexpected endpoint: '+url);
  };
  return {visited,request};
@@ -72,6 +78,29 @@ assert.equal((await runCheck(evidence,{runs:sorted})).result.status,'already_rec
 const due=[run(88,'completed','success',sha,'2026-10-13T08:00:00Z'),
  run(89,'completed','failure',sha,'2026-10-13T09:00:00Z')];
 assert.equal((await runCheck(evidence,{runs:due})).result.runId,89);
+// V1.218 — bound automatic recovery and validate the latest run just before POST.
+const exhausted=await runCheck(evidence,{runs:[run(72,'completed','failure',sha,'2026-10-13T08:00:00Z',2)]});
+assert.equal(exhausted.result.status,'retry_limit_reached');
+assert.equal(exhausted.api.visited.filter(x=>x.method==='POST').length,0);
+assert.ok(exhausted.messages.some(x=>x.includes('Manual review required')));
+const unverifiedCount=await runCheck(evidence,{detailOverride:{...run(72,'completed','failure'),run_attempt:null}});
+assert.equal(unverifiedCount.result.status,'skipped_attempt_unverified');
+assert.equal(unverifiedCount.api.visited.filter(x=>x.method==='POST').length,0);
+for(const detailOverride of [
+ {...run(72,'completed','failure'),head_sha:old},
+ {...run(72,'completed','failure'),head_repository:{full_name:'attacker/fork'}},
+ {...run(72,'completed','failure'),path:'.github/workflows/other.yml'},
+ {...run(72,'completed','failure'),event:'pull_request'}
+]){
+ const result=await runCheck(evidence,{detailOverride});
+ assert.equal(result.result.status,'skipped_unverified_run');
+ assert.equal(result.api.visited.filter(x=>x.method==='POST').length,0);
+}
+const changed=await runCheck(evidence,{detailOverride:run(72,'in_progress',null)});
+assert.equal(changed.result.status,'skipped_changed_run');
+assert.equal(changed.api.visited.filter(x=>x.method==='POST').length,0);
+assert.ok(happy.api.visited.some(x=>x.url.endsWith('/actions/runs/72')&&x.method==='GET'),
+ 'Run details must be checked before POST');
 await assert.rejects(runCheck({...evidence,GH_TOKEN:''}),/GITHUB_ACTIONS_TOKEN_NOT_AVAILABLE/);
 await assert.rejects(runCheck(evidence,{postStatus:403}),/GITHUB_API_HTTP_403_FOR_POST/);
 assert.ok(src.includes("proof.conclusion!=='success'"));
@@ -89,4 +118,4 @@ assert.ok(!workflow.includes('pull_request:'));
 assert.ok(!workflow.includes('secrets.CLOUDFLARE'));
 assert.ok(!workflow.includes('wrangler'));
 assert.ok(audit.includes('node tests/cloudflare-native-reconcile-v1-217.mjs'));
-console.log('V1.217 PASS — hard SHA identity, strict readiness evidence, idempotent retry, no secret leak or fake success, drift and role-safe native delivery.');
+console.log('V1.217/V1.218 PASS — strict SHA evidence, capped one-time retry, fresh run identity, drift and role-safe native delivery.');
