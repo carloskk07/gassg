@@ -23,7 +23,7 @@ export function isTransientPortalHttp(status){
 // carried into a later attempt or persisted as if they were one snapshot.
 export async function verifyPortalSetWithPropagation(entries,verify,{
   sleep=ms=>new Promise(resolve=>setTimeout(resolve,ms)),
-  report=()=>{}
+  report=(_details)=>{}
 }={}){
   if(!Array.isArray(entries)||entries.length!==3)
     throw new Error('PORTAL_EVIDENCE_ENTRY_COUNT_INVALID');
