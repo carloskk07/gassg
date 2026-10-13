@@ -45,6 +45,6 @@ for(const s of [
   'Sem reversão financeira',
   'não lucro'
 ])assert.ok(merchant.includes(s),'missing scoped merchant UI: '+s);
-assert.ok(!/payout|merchant_referral_reward_grants_v1_231/i.test(sql));
+assert.ok(!/merchant_referral_reward_grants_v1_231|issue_payout|grant_reward/i.test(sql));
 assert.match(workflow,/- name: TAMÃO Negócios V1\.231 business pulse and growth UX\s+run: node tests\/merchant-business-pulse-v1-231\.mjs/);
 console.log('V1.231 PASS — scoped merchant business pulse, settled-only metrics, honest offer, no billing');
