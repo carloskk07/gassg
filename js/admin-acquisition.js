@@ -1129,6 +1129,7 @@ function adminCityCommercialHistoryView(){
     ${state.loading?'<p class="tiny muted">Consultando histórico do servidor…</p>':''}
     ${!state.loaded&&!state.loading&&!state.error?'<p class="tiny muted">O histórico será consultado ao abrir Prospectos.</p>':''}
     <p class='tiny muted'>Até 16 retratos recentes, no máximo um por hora para toda a administração. Capturas diárias são feitas pelo PostgreSQL, sem depender de abrir o painel.</p>
+    ${state.loaded&&state.loadedFor===String(adminRuntime.session?.user?.id||'')?`<p class='tiny muted' role='status'>Agendamento diário: ${state.scheduler?.active===true?'ativo, às 09h18 (horário de Brasília)':state.scheduler?.active===false?'inativo — conferência necessária':'não verificado'}.</p>`:''}
     ${state.loaded&&state.loadedFor===String(adminRuntime.session?.user?.id||'')?adminCityHistoryHealthView(state.health):''}
     ${items.length?`<div class='admin-city-history-compare'>
       <div><strong>Retrato mais recente</strong><small>${esc(labelDate(items[0].capturedAt))}
