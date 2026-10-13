@@ -53,13 +53,13 @@ for(const status of ['healthy','awaiting_first','in_grace','missing_capture','ru
  'job_missing','job_disabled','job_changed','watchdog_missing','watchdog_disabled',
  'watchdog_changed','watchdog_late']){
  const txt=sandbox.healthView(sandbox.validate(health(status)));
- assert.ok(txt.includes('role=\\'status\\''),status);
+ assert.ok(txt.includes("role='status'"),status);
  assert.ok(!txt.includes('undefined'),status);
  if(['missing_capture','run_failed','job_missing','job_disabled','job_changed',
  'watchdog_missing','watchdog_disabled','watchdog_changed','watchdog_late'].includes(status)){
-   assert.ok(txt.includes('class=\\'notice danger\\''),status);
+   assert.ok(txt.includes("class='notice danger'"),status);
  }else{
-   assert.ok(!txt.includes('class=\\'notice danger\\''),status);
+   assert.ok(!txt.includes("class='notice danger'"),status);
  }
 }
 assert.ok(sandbox.healthView(sandbox.validate(health('healthy'))).includes('Captura diária confirmada'));
