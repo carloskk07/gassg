@@ -1,3 +1,93 @@
+// V1.238 — commercial activation: real prospect → application → merchant → Ads.
+let adminCommercialActivationState=null;
+let adminCommercialActivationBusy=false;
+async function adminCommercialActivationLoadFromUi(){
+  if(adminCommercialActivationBusy)return;
+  const identity=String(adminRuntime?.session?.user?.id||'');
+  if(!identity||!['superadmin','operations','compliance','finance','readonly'].includes(String(adminCurrentRole())))
+    return toast('Faça login no painel com o perfil autorizado.');
+  adminCommercialActivationBusy=true;
+  try{
+    const data=await adminInvoke({action:'commercial-activation'});
+    const c=data?.counts;
+    const keys=['anpProspects','anpUncontacted','anpContacted','anpInterested',
+      'anpOnboarding','invitationsPending','invitationsClaimed','merchantLeads',
+      'merchantNewLeads','merchantApplications','merchantPendingApplications',
+      'merchantsRegistered','merchantsActive','merchantsActiveOnline',
+      'adsOptedIn','adsCreativesReviewed'];
+    if(data?.source!=='admin_commercial_activation_v1_238'
+      ||data.readOnly!==true||data.noContactsExposed!==true
+      ||data.noMessagesSent!==true||data.noSyntheticMerchants!==true
+      ||data.adsLive!==false||data.adsRevenueCents!==0||data.noCharge!==true
+      ||data.dataMeaning!=='independent_operational_populations'
+      ||!c||!keys.every(k=>Number.isSafeInteger(c[k])&&c[k]>=0)
+      ||!Array.isArray(data.prospectCities)||data.prospectCities.length>20)
+      throw new Error('Não foi possível confirmar a origem das métricas comerciais.');
+    if(identity!==String(adminRuntime?.session?.user?.id||''))return;
+    adminCommercialActivationState={...data,loadedFor:identity};
+  }catch(e){
+    if(identity===String(adminRuntime?.session?.user?.id||'')){
+      adminCommercialActivationState=null;
+      toast(String(e?.message||'Não foi possível consultar a ativação comercial.'));
+    }
+  }finally{adminCommercialActivationBusy=false;render();}
+}
+function adminCommercialActivationSection(){
+  if(!['superadmin','operations','compliance','finance','readonly'].includes(String(adminCurrentRole())))return '';
+  const identity=String(adminRuntime?.session?.user?.id||'');
+  const report=adminCommercialActivationState?.loadedFor===identity?adminCommercialActivationState:null;
+  const c=report?.counts;
+  const actions={
+    review_applications:['Revisar solicitações de revendas','partners'],
+    respond_merchant_leads:['Atender interessados em parceria','overview'],
+    contact_anp_prospects:['Iniciar contato com prospectos da ANP','prospects'],
+    followup_prospects:['Acompanhar prospectos interessados','prospects'],
+    acquire_first_merchant:['Convidar a primeira revenda','prospects'],
+    enable_partner_operation:['Concluir habilitação das revendas','partners'],
+    collect_voluntary_ads_interest:['Apresentar Ads às revendas ativas','partners'],
+    review_creative:['Analisar as primeiras peças Ads','overview'],
+    validate_first_campaign:['Conferir o piloto Ads com revenda real','overview']
+  };
+  const priority=actions[report?.nextAction]||actions.acquire_first_merchant;
+  const metric=(label,value,note='')=>'<div class="kpi">'+
+    '<span class="label">'+esc(label)+'</span>'+
+    '<strong>'+Number(value).toLocaleString('pt-BR')+'</strong>'+
+    (note?'<small>'+esc(note)+'</small>':'')+'</div>';
+  const data=c?
+    '<div class="merchant-kpis" style="margin-top:12px">'+
+      metric('Prospectos ANP',c.anpProspects,'Empresas conhecidas, não clientes')+
+      metric('Sem contato registrado',c.anpUncontacted)+
+      metric('Convites ainda válidos',c.invitationsPending)+
+      metric('Leads de revendas',c.merchantLeads)+
+      metric('Solicitações de cadastro pendentes',c.merchantPendingApplications)+
+      metric('Revendas ativas',c.merchantsActive)+
+      metric('Revendas ativas e online',c.merchantsActiveOnline)+
+      metric('Revendas com interesse Ads',c.adsOptedIn)+
+      metric('Peças Ads revisadas',c.adsCreativesReviewed)+
+    '</div>'+
+    '<div class="card flat" style="margin-top:14px">'+
+      '<strong>Próxima ação comercial indicada</strong><p>'+esc(priority[0])+'</p>'+
+      '<button class="primary small" type="button" onclick="adminSetSection(\''+priority[1]+'\')">Abrir área correspondente</button>'+
+      '<p class="tiny muted">A recomendação é calculada apenas sobre registros existentes. Nenhum WhatsApp, convite ou cadastro é enviado automaticamente.</p>'+
+    '</div>'+
+    '<h4 style="margin-top:14px">Cidades com possíveis revendas</h4>'+
+    (report.prospectCities.length?
+      '<div class="list">'+report.prospectCities.map(x=>
+        '<div class="list-row"><strong>'+esc([x.city,x.state].filter(Boolean).join('/'))+'</strong>'+
+        '<small>'+Number(x.prospects)+' cadastrada(s) na ANP • '+
+        Number(x.uncontacted)+' sem contato</small></div>').join('')+'</div>':
+      '<p class="muted tiny">Não existem cidades com prospectos registrados.</p>')+
+    '<p class="tiny muted">Os números representam bases diferentes: prospectos, leads, solicitações e revendas não são etapas comprovadas de um mesmo funil individual. '+
+    'Intenção comercial e crédito antecipado não equivalem a receita realizada. Ads: R$ 0.</p>':
+    '<p class="muted tiny">Consulte para identificar o gargalo atual entre prospecção, cadastro e primeira venda.</p>';
+  return '<section class="section admin-commercial-activation">'+
+    '<div class="section-head"><div><span class="section-kicker">TAMÃO NEGÓCIOS • CRESCIMENTO</span>'+
+    '<h3>Da primeira parceria à primeira venda</h3>'+
+    '<p>Acompanhe oportunidades reais antes de oferecer anúncios ou ferramentas pagas.</p></div>'+
+    '<button class="secondary small" type="button" onclick="adminCommercialActivationLoadFromUi()" '+
+    (adminCommercialActivationBusy?'disabled':'')+'>Conferir ativação comercial</button></div>'+
+    data+'</section>';
+}
 // TAMÃO Ads V1.237 — live, read-only pilot checks for each real merchant.
 const adminAdsPilotCache=new Map();
 const adminAdsPilotPending=new Set();
@@ -867,6 +957,7 @@ function adminPrelaunchLeadsSection(data){
       adminAdsAudienceSection(),
       adminAdsPreviewSummarySection(),
       adminAdsPlacementSection(),
+      adminCommercialActivationSection(),
       adminGrowthReferralReviewSection(),
       '<div class="section-head acquisition-queue-head"><div><span class="section-kicker">FILA OPERACIONAL</span><h3>Leads recentes para atendimento</h3><p>Até 200 contatos mais recentes. Ordenados por estágio e antiguidade para reduzir esquecimento.</p></div><span class="status-pill '+(Number(metrics.staleNew24h||0)?'offline':'online')+'">'+Number(metrics.new||0)+' novo(s)</span></div>',
       '<div class="grid cards-3" style="margin-top:14px">'+(ordered.length?ordered.slice(0,200).map(adminPrelaunchLeadCard).join(''):'<div class="empty card">Nenhum lead captado ainda.</div>')+'</div>',
