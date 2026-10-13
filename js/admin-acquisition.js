@@ -244,8 +244,8 @@ function adminAdsCampaignSection(){
   const rows=data?.rows?.map(x=>{
     if(!/^[0-9a-f-]{36}$/i.test(String(x.merchantId||'')))return '';
     const diag=canReview&&x.status==='approved_creative'?
-      '<div class="order-actions"><button class="secondary small" type="button" onclick="adminAdsPreviewRunFromUi(\\''+
-        x.merchantId+'\\')">Testar prévia interna</button></div>':'';
+      '<div class="order-actions"><button class="secondary small" type="button" onclick="adminAdsPreviewRunFromUi(\''+
+        x.merchantId+'\')">Testar prévia interna</button></div>':'';
     const fields=canReview&&x.status==='submitted'?
       '<label>Justificativa para a revisão<textarea id="ads-review-note-'+x.merchantId+
       '" rows="2" minlength="12" maxlength="500" placeholder="Explique o que foi conferido ou precisa mudar"></textarea></label>'+
