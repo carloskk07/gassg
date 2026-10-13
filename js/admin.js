@@ -1356,7 +1356,8 @@ function adminOperationalAlertHistoryView(value){
   };
   const good=status==='current';
   const entries=value.events.slice(0,8).map(event=>{
-    const title=event.status==='active'?'Problema detectado':
+    const title=event.status==='active'&&event.previous==='active'?'Agravamento observado':
+      event.status==='active'?'Problema detectado':
       event.status==='unknown'?'Fonte não confirmada':
       event.previous==='active'?'Normalização confirmada':'Fonte novamente verificada';
     return '<div class="admin-ops-alert-history-row"><strong>'
