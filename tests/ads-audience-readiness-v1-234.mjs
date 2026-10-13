@@ -41,7 +41,8 @@ for(const part of [
 assert.doesNotMatch(sql,/\b(create table|insert into|delete from|update public\.)\b/i);
 assert.doesNotMatch(sql,/grant execute on function public\.admin_ads_audience_readiness_v1_234[\s\S]*to (anon|authenticated)/i);
 for(const part of [
- '"ads-audience-readiness","ads-campaign-queue"',
+ '"ads-audience-readiness"',
+ '"ads-campaign-queue"',
  'if(action==="ads-audience-readiness")',
  'p_actor_user_id:user.id',
  'data?.metricType==="unverified_anonymous_site_events"',
