@@ -155,6 +155,8 @@ jobs:
         run: node tests/admin-publication-history-v1-223.mjs
       - name: Portal attestation FK indexes V1.223.1 regression
         run: node tests/admin-publication-indexes-v1-223-1.mjs
+      - name: OIDC attestation cron evidence and trends V1.224 regression
+        run: node tests/admin-publication-trends-v1-224.mjs
       - name: First real PSP pilot preflight V1.146 regression contract
         run: node tests/first-real-psp-pilot-preflight-v1-146.mjs
       - name: Production trust language V1.147 regression contract

@@ -1240,6 +1240,44 @@ async function adminOperationalAlerts(admin:any,role:string,actorId:string){
       publicationHistory={available:true,valid:false};
     }
   }
+  // V1.224: independent cron proof + conservative trends; unavailable SQL
+  // must never be interpreted as zero failures or healthy scheduling.
+  let publicationTrends:any={available:false,valid:false};
+  if(portalRole){
+    try{
+      const {data,error}=await admin.rpc("admin_portal_attestation_trends_v1_224",{
+        p_actor_user_id:actorId
+      });
+      const monitorStates=['current','stale','awaiting_first','job_missing',
+        'job_disabled','job_changed','unverified','run_failed'];
+      const trendStates=['monitor_unverified','insufficient_evidence',
+        'persistent_attestation_issue','recurrent_attestation_issue',
+        'attestation_attention','no_recent_attestation_issue_observed'];
+      const validCount=(n:any)=>Number.isSafeInteger(n)&&n>=0;
+      if(!error&&data?.source==='postgres_authoritative_trends_v1_224'&&
+        data?.readOnly===true&&data?.noOutageClaim===true&&
+        data?.noPersonalData===true&&
+        monitorStates.includes(data?.monitor?.status)&&
+        trendStates.includes(data?.trend?.status)&&
+        data?.trend?.scope==='OIDC_evidence_only_not_portal_uptime'&&
+        data?.trend?.coveragePercentage===null&&
+        validCount(data?.last24h?.scheduledSuccesses)&&
+        validCount(data?.last24h?.scheduledFailures)&&
+        validCount(data?.last24h?.observedSlots)&&
+        validCount(data?.last24h?.clearObservations)&&
+        validCount(data?.last24h?.activeObservations)&&
+        validCount(data?.last24h?.unknownObservations)&&
+        validCount(data?.last30d?.episodes)&&
+        validCount(data?.last30d?.resolved)&&
+        validCount(data?.last30d?.open)&&
+        validCount(data?.last30d?.persistentOpen)){
+        publicationTrends={available:true,valid:true,
+          monitor:data.monitor,trend:data.trend,
+          last24h:data.last24h,last30d:data.last30d,asOf:data.asOf,
+          noOutageClaim:true};
+      }else publicationTrends={available:true,valid:false};
+    }catch{publicationTrends={available:true,valid:false};}
+  }
   // V1.211: durable human follow-ups are returned only after PostgreSQL role scoping.
   // An unavailable RPC is explicitly marked unverified, never an empty task list.
   let followups={available:false,checkedAt:null,items:[],owners:[],events:[]};
@@ -1267,7 +1305,7 @@ async function adminOperationalAlerts(admin:any,role:string,actorId:string){
     }
   }catch{}
   return {source:"operational_alerts_v1_208",checkedAt,
-    groups:{incidents,support,finance,capture,portals,publication,publicationHistory},lifecycle,followups,readOnly:true,
+    groups:{incidents,support,finance,capture,portals,publication,publicationHistory,publicationTrends},lifecycle,followups,readOnly:true,
     noExternalNotifications:true};
 }
 
