@@ -20,6 +20,9 @@ on:
       - 'scripts/generate-runtime-config.mjs'
       - 'tests/live-portals.mjs'
       - '.github/workflows/build-live-portals.yml'
+      - '.github/workflows/cloudflare-production-deploy.yml'
+      - 'tests/cloudflare-production-deploy-v1-216.mjs'
+      - 'scripts/build-cloudflare-portal.mjs'
 
 permissions:
   contents: read

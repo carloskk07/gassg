@@ -139,6 +139,8 @@ jobs:
         run: node tests/admin-alert-ack-v1-214.mjs
       - name: Owner acknowledgment escalation V1.215 regression
         run: node tests/admin-alert-ack-escalation-v1-215.mjs
+      - name: Three-portals Cloudflare deployment V1.216 regression
+        run: node tests/cloudflare-production-deploy-v1-216.mjs
       - name: First real PSP pilot preflight V1.146 regression contract
         run: node tests/first-real-psp-pilot-preflight-v1-146.mjs
       - name: Production trust language V1.147 regression contract
