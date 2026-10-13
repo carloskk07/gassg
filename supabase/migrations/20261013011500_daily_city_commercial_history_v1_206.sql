@@ -23,6 +23,7 @@ declare
   v_count integer;
   v_rows jsonb;
   v_saved public.admin_city_commercial_history_v1_205%rowtype;
+  v_inserted boolean:=false;
 begin
   -- The cron job belongs to postgres. Never permit caller-supplied identity or data.
   if session_user <> 'postgres' then
@@ -66,6 +67,7 @@ begin
     v_count>jsonb_array_length(v_rows),v_rows)
   on conflict(snapshot_bucket) do nothing
   returning * into v_saved;
+  if found then v_inserted:=true; end if;
   if not found then
     select * into v_saved from public.admin_city_commercial_history_v1_205
      where snapshot_bucket=v_bucket;
@@ -74,7 +76,7 @@ begin
     raise exception 'COMMERCIAL_HISTORY_WRITE_FAILED' using errcode='P0001';
   end if;
   return jsonb_build_object('id',v_saved.id,
-    'inserted',v_saved.capture_origin='scheduled',
+    'inserted',v_inserted,
     'origin',v_saved.capture_origin,
     'cityCount',v_saved.city_count,
     'sampled',v_saved.sampled,
