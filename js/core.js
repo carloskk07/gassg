@@ -367,11 +367,35 @@ function toast(msg){
   t.textContent=msg;t.classList.add('show');
   clearTimeout(toast._timer);toast._timer=setTimeout(()=>t.classList.remove('show'),2600);
 }
+const GROWTH_REF_STORAGE='tamao-growth-first-ref-v1-226';
+const GROWTH_REF_TTL_MS=30*24*60*60*1000;
+function growthAttributionCode(){
+  try{
+    const item=JSON.parse(localStorage.getItem(GROWTH_REF_STORAGE)||'null');
+    const value=String(item?.code||'').trim().toUpperCase();
+    if(/^[A-Z0-9]{5,40}$/.test(value)&&
+      Number.isFinite(Number(item?.expiresAt))&&
+      Number(item.expiresAt)>Date.now())return value;
+    if(item)localStorage.removeItem(GROWTH_REF_STORAGE);
+  }catch{}
+  const local=String(state?.user?.referredBy||'').trim().toUpperCase();
+  return /^[A-Z0-9]{5,40}$/.test(local)?local:'';
+}
 function parseReferral(){
   try{
-    const ref=new URLSearchParams(location.search).get('ref');
-    if(ref&&ref!==state.user.referralCode&&!state.user.referredBy){
-      state.user.referredBy=ref.trim().slice(0,40); save();
+    const raw=String(new URLSearchParams(location.search).get('ref')||'')
+      .trim().toUpperCase();
+    const existing=growthAttributionCode();
+    if(!existing&&/^[A-Z0-9]{5,40}$/.test(raw)&&
+      raw!==String(state?.user?.referralCode||'').toUpperCase()){
+      // Only a campaign hint, never economic authorization. First touch wins
+      // locally; Supabase still validates the code and eligible conversion.
+      try{localStorage.setItem(GROWTH_REF_STORAGE,JSON.stringify({
+        code:raw,expiresAt:Date.now()+GROWTH_REF_TTL_MS
+      }));}catch{}
+      state.user.referredBy=raw;
+    }else if(existing&&!state.user.referredBy){
+      state.user.referredBy=existing;
     }
   }catch{}
 }
@@ -828,7 +852,7 @@ function shell(content){
     :merchantPortal
       ? '<button onclick="go(\'merchant\')">Operação</button><button onclick="go(\'catalog\')">Catálogo</button><button onclick="go(\'merchants\')">Parceiros</button>'
       : prelaunchPublic
-        ? '<button onclick="go(\'home\')">Início</button><button onclick="openPrelaunchCustomerLead()">Disponibilidade</button><button onclick="go(\'learn\')">Como funciona</button><button onclick="go(\'merchants\')">Para empresas</button><button onclick="go(\'contact\')">Contato</button>'
+        ? '<button onclick="go(\'home\')">Início</button><button onclick="openPrelaunchCustomerLead()">Disponibilidade</button><button onclick="go(\'earn\')">Indique</button><button onclick="go(\'merchants\')">Para empresas</button><button onclick="go(\'contact\')">Contato</button>'
         : '<button onclick="go(\'home\')">Início</button><button onclick="go(\'learn\')">Como funciona</button><button onclick="go(\'earn\')">Ganhe</button><button onclick="go(\'club\')">Clube</button><button onclick="go(\'merchants\')">Para revendas</button>';
   const switcher=adminPortal
     ? '<div class="mode-pill" aria-label="Alternar ambiente"><button onclick="openCustomerPortal()">Site</button><button class="active" onclick="go(\'admin\')">Admin</button></div>'
@@ -859,7 +883,7 @@ function bottomNav(r){
       :testDemo&&state.mode==='merchant'
         ?[['merchant','🏪','Operação','go'],['merchant-orders','📦','Pedidos','go'],['catalog','🧺','Catálogo','go'],['merchant-metrics','📊','Desempenho','go'],['merchants','➕','Parceiros','go']]
         :prelaunchPublic
-          ?[['home','⌂','Início','go'],['early-access','🔔','Disponibilidade','lead'],['learn','🛡️','Como funciona','go'],['merchants','🏪','Vender','go'],['contact','💬','Contato','go']]
+          ?[['home','⌂','Início','go'],['early-access','🔔','Disponibilidade','lead'],['earn','🤝','Indicar','go'],['merchants','🏪','Vender','go'],['contact','💬','Contato','go']]
           :[['home','⌂','Início','go'],['order','🔥','Pedir','start'],['tracking','📍','Pedido','go'],['earn','💰','Ganhe','go'],['club','★','Clube','go']];
   return `<nav class="bottom-nav" aria-label="Navegação principal">${items.map(([id,ic,l,act])=>{
     const active=r===id;

@@ -131,3 +131,31 @@ Essa medição:
 - não grava IP bruto na tabela analítica.
 
 Pixels publicitários de terceiros continuam fora desta fase. Qualquer adoção futura exigirá nova revisão de privacidade, consentimento e governança.
+
+## Rede TAMÃO — fundação V1.226
+
+A experiência pública volta a destacar **Indique o TAMÃO**, inclusive nas
+cidades em que ainda não há oferta habilitada. O visitante pode convidar
+amigos ou apresentar revendas por link/WhatsApp. O código de uma conta
+existente é preservado como pista de atribuição por até 30 dias no navegador;
+o código NÃO é prova econômica e não autoriza premiações.
+
+Na captura de leads consentidos, o servidor somente registra a primeira
+atribuição de um lead recém-criado (não deduplicado, não reexecutado), após
+validar o código do usuário ou da revenda no Supabase. Convites inválidos
+não são atribuídos e não impedem o cadastro. O status retornado
+`referralCaptured` só é verdadeiro quando a gravação foi confirmada.
+
+Revendas autenticadas com papel proprietário ou gerente podem gerar um
+código aleatório próprio e consultar contagens agregadas de interesse
+de novos clientes e de outras revendas em **Minha rede**. Convites de
+equipe permanecem separados. Os registros não incluem nomes, WhatsApp,
+e-mails ou dados financeiros na resposta à revenda.
+
+**Limites explícitos:** a V1.226 não altera a comissão de indicação direta
+existente para primeiras compras qualificadas, não cria remuneração de
+revenda por revenda, não credita saldos, não ativa saques e não presume
+que um lead equivale a um cliente ou parceiro já habilitado.
+A futura conversão em benefício exigirá confirmação administrativa e
+análise do orçamento real por pedido. Sem provedor real de ofertas, a
+página de indicações continua disponível sem criar transações.

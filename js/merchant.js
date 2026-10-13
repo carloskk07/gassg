@@ -1,3 +1,85 @@
+function merchantGrowthNetworkSection(merchant){
+  const role=String(merchant?.memberRole||'');
+  if(!['owner','manager'].includes(role))return '';
+  const merchantId=String(merchant?.merchantId||'');
+  const growth=globalThis.merchantRuntime?.growthNetwork;
+  const valid=growth?.merchantId===merchantId&&
+    growth?.source==='merchant_network_v1_226'&&
+    /^TMR[A-F0-9]{24}$/.test(String(growth?.inviteCode||''))&&
+    growth?.rewardEnabled===false;
+  const link=(type)=>'https://tamao.com.br/?ref='+
+    encodeURIComponent(valid?growth.inviteCode:'')+
+    (type==='merchant'?'#merchants':'#home');
+  return `<section class="section merchant-growth-network" id="merchant-growth-network">
+    <div class="section-head"><div><span class="section-kicker">REDE TAMÃO</span>
+      <h2>Minha rede de indicações</h2>
+      <p>Convide clientes e outras revendas. Uma empresa indicada pode criar seu cadastro, mas só poderá vender após habilitação.</p>
+    </div></div>
+    <div class="card flat">
+      <p class="muted">Tenha um link próprio da sua revenda para compartilhar. A rede registra interesses qualificados; novas recompensas financeiras ainda não estão habilitadas.</p>
+      ${valid?`
+        <div class="share-box">${esc(link('merchant'))}</div>
+        <div class="merchant-kpis" style="margin-top:12px">
+          <div class="kpi"><span class="label">Revendas interessadas</span><strong>${Math.max(0,Number(growth.merchantInterests||0))}</strong></div>
+          <div class="kpi"><span class="label">Clientes interessados</span><strong>${Math.max(0,Number(growth.customerInterests||0))}</strong></div>
+        </div>
+        <div class="order-actions" style="margin-top:14px">
+          <button class="primary" onclick="merchantGrowthShareFromUi('merchant')">Indicar outra revenda</button>
+          <button class="secondary" onclick="merchantGrowthShareFromUi('customer')">Convidar clientes</button>
+          <button class="ghost" onclick="merchantGrowthLoadFromUi()">Atualizar minha rede</button>
+        </div>`
+        :`<button class="primary" onclick="merchantGrowthLoadFromUi()">Gerar meu link de indicações</button>`}
+      ${globalThis.merchantRuntime?.growthError?
+        '<div class="notice danger">'+esc(globalThis.merchantRuntime.growthError)+'</div>':''}
+      <p class="tiny muted">Atribuição somente após cadastro consentido. Nenhum crédito, saque ou comissão de revenda é liberado por esse convite.</p>
+    </div>
+  </section>`;
+}
+async function merchantGrowthLoadFromUi(){
+  const runtime=globalThis.merchantRuntime;
+  const merchantId=String(runtime?.merchant?.merchantId||'');
+  if(!merchantId||!['owner','manager'].includes(String(runtime?.merchant?.memberRole||''))){
+    return toast('Apenas proprietário ou gerente pode acessar a rede da revenda');
+  }
+  if(runtime.growthLoading)return;
+  runtime.growthLoading=true;
+  runtime.growthError=null;
+  try{
+    const data=await merchantInvoke('merchant-ops',{
+      merchantId,action:'growth-network'
+    });
+    if(data?.source!=='merchant_network_v1_226'||
+      data?.merchantId!==merchantId||data?.rewardEnabled!==false||
+      !/^TMR[A-F0-9]{24}$/.test(String(data?.inviteCode||''))){
+      throw new Error('O vínculo do convite não foi confirmado pelo servidor');
+    }
+    runtime.growthNetwork=data;
+  }catch(e){
+    runtime.growthError=String(e?.message||'Não foi possível consultar a rede');
+  }finally{runtime.growthLoading=false;render();}
+}
+async function merchantGrowthShareFromUi(type='merchant'){
+  const network=globalThis.merchantRuntime?.growthNetwork;
+  const merchantId=String(globalThis.merchantRuntime?.merchant?.merchantId||'');
+  if(network?.merchantId!==merchantId||
+    !/^TMR[A-F0-9]{24}$/.test(String(network?.inviteCode||''))){
+    return toast('Carregue primeiro o código da sua revenda');
+  }
+  const inviteType=type==='customer'?'customer':'merchant';
+  const url='https://tamao.com.br/?ref='+encodeURIComponent(network.inviteCode)+
+    (inviteType==='merchant'?'#merchants':'#home');
+  const message=inviteType==='merchant'
+    ?'Conheça o TAMÃO e cadastre sua revenda para alcançar mais clientes: '+url
+    :'Conheça o TAMÃO e consulte produtos na sua região: '+url;
+  try{
+    if(navigator.share){await navigator.share({title:'Rede TAMÃO',text:message,url});return;}
+    if(navigator.clipboard?.writeText){
+      await navigator.clipboard.writeText(message);
+      toast('Convite copiado para compartilhar');return;
+    }
+    toast('Copie o endereço exibido na área Minha rede');
+  }catch(e){if(e?.name!=='AbortError')toast('Não foi possível compartilhar automaticamente');}
+}
 function merchantRealPortalRequired(){
   return shell('<section class="page"><span class="eyebrow">ÁREA DA REVENDA</span><h1 class="page-title">Área da minha revenda</h1><p class="muted">Entre ou cadastre sua empresa para configurar produtos, entregas e recebimentos.</p><button class="primary full" onclick="openMerchantPortal()">Entrar ou cadastrar minha revenda</button></section>');
 }
@@ -858,6 +940,7 @@ function merchantLivePage(){
     <section class="section" id="merchant-live-orders"><div class="section-head"><div><h2>Pedidos que exigem ação</h2><p>Aceite, saída e recebimento só são registrados depois de confirmação no sistema.</p></div></div>${merchantDeliveryAttentionView(rt)}${merchantOrderQueueView(orders)}</section>
 
     ${merchantSetupView(rt)}
+    ${merchantGrowthNetworkSection(m)}
     ${merchantAlertControl()}
     <details class="merchant-diagnostic-drawer"><summary>Verificações de documentos e habilitação</summary>
       ${merchantEnablementAssistantView(rt)}

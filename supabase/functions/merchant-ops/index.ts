@@ -117,7 +117,7 @@ Deno.serve(async(req:Request)=>{
     const merchantId=String(body.merchantId??"");
     const action=String(body.action??"");
     if(!UUID_RE.test(merchantId))throw new DomainError("INVALID_MERCHANT","Revenda inválida.",400);
-    if(!["enablement","heartbeat","set-online","update-product","update-logistics","update-capacity","update-scheduling","update-payment-methods","update-payment-routes","update-member-profile","request-billing-package","notify-billing-payment","notify-refund-recovery-payment","cancel-billing-request"].includes(action)){
+    if(!["growth-network","enablement","heartbeat","set-online","update-product","update-logistics","update-capacity","update-scheduling","update-payment-methods","update-payment-routes","update-member-profile","request-billing-package","notify-billing-payment","notify-refund-recovery-payment","cancel-billing-request"].includes(action)){
       throw new DomainError("INVALID_ACTION","Ação inválida.",400);
     }
 
@@ -134,6 +134,22 @@ Deno.serve(async(req:Request)=>{
     if(!membership)throw new DomainError("MERCHANT_ACCESS_DENIED","Você não possui acesso a esta revenda.",403);
 
     const role=membership.member_role;
+    if(action==="growth-network"){
+      if(!canManage(role))throw new DomainError("MERCHANT_ACCESS_DENIED",
+        "Somente proprietário ou gerente pode consultar a rede de indicações.",403);
+      const {data,error}=await admin.rpc("merchant_growth_network_v1_226",{
+        p_actor_user_id:user.id,p_merchant_id:merchantId
+      });
+      if(error)throw error;
+      if(data?.source!=="merchant_network_v1_226"||
+         data?.merchantId!==merchantId||
+         data?.rewardEnabled!==false||
+         !/^TMR[A-F0-9]{24}$/.test(String(data?.inviteCode||""))){
+        throw new DomainError("GROWTH_NETWORK_UNVERIFIED",
+          "Não foi possível comprovar seu código de indicação.",503);
+      }
+      return json(data,200,origin);
+    }
     if(action==="enablement"){
       if(!canManage(role)){
         throw new DomainError("MERCHANT_ACCESS_DENIED",

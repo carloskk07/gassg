@@ -159,6 +159,8 @@ jobs:
         run: node tests/admin-publication-trends-v1-224.mjs
       - name: Cron OIDC interruption diagnosis and guidance V1.225 regression
         run: node tests/admin-publication-monitor-v1-225.mjs
+      - name: Rede TAMÃO growth network V1.226 regression
+        run: node tests/growth-network-v1-226.mjs
       - name: First real PSP pilot preflight V1.146 regression contract
         run: node tests/first-real-psp-pilot-preflight-v1-146.mjs
       - name: Production trust language V1.147 regression contract
