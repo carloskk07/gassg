@@ -181,6 +181,8 @@ jobs:
         run: node tests/merchant-ads-campaign-v1-233.mjs
       - name: TAMÃO Ads V1.234 audience evidence and revenue safety
         run: node tests/ads-audience-readiness-v1-234.mjs
+      - name: TAMÃO Ads V1.235 nonbillable preview replay contract
+        run: node tests/ads-preview-proof-v1-235.mjs
       - name: First real PSP pilot preflight V1.146 regression contract
         run: node tests/first-real-psp-pilot-preflight-v1-146.mjs
       - name: Production trust language V1.147 regression contract
