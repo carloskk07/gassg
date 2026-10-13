@@ -100,7 +100,7 @@ async function requireAdmin(admin:any,userId:string){
   if(!data)throw new DomainError("ADMIN_ACCESS_DENIED","Esta conta não possui acesso administrativo.",403);
   return data;
 }
-const ADMIN_READ_ACTIONS=new Set(["summary","search","entity-detail","system-health","billing-provider-health","audit-search","incident-list","merchant-payment-preflight","prospect-intelligence","expansion-notifications","expansion-radar","merchant-enablement","sale-payment-history","finance-receipts-history","commercial-history-list","operational-alerts","ads-demand","ads-audience-readiness","ads-preview-summary","ads-placement-readiness","ads-campaign-queue","growth-referral-review-queue"]);
+const ADMIN_READ_ACTIONS=new Set(["summary","search","entity-detail","system-health","billing-provider-health","audit-search","incident-list","merchant-payment-preflight","prospect-intelligence","expansion-notifications","expansion-radar","merchant-enablement","sale-payment-history","finance-receipts-history","commercial-history-list","operational-alerts","ads-demand","ads-audience-readiness","ads-preview-summary","ads-placement-readiness","ads-pilot-preflight","ads-campaign-queue","growth-referral-review-queue"]);
 const ADMIN_ROLE_ACTIONS:Record<string,Set<string>>={
   superadmin:new Set(["*"]),
   operations:new Set([
@@ -2219,6 +2219,52 @@ Deno.serve(async(req:Request)=>{
       if(error)throw error;
       return json({notifications:(data||[]).filter((n:any)=>marketCityKey(n.city)===key
         &&n.prelaunch_leads?.consent_at&&n.prelaunch_leads?.status!=="closed")},200,origin);
+    }
+    if(action==="ads-pilot-preflight"){
+      if(!["superadmin","operations","compliance","finance","readonly"].includes(String(adminAccess.admin_role))){
+        throw new DomainError("ADMIN_PERMISSION_DENIED","Perfil sem acesso ao diagnóstico do piloto.",403);
+      }
+      const merchantId=uuid(body.merchantId,"merchantId");
+      const {data,error}=await admin.rpc("admin_ads_pilot_preflight_v1_237",{
+        p_actor:user.id,p_merchant:merchantId
+      });
+      if(error)throw error;
+      const checks=data?.checks;
+      const evidence=data?.evidence;
+      const commercial=data?.commercial;
+      const checkNames=[
+        "creativeExists","creativeReviewed","advertiserOptedIn","merchantActiveOnline",
+        "campaignCityMatchesMerchant","merchantEligibleForRealOffers",
+        "eligibleCategoryProductExists","internalPreviewClientReported",
+        "publicPlacementLocked","billingLocked","verifiedDeliveryLocked"
+      ];
+      const evidenceNames=[
+        "visitorCityVerified","clientPreviewIndependentlyVerified",
+        "endToEndCustomerAdDeliveryVerified","adFraudDefenseVerified",
+        "customerBasketAvailabilityProven"
+      ];
+      const valid=data?.source==="admin_ads_pilot_preflight_v1_237"
+        &&data?.merchantId===merchantId
+        &&data?.readOnly===true
+        &&Number.isFinite(Date.parse(String(data?.checkedAt||"")))
+        &&checks&&checkNames.every(k=>typeof checks[k]==="boolean")
+        &&data.internalPrerequisitesMet===checkNames.every(k=>checks[k]===true)
+        &&evidence&&evidenceNames.every(k=>evidence[k]===false)
+        &&commercial?.publicAdsLive===false
+        &&commercial?.readyToSell===false
+        &&commercial?.noCharge===true
+        &&commercial?.billableImpressions===0
+        &&commercial?.verifiedAdImpressions===0
+        &&commercial?.adsRevenueCents===0
+        &&(data.campaignVersion===null||
+           (Number.isSafeInteger(data.campaignVersion)&&data.campaignVersion>=1))
+        &&(data.campaignStatus===null||
+           ["draft","submitted","approved_creative","needs_changes","withdrawn"].includes(data.campaignStatus))
+        &&(data.city===null||(typeof data.city==="string"&&data.city.length<=100))
+        &&(data.state===null||/^[A-Z]{2}$/.test(String(data.state)));
+      if(!valid)throw new DomainError("ADS_PILOT_PREFLIGHT_UNVERIFIED",
+        "Requisitos do piloto não puderam ser confirmados.",503);
+      return json(data,200,origin);
     }
     if(action==="ads-placement-readiness"){
       if(!["superadmin","operations","compliance","finance","readonly"].includes(String(adminAccess.admin_role)))
