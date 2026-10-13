@@ -133,3 +133,23 @@ Nunca inserir o token em commit, arquivo público, comentário de PR nem mensage
 Referências oficiais:
 - https://developers.cloudflare.com/pages/how-to/use-direct-upload-with-continuous-integration/
 - https://developers.cloudflare.com/pages/configuration/git-integration/
+
+## Recuperação automática controlada — V1.218
+
+O workflow **TAMÃO Cloudflare native delivery reconcile** continua usando a
+confirmação de prontidão OIDC e o SHA exato da `main` como pré-requisitos.
+A partir da V1.218, ele também verifica os detalhes **atuais** da execução
+que falhou antes de tentar recuperar a publicação:
+
+- A execução precisa pertencer ao repositório, arquivo de workflow, branch e
+  commit oficiais; eventos de PR não podem ser recuperados como produção.
+- `run_attempt=1` permite **uma única** recuperação automática. Se a execução
+  já foi repetida (`run_attempt>=2`), retorna `retry_limit_reached`, sem nova tentativa.
+- Estado alterado, tentativas indisponíveis, SHA obsoleto ou divergência entre
+  a lista e os detalhes impedem qualquer reexecução especulativa.
+- Falhas persistentes exigem investigação humana no GitHub Actions. A rotina
+  não cria novos segredos, não publica diretamente e não desativa os gates.
+
+O código de retorno do reconciliador aparece no log como `CF_NATIVE_RECONCILE`.
+Um workflow de conciliação concluído com sucesso pode indicar uma recusa
+segura de nova tentativa; não substitui a prova do deploy nem da prontidão.
