@@ -5,7 +5,7 @@ for(const term of [
  'growth_referral_reviews_v1_230','admin_review_growth_referral_v1_230',
  'admin_growth_referral_review_queue_v1_230',
  "admin_role in ('superadmin','compliance')",
- "v_app.status='approved'","v_app.cnpj<>v_attr.cnpj",
+ "v_app.status='approved'","v_app.cnpj=v_attr.cnpj",
  "mm.user_id=v_app.applicant_user_id","mm.member_role='owner' and mm.active",
  "decision <> 'verified_identity'","reward_eligible boolean not null default false check(reward_eligible=false)",
  "grant select on table public.growth_referral_reviews_v1_230 to service_role",
@@ -33,7 +33,7 @@ for(const term of [
  "i.invite_code=v_attr.referral_code",
  "upper(p.referral_code)=v_attr.referral_code",
  "mm.user_id=v_app.applicant_user_id and mm.active",
- "v_cnpj_ok and v_owner_ok and v_inviter_ok",
+ "coalesce(v_cnpj_ok,false) and coalesce(v_owner_ok,false) and coalesce(v_inviter_ok,false)",
  "REFERRAL_REVIEW_EFFECTIVE_ACL_DRIFT",
  "has_function_privilege('anon'",
 ]) assert.ok(sql.includes(term),'missing server-side safety: '+term);
