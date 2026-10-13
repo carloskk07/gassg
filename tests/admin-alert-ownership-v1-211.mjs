@@ -8,6 +8,7 @@ const sql=read('supabase/migrations/20261013035500_admin_alert_followups_v1_211.
 new vm.Script(source,{filename:'admin.js'});
 const names=['adminOperationalFollowupsSafe','adminOperationalFollowupCanWrite',
  'adminOperationalFollowupEditView','adminOperationalFollowupsEventsView','adminOperationalFollowupsEscalationsView','adminOperationalFollowupsDormantView',
+  'adminOperationalMyQueueModel','adminOperationalMyQueueView','adminOperationalFollowupFocus',
  'adminOperationalSaveFollowup','adminOperationalAlertModel','adminOperationalAlertsCurrent',
  'adminOperationalAlertTriage','adminOperationalAlertLifecycle',
  'adminOperationalAlertHistoryDate','adminOperationalAlertHistoryNote',

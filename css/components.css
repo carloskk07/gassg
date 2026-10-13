@@ -2869,3 +2869,18 @@ details[id^="prospect-editor-"] summary:focus-visible{outline:3px solid var(--br
 .admin-alert-escalation-row p{margin:4px 0}
 .admin-alert-escalation-row small{overflow-wrap:anywhere}
 @media(max-width:550px){.admin-alert-escalation-row{flex-direction:column}}
+
+/* V1.213 — signed-in administrator's follow-up queue */
+.admin-my-alert-queue{margin:16px 0 20px;padding:14px;border:1px solid var(--line);border-radius:12px;min-width:0}
+.admin-my-alert-queue-head{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap}
+.admin-my-alert-queue-head h3{font-size:1.05rem;margin:0 0 4px}
+.admin-my-alert-queue-head p{margin:0}
+.admin-my-alert-queue-list{display:grid;gap:9px;margin-top:12px}
+.admin-my-alert-queue-item{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:12px;border-radius:10px;border:1px solid var(--line);min-width:0}
+.admin-my-alert-queue-item.urgent{border-inline-start:3px solid #b45339}
+.admin-my-alert-queue-item>div{min-width:0}
+.admin-my-alert-queue-item strong{overflow-wrap:anywhere}
+.admin-my-alert-queue-item p{margin:4px 0;overflow-wrap:anywhere}
+.admin-my-alert-queue-item small{color:var(--muted)}
+.admin-my-alert-queue-item button{min-height:44px;flex-shrink:0}
+@media(max-width:650px){.admin-my-alert-queue-item{flex-direction:column;align-items:stretch}.admin-my-alert-queue-item button{width:100%}}

@@ -16,6 +16,7 @@ const names=['adminLoadOperationalAlerts','adminOperationalAlertModel',
   'adminOperationalAlertTriage','adminOperationalAlertSetFilter',
   'adminOperationalFollowupsSafe','adminOperationalFollowupCanWrite',
   'adminOperationalFollowupEditView','adminOperationalFollowupsEventsView','adminOperationalFollowupsEscalationsView','adminOperationalFollowupsDormantView',
+  'adminOperationalMyQueueModel','adminOperationalMyQueueView','adminOperationalFollowupFocus',
   'adminOperationalAlertLifecycle','adminOperationalAlertHistoryDate',
   'adminOperationalAlertHistoryNote','adminOperationalAlertHistoryView','adminOperationalAlertsCurrent',
   'adminOperationalAlertBadge','adminOperationalAlertsOpen','adminOperationalAlertsView'];
