@@ -105,13 +105,13 @@ const ADMIN_ROLE_ACTIONS:Record<string,Set<string>>={
   operations:new Set([
     "approve-application","reject-application","verify-merchant","activate-merchant","suspend-merchant",
     "set-delivery-capability","merchant-representation-review","order-control","support-case-status","lead-status","public-request-status",
-    "pilot-invite","assisted-merchant-onboarding","product-registry","verify-launch-portals","incident-action","market-city-pause","city-notification-status","prospect-crm","prospect-invite","commercial-history-capture"
+    "pilot-invite","assisted-merchant-onboarding","product-registry","verify-launch-portals","incident-action","market-city-pause","city-notification-status","prospect-crm","prospect-invite","commercial-history-capture","operational-alert-ack"
   ]),
   finance:new Set([
     "financial-action","review-referral","retry-reward","retry-accounting","reverse-order",
-    "commercial-policy","merchant-billing-plan","merchant-billing-action","merchant-billing-payment-request","merchant-billing-payment-event","merchant-billing-refund","merchant-billing-provider-cancel-retry","merchant-payment-capability","create-billing-webhook-probe","incident-action"
+    "commercial-policy","merchant-billing-plan","merchant-billing-action","merchant-billing-payment-request","merchant-billing-payment-event","merchant-billing-refund","merchant-billing-provider-cancel-retry","merchant-payment-capability","create-billing-webhook-probe","incident-action","operational-alert-ack"
   ]),
-  support:new Set(["order-control","support-case-status","incident-action"]),
+  support:new Set(["order-control","support-case-status","incident-action","operational-alert-ack"]),
   compliance:new Set([
     "approve-application","reject-application","verify-merchant","activate-merchant","suspend-merchant",
     "set-delivery-capability","merchant-representation-review","incident-action","prospect-crm","prospect-invite"
@@ -2004,6 +2004,25 @@ Deno.serve(async(req:Request)=>{
       throw new DomainError("INVALID_IDEMPOTENCY_KEY","Chave de idempotência obrigatória para mutações administrativas.",400);
     }
 
+    if(action==="operational-alert-ack"){
+      const source=String(body.source||"");
+      const revision=Number(body.expectedRevision);
+      if(!["incidents","support","finance","capture"].includes(source)||
+         !Number.isSafeInteger(revision)||revision<1||revision>100000){
+        throw new DomainError("INVALID_ALERT_ACK","Atribuição ou revisão inválida.",400);
+      }
+      // Postgres revalidates active admin, current revision, source role and ownership.
+      const {data,error}=await admin.rpc("admin_ack_alert_followup_v1_214",{
+        p_actor_id:user.id,p_source:source,p_expected_revision:revision
+      });
+      if(error)throw error;
+      if(data?.source!=="server_authoritative"||
+         !Number.isSafeInteger(data?.revision)||
+         !Number.isFinite(Date.parse(String(data?.acknowledgedAt||"")))){
+        throw new DomainError("ALERT_ACK_WRITE_FAILED","Ciência da atribuição não confirmada.",503);
+      }
+      return json(data,200,origin);
+    }
     if(action==="operational-alert-followup"){
       const source=String(body.source||"");
       if(!["incidents","support","finance","capture"].includes(source)){
