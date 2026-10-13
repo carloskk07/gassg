@@ -2279,7 +2279,15 @@ function openMerchantPortal(){
     toast('O portal da revenda ainda não possui uma origem dedicada configurada');
     return;
   }
-  location.href=href;
+  const destination=new URL(href);
+  const ref=typeof growthAttributionCode==='function'?growthAttributionCode():'';
+  if(/^[A-Z0-9]{5,40}$/.test(ref)){
+    // Browser storage is origin-scoped. Transfer only the code, never a
+    // customer token, via the dedicated official merchant portal link.
+    destination.searchParams.set('ref',ref);
+    destination.hash='merchant-join';
+  }
+  location.href=destination.toString();
 }
 function openCustomerPortal(){
   const href=buildPortalHref(globalThis.CHAMA_CUSTOMER_ORIGIN,'customer');
