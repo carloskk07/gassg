@@ -66,7 +66,7 @@ assert.ok(sandbox.healthView(sandbox.validate(health('healthy'))).includes('Capt
 assert.ok(sandbox.healthView(sandbox.validate(health('in_grace'))).includes('dentro do prazo'));
 assert.equal(sandbox.validate(health('invalid')),null);
 assert.equal(sandbox.validate(health('healthy',{expectedAt:'<script>alert(1)</script>'})),null);
-assert.equal(sandbox.validate(health('healthy',{cronRunStatus:'<img onerror=evil>'})),null===false?null:sandbox.validate(health('healthy',{cronRunStatus:'<img onerror=evil>'})));
+assert.equal(sandbox.validate(health('healthy',{cronRunStatus:'<img onerror=evil>'})),null);
 // The displayed text comes exclusively from the fixed allowlist (never injected content).
 assert.ok(!sandbox.healthView(sandbox.validate(health('healthy',{
  lastWatchdogStatus:'<img onerror=evil>'
