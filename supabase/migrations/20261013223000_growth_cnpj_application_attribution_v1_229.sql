@@ -104,7 +104,7 @@ begin
    case when v_lead is null then 'none' else 'contact_match_unverified' end)
  on conflict do nothing returning application_id into v_new;
  return jsonb_build_object('recorded',v_new is not null,
-   'reason',case when v_new is null then 'ALREADY_ATTRIBUTED' else 'CNJP_REFERRAL_CAPTURED_UNVERIFIED' end,
+   'reason',case when v_new is null then 'ALREADY_ATTRIBUTED' else 'CNPJ_REFERRAL_CAPTURED_UNVERIFIED' end,
    'verified',false,'rewardEligible',false);
 end;
 $fn$;
