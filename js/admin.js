@@ -42,6 +42,7 @@ const adminRuntime={
   salePaymentHistory:{attempts:[],interruptedOrders:[],nextCursor:null,hasMore:false,loading:false,error:null,started:false,checkedAt:null},
   financeHistory:{data:null,loading:false,error:null,checkedAt:null},
   financeWorkspace:'summary',
+  growthBenefitPreview:{data:null,pending:false,error:null},
   prospectReport:null,
   prospectLoadedAt:null,
   prospectLoadedFor:null,
@@ -3635,6 +3636,82 @@ function adminSetFinanceWorkspace(workspace){
   });
 }
 
+function adminGrowthMoneyInputCents(value){
+  const text=String(value??'').trim();
+  if(!/^(?:0|[1-9][0-9]{0,6})(?:[.,][0-9]{1,2})?$/.test(text))return null;
+  const parts=text.replace(',','.').split('.');
+  const cents=Number(parts[0])*100+Number((parts[1]||'').padEnd(2,'0'));
+  return Number.isSafeInteger(cents)&&cents>=0&&cents<=100000000?cents:null;
+}
+async function adminGrowthBenefitPreviewFromUi(){
+  if(!['superadmin','finance'].includes(adminCurrentRole())||
+    adminRuntime.status!=='ready')return;
+  const x=adminRuntime.growthBenefitPreview;
+  if(x.pending)return;
+  const fields=['receivedFeeCents','existingRewardsCents','variableCostCents',
+    'minimumContributionCents','priorCreditsCents'];
+  const values=fields.map((k)=>adminGrowthMoneyInputCents(
+    document.getElementById('admin-growth-'+k)?.value
+  ));
+  if(values.some(v=>v===null)){
+    x.error='Use valores positivos em reais, com até duas casas decimais.';
+    x.data=null;render();return;
+  }
+  x.pending=true;x.error=null;x.data=null;render();
+  try{
+    const payload=Object.fromEntries(fields.map((key,i)=>[key,values[i]]));
+    const result=await adminInvoke({action:'growth-benefit-preview',...payload});
+    if(result?.source!=='merchant_referral_finance_preview_v1_228'||
+       result?.readOnly!==true||result?.rewardEnabled!==false||
+       result?.grantableCents!==0||result?.noPayout!==true||
+       result?.noMerchantSaleProceeds!==true||
+       result?.isScenarioNotRealPayment!==true||
+       !Number.isSafeInteger(result?.illustrativeBenefitCents)||
+       result.illustrativeBenefitCents<0||
+       result.illustrativeBenefitCents>values[0]){
+      throw new Error('A simulação não teve sua integridade comprovada.');
+    }
+    x.data=result;
+  }catch(error){
+    x.error=String(error?.message||'Não foi possível simular.');
+  }finally{x.pending=false;render();}
+}
+function adminGrowthBenefitPreviewView(){
+  if(!['superadmin','finance'].includes(adminCurrentRole()))return '';
+  const preview=adminRuntime.growthBenefitPreview||{};
+  const result=preview.data;
+  const fields=[
+    {id:'receivedFeeCents',name:'Taxa TAMÃO comprovadamente recebida',value:'9,00'},
+    {id:'existingRewardsCents',name:'Cashback e recompensas já custeadas',value:'3,60'},
+    {id:'variableCostCents',name:'Reserva de custos variáveis',value:'0,90'},
+    {id:'minimumContributionCents',name:'Contribuição mínima preservada',value:'3,00'},
+    {id:'priorCreditsCents',name:'Créditos de indicação já concedidos à mesma rede',value:'0,00'}
+  ];
+  return `<section class="section admin-growth-benefit-preview" aria-label="Simulador de benefício da Rede TAMÃO">
+    <div class="section-head"><div><span class="section-kicker">REDE TAMÃO • MODELO FINANCEIRO</span>
+      <h3>Simular benefício por revenda indicada</h3>
+      <p>Exemplo ilustrativo. Nunca gera crédito, saque, cobrança ou promessa de rendimento.</p></div>
+      <span class="status-pill risk">Campanha ainda desativada</span></div>
+    <div class="card flat form-stack">
+      <p class="tiny muted">Informe parcelas em reais. A base será exclusivamente a taxa do TAMÃO efetivamente recebida e conciliada, não o valor do produto vendido pela revenda. A simulação não consulta uma transação real.</p>
+      <div class="grid cards-3">${fields.map(item=>`
+        <div class="input-wrap"><label for="admin-growth-${item.id}">${esc(item.name)} (R$)</label>
+        <input class="input" inputmode="decimal" id="admin-growth-${item.id}"
+          autocomplete="off" placeholder="${item.value}" value="${item.value}" maxlength="11"></div>
+      `).join('')}</div>
+      <button class="secondary" type="button" onclick="adminGrowthBenefitPreviewFromUi()"
+       ${preview.pending?'disabled':''}>${preview.pending?'Conferindo premissas…':'Calcular cenário sem liberar créditos'}</button>
+      ${preview.error?'<p class="notice danger">'+esc(preview.error)+'</p>':''}
+      ${result?`
+        <div class="merchant-kpis">
+          <div class="kpi"><span class="label">Benefício ilustrativo dentro da margem</span><strong>${adminMoney(result.illustrativeBenefitCents)}</strong><small>Sujeito a comprovações futuras</small></div>
+          <div class="kpi"><span class="label">Crédito realmente autorizável hoje</span><strong>${adminMoney(result.grantableCents)}</strong><small>Campanha inativa no banco</small></div>
+          <div class="kpi"><span class="label">Margem remanescente após os custos</span><strong>${adminMoney(result.safeMarginRemainingCents)}</strong></div>
+        </div>
+        <p class="tiny muted">Exemplo: ${Number(result.shareBps)/100}% da taxa recebida, por até ${Number(result.days)} dias, teto de ${adminMoney(result.perReferredMerchantCapCents)} por empresa indicada. Nenhum valor é pago nem prometido.</p>
+      `:''}
+    </div></section>`;
+}
 function adminFinanceOverview(d){
   const billing=d.merchantBilling||{};
   const metrics=billing.metrics||{};
@@ -5242,6 +5319,7 @@ function adminPage(){
 `;
   const financePolicyContent=`
     ${adminCommercialPolicySection(d)}
+    ${adminGrowthBenefitPreviewView()}
     <section class="section"><div class="card flat form-stack"><h3>Reversão financeira auditada</h3><p class="muted tiny">Somente para um pedido já liquidado que teve estorno/refund confirmado. O histórico operacional de entrega permanece.</p><div class="input-wrap"><label for="admin-reverse-order">ID do pedido</label><input id="admin-reverse-order" class="input" placeholder="UUID do pedido"></div><div class="input-wrap"><label for="admin-reverse-reason">Motivo</label><input id="admin-reverse-reason" class="input" maxlength="240" placeholder="Motivo confirmado"></div><div class="input-wrap"><label for="admin-reverse-ref">Referência</label><input id="admin-reverse-ref" class="input" maxlength="120" placeholder="ID do estorno/comprovante"></div><button class="danger-btn" onclick="adminReverseOrder()">Executar reversão</button></div></section>
 `;
   const financeAreas={
