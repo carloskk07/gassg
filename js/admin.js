@@ -1421,7 +1421,7 @@ function adminOperationalFollowupsSafe(value){
   }
   for(const e of value.events){
     if(!sources.includes(e?.source)||!allowed.includes(e.source)||
-      !['created','updated','closed','reopened','overdue','acknowledged'].includes(e.kind)||
+      !['created','updated','closed','reopened','overdue','acknowledged','ack_overdue'].includes(e.kind)||
       !Number.isFinite(Date.parse(String(e.at||'')))||
       !Number.isSafeInteger(e.revision)||e.revision<1)return null;
     events.push(e);
@@ -1539,7 +1539,8 @@ function adminOperationalFollowupsEventsView(followups){
   const kindLabels={created:'Acompanhamento criado',updated:'Responsável, prazo ou situação atualizado',
     closed:'Acompanhamento encerrado',reopened:'Acompanhamento reaberto',
     overdue:'Prazo vencido registrado pelo monitor',
-    acknowledged:'Responsável confirmou ciência da atribuição'};
+    acknowledged:'Responsável confirmou ciência da atribuição',
+    ack_overdue:'Ciência do responsável não confirmada no prazo de 2 horas'};
   const events=followups.events.slice(0,8);
   return '<details class="admin-alert-followup-events"><summary>Histórico auditável dos acompanhamentos</summary>'+
     (events.length?'<div class="admin-ops-alert-history-list">'+
@@ -1558,10 +1559,11 @@ function adminOperationalMyQueueModel(followups,actorId){
   const user=String(actorId).toLowerCase();
   const urgencyOrder={owner_unavailable:0,severely_overdue:1,overdue:2,due_soon:3,on_track:4,closed:5};
   const items=followups.items.filter(x=>x.status!=='closed'&&x.ownerId.toLowerCase()===user)
-    .slice().sort((a,b)=>urgencyOrder[a.urgency]-urgencyOrder[b.urgency]||
+    .slice().sort((a,b)=>Number(b.ackStatus==='overdue')-Number(a.ackStatus==='overdue')||
+      urgencyOrder[a.urgency]-urgencyOrder[b.urgency]||
       Date.parse(a.dueAt)-Date.parse(b.dueAt)||a.source.localeCompare(b.source));
   return {items,total:items.length,
-    critical:items.filter(x=>urgencyOrder[x.urgency]<=2).length,
+    critical:items.filter(x=>urgencyOrder[x.urgency]<=2||x.ackStatus==='overdue').length,
     dueSoon:items.filter(x=>x.urgency==='due_soon').length};
 }
 /* V1.214 — actual owner explicitly confirms receiving a specific revision.
@@ -1602,7 +1604,8 @@ function adminOperationalMyQueueView(followups,actorId){
     severely_overdue:'Atraso de 24 horas ou mais',overdue:'Prazo vencido',
     due_soon:'Vence em até 2 horas',on_track:'Dentro do prazo'};
   const rows=queue.items.map(x=>{
-    const urgent=['owner_unavailable','severely_overdue','overdue'].includes(x.urgency);
+    const urgent=['owner_unavailable','severely_overdue','overdue'].includes(x.urgency)||
+      x.ackStatus==='overdue';
     const ackLabel={acknowledged:'Ciência confirmada',
       overdue:'Ciência pendente há mais de 2 horas',
       pending:'Aguardando confirmação de ciência',
@@ -1650,7 +1653,8 @@ function adminOperationalFollowupsEscalationsView(followups){
   if(!followups)return '<p class="notice">Prazos e responsáveis não verificados nesta consulta.</p>';
   const critical=['owner_unavailable','severely_overdue','overdue'];
   const watch=['due_soon'];
-  const urgent=followups.items.filter(x=>critical.includes(x.urgency)||watch.includes(x.urgency));
+  const urgent=followups.items.filter(x=>x.status!=='closed'&&
+    (critical.includes(x.urgency)||watch.includes(x.urgency)||x.ackStatus==='overdue'));
   if(!urgent.length)return '';
   const sourceName={incidents:'Incidentes',support:'Atendimentos',
     finance:'Processamento financeiro',capture:'Capturas comerciais'};
@@ -1660,26 +1664,28 @@ function adminOperationalFollowupsEscalationsView(followups){
     overdue:'Prazo vencido',due_soon:'Prazo próximo (até 2 horas)'
   };
   const rank={owner_unavailable:0,severely_overdue:1,overdue:2,due_soon:3};
-  urgent.sort((a,b)=>rank[a.urgency]-rank[b.urgency]||
+  urgent.sort((a,b)=>Number(b.ackStatus==='overdue')-Number(a.ackStatus==='overdue')||
+    (rank[a.urgency]??4)-(rank[b.urgency]??4)||
     Date.parse(a.dueAt)-Date.parse(b.dueAt));
-  const urgentCount=urgent.filter(x=>critical.includes(x.urgency)).length;
+  const urgentCount=urgent.filter(x=>critical.includes(x.urgency)||x.ackStatus==='overdue').length;
   const rows=urgent.map(item=>{
     const time=adminOperationalAlertHistoryDate(item.dueAt);
-    const isCritical=critical.includes(item.urgency);
+    const isCritical=critical.includes(item.urgency)||item.ackStatus==='overdue';
     return '<div class="admin-alert-escalation-row '+(isCritical?'critical':'')+'">'+
       '<div><strong>'+esc(sourceName[item.source])+'</strong>'+
-      '<p>'+esc(urgencyName[item.urgency])+' • '+esc(time)+'</p>'+
+      '<p>'+esc(urgencyName[item.urgency]||'Prazo verificado')+' • '+esc(time)+'</p>'+ 
+      (item.ackStatus==='overdue'?'<p class="admin-alert-ack-label">Ciência do responsável não confirmada há mais de 2 horas.</p>':'')+
       '<small>Administrador '+esc(String(item.ownerId).slice(-8))+
         ' • revisão '+item.revision+'</small></div>'+
       '<small>'+esc(isCritical?'Conferir o responsável e replanejar ou concluir o acompanhamento.':
         'Confirmar que o prazo ainda pode ser atendido.')+'</small></div>';
   }).join('');
-  return '<section class="admin-alert-escalations" aria-label="Escalonamento de prazos">'+
+  return '<section class="admin-alert-escalations" aria-label="Escalonamento de prazos e ciência">'+
     '<h3>Prazos que exigem atenção</h3>'+
-    '<p class="tiny muted">'+urgentCount+' situação(ões) crítica(s) e '+
+    '<p class="tiny muted">Prazos e confirmações de ciência: '+urgentCount+' situação(ões) crítica(s) e '+
     (urgent.length-urgentCount)+' com prazo próximo. Os registros não são reatribuídos automaticamente.</p>'+
     '<div class="admin-alert-escalation-list">'+rows+'</div>'+
-    '<p class="tiny muted">Para agir, abra “Responsável e prazo” no acompanhamento do grupo correspondente. '+
+    '<p class="tiny muted">Para agir, confira se o responsável recebeu a atribuição ou abra “Responsável e prazo” no acompanhamento do grupo correspondente. '+
     'Encerrar o acompanhamento não resolve a ocorrência original.</p></section>';
 }
 function adminOperationalFollowupsDormantView(followups,ranked){
