@@ -1409,6 +1409,11 @@ function adminOperationalFollowupsSafe(value){
       x.revision<1||typeof x.note!=='string'||x.note.length>240||
       !Number.isFinite(Date.parse(String(x.dueAt||'')))||
       !Number.isFinite(Date.parse(String(x.updatedAt||'')))||
+      (x.ackStatus!==undefined&&!['not_applicable','pending','overdue','acknowledged'].includes(x.ackStatus))||
+      (x.acknowledgedAt!==undefined&&x.acknowledgedAt!==null&&
+        !Number.isFinite(Date.parse(String(x.acknowledgedAt))))||
+      (x.ackStatus==='acknowledged'&&
+        !Number.isFinite(Date.parse(String(x.acknowledgedAt||''))))||
       typeof x.overdue!=='boolean'||typeof x.ownerEligible!=='boolean'||
       !['closed','owner_unavailable','severely_overdue','overdue','due_soon','on_track'].includes(x.urgency))
       return null;
@@ -1416,7 +1421,7 @@ function adminOperationalFollowupsSafe(value){
   }
   for(const e of value.events){
     if(!sources.includes(e?.source)||!allowed.includes(e.source)||
-      !['created','updated','closed','reopened','overdue'].includes(e.kind)||
+      !['created','updated','closed','reopened','overdue','acknowledged'].includes(e.kind)||
       !Number.isFinite(Date.parse(String(e.at||'')))||
       !Number.isSafeInteger(e.revision)||e.revision<1)return null;
     events.push(e);
@@ -1447,13 +1452,16 @@ function adminOperationalFollowupEditView(source,followups){
     return Number.isFinite(ms)?new Date(ms).toLocaleString('pt-BR'):'Prazo não definido';
   };
   const statusName={open:'Aberto',monitoring:'Em acompanhamento',closed:'Acompanhamento encerrado'};
+  const ackName={acknowledged:'Ciência confirmada',overdue:'Ciência pendente há mais de 2 horas',
+    pending:'Aguardando ciência do responsável',not_applicable:'Não se aplica'};
   const urgencyName={closed:'Encerrado',owner_unavailable:'Responsável sem acesso autorizado',
     severely_overdue:'Prazo vencido há 24 horas ou mais',
     overdue:'Prazo vencido',due_soon:'Vence em até 2 horas',on_track:'Dentro do prazo'};
   const row=item?'<div class="admin-alert-followup-summary"><strong>Acompanhamento: '+esc(statusName[item.status])+'</strong>'
     +' • <strong>'+esc(urgencyName[item.urgency])+'</strong>'
     +' • '+(item.overdue?'<strong class="admin-alert-overdue">Prazo vencido</strong>':'Prazo: '+esc(dateDisplay(item.dueAt)))
-    +' • Revisão '+item.revision+'</div>':
+    +' • Revisão '+item.revision+
+    ' • '+esc(ackName[item.ackStatus]||'Ciência ainda não verificada')+'</div>':
     '<p class="tiny muted">Ainda não há um acompanhamento com responsável definido.</p>';
   if(!canWrite)return '<div id="admin-followup-details-'+source+'" class="admin-alert-followup" tabindex="-1">'+row+
     (item?'<p class="tiny muted">Responsável: '+esc(item.ownerId.slice(-8))+
@@ -1530,7 +1538,8 @@ function adminOperationalFollowupsEventsView(followups){
     finance:'Financeiro',capture:'Capturas comerciais'};
   const kindLabels={created:'Acompanhamento criado',updated:'Responsável, prazo ou situação atualizado',
     closed:'Acompanhamento encerrado',reopened:'Acompanhamento reaberto',
-    overdue:'Prazo vencido registrado pelo monitor'};
+    overdue:'Prazo vencido registrado pelo monitor',
+    acknowledged:'Responsável confirmou ciência da atribuição'};
   const events=followups.events.slice(0,8);
   return '<details class="admin-alert-followup-events"><summary>Histórico auditável dos acompanhamentos</summary>'+
     (events.length?'<div class="admin-ops-alert-history-list">'+
@@ -1555,6 +1564,34 @@ function adminOperationalMyQueueModel(followups,actorId){
     critical:items.filter(x=>urgencyOrder[x.urgency]<=2).length,
     dueSoon:items.filter(x=>x.urgency==='due_soon').length};
 }
+/* V1.214 — actual owner explicitly confirms receiving a specific revision.
+   Acceptance never marks the incident or the follow-up resolved. */
+async function adminOperationalConfirmAck(source,revision){
+  if(!adminReady()||!adminRoleCanSection('alerts')||
+    !['incidents','support','finance','capture'].includes(source)||
+    !Number.isSafeInteger(revision)||revision<1||adminRuntime.actionPending)return;
+  const actor=String(adminRuntime.session?.user?.id||''),role=String(adminCurrentRole());
+  const current=adminOperationalAlertsCurrent();
+  const item=adminOperationalFollowupsSafe(current?.rawFollowups)?.items.find(x=>x.source===source);
+  if(!actor||!item||item.ownerId.toLowerCase()!==actor.toLowerCase()||
+     item.revision!==revision||item.status==='closed'||!item.ownerEligible||
+     !['pending','overdue'].includes(item.ackStatus))return;
+  try{
+    const result=await adminPerform('operational-alert-ack',{source,expectedRevision:revision});
+    if(result?.source!=='server_authoritative')throw new Error('Ciência não comprovada');
+    if(adminReady()&&actor===String(adminRuntime.session?.user?.id||'')&&
+       role===String(adminCurrentRole())){
+      await adminLoadOperationalAlerts({force:true});
+      toast('Ciência registrada. O acompanhamento permanece em aberto.');
+    }
+  }catch(error){
+    if(adminReady()&&actor===String(adminRuntime.session?.user?.id||'')&&
+       role===String(adminCurrentRole())){
+      await adminLoadOperationalAlerts({force:true}).catch(()=>{});
+      toast('Ciência não confirmada. Atualize sua fila antes de repetir.');
+    }
+  }
+}
 function adminOperationalMyQueueView(followups,actorId){
   const queue=adminOperationalMyQueueModel(followups,actorId);
   if(!queue)return '<section class="admin-my-alert-queue"><h3>Meus acompanhamentos</h3>'+
@@ -1566,13 +1603,22 @@ function adminOperationalMyQueueView(followups,actorId){
     due_soon:'Vence em até 2 horas',on_track:'Dentro do prazo'};
   const rows=queue.items.map(x=>{
     const urgent=['owner_unavailable','severely_overdue','overdue'].includes(x.urgency);
+    const ackLabel={acknowledged:'Ciência confirmada',
+      overdue:'Ciência pendente há mais de 2 horas',
+      pending:'Aguardando confirmação de ciência',
+      not_applicable:'Sem ciência pendente'};
+    const needsAck=['pending','overdue'].includes(x.ackStatus)&&x.ownerEligible;
     return '<article class="admin-my-alert-queue-item'+(urgent?' urgent':'')+'">'+
       '<div><strong>'+esc(labels[x.source])+'</strong>'+
       '<p>'+esc(urgency[x.urgency])+' • '+esc(adminOperationalAlertHistoryDate(x.dueAt))+'</p>'+
       '<small>Situação: '+esc(x.status==='monitoring'?'Em acompanhamento':'Aberto')+
-      ' • revisão '+x.revision+'</small></div>'+
-      '<button class="secondary small" type="button" onclick="adminOperationalFollowupFocus(\''+
-        x.source+'\')">Abrir acompanhamento</button>'+
+      ' • revisão '+x.revision+'</small>'+
+      '<small class="admin-alert-ack-label">'+esc(ackLabel[x.ackStatus]||'Ciência ainda não verificada')+'</small></div>'+
+      '<div class="admin-alert-ack-actions">'+
+      (needsAck?'<button class="primary small" type="button" onclick="adminOperationalConfirmAck(\\''+
+        x.source+'\\','+x.revision+')">Confirmar ciência</button>':'')+
+      '<button class="secondary small" type="button" onclick="adminOperationalFollowupFocus(\\''+
+        x.source+'\\')">Abrir acompanhamento</button></div>'+
       '</article>';
   }).join('');
   return '<section class="admin-my-alert-queue" aria-label="Minhas responsabilidades">'+
