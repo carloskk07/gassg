@@ -3650,9 +3650,11 @@ async function adminGrowthBenefitPreviewFromUi(){
   if(x.pending)return;
   const fields=['receivedFeeCents','existingRewardsCents','variableCostCents',
     'minimumContributionCents','priorCreditsCents'];
-  const values=fields.map((k)=>adminGrowthMoneyInputCents(
-    document.getElementById('admin-growth-'+k)?.value
-  ));
+  const inputs=Object.fromEntries(fields.map(k=>[
+    k,String(document.getElementById('admin-growth-'+k)?.value??'')
+  ]));
+  x.inputs=inputs;
+  const values=fields.map(k=>adminGrowthMoneyInputCents(inputs[k]));
   if(values.some(v=>v===null)){
     x.error='Use valores positivos em reais, com até duas casas decimais.';
     x.data=null;render();return;
@@ -3697,7 +3699,7 @@ function adminGrowthBenefitPreviewView(){
       <div class="grid cards-3">${fields.map(item=>`
         <div class="input-wrap"><label for="admin-growth-${item.id}">${esc(item.name)} (R$)</label>
         <input class="input" inputmode="decimal" id="admin-growth-${item.id}"
-          autocomplete="off" placeholder="${item.value}" value="${item.value}" maxlength="11"></div>
+          autocomplete="off" placeholder="${item.value}" value="${esc(preview.inputs?.[item.id]??item.value)}" maxlength="11"></div>
       `).join('')}</div>
       <button class="secondary" type="button" onclick="adminGrowthBenefitPreviewFromUi()"
        ${preview.pending?'disabled':''}>${preview.pending?'Conferindo premissas…':'Calcular cenário sem liberar créditos'}</button>
