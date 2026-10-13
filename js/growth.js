@@ -435,6 +435,21 @@ function merchantsLanding(){
       <div class="merchant-no-lockin"><span>✓ Sem exclusividade</span><span>✓ Sem obrigação de aceitar</span><span>✓ Online/offline quando quiser</span><span>✓ Preço e estoque sob seu controle</span></div>
     </section>
 
+    <section class="section merchant-business-intro">
+      <div class="section-head"><div><span class="section-kicker">TAMÃO NEGÓCIOS</span>
+      <h2>Mais do que receber pedidos: acompanhe e desenvolva sua revenda.</h2>
+      <p>Um espaço para vender, gerir a operação e divulgar sua empresa, com ferramentas essenciais sem mensalidade obrigatória.</p></div></div>
+      <div class="grid cards-3 partner-benefits">
+        <div class="card"><div class="feature-icon">🛒</div><h3>Venda do seu jeito</h3>
+          <p class="muted tiny">Seus produtos, preços, estoque e entregas continuam sob seu controle. Novos pedidos chegam organizados ao painel.</p></div>
+        <div class="card"><div class="feature-icon">📊</div><h3>Entenda seus resultados</h3>
+          <p class="muted tiny">Acompanhe vendas concluídas, cancelamentos, reversões e produtos mais vendidos com dados da própria operação no TAMÃO.</p></div>
+        <div class="card"><div class="feature-icon">📣</div><h3>Ajude mais gente a descobrir sua empresa</h3>
+          <p class="muted tiny">Compartilhe seu link da Rede TAMÃO. Publicidade patrocinada e ferramentas Pro serão opções separadas quando estiverem disponíveis.</p></div>
+      </div>
+      <p class="tiny muted">A divulgação paga não altera a ordem orgânica das ofertas. Serviços adicionais ainda não estão disponíveis para contratação.</p>
+    </section>
+
     <section class="section" id="merchant-margin"><div class="section-head"><div><span class="section-kicker">FAÇA AS CONTAS DO SEU JEITO</span><h2>Uma venda a mais vale quanto para o seu negócio?</h2><p>Experimente cenários com seus próprios custos. O simulador separa faturamento, taxa TAMÃO e despesas para ajudar você a decidir com clareza.</p></div></div>
       <div class="calculator-card merchant-calculator merchant-margin-calculator">
         <div class="calculator-inputs merchant-margin-inputs">
