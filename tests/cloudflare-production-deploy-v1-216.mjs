@@ -17,6 +17,10 @@ assert.match(workflow,/CLOUDFLARE_ACCOUNT_ID/);
 assert.match(workflow,/exit 1/);
 assert.match(workflow,/if: needs\.credential-gate\.outputs\.enabled == 'true'/);
 assert.match(workflow,/timeout-minutes: 15/);
+assert.match(workflow,/\$GITHUB_REF.*refs\/heads\/main/);
+assert.match(workflow,/\$GITHUB_REPOSITORY.*carloskk07\/gassg/);
+assert.match(workflow,/git rev-parse FETCH_HEAD/);
+assert.match(workflow,/\$GITHUB_SHA/);
 
 for(const [project,role,domain] of [
  ['tamao-sg-cliente','customer','https://tamao.com.br'],
