@@ -1319,12 +1319,45 @@ function adminOperationalAlertModel(groups){
         fin.rewardFailures+' recompensa(s) • '+fin.accountingFailures+' contabilização(ões) pendente(s).','finance');
     }else unavailable.push('Processamento financeiro');
   }
-  const portal=groups.portals;
-  if(portal?.available===true){
-    if(portal.valid===true&&typeof portal.verified==='boolean'){
-      if(!portal.verified)add('portals','high','Verificação dos portais oficiais não aprovada',
-        'Confira origem, versão e controles dos três domínios; isso não prova indisponibilidade total.','system');
-    }else unavailable.push('Portais oficiais');
+  // V1.222: one publication item replaces the legacy portal badge whenever
+  // a complete scoped diagnostic is available. Never create duplicate alerts.
+  const pub=groups.publication;
+  const statuses=['healthy','attention','unverified','checking'];
+  const publicationValid=pub?.available===true&&pub.valid===true&&
+    statuses.includes(pub.status)&&Array.isArray(pub.guidance)&&
+    pub.guidance.length<=8&&pub.recovery&&
+    typeof pub.recovery.verified==='boolean'&&
+    typeof pub.recovery.historicalRestorationProven==='boolean';
+  if(publicationValid){
+    const complete=pub.status==='healthy'&&pub.recovery.verified===true&&
+      pub.guidance.length===0;
+    if(!complete){
+      const first=pub.guidance[0];
+      const severity=pub.status==='attention'?'high':'medium';
+      const title=pub.status==='attention'?'Publicação requer verificação':
+        pub.status==='checking'?'Publicação em verificação':
+        'Comprovação da publicação incompleta';
+      add('portals',severity,title,
+        'GitHub, Cloudflare e Supabase: '+String(first?.problem||'situação não comprovada')+
+        '. Isso não comprova indisponibilidade dos sites.','system');
+      alerts[alerts.length-1].publication={
+        status:pub.status,
+        guidance:pub.guidance.filter(g=>g&&typeof g.problem==='string'&&
+          typeof g.impact==='string'&&typeof g.action==='string'&&
+          typeof g.recoveryCriteria==='string').slice(0,5),
+        recurrence:pub.recurrence||null,
+        recovery:pub.recovery
+      };
+    }
+  }else{
+    if(pub?.available===true)unavailable.push('Saúde da publicação');
+    const portal=groups.portals;
+    if(portal?.available===true){
+      if(portal.valid===true&&typeof portal.verified==='boolean'){
+        if(!portal.verified)add('portals','high','Verificação dos portais oficiais não aprovada',
+          'Confira origem, versão e controles dos três domínios; isso não prova indisponibilidade total.','system');
+      }else unavailable.push('Portais oficiais');
+    }
   }
   const cap=groups.capture;
   if(cap?.available===true){
@@ -1812,6 +1845,17 @@ function adminOperationalAlertTriage(alerts,lifecycle,verifiedAt){
         reasons.push(count>=10?'Dez ou mais pendências registradas':
           'Cinco ou mais pendências registradas');
       }
+      // A distinct failed GitHub run is one observation, not an outage.
+      // Do not count retries or mere failed HTTP probes as recurring incidents.
+      if(item.id==='portals'&&item.publication?.recurrence?.valid===true&&
+        item.publication.recurrence.source==='github_actions_main_sha_7d'&&
+        item.publication.recurrence.recurrent===true&&
+        Number.isSafeInteger(item.publication.recurrence.failedRuns)&&
+        item.publication.recurrence.failedRuns>=2){
+        score+=16;
+        reasons.push('Reincidência: '+item.publication.recurrence.failedRuns+
+          ' execuções GitHub com falha para o mesmo commit em sete dias');
+      }
       score=cap(score);
       const priority=score>=80?'immediate':score>=55?'high':'watch';
       const labels={immediate:'Ação imediata',high:'Prioritário',watch:'Acompanhar'};
@@ -1856,6 +1900,26 @@ function adminOperationalAlertsView(){
     const history=adminOperationalAlertHistoryNote(item.id,present?.lifecycle);
     const followupHtml=adminOperationalFollowupEditView(item.id,adminOperationalFollowupsSafe(present?.rawFollowups));
     const t=item.triage;
+    const publication=item.id==='portals'?item.publication:null;
+    const recurrence=publication?.recurrence;
+    const recurrenceLine=publication?'<p class="tiny muted">'+(
+      recurrence?.valid===true&&recurrence.historyAvailable===true
+        ? 'Histórico GitHub dos últimos 7 dias (somente mesmo commit): '+
+          Number(recurrence.failedRuns||0)+' execução(ões) com falha. '+
+          (recurrence.recurrent?'Reincidência verificada no workflow.':
+            'Sem reincidência de workflow comprovada no recorte consultado.')
+        : 'Histórico de reincidência indisponível; não presumir que a falha é nova.'
+      )+'</p>':'';
+    const publicationNotes=publication?publication.guidance.map(g=>
+      '<p class="tiny muted"><strong>Impacto:</strong> '+esc(g.impact)+
+      ' <strong>Ação:</strong> '+esc(g.action)+
+      ' <strong>Normalização:</strong> '+esc(g.recoveryCriteria)+'</p>'
+    ).join(''):'';
+    const resolutionLine=publication?'<p class="tiny muted">'+
+      (publication.recovery?.verified===true
+        ? 'Estado atual validado; histórico de resolução não foi comprovado.'
+        : 'Resolução não comprovada. Atualize a consulta após revisar as evidências.')+
+      '</p>':'';
     return `<article class='admin-ops-alert-item admin-ops-alert-priority-${t.priority}'>
       <div><span class='status-pill ${t.priority==='immediate'?'risk':''}'>${esc(t.label)}</span>
         <h3>${esc(item.title)}</h3><p>${esc(item.detail)}</p>
@@ -1864,7 +1928,7 @@ function adminOperationalAlertsView(){
           ${esc(t.nextAction)}.</p>
         ${!t.historyChecked&&item.id!=='portals'?
           '<small class="tiny muted">Histórico horário indisponível; prioridade baseada somente na consulta atual.</small>':''}
-        ${history}${followupHtml}</div>
+        ${history}${followupHtml}${recurrenceLine}${publicationNotes}${resolutionLine}</div>
       <button type='button' class='secondary small' ${canOpen?'':'disabled'}
         onclick="adminOperationalAlertsOpen('${item.target}')">Conferir área</button>
     </article>`;
