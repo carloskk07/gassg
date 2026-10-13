@@ -856,7 +856,7 @@ function scopeAdminSummary(role:string,data:any){
       supportCases:[],
       controlOrders:(data.controlOrders??[]).map(redactOrderForFinance),
       platformAdmins:adminSelf,
-      prelaunchLeads:[],acquisitionMetrics:{},growthNetwork:{available:false,valid:false},publicRequests:[],
+      prelaunchLeads:[],acquisitionMetrics:{},growthNetwork:{available:false,valid:false},growthApplicationFunnel:{available:false,valid:false},publicRequests:[],
       recentAudit:(data.recentAudit??[]).filter((x:any)=>String(x.action||"").match(/financial|billing|reward|referral|reverse|settlement|commercial/))
     };
   }
@@ -877,7 +877,7 @@ function scopeAdminSummary(role:string,data:any){
       finance:{receivables:[],cashbackReimbursements:[],adjustments:[]},
       rewardFailures:[],accountingFailures:[],referralReviews:[],
       platformAdmins:adminSelf,
-      prelaunchLeads:[],acquisitionMetrics:{},growthNetwork:{available:false,valid:false},
+      prelaunchLeads:[],acquisitionMetrics:{},growthNetwork:{available:false,valid:false},growthApplicationFunnel:{available:false,valid:false},
       recentAudit:[]
     };
   }
@@ -1910,6 +1910,45 @@ async function summary(admin:any,actorUserId:string){
       }else growthNetwork={available:true,valid:false};
     }catch{growthNetwork={available:true,valid:false};}
   }
+  // V1.229: a merchant's CNPJ and authentic applicant are linked to a
+  // first-touch invite only after the application is submitted. Approval
+  // remains separate, and no lead contact match is financial evidence.
+  let growthApplicationFunnel:any={available:false,valid:false};
+  if(['superadmin','operations','readonly','compliance'].includes(actorRole)){
+    try{
+      const {data,error}=await admin.rpc("admin_growth_application_funnel_v1_229",{
+        p_actor_user_id:actorUserId
+      });
+      const counters=['applicationsAttributed','contactCandidatesUnverified',
+        'applicationsApproved','approvedCnpjOwnerMatches','activeMatchedMerchants',
+        'invitedByMerchants','invitedByCustomers'];
+      const validRows=Array.isArray(data?.rows)&&data.rows.length<=12&&
+        data.rows.every((r:any)=>r&&
+          /^[0-9a-f-]{36}$/i.test(String(r.applicationId||''))&&
+          typeof r.companyName==='string'&&r.companyName.length>=2&&
+          r.companyName.length<=120&&
+          /^[0-9A-Z]{4}$/.test(String(r.cnpjSuffix||''))&&
+          ['customer','merchant'].includes(r.inviterKind)&&
+          ['pending','approved','rejected'].includes(r.applicationStatus)&&
+          typeof r.merchantLinked==='boolean'&&
+          typeof r.activeMerchant==='boolean'&&
+          typeof r.leadCandidate==='boolean'&&
+          r.verified===false&&r.rewardEligible===false);
+      if(!error&&data?.source==='growth_cnpj_application_funnel_v1_229'&&
+        data?.readOnly===true&&data?.noPayout===true&&
+        data?.noPersonalContactData===true&&
+        data?.attributionNeverFinancialProof===true&&
+        data?.firstLevelOnly===true&&
+        counters.every(k=>Number.isSafeInteger(data[k])&&data[k]>=0)&&
+        data.invitedByMerchants+data.invitedByCustomers===data.applicationsAttributed&&
+        data.activeMatchedMerchants<=data.approvedCnpjOwnerMatches&&
+        data.approvedCnpjOwnerMatches<=data.applicationsApproved&&
+        data.contactCandidatesUnverified<=data.applicationsAttributed&&
+        validRows){
+        growthApplicationFunnel={available:true,valid:true,...data};
+      }else growthApplicationFunnel={available:true,valid:false};
+    }catch{growthApplicationFunnel={available:true,valid:false};}
+  }
   const summaryResult={
     applications:apps.data??[],
     pilotPartners:(pilotPartners.data??[]).map((p:any)=>{
@@ -2038,6 +2077,7 @@ async function summary(admin:any,actorUserId:string){
     marketCityInterests:marketCityInterests??[],
     acquisitionMetrics:acquisitionMetrics.data??{},
     growthNetwork,
+    growthApplicationFunnel,
     publicRequests:publicRequests.data??[],
     rewardFailures:rewardFailures.data??[],
     accountingFailures:accountingFailures.data??[],
