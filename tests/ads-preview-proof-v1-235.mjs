@@ -45,7 +45,8 @@ for(const term of [
 ])assert.ok(sql.includes(term),'Missing SQL guarantee: '+term);
 assert.doesNotMatch(sql,/grant (insert|update|delete) on public\.ads_preview_(challenges|reports)_v1_235 to service_role/i);
 for(const term of [
-  '"ads-preview-summary","ads-campaign-queue"',
+  '"ads-preview-summary"',
+  '"ads-campaign-queue"',
   '"ads-preview-issue","ads-preview-confirm"',
   'if(action==="ads-preview-summary")',
   'if(action==="ads-preview-issue"||action==="ads-preview-confirm")',
