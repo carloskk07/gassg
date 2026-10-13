@@ -110,7 +110,7 @@ const ADMIN_ROLE_ACTIONS:Record<string,Set<string>>={
   ]),
   finance:new Set([
     "financial-action","review-referral","retry-reward","retry-accounting","reverse-order",
-    "commercial-policy","merchant-billing-plan","merchant-billing-action","merchant-billing-payment-request","merchant-billing-payment-event","merchant-billing-refund","merchant-billing-provider-cancel-retry","merchant-payment-capability","create-billing-webhook-probe","incident-action","operational-alert-ack"
+    "growth-benefit-preview","commercial-policy","merchant-billing-plan","merchant-billing-action","merchant-billing-payment-request","merchant-billing-payment-event","merchant-billing-refund","merchant-billing-provider-cancel-retry","merchant-payment-capability","create-billing-webhook-probe","incident-action","operational-alert-ack"
   ]),
   support:new Set(["order-control","support-case-status","incident-action","operational-alert-ack"]),
   compliance:new Set([
@@ -2079,6 +2079,43 @@ Deno.serve(async(req:Request)=>{
     const adminAccess=await requireAdmin(admin,user.id);
     requireAdminAction(String(adminAccess.admin_role||"superadmin"),action);
 
+    if(action==="growth-benefit-preview"){
+      // The financial role (or superadmin) explicitly authorizes this action.
+      // All values are *illustrative inputs*, never accounting authority.
+      const names=["receivedFeeCents","existingRewardsCents","variableCostCents",
+        "minimumContributionCents","priorCreditsCents"];
+      const scenario=names.map(key=>body[key]);
+      if(scenario.some((value:any)=>!Number.isSafeInteger(value)||
+         value<0||value>100000000)){
+        throw new DomainError("INVALID_GROWTH_FINANCE_SCENARIO",
+          "Informe valores inteiros válidos em centavos.",400);
+      }
+      const {data,error}=await admin.rpc("admin_growth_merchant_benefit_preview_v1_228",{
+        p_actor_user_id:user.id,
+        p_received_fee_cents:scenario[0],
+        p_existing_rewards_cents:scenario[1],
+        p_variable_cost_cents:scenario[2],
+        p_minimum_contribution_cents:scenario[3],
+        p_prior_merchant_referral_credits_cents:scenario[4]
+      });
+      if(error)throw error;
+      const good=data?.source==="merchant_referral_finance_preview_v1_228"&&
+        data?.readOnly===true&&data?.rewardEnabled===false&&
+        data?.grantableCents===0&&data?.noPayout===true&&
+        data?.noMerchantSaleProceeds===true&&data?.singleLevel===true&&
+        data?.isScenarioNotRealPayment===true&&
+        data?.feeBasis==="actual_tamao_fee_received_only"&&
+        Number.isSafeInteger(data?.illustrativeBenefitCents)&&
+        data.illustrativeBenefitCents>=0&&
+        data.illustrativeBenefitCents<=scenario[0]&&
+        data?.shareBps>=0&&data?.shareBps<=500&&
+        data?.days>=1&&data?.days<=90&&
+        Array.isArray(data?.activationRequirements)&&
+        data.activationRequirements.length>=5;
+      if(!good)throw new DomainError("GROWTH_PREVIEW_UNVERIFIED",
+        "Não foi possível validar a simulação financeira.",503);
+      return json(data,200,origin);
+    }
     if(action==="merchant-enablement"){
       if(!["superadmin","operations","compliance","readonly"].includes(String(adminAccess.admin_role))){
         throw new DomainError("ADMIN_PERMISSION_DENIED","Perfil sem autorização para consultar habilitação.",403);

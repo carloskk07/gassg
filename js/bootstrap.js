@@ -73,5 +73,5 @@ Object.assign(window,{
   merchantGrowthLoadFromUi,merchantGrowthShareFromUi,
   merchantLiveLogout,
   adminLoginFromUi,adminRetryBootstrapFromUi,adminRefresh,adminSignOut,adminApproveApplication,adminRejectApplication,
-  adminSaveCompliance,adminSetMerchantStatus,adminFinancial,adminReverseOrder
+  adminSaveCompliance,adminSetMerchantStatus,adminFinancial,adminReverseOrder,adminGrowthBenefitPreviewFromUi
 });

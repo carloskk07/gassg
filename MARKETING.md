@@ -175,3 +175,31 @@ comprovação de compra, de habilitação da revenda ou de recebimento
 de comissão. Contagem de "convertidos no CRM" representa unicamente
 o estágio registrado pelo operador no CRM. O indicador de ganhos da rede
 permanece desativado e não movimenta crédito ou dinheiro.
+
+## V1.228 — Projeção econômica para indicar revendas
+
+O Financeiro permite **simular** um incentivo hipotético de um nível, com
+referência máxima de 5% da **taxa efetivamente recebida pelo TAMÃO**,
+durante no máximo 90 dias e limitado a R$ 200,00 por empresa indicada.
+Esses limites são parâmetros de modelagem, **não uma oferta comercial
+ativada**.
+
+A proposta compara a receita real da plataforma aos custos de cashback,
+recompensas já reconhecidas, reserva variável, contribuição mínima e
+benefícios anteriores. O menor valor entre percentual, margem
+disponível e teto remanescente é apresentado como possibilidade apenas
+ilustrativa. Valores negativos, números inválidos e cenários acima
+do limite são rejeitados no navegador, Edge e PostgreSQL.
+
+Uma restrição formal no banco impõe `reward_enabled=false`. A
+API só pode **ler** a política e simular sob perfil Financeiro ou
+Superadmin. O valor concedível permanece **R$ 0**, não há crédito,
+comissão de parceiro, movimentação de saldo, pagamentos ou alterações
+no livro razão.
+
+Antes de considerar qualquer ativação, será necessário comprovar o
+vínculo do cadastro indicado ao CNPJ habilitado, a taxa TAMÃO
+**de fato recebida e conciliada**, ausência de estorno, vínculo
+independente da empresa indicadora e aprovação financeira. O motor
+imutável atual de crédito pré-pago também exige um caminho contábil
+específico para concessões e reversões desse tipo.
