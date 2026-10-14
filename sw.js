@@ -1,4 +1,4 @@
-const CACHE='tamao-sg-v1.70.29'+'-visual-v1.243';
+const CACHE='tamao-sg-v1.70.29';
 const ASSETS=['./','./index.html','./css/base.css','./css/components.css','./js/runtime-config.js','./js/turnstile.js','./js/backend.js','./js/core.js','./js/analytics.js','./js/acquisition.js','./js/legal.js','./js/customer.js','./js/growth.js','./js/merchant.js','./js/admin-acquisition.js','./js/admin.js','./js/bootstrap.js','./manifest.webmanifest','./robots.txt','./icons/icon.svg','./assets/tamao-products-sprite.webp'];
 
 self.addEventListener('install',event=>{
