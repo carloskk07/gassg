@@ -28,8 +28,8 @@ function club(){
   const cashbackEarned=Math.max(0,Number(globalThis.liveRuntime?.cashbackEarnedCents||0))/100;
   return shell(`<section class="page">
     <span class="eyebrow">CLUBE TAMÃO</span>
-    <h1 class="page-title">Conheça os benefícios das suas compras.</h1>
-    <p class="muted page-lead">Confira os créditos que você já recebeu e veja quando poderá usar algum deles em uma próxima compra.</p>
+    <h1 class="page-title">Cada compra pode render mais vantagens para você.</h1>
+    <p class="muted page-lead">Faça suas compras com tranquilidade e acompanhe no mesmo lugar o cashback conquistado, suas compras e os benefícios de sua rede de indicações.</p>
     <div class="reward-hero"><div class="tiny" style="opacity:.75">SEU CASHBACK DISPONÍVEL</div><div class="balance">${BRL.format(state.user.cashback)}</div><div class="tiny">crédito para usar em novas compras</div><div class="progress"><div style="width:${pct}%"></div></div><strong>${esc(next)}</strong></div>
     <div class="earn-summary" style="margin-top:14px">
       <div class="earn-balance-card"><span>Economia nas comparações</span><strong>${BRL.format(comparisonSavings)}</strong><small>diferença acumulada contra a opção mais cara realmente exibida nas consultas que viraram pedidos concluídos</small></div>
@@ -38,9 +38,9 @@ function club(){
     </div>
     ${debt>0?`<div class="notice" style="margin-top:14px"><strong>${BRL.format(debt)} em compensação.</strong><br>Esse valor corresponde a cashback de uma compra posteriormente revertida. Novos créditos reduzem essa compensação antes de ficarem disponíveis.</div>`:''}
     <section class="section"><div class="grid cards-3">
-      <div class="card"><div class="feature-icon">💵</div><h3>Cashback</h3><p class="muted tiny">Crédito para reduzir o valor de novas compras no TAMÃO.</p></div>
-      <div class="card"><div class="feature-icon">⭐</div><h3>Recorrência</h3><p class="muted tiny">Veja suas compras e acompanhe os benefícios que já recebeu.</p></div>
-      <div class="card"><div class="feature-icon">🤝</div><h3>Indicação</h3><p class="muted tiny">Quando a campanha estiver disponível, você poderá indicar o TAMÃO para outras pessoas.</p><button class="ghost small" onclick="go('earn')">Ver como ganhar →</button></div>
+      <div class="card"><div class="feature-icon">💵</div><h3>Cashback que volta para você</h3><p class="muted tiny">Nas compras elegíveis, parte do valor pode voltar como crédito para sua próxima compra. Tudo fica registrado em sua conta.</p></div>
+      <div class="card"><div class="feature-icon">⭐</div><h3>Seus pedidos, suas vantagens</h3><p class="muted tiny">Tenha seu histórico à mão e saiba quando vale a pena repetir aquela compra do dia a dia.</p></div>
+      <div class="card"><div class="feature-icon">🤝</div><h3>Sua rede também cresce</h3><p class="muted tiny">Convide amigos com seu link pessoal, apresente revendas da região e acompanhe as indicações qualificadas.</p><button class="ghost small" onclick="go('earn')">Ver como ganhar →</button></div>
     </div></section>
   </section>`)
 }
@@ -226,8 +226,8 @@ function refer(){
   return shell(`<section class="page">
     <button class="back" onclick="go('earn')">← Ganhar ou vender</button>
     <span class="eyebrow">CONVIDE ALGUÉM PARA CONHECER</span>
-    <h1 class="page-title">Tem alguém que gostaria de conhecer o TAMÃO?</h1>
-    <p class="muted page-lead">Compartilhe seu link pessoal quando estiver disponível. Benefícios financeiros dependem da campanha ativa, de uma primeira compra elegível e da validação da operação.</p>
+    <h1 class="page-title">Seu próximo convite pode abrir novas portas.</h1>
+    <p class="muted page-lead">Construa sua Rede TAMÃO no seu ritmo. Compartilhe seu link com amigos, apresente o aplicativo a quem precisa e acompanhe seus convidados e as compras qualificadas.</p>
     <div class="earn-summary">
       <div class="earn-balance-card"><span>Disponível</span><strong>${BRL.format(state.user.commissionAvailable)}</strong><small>saldo já liberado</small></div>
       <div class="earn-balance-card"><span>A liberar</span><strong>${BRL.format(state.user.commissionPending)}</strong><small>em validação</small></div>
@@ -237,7 +237,7 @@ function refer(){
     ${referralCard}
     ${identityCard}
 
-    <section class="section"><div class="section-head"><div><span class="section-kicker">FAÇA UMA SIMULAÇÃO</span><h2>Entenda como seria calculada uma comissão de ${referralRateLabel}.</h2><p>Preencha valores de exemplo para entender o cálculo. Isso não significa que você receberá essa quantia.</p></div></div>
+    <section class="section"><div class="section-head"><div><span class="section-kicker">FAÇA UMA SIMULAÇÃO</span><h2>Veja como funciona a comissão de ${referralRateLabel}.</h2><p>Simule a recompensa de primeiras compras qualificadas e entenda as regras antes de compartilhar.</p></div></div>
       <div class="calculator-card">
         <div class="calculator-inputs">
           <div class="input-wrap"><label for="ref-sim-clients">Novos clientes com 1ª compra qualificada</label><input id="ref-sim-clients" class="input" type="number" inputmode="numeric" min="1" max="500" value="10" oninput="updateReferralSimulator()"></div>
@@ -245,7 +245,7 @@ function refer(){
         </div>
         <div class="calculator-result"><small>Resultado da simulação</small><strong id="ref-sim-total">${BRL.format(referralExample(120,10))}</strong><span id="ref-sim-detail">10 novos clientes × ${BRL.format(120)} × ${referralRateLabel}</span></div>
       </div>
-      <div class="notice" style="margin-top:12px"><strong>A comissão precisa ser validada antes de ficar disponível.</strong><br>A comissão só pode ser gerada pela primeira compra válida de cada novo cliente indicado. O pedido precisa ser entregue, pago e aprovado na conferência de segurança. Compras seguintes do mesmo cliente não geram outra comissão de indicação.</div>
+      <div class="notice" style="margin-top:12px"><strong>Uma indicação qualificada faz a diferença.</strong><br>A comissão é calculada sobre a primeira compra válida do novo cliente indicado, após entrega, pagamento e validação. Compras posteriores não geram outra comissão de aquisição.</div>
     </section>
 
     <section class="section"><div class="section-head"><div><h2>Quando a indicação pode gerar comissão</h2></div></div><div class="how-grid">
@@ -255,7 +255,7 @@ function refer(){
       <div class="how-card"><span>4</span><div><strong>A comissão é validada</strong><p>Depois da conferência de segurança e da validação das contas envolvidas, a comissão pode ser liberada.</p></div></div>
     </div></section>
 
-    <div class="card flat payout-card"><div><span class="section-kicker">RECEBIMENTO</span><h3>Saldo liberado ainda não significa saque por Pix.</h3><p class="muted">Você pode acompanhar o que ainda está em análise e o que já foi liberado. O saque por Pix só aparecerá quando esse serviço estiver disponível.</p></div><button class="secondary" disabled>Saque Pix ainda não disponível</button></div>
+    <div class="card flat payout-card"><div><span class="section-kicker">SUAS COMISSÕES</span><h3>Tudo acompanhado em um só lugar.</h3><p class="muted">Consulte o que está em validação e o que já foi liberado. Os meios de recebimento são informados na conta conforme a disponibilidade.</p></div></div>
   </section>`)
 }
 
@@ -284,9 +284,9 @@ function earn(){
   const merchantFeeLabel=policyPercent(merchantPilotFeeRate());
   return shell(`<section class="page">
     <span class="eyebrow">REDE TAMÃO • COMPARTILHAR E CRESCER</span>
-    <h1 class="page-title">Comprar pelo TAMÃO também pode trazer benefícios.</h1>
-    <p class="muted page-lead">Conheça os benefícios de compra, saiba como funcionam as indicações e veja como cadastrar sua empresa para vender pelo TAMÃO.</p>
-    <div class="conversion-mini-proof"><span>✓ Compra e indicação são diferentes</span><span>✓ Regras visíveis</span><span>✓ Sem promessa de renda</span></div>
+    <h1 class="page-title">Compre bem, compartilhe o que gosta e construa sua rede.</h1>
+    <p class="muted page-lead">O TAMÃO aproxima quem compra, quem vende e quem indica. Descubra suas vantagens, convide amigos e ajude a criar mais oportunidades para a sua cidade.</p>
+    <div class="conversion-mini-proof"><span>✓ Compra e indicação são diferentes</span><span>✓ Regras visíveis</span><span>✓ Sua rede, suas oportunidades</span></div>
     ${growthNetworkIntro()}
     <section class="section tamao-customer-growth">
       <div class="section-head"><div><span class="section-kicker">O SEU JEITO DE PARTICIPAR</span>
@@ -295,15 +295,15 @@ function earn(){
       <div class="grid cards-3 tamao-value-grid">
         <article class="card"><span class="tamao-value-icon">🛍️</span><h3>Comprar fica mais simples</h3><p>Consulte as opções para seu endereço, confira preço e prazo e acompanhe pedidos confirmados pela revenda.</p></article>
         <article class="card"><span class="tamao-value-icon">👥</span><h3>Construa sua Rede TAMÃO</h3><p>Seu link pessoal permite convidar amigos e apresentar empresas. Veja suas indicações e quais tiveram a primeira compra qualificada.</p></article>
-        <article class="card"><span class="tamao-value-icon">🎁</span><h3>Conheça seus benefícios</h3><p>Acompanhe cashback válido e as regras de eventuais campanhas. Comissões não são pagas pelo simples cadastro ou pela quantidade de pessoas convidadas.</p></article>
+        <article class="card"><span class="tamao-value-icon">🎁</span><h3>Veja o que sua rede conquistou</h3><p>Encontre cashback e histórico de indicações em um só lugar. Benefícios seguem as regras de compras qualificadas, com dados claros para acompanhar.</p></article>
       </div>
       <div class="tamao-value-actions"><button type="button" class="secondary" onclick="go('refer')">Abrir minhas indicações →</button><button type="button" class="ghost" onclick="go('club')">Ver meus benefícios</button></div>
     </section>
 
     <div class="opportunity-grid main-opportunities">
-      <article class="opportunity-card person-opportunity"><div class="opportunity-icon">🤝</div><span class="section-kicker">PARA QUEM GOSTA DE COMPARTILHAR</span><h2>Conhece alguém que gostaria de usar o TAMÃO?</h2><p>Quando a campanha estiver ativa, você poderá compartilhar seu link. Uma indicação pode gerar comissão após a primeira compra válida ser entregue, paga e aprovada.</p>
+      <article class="opportunity-card person-opportunity"><div class="opportunity-icon">🤝</div><span class="section-kicker">PARA QUEM GOSTA DE COMPARTILHAR</span><h2>Conhece alguém que gostaria de usar o TAMÃO?</h2><p>Compartilhe seu link pessoal, ajude mais gente a encontrar boas opções e acompanhe as indicações. Primeiras compras elegíveis podem gerar comissão após a validação.</p>
         <ul class="clean-list"><li>Política comercial atual: ${referralRateLabel} da primeira compra qualificada</li><li>Uma comissão de aquisição por novo cliente elegível</li><li>Saldo “a liberar” separado do saldo disponível</li><li>Nenhum pagamento por simples recrutamento</li></ul>
-        <div class="opportunity-example"><small>Exemplo matemático</small><strong>R$ 120 × ${referralRateLabel} = ${BRL.format(referralExample(120))}</strong><span>Este é apenas um exemplo: a comissão depende de uma compra válida e das verificações do programa.</span></div>
+        <div class="opportunity-example"><small>Exemplo matemático</small><strong>R$ 120 × ${referralRateLabel} = ${BRL.format(referralExample(120))}</strong><span>Simulação para uma primeira compra elegível e validada, conforme a política comercial.</span></div>
         <button class="primary full" onclick="go('refer')">Conhecer as indicações →</button>
       </article>
       <article class="opportunity-card business-opportunity"><div class="opportunity-icon">🏪</div><span class="section-kicker">PARA QUEM JÁ TEM UM NEGÓCIO</span><h2>Sua empresa pode vender por mais um canal.</h2><p>Use o TAMÃO como um canal adicional para gás, água e outros itens, sem abandonar telefone, WhatsApp, balcão ou sua base atual de clientes.</p>
@@ -313,7 +313,7 @@ function earn(){
       </article>
     </div>
 
-    <section class="section"><div class="soft-band"><div><span class="section-kicker">TRANSPARÊNCIA</span><h2>Cada vantagem funciona de um jeito.</h2><p>O cashback pode reduzir o valor de novas compras. A comissão de indicação depende da primeira venda válida. Já a revenda recebe pelas vendas que realiza. Não existe pagamento só por cadastrar pessoas, nem renda garantida. Saques serão oferecidos apenas quando o serviço estiver disponível.</p></div><button class="secondary" onclick="go('learn')">Entender compra e segurança</button></div></section>
+    <section class="section"><div class="soft-band"><div><span class="section-kicker">SUAS VANTAGENS, DO SEU JEITO</span><h2>Mais de um motivo para fazer parte.</h2><p>O cashback de compras elegíveis ajuda na próxima compra; a Rede TAMÃO permite convidar clientes e empresas; e cada revenda continua recebendo diretamente por suas vendas. Tudo com condições claras, que você pode consultar antes de participar.</p></div><button class="secondary" onclick="go('learn')">Entender compra e segurança</button></div></section>
   </section>`)
 }
 
@@ -413,9 +413,9 @@ function sponsorsLanding(){
   return shell(`<section class="page tamao-sponsors-page">
     <div class="tamao-sponsor-hero">
       <span class="eyebrow">MARCAS E PARCEIROS • TAMÃO</span>
-      <h1 class="page-title">Sua marca mais perto de quem movimenta o comércio local.</h1>
-      <p class="page-lead">O TAMÃO conecta pessoas que procuram produtos do dia a dia e revendas da própria região. Quer conhecer como sua empresa pode fazer parte desse ecossistema? Vamos conversar sobre oportunidades reais, com objetivos e condições claros.</p>
-      <div class="conversion-mini-proof"><span>✓ Presença regional</span><span>✓ Conversas comerciais transparentes</span><span>✓ Sem compromisso para conhecer</span></div>
+      <h1 class="page-title">Sua marca presente no dia a dia de quem compra e vende.</h1>
+      <p class="page-lead">Imagine sua marca fazendo parte das escolhas que movimentam cada cidade: do gás que chega em casa à água e aos produtos que acompanham a rotina das famílias. O TAMÃO conecta essa demanda às revendas locais e abre espaço para criar ações relevantes com parceiros.</p>
+      <div class="conversion-mini-proof"><span>✓ Presença regional</span><span>✓ Campanhas desenhadas em conjunto</span><span>✓ Primeiro contato sem compromisso</span></div>
       <div class="tamao-value-actions">
         <button type="button" class="primary" onclick="go('contact')">Conversar sobre uma parceria →</button>
         <button type="button" class="secondary" onclick="go('merchants')">Conhecer as revendas</button>
@@ -423,31 +423,31 @@ function sponsorsLanding(){
     </div>
     <section class="section">
       <div class="section-head"><div><span class="section-kicker">ONDE SUA MARCA PODE PARTICIPAR</span>
-        <h2>Mais do que aparecer: participar de momentos que importam.</h2>
+        <h2>Relevância é estar onde as boas escolhas acontecem.</h2>
         <p>A proposta é aproximar marcas, revendas e consumidores de uma forma útil para a cidade e sustentável para cada parceiro.</p></div></div>
       <div class="grid cards-3 tamao-value-grid">
         <article class="card"><span class="tamao-value-icon">📍</span><h3>Conexão com cada região</h3>
           <p>Explore oportunidades por município e categoria, respeitando a disponibilidade das revendas e a realidade dos consumidores locais.</p></article>
         <article class="card"><span class="tamao-value-icon">📣</span><h3>Divulgação identificada</h3>
-          <p>Estamos preparando espaços de comunicação patrocinada que sejam claramente sinalizados e não confundam publicidade com a comparação orgânica de ofertas.</p></article>
+          <p>Desenvolva com o TAMÃO ações de presença e divulgação regional. Os espaços patrocinados serão sempre identificados e separados da ordem orgânica das ofertas.</p></article>
         <article class="card"><span class="tamao-value-icon">🎁</span><h3>Benefícios que fazem sentido</h3>
-          <p>O Clube TAMÃO estuda campanhas de desconto com condições por produto e cidade. Cada ação dependerá de acordos válidos e cobertura financeira demonstrada.</p></article>
+          <p>Crie campanhas de benefício para aproximar sua marca dos consumidores e incentivar novas compras. As condições, os limites e o custeio são definidos antes de cada ativação.</p></article>
       </div>
     </section>
     <section class="section">
       <div class="section-head"><div><span class="section-kicker">PARCERIA QUE RESPEITA SEU NEGÓCIO</span>
-        <h2>Um plano claro começa com uma boa conversa.</h2>
-        <p>Entenda o que poderá ser proposto e como queremos conduzir as futuras campanhas.</p></div></div>
+        <h2>Uma parceria feita para gerar valor dos dois lados.</h2>
+        <p>Entenda como podemos desenhar juntos uma ação com público, cidade, orçamento e objetivos bem definidos.</p></div></div>
       <div class="tamao-journey">
         <div><strong>1. Conhecer seu objetivo</strong><p>Mais reconhecimento de marca, aproximação regional ou incentivo à recompra? Primeiro precisamos entender o que vale para sua empresa.</p></div>
         <div><strong>2. Construir condições realistas</strong><p>Definir público, cidade, limites de investimento, responsabilidades e critérios de avaliação, sem números ou resultados inventados.</p></div>
-        <div><strong>3. Validar antes de ativar</strong><p>Somente disponibilizar serviços comerciais após análise operacional, contratual e financeira. Proposta não é campanha contratada.</p></div>
+        <div><strong>3. Validar antes de ativar</strong><p>Conferimos as condições operacionais, financeiras e contratuais antes do início da campanha. Assim, cada parceiro sabe o que esperar.</p></div>
       </div>
     </section>
     <section class="section"><div class="card tamao-sponsor-footer">
       <span class="section-kicker">VAMOS CONVERSAR?</span>
       <h2>Boas parcerias começam com objetivos em comum.</h2>
-      <p>Conte o que sua marca procura. O contato inicial é para conhecer possibilidades e não cria cobrança, reserva de publicidade ou patrocínio.</p>
+      <p>Conte qual região e categoria interessam à sua marca. Nossa equipe ajuda a explorar formatos e condições de parceria que façam sentido para o seu negócio.</p>
       <button type="button" class="primary" onclick="go('contact')">Entrar em contato →</button>
     </div></section>
   </section>`);

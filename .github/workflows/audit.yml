@@ -197,6 +197,8 @@ jobs:
         run: node tests/clube-campaign-review-v1-241.mjs
       - name: Clube TAMÃO V1.242 nonbinding terms and funding safeguards
         run: node tests/clube-terms-preflight-v1-242.mjs
+      - name: TAMÃO V1.244 owner incentives and trustworthy public marketing
+        run: node tests/owner-funded-trust-v1-244.mjs
       - name: Turnstile smoke Chrome cleanup V1.238.1
         run: node tests/turnstile-smoke-cleanup-v1-238-1.mjs
       - name: First real PSP pilot preflight V1.146 regression contract
@@ -351,12 +353,12 @@ jobs:
           grep -q "Entender como funciona" /tmp/home.html
           grep -q "Cadastrar minha empresa" /tmp/home.html
           grep -q "Quer pedir gás, água ou outros itens? Veja como funciona." /tmp/learn.html
-          grep -q "Comprar pelo TAMÃO também pode trazer benefícios." /tmp/earn.html
+          grep -q "Compre bem, compartilhe o que gosta e construa sua rede." /tmp/earn.html
           grep -q "O que você precisa e onde devemos entregar" /tmp/order.html
           grep -q "CLUBE TAMÃO" /tmp/club.html
-          grep -q "Tem alguém que gostaria de conhecer o TAMÃO?" /tmp/refer.html
+          grep -q "Seu próximo convite pode abrir novas portas." /tmp/refer.html
           grep -q "Você cuida do seu negócio." /tmp/merchants.html
-          grep -q "Sua marca mais perto de quem movimenta o comércio local." /tmp/sponsors.html
+          grep -q "Sua marca presente no dia a dia de quem compra e vende." /tmp/sponsors.html
           grep -q "FAÇA AS CONTAS DO SEU JEITO" /tmp/merchants.html
           grep -q "Quer vender pelo TAMÃO?" /tmp/merchants.html
           grep -q "Quero levar minha empresa ao TAMÃO" /tmp/merchants.html
