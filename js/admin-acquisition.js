@@ -2733,9 +2733,12 @@ function adminOwnerMultiPspSection(){
       '<div class="kpi"><span class="label">Consultas oficiais de saída</span><strong>'+
       Number(d.outgoingClaimsQueried)+'</strong></div></div>'+
       '<h5>Roteiro para ativação real</h5>'+
-      '<p class="tiny muted">'+Number(withProviderEvidence)+' provedores com pedidos que possuem evidência registrada do PSP; '+
-      Number(needsCredentialReview)+' opções aguardando configuração/homologação; '+
-      Number(manualOnly)+' modos manuais no catálogo. São indicadores de estágios diferentes; não somá-los como integrações ativas.</p>'+
+      '<p class="tiny muted">'+Number(withProviderEvidence)+' '+(withProviderEvidence===1?'opção com':'opções com')+
+      ' pedidos que possuem evidência registrada do PSP; '+
+      Number(needsCredentialReview)+' '+(needsCredentialReview===1?'opção aguardando':'opções aguardando')+
+      ' configuração/homologação; '+
+      Number(manualOnly)+' '+(manualOnly===1?'modo manual':'modos manuais')+
+      ' no catálogo. São indicadores de estágios diferentes; não somá-los como integrações ativas.</p>'+
       '<p class="tiny muted">Próxima ação: a revenda escolhe seu prestador, conclui a conexão/homologação quando aplicável e realiza uma transação legítima; o TAMÃO verifica os eventos e a evidência do provedor. Sem transação real, manter o estado como não comprovado.</p>'+
       '<h5>Pagamentos dos clientes às revendas</h5>'+
       '<p class="tiny muted">A situação exibida no catálogo descreve recursos previstos ou implementados, não credenciais ativas nem transações confirmadas.</p>'+
