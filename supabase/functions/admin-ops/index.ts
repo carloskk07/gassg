@@ -100,7 +100,7 @@ async function requireAdmin(admin:any,userId:string){
   if(!data)throw new DomainError("ADMIN_ACCESS_DENIED","Esta conta não possui acesso administrativo.",403);
   return data;
 }
-const ADMIN_READ_ACTIONS=new Set(["summary","search","entity-detail","system-health","billing-provider-health","audit-search","incident-list","merchant-payment-preflight","prospect-intelligence","expansion-notifications","expansion-radar","merchant-enablement","sale-payment-history","finance-receipts-history","commercial-history-list","operational-alerts","ads-demand","clube-interest-queue","clube-campaign-queue","clube-terms-queue","owner-funding-read","owner-funding-pulse","owner-evidence-queue","owner-budget-queue","owner-finance-history","owner-campaign-signals","owner-campaign-orders","owner-campaign-fee-receipts","owner-campaign-batch-ledger","owner-campaign-financial-summary","owner-campaign-benefit-costs","owner-campaign-orphan-audit","owner-orphan-cleanup-candidates","owner-campaign-cost-read","owner-campaign-receipts-read","owner-campaign-receipt-view","ads-audience-readiness","ads-preview-summary","ads-placement-readiness","ads-pilot-preflight","commercial-activation","ads-campaign-queue","growth-referral-review-queue"]);
+const ADMIN_READ_ACTIONS=new Set(["summary","search","entity-detail","system-health","billing-provider-health","audit-search","incident-list","merchant-payment-preflight","prospect-intelligence","expansion-notifications","expansion-radar","merchant-enablement","sale-payment-history","finance-receipts-history","commercial-history-list","operational-alerts","ads-demand","clube-interest-queue","clube-campaign-queue","clube-terms-queue","owner-funding-read","owner-funding-pulse","owner-evidence-queue","owner-budget-queue","owner-finance-history","owner-campaign-signals","owner-campaign-orders","owner-campaign-fee-receipts","owner-campaign-batch-ledger","owner-campaign-financial-summary","owner-campaign-benefit-costs","owner-wallet-reconciliation","owner-campaign-orphan-audit","owner-orphan-cleanup-candidates","owner-campaign-cost-read","owner-campaign-receipts-read","owner-campaign-receipt-view","ads-audience-readiness","ads-preview-summary","ads-placement-readiness","ads-pilot-preflight","commercial-activation","ads-campaign-queue","growth-referral-review-queue"]);
 const ADMIN_ROLE_ACTIONS:Record<string,Set<string>>={
   superadmin:new Set(["*"]),
   operations:new Set([
@@ -2688,6 +2688,65 @@ Deno.serve(async(req:Request)=>{
         temporaryDownload:true,bankVerified:false},200,origin);
     }
 
+
+    // V1.260 — source-of-truth reconciliation of wallet events vs rewards/orders.
+    if(action==="owner-wallet-reconciliation"){
+      if(!["superadmin","finance"].includes(String(adminAccess.admin_role)))
+        throw new DomainError("ADMIN_PERMISSION_DENIED","Conciliação de recompensas restrita.",403);
+      const month=String(body.month??"");
+      if(month!==""&&!/^\d{4}-(0[1-9]|1[0-2])-01$/.test(month))
+        throw new DomainError("WALLET_RECON_MONTH_INVALID","Competência inválida.",400);
+      const {data,error}=await admin.rpc("admin_owner_wallet_reconciliation_v1_260",{
+        p_actor:user.id,p_month:month||null
+      });
+      if(error)throw error;
+      const grant=data?.grantCohort,use=data?.settledUse,flows=data?.walletEventFlows;
+      const keys=["customer_cashback","customer_referral","merchant_referral","clube_coupons"];
+      const nonnegative=(x:any,fields:string[])=>x&&fields.every(k=>Number.isSafeInteger(x[k])&&x[k]>=0);
+      const grantKeys=["grantOrders","cashbackExpectedCents","cashbackMatchedCents",
+        "cashbackUnmatchedCents","referralExpectedCents","referralMatchedCents",
+        "referralUnmatchedCents","cashbackMismatchOrders","referralMismatchOrders"];
+      const useKeys=["settledOrdersWithCashback","reservedInSettledOrdersCents",
+        "verifiedUseCents","unverifiedUseCents","verifiedOrders","unverifiedOrders"];
+      const flowKeys=["seedIssuedCents","cashbackEarnedEntriesCents",
+        "cashbackReservedEntriesCents","cashbackReleasedEntriesCents",
+        "cashbackReversedEntriesCents","referralPendingEntriesCents",
+        "referralPendingReleasedEntriesCents","referralAvailableEntriesCents",
+        "referralReversedEntriesCents"];
+      if(data?.source!=="admin_owner_wallet_reconciliation_v1_260"||
+         data?.timezone!=="America/Sao_Paulo"||data?.readOnly!==true||
+         data?.noTransfers!==true||data?.newBenefitsEnabled!==false||
+         data?.spentCreditLotAttribution!=="unavailable_fungible_wallet"||
+         data?.settledOrderMatchBasis!=="wallet_reservation_and_unreversed_settlement"||
+         data?.walletFlowsAreCashPayments!==false||
+         data?.externalPaidBenefitsCents!==null||data?.externalPayoutMeasured!==false||
+         data?.campaignAttributionIsCausal!==false||data?.bankSettlementVerified!==false||
+         data?.profitMeasured!==false||data?.roiMeasured!==false||
+         !/^\d{4}-\d{2}-01$/.test(String(data?.month||""))||
+         (month!==""&&data.month!==month)||
+         !Number.isSafeInteger(data.totalCampaigns)||data.totalCampaigns<0||
+         data.limit!==50||data.truncated!==(data.totalCampaigns>50)||
+         !Array.isArray(data.rows)||data.rows.length>50||data.rows.length>data.totalCampaigns||
+         !nonnegative(grant,grantKeys)||!nonnegative(use,useKeys)||
+         !nonnegative(flows,flowKeys)||
+         grant.cashbackExpectedCents!==grant.cashbackMatchedCents+grant.cashbackUnmatchedCents||
+         grant.referralExpectedCents!==grant.referralMatchedCents+grant.referralUnmatchedCents||
+         grant.cashbackMismatchOrders>grant.grantOrders||
+         grant.referralMismatchOrders>grant.grantOrders||
+         use.reservedInSettledOrdersCents!==use.verifiedUseCents+use.unverifiedUseCents||
+         use.settledOrdersWithCashback!==use.verifiedOrders+use.unverifiedOrders||
+         data.rows.some((x:any)=>!x||!UUID_RE.test(String(x.allocationId||""))||
+           typeof x.campaignTag!=="string"||!keys.some(k=>x.campaignTag.startsWith(
+             "tam-"+k+"-"+data.month.slice(0,4)+data.month.slice(5,7)+"-"))||
+           typeof x.campaignLabel!=="string"||x.campaignLabel.length>180||
+           !nonnegative(x,["tracedGrantOrders","matchedCashbackIssueCents",
+             "unmatchedCashbackIssueCents","matchedReferralIssueCents",
+             "unmatchedReferralIssueCents","mismatchOrders"])||
+           x.mismatchOrders>x.tracedGrantOrders))
+        throw new DomainError("WALLET_RECON_UNVERIFIED",
+          "Conciliação de carteira não validada.",503);
+      return json(data,200,origin);
+    }
     // V1.259 — read-only issued reward cohort and independently measured usage.
     if(action==="owner-campaign-benefit-costs"){
       if(!["superadmin","finance"].includes(String(adminAccess.admin_role)))
