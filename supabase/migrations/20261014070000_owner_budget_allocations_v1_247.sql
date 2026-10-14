@@ -210,19 +210,19 @@ begin
   'coverageExceeded',r.allocated>r.budget
  ) order by r.benefit_key,r.month_key),'[]'::jsonb) into v_rows
  from (
-  select k.benefit_key,(v_month+make_interval(months=>n.offset))::date month_key,
+  select k.benefit_key,(v_month+make_interval(months=>n.month_step))::date month_key,
    coalesce(p.version,0) version,coalesce(p.status,'planning') status,
    coalesce(p.planned_budget_cents,0)::bigint budget,
    coalesce(sum(a.amount_cents),0)::bigint allocated
   from (values('customer_cashback'::text),('customer_referral'::text),
     ('merchant_referral'::text),('clube_coupons'::text))k(benefit_key)
-  cross join (values(0),(1),(2))n(offset)
+  cross join (values(0),(1),(2))n(month_step)
   left join public.platform_incentive_funding_plan_v1_244 p on p.benefit_key=k.benefit_key
   left join public.platform_owner_budget_allocations_v1_247 a
    on a.benefit_key=k.benefit_key
-   and a.month_key=(v_month+make_interval(months=>n.offset))::date
+   and a.month_key=(v_month+make_interval(months=>n.month_step))::date
    and a.status='allocated'
-  group by k.benefit_key,n.offset,p.version,p.status,p.planned_budget_cents
+  group by k.benefit_key,n.month_step,p.version,p.status,p.planned_budget_cents
  )r;
  select count(*) into v_count from public.platform_owner_budget_allocations_v1_247;
  select coalesce(jsonb_agg(jsonb_build_object(
