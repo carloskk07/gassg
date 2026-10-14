@@ -653,6 +653,164 @@ async function adminClubeCampaignReviewFromUi(merchantId,packageKey,expectedVers
     }
   }finally{adminClubeCampaignReviewsPending.delete(merchantId+':'+packageKey);render();}
 }
+// V1.242 — nonbinding terms dossier; all budgets are plans, never verified sponsorship.
+let adminClubeTermsState=null;
+let adminClubeTermsBusy=false;
+const adminClubeTermsSaving=new Set();
+async function adminClubeTermsLoadFromUi(){
+  const actor=String(adminRuntime?.session?.user?.id||'');
+  if(!actor||!['superadmin','operations','compliance','finance','readonly'].includes(
+      String(adminCurrentRole()))||adminClubeTermsBusy)return;
+  adminClubeTermsBusy=true;
+  try{
+    const d=await adminInvoke({action:'clube-terms-queue'});
+    if(d?.source!=='admin_clube_terms_queue_v1_242'||
+       d.readOnly!==true||d.noContractsSigned!==true||
+       d.fundingVerifiedCents!==0||d.couponSalesEnabled!==false||
+       d.noCharge!==true||d.moneyReservedCents!==0||
+       !Number.isSafeInteger(d.totalReviews)||d.totalReviews<0||
+       !Array.isArray(d.rows)||d.rows.length>50)
+      throw new Error('Minutas não verificadas pelo servidor.');
+    if(actor!==String(adminRuntime?.session?.user?.id||''))return;
+    adminClubeTermsState={...d,loadedFor:actor};
+  }catch(e){
+    if(actor===String(adminRuntime?.session?.user?.id||'')){
+      adminClubeTermsState=null;
+      toast(String(e?.message||'Não foi possível carregar as condições.'));
+    }
+  }finally{adminClubeTermsBusy=false;render();}
+}
+async function adminClubeTermsSaveFromUi(merchantId,packageKey,expectedVersion,expectedInterestVersion,expectedReviewVersion){
+  const actor=String(adminRuntime?.session?.user?.id||'');
+  if(!actor||!['finance','superadmin'].includes(String(adminCurrentRole())))return;
+  const data=adminClubeTermsState?.loadedFor===actor?adminClubeTermsState:null;
+  const x=data?.rows?.find(y=>y.merchantId===merchantId&&y.packageKey===packageKey);
+  if(!x||!x.currentInterest||!x.currentReview||
+    x.termsVersion!==expectedVersion||x.interestVersion!==expectedInterestVersion||
+    x.reviewVersion!==expectedReviewVersion)return toast('Atualize a proposta antes de salvar.');
+  const key=merchantId+'-'+packageKey;
+  if(adminClubeTermsSaving.has(key))return;
+  const read=id=>String(document.getElementById(id+'-'+key)?.value||'');
+  const status=read('clube-terms-status');
+  const brandShareBps=Number(read('clube-terms-brand-share'));
+  const brandBudgetCents=Number(read('clube-terms-brand-budget'));
+  const platformBudgetCents=Number(read('clube-terms-platform-budget'));
+  const identityDocumentStatus=read('clube-terms-identity');
+  const agreementDocumentStatus=read('clube-terms-agreement');
+  const fundingDocumentStatus=read('clube-terms-funding');
+  const note=read('clube-terms-note').trim();
+  const docs=['not_requested','requested','supplied_unverified'];
+  if(!['draft','shared_for_discussion','withdrawn'].includes(status)||
+      !Number.isSafeInteger(brandShareBps)||brandShareBps<0||
+      brandShareBps+x.merchantShareBps>10000||
+      ![brandBudgetCents,platformBudgetCents].every(v=>
+        Number.isSafeInteger(v)&&v>=0&&v<=1000000)||
+      ![identityDocumentStatus,agreementDocumentStatus,fundingDocumentStatus].every(x=>docs.includes(x))||
+      note.length<12||note.length>500)
+    return toast('Revise percentuais, orçamentos propostos, documentos e justificativa.');
+  adminClubeTermsSaving.add(key);
+  try{
+    const result=await adminInvoke({action:'clube-terms-save',
+      merchantId,packageKey,status,brandShareBps,brandBudgetCents,
+      platformBudgetCents,identityDocumentStatus,
+      agreementDocumentStatus,fundingDocumentStatus,note,
+      expectedVersion,expectedInterestVersion,expectedReviewVersion,
+      requestId:crypto.randomUUID()});
+    if(result?.source!=='admin_clube_terms_save_v1_242'||
+      result?.recorded!==true||result?.noContract!==true||
+      result?.noCharge!==true||result?.fundingVerified!==false||
+      result?.couponSalesEnabled!==false||result?.budgetReservedCents!==0)
+      throw new Error('Condições não confirmadas pelo servidor.');
+    if(actor===String(adminRuntime?.session?.user?.id||'')){
+      toast('Minuta atualizada. Não há contrato, financiamento confirmado nem cupom ativo.');
+      await adminClubeTermsLoadFromUi();
+    }
+  }catch(e){
+    if(actor===String(adminRuntime?.session?.user?.id||'')){
+      toast(String(e?.message||'Minuta não salva. Verifique os dados e atualize a fila.'));
+    }
+  }finally{adminClubeTermsSaving.delete(key);render();}
+}
+function adminClubeTermsSection(){
+  const role=String(adminCurrentRole());
+  if(!['superadmin','operations','compliance','finance','readonly'].includes(role))return '';
+  const actor=String(adminRuntime?.session?.user?.id||'');
+  const d=adminClubeTermsState?.loadedFor===actor?adminClubeTermsState:null;
+  const canEdit=['superadmin','finance'].includes(role);
+  const options=(items,current)=>items.map(x=>
+    '<option value="'+esc(x[0])+'"'+(String(x[0])===String(current)?' selected':'')+'>'+esc(x[1])+'</option>').join('');
+  const docs=[['not_requested','Não solicitado'],['requested','Solicitado'],
+    ['supplied_unverified','Informado como recebido; não validado']];
+  const budgets=[[0,'Não previsto'],[3000,'R$ 30'],[10000,'R$ 100'],[30000,'R$ 300'],
+    [100000,'R$ 1.000'],[1000000,'R$ 10.000']];
+  const rows=(d?.rows||[]).map(x=>{
+    const key=String(x.merchantId)+'-'+String(x.packageKey);
+    const current=x.currentInterest&&x.currentReview;
+    const caps=x.capacity;
+    const shareOptions=[[0,'0%'],[2500,'25%'],[5000,'50%'],
+      [7500,'75%'],[10000,'100%']].filter(v=>v[0]+x.merchantShareBps<=10000);
+    const form=canEdit&&current?
+      '<div class="form-stack">'+
+      '<div class="input-wrap"><label for="clube-terms-status-'+esc(key)+'">Situação da minuta</label>'+
+      '<select class="input" id="clube-terms-status-'+esc(key)+'">'+
+      options([['draft','Rascunho interno'],['shared_for_discussion','Compartilhar para conversa'],
+        ['withdrawn','Retirar minuta']],x.termsStatus||'draft')+'</select></div>'+
+      '<div class="grid cards-2"><div class="input-wrap"><label for="clube-terms-brand-share-'+esc(key)+'">Participação proposta da marca (restante é TAMÃO)</label>'+
+      '<select class="input" id="clube-terms-brand-share-'+esc(key)+'">'+
+      options(shareOptions,x.brandShareBps||0)+'</select></div>'+
+      '<div class="input-wrap"><label for="clube-terms-brand-budget-'+esc(key)+'">Limite sugerido da marca</label>'+
+      '<select class="input" id="clube-terms-brand-budget-'+esc(key)+'">'+
+      options(budgets,x.brandBudgetCents||0)+'</select></div>'+
+      '<div class="input-wrap"><label for="clube-terms-platform-budget-'+esc(key)+'">Limite sugerido para o TAMÃO</label>'+
+      '<select class="input" id="clube-terms-platform-budget-'+esc(key)+'">'+
+      options(budgets,x.platformBudgetCents||0)+'</select></div></div>'+
+      [['identity','Documento/representação',x.identityDocumentStatus],
+       ['agreement','Minuta jurídica',x.agreementDocumentStatus],
+       ['funding','Fonte de custeio',x.fundingDocumentStatus]].map(v=>
+      '<div class="input-wrap"><label for="clube-terms-'+v[0]+'-'+esc(key)+'">'+esc(v[1])+'</label>'+
+      '<select class="input" id="clube-terms-'+v[0]+'-'+esc(key)+'">'+options(docs,v[2])+'</select></div>').join('')+
+      '<div class="input-wrap"><label for="clube-terms-note-'+esc(key)+'">Observações para negociação (12 a 500 caracteres)</label>'+
+      '<textarea class="input" id="clube-terms-note-'+esc(key)+'" maxlength="500" rows="3">'+esc(x.notes||'')+'</textarea></div>'+
+      '<button class="secondary small" type="button" onclick="adminClubeTermsSaveFromUi(\''+
+        esc(x.merchantId)+'\',\''+esc(x.packageKey)+'\','+
+        Number(x.termsVersion)+','+Number(x.interestVersion)+','+Number(x.reviewVersion)+')" '+
+        (adminClubeTermsSaving.has(key)?'disabled':'')+'>Salvar minuta, sem firmar contrato</button></div>':
+      '<p class="tiny muted">Minuta somente para consulta ou aguardando revisão válida.</p>';
+    return '<article class="card flat form-stack">'+
+      '<div class="section-head"><div><strong>'+esc(x.companyName)+'</strong>'+
+      '<p class="tiny muted">'+esc(x.packageKey==='gas_3x5'?'Clube Gás':'Clube Água')+
+      ' • '+esc([x.city,x.state].filter(Boolean).join('/'))+'</p></div>'+
+      '<span class="status-pill '+(current&&x.currentTerms?'online':'risk')+'">'+
+      (x.termsVersion===0?'Sem minuta':current&&x.currentTerms?'Minuta atual':'Revisão pendente')+
+      '</span></div>'+
+      '<p class="tiny muted">Revenda: '+(Number(x.merchantShareBps)/100).toLocaleString('pt-BR')+
+      '% dos descontos • teto pretendido '+adminMoney(x.merchantBudgetCents)+
+      ' • ciência da revenda: '+esc(({none:'Ainda não registrada',read_for_discussion:'Ciência para negociação',
+      not_interested:'Não tem interesse'})[x.merchantResponse]||'Não informada')+'</p>'+
+      (caps?'<div class="merchant-kpis">'+
+        '<div class="kpi"><span class="label">Custo revenda/uso</span><strong>'+adminMoney(caps.merchantPerUseCents)+'</strong></div>'+
+        '<div class="kpi"><span class="label">Custo marca/uso</span><strong>'+adminMoney(caps.brandPerUseCents)+'</strong></div>'+
+        '<div class="kpi"><span class="label">Custo TAMÃO/uso</span><strong>'+adminMoney(caps.platformPerUseCents)+'</strong></div>'+
+        '<div class="kpi"><span class="label">Pacotes em cenário</span><strong>'+Number(caps.maxPackagesIllustrative)+'</strong><small>Não disponíveis</small></div></div>':'')+
+      form+'</article>';
+  }).join('');
+  return '<section class="section admin-clube-terms">'+
+    '<div class="section-head"><div><span class="section-kicker">CLUBE TAMÃO • CONDIÇÕES COMERCIAIS</span>'+
+    '<h3>Minutas e comprovações pendentes</h3>'+
+    '<p>Calcule a divisão dos descontos, solicite documentos e apresente condições para conversa com a revenda.</p></div>'+
+    '<button type="button" class="secondary small" onclick="adminClubeTermsLoadFromUi()" '+
+      (adminClubeTermsBusy?'disabled':'')+'>Consultar minutas</button></div>'+
+    (d?'<div class="merchant-kpis">'+
+      '<div class="kpi"><span class="label">Negociações em histórico</span><strong>'+Number(d.totalReviews)+'</strong></div>'+
+      '<div class="kpi"><span class="label">Verba comprovada</span><strong>R$ 0</strong></div>'+
+      '<div class="kpi"><span class="label">Contratos assinados</span><strong>0</strong></div>'+
+      '<div class="kpi"><span class="label">Cupons para venda</span><strong>0</strong></div></div>'+
+      '<div class="grid cards-2" style="margin-top:12px">'+
+      (rows||'<p class="muted">Nenhuma negociação com revenda foi registrada.</p>')+'</div>':
+      '<p class="tiny muted">Consulte para visualizar minutas e simular a cobertura de descontos. Nenhum orçamento foi reservado.</p>')+
+    '<p class="tiny muted">Documentos informados como recebidos ainda exigem verificação externa. Compartilhar uma minuta não constitui proposta vinculante, reserva de dinheiro ou confirmação de patrocínio.</p></section>';
+}
+
 function adminClubeCampaignSection(){
   const role=String(adminCurrentRole());
   if(!['superadmin','operations','compliance','finance','readonly'].includes(role))return '';
@@ -1139,6 +1297,7 @@ function adminPrelaunchLeadsSection(data){
       adminAdsDemandSection(),
       adminClubeInterestSection(),
       adminClubeCampaignSection(),
+      adminClubeTermsSection(),
       adminAdsCampaignSection(),
       adminAdsAudienceSection(),
       adminAdsPreviewSummarySection(),
