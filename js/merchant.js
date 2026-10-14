@@ -84,6 +84,111 @@ async function merchantAdsCampaignAct(operation){
     }
   }finally{rt.adsCampaignLoading=false;render();}
 }
+// V1.242 — view negotiated terms and register nonbinding awareness.
+function merchantClubeTermsSection(merchant){
+  if(!['owner','manager'].includes(String(merchant?.memberRole||'')))return '';
+  const rt=globalThis.merchantRuntime||{};
+  const id=String(merchant?.merchantId||'');
+  const current=rt.clubeTerms?.merchantId===id?rt.clubeTerms:null;
+  const cards=[['gas_3x5','Clube Gás'],['water_5x2','Clube Água']].map(([key,title])=>{
+    const packet=current?.[key]?.source==='merchant_clube_terms_v1_242'?current[key]:null;
+    const t=packet?.terms;
+    const status=t?.status==='shared_for_discussion'&&t.current===true;
+    const owner=merchant.memberRole==='owner';
+    const pending=rt.clubeTermsPending?.[key];
+    const safeMoney=n=>'R$ '+(Number(n||0)/100).toLocaleString('pt-BR',{minimumFractionDigits:2});
+    const copy=status?
+      '<div class="form-stack">'+
+      '<p class="tiny muted">Participação sugerida da sua revenda: '+
+      (Number(t.merchantShareBps)/100).toLocaleString('pt-BR')+
+      '% do desconto, até '+safeMoney(t.merchantProposedBudgetCents)+
+      ' (não contratado). Marca: '+(Number(t.brandShareBps)/100).toLocaleString('pt-BR')+
+      '%, com orçamento sugerido '+safeMoney(t.brandBudgetCents)+
+      '. O restante caberia ao TAMÃO, com teto proposto '+safeMoney(t.platformBudgetCents)+
+      '. Nenhum custeio está comprovado.</p>'+
+      '<p class="tiny muted">Pacotes completos que esses valores poderiam sustentar: <strong>'+
+      Number(t.capacity?.maxPackagesIllustrative||0).toLocaleString('pt-BR')+
+      '</strong> (simulação, nenhum cupom disponível).</p>'+
+      '<p class="tiny muted">Documentos: representação '+esc(t.identityDocumentStatus)+
+      ', minuta '+esc(t.agreementDocumentStatus)+
+      ', custeio '+esc(t.fundingDocumentStatus)+
+      '. Todos ainda dependem de verificação independente.</p>'+
+      '<p class="tiny muted">Observações para conversa: '+esc(t.notes||'')+'</p>'+
+      '<p class="tiny muted">Sua resposta: '+esc(({none:'Aguardando manifestação',
+        read_for_discussion:'Li e quero conversar',not_interested:'Não tenho interesse'})[t.merchantResponse]||'A definir')+'</p>'+
+      (owner?'<label class="checkbox-line"><input type="checkbox" id="clube-terms-consent-'+key+
+        '"/> Declaro apenas que li a minuta e desejo conversar sobre ela. Esta resposta não é aceite contratual nem autorização de desconto.</label>'+
+      '<div class="order-actions">'+
+      '<button type="button" class="secondary small" onclick="merchantClubeTermsReplyFromUi(\''+key+'\',\'read_for_discussion\')" '+
+      (pending?'disabled':'')+'>Li e quero conversar</button>'+
+      '<button type="button" class="ghost small" onclick="merchantClubeTermsReplyFromUi(\''+key+'\',\'not_interested\')" '+
+      (pending?'disabled':'')+'>Não tenho interesse</button></div>':'<p class="tiny muted">Somente o titular pode registrar ciência.</p>')+
+      '</div>':'<p class="tiny muted">Ainda não há minuta atual compartilhada para negociação.</p>';
+    return '<article class="card flat form-stack"><div class="section-head"><div><h3>'+esc(title)+'</h3>'+
+    '<p class="tiny muted">Condições comerciais para avaliação — sem compromisso</p></div>'+
+    '<button type="button" class="secondary small" onclick="merchantClubeTermsLoadFromUi(\''+key+'\')" '+
+    (pending?'disabled':'')+'>Consultar proposta</button></div>'+copy+
+    (rt.clubeTermsErrors?.[key]?'<p class="notice danger">'+esc(rt.clubeTermsErrors[key])+'</p>':'')+'</article>';
+  }).join('');
+  return '<section class="section merchant-clube-terms">'+
+   '<div class="section-head"><div><span class="section-kicker">CLUBE TAMÃO • CONVERSA COMERCIAL</span>'+
+   '<h2>Condições para avaliar, sem compromisso</h2>'+
+   '<p>Confira se há uma minuta preparada para sua revenda. Seu interesse anterior não cria cobrança.</p>'+
+   '</div></div><div class="grid cards-2">'+cards+'</div></section>';
+}
+async function merchantClubeTermsCall(key,operation,extra={}){
+  const rt=globalThis.merchantRuntime;
+  const merchantId=String(rt?.merchant?.merchantId||'');
+  if(!merchantId||!['owner','manager'].includes(String(rt?.merchant?.memberRole||''))||
+    !['gas_3x5','water_5x2'].includes(key))return;
+  if(rt.clubeTermsPending?.[key])return;
+  if(rt.clubeTerms?.merchantId!==merchantId)rt.clubeTerms={merchantId};
+  rt.clubeTermsPending??={};
+  rt.clubeTermsErrors??={};
+  rt.clubeTermsPending[key]=true;
+  rt.clubeTermsErrors[key]=null;
+  try{
+    const result=await merchantInvoke('merchant-ops',{
+      action:'clube-terms',merchantId,packageKey:key,operation,...extra});
+    if(result?.source!=='merchant_clube_terms_v1_242'||
+      result?.merchantId!==merchantId||result?.packageKey!==key||
+      result?.readOnly!==(operation==='view')||
+      result?.noContract!==true||result?.noCharge!==true||
+      result?.fundingVerified!==false||result?.couponSalesEnabled!==false||
+      (result.terms!==null&&(
+        !Number.isSafeInteger(result.terms.version)||result.terms.version<1||
+        !['draft','shared_for_discussion','withdrawn'].includes(result.terms.status))))
+      throw new Error('Minuta não confirmada pelo servidor.');
+    if(String(rt.merchant?.merchantId)!==merchantId)return;
+    rt.clubeTerms[key]=result;
+    if(operation!=='view')toast('Manifestação registrada apenas para negociação. Nenhum contrato foi firmado.');
+  }catch(e){
+    if(String(rt.merchant?.merchantId)===merchantId){
+      rt.clubeTermsErrors[key]=String(e?.message||'Não foi possível consultar a minuta.');
+      toast(rt.clubeTermsErrors[key]);
+    }
+  }finally{rt.clubeTermsPending[key]=false;render();}
+}
+function merchantClubeTermsLoadFromUi(key){
+  return merchantClubeTermsCall(key,'view');
+}
+function merchantClubeTermsReplyFromUi(key,operation){
+  const rt=globalThis.merchantRuntime;
+  if(rt?.merchant?.memberRole!=='owner')
+    return toast('Somente o titular pode registrar a manifestação.');
+  const t=rt?.clubeTerms?.[key]?.terms;
+  if(!t||!t.current||t.status!=='shared_for_discussion')
+    return toast('Consulte a minuta atual antes de responder.');
+  if(operation==='read_for_discussion'&&document.getElementById('clube-terms-consent-'+key)?.checked!==true)
+    return toast('Confirme que é apenas uma manifestação sem contrato.');
+  if(operation==='not_interested'&&!confirm('Registrar que você não deseja negociar esta minuta?'))
+    return;
+  if(!['read_for_discussion','not_interested'].includes(operation))return;
+  return merchantClubeTermsCall(key,operation,{
+    version:t.version,requestId:crypto.randomUUID(),
+    consent:operation==='read_for_discussion'});
+}
+
 // V1.240 — only interest in possible Clube sponsorship, never a funded campaign.
 function merchantClubeInterestSection(merchant){
   if(!['owner','manager'].includes(String(merchant?.memberRole||'')))return '';
@@ -1315,6 +1420,7 @@ function merchantLivePage(){
     ${merchantBusinessPulseSection(m)}
     ${merchantAdsInterestSection(m)}
     ${merchantClubeInterestSection(m)}
+    ${merchantClubeTermsSection(m)}
     ${merchantAdsCampaignSection(m)}
     ${merchantGrowthNetworkSection(m)}
     ${merchantAlertControl()}
