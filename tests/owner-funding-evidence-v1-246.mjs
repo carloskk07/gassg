@@ -62,7 +62,7 @@ for(const s of [
  'Disponível para gastar',
  'Conciliado manualmente',
  'Nenhum aporte registrado',
- 'É necessário outro administrador para conferir.'
+ 'Somente o administrador principal pode conferir o próprio aporte.'
 ])assert.ok(ui.includes(s),'Missing Admin controls: '+s);
 for(const s of ['adminOwnerEvidenceLoadFromUi','adminOwnerEvidenceSubmitFromUi',
  'adminOwnerEvidenceReviewFromUi'])assert.ok(boot.includes(s),'Missing bootstrap callback: '+s);
@@ -96,9 +96,13 @@ let html=ctx.section();
 assert.ok(html.includes('R$ 100.00'));
 assert.ok(html.includes('&lt;script&gt;'));
 assert.ok(!html.includes('<script>alert(1)</script>'));
-assert.ok(html.includes('É necessário outro administrador para conferir.'));
+assert.ok(html.includes('Somente o administrador principal pode conferir o próprio aporte.')===false);
+assert.ok(html.includes('Registrar conferência interna'));
+ctx.adminCurrentRole=()=> 'finance';
+html=ctx.section();
+assert.ok(html.includes('Somente o administrador principal pode conferir o próprio aporte.'));
 assert.ok(!html.includes('Registrar conferência interna'));
 ctx.adminOwnerEvidenceState.rows[0].submittedBy='33333333-3333-4333-8333-333333333333';
 html=ctx.section();
 assert.ok(html.includes('Registrar conferência interna'));
-console.log('V1.246 PASS — evidence intake, independent reviewer, access gates, deduplication and non-spendability.');
+console.log('V1.246 PASS — evidence intake with V1.248 superadmin self-review, finance separation, guards and non-spendability.');
