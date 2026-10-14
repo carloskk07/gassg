@@ -851,6 +851,13 @@ async function adminOwnerFundingLoadFromUi(){
     }
   }finally{adminOwnerFundingLoading=false;render();}
 }
+function adminOwnerFundingReaisToCents(value,maxCents){
+  const n=Number(value);
+  if(!Number.isFinite(n)||n<0||n>maxCents/100)return null;
+  const cents=Math.round(n*100);
+  if(!Number.isSafeInteger(cents)||Math.abs(n*100-cents)>0.000001)return null;
+  return cents;
+}
 async function adminOwnerFundingSaveFromUi(key,expectedVersion){
   const actor=String(adminRuntime?.session?.user?.id||'');
   if(!actor||String(adminCurrentRole())!=='superadmin')return;
@@ -859,8 +866,8 @@ async function adminOwnerFundingSaveFromUi(key,expectedVersion){
   if(!current||current.version!==expectedVersion||adminOwnerFundingSaving.has(key))
     return toast('Atualize o plano antes de salvar.');
   const val=id=>String(document.getElementById('owner-funding-'+id+'-'+key)?.value||'');
-  const budgetCents=Number(val('budget'));
-  const capCents=Number(val('cap'));
+  const budgetCents=adminOwnerFundingReaisToCents(val('budget'),50000000);
+  const capCents=adminOwnerFundingReaisToCents(val('cap'),10000000);
   const status=val('status');
   const note=val('note').trim();
   if(![budgetCents,capCents].every(v=>Number.isSafeInteger(v)&&v>=0)||
@@ -929,10 +936,10 @@ function adminOwnerFundingSection(){
     const key=String(x.benefitKey);
     const fields=role==='superadmin'?
       '<div class="grid cards-2">'+
-      '<label class="input-wrap">Teto planejado por mês (centavos)'+
-      '<input class="input" type="number" min="0" max="50000000" step="100" id="owner-funding-budget-'+esc(key)+'" value="'+Number(x.budgetCents)+'"></label>'+
-      '<label class="input-wrap">Teto planejado por pessoa (centavos)'+
-      '<input class="input" type="number" min="0" max="10000000" step="100" id="owner-funding-cap-'+esc(key)+'" value="'+Number(x.capCents)+'"></label>'+
+      '<label class="input-wrap">Orçamento mensal (R$)'+
+      '<input class="input" type="number" inputmode="decimal" min="0" max="500000" step="0.01" id="owner-funding-budget-'+esc(key)+'" value="'+(Number(x.budgetCents)/100).toFixed(2)+'"></label>'+
+      '<label class="input-wrap">Limite por pessoa (R$)'+
+      '<input class="input" type="number" inputmode="decimal" min="0" max="100000" step="0.01" id="owner-funding-cap-'+esc(key)+'" value="'+(Number(x.capCents)/100).toFixed(2)+'"></label>'+
       '</div><label class="input-wrap">Declaração interna'+
       '<select class="input" id="owner-funding-status-'+esc(key)+'">'+
       '<option value="planning"'+(x.status==='planning'?' selected':'')+'>Em planejamento</option>'+
