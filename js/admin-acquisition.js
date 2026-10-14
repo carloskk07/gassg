@@ -1791,6 +1791,180 @@ function adminGrowthApplicationFunnelView(raw){
     '<p class="tiny muted">Correspondência de telefone é apenas um indício não verificado. Aprovação, CNPJ e vínculo de proprietário não comprovam receita do TAMÃO. Nenhuma comissão de revenda é liberada nesta etapa.</p>'+
     '</section>';
 }
+// TAMÃO V1.249 — founder finance center: one read-only overview and focused workspaces.
+// Uses the existing authenticated RPC actions, without enabling spending or payments.
+let adminOwnerFinanceTab='overview';
+let adminOwnerFinanceLoading=false;
+let adminOwnerFinanceLoadedFor='';
+let adminOwnerFinanceLoadedAt='';
+let adminOwnerFinanceError='';
+async function adminOwnerFinanceLoadFromUi(){
+  const actor=String(adminRuntime?.session?.user?.id||'');
+  const role=String(adminCurrentRole());
+  if(!actor||!['superadmin','finance'].includes(role)||adminOwnerFinanceLoading)return;
+  adminOwnerFinanceLoading=true;
+  adminOwnerFinanceError='';
+  render();
+  try{
+    const [plan,pulse,evidence,budget]=await Promise.all([
+      adminInvoke({action:'owner-funding-read'}),
+      adminInvoke({action:'owner-funding-pulse'}),
+      adminInvoke({action:'owner-evidence-queue'}),
+      adminInvoke({action:'owner-budget-queue'})
+    ]);
+    if(plan?.source!=='admin_owner_funding_read_v1_244'||
+       plan?.fundingSource!=='platform_owner'||plan?.readOnly!==true||
+       plan?.newBenefitsEnabled!==false||plan?.noCharge!==true||
+       plan?.verifiedDepositCents!==0||plan?.moneyReservedCents!==0||
+       !Array.isArray(plan.rows)||plan.rows.length!==4||
+       new Set(plan.rows.map(x=>x.benefitKey)).size!==4||
+       plan.rows.some(x=>!Number.isSafeInteger(x.budgetCents)||x.budgetCents<0))
+      throw new Error('Planejamento do fundador não validado.');
+    if(pulse?.source!=='admin_owner_funding_pulse_v1_245'||
+       pulse?.readOnly!==true||pulse?.noCharge!==true||
+       pulse?.timezone!=='America/Sao_Paulo'||
+       pulse?.metricMeaning!=='grants_created_this_month_not_bank_spending'||
+       pulse?.budgetMeaning!=='owner_plan_not_funds_deposited'||
+       pulse?.verifiedDepositCents!==0||pulse?.moneyReservedCents!==0||
+       pulse?.newBenefitsActivated!==false||pulse?.payoutsMeasured!==false||
+       !/^\d{4}-\d{2}-01$/.test(String(pulse.monthStart||''))||
+       !Array.isArray(pulse.rows)||pulse.rows.length!==4||
+       new Set(pulse.rows.map(x=>x.benefitKey)).size!==4||
+       pulse.rows.some(x=>!Number.isSafeInteger(x.netGrantedCents)||x.netGrantedCents<0))
+      throw new Error('Concessões do mês não validadas.');
+    if(evidence?.source!=='admin_owner_evidence_queue_v1_246'||
+       evidence?.readOnly!==true||evidence?.bankApiConfirmed!==false||
+       evidence?.fundsSpendable!==false||evidence?.spendableCents!==0||
+       evidence?.newBenefitsEnabled!==false||evidence?.cashMoved!==false||
+       !Array.isArray(evidence.rows)||evidence.rows.length>50||
+       !Number.isSafeInteger(evidence.total)||evidence.total<0||
+       !Number.isSafeInteger(evidence.pendingCount)||evidence.pendingCount<0||
+       !Number.isSafeInteger(evidence.manualReconciledCents)||
+       evidence.manualReconciledCents<0)
+      throw new Error('Aportes não validados.');
+    if(budget?.source!=='admin_owner_budget_queue_v1_247'||
+       budget?.readOnly!==true||budget?.plannedOnly!==true||
+       budget?.noCharge!==true||budget?.verifiedCashCents!==0||
+       budget?.spendableCents!==0||budget?.newBenefitsEnabled!==false||
+       !Array.isArray(budget.rows)||budget.rows.length!==12||
+       !Array.isArray(budget.allocations)||budget.allocations.length>50||
+       budget.rows.filter(x=>x.month===pulse.monthStart).length!==4||
+       budget.rows.some(x=>!Number.isSafeInteger(x.allocatedCents)||x.allocatedCents<0||
+         !Number.isSafeInteger(x.plannedCents)||x.plannedCents<0||
+         !Number.isSafeInteger(x.unallocatedCents)||x.unallocatedCents<0||
+         x.allocatedCents+x.unallocatedCents!==x.plannedCents))
+      throw new Error('Distribuição mensal não validada.');
+    if(actor===String(adminRuntime?.session?.user?.id||'')&&
+       role===String(adminCurrentRole())){
+      adminOwnerFundingState={...plan,loadedFor:actor};
+      adminOwnerFundingPulseState={...pulse,loadedFor:actor};
+      adminOwnerEvidenceState={...evidence,loadedFor:actor};
+      adminOwnerBudgetState={...budget,loadedFor:actor};
+      adminOwnerFinanceLoadedFor=actor;
+      adminOwnerFinanceLoadedAt=new Date().toLocaleString('pt-BR',{timeZone:'America/Sao_Paulo'});
+    }
+  }catch(error){
+    if(actor===String(adminRuntime?.session?.user?.id||'')){
+      adminOwnerFinanceError=String(error?.message||'Falha ao consultar central financeira.');
+      adminOwnerFinanceLoadedFor='';
+      toast(adminOwnerFinanceError);
+    }
+  }finally{adminOwnerFinanceLoading=false;render();}
+}
+function adminOwnerFinanceSelectFromUi(tab){
+  if(!['overview','plan','evidence','campaigns'].includes(tab)||
+     !['superadmin','finance'].includes(String(adminCurrentRole())))return;
+  adminOwnerFinanceTab=tab;
+  render();
+}
+function adminOwnerFinanceWorkspaceSection(){
+  const role=String(adminCurrentRole());
+  if(!['superadmin','finance'].includes(role))return '';
+  const actor=String(adminRuntime?.session?.user?.id||'');
+  const plan=adminOwnerFundingState?.loadedFor===actor?adminOwnerFundingState:null;
+  const pulse=adminOwnerFundingPulseState?.loadedFor===actor?adminOwnerFundingPulseState:null;
+  const evidence=adminOwnerEvidenceState?.loadedFor===actor?adminOwnerEvidenceState:null;
+  const budget=adminOwnerBudgetState?.loadedFor===actor?adminOwnerBudgetState:null;
+  const complete=adminOwnerFinanceLoadedFor===actor&&!!plan&&!!pulse&&!!evidence&&!!budget;
+  const keys=['customer_cashback','customer_referral','merchant_referral','clube_coupons'];
+  const labels={
+    customer_cashback:'Cashback',customer_referral:'Indicações de clientes',
+    merchant_referral:'Indicações de revendas',clube_coupons:'Clube TAMÃO'
+  };
+  const tabs=[
+    ['overview','Visão geral'],
+    ['plan','Planejamento'],
+    ['evidence','Aportes'],
+    ['campaigns','Campanhas']
+  ];
+  const navigation='<div class="row flex-wrap" role="group" aria-label="Áreas de financiamento">'+
+    tabs.map(([id,title])=>'<button type="button" class="'+
+      (adminOwnerFinanceTab===id?'primary':'secondary')+
+      ' small" aria-pressed="'+(adminOwnerFinanceTab===id?'true':'false')+
+      '" onclick="adminOwnerFinanceSelectFromUi(\''+id+'\')">'+title+'</button>').join('')+
+    '</div>';
+  const refresh='<button type="button" class="secondary small" onclick="adminOwnerFinanceLoadFromUi()" '+
+    (adminOwnerFinanceLoading?'disabled':'')+'>'+
+    (adminOwnerFinanceLoading?'Consultando…':'Atualizar visão financeira')+'</button>';
+  const currentMonth=complete?String(pulse.monthStart):'';
+  const monthly=complete?budget.rows.filter(x=>x.month===currentMonth):[];
+  const sum=values=>values.reduce((total,value)=>total+Number(value||0),0);
+  const summary=complete?
+    '<div class="merchant-kpis">'+
+      '<div class="kpi"><span class="label">Orçamento planejado / mês</span><strong>'+
+      adminMoney(sum(plan.rows.map(x=>x.budgetCents)))+'</strong><small>Quatro centros de incentivos</small></div>'+
+      '<div class="kpi"><span class="label">Distribuído em campanhas / mês</span><strong>'+
+      adminMoney(sum(monthly.map(x=>x.allocatedCents)))+'</strong><small>Parcela do planejamento, não dinheiro gasto</small></div>'+
+      '<div class="kpi"><span class="label">Emissões válidas geradas no mês</span><strong>'+
+      adminMoney(sum(pulse.rows.map(x=>x.netGrantedCents)))+'</strong><small>Benefícios registrados, não pagamentos</small></div>'+
+      '<div class="kpi"><span class="label">Aportes conferidos manualmente</span><strong>'+
+      adminMoney(evidence.manualReconciledCents)+'</strong><small>Histórico total, sem validação bancária por API</small></div>'+
+      '</div>'+
+      '<p class="tiny muted">Competência '+esc(currentMonth)+' (São Paulo) • '+
+      Number(evidence.pendingCount).toLocaleString('pt-BR')+
+      ' aporte(s) aguardando decisão • consulta: '+esc(adminOwnerFinanceLoadedAt)+
+      '. Nenhum desses indicadores representa saldo disponível para pagamentos.</p>':
+      '<p class="muted">Atualize a visão financeira para reunir orçamento, aportes, campanhas e incentivos com dados atuais.</p>';
+  const lines=complete?keys.map(key=>{
+    const p=plan.rows.find(x=>x.benefitKey===key);
+    const b=monthly.find(x=>x.benefitKey===key);
+    const x=pulse.rows.find(x=>x.benefitKey===key);
+    if(!p||!b||!x)return '';
+    const pct=Number(p.budgetCents)>0?
+      Math.min(100,Math.round(Number(b.allocatedCents)/Number(p.budgetCents)*100)):0;
+    return '<article class="card flat form-stack">'+
+      '<div class="section-head"><strong>'+esc(labels[key])+'</strong>'+
+      '<span class="status-pill">'+(p.status==='internally_committed'?'Planejado pelo fundador':'Em preparação')+
+      '</span></div>'+
+      '<p class="tiny muted">Teto mensal: '+adminMoney(p.budgetCents)+
+      ' • separado por campanha: '+adminMoney(b.allocatedCents)+
+      ' • não distribuído: '+adminMoney(b.unallocatedCents)+'</p>'+
+      '<div class="progress-track" role="progressbar" aria-label="Orçamento separado" aria-valuemin="0" aria-valuemax="100" aria-valuenow="'+pct+'">'+
+      '<div class="progress-fill" style="width:'+pct+'%"></div></div>'+
+      '<p class="tiny muted">Emissões ainda válidas no mês: '+adminMoney(x.netGrantedCents)+
+      ' (indicador independente do valor distribuído).</p></article>';
+  }).join(''):'';
+  const explanation=adminOwnerFinanceTab==='overview'?
+    '<div class="section-head"><div><h4>Seus quatro centros de crescimento</h4>'+
+    '<p>Acompanhe o que foi planejado, distribuído e registrado em incentivos sem misturar valores diferentes.</p></div></div>'+
+    (complete?'<div class="grid cards-2">'+lines+'</div>':'')+
+    '<p class="tiny muted">Para executar uma operação, selecione Planejamento, Aportes ou Campanhas acima. As decisões continuam registradas por responsável e data.</p>':'';
+  const detail=adminOwnerFinanceTab==='plan'?adminOwnerFundingSection():
+    adminOwnerFinanceTab==='evidence'?adminOwnerEvidenceSection():
+    adminOwnerFinanceTab==='campaigns'?adminOwnerBudgetSection():explanation;
+  return '<section class="section admin-owner-finance-workspace">'+
+    '<div class="section-head"><div>'+
+    '<span class="section-kicker">TAMÃO • ADMINISTRAÇÃO FINANCEIRA</span>'+
+    '<h3>Central de financiamento e crescimento</h3>'+
+    '<p>Uma visão para organizar seus incentivos, acompanhar aportes e decidir onde investir no crescimento do TAMÃO.</p>'+
+    '</div>'+refresh+'</div>'+
+    navigation+
+    (adminOwnerFinanceError?'<p class="tiny muted" role="status">'+esc(adminOwnerFinanceError)+'</p>':'')+
+    summary+
+    detail+
+    '</section>';
+}
+
 function adminPrelaunchLeadsSection(data){
   const leads=Array.isArray(data?.prelaunchLeads)?data.prelaunchLeads:[];
   const metrics=adminAcquisitionMetrics(data,leads);
@@ -1821,9 +1995,7 @@ function adminPrelaunchLeadsSection(data){
       adminClubeInterestSection(),
       adminClubeCampaignSection(),
       adminClubeTermsSection(),
-      adminOwnerFundingSection(),
-      adminOwnerEvidenceSection(),
-      adminOwnerBudgetSection(),
+      adminOwnerFinanceWorkspaceSection(),
       adminAdsCampaignSection(),
       adminAdsAudienceSection(),
       adminAdsPreviewSummarySection(),
