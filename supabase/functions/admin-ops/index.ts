@@ -100,7 +100,7 @@ async function requireAdmin(admin:any,userId:string){
   if(!data)throw new DomainError("ADMIN_ACCESS_DENIED","Esta conta não possui acesso administrativo.",403);
   return data;
 }
-const ADMIN_READ_ACTIONS=new Set(["summary","search","entity-detail","system-health","billing-provider-health","audit-search","incident-list","merchant-payment-preflight","prospect-intelligence","expansion-notifications","expansion-radar","merchant-enablement","sale-payment-history","finance-receipts-history","commercial-history-list","operational-alerts","ads-demand","clube-interest-queue","clube-campaign-queue","clube-terms-queue","owner-funding-read","owner-funding-pulse","owner-evidence-queue","owner-budget-queue","ads-audience-readiness","ads-preview-summary","ads-placement-readiness","ads-pilot-preflight","commercial-activation","ads-campaign-queue","growth-referral-review-queue"]);
+const ADMIN_READ_ACTIONS=new Set(["summary","search","entity-detail","system-health","billing-provider-health","audit-search","incident-list","merchant-payment-preflight","prospect-intelligence","expansion-notifications","expansion-radar","merchant-enablement","sale-payment-history","finance-receipts-history","commercial-history-list","operational-alerts","ads-demand","clube-interest-queue","clube-campaign-queue","clube-terms-queue","owner-funding-read","owner-funding-pulse","owner-evidence-queue","owner-budget-queue","owner-finance-history","ads-audience-readiness","ads-preview-summary","ads-placement-readiness","ads-pilot-preflight","commercial-activation","ads-campaign-queue","growth-referral-review-queue"]);
 const ADMIN_ROLE_ACTIONS:Record<string,Set<string>>={
   superadmin:new Set(["*"]),
   operations:new Set([
@@ -2520,6 +2520,55 @@ Deno.serve(async(req:Request)=>{
       if(error)throw error;
       if(data?.recorded!==true||data.noCharge!==true||data.adsLive!==false)
         throw new DomainError("ADS_CAMPAIGN_REVIEW_UNVERIFIED","Revisão não confirmada.",503);
+      return json(data,200,origin);
+    }
+    // V1.250 — paginated, read-only founder financing decision history.
+    if(action==="owner-finance-history"){
+      if(!["superadmin","finance"].includes(String(adminAccess.admin_role)))
+        throw new DomainError("ADMIN_PERMISSION_DENIED","Histórico restrito ao financeiro.",403);
+      const month=String(body.month??"");
+      const benefit=String(body.benefitKey??"");
+      const kind=String(body.kind??"all");
+      const event=String(body.eventType??"all");
+      const offset=body.offset??0;
+      const benefits=["customer_cashback","customer_referral","merchant_referral","clube_coupons"];
+      const types=["all","contribution_submitted","contribution_manual_reconciled",
+       "contribution_rejected","contribution_disputed","campaign_allocated","campaign_released"];
+      if((month!==""&&!/^\d{4}-(0[1-9]|1[0-2])-01$/.test(month))||
+         (benefit!==""&&!benefits.includes(benefit))||
+         !["all","contribution","campaign"].includes(kind)||
+         !types.includes(event)||!Number.isSafeInteger(offset)||
+         offset<0||offset>10000||offset%20!==0)
+        throw new DomainError("OWNER_HISTORY_FILTER_INVALID","Confira os filtros do histórico.",400);
+      const {data,error}=await admin.rpc("admin_owner_finance_history_v1_250",{
+        p_actor:user.id,p_month:month||null,p_benefit:benefit||null,
+        p_kind:kind,p_event:event,p_offset:offset
+      });
+      if(error)throw error;
+      if(data?.source!=="admin_owner_finance_history_v1_250"||
+         data?.readOnly!==true||data?.bankApiConfirmed!==false||
+         data?.fundsSpendable!==false||data?.spendableCents!==0||
+         data?.newBenefitsEnabled!==false||data?.cashMoved!==false||
+         data?.month!==(month||null)||data?.benefitKey!==(benefit||null)||
+         data?.kind!==kind||data?.eventType!==event||data?.offset!==offset||
+         data?.pageSize!==20||!Number.isSafeInteger(data?.total)||data.total<0||
+         !Array.isArray(data.rows)||data.rows.length>20||
+         data.rows.length>Math.max(0,data.total-offset)||
+         data.rows.some((x:any)=>!x||
+          !UUID_RE.test(String(x.eventId||""))||
+          !UUID_RE.test(String(x.actorId||""))||
+          !benefits.includes(x.benefitKey)||
+          !["contribution","campaign"].includes(x.kind)||
+          !types.slice(1).includes(x.eventType)||
+          !Number.isSafeInteger(x.amountCents)||x.amountCents<100||
+          !Number.isSafeInteger(x.fromVersion)||x.fromVersion<0||
+          !Number.isSafeInteger(x.toVersion)||x.toVersion<=x.fromVersion||
+          !Number.isFinite(Date.parse(String(x.createdAt||"")))||
+          typeof x.note!=="string"||x.note.length>300||
+          (x.campaignLabel!==null&&(typeof x.campaignLabel!=="string"||
+             x.campaignLabel.length>180))||
+          (x.campaignMonth!==null&&!/^\d{4}-\d{2}-01$/.test(x.campaignMonth))))
+        throw new DomainError("OWNER_HISTORY_UNVERIFIED","Histórico financeiro não verificado.",503);
       return json(data,200,origin);
     }
     if(action==="owner-budget-queue"){

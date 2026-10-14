@@ -209,6 +209,8 @@ jobs:
         run: node tests/owner-funding-self-review-v1-248.mjs
       - name: TAMÃO V1.249 unified founder-financing center and read-only summaries
         run: node tests/owner-finance-center-v1-249.mjs
+      - name: TAMÃO V1.250 paginated audit history for founder financing
+        run: node tests/owner-finance-history-v1-250.mjs
       - name: Turnstile smoke Chrome cleanup V1.238.1
         run: node tests/turnstile-smoke-cleanup-v1-238-1.mjs
       - name: First real PSP pilot preflight V1.146 regression contract
