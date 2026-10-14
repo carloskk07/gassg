@@ -415,7 +415,7 @@ function sponsorsLanding(){
       <span class="eyebrow">MARCAS E PARCEIROS • TAMÃO</span>
       <h1 class="page-title">Sua marca presente no dia a dia de quem compra e vende.</h1>
       <p class="page-lead">Imagine sua marca fazendo parte das escolhas que movimentam cada cidade: do gás que chega em casa à água e aos produtos que acompanham a rotina das famílias. O TAMÃO conecta essa demanda às revendas locais e abre espaço para criar ações relevantes com parceiros.</p>
-      <div class="conversion-mini-proof"><span>✓ Presença regional</span><span>✓ Campanhas desenhadas em conjunto</span><span>✓ Participação por objetivos</span></div>
+      <div class="conversion-mini-proof"><span>✓ Presença regional</span><span>✓ Campanhas desenhadas em conjunto</span><span>✓ Primeiro contato sem compromisso</span></div>
       <div class="tamao-value-actions">
         <button type="button" class="primary" onclick="go('contact')">Conversar sobre uma parceria →</button>
         <button type="button" class="secondary" onclick="go('merchants')">Conhecer as revendas</button>
