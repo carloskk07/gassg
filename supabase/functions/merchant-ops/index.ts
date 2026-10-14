@@ -200,7 +200,7 @@ Deno.serve(async(req:Request)=>{
       }
       if(operation!=="view"&&(
         !Number.isSafeInteger(expectedVersion)||expectedVersion<0||expectedVersion>2147483645||
-        !UUID_RE.test(String(requestId??""))){
+        !UUID_RE.test(String(requestId??"")))){
         throw new DomainError("CLUBE_EXPECTED_VERSION_REQUIRED",
           "Atualize a proposta antes de alterá-la.",409);
       }
