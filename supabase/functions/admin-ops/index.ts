@@ -110,7 +110,7 @@ const ADMIN_ROLE_ACTIONS:Record<string,Set<string>>={
   ]),
   finance:new Set([
     "financial-action","review-referral","retry-reward","retry-accounting","reverse-order",
-    "growth-benefit-preview","clube-coupon-preview","commercial-policy","merchant-billing-plan","merchant-billing-action","merchant-billing-payment-request","merchant-billing-payment-event","merchant-billing-refund","merchant-billing-provider-cancel-retry","merchant-payment-capability","create-billing-webhook-probe","incident-action","operational-alert-ack"
+    "growth-benefit-preview","commercial-policy","clube-coupon-preview","merchant-billing-plan","merchant-billing-action","merchant-billing-payment-request","merchant-billing-payment-event","merchant-billing-refund","merchant-billing-provider-cancel-retry","merchant-payment-capability","create-billing-webhook-probe","incident-action","operational-alert-ack"
   ]),
   support:new Set(["order-control","support-case-status","incident-action","operational-alert-ack"]),
   compliance:new Set([
