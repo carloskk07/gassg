@@ -100,7 +100,7 @@ async function requireAdmin(admin:any,userId:string){
   if(!data)throw new DomainError("ADMIN_ACCESS_DENIED","Esta conta não possui acesso administrativo.",403);
   return data;
 }
-const ADMIN_READ_ACTIONS=new Set(["summary","search","entity-detail","system-health","billing-provider-health","audit-search","incident-list","merchant-payment-preflight","prospect-intelligence","expansion-notifications","expansion-radar","merchant-enablement","sale-payment-history","finance-receipts-history","commercial-history-list","operational-alerts","ads-demand","clube-interest-queue","clube-campaign-queue","clube-terms-queue","owner-funding-read","owner-funding-pulse","owner-evidence-queue","owner-budget-queue","owner-finance-history","owner-campaign-signals","owner-campaign-orders","owner-campaign-fee-receipts","owner-campaign-batch-ledger","owner-campaign-financial-summary","owner-campaign-benefit-costs","owner-wallet-reconciliation","owner-cashback-source-lots","owner-referral-lifecycle","owner-campaign-orphan-audit","owner-orphan-cleanup-candidates","owner-campaign-cost-read","owner-campaign-receipts-read","owner-campaign-receipt-view","ads-audience-readiness","ads-preview-summary","ads-placement-readiness","ads-pilot-preflight","commercial-activation","ads-campaign-queue","growth-referral-review-queue"]);
+const ADMIN_READ_ACTIONS=new Set(["summary","search","entity-detail","system-health","billing-provider-health","audit-search","incident-list","merchant-payment-preflight","prospect-intelligence","expansion-notifications","expansion-radar","merchant-enablement","sale-payment-history","finance-receipts-history","commercial-history-list","operational-alerts","ads-demand","clube-interest-queue","clube-campaign-queue","clube-terms-queue","owner-funding-read","owner-funding-pulse","owner-evidence-queue","owner-budget-queue","owner-finance-history","owner-campaign-signals","owner-campaign-orders","owner-campaign-fee-receipts","owner-campaign-batch-ledger","owner-campaign-financial-summary","owner-campaign-benefit-costs","owner-wallet-reconciliation","owner-cashback-source-lots","owner-referral-lifecycle","owner-benefit-payout-read","owner-campaign-orphan-audit","owner-orphan-cleanup-candidates","owner-campaign-cost-read","owner-campaign-receipts-read","owner-campaign-receipt-view","ads-audience-readiness","ads-preview-summary","ads-placement-readiness","ads-pilot-preflight","commercial-activation","ads-campaign-queue","growth-referral-review-queue"]);
 const ADMIN_ROLE_ACTIONS:Record<string,Set<string>>={
   superadmin:new Set(["*"]),
   operations:new Set([
@@ -2689,6 +2689,96 @@ Deno.serve(async(req:Request)=>{
     }
 
 
+    // V1.263 — owner-reported external payout evidence, never bank confirmation.
+    if(action==="owner-benefit-payout-read"){
+      if(!["superadmin","finance"].includes(String(adminAccess.admin_role)))
+        throw new DomainError("ADMIN_PERMISSION_DENIED","Consulta financeira restrita.",403);
+      const month=String(body.month??"");
+      if(month!==""&&!/^\d{4}-(0[1-9]|1[0-2])-01$/.test(month))
+        throw new DomainError("PAYOUT_MONTH_INVALID","Competência inválida.",400);
+      const {data,error}=await admin.rpc("admin_owner_referral_payout_claims_v1_263",{
+        p_actor:user.id,p_month:month||null
+      });
+      if(error)throw error;
+      const m=data?.metrics;
+      const fields=["totalClaims","activeClaims","voidedClaims","reportedActiveCents",
+       "reportedEligibleNowCents","reportedNowIneligibleCents","reportedVoidedCents",
+       "activeWithoutProofFingerprint"];
+      const providers=["pix","bank_transfer","mercado_pago","other"];
+      if(data?.source!=="admin_owner_referral_payout_claims_v1_263"||
+        data?.timezone!=="America/Sao_Paulo"||
+        data?.reportedByOwnerOnly!==true||data?.providerSettlementConfirmed!==false||
+        data?.reportMetricMeaning!=="owner_reported_external_claims_not_bank_verified"||
+        data?.externalPaidBenefitsCents!==null||data?.externalPayoutMeasured!==false||
+        data?.bankSettlementVerified!==false||data?.profitMeasured!==false||
+        data?.roiMeasured!==false||data?.readOnly!==true||
+        data?.noTransfers!==true||data?.newBenefitsEnabled!==false||
+        !/^\d{4}-\d{2}-01$/.test(String(data?.month||""))||
+        (month!==""&&data.month!==month)||
+        !m||fields.some(k=>!Number.isSafeInteger(m[k])||m[k]<0)||
+        m.totalClaims!==m.activeClaims+m.voidedClaims||
+        m.reportedActiveCents!==m.reportedEligibleNowCents+m.reportedNowIneligibleCents||
+        m.activeWithoutProofFingerprint>m.activeClaims||
+        !Number.isSafeInteger(data.totalRecords)||data.totalRecords<0||
+        data.totalRecords!==m.totalClaims||data.limit!==30||
+        data.truncated!==(data.totalRecords>30)||
+        !Array.isArray(data.rows)||data.rows.length>30||
+        data.rows.length>data.totalRecords||
+        data.rows.some((x:any)=>!x||!UUID_RE.test(String(x.claimId||""))||
+          !UUID_RE.test(String(x.orderId||""))||
+          !Number.isSafeInteger(x.amountCents)||x.amountCents<1||
+          !providers.includes(x.provider)||typeof x.referenceMasked!=="string"||
+          !/^[A-Za-z0-9._:/-]{4}…[A-Za-z0-9._:/-]{4}$/.test(x.referenceMasked)||
+          !/^\d{4}-\d{2}-\d{2}$/.test(String(x.paidOn||""))||
+          x.proofFingerprintPresent!==true&&x.proofFingerprintPresent!==false||
+          typeof x.voided!=="boolean"||typeof x.eligibleNow!=="boolean"))
+        throw new DomainError("PAYOUT_REPORT_UNVERIFIED","Conciliação de repasses não validada.",503);
+      return json(data,200,origin);
+    }
+    if(action==="owner-benefit-payout-record"){
+      if(String(adminAccess.admin_role)!=="superadmin")
+        throw new DomainError("ADMIN_PERMISSION_DENIED","Registro reservado ao administrador principal.",403);
+      const provider=String(body.provider||"");
+      const reference=String(body.reference||"").trim();
+      const paidOn=String(body.paidOn||"");
+      const proof=String(body.proofSha256||"").toLowerCase().trim();
+      const amount=body.amountCents;
+      if(!UUID_RE.test(String(body.orderId||""))||
+        !Number.isSafeInteger(amount)||amount<1||amount>100000000||
+        !["pix","bank_transfer","mercado_pago","other"].includes(provider)||
+        !/^[A-Za-z0-9][A-Za-z0-9._:/-]{7,119}$/.test(reference)||
+        !/^\d{4}-\d{2}-\d{2}$/.test(paidOn)||
+        (proof!==""&&!/^[0-9a-f]{64}$/.test(proof)))
+        throw new DomainError("PAYOUT_CLAIM_INVALID","Confira pedido, valor e evidência.",400);
+      const {data,error}=await admin.rpc("admin_owner_referral_payout_record_v1_263",{
+        p_actor:user.id,p_order_id:body.orderId,p_amount_cents:amount,
+        p_provider:provider,p_reference:reference,p_paid_on:paidOn,
+        p_proof_sha256:proof||null
+      });
+      if(error)throw error;
+      if(data?.source!=="admin_owner_referral_payout_claim_v1_263"||
+        !UUID_RE.test(String(data?.claimId||""))||
+        typeof data.alreadyRecorded!=="boolean"||
+        data.bankVerified!==false||data.transferExecuted!==false)
+        throw new DomainError("PAYOUT_CLAIM_UNVERIFIED","Registro não validado.",503);
+      return json(data,200,origin);
+    }
+    if(action==="owner-benefit-payout-void"){
+      if(String(adminAccess.admin_role)!=="superadmin")
+        throw new DomainError("ADMIN_PERMISSION_DENIED","Retificação reservada ao administrador principal.",403);
+      const reason=String(body.reason||"").trim();
+      if(!UUID_RE.test(String(body.claimId||""))||reason.length<12||reason.length>300)
+        throw new DomainError("PAYOUT_VOID_INVALID","Informe uma justificativa de 12 a 300 caracteres.",400);
+      const {data,error}=await admin.rpc("admin_owner_referral_payout_void_v1_263",{
+        p_actor:user.id,p_claim_id:body.claimId,p_reason:reason
+      });
+      if(error)throw error;
+      if(data?.source!=="admin_owner_referral_payout_void_v1_263"||
+        !UUID_RE.test(String(data.claimId||""))||data.claimId!==body.claimId||
+        typeof data.alreadyVoided!=="boolean"||data.transferExecuted!==false)
+        throw new DomainError("PAYOUT_VOID_UNVERIFIED","Retificação não validada.",503);
+      return json(data,200,origin);
+    }
     // V1.262 — referral grant lifecycle, not an external commission payout.
     if(action==="owner-referral-lifecycle"){
       if(!["superadmin","finance"].includes(String(adminAccess.admin_role)))
