@@ -1878,6 +1878,7 @@ async function adminOwnerFinanceLoadFromUi(){
       adminOwnerFinanceHistoryState=null;
       adminOwnerCampaignSignalsState=null;
       adminOwnerCampaignOrdersState=null;
+      adminOwnerCampaignFeeReceiptsState=null;
       toast(adminOwnerFinanceError);
     }
   }finally{adminOwnerFinanceLoading=false;render();}
@@ -2156,6 +2157,7 @@ function adminOwnerCampaignSignalsSection(){
       '<p class="muted">Consulte o mês para mostrar somente indicadores medidos.</p>')+
     '<p class="tiny muted">Medição agregada por campanha identificada no link, dentro da competência e da janela da alocação. Acessos não são pessoas únicas; visualizações e cadastros não comprovam pedidos. Não há ROI, faturamento atribuído, saldo disponível ou pagamento de incentivos calculado por esta aba.</p>'+ 
     adminOwnerCampaignOrdersSection()+
+    adminOwnerCampaignFeeReceiptsSection()+
     '</div>';
 }
 
@@ -2234,6 +2236,82 @@ function adminOwnerCampaignOrdersSection(){
       '</div>':
       '<p class="tiny muted">Consulte os pedidos da competência selecionada para exibir apenas dados confirmados do servidor.</p>')+
     '<p class="tiny muted">UTM indica a origem informada no checkout, não comprova que a campanha causou a compra. Liquidação inclui confirmação por revenda ou PSP, conforme o pedido. Nenhum recebimento de taxa pelo TAMÃO é inferido dessa informação.</p>'+
+    '</div>';
+}
+
+// TAMÃO V1.253 — provider-backed individual fee receipts. Grouped statements are excluded.
+let adminOwnerCampaignFeeReceiptsState=null;
+let adminOwnerCampaignFeeReceiptsBusy=false;
+async function adminOwnerCampaignFeeReceiptsLoadFromUi(){
+  const actor=String(adminRuntime?.session?.user?.id||'');
+  const role=String(adminCurrentRole());
+  if(!actor||!['superadmin','finance'].includes(role)||adminOwnerCampaignFeeReceiptsBusy)return;
+  const month=String(document.getElementById('owner-campaign-signals-month')?.value||'').trim();
+  if(month&&!/^\d{4}-(0[1-9]|1[0-2])$/.test(month))
+    return toast('Selecione uma competência válida.');
+  adminOwnerCampaignFeeReceiptsBusy=true;
+  render();
+  try{
+    const d=await adminInvoke({action:'owner-campaign-fee-receipts',month:month?month+'-01':''});
+    const keys=['customer_cashback','customer_referral','merchant_referral','clube_coupons'];
+    if(d?.source!=='admin_owner_campaign_fee_receipts_v1_253'||
+       d?.evidenceLevel!=='provider_event_applied_single_order_statement_no_refund'||
+       d?.readOnly!==true||d?.noTransfers!==true||
+       d?.spendableCents!==0||d?.newBenefitsEnabled!==false||
+       d?.bankSettlementVerified!==false||d?.roiMeasured!==false||
+       d?.marketingSpendPaidCents!==null||
+       !/^\d{4}-\d{2}-01$/.test(String(d?.month||''))||
+       (month&&d.month!==month+'-01')||
+       !Number.isSafeInteger(d.totalCampaigns)||d.totalCampaigns<0||
+       d.limit!==50||typeof d.truncated!=='boolean'||d.truncated!==(d.totalCampaigns>50)||
+       !Array.isArray(d.rows)||d.rows.length>50||d.rows.length>d.totalCampaigns||
+       d.rows.some(x=>!x||
+         !keys.some(k=>typeof x.campaignTag==='string'&&x.campaignTag.startsWith(
+           'tam-'+k+'-'+d.month.slice(0,4)+d.month.slice(5,7)+'-'))||
+         !['attributedOrders','providerConfirmedOrders','providerConfirmedFeeCents','notIndividuallyProvenOrders']
+           .every(k=>Number.isSafeInteger(x[k])&&x[k]>=0)||
+         x.providerConfirmedOrders+x.notIndividuallyProvenOrders!==x.attributedOrders||
+         (x.providerConfirmedOrders===0&&x.providerConfirmedFeeCents!==0)||
+         x.bankSettlementVerified!==false||x.roiMeasured!==false||
+         x.marketingSpendPaidCents!==null))
+      throw new Error('Conciliação individual não confirmada.');
+    if(actor===String(adminRuntime?.session?.user?.id||'')&&role===String(adminCurrentRole()))
+      adminOwnerCampaignFeeReceiptsState={...d,loadedFor:actor};
+  }catch(error){
+    if(actor===String(adminRuntime?.session?.user?.id||'')){
+      adminOwnerCampaignFeeReceiptsState=null;
+      toast(String(error?.message||'Falha ao consultar os recebimentos.'));
+    }
+  }finally{adminOwnerCampaignFeeReceiptsBusy=false;render();}
+}
+function adminOwnerCampaignFeeReceiptsSection(){
+  if(!['superadmin','finance'].includes(String(adminCurrentRole())))return '';
+  const actor=String(adminRuntime?.session?.user?.id||'');
+  const d=adminOwnerCampaignFeeReceiptsState?.loadedFor===actor?adminOwnerCampaignFeeReceiptsState:null;
+  const freshMonth=String(document.getElementById('owner-campaign-signals-month')?.value||'');
+  const matching=!d||!freshMonth||d.month.slice(0,7)===freshMonth;
+  const cards=(d?.rows||[]).map(x=>'<article class="card flat form-stack">'+
+    '<strong>'+esc(x.campaignTag)+'</strong>'+
+    '<div class="merchant-kpis">'+
+    '<div class="kpi"><span class="label">Taxas confirmadas pelo provedor e vinculadas ao pedido</span><strong>'+
+    adminMoney(x.providerConfirmedFeeCents)+'</strong></div>'+
+    '<div class="kpi"><span class="label">Pedidos com recebimento individual comprovado</span><strong>'+
+    Number(x.providerConfirmedOrders).toLocaleString('pt-BR')+'</strong></div>'+
+    '<div class="kpi"><span class="label">Pedidos ainda sem confirmação individual</span><strong>'+
+    Number(x.notIndividuallyProvenOrders).toLocaleString('pt-BR')+'</strong></div></div>'+
+    '<p class="tiny muted">A comprovação exige cobrança de um único pedido, evento do provedor aplicado, ausência de crédito pré-pago e de estornos. Não se rateiam cobranças diárias com várias vendas.</p></article>').join('');
+  return '<div class="form-stack"><div class="section-head"><div>'+
+    '<h4>Taxas recebidas com comprovação individual</h4>'+
+    '<p>Acompanhamento rigoroso dos recebimentos de taxas da plataforma ligados diretamente a pedidos de campanha.</p>'+
+    '</div></div>'+
+    '<button type="button" class="secondary small" onclick="adminOwnerCampaignFeeReceiptsLoadFromUi()" '+
+    (adminOwnerCampaignFeeReceiptsBusy?'disabled':'')+'>Conferir taxas por campanha</button>'+
+    (d&&matching?'<p class="tiny muted">Competência: '+esc(d.month)+
+      ' • '+Number(d.totalCampaigns).toLocaleString('pt-BR')+' campanha(s)'+
+      (d.truncated?' • exibindo 50 recentes':'')+'</p><div class="grid cards-2">'+
+      (cards||'<p class="muted">Nenhuma campanha planejada para esta competência.</p>')+'</div>':
+      '<p class="tiny muted">Consulte os recebimentos da competência selecionada.</p>')+
+    '<p class="tiny muted">Confirmado pelo provedor e aplicado na cobrança não significa saldo bancário conferido. Campanhas com cobranças agrupadas, aprovação apenas manual ou créditos pré-pagos ficam fora do valor comprovado. Gastos efetivos de marketing e retorno sobre investimento ainda não são mensurados.</p>'+
     '</div>';
 }
 
