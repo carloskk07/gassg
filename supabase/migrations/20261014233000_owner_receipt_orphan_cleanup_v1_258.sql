@@ -212,3 +212,63 @@ grant execute on function platform_funding_private_v1_258.finish(uuid,uuid,text)
 grant execute on function public.admin_owner_cleanup_candidates_v1_258(uuid) to service_role;
 grant execute on function public.admin_owner_cleanup_reserve_v1_258(uuid,uuid,uuid) to service_role;
 grant execute on function public.admin_owner_cleanup_finish_v1_258(uuid,uuid,text) to service_role;
+
+-- V1.256 attachment hardening against pending deletion and missing objects.
+create or replace function platform_funding_private_v1_256.attach(
+ p_actor uuid,p_expense uuid,p_path text,p_mime text,p_size integer,p_sha text
+) returns jsonb language plpgsql volatile security definer
+set search_path=pg_catalog as $func$
+declare v_prev public.platform_campaign_marketing_receipts_v1_256%rowtype;
+ v_replayed boolean:=false;
+begin
+ if p_actor is null or not exists(
+  select 1 from public.platform_admins a
+  where a.user_id=p_actor and a.active and a.admin_role='superadmin'
+ ) then raise exception 'RECEIPT_ATTACH_DENIED' using errcode='42501';end if;
+ if p_expense is null or p_path is null
+   or p_path !~ ('^'||p_expense::text||'/[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}\.(pdf|png|jpg)$')
+   or p_mime is null or p_mime not in ('application/pdf','image/png','image/jpeg')
+   or right(p_path,4) not in ('.pdf','.png','.jpg')
+   or (p_mime='application/pdf' and right(p_path,4)<>'.pdf')
+   or (p_mime='image/png' and right(p_path,4)<>'.png')
+   or (p_mime='image/jpeg' and right(p_path,4)<>'.jpg')
+   or p_size is null or p_size not between 64 and 3145728
+   or p_sha is null or p_sha !~ '^[0-9a-f]{64}$'
+ then raise exception 'RECEIPT_METADATA_INVALID' using errcode='22023';end if;
+ perform pg_catalog.pg_advisory_xact_lock(
+  pg_catalog.hashtextextended('campaign-receipt-v1-256:'||p_expense::text,0));
+ if not exists(
+   select 1 from public.platform_campaign_marketing_costs_v1_255 c
+   where c.expense_id=p_expense and not exists(
+    select 1 from public.platform_campaign_marketing_cost_voids_v1_255 v
+    where v.expense_id=c.expense_id)
+ ) then raise exception 'RECEIPT_EXPENSE_NOT_ELIGIBLE' using errcode='22023';end if;
+ -- Do not let a late finalize resurrect a Storage object reserved for removal.
+ if exists (
+  select 1 from public.platform_campaign_receipt_cleanup_requests_v1_258 req
+  left join public.platform_campaign_receipt_cleanup_results_v1_258 res
+   on res.request_id=req.request_id
+  where req.object_path=p_path and (res.outcome='absent_confirmed' or
+   (res.request_id is null and req.requested_at>clock_timestamp()-interval '15 minutes'))
+ ) or not exists (
+   select 1 from storage.objects o
+   where o.bucket_id='tamao-owner-campaign-receipts-v1-256'
+   and o.name=p_path and coalesce(o.is_delete_marker,false)=false
+ ) then raise exception 'RECEIPT_OBJECT_UNAVAILABLE' using errcode='42501';end if;
+ select * into v_prev from public.platform_campaign_marketing_receipts_v1_256
+ where expense_id=p_expense;
+ if found then
+  if v_prev.recorded_by<>p_actor or v_prev.object_path<>p_path
+    or v_prev.mime_type<>p_mime or v_prev.size_bytes<>p_size
+    or v_prev.sha256<>p_sha
+  then raise exception 'RECEIPT_ALREADY_ATTACHED' using errcode='23505';end if;
+  v_replayed:=true;
+ else
+  insert into public.platform_campaign_marketing_receipts_v1_256
+   (expense_id,object_path,mime_type,size_bytes,sha256,recorded_by)
+  values(p_expense,p_path,p_mime,p_size,p_sha,p_actor);
+ end if;
+ return jsonb_build_object('source','admin_owner_campaign_receipt_attach_v1_256',
+  'attached',true,'replayed',v_replayed,'bankVerified',false,
+  'cashMoved',false,'newBenefitsEnabled',false);
+end;$func$;
