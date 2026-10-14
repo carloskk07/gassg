@@ -82,10 +82,10 @@ assert.ok(view.includes('Orçamento separado para campanha'));
 assert.ok(view.includes('&lt;script&gt;alert(1)&lt;/script&gt;'));
 assert.ok(!view.includes('<script>alert(1)</script>'));
 assert.ok(view.includes('20 por página'));
-user='33333333-3333-4333-8333-333333333333';
+ctx.adminRuntime.session.user.id='33333333-3333-4333-8333-333333333333';
 assert.ok(!ctx.adminOwnerFinanceHistorySection().includes('R$ 95.00'),
   'Isolate session state');
-user=actor;role='readonly';
+ctx.adminRuntime.session.user.id=actor;role='readonly';
 assert.equal(ctx.adminOwnerFinanceHistorySection(),'');
 await ctx.adminOwnerFinanceHistoryLoadFromUi(0);
 assert.equal(params.length,1,'Non-finance role cannot fetch history');
