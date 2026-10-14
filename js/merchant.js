@@ -1305,6 +1305,7 @@ function merchantSetupView(rt){
   if(!['owner','manager'].includes(String(rt?.merchant?.memberRole||'')))return '';
   const steps=merchantSetupSnapshot(rt);
   const done=steps.filter(item=>item.done).length;
+  const next=steps.find(item=>!item.done)||null;
   return '<section class="merchant-essentials" aria-label="Preparação da revenda">'+
     '<div class="merchant-essentials-heading"><div><span class="section-kicker">COMECE PELO ESSENCIAL</span>'+
     '<h2>Prepare sua revenda para vender</h2>'+
