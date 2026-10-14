@@ -2781,7 +2781,7 @@ function adminOwnerBenefitCostsSection(){
     adminMoney(d.cashbackNetGrantedCents)+'</strong></div>'+
     '<div class="kpi"><span class="label">Indicações líquidas concedidas</span><strong>'+
     adminMoney(d.referralNetGrantedCents)+'</strong></div>'+
-    '<div class="kpi"><span class="label">Cashback usado em pedidos atualmente liquidados</span><strong>'+
+    '<div class="kpi"><span class="label">Cashback reservado em pedidos liquidados (sem conciliação V1.260)</span><strong>'+
     adminMoney(d.cashbackUsedInSettledOrdersCents)+'</strong></div>'+
     '<div class="kpi"><span class="label">Comissões movidas para saldo disponível</span><strong>'+
     adminMoney(d.referralMovedToAvailableCents)+'</strong></div></div>'+
