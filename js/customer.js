@@ -50,14 +50,14 @@ function tamaoProductArt(code,product,extra=''){
 function tamaoHomeBenefits(){
   return `<section class="section tamao-value-section" aria-label="Vantagens do TAMÃO">
     <div class="section-head"><div><span class="section-kicker">BOM PARA QUEM COMPRA. BOM PARA SUA CIDADE.</span>
-      <h2>Escolher melhor faz parte de comprar bem.</h2>
-      <p>Mais praticidade para encontrar o essencial, mais clareza para decidir e um jeito de fortalecer os negócios da sua região.</p></div></div>
+      <h2>Compre com liberdade. Compartilhe vantagens. Valorize sua cidade.</h2>
+      <p>Do botijão de gás à água do dia a dia: encontre o que precisa, compare as opções disponíveis e acompanhe a compra sem complicação. E, com a Rede TAMÃO, você ainda pode convidar amigos e revendas.</p></div></div>
     <div class="grid cards-3 tamao-value-grid">
       <article class="card"><span class="tamao-value-icon" aria-hidden="true">🔎</span>
-        <h3>Compare sem sair de casa</h3>
+        <h3>Mais escolhas, menos trabalho</h3>
         <p>Informe seu CEP e conheça os preços totais e prazos das revendas que puderem atender sua cesta. Você escolhe o que faz sentido para você.</p></article>
       <article class="card"><span class="tamao-value-icon" aria-hidden="true">🛡️</span>
-        <h3>Segurança também é saber o que acontece</h3>
+        <h3>Você sabe em que etapa está</h3>
         <p>Uma revenda precisa confirmar seu pedido antes de ele avançar. O acompanhamento mostra as etapas efetivamente registradas.</p></article>
       <article class="card"><span class="tamao-value-icon" aria-hidden="true">🤝</span>
         <h3>Seu convite ajuda o TAMÃO a crescer</h3>
