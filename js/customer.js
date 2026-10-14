@@ -39,6 +39,37 @@ function prelaunchExampleSection(cart={P13:1}){
   return `<section class="section prelaunch-examples"><div class="section-head"><div><span class="section-kicker">EXEMPLO DE INTERFACE</span><h2>Visualização interna de comparação</h2><p>Conteúdo reservado ao ambiente interno de validação.</p></div></div><div class="offer-stack">${prelaunchExampleOffers(cart).map(exampleOfferCard).join('')}</div></section>`;
 }
 
+// V1.243 — Product imagery is representative, never a claim about a merchant's brand or inventory.
+function tamaoProductArt(code,product,extra=''){
+  const art=({P13:'gas',WATER20:'water',CHARCOAL4:'charcoal',WOOD:'wood',ICE5:'ice'})[String(code||'').toUpperCase()];
+  const variant=extra==='hero'?' hero-photo':extra==='cart'?' cart-photo':'';
+  return art?'<span class="tamao-product-photo product-'+art+variant+'" aria-hidden="true"></span>'
+    :'<span class="tamao-product-emoji" aria-hidden="true">'+esc(product?.icon||'🧺')+'</span>';
+}
+// Value proposition remains truthful for both cities with and without verified offers.
+function tamaoHomeBenefits(){
+  return `<section class="section tamao-value-section" aria-label="Vantagens do TAMÃO">
+    <div class="section-head"><div><span class="section-kicker">BOM PARA QUEM COMPRA. BOM PARA SUA CIDADE.</span>
+      <h2>Escolher melhor faz parte de comprar bem.</h2>
+      <p>Mais praticidade para encontrar o essencial, mais clareza para decidir e um jeito de fortalecer os negócios da sua região.</p></div></div>
+    <div class="grid cards-3 tamao-value-grid">
+      <article class="card"><span class="tamao-value-icon" aria-hidden="true">🔎</span>
+        <h3>Compare sem sair de casa</h3>
+        <p>Informe seu CEP e conheça os preços totais e prazos das revendas que puderem atender sua cesta. Você escolhe o que faz sentido para você.</p></article>
+      <article class="card"><span class="tamao-value-icon" aria-hidden="true">🛡️</span>
+        <h3>Segurança também é saber o que acontece</h3>
+        <p>Uma revenda precisa confirmar seu pedido antes de ele avançar. O acompanhamento mostra as etapas efetivamente registradas.</p></article>
+      <article class="card"><span class="tamao-value-icon" aria-hidden="true">🤝</span>
+        <h3>Seu convite ajuda o TAMÃO a crescer</h3>
+        <p>Compartilhe seu link pessoal, convide amigos e apresente revendas. Acompanhe sua rede e conheça as regras dos benefícios de indicação.</p></article>
+    </div>
+    <div class="tamao-value-actions">
+      <button type="button" class="secondary" onclick="go('earn')">Conhecer minha Rede TAMÃO →</button>
+      <button type="button" class="ghost" onclick="go('merchants')">Tenho uma revenda</button>
+    </div>
+  </section>`;
+}
+
 function customerProductName(code,p=products[code]){
   const kg=glpKgForProductCode(code);
   if(kg!==null)return kg===13?'Botijão de cozinha 13 kg':`Botijão de gás ${kg} kg`;
@@ -372,7 +403,7 @@ function home(){
 
     <div class="purchase-starter" aria-label="Consultar produtos e atendimento da sua região">
       <input id="home-featured-code" type="hidden" value="${esc(featuredCode)}">
-      <div class="starter-product"><div class="starter-product-icon">${esc(featuredIcon)}</div><div><span class="starter-label">COMECE PELO QUE PRECISA</span><strong>${esc(featuredName)}</strong><small>${esc(featuredCode)} • Consulta por CEP</small></div><div class="starter-price"><small>CONSULTA</small><b>${priceText}</b></div></div>
+      <div class="starter-product"><div class="starter-product-icon">${tamaoProductArt(featuredCode,featuredProduct,"hero")}</div><div><span class="starter-label">COMECE PELO QUE PRECISA</span><strong>${esc(featuredName)}</strong><small>${esc(featuredCode)} • Consulta por CEP</small></div><div class="starter-price"><small>CONSULTA</small><b>${priceText}</b></div></div>
       <label class="starter-address" for="home-address"><span>${testDemo?'Onde entregar?':'Onde você quer receber?'}</span><div><span aria-hidden="true">📍</span><input id="home-address" autocomplete="${testDemo?'street-address':'postal-code'}" inputmode="${testDemo?'text':'numeric'}" maxlength="${testDemo?'160':'9'}" placeholder="${testDemo?'Digite seu endereço':'Ex.: 97300-000'}" value="${esc(testDemo?(state.address||''):String(state.postalCode||'').replace(/^(\d{5})(\d{0,3}).*$/,(m,a,b)=>b?a+'-'+b:a))}" onkeydown="if(event.key==='Enter'){event.preventDefault();startCustomerAvailability()}" ${disabled&&!acquisitionOpen?'disabled':''}></div></label>
       <button class="primary starter-cta" onclick="${primaryAction}" ${disabled&&!acquisitionOpen?'disabled':''}>${esc(featuredIcon)} ${primaryLabel}</button>
       ${cityChecked&&!hasConfirmedCityOffers&&acquisitionOpen?`<div class="regional-action"><button class="ghost" onclick="openPrelaunchCustomerLead()">Sem opção para meu CEP? Quero receber um aviso →</button></div>`:''}
@@ -391,6 +422,7 @@ function home(){
   </div>`:''}
 </div></section>
 
+${tamaoHomeBenefits()}
 ${conciseHome?intentSection:''}
 ${acquisitionOpen?prelaunchCustomerLeadSection():''}
 ${acquisitionOpen&&!conciseHome?prelaunchTransparencyBand():''}
@@ -415,8 +447,8 @@ ${conciseHome?'':`<section class="section"><div class="protection-band"><div cla
   <div class="how-card"><span>4</span><div><strong>Acompanhe até receber</strong><p>Você vê quando o parceiro aceita, prepara, sai e conclui a entrega.</p></div></div>
 </div></section>
 
-<section class="section"><div class="section-head"><div><span class="section-kicker">O QUE PRECISA HOJE?</span><h2>Gás, água e outros itens para sua casa.</h2><p>Gás, água, carvão, gelo e outros itens da sua região. Você pode pedir produtos disponíveis mesmo sem gás na cesta.</p></div></div>
-<div class="quick-grid">${homeProductEntries.length?homeProductEntries.map(([k,p])=>`<button class="quick-card" onclick="quickProduct('${k}')" ${disabled?'disabled':''}><div class="quick-icon">${p.icon}</div><div class="quick-title">${esc(customerProductName(k,p))}</div><div class="quick-sub">${preview?'Consultar disponibilidade':'Consultar agora'}</div></button>`).join(''):'<div class="empty card">Nenhum produto está configurado para consulta agora.</div>'}</div></section>
+<section class="section"><div class="section-head"><div><span class="section-kicker">O QUE PRECISA HOJE?</span><h2>O essencial da sua rotina, do jeito mais simples.</h2><p>Gás, água, carvão, lenha e gelo: descubra os itens que as revendas realmente oferecem no seu CEP. Sem precisar comprar gás para consultar os demais produtos.</p></div></div>
+<div class="quick-grid">${homeProductEntries.length?homeProductEntries.map(([k,p])=>`<button class="quick-card" onclick="quickProduct('${k}')" ${disabled?'disabled':''}><div class="quick-icon">${tamaoProductArt(k,p)}</div><div class="quick-title">${esc(customerProductName(k,p))}</div><div class="quick-sub">${preview?'Consultar disponibilidade':'Consultar agora'}</div></button>`).join(''):'<div class="empty card">Nenhum produto está configurado para consulta agora.</div>'}</div></section>
 
 ${internalPilot?`<section class="section"><div class="card flat"><span class="section-kicker">AMBIENTE INTERNO</span><h2 style="margin-top:6px">Gas e Lenheira do JR</h2><p class="muted">Faixa comercial P13 configurada para validação interna. Esta visualização não altera a operação pública.</p><button class="secondary" onclick="setMode('merchant')">Abrir painel interno da revenda</button></div></section>`:''}
 
@@ -544,7 +576,7 @@ ${hasItems&&hasAddress?`<section class="section"><div class="section-head"><div>
 function cartRow(k,p){
   const q=state.cart[k]||0;
   const label=customerProductName(k,p);
-  return `<div class="cart-item"><div class="product-left"><div class="product-icon">${p.icon}</div><div><strong>${esc(label)}</strong><div class="tiny muted">${esc(customerProductMeta(k))}</div></div></div><div class="qty" aria-label="Quantidade de ${esc(label)}"><button aria-label="Diminuir" onclick="qty('${k}',-1)">−</button><strong>${q}</strong><button aria-label="Aumentar" onclick="qty('${k}',1)">+</button></div></div>`
+  return `<div class="cart-item"><div class="product-left"><div class="product-icon">${tamaoProductArt(k,p,"cart")}</div><div><strong>${esc(label)}</strong><div class="tiny muted">${esc(customerProductMeta(k))}</div></div></div><div class="qty" aria-label="Quantidade de ${esc(label)}"><button aria-label="Diminuir" onclick="qty('${k}',-1)">−</button><strong>${q}</strong><button aria-label="Aumentar" onclick="qty('${k}',1)">+</button></div></div>`
 }
 // Sorting never changes backend recommendation or creates a new quote.
 let checkoutOfferSort='recommended';
