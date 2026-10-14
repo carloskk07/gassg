@@ -100,7 +100,7 @@ async function requireAdmin(admin:any,userId:string){
   if(!data)throw new DomainError("ADMIN_ACCESS_DENIED","Esta conta não possui acesso administrativo.",403);
   return data;
 }
-const ADMIN_READ_ACTIONS=new Set(["summary","search","entity-detail","system-health","billing-provider-health","audit-search","incident-list","merchant-payment-preflight","prospect-intelligence","expansion-notifications","expansion-radar","merchant-enablement","sale-payment-history","finance-receipts-history","commercial-history-list","operational-alerts","ads-demand","clube-interest-queue","clube-campaign-queue","clube-terms-queue","owner-funding-read","owner-funding-pulse","owner-evidence-queue","owner-budget-queue","owner-finance-history","owner-campaign-signals","owner-campaign-orders","owner-campaign-fee-receipts","owner-campaign-batch-ledger","owner-campaign-financial-summary","owner-campaign-benefit-costs","owner-wallet-reconciliation","owner-cashback-source-lots","owner-referral-lifecycle","owner-benefit-payout-read","owner-benefit-proofs-read","owner-benefit-proof-view","owner-benefit-proof-verify","owner-payout-provider-read","owner-campaign-orphan-audit","owner-orphan-cleanup-candidates","owner-campaign-cost-read","owner-campaign-receipts-read","owner-campaign-receipt-view","ads-audience-readiness","ads-preview-summary","ads-placement-readiness","ads-pilot-preflight","commercial-activation","ads-campaign-queue","growth-referral-review-queue"]);
+const ADMIN_READ_ACTIONS=new Set(["summary","search","entity-detail","system-health","billing-provider-health","audit-search","incident-list","merchant-payment-preflight","prospect-intelligence","expansion-notifications","expansion-radar","merchant-enablement","sale-payment-history","finance-receipts-history","commercial-history-list","operational-alerts","ads-demand","clube-interest-queue","clube-campaign-queue","clube-terms-queue","owner-funding-read","owner-funding-pulse","owner-evidence-queue","owner-budget-queue","owner-finance-history","owner-campaign-signals","owner-campaign-orders","owner-campaign-fee-receipts","owner-campaign-batch-ledger","owner-campaign-financial-summary","owner-campaign-benefit-costs","owner-wallet-reconciliation","owner-cashback-source-lots","owner-referral-lifecycle","owner-benefit-payout-read","owner-benefit-proofs-read","owner-benefit-proof-view","owner-benefit-proof-verify","owner-payout-provider-read","owner-recipient-proof-readiness","owner-campaign-orphan-audit","owner-orphan-cleanup-candidates","owner-campaign-cost-read","owner-campaign-receipts-read","owner-campaign-receipt-view","ads-audience-readiness","ads-preview-summary","ads-placement-readiness","ads-pilot-preflight","commercial-activation","ads-campaign-queue","growth-referral-review-queue"]);
 const ADMIN_ROLE_ACTIONS:Record<string,Set<string>>={
   superadmin:new Set(["*"]),
   operations:new Set([
@@ -2689,6 +2689,78 @@ Deno.serve(async(req:Request)=>{
     }
 
 
+    // V1.266 — privacy-preserving, read-only beneficiary evidence gaps.
+    if(action==="owner-recipient-proof-readiness"){
+      if(!["superadmin","finance"].includes(String(adminAccess.admin_role)))
+        throw new DomainError("ADMIN_PERMISSION_DENIED","Fila de beneficiários restrita.",403);
+      const month=String(body.month??"");
+      if(month!==""&&!/^\d{4}-(0[1-9]|1[0-2])-01$/.test(month))
+        throw new DomainError("RECIPIENT_EVIDENCE_MONTH_INVALID","Competência inválida.",400);
+      const {data,error}=await admin.rpc("admin_owner_recipient_evidence_gaps_v1_266",{
+        p_actor:user.id,p_month:month||null
+      });
+      if(error)throw error;
+      const countFields=["totalClaims","activeClaims","voidedClaims",
+        "eligibleClaims","walletReconciledClaims","internalIdentityMatches",
+        "documentedClaims","providerObservedClaims","providerReconciledClaims",
+        "readyForRecipientProof","beneficiaryVerifiedClaims",
+        "bankSettlementVerifiedClaims"];
+      const allowedReasons=new Set([
+        "claim_voided","recipient_grant_identity_mismatch",
+        "commission_not_currently_eligible","commission_wallet_not_reconciled",
+        "outgoing_provider_not_supported","official_outgoing_transaction_not_queried",
+        "outgoing_transaction_status_or_reference_mismatch","payout_document_missing",
+        "recipient_destination_not_independently_verified"
+      ]);
+      const t=data?.totals;
+      if(data?.source!=="admin_owner_recipient_evidence_gaps_v1_266"||
+         data?.scope!=="owner_reported_referral_outgoing_claims"||
+         data?.timezone!=="America/Sao_Paulo"||
+         data?.destinationIdentityAvailableFromProvider!==false||
+         data?.recipientVerified!==false||data?.bankSettlementVerified!==false||
+         data?.externalPaidBenefitsCents!==null||data?.noIdentityCollection!==true||
+         data?.readOnly!==true||data?.noTransfers!==true||
+         data?.newBenefitsEnabled!==false||
+         !/^\d{4}-\d{2}-01$/.test(String(data?.month||""))||
+         (month!==""&&data.month!==month)||
+         !t||countFields.some(k=>!Number.isSafeInteger(t[k])||t[k]<0)||
+         t.totalClaims!==t.activeClaims+t.voidedClaims||
+         t.beneficiaryVerifiedClaims!==0||t.bankSettlementVerifiedClaims!==0||
+         t.readyForRecipientProof>t.providerReconciledClaims||
+         t.readyForRecipientProof>t.documentedClaims||
+         t.providerReconciledClaims>t.providerObservedClaims||
+         t.providerObservedClaims>t.totalClaims||
+         t.walletReconciledClaims>t.totalClaims||
+         t.internalIdentityMatches>t.totalClaims||
+         t.eligibleClaims>t.activeClaims||
+         data.limit!==50||data.truncated!==(t.totalClaims>50)||
+         !Array.isArray(data.rows)||data.rows.length>50||
+         data.rows.length>t.totalClaims||
+         data.rows.some((x:any)=>!x||!UUID_RE.test(String(x.claimId||""))||
+           !Number.isSafeInteger(x.amountCents)||x.amountCents<1||
+           !["pix","bank_transfer","mercado_pago","other"].includes(x.provider)||
+           !/^\d{4}-\d{2}-\d{2}$/.test(String(x.paidOn||""))||
+           !["voided","grantEligibleNow","internalRecipientMatchesGrant",
+             "walletVerified","proofAttached","providerObserved",
+             "providerMatchedNow","readyForRecipientProof",
+             "beneficiaryVerified","bankSettlementVerified"].every(k=>
+               typeof x[k]==="boolean")||
+           x.beneficiaryVerified!==false||x.bankSettlementVerified!==false||
+           (x.readyForRecipientProof&&(
+             x.voided||!x.grantEligibleNow||!x.walletVerified||
+             !x.proofAttached||!x.providerMatchedNow||
+             x.provider!=="mercado_pago"))||
+           x.providerMatchedNow&&!x.providerObserved||
+           (x.lastProviderCheckAt!==null&&
+             !Number.isFinite(Date.parse(String(x.lastProviderCheckAt))))||
+           !Array.isArray(x.missingEvidence)||
+           !x.missingEvidence.includes("recipient_destination_not_independently_verified")||
+           x.missingEvidence.some((reason:any)=>
+             typeof reason!=="string"||!allowedReasons.has(reason))))
+        throw new DomainError("RECIPIENT_EVIDENCE_UNVERIFIED",
+          "Fila de conferência de beneficiários não validada.",503);
+      return json(data,200,origin);
+    }
     // V1.265 — read-only lookup of *outgoing* MP Payouts. Never use incoming
     // Payments API tokens as evidence of outgoing referral transfers.
     if(action==="owner-payout-provider-check"){
