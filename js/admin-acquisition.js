@@ -2581,6 +2581,111 @@ function adminOwnerOrphanCleanupSection(){
     '</div>';
 }
 
+// TAMÃO V1.259 — benefit costs with separate grant cohort and settled-order use.
+let adminOwnerBenefitsState=null;
+let adminOwnerBenefitsBusy=false;
+async function adminOwnerBenefitsLoadFromUi(){
+  const actor=String(adminRuntime?.session?.user?.id||'');
+  const role=String(adminCurrentRole());
+  if(!actor||!['superadmin','finance'].includes(role)||adminOwnerBenefitsBusy)return;
+  const month=String(document.getElementById('owner-campaign-signals-month')?.value||'').trim();
+  if(month&&!/^\d{4}-(0[1-9]|1[0-2])$/.test(month))
+    return toast('Selecione uma competência válida.');
+  adminOwnerBenefitsBusy=true;render();
+  try{
+    const d=await adminInvoke({action:'owner-campaign-benefit-costs',month:month?month+'-01':''});
+    const money=['cashbackGrantedCents','cashbackReversedCents','cashbackNetGrantedCents',
+      'referralGrantedCents','referralReversedCents','referralNetGrantedCents',
+      'cashbackUsedInSettledOrdersCents','referralMovedToAvailableCents',
+      'referralAvailableReversedCents'];
+    if(d?.source!=='admin_owner_campaign_benefit_costs_v1_259'||
+       d?.readOnly!==true||d?.noTransfers!==true||d?.newBenefitsEnabled!==false||
+       d?.timezone!=='America/Sao_Paulo'||d?.benefitsUsedAreIssuanceCohort!==false||
+       d?.metricMeaning!=='grant_cohort_vs_settlement_activity_non_causal'||
+       d?.campaignAttributionIsCausal!==false||d?.externalPayoutMeasured!==false||
+       d?.externalPaidBenefitsCents!==null||d?.merchantReferralPaidCents!==null||
+       d?.clubeCouponPaidCents!==null||d?.bankSettlementVerified!==false||
+       d?.profitMeasured!==false||d?.roiMeasured!==false||
+       !/^\d{4}-\d{2}-01$/.test(String(d?.month||''))||
+       (month&&d.month!==month+'-01')||
+       !Number.isSafeInteger(d.totalCampaigns)||d.totalCampaigns<0||
+       d.limit!==50||d.truncated!==(d.totalCampaigns>50)||
+       !Array.isArray(d.rows)||d.rows.length>50||d.rows.length>d.totalCampaigns||
+       money.some(k=>!Number.isSafeInteger(d[k])||d[k]<0)||
+       d.cashbackGrantedCents!==d.cashbackReversedCents+d.cashbackNetGrantedCents||
+       d.referralGrantedCents!==d.referralReversedCents+d.referralNetGrantedCents||
+       d.rows.some(x=>!x||!/^[0-9a-f-]{36}$/i.test(String(x.allocationId||''))||
+         !['customer_cashback','customer_referral','merchant_referral','clube_coupons'].includes(x.benefitKey)||
+         typeof x.campaignTag!=='string'||!x.campaignTag.startsWith(
+           'tam-'+x.benefitKey+'-'+d.month.slice(0,4)+d.month.slice(5,7)+'-')||
+         typeof x.campaignLabel!=='string'||x.campaignLabel.length>180||
+         !Number.isSafeInteger(x.plannedIncentiveBudgetCents)||x.plannedIncentiveBudgetCents<0||
+         !Number.isSafeInteger(x.attributedGrantOrders)||x.attributedGrantOrders<0||
+         ['cashbackGrantedCents','cashbackReversedCents','cashbackNetGrantedCents',
+          'referralGrantedCents','referralReversedCents','referralNetGrantedCents']
+          .some(k=>!Number.isSafeInteger(x[k])||x[k]<0)||
+         x.cashbackGrantedCents!==x.cashbackReversedCents+x.cashbackNetGrantedCents||
+         x.referralGrantedCents!==x.referralReversedCents+x.referralNetGrantedCents))
+      throw new Error('Apuração dos benefícios não validada.');
+    if(actor===String(adminRuntime?.session?.user?.id||'')&&role===String(adminCurrentRole()))
+      adminOwnerBenefitsState={...d,loadedFor:actor};
+  }catch(e){
+    if(actor===String(adminRuntime?.session?.user?.id||'')){
+      adminOwnerBenefitsState=null;
+      toast(String(e?.message||'Não foi possível consultar benefícios.'));
+    }
+  }finally{adminOwnerBenefitsBusy=false;render();}
+}
+function adminOwnerBenefitCostsSection(){
+  if(!['superadmin','finance'].includes(String(adminCurrentRole())))return '';
+  const actor=String(adminRuntime?.session?.user?.id||'');
+  const d=adminOwnerBenefitsState?.loadedFor===actor?adminOwnerBenefitsState:null;
+  const selected=String(document.getElementById('owner-campaign-signals-month')?.value||'').trim();
+  const matching=d&&(!selected||d.month.slice(0,7)===selected);
+  const cards=(matching?d.rows:[]).map(x=>
+    '<article class="card flat form-stack"><h5>'+esc(x.campaignLabel)+'</h5>'+
+    '<p class="tiny muted">'+esc(x.campaignTag)+' • '+Number(x.attributedGrantOrders)+
+    ' pedido(s) com concessão vinculada à campanha</p>'+
+    '<p>Cashback concedido: '+adminMoney(x.cashbackGrantedCents)+
+    ' • revertido: '+adminMoney(x.cashbackReversedCents)+
+    ' • líquido: <strong>'+adminMoney(x.cashbackNetGrantedCents)+'</strong></p>'+
+    '<p>Indicações concedidas: '+adminMoney(x.referralGrantedCents)+
+    ' • revertidas: '+adminMoney(x.referralReversedCents)+
+    ' • líquido: <strong>'+adminMoney(x.referralNetGrantedCents)+'</strong></p>'+
+    '<p class="tiny muted">Orçamento planejado (não é despesa paga): '+
+    adminMoney(x.plannedIncentiveBudgetCents)+'</p></article>').join('');
+  const kpis=matching?'<div class="merchant-kpis">'+
+    '<div class="kpi"><span class="label">Cashback concedido (mês de emissão)</span><strong>'+
+    adminMoney(d.cashbackGrantedCents)+'</strong></div>'+
+    '<div class="kpi"><span class="label">Cashback revertido dessa emissão</span><strong>'+
+    adminMoney(d.cashbackReversedCents)+'</strong></div>'+
+    '<div class="kpi"><span class="label">Cashback líquido concedido</span><strong>'+
+    adminMoney(d.cashbackNetGrantedCents)+'</strong></div>'+
+    '<div class="kpi"><span class="label">Indicações líquidas concedidas</span><strong>'+
+    adminMoney(d.referralNetGrantedCents)+'</strong></div>'+
+    '<div class="kpi"><span class="label">Cashback usado em pedidos atualmente liquidados</span><strong>'+
+    adminMoney(d.cashbackUsedInSettledOrdersCents)+'</strong></div>'+
+    '<div class="kpi"><span class="label">Comissões movidas para saldo disponível</span><strong>'+
+    adminMoney(d.referralMovedToAvailableCents)+'</strong></div></div>'+
+    '<p class="tiny muted">Indicações: concedido '+adminMoney(d.referralGrantedCents)+
+    ', revertido '+adminMoney(d.referralReversedCents)+
+    '. Reversões do saldo disponível na competência: '+
+    adminMoney(d.referralAvailableReversedCents)+'.</p>':
+    '<p class="tiny muted">Consulte a competência selecionada para visualizar os registros reais.</p>';
+  return '<div class="card flat form-stack"><div class="section-head"><div>'+
+    '<h4>Custos e movimentações de benefícios</h4>'+
+    '<p>Cashback e indicações: emissão, reversão, utilização em pedidos e movimentações internas sem confundir etapas.</p>'+
+    '</div></div><button type="button" class="secondary small" onclick="adminOwnerBenefitsLoadFromUi()" '+
+    (adminOwnerBenefitsBusy?'disabled':'')+'>Apurar benefícios da competência</button>'+
+    kpis+(matching?'<p class="tiny muted">Campanhas: '+Number(d.totalCampaigns)+
+    (d.truncated?' • exibidas somente as 50 mais recentes':'')+'</p>'+
+    '<div class="grid cards-2">'+
+    (cards||'<p class="muted">Sem concessões atribuídas a campanhas nesta competência.</p>')+
+    '</div>':'')+
+    '<p class="tiny muted">Concessões são agrupadas pelo mês em que nasceram. Uso de cashback e transferência de comissão consideram operações do mês, não a mesma coorte; não some esses números. Vínculo por UTM não comprova efeito da campanha.</p>'+
+    '<p class="tiny muted">Pagamento externo de benefícios: não apurado. Indicações de revendas e cupons do Clube não possuem comprovação de desembolso nesta consulta. Nenhuma transferência, ativação de benefício, lucro ou ROI é calculada.</p></div>';
+}
+
 // TAMÃO V1.257 — financial evidence consolidation, not profit or campaign ROI.
 let adminOwnerBridgeState=null;
 let adminOwnerBridgeBusy=false;
@@ -2726,6 +2831,7 @@ function adminOwnerFinancialSummarySection(){
       (cards||'<p class="muted">Ainda não há campanhas com orçamento planejado nesta competência.</p>')+
       '</div>':
       '<p class="tiny muted">Consulte a competência selecionada para comparar somente dados reais do banco.</p>')+
+    (typeof adminOwnerBenefitCostsSection==='function'?adminOwnerBenefitCostsSection():'')+
     '<div class="card flat form-stack"><h4>Integridade dos comprovantes privados</h4>'+
     '<p>Auditoria de arquivos sem vínculo à despesa. Os uploads recentes têm proteção de 24 horas; esta consulta não exclui documentos.</p>'+
     '<button type="button" class="secondary small" onclick="adminOwnerOrphanAuditLoadFromUi()" '+

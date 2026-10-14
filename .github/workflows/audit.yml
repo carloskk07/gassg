@@ -225,6 +225,8 @@ jobs:
         run: node tests/owner-campaign-private-receipts-v1-256.mjs
       - name: TAMÃO V1.257 consolidated campaign finance and read-only orphan audit
         run: node tests/owner-campaign-financial-bridge-v1-257.mjs
+      - name: Test owner benefit costs V1.259
+        run: node tests/owner-campaign-benefit-costs-v1-259.mjs
       - name: TAMÃO V1.258 founder-approved orphan deletion with immutable audit
         run: node tests/owner-receipt-orphan-cleanup-v1-258.mjs
       - name: Turnstile smoke Chrome cleanup V1.238.1
