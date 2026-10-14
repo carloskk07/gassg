@@ -1261,11 +1261,20 @@ function merchantPaymentConnectionsView(rt){
       ${merchantPaymentActivationChecklist(account,manualDeclared)}
       ${actions.length?`<div class="order-actions">${actions.join('')}</div>`:''}
     </article>`;
-  }).join('');
+  };
+  const currentCards=configured.map(renderProvider).join('');
+  const availableCards=available.map(renderProvider).join('');
   return `<div class="divider"></div>
-    <div class="section-head"><div><span class="section-kicker">RECEBIMENTO DIRETO</span><h3>Provedores que a revenda usa</h3><p>Informe o PSP já usado pela revenda. Você pode começar com confirmação pela própria revenda, sem compartilhar senha ou chave de API, e ativar confirmação automática quando a integração estiver disponível.</p></div></div>
-    <div class="notice"><strong>Mercado Pago não é obrigatório.</strong><br>Stone, Getnet, PagBank, Nubank e outros podem ser declarados sem entregar o dinheiro ao TAMÃO. O recebimento continua direto na revenda; automação e custódia são coisas diferentes.</div>
-    <div class="merchant-psp-grid">${cards}</div>`;
+    <div class="section-head"><div><span class="section-kicker">RECEBIMENTO DIRETO</span><h3>Seu banco ou maquininha</h3>
+    <p>Você pode aceitar Pix, cartão ou dinheiro na entrega sem conectar um banco ao TAMÃO. A integração bancária é opcional.</p></div></div>
+    <div class="notice"><strong>Você continua recebendo diretamente.</strong><br>O TAMÃO não recebe nem repassa o dinheiro da venda. A confirmação automática depende de uma integração verificada.</div>
+    ${configured.length?
+      '<h4 class="merchant-psp-active-heading">Prestadores que você já informou ('+configured.length+')</h4>'+
+      '<div class="merchant-psp-grid">'+currentCards+'</div>':
+      '<p class="tiny muted">Nenhum prestador adicional informado. Você não precisa escolher um para configurar recebimento na entrega.</p>'}
+    ${available.length?'<details class="merchant-psp-optional merchant-settings-advanced"><summary>Escolher outro banco ou maquininha (opcional) • '+available.length+' opções</summary>'+
+      '<p class="tiny muted">Marque Pix ou cartão acima e salve antes de informar um prestador. Não pedimos senha nem chave de API para uso manual.</p>'+
+      '<div class="merchant-psp-grid">'+availableCards+'</div></details>':''}`;
 }
 
 /* V1.170 — checklist visual; only server authorization determines if sales are enabled. */
