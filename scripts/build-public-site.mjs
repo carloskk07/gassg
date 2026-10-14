@@ -38,7 +38,7 @@ if(liveRuntime){
 }
 
 const files=['index.html','manifest.webmanifest','sw.js','robots.txt'];
-const dirs=['css','js','icons'];
+const dirs=['css','js','icons','assets'];
 
 fs.rmSync(out,{recursive:true,force:true});
 fs.mkdirSync(out,{recursive:true});
