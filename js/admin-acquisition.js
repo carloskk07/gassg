@@ -1162,6 +1162,175 @@ function adminOwnerEvidenceSection(){
     '</section>';
 }
 
+// V1.247 — serialised allocation of the founder's planned budget.
+// No allocation is bank cash, payout, invoice or coupon entitlement.
+let adminOwnerBudgetState=null;
+let adminOwnerBudgetBusy=false;
+const adminOwnerBudgetPending=new Set();
+async function adminOwnerBudgetLoadFromUi(){
+  const actor=String(adminRuntime?.session?.user?.id||'');
+  if(!actor||!['superadmin','finance'].includes(String(adminCurrentRole()))||adminOwnerBudgetBusy)return;
+  adminOwnerBudgetBusy=true;
+  try{
+    const d=await adminInvoke({action:'owner-budget-queue'});
+    if(d?.source!=='admin_owner_budget_queue_v1_247'||
+       d?.readOnly!==true||d?.plannedOnly!==true||
+       d?.verifiedCashCents!==0||d?.spendableCents!==0||
+       d?.newBenefitsEnabled!==false||d?.noCharge!==true||
+       !Array.isArray(d.rows)||d.rows.length!==12||
+       !Array.isArray(d.allocations)||d.allocations.length>50)
+      throw new Error('Distribuição de orçamento não verificada.');
+    if(actor===String(adminRuntime?.session?.user?.id||'')){
+      adminOwnerBudgetState={...d,loadedFor:actor};
+    }
+  }catch(e){
+    if(actor===String(adminRuntime?.session?.user?.id||'')){
+      adminOwnerBudgetState=null;
+      toast(String(e?.message||'Falha ao consultar distribuição de orçamento.'));
+    }
+  }finally{adminOwnerBudgetBusy=false;render();}
+}
+async function adminOwnerBudgetAllocateFromUi(){
+  const actor=String(adminRuntime?.session?.user?.id||'');
+  if(!actor||String(adminCurrentRole())!=='superadmin'||
+     adminOwnerBudgetPending.has('allocate'))return;
+  const d=adminOwnerBudgetState?.loadedFor===actor?adminOwnerBudgetState:null;
+  const value=k=>String(document.getElementById('owner-budget-'+k)?.value||'').trim();
+  const [key,month]=value('month').split('|');
+  const matching=d?.rows?.find(r=>r.benefitKey===key&&r.month===month);
+  const reference=value('reference');
+  const label=value('label');
+  const amountCents=adminOwnerFundingReaisToCents(value('amount'),50000000);
+  if(!matching||matching.planStatus!=='internally_committed'||matching.planVersion<1||
+    amountCents===null||amountCents<100||amountCents>matching.unallocatedCents||
+    !/^[a-z0-9_-]{8,80}$/.test(reference)||
+    label.length<12||label.length>180)
+    return toast('Revise campanha, mês, identificação, descrição e orçamento disponível.');
+  adminOwnerBudgetPending.add('allocate');
+  try{
+    const data=await adminInvoke({action:'owner-budget-allocate',
+      allocationId:crypto.randomUUID(),requestId:crypto.randomUUID(),
+      benefitKey:key,month,campaignReference:reference,campaignLabel:label,
+      amountCents,planVersion:matching.planVersion});
+    if(data?.source!=='admin_owner_budget_allocate_v1_247'||data?.recorded!==true||
+      data?.plannedOnly!==true||data?.noCharge!==true||
+      data?.fundsVerified!==false||data?.spendableCents!==0||
+      data?.newBenefitsEnabled!==false)
+      throw new Error('Distribuição não confirmada.');
+    if(actor===String(adminRuntime?.session?.user?.id||'')){
+      toast('Valor separado no planejamento, sem uso de dinheiro real.');
+      await adminOwnerBudgetLoadFromUi();
+    }
+  }catch(e){
+    if(actor===String(adminRuntime?.session?.user?.id||'')){
+      toast(String(e?.message||'Não foi possível distribuir o orçamento.'));
+    }
+  }finally{adminOwnerBudgetPending.delete('allocate');render();}
+}
+async function adminOwnerBudgetReleaseFromUi(id,expectedVersion){
+  const actor=String(adminRuntime?.session?.user?.id||'');
+  if(!actor||String(adminCurrentRole())!=='superadmin'||
+    adminOwnerBudgetPending.has(id))return;
+  const d=adminOwnerBudgetState?.loadedFor===actor?adminOwnerBudgetState:null;
+  const row=d?.allocations?.find(x=>x.allocationId===id);
+  if(!row||row.status!=='allocated'||row.version!==expectedVersion)
+    return toast('Atualize as alocações antes de liberar.');
+  const reason=String(prompt('Motivo para devolver o valor ao planejamento mensal:')||'').trim();
+  if(reason.length<12||reason.length>240)
+    return toast('Informe uma justificativa de 12 a 240 caracteres.');
+  adminOwnerBudgetPending.add(id);
+  try{
+    const result=await adminInvoke({action:'owner-budget-release',
+      allocationId:id,expectedVersion,reason,requestId:crypto.randomUUID()});
+    if(result?.source!=='admin_owner_budget_release_v1_247'||result?.recorded!==true||
+      result?.plannedOnly!==true||result?.noCharge!==true||
+      result?.fundsVerified!==false||result?.spendableCents!==0||
+      result?.newBenefitsEnabled!==false)
+      throw new Error('Devolução ao orçamento não confirmada.');
+    if(actor===String(adminRuntime?.session?.user?.id||'')){
+      toast('Valor devolvido ao planejamento mensal.');
+      await adminOwnerBudgetLoadFromUi();
+    }
+  }catch(e){
+    if(actor===String(adminRuntime?.session?.user?.id||'')){
+      toast(String(e?.message||'Não foi possível liberar o orçamento.'));
+    }
+  }finally{adminOwnerBudgetPending.delete(id);render();}
+}
+function adminOwnerBudgetSection(){
+  const role=String(adminCurrentRole());
+  if(!['superadmin','finance'].includes(role))return '';
+  const actor=String(adminRuntime?.session?.user?.id||'');
+  const d=adminOwnerBudgetState?.loadedFor===actor?adminOwnerBudgetState:null;
+  const labels={
+    customer_cashback:'Cashback de clientes',
+    customer_referral:'Indicação de clientes',
+    merchant_referral:'Indicação de revendas',
+    clube_coupons:'Cupons Clube TAMÃO'
+  };
+  const rows=d?.rows||[];
+  const monthly=rows.filter(x=>x.planStatus==='internally_committed'&&
+    x.planVersion>0&&x.unallocatedCents>=100);
+  const available=monthly.map(x=>'<option value="'+esc(x.benefitKey+'|'+x.month)+'">'+
+    esc(labels[x.benefitKey]||x.benefitKey)+' — '+esc(x.month)+
+    ' — '+adminMoney(x.unallocatedCents)+' disponível no plano</option>').join('');
+  const summaries=rows.map(x=>
+    '<article class="card flat form-stack"><p><strong>'+
+    esc(labels[x.benefitKey]||x.benefitKey)+'</strong> • '+esc(x.month)+'</p>'+
+    '<div class="merchant-kpis">'+
+    '<div class="kpi"><span class="label">Teto planejado</span><strong>'+adminMoney(x.plannedCents)+'</strong></div>'+
+    '<div class="kpi"><span class="label">Distribuído</span><strong>'+adminMoney(x.allocatedCents)+'</strong></div>'+
+    '<div class="kpi"><span class="label">Ainda não distribuído</span><strong>'+adminMoney(x.unallocatedCents)+'</strong></div></div>'+
+    (x.coverageExceeded?'<p class="tiny muted">Revise a cobertura do plano.</p>':'')+
+    '</article>').join('');
+  const controls=role==='superadmin'?
+    '<div class="card flat form-stack"><h4>Separar orçamento por campanha</h4>'+
+    '<p class="tiny muted">Esta ação distribui somente o orçamento mensal planejado e impede compromissos duplicados. Não movimenta conta bancária.</p>'+
+    '<label class="input-wrap">Benefício e mês<select class="input" id="owner-budget-month">'+
+    (available||'<option value="">Configure um orçamento positivo no painel acima</option>')+
+    '</select></label>'+
+    '<div class="grid cards-2">'+
+    '<label class="input-wrap">Valor para a campanha (R$)'+
+    '<input class="input" id="owner-budget-amount" type="number" step="0.01" min="1" max="500000"></label>'+
+    '<label class="input-wrap">Código único da campanha'+
+    '<input class="input" id="owner-budget-reference" type="text" maxlength="80" placeholder="ex.: cashback-outubro-01"></label></div>'+
+    '<label class="input-wrap">Descrição da campanha'+
+    '<input class="input" id="owner-budget-label" type="text" maxlength="180" placeholder="Incentivos para as primeiras compras da cidade"></label>'+
+    '<button type="button" class="secondary small" onclick="adminOwnerBudgetAllocateFromUi()" '+
+    (!available||adminOwnerBudgetPending.has('allocate')?'disabled':'')+
+    '>Separar orçamento planejado</button></div>':'';
+  const allocations=(d?.allocations||[]).map(x=>{
+    const canRelease=role==='superadmin'&&x.status==='allocated';
+    return '<article class="card flat form-stack"><div class="section-head">'+
+      '<div><strong>'+esc(x.campaignLabel)+'</strong>'+
+      '<p class="tiny muted">'+esc(labels[x.benefitKey]||x.benefitKey)+
+      ' • '+esc(x.month)+' • '+esc(x.campaignReference)+'</p></div>'+
+      '<span class="status-pill">'+(x.status==='allocated'?'Planejado':'Devolvido ao plano')+
+      '</span></div><p>Valor: <strong>'+adminMoney(x.amountCents)+'</strong></p>'+
+      (canRelease?'<button type="button" class="ghost small" onclick="adminOwnerBudgetReleaseFromUi(\''+
+        esc(x.allocationId)+'\','+Number(x.version)+')" '+
+        (adminOwnerBudgetPending.has(x.allocationId)?'disabled':'')+
+        '>Devolver ao orçamento planejado</button>':'')+
+      '</article>';
+  }).join('');
+  return '<section class="section admin-owner-budget">'+
+    '<div class="section-head"><div>'+
+    '<span class="section-kicker">CONTROLE DE INCENTIVOS • ORÇAMENTO</span>'+
+    '<h3>Distribuição do orçamento por campanha</h3>'+
+    '<p>Organize quanto cada campanha poderá consumir do planejamento, com proteção contra valores duplicados e possibilidade de desfazer a distribuição.</p>'+
+    '</div><button type="button" class="secondary small" onclick="adminOwnerBudgetLoadFromUi()" '+
+    (adminOwnerBudgetBusy?'disabled':'')+'>Consultar distribuição</button></div>'+
+    controls+
+    (d?'<div class="grid cards-2">'+summaries+'</div>'+
+      '<div class="section-head"><h4>Histórico das campanhas planejadas</h4></div>'+
+      '<div class="grid cards-2">'+
+      (allocations||'<p class="muted">Nenhuma campanha recebeu orçamento planejado.</p>')+
+      '</div>':
+      '<p class="tiny muted">Consulte para acompanhar os meses atuais e seguintes.</p>')+
+    '<p class="tiny muted">Os valores são exclusivamente planejamento. Caixa confirmado, dinheiro disponível para uso e benefícios ativados são zero neste módulo. Conferências bancárias são acompanhadas separadamente.</p>'+
+    '</section>';
+}
+
 function adminClubeCampaignSection(){
   const role=String(adminCurrentRole());
   if(!['superadmin','operations','compliance','finance','readonly'].includes(role))return '';
@@ -1651,6 +1820,7 @@ function adminPrelaunchLeadsSection(data){
       adminClubeTermsSection(),
       adminOwnerFundingSection(),
       adminOwnerEvidenceSection(),
+      adminOwnerBudgetSection(),
       adminAdsCampaignSection(),
       adminAdsAudienceSection(),
       adminAdsPreviewSummarySection(),
