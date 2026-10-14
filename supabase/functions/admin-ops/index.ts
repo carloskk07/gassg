@@ -100,7 +100,7 @@ async function requireAdmin(admin:any,userId:string){
   if(!data)throw new DomainError("ADMIN_ACCESS_DENIED","Esta conta não possui acesso administrativo.",403);
   return data;
 }
-const ADMIN_READ_ACTIONS=new Set(["summary","search","entity-detail","system-health","billing-provider-health","audit-search","incident-list","merchant-payment-preflight","prospect-intelligence","expansion-notifications","expansion-radar","merchant-enablement","sale-payment-history","finance-receipts-history","commercial-history-list","operational-alerts","ads-demand","clube-interest-queue","clube-campaign-queue","clube-terms-queue","owner-funding-read","owner-funding-pulse","owner-evidence-queue","owner-budget-queue","owner-finance-history","owner-campaign-signals","owner-campaign-orders","owner-campaign-fee-receipts","owner-campaign-batch-ledger","owner-campaign-financial-summary","owner-campaign-orphan-audit","owner-campaign-cost-read","owner-campaign-receipts-read","owner-campaign-receipt-view","ads-audience-readiness","ads-preview-summary","ads-placement-readiness","ads-pilot-preflight","commercial-activation","ads-campaign-queue","growth-referral-review-queue"]);
+const ADMIN_READ_ACTIONS=new Set(["summary","search","entity-detail","system-health","billing-provider-health","audit-search","incident-list","merchant-payment-preflight","prospect-intelligence","expansion-notifications","expansion-radar","merchant-enablement","sale-payment-history","finance-receipts-history","commercial-history-list","operational-alerts","ads-demand","clube-interest-queue","clube-campaign-queue","clube-terms-queue","owner-funding-read","owner-funding-pulse","owner-evidence-queue","owner-budget-queue","owner-finance-history","owner-campaign-signals","owner-campaign-orders","owner-campaign-fee-receipts","owner-campaign-batch-ledger","owner-campaign-financial-summary","owner-campaign-orphan-audit","owner-orphan-cleanup-candidates","owner-campaign-cost-read","owner-campaign-receipts-read","owner-campaign-receipt-view","ads-audience-readiness","ads-preview-summary","ads-placement-readiness","ads-pilot-preflight","commercial-activation","ads-campaign-queue","growth-referral-review-queue"]);
 const ADMIN_ROLE_ACTIONS:Record<string,Set<string>>={
   superadmin:new Set(["*"]),
   operations:new Set([
@@ -2743,6 +2743,79 @@ Deno.serve(async(req:Request)=>{
         throw new DomainError("CAMPAIGN_BRIDGE_UNVERIFIED",
           "Resumo financeiro não verificado.",503);
       return json(data,200,origin);
+    }
+    // V1.258 — one-object-at-a-time, founder-confirmed cleanup, append-only audit.
+    if(action==="owner-orphan-cleanup-candidates"){
+      if(!["superadmin","finance"].includes(String(adminAccess.admin_role)))
+        throw new DomainError("ADMIN_PERMISSION_DENIED","Auditoria documental restrita.",403);
+      const {data,error}=await admin.rpc("admin_owner_cleanup_candidates_v1_258",{
+        p_actor:user.id
+      });
+      if(error)throw error;
+      if(data?.source!=="admin_owner_cleanup_candidates_v1_258"||
+         data?.readOnly!==true||data?.privateBucket!==true||
+         data?.noObjectPaths!==true||data?.deletionPerformed!==false||
+         data?.automaticDeletionEnabled!==false||data?.minAgeHours!==24||
+         !Number.isSafeInteger(data.totalCandidates)||data.totalCandidates<0||
+         data.limit!==20||data.truncated!==(data.totalCandidates>20)||
+         !Array.isArray(data.rows)||data.rows.length>20||
+         data.rows.length>data.totalCandidates||
+         data.rows.some((x:any)=>!x||!UUID_RE.test(String(x.objectId||""))||
+            !Number.isFinite(Date.parse(String(x.createdAt||"")))))
+        throw new DomainError("ORPHAN_CANDIDATES_UNVERIFIED",
+          "Candidatos não validados.",503);
+      return json(data,200,origin);
+    }
+    if(action==="owner-orphan-cleanup-delete"){
+      if(String(adminAccess.admin_role)!=="superadmin")
+        throw new DomainError("ADMIN_PERMISSION_DENIED","Somente o administrador principal remove órfãos.",403);
+      const objectId=String(body.objectId??"");
+      const requestId=String(body.requestId??"");
+      if(!UUID_RE.test(objectId)||!UUID_RE.test(requestId)||
+        body.confirm!=="EXCLUIR"){
+        throw new DomainError("ORPHAN_CLEANUP_CONFIRM_REQUIRED",
+          "Confirme a exclusão individual do comprovante órfão.",400);
+      }
+      const {data:reserved,error:reserveError}=await admin.rpc(
+        "admin_owner_cleanup_reserve_v1_258",{
+          p_actor:user.id,p_object:objectId,p_request:requestId
+        });
+      if(reserveError)throw reserveError;
+      if(reserved?.source!=="admin_owner_cleanup_reserved_v1_258"||
+         reserved?.reserved!==true||typeof reserved?.replayed!=="boolean"||
+         reserved?.requestId!==requestId||
+         typeof reserved?.objectPath!=="string"||
+         !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}\/[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}\.(pdf|png|jpg)$/.test(reserved.objectPath))
+        throw new DomainError("ORPHAN_CLEANUP_RESERVATION_INVALID",
+          "Reserva de limpeza inválida.",503);
+      // ONLY the Storage API removes the bytes; never delete storage.objects with SQL.
+      const {error:storageError}=await admin.storage
+        .from("tamao-owner-campaign-receipts-v1-256")
+        .remove([reserved.objectPath]);
+      if(storageError){
+        // A failed removal gets a permanent outcome record. The original remains.
+        try{await admin.rpc("admin_owner_cleanup_finish_v1_258",{
+          p_actor:user.id,p_request:requestId,p_outcome:"failed"
+        });}catch{ /* The reservation remains in audit for reconciliation. */ }
+        throw new DomainError("ORPHAN_CLEANUP_STORAGE_FAILED",
+          "Storage não confirmou a remoção. Arquivo preservado para conferência.",503);
+      }
+      const {data:finished,error:finishedError}=await admin.rpc(
+        "admin_owner_cleanup_finish_v1_258",{
+          p_actor:user.id,p_request:requestId,p_outcome:"absent_confirmed"
+        });
+      if(finishedError)throw finishedError;
+      if(finished?.source!=="admin_owner_cleanup_finished_v1_258"||
+         finished?.outcome!=="absent_confirmed"||
+         finished?.recorded!==true||typeof finished?.replayed!=="boolean")
+        throw new DomainError("ORPHAN_CLEANUP_AUDIT_UNVERIFIED",
+          "A remoção não foi comprovada no registro de auditoria.",503);
+      return json({
+        source:"admin_owner_cleanup_deleted_v1_258",
+        objectAbsentConfirmed:true,oneObjectOnly:true,
+        automaticDeletionEnabled:false,auditRecorded:true,
+        linkedReceiptDeleted:false,objectPathsExposed:false
+      },200,origin);
     }
     if(action==="owner-campaign-orphan-audit"){
       if(!["superadmin","finance"].includes(String(adminAccess.admin_role)))
