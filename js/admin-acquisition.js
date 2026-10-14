@@ -2581,6 +2581,150 @@ function adminOwnerOrphanCleanupSection(){
     '</div>';
 }
 
+// V1.265 — Provider-derived outgoing payout status, not proof of recipient receipt.
+let adminOwnerPayoutProviderState=null,adminOwnerPayoutProviderBusy=false;
+async function adminOwnerPayoutProviderLoadFromUi(){
+  const actor=String(adminRuntime?.session?.user?.id||'');
+  const role=String(adminCurrentRole());
+  if(!actor||!['superadmin','finance'].includes(role)||adminOwnerPayoutProviderBusy)return;
+  const month=String(document.getElementById('owner-campaign-signals-month')?.value||'').trim();
+  if(month&&!/^\d{4}-(0[1-9]|1[0-2])$/.test(month))
+    return toast('Competência inválida.');
+  adminOwnerPayoutProviderBusy=true;
+  try{
+    const d=await adminInvoke({action:'owner-payout-provider-read',month:month?month+'-01':''});
+    if(d?.source!=='owner_payout_provider_reconciliation_v1_265'||
+       d?.provider!=='mercado_pago_payouts_get'||
+       d?.timezone!=='America/Sao_Paulo'||d?.readOnly!==true||
+       d?.noTransfers!==true||d?.bankSettlementVerified!==false||
+       d?.recipientVerified!==false||d?.providerTransactionIsBeneficiaryProof!==false||
+       d?.externalPaidBenefitsCents!==null||
+       !/^\d{4}-\d{2}-01$/.test(String(d?.month||''))||
+       (month&&d.month!==month+'-01')||
+       !['totalClaims','checkedClaims','providerSuccessClaims','checkedUnmatchedClaims',
+         'unqueriedClaims'].every(k=>Number.isSafeInteger(d[k])&&d[k]>=0)||
+       d.totalClaims!==d.checkedClaims+d.unqueriedClaims||
+       d.checkedClaims!==d.providerSuccessClaims+d.checkedUnmatchedClaims||
+       d.limit!==30||d.truncated!==(d.totalClaims>30)||
+       !Array.isArray(d.rows)||d.rows.length>30||d.rows.length>d.totalClaims||
+       d.rows.some(x=>!x||!/^[0-9a-f-]{36}$/i.test(String(x.claimId||''))||
+         typeof x.successNow!=='boolean'||typeof x.proofPresent!=='boolean'||
+         typeof x.voided!=='boolean'||
+         (x.checkedAt!==null&&(
+           !Number.isFinite(Date.parse(String(x.checkedAt)))||
+           typeof x.referenceMatches!=='boolean'||typeof x.amountMatches!=='boolean'||
+           typeof x.providerTransactionSuccess!=='boolean'||
+           typeof x.status!=='string'||typeof x.detail!=='string'||
+           !/^POP[0-9A-Z]{10,45}$/.test(String(x.payoutId||''))||
+           !/^TOP[0-9A-Z]{10,45}$/.test(String(x.transactionId||''))))||
+         (x.checkedAt===null&&(
+           x.status!==null||x.detail!==null||
+           x.payoutId!==null||x.transactionId!==null||
+           x.referenceMatches!==null||x.amountMatches!==null||
+           x.providerTransactionSuccess!==null))))
+      throw new Error('Conciliação do provedor não validada.');
+    if(actor===String(adminRuntime?.session?.user?.id||'')&&
+      role===String(adminCurrentRole()))
+      adminOwnerPayoutProviderState={...d,loadedFor:actor};
+  }catch(e){
+    if(actor===String(adminRuntime?.session?.user?.id||'')){
+      adminOwnerPayoutProviderState=null;
+      toast(String(e?.message||'Falha ao consultar o provedor.'));
+    }
+  }finally{adminOwnerPayoutProviderBusy=false;render();}
+}
+async function adminOwnerPayoutProviderCheckFromUi(){
+  const actor=String(adminRuntime?.session?.user?.id||'');
+  if(!actor||adminOwnerPayoutProviderBusy||String(adminCurrentRole())!=='superadmin')
+    return;
+  const val=id=>String(document.getElementById(id)?.value||'').trim();
+  const claimId=val('owner-provider-claim');
+  const payoutId=val('owner-provider-payout').toUpperCase();
+  const transactionId=val('owner-provider-transaction').toUpperCase();
+  if(!/^[0-9a-f-]{36}$/i.test(claimId)||
+     !/^POP[0-9A-Z]{10,45}$/.test(payoutId)||
+     !/^TOP[0-9A-Z]{10,45}$/.test(transactionId))
+    return toast('Informe IDs válidos da declaração, lote POP e transação TOP.');
+  adminOwnerPayoutProviderBusy=true;
+  try{
+    const d=await adminInvoke({action:'owner-payout-provider-check',
+      claimId,payoutId,transactionId});
+    if(d?.source==='owner_payout_provider_check_v1_265'&&
+      d?.configured===false&&d?.checked===false&&
+      d?.reason==='outgoing_payouts_credentials_missing'&&
+      d?.bankSettlementVerified===false&&d?.recipientVerified===false&&
+      d?.transferExecuted===false){
+      toast('Consulta indisponível: a credencial exclusiva de Payouts não está configurada.');
+    }else{
+      if(d?.source!=='owner_payout_provider_observation_v1_265'||
+         !/^[0-9a-f-]{36}$/i.test(String(d.observationId||''))||
+         d.claimId!==claimId||d.configured!==true||d.checked!==true||
+         d.provider!=='mercado_pago_payouts_get'||
+         typeof d.status!=='string'||typeof d.statusDetail!=='string'||
+         !['referenceMatches','amountMatches','eligibleNow','providerTransactionSuccess']
+            .every(k=>typeof d[k]==='boolean')||
+         !Number.isSafeInteger(d.amountCents)||d.amountCents<0||
+         !Number.isSafeInteger(d.reportedAmountCents)||d.reportedAmountCents<0||
+         d.recipientVerified!==false||d.bankSettlementVerified!==false||
+         d.settlementBankConfirmed!==false||d.transferExecuted!==false)
+        throw new Error('Resultado externo não validado.');
+      toast(d.providerTransactionSuccess?
+        'Mercado Pago retornou transação concluída e valores/referências coincidentes. Destinatário ainda não verificado.':
+        'Consulta realizada. Status, valor ou referência ainda não permitem considerar a operação conciliada.');
+      adminOwnerPayoutProviderState=null;
+    }
+  }catch(e){
+    if(actor===String(adminRuntime?.session?.user?.id||''))
+      toast(String(e?.message||'Falha na consulta à API de Payouts.'));
+  }finally{adminOwnerPayoutProviderBusy=false;render();}
+}
+function adminOwnerPayoutProviderSection(){
+  const role=String(adminCurrentRole());
+  if(!['superadmin','finance'].includes(role))return '';
+  const actor=String(adminRuntime?.session?.user?.id||'');
+  const d=adminOwnerPayoutProviderState?.loadedFor===actor?adminOwnerPayoutProviderState:null;
+  const month=String(document.getElementById('owner-campaign-signals-month')?.value||'').trim();
+  const show=d&&(!month||d.month.slice(0,7)===month);
+  const rows=(show?d.rows:[]).map(x=>
+    '<article class="card flat form-stack"><p class="tiny muted">Declaração: <code>'+
+      esc(x.claimId)+'</code>'+(x.voided?' • retificada':'')+'</p>'+
+    (x.checkedAt===null?'<p>Consulta externa não efetuada</p>':
+      '<p>Status oficial observado: <strong>'+esc(x.status)+'</strong> • detalhe: '+
+        esc(x.detail)+'</p>'+
+      '<p>Referência coincide: '+(x.referenceMatches?'sim':'não')+
+      ' • valor coincide: '+(x.amountMatches?'sim':'não')+
+      ' • benefício elegível: '+(x.successNow?'com status externo conciliado':'pendente de conferência')+
+      '</p><p class="tiny muted">Consulta em '+esc(x.checkedAt)+
+      ' • lote '+esc(x.payoutId)+' • transação '+esc(x.transactionId)+'</p>')+
+    '<p class="tiny muted">Arquivo anexo: '+(x.proofPresent?'sim':'não')+
+      '. Beneficiário e liquidação bancária ainda não comprovados.</p></article>').join('');
+  return '<div class="card flat form-stack"><h4>Consulta externa de repasses — Mercado Pago Payouts</h4>'+
+    '<p>Consulta somente leitura da API oficial de transferências enviadas, com comparação do valor e referência contra a declaração registrada.</p>'+
+    '<button type="button" class="secondary small" onclick="adminOwnerPayoutProviderLoadFromUi()" '+
+      (adminOwnerPayoutProviderBusy?'disabled':'')+'>Consultar histórico das verificações</button>'+
+    (show?'<p class="tiny muted">'+Number(d.checkedClaims)+' de '+Number(d.totalClaims)+
+      ' declarações consultadas • '+Number(d.providerSuccessClaims)+
+      ' com status de sucesso e referência/valor coincidentes • '+
+      Number(d.checkedUnmatchedClaims)+' com pendências • '+
+      Number(d.unqueriedClaims)+' sem consulta.</p>'+
+      '<div class="grid cards-2">'+
+      (rows||'<p class="tiny muted">Nenhuma declaração nesta competência.</p>')+
+      '</div>':'<p class="tiny muted">Consulte a competência para revisar o histórico.</p>')+
+    (role==='superadmin'?'<div class="card flat form-stack"><h5>Consultar uma transferência externa</h5>'+
+      '<p class="tiny muted">Para declarações de repasse do Mercado Pago: informe os IDs oficiais POP e TOP obtidos de uma operação já existente. Não cria pagamentos.</p>'+
+      '<label>Identificador da declaração de comissão</label>'+
+      '<input id="owner-provider-claim" autocomplete="off" placeholder="UUID da declaração">'+
+      '<label>ID do lote Payouts (POP…)</label>'+
+      '<input id="owner-provider-payout" autocomplete="off" placeholder="POP...">'+
+      '<label>ID da transação (TOP…)</label>'+
+      '<input id="owner-provider-transaction" autocomplete="off" placeholder="TOP...">'+
+      '<button type="button" onclick="adminOwnerPayoutProviderCheckFromUi()" '+
+        (adminOwnerPayoutProviderBusy?'disabled':'')+
+        '>Verificar pelo provedor (somente GET)</button></div>':'')+
+    '<p class="tiny muted">Credencial exclusiva e autorização da API de Payouts são necessárias. Não utiliza o token de pagamentos recebidos. Mesmo uma transação com status success/accredited não valida por si só a titularidade do beneficiário, nem autoriza afirmar liquidação bancária independente.</p>'+
+    '</div>';
+}
+
 // TAMÃO V1.264 — confidential, byte-verified payout documents.
 let adminOwnerPayoutProofState=null,adminOwnerPayoutProofBusy=false;
 async function adminOwnerPayoutProofsLoadFromUi(){
@@ -3484,6 +3628,7 @@ function adminOwnerFinancialSummarySection(){
     (typeof adminOwnerReferralLifecycleSection==='function'?adminOwnerReferralLifecycleSection():'')+
     (typeof adminOwnerPayoutEvidenceSection==='function'?adminOwnerPayoutEvidenceSection():'')+
     (typeof adminOwnerPayoutProofsSection==='function'?adminOwnerPayoutProofsSection():'')+
+    (typeof adminOwnerPayoutProviderSection==='function'?adminOwnerPayoutProviderSection():'')+
     '<div class="card flat form-stack"><h4>Integridade dos comprovantes privados</h4>'+
     '<p>Auditoria de arquivos sem vínculo à despesa. Os uploads recentes têm proteção de 24 horas; esta consulta não exclui documentos.</p>'+
     '<button type="button" class="secondary small" onclick="adminOwnerOrphanAuditLoadFromUi()" '+
