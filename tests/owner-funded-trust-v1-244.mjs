@@ -34,7 +34,7 @@ for(const fragment of [
  'data?.moneyPaidCents!==0','data?.moneyReservedCents!==0'
 ])assert.ok(api.includes(fragment),'Missing Edge condition: '+fragment);
 for(const fragment of [
- 'function adminOwnerFundingSection()','adminOwnerFundingSection(),',
+ 'function adminOwnerFundingSection()','adminOwnerFinanceWorkspaceSection(),',
  'async function adminOwnerFundingLoadFromUi()',
  'async function adminOwnerFundingSaveFromUi(',
  'adminOwnerFundingSaving','adminOwnerFundingSaveFromUi(',
