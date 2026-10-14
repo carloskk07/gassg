@@ -114,7 +114,7 @@ await context.adminOwnerPayoutProviderLoadFromUi();
 assert.equal(calls[0].action,'owner-payout-provider-read');
 assert.equal(calls[0].month,'2026-10-01');
 const h=context.adminOwnerPayoutProviderSection();
-for(const x of ['1 de 2','success','accredited','Repasses','Beneficiário'])
+for(const x of ['1 de 2','success','accredited','Consulta externa','Beneficiário'])
  assert.ok(h.includes(x),'Missing UI text: '+x);
 await context.adminOwnerPayoutProviderCheckFromUi();
 assert.equal(calls[1].action,'owner-payout-provider-check');
