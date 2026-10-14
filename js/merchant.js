@@ -1137,6 +1137,71 @@ function merchantProviderManualRoute(provider,paymentMethod){
     }
   };
 }
+// V1.269 — operational claims must be derived from actual provider capabilities.
+function merchantPaymentProviderStage(provider,account,manualDeclared){
+  const connected=account?.connected===true;
+  const enabled=connected&&account?.capabilities?.directSalePaymentsEnabled===true;
+  const canValidate=connected&&account?.capabilities?.canValidateProviderTransactions===true;
+  const e2eVerified=connected&&account?.capabilities?.e2eValidated===true;
+  if(enabled&&!canValidate)return {
+    label:'INCONSISTENTE',statusClass:'offline',
+    next:'A automação está habilitada sem validação confiável. Peça a revisão administrativa antes de usar checkout automático.'
+  };
+  if(enabled&&canValidate&&e2eVerified)return {
+    label:'INTEGRAÇÃO VERIFICADA',statusClass:'online',
+    next:'Existe evidência de transação do provedor. Continue acompanhando novas confirmações e possíveis estornos.'
+  };
+  if(enabled&&canValidate)return {
+    label:'AUTOMAÇÃO ATIVA',statusClass:'risk',
+    next:'A primeira venda automática ainda precisa produzir evidência real para validar a integração. Não crie pagamentos fictícios.'
+  };
+  if(connected&&e2eVerified)return {
+    label:'AUTOMAÇÃO PAUSADA',statusClass:'risk',
+    next:'Há histórico de evidência, mas a automação não está habilitada agora. Solicite nova verificação antes de reativar.'
+  };
+  if(connected)return {
+    label:'CONECTADO',statusClass:'risk',
+    next:'A conta está conectada, mas o checkout automático depende de verificação e autorização administrativa.'
+  };
+  if(manualDeclared)return {
+    label:'EM USO • MANUAL',statusClass:'risk',
+    next:'Você pode continuar recebendo diretamente pela sua conta; confirme o recebimento manualmente.'
+  };
+  if(provider?.setupState==='manual_only')return {
+    label:'MANUAL DISPONÍVEL',statusClass:'',
+    next:'Use a confirmação manual se essa for uma forma de pagamento aceita pela sua revenda.'
+  };
+  if(provider?.connectReady)return {
+    label:'AUTOMAÇÃO DISPONÍVEL',statusClass:'',
+    next:'Autorize sua própria conta pelo botão Conectar. A autorização não ativa pagamentos automáticos por si só.'
+  };
+  return {
+    label:provider?.adapterStatus==='planned'?'PLANEJADO':'AUTOMAÇÃO PENDENTE',
+    statusClass:'',
+    next:'O recebimento manual pode continuar enquanto a integração oficial estiver indisponível.'
+  };
+}
+function merchantPaymentActivationSteps(account,manualDeclared){
+  const connected=account?.connected===true;
+  const enabled=connected&&account?.capabilities?.directSalePaymentsEnabled===true;
+  const canValidate=connected&&account?.capabilities?.canValidateProviderTransactions===true;
+  const e2eVerified=connected&&account?.capabilities?.e2eValidated===true;
+  return [
+    {label:'Provedor informado ou conta conectada',done:manualDeclared||connected},
+    {label:'Conexão autenticada da conta',done:connected},
+    {label:'Automação autorizada e com validação do PSP',done:enabled&&canValidate},
+    {label:'Transação real com evidência verificada',done:enabled&&canValidate&&e2eVerified}
+  ];
+}
+function merchantPaymentActivationChecklist(account,manualDeclared){
+  const steps=merchantPaymentActivationSteps(account,manualDeclared);
+  return '<details class="merchant-settings-advanced"><summary>Etapas de verificação automática (opcional)</summary>'+
+    '<div class="list">'+steps.map((step,index)=>
+      '<div class="list-row"><span>'+Number(index+1)+'. '+esc(step.label)+'</span>'+
+      '<span class="status-pill '+(step.done?'online':'')+'">'+(step.done?'CONCLUÍDA':'PENDENTE')+'</span></div>'
+    ).join('')+'</div>'+
+    '<p class="tiny muted">Etapas pendentes de automação não impedem, por si só, recebimento manual na entrega. A última etapa exige evidência transacional real do PSP; uma simples conexão não basta.</p></details>';
+}
 function merchantPaymentConnectionsView(rt){
   const providers=(rt.paymentProviders||[]).filter(p=>p.provider!=='manual');
   const accounts=rt.receivingAccounts||[];
@@ -1149,16 +1214,11 @@ function merchantPaymentConnectionsView(rt){
   const cards=ordered.map(provider=>{
     const account=accounts.find(a=>a.provider===provider.provider)||null;
     const connected=account?.connected===true;
-    const directEnabled=account?.capabilities?.directSalePaymentsEnabled===true;
     const manualDeclared=merchantProviderManualDeclared(provider.provider,rt);
     const manualMethods=merchantProviderManualMethods(provider,rt);
-    const state=connected
-      ? directEnabled?'INTEGRAÇÃO VERIFICADA':'CONECTADO'
-      : manualDeclared?'EM USO • MANUAL'
-      : provider.setupState==='manual_only'?'MANUAL DISPONÍVEL'
-      : provider.connectReady?'AUTOMAÇÃO DISPONÍVEL'
-      : provider.adapterStatus==='planned'?'PLANEJADO':'AUTOMAÇÃO PENDENTE';
-    const stateClass=connected?(directEnabled?'online':'risk'):manualDeclared?'risk':'';
+    const stage=merchantPaymentProviderStage(provider,account,manualDeclared);
+    const state=stage.label;
+    const stateClass=stage.statusClass;
     const actions=[];
     if(connected){
       actions.push(`<button class="secondary small" onclick="merchantDisconnectProviderFromUi('${esc(provider.provider)}')">Desconectar</button>`);
@@ -1191,6 +1251,8 @@ function merchantPaymentConnectionsView(rt){
       <p class="tiny muted merchant-psp-note">${esc(note)}</p>
       ${connected?`<div class="tiny"><strong>Conta conectada.</strong> Recebimento direto na revenda • TAMÃO não recebe nem repassa.</div>`:''}
       ${manualDetail}
+      <div class="tiny muted" style="margin-top:8px"><strong>Próximo passo:</strong> ${esc(stage.next)}</div>
+      ${merchantPaymentActivationChecklist(account,manualDeclared)}
       ${actions.length?`<div class="order-actions">${actions.join('')}</div>`:''}
     </article>`;
   }).join('');
