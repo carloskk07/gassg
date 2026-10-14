@@ -2544,7 +2544,7 @@ Deno.serve(async(req:Request)=>{
            !Number.isSafeInteger(x.merchantShareBps)||x.merchantShareBps<0||
            !Number.isSafeInteger(x.merchantBudgetCents)||x.merchantBudgetCents<0||
            !Number.isSafeInteger(x.brandShareBps)||x.brandShareBps<0||
-           x.brandShareBps+x.merchantShareBps>10000||
+           (x.currentTerms&&x.brandShareBps+x.merchantShareBps>10000)||
            !Number.isSafeInteger(x.brandBudgetCents)||x.brandBudgetCents<0||
            !Number.isSafeInteger(x.platformBudgetCents)||x.platformBudgetCents<0||
            (x.termsStatus!==null&&!["draft","shared_for_discussion","withdrawn"].includes(x.termsStatus))||
