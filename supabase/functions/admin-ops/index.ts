@@ -100,7 +100,7 @@ async function requireAdmin(admin:any,userId:string){
   if(!data)throw new DomainError("ADMIN_ACCESS_DENIED","Esta conta não possui acesso administrativo.",403);
   return data;
 }
-const ADMIN_READ_ACTIONS=new Set(["summary","search","entity-detail","system-health","billing-provider-health","audit-search","incident-list","merchant-payment-preflight","prospect-intelligence","expansion-notifications","expansion-radar","merchant-enablement","sale-payment-history","finance-receipts-history","commercial-history-list","operational-alerts","ads-demand","clube-interest-queue","clube-campaign-queue","clube-terms-queue","owner-funding-read","owner-funding-pulse","owner-evidence-queue","owner-budget-queue","owner-finance-history","owner-campaign-signals","owner-campaign-orders","owner-campaign-fee-receipts","owner-campaign-batch-ledger","owner-campaign-financial-summary","owner-campaign-benefit-costs","owner-wallet-reconciliation","owner-cashback-source-lots","owner-referral-lifecycle","owner-benefit-payout-read","owner-benefit-proofs-read","owner-benefit-proof-view","owner-benefit-proof-verify","owner-campaign-orphan-audit","owner-orphan-cleanup-candidates","owner-campaign-cost-read","owner-campaign-receipts-read","owner-campaign-receipt-view","ads-audience-readiness","ads-preview-summary","ads-placement-readiness","ads-pilot-preflight","commercial-activation","ads-campaign-queue","growth-referral-review-queue"]);
+const ADMIN_READ_ACTIONS=new Set(["summary","search","entity-detail","system-health","billing-provider-health","audit-search","incident-list","merchant-payment-preflight","prospect-intelligence","expansion-notifications","expansion-radar","merchant-enablement","sale-payment-history","finance-receipts-history","commercial-history-list","operational-alerts","ads-demand","clube-interest-queue","clube-campaign-queue","clube-terms-queue","owner-funding-read","owner-funding-pulse","owner-evidence-queue","owner-budget-queue","owner-finance-history","owner-campaign-signals","owner-campaign-orders","owner-campaign-fee-receipts","owner-campaign-batch-ledger","owner-campaign-financial-summary","owner-campaign-benefit-costs","owner-wallet-reconciliation","owner-cashback-source-lots","owner-referral-lifecycle","owner-benefit-payout-read","owner-benefit-proofs-read","owner-benefit-proof-view","owner-benefit-proof-verify","owner-payout-provider-read","owner-campaign-orphan-audit","owner-orphan-cleanup-candidates","owner-campaign-cost-read","owner-campaign-receipts-read","owner-campaign-receipt-view","ads-audience-readiness","ads-preview-summary","ads-placement-readiness","ads-pilot-preflight","commercial-activation","ads-campaign-queue","growth-referral-review-queue"]);
 const ADMIN_ROLE_ACTIONS:Record<string,Set<string>>={
   superadmin:new Set(["*"]),
   operations:new Set([
@@ -2689,6 +2689,160 @@ Deno.serve(async(req:Request)=>{
     }
 
 
+    // V1.265 — read-only lookup of *outgoing* MP Payouts. Never use incoming
+    // Payments API tokens as evidence of outgoing referral transfers.
+    if(action==="owner-payout-provider-check"){
+      if(String(adminAccess.admin_role)!=="superadmin")
+        throw new DomainError("ADMIN_PERMISSION_DENIED","Consulta externa reservada ao fundador.",403);
+      const claimId=String(body.claimId||"");
+      const payoutId=String(body.payoutId||"").trim();
+      const transactionId=String(body.transactionId||"").trim();
+      if(!UUID_RE.test(claimId)||
+        !/^POP[0-9A-Z]{10,45}$/.test(payoutId)||
+        !/^TOP[0-9A-Z]{10,45}$/.test(transactionId))
+        throw new DomainError("PAYOUT_PROVIDER_IDS_INVALID","IDs oficiais de lote e transação inválidos.",400);
+      const {data:target,error:targetErr}=await admin.rpc(
+        "admin_owner_payout_provider_target_v1_265",{p_actor:user.id,p_claim:claimId});
+      if(targetErr)throw targetErr;
+      if(target?.source!=="owner_payout_provider_target_v1_265"||
+         target.claimId!==claimId||target.bankVerified!==false||
+         target.recipientVerified!==false||
+         !Number.isSafeInteger(target.amountCents)||target.amountCents<1||
+         typeof target.reference!=="string"||target.reference.length<8||
+         typeof target.active!=="boolean"||typeof target.eligible!=="boolean")
+        throw new DomainError("PAYOUT_PROVIDER_TARGET_INVALID","Declaração inválida.",503);
+      if(target.provider!=="mercado_pago"||!target.active||!target.eligible)
+        throw new DomainError("PAYOUT_PROVIDER_NOT_ELIGIBLE","Somente declarações ativas e elegíveis do Mercado Pago.",409);
+      // Dedicated outgoing Payouts token; intentionally NEVER fall back to
+      // merchant billing / online payment credentials or an anon key.
+      const token=(Deno.env.get("MERCADOPAGO_PAYOUTS_READ_ACCESS_TOKEN")||"").trim();
+      if(!token)
+        return json({source:"owner_payout_provider_check_v1_265",
+          configured:false,checked:false,reason:"outgoing_payouts_credentials_missing",
+          bankSettlementVerified:false,recipientVerified:false,
+          transferExecuted:false},200,origin);
+      if(token.length<20)
+        throw new DomainError("PAYOUT_PROVIDER_CONFIG_INVALID","Credencial da API Payouts inválida.",503);
+      const endpoint="https://api.mercadopago.com/v1/payouts/"+
+        payoutId+"/transactions/"+transactionId;
+      let response:Response;
+      try{
+        response=await fetch(endpoint,{
+          method:"GET",redirect:"error",
+          headers:{Authorization:"Bearer "+token,Accept:"application/json"},
+          signal:AbortSignal.timeout(9000)
+        });
+      }catch{
+        throw new DomainError("PAYOUT_PROVIDER_NETWORK_ERROR","Consulta ao provedor indisponível.",503);
+      }
+      if(!response.ok)
+        throw new DomainError("PAYOUT_PROVIDER_HTTP_ERROR",
+          response.status===403||response.status===401
+            ?"Credencial sem acesso à API de repasses."
+            :"Transação não consultável no provedor.",503);
+      if((Number(response.headers.get("content-length"))||0)>65536)
+        throw new DomainError("PAYOUT_PROVIDER_RESPONSE_TOO_LARGE","Resposta inesperada.",503);
+      const raw=await response.text();
+      if(raw.length>65536)
+        throw new DomainError("PAYOUT_PROVIDER_RESPONSE_TOO_LARGE","Resposta inesperada.",503);
+      let v:any;
+      try{v=JSON.parse(raw);}catch{
+        throw new DomainError("PAYOUT_PROVIDER_INVALID_JSON","Resposta do provedor inválida.",503);
+      }
+      const amountValue=v?.amount?.value;
+      const amountText=typeof amountValue==="string"?amountValue:
+        (typeof amountValue==="number"&&Number.isFinite(amountValue)?String(amountValue):"");
+      const amountMatch=amountText.match(/^(\d{1,8})(?:\.(\d{1,2}))?$/);
+      const amountCents=amountMatch?
+        Number(amountMatch[1])*100+Number((amountMatch[2]||"").padEnd(2,"0")):NaN;
+      const timestamp=String(v?.last_update_date||v?.created_date||"");
+      const status=String(v?.status||"");
+      const detail=String(v?.status_detail??"");
+      const allowedStatuses=["created","approved","pending","in_process",
+        "success","error","canceled"];
+      if(v?.id!==transactionId||v?.amount?.currency!=="BRL"||
+        !Number.isSafeInteger(amountCents)||amountCents<0||
+        typeof v?.external_reference!=="string"||
+        v.external_reference.length<8||v.external_reference.length>120||
+        !Number.isFinite(Date.parse(timestamp))||
+        Date.parse(timestamp)>Date.now()+300000||
+        typeof detail!=="string"||detail.length>100)
+        throw new DomainError("PAYOUT_PROVIDER_RESPONSE_INVALID","Identidade ou valor inválido no retorno.",503);
+      const mappedStatus=allowedStatuses.includes(status)?status:"unknown";
+      const digest=await sha256Hex(raw);
+      const {data:observation,error:writeErr}=await admin.rpc(
+        "admin_owner_payout_provider_record_v1_265",{
+        p_actor:user.id,p_claim:claimId,p_payout:payoutId,
+        p_transaction:transactionId,p_reference:v.external_reference,
+        p_amount:amountCents,p_status:mappedStatus,p_detail:detail,
+        p_updated:timestamp,p_digest:digest
+      });
+      if(writeErr)throw writeErr;
+      if(observation?.source!=="owner_payout_provider_observation_v1_265"||
+        observation.claimId!==claimId||
+        !UUID_RE.test(String(observation.observationId||""))||
+        observation.status!==mappedStatus||observation.statusDetail!==detail||
+        typeof observation.referenceMatches!=="boolean"||
+        typeof observation.amountMatches!=="boolean"||
+        typeof observation.eligibleNow!=="boolean"||
+        typeof observation.providerTransactionSuccess!=="boolean"||
+        observation.recipientVerified!==false||
+        observation.bankSettlementVerified!==false||
+        observation.transferExecuted!==false||
+        observation.referenceMatches!==(v.external_reference===target.reference)||
+        observation.amountMatches!==(amountCents===target.amountCents))
+        throw new DomainError("PAYOUT_PROVIDER_OBSERVATION_INVALID","Resposta não validada.",503);
+      return json({...observation,
+        configured:true,checked:true,
+        provider:"mercado_pago_payouts_get",
+        amountCents,reportedAmountCents:target.amountCents,
+        settlementBankConfirmed:false},200,origin);
+    }
+    if(action==="owner-payout-provider-read"){
+      if(!["superadmin","finance"].includes(String(adminAccess.admin_role)))
+        throw new DomainError("ADMIN_PERMISSION_DENIED","Histórico externo restrito.",403);
+      const month=String(body.month??"");
+      if(month!==""&&!/^\d{4}-(0[1-9]|1[0-2])-01$/.test(month))
+        throw new DomainError("PAYOUT_PROVIDER_MONTH_INVALID","Competência inválida.",400);
+      const {data,error}=await admin.rpc("admin_owner_payout_provider_read_v1_265",{
+        p_actor:user.id,p_month:month||null});
+      if(error)throw error;
+      const counters=["totalClaims","checkedClaims","providerSuccessClaims",
+        "checkedUnmatchedClaims","unqueriedClaims"];
+      if(data?.source!=="owner_payout_provider_reconciliation_v1_265"||
+        data?.provider!=="mercado_pago_payouts_get"||
+        data?.timezone!=="America/Sao_Paulo"||
+        data?.bankSettlementVerified!==false||data?.recipientVerified!==false||
+        data?.providerTransactionIsBeneficiaryProof!==false||
+        data?.externalPaidBenefitsCents!==null||data?.readOnly!==true||
+        data?.noTransfers!==true||
+        !/^\d{4}-\d{2}-01$/.test(String(data?.month||""))||
+        (month!==""&&data.month!==month)||
+        counters.some(k=>!Number.isSafeInteger(data?.[k])||data[k]<0)||
+        data.totalClaims!==data.checkedClaims+data.unqueriedClaims||
+        data.checkedClaims!==data.providerSuccessClaims+data.checkedUnmatchedClaims||
+        data.limit!==30||data.truncated!==(data.totalClaims>30)||
+        !Array.isArray(data.rows)||data.rows.length>30||
+        data.rows.length>data.totalClaims||
+        data.rows.some((x:any)=>!x||!UUID_RE.test(String(x.claimId||""))||
+          typeof x.successNow!=="boolean"||typeof x.proofPresent!=="boolean"||
+          typeof x.voided!=="boolean"||
+          (x.checkedAt!==null&&(
+            !Number.isFinite(Date.parse(x.checkedAt))||
+            typeof x.referenceMatches!=="boolean"||
+            typeof x.amountMatches!=="boolean"||
+            typeof x.providerTransactionSuccess!=="boolean"||
+            typeof x.status!=="string"||typeof x.detail!=="string"||
+            !/^POP[0-9A-Z]{10,45}$/.test(String(x.payoutId||""))||
+            !/^TOP[0-9A-Z]{10,45}$/.test(String(x.transactionId||""))))||
+          (x.checkedAt===null&&(
+            x.status!==null||x.detail!==null||
+            x.payoutId!==null||x.transactionId!==null||
+            x.referenceMatches!==null||x.amountMatches!==null||
+            x.providerTransactionSuccess!==null))))
+        throw new DomainError("PAYOUT_PROVIDER_HISTORY_INVALID","Histórico externo não validado.",503);
+      return json(data,200,origin);
+    }
     // V1.264 — owner-authenticated private proof upload, byte-checked on server.
     if(action==="owner-benefit-proof-prepare"){
       if(String(adminAccess.admin_role)!=="superadmin")
