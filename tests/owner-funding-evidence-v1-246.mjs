@@ -50,7 +50,7 @@ for(const s of [
  'data.cashMoved!==false'
 ])assert.ok(edge.includes(s),'Missing Edge guard: '+s);
 for(const s of [
- 'function adminOwnerEvidenceSection()','adminOwnerEvidenceSection(),',
+ 'function adminOwnerEvidenceSection()','adminOwnerFinanceWorkspaceSection(),',
  'async function adminOwnerEvidenceLoadFromUi()',
  'async function adminOwnerEvidenceSubmitFromUi()',
  'async function adminOwnerEvidenceReviewFromUi(',
