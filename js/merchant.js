@@ -1544,11 +1544,11 @@ function merchantLivePage(){
       <button class="secondary" onclick="merchantLiveSaveCapacity()">Salvar capacidade</button></div></details>
       <div class="divider"></div>
       <h3>Formas de pagamento aceitas do cliente</h3>
-      <p class="muted tiny">Escolha o que sua revenda realmente aceita. Nenhuma dessas opções exige Mercado Pago ou qualquer outro PSP específico.</p>
+      <p class="muted tiny">Comece pelo simples: escolha o que aceita na entrega. Ao salvar, o TAMÃO configura as rotas de confirmação manual. Conectar banco ou maquininha é opcional.</p>
       <label class="check-row"><input id="live-payment-pix" type="checkbox" ${paymentMethods.pix?'checked':''}><span><strong>Pix</strong><small>Pagamento via Pix aceito pela operação.</small></span></label>
       <label class="check-row"><input id="live-payment-card" type="checkbox" ${paymentMethods.card?'checked':''}><span><strong>Cartão</strong><small>Cartão aceito na entrega conforme sua operação.</small></span></label>
       <label class="check-row"><input id="live-payment-cash" type="checkbox" ${paymentMethods.cash?'checked':''}><span><strong>Dinheiro</strong><small>Dinheiro aceito; o pedido pode informar troco.</small></span></label>
-      <button class="secondary" onclick="merchantLiveSavePaymentMethods()">Salvar formas de pagamento</button>
+      <button class="primary" onclick="merchantLiveSavePaymentMethods()">Salvar como recebo</button>
       ${paymentConnectionsCard}
       <div class="divider"></div>
       <details class="merchant-settings-advanced"><summary>Agendamento de entregas</summary><div class="form-stack"><h3>Pedidos agendados</h3>
