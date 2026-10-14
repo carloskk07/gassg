@@ -64,12 +64,12 @@ for(const x of [
 }
 for(const x of [
  'não gera','não está','não são','dependem','não cria','não está disponível',
- 'não conced','não confunda','Proposta não é campanha contratada',
+ 'não conced','não confunda','Conferimos as condições operacionais, financeiras e contratuais antes do início da campanha.',
  'campanha habilitada'
 ]){
  // Financial safeguards are present in the public brand page and referral language.
  if(x.length<=9)continue;
- if(x==='Proposta não é campanha contratada'||x==='campanha habilitada')
+ if(x==='Conferimos as condições operacionais, financeiras e contratuais antes do início da campanha.'||x==='campanha habilitada')
   assert.ok(growth.includes(x),'Promissory copy safety '+x);
 }
 assert.ok(!growth.includes('100% de resultados')&&!growth.includes('Renda garantida'));
