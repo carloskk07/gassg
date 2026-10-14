@@ -100,7 +100,7 @@ async function requireAdmin(admin:any,userId:string){
   if(!data)throw new DomainError("ADMIN_ACCESS_DENIED","Esta conta não possui acesso administrativo.",403);
   return data;
 }
-const ADMIN_READ_ACTIONS=new Set(["summary","search","entity-detail","system-health","billing-provider-health","audit-search","incident-list","merchant-payment-preflight","prospect-intelligence","expansion-notifications","expansion-radar","merchant-enablement","sale-payment-history","finance-receipts-history","commercial-history-list","operational-alerts","ads-demand","clube-interest-queue","clube-campaign-queue","clube-terms-queue","owner-funding-read","owner-funding-pulse","owner-evidence-queue","owner-budget-queue","owner-finance-history","owner-campaign-signals","owner-campaign-orders","owner-campaign-fee-receipts","owner-campaign-batch-ledger","owner-campaign-financial-summary","owner-campaign-benefit-costs","owner-wallet-reconciliation","owner-cashback-source-lots","owner-referral-lifecycle","owner-benefit-payout-read","owner-benefit-proofs-read","owner-benefit-proof-view","owner-benefit-proof-verify","owner-payout-provider-read","owner-recipient-proof-readiness","owner-campaign-orphan-audit","owner-orphan-cleanup-candidates","owner-campaign-cost-read","owner-campaign-receipts-read","owner-campaign-receipt-view","ads-audience-readiness","ads-preview-summary","ads-placement-readiness","ads-pilot-preflight","commercial-activation","ads-campaign-queue","growth-referral-review-queue"]);
+const ADMIN_READ_ACTIONS=new Set(["summary","search","entity-detail","system-health","billing-provider-health","audit-search","incident-list","merchant-payment-preflight","prospect-intelligence","expansion-notifications","expansion-radar","merchant-enablement","sale-payment-history","finance-receipts-history","commercial-history-list","operational-alerts","ads-demand","clube-interest-queue","clube-campaign-queue","clube-terms-queue","owner-funding-read","owner-funding-pulse","owner-evidence-queue","owner-budget-queue","owner-finance-history","owner-campaign-signals","owner-campaign-orders","owner-campaign-fee-receipts","owner-campaign-batch-ledger","owner-campaign-financial-summary","owner-campaign-benefit-costs","owner-wallet-reconciliation","owner-cashback-source-lots","owner-referral-lifecycle","owner-benefit-payout-read","owner-benefit-proofs-read","owner-benefit-proof-view","owner-benefit-proof-verify","owner-payout-provider-read","owner-recipient-proof-readiness","owner-multi-psp-hub","owner-campaign-orphan-audit","owner-orphan-cleanup-candidates","owner-campaign-cost-read","owner-campaign-receipts-read","owner-campaign-receipt-view","ads-audience-readiness","ads-preview-summary","ads-placement-readiness","ads-pilot-preflight","commercial-activation","ads-campaign-queue","growth-referral-review-queue"]);
 const ADMIN_ROLE_ACTIONS:Record<string,Set<string>>={
   superadmin:new Set(["*"]),
   operations:new Set([
@@ -2689,6 +2689,91 @@ Deno.serve(async(req:Request)=>{
     }
 
 
+    // V1.267 — segregated multi-PSP hub: merchant receipts != founder benefits.
+    if(action==="owner-multi-psp-hub"){
+      if(!["superadmin","finance"].includes(String(adminAccess.admin_role)))
+        throw new DomainError("ADMIN_PERMISSION_DENIED","Central financeira restrita.",403);
+      const month=String(body.month??"");
+      if(month!==""&&!/^\d{4}-(0[1-9]|1[0-2])-01$/.test(month))
+        throw new DomainError("MULTI_PSP_MONTH_INVALID","Competência inválida.",400);
+      const {data,error}=await admin.rpc("admin_owner_multi_psp_hub_v1_267",{
+        p_actor:user.id,p_month:month||null
+      });
+      if(error)throw error;
+      const integer=(x:any)=>Number.isSafeInteger(x)&&x>=0;
+      const merchantCounters=["paymentAttempts","evidenceRecords","providerVerifiedOrders"];
+      const outgoingCounters=["claims","activeClaims","voidedClaims",
+        "withDocument","officiallyQueried","officialStatusMatched",
+        "ownerDeclaredActiveCents","verifiedBeneficiaryClaims","bankVerifiedClaims"];
+      const outgoingKeys=["mercado_pago","pix","bank_transfer","other"];
+      if(data?.source!=="admin_owner_multi_psp_hub_v1_267"||
+        data?.timezone!=="America/Sao_Paulo"||
+        data?.providerCatalogIsRuntimeVerification!==false||
+        data?.merchantReceiptsProvePlatformPayouts!==false||
+        data?.merchantAndPlatformFundsNettingAllowed!==false||
+        data?.bankSettlementVerified!==false||data?.recipientVerified!==false||
+        data?.externalPaidBenefitsCents!==null||
+        data?.noTransfers!==true||data?.noIdentityCollection!==true||
+        data?.newBenefitsEnabled!==false||data?.readOnly!==true||
+        !/^\d{4}-\d{2}-01$/.test(String(data?.month||""))||
+        (month!==""&&data.month!==month)||
+        !integer(data.merchantCatalogProviders)||
+        !integer(data.merchantEvidenceRecords)||
+        !integer(data.merchantProviderVerifiedOrders)||
+        !integer(data.outgoingClaims)||!integer(data.outgoingClaimsQueried)||
+        data.outgoingProviderCategories!==4||
+        !Array.isArray(data.merchantProviders)||
+        data.merchantProviders.length!==data.merchantCatalogProviders||
+        data.merchantProviders.length>50||
+        !Array.isArray(data.outgoingProviders)||
+        data.outgoingProviders.length!==4||
+        data.merchantProviders.some((x:any)=>!x||
+          !/^[a-z][a-z0-9_]{1,31}$/.test(String(x.providerKey||""))||
+          typeof x.displayName!=="string"||x.displayName.length<2||
+          x.displayName.length>120||
+          typeof x.catalogAdapterStatus!=="string"||
+          typeof x.catalogConnectionMode!=="string"||
+          typeof x.catalogVerificationLevel!=="string"||
+          x.catalogFundsFlow!=="merchant_direct"||
+          typeof x.catalogSupportsLookup!=="boolean"||
+          typeof x.catalogSupportsWebhook!=="boolean"||
+          x.ownerOfFunds!=="merchant"||x.outgoingPayoutVerified!==false||
+          !merchantCounters.every(k=>integer(x[k]))||
+          x.providerVerifiedOrders>x.evidenceRecords)||
+        new Set(data.merchantProviders.map((x:any)=>x.providerKey)).size!==
+          data.merchantProviders.length||
+        data.outgoingProviders.some((x:any)=>!x||
+          !outgoingKeys.includes(x.providerKey)||
+          typeof x.displayName!=="string"||x.displayName.length>120||
+          typeof x.officialOutgoingLookupImplemented!=="boolean"||
+          x.officialOutgoingLookupImplemented!==(x.providerKey==="mercado_pago")||
+          x.ownerOfFunds!=="platform_owner_reported"||
+          x.realTransferProven!==false||
+          !outgoingCounters.every(k=>integer(x[k]))||
+          x.claims!==x.activeClaims+x.voidedClaims||
+          x.officialStatusMatched>x.officiallyQueried||
+          x.officiallyQueried>x.claims||
+          x.withDocument>x.claims||
+          x.verifiedBeneficiaryClaims!==0||x.bankVerifiedClaims!==0)||
+        new Set(data.outgoingProviders.map((x:any)=>x.providerKey)).size!==4||
+        data.outgoingProviders.reduce((s:number,x:any)=>s+x.claims,0)!==
+          data.outgoingClaims||
+        data.outgoingProviders.reduce((s:number,x:any)=>s+x.officiallyQueried,0)!==
+          data.outgoingClaimsQueried||
+        data.merchantProviders.reduce((s:number,x:any)=>s+x.evidenceRecords,0)!==
+          data.merchantEvidenceRecords||
+        data.merchantProviders.reduce((s:number,x:any)=>s+x.providerVerifiedOrders,0)<
+          data.merchantProviderVerifiedOrders)
+        throw new DomainError("MULTI_PSP_HUB_UNVERIFIED",
+          "Central multibanco sem conciliação validada.",503);
+      const token=(Deno.env.get("MERCADOPAGO_PAYOUTS_READ_ACCESS_TOKEN")||"").trim();
+      return json({...data,
+        outgoingPayoutsCredentialConfigured:token.length>=20,
+        outgoingPayoutsCredentialScope:"dedicated_mp_payouts_read_only",
+        outgoingPayoutsCredentialProvesApiAuthorization:false,
+        incomingMerchantCredentialsReused:false
+      },200,origin);
+    }
     // V1.266 — privacy-preserving, read-only beneficiary evidence gaps.
     if(action==="owner-recipient-proof-readiness"){
       if(!["superadmin","finance"].includes(String(adminAccess.admin_role)))
