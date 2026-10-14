@@ -2165,6 +2165,116 @@ function adminOwnerCampaignSignalsSection(){
     '</div>';
 }
 
+// TAMÃO V1.256 — private receipt objects for already recorded marketing costs.
+// Never use a public bucket or disclose service-role credentials to the browser.
+let adminCampaignReceiptsState=null;
+let adminCampaignReceiptsBusy=false;
+let adminCampaignReceiptsUploading=false;
+async function adminCampaignReceiptsLoadFromUi(){
+  const actor=String(adminRuntime?.session?.user?.id||'');
+  const role=String(adminCurrentRole());
+  if(!actor||!['superadmin','finance'].includes(role)||adminCampaignReceiptsBusy)return;
+  const month=String(document.getElementById('owner-campaign-signals-month')?.value||'').trim();
+  if(month&&!/^\d{4}-(0[1-9]|1[0-2])$/.test(month))return toast('Competência inválida.');
+  adminCampaignReceiptsBusy=true;render();
+  try{
+    const d=await adminInvoke({action:'owner-campaign-receipts-read',month:month?month+'-01':''});
+    if(d?.source!=='admin_owner_campaign_receipts_read_v1_256'||
+       d.readOnly!==true||d.privateBucket!==true||d.bankVerified!==false||
+       d.noPublicUrls!==true||!/^\d{4}-\d{2}-01$/.test(String(d.month||''))||
+       (month&&d.month!==month+'-01')||
+       !Number.isSafeInteger(d.total)||d.total<0||d.limit!==100||
+       d.truncated!==(d.total>100)||
+       !Array.isArray(d.rows)||d.rows.length>100||d.rows.length>d.total||
+       d.rows.some(x=>!x||!/^[0-9a-f-]{36}$/i.test(String(x.expenseId||''))||
+         !Number.isSafeInteger(x.sizeBytes)||x.sizeBytes<64||x.sizeBytes>3145728||
+         !['application/pdf','image/png','image/jpeg'].includes(x.mimeType)||
+         !/^[0-9a-f]{64}$/.test(String(x.sha256||''))||
+         !Number.isFinite(Date.parse(String(x.uploadedAt||'')))||
+         typeof x.voided!=='boolean'))
+      throw new Error('Metadados documentais não verificados.');
+    if(actor===String(adminRuntime?.session?.user?.id||'')&&role===String(adminCurrentRole()))
+      adminCampaignReceiptsState={...d,loadedFor:actor};
+  }catch(e){
+    if(actor===String(adminRuntime?.session?.user?.id||'')){
+      adminCampaignReceiptsState=null;
+      toast(String(e?.message||'Não foi possível carregar os comprovantes.'));
+    }
+  }finally{adminCampaignReceiptsBusy=false;render();}
+}
+async function adminCampaignReceiptUploadFromUi(expenseId){
+  const actor=String(adminRuntime?.session?.user?.id||'');
+  if(!actor||String(adminCurrentRole())!=='superadmin'||adminCampaignReceiptsUploading)return;
+  const cost=adminCampaignCostsState?.loadedFor===actor?adminCampaignCostsState:null;
+  const metadata=adminCampaignReceiptsState?.loadedFor===actor?adminCampaignReceiptsState:null;
+  if(!cost?.expenses?.some(x=>x.expenseId===expenseId&&x.status==='owner_attested')||
+     !metadata||metadata.month!==cost.month||
+     metadata.truncated||metadata.rows.some(x=>x.expenseId===expenseId))
+    return toast('Consulte as despesas e os comprovantes do mês antes do envio.');
+  const file=document.getElementById('owner-proof-file-'+expenseId)?.files?.[0];
+  if(!file||!['application/pdf','image/png','image/jpeg'].includes(file.type)||
+     file.size<64||file.size>3145728)
+    return toast('Selecione um PDF, PNG ou JPEG de até 3 MB.');
+  if(!adminRuntime?.client?.storage)
+    return toast('Armazenamento indisponível: entre novamente no Admin.');
+  adminCampaignReceiptsUploading=true;
+  try{
+    const bytes=await file.arrayBuffer();
+    const sha256=Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256',bytes)))
+      .map(x=>x.toString(16).padStart(2,'0')).join('');
+    const prep=await adminInvoke({action:'owner-campaign-receipt-prepare',
+      expenseId,mimeType:file.type,sizeBytes:file.size});
+    if(prep?.source!=='admin_owner_campaign_receipt_prepare_v1_256'||
+       prep?.bucket!=='tamao-owner-campaign-receipts-v1-256'||
+       prep?.mimeType!==file.type||prep?.maxBytes!==3145728||
+       prep?.privateBucket!==true||prep?.bankVerified!==false||
+       typeof prep.token!=='string'||prep.token.length<12||
+       typeof prep.path!=='string'||!prep.path.startsWith(expenseId+'/')||
+       !/^[0-9a-f-]{36}\/[0-9a-f-]{36}\.(pdf|png|jpg)$/i.test(prep.path))
+      throw new Error('Autorização privada de envio inválida.');
+    const {error:uploadError}=await adminRuntime.client.storage
+      .from('tamao-owner-campaign-receipts-v1-256')
+      .uploadToSignedUrl(prep.path,prep.token,file,{contentType:file.type,upsert:false});
+    if(uploadError)throw new Error('O arquivo não foi recebido: '+uploadError.message);
+    const result=await adminInvoke({action:'owner-campaign-receipt-finalize',
+      expenseId,path:prep.path,mimeType:file.type,sha256});
+    if(result?.source!=='admin_owner_campaign_receipt_attach_v1_256'||
+       result?.attached!==true||result?.bankVerified!==false||
+       result?.cashMoved!==false||result?.newBenefitsEnabled!==false)
+      throw new Error('O vínculo do documento não foi confirmado.');
+    if(actor===String(adminRuntime?.session?.user?.id||'')){
+      toast('Comprovante arquivado no armazenamento privado.');
+      await adminCampaignReceiptsLoadFromUi();
+    }
+  }catch(e){
+    if(actor===String(adminRuntime?.session?.user?.id||''))
+      toast(String(e?.message||'Falha no envio do comprovante.'));
+  }finally{adminCampaignReceiptsUploading=false;render();}
+}
+async function adminCampaignReceiptDownloadFromUi(expenseId){
+  const actor=String(adminRuntime?.session?.user?.id||'');
+  if(!actor||!['superadmin','finance'].includes(String(adminCurrentRole())))return;
+  const meta=adminCampaignReceiptsState?.loadedFor===actor?adminCampaignReceiptsState:null;
+  if(!meta?.rows?.some(x=>x.expenseId===expenseId))return;
+  const tab=globalThis.open?.('about:blank','_blank');
+  if(tab)tab.opener=null;
+  try{
+    const data=await adminInvoke({action:'owner-campaign-receipt-view',expenseId});
+    const url=new URL(String(data?.url||''));
+    const base=new URL(CHAMA_BACKEND.url);
+    if(data?.source!=='admin_owner_campaign_receipt_view_v1_256'||
+       data?.temporaryDownload!==true||data?.bankVerified!==false||
+       data?.expiresInSeconds!==60||url.origin!==base.origin||
+       !url.pathname.startsWith('/storage/v1/object/sign/tamao-owner-campaign-receipts-v1-256/'))
+      throw new Error('Link temporário não validado.');
+    if(tab)tab.location.href=url.href;
+    else globalThis.location.assign(url.href);
+  }catch(e){
+    if(tab)tab.close();
+    if(actor===String(adminRuntime?.session?.user?.id||''))
+      toast(String(e?.message||'Não foi possível consultar o comprovante.'));
+  }
+}
 // TAMÃO V1.255 — paid marketing cost declared with documentary reference, never bank API proof.
 let adminCampaignCostsState=null;
 let adminCampaignCostsBusy=false;
@@ -2297,6 +2407,11 @@ function adminCampaignCostsSection(){
   const matching=d&&(!month||d.month.slice(0,7)===month);
   const campaigns=matching?d.campaigns:[];
   const campMap=new Map(campaigns.map(x=>[x.allocationId,x.campaignLabel]));
+  const receiptMeta=typeof adminCampaignReceiptsState!=='undefined'&&
+    adminCampaignReceiptsState?.loadedFor===actor&&
+    adminCampaignReceiptsState.month===d?.month?adminCampaignReceiptsState:null;
+  const receiptByExpense=new Map((receiptMeta?.rows||[]).map(x=>[x.expenseId,x]));
+  const receiptComplete=!!receiptMeta&&!receiptMeta.truncated;
   const options=campaigns.filter(c=>c.status==='allocated')
     .map(x=>'<option value="'+esc(x.allocationId)+'">'+esc(x.campaignLabel)+
       ' ('+esc(x.campaignTag)+')</option>').join('');
@@ -2305,6 +2420,20 @@ function adminCampaignCostsSection(){
     '<strong>'+esc(campMap.get(x.allocationId)||'Campanha')+' • '+adminMoney(x.amountCents)+'</strong>'+
     '<p class="tiny muted">'+esc(x.paidOn)+' • '+esc(x.paymentMethod)+' • Referência: '+
     esc(x.proofReference)+'</p><p>'+esc(x.description)+'</p>'+
+    (receiptByExpense.has(x.expenseId)?
+      '<p class="tiny muted">Comprovante privado anexado • SHA-256: '+
+      esc(receiptByExpense.get(x.expenseId).sha256.slice(0,12))+'… • '+
+      Number(receiptByExpense.get(x.expenseId).sizeBytes).toLocaleString('pt-BR')+' bytes</p>'+
+      '<button type="button" class="secondary small" onclick="adminCampaignReceiptDownloadFromUi(\''+
+      esc(x.expenseId)+'\')">Baixar comprovante privado</button>':
+      receiptComplete&&x.status==='owner_attested'&&role==='superadmin'?
+      '<label class="input-wrap">Anexar comprovante (PDF, PNG ou JPEG, até 3 MB)'+
+      '<input class="input" type="file" accept=".pdf,.png,.jpg,.jpeg,application/pdf,image/png,image/jpeg" '+
+      'id="owner-proof-file-'+esc(x.expenseId)+'"></label>'+
+      '<button type="button" class="secondary small" onclick="adminCampaignReceiptUploadFromUi(\''+
+      esc(x.expenseId)+'\')" '+(adminCampaignReceiptsUploading?'disabled':'')+
+      '>Enviar comprovante privado</button>':
+      '<p class="tiny muted">Consulte os comprovantes para verificar se há arquivo anexado.</p>')+
     (x.status==='voided'?
       '<p class="tiny muted">Lançamento corrigido • '+esc(x.voidReason||'')+'</p>':
       '<p class="tiny muted">Pagamento declarado pelo administrador. Não conciliado por API bancária.</p>'+
@@ -2339,6 +2468,8 @@ function adminCampaignCostsSection(){
     '</div></div>'+
     '<button type="button" class="secondary small" onclick="adminCampaignCostsLoadFromUi()" '+
     (adminCampaignCostsBusy?'disabled':'')+'>Consultar despesas do mês</button>'+
+    '<button type="button" class="secondary small" onclick="adminCampaignReceiptsLoadFromUi()" '+
+    (typeof adminCampaignReceiptsBusy!=='undefined'&&adminCampaignReceiptsBusy?'disabled':'')+'>Consultar comprovantes privados</button>'+
     (matching?'<div class="merchant-kpis">'+
       '<div class="kpi"><span class="label">Pagamentos declarados ativos</span><strong>'+
       adminMoney(total)+'</strong></div>'+
@@ -2349,7 +2480,7 @@ function adminCampaignCostsSection(){
       edit+'<div class="grid cards-2">'+
       (entries||'<p class="muted">Não há despesas registradas nesta competência.</p>')+'</div>':
       '<p class="muted">Consulte a competência selecionada para carregar os gastos registrados.</p>')+
-    '<p class="tiny muted">Os valores representam pagamentos declarados pelo administrador com referência documental. Não há upload do comprovante, confirmação por API bancária, liberação de saldo ou cálculo de ROI. Corrigir um lançamento não apaga o registro original.</p>'+
+    '<p class="tiny muted">Os valores são pagamentos declarados pelo administrador. Não há upload automático ao registrar a despesa: o comprovante pode ser anexado separadamente em armazenamento privado, mas o arquivo não prova conciliação bancária, libera saldo ou calcula ROI. Corrigir um lançamento não apaga o registro original.</p>'+
     '</div>';
 }
 
