@@ -2581,6 +2581,146 @@ function adminOwnerOrphanCleanupSection(){
     '</div>';
 }
 
+// TAMÃO V1.267 — separate commerce receipts from founder-funded benefits.
+let adminOwnerMultiPspState=null,adminOwnerMultiPspBusy=false;
+async function adminOwnerMultiPspLoadFromUi(){
+  const actor=String(adminRuntime?.session?.user?.id||'');
+  const role=String(adminCurrentRole());
+  if(!actor||!['superadmin','finance'].includes(role)||adminOwnerMultiPspBusy)return;
+  const month=String(document.getElementById('owner-campaign-signals-month')?.value||'').trim();
+  if(month&&!/^\d{4}-(0[1-9]|1[0-2])$/.test(month))
+    return toast('Competência inválida.');
+  adminOwnerMultiPspBusy=true;
+  try{
+    const d=await adminInvoke({action:'owner-multi-psp-hub',month:month?month+'-01':''});
+    const integer=n=>Number.isSafeInteger(n)&&n>=0;
+    const merchantKeys=['paymentAttempts','evidenceRecords','providerVerifiedOrders'];
+    const outboundKeys=['claims','activeClaims','voidedClaims','withDocument',
+      'officiallyQueried','officialStatusMatched','ownerDeclaredActiveCents',
+      'verifiedBeneficiaryClaims','bankVerifiedClaims'];
+    const outgoingKeys=['mercado_pago','pix','bank_transfer','other'];
+    if(d?.source!=='admin_owner_multi_psp_hub_v1_267'||
+       d?.timezone!=='America/Sao_Paulo'||
+       d?.providerCatalogIsRuntimeVerification!==false||
+       d?.merchantReceiptsProvePlatformPayouts!==false||
+       d?.merchantAndPlatformFundsNettingAllowed!==false||
+       d?.bankSettlementVerified!==false||d?.recipientVerified!==false||
+       d?.externalPaidBenefitsCents!==null||d?.noTransfers!==true||
+       d?.noIdentityCollection!==true||d?.newBenefitsEnabled!==false||
+       d?.readOnly!==true||
+       !/^\d{4}-\d{2}-01$/.test(String(d?.month||''))||
+       (month&&d.month!==month+'-01')||
+       !integer(d.merchantCatalogProviders)||
+       !integer(d.merchantEvidenceRecords)||
+       !integer(d.merchantProviderVerifiedOrders)||
+       !integer(d.outgoingClaims)||!integer(d.outgoingClaimsQueried)||
+       d.outgoingProviderCategories!==4||
+       !Array.isArray(d.merchantProviders)||
+       d.merchantProviders.length!==d.merchantCatalogProviders||
+       d.merchantProviders.length>50||
+       !Array.isArray(d.outgoingProviders)||d.outgoingProviders.length!==4||
+       typeof d.outgoingPayoutsCredentialConfigured!=='boolean'||
+       d.outgoingPayoutsCredentialScope!=='dedicated_mp_payouts_read_only'||
+       d.outgoingPayoutsCredentialProvesApiAuthorization!==false||
+       d.incomingMerchantCredentialsReused!==false||
+       d.merchantProviders.some(x=>!x||
+         !/^[a-z][a-z0-9_]{1,31}$/.test(String(x.providerKey||''))||
+         typeof x.displayName!=='string'||x.displayName.length<2||x.displayName.length>120||
+         typeof x.catalogAdapterStatus!=='string'||
+         typeof x.catalogConnectionMode!=='string'||
+         typeof x.catalogVerificationLevel!=='string'||
+         x.catalogFundsFlow!=='merchant_direct'||
+         typeof x.catalogSupportsLookup!=='boolean'||
+         typeof x.catalogSupportsWebhook!=='boolean'||
+         x.ownerOfFunds!=='merchant'||x.outgoingPayoutVerified!==false||
+         !merchantKeys.every(k=>integer(x[k]))||
+         x.providerVerifiedOrders>x.evidenceRecords)||
+       new Set(d.merchantProviders.map(x=>x.providerKey)).size!==d.merchantProviders.length||
+       d.outgoingProviders.some(x=>!x||!outgoingKeys.includes(x.providerKey)||
+         typeof x.displayName!=='string'||x.displayName.length>120||
+         x.officialOutgoingLookupImplemented!==(x.providerKey==='mercado_pago')||
+         x.ownerOfFunds!=='platform_owner_reported'||x.realTransferProven!==false||
+         !outboundKeys.every(k=>integer(x[k]))||
+         x.claims!==x.activeClaims+x.voidedClaims||
+         x.officialStatusMatched>x.officiallyQueried||
+         x.officiallyQueried>x.claims||x.withDocument>x.claims||
+         x.verifiedBeneficiaryClaims!==0||x.bankVerifiedClaims!==0)||
+       new Set(d.outgoingProviders.map(x=>x.providerKey)).size!==4||
+       d.outgoingProviders.reduce((s,x)=>s+x.claims,0)!==d.outgoingClaims||
+       d.outgoingProviders.reduce((s,x)=>s+x.officiallyQueried,0)!==d.outgoingClaimsQueried||
+       d.merchantProviders.reduce((s,x)=>s+x.evidenceRecords,0)!==d.merchantEvidenceRecords||
+       d.merchantProviders.reduce((s,x)=>s+x.providerVerifiedOrders,0)<
+         d.merchantProviderVerifiedOrders)
+      throw new Error('Dados de conciliação multibanco não validados.');
+    if(actor===String(adminRuntime?.session?.user?.id||'')&&
+      role===String(adminCurrentRole()))
+      adminOwnerMultiPspState={...d,loadedFor:actor};
+  }catch(e){
+    if(actor===String(adminRuntime?.session?.user?.id||'')){
+      adminOwnerMultiPspState=null;
+      toast(String(e?.message||'Falha na central de conciliação.'));
+    }
+  }finally{adminOwnerMultiPspBusy=false;render();}
+}
+function adminOwnerMultiPspSection(){
+  const role=String(adminCurrentRole());
+  if(!['superadmin','finance'].includes(role))return '';
+  const actor=String(adminRuntime?.session?.user?.id||'');
+  const d=adminOwnerMultiPspState?.loadedFor===actor?adminOwnerMultiPspState:null;
+  const selectedMonth=String(document.getElementById('owner-campaign-signals-month')?.value||'').trim();
+  const valid=d&&(!selectedMonth||d.month.slice(0,7)===selectedMonth);
+  const merchantRows=(valid?d.merchantProviders:[]).map(p=>
+    '<article class="card flat form-stack"><h5>'+esc(p.displayName)+'</h5>'+
+    '<p class="tiny muted">Catálogo: '+esc(p.catalogAdapterStatus)+
+      ' • modo '+esc(p.catalogConnectionMode)+
+      ' • consulta declarada: '+(p.catalogSupportsLookup?'sim':'não')+
+      ' • webhook declarado: '+(p.catalogSupportsWebhook?'sim':'não')+'</p>'+
+    '<p>'+Number(p.paymentAttempts)+' tentativas • '+
+      Number(p.evidenceRecords)+' registros de evidência • '+
+      Number(p.providerVerifiedOrders)+' pedidos com evidência do provedor</p>'+
+    '<p class="tiny muted">Recebimento destinado à revenda. Não é comprovante de repasse do TAMÃO.</p></article>'
+  ).join('');
+  const outgoingRows=(valid?d.outgoingProviders:[]).map(p=>
+    '<article class="card flat form-stack"><h5>'+esc(p.displayName)+'</h5>'+
+    '<p class="tiny muted">'+(p.officialOutgoingLookupImplemented?
+      'Consulta oficial somente leitura implementada; necessita credencial específica e transação real.':
+      'Sem consulta oficial de saída conectada.')+'</p>'+
+    '<p>'+Number(p.activeClaims)+' declarações ativas • '+
+      Number(p.voidedClaims)+' retificadas • '+
+      Number(p.withDocument)+' com arquivo • '+
+      Number(p.officiallyQueried)+' consultadas no provedor</p>'+
+    '<p>Declarado pelo proprietário: <strong>'+
+      adminMoney(p.ownerDeclaredActiveCents)+'</strong>'+
+      ' • status/referência coincidentes: '+Number(p.officialStatusMatched)+'</p>'+
+    '<p class="tiny muted">Titularidade comprovada: 0 • liquidação bancária comprovada: 0</p></article>'
+  ).join('');
+  return '<div class="card flat form-stack">'+
+    '<h4>Central multibanco e multi-PSP</h4>'+
+    '<p>Compare o estágio de cada integração sem misturar recebimentos das revendas com os benefícios financiados pelo TAMÃO.</p>'+
+    '<button type="button" class="secondary small" onclick="adminOwnerMultiPspLoadFromUi()" '+
+    (adminOwnerMultiPspBusy?'disabled':'')+'>Atualizar visão financeira da competência</button>'+
+    (valid?'<div class="merchant-kpis">'+
+      '<div class="kpi"><span class="label">PSPs no catálogo das revendas</span><strong>'+
+      Number(d.merchantCatalogProviders)+'</strong></div>'+
+      '<div class="kpi"><span class="label">Evidências de pagamentos às revendas</span><strong>'+
+      Number(d.merchantEvidenceRecords)+'</strong></div>'+
+      '<div class="kpi"><span class="label">Declarações externas de benefícios</span><strong>'+
+      Number(d.outgoingClaims)+'</strong></div>'+
+      '<div class="kpi"><span class="label">Consultas oficiais de saída</span><strong>'+
+      Number(d.outgoingClaimsQueried)+'</strong></div></div>'+
+      '<h5>Pagamentos dos clientes às revendas</h5>'+
+      '<p class="tiny muted">A situação exibida no catálogo descreve recursos previstos ou implementados, não credenciais ativas nem transações confirmadas.</p>'+
+      '<div class="grid cards-2">'+(merchantRows||
+      '<p class="tiny muted">Nenhum provedor no catálogo.</p>')+'</div>'+
+      '<h5>Saídas para benefícios financiados pelo TAMÃO</h5>'+
+      '<p class="tiny muted">O único adaptador de consulta oficial de saídas implementado é Mercado Pago Payouts. Credencial específica configurada: <strong>'+
+      (d.outgoingPayoutsCredentialConfigured?'sim (autorização da API não comprovada)':'não')+
+      '</strong>. Nenhuma credencial de recebimentos das revendas é reutilizada.</p>'+
+      '<div class="grid cards-2">'+outgoingRows+'</div>':
+      '<p class="tiny muted">Consulte uma competência para visualizar os provedores e as evidências reais.</p>')+
+    '<p class="tiny muted">Não somar ou compensar os fluxos. Uma venda paga à revenda não prova custo do TAMÃO. Declaração de repasse, documento anexo ou transação consultada não confirmam, isoladamente, o beneficiário nem a liquidação bancária. Esta central é apenas de consulta; não ativa novos provedores nem executa transferências.</p></div>';
+}
+
 // TAMÃO V1.266 — evidence gaps, no recipient banking details collected.
 let adminOwnerRecipientProofState=null,adminOwnerRecipientProofBusy=false;
 async function adminOwnerRecipientProofLoadFromUi(){
@@ -3764,6 +3904,7 @@ function adminOwnerFinancialSummarySection(){
     (typeof adminOwnerPayoutProofsSection==='function'?adminOwnerPayoutProofsSection():'')+
     (typeof adminOwnerPayoutProviderSection==='function'?adminOwnerPayoutProviderSection():'')+
     (typeof adminOwnerRecipientProofSection==='function'?adminOwnerRecipientProofSection():'')+
+    (typeof adminOwnerMultiPspSection==='function'?adminOwnerMultiPspSection():'')+
     '<div class="card flat form-stack"><h4>Integridade dos comprovantes privados</h4>'+
     '<p>Auditoria de arquivos sem vínculo à despesa. Os uploads recentes têm proteção de 24 horas; esta consulta não exclui documentos.</p>'+
     '<button type="button" class="secondary small" onclick="adminOwnerOrphanAuditLoadFromUi()" '+
