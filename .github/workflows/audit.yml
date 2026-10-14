@@ -213,6 +213,8 @@ jobs:
         run: node tests/owner-finance-history-v1-250.mjs
       - name: TAMÃO V1.251 tagged marketing signals and acquisition funnel
         run: node tests/owner-campaign-signals-v1-251.mjs
+      - name: TAMÃO V1.252 UTM attribution to real created and settled orders
+        run: node tests/owner-campaign-orders-v1-252.mjs
       - name: Turnstile smoke Chrome cleanup V1.238.1
         run: node tests/turnstile-smoke-cleanup-v1-238-1.mjs
       - name: First real PSP pilot preflight V1.146 regression contract
