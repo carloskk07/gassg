@@ -403,7 +403,7 @@ function home(){
 
     <div class="purchase-starter" aria-label="Consultar produtos e atendimento da sua região">
       <input id="home-featured-code" type="hidden" value="${esc(featuredCode)}">
-      <div class="starter-product"><div class="starter-product-icon">${tamaoProductArt(featuredCode,featuredProduct,"hero")}</div><div><span class="starter-label">COMECE PELO QUE PRECISA</span><strong>${esc(featuredName)}</strong><small>${esc(featuredCode)} • Consulta por CEP</small></div><div class="starter-price"><small>CONSULTA</small><b>${priceText}</b></div></div>
+      <div class="starter-product"><div class="starter-product-icon">${typeof tamaoProductArt==="function"?tamaoProductArt(featuredCode,featuredProduct,"hero"):esc(featuredIcon)}</div><div><span class="starter-label">COMECE PELO QUE PRECISA</span><strong>${esc(featuredName)}</strong><small>${esc(featuredCode)} • Consulta por CEP</small></div><div class="starter-price"><small>CONSULTA</small><b>${priceText}</b></div></div>
       <label class="starter-address" for="home-address"><span>${testDemo?'Onde entregar?':'Onde você quer receber?'}</span><div><span aria-hidden="true">📍</span><input id="home-address" autocomplete="${testDemo?'street-address':'postal-code'}" inputmode="${testDemo?'text':'numeric'}" maxlength="${testDemo?'160':'9'}" placeholder="${testDemo?'Digite seu endereço':'Ex.: 97300-000'}" value="${esc(testDemo?(state.address||''):String(state.postalCode||'').replace(/^(\d{5})(\d{0,3}).*$/,(m,a,b)=>b?a+'-'+b:a))}" onkeydown="if(event.key==='Enter'){event.preventDefault();startCustomerAvailability()}" ${disabled&&!acquisitionOpen?'disabled':''}></div></label>
       <button class="primary starter-cta" onclick="${primaryAction}" ${disabled&&!acquisitionOpen?'disabled':''}>${esc(featuredIcon)} ${primaryLabel}</button>
       ${cityChecked&&!hasConfirmedCityOffers&&acquisitionOpen?`<div class="regional-action"><button class="ghost" onclick="openPrelaunchCustomerLead()">Sem opção para meu CEP? Quero receber um aviso →</button></div>`:''}
@@ -422,7 +422,7 @@ function home(){
   </div>`:''}
 </div></section>
 
-${tamaoHomeBenefits()}
+${!conciseHome&&typeof tamaoHomeBenefits==="function"?tamaoHomeBenefits():""}
 ${conciseHome?intentSection:''}
 ${acquisitionOpen?prelaunchCustomerLeadSection():''}
 ${acquisitionOpen&&!conciseHome?prelaunchTransparencyBand():''}
@@ -448,7 +448,7 @@ ${conciseHome?'':`<section class="section"><div class="protection-band"><div cla
 </div></section>
 
 <section class="section"><div class="section-head"><div><span class="section-kicker">O QUE PRECISA HOJE?</span><h2>O essencial da sua rotina, do jeito mais simples.</h2><p>Gás, água, carvão, lenha e gelo: descubra os itens que as revendas realmente oferecem no seu CEP. Sem precisar comprar gás para consultar os demais produtos.</p></div></div>
-<div class="quick-grid">${homeProductEntries.length?homeProductEntries.map(([k,p])=>`<button class="quick-card" onclick="quickProduct('${k}')" ${disabled?'disabled':''}><div class="quick-icon">${tamaoProductArt(k,p)}</div><div class="quick-title">${esc(customerProductName(k,p))}</div><div class="quick-sub">${preview?'Consultar disponibilidade':'Consultar agora'}</div></button>`).join(''):'<div class="empty card">Nenhum produto está configurado para consulta agora.</div>'}</div></section>
+<div class="quick-grid">${homeProductEntries.length?homeProductEntries.map(([k,p])=>`<button class="quick-card" onclick="quickProduct('${k}')" ${disabled?'disabled':''}><div class="quick-icon">${typeof tamaoProductArt==="function"?tamaoProductArt(k,p):esc(p.icon)}</div><div class="quick-title">${esc(customerProductName(k,p))}</div><div class="quick-sub">${preview?'Consultar disponibilidade':'Consultar agora'}</div></button>`).join(''):'<div class="empty card">Nenhum produto está configurado para consulta agora.</div>'}</div></section>
 
 ${internalPilot?`<section class="section"><div class="card flat"><span class="section-kicker">AMBIENTE INTERNO</span><h2 style="margin-top:6px">Gas e Lenheira do JR</h2><p class="muted">Faixa comercial P13 configurada para validação interna. Esta visualização não altera a operação pública.</p><button class="secondary" onclick="setMode('merchant')">Abrir painel interno da revenda</button></div></section>`:''}
 
@@ -576,7 +576,7 @@ ${hasItems&&hasAddress?`<section class="section"><div class="section-head"><div>
 function cartRow(k,p){
   const q=state.cart[k]||0;
   const label=customerProductName(k,p);
-  return `<div class="cart-item"><div class="product-left"><div class="product-icon">${tamaoProductArt(k,p,"cart")}</div><div><strong>${esc(label)}</strong><div class="tiny muted">${esc(customerProductMeta(k))}</div></div></div><div class="qty" aria-label="Quantidade de ${esc(label)}"><button aria-label="Diminuir" onclick="qty('${k}',-1)">−</button><strong>${q}</strong><button aria-label="Aumentar" onclick="qty('${k}',1)">+</button></div></div>`
+  return `<div class="cart-item"><div class="product-left"><div class="product-icon">${typeof tamaoProductArt==="function"?tamaoProductArt(k,p,"cart"):esc(p.icon)}</div><div><strong>${esc(label)}</strong><div class="tiny muted">${esc(customerProductMeta(k))}</div></div></div><div class="qty" aria-label="Quantidade de ${esc(label)}"><button aria-label="Diminuir" onclick="qty('${k}',-1)">−</button><strong>${q}</strong><button aria-label="Aumentar" onclick="qty('${k}',1)">+</button></div></div>`
 }
 // Sorting never changes backend recommendation or creates a new quote.
 let checkoutOfferSort='recommended';
