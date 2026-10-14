@@ -243,6 +243,8 @@ jobs:
         run: node tests/owner-recipient-evidence-gaps-v1-266.mjs
       - name: Test multi-PSP finance hub V1.267
         run: node tests/owner-multi-psp-hub-v1-267.mjs
+      - name: Test PSP operational readiness V1.268
+        run: node tests/owner-psp-readiness-v1-268.mjs
       - name: TAMÃO V1.258 founder-approved orphan deletion with immutable audit
         run: node tests/owner-receipt-orphan-cleanup-v1-258.mjs
       - name: Turnstile smoke Chrome cleanup V1.238.1
