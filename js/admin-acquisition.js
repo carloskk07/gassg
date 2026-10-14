@@ -2581,6 +2581,105 @@ function adminOwnerOrphanCleanupSection(){
     '</div>';
 }
 
+// V1.262: authorized referral commission history; internal movements ≠ payouts.
+let adminOwnerReferralTraceState=null,adminOwnerReferralTraceBusy=false;
+async function adminOwnerReferralTraceLoadFromUi(){
+  const actor=String(adminRuntime?.session?.user?.id||''),role=String(adminCurrentRole());
+  if(!actor||!['superadmin','finance'].includes(role)||adminOwnerReferralTraceBusy)return;
+  const month=String(document.getElementById('owner-campaign-signals-month')?.value||'').trim();
+  if(month&&!/^\d{4}-(0[1-9]|1[0-2])$/.test(month))
+    return toast('Selecione uma competência válida.');
+  adminOwnerReferralTraceBusy=true;render();
+  try{
+    const d=await adminInvoke({action:'owner-referral-lifecycle',month:month?month+'-01':''});
+    const nn=(x,keys)=>x&&keys.every(k=>Number.isSafeInteger(x[k])&&x[k]>=0);
+    const c=d?.cohort,f=d?.walletEventFlows;
+    if(d?.source!=='admin_owner_referral_lifecycle_v1_262'||
+      d?.timezone!=='America/Sao_Paulo'||d?.readOnly!==true||
+      d?.noTransfers!==true||d?.newBenefitsEnabled!==false||
+      d?.issuerOrderTraceAvailable!==true||
+      d?.pendingReleaseIsAmbiguousWithoutGrantState!==true||
+      d?.cohortStagesCurrentNotHistorical!==true||
+      d?.walletFlowsAreCashPayments!==false||d?.externalPaidReferralCents!==null||
+      d?.externalPayoutMeasured!==false||d?.campaignAttributionIsCausal!==false||
+      d?.bankSettlementVerified!==false||d?.profitMeasured!==false||d?.roiMeasured!==false||
+      !/^\d{4}-\d{2}-01$/.test(String(d?.month||''))||(month&&d.month!==month+'-01')||
+      !nn(c,['grantOrders','issuedCents','verifiedLifecycleCents','unverifiedLifecycleCents',
+        'verifiedOrders','unverifiedOrders','pendingCents','availableCents',
+        'verifiedAvailableCents','reversedBeforeMaturityCents','reversedAfterMaturityCents',
+        'pendingOrders','availableOrders','reversedBeforeMaturityOrders',
+        'reversedAfterMaturityOrders'])||
+      !nn(f,['totalEvents','pendingCreatedCents','pendingReleasedCents',
+        'availableCreatedCents','availableReversedCents','eventsWithoutValidGrant'])||
+      c.issuedCents!==c.verifiedLifecycleCents+c.unverifiedLifecycleCents||
+      c.grantOrders!==c.verifiedOrders+c.unverifiedOrders||
+      c.issuedCents!==c.pendingCents+c.availableCents+
+        c.reversedBeforeMaturityCents+c.reversedAfterMaturityCents||
+      c.grantOrders!==c.pendingOrders+c.availableOrders+
+        c.reversedBeforeMaturityOrders+c.reversedAfterMaturityOrders||
+      c.verifiedAvailableCents>c.availableCents||f.eventsWithoutValidGrant>f.totalEvents||
+      !Number.isSafeInteger(d.totalCampaigns)||d.totalCampaigns<0||
+      d.limit!==50||d.truncated!==(d.totalCampaigns>50)||
+      !Array.isArray(d.rows)||d.rows.length>50||d.rows.length>d.totalCampaigns||
+      d.rows.some(x=>!x||!/^[0-9a-f-]{36}$/i.test(String(x.allocationId||''))||
+        !['customer_cashback','customer_referral','merchant_referral','clube_coupons']
+         .some(k=>typeof x.campaignTag==='string'&&x.campaignTag.startsWith(
+           'tam-'+k+'-'+d.month.slice(0,4)+d.month.slice(5,7)+'-'))||
+        typeof x.campaignLabel!=='string'||x.campaignLabel.length>180||
+        !nn(x,['referralGrantOrders','referralIssuedCents','referralPendingCents',
+          'referralAvailableCents','referralReversedCents'])||
+        x.referralIssuedCents!==x.referralPendingCents+
+          x.referralAvailableCents+x.referralReversedCents))
+      throw new Error('Conciliação de indicações não validada.');
+    if(actor===String(adminRuntime?.session?.user?.id||'')&&role===String(adminCurrentRole()))
+      adminOwnerReferralTraceState={...d,loadedFor:actor};
+  }catch(e){
+    if(actor===String(adminRuntime?.session?.user?.id||'')){
+      adminOwnerReferralTraceState=null;
+      toast(String(e?.message||'Falha ao conciliar as indicações.'));
+    }
+  }finally{adminOwnerReferralTraceBusy=false;render();}
+}
+function adminOwnerReferralLifecycleSection(){
+  if(!['superadmin','finance'].includes(String(adminCurrentRole())))return '';
+  const actor=String(adminRuntime?.session?.user?.id||'');
+  const d=adminOwnerReferralTraceState?.loadedFor===actor?adminOwnerReferralTraceState:null;
+  const month=String(document.getElementById('owner-campaign-signals-month')?.value||'').trim();
+  const valid=d&&(!month||d.month.slice(0,7)===month);
+  const c=valid?d.cohort:null,f=valid?d.walletEventFlows:null;
+  const entries=(valid?d.rows:[]).map(x=>'<article class="card flat form-stack">'+
+    '<h5>'+esc(x.campaignLabel)+'</h5><p class="tiny muted">'+esc(x.campaignTag)+'</p>'+
+    '<p>Concedidas: <strong>'+adminMoney(x.referralIssuedCents)+'</strong> • pendentes: '+
+    adminMoney(x.referralPendingCents)+' • disponíveis internamente: '+
+    adminMoney(x.referralAvailableCents)+' • revertidas: '+adminMoney(x.referralReversedCents)+
+    '</p><p class="tiny muted">'+Number(x.referralGrantOrders)+' pedido(s) associado(s)</p></article>').join('');
+  return '<div class="card flat form-stack"><h4>Conciliação das comissões de indicação</h4>'+
+    '<p>Rastreia concessões por pedido, liberação, reversões e lançamentos divergentes.</p>'+
+    '<button class="secondary small" type="button" onclick="adminOwnerReferralTraceLoadFromUi()" '+
+    (adminOwnerReferralTraceBusy?'disabled':'')+'>Conciliar indicações da competência</button>'+
+    (valid?'<div class="merchant-kpis">'+
+      '<div class="kpi"><span class="label">Concedidas</span><strong>'+adminMoney(c.issuedCents)+'</strong></div>'+
+      '<div class="kpi"><span class="label">Ciclo conciliado</span><strong>'+adminMoney(c.verifiedLifecycleCents)+'</strong></div>'+
+      '<div class="kpi"><span class="label">Disponível internamente e conferido</span><strong>'+adminMoney(c.verifiedAvailableCents)+'</strong></div>'+
+      '<div class="kpi"><span class="label">Com divergência</span><strong>'+adminMoney(c.unverifiedLifecycleCents)+'</strong></div></div>'+
+      '<p class="tiny muted">Situação atual das concessões do mês: pendentes '+
+      adminMoney(c.pendingCents)+' • disponíveis '+adminMoney(c.availableCents)+
+      ' • revertidas antes da maturação '+adminMoney(c.reversedBeforeMaturityCents)+
+      ' • revertidas depois '+adminMoney(c.reversedAfterMaturityCents)+'.</p>'+
+      '<p class="tiny muted">Eventos de carteira no mês: criadas '+adminMoney(f.pendingCreatedCents)+
+      ' • baixadas '+adminMoney(f.pendingReleasedCents)+
+      ' • disponibilizadas '+adminMoney(f.availableCreatedCents)+
+      ' • revertidas '+adminMoney(f.availableReversedCents)+
+      '. Eventos sem concessão válida: '+Number(f.eventsWithoutValidGrant)+'.</p>'+
+      '<p class="tiny muted">'+Number(c.verifiedOrders)+' pedidos conferidos, '+
+      Number(c.unverifiedOrders)+' com divergência • '+Number(d.totalCampaigns)+
+      ' campanhas '+(d.truncated?'(50 exibidas)':'')+'.</p>'+
+      '<div class="grid cards-2">'+(entries||
+        '<p class="tiny muted">Sem campanhas vinculadas nesta competência.</p>')+'</div>':
+      '<p class="tiny muted">Selecione a competência para consultar os registros reais.</p>')+
+    '<p class="tiny muted">Comissões disponíveis são saldo interno, não saque ou pagamento externo. A situação das concessões é atual, embora agrupada pelo mês de origem; movimentações no mês são outra dimensão e não devem ser somadas como novo custo. Sem comprovantes de PSP ou banco, pagamentos e lucro permanecem não mensurados.</p></div>';
+}
+
 // TAMÃO V1.261 — audit the new origin lots without affecting native wallet.
 let adminOwnerSourceLotsState=null;
 let adminOwnerSourceLotsBusy=false;
@@ -3057,6 +3156,7 @@ function adminOwnerFinancialSummarySection(){
     (typeof adminOwnerBenefitCostsSection==='function'?adminOwnerBenefitCostsSection():'')+
     (typeof adminOwnerWalletReconciliationSection==='function'?adminOwnerWalletReconciliationSection():'')+
     (typeof adminOwnerCashbackSourceLotsSection==='function'?adminOwnerCashbackSourceLotsSection():'')+
+    (typeof adminOwnerReferralLifecycleSection==='function'?adminOwnerReferralLifecycleSection():'')+
     '<div class="card flat form-stack"><h4>Integridade dos comprovantes privados</h4>'+
     '<p>Auditoria de arquivos sem vínculo à despesa. Os uploads recentes têm proteção de 24 horas; esta consulta não exclui documentos.</p>'+
     '<button type="button" class="secondary small" onclick="adminOwnerOrphanAuditLoadFromUi()" '+

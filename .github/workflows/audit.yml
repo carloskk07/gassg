@@ -231,6 +231,8 @@ jobs:
         run: node tests/owner-wallet-reconciliation-v1-260.mjs
       - name: Test source lots V1.261
         run: node tests/owner-cashback-source-lots-v1-261.mjs
+      - name: Test referral lifecycle V1.262
+        run: node tests/owner-referral-lifecycle-v1-262.mjs
       - name: TAMÃO V1.258 founder-approved orphan deletion with immutable audit
         run: node tests/owner-receipt-orphan-cleanup-v1-258.mjs
       - name: Turnstile smoke Chrome cleanup V1.238.1
