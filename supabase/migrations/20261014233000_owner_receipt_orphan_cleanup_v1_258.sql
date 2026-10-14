@@ -157,7 +157,7 @@ begin
  if p_actor is null or not exists(select 1 from public.platform_admins a
  where a.user_id=p_actor and a.active and a.admin_role='superadmin')
  then raise exception 'ORPHAN_CLEANUP_FINISH_DENIED' using errcode='42501';end if;
- if p_request is null or p_outcome not in('absent_confirmed','failed')
+ if p_request is null or p_outcome is null or p_outcome not in('absent_confirmed','failed')
  then raise exception 'ORPHAN_CLEANUP_FINISH_INVALID' using errcode='22023';end if;
  select * into v_request from public.platform_campaign_receipt_cleanup_requests_v1_258
  where request_id=p_request and requested_by=p_actor;
@@ -173,7 +173,8 @@ begin
    'outcome',v_result.outcome,'replayed',true,'recorded',true);
  end if;
  if p_outcome='absent_confirmed' and (
-   exists(select 1 from storage.objects o where o.id=v_request.object_id
+   exists(select 1 from storage.objects o where
+       (o.id=v_request.object_id or o.name=v_request.object_path)
      and o.bucket_id='tamao-owner-campaign-receipts-v1-256'
      and coalesce(o.is_delete_marker,false)=false)
    or exists(select 1 from public.platform_campaign_marketing_receipts_v1_256 r
