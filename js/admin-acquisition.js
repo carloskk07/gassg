@@ -2581,6 +2581,165 @@ function adminOwnerOrphanCleanupSection(){
     '</div>';
 }
 
+// TAMÃO V1.263 — declared external referral payouts, never bank-confirmed.
+let adminOwnerPayoutState=null,adminOwnerPayoutBusy=false;
+async function adminOwnerPayoutReadFromUi(){
+  const actor=String(adminRuntime?.session?.user?.id||''),role=String(adminCurrentRole());
+  if(!actor||!['superadmin','finance'].includes(role)||adminOwnerPayoutBusy)return;
+  const month=String(document.getElementById('owner-campaign-signals-month')?.value||'').trim();
+  if(month&&!/^\d{4}-(0[1-9]|1[0-2])$/.test(month))
+    return toast('Selecione uma competência válida.');
+  adminOwnerPayoutBusy=true;render();
+  try{
+    const d=await adminInvoke({action:'owner-benefit-payout-read',month:month?month+'-01':''});
+    const m=d?.metrics;
+    const keys=['totalClaims','activeClaims','voidedClaims','reportedActiveCents',
+      'reportedEligibleNowCents','reportedNowIneligibleCents','reportedVoidedCents',
+      'activeWithoutProofFingerprint'];
+    if(d?.source!=='admin_owner_referral_payout_claims_v1_263'||
+       d?.timezone!=='America/Sao_Paulo'||
+       d?.reportedByOwnerOnly!==true||d?.providerSettlementConfirmed!==false||
+       d?.reportMetricMeaning!=='owner_reported_external_claims_not_bank_verified'||
+       d?.externalPaidBenefitsCents!==null||d?.externalPayoutMeasured!==false||
+       d?.bankSettlementVerified!==false||d?.profitMeasured!==false||
+       d?.roiMeasured!==false||d?.readOnly!==true||d?.noTransfers!==true||
+       d?.newBenefitsEnabled!==false||
+       !/^\d{4}-\d{2}-01$/.test(String(d?.month||''))||
+       (month&&d.month!==month+'-01')||
+       !m||keys.some(k=>!Number.isSafeInteger(m[k])||m[k]<0)||
+       m.totalClaims!==m.activeClaims+m.voidedClaims||
+       m.reportedActiveCents!==m.reportedEligibleNowCents+m.reportedNowIneligibleCents||
+       m.activeWithoutProofFingerprint>m.activeClaims||
+       !Number.isSafeInteger(d.totalRecords)||d.totalRecords<0||
+       d.totalRecords!==m.totalClaims||d.limit!==30||
+       d.truncated!==(d.totalRecords>30)||
+       !Array.isArray(d.rows)||d.rows.length>30||d.rows.length>d.totalRecords||
+       d.rows.some(x=>!x||!/^[0-9a-f-]{36}$/i.test(String(x.claimId||''))||
+         !/^[0-9a-f-]{36}$/i.test(String(x.orderId||''))||
+         !Number.isSafeInteger(x.amountCents)||x.amountCents<1||
+         !['pix','bank_transfer','mercado_pago','other'].includes(x.provider)||
+         typeof x.referenceMasked!=='string'||
+         !/^[A-Za-z0-9._:/-]{4}…[A-Za-z0-9._:/-]{4}$/.test(x.referenceMasked)||
+         !/^\d{4}-\d{2}-\d{2}$/.test(String(x.paidOn||''))||
+         typeof x.proofFingerprintPresent!=='boolean'||
+         typeof x.voided!=='boolean'||typeof x.eligibleNow!=='boolean'))
+      throw new Error('Relatório de repasses não validado.');
+    if(actor===String(adminRuntime?.session?.user?.id||'')&&role===String(adminCurrentRole()))
+      adminOwnerPayoutState={...d,loadedFor:actor};
+  }catch(e){
+    if(actor===String(adminRuntime?.session?.user?.id||'')){
+      adminOwnerPayoutState=null;
+      toast(String(e?.message||'Falha ao consultar repasses declarados.'));
+    }
+  }finally{adminOwnerPayoutBusy=false;render();}
+}
+async function adminOwnerPayoutRecordFromUi(){
+  const actor=String(adminRuntime?.session?.user?.id||'');
+  if(!actor||String(adminCurrentRole())!=='superadmin'||adminOwnerPayoutBusy)return;
+  const val=id=>String(document.getElementById(id)?.value||'').trim();
+  const orderId=val('owner-payout-order'),money=val('owner-payout-amount');
+  const provider=val('owner-payout-provider'),reference=val('owner-payout-reference');
+  const paidOn=val('owner-payout-date'),proofSha256=val('owner-payout-sha').toLowerCase();
+  const centsMatch=money.match(/^(\d{1,7})(?:[,.](\d{1,2}))?$/);
+  const amountCents=centsMatch?
+    Number(centsMatch[1])*100+Number((centsMatch[2]||'').padEnd(2,'0')):NaN;
+  if(!/^[0-9a-f-]{36}$/i.test(orderId)||!Number.isSafeInteger(amountCents)||
+     amountCents<1||amountCents>100000000||
+     !['pix','bank_transfer','mercado_pago','other'].includes(provider)||
+     !/^[A-Za-z0-9][A-Za-z0-9._:/-]{7,119}$/.test(reference)||
+     !/^\d{4}-\d{2}-\d{2}$/.test(paidOn)||
+     (proofSha256&&!/^[0-9a-f]{64}$/.test(proofSha256)))
+    return toast('Confira o ID do pedido, valor, data, referência e SHA-256 opcional.');
+  adminOwnerPayoutBusy=true;render();
+  try{
+    const d=await adminInvoke({action:'owner-benefit-payout-record',
+      orderId,amountCents,provider,reference,paidOn,proofSha256});
+    if(d?.source!=='admin_owner_referral_payout_claim_v1_263'||
+       !/^[0-9a-f-]{36}$/i.test(String(d.claimId||''))||
+       typeof d.alreadyRecorded!=='boolean'||d.bankVerified!==false||
+       d.transferExecuted!==false)
+      throw new Error('Registro não validado.');
+    toast(d.alreadyRecorded?'Registro já constava na conciliação.':
+      'Declaração registrada. Ainda não existe confirmação bancária.');
+    adminOwnerPayoutState=null;
+  }catch(e){toast(String(e?.message||'Não foi possível registrar a declaração.'));}
+  finally{adminOwnerPayoutBusy=false;render();}
+}
+async function adminOwnerPayoutVoidFromUi(claimId){
+  const actor=String(adminRuntime?.session?.user?.id||'');
+  if(!actor||String(adminCurrentRole())!=='superadmin'||adminOwnerPayoutBusy||
+     !/^[0-9a-f-]{36}$/i.test(String(claimId||'')))return;
+  const reason=String(window.prompt('Informe a justificativa para retificar esta declaração (12 a 300 caracteres):')||'').trim();
+  if(reason.length<12||reason.length>300)return;
+  adminOwnerPayoutBusy=true;render();
+  try{
+    const d=await adminInvoke({action:'owner-benefit-payout-void',claimId,reason});
+    if(d?.source!=='admin_owner_referral_payout_void_v1_263'||
+       d.claimId!==claimId||typeof d.alreadyVoided!=='boolean'||
+       d.transferExecuted!==false)throw new Error('Retificação não validada.');
+    toast('Declaração retificada; o histórico de auditoria foi preservado.');
+    adminOwnerPayoutState=null;
+  }catch(e){toast(String(e?.message||'Retificação não registrada.'));}
+  finally{adminOwnerPayoutBusy=false;render();}
+}
+function adminOwnerPayoutEvidenceSection(){
+  if(!['superadmin','finance'].includes(String(adminCurrentRole())))return '';
+  const owner=String(adminCurrentRole())==='superadmin';
+  const actor=String(adminRuntime?.session?.user?.id||'');
+  const d=adminOwnerPayoutState?.loadedFor===actor?adminOwnerPayoutState:null;
+  const month=String(document.getElementById('owner-campaign-signals-month')?.value||'').trim();
+  const valid=d&&(!month||d.month.slice(0,7)===month),m=valid?d.metrics:null;
+  const rows=(valid?d.rows:[]).map(x=>
+    '<article class="card flat form-stack"><p class="tiny muted">'+
+    esc(x.paidOn)+' • '+esc(x.provider)+' • '+esc(x.referenceMasked)+'</p>'+
+    '<p><strong>'+adminMoney(x.amountCents)+'</strong> — '+
+    (x.voided?'Declaração retificada':x.eligibleNow?
+      'Declaração ativa com comissão elegível':'Declaração ativa com comissão atualmente inelegível')+'</p>'+
+    '<p class="tiny muted">Pedido: <code>'+esc(x.orderId)+'</code> • Identificador da declaração: '+
+    esc(x.claimId)+' • impressão digital de comprovante: '+
+    (x.proofFingerprintPresent?'informada':'não informada')+'</p>'+
+    (owner&&!x.voided?
+      '<button type="button" class="secondary small" onclick="adminOwnerPayoutVoidFromUi(\''+
+      esc(x.claimId)+'\')" '+(adminOwnerPayoutBusy?'disabled':'')+
+      '>Retificar declaração</button>':'')+'</article>').join('');
+  const form=owner?'<div class="card flat form-stack">'+
+    '<h5>Registrar declaração de repasse externo</h5>'+
+    '<p class="tiny muted">Somente com comissão de indicação já liberada. Não executa Pix, não altera carteira e não comprova confirmação do PSP.</p>'+
+    '<label>Identificador do pedido original</label><input id="owner-payout-order" placeholder="UUID do pedido" autocomplete="off">'+
+    '<label>Valor em reais (igual à comissão liberada)</label><input id="owner-payout-amount" placeholder="Ex.: 15,00" inputmode="decimal" autocomplete="off">'+
+    '<label>Origem informada do repasse</label><select id="owner-payout-provider">'+
+    '<option value="pix">Pix</option><option value="bank_transfer">Transferência bancária</option>'+
+    '<option value="mercado_pago">Mercado Pago</option><option value="other">Outro</option></select>'+
+    '<label>Referência da transação</label><input id="owner-payout-reference" placeholder="Referência ou ID da transferência" autocomplete="off">'+
+    '<label>Data informada da transferência</label><input id="owner-payout-date" type="date">'+
+    '<label>SHA-256 do comprovante (opcional)</label><input id="owner-payout-sha" placeholder="64 caracteres, se houver arquivo verificado" autocomplete="off">'+
+    '<button type="button" onclick="adminOwnerPayoutRecordFromUi()" '+
+    (adminOwnerPayoutBusy?'disabled':'')+'>Registrar declaração (sem movimentar dinheiro)</button></div>':'';
+  return '<div class="card flat form-stack"><h4>Comprovantes declarados de repasses externos</h4>'+
+    '<p>Controle de declarações do administrador vinculadas a comissões elegíveis; não são liquidações confirmadas pelo banco.</p>'+
+    '<button type="button" class="secondary small" onclick="adminOwnerPayoutReadFromUi()" '+
+    (adminOwnerPayoutBusy?'disabled':'')+'>Consultar declarações da competência</button>'+
+    (valid?'<div class="merchant-kpis">'+
+      '<div class="kpi"><span class="label">Repasses informados, ativos</span><strong>'+
+      adminMoney(m.reportedActiveCents)+'</strong></div>'+
+      '<div class="kpi"><span class="label">Desses, com comissão atualmente elegível</span><strong>'+
+      adminMoney(m.reportedEligibleNowCents)+'</strong></div>'+
+      '<div class="kpi"><span class="label">Declarações com elegibilidade divergente</span><strong>'+
+      adminMoney(m.reportedNowIneligibleCents)+'</strong></div>'+
+      '<div class="kpi"><span class="label">Declarações retificadas</span><strong>'+
+      adminMoney(m.reportedVoidedCents)+'</strong></div></div>'+
+      '<p class="tiny muted">'+Number(m.totalClaims)+' declarações • '+
+      Number(m.activeClaims)+' ativas • '+Number(m.voidedClaims)+
+      ' retificadas • '+Number(m.activeWithoutProofFingerprint)+
+      ' ativas sem impressão digital de comprovante.'+
+      (d.truncated?' Apenas as últimas 30 são exibidas.':'')+'</p>'+
+      '<div class="grid cards-2">'+(rows||'<p class="tiny muted">Nenhum repasse informado nesta competência.</p>')+
+      '</div>':'<p class="tiny muted">Selecione a competência para consultar as declarações.</p>')+
+    form+
+    '<p class="tiny muted">A declaração de transferência não é confirmação independente: valores pagos externamente continuam não mensurados sem conciliação com PSP ou extrato bancário. Não confundir com créditos ou comissões na carteira. Nunca realiza saque, Pix ou estorno.</p>'+
+    '</div>';
+}
+
 // V1.262: authorized referral commission history; internal movements ≠ payouts.
 let adminOwnerReferralTraceState=null,adminOwnerReferralTraceBusy=false;
 async function adminOwnerReferralTraceLoadFromUi(){
@@ -3157,6 +3316,7 @@ function adminOwnerFinancialSummarySection(){
     (typeof adminOwnerWalletReconciliationSection==='function'?adminOwnerWalletReconciliationSection():'')+
     (typeof adminOwnerCashbackSourceLotsSection==='function'?adminOwnerCashbackSourceLotsSection():'')+
     (typeof adminOwnerReferralLifecycleSection==='function'?adminOwnerReferralLifecycleSection():'')+
+    (typeof adminOwnerPayoutEvidenceSection==='function'?adminOwnerPayoutEvidenceSection():'')+
     '<div class="card flat form-stack"><h4>Integridade dos comprovantes privados</h4>'+
     '<p>Auditoria de arquivos sem vínculo à despesa. Os uploads recentes têm proteção de 24 horas; esta consulta não exclui documentos.</p>'+
     '<button type="button" class="secondary small" onclick="adminOwnerOrphanAuditLoadFromUi()" '+
