@@ -117,7 +117,7 @@ Deno.serve(async(req:Request)=>{
     const merchantId=String(body.merchantId??"");
     const action=String(body.action??"");
     if(!UUID_RE.test(merchantId))throw new DomainError("INVALID_MERCHANT","Revenda inválida.",400);
-    if(!["ads-campaign","ads-interest","clube-interest","business-pulse","growth-network","enablement","heartbeat","set-online","update-product","update-logistics","update-capacity","update-scheduling","update-payment-methods","update-payment-routes","update-member-profile","request-billing-package","notify-billing-payment","notify-refund-recovery-payment","cancel-billing-request"].includes(action)){
+    if(!["ads-campaign","ads-interest","clube-interest","clube-terms","business-pulse","growth-network","enablement","heartbeat","set-online","update-product","update-logistics","update-capacity","update-scheduling","update-payment-methods","update-payment-routes","update-member-profile","request-billing-package","notify-billing-payment","notify-refund-recovery-payment","cancel-billing-request"].includes(action)){
       throw new DomainError("INVALID_ACTION","Ação inválida.",400);
     }
 
@@ -176,6 +176,46 @@ Deno.serve(async(req:Request)=>{
         throw new DomainError("ADS_CAMPAIGN_RESPONSE_INVALID",
           "Proposta de campanha não confirmada pelo servidor.",503);
       }
+      return json(data,200,origin);
+    }
+    if(action==="clube-terms"){
+      if(!canManage(role))throw new DomainError("MERCHANT_ACCESS_DENIED",
+        "Somente proprietário ou gerente pode consultar condições do Clube.",403);
+      const operation=String(body.operation??"view");
+      const packageKey=String(body.packageKey??"");
+      if(!["view","read_for_discussion","not_interested"].includes(operation)||
+         !["gas_3x5","water_5x2"].includes(packageKey))
+        throw new DomainError("CLUBE_TERMS_ACTION_INVALID","Selecione uma proposta válida.",400);
+      if(operation!=="view"&&(role!=="owner"||
+        !Number.isSafeInteger(body.version)||body.version<1||
+        !UUID_RE.test(String(body.requestId??""))))
+        throw new DomainError("CLUBE_TERMS_OWNER_REQUIRED",
+          "Somente o titular da revenda pode responder à proposta atual.",403);
+      if(operation==="read_for_discussion"&&body.consent!==true)
+        throw new DomainError("CLUBE_TERMS_CONSENT_REQUIRED",
+          "Confirme que deseja apenas registrar ciência para negociação.",400);
+      const {data,error}=await admin.rpc("merchant_clube_terms_v1_242",{
+        p_actor:user.id,p_merchant:merchantId,p_package:packageKey,
+        p_action:operation,p_version:operation==="view"?null:body.version,
+        p_request:operation==="view"?null:String(body.requestId??"")
+      });
+      if(error)throw error;
+      if(data?.source!=="merchant_clube_terms_v1_242"||
+        data?.merchantId!==merchantId||data?.packageKey!==packageKey||
+        data?.readOnly!==(operation==="view")||
+        data?.noContract!==true||data?.noCharge!==true||
+        data?.fundingVerified!==false||data?.couponSalesEnabled!==false||
+        (data.terms!==null&&(
+         !Number.isSafeInteger(data.terms.version)||data.terms.version<1||
+         !["draft","shared_for_discussion","withdrawn"].includes(data.terms.status)||
+         typeof data.terms.current!=="boolean"||
+         !["none","read_for_discussion","not_interested"].includes(data.terms.merchantResponse)||
+         !Number.isSafeInteger(data.terms.merchantShareBps)||
+         !Number.isSafeInteger(data.terms.merchantProposedBudgetCents)||
+         !Number.isSafeInteger(data.terms.brandShareBps)||
+         !Number.isSafeInteger(data.terms.brandBudgetCents)||
+         !Number.isSafeInteger(data.terms.platformBudgetCents))))
+        throw new DomainError("CLUBE_TERMS_UNVERIFIED","A proposta não foi validada pelo servidor.",503);
       return json(data,200,origin);
     }
     if(action==="clube-interest"){
