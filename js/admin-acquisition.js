@@ -1880,6 +1880,7 @@ async function adminOwnerFinanceLoadFromUi(){
       adminOwnerCampaignOrdersState=null;
       adminOwnerCampaignFeeReceiptsState=null;
       adminOwnerBatchLedgerState=null;
+      adminCampaignCostsState=null;
       toast(adminOwnerFinanceError);
     }
   }finally{adminOwnerFinanceLoading=false;render();}
@@ -2160,6 +2161,195 @@ function adminOwnerCampaignSignalsSection(){
     adminOwnerCampaignOrdersSection()+
     adminOwnerCampaignFeeReceiptsSection()+
     adminOwnerBatchLedgerSection()+
+    adminCampaignCostsSection()+
+    '</div>';
+}
+
+// TAMÃO V1.255 — paid marketing cost declared with documentary reference, never bank API proof.
+let adminCampaignCostsState=null;
+let adminCampaignCostsBusy=false;
+let adminCampaignCostsActionPending=false;
+async function adminCampaignCostsLoadFromUi(){
+  const actor=String(adminRuntime?.session?.user?.id||'');
+  const role=String(adminCurrentRole());
+  if(!actor||!['superadmin','finance'].includes(role)||adminCampaignCostsBusy)return;
+  const month=String(document.getElementById('owner-campaign-signals-month')?.value||'').trim();
+  if(month&&!/^\d{4}-(0[1-9]|1[0-2])$/.test(month))
+    return toast('Selecione um mês válido.');
+  adminCampaignCostsBusy=true;
+  render();
+  try{
+    const d=await adminInvoke({action:'owner-campaign-cost-read',month:month?month+'-01':''});
+    const benefits=['customer_cashback','customer_referral','merchant_referral','clube_coupons'];
+    if(d?.source!=='admin_owner_campaign_cost_read_v1_255'||
+       d?.evidenceLevel!=='owner_attested_proof_reference_not_bank_verified'||
+       d?.readOnly!==true||d?.bankVerified!==false||
+       d?.receiptFileUploaded!==false||d?.roiMeasured!==false||
+       d?.cashMoved!==false||d?.incentiveBudgetDebited!==false||
+       d?.newBenefitsEnabled!==false||
+       !/^\d{4}-\d{2}-01$/.test(String(d?.month||''))||
+       (month&&d.month!==month+'-01')||
+       !Number.isSafeInteger(d.totalCampaigns)||d.totalCampaigns<0||
+       d.campaignLimit!==50||d.campaignTruncated!==(d.totalCampaigns>50)||
+       !Array.isArray(d.campaigns)||d.campaigns.length>50||
+       d.campaigns.length>d.totalCampaigns||
+       !Number.isSafeInteger(d.totalExpenses)||d.totalExpenses<0||
+       d.expenseLimit!==100||d.expenseTruncated!==(d.totalExpenses>100)||
+       !Array.isArray(d.expenses)||d.expenses.length>100||
+       d.expenses.length>d.totalExpenses||
+       d.campaigns.some(c=>!c||!/^[0-9a-f-]{36}$/i.test(String(c.allocationId||''))||
+         !benefits.some(k=>typeof c.campaignTag==='string'&&c.campaignTag.startsWith(
+           'tam-'+k+'-'+d.month.slice(0,4)+d.month.slice(5,7)+'-'))||
+         typeof c.campaignLabel!=='string'||c.campaignLabel.length>180||
+         !['allocated','released'].includes(c.status)||
+         !['incentivePlannedCents','ownerReportedPaidMarketingCents','activeExpenses','voidedExpenses']
+           .every(k=>Number.isSafeInteger(c[k])&&c[k]>=0))||
+       d.expenses.some(x=>!x||!/^[0-9a-f-]{36}$/i.test(String(x.expenseId||''))||
+         !/^[0-9a-f-]{36}$/i.test(String(x.allocationId||''))||
+         !Number.isSafeInteger(x.amountCents)||x.amountCents<100||x.amountCents>5000000||
+         !/^\d{4}-\d{2}-\d{2}$/.test(String(x.paidOn||''))||
+         !['pix','bank_transfer','card','cash','other'].includes(x.paymentMethod)||
+         typeof x.proofReference!=='string'||x.proofReference.length>120||
+         typeof x.description!=='string'||x.description.length>240||
+         !Number.isFinite(Date.parse(String(x.recordedAt||'')))||
+         !['owner_attested','voided'].includes(x.status)||
+         (x.status==='voided'&&(!Number.isFinite(Date.parse(String(x.voidedAt||'')))||
+           typeof x.voidReason!=='string'||x.voidReason.length<12))))
+      throw new Error('Despesas não confirmadas pelo servidor.');
+    if(actor===String(adminRuntime?.session?.user?.id||'')&&role===String(adminCurrentRole()))
+      adminCampaignCostsState={...d,loadedFor:actor};
+  }catch(e){
+    if(actor===String(adminRuntime?.session?.user?.id||'')){
+      adminCampaignCostsState=null;
+      toast(String(e?.message||'Não foi possível carregar as despesas.'));
+    }
+  }finally{adminCampaignCostsBusy=false;render();}
+}
+async function adminCampaignCostsRecordFromUi(){
+  const actor=String(adminRuntime?.session?.user?.id||'');
+  if(!actor||String(adminCurrentRole())!=='superadmin'||adminCampaignCostsActionPending)return;
+  const d=adminCampaignCostsState?.loadedFor===actor?adminCampaignCostsState:null;
+  const read=k=>String(document.getElementById('owner-cost-'+k)?.value||'').trim();
+  const allocationId=read('allocation');
+  const campaign=d?.campaigns?.find(x=>x.allocationId===allocationId);
+  const amountCents=adminOwnerFundingReaisToCents(read('amount'),5000000);
+  const paidOn=read('date'),paymentMethod=read('method');
+  const proofReference=read('proof'),description=read('description');
+  if(!campaign||amountCents===null||amountCents<100||amountCents>5000000||
+     !/^\d{4}-\d{2}-\d{2}$/.test(paidOn)||
+     !['pix','bank_transfer','card','cash','other'].includes(paymentMethod)||
+     !/^[A-Za-z0-9 .:/_-]{12,120}$/.test(proofReference)||
+     description.length<12||description.length>240)
+    return toast('Informe campanha, pagamento, referência do comprovante e descrição.');
+  adminCampaignCostsActionPending=true;
+  try{
+    const result=await adminInvoke({action:'owner-campaign-cost-record',
+      expenseId:crypto.randomUUID(),requestId:crypto.randomUUID(),
+      allocationId,amountCents,paidOn,paymentMethod,proofReference,description});
+    if(result?.source!=='admin_owner_campaign_cost_record_v1_255'||
+       result?.recorded!==true||result?.status!=='owner_attested'||
+       result?.cashMoved!==false||result?.bankVerified!==false||
+       result?.receiptFileUploaded!==false||
+       result?.incentiveBudgetDebited!==false||
+       result?.newBenefitsEnabled!==false)
+      throw new Error('Registro não confirmado.');
+    if(actor===String(adminRuntime?.session?.user?.id||'')){
+      toast('Despesa registrada como paga por declaração do administrador.');
+      await adminCampaignCostsLoadFromUi();
+    }
+  }catch(e){
+    if(actor===String(adminRuntime?.session?.user?.id||''))
+      toast(String(e?.message||'Não foi possível salvar a despesa.'));
+  }finally{adminCampaignCostsActionPending=false;render();}
+}
+async function adminCampaignCostsVoidFromUi(expenseId){
+  const actor=String(adminRuntime?.session?.user?.id||'');
+  if(!actor||String(adminCurrentRole())!=='superadmin'||adminCampaignCostsActionPending)return;
+  const d=adminCampaignCostsState?.loadedFor===actor?adminCampaignCostsState:null;
+  if(!d?.expenses?.some(x=>x.expenseId===expenseId&&x.status==='owner_attested'))return;
+  const reason=String(document.getElementById('owner-cost-void-'+expenseId)?.value||'').trim();
+  if(reason.length<12||reason.length>240)
+    return toast('Descreva em pelo menos 12 caracteres o motivo da correção.');
+  adminCampaignCostsActionPending=true;
+  try{
+    const result=await adminInvoke({action:'owner-campaign-cost-void',
+      expenseId,reason,requestId:crypto.randomUUID()});
+    if(result?.source!=='admin_owner_campaign_cost_void_v1_255'||
+       result?.recorded!==true||result?.status!=='voided'||
+       result?.cashMoved!==false||result?.bankVerified!==false||
+       result?.incentiveBudgetDebited!==false||
+       result?.newBenefitsEnabled!==false)
+      throw new Error('Correção não confirmada.');
+    if(actor===String(adminRuntime?.session?.user?.id||'')){
+      toast('Correção registrada. O lançamento original permanece no histórico.');
+      await adminCampaignCostsLoadFromUi();
+    }
+  }catch(e){
+    if(actor===String(adminRuntime?.session?.user?.id||''))
+      toast(String(e?.message||'Falha ao corrigir a despesa.'));
+  }finally{adminCampaignCostsActionPending=false;render();}
+}
+function adminCampaignCostsSection(){
+  if(!['superadmin','finance'].includes(String(adminCurrentRole())))return '';
+  const actor=String(adminRuntime?.session?.user?.id||'');
+  const d=adminCampaignCostsState?.loadedFor===actor?adminCampaignCostsState:null;
+  const role=String(adminCurrentRole()),month=String(document.getElementById('owner-campaign-signals-month')?.value||'').trim();
+  const matching=d&&(!month||d.month.slice(0,7)===month);
+  const campaigns=matching?d.campaigns:[];
+  const campMap=new Map(campaigns.map(x=>[x.allocationId,x.campaignLabel]));
+  const options=campaigns.filter(c=>c.status==='allocated')
+    .map(x=>'<option value="'+esc(x.allocationId)+'">'+esc(x.campaignLabel)+
+      ' ('+esc(x.campaignTag)+')</option>').join('');
+  const total=campaigns.reduce((n,c)=>n+c.ownerReportedPaidMarketingCents,0);
+  const entries=(matching?d.expenses:[]).map(x=>'<article class="card flat form-stack">'+
+    '<strong>'+esc(campMap.get(x.allocationId)||'Campanha')+' • '+adminMoney(x.amountCents)+'</strong>'+
+    '<p class="tiny muted">'+esc(x.paidOn)+' • '+esc(x.paymentMethod)+' • Referência: '+
+    esc(x.proofReference)+'</p><p>'+esc(x.description)+'</p>'+
+    (x.status==='voided'?
+      '<p class="tiny muted">Lançamento corrigido • '+esc(x.voidReason||'')+'</p>':
+      '<p class="tiny muted">Pagamento declarado pelo administrador. Não conciliado por API bancária.</p>'+
+      (role==='superadmin'?
+        '<label class="input-wrap">Motivo da correção<input class="input" id="owner-cost-void-'+
+        esc(x.expenseId)+'" maxlength="240" placeholder="Informe por que deve ser desconsiderado"></label>'+
+        '<button type="button" class="secondary small" onclick="adminCampaignCostsVoidFromUi(\''+
+        esc(x.expenseId)+'\')" '+(adminCampaignCostsActionPending?'disabled':'')+
+        '>Corrigir lançamento</button>':'')
+    )+'</article>').join('');
+  const edit=matching&&role==='superadmin'?
+    '<div class="card flat form-stack"><h4>Registrar pagamento de divulgação</h4>'+
+    '<p class="tiny muted">Preencha somente uma despesa já paga. A referência identifica o comprovante externo, mas nenhum arquivo é enviado aqui.</p>'+
+    '<label class="input-wrap">Campanha<select class="input" id="owner-cost-allocation">'+
+    (options||'<option value="">Nenhuma campanha ativa neste mês</option>')+'</select></label>'+
+    '<div class="grid cards-2">'+
+    '<label class="input-wrap">Valor pago (R$)<input class="input" id="owner-cost-amount" inputmode="decimal" placeholder="49,90"></label>'+
+    '<label class="input-wrap">Data do pagamento<input class="input" id="owner-cost-date" type="date"></label></div>'+
+    '<label class="input-wrap">Meio de pagamento<select class="input" id="owner-cost-method">'+
+    '<option value="pix">Pix</option><option value="bank_transfer">Transferência</option>'+
+    '<option value="card">Cartão</option><option value="cash">Dinheiro</option>'+
+    '<option value="other">Outro</option></select></label>'+
+    '<label class="input-wrap">Identificador do comprovante / transação'+
+    '<input class="input" id="owner-cost-proof" maxlength="120" placeholder="EXTRATO-2026-10-TRANSACAO-01"></label>'+
+    '<label class="input-wrap">Descrição da despesa'+
+    '<textarea class="input" id="owner-cost-description" maxlength="240" rows="2" placeholder="Campanha de divulgação no comércio local"></textarea></label>'+
+    '<button type="button" class="primary small" onclick="adminCampaignCostsRecordFromUi()" '+
+    (adminCampaignCostsActionPending||!options?'disabled':'')+'>Registrar despesa paga</button></div>':'';
+  return '<div class="form-stack"><div class="section-head"><div>'+
+    '<h4>Gastos de divulgação por campanha</h4>'+
+    '<p>Registre despesas de marketing pagas pelo fundador, separadas do orçamento reservado para cashback, indicações e cupons.</p>'+
+    '</div></div>'+
+    '<button type="button" class="secondary small" onclick="adminCampaignCostsLoadFromUi()" '+
+    (adminCampaignCostsBusy?'disabled':'')+'>Consultar despesas do mês</button>'+
+    (matching?'<div class="merchant-kpis">'+
+      '<div class="kpi"><span class="label">Pagamentos declarados ativos</span><strong>'+
+      adminMoney(total)+'</strong></div>'+
+      '<div class="kpi"><span class="label">Lançamentos no mês</span><strong>'+
+      Number(d.totalExpenses).toLocaleString('pt-BR')+'</strong></div></div>'+
+      (d.campaignTruncated||d.expenseTruncated?
+         '<p class="tiny muted">Resultados limitados aos 50 projetos e 100 lançamentos mais recentes; os totais por campanha incluem todos os lançamentos.</p>':'')+
+      edit+'<div class="grid cards-2">'+
+      (entries||'<p class="muted">Não há despesas registradas nesta competência.</p>')+'</div>':
+      '<p class="muted">Consulte a competência selecionada para carregar os gastos registrados.</p>')+
+    '<p class="tiny muted">Os valores representam pagamentos declarados pelo administrador com referência documental. Não há upload do comprovante, confirmação por API bancária, liberação de saldo ou cálculo de ROI. Corrigir um lançamento não apaga o registro original.</p>'+
     '</div>';
 }
 
