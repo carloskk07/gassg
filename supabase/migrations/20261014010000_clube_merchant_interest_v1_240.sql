@@ -140,12 +140,13 @@ begin
     where merchant_id=p_merchant and package_key=p_package_key;
    v_changed:=true;
   end if;
-  if v_changed then
+  -- Reserve every request ID, including no-op writes, for exactly-once retries.
+  if true then
    insert into public.merchant_clube_interest_events_v1_240(
      request_id,merchant_id,package_key,actor_user_id,operation,
      request_signature,prior_version,resulting_version
    )values(p_request_id,p_merchant,p_package_key,p_actor,p_operation,
-    v_signature,v_old_version,v_old_version+1);
+    v_signature,v_old_version,v_old_version+case when v_changed then 1 else 0 end);
   end if;
  end if;
  select * into v_record from public.merchant_clube_interest_v1_240
