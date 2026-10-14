@@ -288,6 +288,17 @@ function earn(){
     <p class="muted page-lead">Conheça os benefícios de compra, saiba como funcionam as indicações e veja como cadastrar sua empresa para vender pelo TAMÃO.</p>
     <div class="conversion-mini-proof"><span>✓ Compra e indicação são diferentes</span><span>✓ Regras visíveis</span><span>✓ Sem promessa de renda</span></div>
     ${growthNetworkIntro()}
+    <section class="section tamao-customer-growth">
+      <div class="section-head"><div><span class="section-kicker">O SEU JEITO DE PARTICIPAR</span>
+        <h2>Compre quando precisar. Compartilhe quando fizer sentido.</h2>
+        <p>Você não precisa ter uma empresa para ajudar o TAMÃO a crescer na sua região. Sua própria rede começa com um convite.</p></div></div>
+      <div class="grid cards-3 tamao-value-grid">
+        <article class="card"><span class="tamao-value-icon">🛍️</span><h3>Comprar fica mais simples</h3><p>Consulte as opções para seu endereço, confira preço e prazo e acompanhe pedidos confirmados pela revenda.</p></article>
+        <article class="card"><span class="tamao-value-icon">👥</span><h3>Construa sua Rede TAMÃO</h3><p>Seu link pessoal permite convidar amigos e apresentar empresas. Veja suas indicações e quais tiveram a primeira compra qualificada.</p></article>
+        <article class="card"><span class="tamao-value-icon">🎁</span><h3>Conheça seus benefícios</h3><p>Acompanhe cashback válido e as regras de eventuais campanhas. Comissões não são pagas pelo simples cadastro ou pela quantidade de pessoas convidadas.</p></article>
+      </div>
+      <div class="tamao-value-actions"><button type="button" class="secondary" onclick="go('refer')">Abrir minhas indicações →</button><button type="button" class="ghost" onclick="go('club')">Ver meus benefícios</button></div>
+    </section>
 
     <div class="opportunity-grid main-opportunities">
       <article class="opportunity-card person-opportunity"><div class="opportunity-icon">🤝</div><span class="section-kicker">PARA QUEM GOSTA DE COMPARTILHAR</span><h2>Conhece alguém que gostaria de usar o TAMÃO?</h2><p>Quando a campanha estiver ativa, você poderá compartilhar seu link. Uma indicação pode gerar comissão após a primeira compra válida ser entregue, paga e aprovada.</p>
@@ -397,6 +408,51 @@ async function shareReferral(){
   }
 }
 
+// V1.243 — honest sponsor discovery; no paid ads or funded Clube campaign is sold from this page.
+function sponsorsLanding(){
+  return shell(`<section class="page tamao-sponsors-page">
+    <div class="tamao-sponsor-hero">
+      <span class="eyebrow">MARCAS E PARCEIROS • TAMÃO</span>
+      <h1 class="page-title">Sua marca mais perto de quem movimenta o comércio local.</h1>
+      <p class="page-lead">O TAMÃO conecta pessoas que procuram produtos do dia a dia e revendas da própria região. Quer conhecer como sua empresa pode fazer parte desse ecossistema? Vamos conversar sobre oportunidades reais, com objetivos e condições claros.</p>
+      <div class="conversion-mini-proof"><span>✓ Presença regional</span><span>✓ Conversas comerciais transparentes</span><span>✓ Sem compromisso para conhecer</span></div>
+      <div class="tamao-value-actions">
+        <button type="button" class="primary" onclick="go('contact')">Conversar sobre uma parceria →</button>
+        <button type="button" class="secondary" onclick="go('merchants')">Conhecer as revendas</button>
+      </div>
+    </div>
+    <section class="section">
+      <div class="section-head"><div><span class="section-kicker">ONDE SUA MARCA PODE PARTICIPAR</span>
+        <h2>Mais do que aparecer: participar de momentos que importam.</h2>
+        <p>A proposta é aproximar marcas, revendas e consumidores de uma forma útil para a cidade e sustentável para cada parceiro.</p></div></div>
+      <div class="grid cards-3 tamao-value-grid">
+        <article class="card"><span class="tamao-value-icon">📍</span><h3>Conexão com cada região</h3>
+          <p>Explore oportunidades por município e categoria, respeitando a disponibilidade das revendas e a realidade dos consumidores locais.</p></article>
+        <article class="card"><span class="tamao-value-icon">📣</span><h3>Divulgação identificada</h3>
+          <p>Estamos preparando espaços de comunicação patrocinada que sejam claramente sinalizados e não confundam publicidade com a comparação orgânica de ofertas.</p></article>
+        <article class="card"><span class="tamao-value-icon">🎁</span><h3>Benefícios que fazem sentido</h3>
+          <p>O Clube TAMÃO estuda campanhas de desconto com condições por produto e cidade. Cada ação dependerá de acordos válidos e cobertura financeira demonstrada.</p></article>
+      </div>
+    </section>
+    <section class="section">
+      <div class="section-head"><div><span class="section-kicker">PARCERIA QUE RESPEITA SEU NEGÓCIO</span>
+        <h2>Um plano claro começa com uma boa conversa.</h2>
+        <p>Entenda o que poderá ser proposto e como queremos conduzir as futuras campanhas.</p></div></div>
+      <div class="tamao-journey">
+        <div><strong>1. Conhecer seu objetivo</strong><p>Mais reconhecimento de marca, aproximação regional ou incentivo à recompra? Primeiro precisamos entender o que vale para sua empresa.</p></div>
+        <div><strong>2. Construir condições realistas</strong><p>Definir público, cidade, limites de investimento, responsabilidades e critérios de avaliação, sem números ou resultados inventados.</p></div>
+        <div><strong>3. Validar antes de ativar</strong><p>Somente disponibilizar serviços comerciais após análise operacional, contratual e financeira. Proposta não é campanha contratada.</p></div>
+      </div>
+    </section>
+    <section class="section"><div class="card tamao-sponsor-footer">
+      <span class="section-kicker">VAMOS CONVERSAR?</span>
+      <h2>Boas parcerias começam com objetivos em comum.</h2>
+      <p>Conte o que sua marca procura. O contato inicial é para conhecer possibilidades e não cria cobrança, reserva de publicidade ou patrocínio.</p>
+      <button type="button" class="primary" onclick="go('contact')">Entrar em contato →</button>
+    </div></section>
+  </section>`);
+}
+
 function merchantsLanding(){
   const portal=globalThis.merchantPortalRequested?.()===true;
   const internalPilot=globalThis.CHAMA_INTERNAL_PILOT===true;
@@ -408,8 +464,8 @@ function merchantsLanding(){
 
   return shell(`<section class="page merchant-landing">
     <span class="eyebrow">VENDA PELO TAMÃO</span>
-    <h1 class="page-title">Sua empresa já vende. <span class="headline-accent">Que tal ser encontrada por mais clientes?</span></h1>
-    <p class="muted page-lead">O TAMÃO pode ajudar clientes da sua região a encontrar sua empresa. Você continua vendendo no balcão, pelo WhatsApp e telefone — <strong>e continua no comando dos seus preços, estoque e entregas.</strong></p>
+    <h1 class="page-title">Você cuida do seu negócio. <span class="headline-accent">O TAMÃO ajuda mais gente a encontrá-lo.</span></h1>
+    <p class="muted page-lead">Sua revenda merece um espaço a mais para crescer. Apareça para quem procura gás, água e itens essenciais na sua região, receba pedidos organizados e continue vendendo no balcão, no telefone ou pelo WhatsApp. <strong>Os preços, o estoque, os pagamentos e a entrega continuam nas suas mãos.</strong></p>
     <div class="conversion-mini-proof"><span>✓ Sem exclusividade</span><span>✓ Recebimento direto na revenda</span><span>✓ Você decide quando ficar online</span></div>
 
     <div class="merchant-commercial-strip merchant-value-strip">
@@ -426,7 +482,7 @@ function merchantsLanding(){
 
     ${internalPilot?'':prelaunchMerchantLeadSection()}
 
-    <section class="section"><div class="section-head"><div><span class="section-kicker">MAIS UM CANAL DE VENDAS</span><h2>Sua empresa pode ser encontrada por mais clientes.</h2><p>Você pode receber pedidos pelo TAMÃO e continuar vendendo no balcão, por telefone ou WhatsApp.</p></div></div>
+    <section class="section"><div class="section-head"><div><span class="section-kicker">MAIS UM CANAL DE VENDAS</span><h2>Mais oportunidades chegam quando sua empresa está onde o cliente procura.</h2><p>Não é preciso mudar o jeito que sua revenda já vende. O TAMÃO acrescenta um caminho para o consumidor encontrá-la e consultar o que você realmente pode entregar.</p></div></div>
       <div class="grid cards-3 partner-benefits">
         <div class="card"><div class="feature-icon">📈</div><h3>Mais oportunidades de venda</h3><p class="muted tiny">Seja uma opção para quem consulta gás e itens essenciais na área atendida pela sua empresa.</p></div>
         <div class="card"><div class="feature-icon">🧺</div><h3>Mais valor em cada entrega</h3><p class="muted tiny">Apresente água, carvão, lenha, gelo e outros produtos compatíveis da sua loja na mesma jornada de compra.</p></div>
@@ -437,8 +493,8 @@ function merchantsLanding(){
 
     <section class="section merchant-business-intro">
       <div class="section-head"><div><span class="section-kicker">TAMÃO NEGÓCIOS</span>
-      <h2>Mais do que receber pedidos: acompanhe e desenvolva sua revenda.</h2>
-      <p>Um espaço para vender, gerir a operação e divulgar sua empresa, com ferramentas essenciais sem mensalidade obrigatória.</p></div></div>
+      <h2>Pedidos, números e relacionamento no mesmo lugar.</h2>
+      <p>Você administra a rotina e entende melhor o que acontece com as vendas do TAMÃO. Sem perder a autonomia do seu negócio.</p></div></div>
       <div class="grid cards-3 partner-benefits">
         <div class="card"><div class="feature-icon">🛒</div><h3>Venda do seu jeito</h3>
           <p class="muted tiny">Seus produtos, preços, estoque e entregas continuam sob seu controle. Novos pedidos chegam organizados ao painel.</p></div>
@@ -448,6 +504,21 @@ function merchantsLanding(){
           <p class="muted tiny">Compartilhe seu link da Rede TAMÃO. Publicidade patrocinada e ferramentas Pro serão opções separadas quando estiverem disponíveis.</p></div>
       </div>
       <p class="tiny muted">A divulgação paga não altera a ordem orgânica das ofertas. Serviços adicionais ainda não estão disponíveis para contratação.</p>
+    </section>
+
+    <section class="section tamao-merchant-differentials">
+      <div class="section-head"><div><span class="section-kicker">POR QUE FAZER PARTE</span>
+        <h2>Sua revenda tem seu jeito. O TAMÃO respeita isso.</h2>
+        <p>Mais um canal de vendas, sem exigir que você abra mão da clientela, das formas de receber ou dos produtos que já comercializa.</p></div></div>
+      <div class="grid cards-3 tamao-value-grid">
+        <article class="card"><span class="tamao-value-icon">💳</span><h3>O pagamento da venda é seu</h3>
+          <p>O comprador paga diretamente à revenda pela forma oferecida. O TAMÃO não recebe o dinheiro do produto para depois repassar.</p></article>
+        <article class="card"><span class="tamao-value-icon">📦</span><h3>Mais produtos na mesma conversa</h3>
+          <p>Mostre água, carvão, lenha, gelo e os demais itens autorizados da sua operação. Uma cesta maior pode tornar cada entrega mais interessante.</p></article>
+        <article class="card"><span class="tamao-value-icon">🤝</span><h3>Sua rede cresce com você</h3>
+          <p>Compartilhe seu link, apresente clientes e outras revendas e acompanhe os interesses vinculados. Benefícios financeiros só são devidos quando houver campanha habilitada e conversão elegível.</p></article>
+      </div>
+      <div class="tamao-value-actions"><button type="button" class="secondary" onclick="go('sponsors')">Conhecer oportunidades com marcas →</button></div>
     </section>
 
     <section class="section" id="merchant-margin"><div class="section-head"><div><span class="section-kicker">FAÇA AS CONTAS DO SEU JEITO</span><h2>Uma venda a mais vale quanto para o seu negócio?</h2><p>Experimente cenários com seus próprios custos. O simulador separa faturamento, taxa TAMÃO e despesas para ajudar você a decidir com clareza.</p></div></div>
