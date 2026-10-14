@@ -31,7 +31,7 @@ for(const token of [
 ])assert.ok(sql.includes(token),'Missing safety mechanism in migration: '+token);
 assert.ok(!/(insert\s+into|update|delete\s+from)\s+public\.(orders|order_items|merchant_fee_credit_ledger|merchant_daily_statements|merchant_billing_accounts|merchant_sale_payment_attempts)/i.test(sql),
  'Coupon draft migration cannot move merchant or customer finances');
-assert.ok(edge.includes('"growth-benefit-preview","clube-coupon-preview","commercial-policy"'));
+assert.ok(edge.includes('"growth-benefit-preview","commercial-policy","clube-coupon-preview"'));
 assert.ok(edge.includes('if(action==="clube-coupon-preview")'));
 assert.ok(edge.includes('admin.rpc("admin_clube_coupon_preview_v1_239"'));
 assert.ok(edge.includes('values[2]+values[3]>10000'));
