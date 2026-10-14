@@ -2407,7 +2407,8 @@ function adminCampaignCostsSection(){
   const matching=d&&(!month||d.month.slice(0,7)===month);
   const campaigns=matching?d.campaigns:[];
   const campMap=new Map(campaigns.map(x=>[x.allocationId,x.campaignLabel]));
-  const receiptMeta=adminCampaignReceiptsState?.loadedFor===actor&&
+  const receiptMeta=typeof adminCampaignReceiptsState!=='undefined'&&
+    adminCampaignReceiptsState?.loadedFor===actor&&
     adminCampaignReceiptsState.month===d?.month?adminCampaignReceiptsState:null;
   const receiptByExpense=new Map((receiptMeta?.rows||[]).map(x=>[x.expenseId,x]));
   const receiptComplete=!!receiptMeta&&!receiptMeta.truncated;
@@ -2468,7 +2469,7 @@ function adminCampaignCostsSection(){
     '<button type="button" class="secondary small" onclick="adminCampaignCostsLoadFromUi()" '+
     (adminCampaignCostsBusy?'disabled':'')+'>Consultar despesas do mês</button>'+
     '<button type="button" class="secondary small" onclick="adminCampaignReceiptsLoadFromUi()" '+
-    (adminCampaignReceiptsBusy?'disabled':'')+'>Consultar comprovantes privados</button>'+
+    (typeof adminCampaignReceiptsBusy!=='undefined'&&adminCampaignReceiptsBusy?'disabled':'')+'>Consultar comprovantes privados</button>'+
     (matching?'<div class="merchant-kpis">'+
       '<div class="kpi"><span class="label">Pagamentos declarados ativos</span><strong>'+
       adminMoney(total)+'</strong></div>'+
@@ -2479,7 +2480,7 @@ function adminCampaignCostsSection(){
       edit+'<div class="grid cards-2">'+
       (entries||'<p class="muted">Não há despesas registradas nesta competência.</p>')+'</div>':
       '<p class="muted">Consulte a competência selecionada para carregar os gastos registrados.</p>')+
-    '<p class="tiny muted">Os valores são pagamentos declarados pelo administrador. É possível anexar o comprovante em armazenamento privado, mas o arquivo por si só não prova conciliação bancária, libera saldo ou calcula ROI. Corrigir um lançamento não apaga o registro original.</p>'+
+    '<p class="tiny muted">Os valores são pagamentos declarados pelo administrador. Não há upload automático ao registrar a despesa: o comprovante pode ser anexado separadamente em armazenamento privado, mas o arquivo não prova conciliação bancária, libera saldo ou calcula ROI. Corrigir um lançamento não apaga o registro original.</p>'+
     '</div>';
 }
 
