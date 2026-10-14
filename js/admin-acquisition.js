@@ -1033,7 +1033,9 @@ async function adminOwnerEvidenceSubmitFromUi(){
        data?.cashMoved!==false)
       throw new Error('Registro do aporte não confirmado.');
     if(actor===String(adminRuntime?.session?.user?.id||'')){
-      toast('Aporte declarado. Falta conferência por outro administrador financeiro.');
+      toast(adminCurrentRole()==='superadmin'
+        ?'Aporte declarado. Confira o extrato e registre sua decisão abaixo.'
+        :'Aporte declarado. Aguarda conferência por outro administrador financeiro.');
       await adminOwnerEvidenceLoadFromUi();
     }
   }catch(error){
@@ -1047,10 +1049,11 @@ async function adminOwnerEvidenceReviewFromUi(id,version){
   if(!actor||!['finance','superadmin'].includes(String(adminCurrentRole())))return;
   const d=adminOwnerEvidenceState?.loadedFor===actor?adminOwnerEvidenceState:null;
   const rec=d?.rows?.find(x=>x.contributionId===id);
-  if(!rec||rec.version!==version||rec.submittedBy===actor||
+  if(!rec||rec.version!==version||
+     (rec.submittedBy===actor&&adminCurrentRole()!=='superadmin')||
      !['pending_review','manual_reconciled'].includes(rec.status)||
      adminOwnerEvidencePending.has(id))
-      return toast('Esta conferência precisa de outro administrador financeiro e de dados atuais.');
+      return toast('Registro desatualizado ou sem permissão para conferência.');
   const val=k=>String(document.getElementById('owner-evidence-'+k+'-'+id)?.value||'').trim();
   const status=val('status');
   const note=val('review-note');
@@ -1098,7 +1101,7 @@ function adminOwnerEvidenceSection(){
   const canSubmit=planChoices.length>0;
   const form='<div class="card flat form-stack">'+
     '<h4>Declarar aporte para conferência</h4>'+
-    '<p class="tiny muted">Registre somente transferências já realizadas e conferíveis no seu extrato bancário. A informação será analisada por outro perfil financeiro.</p>'+
+    '<p class="tiny muted">Registre somente transferências já realizadas e conferíveis no seu extrato bancário. O administrador principal pode fazer a própria conferência com referência do extrato; o perfil financeiro segue com revisão por outra pessoa.</p>'+
     '<label class="input-wrap">Destino do custeio<select class="input" id="owner-evidence-benefit">'+
     (options||'<option value="">Primeiro registre um orçamento interno</option>')+'</select></label>'+
     '<div class="grid cards-2"><label class="input-wrap">Valor informado (R$)'+
@@ -1112,20 +1115,20 @@ function adminOwnerEvidenceSection(){
     '<button class="secondary small" type="button" onclick="adminOwnerEvidenceSubmitFromUi()" '+
     (!canSubmit||adminOwnerEvidencePending.has('submit')?'disabled':'')+
     '>Registrar aporte para conferência</button></div>';
-  const statuses={pending_review:'Aguardando outra pessoa',
+  const statuses={pending_review:'Aguardando conferência',
     manual_reconciled:'Conferência manual registrada',
     rejected:'Recusado',disputed:'Contestação aberta'};
   const rows=(data?.rows||[]).map(x=>{
     const id=String(x.contributionId);
     const another=x.submittedBy!==actor;
-    const reviewable=another&&['pending_review','manual_reconciled'].includes(x.status);
+    const reviewable=(role==='superadmin'||another)&&['pending_review','manual_reconciled'].includes(x.status);
     const reviewerForm=reviewable?'<div class="form-stack">'+
       '<label class="input-wrap">Resultado da conferência'+
       '<select class="input" id="owner-evidence-status-'+esc(id)+'">'+
       (x.status==='pending_review'?'<option value="manual_reconciled">Conferido com extrato (manual)</option>'+
       '<option value="rejected">Recusar comprovante</option>':'')+
       '<option value="disputed">Contestar registro</option></select></label>'+
-      '<label class="input-wrap">Referência independente do extrato'+
+      '<label class="input-wrap">Referência da operação no extrato'+
       '<input class="input" id="owner-evidence-statement-'+esc(id)+'" maxlength="100" type="text" placeholder="Linha ou identificador do extrato"></label>'+
       '<label class="input-wrap">Justificativa da análise'+
       '<textarea class="input" id="owner-evidence-review-note-'+esc(id)+'" maxlength="300" rows="2"></textarea></label>'+
@@ -1133,7 +1136,7 @@ function adminOwnerEvidenceSection(){
       esc(id)+'\','+Number(x.version)+')" '+
       (adminOwnerEvidencePending.has(id)?'disabled':'')+
       '>Registrar conferência interna</button></div>':
-      '<p class="tiny muted">'+(another?'Registro em situação final.':'É necessário outro administrador para conferir.')+'</p>';
+      '<p class="tiny muted">'+(x.status==='pending_review'&&!another?'Somente o administrador principal pode conferir o próprio aporte.':'Registro em situação final.')+'</p>';
     return '<article class="card flat form-stack">'+
      '<div class="section-head"><div><strong>'+esc(labels[x.benefitKey]||x.benefitKey)+'</strong>'+
      '<p class="tiny muted">Transferência de '+esc(x.transferDate)+
@@ -1147,7 +1150,7 @@ function adminOwnerEvidenceSection(){
   return '<section class="section admin-owner-evidence">'+
     '<div class="section-head"><div><span class="section-kicker">FINANCIAMENTO PRÓPRIO • CONFERÊNCIA</span>'+
     '<h3>Aportes e comprovantes bancários</h3>'+
-    '<p>Registre uma transferência real, acompanhe a conferência independente e mantenha a responsabilidade de cada incentivo organizada.</p>'+
+    '<p>Registre uma transferência real, registre sua conferência financeira e mantenha a responsabilidade de cada incentivo organizada.</p>'+
     '</div><button class="secondary small" type="button" onclick="adminOwnerEvidenceLoadFromUi()" '+
     (adminOwnerEvidenceBusy?'disabled':'')+'>Consultar registros</button></div>'+
     (data?'<div class="merchant-kpis">'+
