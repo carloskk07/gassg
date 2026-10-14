@@ -299,7 +299,9 @@ begin
      and r.proposed_budget_cents=i.proposed_budget_cents) current_review,
    coalesce(t.interest_version=i.version and t.review_version=r.version
       and i.interested and r.status<>'declined',false) current_terms,
-   case when i.interested then
+   case when i.interested and (t.version is null or
+     (t.interest_version=i.version and t.review_version=r.version
+       and coalesce(t.brand_share_bps,0)<=10000-i.merchant_share_bps)) then
     clube_internal_v1_242.term_capacity(p.discount_per_coupon_cents,
       p.coupon_count,i.merchant_share_bps,coalesce(t.brand_share_bps,0),
       i.proposed_budget_cents,coalesce(t.brand_budget_cents,0),
