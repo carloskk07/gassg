@@ -1877,6 +1877,7 @@ async function adminOwnerFinanceLoadFromUi(){
       adminOwnerBudgetState=null;
       adminOwnerFinanceHistoryState=null;
       adminOwnerCampaignSignalsState=null;
+      adminOwnerCampaignOrdersState=null;
       toast(adminOwnerFinanceError);
     }
   }finally{adminOwnerFinanceLoading=false;render();}
@@ -2153,7 +2154,86 @@ function adminOwnerCampaignSignalsSection(){
       (rows||'<p class="muted">Nenhuma campanha com orçamento planejado neste mês. Separe primeiro um valor na aba Campanhas para gerar seu link exclusivo.</p>')+
       '</div>':
       '<p class="muted">Consulte o mês para mostrar somente indicadores medidos.</p>')+
-    '<p class="tiny muted">Medição agregada por campanha identificada no link, dentro da competência e da janela da alocação. Acessos não são pessoas únicas; visualizações e cadastros não comprovam pedidos. Não há ROI, faturamento atribuído, saldo disponível ou pagamento de incentivos calculado por esta aba.</p>'+
+    '<p class="tiny muted">Medição agregada por campanha identificada no link, dentro da competência e da janela da alocação. Acessos não são pessoas únicas; visualizações e cadastros não comprovam pedidos. Não há ROI, faturamento atribuído, saldo disponível ou pagamento de incentivos calculado por esta aba.</p>'+ 
+    adminOwnerCampaignOrdersSection()+
+    '</div>';
+}
+
+// TAMÃO V1.252 — authenticated, aggregated checkout UTM/order-state report.
+// This report shows the merchant's settled order value, never TAMÃO's received revenue.
+let adminOwnerCampaignOrdersState=null;
+let adminOwnerCampaignOrdersBusy=false;
+async function adminOwnerCampaignOrdersLoadFromUi(){
+  const actor=String(adminRuntime?.session?.user?.id||'');
+  const role=String(adminCurrentRole());
+  if(!actor||!['superadmin','finance'].includes(role)||adminOwnerCampaignOrdersBusy)return;
+  const month=String(document.getElementById('owner-campaign-signals-month')?.value||'').trim();
+  if(month&&!/^\d{4}-(0[1-9]|1[0-2])$/.test(month))
+    return toast('Selecione um mês válido.');
+  adminOwnerCampaignOrdersBusy=true;
+  render();
+  try{
+    const d=await adminInvoke({action:'owner-campaign-orders',month:month?month+'-01':''});
+    const keys=['customer_cashback','customer_referral','merchant_referral','clube_coupons'];
+    if(d?.source!=='admin_owner_campaign_orders_v1_252'||
+       d?.metricMeaning!=='first_party_checkout_utm_non_causal_attribution'||
+       d?.readOnly!==true||d?.plannedOnly!==true||d?.noCharge!==true||
+       d?.spendableCents!==0||d?.newBenefitsEnabled!==false||
+       d?.platformReceivedRevenueCents!==null||d?.financialReturnMeasured!==false||
+       !/^\d{4}-\d{2}-01$/.test(String(d?.month||''))||
+       (month&&d.month!==month+'-01')||
+       !Number.isSafeInteger(d.totalCampaigns)||d.totalCampaigns<0||
+       d.limit!==50||typeof d.truncated!=='boolean'||d.truncated!==(d.totalCampaigns>50)||
+       !Array.isArray(d.rows)||d.rows.length>50||d.rows.length>d.totalCampaigns||
+       d.rows.some(x=>!x||typeof x.campaignTag!=='string'||
+         !keys.some(k=>x.campaignTag.startsWith('tam-'+k+'-'+d.month.slice(0,4)+d.month.slice(5,7)+'-'))||
+         !['createdOrders','settledOrders','reversedOrders','settledMerchantOrderValueCents']
+           .every(k=>Number.isSafeInteger(x[k])&&x[k]>=0)||
+         x.settledOrders+x.reversedOrders>x.createdOrders||
+         x.platformReceivedRevenueCents!==null||x.financialReturnMeasured!==false))
+      throw new Error('Indicadores de pedidos não validados.');
+    if(actor===String(adminRuntime?.session?.user?.id||'')&&role===String(adminCurrentRole()))
+      adminOwnerCampaignOrdersState={...d,loadedFor:actor};
+  }catch(error){
+    if(actor===String(adminRuntime?.session?.user?.id||'')){
+      adminOwnerCampaignOrdersState=null;
+      toast(String(error?.message||'Não foi possível consultar os pedidos.'));
+    }
+  }finally{adminOwnerCampaignOrdersBusy=false;render();}
+}
+function adminOwnerCampaignOrdersSection(){
+  if(!['superadmin','finance'].includes(String(adminCurrentRole())))return '';
+  const actor=String(adminRuntime?.session?.user?.id||'');
+  const d=adminOwnerCampaignOrdersState?.loadedFor===actor?adminOwnerCampaignOrdersState:null;
+  const freshMonth=String(document.getElementById('owner-campaign-signals-month')?.value||'');
+  const monthMatches=!d||!freshMonth||d.month.slice(0,7)===freshMonth;
+  const cards=(d?.rows||[]).map(x=>'<article class="card flat form-stack">'+
+    '<strong>'+esc(x.campaignTag)+'</strong>'+
+    '<div class="merchant-kpis">'+
+    '<div class="kpi"><span class="label">Pedidos criados com o link</span><strong>'+
+    Number(x.createdOrders).toLocaleString('pt-BR')+'</strong></div>'+
+    '<div class="kpi"><span class="label">Pedidos liquidados, sem estorno</span><strong>'+
+    Number(x.settledOrders).toLocaleString('pt-BR')+'</strong></div>'+
+    '<div class="kpi"><span class="label">Liquidações revertidas</span><strong>'+
+    Number(x.reversedOrders).toLocaleString('pt-BR')+'</strong></div>'+
+    '<div class="kpi"><span class="label">Valor dos pedidos liquidados das revendas</span><strong>'+
+    adminMoney(x.settledMerchantOrderValueCents)+'</strong></div></div>'+
+    '<p class="tiny muted">O valor acima pertence às vendas das revendas. Recebimento do TAMÃO e retorno sobre o investimento ainda não são atribuídos a esta campanha.</p></article>').join('');
+  return '<div class="form-stack"><div class="section-head"><div>'+
+    '<h4>Pedidos ligados à divulgação</h4>'+
+    '<p>Pedidos criados com o identificador UTM, liquidados ou revertidos, usando o estado financeiro real do pedido.</p>'+
+    '</div></div>'+
+    '<button type="button" class="secondary small" onclick="adminOwnerCampaignOrdersLoadFromUi()" '+
+    (adminOwnerCampaignOrdersBusy?'disabled':'')+'>Consultar pedidos por campanha</button>'+
+    (d&&monthMatches?
+      '<p class="tiny muted">Competência: '+esc(d.month)+
+      ' • '+Number(d.totalCampaigns).toLocaleString('pt-BR')+' campanha(s)'+
+      (d.truncated?' • exibindo 50 mais recentes':'')+'</p>'+
+      '<div class="grid cards-2">'+
+      (cards||'<p class="muted">Não existem campanhas com orçamento planejado para essa competência.</p>')+
+      '</div>':
+      '<p class="tiny muted">Consulte os pedidos da competência selecionada para exibir apenas dados confirmados do servidor.</p>')+
+    '<p class="tiny muted">UTM indica a origem informada no checkout, não comprova que a campanha causou a compra. Liquidação inclui confirmação por revenda ou PSP, conforme o pedido. Nenhum recebimento de taxa pelo TAMÃO é inferido dessa informação.</p>'+
     '</div>';
 }
 
