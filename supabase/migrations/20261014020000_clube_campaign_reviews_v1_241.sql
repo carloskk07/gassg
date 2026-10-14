@@ -220,10 +220,10 @@ begin
        p.coupon_count)::integer else 0 end max_packages,
    c.status review_status,coalesce(c.version,0) review_version,
    c.decision_note review_note,
-   (i.interested and c.interest_version=i.version
+   coalesce((i.interested and c.interest_version=i.version
     and c.city_snapshot=i.city_snapshot and c.state_snapshot=i.state_snapshot
     and c.merchant_share_bps=i.merchant_share_bps
-    and c.proposed_budget_cents=i.proposed_budget_cents) review_current,
+    and c.proposed_budget_cents=i.proposed_budget_cents),false) review_current,
    i.updated_at
   from public.merchant_clube_interest_v1_240 i
   join public.merchants m on m.id=i.merchant_id
