@@ -4,7 +4,7 @@ import vm from 'node:vm';
 
 const load=p=>fs.readFileSync(new URL('../'+p,import.meta.url),'utf8');
 const historical=load('supabase/migrations/20261014060000_owner_funding_evidence_v1_246.sql');
-const upgrade=load('supabase/migrations/20261014110000_owner_funding_self_review_v1_248.sql');
+const upgrade=load('supabase/migrations/20261014150000_owner_funding_self_review_v1_248.sql');
 const ui=load('js/admin-acquisition.js');
 const edge=load('supabase/functions/admin-ops/index.ts');
 const audit=load('.github/workflows/audit.yml');
