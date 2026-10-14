@@ -2566,8 +2566,8 @@ Deno.serve(async(req:Request)=>{
          !Number.isSafeInteger(body.planVersion)||body.planVersion<1||
          !Number.isSafeInteger(body.amountCents)||body.amountCents<100||
          body.amountCents>50000000||
-         !/^\\d{4}-\\d{2}-\\d{2}$/.test(date)||
-         !/^[a-zA-Z0-9 .:\\/_-]{12,100}$/.test(reference)||
+         !/^\d{4}-\d{2}-\d{2}$/.test(date)||
+         !/^[a-zA-Z0-9 .:_-]{12,100}$/.test(reference)||
          note.length<12||note.length>300)
          throw new DomainError("OWNER_EVIDENCE_SUBMIT_INVALID","Revise data, valor, referência e justificativa.",400);
       const {data,error}=await admin.rpc("admin_owner_evidence_submit_v1_246",{
@@ -2593,7 +2593,7 @@ Deno.serve(async(req:Request)=>{
       if(!["manual_reconciled","rejected","disputed"].includes(status)||
          !Number.isSafeInteger(body.expectedVersion)||body.expectedVersion<1||
          note.length<12||note.length>300||
-         (status==="manual_reconciled"&&!/^[a-zA-Z0-9 .:\\/_-]{12,100}$/.test(ref))||
+         (status==="manual_reconciled"&&!/^[a-zA-Z0-9 .:_-]{12,100}$/.test(ref))||
          (status!=="manual_reconciled"&&ref.length>0))
         throw new DomainError("OWNER_EVIDENCE_REVIEW_INVALID","Revise a conferência e sua referência.",400);
       const {data,error}=await admin.rpc("admin_owner_evidence_review_v1_246",{
