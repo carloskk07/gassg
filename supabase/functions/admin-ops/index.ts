@@ -100,7 +100,7 @@ async function requireAdmin(admin:any,userId:string){
   if(!data)throw new DomainError("ADMIN_ACCESS_DENIED","Esta conta não possui acesso administrativo.",403);
   return data;
 }
-const ADMIN_READ_ACTIONS=new Set(["summary","search","entity-detail","system-health","billing-provider-health","audit-search","incident-list","merchant-payment-preflight","prospect-intelligence","expansion-notifications","expansion-radar","merchant-enablement","sale-payment-history","finance-receipts-history","commercial-history-list","operational-alerts","ads-demand","clube-interest-queue","clube-campaign-queue","clube-terms-queue","owner-funding-read","owner-funding-pulse","ads-audience-readiness","ads-preview-summary","ads-placement-readiness","ads-pilot-preflight","commercial-activation","ads-campaign-queue","growth-referral-review-queue"]);
+const ADMIN_READ_ACTIONS=new Set(["summary","search","entity-detail","system-health","billing-provider-health","audit-search","incident-list","merchant-payment-preflight","prospect-intelligence","expansion-notifications","expansion-radar","merchant-enablement","sale-payment-history","finance-receipts-history","commercial-history-list","operational-alerts","ads-demand","clube-interest-queue","clube-campaign-queue","clube-terms-queue","owner-funding-read","owner-funding-pulse","owner-evidence-queue","ads-audience-readiness","ads-preview-summary","ads-placement-readiness","ads-pilot-preflight","commercial-activation","ads-campaign-queue","growth-referral-review-queue"]);
 const ADMIN_ROLE_ACTIONS:Record<string,Set<string>>={
   superadmin:new Set(["*"]),
   operations:new Set([
@@ -111,7 +111,7 @@ const ADMIN_ROLE_ACTIONS:Record<string,Set<string>>={
   finance:new Set([
     "financial-action","review-referral","retry-reward","retry-accounting","reverse-order",
     "growth-benefit-preview","commercial-policy","clube-coupon-preview",
-    "clube-campaign-review","clube-terms-save","merchant-billing-plan","merchant-billing-action","merchant-billing-payment-request","merchant-billing-payment-event","merchant-billing-refund","merchant-billing-provider-cancel-retry","merchant-payment-capability","create-billing-webhook-probe","incident-action","operational-alert-ack"
+    "clube-campaign-review","clube-terms-save","owner-evidence-submit","owner-evidence-review","merchant-billing-plan","merchant-billing-action","merchant-billing-payment-request","merchant-billing-payment-event","merchant-billing-refund","merchant-billing-provider-cancel-retry","merchant-payment-capability","create-billing-webhook-probe","incident-action","operational-alert-ack"
   ]),
   support:new Set(["order-control","support-case-status","incident-action","operational-alert-ack"]),
   compliance:new Set(["clube-campaign-review",
@@ -2520,6 +2520,94 @@ Deno.serve(async(req:Request)=>{
       if(error)throw error;
       if(data?.recorded!==true||data.noCharge!==true||data.adsLive!==false)
         throw new DomainError("ADS_CAMPAIGN_REVIEW_UNVERIFIED","Revisão não confirmada.",503);
+      return json(data,200,origin);
+    }
+    if(action==="owner-evidence-queue"){
+      if(!["superadmin","finance"].includes(String(adminAccess.admin_role)))
+        throw new DomainError("ADMIN_PERMISSION_DENIED","Somente finanças pode consultar os comprovantes.",403);
+      const {data,error}=await admin.rpc("admin_owner_evidence_queue_v1_246",{p_actor:user.id});
+      if(error)throw error;
+      if(data?.source!=="admin_owner_evidence_queue_v1_246"||
+        data?.bankApiConfirmed!==false||data?.fundsSpendable!==false||
+        data?.spendableCents!==0||data?.newBenefitsEnabled!==false||
+        data?.cashMoved!==false||data?.readOnly!==true||
+        !Number.isSafeInteger(data?.total)||data.total<0||
+        !Number.isSafeInteger(data?.pendingCount)||data.pendingCount<0||
+        !Number.isSafeInteger(data?.manualReconciledCents)||data.manualReconciledCents<0||
+        !Number.isSafeInteger(data?.disputedCents)||data.disputedCents<0||
+        !Array.isArray(data?.rows)||data.rows.length>50||data.rows.length>data.total||
+        data.rows.some((x:any)=>!x||
+         !UUID_RE.test(String(x.contributionId||""))||
+         !UUID_RE.test(String(x.submittedBy||""))||
+         !["customer_cashback","customer_referral","merchant_referral","clube_coupons"].includes(x.benefitKey)||
+         !["pending_review","manual_reconciled","rejected","disputed"].includes(x.status)||
+         !Number.isSafeInteger(x.planVersion)||x.planVersion<1||
+         !Number.isSafeInteger(x.amountCents)||x.amountCents<100||
+         x.amountCents>50000000||
+         !Number.isSafeInteger(x.version)||x.version<1||
+         typeof x.transferReference!=="string"||x.transferReference.length>100||
+         typeof x.note!=="string"||x.note.length>300||
+         (x.reviewNote!==null&&(typeof x.reviewNote!=="string"||x.reviewNote.length>300))||
+         (x.statementReference!==null&&(typeof x.statementReference!=="string"||x.statementReference.length>100))||
+         x.fundsSpendable!==false||x.bankApiConfirmed!==false||
+         !Number.isFinite(Date.parse(x.submittedAt||""))||
+         (x.reviewedAt!==null&&!Number.isFinite(Date.parse(x.reviewedAt)))))
+        throw new DomainError("OWNER_EVIDENCE_QUEUE_INVALID","Conferência de aportes não validada.",503);
+      return json(data,200,origin);
+    }
+    if(action==="owner-evidence-submit"){
+      if(!["superadmin","finance"].includes(String(adminAccess.admin_role)))
+        throw new DomainError("ADMIN_PERMISSION_DENIED","Acesso reservado a finanças.",403);
+      const key=String(body.benefitKey??"");
+      const reference=String(body.transferReference??"").trim();
+      const note=String(body.note??"").trim();
+      const date=String(body.transferDate??"");
+      if(!["customer_cashback","customer_referral","merchant_referral","clube_coupons"].includes(key)||
+         !Number.isSafeInteger(body.planVersion)||body.planVersion<1||
+         !Number.isSafeInteger(body.amountCents)||body.amountCents<100||
+         body.amountCents>50000000||
+         !/^\d{4}-\d{2}-\d{2}$/.test(date)||
+         !/^[a-zA-Z0-9 .:_-]{12,100}$/.test(reference)||
+         note.length<12||note.length>300)
+         throw new DomainError("OWNER_EVIDENCE_SUBMIT_INVALID","Revise data, valor, referência e justificativa.",400);
+      const {data,error}=await admin.rpc("admin_owner_evidence_submit_v1_246",{
+        p_actor:user.id,p_contribution:uuid(body.contributionId,"contributionId"),
+        p_benefit:key,p_plan_version:body.planVersion,
+        p_amount:body.amountCents,p_date:date,
+        p_reference:reference,p_note:note,p_request:uuid(body.requestId,"requestId")
+      });
+      if(error)throw error;
+      if(data?.source!=="admin_owner_evidence_submit_v1_246"||data.recorded!==true||
+         data.status!=="pending_review"||data.bankApiConfirmed!==false||
+         data.fundsSpendable!==false||data.newBenefitsEnabled!==false||
+         data.cashMoved!==false||typeof data.replayed!=="boolean")
+         throw new DomainError("OWNER_EVIDENCE_SUBMIT_UNVERIFIED","Registro não confirmado.",503);
+      return json(data,200,origin);
+    }
+    if(action==="owner-evidence-review"){
+      if(!["superadmin","finance"].includes(String(adminAccess.admin_role)))
+        throw new DomainError("ADMIN_PERMISSION_DENIED","A revisão requer perfil financeiro.",403);
+      const status=String(body.reviewStatus??"");
+      const note=String(body.note??"").trim();
+      const ref=String(body.statementReference??"").trim();
+      if(!["manual_reconciled","rejected","disputed"].includes(status)||
+         !Number.isSafeInteger(body.expectedVersion)||body.expectedVersion<1||
+         note.length<12||note.length>300||
+         (status==="manual_reconciled"&&!/^[a-zA-Z0-9 .:_-]{12,100}$/.test(ref))||
+         (status!=="manual_reconciled"&&ref.length>0))
+        throw new DomainError("OWNER_EVIDENCE_REVIEW_INVALID","Revise a conferência e sua referência.",400);
+      const {data,error}=await admin.rpc("admin_owner_evidence_review_v1_246",{
+        p_actor:user.id,p_contribution:uuid(body.contributionId,"contributionId"),
+        p_action:status,p_expected_version:body.expectedVersion,
+        p_note:note,p_statement_reference:ref||null,
+        p_request:uuid(body.requestId,"requestId")
+      });
+      if(error)throw error;
+      if(data?.source!=="admin_owner_evidence_review_v1_246"||data.recorded!==true||
+         data.reviewStatus!==status||data.bankApiConfirmed!==false||
+         data.fundsSpendable!==false||data.newBenefitsEnabled!==false||
+         data.cashMoved!==false||typeof data.replayed!=="boolean")
+         throw new DomainError("OWNER_EVIDENCE_REVIEW_UNVERIFIED","Revisão não confirmada.",503);
       return json(data,200,origin);
     }
     if(action==="owner-funding-pulse"){

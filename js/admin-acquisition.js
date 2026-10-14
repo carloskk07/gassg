@@ -976,6 +976,192 @@ function adminOwnerFundingSection(){
     '</section>';
 }
 
+// TAMÃO V1.246: internal bank-evidence queue — not a spendable balance.
+let adminOwnerEvidenceState=null;
+let adminOwnerEvidenceBusy=false;
+const adminOwnerEvidencePending=new Set();
+async function adminOwnerEvidenceLoadFromUi(){
+  const actor=String(adminRuntime?.session?.user?.id||'');
+  if(!actor||!['finance','superadmin'].includes(String(adminCurrentRole()))||adminOwnerEvidenceBusy)return;
+  adminOwnerEvidenceBusy=true;
+  try{
+    const result=await adminInvoke({action:'owner-evidence-queue'});
+    if(result?.source!=='admin_owner_evidence_queue_v1_246'||
+       result?.bankApiConfirmed!==false||result?.fundsSpendable!==false||
+       result?.spendableCents!==0||result?.newBenefitsEnabled!==false||
+       result?.cashMoved!==false||result?.readOnly!==true||
+       !Array.isArray(result.rows)||result.rows.length>50||
+       !Number.isSafeInteger(result.total)||result.total<0)
+      throw new Error('A conferência financeira não foi validada.');
+    if(actor===String(adminRuntime?.session?.user?.id||'')){
+      adminOwnerEvidenceState={...result,loadedFor:actor};
+    }
+  }catch(error){
+    if(actor===String(adminRuntime?.session?.user?.id||'')){
+      adminOwnerEvidenceState=null;
+      toast(String(error?.message||'Falha ao consultar registros financeiros.'));
+    }
+  }finally{adminOwnerEvidenceBusy=false;render();}
+}
+async function adminOwnerEvidenceSubmitFromUi(){
+  const actor=String(adminRuntime?.session?.user?.id||'');
+  if(!actor||!['finance','superadmin'].includes(String(adminCurrentRole()))||
+     adminOwnerEvidencePending.has('submit'))return;
+  const form=id=>String(document.getElementById('owner-evidence-'+id)?.value||'').trim();
+  const key=form('benefit');
+  const plan=adminOwnerFundingState?.loadedFor===actor?
+    adminOwnerFundingState.rows?.find(x=>x.benefitKey===key):null;
+  const amount=adminOwnerFundingReaisToCents(form('amount'),50000000);
+  const transferDate=form('date');
+  const transferReference=form('reference');
+  const note=form('note');
+  if(!plan||plan.version<1||plan.status!=='internally_committed'||
+     amount===null||amount<100||amount>plan.budgetCents||
+     !/^\d{4}-\d{2}-\d{2}$/.test(transferDate)||
+     !/^[a-zA-Z0-9 .:_-]{12,100}$/.test(transferReference)||
+     note.length<12||note.length>300)
+     return toast('Defina o orçamento, confirme data, referência bancária e valor do aporte.');
+  adminOwnerEvidencePending.add('submit');
+  try{
+    const data=await adminInvoke({action:'owner-evidence-submit',
+     contributionId:crypto.randomUUID(),requestId:crypto.randomUUID(),
+     benefitKey:key,planVersion:plan.version,amountCents:amount,
+     transferDate,transferReference,note});
+    if(data?.source!=='admin_owner_evidence_submit_v1_246'||data?.recorded!==true||
+       data?.status!=='pending_review'||data?.bankApiConfirmed!==false||
+       data?.fundsSpendable!==false||data?.newBenefitsEnabled!==false||
+       data?.cashMoved!==false)
+      throw new Error('Registro do aporte não confirmado.');
+    if(actor===String(adminRuntime?.session?.user?.id||'')){
+      toast('Aporte declarado. Falta conferência por outro administrador financeiro.');
+      await adminOwnerEvidenceLoadFromUi();
+    }
+  }catch(error){
+    if(actor===String(adminRuntime?.session?.user?.id||'')){
+      toast(String(error?.message||'Não foi possível registrar o aporte.'));
+    }
+  }finally{adminOwnerEvidencePending.delete('submit');render();}
+}
+async function adminOwnerEvidenceReviewFromUi(id,version){
+  const actor=String(adminRuntime?.session?.user?.id||'');
+  if(!actor||!['finance','superadmin'].includes(String(adminCurrentRole())))return;
+  const d=adminOwnerEvidenceState?.loadedFor===actor?adminOwnerEvidenceState:null;
+  const rec=d?.rows?.find(x=>x.contributionId===id);
+  if(!rec||rec.version!==version||rec.submittedBy===actor||
+     !['pending_review','manual_reconciled'].includes(rec.status)||
+     adminOwnerEvidencePending.has(id))
+      return toast('Esta conferência precisa de outro administrador financeiro e de dados atuais.');
+  const val=k=>String(document.getElementById('owner-evidence-'+k+'-'+id)?.value||'').trim();
+  const status=val('status');
+  const note=val('review-note');
+  const statementReference=val('statement');
+  if(!['manual_reconciled','rejected','disputed'].includes(status)||
+     (rec.status==='manual_reconciled'&&status!=='disputed')||
+     note.length<12||note.length>300||
+     (status==='manual_reconciled'&&!/^[a-zA-Z0-9 .:_-]{12,100}$/.test(statementReference))||
+     (status!=='manual_reconciled'&&statementReference.length))
+      return toast('Preencha a decisão e a referência do extrato para conferência.');
+  adminOwnerEvidencePending.add(id);
+  try{
+    const result=await adminInvoke({action:'owner-evidence-review',
+      contributionId:id,reviewStatus:status,expectedVersion:version,note,
+      statementReference,requestId:crypto.randomUUID()});
+    if(result?.source!=='admin_owner_evidence_review_v1_246'||
+       result?.recorded!==true||result?.reviewStatus!==status||
+       result?.bankApiConfirmed!==false||result?.fundsSpendable!==false||
+       result?.newBenefitsEnabled!==false||result?.cashMoved!==false)
+      throw new Error('Revisão ainda não confirmada.');
+    if(actor===String(adminRuntime?.session?.user?.id||'')){
+      toast('Conferência interna registrada. Nenhum saldo foi liberado para gastar.');
+      await adminOwnerEvidenceLoadFromUi();
+    }
+  }catch(error){
+    if(actor===String(adminRuntime?.session?.user?.id||'')){
+      toast(String(error?.message||'Não foi possível concluir a revisão.'));
+    }
+  }finally{adminOwnerEvidencePending.delete(id);render();}
+}
+function adminOwnerEvidenceSection(){
+  const role=String(adminCurrentRole());
+  if(!['finance','superadmin'].includes(role))return '';
+  const actor=String(adminRuntime?.session?.user?.id||'');
+  const data=adminOwnerEvidenceState?.loadedFor===actor?adminOwnerEvidenceState:null;
+  const plan=adminOwnerFundingState?.loadedFor===actor?adminOwnerFundingState:null;
+  const labels={
+    customer_cashback:'Cashback de clientes',customer_referral:'Indicação de clientes',
+    merchant_referral:'Indicação de revendas',clube_coupons:'Clube TAMÃO'
+  };
+  const planChoices=(plan?.rows||[]).filter(x=>x.version>0&&x.status==='internally_committed');
+  const options=planChoices.map(x=>
+     '<option value="'+esc(x.benefitKey)+'">'+esc(labels[x.benefitKey])+
+     ' • '+adminMoney(x.budgetCents)+'/mês</option>').join('');
+  const canSubmit=planChoices.length>0;
+  const form='<div class="card flat form-stack">'+
+    '<h4>Declarar aporte para conferência</h4>'+
+    '<p class="tiny muted">Registre somente transferências já realizadas e conferíveis no seu extrato bancário. A informação será analisada por outro perfil financeiro.</p>'+
+    '<label class="input-wrap">Destino do custeio<select class="input" id="owner-evidence-benefit">'+
+    (options||'<option value="">Primeiro registre um orçamento interno</option>')+'</select></label>'+
+    '<div class="grid cards-2"><label class="input-wrap">Valor informado (R$)'+
+    '<input class="input" type="number" step="0.01" min="1" max="500000" id="owner-evidence-amount" placeholder="100,00"></label>'+
+    '<label class="input-wrap">Data da transferência'+
+    '<input class="input" type="date" id="owner-evidence-date"></label></div>'+
+    '<label class="input-wrap">Identificador da transferência no banco'+
+    '<input class="input" type="text" maxlength="100" id="owner-evidence-reference" placeholder="Identificação do comprovante"></label>'+
+    '<label class="input-wrap">Observações internas'+
+    '<textarea class="input" rows="2" maxlength="300" id="owner-evidence-note" placeholder="Conta de origem, destino e finalidade sem dados sigilosos"></textarea></label>'+
+    '<button class="secondary small" type="button" onclick="adminOwnerEvidenceSubmitFromUi()" '+
+    (!canSubmit||adminOwnerEvidencePending.has('submit')?'disabled':'')+
+    '>Registrar aporte para conferência</button></div>';
+  const statuses={pending_review:'Aguardando outra pessoa',
+    manual_reconciled:'Conferência manual registrada',
+    rejected:'Recusado',disputed:'Contestação aberta'};
+  const rows=(data?.rows||[]).map(x=>{
+    const id=String(x.contributionId);
+    const another=x.submittedBy!==actor;
+    const reviewable=another&&['pending_review','manual_reconciled'].includes(x.status);
+    const reviewerForm=reviewable?'<div class="form-stack">'+
+      '<label class="input-wrap">Resultado da conferência'+
+      '<select class="input" id="owner-evidence-status-'+esc(id)+'">'+
+      (x.status==='pending_review'?'<option value="manual_reconciled">Conferido com extrato (manual)</option>'+
+      '<option value="rejected">Recusar comprovante</option>':'')+
+      '<option value="disputed">Contestar registro</option></select></label>'+
+      '<label class="input-wrap">Referência independente do extrato'+
+      '<input class="input" id="owner-evidence-statement-'+esc(id)+'" maxlength="100" type="text" placeholder="Linha ou identificador do extrato"></label>'+
+      '<label class="input-wrap">Justificativa da análise'+
+      '<textarea class="input" id="owner-evidence-review-note-'+esc(id)+'" maxlength="300" rows="2"></textarea></label>'+
+      '<button class="secondary small" type="button" onclick="adminOwnerEvidenceReviewFromUi(\''+
+      esc(id)+'\','+Number(x.version)+')" '+
+      (adminOwnerEvidencePending.has(id)?'disabled':'')+
+      '>Registrar conferência interna</button></div>':
+      '<p class="tiny muted">'+(another?'Registro em situação final.':'É necessário outro administrador para conferir.')+'</p>';
+    return '<article class="card flat form-stack">'+
+     '<div class="section-head"><div><strong>'+esc(labels[x.benefitKey]||x.benefitKey)+'</strong>'+
+     '<p class="tiny muted">Transferência de '+esc(x.transferDate)+
+     ' • '+esc(x.transferReference)+'</p></div><span class="status-pill">'+
+     esc(statuses[x.status]||x.status)+'</span></div>'+
+     '<p>Valor declarado: <strong>'+adminMoney(x.amountCents)+'</strong></p>'+
+     '<p class="tiny muted">'+esc(x.note||'')+'</p>'+
+     (x.reviewNote?'<p class="tiny muted">Análise: '+esc(x.reviewNote)+'</p>':'')+
+     reviewerForm+'</article>';
+  }).join('');
+  return '<section class="section admin-owner-evidence">'+
+    '<div class="section-head"><div><span class="section-kicker">FINANCIAMENTO PRÓPRIO • CONFERÊNCIA</span>'+
+    '<h3>Aportes e comprovantes bancários</h3>'+
+    '<p>Registre uma transferência real, acompanhe a conferência independente e mantenha a responsabilidade de cada incentivo organizada.</p>'+
+    '</div><button class="secondary small" type="button" onclick="adminOwnerEvidenceLoadFromUi()" '+
+    (adminOwnerEvidenceBusy?'disabled':'')+'>Consultar registros</button></div>'+
+    (data?'<div class="merchant-kpis">'+
+       '<div class="kpi"><span class="label">Registros</span><strong>'+Number(data.total)+'</strong></div>'+
+       '<div class="kpi"><span class="label">Aguardando conferência</span><strong>'+Number(data.pendingCount)+'</strong></div>'+
+       '<div class="kpi"><span class="label">Conciliado manualmente</span><strong>'+adminMoney(data.manualReconciledCents)+'</strong></div>'+
+       '<div class="kpi"><span class="label">Disponível para gastar</span><strong>R$ 0,00</strong></div></div>':
+       '<p class="tiny muted">Consulte os registros para visualizar as conferências.</p>')+
+    form+
+    (data?'<div class="grid cards-2">'+(rows||'<p class="muted">Nenhum aporte registrado.</p>')+'</div>':'')+
+    '<p class="tiny muted">A conferência é manual, não uma validação automática do banco. Os valores não são convertidos em créditos disponíveis para campanhas, pagamentos ou cupons nesta etapa.</p>'+
+    '</section>';
+}
+
 function adminClubeCampaignSection(){
   const role=String(adminCurrentRole());
   if(!['superadmin','operations','compliance','finance','readonly'].includes(role))return '';
@@ -1464,6 +1650,7 @@ function adminPrelaunchLeadsSection(data){
       adminClubeCampaignSection(),
       adminClubeTermsSection(),
       adminOwnerFundingSection(),
+      adminOwnerEvidenceSection(),
       adminAdsCampaignSection(),
       adminAdsAudienceSection(),
       adminAdsPreviewSummarySection(),
