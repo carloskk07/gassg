@@ -57,7 +57,7 @@ const context=vm.createContext({
  adminMoney:n=>'R$ '+(n/100).toFixed(2)
 });
 vm.runInContext(section,context);
-assert.match(context.adminOwnerMultiPspAdapterGuidance(merchants[0]),/não comprovad/);
+assert.match(context.adminOwnerMultiPspAdapterGuidance(merchants[0]),/precisam ser comprovadas/);
 assert.match(context.adminOwnerMultiPspAdapterGuidance(merchants[1]),/Aguardando/);
 assert.match(context.adminOwnerMultiPspAdapterGuidance(merchants[2]),/manual/);
 assert.match(context.adminOwnerMultiPspEvidenceGuidance(merchants[0]),/evidência do provedor/);
@@ -69,7 +69,7 @@ assert.match(h,/Roteiro para ativação real/);
 assert.match(h,/1 opção com pedidos que possuem evidência registrada do PSP/);
 assert.match(h,/1 opção aguardando configuração\/homologação/);
 assert.match(h,/1 modo manual no catálogo/);
-assert.match(h,/sem confirmação automática do banco/);
+assert.match(h,/não há confirmação automática do banco/);
 assert.match(h,/Sem tentativas ou evidências/);
 assert.match(h,/&lt;Mercado Pago&gt;/);
 assert.doesNotMatch(h,/<Mercado Pago>/);
