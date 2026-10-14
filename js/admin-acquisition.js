@@ -2581,6 +2581,140 @@ function adminOwnerOrphanCleanupSection(){
     '</div>';
 }
 
+// TAMÃO V1.266 — evidence gaps, no recipient banking details collected.
+let adminOwnerRecipientProofState=null,adminOwnerRecipientProofBusy=false;
+async function adminOwnerRecipientProofLoadFromUi(){
+  const actor=String(adminRuntime?.session?.user?.id||'');
+  const role=String(adminCurrentRole());
+  if(!actor||!['superadmin','finance'].includes(role)||adminOwnerRecipientProofBusy)return;
+  const month=String(document.getElementById('owner-campaign-signals-month')?.value||'').trim();
+  if(month&&!/^\d{4}-(0[1-9]|1[0-2])$/.test(month))
+    return toast('Selecione uma competência válida.');
+  adminOwnerRecipientProofBusy=true;
+  try{
+    const d=await adminInvoke({action:'owner-recipient-proof-readiness',month:month?month+'-01':''});
+    const t=d?.totals;
+    const counts=['totalClaims','activeClaims','voidedClaims','eligibleClaims',
+      'walletReconciledClaims','internalIdentityMatches','documentedClaims',
+      'providerObservedClaims','providerReconciledClaims','readyForRecipientProof',
+      'beneficiaryVerifiedClaims','bankSettlementVerifiedClaims'];
+    const knownReasons=['claim_voided','recipient_grant_identity_mismatch',
+      'commission_not_currently_eligible','commission_wallet_not_reconciled',
+      'outgoing_provider_not_supported','official_outgoing_transaction_not_queried',
+      'outgoing_transaction_status_or_reference_mismatch','payout_document_missing',
+      'recipient_destination_not_independently_verified'];
+    if(d?.source!=='admin_owner_recipient_evidence_gaps_v1_266'||
+       d?.scope!=='owner_reported_referral_outgoing_claims'||
+       d?.timezone!=='America/Sao_Paulo'||
+       d?.destinationIdentityAvailableFromProvider!==false||
+       d?.recipientVerified!==false||d?.bankSettlementVerified!==false||
+       d?.externalPaidBenefitsCents!==null||d?.noIdentityCollection!==true||
+       d?.readOnly!==true||d?.noTransfers!==true||
+       d?.newBenefitsEnabled!==false||
+       !/^\d{4}-\d{2}-01$/.test(String(d?.month||''))||
+       (month&&d.month!==month+'-01')||
+       !t||counts.some(k=>!Number.isSafeInteger(t[k])||t[k]<0)||
+       t.totalClaims!==t.activeClaims+t.voidedClaims||
+       t.beneficiaryVerifiedClaims!==0||t.bankSettlementVerifiedClaims!==0||
+       t.readyForRecipientProof>t.providerReconciledClaims||
+       t.readyForRecipientProof>t.documentedClaims||
+       t.providerReconciledClaims>t.providerObservedClaims||
+       t.providerObservedClaims>t.totalClaims||
+       t.walletReconciledClaims>t.totalClaims||
+       t.internalIdentityMatches>t.totalClaims||
+       t.eligibleClaims>t.activeClaims||
+       d.limit!==50||d.truncated!==(t.totalClaims>50)||
+       !Array.isArray(d.rows)||d.rows.length>50||d.rows.length>t.totalClaims||
+       d.rows.some(x=>!x||!/^[0-9a-f-]{36}$/i.test(String(x.claimId||''))||
+         !Number.isSafeInteger(x.amountCents)||x.amountCents<1||
+         !['pix','bank_transfer','mercado_pago','other'].includes(x.provider)||
+         !/^\d{4}-\d{2}-\d{2}$/.test(String(x.paidOn||''))||
+         !['voided','grantEligibleNow','internalRecipientMatchesGrant',
+          'walletVerified','proofAttached','providerObserved','providerMatchedNow',
+          'readyForRecipientProof','beneficiaryVerified','bankSettlementVerified']
+          .every(k=>typeof x[k]==='boolean')||
+         x.beneficiaryVerified!==false||x.bankSettlementVerified!==false||
+         (x.readyForRecipientProof&&(
+          x.voided||!x.grantEligibleNow||!x.walletVerified||!x.proofAttached||
+          !x.providerMatchedNow||x.provider!=='mercado_pago'))||
+         (x.providerMatchedNow&&!x.providerObserved)||
+         (x.lastProviderCheckAt!==null&&
+           !Number.isFinite(Date.parse(String(x.lastProviderCheckAt))))||
+         !Array.isArray(x.missingEvidence)||
+         !x.missingEvidence.includes('recipient_destination_not_independently_verified')||
+         x.missingEvidence.some(r=>!knownReasons.includes(r))))
+      throw new Error('Fila de evidências não validada.');
+    if(actor===String(adminRuntime?.session?.user?.id||'')&&
+       role===String(adminCurrentRole()))
+      adminOwnerRecipientProofState={...d,loadedFor:actor};
+  }catch(e){
+    if(actor===String(adminRuntime?.session?.user?.id||'')){
+      adminOwnerRecipientProofState=null;
+      toast(String(e?.message||'Falha na conferência de evidências de beneficiários.'));
+    }
+  }finally{adminOwnerRecipientProofBusy=false;render();}
+}
+function adminOwnerRecipientProofSection(){
+  const role=String(adminCurrentRole());
+  if(!['superadmin','finance'].includes(role))return '';
+  const actor=String(adminRuntime?.session?.user?.id||'');
+  const d=adminOwnerRecipientProofState?.loadedFor===actor?adminOwnerRecipientProofState:null;
+  const month=String(document.getElementById('owner-campaign-signals-month')?.value||'').trim();
+  const valid=d&&(!month||d.month.slice(0,7)===month);
+  const t=valid?d.totals:null;
+  const readable={
+    claim_voided:'Declaração retificada',
+    recipient_grant_identity_mismatch:'Destinatário interno diferente do indicador da concessão',
+    commission_not_currently_eligible:'Comissão não está elegível atualmente',
+    commission_wallet_not_reconciled:'Lançamentos da comissão não conciliados na carteira',
+    outgoing_provider_not_supported:'Provedor ainda sem verificação externa integrada',
+    official_outgoing_transaction_not_queried:'Sem consulta oficial da transferência de saída',
+    outgoing_transaction_status_or_reference_mismatch:'Status, referência ou valor do provedor não conferidos',
+    payout_document_missing:'Comprovante privado não anexado',
+    recipient_destination_not_independently_verified:'Conta de destino e titularidade ainda não verificadas'
+  };
+  const list=(valid?d.rows:[]).map(x=>
+    '<article class="card flat form-stack"><h5>Declaração '+esc(x.claimId)+'</h5>'+
+    '<p>'+adminMoney(x.amountCents)+' • '+esc(x.provider)+
+    ' • '+esc(x.paidOn)+(x.voided?' • retificada':'')+'</p>'+
+    '<p class="tiny muted">Identidade do indicador no pedido: '+
+      (x.internalRecipientMatchesGrant?'coincidente':'divergente')+
+      ' • carteira: '+(x.walletVerified?'conciliada':'pendente')+
+      ' • documento: '+(x.proofAttached?'anexado':'pendente')+
+      ' • provedor: '+(x.providerMatchedNow?'transação conciliada':'sem confirmação suficiente')+
+      '</p>'+
+    '<p><strong>'+(
+      x.readyForRecipientProof?'Falta apenas validar a titularidade do destino':'Evidências incompletas')+
+      '</strong></p>'+
+    '<p class="tiny muted">Pendências: '+
+      x.missingEvidence.map(code=>esc(readable[code]||code)).join(' • ')+'</p>'+
+    '</article>').join('');
+  return '<div class="card flat form-stack"><h4>Conferência da identidade do beneficiário</h4>'+
+    '<p>Mostra o que falta para confirmar que a conta destinatária pertence ao indicador que recebeu a comissão, sem coletar CPF, chave Pix ou dados bancários nesta etapa.</p>'+
+    '<button type="button" class="secondary small" onclick="adminOwnerRecipientProofLoadFromUi()" '+
+    (adminOwnerRecipientProofBusy?'disabled':'')+'>Conferir evidências da competência</button>'+
+    (valid?'<div class="merchant-kpis">'+
+      '<div class="kpi"><span class="label">Declarações</span><strong>'+Number(t.totalClaims)+'</strong></div>'+
+      '<div class="kpi"><span class="label">Comissão e carteira conferidas</span><strong>'+
+         Number(t.walletReconciledClaims)+'</strong></div>'+
+      '<div class="kpi"><span class="label">Transações do provedor conciliadas</span><strong>'+
+         Number(t.providerReconciledClaims)+'</strong></div>'+
+      '<div class="kpi"><span class="label">Aguardando somente prova do destinatário</span><strong>'+
+         Number(t.readyForRecipientProof)+'</strong></div></div>'+
+      '<p class="tiny muted">'+Number(t.documentedClaims)+' com documento • '+
+        Number(t.providerObservedClaims)+' consultas externas • '+
+        Number(t.voidedClaims)+' declarações retificadas • '+
+        Number(t.beneficiaryVerifiedClaims)+' beneficiários comprovados • '+
+        Number(t.bankSettlementVerifiedClaims)+' liquidações bancárias comprovadas.'+
+        (d.truncated?' Até 50 declarações listadas.':'')+'</p>'+
+      '<div class="grid cards-2">'+(list||
+        '<p class="tiny muted">Nenhuma declaração de repasse nesta competência.</p>')+
+      '</div>':
+      '<p class="tiny muted">Consulte a competência para identificar pendências.</p>')+
+    '<p class="tiny muted">A identidade interna do indicador não confirma a titularidade da conta de destino. O retorno atual do Payouts não traz prova suficiente de destinatário para esta conciliação. Nenhum repasse, consulta de CPF ou verificação bancária nova é executado aqui. Valores pagos externamente permanecem não mensurados.</p>'+
+    '</div>';
+}
+
 // V1.265 — Provider-derived outgoing payout status, not proof of recipient receipt.
 let adminOwnerPayoutProviderState=null,adminOwnerPayoutProviderBusy=false;
 async function adminOwnerPayoutProviderLoadFromUi(){
@@ -3629,6 +3763,7 @@ function adminOwnerFinancialSummarySection(){
     (typeof adminOwnerPayoutEvidenceSection==='function'?adminOwnerPayoutEvidenceSection():'')+
     (typeof adminOwnerPayoutProofsSection==='function'?adminOwnerPayoutProofsSection():'')+
     (typeof adminOwnerPayoutProviderSection==='function'?adminOwnerPayoutProviderSection():'')+
+    (typeof adminOwnerRecipientProofSection==='function'?adminOwnerRecipientProofSection():'')+
     '<div class="card flat form-stack"><h4>Integridade dos comprovantes privados</h4>'+
     '<p>Auditoria de arquivos sem vínculo à despesa. Os uploads recentes têm proteção de 24 horas; esta consulta não exclui documentos.</p>'+
     '<button type="button" class="secondary small" onclick="adminOwnerOrphanAuditLoadFromUi()" '+
