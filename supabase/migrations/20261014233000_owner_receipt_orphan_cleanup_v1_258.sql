@@ -114,6 +114,22 @@ begin
   if exists(select 1 from public.platform_campaign_receipt_cleanup_results_v1_258 r
    where r.request_id=p_request) then
     raise exception 'ORPHAN_CLEANUP_ALREADY_FINALIZED' using errcode='23505';end if;
+  -- A replay never authorizes deletion from a stale reservation.
+  perform pg_catalog.pg_advisory_xact_lock(pg_catalog.hashtextextended(
+   'campaign-receipt-v1-256:'||v_old.expense_id::text,0));
+  if not exists (
+   select 1 from storage.objects o where o.id=v_old.object_id
+    and o.name=v_old.object_path
+    and o.bucket_id='tamao-owner-campaign-receipts-v1-256'
+    and coalesce(o.is_delete_marker,false)=false
+    and o.created_at<=clock_timestamp()-interval '24 hours'
+  ) or exists (
+   select 1 from public.platform_campaign_marketing_receipts_v1_256 r
+    where r.object_path=v_old.object_path
+  ) or not exists (
+   select 1 from public.platform_campaign_marketing_costs_v1_255 c
+    where c.expense_id=v_old.expense_id
+  ) then raise exception 'ORPHAN_CLEANUP_REPLAY_UNSAFE' using errcode='42501';end if;
   return jsonb_build_object('source','admin_owner_cleanup_reserved_v1_258',
    'requestId',p_request,'objectPath',v_old.object_path,'reserved',true,'replayed',true);
  end if;
