@@ -81,7 +81,8 @@ assert.ok(!html.includes('src=x onerror=alert(1)>'));
 assert.ok(html.includes('Interesse registrado'));
 assert.equal(mCtx.clubeView({merchantId:fakeId,memberRole:'driver'}),'');
 const state={session:{user:{id:fakeId}}};
-const aCtx=vm.createContext({adminRuntime:state,adminCurrentRole:()=> 'finance',
+const aCtx=vm.createContext({adminRuntime:state,adminClubeInterestState:null,
+ adminClubeInterestBusy:false,adminCurrentRole:()=> 'finance',
  esc,String,Number,adminMoney:v=>'R$ '+(v/100).toFixed(2)});
 vm.runInContext(extract(acquisition,'adminClubeInterestSection')+
  '\nthis.view=adminClubeInterestSection;',aCtx);
