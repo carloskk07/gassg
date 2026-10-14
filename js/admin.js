@@ -43,6 +43,7 @@ const adminRuntime={
   financeHistory:{data:null,loading:false,error:null,checkedAt:null},
   financeWorkspace:'summary',
   growthBenefitPreview:{data:null,pending:false,error:null},
+  clubePreview:{data:null,pending:false,error:null,inputs:null},
   prospectReport:null,
   prospectLoadedAt:null,
   prospectLoadedFor:null,
@@ -3678,6 +3679,118 @@ async function adminGrowthBenefitPreviewFromUi(){
     x.error=String(error?.message||'Não foi possível simular.');
   }finally{x.pending=false;render();}
 }
+
+/* V1.239 — Clube TAMÃO: illustrative, server-verified economics only.
+ * Never issue a coupon, create a payable order or promise a discount. */
+async function adminClubeCouponPreviewFromUi(){
+  if(!['superadmin','finance'].includes(adminCurrentRole())||
+     adminRuntime.status!=='ready')return;
+  const x=adminRuntime.clubePreview;
+  if(x.pending)return;
+  const identity=String(adminRuntime.session?.user?.id||'');
+  const keys=['orderValueCents','paymentCostCents','variableCostCents',
+    'cashbackCostCents','referralCostCents','minimumContributionCents'];
+  const bpKeys=['feeBps','merchantSponsorBps','brandSponsorBps'];
+  const names=['packageKey',...keys,...bpKeys];
+  const inputs=Object.fromEntries(names.map(key=>[
+    key,String(document.getElementById('admin-clube-'+key)?.value??'')
+  ]));
+  x.inputs=inputs;
+  const money=Object.fromEntries(keys.map(key=>[key,adminGrowthMoneyInputCents(inputs[key])]));
+  const bps=Object.fromEntries(bpKeys.map(key=>[
+    key,/^(?:0|[1-9][0-9]{0,4})$/.test(inputs[key])?Number(inputs[key]):null
+  ]));
+  if(!['gas_3x5','water_5x2'].includes(inputs.packageKey)||
+    Object.values(money).some(v=>v===null)||
+    Object.values(bps).some(v=>v===null)||
+    bps.feeBps>1500||bps.merchantSponsorBps>10000||
+    bps.brandSponsorBps>10000||
+    bps.merchantSponsorBps+bps.brandSponsorBps>10000){
+    x.error='Revise os valores. As parcelas de financiamento não podem superar 100% do desconto.';
+    x.data=null;render();return;
+  }
+  x.pending=true;x.data=null;x.error=null;render();
+  try{
+    const result=await adminInvoke({action:'clube-coupon-preview',
+      packageKey:inputs.packageKey,...money,...bps});
+    if(result?.source!=='clube_coupon_finance_preview_v1_239'||
+      result?.readOnly!==true||result?.salesEnabled!==false||
+      result?.redemptionEnabled!==false||result?.noCharge!==true||
+      result?.noCouponIssued!==true||result?.noMerchantSaleProceeds!==true||
+      result?.sponsorVerified!==false||result?.scenariosAreNotForecasts!==true||
+      result?.isScenarioNotRealPayment!==true||
+      result?.packageKey!==inputs.packageKey||
+      !Number.isSafeInteger(result?.totalTamaoSubsidyCents)||
+      !Number.isSafeInteger(result?.scenarioZeroIncrementalAfterMinCents)||
+      !Number.isSafeInteger(result?.scenarioAllIncrementalAfterMinCents)){
+      throw new Error('A simulação não teve sua integridade comprovada.');
+    }
+    if(identity===String(adminRuntime.session?.user?.id||''))x.data=result;
+  }catch(e){
+    if(identity===String(adminRuntime.session?.user?.id||'')){
+      x.error=String(e?.message||'Não foi possível simular.');
+    }
+  }finally{x.pending=false;render();}
+}
+function adminClubeCouponPreviewView(){
+  if(!['superadmin','finance'].includes(adminCurrentRole()))return '';
+  const x=adminRuntime.clubePreview||{};
+  const inputs=x.inputs||{};
+  const value=(key,def)=>esc(inputs[key]??def);
+  const fields=[
+    ['orderValueCents','Pedido bruto ilustrativo (R$)','120,00'],
+    ['paymentCostCents','Custo do pagamento do pacote (R$)','1,50'],
+    ['variableCostCents','Custo variável por pedido (R$)','0,90'],
+    ['cashbackCostCents','Cashback por pedido (R$)','0,00'],
+    ['referralCostCents','Custo de indicação por pedido (R$)','0,00'],
+    ['minimumContributionCents','Margem mínima por pedido (R$)','0,00']
+  ];
+  const rates=[
+    ['feeBps','Taxa TAMÃO em pontos-base (750 = 7,5%)','750'],
+    ['merchantSponsorBps','Parte da revenda (10000 = 100%)','10000'],
+    ['brandSponsorBps','Parte da marca patrocinadora (0 a 10000)','0']
+  ];
+  const d=x.data;
+  return `<section class="section admin-clube-preview" aria-label="Simulador financeiro do Clube TAMÃO">
+    <div class="section-head"><div><span class="section-kicker">CLUBE TAMÃO • NOVA RECEITA</span>
+      <h3>Pacotes de descontos — simulação econômica</h3>
+      <p>Planeje o preço e o patrocínio antes de negociar com as revendas. Não são ofertas disponíveis para compra.</p></div>
+      <span class="status-pill risk">Pacotes não comercializados</span></div>
+    <div class="card flat form-stack">
+      <div class="input-wrap"><label for="admin-clube-packageKey">Pacote em estudo</label>
+      <select class="input" id="admin-clube-packageKey">
+        <option value="gas_3x5" ${(inputs.packageKey??'gas_3x5')==='gas_3x5'?'selected':''}>Gás: R$ 8,90 • 3 × R$ 5 • 180 dias</option>
+        <option value="water_5x2" ${inputs.packageKey==='water_5x2'?'selected':''}>Água: R$ 4,90 • 5 × R$ 2 • 90 dias</option>
+      </select></div>
+      <div class="grid cards-3">${fields.map(([key,label,def])=>`
+        <div class="input-wrap"><label for="admin-clube-${key}">${esc(label)}</label>
+        <input class="input" inputmode="decimal" id="admin-clube-${key}"
+          autocomplete="off" maxlength="11" value="${value(key,def)}"></div>`).join('')}
+        ${rates.map(([key,label,def])=>`
+        <div class="input-wrap"><label for="admin-clube-${key}">${esc(label)}</label>
+        <input class="input" inputmode="numeric" id="admin-clube-${key}"
+          autocomplete="off" maxlength="5" value="${value(key,def)}"></div>`).join('')}
+      </div>
+      <p class="tiny muted">Revenda e marca: financiamento hipotético, ainda sem compromisso assinado. Parte residual do desconto será custo do TAMÃO. A taxa é calculada apenas sobre o pedido já descontado.</p>
+      <button type="button" class="secondary" onclick="adminClubeCouponPreviewFromUi()"
+        ${x.pending?'disabled':''}>${x.pending?'Conferindo…':'Simular sem vender cupons'}</button>
+      ${x.error?'<div class="notice danger">'+esc(x.error)+'</div>':''}
+      ${d?`<div class="merchant-kpis">
+        <div class="kpi"><span class="label">Receita líquida ilustrativa do pacote</span>
+          <strong>${adminMoney(d.netPackageRevenueCents)}</strong><small>Antes de financiar cupons e custos</small></div>
+        <div class="kpi"><span class="label">Descontos custeados pelo TAMÃO</span>
+          <strong>${adminMoney(d.totalTamaoSubsidyCents)}</strong><small>${Number(d.couponCount)} usos (100% resgatados)</small></div>
+        <div class="kpi"><span class="label">Resultado conservador</span>
+          <strong>${adminMoney(d.scenarioZeroIncrementalAfterMinCents)}</strong><small>Sem atribuir novas taxas à campanha</small></div>
+        <div class="kpi"><span class="label">Hipótese: todos os pedidos adicionais</span>
+          <strong>${adminMoney(d.scenarioAllIncrementalAfterMinCents)}</strong><small>Não é previsão de vendas</small></div>
+      </div>
+      <p class="tiny muted">Acordos de revendas/marcas a comprovar: ${adminMoney(d.sponsorFundingRequiredCents)}. Desconto total ofertado no rascunho: ${adminMoney(d.totalDiscountCents)}. Pedido mínimo: ${adminMoney(d.minOrderCents)}. Nenhum cupom foi emitido e nenhum pagamento foi cobrado.</p>`:''}
+      <div class="notice"><strong>Antes de liberar:</strong> validar patrocinadores, orçamento por cidade e revenda, regras do consumidor, reembolso, bloqueio de cupom duplicado, liquidação e conciliação. O cenário de pedidos adicionais não é receita garantida.</div>
+    </div>
+  </section>`;
+}
+
 function adminGrowthBenefitPreviewView(){
   if(!['superadmin','finance'].includes(adminCurrentRole()))return '';
   const preview=adminRuntime.growthBenefitPreview||{};
@@ -5322,6 +5435,7 @@ function adminPage(){
   const financePolicyContent=`
     ${adminCommercialPolicySection(d)}
     ${adminGrowthBenefitPreviewView()}
+    ${adminClubeCouponPreviewView()}
     <section class="section"><div class="card flat form-stack"><h3>Reversão financeira auditada</h3><p class="muted tiny">Somente para um pedido já liquidado que teve estorno/refund confirmado. O histórico operacional de entrega permanece.</p><div class="input-wrap"><label for="admin-reverse-order">ID do pedido</label><input id="admin-reverse-order" class="input" placeholder="UUID do pedido"></div><div class="input-wrap"><label for="admin-reverse-reason">Motivo</label><input id="admin-reverse-reason" class="input" maxlength="240" placeholder="Motivo confirmado"></div><div class="input-wrap"><label for="admin-reverse-ref">Referência</label><input id="admin-reverse-ref" class="input" maxlength="120" placeholder="ID do estorno/comprovante"></div><button class="danger-btn" onclick="adminReverseOrder()">Executar reversão</button></div></section>
 `;
   const financeAreas={
