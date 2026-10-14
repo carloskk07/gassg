@@ -794,8 +794,18 @@ async function liveCreateOrder(quoteId){
   liveRuntime.error=null;
   render();
   const idempotencyKey=liveIdempotency('create-order');
+  // V1.252 — use only the current first-party inbound UTM from this page.
+  // No persistent cross-session identifier and no claim that UTM proves causality.
+  const ownerCampaignTag=(()=>{
+    const p=new URLSearchParams(location.search);
+    if(p.get('utm_source')!=='tamao'||p.get('utm_medium')!=='owner_campaign')return null;
+    const tag=String(p.get('utm_campaign')||'').trim();
+    return /^tam-(?:customer_cashback|customer_referral|merchant_referral|clube_coupons)-\d{6}-[a-z0-9_-]{8,80}$/.test(tag)
+      ?tag:null;
+  })();
   const payload={
     quoteId,
+    ...(ownerCampaignTag?{campaignTag:ownerCampaignTag}:{}),
     paymentMethod:state.checkout.paymentMethod,
     useCashback:state.checkout.useCashback===true,
     referralCode:(()=>{
@@ -813,6 +823,10 @@ async function liveCreateOrder(quoteId){
     const result=await retryAmbiguousOnce(
       ()=>liveInvoke('create-order',payload,{idempotencyKey})
     );
+    // The server registers the campaign against the authenticated order
+    // without changing creation, settlement or payment behavior.
+    // A tracking error must never turn an existing order into a checkout failure.
+
 
     liveRuntime.orderId=result.orderId;
     localStorage.setItem(CHAMA_BACKEND.orderStorageKey,result.orderId);

@@ -148,6 +148,11 @@ Deno.serve(async (req: Request) => {
       ? null
       : String(body.referralCode).trim().toUpperCase().slice(0, 20);
 
+    // Optional acquisition UTM is not a payment parameter and cannot authorize benefits.
+    const campaignTag = typeof body.campaignTag==="string" &&
+      /^tam-(?:customer_cashback|customer_referral|merchant_referral|clube_coupons)-\d{6}-[a-z0-9_-]{8,80}$/.test(body.campaignTag)
+        ?body.campaignTag:null;
+
     const customerPhoneDigits = String(body.customerPhone ?? "").replace(/\D/g, "");
     if (!/^[0-9]{10,11}$/.test(customerPhoneDigits)) {
       throw new DomainError("INVALID_CUSTOMER_PHONE", "Informe um telefone válido com DDD.", 400);
@@ -174,7 +179,8 @@ Deno.serve(async (req: Request) => {
       customerPhoneDigits,
       addressComplement,
       deliveryReference,
-      deliveryNotes
+      deliveryNotes,
+      ...(campaignTag?{campaignTag}:{})
     };
     const requestHash = await requestFingerprint("create-order", fingerprintPayload);
 
@@ -202,6 +208,22 @@ Deno.serve(async (req: Request) => {
       const mapped = mapRpcError(error);
       console.error("create-order rpc failed", mapped.code);
       return json({ error: mapped.code, message: mapped.message }, mapped.status, origin);
+    }
+
+    // Best effort only: order creation and its idempotency are authoritative.
+    // A missing/invalid campaign never blocks a purchase or changes a payment.
+    if(campaignTag && UUID_RE.test(String(data?.orderId||""))){
+      try{
+        const {data:linked,error:linkError}=await admin.rpc("owner_order_campaign_bind_v1_252",{
+          p_customer:user.id,p_order:data.orderId,p_tag:campaignTag
+        });
+        if(linkError||linked?.source!=="owner_order_attribution_v1_252"||
+          linked?.recorded!==true||linked?.noCharge!==true||
+          linked?.spendableCents!==0)
+          console.warn("owner campaign attribution unavailable");
+      }catch{
+        console.warn("owner campaign attribution unavailable");
+      }
     }
 
     return json(data, 201, origin);
