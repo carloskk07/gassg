@@ -2576,7 +2576,7 @@ Deno.serve(async(req:Request)=>{
         "application/pdf":"pdf","image/png":"png","image/jpeg":"jpg"
       } as Record<string,string>;
       if(!UUID_RE.test(expense)||!match[mime]||
-         !new RegExp("^"+expense+"/[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}\\\\."+match[mime]+"$","i").test(path)||
+         !(path.startsWith(expense+"/")&&/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}\.(pdf|png|jpg)$/i.test(path.slice(37))&&path.endsWith("."+match[mime]))||
          !/^[0-9a-f]{64}$/.test(hash))
         throw new DomainError("OWNER_RECEIPT_FINALIZE_INVALID","Metadados do comprovante inválidos.",400);
       const {data:eligibility,error:eligibilityError}=await admin.rpc(
