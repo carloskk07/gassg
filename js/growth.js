@@ -465,7 +465,7 @@ function merchantsLanding(){
   return shell(`<section class="page merchant-landing">
     <span class="eyebrow">VENDA PELO TAMÃO</span>
     <h1 class="page-title">Você cuida do seu negócio. <span class="headline-accent">O TAMÃO ajuda mais gente a encontrá-lo.</span></h1>
-    <p class="muted page-lead">Sua revenda merece um espaço a mais para crescer. Apareça para quem procura gás, água e itens essenciais na sua região, receba pedidos organizados e continue vendendo no balcão, no telefone ou pelo WhatsApp. <strong>Os preços, o estoque, os pagamentos e a entrega continuam nas suas mãos.</strong></p>
+    <p class="muted page-lead">Sua revenda merece um espaço a mais para crescer. Apareça para quem procura gás, água e itens essenciais na sua região, receba pedidos organizados e continue vendendo no balcão, no telefone ou pelo WhatsApp. <strong>Você continua no comando: você define seus preços, o estoque, as formas de receber e como será a entrega.</strong></p>
     <div class="conversion-mini-proof"><span>✓ Sem exclusividade</span><span>✓ Recebimento direto na revenda</span><span>✓ Você decide quando ficar online</span></div>
 
     <div class="merchant-commercial-strip merchant-value-strip">
