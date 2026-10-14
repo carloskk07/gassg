@@ -6,7 +6,7 @@ import {buildRuntimeConfig,validatePortalRole} from './generate-runtime-config.m
 
 const ROOT=path.resolve(new URL('..',import.meta.url).pathname);
 const STATIC_FILES=['index.html','manifest.webmanifest','sw.js','robots.txt'];
-const STATIC_DIRS=['css','js','icons'];
+const STATIC_DIRS=['css','js','icons','assets'];
 const PORTALS={
   customer:{name:'TAMÃO — Cliente',shortName:'TAMÃO',title:'TAMÃO — Pediu? Tá na mão.'},
   merchant:{name:'TAMÃO — Revenda',shortName:'TAMÃO Revenda',title:'TAMÃO Revenda — Operação'},

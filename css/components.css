@@ -2890,3 +2890,69 @@ details[id^="prospect-editor-"] summary:focus-visible{outline:3px solid var(--br
 .admin-alert-ack-actions{display:flex;flex-wrap:wrap;align-items:center;gap:8px;flex-shrink:0}
 .admin-alert-ack-actions button{min-height:44px}
 @media(max-width:640px){.admin-alert-ack-actions{width:100%;flex-direction:column;align-items:stretch}.admin-alert-ack-actions button{width:100%}}
+
+
+/* V1.243 — TAMÃO real product photos and welcoming commercial benefits. */
+.tamao-product-photo{display:block;width:100%;height:100%;border-radius:inherit;
+  background-image:url('../assets/tamao-products-sprite.webp');background-repeat:no-repeat;
+  background-size:500% 100%;background-color:#f8f8f8;background-position:0 50%;
+}
+.tamao-product-photo.product-gas{background-position:0% 50%}
+.tamao-product-photo.product-water{background-position:25% 50%}
+.tamao-product-photo.product-charcoal{background-position:50% 50%}
+.tamao-product-photo.product-wood{background-position:75% 50%}
+.tamao-product-photo.product-ice{background-position:100% 50%}
+.starter-product-icon:has(.tamao-product-photo){background:#f6f7f5;box-shadow:none;
+ border:1px solid #e4e9e2;overflow:hidden}
+.starter-product-icon>.tamao-product-photo{width:100%;height:100%;border-radius:16px}
+.quick-grid .quick-card:has(.tamao-product-photo){text-align:center;min-height:155px;
+ display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;
+ border-color:#dce7df;box-shadow:0 6px 20px rgba(20,45,34,.04)}
+.quick-card .quick-icon:has(.tamao-product-photo){width:75px;height:75px;margin-bottom:6px;
+ border-radius:18px;overflow:hidden;border:1px solid #edf0ec}
+.quick-card .quick-title{line-height:1.35}
+.product-icon:has(.tamao-product-photo){overflow:hidden;background:#fff;border:1px solid #e3e7e2}
+.product-icon>.tamao-product-photo{border-radius:12px}
+.tamao-product-emoji{display:inline-grid;place-items:center;width:100%;height:100%}
+.tamao-value-section,.tamao-merchant-differentials,.tamao-customer-growth{
+ padding-block:22px 26px;
+}
+.tamao-value-section>.section-head h2,.tamao-merchant-differentials h2,
+.tamao-customer-growth h2,.tamao-sponsors-page .section-head h2{
+ font-size:clamp(24px,3vw,34px);line-height:1.13;letter-spacing:-.045em
+}
+.tamao-value-grid{gap:13px}
+.tamao-value-grid .card{position:relative;background:linear-gradient(145deg,#fff,#f9fcfa);
+ border-color:#dcebe2;border-radius:22px;padding:21px;box-shadow:0 9px 26px rgba(18,72,43,.04)}
+.tamao-value-grid .card h3{font-size:17px;line-height:1.25;margin:12px 0 8px;color:#183c2b}
+.tamao-value-grid .card p{color:#52685a;line-height:1.65;font-size:13px;margin:0}
+.tamao-value-icon{display:inline-flex;align-items:center;justify-content:center;
+ width:49px;height:49px;background:#e7f6ec;border:1px solid #ceead7;border-radius:16px;font-size:25px}
+.tamao-value-actions{display:flex;flex-wrap:wrap;gap:9px;align-items:center;margin-top:17px}
+.tamao-sponsors-page{max-width:1080px;margin-inline:auto}
+.tamao-sponsor-hero{background:linear-gradient(130deg,#eaf7ef,#fffaf1 65%,#fff);
+ border:1px solid #d9e9dc;border-radius:28px;padding:clamp(20px,4vw,42px);margin-block:8px 20px}
+.tamao-sponsor-hero .page-title{max-width:720px;font-size:clamp(31px,4.5vw,52px);line-height:1.06;margin-top:17px}
+.tamao-sponsor-hero .page-lead{max-width:790px;line-height:1.65;color:#44594d;font-size:16px}
+.tamao-sponsor-footer{background:#f7fbf8;border:1px solid #d4e6db;border-radius:24px;padding:26px}
+.tamao-sponsor-footer h2{font-size:clamp(22px,3vw,32px);margin:8px 0}
+.tamao-sponsor-footer p{line-height:1.7;max-width:700px}
+.tamao-journey{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
+.tamao-journey>div{background:#fff;border:1px solid #dce8e0;border-radius:18px;padding:19px}
+.tamao-journey strong{display:block;color:#163d2a;font-size:15px}
+.tamao-journey p{font-size:13px;line-height:1.62;color:#5b6d61;margin:9px 0 0}
+@media(max-width:710px){
+ .tamao-journey{grid-template-columns:1fr}
+ .tamao-value-actions .primary,.tamao-value-actions .secondary{flex:1;min-width:190px}
+ .tamao-value-grid .card{padding:18px}
+}
+@media(max-width:430px){
+ .quick-card .quick-icon:has(.tamao-product-photo){width:62px;height:62px}
+ .quick-grid .quick-card:has(.tamao-product-photo){min-height:142px;padding:10px 5px}
+ .quick-card .quick-title{font-size:12px}
+ .tamao-value-actions{flex-direction:column;align-items:stretch}
+ .tamao-value-actions .primary,.tamao-value-actions .secondary,.tamao-value-actions .ghost{width:100%}
+}
+@media(prefers-reduced-motion:reduce){
+ .tamao-value-grid .card{transition:none}
+}

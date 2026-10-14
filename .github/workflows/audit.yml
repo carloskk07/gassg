@@ -205,6 +205,8 @@ jobs:
         run: node tests/production-language-v1-147.mjs
       - name: Natural language and truthful availability V1.166 regression
         run: node tests/natural-voice-v1-166.mjs
+      - name: TAMÃO V1.243 product photos and benefits for customers merchants sponsors
+        run: node tests/product-art-benefits-v1-243.mjs
       - name: National expansion referral and merchant copy V1.165 regression
         run: node tests/national-expansion-referral-v1-165.mjs
       - name: Real-status buyer tracking V1.164 regression contract
@@ -337,7 +339,7 @@ jobs:
           sleep 1
           CHROME="$(command -v google-chrome || command -v chromium || command -v chromium-browser)"
           test -n "$CHROME"
-          for route in home learn earn order club refer merchants privacy terms contact merchant admin; do
+          for route in home learn earn order club refer merchants sponsors privacy terms contact merchant admin; do
             "$CHROME" --headless=new --no-sandbox --disable-gpu --window-size=360,800 --virtual-time-budget=1200 --user-data-dir="/tmp/chrome-$route" --dump-dom "http://127.0.0.1:4173/#$route" > "/tmp/$route.html"
           done
           grep -Fq "Pediu? Tá na mão." /tmp/home.html
@@ -353,7 +355,8 @@ jobs:
           grep -q "O que você precisa e onde devemos entregar" /tmp/order.html
           grep -q "CLUBE TAMÃO" /tmp/club.html
           grep -q "Tem alguém que gostaria de conhecer o TAMÃO?" /tmp/refer.html
-          grep -q "Sua empresa já vende." /tmp/merchants.html
+          grep -q "Você cuida do seu negócio." /tmp/merchants.html
+          grep -q "Sua marca mais perto de quem movimenta o comércio local." /tmp/sponsors.html
           grep -q "FAÇA AS CONTAS DO SEU JEITO" /tmp/merchants.html
           grep -q "Quer vender pelo TAMÃO?" /tmp/merchants.html
           grep -q "Quero levar minha empresa ao TAMÃO" /tmp/merchants.html
