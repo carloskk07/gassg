@@ -530,6 +530,63 @@ async function adminAdsDemandLoadFromUi(){
     }
   }finally{adminAdsDemandBusy=false;render();}
 }
+// Clube TAMÃO V1.240 — read-only proposal radar, no funded discounts.
+let adminClubeInterestState=null;
+let adminClubeInterestBusy=false;
+async function adminClubeInterestLoadFromUi(){
+  const id=String(adminRuntime?.session?.user?.id||'');
+  if(!id||!['superadmin','operations','compliance','finance','readonly'].includes(
+       String(adminCurrentRole()))||adminClubeInterestBusy)return;
+  adminClubeInterestBusy=true;
+  try{
+    const data=await adminInvoke({action:'clube-interest-queue'});
+    if(data?.source!=='admin_clube_interest_queue_v1_240'||
+      data?.readOnly!==true||data?.noContactsExposed!==true||
+      data?.sponsorFundingConfirmedCents!==0||
+      data?.couponSalesEnabled!==false||data?.noCharge!==true||
+      data?.noContractsApproved!==true||
+      !Number.isSafeInteger(data?.totalProposals)||data.totalProposals<0||
+      !Array.isArray(data?.rows)||data.rows.length>50)
+      throw new Error('Fila de propostas não validada pelo servidor.');
+    if(String(adminRuntime?.session?.user?.id||'')!==id)return;
+    adminClubeInterestState={...data,loadedFor:id};
+  }catch(e){
+    if(String(adminRuntime?.session?.user?.id||'')===id){
+      adminClubeInterestState=null;
+      toast(String(e?.message||'Não foi possível consultar o Clube.'));
+    }
+  }finally{adminClubeInterestBusy=false;render();}
+}
+function adminClubeInterestSection(){
+  if(!['superadmin','operations','compliance','finance','readonly'].includes(
+      String(adminCurrentRole())))return '';
+  const id=String(adminRuntime?.session?.user?.id||'');
+  const data=adminClubeInterestState?.loadedFor===id?adminClubeInterestState:null;
+  const rows=(data?.rows||[]).map(x=>
+    '<div class="list-row"><div><strong>'+esc(x.companyName||'Revenda')+'</strong>'+
+    '<br><small>'+esc(x.packageKey==='gas_3x5'?'Clube Gás':'Clube Água')+
+    ' • '+esc([x.city,x.state].filter(Boolean).join('/'))+
+    ' • '+(Number(x.shareBps)/100).toLocaleString('pt-BR')+'% do desconto'+
+    ' • até '+adminMoney(x.budgetCents)+' (intenção, não contrato)</small></div>'+
+    '<small>'+esc(x.updatedAt?new Date(x.updatedAt).toLocaleDateString('pt-BR'):'')+
+    '</small></div>').join('');
+  return '<section class="section admin-clube-interest">'+
+    '<div class="section-head"><div><span class="section-kicker">CLUBE TAMÃO • PARCERIAS</span>'+
+    '<h3>Propostas de participação das revendas</h3>'+
+    '<p>Interesse voluntário por pacote e cidade. Não equivale a verba confirmada ou cupons disponíveis.</p></div>'+
+    '<button type="button" class="secondary small" onclick="adminClubeInterestLoadFromUi()" '+
+    (adminClubeInterestBusy?'disabled':'')+'>Consultar propostas</button></div>'+
+    (data?'<div class="merchant-kpis">'+
+      '<div class="kpi"><span class="label">Intenções registradas</span><strong>'+
+        Number(data.totalProposals).toLocaleString('pt-BR')+'</strong><small>Uma revenda pode sugerir dois pacotes</small></div>'+
+      '<div class="kpi"><span class="label">Patrocínio comprovado</span><strong>R$ 0</strong><small>Nenhum contrato aprovado</small></div>'+
+      '<div class="kpi"><span class="label">Pacotes disponíveis para venda</span><strong>0</strong><small>Bloqueio financeiro mantido</small></div>'+
+    '</div><div class="list" style="margin-top:12px">'+
+      (rows||'<p class="muted tiny">Ainda não existem propostas de revendas registradas.</p>')+
+      '</div>':'<p class="muted tiny">Consulte o interesse real antes de definir a campanha. Nenhum orçamento está reservado.</p>')+
+    '</section>';
+}
+
 function adminAdsDemandSection(){
   if(!['superadmin','operations','compliance','finance','readonly'].includes(String(adminCurrentRole())))
     return '';
@@ -953,6 +1010,7 @@ function adminPrelaunchLeadsSection(data){
       adminGrowthNetworkOverviewView(data?.growthNetwork),
       adminGrowthApplicationFunnelView(data?.growthApplicationFunnel),
       adminAdsDemandSection(),
+      adminClubeInterestSection(),
       adminAdsCampaignSection(),
       adminAdsAudienceSection(),
       adminAdsPreviewSummarySection(),

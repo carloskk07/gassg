@@ -117,7 +117,7 @@ Deno.serve(async(req:Request)=>{
     const merchantId=String(body.merchantId??"");
     const action=String(body.action??"");
     if(!UUID_RE.test(merchantId))throw new DomainError("INVALID_MERCHANT","Revenda inválida.",400);
-    if(!["ads-campaign","ads-interest","business-pulse","growth-network","enablement","heartbeat","set-online","update-product","update-logistics","update-capacity","update-scheduling","update-payment-methods","update-payment-routes","update-member-profile","request-billing-package","notify-billing-payment","notify-refund-recovery-payment","cancel-billing-request"].includes(action)){
+    if(!["ads-campaign","ads-interest","clube-interest","business-pulse","growth-network","enablement","heartbeat","set-online","update-product","update-logistics","update-capacity","update-scheduling","update-payment-methods","update-payment-routes","update-member-profile","request-billing-package","notify-billing-payment","notify-refund-recovery-payment","cancel-billing-request"].includes(action)){
       throw new DomainError("INVALID_ACTION","Ação inválida.",400);
     }
 
@@ -175,6 +175,56 @@ Deno.serve(async(req:Request)=>{
           c.ads_live!==false||c.no_charge!==true))){
         throw new DomainError("ADS_CAMPAIGN_RESPONSE_INVALID",
           "Proposta de campanha não confirmada pelo servidor.",503);
+      }
+      return json(data,200,origin);
+    }
+    if(action==="clube-interest"){
+      if(!canManage(role))throw new DomainError("MERCHANT_ACCESS_DENIED",
+        "Somente proprietário ou gerente pode registrar interesse no Clube.",403);
+      const operation=String(body.operation??"view");
+      const packageKey=String(body.packageKey??"");
+      if(!["view","register","withdraw"].includes(operation)||
+         !["gas_3x5","water_5x2"].includes(packageKey)){
+        throw new DomainError("CLUBE_ACTION_INVALID","Selecione um pacote válido.",400);
+      }
+      const shareBps=operation==="register"?body.merchantShareBps:null;
+      const budgetCents=operation==="register"?body.budgetCents:null;
+      const expectedVersion=operation==="view"?null:body.expectedVersion;
+      const requestId=operation==="view"?null:String(body.requestId??"");
+      if(operation==="register"&&(
+          body.consent!==true||
+          !Number.isSafeInteger(shareBps)||shareBps<100||shareBps>10000||
+          !Number.isSafeInteger(budgetCents)||budgetCents<500||budgetCents>1000000)){
+        throw new DomainError("CLUBE_PROPOSAL_INVALID",
+          "Confira percentual, orçamento de estudo e consentimento.",400);
+      }
+      if(operation!=="view"&&(
+        !Number.isSafeInteger(expectedVersion)||expectedVersion<0||expectedVersion>2147483645||
+        !UUID_RE.test(String(requestId??"")))){
+        throw new DomainError("CLUBE_EXPECTED_VERSION_REQUIRED",
+          "Atualize a proposta antes de alterá-la.",409);
+      }
+      const {data,error}=await admin.rpc("merchant_clube_interest_v1_240",{
+        p_actor:user.id,p_merchant:merchantId,p_package_key:packageKey,p_operation:operation,
+        p_merchant_share_bps:shareBps,p_budget_cents:budgetCents,
+        p_consent:body.consent===true,p_expected_version:expectedVersion,
+        p_request_id:requestId
+      });
+      if(error)throw error;
+      if(data?.source!=="merchant_clube_interest_v1_240"||
+        data?.merchantId!==merchantId||data?.packageKey!==packageKey||
+        data?.readOnly!==(operation==="view")||
+        data?.noCharge!==true||data?.noContract!==true||
+        data?.fundingVerified!==false||data?.discountEnabled!==false||
+        data?.couponSalesEnabled!==false||data?.noFinancialObligation!==true||
+        typeof data?.interested!=="boolean"||
+        !Number.isSafeInteger(data?.version)||data.version<0||
+        !Number.isSafeInteger(data?.proposedBudgetCents)||
+        !Number.isSafeInteger(data?.merchantShareBps)||
+        (data?.interested&&(data.merchantShareBps<100||data.merchantShareBps>10000||
+            data.proposedBudgetCents<500||data.proposedBudgetCents>1000000))){
+        throw new DomainError("CLUBE_INTEREST_UNVERIFIED",
+          "Não foi possível validar a proposta com o servidor.",503);
       }
       return json(data,200,origin);
     }

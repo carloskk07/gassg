@@ -100,7 +100,7 @@ async function requireAdmin(admin:any,userId:string){
   if(!data)throw new DomainError("ADMIN_ACCESS_DENIED","Esta conta não possui acesso administrativo.",403);
   return data;
 }
-const ADMIN_READ_ACTIONS=new Set(["summary","search","entity-detail","system-health","billing-provider-health","audit-search","incident-list","merchant-payment-preflight","prospect-intelligence","expansion-notifications","expansion-radar","merchant-enablement","sale-payment-history","finance-receipts-history","commercial-history-list","operational-alerts","ads-demand","ads-audience-readiness","ads-preview-summary","ads-placement-readiness","ads-pilot-preflight","commercial-activation","ads-campaign-queue","growth-referral-review-queue"]);
+const ADMIN_READ_ACTIONS=new Set(["summary","search","entity-detail","system-health","billing-provider-health","audit-search","incident-list","merchant-payment-preflight","prospect-intelligence","expansion-notifications","expansion-radar","merchant-enablement","sale-payment-history","finance-receipts-history","commercial-history-list","operational-alerts","ads-demand","clube-interest-queue","ads-audience-readiness","ads-preview-summary","ads-placement-readiness","ads-pilot-preflight","commercial-activation","ads-campaign-queue","growth-referral-review-queue"]);
 const ADMIN_ROLE_ACTIONS:Record<string,Set<string>>={
   superadmin:new Set(["*"]),
   operations:new Set([
@@ -2519,6 +2519,38 @@ Deno.serve(async(req:Request)=>{
       if(error)throw error;
       if(data?.recorded!==true||data.noCharge!==true||data.adsLive!==false)
         throw new DomainError("ADS_CAMPAIGN_REVIEW_UNVERIFIED","Revisão não confirmada.",503);
+      return json(data,200,origin);
+    }
+    if(action==="clube-interest-queue"){
+      if(!["superadmin","operations","compliance","finance","readonly"].includes(String(adminAccess.admin_role))){
+        throw new DomainError("ADMIN_PERMISSION_DENIED",
+          "Acesso à fila do Clube não autorizado.",403);
+      }
+      const {data,error}=await admin.rpc("admin_clube_interest_queue_v1_240",{
+        p_actor:user.id
+      });
+      if(error)throw error;
+      if(data?.source!=="admin_clube_interest_queue_v1_240"||
+        data?.readOnly!==true||data?.noContactsExposed!==true||
+        data?.sponsorFundingConfirmedCents!==0||
+        data?.couponSalesEnabled!==false||data?.noCharge!==true||
+        data?.noContractsApproved!==true||
+        !Number.isSafeInteger(data?.totalProposals)||data.totalProposals<0||
+        !Array.isArray(data?.rows)||data.rows.length>50||
+        data.rows.length>data.totalProposals||
+        data.rows.some((r:any)=>!r||!UUID_RE.test(String(r.merchantId||""))||
+          !["gas_3x5","water_5x2"].includes(r.packageKey)||
+          !["gas","water"].includes(r.category)||
+          typeof r.companyName!=="string"||r.companyName.length>120||
+          typeof r.city!=="string"||r.city.length>100||
+          !/^[A-Z]{2}$/.test(String(r.state||""))||
+          !Number.isSafeInteger(r.shareBps)||r.shareBps<100||r.shareBps>10000||
+          !Number.isSafeInteger(r.budgetCents)||r.budgetCents<500||r.budgetCents>1000000||
+          r.fundingVerified!==false||r.contractApproved!==false||
+          !Number.isFinite(Date.parse(r.updatedAt||"")))){
+        throw new DomainError("CLUBE_QUEUE_UNVERIFIED",
+          "A fila de propostas do Clube não pôde ser confirmada.",503);
+      }
       return json(data,200,origin);
     }
     if(action==="ads-demand"){
