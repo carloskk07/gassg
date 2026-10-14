@@ -221,7 +221,7 @@ assert.equal(await evaluate("document.querySelector('#public-contact-value').typ
 await auditDom('contact');
 
 await evaluate("go('earn')");
-await waitFor("document.body.innerText.includes('Comprar pelo TAMÃO também pode trazer benefícios.')","earn route");
+await waitFor("document.body.innerText.includes('Compre bem, compartilhe o que gosta e construa sua rede.')","earn route");
 body=await text();
 assert.match(body,/Conhece alguém que gostaria de usar o TAMÃO\?/);
 assert.match(body,/Sua empresa pode vender por mais um canal/);
@@ -312,13 +312,13 @@ assert.match(body,/R\$\s*7,65/);
 await auditDom('club');
 
 await evaluate("go('refer')");
-await waitFor("document.body.innerText.includes('Tem alguém que gostaria de conhecer o TAMÃO?')","referral route");
+await waitFor("document.body.innerText.includes('Seu próximo convite pode abrir novas portas.')","referral route");
 body=await text();
-assert.match(body,/Saldo liberado ainda não significa saque por Pix/);
+assert.match(body,/Tudo acompanhado em um só lugar/);
 assert.match(body,/R\$\s*24,00/);
 assert.match(body,/primeira compra qualificada/i);
-assert.match(body,/Compras seguintes do mesmo cliente não geram outra comissão de indicação/i);
-assert.equal(await evaluate("[...document.querySelectorAll('button')].some(b=>b.textContent.includes('Saque Pix ainda não disponível')&&b.disabled)"),true);
+assert.match(body,/Compras posteriores não geram outra comissão de aquisição/i);
+assert.equal(await evaluate("[...document.querySelectorAll('button')].some(b=>b.textContent.includes('Saque Pix ainda não disponível')&&b.disabled)"),false);
 await evaluate("document.querySelector('#ref-sim-clients').value='25'; document.querySelector('#ref-sim-ticket').value='150'; updateReferralSimulator()");
 assert.match(await evaluate("document.querySelector('#ref-sim-total').textContent"),/75,00/);
 await auditDom('refer');
