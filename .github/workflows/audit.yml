@@ -239,6 +239,8 @@ jobs:
         run: node tests/owner-payout-private-proofs-v1-264.mjs
       - name: Test outgoing payout provider reconciliation V1.265
         run: node tests/owner-mp-payout-provider-v1-265.mjs
+      - name: Test beneficiary proof gaps V1.266
+        run: node tests/owner-recipient-evidence-gaps-v1-266.mjs
       - name: TAMÃO V1.258 founder-approved orphan deletion with immutable audit
         run: node tests/owner-receipt-orphan-cleanup-v1-258.mjs
       - name: Turnstile smoke Chrome cleanup V1.238.1
