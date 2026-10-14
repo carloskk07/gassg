@@ -1190,7 +1190,7 @@ function merchantPaymentActivationSteps(account,manualDeclared){
     {label:'Provedor informado ou conta conectada',done:manualDeclared||connected},
     {label:'Conexão autenticada da conta',done:connected},
     {label:'Automação autorizada e com validação do PSP',done:enabled&&canValidate},
-    {label:'Transação real com evidência verificada',done:enabled&&canValidate&&e2eVerified}
+    {label:'Transação real com evidência verificada',done:e2eVerified&&canValidate}
   ];
 }
 function merchantPaymentActivationChecklist(account,manualDeclared){
