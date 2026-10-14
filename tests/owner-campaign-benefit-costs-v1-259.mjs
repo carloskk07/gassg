@@ -38,7 +38,7 @@ assert.ok(edge.includes('data?.externalPaidBenefitsCents!==null'));
 assert.ok(edge.includes('data?.benefitsUsedAreIssuanceCohort!==false'));
 assert.ok(ui.includes('adminOwnerBenefitCostsSection()'));
 assert.ok(ui.includes('adminOwnerBenefitsLoadFromUi'));
-assert.ok(boot.includes('adminOwnerBridgeLoadFromUi,adminOwnerBenefitsLoadFromUi,adminOwnerOrphanAuditLoadFromUi'));
+assert.ok(boot.includes('adminOwnerBridgeLoadFromUi,adminOwnerOrphanAuditLoadFromUi,adminOwnerBenefitsLoadFromUi'));
 assert.ok(audit.includes('node tests/owner-campaign-benefit-costs-v1-259.mjs'));
 new vm.Script(ui,{filename:'js/admin-acquisition.js'});
 new vm.Script(boot,{filename:'js/bootstrap.js'});
