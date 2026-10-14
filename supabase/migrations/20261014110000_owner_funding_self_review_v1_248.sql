@@ -14,11 +14,15 @@ begin
     and c.contype='c'
     and pg_catalog.pg_get_constraintdef(c.oid) ilike '%reviewer_id%'
     and pg_catalog.pg_get_constraintdef(c.oid) ilike '%submitted_by%';
-  if v_count<>1 then
+  -- Some deployments already ran the equivalent V1.248 correction.
+  -- In that case the restrictive CHECK no longer exists; continue safely.
+  if v_count>1 then
     raise exception 'OWNER_EVIDENCE_SELF_REVIEW_CONSTRAINT_DRIFT' using errcode='23514';
   end if;
-  execute pg_catalog.format(
-    'alter table public.platform_owner_contributions_v1_246 drop constraint %I',v_constraint);
+  if v_count=1 then
+    execute pg_catalog.format(
+      'alter table public.platform_owner_contributions_v1_246 drop constraint %I',v_constraint);
+  end if;
 end $migration$;
 
 create or replace function platform_funding_private_v1_246.review(
