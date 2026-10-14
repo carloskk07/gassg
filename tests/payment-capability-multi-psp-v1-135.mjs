@@ -169,7 +169,7 @@ assert.ok(
 assert.ok(
   merchant.includes('Seu banco ou maquininha')
   &&merchant.includes('Escolher outro banco ou maquininha (opcional)')
-  &&merchant.includes('a integração bancária é opcional.')
+  &&merchant.includes('A integração bancária é opcional.')
   &&merchant.includes('merchantConnectProviderFromUi')
   &&merchant.includes('merchantUseProviderManuallyFromUi')
   &&merchant.includes('merchantUpdatePaymentRoutesLive')
