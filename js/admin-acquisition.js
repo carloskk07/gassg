@@ -1883,6 +1883,7 @@ async function adminOwnerFinanceLoadFromUi(){
       adminCampaignCostsState=null;
       adminOwnerBridgeState=null;
       adminOwnerOrphanAuditState=null;
+      adminOwnerOrphanCleanupState=null;
       toast(adminOwnerFinanceError);
     }
   }finally{adminOwnerFinanceLoading=false;render();}
@@ -2487,6 +2488,99 @@ function adminCampaignCostsSection(){
     '</div>';
 }
 
+// TAMÃO V1.258 — manually confirmed one-file orphan cleanup. No scheduled deletion.
+let adminOwnerOrphanCleanupState=null;
+let adminOwnerOrphanCleanupBusy=false;
+let adminOwnerOrphanDeleteBusy=false;
+async function adminOwnerOrphanCleanupLoadFromUi(){
+  const actor=String(adminRuntime?.session?.user?.id||'');
+  const role=String(adminCurrentRole());
+  if(!actor||!['superadmin','finance'].includes(role)||adminOwnerOrphanCleanupBusy)return;
+  adminOwnerOrphanCleanupBusy=true;render();
+  try{
+    const d=await adminInvoke({action:'owner-orphan-cleanup-candidates'});
+    if(d?.source!=='admin_owner_cleanup_candidates_v1_258'||
+       d?.readOnly!==true||d?.privateBucket!==true||d?.noObjectPaths!==true||
+       d?.deletionPerformed!==false||d?.automaticDeletionEnabled!==false||
+       d?.minAgeHours!==24||d?.limit!==20||
+       !Number.isSafeInteger(d.totalCandidates)||d.totalCandidates<0||
+       d.truncated!==(d.totalCandidates>20)||
+       !Array.isArray(d.rows)||d.rows.length>20||
+       d.rows.length>d.totalCandidates||
+       d.rows.some(x=>!x||!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(String(x.objectId||''))||
+         !Number.isFinite(Date.parse(String(x.createdAt||'')))))
+      throw new Error('Lista de arquivos órfãos não verificada.');
+    if(actor===String(adminRuntime?.session?.user?.id||'')&&role===String(adminCurrentRole()))
+      adminOwnerOrphanCleanupState={...d,loadedFor:actor};
+  }catch(e){
+    if(actor===String(adminRuntime?.session?.user?.id||'')){
+      adminOwnerOrphanCleanupState=null;
+      toast(String(e?.message||'Não foi possível carregar candidatos.'));
+    }
+  }finally{adminOwnerOrphanCleanupBusy=false;render();}
+}
+async function adminOwnerOrphanCleanupDeleteFromUi(objectId){
+  const actor=String(adminRuntime?.session?.user?.id||'');
+  if(!actor||String(adminCurrentRole())!=='superadmin'||adminOwnerOrphanDeleteBusy)return;
+  const d=adminOwnerOrphanCleanupState?.loadedFor===actor?adminOwnerOrphanCleanupState:null;
+  if(!d?.rows?.some(x=>x.objectId===objectId))return;
+  const confirm=String(document.getElementById('owner-orphan-confirm-'+objectId)?.value||'').trim();
+  if(confirm!=='EXCLUIR')
+    return toast('Digite EXCLUIR para confirmar a remoção definitiva deste arquivo sem vínculo.');
+  adminOwnerOrphanDeleteBusy=true;
+  try{
+    const result=await adminInvoke({action:'owner-orphan-cleanup-delete',
+      objectId,requestId:crypto.randomUUID(),confirm:'EXCLUIR'});
+    if(result?.source!=='admin_owner_cleanup_deleted_v1_258'||
+       result?.objectAbsentConfirmed!==true||result?.oneObjectOnly!==true||
+       result?.automaticDeletionEnabled!==false||result?.auditRecorded!==true||
+       result?.linkedReceiptDeleted!==false||result?.objectPathsExposed!==false)
+      throw new Error('Exclusão não confirmada pelo registro de auditoria.');
+    if(actor===String(adminRuntime?.session?.user?.id||'')){
+      toast('Arquivo órfão removido e resultado registrado na auditoria.');
+      await adminOwnerOrphanCleanupLoadFromUi();
+      await adminOwnerOrphanAuditLoadFromUi();
+    }
+  }catch(e){
+    if(actor===String(adminRuntime?.session?.user?.id||'')){
+      adminOwnerOrphanCleanupState=null;
+      toast(String(e?.message||'Falha ao remover o arquivo. Consulte a auditoria.'));
+    }
+  }finally{adminOwnerOrphanDeleteBusy=false;render();}
+}
+function adminOwnerOrphanCleanupSection(){
+  if(!['superadmin','finance'].includes(String(adminCurrentRole())))return '';
+  const actor=String(adminRuntime?.session?.user?.id||'');
+  const role=String(adminCurrentRole());
+  const d=adminOwnerOrphanCleanupState?.loadedFor===actor?adminOwnerOrphanCleanupState:null;
+  const items=(d?.rows||[]).map((x,i)=>'<article class="card flat form-stack">'+
+    '<strong>Arquivo sem vínculo '+(i+1)+'</strong>'+
+    '<p class="tiny muted">Identificador técnico: '+esc(x.objectId)+
+    ' • Enviado em: '+esc(x.createdAt)+'</p>'+
+    (role==='superadmin'?
+      '<label class="input-wrap">Digite EXCLUIR para remover apenas este arquivo'+
+      '<input class="input" id="owner-orphan-confirm-'+esc(x.objectId)+
+      '" placeholder="EXCLUIR" autocomplete="off" maxlength="7"></label>'+
+      '<button type="button" class="secondary small" onclick="adminOwnerOrphanCleanupDeleteFromUi(\''+
+      esc(x.objectId)+'\')" '+(adminOwnerOrphanDeleteBusy?'disabled':'')+
+      '>Remover este arquivo órfão</button>':
+      '<p class="tiny muted">Somente o administrador principal pode autorizar a exclusão.</p>')+
+    '</article>').join('');
+  return '<div class="form-stack">'+
+    '<h4>Revisão e limpeza individual de uploads abandonados</h4>'+
+    '<p class="tiny muted">Apenas arquivos do bucket privado sem vínculo e enviados há mais de 24 horas aparecem aqui. A exclusão é permanente e exige confirmação para cada arquivo. Nenhum comprovante vinculado pode ser removido.</p>'+
+    '<button type="button" class="secondary small" onclick="adminOwnerOrphanCleanupLoadFromUi()" '+
+    (adminOwnerOrphanCleanupBusy?'disabled':'')+'>Consultar candidatos seguros</button>'+
+    (d?'<p class="tiny muted">'+Number(d.totalCandidates).toLocaleString('pt-BR')+
+      ' candidato(s) para revisão'+(d.truncated?' • até 20 por consulta':'')+'</p>'+
+      '<div class="grid cards-2">'+
+      (items||'<p class="muted">Nenhum arquivo está elegível para exclusão.</p>')+
+      '</div>':
+      '<p class="tiny muted">Consulte primeiro os candidatos. Arquivos recentes ou já vinculados não são listados.</p>')+
+    '<p class="tiny muted">Não há limpeza automática em segundo plano. O sistema registra a autorização e verifica a ausência do objeto depois da remoção pela API Storage.</p>'+
+    '</div>';
+}
+
 // TAMÃO V1.257 — financial evidence consolidation, not profit or campaign ROI.
 let adminOwnerBridgeState=null;
 let adminOwnerBridgeBusy=false;
@@ -2637,6 +2731,7 @@ function adminOwnerFinancialSummarySection(){
     '<button type="button" class="secondary small" onclick="adminOwnerOrphanAuditLoadFromUi()" '+
     (adminOwnerOrphanAuditBusy?'disabled':'')+'>Auditar arquivos sem vínculo</button>'+
     orphanView+
+    (typeof adminOwnerOrphanCleanupSection==='function'?adminOwnerOrphanCleanupSection():'')+
     '<p class="tiny muted">Nenhuma exclusão automática está habilitada. Os arquivos associados a despesas corrigidas permanecem preservados.</p></div>'+
     '</div>';
 }
