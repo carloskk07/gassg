@@ -2831,7 +2831,7 @@ function adminOwnerFinancialSummarySection(){
       (cards||'<p class="muted">Ainda não há campanhas com orçamento planejado nesta competência.</p>')+
       '</div>':
       '<p class="tiny muted">Consulte a competência selecionada para comparar somente dados reais do banco.</p>')+
-    adminOwnerBenefitCostsSection()+
+    (typeof adminOwnerBenefitCostsSection==='function'?adminOwnerBenefitCostsSection():'')+
     '<div class="card flat form-stack"><h4>Integridade dos comprovantes privados</h4>'+
     '<p>Auditoria de arquivos sem vínculo à despesa. Os uploads recentes têm proteção de 24 horas; esta consulta não exclui documentos.</p>'+
     '<button type="button" class="secondary small" onclick="adminOwnerOrphanAuditLoadFromUi()" '+
