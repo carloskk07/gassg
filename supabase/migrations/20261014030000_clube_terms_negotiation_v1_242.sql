@@ -393,6 +393,14 @@ begin
   and v_review.state_snapshot=v_interest.state_snapshot
   and v_review.merchant_share_bps=v_interest.merchant_share_bps
   and v_review.proposed_budget_cents=v_interest.proposed_budget_cents;
+ -- Draft, withdrawn or stale terms cannot be disclosed to the merchant as an offer.
+ if p_action='view' and (v_term.terms_status<>'shared_for_discussion'
+   or v_current is distinct from true) then
+  return jsonb_build_object('source','merchant_clube_terms_v1_242',
+   'merchantId',p_merchant,'packageKey',p_package,'terms',null,
+   'readOnly',true,'changed',false,'replayed',false,'noContract',true,
+   'noCharge',true,'fundingVerified',false,'couponSalesEnabled',false);
+ end if;
  if p_action<>'view' and not v_replayed then
   if not v_current or v_term.version<>p_version or v_term.terms_status<>'shared_for_discussion' then
    raise exception 'CLUBE_TERMS_REPLY_STALE' using errcode='40001';end if;
