@@ -100,7 +100,7 @@ async function requireAdmin(admin:any,userId:string){
   if(!data)throw new DomainError("ADMIN_ACCESS_DENIED","Esta conta não possui acesso administrativo.",403);
   return data;
 }
-const ADMIN_READ_ACTIONS=new Set(["summary","search","entity-detail","system-health","billing-provider-health","audit-search","incident-list","merchant-payment-preflight","prospect-intelligence","expansion-notifications","expansion-radar","merchant-enablement","sale-payment-history","finance-receipts-history","commercial-history-list","operational-alerts","ads-demand","clube-interest-queue","clube-campaign-queue","clube-terms-queue","owner-funding-read","owner-funding-pulse","owner-evidence-queue","owner-budget-queue","owner-finance-history","owner-campaign-signals","owner-campaign-orders","owner-campaign-fee-receipts","owner-campaign-batch-ledger","owner-campaign-cost-read","ads-audience-readiness","ads-preview-summary","ads-placement-readiness","ads-pilot-preflight","commercial-activation","ads-campaign-queue","growth-referral-review-queue"]);
+const ADMIN_READ_ACTIONS=new Set(["summary","search","entity-detail","system-health","billing-provider-health","audit-search","incident-list","merchant-payment-preflight","prospect-intelligence","expansion-notifications","expansion-radar","merchant-enablement","sale-payment-history","finance-receipts-history","commercial-history-list","operational-alerts","ads-demand","clube-interest-queue","clube-campaign-queue","clube-terms-queue","owner-funding-read","owner-funding-pulse","owner-evidence-queue","owner-budget-queue","owner-finance-history","owner-campaign-signals","owner-campaign-orders","owner-campaign-fee-receipts","owner-campaign-batch-ledger","owner-campaign-cost-read","owner-campaign-receipts-read","owner-campaign-receipt-view","ads-audience-readiness","ads-preview-summary","ads-placement-readiness","ads-pilot-preflight","commercial-activation","ads-campaign-queue","growth-referral-review-queue"]);
 const ADMIN_ROLE_ACTIONS:Record<string,Set<string>>={
   superadmin:new Set(["*"]),
   operations:new Set([
@@ -2530,6 +2530,163 @@ Deno.serve(async(req:Request)=>{
     // V1.254 — read-only, exact statement-balanced per-order fee evidence for batches.
     // V1.255 — marketing expense statements are founder attested, NOT bank-verified.
     // The marketing cost ledger is separate from incentive funding budgets.
+    // V1.256 — documentary receipts. Storage bucket is PRIVATE.
+    // Signed upload tokens are scoped to a random single-use object path;
+    // no service-role key reaches the browser.
+    if(action==="owner-campaign-receipt-prepare"){
+      if(String(adminAccess.admin_role)!=="superadmin")
+        throw new DomainError("ADMIN_PERMISSION_DENIED","Somente o administrador principal envia comprovantes.",403);
+      const expense=String(body.expenseId??"");
+      const mime=String(body.mimeType??"");
+      const size=body.sizeBytes;
+      const allowed:{[key:string]:string}={
+        "application/pdf":"pdf","image/png":"png","image/jpeg":"jpg"
+      };
+      if(!UUID_RE.test(expense)||!allowed[mime]||
+        !Number.isSafeInteger(size)||size<64||size>3145728)
+        throw new DomainError("OWNER_RECEIPT_INVALID","Use PDF, PNG ou JPEG de até 3 MB.",400);
+      const {data:eligible,error:eligibleError}=await admin.rpc(
+        "admin_owner_campaign_receipt_eligible_v1_256",{
+          p_actor:user.id,p_expense:expense
+        });
+      if(eligibleError)throw eligibleError;
+      if(eligible?.source!=="admin_owner_campaign_receipt_eligible_v1_256"||
+         eligible?.eligible!==true||eligible?.alreadyAttached!==false||
+         eligible?.bankVerified!==false||eligible?.cashMoved!==false)
+        throw new DomainError("OWNER_RECEIPT_ALREADY_ATTACHED","O gasto já possui comprovante.",409);
+      const path=expense+"/"+crypto.randomUUID()+"."+allowed[mime];
+      const {data:token,error:signError}=await admin.storage
+        .from("tamao-owner-campaign-receipts-v1-256")
+        .createSignedUploadUrl(path,{upsert:false});
+      if(signError||!token?.token||token.path!==path)
+        throw new DomainError("OWNER_RECEIPT_SIGN_FAILED","Não foi possível preparar envio privado.",503);
+      return json({source:"admin_owner_campaign_receipt_prepare_v1_256",
+        bucket:"tamao-owner-campaign-receipts-v1-256",
+        path,token:token.token,mimeType:mime,maxBytes:3145728,
+        privateBucket:true,bankVerified:false},200,origin);
+    }
+    if(action==="owner-campaign-receipt-finalize"){
+      if(String(adminAccess.admin_role)!=="superadmin")
+        throw new DomainError("ADMIN_PERMISSION_DENIED","Somente o administrador principal finaliza comprovantes.",403);
+      const expense=String(body.expenseId??"");
+      const path=String(body.path??"");
+      const mime=String(body.mimeType??"");
+      const hash=String(body.sha256??"");
+      const match={
+        "application/pdf":"pdf","image/png":"png","image/jpeg":"jpg"
+      } as Record<string,string>;
+      if(!UUID_RE.test(expense)||!match[mime]||
+         !new RegExp("^"+expense+"/[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}\\\\."+match[mime]+"$","i").test(path)||
+         !/^[0-9a-f]{64}$/.test(hash))
+        throw new DomainError("OWNER_RECEIPT_FINALIZE_INVALID","Metadados do comprovante inválidos.",400);
+      const {data:eligibility,error:eligibilityError}=await admin.rpc(
+        "admin_owner_campaign_receipt_eligible_v1_256",{
+          p_actor:user.id,p_expense:expense
+        });
+      if(eligibilityError)throw eligibilityError;
+      if(eligibility?.source!=="admin_owner_campaign_receipt_eligible_v1_256"||
+         eligibility?.bankVerified!==false||eligibility?.cashMoved!==false)
+        throw new DomainError("OWNER_RECEIPT_NOT_ELIGIBLE","Despesa indisponível.",403);
+      if(eligibility.alreadyAttached===true){
+        const {data:existing,error:existingError}=await admin.rpc(
+          "admin_owner_campaign_receipt_path_v1_256",{
+            p_actor:user.id,p_expense:expense
+          });
+        if(existingError||existing?.objectPath!==path||existing?.sha256!==hash||
+           existing?.mimeType!==mime)
+          throw new DomainError("OWNER_RECEIPT_ALREADY_ATTACHED","Já existe outro comprovante.",409);
+        return json({source:"admin_owner_campaign_receipt_attach_v1_256",
+          attached:true,replayed:true,bankVerified:false,
+          cashMoved:false,newBenefitsEnabled:false},200,origin);
+      }
+      const {data:blob,error:downloadError}=await admin.storage
+        .from("tamao-owner-campaign-receipts-v1-256").download(path);
+      if(downloadError||!blob)
+        throw new DomainError("OWNER_RECEIPT_FILE_MISSING","Envio não encontrado no armazenamento.",409);
+      const bytes=new Uint8Array(await blob.arrayBuffer());
+      if(bytes.length<64||bytes.length>3145728)
+        throw new DomainError("OWNER_RECEIPT_FILE_SIZE","Tamanho do arquivo incompatível.",400);
+      const pdf=mime==="application/pdf"&&
+        bytes[0]===37&&bytes[1]===80&&bytes[2]===68&&bytes[3]===70&&bytes[4]===45;
+      const png=mime==="image/png"&&
+        [137,80,78,71,13,10,26,10].every((v,i)=>bytes[i]===v);
+      const jpeg=mime==="image/jpeg"&&
+        bytes[0]===255&&bytes[1]===216&&bytes[2]===255;
+      if(!pdf&&!png&&!jpeg)
+        throw new DomainError("OWNER_RECEIPT_FILE_TYPE","Conteúdo não corresponde ao formato informado.",400);
+      const actualHash=Array.from(new Uint8Array(await crypto.subtle.digest("SHA-256",bytes)))
+        .map(x=>x.toString(16).padStart(2,"0")).join("");
+      if(actualHash!==hash)
+        throw new DomainError("OWNER_RECEIPT_HASH_MISMATCH","Arquivo enviado não corresponde ao escolhido.",409);
+      const {data:attached,error:attachedError}=await admin.rpc(
+        "admin_owner_campaign_receipt_attach_v1_256",{
+          p_actor:user.id,p_expense:expense,p_path:path,p_mime:mime,
+          p_size:bytes.length,p_sha:actualHash
+        });
+      if(attachedError)throw attachedError;
+      if(attached?.source!=="admin_owner_campaign_receipt_attach_v1_256"||
+         attached?.attached!==true||typeof attached.replayed!=="boolean"||
+         attached?.bankVerified!==false||attached?.cashMoved!==false||
+         attached?.newBenefitsEnabled!==false)
+        throw new DomainError("OWNER_RECEIPT_ATTACH_UNVERIFIED","Vínculo documental não confirmado.",503);
+      return json(attached,200,origin);
+    }
+    if(action==="owner-campaign-receipts-read"){
+      if(!["superadmin","finance"].includes(String(adminAccess.admin_role)))
+        throw new DomainError("ADMIN_PERMISSION_DENIED","Consulta documental restrita.",403);
+      const month=String(body.month??"");
+      if(month!==""&&!/^\d{4}-(0[1-9]|1[0-2])-01$/.test(month))
+        throw new DomainError("OWNER_RECEIPT_MONTH_INVALID","Competência inválida.",400);
+      const {data,error}=await admin.rpc("admin_owner_campaign_receipts_read_v1_256",{
+        p_actor:user.id,p_month:month||null
+      });
+      if(error)throw error;
+      if(data?.source!=="admin_owner_campaign_receipts_read_v1_256"||
+         data?.readOnly!==true||data?.privateBucket!==true||
+         data?.bankVerified!==false||data?.noPublicUrls!==true||
+         !/^\d{4}-\d{2}-01$/.test(String(data?.month||""))||
+         (month!==""&&data.month!==month)||
+         !Number.isSafeInteger(data.total)||data.total<0||
+         data.limit!==100||data.truncated!==(data.total>100)||
+         !Array.isArray(data.rows)||data.rows.length>100||
+         data.rows.length>data.total||
+         data.rows.some((x:any)=>!x||!UUID_RE.test(String(x.expenseId||""))||
+           !Number.isSafeInteger(x.sizeBytes)||x.sizeBytes<64||x.sizeBytes>3145728||
+           !["application/pdf","image/png","image/jpeg"].includes(x.mimeType)||
+           !/^[0-9a-f]{64}$/.test(String(x.sha256||""))||
+           !Number.isFinite(Date.parse(String(x.uploadedAt||"")))||
+           typeof x.voided!=="boolean"))
+        throw new DomainError("OWNER_RECEIPTS_UNVERIFIED","Metadados documentais não verificados.",503);
+      return json(data,200,origin);
+    }
+    if(action==="owner-campaign-receipt-view"){
+      if(!["superadmin","finance"].includes(String(adminAccess.admin_role)))
+        throw new DomainError("ADMIN_PERMISSION_DENIED","Consulta documental restrita.",403);
+      const expense=String(body.expenseId??"");
+      if(!UUID_RE.test(expense))
+        throw new DomainError("OWNER_RECEIPT_INVALID_EXPENSE","Despesa inválida.",400);
+      const {data,error}=await admin.rpc("admin_owner_campaign_receipt_path_v1_256",{
+        p_actor:user.id,p_expense:expense
+      });
+      if(error)throw error;
+      if(data?.source!=="admin_owner_campaign_receipt_path_v1_256"||
+         typeof data?.objectPath!=="string"||
+         !data.objectPath.startsWith(expense+"/")||
+         !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}\/[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}\.(pdf|png|jpg)$/i.test(data.objectPath)||
+         !/^[0-9a-f]{64}$/.test(String(data.sha256||""))||
+         !Number.isSafeInteger(data.sizeBytes)||data.sizeBytes<64||data.sizeBytes>3145728||
+         !["application/pdf","image/png","image/jpeg"].includes(data.mimeType))
+        throw new DomainError("OWNER_RECEIPT_PATH_UNVERIFIED","Arquivo não verificado.",503);
+      const {data:signed,error:signedError}=await admin.storage
+        .from("tamao-owner-campaign-receipts-v1-256")
+        .createSignedUrl(data.objectPath,60,{download:true});
+      if(signedError||typeof signed?.signedUrl!=="string"||
+         !signed.signedUrl.startsWith(SUPABASE_URL+"/storage/v1/object/sign/"))
+        throw new DomainError("OWNER_RECEIPT_SIGN_FAILED","Não foi possível gerar acesso temporário.",503);
+      return json({source:"admin_owner_campaign_receipt_view_v1_256",
+        url:signed.signedUrl,expiresInSeconds:60,
+        temporaryDownload:true,bankVerified:false},200,origin);
+    }
     if(action==="owner-campaign-cost-read"){
       if(!["superadmin","finance"].includes(String(adminAccess.admin_role)))
         throw new DomainError("ADMIN_PERMISSION_DENIED","Consulta financeira restrita.",403);
