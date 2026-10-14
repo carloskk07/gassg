@@ -2662,6 +2662,25 @@ async function adminOwnerMultiPspLoadFromUi(){
     }
   }finally{adminOwnerMultiPspBusy=false;render();}
 }
+// V1.268 — operational guidance from real counts; catalog metadata is not proof.
+function adminOwnerMultiPspAdapterGuidance(p){
+  const mode=String(p.catalogConnectionMode||'');
+  const status=String(p.catalogAdapterStatus||'');
+  if(mode==='manual'||status==='manual_only')
+    return 'Conferência manual: não há confirmação automática do banco neste modo.';
+  if(status==='implemented')
+    return 'Adaptador disponível no sistema; conexão da revenda e homologação real ainda precisam ser comprovadas.';
+  if(status==='ready_for_credentials')
+    return 'Aguardando configuração/homologação: recursos declarados não significam API conectada.';
+  return 'Situação técnica indeterminada: revisar documentação do provedor antes de usar.';
+}
+function adminOwnerMultiPspEvidenceGuidance(p){
+  if(p.providerVerifiedOrders>0)
+    return 'Há pedidos com evidência do provedor registrada nesta competência; isso não confirma liquidação bancária.';
+  if(p.evidenceRecords>0||p.paymentAttempts>0)
+    return 'Há atividade registrada, mas nenhum pedido com evidência validada do provedor nesta competência.';
+  return 'Sem tentativas ou evidências de pagamentos registradas nesta competência.';
+}
 function adminOwnerMultiPspSection(){
   const role=String(adminCurrentRole());
   if(!['superadmin','finance'].includes(role))return '';
@@ -2669,15 +2688,20 @@ function adminOwnerMultiPspSection(){
   const d=adminOwnerMultiPspState?.loadedFor===actor?adminOwnerMultiPspState:null;
   const selectedMonth=String(document.getElementById('owner-campaign-signals-month')?.value||'').trim();
   const valid=d&&(!selectedMonth||d.month.slice(0,7)===selectedMonth);
-  const merchantRows=(valid?d.merchantProviders:[]).map(p=>
+  const configuredCatalog=(valid?d.merchantProviders:[]);
+  const withProviderEvidence=configuredCatalog.filter(p=>p.providerVerifiedOrders>0).length;
+  const needsCredentialReview=configuredCatalog.filter(p=>p.catalogAdapterStatus==='ready_for_credentials').length;
+  const manualOnly=configuredCatalog.filter(p=>p.catalogConnectionMode==='manual').length;
+  const merchantRows=configuredCatalog.map(p=>
     '<article class="card flat form-stack"><h5>'+esc(p.displayName)+'</h5>'+
-    '<p class="tiny muted">Catálogo: '+esc(p.catalogAdapterStatus)+
-      ' • modo '+esc(p.catalogConnectionMode)+
+    '<p class="tiny muted"><strong>Etapa técnica:</strong> '+esc(adminOwnerMultiPspAdapterGuidance(p))+'</p>'+
+    '<p class="tiny muted">Modo: '+esc(p.catalogConnectionMode)+
       ' • consulta declarada: '+(p.catalogSupportsLookup?'sim':'não')+
       ' • webhook declarado: '+(p.catalogSupportsWebhook?'sim':'não')+'</p>'+
     '<p>'+Number(p.paymentAttempts)+' tentativas • '+
       Number(p.evidenceRecords)+' registros de evidência • '+
       Number(p.providerVerifiedOrders)+' pedidos com evidência do provedor</p>'+
+    '<p class="tiny muted">'+esc(adminOwnerMultiPspEvidenceGuidance(p))+'</p>'+
     '<p class="tiny muted">Recebimento destinado à revenda. Não é comprovante de repasse do TAMÃO.</p></article>'
   ).join('');
   const outgoingRows=(valid?d.outgoingProviders:[]).map(p=>
@@ -2708,6 +2732,11 @@ function adminOwnerMultiPspSection(){
       Number(d.outgoingClaims)+'</strong></div>'+
       '<div class="kpi"><span class="label">Consultas oficiais de saída</span><strong>'+
       Number(d.outgoingClaimsQueried)+'</strong></div></div>'+
+      '<h5>Roteiro para ativação real</h5>'+
+      '<p class="tiny muted">'+Number(withProviderEvidence)+' provedores com pedidos que possuem evidência registrada do PSP; '+
+      Number(needsCredentialReview)+' opções aguardando configuração/homologação; '+
+      Number(manualOnly)+' modos manuais no catálogo. São indicadores de estágios diferentes; não somá-los como integrações ativas.</p>'+
+      '<p class="tiny muted">Próxima ação: a revenda escolhe seu prestador, conclui a conexão/homologação quando aplicável e realiza uma transação legítima; o TAMÃO verifica os eventos e a evidência do provedor. Sem transação real, manter o estado como não comprovado.</p>'+
       '<h5>Pagamentos dos clientes às revendas</h5>'+
       '<p class="tiny muted">A situação exibida no catálogo descreve recursos previstos ou implementados, não credenciais ativas nem transações confirmadas.</p>'+
       '<div class="grid cards-2">'+(merchantRows||
