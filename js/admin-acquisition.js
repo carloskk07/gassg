@@ -1881,6 +1881,8 @@ async function adminOwnerFinanceLoadFromUi(){
       adminOwnerCampaignFeeReceiptsState=null;
       adminOwnerBatchLedgerState=null;
       adminCampaignCostsState=null;
+      adminOwnerBridgeState=null;
+      adminOwnerOrphanAuditState=null;
       toast(adminOwnerFinanceError);
     }
   }finally{adminOwnerFinanceLoading=false;render();}
@@ -2162,6 +2164,7 @@ function adminOwnerCampaignSignalsSection(){
     adminOwnerCampaignFeeReceiptsSection()+
     adminOwnerBatchLedgerSection()+
     adminCampaignCostsSection()+
+    (typeof adminOwnerFinancialSummarySection==='function'?adminOwnerFinancialSummarySection():'')+
     '</div>';
 }
 
@@ -2481,6 +2484,160 @@ function adminCampaignCostsSection(){
       (entries||'<p class="muted">Não há despesas registradas nesta competência.</p>')+'</div>':
       '<p class="muted">Consulte a competência selecionada para carregar os gastos registrados.</p>')+
     '<p class="tiny muted">Os valores são pagamentos declarados pelo administrador. Não há upload automático ao registrar a despesa: o comprovante pode ser anexado separadamente em armazenamento privado, mas o arquivo não prova conciliação bancária, libera saldo ou calcula ROI. Corrigir um lançamento não apaga o registro original.</p>'+
+    '</div>';
+}
+
+// TAMÃO V1.257 — financial evidence consolidation, not profit or campaign ROI.
+let adminOwnerBridgeState=null;
+let adminOwnerBridgeBusy=false;
+let adminOwnerOrphanAuditState=null;
+let adminOwnerOrphanAuditBusy=false;
+async function adminOwnerBridgeLoadFromUi(){
+  const actor=String(adminRuntime?.session?.user?.id||'');
+  const role=String(adminCurrentRole());
+  if(!actor||!['superadmin','finance'].includes(role)||adminOwnerBridgeBusy)return;
+  const month=String(document.getElementById('owner-campaign-signals-month')?.value||'').trim();
+  if(month&&!/^\d{4}-(0[1-9]|1[0-2])$/.test(month))
+    return toast('Selecione uma competência válida.');
+  adminOwnerBridgeBusy=true;render();
+  try{
+    const d=await adminInvoke({action:'owner-campaign-financial-summary',month:month?month+'-01':''});
+    const kinds=['customer_cashback','customer_referral','merchant_referral','clube_coupons'];
+    if(d?.source!=='admin_owner_campaign_financial_bridge_v1_257'||
+       d?.readOnly!==true||d?.noTransfers!==true||
+       d?.newBenefitsEnabled!==false||d?.cashAvailableCents!==0||
+       d?.bankSettlementVerified!==false||d?.profitMeasured!==false||
+       d?.roiMeasured!==false||d?.revenueAttributionIsCausal!==false||
+       d?.comparisonMeaning!=='partial_difference_not_profit_not_roi'||
+       d?.expenseSource!=='v1_255_owner_attested_with_v1_256_optional_document'||
+       !Array.isArray(d.receiptSources)||d.receiptSources.length!==2||
+       d.receiptSources[0]!=='v1_253_single_order_psp'||
+       d.receiptSources[1]!=='v1_254_batch_order_psp'||
+       !/^\d{4}-\d{2}-01$/.test(String(d?.month||''))||
+       (month&&d.month!==month+'-01')||
+       !Number.isSafeInteger(d.totalCampaigns)||d.totalCampaigns<0||
+       d.limit!==50||d.truncated!==(d.totalCampaigns>50)||
+       !Array.isArray(d.rows)||d.rows.length>50||d.rows.length>d.totalCampaigns||
+       d.rows.some(x=>!x||!/^[0-9a-f-]{36}$/i.test(String(x.allocationId||''))||
+         !kinds.some(k=>typeof x.campaignTag==='string'&&x.campaignTag.startsWith(
+           'tam-'+k+'-'+d.month.slice(0,4)+d.month.slice(5,7)+'-'))||
+         typeof x.campaignLabel!=='string'||x.campaignLabel.length>180||
+         !['plannedIncentiveBudgetCents','soloProviderFeeCents','batchProviderFeeCents',
+           'providerFeeEvidenceCents','providerFeeEvidenceOrders',
+           'ownerReportedMarketingSpendCents','marketingSpendWithStoredReceiptCents',
+           'marketingSpendWithoutStoredReceiptCents','activeExpenseCount','storedReceiptCount']
+           .every(k=>Number.isSafeInteger(x[k])&&x[k]>=0)||
+         x.providerFeeEvidenceCents!==x.soloProviderFeeCents+x.batchProviderFeeCents||
+         x.marketingSpendWithStoredReceiptCents+
+           x.marketingSpendWithoutStoredReceiptCents!==x.ownerReportedMarketingSpendCents||
+         x.storedReceiptCount>x.activeExpenseCount||
+         (x.partialEvidenceDifferenceCents===null?(
+           x.providerFeeEvidenceCents>0&&x.ownerReportedMarketingSpendCents>0
+         ):(
+           !Number.isSafeInteger(x.partialEvidenceDifferenceCents)||
+           x.partialEvidenceDifferenceCents!==
+             x.providerFeeEvidenceCents-x.ownerReportedMarketingSpendCents||
+           x.providerFeeEvidenceCents===0||x.ownerReportedMarketingSpendCents===0
+         ))||
+         x.profitMeasured!==false||x.roiMeasured!==false||
+         x.bankSettlementVerified!==false))
+      throw new Error('Indicadores financeiros combinados não verificados.');
+    if(actor===String(adminRuntime?.session?.user?.id||'')&&role===String(adminCurrentRole()))
+      adminOwnerBridgeState={...d,loadedFor:actor};
+  }catch(e){
+    if(actor===String(adminRuntime?.session?.user?.id||'')){
+      adminOwnerBridgeState=null;
+      toast(String(e?.message||'Falha na consolidação financeira.'));
+    }
+  }finally{adminOwnerBridgeBusy=false;render();}
+}
+async function adminOwnerOrphanAuditLoadFromUi(){
+  const actor=String(adminRuntime?.session?.user?.id||'');
+  const role=String(adminCurrentRole());
+  if(!actor||!['superadmin','finance'].includes(role)||adminOwnerOrphanAuditBusy)return;
+  adminOwnerOrphanAuditBusy=true;render();
+  try{
+    const d=await adminInvoke({action:'owner-campaign-orphan-audit'});
+    if(d?.source!=='admin_owner_campaign_receipt_orphans_v1_257'||
+       d?.readOnly!==true||d?.deletionPerformed!==false||
+       d?.automaticDeletionEnabled!==false||d?.privateBucket!==true||
+       d?.bankVerified!==false||d?.noObjectPaths!==true||d?.minAgeHours!==24||
+       !['bucketObjects','linkedObjects','recentUnlinkedObjects',
+         'reviewCandidatesAfter24h','unexpectedPathObjects']
+         .every(k=>Number.isSafeInteger(d[k])&&d[k]>=0)||
+       d.linkedObjects+d.recentUnlinkedObjects+
+         d.reviewCandidatesAfter24h!==d.bucketObjects||
+       d.unexpectedPathObjects>d.bucketObjects)
+      throw new Error('Auditoria dos arquivos privados não validada.');
+    if(actor===String(adminRuntime?.session?.user?.id||'')&&role===String(adminCurrentRole()))
+      adminOwnerOrphanAuditState={...d,loadedFor:actor};
+  }catch(e){
+    if(actor===String(adminRuntime?.session?.user?.id||'')){
+      adminOwnerOrphanAuditState=null;
+      toast(String(e?.message||'Falha na auditoria de arquivos sem vínculo.'));
+    }
+  }finally{adminOwnerOrphanAuditBusy=false;render();}
+}
+function adminOwnerFinancialSummarySection(){
+  if(!['superadmin','finance'].includes(String(adminCurrentRole())))return '';
+  const actor=String(adminRuntime?.session?.user?.id||'');
+  const d=adminOwnerBridgeState?.loadedFor===actor?adminOwnerBridgeState:null;
+  const selected=String(document.getElementById('owner-campaign-signals-month')?.value||'').trim();
+  const matching=d&&(!selected||d.month.slice(0,7)===selected);
+  const cards=(matching?d.rows:[]).map(x=>
+    '<article class="card flat form-stack">'+
+    '<h4>'+esc(x.campaignLabel)+'</h4>'+
+    '<p class="tiny muted">'+esc(x.campaignTag)+'</p>'+
+    '<div class="merchant-kpis">'+
+    '<div class="kpi"><span class="label">Taxas conciliadas no PSP (pedidos individuais + agrupados)</span><strong>'+
+    adminMoney(x.providerFeeEvidenceCents)+'</strong></div>'+
+    '<div class="kpi"><span class="label">Gastos de marketing declarados</span><strong>'+
+    adminMoney(x.ownerReportedMarketingSpendCents)+'</strong></div>'+
+    '<div class="kpi"><span class="label">Gastos com documento armazenado</span><strong>'+
+    adminMoney(x.marketingSpendWithStoredReceiptCents)+'</strong></div>'+
+    '<div class="kpi"><span class="label">Gastos sem arquivo vinculado</span><strong>'+
+    adminMoney(x.marketingSpendWithoutStoredReceiptCents)+'</strong></div>'+
+    '</div>'+
+    '<p class="tiny muted">Taxas de pedidos individuais: '+adminMoney(x.soloProviderFeeCents)+
+    ' • taxas de extratos agrupados: '+adminMoney(x.batchProviderFeeCents)+
+    ' • pedidos com evidência PSP: '+Number(x.providerFeeEvidenceOrders).toLocaleString('pt-BR')+
+    ' • documentos: '+Number(x.storedReceiptCount).toLocaleString('pt-BR')+
+    ' de '+Number(x.activeExpenseCount).toLocaleString('pt-BR')+' despesas ativas.</p>'+
+    '<p><strong>Diferença parcial entre valores registrados: '+
+    (x.partialEvidenceDifferenceCents===null?'indisponível':adminMoney(x.partialEvidenceDifferenceCents))+
+    '</strong></p>'+
+    '<p class="tiny muted">Não é lucro, margem líquida, saldo bancário nem ROI. O custo de incentivos, operação e processamento não foi integrado a esta comparação; anúncios não comprovam causalidade das vendas.</p>'+
+    '<p class="tiny muted">Orçamento de incentivos planejado (separado de gastos): '+
+    adminMoney(x.plannedIncentiveBudgetCents)+'</p></article>'
+  ).join('');
+  const orphans=adminOwnerOrphanAuditState?.loadedFor===actor?adminOwnerOrphanAuditState:null;
+  const orphanView=orphans?
+    '<div class="merchant-kpis">'+
+    '<div class="kpi"><span class="label">Arquivos privados</span><strong>'+Number(orphans.bucketObjects).toLocaleString('pt-BR')+'</strong></div>'+
+    '<div class="kpi"><span class="label">Documentos vinculados</span><strong>'+Number(orphans.linkedObjects).toLocaleString('pt-BR')+'</strong></div>'+
+    '<div class="kpi"><span class="label">Uploads recentes sem vínculo</span><strong>'+Number(orphans.recentUnlinkedObjects).toLocaleString('pt-BR')+'</strong></div>'+
+    '<div class="kpi"><span class="label">Pendências para revisão após 24h</span><strong>'+Number(orphans.reviewCandidatesAfter24h).toLocaleString('pt-BR')+'</strong></div></div>'+
+    (orphans.unexpectedPathObjects?
+      '<p class="tiny muted">Há '+Number(orphans.unexpectedPathObjects).toLocaleString('pt-BR')+' objeto(s) com caminho inesperado para investigação.</p>':''):
+    '<p class="tiny muted">Consulte o estado do armazenamento privado para identificar uploads abandonados.</p>';
+  return '<div class="form-stack">'+
+    '<div class="section-head"><div><h4>Painel financeiro consolidado por campanha</h4>'+
+    '<p>Compare taxas do TAMÃO conciliadas pelo provedor com despesas declaradas e seus comprovantes, preservando a origem de cada número.</p></div></div>'+
+    '<button type="button" class="secondary small" onclick="adminOwnerBridgeLoadFromUi()" '+
+    (adminOwnerBridgeBusy?'disabled':'')+'>Consolidar valores da competência</button>'+
+    (matching?'<p class="tiny muted">Mês: '+esc(d.month)+' • '+
+      Number(d.totalCampaigns).toLocaleString('pt-BR')+' campanha(s)'+
+      (d.truncated?' • somente as 50 mais recentes':'')+'</p>'+
+      '<div class="grid cards-2">'+
+      (cards||'<p class="muted">Ainda não há campanhas com orçamento planejado nesta competência.</p>')+
+      '</div>':
+      '<p class="tiny muted">Consulte a competência selecionada para comparar somente dados reais do banco.</p>')+
+    '<div class="card flat form-stack"><h4>Integridade dos comprovantes privados</h4>'+
+    '<p>Auditoria de arquivos sem vínculo à despesa. Os uploads recentes têm proteção de 24 horas; esta consulta não exclui documentos.</p>'+
+    '<button type="button" class="secondary small" onclick="adminOwnerOrphanAuditLoadFromUi()" '+
+    (adminOwnerOrphanAuditBusy?'disabled':'')+'>Auditar arquivos sem vínculo</button>'+
+    orphanView+
+    '<p class="tiny muted">Nenhuma exclusão automática está habilitada. Os arquivos associados a despesas corrigidas permanecem preservados.</p></div>'+
     '</div>';
 }
 
