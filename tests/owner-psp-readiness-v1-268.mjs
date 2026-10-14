@@ -66,9 +66,9 @@ assert.doesNotMatch(context.adminOwnerMultiPspSection(),/roteiro para ativação
 await context.adminOwnerMultiPspLoadFromUi();
 const h=context.adminOwnerMultiPspSection();
 assert.match(h,/Roteiro para ativação real/);
-assert.match(h,/1 provedores com pedidos que possuem evidência registrada do PSP/);
-assert.match(h,/1 opções aguardando configuração\/homologação/);
-assert.match(h,/1 modos manuais no catálogo/);
+assert.match(h,/1 opção com pedidos que possuem evidência registrada do PSP/);
+assert.match(h,/1 opção aguardando configuração\/homologação/);
+assert.match(h,/1 modo manual no catálogo/);
 assert.match(h,/sem confirmação automática do banco/);
 assert.match(h,/Sem tentativas ou evidências/);
 assert.match(h,/&lt;Mercado Pago&gt;/);
@@ -85,6 +85,6 @@ role='finance';
 data={...base,merchantProviders:merchants.map(p=>({...p,paymentAttempts:0,evidenceRecords:0,providerVerifiedOrders:0})),
   merchantEvidenceRecords:0,merchantProviderVerifiedOrders:0};
 await context.adminOwnerMultiPspLoadFromUi();
-assert.match(context.adminOwnerMultiPspSection(),/0 provedores com pedidos que possuem evidência/);
+assert.match(context.adminOwnerMultiPspSection(),/0 opções com pedidos que possuem evidência/);
 assert.match(context.adminOwnerMultiPspSection(),/Sem tentativas ou evidências/);
 console.log('V1.268 PASS: honest provider readiness, true evidence counters, safe roles and month isolation.');
