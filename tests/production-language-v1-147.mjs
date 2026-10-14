@@ -78,7 +78,10 @@ assert.ok(
 
 assert.ok(
   merchant.includes("pilotInvite||prospectInvite?'CONVITE DE PARCEIRO':'PAINEL DA REVENDA'")
-  &&merchant.includes("directEnabled?'INTEGRAÇÃO VERIFICADA':'CONECTADO'")
+  &&merchant.includes("label:'INTEGRAÇÃO VERIFICADA'")
+  &&merchant.includes("if(enabled&&canValidate&&e2eVerified)")
+  &&merchant.includes("label:'AUTOMAÇÃO ATIVA'")
+  &&merchant.includes("label:'INCONSISTENTE'")
   &&merchant.includes('Faixa automática de preço')
   &&!merchant.includes('Faixa automática do piloto'),
   'portal da revenda não pode expor fase experimental'
