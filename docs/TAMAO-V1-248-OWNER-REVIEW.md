@@ -26,7 +26,7 @@ justificativa, o status escolhido e uma decisão explícita.
   de depósitos e saldo disponível.
 
 ## Implantação
-1. Aplicar a migração nova `20261014110000_owner_funding_self_review_v1_248.sql`
+1. Aplicar a migração nova `20261014150000_owner_funding_self_review_v1_248.sql`
    **sem editar ou reaplicar a V1.246**.
 2. Validar com contas de teste: superadmin declara e confere seu registro;
    finance não confere o próprio, mas confere o de outro; perfis inativos negados.
