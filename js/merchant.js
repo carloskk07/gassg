@@ -1311,6 +1311,9 @@ function merchantSetupView(rt){
     '<h2>Prepare sua revenda para vender</h2>'+
     '<p>Produtos, entregas e recebimentos. Você pode revisar cada informação quando precisar.</p></div>'+
     '<span class="merchant-essentials-count">'+done+' de 3 preenchidos</span></div>'+
+    (next?'<div class="merchant-essentials-next"><strong>Seu próximo passo: '+esc(next.title)+'</strong>'+
+      '<button type="button" class="primary" onclick="merchantSetupGo(\''+next.key+'\')">Continuar configuração</button></div>':
+      '<p class="tiny muted">Informações básicas preenchidas. A habilitação para receber pedidos depende das verificações do TAMÃO.</p>')+
     '<div class="merchant-essentials-grid">'+steps.map((item,i)=>
       '<div class="merchant-essentials-step"><span aria-hidden="true" class="merchant-essentials-number">'+(i+1)+'</span>'+
       '<div class="merchant-essentials-content"><strong>'+esc(item.title)+'</strong>'+
