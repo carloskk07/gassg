@@ -191,6 +191,8 @@ jobs:
         run: node tests/commercial-activation-v1-238.mjs
       - name: Clube TAMÃO V1.239 finance preview and no-sale invariants
         run: node tests/clube-finance-preview-v1-239.mjs
+      - name: Clube TAMÃO V1.240 merchant intention, budget and admin read contract
+        run: node tests/clube-merchant-interest-v1-240.mjs
       - name: Turnstile smoke Chrome cleanup V1.238.1
         run: node tests/turnstile-smoke-cleanup-v1-238-1.mjs
       - name: First real PSP pilot preflight V1.146 regression contract
