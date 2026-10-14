@@ -100,7 +100,7 @@ async function requireAdmin(admin:any,userId:string){
   if(!data)throw new DomainError("ADMIN_ACCESS_DENIED","Esta conta não possui acesso administrativo.",403);
   return data;
 }
-const ADMIN_READ_ACTIONS=new Set(["summary","search","entity-detail","system-health","billing-provider-health","audit-search","incident-list","merchant-payment-preflight","prospect-intelligence","expansion-notifications","expansion-radar","merchant-enablement","sale-payment-history","finance-receipts-history","commercial-history-list","operational-alerts","ads-demand","clube-interest-queue","clube-campaign-queue","clube-terms-queue","owner-funding-read","owner-funding-pulse","owner-evidence-queue","owner-budget-queue","owner-finance-history","ads-audience-readiness","ads-preview-summary","ads-placement-readiness","ads-pilot-preflight","commercial-activation","ads-campaign-queue","growth-referral-review-queue"]);
+const ADMIN_READ_ACTIONS=new Set(["summary","search","entity-detail","system-health","billing-provider-health","audit-search","incident-list","merchant-payment-preflight","prospect-intelligence","expansion-notifications","expansion-radar","merchant-enablement","sale-payment-history","finance-receipts-history","commercial-history-list","operational-alerts","ads-demand","clube-interest-queue","clube-campaign-queue","clube-terms-queue","owner-funding-read","owner-funding-pulse","owner-evidence-queue","owner-budget-queue","owner-finance-history","owner-campaign-signals","ads-audience-readiness","ads-preview-summary","ads-placement-readiness","ads-pilot-preflight","commercial-activation","ads-campaign-queue","growth-referral-review-queue"]);
 const ADMIN_ROLE_ACTIONS:Record<string,Set<string>>={
   superadmin:new Set(["*"]),
   operations:new Set([
@@ -2523,6 +2523,54 @@ Deno.serve(async(req:Request)=>{
       return json(data,200,origin);
     }
     // V1.250 — paginated, read-only founder financing decision history.
+    // V1.251 — first-party UTM signals, not financial return or paid orders.
+    if(action==="owner-campaign-signals"){
+      if(!["superadmin","finance"].includes(String(adminAccess.admin_role)))
+        throw new DomainError("ADMIN_PERMISSION_DENIED","Sinais restritos à gestão financeira.",403);
+      const month=String(body.month??"");
+      if(month!==""&&!/^\d{4}-(0[1-9]|1[0-2])-01$/.test(month))
+        throw new DomainError("OWNER_CAMPAIGN_MONTH_INVALID","Mês da campanha inválido.",400);
+      const {data,error}=await admin.rpc("admin_owner_campaign_signals_v1_251",{
+        p_actor:user.id,p_month:month||null
+      });
+      if(error)throw error;
+      const validKeys=["customer_cashback","customer_referral","merchant_referral","clube_coupons"];
+      if(data?.source!=="admin_owner_campaign_signals_v1_251"||
+         data?.readOnly!==true||data?.plannedOnly!==true||
+         data?.noCharge!==true||data?.bankApiConfirmed!==false||
+         data?.spendableCents!==0||data?.newBenefitsEnabled!==false||
+         data?.revenueAttributedCents!==null||data?.returnOnInvestmentMeasured!==false||
+         data?.measurementUnit!=="first_party_event_counts_not_unique_people"||
+         data?.limit!==50||!Number.isSafeInteger(data?.totalCampaigns)||data.totalCampaigns<0||
+         typeof data?.truncated!=="boolean"||
+         data.truncated!==(data.totalCampaigns>50)||
+         !/^\d{4}-\d{2}-01$/.test(String(data?.month||""))||
+         (month!==""&&month!==data.month)||
+         !Number.isSafeInteger(data?.unattributedLandingViews)||data.unattributedLandingViews<0||
+         !Number.isSafeInteger(data?.unattributedFormViews)||data.unattributedFormViews<0||
+         !Array.isArray(data.rows)||data.rows.length>50||
+         data.rows.length>data.totalCampaigns||
+         data.rows.some((x:any)=>!x||
+           !UUID_RE.test(String(x.allocationId||""))||
+           !validKeys.includes(x.benefitKey)||
+           x.month!==data.month||
+           !/^[a-z0-9_-]{8,80}$/.test(String(x.campaignReference||""))||
+           x.campaignTag!==("tam-"+x.benefitKey+"-"+x.month.slice(0,4)+x.month.slice(5,7)+"-"+x.campaignReference)||
+           typeof x.campaignLabel!=="string"||x.campaignLabel.length<12||x.campaignLabel.length>180||
+           !["allocated","released"].includes(x.status)||
+           !Number.isSafeInteger(x.plannedAllocationCents)||x.plannedAllocationCents<100||
+           x.plannedAllocationCents>50000000||
+           !Number.isFinite(Date.parse(String(x.createdAt||"")))||
+           (x.releasedAt!==null&&!Number.isFinite(Date.parse(String(x.releasedAt))))||
+           !["landingViews","formViews","leads","customerLeads","merchantLeads",
+             "qualifiedLeads","crmConvertedLeads"].every(k=>Number.isSafeInteger(x[k])&&x[k]>=0)||
+           x.customerLeads+x.merchantLeads!==x.leads||
+           x.qualifiedLeads>x.leads||x.crmConvertedLeads>x.leads||
+           x.attributionScope!=="first_party_utm_tag_within_month_and_allocation_window"||
+           x.returnOnInvestmentMeasured!==false||x.revenueAttributedCents!==null))
+        throw new DomainError("OWNER_CAMPAIGN_SIGNALS_UNVERIFIED","Sinais de campanha não validados.",503);
+      return json(data,200,origin);
+    }
     if(action==="owner-finance-history"){
       if(!["superadmin","finance"].includes(String(adminAccess.admin_role)))
         throw new DomainError("ADMIN_PERMISSION_DENIED","Histórico restrito ao financeiro.",403);

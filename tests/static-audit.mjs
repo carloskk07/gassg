@@ -158,7 +158,7 @@ assert.ok(core.includes("prelaunchPublic||!merchantOriginReady?\"go('merchants')
 assert.ok(core.includes("['early-access','🔔','Disponibilidade','lead']")&&core.includes("act==='lead'?\"openPrelaunchCustomerLead()\""),'navegação mobile sem supply precisa levar ao aviso de disponibilidade');
 assert.ok(acquisition.includes("if(!section)")&&acquisition.includes("if(route()!=='home')go('home')"),'CTA da lista deve funcionar mesmo quando acionado fora da home');
 assert.ok(analytics.includes("['tamao.com.br','www.tamao.com.br'].includes(host)"),'analytics não pode medir laboratório, localhost ou preview');
-assert.ok(analytics.includes("prelaunchExamplesEnabled?.()===true"),'analytics first-party precisa desligar automaticamente fora do pré-lançamento');
+assert.ok(analytics.includes("globalThis.__CHAMA_TEST__!==true")&&analytics.includes("globalThis.CHAMA_INTERNAL_PILOT!==true")&&analytics.includes("adminPortalRequested?.()!==true")&&analytics.includes("merchantPortalRequested?.()!==true"),'analytics de primeira parte na operação real deve excluir testes, pilotos internos e portais privados');
 assert.ok(analytics.includes("sessionStorage")&&!analytics.includes("localStorage"),'deduplicação analítica deve ser transitória por sessão, sem identificador persistente');
 assert.ok(analytics.includes("location.pathname")&&analytics.includes("referrerHost:marketingAnalyticsReferrerHost()"),'analytics deve enviar rota sem query e somente host de referência');
 assert.ok(!analytics.includes("utm_term"),'analytics agregado não precisa transportar termo de busca/campanha mais granular');

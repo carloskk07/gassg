@@ -10,8 +10,7 @@ function marketingAnalyticsEnabled(){
     && globalThis.__CHAMA_TEST__!==true
     && globalThis.CHAMA_INTERNAL_PILOT!==true
     && globalThis.adminPortalRequested?.()!==true
-    && globalThis.merchantPortalRequested?.()!==true
-    && globalThis.prelaunchExamplesEnabled?.()===true;
+    && globalThis.merchantPortalRequested?.()!==true;
 }
 
 function marketingAnalyticsAudience(){
