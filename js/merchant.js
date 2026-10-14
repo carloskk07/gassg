@@ -84,6 +84,121 @@ async function merchantAdsCampaignAct(operation){
     }
   }finally{rt.adsCampaignLoading=false;render();}
 }
+// V1.240 — only interest in possible Clube sponsorship, never a funded campaign.
+function merchantClubeInterestSection(merchant){
+  if(!['owner','manager'].includes(String(merchant?.memberRole||'')))return '';
+  const rt=globalThis.merchantRuntime||{};
+  const merchantId=String(merchant?.merchantId||'');
+  const state=rt.clubeInterest?.merchantId===merchantId?rt.clubeInterest:null;
+  const packs=[
+    {key:'gas_3x5',title:'Clube Gás',offer:'3 cupons de R$ 5 • validade proposta de 180 dias'},
+    {key:'water_5x2',title:'Clube Água',offer:'5 cupons de R$ 2 • validade proposta de 90 dias'}
+  ];
+  const options=(entries,current)=>entries.map(([k,v])=>
+    '<option value="'+k+'"'+(String(current)===String(k)?' selected':'')+'>'+esc(v)+'</option>').join('');
+  const cards=packs.map(pack=>{
+    const x=state?.[pack.key]?.source==='merchant_clube_interest_v1_240'?
+      state[pack.key]:null;
+    const busy=rt.clubeInterestPending?.[pack.key]===true;
+    const selectedShare=x?.interested?x.merchantShareBps:10000;
+    const selectedBudget=x?.interested?x.proposedBudgetCents:10000;
+    return '<article class="card flat form-stack" aria-label="'+esc(pack.title)+'">'+
+      '<div class="section-head"><div><h3>'+esc(pack.title)+'</h3><p class="tiny muted">'+esc(pack.offer)+'</p></div>'+
+      '<span class="status-pill '+(x?.interested?'online':'risk')+'">'+
+        (x?.interested?'Interesse registrado':'Ainda não participante')+'</span></div>'+
+      '<div class="grid cards-2">'+
+      '<div class="input-wrap"><label for="clube-share-'+pack.key+'">Desconto que poderia financiar</label>'+
+      '<select class="input" id="clube-share-'+pack.key+'">'+
+        options([[10000,'100% do desconto'],[5000,'50% do desconto'],[2500,'25% do desconto']],
+         selectedShare)+'</select></div>'+
+      '<div class="input-wrap"><label for="clube-budget-'+pack.key+'">Teto total que gostaria de avaliar</label>'+
+      '<select class="input" id="clube-budget-'+pack.key+'">'+
+        options([[3000,'R$ 30'],[10000,'R$ 100'],[30000,'R$ 300'],[100000,'R$ 1.000']],
+         selectedBudget)+'</select></div></div>'+
+      '<label class="checkbox-line"><input type="checkbox" id="clube-consent-'+pack.key+'"/>'+
+      ' Autorizo registrar essas preferências para contato comercial, sem contrato e sem obrigação financeira.</label>'+
+      '<div class="order-actions">'+
+      '<button type="button" class="secondary small" onclick="merchantClubeInterestLoadFromUi(\''+pack.key+'\')" '+(busy?'disabled':'')+'>Consultar</button>'+
+      '<button type="button" class="primary small" onclick="merchantClubeInterestRegisterFromUi(\''+pack.key+'\')" '+(busy?'disabled':'')+'>Salvar interesse</button>'+
+      (x?.interested?'<button type="button" class="ghost small" onclick="merchantClubeInterestWithdrawFromUi(\''+pack.key+'\')" '+(busy?'disabled':'')+'>Retirar interesse</button>':'')+
+      '</div>'+
+      (x?.interested?'<p class="tiny muted">Intenção para '+esc([x.city,x.state].filter(Boolean).join('/'))+
+        '. Não reserva orçamento nem autoriza o TAMÃO a gerar descontos.</p>':'')+
+      (rt.clubeInterestErrors?.[pack.key]?'<p class="notice danger">'+
+        esc(rt.clubeInterestErrors[pack.key])+'</p>':'')+
+      '</article>';
+  }).join('');
+  return '<section class="section merchant-clube-interest" id="merchant-clube-interest">'+
+    '<div class="section-head"><div><span class="section-kicker">CLUBE TAMÃO • PARCERIAS</span>'+
+    '<h2>Ajude seus clientes a economizar e voltar a comprar</h2>'+
+    '<p>Escolha os benefícios que teria interesse em patrocinar futuramente. A negociação final será feita separadamente.</p></div></div>'+
+    '<div class="grid cards-2">'+cards+'</div>'+
+    '<p class="tiny muted">Pesquisa sem compromisso: os cupons não estão à venda. Percentuais e valores não constituem autorização de campanha, reserva financeira, promessa de benefício nem mudança no preço dos pedidos.</p>'+
+    '</section>';
+}
+async function merchantClubeInterestCall(packageKey,operation,fields={}){
+  const rt=globalThis.merchantRuntime;
+  const merchantId=String(rt?.merchant?.merchantId||'');
+  if(!merchantId||!['owner','manager'].includes(String(rt?.merchant?.memberRole||'')))
+    return toast('Somente proprietário ou gerente pode registrar interesse.');
+  if(!['gas_3x5','water_5x2'].includes(packageKey)||rt.clubeInterestPending?.[packageKey])
+    return;
+  if(rt.clubeInterest?.merchantId!==merchantId)rt.clubeInterest={merchantId};
+  const prev=rt.clubeInterest[packageKey];
+  rt.clubeInterestPending??={};
+  rt.clubeInterestErrors??={};
+  rt.clubeInterestPending[packageKey]=true;
+  rt.clubeInterestErrors[packageKey]=null;
+  try{
+    const payload={action:'clube-interest',merchantId,packageKey,operation,...fields};
+    if(operation!=='view'){
+      payload.expectedVersion=Number.isSafeInteger(prev?.version)?prev.version:0;
+      payload.requestId=crypto.randomUUID();
+    }
+    const data=await merchantInvoke('merchant-ops',payload);
+    if(data?.source!=='merchant_clube_interest_v1_240'||
+      data?.merchantId!==merchantId||data?.packageKey!==packageKey||
+      data?.noCharge!==true||data?.noContract!==true||
+      data?.fundingVerified!==false||data?.discountEnabled!==false||
+      data?.couponSalesEnabled!==false||data?.noFinancialObligation!==true||
+      !Number.isSafeInteger(data?.version)||data.version<0||
+      typeof data?.interested!=='boolean')
+      throw new Error('Não foi possível confirmar a proposta no servidor.');
+    if(String(rt.merchant?.merchantId)!==merchantId)return;
+    rt.clubeInterest[packageKey]=data;
+    if(operation!=='view')toast(data.interested?
+      'Interesse salvo. Nenhuma cobrança ou desconto foi criado.':
+      'Interesse retirado. Nenhuma campanha foi ativada.');
+  }catch(e){
+    if(String(rt.merchant?.merchantId)===merchantId){
+      rt.clubeInterestErrors[packageKey]=String(e?.message||
+        'Não foi possível atualizar. Consulte a situação antes de tentar novamente.');
+      toast(rt.clubeInterestErrors[packageKey]);
+    }
+  }finally{
+    rt.clubeInterestPending[packageKey]=false;render();
+  }
+}
+function merchantClubeInterestLoadFromUi(key){
+  return merchantClubeInterestCall(key,'view');
+}
+function merchantClubeInterestRegisterFromUi(key){
+  if(document.getElementById('clube-consent-'+key)?.checked!==true)
+    return toast('Confirme o interesse voluntário sem compromisso financeiro.');
+  const merchantShareBps=Number(document.getElementById('clube-share-'+key)?.value);
+  const budgetCents=Number(document.getElementById('clube-budget-'+key)?.value);
+  if(![10000,5000,2500].includes(merchantShareBps)||
+    ![3000,10000,30000,100000].includes(budgetCents))
+    return toast('Selecione o percentual e o limite de orçamento válidos.');
+  return merchantClubeInterestCall(key,'register',{
+    merchantShareBps,budgetCents,consent:true
+  });
+}
+function merchantClubeInterestWithdrawFromUi(key){
+  if(!confirm('Retirar seu interesse no Clube TAMÃO? Não há contrato ou desconto ativo.'))return;
+  return merchantClubeInterestCall(key,'withdraw');
+}
+
 // V1.232 — expression of interest, not a purchase of advertising.
 function merchantAdsInterestSection(merchant){
   if(!['owner','manager'].includes(String(merchant?.memberRole||'')))return '';
@@ -1199,6 +1314,7 @@ function merchantLivePage(){
     ${merchantSetupView(rt)}
     ${merchantBusinessPulseSection(m)}
     ${merchantAdsInterestSection(m)}
+    ${merchantClubeInterestSection(m)}
     ${merchantAdsCampaignSection(m)}
     ${merchantGrowthNetworkSection(m)}
     ${merchantAlertControl()}
