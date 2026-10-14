@@ -100,7 +100,7 @@ async function requireAdmin(admin:any,userId:string){
   if(!data)throw new DomainError("ADMIN_ACCESS_DENIED","Esta conta não possui acesso administrativo.",403);
   return data;
 }
-const ADMIN_READ_ACTIONS=new Set(["summary","search","entity-detail","system-health","billing-provider-health","audit-search","incident-list","merchant-payment-preflight","prospect-intelligence","expansion-notifications","expansion-radar","merchant-enablement","sale-payment-history","finance-receipts-history","commercial-history-list","operational-alerts","ads-demand","clube-interest-queue","clube-campaign-queue","clube-terms-queue","owner-funding-read","owner-funding-pulse","owner-evidence-queue","owner-budget-queue","owner-finance-history","owner-campaign-signals","owner-campaign-orders","owner-campaign-fee-receipts","ads-audience-readiness","ads-preview-summary","ads-placement-readiness","ads-pilot-preflight","commercial-activation","ads-campaign-queue","growth-referral-review-queue"]);
+const ADMIN_READ_ACTIONS=new Set(["summary","search","entity-detail","system-health","billing-provider-health","audit-search","incident-list","merchant-payment-preflight","prospect-intelligence","expansion-notifications","expansion-radar","merchant-enablement","sale-payment-history","finance-receipts-history","commercial-history-list","operational-alerts","ads-demand","clube-interest-queue","clube-campaign-queue","clube-terms-queue","owner-funding-read","owner-funding-pulse","owner-evidence-queue","owner-budget-queue","owner-finance-history","owner-campaign-signals","owner-campaign-orders","owner-campaign-fee-receipts","owner-campaign-batch-ledger","ads-audience-readiness","ads-preview-summary","ads-placement-readiness","ads-pilot-preflight","commercial-activation","ads-campaign-queue","growth-referral-review-queue"]);
 const ADMIN_ROLE_ACTIONS:Record<string,Set<string>>={
   superadmin:new Set(["*"]),
   operations:new Set([
@@ -2527,6 +2527,46 @@ Deno.serve(async(req:Request)=>{
     // V1.252 — bound real orders: settled/reversed and merchant order values, not TAMÃO receipts.
     // V1.253 — PSP-confirmed platform fee evidence for single-order daily statements.
     // No prorating, pooled credits, manual-only approvals, bank balance or ROI.
+    // V1.254 — read-only, exact statement-balanced per-order fee evidence for batches.
+    if(action==="owner-campaign-batch-ledger"){
+      if(!["superadmin","finance"].includes(String(adminAccess.admin_role)))
+        throw new DomainError("ADMIN_PERMISSION_DENIED","Consulta financeira restrita.",403);
+      const month=String(body.month??"");
+      if(month!==""&&!/^\d{4}-(0[1-9]|1[0-2])-01$/.test(month))
+        throw new DomainError("OWNER_BATCH_MONTH_INVALID","Competência inválida.",400);
+      const {data,error}=await admin.rpc("admin_owner_campaign_batch_ledger_v1_254",{
+        p_actor:user.id,p_month:month||null
+      });
+      if(error)throw error;
+      const keys=["customer_cashback","customer_referral","merchant_referral","clube_coupons"];
+      if(data?.source!=="admin_owner_campaign_batch_ledger_v1_254"||
+        data?.evidenceLevel!=="psp_paid_statement_balances_exact_all_lines_no_refunds"||
+        data?.readOnly!==true||data?.noTransfers!==true||
+        data?.batchOnly!==true||data?.noDoubleCountingWithV253!==true||
+        data?.cashAvailableCents!==0||data?.newBenefitsEnabled!==false||
+        data?.bankSettlementVerified!==false||data?.roiMeasured!==false||
+        data?.paidMarketingCostCents!==null||
+        !/^\d{4}-\d{2}-01$/.test(String(data?.month||""))||
+        (month!==""&&month!==data.month)||
+        !Number.isSafeInteger(data.totalCampaigns)||data.totalCampaigns<0||
+        data.limit!==50||typeof data.truncated!=="boolean"||
+        data.truncated!==(data.totalCampaigns>50)||
+        !Array.isArray(data.rows)||data.rows.length>50||
+        data.rows.length>data.totalCampaigns||
+        data.rows.some((x:any)=>!x||
+          !UUID_RE.test(String(x.allocationId||""))||
+          !keys.some(k=>typeof x.campaignTag==="string"&&
+            x.campaignTag.startsWith("tam-"+k+"-"+data.month.slice(0,4)+data.month.slice(5,7)+"-"))||
+          !["verifiedBatchOrders","verifiedBatchStatements","providerSupportedNetFeeCents"]
+            .every(k=>Number.isSafeInteger(x[k])&&x[k]>=0)||
+          x.verifiedBatchStatements>x.verifiedBatchOrders||
+          (x.verifiedBatchOrders===0&&x.providerSupportedNetFeeCents!==0)||
+          x.entrySource!=="receivable_net_fee_statement_exact_payment_event"||
+          x.bankSettlementVerified!==false||x.roiMeasured!==false||
+          x.cashAvailableCents!==0||x.paidMarketingCostCents!==null))
+        throw new DomainError("OWNER_BATCH_LEDGER_UNVERIFIED","Conciliação por pedido não verificada.",503);
+      return json(data,200,origin);
+    }
     if(action==="owner-campaign-fee-receipts"){
       if(!["superadmin","finance"].includes(String(adminAccess.admin_role)))
         throw new DomainError("ADMIN_PERMISSION_DENIED","Consulta restrita ao financeiro.",403);
