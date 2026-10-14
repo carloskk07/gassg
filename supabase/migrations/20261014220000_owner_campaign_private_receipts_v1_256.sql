@@ -16,7 +16,7 @@ end$bucket$;
 
 create table public.platform_campaign_marketing_receipts_v1_256(
  expense_id uuid primary key references public.platform_campaign_marketing_costs_v1_255(expense_id) on delete restrict,
- object_path text not null unique check(char_length(object_path) between 78 and 100),
+ object_path text not null unique check(char_length(object_path)=77),
  mime_type text not null check(mime_type in ('application/pdf','image/png','image/jpeg')),
  size_bytes integer not null check(size_bytes between 64 and 3145728),
  sha256 text not null check(sha256 ~ '^[0-9a-f]{64}$'),
