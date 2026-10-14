@@ -2581,6 +2581,124 @@ function adminOwnerOrphanCleanupSection(){
     '</div>';
 }
 
+// TAMÃO V1.260 — compare grant events and applied wallet reservations by order.
+let adminOwnerWalletReconState=null;
+let adminOwnerWalletReconBusy=false;
+async function adminOwnerWalletReconLoadFromUi(){
+  const actor=String(adminRuntime?.session?.user?.id||'');
+  const role=String(adminCurrentRole());
+  if(!actor||!['superadmin','finance'].includes(role)||adminOwnerWalletReconBusy)return;
+  const month=String(document.getElementById('owner-campaign-signals-month')?.value||'').trim();
+  if(month&&!/^\d{4}-(0[1-9]|1[0-2])$/.test(month))
+    return toast('Selecione uma competência válida.');
+  adminOwnerWalletReconBusy=true;render();
+  try{
+    const d=await adminInvoke({action:'owner-wallet-reconciliation',month:month?month+'-01':''});
+    const g=d?.grantCohort,u=d?.settledUse,f=d?.walletEventFlows;
+    const nonneg=(v,fields)=>v&&fields.every(k=>Number.isSafeInteger(v[k])&&v[k]>=0);
+    if(d?.source!=='admin_owner_wallet_reconciliation_v1_260'||
+       d?.timezone!=='America/Sao_Paulo'||d?.readOnly!==true||
+       d?.noTransfers!==true||d?.newBenefitsEnabled!==false||
+       d?.spentCreditLotAttribution!=='unavailable_fungible_wallet'||
+       d?.settledOrderMatchBasis!=='wallet_reservation_and_unreversed_settlement'||
+       d?.walletFlowsAreCashPayments!==false||d?.externalPaidBenefitsCents!==null||
+       d?.externalPayoutMeasured!==false||d?.campaignAttributionIsCausal!==false||
+       d?.bankSettlementVerified!==false||d?.profitMeasured!==false||
+       d?.roiMeasured!==false||!/^\d{4}-\d{2}-01$/.test(String(d?.month||''))||
+       (month&&d.month!==month+'-01')||
+       !Number.isSafeInteger(d.totalCampaigns)||d.totalCampaigns<0||
+       d.limit!==50||d.truncated!==(d.totalCampaigns>50)||
+       !Array.isArray(d.rows)||d.rows.length>50||d.rows.length>d.totalCampaigns||
+       !nonneg(g,['grantOrders','cashbackExpectedCents','cashbackMatchedCents',
+         'cashbackUnmatchedCents','referralExpectedCents','referralMatchedCents',
+         'referralUnmatchedCents','cashbackMismatchOrders','referralMismatchOrders'])||
+       !nonneg(u,['settledOrdersWithCashback','reservedInSettledOrdersCents',
+         'verifiedUseCents','unverifiedUseCents','verifiedOrders','unverifiedOrders'])||
+       !nonneg(f,['seedIssuedCents','cashbackEarnedEntriesCents',
+         'cashbackReservedEntriesCents','cashbackReleasedEntriesCents',
+         'cashbackReversedEntriesCents','referralPendingEntriesCents',
+         'referralPendingReleasedEntriesCents','referralAvailableEntriesCents',
+         'referralReversedEntriesCents'])||
+       g.cashbackExpectedCents!==g.cashbackMatchedCents+g.cashbackUnmatchedCents||
+       g.referralExpectedCents!==g.referralMatchedCents+g.referralUnmatchedCents||
+       g.cashbackMismatchOrders>g.grantOrders||g.referralMismatchOrders>g.grantOrders||
+       u.reservedInSettledOrdersCents!==u.verifiedUseCents+u.unverifiedUseCents||
+       u.settledOrdersWithCashback!==u.verifiedOrders+u.unverifiedOrders||
+       d.rows.some(x=>!x||!/^[0-9a-f-]{36}$/i.test(String(x.allocationId||''))||
+         !['customer_cashback','customer_referral','merchant_referral','clube_coupons']
+         .some(k=>typeof x.campaignTag==='string'&&x.campaignTag.startsWith(
+           'tam-'+k+'-'+d.month.slice(0,4)+d.month.slice(5,7)+'-'))||
+         typeof x.campaignLabel!=='string'||x.campaignLabel.length>180||
+         !nonneg(x,['tracedGrantOrders','matchedCashbackIssueCents',
+           'unmatchedCashbackIssueCents','matchedReferralIssueCents',
+           'unmatchedReferralIssueCents','mismatchOrders'])||
+         x.mismatchOrders>x.tracedGrantOrders))
+      throw new Error('Conciliação de carteira não validada.');
+    if(actor===String(adminRuntime?.session?.user?.id||'')&&role===String(adminCurrentRole()))
+      adminOwnerWalletReconState={...d,loadedFor:actor};
+  }catch(e){
+    if(actor===String(adminRuntime?.session?.user?.id||'')){
+      adminOwnerWalletReconState=null;
+      toast(String(e?.message||'Falha ao conciliar os benefícios.'));
+    }
+  }finally{adminOwnerWalletReconBusy=false;render();}
+}
+function adminOwnerWalletReconciliationSection(){
+  if(!['superadmin','finance'].includes(String(adminCurrentRole())))return '';
+  const actor=String(adminRuntime?.session?.user?.id||'');
+  const d=adminOwnerWalletReconState?.loadedFor===actor?adminOwnerWalletReconState:null;
+  const selected=String(document.getElementById('owner-campaign-signals-month')?.value||'').trim();
+  const matching=d&&(!selected||d.month.slice(0,7)===selected);
+  const g=matching?d.grantCohort:null,u=matching?d.settledUse:null,f=matching?d.walletEventFlows:null;
+  const cards=matching?d.rows.map(x=>
+    '<article class="card flat form-stack"><h5>'+esc(x.campaignLabel)+'</h5>'+
+    '<p class="tiny muted">'+esc(x.campaignTag)+' • '+Number(x.tracedGrantOrders)+
+    ' concessões ligadas por pedido • '+Number(x.mismatchOrders)+' divergência(s)</p>'+
+    '<p>Cashback com lançamento correspondente: <strong>'+
+    adminMoney(x.matchedCashbackIssueCents)+'</strong> • sem correspondência: '+
+    adminMoney(x.unmatchedCashbackIssueCents)+'</p>'+
+    '<p>Indicações com lançamento correspondente: <strong>'+
+    adminMoney(x.matchedReferralIssueCents)+'</strong> • sem correspondência: '+
+    adminMoney(x.unmatchedReferralIssueCents)+'</p>'+
+    '</article>').join(''):'';
+  return '<div class="card flat form-stack"><div class="section-head"><div>'+
+    '<h4>Conciliação das recompensas e carteira</h4>'+
+    '<p>Rastreia o pedido de origem da recompensa e verifica se o cashback reservado foi aplicado em um pedido liquidado.</p></div></div>'+
+    '<button type="button" class="secondary small" onclick="adminOwnerWalletReconLoadFromUi()" '+
+    (adminOwnerWalletReconBusy?'disabled':'')+'>Conciliar registros da competência</button>'+
+    (matching?'<div class="merchant-kpis">'+
+    '<div class="kpi"><span class="label">Cashback concedido com lançamento correspondente</span><strong>'+
+    adminMoney(g.cashbackMatchedCents)+'</strong></div>'+
+    '<div class="kpi"><span class="label">Indicações com lançamento correspondente</span><strong>'+
+    adminMoney(g.referralMatchedCents)+'</strong></div>'+
+    '<div class="kpi"><span class="label">Cashback utilizado em pedidos com conciliação válida</span><strong>'+
+    adminMoney(u.verifiedUseCents)+'</strong></div>'+
+    '<div class="kpi"><span class="label">Uso sem conciliação suficiente</span><strong>'+
+    adminMoney(u.unverifiedUseCents)+'</strong></div></div>'+
+    '<p class="tiny muted">Total de '+Number(g.grantOrders)+' pedido(s) com concessão. Divergências: '+
+    Number(g.cashbackMismatchOrders)+' no cashback e '+
+    Number(g.referralMismatchOrders)+' nas indicações. Concessões sem lançamento: '+
+    adminMoney(g.cashbackUnmatchedCents+g.referralUnmatchedCents)+'. Pedidos com uso não conciliado: '+
+    Number(u.unverifiedOrders)+'.</p>'+
+    '<p class="tiny muted">Movimentos internos da competência: crédito inicial '+
+    adminMoney(f.seedIssuedCents)+' • cashback ganho '+adminMoney(f.cashbackEarnedEntriesCents)+
+    ' • reservas '+adminMoney(f.cashbackReservedEntriesCents)+
+    ' • liberações/devoluções '+adminMoney(f.cashbackReleasedEntriesCents)+
+    ' • reversões de crédito '+adminMoney(f.cashbackReversedEntriesCents)+
+    ' • comissões pendentes '+adminMoney(f.referralPendingEntriesCents)+
+    ' • pendências transferidas '+adminMoney(f.referralPendingReleasedEntriesCents)+
+    ' • comissões disponíveis '+adminMoney(f.referralAvailableEntriesCents)+
+    ' • comissões revertidas '+adminMoney(f.referralReversedEntriesCents)+'.</p>'+
+    '<p class="tiny muted">Campanhas na competência: '+Number(d.totalCampaigns)+
+    (d.truncated?' • somente 50 exibidas':'')+'</p>'+
+    '<div class="grid cards-2">'+
+    (cards||'<p class="tiny muted">Sem campanhas vinculadas a recompensas nesta competência.</p>')+
+    '</div>':
+    '<p class="tiny muted">Consulte a competência selecionada para conciliar somente dados registrados.</p>')+
+    '<p class="tiny muted">A carteira mistura créditos antigos: a origem individual de cada centavo consumido não é identificável. Conciliação por pedido não comprova pagamentos externos, saldo bancário, ROI ou que a campanha originou a venda. Movimentos internos não devem ser somados à emissão como novo custo.</p>'+
+    '</div>';
+}
+
 // TAMÃO V1.259 — benefit costs with separate grant cohort and settled-order use.
 let adminOwnerBenefitsState=null;
 let adminOwnerBenefitsBusy=false;
@@ -2663,7 +2781,7 @@ function adminOwnerBenefitCostsSection(){
     adminMoney(d.cashbackNetGrantedCents)+'</strong></div>'+
     '<div class="kpi"><span class="label">Indicações líquidas concedidas</span><strong>'+
     adminMoney(d.referralNetGrantedCents)+'</strong></div>'+
-    '<div class="kpi"><span class="label">Cashback usado em pedidos atualmente liquidados</span><strong>'+
+    '<div class="kpi"><span class="label">Cashback reservado em pedidos liquidados (sem conciliação V1.260)</span><strong>'+
     adminMoney(d.cashbackUsedInSettledOrdersCents)+'</strong></div>'+
     '<div class="kpi"><span class="label">Comissões movidas para saldo disponível</span><strong>'+
     adminMoney(d.referralMovedToAvailableCents)+'</strong></div></div>'+
@@ -2832,6 +2950,7 @@ function adminOwnerFinancialSummarySection(){
       '</div>':
       '<p class="tiny muted">Consulte a competência selecionada para comparar somente dados reais do banco.</p>')+
     (typeof adminOwnerBenefitCostsSection==='function'?adminOwnerBenefitCostsSection():'')+
+    (typeof adminOwnerWalletReconciliationSection==='function'?adminOwnerWalletReconciliationSection():'')+
     '<div class="card flat form-stack"><h4>Integridade dos comprovantes privados</h4>'+
     '<p>Auditoria de arquivos sem vínculo à despesa. Os uploads recentes têm proteção de 24 horas; esta consulta não exclui documentos.</p>'+
     '<button type="button" class="secondary small" onclick="adminOwnerOrphanAuditLoadFromUi()" '+
