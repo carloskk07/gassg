@@ -100,20 +100,21 @@ async function requireAdmin(admin:any,userId:string){
   if(!data)throw new DomainError("ADMIN_ACCESS_DENIED","Esta conta não possui acesso administrativo.",403);
   return data;
 }
-const ADMIN_READ_ACTIONS=new Set(["summary","search","entity-detail","system-health","billing-provider-health","audit-search","incident-list","merchant-payment-preflight","prospect-intelligence","expansion-notifications","expansion-radar","merchant-enablement","sale-payment-history","finance-receipts-history","commercial-history-list","operational-alerts","ads-demand","clube-interest-queue","ads-audience-readiness","ads-preview-summary","ads-placement-readiness","ads-pilot-preflight","commercial-activation","ads-campaign-queue","growth-referral-review-queue"]);
+const ADMIN_READ_ACTIONS=new Set(["summary","search","entity-detail","system-health","billing-provider-health","audit-search","incident-list","merchant-payment-preflight","prospect-intelligence","expansion-notifications","expansion-radar","merchant-enablement","sale-payment-history","finance-receipts-history","commercial-history-list","operational-alerts","ads-demand","clube-interest-queue","clube-campaign-queue","ads-audience-readiness","ads-preview-summary","ads-placement-readiness","ads-pilot-preflight","commercial-activation","ads-campaign-queue","growth-referral-review-queue"]);
 const ADMIN_ROLE_ACTIONS:Record<string,Set<string>>={
   superadmin:new Set(["*"]),
   operations:new Set([
     "approve-application","reject-application","verify-merchant","activate-merchant","suspend-merchant",
     "set-delivery-capability","merchant-representation-review","order-control","support-case-status","lead-status","public-request-status",
-    "pilot-invite","assisted-merchant-onboarding","product-registry","verify-launch-portals","incident-action","market-city-pause","city-notification-status","prospect-crm","prospect-invite","commercial-history-capture","operational-alert-ack"
+    "pilot-invite","assisted-merchant-onboarding","product-registry","verify-launch-portals","incident-action","market-city-pause","city-notification-status","prospect-crm","prospect-invite","commercial-history-capture","operational-alert-ack","clube-campaign-review"
   ]),
   finance:new Set([
     "financial-action","review-referral","retry-reward","retry-accounting","reverse-order",
-    "growth-benefit-preview","commercial-policy","clube-coupon-preview","merchant-billing-plan","merchant-billing-action","merchant-billing-payment-request","merchant-billing-payment-event","merchant-billing-refund","merchant-billing-provider-cancel-retry","merchant-payment-capability","create-billing-webhook-probe","incident-action","operational-alert-ack"
+    "growth-benefit-preview","commercial-policy","clube-coupon-preview",
+    "clube-campaign-review","merchant-billing-plan","merchant-billing-action","merchant-billing-payment-request","merchant-billing-payment-event","merchant-billing-refund","merchant-billing-provider-cancel-retry","merchant-payment-capability","create-billing-webhook-probe","incident-action","operational-alert-ack"
   ]),
   support:new Set(["order-control","support-case-status","incident-action","operational-alert-ack"]),
-  compliance:new Set([
+  compliance:new Set(["clube-campaign-review",
     "growth-referral-review","ads-campaign-review","ads-preview-issue","ads-preview-confirm","approve-application","reject-application","verify-merchant","activate-merchant","suspend-merchant",
     "set-delivery-capability","merchant-representation-review","incident-action","prospect-crm","prospect-invite"
   ]),
@@ -2519,6 +2520,74 @@ Deno.serve(async(req:Request)=>{
       if(error)throw error;
       if(data?.recorded!==true||data.noCharge!==true||data.adsLive!==false)
         throw new DomainError("ADS_CAMPAIGN_REVIEW_UNVERIFIED","Revisão não confirmada.",503);
+      return json(data,200,origin);
+    }
+    if(action==="clube-campaign-queue"){
+      if(!["superadmin","operations","compliance","finance","readonly"].includes(String(adminAccess.admin_role)))
+        throw new DomainError("ADMIN_PERMISSION_DENIED","Sem acesso às negociações.",403);
+      const {data,error}=await admin.rpc("admin_clube_campaign_queue_v1_241",{p_actor:user.id});
+      if(error)throw error;
+      if(data?.source!=="admin_clube_campaign_queue_v1_241"||
+        data?.readOnly!==true||data?.noContractsApproved!==true||
+        data?.sponsorFundingConfirmedCents!==0||
+        data?.couponSalesEnabled!==false||data?.noCharge!==true||
+        data?.campaignsActive!==0||data?.noMerchantSaleProceeds!==true||
+        !Number.isSafeInteger(data?.totalProposals)||data.totalProposals<0||
+        !Number.isSafeInteger(data?.activeInterests)||data.activeInterests<0||
+        data.activeInterests>data.totalProposals||
+        !Array.isArray(data?.rows)||data.rows.length>50||
+        data.rows.length>data.totalProposals||
+        data.rows.some((r:any)=>!r||!UUID_RE.test(String(r.merchantId||""))||
+          !["gas_3x5","water_5x2"].includes(r.packageKey)||
+          typeof r.companyName!=="string"||r.companyName.length>120||
+          typeof r.city!=="string"||r.city.length>100||
+          !/^[A-Z]{2}$/.test(String(r.state||""))||
+          typeof r.interestActive!=="boolean"||
+          !Number.isSafeInteger(r.interestVersion)||r.interestVersion<1||
+          !Number.isSafeInteger(r.reviewVersion)||r.reviewVersion<0||
+          (r.reviewStatus!==null&&!["under_review","request_documents","economic_prechecked","declined"].includes(r.reviewStatus))||
+          typeof r.reviewCurrent!=="boolean"||
+          !Number.isSafeInteger(r.shareBps)||r.shareBps<0||r.shareBps>10000||
+          !Number.isSafeInteger(r.budgetCents)||r.budgetCents<0||r.budgetCents>1000000||
+          !Number.isSafeInteger(r.sponsoredPerCouponCents)||r.sponsoredPerCouponCents<0||
+          !Number.isSafeInteger(r.maxCouponUsesIllustrative)||r.maxCouponUsesIllustrative<0||
+          !Number.isSafeInteger(r.maxPackagesIllustrative)||r.maxPackagesIllustrative<0||
+          (r.reviewNote!==null&&(typeof r.reviewNote!=="string"||r.reviewNote.length>500))||
+          !Number.isFinite(Date.parse(r.updatedAt||""))))
+        throw new DomainError("CLUBE_CAMPAIGN_QUEUE_UNVERIFIED",
+          "Negociações não validadas pelo servidor.",503);
+      return json(data,200,origin);
+    }
+    if(action==="clube-campaign-review"){
+      if(!["superadmin","operations","compliance","finance"].includes(String(adminAccess.admin_role)))
+        throw new DomainError("ADMIN_PERMISSION_DENIED","A revisão exige perfil autorizado.",403);
+      const status=String(body.status??"");
+      const note=String(body.note??"").trim();
+      const packageKey=String(body.packageKey??"");
+      if(!["gas_3x5","water_5x2"].includes(packageKey)||
+        !["under_review","request_documents","economic_prechecked","declined"].includes(status)||
+        (status==="economic_prechecked"&&!["superadmin","finance"].includes(String(adminAccess.admin_role)))||
+        note.length<12||note.length>500||
+        !Number.isSafeInteger(body.expectedVersion)||body.expectedVersion<0||
+        body.expectedVersion>2147483645||
+        !Number.isSafeInteger(body.expectedInterestVersion)||
+        body.expectedInterestVersion<1){
+        throw new DomainError("CLUBE_REVIEW_INVALID","Confira etapa, justificativa e versão.",400);
+      }
+      const {data,error}=await admin.rpc("admin_clube_campaign_review_v1_241",{
+        p_actor:user.id,p_merchant:uuid(body.merchantId,"merchantId"),
+        p_package_key:packageKey,p_status:status,p_note:note,
+        p_expected_version:body.expectedVersion,
+        p_expected_interest_version:body.expectedInterestVersion,
+        p_request_id:uuid(body.requestId,"requestId")
+      });
+      if(error)throw error;
+      if(data?.source!=="admin_clube_campaign_review_v1_241"||
+        data?.recorded!==true||data?.noCharge!==true||
+        data?.noContract!==true||data?.fundingVerified!==false||
+        data?.campaignEnabled!==false||data?.couponSalesEnabled!==false||
+        typeof data?.replayed!=="boolean"||typeof data?.changed!=="boolean")
+        throw new DomainError("CLUBE_REVIEW_UNVERIFIED","Revisão não confirmada.",503);
       return json(data,200,origin);
     }
     if(action==="clube-interest-queue"){

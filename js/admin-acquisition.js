@@ -587,6 +587,133 @@ function adminClubeInterestSection(){
     '</section>';
 }
 
+// TAMÃO Clube V1.241 — pipeline to negotiate future sponsorship, not a real campaign.
+let adminClubeCampaignState=null;
+let adminClubeCampaignBusy=false;
+const adminClubeCampaignReviewsPending=new Set();
+async function adminClubeCampaignLoadFromUi(){
+  const id=String(adminRuntime?.session?.user?.id||'');
+  if(!id||!['superadmin','operations','compliance','finance','readonly'].includes(
+      String(adminCurrentRole()))||adminClubeCampaignBusy)return;
+  adminClubeCampaignBusy=true;
+  try{
+    const data=await adminInvoke({action:'clube-campaign-queue'});
+    if(data?.source!=='admin_clube_campaign_queue_v1_241'||
+      data?.readOnly!==true||data?.noContractsApproved!==true||
+      data?.sponsorFundingConfirmedCents!==0||
+      data?.couponSalesEnabled!==false||data?.campaignsActive!==0||
+      data?.noCharge!==true||data?.noMerchantSaleProceeds!==true||
+      !Number.isSafeInteger(data?.totalProposals)||data.totalProposals<0||
+      !Number.isSafeInteger(data?.activeInterests)||data.activeInterests<0||
+      !Array.isArray(data?.rows)||data.rows.length>50)
+      throw new Error('A fila de negociações não foi verificada.');
+    if(id!==String(adminRuntime?.session?.user?.id||''))return;
+    adminClubeCampaignState={...data,loadedFor:id};
+  }catch(e){
+    if(id===String(adminRuntime?.session?.user?.id||'')){
+      adminClubeCampaignState=null;
+      toast(String(e?.message||'Não foi possível consultar as negociações.'));
+    }
+  }finally{adminClubeCampaignBusy=false;render();}
+}
+async function adminClubeCampaignReviewFromUi(merchantId,packageKey,expectedVersion,expectedInterestVersion){
+  const actor=String(adminRuntime?.session?.user?.id||'');
+  const role=String(adminCurrentRole());
+  if(!actor||!['superadmin','operations','compliance','finance'].includes(role))return;
+  const data=adminClubeCampaignState?.loadedFor===actor?adminClubeCampaignState:null;
+  const row=data?.rows?.find(x=>x.merchantId===merchantId&&x.packageKey===packageKey);
+  if(!row||!row.interestActive||
+    row.reviewVersion!==expectedVersion||row.interestVersion!==expectedInterestVersion||
+    adminClubeCampaignReviewsPending.has(merchantId+':'+packageKey))
+    return toast('Atualize a fila antes de revisar.');
+  const key=merchantId+'-'+packageKey;
+  const status=String(document.getElementById('clube-review-status-'+key)?.value||'');
+  const note=String(document.getElementById('clube-review-note-'+key)?.value||'').trim();
+  if(!['under_review','request_documents','economic_prechecked','declined'].includes(status)||
+    (status==='economic_prechecked'&&!['superadmin','finance'].includes(role))||
+    note.length<12||note.length>500)
+    return toast('Selecione uma etapa permitida e informe uma justificativa de 12 a 500 caracteres.');
+  adminClubeCampaignReviewsPending.add(merchantId+':'+packageKey);
+  try{
+    const result=await adminInvoke({action:'clube-campaign-review',
+      merchantId,packageKey,status,note,expectedVersion,expectedInterestVersion,
+      requestId:crypto.randomUUID()});
+    if(result?.source!=='admin_clube_campaign_review_v1_241'||
+      result?.recorded!==true||result?.noCharge!==true||
+      result?.noContract!==true||result?.fundingVerified!==false||
+      result?.campaignEnabled!==false||result?.couponSalesEnabled!==false)
+      throw new Error('O registro da negociação não foi confirmado.');
+    if(actor===String(adminRuntime?.session?.user?.id||'')){
+      toast('Etapa registrada. Nenhum orçamento foi reservado e não há cupons ativos.');
+      await adminClubeCampaignLoadFromUi();
+    }
+  }catch(e){
+    if(actor===String(adminRuntime?.session?.user?.id||'')){
+      toast(String(e?.message||'A revisão não foi salva. Atualize a fila.'));
+    }
+  }finally{adminClubeCampaignReviewsPending.delete(merchantId+':'+packageKey);render();}
+}
+function adminClubeCampaignSection(){
+  const role=String(adminCurrentRole());
+  if(!['superadmin','operations','compliance','finance','readonly'].includes(role))return '';
+  const id=String(adminRuntime?.session?.user?.id||'');
+  const d=adminClubeCampaignState?.loadedFor===id?adminClubeCampaignState:null;
+  const money=n=>adminMoney(Number(n)||0);
+  const statusLabels={under_review:'Em análise',request_documents:'Solicitar documentação',
+    economic_prechecked:'Economia pré-analisada (não aprovada)',declined:'Encerrada sem acordo'};
+  const canReview=['superadmin','operations','compliance','finance'].includes(role);
+  const canEconomic=['superadmin','finance'].includes(role);
+  const rows=(d?.rows||[]).map(x=>{
+    const key=String(x.merchantId)+'-'+String(x.packageKey);
+    const stale=!x.interestActive||(x.reviewVersion>0&&!x.reviewCurrent);
+    const stages=[
+      ['under_review','Em análise'],['request_documents','Solicitar documentos'],
+      ...(canEconomic?[['economic_prechecked','Economia pré-analisada']]:[]),
+      ['declined','Encerrar negociação']
+    ];
+    const controls=canReview&&x.interestActive?'<div class="form-stack">'+
+      '<div class="input-wrap"><label for="clube-review-status-'+esc(key)+'">Etapa da negociação</label>'+
+      '<select id="clube-review-status-'+esc(key)+'" class="input">'+
+      stages.map(v=>'<option value="'+esc(v[0])+'"'+(x.reviewStatus===v[0]?' selected':'')+'>'+esc(v[1])+'</option>').join('')+
+      '</select></div>'+
+      '<div class="input-wrap"><label for="clube-review-note-'+esc(key)+'">Justificativa interna (12 a 500 caracteres)</label>'+
+      '<textarea id="clube-review-note-'+esc(key)+'" class="input" maxlength="500" rows="2" placeholder="Ex.: Confirmar regularidade, custos e minuta contratual.">'+esc(x.reviewNote||'')+'</textarea></div>'+
+      '<button type="button" class="secondary small" '+
+      (adminClubeCampaignReviewsPending.has(x.merchantId+':'+x.packageKey)?'disabled':'')+
+      ' onclick="adminClubeCampaignReviewFromUi(\''+esc(x.merchantId)+'\',\''+esc(x.packageKey)+'\','+
+        Number(x.reviewVersion)+','+Number(x.interestVersion)+')">Registrar etapa, sem ativar benefícios</button></div>':
+      '<p class="tiny muted">A revisão não pode ser alterada neste perfil ou sem interesse ativo.</p>';
+    return '<article class="card flat form-stack">'+
+      '<div class="section-head"><div><strong>'+esc(x.companyName)+'</strong>'+
+      '<p class="tiny muted">'+esc(x.packageKey==='gas_3x5'?'Clube Gás':'Clube Água')+
+      ' • '+esc([x.city,x.state].filter(Boolean).join('/')||'Localidade pendente')+
+      '</p></div><span class="status-pill '+(stale?'risk':'online')+'">'+
+      (stale?'Interesse retirado ou alterado':esc(statusLabels[x.reviewStatus]||
+         (x.interestActive?'Aguardando primeira revisão':'Interesse retirado')))+'</span></div>'+
+      '<div class="merchant-kpis">'+
+      '<div class="kpi"><span class="label">Orçamento sugerido</span><strong>'+money(x.budgetCents)+'</strong><small>Não comprometido</small></div>'+
+      '<div class="kpi"><span class="label">Custo da revenda por uso</span><strong>'+money(x.sponsoredPerCouponCents)+'</strong><small>Hipótese arredondada para cima</small></div>'+
+      '<div class="kpi"><span class="label">Usos hipotéticos com esse teto</span><strong>'+
+         Number(x.maxCouponUsesIllustrative).toLocaleString('pt-BR')+'</strong><small>Não emitidos</small></div>'+
+      '<div class="kpi"><span class="label">Pacotes inteiros hipotéticos</span><strong>'+
+         Number(x.maxPackagesIllustrative).toLocaleString('pt-BR')+'</strong><small>Não disponíveis para venda</small></div></div>'+
+      controls+'</article>';
+  }).join('');
+  return '<section class="section admin-clube-campaign">'+
+    '<div class="section-head"><div><span class="section-kicker">CLUBE TAMÃO • NEGOCIAÇÕES</span>'+
+    '<h3>Central de campanhas patrocinadas</h3>'+
+    '<p>Acompanhe conversas, documentação e pré-análise financeira sem transformar intenção em compromisso.</p></div>'+
+    '<button type="button" class="secondary small" onclick="adminClubeCampaignLoadFromUi()" '+
+      (adminClubeCampaignBusy?'disabled':'')+'>Consultar negociações</button></div>'+
+    (d?'<div class="merchant-kpis">'+
+      '<div class="kpi"><span class="label">Interesses atuais</span><strong>'+Number(d.activeInterests)+'</strong></div>'+
+      '<div class="kpi"><span class="label">Patrocínio comprovado</span><strong>R$ 0</strong></div>'+
+      '<div class="kpi"><span class="label">Campanhas ativas</span><strong>0</strong></div></div>'+
+      '<div class="grid cards-2" style="margin-top:12px">'+
+      (rows||'<p class="muted">Nenhuma negociação registrada.</p>')+'</div>':
+      '<p class="muted tiny">Consulte para exibir limites hipotéticos conforme cada proposta. Nenhuma cobrança ou campanha foi aberta.</p>')+
+    '<p class="tiny muted">A pré-análise não verifica contrato ou depósito. É proibido publicar, cobrar pacotes ou aplicar descontos com base nesta etapa.</p></section>';
+}
 function adminAdsDemandSection(){
   if(!['superadmin','operations','compliance','finance','readonly'].includes(String(adminCurrentRole())))
     return '';
@@ -1011,6 +1138,7 @@ function adminPrelaunchLeadsSection(data){
       adminGrowthApplicationFunnelView(data?.growthApplicationFunnel),
       adminAdsDemandSection(),
       adminClubeInterestSection(),
+      adminClubeCampaignSection(),
       adminAdsCampaignSection(),
       adminAdsAudienceSection(),
       adminAdsPreviewSummarySection(),
