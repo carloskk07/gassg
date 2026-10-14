@@ -100,7 +100,7 @@ async function requireAdmin(admin:any,userId:string){
   if(!data)throw new DomainError("ADMIN_ACCESS_DENIED","Esta conta não possui acesso administrativo.",403);
   return data;
 }
-const ADMIN_READ_ACTIONS=new Set(["summary","search","entity-detail","system-health","billing-provider-health","audit-search","incident-list","merchant-payment-preflight","prospect-intelligence","expansion-notifications","expansion-radar","merchant-enablement","sale-payment-history","finance-receipts-history","commercial-history-list","operational-alerts","ads-demand","clube-interest-queue","clube-campaign-queue","clube-terms-queue","owner-funding-read","owner-funding-pulse","owner-evidence-queue","owner-budget-queue","owner-finance-history","owner-campaign-signals","owner-campaign-orders","owner-campaign-fee-receipts","owner-campaign-batch-ledger","owner-campaign-financial-summary","owner-campaign-benefit-costs","owner-wallet-reconciliation","owner-campaign-orphan-audit","owner-orphan-cleanup-candidates","owner-campaign-cost-read","owner-campaign-receipts-read","owner-campaign-receipt-view","ads-audience-readiness","ads-preview-summary","ads-placement-readiness","ads-pilot-preflight","commercial-activation","ads-campaign-queue","growth-referral-review-queue"]);
+const ADMIN_READ_ACTIONS=new Set(["summary","search","entity-detail","system-health","billing-provider-health","audit-search","incident-list","merchant-payment-preflight","prospect-intelligence","expansion-notifications","expansion-radar","merchant-enablement","sale-payment-history","finance-receipts-history","commercial-history-list","operational-alerts","ads-demand","clube-interest-queue","clube-campaign-queue","clube-terms-queue","owner-funding-read","owner-funding-pulse","owner-evidence-queue","owner-budget-queue","owner-finance-history","owner-campaign-signals","owner-campaign-orders","owner-campaign-fee-receipts","owner-campaign-batch-ledger","owner-campaign-financial-summary","owner-campaign-benefit-costs","owner-wallet-reconciliation","owner-cashback-source-lots","owner-campaign-orphan-audit","owner-orphan-cleanup-candidates","owner-campaign-cost-read","owner-campaign-receipts-read","owner-campaign-receipt-view","ads-audience-readiness","ads-preview-summary","ads-placement-readiness","ads-pilot-preflight","commercial-activation","ads-campaign-queue","growth-referral-review-queue"]);
 const ADMIN_ROLE_ACTIONS:Record<string,Set<string>>={
   superadmin:new Set(["*"]),
   operations:new Set([
@@ -2689,6 +2689,56 @@ Deno.serve(async(req:Request)=>{
     }
 
 
+    // V1.261 — private, forward-only source-lot attribution summary.
+    if(action==="owner-cashback-source-lots"){
+      if(!["superadmin","finance"].includes(String(adminAccess.admin_role)))
+        throw new DomainError("ADMIN_PERMISSION_DENIED","Origem de créditos restrita.",403);
+      const month=String(body.month??"");
+      if(month!==""&&!/^\d{4}-(0[1-9]|1[0-2])-01$/.test(month))
+        throw new DomainError("SOURCE_LOTS_MONTH_INVALID","Competência inválida.",400);
+      const {data,error}=await admin.rpc("admin_owner_cashback_source_lots_v1_261",{
+        p_actor:user.id,p_month:month||null
+      });
+      if(error)throw error;
+      const nonneg=(x:any,fields:string[])=>x&&fields.every(
+        k=>Number.isSafeInteger(x[k])&&x[k]>=0);
+      const ev=data?.events,issuance=data?.issuance,use=data?.settledUse;
+      const keys=["customer_cashback","customer_referral","merchant_referral","clube_coupons"];
+      if(data?.source!=="admin_owner_cashback_source_lots_v1_261"||
+        data?.timezone!=="America/Sao_Paulo"||
+        data?.captureMode!=="forward_only_after_wallet_insert"||
+        data?.lotAllocationMethod!=="fifo_bookkeeping_convention"||
+        data?.walletIsAuthoritative!==true||data?.legacyBackfillPerformed!==false||
+        data?.readOnly!==true||data?.noTransfers!==true||data?.newBenefitsEnabled!==false||
+        data?.externalPaidBenefitsCents!==null||data?.externalPayoutMeasured!==false||
+        data?.bankSettlementVerified!==false||data?.profitMeasured!==false||
+        data?.roiMeasured!==false||
+        !/^\d{4}-\d{2}-01$/.test(String(data?.month||""))||
+        (month!==""&&data.month!==month)||
+        !nonneg(ev,["walletEntries","capturedEntries","untrackedEntries",
+          "partialEntries","matchedCents","unmatchedCents"])||
+        ev.walletEntries!==ev.capturedEntries+ev.untrackedEntries||
+        ev.partialEntries>ev.capturedEntries||
+        !nonneg(issuance,["newLots","issuedCents","remainingCents",
+          "seedIssuedCents","earnedIssuedCents"])||
+        issuance.issuedCents!==issuance.seedIssuedCents+issuance.earnedIssuedCents||
+        issuance.remainingCents>issuance.issuedCents||
+        !nonneg(use,["settledAssignedCents","settledPartiallyAssignedCents",
+          "settledUnassignedCents","fullyAssignedOrders","partiallyAssignedOrders"])||
+        !Number.isSafeInteger(data.totalCampaigns)||data.totalCampaigns<0||
+        data.limit!==50||data.truncated!==(data.totalCampaigns>50)||
+        !Array.isArray(data.rows)||data.rows.length>50||
+        data.rows.length>data.totalCampaigns||
+        data.rows.some((x:any)=>!x||!UUID_RE.test(String(x.allocationId||""))||
+          typeof x.campaignTag!=="string"||
+          !keys.some(k=>x.campaignTag.startsWith(
+            "tam-"+k+"-"+data.month.slice(0,4)+data.month.slice(5,7)+"-"))||
+          typeof x.campaignLabel!=="string"||x.campaignLabel.length>180||
+          !nonneg(x,["earnedIssuedCents","earnedRemainingCents"])||
+          x.earnedRemainingCents>x.earnedIssuedCents))
+        throw new DomainError("SOURCE_LOTS_UNVERIFIED","Origem de créditos não validada.",503);
+      return json(data,200,origin);
+    }
     // V1.260 — source-of-truth reconciliation of wallet events vs rewards/orders.
     if(action==="owner-wallet-reconciliation"){
       if(!["superadmin","finance"].includes(String(adminAccess.admin_role)))

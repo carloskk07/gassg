@@ -2581,6 +2581,111 @@ function adminOwnerOrphanCleanupSection(){
     '</div>';
 }
 
+// TAMÃO V1.261 — audit the new origin lots without affecting native wallet.
+let adminOwnerSourceLotsState=null;
+let adminOwnerSourceLotsBusy=false;
+async function adminOwnerSourceLotsLoadFromUi(){
+  const actor=String(adminRuntime?.session?.user?.id||'');
+  const role=String(adminCurrentRole());
+  if(!actor||!['superadmin','finance'].includes(role)||adminOwnerSourceLotsBusy)return;
+  const month=String(document.getElementById('owner-campaign-signals-month')?.value||'').trim();
+  if(month&&!/^\d{4}-(0[1-9]|1[0-2])$/.test(month))
+    return toast('Selecione uma competência válida.');
+  adminOwnerSourceLotsBusy=true;render();
+  try{
+    const d=await adminInvoke({action:'owner-cashback-source-lots',month:month?month+'-01':''});
+    const nonneg=(x,fields)=>x&&fields.every(k=>Number.isSafeInteger(x[k])&&x[k]>=0);
+    const ev=d?.events,l=d?.issuance,u=d?.settledUse;
+    if(d?.source!=='admin_owner_cashback_source_lots_v1_261'||
+      d?.timezone!=='America/Sao_Paulo'||
+      d?.captureMode!=='forward_only_after_wallet_insert'||
+      d?.lotAllocationMethod!=='fifo_bookkeeping_convention'||
+      d?.walletIsAuthoritative!==true||d?.legacyBackfillPerformed!==false||
+      d?.readOnly!==true||d?.noTransfers!==true||d?.newBenefitsEnabled!==false||
+      d?.externalPaidBenefitsCents!==null||d?.externalPayoutMeasured!==false||
+      d?.bankSettlementVerified!==false||d?.profitMeasured!==false||
+      d?.roiMeasured!==false||
+      !/^\d{4}-\d{2}-01$/.test(String(d?.month||''))||
+      (month&&d.month!==month+'-01')||
+      !nonneg(ev,['walletEntries','capturedEntries','untrackedEntries',
+        'partialEntries','matchedCents','unmatchedCents'])||
+      ev.walletEntries!==ev.capturedEntries+ev.untrackedEntries||
+      ev.partialEntries>ev.capturedEntries||
+      !nonneg(l,['newLots','issuedCents','remainingCents',
+        'seedIssuedCents','earnedIssuedCents'])||
+      l.issuedCents!==l.seedIssuedCents+l.earnedIssuedCents||
+      l.remainingCents>l.issuedCents||
+      !nonneg(u,['settledAssignedCents','settledPartiallyAssignedCents',
+        'settledUnassignedCents','fullyAssignedOrders','partiallyAssignedOrders'])||
+      !Number.isSafeInteger(d.totalCampaigns)||d.totalCampaigns<0||
+      d.limit!==50||d.truncated!==(d.totalCampaigns>50)||
+      !Array.isArray(d.rows)||d.rows.length>50||d.rows.length>d.totalCampaigns||
+      d.rows.some(x=>!x||!/^[0-9a-f-]{36}$/i.test(String(x.allocationId||''))||
+        !['customer_cashback','customer_referral','merchant_referral','clube_coupons']
+        .some(k=>typeof x.campaignTag==='string'&&x.campaignTag.startsWith(
+          'tam-'+k+'-'+d.month.slice(0,4)+d.month.slice(5,7)+'-'))||
+        typeof x.campaignLabel!=='string'||x.campaignLabel.length>180||
+        !nonneg(x,['earnedIssuedCents','earnedRemainingCents'])||
+        x.earnedRemainingCents>x.earnedIssuedCents))
+      throw new Error('Rastreabilidade de créditos não validada.');
+    if(actor===String(adminRuntime?.session?.user?.id||'')&&role===String(adminCurrentRole()))
+      adminOwnerSourceLotsState={...d,loadedFor:actor};
+  }catch(e){
+    if(actor===String(adminRuntime?.session?.user?.id||'')){
+      adminOwnerSourceLotsState=null;
+      toast(String(e?.message||'Não foi possível consultar as origens de créditos.'));
+    }
+  }finally{adminOwnerSourceLotsBusy=false;render();}
+}
+function adminOwnerCashbackSourceLotsSection(){
+  if(!['superadmin','finance'].includes(String(adminCurrentRole())))return '';
+  const actor=String(adminRuntime?.session?.user?.id||'');
+  const d=adminOwnerSourceLotsState?.loadedFor===actor?adminOwnerSourceLotsState:null;
+  const selected=String(document.getElementById('owner-campaign-signals-month')?.value||'').trim();
+  const matching=d&&(!selected||d.month.slice(0,7)===selected);
+  const ev=matching?d.events:null,l=matching?d.issuance:null,u=matching?d.settledUse:null;
+  const campaignCards=(matching?d.rows:[]).map(x=>
+    '<article class="card flat form-stack">'+
+    '<h5>'+esc(x.campaignLabel)+'</h5>'+
+    '<p class="tiny muted">'+esc(x.campaignTag)+'</p>'+
+    '<p>Cashback emitido com esta origem: <strong>'+
+    adminMoney(x.earnedIssuedCents)+'</strong></p>'+
+    '<p>Parcela desses lotes ainda disponível na escrituração: '+
+    adminMoney(x.earnedRemainingCents)+'</p></article>').join('');
+  return '<div class="card flat form-stack">'+
+    '<div class="section-head"><div><h4>Origem dos novos créditos de cashback</h4>'+
+    '<p>Acompanha os lotes emitidos e a associação de reservas por FIFO contábil, sem modificar a carteira oficial.</p>'+
+    '</div></div>'+
+    '<button type="button" class="secondary small" onclick="adminOwnerSourceLotsLoadFromUi()" '+
+    (adminOwnerSourceLotsBusy?'disabled':'')+'>Consultar rastreabilidade da competência</button>'+
+    (matching?'<div class="merchant-kpis">'+
+      '<div class="kpi"><span class="label">Créditos emitidos em novos lotes</span><strong>'+
+      adminMoney(l.issuedCents)+'</strong></div>'+
+      '<div class="kpi"><span class="label">Saldo contábil atual desses lotes</span><strong>'+
+      adminMoney(l.remainingCents)+'</strong></div>'+
+      '<div class="kpi"><span class="label">Reservas vinculadas e pedidos liquidados</span><strong>'+
+      adminMoney(u.settledAssignedCents)+'</strong></div>'+
+      '<div class="kpi"><span class="label">Crédito sem vínculo completo nos pedidos liquidados</span><strong>'+
+      adminMoney(u.settledUnassignedCents)+'</strong></div>'+
+      '</div>'+
+      '<p class="tiny muted">'+Number(l.newLots)+' lote(s) • '+
+      Number(ev.walletEntries)+' evento(s) de cashback no mês • '+
+      Number(ev.untrackedEntries)+' sem captura • '+
+      Number(ev.partialEntries)+' incompleto(s). Emissões: promocionais '+
+      adminMoney(l.seedIssuedCents)+' e recompensas '+adminMoney(l.earnedIssuedCents)+
+      '. Total em eventos parcialmente vinculados: '+adminMoney(ev.unmatchedCents)+'.</p>'+
+      '<p class="tiny muted">Reservas parcialmente associadas em pedidos liquidados: '+
+      adminMoney(u.settledPartiallyAssignedCents)+
+      '. Pedidos com reserva integralmente vinculada: '+Number(u.fullyAssignedOrders)+
+      ' • parcialmente vinculada: '+Number(u.partiallyAssignedOrders)+'.</p>'+
+      '<div class="grid cards-2">'+
+      (campaignCards||'<p class="tiny muted">Nenhum lote de cashback vinculado a campanhas desta competência.</p>')+
+      '</div>':
+      '<p class="tiny muted">Consulte a competência para ver os dados reais de origem e consumo.</p>')+
+    '<p class="tiny muted">FIFO é uma convenção de escrituração de saldo fungível, não identificação bancária do dinheiro. Saldo atual dos lotes não é saldo disponível da carteira e não representa pagamento. Eventos antigos não são preenchidos retroativamente; falhas de captura ficam visíveis. Nenhuma movimentação ou ativação é executada nesta consulta.</p>'+
+    '</div>';
+}
+
 // TAMÃO V1.260 — compare grant events and applied wallet reservations by order.
 let adminOwnerWalletReconState=null;
 let adminOwnerWalletReconBusy=false;
@@ -2951,6 +3056,7 @@ function adminOwnerFinancialSummarySection(){
       '<p class="tiny muted">Consulte a competência selecionada para comparar somente dados reais do banco.</p>')+
     (typeof adminOwnerBenefitCostsSection==='function'?adminOwnerBenefitCostsSection():'')+
     (typeof adminOwnerWalletReconciliationSection==='function'?adminOwnerWalletReconciliationSection():'')+
+    (typeof adminOwnerCashbackSourceLotsSection==='function'?adminOwnerCashbackSourceLotsSection():'')+
     '<div class="card flat form-stack"><h4>Integridade dos comprovantes privados</h4>'+
     '<p>Auditoria de arquivos sem vínculo à despesa. Os uploads recentes têm proteção de 24 horas; esta consulta não exclui documentos.</p>'+
     '<button type="button" class="secondary small" onclick="adminOwnerOrphanAuditLoadFromUi()" '+
