@@ -811,6 +811,117 @@ function adminClubeTermsSection(){
     '<p class="tiny muted">Documentos informados como recebidos ainda exigem verificação externa. Compartilhar uma minuta não constitui proposta vinculante, reserva de dinheiro ou confirmação de patrocínio.</p></section>';
 }
 
+// V1.244 — Private founder-financing policy (NOT a cash balance or automatic promise).
+let adminOwnerFundingState=null;
+let adminOwnerFundingLoading=false;
+const adminOwnerFundingSaving=new Set();
+async function adminOwnerFundingLoadFromUi(){
+  const actor=String(adminRuntime?.session?.user?.id||'');
+  if(!actor||!['superadmin','finance'].includes(String(adminCurrentRole()))||adminOwnerFundingLoading)return;
+  adminOwnerFundingLoading=true;
+  try{
+    const d=await adminInvoke({action:'owner-funding-read'});
+    if(d?.source!=='admin_owner_funding_read_v1_244'||d?.fundingSource!=='platform_owner'||
+      d?.newBenefitsEnabled!==false||d?.noCharge!==true||
+      d?.verifiedDepositCents!==0||d?.moneyReservedCents!==0||
+      !Array.isArray(d.rows)||d.rows.length!==4)
+      throw new Error('O plano de custeio não foi validado.');
+    if(actor===String(adminRuntime?.session?.user?.id||'')){
+      adminOwnerFundingState={...d,loadedFor:actor};
+    }
+  }catch(e){
+    if(actor===String(adminRuntime?.session?.user?.id||'')){
+      adminOwnerFundingState=null;
+      toast(String(e?.message||'Não foi possível consultar o custeio.'));
+    }
+  }finally{adminOwnerFundingLoading=false;render();}
+}
+async function adminOwnerFundingSaveFromUi(key,expectedVersion){
+  const actor=String(adminRuntime?.session?.user?.id||'');
+  if(!actor||String(adminCurrentRole())!=='superadmin')return;
+  const d=adminOwnerFundingState?.loadedFor===actor?adminOwnerFundingState:null;
+  const current=d?.rows?.find(x=>x.benefitKey===key);
+  if(!current||current.version!==expectedVersion||adminOwnerFundingSaving.has(key))
+    return toast('Atualize o plano antes de salvar.');
+  const val=id=>String(document.getElementById('owner-funding-'+id+'-'+key)?.value||'');
+  const budgetCents=Number(val('budget'));
+  const capCents=Number(val('cap'));
+  const status=val('status');
+  const note=val('note').trim();
+  if(![budgetCents,capCents].every(v=>Number.isSafeInteger(v)&&v>=0)||
+    budgetCents>50000000||capCents>10000000||capCents>budgetCents||
+    !['planning','internally_committed'].includes(status)||
+    (status==='internally_committed'&&(budgetCents===0||capCents===0))||
+    note.length<12||note.length>400)
+    return toast('Confira orçamento, limite individual, situação e justificativa.');
+  adminOwnerFundingSaving.add(key);
+  try{
+    const result=await adminInvoke({action:'owner-funding-save',
+      benefitKey:key,budgetCents,capCents,status,note,expectedVersion,
+      requestId:crypto.randomUUID()});
+    if(result?.source!=='admin_owner_funding_save_v1_244'||result?.recorded!==true||
+      result?.noExternalCommitment!==true||result?.newBenefitsEnabled!==false||
+      result?.verifiedDepositCents!==0||result?.moneyReservedCents!==0||
+      result?.moneyPaidCents!==0)
+      throw new Error('Planejamento ainda não confirmado.');
+    if(actor===String(adminRuntime?.session?.user?.id||'')){
+      toast('Orçamento interno registrado. O plano não movimenta dinheiro.');
+      await adminOwnerFundingLoadFromUi();
+    }
+  }catch(e){
+    if(actor===String(adminRuntime?.session?.user?.id||'')){
+      toast(String(e?.message||'Não foi possível salvar o orçamento.'));
+    }
+  }finally{adminOwnerFundingSaving.delete(key);render();}
+}
+function adminOwnerFundingSection(){
+  const role=String(adminCurrentRole());
+  if(!['superadmin','finance'].includes(role))return '';
+  const actor=String(adminRuntime?.session?.user?.id||'');
+  const d=adminOwnerFundingState?.loadedFor===actor?adminOwnerFundingState:null;
+  const labels={
+    customer_cashback:'Cashback de clientes',
+    customer_referral:'Comissões por clientes indicados',
+    merchant_referral:'Bonificação por revendas indicadas',
+    clube_coupons:'Cupons do Clube TAMÃO'
+  };
+  const cards=(d?.rows||[]).map(x=>{
+    const key=String(x.benefitKey);
+    const fields=role==='superadmin'?
+      '<div class="grid cards-2">'+
+      '<label class="input-wrap">Teto planejado por mês (centavos)'+
+      '<input class="input" type="number" min="0" max="50000000" step="100" id="owner-funding-budget-'+esc(key)+'" value="'+Number(x.budgetCents)+'"></label>'+
+      '<label class="input-wrap">Teto planejado por pessoa (centavos)'+
+      '<input class="input" type="number" min="0" max="10000000" step="100" id="owner-funding-cap-'+esc(key)+'" value="'+Number(x.capCents)+'"></label>'+
+      '</div><label class="input-wrap">Declaração interna'+
+      '<select class="input" id="owner-funding-status-'+esc(key)+'">'+
+      '<option value="planning"'+(x.status==='planning'?' selected':'')+'>Em planejamento</option>'+
+      '<option value="internally_committed"'+(x.status==='internally_committed'?' selected':'')+'>Compromisso interno do fundador</option>'+
+      '</select></label>'+
+      '<label class="input-wrap">Justificativa / origem prevista'+
+      '<textarea class="input" maxlength="400" rows="2" id="owner-funding-note-'+esc(key)+'">'+esc(x.note||'Recursos próprios destinados aos incentivos da plataforma.')+'</textarea></label>'+
+      '<button type="button" class="secondary small" onclick="adminOwnerFundingSaveFromUi(\''+
+      esc(key)+'\','+Number(x.version)+')" '+(adminOwnerFundingSaving.has(key)?'disabled':'')+
+      '>Salvar orçamento interno</button>':
+      '<p class="tiny muted">Consulta financeira. Edição reservada ao administrador principal.</p>';
+    return '<article class="card flat form-stack"><h3>'+esc(labels[key]||key)+'</h3>'+
+      '<p class="tiny muted">Teto mensal proposto: '+adminMoney(x.budgetCents)+
+      ' • limite por pessoa: '+adminMoney(x.capCents)+
+      ' • '+(x.status==='internally_committed'?'Compromisso interno registrado':'Em planejamento')+'</p>'+
+      fields+'</article>';
+  }).join('');
+  return '<section class="section admin-owner-funding"><div class="section-head"><div>'+
+    '<span class="section-kicker">FINANCIAMENTO INICIAL • GESTÃO INTERNA</span>'+
+    '<h3>Incentivos financiados pelo TAMÃO</h3>'+
+    '<p>Defina quanto pretende destinar por mês a cashback, comissões, indicações e cupons, com limites individuais.</p>'+
+    '</div><button type="button" class="secondary small" onclick="adminOwnerFundingLoadFromUi()" '+
+      (adminOwnerFundingLoading?'disabled':'')+'>Consultar orçamento</button></div>'+
+    (d?'<div class="grid cards-2">'+cards+'</div>':
+      '<p class="muted">Consulte os quatro centros de incentivo para estabelecer os limites de custeio.</p>')+
+    '<p class="tiny muted">Uso administrativo: o valor informado é uma intenção de custeio do proprietário. Não é depósito confirmado, saldo disponível, reserva de campanha ou autorização para saque. O cashback e a comissão já existentes seguem suas regras independentes; este plano não os altera.</p>'+
+    '</section>';
+}
+
 function adminClubeCampaignSection(){
   const role=String(adminCurrentRole());
   if(!['superadmin','operations','compliance','finance','readonly'].includes(role))return '';
@@ -1298,6 +1409,7 @@ function adminPrelaunchLeadsSection(data){
       adminClubeInterestSection(),
       adminClubeCampaignSection(),
       adminClubeTermsSection(),
+      adminOwnerFundingSection(),
       adminAdsCampaignSection(),
       adminAdsAudienceSection(),
       adminAdsPreviewSummarySection(),
