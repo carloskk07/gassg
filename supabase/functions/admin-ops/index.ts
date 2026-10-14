@@ -100,7 +100,7 @@ async function requireAdmin(admin:any,userId:string){
   if(!data)throw new DomainError("ADMIN_ACCESS_DENIED","Esta conta não possui acesso administrativo.",403);
   return data;
 }
-const ADMIN_READ_ACTIONS=new Set(["summary","search","entity-detail","system-health","billing-provider-health","audit-search","incident-list","merchant-payment-preflight","prospect-intelligence","expansion-notifications","expansion-radar","merchant-enablement","sale-payment-history","finance-receipts-history","commercial-history-list","operational-alerts","ads-demand","clube-interest-queue","clube-campaign-queue","clube-terms-queue","owner-funding-read","owner-funding-pulse","owner-evidence-queue","ads-audience-readiness","ads-preview-summary","ads-placement-readiness","ads-pilot-preflight","commercial-activation","ads-campaign-queue","growth-referral-review-queue"]);
+const ADMIN_READ_ACTIONS=new Set(["summary","search","entity-detail","system-health","billing-provider-health","audit-search","incident-list","merchant-payment-preflight","prospect-intelligence","expansion-notifications","expansion-radar","merchant-enablement","sale-payment-history","finance-receipts-history","commercial-history-list","operational-alerts","ads-demand","clube-interest-queue","clube-campaign-queue","clube-terms-queue","owner-funding-read","owner-funding-pulse","owner-evidence-queue","owner-budget-queue","ads-audience-readiness","ads-preview-summary","ads-placement-readiness","ads-pilot-preflight","commercial-activation","ads-campaign-queue","growth-referral-review-queue"]);
 const ADMIN_ROLE_ACTIONS:Record<string,Set<string>>={
   superadmin:new Set(["*"]),
   operations:new Set([
@@ -2520,6 +2520,94 @@ Deno.serve(async(req:Request)=>{
       if(error)throw error;
       if(data?.recorded!==true||data.noCharge!==true||data.adsLive!==false)
         throw new DomainError("ADS_CAMPAIGN_REVIEW_UNVERIFIED","Revisão não confirmada.",503);
+      return json(data,200,origin);
+    }
+    if(action==="owner-budget-queue"){
+      if(!["superadmin","finance"].includes(String(adminAccess.admin_role)))
+        throw new DomainError("ADMIN_PERMISSION_DENIED","Acesso apenas ao planejamento financeiro.",403);
+      const {data,error}=await admin.rpc("admin_owner_budget_queue_v1_247",{p_actor:user.id});
+      if(error)throw error;
+      if(data?.source!=="admin_owner_budget_queue_v1_247"||
+        data?.readOnly!==true||data?.plannedOnly!==true||
+        data?.verifiedCashCents!==0||data?.spendableCents!==0||
+        data?.newBenefitsEnabled!==false||data?.noCharge!==true||
+        !Array.isArray(data?.rows)||data.rows.length!==12||
+        !Array.isArray(data?.allocations)||data.allocations.length>50||
+        !Number.isSafeInteger(data?.totalAllocations)||data.totalAllocations<0||
+        data.allocations.length>data.totalAllocations||
+        new Set(data.rows.map((x:any)=>x.benefitKey+":"+x.month)).size!==12||
+        data.rows.some((x:any)=>!x||
+          !["customer_cashback","customer_referral","merchant_referral","clube_coupons"].includes(x.benefitKey)||
+          !/^\d{4}-\d{2}-01$/.test(String(x.month||""))||
+          !Number.isSafeInteger(x.planVersion)||x.planVersion<0||
+          !["planning","internally_committed"].includes(x.planStatus)||
+          !Number.isSafeInteger(x.plannedCents)||x.plannedCents<0||x.plannedCents>50000000||
+          !Number.isSafeInteger(x.allocatedCents)||x.allocatedCents<0||
+          !Number.isSafeInteger(x.unallocatedCents)||x.unallocatedCents<0||
+          x.unallocatedCents!==Math.max(0,x.plannedCents-x.allocatedCents)||
+          typeof x.coverageExceeded!=="boolean")||
+        data.allocations.some((x:any)=>!x||
+          !UUID_RE.test(String(x.allocationId||""))||
+          !["customer_cashback","customer_referral","merchant_referral","clube_coupons"].includes(x.benefitKey)||
+          !/^\d{4}-\d{2}-01$/.test(String(x.month||""))||
+          !/^[a-z0-9_-]{8,80}$/.test(String(x.campaignReference||""))||
+          typeof x.campaignLabel!=="string"||x.campaignLabel.length>180||
+          !["allocated","released"].includes(x.status)||
+          !Number.isSafeInteger(x.amountCents)||x.amountCents<100||x.amountCents>50000000||
+          !Number.isSafeInteger(x.planVersion)||x.planVersion<1||
+          ![1,2].includes(x.version)||
+          !Number.isFinite(Date.parse(x.createdAt||""))))
+        throw new DomainError("OWNER_BUDGET_QUEUE_UNVERIFIED","Planejamento não confirmado pelo banco.",503);
+      return json(data,200,origin);
+    }
+    if(action==="owner-budget-allocate"){
+      if(String(adminAccess.admin_role)!=="superadmin")
+        throw new DomainError("ADMIN_PERMISSION_DENIED","Somente o administrador principal distribui os orçamentos.",403);
+      const key=String(body.benefitKey??"");
+      const month=String(body.month??"");
+      const reference=String(body.campaignReference??"").trim();
+      const label=String(body.campaignLabel??"").trim();
+      if(!["customer_cashback","customer_referral","merchant_referral","clube_coupons"].includes(key)||
+        !/^\d{4}-\d{2}-01$/.test(month)||
+        !/^[a-z0-9_-]{8,80}$/.test(reference)||
+        label.length<12||label.length>180||
+        !Number.isSafeInteger(body.amountCents)||body.amountCents<100||body.amountCents>50000000||
+        !Number.isSafeInteger(body.planVersion)||body.planVersion<1)
+        throw new DomainError("OWNER_BUDGET_ALLOCATION_INVALID","Confira valor, mês, campanha e orçamento.",400);
+      const {data,error}=await admin.rpc("admin_owner_budget_allocate_v1_247",{
+        p_actor:user.id,p_allocation:uuid(body.allocationId,"allocationId"),
+        p_benefit:key,p_month:month,p_reference:reference,
+        p_label:label,p_amount:body.amountCents,
+        p_plan_version:body.planVersion,p_request:uuid(body.requestId,"requestId")
+      });
+      if(error)throw error;
+      if(data?.source!=="admin_owner_budget_allocate_v1_247"||
+        data?.recorded!==true||typeof data.replayed!=="boolean"||
+        data?.plannedOnly!==true||data?.noCharge!==true||
+        data?.fundsVerified!==false||data?.spendableCents!==0||
+        data?.newBenefitsEnabled!==false)
+        throw new DomainError("OWNER_BUDGET_ALLOCATION_UNVERIFIED","Alocação não confirmada.",503);
+      return json(data,200,origin);
+    }
+    if(action==="owner-budget-release"){
+      if(String(adminAccess.admin_role)!=="superadmin")
+        throw new DomainError("ADMIN_PERMISSION_DENIED","Somente o administrador principal libera orçamentos.",403);
+      const reason=String(body.reason??"").trim();
+      if(!Number.isSafeInteger(body.expectedVersion)||body.expectedVersion!==1||
+        reason.length<12||reason.length>240)
+        throw new DomainError("OWNER_BUDGET_RELEASE_INVALID","Informe a justificativa e a versão atual.",400);
+      const {data,error}=await admin.rpc("admin_owner_budget_release_v1_247",{
+        p_actor:user.id,p_allocation:uuid(body.allocationId,"allocationId"),
+        p_version:body.expectedVersion,p_reason:reason,
+        p_request:uuid(body.requestId,"requestId")
+      });
+      if(error)throw error;
+      if(data?.source!=="admin_owner_budget_release_v1_247"||
+        data?.recorded!==true||typeof data.replayed!=="boolean"||
+        data?.plannedOnly!==true||data?.noCharge!==true||
+        data?.fundsVerified!==false||data?.spendableCents!==0||
+        data?.newBenefitsEnabled!==false)
+        throw new DomainError("OWNER_BUDGET_RELEASE_UNVERIFIED","Liberação não confirmada.",503);
       return json(data,200,origin);
     }
     if(action==="owner-evidence-queue"){
