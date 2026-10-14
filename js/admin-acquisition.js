@@ -1867,6 +1867,11 @@ async function adminOwnerFinanceLoadFromUi(){
     if(actor===String(adminRuntime?.session?.user?.id||'')){
       adminOwnerFinanceError=String(error?.message||'Falha ao consultar central financeira.');
       adminOwnerFinanceLoadedFor='';
+      // A failed aggregate refresh must not leave editable forms backed by stale snapshots.
+      adminOwnerFundingState=null;
+      adminOwnerFundingPulseState=null;
+      adminOwnerEvidenceState=null;
+      adminOwnerBudgetState=null;
       toast(adminOwnerFinanceError);
     }
   }finally{adminOwnerFinanceLoading=false;render();}
