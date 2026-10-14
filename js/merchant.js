@@ -1211,7 +1211,13 @@ function merchantPaymentConnectionsView(rt){
     const ai=priority.indexOf(a.provider),bi=priority.indexOf(b.provider);
     return (ai<0?999:ai)-(bi<0?999:bi);
   });
-  const cards=ordered.map(provider=>{
+  // V1.270: current providers first; others are opt-in.
+  const configured=ordered.filter(provider=>{
+    const account=accounts.find(a=>a.provider===provider.provider);
+    return account?.connected===true||merchantProviderManualDeclared(provider.provider,rt);
+  });
+  const available=ordered.filter(provider=>!configured.includes(provider));
+  const renderProvider=provider=>{
     const account=accounts.find(a=>a.provider===provider.provider)||null;
     const connected=account?.connected===true;
     const manualDeclared=merchantProviderManualDeclared(provider.provider,rt);
