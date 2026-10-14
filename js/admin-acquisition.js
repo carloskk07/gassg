@@ -1879,6 +1879,7 @@ async function adminOwnerFinanceLoadFromUi(){
       adminOwnerCampaignSignalsState=null;
       adminOwnerCampaignOrdersState=null;
       adminOwnerCampaignFeeReceiptsState=null;
+      adminOwnerBatchLedgerState=null;
       toast(adminOwnerFinanceError);
     }
   }finally{adminOwnerFinanceLoading=false;render();}
@@ -2158,6 +2159,7 @@ function adminOwnerCampaignSignalsSection(){
     '<p class="tiny muted">Medição agregada por campanha identificada no link, dentro da competência e da janela da alocação. Acessos não são pessoas únicas; visualizações e cadastros não comprovam pedidos. Não há ROI, faturamento atribuído, saldo disponível ou pagamento de incentivos calculado por esta aba.</p>'+ 
     adminOwnerCampaignOrdersSection()+
     adminOwnerCampaignFeeReceiptsSection()+
+    adminOwnerBatchLedgerSection()+
     '</div>';
 }
 
@@ -2312,6 +2314,90 @@ function adminOwnerCampaignFeeReceiptsSection(){
       (cards||'<p class="muted">Nenhuma campanha planejada para esta competência.</p>')+'</div>':
       '<p class="tiny muted">Consulte os recebimentos da competência selecionada.</p>')+
     '<p class="tiny muted">Confirmado pelo provedor e aplicado na cobrança não significa saldo bancário conferido. Campanhas com cobranças agrupadas, aprovação apenas manual ou créditos pré-pagos ficam fora do valor comprovado. Gastos efetivos de marketing e retorno sobre investimento ainda não são mensurados.</p>'+
+    '</div>';
+}
+
+// TAMÃO V1.254 — provider-confirmed batch statement line ledger.
+let adminOwnerBatchLedgerState=null;
+let adminOwnerBatchLedgerBusy=false;
+async function adminOwnerBatchLedgerLoadFromUi(){
+  const actor=String(adminRuntime?.session?.user?.id||'');
+  const role=String(adminCurrentRole());
+  if(!actor||!['superadmin','finance'].includes(role)||adminOwnerBatchLedgerBusy)return;
+  const month=String(document.getElementById('owner-campaign-signals-month')?.value||'').trim();
+  if(month&&!/^\d{4}-(0[1-9]|1[0-2])$/.test(month))
+    return toast('Selecione uma competência válida.');
+  adminOwnerBatchLedgerBusy=true;
+  render();
+  try{
+    const d=await adminInvoke({action:'owner-campaign-batch-ledger',month:month?month+'-01':''});
+    const benefits=['customer_cashback','customer_referral','merchant_referral','clube_coupons'];
+    if(d?.source!=='admin_owner_campaign_batch_ledger_v1_254'||
+       d?.evidenceLevel!=='psp_paid_statement_balances_exact_all_lines_no_refunds'||
+       d?.readOnly!==true||d?.noTransfers!==true||
+       d?.batchOnly!==true||d?.noDoubleCountingWithV253!==true||
+       d?.cashAvailableCents!==0||d?.newBenefitsEnabled!==false||
+       d?.bankSettlementVerified!==false||d?.roiMeasured!==false||
+       d?.paidMarketingCostCents!==null||
+       !/^\d{4}-\d{2}-01$/.test(String(d?.month||''))||
+       (month&&d.month!==month+'-01')||
+       !Number.isSafeInteger(d.totalCampaigns)||d.totalCampaigns<0||
+       d.limit!==50||typeof d.truncated!=='boolean'||
+       d.truncated!==(d.totalCampaigns>50)||
+       !Array.isArray(d.rows)||d.rows.length>50||
+       d.rows.length>d.totalCampaigns||
+       d.rows.some(x=>!x||
+         !benefits.some(k=>typeof x.campaignTag==='string'&&
+           x.campaignTag.startsWith('tam-'+k+'-'+d.month.slice(0,4)+d.month.slice(5,7)+'-'))||
+         !['verifiedBatchOrders','verifiedBatchStatements','providerSupportedNetFeeCents']
+           .every(k=>Number.isSafeInteger(x[k])&&x[k]>=0)||
+         x.verifiedBatchStatements>x.verifiedBatchOrders||
+         (x.verifiedBatchOrders===0&&x.providerSupportedNetFeeCents!==0)||
+         x.entrySource!=='receivable_net_fee_statement_exact_payment_event'||
+         x.bankSettlementVerified!==false||x.roiMeasured!==false||
+         x.cashAvailableCents!==0||x.paidMarketingCostCents!==null))
+      throw new Error('Conciliação dos extratos agrupados não verificada.');
+    if(actor===String(adminRuntime?.session?.user?.id||'')&&
+       role===String(adminCurrentRole()))
+      adminOwnerBatchLedgerState={...d,loadedFor:actor};
+  }catch(error){
+    if(actor===String(adminRuntime?.session?.user?.id||'')){
+      adminOwnerBatchLedgerState=null;
+      toast(String(error?.message||'Não foi possível conferir os extratos agrupados.'));
+    }
+  }finally{adminOwnerBatchLedgerBusy=false;render();}
+}
+function adminOwnerBatchLedgerSection(){
+  if(!['superadmin','finance'].includes(String(adminCurrentRole())))return '';
+  const actor=String(adminRuntime?.session?.user?.id||'');
+  const d=adminOwnerBatchLedgerState?.loadedFor===actor?adminOwnerBatchLedgerState:null;
+  const month=String(document.getElementById('owner-campaign-signals-month')?.value||'').trim();
+  const matching=!d||!month||String(d.month).slice(0,7)===month;
+  const cards=(d?.rows||[]).map(x=>'<article class="card flat form-stack">'+
+    '<strong>'+esc(x.campaignTag)+'</strong>'+
+    '<div class="merchant-kpis">'+
+    '<div class="kpi"><span class="label">Taxas líquidas de pedidos em extratos agrupados</span><strong>'+
+    adminMoney(x.providerSupportedNetFeeCents)+'</strong></div>'+
+    '<div class="kpi"><span class="label">Pedidos com evidência por linha</span><strong>'+
+    Number(x.verifiedBatchOrders).toLocaleString('pt-BR')+'</strong></div>'+
+    '<div class="kpi"><span class="label">Extratos agrupados conciliados</span><strong>'+
+    Number(x.verifiedBatchStatements).toLocaleString('pt-BR')+'</strong></div></div>'+
+    '<p class="tiny muted">Cada linha usa a taxa exata do próprio pedido menos créditos pré-pagos. A soma de todas as linhas precisa coincidir com o extrato pago e o evento do provedor.</p>'+
+    '</article>').join('');
+  return '<div class="form-stack"><div class="section-head"><div>'+
+    '<h4>Conciliação dos extratos com vários pedidos</h4>'+
+    '<p>Comprovação por linha contábil de cada pedido, inclusive quando o provedor confirmou um pagamento conjunto.</p>'+
+    '</div></div>'+
+    '<button type="button" class="secondary small" onclick="adminOwnerBatchLedgerLoadFromUi()" '+
+    (adminOwnerBatchLedgerBusy?'disabled':'')+'>Conferir extratos agrupados</button>'+
+    (d&&matching?'<p class="tiny muted">Competência: '+esc(d.month)+' • '+
+      Number(d.totalCampaigns).toLocaleString('pt-BR')+' campanha(s)'+
+      (d.truncated?' • exibindo 50 recentes':'')+'</p>'+
+      '<div class="grid cards-2">'+
+      (cards||'<p class="muted">Nenhuma campanha planejada nesta competência.</p>')+
+      '</div>':
+      '<p class="tiny muted">Consulte a competência selecionada para exibir os valores comprovados pelo banco de dados.</p>')+
+    '<p class="tiny muted">Este resultado considera apenas extratos com dois ou mais pedidos, sem sobreposição com a conciliação individual da V1.253. Pendências, estornos ou divergências de qualquer linha impedem atribuir o extrato. Nenhuma consulta confere saldo bancário, cria créditos ou calcula ROI.</p>'+
     '</div>';
 }
 
