@@ -1224,6 +1224,7 @@ async function adminOwnerBudgetAllocateFromUi(){
     if(actor===String(adminRuntime?.session?.user?.id||'')){
       toast('Valor separado no planejamento, sem uso de dinheiro real.');
       adminOwnerFinanceHistoryState=null;
+      adminOwnerCampaignSignalsState=null;
       await adminOwnerBudgetLoadFromUi();
     }
   }catch(e){
@@ -1875,12 +1876,13 @@ async function adminOwnerFinanceLoadFromUi(){
       adminOwnerEvidenceState=null;
       adminOwnerBudgetState=null;
       adminOwnerFinanceHistoryState=null;
+      adminOwnerCampaignSignalsState=null;
       toast(adminOwnerFinanceError);
     }
   }finally{adminOwnerFinanceLoading=false;render();}
 }
 function adminOwnerFinanceSelectFromUi(tab){
-  if(!['overview','plan','evidence','campaigns','history'].includes(tab)||
+  if(!['overview','plan','evidence','campaigns','history','signals'].includes(tab)||
      !['superadmin','finance'].includes(String(adminCurrentRole())))return;
   adminOwnerFinanceTab=tab;
   render();
@@ -2015,6 +2017,146 @@ function adminOwnerFinanceHistorySection(){
     '<p class="tiny muted">Este histórico mostra eventos de aportes e campanhas, não pagamentos, faturamento, lucro ou retorno sobre investimento. A conferência manual não valida saldo bancário por API.</p></div>';
 }
 
+// TAMÃO V1.251 — campaign-specific acquisition signals, never financial ROI.
+let adminOwnerCampaignSignalsState=null;
+let adminOwnerCampaignSignalsBusy=false;
+let adminOwnerCampaignSignalsMonth='';
+async function adminOwnerCampaignSignalsLoadFromUi(){
+  const actor=String(adminRuntime?.session?.user?.id||'');
+  const role=String(adminCurrentRole());
+  if(!actor||!['superadmin','finance'].includes(role)||adminOwnerCampaignSignalsBusy)return;
+  const month=String(document.getElementById('owner-campaign-signals-month')?.value||'').trim();
+  if(month&&!/^\d{4}-(0[1-9]|1[0-2])$/.test(month))
+    return toast('Selecione uma competência mensal válida.');
+  adminOwnerCampaignSignalsBusy=true;
+  render();
+  try{
+    const result=await adminInvoke({action:'owner-campaign-signals',month:month?month+'-01':''});
+    const allowed=['customer_cashback','customer_referral','merchant_referral','clube_coupons'];
+    if(result?.source!=='admin_owner_campaign_signals_v1_251'||
+       result?.readOnly!==true||result?.plannedOnly!==true||
+       result?.noCharge!==true||result?.spendableCents!==0||
+       result?.bankApiConfirmed!==false||result?.newBenefitsEnabled!==false||
+       result?.returnOnInvestmentMeasured!==false||result?.revenueAttributedCents!==null||
+       result?.measurementUnit!=='first_party_event_counts_not_unique_people'||
+       !/^\d{4}-\d{2}-01$/.test(String(result?.month||''))||
+       (month&&result.month!==month+'-01')||
+       result?.limit!==50||!Number.isSafeInteger(result.totalCampaigns)||
+       result.totalCampaigns<0||typeof result.truncated!=='boolean'||
+       result.truncated!==(result.totalCampaigns>50)||
+       !Number.isSafeInteger(result.unattributedLandingViews)||
+       result.unattributedLandingViews<0||
+       !Number.isSafeInteger(result.unattributedFormViews)||
+       result.unattributedFormViews<0||
+       !Array.isArray(result.rows)||result.rows.length>50||
+       result.rows.length>result.totalCampaigns||
+       result.rows.some(x=>!allowed.includes(x.benefitKey)||
+         !/^[a-z0-9_-]{8,80}$/.test(String(x.campaignReference||''))||
+         x.month!==result.month||
+         x.campaignTag!=='tam-'+x.benefitKey+'-'+x.month.slice(0,4)+x.month.slice(5,7)+'-'+x.campaignReference||
+         !['allocated','released'].includes(x.status)||
+         !Number.isSafeInteger(x.plannedAllocationCents)||x.plannedAllocationCents<100||
+         !['landingViews','formViews','leads','customerLeads','merchantLeads',
+           'qualifiedLeads','crmConvertedLeads'].every(k=>Number.isSafeInteger(x[k])&&x[k]>=0)||
+         x.customerLeads+x.merchantLeads!==x.leads||
+         x.returnOnInvestmentMeasured!==false||x.revenueAttributedCents!==null))
+      throw new Error('Sinais de campanha não verificados.');
+    if(actor===String(adminRuntime?.session?.user?.id||'')&&
+       role===String(adminCurrentRole())){
+      adminOwnerCampaignSignalsState={...result,loadedFor:actor};
+      adminOwnerCampaignSignalsMonth=result.month.slice(0,7);
+    }
+  }catch(error){
+    if(actor===String(adminRuntime?.session?.user?.id||'')){
+      adminOwnerCampaignSignalsState=null;
+      toast(String(error?.message||'Falha na leitura dos resultados.'));
+    }
+  }finally{adminOwnerCampaignSignalsBusy=false;render();}
+}
+function adminOwnerCampaignSignalsLink(tag){
+  if(!/^tam-(?:customer_cashback|customer_referral|merchant_referral|clube_coupons)-\d{6}-[a-z0-9_-]{8,80}$/.test(tag))
+    return '';
+  return 'https://tamao.com.br/?utm_source=tamao&utm_medium=owner_campaign&utm_campaign='+
+    encodeURIComponent(tag)+'#home';
+}
+async function adminOwnerCampaignSignalsCopyFromUi(tag){
+  const actor=String(adminRuntime?.session?.user?.id||'');
+  if(!actor||!['superadmin','finance'].includes(String(adminCurrentRole())))return;
+  const d=adminOwnerCampaignSignalsState?.loadedFor===actor?adminOwnerCampaignSignalsState:null;
+  if(!d?.rows?.some(x=>x.campaignTag===tag&&x.status==='allocated'))return;
+  const url=adminOwnerCampaignSignalsLink(tag);
+  if(!url)return;
+  try{
+    await navigator.clipboard.writeText(url);
+    toast('Link identificado copiado. Divulgue-o para começar a acompanhar as interações.');
+  }catch{
+    window.prompt('Copie o link identificado da campanha:',url);
+  }
+}
+function adminOwnerCampaignSignalsSection(){
+  if(!['superadmin','finance'].includes(String(adminCurrentRole())))return '';
+  const actor=String(adminRuntime?.session?.user?.id||'');
+  const d=adminOwnerCampaignSignalsState?.loadedFor===actor?adminOwnerCampaignSignalsState:null;
+  const labels={
+    customer_cashback:'Cashback',customer_referral:'Indicação de clientes',
+    merchant_referral:'Indicação de revendas',clube_coupons:'Clube TAMÃO'
+  };
+  const month=d?String(d.month).slice(0,7):
+    (adminOwnerCampaignSignalsMonth||new Intl.DateTimeFormat('sv-SE',{
+      timeZone:'America/Sao_Paulo',year:'numeric',month:'2-digit'
+    }).format(new Date()));
+  const rows=(d?.rows||[]).map(x=>{
+    const url=adminOwnerCampaignSignalsLink(x.campaignTag);
+    const share=x.status==='allocated'&&url?
+      '<button type="button" class="secondary small" onclick="adminOwnerCampaignSignalsCopyFromUi(\''+
+      esc(x.campaignTag)+'\')">Copiar link da campanha</button>':
+      '<p class="tiny muted">Campanha devolvida ao planejamento: link não oferecido para nova divulgação.</p>';
+    return '<article class="card flat form-stack">'+
+      '<div class="section-head"><div><strong>'+esc(x.campaignLabel)+'</strong>'+
+      '<p class="tiny muted">'+esc(labels[x.benefitKey]||x.benefitKey)+' • '+
+      esc(x.campaignReference)+'</p></div><span class="status-pill">'+
+      (x.status==='allocated'?'Em planejamento':'Encerrada no planejamento')+'</span></div>'+
+      '<div class="merchant-kpis">'+
+      '<div class="kpi"><span class="label">Acessos registrados</span><strong>'+
+      Number(x.landingViews).toLocaleString('pt-BR')+'</strong></div>'+
+      '<div class="kpi"><span class="label">Visualizações do formulário</span><strong>'+
+      Number(x.formViews).toLocaleString('pt-BR')+'</strong></div>'+
+      '<div class="kpi"><span class="label">Cadastros identificados</span><strong>'+
+      Number(x.leads).toLocaleString('pt-BR')+'</strong></div>'+
+      '<div class="kpi"><span class="label">Cadastros qualificados no CRM</span><strong>'+
+      Number(x.qualifiedLeads).toLocaleString('pt-BR')+'</strong></div></div>'+
+      '<p class="tiny muted">Clientes: '+Number(x.customerLeads).toLocaleString('pt-BR')+
+      ' • revendas: '+Number(x.merchantLeads).toLocaleString('pt-BR')+
+      ' • conversões registradas no CRM: '+Number(x.crmConvertedLeads).toLocaleString('pt-BR')+
+      ' (não são compras comprovadas).</p>'+
+      '<p>Orçamento reservado no planejamento: <strong>'+adminMoney(x.plannedAllocationCents)+
+      '</strong> • retorno financeiro: <strong>não mensurado</strong>.</p>'+
+      share+'</article>';
+  }).join('');
+  return '<div class="form-stack">'+
+    '<div class="section-head"><div><h4>Resultados de divulgação das campanhas</h4>'+
+    '<p>Gere links exclusivos para cada campanha e acompanhe acessos, interesse e cadastros por origem identificada.</p>'+
+    '</div></div>'+
+    '<div class="card flat form-stack"><label class="input-wrap">Mês da campanha'+
+    '<input class="input" type="month" min="2026-01" id="owner-campaign-signals-month" value="'+esc(month)+'"></label>'+
+    '<button type="button" class="secondary small" onclick="adminOwnerCampaignSignalsLoadFromUi()" '+
+    (adminOwnerCampaignSignalsBusy?'disabled':'')+'>Consultar resultados</button></div>'+
+    (d?'<div class="merchant-kpis">'+
+      '<div class="kpi"><span class="label">Campanhas planejadas no mês</span><strong>'+
+      Number(d.totalCampaigns).toLocaleString('pt-BR')+'</strong></div>'+
+      '<div class="kpi"><span class="label">Acessos sem identificação de campanha TAMÃO</span><strong>'+
+      Number(d.unattributedLandingViews).toLocaleString('pt-BR')+'</strong></div>'+
+      '<div class="kpi"><span class="label">Formulários sem identificação de campanha TAMÃO</span><strong>'+
+      Number(d.unattributedFormViews).toLocaleString('pt-BR')+'</strong></div></div>'+
+      (d.truncated?'<p class="tiny muted">Exibindo as 50 campanhas mais recentes deste mês.</p>':'')+
+      '<div class="grid cards-2">'+
+      (rows||'<p class="muted">Nenhuma campanha com orçamento planejado neste mês. Separe primeiro um valor na aba Campanhas para gerar seu link exclusivo.</p>')+
+      '</div>':
+      '<p class="muted">Consulte o mês para mostrar somente indicadores medidos.</p>')+
+    '<p class="tiny muted">Medição agregada por campanha identificada no link, dentro da competência e da janela da alocação. Acessos não são pessoas únicas; visualizações e cadastros não comprovam pedidos. Não há ROI, faturamento atribuído, saldo disponível ou pagamento de incentivos calculado por esta aba.</p>'+
+    '</div>';
+}
+
 function adminOwnerFinanceWorkspaceSection(){
   const role=String(adminCurrentRole());
   if(!['superadmin','finance'].includes(role))return '';
@@ -2034,7 +2176,8 @@ function adminOwnerFinanceWorkspaceSection(){
     ['plan','Planejamento'],
     ['evidence','Aportes'],
     ['campaigns','Campanhas'],
-    ['history','Histórico']
+    ['history','Histórico'],
+    ['signals','Resultados']
   ];
   const navigation='<div class="row flex-wrap" role="group" aria-label="Áreas de financiamento">'+
     tabs.map(([id,title])=>'<button type="button" class="'+
@@ -2091,7 +2234,8 @@ function adminOwnerFinanceWorkspaceSection(){
   const detail=adminOwnerFinanceTab==='plan'?adminOwnerFundingSection():
     adminOwnerFinanceTab==='evidence'?adminOwnerEvidenceSection():
     adminOwnerFinanceTab==='campaigns'?adminOwnerBudgetSection():
-    adminOwnerFinanceTab==='history'?adminOwnerFinanceHistorySection():explanation;
+    adminOwnerFinanceTab==='history'?adminOwnerFinanceHistorySection():
+    adminOwnerFinanceTab==='signals'?adminOwnerCampaignSignalsSection():explanation;
   return '<section class="section admin-owner-finance-workspace">'+
     '<div class="section-head"><div>'+
     '<span class="section-kicker">TAMÃO • ADMINISTRAÇÃO FINANCEIRA</span>'+
