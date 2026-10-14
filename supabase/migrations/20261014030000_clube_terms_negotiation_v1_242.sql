@@ -46,6 +46,7 @@ alter table public.clube_terms_drafts_v1_242 enable row level security;
 alter table public.clube_terms_events_v1_242 enable row level security;
 revoke all on public.clube_terms_drafts_v1_242 from public,anon,authenticated,service_role;
 revoke all on public.clube_terms_events_v1_242 from public,anon,authenticated,service_role;
+grant select on public.clube_terms_drafts_v1_242 to service_role;
 create schema if not exists clube_internal_v1_242;
 revoke all on schema clube_internal_v1_242 from public,anon,authenticated;
 grant usage on schema clube_internal_v1_242 to service_role;
@@ -374,6 +375,7 @@ begin
  select * into v_term from public.clube_terms_drafts_v1_242 t
  where t.merchant_id=p_merchant and t.package_key=p_package;
  if not found then
+  if p_action<>'view' then raise exception 'CLUBE_TERMS_NOT_FOUND' using errcode='40001';end if;
   return jsonb_build_object('source','merchant_clube_terms_v1_242',
    'merchantId',p_merchant,'packageKey',p_package,'terms',null,
    'readOnly',p_action='view','changed',false,'replayed',v_replayed,
