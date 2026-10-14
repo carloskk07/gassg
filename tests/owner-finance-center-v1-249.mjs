@@ -85,7 +85,7 @@ assert.equal(calls.length,4);
 html=ctx.adminOwnerFinanceWorkspaceSection();
 for(const expected of ['R$ 400.00','R$ 40.00','R$ 4.00','R$ 220.00',
   'Aportes conferidos manualmente','Emissões válidas geradas no mês',
-  'Não distribuído','Saldo']){if(expected!=='Saldo')assert.ok(html.includes(expected),expected)}
+  'não distribuído','Saldo']){if(expected!=='Saldo')assert.ok(html.includes(expected),expected)}
 assert.ok(html.includes('Nenhum desses indicadores representa saldo disponível'));
 assert.ok(html.includes('aria-valuenow="10"'));
 ctx.adminOwnerFinanceSelectFromUi('evidence');
