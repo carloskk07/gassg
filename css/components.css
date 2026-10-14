@@ -1745,6 +1745,16 @@ body:has(.admin-page) .shell{
 }
 
 
+/* V1.270 — one next action and optional PSPs without filling the mobile screen. */
+.merchant-essentials-next{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;margin-top:13px;padding:13px 15px;border:1px solid #d5e6d9;border-radius:14px;background:#fff}
+.merchant-essentials-next strong{font-size:14px;line-height:1.4}
+.merchant-essentials-next button{min-height:44px;max-width:100%;white-space:normal}
+.merchant-psp-active-heading{margin:14px 0 0;font-size:14px}
+.merchant-psp-optional{margin-top:13px;border:1px solid #dce6e0;border-radius:14px;background:#fff;padding:4px 13px 13px}
+.merchant-psp-optional>summary{min-height:48px;padding:8px 0;line-height:1.5;cursor:pointer}
+.merchant-psp-optional>summary:focus-visible{outline:3px solid #c78e1e;outline-offset:2px}
+.merchant-psp-optional .merchant-psp-grid{margin-top:10px}
+@media(max-width:700px){.merchant-essentials-next{align-items:stretch}.merchant-essentials-next button{width:100%}}
 /* TAMÃO V1.159 — welcoming, benefit-led conversion pages. No fabricated urgency. */
 .hero-overline{
   margin-top:17px;font-size:11px;font-weight:950;letter-spacing:.14em;

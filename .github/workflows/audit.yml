@@ -247,6 +247,8 @@ jobs:
         run: node tests/owner-psp-readiness-v1-268.mjs
       - name: Test verified merchant PSP stages V1.269
         run: node tests/merchant-psp-trust-v1-269.mjs
+      - name: Test merchant easy start V1.270
+        run: node tests/merchant-easy-start-v1-270.mjs
       - name: TAMÃO V1.258 founder-approved orphan deletion with immutable audit
         run: node tests/owner-receipt-orphan-cleanup-v1-258.mjs
       - name: Turnstile smoke Chrome cleanup V1.238.1

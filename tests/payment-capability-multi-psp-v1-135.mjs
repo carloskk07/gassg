@@ -167,12 +167,13 @@ assert.ok(
   'browser da revenda precisa conectar providers genericamente com allowlist de redirect'
 );
 assert.ok(
-  merchant.includes('Mercado Pago não é obrigatório.')
-  &&merchant.includes('Provedores que a revenda usa')
+  merchant.includes('Seu banco ou maquininha')
+  &&merchant.includes('Escolher outro banco ou maquininha (opcional)')
+  &&merchant.includes('A integração bancária é opcional.')
   &&merchant.includes('merchantConnectProviderFromUi')
   &&merchant.includes('merchantUseProviderManuallyFromUi')
   &&merchant.includes('merchantUpdatePaymentRoutesLive')
-  &&merchant.includes('automação e custódia são coisas diferentes'),
+  &&merchant.includes('O TAMÃO não recebe nem repassa o dinheiro da venda.'),
   'UX da revenda deve deixar explícito que PSP é opcional, pode começar manual e confirmação automática é uma camada separada'
 );
 assert.ok(

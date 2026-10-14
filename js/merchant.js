@@ -1211,7 +1211,13 @@ function merchantPaymentConnectionsView(rt){
     const ai=priority.indexOf(a.provider),bi=priority.indexOf(b.provider);
     return (ai<0?999:ai)-(bi<0?999:bi);
   });
-  const cards=ordered.map(provider=>{
+  // V1.270: current providers first; others are opt-in.
+  const configured=ordered.filter(provider=>{
+    const account=accounts.find(a=>a.provider===provider.provider);
+    return account?.connected===true||merchantProviderManualDeclared(provider.provider,rt);
+  });
+  const available=ordered.filter(provider=>!configured.includes(provider));
+  const renderProvider=provider=>{
     const account=accounts.find(a=>a.provider===provider.provider)||null;
     const connected=account?.connected===true;
     const manualDeclared=merchantProviderManualDeclared(provider.provider,rt);
@@ -1255,11 +1261,20 @@ function merchantPaymentConnectionsView(rt){
       ${merchantPaymentActivationChecklist(account,manualDeclared)}
       ${actions.length?`<div class="order-actions">${actions.join('')}</div>`:''}
     </article>`;
-  }).join('');
+  };
+  const currentCards=configured.map(renderProvider).join('');
+  const availableCards=available.map(renderProvider).join('');
   return `<div class="divider"></div>
-    <div class="section-head"><div><span class="section-kicker">RECEBIMENTO DIRETO</span><h3>Provedores que a revenda usa</h3><p>Informe o PSP já usado pela revenda. Você pode começar com confirmação pela própria revenda, sem compartilhar senha ou chave de API, e ativar confirmação automática quando a integração estiver disponível.</p></div></div>
-    <div class="notice"><strong>Mercado Pago não é obrigatório.</strong><br>Stone, Getnet, PagBank, Nubank e outros podem ser declarados sem entregar o dinheiro ao TAMÃO. O recebimento continua direto na revenda; automação e custódia são coisas diferentes.</div>
-    <div class="merchant-psp-grid">${cards}</div>`;
+    <div class="section-head"><div><span class="section-kicker">RECEBIMENTO DIRETO</span><h3>Seu banco ou maquininha</h3>
+    <p>Você pode aceitar Pix, cartão ou dinheiro na entrega sem conectar um banco ao TAMÃO. A integração bancária é opcional.</p></div></div>
+    <div class="notice"><strong>Você continua recebendo diretamente.</strong><br>O TAMÃO não recebe nem repassa o dinheiro da venda. A confirmação automática depende de uma integração verificada.</div>
+    ${configured.length?
+      '<h4 class="merchant-psp-active-heading">Prestadores que você já informou ('+configured.length+')</h4>'+
+      '<div class="merchant-psp-grid">'+currentCards+'</div>':
+      '<p class="tiny muted">Nenhum prestador adicional informado. Você não precisa escolher um para configurar recebimento na entrega.</p>'}
+    ${available.length?'<details class="merchant-psp-optional merchant-settings-advanced"><summary>Escolher outro banco ou maquininha (opcional) • '+available.length+' opções</summary>'+
+      '<p class="tiny muted">Marque Pix ou cartão acima e salve antes de informar um prestador. Não pedimos senha nem chave de API para uso manual.</p>'+
+      '<div class="merchant-psp-grid">'+availableCards+'</div></details>':''}`;
 }
 
 /* V1.170 — checklist visual; only server authorization determines if sales are enabled. */
@@ -1290,11 +1305,15 @@ function merchantSetupView(rt){
   if(!['owner','manager'].includes(String(rt?.merchant?.memberRole||'')))return '';
   const steps=merchantSetupSnapshot(rt);
   const done=steps.filter(item=>item.done).length;
+  const next=steps.find(item=>!item.done)||null;
   return '<section class="merchant-essentials" aria-label="Preparação da revenda">'+
     '<div class="merchant-essentials-heading"><div><span class="section-kicker">COMECE PELO ESSENCIAL</span>'+
     '<h2>Prepare sua revenda para vender</h2>'+
     '<p>Produtos, entregas e recebimentos. Você pode revisar cada informação quando precisar.</p></div>'+
     '<span class="merchant-essentials-count">'+done+' de 3 preenchidos</span></div>'+
+    (next?'<div class="merchant-essentials-next"><strong>Seu próximo passo: '+esc(next.title)+'</strong>'+
+      '<button type="button" class="primary" onclick="merchantSetupGo(\''+next.key+'\')">Continuar configuração</button></div>':
+      '<p class="tiny muted">Informações básicas preenchidas. A habilitação para receber pedidos depende das verificações do TAMÃO.</p>')+
     '<div class="merchant-essentials-grid">'+steps.map((item,i)=>
       '<div class="merchant-essentials-step"><span aria-hidden="true" class="merchant-essentials-number">'+(i+1)+'</span>'+
       '<div class="merchant-essentials-content"><strong>'+esc(item.title)+'</strong>'+
@@ -1525,11 +1544,11 @@ function merchantLivePage(){
       <button class="secondary" onclick="merchantLiveSaveCapacity()">Salvar capacidade</button></div></details>
       <div class="divider"></div>
       <h3>Formas de pagamento aceitas do cliente</h3>
-      <p class="muted tiny">Escolha o que sua revenda realmente aceita. Nenhuma dessas opções exige Mercado Pago ou qualquer outro PSP específico.</p>
+      <p class="muted tiny">Comece pelo simples: escolha o que aceita na entrega. Ao salvar, o TAMÃO configura as rotas de confirmação manual. Conectar banco ou maquininha é opcional.</p>
       <label class="check-row"><input id="live-payment-pix" type="checkbox" ${paymentMethods.pix?'checked':''}><span><strong>Pix</strong><small>Pagamento via Pix aceito pela operação.</small></span></label>
       <label class="check-row"><input id="live-payment-card" type="checkbox" ${paymentMethods.card?'checked':''}><span><strong>Cartão</strong><small>Cartão aceito na entrega conforme sua operação.</small></span></label>
       <label class="check-row"><input id="live-payment-cash" type="checkbox" ${paymentMethods.cash?'checked':''}><span><strong>Dinheiro</strong><small>Dinheiro aceito; o pedido pode informar troco.</small></span></label>
-      <button class="secondary" onclick="merchantLiveSavePaymentMethods()">Salvar formas de pagamento</button>
+      <button class="primary" onclick="merchantLiveSavePaymentMethods()">Salvar como recebo</button>
       ${paymentConnectionsCard}
       <div class="divider"></div>
       <details class="merchant-settings-advanced"><summary>Agendamento de entregas</summary><div class="form-stack"><h3>Pedidos agendados</h3>
