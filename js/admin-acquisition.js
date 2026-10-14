@@ -2581,6 +2581,172 @@ function adminOwnerOrphanCleanupSection(){
     '</div>';
 }
 
+// TAMÃO V1.264 — confidential, byte-verified payout documents.
+let adminOwnerPayoutProofState=null,adminOwnerPayoutProofBusy=false;
+async function adminOwnerPayoutProofsLoadFromUi(){
+  const actor=String(adminRuntime?.session?.user?.id||''),role=String(adminCurrentRole());
+  if(!actor||!['superadmin','finance'].includes(role)||adminOwnerPayoutProofBusy)return;
+  const month=String(document.getElementById('owner-campaign-signals-month')?.value||'').trim();
+  if(month&&!/^\d{4}-(0[1-9]|1[0-2])$/.test(month))return toast('Competência inválida.');
+  adminOwnerPayoutProofBusy=true;
+  try{
+    const d=await adminInvoke({action:'owner-benefit-proofs-read',month:month?month+'-01':''});
+    if(d?.source!=='admin_owner_payout_proofs_read_v1_264'||
+      d?.timezone!=='America/Sao_Paulo'||d?.privateBucket!==true||
+      d?.readOnly!==true||d?.verifiedBytesAtUpload!==true||
+      d?.bankVerified!==false||d?.providerConfirmed!==false||
+      d?.paidBenefitsCents!==null||d?.transferExecuted!==false||
+      !/^\d{4}-\d{2}-01$/.test(String(d?.month||''))||(month&&d.month!==month+'-01')||
+      !Number.isSafeInteger(d.totalClaims)||d.totalClaims<0||
+      !Number.isSafeInteger(d.withProof)||d.withProof<0||
+      !Number.isSafeInteger(d.withoutProof)||d.withoutProof<0||
+      d.totalClaims!==d.withProof+d.withoutProof||
+      d.limit!==30||d.truncated!==(d.totalClaims>30)||
+      !Array.isArray(d.rows)||d.rows.length>30||d.rows.length>d.totalClaims||
+      d.rows.some(x=>!x||!/^[0-9a-f-]{36}$/i.test(String(x.claimId||''))||
+        typeof x.attached!=='boolean'||typeof x.voided!=='boolean'||
+        (x.attached&&(
+          !['application/pdf','image/png','image/jpeg'].includes(x.mimeType)||
+          !Number.isSafeInteger(x.sizeBytes)||x.sizeBytes<64||x.sizeBytes>3145728||
+          !/^[0-9a-f]{64}$/.test(String(x.sha256||''))||
+          !Number.isFinite(Date.parse(String(x.uploadedAt||'')))))||
+        (!x.attached&&(x.mimeType!==null||x.sizeBytes!==null||
+          x.sha256!==null||x.uploadedAt!==null))))
+      throw new Error('Metadados de comprovantes não verificados.');
+    if(actor===String(adminRuntime?.session?.user?.id||'')&&role===String(adminCurrentRole()))
+      adminOwnerPayoutProofState={...d,loadedFor:actor};
+  }catch(e){
+    if(actor===String(adminRuntime?.session?.user?.id||'')){
+      adminOwnerPayoutProofState=null;
+      toast(String(e?.message||'Falha ao consultar comprovantes.'));
+    }
+  }finally{adminOwnerPayoutProofBusy=false;render();}
+}
+async function adminOwnerPayoutProofUploadFromUi(claimId){
+  const actor=String(adminRuntime?.session?.user?.id||''),role=String(adminCurrentRole());
+  if(!actor||role!=='superadmin'||adminOwnerPayoutProofBusy)return;
+  const d=adminOwnerPayoutProofState?.loadedFor===actor?adminOwnerPayoutProofState:null;
+  if(!d?.rows?.some(x=>x.claimId===claimId&&!x.attached&&!x.voided)||
+     !/^[0-9a-f-]{36}$/i.test(String(claimId||'')))
+    return toast('Consulte os repasses e escolha uma declaração ativa sem comprovante.');
+  const file=document.getElementById('owner-payout-proof-file-'+claimId)?.files?.[0];
+  if(!file||!['application/pdf','image/png','image/jpeg'].includes(file.type)||
+    file.size<64||file.size>3145728)
+    return toast('Escolha um PDF, PNG ou JPEG de até 3 MB.');
+  if(!adminRuntime?.client?.storage)
+    return toast('Armazenamento indisponível. Entre novamente.');
+  adminOwnerPayoutProofBusy=true;
+  try{
+    const bytes=await file.arrayBuffer();
+    const hash=Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256',bytes)))
+      .map(x=>x.toString(16).padStart(2,'0')).join('');
+    const prep=await adminInvoke({action:'owner-benefit-proof-prepare',
+      claimId,mimeType:file.type,sizeBytes:file.size});
+    if(prep?.source!=='admin_owner_payout_proof_prepare_v1_264'||
+      prep?.bucket!=='tamao-owner-referral-payout-proofs-v1-264'||
+      prep?.maxBytes!==3145728||prep?.mimeType!==file.type||
+      prep?.privateBucket!==true||prep?.bankVerified!==false||
+      typeof prep?.token!=='string'||prep.token.length<12||
+      typeof prep?.path!=='string'||!prep.path.startsWith(claimId+'/')||
+      !/^[0-9a-f-]{36}\/[0-9a-f-]{36}\.(pdf|png|jpg)$/i.test(prep.path)||
+      (prep.expectedHash!==null&&prep.expectedHash!==hash))
+      throw new Error('Autorização do envio inválida ou hash anterior divergente.');
+    const {error:uploadError}=await adminRuntime.client.storage
+      .from('tamao-owner-referral-payout-proofs-v1-264')
+      .uploadToSignedUrl(prep.path,prep.token,file,{contentType:file.type,upsert:false});
+    if(uploadError)throw uploadError;
+    const result=await adminInvoke({action:'owner-benefit-proof-finalize',
+      claimId,path:prep.path,mimeType:file.type,sha256:hash});
+    if(result?.source!=='admin_owner_payout_proof_attach_v1_264'||
+      result.attached!==true||typeof result.replayed!=='boolean'||
+      result.bankVerified!==false||result.cashMoved!==false)
+      throw new Error('Vínculo do comprovante não confirmado.');
+    if(actor===String(adminRuntime?.session?.user?.id||'')){
+      toast('Arquivo conferido por SHA-256 e vinculado no armazenamento privado.');
+      adminOwnerPayoutProofState=null;
+    }
+  }catch(e){
+    if(actor===String(adminRuntime?.session?.user?.id||''))
+      toast(String(e?.message||'Não foi possível anexar o comprovante.'));
+  }finally{adminOwnerPayoutProofBusy=false;render();}
+}
+async function adminOwnerPayoutProofVerifyFromUi(claimId){
+  const actor=String(adminRuntime?.session?.user?.id||''),role=String(adminCurrentRole());
+  if(!actor||!['superadmin','finance'].includes(role)||adminOwnerPayoutProofBusy)return;
+  const d=adminOwnerPayoutProofState?.loadedFor===actor?adminOwnerPayoutProofState:null;
+  if(!d?.rows?.some(x=>x.claimId===claimId&&x.attached))return;
+  adminOwnerPayoutProofBusy=true;
+  try{
+    const v=await adminInvoke({action:'owner-benefit-proof-verify',claimId});
+    if(v?.source!=='admin_owner_payout_proof_verify_v1_264'||
+      v.claimId!==claimId||v.integrityVerified!==true||
+      v.bankVerified!==false||v.providerConfirmed!==false||
+      v.transferExecuted!==false)throw new Error('Verificação inválida.');
+    toast('Integridade do arquivo conferida novamente. Não confirma a transferência bancária.');
+  }catch(e){toast(String(e?.message||'Integridade não confirmada.'));}
+  finally{adminOwnerPayoutProofBusy=false;render();}
+}
+async function adminOwnerPayoutProofViewFromUi(claimId){
+  const actor=String(adminRuntime?.session?.user?.id||''),role=String(adminCurrentRole());
+  if(!actor||!['superadmin','finance'].includes(role))return;
+  const d=adminOwnerPayoutProofState?.loadedFor===actor?adminOwnerPayoutProofState:null;
+  if(!d?.rows?.some(x=>x.claimId===claimId&&x.attached))return;
+  const tab=globalThis.open?.('about:blank','_blank');
+  if(tab)tab.opener=null;
+  try{
+    const v=await adminInvoke({action:'owner-benefit-proof-view',claimId});
+    const url=new URL(String(v?.url||'')),base=new URL(CHAMA_BACKEND.url);
+    if(v?.source!=='admin_owner_payout_proof_view_v1_264'||
+      v.integrityVerified!==true||v.temporaryDownload!==true||
+      v.expiresInSeconds!==60||v.bankVerified!==false||
+      v.providerConfirmed!==false||url.origin!==base.origin||
+      !url.pathname.startsWith('/storage/v1/object/sign/tamao-owner-referral-payout-proofs-v1-264/'))
+      throw new Error('Link privado inválido.');
+    if(tab)tab.location.href=url.href;else globalThis.location.assign(url.href);
+  }catch(e){
+    if(tab)tab.close();
+    if(actor===String(adminRuntime?.session?.user?.id||''))
+      toast(String(e?.message||'Não foi possível abrir o documento.'));
+  }
+}
+function adminOwnerPayoutProofsSection(){
+  const role=String(adminCurrentRole());
+  if(!['superadmin','finance'].includes(role))return '';
+  const actor=String(adminRuntime?.session?.user?.id||'');
+  const d=adminOwnerPayoutProofState?.loadedFor===actor?adminOwnerPayoutProofState:null;
+  const month=String(document.getElementById('owner-campaign-signals-month')?.value||'').trim();
+  const current=d&&(!month||d.month.slice(0,7)===month);
+  const entries=(current?d.rows:[]).map(x=>
+    '<article class="card flat form-stack"><p class="tiny muted">Declaração: <code>'+
+    esc(x.claimId)+'</code>'+(x.voided?' • retificada':'')+'</p>'+
+    (x.attached?
+      '<p><strong>Comprovante arquivado</strong> • '+esc(x.mimeType)+
+      ' • '+Number(x.sizeBytes)+' bytes</p>'+
+      '<p class="tiny muted">SHA-256: <code>'+esc(x.sha256)+'</code></p>'+
+      '<button type="button" class="secondary small" onclick="adminOwnerPayoutProofVerifyFromUi(\''+
+      esc(x.claimId)+'\')">Reverificar integridade</button>'+
+      '<button type="button" class="secondary small" onclick="adminOwnerPayoutProofViewFromUi(\''+
+      esc(x.claimId)+'\')">Consultar arquivo privado</button>':
+      x.voided?'<p class="tiny muted">Declaração retificada, sem anexo.</p>':
+      role==='superadmin'?
+      '<input id="owner-payout-proof-file-'+esc(x.claimId)+'" type="file" accept=".pdf,.png,.jpg,.jpeg,application/pdf,image/png,image/jpeg">'+
+      '<button type="button" class="secondary small" onclick="adminOwnerPayoutProofUploadFromUi(\''+
+      esc(x.claimId)+'\')" '+(adminOwnerPayoutProofBusy?'disabled':'')+
+      '>Anexar comprovante</button>':
+      '<p class="tiny muted">Sem comprovante vinculado.</p>')+'</article>').join('');
+  return '<div class="card flat form-stack"><h4>Arquivos privados dos repasses declarados</h4>'+
+    '<p>Anexe um PDF, PNG ou JPEG de até 3 MB. O servidor confere conteúdo, tamanho e SHA-256. Nenhuma confirmação bancária é presumida.</p>'+
+    '<button type="button" class="secondary small" onclick="adminOwnerPayoutProofsLoadFromUi()" '+
+    (adminOwnerPayoutProofBusy?'disabled':'')+'>Consultar comprovantes da competência</button>'+
+    (current?'<p class="tiny muted">'+Number(d.withProof)+' de '+Number(d.totalClaims)+
+      ' declarações com documento • '+Number(d.withoutProof)+' sem documento'+
+      (d.truncated?' • últimas 30 exibidas':'')+'.</p>'+
+      '<div class="grid cards-2">'+(entries||
+        '<p class="tiny muted">Nenhum repasse declarado na competência.</p>')+'</div>':
+      '<p class="tiny muted">Consulte a competência para localizar os anexos.</p>')+
+    '<p class="tiny muted">Arquivo íntegro não comprova autenticação do documento, repasse concluído, nem crédito na conta do beneficiário. A confirmação por PSP ou banco exige integração e conciliação própria.</p></div>';
+}
+
 // TAMÃO V1.263 — declared external referral payouts, never bank-confirmed.
 let adminOwnerPayoutState=null,adminOwnerPayoutBusy=false;
 async function adminOwnerPayoutReadFromUi(){
@@ -3317,6 +3483,7 @@ function adminOwnerFinancialSummarySection(){
     (typeof adminOwnerCashbackSourceLotsSection==='function'?adminOwnerCashbackSourceLotsSection():'')+
     (typeof adminOwnerReferralLifecycleSection==='function'?adminOwnerReferralLifecycleSection():'')+
     (typeof adminOwnerPayoutEvidenceSection==='function'?adminOwnerPayoutEvidenceSection():'')+
+    (typeof adminOwnerPayoutProofsSection==='function'?adminOwnerPayoutProofsSection():'')+
     '<div class="card flat form-stack"><h4>Integridade dos comprovantes privados</h4>'+
     '<p>Auditoria de arquivos sem vínculo à despesa. Os uploads recentes têm proteção de 24 horas; esta consulta não exclui documentos.</p>'+
     '<button type="button" class="secondary small" onclick="adminOwnerOrphanAuditLoadFromUi()" '+

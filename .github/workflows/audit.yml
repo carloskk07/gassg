@@ -235,6 +235,8 @@ jobs:
         run: node tests/owner-referral-lifecycle-v1-262.mjs
       - name: Test owner referral payout evidence V1.263
         run: node tests/owner-referral-payout-evidence-v1-263.mjs
+      - name: Test private payout proofs V1.264
+        run: node tests/owner-payout-private-proofs-v1-264.mjs
       - name: TAMÃO V1.258 founder-approved orphan deletion with immutable audit
         run: node tests/owner-receipt-orphan-cleanup-v1-258.mjs
       - name: Turnstile smoke Chrome cleanup V1.238.1

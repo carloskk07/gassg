@@ -100,7 +100,7 @@ async function requireAdmin(admin:any,userId:string){
   if(!data)throw new DomainError("ADMIN_ACCESS_DENIED","Esta conta não possui acesso administrativo.",403);
   return data;
 }
-const ADMIN_READ_ACTIONS=new Set(["summary","search","entity-detail","system-health","billing-provider-health","audit-search","incident-list","merchant-payment-preflight","prospect-intelligence","expansion-notifications","expansion-radar","merchant-enablement","sale-payment-history","finance-receipts-history","commercial-history-list","operational-alerts","ads-demand","clube-interest-queue","clube-campaign-queue","clube-terms-queue","owner-funding-read","owner-funding-pulse","owner-evidence-queue","owner-budget-queue","owner-finance-history","owner-campaign-signals","owner-campaign-orders","owner-campaign-fee-receipts","owner-campaign-batch-ledger","owner-campaign-financial-summary","owner-campaign-benefit-costs","owner-wallet-reconciliation","owner-cashback-source-lots","owner-referral-lifecycle","owner-benefit-payout-read","owner-campaign-orphan-audit","owner-orphan-cleanup-candidates","owner-campaign-cost-read","owner-campaign-receipts-read","owner-campaign-receipt-view","ads-audience-readiness","ads-preview-summary","ads-placement-readiness","ads-pilot-preflight","commercial-activation","ads-campaign-queue","growth-referral-review-queue"]);
+const ADMIN_READ_ACTIONS=new Set(["summary","search","entity-detail","system-health","billing-provider-health","audit-search","incident-list","merchant-payment-preflight","prospect-intelligence","expansion-notifications","expansion-radar","merchant-enablement","sale-payment-history","finance-receipts-history","commercial-history-list","operational-alerts","ads-demand","clube-interest-queue","clube-campaign-queue","clube-terms-queue","owner-funding-read","owner-funding-pulse","owner-evidence-queue","owner-budget-queue","owner-finance-history","owner-campaign-signals","owner-campaign-orders","owner-campaign-fee-receipts","owner-campaign-batch-ledger","owner-campaign-financial-summary","owner-campaign-benefit-costs","owner-wallet-reconciliation","owner-cashback-source-lots","owner-referral-lifecycle","owner-benefit-payout-read","owner-benefit-proofs-read","owner-benefit-proof-view","owner-benefit-proof-verify","owner-campaign-orphan-audit","owner-orphan-cleanup-candidates","owner-campaign-cost-read","owner-campaign-receipts-read","owner-campaign-receipt-view","ads-audience-readiness","ads-preview-summary","ads-placement-readiness","ads-pilot-preflight","commercial-activation","ads-campaign-queue","growth-referral-review-queue"]);
 const ADMIN_ROLE_ACTIONS:Record<string,Set<string>>={
   superadmin:new Set(["*"]),
   operations:new Set([
@@ -2689,6 +2689,158 @@ Deno.serve(async(req:Request)=>{
     }
 
 
+    // V1.264 — owner-authenticated private proof upload, byte-checked on server.
+    if(action==="owner-benefit-proof-prepare"){
+      if(String(adminAccess.admin_role)!=="superadmin")
+        throw new DomainError("ADMIN_PERMISSION_DENIED","Envio restrito ao administrador principal.",403);
+      const claim=String(body.claimId??""),mime=String(body.mimeType??""),size=body.sizeBytes;
+      const types:Record<string,string>={"application/pdf":"pdf","image/png":"png","image/jpeg":"jpg"};
+      if(!UUID_RE.test(claim)||!types[mime]||!Number.isSafeInteger(size)||
+         size<64||size>3145728)
+        throw new DomainError("PAYOUT_PROOF_INVALID","Use PDF, PNG ou JPEG de até 3 MB.",400);
+      const {data:elig,error:eligErr}=await admin.rpc(
+        "admin_owner_payout_proof_eligible_v1_264",{p_actor:user.id,p_claim:claim});
+      if(eligErr)throw eligErr;
+      if(elig?.source!=="admin_owner_payout_proof_eligible_v1_264"||
+         elig.eligible!==true||elig.alreadyAttached!==false||
+         elig.bankVerified!==false||elig.cashMoved!==false||
+         (elig.expectedHash!==null&&!/^[0-9a-f]{64}$/.test(String(elig.expectedHash))))
+        throw new DomainError("PAYOUT_PROOF_NOT_ELIGIBLE","Declaração indisponível para anexo.",409);
+      const path=claim+"/"+crypto.randomUUID()+"."+types[mime];
+      const {data:token,error:signError}=await admin.storage
+        .from("tamao-owner-referral-payout-proofs-v1-264")
+        .createSignedUploadUrl(path,{upsert:false});
+      if(signError||typeof token?.token!=="string"||token.path!==path)
+        throw new DomainError("PAYOUT_PROOF_SIGN_FAILED","Não foi possível preparar envio privado.",503);
+      return json({source:"admin_owner_payout_proof_prepare_v1_264",
+        bucket:"tamao-owner-referral-payout-proofs-v1-264",
+        path,token:token.token,mimeType:mime,maxBytes:3145728,
+        expectedHash:elig.expectedHash,privateBucket:true,bankVerified:false},200,origin);
+    }
+    if(action==="owner-benefit-proof-finalize"){
+      if(String(adminAccess.admin_role)!=="superadmin")
+        throw new DomainError("ADMIN_PERMISSION_DENIED","Vínculo restrito ao administrador principal.",403);
+      const claim=String(body.claimId??""),path=String(body.path??"");
+      const mime=String(body.mimeType??""),sha=String(body.sha256??"");
+      const types:Record<string,string>={"application/pdf":"pdf","image/png":"png","image/jpeg":"jpg"};
+      if(!UUID_RE.test(claim)||!types[mime]||
+        !new RegExp("^"+claim+"/[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}\\."+types[mime]+"$","i").test(path)||
+        !/^[0-9a-f]{64}$/.test(sha))
+        throw new DomainError("PAYOUT_PROOF_FINALIZE_INVALID","Dados do arquivo inválidos.",400);
+      const {data:elig,error:eligError}=await admin.rpc(
+        "admin_owner_payout_proof_eligible_v1_264",{p_actor:user.id,p_claim:claim});
+      if(eligError)throw eligError;
+      if(elig?.source!=="admin_owner_payout_proof_eligible_v1_264"||
+         elig.bankVerified!==false||elig.cashMoved!==false||
+         (elig.eligible!==true&&elig.alreadyAttached!==true)||
+         (elig.expectedHash!==null&&elig.expectedHash!==sha))
+        throw new DomainError("PAYOUT_PROOF_NOT_ELIGIBLE","Declaração não elegível.",409);
+      const {data:blob,error:downError}=await admin.storage
+        .from("tamao-owner-referral-payout-proofs-v1-264").download(path);
+      if(downError||!blob)
+        throw new DomainError("PAYOUT_PROOF_MISSING","Comprovante não encontrado.",409);
+      const bytes=new Uint8Array(await blob.arrayBuffer());
+      if(bytes.length<64||bytes.length>3145728)
+        throw new DomainError("PAYOUT_PROOF_SIZE","Arquivo fora do limite.",400);
+      const validMime=
+        (mime==="application/pdf"&&[37,80,68,70,45].every((v,i)=>bytes[i]===v))||
+        (mime==="image/png"&&[137,80,78,71,13,10,26,10].every((v,i)=>bytes[i]===v))||
+        (mime==="image/jpeg"&&[255,216,255].every((v,i)=>bytes[i]===v));
+      if(!validMime)throw new DomainError("PAYOUT_PROOF_TYPE","Formato incompatível.",400);
+      const actual=Array.from(new Uint8Array(await crypto.subtle.digest("SHA-256",bytes)))
+        .map(x=>x.toString(16).padStart(2,"0")).join("");
+      if(actual!==sha)
+        throw new DomainError("PAYOUT_PROOF_HASH","Arquivo diferente do escolhido.",409);
+      const {data:attached,error:attachErr}=await admin.rpc(
+        "admin_owner_payout_proof_attach_v1_264",{
+          p_actor:user.id,p_claim:claim,p_path:path,p_mime:mime,
+          p_size:bytes.length,p_sha:actual});
+      if(attachErr)throw attachErr;
+      if(attached?.source!=="admin_owner_payout_proof_attach_v1_264"||
+        attached.attached!==true||typeof attached.replayed!=="boolean"||
+        attached.bankVerified!==false||attached.cashMoved!==false)
+        throw new DomainError("PAYOUT_PROOF_ATTACH_UNVERIFIED","Vínculo não confirmado.",503);
+      return json(attached,200,origin);
+    }
+    if(action==="owner-benefit-proofs-read"){
+      if(!["superadmin","finance"].includes(String(adminAccess.admin_role)))
+        throw new DomainError("ADMIN_PERMISSION_DENIED","Documentos restritos.",403);
+      const month=String(body.month??"");
+      if(month!==""&&!/^\d{4}-(0[1-9]|1[0-2])-01$/.test(month))
+        throw new DomainError("PAYOUT_PROOF_MONTH_INVALID","Competência inválida.",400);
+      const {data,error}=await admin.rpc("admin_owner_payout_proofs_read_v1_264",{
+        p_actor:user.id,p_month:month||null});
+      if(error)throw error;
+      if(data?.source!=="admin_owner_payout_proofs_read_v1_264"||
+         data?.timezone!=="America/Sao_Paulo"||data.privateBucket!==true||
+         data.readOnly!==true||data.verifiedBytesAtUpload!==true||
+         data.bankVerified!==false||data.providerConfirmed!==false||
+         data.paidBenefitsCents!==null||data.transferExecuted!==false||
+         !/^\d{4}-\d{2}-01$/.test(String(data.month||""))||
+         (month!==""&&data.month!==month)||
+         !Number.isSafeInteger(data.totalClaims)||data.totalClaims<0||
+         !Number.isSafeInteger(data.withProof)||data.withProof<0||
+         !Number.isSafeInteger(data.withoutProof)||data.withoutProof<0||
+         data.totalClaims!==data.withProof+data.withoutProof||
+         data.limit!==30||data.truncated!==(data.totalClaims>30)||
+         !Array.isArray(data.rows)||data.rows.length>30||
+         data.rows.length>data.totalClaims||
+         data.rows.some((x:any)=>!x||!UUID_RE.test(String(x.claimId||""))||
+           typeof x.attached!=="boolean"||typeof x.voided!=="boolean"||
+           (x.attached&&(
+             !["application/pdf","image/png","image/jpeg"].includes(x.mimeType)||
+             !Number.isSafeInteger(x.sizeBytes)||x.sizeBytes<64||x.sizeBytes>3145728||
+             !/^[0-9a-f]{64}$/.test(String(x.sha256||""))||
+             !Number.isFinite(Date.parse(String(x.uploadedAt||"")))))||
+           (!x.attached&&(x.mimeType!==null||x.sizeBytes!==null||
+              x.sha256!==null||x.uploadedAt!==null))))
+        throw new DomainError("PAYOUT_PROOFS_READ_UNVERIFIED","Documentos não validados.",503);
+      return json(data,200,origin);
+    }
+    if(action==="owner-benefit-proof-verify"||action==="owner-benefit-proof-view"){
+      if(!["superadmin","finance"].includes(String(adminAccess.admin_role)))
+        throw new DomainError("ADMIN_PERMISSION_DENIED","Documento restrito.",403);
+      const claim=String(body.claimId??"");
+      if(!UUID_RE.test(claim))
+        throw new DomainError("PAYOUT_PROOF_INVALID_CLAIM","Identificador inválido.",400);
+      const {data:proof,error:proofErr}=await admin.rpc(
+        "admin_owner_payout_proof_path_v1_264",{p_actor:user.id,p_claim:claim});
+      if(proofErr)throw proofErr;
+      const mime=String(proof?.mimeType||""),path=String(proof?.objectPath||"");
+      const types:Record<string,string>={"application/pdf":"pdf","image/png":"png","image/jpeg":"jpg"};
+      if(proof?.source!=="admin_owner_payout_proof_path_v1_264"||
+         proof.claimId!==claim||!types[mime]||
+         !new RegExp("^"+claim+"/[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}\\."+types[mime]+"$","i").test(path)||
+         !Number.isSafeInteger(proof.sizeBytes)||proof.sizeBytes<64||proof.sizeBytes>3145728||
+         !/^[0-9a-f]{64}$/.test(String(proof.sha256||""))||
+         proof.bankVerified!==false)
+        throw new DomainError("PAYOUT_PROOF_PATH_UNVERIFIED","Metadados inválidos.",503);
+      const {data:blob,error:downloadErr}=await admin.storage
+        .from("tamao-owner-referral-payout-proofs-v1-264").download(path);
+      if(downloadErr||!blob)throw new DomainError("PAYOUT_PROOF_FILE_MISSING","Arquivo não encontrado.",409);
+      const bytes=new Uint8Array(await blob.arrayBuffer());
+      const magic=(mime==="application/pdf"&&[37,80,68,70,45].every((v,i)=>bytes[i]===v))||
+        (mime==="image/png"&&[137,80,78,71,13,10,26,10].every((v,i)=>bytes[i]===v))||
+        (mime==="image/jpeg"&&[255,216,255].every((v,i)=>bytes[i]===v));
+      const actual=Array.from(new Uint8Array(await crypto.subtle.digest("SHA-256",bytes)))
+        .map(x=>x.toString(16).padStart(2,"0")).join("");
+      if(bytes.length!==proof.sizeBytes||!magic||actual!==proof.sha256)
+        throw new DomainError("PAYOUT_PROOF_INTEGRITY_MISMATCH",
+          "Integridade do documento divergente.",409);
+      if(action==="owner-benefit-proof-verify")
+        return json({source:"admin_owner_payout_proof_verify_v1_264",
+          claimId:claim,integrityVerified:true,bankVerified:false,
+          providerConfirmed:false,transferExecuted:false},200,origin);
+      const {data:signed,error:signErr}=await admin.storage
+        .from("tamao-owner-referral-payout-proofs-v1-264")
+        .createSignedUrl(path,60,{download:true});
+      if(signErr||typeof signed?.signedUrl!=="string"||
+         !signed.signedUrl.startsWith(SUPABASE_URL+"/storage/v1/object/sign/"))
+        throw new DomainError("PAYOUT_PROOF_VIEW_FAILED","Não foi possível abrir documento.",503);
+      return json({source:"admin_owner_payout_proof_view_v1_264",
+        url:signed.signedUrl,expiresInSeconds:60,integrityVerified:true,
+        temporaryDownload:true,bankVerified:false,providerConfirmed:false},200,origin);
+    }
     // V1.263 — owner-reported external payout evidence, never bank confirmation.
     if(action==="owner-benefit-payout-read"){
       if(!["superadmin","finance"].includes(String(adminAccess.admin_role)))
