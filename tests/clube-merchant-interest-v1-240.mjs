@@ -40,7 +40,7 @@ for(const token of [
 for(const token of [
  'merchantClubeInterestSection(m)','merchantClubeInterestCall(',
  'merchantClubeInterestRegisterFromUi','merchantClubeInterestWithdrawFromUi',
- 'clube-consent-','merchantId!==merchantId',
+ 'clube-consent-','String(rt.merchant?.merchantId)!==merchantId',
  'noFinancialObligation!==true'
 ])assert.ok(merchant.includes(token),'Missing merchant UI: '+token);
 for(const token of [
