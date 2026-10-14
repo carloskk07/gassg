@@ -4117,6 +4117,19 @@ function adminMerchantPaymentVerificationLabel(value){
 function adminPaymentPreflightKey(merchantId,provider){
   return String(merchantId||'')+'|'+String(provider||'').toLowerCase();
 }
+// V1.269 — a green preflight belongs to this actor/merchant/provider and expires.
+// The backend independently revalidates all gates again before any activation.
+function adminPaymentPreflightCurrent(state,merchantId,provider){
+  const actor=String(adminRuntime?.session?.user?.id||'');
+  const when=Date.parse(String(state?.checkedAt||''));
+  const age=Date.now()-when;
+  return Boolean(
+    actor&&state?.checkedFor===actor&&
+    state?.checkedMerchantId===String(merchantId||'')&&
+    state?.checkedProvider===String(provider||'').toLowerCase()&&
+    Number.isFinite(when)&&age>=0&&age<=120000
+  );
+}
 async function adminRunMerchantPaymentPreflight(merchantId,provider,{silent=false}={}){
   const providerKey=String(provider||'').toLowerCase();
   const key=adminPaymentPreflightKey(merchantId,providerKey);
@@ -4128,7 +4141,10 @@ async function adminRunMerchantPaymentPreflight(merchantId,provider,{silent=fals
     });
     adminRuntime.paymentPreflights[key]={
       ...result,
-      checkedAt:new Date().toISOString()
+      checkedAt:new Date().toISOString(),
+      checkedFor:String(adminRuntime?.session?.user?.id||''),
+      checkedMerchantId:String(merchantId||''),
+      checkedProvider:providerKey
     };
     if(!silent)render();
     return adminRuntime.paymentPreflights[key];
@@ -4147,6 +4163,8 @@ async function adminRunMerchantPaymentPreflight(merchantId,provider,{silent=fals
 function adminMerchantPaymentPreflightView(merchantId,provider){
   const state=adminRuntime.paymentPreflights[adminPaymentPreflightKey(merchantId,provider)]||null;
   if(!state)return '<div class="tiny muted" style="margin-top:8px">Verificação de ativação ainda não executada nesta sessão.</div>';
+  if(!adminPaymentPreflightCurrent(state,merchantId,provider))
+    return '<div class="notice" style="margin-top:8px"><strong>Verificação expirada ou de outra sessão.</strong><br>Repita o checklist técnico antes de autorizar a ativação.</div>';
   const gates=Array.isArray(state.gates)?state.gates:[];
   const blocked=gates.filter(g=>g?.ok!==true);
   const rows=gates.map(g=>
@@ -4198,7 +4216,8 @@ function adminMerchantPaymentAccountCard({merchant,account}){
   }
   const directActive=homologated||pilotActive||inconsistent;
   const preflight=adminRuntime.paymentPreflights[adminPaymentPreflightKey(merchant.id,provider)]||null;
-  const preflightReady=preflight?.readyForActivation===true;
+  const preflightReady=preflight?.readyForActivation===true
+    &&adminPaymentPreflightCurrent(preflight,merchant.id,provider);
   const action=connected&&adapterImplemented
     ?directActive
       ?'<div class="order-actions"><button class="danger-btn small" onclick="adminSetMerchantPaymentCapability(\''+esc(merchant.id)+'\',\''+esc(provider)+'\',false)">Suspender confirmação automática</button></div>'
