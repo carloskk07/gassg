@@ -110,7 +110,7 @@ const ADMIN_ROLE_ACTIONS:Record<string,Set<string>>={
   ]),
   finance:new Set([
     "financial-action","review-referral","retry-reward","retry-accounting","reverse-order",
-    "growth-benefit-preview","commercial-policy","merchant-billing-plan","merchant-billing-action","merchant-billing-payment-request","merchant-billing-payment-event","merchant-billing-refund","merchant-billing-provider-cancel-retry","merchant-payment-capability","create-billing-webhook-probe","incident-action","operational-alert-ack"
+    "growth-benefit-preview","clube-coupon-preview","commercial-policy","merchant-billing-plan","merchant-billing-action","merchant-billing-payment-request","merchant-billing-payment-event","merchant-billing-refund","merchant-billing-provider-cancel-retry","merchant-payment-capability","create-billing-webhook-probe","incident-action","operational-alert-ack"
   ]),
   support:new Set(["order-control","support-case-status","incident-action","operational-alert-ack"]),
   compliance:new Set([
@@ -2119,6 +2119,47 @@ Deno.serve(async(req:Request)=>{
     const adminAccess=await requireAdmin(admin,user.id);
     requireAdminAction(String(adminAccess.admin_role||"superadmin"),action);
 
+    if(action==="clube-coupon-preview"){
+      if(!["superadmin","finance"].includes(String(adminAccess.admin_role))){
+        throw new DomainError("ADMIN_PERMISSION_DENIED","A simulação exige perfil financeiro.",403);
+      }
+      const keys=["orderValueCents","feeBps","merchantSponsorBps","brandSponsorBps",
+        "paymentCostCents","variableCostCents","cashbackCostCents","referralCostCents",
+        "minimumContributionCents"] as const;
+      const values=keys.map(key=>body[key]);
+      if(!["gas_3x5","water_5x2"].includes(String(body.packageKey||""))||
+        values.some((value:any)=>!Number.isSafeInteger(value)||value<0||value>100000000)||
+        values[1]>1500||values[2]>10000||values[3]>10000||
+        values[2]+values[3]>10000){
+        throw new DomainError("CLUBE_PREVIEW_INVALID_INPUT",
+          "Revise as premissas do cenário do Clube TAMÃO.",400);
+      }
+      const {data,error}=await admin.rpc("admin_clube_coupon_preview_v1_239",{
+        p_actor:user.id,p_package_key:body.packageKey,
+        p_order_value_cents:values[0],p_fee_bps:values[1],
+        p_merchant_sponsor_bps:values[2],p_brand_sponsor_bps:values[3],
+        p_payment_cost_cents:values[4],p_variable_cost_cents:values[5],
+        p_cashback_cost_cents:values[6],p_referral_cost_cents:values[7],
+        p_minimum_contribution_cents:values[8]
+      });
+      if(error)throw error;
+      if(data?.source!=="clube_coupon_finance_preview_v1_239"||
+        data?.readOnly!==true||data?.salesEnabled!==false||
+        data?.redemptionEnabled!==false||data?.noCharge!==true||
+        data?.noCouponIssued!==true||data?.noMerchantSaleProceeds!==true||
+        data?.sponsorVerified!==false||data?.scenariosAreNotForecasts!==true||
+        data?.isScenarioNotRealPayment!==true||
+        data?.packageKey!==body.packageKey||
+        !Number.isSafeInteger(data?.scenarioZeroIncrementalAfterMinCents)||
+        !Number.isSafeInteger(data?.scenarioAllIncrementalAfterMinCents)||
+        !Number.isSafeInteger(data?.totalTamaoSubsidyCents)||
+        !Array.isArray(data?.activationRequirements)||
+        data.activationRequirements.length<5){
+        throw new DomainError("CLUBE_PREVIEW_UNVERIFIED",
+          "Não foi possível verificar as premissas financeiras do Clube.",503);
+      }
+      return json(data,200,origin);
+    }
     if(action==="growth-benefit-preview"){
       // The financial role (or superadmin) explicitly authorizes this action.
       // All values are *illustrative inputs*, never accounting authority.
