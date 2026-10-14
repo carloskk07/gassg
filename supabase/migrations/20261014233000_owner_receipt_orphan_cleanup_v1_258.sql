@@ -273,3 +273,13 @@ begin
   'attached',true,'replayed',v_replayed,'bankVerified',false,
   'cashMoved',false,'newBenefitsEnabled',false);
 end;$func$;
+
+do $acl$ begin
+ if has_table_privilege('anon','public.platform_campaign_receipt_cleanup_requests_v1_258','SELECT')
+ or has_table_privilege('authenticated','public.platform_campaign_receipt_cleanup_requests_v1_258','INSERT')
+ or has_table_privilege('service_role','public.platform_campaign_receipt_cleanup_results_v1_258','UPDATE')
+ or has_function_privilege('anon','public.admin_owner_cleanup_candidates_v1_258(uuid)','EXECUTE')
+ or has_function_privilege('authenticated','public.admin_owner_cleanup_reserve_v1_258(uuid,uuid,uuid)','EXECUTE')
+ or has_function_privilege('authenticated','public.admin_owner_cleanup_finish_v1_258(uuid,uuid,text)','EXECUTE')
+ then raise exception 'ORPHAN_CLEANUP_ACL_DRIFT' using errcode='42501';end if;
+end $acl$;
