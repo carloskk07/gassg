@@ -1036,6 +1036,7 @@ async function adminOwnerEvidenceSubmitFromUi(){
       toast(adminCurrentRole()==='superadmin'
         ?'Aporte declarado. Confira o extrato e registre sua decisão abaixo.'
         :'Aporte declarado. Aguarda conferência por outro administrador financeiro.');
+      adminOwnerFinanceHistoryState=null;
       await adminOwnerEvidenceLoadFromUi();
     }
   }catch(error){
@@ -1222,6 +1223,7 @@ async function adminOwnerBudgetAllocateFromUi(){
       throw new Error('Distribuição não confirmada.');
     if(actor===String(adminRuntime?.session?.user?.id||'')){
       toast('Valor separado no planejamento, sem uso de dinheiro real.');
+      adminOwnerFinanceHistoryState=null;
       await adminOwnerBudgetLoadFromUi();
     }
   }catch(e){
@@ -1872,16 +1874,147 @@ async function adminOwnerFinanceLoadFromUi(){
       adminOwnerFundingPulseState=null;
       adminOwnerEvidenceState=null;
       adminOwnerBudgetState=null;
+      adminOwnerFinanceHistoryState=null;
       toast(adminOwnerFinanceError);
     }
   }finally{adminOwnerFinanceLoading=false;render();}
 }
 function adminOwnerFinanceSelectFromUi(tab){
-  if(!['overview','plan','evidence','campaigns'].includes(tab)||
+  if(!['overview','plan','evidence','campaigns','history'].includes(tab)||
      !['superadmin','finance'].includes(String(adminCurrentRole())))return;
   adminOwnerFinanceTab=tab;
   render();
 }
+// TAMÃO V1.250 — history is sourced from actual immutable contribution/allocation events.
+let adminOwnerFinanceHistoryState=null;
+let adminOwnerFinanceHistoryBusy=false;
+let adminOwnerFinanceHistoryFilters={month:'',benefitKey:'',kind:'all',eventType:'all'};
+async function adminOwnerFinanceHistoryLoadFromUi(offset=0){
+  const actor=String(adminRuntime?.session?.user?.id||'');
+  const role=String(adminCurrentRole());
+  if(!actor||!['superadmin','finance'].includes(role)||adminOwnerFinanceHistoryBusy||
+     !Number.isSafeInteger(offset)||offset<0||offset>10000||offset%20!==0)return;
+  const value=id=>String(document.getElementById('owner-history-'+id)?.value||'').trim();
+  const filters=offset===0?{
+    month:value('month'),benefitKey:value('benefit'),kind:value('kind')||'all',
+    eventType:value('event')||'all'
+  }:{...adminOwnerFinanceHistoryFilters};
+  if((filters.month&&!/^\d{4}-(0[1-9]|1[0-2])$/.test(filters.month))||
+     (filters.benefitKey&&!['customer_cashback','customer_referral','merchant_referral','clube_coupons'].includes(filters.benefitKey))||
+     !['all','contribution','campaign'].includes(filters.kind)||
+     !['all','contribution_submitted','contribution_manual_reconciled',
+       'contribution_rejected','contribution_disputed','campaign_allocated','campaign_released'].includes(filters.eventType))
+    return toast('Revise os filtros do histórico financeiro.');
+  adminOwnerFinanceHistoryBusy=true;
+  render();
+  try{
+    const d=await adminInvoke({action:'owner-finance-history',
+       month:filters.month?filters.month+'-01':'',
+       benefitKey:filters.benefitKey,kind:filters.kind,
+       eventType:filters.eventType,offset});
+    if(d?.source!=='admin_owner_finance_history_v1_250'||
+       d?.readOnly!==true||d?.bankApiConfirmed!==false||
+       d?.fundsSpendable!==false||d?.spendableCents!==0||
+       d?.cashMoved!==false||d?.newBenefitsEnabled!==false||
+       d?.month!==(filters.month?filters.month+'-01':null)||
+       d?.benefitKey!==(filters.benefitKey||null)||
+       d?.kind!==filters.kind||d?.eventType!==filters.eventType||
+       d?.offset!==offset||d?.pageSize!==20||
+       !Array.isArray(d.rows)||d.rows.length>20||
+       !Number.isSafeInteger(d.total)||d.total<0||
+       d.rows.length>Math.max(0,d.total-offset))
+      throw new Error('Consulta histórica não verificada.');
+    if(actor===String(adminRuntime?.session?.user?.id||'')&&
+       role===String(adminCurrentRole())){
+      adminOwnerFinanceHistoryFilters=filters;
+      adminOwnerFinanceHistoryState={...d,loadedFor:actor};
+    }
+  }catch(error){
+    if(actor===String(adminRuntime?.session?.user?.id||'')){
+      adminOwnerFinanceHistoryState=null;
+      toast(String(error?.message||'Falha ao consultar histórico financeiro.'));
+    }
+  }finally{adminOwnerFinanceHistoryBusy=false;render();}
+}
+function adminOwnerFinanceHistorySection(){
+  const role=String(adminCurrentRole());
+  if(!['superadmin','finance'].includes(role))return '';
+  const actor=String(adminRuntime?.session?.user?.id||'');
+  const d=adminOwnerFinanceHistoryState?.loadedFor===actor?adminOwnerFinanceHistoryState:null;
+  const f=adminOwnerFinanceHistoryFilters;
+  const selected=(a,b)=>a===b?' selected':'';
+  const benefits={
+    customer_cashback:'Cashback',customer_referral:'Indicações de clientes',
+    merchant_referral:'Indicações de revendas',clube_coupons:'Clube TAMÃO'
+  };
+  const eventLabels={
+    contribution_submitted:'Aporte declarado',
+    contribution_manual_reconciled:'Conferência manual registrada',
+    contribution_rejected:'Aporte recusado',
+    contribution_disputed:'Aporte contestado',
+    campaign_allocated:'Orçamento separado para campanha',
+    campaign_released:'Orçamento devolvido ao planejamento'
+  };
+  const monthOptions='<option value="">Todos os meses</option>'+
+    Array.from({length:18},(_,i)=>{
+      const base=new Date();
+      const dt=new Date(Date.UTC(base.getUTCFullYear(),base.getUTCMonth()-i,1));
+      const k=dt.toISOString().slice(0,7);
+      return '<option value="'+k+'"'+selected(f.month,k)+'>'+k+'</option>';
+    }).join('');
+  const form='<div class="card flat form-stack">'+
+    '<div class="grid cards-2">'+
+    '<label class="input-wrap">Mês da decisão<select id="owner-history-month" class="input">'+monthOptions+'</select></label>'+
+    '<label class="input-wrap">Centro de incentivo<select id="owner-history-benefit" class="input">'+
+    '<option value="">Todos</option>'+
+    Object.entries(benefits).map(([k,v])=>'<option value="'+k+'"'+selected(f.benefitKey,k)+'>'+esc(v)+'</option>').join('')+
+    '</select></label>'+
+    '<label class="input-wrap">Origem<select id="owner-history-kind" class="input">'+
+    [['all','Aportes e campanhas'],['contribution','Aportes'],['campaign','Campanhas']].map(([k,v])=>
+      '<option value="'+k+'"'+selected(f.kind,k)+'>'+v+'</option>').join('')+'</select></label>'+
+    '<label class="input-wrap">Decisão<select id="owner-history-event" class="input">'+
+    '<option value="all"'+selected(f.eventType,'all')+'>Todas as decisões</option>'+
+    Object.entries(eventLabels).map(([k,v])=>'<option value="'+k+'"'+selected(f.eventType,k)+'>'+esc(v)+'</option>').join('')+
+    '</select></label></div>'+
+    '<button type="button" class="secondary small" onclick="adminOwnerFinanceHistoryLoadFromUi(0)" '+
+    (adminOwnerFinanceHistoryBusy?'disabled':'')+'>Pesquisar histórico</button></div>';
+  const rows=(d?.rows||[]).map(x=>{
+    const status=eventLabels[x.eventType]||x.eventType;
+    const note=String(x.note||'');
+    const actorLabel=String(x.actorId||'');
+    const dt=Date.parse(String(x.createdAt||''));
+    const date=Number.isFinite(dt)?new Date(dt).toLocaleString('pt-BR',{timeZone:'America/Sao_Paulo'}):'Data não confirmada';
+    return '<article class="card flat form-stack">'+
+      '<div class="section-head"><div><strong>'+esc(status)+'</strong>'+
+      '<p class="tiny muted">'+esc(benefits[x.benefitKey]||x.benefitKey)+
+      ' • '+esc(date)+' (São Paulo)</p></div><span class="status-pill">'+
+      esc(x.kind==='campaign'?'Campanha':'Aporte')+'</span></div>'+
+      '<p>Valor do registro: <strong>'+adminMoney(x.amountCents)+'</strong></p>'+
+      (x.campaignLabel?'<p>'+esc(x.campaignLabel)+
+        (x.campaignMonth?' • Competência '+esc(x.campaignMonth):'')+'</p>':'')+
+      (note?'<p class="tiny muted">Justificativa: '+esc(note)+'</p>':'')+
+      '<p class="tiny muted">Responsável: <span title="'+esc(actorLabel)+'">'+
+      esc(actorLabel.slice(0,8))+'</span> • Versão '+Number(x.fromVersion)+
+      ' → '+Number(x.toVersion)+'</p></article>';
+  }).join('');
+  const page=d?'<div class="section-head"><p class="tiny muted">'+
+    Number(d.total).toLocaleString('pt-BR')+' evento(s) encontrados • exibindo '+
+    (d.total?d.offset+1:0)+' a '+Math.min(d.total,d.offset+d.rows.length)+
+    ' (20 por página)</p><div class="row">'+
+    '<button type="button" class="secondary small" onclick="adminOwnerFinanceHistoryLoadFromUi('+
+    Math.max(0,d.offset-20)+')" '+(adminOwnerFinanceHistoryBusy||d.offset===0?'disabled':'')+'>Anterior</button>'+
+    '<button type="button" class="secondary small" onclick="adminOwnerFinanceHistoryLoadFromUi('+
+    (d.offset+20)+')" '+(adminOwnerFinanceHistoryBusy||d.offset+20>=d.total||d.offset+20>10000?'disabled':'')+
+    '>Próxima</button></div></div>':'';
+  return '<div class="form-stack"><div class="section-head"><div>'+
+    '<h4>Histórico de decisões financeiras</h4>'+
+    '<p>Consulte as decisões registradas, quem as realizou e quais valores foram organizados em cada campanha.</p>'+
+    '</div></div>'+form+
+    (d?'<div class="grid cards-2">'+(rows||'<p class="muted">Nenhum evento para os filtros escolhidos.</p>')+
+      '</div>'+page:'<p class="tiny muted">Use os filtros para consultar o histórico completo, página por página.</p>')+
+    '<p class="tiny muted">Este histórico mostra eventos de aportes e campanhas, não pagamentos, faturamento, lucro ou retorno sobre investimento. A conferência manual não valida saldo bancário por API.</p></div>';
+}
+
 function adminOwnerFinanceWorkspaceSection(){
   const role=String(adminCurrentRole());
   if(!['superadmin','finance'].includes(role))return '';
@@ -1900,7 +2033,8 @@ function adminOwnerFinanceWorkspaceSection(){
     ['overview','Visão geral'],
     ['plan','Planejamento'],
     ['evidence','Aportes'],
-    ['campaigns','Campanhas']
+    ['campaigns','Campanhas'],
+    ['history','Histórico']
   ];
   const navigation='<div class="row flex-wrap" role="group" aria-label="Áreas de financiamento">'+
     tabs.map(([id,title])=>'<button type="button" class="'+
@@ -1956,7 +2090,8 @@ function adminOwnerFinanceWorkspaceSection(){
     '<p class="tiny muted">Para executar uma operação, selecione Planejamento, Aportes ou Campanhas acima. As decisões continuam registradas por responsável e data.</p>':'';
   const detail=adminOwnerFinanceTab==='plan'?adminOwnerFundingSection():
     adminOwnerFinanceTab==='evidence'?adminOwnerEvidenceSection():
-    adminOwnerFinanceTab==='campaigns'?adminOwnerBudgetSection():explanation;
+    adminOwnerFinanceTab==='campaigns'?adminOwnerBudgetSection():
+    adminOwnerFinanceTab==='history'?adminOwnerFinanceHistorySection():explanation;
   return '<section class="section admin-owner-finance-workspace">'+
     '<div class="section-head"><div>'+
     '<span class="section-kicker">TAMÃO • ADMINISTRAÇÃO FINANCEIRA</span>'+
