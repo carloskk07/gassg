@@ -199,6 +199,8 @@ jobs:
         run: node tests/clube-terms-preflight-v1-242.mjs
       - name: TAMÃO V1.244 owner incentives and trustworthy public marketing
         run: node tests/owner-funded-trust-v1-244.mjs
+      - name: TAMÃO V1.245 reward grant evidence and budget dashboard
+        run: node tests/owner-funding-pulse-v1-245.mjs
       - name: Turnstile smoke Chrome cleanup V1.238.1
         run: node tests/turnstile-smoke-cleanup-v1-238-1.mjs
       - name: First real PSP pilot preflight V1.146 regression contract

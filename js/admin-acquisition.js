@@ -813,6 +813,7 @@ function adminClubeTermsSection(){
 
 // V1.244 — Private founder-financing policy (NOT a cash balance or automatic promise).
 let adminOwnerFundingState=null;
+let adminOwnerFundingPulseState=null;
 let adminOwnerFundingLoading=false;
 const adminOwnerFundingSaving=new Set();
 async function adminOwnerFundingLoadFromUi(){
@@ -820,21 +821,42 @@ async function adminOwnerFundingLoadFromUi(){
   if(!actor||!['superadmin','finance'].includes(String(adminCurrentRole()))||adminOwnerFundingLoading)return;
   adminOwnerFundingLoading=true;
   try{
-    const d=await adminInvoke({action:'owner-funding-read'});
+    const [d,pulse]=await Promise.all([
+      adminInvoke({action:'owner-funding-read'}),
+      adminInvoke({action:'owner-funding-pulse'})
+    ]);
     if(d?.source!=='admin_owner_funding_read_v1_244'||d?.fundingSource!=='platform_owner'||
       d?.newBenefitsEnabled!==false||d?.noCharge!==true||
       d?.verifiedDepositCents!==0||d?.moneyReservedCents!==0||
       !Array.isArray(d.rows)||d.rows.length!==4)
       throw new Error('O plano de custeio não foi validado.');
+    if(pulse?.source!=='admin_owner_funding_pulse_v1_245'||
+      pulse?.readOnly!==true||pulse?.noCharge!==true||
+      pulse?.timezone!=='America/Sao_Paulo'||
+      pulse?.metricMeaning!=='grants_created_this_month_not_bank_spending'||
+      pulse?.budgetMeaning!=='owner_plan_not_funds_deposited'||
+      pulse?.verifiedDepositCents!==0||pulse?.moneyReservedCents!==0||
+      pulse?.payoutsMeasured!==false||pulse?.newBenefitsActivated!==false||
+      !Array.isArray(pulse?.rows)||pulse.rows.length!==4)
+      throw new Error('Indicadores de incentivos não verificados.');
     if(actor===String(adminRuntime?.session?.user?.id||'')){
       adminOwnerFundingState={...d,loadedFor:actor};
+      adminOwnerFundingPulseState={...pulse,loadedFor:actor};
     }
   }catch(e){
     if(actor===String(adminRuntime?.session?.user?.id||'')){
       adminOwnerFundingState=null;
+      adminOwnerFundingPulseState=null;
       toast(String(e?.message||'Não foi possível consultar o custeio.'));
     }
   }finally{adminOwnerFundingLoading=false;render();}
+}
+function adminOwnerFundingReaisToCents(value,maxCents){
+  const n=Number(value);
+  if(!Number.isFinite(n)||n<0||n>maxCents/100)return null;
+  const cents=Math.round(n*100);
+  if(!Number.isSafeInteger(cents)||Math.abs(n*100-cents)>0.000001)return null;
+  return cents;
 }
 async function adminOwnerFundingSaveFromUi(key,expectedVersion){
   const actor=String(adminRuntime?.session?.user?.id||'');
@@ -844,8 +866,8 @@ async function adminOwnerFundingSaveFromUi(key,expectedVersion){
   if(!current||current.version!==expectedVersion||adminOwnerFundingSaving.has(key))
     return toast('Atualize o plano antes de salvar.');
   const val=id=>String(document.getElementById('owner-funding-'+id+'-'+key)?.value||'');
-  const budgetCents=Number(val('budget'));
-  const capCents=Number(val('cap'));
+  const budgetCents=adminOwnerFundingReaisToCents(val('budget'),50000000);
+  const capCents=adminOwnerFundingReaisToCents(val('cap'),10000000);
   const status=val('status');
   const note=val('note').trim();
   if(![budgetCents,capCents].every(v=>Number.isSafeInteger(v)&&v>=0)||
@@ -879,20 +901,45 @@ function adminOwnerFundingSection(){
   if(!['superadmin','finance'].includes(role))return '';
   const actor=String(adminRuntime?.session?.user?.id||'');
   const d=adminOwnerFundingState?.loadedFor===actor?adminOwnerFundingState:null;
+  const pulse=adminOwnerFundingPulseState?.loadedFor===actor?adminOwnerFundingPulseState:null;
   const labels={
     customer_cashback:'Cashback de clientes',
     customer_referral:'Comissões por clientes indicados',
     merchant_referral:'Bonificação por revendas indicadas',
     clube_coupons:'Cupons do Clube TAMÃO'
   };
+  const signalText={
+    budget_not_defined:'Definir teto mensal',
+    gross_exceeds_plan:'Concessões superam o plano',
+    near_planned_limit:'Próximo do teto planejado',
+    within_planned_limit:'Dentro do teto planejado'
+  };
+  const metrics=(pulse?.rows||[]).map(x=>{
+    const available=x.policyEnabled===true;
+    const used=Number(x.grossGrantedCents||0);
+    const reversed=Number(x.reversedGrantedCents||0);
+    const remainder=Number(x.netGrantedCents||0);
+    return '<article class="card flat form-stack">'+
+      '<div class="section-head"><strong>'+esc(labels[x.benefitKey]||x.benefitKey)+'</strong>'+
+      '<span class="tiny muted">'+(available?'Motor de benefícios configurado':'Benefício ainda não habilitado')+'</span></div>'+
+      '<div class="merchant-kpis">'+
+      '<div class="kpi"><span class="label">Créditos gerados no mês</span><strong>'+adminMoney(used)+'</strong></div>'+
+      '<div class="kpi"><span class="label">Créditos das emissões do mês estornados</span><strong>'+adminMoney(reversed)+'</strong></div>'+
+      '<div class="kpi"><span class="label">Emissões ainda válidas</span><strong>'+adminMoney(remainder)+'</strong></div>'+
+      '<div class="kpi"><span class="label">Orçamento mensal planejado</span><strong>'+
+      adminMoney(x.plannedBudgetCents)+'</strong></div></div>'+
+      '<p class="tiny muted">'+esc(signalText[x.planningSignal]||'Acompanhamento financeiro')+
+      (x.grossVsPlannedPct===null?'':', '+Number(x.grossVsPlannedPct).toLocaleString('pt-BR')+'% do teto')+
+      '. O valor dos créditos não representa dinheiro pago ou disponível em conta.</p></article>';
+  }).join('');
   const cards=(d?.rows||[]).map(x=>{
     const key=String(x.benefitKey);
     const fields=role==='superadmin'?
       '<div class="grid cards-2">'+
-      '<label class="input-wrap">Teto planejado por mês (centavos)'+
-      '<input class="input" type="number" min="0" max="50000000" step="100" id="owner-funding-budget-'+esc(key)+'" value="'+Number(x.budgetCents)+'"></label>'+
-      '<label class="input-wrap">Teto planejado por pessoa (centavos)'+
-      '<input class="input" type="number" min="0" max="10000000" step="100" id="owner-funding-cap-'+esc(key)+'" value="'+Number(x.capCents)+'"></label>'+
+      '<label class="input-wrap">Orçamento mensal (R$)'+
+      '<input class="input" type="number" inputmode="decimal" min="0" max="500000" step="0.01" id="owner-funding-budget-'+esc(key)+'" value="'+(Number(x.budgetCents)/100).toFixed(2)+'"></label>'+
+      '<label class="input-wrap">Limite por pessoa (R$)'+
+      '<input class="input" type="number" inputmode="decimal" min="0" max="100000" step="0.01" id="owner-funding-cap-'+esc(key)+'" value="'+(Number(x.capCents)/100).toFixed(2)+'"></label>'+
       '</div><label class="input-wrap">Declaração interna'+
       '<select class="input" id="owner-funding-status-'+esc(key)+'">'+
       '<option value="planning"'+(x.status==='planning'?' selected':'')+'>Em planejamento</option>'+
@@ -916,7 +963,14 @@ function adminOwnerFundingSection(){
     '<p>Defina quanto pretende destinar por mês a cashback, comissões, indicações e cupons, com limites individuais.</p>'+
     '</div><button type="button" class="secondary small" onclick="adminOwnerFundingLoadFromUi()" '+
       (adminOwnerFundingLoading?'disabled':'')+'>Consultar orçamento</button></div>'+
-    (d?'<div class="grid cards-2">'+cards+'</div>':
+    (pulse?'<div class="section-head"><div>'+
+      '<h4>Concessões reais do mês</h4>'+
+      '<p>Referência: '+esc(pulse.monthStart)+' a '+esc(pulse.periodEndExclusive)+
+      ' (fim exclusivo, horário de São Paulo). '+Number(pulse.grantsCount).toLocaleString('pt-BR')+
+      ' registros de benefícios gerados; '+Number(pulse.reversedGrantsCount).toLocaleString('pt-BR')+
+      ' revertidos.</p></div></div><div class="grid cards-2">'+metrics+'</div>':'')+
+    (d?'<div class="section-head"><div><h4>Planejamento do fundador</h4></div></div>'+
+      '<div class="grid cards-2">'+cards+'</div>':
       '<p class="muted">Consulte os quatro centros de incentivo para estabelecer os limites de custeio.</p>')+
     '<p class="tiny muted">Uso administrativo: o valor informado é uma intenção de custeio do proprietário. Não é depósito confirmado, saldo disponível, reserva de campanha ou autorização para saque. O cashback e a comissão já existentes seguem suas regras independentes; este plano não os altera.</p>'+
     '</section>';
