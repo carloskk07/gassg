@@ -835,7 +835,7 @@ function siteFooter({adminPortal=false}={}){
   const region=typeof rememberedMarketRegion==='function'&&globalThis.merchantPortalRequested?.()!==true
     ?rememberedMarketRegion():null;
   const locality=region?esc(region.city)+'/'+esc(region.state):'Consulte sua região';
-  return '<footer class="site-footer"><div class="shell site-footer-inner"><div><strong>TAMÃO</strong><small>Pediu? Tá na mão. • '+locality+'</small></div><nav aria-label="Informações legais"><button onclick="go(\'privacy\')">Privacidade</button><button onclick="go(\'terms\')">Termos</button><button onclick="go(\'contact\')">Contato</button></nav></div></footer>';
+  return '<footer class="site-footer"><div class="shell site-footer-inner"><div><strong>TAMÃO</strong><small>Pediu? Tá na mão. • '+locality+'</small></div><nav aria-label="Informações legais"><button onclick="go(\'privacy\')">Privacidade</button><button onclick="go(\'terms\')">Termos</button><button onclick="go(\'sponsors\')">Marcas e parcerias</button><button onclick="go(\'contact\')">Contato</button></nav></div></footer>';
 }
 function shell(content){
   const r=route();
@@ -852,8 +852,8 @@ function shell(content){
     :merchantPortal
       ? '<button onclick="go(\'merchant\')">Operação</button><button onclick="go(\'catalog\')">Catálogo</button><button onclick="go(\'merchants\')">Parceiros</button>'
       : prelaunchPublic
-        ? '<button onclick="go(\'home\')">Início</button><button onclick="openPrelaunchCustomerLead()">Disponibilidade</button><button onclick="go(\'earn\')">Indique</button><button onclick="go(\'merchants\')">Para empresas</button><button onclick="go(\'contact\')">Contato</button>'
-        : '<button onclick="go(\'home\')">Início</button><button onclick="go(\'learn\')">Como funciona</button><button onclick="go(\'earn\')">Ganhe</button><button onclick="go(\'club\')">Clube</button><button onclick="go(\'merchants\')">Para revendas</button>';
+        ? '<button onclick="go(\'home\')">Início</button><button onclick="openPrelaunchCustomerLead()">Disponibilidade</button><button onclick="go(\'earn\')">Indique</button><button onclick="go(\'merchants\')">Para empresas</button><button onclick="go(\'sponsors\')">Para marcas</button><button onclick="go(\'contact\')">Contato</button>'
+        : '<button onclick="go(\'home\')">Início</button><button onclick="go(\'learn\')">Como funciona</button><button onclick="go(\'earn\')">Ganhe</button><button onclick="go(\'club\')">Clube</button><button onclick="go(\'merchants\')">Para revendas</button><button onclick="go(\'sponsors\')">Marcas</button>';
   const switcher=adminPortal
     ? '<div class="mode-pill" aria-label="Alternar ambiente"><button onclick="openCustomerPortal()">Site</button><button class="active" onclick="go(\'admin\')">Admin</button></div>'
     : `<div class="mode-pill" aria-label="Alternar modo"><button class="${!merchantPortal&&(!testDemo||state.mode==='customer')&&r!=='merchants'?'active':''}" onclick="${customerAction}">${prelaunchPublic?'Quero comprar':'Comprar'}</button><button class="${merchantPortal||(testDemo&&state.mode==='merchant')||(!merchantPortal&&r==='merchants')?'active':''}" onclick="${merchantAction}">${prelaunchPublic?'Quero vender':'Revenda'}</button></div>`;
