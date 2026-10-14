@@ -4,6 +4,7 @@ import vm from 'node:vm';
 const read=p=>fs.readFileSync(new URL('../'+p,import.meta.url),'utf8');
 const sql=read('supabase/migrations/20261014233000_owner_receipt_orphan_cleanup_v1_258.sql');
 const edge=read('supabase/functions/admin-ops/index.ts');
+const patch=read('supabase/migrations/20261014233500_owner_receipt_orphan_replay_guard_v1_258.sql');
 const ui=read('js/admin-acquisition.js');
 const boot=read('js/bootstrap.js');
 const audit=read('.github/workflows/audit.yml');
@@ -24,6 +25,9 @@ for(const x of [
  'pg_catalog.pg_advisory_xact_lock',
  'ORPHAN_CLEANUP_NOT_ELIGIBLE',
  'ORPHAN_CLEANUP_OBJECT_STILL_PRESENT',
+ 'ORPHAN_CLEANUP_REPLAY_UNSAFE',
+ 'o.id=v_old.object_id',
+ 'o.name=v_old.object_path',
  'RECEIPT_OBJECT_UNAVAILABLE',
  "'automaticDeletionEnabled',false",
  "'noObjectPaths',true",
@@ -32,6 +36,8 @@ for(const x of [
  'ORPHAN_CLEANUP_ACL_DRIFT'
 ])assert.ok(sql.includes(x),'Missing invariant: '+x);
 assert.ok(!/delete\s+from\s+storage\.objects/i.test(sql));
+assert.ok(patch.includes('ORPHAN_CLEANUP_REPLAY_UNSAFE'));
+assert.ok(patch.includes('o.name=v_old.object_path'));
 assert.ok(sql.includes('not exists (\n   select 1 from storage.objects o'));
 assert.ok(edge.includes('if(action==="owner-orphan-cleanup-candidates")'));
 assert.ok(edge.includes('if(action==="owner-orphan-cleanup-delete")'));
