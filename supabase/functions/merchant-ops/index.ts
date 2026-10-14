@@ -154,7 +154,7 @@ Deno.serve(async(req:Request)=>{
       if(!Number.isSafeInteger(version)||version<0||version>2147483646)
         throw new DomainError("ADS_CAMPAIGN_VERSION_INVALID","Atualize a proposta antes de salvar.",409);
       const requestId=String(body.requestId??"");
-      if(operation!=="view"&&!UUID_RE.test(String(requestId??""))))
+      if(operation!=="view"&&!UUID_RE.test(requestId))
         throw new DomainError("ADS_CAMPAIGN_REQUEST_INVALID","Identificação da ação inválida.",400);
       const {data,error}=await admin.rpc("merchant_ads_campaign_v1_233",{
         p_actor:user.id,p_merchant:merchantId,p_action:operation,
@@ -200,7 +200,7 @@ Deno.serve(async(req:Request)=>{
       }
       if(operation!=="view"&&(
         !Number.isSafeInteger(expectedVersion)||expectedVersion<0||expectedVersion>2147483645||
-        !UUID_RE.test(requestId))){
+        !UUID_RE.test(String(requestId??""))){
         throw new DomainError("CLUBE_EXPECTED_VERSION_REQUIRED",
           "Atualize a proposta antes de alterá-la.",409);
       }
