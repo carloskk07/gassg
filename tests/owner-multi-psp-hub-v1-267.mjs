@@ -16,7 +16,7 @@ for(const phrase of [
  'public.platform_referral_payout_claims_v1_263',
  'public.platform_referral_payout_proofs_v1_264',
  'public.platform_referral_provider_observations_v1_265',
- 'merchant_direct','platform_owner_reported',
+ 'catalogFundsFlow','platform_owner_reported',
  'provider_verified_orders',
  'o.provider_transaction_success',
  'o.transaction_reference=x.provider_reference',
