@@ -69,7 +69,7 @@ vm.runInContext(ui+'\nthis.reload=adminActivationLoad;this.salesView=adminAdsSal
 assert.ok(await env.reload({force:true}));
 assert.match(env.salesView(),/Planejamento comercial de anúncios/);
 assert.match(env.salesView(),/Loja fictícia/);
-assert.match(env.salesView(),/Nenhuma cobrança/);
+assert.match(env.salesView(),/Sem plano/);
 price='9';
 assert.equal(await env.savePlan(plan.merchantId),false);
 price='99';note='curta';
