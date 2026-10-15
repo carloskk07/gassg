@@ -15,7 +15,8 @@ async function adminActivationLoad({force=false}={}){
       ['terms','clube-terms-queue','admin_clube_terms_queue_v1_242'],
       ['intake','commercial-intake-read','admin_marketing_intake_v1_308'],
       ['adsSalesPlans','ads-sales-plans','admin_ads_sales_plans_v1_309'],
-      ['adsOffers','ads-offers-read','admin_ads_offers_v1_310']
+      ['adsOffers','ads-offers-read','admin_ads_offers_v1_310'],
+      ['adsDossiers','ads-dossiers-read','admin_ads_dossiers_v1_311']
     ];
     const values=await Promise.allSettled([
       ...specs.map(([,action])=>adminInvoke({action})),
@@ -29,6 +30,11 @@ async function adminActivationLoad({force=false}={}){
       const safe=d?.source===source&&(
         key==='ads'?d.readOnly===true&&d.publicEnabled===false&&d.billingEnabled===false&&d.readyToSell===false:
         key==='adsQueue'?d.noCharge===true&&d.adsLive===false:
+        key==='adsDossiers'?d.readOnly===true&&d.noCharge===true&&d.adsLive===false&&
+          d.contractsSigned===0&&d.revenueCents===0&&d.paymentRequestsCreated===0&&
+          Number.isSafeInteger(d.totalDossiers)&&Array.isArray(d.rows)&&d.rows.length<=50&&
+          d.rows.every(x=>/^[0-9a-f-]{36}$/i.test(String(x.merchantId))&&
+           Number.isSafeInteger(x.version)&&x.version>0):
         key==='adsOffers'?d.readOnly===true&&d.noCharge===true&&d.adsLive===false&&
           d.contractsSigned===0&&d.revenueCents===0&&d.notifiedExternally===false&&
           Number.isSafeInteger(d.totalOffers)&&Array.isArray(d.rows)&&d.rows.length<=50&&
@@ -51,7 +57,7 @@ async function adminActivationLoad({force=false}={}){
         d.readOnly===true&&d.couponSalesEnabled===false&&d.noContractsSigned===true);
       evidence[key]=safe?d:null;
     });
-    const governance=values[7].status==='fulfilled'?values[7].value:null;
+    const governance=values[8].status==='fulfilled'?values[8].value:null;
     evidence.governance=governance?.source==='admin_governance_gates_v1_304'&&governance.readOnly===true&&
       adminRuntime.governance?.loadedFor===actor&&adminRuntime.governance?.role===role?governance:null;
     const push=adminRuntime.pushReliability||{};
@@ -141,7 +147,7 @@ function adminActivationDeskView(d){
     '<p class="tiny muted">Última consulta: '+
     esc(current?formatDateTime(adminActivationDesk.checkedAt):'não confirmada')+
     '. Uma falha na consulta é mostrada como “Não confirmado”, nunca como recurso desligado.</p>'+
-    '<div class="admin-activation-grid">'+cards+'</div>'+adminMarketingIntakeView()+adminAdsSalesPlansView()+
+    '<div class="admin-activation-grid">'+cards+'</div>'+adminMarketingIntakeView()+adminAdsSalesPlansView()+adminAdsDossiersView()+
     '<p class="tiny muted">Publicidade pública, vendas de cupons e automação de avisos exigem homologação e gates reais no servidor. Nenhum controle desta página contorna esses requisitos.</p></section>';
 }
 
@@ -368,6 +374,108 @@ async function adminAdsOfferAction(merchantId,operation){
    if(!current||current.version!==out.version||current.status!==out.status)
       throw new Error('Registro efetuado, mas leitura final ainda não confirmada.');
    toast(operation==='share'?'Oferta disponível no portal, sem envio automático.':'Oferta retirada do portal.');
+   return true;
+ }catch(e){
+   adminActivationDesk.data=null;await adminActivationLoad({force:true});
+   toast(String(e?.message||e));return false;
+ }
+}
+
+
+// V1.311 — contract-review dossier, NO signed contract, invoice or Ads publication.
+function adminAdsDossiersView(){
+ if(!adminRoleCanSection('activations'))return '';
+ const actor=String(adminRuntime.session?.user?.id||''),role=adminCurrentRole();
+ const fresh=adminActivationDesk.actor===actor&&adminActivationDesk.role===role&&
+   Date.now()-Date.parse(adminActivationDesk.checkedAt||'')<120000;
+ const dossiers=fresh?adminActivationDesk.data?.adsDossiers:null;
+ const offers=fresh?adminActivationDesk.data?.adsOffers:null;
+ const labels={draft:'Minuta em preparação',shared_for_review:'Disponível para revisão',
+   changes_requested:'Revenda solicitou alterações',reviewed:'Revisão confirmada — não assinada',
+   withdrawn:'Documento retirado'};
+ const rows=(offers?.rows||[]).filter(o=>o.status==='interested').map(o=>{
+   const id=String(o.merchantId||'');
+   if(!/^[0-9a-f-]{36}$/i.test(id))return '';
+   const d=dossiers?.rows?.find(x=>x.merchantId===id);
+   const editable=role==='superadmin'&&(!d||['draft','changes_requested'].includes(d.status))&&
+     (!d||d.offerVersion===o.version);
+   const editableHtml=editable?'<div class="admin-ads-dossier-fields">'+
+     '<label>Escopo e entrega prevista<textarea id="ads-dossier-'+id+'-scope" rows="4" minlength="60" maxlength="700" '+
+       'placeholder="Descreva o espaço publicitário, região, duração e critérios de medição previstos">'+
+       esc(d?.serviceScope||'')+'</textarea></label>'+
+     '<label>Cancelamento e ajustes<textarea id="ads-dossier-'+id+'-cancel" rows="3" minlength="40" maxlength="700" '+
+       'placeholder="Descreva prazos de cancelamento, ajustes e reembolso sujeitos a contrato">'+
+       esc(d?.cancellationTerms||'')+'</textarea></label>'+
+     '<label>Vencimento proposto após futura cobrança (dias)<input id="ads-dossier-'+id+'-due" type="number" min="1" max="30" step="1" value="'+
+       Number(d?.dueDays||7)+'"></label>'+
+     '<button class="primary small" type="button" onclick="adminAdsDossierAction(\''+id+'\',\'save\')">Salvar minuta</button></div>':'';
+   const commands=role==='superadmin'&&d?.offerVersion===o.version?
+     (d.status==='draft'?'<button class="secondary small" type="button" onclick="adminAdsDossierAction(\''+id+'\',\'share\')">Disponibilizar minuta para revisão</button>':
+      d.status==='shared_for_review'?'<button class="secondary small" type="button" onclick="adminAdsDossierAction(\''+id+'\',\'withdraw\')">Retirar minuta</button>':''):'';
+   return '<article class="admin-activation-card"><div class="admin-activation-card-head"><strong>'+
+     esc(o.companyName||'Revenda')+'</strong><span class="status-pill">'+
+     esc(d?(labels[d.status]||'Em análise'):'Sem minuta')+'</span></div>'+
+     '<p>Proposta com interesse registrado: <strong>'+(Number(o.priceCents)/100).toLocaleString('pt-BR',{style:'currency',currency:'BRL'})+
+     '</strong> por '+Number(o.durationDays)+' dias.</p>'+
+     (d?'<p class="tiny muted">Documento v'+d.version+' • Oferta v'+d.offerVersion+
+       ' • vencimento proposto em '+d.dueDays+' dias • sem fatura</p>':'')+
+     (d?'<details><summary>Consultar condições</summary><p>'+esc(d.serviceScope)+'</p><p>'+esc(d.cancellationTerms)+'</p></details>':'')+
+     editableHtml+commands+'</article>';
+ }).join('');
+ return '<section class="section admin-ads-dossiers">'+
+   '<div class="section-head"><div><span class="section-kicker">V1.311 • NEGOCIAÇÃO DOCUMENTADA</span>'+
+   '<h2>Condições contratuais e cobrança futura</h2>'+
+   '<p>Prepare o escopo, as regras de cancelamento e o vencimento proposto. A revenda revisa os termos antes de qualquer contrato ou cobrança.</p></div></div>'+
+   (offers&&dossiers?'<p class="tiny muted">'+dossiers.totalDossiers+
+      ' dossiê(s) no servidor • Receita comprovada deste fluxo: R$ 0,00 • Nenhum contrato assinado.</p>':
+      '<p class="muted">Consulta do dossiê não confirmada; atualize a Central de Ativações.</p>')+
+   '<div class="admin-activation-grid">'+(rows||'<p class="muted">Nenhuma revenda demonstrou interesse em uma oferta de publicidade ainda. A minuta só pode ser preparada depois dessa manifestação.</p>')+
+   '</div></section>';
+}
+async function adminAdsDossierAction(merchantId,operation){
+ if(!adminReady()||adminCurrentRole()!=='superadmin'||adminActivationDesk.loading||
+    !['save','share','withdraw'].includes(operation))return false;
+ const actor=String(adminRuntime.session?.user?.id||'');
+ if(adminActivationDesk.actor!==actor||adminActivationDesk.role!=='superadmin'||
+   Date.now()-Date.parse(adminActivationDesk.checkedAt||'')>=120000)return false;
+ const offer=adminActivationDesk.data?.adsOffers?.rows?.find(x=>x.merchantId===merchantId);
+ const d=adminActivationDesk.data?.adsDossiers?.rows?.find(x=>x.merchantId===merchantId);
+ if(!offer||offer.status!=='interested'||(d&&d.offerVersion!==offer.version))return false;
+ if(operation==='save'&&d&&!['draft','changes_requested'].includes(d.status))return false;
+ if(operation==='share'&&d?.status!=='draft')return false;
+ if(operation==='withdraw'&&d?.status!=='shared_for_review')return false;
+ let serviceScope=null,cancellationTerms=null,dueDays=null;
+ if(operation==='save'){
+   serviceScope=String(document.getElementById('ads-dossier-'+merchantId+'-scope')?.value||'').trim();
+   cancellationTerms=String(document.getElementById('ads-dossier-'+merchantId+'-cancel')?.value||'').trim();
+   dueDays=Number(document.getElementById('ads-dossier-'+merchantId+'-due')?.value||0);
+   if(serviceScope.length<60||serviceScope.length>700||
+     cancellationTerms.length<40||cancellationTerms.length>700||
+     !Number.isSafeInteger(dueDays)||dueDays<1||dueDays>30){
+      toast('Informe escopo (60–700 caracteres), cancelamento (40–700) e prazo (1–30 dias).');
+      return false;
+   }
+ }
+ if(!confirm(operation==='save'?'Salvar minuta apenas para revisão interna, sem enviar à revenda?':
+   operation==='share'?'Disponibilizar estas condições no portal da revenda para revisão? Não haverá contratação ou cobrança.':
+   'Retirar a minuta do portal sem criar cobranças?'))return false;
+ try{
+   const out=await adminPerform('ads-dossier-action',{
+     merchantId,operation,offerVersion:offer.version,expectedVersion:d?.version||0,
+     serviceScope,cancellationTerms,dueDays,requestId:crypto.randomUUID()
+   });
+   const status=operation==='save'?'draft':operation==='share'?'shared_for_review':'withdrawn';
+   if(out?.source!=='admin_ads_dossier_action_v1_311'||out.merchantId!==merchantId||
+     out.status!==status||!Number.isSafeInteger(out.version)||out.version<1||
+     out.recorded!==true||out.noCharge!==true||out.adsLive!==false||
+     out.contractSigned!==false||out.paymentRequestCreated!==false)
+     throw new Error('Ação do dossiê não foi confirmada.');
+   adminActivationDesk.data=null;
+   const verified=await adminActivationLoad({force:true});
+   const updated=verified?.adsDossiers?.rows?.find(x=>x.merchantId===merchantId);
+   if(!updated||updated.status!==status||updated.version!==out.version)
+     throw new Error('Registro criado, mas consulta posterior ainda não confirmada.');
+   toast('Dossiê atualizado, sem contrato assinado ou cobrança.');
    return true;
  }catch(e){
    adminActivationDesk.data=null;await adminActivationLoad({force:true});
