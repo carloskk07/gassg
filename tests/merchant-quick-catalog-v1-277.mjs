@@ -24,7 +24,7 @@ const original=[
  {productCode:'MISSING_PRICE',active:true,availableStock:1},
  {productCode:'DUP',active:true,priceCents:900,availableStock:1},
  {productCode:'DUP',active:true,priceCents:900,availableStock:2},
- {productCode:'RANGE_BAD',active:true,priceCents:8000,availableStock:7,pricingMode:'range',
+ {productCode:'RANGE_BAD',active:true,priceCents:8000,availableStock:2,pricingMode:'range',
   minPriceCents:9000,maxPriceCents:10000},
  ...Array.from({length:6},(_,i)=>({productCode:'OTHER'+i,active:true,
   productName:'Outro '+i,priceCents:1200+i*10,availableStock:2}))
