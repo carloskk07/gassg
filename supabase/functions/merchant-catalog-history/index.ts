@@ -36,6 +36,28 @@ function failure(code: string, status: number, origin: string | null): Response 
   return respond({error: code, message: "Não foi possível consultar este histórico."}, status, origin);
 }
 
+// Strict input cap and existing database-enforced per-account quota.
+async function readJsonBody(req: Request): Promise<Record<string, unknown> | null> {
+  const raw = await req.text();
+  if (raw.length > 1600) return null;
+  try {
+    const body = JSON.parse(raw);
+    return body && typeof body === "object" && !Array.isArray(body) ? body : null;
+  } catch {
+    return null;
+  }
+}
+async function enforceApiQuota(
+  admin: ReturnType<typeof createClient>, userId: string
+): Promise<"allowed" | "limited" | "unavailable"> {
+  const {data, error} = await admin.rpc("consume_api_quota", {
+    p_user_id: userId, p_action_name: "merchant-catalog-history",
+    p_limit: 60, p_window_seconds: 60,
+  });
+  if (error) return "unavailable";
+  return data?.allowed === true ? "allowed" : "limited";
+}
+
 Deno.serve(async (req: Request) => {
   const origin = req.headers.get("Origin");
   if (!allowed(origin)) return failure("ORIGIN_NOT_ALLOWED", 403, null);
@@ -46,11 +68,8 @@ Deno.serve(async (req: Request) => {
   if (!SUPABASE_URL || !PUBLIC_KEY || !SECRET_KEY) return failure("SERVICE_UNAVAILABLE", 503, origin);
 
   try {
-    const raw = await req.text();
-    if (raw.length > 1600) return failure("INVALID_BODY", 400, origin);
-    const body = JSON.parse(raw);
-    if (!body || Array.isArray(body) || typeof body !== "object")
-      return failure("INVALID_BODY", 400, origin);
+    const body = await readJsonBody(req);
+    if (!body) return failure("INVALID_BODY", 400, origin);
     const merchantId = typeof body.merchantId === "string" ? body.merchantId : "";
     const action = body.action;
     const productCode = body.productCode == null ? "" : body.productCode;
@@ -84,6 +103,9 @@ Deno.serve(async (req: Request) => {
     if (membershipError) return failure("SERVICE_UNAVAILABLE", 503, origin);
     if (!membership || !["owner", "manager"].includes(membership.member_role))
       return failure("MERCHANT_ACCESS_DENIED", 403, origin);
+    const quota = await enforceApiQuota(admin, user.id);
+    if (quota === "unavailable") return failure("SERVICE_UNAVAILABLE", 503, origin);
+    if (quota !== "allowed") return failure("RATE_LIMITED", 429, origin);
 
     let query = admin.from("merchant_catalog_change_events")
       .select("id,product_code,actor_user_id,actor_role,actor_display_name,change_kind,old_price_cents,new_price_cents,old_available_stock,new_available_stock,old_active,new_active,old_pricing_mode,new_pricing_mode,old_min_price_cents,new_min_price_cents,old_max_price_cents,new_max_price_cents,old_pricing_strategy,new_pricing_strategy,old_price_confirmed_at,new_price_confirmed_at,recorded_at")
