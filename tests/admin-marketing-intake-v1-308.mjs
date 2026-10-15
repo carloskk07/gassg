@@ -53,7 +53,13 @@ const state=vm.createContext({
       enabled:payload.enabled,version:2,changed:true,
       adsPublicationEnabled:false,couponSalesEnabled:false,noMoneyMovement:true};
  },
- adminActivationLoad:async()=>{refreshed++;return null},
+ adminInvoke:async({action})=>action==='commercial-intake-read'?{
+   source:'admin_marketing_intake_v1_308',readOnly:true,noMoneyMovement:true,
+   adsPublicationEnabled:false,couponSalesEnabled:false,
+   controls:[{moduleKey:'ads_proposals',enabled:performed.length===0,version:1+performed.length,reason:'confirmed'},
+     {moduleKey:'clube_proposals',enabled:true,version:3,reason:'unchanged'}]}:null,
+ adminLoadGovernanceGates:async()=>null,
+ adminPushReliabilityLoadFromUi:async()=>null,
  confirm:()=>confirmReturn,prompt:()=>reason,toast:t=>toasts.push(t),
  esc:s=>String(s).replaceAll('<','&lt;'),formatDateTime:s=>s,
  adminSetSection:()=>{},requestAnimationFrame:()=>{},render:()=>{},
@@ -76,7 +82,8 @@ assert.equal(performed.length,1);
 assert.equal(performed[0].action,'commercial-intake-set');
 assert.equal(performed[0].payload.expectedVersion,1);
 assert.equal(performed[0].payload.enabled,false);
-assert.equal(refreshed,1);
+assert.equal(state.desk.data.intake.controls[0].enabled,false);
+assert.equal(state.desk.data.intake.controls[0].version,2);
 role='operations';state.desk.data={intake:{controls:[row]}};
 state.desk.role='operations';
 assert.doesNotMatch(state.intake(),/adminMarketingIntakeSet\('ads_proposals'\)/);
