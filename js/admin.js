@@ -5459,11 +5459,13 @@ async function adminLoadGovernanceGates({force=false}={}){
     return null;
   }finally{state.loading=false;render();}
 }
-async function adminGovernanceChangeCityPause(city,state,paused){
+async function adminGovernanceChangeCityPause(index){
   if(!adminReady()||!['superadmin','operations'].includes(adminCurrentRole()))return false;
   const report=adminRuntime.governance?.data;
-  const location=report?.cities?.find(x=>x.city===city&&x.state===state);
-  if(!location||location.adminPaused===Boolean(paused))return false;
+  const location=Number.isInteger(index)&&index>=0&&index<200?report?.cities?.[index]:null;
+  if(!location||report?.controls?.cityPause!==true)return false;
+  const city=String(location.city||''),state=String(location.state||'');
+  const paused=!location.adminPaused;
   const action=paused?'pausar novas cotações':'retirar a pausa administrativa';
   if(!confirm('Deseja '+action+' em '+city+'/'+state+'? Pedidos existentes não serão apagados.'))return false;
   const reason=prompt('Escreva o motivo desta decisão (mínimo de 5 caracteres):')||'';
@@ -5509,14 +5511,13 @@ function adminGovernanceView(){
     '<div class="admin-governance-indicator"><strong>'+esc(v.title)+'</strong>'+
     '<span>'+esc(v.detail)+'</span><small>'+esc(v.note)+'</small>'+
     '<button type="button" class="ghost small" onclick="adminSetSection(\''+v.section+'\')">Abrir área →</button></div>').join('');
-  const cities=r.cities.map(c=>{
+  const cities=r.cities.map((c,index)=>{
     const canEdit=r.controls?.cityPause===true&&
       ['superadmin','operations'].includes(role);
     // Never change commerce_enabled through this pause action.
     const choice=canEdit?
-      '<button type="button" class="secondary small" onclick="adminGovernanceChangeCityPause(\''+
-      String(c.city).replace(/'/g,'')+'\',\''+String(c.state).replace(/'/g,'')+'\','+
-      (!c.adminPaused)+')">'+(c.adminPaused?'Retirar pausa':'Pausar novas cotações')+'</button>':
+      '<button type="button" class="secondary small" onclick="adminGovernanceChangeCityPause('+index+')">'+
+      (c.adminPaused?'Retirar pausa':'Pausar novas cotações')+'</button>':
       '<span class="tiny muted">Somente consulta</span>';
     const commerce=c.commerceEnabled===true?'Habilitada no cadastro':'Comércio ainda não habilitado';
     const pause=c.adminPaused===true?'Pausa administrativa ativa':'Sem pausa administrativa';
