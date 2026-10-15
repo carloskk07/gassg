@@ -405,7 +405,7 @@ function home(){
     <span class="eyebrow">${esc(eyebrow)}</span>
     ${rememberedRegion&&!testDemo?`<div class="local-welcome" aria-label="Sua região identificada"><span aria-hidden="true">📍</span><span><strong>Olá, ${esc(rememberedRegion.city)}!</strong><small>Consulta por CEP • ${esc(rememberedRegion.state)}. A disponibilidade depende das ofertas para seu endereço.</small></span></div>`:''}
     <div class="hero-overline">${conciseHome?'CONSULTE ENTREGAS PERTO DE VOCÊ.':'O QUE VOCÊ PRECISA, MAIS PERTO DE CASA.'}</div>
-    <h1>Precisou de gás ou água?<br><span class="hero-highlight">Tá na mão.</span></h1>
+    <h1>Faltou em casa?<br><span class="hero-highlight">Tá na mão.</span></h1>
     <p class="hero-lead"><strong>Gás, água e o essencial do dia a dia, em um só lugar.</strong> ${esc(hasConfirmedCityOffers?'Já consultamos opções para o seu CEP. Confira preços e prazos atualizados antes de confirmar.':conciseHome?firstVisitMessage:outsideOriginalMarket?'Veja quais opções atendem '+regionLabel+' pelo CEP. Se não houver ofertas, você poderá solicitar um aviso.':heroJourney)}</p>
     <div class="hero-emotional-promise"><span aria-hidden="true">✦</span><span>${conciseHome?'Consulte a disponibilidade antes de fazer um pedido.':'Confira as opções da sua região sem precisar ligar de loja em loja.'}</span></div>
 
