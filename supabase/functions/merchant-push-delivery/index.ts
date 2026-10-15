@@ -240,9 +240,18 @@ function classifyFailure(err:unknown):{status:number|null;code:string;outcome:st
     return {status:null,code:"NETWORK_ERROR",outcome:"retry"};
   return {status:null,code:"PUSH_PAYLOAD_INVALID",outcome:"permanent_failure"};
 }
-function pushPayload(kind:string):{kind:string}{
-  // All customer/order/private details intentionally excluded.
-  return {kind:kind==="assigned_delivery"?"assigned_delivery":"new_offer"};
+function pushPayload(kind:string):{
+  kind:string;title:string;body:string;tag:string;url:string
+}{
+  // Generic PushPayload fields satisfy typed sender, with no customer/private data.
+  const driver=kind==="assigned_delivery";
+  return {
+    kind:driver?"assigned_delivery":"new_offer",
+    title:driver?"Nova entrega no TAMÃO":"Novo pedido no TAMÃO",
+    body:driver?"Confira uma entrega atribuída no painel.":"Confira um novo pedido no painel.",
+    tag:driver?"tamao-delivery":"tamao-new-offer",
+    url:"/?merchant=1#merchant"
+  };
 }
 async function deliver(admin:any,row:Claimed):Promise<{outcome:string;status:number|null;resolved:boolean}>{
   let outcome="retry",httpStatus:number|null=null,code:string|null=null;
