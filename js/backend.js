@@ -1373,7 +1373,7 @@ function merchantDisableAlertsLive(){
 
 // V1.286 — Web Push is independent of the existing on-page alert preference.
 // Registration never silently occurs; a separate explicit user gesture is required.
-const merchantPushRuntime={checked:false,checking:false,available:false,publicKey:null,subscribed:false,merchantId:null,testMode:true,diagnostic:null,testPending:false,reportPending:false,testResult:null};
+const merchantPushRuntime={checked:false,checking:false,available:false,publicKey:null,subscribed:false,merchantId:null,testMode:true,diagnostic:null,testPending:false,reportPending:false,testResult:null,healthPending:false,deviceHealth:null,healthError:null};
 function merchantPushStatus(){
   return {
     available:merchantPushRuntime.available===true,
@@ -1382,6 +1382,9 @@ function merchantPushStatus(){
     testMode:merchantPushRuntime.testMode!==false,
     testPending:merchantPushRuntime.testPending===true,
     reportPending:merchantPushRuntime.reportPending===true,
+    healthPending:merchantPushRuntime.healthPending===true,
+    deviceHealth:merchantPushRuntime.deviceHealth&&merchantPushRuntime.deviceHealth.merchantId===String(merchantRuntime.merchant?.merchantId||'')&&merchantPushRuntime.deviceHealth.userId===String(merchantRuntime.session?.user?.id||'')?merchantPushRuntime.deviceHealth:null,
+    healthError:merchantPushRuntime.healthError&&merchantPushRuntime.healthError.merchantId===String(merchantRuntime.merchant?.merchantId||'')&&merchantPushRuntime.healthError.userId===String(merchantRuntime.session?.user?.id||'')?merchantPushRuntime.healthError.code:null,
     testResult:merchantPushRuntime.testResult&&merchantPushRuntime.testResult.merchantId===String(merchantRuntime.merchant?.merchantId||'')&&merchantPushRuntime.testResult.userId===String(merchantRuntime.session?.user?.id||'')?merchantPushRuntime.testResult:null,
     diagnostic:merchantPushRuntime.diagnostic&&merchantPushRuntime.diagnostic.merchantId===String(merchantRuntime.merchant?.merchantId||'')?merchantPushRuntime.diagnostic:null,
     supported:typeof Notification!=='undefined'&&'serviceWorker' in navigator&&
@@ -1395,6 +1398,8 @@ function merchantPushKeyBytes(base64url){
 }
 // V1.290: device-only diagnostics. Never reads or displays subscription
 // endpoint/keys or claims the provider delivered a notification.
+// V1.293: local browser checks plus authenticated, read-only server summary.
+// A push gateway acceptance or voluntary report is not a verified delivery.
 async function merchantPushDiagnoseLive(){
   if(!merchantReady()||!merchantRuntime.merchant?.merchantId)
     throw new Error('Entre na revenda antes de verificar o aparelho.');
@@ -1429,7 +1434,8 @@ async function merchantPushCheckLive(){
   if(merchantPushRuntime.checking)return false;
   if(!merchantReady()||!merchantRuntime.merchant?.merchantId){
     merchantPushRuntime.checked=false;merchantPushRuntime.available=false;
-    merchantPushRuntime.subscribed=false;merchantPushRuntime.publicKey=null;return false;
+    merchantPushRuntime.subscribed=false;merchantPushRuntime.publicKey=null;
+    merchantPushRuntime.deviceHealth=null;merchantPushRuntime.healthError=null;return false;
   }
   merchantPushRuntime.checking=true;
   const merchantId=String(merchantRuntime.merchant.merchantId);
@@ -1456,6 +1462,61 @@ async function merchantPushCheckLive(){
   }finally{
     merchantPushRuntime.checking=false;
   }
+}
+// V1.293: server-side per-device diagnostics are requested only after local checks.
+// Kept separate so local device diagnostics remain usable without network access.
+async function merchantPushDiagnoseServerLive(){
+  if(merchantPushRuntime.healthPending)return false;
+  if(!merchantReady()||!merchantRuntime.merchant?.merchantId)
+    throw new Error('Entre na revenda antes de verificar o aparelho.');
+  const merchantId=String(merchantRuntime.merchant.merchantId);
+  const userId=String(merchantRuntime.session?.user?.id||'');
+  merchantPushRuntime.healthPending=true;
+  merchantPushRuntime.deviceHealth=null;
+  merchantPushRuntime.healthError=null;
+  render();
+  const current=()=>merchantReady()&&
+    String(merchantRuntime.merchant?.merchantId||'')===merchantId&&
+    String(merchantRuntime.session?.user?.id||'')===userId;
+  try{
+    await merchantPushDiagnoseLive();
+    if(!current())return false;
+    const device=merchantPushRuntime.diagnostic;
+    if(device?.permission!=='granted'||!device.workerReady||
+      !device.localSubscription||!device.keyMatches)return true;
+    const reg=await navigator.serviceWorker.getRegistration('./');
+    const subscription=await reg?.pushManager?.getSubscription();
+    if(!subscription?.endpoint)return true;
+    try{
+      const result=await merchantInvoke('merchant-push-self-test',{
+        action:'diagnose-tests',merchantId,endpoint:subscription.endpoint
+      });
+      if(!current())return false;
+      if(result?.diagnosis?.registered===true){
+        const raw=result.diagnosis;
+        const count=k=>Number.isInteger(raw[k])&&raw[k]>=0?Math.min(raw[k],100000):0;
+        const states=['provider_accepted','gateway_rejected','reserved','expired','failed'];
+        const codes=['SUBSCRIPTION_GONE','GATEWAY_UNAVAILABLE','GATEWAY_REJECTED',
+          'NETWORK_ERROR','PUSH_TEST_FAILED','SENDER_UNAVAILABLE'];
+        merchantPushRuntime.deviceHealth={
+          merchantId,userId,registered:true,tests:count('tests'),
+          providerAccepted:count('providerAccepted'),
+          providerFailed:count('providerFailed'),reportedSeen:count('reportedSeen'),
+          reportedNotSeen:count('reportedNotSeen'),
+          latestState:states.includes(raw.latestState)?raw.latestState:null,
+          latestFailureCode:codes.includes(raw.latestFailureCode)?raw.latestFailureCode:null,
+          latestReport:['seen','not_seen'].includes(raw.latestReport)?raw.latestReport:null,
+          checkedAt:new Date().toISOString()
+        };
+      }
+    }catch(error){
+      if(!current())return false;
+      merchantPushRuntime.healthError={merchantId,userId,
+        code:String(error?.data?.code||error?.code||'RESULT_UNAVAILABLE').slice(0,60)};
+    }
+    render();
+    return true;
+  }finally{merchantPushRuntime.healthPending=false;render();}
 }
 async function merchantPushEnableLive(){
   if(!merchantReady()||!merchantRuntime.merchant?.merchantId)
@@ -1510,6 +1571,19 @@ async function merchantPushEnableLive(){
   }
 }
 // V1.291: manual one-device test. It never changes an order or enables Cron.
+function merchantPushFriendlyError(error){
+  const code=String(error?.data?.code||error?.code||'');
+  const messages={
+    RATE_LIMITED:'Aguarde 3 minutos entre os testes e tente novamente.',
+    DEVICE_NOT_REGISTERED:'Este aparelho não está inscrito no servidor. Desative o push e cadastre novamente.',
+    SUBSCRIPTION_GONE:'A inscrição expirou. Desative o push e cadastre novamente.',
+    GATEWAY_UNAVAILABLE:'Serviço de notificações indisponível no momento. Tente mais tarde.',
+    RESULT_UNAVAILABLE:'Não foi possível consultar o diagnóstico agora. Verifique a conexão.',
+    UNAUTHORIZED:'Sua sessão expirou. Entre novamente no portal.',
+    ACCESS_DENIED:'Sua conta não tem acesso a esta revenda.'
+  };
+  return messages[code]||String(error?.message||'Não foi possível concluir o teste.');
+}
 async function merchantPushSelfTestLive(){
   if(merchantPushRuntime.testPending)
     throw new Error('Um teste de notificação já está em andamento.');
@@ -1533,6 +1607,7 @@ async function merchantPushSelfTestLive(){
        String(merchantRuntime.session?.user?.id||'')!==userId)
       return false;
     const accepted=result?.providerAccepted===true;
+    merchantPushRuntime.deviceHealth=null;
     merchantPushRuntime.testResult={
       merchantId,userId,providerAccepted:accepted,
       runId:String(result?.runId||''),deviceReport:null,
@@ -1602,6 +1677,7 @@ async function merchantPushReportTestLive(report){
       throw new Error('Confirmação não registrada pelo servidor.');
     if(merchantPushRuntime.testResult?.runId===last.runId)
       merchantPushRuntime.testResult.deviceReport=report;
+    merchantPushRuntime.deviceHealth=null;
     render();
     return true;
   }finally{merchantPushRuntime.reportPending=false;render();}
@@ -1626,6 +1702,8 @@ async function merchantPushDisableLive(){
   const local=await subscription.unsubscribe().catch(()=>false);
   merchantPushRuntime.subscribed=false;
   merchantPushRuntime.testResult=null;
+  merchantPushRuntime.deviceHealth=null;
+  merchantPushRuntime.healthError=null;
   render();
   if(!revoked)throw new Error('Alertas push interrompidos no navegador; a revogação no servidor não pôde ser confirmada.');
   return local;
@@ -1840,6 +1918,8 @@ async function merchantSignOut(){
   merchantPushRuntime.available=false;
   merchantPushRuntime.merchantId=null;
   merchantPushRuntime.diagnostic=null;
+  merchantPushRuntime.deviceHealth=null;
+  merchantPushRuntime.healthError=null;
   // Drop any in-flight refresh response before asynchronous sign-out.
   merchantRuntime.refreshSeq++;
   merchantRuntime.nextRecoveryAt=0;
@@ -2767,6 +2847,8 @@ globalThis.merchantReady=merchantReady;
 globalThis.merchantAlertStatus=merchantAlertStatus;
 globalThis.merchantPushStatus=merchantPushStatus;
 globalThis.merchantPushDiagnoseLive=merchantPushDiagnoseLive;
+globalThis.merchantPushDiagnoseServerLive=merchantPushDiagnoseServerLive;
+globalThis.merchantPushFriendlyError=merchantPushFriendlyError;
 globalThis.merchantPushCheckLive=merchantPushCheckLive;
 globalThis.merchantPushEnableLive=merchantPushEnableLive;
 globalThis.merchantPushSelfTestLive=merchantPushSelfTestLive;

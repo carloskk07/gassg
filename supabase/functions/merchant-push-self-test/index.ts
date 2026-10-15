@@ -68,7 +68,7 @@ Deno.serve(async(req:Request)=>{
     return bad("INVALID_REQUEST",400,origin);
    body=parsed;
   }catch{return bad("INVALID_REQUEST",400,origin)}
-  if((body.action!=="send-self-test"&&!["last-test","report-display"].includes(String(body.action??"")))||
+  if((body.action!=="send-self-test"&&!["last-test","report-display","diagnose-tests"].includes(String(body.action??"")))||
     !UUID.test(String(body.merchantId??""))||
     !allowedPushEndpoint(body.endpoint)||
     (body.action==="report-display"&&
@@ -87,6 +87,16 @@ Deno.serve(async(req:Request)=>{
    return bad("ACCESS_DENIED",403,origin);
   // V1.292: authenticated, endpoint-bound user observations, never delivery proofs.
   const endpointHash=await sha256(body.endpoint);
+  // V1.293: read-only seven-day diagnosis for this exact active device.
+  if(body.action==="diagnose-tests"){
+    const {data:diagnosis,error:diagnoseError}=await admin.rpc("merchant_push_test_diagnostics",{
+      p_merchant_id:body.merchantId,p_user_id:user.id,p_endpoint_hash:endpointHash
+    });
+    if(diagnoseError)return bad("RESULT_UNAVAILABLE",503,origin);
+    if(diagnosis?.registered!==true)return bad("DEVICE_NOT_REGISTERED",409,origin);
+    return json({ok:true,diagnosis,deviceDisplayConfirmed:false,
+      autoOrderSenderEnabled:false},200,origin);
+  }
   if(body.action==="last-test"){
     const {data:latest,error:latestError}=await admin.rpc("merchant_push_test_latest",{
       p_merchant_id:body.merchantId,p_user_id:user.id,p_endpoint_hash:endpointHash

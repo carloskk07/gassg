@@ -640,7 +640,39 @@ function merchantAlertControl(){
   const permission=status.notificationPermission;
   const push=globalThis.merchantPushStatus?.()||{};
   const device=push.diagnostic;
+  const health=push.deviceHealth;
   const testResult=push.testResult;
+  const advice=!device?'':!device.secure
+    ?'Abra o Portal das Revendas pelo endereço HTTPS oficial.':
+    !device.supported?'Este navegador não oferece Web Push. Use um navegador compatível.':
+    device.permission==='denied'?'Libere as notificações nas configurações do navegador e do celular.':
+    device.permission!=='granted'?'Autorize as notificações deste aparelho para realizar um teste.':
+    !device.workerReady?'Reabra o portal conectado à internet para ativar o serviço de notificações.':
+    !device.localSubscription?'Cadastre este aparelho para começar os testes.':
+    !device.keyMatches?'A inscrição local não corresponde à chave atual. Desative o push e cadastre novamente.':
+    push.healthError==='DEVICE_NOT_REGISTERED'?'O servidor não reconhece esta inscrição. Desative o push e cadastre novamente.':
+    push.healthError?'Não foi possível consultar os testes no servidor. Confira a conexão e verifique novamente.':
+    !health?'Confira o resultado da análise do servidor após a verificação.':
+    health.latestFailureCode==='SUBSCRIPTION_GONE'?'Inscrição rejeitada ou expirada pelo provedor. Desative o push e cadastre novamente.':
+    health.latestFailureCode==='SENDER_UNAVAILABLE'?'O servidor de testes não conseguiu usar a configuração de envio. A administração deve revisar o serviço.':
+    health.latestFailureCode==='GATEWAY_REJECTED'?'O serviço rejeitou o envio. Confira a inscrição e repita o teste após o intervalo.':
+    ['GATEWAY_UNAVAILABLE','NETWORK_ERROR','PUSH_TEST_FAILED'].includes(health.latestFailureCode)
+      ?'O envio encontrou uma falha temporária. Confira a conexão e teste mais tarde.':
+    health.latestReport==='not_seen'?'O provedor aceitou, mas você informou que o aviso não apareceu. Confira notificações do sistema, economia de bateria e modo Não Perturbe.':
+    health.latestReport==='seen'?'Você registrou o recebimento de um teste. Repita com o PWA fechado para conferir seu aparelho.':
+    health.latestState==='provider_accepted'?'O provedor aceitou o último envio, mas a exibição não foi confirmada. Confira o aviso no aparelho.':
+    health.tests===0?'Nenhum envio de teste nos últimos 7 dias. Use “Enviar notificação de teste”.':
+    health.latestState==='reserved'?'Há um teste ainda marcado como reservado. Atualize a verificação após alguns instantes.':
+    'Confira as permissões e envie um novo teste quando necessário.';
+  const healthInfo=health?
+    '<div class="merchant-push-diagnostic" role="status"><strong>Histórico de testes deste aparelho • 7 dias</strong>'+
+    '<div>Tentativas: '+esc(health.tests)+' · Aceitas pelo provedor: '+esc(health.providerAccepted)+
+    ' · Falhas: '+esc(health.providerFailed)+'</div>'+
+    '<div>Você informou recebimento: '+esc(health.reportedSeen)+
+    ' · Não apareceu: '+esc(health.reportedNotSeen)+'</div>'+
+    '<small>Aceite pelo provedor e relatos manuais não garantem entrega de avisos futuros.</small></div>':'';
+  const adviceInfo=device?
+    '<div class="merchant-push-diagnostic" role="status" aria-live="polite"><strong>Próximo passo recomendado</strong><div>'+esc(advice)+'</div></div>':'';
   const report=testResult?.deviceReport;
   const reportButtons=testResult?.providerAccepted&&testResult?.runId&&!report
     ?'<div class="form-stack"><small>O aviso apareceu neste aparelho? Informe o que você observou:</small>'+
@@ -685,10 +717,10 @@ function merchantAlertControl(){
         globalThis.merchantPushStatus?.().testMode
         ?'Preparação para testes: você pode cadastrar este aparelho, mas o envio remoto ainda está desativado. O cadastro não significa que receberá avisos.'
         :'O push depende do navegador, da conexão e da entrega pelo provedor. Um aviso não substitui a confirmação do pedido no painel.'
-      )+'</small><button type="button" class="secondary" onclick="'+(globalThis.merchantPushStatus?.().subscribed?'merchantPushDisableFromUi()':'merchantPushEnableFromUi()')+'">'+(globalThis.merchantPushStatus?.().subscribed?'Desativar push deste aparelho':globalThis.merchantPushStatus?.().testMode?'Cadastrar aparelho para teste':'Ativar push deste aparelho')+'</button><button type="button" class="secondary" onclick="merchantPushDiagnoseFromUi()">Verificar este aparelho</button>'+
+      )+'</small><button type="button" class="secondary" onclick="'+(globalThis.merchantPushStatus?.().subscribed?'merchantPushDisableFromUi()':'merchantPushEnableFromUi()')+'">'+(globalThis.merchantPushStatus?.().subscribed?'Desativar push deste aparelho':globalThis.merchantPushStatus?.().testMode?'Cadastrar aparelho para teste':'Ativar push deste aparelho')+'</button><button type="button" class="secondary" onclick="merchantPushDiagnoseFromUi()" '+(push.healthPending?'disabled':'')+'>'+(push.healthPending?'Verificando aparelho…':'Verificar este aparelho')+'</button>'+
       (push.subscribed?'<button type="button" class="secondary" '+(push.testPending?'disabled':'')+' onclick="merchantPushTestFromUi()">'+(push.testPending?'Enviando teste…':'Enviar notificação de teste')+'</button><small>Teste solicitado por você, no máximo um a cada 3 minutos. Os avisos automáticos continuam desativados.</small>':'')+
       (push.subscribed?'<button type="button" class="secondary" '+(push.reportPending||push.testPending?'disabled':'')+' onclick="merchantPushLastFromUi()">Consultar último teste</button>':'')+
-      testInfo+diagnostic+'</div>'
+      testInfo+diagnostic+healthInfo+adviceInfo+'</div>'
       :''}
   </div>`;
 }
@@ -2832,7 +2864,7 @@ async function merchantEnableAlertsFromUi(){
 }
 async function merchantPushDiagnoseFromUi(){
   try{
-    await globalThis.merchantPushDiagnoseLive();
+    await globalThis.merchantPushDiagnoseServerLive();
   }catch(e){toast(String(e?.message||e))}
 }
 async function merchantPushEnableFromUi(){
@@ -2849,13 +2881,13 @@ async function merchantPushTestFromUi(){
     const accepted=await globalThis.merchantPushSelfTestLive();
     if(accepted)toast('Provedor aceitou o teste. Confira o aviso neste aparelho.');
     else toast('Teste sem confirmação do provedor. Confira o painel.');
-  }catch(e){toast(String(e?.message||e))}
+  }catch(e){toast(globalThis.merchantPushFriendlyError(e))}
 }
 async function merchantPushLastFromUi(){
   try{
     const found=await globalThis.merchantPushLatestTestLive();
     if(!found)toast('Nenhum teste recente encontrado para este aparelho.');
-  }catch(e){toast(String(e?.message||e))}
+  }catch(e){toast(globalThis.merchantPushFriendlyError(e))}
 }
 async function merchantPushReportFromUi(report){
   try{

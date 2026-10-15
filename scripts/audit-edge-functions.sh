@@ -155,6 +155,7 @@ for f in $(find supabase/functions -mindepth 2 -maxdepth 2 -name 'index.ts' | so
       grep -q 'auth.getUser' "$f" || { echo "$f missing Supabase Auth"; exit 1; }
       grep -q 'merchant_push_test_reserve' "$f" || { echo "$f missing device-specific test reservation"; exit 1; }
       grep -q 'merchant_push_test_finish' "$f" || { echo "$f missing test result ledger"; exit 1; }
+      grep -q 'merchant_push_test_diagnostics' "$f" || { echo "$f missing private operational diagnosis"; exit 1; }
       grep -q 'merchant_push_test_credentials' "$f" || { echo "$f missing Vault-backed test signing"; exit 1; }
       grep -q 'sendPushNotification' "$f" || { echo "$f missing encrypted push"; exit 1; }
       grep -q 'await sha256(body.endpoint)' "$f" || { echo "$f must hash caller subscription endpoint"; exit 1; }
