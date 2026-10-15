@@ -3,7 +3,7 @@ import { createClient } from "npm:@supabase/supabase-js@2.117.2";
 
 // TAMÃO V1.286 — consented browser subscription management only.
 // This endpoint NEVER sends a push or changes an order.
-const URL = Deno.env.get("SUPABASE_URL") ?? "";
+const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
 const publicKeys = JSON.parse(Deno.env.get("SUPABASE_PUBLISHABLE_KEYS") ?? "{}");
 const secretKeys = JSON.parse(Deno.env.get("SUPABASE_SECRET_KEYS") ?? "{}");
 const PUBLIC_KEY = publicKeys.default ?? Deno.env.get("SUPABASE_ANON_KEY") ?? "";
@@ -69,16 +69,16 @@ Deno.serve(async (req:Request)=>{
  if(req.method!=="POST")return fail("METHOD_NOT_ALLOWED",405,origin);
  const bearer=req.headers.get("Authorization");
  if(!bearer?.startsWith("Bearer "))return fail("UNAUTHORIZED",401,origin);
- if(!URL||!PUBLIC_KEY||!SECRET_KEY)return fail("UNAVAILABLE",503,origin);
+ if(!SUPABASE_URL||!PUBLIC_KEY||!SECRET_KEY)return fail("UNAVAILABLE",503,origin);
  try{
    const body=await bodyJson(req);
    if(!body||!["config","subscribe","unsubscribe"].includes(String(body.action||""))||
       !UUID.test(String(body.merchantId||"")))return fail("INVALID_REQUEST",400,origin);
-   const publicClient=createClient(URL,PUBLIC_KEY,{auth:{persistSession:false,autoRefreshToken:false}});
+   const publicClient=createClient(SUPABASE_URL,PUBLIC_KEY,{auth:{persistSession:false,autoRefreshToken:false}});
    const {data:userData,error:authError}=await publicClient.auth.getUser(bearer.slice(7));
    const user=userData.user;
    if(authError||!user||user.is_anonymous)return fail("UNAUTHORIZED",401,origin);
-   const admin=createClient(URL,SECRET_KEY,{auth:{persistSession:false,autoRefreshToken:false}});
+   const admin=createClient(SUPABASE_URL,SECRET_KEY,{auth:{persistSession:false,autoRefreshToken:false}});
    const {data:member,error:memberError}=await admin.from("merchant_members")
      .select("member_role").eq("merchant_id",body.merchantId).eq("user_id",user.id)
      .eq("active",true).maybeSingle();
