@@ -62,7 +62,7 @@ assert.match(markup,/merchantQuickStockAdjust\('P13',1\)/);
 assert.match(markup,/merchantQuickStockAdjust\('P13',5\)/);
 assert.match(markup,/Os ajustes não são salvos automaticamente/);
 assert.match(markup,/aria-live="polite"/);
-assert.doesNotMatch(markup,/<img|onerror="|onerror=alert/,'untrusted product names escaped');
+assert.doesNotMatch(markup,/<img|<script|<svg/,'untrusted product names remain escaped');
 assert.match(markup,/Água &lt;img/);
 assert.doesNotMatch(markup,/merchantQuickStockAdjust\('INACTIVE'/);
 assert.doesNotMatch(markup,/merchantQuickStockAdjust\('MISSINGPRICE'/);
