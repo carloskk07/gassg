@@ -2084,6 +2084,21 @@ async function merchantSetOnlineLive(online){
   }
 }
 
+// V1.280 — read-only, authenticated history; no browser access to the protected table.
+async function merchantCatalogHistoryLive(merchantId){
+  const current=merchantRuntime.merchant;
+  if(!current||String(current.merchantId||'')!==String(merchantId||'')||
+     !['owner','manager'].includes(String(current.memberRole||''))){
+    throw new Error('Histórico disponível somente ao proprietário ou gerente da revenda.');
+  }
+  const data=await merchantInvoke('merchant-ops',{merchantId,action:'catalog-history'});
+  if(data?.source!=='merchant_catalog_history_v1_280'||
+     data?.merchantId!==merchantId||data?.readOnly!==true||!Array.isArray(data.events)){
+    throw new Error('Histórico não confirmado. Atualize e tente novamente.');
+  }
+  return data.events.slice(0,30);
+}
+
 async function merchantUpdateProductLive(productCode,priceCents,availableStock,active=true,pricing={}){
   const merchantId=merchantRuntime.merchant?.merchantId;
   if(!merchantId)throw new Error('Revenda não selecionada');

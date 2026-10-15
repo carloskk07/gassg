@@ -1550,6 +1550,75 @@ function merchantQuickStockAdjust(productCode,change){
   if(message)message.textContent='Estoque ajustado para '+next+'. Toque em Salvar alterações para confirmar.';
   return true;
 }
+// V1.280: audit records are loaded only on request and never edited by the browser.
+function merchantCatalogHistoryView(rt){
+  if(!['owner','manager'].includes(String(rt?.merchant?.memberRole||'')))return '';
+  const merchantId=String(rt?.merchant?.merchantId||'');
+  const state=globalThis.merchantCatalogHistoryState;
+  const scoped=state?.merchantId===merchantId?state:null;
+  const loading=scoped?.status==='loading';
+  const events=scoped?.status==='ready'&&Array.isArray(scoped.events)?scoped.events:[];
+  const currency=value=>Number.isSafeInteger(Number(value))&&value!==null?
+    BRL.format(Number(value)/100):'—';
+  const qty=value=>Number.isSafeInteger(Number(value))&&value!==null?String(Number(value)):'—';
+  const list=events.slice(0,30).map(event=>{
+    const date=Date.parse(String(event?.recordedAt||''));
+    const when=Number.isFinite(date)?new Date(date).toLocaleString('pt-BR'):'Data não informada';
+    const actorName=String(event?.actorName||'').trim();
+    const actorId=String(event?.actorId||'');
+    const identity=actorName||('Responsável '+(actorId&&/^[0-9a-f-]{36}$/i.test(actorId)?actorId.slice(0,8):'identificado'));
+    const role=event?.actorRole==='owner'?'Titular':event?.actorRole==='manager'?'Gerente':'Responsável';
+    const action=event?.action==='created'?'Cadastro do produto':'Atualização confirmada';
+    const product=String(event?.productCode||'');
+    const catalogProduct=(Array.isArray(rt.catalog)?rt.catalog:[]).find(p=>p.productCode===product);
+    return '<div class="merchant-catalog-event">'+
+      '<div class="merchant-catalog-event-heading"><strong>'+esc(catalogProduct?.productName||product)+'</strong>'+
+      '<span>'+esc(when)+'</span></div>'+
+      '<p>'+esc(action)+' • '+esc(identity)+' ('+esc(role)+')</p>'+
+      '<div class="merchant-catalog-event-values">'+
+      '<span>Preço: <strong>'+esc(currency(event?.oldPriceCents))+' → '+esc(currency(event?.newPriceCents))+'</strong></span>'+
+      '<span>Estoque: <strong>'+esc(qty(event?.oldStock))+' → '+esc(qty(event?.newStock))+'</strong></span>'+
+      '</div>'+
+      (event?.oldActive!==null&&event?.oldActive!==undefined&&
+       event?.oldActive!==event?.newActive?
+       '<small>Disponibilidade: '+esc(event.oldActive?'Ativo':'Pausado')+
+       ' → '+esc(event.newActive?'Ativo':'Pausado')+'</small>':'')+
+      '</div>';
+  }).join('');
+  const status=loading?'<p>Consultando registros confirmados…</p>':
+    scoped?.status==='error'?'<p class="notice danger">'+esc(scoped.message||'Não foi possível consultar o histórico.')+'</p>':
+    scoped?.status==='ready'?(events.length?list+'<p class="tiny muted">Mostrando até 30 registros mais recentes.</p>':
+      '<p>Não há alterações registradas desde a ativação deste histórico.</p>'):
+    '<p>Consulte o histórico real de alterações confirmadas no banco, com responsável e valores anteriores.</p>';
+  return '<details class="merchant-catalog-history"'+(scoped?' open':'')+'><summary>Histórico real de preços e estoque</summary>'+
+    '<div class="merchant-catalog-history-content">'+
+    '<p class="tiny muted">Registros a partir da ativação desta funcionalidade. Não há reconstrução de alterações antigas.</p>'+
+    '<button type="button" class="secondary small" onclick="merchantQuickHistoryLoad()"'+
+    (loading?' disabled':'')+'>'+(loading?'Consultando…':scoped?.status==='ready'?'Atualizar histórico':'Consultar histórico')+'</button>'+
+    '<div class="merchant-catalog-history-rows" aria-live="polite">'+status+'</div></div></details>';
+}
+async function merchantQuickHistoryLoad(){
+  const rt=globalThis.merchantRuntime||{};
+  const merchantId=String(rt.merchant?.merchantId||'');
+  if(rt.status!=='ready'||!merchantId||
+     !['owner','manager'].includes(String(rt.merchant?.memberRole||'')))return;
+  if(globalThis.merchantCatalogHistoryState?.merchantId===merchantId&&
+     globalThis.merchantCatalogHistoryState.status==='loading')return;
+  globalThis.merchantCatalogHistoryState={merchantId,status:'loading',events:[]};
+  if(typeof render==='function')render();
+  try{
+    const events=await merchantCatalogHistoryLive(merchantId);
+    if(String(globalThis.merchantRuntime?.merchant?.merchantId||'')!==merchantId)return;
+    globalThis.merchantCatalogHistoryState={merchantId,status:'ready',events};
+  }catch(error){
+    if(String(globalThis.merchantRuntime?.merchant?.merchantId||'')!==merchantId)return;
+    globalThis.merchantCatalogHistoryState={merchantId,status:'error',events:[],
+      message:String(error?.message||'Não foi possível consultar o histórico.')};
+  }finally{
+    if(String(globalThis.merchantRuntime?.merchant?.merchantId||'')===merchantId&&typeof render==='function')render();
+  }
+}
+
 function merchantQuickCatalogView(rt){
   if(!['owner','manager'].includes(String(rt?.merchant?.memberRole||'')))return '';
   const all=Array.isArray(rt.catalog)?rt.catalog:[];
@@ -1606,6 +1675,7 @@ function merchantQuickCatalogView(rt){
     (products.length?'<p>Confira os valores antes de salvar cada produto. Estoque zero mantém o produto sem ofertas.</p>':
       '<p>Não há produtos ativos com preço e estoque válidos para ajuste rápido. Use o catálogo completo.</p>')+
     '<div class="merchant-quick-product-list">'+rows+'</div>'+
+    merchantCatalogHistoryView(rt)+
     (recent.length?'<details class="merchant-quick-recent"><summary>Últimas atualizações registradas</summary>'+
       '<p>Datas da última alteração de cada produto. Não é um histórico de cada movimento de estoque.</p>'+
       '<div class="merchant-quick-recent-list">'+recent.map(p=>
@@ -1646,6 +1716,9 @@ async function merchantQuickCatalogSave(productCode){
   try{
     await merchantUpdateProductLive(code,cents,stock,item.active===true,pricing);
     merchantQuickDrafts.delete(merchantQuickDraftKey(rt,code));
+    if(globalThis.merchantCatalogHistoryState?.merchantId===String(rt.merchant?.merchantId||'')){
+      globalThis.merchantCatalogHistoryState=null; // New server event requires a fresh read.
+    }
     if(typeof render==='function')render();
     toast('Preço e estoque de '+code+' confirmados.');
   }catch(e){toast(String(e?.message||e))}

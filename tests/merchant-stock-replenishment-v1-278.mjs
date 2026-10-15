@@ -38,7 +38,7 @@ const ctx=vm.createContext({
  merchantUpdateProductLive:async(...args)=>{writes.push(args);}
 });
 vm.runInContext([
- 'const merchantQuickDrafts=new Map();',pick('merchantTimestampFresh'),
+ 'const merchantQuickDrafts=new Map();','function merchantCatalogHistoryView(){return "";}',pick('merchantTimestampFresh'),
  pick('merchantQuickCatalogCandidates'),
  pick('merchantQuickStockAlerts'),pick('merchantQuickCatalogVersion'),pick('merchantQuickDraftKey'),
  pick('merchantQuickDraftFor'),pick('merchantQuickRecentChanges'),pick('merchantQuickCatalogChanged'),

@@ -117,7 +117,7 @@ Deno.serve(async(req:Request)=>{
     const merchantId=String(body.merchantId??"");
     const action=String(body.action??"");
     if(!UUID_RE.test(merchantId))throw new DomainError("INVALID_MERCHANT","Revenda inválida.",400);
-    if(!["ads-campaign","ads-interest","clube-interest","clube-terms","business-pulse","growth-network","enablement","heartbeat","set-online","update-product","update-logistics","update-capacity","update-scheduling","update-payment-methods","update-payment-routes","update-member-profile","request-billing-package","notify-billing-payment","notify-refund-recovery-payment","cancel-billing-request"].includes(action)){
+    if(!["ads-campaign","ads-interest","clube-interest","clube-terms","business-pulse","growth-network","enablement","heartbeat","set-online","update-product","catalog-history","update-logistics","update-capacity","update-scheduling","update-payment-methods","update-payment-routes","update-member-profile","request-billing-package","notify-billing-payment","notify-refund-recovery-payment","cancel-billing-request"].includes(action)){
       throw new DomainError("INVALID_ACTION","Ação inválida.",400);
     }
 
@@ -692,6 +692,48 @@ Deno.serve(async(req:Request)=>{
       }
       if(!data)throw new DomainError("MERCHANT_NOT_FOUND","Revenda não encontrada.",404);
       return json({ok:true,...data},200,origin);
+    }
+
+    if(action==="catalog-history"){
+      if(!canManage(role))throw new DomainError("MERCHANT_ACCESS_DENIED",
+        "Somente proprietário ou gerente pode consultar o histórico do catálogo.",403);
+      const {data:events,error:historyError}=await admin
+        .from("merchant_catalog_change_events")
+        .select("id,product_code,actor_user_id,actor_role,actor_display_name,change_kind,old_price_cents,new_price_cents,old_available_stock,new_available_stock,old_active,new_active,old_pricing_mode,new_pricing_mode,old_min_price_cents,new_min_price_cents,old_max_price_cents,new_max_price_cents,old_pricing_strategy,new_pricing_strategy,old_price_confirmed_at,new_price_confirmed_at,recorded_at")
+        .eq("merchant_id",merchantId)
+        .order("id",{ascending:false})
+        .limit(30);
+      if(historyError)throw historyError;
+      return json({
+        source:"merchant_catalog_history_v1_280",
+        merchantId,
+        readOnly:true,
+        events:(events??[]).map((item)=>({
+          id:item.id,
+          productCode:item.product_code,
+          actorId:item.actor_user_id,
+          actorRole:item.actor_role,
+          actorName:item.actor_display_name,
+          action:item.change_kind,
+          oldPriceCents:item.old_price_cents,
+          newPriceCents:item.new_price_cents,
+          oldStock:item.old_available_stock,
+          newStock:item.new_available_stock,
+          oldActive:item.old_active,
+          newActive:item.new_active,
+          oldPricingMode:item.old_pricing_mode,
+          newPricingMode:item.new_pricing_mode,
+          oldMinPriceCents:item.old_min_price_cents,
+          newMinPriceCents:item.new_min_price_cents,
+          oldMaxPriceCents:item.old_max_price_cents,
+          newMaxPriceCents:item.new_max_price_cents,
+          oldPricingStrategy:item.old_pricing_strategy,
+          newPricingStrategy:item.new_pricing_strategy,
+          oldPriceConfirmedAt:item.old_price_confirmed_at,
+          newPriceConfirmedAt:item.new_price_confirmed_at,
+          recordedAt:item.recorded_at
+        }))
+      },200,origin);
     }
 
     if(action==="update-product"){

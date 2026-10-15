@@ -267,6 +267,8 @@ jobs:
         run: node tests/merchant-stock-replenishment-v1-278.mjs
       - name: Test draft protection and recorded product updates V1.279
         run: node tests/merchant-protected-drafts-v1-279.mjs
+      - name: Test immutable catalog change history V1.280
+        run: node tests/merchant-audit-history-v1-280.mjs
       - name: TAMÃO V1.258 founder-approved orphan deletion with immutable audit
         run: node tests/owner-receipt-orphan-cleanup-v1-258.mjs
       - name: Turnstile smoke Chrome cleanup V1.238.1
