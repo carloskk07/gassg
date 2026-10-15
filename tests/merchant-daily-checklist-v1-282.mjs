@@ -70,7 +70,9 @@ const daily=live.indexOf('merchantDailyOverview(rt,orders)');
 const checklist=live.indexOf('merchantDailyChecklistView(rt,');
 const editor=live.indexOf('merchantQuickCatalogView(rt)');
 const queue=live.indexOf('merchantOrderQueueView(orders)');
-assert.ok(first>=0&&daily>first&&checklist>daily&&editor>checklist&&queue>editor);
+// V1.303: urgent orders must appear before the full catalog editor.
+// The existing role-safe checklist is retained after the queue.
+assert.ok(first>=0&&daily>first&&queue>daily&&checklist>queue&&editor>checklist);
 assert.equal(live.split('merchantDailyOverview(rt,orders)').length-1,1);
 assert.equal(live.split('merchantDailyChecklistView(rt,').length-1,1);
 assert.match(backend,/async function merchantUpdateProductLive\(/);
@@ -78,4 +80,4 @@ assert.match(backend,/action:'update-product'/);
 assert.match(css,/\.merchant-daily-checklist/);
 assert.match(css,/@media\(max-width:600px\)/);
 assert.match(audit,/node tests\/merchant-daily-checklist-v1-282.mjs/);
-console.log('V1.282 PASS — role-scoped attention, stock, price, draft, delivery, no auto-write, single top-of-page checklist.');
+console.log('V1.282 PASS — role-scoped attention, stock, price, draft, delivery, no auto-write, single checklist, with urgent orders before catalog editing.');

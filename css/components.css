@@ -3444,3 +3444,81 @@ body:has(.admin-page) .admin-nav-item:focus-visible{outline-offset:-3px}
  .buyer-journey-heading{flex-direction:column;gap:8px}
  .buyer-journey-steps li button{font-size:10px}
 }
+
+
+/* V1.303 — merchant first-use: three real decisions, then the order queue.
+   The design adds no activation controls or optimistic fake statuses. */
+.merchant-first-run{
+  margin:16px 0 20px;padding:clamp(16px,2.6vw,28px);
+  border:1px solid #b7d6c5;border-radius:24px;
+  background:linear-gradient(133deg,#f4fbf6 0%,#fff 75%);
+  box-shadow:0 12px 35px rgba(11,72,44,.055)
+}
+.merchant-first-run-head{
+  display:flex;justify-content:space-between;align-items:flex-start;gap:20px;
+  padding-bottom:16px;border-bottom:1px solid #deebe2
+}
+.merchant-first-run-head h2{
+  color:#123b28;font-size:clamp(22px,2.7vw,31px);
+  letter-spacing:-.048em;line-height:1.18;margin:5px 0 9px
+}
+.merchant-first-run-head p{
+  color:#49695a;max-width:65ch;line-height:1.58;margin:0;font-size:14px
+}
+.merchant-first-run-count{
+  background:#dff3e7;border:1px solid #b6dfc7;color:#14583c;
+  font-size:13px;font-weight:860;border-radius:999px;
+  padding:8px 13px;white-space:nowrap;font-variant-numeric:tabular-nums
+}
+.merchant-first-run-steps{
+  display:grid;grid-template-columns:repeat(3,minmax(0,1fr));
+  list-style:none;padding:16px 0 0;margin:0;gap:12px
+}
+.merchant-first-run-steps li{
+  min-width:0;display:flex;align-items:flex-start;gap:10px;
+  background:#fff;border:1px solid #dce9df;border-radius:16px;padding:14px
+}
+.merchant-first-run-steps li>span{
+  display:grid;flex:none;place-items:center;width:27px;height:27px;
+  background:#eef4ef;color:#3d6750;border-radius:9px;
+  font-size:13px;font-weight:900
+}
+.merchant-first-run-steps li.is-done>span{background:#d7f4e1;color:#0b7148}
+.merchant-first-run-steps li>div{
+  flex:1;min-width:0;display:flex;flex-direction:column;gap:5px
+}
+.merchant-first-run-steps li strong{color:#17412d;font-size:14px;line-height:1.35}
+.merchant-first-run-steps li small{color:#5a7464;font-size:12px;line-height:1.48}
+.merchant-first-run-steps li button{
+  align-self:center;flex:0 0 auto;font-size:12px;padding:8px 10px
+}
+.merchant-first-run-actions{display:flex;flex-wrap:wrap;gap:10px;margin-top:17px}
+.merchant-first-run-actions button{min-height:47px;border-radius:13px}
+.merchant-first-run-note{
+  margin:16px 0 0;color:#547062;font-size:12px;line-height:1.55
+}
+.merchant-workspace #merchant-live-orders{scroll-margin-top:100px}
+.merchant-workspace #merchant-first-run{scroll-margin-top:100px}
+.merchant-workspace #merchant-workspace-setup{scroll-margin-top:100px}
+/* Daily work must be visible before the complete inventory editor. */
+.merchant-workspace #merchant-live-orders>.section-head{
+  background:#f4faf6;border:1px solid #dae9df;border-radius:17px;
+  padding:15px 18px;margin-bottom:13px
+}
+.merchant-workspace .merchant-workspace-shortcut.is-primary{
+  border-color:#abd7be;background:linear-gradient(145deg,#e5f7ec,#f8fff9)
+}
+@media(max-width:960px){
+  .merchant-first-run-steps{grid-template-columns:1fr;gap:8px}
+  .merchant-first-run-steps li{align-items:center}
+}
+@media(max-width:550px){
+  .merchant-first-run{padding:15px;margin:13px 0 18px;border-radius:19px}
+  .merchant-first-run-head{flex-direction:column;gap:10px}
+  .merchant-first-run-count{align-self:flex-start}
+  .merchant-first-run-steps{padding-top:12px}
+  .merchant-first-run-steps li{flex-wrap:wrap;gap:8px;padding:12px}
+  .merchant-first-run-steps li>div{flex-basis:55%}
+  .merchant-first-run-steps li button{margin-left:35px;width:calc(100% - 35px)}
+  .merchant-first-run-actions button{width:100%}
+}
