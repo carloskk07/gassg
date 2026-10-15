@@ -45,9 +45,9 @@ assert.ok(!edge.includes('"market-city-commerce","market-city-pause"'));
 assert.ok(!edge.match(/ADMIN_READ_ACTIONS=new Set\(\["market-city-commerce"/));
 
 const cut=(name)=>{
- const start=admin.indexOf('function '+name+'(')>=0
- ?admin.indexOf('function '+name+'('):admin.indexOf('async function '+name+'(');
- const end=admin.indexOf('\n}',start);
+ const found=admin.indexOf('function '+name+'(');
+ const start=admin.slice(Math.max(0,found-6),found)==='async '?found-6:found;
+ const end=admin.indexOf('\n}',found);
  assert.ok(start>=0&&end>start);
  return admin.slice(start,end+2);
 };
