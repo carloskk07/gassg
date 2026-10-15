@@ -42,7 +42,7 @@ assert.match(ops,/\.eq\("user_id",user.id\)/);
 
 const esc=s=>String(s??'').replaceAll('&','&amp;').replaceAll('<','&lt;')
  .replaceAll('>','&gt;').replaceAll('"','&quot;').replaceAll("'","&#39;");
-const rt={status:'ready',merchant:{merchantId:'00000000-0000-4000-8000-000000000003',memberRole:'owner'},
+const rt={status:'ready',session:{user:{id:'00000000-0000-4000-8000-000000000007'}},merchant:{merchantId:'00000000-0000-4000-8000-000000000003',memberRole:'owner'},
  catalog:[{productCode:'P13',productName:'Botijão P13'}]};
 const mctx=vm.createContext({esc,Date,BRL:{format:n=>'R$ '+Number(n).toFixed(2)},
  globalThis:{merchantRuntime:rt},render:()=>{},merchantCatalogHistoryLive:async()=>[]});
@@ -52,7 +52,7 @@ assert.match(html,/Histórico real de preços e estoque/);
 assert.match(html,/Consultar histórico/);
 assert.match(html,/a partir da ativação/);
 assert.doesNotMatch(html,/<article/);
-mctx.globalThis.merchantCatalogHistoryState={merchantId:rt.merchant.merchantId,status:'ready',events:[
+mctx.globalThis.merchantCatalogHistoryState={merchantId:rt.merchant.merchantId,userId:rt.session.user.id,status:'ready',events:[
  {id:1,productCode:'P13',actorName:'Gerente <script>bad()</script>',actorRole:'manager',
   actorId:'00000000-0000-4000-8000-000000000002',action:'updated',
   oldPriceCents:12000,newPriceCents:12500,oldStock:3,newStock:5,
