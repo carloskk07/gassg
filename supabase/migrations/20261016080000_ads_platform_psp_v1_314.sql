@@ -145,7 +145,6 @@ begin
      p_payment_data->>'external_reference'<>v_reference or
      p_payment_data->>'currency_id'<>'BRL' or
      p_payment_data->>'collector_id'<>v_c.collector_id or
-     p_payment_data->>'preference_id'<>v_c.preference_id or
      p_payment_data->>'amount_cents'<>v_c.amount_cents::text
    then raise exception 'ADS_PSP_PAYMENT_EVIDENCE_MISMATCH' using errcode='40001';end if;
    v_payment_id:=p_payment_data->>'payment_id';
