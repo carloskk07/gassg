@@ -4,7 +4,7 @@ A V1.280 criou uma trilha de alterações realmente confirmadas, iniciada na imp
 
 ## Implantação de baixo risco
 
-A V1.281 usa a Edge Function isolada \`merchant-catalog-history\`, versão 2, já implantada sem alterar a função \`merchant-ops\` versão 44. O painel consulta o serviço separado somente depois da ação do usuário. A autorização verifica token de usuário permanente pelo Auth, associação ativa com a revenda e papel owner/manager em cada chamada. \`verify_jwt = false\` apenas desativa a verificação prévia da plataforma; o endpoint verifica o JWT internamente por \`auth.getUser()\`. Nenhum acesso direto ao histórico foi concedido a clientes.
+A V1.281 usa a Edge Function isolada \`merchant-catalog-history\`, versão 3, já implantada sem alterar a função \`merchant-ops\` versão 44. O painel consulta o serviço separado somente depois da ação do usuário. A autorização verifica token de usuário permanente pelo Auth, associação ativa com a revenda e papel owner/manager em cada chamada. \`verify_jwt = false\` apenas desativa a verificação prévia da plataforma; o endpoint verifica o JWT internamente por \`auth.getUser()\`. Nenhum acesso direto ao histórico foi concedido a clientes.
 
 ## Mudanças
 - Filtro opcional por produto, aplicado **no servidor** e sempre combinado com o ID da revenda autenticada.
