@@ -22,6 +22,7 @@ const adminRuntime={
   detailPending:false,
   health:null,
   healthPending:false,
+  pushReliability:{data:null,loading:false,error:null,checkedAt:null,loadedFor:null},
   operationalAlerts:{data:null,loadedFor:null,role:null,loading:false,error:null,checkedAt:null},
   operationalAlertFilter:'all',
   providerHealth:(()=>{
@@ -351,6 +352,7 @@ async function adminSignOut(){
   adminRuntime.detailPending=false;
   adminRuntime.health=null;
   adminRuntime.healthPending=false;
+  adminRuntime.pushReliability={data:null,loading:false,error:null,checkedAt:null,loadedFor:null};
   adminRuntime.operationalAlerts={data:null,loadedFor:null,role:null,loading:false,error:null,checkedAt:null};
   adminRuntime.providerHealth=null;
   adminRuntime.providerHealthPending=false;
@@ -1042,6 +1044,93 @@ function adminPublicationHealthView(p){
  (findings?'<div class="notice"><strong>Verificar</strong>'+findings+'</div>':'')+
  adminPublicationRecoveryView(p)+
  '<small class="muted">Última consulta: '+esc(formatDateTime(p.checkedAt))+'</small></section>';
+}
+// V1.294 — founder/operations push reliability view; never enables message delivery.
+async function adminPushReliabilityLoadFromUi(){
+  const identity=String(adminRuntime.session?.user?.id||'');
+  const role=String(adminCurrentRole());
+  if(!adminReady()||!identity||!['superadmin','operations','readonly'].includes(role))
+    return toast('Entre com um perfil administrativo autorizado.');
+  if(adminRuntime.pushReliability.loading)return;
+  adminRuntime.pushReliability.loading=true;
+  adminRuntime.pushReliability.error=null;
+  render();
+  try{
+    const token=await adminAccessToken();
+    const result=await globalThis.chamaFetch(CHAMA_BACKEND.url+'/functions/v1/admin-push-reliability',{
+      method:'POST',
+      headers:{'Content-Type':'application/json','apikey':CHAMA_BACKEND.publishableKey,
+        'Authorization':'Bearer '+token},
+      body:JSON.stringify({action:'read'}),cache:'no-store'
+    });
+    let data=null;try{data=await result.json()}catch{}
+    if(!result.ok)throw new Error(data?.error==='ADMIN_ACCESS_DENIED'
+      ?'Este perfil não pode consultar a confiabilidade do push.'
+      :'Não foi possível consultar a central de notificações.');
+    if(data?.source!=='admin_push_reliability_v1_294'||data.readOnly!==true||
+       !data.summary||!Array.isArray(data.merchants)||
+       data.merchants.length>30||!data.gates||data.gates.automaticDeliveryVerified!==false)
+      throw new Error('O servidor retornou dados incompletos. Tente novamente.');
+    if(!adminReady()||String(adminRuntime.session?.user?.id||'')!==identity||
+       String(adminCurrentRole())!==role)return;
+    adminRuntime.pushReliability.data=data;
+    adminRuntime.pushReliability.loadedFor=identity;
+    adminRuntime.pushReliability.checkedAt=new Date().toISOString();
+  }catch(error){
+    if(adminReady()&&String(adminRuntime.session?.user?.id||'')===identity){
+      adminRuntime.pushReliability.error=String(error?.message||'Falha ao consultar o push.');
+    }
+  }finally{adminRuntime.pushReliability.loading=false;render();}
+}
+function adminPushReliabilityView(){
+  if(!['superadmin','operations','readonly'].includes(adminCurrentRole()))return '';
+  const state=adminRuntime.pushReliability;
+  const identity=String(adminRuntime.session?.user?.id||'');
+  const data=state.loadedFor===identity?state.data:null;
+  const count=(obj,key)=>Number.isSafeInteger(obj?.[key])&&obj[key]>=0?String(obj[key]):'0';
+  const summary=data?.summary||{};
+  const gate=data?.gates||{};
+  const button='<button type="button" class="secondary small" '+(state.loading?'disabled':'')+
+    ' onclick="adminPushReliabilityLoadFromUi()">'+(state.loading?'Conferindo…':'Atualizar indicadores')+'</button>';
+  if(!data)return '<section class="section"><div class="section-head"><div>'+
+    '<span class="section-kicker">NOTIFICAÇÕES DAS REVENDAS</span>'+
+    '<h2>Confiabilidade dos avisos push</h2>'+
+    '<p>Indicadores reais de cadastro, testes e relatos dos aparelhos, sem disparar mensagens.</p>'+
+    '</div>'+button+'</div>'+
+    (state.error?'<div class="notice danger">'+esc(state.error)+'</div>':'')+
+    '<div class="empty card">Selecione Atualizar indicadores para consultar o servidor.</div></section>';
+  const rows=data.merchants.map(row=>'<tr><td>'+esc(String(row.name||'Revenda'))+
+    '</td><td>'+count(row,'devices')+'</td><td>'+count(row,'tests')+
+    '</td><td>'+count(row,'providerAccepted')+'</td><td>'+count(row,'reportedSeen')+
+    '</td><td>'+count(row,'reportedNotSeen')+'</td></tr>').join('');
+  return '<section class="section"><div class="section-head"><div>'+
+    '<span class="section-kicker">NOTIFICAÇÕES DAS REVENDAS</span>'+
+    '<h2>Confiabilidade dos avisos push</h2>'+
+    '<p>Últimos 7 dias • consultado '+esc(formatDateTime(state.checkedAt))+
+    '. Somente fatos registrados; nenhuma notificação é disparada.</p></div>'+button+'</div>'+
+    (state.error?'<div class="notice danger">'+esc(state.error)+'</div>':'')+
+    '<div class="merchant-kpis">'+
+      '<div class="kpi"><span class="label">Aparelhos cadastrados</span><strong>'+count(summary,'registeredDevices')+'</strong></div>'+
+      '<div class="kpi"><span class="label">Revendas com push</span><strong>'+count(summary,'merchantsWithDevices')+'</strong></div>'+
+      '<div class="kpi"><span class="label">Testes enviados</span><strong>'+count(summary,'tests7d')+'</strong></div>'+
+      '<div class="kpi"><span class="label">Aceites do provedor</span><strong>'+count(summary,'providerAccepted7d')+'</strong></div>'+
+      '<div class="kpi"><span class="label">Falhas</span><strong>'+count(summary,'providerFailed7d')+'</strong></div>'+
+      '<div class="kpi"><span class="label">Avisos vistos, segundo usuários</span><strong>'+count(summary,'reportedSeen7d')+'</strong></div>'+
+      '<div class="kpi"><span class="label">Avisos não vistos, segundo usuários</span><strong>'+count(summary,'reportedNotSeen7d')+'</strong></div>'+
+      '<div class="kpi"><span class="label">Aceitos, sem confirmação</span><strong>'+count(summary,'acceptedUnconfirmed7d')+'</strong></div>'+
+    '</div>'+
+    '<div class="notice"><strong>Envios automáticos: '+
+       (gate.senderEnabled===true||gate.cronEnabled===true?'revisar a configuração':'desativados')+
+       '</strong><p>Remetente: '+(gate.senderEnabled===true?'ligado':'desligado')+
+       ' · Agendador: '+(gate.cronEnabled===true?'ligado':'desligado')+
+       '. Relatos manuais não provam que todos os futuros alertas serão entregues.</p>'+
+       '<small>Esta tela é somente de leitura e não habilita notificações de pedidos.</small></div>'+
+    '<div class="card flat"><h3>Revendas com inscrições ou testes recentes</h3>'+
+    (rows?'<div style="overflow-x:auto"><table class="data-table"><thead><tr>'+
+      '<th>Revenda</th><th>Aparelhos</th><th>Testes</th><th>Aceitos</th>'+
+      '<th>Relatados vistos</th><th>Não vistos</th></tr></thead><tbody>'+rows+'</tbody></table></div>':
+      '<p>Nenhuma revenda com inscrição ativa ou testes nos últimos sete dias.</p>')+
+    '<small>Exibindo até 30 revendas, ordenadas por volume de testes. Dados de usuários e chaves não são apresentados.</small></div></section>';
 }
 function adminSystemHealthView(){
   const h=adminRuntime.health;
@@ -5493,6 +5582,7 @@ function adminPage(){
       : '';
 
   const systemContent=`
+    ${adminPushReliabilityView()}
     ${adminSystemHealthView()}
     ${adminAccessContent}
   `;

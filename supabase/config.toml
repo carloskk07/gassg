@@ -92,3 +92,7 @@ verify_jwt = false
 
 [functions.merchant-push-self-test]
 verify_jwt = false
+
+# V1.294 — only a signed-in, explicitly authorized platform admin can read aggregates.
+[functions.admin-push-reliability]
+verify_jwt = false
