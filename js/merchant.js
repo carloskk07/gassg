@@ -1460,12 +1460,12 @@ function merchantQuickCatalogView(rt){
       '<div class="merchant-quick-product-heading"><strong>'+esc(p.productName||code)+'</strong>'+
       '<span>'+esc(code)+(range?' • faixa automática':'')+'</span></div>'+
       '<fieldset class="merchant-quick-product-fields"'+(disabled?' disabled':'')+'>'+
-      '<label for="merchant-quick-price-'+code+'">'+(range?'Preço normal (R$)':'Preço (R$)')+'</label>'+
+      '<div class="merchant-quick-field"><label for="merchant-quick-price-'+code+'">'+(range?'Preço normal (R$)':'Preço (R$)')+'</label>'+
       '<input id="merchant-quick-price-'+code+'" class="input merchant-quick-price" type="number" inputmode="decimal" min="0.01" max="10000" step="0.01" value="'+
-      (Number(p.priceCents)/100).toFixed(2)+'">'+
-      '<label for="merchant-quick-stock-'+code+'">Em estoque</label>'+
+      (Number(p.priceCents)/100).toFixed(2)+'"></div>'+
+      '<div class="merchant-quick-field"><label for="merchant-quick-stock-'+code+'">Em estoque</label>'+
       '<input id="merchant-quick-stock-'+code+'" class="input merchant-quick-stock" type="number" inputmode="numeric" min="0" max="100000" step="1" value="'+
-      Number(p.availableStock)+'">'+
+      Number(p.availableStock)+'"></div>'+
       '<button type="button" class="secondary small" onclick="merchantQuickCatalogSave(\''+code+'\')">Salvar alterações</button>'+
       '</fieldset>'+
       (range?'<small class="merchant-quick-product-hint">'+(validRange?
