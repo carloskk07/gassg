@@ -1743,6 +1743,16 @@ function merchantOrderAttentionCard(order){
     '</span><small>Verifique as informações atuais. Este aviso não altera o pedido.</small></div>':'';
 }
 
+// V1.272 — shortcuts only navigate within the already server-scoped, rendered queue.
+function merchantFocusOrderGroup(group){
+  const key=String(group||'');
+  if(!['offers','risk','delivery','preparing','other'].includes(key))return false;
+  const element=document.getElementById('merchant-order-group-'+key);
+  if(!element)return false;
+  element.scrollIntoView?.({behavior:'smooth',block:'start'});
+  element.focus?.({preventScroll:true});
+  return true;
+}
 function merchantOrderQueueView(orders,emptyCopy='Nenhum pedido ativo para esta revenda.'){
   const all=Array.isArray(orders)?orders:[];
   if(!all.length)return '<div class="empty card">'+esc(emptyCopy)+'</div>';
@@ -1759,13 +1769,16 @@ function merchantOrderQueueView(orders,emptyCopy='Nenhum pedido ativo para esta 
   const queues=groups.map(group=>({...group,orders:all.filter(order=>group.statuses.includes(String(order?.status||'')))}));
   const titles={offers:'Para aceitar',risk:'Precisam atenção',delivery:'Em entrega',preparing:'Preparando'};
   const stats=queues.filter(group=>group.key!=='other').map(group=>
-    '<div class="merchant-order-queue-stat"><strong>'+group.orders.length+'</strong><span>'+titles[group.key]+'</span></div>').join('');
+    '<button type="button" class="merchant-order-queue-stat" onclick="merchantFocusOrderGroup(\''+group.key+'\')" '+
+    (group.orders.length?'':'disabled title="Sem pedidos nesta etapa"')+
+    ' aria-label="'+group.orders.length+' pedido(s): '+esc(titles[group.key])+'. Ir para esta etapa">'+
+    '<strong>'+group.orders.length+'</strong><span>'+esc(titles[group.key])+'</span></button>').join('');
   const sections=queues.filter(group=>group.orders.length).map(group=>{
     const sorted=group.key==='offers'?[...group.orders].sort((a,b)=>{
       const at=Date.parse(String(a.offerExpiresAt||'')),bt=Date.parse(String(b.offerExpiresAt||''));
       return (Number.isFinite(at)?at:Number.MAX_SAFE_INTEGER)-(Number.isFinite(bt)?bt:Number.MAX_SAFE_INTEGER);
     }):group.orders;
-    return '<section class="merchant-order-queue-group merchant-order-group-'+group.key+'">'+
+    return '<section tabindex="-1" id="merchant-order-group-'+group.key+'" class="merchant-order-queue-group merchant-order-group-'+group.key+'">'+
       '<div class="merchant-order-queue-heading"><div><h3>'+esc(group.title)+'</h3><p>'+esc(group.hint)+'</p></div>'+
       '<span class="merchant-order-queue-count">'+sorted.length+'</span></div>'+
       sorted.map(merchantLiveOrder).join('')+'</section>';
@@ -1942,6 +1955,27 @@ function merchantIncidentAcknowledged(id){
   if(button)button.disabled=!(checked&&merchantIncidentAdvice(reason));
 }
 
+// A route or phone link requires details explicitly released by the server after acceptance.
+// The external map opens only after a merchant/driver taps the link.
+function merchantDeliveryShortcuts(o){
+  if(!o?.addressVisible||!o?.deliveryDetailsVisible||
+     !['OUT_FOR_DELIVERY','ARRIVING'].includes(String(o.status||'')))return '';
+  const address=String(o.address||'').trim();
+  const phone=String(o.customerPhone||'').replace(/\D/g,'');
+  const safeAddress=address.length>=8&&address.length<=300&&
+    !/[<>\x00-\x1f]/.test(address);
+  const safePhone=(phone.length===10||phone.length===11)&&
+    /^[1-9][0-9]{9,10}$/.test(phone);
+  const suffix=String(o.postalCode||'').replace(/\D/g,'');
+  const addressQuery=address+(suffix.length===8?', CEP '+suffix:'');
+  const route=safeAddress?'<a class="secondary small merchant-delivery-shortcut" target="_blank" rel="noopener noreferrer" '+
+    'href="https://www.google.com/maps/dir/?api=1&amp;destination='+encodeURIComponent(addressQuery)+'" '+
+    'aria-label="Traçar rota para o endereço do pedido no Google Maps">Abrir rota ↗</a>':'';
+  const call=safePhone?'<a class="secondary small merchant-delivery-shortcut" '+
+    'href="tel:+55'+phone+'" aria-label="Ligar para o cliente deste pedido">Ligar para cliente</a>':'';
+  return route||call?'<div class="merchant-delivery-shortcuts" aria-label="Atalhos da entrega">'+
+    route+call+'</div>':'';
+}
 function merchantLiveOrder(o){
   const items=(o.items||[]).map(i=>`${Number(i.quantity)}× ${esc(i.productName||i.productCode||'Item')}`).join(' • ');
   const total=BRL.format(Number(o.totalCents||0)/100);
@@ -2028,6 +2062,7 @@ function merchantLiveOrder(o){
     ${merchantOrderProgressView(o)}
     <div class="order-line">${address}</div><div class="order-line">Pagamento: ${esc(paymentLabel(o.paymentMethod))}</div>${o.paymentMethod==='cash'&&o.cashTenderCents?`<div class="order-line"><strong>Troco para: ${BRL.format(Number(o.cashTenderCents)/100)}</strong></div>`:''}${o.deliveryWindowStart?`<div class="notice success" style="margin-top:10px"><strong>Entrega agendada</strong><br>${esc(formatDeliveryWindow(o.deliveryWindowStart,o.deliveryWindowEnd))}</div>`:''}
     ${deliveryContact?`<details class="merchant-order-contact" ${['OUT_FOR_DELIVERY','ARRIVING'].includes(o.status)?'open':''}><summary>Endereço e contato para entrega</summary>${deliveryContact}</details>`:''}
+    ${merchantDeliveryShortcuts(o)}
     ${assignedLabel?`<div class="notice success" style="margin-top:10px"><strong>Responsável pela entrega:</strong> ${esc(assignedLabel)}</div>`:''}
     ${assignmentControl}
     ${o.riskReason?`<div class="notice danger" style="margin-top:10px">${esc(o.riskReason)}</div>`:''}
