@@ -14,7 +14,8 @@ async function adminActivationLoad({force=false}={}){
       ['clube','clube-campaign-queue','admin_clube_campaign_queue_v1_241'],
       ['terms','clube-terms-queue','admin_clube_terms_queue_v1_242'],
       ['intake','commercial-intake-read','admin_marketing_intake_v1_308'],
-      ['adsSalesPlans','ads-sales-plans','admin_ads_sales_plans_v1_309']
+      ['adsSalesPlans','ads-sales-plans','admin_ads_sales_plans_v1_309'],
+      ['adsOffers','ads-offers-read','admin_ads_offers_v1_310']
     ];
     const values=await Promise.allSettled([
       ...specs.map(([,action])=>adminInvoke({action})),
@@ -28,6 +29,12 @@ async function adminActivationLoad({force=false}={}){
       const safe=d?.source===source&&(
         key==='ads'?d.readOnly===true&&d.publicEnabled===false&&d.billingEnabled===false&&d.readyToSell===false:
         key==='adsQueue'?d.noCharge===true&&d.adsLive===false:
+        key==='adsOffers'?d.readOnly===true&&d.noCharge===true&&d.adsLive===false&&
+          d.contractsSigned===0&&d.revenueCents===0&&d.notifiedExternally===false&&
+          Number.isSafeInteger(d.totalOffers)&&Array.isArray(d.rows)&&d.rows.length<=50&&
+          d.rows.every(x=>/^[0-9a-f-]{36}$/i.test(String(x.merchantId))&&
+            ['shared','interested','declined','withdrawn'].includes(x.status)&&
+            Number.isSafeInteger(x.version)&&x.version>0):
         key==='adsSalesPlans'?d.readOnly===true&&d.noCharge===true&&d.adsLive===false&&
           d.revenueCents===0&&d.contractsSigned===0&&
           Number.isSafeInteger(d.totalPlans)&&Number.isSafeInteger(d.approvedCreatives)&&
@@ -44,7 +51,7 @@ async function adminActivationLoad({force=false}={}){
         d.readOnly===true&&d.couponSalesEnabled===false&&d.noContractsSigned===true);
       evidence[key]=safe?d:null;
     });
-    const governance=values[6].status==='fulfilled'?values[6].value:null;
+    const governance=values[7].status==='fulfilled'?values[7].value:null;
     evidence.governance=governance?.source==='admin_governance_gates_v1_304'&&governance.readOnly===true&&
       adminRuntime.governance?.loadedFor===actor&&adminRuntime.governance?.role===role?governance:null;
     const push=adminRuntime.pushReliability||{};
@@ -217,6 +224,7 @@ function adminAdsSalesPlansView(){
   const data=fresh?adminActivationDesk.data?.adsSalesPlans:null;
   const money=c=>Number.isSafeInteger(c)?(c/100).toLocaleString('pt-BR',{style:'currency',currency:'BRL'}):'—';
   const stages={draft:'Em elaboração',ready_for_contact:'Pronto para contato',paused:'Pausado',closed_lost:'Encerrado sem venda'};
+  const offers=fresh?adminActivationDesk.data?.adsOffers:null;
   const rows=(data?.rows||[]).map(p=>{
     const merchantId=String(p.merchantId||'');
     if(!/^[0-9a-f-]{36}$/i.test(merchantId))return '';
@@ -224,6 +232,19 @@ function adminAdsSalesPlansView(){
       Number.isSafeInteger(p.creativeVersion)&&p.creativeVersion>0&&
       (p.version===0||p.creativeVersion===p.planCreativeVersion);
     const id='ads-plan-'+merchantId;
+    const offer=offers?.rows?.find(x=>x.merchantId===merchantId)||null;
+    const statusNames={shared:'Disponível no portal',interested:'Interesse registrado',declined:'Sem interesse',withdrawn:'Retirada'};
+    const canShare=role==='superadmin'&&p.version>0&&p.stage==='ready_for_contact'&&
+      p.creativeEligible===true&&p.planCreativeVersion===p.creativeVersion&&
+      (!offer||offer.planVersion<p.version);
+    const canWithdraw=role==='superadmin'&&offer?.status==='shared';
+    const offerTools=offers?'<div class="admin-ads-plan-offer">'+
+      '<p class="tiny muted">'+(offer?('Oferta: '+esc(statusNames[offer.status]||'Estado não confirmado')+
+        ' • versão '+Number(offer.version)+(offer.expired?' • Prazo encerrado':'')):
+        'Nenhuma oferta disponibilizada a esta revenda.')+'</p>'+
+      (canShare?'<button type="button" class="secondary small" onclick="adminAdsOfferAction(\''+merchantId+'\',\'share\')">Disponibilizar oferta no portal da revenda</button>':'')+
+      (canWithdraw?'<button type="button" class="secondary small" onclick="adminAdsOfferAction(\''+merchantId+'\',\'withdraw\')">Retirar oferta do portal</button>':'')+
+      '</div>':'<p class="tiny muted">Disponibilização pendente de conferência do servidor.</p>';
     const fields=editable?'<div class="admin-ads-plan-fields">'+
       '<label>Valor planejado em R$ (não faturado)<input id="'+id+'-price" type="number" min="10" max="50000" step="1" inputmode="numeric" value="'+
         (Number.isSafeInteger(p.priceCents)?p.priceCents/100:99)+'"></label>'+
@@ -248,7 +269,7 @@ function adminAdsSalesPlansView(){
       ' • Plano v'+esc(String(p.version))+'</p>'+
       (p.version>0?'<p class="tiny muted">Orçamento planejado: '+money(p.priceCents)+
         ' • '+esc(String(p.durationDays))+' dias • Nenhuma cobrança</p>':'')+
-      fields+'</article>';
+      fields+offerTools+'</article>';
   }).join('');
   return '<section class="section admin-ads-commercial-plans" aria-label="Planos comerciais de publicidade">'+
     '<div class="section-head"><div><span class="section-kicker">V1.309 • PUBLICIDADE E RECEITA POTENCIAL</span>'+
@@ -307,4 +328,49 @@ async function adminAdsSalesPlanSave(merchantId){
     adminActivationDesk.data=null;await adminActivationLoad({force:true});
     toast(String(e?.message||e));return false;
   }
+}
+
+
+// TAMÃO V1.310 — founder makes an existing approved plan visible only inside merchant portal.
+async function adminAdsOfferAction(merchantId,operation){
+ if(!adminReady()||adminCurrentRole()!=='superadmin'||adminActivationDesk.loading||
+    !['share','withdraw'].includes(operation))return false;
+ const actor=String(adminRuntime.session?.user?.id||'');
+ if(adminActivationDesk.actor!==actor||adminActivationDesk.role!=='superadmin'||
+    Date.now()-Date.parse(adminActivationDesk.checkedAt||'')>=120000)return false;
+ const plan=adminActivationDesk.data?.adsSalesPlans?.rows?.find(x=>x.merchantId===merchantId);
+ const offers=adminActivationDesk.data?.adsOffers;
+ const offer=offers?.rows?.find(x=>x.merchantId===merchantId);
+ if(!plan||!offers||!Number.isSafeInteger(plan.version)||plan.version<1)return false;
+ if(operation==='share'&&(plan.stage!=='ready_for_contact'||!plan.creativeEligible||
+     plan.planCreativeVersion!==plan.creativeVersion||
+     (offer&&offer.planVersion>=plan.version)))return false;
+ if(operation==='withdraw'&&(!offer||offer.status!=='shared'))return false;
+ const planVersion=operation==='withdraw'?offer.planVersion:plan.version;
+ if(!confirm((operation==='share'?'Disponibilizar as condições no portal desta revenda':
+   'Retirar a oferta disponível')+
+   '? Nenhuma cobrança, contrato, anúncio ou mensagem externa será criada.'))return false;
+ const reason=String(prompt('Motivo da decisão administrativa (12 a 240 caracteres):')||'').trim();
+ if(reason.length<12||reason.length>240){toast('Informe motivo de 12 a 240 caracteres.');return false;}
+ try{
+   const out=await adminPerform('ads-offer-action',{
+     merchantId,operation,planVersion,expectedOfferVersion:offer?.version||0,
+     reason,requestId:crypto.randomUUID()
+   });
+   if(out?.source!=='admin_ads_offer_action_v1_310'||out.merchantId!==merchantId||
+     out.operation!==operation||!Number.isSafeInteger(out.version)||
+     out.status!==(operation==='share'?'shared':'withdrawn')||
+     out.noCharge!==true||out.adsLive!==false||out.contractSigned!==false||
+     out.merchantNotified!==false)throw new Error('Ação comercial não comprovada.');
+   adminActivationDesk.data=null;
+   const checked=await adminActivationLoad({force:true});
+   const current=checked?.adsOffers?.rows?.find(x=>x.merchantId===merchantId);
+   if(!current||current.version!==out.version||current.status!==out.status)
+      throw new Error('Registro efetuado, mas leitura final ainda não confirmada.');
+   toast(operation==='share'?'Oferta disponível no portal, sem envio automático.':'Oferta retirada do portal.');
+   return true;
+ }catch(e){
+   adminActivationDesk.data=null;await adminActivationLoad({force:true});
+   toast(String(e?.message||e));return false;
+ }
 }
