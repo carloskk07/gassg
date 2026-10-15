@@ -100,7 +100,7 @@ async function requireAdmin(admin:any,userId:string){
   if(!data)throw new DomainError("ADMIN_ACCESS_DENIED","Esta conta não possui acesso administrativo.",403);
   return data;
 }
-const ADMIN_READ_ACTIONS=new Set(["governance-gates","summary","search","entity-detail","system-health","billing-provider-health","audit-search","incident-list","merchant-payment-preflight","prospect-intelligence","expansion-notifications","expansion-radar","merchant-enablement","sale-payment-history","finance-receipts-history","commercial-history-list","operational-alerts","ads-demand","clube-interest-queue","clube-campaign-queue","clube-terms-queue","owner-funding-read","owner-funding-pulse","owner-evidence-queue","owner-budget-queue","owner-finance-history","owner-campaign-signals","owner-campaign-orders","owner-campaign-fee-receipts","owner-campaign-batch-ledger","owner-campaign-financial-summary","owner-campaign-benefit-costs","owner-wallet-reconciliation","owner-cashback-source-lots","owner-referral-lifecycle","owner-benefit-payout-read","owner-benefit-proofs-read","owner-benefit-proof-view","owner-benefit-proof-verify","owner-payout-provider-read","owner-recipient-proof-readiness","owner-multi-psp-hub","owner-campaign-orphan-audit","owner-orphan-cleanup-candidates","owner-campaign-cost-read","owner-campaign-receipts-read","owner-campaign-receipt-view","ads-audience-readiness","ads-preview-summary","ads-placement-readiness","ads-pilot-preflight","commercial-activation","ads-campaign-queue","growth-referral-review-queue"]);
+const ADMIN_READ_ACTIONS=new Set(["governance-gates","commercial-intake-read","summary","search","entity-detail","system-health","billing-provider-health","audit-search","incident-list","merchant-payment-preflight","prospect-intelligence","expansion-notifications","expansion-radar","merchant-enablement","sale-payment-history","finance-receipts-history","commercial-history-list","operational-alerts","ads-demand","clube-interest-queue","clube-campaign-queue","clube-terms-queue","owner-funding-read","owner-funding-pulse","owner-evidence-queue","owner-budget-queue","owner-finance-history","owner-campaign-signals","owner-campaign-orders","owner-campaign-fee-receipts","owner-campaign-batch-ledger","owner-campaign-financial-summary","owner-campaign-benefit-costs","owner-wallet-reconciliation","owner-cashback-source-lots","owner-referral-lifecycle","owner-benefit-payout-read","owner-benefit-proofs-read","owner-benefit-proof-view","owner-benefit-proof-verify","owner-payout-provider-read","owner-recipient-proof-readiness","owner-multi-psp-hub","owner-campaign-orphan-audit","owner-orphan-cleanup-candidates","owner-campaign-cost-read","owner-campaign-receipts-read","owner-campaign-receipt-view","ads-audience-readiness","ads-preview-summary","ads-placement-readiness","ads-pilot-preflight","commercial-activation","ads-campaign-queue","growth-referral-review-queue"]);
 const ADMIN_ROLE_ACTIONS:Record<string,Set<string>>={
   superadmin:new Set(["*"]),
   operations:new Set([
@@ -4528,6 +4528,19 @@ Deno.serve(async(req:Request)=>{
     if(action==="entity-detail"){
       return json(await adminEntityDetail(admin,body.entityType,body.entityId,String(adminAccess.admin_role||"superadmin")),200,origin);
     }
+    if(action==="commercial-intake-read"){
+      if(!["superadmin","operations","readonly"].includes(String(adminAccess.admin_role||"")))
+        throw new DomainError("ADMIN_PERMISSION_DENIED","Consulta comercial não autorizada.",403);
+      const {data,error}=await admin.rpc("admin_marketing_intake_read_v1_308",{p_actor:user.id});
+      if(error)throw error;
+      if(data?.source!=="admin_marketing_intake_v1_308"||data.readOnly!==true||
+        data.adsPublicationEnabled!==false||data.couponSalesEnabled!==false||
+        data.noMoneyMovement!==true||!Array.isArray(data.controls)||data.controls.length!==2||
+        data.controls.some((r:any)=>!["ads_proposals","clube_proposals"].includes(r?.moduleKey)||
+          typeof r.enabled!=="boolean"||!Number.isSafeInteger(r.version)||r.version<1))
+        throw new DomainError("MARKETING_INTAKE_UNVERIFIED","Controle comercial não confirmado.",503);
+      return json(data,200,origin);
+    }
     if(action==="governance-gates"){
       // Explicit role guard even though the action is in the read-only allowlist.
       return json(await adminGovernanceGates(admin,String(adminAccess.admin_role||"")),200,origin);
@@ -4690,6 +4703,27 @@ Deno.serve(async(req:Request)=>{
         p_note:cleanText(body.note,{min:5,max:240,name:"justificativa"})
       });
       if(error)throw error;
+      return json(data,200,origin);
+    }
+    if(action==="commercial-intake-set"){
+      if(String(adminAccess.admin_role||"")!=="superadmin")
+        throw new DomainError("ADMIN_PERMISSION_DENIED","Somente o administrador principal altera propostas comerciais.",403);
+      const moduleKey=String(body.moduleKey||"");
+      if(!["ads_proposals","clube_proposals"].includes(moduleKey)||typeof body.enabled!=="boolean"||
+        !Number.isSafeInteger(body.expectedVersion)||body.expectedVersion<1)
+        throw new DomainError("MARKETING_INTAKE_ACTION_INVALID","Atualize o estado comercial.",400);
+      const reason=cleanText(body.reason,{min:8,max:240,name:"justificativa"});
+      const {data,error}=await admin.rpc("admin_marketing_intake_set_v1_308",{
+        p_actor:user.id,p_module:moduleKey,p_enabled:body.enabled,
+        p_reason:reason,p_expected_version:body.expectedVersion
+      });
+      if(error)throw error;
+      if(data?.source!=="admin_marketing_intake_set_v1_308"||
+        data.moduleKey!==moduleKey||data.enabled!==body.enabled||
+        !Number.isSafeInteger(data.version)||data.version<1||
+        typeof data.changed!=="boolean"||data.adsPublicationEnabled!==false||
+        data.couponSalesEnabled!==false||data.noMoneyMovement!==true)
+        throw new DomainError("MARKETING_INTAKE_COMMIT_UNVERIFIED","Decisão comercial não confirmada.",503);
       return json(data,200,origin);
     }
     if(action==="market-city-commerce"){

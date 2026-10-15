@@ -12,7 +12,8 @@ async function adminActivationLoad({force=false}={}){
       ['ads','ads-placement-readiness','admin_ads_placement_readiness_v1_236'],
       ['adsQueue','ads-campaign-queue','admin_ads_campaign_queue_v1_233'],
       ['clube','clube-campaign-queue','admin_clube_campaign_queue_v1_241'],
-      ['terms','clube-terms-queue','admin_clube_terms_queue_v1_242']
+      ['terms','clube-terms-queue','admin_clube_terms_queue_v1_242'],
+      ['intake','commercial-intake-read','admin_marketing_intake_v1_308']
     ];
     const values=await Promise.allSettled([
       ...specs.map(([,action])=>adminInvoke({action})),
@@ -27,10 +28,16 @@ async function adminActivationLoad({force=false}={}){
         key==='ads'?d.readOnly===true&&d.publicEnabled===false&&d.billingEnabled===false&&d.readyToSell===false:
         key==='adsQueue'?d.noCharge===true&&d.adsLive===false:
         key==='clube'?d.readOnly===true&&d.couponSalesEnabled===false&&d.campaignsActive===0:
+        key==='intake'?d.readOnly===true&&d.noMoneyMovement===true&&
+          d.adsPublicationEnabled===false&&d.couponSalesEnabled===false&&
+          Array.isArray(d.controls)&&d.controls.length===2&&
+          new Set(d.controls.map(x=>x.moduleKey)).size===2&&
+          d.controls.every(x=>['ads_proposals','clube_proposals'].includes(x.moduleKey)&&
+            typeof x.enabled==='boolean'&&Number.isSafeInteger(x.version)&&x.version>0):
         d.readOnly===true&&d.couponSalesEnabled===false&&d.noContractsSigned===true);
       evidence[key]=safe?d:null;
     });
-    const governance=values[4].status==='fulfilled'?values[4].value:null;
+    const governance=values[5].status==='fulfilled'?values[5].value:null;
     evidence.governance=governance?.source==='admin_governance_gates_v1_304'&&governance.readOnly===true&&
       adminRuntime.governance?.loadedFor===actor&&adminRuntime.governance?.role===role?governance:null;
     const push=adminRuntime.pushReliability||{};
@@ -120,6 +127,74 @@ function adminActivationDeskView(d){
     '<p class="tiny muted">Última consulta: '+
     esc(current?formatDateTime(adminActivationDesk.checkedAt):'não confirmada')+
     '. Uma falha na consulta é mostrada como “Não confirmado”, nunca como recurso desligado.</p>'+
-    '<div class="admin-activation-grid">'+cards+'</div>'+
+    '<div class="admin-activation-grid">'+cards+'</div>'+adminMarketingIntakeView()+
     '<p class="tiny muted">Publicidade pública, vendas de cupons e automação de avisos exigem homologação e gates reais no servidor. Nenhum controle desta página contorna esses requisitos.</p></section>';
+}
+
+// V1.308 — founder-only intake decisions; no external publication/payment.
+async function adminMarketingIntakeSet(moduleKey){
+  if(!adminReady()||adminCurrentRole()!=='superadmin'||adminActivationDesk.loading)return false;
+  const actor=String(adminRuntime.session?.user?.id||'');
+  const fresh=adminActivationDesk.actor===actor&&adminActivationDesk.role==='superadmin'&&
+    Date.now()-Date.parse(adminActivationDesk.checkedAt||'')<120000;
+  const item=fresh?adminActivationDesk.data?.intake?.controls?.find(x=>x.moduleKey===moduleKey):null;
+  if(!item||!Number.isSafeInteger(item.version)||item.version<1)return false;
+  const enabled=!item.enabled;
+  const label=moduleKey==='ads_proposals'?'propostas de anúncios':'interesses no Clube';
+  if(!confirm((enabled?'REABRIR':'SUSPENDER')+' novas '+label+
+    '? Anúncios e cupons não serão publicados nem cobrados.'))return false;
+  const reason=String(prompt('Justificativa obrigatória (8 a 240 caracteres):')||'').trim();
+  if(reason.length<8||reason.length>240){
+    toast('Informe uma justificativa de 8 a 240 caracteres.');return false;
+  }
+  try{
+    const out=await adminPerform('commercial-intake-set',{
+      moduleKey,enabled,reason,expectedVersion:item.version
+    });
+    if(out?.source!=='admin_marketing_intake_set_v1_308'||
+       out.moduleKey!==moduleKey||out.enabled!==enabled||
+       !Number.isSafeInteger(out.version)||out.adsPublicationEnabled!==false||
+       out.couponSalesEnabled!==false||out.noMoneyMovement!==true)
+      throw new Error('A decisão ainda não foi comprovada. Atualize o painel.');
+    adminActivationDesk.data=null;
+    const checked=await adminActivationLoad({force:true});
+    if(checked?.intake?.controls?.find(c=>c.moduleKey===moduleKey)?.enabled!==enabled)
+      throw new Error('Alteração registrada, mas leitura final não confirmada. Atualize o painel.');
+    toast(enabled?'Novas propostas liberadas para cadastro.':'Novas propostas suspensas.');
+    return true;
+  }catch(error){
+    adminActivationDesk.data=null;
+    await adminActivationLoad({force:true});
+    toast(String(error?.message||error));return false;
+  }
+}
+function adminMarketingIntakeView(){
+  if(!adminRoleCanSection('activations'))return '';
+  const actor=String(adminRuntime.session?.user?.id||''),role=adminCurrentRole();
+  const fresh=adminActivationDesk.actor===actor&&adminActivationDesk.role===role&&
+    Date.now()-Date.parse(adminActivationDesk.checkedAt||'')<120000;
+  const data=fresh?adminActivationDesk.data?.intake:null;
+  const modules=[
+    {key:'ads_proposals',title:'Propostas de anúncios',hint:'Recebimento de interesses e peças para análise. Não libera exibição ou cobrança.'},
+    {key:'clube_proposals',title:'Interesses no Clube',hint:'Novas propostas de participação das revendas. Não vende cupons ou reserva dinheiro.'}
+  ];
+  const cards=modules.map(m=>{
+    const item=data?.controls?.find(x=>x.moduleKey===m.key);
+    const status=item?(item.enabled?'Recebendo propostas':'Novas propostas suspensas'):'Não confirmado';
+    const canEdit=role==='superadmin'&&item&&!adminActivationDesk.loading;
+    const button=canEdit?'<button type="button" class="secondary small" onclick="adminMarketingIntakeSet(\''+
+      m.key+'\')">'+(item.enabled?'Suspender novas propostas':'Reabrir propostas')+'</button>':
+      '<small class="muted">Alteração indisponível para este perfil ou esta consulta.</small>';
+    return '<article class="admin-activation-card"><div class="admin-activation-card-head"><strong>'+
+      esc(m.title)+'</strong><span class="status-pill">'+esc(status)+'</span></div>'+
+      '<p>'+esc(m.hint)+'</p>'+
+      '<small>'+(item?'Versão '+Number(item.version)+' • última justificativa: '+esc(item.reason||'—'):
+        'Sem leitura recente confirmada pelo banco.')+'</small>'+button+'</article>';
+  }).join('');
+  return '<section class="section admin-marketing-controls" aria-label="Recebimento de propostas comerciais">'+
+    '<div class="section-head"><div><span class="section-kicker">V1.308 • DECISÃO DO ADMINISTRADOR PRINCIPAL</span>'+
+    '<h2>Recebimento de propostas comerciais</h2>'+
+    '<p>Controle efetivo e auditado no banco. Propostas antigas podem ser consultadas e retiradas mesmo com novas inscrições suspensas.</p></div></div>'+
+    '<div class="admin-activation-grid">'+cards+'</div>'+
+    '<p class="tiny muted">Somente o administrador principal altera estes estados, com confirmação, motivo e versão. Nenhuma opção ativa publicidade, cobrança, benefícios ou cidades.</p></section>';
 }

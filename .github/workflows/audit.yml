@@ -315,6 +315,8 @@ jobs:
         run: node tests/admin-city-commerce-v1-306.mjs
       - name: Test V1.307 evidence-based strategic activation center
         run: node tests/admin-activations-v1-307.mjs
+      - name: Test V1.308 founder-controlled proposals intake
+        run: node tests/admin-marketing-intake-v1-308.mjs
       - name: TAMÃO V1.258 founder-approved orphan deletion with immutable audit
         run: node tests/owner-receipt-orphan-cleanup-v1-258.mjs
       - name: Turnstile smoke Chrome cleanup V1.238.1
