@@ -285,6 +285,8 @@ jobs:
         run: node tests/merchant-push-delivery-v1-287.mjs
       - name: Test private Vault Cron for push sender V1.288
         run: node tests/merchant-push-cron-v1-288.mjs
+      - name: Test VAPID keyring and device pilot V1.289
+        run: node tests/merchant-vapid-pilot-v1-289.mjs
       - name: TAMÃO V1.258 founder-approved orphan deletion with immutable audit
         run: node tests/owner-receipt-orphan-cleanup-v1-258.mjs
       - name: Turnstile smoke Chrome cleanup V1.238.1
