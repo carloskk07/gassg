@@ -263,6 +263,8 @@ jobs:
         run: node tests/merchant-availability-v1-276.mjs
       - name: Test quick product price and stock V1.277
         run: node tests/merchant-quick-catalog-v1-277.mjs
+      - name: Test stock replenishment and price review V1.278
+        run: node tests/merchant-stock-replenishment-v1-278.mjs
       - name: TAMÃO V1.258 founder-approved orphan deletion with immutable audit
         run: node tests/owner-receipt-orphan-cleanup-v1-258.mjs
       - name: Turnstile smoke Chrome cleanup V1.238.1
