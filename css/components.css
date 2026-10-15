@@ -3522,3 +3522,33 @@ body:has(.admin-page) .admin-nav-item:focus-visible{outline-offset:-3px}
   .merchant-first-run-steps li button{margin-left:35px;width:calc(100% - 35px)}
   .merchant-first-run-actions button{width:100%}
 }
+
+
+/* V1.304: authoritative, readable launch-and-governance states for admin only. */
+.admin-governance{border:1px solid #d7e6dd;background:#fff;
+  padding:clamp(16px,2.5vw,26px);border-radius:24px;box-shadow:0 9px 28px rgba(11,64,41,.04)}
+.admin-governance>.section-head{align-items:flex-start;gap:15px}
+.admin-governance .section-head h2{letter-spacing:-.046em}
+.admin-governance-indicators{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+.admin-governance-indicator{background:#f7fbf8;border:1px solid #deeadf;border-radius:17px;
+  padding:16px;display:flex;flex-direction:column;gap:7px;min-width:0}
+.admin-governance-indicator strong{font-size:13px;color:#456d54;letter-spacing:.01em}
+.admin-governance-indicator>span{font-size:18px;font-weight:850;color:#143c2a;letter-spacing:-.032em;line-height:1.35}
+.admin-governance-indicator small{font-size:12px;color:#587265;line-height:1.5;flex:1}
+.admin-governance-indicator button{align-self:flex-start;margin-top:6px}
+.admin-governance-city-block{margin-top:18px;padding:16px;border-radius:17px;background:#fff;
+  border:1px solid #d9e7dc}
+.admin-governance-city-block>.section-head h3{font-size:18px;letter-spacing:-.03em}
+.admin-governance-city{display:flex;align-items:center;justify-content:space-between;gap:15px;
+  padding:15px 0;border-top:1px solid #e3ede5}
+.admin-governance-city>div{display:grid;gap:6px}
+.admin-governance-city strong{font-size:15px;color:#16452f}
+.admin-governance-city small{line-height:1.5;color:#526f5e;font-size:12px}
+.admin-governance-city button{flex:0 0 auto}
+.admin-governance>p.tiny{margin:15px 0 0;line-height:1.6}
+@media(max-width:700px){
+ .admin-governance-indicators{grid-template-columns:1fr}
+ .admin-governance .section-head{flex-wrap:wrap}
+ .admin-governance-city{align-items:stretch;flex-direction:column;gap:10px}
+ .admin-governance-city button{width:100%}
+}
