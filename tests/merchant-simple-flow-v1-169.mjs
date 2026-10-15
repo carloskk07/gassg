@@ -54,7 +54,8 @@ const orderContext=vm.createContext({
   globalThis:{merchantRuntime:runtime},BRL:{format:value=>'R$ '+Number(value).toFixed(2)},
   esc,statusCopy:{},paymentLabel:()=> 'Dinheiro',
   merchantScheduledDispatchState:()=>({scheduled:false,ready:true}),
-  merchantDeliveryMemberLabel:()=> 'Responsável'
+  merchantDeliveryMemberLabel:()=> 'Responsável',
+  merchantDeliveryShortcuts:()=>''
 });
 vm.runInContext(functionSource(merchant,'merchantDeliveryCandidates')+'\n'+functionSource(merchant,'merchantOrderEventDate')+'\n'+functionSource(merchant,'merchantOrderScheduleDate')+'\n'+functionSource(merchant,'merchantOrderProgressView')+'\n'+functionSource(merchant,'merchantOrderAttention')+'\n'+functionSource(merchant,'merchantOrderAttentionCard')+'\n'+functionSource(merchant,'merchantIncidentAdvice')+'\n'+functionSource(merchant,'merchantIncidentRiskGuide')+'\n'+functionSource(merchant,'merchantLiveOrder')+';this.drawMerchantOrder=merchantLiveOrder;',orderContext);
 const draw=status=>orderContext.drawMerchantOrder({
