@@ -18,6 +18,28 @@ create table public.platform_ads_psp_checkouts_v1_314(
    or (status='checkout_ready' and preference_id is not null and checkout_url is not null and payment_id is null)
    or (status in ('payment_approved','payment_reversed') and preference_id is not null and payment_id is not null))
 );
+-- Contract references and payment identity are immutable after reservation.
+create or replace function public.ads_psp_checkout_immutable_v1_314()
+returns trigger language plpgsql set search_path to 'pg_catalog' as $guard$
+begin
+ if old.merchant_id is distinct from new.merchant_id
+   or old.receivable_version is distinct from new.receivable_version
+   or old.document_sha256 is distinct from new.document_sha256
+   or old.amount_cents is distinct from new.amount_cents
+   or old.external_reference is distinct from new.external_reference
+   or old.provider is distinct from new.provider
+   or old.reserved_by is distinct from new.reserved_by
+   or old.reserved_at is distinct from new.reserved_at
+   or (old.preference_id is not null and old.preference_id is distinct from new.preference_id)
+   or (old.collector_id is not null and old.collector_id is distinct from new.collector_id)
+   or (old.payment_id is not null and old.payment_id is distinct from new.payment_id)
+ then raise exception 'ADS_PSP_CHECKOUT_IDENTITY_IMMUTABLE' using errcode='42501';end if;
+ return new;
+end;
+$guard$;
+create trigger ads_psp_checkout_immutable_v1_314_before_update
+ before update on public.platform_ads_psp_checkouts_v1_314 for each row
+ execute function public.ads_psp_checkout_immutable_v1_314();
 alter table public.platform_ads_psp_checkouts_v1_314 enable row level security;
 revoke all on public.platform_ads_psp_checkouts_v1_314 from public,anon,authenticated;
 grant select,insert,update on public.platform_ads_psp_checkouts_v1_314 to service_role;
@@ -168,7 +190,8 @@ begin
      returning version into v_version;
    else
     if v_c.status not in ('payment_approved','payment_reversed')
-     or v_payment_status not in ('refunded','charged_back')
+     or (v_payment_status not in ('refunded','charged_back') and
+      not (v_payment_status='approved' and v_detail='partially_refunded'))
     then raise exception 'ADS_PSP_REVERSAL_NOT_PROVEN' using errcode='40001';end if;
     v_status:='payment_reversed';
     update public.platform_ads_psp_checkouts_v1_314 set
