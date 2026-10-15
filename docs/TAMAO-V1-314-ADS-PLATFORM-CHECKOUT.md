@@ -28,3 +28,9 @@
 - Migração `supabase/migrations/20261016080000_ads_platform_psp_v1_314.sql`
 - Edge Functions `admin-ops`, `merchant-ops`, biblioteca compartilhada `_shared/mercadopago.js`
 - Teste de segurança `tests/ads-platform-psp-v1-314.mjs`, mais regressão da Central de Ativações e auditoria global.
+
+## Proteções adicionais de vencimento e cancelamento (V1.314.1)
+- O Mercado Pago recebe `expires=true`, `expiration_date_from` e `expiration_date_to` baseados no vencimento local do demonstrativo. Isso impede que uma preferência de pagamento ativa sobreviva indefinidamente ao vencimento, inclusive se o cliente guardar o link fora do TAMÃO. Validação antes de reservar o checkout no banco evita reservas sem validade.
+- A nova migração `supabase/migrations/20261016081000_ads_psp_cancellation_guard_v1_314.sql` bloqueia o cancelamento interno de um demonstrativo se ele possuir checkout reservado, link ativo ou pagamento aprovado. Isso exige revisão da obrigação e da preferência externa antes de cancelar localmente, sem produzir estorno implícito.
+- A consulta direta ao Mercado Pago reconhece também `approved` + `partially_refunded` como revisão financeira necessária. Esses estados não são receita liquidada irreversível.
+- A consulta de conciliação permanece manual; notificações/webhooks Ads e confirmação contábil ainda precisam de homologação própria.
