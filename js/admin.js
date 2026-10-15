@@ -404,6 +404,7 @@ async function adminRefresh({silent=false}={}){
     queueMicrotask(()=>adminEnsureProviderHealth().catch(()=>{}));
     if(['overview','system'].includes(String(adminRuntime.section||'')))
       queueMicrotask(()=>adminLoadGovernanceGates().catch(()=>{}));
+    if(adminRuntime.section==='activations')queueMicrotask(()=>adminActivationLoad().catch(()=>{}));
     if(adminRuntime.section==='finance')queueMicrotask(()=>adminLoadFinanceHistory().catch(()=>{}));
     if(adminRuntime.section==='alerts')queueMicrotask(()=>adminLoadOperationalAlerts().catch(()=>{}));
     return data;
@@ -2316,7 +2317,8 @@ const ADMIN_SECTION_ROLES={
   alerts:new Set(['superadmin','readonly','operations','finance','support','compliance']),
   incidents:new Set(['superadmin','readonly','operations','finance','support','compliance']),
   audit:new Set(['superadmin','readonly','operations','finance','support','compliance']),
-  system:new Set(['superadmin','readonly','operations'])
+  system:new Set(['superadmin','readonly','operations']),
+  activations:new Set(['superadmin','readonly','operations'])
 };
 function adminRoleCanSection(section,role=adminCurrentRole()){
   return ADMIN_SECTION_ROLES[String(section)]?.has(String(role))===true;
@@ -2339,7 +2341,8 @@ function adminSectionMeta(section=adminRuntime.section){
     alerts:{kicker:'ATENÇÃO OPERACIONAL',title:'Central de alertas',description:'Sinais oficiais reunidos com horário de verificação, responsáveis e acesso às áreas de tratamento.'},
     incidents:{kicker:'CONFIABILIDADE',title:'Incidentes',description:'Severidade, resposta, MTTA/MTTR e resolução auditável dos eventos operacionais.'},
     audit:{kicker:'GOVERNANÇA',title:'Auditoria',description:'Trilha forense das decisões administrativas e mudanças sensíveis da plataforma.'},
-    system:{kicker:'SEGURANÇA & PLATAFORMA',title:'Sistema',description:'Saúde técnica, portais, PSP, RBAC e controles estruturais do ambiente.'}
+    system:{kicker:'SEGURANÇA & PLATAFORMA',title:'Sistema',description:'Saúde técnica, portais, PSP, RBAC e controles estruturais do ambiente.'},
+    activations:{kicker:'DECISÕES E CONTROLES',title:'Ativações estratégicas',description:'Campanhas, benefícios, patrocínios, avisos e pagamentos em uma só consulta.'}
   })[String(section||'overview')]||{kicker:'CONTROL PLANE',title:'Administração',description:'Controle operacional do TAMÃO.'};
 }
 function adminRelativeTime(value){
@@ -2368,6 +2371,7 @@ function adminNavIcon(id){
     alerts:'<path d="M4 4h16v15H4zM8 9h8M8 13h5"/><path d="M8 22h8"/>',
     incidents:'<path d="M12 3 2.5 20h19L12 3Z"/><path d="M12 9v5M12 17h.01"/>',
     audit:'<path d="M4 4h16v16H4z"/><path d="M8 8h8M8 12h5M8 16h4"/><circle cx="17" cy="16" r="2.5"/>',
+    activations:'<rect x="3" y="3" width="18" height="18" rx="3"/><path d="M8 8h8M8 12h8M8 16h5"/>',
     system:'<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .34 1.88l.06.06-2.83 2.83-.06-.06A1.7 1.7 0 0 0 15 19.4a1.7 1.7 0 0 0-1 .6 1.7 1.7 0 0 0-.4 1.1V21h-4v-.1A1.7 1.7 0 0 0 8.6 19.4a1.7 1.7 0 0 0-1.88.34l-.06.06-2.83-2.83.06-.06A1.7 1.7 0 0 0 4.6 15a1.7 1.7 0 0 0-.6-1 1.7 1.7 0 0 0-1.1-.4H3v-4h.1A1.7 1.7 0 0 0 4.6 8.6a1.7 1.7 0 0 0-.34-1.88l-.06-.06 2.83-2.83.06.06A1.7 1.7 0 0 0 9 4.6a1.7 1.7 0 0 0 1-.6 1.7 1.7 0 0 0 .4-1.1V3h4v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.88-.34l.06-.06 2.83 2.83-.06.06A1.7 1.7 0 0 0 19.4 9c.38.3.6.65.6 1v.4h1v4h-1v.1c0 .2-.2.4-.6.5Z"/>'
   };
   return '<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">'+(paths[id]||paths.overview)+'</svg>';
@@ -2411,7 +2415,7 @@ function adminExecutiveKpi({icon,label,value,detail='',tone='neutral'}){
   return '<article class="admin-exec-kpi '+esc(tone)+'"><span class="admin-exec-icon" aria-hidden="true">'+esc(icon)+'</span><div><small>'+esc(label)+'</small><strong>'+value+'</strong>'+(detail?'<p>'+esc(detail)+'</p>':'')+'</div></article>';
 }
 function adminSetSection(section){
-  const allowed=['overview','orders','customers','partners','prospects','enablement','catalog','finance','alerts','incidents','audit','system'];
+  const allowed=['overview','orders','customers','partners','prospects','enablement','catalog','finance','alerts','incidents','audit','system','activations'];
   const requested=allowed.includes(String(section||''))?String(section):'overview';
   const next=adminRoleCanSection(requested)?requested:adminFirstSectionForRole();
   adminRuntime.section=next;
@@ -2419,6 +2423,7 @@ function adminSetSection(section){
   render();
   if(next==='system')adminLoadSystemHealth().catch(()=>{});
   if(['system','overview'].includes(next))adminLoadGovernanceGates().catch(()=>{});
+  if(next==='activations')adminActivationLoad().catch(()=>{});
   if(next==='alerts')adminLoadOperationalAlerts({force:true}).catch(()=>{});
   if(next==='prospects'){
     adminLoadProspects().catch(()=>{});
@@ -5906,6 +5911,7 @@ function adminPage(){
       ${adminMenuButton('catalog','Catálogo','▤')}
       ${adminMenuButton('finance','Financeiro','₿',badge(actionableFinanceCount))}
       <div class="admin-nav-group">Governança</div>
+      ${adminMenuButton('activations','Ativações','◈')}
       ${adminMenuButton('alerts','Alertas','!',adminOperationalAlertBadge())}
       ${adminMenuButton('incidents','Incidentes','!',badge(incidentAttention))}
       ${adminMenuButton('audit','Auditoria','⌕')}
@@ -5935,6 +5941,7 @@ function adminPage(){
         ${adminPanel('enablement',adminEnablementSection(d))}
         ${adminPanel('catalog',catalogContent)}
         ${adminPanel('finance',financeContent)}
+        ${adminPanel('activations',adminActivationDeskView(d))}
         ${adminPanel('alerts',alertsContent)}
         ${adminPanel('incidents',incidentsContent)}
         ${adminPanel('audit',auditContent)}
