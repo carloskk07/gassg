@@ -12,6 +12,23 @@ create table public.platform_ads_instruments_v1_312(
  founder_accepted_by uuid,founder_accepted_at timestamptz,
  updated_at timestamptz not null default clock_timestamp()
 );
+-- Keep the agreed document immutable even across service-role updates.
+create or replace function public.ads_instrument_immutable_v1_312()
+returns trigger language plpgsql set search_path to 'pg_catalog' as $guard$
+begin
+ if old.merchant_id is distinct from new.merchant_id
+ or old.dossier_version is distinct from new.dossier_version
+ or old.document_snapshot is distinct from new.document_snapshot
+ or old.document_sha256 is distinct from new.document_sha256
+ or old.issued_by is distinct from new.issued_by
+ or old.issued_at is distinct from new.issued_at
+ then raise exception 'ADS_INSTRUMENT_IMMUTABLE_DOCUMENT' using errcode='42501';end if;
+ return new;
+end;
+$guard$;
+create trigger ads_instrument_immutable_v1_312_before_update
+ before update on public.platform_ads_instruments_v1_312 for each row
+ execute function public.ads_instrument_immutable_v1_312();
 alter table public.platform_ads_instruments_v1_312 enable row level security;
 revoke all on public.platform_ads_instruments_v1_312 from public,anon,authenticated;
 grant select,insert,update on public.platform_ads_instruments_v1_312 to service_role;
