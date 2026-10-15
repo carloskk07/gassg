@@ -1452,7 +1452,7 @@ async function merchantPushEnableLive(){
 }
 async function merchantPushDisableLive(){
   const reg=typeof navigator.serviceWorker==='undefined'?null:
-    await navigator.serviceWorker.ready;
+    await navigator.serviceWorker.getRegistration('./');
   const subscription=reg?await reg.pushManager.getSubscription():null;
   if(!subscription){merchantPushRuntime.subscribed=false;return true;}
   const merchantId=String(merchantRuntime.merchant?.merchantId||'');
@@ -1678,6 +1678,10 @@ async function merchantSendLogin(email){
 }
 
 async function merchantSignOut(){
+  if(merchantPushRuntime.subscribed)await merchantPushDisableLive().catch(()=>{});
+  merchantPushRuntime.checked=false;
+  merchantPushRuntime.available=false;
+  merchantPushRuntime.merchantId=null;
   // Drop any in-flight refresh response before asynchronous sign-out.
   merchantRuntime.refreshSeq++;
   merchantRuntime.nextRecoveryAt=0;
@@ -1797,6 +1801,10 @@ async function merchantRefresh({silent=false,recoverSelection=true}={}){
 }
 
 async function merchantSelectLive(merchantId){
+  if(merchantPushRuntime.subscribed)await merchantPushDisableLive().catch(()=>{});
+  merchantPushRuntime.checked=false;
+  merchantPushRuntime.available=false;
+  merchantPushRuntime.merchantId=null;
   merchantAlerts.knownOrderIds=new Set();
   merchantRuntime.team=null;
   merchantRuntime.teamLoading=false;
