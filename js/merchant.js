@@ -1986,7 +1986,7 @@ function merchantLivePage(){
     ${complianceNotice}
     ${freshnessNotice}
     ${financialHold?'<div class="notice danger" style="margin-top:12px"><strong>Novas vendas suspensas por pendência financeira.</strong><br>Regularize o fechamento vencido. Pedidos já aceitos continuam disponíveis normalmente.</div>':''}
-    ${merchantDailyOverview(rt,orders)}
+
     ${merchantDeliveryBoardView(rt,orders)}
     <section class="section" id="merchant-live-orders"><div class="section-head"><div><h2>Pedidos que exigem ação</h2><p>Aceite, saída e recebimento só são registrados depois de confirmação no sistema.</p></div></div>${merchantDeliveryAttentionView(rt)}${merchantOrderQueueView(orders)}</section>
 
