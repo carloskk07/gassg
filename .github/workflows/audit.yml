@@ -309,6 +309,8 @@ jobs:
         run: node tests/merchant-onboarding-v1-303.mjs
       - name: Test V1.304 authoritative admin gates and city pause
         run: node tests/admin-governance-gates-v1-304.mjs
+      - name: Test V1.305 owner launch-readiness worklist and safe go-live checks
+        run: node tests/admin-launch-worklist-v1-305.mjs
       - name: TAMÃO V1.258 founder-approved orphan deletion with immutable audit
         run: node tests/owner-receipt-orphan-cleanup-v1-258.mjs
       - name: Turnstile smoke Chrome cleanup V1.238.1
