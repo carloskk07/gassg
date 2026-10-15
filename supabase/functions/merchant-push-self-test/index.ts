@@ -68,7 +68,7 @@ Deno.serve(async(req:Request)=>{
     return bad("INVALID_REQUEST",400,origin);
    body=parsed;
   }catch{return bad("INVALID_REQUEST",400,origin)}
-  if(!["send-self-test","last-test","report-display"].includes(String(body.action??""))||
+  if((body.action!=="send-self-test"&&!["last-test","report-display"].includes(String(body.action??"")))||
     !UUID.test(String(body.merchantId??""))||
     !allowedPushEndpoint(body.endpoint)||
     (body.action==="report-display"&&
