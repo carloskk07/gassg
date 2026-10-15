@@ -36,7 +36,7 @@ assert.match(audit,/node tests\/merchant-catalog-history-pagination-v1-281.mjs/)
 
 const MID='00000000-0000-4000-8000-000000000003';
 const OTHER='00000000-0000-4000-8000-000000000004';
-const rt={status:'ready',merchant:{merchantId:MID,memberRole:'owner'},
+const rt={status:'ready',session:{user:{id:'00000000-0000-4000-8000-000000000007'}},merchant:{merchantId:MID,memberRole:'owner'},
   catalog:[{productCode:'P13',productName:'Gás P13'},{productCode:'AGUA',productName:'Água'}]};
 const payloads=[];
 const reply=(merchantId,extra={})=>({
@@ -124,10 +124,23 @@ await stale;
 assert.equal(browser.globalThis.merchantCatalogHistoryState.productCode,'AGUA');
 assert.equal(browser.globalThis.merchantCatalogHistoryState.events.length,0);
 assert.equal(draws.length,rendered,'Do not render old filter result');
+// A different user on the same merchant must never receive another user's retained history.
+const userPending=browser.load();
+const initialUser=rt.session.user.id;
+rt.session.user.id='00000000-0000-4000-8000-000000000008';
+calls[5].d.resolve({events:[event(65)],hasMore:false,nextBeforeId:null});
+await userPending;
+assert.doesNotMatch(browser.view(rt),/src=x/);
+assert.equal(browser.globalThis.merchantCatalogHistoryState.userId,initialUser);
+const newUser=browser.load();
+assert.equal(calls[6].params.beforeId,null);
+calls[6].d.resolve({events:[],hasMore:false,nextBeforeId:null});
+await newUser;
+assert.equal(browser.globalThis.merchantCatalogHistoryState.userId,rt.session.user.id);
 // A different merchant or lost privileges must not display old records.
 const switchPending=browser.load();
 rt.merchant.merchantId=OTHER;
-calls[5].d.resolve({events:[event(60)],hasMore:false,nextBeforeId:null});
+calls[7].d.resolve({events:[event(60)],hasMore:false,nextBeforeId:null});
 await switchPending;
 assert.doesNotMatch(browser.view(rt),/src=x/);
 rt.merchant.merchantId=MID;
