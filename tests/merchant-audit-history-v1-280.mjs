@@ -35,7 +35,7 @@ assert.match(ops,/if\(!canManage\(role\)\)throw new DomainError\("MERCHANT_ACCES
 const queryBlock=ops.slice(ops.indexOf('if(action==="catalog-history")'),ops.indexOf('if(action==="update-product")'));
 assert.match(queryBlock,/\.from\("merchant_catalog_change_events"\)/);
 assert.match(queryBlock,/\.eq\("merchant_id",merchantId\)/);
-assert.match(queryBlock,/\.limit\(31\)/);
+assert.match(queryBlock,/\.limit\(30\)/);
 assert.match(queryBlock,/readOnly:true/);
 assert.doesNotMatch(queryBlock,/\.insert\(|\.update\(|\.delete\(/);
 assert.match(ops,/\.eq\("user_id",user.id\)/);
