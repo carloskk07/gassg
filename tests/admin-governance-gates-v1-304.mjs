@@ -47,7 +47,7 @@ const state={data:payload,loadedFor:'user1',role:'superadmin',loading:false,erro
 const runtime={governance:state,session:{user:{id:'user1'}},data:{launchReadiness:{operationMode:'PRELAUNCH'}}};
 const env=vm.createContext({
  adminRuntime:runtime,adminReady:()=>true,adminCurrentRole:()=>state.role,
- adminRoleCanSection:s=>s!=='finance',
+ adminRoleCanSection:s=>state.role==='superadmin'||s!=='finance',
  adminOperationModeLabel:x=>x,
  esc:x=>String(x).replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;').replaceAll('"','&quot;'),
  Date,Number,String
