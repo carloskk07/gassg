@@ -1587,11 +1587,12 @@ function merchantDailyChecklistView(rt,options={}){
     '<li><strong>'+esc(item.title)+'</strong><span>'+esc(item.detail)+'</span></li>'
   ).join('')+'</ul>':
     '<p class="merchant-daily-checklist-clear">Sem alertas de estoque, preços ou taxa de entrega nos dados consultados. A disponibilidade e a elegibilidade continuam indicadas no painel.</p>';
-  const buttons=hasStockWork?
-    '<button type="button" class="secondary small" onclick="merchantAvailabilityGo(\'stock\')">Conferir preços e estoque</button>':
-    hasCatalogWork?
-    '<button type="button" class="secondary small" onclick="merchantQuickGoCatalog()">Configurar produtos</button>':
-    '<button type="button" class="ghost small" onclick="merchantQuickGoCatalog()">Ver catálogo completo</button>';
+  const buttons=(hasStockWork?
+    '<button type="button" class="secondary small" onclick="merchantAvailabilityGo(\'stock\')">Conferir preços e estoque</button>':'')+
+    (hasCatalogWork?
+    '<button type="button" class="secondary small" onclick="merchantQuickGoCatalog()">Configurar produtos</button>':'')+
+    (!hasStockWork&&!hasCatalogWork?
+    '<button type="button" class="ghost small" onclick="merchantQuickGoCatalog()">Ver catálogo completo</button>':'');
   return '<section class="merchant-daily-checklist" aria-label="Atenção aos produtos e entregas">'+
     '<div class="merchant-daily-checklist-heading"><div><span class="section-kicker">CONFERÊNCIA DO DIA</span>'+
     '<h2>O que precisa da sua atenção</h2><p>Alertas baseados nos dados da sua revenda, sem alterar nada automaticamente.</p></div>'+
