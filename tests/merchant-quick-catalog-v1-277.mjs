@@ -17,14 +17,14 @@ const esc=s=>String(s??'').replaceAll('&','&amp;').replaceAll('<','&lt;')
 const original=[
  {productCode:'P13',productName:'GLP P13',active:true,priceCents:11990,availableStock:3,pricingMode:'fixed'},
  {productCode:'AGUA20',productName:'Água 20L <img src=x onerror=alert(1)>',active:true,priceCents:1600,availableStock:0,pricingMode:'fixed'},
- {productCode:'P45',productName:'P45 gás',active:true,priceCents:47000,availableStock:4,pricingMode:'range',
+ {productCode:'P45',productName:'P45 gás',active:true,priceCents:47000,availableStock:2,pricingMode:'range',
   minPriceCents:45000,maxPriceCents:49000,pricingStrategy:'balanced'},
  {productCode:'INACTIVE',active:false,priceCents:3500,availableStock:9},
  {productCode:'bad\' onclick="alert(1)',active:true,priceCents:1000,availableStock:9},
  {productCode:'MISSING_PRICE',active:true,availableStock:1},
  {productCode:'DUP',active:true,priceCents:900,availableStock:1},
  {productCode:'DUP',active:true,priceCents:900,availableStock:2},
- {productCode:'RANGE_BAD',active:true,priceCents:8000,availableStock:7,pricingMode:'range',
+ {productCode:'RANGE_BAD',active:true,priceCents:8000,availableStock:2,pricingMode:'range',
   minPriceCents:9000,maxPriceCents:10000},
  ...Array.from({length:6},(_,i)=>({productCode:'OTHER'+i,active:true,
   productName:'Outro '+i,priceCents:1200+i*10,availableStock:2}))
@@ -43,8 +43,9 @@ const ctx=vm.createContext({esc,globalThis:{merchantRuntime:rt},
  merchantUpdateProductLive:async(...args)=>{writes.push(args);}
 });
 vm.runInContext([
- take('merchantTimestampFresh'),take('merchantQuickCatalogCandidates'),
- take('merchantQuickStockAlerts'),take('merchantQuickCatalogView'),
+ 'const merchantQuickDrafts=new Map();',take('merchantTimestampFresh'),take('merchantQuickCatalogCandidates'),
+ take('merchantQuickStockAlerts'),take('merchantQuickCatalogVersion'),take('merchantQuickDraftKey'),
+ take('merchantQuickDraftFor'),take('merchantQuickRecentChanges'),take('merchantQuickCatalogView'),
  take('merchantAvailabilityGo'),take('merchantQuickCatalogSave',true)
 ].join('\n')+';this.candidates=merchantQuickCatalogCandidates;this.view=merchantQuickCatalogView;'+
  'this.navigate=merchantAvailabilityGo;this.save=merchantQuickCatalogSave;',ctx);

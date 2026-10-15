@@ -2378,6 +2378,16 @@ body:has(.admin-page) .shell{
 .merchant-quick-feedback{grid-column:1 / -1;min-height:18px;font-size:11px;line-height:1.5;color:var(--muted)}
 .merchant-quick-catalog>summary span{overflow-wrap:anywhere}
 @media(max-width:340px){.merchant-quick-stepper>button{min-height:50px;flex-basis:62px}}
+/* V1.279 — persistent unsaved drafts and verified product update timestamps. */
+.merchant-quick-recent{border-top:1px solid #e0eae3;margin-top:5px;padding-top:8px}
+.merchant-quick-recent>summary{cursor:pointer;font-size:13px;font-weight:750;color:#285942;min-height:44px;display:flex;align-items:center}
+.merchant-quick-recent>summary:focus-visible{outline:3px solid #d2a04d;outline-offset:2px}
+.merchant-quick-recent>p{font-size:11px;line-height:1.5;color:var(--muted)}
+.merchant-quick-recent-list{display:grid;gap:7px}
+.merchant-quick-recent-list>div{display:flex;justify-content:space-between;flex-wrap:wrap;gap:5px 12px;background:#f7faf8;border:1px solid #e4ece7;border-radius:9px;padding:9px 11px;font-size:12px}
+.merchant-quick-recent-list strong{overflow-wrap:anywhere}
+.merchant-quick-recent-list span{color:var(--muted);font-variant-numeric:tabular-nums}
+.merchant-quick-feedback{overflow-wrap:anywhere}
 /* V1.175 — a clear, human assignment step, no automatic driver selection */
 .merchant-delivery-reminders{margin:14px 0 18px;padding:15px;border:1px solid #e7d6bb;border-radius:16px;background:#fffbf4;min-width:0}
 .merchant-delivery-reminders-title{display:grid;gap:4px}
