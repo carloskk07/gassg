@@ -96,14 +96,17 @@ Deno.serve(async(req:Request)=>{
   let state="failed",code="SENDER_UNAVAILABLE",httpStatus:number|null=null;
   if(!credsError&&credentialsValid(creds)){
    try{
-    const accepted=await sendPushNotification({
-     endpoint:reserved.endpoint,
-     keys:{p256dh:reserved.p256dh,auth:reserved.auth}
-    },{
+    // Keep the private test kind in the serialized payload, while satisfying
+    // the Web Push library's structurally typed PushPayload interface.
+    const payload={
      kind:"test",title:"Teste de notificação TAMÃO",
      body:"Este é um teste solicitado neste aparelho.",tag:"tamao-merchant-self-test",
      url:"/?merchant=1#merchant"
-    },{
+    };
+    const accepted=await sendPushNotification({
+     endpoint:reserved.endpoint,
+     keys:{p256dh:reserved.p256dh,auth:reserved.auth}
+    },payload,{
      publicKey:creds.publicKey,privateKey:creds.privateKey,subject:creds.subject
     },{ttl:45,timeoutMs:8000,urgency:"normal"});
     state=accepted?"provider_accepted":"gateway_rejected";
