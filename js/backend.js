@@ -1573,6 +1573,9 @@ async function merchantSendLogin(email){
 }
 
 async function merchantSignOut(){
+  // Invalidate in-flight history immediately; never retain another person's audit in a shared browser.
+  globalThis.merchantHistoryRequestId=(globalThis.merchantHistoryRequestId||0)+1;
+  globalThis.merchantCatalogHistoryState=null;
   if(merchantRuntime.client)await merchantRuntime.client.auth.signOut().catch(()=>{});
   merchantRuntime.session=null;
   merchantRuntime.merchant=null;
