@@ -73,7 +73,7 @@ window.addEventListener('load',async()=>{
 });
 
 Object.assign(window,{
-  go,setMode,startOrder,quickProduct,setAddress,deliveryAddressDraftChanged,qty,checkout,setPaymentMethod,toggleCashback,
+  go,setMode,openSponsorContact,startOrder,quickProduct,setAddress,deliveryAddressDraftChanged,qty,checkout,setPaymentMethod,toggleCashback,
   confirmRequote,cancelBeforeDispatch,cancelPending,shareReferral,shareTamaoGrowthInvite,activateCashAccount,joinMerchant,selectMerchant,toggleOnline,
   merchantUpdate,merchantAction,reset,
   merchantLoginFromUi,merchantLiveRefresh,merchantLiveSelect,merchantLiveToggleOnline,merchantWorkspaceJump,
