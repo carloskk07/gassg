@@ -3644,3 +3644,10 @@ body:has(.admin-page) .admin-nav-item:focus-visible{outline-offset:-3px}
  .admin-activation-card{padding:16px;border-radius:15px}
  .admin-activation-desk .section-head>button{width:100%;min-height:44px}
 }
+
+/* V1.309 — in-place Ads planning with legible, touch-friendly controls. */
+.admin-ads-plan-fields{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;margin-top:12px}
+.admin-ads-plan-fields label{display:flex;flex-direction:column;gap:6px;font-size:.88rem;font-weight:600;min-width:0}
+.admin-ads-plan-fields input,.admin-ads-plan-fields select,.admin-ads-plan-fields textarea{box-sizing:border-box;width:100%;min-height:44px;font:inherit}
+.admin-ads-plan-fields .admin-ads-plan-note,.admin-ads-plan-fields button{grid-column:1/-1}
+@media(max-width:520px){.admin-ads-plan-fields{grid-template-columns:minmax(0,1fr)}}

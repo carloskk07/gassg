@@ -13,7 +13,8 @@ async function adminActivationLoad({force=false}={}){
       ['adsQueue','ads-campaign-queue','admin_ads_campaign_queue_v1_233'],
       ['clube','clube-campaign-queue','admin_clube_campaign_queue_v1_241'],
       ['terms','clube-terms-queue','admin_clube_terms_queue_v1_242'],
-      ['intake','commercial-intake-read','admin_marketing_intake_v1_308']
+      ['intake','commercial-intake-read','admin_marketing_intake_v1_308'],
+      ['adsSalesPlans','ads-sales-plans','admin_ads_sales_plans_v1_309']
     ];
     const values=await Promise.allSettled([
       ...specs.map(([,action])=>adminInvoke({action})),
@@ -27,6 +28,12 @@ async function adminActivationLoad({force=false}={}){
       const safe=d?.source===source&&(
         key==='ads'?d.readOnly===true&&d.publicEnabled===false&&d.billingEnabled===false&&d.readyToSell===false:
         key==='adsQueue'?d.noCharge===true&&d.adsLive===false:
+        key==='adsSalesPlans'?d.readOnly===true&&d.noCharge===true&&d.adsLive===false&&
+          d.revenueCents===0&&d.contractsSigned===0&&
+          Number.isSafeInteger(d.totalPlans)&&Number.isSafeInteger(d.approvedCreatives)&&
+          Array.isArray(d.rows)&&d.rows.length<=50&&d.rows.every(x=>
+            /^[0-9a-f-]{36}$/i.test(String(x.merchantId))&&typeof x.creativeEligible==='boolean'&&
+            Number.isSafeInteger(x.version)&&x.version>=0):
         key==='clube'?d.readOnly===true&&d.couponSalesEnabled===false&&d.campaignsActive===0:
         key==='intake'?d.readOnly===true&&d.noMoneyMovement===true&&
           d.adsPublicationEnabled===false&&d.couponSalesEnabled===false&&
@@ -37,7 +44,7 @@ async function adminActivationLoad({force=false}={}){
         d.readOnly===true&&d.couponSalesEnabled===false&&d.noContractsSigned===true);
       evidence[key]=safe?d:null;
     });
-    const governance=values[5].status==='fulfilled'?values[5].value:null;
+    const governance=values[6].status==='fulfilled'?values[6].value:null;
     evidence.governance=governance?.source==='admin_governance_gates_v1_304'&&governance.readOnly===true&&
       adminRuntime.governance?.loadedFor===actor&&adminRuntime.governance?.role===role?governance:null;
     const push=adminRuntime.pushReliability||{};
@@ -127,7 +134,7 @@ function adminActivationDeskView(d){
     '<p class="tiny muted">Última consulta: '+
     esc(current?formatDateTime(adminActivationDesk.checkedAt):'não confirmada')+
     '. Uma falha na consulta é mostrada como “Não confirmado”, nunca como recurso desligado.</p>'+
-    '<div class="admin-activation-grid">'+cards+'</div>'+adminMarketingIntakeView()+
+    '<div class="admin-activation-grid">'+cards+'</div>'+adminMarketingIntakeView()+adminAdsSalesPlansView()+
     '<p class="tiny muted">Publicidade pública, vendas de cupons e automação de avisos exigem homologação e gates reais no servidor. Nenhum controle desta página contorna esses requisitos.</p></section>';
 }
 
@@ -197,4 +204,107 @@ function adminMarketingIntakeView(){
     '<p>Controle efetivo e auditado no banco. Propostas antigas podem ser consultadas e retiradas mesmo com novas inscrições suspensas.</p></div></div>'+
     '<div class="admin-activation-grid">'+cards+'</div>'+
     '<p class="tiny muted">Somente o administrador principal altera estes estados, com confirmação, motivo e versão. Nenhuma opção ativa publicidade, cobrança, benefícios ou cidades.</p></section>';
+}
+
+
+// TAMÃO V1.309 — internal advertising sales planning only.
+// "Ready for contact" means an internal worklist, never merchant approval or publication.
+function adminAdsSalesPlansView(){
+  if(!adminRoleCanSection('activations'))return '';
+  const actor=String(adminRuntime.session?.user?.id||''),role=adminCurrentRole();
+  const fresh=adminActivationDesk.actor===actor&&adminActivationDesk.role===role&&
+    Date.now()-Date.parse(adminActivationDesk.checkedAt||'')<120000;
+  const data=fresh?adminActivationDesk.data?.adsSalesPlans:null;
+  const money=c=>Number.isSafeInteger(c)?(c/100).toLocaleString('pt-BR',{style:'currency',currency:'BRL'}):'—';
+  const stages={draft:'Em elaboração',ready_for_contact:'Pronto para contato',paused:'Pausado',closed_lost:'Encerrado sem venda'};
+  const rows=(data?.rows||[]).map(p=>{
+    const merchantId=String(p.merchantId||'');
+    if(!/^[0-9a-f-]{36}$/i.test(merchantId))return '';
+    const editable=role==='superadmin'&&p.creativeEligible===true&&
+      Number.isSafeInteger(p.creativeVersion)&&p.creativeVersion>0&&
+      (p.version===0||p.creativeVersion===p.planCreativeVersion);
+    const id='ads-plan-'+merchantId;
+    const fields=editable?'<div class="admin-ads-plan-fields">'+
+      '<label>Valor planejado em R$ (não faturado)<input id="'+id+'-price" type="number" min="10" max="50000" step="1" inputmode="numeric" value="'+
+        (Number.isSafeInteger(p.priceCents)?p.priceCents/100:99)+'"></label>'+
+      '<label>Duração proposta em dias<input id="'+id+'-days" type="number" min="7" max="90" step="1" value="'+
+        (Number.isSafeInteger(p.durationDays)?p.durationDays:7)+'"></label>'+
+      '<label>Etapa comercial<select id="'+id+'-stage">'+
+        Object.entries(stages).map(([key,label])=>'<option value="'+key+'" '+
+          (p.stage===key?'selected':'')+'>'+label+'</option>').join('')+
+      '</select></label>'+
+      '<label class="admin-ads-plan-note">Observação interna<textarea id="'+id+'-note" rows="2" minlength="12" maxlength="500" placeholder="Anote o próximo passo, sem registrar contrato ou pagamento fictício">'+
+        esc(p.note||'Planejar abordagem comercial com a revenda')+'</textarea></label>'+
+      '<button type="button" class="primary small" onclick="adminAdsSalesPlanSave(\''+
+        merchantId+'\')">Salvar planejamento</button></div>':
+      '<p class="tiny muted">'+(role==='superadmin'?'Peça alterada ou retirada. Solicite nova aprovação antes de editar o plano.':
+        'Somente o administrador principal pode alterar estes planos.')+'</p>';
+    return '<article class="admin-activation-card"><div class="admin-activation-card-head"><strong>'+
+      esc(p.companyName||'Revenda')+'</strong><span class="status-pill">'+
+      esc(p.version>0?(stages[p.stage]||'Plano registrado'):'Sem plano')+'</span></div>'+
+      '<p><strong>'+esc(p.title||'Peça não disponível')+'</strong></p>'+
+      '<p class="tiny muted">'+esc([p.city,p.state].filter(Boolean).join('/')||'Cidade não confirmada')+
+      ' • Criativo v'+esc(String(p.creativeVersion||'—'))+
+      ' • Plano v'+esc(String(p.version))+'</p>'+
+      (p.version>0?'<p class="tiny muted">Orçamento planejado: '+money(p.priceCents)+
+        ' • '+esc(String(p.durationDays))+' dias • Nenhuma cobrança</p>':'')+
+      fields+'</article>';
+  }).join('');
+  return '<section class="section admin-ads-commercial-plans" aria-label="Planos comerciais de publicidade">'+
+    '<div class="section-head"><div><span class="section-kicker">V1.309 • PUBLICIDADE E RECEITA POTENCIAL</span>'+
+    '<h2>Planejamento comercial de anúncios</h2>'+
+    '<p>Crie condições e acompanhe negociações sobre peças já aprovadas. Não há aceite do anunciante, publicação ou faturamento nesta etapa.</p></div></div>'+
+    (data?'<p class="tiny muted">Peças aprovadas: <strong>'+data.approvedCreatives+
+      '</strong> • Planos internos: <strong>'+data.totalPlans+
+      '</strong> • Receita comprovada por este módulo: R$ 0,00.</p>':
+      '<p class="muted">Não foi possível confirmar os planos no servidor. Atualize a central.</p>')+
+    '<div class="admin-activation-grid">'+(rows||'<p class="muted">Nenhuma peça publicitária aprovada ainda. Use a área Parceiros → Propostas publicitárias para analisar os primeiros criativos.</p>')+
+    '</div></section>';
+}
+async function adminAdsSalesPlanSave(merchantId){
+  if(!adminReady()||adminCurrentRole()!=='superadmin'||adminActivationDesk.loading)return false;
+  const actor=String(adminRuntime.session?.user?.id||'');
+  if(adminActivationDesk.actor!==actor||adminActivationDesk.role!=='superadmin'||
+    Date.now()-Date.parse(adminActivationDesk.checkedAt||'')>=120000)return false;
+  const plan=adminActivationDesk.data?.adsSalesPlans?.rows?.find(x=>x.merchantId===merchantId);
+  if(!plan||!plan.creativeEligible||!Number.isSafeInteger(plan.creativeVersion)||
+    (plan.version>0&&plan.creativeVersion!==plan.planCreativeVersion))return false;
+  const id='ads-plan-'+merchantId;
+  const priceText=String(document.getElementById(id+'-price')?.value||'');
+  const daysText=String(document.getElementById(id+'-days')?.value||'');
+  const priceReais=/^\d+$/.test(priceText)?Number(priceText):NaN;
+  const days=/^\d+$/.test(daysText)?Number(daysText):NaN;
+  const stage=String(document.getElementById(id+'-stage')?.value||'');
+  const note=String(document.getElementById(id+'-note')?.value||'').trim();
+  if(!Number.isSafeInteger(priceReais)||priceReais<10||priceReais>50000||
+    !Number.isSafeInteger(days)||days<7||days>90||
+    !['draft','ready_for_contact','paused','closed_lost'].includes(stage)||
+    note.length<12||note.length>500){
+    toast('Revise valor (R$ 10 a R$ 50 mil), prazo (7 a 90 dias), etapa e nota (12 a 500 caracteres).');
+    return false;
+  }
+  if(!confirm('Registrar planejamento interno de '+priceReais.toLocaleString('pt-BR',{style:'currency',currency:'BRL'})+
+    ' por '+days+' dias? Isto NÃO cobra, publica, notifica ou firma contrato.'))return false;
+  try{
+    const result=await adminPerform('ads-sales-plan-save',{
+      merchantId,creativeVersion:plan.creativeVersion,expectedVersion:plan.version,
+      priceCents:priceReais*100,durationDays:days,stage,note,requestId:crypto.randomUUID()
+    });
+    if(result?.source!=='admin_ads_sales_plan_save_v1_309'||
+      result.merchantId!==merchantId||!Number.isSafeInteger(result.version)||
+      result.noCharge!==true||result.adsLive!==false||result.contractSigned!==false||
+      result.paymentCreated!==false||result.merchantNotified!==false)
+      throw new Error('Registro não comprovado pelo serviço.');
+    adminActivationDesk.data=null;
+    const confirmed=await adminActivationLoad({force:true});
+    const saved=confirmed?.adsSalesPlans?.rows?.find(x=>x.merchantId===merchantId);
+    if(!saved||saved.version!==result.version||saved.stage!==stage||
+      saved.priceCents!==priceReais*100||saved.durationDays!==days)
+      throw new Error('Plano registrado, mas leitura final não confirmada. Atualize a central.');
+    toast('Plano registrado com auditoria. Nenhuma cobrança ou publicação foi realizada.');
+    return true;
+  }catch(e){
+    adminActivationDesk.data=null;await adminActivationLoad({force:true});
+    toast(String(e?.message||e));return false;
+  }
 }
