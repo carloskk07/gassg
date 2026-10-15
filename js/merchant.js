@@ -1590,7 +1590,7 @@ function merchantCatalogHistoryView(rt){
     scoped?.status==='ready'?(events.length?list+'<p class="tiny muted">Mostrando até 30 registros mais recentes.</p>':
       '<p>Não há alterações registradas desde a ativação deste histórico.</p>'):
     '<p>Consulte o histórico real de alterações confirmadas no banco, com responsável e valores anteriores.</p>';
-  return '<details class="merchant-catalog-history"><summary>Histórico real de preços e estoque</summary>'+
+  return '<details class="merchant-catalog-history"'+(scoped?' open':'')+'><summary>Histórico real de preços e estoque</summary>'+
     '<div class="merchant-catalog-history-content">'+
     '<p class="tiny muted">Registros a partir da ativação desta funcionalidade. Não há reconstrução de alterações antigas.</p>'+
     '<button type="button" class="secondary small" onclick="merchantQuickHistoryLoad()"'+
