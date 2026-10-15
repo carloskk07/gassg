@@ -1536,6 +1536,11 @@ function merchantDailyChecklistModel(rt,options={}){
   const alerts=merchantQuickStockAlerts(rt);
   const rows=Array.isArray(rt.catalog)?rt.catalog:[];
   const active=rows.filter(p=>p?.active===true);
+  const incomplete=active.filter(p=>{
+    const price=Number(p?.priceCents),stock=Number(p?.availableStock);
+    return !Number.isSafeInteger(price)||price<=0||price>1000000||
+      !Number.isSafeInteger(stock)||stock<0||stock>100000;
+  }).length;
   const issues=[];
   if(merchantQuickHasDrafts(rt))issues.push({
     type:'draft',title:'Ajustes aguardando confirmação',
@@ -1548,6 +1553,10 @@ function merchantDailyChecklistModel(rt,options={}){
     action:'catalog'
   });
   else{
+    if(incomplete)issues.push({
+      type:'incomplete',title:incomplete+' produto(s) com cadastro incompleto',
+      detail:'Confira os valores de preço e estoque antes de vender.',action:'catalog'
+    });
     if(alerts.empty)issues.push({
       type:'stock',title:alerts.empty+' produto(s) sem estoque',
       detail:'Confira a reposição antes de voltar a oferecer esses itens.',action:'stock'
