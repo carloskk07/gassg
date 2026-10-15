@@ -2153,6 +2153,7 @@ function merchantLivePage(){
       ${merchantClubeTermsSection(m)}
       ${merchantAdsCampaignSection(m)}
       ${merchantAdsOfferSection(m)}
+      ${merchantAdsDossierSection(m)}
       ${merchantGrowthNetworkSection(m)}
     </div></details>
     <details id="merchant-workspace-finance" class="merchant-workspace-section"><summary tabindex="0"><span><strong>Resultados e financeiro</strong><small>Desempenho e cobranças da plataforma, separados dos pedidos do dia.</small></span></summary><div class="merchant-workspace-content">
@@ -3955,4 +3956,97 @@ async function merchantAdsOfferRespond(operation){
   return true;
  }catch(e){rt.adsOffer=null;rt.adsOfferError=String(e?.message||e);toast(rt.adsOfferError);return false}
  finally{rt.adsOfferBusy=false;render();}
+}
+
+
+// TAMÃO V1.311 — view and acknowledge contract-review terms, never sign or pay.
+function merchantAdsDossierSection(merchant){
+ if(!['owner','manager'].includes(String(merchant?.memberRole||'')))return '';
+ const rt=globalThis.merchantRuntime||{},id=String(merchant?.merchantId||'');
+ const packet=rt.adsDossier?.merchantId===id&&rt.adsDossier?.source==='merchant_ads_dossier_v1_311'&&
+  rt.adsDossier.noCharge===true&&rt.adsDossier.adsLive===false&&
+  rt.adsDossier.contractSigned===false&&rt.adsDossier.paymentRequestCreated===false&&
+  rt.adsDossier.readOnly===true&&rt.adsDossier.reviewOnly===true?rt.adsDossier:null;
+ const d=packet?.dossier||null;
+ const status={shared_for_review:'Minuta para revisão',reviewed:'Leitura confirmada — sem assinatura',
+  changes_requested:'Alterações solicitadas'}[d?.status]||'Ainda não disponibilizada';
+ const owner=merchant.memberRole==='owner';
+ const consent=d?.status==='shared_for_review'&&owner?
+  '<div class="form-stack"><label class="check-row"><input id="ads-dossier-reviewed-consent" type="checkbox">'+
+  '<span>Li esta minuta e quero registrar minha avaliação. Esta confirmação NÃO constitui assinatura, contratação ou autorização de cobrança.</span></label>'+
+  '<div class="order-actions"><button class="primary small" type="button" onclick="merchantAdsDossierRespond(\'reviewed\')">Confirmar que revisei</button>'+
+  '<button class="secondary small" type="button" onclick="merchantAdsDossierRespond(\'request_changes\')">Solicitar alterações</button></div></div>':'';
+ const content=d?'<div class="card flat"><div class="status-bar"><strong>'+esc(status)+
+  '</strong><span class="status-pill">Minuta v'+Number(d.version)+'</span></div>'+
+  '<p>Valor negociado: <strong>'+(d.priceCents/100).toLocaleString('pt-BR',{style:'currency',currency:'BRL'})+
+  '</strong> • Duração: '+Number(d.durationDays)+' dias</p>'+
+  '<strong>O que está previsto</strong><p>'+esc(d.serviceScope)+'</p>'+
+  '<strong>Cancelamento e alterações</strong><p>'+esc(d.cancellationTerms)+'</p>'+
+  '<p>Vencimento sugerido após eventual contratação e cobrança: '+Number(d.dueDays)+' dias.</p>'+
+  consent+'</div>':
+  '<p class="muted tiny">Nenhuma minuta contratual disponível nesta consulta.</p>';
+ return '<section class="section merchant-ads-dossier">'+
+  '<div class="section-head"><div><span class="section-kicker">TAMÃO ADS • CONDIÇÕES COMERCIAIS</span>'+
+  '<h3>Revisão das condições</h3><p>Confira o escopo e as regras propostas antes de qualquer formalização contratual.</p></div>'+
+  '<button class="secondary small" type="button" onclick="merchantAdsDossierLoad()">Consultar minuta</button></div>'+
+  (packet?content:'<p class="muted tiny">Consulte o servidor para verificar se há condições disponíveis.</p>')+
+  (rt.adsDossierError?'<p class="notice danger">'+esc(rt.adsDossierError)+'</p>':'')+
+  '<p class="tiny muted">Revisar esta minuta não assina contrato, não emite fatura, não efetua pagamento e não inicia publicidade.</p></section>';
+}
+async function merchantAdsDossierLoad(){
+ const rt=globalThis.merchantRuntime,id=String(rt?.merchant?.merchantId||'');
+ if(!rt||!id||rt.adsDossierBusy||!['owner','manager'].includes(String(rt.merchant.memberRole||'')))return null;
+ rt.adsDossierBusy=true;rt.adsDossierError=null;render();
+ try{
+  const out=await merchantInvoke('merchant-ops',{action:'ads-dossier',merchantId:id,operation:'view'});
+  if(out?.source!=='merchant_ads_dossier_v1_311'||out.merchantId!==id||
+    out.readOnly!==true||out.reviewOnly!==true||out.noCharge!==true||
+    out.adsLive!==false||out.contractSigned!==false||out.paymentRequestCreated!==false||
+    (out.dossier!==null&&(!Number.isSafeInteger(out.dossier?.version)||
+      out.dossier.version<1||!Number.isSafeInteger(out.dossier?.priceCents)||
+      !Number.isSafeInteger(out.dossier?.dueDays)||
+      !['shared_for_review','reviewed','changes_requested'].includes(out.dossier?.status))))
+    throw new Error('Minuta não confirmada no servidor.');
+  if(String(rt.merchant?.merchantId)!==id)return null;
+  rt.adsDossier=out;return out;
+ }catch(e){
+  if(String(rt.merchant?.merchantId)===id){
+   rt.adsDossier=null;rt.adsDossierError=String(e?.message||e);toast(rt.adsDossierError);
+  }
+  return null;
+ }finally{rt.adsDossierBusy=false;render();}
+}
+async function merchantAdsDossierRespond(operation){
+ const rt=globalThis.merchantRuntime,id=String(rt?.merchant?.merchantId||'');
+ if(!rt||!id||rt.merchant.memberRole!=='owner'||rt.adsDossierBusy||
+   !['reviewed','request_changes'].includes(operation))return false;
+ const d=rt.adsDossier?.merchantId===id&&rt.adsDossier?.reviewOnly===true?
+   rt.adsDossier.dossier:null;
+ if(!d||d.status!=='shared_for_review'||!Number.isSafeInteger(d.version))return false;
+ if(document.getElementById('ads-dossier-reviewed-consent')?.checked!==true){
+   toast('Marque a confirmação de leitura da minuta.');return false;
+ }
+ if(!confirm(operation==='reviewed'?'Registrar que você revisou as condições? Isto não assina nem contrata publicidade.':
+  'Solicitar revisão destas condições, sem contratar ou pagar?'))return false;
+ rt.adsDossierBusy=true;render();
+ try{
+  const result=await merchantInvoke('merchant-ops',{
+   action:'ads-dossier',merchantId:id,operation,
+   expectedVersion:d.version,confirmed:true,requestId:crypto.randomUUID()
+  });
+  const status=operation==='reviewed'?'reviewed':'changes_requested';
+  if(result?.source!=='merchant_ads_dossier_v1_311'||result.merchantId!==id||
+    result.status!==status||result.version!==d.version+1||
+    result.recorded!==true||result.noCharge!==true||result.adsLive!==false||
+    result.contractSigned!==false||result.paymentRequestCreated!==false)
+     throw new Error('Avaliação do documento não confirmada.');
+  rt.adsDossier=null;rt.adsDossierBusy=false;
+  const verified=await merchantAdsDossierLoad();
+  if(verified?.dossier?.status!==status||verified.dossier.version!==result.version)
+   throw new Error('Resposta registrada, mas a leitura de confirmação ainda não foi concluída.');
+  toast('Avaliação registrada. Nenhum contrato foi assinado.');
+  return true;
+ }catch(e){
+  rt.adsDossier=null;rt.adsDossierError=String(e?.message||e);toast(rt.adsDossierError);return false;
+ }finally{rt.adsDossierBusy=false;render();}
 }
