@@ -660,6 +660,7 @@ function merchantDriverLivePage(rt){
     <div class="status-bar"><div><div class="tiny muted">MINHAS ENTREGAS</div><h1 class="page-title" style="margin-bottom:2px">${esc(m.name||'Revenda')}</h1></div><span class="status-pill online">MOTORISTA</span></div>
     <div class="notice success" style="margin-top:14px"><strong>Visão restrita por atribuição.</strong><br>Você vê somente pedidos que a operação vinculou à sua conta. Catálogo, preços, compliance e pedidos de outros responsáveis não aparecem aqui.</div>
     ${merchantDailyOverview(rt,orders)}
+    ${merchantDeliveryBoardView(rt,orders)}
     <section class="section"><div class="section-head"><div><h2>Pedidos atribuídos a você</h2><p>Saída, chegada e conclusão continuam protegidas pela versão do pedido e pelas autoridades do servidor.</p></div></div>${merchantOrderQueueView(orders,'Nenhuma entrega atribuída a você agora.')}</section>
     ${merchantAlertControl()}
     <div class="card flat form-stack" style="margin-top:14px">
@@ -1497,6 +1498,7 @@ function merchantLivePage(){
     ${freshnessNotice}
     ${financialHold?'<div class="notice danger" style="margin-top:12px"><strong>Novas vendas suspensas por pendência financeira.</strong><br>Regularize o fechamento vencido. Pedidos já aceitos continuam disponíveis normalmente.</div>':''}
     ${merchantDailyOverview(rt,orders)}
+    ${merchantDeliveryBoardView(rt,orders)}
     <section class="section" id="merchant-live-orders"><div class="section-head"><div><h2>Pedidos que exigem ação</h2><p>Aceite, saída e recebimento só são registrados depois de confirmação no sistema.</p></div></div>${merchantDeliveryAttentionView(rt)}${merchantOrderQueueView(orders)}</section>
 
     ${merchantSetupView(rt)}
@@ -1710,6 +1712,53 @@ function merchantDailyOverview(rt,orders){
     '<span class="tiny muted">'+count+' '+(count===1?'pedido na fila':'pedidos na fila')+
     ' • ações só são efetivadas no pedido</span></div></div>'+
     salesHtml+'</section>';
+}
+// V1.273 — compact multi-delivery board, read-only and scoped to server-returned orders.
+function merchantDeliveryBoardModel(orders,now=Date.now()){
+  const list=(Array.isArray(orders)?orders:[]).filter(order=>
+    order&&['OUT_FOR_DELIVERY','ARRIVING'].includes(String(order.status||'')));
+  const priority=order=>{
+    if(order.status==='ARRIVING')return 0;
+    const deadline=merchantOrderScheduleDate(order.promisedBy);
+    return deadline&&deadline.getTime()<now?1:2;
+  };
+  const deadline=order=>{
+    const d=merchantOrderScheduleDate(order.promisedBy);
+    return d?d.getTime():Number.MAX_SAFE_INTEGER;
+  };
+  return [...list].sort((a,b)=>priority(a)-priority(b)||deadline(a)-deadline(b)||
+    String(a.orderId||'').localeCompare(String(b.orderId||'')));
+}
+function merchantDeliveryBoardView(rt,orders){
+  const role=String(rt?.merchant?.memberRole||'');
+  if(!['owner','manager','operator','driver'].includes(role))return '';
+  const active=merchantDeliveryBoardModel(orders);
+  // A single order is already emphasized by V1.271; never duplicate it here.
+  if(active.length<2)return '';
+  const arriving=active.filter(order=>order.status==='ARRIVING').length;
+  const visible=active.slice(0,6);
+  const rows=visible.map(order=>{
+    const id=String(order.orderId||'');
+    const valid=/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(id);
+    const status=order.status==='ARRIVING'?'Aguardando conferência':'A caminho';
+    const eta=merchantOrderScheduleDate(order.promisedBy);
+    const signal=merchantOrderAttention(order);
+    const deadline=eta?'Previsão registrada: '+eta.toLocaleString('pt-BR',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}):'Sem previsão registrada';
+    const open=valid?'<button type="button" class="primary small" onclick="merchantFocusLiveOrder(\''+id+'\')">Ver pedido</button>':'';
+    return '<div class="merchant-delivery-board-row"><div class="merchant-delivery-board-details">'+
+      '<strong>'+esc(order.publicCode||'Pedido')+'</strong>'+
+      '<span>'+esc(status)+(signal?.level==='late'?' • Revisar prazo':'')+'</span>'+
+      '<small>'+esc(deadline)+'</small></div>'+
+      '<div class="merchant-delivery-board-actions">'+open+merchantDeliveryShortcuts(order)+'</div></div>';
+  }).join('');
+  return '<section class="merchant-delivery-board" aria-label="Entregas em andamento agora">'+
+    '<div class="merchant-delivery-board-heading"><div><span class="section-kicker">ENTREGAS AGORA</span>'+
+    '<h2>'+active.length+' entregas em andamento</h2>'+
+    '<p>'+arriving+' aguardando conferência • As confirmações continuam dentro de cada pedido.</p></div>'+
+    '<button type="button" class="secondary small" onclick="merchantFocusOrderGroup(\'delivery\')">Ver fila completa</button></div>'+
+    '<div class="merchant-delivery-board-list">'+rows+'</div>'+
+    (active.length>visible.length?'<small>Mais '+(active.length-visible.length)+' entrega(s) disponíveis na fila completa.</small>':'')+
+    '</section>';
 }
 function merchantOrderAttentionSummary(orders){
   const attention=(Array.isArray(orders)?orders:[])
