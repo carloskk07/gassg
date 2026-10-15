@@ -2304,6 +2304,16 @@ body:has(.admin-page) .shell{
 .merchant-delivery-board-actions .merchant-delivery-shortcuts{margin:0}
 .merchant-delivery-board>small{display:block;margin-top:10px}
 @media(max-width:700px){.merchant-delivery-board{padding:12px}.merchant-delivery-board-row{align-items:stretch;flex-direction:column}.merchant-delivery-board-actions{justify-content:stretch}.merchant-delivery-board-actions>button{flex:1 1 100%}.merchant-delivery-board-actions .merchant-delivery-shortcuts{width:100%}.merchant-delivery-board-actions .merchant-delivery-shortcut{flex:1 1 120px}.merchant-delivery-board-heading>button{width:100%}}
+/* V1.274 — urgency remains visible; long routine sections fold with native details. */
+.merchant-order-attention-heading>small{font-size:11px;line-height:1.5;color:var(--muted)}
+.merchant-order-attention-heading p{font-weight:750;color:#85561e}
+.merchant-order-queue-overflow{margin-top:12px;border:1px solid #dbe7df;border-radius:13px;background:#f8faf8;min-width:0}
+.merchant-order-queue-overflow>summary{cursor:pointer;min-height:48px;display:flex;align-items:center;gap:10px;padding:10px 13px;color:#245b42;font-weight:750;font-size:13px}
+.merchant-order-queue-overflow>summary:focus-visible{outline:3px solid #cf9939;outline-offset:3px}
+.merchant-order-queue-overflow-body{padding:0 10px 10px}
+.merchant-offer-expired{color:#805927;font-size:13px;line-height:1.5;overflow-wrap:anywhere}
+.merchant-order-queue-overflow .order-card{background:#fff}
+@media(max-width:540px){.merchant-order-queue-overflow>summary{min-height:52px}.merchant-order-queue-overflow-body{padding:0 7px 8px}}
 /* V1.175 — a clear, human assignment step, no automatic driver selection */
 .merchant-delivery-reminders{margin:14px 0 18px;padding:15px;border:1px solid #e7d6bb;border-radius:16px;background:#fffbf4;min-width:0}
 .merchant-delivery-reminders-title{display:grid;gap:4px}

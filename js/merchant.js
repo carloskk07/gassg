@@ -1620,6 +1620,10 @@ function merchantFocusLiveOrder(orderId){
   if(!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(id))return false;
   const card=document.getElementById('merchant-order-card-'+id);
   if(!card)return false;
+  // The full queue keeps secondary orders in native details, even when collapsed.
+  for(let parent=card.parentElement;parent;parent=parent.parentElement){
+    if(parent.tagName==='DETAILS')parent.open=true;
+  }
   card.scrollIntoView?.({behavior:'smooth',block:'center'});
   card.focus?.({preventScroll:true});
   return true;
@@ -1761,14 +1765,28 @@ function merchantDeliveryBoardView(rt,orders){
     '</section>';
 }
 function merchantOrderAttentionSummary(orders){
+  const now=Date.now();
   const attention=(Array.isArray(orders)?orders:[])
-    .map(order=>({order,signal:merchantOrderAttention(order)}))
+    .map(order=>({order,signal:merchantOrderAttention(order,now)}))
     .filter(item=>item.signal)
     .sort((a,b)=>{
       const levels={risk:0,late:1,soon:2};
-      return (levels[a.signal.level]??3)-(levels[b.signal.level]??3);
+      const severity=(levels[a.signal.level]??3)-(levels[b.signal.level]??3);
+      if(severity)return severity;
+      const due=item=>{
+        const preparing=['PREPARING','AT_RISK'].includes(String(item.order?.status||''));
+        return merchantOrderScheduleDate(preparing?item.order?.dispatchDueAt:item.order?.promisedBy)?.getTime()??Number.MAX_SAFE_INTEGER;
+      };
+      return due(a)-due(b);
     });
   if(!attention.length)return '';
+  const counts={risk:0,late:0,soon:0};
+  for(const item of attention)counts[item.signal.level]=(counts[item.signal.level]||0)+1;
+  const breakdown=[
+    counts.risk?counts.risk+' imprevisto(s)':'',
+    counts.late?counts.late+' prazo(s) para revisar':'',
+    counts.soon?counts.soon+' prazo(s) próximo(s)':''
+  ].filter(Boolean).join(' • ');
   const rows=attention.slice(0,5).map(({order,signal})=>{
     const id=String(order?.orderId||'');
     const valid=/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(id);
@@ -1779,7 +1797,8 @@ function merchantOrderAttentionSummary(orders){
   return '<section class="merchant-order-attention-summary" aria-label="Pedidos que precisam de atenção">'+
     '<div class="merchant-order-attention-heading"><strong>'+attention.length+
       (attention.length===1?' pedido merece atenção':' pedidos merecem atenção')+'</strong>'+
-      '<p>Referências de prazo e imprevistos do sistema. Confira a situação antes de agir.</p></div>'+
+      '<p>'+esc(breakdown)+'</p>'+
+      '<small>Referências de prazo e imprevistos do sistema. Confira a situação antes de agir.</small></div>'+
     '<div class="merchant-order-attention-list">'+rows+'</div>'+
     (attention.length>5?'<small>Há outros pedidos sinalizados nas seções abaixo.</small>':'')+
     '<button type="button" class="ghost small" onclick="merchantLiveRefresh()">Atualizar pedidos</button>'+
@@ -1823,14 +1842,39 @@ function merchantOrderQueueView(orders,emptyCopy='Nenhum pedido ativo para esta 
     ' aria-label="'+group.orders.length+' pedido(s): '+esc(titles[group.key])+'. Ir para esta etapa">'+
     '<strong>'+group.orders.length+'</strong><span>'+esc(titles[group.key])+'</span></button>').join('');
   const sections=queues.filter(group=>group.orders.length).map(group=>{
-    const sorted=group.key==='offers'?[...group.orders].sort((a,b)=>{
-      const at=Date.parse(String(a.offerExpiresAt||'')),bt=Date.parse(String(b.offerExpiresAt||''));
-      return (Number.isFinite(at)?at:Number.MAX_SAFE_INTEGER)-(Number.isFinite(bt)?bt:Number.MAX_SAFE_INTEGER);
-    }):group.orders;
+    const byDue=order=>{
+      const field=['MERCHANT_ACCEPTED','PREPARING','AT_RISK'].includes(String(order?.status||''))?'dispatchDueAt':'promisedBy';
+      return merchantOrderScheduleDate(order?.[field])?.getTime()??Number.MAX_SAFE_INTEGER;
+    };
+    const sortSeverity=order=>{
+      if(order?.status==='ARRIVING')return -1;
+      if(order?.status==='MERCHANT_ACCEPTED')return 4;
+      const level=merchantOrderAttention(order)?.level;
+      return level==='risk'?0:level==='late'?1:level==='soon'?2:3;
+    };
+    const sorted=[...group.orders].sort((a,b)=>{
+      if(group.key==='offers'){
+        const at=Date.parse(String(a.offerExpiresAt||'')),bt=Date.parse(String(b.offerExpiresAt||''));
+        return (Number.isFinite(at)?at:Number.MAX_SAFE_INTEGER)-(Number.isFinite(bt)?bt:Number.MAX_SAFE_INTEGER);
+      }
+      if(group.key==='delivery'||group.key==='preparing')
+        return sortSeverity(a)-sortSeverity(b)||byDue(a)-byDue(b);
+      return 0;
+    });
+    // Never tuck away offers, incidents, pending-arrival confirmation or
+    // imminent/overdue deadlines. Only routine overflow is collapsed.
+    const compact=['delivery','preparing'].includes(group.key)&&sorted.length>5;
+    const isVisible=(order,i)=>i<3||order.status==='ARRIVING'||Boolean(merchantOrderAttention(order));
+    const visible=compact?sorted.filter(isVisible):sorted;
+    const hidden=compact?sorted.filter((order,i)=>!isVisible(order,i)):[];
+    const overflow=hidden.length?
+      '<details class="merchant-order-queue-overflow"><summary>Ver mais '+hidden.length+
+      ' pedido(s) nesta etapa</summary><div class="merchant-order-queue-overflow-body">'+
+      hidden.map(merchantLiveOrder).join('')+'</div></details>':'';
     return '<section tabindex="-1" id="merchant-order-group-'+group.key+'" class="merchant-order-queue-group merchant-order-group-'+group.key+'">'+
       '<div class="merchant-order-queue-heading"><div><h3>'+esc(group.title)+'</h3><p>'+esc(group.hint)+'</p></div>'+
       '<span class="merchant-order-queue-count">'+sorted.length+'</span></div>'+
-      sorted.map(merchantLiveOrder).join('')+'</section>';
+      visible.map(merchantLiveOrder).join('')+overflow+'</section>';
   }).join('');
   return '<div class="merchant-order-queue" aria-label="Fila de pedidos da revenda">'+
     merchantOrderAttentionSummary(all)+
@@ -2067,8 +2111,13 @@ function merchantLiveOrder(o){
   let actions='';
 
   if(o.status==='OFFERED_TO_MERCHANT'){
-    const secs=o.offerExpiresAt?Math.max(0,Math.ceil((Date.parse(o.offerExpiresAt)-Date.now())/1000)):0;
-    actions=`<button class="primary small" onclick="merchantLiveAction('${o.orderId}','accept')">Aceitar pedido</button><button class="danger-btn small" onclick="merchantLiveAction('${o.orderId}','reject')">Não consigo atender</button><span class="tiny muted">Prazo ~${secs}s</span>`;
+    const expiration=o.offerExpiresAt?Date.parse(String(o.offerExpiresAt)):NaN;
+    const hasExpiration=Number.isFinite(expiration);
+    const expired=hasExpiration&&expiration<=Date.now();
+    const secs=hasExpiration?Math.max(0,Math.ceil((expiration-Date.now())/1000)):null;
+    actions=expired
+      ? '<strong class="merchant-offer-expired">Prazo desta oferta encerrado</strong><button type="button" class="secondary small" onclick="merchantLiveRefresh()">Atualizar pedidos</button>'
+      : `<button class="primary small" onclick="merchantLiveAction('${o.orderId}','accept')">Aceitar pedido</button><button class="danger-btn small" onclick="merchantLiveAction('${o.orderId}','reject')">Não consigo atender</button><span class="tiny muted">${secs===null?'Prazo não informado':'Prazo ~'+secs+'s'}</span>`;
   }else if(o.status==='MERCHANT_ACCEPTED'){
     actions='<span class="merchant-order-transition-note">Pedido aceito. A preparação será atualizada pelo sistema antes de liberar a saída.</span>';
   }else if(['PREPARING','AT_RISK'].includes(o.status)){
