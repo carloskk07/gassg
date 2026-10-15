@@ -1441,7 +1441,7 @@ function merchantQuickCatalogCandidates(rt){
     if(a.productCode==='P13'&&b.productCode!=='P13')return -1;
     if(b.productCode==='P13'&&a.productCode!=='P13')return 1;
     const empty=(Number(a.availableStock)===0?0:1)-(Number(b.availableStock)===0?0:1);
-    return empty||String(a.productCode).localeCompare(String(b.productCode),'pt-BR');
+    return empty; // Preserve the merchant's catalog order for other active products.
   }).slice(0,6);
 }
 function merchantQuickCatalogView(rt){
