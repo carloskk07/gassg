@@ -151,6 +151,15 @@ for f in $(find supabase/functions -mindepth 2 -maxdepth 2 -name 'index.ts' | so
       ! grep -q 'console.log' "$f" || { echo "$f must never log signing key"; exit 1; }
       grep -q '\[functions.merchant-push-vapid-setup\]' supabase/config.toml || { echo "$f missing Edge config"; exit 1; }
       ;;
+    supabase/functions/admin-push-reliability/index.ts)
+      grep -q 'auth.getUser' "$f" || { echo "$f missing JWT validation"; exit 1; }
+      grep -q 'platform_admins' "$f" || { echo "$f missing admin role check"; exit 1; }
+      grep -q 'admin_merchant_push_reliability_v1_294' "$f" || { echo "$f missing private aggregate RPC"; exit 1; }
+      grep -q 'raw.length>512' "$f" || { echo "$f missing body limit"; exit 1; }
+      grep -q 'ALLOWED_ORIGINS' "$f" || { echo "$f missing origin allowlist"; exit 1; }
+      ! grep -q 'console.log' "$f" || { echo "$f cannot log authentication"; exit 1; }
+      grep -q '\[functions.admin-push-reliability\]' supabase/config.toml || { echo "$f missing config"; exit 1; }
+      ;;
     supabase/functions/merchant-push-self-test/index.ts)
       grep -q 'auth.getUser' "$f" || { echo "$f missing Supabase Auth"; exit 1; }
       grep -q 'merchant_push_test_reserve' "$f" || { echo "$f missing device-specific test reservation"; exit 1; }
