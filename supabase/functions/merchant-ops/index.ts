@@ -117,7 +117,7 @@ Deno.serve(async(req:Request)=>{
     const merchantId=String(body.merchantId??"");
     const action=String(body.action??"");
     if(!UUID_RE.test(merchantId))throw new DomainError("INVALID_MERCHANT","Revenda inválida.",400);
-    if(!["ads-offer","ads-campaign","ads-interest","clube-interest","clube-terms","business-pulse","growth-network","enablement","heartbeat","set-online","update-product","catalog-history","update-logistics","update-capacity","update-scheduling","update-payment-methods","update-payment-routes","update-member-profile","request-billing-package","notify-billing-payment","notify-refund-recovery-payment","cancel-billing-request"].includes(action)){
+    if(!["ads-dossier","ads-offer","ads-campaign","ads-interest","clube-interest","clube-terms","business-pulse","growth-network","enablement","heartbeat","set-online","update-product","catalog-history","update-logistics","update-capacity","update-scheduling","update-payment-methods","update-payment-routes","update-member-profile","request-billing-package","notify-billing-payment","notify-refund-recovery-payment","cancel-billing-request"].includes(action)){
       throw new DomainError("INVALID_ACTION","Ação inválida.",400);
     }
 
@@ -134,6 +134,37 @@ Deno.serve(async(req:Request)=>{
     if(!membership)throw new DomainError("MERCHANT_ACCESS_DENIED","Você não possui acesso a esta revenda.",403);
 
     const role=membership.member_role;
+    if(action==="ads-dossier"){
+      if(!["owner","manager"].includes(String(role)))
+        throw new DomainError("MERCHANT_ACCESS_DENIED","Dossiê restrito à gestão da revenda.",403);
+      const operation=String(body.operation||"view");
+      if(!["view","reviewed","request_changes"].includes(operation))
+        throw new DomainError("ADS_DOSSIER_OPERATION_INVALID","Operação de revisão inválida.",400);
+      if(operation!=="view"&&(role!=="owner"||body.confirmed!==true||
+        !Number.isSafeInteger(body.expectedVersion)||body.expectedVersion<1||
+        !UUID_RE.test(String(body.requestId||""))))
+        throw new DomainError("ADS_DOSSIER_OWNER_REQUIRED","Somente o titular confirma a revisão.",403);
+      const {data,error}=await admin.rpc("merchant_ads_dossier_v1_311",{
+        p_actor:user.id,p_merchant:merchantId,p_action:operation,
+        p_expected_version:operation==="view"?null:body.expectedVersion,
+        p_confirmed:operation==="view"?false:true,
+        p_request:operation==="view"?null:body.requestId
+      });
+      if(error)throw error;
+      if(data?.source!=="merchant_ads_dossier_v1_311"||data.merchantId!==merchantId||
+         data.noCharge!==true||data.adsLive!==false||data.contractSigned!==false||
+         data.paymentRequestCreated!==false||
+         (operation==="view"?(data.readOnly!==true||data.reviewOnly!==true||
+           (data.dossier!==null&&(!Number.isSafeInteger(data.dossier.version)||
+            data.dossier.version<1||!Number.isSafeInteger(data.dossier.priceCents)||
+            !Number.isSafeInteger(data.dossier.dueDays)||
+            typeof data.dossier.serviceScope!=="string"||
+            !["shared_for_review","changes_requested","reviewed"].includes(data.dossier.status))):
+           (data.recorded!==true||data.status!==operation||
+            !Number.isSafeInteger(data.version)||data.version<1)))
+        throw new DomainError("ADS_DOSSIER_RESPONSE_UNVERIFIED","Resposta não confirmada.",503);
+      return json(data,200,origin);
+    }
     if(action==="ads-offer"){
       if(!["owner","manager"].includes(String(role)))
         throw new DomainError("MERCHANT_ACCESS_DENIED","Oferta comercial restrita ao titular e gerência.",403);
