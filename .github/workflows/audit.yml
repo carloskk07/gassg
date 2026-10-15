@@ -325,6 +325,8 @@ jobs:
         run: node tests/ads-contract-dossier-v1-311.mjs
       - name: Test V1.312 immutable Ads instrument and authenticated acceptance
         run: node tests/ads-electronic-acceptance-v1-312.mjs
+      - name: Test V1.313 segregated Ads receivables and unverified reporting
+        run: node tests/ads-receivables-v1-313.mjs
       - name: TAMÃO V1.258 founder-approved orphan deletion with immutable audit
         run: node tests/owner-receipt-orphan-cleanup-v1-258.mjs
       - name: Turnstile smoke Chrome cleanup V1.238.1
