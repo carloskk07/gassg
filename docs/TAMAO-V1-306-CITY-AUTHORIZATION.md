@@ -11,7 +11,7 @@ A tabela `market_cities` possuía `commerce_enabled`, mas a seleção server-sid
 - Painel administrativo exibe ações separadas **Autorizar/Suspender comércio** (superadmin) e **Pausar/Retirar pausa** (superadmin ou operações). Operações e leitura não recebem botão de abertura. Confirmação e justificativa são obrigatórias.
 
 ## Efeitos práticos
-- Desabilitar o comércio da cidade impede **novas ofertas/cotações elegíveis** por esse caminho, mesmo que o modo global esteja PILOT/LIVE. Não cancela pedidos antigos.
+- Desabilitar o comércio da cidade impede **novas ofertas/cotações elegíveis** e também a conversão de cotações antigas em novos pedidos pelo checkout oficial V8. A decisão não cancela pedidos já criados; repetição idempotente de um pedido confirmado continua consultável.
 - Autorizar a cidade, por si só, não altera modo global, habilitação financeira, preços ou status de revendas; pedidos só podem ocorrer se todos os demais requisitos continuarem verdadeiros.
 - Não modifica São Gabriel/RS automaticamente. Quando houver revenda apta, cabe ao administrador principal decidir a abertura.
 - Indicações e cadastramento de interessados de outras cidades permanecem possíveis sem liberar venda antecipadamente.
