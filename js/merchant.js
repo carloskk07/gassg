@@ -1424,6 +1424,57 @@ async function merchantEnablementRecheck(){
 }
 
 
+// V1.276 — one prominent daily availability control, using existing protected operations.
+function merchantAvailabilityGo(key){
+  const rt=globalThis.merchantRuntime||{};
+  if(!['owner','manager'].includes(String(rt.merchant?.memberRole||'')))return false;
+  if(key==='stock'){go('catalog');return true;}
+  if(key!=='delivery')return false;
+  const opened=merchantRevealControl('#live-delivery-fee');
+  if(!opened)toast('Atualize o painel para acessar as entregas.');
+  return opened;
+}
+function merchantAvailabilityPanel(rt,options){
+  const m=rt?.merchant||{};
+  const role=String(m.memberRole||'');
+  if(!['owner','manager','operator'].includes(role))return '';
+  const manager=['owner','manager'].includes(role);
+  const on=m.online===true;
+  const pending=rt.actionPending===true;
+  const blocked=!on&&options.canGoOnline!==true;
+  const status=on?(options.connectionHealthy?'Recebendo novas ofertas':'Conexão sem confirmação recente'):'Novas ofertas pausadas';
+  const help=on?
+    (options.connectionHealthy?'Sua revenda está marcada como online. Novas ofertas ainda dependem das regras do sistema.':'Confira a conexão antes de confiar no recebimento de novas ofertas.'):
+    'Enquanto estiver pausada, a revenda não recebe novas ofertas. Os pedidos já aceitos continuam disponíveis.';
+  const stock=Array.isArray(rt.catalog)?rt.catalog:[];
+  const offerable=stock.filter(item=>item?.active===true&&Number(item.availableStock)>0);
+  const p13=options.p13;
+  const p13Stock=p13&&Number.isInteger(Number(p13.availableStock))&&Number(p13.availableStock)>=0
+    ?String(Number(p13.availableStock)):'—';
+  const itemsInfo=offerable.length+' '+(offerable.length===1?'produto com estoque':'produtos com estoque');
+  const fee=Number(m.deliveryFeeCents);
+  const feeText=Number.isSafeInteger(fee)&&fee>=0?
+    BRL.format(fee/100):'Não informado';
+  const deliveryCopy=m.acceptsCitywide===false?'Atendimento na cidade desativado':
+    options.freshness?.deliveryFresh===false?'Taxa de entrega precisa de confirmação':'Taxa de entrega registrada';
+  const hint=blocked?
+    '<small class="merchant-availability-blocked">Antes de ficar online, confira produtos, entrega, pagamentos e a habilitação da revenda.</small>':'';
+  const button='<button id="merchant-online-toggle" type="button" class="'+(on?'danger-btn':'primary')+
+    ' merchant-availability-toggle" onclick="merchantLiveToggleOnline('+(on?'false':'true')+')"'+
+    (blocked||pending?' disabled':'')+'>'+(pending?'Atualizando…':on?'Pausar novos pedidos':'Ficar online')+'</button>';
+  return '<section class="merchant-availability" aria-label="Disponibilidade da revenda">'+
+    '<div class="merchant-availability-heading"><div><span class="section-kicker">SUA OPERAÇÃO AGORA</span>'+
+    '<h2>'+esc(status)+'</h2><p>'+esc(help)+'</p></div>'+button+'</div>'+
+    hint+'<div class="merchant-availability-stats">'+
+    '<div><span>Estoque P13</span><strong>'+esc(p13Stock)+'</strong><small>'+esc(itemsInfo)+'</small></div>'+
+    '<div><span>Entrega</span><strong>'+esc(feeText)+'</strong><small>'+esc(deliveryCopy)+'</small></div>'+
+    '<div><span>Pedidos na fila</span><strong>'+Number(options.orderCount||0)+'</strong>'+
+    '<small>Em andamento nesta operação</small></div></div>'+
+    (manager?'<div class="merchant-availability-actions">'+
+      '<button type="button" class="secondary small" onclick="merchantAvailabilityGo(\'stock\')">Ajustar estoque e preços</button>'+
+      '<button type="button" class="secondary small" onclick="merchantAvailabilityGo(\'delivery\')">Ajustar entregas</button></div>':'')+
+    '</section>';
+}
 function merchantLivePage(){
   const rt=globalThis.merchantRuntime||{};
   if(['disabled','loading'].includes(rt.status)){
@@ -1493,6 +1544,7 @@ function merchantLivePage(){
     <div class="status-bar"><div><div class="tiny muted">PAINEL REAL • ${esc(String(m.memberRole||'').toUpperCase())}</div><h1 class="page-title" style="margin-bottom:2px">${esc(m.name)}</h1></div><span class="status-pill ${m.online?(heartbeatFresh?'online':'risk'):'offline'}">${m.online?(heartbeatFresh?'● ONLINE':'● SEM CONEXÃO'):'OFFLINE'}</span></div>
 
     ${rt.error?`<div class="notice danger" style="margin-top:12px">${esc(rt.error)}</div>`:''}
+    ${merchantAvailabilityPanel(rt,{canGoOnline,connectionHealthy,financialHold,freshness,p13,orderCount:orders.length})}
     ${connectionNotice}
     ${complianceNotice}
     ${freshnessNotice}
@@ -1515,7 +1567,7 @@ function merchantLivePage(){
 
     <div class="card flat form-stack" style="margin-top:14px">
       ${memberships.length>1?`<div class="input-wrap"><label for="merchant-live-select">Operação</label><select id="merchant-live-select" class="input" onchange="merchantLiveSelect(this.value)">${memberships.map(x=>`<option value="${esc(x.merchantId)}" ${x.merchantId===m.merchantId?'selected':''}>${esc(x.name)} • ${esc(x.memberRole)}</option>`).join('')}</select></div>`:''}
-      <div class="order-actions"><button class="secondary small" onclick="merchantLiveRefresh()">Atualizar</button>${manage?'<button class="secondary small" onclick="merchantOpenTeam()">Equipe</button>':''}${operate?`<button id="merchant-online-toggle" class="${m.online?'danger-btn':'primary'} small" onclick="merchantLiveToggleOnline(${m.online?'false':'true'})" ${!m.online&&!canGoOnline?'disabled title="'+(financialHold?'Regularize o fechamento financeiro vencido antes de ficar online':'Regularize compliance, preços e logística antes de ficar online')+'"':''}>${m.online?'Pausar novos pedidos':'Ficar online'}</button>`:''}<button class="ghost small" onclick="merchantLiveLogout()">Sair</button></div>
+      <div class="order-actions"><button class="secondary small" onclick="merchantLiveRefresh()">Atualizar</button>${manage?'<button class="secondary small" onclick="merchantOpenTeam()">Equipe</button>':''}<button class="ghost small" onclick="merchantLiveLogout()">Sair</button></div>
     </div>
 
     <section class="section"><div class="merchant-kpis">
