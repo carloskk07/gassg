@@ -47,7 +47,7 @@ const ctx=vm.createContext({
  statusCopy:{},paymentLabel:()=> 'Pix',
  merchantScheduledDispatchState:()=>({scheduled:false,ready:true}),
  merchantDeliveryMemberLabel:()=> 'Responsável',
- merchantFormatPhone:v=>String(v)
+ merchantFormatPhone:v=>String(v),merchantDeliveryShortcuts:()=>''
 });
 vm.runInContext(['merchantDeliveryCandidates','merchantDeliveryUnassigned','merchantDeliveryAttentionView','merchantOrderEventDate','merchantOrderScheduleDate','merchantOrderProgressView','merchantOrderAttention','merchantOrderAttentionCard','merchantIncidentAdvice','merchantIncidentRiskGuide','merchantLiveOrder']
  .map(take).join('\n')+';this.candidates=merchantDeliveryCandidates;this.unassigned=merchantDeliveryUnassigned;this.attention=merchantDeliveryAttentionView;this.card=merchantLiveOrder;',ctx);
