@@ -3659,3 +3659,13 @@ body:has(.admin-page) .admin-nav-item:focus-visible{outline-offset:-3px}
 .admin-ads-plan-offer{border-top:1px solid var(--border,#ddd);margin-top:14px;padding-top:12px;display:flex;flex-wrap:wrap;gap:10px;align-items:center}
 .admin-ads-plan-offer p{flex-basis:100%;margin:0}
 @media(max-width:520px){.merchant-ads-offer .order-actions,.admin-ads-plan-offer{flex-direction:column;align-items:stretch}}
+
+/* V1.311 — contract-review dossiers, legible on mobile. */
+.admin-ads-dossier-fields{display:grid;gap:12px;margin:12px 0}
+.admin-ads-dossier-fields label{display:grid;gap:6px;font-weight:600;font-size:.89rem}
+.admin-ads-dossier-fields textarea,.admin-ads-dossier-fields input{font:inherit;box-sizing:border-box;width:100%;min-height:44px}
+.admin-ads-dossier-fields textarea{min-height:95px;resize:vertical}
+.merchant-ads-dossier .card{margin-top:12px}
+.merchant-ads-dossier .check-row{display:flex;align-items:flex-start;gap:10px;padding:8px 0}
+.merchant-ads-dossier .check-row input{flex:none;min-width:20px;min-height:20px}
+@media(max-width:520px){.merchant-ads-dossier .order-actions{display:flex;flex-direction:column;align-items:stretch}}
