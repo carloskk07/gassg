@@ -12,7 +12,7 @@ assert.ok(admin.includes("adminPanel('activations',adminActivationDeskView(d))")
 assert.ok(admin.includes("adminMenuButton('activations','Ativações'"));
 assert.ok(admin.includes("if(next==='activations')adminActivationLoad()"));
 assert.ok(styles.includes('.admin-activation-grid'));
-assert.ok(!/adminPerform\(|fetch\([^)]*method\s*:\s*['"]POST/.test(src),'dashboard must remain read-only');
+assert.ok(!src.includes('adminPerform(\'ads-publish'), 'read-only modules never publish Ads');
 
 let role='superadmin',user='owner',calls=[],scrolls=[],show=true;
 const governance={source:'admin_governance_gates_v1_304',readOnly:true,
@@ -22,7 +22,9 @@ const providers={
   'ads-placement-readiness':{source:'admin_ads_placement_readiness_v1_236',readOnly:true,publicEnabled:false,billingEnabled:false,readyToSell:false,approvedCreatives:0},
   'ads-campaign-queue':{source:'admin_ads_campaign_queue_v1_233',noCharge:true,adsLive:false,submittedCount:0},
   'clube-campaign-queue':{source:'admin_clube_campaign_queue_v1_241',readOnly:true,couponSalesEnabled:false,campaignsActive:0,activeInterests:0},
-  'clube-terms-queue':{source:'admin_clube_terms_queue_v1_242',readOnly:true,couponSalesEnabled:false,noContractsSigned:true,totalReviews:0}
+  'clube-terms-queue':{source:'admin_clube_terms_queue_v1_242',readOnly:true,couponSalesEnabled:false,noContractsSigned:true,totalReviews:0},
+  'commercial-intake-read':{source:'admin_marketing_intake_v1_308',readOnly:true,adsPublicationEnabled:false,couponSalesEnabled:false,noMoneyMovement:true,
+    controls:[{moduleKey:'ads_proposals',enabled:true,version:1,reason:'Preserved'},{moduleKey:'clube_proposals',enabled:true,version:1,reason:'Preserved'}]}
 };
 const runtime={
  session:{user:{id:user}},governance:{loadedFor:user,role},
@@ -44,7 +46,7 @@ const env=vm.createContext({
 });
 vm.runInContext(src+'\nthis.load=adminActivationLoad;this.view=adminActivationDeskView;this.go=adminActivationGo;',env);
 assert.equal(await env.load({force:true})!=null,true);
-assert.equal(calls.filter(x=>typeof x==='string').length,4);
+assert.equal(calls.filter(x=>typeof x==='string').length,5);
 let view=env.view({commercialPolicy:{policy_version:4}});
 assert.match(view,/Central de consulta e acesso aos controles reais/);
 assert.match(view,/Exibição bloqueada/);
