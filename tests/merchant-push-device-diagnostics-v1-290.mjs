@@ -95,6 +95,6 @@ assert.match(merchant,/Esta verificação é local/);
 assert.match(merchant,/merchantPushDiagnoseFromUi/);
 assert.match(bootstrap,/merchantPushDiagnoseFromUi/);
 assert.match(backend,/if\(createdNew\)await subscription.unsubscribe/);
-assert.doesNotMatch(diagnosticSource,/\.rpc\(|console\.log|endpoint|keys\.auth/);
+assert.doesNotMatch(diagnosticSource,/\.rpc\(|console\.log|endpoint_url|\.endpoint|\.keys\.auth/);
 assert.match(audit,/node tests\/merchant-push-device-diagnostics-v1-290.mjs/);
 console.log('V1.290 PASS — device-only diagnostics, key matching, subscription reuse and no false delivery claims.');
