@@ -19,7 +19,7 @@ for(const t of [
  "'approved_creative'","v_plan.version","p_expected_offer_version",
  "v_offer.version<>p_expected_version","interval '14 days'",
  'ADS_OFFER_IDEMPOTENCY_REUSE','ADS_OFFER_VERSION_CONFLICT',
- 'ADS_OFFER_CREATIVE_REVOKED',"v_offer.expires_at<=clock_timestamp()",
+ 'ADS_OFFER_CREATIVE_REVOKED','ADS_OFFER_PLAN_CHANGED',"v_offer.expires_at<=clock_timestamp()",
  "'nonBinding',true","'noCharge',true","'adsLive',false",
  "'paymentCreated',false","'contractSigned',false",
  'platform_admin_audit'
@@ -73,7 +73,7 @@ vm.runInContext(merchantCode+
 assert.equal((await ctx.loadOffer()).offer.status,'shared');
 assert.match(ctx.showOffer(rt.merchant),/99,00/);
 assert.match(ctx.showOffer(rt.merchant),/Tenho interesse nestas condições/);
-check=false;assert.equal(await ctx.respondOffer('interested'),undefined);
+check=false;assert.equal(await ctx.respondOffer('interested'),false);
 assert.equal(callLog.filter(c=>c.operation==='interested').length,0);
 check=true;accept=false;assert.equal(await ctx.respondOffer('interested'),false);
 accept=true;assert.equal(await ctx.respondOffer('interested'),true);
