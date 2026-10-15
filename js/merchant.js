@@ -1995,7 +1995,7 @@ function merchantAvailabilityPanel(rt,options){
     '</section>';
 }
 function merchantWorkspaceJump(area){
-  const keys={start:'merchant-workspace-start',growth:'merchant-workspace-growth',
+  const keys={orders:'merchant-live-orders',start:'merchant-workspace-start',growth:'merchant-workspace-growth',
     settings:'merchant-workspace-settings',finance:'merchant-workspace-finance'};
   const id=keys[String(area||'')];
   if(!id)return false;
@@ -2075,7 +2075,7 @@ function merchantLivePage(){
   return shell(`<section class="page merchant-workspace">
     <header class="merchant-workspace-header"><div><div class="tiny">PAINEL DE TRABALHO • ${esc(m.memberRole==='owner'?'RESPONSÁVEL':m.memberRole==='manager'?'GERÊNCIA':'OPERAÇÃO')}</div><h1 class="page-title">${esc(m.name)}</h1><small>Pedidos, disponibilidade e próximos passos. Tudo em um só lugar.</small></div><span class="status-pill ${m.online?(heartbeatFresh?'online':'risk'):'offline'}">${m.online?(heartbeatFresh?'● ONLINE':'● SEM CONEXÃO'):'OFFLINE'}</span></header>
     <nav class="merchant-workspace-shortcuts" aria-label="Acesso rápido ao trabalho da revenda">
-      <button type="button" class="merchant-workspace-shortcut is-primary" onclick="document.getElementById('merchant-live-orders')?.scrollIntoView({block:'start',behavior:'smooth'})"><span class="merchant-shortcut-icon" aria-hidden="true">📦</span><strong>Pedidos</strong><small>${orders.length} na fila de trabalho</small></button>
+      <button type="button" class="merchant-workspace-shortcut is-primary" onclick="merchantWorkspaceJump('orders')"><span class="merchant-shortcut-icon" aria-hidden="true">📦</span><strong>Pedidos</strong><small>${orders.length} na fila de trabalho</small></button>
       <button type="button" class="merchant-workspace-shortcut" onclick="merchantWorkspaceJump('start')"><span class="merchant-shortcut-icon" aria-hidden="true">✓</span><strong>${canGoOnline?'Produtos e entregas':'Comece por aqui'}</strong><small>${canGoOnline?'Ajustes do dia a dia':'Veja o que falta para vender'}</small></button>
       <button type="button" class="merchant-workspace-shortcut" onclick="merchantWorkspaceJump('finance')"><span class="merchant-shortcut-icon" aria-hidden="true">▥</span><strong>Resultados</strong><small>Vendas e financeiro</small></button>
       <button type="button" class="merchant-workspace-shortcut" onclick="merchantWorkspaceJump('settings')"><span class="merchant-shortcut-icon" aria-hidden="true">⚙</span><strong>Minha revenda</strong><small>Equipe, alertas e opções</small></button>
