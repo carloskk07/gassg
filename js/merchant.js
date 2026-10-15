@@ -1551,17 +1551,27 @@ function merchantQuickStockAdjust(productCode,change){
   return true;
 }
 // V1.280: audit records are loaded only on request and never edited by the browser.
+// V1.281: filter on the server, load older records on demand without losing current rows.
 function merchantCatalogHistoryView(rt){
   if(!['owner','manager'].includes(String(rt?.merchant?.memberRole||'')))return '';
   const merchantId=String(rt?.merchant?.merchantId||'');
   const state=globalThis.merchantCatalogHistoryState;
   const scoped=state?.merchantId===merchantId?state:null;
   const loading=scoped?.status==='loading';
-  const events=scoped?.status==='ready'&&Array.isArray(scoped.events)?scoped.events:[];
+  const paging=scoped?.status==='paging';
+  const busy=loading||paging;
+  const ready=scoped?.status==='ready'||paging;
+  const events=ready&&Array.isArray(scoped.events)?scoped.events:[];
+  const selected=String(scoped?.productCode||'');
+  const options=(Array.isArray(rt.catalog)?rt.catalog:[])
+    .filter(p=>/^[A-Z][A-Z0-9_]{1,31}$/.test(String(p?.productCode||'')))
+    .filter((p,i,arr)=>arr.findIndex(item=>item.productCode===p.productCode)===i)
+    .map(p=>'<option value="'+esc(p.productCode)+'"'+(selected===p.productCode?' selected':'')+'>'+
+      esc(p.productName||p.productCode)+'</option>').join('');
   const currency=value=>Number.isSafeInteger(Number(value))&&value!==null?
     BRL.format(Number(value)/100):'—';
   const qty=value=>Number.isSafeInteger(Number(value))&&value!==null?String(Number(value)):'—';
-  const list=events.slice(0,30).map(event=>{
+  const list=events.map(event=>{
     const date=Date.parse(String(event?.recordedAt||''));
     const when=Number.isFinite(date)?new Date(date).toLocaleString('pt-BR'):'Data não informada';
     const actorName=String(event?.actorName||'').trim();
@@ -1587,35 +1597,71 @@ function merchantCatalogHistoryView(rt){
   }).join('');
   const status=loading?'<p>Consultando registros confirmados…</p>':
     scoped?.status==='error'?'<p class="notice danger">'+esc(scoped.message||'Não foi possível consultar o histórico.')+'</p>':
-    scoped?.status==='ready'?(events.length?list+'<p class="tiny muted">Mostrando até 30 registros mais recentes.</p>':
-      '<p>Não há alterações registradas desde a ativação deste histórico.</p>'):
+    ready?(events.length?list+
+      '<p class="tiny muted">'+events.length+' registro(s) carregado(s), até 30 por página.</p>'+
+      (paging?'<p>Carregando registros anteriores…</p>':'')+
+      (!paging&&scoped?.hasMore?
+      '<button type="button" class="secondary small" onclick="merchantQuickHistoryLoad(true)">Ver alterações anteriores</button>':''):
+      '<p>Não há alterações registradas para esta seleção desde a ativação do histórico.</p>'):
     '<p>Consulte o histórico real de alterações confirmadas no banco, com responsável e valores anteriores.</p>';
   return '<details class="merchant-catalog-history"'+(scoped?' open':'')+'><summary>Histórico real de preços e estoque</summary>'+
     '<div class="merchant-catalog-history-content">'+
-    '<p class="tiny muted">Registros a partir da ativação desta funcionalidade. Não há reconstrução de alterações antigas.</p>'+
+    '<p class="tiny muted">Registros a partir da ativação desta funcionalidade. Alterações anteriores não foram reconstruídas.</p>'+
+    '<div class="merchant-catalog-history-toolbar">'+
+    '<label>Produto <select onchange="merchantQuickHistoryProductChanged(this.value)" aria-label="Filtrar histórico por produto">'+
+    '<option value="">Todos os produtos</option>'+options+'</select></label>'+
     '<button type="button" class="secondary small" onclick="merchantQuickHistoryLoad()"'+
-    (loading?' disabled':'')+'>'+(loading?'Consultando…':scoped?.status==='ready'?'Atualizar histórico':'Consultar histórico')+'</button>'+
+    (busy?' disabled':'')+'>'+(loading?'Consultando…':ready?'Atualizar histórico':'Consultar histórico')+'</button></div>'+
+    (scoped?.message&&ready?'<p class="notice danger">'+esc(scoped.message)+'</p>':'')+
     '<div class="merchant-catalog-history-rows" aria-live="polite">'+status+'</div></div></details>';
 }
-async function merchantQuickHistoryLoad(){
+function merchantQuickHistoryProductChanged(code){
+  const rt=globalThis.merchantRuntime||{};
+  const merchantId=String(rt.merchant?.merchantId||'');
+  if(rt.status!=='ready'||!merchantId||!['owner','manager'].includes(String(rt.merchant?.memberRole||'')))return;
+  const productCode=String(code||'').trim().toUpperCase();
+  if(productCode&&!(Array.isArray(rt.catalog)&&rt.catalog.some(p=>p.productCode===productCode)))return;
+  globalThis.merchantHistoryRequestId=(globalThis.merchantHistoryRequestId||0)+1;
+  globalThis.merchantCatalogHistoryState={merchantId,productCode,status:'idle',
+    events:[],hasMore:false,nextBeforeId:null};
+  return merchantQuickHistoryLoad();
+}
+async function merchantQuickHistoryLoad(more=false){
   const rt=globalThis.merchantRuntime||{};
   const merchantId=String(rt.merchant?.merchantId||'');
   if(rt.status!=='ready'||!merchantId||
      !['owner','manager'].includes(String(rt.merchant?.memberRole||'')))return;
-  if(globalThis.merchantCatalogHistoryState?.merchantId===merchantId&&
-     globalThis.merchantCatalogHistoryState.status==='loading')return;
-  globalThis.merchantCatalogHistoryState={merchantId,status:'loading',events:[]};
+  const previous=globalThis.merchantCatalogHistoryState?.merchantId===merchantId?
+    globalThis.merchantCatalogHistoryState:null;
+  if(previous?.status==='loading'||previous?.status==='paging')return;
+  const productCode=String(previous?.productCode||'');
+  if(more&&!(previous?.status==='ready'&&previous.hasMore&&
+    Number.isSafeInteger(previous.nextBeforeId)&&previous.nextBeforeId>0))return;
+  const beforeId=more?previous.nextBeforeId:null;
+  const retained=more&&Array.isArray(previous.events)?previous.events:[];
+  const requestId=(globalThis.merchantHistoryRequestId||0)+1;
+  globalThis.merchantHistoryRequestId=requestId;
+  globalThis.merchantCatalogHistoryState={merchantId,productCode,
+    status:more?'paging':'loading',events:retained,
+    hasMore:more,nextBeforeId:beforeId};
   if(typeof render==='function')render();
+  const stillCurrent=()=>globalThis.merchantHistoryRequestId===requestId&&
+    String(globalThis.merchantRuntime?.merchant?.merchantId||'')===merchantId&&
+    ['owner','manager'].includes(String(globalThis.merchantRuntime?.merchant?.memberRole||''))&&
+    globalThis.merchantCatalogHistoryState?.productCode===productCode;
   try{
-    const events=await merchantCatalogHistoryLive(merchantId);
-    if(String(globalThis.merchantRuntime?.merchant?.merchantId||'')!==merchantId)return;
-    globalThis.merchantCatalogHistoryState={merchantId,status:'ready',events};
+    const page=await merchantCatalogHistoryPageLive(merchantId,{productCode,beforeId});
+    if(!stillCurrent())return;
+    const events=more?retained.concat(page.events):page.events;
+    globalThis.merchantCatalogHistoryState={merchantId,productCode,status:'ready',
+      events,hasMore:page.hasMore,nextBeforeId:page.nextBeforeId};
   }catch(error){
-    if(String(globalThis.merchantRuntime?.merchant?.merchantId||'')!==merchantId)return;
-    globalThis.merchantCatalogHistoryState={merchantId,status:'error',events:[],
-      message:String(error?.message||'Não foi possível consultar o histórico.')};
+    if(!stillCurrent())return;
+    globalThis.merchantCatalogHistoryState={merchantId,productCode,
+      status:more?'ready':'error',events:retained,hasMore:Boolean(more),
+      nextBeforeId:beforeId,message:String(error?.message||'Não foi possível consultar o histórico.')};
   }finally{
-    if(String(globalThis.merchantRuntime?.merchant?.merchantId||'')===merchantId&&typeof render==='function')render();
+    if(stillCurrent()&&typeof render==='function')render();
   }
 }
 
