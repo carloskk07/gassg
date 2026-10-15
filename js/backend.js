@@ -1373,12 +1373,13 @@ function merchantDisableAlertsLive(){
 
 // V1.286 — Web Push is independent of the existing on-page alert preference.
 // Registration never silently occurs; a separate explicit user gesture is required.
-const merchantPushRuntime={checked:false,available:false,publicKey:null,subscribed:false,merchantId:null};
+const merchantPushRuntime={checked:false,checking:false,available:false,publicKey:null,subscribed:false,merchantId:null,testMode:true};
 function merchantPushStatus(){
   return {
     available:merchantPushRuntime.available===true,
     checked:merchantPushRuntime.checked===true,
     subscribed:merchantPushRuntime.subscribed===true,
+    testMode:merchantPushRuntime.testMode!==false,
     supported:typeof Notification!=='undefined'&&'serviceWorker' in navigator&&
       typeof PushManager!=='undefined'&&isSecureContext===true
   };
@@ -1389,10 +1390,12 @@ function merchantPushKeyBytes(base64url){
   return Uint8Array.from(bytes,char=>char.charCodeAt(0));
 }
 async function merchantPushCheckLive(){
+  if(merchantPushRuntime.checking)return false;
   if(!merchantReady()||!merchantRuntime.merchant?.merchantId){
     merchantPushRuntime.checked=false;merchantPushRuntime.available=false;
     merchantPushRuntime.subscribed=false;merchantPushRuntime.publicKey=null;return false;
   }
+  merchantPushRuntime.checking=true;
   const merchantId=String(merchantRuntime.merchant.merchantId);
   try{
     const result=await merchantInvoke('merchant-push-registration',{action:'config',merchantId});
@@ -1400,23 +1403,29 @@ async function merchantPushCheckLive(){
     merchantPushRuntime.checked=true;
     merchantPushRuntime.available=result?.available===true&&typeof result.publicKey==='string';
     merchantPushRuntime.publicKey=merchantPushRuntime.available?result.publicKey:null;
+    merchantPushRuntime.testMode=result?.testMode!==false;
     merchantPushRuntime.merchantId=merchantId;
     if(merchantPushRuntime.available&&merchantPushStatus().supported){
       const reg=await navigator.serviceWorker.ready;
+      if(!merchantReady()||String(merchantRuntime.merchant?.merchantId||'')!==merchantId)return false;
       merchantPushRuntime.subscribed=!!(await reg.pushManager.getSubscription());
     }else merchantPushRuntime.subscribed=false;
     render();return merchantPushRuntime.available;
   }catch{
-    merchantPushRuntime.checked=true;merchantPushRuntime.available=false;
-    merchantPushRuntime.publicKey=null;merchantPushRuntime.subscribed=false;
+    if(String(merchantRuntime.merchant?.merchantId||'')===merchantId){
+      merchantPushRuntime.checked=true;merchantPushRuntime.available=false;
+      merchantPushRuntime.publicKey=null;merchantPushRuntime.subscribed=false;
+    }
     return false;
+  }finally{
+    merchantPushRuntime.checking=false;
   }
 }
 async function merchantPushEnableLive(){
   if(!merchantReady()||!merchantRuntime.merchant?.merchantId)
     throw new Error('Entre na revenda antes de ativar o push.');
   if(!merchantPushRuntime.available||!merchantPushStatus().supported)
-    throw new Error('O envio push ainda não está disponível neste aparelho.');
+    throw new Error('O cadastro push não está disponível neste aparelho.');
   if(Notification.permission!=='granted'){
     const permission=await Notification.requestPermission();
     if(permission!=='granted')throw new Error('Permissão de notificação não concedida.');
@@ -1753,6 +1762,8 @@ async function merchantRefresh({silent=false,recoverSelection=true}={}){
     merchantRuntime.recoveryFailures=0;
     merchantRuntime.nextRecoveryAt=0;
     merchantRuntime.lastSyncAt=new Date().toISOString();
+    if(!merchantPushRuntime.checked&&!merchantPushRuntime.checking)
+      queueMicrotask(()=>merchantPushCheckLive().catch(()=>{}));
     if(['owner','manager'].includes(String(merchantRuntime.merchant?.memberRole||''))&&!merchantRuntime.enablementFetchedAt)
       queueMicrotask(()=>merchantLoadEnablement().catch(()=>{}));
     return data;
