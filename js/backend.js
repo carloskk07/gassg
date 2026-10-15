@@ -1373,13 +1373,15 @@ function merchantDisableAlertsLive(){
 
 // V1.286 — Web Push is independent of the existing on-page alert preference.
 // Registration never silently occurs; a separate explicit user gesture is required.
-const merchantPushRuntime={checked:false,checking:false,available:false,publicKey:null,subscribed:false,merchantId:null,testMode:true,diagnostic:null};
+const merchantPushRuntime={checked:false,checking:false,available:false,publicKey:null,subscribed:false,merchantId:null,testMode:true,diagnostic:null,testPending:false,testResult:null};
 function merchantPushStatus(){
   return {
     available:merchantPushRuntime.available===true,
     checked:merchantPushRuntime.checked===true,
     subscribed:merchantPushRuntime.subscribed===true,
     testMode:merchantPushRuntime.testMode!==false,
+    testPending:merchantPushRuntime.testPending===true,
+    testResult:merchantPushRuntime.testResult&&merchantPushRuntime.testResult.merchantId===String(merchantRuntime.merchant?.merchantId||'')&&merchantPushRuntime.testResult.userId===String(merchantRuntime.session?.user?.id||'')?merchantPushRuntime.testResult:null,
     diagnostic:merchantPushRuntime.diagnostic&&merchantPushRuntime.diagnostic.merchantId===String(merchantRuntime.merchant?.merchantId||'')?merchantPushRuntime.diagnostic:null,
     supported:typeof Notification!=='undefined'&&'serviceWorker' in navigator&&
       typeof PushManager!=='undefined'&&isSecureContext===true
@@ -1504,6 +1506,42 @@ async function merchantPushEnableLive(){
     if(createdNew)await subscription.unsubscribe().catch(()=>{});
     merchantPushRuntime.subscribed=!createdNew;
     throw error;
+  }
+}
+// V1.291: manual one-device test. It never changes an order or enables Cron.
+async function merchantPushSelfTestLive(){
+  if(merchantPushRuntime.testPending)
+    throw new Error('Um teste de notificação já está em andamento.');
+  const merchantId=String(merchantRuntime.merchant?.merchantId||'');
+  const userId=String(merchantRuntime.session?.user?.id||'');
+  if(!merchantReady()||!merchantId||!userId||!merchantPushRuntime.subscribed||
+     !merchantPushStatus().supported||Notification.permission!=='granted')
+    throw new Error('Cadastre e autorize as notificações deste aparelho antes de testar.');
+  merchantPushRuntime.testPending=true;
+  merchantPushRuntime.testResult=null;
+  render();
+  try{
+    const reg=await navigator.serviceWorker.getRegistration('./');
+    const subscription=await reg?.pushManager?.getSubscription();
+    if(!subscription?.endpoint)
+      throw new Error('A inscrição push não foi encontrada neste navegador.');
+    const result=await merchantInvoke('merchant-push-self-test',{
+      action:'send-self-test',merchantId,endpoint:subscription.endpoint
+    });
+    if(!merchantReady()||String(merchantRuntime.merchant?.merchantId||'')!==merchantId||
+       String(merchantRuntime.session?.user?.id||'')!==userId)
+      return false;
+    const accepted=result?.providerAccepted===true;
+    merchantPushRuntime.testResult={
+      merchantId,userId,providerAccepted:accepted,
+      state:String(result?.state||'unknown'),
+      checkedAt:new Date().toISOString()
+    };
+    render();
+    return accepted;
+  }finally{
+    merchantPushRuntime.testPending=false;
+    render();
   }
 }
 async function merchantPushDisableLive(){
@@ -2668,6 +2706,7 @@ globalThis.merchantPushStatus=merchantPushStatus;
 globalThis.merchantPushDiagnoseLive=merchantPushDiagnoseLive;
 globalThis.merchantPushCheckLive=merchantPushCheckLive;
 globalThis.merchantPushEnableLive=merchantPushEnableLive;
+globalThis.merchantPushSelfTestLive=merchantPushSelfTestLive;
 globalThis.merchantPushDisableLive=merchantPushDisableLive;
 globalThis.merchantEnableAlertsLive=merchantEnableAlertsLive;
 globalThis.merchantDisableAlertsLive=merchantDisableAlertsLive;
