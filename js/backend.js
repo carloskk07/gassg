@@ -1505,7 +1505,7 @@ async function merchantPushDiagnoseServerLive(){
           reportedNotSeen:count('reportedNotSeen'),reportedWarning:count('reportedWarning'),
           latestState:states.includes(raw.latestState)?raw.latestState:null,
           latestFailureCode:codes.includes(raw.latestFailureCode)?raw.latestFailureCode:null,
-          latestReport:['seen','not_seen'].includes(raw.latestReport)?raw.latestReport:null,
+          latestReport:['seen','not_seen','spam_warning'].includes(raw.latestReport)?raw.latestReport:null,
           checkedAt:new Date().toISOString()
         };
       }
