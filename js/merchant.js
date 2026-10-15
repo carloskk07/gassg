@@ -2069,6 +2069,35 @@ function merchantDeliveryShortcuts(o){
   return route||call?'<div class="merchant-delivery-shortcuts" aria-label="Atalhos da entrega">'+
     route+call+'</div>':'';
 }
+// V1.275: local form readiness only; the server still validates PIN, payment and order version.
+function merchantDeliveryConfirmationState(id){
+  const key=String(id||'');
+  if(!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(key))
+    return {pin:'',paid:false,pinReady:false,ready:false};
+  const pin=String(document.getElementById('live-pin-'+key)?.value||'').trim();
+  const paid=document.getElementById('live-paid-'+key)?.checked===true;
+  const pinReady=/^[0-9]{4}$/.test(pin);
+  return {pin,paid,pinReady,ready:pinReady&&paid};
+}
+function merchantDeliveryConfirmationChanged(id){
+  const key=String(id||'');
+  if(!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(key))return false;
+  const pinEl=document.getElementById('live-pin-'+key);
+  if(pinEl){
+    const cleaned=String(pinEl.value||'').replace(/[^0-9]/g,'').slice(0,4);
+    if(pinEl.value!==cleaned)pinEl.value=cleaned;
+  }
+  const current=merchantDeliveryConfirmationState(key);
+  const button=document.getElementById('live-deliver-submit-'+key);
+  if(button)button.disabled=!current.ready||globalThis.merchantRuntime?.actionPending===true;
+  const guide=document.getElementById('live-delivery-guide-'+key);
+  if(guide)guide.textContent=!current.paid&&!current.pinReady
+    ?'Confirme o recebimento e digite o PIN de 4 dígitos informado pelo cliente.'
+    :!current.paid?'Marque pagamento recebido somente se o valor tiver sido recebido.'
+    :!current.pinReady?'Digite os 4 números do PIN informado pelo cliente.'
+    :'Dados preenchidos. Confira o pedido e toque em Confirmar entrega.';
+  return current.ready;
+}
 function merchantLiveOrder(o){
   const items=(o.items||[]).map(i=>`${Number(i.quantity)}× ${esc(i.productName||i.productCode||'Item')}`).join(' • ');
   const total=BRL.format(Number(o.totalCents||0)/100);
@@ -2150,7 +2179,15 @@ function merchantLiveOrder(o){
   }else if(o.status==='OUT_FOR_DELIVERY'){
     actions=`<button class="secondary small" onclick="merchantLiveAction('${o.orderId}','arriving')">Estou chegando</button>`;
   }else if(o.status==='ARRIVING'){
-    actions=`<label class="sr-only" for="live-pin-${o.orderId}">PIN de entrega</label><input id="live-pin-${o.orderId}" inputmode="numeric" maxlength="4" class="input pin-input" placeholder="PIN"><label class="check-row"><input id="live-paid-${o.orderId}" type="checkbox"><span><strong>Pagamento recebido</strong><small>Obrigatório para liquidar o pedido.</small></span></label><button class="primary small" onclick="merchantLiveDeliver('${o.orderId}')">Confirmar entrega</button>`;
+    actions=`<div class="merchant-delivery-completion" aria-label="Conferir e concluir entrega">
+      <strong class="merchant-delivery-completion-title">Conferir entrega</strong>
+      <label class="check-row merchant-delivery-payment"><input id="live-paid-${o.orderId}" type="checkbox" onchange="merchantDeliveryConfirmationChanged('${o.orderId}')"><span><strong>Pagamento recebido</strong><small>Marque apenas depois de conferir que recebeu o pagamento.</small></span></label>
+      <div class="input-wrap merchant-delivery-pin"><label for="live-pin-${o.orderId}">PIN informado pelo cliente</label>
+        <input id="live-pin-${o.orderId}" type="text" inputmode="numeric" autocomplete="off" pattern="[0-9]{4}" maxlength="4" class="input pin-input" placeholder="4 dígitos" aria-describedby="live-delivery-guide-${o.orderId}" oninput="merchantDeliveryConfirmationChanged('${o.orderId}')">
+        <small>O código será verificado pelo sistema ao confirmar.</small></div>
+      <div id="live-delivery-guide-${o.orderId}" class="merchant-delivery-confirmation-guide" aria-live="polite">Confirme o recebimento e digite o PIN de 4 dígitos informado pelo cliente.</div>
+      <button type="button" id="live-deliver-submit-${o.orderId}" class="primary merchant-delivery-submit" disabled onclick="merchantLiveDeliver('${o.orderId}')">Confirmar entrega</button>
+    </div>`;
   }
 
   return `<article tabindex="-1" class="order-card ${o.status==='OFFERED_TO_MERCHANT'?'new':''}" id="merchant-order-card-${esc(o.orderId)}">
@@ -2557,9 +2594,16 @@ async function merchantLiveCannotFulfill(id){
 }
 async function merchantLiveDeliver(id){
   if(globalThis.merchantRuntime?.actionPending===true)return;
-  const pin=document.getElementById('live-pin-'+id)?.value.trim()||'';
-  const paid=document.getElementById('live-paid-'+id)?.checked===true;
-  try{await merchantCompleteDeliveryLive(id,pin,paid);toast('Entrega e pagamento confirmados')}catch(e){toast(String(e?.message||e))}
+  const state=merchantDeliveryConfirmationState(id);
+  if(!state.paid){
+    document.getElementById('live-paid-'+id)?.focus?.();
+    return toast('Confirme o recebimento do pagamento antes de concluir.');
+  }
+  if(!state.pinReady){
+    document.getElementById('live-pin-'+id)?.focus?.();
+    return toast('Informe os 4 dígitos do PIN do cliente.');
+  }
+  try{await merchantCompleteDeliveryLive(id,state.pin,true);toast('Entrega e pagamento confirmados')}catch(e){toast(String(e?.message||e))}
 }
 async function merchantLiveLogout(){
   await merchantSignOut();toast('Sessão encerrada');
