@@ -1458,7 +1458,7 @@ function merchantQuickCatalogChanged(productCode){
   const unchanged=priceDraft===(Number(item.priceCents)/100).toFixed(2)&&
     stockDraft===String(Number(item.availableStock));
   if(unchanged)merchantQuickDrafts.delete(key);
-  else merchantQuickDrafts.set(key,{version:merchantQuickCatalogVersion(item),price:priceDraft,stock:stockDraft});
+  else merchantQuickDrafts.set(key,{version:merchantQuickCatalogVersion(item),price:priceDraft,quantity:stockDraft});
   const note=document.getElementById('merchant-quick-feedback-'+code);
   if(note)note.textContent=unchanged?'Os valores correspondem aos dados registrados.':
     'Alterações ainda não salvas. Confira os valores e toque em Salvar alterações.';
@@ -1579,7 +1579,7 @@ function merchantQuickCatalogView(rt){
       esc(draft?draft.price:(Number(p.priceCents)/100).toFixed(2))+'"></div>'+
       '<div class="merchant-quick-field"><label for="merchant-quick-stock-'+code+'">Em estoque</label>'+
       '<input id="merchant-quick-stock-'+code+'" class="input merchant-quick-stock" type="number" inputmode="numeric" min="0" max="100000" step="1" aria-describedby="merchant-quick-feedback-'+code+'" oninput="merchantQuickCatalogChanged(\''+code+'\')" value="'+
-      esc(draft?draft.stock:String(Number(p.availableStock)))+'"></div>'+
+      esc(draft?draft.quantity:String(Number(p.availableStock)))+'"></div>'+
       '<div class="merchant-quick-stepper" aria-label="Ajustar estoque de '+esc(p.productName||code)+'">'+
         '<button type="button" aria-label="Retirar uma unidade do estoque de '+esc(p.productName||code)+'" onclick="merchantQuickStockAdjust(\''+code+'\',-1)">−1</button>'+
         '<button type="button" aria-label="Adicionar uma unidade ao estoque de '+esc(p.productName||code)+'" onclick="merchantQuickStockAdjust(\''+code+'\',1)">+1</button>'+
