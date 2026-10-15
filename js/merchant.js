@@ -3929,8 +3929,9 @@ async function merchantAdsOfferRespond(operation){
    !['interested','declined'].includes(operation))return false;
  const offer=rt.adsOffer?.merchantId===merchantId&&rt.adsOffer?.readOnly===true?rt.adsOffer.offer:null;
  if(!offer||offer.status!=='shared'||offer.expired||!Number.isSafeInteger(offer.version))return false;
- if(document.getElementById('ads-offer-consent')?.checked!==true)
-   return toast('Confirme que leu a proposta e que deseja responder.');
+ if(document.getElementById('ads-offer-consent')?.checked!==true){
+   toast('Confirme que leu a proposta e que deseja responder.');return false;
+ }
  if(!confirm('Registrar sua manifestação de '+(operation==='interested'?'interesse':'não interesse')+
    '? Isto não é contrato, compra, pagamento ou autorização de publicação.'))return false;
  rt.adsOfferBusy=true;render();
