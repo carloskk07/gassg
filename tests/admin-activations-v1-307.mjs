@@ -32,7 +32,10 @@ const providers={
   'ads-dossiers-read':{source:'admin_ads_dossiers_v1_311',readOnly:true,noCharge:true,adsLive:false,
     contractsSigned:0,revenueCents:0,paymentRequestsCreated:0,totalDossiers:0,rows:[]},
   'ads-instruments-read':{source:'admin_ads_instruments_v1_312',readOnly:true,noCharge:true,adsLive:false,
-    paymentRequestsCreated:0,deliveryVerified:false,notIcpCertified:true,totalInstruments:0,rows:[]}
+    paymentRequestsCreated:0,deliveryVerified:false,notIcpCertified:true,totalInstruments:0,rows:[]},
+  'ads-receivables-read':{source:'admin_ads_receivables_v1_313',readOnly:true,
+    verifiedPayments:0,collectedRevenueCents:0,pspChargeCreated:false,adsLive:false,
+    merchantBillingSeparate:true,totalReceivables:0,issuedReceivables:0,unverifiedReports:0,rows:[]}
 };
 const runtime={
  session:{user:{id:user}},governance:{loadedFor:user,role},
@@ -54,7 +57,7 @@ const env=vm.createContext({
 });
 vm.runInContext(src+'\nthis.load=adminActivationLoad;this.view=adminActivationDeskView;this.go=adminActivationGo;',env);
 assert.equal(await env.load({force:true})!=null,true);
-assert.equal(calls.filter(x=>typeof x==='string').length,9);
+assert.equal(calls.filter(x=>typeof x==='string').length,10);
 let view=env.view({commercialPolicy:{policy_version:4}});
 assert.match(view,/Central de consulta e acesso aos controles reais/);
 assert.match(view,/Exibição bloqueada/);

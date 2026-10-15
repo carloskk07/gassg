@@ -3679,3 +3679,10 @@ body:has(.admin-page) .admin-nav-item:focus-visible{outline-offset:-3px}
 .merchant-ads-instrument .check-row{display:flex;gap:10px;align-items:flex-start;padding:12px 0}
 .merchant-ads-instrument .check-row input{flex:none;min-width:22px;min-height:22px}
 .merchant-ads-instrument #ads-sign-phrase{min-height:44px;max-width:180px;font:inherit}
+
+/* V1.313 — transparent, mobile-readable TAMÃO Ads receivables. */
+.admin-ads-receivables code,.merchant-ads-receivable code{overflow-wrap:anywhere;word-break:break-all}
+.merchant-ads-receivable .card{margin-top:12px}
+.merchant-ads-receivable .form-stack{margin-top:12px}
+.merchant-ads-receivable .input{min-height:44px;width:100%;box-sizing:border-box}
+@media(max-width:520px){.admin-ads-receivables button,.merchant-ads-receivable button{width:100%;min-height:44px}}
