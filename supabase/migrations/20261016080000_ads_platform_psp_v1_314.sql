@@ -164,22 +164,22 @@ begin
    if v_c.status not in ('checkout_ready','payment_approved','payment_reversed') or
      v_c.collector_id is null or p_payment_data is null or
      jsonb_typeof(p_payment_data)<>'object' or
-     p_payment_data->>'external_reference'<>v_reference or
-     p_payment_data->>'currency_id'<>'BRL' or
-     p_payment_data->>'collector_id'<>v_c.collector_id or
-     p_payment_data->>'amount_cents'<>v_c.amount_cents::text
+     p_payment_data->>'external_reference' is distinct from v_reference or
+     p_payment_data->>'currency_id' is distinct from 'BRL' or
+     p_payment_data->>'collector_id' is distinct from v_c.collector_id or
+     p_payment_data->>'amount_cents' is distinct from v_c.amount_cents::text
    then raise exception 'ADS_PSP_PAYMENT_EVIDENCE_MISMATCH' using errcode='40001';end if;
    v_payment_id:=p_payment_data->>'payment_id';
    v_payment_status:=p_payment_data->>'status';
    v_detail:=p_payment_data->>'status_detail';
    if v_payment_id is null or v_payment_id !~ '^[0-9]{5,30}$' or
-      v_payment_status not in ('approved','refunded','charged_back')
+      coalesce(v_payment_status,'') not in ('approved','refunded','charged_back')
    then raise exception 'ADS_PSP_PAYMENT_NOT_SETTLED' using errcode='40001';end if;
    if v_c.payment_id is not null and v_c.payment_id<>v_payment_id
    then raise exception 'ADS_PSP_DIFFERENT_PAYMENT_ID' using errcode='40001';end if;
    if p_operation='verify' then
-    if v_c.status<>'checkout_ready' or v_payment_status<>'approved'
-     or v_detail not in ('accredited')
+    if v_c.status<>'checkout_ready' or v_payment_status is distinct from 'approved'
+     or v_detail is distinct from 'accredited'
     then raise exception 'ADS_PSP_APPROVAL_NOT_PROVEN' using errcode='40001';end if;
     v_status:='payment_approved';
     update public.platform_ads_psp_checkouts_v1_314 set
@@ -189,7 +189,7 @@ begin
      updated_at=clock_timestamp() where merchant_id=p_merchant
      returning version into v_version;
    else
-    if v_c.status not in ('payment_approved','payment_reversed')
+    if v_c.status<>'payment_approved'
      or (v_payment_status not in ('refunded','charged_back') and
       not (v_payment_status='approved' and v_detail='partially_refunded'))
     then raise exception 'ADS_PSP_REVERSAL_NOT_PROVEN' using errcode='40001';end if;
