@@ -3615,3 +3615,15 @@ body:has(.admin-page) .admin-nav-item:focus-visible{outline-offset:-3px}
 @media(prefers-reduced-motion:reduce){
  .admin-launch-meter>div{transition:none}
 }
+
+/* V1.306: city commercial authorization distinct from emergency pause. */
+.admin-governance-city-actions{display:flex;align-items:center;justify-content:flex-end;gap:8px;flex-wrap:wrap}
+.admin-governance-city-actions button{min-height:42px;white-space:normal;text-align:center}
+.admin-governance-city-actions .primary{border-radius:12px;min-width:135px}
+.admin-governance-city-actions .secondary{border-radius:12px}
+.admin-governance-city>div:first-child{min-width:0;overflow-wrap:anywhere}
+@media(max-width:660px){
+  .admin-governance-city{align-items:stretch;flex-direction:column;gap:12px}
+  .admin-governance-city-actions{justify-content:stretch}
+  .admin-governance-city-actions button{flex:1 1 145px}
+}
