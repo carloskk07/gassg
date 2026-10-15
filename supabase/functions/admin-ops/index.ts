@@ -4885,6 +4885,13 @@ Deno.serve(async(req:Request)=>{
           !Number.isSafeInteger(item.receivable.version)||!Number.isSafeInteger(item.amountCents)||
           item.amountCents<1000)
           throw new DomainError("ADS_PSP_STATEMENT_NOT_ISSUED","Emita primeiro o demonstrativo comercial.",409);
+        // Expire the external payment preference at the contracted local due date.
+        // A stale checkout must never remain indefinitely payable via a copied link.
+        const expiresAt=new Date(String(item.receivable.dueDate||"")+"T23:59:59-03:00");
+        if(!Number.isFinite(expiresAt.getTime())||expiresAt.getTime()<=Date.now()){
+          throw new DomainError("ADS_PSP_DUE_DATE_INVALID",
+            "Vencimento do demonstrativo incompatível com a criação do checkout.",409);
+        }
         const requestId=uuid(body.requestId,"requestId");
         const reserved=await admin.rpc("admin_ads_psp_action_v1_314",{
           p_actor:user.id,p_merchant:merchantId,p_operation:"reserve",
@@ -4903,13 +4910,6 @@ Deno.serve(async(req:Request)=>{
           snapshot.checkout.externalReference!==reserved.data.externalReference||
           snapshot.checkout.amountCents!==item.amountCents)
           throw new DomainError("ADS_PSP_RESERVATION_READBACK_FAILED","Reserva gravada, sem autorização para envio ao provedor.",503);
-        // Expire the external payment preference at the contracted local due date.
-        // A stale checkout must never remain indefinitely payable via a copied link.
-        const expiresAt=new Date(String(item.receivable.dueDate||"")+"T23:59:59-03:00");
-        if(!Number.isFinite(expiresAt.getTime())||expiresAt.getTime()<=Date.now()){
-          throw new DomainError("ADS_PSP_DUE_DATE_INVALID",
-            "Vencimento do demonstrativo incompatível com a criação do checkout.",409);
-        }
         let preference:any;
         try{
           const response=await mercadoPagoFetch("/checkout/preferences",{
