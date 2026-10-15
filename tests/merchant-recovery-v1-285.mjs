@@ -82,7 +82,7 @@ await poll();
 assert.equal(events.filter(x=>x==='refresh').length,queriesAfterRecovery+1,
   'explicit alerts permit bounded background tab check');
 doc.visibilityState='visible';
-clock+=3000;
+clock+=11000; // Foreground wake only forces a check once the last snapshot is stale.
 await wake('visible');
 assert.equal(events.filter(x=>x==='refresh').length,queriesAfterRecovery+2,'foreground resync');
 await wake('visible');
