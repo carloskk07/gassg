@@ -2864,7 +2864,7 @@ async function merchantEnableAlertsFromUi(){
 }
 async function merchantPushDiagnoseFromUi(){
   try{
-    await globalThis.merchantPushDiagnoseLive();
+    await globalThis.merchantPushDiagnoseServerLive();
   }catch(e){toast(String(e?.message||e))}
 }
 async function merchantPushEnableFromUi(){
