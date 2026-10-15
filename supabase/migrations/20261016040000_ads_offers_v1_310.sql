@@ -172,6 +172,11 @@ begin
   if not found or v_offer.status<>'shared' or v_offer.version<>p_expected_version
     or v_offer.expires_at<=clock_timestamp()
   then raise exception 'ADS_OFFER_NOT_AVAILABLE' using errcode='40001';end if;
+  perform 1 from public.platform_ads_sales_plans_v1_309 p
+   where p.merchant_id=p_merchant and p.version=v_offer.plan_version
+     and p.stage='ready_for_contact' and p.creative_version=v_offer.creative_version
+     and p.price_cents=v_offer.price_cents and p.duration_days=v_offer.duration_days;
+  if not found then raise exception 'ADS_OFFER_PLAN_CHANGED' using errcode='40001';end if;
   perform 1 from public.merchant_ads_campaigns_v1_233 c
    where c.merchant_id=p_merchant and c.version=v_offer.creative_version
      and c.status='approved_creative' and c.ads_live=false and c.no_charge=true;
