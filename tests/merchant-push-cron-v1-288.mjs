@@ -36,7 +36,7 @@ assert.match(worker,/admin\.rpc\("merchant_push_cron_authorize"/);
 assert.match(worker,/data===true/);
 assert.match(worker,/body\?\.source!=="supabase_cron_v1_288"/);
 assert.match(worker,/CRON_AUTH_DENIED/);
-assert.match(worker,/if\(!senderConfigured\(\)\)/);
+assert.ok(worker.includes('if(!credentials)'),'V1.289 keeps fail-closed Vault sender');
 assert.match(worker,/source="github_oidc"/);
 assert.match(worker,/source="supabase_cron"/);
 assert.match(worker,/verifyGithubOidc\(bearer\.slice\(7\)\)/);
