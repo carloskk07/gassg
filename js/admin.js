@@ -5478,6 +5478,49 @@ async function adminGovernanceChangeCityPause(index){
     return true;
   }catch(error){toast(String(error?.message||error));return false;}
 }
+// V1.306 — founder authorization only. The city is identified by the
+// authenticated, server-produced list index, never interpolated user content.
+async function adminGovernanceChangeCityCommerce(index){
+  if(!adminReady()||adminCurrentRole()!=='superadmin')return false;
+  const report=adminRuntime.governance?.data;
+  const row=Number.isInteger(index)&&index>=0&&index<200?report?.cities?.[index]:null;
+  if(!row||report?.controls?.cityCommerce!==true)return false;
+  const city=String(row.city||''),state=String(row.state||'');
+  if(!city||!state)return false;
+  const enabled=!row.commerceEnabled;
+  if(enabled&&row.adminPaused){
+    toast('Primeiro retire a pausa administrativa desta cidade.');
+    return false;
+  }
+  const action=enabled?'autorizar comercialmente':'suspender a habilitação comercial';
+  const message=enabled
+    ?'Confirmar a liberação de '+city+'/'+state+
+      '? A cidade precisa ter revenda habilitada e continuará sujeita ao modo global da plataforma.'
+    :'Suspender a autorização comercial de '+city+'/'+state+
+      '? Novas cotações serão bloqueadas, sem apagar pedidos existentes.';
+  if(!confirm(message))return false;
+  const reason=prompt('Informe a justificativa desta decisão (mínimo de 5 caracteres):')||'';
+  if(reason.trim().length<5||reason.length>240){
+    toast('A justificativa deve ter entre 5 e 240 caracteres.');
+    return false;
+  }
+  try{
+    const result=await adminPerform('market-city-commerce',{
+      city,state,enabled,reason:reason.trim()
+    });
+    if(!result||result.enabled!==enabled||result.globalModeUnchanged!==true){
+      throw new Error('Decisão não confirmada pelo servidor. Atualize o painel.');
+    }
+    await adminLoadGovernanceGates({force:true});
+    toast(enabled?'Cidade habilitada pelo administrador. A venda ainda depende das verificações globais e da revenda.':
+      'Habilitação comercial suspensa. Novos pedidos não são autorizados nesta cidade.');
+    return true;
+  }catch(error){
+    toast(String(error?.message||error));
+    await adminLoadGovernanceGates({force:true});
+    return false;
+  }
+}
 function adminGovernanceView(){
   const role=adminCurrentRole();
   if(!['superadmin','operations','readonly'].includes(role))return '';
@@ -5515,10 +5558,16 @@ function adminGovernanceView(){
     const canEdit=r.controls?.cityPause===true&&
       ['superadmin','operations'].includes(role);
     // Never change commerce_enabled through this pause action.
-    const choice=canEdit?
+    const canOpen=role==='superadmin'&&r.controls?.cityCommerce===true;
+    const commerceButton=canOpen?
+      '<button type="button" class="primary small" '+(c.adminPaused&&!c.commerceEnabled?'disabled title="Retire a pausa antes de abrir a cidade"':'')+
+      ' onclick="adminGovernanceChangeCityCommerce('+index+')">'+
+      (c.commerceEnabled?'Suspender comércio':'Autorizar comércio')+'</button>':'';
+    const pauseButton=canEdit?
       '<button type="button" class="secondary small" onclick="adminGovernanceChangeCityPause('+index+')">'+
-      (c.adminPaused?'Retirar pausa':'Pausar novas cotações')+'</button>':
-      '<span class="tiny muted">Somente consulta</span>';
+      (c.adminPaused?'Retirar pausa':'Pausar novas cotações')+'</button>':'';
+    const choice='<div class="admin-governance-city-actions">'+commerceButton+pauseButton+
+      (!commerceButton&&!pauseButton?'<span class="tiny muted">Somente consulta</span>':'')+'</div>';
     const commerce=c.commerceEnabled===true?'Habilitada no cadastro':'Comércio ainda não habilitado';
     const pause=c.adminPaused===true?'Pausa administrativa ativa':'Sem pausa administrativa';
     return '<div class="admin-governance-city"><div><strong>'+esc(c.city)+'/'+esc(c.state)+'</strong>'+
@@ -5531,7 +5580,7 @@ function adminGovernanceView(){
     '</div>'+review+'</div>'+
     '<div class="admin-governance-indicators">'+indicators+'</div>'+
     '<div class="admin-governance-city-block"><div class="section-head"><div>'+
-    '<h3>Cidades cadastradas</h3><p>Uma cidade só atende clientes quando a operação global, o cadastro da cidade e as revendas estão elegíveis.</p>'+
+    '<h3>Cidades cadastradas</h3><p>Agora a cidade precisa de autorização comercial explícita do administrador principal, além da operação global, de revendas aptas e da ausência de pausa.</p>'+
     '</div><button type="button" class="ghost small" onclick="adminSetSection(\'prospects\')">Ver expansão →</button></div>'+
     (cities||'<p class="muted">Nenhuma cidade registrada.</p>')+
     (t.cities?'<p class="tiny muted">Lista parcial: consulte a área de expansão para completar a análise.</p>':'')+
