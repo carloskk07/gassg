@@ -649,6 +649,9 @@ function merchantAlertControl(){
     <div class="status-bar"><div><strong>Alertas neste aparelho</strong><br><small>${esc(notificationCopy)}</small></div><span class="status-pill ${status.enabled?'online':'offline'}">${status.enabled?'ATIVOS':'DESLIGADOS'}</span></div>
     <div class="notice"><strong>Escopo atual.</strong><br>Com alertas ativados, o TAMÃO tenta verificar pedidos mesmo em outra aba. O navegador pode suspender essas consultas em segundo plano; ao voltar para o painel, a atualização é retomada. Com o navegador fechado, não há garantia de alertas. Para não perder ofertas urgentes, mantenha o painel aberto e confira a conexão.</div>
     <button class="${status.enabled?'danger-btn':'primary'}" onclick="${status.enabled?'merchantDisableAlertsFromUi()':'merchantEnableAlertsFromUi()'}">${status.enabled?'Desativar alertas':'Ativar som, vibração e notificações'}</button>
+    ${status.enabled&&globalThis.merchantPushStatus?.().available===true
+      ?'<div class="merchant-push-toggle"><strong>Push para este aparelho</strong><small>O push depende do navegador e das condições de entrega. Um aviso não substitui a confirmação do pedido no painel.</small><button type="button" class="secondary" onclick="'+(globalThis.merchantPushStatus?.().subscribed?'merchantPushDisableFromUi()':'merchantPushEnableFromUi()')+'">'+(globalThis.merchantPushStatus?.().subscribed?'Desativar push deste aparelho':'Ativar push deste aparelho')+'</button></div>'
+      :''}
   </div>`;
 }
 
@@ -2789,11 +2792,21 @@ async function merchantEnableAlertsFromUi(){
       :'Alertas de novos pedidos ativados');
   }catch(e){toast(String(e?.message||e))}
 }
-function merchantDisableAlertsFromUi(){
+async function merchantPushEnableFromUi(){
+  try{await globalThis.merchantPushEnableLive();toast('Inscrição push registrada para este aparelho.');}
+  catch(e){toast(String(e?.message||e))}
+}
+async function merchantPushDisableFromUi(){
+  try{await globalThis.merchantPushDisableLive();toast('Push desativado neste aparelho.');}
+  catch(e){toast(String(e?.message||e))}
+}
+async function merchantDisableAlertsFromUi(){
+  let error=null;
   try{
-    merchantDisableAlertsLive();
-    toast('Alertas desativados neste aparelho');
-  }catch(e){toast(String(e?.message||e))}
+    if(globalThis.merchantPushStatus?.().subscribed)await globalThis.merchantPushDisableLive();
+  }catch(e){error=e}
+  try{merchantDisableAlertsLive()}catch(e){error=e}
+  toast(error?String(error?.message||error):'Alertas desativados neste aparelho');
 }
 
 async function merchantTeamReloadFromUi(){
