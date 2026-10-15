@@ -2354,8 +2354,9 @@ function merchantRecoveryDelayMs(failures){
   return Math.min(60000,5000*2**(n-1));
 }
 function merchantCanRecover(){
-  return merchantRuntime.requested===true&&merchantRuntime.status==='unavailable'&&
-    !!merchantRuntime.client&&!!merchantRuntime.session?.access_token;
+  // Reconnect also covers first boot, when loading auth/session previously failed.
+  // Origin validation remains inside merchantBackendInit().
+  return merchantRuntime.requested===true&&merchantRuntime.status==='unavailable';
 }
 async function merchantPoll(){
   const recovering=merchantCanRecover();
@@ -2379,7 +2380,29 @@ async function merchantPoll(){
       const activeOrders=(merchantRuntime.orders||[]).some(order=>!['SETTLED','CANCELLED'].includes(String(order?.status||'')));
       if(merchantRuntime.merchant?.online===true||activeOrders)await merchantHeartbeat();
     }
-    await merchantRefresh({silent:true});
+    if(recovering&&!merchantRuntime.client){
+      // Bootstrap failed before auth client initialization.
+      await merchantBackendInit();
+    }else if(recovering&&!merchantRuntime.session?.access_token){
+      // A temporary getSession failure must not strand the portal permanently.
+      const seq=merchantRuntime.refreshSeq;
+      const {data,error}=await merchantRuntime.client.auth.getSession();
+      if(seq!==merchantRuntime.refreshSeq||merchantRuntime.status!=='unavailable')return;
+      if(error)throw error;
+      const session=data?.session;
+      if(!session?.access_token||session.user?.is_anonymous===true){
+        merchantRuntime.status='unauthenticated';
+        merchantRuntime.session=null;
+        merchantRuntime.merchant=null;
+        merchantRuntime.orders=[];
+        merchantAlerts.knownOrderIds=new Set();
+      }else{
+        merchantRuntime.session=session;
+        await merchantRefresh({silent:true});
+      }
+    }else{
+      await merchantRefresh({silent:true});
+    }
     if(merchantCanRecover()){
       const failures=++merchantRuntime.recoveryFailures;
       merchantRuntime.nextRecoveryAt=Date.now()+merchantRecoveryDelayMs(failures);
