@@ -264,7 +264,9 @@ async function deliver(admin:any,row:Claimed):Promise<{outcome:string;status:num
         publicKey:VAPID_PUBLIC_KEY,privateKey:VAPID_PRIVATE_KEY,subject:VAPID_SUBJECT
       },{ttl:Math.max(1,Math.min(300,seconds)),timeoutMs:8000,urgency:"high"});
       outcome=accepted?"provider_accepted":"gone";
-      httpStatus=accepted?201:410;
+      // The library returns an acceptance boolean, not an exact HTTP status.
+      // Do not manufacture a 201/410 status value in the audit ledger.
+      httpStatus=null;
       if(!accepted)code="SUBSCRIPTION_GONE";
     }catch(error){
       const classified=classifyFailure(error);
