@@ -230,7 +230,7 @@ assert.ok(!growth.includes('disabled>Saque Pix ainda não disponível')&&growth.
 assert.ok(growth.includes('continua no comando')&&growth.includes('você define')||growth.includes('continua no comando')&&growth.includes('Você decide'),'landing de revenda deve enfatizar autonomia operacional');
 assert.ok(core.includes("['earn','💰','Ganhe','go']"),'navegação móvel precisa dar acesso direto ao hub de renda');
 assert.ok(!growth.includes('inputmode="numeric" maxlength="18"'),'campo CNPJ não pode forçar teclado somente numérico após adoção do CNPJ alfanumérico');
-assert.ok(sw.includes("CACHE='tamao-sg-v1.286'"),'cache do service worker precisa refletir a geração PWA auditada');
+assert.ok(sw.includes("CACHE='tamao-sg-v1.291'"),'cache do service worker precisa refletir a geração PWA auditada');
 assert.ok(sw.includes("fetch(req,{cache:'no-store'})")&&sw.includes("contentType.includes('text/html')"),'service worker deve renovar rede sem cache HTTP e separar navegação HTML de recursos não-HTML');
 assert.ok(!sw.includes("req.mode==='navigate'?'./index.html':req"),'navegação não-HTML não pode envenenar a chave do app shell');
 assert.ok(admin.includes('offerable_supply_required')&&admin.includes('offerReadyMerchantCount'),'painel admin precisa expor oferta real como gate de lançamento');
@@ -1710,6 +1710,19 @@ for(const entry of fs.readdirSync(functionRoot,{withFileTypes:true})){
     assert.ok(source.includes('raw.length>100')
       &&!source.includes('console.log('),
       'VAPID setup must limit input and avoid logging private keys');
+  }else if(entry.name==='merchant-push-self-test'){
+    assert.ok(source.includes('auth.getUser')&&source.includes('merchant_push_test_reserve')
+      &&source.includes('merchant_push_test_finish'),
+      'manual push test must verify JWT and use device-scoped audit');
+    assert.ok(source.includes('merchant_push_test_credentials')
+      &&source.includes('sendPushNotification')&&source.includes('providerAccepted'),
+      'test push must sign with Vault key and report provider-only outcome');
+    assert.ok(source.includes('p_user_id:user.id')
+      &&source.includes('p_endpoint_hash:await sha256(body.endpoint)'),
+      'test push must limit the target to a signed-in user device');
+    assert.ok(!source.includes('merchant_push_claim_due')
+      &&!source.includes('merchantPerformAction'),
+      'test push cannot process orders or start the automatic outbox');
   }else if(entry.name==='merchant-push-delivery'){
     assert.ok(source.includes('req.method!=="POST"')&&source.includes('readJsonBody(req,{maxBytes:4096})'),
       'remetente push precisa limitar método e corpo');

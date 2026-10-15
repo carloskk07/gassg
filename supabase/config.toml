@@ -89,3 +89,6 @@ verify_jwt = false
 # to generate P-256 VAPID. No JWT browser authorization; Edge verifies bearer.
 [functions.merchant-push-vapid-setup]
 verify_jwt = false
+
+[functions.merchant-push-self-test]
+verify_jwt = false
