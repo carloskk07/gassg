@@ -28,3 +28,8 @@
 - Migração `supabase/migrations/20261016080000_ads_platform_psp_v1_314.sql`
 - Edge Functions `admin-ops`, `merchant-ops`, biblioteca compartilhada `_shared/mercadopago.js`
 - Teste de segurança `tests/ads-platform-psp-v1-314.mjs`, mais regressão da Central de Ativações e auditoria global.
+
+## Atualização V1.314.2 — Vencimento real do link e cancelamento seguro
+- A preferência Mercado Pago é criada com `expires=true`, `expiration_date_from` e `expiration_date_to`, terminando às 23:59:59 no horário de São Paulo na data de vencimento já acordada no demonstrativo. O sistema valida o prazo **antes** de reservar uma tentativa, evitando reservas inválidas.
+- A migração `20261016093000_ads_psp_expiry_guard_v1_314_2.sql` impede cancelar o demonstrativo no TAMÃO se já existe reserva, checkout disponível ou pagamento aprovado pelo Mercado Pago. É necessário investigar/encerrar a operação externa antes de cancelar o crédito comercial internamente.
+- Essa proteção não substitui conciliação de estornos, indisponibilidade bancária ou auditoria de recebíveis após o vencimento. Eventos de liquidação continuam exigindo consulta autenticada ao provedor.

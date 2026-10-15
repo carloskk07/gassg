@@ -4549,7 +4549,7 @@ Deno.serve(async(req:Request)=>{
         throw new DomainError("ADS_PSP_EVIDENCE_UNVERIFIED","Livro do provedor não confirmado.",503);
       return json({...data,platformPspConfigured:
         Deno.env.get("ADS_MP_CHECKOUT_ENABLED")==="true"&&
-        /^APP_USR-/.test(String(Deno.env.get("ADS_MP_ACCESS_TOKEN")||""))&&
+        /^APP_USR-\S{20,}$/.test(String(Deno.env.get("ADS_MP_ACCESS_TOKEN")||"").trim())&&
         /^[0-9]{4,20}$/.test(String(Deno.env.get("ADS_MP_SELLER_ID")||""))
       },200,origin);
     }
@@ -4885,6 +4885,12 @@ Deno.serve(async(req:Request)=>{
           !Number.isSafeInteger(item.receivable.version)||!Number.isSafeInteger(item.amountCents)||
           item.amountCents<1000)
           throw new DomainError("ADS_PSP_STATEMENT_NOT_ISSUED","Emita primeiro o demonstrativo comercial.",409);
+        // An external preference must not outlive its signed commercial due date.
+        const expiresAt=new Date(String(item.receivable.dueDate||"")+"T23:59:59-03:00");
+        if(!Number.isFinite(expiresAt.getTime())||expiresAt.getTime()<=Date.now()){
+          throw new DomainError("ADS_PSP_DUE_DATE_INVALID",
+            "Vencimento do demonstrativo incompatível com a criação do checkout.",409);
+        }
         const requestId=uuid(body.requestId,"requestId");
         const reserved=await admin.rpc("admin_ads_psp_action_v1_314",{
           p_actor:user.id,p_merchant:merchantId,p_operation:"reserve",
@@ -4912,6 +4918,9 @@ Deno.serve(async(req:Request)=>{
               items:[{id:"tamao-ads-"+merchantId,title:"Publicidade TAMÃO Ads",
                 quantity:1,currency_id:"BRL",unit_price:item.amountCents/100}],
               external_reference:reserved.data.externalReference,
+              expires:true,
+              expiration_date_from:new Date().toISOString(),
+              expiration_date_to:expiresAt.toISOString(),
               back_urls:{success:"https://parceiro.tamao.com.br/",
                 failure:"https://parceiro.tamao.com.br/",pending:"https://parceiro.tamao.com.br/"},
               auto_return:"approved"

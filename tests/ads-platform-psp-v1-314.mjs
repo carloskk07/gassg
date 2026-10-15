@@ -4,6 +4,7 @@ import vm from 'node:vm';
 const read=p=>fs.readFileSync(new URL('../'+p,import.meta.url),'utf8');
 const sql=read('supabase/migrations/20261016080000_ads_platform_psp_v1_314.sql');
 const hardening=read('supabase/migrations/20261016090000_ads_psp_hardening_v1_314_1.sql');
+const expiryGuard=read('supabase/migrations/20261016093000_ads_psp_expiry_guard_v1_314_2.sql');
 const a=read('supabase/functions/admin-ops/index.ts');
 const m=read('supabase/functions/merchant-ops/index.ts');
 const admin=read('js/admin-activations.js');
@@ -23,6 +24,21 @@ for(const token of [
  "v_payment_status='approved' and v_detail='partially_refunded'",
  "v_c.status<>'payment_approved'"
 ])assert.ok(hardening.includes(token),'Missing V1.314.1 PSP fail-closed invariant: '+token);
+for(const token of [
+ 'ads_receivable_external_checkout_guard_v1_314',
+ "old.status='issued'","new.status='canceled'",
+ "'reserved','checkout_ready','payment_approved'",
+ 'ADS_RECEIVABLE_EXTERNAL_CHECKOUT_REQUIRES_PROVIDER_REVIEW',
+ 'before update on public.platform_ads_receivables_v1_313'
+])assert.ok(expiryGuard.includes(token),'External cancellation lock: '+token);
+for(const token of [
+ 'const expiresAt=new Date(',
+ 'expiration_date_from:new Date().toISOString()',
+ 'expiration_date_to:expiresAt.toISOString()',
+ 'expires:true'
+])assert.ok(a.includes(token),'Checkout expiry protection: '+token);
+assert.ok(a.indexOf('const expiresAt=new Date(')<a.indexOf('p_operation:"reserve"'),
+ 'Due date must be validated before reserving an external PSP payment');
 for(const token of [
  'String(preference?.collector_id??"")!==sellerId',
  'preference.items.length!==1',
