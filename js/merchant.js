@@ -2116,6 +2116,56 @@ function merchantFocusLiveOrder(orderId){
   card.focus?.({preventScroll:true});
   return true;
 }
+// V1.283 — navigate to the existing control without executing any order transition.
+function merchantOrderNextStepLabel(order){
+  switch(String(order?.status||'')){
+    case 'OFFERED_TO_MERCHANT': return 'Conferir aceite';
+    case 'PREPARING': return 'Conferir saída';
+    case 'AT_RISK': return 'Revisar imprevisto';
+    case 'OUT_FOR_DELIVERY': return 'Conferir chegada';
+    case 'ARRIVING': return 'Conferir pagamento e PIN';
+    case 'MERCHANT_ACCEPTED': return 'Acompanhar preparação';
+    default: return 'Ver pedido';
+  }
+}
+function merchantFocusOrderNextStep(orderId){
+  const id=String(orderId||'');
+  if(!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(id))return false;
+  const rt=globalThis.merchantRuntime||{};
+  const role=String(rt.merchant?.memberRole||'');
+  if(rt.status!=='ready'||rt.actionPending===true||
+     !['owner','manager','operator','driver'].includes(role))return false;
+  const order=(Array.isArray(rt.orders)?rt.orders:[]).find(x=>String(x?.orderId||'')===id);
+  if(!order)return false; // Must be an order in the current server-authorized list.
+  const card=document.getElementById('merchant-order-card-'+id);
+  if(!card||!merchantFocusLiveOrder(id))return false;
+  const actionButton=()=>card.querySelector?.('.merchant-order-action-fieldset button.primary:not([disabled]),.merchant-order-action-fieldset button.secondary:not([disabled])');
+  const status=String(order.status||'');
+  let target=null;
+  if(status==='OFFERED_TO_MERCHANT'){
+    const expiry=Date.parse(String(order.offerExpiresAt||''));
+    if(!Number.isFinite(expiry)||expiry>Date.now())target=actionButton();
+  }else if(status==='PREPARING'){
+    if(['owner','manager'].includes(role)&&!order.assignedDeliveryUserId)
+      target=card.querySelector?.('[id="delivery-'+id+'"]');
+    if(!target)target=actionButton();
+  }else if(status==='OUT_FOR_DELIVERY'){
+    target=actionButton();
+  }else if(status==='ARRIVING'){
+    const paid=card.querySelector?.('[id="live-paid-'+id+'"]');
+    const pin=card.querySelector?.('[id="live-pin-'+id+'"]');
+    const submit=card.querySelector?.('[id="live-deliver-submit-'+id+'"]');
+    target=paid&&!paid.checked?paid:pin&&!/^[0-9]{4}$/.test(String(pin.value||''))?pin:submit;
+  }
+  // Risk and accepted orders need review, not a blind attempt to dispatch/accept.
+  if(!target||target.disabled||target.closest?.('fieldset')?.disabled)return true;
+  for(let parent=target.parentElement;parent;parent=parent.parentElement){
+    if(parent.tagName==='DETAILS')parent.open=true;
+  }
+  target.scrollIntoView?.({behavior:'smooth',block:'center'});
+  target.focus?.({preventScroll:true});
+  return true;
+}
 // V1.271 — one read-only next action from server-scoped orders, never an order transition.
 function merchantDailyFocusModel(orders,now=Date.now()){
   const rows=Array.isArray(orders)?orders:[];
@@ -2182,7 +2232,8 @@ function merchantDailyOverview(rt,orders){
   const id=String(focus.order?.orderId||'');
   const safe=/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(id);
   const label=focus.order?.publicCode?esc(focus.order.publicCode):'Pedido';
-  const action=safe?'<button type="button" class="primary" onclick="merchantFocusLiveOrder(\''+id+'\')">Ver '+label+'</button>':
+  const action=safe?'<button type="button" class="primary" onclick="merchantFocusOrderNextStep(\\''+id+'\\')">'+
+    esc(merchantOrderNextStepLabel(focus.order))+' • '+label+'</button>':
     focus.refresh?'<button type="button" class="secondary" onclick="merchantLiveRefresh()">Atualizar pedidos</button>':
     '';
   const sales=merchantDailyVerifiedSales(rt);
