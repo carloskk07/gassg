@@ -41,7 +41,7 @@ for(const token of ['merchantPushLastFromUi','merchantPushReportFromUi',
   'Recebi a notificação','Não apareceu','Consultar último teste',
   'Relato manual da revenda'])assert.ok(merchant.includes(token),'UI missing '+token);
 for(const token of ['merchantPushLatestTestLive','merchantPushReportTestLive',
-  "action:'last-test'","action:'report-display'",'deviceReport:report',
+  "action:'last-test'","action:'report-display'",'merchantPushRuntime.testResult.deviceReport=report',
   'globalThis.merchantPushLatestTestLive','globalThis.merchantPushReportTestLive'])
   assert.ok(backend.includes(token),'frontend missing '+token);
 assert.ok(bootstrap.includes('merchantPushLastFromUi,merchantPushReportFromUi'));
