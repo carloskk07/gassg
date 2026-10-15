@@ -80,3 +80,39 @@ await ctx.deliver(id);
 assert.equal(calls,2);
 assert.equal(messages.at(-1),'PIN incorreto.','Do not claim success after backend error');
 assert.equal(ctx.state("x');alert(1)//").ready,false);
+
+const runtimeCard={merchant:{memberRole:'operator'},deliveryTeam:[],actionPending:false};
+const cardCtx=vm.createContext({
+ globalThis:{merchantRuntime:runtimeCard},esc,BRL:{format:v=>'R$ '+Number(v).toFixed(2)},
+ statusCopy:{},paymentLabel:()=> 'Pix',merchantDeliveryCandidates:()=>[],
+ merchantDeliveryMemberLabel:()=> 'Entregador',merchantDeliveryShortcuts:()=> '',
+ merchantOrderAttentionCard:()=>'',merchantIncidentRiskGuide:()=>'',merchantOrderProgressView:()=> '',
+ merchantScheduledDispatchState:()=>({scheduled:false,ready:true}),
+ merchantFormatPhone:v=>String(v)
+});
+vm.runInContext(cut('merchantLiveOrder')+';this.card=merchantLiveOrder;',cardCtx);
+const order={orderId:id,publicCode:'TAM-12',status:'ARRIVING',items:[],
+ totalCents:12000,paymentMethod:'pix',deliveryDetailsVisible:false,addressVisible:false};
+let markup=cardCtx.card(order);
+assert.match(markup,/Conferir entrega/);
+assert.match(markup,/Pagamento recebido/);
+assert.match(markup,/PIN informado pelo cliente/);
+assert.match(markup,/id="live-deliver-submit-/);
+assert.match(markup,/disabled onclick="merchantLiveDeliver/);
+assert.match(markup,/aria-live="polite"/);
+assert.match(markup,/oninput="merchantDeliveryConfirmationChanged/);
+assert.match(markup,/onchange="merchantDeliveryConfirmationChanged/);
+assert.ok(!markup.includes('merchant-delivery-shortcuts'),'No unrelated sensitive contact controls');
+for(const status of ['OFFERED_TO_MERCHANT','PREPARING','OUT_FOR_DELIVERY','AT_RISK','MERCHANT_ACCEPTED']){
+ markup=cardCtx.card({...order,status});
+ assert.doesNotMatch(markup,/merchant-delivery-completion/,'No PIN or payment form before arrival '+status);
+}
+assert.match(backend,/if\(paymentConfirmed!==true\)throw new Error/);
+assert.match(backend,/if\(!\/\^\\d\{4\}\$\/\.test/);
+assert.match(backend,/expectedVersion:order.version/);
+assert.match(css,/\.merchant-delivery-completion/);
+assert.match(css,/\.merchant-delivery-submit:disabled/);
+assert.match(css,/@media\(max-width:540px\)/);
+assert.match(audit,/node tests\/merchant-guided-completion-v1-275.mjs/);
+console.log('V1.275 PASS — payment/PIN guided locally; real completion only after authorized backend result.');
+
