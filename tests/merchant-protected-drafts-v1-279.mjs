@@ -42,7 +42,7 @@ const ctx=vm.createContext({Date,Map,esc,globalThis:{merchantRuntime:rt},
  toast:message=>alerts.push(String(message))
 });
 const bodies=[
- 'const merchantQuickDrafts=new Map();',
+ 'const merchantQuickDrafts=new Map();','function merchantCatalogHistoryView(){return "";}',
  take('merchantTimestampFresh'),take('merchantQuickDraftKey'),
  take('merchantQuickCatalogVersion'),take('merchantQuickDraftFor'),
  take('merchantQuickCatalogChanged'),take('merchantQuickHasDrafts'),
