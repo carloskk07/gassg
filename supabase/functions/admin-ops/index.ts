@@ -181,6 +181,7 @@ async function adminGovernanceGates(admin:any,role:string){
       String(Deno.env.get("MERCHANT_DIRECT_PAYMENTS_ENABLED")??"").trim()==="1"},
     controls:{
       cityPause:["superadmin","operations"].includes(role),
+      cityCommerce:role==="superadmin",
       merchantAuthorization:["superadmin","operations"].includes(role),
       commerceMode:role==="superadmin",
       financialPolicies:role==="superadmin"
@@ -4689,6 +4690,31 @@ Deno.serve(async(req:Request)=>{
         p_note:cleanText(body.note,{min:5,max:240,name:"justificativa"})
       });
       if(error)throw error;
+      return json(data,200,origin);
+    }
+    if(action==="market-city-commerce"){
+      // Only superadmin can authorize city commerce. requireAdminAction already
+      // excludes all other roles, and PostgreSQL enforces the role again.
+      if(String(adminAccess.admin_role)!=="superadmin"){
+        throw new DomainError("ADMIN_PERMISSION_DENIED",
+          "A liberação comercial da cidade exige o administrador principal.",403);
+      }
+      const city=cleanText(body.city,{min:2,max:120,name:"cidade"});
+      const state=String(body.state||"").trim().toUpperCase();
+      const enabled=body.enabled;
+      if(!/^[A-Z]{2}$/.test(state)||typeof enabled!=="boolean"){
+        throw new DomainError("INVALID_CITY_COMMERCE","Liberação de cidade inválida.",400);
+      }
+      const reason=cleanText(body.reason,{min:5,max:240,name:"justificativa"});
+      const {data,error}=await admin.rpc("admin_set_market_city_commerce",{
+        p_actor_user_id:user.id,p_city:city,p_state:state,
+        p_enabled:enabled,p_reason:reason
+      });
+      if(error)throw error;
+      if(data?.globalModeUnchanged!==true||data?.noMerchantActivation!==true){
+        throw new DomainError("CITY_COMMERCE_CONFIRMATION_INVALID",
+          "Não foi possível confirmar a decisão comercial no banco.",503);
+      }
       return json(data,200,origin);
     }
     if(action==="market-city-pause"){
