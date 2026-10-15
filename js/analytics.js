@@ -1,5 +1,6 @@
 const marketingAnalyticsState={
   landingAttempted:false,
+  lastLandingRoute:null,
   observer:null,
   observedNodes:new WeakSet()
 };
@@ -15,7 +16,7 @@ function marketingAnalyticsEnabled(){
 
 function marketingAnalyticsAudience(){
   const current=typeof route==='function'?String(route()||'home'):String(location.hash||'#home').replace(/^#/,'');
-  return ['merchants','merchant-join'].includes(current)?'merchant':'customer';
+  return ['merchants','merchant-join','sponsors'].includes(current)?'merchant':'customer';
 }
 
 function marketingAnalyticsReferrerHost(){
@@ -83,7 +84,12 @@ async function marketingTrack(eventType,audience){
 }
 
 function marketingTrackLandingOnce(){
-  if(marketingAnalyticsState.landingAttempted)return;
+  // One anonymous aggregate per marketing page, not merely the first SPA render.
+  // sessionStorage deduplication remains in marketingTrack; no customer identifiers.
+  const current=typeof route==='function'?String(route()||'home'):'home';
+  if(!['home','learn','earn','merchants','sponsors','contact'].includes(current))return;
+  if(marketingAnalyticsState.lastLandingRoute===current)return;
+  marketingAnalyticsState.lastLandingRoute=current;
   marketingAnalyticsState.landingAttempted=true;
   marketingTrack('landing_view',marketingAnalyticsAudience()).catch(()=>{});
 }
