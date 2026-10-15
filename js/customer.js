@@ -474,6 +474,80 @@ ${internalPilot?`<section class="section"><div class="card flat"><span class="se
 
 <section class="section"><div class="section-head"><div><span class="section-kicker">SUA EMPRESA TAMBÉM TEM LUGAR AQUI</span><h2>Sua revenda também pode vender pelo TAMÃO.</h2><p>Tem uma revenda de gás, água ou outros produtos? Você pode receber pedidos por mais um canal e continuar controlando seus preços, estoque e entregas.</p></div></div><div class="merchant-home-card"><div><span class="merchant-home-rate">${merchantFeeLabel}</span><small>taxa por pedido concluído</small></div><div><strong>Você define preço, estoque e disponibilidade.</strong><p>Também decide se aceita cada pedido e pode ficar offline quando não quiser receber novas vendas.</p></div><button class="primary" onclick="go('merchants')">Quero vender no TAMÃO →</button></div></section>`}`)
 }
+// V1.302: explain the next buyer action without bypassing real availability,
+// quote validation, server-side permissions or the existing payment flow.
+function customerCheckoutJourney({hasItems=false,hasAddress=false,hasPhone=false,
+  hasOffers=false,loadingOffers=false,pendingOrder=false}={}){
+  if(pendingOrder)return '<aside class="buyer-journey buyer-journey-pending" aria-label="Seu pedido em andamento">'+
+    '<strong>Seu pedido já está em andamento.</strong>'+
+    '<p>Acompanhe a confirmação da revenda e a entrega antes de iniciar outro.</p>'+
+    '<button type="button" class="primary" onclick="go(\'tracking\')">Acompanhar meu pedido →</button></aside>';
+  const stages=[
+    {key:'cart',label:'Produtos',done:hasItems,enabled:true},
+    {key:'address',label:'Endereço',done:hasAddress,enabled:true},
+    {key:'contact',label:'Contato',done:hasPhone,enabled:hasAddress},
+    {key:'offers',label:'Opções',done:hasOffers,enabled:hasAddress&&hasItems}
+  ];
+  let nextKey='',nextTitle='',nextDescription='',nextButton='';
+  if(!hasItems){
+    nextKey='cart';nextTitle='Escolha o que você precisa';
+    nextDescription='Adicione gás, água ou outros itens disponíveis. Você pode mudar a cesta antes do pedido.';
+    nextButton='Ver produtos';
+  }else if(!hasAddress){
+    nextKey='address';nextTitle='Confirme onde quer receber';
+    nextDescription='Preencha CEP e número. O TAMÃO consulta o endereço e a disponibilidade para essa região.';
+    nextButton='Informar endereço';
+  }else if(!hasPhone){
+    nextKey='contact';nextTitle='Informe um telefone para a entrega';
+    nextDescription='A revenda recebe o telefone somente conforme o fluxo de atendimento do pedido.';
+    nextButton='Informar telefone';
+  }else if(loadingOffers){
+    nextKey='offers';nextTitle='Consultando opções reais';
+    nextDescription='Estamos verificando as revendas que podem atender esta cesta e este endereço.';
+    nextButton='Ver consulta';
+  }else if(!hasOffers){
+    nextKey='offers';nextTitle='Confira a disponibilidade';
+    nextDescription='As opções aparecem quando houver preço, prazo e atendimento elegíveis; nenhuma compra é criada pela consulta.';
+    nextButton='Ver opções';
+  }else{
+    nextKey='offers';nextTitle='Compare e escolha com tranquilidade';
+    nextDescription='Veja total com entrega e prazo. A revenda ainda precisará aceitar o pedido.';
+    nextButton='Comparar opções';
+  }
+  const ready=stages.filter(stage=>stage.done).length;
+  const steps=stages.map((stage,index)=>'<li class="'+(stage.done?'is-done':stage.key===nextKey?'is-current':'is-upcoming')+'">'+
+    '<button type="button" '+(stage.enabled?'onclick="customerCheckoutFocusStep(\''+stage.key+'\')"':'disabled')+
+      ' aria-current="'+(stage.key===nextKey?'step':'false')+'" aria-label="Etapa '+(index+1)+': '+stage.label+
+      (stage.done?', concluída':stage.key===nextKey?', próxima':'')+'">'+
+      '<span class="buyer-journey-number" aria-hidden="true">'+(stage.done?'✓':String(index+1))+'</span>'+
+      '<span>'+stage.label+'</span></button></li>').join('');
+  return '<aside class="buyer-journey" aria-label="Etapas da compra">'+
+    '<div class="buyer-journey-heading"><div><span class="section-kicker">SEU PEDIDO, PASSO A PASSO</span>'+
+    '<h2>Comprar fica mais fácil assim</h2></div><span class="buyer-journey-count">'+ready+' de 4 prontos</span></div>'+
+    '<ol class="buyer-journey-steps">'+steps+'</ol>'+
+    '<div class="buyer-journey-next" role="status"><div><strong>'+nextTitle+'</strong><p>'+nextDescription+
+    '</p></div><button type="button" class="primary" onclick="customerCheckoutFocusStep(\''+
+    nextKey+'\')">'+nextButton+' →</button></div>'+
+    '</aside>';
+}
+function customerCheckoutFocusStep(step){
+  const targets={
+    cart:['customer-cart',''],address:['customer-address',''],
+    contact:['customer-contact','delivery-phone'],offers:['customer-offers','']
+  };
+  const target=targets[String(step||'')];
+  if(!target)return false;
+  const area=document.getElementById(target[0]);
+  if(!area)return false;
+  const panel=area.closest('details');
+  if(panel)panel.open=true;
+  area.scrollIntoView({block:'start',behavior:globalThis.matchMedia?.('(prefers-reduced-motion: reduce)')?.matches?'auto':'smooth'});
+  const input=target[1]?document.getElementById(target[1]):
+    step==='address'?(document.getElementById('postal-code')||document.getElementById('address')):
+    null;
+  if(input?.focus)input.focus({preventScroll:true});
+  return true;
+}
 function orderPage(){
   const testDemo=globalThis.__CHAMA_TEST__===true;
   const internalPilot=globalThis.CHAMA_INTERNAL_PILOT===true;
@@ -539,6 +613,15 @@ function orderPage(){
     }
   }
 
+  const savedPhone=String(state.checkout.customerPhoneDigits||'').replace(/\D/g,'');
+  const hasPhone=/^[0-9]{10,11}$/.test(savedPhone);
+  const currentOffers=hasAddress&&hasItems&&(testDemo||ready)?os.filter(o=>
+    testDemo||(!o.expiresAt?false:Date.parse(String(o.expiresAt))>Date.now()+1000)):[];
+  const buyerGuide=customerCheckoutJourney({
+    hasItems,hasAddress,hasPhone,hasOffers:currentOffers.length>0,
+    loadingOffers:ready&&liveRuntime.loadingOffers,pendingOrder:Boolean(pendingOrder)
+  });
+
   const paymentBlock=preview
     ? '<div class="notice">As formas de pagamento aparecem quando houver uma opção disponível para esta consulta.</div>'
     : `<div class="card flat form-stack"><div class="input-wrap"><label for="payment-method">Como você pretende pagar?</label><select id="payment-method" class="input" onchange="setPaymentMethod(this.value)"><option value="pix" ${state.checkout.paymentMethod==='pix'?'selected':''}>Pix na entrega</option><option value="card" ${state.checkout.paymentMethod==='card'?'selected':''}>Cartão na maquininha da revenda</option><option value="cash" ${state.checkout.paymentMethod==='cash'?'selected':''}>Dinheiro na entrega</option></select><small class="field-help">Você paga diretamente à revenda quando receber. Pagamento antecipado só será oferecido em uma etapa separada, após habilitação financeira.</small></div>${state.checkout.paymentMethod==='cash'?`<div class="input-wrap"><label for="cash-tender">Precisa de troco? Troco para quanto?</label><input id="cash-tender" class="input" type="number" inputmode="decimal" min="1" max="10000" step="0.01" placeholder="Ex.: 150,00" value="${state.checkout.cashTenderCents?esc((state.checkout.cashTenderCents/100).toFixed(2)):''}" onchange="setCashTender(this.value)"><small class="field-help">Deixe vazio se não precisar informar troco. O entregador verá este valor antes de sair.</small></div>`:''}${state.user.cashback>0?`<label class="check-row"><input type="checkbox" ${state.checkout.useCashback?'checked':''} onchange="toggleCashback(this.checked)"><span><strong>Usar cashback</strong><small>Saldo disponível: ${BRL.format(state.user.cashback)}</small></span></label>`:''}</div>`;
@@ -547,11 +630,12 @@ function orderPage(){
     ? `<section class="section"><div class="section-head"><div><h2>Como será o botijão?</h2><p>O preço da oferta muda conforme existe ou não um recipiente para troca.</p></div></div><div class="card flat form-stack"><label class="check-row"><input type="radio" name="glp-container" value="exchange" ${state.checkout.glpContainerMode!=='needs_container'?'checked':''} onchange="setGlpContainerMode('exchange')"><span><strong>Tenho botijão vazio para troca</strong><small>Você entrega o recipiente compatível e compra somente a carga cheia.</small></span></label><label class="check-row"><input type="radio" name="glp-container" value="needs_container" ${state.checkout.glpContainerMode==='needs_container'?'checked':''} onchange="setGlpContainerMode('needs_container')"><span><strong>Não tenho vasilhame</strong><small>O TAMÃO inclui automaticamente um vasilhame do mesmo tamanho para cada carga de GLP.</small></span></label>${needsContainer?'<div class="notice"><strong>Vasilhame incluído na consulta.</strong><br>A oferta só aparece se a revenda tiver preço confirmado e estoque tanto da carga quanto do recipiente.</div>':'<div class="notice success"><strong>Compra por troca.</strong><br>O total considera que haverá um botijão vazio compatível para entregar ao parceiro.</div>'}</div></section>`
     : '';
 
-  return shell(`<section class="page"><button class="back" onclick="go('home')">← Voltar</button><span class="eyebrow">PEDIR AGORA</span><h1 class="page-title">O que você precisa e onde devemos entregar?</h1><p class="muted page-lead">Depois do endereço, você compara total e prazo antes de escolher.</p>
+  return shell(`<section class="page"><button class="back" onclick="go('home')">← Voltar</button><span class="eyebrow">PEDIR AGORA</span><h1 class="page-title">O que você precisa e onde devemos entregar?</h1><p class="muted page-lead">Escolha os produtos, confirme o endereço e compare o total com entrega antes de enviar seu pedido.</p>
+${buyerGuide}
 ${!testDemo&&/^[0-9]{8}$/.test(String(state.postalCode||''))&&!state.addressNumber?`<div class="order-handoff-note" role="status"><span aria-hidden="true">✓</span><div><strong>Seu CEP já veio da consulta.</strong><small>Falta apenas informar o número para verificarmos as ofertas do seu endereço.</small></div></div>`:''}
 ${liveNotice}
 ${pendingOrder?`<div class="notice" style="margin-bottom:14px"><strong>Você já possui um pedido em andamento.</strong><br>Conclua ou cancele o pedido ${esc(pendingOrder.publicCode||pendingOrder.id)} antes de criar outro.<br><button class="ghost small" onclick="go('tracking')">Acompanhar pedido →</button></div>`:''}
-<div class="card flat form-stack order-address-card">
+<div class="card flat form-stack order-address-card" id="customer-address">
   ${testDemo?`<div class="field-row">
     <div class="input-wrap"><label for="postal-code">CEP</label><input id="postal-code" class="input" autocomplete="postal-code" inputmode="numeric" maxlength="9" placeholder="Ex.: 97300-000" value="${esc(String(state.postalCode||'').replace(/^(\d{5})(\d{0,3}).*$/,(m,a,b)=>b?a+'-'+b:a))}"><small class="field-help">Opcional na simulação.</small></div>
     <div class="input-wrap"><label for="address">Endereço de entrega</label><input id="address" class="input" autocomplete="street-address" maxlength="160" placeholder="Ex.: Rua General Câmara, 123" value="${esc(state.address||'')}"></div>
@@ -568,19 +652,22 @@ ${pendingOrder?`<div class="notice" style="margin-bottom:14px"><strong>Você já
       :`<button class="primary" onclick="setAddress()">Consultar endereço</button>`}
   <small class="field-help">${testDemo?'Dados do ambiente interno.':'Os preços só aparecem após o servidor validar CEP e número.'}</small>
 </div>
-${hasAddress?`<div class="card flat form-stack" style="margin-top:12px">
-  <h3>Dados para a entrega</h3>
+${hasAddress?`<div class="card flat form-stack buyer-contact-card" id="customer-contact" style="margin-top:12px">
+  <h3>Seu contato para a entrega</h3>
   <div class="input-wrap"><label for="delivery-phone">Telefone com DDD</label><input id="delivery-phone" class="input" type="tel" inputmode="tel" autocomplete="tel" maxlength="18" placeholder="Ex.: (55) 99999-1234" value="${esc(formatDeliveryPhone(state.checkout.customerPhoneDigits))}" onchange="deliveryDetailsChanged()"><small class="field-help">Obrigatório para concluir o pedido. A revenda recebe o contato apenas depois de aceitar.</small></div>
+  <details class="buyer-extra-details" ${state.checkout.addressComplement||state.checkout.deliveryReference||state.checkout.deliveryNotes?'open':''}>
+    <summary>Complemento, referência ou recado para a entrega (opcional)</summary>
   <div class="field-row">
     <div class="input-wrap"><label for="address-complement">Complemento</label><input id="address-complement" class="input" maxlength="120" placeholder="Ex.: casa dos fundos, ap. 202" value="${esc(state.checkout.addressComplement||'')}" onchange="deliveryDetailsChanged()"></div>
     <div class="input-wrap"><label for="delivery-reference">Ponto de referência</label><input id="delivery-reference" class="input" maxlength="160" placeholder="Ex.: ao lado da farmácia" value="${esc(state.checkout.deliveryReference||'')}" onchange="deliveryDetailsChanged()"></div>
   </div>
   <div class="input-wrap"><label for="delivery-notes">Instruções para a entrega</label><textarea id="delivery-notes" class="input" maxlength="240" rows="2" placeholder="Ex.: chamar no portão; cachorro no pátio." onchange="deliveryDetailsChanged()">${esc(state.checkout.deliveryNotes||'')}</textarea><small class="field-help">Evite dados desnecessários. Essas informações ficam vinculadas ao pedido para a operação responsável.</small></div>
+  </details>
 </div>`:''}
-<section class="section"><div class="section-head"><div><h2>Sua cesta</h2><p>Adicione somente o que você precisa. Gás não é obrigatório para comprar os demais itens.</p></div></div><div class="card flat">${Object.entries(products).filter(([,p])=>p.hidden!==true).map(([k,p])=>cartRow(k,p)).join('')}</div></section>
+<section class="section" id="customer-cart"><div class="section-head"><div><h2>Sua cesta</h2><p>Adicione somente o que você precisa. Gás não é obrigatório para comprar os demais itens.</p></div></div><div class="card flat">${Object.entries(products).filter(([,p])=>p.hidden!==true).map(([k,p])=>cartRow(k,p)).join('')}</div></section>
 ${deliveryScheduleBlock()}
 ${containerBlock}
-${hasItems&&hasAddress?`<section class="section"><div class="section-head"><div><h2>Como pretende pagar</h2><p>${preview?'As formas disponíveis serão mostradas quando houver atendimento para sua consulta.':'Escolha a forma e confira novamente antes do pedido.'}</p></div></div>${paymentBlock}</section><section class="section"><div class="section-head"><div><span class="section-kicker">${singleSupplier?'OPÇÃO DISPONÍVEL':'COMPARE ANTES DE PEDIR'}</span><h2>${preview?'Disponibilidade para sua região':singleSupplier?'Preço total e prazo do parceiro disponível':'Preço total e prazo lado a lado'}</h2><p>${preview?'As opções aparecem aqui assim que houver uma revenda disponível para esta cesta e CEP.':internalPilot?'Há um único fornecedor no cenário interno. A faixa comercial P13 vem da conversa com o parceiro; o preço desta simulação é calculado dentro dela. Prazo, estoque e trust são simulados.':singleSupplier?'Há uma revenda para este pedido. Confira o preço e o prazo antes de decidir.':'Escolha a opção que faz mais sentido para você.'}</p></div></div><div class="mini-protection">🛡️ <strong>Proteção do pedido:</strong> ${internalPilot?'nesta simulação, se o JR recusar ou ficar indisponível o pedido é encerrado, porque não existe segundo fornecedor no cenário.':singleSupplier?'o parceiro precisa aceitar. Se ele não puder atender e ainda não houver outra revenda elegível, o pedido é encerrado sem inventar uma alternativa.':'o parceiro precisa aceitar e qualquer alternativa mais cara depende da sua aprovação.'}</div>${offerBlock}</section>`:hasItems&&!hasAddress?'<div class="notice">Informe o endereço para ver preço e prazo.</div>':!hasItems?'<div class="notice">Adicione pelo menos um produto para consultar as opções.</div>':''}</section>`)
+${hasItems&&hasAddress?`<section class="section"><div class="section-head"><div><h2>Como pretende pagar</h2><p>${preview?'As formas disponíveis serão mostradas quando houver atendimento para sua consulta.':'Escolha a forma e confira novamente antes do pedido.'}</p></div></div>${paymentBlock}</section><section class="section" id="customer-offers"><div class="section-head"><div><span class="section-kicker">${singleSupplier?'OPÇÃO DISPONÍVEL':'COMPARE ANTES DE PEDIR'}</span><h2>${preview?'Disponibilidade para sua região':singleSupplier?'Preço total e prazo do parceiro disponível':'Preço total e prazo lado a lado'}</h2><p>${preview?'As opções aparecem aqui assim que houver uma revenda disponível para esta cesta e CEP.':internalPilot?'Há um único fornecedor no cenário interno. A faixa comercial P13 vem da conversa com o parceiro; o preço desta simulação é calculado dentro dela. Prazo, estoque e trust são simulados.':singleSupplier?'Há uma revenda para este pedido. Confira o preço e o prazo antes de decidir.':'Escolha a opção que faz mais sentido para você.'}</p></div></div><div class="mini-protection">🛡️ <strong>Proteção do pedido:</strong> ${internalPilot?'nesta simulação, se o JR recusar ou ficar indisponível o pedido é encerrado, porque não existe segundo fornecedor no cenário.':singleSupplier?'o parceiro precisa aceitar. Se ele não puder atender e ainda não houver outra revenda elegível, o pedido é encerrado sem inventar uma alternativa.':'o parceiro precisa aceitar e qualquer alternativa mais cara depende da sua aprovação.'}</div>${offerBlock}</section>`:hasItems&&!hasAddress?'<div class="notice">Informe o endereço para ver preço e prazo.</div>':!hasItems?'<div class="notice">Adicione pelo menos um produto para consultar as opções.</div>':''}</section>`)
 }
 function cartRow(k,p){
   const q=state.cart[k]||0;
