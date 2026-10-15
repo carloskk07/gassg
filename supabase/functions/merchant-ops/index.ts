@@ -159,7 +159,7 @@ Deno.serve(async(req:Request)=>{
             data.dossier.version<1||!Number.isSafeInteger(data.dossier.priceCents)||
             !Number.isSafeInteger(data.dossier.dueDays)||
             typeof data.dossier.serviceScope!=="string"||
-            !["shared_for_review","changes_requested","reviewed"].includes(data.dossier.status))):
+            !["shared_for_review","changes_requested","reviewed"].includes(data.dossier.status)))):
            (data.recorded!==true||data.status!==operation||
             !Number.isSafeInteger(data.version)||data.version<1)))
         throw new DomainError("ADS_DOSSIER_RESPONSE_UNVERIFIED","Resposta não confirmada.",503);
