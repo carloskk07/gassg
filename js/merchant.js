@@ -659,6 +659,7 @@ function merchantDriverLivePage(rt){
   return shell(`<section class="page">
     <div class="status-bar"><div><div class="tiny muted">MINHAS ENTREGAS</div><h1 class="page-title" style="margin-bottom:2px">${esc(m.name||'Revenda')}</h1></div><span class="status-pill online">MOTORISTA</span></div>
     <div class="notice success" style="margin-top:14px"><strong>Visão restrita por atribuição.</strong><br>Você vê somente pedidos que a operação vinculou à sua conta. Catálogo, preços, compliance e pedidos de outros responsáveis não aparecem aqui.</div>
+    ${merchantDailyOverview(rt,orders)}
     <section class="section"><div class="section-head"><div><h2>Pedidos atribuídos a você</h2><p>Saída, chegada e conclusão continuam protegidas pela versão do pedido e pelas autoridades do servidor.</p></div></div>${merchantOrderQueueView(orders,'Nenhuma entrega atribuída a você agora.')}</section>
     ${merchantAlertControl()}
     <div class="card flat form-stack" style="margin-top:14px">
@@ -1495,6 +1496,7 @@ function merchantLivePage(){
     ${complianceNotice}
     ${freshnessNotice}
     ${financialHold?'<div class="notice danger" style="margin-top:12px"><strong>Novas vendas suspensas por pendência financeira.</strong><br>Regularize o fechamento vencido. Pedidos já aceitos continuam disponíveis normalmente.</div>':''}
+    ${merchantDailyOverview(rt,orders)}
     <section class="section" id="merchant-live-orders"><div class="section-head"><div><h2>Pedidos que exigem ação</h2><p>Aceite, saída e recebimento só são registrados depois de confirmação no sistema.</p></div></div>${merchantDeliveryAttentionView(rt)}${merchantOrderQueueView(orders)}</section>
 
     ${merchantSetupView(rt)}
@@ -1619,6 +1621,94 @@ function merchantFocusLiveOrder(orderId){
   card.scrollIntoView?.({behavior:'smooth',block:'center'});
   card.focus?.({preventScroll:true});
   return true;
+}
+// V1.271 — one read-only next action from server-scoped orders, never an order transition.
+function merchantDailyFocusModel(orders,now=Date.now()){
+  const rows=Array.isArray(orders)?orders:[];
+  const byStatus=status=>rows.filter(x=>x?.status===status);
+  const offers=byStatus('OFFERED_TO_MERCHANT').filter(order=>{
+    const raw=String(order?.offerExpiresAt||'');
+    const expires=raw?Date.parse(raw):NaN;
+    return !Number.isFinite(expires)||expires>now;
+  }).sort((a,b)=>{
+    const expiry=x=>{const n=Date.parse(String(x?.offerExpiresAt||''));return Number.isFinite(n)?n:Number.MAX_SAFE_INTEGER;};
+    return expiry(a)-expiry(b);
+  });
+  const urgentOffer=offers.find(x=>{
+    const expires=Date.parse(String(x?.offerExpiresAt||''));
+    return Number.isFinite(expires)&&expires-now<=5*60*1000;
+  });
+  const risk=byStatus('AT_RISK')[0];
+  const arriving=byStatus('ARRIVING')[0];
+  const delivery=byStatus('OUT_FOR_DELIVERY')[0];
+  const preparing=byStatus('PREPARING')[0];
+  const accepted=byStatus('MERCHANT_ACCEPTED')[0];
+  let order=null,title='',detail='';
+  if(urgentOffer){order=urgentOffer;title='Novo pedido aguardando resposta';detail='Confira se pode atender antes do prazo informado.';}
+  else if(risk){order=risk;title='Pedido com imprevisto';detail='Confira a situação e escolha o próximo passo no próprio pedido.';}
+  else if(offers.length){order=offers[0];title='Novo pedido para aceitar';detail='Confirme estoque e entrega antes de responder.';}
+  else if(arriving){order=arriving;title='Entrega aguardando conferência';detail='Confira a entrega, o PIN e o recebimento antes de concluir.';}
+  else if(delivery){order=delivery;title='Entrega em andamento';detail='Registre a chegada apenas quando estiver próximo do destino.';}
+  else if(preparing){order=preparing;title='Pedido em preparação';detail='Confira os produtos e confirme a saída somente quando acontecer.';}
+  else if(accepted){order=accepted;title='Pedido aceito';detail='Acompanhe a preparação antes da próxima etapa.';}
+  else if(byStatus('OFFERED_TO_MERCHANT').length){
+    return {order:null,title:'Atualize os pedidos',detail:'Há uma oferta com prazo aparentemente vencido. Atualize para confirmar o estado no servidor.',refresh:true};
+  }else if(rows.length){
+    return {order:null,title:'Confira os pedidos',detail:'Existem pedidos com situação não reconhecida por este resumo. Consulte a fila completa.',refresh:false};
+  }
+  if(!order)return {order:null,title:'Nenhum pedido em andamento',detail:'Quando houver um pedido atribuído à sua operação, ele aparecerá na fila.',refresh:false};
+  return {order,title,detail,refresh:false};
+}
+function merchantDailyVerifiedSales(rt){
+  const role=String(rt?.merchant?.memberRole||'');
+  const merchantId=String(rt?.merchant?.merchantId||'');
+  const d=rt?.businessPulse;
+  const m=d?.metrics;
+  const keys=['ordersCreated','settledOrders','cancelledOrders','reversedOrders','activeOrders','settledSalesCents'];
+  if(!['owner','manager'].includes(role)||!merchantId||
+     d?.merchantId!==merchantId||d?.source!=='merchant_business_pulse_v1_231'||
+     d?.readOnly!==true||d?.salesNotPlatformRevenue!==true||
+     d?.adsBillingEnabled!==false||d?.proBillingEnabled!==false||d?.periodDays!==30||
+     !m||!keys.every(k=>Number.isSafeInteger(m[k])&&m[k]>=0)||
+     m.ordersCreated!==m.settledOrders+m.cancelledOrders+m.reversedOrders+m.activeOrders)return null;
+  return {salesCents:m.settledSalesCents,orders:m.settledOrders};
+}
+function merchantDailyOpenSales(){
+  const rt=globalThis.merchantRuntime||{};
+  if(!['owner','manager'].includes(String(rt.merchant?.memberRole||'')))return;
+  merchantRevealControl('#merchant-business-pulse');
+  if(!merchantDailyVerifiedSales(rt)&&!rt.businessPulseLoading)
+    merchantBusinessPulseLoadFromUi();
+}
+function merchantDailyOverview(rt,orders){
+  const role=String(rt?.merchant?.memberRole||'');
+  const isDriver=role==='driver';
+  const focus=merchantDailyFocusModel(orders);
+  const id=String(focus.order?.orderId||'');
+  const safe=/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(id);
+  const label=focus.order?.publicCode?esc(focus.order.publicCode):'Pedido';
+  const action=safe?'<button type="button" class="primary" onclick="merchantFocusLiveOrder(\''+id+'\')">Ver '+label+'</button>':
+    focus.refresh?'<button type="button" class="secondary" onclick="merchantLiveRefresh()">Atualizar pedidos</button>':
+    '';
+  const sales=merchantDailyVerifiedSales(rt);
+  const salesHtml=isDriver?'':sales?
+    '<div class="merchant-daily-sales"><span>Vendas registradas • últimos 30 dias</span><strong>'+
+    esc(BRL.format(sales.salesCents/100))+'</strong><small>'+
+    sales.orders+' pedido(s) concluído(s) sem reversão. Valores dos pedidos, não lucro nem saldo bancário.</small>'+
+    '<button type="button" class="ghost small" onclick="merchantDailyOpenSales()">Ver detalhes</button></div>':
+    '<div class="merchant-daily-sales"><span>Suas vendas</span><strong>Consultar resultados</strong>'+
+    '<small>Mostramos apenas vendas concluídas e verificadas no histórico de pedidos.</small>'+
+    '<button type="button" class="secondary small" onclick="merchantDailyOpenSales()">Ver vendas dos últimos 30 dias</button></div>';
+  const count=Array.isArray(orders)?orders.length:0;
+  return '<section class="merchant-daily-overview" aria-label="Resumo de trabalho da revenda">'+
+    '<div class="merchant-daily-main"><span class="section-kicker">'+(isDriver?'MINHAS ENTREGAS':'AGORA NA SUA REVENDA')+'</span>'+
+    '<h2>'+esc(focus.title)+'</h2>'+
+    (focus.order?'<strong class="merchant-daily-order-code">'+label+'</strong>':'')+
+    '<p>'+esc(focus.detail)+'</p>'+
+    '<div class="merchant-daily-actions">'+action+
+    '<span class="tiny muted">'+count+' '+(count===1?'pedido na fila':'pedidos na fila')+
+    ' • ações só são efetivadas no pedido</span></div></div>'+
+    salesHtml+'</section>';
 }
 function merchantOrderAttentionSummary(orders){
   const attention=(Array.isArray(orders)?orders:[])
