@@ -2120,7 +2120,7 @@ async function merchantCatalogHistoryPageLive(merchantId,options={}){
   const payload={merchantId,action:'catalog-history'};
   if(productCode)payload.productCode=productCode;
   if(beforeId!==null)payload.beforeId=beforeId;
-  const data=await merchantInvoke('merchant-ops',payload);
+  const data=await merchantInvoke('merchant-catalog-history',payload);
   if(data?.source!=='merchant_catalog_history_v1_280'||
      data?.merchantId!==merchantId||data?.readOnly!==true||
      data?.productCode!==productCode||!Array.isArray(data.events)||
