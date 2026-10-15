@@ -281,6 +281,8 @@ jobs:
         run: node tests/merchant-recovery-v1-285.mjs
       - name: Test private merchant push foundation V1.286
         run: node tests/merchant-push-foundation-v1-286.mjs
+      - name: Test OIDC-signed per-device push sender V1.287
+        run: node tests/merchant-push-delivery-v1-287.mjs
       - name: TAMÃO V1.258 founder-approved orphan deletion with immutable audit
         run: node tests/owner-receipt-orphan-cleanup-v1-258.mjs
       - name: Turnstile smoke Chrome cleanup V1.238.1
