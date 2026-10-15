@@ -89,12 +89,14 @@ async function submitPublicRequest(){
   const button=document.querySelector('#public-request-submit');
   const result=document.querySelector('#public-request-result');
   if(button?.disabled)return;
-  const requestKind=String(document.querySelector('#public-request-kind')?.value||'general');
+  const uiKind=String(document.querySelector('#public-request-kind')?.value||'general');
+  const requestKind=uiKind==='sponsor'?'general':uiKind; // existing server-side request types remain unchanged
   const privacyAction=String(document.querySelector('#public-privacy-action')?.value||'');
   const contactName=String(document.querySelector('#public-contact-name')?.value||'').trim();
   const contactChannel=String(document.querySelector('#public-contact-channel')?.value||'whatsapp');
   const contactValue=String(document.querySelector('#public-contact-value')?.value||'').trim();
-  const message=String(document.querySelector('#public-request-message')?.value||'').trim();
+  const typedMessage=String(document.querySelector('#public-request-message')?.value||'').trim();
+  const message=((uiKind==='sponsor'?'[Parcerias e patrocínios] ':'')+typedMessage).slice(0,2000);
   const website=String(document.querySelector('#public-request-website')?.value||'');
   const acknowledged=document.querySelector('#public-request-ack')?.checked===true;
 
@@ -135,16 +137,16 @@ function contactPage(){
     legalHero(
       'CONTATO • CANAL OFICIAL',
       'Fale com o TAMÃO',
-      'Use este canal para dúvidas gerais, suporte ou solicitações relacionadas aos seus dados pessoais.'
+      'Use este canal para parcerias de marca, dúvidas gerais, suporte e solicitações relacionadas aos seus dados pessoais.'
     )+
     legalNav()+
     '<div class="contact-purpose-grid">'+
-      '<article class="trust-card"><span>💬</span><h3>Dúvidas gerais</h3><p>Funcionamento, cadastro, pedidos e disponibilidade.</p></article>'+
+      '<article class="trust-card"><span>💬</span><h3>Dúvidas gerais e marcas</h3><p>Funcionamento, parcerias comerciais, pedidos e disponibilidade.</p></article>'+
       '<article class="trust-card"><span>🛟</span><h3>Suporte</h3><p>Problemas de uso ou atendimento que não estejam vinculados a um pedido ativo.</p></article>'+
       '<article class="trust-card"><span>🔐</span><h3>Privacidade / LGPD</h3><p>Acesso, correção, eliminação, informações ou revogação de autorização.</p></article>'+
     '</div>'+
     '<section class="legal-card public-contact-card"><div class="field-row">'+
-      '<div class="input-wrap"><label for="public-request-kind">Assunto</label><select id="public-request-kind" class="input" onchange="contactKindChanged()"><option value="general">Dúvida geral</option><option value="support">Suporte</option><option value="privacy">Privacidade / dados pessoais</option></select></div>'+
+      '<div class="input-wrap"><label for="public-request-kind">Assunto</label><select id="public-request-kind" class="input" onchange="contactKindChanged()"><option value="general">Dúvida geral</option><option value="sponsor">Parceria de marca</option><option value="support">Suporte</option><option value="privacy">Privacidade / dados pessoais</option></select></div>'+
       '<div class="input-wrap" id="privacy-action-wrap" hidden><label for="public-privacy-action">Direito ou assunto de privacidade</label><select id="public-privacy-action" class="input">'+contactPrivacyOptions()+'</select></div>'+
     '</div>'+
     '<div class="field-row"><div class="input-wrap"><label for="public-contact-name">Seu nome</label><input id="public-contact-name" class="input" maxlength="120" autocomplete="name" placeholder="Nome"></div>'+
