@@ -2106,15 +2106,6 @@ function merchantLivePage(){
     </div></details>
     <details id="merchant-workspace-finance" class="merchant-workspace-section"><summary tabindex="0"><span><strong>Resultados e financeiro</strong><small>Desempenho e cobranças da plataforma, separados dos pedidos do dia.</small></span></summary><div class="merchant-workspace-content">
       ${merchantBusinessPulseSection(m)}
-    <details class="merchant-diagnostic-drawer"><summary>Verificações de documentos e habilitação</summary>
-      ${merchantEnablementAssistantView(rt)}
-    </details>
-
-    <div class="card flat form-stack" style="margin-top:14px">
-      ${memberships.length>1?`<div class="input-wrap"><label for="merchant-live-select">Operação</label><select id="merchant-live-select" class="input" onchange="merchantLiveSelect(this.value)">${memberships.map(x=>`<option value="${esc(x.merchantId)}" ${x.merchantId===m.merchantId?'selected':''}>${esc(x.name)} • ${esc(x.memberRole)}</option>`).join('')}</select></div>`:''}
-      <div class="order-actions"><button class="secondary small" onclick="merchantLiveRefresh()">Atualizar</button>${manage?'<button class="secondary small" onclick="merchantOpenTeam()">Equipe</button>':''}<button class="ghost small" onclick="merchantLiveLogout()">Sair</button></div>
-    </div>
-
     <section class="section"><div class="merchant-kpis">
       <div class="kpi"><span class="label">${p13?.pricingMode==='range'?'Preço normal P13':'Preço P13'}</span><strong>${p13?BRL.format(Number(p13.priceCents||0)/100):'—'}</strong>${p13?.pricingMode==='range'?'<small>'+BRL.format(Number(p13.minPriceCents||0)/100)+'–'+BRL.format(Number(p13.maxPriceCents||0)/100)+'</small>':''}</div>
       <div class="kpi"><span class="label">Estoque P13</span><strong>${p13?Number(p13.availableStock||0):'—'}</strong></div>
@@ -2129,6 +2120,15 @@ function merchantLivePage(){
 
     <details id="merchant-workspace-settings" class="merchant-workspace-section"><summary tabindex="0"><span><strong>Minha revenda e configurações</strong><small>Notificações, equipe, documentos e preferências de operação.</small></span></summary><div class="merchant-workspace-content">
       ${merchantAlertControl()}
+    <details class="merchant-diagnostic-drawer"><summary>Verificações de documentos e habilitação</summary>
+      ${merchantEnablementAssistantView(rt)}
+    </details>
+
+    <div class="card flat form-stack" style="margin-top:14px">
+      ${memberships.length>1?`<div class="input-wrap"><label for="merchant-live-select">Operação</label><select id="merchant-live-select" class="input" onchange="merchantLiveSelect(this.value)">${memberships.map(x=>`<option value="${esc(x.merchantId)}" ${x.merchantId===m.merchantId?'selected':''}>${esc(x.name)} • ${esc(x.memberRole)}</option>`).join('')}</select></div>`:''}
+      <div class="order-actions"><button class="secondary small" onclick="merchantLiveRefresh()">Atualizar</button>${manage?'<button class="secondary small" onclick="merchantOpenTeam()">Equipe</button>':''}<button class="ghost small" onclick="merchantLiveLogout()">Sair</button></div>
+    </div>
+
       ${manage?`<details id="merchant-operation-settings" class="merchant-settings-drawer"><summary>Configurações da revenda <span>Preços, entregas, pagamentos e outras opções</span></summary><div class="card flat form-stack">
       <h3>Produtos</h3>
       <p class="muted tiny">Edite os preços e estoques na seção de ajuste rápido, no início do painel, ou use o catálogo completo para configurar produtos e faixas.</p>
