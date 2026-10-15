@@ -8,9 +8,10 @@ const css=read('css/components.css'),audit=read('.github/workflows/audit.yml');
 for(const [file,code] of [['growth',growth],['legal',legal],['analytics',analytics],['bootstrap',bootstrap]])
   new vm.Script(code,{filename:file+'.js'});
 const cut=(src,name)=>{
- const start=src.indexOf('function '+name+'(');
- assert.ok(start>=0,'missing function '+name);
- const end=src.indexOf('\n}',start);
+ const found=src.indexOf('function '+name+'(');
+ assert.ok(found>=0,'missing function '+name);
+ const start=src.slice(Math.max(0,found-6),found)==='async '?found-6:found;
+ const end=src.indexOf('\n}',found);
  assert.ok(end>start,'missing end '+name);
  return src.slice(start,end+2);
 };
