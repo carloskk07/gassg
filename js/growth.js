@@ -287,6 +287,11 @@ function earn(){
     <h1 class="page-title">Compre bem, compartilhe o que gosta e construa sua rede.</h1>
     <p class="muted page-lead">O TAMÃO aproxima quem compra, quem vende e quem indica. Descubra suas vantagens, convide amigos e ajude a criar mais oportunidades para a sua cidade.</p>
     <div class="conversion-mini-proof"><span>✓ Compra e indicação são diferentes</span><span>✓ Regras visíveis</span><span>✓ Sua rede, suas oportunidades</span></div>
+    <nav class="tamao-cro-paths" aria-label="Escolha como participar da Rede TAMÃO">
+      <button type="button" onclick="go('refer')"><span aria-hidden="true">🤝</span><strong>Quero indicar</strong><small>Compartilhe seu link e acompanhe indicações elegíveis.</small><b aria-hidden="true">→</b></button>
+      <button type="button" onclick="go('club')"><span aria-hidden="true">🎁</span><strong>Quero meus benefícios</strong><small>Confira o que você conquistou e as condições de uso.</small><b aria-hidden="true">→</b></button>
+      <button type="button" onclick="go('merchants')"><span aria-hidden="true">🏪</span><strong>Tenho uma empresa</strong><small>Conheça o canal de vendas para revendas locais.</small><b aria-hidden="true">→</b></button>
+    </nav>
     ${growthNetworkIntro()}
     <section class="section tamao-customer-growth">
       <div class="section-head"><div><span class="section-kicker">O SEU JEITO DE PARTICIPAR</span>
@@ -409,16 +414,38 @@ async function shareReferral(){
 }
 
 // V1.243 — honest sponsor discovery; no paid ads or funded Clube campaign is sold from this page.
+// V1.301 — send partnership interest into the existing protected contact channel,
+// without new storage, third-party redirects or a fake sponsor activation.
+function openSponsorContact(){
+  const focus=()=>{
+    if(route()!=='contact')return;
+    const type=document.getElementById('public-request-kind');
+    if(type){type.value='general';globalThis.contactKindChanged?.()}
+    const message=document.getElementById('public-request-message');
+    if(message&&!String(message.value||'').trim()){
+      message.value='Tenho interesse em uma parceria de divulgação com o TAMÃO. Nossa marca atua em [cidade/região] e gostaríamos de conversar sobre objetivos, categorias e formatos disponíveis.';
+    }
+    document.querySelector('.public-contact-card')?.scrollIntoView({behavior:'smooth',block:'start'});
+    document.getElementById('public-contact-name')?.focus({preventScroll:true});
+  };
+  if(route()!=='contact'){go('contact');setTimeout(focus,160);return}
+  focus();
+}
 function sponsorsLanding(){
   return shell(`<section class="page tamao-sponsors-page">
-    <div class="tamao-sponsor-hero">
+    <div class="tamao-sponsor-hero tamao-commercial-hero">
       <span class="eyebrow">MARCAS E PARCEIROS • TAMÃO</span>
       <h1 class="page-title">Sua marca presente no dia a dia de quem compra e vende.</h1>
-      <p class="page-lead">Imagine sua marca fazendo parte das escolhas que movimentam cada cidade: do gás que chega em casa à água e aos produtos que acompanham a rotina das famílias. O TAMÃO conecta essa demanda às revendas locais e abre espaço para criar ações relevantes com parceiros.</p>
+      <p class="page-lead">Converse com o TAMÃO sobre ações de divulgação regional ligadas às necessidades reais das famílias e das revendas. Definimos cidade, público, formato e investimento antes de qualquer ativação.</p>
       <div class="conversion-mini-proof"><span>✓ Presença regional</span><span>✓ Campanhas desenhadas em conjunto</span><span>✓ Primeiro contato sem compromisso</span></div>
       <div class="tamao-value-actions">
-        <button type="button" class="primary" onclick="go('contact')">Conversar sobre uma parceria →</button>
+        <button type="button" class="primary" onclick="openSponsorContact()">Quero apresentar minha marca →</button>
         <button type="button" class="secondary" onclick="go('merchants')">Conhecer as revendas</button>
+      </div>
+      <div class="tamao-cro-steps" aria-label="Como iniciar uma parceria de marca">
+        <div><span>01</span><strong>Apresente sua marca</strong><small>Informe como podemos falar com você.</small></div>
+        <div><span>02</span><strong>Escolha a região</strong><small>Conte onde e para quem deseja aparecer.</small></div>
+        <div><span>03</span><strong>Defina a campanha</strong><small>Orçamento e critérios avaliados antes da ativação.</small></div>
       </div>
     </div>
     <section class="section">
@@ -448,7 +475,7 @@ function sponsorsLanding(){
       <span class="section-kicker">VAMOS CONVERSAR?</span>
       <h2>Boas parcerias começam com objetivos em comum.</h2>
       <p>Conte qual região e categoria interessam à sua marca. Nossa equipe ajuda a explorar formatos e condições de parceria que façam sentido para o seu negócio.</p>
-      <button type="button" class="primary" onclick="go('contact')">Entrar em contato →</button>
+      <button type="button" class="primary" onclick="openSponsorContact()">Conversar sobre divulgação →</button>
     </div></section>
   </section>`);
 }
@@ -468,6 +495,11 @@ function merchantsLanding(){
     <p class="muted page-lead">Sua revenda merece um espaço a mais para crescer. Apareça para quem procura gás, água e itens essenciais na sua região, receba pedidos organizados e continue vendendo no balcão, no telefone ou pelo WhatsApp. <strong>Você continua no comando: você define seus preços, o estoque, as formas de receber e como será a entrega.</strong></p>
     <div class="conversion-mini-proof"><span>✓ Sem exclusividade</span><span>✓ Recebimento direto na revenda</span><span>✓ Você decide quando ficar online</span></div>
 
+    <div class="tamao-cro-steps merchant-cro-steps" aria-label="Como começar a vender pelo TAMÃO">
+      <div><span>01</span><strong>Apresente sua revenda</strong><small>Cadastre a empresa e seu contato em poucos passos.</small></div>
+      <div><span>02</span><strong>Prepare sua operação</strong><small>Revise produtos, entrega, recebimento e autorizações necessárias.</small></div>
+      <div><span>03</span><strong>Receba pedidos elegíveis</strong><small>Após habilitação, confirme apenas os pedidos que puder atender.</small></div>
+    </div>
     <div class="merchant-commercial-strip merchant-value-strip">
       <div><small>TAXA POR PEDIDO CONCLUÍDO</small><strong>${merchantFeeLabel}</strong><span>sobre o valor bruto de cada pedido concluído</span></div>
       <p><strong>O modelo atual não tem mensalidade.</strong> A taxa do TAMÃO só é cobrada sobre pedidos concluídos. O cliente paga diretamente à sua revenda, que continua responsável pelos próprios custos e impostos.</p>
