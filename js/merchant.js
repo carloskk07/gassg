@@ -1425,10 +1425,106 @@ async function merchantEnablementRecheck(){
 
 
 // V1.276 — one prominent daily availability control, using existing protected operations.
+// V1.277 — the quick editor shows only eligible, server-scoped active catalog items.
+function merchantQuickCatalogCandidates(rt){
+  const entries=Array.isArray(rt?.catalog)?rt.catalog:[];
+  const seen=new Set();
+  const eligible=entries.filter(p=>{
+    const code=String(p?.productCode||'');
+    const price=Number(p?.priceCents),stock=Number(p?.availableStock);
+    if(p?.active!==true||!/^[A-Z0-9_-]{1,24}$/.test(code)||seen.has(code)||
+       !Number.isSafeInteger(price)||price<=0||price>1000000||
+       !Number.isSafeInteger(stock)||stock<0||stock>100000)return false;
+    seen.add(code);return true;
+  });
+  return eligible.sort((a,b)=>{
+    if(a.productCode==='P13'&&b.productCode!=='P13')return -1;
+    if(b.productCode==='P13'&&a.productCode!=='P13')return 1;
+    const empty=(Number(a.availableStock)===0?0:1)-(Number(b.availableStock)===0?0:1);
+    return empty||String(a.productCode).localeCompare(String(b.productCode),'pt-BR');
+  }).slice(0,6);
+}
+function merchantQuickCatalogView(rt){
+  if(!['owner','manager'].includes(String(rt?.merchant?.memberRole||'')))return '';
+  const all=Array.isArray(rt.catalog)?rt.catalog:[];
+  const products=merchantQuickCatalogCandidates(rt);
+  const ready=rt.actionPending!==true;
+  const rows=products.map(p=>{
+    const code=String(p.productCode);
+    const range=p.pricingMode==='range';
+    const min=Number(p.minPriceCents),max=Number(p.maxPriceCents);
+    const validRange=!range||(Number.isSafeInteger(min)&&Number.isSafeInteger(max)&&
+      min>0&&max<=1000000&&min<=Number(p.priceCents)&&Number(p.priceCents)<=max);
+    const disabled=!ready||!validRange;
+    return '<div class="merchant-quick-product">'+
+      '<div class="merchant-quick-product-heading"><strong>'+esc(p.productName||code)+'</strong>'+
+      '<span>'+esc(code)+(range?' • faixa automática':'')+'</span></div>'+
+      '<fieldset class="merchant-quick-product-fields"'+(disabled?' disabled':'')+'>'+
+      '<label for="merchant-quick-price-'+code+'">'+(range?'Preço normal (R$)':'Preço (R$)')+'</label>'+
+      '<input id="merchant-quick-price-'+code+'" class="input merchant-quick-price" type="number" inputmode="decimal" min="0.01" max="10000" step="0.01" value="'+
+      (Number(p.priceCents)/100).toFixed(2)+'">'+
+      '<label for="merchant-quick-stock-'+code+'">Em estoque</label>'+
+      '<input id="merchant-quick-stock-'+code+'" class="input merchant-quick-stock" type="number" inputmode="numeric" min="0" max="100000" step="1" value="'+
+      Number(p.availableStock)+'">'+
+      '<button type="button" class="secondary small" onclick="merchantQuickCatalogSave(\''+code+'\')">Salvar alterações</button>'+
+      '</fieldset>'+
+      (range?'<small class="merchant-quick-product-hint">'+(validRange?
+        'Faixa autorizada: '+esc(BRL.format(min/100))+' até '+esc(BRL.format(max/100))+'. Limites e estratégia só podem ser alterados no catálogo.':
+        'A faixa precisa ser revisada no catálogo antes de fazer alterações rápidas.')+'</small>':'')+
+      '</div>';
+  }).join('');
+  return '<details id="merchant-quick-catalog" class="merchant-quick-catalog">'+
+    '<summary><strong>Atualizar preço e estoque</strong><span>Ajustes rápidos para até 6 produtos ativos</span></summary>'+
+    '<div class="merchant-quick-catalog-content">'+
+    (products.length?'<p>Confira os valores antes de salvar cada produto. Estoque zero mantém o produto sem ofertas.</p>':
+      '<p>Não há produtos ativos com preço e estoque válidos para ajuste rápido. Use o catálogo completo.</p>')+
+    '<div class="merchant-quick-product-list">'+rows+'</div>'+
+    '<button type="button" class="ghost small" onclick="go(\'catalog\')">Abrir catálogo completo'+
+    (all.length>products.length?' ('+all.length+' produtos)':'')+'</button>'+
+    '</div></details>';
+}
+async function merchantQuickCatalogSave(productCode){
+  const rt=globalThis.merchantRuntime||{};
+  if(rt.status!=='ready'||rt.actionPending===true||
+     !['owner','manager'].includes(String(rt.merchant?.memberRole||'')))return;
+  const code=String(productCode||'');
+  const item=merchantQuickCatalogCandidates(rt).find(p=>p.productCode===code);
+  if(!item)return toast('Produto indisponível para edição rápida. Atualize o painel.');
+  const priceField=document.getElementById('merchant-quick-price-'+code);
+  const stockField=document.getElementById('merchant-quick-stock-'+code);
+  if(!priceField||!stockField)return toast('Atualize o painel para editar este produto.');
+  const raw=String(priceField.value||'').trim(),stockRaw=String(stockField.value||'').trim();
+  const price=Number(raw),stock=Number(stockRaw);
+  const cents=Math.round(price*100);
+  if(!raw||!stockRaw||!Number.isFinite(price)||price<=0||price>10000||
+     !Number.isSafeInteger(cents)||!Number.isInteger(stock)||stock<0||stock>100000){
+    return toast('Revise o preço e o estoque antes de salvar.');
+  }
+  let pricing={};
+  if(item.pricingMode==='range'){
+    const min=Number(item.minPriceCents),max=Number(item.maxPriceCents);
+    if(!Number.isSafeInteger(min)||!Number.isSafeInteger(max)||min<=0||max>1000000||
+       min>max||cents<min||cents>max){
+      return toast('O preço normal deve respeitar a faixa atual. Revise os limites no catálogo.');
+    }
+    pricing={pricingMode:'range',minPriceCents:min,maxPriceCents:max,
+      pricingStrategy:String(item.pricingStrategy||'balanced')};
+  }
+  try{
+    await merchantUpdateProductLive(code,cents,stock,item.active===true,pricing);
+    toast('Preço e estoque de '+code+' confirmados.');
+  }catch(e){toast(String(e?.message||e))}
+}
 function merchantAvailabilityGo(key){
   const rt=globalThis.merchantRuntime||{};
   if(!['owner','manager'].includes(String(rt.merchant?.memberRole||'')))return false;
-  if(key==='stock'){go('catalog');return true;}
+  if(key==='stock'){
+    if(!merchantQuickCatalogCandidates(rt).length){go('catalog');return true;}
+    if(!merchantRevealControl('#merchant-quick-catalog .merchant-quick-price')){
+      toast('Atualize o painel para editar o estoque.');return false;
+    }
+    return true;
+  }
   if(key!=='delivery')return false;
   const opened=merchantRevealControl('#live-delivery-fee');
   if(!opened)toast('Atualize o painel para acessar as entregas.');
@@ -1550,6 +1646,7 @@ function merchantLivePage(){
 
     ${rt.error?`<div class="notice danger" style="margin-top:12px">${esc(rt.error)}</div>`:''}
     ${merchantAvailabilityPanel(rt,{canGoOnline,connectionHealthy,financialHold,freshness,p13,orderCount:orders.length})}
+    ${merchantQuickCatalogView(rt)}
     ${connectionNotice}
     ${complianceNotice}
     ${freshnessNotice}
@@ -1590,10 +1687,9 @@ function merchantLivePage(){
     ${merchantBillingLiveView(rt)}
 
     ${manage?`<details id="merchant-operation-settings" class="merchant-settings-drawer"><summary>Configurações da revenda <span>Preços, entregas, pagamentos e outras opções</span></summary><div class="card flat form-stack">
-      <h3>Preço e estoque P13</h3>
-      ${p13?.pricingMode==='range'?'<div class="notice"><strong>Faixa automática ativa.</strong><br>Autorizada de '+BRL.format(Number(p13.minPriceCents||0)/100)+' a '+BRL.format(Number(p13.maxPriceCents||0)/100)+'. Este atalho altera o preço normal e o estoque; edite limites e estratégia no catálogo.</div>':''}
-      <div class="field-row"><div class="input-wrap"><label for="live-p13-price">${p13?.pricingMode==='range'?'Preço normal':'Preço'}</label><input id="live-p13-price" inputmode="decimal" type="number" min="0.01" max="10000" step="0.10" class="input" value="${p13?(Number(p13.priceCents||0)/100).toFixed(2):''}"></div><div class="input-wrap"><label for="live-p13-stock">Estoque disponível</label><input id="live-p13-stock" inputmode="numeric" type="number" min="0" max="100000" class="input" value="${p13?Number(p13.availableStock||0):0}"></div></div>
-      <button class="secondary" onclick="merchantLiveSaveP13()">Confirmar preço e estoque P13</button><button class="ghost" onclick="go('catalog')">Editar todos os produtos</button>
+      <h3>Produtos</h3>
+      <p class="muted tiny">Edite os preços e estoques na seção de ajuste rápido, no início do painel, ou use o catálogo completo para configurar produtos e faixas.</p>
+      <button class="secondary" type="button" onclick="merchantAvailabilityGo('stock')">Abrir ajuste rápido</button><button class="ghost" type="button" onclick="go('catalog')">Editar todos os produtos</button>
       <div class="divider"></div>
       <h3>Entrega</h3>
       <div class="field-row"><div class="input-wrap"><label for="live-delivery-fee">Taxa de entrega</label><input id="live-delivery-fee" inputmode="decimal" type="number" min="0" max="1000" step="0.10" class="input" value="${(Number(m.deliveryFeeCents||0)/100).toFixed(2)}"></div><div class="input-wrap"><label for="live-eta">ETA base (min)</label><input id="live-eta" inputmode="numeric" type="number" min="5" max="180" class="input" value="${Number(m.baseEtaMinutes||30)}"></div></div>
