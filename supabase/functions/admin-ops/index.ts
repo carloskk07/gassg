@@ -4903,6 +4903,13 @@ Deno.serve(async(req:Request)=>{
           snapshot.checkout.externalReference!==reserved.data.externalReference||
           snapshot.checkout.amountCents!==item.amountCents)
           throw new DomainError("ADS_PSP_RESERVATION_READBACK_FAILED","Reserva gravada, sem autorização para envio ao provedor.",503);
+        // Expire the external payment preference at the contracted local due date.
+        // A stale checkout must never remain indefinitely payable via a copied link.
+        const expiresAt=new Date(String(item.receivable.dueDate||"")+"T23:59:59-03:00");
+        if(!Number.isFinite(expiresAt.getTime())||expiresAt.getTime()<=Date.now()){
+          throw new DomainError("ADS_PSP_DUE_DATE_INVALID",
+            "Vencimento do demonstrativo incompatível com a criação do checkout.",409);
+        }
         let preference:any;
         try{
           const response=await mercadoPagoFetch("/checkout/preferences",{
@@ -4912,6 +4919,9 @@ Deno.serve(async(req:Request)=>{
               items:[{id:"tamao-ads-"+merchantId,title:"Publicidade TAMÃO Ads",
                 quantity:1,currency_id:"BRL",unit_price:item.amountCents/100}],
               external_reference:reserved.data.externalReference,
+              expires:true,
+              expiration_date_from:new Date().toISOString(),
+              expiration_date_to:expiresAt.toISOString(),
               back_urls:{success:"https://parceiro.tamao.com.br/",
                 failure:"https://parceiro.tamao.com.br/",pending:"https://parceiro.tamao.com.br/"},
               auto_return:"approved"
