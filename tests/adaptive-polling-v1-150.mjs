@@ -12,6 +12,7 @@ const sliceFunction=name=>{
   return source.slice(start,finish+2);
 };
 const helper=sliceFunction('merchantPollingIntervalMs');
+const recovery=sliceFunction('merchantRecoveryDelayMs')+'\n'+sliceFunction('merchantCanRecover');
 const polling=sliceFunction('merchantPoll');
 
 function harness({online=true,orders=[],visibility='visible'}={}){
@@ -19,14 +20,14 @@ function harness({online=true,orders=[],visibility='visible'}={}){
   const events=[];
   const merchantRuntime={merchant:{online},orders,actionPending:false,pollPending:false,lastPollAt:0};
   const sandbox={
-    merchantRuntime,document:{visibilityState:visibility},
+    merchantRuntime,merchantAlerts:{enabled:false},document:{visibilityState:visibility},
     Date:{now:()=>clock},
     merchantReady:()=>true,
     merchantHeartbeat:async()=>{events.push('heartbeat');return true;},
     merchantRefresh:async()=>{events.push('refresh');return true;},
     render:()=>events.push('render'),
   };
-  const fns=vm.runInNewContext(helper+'\n'+polling+'\n;({merchantPollingIntervalMs,merchantPoll})',sandbox);
+  const fns=vm.runInNewContext(helper+'\n'+recovery+'\n'+polling+'\n;({merchantPollingIntervalMs,merchantPoll})',sandbox);
   return {
     poll:fns.merchantPoll,
     interval:(orders,online)=>fns.merchantPollingIntervalMs(orders,online),
@@ -96,7 +97,8 @@ assert.ok(source.includes('now-liveRuntime.lastFinancialSyncAttemptAt<CUSTOMER_F
 assert.ok(source.includes('now-liveRuntime.lastMarketStatusAt<CUSTOMER_MARKET_REFRESH_MS'));
 assert.ok(source.includes('await liveSyncFinancialProfile({force:true})'),'conclusão e recuperação seguem com refresh financeiro imediato');
 assert.ok(source.includes('if(now-merchantRuntime.lastHeartbeatAt<60000)return null;'),'heartbeat não pode atrasar além da periodicidade existente');
-assert.ok(source.includes('await merchantHeartbeat();\n    await merchantRefresh({silent:true});'),'presença deve preceder consulta operacional');
+assert.ok(source.includes('await merchantHeartbeat();'),'presença continua antes da consulta operacional');
+assert.ok(source.includes('await merchantRefresh({silent:true});'),'consulta da revenda continua obrigatória');
 
 const hoursPerDay=8, days=30;
 const previousCalls=(hoursPerDay*3600/5 + hoursPerDay*3600/60)*days;
