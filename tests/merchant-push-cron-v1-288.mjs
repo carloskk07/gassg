@@ -49,7 +49,10 @@ assert.match(audit,/node tests\/merchant-push-cron-v1-288\.mjs/);
 const p=worker.indexOf('async function authorizeVaultCron(');
 const q=worker.indexOf('\n}',p);
 assert.ok(p>=0&&q>p);
-const functionSource=worker.slice(p,q+2);
+// The Edge source is TypeScript; strip this helper's type-only signature
+// before evaluating its real body with Node's JavaScript VM.
+const functionSource=worker.slice(p,q+2)
+  .replace('req:Request,admin:any):Promise<boolean>','req,admin)');
 const ctx=vm.createContext({
  sha256Hex:async(v)=>{assert.equal(v,'a'.repeat(64));return 'b'.repeat(64)},
  DomainError:class DomainError extends Error{constructor(code,message,status){super(message);this.code=code;this.status=status}}
