@@ -17,7 +17,7 @@ for(const token of [
  'const valueBridge=','Comprar sem complicação','Vender com mais alcance',
  'Indicar e participar','startCustomerAvailability()',"go('merchants')",
  "go('earn')",'\u0024{valueBridge}',
- 'Precisou de gás ou água?'
+ 'Faltou em casa?'
 ])assert.ok(home.includes(token),'missing public conversion flow: '+token);
 assert.ok(!home.includes('garantimos sua renda'));
 const pageStart=merchant.indexOf('function merchantLivePage(){');
