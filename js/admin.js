@@ -23,6 +23,7 @@ const adminRuntime={
   health:null,
   healthPending:false,
   pushReliability:{data:null,loading:false,error:null,checkedAt:null,loadedFor:null},
+  governance:{data:null,loading:false,error:null,loadedFor:null,role:null},
   operationalAlerts:{data:null,loadedFor:null,role:null,loading:false,error:null,checkedAt:null},
   operationalAlertFilter:'all',
   providerHealth:(()=>{
@@ -353,6 +354,7 @@ async function adminSignOut(){
   adminRuntime.health=null;
   adminRuntime.healthPending=false;
   adminRuntime.pushReliability={data:null,loading:false,error:null,checkedAt:null,loadedFor:null};
+  adminRuntime.governance={data:null,loading:false,error:null,loadedFor:null,role:null};
   adminRuntime.operationalAlerts={data:null,loadedFor:null,role:null,loading:false,error:null,checkedAt:null};
   adminRuntime.providerHealth=null;
   adminRuntime.providerHealthPending=false;
@@ -400,6 +402,8 @@ async function adminRefresh({silent=false}={}){
     adminRuntime.error=null;
     adminRuntime.lastSyncAt=new Date().toISOString();
     queueMicrotask(()=>adminEnsureProviderHealth().catch(()=>{}));
+    if(['overview','system'].includes(String(adminRuntime.section||'')))
+      queueMicrotask(()=>adminLoadGovernanceGates().catch(()=>{}));
     if(adminRuntime.section==='finance')queueMicrotask(()=>adminLoadFinanceHistory().catch(()=>{}));
     if(adminRuntime.section==='alerts')queueMicrotask(()=>adminLoadOperationalAlerts().catch(()=>{}));
     return data;
@@ -2414,6 +2418,7 @@ function adminSetSection(section){
   try{sessionStorage.setItem('tamao-admin-section',next)}catch{}
   render();
   if(next==='system')adminLoadSystemHealth().catch(()=>{});
+  if(['system','overview'].includes(next))adminLoadGovernanceGates().catch(()=>{});
   if(next==='alerts')adminLoadOperationalAlerts({force:true}).catch(()=>{});
   if(next==='prospects'){
     adminLoadProspects().catch(()=>{});
@@ -5424,6 +5429,116 @@ function adminCommercialPolicySection(d){
 
 // V1.300 — one map of existing, enforced administrative authorities.
 // Buttons navigate to real audited workflows; they do not impersonate approval.
+// V1.304: explicit business-control evidence, never an alternate permission layer.
+async function adminLoadGovernanceGates({force=false}={}){
+  if(!adminReady()||!['superadmin','operations','readonly'].includes(adminCurrentRole()))return null;
+  const state=adminRuntime.governance||{};
+  const actor=String(adminRuntime.session?.user?.id||'');
+  const role=adminCurrentRole();
+  const fresh=Date.now()-Date.parse(state.data?.checkedAt||'')<2*60*1000;
+  if(state.loading)return null;
+  if(!force&&state.loadedFor===actor&&state.role===role&&fresh&&state.data)return state.data;
+  state.loading=true;state.error=null;
+  adminRuntime.governance=state;
+  render();
+  try{
+    const report=await adminInvoke({action:'governance-gates'});
+    if(report?.source!=='admin_governance_gates_v1_304'||report.readOnly!==true||
+      report.noAutomaticActivation!==true||!Array.isArray(report.cities)||
+      !report.counts||!report.runtime||!report.controls){
+      throw new Error('Relatório de governança sem comprovação do servidor.');
+    }
+    if(actor!==String(adminRuntime.session?.user?.id||'')||role!==adminCurrentRole())return null;
+    state.data=report;state.loadedFor=actor;state.role=role;
+    return report;
+  }catch(error){
+    if(actor===String(adminRuntime.session?.user?.id||'')){
+      state.error=String(error?.message||'Não foi possível consultar as liberações.');
+      state.data=null;
+    }
+    return null;
+  }finally{state.loading=false;render();}
+}
+async function adminGovernanceChangeCityPause(index){
+  if(!adminReady()||!['superadmin','operations'].includes(adminCurrentRole()))return false;
+  const report=adminRuntime.governance?.data;
+  const location=Number.isInteger(index)&&index>=0&&index<200?report?.cities?.[index]:null;
+  if(!location||report?.controls?.cityPause!==true)return false;
+  const city=String(location.city||''),state=String(location.state||'');
+  const paused=!location.adminPaused;
+  const action=paused?'pausar novas cotações':'retirar a pausa administrativa';
+  if(!confirm('Deseja '+action+' em '+city+'/'+state+'? Pedidos existentes não serão apagados.'))return false;
+  const reason=prompt('Escreva o motivo desta decisão (mínimo de 5 caracteres):')||'';
+  if(reason.trim().length<5){toast('Informe uma justificativa de pelo menos 5 caracteres.');return false;}
+  try{
+    await adminPerform('market-city-pause',{city,state,paused:Boolean(paused),reason:reason.trim()});
+    // Reading refreshed database evidence prevents a stale switch-looking UI.
+    await adminLoadGovernanceGates({force:true});
+    toast(paused?'Pausa administrativa registrada.':'Pausa removida; vendas ainda dependem da habilitação comercial.');
+    return true;
+  }catch(error){toast(String(error?.message||error));return false;}
+}
+function adminGovernanceView(){
+  const role=adminCurrentRole();
+  if(!['superadmin','operations','readonly'].includes(role))return '';
+  const state=adminRuntime.governance||{};
+  const actor=String(adminRuntime.session?.user?.id||'');
+  const valid=state.loadedFor===actor&&state.role===role&&state.data;
+  const r=valid?state.data:null;
+  const review='<button type="button" class="secondary small" '+(state.loading?'disabled':'')+
+    ' onclick="adminLoadGovernanceGates({force:true})">'+(state.loading?'Conferindo…':'Atualizar estados reais')+'</button>';
+  if(!r)return '<section class="section admin-governance" aria-label="Estado das liberações">'+
+    '<div class="section-head"><div><span class="section-kicker">CONTROLES EFETIVOS</span>'+
+    '<h2>O que está realmente liberado?</h2><p>Consulta protegida ao estado do banco e das configurações do servidor.</p>'+
+    '</div>'+review+'</div>'+
+    (state.error?'<div class="notice danger">'+esc(state.error)+'</div>':
+      '<p class="muted tiny">Os estados ainda não foram confirmados nesta sessão.</p>')+
+    '</section>';
+  const merchantCounts=r.counts?.merchantsByStatus||{};
+  const applicationCounts=r.counts?.applicationsByStatus||{};
+  const t=r.truncated||{};
+  const globalMode=String(adminRuntime.data?.launchReadiness?.operationMode||'PRELAUNCH').toUpperCase();
+  const active=Number(merchantCounts.active||0);
+  const pending=Number(merchantCounts.pending||0);
+  const approved=Number(applicationCounts.approved||0);
+  const values=[
+    {title:'Modo global',detail:adminOperationModeLabel(globalMode),note:'Ativação comercial precisa de autorização explícita.',section:'overview'},
+    {title:'Revendas',detail:active+' ativa(s) • '+pending+' pendente(s)',note:(t.merchants?'Contagem parcial; ':'')+'Status de cadastro não prova aptidão para receber pedidos.',section:'partners'},
+    {title:'Solicitações empresariais',detail:approved+' aprovada(s)',note:(t.applications?'Contagem parcial; ':'')+'Aprovar cadastro não ativa a revenda.',section:'partners'},
+    {title:'Pagamento integrado',detail:r.runtime.merchantDirectPaymentsEnabled===true?'Habilitado no ambiente':'Desabilitado no ambiente',note:'Configuração técnica verificada, não comprovante de transação.',section:'finance'}
+  ];
+  const indicators=values.filter(v=>adminRoleCanSection(v.section)).map(v=>
+    '<div class="admin-governance-indicator"><strong>'+esc(v.title)+'</strong>'+
+    '<span>'+esc(v.detail)+'</span><small>'+esc(v.note)+'</small>'+
+    '<button type="button" class="ghost small" onclick="adminSetSection(\''+v.section+'\')">Abrir área →</button></div>').join('');
+  const cities=r.cities.map((c,index)=>{
+    const canEdit=r.controls?.cityPause===true&&
+      ['superadmin','operations'].includes(role);
+    // Never change commerce_enabled through this pause action.
+    const choice=canEdit?
+      '<button type="button" class="secondary small" onclick="adminGovernanceChangeCityPause('+index+')">'+
+      (c.adminPaused?'Retirar pausa':'Pausar novas cotações')+'</button>':
+      '<span class="tiny muted">Somente consulta</span>';
+    const commerce=c.commerceEnabled===true?'Habilitada no cadastro':'Comércio ainda não habilitado';
+    const pause=c.adminPaused===true?'Pausa administrativa ativa':'Sem pausa administrativa';
+    return '<div class="admin-governance-city"><div><strong>'+esc(c.city)+'/'+esc(c.state)+'</strong>'+
+      '<small>'+esc(commerce)+' • '+esc(pause)+'</small></div>'+choice+'</div>';
+  }).join('');
+  return '<section class="section admin-governance" aria-label="Estados reais de ativação">'+
+    '<div class="section-head"><div><span class="section-kicker">EVIDÊNCIA AO VIVO • V1.304</span>'+
+    '<h2>Liberações e ativações</h2>'+
+    '<p>Dados consultados no servidor. Uma aprovação ou ausência de pausa não significa que a venda está liberada.</p>'+
+    '</div>'+review+'</div>'+
+    '<div class="admin-governance-indicators">'+indicators+'</div>'+
+    '<div class="admin-governance-city-block"><div class="section-head"><div>'+
+    '<h3>Cidades cadastradas</h3><p>Uma cidade só atende clientes quando a operação global, o cadastro da cidade e as revendas estão elegíveis.</p>'+
+    '</div><button type="button" class="ghost small" onclick="adminSetSection(\'prospects\')">Ver expansão →</button></div>'+
+    (cities||'<p class="muted">Nenhuma cidade registrada.</p>')+
+    (t.cities?'<p class="tiny muted">Lista parcial: consulte a área de expansão para completar a análise.</p>':'')+
+    '</div><p class="tiny muted">Verificado '+esc(String(r.checkedAt||'—'))+
+    '. Atos administrativos exigem confirmação, motivo e validação no servidor. Ações técnicas não equivalem a autorização financeira.</p>'+
+    '</section>';
+}
 function adminReleaseHub(d){
   const role=adminCurrentRole();
   if(!['superadmin','operations','readonly'].includes(role))return '';
@@ -5540,6 +5655,7 @@ function adminPage(){
       </div>
     </section>
     ${adminReleaseHub(d)}
+    ${adminGovernanceView()}
     ${adminAttentionCenter(d)}
     ${currentRole==='superadmin'?adminLaunchControl(d.launchReadiness||{}):''}
     <section class="section admin-secondary-metrics"><div class="section-head"><div><span class="section-kicker">QUALIDADE & RETENÇÃO</span><h2>Indicadores de sustentação</h2></div></div><div class="merchant-kpis">
@@ -5632,6 +5748,7 @@ function adminPage(){
 
   const systemContent=`
     ${adminReleaseHub(d)}
+    ${adminGovernanceView()}
     ${adminPushReliabilityView()}
     ${adminSystemHealthView()}
     ${adminAccessContent}
