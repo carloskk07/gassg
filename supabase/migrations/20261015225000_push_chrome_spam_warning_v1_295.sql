@@ -65,7 +65,7 @@ create or replace function public.merchant_push_test_latest(
   select pg_catalog.jsonb_build_object(
     'runId',t.id,'state',t.state,
     'providerAccepted',t.state='provider_accepted',
-    'deviceReport',pg_catalog.coalesce(c.corrected_report,t.device_report),
+    'deviceReport',coalesce(c.corrected_report,t.device_report),
     'previousReport',case when c.run_id is not null then t.device_report else null end,
     'deviceReportedAt',t.device_reported_at,
     'checkedAt',t.created_at
@@ -144,7 +144,7 @@ begin
  if not v_authorized then return '{}'::jsonb; end if;
  with runs as (
    select t.state,t.failure_code,
-    pg_catalog.coalesce(c.corrected_report,t.device_report) as device_report,t.created_at
+    coalesce(c.corrected_report,t.device_report) as device_report,t.created_at
    from public.merchant_push_test_runs t
    join public.merchant_push_subscriptions s on s.id=t.subscription_id
    left join public.merchant_push_report_corrections c on c.run_id=t.id
@@ -170,7 +170,7 @@ begin
    'latestReport',(select device_report from newest),
    'latestAt',(select created_at from newest)
  ) into v_result from runs;
- return pg_catalog.coalesce(v_result,'{}'::jsonb);
+ return coalesce(v_result,'{}'::jsonb);
 end $fn$;
 revoke all on function public.merchant_push_test_diagnostics(uuid,uuid,text)
  from public,anon,authenticated;
@@ -201,9 +201,9 @@ begin
    select t.merchant_id,count(*)::integer as tests,
      count(*) filter(where t.state='provider_accepted')::integer as accepted,
      count(*) filter(where t.state in ('gateway_rejected','expired','failed'))::integer as failed,
-     count(*) filter(where pg_catalog.coalesce(c.corrected_report,t.device_report)='seen')::integer as seen,
-     count(*) filter(where pg_catalog.coalesce(c.corrected_report,t.device_report)='not_seen')::integer as not_seen,
-     count(*) filter(where pg_catalog.coalesce(c.corrected_report,t.device_report)='spam_warning')::integer as warned,
+     count(*) filter(where coalesce(c.corrected_report,t.device_report)='seen')::integer as seen,
+     count(*) filter(where coalesce(c.corrected_report,t.device_report)='not_seen')::integer as not_seen,
+     count(*) filter(where coalesce(c.corrected_report,t.device_report)='spam_warning')::integer as warned,
      count(*) filter(where t.state='provider_accepted' and t.device_report is null)::integer as accepted_unconfirmed,
      max(t.created_at) as last_test
    from public.merchant_push_test_runs t
