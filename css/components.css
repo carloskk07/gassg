@@ -2314,6 +2314,19 @@ body:has(.admin-page) .shell{
 .merchant-offer-expired{color:#805927;font-size:13px;line-height:1.5;overflow-wrap:anywhere}
 .merchant-order-queue-overflow .order-card{background:#fff}
 @media(max-width:540px){.merchant-order-queue-overflow>summary{min-height:52px}.merchant-order-queue-overflow-body{padding:0 7px 8px}}
+/* V1.275 — one clear, accessible completion path; the backend remains authoritative. */
+.merchant-delivery-completion{display:grid;gap:12px;width:100%;min-width:0;padding:14px;border:1px solid #d9e6de;border-radius:15px;background:#f8fbf8}
+.merchant-delivery-completion-title{font-size:15px;line-height:1.35;color:#21573e}
+.merchant-delivery-payment{background:#fff;border:1px solid #e3eae5;border-radius:12px;padding:12px;min-height:52px;width:100%}
+.merchant-delivery-pin{width:100%;margin:0}
+.merchant-delivery-pin label{font-weight:750;font-size:13px}
+.merchant-delivery-pin .pin-input{max-width:180px;min-height:50px;font-size:20px;letter-spacing:.18em;font-variant-numeric:tabular-nums}
+.merchant-delivery-pin small{font-size:12px;line-height:1.5;color:var(--muted)}
+.merchant-delivery-confirmation-guide{font-size:12px;line-height:1.5;min-height:18px;color:#456153}
+.merchant-delivery-submit{min-height:50px;width:100%;font-weight:750}
+.merchant-delivery-submit:disabled{opacity:.55;cursor:not-allowed}
+.merchant-delivery-pin .pin-input:focus-visible,.merchant-delivery-payment:focus-within{outline:3px solid #cf9939;outline-offset:2px}
+@media(max-width:540px){.merchant-delivery-completion{padding:12px}.merchant-delivery-pin .pin-input{width:100%;max-width:100%}.merchant-delivery-submit{min-height:54px}}
 /* V1.175 — a clear, human assignment step, no automatic driver selection */
 .merchant-delivery-reminders{margin:14px 0 18px;padding:15px;border:1px solid #e7d6bb;border-radius:16px;background:#fffbf4;min-width:0}
 .merchant-delivery-reminders-title{display:grid;gap:4px}

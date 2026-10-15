@@ -257,6 +257,8 @@ jobs:
         run: node tests/merchant-multi-delivery-board-v1-273.mjs
       - name: Test merchant urgent work and compact routine queue V1.274
         run: node tests/merchant-attention-compact-v1-274.mjs
+      - name: Test guided delivery payment and PIN V1.275
+        run: node tests/merchant-guided-completion-v1-275.mjs
       - name: TAMÃO V1.258 founder-approved orphan deletion with immutable audit
         run: node tests/owner-receipt-orphan-cleanup-v1-258.mjs
       - name: Turnstile smoke Chrome cleanup V1.238.1
