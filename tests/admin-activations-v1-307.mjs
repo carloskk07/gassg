@@ -26,7 +26,9 @@ const providers={
   'commercial-intake-read':{source:'admin_marketing_intake_v1_308',readOnly:true,adsPublicationEnabled:false,couponSalesEnabled:false,noMoneyMovement:true,
     controls:[{moduleKey:'ads_proposals',enabled:true,version:1,reason:'Preserved'},{moduleKey:'clube_proposals',enabled:true,version:1,reason:'Preserved'}]},
   'ads-sales-plans':{source:'admin_ads_sales_plans_v1_309',readOnly:true,noCharge:true,adsLive:false,
-    revenueCents:0,contractsSigned:0,totalPlans:0,approvedCreatives:0,rows:[]}
+    revenueCents:0,contractsSigned:0,totalPlans:0,approvedCreatives:0,rows:[]},
+  'ads-offers-read':{source:'admin_ads_offers_v1_310',readOnly:true,noCharge:true,adsLive:false,
+    contractsSigned:0,revenueCents:0,notifiedExternally:false,totalOffers:0,interestedResponses:0,rows:[]}
 };
 const runtime={
  session:{user:{id:user}},governance:{loadedFor:user,role},
@@ -48,7 +50,7 @@ const env=vm.createContext({
 });
 vm.runInContext(src+'\nthis.load=adminActivationLoad;this.view=adminActivationDeskView;this.go=adminActivationGo;',env);
 assert.equal(await env.load({force:true})!=null,true);
-assert.equal(calls.filter(x=>typeof x==='string').length,6);
+assert.equal(calls.filter(x=>typeof x==='string').length,7);
 let view=env.view({commercialPolicy:{policy_version:4}});
 assert.match(view,/Central de consulta e acesso aos controles reais/);
 assert.match(view,/Exibição bloqueada/);
