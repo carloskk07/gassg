@@ -1426,6 +1426,73 @@ async function merchantEnablementRecheck(){
 
 // V1.276 — one prominent daily availability control, using existing protected operations.
 // V1.277 — the quick editor shows only eligible, server-scoped active catalog items.
+// V1.279: temporary unsaved catalog edits, in memory only and scoped to a merchant.
+const merchantQuickDrafts=new Map();
+function merchantQuickDraftKey(rt,code){
+  const merchantId=String(rt?.merchant?.merchantId||'');
+  return merchantId&&/^[A-Z0-9_-]{1,24}$/.test(String(code||''))?merchantId+'::'+code:'';
+}
+function merchantQuickCatalogVersion(item){
+  return [String(item?.updatedAt||''),Number(item?.priceCents),Number(item?.availableStock)].join('|');
+}
+function merchantQuickDraftFor(rt,item){
+  const key=merchantQuickDraftKey(rt,item?.productCode);
+  const draft=key?merchantQuickDrafts.get(key):null;
+  if(!draft)return null;
+  if(draft.version!==merchantQuickCatalogVersion(item)){merchantQuickDrafts.delete(key);return null;}
+  return draft;
+}
+function merchantQuickCatalogChanged(productCode){
+  const rt=globalThis.merchantRuntime||{};
+  if(rt.status!=='ready'||rt.actionPending===true||
+     !['owner','manager'].includes(String(rt.merchant?.memberRole||'')))return false;
+  const code=String(productCode||'');
+  const item=merchantQuickCatalogCandidates(rt).find(p=>p.productCode===code);
+  const key=merchantQuickDraftKey(rt,code);
+  if(!item||!key)return false;
+  const price=document.getElementById('merchant-quick-price-'+code);
+  const stock=document.getElementById('merchant-quick-stock-'+code);
+  if(!price||!stock)return false;
+  const priceDraft=String(price.value??'');
+  const stockDraft=String(stock.value??'');
+  const unchanged=priceDraft===(Number(item.priceCents)/100).toFixed(2)&&
+    stockDraft===String(Number(item.availableStock));
+  if(unchanged)merchantQuickDrafts.delete(key);
+  else merchantQuickDrafts.set(key,{version:merchantQuickCatalogVersion(item),price:priceDraft,stock:stockDraft});
+  const note=document.getElementById('merchant-quick-feedback-'+code);
+  if(note)note.textContent=unchanged?'Os valores correspondem aos dados registrados.':
+    'Alterações ainda não salvas. Confira os valores e toque em Salvar alterações.';
+  return !unchanged;
+}
+function merchantQuickHasDrafts(rt){
+  const id=String(rt?.merchant?.merchantId||'');
+  if(!id)return false;
+  return [...merchantQuickDrafts.keys()].some(key=>key.startsWith(id+'::'));
+}
+function merchantQuickConfirmLeave(){
+  if(!merchantQuickHasDrafts(globalThis.merchantRuntime||{}))return true;
+  return typeof confirm==='function'&&confirm(
+    'Existem ajustes de preço ou estoque ainda não salvos. Deseja descartá-los e sair?')===true;
+}
+function merchantQuickGoCatalog(){
+  if(!merchantQuickConfirmLeave())return false;
+  merchantQuickDrafts.clear();go('catalog');return true;
+}
+function merchantQuickRecentChanges(rt){
+  const seen=new Set(),now=Date.now();
+  return (Array.isArray(rt?.catalog)?rt.catalog:[]).filter(p=>{
+    const code=String(p?.productCode||''),ts=Date.parse(String(p?.updatedAt||''));
+    if(!/^[A-Z0-9_-]{1,24}$/.test(code)||seen.has(code)||!Number.isFinite(ts)||
+       ts>Date.now()+5*60000||ts<0)return false;
+    seen.add(code);return true;
+  }).sort((a,b)=>Date.parse(b.updatedAt)-Date.parse(a.updatedAt)).slice(0,5);
+}
+if(typeof window!=='undefined'&&window.addEventListener){
+  window.addEventListener('beforeunload',event=>{
+    if(!merchantQuickHasDrafts(globalThis.merchantRuntime||{}))return;
+    event.preventDefault();event.returnValue='';
+  });
+}
 function merchantQuickCatalogCandidates(rt){
   const entries=Array.isArray(rt?.catalog)?rt.catalog:[];
   const seen=new Set();
@@ -1440,8 +1507,9 @@ function merchantQuickCatalogCandidates(rt){
   return eligible.sort((a,b)=>{
     if(a.productCode==='P13'&&b.productCode!=='P13')return -1;
     if(b.productCode==='P13'&&a.productCode!=='P13')return 1;
-    const empty=(Number(a.availableStock)===0?0:1)-(Number(b.availableStock)===0?0:1);
-    return empty; // Preserve the merchant's catalog order for other active products.
+    const priority=p=>Number(p.availableStock)===0?0:
+      Number(p.availableStock)<=3?1:!merchantTimestampFresh(p.priceConfirmedAt)?2:3;
+    return priority(a)-priority(b); // Preserve catalog order among equal priorities.
   }).slice(0,6);
 }
 // V1.278 — read-only stock/price attention from the signed-in merchant catalog.
@@ -1477,6 +1545,7 @@ function merchantQuickStockAdjust(productCode,change){
   const current=Number(raw),next=current+change;
   if(!Number.isInteger(next)||next<0||next>100000)return false;
   input.value=String(next);
+  merchantQuickCatalogChanged(code);
   const message=document.getElementById('merchant-quick-feedback-'+code);
   if(message)message.textContent='Estoque ajustado para '+next+'. Toque em Salvar alterações para confirmar.';
   return true;
@@ -1487,6 +1556,8 @@ function merchantQuickCatalogView(rt){
   const products=merchantQuickCatalogCandidates(rt);
   const alerts=merchantQuickStockAlerts(rt);
   const ready=rt.actionPending!==true;
+  const recent=merchantQuickRecentChanges(rt);
+  const hasDraft=products.some(p=>Boolean(merchantQuickDraftFor(rt,p)));
   const rows=products.map(p=>{
     const code=String(p.productCode);
     const range=p.pricingMode==='range';
@@ -1495,6 +1566,7 @@ function merchantQuickCatalogView(rt){
       min>0&&max<=1000000&&min<=Number(p.priceCents)&&Number(p.priceCents)<=max);
     const disabled=!ready||!validRange;
     const quantity=Number(p.availableStock);
+    const draft=merchantQuickDraftFor(rt,p);
     const stockHint=quantity===0?'Sem estoque':quantity<=3?'Estoque baixo (até 3 unidades)':'';
     const priceNeedsReview=!merchantTimestampFresh(p.priceConfirmedAt);
     return '<div class="merchant-quick-product">'+
@@ -1503,22 +1575,24 @@ function merchantQuickCatalogView(rt){
       (stockHint?'<strong class="merchant-quick-stock-warning">'+esc(stockHint)+'</strong>':'')+      (priceNeedsReview?'<small class="merchant-quick-price-warning">Preço precisa de nova confirmação. Confira o valor e salve para atualizar.</small>':'')+
       '<fieldset class="merchant-quick-product-fields"'+(disabled?' disabled':'')+'>'+
       '<div class="merchant-quick-field"><label for="merchant-quick-price-'+code+'">'+(range?'Preço normal (R$)':'Preço (R$)')+'</label>'+
-      '<input id="merchant-quick-price-'+code+'" class="input merchant-quick-price" type="number" inputmode="decimal" min="0.01" max="10000" step="0.01" value="'+
-      (Number(p.priceCents)/100).toFixed(2)+'"></div>'+
+      '<input id="merchant-quick-price-'+code+'" class="input merchant-quick-price" type="number" inputmode="decimal" min="0.01" max="10000" step="0.01" oninput="merchantQuickCatalogChanged(\''+code+'\')" value="'+
+      esc(draft?draft.price:(Number(p.priceCents)/100).toFixed(2))+'"></div>'+
       '<div class="merchant-quick-field"><label for="merchant-quick-stock-'+code+'">Em estoque</label>'+
-      '<input id="merchant-quick-stock-'+code+'" class="input merchant-quick-stock" type="number" inputmode="numeric" min="0" max="100000" step="1" aria-describedby="merchant-quick-feedback-'+code+'" value="'+
-      Number(p.availableStock)+'"></div>'+
+      '<input id="merchant-quick-stock-'+code+'" class="input merchant-quick-stock" type="number" inputmode="numeric" min="0" max="100000" step="1" aria-describedby="merchant-quick-feedback-'+code+'" oninput="merchantQuickCatalogChanged(\''+code+'\')" value="'+
+      esc(draft?draft.stock:String(Number(p.availableStock)))+'"></div>'+
       '<div class="merchant-quick-stepper" aria-label="Ajustar estoque de '+esc(p.productName||code)+'">'+
         '<button type="button" aria-label="Retirar uma unidade do estoque de '+esc(p.productName||code)+'" onclick="merchantQuickStockAdjust(\''+code+'\',-1)">−1</button>'+
         '<button type="button" aria-label="Adicionar uma unidade ao estoque de '+esc(p.productName||code)+'" onclick="merchantQuickStockAdjust(\''+code+'\',1)">+1</button>'+
-        '<button type="button" aria-label="Adicionar cinco unidades ao estoque de '+esc(p.productName||code)+'" onclick="merchantQuickStockAdjust(\''+code+'\',5)">+5</button></div>'+      '<button type="button" class="secondary small" onclick="merchantQuickCatalogSave(\''+code+'\')">Salvar alterações</button>'+      '<small id="merchant-quick-feedback-'+code+'" class="merchant-quick-feedback" aria-live="polite">Os ajustes não são salvos automaticamente.</small>'+
+        '<button type="button" aria-label="Adicionar cinco unidades ao estoque de '+esc(p.productName||code)+'" onclick="merchantQuickStockAdjust(\''+code+'\',5)">+5</button></div>'+      '<button type="button" class="secondary small" onclick="merchantQuickCatalogSave(\''+code+'\')">Salvar alterações</button>'+      '<small id="merchant-quick-feedback-'+code+'" class="merchant-quick-feedback" aria-live="polite">'+
+      (draft?'Alterações ainda não salvas. Confira os valores e toque em Salvar alterações.':
+      'Os ajustes não são salvos automaticamente.')+'</small>'+
       '</fieldset>'+
       (range?'<small class="merchant-quick-product-hint">'+(validRange?
         'Faixa autorizada: '+esc(BRL.format(min/100))+' até '+esc(BRL.format(max/100))+'. Limites e estratégia só podem ser alterados no catálogo.':
         'A faixa precisa ser revisada no catálogo antes de fazer alterações rápidas.')+'</small>':'')+
       '</div>';
   }).join('');
-  return '<details id="merchant-quick-catalog" class="merchant-quick-catalog">'+
+  return '<details id="merchant-quick-catalog" class="merchant-quick-catalog"'+(hasDraft?' open':'')+'>'+
     '<summary><strong>Atualizar preço e estoque</strong><span>'+
       (alerts.empty||alerts.low||alerts.priceReview?
       [alerts.empty?alerts.empty+' esgotado(s)':'',alerts.low?alerts.low+' com estoque baixo':'',
@@ -1532,7 +1606,13 @@ function merchantQuickCatalogView(rt){
     (products.length?'<p>Confira os valores antes de salvar cada produto. Estoque zero mantém o produto sem ofertas.</p>':
       '<p>Não há produtos ativos com preço e estoque válidos para ajuste rápido. Use o catálogo completo.</p>')+
     '<div class="merchant-quick-product-list">'+rows+'</div>'+
-    '<button type="button" class="ghost small" onclick="go(\'catalog\')">Abrir catálogo completo'+
+    (recent.length?'<details class="merchant-quick-recent"><summary>Últimas atualizações registradas</summary>'+
+      '<p>Datas da última alteração de cada produto. Não é um histórico de cada movimento de estoque.</p>'+
+      '<div class="merchant-quick-recent-list">'+recent.map(p=>
+        '<div><strong>'+esc(p.productName||p.productCode)+'</strong><span>'+
+        esc(new Date(p.updatedAt).toLocaleString('pt-BR'))+'</span></div>').join('')+
+      '</div></details>':'')+
+    '<button type="button" class="ghost small" onclick="merchantQuickGoCatalog()">Abrir catálogo completo'+
     (all.length>products.length?' ('+all.length+' produtos)':'')+'</button>'+
     '</div></details>';
 }
@@ -1565,6 +1645,8 @@ async function merchantQuickCatalogSave(productCode){
   }
   try{
     await merchantUpdateProductLive(code,cents,stock,item.active===true,pricing);
+    merchantQuickDrafts.delete(merchantQuickDraftKey(rt,code));
+    if(typeof render==='function')render();
     toast('Preço e estoque de '+code+' confirmados.');
   }catch(e){toast(String(e?.message||e))}
 }
@@ -2509,6 +2591,10 @@ async function merchantLiveSaveMemberProfile(){
   }catch(e){toast(String(e?.message||e))}
 }
 async function merchantLiveSelect(id){
+  if(String(id||'')!==String(globalThis.merchantRuntime?.merchant?.merchantId||'')){
+    if(!merchantQuickConfirmLeave())return;
+    merchantQuickDrafts.clear();
+  }
   try{await merchantSelectLive(id)}catch(e){toast(String(e?.message||e))}
 }
 async function merchantLiveToggleOnline(online){
@@ -2812,6 +2898,8 @@ async function merchantLiveDeliver(id){
   try{await merchantCompleteDeliveryLive(id,state.pin,true);toast('Entrega e pagamento confirmados')}catch(e){toast(String(e?.message||e))}
 }
 async function merchantLiveLogout(){
+  if(!merchantQuickConfirmLeave())return;
+  merchantQuickDrafts.clear();
   await merchantSignOut();toast('Sessão encerrada');
 }
 
