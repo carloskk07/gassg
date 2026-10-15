@@ -98,7 +98,7 @@ assert.doesNotMatch(html,/<img src=x/);
 const older=browser.load(true);
 assert.equal(calls[1].params.beforeId,90);
 assert.equal(browser.globalThis.merchantCatalogHistoryState.status,'paging');
-assert.match(browser.view(rt),/90/);
+assert.match(browser.view(rt),/Gás P13/);
 calls[1].d.resolve({events:[event(80)],hasMore:false,nextBeforeId:null});
 await older;
 assert.equal(browser.globalThis.merchantCatalogHistoryState.events.length,2);
