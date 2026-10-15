@@ -151,6 +151,18 @@ for f in $(find supabase/functions -mindepth 2 -maxdepth 2 -name 'index.ts' | so
       ! grep -q 'console.log' "$f" || { echo "$f must never log signing key"; exit 1; }
       grep -q '\[functions.merchant-push-vapid-setup\]' supabase/config.toml || { echo "$f missing Edge config"; exit 1; }
       ;;
+    supabase/functions/merchant-push-self-test/index.ts)
+      grep -q 'auth.getUser' "$f" || { echo "$f missing Supabase Auth"; exit 1; }
+      grep -q 'merchant_push_test_reserve' "$f" || { echo "$f missing device-specific test reservation"; exit 1; }
+      grep -q 'merchant_push_test_finish' "$f" || { echo "$f missing test result ledger"; exit 1; }
+      grep -q 'merchant_push_test_credentials' "$f" || { echo "$f missing Vault-backed test signing"; exit 1; }
+      grep -q 'sendPushNotification' "$f" || { echo "$f missing encrypted push"; exit 1; }
+      grep -q 'await sha256(body.endpoint)' "$f" || { echo "$f must hash caller subscription endpoint"; exit 1; }
+      grep -q 'deviceDisplayConfirmed:false' "$f" || { echo "$f must not assert device receipt"; exit 1; }
+      grep -q 'raw.length>2500' "$f" || { echo "$f missing small request limit"; exit 1; }
+      ! grep -q 'console.log' "$f" || { echo "$f may not log device secrets"; exit 1; }
+      grep -q '\[functions.merchant-push-self-test\]' supabase/config.toml || { echo "$f missing config entry"; exit 1; }
+      ;;
     supabase/functions/merchant-push-delivery/index.ts)
       grep -q 'tamao-merchant-push-delivery' "$f" || { echo "$f missing dedicated OIDC audience"; exit 1; }
       grep -q 'RSASSA-PKCS1-v1_5' "$f" || { echo "$f missing RSA OIDC verification"; exit 1; }
