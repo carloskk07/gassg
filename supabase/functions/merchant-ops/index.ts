@@ -697,18 +697,36 @@ Deno.serve(async(req:Request)=>{
     if(action==="catalog-history"){
       if(!canManage(role))throw new DomainError("MERCHANT_ACCESS_DENIED",
         "Somente proprietário ou gerente pode consultar o histórico do catálogo.",403);
-      const {data:events,error:historyError}=await admin
+      // V1.281: keyset pagination, always scoped to the authenticated merchant.
+      const productCode=body.productCode==null?"":String(body.productCode).trim().toUpperCase();
+      if(productCode&&!/^[A-Z][A-Z0-9_]{1,31}$/.test(productCode)){
+        throw new DomainError("INVALID_PRODUCT","Produto inválido.",400);
+      }
+      const beforeId=body.beforeId==null?null:body.beforeId;
+      if(beforeId!==null&&
+        (typeof beforeId!=="number"||!Number.isSafeInteger(beforeId)||beforeId<=0)){
+        throw new DomainError("INVALID_HISTORY_CURSOR","Atualize o histórico e tente novamente.",400);
+      }
+      let historyQuery=admin
         .from("merchant_catalog_change_events")
         .select("id,product_code,actor_user_id,actor_role,actor_display_name,change_kind,old_price_cents,new_price_cents,old_available_stock,new_available_stock,old_active,new_active,old_pricing_mode,new_pricing_mode,old_min_price_cents,new_min_price_cents,old_max_price_cents,new_max_price_cents,old_pricing_strategy,new_pricing_strategy,old_price_confirmed_at,new_price_confirmed_at,recorded_at")
-        .eq("merchant_id",merchantId)
+        .eq("merchant_id",merchantId);
+      if(productCode)historyQuery=historyQuery.eq("product_code",productCode);
+      if(beforeId!==null)historyQuery=historyQuery.lt("id",beforeId);
+      const {data:rows,error:historyError}=await historyQuery
         .order("id",{ascending:false})
-        .limit(30);
+        .limit(31);
       if(historyError)throw historyError;
+      const page=(rows??[]).slice(0,30);
+      const hasMore=(rows??[]).length>30;
       return json({
         source:"merchant_catalog_history_v1_280",
         merchantId,
         readOnly:true,
-        events:(events??[]).map((item)=>({
+        productCode,
+        hasMore,
+        nextBeforeId:hasMore?Number(page[page.length-1].id):null,
+        events:page.map((item)=>({
           id:item.id,
           productCode:item.product_code,
           actorId:item.actor_user_id,
