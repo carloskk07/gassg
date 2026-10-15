@@ -157,7 +157,9 @@ async function adminMarketingIntakeSet(moduleKey){
        out.couponSalesEnabled!==false||out.noMoneyMovement!==true)
       throw new Error('A decisão ainda não foi comprovada. Atualize o painel.');
     adminActivationDesk.data=null;
-    await adminActivationLoad({force:true});
+    const checked=await adminActivationLoad({force:true});
+    if(checked?.intake?.controls?.find(c=>c.moduleKey===moduleKey)?.enabled!==enabled)
+      throw new Error('Alteração registrada, mas leitura final não confirmada. Atualize o painel.');
     toast(enabled?'Novas propostas liberadas para cadastro.':'Novas propostas suspensas.');
     return true;
   }catch(error){
