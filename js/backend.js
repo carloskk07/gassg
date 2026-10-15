@@ -1373,13 +1373,14 @@ function merchantDisableAlertsLive(){
 
 // V1.286 — Web Push is independent of the existing on-page alert preference.
 // Registration never silently occurs; a separate explicit user gesture is required.
-const merchantPushRuntime={checked:false,checking:false,available:false,publicKey:null,subscribed:false,merchantId:null,testMode:true};
+const merchantPushRuntime={checked:false,checking:false,available:false,publicKey:null,subscribed:false,merchantId:null,testMode:true,diagnostic:null};
 function merchantPushStatus(){
   return {
     available:merchantPushRuntime.available===true,
     checked:merchantPushRuntime.checked===true,
     subscribed:merchantPushRuntime.subscribed===true,
     testMode:merchantPushRuntime.testMode!==false,
+    diagnostic:merchantPushRuntime.diagnostic&&merchantPushRuntime.diagnostic.merchantId===String(merchantRuntime.merchant?.merchantId||'')?merchantPushRuntime.diagnostic:null,
     supported:typeof Notification!=='undefined'&&'serviceWorker' in navigator&&
       typeof PushManager!=='undefined'&&isSecureContext===true
   };
@@ -1388,6 +1389,38 @@ function merchantPushKeyBytes(base64url){
   const encoded=String(base64url||'').replace(/-/g,'+').replace(/_/g,'/');
   const bytes=atob(encoded+'='.repeat((4-encoded.length%4)%4));
   return Uint8Array.from(bytes,char=>char.charCodeAt(0));
+}
+// V1.290: device-only diagnostics. Never reads or displays subscription
+// endpoint/keys or claims the provider delivered a notification.
+async function merchantPushDiagnoseLive(){
+  if(!merchantReady()||!merchantRuntime.merchant?.merchantId)
+    throw new Error('Entre na revenda antes de verificar o aparelho.');
+  const merchantId=String(merchantRuntime.merchant.merchantId);
+  const supported=merchantPushStatus().supported;
+  const permission=typeof Notification==='undefined'?'unsupported':Notification.permission;
+  let workerReady=false,localSubscription=false,keyMatches=false;
+  if(supported){
+    const reg=await navigator.serviceWorker.getRegistration('./');
+    workerReady=!!reg?.active;
+    if(reg?.pushManager){
+      const sub=await reg.pushManager.getSubscription();
+      localSubscription=!!sub;
+      if(sub&&merchantPushRuntime.publicKey){
+        const current=sub.options?.applicationServerKey;
+        const wanted=merchantPushKeyBytes(merchantPushRuntime.publicKey);
+        const stored=current?new Uint8Array(current):new Uint8Array();
+        keyMatches=stored.length===wanted.length&&stored.every((value,i)=>value===wanted[i]);
+      }
+    }
+  }
+  if(!merchantReady()||String(merchantRuntime.merchant?.merchantId||'')!==merchantId)return false;
+  merchantPushRuntime.diagnostic={
+    merchantId,supported,secure:typeof isSecureContext!=='undefined'&&isSecureContext===true,
+    permission,workerReady,localSubscription,keyMatches,
+    checkedAt:new Date().toISOString()
+  };
+  render();
+  return true;
 }
 async function merchantPushCheckLive(){
   if(merchantPushRuntime.checking)return false;
@@ -1433,12 +1466,24 @@ async function merchantPushEnableLive(){
   const merchantId=String(merchantRuntime.merchant.merchantId);
   const userId=String(merchantRuntime.session?.user?.id||'');
   const reg=await navigator.serviceWorker.ready;
+  const wanted=merchantPushKeyBytes(merchantPushRuntime.publicKey);
   let subscription=await reg.pushManager.getSubscription();
-  if(subscription){await subscription.unsubscribe();subscription=null;}
-  subscription=await reg.pushManager.subscribe({
-    userVisibleOnly:true,
-    applicationServerKey:merchantPushKeyBytes(merchantPushRuntime.publicKey)
-  });
+  let createdNew=false;
+  if(subscription){
+    const old=subscription.options?.applicationServerKey;
+    const stored=old?new Uint8Array(old):new Uint8Array();
+    const sameKey=stored.length===wanted.length&&stored.every((value,i)=>value===wanted[i]);
+    if(!sameKey){
+      if(!await subscription.unsubscribe())throw new Error('Não foi possível renovar a inscrição antiga.');
+      subscription=null;
+    }
+  }
+  if(!subscription){
+    subscription=await reg.pushManager.subscribe({
+      userVisibleOnly:true,applicationServerKey:wanted
+    });
+    createdNew=true;
+  }
   try{
     const json=subscription.toJSON();
     if(!json.endpoint||!json.keys?.p256dh||!json.keys?.auth)
@@ -1454,8 +1499,10 @@ async function merchantPushEnableLive(){
     merchantPushRuntime.subscribed=true;
     render();return true;
   }catch(error){
-    await subscription.unsubscribe().catch(()=>{});
-    merchantPushRuntime.subscribed=false;
+    // Never destroy an existing valid subscription merely because
+    // this server registration request failed.
+    if(createdNew)await subscription.unsubscribe().catch(()=>{});
+    merchantPushRuntime.subscribed=!createdNew;
     throw error;
   }
 }
@@ -1691,6 +1738,7 @@ async function merchantSignOut(){
   merchantPushRuntime.checked=false;
   merchantPushRuntime.available=false;
   merchantPushRuntime.merchantId=null;
+  merchantPushRuntime.diagnostic=null;
   // Drop any in-flight refresh response before asynchronous sign-out.
   merchantRuntime.refreshSeq++;
   merchantRuntime.nextRecoveryAt=0;
@@ -1816,6 +1864,7 @@ async function merchantSelectLive(merchantId){
   merchantPushRuntime.checked=false;
   merchantPushRuntime.available=false;
   merchantPushRuntime.merchantId=null;
+  merchantPushRuntime.diagnostic=null;
   merchantAlerts.knownOrderIds=new Set();
   merchantRuntime.team=null;
   merchantRuntime.teamLoading=false;
@@ -2616,6 +2665,7 @@ globalThis.merchantOriginSafe=merchantOriginSafe;
 globalThis.merchantReady=merchantReady;
 globalThis.merchantAlertStatus=merchantAlertStatus;
 globalThis.merchantPushStatus=merchantPushStatus;
+globalThis.merchantPushDiagnoseLive=merchantPushDiagnoseLive;
 globalThis.merchantPushCheckLive=merchantPushCheckLive;
 globalThis.merchantPushEnableLive=merchantPushEnableLive;
 globalThis.merchantPushDisableLive=merchantPushDisableLive;

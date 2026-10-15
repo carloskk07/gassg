@@ -638,6 +638,21 @@ function merchantDeliveryMemberLabel(userId){
 function merchantAlertControl(){
   const status=globalThis.merchantAlertStatus?.()||{enabled:false,notificationSupported:false,notificationPermission:'unsupported'};
   const permission=status.notificationPermission;
+  const push=globalThis.merchantPushStatus?.()||{};
+  const device=push.diagnostic;
+  const diagnostic=device?
+    '<div class="merchant-push-diagnostic" role="status" aria-live="polite">'+
+    '<strong>Verificação deste aparelho</strong>'+
+    '<div>HTTPS: '+(device.secure?'OK':'indisponível')+
+    ' · Web Push: '+(device.supported?'compatível':'indisponível')+'</div>'+
+    '<div>Service Worker: '+(device.workerReady?'ativo':'não ativo')+
+    ' · Permissão: '+esc(device.permission==='granted'?'concedida':
+        device.permission==='denied'?'bloqueada':device.permission==='default'?'a solicitar':'indisponível')+'</div>'+
+    '<div>Inscrição no navegador: '+(device.localSubscription?'encontrada':'não encontrada')+
+    ' · Chave pública: '+(device.keyMatches?'compatível':'não confirmada')+'</div>'+
+    '<small>Esta verificação é local. Não comprova inscrição no servidor nem recebimento de notificações.</small>'+
+    '</div>':'';
+
   const notificationCopy=!status.notificationSupported
     ? 'Notificação do sistema indisponível neste navegador; som e vibração ainda podem funcionar.'
     : permission==='granted'
@@ -654,7 +669,7 @@ function merchantAlertControl(){
         globalThis.merchantPushStatus?.().testMode
         ?'Preparação para testes: você pode cadastrar este aparelho, mas o envio remoto ainda está desativado. O cadastro não significa que receberá avisos.'
         :'O push depende do navegador, da conexão e da entrega pelo provedor. Um aviso não substitui a confirmação do pedido no painel.'
-      )+'</small><button type="button" class="secondary" onclick="'+(globalThis.merchantPushStatus?.().subscribed?'merchantPushDisableFromUi()':'merchantPushEnableFromUi()')+'">'+(globalThis.merchantPushStatus?.().subscribed?'Desativar push deste aparelho':globalThis.merchantPushStatus?.().testMode?'Cadastrar aparelho para teste':'Ativar push deste aparelho')+'</button></div>'
+      )+'</small><button type="button" class="secondary" onclick="'+(globalThis.merchantPushStatus?.().subscribed?'merchantPushDisableFromUi()':'merchantPushEnableFromUi()')+'">'+(globalThis.merchantPushStatus?.().subscribed?'Desativar push deste aparelho':globalThis.merchantPushStatus?.().testMode?'Cadastrar aparelho para teste':'Ativar push deste aparelho')+'</button><button type="button" class="secondary" onclick="merchantPushDiagnoseFromUi()">Verificar este aparelho</button>'+diagnostic+'</div>'
       :''}
   </div>`;
 }
@@ -2794,6 +2809,11 @@ async function merchantEnableAlertsFromUi(){
     toast(status?.notificationPermission==='denied'
       ?'Alertas sonoros ativados; notificações do navegador estão bloqueadas'
       :'Alertas de novos pedidos ativados');
+  }catch(e){toast(String(e?.message||e))}
+}
+async function merchantPushDiagnoseFromUi(){
+  try{
+    await globalThis.merchantPushDiagnoseLive();
   }catch(e){toast(String(e?.message||e))}
 }
 async function merchantPushEnableFromUi(){
