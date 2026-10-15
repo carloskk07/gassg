@@ -1371,6 +1371,108 @@ function merchantDisableAlertsLive(){
   return {enabled:false};
 }
 
+// V1.286 — Web Push is independent of the existing on-page alert preference.
+// Registration never silently occurs; a separate explicit user gesture is required.
+const merchantPushRuntime={checked:false,available:false,publicKey:null,subscribed:false,merchantId:null};
+function merchantPushStatus(){
+  return {
+    available:merchantPushRuntime.available===true,
+    checked:merchantPushRuntime.checked===true,
+    subscribed:merchantPushRuntime.subscribed===true,
+    supported:typeof Notification!=='undefined'&&'serviceWorker' in navigator&&
+      typeof PushManager!=='undefined'&&isSecureContext===true
+  };
+}
+function merchantPushKeyBytes(base64url){
+  const encoded=String(base64url||'').replace(/-/g,'+').replace(/_/g,'/');
+  const bytes=atob(encoded+'='.repeat((4-encoded.length%4)%4));
+  return Uint8Array.from(bytes,char=>char.charCodeAt(0));
+}
+async function merchantPushCheckLive(){
+  if(!merchantReady()||!merchantRuntime.merchant?.merchantId){
+    merchantPushRuntime.checked=false;merchantPushRuntime.available=false;
+    merchantPushRuntime.subscribed=false;merchantPushRuntime.publicKey=null;return false;
+  }
+  const merchantId=String(merchantRuntime.merchant.merchantId);
+  try{
+    const result=await merchantInvoke('merchant-push-registration',{action:'config',merchantId});
+    if(!merchantReady()||String(merchantRuntime.merchant?.merchantId||'')!==merchantId)return false;
+    merchantPushRuntime.checked=true;
+    merchantPushRuntime.available=result?.available===true&&typeof result.publicKey==='string';
+    merchantPushRuntime.publicKey=merchantPushRuntime.available?result.publicKey:null;
+    merchantPushRuntime.merchantId=merchantId;
+    if(merchantPushRuntime.available&&merchantPushStatus().supported){
+      const reg=await navigator.serviceWorker.ready;
+      merchantPushRuntime.subscribed=!!(await reg.pushManager.getSubscription());
+    }else merchantPushRuntime.subscribed=false;
+    render();return merchantPushRuntime.available;
+  }catch{
+    merchantPushRuntime.checked=true;merchantPushRuntime.available=false;
+    merchantPushRuntime.publicKey=null;merchantPushRuntime.subscribed=false;
+    return false;
+  }
+}
+async function merchantPushEnableLive(){
+  if(!merchantReady()||!merchantRuntime.merchant?.merchantId)
+    throw new Error('Entre na revenda antes de ativar o push.');
+  if(!merchantPushRuntime.available||!merchantPushStatus().supported)
+    throw new Error('O envio push ainda não está disponível neste aparelho.');
+  if(Notification.permission!=='granted'){
+    const permission=await Notification.requestPermission();
+    if(permission!=='granted')throw new Error('Permissão de notificação não concedida.');
+  }
+  const merchantId=String(merchantRuntime.merchant.merchantId);
+  const userId=String(merchantRuntime.session?.user?.id||'');
+  const reg=await navigator.serviceWorker.ready;
+  let subscription=await reg.pushManager.getSubscription();
+  if(subscription){await subscription.unsubscribe();subscription=null;}
+  subscription=await reg.pushManager.subscribe({
+    userVisibleOnly:true,
+    applicationServerKey:merchantPushKeyBytes(merchantPushRuntime.publicKey)
+  });
+  try{
+    const json=subscription.toJSON();
+    if(!json.endpoint||!json.keys?.p256dh||!json.keys?.auth)
+      throw new Error('Navegador não devolveu as chaves de push.');
+    await merchantInvoke('merchant-push-registration',{
+      action:'subscribe',merchantId,endpoint:json.endpoint,
+      keys:{p256dh:json.keys.p256dh,auth:json.keys.auth}
+    });
+    if(!merchantReady()||String(merchantRuntime.merchant?.merchantId||'')!==merchantId||
+       String(merchantRuntime.session?.user?.id||'')!==userId){
+      await subscription.unsubscribe();throw new Error('A sessão mudou durante a ativação.');
+    }
+    merchantPushRuntime.subscribed=true;
+    render();return true;
+  }catch(error){
+    await subscription.unsubscribe().catch(()=>{});
+    merchantPushRuntime.subscribed=false;
+    throw error;
+  }
+}
+async function merchantPushDisableLive(){
+  const reg=typeof navigator.serviceWorker==='undefined'?null:
+    await navigator.serviceWorker.getRegistration('./');
+  const subscription=reg?await reg.pushManager.getSubscription():null;
+  if(!subscription){merchantPushRuntime.subscribed=false;return true;}
+  const merchantId=String(merchantRuntime.merchant?.merchantId||'');
+  let revoked=false;
+  if(merchantReady()&&merchantId){
+    try{
+      await merchantInvoke('merchant-push-registration',{
+        action:'unsubscribe',merchantId,endpoint:subscription.endpoint
+      });
+      revoked=true;
+    }catch{}
+  }
+  // Local unsubscribe prevents delivery to this browser even if offline
+  // and the server-side revocation must be retried independently.
+  const local=await subscription.unsubscribe().catch(()=>false);
+  merchantPushRuntime.subscribed=false;
+  render();
+  if(!revoked)throw new Error('Alertas push interrompidos no navegador; a revogação no servidor não pôde ser confirmada.');
+  return local;
+}
 function merchantOriginSafe(){
   if(['localhost','127.0.0.1'].includes(location.hostname))return true;
   const configured=String(globalThis.CHAMA_MERCHANT_ORIGIN||'').trim();
@@ -1576,6 +1678,10 @@ async function merchantSendLogin(email){
 }
 
 async function merchantSignOut(){
+  if(merchantPushRuntime.subscribed)await merchantPushDisableLive().catch(()=>{});
+  merchantPushRuntime.checked=false;
+  merchantPushRuntime.available=false;
+  merchantPushRuntime.merchantId=null;
   // Drop any in-flight refresh response before asynchronous sign-out.
   merchantRuntime.refreshSeq++;
   merchantRuntime.nextRecoveryAt=0;
@@ -1695,6 +1801,10 @@ async function merchantRefresh({silent=false,recoverSelection=true}={}){
 }
 
 async function merchantSelectLive(merchantId){
+  if(merchantPushRuntime.subscribed)await merchantPushDisableLive().catch(()=>{});
+  merchantPushRuntime.checked=false;
+  merchantPushRuntime.available=false;
+  merchantPushRuntime.merchantId=null;
   merchantAlerts.knownOrderIds=new Set();
   merchantRuntime.team=null;
   merchantRuntime.teamLoading=false;
@@ -2494,6 +2604,10 @@ globalThis.merchantPortalRequested=merchantPortalRequested;
 globalThis.merchantOriginSafe=merchantOriginSafe;
 globalThis.merchantReady=merchantReady;
 globalThis.merchantAlertStatus=merchantAlertStatus;
+globalThis.merchantPushStatus=merchantPushStatus;
+globalThis.merchantPushCheckLive=merchantPushCheckLive;
+globalThis.merchantPushEnableLive=merchantPushEnableLive;
+globalThis.merchantPushDisableLive=merchantPushDisableLive;
 globalThis.merchantEnableAlertsLive=merchantEnableAlertsLive;
 globalThis.merchantDisableAlertsLive=merchantDisableAlertsLive;
 globalThis.merchantBackendInit=merchantBackendInit;

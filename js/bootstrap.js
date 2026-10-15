@@ -63,6 +63,7 @@ window.addEventListener('load',async()=>{
       reg.update().catch(()=>{});
     }catch(e){console.warn('Service worker indisponível',e)}
   }
+  if(globalThis.merchantReady?.())globalThis.merchantPushCheckLive?.().catch(()=>{});
   setInterval(()=>{
     if(!globalThis.liveRequested?.()&&!globalThis.merchantPortalRequested?.()&&!globalThis.adminPortalRequested?.()&&housekeeping())render();
     if(globalThis.liveReady?.())livePoll().catch(()=>{});
@@ -78,7 +79,7 @@ Object.assign(window,{
   merchantLoginFromUi,merchantLiveRefresh,merchantLiveSelect,merchantLiveToggleOnline,
   merchantLiveSaveP13,merchantLiveSaveProduct,merchantLiveSaveLogistics,merchantLiveAction,merchantLiveCannotFulfill,
   merchantLiveDeliver,merchantLiveAssignDelivery,merchantLiveSaveMemberProfile,
-  merchantEnableAlertsFromUi,merchantDisableAlertsFromUi,
+  merchantEnableAlertsFromUi,merchantDisableAlertsFromUi,merchantPushEnableFromUi,merchantPushDisableFromUi,
   merchantOpenTeam,merchantTeamReloadFromUi,merchantTeamInviteFromUi,merchantTeamRevokeMemberFromUi,merchantTeamRevokeInviteFromUi,copyMerchantTeamInstructions,
   merchantGrowthLoadFromUi,merchantGrowthShareFromUi,
   merchantClubeInterestLoadFromUi,merchantClubeInterestRegisterFromUi,merchantClubeInterestWithdrawFromUi,

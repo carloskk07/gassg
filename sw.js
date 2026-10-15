@@ -1,4 +1,4 @@
-const CACHE='tamao-sg-v1.70.29';
+const CACHE='tamao-sg-v1.286';
 const ASSETS=['./','./index.html','./css/base.css','./css/components.css','./js/runtime-config.js','./js/turnstile.js','./js/backend.js','./js/core.js','./js/analytics.js','./js/acquisition.js','./js/legal.js','./js/customer.js','./js/growth.js','./js/merchant.js','./js/admin-acquisition.js','./js/admin.js','./js/bootstrap.js','./manifest.webmanifest','./robots.txt','./icons/icon.svg','./assets/tamao-products-sprite.webp'];
 
 self.addEventListener('install',event=>{
@@ -51,6 +51,26 @@ self.addEventListener('fetch',event=>{
     return;
   }
   event.respondWith(networkFirst(req));
+});
+
+// V1.286: accepts only generic merchant events. No address, phone, PIN,
+// customer name, order ID or financial amount is shown on a lock screen.
+self.addEventListener('push',event=>{
+  let payload=null;
+  try{payload=event.data?.json()??null}catch{}
+  const kind=payload?.kind;
+  if(!['new_offer','assigned_delivery'].includes(kind))return;
+  const isDriver=kind==='assigned_delivery';
+  event.waitUntil(self.registration.showNotification(
+    isDriver?'Nova entrega no TAMÃO':'Novo pedido no TAMÃO',{
+      body:isDriver?'Confira a entrega atribuída no painel.':'Um pedido precisa da sua atenção no painel.',
+      icon:'./icons/icon.svg',
+      badge:'./icons/icon.svg',
+      tag:'tamao-merchant-push-'+kind,
+      renotify:true,
+      data:{url:'./?merchant=1#merchant'}
+    }
+  ));
 });
 
 self.addEventListener('notificationclick',event=>{

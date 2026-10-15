@@ -230,7 +230,7 @@ assert.ok(!growth.includes('disabled>Saque Pix ainda não disponível')&&growth.
 assert.ok(growth.includes('continua no comando')&&growth.includes('você define')||growth.includes('continua no comando')&&growth.includes('Você decide'),'landing de revenda deve enfatizar autonomia operacional');
 assert.ok(core.includes("['earn','💰','Ganhe','go']"),'navegação móvel precisa dar acesso direto ao hub de renda');
 assert.ok(!growth.includes('inputmode="numeric" maxlength="18"'),'campo CNPJ não pode forçar teclado somente numérico após adoção do CNPJ alfanumérico');
-assert.ok(sw.includes("CACHE='tamao-sg-v1.70.29'"),'cache do service worker precisa refletir a geração PWA auditada');
+assert.ok(sw.includes("CACHE='tamao-sg-v1.286'"),'cache do service worker precisa refletir a geração PWA auditada');
 assert.ok(sw.includes("fetch(req,{cache:'no-store'})")&&sw.includes("contentType.includes('text/html')"),'service worker deve renovar rede sem cache HTTP e separar navegação HTML de recursos não-HTML');
 assert.ok(!sw.includes("req.mode==='navigate'?'./index.html':req"),'navegação não-HTML não pode envenenar a chave do app shell');
 assert.ok(admin.includes('offerable_supply_required')&&admin.includes('offerReadyMerchantCount'),'painel admin precisa expor oferta real como gate de lançamento');
