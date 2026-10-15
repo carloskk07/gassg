@@ -1554,19 +1554,19 @@ function merchantDailyChecklistModel(rt,options={}){
   });
   else{
     if(incomplete)issues.push({
-      type:'incomplete',title:incomplete+' produto(s) com cadastro incompleto',
+      type:'incomplete',title:incomplete===1?'1 produto com cadastro incompleto':incomplete+' produtos com cadastro incompleto',
       detail:'Confira os valores de preço e estoque antes de vender.',action:'catalog'
     });
     if(alerts.empty)issues.push({
-      type:'stock',title:alerts.empty+' produto(s) sem estoque',
+      type:'stock',title:alerts.empty===1?'1 produto sem estoque':alerts.empty+' produtos sem estoque',
       detail:'Confira a reposição antes de voltar a oferecer esses itens.',action:'stock'
     });
     if(alerts.low)issues.push({
-      type:'low',title:alerts.low+' produto(s) com até 3 unidades',
+      type:'low',title:alerts.low===1?'1 produto com até 3 unidades':alerts.low+' produtos com até 3 unidades',
       detail:'Acompanhe a reposição para evitar falta de estoque.',action:'stock'
     });
     if(alerts.priceReview)issues.push({
-      type:'price',title:alerts.priceReview+' preço(s) para confirmar',
+      type:'price',title:alerts.priceReview===1?'1 preço para confirmar':alerts.priceReview+' preços para confirmar',
       detail:'Revise os preços que não possuem confirmação recente.',action:'stock'
     });
   }
