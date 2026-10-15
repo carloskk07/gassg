@@ -1683,6 +1683,7 @@ function merchantDailyOpenSales(){
 function merchantDailyOverview(rt,orders){
   const role=String(rt?.merchant?.memberRole||'');
   const isDriver=role==='driver';
+  const canSeeSales=['owner','manager'].includes(role);
   const focus=merchantDailyFocusModel(orders);
   const id=String(focus.order?.orderId||'');
   const safe=/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(id);
@@ -1691,7 +1692,7 @@ function merchantDailyOverview(rt,orders){
     focus.refresh?'<button type="button" class="secondary" onclick="merchantLiveRefresh()">Atualizar pedidos</button>':
     '';
   const sales=merchantDailyVerifiedSales(rt);
-  const salesHtml=isDriver?'':sales?
+  const salesHtml=!canSeeSales?'':sales?
     '<div class="merchant-daily-sales"><span>Vendas registradas • últimos 30 dias</span><strong>'+
     esc(BRL.format(sales.salesCents/100))+'</strong><small>'+
     sales.orders+' pedido(s) concluído(s) sem reversão. Valores dos pedidos, não lucro nem saldo bancário.</small>'+
