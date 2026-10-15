@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 const read=p=>fs.readFileSync(new URL('../'+p,import.meta.url),'utf8');
 const sql=read('supabase/migrations/20261015150000_merchant_push_delivery_v1_287.sql');
+const claimFix=read('supabase/migrations/20261015151000_merchant_push_claim_column_v1_287.sql');
 const worker=read('supabase/functions/merchant-push-delivery/index.ts');
 const config=read('supabase/config.toml');
 const workflow=read('.github/workflows/merchant-push-delivery.yml');
@@ -12,6 +13,8 @@ const sw=read('sw.js');
 // Database never leaks endpoint secrets to a browser or non-service actors.
 assert.match(sql,/create table if not exists public\.merchant_push_deliveries/);
 assert.match(sql,/unique\(outbox_id,subscription_id\)/);
+assert.match(claimFix,/#variable_conflict use_column/);
+assert.match(claimFix,/revoke all on function public\.merchant_push_claim_due/);
 assert.match(sql,/enable row level security/);
 assert.match(sql,/revoke all on table public\.merchant_push_deliveries from public,anon,authenticated/);
 assert.match(sql,/grant execute on function public\.merchant_push_claim_due\(integer\) to service_role/);
