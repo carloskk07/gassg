@@ -7,10 +7,12 @@ A V1.280 criou uma trilha de alterações realmente confirmadas, iniciada na imp
 - Botão **Ver alterações anteriores**, somente quando a consulta indicar outra página; páginas de até 30 eventos, com busca por ID decrescente (keyset), evitando saltos por alterações novas.
 - Contagem explícita dos eventos carregados. Carregamento sob demanda, sem consultar o histórico durante a simples abertura do painel.
 - A mudança de produto reinicia a busca; resultados atrasados de filtros, revendas ou papéis antigos são descartados.
+- O histórico no navegador é vinculado ao **usuário autenticado** e à revenda. Trocar de conta, encerrar a sessão ou receber uma resposta de sessão anterior não reaproveita informações da pessoa anterior.
 - Mensagens de falha preservam páginas previamente carregadas e possibilitam repetir a leitura; o histórico permanece somente leitura.
 
 ## Controles preservados
 - JWT verificado internamente e membership ativo validado antes de consultar; somente **owner** ou **manager**.
+- O sign-out invalida operações de histórico pendentes e limpa imediatamente o estado do histórico da sessão anterior.
 - Sem acesso direto de navegadores ao banco protegido, sem novas permissões, sem gravação/alteração/exclusão pela interface.
 - Filtro com formato validado, cursor numérico seguro, limite máximo de 31 linhas obtidas para mostrar 30 e sinalizar página seguinte.
 - Sem mexer em pagamentos, taxas, PSP, comissão, pedidos, estoque real ou no mecanismo de auditoria V1.280.
