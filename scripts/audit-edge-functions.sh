@@ -150,7 +150,7 @@ for f in $(find supabase/functions -mindepth 2 -maxdepth 2 -name 'index.ts' | so
       grep -q 'workflow_ref' "$f" || { echo "$f missing exact workflow identity"; exit 1; }
       grep -q 'githubMainSha()' "$f" || { echo "$f missing main SHA authority"; exit 1; }
       grep -q 'readJsonBody(req,{maxBytes:4096})' "$f" || { echo "$f missing bounded JSON request"; exit 1; }
-      grep -q 'if(!senderConfigured())' "$f" || { echo "$f missing fail-closed VAPID sender gate"; exit 1; }
+      grep -q 'if(!credentials)' "$f" || { echo "$f missing fail-closed VAPID sender gate"; exit 1; }
       grep -q 'merchant_push_claim_due' "$f" || { echo "$f missing per-device leased claims"; exit 1; }
       grep -q 'merchant_push_resolve_delivery' "$f" || { echo "$f missing result ledger authority"; exit 1; }
       ! grep -q 'auth.getUser' "$f" || { echo "$f should use signed machine OIDC, not user JWT"; exit 1; }
