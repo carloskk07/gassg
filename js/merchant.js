@@ -1446,8 +1446,13 @@ function merchantQuickCatalogCandidates(rt){
 }
 // V1.278 — read-only stock/price attention from the signed-in merchant catalog.
 function merchantQuickStockAlerts(rt){
-  const rows=(Array.isArray(rt?.catalog)?rt.catalog:[]).filter(p=>
-    p?.active===true&&/^[A-Z0-9_-]{1,24}$/.test(String(p?.productCode||'')));
+  const seen=new Set();
+  const rows=(Array.isArray(rt?.catalog)?rt.catalog:[]).filter(p=>{
+    const code=String(p?.productCode||'');
+    if(p?.active!==true||!/^[A-Z0-9_-]{1,24}$/.test(code)||seen.has(code))return false;
+    seen.add(code);
+    return true;
+  });
   const stocked=rows.filter(p=>Number.isSafeInteger(Number(p.availableStock))&&
     Number(p.availableStock)>=0&&Number(p.availableStock)<=100000);
   return {
@@ -1494,7 +1499,8 @@ function merchantQuickCatalogView(rt){
     const priceNeedsReview=!merchantTimestampFresh(p.priceConfirmedAt);
     return '<div class="merchant-quick-product">'+
       '<div class="merchant-quick-product-heading"><strong>'+esc(p.productName||code)+'</strong>'+
-      '<span>'+esc(code)+(range?' • faixa automática':'')+'</span></div>'+      (stockHint?'<strong class="merchant-quick-stock-warning">'+esc(stockHint)+'</strong>':'')+      (priceNeedsReview?'<small class="merchant-quick-price-warning">Preço precisa de nova confirmação. Confira o valor e salve para atualizar.</small>':'')+
+      '<span>'+esc(code)+(range?' • faixa automática':'')+'</span></div>'+
+      (stockHint?'<strong class="merchant-quick-stock-warning">'+esc(stockHint)+'</strong>':'')+      (priceNeedsReview?'<small class="merchant-quick-price-warning">Preço precisa de nova confirmação. Confira o valor e salve para atualizar.</small>':'')+
       '<fieldset class="merchant-quick-product-fields"'+(disabled?' disabled':'')+'>'+
       '<div class="merchant-quick-field"><label for="merchant-quick-price-'+code+'">'+(range?'Preço normal (R$)':'Preço (R$)')+'</label>'+
       '<input id="merchant-quick-price-'+code+'" class="input merchant-quick-price" type="number" inputmode="decimal" min="0.01" max="10000" step="0.01" value="'+
@@ -1502,7 +1508,10 @@ function merchantQuickCatalogView(rt){
       '<div class="merchant-quick-field"><label for="merchant-quick-stock-'+code+'">Em estoque</label>'+
       '<input id="merchant-quick-stock-'+code+'" class="input merchant-quick-stock" type="number" inputmode="numeric" min="0" max="100000" step="1" aria-describedby="merchant-quick-feedback-'+code+'" value="'+
       Number(p.availableStock)+'"></div>'+
-      '<div class="merchant-quick-stepper" aria-label="Ajustar estoque de '+esc(p.productName||code)+'">'+        '<button type="button" aria-label="Retirar uma unidade do estoque de '+esc(p.productName||code)+'" onclick="merchantQuickStockAdjust(\''+code+'\',-1)">−1</button>'+        '<button type="button" aria-label="Adicionar uma unidade ao estoque de '+esc(p.productName||code)+'" onclick="merchantQuickStockAdjust(\''+code+'\',1)">+1</button>'+        '<button type="button" aria-label="Adicionar cinco unidades ao estoque de '+esc(p.productName||code)+'" onclick="merchantQuickStockAdjust(\''+code+'\',5)">+5</button></div>'+      '<button type="button" class="secondary small" onclick="merchantQuickCatalogSave(\''+code+'\')">Salvar alterações</button>'+      '<small id="merchant-quick-feedback-'+code+'" class="merchant-quick-feedback" aria-live="polite">Os ajustes não são salvos automaticamente.</small>'+
+      '<div class="merchant-quick-stepper" aria-label="Ajustar estoque de '+esc(p.productName||code)+'">'+
+        '<button type="button" aria-label="Retirar uma unidade do estoque de '+esc(p.productName||code)+'" onclick="merchantQuickStockAdjust(\''+code+'\',-1)">−1</button>'+
+        '<button type="button" aria-label="Adicionar uma unidade ao estoque de '+esc(p.productName||code)+'" onclick="merchantQuickStockAdjust(\''+code+'\',1)">+1</button>'+
+        '<button type="button" aria-label="Adicionar cinco unidades ao estoque de '+esc(p.productName||code)+'" onclick="merchantQuickStockAdjust(\''+code+'\',5)">+5</button></div>'+      '<button type="button" class="secondary small" onclick="merchantQuickCatalogSave(\''+code+'\')">Salvar alterações</button>'+      '<small id="merchant-quick-feedback-'+code+'" class="merchant-quick-feedback" aria-live="polite">Os ajustes não são salvos automaticamente.</small>'+
       '</fieldset>'+
       (range?'<small class="merchant-quick-product-hint">'+(validRange?
         'Faixa autorizada: '+esc(BRL.format(min/100))+' até '+esc(BRL.format(max/100))+'. Limites e estratégia só podem ser alterados no catálogo.':
@@ -1510,9 +1519,16 @@ function merchantQuickCatalogView(rt){
       '</div>';
   }).join('');
   return '<details id="merchant-quick-catalog" class="merchant-quick-catalog">'+
-    '<summary><strong>Atualizar preço e estoque</strong><span>'+      (alerts.empty||alerts.low||alerts.priceReview?      [alerts.empty?alerts.empty+' esgotado(s)':'',alerts.low?alerts.low+' com estoque baixo':'',       alerts.priceReview?alerts.priceReview+' preço(s) para confirmar':''].filter(Boolean).join(' • '):      'Ajustes rápidos para até 6 produtos ativos')+'</span></summary>'+
+    '<summary><strong>Atualizar preço e estoque</strong><span>'+
+      (alerts.empty||alerts.low||alerts.priceReview?
+      [alerts.empty?alerts.empty+' esgotado(s)':'',alerts.low?alerts.low+' com estoque baixo':'',
+       alerts.priceReview?alerts.priceReview+' preço(s) para confirmar':''].filter(Boolean).join(' • '):
+      'Ajustes rápidos para até 6 produtos ativos')+'</span></summary>'+
     '<div class="merchant-quick-catalog-content">'+
-    (alerts.empty||alerts.low||alerts.priceReview?       '<p class="merchant-quick-attention">Conferência do catálogo: '+esc(       [alerts.empty?alerts.empty+' sem estoque':'',alerts.low?alerts.low+' com até 3 unidades':'',        alerts.priceReview?alerts.priceReview+' preço(s) sem confirmação recente':''].filter(Boolean).join(' • '))       +'. Consulte o catálogo completo para ver todos os itens.</p>':'')+
+    (alerts.empty||alerts.low||alerts.priceReview?
+       '<p class="merchant-quick-attention">Conferência do catálogo: '+esc(
+       [alerts.empty?alerts.empty+' sem estoque':'',alerts.low?alerts.low+' com até 3 unidades':'',
+        alerts.priceReview?alerts.priceReview+' preço(s) sem confirmação recente':''].filter(Boolean).join(' • '))       +'. Consulte o catálogo completo para ver todos os itens.</p>':'')+
     (products.length?'<p>Confira os valores antes de salvar cada produto. Estoque zero mantém o produto sem ofertas.</p>':
       '<p>Não há produtos ativos com preço e estoque válidos para ajuste rápido. Use o catálogo completo.</p>')+
     '<div class="merchant-quick-product-list">'+rows+'</div>'+
