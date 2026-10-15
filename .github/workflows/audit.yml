@@ -319,6 +319,8 @@ jobs:
         run: node tests/admin-marketing-intake-v1-308.mjs
       - name: Test V1.309 private Ads commercial planning
         run: node tests/admin-ads-sales-planning-v1-309.mjs
+      - name: Test V1.310 merchant Ads offer and founder authority
+        run: node tests/ads-offer-v1-310.mjs
       - name: TAMÃO V1.258 founder-approved orphan deletion with immutable audit
         run: node tests/owner-receipt-orphan-cleanup-v1-258.mjs
       - name: Turnstile smoke Chrome cleanup V1.238.1
