@@ -3552,3 +3552,66 @@ body:has(.admin-page) .admin-nav-item:focus-visible{outline-offset:-3px}
  .admin-governance-city{align-items:stretch;flex-direction:column;gap:10px}
  .admin-governance-city button{width:100%}
 }
+
+
+/* V1.305 — operator-first, server-evidenced launch worklist. */
+.admin-launch-worklist{
+  padding:clamp(16px,2.3vw,25px);border-radius:24px;background:#fff;
+  border:1px solid #d6e5d9;box-shadow:0 12px 34px rgba(8,65,39,.06)
+}
+.admin-launch-worklist-head{
+  display:flex;align-items:flex-start;justify-content:space-between;gap:18px
+}
+.admin-launch-worklist-head h2{
+  font-size:clamp(20px,2.35vw,29px);line-height:1.15;
+  letter-spacing:-.045em;margin:7px 0 10px;color:#183b2b
+}
+.admin-launch-worklist-head p{font-size:14px;color:#536c5e;line-height:1.56;margin:0}
+.admin-launch-worklist-head .status-pill{white-space:nowrap}
+.admin-launch-meter{height:9px;border-radius:999px;background:#e7eee9;margin:18px 0 22px;overflow:hidden}
+.admin-launch-meter>div{
+  height:100%;border-radius:999px;
+  background:linear-gradient(90deg,#0a8455,#3dbb79);
+  transition:width .25s ease
+}
+.admin-launch-worklist-steps{
+  display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;
+  padding:0;margin:0;list-style:none
+}
+.admin-launch-worklist-steps li{
+  display:flex;align-items:flex-start;gap:12px;min-width:0;
+  border:1px solid #dce8de;border-radius:17px;background:#fbfdfb;padding:15px
+}
+.admin-launch-worklist-steps li.is-ready{background:#effaf3;border-color:#b7dcc7}
+.admin-launch-step-mark{
+  flex:none;display:grid;place-items:center;width:31px;height:31px;
+  border-radius:11px;background:#ebf0eb;color:#3e6750;font-weight:900
+}
+.admin-launch-worklist-steps li.is-ready .admin-launch-step-mark{background:#d1f3de;color:#087447}
+.admin-launch-worklist-steps li>div{flex:1;min-width:0;display:grid;gap:6px}
+.admin-launch-worklist-steps li strong{font-size:14px;line-height:1.35;color:#183d2a}
+.admin-launch-worklist-steps li small{font-size:12px;line-height:1.5;color:#63776a}
+.admin-launch-worklist-steps li button{align-self:center;white-space:nowrap}
+.admin-launch-worklist-footer{
+  display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;
+  gap:14px;border-top:1px solid #e1ece4;margin-top:18px;padding-top:15px
+}
+.admin-launch-worklist-footer p{margin:0;line-height:1.5;color:#587365}
+.admin-launch-worklist-footer button{min-height:45px}
+.admin-launch-evidence{margin-top:13px;border-top:1px solid #e9efe9;padding-top:13px}
+.admin-launch-evidence>summary{color:#26684a;font-size:13px;font-weight:750}
+.admin-launch-evidence p{font-size:12px;color:#526b5d;line-height:1.55;margin:10px 0}
+@media(max-width:930px){
+ .admin-launch-worklist-steps{grid-template-columns:1fr}
+}
+@media(max-width:570px){
+ .admin-launch-worklist-head{flex-direction:column;gap:10px}
+ .admin-launch-worklist-head .status-pill{align-self:flex-start}
+ .admin-launch-worklist-steps li{flex-wrap:wrap;padding:12px}
+ .admin-launch-worklist-steps li button{width:100%;margin-left:43px}
+ .admin-launch-worklist-footer button{width:100%}
+ .admin-launch-worklist{padding:15px;border-radius:19px}
+}
+@media(prefers-reduced-motion:reduce){
+ .admin-launch-meter>div{transition:none}
+}
