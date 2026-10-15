@@ -1573,6 +1573,9 @@ async function merchantSendLogin(email){
 }
 
 async function merchantSignOut(){
+  // Invalidate in-flight history immediately; never retain another person's audit in a shared browser.
+  globalThis.merchantHistoryRequestId=(globalThis.merchantHistoryRequestId||0)+1;
+  globalThis.merchantCatalogHistoryState=null;
   if(merchantRuntime.client)await merchantRuntime.client.auth.signOut().catch(()=>{});
   merchantRuntime.session=null;
   merchantRuntime.merchant=null;
@@ -2097,6 +2100,36 @@ async function merchantCatalogHistoryLive(merchantId){
     throw new Error('Histórico não confirmado. Atualize e tente novamente.');
   }
   return data.events.slice(0,30);
+}
+
+// V1.281: paginated audit records only through merchant-ops; no direct table grants.
+async function merchantCatalogHistoryPageLive(merchantId,options={}){
+  const current=merchantRuntime.merchant;
+  if(!current||String(current.merchantId||'')!==String(merchantId||'')||
+     !['owner','manager'].includes(String(current.memberRole||''))){
+    throw new Error('Histórico disponível somente ao proprietário ou gerente da revenda.');
+  }
+  const productCode=String(options.productCode||'').trim().toUpperCase();
+  if(productCode&&!/^[A-Z][A-Z0-9_]{1,31}$/.test(productCode)){
+    throw new Error('Produto inválido para consulta.');
+  }
+  const beforeId=options.beforeId==null?null:options.beforeId;
+  if(beforeId!==null&&(!Number.isSafeInteger(beforeId)||beforeId<=0)){
+    throw new Error('Página inválida. Atualize o histórico.');
+  }
+  const payload={merchantId,action:'catalog-history'};
+  if(productCode)payload.productCode=productCode;
+  if(beforeId!==null)payload.beforeId=beforeId;
+  const data=await merchantInvoke('merchant-catalog-history',payload);
+  if(data?.source!=='merchant_catalog_history_v1_280'||
+     data?.merchantId!==merchantId||data?.readOnly!==true||
+     data?.productCode!==productCode||!Array.isArray(data.events)||
+     data.events.length>30||typeof data.hasMore!=='boolean'||
+     (data.hasMore&&(!Number.isSafeInteger(data.nextBeforeId)||data.nextBeforeId<=0))){
+    throw new Error('Histórico não confirmado. Atualize e tente novamente.');
+  }
+  return {events:data.events,productCode,hasMore:data.hasMore,
+    nextBeforeId:data.hasMore?data.nextBeforeId:null};
 }
 
 async function merchantUpdateProductLive(productCode,priceCents,availableStock,active=true,pricing={}){

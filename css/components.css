@@ -2388,6 +2388,13 @@ body:has(.admin-page) .shell{
 .merchant-quick-recent-list strong{overflow-wrap:anywhere}
 .merchant-quick-recent-list span{color:var(--muted);font-variant-numeric:tabular-nums}
 .merchant-quick-feedback{overflow-wrap:anywhere}
+/* V1.281 — history filtering and pagination optimized for small phones. */
+.merchant-catalog-history-toolbar{display:flex;flex-wrap:wrap;align-items:end;gap:8px 12px}
+.merchant-catalog-history-toolbar label{display:grid;gap:5px;min-width:180px;flex:1 1 190px;font-size:12px;font-weight:650}
+.merchant-catalog-history-toolbar select{width:100%;min-height:44px;min-width:0;background:#fff;border-radius:9px;border:1px solid #b9cbbf;padding:8px 10px;font:inherit;color:#244a35}
+.merchant-catalog-history-toolbar select:focus-visible{outline:3px solid #cf9939;outline-offset:2px}
+.merchant-catalog-history-toolbar button,.merchant-catalog-history-rows button{min-height:44px}
+@media(max-width:420px){.merchant-catalog-history-toolbar{display:grid;grid-template-columns:minmax(0,1fr)}}
 /* V1.280 — private, authenticated product change history. */
 .merchant-catalog-history{border-top:1px solid #dbe5dd;padding-top:10px;margin-top:10px}
 .merchant-catalog-history>summary{cursor:pointer;min-height:46px;display:flex;align-items:center;color:#245b42;font-size:13px;font-weight:750}

@@ -69,3 +69,8 @@ verify_jwt = false
 # The Edge Function verifies RSA signature, repository/workflow claims and main SHA.
 [functions.expansion-worker]
 verify_jwt = false
+
+# Isolated catalog history reader. A signed-in JWT is verified with auth.getUser()
+# inside the handler, preserving the publishable-key authorization model.
+[functions.merchant-catalog-history]
+verify_jwt = false
