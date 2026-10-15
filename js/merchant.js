@@ -640,6 +640,13 @@ function merchantAlertControl(){
   const permission=status.notificationPermission;
   const push=globalThis.merchantPushStatus?.()||{};
   const device=push.diagnostic;
+  const testResult=push.testResult;
+  const testInfo=testResult?
+    '<div class="merchant-push-diagnostic" role="status" aria-live="polite"><strong>Último teste</strong><div>'+
+    (testResult.providerAccepted
+      ?'O provedor aceitou o envio. Confira se o aviso apareceu no aparelho.'
+      :'O provedor não confirmou o envio. Confira a inscrição e a conexão.')+
+    '</div><small>O servidor não comprova exibição ou leitura no aparelho.</small></div>':'';
   const diagnostic=device?
     '<div class="merchant-push-diagnostic" role="status" aria-live="polite">'+
     '<strong>Verificação deste aparelho</strong>'+
@@ -669,7 +676,9 @@ function merchantAlertControl(){
         globalThis.merchantPushStatus?.().testMode
         ?'Preparação para testes: você pode cadastrar este aparelho, mas o envio remoto ainda está desativado. O cadastro não significa que receberá avisos.'
         :'O push depende do navegador, da conexão e da entrega pelo provedor. Um aviso não substitui a confirmação do pedido no painel.'
-      )+'</small><button type="button" class="secondary" onclick="'+(globalThis.merchantPushStatus?.().subscribed?'merchantPushDisableFromUi()':'merchantPushEnableFromUi()')+'">'+(globalThis.merchantPushStatus?.().subscribed?'Desativar push deste aparelho':globalThis.merchantPushStatus?.().testMode?'Cadastrar aparelho para teste':'Ativar push deste aparelho')+'</button><button type="button" class="secondary" onclick="merchantPushDiagnoseFromUi()">Verificar este aparelho</button>'+diagnostic+'</div>'
+      )+'</small><button type="button" class="secondary" onclick="'+(globalThis.merchantPushStatus?.().subscribed?'merchantPushDisableFromUi()':'merchantPushEnableFromUi()')+'">'+(globalThis.merchantPushStatus?.().subscribed?'Desativar push deste aparelho':globalThis.merchantPushStatus?.().testMode?'Cadastrar aparelho para teste':'Ativar push deste aparelho')+'</button><button type="button" class="secondary" onclick="merchantPushDiagnoseFromUi()">Verificar este aparelho</button>'+
+      (push.subscribed?'<button type="button" class="secondary" '+(push.testPending?'disabled':'')+' onclick="merchantPushTestFromUi()">'+(push.testPending?'Enviando teste…':'Enviar notificação de teste')+'</button><small>Teste solicitado por você, no máximo um a cada 3 minutos. Os avisos automáticos continuam desativados.</small>':'')+
+      testInfo+diagnostic+'</div>'
       :''}
   </div>`;
 }
@@ -2824,6 +2833,13 @@ async function merchantPushEnableFromUi(){
       :'Push cadastrado neste aparelho.');
   }
   catch(e){toast(String(e?.message||e))}
+}
+async function merchantPushTestFromUi(){
+  try{
+    const accepted=await globalThis.merchantPushSelfTestLive();
+    if(accepted)toast('Provedor aceitou o teste. Confira o aviso neste aparelho.');
+    else toast('Teste sem confirmação do provedor. Confira o painel.');
+  }catch(e){toast(String(e?.message||e))}
 }
 async function merchantPushDisableFromUi(){
   try{await globalThis.merchantPushDisableLive();toast('Push desativado neste aparelho.');}
