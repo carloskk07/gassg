@@ -275,6 +275,8 @@ jobs:
         run: node tests/merchant-daily-checklist-v1-282.mjs
       - name: Test guided contextual order next step V1.283
         run: node tests/merchant-next-step-v1-283.mjs
+      - name: Test mobile merchant order cards V1.284
+        run: node tests/merchant-order-mobile-v1-284.mjs
       - name: TAMÃO V1.258 founder-approved orphan deletion with immutable audit
         run: node tests/owner-receipt-orphan-cleanup-v1-258.mjs
       - name: Turnstile smoke Chrome cleanup V1.238.1
