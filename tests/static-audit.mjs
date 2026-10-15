@@ -1756,6 +1756,16 @@ for(const entry of fs.readdirSync(functionRoot,{withFileTypes:true})){
     );
     assert.ok(source.includes('https://tamao.com.br')&&source.includes('https://parceiro.tamao.com.br')&&source.includes('https://admin.tamao.com.br'),entry.name+' precisa provar os três portais oficiais');
     assert.ok(source.includes('record_automated_portal_attestation')&&!source.includes('admin_operation_mode_action')&&!source.includes('platform_launch_confirmations'),entry.name+' só pode atualizar evidência factual de portais');
+  }else if(entry.name==='admin-push-reliability'){
+    assert.ok(source.includes('raw.length>512'),entry.name+' precisa limitar JSON');
+    assert.ok(source.includes('auth.getUser')&&source.includes('user.is_anonymous===true'),
+      entry.name+' precisa validar identidade permanente');
+    assert.ok(source.includes('platform_admins')&&source.includes('ADMIN_ACCESS_DENIED'),
+      entry.name+' precisa restringir administradores');
+    assert.ok(source.includes('admin_merchant_push_reliability_v1_294')&&
+      source.includes('ALLOWED_ORIGINS'),entry.name+' precisa consulta protegida');
+    assert.ok(!source.includes('sendPushNotification')&&!source.includes('merchant_push_cron_tick'),
+      entry.name+' só pode ler dados');
   }else{
     assert.ok(source.includes('readJsonBody(req)'),entry.name+' precisa limitar JSON');
     assert.ok(source.includes('enforceApiQuota(admin'),entry.name+' precisa aplicar quota server-side');
