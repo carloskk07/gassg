@@ -1555,8 +1555,10 @@ function merchantQuickStockAdjust(productCode,change){
 function merchantCatalogHistoryView(rt){
   if(!['owner','manager'].includes(String(rt?.merchant?.memberRole||'')))return '';
   const merchantId=String(rt?.merchant?.merchantId||'');
+  const userId=String(rt?.session?.user?.id||'');
+  if(!userId)return '';
   const state=globalThis.merchantCatalogHistoryState;
-  const scoped=state?.merchantId===merchantId?state:null;
+  const scoped=state?.merchantId===merchantId&&state?.userId===userId?state:null;
   const loading=scoped?.status==='loading';
   const paging=scoped?.status==='paging';
   const busy=loading||paging;
@@ -1618,20 +1620,24 @@ function merchantCatalogHistoryView(rt){
 function merchantQuickHistoryProductChanged(code){
   const rt=globalThis.merchantRuntime||{};
   const merchantId=String(rt.merchant?.merchantId||'');
-  if(rt.status!=='ready'||!merchantId||!['owner','manager'].includes(String(rt.merchant?.memberRole||'')))return;
+  const userId=String(rt.session?.user?.id||'');
+  if(rt.status!=='ready'||!merchantId||!userId||
+     !['owner','manager'].includes(String(rt.merchant?.memberRole||'')))return;
   const productCode=String(code||'').trim().toUpperCase();
   if(productCode&&!(Array.isArray(rt.catalog)&&rt.catalog.some(p=>p.productCode===productCode)))return;
   globalThis.merchantHistoryRequestId=(globalThis.merchantHistoryRequestId||0)+1;
-  globalThis.merchantCatalogHistoryState={merchantId,productCode,status:'idle',
+  globalThis.merchantCatalogHistoryState={merchantId,userId,productCode,status:'idle',
     events:[],hasMore:false,nextBeforeId:null};
   return merchantQuickHistoryLoad();
 }
 async function merchantQuickHistoryLoad(more=false){
   const rt=globalThis.merchantRuntime||{};
   const merchantId=String(rt.merchant?.merchantId||'');
-  if(rt.status!=='ready'||!merchantId||
+  const userId=String(rt.session?.user?.id||'');
+  if(rt.status!=='ready'||!merchantId||!userId||
      !['owner','manager'].includes(String(rt.merchant?.memberRole||'')))return;
-  const previous=globalThis.merchantCatalogHistoryState?.merchantId===merchantId?
+  const previous=globalThis.merchantCatalogHistoryState?.merchantId===merchantId&&
+    globalThis.merchantCatalogHistoryState?.userId===userId?
     globalThis.merchantCatalogHistoryState:null;
   if(previous?.status==='loading'||previous?.status==='paging')return;
   const productCode=String(previous?.productCode||'');
@@ -1641,23 +1647,26 @@ async function merchantQuickHistoryLoad(more=false){
   const retained=more&&Array.isArray(previous.events)?previous.events:[];
   const requestId=(globalThis.merchantHistoryRequestId||0)+1;
   globalThis.merchantHistoryRequestId=requestId;
-  globalThis.merchantCatalogHistoryState={merchantId,productCode,
+  globalThis.merchantCatalogHistoryState={merchantId,userId,productCode,
     status:more?'paging':'loading',events:retained,
     hasMore:more,nextBeforeId:beforeId};
   if(typeof render==='function')render();
   const stillCurrent=()=>globalThis.merchantHistoryRequestId===requestId&&
+    globalThis.merchantRuntime?.status==='ready'&&
     String(globalThis.merchantRuntime?.merchant?.merchantId||'')===merchantId&&
+    String(globalThis.merchantRuntime?.session?.user?.id||'')===userId&&
     ['owner','manager'].includes(String(globalThis.merchantRuntime?.merchant?.memberRole||''))&&
+    globalThis.merchantCatalogHistoryState?.userId===userId&&
     globalThis.merchantCatalogHistoryState?.productCode===productCode;
   try{
     const page=await merchantCatalogHistoryPageLive(merchantId,{productCode,beforeId});
     if(!stillCurrent())return;
     const events=more?retained.concat(page.events):page.events;
-    globalThis.merchantCatalogHistoryState={merchantId,productCode,status:'ready',
+    globalThis.merchantCatalogHistoryState={merchantId,userId,productCode,status:'ready',
       events,hasMore:page.hasMore,nextBeforeId:page.nextBeforeId};
   }catch(error){
     if(!stillCurrent())return;
-    globalThis.merchantCatalogHistoryState={merchantId,productCode,
+    globalThis.merchantCatalogHistoryState={merchantId,userId,productCode,
       status:more?'ready':'error',events:retained,hasMore:Boolean(more),
       nextBeforeId:beforeId,message:String(error?.message||'Não foi possível consultar o histórico.')};
   }finally{
