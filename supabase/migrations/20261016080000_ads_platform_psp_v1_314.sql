@@ -1,0 +1,228 @@
+-- TAMÃO V1.314 — platform-owned Mercado Pago Checkout Pro, with provenance and fail-closed settlement.
+-- The merchant's own PSP accounts and merchant_billing_* are never used.
+create table public.platform_ads_psp_checkouts_v1_314(
+ merchant_id uuid primary key references public.merchants(id),
+ receivable_version integer not null check(receivable_version>0),
+ document_sha256 text not null check(document_sha256 ~ '^[a-f0-9]{64}$'),
+ amount_cents integer not null check(amount_cents between 1000 and 5000000),
+ external_reference text not null unique check(char_length(external_reference) between 36 and 120),
+ provider text not null default 'mercadopago' check(provider='mercadopago'),
+ status text not null check(status in ('reserved','checkout_ready','payment_approved','payment_reversed')),
+ version integer not null check(version>0),
+ preference_id text,checkout_url text,collector_id text,
+ payment_id text unique,provider_status text,provider_status_detail text,
+ approved_at timestamptz,reversed_at timestamptz,verified_at timestamptz,
+ reserved_by uuid not null,reserved_at timestamptz not null default clock_timestamp(),
+ updated_at timestamptz not null default clock_timestamp(),
+ check ((status='reserved' and preference_id is null and checkout_url is null and payment_id is null)
+   or (status='checkout_ready' and preference_id is not null and checkout_url is not null and payment_id is null)
+   or (status in ('payment_approved','payment_reversed') and preference_id is not null and payment_id is not null))
+);
+alter table public.platform_ads_psp_checkouts_v1_314 enable row level security;
+revoke all on public.platform_ads_psp_checkouts_v1_314 from public,anon,authenticated;
+grant select,insert,update on public.platform_ads_psp_checkouts_v1_314 to service_role;
+create table public.platform_ads_psp_events_v1_314(
+ request_id uuid primary key,merchant_id uuid not null references public.merchants(id),
+ actor_user_id uuid not null,operation text not null,
+ request_signature jsonb not null,response jsonb not null,
+ recorded_at timestamptz not null default clock_timestamp()
+);
+alter table public.platform_ads_psp_events_v1_314 enable row level security;
+revoke all on public.platform_ads_psp_events_v1_314 from public,anon,authenticated;
+grant select,insert on public.platform_ads_psp_events_v1_314 to service_role;
+create index platform_ads_psp_events_merchant_v1_314 on public.platform_ads_psp_events_v1_314(merchant_id,recorded_at desc);
+
+create or replace function public.admin_ads_psp_read_v1_314(p_actor uuid)
+returns jsonb language plpgsql stable security definer set search_path to 'pg_catalog' as $f$
+declare v_total bigint;v_paid bigint;v_approved_cents bigint;v_rows jsonb;
+begin
+ if not exists(select 1 from public.platform_admins a where a.user_id=p_actor and a.active
+   and a.admin_role in ('superadmin','operations','readonly'))
+ then raise exception 'ADS_PSP_ADMIN_DENIED' using errcode='42501';end if;
+ select count(*),count(*) filter(where status='payment_approved'),
+   coalesce(sum(amount_cents) filter(where status='payment_approved'),0)
+ into v_total,v_paid,v_approved_cents from public.platform_ads_psp_checkouts_v1_314;
+ select coalesce(jsonb_agg(jsonb_build_object(
+  'merchantId',i.merchant_id,'merchantName',left(m.name,120),
+  'amountCents',i.document_snapshot->'priceCents',
+  'documentSha256',i.document_sha256,
+  'receivable',case when r.merchant_id is null then null else jsonb_build_object(
+    'version',r.version,'status',r.status,'amountCents',r.amount_cents,'dueDate',r.due_date) end,
+  'checkout',case when c.merchant_id is null then null else jsonb_build_object(
+    'status',c.status,'version',c.version,'amountCents',c.amount_cents,
+    'externalReference',c.external_reference,'checkoutUrl',c.checkout_url,
+    'collectorId',c.collector_id,'paymentId',c.payment_id,
+    'providerStatus',c.provider_status,'providerStatusDetail',c.provider_status_detail,
+    'verifiedAt',c.verified_at) end
+ ) order by i.issued_at desc,i.merchant_id),'[]'::jsonb) into v_rows
+ from (select * from public.platform_ads_instruments_v1_312
+       where status='bilateral_accepted' order by issued_at desc limit 50) i
+ join public.merchants m on m.id=i.merchant_id
+ left join public.platform_ads_receivables_v1_313 r on r.merchant_id=i.merchant_id
+ left join public.platform_ads_psp_checkouts_v1_314 c on c.merchant_id=i.merchant_id;
+ return jsonb_build_object('source','admin_ads_psp_v1_314','readOnly',true,
+  'totalCheckouts',v_total,'providerApprovedCount',v_paid,
+  'providerApprovedGrossCents',v_approved_cents,'refundReviewRequired',true,
+  'adsLive',false,'merchantBillingSeparate',true,'rows',v_rows);
+end;
+$f$;
+revoke all on function public.admin_ads_psp_read_v1_314(uuid) from public,anon,authenticated;
+grant execute on function public.admin_ads_psp_read_v1_314(uuid) to service_role;
+
+create or replace function public.admin_ads_psp_action_v1_314(
+ p_actor uuid,p_merchant uuid,p_operation text,p_expected_version integer,
+ p_preference_id text,p_checkout_url text,p_collector_id text,
+ p_payment_data jsonb,p_request uuid
+) returns jsonb language plpgsql security definer set search_path to 'pg_catalog' as $f$
+declare v_r public.platform_ads_receivables_v1_313%rowtype;
+ v_i public.platform_ads_instruments_v1_312%rowtype;
+ v_c public.platform_ads_psp_checkouts_v1_314%rowtype;
+ v_sig jsonb;v_previous record;v_reference text;v_version integer;v_status text;
+ v_payment_id text;v_payment_status text;v_detail text;v_paid_cents integer;
+ v_response jsonb;v_now timestamptz;
+begin
+ if not exists(select 1 from public.platform_admins a where a.user_id=p_actor and a.active
+   and a.admin_role='superadmin')
+ then raise exception 'ADS_PSP_FOUNDER_REQUIRED' using errcode='42501';end if;
+ if p_merchant is null or p_request is null or p_expected_version is null
+ or p_expected_version<0 or p_operation not in ('reserve','attach','verify','reverse')
+ then raise exception 'ADS_PSP_ACTION_INVALID' using errcode='22023';end if;
+ v_sig:=jsonb_build_object('actor',p_actor,'merchant',p_merchant,'operation',p_operation,
+  'expectedVersion',p_expected_version,'preferenceId',p_preference_id,
+  'checkoutUrl',p_checkout_url,'collectorId',p_collector_id,'payment',p_payment_data);
+ select request_signature,response into v_previous
+ from public.platform_ads_psp_events_v1_314 where request_id=p_request;
+ if found then
+  if v_previous.request_signature is distinct from v_sig
+  then raise exception 'ADS_PSP_REQUEST_REUSE' using errcode='23505';end if;
+  return v_previous.response||jsonb_build_object('replayed',true);
+ end if;
+ select * into v_r from public.platform_ads_receivables_v1_313
+ where merchant_id=p_merchant for update;
+ select * into v_i from public.platform_ads_instruments_v1_312
+ where merchant_id=p_merchant for update;
+ if v_r.merchant_id is null or v_r.status not in ('issued','canceled')
+  or v_i.merchant_id is null or v_i.status<>'bilateral_accepted'
+  or v_r.document_sha256<>v_i.document_sha256
+  or v_r.amount_cents<>(v_i.document_snapshot->>'priceCents')::integer
+  or v_i.document_sha256<>encode(extensions.digest(
+    pg_catalog.convert_to(v_i.document_snapshot::text,'UTF8'),'sha256'),'hex')
+ then raise exception 'ADS_PSP_INSTRUMENT_OR_STATEMENT_INVALID' using errcode='40001';end if;
+ select * into v_c from public.platform_ads_psp_checkouts_v1_314
+ where merchant_id=p_merchant for update;
+ if p_operation='reserve' then
+  if v_c.merchant_id is not null or p_expected_version<>0 or v_r.status<>'issued' or
+    v_r.due_date<(clock_timestamp() at time zone 'America/Sao_Paulo')::date
+  then raise exception 'ADS_PSP_CANNOT_RESERVE' using errcode='40001';end if;
+  v_reference:='tamao-ads-'||replace(p_merchant::text,'-','')||'-v'||v_r.version::text;
+  insert into public.platform_ads_psp_checkouts_v1_314(
+   merchant_id,receivable_version,document_sha256,amount_cents,
+   external_reference,status,version,reserved_by)
+  values(p_merchant,v_r.version,v_r.document_sha256,v_r.amount_cents,
+   v_reference,'reserved',1,p_actor);
+  v_version:=1;v_status:='reserved';
+ else
+  if v_c.merchant_id is null or v_c.version<>p_expected_version
+  then raise exception 'ADS_PSP_CHECKOUT_VERSION_CONFLICT' using errcode='40001';end if;
+  v_reference:=v_c.external_reference;
+  if p_operation='attach' then
+   if v_c.status<>'reserved' or v_r.status<>'issued' or v_r.version<>v_c.receivable_version or
+      p_collector_id is null or p_collector_id !~ '^[0-9]{4,20}$' or
+      p_preference_id is null or char_length(p_preference_id) not between 6 and 150 or
+      p_preference_id !~ '^[a-zA-Z0-9_-]+$' or p_checkout_url is null or
+      p_checkout_url !~ '^https://(www[.])?mercadopago[.]com([.]br)?/'
+   then raise exception 'ADS_PSP_PROVIDER_PREFERENCE_INVALID' using errcode='22023';end if;
+   update public.platform_ads_psp_checkouts_v1_314
+   set status='checkout_ready',version=version+1,
+    preference_id=p_preference_id,checkout_url=p_checkout_url,
+    collector_id=p_collector_id,updated_at=clock_timestamp()
+   where merchant_id=p_merchant returning version into v_version;
+   v_status:='checkout_ready';
+  else
+   if v_c.status not in ('checkout_ready','payment_approved','payment_reversed') or
+     v_c.collector_id is null or p_payment_data is null or
+     jsonb_typeof(p_payment_data)<>'object' or
+     p_payment_data->>'external_reference'<>v_reference or
+     p_payment_data->>'currency_id'<>'BRL' or
+     p_payment_data->>'collector_id'<>v_c.collector_id or
+     p_payment_data->>'amount_cents'<>v_c.amount_cents::text
+   then raise exception 'ADS_PSP_PAYMENT_EVIDENCE_MISMATCH' using errcode='40001';end if;
+   v_payment_id:=p_payment_data->>'payment_id';
+   v_payment_status:=p_payment_data->>'status';
+   v_detail:=p_payment_data->>'status_detail';
+   if v_payment_id is null or v_payment_id !~ '^[0-9]{5,30}$' or
+      v_payment_status not in ('approved','refunded','charged_back')
+   then raise exception 'ADS_PSP_PAYMENT_NOT_SETTLED' using errcode='40001';end if;
+   if v_c.payment_id is not null and v_c.payment_id<>v_payment_id
+   then raise exception 'ADS_PSP_DIFFERENT_PAYMENT_ID' using errcode='40001';end if;
+   if p_operation='verify' then
+    if v_c.status<>'checkout_ready' or v_payment_status<>'approved'
+     or v_detail not in ('accredited')
+    then raise exception 'ADS_PSP_APPROVAL_NOT_PROVEN' using errcode='40001';end if;
+    v_status:='payment_approved';
+    update public.platform_ads_psp_checkouts_v1_314 set
+     status=v_status,version=version+1,payment_id=v_payment_id,
+     provider_status=v_payment_status,provider_status_detail=v_detail,
+     approved_at=clock_timestamp(),verified_at=clock_timestamp(),
+     updated_at=clock_timestamp() where merchant_id=p_merchant
+     returning version into v_version;
+   else
+    if v_c.status not in ('payment_approved','payment_reversed')
+     or v_payment_status not in ('refunded','charged_back')
+    then raise exception 'ADS_PSP_REVERSAL_NOT_PROVEN' using errcode='40001';end if;
+    v_status:='payment_reversed';
+    update public.platform_ads_psp_checkouts_v1_314 set
+     status=v_status,version=version+1,provider_status=v_payment_status,
+     provider_status_detail=v_detail,reversed_at=clock_timestamp(),
+     verified_at=clock_timestamp(),updated_at=clock_timestamp()
+     where merchant_id=p_merchant returning version into v_version;
+   end if;
+  end if;
+ end if;
+ v_response:=jsonb_build_object('source','admin_ads_psp_action_v1_314',
+  'merchantId',p_merchant,'status',v_status,'version',v_version,
+  'externalReference',v_reference,'recorded',true,'replayed',false,
+  'providerApproved',v_status='payment_approved','adsLive',false,
+  'merchantBillingSeparate',true);
+ insert into public.platform_ads_psp_events_v1_314(
+  request_id,merchant_id,actor_user_id,operation,request_signature,response)
+ values(p_request,p_merchant,p_actor,p_operation,v_sig,v_response);
+ insert into public.platform_admin_audit(actor_user_id,action,target_type,target_id,metadata)
+ values(p_actor,'ads-psp-'||p_operation,'merchant',p_merchant::text,
+   jsonb_build_object('requestId',p_request,'status',v_status,
+    'externalReference',v_reference,'version',v_version,
+    'providerStatus',v_payment_status));
+ return v_response;
+end;
+$f$;
+revoke all on function public.admin_ads_psp_action_v1_314(uuid,uuid,text,integer,text,text,text,jsonb,uuid)
+ from public,anon,authenticated;
+grant execute on function public.admin_ads_psp_action_v1_314(uuid,uuid,text,integer,text,text,text,jsonb,uuid)
+ to service_role;
+
+create or replace function public.merchant_ads_psp_view_v1_314(p_actor uuid,p_merchant uuid)
+returns jsonb language plpgsql stable security definer set search_path to 'pg_catalog' as $f$
+declare v_role text;v_row public.platform_ads_psp_checkouts_v1_314%rowtype;
+ v_r public.platform_ads_receivables_v1_313%rowtype;
+begin
+ select mm.member_role into v_role from public.merchant_members mm
+ where mm.user_id=p_actor and mm.merchant_id=p_merchant and mm.active
+ and mm.member_role in ('owner','manager') limit 1;
+ if v_role is null then raise exception 'ADS_PSP_MERCHANT_DENIED' using errcode='42501';end if;
+ select * into v_r from public.platform_ads_receivables_v1_313 where merchant_id=p_merchant;
+ select * into v_row from public.platform_ads_psp_checkouts_v1_314 where merchant_id=p_merchant;
+ return jsonb_build_object('source','merchant_ads_psp_view_v1_314',
+ 'merchantId',p_merchant,'readOnly',true,'adsLive',false,
+ 'merchantBillingSeparate',true,'checkout',
+ case when v_row.merchant_id is null or v_r.status<>'issued' then null else
+ jsonb_build_object('status',v_row.status,'amountCents',v_row.amount_cents,
+  'currency','BRL','checkoutUrl',case when v_row.status='checkout_ready' and
+    v_r.due_date>=(clock_timestamp() at time zone 'America/Sao_Paulo')::date
+    then v_row.checkout_url else null end,
+  'externalReference',v_row.external_reference,'paymentApproved',v_row.status='payment_approved',
+  'providerStatus',v_row.provider_status,'verifiedAt',v_row.verified_at)
+ end);
+end;
+$f$;
+revoke all on function public.merchant_ads_psp_view_v1_314(uuid,uuid) from public,anon,authenticated;
+grant execute on function public.merchant_ads_psp_view_v1_314(uuid,uuid) to service_role;

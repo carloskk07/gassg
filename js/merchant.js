@@ -2156,6 +2156,7 @@ function merchantLivePage(){
       ${merchantAdsDossierSection(m)}
       ${merchantAdsInstrumentSection(m)}
       ${merchantAdsReceivableSection(m)}
+      ${merchantAdsPspSection(m)}
       ${merchantGrowthNetworkSection(m)}
     </div></details>
     <details id="merchant-workspace-finance" class="merchant-workspace-section"><summary tabindex="0"><span><strong>Resultados e financeiro</strong><small>Desempenho e cobranças da plataforma, separados dos pedidos do dia.</small></span></summary><div class="merchant-workspace-content">
@@ -4230,4 +4231,56 @@ async function merchantAdsReceivableReport(){
  }catch(e){
   rt.adsReceivable=null;rt.adsReceivableError=String(e?.message||e);toast(rt.adsReceivableError);return false;
  }finally{rt.adsReceivableBusy=false;render();}
+}
+
+
+// V1.314 — merchant can open only the platform-verified Mercado Pago checkout URL.
+function merchantAdsPspSection(merchant){
+ if(!['owner','manager'].includes(String(merchant?.memberRole||'')))return '';
+ const rt=globalThis.merchantRuntime||{},id=String(merchant?.merchantId||'');
+ const packet=rt.adsPsp?.merchantId===id&&rt.adsPsp?.source==='merchant_ads_psp_view_v1_314'&&
+  rt.adsPsp.readOnly===true&&rt.adsPsp.adsLive===false&&
+  rt.adsPsp.merchantBillingSeparate===true?rt.adsPsp:null;
+ const c=packet?.checkout||null;
+ const messages={reserved:'Checkout em preparação e conferência',
+   checkout_ready:'Pagamento disponível no Mercado Pago',
+   payment_approved:'Pagamento aprovado na última verificação do provedor',
+   payment_reversed:'Pagamento estornado ou contestado'};
+ const allow=c?.status==='checkout_ready'&&
+  /^https:\/\/(www\.)?mercadopago\.com(\.br)?\//.test(String(c.checkoutUrl||''));
+ const label=c?'<div class="card flat"><strong>'+esc(messages[c.status]||'Checkout indisponível')+'</strong>'+
+  '<p>Valor: <strong>'+(Number(c.amountCents)/100).toLocaleString('pt-BR',{style:'currency',currency:'BRL'})+'</strong> • BRL</p>'+
+  '<p class="tiny muted">Referência: '+esc(c.externalReference||'')+'</p>'+
+  (allow?'<p><a class="primary btn" target="_blank" rel="noopener noreferrer" href="'+esc(c.checkoutUrl)+
+    '">Pagar no Mercado Pago <span aria-hidden="true">↗</span></a></p>':'')+
+  (c.verifiedAt?'<p class="tiny muted">Última confirmação no provedor: '+esc(String(c.verifiedAt))+'</p>':'')+
+  '</div>':'<p class="muted tiny">Ainda não há checkout autorizado para esta revenda.</p>';
+ return '<section class="section merchant-ads-psp"><div class="section-head"><div>'+
+  '<span class="section-kicker">TAMÃO ADS • PAGAMENTO SEGURO</span>'+
+  '<h3>Checkout oficial de publicidade</h3>'+
+  '<p>O checkout é criado exclusivamente na conta da empresa responsável pelo TAMÃO, separado do pagamento de pedidos.</p></div>'+
+  '<button type="button" class="secondary small" onclick="merchantAdsPspLoad()">Conferir checkout</button></div>'+
+  (packet?label:'<p class="muted tiny">Clique em Conferir checkout para consultar o servidor.</p>')+
+  (rt.adsPspError?'<p class="notice danger">'+esc(rt.adsPspError)+'</p>':'')+
+  '<p class="tiny muted">Ao pagar, confirme o beneficiário dentro do Mercado Pago. O retorno ao TAMÃO não prova o recebimento; a confirmação deve vir do provedor. Nenhuma campanha é publicada automaticamente.</p></section>';
+}
+async function merchantAdsPspLoad(){
+ const rt=globalThis.merchantRuntime,id=String(rt?.merchant?.merchantId||'');
+ if(!rt||!id||rt.adsPspBusy||!['owner','manager'].includes(String(rt.merchant.memberRole||'')))return null;
+ rt.adsPspBusy=true;rt.adsPspError=null;render();
+ try{
+  const data=await merchantInvoke('merchant-ops',{action:'ads-psp',merchantId:id,operation:'view'});
+  if(data?.source!=='merchant_ads_psp_view_v1_314'||data.merchantId!==id||
+     data.readOnly!==true||data.adsLive!==false||data.merchantBillingSeparate!==true||
+     (data.checkout!==null&&(!['reserved','checkout_ready','payment_approved','payment_reversed'].includes(data.checkout?.status)||
+       !Number.isSafeInteger(data.checkout?.amountCents)||data.checkout.amountCents<1000||
+       (data.checkout.checkoutUrl!==null&&
+        !/^https:\/\/(www\.)?mercadopago\.com(\.br)?\//.test(data.checkout.checkoutUrl)))))
+    throw new Error('Checkout não confirmado no serviço.');
+  if(String(rt.merchant?.merchantId)!==id)return null;
+  rt.adsPsp=data;return data;
+ }catch(e){
+  if(String(rt.merchant?.merchantId)===id){rt.adsPsp=null;rt.adsPspError=String(e?.message||e);toast(rt.adsPspError);}
+  return null;
+ }finally{rt.adsPspBusy=false;render();}
 }

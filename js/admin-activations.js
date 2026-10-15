@@ -18,7 +18,8 @@ async function adminActivationLoad({force=false}={}){
       ['adsOffers','ads-offers-read','admin_ads_offers_v1_310'],
       ['adsDossiers','ads-dossiers-read','admin_ads_dossiers_v1_311'],
       ['adsInstruments','ads-instruments-read','admin_ads_instruments_v1_312'],
-      ['adsReceivables','ads-receivables-read','admin_ads_receivables_v1_313']
+      ['adsReceivables','ads-receivables-read','admin_ads_receivables_v1_313'],
+      ['adsPsp','ads-psp-read','admin_ads_psp_v1_314']
     ];
     const values=await Promise.allSettled([
       ...specs.map(([,action])=>adminInvoke({action})),
@@ -32,6 +33,13 @@ async function adminActivationLoad({force=false}={}){
       const safe=d?.source===source&&(
         key==='ads'?d.readOnly===true&&d.publicEnabled===false&&d.billingEnabled===false&&d.readyToSell===false:
         key==='adsQueue'?d.noCharge===true&&d.adsLive===false:
+        key==='adsPsp'?d.readOnly===true&&d.adsLive===false&&d.merchantBillingSeparate===true&&
+          d.refundReviewRequired===true&&Number.isSafeInteger(d.totalCheckouts)&&
+          Number.isSafeInteger(d.providerApprovedCount)&&Number.isSafeInteger(d.providerApprovedGrossCents)&&
+          Array.isArray(d.rows)&&d.rows.length<=50&&d.rows.every(x=>
+            /^[0-9a-f-]{36}$/i.test(String(x.merchantId))&&
+            /^[a-f0-9]{64}$/.test(String(x.documentSha256))&&
+            (!x.checkout||['reserved','checkout_ready','payment_approved','payment_reversed'].includes(x.checkout.status))):
         key==='adsReceivables'?d.readOnly===true&&d.verifiedPayments===0&&
           d.collectedRevenueCents===0&&d.pspChargeCreated===false&&d.adsLive===false&&
           d.merchantBillingSeparate===true&&Number.isSafeInteger(d.totalReceivables)&&
@@ -74,7 +82,7 @@ async function adminActivationLoad({force=false}={}){
         d.readOnly===true&&d.couponSalesEnabled===false&&d.noContractsSigned===true);
       evidence[key]=safe?d:null;
     });
-    const governance=values[10].status==='fulfilled'?values[10].value:null;
+    const governance=values[11].status==='fulfilled'?values[11].value:null;
     evidence.governance=governance?.source==='admin_governance_gates_v1_304'&&governance.readOnly===true&&
       adminRuntime.governance?.loadedFor===actor&&adminRuntime.governance?.role===role?governance:null;
     const push=adminRuntime.pushReliability||{};
@@ -164,7 +172,7 @@ function adminActivationDeskView(d){
     '<p class="tiny muted">Última consulta: '+
     esc(current?formatDateTime(adminActivationDesk.checkedAt):'não confirmada')+
     '. Uma falha na consulta é mostrada como “Não confirmado”, nunca como recurso desligado.</p>'+
-    '<div class="admin-activation-grid">'+cards+'</div>'+adminMarketingIntakeView()+adminAdsSalesPlansView()+adminAdsDossiersView()+adminAdsInstrumentsView()+adminAdsReceivablesView()+
+    '<div class="admin-activation-grid">'+cards+'</div>'+adminMarketingIntakeView()+adminAdsSalesPlansView()+adminAdsDossiersView()+adminAdsInstrumentsView()+adminAdsReceivablesView()+adminAdsPspView()+
     '<p class="tiny muted">Publicidade pública, vendas de cupons e automação de avisos exigem homologação e gates reais no servidor. Nenhum controle desta página contorna esses requisitos.</p></section>';
 }
 
@@ -675,6 +683,94 @@ async function adminAdsReceivableAction(merchantId,operation){
   if(!saved||saved.version!==result.version||saved.status!==status)
     throw new Error('Registro salvo, mas conferência posterior pendente.');
   toast('Demonstrativo atualizado. Sem movimentação financeira ou publicação.');
+  return true;
+ }catch(e){
+  adminActivationDesk.data=null;await adminActivationLoad({force:true});
+  toast(String(e?.message||e));return false;
+ }
+}
+
+
+// V1.314 — Checkout Pro only when the platform account is independently configured.
+function adminAdsPspView(){
+ if(!adminRoleCanSection('activations'))return '';
+ const actor=String(adminRuntime.session?.user?.id||''),role=adminCurrentRole();
+ const fresh=adminActivationDesk.actor===actor&&adminActivationDesk.role===role&&
+  Date.now()-Date.parse(adminActivationDesk.checkedAt||'')<120000;
+ const d=fresh?adminActivationDesk.data?.adsPsp:null;
+ const status={reserved:'Reserva protegida — requer recuperação supervisionada',
+  checkout_ready:'Checkout disponível para pagamento',
+  payment_approved:'Pagamento aprovado na última conferência do provedor',
+  payment_reversed:'Pagamento estornado ou contestado no provedor'};
+ const rows=(d?.rows||[]).map(x=>{
+  const id=String(x.merchantId||''),c=x.checkout;
+  if(!/^[0-9a-f-]{36}$/i.test(id))return '';
+  const canCreate=role==='superadmin'&&d.platformPspConfigured===true&&!c&&
+   x.receivable?.status==='issued';
+  const canReconcile=role==='superadmin'&&d.platformPspConfigured===true&&
+   ['checkout_ready','payment_approved'].includes(c?.status);
+  return '<article class="admin-activation-card"><div class="admin-activation-card-head"><strong>'+
+    esc(x.merchantName||'Revenda')+'</strong><span class="status-pill">'+
+    esc(c?status[c.status]:'Checkout não iniciado')+'</span></div>'+
+    '<p><strong>'+(Number(x.amountCents)/100).toLocaleString('pt-BR',{style:'currency',currency:'BRL'})+
+    '</strong> • demonstrativo: '+esc(x.receivable?.status||'Não emitido')+'</p>'+
+    (c?'<p class="tiny muted">Referência: '+esc(c.externalReference)+
+      ' • versão '+Number(c.version)+'</p>'+
+      (c.paymentId?'<p class="tiny muted">Pagamento: '+esc(c.paymentId)+
+      ' • '+esc(c.providerStatus||'')+'</p>':''):'')+
+    (canCreate?'<button type="button" class="primary small" onclick="adminAdsPspAction(\''+id+'\',\'create\')">Gerar checkout Mercado Pago</button>':'')+
+    (canReconcile?'<button type="button" class="secondary small" onclick="adminAdsPspAction(\''+id+'\',\'reconcile\')">Conferir pagamento no Mercado Pago</button>':'')+
+    (c?.checkoutUrl?'<p class="tiny muted">O link do checkout está disponível no portal da revenda. Não use retorno de navegador como confirmação de pagamento.</p>':'')+
+    '</article>';
+ }).join('');
+ return '<section class="section admin-ads-psp"><div class="section-head"><div>'+
+   '<span class="section-kicker">V1.314 • PAGAMENTO VERIFICADO</span>'+
+   '<h2>Mercado Pago exclusivo do TAMÃO Ads</h2>'+
+   '<p>Checkout da empresa operadora, com conferência independente pelo provedor. Não utiliza o dinheiro ou as integrações das revendas.</p></div></div>'+
+   (d?'<p class="tiny muted">'+
+     (d.platformPspConfigured?'Credenciais independentes configuradas — validação da conta ocorre no momento da ação.':
+      'Checkout desativado: requer credenciais da conta TAMÃO Ads e habilitação expressa no servidor.')+
+     ' • Checkouts: '+d.totalCheckouts+' • Aprovações verificadas: '+d.providerApprovedCount+
+     ' • Total bruto com aprovação: '+(d.providerApprovedGrossCents/100).toLocaleString('pt-BR',{style:'currency',currency:'BRL'})+
+     ' (sujeito a estornos)</p>':
+     '<p class="muted">Leitura da integração não confirmada. Atualize a central.</p>')+
+   '<div class="admin-activation-grid">'+(rows||'<p class="muted">Nenhum contrato bilateral apto a iniciar checkout.</p>')+'</div>'+
+   '<p class="tiny muted">Uma resposta do navegador nunca confirma pagamento. A verificação usa a API autenticada do Mercado Pago e não libera anúncios; estornos e contestações devem ser reavaliados.</p></section>';
+}
+async function adminAdsPspAction(merchantId,operation){
+ if(!adminReady()||adminCurrentRole()!=='superadmin'||adminActivationDesk.loading||
+  !['create','reconcile'].includes(operation))return false;
+ const actor=String(adminRuntime.session?.user?.id||'');
+ if(adminActivationDesk.actor!==actor||adminActivationDesk.role!=='superadmin'||
+  Date.now()-Date.parse(adminActivationDesk.checkedAt||'')>=120000)return false;
+ const data=adminActivationDesk.data?.adsPsp;
+ const x=data?.rows?.find(r=>r.merchantId===merchantId);
+ if(!x||data?.platformPspConfigured!==true)return false;
+ let paymentId=null;
+ if(operation==='create'){
+  if(x.checkout||x.receivable?.status!=='issued')return false;
+  if(!confirm('Criar checkout REAL no Mercado Pago na conta da empresa TAMÃO Ads? Nenhum dinheiro será movimentado automaticamente e nenhum anúncio será publicado.'))return false;
+ }else{
+  if(!['checkout_ready','payment_approved'].includes(x.checkout?.status))return false;
+  paymentId=String(prompt('Informe o ID NUMÉRICO do pagamento no Mercado Pago para consulta direta:')||'').trim();
+  if(!/^[0-9]{5,30}$/.test(paymentId)){toast('Informe o identificador numérico completo.');return false;}
+  if(!confirm('Consultar o pagamento informado diretamente no Mercado Pago e registrar seu estado comprovado?'))return false;
+ }
+ try{
+  const out=await adminPerform('ads-psp-action',{
+   merchantId,operation,paymentId,requestId:crypto.randomUUID()
+  });
+  const expected=operation==='create'?'checkout_ready':null;
+  if(!['admin_ads_psp_create_v1_314','admin_ads_psp_reconcile_v1_314'].includes(out?.source)||
+   out.merchantId!==merchantId||
+   (expected&&out.status!==expected)||
+   out.adsLive===true||out.noAdsPublication===false)
+   throw new Error('A operação financeira não foi confirmada.');
+  adminActivationDesk.data=null;
+  const fresh=await adminActivationLoad({force:true});
+  const live=fresh?.adsPsp?.rows?.find(r=>r.merchantId===merchantId)?.checkout;
+  if(!live||live.status!==out.status)throw new Error('Provedor consultado, mas leitura posterior pendente.');
+  toast('Estado do checkout conferido no servidor, sem publicação automática.');
   return true;
  }catch(e){
   adminActivationDesk.data=null;await adminActivationLoad({force:true});

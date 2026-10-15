@@ -9,6 +9,7 @@ import {
 } from "../_shared/domain.js";
 import { cancelProviderChargesForPaymentRequest } from "../_shared/provider-charge-cancel.js";
 import { paymentEncryptionConfigured } from "../_shared/payment-secrets.js";
+import { mercadoPagoFetch,readMercadoPagoJson,safeMercadoPagoUrl,moneyToCents } from "../_shared/mercadopago.js";
 import {refreshAnpProspects,cityKey as marketCityKey} from "../_shared/anp-prospects.js";
 import {publicationSummary,publicationAlertInsight} from "./publication-health.js";
 
@@ -100,7 +101,7 @@ async function requireAdmin(admin:any,userId:string){
   if(!data)throw new DomainError("ADMIN_ACCESS_DENIED","Esta conta não possui acesso administrativo.",403);
   return data;
 }
-const ADMIN_READ_ACTIONS=new Set(["governance-gates","commercial-intake-read","ads-sales-plans","ads-offers-read","ads-dossiers-read","ads-instruments-read","ads-receivables-read","summary","search","entity-detail","system-health","billing-provider-health","audit-search","incident-list","merchant-payment-preflight","prospect-intelligence","expansion-notifications","expansion-radar","merchant-enablement","sale-payment-history","finance-receipts-history","commercial-history-list","operational-alerts","ads-demand","clube-interest-queue","clube-campaign-queue","clube-terms-queue","owner-funding-read","owner-funding-pulse","owner-evidence-queue","owner-budget-queue","owner-finance-history","owner-campaign-signals","owner-campaign-orders","owner-campaign-fee-receipts","owner-campaign-batch-ledger","owner-campaign-financial-summary","owner-campaign-benefit-costs","owner-wallet-reconciliation","owner-cashback-source-lots","owner-referral-lifecycle","owner-benefit-payout-read","owner-benefit-proofs-read","owner-benefit-proof-view","owner-benefit-proof-verify","owner-payout-provider-read","owner-recipient-proof-readiness","owner-multi-psp-hub","owner-campaign-orphan-audit","owner-orphan-cleanup-candidates","owner-campaign-cost-read","owner-campaign-receipts-read","owner-campaign-receipt-view","ads-audience-readiness","ads-preview-summary","ads-placement-readiness","ads-pilot-preflight","commercial-activation","ads-campaign-queue","growth-referral-review-queue"]);
+const ADMIN_READ_ACTIONS=new Set(["governance-gates","commercial-intake-read","ads-sales-plans","ads-offers-read","ads-dossiers-read","ads-instruments-read","ads-receivables-read","ads-psp-read","summary","search","entity-detail","system-health","billing-provider-health","audit-search","incident-list","merchant-payment-preflight","prospect-intelligence","expansion-notifications","expansion-radar","merchant-enablement","sale-payment-history","finance-receipts-history","commercial-history-list","operational-alerts","ads-demand","clube-interest-queue","clube-campaign-queue","clube-terms-queue","owner-funding-read","owner-funding-pulse","owner-evidence-queue","owner-budget-queue","owner-finance-history","owner-campaign-signals","owner-campaign-orders","owner-campaign-fee-receipts","owner-campaign-batch-ledger","owner-campaign-financial-summary","owner-campaign-benefit-costs","owner-wallet-reconciliation","owner-cashback-source-lots","owner-referral-lifecycle","owner-benefit-payout-read","owner-benefit-proofs-read","owner-benefit-proof-view","owner-benefit-proof-verify","owner-payout-provider-read","owner-recipient-proof-readiness","owner-multi-psp-hub","owner-campaign-orphan-audit","owner-orphan-cleanup-candidates","owner-campaign-cost-read","owner-campaign-receipts-read","owner-campaign-receipt-view","ads-audience-readiness","ads-preview-summary","ads-placement-readiness","ads-pilot-preflight","commercial-activation","ads-campaign-queue","growth-referral-review-queue"]);
 const ADMIN_ROLE_ACTIONS:Record<string,Set<string>>={
   superadmin:new Set(["*"]),
   operations:new Set([
@@ -4528,6 +4529,30 @@ Deno.serve(async(req:Request)=>{
     if(action==="entity-detail"){
       return json(await adminEntityDetail(admin,body.entityType,body.entityId,String(adminAccess.admin_role||"superadmin")),200,origin);
     }
+    if(action==="ads-psp-read"){
+      if(!["superadmin","operations","readonly"].includes(String(adminAccess.admin_role||"")))
+        throw new DomainError("ADMIN_PERMISSION_DENIED","Acesso ao financeiro Ads negado.",403);
+      const {data,error}=await admin.rpc("admin_ads_psp_read_v1_314",{p_actor:user.id});
+      if(error)throw error;
+      if(data?.source!=="admin_ads_psp_v1_314"||data.readOnly!==true||
+        data.adsLive!==false||data.merchantBillingSeparate!==true||
+        data.refundReviewRequired!==true||
+        !Number.isSafeInteger(data.totalCheckouts)||data.totalCheckouts<0||
+        !Number.isSafeInteger(data.providerApprovedCount)||data.providerApprovedCount<0||
+        !Number.isSafeInteger(data.providerApprovedGrossCents)||data.providerApprovedGrossCents<0||
+        !Array.isArray(data.rows)||data.rows.length>50||
+        data.rows.some((x:any)=>!UUID_RE.test(String(x.merchantId||""))||
+          !/^[a-f0-9]{64}$/.test(String(x.documentSha256||""))||
+          (x.checkout!==null&&(!["reserved","checkout_ready","payment_approved","payment_reversed"].includes(x.checkout?.status)||
+          !Number.isSafeInteger(x.checkout.version)||x.checkout.version<1||
+          !Number.isSafeInteger(x.checkout.amountCents)||x.checkout.amountCents<1000))))
+        throw new DomainError("ADS_PSP_EVIDENCE_UNVERIFIED","Livro do provedor não confirmado.",503);
+      return json({...data,platformPspConfigured:
+        Deno.env.get("ADS_MP_CHECKOUT_ENABLED")==="true"&&
+        /^APP_USR-/.test(String(Deno.env.get("ADS_MP_ACCESS_TOKEN")||""))&&
+        /^[0-9]{4,20}$/.test(String(Deno.env.get("ADS_MP_SELLER_ID")||""))
+      },200,origin);
+    }
     if(action==="ads-receivables-read"){
       if(!["superadmin","operations","readonly"].includes(String(adminAccess.admin_role||"")))
         throw new DomainError("ADMIN_PERMISSION_DENIED","Leitura de cobranças Ads não autorizada.",403);
@@ -4819,6 +4844,146 @@ Deno.serve(async(req:Request)=>{
       });
       if(error)throw error;
       return json(data,200,origin);
+    }
+    if(action==="ads-psp-action"){
+      if(String(adminAccess.admin_role||"")!=="superadmin")
+        throw new DomainError("ADMIN_PERMISSION_DENIED","Somente o administrador principal pode gerar ou conferir checkout Ads.",403);
+      const merchantId=uuid(body.merchantId,"merchantId"),operation=String(body.operation||"");
+      if(!["create","reconcile"].includes(operation))
+        throw new DomainError("ADS_PSP_OPERATION_INVALID","Operação PSP não autorizada.",400);
+      const token=String(Deno.env.get("ADS_MP_ACCESS_TOKEN")||"").trim();
+      const sellerId=String(Deno.env.get("ADS_MP_SELLER_ID")||"").trim();
+      if(Deno.env.get("ADS_MP_CHECKOUT_ENABLED")!=="true"||
+        !/^APP_USR-\S{20,}$/.test(token)||!/^[0-9]{4,20}$/.test(sellerId))
+        throw new DomainError("ADS_PSP_NOT_CONFIGURED",
+          "A conta recebedora TAMÃO Ads não foi habilitada ou homologada. Nenhuma cobrança foi iniciada.",503);
+      // Confirm that the platform account owns the credentials, never merchant OAuth tokens.
+      let identity:any;
+      try{
+        const account=await fetch("https://api.mercadolibre.com/users/me",{
+          headers:{"Accept":"application/json","Authorization":"Bearer "+token},
+          signal:AbortSignal.timeout(7000)
+        });
+        if(!account.ok)throw new Error("ACCOUNT_CHECK_FAILED");
+        const raw=await account.text();
+        if(raw.length>20000)throw new Error("ACCOUNT_RESPONSE_OVERSIZE");
+        identity=JSON.parse(raw);
+      }catch{
+        throw new DomainError("ADS_PSP_ACCOUNT_UNVERIFIED","Conta recebedora indisponível para validação.",503);
+      }
+      if(String(identity?.id||"")!==sellerId)
+        throw new DomainError("ADS_PSP_SELLER_MISMATCH","A conta recebedora não corresponde à conta TAMÃO Ads autorizada.",403);
+      if(operation==="create"){
+        const read=await admin.rpc("admin_ads_psp_read_v1_314",{p_actor:user.id});
+        if(read.error)throw read.error;
+        const item=read.data?.rows?.find((x:any)=>x.merchantId===merchantId);
+        if(item?.checkout){
+          throw new DomainError("ADS_PSP_ALREADY_RESERVED",
+           "Esta cobrança possui uma tentativa existente. Verifique o estado antes de prosseguir.",409);
+        }
+        if(item?.receivable?.status!=="issued"||
+          !Number.isSafeInteger(item.receivable.version)||!Number.isSafeInteger(item.amountCents)||
+          item.amountCents<1000)
+          throw new DomainError("ADS_PSP_STATEMENT_NOT_ISSUED","Emita primeiro o demonstrativo comercial.",409);
+        const requestId=uuid(body.requestId,"requestId");
+        const reserved=await admin.rpc("admin_ads_psp_action_v1_314",{
+          p_actor:user.id,p_merchant:merchantId,p_operation:"reserve",
+          p_expected_version:0,p_preference_id:null,p_checkout_url:null,
+          p_collector_id:null,p_payment_data:null,p_request:requestId
+        });
+        if(reserved.error)throw reserved.error;
+        if(reserved.data?.source!=="admin_ads_psp_action_v1_314"||
+          reserved.data.status!=="reserved"||reserved.data.version!==1||
+          !/^tamao-ads-[0-9a-f]{32}-v[0-9]+$/.test(reserved.data.externalReference))
+          throw new DomainError("ADS_PSP_RESERVATION_UNVERIFIED","Reserva não confirmada.",503);
+        // Persist reservation BEFORE calling PSP to prevent concurrent duplicate preferences.
+        const next=await admin.rpc("admin_ads_psp_read_v1_314",{p_actor:user.id});
+        const snapshot=next.data?.rows?.find((x:any)=>x.merchantId===merchantId);
+        if(next.error||snapshot?.checkout?.status!=="reserved"||
+          snapshot.checkout.externalReference!==reserved.data.externalReference||
+          snapshot.checkout.amountCents!==item.amountCents)
+          throw new DomainError("ADS_PSP_RESERVATION_READBACK_FAILED","Reserva gravada, sem autorização para envio ao provedor.",503);
+        let preference:any;
+        try{
+          const response=await mercadoPagoFetch("/checkout/preferences",{
+            accessToken:token,method:"POST",
+            idempotencyKey:"ads-"+requestId,
+            body:{
+              items:[{id:"tamao-ads-"+merchantId,title:"Publicidade TAMÃO Ads",
+                quantity:1,currency_id:"BRL",unit_price:item.amountCents/100}],
+              external_reference:reserved.data.externalReference,
+              back_urls:{success:"https://parceiro.tamao.com.br/",
+                failure:"https://parceiro.tamao.com.br/",pending:"https://parceiro.tamao.com.br/"},
+              auto_return:"approved"
+            }
+          });
+          preference=await readMercadoPagoJson(response);
+          if(!response.ok)throw new Error("PREFERENCE_HTTP_"+response.status);
+        }catch{
+          throw new DomainError("ADS_PSP_PREFERENCE_UNCONFIRMED",
+            "Reserva mantida. O provedor não confirmou o checkout; a operação não será repetida automaticamente.",503);
+        }
+        const checkoutUrl=safeMercadoPagoUrl(preference?.init_point);
+        const preferenceId=String(preference?.id||"");
+        if(!checkoutUrl||!/^[A-Za-z0-9_-]{6,150}$/.test(preferenceId)||
+          preference.external_reference!==reserved.data.externalReference)
+          throw new DomainError("ADS_PSP_PREFERENCE_EVIDENCE_INVALID",
+            "Resposta do provedor não coincide com a reserva, que permanece bloqueada.",503);
+        const saved=await admin.rpc("admin_ads_psp_action_v1_314",{
+          p_actor:user.id,p_merchant:merchantId,p_operation:"attach",p_expected_version:1,
+          p_preference_id:preferenceId,p_checkout_url:checkoutUrl,
+          p_collector_id:sellerId,p_payment_data:null,p_request:crypto.randomUUID()
+        });
+        if(saved.error)throw saved.error;
+        if(saved.data?.status!=="checkout_ready"||saved.data.version!==2)
+          throw new DomainError("ADS_PSP_CHECKOUT_NOT_PERSISTED","Checkout criado, mas não confirmado no banco.",503);
+        return json({source:"admin_ads_psp_create_v1_314",merchantId,status:"checkout_ready",
+          externalReference:reserved.data.externalReference,noAdsPublication:true,
+          paymentVerified:false,provider:"mercadopago"},200,origin);
+      }
+      const paymentId=String(body.paymentId||"").trim();
+      if(!/^[0-9]{5,30}$/.test(paymentId))
+        throw new DomainError("ADS_PSP_PAYMENT_ID_INVALID","Informe um identificador de pagamento válido.",400);
+      const read=await admin.rpc("admin_ads_psp_read_v1_314",{p_actor:user.id});
+      if(read.error)throw read.error;
+      const entry=read.data?.rows?.find((x:any)=>x.merchantId===merchantId);
+      const checkout=entry?.checkout;
+      if(!checkout||!["checkout_ready","payment_approved","payment_reversed"].includes(checkout.status))
+        throw new DomainError("ADS_PSP_CHECKOUT_NOT_READY","Checkout ainda não existe.",409);
+      let payment:any;
+      try{
+        const response=await mercadoPagoFetch("/v1/payments/"+paymentId,{accessToken:token});
+        payment=await readMercadoPagoJson(response);
+        if(!response.ok)throw new Error("PAYMENT_LOOKUP_"+response.status);
+      }catch{throw new DomainError("ADS_PSP_PROVIDER_LOOKUP_FAILED","Não foi possível confirmar o pagamento diretamente no provedor.",503);}
+      const status=String(payment?.status||"");
+      const detail=String(payment?.status_detail||"");
+      const cents=moneyToCents(payment?.transaction_amount);
+      if(String(payment?.id||"")!==paymentId||
+        String(payment?.collector_id??payment?.collector?.id??"")!==sellerId||
+        payment?.external_reference!==checkout.externalReference||
+        payment?.currency_id!=="BRL"||cents!==checkout.amountCents)
+        throw new DomainError("ADS_PSP_PAYMENT_MISMATCH","O pagamento não pertence a este checkout de publicidade.",403);
+      const operationDb=status==="approved"&&detail==="accredited"&&checkout.status==="checkout_ready"
+        ?"verify":(["refunded","charged_back"].includes(status)&&checkout.status==="payment_approved"?"reverse":null);
+      if(!operationDb)throw new DomainError("ADS_PSP_PAYMENT_NOT_CONFIRMABLE",
+        "O provedor não confirmou um novo pagamento integral aprovado ou um estorno correspondente.",409);
+      const payload={payment_id:paymentId,status,status_detail:detail,
+        external_reference:checkout.externalReference,
+        collector_id:sellerId,currency_id:"BRL",amount_cents:String(cents)};
+      const saved=await admin.rpc("admin_ads_psp_action_v1_314",{
+        p_actor:user.id,p_merchant:merchantId,p_operation:operationDb,
+        p_expected_version:checkout.version,
+        p_preference_id:null,p_checkout_url:null,p_collector_id:null,
+        p_payment_data:payload,p_request:uuid(body.requestId,"requestId")
+      });
+      if(saved.error)throw saved.error;
+      if(saved.data?.source!=="admin_ads_psp_action_v1_314"||
+        saved.data.status!==(operationDb==="verify"?"payment_approved":"payment_reversed"))
+        throw new DomainError("ADS_PSP_PAYMENT_NOT_PERSISTED","Prova do pagamento não foi persistida.",503);
+      return json({source:"admin_ads_psp_reconcile_v1_314",merchantId,
+        status:saved.data.status,paymentId,verifiedFromProvider:true,adsLive:false,
+        refundReviewRequired:true},200,origin);
     }
     if(action==="ads-receivable-action"){
       if(String(adminAccess.admin_role||"")!=="superadmin")
