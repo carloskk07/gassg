@@ -3,7 +3,7 @@ import fs from 'node:fs';
 import vm from 'node:vm';
 
 const read=p=>fs.readFileSync(new URL('../'+p,import.meta.url),'utf8');
-const ops=read('supabase/functions/merchant-ops/index.ts');
+const ops=read('supabase/functions/merchant-catalog-history/index.ts');
 const backend=read('js/backend.js');
 const ui=read('js/merchant.js');
 const css=read('css/components.css');
@@ -18,19 +18,24 @@ const extract=(source,name,asyncFn=false)=>{
   return source.slice(start,end+2);
 };
 
-const scope=ops.slice(ops.indexOf('if(action==="catalog-history")'),ops.indexOf('if(action==="update-product")'));
-assert.match(scope,/if\(!canManage\(role\)\)/);
-assert.match(scope,/\.eq\("merchant_id",merchantId\)/);
-assert.match(scope,/\.eq\("product_code",productCode\)/);
-assert.match(scope,/\.lt\("id",beforeId\)/);
-assert.match(scope,/\.order\("id",\{ascending:false\}\)/);
+const scope=ops;
+assert.match(scope,/publicClient\.auth\.getUser/);
+assert.match(scope,/\.eq\("user_id", user\.id\)/);
+assert.match(scope,/\.eq\("active", true\)/);
+assert.match(scope,/\["owner", "manager"\]\.includes\(membership\.member_role\)/);
+assert.match(scope,/\.eq\("merchant_id", merchantId\)/);
+assert.match(scope,/\.eq\("product_code", productCode\)/);
+assert.match(scope,/\.lt\("id", beforeId\)/);
+assert.match(scope,/\.order\("id", \{ascending: false\}\)/);
 assert.match(scope,/\.limit\(31\)/);
-assert.match(scope,/\.slice\(0,30\)/);
+assert.match(scope,/\.slice\(0, 30\)/);
 assert.match(scope,/Number\.isSafeInteger\(beforeId\)/);
-assert.match(scope,/typeof beforeId!=="number"/);
+assert.match(scope,/typeof beforeId !== "number"/);
 assert.match(scope,/hasMore/);
 assert.match(scope,/nextBeforeId/);
+assert.match(scope,/readOnly: true/);
 assert.doesNotMatch(scope,/\.insert\(|\.update\(|\.delete\(/);
+assert.match(backend,/merchantInvoke\('merchant-catalog-history',payload\)/);
 assert.match(css,/\.merchant-catalog-history-toolbar/);
 assert.match(audit,/node tests\/merchant-catalog-history-pagination-v1-281.mjs/);
 
