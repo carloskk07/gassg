@@ -2662,7 +2662,7 @@ function merchantLiveOrder(o){
     deadlineKind==='dispatch'?o.dispatchDueAt:
     deadlineKind==='delivery'?o.promisedBy:null;
   const validRaw=typeof deadlineRaw==='string'&&
-    /^20\\d\\d-\\d\\d-\\d\\dT\\d\\d:\\d\\d/.test(deadlineRaw);
+    /^20\d\d-\d\d-\d\dT\d\d:\d\d/.test(deadlineRaw);
   const deadlineMs=validRaw?Date.parse(deadlineRaw):NaN;
   const showDate=Number.isFinite(deadlineMs)&&deadlineMs>=Date.UTC(2020,0,1)&&
     deadlineMs<=Date.now()+180*86400000;
