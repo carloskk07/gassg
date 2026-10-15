@@ -79,7 +79,7 @@ assert.equal(ctx.merchantDailyVerifiedSales(rt),null);
 assert.doesNotMatch(ctx.merchantDailyOverview(rt,[offer]),/Ver vendas dos últimos 30 dias/);
 rt.merchant.memberRole='owner';
 assert.match(source,/merchantDailyOverview\(rt,orders\)/);
-assert.ok(source.split('merchantDailyOverview(rt,orders)').length>=4,'Driver and merchant use daily overview');
+assert.equal(source.split('merchantDailyOverview(rt,orders)').length-1,2,'V1.282 renders the daily overview once in the merchant portal, plus its declaration');
 assert.ok(source.indexOf('merchantDailyOverview(rt,orders)')<source.indexOf('merchantOrderQueueView(orders)'));
 assert.match(css,/\.merchant-daily-overview/);
 assert.match(css,/@media\(max-width:700px\)/);
