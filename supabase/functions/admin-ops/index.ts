@@ -100,7 +100,7 @@ async function requireAdmin(admin:any,userId:string){
   if(!data)throw new DomainError("ADMIN_ACCESS_DENIED","Esta conta não possui acesso administrativo.",403);
   return data;
 }
-const ADMIN_READ_ACTIONS=new Set(["summary","search","entity-detail","system-health","billing-provider-health","audit-search","incident-list","merchant-payment-preflight","prospect-intelligence","expansion-notifications","expansion-radar","merchant-enablement","sale-payment-history","finance-receipts-history","commercial-history-list","operational-alerts","ads-demand","clube-interest-queue","clube-campaign-queue","clube-terms-queue","owner-funding-read","owner-funding-pulse","owner-evidence-queue","owner-budget-queue","owner-finance-history","owner-campaign-signals","owner-campaign-orders","owner-campaign-fee-receipts","owner-campaign-batch-ledger","owner-campaign-financial-summary","owner-campaign-benefit-costs","owner-wallet-reconciliation","owner-cashback-source-lots","owner-referral-lifecycle","owner-benefit-payout-read","owner-benefit-proofs-read","owner-benefit-proof-view","owner-benefit-proof-verify","owner-payout-provider-read","owner-recipient-proof-readiness","owner-multi-psp-hub","owner-campaign-orphan-audit","owner-orphan-cleanup-candidates","owner-campaign-cost-read","owner-campaign-receipts-read","owner-campaign-receipt-view","ads-audience-readiness","ads-preview-summary","ads-placement-readiness","ads-pilot-preflight","commercial-activation","ads-campaign-queue","growth-referral-review-queue"]);
+const ADMIN_READ_ACTIONS=new Set(["governance-gates","summary","search","entity-detail","system-health","billing-provider-health","audit-search","incident-list","merchant-payment-preflight","prospect-intelligence","expansion-notifications","expansion-radar","merchant-enablement","sale-payment-history","finance-receipts-history","commercial-history-list","operational-alerts","ads-demand","clube-interest-queue","clube-campaign-queue","clube-terms-queue","owner-funding-read","owner-funding-pulse","owner-evidence-queue","owner-budget-queue","owner-finance-history","owner-campaign-signals","owner-campaign-orders","owner-campaign-fee-receipts","owner-campaign-batch-ledger","owner-campaign-financial-summary","owner-campaign-benefit-costs","owner-wallet-reconciliation","owner-cashback-source-lots","owner-referral-lifecycle","owner-benefit-payout-read","owner-benefit-proofs-read","owner-benefit-proof-view","owner-benefit-proof-verify","owner-payout-provider-read","owner-recipient-proof-readiness","owner-multi-psp-hub","owner-campaign-orphan-audit","owner-orphan-cleanup-candidates","owner-campaign-cost-read","owner-campaign-receipts-read","owner-campaign-receipt-view","ads-audience-readiness","ads-preview-summary","ads-placement-readiness","ads-pilot-preflight","commercial-activation","ads-campaign-queue","growth-referral-review-queue"]);
 const ADMIN_ROLE_ACTIONS:Record<string,Set<string>>={
   superadmin:new Set(["*"]),
   operations:new Set([
@@ -129,6 +129,66 @@ function requireAdminAction(role:string,action:string){
 
 /* V1.184 — finance-only read pagination beyond the 500-attempt summary.
    A validated keyset avoids offset drift when new payments are created. */
+/* V1.304: A governance dossier from the actual server state, not client-side
+   assumptions. This is read-only. No key values or contact details are returned. */
+async function adminGovernanceGates(admin:any,role:string){
+  if(!["superadmin","operations","readonly"].includes(role)){
+    throw new DomainError("ADMIN_PERMISSION_DENIED",
+      "Perfil sem autorização para consultar liberações da plataforma.",403);
+  }
+  const [cities,merchants,applications]=await Promise.all([
+    admin.from("market_cities").select(
+      "state,city_name,city_key,commerce_enabled,admin_paused,activated_at,updated_at"
+    ).order("updated_at",{ascending:false}).limit(201),
+    admin.from("merchants").select("status").limit(501),
+    admin.from("merchant_applications").select("status").limit(501)
+  ]);
+  if(cities.error||merchants.error||applications.error){
+    throw new DomainError("GOVERNANCE_EVIDENCE_UNAVAILABLE",
+      "Não foi possível confirmar o estado das liberações no banco.",503);
+  }
+  const cityRows=(cities.data||[]).slice(0,200);
+  const merchantRows=(merchants.data||[]).slice(0,500);
+  const applicationRows=(applications.data||[]).slice(0,500);
+  const tally=(rows:any[])=>rows.reduce((out:Record<string,number>,row:any)=>{
+    const status=String(row?.status||"unknown");
+    out[status]=(out[status]||0)+1;
+    return out;
+  },{} as Record<string,number>);
+  return {
+    source:"admin_governance_gates_v1_304",
+    readOnly:true,
+    checkedAt:new Date().toISOString(),
+    cities:cityRows.map((c:any)=>({
+      city:String(c.city_name||""),
+      state:String(c.state||""),
+      cityKey:String(c.city_key||""),
+      commerceEnabled:c.commerce_enabled===true,
+      adminPaused:c.admin_paused===true,
+      activatedAt:c.activated_at||null,
+      updatedAt:c.updated_at||null
+    })),
+    counts:{
+      citiesChecked:cityRows.length,merchantsByStatus:tally(merchantRows),
+      applicationsByStatus:tally(applicationRows)
+    },
+    truncated:{
+      cities:(cities.data||[]).length>200,
+      merchants:(merchants.data||[]).length>500,
+      applications:(applications.data||[]).length>500
+    },
+    runtime:{merchantDirectPaymentsEnabled:
+      String(Deno.env.get("MERCHANT_DIRECT_PAYMENTS_ENABLED")??"").trim()==="1"},
+    controls:{
+      cityPause:["superadmin","operations"].includes(role),
+      merchantAuthorization:["superadmin","operations"].includes(role),
+      commerceMode:role==="superadmin",
+      financialPolicies:role==="superadmin"
+    },
+    noAutomaticActivation:true
+  };
+}
+
 async function financeSalePaymentHistory(admin:any,body:any){
   const cursor=body?.cursor;
   const createdAt=String(cursor?.createdAt||"");
@@ -4466,6 +4526,10 @@ Deno.serve(async(req:Request)=>{
     }
     if(action==="entity-detail"){
       return json(await adminEntityDetail(admin,body.entityType,body.entityId,String(adminAccess.admin_role||"superadmin")),200,origin);
+    }
+    if(action==="governance-gates"){
+      // Explicit role guard even though the action is in the read-only allowlist.
+      return json(await adminGovernanceGates(admin,String(adminAccess.admin_role||"")),200,origin);
     }
     if(action==="system-health"){
       return json(await adminSystemHealth(admin),200,origin);
