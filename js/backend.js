@@ -2395,7 +2395,11 @@ async function merchantPoll(){
         merchantRuntime.session=null;
         merchantRuntime.merchant=null;
         merchantRuntime.orders=[];
+        merchantRuntime.catalog=[];
+        merchantRuntime.deliveryTeam=[];
+        merchantRuntime.billing=null;
         merchantAlerts.knownOrderIds=new Set();
+        render();
       }else{
         merchantRuntime.session=session;
         await merchantRefresh({silent:true});
