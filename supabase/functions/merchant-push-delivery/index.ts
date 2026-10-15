@@ -307,7 +307,7 @@ Deno.serve(async(req:Request)=>{
 
     const admin=createClient(SUPABASE_URL,SECRET_KEY,
       {auth:{persistSession:false,autoRefreshToken:false}});
-    const {data:rows,error:claimError}=await admin.rpc("merchant_push_claim_due",{p_limit:8});
+    const {data:rows,error:claimError}=await admin.rpc("merchant_push_claim_due",{p_limit:4});
     if(claimError)throw new Error("PUSH_CLAIM_FAILED");
     const summary={providerAccepted:0,gone:0,retry:0,expired:0,permanentFailure:0,unresolved:0};
     for(const row of (rows??[]) as Claimed[]){
