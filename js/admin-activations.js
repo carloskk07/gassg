@@ -17,7 +17,8 @@ async function adminActivationLoad({force=false}={}){
       ['adsSalesPlans','ads-sales-plans','admin_ads_sales_plans_v1_309'],
       ['adsOffers','ads-offers-read','admin_ads_offers_v1_310'],
       ['adsDossiers','ads-dossiers-read','admin_ads_dossiers_v1_311'],
-      ['adsInstruments','ads-instruments-read','admin_ads_instruments_v1_312']
+      ['adsInstruments','ads-instruments-read','admin_ads_instruments_v1_312'],
+      ['adsReceivables','ads-receivables-read','admin_ads_receivables_v1_313']
     ];
     const values=await Promise.allSettled([
       ...specs.map(([,action])=>adminInvoke({action})),
@@ -31,6 +32,16 @@ async function adminActivationLoad({force=false}={}){
       const safe=d?.source===source&&(
         key==='ads'?d.readOnly===true&&d.publicEnabled===false&&d.billingEnabled===false&&d.readyToSell===false:
         key==='adsQueue'?d.noCharge===true&&d.adsLive===false:
+        key==='adsReceivables'?d.readOnly===true&&d.verifiedPayments===0&&
+          d.collectedRevenueCents===0&&d.pspChargeCreated===false&&d.adsLive===false&&
+          d.merchantBillingSeparate===true&&Number.isSafeInteger(d.totalReceivables)&&
+          Number.isSafeInteger(d.issuedReceivables)&&Number.isSafeInteger(d.unverifiedReports)&&
+          Array.isArray(d.rows)&&d.rows.length<=50&&d.rows.every(r=>
+            /^[0-9a-f-]{36}$/i.test(String(r.merchantId))&&
+            /^[a-f0-9]{64}$/.test(String(r.sha256))&&
+            r.instrumentStatus==='bilateral_accepted'&&
+            Number.isSafeInteger(r.instrumentVersion)&&r.instrumentVersion>=3&&
+            (!r.receivable||['draft','issued','canceled'].includes(r.receivable.status))):
         key==='adsInstruments'?d.readOnly===true&&d.noCharge===true&&d.adsLive===false&&
           d.paymentRequestsCreated===0&&d.deliveryVerified===false&&d.notIcpCertified===true&&
           Number.isSafeInteger(d.totalInstruments)&&Array.isArray(d.rows)&&d.rows.length<=50&&
@@ -63,7 +74,7 @@ async function adminActivationLoad({force=false}={}){
         d.readOnly===true&&d.couponSalesEnabled===false&&d.noContractsSigned===true);
       evidence[key]=safe?d:null;
     });
-    const governance=values[9].status==='fulfilled'?values[9].value:null;
+    const governance=values[10].status==='fulfilled'?values[10].value:null;
     evidence.governance=governance?.source==='admin_governance_gates_v1_304'&&governance.readOnly===true&&
       adminRuntime.governance?.loadedFor===actor&&adminRuntime.governance?.role===role?governance:null;
     const push=adminRuntime.pushReliability||{};
@@ -153,7 +164,7 @@ function adminActivationDeskView(d){
     '<p class="tiny muted">Última consulta: '+
     esc(current?formatDateTime(adminActivationDesk.checkedAt):'não confirmada')+
     '. Uma falha na consulta é mostrada como “Não confirmado”, nunca como recurso desligado.</p>'+
-    '<div class="admin-activation-grid">'+cards+'</div>'+adminMarketingIntakeView()+adminAdsSalesPlansView()+adminAdsDossiersView()+adminAdsInstrumentsView()+
+    '<div class="admin-activation-grid">'+cards+'</div>'+adminMarketingIntakeView()+adminAdsSalesPlansView()+adminAdsDossiersView()+adminAdsInstrumentsView()+adminAdsReceivablesView()+
     '<p class="tiny muted">Publicidade pública, vendas de cupons e automação de avisos exigem homologação e gates reais no servidor. Nenhum controle desta página contorna esses requisitos.</p></section>';
 }
 
@@ -577,6 +588,93 @@ async function adminAdsInstrumentAction(merchantId,operation){
      newRow.version!==result.version)
    throw new Error('Instrumento registrado, porém a leitura posterior não foi confirmada.');
   toast('Registro eletrônico confirmado, sem cobrança ou anúncio publicado.');
+  return true;
+ }catch(e){
+  adminActivationDesk.data=null;await adminActivationLoad({force:true});
+  toast(String(e?.message||e));return false;
+ }
+}
+
+
+// V1.313 — Ads-specific payment statements. Never mark funds received without PSP verification.
+function adminAdsReceivablesView(){
+ if(!adminRoleCanSection('activations'))return '';
+ const actor=String(adminRuntime.session?.user?.id||''),role=adminCurrentRole();
+ const fresh=adminActivationDesk.actor===actor&&adminActivationDesk.role===role&&
+   Date.now()-Date.parse(adminActivationDesk.checkedAt||'')<120000;
+ const data=fresh?adminActivationDesk.data?.adsReceivables:null;
+ const fmt={draft:'Prévia interna',issued:'Demonstrativo emitido • aguardando pagamento',
+   canceled:'Cancelado'};
+ const entries=(data?.rows||[]).map(x=>{
+  const id=String(x.merchantId||''),r=x.receivable;
+  if(!/^[0-9a-f-]{36}$/i.test(id))return '';
+  const action=role==='superadmin'?(!r?'prepare':r.status==='draft'?'issue':
+    r.status==='issued'?'cancel':null):null;
+  const button=action?'<button type="button" class="'+(action==='issue'?'primary':'secondary')+
+    ' small" onclick="adminAdsReceivableAction(\''+id+'\',\''+action+'\')">'+
+    ({prepare:'Preparar demonstrativo Ads',issue:'Emitir cobrança comercial',
+      cancel:'Cancelar demonstrativo'}[action])+'</button>':'';
+  return '<article class="admin-activation-card"><div class="admin-activation-card-head">'+
+    '<strong>'+esc(x.merchantName||'Revenda')+'</strong>'+
+    '<span class="status-pill">'+esc(r?fmt[r.status]:'Sem demonstrativo')+'</span></div>'+
+    '<p><strong>'+(x.amountCents/100).toLocaleString('pt-BR',{style:'currency',currency:'BRL'})+
+    '</strong> • prazo sugerido '+x.dueDays+' dias</p>'+
+    (r?'<p class="tiny muted">Documento v'+r.version+
+      ' • '+esc(r.status==='draft'?'Vencimento ainda não definido':('Vencimento: '+String(r.dueDate||'—')))+
+      '</p>':'')+
+    '<p class="tiny muted">Referências de pagamento informadas e não verificadas: '+
+     Number(x.paymentReportsUnverified||0)+'. Nenhum pagamento confirmado por este módulo.</p>'+
+    '<p class="tiny muted">Contrato SHA-256: <code>'+esc(x.sha256)+'</code></p>'+
+    button+'</article>';
+ }).join('');
+ return '<section class="section admin-ads-receivables">'+
+  '<div class="section-head"><div><span class="section-kicker">V1.313 • MONETIZAÇÃO CONTROLADA</span>'+
+  '<h2>Cobranças de publicidade TAMÃO Ads</h2>'+
+  '<p>Prepare e emita demonstrativos comerciais apenas após o aceite bilateral. A receita é separada das taxas e créditos das revendas.</p></div></div>'+
+  (data?'<p class="tiny muted">Demonstrativos: '+data.totalReceivables+
+    ' • Emitidos: '+data.issuedReceivables+
+    ' • Referências não verificadas: '+data.unverifiedReports+
+    ' • Receita comprovada: R$ 0,00.</p>':
+    '<p class="muted">Não foi possível verificar o livro de cobranças. Atualize a central.</p>')+
+  '<div class="admin-activation-grid">'+(entries||'<p class="muted">Não há contrato com aceite bilateral registrado. Nenhuma cobrança pode ser preparada antes disso.</p>')+
+  '</div><p class="tiny muted">A emissão cria apenas registro interno consultável no portal. Não gera Pix, boleto, nota fiscal, cobrança PSP, reconhecimento de receita ou anúncio público. A confirmação financeira exigirá integração conciliada.</p></section>';
+}
+async function adminAdsReceivableAction(merchantId,operation){
+ if(!adminReady()||adminCurrentRole()!=='superadmin'||adminActivationDesk.loading||
+    !['prepare','issue','cancel'].includes(operation))return false;
+ const actor=String(adminRuntime.session?.user?.id||'');
+ if(adminActivationDesk.actor!==actor||adminActivationDesk.role!=='superadmin'||
+   Date.now()-Date.parse(adminActivationDesk.checkedAt||'')>=120000)return false;
+ const entry=adminActivationDesk.data?.adsReceivables?.rows?.find(r=>r.merchantId===merchantId);
+ const r=entry?.receivable;
+ if(!entry||entry.instrumentStatus!=='bilateral_accepted'||
+   !/^[a-f0-9]{64}$/.test(String(entry.sha256||''))||
+   (operation==='prepare'&&r)||
+   (operation==='issue'&&r?.status!=='draft')||
+   (operation==='cancel'&&r?.status!=='issued'))return false;
+ const reason=String(prompt('Justificativa administrativa (12 a 240 caracteres):')||'').trim();
+ if(reason.length<12||reason.length>240){toast('Informe a justificativa com 12 a 240 caracteres.');return false;}
+ const terms={prepare:'Preparar demonstrativo interno, sem vencimento ou pedido de pagamento?',
+   issue:'Emitir demonstrativo comercial visível à revenda, com valor e vencimento? Não será gerado Pix, boleto ou cobrança PSP.',
+   cancel:'Cancelar o demonstrativo emitido? Isso não estorna pagamentos externos.'};
+ if(!confirm(terms[operation]))return false;
+ try{
+  const result=await adminPerform('ads-receivable-action',{
+    merchantId,operation,documentSha256:entry.sha256,
+    expectedVersion:r?.version||0,reason,requestId:crypto.randomUUID()
+  });
+  const status=operation==='prepare'?'draft':operation==='issue'?'issued':'canceled';
+  if(result?.source!=='admin_ads_receivable_action_v1_313'||result.merchantId!==merchantId||
+    result.status!==status||!Number.isSafeInteger(result.version)||
+    result.recorded!==true||result.verifiedPaid!==false||result.pspChargeCreated!==false||
+    result.adsLive!==false||result.merchantBillingSeparate!==true)
+    throw new Error('O demonstrativo não foi confirmado.');
+  adminActivationDesk.data=null;
+  const checked=await adminActivationLoad({force:true});
+  const saved=checked?.adsReceivables?.rows?.find(x=>x.merchantId===merchantId)?.receivable;
+  if(!saved||saved.version!==result.version||saved.status!==status)
+    throw new Error('Registro salvo, mas conferência posterior pendente.');
+  toast('Demonstrativo atualizado. Sem movimentação financeira ou publicação.');
   return true;
  }catch(e){
   adminActivationDesk.data=null;await adminActivationLoad({force:true});
