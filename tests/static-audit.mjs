@@ -1503,7 +1503,7 @@ assert.ok(backend.includes('function retryAmbiguousOnce(operation)'),'runtime pr
 assert.ok(backend.includes('lastPollAt:0'),'polling da revenda precisa manter relógio próprio');
 assert.ok(backend.includes("merchantRuntime.merchant?.online===true||activeOrders"),'polling da revenda precisa distinguir operação urgente de painel ocioso');
 assert.ok(backend.includes('merchantPollingIntervalMs(merchantRuntime.orders,merchantRuntime.merchant?.online===true)')&&backend.includes("'OFFERED_TO_MERCHANT'))return 5000")&&backend.includes('return online===true?15000:60000;'),'revenda com aceite pendente mantém 5s; outras situações usam intervalo adaptativo');
-assert.ok(backend.includes('if(urgent)await merchantHeartbeat()'),'heartbeat não deve rodar em painel offline ocioso');
+assert.ok(backend.includes('if(merchantRuntime.merchant?.online===true||activeOrders)await merchantHeartbeat()'),'heartbeat não deve rodar em painel offline ocioso');
 assert.ok(backend.includes("MERCHANT_PILOT_INVITE_STORAGE='tamao-pilot-invite-v1'")&&backend.includes('MERCHANT_PILOT_INVITE_TTL_MS'),'convite piloto deve sair da URL e permanecer apenas em armazenamento transitório com expiração');
 assert.ok(backend.includes('merchantPilotInviteFromUrl')&&backend.includes("history.replaceState(null,'',url.pathname+url.search+url.hash)"),'token piloto legado em query/hash deve ser capturado e removido imediatamente da barra de endereço');
 assert.ok(backend.includes("const hashToken=String(hashParams.get('pilot')")&&backend.includes("const queryToken=String(url.searchParams.get('pilot')"),'migração deve aceitar link novo em fragmento e link legado em query sem perder o parceiro');
