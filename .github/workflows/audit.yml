@@ -261,6 +261,8 @@ jobs:
         run: node tests/merchant-guided-completion-v1-275.mjs
       - name: Test merchant availability shortcuts V1.276
         run: node tests/merchant-availability-v1-276.mjs
+      - name: Test quick product price and stock V1.277
+        run: node tests/merchant-quick-catalog-v1-277.mjs
       - name: TAMÃO V1.258 founder-approved orphan deletion with immutable audit
         run: node tests/owner-receipt-orphan-cleanup-v1-258.mjs
       - name: Turnstile smoke Chrome cleanup V1.238.1
