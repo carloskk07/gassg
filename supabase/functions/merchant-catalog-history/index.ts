@@ -48,7 +48,7 @@ async function readJsonBody(req: Request): Promise<Record<string, unknown> | nul
   }
 }
 async function enforceApiQuota(
-  admin: ReturnType<typeof createClient>, userId: string
+  admin: any, userId: string
 ): Promise<"allowed" | "limited" | "unavailable"> {
   const {data, error} = await admin.rpc("consume_api_quota", {
     p_user_id: userId, p_action_name: "merchant-catalog-history",
