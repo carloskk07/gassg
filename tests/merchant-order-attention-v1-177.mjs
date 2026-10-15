@@ -93,7 +93,7 @@ const merchant={merchant:{memberRole:'operator'},deliveryTeam:[],actionPending:f
 const cardCtx=vm.createContext({globalThis:{merchantRuntime:merchant},esc,
  BRL:{format:x=>'R$ '+Number(x).toFixed(2)},statusCopy:{},paymentLabel:()=> 'Pix',
  merchantScheduledDispatchState:()=>({scheduled:false,ready:true}),
- merchantDeliveryMemberLabel:()=> 'Equipe',merchantFormatPhone:x=>String(x)});
+ merchantDeliveryMemberLabel:()=> 'Equipe',merchantFormatPhone:x=>String(x),merchantDeliveryShortcuts:()=>''});
 vm.runInContext(['merchantDeliveryCandidates','merchantOrderEventDate','merchantOrderScheduleDate',
  'merchantOrderProgressView','merchantOrderAttention','merchantOrderAttentionCard','merchantIncidentAdvice','merchantIncidentRiskGuide','merchantLiveOrder']
  .map(extract).join('\n')+';this.renderCard=merchantLiveOrder;',cardCtx);
