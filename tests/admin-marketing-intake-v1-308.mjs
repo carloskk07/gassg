@@ -59,10 +59,10 @@ const state=vm.createContext({
  adminSetSection:()=>{},requestAnimationFrame:()=>{},render:()=>{},
  Number,String,Date,Promise,Set
 });
-vm.runInContext(ui+'\nthis.change=adminMarketingIntakeSet;this.intake=adminMarketingIntakeView;',state);
-state.adminActivationDesk.actor='owner';state.adminActivationDesk.role='superadmin';
-state.adminActivationDesk.checkedAt=new Date().toISOString();
-state.adminActivationDesk.data={intake:{source:'admin_marketing_intake_v1_308',controls:[
+vm.runInContext(ui+'\nthis.change=adminMarketingIntakeSet;this.intake=adminMarketingIntakeView;this.desk=adminActivationDesk;',state);
+state.desk.actor='owner';state.desk.role='superadmin';
+state.desk.checkedAt=new Date().toISOString();
+state.desk.data={intake:{source:'admin_marketing_intake_v1_308',controls:[
  row,{moduleKey:'clube_proposals',enabled:true,version:3,reason:'previous'}]}};
 assert.match(state.intake(),/Recebendo propostas/);
 assert.match(state.intake(),/adminMarketingIntakeSet\('ads_proposals'\)/);
@@ -77,13 +77,13 @@ assert.equal(performed[0].action,'commercial-intake-set');
 assert.equal(performed[0].payload.expectedVersion,1);
 assert.equal(performed[0].payload.enabled,false);
 assert.equal(refreshed,1);
-role='operations';state.adminActivationDesk.data={intake:{controls:[row]}};
-state.adminActivationDesk.role='operations';
+role='operations';state.desk.data={intake:{controls:[row]}};
+state.desk.role='operations';
 assert.doesNotMatch(state.intake(),/adminMarketingIntakeSet\('ads_proposals'\)/);
 assert.equal(await state.change('ads_proposals'),false);
 role='superadmin';
-state.adminActivationDesk.role='superadmin';
-state.adminActivationDesk.checkedAt='2000-01-01T00:00:00Z';
+state.desk.role='superadmin';
+state.desk.checkedAt='2000-01-01T00:00:00Z';
 assert.equal(await state.change('ads_proposals'),false);
 assert.match(state.intake(),/Não confirmado/);
 role='support';assert.equal(state.intake(),'');
