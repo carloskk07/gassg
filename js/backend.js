@@ -1403,80 +1403,33 @@ function merchantPushKeyBytes(base64url){
 async function merchantPushDiagnoseLive(){
   if(!merchantReady()||!merchantRuntime.merchant?.merchantId)
     throw new Error('Entre na revenda antes de verificar o aparelho.');
-  if(merchantPushRuntime.healthPending)return false;
   const merchantId=String(merchantRuntime.merchant.merchantId);
-  const userId=String(merchantRuntime.session?.user?.id||'');
   const supported=merchantPushStatus().supported;
   const permission=typeof Notification==='undefined'?'unsupported':Notification.permission;
   let workerReady=false,localSubscription=false,keyMatches=false;
-  let endpoint=null;
-  merchantPushRuntime.healthPending=true;
-  merchantPushRuntime.deviceHealth=null;
-  merchantPushRuntime.healthError=null;
-  render();
-  try{
-    if(supported){
-      const reg=await navigator.serviceWorker.getRegistration('./');
-      workerReady=!!reg?.active;
-      if(reg?.pushManager){
-        const sub=await reg.pushManager.getSubscription();
-        localSubscription=!!sub;
-        endpoint=sub?.endpoint||null;
-        if(sub&&merchantPushRuntime.publicKey){
-          const current=sub.options?.applicationServerKey;
-          const wanted=merchantPushKeyBytes(merchantPushRuntime.publicKey);
-          const stored=current?new Uint8Array(current):new Uint8Array();
-          keyMatches=stored.length===wanted.length&&stored.every((value,i)=>value===wanted[i]);
-        }
+  if(supported){
+    const reg=await navigator.serviceWorker.getRegistration('./');
+    workerReady=!!reg?.active;
+    if(reg?.pushManager){
+      const sub=await reg.pushManager.getSubscription();
+      localSubscription=!!sub;
+      if(sub&&merchantPushRuntime.publicKey){
+        const current=sub.options?.applicationServerKey;
+        const wanted=merchantPushKeyBytes(merchantPushRuntime.publicKey);
+        const stored=current?new Uint8Array(current):new Uint8Array();
+        keyMatches=stored.length===wanted.length&&stored.every((value,i)=>value===wanted[i]);
       }
     }
-    const current=()=>merchantReady()&&
-      String(merchantRuntime.merchant?.merchantId||'')===merchantId&&
-      String(merchantRuntime.session?.user?.id||'')===userId;
-    if(!current())return false;
-    merchantPushRuntime.diagnostic={
-      merchantId,userId,supported,secure:typeof isSecureContext!=='undefined'&&isSecureContext===true,
-      permission,workerReady,localSubscription,keyMatches,
-      checkedAt:new Date().toISOString()
-    };
-    // Never send the browser endpoint or encryption keys for an unsupported,
-    // unregistered or unauthorized device.
-    if(endpoint&&permission==='granted'&&keyMatches){
-      try{
-        const result=await merchantInvoke('merchant-push-self-test',{
-          action:'diagnose-tests',merchantId,endpoint
-        });
-        if(!current())return false;
-        if(result?.diagnosis?.registered===true){
-          const raw=result.diagnosis;
-          const count=k=>Number.isInteger(raw[k])&&raw[k]>=0?Math.min(raw[k],100000):0;
-          const states=['provider_accepted','gateway_rejected','reserved','expired','failed'];
-          const codes=['SUBSCRIPTION_GONE','GATEWAY_UNAVAILABLE','GATEWAY_REJECTED',
-            'NETWORK_ERROR','PUSH_TEST_FAILED','SENDER_UNAVAILABLE'];
-          merchantPushRuntime.deviceHealth={
-            merchantId,userId,registered:true,tests:count('tests'),
-            providerAccepted:count('providerAccepted'),
-            providerFailed:count('providerFailed'),reportedSeen:count('reportedSeen'),
-            reportedNotSeen:count('reportedNotSeen'),
-            latestState:states.includes(raw.latestState)?raw.latestState:null,
-            latestFailureCode:codes.includes(raw.latestFailureCode)?raw.latestFailureCode:null,
-            latestReport:['seen','not_seen'].includes(raw.latestReport)?raw.latestReport:null,
-            checkedAt:new Date().toISOString()
-          };
-        }
-      }catch(error){
-        if(!current())return false;
-        merchantPushRuntime.healthError={merchantId,userId,code:String(error?.data?.code||error?.code||'RESULT_UNAVAILABLE').slice(0,60)};
-      }
-    }
-    render();
-    return true;
-  }finally{
-    merchantPushRuntime.healthPending=false;
-    render();
   }
+  if(!merchantReady()||String(merchantRuntime.merchant?.merchantId||'')!==merchantId)return false;
+  merchantPushRuntime.diagnostic={
+    merchantId,supported,secure:typeof isSecureContext!=='undefined'&&isSecureContext===true,
+    permission,workerReady,localSubscription,keyMatches,
+    checkedAt:new Date().toISOString()
+  };
+  render();
+  return true;
 }
-
 async function merchantPushCheckLive(){
   if(merchantPushRuntime.checking)return false;
   if(!merchantReady()||!merchantRuntime.merchant?.merchantId){
@@ -1509,6 +1462,61 @@ async function merchantPushCheckLive(){
   }finally{
     merchantPushRuntime.checking=false;
   }
+}
+// V1.293: server-side per-device diagnostics are requested only after local checks.
+// Kept separate so local device diagnostics remain usable without network access.
+async function merchantPushDiagnoseServerLive(){
+  if(merchantPushRuntime.healthPending)return false;
+  if(!merchantReady()||!merchantRuntime.merchant?.merchantId)
+    throw new Error('Entre na revenda antes de verificar o aparelho.');
+  const merchantId=String(merchantRuntime.merchant.merchantId);
+  const userId=String(merchantRuntime.session?.user?.id||'');
+  merchantPushRuntime.healthPending=true;
+  merchantPushRuntime.deviceHealth=null;
+  merchantPushRuntime.healthError=null;
+  render();
+  const current=()=>merchantReady()&&
+    String(merchantRuntime.merchant?.merchantId||'')===merchantId&&
+    String(merchantRuntime.session?.user?.id||'')===userId;
+  try{
+    await merchantPushDiagnoseLive();
+    if(!current())return false;
+    const device=merchantPushRuntime.diagnostic;
+    if(device?.permission!=='granted'||!device.workerReady||
+      !device.localSubscription||!device.keyMatches)return true;
+    const reg=await navigator.serviceWorker.getRegistration('./');
+    const subscription=await reg?.pushManager?.getSubscription();
+    if(!subscription?.endpoint)return true;
+    try{
+      const result=await merchantInvoke('merchant-push-self-test',{
+        action:'diagnose-tests',merchantId,endpoint:subscription.endpoint
+      });
+      if(!current())return false;
+      if(result?.diagnosis?.registered===true){
+        const raw=result.diagnosis;
+        const count=k=>Number.isInteger(raw[k])&&raw[k]>=0?Math.min(raw[k],100000):0;
+        const states=['provider_accepted','gateway_rejected','reserved','expired','failed'];
+        const codes=['SUBSCRIPTION_GONE','GATEWAY_UNAVAILABLE','GATEWAY_REJECTED',
+          'NETWORK_ERROR','PUSH_TEST_FAILED','SENDER_UNAVAILABLE'];
+        merchantPushRuntime.deviceHealth={
+          merchantId,userId,registered:true,tests:count('tests'),
+          providerAccepted:count('providerAccepted'),
+          providerFailed:count('providerFailed'),reportedSeen:count('reportedSeen'),
+          reportedNotSeen:count('reportedNotSeen'),
+          latestState:states.includes(raw.latestState)?raw.latestState:null,
+          latestFailureCode:codes.includes(raw.latestFailureCode)?raw.latestFailureCode:null,
+          latestReport:['seen','not_seen'].includes(raw.latestReport)?raw.latestReport:null,
+          checkedAt:new Date().toISOString()
+        };
+      }
+    }catch(error){
+      if(!current())return false;
+      merchantPushRuntime.healthError={merchantId,userId,
+        code:String(error?.data?.code||error?.code||'RESULT_UNAVAILABLE').slice(0,60)};
+    }
+    render();
+    return true;
+  }finally{merchantPushRuntime.healthPending=false;render();}
 }
 async function merchantPushEnableLive(){
   if(!merchantReady()||!merchantRuntime.merchant?.merchantId)
@@ -2839,6 +2847,7 @@ globalThis.merchantReady=merchantReady;
 globalThis.merchantAlertStatus=merchantAlertStatus;
 globalThis.merchantPushStatus=merchantPushStatus;
 globalThis.merchantPushDiagnoseLive=merchantPushDiagnoseLive;
+globalThis.merchantPushDiagnoseServerLive=merchantPushDiagnoseServerLive;
 globalThis.merchantPushFriendlyError=merchantPushFriendlyError;
 globalThis.merchantPushCheckLive=merchantPushCheckLive;
 globalThis.merchantPushEnableLive=merchantPushEnableLive;
