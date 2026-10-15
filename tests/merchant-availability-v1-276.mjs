@@ -27,7 +27,7 @@ const ctx=vm.createContext({esc,BRL:{format:formatted},globalThis:{merchantRunti
  go:key=>actions.push(key),
  merchantRevealControl:selector=>{opened.push(selector);return true;},
  toast:value=>messages.push(String(value))});
-vm.runInContext(take('merchantAvailabilityGo')+'\n'+take('merchantAvailabilityPanel')+
+vm.runInContext(take('merchantQuickCatalogCandidates')+'\n'+take('merchantAvailabilityGo')+'\n'+take('merchantAvailabilityPanel')+
  ';this.draw=merchantAvailabilityPanel;this.open=merchantAvailabilityGo;',ctx);
 const opts={canGoOnline:true,connectionHealthy:true,financialHold:false,
  freshness:{deliveryFresh:true},p13:ctxState.catalog[0],orderCount:4};
