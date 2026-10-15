@@ -3,6 +3,7 @@ import fs from 'node:fs';
 import vm from 'node:vm';
 const read=p=>fs.readFileSync(new URL('../'+p,import.meta.url),'utf8');
 const sql=read('supabase/migrations/20261016080000_ads_platform_psp_v1_314.sql');
+const cancellationGuard=read('supabase/migrations/20261016081000_ads_psp_cancellation_guard_v1_314.sql');
 const a=read('supabase/functions/admin-ops/index.ts');
 const m=read('supabase/functions/merchant-ops/index.ts');
 const admin=read('js/admin-activations.js');
@@ -28,6 +29,17 @@ for(const t of [
  const must=t==='ADS_PSP_DOCUMENT_HASH_MISMATCH'?'ADS_PSP_INSTRUMENT_OR_STATEMENT_INVALID':t;
  assert.ok(sql.includes(must),'SQL invariant '+must);
 }
+for(const t of ['ads_receivable_external_checkout_guard_v1_314',
+ "old.status='issued'","new.status='canceled'",
+ "'reserved','checkout_ready','payment_approved'",
+ 'ADS_RECEIVABLE_EXTERNAL_CHECKOUT_REQUIRES_PROVIDER_REVIEW',
+ 'before update on public.platform_ads_receivables_v1_313'
+])assert.ok(cancellationGuard.includes(t),'Cancellation safety gate: '+t);
+assert.ok(a.includes('expires:true'));
+assert.ok(a.includes('expiration_date_to:expiresAt.toISOString()'));
+assert.ok(a.includes('expiration_date_from:new Date().toISOString()'));
+assert.ok(a.indexOf('const expiresAt=new Date(')<a.indexOf('p_operation:"reserve"'),
+ 'Due date must be checked before a PSP reservation can strand the payment');
 assert.ok(!/insert into public\.(merchant_billing_payment_requests|merchant_billing_payment_events|merchant_billing_provider_charges)/.test(sql));
 assert.ok(!/update public\.(ads_placement_controls|merchant_ads_campaigns|merchant_billing)/.test(sql));
 for(const t of [
