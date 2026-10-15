@@ -420,7 +420,7 @@ function openSponsorContact(){
   const focus=()=>{
     if(route()!=='contact')return;
     const type=document.getElementById('public-request-kind');
-    if(type){type.value='general';globalThis.contactKindChanged?.()}
+    if(type){type.value='sponsor';globalThis.contactKindChanged?.()}
     const message=document.getElementById('public-request-message');
     if(message&&!String(message.value||'').trim()){
       message.value='Tenho interesse em uma parceria de divulgação com o TAMÃO. Nossa marca atua em [cidade/região] e gostaríamos de conversar sobre objetivos, categorias e formatos disponíveis.';
