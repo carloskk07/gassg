@@ -458,7 +458,7 @@ assert.ok(backend.includes("String(merchant?.memberRole||'')==='driver'")&&backe
 assert.ok(backend.includes('navigator.vibrate?.([180,80,180,80,260])')&&backend.includes('merchantPlayAlertTone'),'alerta opt-in precisa combinar vibração e sinal sonoro quando suportado');
 assert.ok(backend.includes("Um pedido aguarda seu aceite.")&&backend.includes("Uma entrega foi atribuída a você."),'notificação deve usar copy operacional genérica sem PII');
 assert.ok(!backend.includes("body:o.address")&&!backend.includes("body:o.customerPhone"),'notificação nunca pode incluir endereço ou telefone');
-assert.ok(merchant.includes('Fechar totalmente o navegador interrompe o polling')&&merchant.includes('push com o app fechado exige uma etapa posterior'),'UI não pode vender polling local como push fechado');
+assert.ok(merchant.includes('O navegador pode suspender essas consultas em segundo plano')&&merchant.includes('Com o navegador fechado, não há garantia de alertas'),'UI não pode vender polling local como push fechado');
 assert.ok(sw.includes("self.addEventListener('notificationclick'")&&sw.includes("?merchant=1#merchant"),'clique na notificação precisa voltar ao painel operacional');
 assert.ok(bootstrap.includes('merchantEnableAlertsFromUi')&&bootstrap.includes('merchantDisableAlertsFromUi'),'ações de opt-in de alerta precisam estar acessíveis pela UI');
 assert.ok(read('supabase/functions/get-offers/index.ts').includes('create_quote_snapshot'),'ofertas devem persistir snapshot por RPC atômica');
