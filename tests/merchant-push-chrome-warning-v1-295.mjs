@@ -23,7 +23,7 @@ for(const marker of [
  "v_run.device_report<>p_report",
  'revoke all on function public.merchant_push_test_correct_spam_warning',
  'to service_role',
- "pg_catalog.coalesce(c.corrected_report,t.device_report)",
+ "coalesce(c.corrected_report,t.device_report)",
  "'reportedWarning7d'","'reportedWarning'",
  "'reportedWarning',count(*)",
  "'previousReport'"
