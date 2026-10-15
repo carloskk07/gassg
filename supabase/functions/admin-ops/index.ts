@@ -4549,7 +4549,7 @@ Deno.serve(async(req:Request)=>{
         throw new DomainError("ADS_PSP_EVIDENCE_UNVERIFIED","Livro do provedor não confirmado.",503);
       return json({...data,platformPspConfigured:
         Deno.env.get("ADS_MP_CHECKOUT_ENABLED")==="true"&&
-        /^APP_USR-/.test(String(Deno.env.get("ADS_MP_ACCESS_TOKEN")||""))&&
+        /^APP_USR-\S{20,}$/.test(String(Deno.env.get("ADS_MP_ACCESS_TOKEN")||"").trim())&&
         /^[0-9]{4,20}$/.test(String(Deno.env.get("ADS_MP_SELLER_ID")||""))
       },200,origin);
     }
