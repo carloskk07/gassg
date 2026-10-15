@@ -68,11 +68,12 @@ Deno.serve(async(req:Request)=>{
     return bad("INVALID_REQUEST",400,origin);
    body=parsed;
   }catch{return bad("INVALID_REQUEST",400,origin)}
-  if((body.action!=="send-self-test"&&!["last-test","report-display","diagnose-tests"].includes(String(body.action??"")))||
+  if((body.action!=="send-self-test"&&!["last-test","report-display","diagnose-tests","correct-spam-warning"].includes(String(body.action??"")))||
     !UUID.test(String(body.merchantId??""))||
     !allowedPushEndpoint(body.endpoint)||
-    (body.action==="report-display"&&
-      (!UUID.test(String(body.runId??""))||!["seen","not_seen"].includes(String(body.report??"")))))
+    ((body.action==="report-display"||body.action==="correct-spam-warning")&&
+      (!UUID.test(String(body.runId??""))||
+       (body.action==="report-display"&&!["seen","not_seen","spam_warning"].includes(String(body.report??""))))))
    return bad("INVALID_REQUEST",400,origin);
   const authClient=createClient(URL_ROOT,PUBLISHABLE,{auth:{persistSession:false,autoRefreshToken:false}});
   const {data:authData,error:authError}=await authClient.auth.getUser(bearer.slice(7));
@@ -103,6 +104,22 @@ Deno.serve(async(req:Request)=>{
     });
     if(latestError)return bad("RESULT_UNAVAILABLE",503,origin);
     return json({ok:true,...(latest??{})},200,origin);
+  }
+  // V1.295: the user can clarify a former "not seen" report without
+  // altering its original immutable observation. Chrome spam warnings are
+  // voluntary observations, never technical delivery confirmation.
+  if(body.action==="correct-spam-warning"){
+    const {data:corrected,error:correctionError}=await admin.rpc(
+      "merchant_push_test_correct_spam_warning",{
+        p_run_id:body.runId,p_merchant_id:body.merchantId,
+        p_user_id:user.id,p_endpoint_hash:endpointHash
+      });
+    if(correctionError)return bad("RESULT_UNAVAILABLE",503,origin);
+    if(corrected?.ok!==true)return bad("TEST_NOT_FOUND",404,origin);
+    return json({ok:true,deviceReport:"spam_warning",
+      previousReport:corrected.previousReport,
+      receiptKind:"manual_user_report",correctionRecorded:true,
+      providerReceiptVerified:false},200,origin);
   }
   if(body.action==="report-display"){
     const {data:report,error:reportError}=await admin.rpc("merchant_push_test_report",{

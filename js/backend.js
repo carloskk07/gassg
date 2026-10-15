@@ -1502,10 +1502,10 @@ async function merchantPushDiagnoseServerLive(){
           merchantId,userId,registered:true,tests:count('tests'),
           providerAccepted:count('providerAccepted'),
           providerFailed:count('providerFailed'),reportedSeen:count('reportedSeen'),
-          reportedNotSeen:count('reportedNotSeen'),
+          reportedNotSeen:count('reportedNotSeen'),reportedWarning:count('reportedWarning'),
           latestState:states.includes(raw.latestState)?raw.latestState:null,
           latestFailureCode:codes.includes(raw.latestFailureCode)?raw.latestFailureCode:null,
-          latestReport:['seen','not_seen'].includes(raw.latestReport)?raw.latestReport:null,
+          latestReport:['seen','not_seen','spam_warning'].includes(raw.latestReport)?raw.latestReport:null,
           checkedAt:new Date().toISOString()
         };
       }
@@ -1644,7 +1644,8 @@ async function merchantPushLatestTestLive(){
       merchantId,userId,runId:String(result.runId),
       providerAccepted:result.providerAccepted===true,
       state:String(result.state||'unknown'),
-      deviceReport:['seen','not_seen'].includes(result.deviceReport)?result.deviceReport:null,
+      deviceReport:['seen','not_seen','spam_warning'].includes(result.deviceReport)?result.deviceReport:null,
+      previousReport:['seen','not_seen'].includes(result.previousReport)?result.previousReport:null,
       checkedAt:String(result.checkedAt||'')
     }:null;
     render();
@@ -1652,7 +1653,7 @@ async function merchantPushLatestTestLive(){
   }finally{merchantPushRuntime.reportPending=false;render();}
 }
 async function merchantPushReportTestLive(report){
-  if(!['seen','not_seen'].includes(report))throw new Error('Confirmação inválida.');
+  if(!['seen','not_seen','spam_warning'].includes(report))throw new Error('Confirmação inválida.');
   if(merchantPushRuntime.testPending||merchantPushRuntime.reportPending)
     throw new Error('Aguarde a operação de teste em andamento.');
   const merchantId=String(merchantRuntime.merchant?.merchantId||'');
@@ -1680,6 +1681,37 @@ async function merchantPushReportTestLive(report){
     merchantPushRuntime.deviceHealth=null;
     render();
     return true;
+  }finally{merchantPushRuntime.reportPending=false;render();}
+}
+// V1.295: a correction cannot mutate the earlier voluntary observation.
+async function merchantPushCorrectChromeWarningLive(){
+  if(merchantPushRuntime.testPending||merchantPushRuntime.reportPending)
+    throw new Error('Aguarde a operação de teste em andamento.');
+  const merchantId=String(merchantRuntime.merchant?.merchantId||'');
+  const userId=String(merchantRuntime.session?.user?.id||'');
+  const last=merchantPushStatus().testResult;
+  if(!merchantReady()||!merchantPushRuntime.subscribed||!last?.runId||
+    last.providerAccepted!==true||!['seen','not_seen'].includes(last.deviceReport))
+    throw new Error('Consulte o último teste registrado antes de corrigir o relato.');
+  merchantPushRuntime.reportPending=true;render();
+  try{
+    const reg=await navigator.serviceWorker.getRegistration('./');
+    const subscription=await reg?.pushManager?.getSubscription();
+    if(!subscription?.endpoint)throw new Error('Inscrição não encontrada neste navegador.');
+    const result=await merchantInvoke('merchant-push-self-test',{
+      action:'correct-spam-warning',merchantId,endpoint:subscription.endpoint,
+      runId:last.runId
+    });
+    if(!merchantReady()||String(merchantRuntime.merchant?.merchantId||'')!==merchantId||
+       String(merchantRuntime.session?.user?.id||'')!==userId)return false;
+    if(result?.correctionRecorded!==true||result?.receiptKind!=='manual_user_report'||
+       result?.deviceReport!=='spam_warning')
+      throw new Error('Não foi possível registrar a correção do relato.');
+    if(merchantPushRuntime.testResult?.runId===last.runId){
+      merchantPushRuntime.testResult.previousReport=last.deviceReport;
+      merchantPushRuntime.testResult.deviceReport='spam_warning';
+    }
+    merchantPushRuntime.deviceHealth=null;render();return true;
   }finally{merchantPushRuntime.reportPending=false;render();}
 }
 async function merchantPushDisableLive(){
@@ -2854,6 +2886,7 @@ globalThis.merchantPushEnableLive=merchantPushEnableLive;
 globalThis.merchantPushSelfTestLive=merchantPushSelfTestLive;
 globalThis.merchantPushLatestTestLive=merchantPushLatestTestLive;
 globalThis.merchantPushReportTestLive=merchantPushReportTestLive;
+globalThis.merchantPushCorrectChromeWarningLive=merchantPushCorrectChromeWarningLive;
 globalThis.merchantPushDisableLive=merchantPushDisableLive;
 globalThis.merchantEnableAlertsLive=merchantEnableAlertsLive;
 globalThis.merchantDisableAlertsLive=merchantDisableAlertsLive;
