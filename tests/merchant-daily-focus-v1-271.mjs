@@ -15,7 +15,10 @@ const esc=value=>String(value).replaceAll('&','&amp;').replaceAll('<','&lt;')
 const rt={merchant:{merchantId:'merch-1',memberRole:'owner'},businessPulse:null};
 const ctx=vm.createContext({globalThis:{merchantRuntime:rt},esc,BRL:{format:x=> 'R$ '+Number(x).toFixed(2)},
  merchantRevealControl:()=>true,merchantBusinessPulseLoadFromUi:async()=>{}});
-vm.runInContext(source.slice(start,finish),ctx);
+const labelStart=source.indexOf('function merchantOrderNextStepLabel(');
+const labelEnd=source.indexOf('\n}',labelStart);
+assert.ok(labelStart>=0&&labelEnd>labelStart);
+vm.runInContext(source.slice(labelStart,labelEnd+2)+'\n'+source.slice(start,finish),ctx);
 const id=n=>'00000000-0000-4000-8000-'+String(n).padStart(12,'0');
 const now=Date.now();
 const iso=offset=>new Date(now+offset*60*1000).toISOString();
@@ -43,12 +46,12 @@ const xss=sample(1,'AT_RISK',{publicCode:'<img src=x onerror=alert(1)>'});
 const html=ctx.merchantDailyOverview(rt,[xss]);
 assert.match(html,/&lt;img src=x onerror=alert\(1\)&gt;/);
 assert.doesNotMatch(html,/<img src=x onerror=alert\(1\)>/);
-assert.match(html,new RegExp("merchantFocusLiveOrder\\('"+id(1)+"'\\)"));
+assert.match(html,new RegExp("merchantFocusOrderNextStep\\('"+id(1)+"'\\)"));
 assert.doesNotMatch(html,/merchantLiveAction|merchantLiveDeliver|merchantPerformAction/);
 assert.match(html,/ações só são efetivadas no pedido/);
 const badId={orderId:"x');alert(1)//",status:'AT_RISK',publicCode:'Unsafe'};
 const unsafe=ctx.merchantDailyOverview(rt,[badId]);
-assert.doesNotMatch(unsafe,/merchantFocusLiveOrder/);
+assert.doesNotMatch(unsafe,/merchantFocusOrderNextStep/);
 assert.doesNotMatch(unsafe,/alert\(1\)/);
 assert.match(ctx.merchantDailyOverview(rt,[expired]),/merchantLiveRefresh\(\)/);
 
