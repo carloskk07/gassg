@@ -210,7 +210,7 @@ function senderConfigured():boolean {
   return PUSH_DELIVERY_READY&&SECRET_KEY.length>20&&SUPABASE_URL.startsWith("https://")&&
     VAPID_PUBLIC_KEY.length>=85&&VAPID_PUBLIC_KEY.length<=100&&VAPID_KEY_RE.test(VAPID_PUBLIC_KEY)&&
     VAPID_PRIVATE_KEY.length>=40&&VAPID_PRIVATE_KEY.length<=60&&VAPID_KEY_RE.test(VAPID_PRIVATE_KEY)&&
-    /^(mailto:[^\\s@]+@[^\\s@]+|https:\/\/[^\\s/]+(?:\/[^\\s]*)?)$/.test(VAPID_SUBJECT);
+    /^(mailto:[^\s@]+@[^\s@]+|https:\/\/[^\s/]+(?:\/[^\s]*)?)$/.test(VAPID_SUBJECT);
 }
 function validPushEndpoint(endpoint:string):boolean {
   try {
