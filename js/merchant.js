@@ -2155,6 +2155,7 @@ function merchantLivePage(){
       ${merchantAdsOfferSection(m)}
       ${merchantAdsDossierSection(m)}
       ${merchantAdsInstrumentSection(m)}
+      ${merchantAdsReceivableSection(m)}
       ${merchantGrowthNetworkSection(m)}
     </div></details>
     <details id="merchant-workspace-finance" class="merchant-workspace-section"><summary tabindex="0"><span><strong>Resultados e financeiro</strong><small>Desempenho e cobranças da plataforma, separados dos pedidos do dia.</small></span></summary><div class="merchant-workspace-content">
@@ -4146,4 +4147,87 @@ async function merchantAdsInstrumentAccept(){
  }catch(e){
   rt.adsInstrument=null;rt.adsInstrumentError=String(e?.message||e);toast(rt.adsInstrumentError);return false;
  }finally{rt.adsInstrumentBusy=false;render();}
+}
+
+
+// TAMÃO V1.313 — merchant billing statement; payment reports are ALWAYS unverified.
+function merchantAdsReceivableSection(merchant){
+ if(!['owner','manager'].includes(String(merchant?.memberRole||'')))return '';
+ const rt=globalThis.merchantRuntime||{},id=String(merchant?.merchantId||'');
+ const packet=rt.adsReceivable?.merchantId===id&&rt.adsReceivable?.source==='merchant_ads_receivable_v1_313'&&
+  rt.adsReceivable.readOnly===true&&rt.adsReceivable.paymentVerified===false&&
+  rt.adsReceivable.adsLive===false&&rt.adsReceivable.pspChargeCreated===false?rt.adsReceivable:null;
+ const r=packet?.statement||null;
+ const pay=r?'<div class="card flat"><p><strong>'+
+  (r.amountCents/100).toLocaleString('pt-BR',{style:'currency',currency:'BRL'})+
+  '</strong> • '+esc(r.status==='issued'?'Demonstrativo emitido':'Demonstrativo cancelado')+'</p>'+
+  '<p>Vencimento: '+esc(String(r.dueDate||'—'))+' • BRL • versão '+Number(r.version)+'</p>'+
+  '<p class="tiny muted">Contrato SHA-256: <code>'+esc(r.documentSha256)+'</code></p>'+
+  '<p class="tiny muted">Referências informadas, não verificadas: '+Number(r.unverifiedReports||0)+'</p>'+
+  (r.status==='issued'&&merchant.memberRole==='owner'?
+    '<div class="form-stack"><label>Referência de um pagamento já realizado (opcional)<input id="ads-payment-reference" class="input" type="text" minlength="8" maxlength="120" placeholder="Ex.: identificador da transferência"></label>'+
+    '<button type="button" class="secondary small" onclick="merchantAdsReceivableReport()">Informar referência para conferência</button></div>':'')+
+  '</div>':'<p class="muted tiny">Ainda não há demonstrativo comercial emitido para esta revenda.</p>';
+ return '<section class="section merchant-ads-receivable">'+
+  '<div class="section-head"><div><span class="section-kicker">TAMÃO ADS • FINANCEIRO</span>'+
+  '<h3>Cobrança de publicidade</h3>'+
+  '<p>Consulte somente as condições emitidas pelo TAMÃO. Valores de Ads não são taxas ou créditos de pedidos.</p></div>'+
+  '<button type="button" class="secondary small" onclick="merchantAdsReceivableLoad()">Consultar demonstrativo</button></div>'+
+  (packet?pay:'<p class="muted tiny">Consulte o servidor para confirmar se há uma cobrança comercial.</p>')+
+  (rt.adsReceivableError?'<p class="notice danger">'+esc(rt.adsReceivableError)+'</p>':'')+
+  '<p class="tiny muted">Este demonstrativo não inclui um meio de pagamento automático. Não transfira valores sem confirmar instruções oficiais. Informar uma referência não comprova recebimento e não publica anúncios.</p></section>';
+}
+async function merchantAdsReceivableLoad(){
+ const rt=globalThis.merchantRuntime,id=String(rt?.merchant?.merchantId||'');
+ if(!rt||!id||rt.adsReceivableBusy||!['owner','manager'].includes(String(rt.merchant.memberRole||'')))return null;
+ rt.adsReceivableBusy=true;rt.adsReceivableError=null;render();
+ try{
+  const data=await merchantInvoke('merchant-ops',{action:'ads-receivable',merchantId:id,operation:'view'});
+  if(data?.source!=='merchant_ads_receivable_v1_313'||data.merchantId!==id||
+   data.readOnly!==true||data.paymentVerified!==false||data.adsLive!==false||
+   data.pspChargeCreated!==false||
+   (data.statement!==null&&(!['issued','canceled'].includes(data.statement?.status)||
+     !Number.isSafeInteger(data.statement.version)||data.statement.version<1||
+     !Number.isSafeInteger(data.statement.amountCents)||data.statement.amountCents<1000||
+     data.statement.currency!=='BRL')))
+   throw new Error('Demonstrativo não confirmado no servidor.');
+  if(String(rt.merchant?.merchantId)!==id)return null;
+  rt.adsReceivable=data;return data;
+ }catch(e){
+  if(String(rt.merchant?.merchantId)===id){
+   rt.adsReceivable=null;rt.adsReceivableError=String(e?.message||e);toast(rt.adsReceivableError);
+  }
+  return null;
+ }finally{rt.adsReceivableBusy=false;render();}
+}
+async function merchantAdsReceivableReport(){
+ const rt=globalThis.merchantRuntime,id=String(rt?.merchant?.merchantId||'');
+ if(!rt||!id||rt.merchant.memberRole!=='owner'||rt.adsReceivableBusy)return false;
+ const r=rt.adsReceivable?.merchantId===id&&rt.adsReceivable?.readOnly===true?
+  rt.adsReceivable.statement:null;
+ if(!r||r.status!=='issued'||!Number.isSafeInteger(r.version))return false;
+ const reference=String(document.getElementById('ads-payment-reference')?.value||'').trim();
+ if(!/^[A-Za-z0-9][A-Za-z0-9 _./:-]{7,119}$/.test(reference)){
+  toast('Informe uma referência válida de 8 a 120 caracteres.');return false;
+ }
+ if(!confirm('Registrar essa referência para conferência? Ela NÃO é comprovante bancário nem confirmação de pagamento.'))return false;
+ rt.adsReceivableBusy=true;render();
+ try{
+  const data=await merchantInvoke('merchant-ops',{
+   action:'ads-receivable',merchantId:id,operation:'report',version:r.version,
+   reference,requestId:crypto.randomUUID()
+  });
+  if(data?.source!=='merchant_ads_receivable_v1_313'||data.merchantId!==id||
+    data.reported!==true||data.paymentVerified!==false||
+    data.adsLive!==false||data.pspChargeCreated!==false)
+   throw new Error('A referência não foi confirmada.');
+  rt.adsReceivable=null;rt.adsReceivableBusy=false;
+  const checked=await merchantAdsReceivableLoad();
+  if(!checked?.statement||checked.statement.unverifiedReports<1)
+    throw new Error('Referência enviada, mas leitura posterior pendente.');
+  toast('Referência registrada como não verificada. Aguardando conferência.');
+  return true;
+ }catch(e){
+  rt.adsReceivable=null;rt.adsReceivableError=String(e?.message||e);toast(rt.adsReceivableError);return false;
+ }finally{rt.adsReceivableBusy=false;render();}
 }
