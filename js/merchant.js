@@ -2645,6 +2645,41 @@ function merchantLiveOrder(o){
   const currentRole=String(globalThis.merchantRuntime?.merchant?.memberRole||'');
   const canAssignDelivery=['owner','manager'].includes(currentRole);
   const deliveryTeam=merchantDeliveryCandidates(globalThis.merchantRuntime||{});
+  // V1.284: compact, factual status and deadline for the first glance on mobile.
+  // Only dates already received for this authorized order are shown; no local promises.
+  const compactStatus={
+    OFFERED_TO_MERCHANT:'Aguardando resposta',
+    MERCHANT_ACCEPTED:'Pedido aceito',
+    PREPARING:'Em preparação',
+    AT_RISK:'Precisa de atenção',
+    OUT_FOR_DELIVERY:'Em entrega',
+    ARRIVING:'Chegada informada'
+  }[String(o.status||'')]||'Confira o pedido';
+  const deadlineKind=String(o.status||'')==='OFFERED_TO_MERCHANT'?'offer':
+    ['PREPARING','AT_RISK'].includes(String(o.status||''))?'dispatch':
+    ['OUT_FOR_DELIVERY','ARRIVING'].includes(String(o.status||''))?'delivery':null;
+  const deadlineRaw=deadlineKind==='offer'?o.offerExpiresAt:
+    deadlineKind==='dispatch'?o.dispatchDueAt:
+    deadlineKind==='delivery'?o.promisedBy:null;
+  const validRaw=typeof deadlineRaw==='string'&&
+    /^20\d\d-\d\d-\d\dT\d\d:\d\d/.test(deadlineRaw);
+  const deadlineMs=validRaw?Date.parse(deadlineRaw):NaN;
+  const showDate=Number.isFinite(deadlineMs)&&deadlineMs>=Date.UTC(2020,0,1)&&
+    deadlineMs<=Date.now()+180*86400000;
+  const deadlineLabel=deadlineKind==='offer'?'Limite da oferta':
+    deadlineKind==='dispatch'?'Prazo de saída':'Previsão de entrega';
+  const deadlineText=showDate?new Date(deadlineMs).toLocaleString('pt-BR',{
+    day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'
+  }):'';
+  const deadlinePassed=showDate&&deadlineMs<Date.now();
+  const compactMeta='<div class="merchant-order-compact-meta" aria-label="Situação e referência de prazo do pedido">'+
+    '<strong class="merchant-order-compact-status">'+esc(compactStatus)+'</strong>'+
+    (deadlineText?'<span class="merchant-order-compact-deadline'+
+      (deadlinePassed?' merchant-order-deadline-passed':'')+'">'+esc(deadlineLabel)+
+      ': <strong>'+esc(deadlineText)+'</strong>'+
+      (deadlinePassed?' • horário já passou':'')+'</span>':'')+
+    '</div>';
+
   const nextStepCopy={
     OFFERED_TO_MERCHANT:'Confirme se consegue preparar e entregar este pedido.',
     MERCHANT_ACCEPTED:'Prepare os itens e confirme somente quando sair para entregar.',
@@ -2730,7 +2765,8 @@ function merchantLiveOrder(o){
   }
 
   return `<article tabindex="-1" class="order-card ${o.status==='OFFERED_TO_MERCHANT'?'new':''}" id="merchant-order-card-${esc(o.orderId)}">
-    <div class="order-head"><div><div class="order-id">${esc(o.publicCode||o.orderId)}</div><div class="order-line">${items||'Itens do pedido'}</div></div><div style="text-align:right"><strong>${total}</strong><div class="tiny muted">${esc(copy[0])}</div></div></div>
+    <div class="order-head"><div><div class="order-id">${esc(o.publicCode||o.orderId)}</div><div class="order-line">${items||'Itens do pedido'}</div></div><div class="merchant-order-total"><strong>${total}</strong><div class="tiny muted">${esc(copy[0])}</div></div></div>
+    ${compactMeta}
     ${merchantOrderAttentionCard(o)}
     ${merchantIncidentRiskGuide(o)}
     ${merchantOrderProgressView(o)}
