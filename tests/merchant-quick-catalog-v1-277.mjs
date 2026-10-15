@@ -157,7 +157,7 @@ assert.equal(messages.at(-1),'CONFLICT','no false success on failed update');
 
 // Integrity: one place on the merchant page, all writes through guarded backend, no duplicate stale legacy form.
 const live=js.slice(js.indexOf('function merchantLivePage('),js.indexOf('\nfunction merchantScheduledDispatchState(',js.indexOf('function merchantLivePage(')));
-assert.ok(live.indexOf('merchantQuickCatalogView(rt)')<live.indexOf('merchantDailyOverview(rt,orders)'));
+assert.ok(live.indexOf('merchantDailyOverview(rt,orders)')<live.indexOf('merchantQuickCatalogView(rt)'),'V1.282 keeps daily order focus above the quick editor');
 assert.equal((live.match(/id="live-p13-price"/g)||[]).length,0);
 assert.match(js,/function merchantQuickCatalogSave\(productCode\)/);
 assert.match(backend,/body\.expectedUpdatedAt=String\(current.updatedAt\)/);

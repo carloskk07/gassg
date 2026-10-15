@@ -659,7 +659,6 @@ function merchantDriverLivePage(rt){
   return shell(`<section class="page">
     <div class="status-bar"><div><div class="tiny muted">MINHAS ENTREGAS</div><h1 class="page-title" style="margin-bottom:2px">${esc(m.name||'Revenda')}</h1></div><span class="status-pill online">MOTORISTA</span></div>
     <div class="notice success" style="margin-top:14px"><strong>Visão restrita por atribuição.</strong><br>Você vê somente pedidos que a operação vinculou à sua conta. Catálogo, preços, compliance e pedidos de outros responsáveis não aparecem aqui.</div>
-    ${merchantDailyOverview(rt,orders)}
     ${merchantDeliveryBoardView(rt,orders)}
     <section class="section"><div class="section-head"><div><h2>Pedidos atribuídos a você</h2><p>Saída, chegada e conclusão continuam protegidas pela versão do pedido e pelas autoridades do servidor.</p></div></div>${merchantOrderQueueView(orders,'Nenhuma entrega atribuída a você agora.')}</section>
     ${merchantAlertControl()}
@@ -1531,6 +1530,77 @@ function merchantQuickStockAlerts(rt){
   };
 }
 // These buttons only alter the draft quantity: an explicit Save is still required.
+// V1.282 — one truthful, read-only checklist derived from the authorized catalog.
+function merchantDailyChecklistModel(rt,options={}){
+  if(rt?.status!=='ready'||!['owner','manager'].includes(String(rt?.merchant?.memberRole||'')))return null;
+  const alerts=merchantQuickStockAlerts(rt);
+  const rows=Array.isArray(rt.catalog)?rt.catalog:[];
+  const active=rows.filter(p=>p?.active===true);
+  const incomplete=active.filter(p=>{
+    const price=Number(p?.priceCents),stock=Number(p?.availableStock);
+    return !Number.isSafeInteger(price)||price<=0||price>1000000||
+      !Number.isSafeInteger(stock)||stock<0||stock>100000;
+  }).length;
+  const issues=[];
+  if(merchantQuickHasDrafts(rt))issues.push({
+    type:'draft',title:'Ajustes aguardando confirmação',
+    detail:'Você tem alterações de preço ou estoque ainda não salvas.',
+    action:'stock'
+  });
+  if(!active.length)issues.push({
+    type:'catalog',title:'Configure os produtos da revenda',
+    detail:'Nenhum produto ativo foi encontrado no catálogo consultado.',
+    action:'catalog'
+  });
+  else{
+    if(incomplete)issues.push({
+      type:'incomplete',title:incomplete===1?'1 produto com cadastro incompleto':incomplete+' produtos com cadastro incompleto',
+      detail:'Confira os valores de preço e estoque antes de vender.',action:'catalog'
+    });
+    if(alerts.empty)issues.push({
+      type:'stock',title:alerts.empty===1?'1 produto sem estoque':alerts.empty+' produtos sem estoque',
+      detail:'Confira a reposição antes de voltar a oferecer esses itens.',action:'stock'
+    });
+    if(alerts.low)issues.push({
+      type:'low',title:alerts.low===1?'1 produto com até 3 unidades':alerts.low+' produtos com até 3 unidades',
+      detail:'Acompanhe a reposição para evitar falta de estoque.',action:'stock'
+    });
+    if(alerts.priceReview)issues.push({
+      type:'price',title:alerts.priceReview===1?'1 preço para confirmar':alerts.priceReview+' preços para confirmar',
+      detail:'Revise os preços que não possuem confirmação recente.',action:'stock'
+    });
+  }
+  if(options.deliveryFresh===false)issues.push({
+    type:'delivery',title:'Confira a taxa de entrega',
+    detail:'A confirmação da taxa de entrega precisa ser atualizada.',action:'delivery'
+  });
+  return {issues,activeCount:active.length,alerts};
+}
+function merchantDailyChecklistView(rt,options={}){
+  const model=merchantDailyChecklistModel(rt,options);
+  if(!model)return '';
+  const issues=model.issues;
+  const hasStockWork=issues.some(x=>x.action==='stock');
+  const hasCatalogWork=issues.some(x=>x.action==='catalog');
+  const delivery=issues.some(x=>x.action==='delivery');
+  const list=issues.length?'<ul class="merchant-daily-checklist-items">'+issues.map(item=>
+    '<li><strong>'+esc(item.title)+'</strong><span>'+esc(item.detail)+'</span></li>'
+  ).join('')+'</ul>':
+    '<p class="merchant-daily-checklist-clear">Sem alertas de estoque, preços ou taxa de entrega nos dados consultados. A disponibilidade e a elegibilidade continuam indicadas no painel.</p>';
+  const buttons=(hasStockWork?
+    '<button type="button" class="secondary small" onclick="merchantAvailabilityGo(\'stock\')">Conferir preços e estoque</button>':'')+
+    (hasCatalogWork?
+    '<button type="button" class="secondary small" onclick="merchantQuickGoCatalog()">Configurar produtos</button>':'')+
+    (!hasStockWork&&!hasCatalogWork?
+    '<button type="button" class="ghost small" onclick="merchantQuickGoCatalog()">Ver catálogo completo</button>':'');
+  return '<section class="merchant-daily-checklist" aria-label="Atenção aos produtos e entregas">'+
+    '<div class="merchant-daily-checklist-heading"><div><span class="section-kicker">CONFERÊNCIA DO DIA</span>'+
+    '<h2>O que precisa da sua atenção</h2><p>Alertas baseados nos dados da sua revenda, sem alterar nada automaticamente.</p></div>'+
+    '<strong class="merchant-daily-checklist-count">'+issues.length+' '+(issues.length===1?'ponto':'pontos')+'</strong></div>'+
+    list+'<div class="merchant-daily-checklist-actions">'+buttons+
+    (delivery?'<button type="button" class="secondary small" onclick="merchantAvailabilityGo(\'delivery\')">Conferir entregas</button>':'')+
+    '</div></section>';
+}
 function merchantQuickStockAdjust(productCode,change){
   const rt=globalThis.merchantRuntime||{};
   if(rt.status!=='ready'||rt.actionPending===true||
@@ -1909,12 +1979,14 @@ function merchantLivePage(){
 
     ${rt.error?`<div class="notice danger" style="margin-top:12px">${esc(rt.error)}</div>`:''}
     ${merchantAvailabilityPanel(rt,{canGoOnline,connectionHealthy,financialHold,freshness,p13,orderCount:orders.length})}
+    ${merchantDailyOverview(rt,orders)}
+    ${merchantDailyChecklistView(rt,{deliveryFresh:freshness.deliveryFresh})}
     ${merchantQuickCatalogView(rt)}
     ${connectionNotice}
     ${complianceNotice}
     ${freshnessNotice}
     ${financialHold?'<div class="notice danger" style="margin-top:12px"><strong>Novas vendas suspensas por pendência financeira.</strong><br>Regularize o fechamento vencido. Pedidos já aceitos continuam disponíveis normalmente.</div>':''}
-    ${merchantDailyOverview(rt,orders)}
+
     ${merchantDeliveryBoardView(rt,orders)}
     <section class="section" id="merchant-live-orders"><div class="section-head"><div><h2>Pedidos que exigem ação</h2><p>Aceite, saída e recebimento só são registrados depois de confirmação no sistema.</p></div></div>${merchantDeliveryAttentionView(rt)}${merchantOrderQueueView(orders)}</section>
 
