@@ -301,6 +301,8 @@ jobs:
         run: node tests/merchant-push-chrome-warning-v1-295.mjs
       - name: Test V1.300 experience foundation and governance navigation
         run: node tests/experience-foundation-v1-300.mjs
+      - name: Test V1.301 commercial conversions and sponsor inquiry
+        run: node tests/commercial-conversion-v1-301.mjs
       - name: TAMÃO V1.258 founder-approved orphan deletion with immutable audit
         run: node tests/owner-receipt-orphan-cleanup-v1-258.mjs
       - name: Turnstile smoke Chrome cleanup V1.238.1
