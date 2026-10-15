@@ -1701,6 +1701,15 @@ for(const entry of fs.readdirSync(functionRoot,{withFileTypes:true})){
     assert.ok(source.includes('repository_id')&&source.includes('repository_owner_id')&&source.includes('workflow_ref'),'expansion-worker precisa validar repositório e workflow');
     assert.ok(source.includes('githubMainSha()')&&source.includes('queue_ready_city_notifications'),'expansion-worker precisa vincular execução ao main e fila consentida');
     assert.ok(source.includes('automaticallySent:0')&&!source.includes('admin_operation_mode_action'),'expansion-worker não envia mensagens nem ativa cidades por conta própria');
+  }else if(entry.name==='merchant-push-vapid-setup'){
+    assert.ok(source.includes('merchant_push_bootstrap_authorize')
+      &&source.includes('merchant_push_install_vapid')
+      &&source.includes('crypto.subtle.generateKey')
+      &&source.includes('req.headers.has("Authorization")'),
+      'VAPID bootstrap requires secret Vault bearer, key generation and privileged storage');
+    assert.ok(source.includes('raw.length>100')
+      &&!source.includes('console.log('),
+      'VAPID setup must limit input and avoid logging private keys');
   }else if(entry.name==='merchant-push-delivery'){
     assert.ok(source.includes('req.method!=="POST"')&&source.includes('readJsonBody(req,{maxBytes:4096})'),
       'remetente push precisa limitar método e corpo');
