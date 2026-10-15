@@ -5539,6 +5539,92 @@ function adminGovernanceView(){
     '. Atos administrativos exigem confirmação, motivo e validação no servidor. Ações técnicas não equivalem a autorização financeira.</p>'+
     '</section>';
 }
+// V1.305 — real business readiness, distinct from portal publication.
+// No local checkboxes, optimism, or alternative activation path.
+function adminLaunchWorklistModel(readiness){
+  const r=readiness&&typeof readiness==='object'?readiness:{};
+  const count=(key)=>Number.isSafeInteger(r[key])&&r[key]>=0?r[key]:null;
+  const supply=r.supply&&typeof r.supply==='object'?r.supply:null;
+  const checks=[
+    {key:'real_supply_required',title:'Primeira revenda com oferta real',
+      detail:'Cadastre uma revenda, valide seus produtos e confirme um catálogo vendável.',
+      section:'partners',ready:supply?.realSupplyConfigured===true&&count('configuredMerchantCount')>0},
+    {key:'merchant_owner_required',title:'Responsável operacional',
+      detail:'Vincule um responsável ativo e verifique a representação da empresa.',
+      section:'partners',ready:count('ownerReadyMerchantCount')>0},
+    {key:'merchant_payment_required',title:'Recebimento da revenda',
+      detail:'Defina uma forma de recebimento compatível com a habilitação da empresa.',
+      section:'enablement',ready:count('paymentReadyMerchantCount')>0},
+    {key:'offerable_supply_required',title:'Preço, estoque e entrega confirmados',
+      detail:'A revenda precisa estar apta a atender agora, com disponibilidade atualizada.',
+      section:'enablement',ready:count('offerReadyMerchantCount')>0&&supply?.availableNow===true}
+  ];
+  const completed=checks.filter(c=>c.ready===true).length;
+  const next=checks.find(c=>c.ready!==true)||null;
+  const blockers=Array.isArray(r.securityBlockers)?r.securityBlockers:[];
+  const portalsVerified=r.portalsFresh===true&&r.adminPortalOk===true&&
+    r.customerPortalOk===true&&r.merchantPortalOk===true&&
+    typeof r.portalsSourceSha==='string'&&r.portalsSourceSha.length>=7;
+  const authorized=r.canActivateOperation===true&&r.readyToEnable===true;
+  const canConsiderActivation=completed===checks.length&&portalsVerified&&
+    blockers.length===0&&authorized;
+  return {checks,completed,next,portalsVerified,blockerCount:blockers.length,
+    readyForAdminReview:canConsiderActivation,
+    mode:String(r.operationMode||'UNKNOWN').toUpperCase(),
+    serverVerified:readiness!=null&&typeof readiness==='object'&&
+      typeof r.operationMode==='string'&&typeof r.commerceEnabled==='boolean',
+    refreshedAt:r.portalsVerifiedAt||null};
+}
+function adminLaunchWorklist(d){
+  const role=adminCurrentRole();
+  if(!['superadmin','operations','readonly'].includes(role))return '';
+  const model=adminLaunchWorklistModel(d?.launchReadiness);
+  const next=model.next;
+  const canAccess=(s)=>adminRoleCanSection(s);
+  const steps=model.checks.map((step,i)=>{
+    const done=step.ready===true;
+    const action=canAccess(step.section)?
+      '<button type="button" class="secondary small" onclick="adminSetSection(\''+step.section+'\')">'+
+      (done?'Revisar':'Resolver')+' →</button>':'';
+    return '<li class="'+(done?'is-ready':'is-blocked')+'">'+
+      '<span class="admin-launch-step-mark" aria-hidden="true">'+(done?'✓':String(i+1))+'</span>'+
+      '<div><strong>'+esc(step.title)+'</strong><small>'+esc(step.detail)+'</small></div>'+action+'</li>';
+  }).join('');
+  const mode=model.mode==='UNKNOWN'?'não confirmado':adminOperationModeLabel(model.mode);
+  const title=!model.serverVerified?'Aguardando diagnóstico do servidor':
+    model.readyForAdminReview?'Requisitos comerciais comprovados':
+    model.completed+' de 4 requisitos comprovados';
+  let summary='';
+  if(!model.serverVerified){
+    summary='Sem dados completos de prontidão. Nenhuma liberação pode ser inferida.';
+  }else if(model.readyForAdminReview){
+    summary='As verificações desta consulta permitem solicitar a decisão administrativa. Isso ainda não ativa vendas.';
+  }else{
+    summary='Resolva os itens pendentes antes de considerar a abertura comercial. Publicação dos portais não libera pedidos.';
+  }
+  const nextAction=next&&canAccess(next.section)?
+    '<button type="button" class="primary" onclick="adminSetSection(\''+next.section+'\')">Resolver próxima etapa →</button>':
+    '<button type="button" class="secondary" onclick="adminSetSection(\'system\')">Verificar sistema →</button>';
+  return '<section class="section admin-launch-worklist" aria-label="Roteiro da primeira operação real">'+
+    '<div class="admin-launch-worklist-head"><div><span class="section-kicker">PRIMEIRA OPERAÇÃO COMERCIAL</span>'+
+    '<h2>'+esc(title)+'</h2><p>'+esc(summary)+'</p></div>'+
+    '<span class="status-pill '+(model.readyForAdminReview?'online':'risk')+'">'+
+    esc(mode)+'</span></div>'+
+    '<div class="admin-launch-meter" role="meter" aria-label="Requisitos técnicos comprovados" aria-valuemin="0" aria-valuemax="4" aria-valuenow="'+model.completed+'">'+
+    '<div style="width:'+(model.completed*25)+'%"></div></div>'+
+    '<ol class="admin-launch-worklist-steps">'+steps+'</ol>'+
+    '<div class="admin-launch-worklist-footer">'+
+    (model.readyForAdminReview?
+      '<p class="tiny">Conferência concluída. A autorização de operação continua exclusiva do fluxo administrativo protegido.</p>':
+      '<p class="tiny">Próximo passo: '+esc(next?.title||'revisar as condições de liberação')+'.</p>')+
+    nextAction+'</div>'+
+    '<details class="admin-launch-evidence"><summary>O que falta para liberar com segurança?</summary>'+
+    '<p>Este quadro mostra pré-requisitos comerciais. A operação global exige confirmação administrativa, ausência de bloqueios de segurança e portais verificados. Testes reais de compra e entrega devem ser executados somente quando as empresas e as cidades estiverem habilitadas.</p>'+
+    '<p>Portais: '+(model.portalsVerified?'verificados':'sem confirmação completa')+
+    ' • Bloqueios de segurança: '+model.blockerCount+
+    ' • Ativação automática: não.</p></details>'+
+    '</section>';
+}
 function adminReleaseHub(d){
   const role=adminCurrentRole();
   if(!['superadmin','operations','readonly'].includes(role))return '';
@@ -5655,6 +5741,7 @@ function adminPage(){
       </div>
     </section>
     ${adminReleaseHub(d)}
+    ${adminLaunchWorklist(d)}
     ${adminGovernanceView()}
     ${adminAttentionCenter(d)}
     ${currentRole==='superadmin'?adminLaunchControl(d.launchReadiness||{}):''}
@@ -5748,6 +5835,7 @@ function adminPage(){
 
   const systemContent=`
     ${adminReleaseHub(d)}
+    ${adminLaunchWorklist(d)}
     ${adminGovernanceView()}
     ${adminPushReliabilityView()}
     ${adminSystemHealthView()}
