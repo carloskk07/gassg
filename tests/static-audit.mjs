@@ -1701,6 +1701,25 @@ for(const entry of fs.readdirSync(functionRoot,{withFileTypes:true})){
     assert.ok(source.includes('repository_id')&&source.includes('repository_owner_id')&&source.includes('workflow_ref'),'expansion-worker precisa validar repositório e workflow');
     assert.ok(source.includes('githubMainSha()')&&source.includes('queue_ready_city_notifications'),'expansion-worker precisa vincular execução ao main e fila consentida');
     assert.ok(source.includes('automaticallySent:0')&&!source.includes('admin_operation_mode_action'),'expansion-worker não envia mensagens nem ativa cidades por conta própria');
+  }else if(entry.name==='merchant-push-delivery'){
+    assert.ok(source.includes('req.method!=="POST"')&&source.includes('readJsonBody(req,{maxBytes:4096})'),
+      'remetente push precisa limitar método e corpo');
+    assert.ok(source.includes('tamao-merchant-push-delivery')
+      &&source.includes('crypto.subtle.verify')&&source.includes('RSASSA-PKCS1-v1_5')
+      &&source.includes('repository_id')&&source.includes('repository_owner_id')
+      &&source.includes('workflow_ref')&&source.includes('githubMainSha()'),
+      'remetente push precisa provar OIDC do GitHub e SHA main');
+    assert.ok(source.includes('MERCHANT_PUSH_SENDER_VERIFIED')
+      &&source.includes('if(!senderConfigured())')
+      &&source.includes('merchant_push_claim_due')
+      &&source.includes('merchant_push_resolve_delivery'),
+      'push deve falhar fechado e usar o ledger transacional');
+    assert.ok(source.includes('sendPushNotification')&&source.includes('timeoutMs:8000')
+      &&source.includes('validPushEndpoint(row.endpoint_url)')
+      &&source.includes('provider_accepted')&&source.includes('lease_token'),
+      'push exige criptografia autenticada, endpoint autorizado, tentativa limitada e lease');
+    assert.ok(!source.includes('console.log(row)')&&!source.includes('console.log(error)'),
+      'nenhum endpoint/chave de navegador pode ir para log');
   }else if(entry.name==='portal-readiness-attestor'){
     assert.ok(source.includes('req.method!=="POST"')&&source.includes('readJsonBody(req,{maxBytes:4096})'),entry.name+' precisa aceitar somente POST com corpo mínimo');
     assert.ok(source.includes('https://token.actions.githubusercontent.com/.well-known/jwks')&&source.includes('tamao-portal-attestor')&&source.includes('RSASSA-PKCS1-v1_5')&&source.includes('crypto.subtle.verify'),entry.name+' precisa autenticar GitHub OIDC criptograficamente');

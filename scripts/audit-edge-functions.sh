@@ -141,6 +141,21 @@ for f in $(find supabase/functions -mindepth 2 -maxdepth 2 -name 'index.ts' | so
       ! grep -q 'auth.getUser' "$f" || { echo "$f should authorize GitHub OIDC, not user JWT"; exit 1; }
       grep -q '\[functions.expansion-worker\]' supabase/config.toml || { echo "$f missing config.toml OIDC auth opt-out"; exit 1; }
       ;;
+    supabase/functions/merchant-push-delivery/index.ts)
+      grep -q 'tamao-merchant-push-delivery' "$f" || { echo "$f missing dedicated OIDC audience"; exit 1; }
+      grep -q 'RSASSA-PKCS1-v1_5' "$f" || { echo "$f missing RSA OIDC verification"; exit 1; }
+      grep -q 'crypto.subtle.verify' "$f" || { echo "$f missing signed JWT verification"; exit 1; }
+      grep -q 'repository_id' "$f" || { echo "$f missing stable GitHub repository identity"; exit 1; }
+      grep -q 'repository_owner_id' "$f" || { echo "$f missing GitHub owner identity"; exit 1; }
+      grep -q 'workflow_ref' "$f" || { echo "$f missing exact workflow identity"; exit 1; }
+      grep -q 'githubMainSha()' "$f" || { echo "$f missing main SHA authority"; exit 1; }
+      grep -q 'readJsonBody(req,{maxBytes:4096})' "$f" || { echo "$f missing bounded JSON request"; exit 1; }
+      grep -q 'if(!senderConfigured())' "$f" || { echo "$f missing fail-closed VAPID sender gate"; exit 1; }
+      grep -q 'merchant_push_claim_due' "$f" || { echo "$f missing per-device leased claims"; exit 1; }
+      grep -q 'merchant_push_resolve_delivery' "$f" || { echo "$f missing result ledger authority"; exit 1; }
+      ! grep -q 'auth.getUser' "$f" || { echo "$f should use signed machine OIDC, not user JWT"; exit 1; }
+      grep -q '\[functions.merchant-push-delivery\]' supabase/config.toml || { echo "$f missing config.toml entry"; exit 1; }
+      ;;
     supabase/functions/portal-readiness-attestor/index.ts)
       grep -q 'https://token.actions.githubusercontent.com/.well-known/jwks' "$f" || { echo "$f missing GitHub OIDC JWKS"; exit 1; }
       grep -q 'tamao-portal-attestor' "$f" || { echo "$f missing dedicated OIDC audience"; exit 1; }

@@ -1,0 +1,41 @@
+name: TAMÃO merchant push delivery (gated)
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: tamao-merchant-push-delivery
+  cancel-in-progress: false
+
+jobs:
+  push-dispatch:
+    runs-on: ubuntu-latest
+    timeout-minutes: 4
+    steps:
+      - name: Invoke isolated OIDC-signed push worker
+        env:
+          EXPECTED_SHA: ${{ github.sha }}
+          WORKER_URL: https://lgugwujpunhslavewffd.supabase.co/functions/v1/merchant-push-delivery
+        run: |
+          set -euo pipefail
+          OIDC_RESPONSE="$(curl --fail --silent --show-error \
+            --connect-timeout 10 --max-time 25 \
+            -H "Authorization: bearer ${ACTIONS_ID_TOKEN_REQUEST_TOKEN}" \
+            "${ACTIONS_ID_TOKEN_REQUEST_URL}&audience=tamao-merchant-push-delivery")"
+          OIDC_TOKEN="$(printf '%s' "${OIDC_RESPONSE}" | jq -er '.value')"
+          PAYLOAD="$(jq -cn --arg sha "${EXPECTED_SHA}" '{expectedSourceSha:$sha}')"
+          RESULT="$(curl --fail --silent --show-error \
+            --connect-timeout 12 --max-time 115 --request POST \
+            -H "Authorization: Bearer ${OIDC_TOKEN}" \
+            -H "Content-Type: application/json" \
+            --data "${PAYLOAD}" "${WORKER_URL}")"
+          printf '%s\n' "${RESULT}" | jq -e '
+            .ok == true
+            and .sourceSha == env.EXPECTED_SHA
+            and (.enabled == false or (.enabled == true and .unresolved == 0))
+            and (.attempted | type == "number")
+          '
