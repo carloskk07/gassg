@@ -14,7 +14,7 @@ for(const t of [
  'revoke all on public.platform_ads_dossier_actions_v1_311',
  "a.admin_role='superadmin'","a.admin_role in ('superadmin','operations','readonly')",
  "mm.member_role in ('owner','manager')","v_role<>'owner'","p_confirmed is distinct from true",
- "v_offer.status","status='interested'","status='approved_creative'",
+ "status='interested'","status='approved_creative'",
  "'shared_for_review'","'reviewed'","'changes_requested'",
  "'paymentRequestCreated',false","'contractSigned',false","'adsLive',false",
  "v_pack.version<>p_expected_version","ADS_DOSSIER_REQUEST_REUSE",
