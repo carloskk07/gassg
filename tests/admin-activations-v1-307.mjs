@@ -28,7 +28,9 @@ const providers={
   'ads-sales-plans':{source:'admin_ads_sales_plans_v1_309',readOnly:true,noCharge:true,adsLive:false,
     revenueCents:0,contractsSigned:0,totalPlans:0,approvedCreatives:0,rows:[]},
   'ads-offers-read':{source:'admin_ads_offers_v1_310',readOnly:true,noCharge:true,adsLive:false,
-    contractsSigned:0,revenueCents:0,notifiedExternally:false,totalOffers:0,interestedResponses:0,rows:[]}
+    contractsSigned:0,revenueCents:0,notifiedExternally:false,totalOffers:0,interestedResponses:0,rows:[]},
+  'ads-dossiers-read':{source:'admin_ads_dossiers_v1_311',readOnly:true,noCharge:true,adsLive:false,
+    contractsSigned:0,revenueCents:0,paymentRequestsCreated:0,totalDossiers:0,rows:[]}
 };
 const runtime={
  session:{user:{id:user}},governance:{loadedFor:user,role},
@@ -50,7 +52,7 @@ const env=vm.createContext({
 });
 vm.runInContext(src+'\nthis.load=adminActivationLoad;this.view=adminActivationDeskView;this.go=adminActivationGo;',env);
 assert.equal(await env.load({force:true})!=null,true);
-assert.equal(calls.filter(x=>typeof x==='string').length,7);
+assert.equal(calls.filter(x=>typeof x==='string').length,8);
 let view=env.view({commercialPolicy:{policy_version:4}});
 assert.match(view,/Central de consulta e acesso aos controles reais/);
 assert.match(view,/Exibição bloqueada/);
