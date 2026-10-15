@@ -2154,6 +2154,7 @@ function merchantLivePage(){
       ${merchantAdsCampaignSection(m)}
       ${merchantAdsOfferSection(m)}
       ${merchantAdsDossierSection(m)}
+      ${merchantAdsInstrumentSection(m)}
       ${merchantGrowthNetworkSection(m)}
     </div></details>
     <details id="merchant-workspace-finance" class="merchant-workspace-section"><summary tabindex="0"><span><strong>Resultados e financeiro</strong><small>Desempenho e cobranças da plataforma, separados dos pedidos do dia.</small></span></summary><div class="merchant-workspace-content">
@@ -4049,4 +4050,100 @@ async function merchantAdsDossierRespond(operation){
  }catch(e){
   rt.adsDossier=null;rt.adsDossierError=String(e?.message||e);toast(rt.adsDossierError);return false;
  }finally{rt.adsDossierBusy=false;render();}
+}
+
+
+// TAMÃO V1.312 — authenticated, explicit acceptance of the frozen document hash.
+// Not a qualified ICP-Brasil signature and not automatic Ads activation.
+function merchantAdsInstrumentSection(merchant){
+ if(!['owner','manager'].includes(String(merchant?.memberRole||'')))return '';
+ const rt=globalThis.merchantRuntime||{},id=String(merchant?.merchantId||'');
+ const packet=rt.adsInstrument?.merchantId===id&&rt.adsInstrument?.source==='merchant_ads_instrument_v1_312'&&
+   rt.adsInstrument.noCharge===true&&rt.adsInstrument.adsLive===false&&
+   rt.adsInstrument.paymentRequestCreated===false&&rt.adsInstrument.notIcpCertified===true&&
+   rt.adsInstrument.readOnly===true?rt.adsInstrument:null;
+ const i=packet?.instrument||null,d=i?.document||{};
+ const stages={offered:'Disponível para aceite',merchant_accepted:'Aceite do titular registrado',
+   bilateral_accepted:'Aceite bilateral registrado'};
+ const fields=i?'<article class="card flat"><div class="status-bar"><strong>'+esc(stages[i.status]||'Em revisão')+
+   '</strong><span class="status-pill">Documento v'+Number(i.version)+'</span></div>'+
+   '<p><strong>Contratante:</strong> '+esc(d.merchantLegalName||'—')+' • CNPJ '+esc(d.merchantCnpj||'—')+'</p>'+
+   '<p><strong>Prestadora:</strong> '+esc(d.platformLegalName||'—')+' • CNPJ '+esc(d.platformCnpj||'—')+'</p>'+
+   '<p><strong>Valor:</strong> '+(Number(d.priceCents)/100).toLocaleString('pt-BR',{style:'currency',currency:'BRL'})+
+   ' • duração '+Number(d.durationDays)+' dias • vencimento proposto '+Number(d.dueDays)+' dias.</p>'+
+   '<strong>Escopo</strong><p>'+esc(d.serviceScope||'')+'</p>'+
+   '<strong>Cancelamento</strong><p>'+esc(d.cancellationTerms||'')+'</p>'+
+   '<strong>Início e condições</strong><p>'+esc(d.executionCondition||'')+'</p>'+
+   '<p class="tiny muted">Identificador SHA-256 do documento: <code>'+esc(i.sha256||'')+'</code></p>'+
+   (merchant.memberRole==='owner'&&i.status==='offered'?
+    '<label class="check-row"><input type="checkbox" id="ads-sign-consent">'+
+    '<span>Li o documento completo, confirmo as condições e autorizo registrar meu aceite eletrônico autenticado. Entendo que não é certificado ICP-Brasil nem cobrança imediata.</span></label>'+
+    '<label class="input-wrap">Digite ACEITO para confirmar<input type="text" id="ads-sign-phrase" maxlength="6" autocomplete="off" placeholder="ACEITO"></label>'+
+    '<button type="button" class="primary small" onclick="merchantAdsInstrumentAccept()">Registrar meu aceite eletrônico</button>':'')+
+   '</article>':'<p class="muted tiny">Ainda não existe instrumento disponível para consulta nesta revenda.</p>';
+ return '<section class="section merchant-ads-instrument">'+
+   '<div class="section-head"><div><span class="section-kicker">TAMÃO ADS • ACEITE AUTENTICADO</span>'+
+   '<h3>Instrumento eletrônico de publicidade</h3>'+
+   '<p>Confira as duas empresas, o preço, as condições e o identificador antes de registrar seu aceite.</p></div>'+
+   '<button type="button" class="secondary small" onclick="merchantAdsInstrumentLoad()">Consultar documento</button></div>'+
+   (packet?fields:'<p class="muted tiny">Clique em Consultar documento para verificar o registro no servidor.</p>')+
+   (rt.adsInstrumentError?'<p class="notice danger">'+esc(rt.adsInstrumentError)+'</p>':'')+
+   '<p class="tiny muted">Este método registra usuário autenticado, data e integridade documental. Não utiliza certificado ICP-Brasil e não habilita cobrança ou publicação automaticamente.</p></section>';
+}
+async function merchantAdsInstrumentLoad(){
+ const rt=globalThis.merchantRuntime,id=String(rt?.merchant?.merchantId||'');
+ if(!rt||!id||rt.adsInstrumentBusy||!['owner','manager'].includes(String(rt.merchant.memberRole||'')))return null;
+ rt.adsInstrumentBusy=true;rt.adsInstrumentError=null;render();
+ try{
+  const out=await merchantInvoke('merchant-ops',{action:'ads-instrument',merchantId:id,operation:'view'});
+  if(out?.source!=='merchant_ads_instrument_v1_312'||out.merchantId!==id||
+    out.readOnly!==true||out.noCharge!==true||out.adsLive!==false||
+    out.paymentRequestCreated!==false||out.notIcpCertified!==true||
+    (out.instrument!==null&&(!/^[a-f0-9]{64}$/.test(String(out.instrument?.sha256||''))||
+      out.instrument?.document?.schema!=='ads-electronic-instrument-v1.312'||
+      !['offered','merchant_accepted','bilateral_accepted'].includes(out.instrument?.status))))
+    throw new Error('Documento não confirmado pelo servidor.');
+  if(String(rt.merchant?.merchantId)!==id)return null;
+  rt.adsInstrument=out;return out;
+ }catch(e){
+  if(String(rt.merchant?.merchantId)===id){
+    rt.adsInstrument=null;rt.adsInstrumentError=String(e?.message||e);toast(rt.adsInstrumentError);
+  }
+  return null;
+ }finally{rt.adsInstrumentBusy=false;render();}
+}
+async function merchantAdsInstrumentAccept(){
+ const rt=globalThis.merchantRuntime,id=String(rt?.merchant?.merchantId||'');
+ if(!rt||!id||rt.merchant.memberRole!=='owner'||rt.adsInstrumentBusy)return false;
+ const i=rt.adsInstrument?.merchantId===id&&rt.adsInstrument?.readOnly===true?
+   rt.adsInstrument.instrument:null;
+ if(!i||i.status!=='offered'||!Number.isSafeInteger(i.version)||
+   !/^[a-f0-9]{64}$/.test(String(i.sha256||'')))return false;
+ const check=document.getElementById('ads-sign-consent')?.checked===true;
+ const phrase=String(document.getElementById('ads-sign-phrase')?.value||'').trim();
+ if(!check||phrase!=='ACEITO'){
+   toast('Marque a declaração de aceite e digite ACEITO.');return false;
+ }
+ if(!confirm('Confirma seu aceite eletrônico das condições e do documento identificado pelo SHA-256 exibido? Esta ação não cria cobrança nem publica anúncio.'))return false;
+ rt.adsInstrumentBusy=true;render();
+ try{
+  const out=await merchantInvoke('merchant-ops',{
+   action:'ads-instrument',merchantId:id,operation:'accept',expectedVersion:i.version,
+   sha256:i.sha256,consent:true,requestId:crypto.randomUUID()
+  });
+  if(out?.source!=='merchant_ads_instrument_v1_312'||out.merchantId!==id||
+     out.status!=='merchant_accepted'||out.sha256!==i.sha256||
+     out.version!==i.version+1||out.recorded!==true||out.noCharge!==true||
+     out.adsLive!==false||out.paymentRequestCreated!==false||out.notIcpCertified!==true)
+   throw new Error('O aceite não foi confirmado.');
+  rt.adsInstrument=null;rt.adsInstrumentBusy=false;
+  const checkAgain=await merchantAdsInstrumentLoad();
+  if(checkAgain?.instrument?.status!=='merchant_accepted'||
+     checkAgain.instrument.sha256!==i.sha256||checkAgain.instrument.version!==out.version)
+   throw new Error('Aceite registrado, mas a leitura posterior está pendente.');
+  toast('Aceite eletrônico registrado no documento, sem cobrança.');
+  return true;
+ }catch(e){
+  rt.adsInstrument=null;rt.adsInstrumentError=String(e?.message||e);toast(rt.adsInstrumentError);return false;
+ }finally{rt.adsInstrumentBusy=false;render();}
 }

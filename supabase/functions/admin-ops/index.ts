@@ -100,7 +100,7 @@ async function requireAdmin(admin:any,userId:string){
   if(!data)throw new DomainError("ADMIN_ACCESS_DENIED","Esta conta não possui acesso administrativo.",403);
   return data;
 }
-const ADMIN_READ_ACTIONS=new Set(["governance-gates","commercial-intake-read","ads-sales-plans","ads-offers-read","ads-dossiers-read","summary","search","entity-detail","system-health","billing-provider-health","audit-search","incident-list","merchant-payment-preflight","prospect-intelligence","expansion-notifications","expansion-radar","merchant-enablement","sale-payment-history","finance-receipts-history","commercial-history-list","operational-alerts","ads-demand","clube-interest-queue","clube-campaign-queue","clube-terms-queue","owner-funding-read","owner-funding-pulse","owner-evidence-queue","owner-budget-queue","owner-finance-history","owner-campaign-signals","owner-campaign-orders","owner-campaign-fee-receipts","owner-campaign-batch-ledger","owner-campaign-financial-summary","owner-campaign-benefit-costs","owner-wallet-reconciliation","owner-cashback-source-lots","owner-referral-lifecycle","owner-benefit-payout-read","owner-benefit-proofs-read","owner-benefit-proof-view","owner-benefit-proof-verify","owner-payout-provider-read","owner-recipient-proof-readiness","owner-multi-psp-hub","owner-campaign-orphan-audit","owner-orphan-cleanup-candidates","owner-campaign-cost-read","owner-campaign-receipts-read","owner-campaign-receipt-view","ads-audience-readiness","ads-preview-summary","ads-placement-readiness","ads-pilot-preflight","commercial-activation","ads-campaign-queue","growth-referral-review-queue"]);
+const ADMIN_READ_ACTIONS=new Set(["governance-gates","commercial-intake-read","ads-sales-plans","ads-offers-read","ads-dossiers-read","ads-instruments-read","summary","search","entity-detail","system-health","billing-provider-health","audit-search","incident-list","merchant-payment-preflight","prospect-intelligence","expansion-notifications","expansion-radar","merchant-enablement","sale-payment-history","finance-receipts-history","commercial-history-list","operational-alerts","ads-demand","clube-interest-queue","clube-campaign-queue","clube-terms-queue","owner-funding-read","owner-funding-pulse","owner-evidence-queue","owner-budget-queue","owner-finance-history","owner-campaign-signals","owner-campaign-orders","owner-campaign-fee-receipts","owner-campaign-batch-ledger","owner-campaign-financial-summary","owner-campaign-benefit-costs","owner-wallet-reconciliation","owner-cashback-source-lots","owner-referral-lifecycle","owner-benefit-payout-read","owner-benefit-proofs-read","owner-benefit-proof-view","owner-benefit-proof-verify","owner-payout-provider-read","owner-recipient-proof-readiness","owner-multi-psp-hub","owner-campaign-orphan-audit","owner-orphan-cleanup-candidates","owner-campaign-cost-read","owner-campaign-receipts-read","owner-campaign-receipt-view","ads-audience-readiness","ads-preview-summary","ads-placement-readiness","ads-pilot-preflight","commercial-activation","ads-campaign-queue","growth-referral-review-queue"]);
 const ADMIN_ROLE_ACTIONS:Record<string,Set<string>>={
   superadmin:new Set(["*"]),
   operations:new Set([
@@ -4528,6 +4528,27 @@ Deno.serve(async(req:Request)=>{
     if(action==="entity-detail"){
       return json(await adminEntityDetail(admin,body.entityType,body.entityId,String(adminAccess.admin_role||"superadmin")),200,origin);
     }
+    if(action==="ads-instruments-read"){
+      if(!["superadmin","operations","readonly"].includes(String(adminAccess.admin_role||"")))
+        throw new DomainError("ADMIN_PERMISSION_DENIED","Consulta de instrumentos não autorizada.",403);
+      const {data,error}=await admin.rpc("admin_ads_instruments_read_v1_312",{p_actor:user.id});
+      if(error)throw error;
+      if(data?.source!=="admin_ads_instruments_v1_312"||data.readOnly!==true||
+        data.noCharge!==true||data.adsLive!==false||data.paymentRequestsCreated!==0||
+        data.deliveryVerified!==false||data.notIcpCertified!==true||
+        !Number.isSafeInteger(data.totalInstruments)||data.totalInstruments<0||
+        !Array.isArray(data.rows)||data.rows.length>50||
+        data.rows.some((r:any)=>!r||!UUID_RE.test(String(r.merchantId||""))||
+          !Number.isSafeInteger(r.version)||r.version<1||
+          typeof r.sha256!=="string"||!/^[a-f0-9]{64}$/.test(r.sha256)||
+          !["offered","merchant_accepted","bilateral_accepted"].includes(r.status)||
+          r.document?.schema!=="ads-electronic-instrument-v1.312"||
+          typeof r.document?.platformLegalName!=="string"||
+          typeof r.document?.merchantLegalName!=="string"||
+          !Number.isSafeInteger(r.document?.priceCents)))
+        throw new DomainError("ADS_INSTRUMENT_EVIDENCE_INVALID","Instrumentos não confirmados pelo servidor.",503);
+      return json(data,200,origin);
+    }
     if(action==="ads-dossiers-read"){
       if(!["superadmin","operations","readonly"].includes(String(adminAccess.admin_role||"")))
         throw new DomainError("ADMIN_PERMISSION_DENIED","Acesso ao dossiê comercial não autorizado.",403);
@@ -4770,6 +4791,37 @@ Deno.serve(async(req:Request)=>{
         p_note:cleanText(body.note,{min:5,max:240,name:"justificativa"})
       });
       if(error)throw error;
+      return json(data,200,origin);
+    }
+    if(action==="ads-instrument-action"){
+      if(String(adminAccess.admin_role||"")!=="superadmin")
+        throw new DomainError("ADMIN_PERMISSION_DENIED","Somente o administrador principal emite e confirma instrumentos.",403);
+      const merchantId=uuid(body.merchantId,"merchantId"),operation=String(body.operation||"");
+      if(!["issue","founder_accept"].includes(operation)||
+        !Number.isSafeInteger(body.expectedVersion)||body.expectedVersion<0)
+        throw new DomainError("ADS_INSTRUMENT_ACTION_INVALID","Versão ou ação inválida.",400);
+      const platformLegalName=operation==="issue"
+        ?cleanText(body.platformLegalName,{min:5,max:160,name:"razão social do TAMÃO"}):null;
+      const platformCnpj=operation==="issue"?String(body.platformCnpj||""):null;
+      const sha256=operation==="founder_accept"?String(body.sha256||""):null;
+      if(operation==="issue"&&!/^[0-9]{14}$/.test(platformCnpj||"")||
+        operation==="founder_accept"&&!/^[a-f0-9]{64}$/.test(sha256||""))
+        throw new DomainError("ADS_INSTRUMENT_IDENTITY_OR_HASH_INVALID","Identidade jurídica ou hash inválido.",400);
+      const {data,error}=await admin.rpc("admin_ads_instrument_action_v1_312",{
+        p_actor:user.id,p_merchant:merchantId,p_operation:operation,
+        p_expected_version:body.expectedVersion,p_platform_legal_name:platformLegalName,
+        p_platform_cnpj:platformCnpj,p_document_sha256:sha256,
+        p_request:uuid(body.requestId,"requestId")
+      });
+      if(error)throw error;
+      if(data?.source!=="admin_ads_instrument_action_v1_312"||
+        data.merchantId!==merchantId||
+        data.status!==(operation==="issue"?"offered":"bilateral_accepted")||
+        !Number.isSafeInteger(data.version)||data.version<1||
+        !/^[a-f0-9]{64}$/.test(String(data.sha256||""))||
+        data.recorded!==true||data.noCharge!==true||data.adsLive!==false||
+        data.paymentRequestCreated!==false||data.notIcpCertified!==true)
+        throw new DomainError("ADS_INSTRUMENT_RECORD_UNVERIFIED","Instrumento não confirmado.",503);
       return json(data,200,origin);
     }
     if(action==="ads-dossier-action"){

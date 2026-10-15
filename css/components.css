@@ -3669,3 +3669,13 @@ body:has(.admin-page) .admin-nav-item:focus-visible{outline-offset:-3px}
 .merchant-ads-dossier .check-row{display:flex;align-items:flex-start;gap:10px;padding:8px 0}
 .merchant-ads-dossier .check-row input{flex:none;min-width:20px;min-height:20px}
 @media(max-width:520px){.merchant-ads-dossier .order-actions{display:flex;flex-direction:column;align-items:stretch}}
+
+/* V1.312 — clearly legible electronic acceptance on mobile. */
+.admin-ads-instrument-fields{display:grid;gap:12px;margin-top:12px}
+.admin-ads-instrument-fields label{display:grid;gap:5px;font-weight:600}
+.admin-ads-instrument-fields input{width:100%;min-height:44px;font:inherit;box-sizing:border-box}
+.admin-ads-instruments code,.merchant-ads-instrument code{overflow-wrap:anywhere;word-break:break-all}
+.merchant-ads-instrument .card{margin-top:12px}
+.merchant-ads-instrument .check-row{display:flex;gap:10px;align-items:flex-start;padding:12px 0}
+.merchant-ads-instrument .check-row input{flex:none;min-width:22px;min-height:22px}
+.merchant-ads-instrument #ads-sign-phrase{min-height:44px;max-width:180px;font:inherit}
