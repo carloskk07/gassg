@@ -117,7 +117,7 @@ Deno.serve(async(req:Request)=>{
     const merchantId=String(body.merchantId??"");
     const action=String(body.action??"");
     if(!UUID_RE.test(merchantId))throw new DomainError("INVALID_MERCHANT","Revenda inválida.",400);
-    if(!["ads-instrument","ads-dossier","ads-offer","ads-campaign","ads-interest","clube-interest","clube-terms","business-pulse","growth-network","enablement","heartbeat","set-online","update-product","catalog-history","update-logistics","update-capacity","update-scheduling","update-payment-methods","update-payment-routes","update-member-profile","request-billing-package","notify-billing-payment","notify-refund-recovery-payment","cancel-billing-request"].includes(action)){
+    if(!["ads-receivable","ads-instrument","ads-dossier","ads-offer","ads-campaign","ads-interest","clube-interest","clube-terms","business-pulse","growth-network","enablement","heartbeat","set-online","update-product","catalog-history","update-logistics","update-capacity","update-scheduling","update-payment-methods","update-payment-routes","update-member-profile","request-billing-package","notify-billing-payment","notify-refund-recovery-payment","cancel-billing-request"].includes(action)){
       throw new DomainError("INVALID_ACTION","Ação inválida.",400);
     }
 
@@ -134,6 +134,38 @@ Deno.serve(async(req:Request)=>{
     if(!membership)throw new DomainError("MERCHANT_ACCESS_DENIED","Você não possui acesso a esta revenda.",403);
 
     const role=membership.member_role;
+    if(action==="ads-receivable"){
+      if(!["owner","manager"].includes(String(role)))
+        throw new DomainError("MERCHANT_ACCESS_DENIED","Cobrança comercial restrita à gestão.",403);
+      const operation=String(body.operation||"view");
+      if(!["view","report"].includes(operation))
+        throw new DomainError("ADS_RECEIVABLE_ACTION_INVALID","Ação de cobrança inválida.",400);
+      if(operation==="report"&&(role!=="owner"||
+        !Number.isSafeInteger(body.version)||body.version<1||
+        !UUID_RE.test(String(body.requestId||""))||
+        typeof body.reference!=="string"||body.reference.trim().length<8||
+        body.reference.trim().length>120||
+        !/^[A-Za-z0-9][A-Za-z0-9 _./:-]{7,119}$/.test(body.reference.trim())))
+        throw new DomainError("ADS_RECEIVABLE_OWNER_REQUIRED","Somente o titular pode informar referência para conferência.",403);
+      const {data,error}=await admin.rpc("merchant_ads_receivable_v1_313",{
+        p_actor:user.id,p_merchant:merchantId,p_operation:operation,
+        p_version:operation==="view"?null:body.version,
+        p_reference:operation==="view"?null:body.reference.trim(),
+        p_request:operation==="view"?null:body.requestId
+      });
+      if(error)throw error;
+      if(data?.source!=="merchant_ads_receivable_v1_313"||
+        data.merchantId!==merchantId||data.paymentVerified!==false||
+        data.adsLive!==false||data.pspChargeCreated!==false||
+        (operation==="view"?(data.readOnly!==true||
+          (data.statement!==null&&(!["issued","canceled"].includes(data.statement?.status)||
+           !Number.isSafeInteger(data.statement?.version)||data.statement.version<1||
+           !Number.isSafeInteger(data.statement?.amountCents)||data.statement.amountCents<1000||
+           data.statement?.currency!=="BRL"))):
+          data.reported!==true))
+        throw new DomainError("ADS_RECEIVABLE_RESPONSE_UNVERIFIED","Informações comerciais não confirmadas.",503);
+      return json(data,200,origin);
+    }
     if(action==="ads-instrument"){
       if(!["owner","manager"].includes(String(role)))
         throw new DomainError("MERCHANT_ACCESS_DENIED","Instrumento restrito à gestão da revenda.",403);
