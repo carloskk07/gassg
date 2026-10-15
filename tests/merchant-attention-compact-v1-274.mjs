@@ -57,7 +57,7 @@ const preparations=[
 ];
 const preparationHtml=ctx.merchantOrderQueueView(preparations);
 assert.match(preparationHtml,/merchant-order-queue-overflow/);
-assert.match(preparationHtml,/Ver mais 3 pedido\(s\) nesta etapa/);
+assert.match(preparationHtml,/Ver mais 5 pedido\(s\) nesta etapa/);
 const extra=preparationHtml.indexOf('<details class="merchant-order-queue-overflow">');
 assert.ok(extra>=0);
 assert.ok(preparationHtml.indexOf('TAM-17')<extra);
