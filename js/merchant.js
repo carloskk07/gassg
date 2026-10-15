@@ -1442,9 +1442,12 @@ function merchantAvailabilityPanel(rt,options){
   const on=m.online===true;
   const pending=rt.actionPending===true;
   const blocked=!on&&options.canGoOnline!==true;
-  const status=on?(options.connectionHealthy?'Recebendo novas ofertas':'Conexão sem confirmação recente'):'Novas ofertas pausadas';
+  const status=on?(options.financialHold?'Novas vendas suspensas por pendência financeira':
+    options.connectionHealthy?'Revenda online':'Conexão sem confirmação recente'):'Novas ofertas pausadas';
   const help=on?
-    (options.connectionHealthy?'Sua revenda está marcada como online. Novas ofertas ainda dependem das regras do sistema.':'Confira a conexão antes de confiar no recebimento de novas ofertas.'):
+    (options.financialHold?'A operação está marcada como online, mas novas vendas estão suspensas até regularizar a pendência.':
+    options.connectionHealthy?'Sua revenda está marcada como online. As novas ofertas dependem das verificações do sistema.':
+    'Confira a conexão antes de confiar no recebimento de novas ofertas.'):
     'Enquanto estiver pausada, a revenda não recebe novas ofertas. Os pedidos já aceitos continuam disponíveis.';
   const stock=Array.isArray(rt.catalog)?rt.catalog:[];
   const offerable=stock.filter(item=>item?.active===true&&Number(item.availableStock)>0);
@@ -1458,7 +1461,9 @@ function merchantAvailabilityPanel(rt,options){
   const deliveryCopy=m.acceptsCitywide===false?'Atendimento na cidade desativado':
     options.freshness?.deliveryFresh===false?'Taxa de entrega precisa de confirmação':'Taxa de entrega registrada';
   const hint=blocked?
-    '<small class="merchant-availability-blocked">Antes de ficar online, confira produtos, entrega, pagamentos e a habilitação da revenda.</small>':'';
+    '<small class="merchant-availability-blocked">'+(options.financialHold
+      ?'Regularize o fechamento financeiro vencido antes de ficar online.'
+      :'Antes de ficar online, confira produtos, entrega, pagamentos e a habilitação da revenda.')+'</small>':'';
   const button='<button id="merchant-online-toggle" type="button" class="'+(on?'danger-btn':'primary')+
     ' merchant-availability-toggle" onclick="merchantLiveToggleOnline('+(on?'false':'true')+')"'+
     (blocked||pending?' disabled':'')+'>'+(pending?'Atualizando…':on?'Pausar novos pedidos':'Ficar online')+'</button>';
