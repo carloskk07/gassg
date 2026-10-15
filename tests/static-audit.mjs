@@ -1717,8 +1717,8 @@ for(const entry of fs.readdirSync(functionRoot,{withFileTypes:true})){
     assert.ok(source.includes('merchant_push_test_credentials')
       &&source.includes('sendPushNotification')&&source.includes('providerAccepted'),
       'test push must sign with Vault key and report provider-only outcome');
-    assert.ok(source.includes('user.id')&&source.includes('endpoint_hash')===false
-      &&source.includes('await sha256(body.endpoint)'),
+    assert.ok(source.includes('p_user_id:user.id')
+      &&source.includes('p_endpoint_hash:await sha256(body.endpoint)'),
       'test push must limit the target to a signed-in user device');
     assert.ok(!source.includes('merchant_push_claim_due')
       &&!source.includes('merchantPerformAction'),
