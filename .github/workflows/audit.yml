@@ -295,6 +295,8 @@ jobs:
         run: node tests/merchant-push-observation-v1-292.mjs
       - name: Test operational push diagnostics and seven-day history V1.293
         run: node tests/merchant-push-operational-diagnosis-v1-293.mjs
+      - name: Test admin read-only push reliability radar V1.294
+        run: node tests/admin-push-reliability-v1-294.mjs
       - name: TAMÃO V1.258 founder-approved orphan deletion with immutable audit
         run: node tests/owner-receipt-orphan-cleanup-v1-258.mjs
       - name: Turnstile smoke Chrome cleanup V1.238.1
