@@ -650,7 +650,11 @@ function merchantAlertControl(){
     <div class="notice"><strong>Escopo atual.</strong><br>Com alertas ativados, o TAMÃO tenta verificar pedidos mesmo em outra aba. O navegador pode suspender essas consultas em segundo plano; ao voltar para o painel, a atualização é retomada. Com o navegador fechado, não há garantia de alertas. Para não perder ofertas urgentes, mantenha o painel aberto e confira a conexão.</div>
     <button class="${status.enabled?'danger-btn':'primary'}" onclick="${status.enabled?'merchantDisableAlertsFromUi()':'merchantEnableAlertsFromUi()'}">${status.enabled?'Desativar alertas':'Ativar som, vibração e notificações'}</button>
     ${status.enabled&&globalThis.merchantPushStatus?.().available===true
-      ?'<div class="merchant-push-toggle"><strong>Push para este aparelho</strong><small>O push depende do navegador e das condições de entrega. Um aviso não substitui a confirmação do pedido no painel.</small><button type="button" class="secondary" onclick="'+(globalThis.merchantPushStatus?.().subscribed?'merchantPushDisableFromUi()':'merchantPushEnableFromUi()')+'">'+(globalThis.merchantPushStatus?.().subscribed?'Desativar push deste aparelho':'Ativar push deste aparelho')+'</button></div>'
+      ?'<div class="merchant-push-toggle"><strong>Notificações push neste aparelho</strong><small>'+(
+        globalThis.merchantPushStatus?.().testMode
+        ?'Preparação para testes: você pode cadastrar este aparelho, mas o envio remoto ainda está desativado. O cadastro não significa que receberá avisos.'
+        :'O push depende do navegador, da conexão e da entrega pelo provedor. Um aviso não substitui a confirmação do pedido no painel.'
+      )+'</small><button type="button" class="secondary" onclick="'+(globalThis.merchantPushStatus?.().subscribed?'merchantPushDisableFromUi()':'merchantPushEnableFromUi()')+'">'+(globalThis.merchantPushStatus?.().subscribed?'Desativar push deste aparelho':globalThis.merchantPushStatus?.().testMode?'Cadastrar aparelho para teste':'Ativar push deste aparelho')+'</button></div>'
       :''}
   </div>`;
 }
@@ -2793,7 +2797,12 @@ async function merchantEnableAlertsFromUi(){
   }catch(e){toast(String(e?.message||e))}
 }
 async function merchantPushEnableFromUi(){
-  try{await globalThis.merchantPushEnableLive();toast('Inscrição push registrada para este aparelho.');}
+  try{
+    await globalThis.merchantPushEnableLive();
+    toast(globalThis.merchantPushStatus?.().testMode
+      ?'Aparelho cadastrado para teste. O envio remoto ainda não está ativo.'
+      :'Push cadastrado neste aparelho.');
+  }
   catch(e){toast(String(e?.message||e))}
 }
 async function merchantPushDisableFromUi(){

@@ -84,3 +84,8 @@ verify_jwt = false
 # exact main source SHA and workflow identity inside the Edge handler.
 [functions.merchant-push-delivery]
 verify_jwt = false
+
+# V1.289 one-time machine bootstrap, using Vault Cron token and privileged RPC
+# to generate P-256 VAPID. No JWT browser authorization; Edge verifies bearer.
+[functions.merchant-push-vapid-setup]
+verify_jwt = false

@@ -8,8 +8,8 @@ const publicKeys = JSON.parse(Deno.env.get("SUPABASE_PUBLISHABLE_KEYS") ?? "{}")
 const secretKeys = JSON.parse(Deno.env.get("SUPABASE_SECRET_KEYS") ?? "{}");
 const PUBLIC_KEY = publicKeys.default ?? Deno.env.get("SUPABASE_ANON_KEY") ?? "";
 const SECRET_KEY = secretKeys.default ?? Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
-const VAPID_PUBLIC_KEY = (Deno.env.get("MERCHANT_VAPID_PUBLIC_KEY") ?? "").trim();
-const PUSH_DELIVERY_READY = Deno.env.get("MERCHANT_PUSH_SENDER_VERIFIED") === "true";
+// Public enrollment state lives in a service-role-only database RPC; the
+// VAPID signing scalar is NEVER returned by this endpoint.
 const ORIGINS = new Set([
  "https://parceiro.tamao.com.br","https://tamao-sg-revenda.pages.dev"
 ]);
@@ -96,9 +96,15 @@ Deno.serve(async (req:Request)=>{
    const quota=await enforceApiQuota(admin,user.id);
    if(quota===null)return fail("UNAVAILABLE",503,origin);
    if(quota!==true)return fail("RATE_LIMITED",429,origin);
+   const {data:pushConfig,error:configError}=await admin.rpc("merchant_push_public_config");
+   if(configError||!pushConfig||typeof pushConfig!=="object")
+     return fail("UNAVAILABLE",503,origin);
+   const enrollmentEnabled=pushConfig.available===true&&
+     validKey(pushConfig.publicKey,87,87);
    if(body.action==="config"){
-     const enabled=PUSH_DELIVERY_READY&&validKey(VAPID_PUBLIC_KEY,85,100);
-     return json({available:enabled,publicKey:enabled?VAPID_PUBLIC_KEY:null},200,origin);
+     return json({available:enrollmentEnabled,
+       publicKey:enrollmentEnabled?pushConfig.publicKey:null,
+       testMode:pushConfig.testMode!==false},200,origin);
    }
    if(!validEndpoint(body.endpoint))return fail("INVALID_ENDPOINT",400,origin);
    const endpointHash=await sha256(body.endpoint);
@@ -110,7 +116,7 @@ Deno.serve(async (req:Request)=>{
      if(error)return fail("UNAVAILABLE",503,origin);
      return json({ok:true,active:false},200,origin);
    }
-   if(!PUSH_DELIVERY_READY||!validKey(VAPID_PUBLIC_KEY,85,100))
+   if(!enrollmentEnabled)
      return fail("PUSH_NOT_READY",503,origin);
    const keys=body.keys;
    if(!keys||typeof keys!=="object"||Array.isArray(keys))
@@ -125,6 +131,6 @@ Deno.serve(async (req:Request)=>{
      active:true,registered_at:new Date().toISOString(),revoked_at:null
    },{onConflict:"endpoint_hash"});
    if(error)return fail("UNAVAILABLE",503,origin);
-   return json({ok:true,active:true},200,origin);
+   return json({ok:true,active:true,testMode:pushConfig.testMode!==false},200,origin);
  }catch{return fail("UNAVAILABLE",503,origin)}
 });

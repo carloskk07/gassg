@@ -7,10 +7,7 @@ import {DomainError,readJsonBody} from "../_shared/domain.js";
 const SUPABASE_URL=Deno.env.get("SUPABASE_URL")??"";
 const secretKeys=JSON.parse(Deno.env.get("SUPABASE_SECRET_KEYS")??"{}");
 const SECRET_KEY=secretKeys.default??Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")??"";
-const VAPID_PUBLIC_KEY=(Deno.env.get("MERCHANT_VAPID_PUBLIC_KEY")??"").trim();
-const VAPID_PRIVATE_KEY=(Deno.env.get("MERCHANT_VAPID_PRIVATE_KEY")??"").trim();
-const VAPID_SUBJECT=(Deno.env.get("MERCHANT_VAPID_SUBJECT")??"").trim();
-const PUSH_DELIVERY_READY=Deno.env.get("MERCHANT_PUSH_SENDER_VERIFIED")==="true";
+type VapidCredentials={publicKey:string;privateKey:string;subject:string};
 const OIDC_ISSUER="https://token.actions.githubusercontent.com";
 const OIDC_JWKS_URL="https://token.actions.githubusercontent.com/.well-known/jwks";
 const OIDC_AUDIENCE="tamao-merchant-push-delivery";
@@ -206,11 +203,20 @@ async function githubMainSha(){
 
 
 const VAPID_KEY_RE=/^[A-Za-z0-9_-]+$/;
-function senderConfigured():boolean {
-  return PUSH_DELIVERY_READY&&SECRET_KEY.length>20&&SUPABASE_URL.startsWith("https://")&&
-    VAPID_PUBLIC_KEY.length>=85&&VAPID_PUBLIC_KEY.length<=100&&VAPID_KEY_RE.test(VAPID_PUBLIC_KEY)&&
-    VAPID_PRIVATE_KEY.length>=40&&VAPID_PRIVATE_KEY.length<=60&&VAPID_KEY_RE.test(VAPID_PRIVATE_KEY)&&
-    /^(mailto:[^\s@]+@[^\s@]+|https:\/\/[^\s/]+(?:\/[^\s]*)?)$/.test(VAPID_SUBJECT);
+function senderConfigured(data:unknown):data is VapidCredentials {
+  if(!data||typeof data!=="object")return false;
+  const v=data as Record<string,unknown>;
+  const pub=String(v.publicKey??""),priv=String(v.privateKey??"");
+  return v.enabled===true&&SECRET_KEY.length>20&&SUPABASE_URL.startsWith("https://")&&
+    pub.length===87&&VAPID_KEY_RE.test(pub)&&
+    priv.length===43&&VAPID_KEY_RE.test(priv)&&v.subject==="https://tamao.com.br";
+}
+async function loadSenderCredentials(admin:any):Promise<VapidCredentials|null>{
+  const {data,error}=await admin.rpc("merchant_push_sender_credentials");
+  if(error)throw new Error("PUSH_SENDER_KEYRING_UNAVAILABLE");
+  if(data?.enabled!==true)return null;
+  if(!senderConfigured(data))throw new Error("PUSH_SENDER_KEY_INVALID");
+  return {publicKey:data.publicKey,privateKey:data.privateKey,subject:data.subject};
 }
 function validPushEndpoint(endpoint:string):boolean {
   try {
@@ -253,7 +259,7 @@ function pushPayload(kind:string):{
     url:"/?merchant=1#merchant"
   };
 }
-async function deliver(admin:any,row:Claimed):Promise<{outcome:string;status:number|null;resolved:boolean}>{
+async function deliver(admin:any,row:Claimed,credentials:VapidCredentials):Promise<{outcome:string;status:number|null;resolved:boolean}>{
   let outcome="retry",httpStatus:number|null=null,code:string|null=null;
   const seconds=Math.floor((Date.parse(row.expires_at)-Date.now())/1000);
   if(!Number.isFinite(seconds)||seconds<=0){
@@ -270,7 +276,7 @@ async function deliver(admin:any,row:Claimed):Promise<{outcome:string;status:num
         endpoint:row.endpoint_url,
         keys:{p256dh:row.p256dh,auth:row.auth_secret}
       },pushPayload(row.event_kind),{
-        publicKey:VAPID_PUBLIC_KEY,privateKey:VAPID_PRIVATE_KEY,subject:VAPID_SUBJECT
+        publicKey:credentials.publicKey,privateKey:credentials.privateKey,subject:credentials.subject
       },{ttl:Math.max(1,Math.min(300,seconds)),timeoutMs:8000,urgency:"high"});
       outcome=accepted?"provider_accepted":"gone";
       // The library returns an acceptance boolean, not an exact HTTP status.
@@ -339,7 +345,8 @@ Deno.serve(async(req:Request)=>{
 
     // Permanent rollout gate: no writes, no claims, no network push until
     // the verified sender and a single VAPID key pair are configured.
-    if(!senderConfigured())
+    const credentials=await loadSenderCredentials(admin);
+    if(!credentials)
       return json({ok:true,enabled:false,attempted:0,providerAccepted:0,
         note:"PUSH_SENDER_NOT_CONFIGURED",source,sourceSha:canonical},200);
     const {data:rows,error:claimError}=await admin.rpc("merchant_push_claim_due",{p_limit:4});
@@ -347,7 +354,7 @@ Deno.serve(async(req:Request)=>{
     const summary={providerAccepted:0,gone:0,retry:0,expired:0,permanentFailure:0,unresolved:0};
     for(const row of (rows??[]) as Claimed[]){
       try{
-        const result=await deliver(admin,row);
+        const result=await deliver(admin,row,credentials);
         if(!result.resolved)summary.unresolved++;
         else if(result.outcome==="provider_accepted")summary.providerAccepted++;
         else if(result.outcome==="gone")summary.gone++;
