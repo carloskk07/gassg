@@ -3651,3 +3651,11 @@ body:has(.admin-page) .admin-nav-item:focus-visible{outline-offset:-3px}
 .admin-ads-plan-fields input,.admin-ads-plan-fields select,.admin-ads-plan-fields textarea{box-sizing:border-box;width:100%;min-height:44px;font:inherit}
 .admin-ads-plan-fields .admin-ads-plan-note,.admin-ads-plan-fields button{grid-column:1/-1}
 @media(max-width:520px){.admin-ads-plan-fields{grid-template-columns:minmax(0,1fr)}}
+
+/* V1.310 — merchant-readable Ads offer and founder controls. */
+.merchant-ads-offer .card{margin-top:12px}
+.merchant-ads-offer .check-row{display:flex;gap:10px;align-items:flex-start;margin:14px 0}
+.merchant-ads-offer .check-row input{min-width:20px;min-height:20px;flex:none}
+.admin-ads-plan-offer{border-top:1px solid var(--border,#ddd);margin-top:14px;padding-top:12px;display:flex;flex-wrap:wrap;gap:10px;align-items:center}
+.admin-ads-plan-offer p{flex-basis:100%;margin:0}
+@media(max-width:520px){.merchant-ads-offer .order-actions,.admin-ads-plan-offer{flex-direction:column;align-items:stretch}}

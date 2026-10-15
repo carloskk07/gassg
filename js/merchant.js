@@ -2152,6 +2152,7 @@ function merchantLivePage(){
       ${merchantClubeInterestSection(m)}
       ${merchantClubeTermsSection(m)}
       ${merchantAdsCampaignSection(m)}
+      ${merchantAdsOfferSection(m)}
       ${merchantGrowthNetworkSection(m)}
     </div></details>
     <details id="merchant-workspace-finance" class="merchant-workspace-section"><summary tabindex="0"><span><strong>Resultados e financeiro</strong><small>Desempenho e cobranças da plataforma, separados dos pedidos do dia.</small></span></summary><div class="merchant-workspace-content">
@@ -3861,3 +3862,97 @@ globalThis.merchantConnectProviderFromUi=merchantConnectProviderFromUi;
 globalThis.merchantDisconnectProviderFromUi=merchantDisconnectProviderFromUi;
 globalThis.merchantUseProviderManuallyFromUi=merchantUseProviderManuallyFromUi;
 globalThis.merchantStopProviderManualUseFromUi=merchantStopProviderManualUseFromUi;
+
+
+// TAMÃO V1.310 — owner response to an internally displayed, nonbinding offer.
+function merchantAdsOfferSection(merchant){
+  if(!['owner','manager'].includes(String(merchant?.memberRole||'')))return '';
+  const rt=globalThis.merchantRuntime||{},merchantId=String(merchant?.merchantId||'');
+  const confirmed=rt.adsOffer?.merchantId===merchantId&&rt.adsOffer?.source==='merchant_ads_offer_v1_310'&&
+    rt.adsOffer.noCharge===true&&rt.adsOffer.adsLive===false&&
+    rt.adsOffer.contractSigned===false&&rt.adsOffer.paymentCreated===false&&
+    rt.adsOffer.readOnly===true&&rt.adsOffer.nonBinding===true;
+  const offer=confirmed?rt.adsOffer.offer:null;
+  const status=offer?.expired&&offer?.status==='shared'?'Prazo encerrado':
+    ({shared:'Condições disponíveis',interested:'Interesse confirmado pelo titular',
+      declined:'Sem interesse',withdrawn:'Oferta retirada'}[offer?.status]||'Sem proposta disponível');
+  const owner=merchant.memberRole==='owner';
+  const reply=owner&&offer?.status==='shared'&&!offer.expired?
+    '<div class="form-stack"><label class="check-row"><input type="checkbox" id="ads-offer-consent">'+
+    '<span>Li estas condições e desejo registrar minha resposta. Reconheço que esta manifestação não é contratação, pagamento ou publicação de anúncio.</span></label>'+
+    '<div class="order-actions"><button class="primary small" type="button" onclick="merchantAdsOfferRespond(\'interested\')">Tenho interesse nestas condições</button>'+
+    '<button class="secondary small" type="button" onclick="merchantAdsOfferRespond(\'declined\')">Não tenho interesse</button></div></div>':'';
+  const details=offer?'<div class="card flat"><div class="status-bar"><strong>'+esc(status)+'</strong>'+
+      '<span class="status-pill">Versão '+Number(offer.version)+'</span></div>'+
+      '<p>Valor proposto: <strong>'+(Number(offer.priceCents)/100).toLocaleString('pt-BR',{style:'currency',currency:'BRL'})+
+      '</strong> • Duração prevista: <strong>'+Number(offer.durationDays)+' dias</strong></p>'+
+      '<p class="tiny muted">Disponibilizada em '+esc(typeof formatDateTime==='function'?formatDateTime(offer.sharedAt):offer.sharedAt||'—')+
+      ' • válida até '+esc(typeof formatDateTime==='function'?formatDateTime(offer.expiresAt):offer.expiresAt||'—')+'</p>'+
+      reply+'</div>':
+      '<p class="muted tiny">Nenhuma condição comercial foi disponibilizada para esta revenda ou a consulta ainda não foi realizada.</p>';
+  return '<section class="section merchant-ads-offer" id="merchant-ads-offer">'+
+   '<div class="section-head"><div><span class="section-kicker">TAMÃO ADS • PROPOSTA COMERCIAL</span>'+
+   '<h3>Condições para divulgação</h3>'+
+   '<p>Consulte uma oferta enviada ao seu painel pelo TAMÃO. A resposta registra somente interesse comercial, sem cobrança ou contrato.</p></div>'+
+   '<button class="secondary small" type="button" onclick="merchantAdsOfferLoad()" '+
+     (rt.adsOfferBusy?'disabled':'')+'>Consultar condições</button></div>'+
+   (confirmed?details:'<p class="muted tiny">Use “Consultar condições” para conferir o estado atualizado no servidor.</p>')+
+   (rt.adsOfferError?'<p class="notice danger">'+esc(rt.adsOfferError)+'</p>':'')+
+   '<p class="tiny muted">O TAMÃO não publica anúncios nem inicia cobranças ao registrar esta resposta. Qualquer contratação futura exige processo próprio e confirmação adicional.</p></section>';
+}
+async function merchantAdsOfferLoad(){
+ const rt=globalThis.merchantRuntime,merchantId=String(rt?.merchant?.merchantId||'');
+ if(!rt||rt.adsOfferBusy||!merchantId||!['owner','manager'].includes(String(rt.merchant.memberRole||'')))return null;
+ rt.adsOfferBusy=true;rt.adsOfferError=null;render();
+ try{
+  const out=await merchantInvoke('merchant-ops',{action:'ads-offer',merchantId,operation:'view'});
+  if(out?.source!=='merchant_ads_offer_v1_310'||out.merchantId!==merchantId||
+    out.readOnly!==true||out.nonBinding!==true||out.noCharge!==true||
+    out.adsLive!==false||out.contractSigned!==false||out.paymentCreated!==false||
+    (out.offer!==null&&(!['shared','interested','declined','withdrawn'].includes(out.offer?.status)||
+      !Number.isSafeInteger(out.offer?.version)||out.offer.version<1||
+      !Number.isSafeInteger(out.offer?.priceCents)||out.offer.priceCents<1000||
+      !Number.isSafeInteger(out.offer?.durationDays)||out.offer.durationDays<7)))
+   throw new Error('As condições não foram confirmadas pelo servidor.');
+  if(String(rt.merchant?.merchantId)!==merchantId)return null;
+  rt.adsOffer=out;return out;
+ }catch(e){
+  if(String(rt.merchant?.merchantId)===merchantId){
+    rt.adsOffer=null;rt.adsOfferError=String(e?.message||e);toast(rt.adsOfferError);
+  }
+  return null;
+ }finally{rt.adsOfferBusy=false;render();}
+}
+async function merchantAdsOfferRespond(operation){
+ const rt=globalThis.merchantRuntime,merchantId=String(rt?.merchant?.merchantId||'');
+ if(!rt||!merchantId||rt.merchant.memberRole!=='owner'||rt.adsOfferBusy||
+   !['interested','declined'].includes(operation))return false;
+ const offer=rt.adsOffer?.merchantId===merchantId&&rt.adsOffer?.readOnly===true?rt.adsOffer.offer:null;
+ if(!offer||offer.status!=='shared'||offer.expired||!Number.isSafeInteger(offer.version))return false;
+ if(document.getElementById('ads-offer-consent')?.checked!==true){
+   toast('Confirme que leu a proposta e que deseja responder.');return false;
+ }
+ if(!confirm('Registrar sua manifestação de '+(operation==='interested'?'interesse':'não interesse')+
+   '? Isto não é contrato, compra, pagamento ou autorização de publicação.'))return false;
+ rt.adsOfferBusy=true;render();
+ try{
+  const result=await merchantInvoke('merchant-ops',{
+    action:'ads-offer',merchantId,operation,expectedVersion:offer.version,
+    consent:true,requestId:crypto.randomUUID()
+  });
+  if(result?.source!=='merchant_ads_offer_v1_310'||result.merchantId!==merchantId||
+    result.recorded!==true||result.status!==operation||result.version!==offer.version+1||
+    result.noCharge!==true||result.adsLive!==false||result.contractSigned!==false||
+    result.paymentCreated!==false)
+    throw new Error('Manifestação não confirmada pelo servidor.');
+  rt.adsOffer=null;
+  // Release busy gate to allow a fresh authenticated read.
+  rt.adsOfferBusy=false;
+  const current=await merchantAdsOfferLoad();
+  if(current?.offer?.status!==operation||current.offer.version!==result.version)
+    throw new Error('Resposta registrada, mas leitura final pendente. Consulte as condições.');
+  toast('Manifestação registrada. Nenhuma cobrança ou contrato foi criado.');
+  return true;
+ }catch(e){rt.adsOffer=null;rt.adsOfferError=String(e?.message||e);toast(rt.adsOfferError);return false}
+ finally{rt.adsOfferBusy=false;render();}
+}
