@@ -1,4 +1,4 @@
-const CACHE='tamao-sg-v1.286';
+const CACHE='tamao-sg-v1.291';
 const ASSETS=['./','./index.html','./css/base.css','./css/components.css','./js/runtime-config.js','./js/turnstile.js','./js/backend.js','./js/core.js','./js/analytics.js','./js/acquisition.js','./js/legal.js','./js/customer.js','./js/growth.js','./js/merchant.js','./js/admin-acquisition.js','./js/admin.js','./js/bootstrap.js','./manifest.webmanifest','./robots.txt','./icons/icon.svg','./assets/tamao-products-sprite.webp'];
 
 self.addEventListener('install',event=>{
@@ -59,11 +59,12 @@ self.addEventListener('push',event=>{
   let payload=null;
   try{payload=event.data?.json()??null}catch{}
   const kind=payload?.kind;
-  if(!['new_offer','assigned_delivery'].includes(kind))return;
+  if(!['new_offer','assigned_delivery','test'].includes(kind))return;
   const isDriver=kind==='assigned_delivery';
+  const isTest=kind==='test';
   event.waitUntil(self.registration.showNotification(
-    isDriver?'Nova entrega no TAMÃO':'Novo pedido no TAMÃO',{
-      body:isDriver?'Confira a entrega atribuída no painel.':'Um pedido precisa da sua atenção no painel.',
+    isTest?'Teste de notificação TAMÃO':isDriver?'Nova entrega no TAMÃO':'Novo pedido no TAMÃO',{
+      body:isTest?'Este aviso foi solicitado por você neste aparelho.':isDriver?'Confira a entrega atribuída no painel.':'Um pedido precisa da sua atenção no painel.',
       icon:'./icons/icon.svg',
       badge:'./icons/icon.svg',
       tag:'tamao-merchant-push-'+kind,
