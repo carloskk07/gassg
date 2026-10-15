@@ -4907,7 +4907,7 @@ Deno.serve(async(req:Request)=>{
         try{
           const response=await mercadoPagoFetch("/checkout/preferences",{
             accessToken:token,method:"POST",
-            idempotencyKey:"ads-"+requestId,
+            idempotencyKey:"ads-"+reserved.data.externalReference,
             body:{
               items:[{id:"tamao-ads-"+merchantId,title:"Publicidade TAMÃO Ads",
                 quantity:1,currency_id:"BRL",unit_price:item.amountCents/100}],
@@ -4926,7 +4926,12 @@ Deno.serve(async(req:Request)=>{
         const checkoutUrl=safeMercadoPagoUrl(preference?.init_point);
         const preferenceId=String(preference?.id||"");
         if(!checkoutUrl||!/^[A-Za-z0-9_-]{6,150}$/.test(preferenceId)||
-          preference.external_reference!==reserved.data.externalReference)
+          preference.external_reference!==reserved.data.externalReference||
+          String(preference?.collector_id??"")!==sellerId||
+          !Array.isArray(preference.items)||preference.items.length!==1||
+          preference.items[0]?.currency_id!=="BRL"||
+          preference.items[0]?.quantity!==1||
+          moneyToCents(preference.items[0]?.unit_price)!==item.amountCents)
           throw new DomainError("ADS_PSP_PREFERENCE_EVIDENCE_INVALID",
             "Resposta do provedor não coincide com a reserva, que permanece bloqueada.",503);
         const saved=await admin.rpc("admin_ads_psp_action_v1_314",{
@@ -4965,7 +4970,9 @@ Deno.serve(async(req:Request)=>{
         payment?.currency_id!=="BRL"||cents!==checkout.amountCents)
         throw new DomainError("ADS_PSP_PAYMENT_MISMATCH","O pagamento não pertence a este checkout de publicidade.",403);
       const operationDb=status==="approved"&&detail==="accredited"&&checkout.status==="checkout_ready"
-        ?"verify":(["refunded","charged_back"].includes(status)&&checkout.status==="payment_approved"?"reverse":null);
+        ?"verify":((["refunded","charged_back"].includes(status)||
+            (status==="approved"&&detail==="partially_refunded"))&&
+            checkout.status==="payment_approved"?"reverse":null);
       if(!operationDb)throw new DomainError("ADS_PSP_PAYMENT_NOT_CONFIRMABLE",
         "O provedor não confirmou um novo pagamento integral aprovado ou um estorno correspondente.",409);
       const payload={payment_id:paymentId,status,status_detail:detail,
