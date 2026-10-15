@@ -2090,7 +2090,6 @@ function merchantLivePage(){
       ${connectionNotice}
       ${complianceNotice}
       ${freshnessNotice}
-      ${merchantSetupView(rt)}
     </div></details>
     ${financialHold?'<div class="notice danger" style="margin-top:12px"><strong>Novas vendas suspensas por pendência financeira.</strong><br>Regularize o fechamento vencido. Pedidos já aceitos continuam disponíveis normalmente.</div>':''}
 
@@ -2120,6 +2119,7 @@ function merchantLivePage(){
 
     <details id="merchant-workspace-settings" class="merchant-workspace-section"><summary tabindex="0"><span><strong>Minha revenda e configurações</strong><small>Notificações, equipe, documentos e preferências de operação.</small></span></summary><div class="merchant-workspace-content">
       ${merchantAlertControl()}
+      ${merchantSetupView(rt)}
     <details class="merchant-diagnostic-drawer"><summary>Verificações de documentos e habilitação</summary>
       ${merchantEnablementAssistantView(rt)}
     </details>
