@@ -107,7 +107,8 @@ const liveStart=js.indexOf('function merchantLivePage(');
 const live=js.slice(liveStart,js.indexOf('\nfunction merchantScheduledDispatchState(',liveStart));
 assert.ok(live.indexOf('merchantAvailabilityPanel(rt,')<live.indexOf('merchantDailyOverview(rt,orders)'));
 assert.ok(live.indexOf('merchantAvailabilityPanel(rt,')<live.indexOf('merchant-live-orders'));
-assert.match(live,/merchantRevealControl/); // Existing settings/navigation remain in source.
+assert.match(js,/function merchantAvailabilityGo\(key\)/);
+assert.match(js,/merchantRevealControl\('#live-delivery-fee'\)/);
 assert.match(backend,/async function merchantSetOnlineLive\(online\)/);
 assert.match(backend,/action:'set-online',online:online===true/);
 assert.match(backend,/action:'update-product'/);
