@@ -3,12 +3,35 @@ import fs from 'node:fs';
 import vm from 'node:vm';
 const read=p=>fs.readFileSync(new URL('../'+p,import.meta.url),'utf8');
 const sql=read('supabase/migrations/20261016080000_ads_platform_psp_v1_314.sql');
+const hardening=read('supabase/migrations/20261016090000_ads_psp_hardening_v1_314_1.sql');
 const a=read('supabase/functions/admin-ops/index.ts');
 const m=read('supabase/functions/merchant-ops/index.ts');
 const admin=read('js/admin-activations.js');
 const merchant=read('js/merchant.js');
 new vm.Script(admin,{filename:'admin-activations.js'});
 new vm.Script(merchant,{filename:'merchant.js'});
+
+for(const token of [
+ 'create trigger ads_psp_checkout_immutable_v1_314_before_update',
+ 'ADS_PSP_CHECKOUT_IDENTITY_IMMUTABLE',
+ "p_payment_data->>'external_reference' is distinct from v_reference",
+ "p_payment_data->>'currency_id' is distinct from 'BRL'",
+ "p_payment_data->>'collector_id' is distinct from v_c.collector_id",
+ "p_payment_data->>'amount_cents' is distinct from v_c.amount_cents::text",
+ "coalesce(v_payment_status,'') not in ('approved','refunded','charged_back')",
+ "v_detail is distinct from 'accredited'",
+ "v_payment_status='approved' and v_detail='partially_refunded'",
+ "v_c.status<>'payment_approved'"
+])assert.ok(hardening.includes(token),'Missing V1.314.1 PSP fail-closed invariant: '+token);
+for(const token of [
+ 'String(preference?.collector_id??"")!==sellerId',
+ 'preference.items.length!==1',
+ 'moneyToCents(preference.items[0]?.unit_price)!==item.amountCents',
+ 'moneyToCents(payment?.transaction_amount)',
+ 'status==="approved"&&detail==="partially_refunded"',
+ 'idempotencyKey:"ads-"+reserved.data.externalReference'
+])assert.ok(a.includes(token),'Missing V1.314.1 provider verification: '+token);
+
 for(const t of [
  'platform_ads_psp_checkouts_v1_314','platform_ads_psp_events_v1_314',
  'enable row level security','revoke all on public.platform_ads_psp_checkouts_v1_314',
