@@ -1,4 +1,4 @@
-const CACHE='tamao-sg-v1.291';
+const CACHE='tamao-sg-v1.295';
 const ASSETS=['./','./index.html','./css/base.css','./css/components.css','./js/runtime-config.js','./js/turnstile.js','./js/backend.js','./js/core.js','./js/analytics.js','./js/acquisition.js','./js/legal.js','./js/customer.js','./js/growth.js','./js/merchant.js','./js/admin-acquisition.js','./js/admin.js','./js/bootstrap.js','./manifest.webmanifest','./robots.txt','./icons/icon.svg','./assets/tamao-products-sprite.webp'];
 
 self.addEventListener('install',event=>{
@@ -64,11 +64,11 @@ self.addEventListener('push',event=>{
   const isTest=kind==='test';
   event.waitUntil(self.registration.showNotification(
     isTest?'Teste de notificação TAMÃO':isDriver?'Nova entrega no TAMÃO':'Novo pedido no TAMÃO',{
-      body:isTest?'Este aviso foi solicitado por você neste aparelho.':isDriver?'Confira a entrega atribuída no painel.':'Um pedido precisa da sua atenção no painel.',
+      body:isTest?'Você solicitou este aviso no Portal das Revendas TAMÃO.':isDriver?'Confira a entrega atribuída no painel.':'Um pedido precisa da sua atenção no painel.',
       icon:'./icons/icon.svg',
       badge:'./icons/icon.svg',
       tag:'tamao-merchant-push-'+kind,
-      renotify:true,
+      // A user-triggered test should not repeatedly buzz like a campaign.\n      renotify:!isTest,
       data:{url:'./?merchant=1#merchant'}
     }
   ));
