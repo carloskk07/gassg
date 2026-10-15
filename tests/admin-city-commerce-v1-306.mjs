@@ -57,6 +57,7 @@ const runtime={session:{user:{id:'a'}},data:{launchReadiness:{operationMode:'PRE
  governance:{data:{source:'admin_governance_gates_v1_304',
   controls:{cityPause:true,cityCommerce:true},
   checkedAt:'2026-10-15T20:00:00Z',
+  runtime:{merchantDirectPaymentsEnabled:false},
   counts:{merchantsByStatus:{pending:1},applicationsByStatus:{approved:1}},
   cities:[{city:'São Gabriel',state:'RS',commerceEnabled:false,adminPaused:false}]},
  loadedFor:'a',role:'superadmin',loading:false,error:null}};
