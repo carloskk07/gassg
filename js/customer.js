@@ -393,6 +393,14 @@ function home(){
   <button class="intent-card" onclick="openPrelaunchMerchantLead()"><span class="intent-icon">🏪</span><span><strong>Tenho uma empresa</strong><small>Mais uma forma de chegar aos clientes, mantendo seus canais de venda.</small></span><b>→</b></button>
 </div></section>`;
 
+  const valueBridge=`<section class="home-value-bridge" aria-label="Três maneiras de aproveitar o TAMÃO">
+    <div><strong>Comprar sem complicação</strong><p>Informe seu CEP, confira as opções disponíveis e veja valor e prazo antes de pedir.</p>
+      <button type="button" onclick="startCustomerAvailability()">Consultar meu CEP →</button></div>
+    <div><strong>Vender com mais alcance</strong><p>Sua revenda mantém o controle de preços, estoque e entregas. O TAMÃO ajuda clientes a encontrar sua empresa.</p>
+      <button type="button" onclick="go('merchants')">Conhecer para revendas →</button></div>
+    <div><strong>Indicar e participar</strong><p>Convide pessoas e empresas para sua rede. Acompanhe os benefícios elegíveis, de acordo com as condições aplicáveis.</p>
+      <button type="button" onclick="go('earn')">Explorar minha rede →</button></div>
+  </section>`;
   return shell(`<section class="hero marketing-hero ${conciseHome?'home-first-visit':''}"><div class="hero-grid"><div>
     <span class="eyebrow">${esc(eyebrow)}</span>
     ${rememberedRegion&&!testDemo?`<div class="local-welcome" aria-label="Sua região identificada"><span aria-hidden="true">📍</span><span><strong>Olá, ${esc(rememberedRegion.city)}!</strong><small>Consulta por CEP • ${esc(rememberedRegion.state)}. A disponibilidade depende das ofertas para seu endereço.</small></span></div>`:''}
@@ -422,6 +430,7 @@ function home(){
   </div>`:''}
 </div></section>
 
+${valueBridge}
 ${!conciseHome&&typeof tamaoHomeBenefits==="function"?tamaoHomeBenefits():""}
 ${conciseHome?intentSection:''}
 ${acquisitionOpen?prelaunchCustomerLeadSection():''}

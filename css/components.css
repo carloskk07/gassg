@@ -3156,3 +3156,169 @@ details[id^="prospect-editor-"] summary:focus-visible{outline:3px solid var(--br
 @media(prefers-reduced-motion:reduce){
  .tamao-value-grid .card{transition:none}
 }
+
+
+/* TAMÃO V1.300 — One product language across public, customer, merchant and admin.
+   Progressive enhancement: the native workflows and permissions remain intact. */
+:root{
+  --bg:#f4f7f4;--card:#fff;--ink:#132e25;--muted:#586e64;
+  --line:#dce7df;--brand:#08734d;--brand-2:#13a36f;--brand-deep:#073c2c;
+  --brand-soft:#e5f6ec;--accent:#ffc75a;--accent-soft:#fff4d6;
+  --shadow:0 20px 54px rgba(14,54,39,.09);
+  --radius:22px;--radius-sm:14px;
+  --tamao-focus:0 0 0 3px rgba(10,116,80,.25);
+}
+body{background:var(--bg);color:var(--ink);-webkit-font-smoothing:antialiased}
+body::before{content:"";position:fixed;inset:0 0 auto;height:390px;z-index:-1;pointer-events:none;
+  background:radial-gradient(ellipse at 8% -20%,rgba(123,215,159,.19),transparent 55%),radial-gradient(ellipse at 100% 0,rgba(243,198,95,.1),transparent 45%)}
+.topbar{background:rgba(250,253,250,.95);border-bottom:1px solid #dae9df;box-shadow:0 3px 24px rgba(12,56,40,.035)}
+.topbar-inner{gap:18px}.brand-button{border:0;background:transparent;text-align:left}
+.brandmark{border-radius:15px;box-shadow:0 7px 20px rgba(8,89,58,.2)}
+.brand-name{letter-spacing:-.06em;font-size:19px}
+.desktop-nav{background:#fff;border:1px solid var(--line);border-radius:999px;padding:4px}
+.desktop-nav button{border-radius:999px!important;font-weight:750!important;font-size:13px!important;color:#3c5f4f!important}
+.desktop-nav button:hover{background:var(--brand-soft)!important;color:var(--brand-deep)!important}
+.mode-pill{background:#e6eee9;border-color:#d6e5da}.mode-pill button.active{box-shadow:0 3px 12px rgba(9,72,44,.10)}
+.page-title{font-weight:850;line-height:1.12;letter-spacing:-.055em}
+.section-head h2{letter-spacing:-.042em;line-height:1.12}
+.page-lead,.section-head p{line-height:1.58}
+.section-kicker{letter-spacing:.11em;font-size:11px;font-weight:850}
+.card,.offer,.intent-card,.kpi,.order-card{border-color:var(--line);box-shadow:0 2px 14px rgba(19,63,44,.035)}
+.card{background:#fff}
+button.primary,.primary:not(a),.starter-cta{
+  background:linear-gradient(135deg,#098559,#076b49);border-color:#08754f;
+  color:#fff;box-shadow:0 8px 20px rgba(6,100,67,.16);font-weight:850
+}
+button.primary:hover,.primary:not(a):hover,.starter-cta:hover{filter:brightness(1.07);transform:translateY(-1px)}
+button.secondary,.secondary:not(a){background:#f7faf8;border-color:#cfe0d5;color:#174735;font-weight:760}
+button.secondary:hover,.secondary:not(a):hover{background:#e8f6ee}
+button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible,
+textarea:focus-visible,summary:focus-visible{outline:3px solid #4cae80!important;outline-offset:3px}
+button:disabled{opacity:.57;cursor:not-allowed;box-shadow:none!important;transform:none!important}
+.input,textarea,select{border-color:#ccdcd1;background:#fff;border-radius:14px}
+.input:focus{border-color:#159267;box-shadow:var(--tamao-focus)}
+.status-pill{font-weight:850;letter-spacing:.015em}
+.status-pill.online{background:#dcf7e7;color:#085d3e}
+.status-pill.offline{background:#edf2ee;color:#476356}
+.status-pill.risk{background:#fff0c8;color:#75510b}
+.kpi{padding:17px 18px;border-radius:18px;min-width:0}
+.kpi .label{font-size:12px;line-height:1.5}
+.kpi strong{font-size:clamp(21px,2.3vw,30px);letter-spacing:-.04em}
+.notice{border-radius:16px;line-height:1.6}
+.notice.danger{border-left:4px solid #b43f32}
+.notice.success{border-left:4px solid #138455}
+details summary{cursor:pointer}
+details summary:focus-visible{border-radius:10px}
+@media (prefers-reduced-motion:no-preference){
+  button,.intent-card,.offer,.card,.merchant-workspace-shortcut{
+    transition:background-color .18s ease,border-color .18s ease,box-shadow .2s ease,transform .2s ease
+  }
+  .intent-card:hover,.merchant-workspace-shortcut:hover{transform:translateY(-2px);box-shadow:0 16px 30px rgba(14,69,42,.1)}
+}
+@media (prefers-reduced-motion:reduce){html{scroll-behavior:auto!important}*,*::before,*::after{animation-duration:.01ms!important;transition-duration:.01ms!important}}
+
+/* Public-facing landing: emphasis on the actual CEP check rather than invented inventory. */
+.marketing-hero{position:relative;isolation:isolate}
+.marketing-hero .hero-grid{gap:clamp(20px,4vw,54px)}
+.marketing-hero h1{font-size:clamp(40px,5.7vw,74px)!important;line-height:1.02;letter-spacing:-.065em;font-weight:920}
+.marketing-hero .hero-highlight{color:var(--brand)}
+.marketing-hero .hero-lead{max-width:58ch;font-size:clamp(16px,1.5vw,19px);line-height:1.66;color:#476657}
+.marketing-hero .hero-lead strong{color:#173d2c}
+.marketing-hero .purchase-starter{
+  position:relative;border:1px solid #bcd9c7;border-radius:24px;
+  background:#fff;box-shadow:0 24px 56px rgba(11,82,51,.13);
+  padding:clamp(15px,2vw,25px)
+}
+.marketing-hero .starter-cta{min-height:56px;letter-spacing:-.01em}
+.marketing-hero .starter-address{border-radius:15px}
+.marketing-hero .trust-row{display:flex;flex-wrap:wrap;gap:8px}
+.marketing-hero .trust-chip{background:#e9f5ec;border:1px solid #cfdfd2;color:#295943;border-radius:999px;font-size:12px}
+.intent-section{margin-block:26px 34px}
+.intent-grid{gap:14px}
+.intent-card{
+  min-width:0;border:1px solid #dbe7df;border-radius:22px;background:#fff;
+  padding:20px;display:flex;align-items:center;gap:12px;text-align:left
+}
+.intent-card strong{font-size:17px;letter-spacing:-.025em}
+.intent-card small{line-height:1.55;color:#617669}
+.intent-card.intent-primary{background:linear-gradient(140deg,#e7f6ec,#f7fdf8);border-color:#b7d9c2}
+.home-value-bridge{margin-block:18px 26px;padding:clamp(16px,2.3vw,26px);
+  border-radius:24px;background:linear-gradient(128deg,#073b2a,#0a6445);color:#fff;
+  display:grid;gap:16px;grid-template-columns:repeat(3,minmax(0,1fr));
+  box-shadow:0 18px 38px rgba(7,65,43,.13)
+}
+.home-value-bridge>div{padding:6px 14px;border-left:1px solid rgba(255,255,255,.2)}
+.home-value-bridge>div:first-child{border:0}
+.home-value-bridge strong{display:block;font-size:16px;letter-spacing:-.02em}
+.home-value-bridge p{margin:6px 0 0;color:#d7f3e4;font-size:13px;line-height:1.55}
+.home-value-bridge button{margin-top:12px;background:#fff;color:#07523a;padding:10px 14px;border:0;border-radius:12px;font-weight:850}
+
+/* Revenda: work first; commercial extras and administration are grouped. */
+.merchant-workspace{padding-top:18px}
+.merchant-workspace-header{display:flex;align-items:center;justify-content:space-between;gap:16px;
+  padding:clamp(16px,2.5vw,28px);margin-bottom:16px;border-radius:23px;
+  background:linear-gradient(125deg,#093a2c,#0b694a);color:white;box-shadow:0 20px 36px rgba(9,59,41,.12)}
+.merchant-workspace-header h1{color:white!important;font-size:clamp(22px,2.8vw,32px);margin:5px 0}
+.merchant-workspace-header small,.merchant-workspace-header .tiny{color:#cde9db!important}
+.merchant-workspace-header .status-pill.online{background:#d7f7e2;color:#07472f}
+.merchant-workspace-header .status-pill.offline{background:#f7e0b3;color:#6e3f06}
+.merchant-workspace-header .status-pill.risk{background:#fae4af;color:#704208}
+.merchant-workspace-shortcuts{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin:0 0 16px}
+.merchant-workspace-shortcut{border:1px solid #d0e3d8;background:#fff;color:var(--ink);
+  border-radius:18px;min-height:92px;padding:15px 16px;text-align:left;display:flex;flex-direction:column;align-items:flex-start;justify-content:center;gap:6px;
+  box-shadow:0 4px 12px rgba(18,70,42,.035)}
+.merchant-workspace-shortcut strong{font-weight:860;font-size:15px}
+.merchant-workspace-shortcut small{font-size:12px;color:var(--muted);line-height:1.35}
+.merchant-workspace-shortcut .merchant-shortcut-icon{font-size:21px}
+.merchant-workspace-shortcut.is-primary{background:#e5f7ec;border-color:#a8d4b8}
+.merchant-workspace-section{margin:16px 0;border:1px solid #dce6df;border-radius:22px;overflow:hidden;background:#fff}
+.merchant-workspace-section>summary{display:flex;align-items:center;justify-content:space-between;gap:18px;
+  list-style:none;padding:20px 24px;background:#fff}
+.merchant-workspace-section>summary::-webkit-details-marker{display:none}
+.merchant-workspace-section>summary::after{content:'+';font-size:22px;color:#357154;font-weight:500}
+.merchant-workspace-section[open]>summary::after{content:'−'}
+.merchant-workspace-section>summary strong{display:block;font-size:18px;letter-spacing:-.025em}
+.merchant-workspace-section>summary small{display:block;color:var(--muted);line-height:1.5;margin-top:4px}
+.merchant-workspace-section>summary:hover{background:#f3faf6}
+.merchant-workspace-section>.merchant-workspace-content{padding:0 20px 20px;display:grid;gap:15px}
+.merchant-workspace-section .section{margin-top:16px}
+.merchant-workspace-section .card{box-shadow:none}
+.merchant-daily-overview{margin-bottom:16px}
+.merchant-availability{border-radius:22px}
+.merchant-settings-drawer>summary,.merchant-diagnostic-drawer>summary{min-height:48px}
+body:has(.merchant-workspace) .shell{width:min(1260px,100%)}
+body:has(.merchant-workspace) .page{padding-top:0}
+.merchant-workspace .section-head h2{font-size:clamp(20px,2.2vw,26px)}
+
+/* Admin: controls as accountable decisions, not anonymous toggles. */
+.admin-release-hub{background:#fff;border:1px solid #d6e5da;border-radius:22px;padding:clamp(16px,2.2vw,26px)}
+.admin-release-hub .section-head{margin-bottom:14px}
+.admin-release-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
+.admin-release-card{border:1px solid #dae7df;border-radius:17px;padding:17px;background:#f9fcf9;display:flex;flex-direction:column;align-items:flex-start;gap:9px}
+.admin-release-card strong{font-size:16px;letter-spacing:-.025em}
+.admin-release-card p{font-size:13px;line-height:1.5;color:var(--muted);margin:0;flex:1}
+.admin-release-card button{width:100%;font-size:13px}
+.admin-release-hub small{color:var(--muted)}
+body:has(.admin-page) .admin-nav-item:focus-visible{outline-offset:-3px}
+
+@media(max-width:900px){
+  .home-value-bridge{grid-template-columns:1fr;gap:0}
+  .home-value-bridge>div{border:0;border-top:1px solid rgba(255,255,255,.2);padding:15px 5px}
+  .home-value-bridge>div:first-child{border:0}
+  .merchant-workspace-shortcuts{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .admin-release-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+}
+@media(max-width:520px){
+  .marketing-hero h1{font-size:clamp(39px,10.2vw,53px)!important}
+  .marketing-hero .hero-lead{font-size:15px}
+  .marketing-hero .purchase-starter{padding:14px}
+  .merchant-workspace-header{align-items:flex-start;flex-direction:column}
+  .merchant-workspace-shortcut{min-height:83px;padding:12px}
+  .merchant-workspace-section>summary{padding:16px}
+  .merchant-workspace-section>.merchant-workspace-content{padding:0 12px 14px}
+  .admin-release-grid{grid-template-columns:1fr}
+  .page-title{font-size:clamp(24px,7.5vw,31px)}
+  .intent-card{padding:14px}
+  .kpi{padding:13px}
+  .bottom-nav{background:rgba(255,255,255,.98);box-shadow:0 -4px 28px rgba(15,64,40,.07)}
+}

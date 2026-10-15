@@ -1994,6 +1994,19 @@ function merchantAvailabilityPanel(rt,options){
       '<button type="button" class="secondary small" onclick="merchantAvailabilityGo(\'delivery\')">Ajustar entregas</button></div>':'')+
     '</section>';
 }
+function merchantWorkspaceJump(area){
+  const keys={orders:'merchant-live-orders',start:'merchant-workspace-start',growth:'merchant-workspace-growth',
+    settings:'merchant-workspace-settings',finance:'merchant-workspace-finance'};
+  const id=keys[String(area||'')];
+  if(!id)return false;
+  const panel=document.getElementById(id);
+  if(!panel)return false;
+  if(panel.tagName==='DETAILS')panel.open=true;
+  const summary=panel.querySelector('summary');
+  panel.scrollIntoView({block:'start',behavior:matchMedia('(prefers-reduced-motion: reduce)').matches?'auto':'smooth'});
+  if(summary)summary.focus({preventScroll:true});
+  return true;
+}
 function merchantLivePage(){
   const rt=globalThis.merchantRuntime||{};
   if(['disabled','loading'].includes(rt.status)){
@@ -2059,39 +2072,42 @@ function merchantLivePage(){
       ? '<div class="notice" style="margin-top:12px"><strong>Reconectando presença da revenda.</strong><br>'+esc(rt.heartbeatError)+'</div>'
       : '';
 
-  return shell(`<section class="page">
-    <div class="status-bar"><div><div class="tiny muted">PAINEL REAL • ${esc(String(m.memberRole||'').toUpperCase())}</div><h1 class="page-title" style="margin-bottom:2px">${esc(m.name)}</h1></div><span class="status-pill ${m.online?(heartbeatFresh?'online':'risk'):'offline'}">${m.online?(heartbeatFresh?'● ONLINE':'● SEM CONEXÃO'):'OFFLINE'}</span></div>
+  return shell(`<section class="page merchant-workspace">
+    <header class="merchant-workspace-header"><div><div class="tiny">PAINEL DE TRABALHO • ${esc(m.memberRole==='owner'?'RESPONSÁVEL':m.memberRole==='manager'?'GERÊNCIA':'OPERAÇÃO')}</div><h1 class="page-title">${esc(m.name)}</h1><small>Pedidos, disponibilidade e próximos passos. Tudo em um só lugar.</small></div><span class="status-pill ${m.online?(heartbeatFresh?'online':'risk'):'offline'}">${m.online?(heartbeatFresh?'● ONLINE':'● SEM CONEXÃO'):'OFFLINE'}</span></header>
+    <nav class="merchant-workspace-shortcuts" aria-label="Acesso rápido ao trabalho da revenda">
+      <button type="button" class="merchant-workspace-shortcut is-primary" onclick="merchantWorkspaceJump('orders')"><span class="merchant-shortcut-icon" aria-hidden="true">📦</span><strong>Pedidos</strong><small>${orders.length} na fila de trabalho</small></button>
+      <button type="button" class="merchant-workspace-shortcut" onclick="merchantWorkspaceJump('start')"><span class="merchant-shortcut-icon" aria-hidden="true">✓</span><strong>${canGoOnline?'Produtos e entregas':'Comece por aqui'}</strong><small>${canGoOnline?'Ajustes do dia a dia':'Veja o que falta para vender'}</small></button>
+      <button type="button" class="merchant-workspace-shortcut" onclick="merchantWorkspaceJump('finance')"><span class="merchant-shortcut-icon" aria-hidden="true">▥</span><strong>Resultados</strong><small>Vendas e financeiro</small></button>
+      <button type="button" class="merchant-workspace-shortcut" onclick="merchantWorkspaceJump('settings')"><span class="merchant-shortcut-icon" aria-hidden="true">⚙</span><strong>Minha revenda</strong><small>Equipe, alertas e opções</small></button>
+    </nav>
 
     ${rt.error?`<div class="notice danger" style="margin-top:12px">${esc(rt.error)}</div>`:''}
     ${merchantAvailabilityPanel(rt,{canGoOnline,connectionHealthy,financialHold,freshness,p13,orderCount:orders.length})}
     ${merchantDailyOverview(rt,orders)}
-    ${merchantDailyChecklistView(rt,{deliveryFresh:freshness.deliveryFresh})}
-    ${merchantQuickCatalogView(rt)}
-    ${connectionNotice}
-    ${complianceNotice}
-    ${freshnessNotice}
+    <details id="merchant-workspace-start" class="merchant-workspace-section"${!canGoOnline?' open':''}><summary tabindex="0"><span><strong>${canGoOnline?'Produtos e entregas':'Comece por aqui: prepare sua operação'}</strong><small>${canGoOnline?'Atualize estoque, preços e configurações quando precisar.':'Veja as etapas que exigem atenção para sua revenda começar a receber ofertas.'}</small></span></summary><div class="merchant-workspace-content">
+      ${merchantDailyChecklistView(rt,{deliveryFresh:freshness.deliveryFresh})}
+      ${merchantQuickCatalogView(rt)}
+      ${connectionNotice}
+      ${complianceNotice}
+      ${freshnessNotice}
+    </div></details>
     ${financialHold?'<div class="notice danger" style="margin-top:12px"><strong>Novas vendas suspensas por pendência financeira.</strong><br>Regularize o fechamento vencido. Pedidos já aceitos continuam disponíveis normalmente.</div>':''}
 
     ${merchantDeliveryBoardView(rt,orders)}
     <section class="section" id="merchant-live-orders"><div class="section-head"><div><h2>Pedidos que exigem ação</h2><p>Aceite, saída e recebimento só são registrados depois de confirmação no sistema.</p></div></div>${merchantDeliveryAttentionView(rt)}${merchantOrderQueueView(orders)}</section>
 
-    ${merchantSetupView(rt)}
-    ${merchantBusinessPulseSection(m)}
-    ${merchantAdsInterestSection(m)}
-    ${merchantClubeInterestSection(m)}
-    ${merchantClubeTermsSection(m)}
-    ${merchantAdsCampaignSection(m)}
-    ${merchantGrowthNetworkSection(m)}
-    ${merchantAlertControl()}
-    <details class="merchant-diagnostic-drawer"><summary>Verificações de documentos e habilitação</summary>
-      ${merchantEnablementAssistantView(rt)}
-    </details>
-
-    <div class="card flat form-stack" style="margin-top:14px">
-      ${memberships.length>1?`<div class="input-wrap"><label for="merchant-live-select">Operação</label><select id="merchant-live-select" class="input" onchange="merchantLiveSelect(this.value)">${memberships.map(x=>`<option value="${esc(x.merchantId)}" ${x.merchantId===m.merchantId?'selected':''}>${esc(x.name)} • ${esc(x.memberRole)}</option>`).join('')}</select></div>`:''}
-      <div class="order-actions"><button class="secondary small" onclick="merchantLiveRefresh()">Atualizar</button>${manage?'<button class="secondary small" onclick="merchantOpenTeam()">Equipe</button>':''}<button class="ghost small" onclick="merchantLiveLogout()">Sair</button></div>
-    </div>
-
+    <details id="merchant-workspace-setup" class="merchant-workspace-section"${!canGoOnline?' open':''}><summary tabindex="0"><span><strong>Terminar a configuração para vender</strong><small>Produtos, entrega e recebimento, com as confirmações e habilitações necessárias.</small></span></summary><div class="merchant-workspace-content">
+      ${merchantSetupView(rt)}
+    </div></details>
+    <details id="merchant-workspace-growth" class="merchant-workspace-section"><summary tabindex="0"><span><strong>Vender mais e ampliar sua rede</strong><small>Divulgação, benefícios, parcerias e indicações organizados em um só lugar.</small></span></summary><div class="merchant-workspace-content">
+      ${merchantAdsInterestSection(m)}
+      ${merchantClubeInterestSection(m)}
+      ${merchantClubeTermsSection(m)}
+      ${merchantAdsCampaignSection(m)}
+      ${merchantGrowthNetworkSection(m)}
+    </div></details>
+    <details id="merchant-workspace-finance" class="merchant-workspace-section"><summary tabindex="0"><span><strong>Resultados e financeiro</strong><small>Desempenho e cobranças da plataforma, separados dos pedidos do dia.</small></span></summary><div class="merchant-workspace-content">
+      ${merchantBusinessPulseSection(m)}
     <section class="section"><div class="merchant-kpis">
       <div class="kpi"><span class="label">${p13?.pricingMode==='range'?'Preço normal P13':'Preço P13'}</span><strong>${p13?BRL.format(Number(p13.priceCents||0)/100):'—'}</strong>${p13?.pricingMode==='range'?'<small>'+BRL.format(Number(p13.minPriceCents||0)/100)+'–'+BRL.format(Number(p13.maxPriceCents||0)/100)+'</small>':''}</div>
       <div class="kpi"><span class="label">Estoque P13</span><strong>${p13?Number(p13.availableStock||0):'—'}</strong></div>
@@ -2101,12 +2117,21 @@ function merchantLivePage(){
       <div class="kpi"><span class="label">Conclusão pós-aceite</span><strong>${performance.completionRate==null?'—':Math.round(Number(performance.completionRate)*100)+'%'}</strong></div>
       <div class="kpi"><span class="label">No prazo</span><strong>${performance.onTimeRate==null?'—':Math.round(Number(performance.onTimeRate)*100)+'%'}</strong></div>
     </div></section>
+      ${merchantBillingLiveView(rt)}
+    </div></details>
 
+    <details id="merchant-workspace-settings" class="merchant-workspace-section"><summary tabindex="0"><span><strong>Minha revenda e configurações</strong><small>Notificações, equipe, documentos e preferências de operação.</small></span></summary><div class="merchant-workspace-content">
+      ${merchantAlertControl()}
+    <details class="merchant-diagnostic-drawer"><summary>Verificações de documentos e habilitação</summary>
+      ${merchantEnablementAssistantView(rt)}
+    </details>
 
+    <div class="card flat form-stack" style="margin-top:14px">
+      ${memberships.length>1?`<div class="input-wrap"><label for="merchant-live-select">Operação</label><select id="merchant-live-select" class="input" onchange="merchantLiveSelect(this.value)">${memberships.map(x=>`<option value="${esc(x.merchantId)}" ${x.merchantId===m.merchantId?'selected':''}>${esc(x.name)} • ${esc(x.memberRole)}</option>`).join('')}</select></div>`:''}
+      <div class="order-actions"><button class="secondary small" onclick="merchantLiveRefresh()">Atualizar</button>${manage?'<button class="secondary small" onclick="merchantOpenTeam()">Equipe</button>':''}<button class="ghost small" onclick="merchantLiveLogout()">Sair</button></div>
+    </div>
 
-    ${merchantBillingLiveView(rt)}
-
-    ${manage?`<details id="merchant-operation-settings" class="merchant-settings-drawer"><summary>Configurações da revenda <span>Preços, entregas, pagamentos e outras opções</span></summary><div class="card flat form-stack">
+      ${manage?`<details id="merchant-operation-settings" class="merchant-settings-drawer"><summary>Configurações da revenda <span>Preços, entregas, pagamentos e outras opções</span></summary><div class="card flat form-stack">
       <h3>Produtos</h3>
       <p class="muted tiny">Edite os preços e estoques na seção de ajuste rápido, no início do painel, ou use o catálogo completo para configurar produtos e faixas.</p>
       <button class="secondary" type="button" onclick="merchantAvailabilityGo('stock')">Abrir ajuste rápido</button><button class="ghost" type="button" onclick="go('catalog')">Editar todos os produtos</button>
@@ -2132,6 +2157,7 @@ function merchantLivePage(){
       <label class="check-row"><input id="live-scheduled-orders" type="checkbox" ${acceptsScheduledOrders?'checked':''}><span><strong>Aceitar entregas agendadas</strong><small>Quando ativo, clientes podem escolher janelas futuras de até 72 horas. O horário aparece antes do aceite.</small></span></label>
       <button class="secondary" onclick="merchantLiveSaveScheduling()">Salvar agendamento</button></div></details>
     </div></details>`:''}
+    </div></details>
 
   </section>`);
 }
