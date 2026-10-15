@@ -16,7 +16,8 @@ async function adminActivationLoad({force=false}={}){
       ['intake','commercial-intake-read','admin_marketing_intake_v1_308'],
       ['adsSalesPlans','ads-sales-plans','admin_ads_sales_plans_v1_309'],
       ['adsOffers','ads-offers-read','admin_ads_offers_v1_310'],
-      ['adsDossiers','ads-dossiers-read','admin_ads_dossiers_v1_311']
+      ['adsDossiers','ads-dossiers-read','admin_ads_dossiers_v1_311'],
+      ['adsInstruments','ads-instruments-read','admin_ads_instruments_v1_312']
     ];
     const values=await Promise.allSettled([
       ...specs.map(([,action])=>adminInvoke({action})),
@@ -30,6 +31,11 @@ async function adminActivationLoad({force=false}={}){
       const safe=d?.source===source&&(
         key==='ads'?d.readOnly===true&&d.publicEnabled===false&&d.billingEnabled===false&&d.readyToSell===false:
         key==='adsQueue'?d.noCharge===true&&d.adsLive===false:
+        key==='adsInstruments'?d.readOnly===true&&d.noCharge===true&&d.adsLive===false&&
+          d.paymentRequestsCreated===0&&d.deliveryVerified===false&&d.notIcpCertified===true&&
+          Number.isSafeInteger(d.totalInstruments)&&Array.isArray(d.rows)&&d.rows.length<=50&&
+          d.rows.every(x=>/^[0-9a-f-]{36}$/i.test(String(x.merchantId))&&
+            /^[a-f0-9]{64}$/.test(String(x.sha256))&&Number.isSafeInteger(x.version)&&x.version>0):
         key==='adsDossiers'?d.readOnly===true&&d.noCharge===true&&d.adsLive===false&&
           d.contractsSigned===0&&d.revenueCents===0&&d.paymentRequestsCreated===0&&
           Number.isSafeInteger(d.totalDossiers)&&Array.isArray(d.rows)&&d.rows.length<=50&&
@@ -57,7 +63,7 @@ async function adminActivationLoad({force=false}={}){
         d.readOnly===true&&d.couponSalesEnabled===false&&d.noContractsSigned===true);
       evidence[key]=safe?d:null;
     });
-    const governance=values[8].status==='fulfilled'?values[8].value:null;
+    const governance=values[9].status==='fulfilled'?values[9].value:null;
     evidence.governance=governance?.source==='admin_governance_gates_v1_304'&&governance.readOnly===true&&
       adminRuntime.governance?.loadedFor===actor&&adminRuntime.governance?.role===role?governance:null;
     const push=adminRuntime.pushReliability||{};
@@ -147,7 +153,7 @@ function adminActivationDeskView(d){
     '<p class="tiny muted">Última consulta: '+
     esc(current?formatDateTime(adminActivationDesk.checkedAt):'não confirmada')+
     '. Uma falha na consulta é mostrada como “Não confirmado”, nunca como recurso desligado.</p>'+
-    '<div class="admin-activation-grid">'+cards+'</div>'+adminMarketingIntakeView()+adminAdsSalesPlansView()+adminAdsDossiersView()+
+    '<div class="admin-activation-grid">'+cards+'</div>'+adminMarketingIntakeView()+adminAdsSalesPlansView()+adminAdsDossiersView()+adminAdsInstrumentsView()+
     '<p class="tiny muted">Publicidade pública, vendas de cupons e automação de avisos exigem homologação e gates reais no servidor. Nenhum controle desta página contorna esses requisitos.</p></section>';
 }
 
@@ -480,5 +486,100 @@ async function adminAdsDossierAction(merchantId,operation){
  }catch(e){
    adminActivationDesk.data=null;await adminActivationLoad({force:true});
    toast(String(e?.message||e));return false;
+ }
+}
+
+
+// V1.312 — electronic agreement accepted with authenticated identities and frozen SHA-256.
+// This is not a certified signature and never triggers Ads billing or delivery.
+function adminAdsInstrumentsView(){
+ if(!adminRoleCanSection('activations'))return '';
+ const actor=String(adminRuntime.session?.user?.id||''),role=adminCurrentRole();
+ const recent=adminActivationDesk.actor===actor&&adminActivationDesk.role===role&&
+    Date.now()-Date.parse(adminActivationDesk.checkedAt||'')<120000;
+ const instruments=recent?adminActivationDesk.data?.adsInstruments:null;
+ const dossiers=recent?adminActivationDesk.data?.adsDossiers:null;
+ const fmt={offered:'Disponível para aceite',merchant_accepted:'Aceito pela revenda',bilateral_accepted:'Aceite bilateral registrado'};
+ const rows=(dossiers?.rows||[]).filter(d=>d.status==='reviewed').map(d=>{
+  const id=String(d.merchantId||''),i=instruments?.rows?.find(x=>x.merchantId===id);
+  if(!/^[0-9a-f-]{36}$/i.test(id))return '';
+  const make=role==='superadmin'&&!i?
+   '<div class="admin-ads-instrument-fields"><label>Razão social da empresa responsável pelo TAMÃO<input id="ads-sign-'+id+'-company" maxlength="160" placeholder="Razão social registrada"></label>'+
+   '<label>CNPJ da empresa responsável (14 números)<input id="ads-sign-'+id+'-cnpj" inputmode="numeric" maxlength="14" placeholder="Somente números"></label>'+
+   '<p class="tiny muted">A razão social e o CNPJ da revenda são consultados no cadastro do servidor. É preciso conferir as identidades jurídicas antes de emitir o documento.</p>'+
+   '<button type="button" class="primary small" onclick="adminAdsInstrumentAction(\''+id+'\',\'issue\')">Emitir instrumento para aceite</button></div>':'';
+  const countersign=role==='superadmin'&&i?.status==='merchant_accepted'?
+   '<button type="button" class="primary small" onclick="adminAdsInstrumentAction(\''+id+'\',\'founder_accept\')">Confirmar aceite pelo TAMÃO</button>':'';
+  return '<article class="admin-activation-card"><div class="admin-activation-card-head"><strong>'+
+    esc(d.companyName||'Revenda')+'</strong><span class="status-pill">'+
+    esc(i?fmt[i.status]||'Não confirmado':'Elegível para emissão')+'</span></div>'+
+    '<p>Minuta revisada v'+d.version+' • '+
+    (Number(d.priceCents)/100).toLocaleString('pt-BR',{style:'currency',currency:'BRL'})+
+    ' • '+d.durationDays+' dias.</p>'+
+    (i?'<p><strong>'+esc(i.document.platformLegalName)+'</strong> e <strong>'+
+      esc(i.document.merchantLegalName)+'</strong></p>'+
+      '<p class="tiny muted">Documento SHA-256: <code>'+esc(i.sha256)+'</code></p>'+
+      '<details><summary>Conferir o documento congelado</summary><p>'+esc(i.document.serviceScope)+'</p>'+
+      '<p>'+esc(i.document.cancellationTerms)+'</p><p>'+esc(i.document.executionCondition)+'</p>'+
+      '<p class="tiny muted">CNPJ TAMÃO '+esc(i.document.platformCnpj)+
+      ' • CNPJ revenda '+esc(i.document.merchantCnpj)+'</p></details>':'')+
+    make+countersign+'</article>';
+ }).join('');
+ return '<section class="section admin-ads-instruments">'+
+   '<div class="section-head"><div><span class="section-kicker">V1.312 • INSTRUMENTO ELETRÔNICO</span>'+
+   '<h2>Aceite eletrônico de publicidade</h2>'+
+   '<p>Documento fixo com identidade das partes e SHA-256. A revenda aceita primeiro; o administrador confirma depois.</p></div></div>'+
+   (instruments&&dossiers?'<p class="tiny muted">'+instruments.totalInstruments+
+       ' documento(s) emitido(s) • Nenhuma cobrança ou exibição autorizada por esta etapa.</p>':
+       '<p class="muted">A consulta aos documentos não foi confirmada. Atualize a central.</p>')+
+   '<div class="admin-activation-grid">'+(rows||'<p class="muted">Não há minuta revisada pronta para emissão. Conclua primeiro a negociação comercial e a revisão do titular.</p>')+'</div>'+
+   '<p class="tiny muted">Aceite autenticado não é certificado ICP-Brasil. A validade e adequação jurídica devem ser avaliadas conforme as partes e a operação. Este módulo não cria fatura, pagamento ou campanha pública.</p></section>';
+}
+async function adminAdsInstrumentAction(merchantId,operation){
+ if(!adminReady()||adminCurrentRole()!=='superadmin'||adminActivationDesk.loading||
+    !['issue','founder_accept'].includes(operation))return false;
+ const actor=String(adminRuntime.session?.user?.id||'');
+ if(adminActivationDesk.actor!==actor||adminActivationDesk.role!=='superadmin'||
+    Date.now()-Date.parse(adminActivationDesk.checkedAt||'')>=120000)return false;
+ const d=adminActivationDesk.data?.adsDossiers?.rows?.find(x=>x.merchantId===merchantId);
+ const i=adminActivationDesk.data?.adsInstruments?.rows?.find(x=>x.merchantId===merchantId);
+ if(!d||d.status!=='reviewed'||(operation==='issue'&&i)||
+   (operation==='founder_accept'&&i?.status!=='merchant_accepted'))return false;
+ let platformLegalName=null,platformCnpj=null,sha256=null,expectedVersion=i?.version||0;
+ if(operation==='issue'){
+  platformLegalName=String(document.getElementById('ads-sign-'+merchantId+'-company')?.value||'').trim();
+  platformCnpj=String(document.getElementById('ads-sign-'+merchantId+'-cnpj')?.value||'').replace(/\D/g,'');
+  if(platformLegalName.length<5||platformLegalName.length>160||!/^\d{14}$/.test(platformCnpj)){
+    toast('Informe razão social (5–160 caracteres) e CNPJ de 14 dígitos da empresa TAMÃO.');return false;
+  }
+ }else{
+  sha256=String(i.sha256||'');
+  if(!/^[a-f0-9]{64}$/.test(sha256))return false;
+ }
+ if(!confirm(operation==='issue'?'Emitir documento imutável com estes dados jurídicos declarados? A emissão não cobra nem publica anúncios.':
+   'Registrar aceite autenticado do administrador neste mesmo documento? Nenhuma cobrança ou publicação será criada.'))return false;
+ try{
+  const result=await adminPerform('ads-instrument-action',{
+    merchantId,operation,expectedVersion,platformLegalName,platformCnpj,sha256,
+    requestId:crypto.randomUUID()
+  });
+  const status=operation==='issue'?'offered':'bilateral_accepted';
+  if(result?.source!=='admin_ads_instrument_action_v1_312'||result.merchantId!==merchantId||
+     result.status!==status||!Number.isSafeInteger(result.version)||
+     !/^[a-f0-9]{64}$/.test(String(result.sha256||''))||
+     result.noCharge!==true||result.adsLive!==false||
+     result.paymentRequestCreated!==false||result.notIcpCertified!==true)
+   throw new Error('Instrumento não confirmado no serviço.');
+  adminActivationDesk.data=null;
+  const checked=await adminActivationLoad({force:true});
+  const newRow=checked?.adsInstruments?.rows?.find(x=>x.merchantId===merchantId);
+  if(!newRow||newRow.status!==status||newRow.sha256!==result.sha256||
+     newRow.version!==result.version)
+   throw new Error('Instrumento registrado, porém a leitura posterior não foi confirmada.');
+  toast('Registro eletrônico confirmado, sem cobrança ou anúncio publicado.');
+  return true;
+ }catch(e){
+  adminActivationDesk.data=null;await adminActivationLoad({force:true});
+  toast(String(e?.message||e));return false;
  }
 }
