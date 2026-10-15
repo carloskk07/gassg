@@ -458,7 +458,7 @@ assert.ok(backend.includes("String(merchant?.memberRole||'')==='driver'")&&backe
 assert.ok(backend.includes('navigator.vibrate?.([180,80,180,80,260])')&&backend.includes('merchantPlayAlertTone'),'alerta opt-in precisa combinar vibração e sinal sonoro quando suportado');
 assert.ok(backend.includes("Um pedido aguarda seu aceite.")&&backend.includes("Uma entrega foi atribuída a você."),'notificação deve usar copy operacional genérica sem PII');
 assert.ok(!backend.includes("body:o.address")&&!backend.includes("body:o.customerPhone"),'notificação nunca pode incluir endereço ou telefone');
-assert.ok(merchant.includes('Fechar totalmente o navegador interrompe o polling')&&merchant.includes('push com o app fechado exige uma etapa posterior'),'UI não pode vender polling local como push fechado');
+assert.ok(merchant.includes('O navegador pode suspender essas consultas em segundo plano')&&merchant.includes('Com o navegador fechado, não há garantia de alertas'),'UI não pode vender polling local como push fechado');
 assert.ok(sw.includes("self.addEventListener('notificationclick'")&&sw.includes("?merchant=1#merchant"),'clique na notificação precisa voltar ao painel operacional');
 assert.ok(bootstrap.includes('merchantEnableAlertsFromUi')&&bootstrap.includes('merchantDisableAlertsFromUi'),'ações de opt-in de alerta precisam estar acessíveis pela UI');
 assert.ok(read('supabase/functions/get-offers/index.ts').includes('create_quote_snapshot'),'ofertas devem persistir snapshot por RPC atômica');
@@ -486,9 +486,9 @@ assert.ok(read('supabase/functions/customer-summary/index.ts').includes('ACTIVE_
 assert.ok(read('supabase/functions/customer-summary/index.ts').includes('activeOrderId'),'projeção mínima precisa devolver o pedido ativo para recuperação após ACK perdido');
 assert.ok(backend.includes('summary?.activeOrderId')&&backend.includes('localStorage.setItem(CHAMA_BACKEND.orderStorageKey,liveRuntime.orderId)'),'cliente deve persistir pedido ativo recuperado pelo servidor');
 assert.ok(read('supabase/functions/merchant-ops/index.ts').includes('Seu papel não pode manter a operação ativa.'),'heartbeat não pode ser mantido por papel não operacional');
-assert.ok(backend.includes('merchantRuntime.heartbeatError')&&backend.includes('await merchantHeartbeat();\n    await merchantRefresh({silent:true});'),'polling da revenda deve confirmar presença antes de projetar o estado atualizado');
+assert.ok(backend.includes('merchantRuntime.heartbeatError')&&backend.includes('if(merchantRuntime.merchant?.online===true||activeOrders)await merchantHeartbeat();')&&backend.indexOf('await merchantHeartbeat();',backend.indexOf('async function merchantPoll('))<backend.indexOf('await merchantRefresh({silent:true});',backend.indexOf('async function merchantPoll(')),'polling da revenda deve confirmar presença antes de projetar o estado atualizado');
 assert.ok(backend.includes("liveRuntime.error=String(error?.message||error||'Não foi possível atualizar o pedido.')")&&customer.includes('Acompanhamento temporariamente sem conexão.'),'tracking cliente precisa tornar falha de polling visível sem fingir status ao vivo');
-assert.ok(backend.includes("await merchantRefresh({silent:true});\n    render();\n  }catch{\n    render();"),'polling da revenda precisa renderizar imediatamente o estado indisponível');
+assert.ok(backend.includes('await merchantRefresh({silent:true});')&&backend.includes('merchantRuntime.nextRecoveryAt=Date.now()+merchantRecoveryDelayMs(failures)')&&backend.includes('}catch{\n    if(merchantCanRecover()){'),'polling da revenda precisa renderizar imediatamente o estado indisponível');
 assert.ok(admin.includes("await adminRefresh({silent:true});\n    render();\n  }catch{\n    render();"),'polling admin precisa renderizar imediatamente o estado indisponível');
 assert.ok(merchant.includes('heartbeatFresh')&&merchant.includes('SEM CONEXÃO'),'painel não pode exibir ONLINE quando heartbeat já ficou velho');
 assert.ok(read('supabase/functions/merchant-orders/index.ts').includes('selected.member_role==="driver"')&&read('supabase/functions/merchant-orders/index.ts').includes('.eq("assigned_delivery_user_id",user.id)'),'driver deve abrir somente a fila atribuída à própria identidade');
@@ -1503,7 +1503,7 @@ assert.ok(backend.includes('function retryAmbiguousOnce(operation)'),'runtime pr
 assert.ok(backend.includes('lastPollAt:0'),'polling da revenda precisa manter relógio próprio');
 assert.ok(backend.includes("merchantRuntime.merchant?.online===true||activeOrders"),'polling da revenda precisa distinguir operação urgente de painel ocioso');
 assert.ok(backend.includes('merchantPollingIntervalMs(merchantRuntime.orders,merchantRuntime.merchant?.online===true)')&&backend.includes("'OFFERED_TO_MERCHANT'))return 5000")&&backend.includes('return online===true?15000:60000;'),'revenda com aceite pendente mantém 5s; outras situações usam intervalo adaptativo');
-assert.ok(backend.includes('if(urgent)await merchantHeartbeat()'),'heartbeat não deve rodar em painel offline ocioso');
+assert.ok(backend.includes('if(merchantRuntime.merchant?.online===true||activeOrders)await merchantHeartbeat()'),'heartbeat não deve rodar em painel offline ocioso');
 assert.ok(backend.includes("MERCHANT_PILOT_INVITE_STORAGE='tamao-pilot-invite-v1'")&&backend.includes('MERCHANT_PILOT_INVITE_TTL_MS'),'convite piloto deve sair da URL e permanecer apenas em armazenamento transitório com expiração');
 assert.ok(backend.includes('merchantPilotInviteFromUrl')&&backend.includes("history.replaceState(null,'',url.pathname+url.search+url.hash)"),'token piloto legado em query/hash deve ser capturado e removido imediatamente da barra de endereço');
 assert.ok(backend.includes("const hashToken=String(hashParams.get('pilot')")&&backend.includes("const queryToken=String(url.searchParams.get('pilot')"),'migração deve aceitar link novo em fragmento e link legado em query sem perder o parceiro');

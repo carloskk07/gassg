@@ -22,6 +22,16 @@ window.addEventListener('storage',e=>{
 });
 window.addEventListener('error',e=>console.error('Erro global',e.error||e.message));
 window.addEventListener('unhandledrejection',e=>console.error('Promise rejeitada',e.reason));
+document.addEventListener('visibilitychange',()=>{
+  if(document.visibilityState==='visible'&&globalThis.merchantPortalRequested?.()){
+    globalThis.merchantWakeSync?.('visible')?.catch?.(()=>{});
+  }
+});
+window.addEventListener('online',()=>{
+  if(globalThis.merchantPortalRequested?.()){
+    globalThis.merchantWakeSync?.('online')?.catch?.(()=>{});
+  }
+});
 
 window.addEventListener('load',async()=>{
   if(globalThis.adminPortalRequested?.()){
@@ -56,7 +66,7 @@ window.addEventListener('load',async()=>{
   setInterval(()=>{
     if(!globalThis.liveRequested?.()&&!globalThis.merchantPortalRequested?.()&&!globalThis.adminPortalRequested?.()&&housekeeping())render();
     if(globalThis.liveReady?.())livePoll().catch(()=>{});
-    if(globalThis.merchantReady?.())merchantPoll().catch(()=>{});
+    if(globalThis.merchantPortalRequested?.())merchantPoll().catch(()=>{});
     if(globalThis.adminReady?.())adminPoll().catch(()=>{});
   },5000);
 });

@@ -1225,7 +1225,10 @@ const merchantRuntime={
   lastHeartbeatAt:0,
   lastPollAt:0,
   refreshSeq:0,
-  pollPending:false
+  pollPending:false,
+  recoveryFailures:0,
+  nextRecoveryAt:0,
+  lastWakeAt:0
 };
 
 const MERCHANT_ALERTS_KEY='chama-merchant-alerts-v1';
@@ -1573,6 +1576,10 @@ async function merchantSendLogin(email){
 }
 
 async function merchantSignOut(){
+  // Drop any in-flight refresh response before asynchronous sign-out.
+  merchantRuntime.refreshSeq++;
+  merchantRuntime.nextRecoveryAt=0;
+  merchantRuntime.recoveryFailures=0;
   // Invalidate in-flight history immediately; never retain another person's audit in a shared browser.
   globalThis.merchantHistoryRequestId=(globalThis.merchantHistoryRequestId||0)+1;
   globalThis.merchantCatalogHistoryState=null;
@@ -1601,6 +1608,7 @@ async function merchantSignOut(){
   merchantRuntime.status='unauthenticated';
   merchantRuntime.error=null;
   merchantRuntime.notice=null;
+  merchantRuntime.lastPollAt=0;
   merchantRuntime.accessReason=null;
   merchantRuntime.heartbeatError=null;
   merchantAlerts.knownOrderIds=new Set();
@@ -1636,6 +1644,8 @@ async function merchantRefresh({silent=false,recoverSelection=true}={}){
     merchantRuntime.status='ready';
     merchantRuntime.error=null;
     merchantRuntime.accessReason=null;
+    merchantRuntime.recoveryFailures=0;
+    merchantRuntime.nextRecoveryAt=0;
     merchantRuntime.lastSyncAt=new Date().toISOString();
     if(['owner','manager'].includes(String(merchantRuntime.merchant?.memberRole||''))&&!merchantRuntime.enablementFetchedAt)
       queueMicrotask(()=>merchantLoadEnablement().catch(()=>{}));
@@ -2337,23 +2347,96 @@ function merchantPollingIntervalMs(orders,online){
   return online===true?15000:60000;
 }
 
+// The merchant must not become permanently stranded in "unavailable" after a
+// temporary transport failure. Recovery is bounded and NEVER executes an order action.
+function merchantRecoveryDelayMs(failures){
+  const n=Math.max(1,Math.min(5,Number.isSafeInteger(failures)?failures:1));
+  return Math.min(60000,5000*2**(n-1));
+}
+function merchantCanRecover(){
+  // Reconnect also covers first boot, when loading auth/session previously failed.
+  // Origin validation remains inside merchantBackendInit().
+  return merchantRuntime.requested===true&&merchantRuntime.status==='unavailable';
+}
 async function merchantPoll(){
-  if(!merchantReady()||merchantRuntime.actionPending||merchantRuntime.pollPending||document.visibilityState==='hidden')return;
+  const recovering=merchantCanRecover();
+  if(!merchantReady()&&!recovering)return;
+  if(merchantRuntime.actionPending||merchantRuntime.pollPending)return;
+  // Browser background timers are best-effort. Only keep polling hidden tabs
+  // when the merchant explicitly enabled alerts on this device.
+  if(document.visibilityState==='hidden'&&!merchantAlerts.enabled)return;
   const now=Date.now();
-  const activeOrders=(merchantRuntime.orders||[]).some(order=>!['SETTLED','CANCELLED'].includes(String(order?.status||'')));
-  const urgent=merchantRuntime.merchant?.online===true||activeOrders;
-  const minIntervalMs=merchantPollingIntervalMs(merchantRuntime.orders,merchantRuntime.merchant?.online===true);
-  if(merchantRuntime.lastPollAt&&now-merchantRuntime.lastPollAt<minIntervalMs)return;
+  if(recovering){
+    if(now<merchantRuntime.nextRecoveryAt)return;
+  }else{
+    const interval=merchantPollingIntervalMs(merchantRuntime.orders,merchantRuntime.merchant?.online===true);
+    const minIntervalMs=document.visibilityState==='hidden'?Math.max(interval,15000):interval;
+    if(merchantRuntime.lastPollAt&&now-merchantRuntime.lastPollAt<minIntervalMs)return;
+  }
   merchantRuntime.lastPollAt=now;
   merchantRuntime.pollPending=true;
   try{
-    if(urgent)await merchantHeartbeat();
-    await merchantRefresh({silent:true});
+    if(!recovering){
+      const activeOrders=(merchantRuntime.orders||[]).some(order=>!['SETTLED','CANCELLED'].includes(String(order?.status||'')));
+      if(merchantRuntime.merchant?.online===true||activeOrders)await merchantHeartbeat();
+    }
+    if(recovering&&!merchantRuntime.client){
+      // Bootstrap failed before auth client initialization.
+      await merchantBackendInit();
+    }else if(recovering&&!merchantRuntime.session?.access_token){
+      // A temporary getSession failure must not strand the portal permanently.
+      const seq=merchantRuntime.refreshSeq;
+      const {data,error}=await merchantRuntime.client.auth.getSession();
+      if(seq!==merchantRuntime.refreshSeq||merchantRuntime.status!=='unavailable')return;
+      if(error)throw error;
+      const session=data?.session;
+      if(!session?.access_token||session.user?.is_anonymous===true){
+        merchantRuntime.status='unauthenticated';
+        merchantRuntime.session=null;
+        merchantRuntime.merchant=null;
+        merchantRuntime.orders=[];
+        merchantRuntime.catalog=[];
+        merchantRuntime.deliveryTeam=[];
+        merchantRuntime.billing=null;
+        merchantAlerts.knownOrderIds=new Set();
+        render();
+      }else{
+        merchantRuntime.session=session;
+        await merchantRefresh({silent:true});
+      }
+    }else{
+      await merchantRefresh({silent:true});
+    }
+    if(merchantCanRecover()){
+      const failures=++merchantRuntime.recoveryFailures;
+      merchantRuntime.nextRecoveryAt=Date.now()+merchantRecoveryDelayMs(failures);
+    }
     render();
   }catch{
+    if(merchantCanRecover()){
+      const failures=++merchantRuntime.recoveryFailures;
+      merchantRuntime.nextRecoveryAt=Date.now()+merchantRecoveryDelayMs(failures);
+    }
     render();
+  }finally{merchantRuntime.pollPending=false}
+}
+// Recheck promptly when the operator comes back or browser reconnects.
+// No automatic acceptance, dispatch, payment, or any order transitions occur.
+async function merchantWakeSync(reason='visible'){
+  if(!['visible','online'].includes(reason))return false;
+  if(!merchantReady()&&!merchantCanRecover())return false;
+  if(document.visibilityState==='hidden'||merchantRuntime.actionPending||merchantRuntime.pollPending)return false;
+  const now=Date.now();
+  if(now-merchantRuntime.lastWakeAt<2500)return false;
+  if(reason==='visible'&&merchantReady()){
+    const synced=Date.parse(merchantRuntime.lastSyncAt||'');
+    if(Number.isFinite(synced)&&now-synced<10000)return false;
   }
-  finally{merchantRuntime.pollPending=false}
+  merchantRuntime.lastWakeAt=now;
+  merchantRuntime.lastPollAt=0;
+  merchantRuntime.nextRecoveryAt=0;
+  await merchantPoll();
+  return true;
 }
 
 function openMerchantPortal(){
@@ -2447,5 +2530,6 @@ globalThis.clearMerchantPilotInviteToken=clearMerchantPilotInviteToken;
 globalThis.merchantClaimPilotInviteLive=merchantClaimPilotInviteLive;
 globalThis.merchantSubmitApplicationLive=merchantSubmitApplicationLive;
 globalThis.merchantPoll=merchantPoll;
+globalThis.merchantWakeSync=merchantWakeSync;
 globalThis.openMerchantPortal=openMerchantPortal;
 globalThis.openCustomerPortal=openCustomerPortal;

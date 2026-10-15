@@ -647,7 +647,7 @@ function merchantAlertControl(){
         : 'Ao ativar, o navegador pode pedir permissão para notificações.';
   return `<div class="card flat form-stack" style="margin-top:14px">
     <div class="status-bar"><div><strong>Alertas neste aparelho</strong><br><small>${esc(notificationCopy)}</small></div><span class="status-pill ${status.enabled?'online':'offline'}">${status.enabled?'ATIVOS':'DESLIGADOS'}</span></div>
-    <div class="notice"><strong>Escopo atual.</strong><br>Os alertas funcionam enquanto este painel/PWA estiver aberto, inclusive em outra aba. Fechar totalmente o navegador interrompe o polling; push com o app fechado exige uma etapa posterior.</div>
+    <div class="notice"><strong>Escopo atual.</strong><br>Com alertas ativados, o TAMÃO tenta verificar pedidos mesmo em outra aba. O navegador pode suspender essas consultas em segundo plano; ao voltar para o painel, a atualização é retomada. Com o navegador fechado, não há garantia de alertas. Para não perder ofertas urgentes, mantenha o painel aberto e confira a conexão.</div>
     <button class="${status.enabled?'danger-btn':'primary'}" onclick="${status.enabled?'merchantDisableAlertsFromUi()':'merchantEnableAlertsFromUi()'}">${status.enabled?'Desativar alertas':'Ativar som, vibração e notificações'}</button>
   </div>`;
 }
@@ -1920,7 +1920,7 @@ function merchantLivePage(){
   if(rt.status==='unauthenticated')return merchantLiveLoginView();
   if(rt.status==='no-access')return merchantLiveNoAccess();
   if(rt.status!=='ready'||!rt.merchant){
-    return shell(`<section class="page"><h1 class="page-title">Painel da revenda</h1><div class="notice danger"><strong>Não foi possível carregar a operação.</strong><br>${esc(rt.error||'Tente novamente.')}</div><button class="secondary full" style="margin-top:12px" onclick="merchantLiveRefresh()">Tentar novamente</button></section>`);
+    return shell(`<section class="page"><h1 class="page-title">Painel da revenda</h1><div class="notice danger"><strong>Não foi possível confirmar os pedidos atuais.</strong><br>${esc(rt.error||'Tente novamente.')}</div><p class="tiny muted">Se a conexão falhou temporariamente, o TAMÃO tenta consultar novamente. Até recuperar a sincronização, ações em pedidos ficam indisponíveis nesta tela.</p><button class="secondary full" style="margin-top:12px" onclick="merchantLiveRefresh()">Tentar novamente agora</button></section>`);
   }
 
   const m=rt.merchant;
@@ -2844,7 +2844,12 @@ async function merchantLoginFromUi(){
   try{await merchantSendLogin(email);toast('Link de acesso enviado')}catch(e){toast(String(e?.message||e))}
 }
 async function merchantLiveRefresh(){
-  try{await merchantRefresh();toast('Operação atualizada')}catch(e){toast(String(e?.message||e))}
+  try{
+    await merchantRefresh();
+    if(globalThis.merchantRuntime?.status==='ready')toast('Operação atualizada');
+    else if(globalThis.merchantRuntime?.status==='no-access')toast('Confira seu acesso à revenda.');
+    else if(globalThis.merchantRuntime?.status==='unauthenticated')toast('Entre novamente para acessar a revenda.');
+  }catch(e){toast(String(e?.message||e))}
 }
 function merchantDeliveryAssignmentChanged(id){
   const note=document.getElementById('delivery-feedback-'+id);
