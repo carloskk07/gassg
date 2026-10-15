@@ -3692,3 +3692,11 @@ body:has(.admin-page) .admin-nav-item:focus-visible{outline-offset:-3px}
 .merchant-ads-psp .card{margin-top:12px}
 .merchant-ads-psp a.primary{display:inline-flex;min-height:44px;align-items:center;justify-content:center;padding:12px 18px;border-radius:12px;text-decoration:none}
 @media(max-width:520px){.admin-ads-psp button,.merchant-ads-psp button,.merchant-ads-psp a.primary{width:100%;min-height:44px;box-sizing:border-box}}
+
+/* V1.314 — verified checkout and provider provenance. */
+.admin-ads-psp code,.merchant-ads-psp code{overflow-wrap:anywhere;word-break:break-all}
+.admin-ads-psp .admin-activation-card{min-width:0}
+.admin-ads-psp .admin-activation-card button{min-height:44px}
+.merchant-ads-psp .card{margin-top:12px}
+.merchant-ads-psp .btn{display:inline-flex;align-items:center;gap:8px;min-height:44px;text-decoration:none}
+@media(max-width:520px){.admin-ads-psp .admin-activation-card button,.merchant-ads-psp .btn{width:100%;justify-content:center;box-sizing:border-box}}
