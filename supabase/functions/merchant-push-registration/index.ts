@@ -34,7 +34,7 @@ function json(payload: unknown,status: number,origin: string|null): Response {
 function fail(code:string,status:number,origin:string|null):Response {
  return json({error:code,message:"Não foi possível atualizar os alertas deste aparelho."},status,origin);
 }
-async function bodyJson(req: Request):Promise<Record<string,unknown>|null>{
+async function readJsonBody(req: Request):Promise<Record<string,unknown>|null>{
  const raw=await req.text();
  if(raw.length>4700)return null;
  try {
@@ -62,6 +62,14 @@ async function sha256(value:string):Promise<string>{
  const bytes=await crypto.subtle.digest("SHA-256",new TextEncoder().encode(value));
  return Array.from(new Uint8Array(bytes),x=>x.toString(16).padStart(2,"0")).join("");
 }
+async function enforceApiQuota(admin:any,userId:string):Promise<boolean|null>{
+ const {data,error}=await admin.rpc("consume_api_quota",{
+   p_user_id:userId,p_action_name:"merchant-push-register",
+   p_limit:30,p_window_seconds:60
+ });
+ if(error)return null;
+ return data?.allowed===true;
+}
 Deno.serve(async (req:Request)=>{
  const origin=req.headers.get("Origin");
  if(!isOriginAllowed(origin))return fail("ORIGIN_NOT_ALLOWED",403,null);
@@ -71,7 +79,7 @@ Deno.serve(async (req:Request)=>{
  if(!bearer?.startsWith("Bearer "))return fail("UNAUTHORIZED",401,origin);
  if(!SUPABASE_URL||!PUBLIC_KEY||!SECRET_KEY)return fail("UNAVAILABLE",503,origin);
  try{
-   const body=await bodyJson(req);
+   const body=await readJsonBody(req);
    if(!body||!["config","subscribe","unsubscribe"].includes(String(body.action||""))||
       !UUID.test(String(body.merchantId||"")))return fail("INVALID_REQUEST",400,origin);
    const publicClient=createClient(SUPABASE_URL,PUBLIC_KEY,{auth:{persistSession:false,autoRefreshToken:false}});
@@ -85,12 +93,9 @@ Deno.serve(async (req:Request)=>{
    if(memberError)return fail("UNAVAILABLE",503,origin);
    if(!member||!["owner","manager","operator","driver"].includes(member.member_role))
      return fail("ACCESS_DENIED",403,origin);
-   const {data:quota,error:quotaError}=await admin.rpc("consume_api_quota",{
-     p_user_id:user.id,p_action_name:"merchant-push-register",
-     p_limit:30,p_window_seconds:60
-   });
-   if(quotaError)return fail("UNAVAILABLE",503,origin);
-   if(quota?.allowed!==true)return fail("RATE_LIMITED",429,origin);
+   const quota=await enforceApiQuota(admin,user.id);
+   if(quota===null)return fail("UNAVAILABLE",503,origin);
+   if(quota!==true)return fail("RATE_LIMITED",429,origin);
    if(body.action==="config"){
      const enabled=PUSH_DELIVERY_READY&&validKey(VAPID_PUBLIC_KEY,85,100);
      return json({available:enabled,publicKey:enabled?VAPID_PUBLIC_KEY:null},200,origin);
