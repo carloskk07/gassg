@@ -65,7 +65,7 @@ const cardCtx=vm.createContext({
  globalThis:{merchantRuntime:rt},esc,
  BRL:{format:value=>'R$ '+Number(value).toFixed(2)},statusCopy:{},
  paymentLabel:()=> 'Pix',merchantScheduledDispatchState:()=>({scheduled:false,ready:true}),
- merchantDeliveryMemberLabel:()=> 'Responsável',merchantFormatPhone:s=>String(s)
+ merchantDeliveryMemberLabel:()=> 'Responsável',merchantFormatPhone:s=>String(s),merchantDeliveryShortcuts:()=>''
 });
 vm.runInContext([
  pick('merchantDeliveryCandidates'),

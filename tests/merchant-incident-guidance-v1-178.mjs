@@ -76,7 +76,7 @@ assert.equal(fields['merchant-incident-submit-'+id].disabled,true);
 const cardCtx=vm.createContext({globalThis:{merchantRuntime:rt},esc,
  BRL:{format:v=>'R$ '+Number(v).toFixed(2)},statusCopy:{},paymentLabel:()=> 'Pix',
  merchantScheduledDispatchState:()=>({scheduled:false,ready:true}),
- merchantDeliveryMemberLabel:()=> '',merchantFormatPhone:v=>String(v)});
+ merchantDeliveryMemberLabel:()=> '',merchantFormatPhone:v=>String(v),merchantDeliveryShortcuts:()=>''});
 vm.runInContext(['merchantDeliveryCandidates','merchantOrderEventDate','merchantOrderScheduleDate',
  'merchantOrderProgressView','merchantOrderAttention','merchantOrderAttentionCard',
  'merchantIncidentAdvice','merchantIncidentRiskGuide','merchantLiveOrder']
