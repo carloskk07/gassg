@@ -74,3 +74,8 @@ verify_jwt = false
 # inside the handler, preserving the publishable-key authorization model.
 [functions.merchant-catalog-history]
 verify_jwt = false
+
+# Browser subscription management only. JWT is verified with Supabase Auth
+# inside the handler; sender is gated by verified server-side push readiness.
+[functions.merchant-push-registration]
+verify_jwt = false
