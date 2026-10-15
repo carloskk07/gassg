@@ -291,6 +291,8 @@ jobs:
         run: node tests/merchant-push-device-diagnostics-v1-290.mjs
       - name: Test one-device manual push with provider-only result V1.291
         run: node tests/merchant-push-self-test-v1-291.mjs
+      - name: Test manual device receipt and last-test retrieval V1.292
+        run: node tests/merchant-push-observation-v1-292.mjs
       - name: TAMÃO V1.258 founder-approved orphan deletion with immutable audit
         run: node tests/owner-receipt-orphan-cleanup-v1-258.mjs
       - name: Turnstile smoke Chrome cleanup V1.238.1

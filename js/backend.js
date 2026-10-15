@@ -1373,7 +1373,7 @@ function merchantDisableAlertsLive(){
 
 // V1.286 — Web Push is independent of the existing on-page alert preference.
 // Registration never silently occurs; a separate explicit user gesture is required.
-const merchantPushRuntime={checked:false,checking:false,available:false,publicKey:null,subscribed:false,merchantId:null,testMode:true,diagnostic:null,testPending:false,testResult:null};
+const merchantPushRuntime={checked:false,checking:false,available:false,publicKey:null,subscribed:false,merchantId:null,testMode:true,diagnostic:null,testPending:false,reportPending:false,testResult:null};
 function merchantPushStatus(){
   return {
     available:merchantPushRuntime.available===true,
@@ -1381,6 +1381,7 @@ function merchantPushStatus(){
     subscribed:merchantPushRuntime.subscribed===true,
     testMode:merchantPushRuntime.testMode!==false,
     testPending:merchantPushRuntime.testPending===true,
+    reportPending:merchantPushRuntime.reportPending===true,
     testResult:merchantPushRuntime.testResult&&merchantPushRuntime.testResult.merchantId===String(merchantRuntime.merchant?.merchantId||'')&&merchantPushRuntime.testResult.userId===String(merchantRuntime.session?.user?.id||'')?merchantPushRuntime.testResult:null,
     diagnostic:merchantPushRuntime.diagnostic&&merchantPushRuntime.diagnostic.merchantId===String(merchantRuntime.merchant?.merchantId||'')?merchantPushRuntime.diagnostic:null,
     supported:typeof Notification!=='undefined'&&'serviceWorker' in navigator&&
@@ -1534,6 +1535,7 @@ async function merchantPushSelfTestLive(){
     const accepted=result?.providerAccepted===true;
     merchantPushRuntime.testResult={
       merchantId,userId,providerAccepted:accepted,
+      runId:String(result?.runId||''),deviceReport:null,
       state:String(result?.state||'unknown'),
       checkedAt:new Date().toISOString()
     };
@@ -1543,6 +1545,66 @@ async function merchantPushSelfTestLive(){
     merchantPushRuntime.testPending=false;
     render();
   }
+}
+// V1.292: read and report only the current user's own device, never assert delivery.
+async function merchantPushLatestTestLive(){
+  if(merchantPushRuntime.testPending||merchantPushRuntime.reportPending)
+    throw new Error('Aguarde a operação de teste em andamento.');
+  const merchantId=String(merchantRuntime.merchant?.merchantId||'');
+  const userId=String(merchantRuntime.session?.user?.id||'');
+  if(!merchantReady()||!merchantId||!userId||!merchantPushRuntime.subscribed)
+    throw new Error('Cadastre este aparelho antes de consultar os testes.');
+  merchantPushRuntime.reportPending=true;
+  render();
+  try{
+    const reg=await navigator.serviceWorker.getRegistration('./');
+    const subscription=await reg?.pushManager?.getSubscription();
+    if(!subscription?.endpoint)throw new Error('Inscrição não encontrada neste navegador.');
+    const result=await merchantInvoke('merchant-push-self-test',{
+      action:'last-test',merchantId,endpoint:subscription.endpoint
+    });
+    if(!merchantReady()||String(merchantRuntime.merchant?.merchantId||'')!==merchantId||
+       String(merchantRuntime.session?.user?.id||'')!==userId)return false;
+    merchantPushRuntime.testResult=result?.runId?{
+      merchantId,userId,runId:String(result.runId),
+      providerAccepted:result.providerAccepted===true,
+      state:String(result.state||'unknown'),
+      deviceReport:['seen','not_seen'].includes(result.deviceReport)?result.deviceReport:null,
+      checkedAt:String(result.checkedAt||'')
+    }:null;
+    render();
+    return Boolean(result?.runId);
+  }finally{merchantPushRuntime.reportPending=false;render();}
+}
+async function merchantPushReportTestLive(report){
+  if(!['seen','not_seen'].includes(report))throw new Error('Confirmação inválida.');
+  if(merchantPushRuntime.testPending||merchantPushRuntime.reportPending)
+    throw new Error('Aguarde a operação de teste em andamento.');
+  const merchantId=String(merchantRuntime.merchant?.merchantId||'');
+  const userId=String(merchantRuntime.session?.user?.id||'');
+  const last=merchantPushStatus().testResult;
+  if(!merchantReady()||!merchantPushRuntime.subscribed||!last?.runId||
+    last.providerAccepted!==true||last.deviceReport)
+    throw new Error('Consulte primeiro um teste aceito pelo provedor.');
+  merchantPushRuntime.reportPending=true;
+  render();
+  try{
+    const reg=await navigator.serviceWorker.getRegistration('./');
+    const subscription=await reg?.pushManager?.getSubscription();
+    if(!subscription?.endpoint)throw new Error('Inscrição não encontrada neste navegador.');
+    const result=await merchantInvoke('merchant-push-self-test',{
+      action:'report-display',merchantId,endpoint:subscription.endpoint,
+      runId:last.runId,report
+    });
+    if(!merchantReady()||String(merchantRuntime.merchant?.merchantId||'')!==merchantId||
+       String(merchantRuntime.session?.user?.id||'')!==userId)return false;
+    if(result?.receiptKind!=='manual_user_report'||result?.deviceReport!==report)
+      throw new Error('Confirmação não registrada pelo servidor.');
+    if(merchantPushRuntime.testResult?.runId===last.runId)
+      merchantPushRuntime.testResult.deviceReport=report;
+    render();
+    return true;
+  }finally{merchantPushRuntime.reportPending=false;render();}
 }
 async function merchantPushDisableLive(){
   const reg=typeof navigator.serviceWorker==='undefined'?null:
@@ -1563,6 +1625,7 @@ async function merchantPushDisableLive(){
   // and the server-side revocation must be retried independently.
   const local=await subscription.unsubscribe().catch(()=>false);
   merchantPushRuntime.subscribed=false;
+  merchantPushRuntime.testResult=null;
   render();
   if(!revoked)throw new Error('Alertas push interrompidos no navegador; a revogação no servidor não pôde ser confirmada.');
   return local;
@@ -2707,6 +2770,8 @@ globalThis.merchantPushDiagnoseLive=merchantPushDiagnoseLive;
 globalThis.merchantPushCheckLive=merchantPushCheckLive;
 globalThis.merchantPushEnableLive=merchantPushEnableLive;
 globalThis.merchantPushSelfTestLive=merchantPushSelfTestLive;
+globalThis.merchantPushLatestTestLive=merchantPushLatestTestLive;
+globalThis.merchantPushReportTestLive=merchantPushReportTestLive;
 globalThis.merchantPushDisableLive=merchantPushDisableLive;
 globalThis.merchantEnableAlertsLive=merchantEnableAlertsLive;
 globalThis.merchantDisableAlertsLive=merchantDisableAlertsLive;

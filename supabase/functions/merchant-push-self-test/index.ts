@@ -68,8 +68,11 @@ Deno.serve(async(req:Request)=>{
     return bad("INVALID_REQUEST",400,origin);
    body=parsed;
   }catch{return bad("INVALID_REQUEST",400,origin)}
-  if(body.action!=="send-self-test"||!UUID.test(String(body.merchantId??""))||
-    !allowedPushEndpoint(body.endpoint))
+  if((body.action!=="send-self-test"&&!["last-test","report-display"].includes(String(body.action??"")))||
+    !UUID.test(String(body.merchantId??""))||
+    !allowedPushEndpoint(body.endpoint)||
+    (body.action==="report-display"&&
+      (!UUID.test(String(body.runId??""))||!["seen","not_seen"].includes(String(body.report??"")))))
    return bad("INVALID_REQUEST",400,origin);
   const authClient=createClient(URL_ROOT,PUBLISHABLE,{auth:{persistSession:false,autoRefreshToken:false}});
   const {data:authData,error:authError}=await authClient.auth.getUser(bearer.slice(7));
@@ -82,6 +85,26 @@ Deno.serve(async(req:Request)=>{
   if(memberError)return bad("UNAVAILABLE",503,origin);
   if(!member||!["owner","manager","operator","driver"].includes(member.member_role))
    return bad("ACCESS_DENIED",403,origin);
+  // V1.292: authenticated, endpoint-bound user observations, never delivery proofs.
+  const endpointHash=await sha256(body.endpoint);
+  if(body.action==="last-test"){
+    const {data:latest,error:latestError}=await admin.rpc("merchant_push_test_latest",{
+      p_merchant_id:body.merchantId,p_user_id:user.id,p_endpoint_hash:endpointHash
+    });
+    if(latestError)return bad("RESULT_UNAVAILABLE",503,origin);
+    return json({ok:true,...(latest??{})},200,origin);
+  }
+  if(body.action==="report-display"){
+    const {data:report,error:reportError}=await admin.rpc("merchant_push_test_report",{
+      p_run_id:body.runId,p_merchant_id:body.merchantId,p_user_id:user.id,
+      p_endpoint_hash:endpointHash,p_report:body.report
+    });
+    if(reportError)return bad("RESULT_UNAVAILABLE",503,origin);
+    if(report?.conflict===true)return bad("REPORT_CONFLICT",409,origin);
+    if(report?.ok!==true)return bad("TEST_NOT_FOUND",404,origin);
+    return json({ok:true,deviceReport:report.deviceReport,
+      receiptKind:"manual_user_report",providerReceiptVerified:false},200,origin);
+  }
   // One test per user per 3 minutes, enforced atomically in the database.
   // The endpoint hash can only select this signed-in user's own subscription.
   const {data:reserved,error:reserveError}=await admin.rpc("merchant_push_test_reserve",{

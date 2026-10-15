@@ -641,12 +641,21 @@ function merchantAlertControl(){
   const push=globalThis.merchantPushStatus?.()||{};
   const device=push.diagnostic;
   const testResult=push.testResult;
+  const report=testResult?.deviceReport;
+  const reportButtons=testResult?.providerAccepted&&testResult?.runId&&!report
+    ?'<div class="form-stack"><small>O aviso apareceu neste aparelho? Informe o que você observou:</small>'+
+      '<button type="button" class="secondary" '+(push.reportPending?'disabled':'')+
+      ' onclick="merchantPushReportFromUi(\'seen\')">Recebi a notificação</button>'+
+      '<button type="button" class="secondary" '+(push.reportPending?'disabled':'')+
+      ' onclick="merchantPushReportFromUi(\'not_seen\')">Não apareceu</button></div>':'';
   const testInfo=testResult?
     '<div class="merchant-push-diagnostic" role="status" aria-live="polite"><strong>Último teste</strong><div>'+
-    (testResult.providerAccepted
-      ?'O provedor aceitou o envio. Confira se o aviso apareceu no aparelho.'
-      :'O provedor não confirmou o envio. Confira a inscrição e a conexão.')+
-    '</div><small>O servidor não comprova exibição ou leitura no aparelho.</small></div>':'';
+    (report==='seen'?'Você confirmou que o aviso apareceu neste aparelho.':
+     report==='not_seen'?'Você informou que o aviso não apareceu neste aparelho.':
+     testResult.providerAccepted?'O provedor aceitou o envio. Confira se o aviso apareceu no aparelho.':
+     'O provedor não confirmou o envio. Confira a inscrição e a conexão.')+
+    '</div>'+reportButtons+
+    '<small>Relato manual da revenda. O servidor não comprova exibição ou leitura no aparelho.</small></div>':'';
   const diagnostic=device?
     '<div class="merchant-push-diagnostic" role="status" aria-live="polite">'+
     '<strong>Verificação deste aparelho</strong>'+
@@ -678,6 +687,7 @@ function merchantAlertControl(){
         :'O push depende do navegador, da conexão e da entrega pelo provedor. Um aviso não substitui a confirmação do pedido no painel.'
       )+'</small><button type="button" class="secondary" onclick="'+(globalThis.merchantPushStatus?.().subscribed?'merchantPushDisableFromUi()':'merchantPushEnableFromUi()')+'">'+(globalThis.merchantPushStatus?.().subscribed?'Desativar push deste aparelho':globalThis.merchantPushStatus?.().testMode?'Cadastrar aparelho para teste':'Ativar push deste aparelho')+'</button><button type="button" class="secondary" onclick="merchantPushDiagnoseFromUi()">Verificar este aparelho</button>'+
       (push.subscribed?'<button type="button" class="secondary" '+(push.testPending?'disabled':'')+' onclick="merchantPushTestFromUi()">'+(push.testPending?'Enviando teste…':'Enviar notificação de teste')+'</button><small>Teste solicitado por você, no máximo um a cada 3 minutos. Os avisos automáticos continuam desativados.</small>':'')+
+      (push.subscribed?'<button type="button" class="secondary" '+(push.reportPending||push.testPending?'disabled':'')+' onclick="merchantPushLastFromUi()">Consultar último teste</button>':'')+
       testInfo+diagnostic+'</div>'
       :''}
   </div>`;
@@ -2839,6 +2849,18 @@ async function merchantPushTestFromUi(){
     const accepted=await globalThis.merchantPushSelfTestLive();
     if(accepted)toast('Provedor aceitou o teste. Confira o aviso neste aparelho.');
     else toast('Teste sem confirmação do provedor. Confira o painel.');
+  }catch(e){toast(String(e?.message||e))}
+}
+async function merchantPushLastFromUi(){
+  try{
+    const found=await globalThis.merchantPushLatestTestLive();
+    if(!found)toast('Nenhum teste recente encontrado para este aparelho.');
+  }catch(e){toast(String(e?.message||e))}
+}
+async function merchantPushReportFromUi(report){
+  try{
+    const stored=await globalThis.merchantPushReportTestLive(report);
+    if(stored)toast(report==='seen'?'Recebimento informado e registrado.':'Ausência do aviso informada e registrada.');
   }catch(e){toast(String(e?.message||e))}
 }
 async function merchantPushDisableFromUi(){
