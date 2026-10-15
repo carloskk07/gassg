@@ -1102,7 +1102,7 @@ function adminPushReliabilityView(){
   const rows=data.merchants.map(row=>'<tr><td>'+esc(String(row.name||'Revenda'))+
     '</td><td>'+count(row,'devices')+'</td><td>'+count(row,'tests')+
     '</td><td>'+count(row,'providerAccepted')+'</td><td>'+count(row,'reportedSeen')+
-    '</td><td>'+count(row,'reportedNotSeen')+'</td></tr>').join('');
+    '</td><td>'+count(row,'reportedNotSeen')+'</td><td>'+count(row,'reportedWarning')+'</td></tr>').join('');
   return '<section class="section"><div class="section-head"><div>'+
     '<span class="section-kicker">NOTIFICAÇÕES DAS REVENDAS</span>'+
     '<h2>Confiabilidade dos avisos push</h2>'+
@@ -1117,6 +1117,7 @@ function adminPushReliabilityView(){
       '<div class="kpi"><span class="label">Falhas</span><strong>'+count(summary,'providerFailed7d')+'</strong></div>'+
       '<div class="kpi"><span class="label">Avisos vistos, segundo usuários</span><strong>'+count(summary,'reportedSeen7d')+'</strong></div>'+
       '<div class="kpi"><span class="label">Avisos não vistos, segundo usuários</span><strong>'+count(summary,'reportedNotSeen7d')+'</strong></div>'+
+      '<div class="kpi"><span class="label">Chrome sinalizou possível spam</span><strong>'+count(summary,'reportedWarning7d')+'</strong></div>'+
       '<div class="kpi"><span class="label">Aceitos, sem confirmação</span><strong>'+count(summary,'acceptedUnconfirmed7d')+'</strong></div>'+
     '</div>'+
     '<div class="notice"><strong>Envios automáticos: '+
@@ -1128,7 +1129,7 @@ function adminPushReliabilityView(){
     '<div class="card flat"><h3>Revendas com inscrições ou testes recentes</h3>'+
     (rows?'<div style="overflow-x:auto"><table class="data-table"><thead><tr>'+
       '<th>Revenda</th><th>Aparelhos</th><th>Testes</th><th>Aceitos</th>'+
-      '<th>Relatados vistos</th><th>Não vistos</th></tr></thead><tbody>'+rows+'</tbody></table></div>':
+      '<th>Relatados vistos</th><th>Não vistos</th><th>Aviso de spam</th></tr></thead><tbody>'+rows+'</tbody></table></div>':
       '<p>Nenhuma revenda com inscrição ativa ou testes nos últimos sete dias.</p>')+
     '<small>Exibindo até 30 revendas, ordenadas por volume de testes. Dados de usuários e chaves não são apresentados.</small></div></section>';
 }
