@@ -43,7 +43,8 @@ const ctx=vm.createContext({esc,globalThis:{merchantRuntime:rt},
  merchantUpdateProductLive:async(...args)=>{writes.push(args);}
 });
 vm.runInContext([
- take('merchantQuickCatalogCandidates'),take('merchantQuickCatalogView'),
+ take('merchantTimestampFresh'),take('merchantQuickCatalogCandidates'),
+ take('merchantQuickStockAlerts'),take('merchantQuickCatalogView'),
  take('merchantAvailabilityGo'),take('merchantQuickCatalogSave',true)
 ].join('\n')+';this.candidates=merchantQuickCatalogCandidates;this.view=merchantQuickCatalogView;'+
  'this.navigate=merchantAvailabilityGo;this.save=merchantQuickCatalogSave;',ctx);
