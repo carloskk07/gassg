@@ -1709,8 +1709,8 @@ for(const entry of fs.readdirSync(functionRoot,{withFileTypes:true})){
       &&source.includes('repository_id')&&source.includes('repository_owner_id')
       &&source.includes('workflow_ref')&&source.includes('githubMainSha()'),
       'remetente push precisa provar OIDC do GitHub e SHA main');
-    assert.ok(source.includes('MERCHANT_PUSH_SENDER_VERIFIED')
-      &&source.includes('if(!senderConfigured())')
+    assert.ok(source.includes('merchant_push_sender_credentials')
+      &&source.includes('if(!credentials)')
       &&source.includes('merchant_push_claim_due')
       &&source.includes('merchant_push_resolve_delivery'),
       'push deve falhar fechado e usar o ledger transacional');
