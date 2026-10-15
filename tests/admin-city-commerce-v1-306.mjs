@@ -25,6 +25,15 @@ for(const marker of [
  "from public,anon,authenticated",
  "to service_role"
 ])assert.ok(sql.includes(marker),'missing SQL authorization: '+marker);
+assert.ok(sql.includes("CITY_COMMERCE_NOT_AUTHORIZED"));
+assert.ok(sql.includes("mc.commerce_enabled is true and mc.admin_paused is false"));
+assert.ok(sql.includes("join public.postal_code_validation_cache pc"));
+assert.ok(sql.includes("v_city_commerce_authorized boolean:=false"));
+assert.ok(sql.includes("and q.customer_id=p_user_id"));
+assert.ok(sql.includes("return public.create_order_from_quote_v7"));
+assert.ok(sql.indexOf("if found and v_action.completed_at is not null") <
+  sql.indexOf("raise exception 'CITY_COMMERCE_NOT_AUTHORIZED'"),
+  "already-created orders must remain retrievable");
 assert.ok(!sql.includes('update public.platform_launch_control'));
 assert.ok(!sql.includes('update public.merchants'));
 assert.ok(!sql.includes('update public.merchant_payment_methods'));
