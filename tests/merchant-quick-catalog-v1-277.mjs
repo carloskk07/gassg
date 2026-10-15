@@ -17,7 +17,7 @@ const esc=s=>String(s??'').replaceAll('&','&amp;').replaceAll('<','&lt;')
 const original=[
  {productCode:'P13',productName:'GLP P13',active:true,priceCents:11990,availableStock:3,pricingMode:'fixed'},
  {productCode:'AGUA20',productName:'Água 20L <img src=x onerror=alert(1)>',active:true,priceCents:1600,availableStock:0,pricingMode:'fixed'},
- {productCode:'P45',productName:'P45 gás',active:true,priceCents:47000,availableStock:4,pricingMode:'range',
+ {productCode:'P45',productName:'P45 gás',active:true,priceCents:47000,availableStock:2,pricingMode:'range',
   minPriceCents:45000,maxPriceCents:49000,pricingStrategy:'balanced'},
  {productCode:'INACTIVE',active:false,priceCents:3500,availableStock:9},
  {productCode:'bad\' onclick="alert(1)',active:true,priceCents:1000,availableStock:9},
