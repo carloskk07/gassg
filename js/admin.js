@@ -5422,6 +5422,53 @@ function adminCommercialPolicySection(d){
   </section>`;
 }
 
+// V1.300 — one map of existing, enforced administrative authorities.
+// Buttons navigate to real audited workflows; they do not impersonate approval.
+function adminReleaseHub(d){
+  const role=adminCurrentRole();
+  if(!['superadmin','operations','readonly'].includes(role))return '';
+  const pending=(d.applications||[]).filter(x=>x.status==='pending').length;
+  const inactive=(d.merchants||[]).filter(x=>x.status!=='active').length;
+  const incidents=(d.incidents||[]).filter(x=>x.status!=='resolved').length;
+  const canFinance=adminRoleCanSection('finance');
+  const entry=(title,info,section,label,tone='')=>{
+    if(!adminRoleCanSection(section))return '';
+    return '<div class="admin-release-card '+tone+'"><strong>'+esc(title)+'</strong>'+
+      '<p>'+esc(info)+'</p><button type="button" class="secondary small" onclick="adminSetSection(\''+
+      section+'\')">'+esc(label)+' →</button></div>';
+  };
+  const cards=[
+    entry('Revendas e autorizações',
+      pending+' cadastro(s) aguardando avaliação; '+inactive+' revenda(s) ainda sem situação ativa.',
+      'partners','Revisar cadastros'),
+    entry('Cidades e cobertura',
+      'Confira demanda, parceiros e disponibilidade antes de ampliar a operação.',
+      'prospects','Planejar cidades'),
+    entry('Prontidão para vender',
+      'Acompanhe documentos, produtos, entrega e requisitos antes de liberar a operação.',
+      'enablement','Ver habilitações'),
+    entry('Catálogo e categorias',
+      'Valide a oferta e as categorias no painel oficial; o estoque diário continua com cada revenda.',
+      'catalog','Governar catálogo'),
+    canFinance?entry('Pagamentos e benefícios',
+      'Provedores, taxas e políticas financeiras devem passar pelos controles autorizados.',
+      'finance','Abrir financeiro'):'',
+    entry('Serviços e notificações',
+      'Cheque portais, integrações e evidências reais antes de qualquer ativação automática.',
+      'system','Verificar serviços'),
+    entry('Alertas e incidentes',
+      incidents+' incidente(s) não resolvido(s). Falhas exigem acompanhamento.',
+      'incidents','Acompanhar incidentes')
+  ].filter(Boolean).join('');
+  return '<section class="section admin-release-hub" aria-label="Central de decisões e liberações">'+
+    '<div class="section-head"><div><span class="section-kicker">GOVERNANÇA DA PLATAFORMA</span>'+
+    '<h2>Central de decisões e liberações</h2>'+
+    '<p>Encontre as autorizações e verificações de cada área. Cada decisão continua sujeita às permissões do servidor e à auditoria.</p>'+
+    '</div><span class="status-pill risk">CONTROLE ADMINISTRATIVO</span></div>'+
+    '<div class="admin-release-grid">'+cards+'</div>'+
+    '<p class="tiny muted">A revenda organiza sua operação diária. A habilitação comercial, as regras da plataforma e os recursos de risco dependem dos controles administrativos existentes. Atalhos não concedem privilégios.</p>'+
+    '</section>';
+}
 function adminPage(){
   if(!adminPortalRequested()){
     return shell('<section class="page"><div class="notice danger">Administração só está disponível no portal protegido.</div></section>');
@@ -5492,6 +5539,7 @@ function adminPage(){
         ${adminExecutiveKpi({icon:'!',label:'Incidentes',value:String(incidentAttention),detail:incidentAttention?'aberto(s) agora':'nenhum incidente aberto',tone:incidentAttention?'danger':'good'})}
       </div>
     </section>
+    ${adminReleaseHub(d)}
     ${adminAttentionCenter(d)}
     ${currentRole==='superadmin'?adminLaunchControl(d.launchReadiness||{}):''}
     <section class="section admin-secondary-metrics"><div class="section-head"><div><span class="section-kicker">QUALIDADE & RETENÇÃO</span><h2>Indicadores de sustentação</h2></div></div><div class="merchant-kpis">
@@ -5583,6 +5631,7 @@ function adminPage(){
       : '';
 
   const systemContent=`
+    ${adminReleaseHub(d)}
     ${adminPushReliabilityView()}
     ${adminSystemHealthView()}
     ${adminAccessContent}
