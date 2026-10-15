@@ -2232,7 +2232,7 @@ function merchantDailyOverview(rt,orders){
   const id=String(focus.order?.orderId||'');
   const safe=/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(id);
   const label=focus.order?.publicCode?esc(focus.order.publicCode):'Pedido';
-  const action=safe?'<button type="button" class="primary" onclick="merchantFocusOrderNextStep(\\''+id+'\\')">'+
+  const action=safe?'<button type="button" class="primary" onclick="merchantFocusOrderNextStep(\''+id+'\')">'+
     esc(merchantOrderNextStepLabel(focus.order))+' • '+label+'</button>':
     focus.refresh?'<button type="button" class="secondary" onclick="merchantLiveRefresh()">Atualizar pedidos</button>':
     '';
