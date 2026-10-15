@@ -79,3 +79,8 @@ verify_jwt = false
 # inside the handler; sender is gated by verified server-side push readiness.
 [functions.merchant-push-registration]
 verify_jwt = false
+
+# Machine-only Web Push sender; verifies short-lived signed GitHub OIDC JWT,
+# exact main source SHA and workflow identity inside the Edge handler.
+[functions.merchant-push-delivery]
+verify_jwt = false
