@@ -1994,8 +1994,53 @@ function merchantAvailabilityPanel(rt,options){
       '<button type="button" class="secondary small" onclick="merchantAvailabilityGo(\'delivery\')">Ajustar entregas</button></div>':'')+
     '</section>';
 }
+// V1.303: first-use guidance never grants commercial or financial permission.
+function merchantFirstRunModel(rt,canGoOnline){
+  const m=rt?.merchant||{};
+  if(rt?.status!=='ready'||!['owner','manager'].includes(String(m.memberRole||''))||
+     canGoOnline===true)return null;
+  const steps=merchantSetupSnapshot(rt);
+  const pending=steps.filter(step=>!step.done);
+  const diagnostic=rt.enablement?.merchant_id===m.merchantId&&
+    Array.isArray(rt.enablement.checks)?rt.enablement:null;
+  const adminPending=(diagnostic?.checks||[]).filter(x=>x?.ok!==true&&x?.owner==='admin').length;
+  return {steps,pending,next:pending[0]||null,completed:steps.length-pending.length,
+    adminPending,needsAdminApproval:m.status!=='active'||adminPending>0,
+    financialHold:rt.billing?.account?.salesHold===true};
+}
+function merchantFirstRunView(rt,canGoOnline){
+  const model=merchantFirstRunModel(rt,canGoOnline);
+  if(!model)return '';
+  const title=model.financialHold?'Novas vendas aguardam regularização':
+    model.needsAdminApproval?'A liberação depende do TAMÃO':
+    model.next?'Prepare sua revenda para começar':'Verifique o que ainda falta';
+  const lead=model.financialHold
+    ?'Há uma restrição financeira. Consulte os detalhes do financeiro para acompanhar a regularização.'
+    :model.needsAdminApproval
+      ?'Aprovação ou validações da plataforma estão pendentes. Você pode preparar a operação sem liberar vendas por conta própria.'
+      :model.next
+        ?'Revise os dados da empresa para que ela possa ser encontrada pelos clientes elegíveis.'
+        :'Os dados básicos estão preenchidos, mas ainda existem verificações necessárias para operar.';
+  const rows=model.steps.map((step,i)=>'<li class="'+(step.done?'is-done':'is-pending')+'">'+
+    '<span aria-hidden="true">'+(step.done?'✓':String(i+1))+'</span>'+
+    '<div><strong>'+esc(step.title)+'</strong><small>'+esc(step.detail)+'</small></div>'+
+    '<button type="button" class="secondary small" onclick="merchantSetupGo(\''+step.key+'\')">'+
+      (step.done?'Revisar':'Configurar')+'</button></li>').join('');
+  const cta=model.next?
+    '<button type="button" class="primary" onclick="merchantSetupGo(\''+model.next.key+'\')">Continuar por '+esc(model.next.title)+' →</button>':
+    '<button type="button" class="primary" onclick="merchantEnablementRecheck()">Conferir requisitos →</button>';
+  return '<section id="merchant-first-run" class="merchant-first-run" aria-label="Guia para começar a vender">'+
+    '<div class="merchant-first-run-head"><div><span class="section-kicker">PRIMEIROS PASSOS</span>'+
+    '<h2>'+esc(title)+'</h2><p>'+esc(lead)+'</p></div>'+
+    '<span class="merchant-first-run-count">'+model.completed+' de 3 configurados</span></div>'+
+    '<ol class="merchant-first-run-steps">'+rows+'</ol>'+
+    '<div class="merchant-first-run-actions">'+cta+
+    '<button type="button" class="secondary" onclick="merchantWorkspaceJump(\'setup\')">Ver todas as verificações</button></div>'+
+    '<p class="merchant-first-run-note">A configuração não libera vendas automaticamente. Aprovações, módulos estratégicos e autorizações financeiras continuam sob controle administrativo e validação do servidor.</p>'+
+    '</section>';
+}
 function merchantWorkspaceJump(area){
-  const keys={orders:'merchant-live-orders',start:'merchant-workspace-start',growth:'merchant-workspace-growth',
+  const keys={orders:'merchant-live-orders',start:'merchant-workspace-start',setup:'merchant-workspace-setup',growth:'merchant-workspace-growth',
     settings:'merchant-workspace-settings',finance:'merchant-workspace-finance'};
   const id=keys[String(area||'')];
   if(!id)return false;
@@ -2084,6 +2129,12 @@ function merchantLivePage(){
     ${rt.error?`<div class="notice danger" style="margin-top:12px">${esc(rt.error)}</div>`:''}
     ${merchantAvailabilityPanel(rt,{canGoOnline,connectionHealthy,financialHold,freshness,p13,orderCount:orders.length})}
     ${merchantDailyOverview(rt,orders)}
+    ${merchantFirstRunView(rt,canGoOnline)}
+    ${financialHold?'<div class="notice danger" style="margin-top:12px"><strong>Novas vendas suspensas por pendência financeira.</strong><br>Regularize o fechamento vencido. Pedidos já aceitos continuam disponíveis normalmente.</div>':''}
+
+    ${merchantDeliveryBoardView(rt,orders)}
+    <section class="section" id="merchant-live-orders"><div class="section-head"><div><h2>Pedidos que exigem ação</h2><p>Aceite, saída e recebimento só são registrados depois de confirmação no sistema.</p></div></div>${merchantDeliveryAttentionView(rt)}${merchantOrderQueueView(orders)}</section>
+
     <details id="merchant-workspace-start" class="merchant-workspace-section"${!canGoOnline?' open':''}><summary tabindex="0"><span><strong>${canGoOnline?'Produtos e entregas':'Comece por aqui: prepare sua operação'}</strong><small>${canGoOnline?'Atualize estoque, preços e configurações quando precisar.':'Veja as etapas que exigem atenção para sua revenda começar a receber ofertas.'}</small></span></summary><div class="merchant-workspace-content">
       ${merchantDailyChecklistView(rt,{deliveryFresh:freshness.deliveryFresh})}
       ${merchantQuickCatalogView(rt)}
@@ -2091,12 +2142,9 @@ function merchantLivePage(){
       ${complianceNotice}
       ${freshnessNotice}
     </div></details>
-    ${financialHold?'<div class="notice danger" style="margin-top:12px"><strong>Novas vendas suspensas por pendência financeira.</strong><br>Regularize o fechamento vencido. Pedidos já aceitos continuam disponíveis normalmente.</div>':''}
 
-    ${merchantDeliveryBoardView(rt,orders)}
-    <section class="section" id="merchant-live-orders"><div class="section-head"><div><h2>Pedidos que exigem ação</h2><p>Aceite, saída e recebimento só são registrados depois de confirmação no sistema.</p></div></div>${merchantDeliveryAttentionView(rt)}${merchantOrderQueueView(orders)}</section>
 
-    <details id="merchant-workspace-setup" class="merchant-workspace-section"${!canGoOnline?' open':''}><summary tabindex="0"><span><strong>Terminar a configuração para vender</strong><small>Produtos, entrega e recebimento, com as confirmações e habilitações necessárias.</small></span></summary><div class="merchant-workspace-content">
+    <details id="merchant-workspace-setup" class="merchant-workspace-section"><summary tabindex="0"><span><strong>Terminar a configuração para vender</strong><small>Produtos, entrega e recebimento, com as confirmações e habilitações necessárias.</small></span></summary><div class="merchant-workspace-content">
       ${merchantSetupView(rt)}
     </div></details>
     <details id="merchant-workspace-growth" class="merchant-workspace-section"><summary tabindex="0"><span><strong>Vender mais e ampliar sua rede</strong><small>Divulgação, benefícios, parcerias e indicações organizados em um só lugar.</small></span></summary><div class="merchant-workspace-content">
