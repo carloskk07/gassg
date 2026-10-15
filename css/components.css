@@ -2358,15 +2358,26 @@ body:has(.admin-page) .shell{
 .merchant-quick-product-heading{display:flex;justify-content:space-between;align-items:center;gap:9px;flex-wrap:wrap}
 .merchant-quick-product-heading strong{font-size:13px;overflow-wrap:anywhere}
 .merchant-quick-product-heading span{font-size:11px;color:var(--muted)}
-.merchant-quick-product-fields{padding:0;border:0;margin:0;display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr) auto;gap:9px;align-items:end;min-width:0}
+.merchant-quick-product-fields{padding:0;border:0;margin:0;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;align-items:end;min-width:0}
 .merchant-quick-field{display:grid;gap:5px;min-width:0}.merchant-quick-product-fields label{font-size:12px;font-weight:650}
 .merchant-quick-product-fields input{min-width:0;min-height:45px}
-.merchant-quick-product-fields button{min-height:45px}
+.merchant-quick-product-fields>button{grid-column:1 / -1;min-height:46px}
 .merchant-quick-product-fields:disabled{opacity:.65}
 .merchant-quick-product-hint{font-size:11px;line-height:1.5;color:var(--muted)}
 .merchant-quick-catalog-content>button{justify-self:start;min-height:44px}
-@media(max-width:600px){.merchant-quick-product-fields{grid-template-columns:minmax(0,1fr) minmax(0,1fr)}.merchant-quick-product-fields button{grid-column:1 / -1;width:100%}.merchant-quick-product{padding:11px}.merchant-quick-catalog-content{padding:0 11px 12px}}
-@media(max-width:340px){.merchant-quick-product-fields{grid-template-columns:minmax(0,1fr)}.merchant-quick-product-fields button{grid-column:1}.merchant-quick-catalog>summary{padding:12px}}
+@media(max-width:600px){.merchant-quick-product-fields{grid-template-columns:minmax(0,1fr) minmax(0,1fr)}.merchant-quick-product-fields>button{width:100%}.merchant-quick-product{padding:11px}.merchant-quick-catalog-content{padding:0 11px 12px}}
+@media(max-width:340px){.merchant-quick-product-fields{grid-template-columns:minmax(0,1fr)}.merchant-quick-product-fields>button{grid-column:1}.merchant-quick-catalog>summary{padding:12px}}
+/* V1.278 — stock warning, explicit unsaved changes and thumb-friendly replenishment. */
+.merchant-quick-stock-warning{font-size:12px;color:#8f5425;line-height:1.4}
+.merchant-quick-price-warning{font-size:12px;color:#8c592c;line-height:1.5}
+.merchant-quick-attention{padding:10px 12px;border:1px solid #e9ddc5;border-radius:10px;background:#fffaf1;color:#6b4c25!important}
+.merchant-quick-stepper{grid-column:1 / -1;display:flex;gap:9px;flex-wrap:wrap}
+.merchant-quick-stepper>button{flex:1 1 70px;min-width:0;min-height:46px;border:1px solid #bbd4c3;border-radius:10px;background:#fff;color:#225c40;font:inherit;font-weight:750;cursor:pointer}
+.merchant-quick-stepper>button:hover{background:#f1f8f3}
+.merchant-quick-stepper>button:focus-visible{outline:3px solid #c99b49;outline-offset:2px}
+.merchant-quick-feedback{grid-column:1 / -1;min-height:18px;font-size:11px;line-height:1.5;color:var(--muted)}
+.merchant-quick-catalog>summary span{overflow-wrap:anywhere}
+@media(max-width:340px){.merchant-quick-stepper>button{min-height:50px;flex-basis:62px}}
 /* V1.175 — a clear, human assignment step, no automatic driver selection */
 .merchant-delivery-reminders{margin:14px 0 18px;padding:15px;border:1px solid #e7d6bb;border-radius:16px;background:#fffbf4;min-width:0}
 .merchant-delivery-reminders-title{display:grid;gap:4px}
