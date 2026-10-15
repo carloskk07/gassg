@@ -1864,8 +1864,9 @@ function merchantOrderQueueView(orders,emptyCopy='Nenhum pedido ativo para esta 
     // Never tuck away offers, incidents, pending-arrival confirmation or
     // imminent/overdue deadlines. Only routine overflow is collapsed.
     const compact=['delivery','preparing'].includes(group.key)&&sorted.length>5;
-    const visible=compact?sorted.filter((order,i)=>i<3||order.status==='ARRIVING'||Boolean(merchantOrderAttention(order))):sorted;
-    const hidden=compact?sorted.filter(order=>!visible.includes(order)):[];
+    const isVisible=(order,i)=>i<3||order.status==='ARRIVING'||Boolean(merchantOrderAttention(order));
+    const visible=compact?sorted.filter(isVisible):sorted;
+    const hidden=compact?sorted.filter((order,i)=>!isVisible(order,i)):[];
     const overflow=hidden.length?
       '<details class="merchant-order-queue-overflow"><summary>Ver mais '+hidden.length+
       ' pedido(s) nesta etapa</summary><div class="merchant-order-queue-overflow-body">'+
