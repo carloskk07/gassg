@@ -658,6 +658,7 @@ function merchantAlertControl(){
     health.latestFailureCode==='GATEWAY_REJECTED'?'O serviço rejeitou o envio. Confira a inscrição e repita o teste após o intervalo.':
     ['GATEWAY_UNAVAILABLE','NETWORK_ERROR','PUSH_TEST_FAILED'].includes(health.latestFailureCode)
       ?'O envio encontrou uma falha temporária. Confira a conexão e teste mais tarde.':
+    health.latestReport==='spam_warning'?'Você informou que o Chrome exibiu um aviso de possível spam. Use Mostrar notificação, Sempre mostrar e Marcar como seguro, se disponíveis.':
     health.latestReport==='not_seen'?'O provedor aceitou, mas você informou que o aviso não apareceu. Confira notificações do sistema, economia de bateria e modo Não Perturbe.':
     health.latestReport==='seen'?'Você registrou o recebimento de um teste. Repita com o PWA fechado para conferir seu aparelho.':
     health.latestState==='provider_accepted'?'O provedor aceitou o último envio, mas a exibição não foi confirmada. Confira o aviso no aparelho.':
@@ -669,7 +670,7 @@ function merchantAlertControl(){
     '<div>Tentativas: '+esc(health.tests)+' · Aceitas pelo provedor: '+esc(health.providerAccepted)+
     ' · Falhas: '+esc(health.providerFailed)+'</div>'+
     '<div>Você informou recebimento: '+esc(health.reportedSeen)+
-    ' · Não apareceu: '+esc(health.reportedNotSeen)+'</div>'+
+    ' · Não apareceu: '+esc(health.reportedNotSeen)+' · Aviso de spam: '+esc(health.reportedWarning||0)+'</div>'+
     '<small>Aceite pelo provedor e relatos manuais não garantem entrega de avisos futuros.</small></div>':'';
   const adviceInfo=device?
     '<div class="merchant-push-diagnostic" role="status" aria-live="polite"><strong>Próximo passo recomendado</strong><div>'+esc(advice)+'</div></div>':'';
@@ -679,14 +680,25 @@ function merchantAlertControl(){
       '<button type="button" class="secondary" '+(push.reportPending?'disabled':'')+
       ' onclick="merchantPushReportFromUi(\'seen\')">Recebi a notificação</button>'+
       '<button type="button" class="secondary" '+(push.reportPending?'disabled':'')+
-      ' onclick="merchantPushReportFromUi(\'not_seen\')">Não apareceu</button></div>':'';
+      ' onclick="merchantPushReportFromUi(\'not_seen\')">Não apareceu</button>'+
+      '<button type="button" class="secondary" '+(push.reportPending?'disabled':'')+
+      ' onclick="merchantPushReportFromUi(\'spam_warning\')">Apareceu com aviso de possível spam</button></div>':'';
+  const fixWarning=testResult?.providerAccepted&&testResult?.runId&&
+    ['seen','not_seen'].includes(report)?
+    '<button type="button" class="secondary" '+(push.reportPending?'disabled':'')+
+      ' onclick="merchantPushCorrectChromeWarningFromUi()">Na verdade, apareceu com aviso do Chrome</button>':'';
+  const chromeAdvice='<div class="merchant-push-diagnostic">'+
+    '<strong>Chrome exibiu “possível spam”?</strong>'+
+    '<div>Se você reconhece o teste TAMÃO: toque em Mostrar notificação, depois Sempre mostrar e Marcar como seguro, quando o Chrome oferecer essas opções. Não é necessário desativar a proteção antispam geral.</div>'+
+    '<small>O Chrome controla essa classificação; o TAMÃO não consegue removê-la automaticamente.</small></div>';
   const testInfo=testResult?
     '<div class="merchant-push-diagnostic" role="status" aria-live="polite"><strong>Último teste</strong><div>'+
     (report==='seen'?'Você confirmou que o aviso apareceu neste aparelho.':
      report==='not_seen'?'Você informou que o aviso não apareceu neste aparelho.':
+     report==='spam_warning'?'Você informou que o Chrome mostrou um aviso de possível spam antes da notificação.':
      testResult.providerAccepted?'O provedor aceitou o envio. Confira se o aviso apareceu no aparelho.':
      'O provedor não confirmou o envio. Confira a inscrição e a conexão.')+
-    '</div>'+reportButtons+
+    '</div>'+reportButtons+fixWarning+chromeAdvice+
     '<small>Relato manual da revenda. O servidor não comprova exibição ou leitura no aparelho.</small></div>':'';
   const diagnostic=device?
     '<div class="merchant-push-diagnostic" role="status" aria-live="polite">'+
@@ -2892,8 +2904,14 @@ async function merchantPushLastFromUi(){
 async function merchantPushReportFromUi(report){
   try{
     const stored=await globalThis.merchantPushReportTestLive(report);
-    if(stored)toast(report==='seen'?'Recebimento informado e registrado.':'Ausência do aviso informada e registrada.');
+    if(stored)toast(report==='spam_warning'?'Aviso do Chrome registrado. Confira a opção Marcar como seguro.':report==='seen'?'Recebimento informado e registrado.':'Ausência do aviso informada e registrada.');
   }catch(e){toast(String(e?.message||e))}
+}
+async function merchantPushCorrectChromeWarningFromUi(){
+  try{
+    const recorded=await globalThis.merchantPushCorrectChromeWarningLive();
+    if(recorded)toast('Correção registrada: a notificação apareceu com aviso do Chrome.');
+  }catch(e){toast(globalThis.merchantPushFriendlyError(e))}
 }
 async function merchantPushDisableFromUi(){
   try{await globalThis.merchantPushDisableLive();toast('Push desativado neste aparelho.');}
