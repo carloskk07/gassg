@@ -117,7 +117,7 @@ Deno.serve(async(req:Request)=>{
     const merchantId=String(body.merchantId??"");
     const action=String(body.action??"");
     if(!UUID_RE.test(merchantId))throw new DomainError("INVALID_MERCHANT","Revenda inválida.",400);
-    if(!["ads-receivable","ads-instrument","ads-dossier","ads-offer","ads-campaign","ads-interest","clube-interest","clube-terms","business-pulse","growth-network","enablement","heartbeat","set-online","update-product","catalog-history","update-logistics","update-capacity","update-scheduling","update-payment-methods","update-payment-routes","update-member-profile","request-billing-package","notify-billing-payment","notify-refund-recovery-payment","cancel-billing-request"].includes(action)){
+    if(!["ads-psp","ads-receivable","ads-instrument","ads-dossier","ads-offer","ads-campaign","ads-interest","clube-interest","clube-terms","business-pulse","growth-network","enablement","heartbeat","set-online","update-product","catalog-history","update-logistics","update-capacity","update-scheduling","update-payment-methods","update-payment-routes","update-member-profile","request-billing-package","notify-billing-payment","notify-refund-recovery-payment","cancel-billing-request"].includes(action)){
       throw new DomainError("INVALID_ACTION","Ação inválida.",400);
     }
 
@@ -134,6 +134,23 @@ Deno.serve(async(req:Request)=>{
     if(!membership)throw new DomainError("MERCHANT_ACCESS_DENIED","Você não possui acesso a esta revenda.",403);
 
     const role=membership.member_role;
+    if(action==="ads-psp"){
+      if(!["owner","manager"].includes(String(role))||body.operation!=="view")
+        throw new DomainError("ADS_PSP_VIEW_DENIED","Consulta de checkout restrita à gestão da revenda.",403);
+      const {data,error}=await admin.rpc("merchant_ads_psp_view_v1_314",{
+        p_actor:user.id,p_merchant:merchantId
+      });
+      if(error)throw error;
+      if(data?.source!=="merchant_ads_psp_view_v1_314"||data.merchantId!==merchantId||
+        data.readOnly!==true||data.adsLive!==false||data.merchantBillingSeparate!==true||
+        (data.checkout!==null&&(!["reserved","checkout_ready","payment_approved","payment_reversed"].includes(data.checkout?.status)||
+          !Number.isSafeInteger(data.checkout.amountCents)||
+          data.checkout.amountCents<1000||
+          (data.checkout.checkoutUrl!==null&&
+            !/^https:\/\/(www\.)?mercadopago\.com(\.br)?\//.test(data.checkout.checkoutUrl)))))
+        throw new DomainError("ADS_PSP_VIEW_UNVERIFIED","Checkout não confirmado no servidor.",503);
+      return json(data,200,origin);
+    }
     if(action==="ads-receivable"){
       if(!["owner","manager"].includes(String(role)))
         throw new DomainError("MERCHANT_ACCESS_DENIED","Cobrança comercial restrita à gestão.",403);
