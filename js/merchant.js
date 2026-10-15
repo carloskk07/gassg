@@ -2096,6 +2096,9 @@ function merchantLivePage(){
     ${merchantDeliveryBoardView(rt,orders)}
     <section class="section" id="merchant-live-orders"><div class="section-head"><div><h2>Pedidos que exigem ação</h2><p>Aceite, saída e recebimento só são registrados depois de confirmação no sistema.</p></div></div>${merchantDeliveryAttentionView(rt)}${merchantOrderQueueView(orders)}</section>
 
+    <details id="merchant-workspace-setup" class="merchant-workspace-section"${!canGoOnline?' open':''}><summary tabindex="0"><span><strong>Terminar a configuração para vender</strong><small>Produtos, entrega e recebimento, com as confirmações e habilitações necessárias.</small></span></summary><div class="merchant-workspace-content">
+      ${merchantSetupView(rt)}
+    </div></details>
     <details id="merchant-workspace-growth" class="merchant-workspace-section"><summary tabindex="0"><span><strong>Vender mais e ampliar sua rede</strong><small>Divulgação, benefícios, parcerias e indicações organizados em um só lugar.</small></span></summary><div class="merchant-workspace-content">
       ${merchantAdsInterestSection(m)}
       ${merchantClubeInterestSection(m)}
@@ -2119,7 +2122,6 @@ function merchantLivePage(){
 
     <details id="merchant-workspace-settings" class="merchant-workspace-section"><summary tabindex="0"><span><strong>Minha revenda e configurações</strong><small>Notificações, equipe, documentos e preferências de operação.</small></span></summary><div class="merchant-workspace-content">
       ${merchantAlertControl()}
-      ${merchantSetupView(rt)}
     <details class="merchant-diagnostic-drawer"><summary>Verificações de documentos e habilitação</summary>
       ${merchantEnablementAssistantView(rt)}
     </details>
