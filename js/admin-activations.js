@@ -24,7 +24,8 @@ async function adminActivationLoad({force=false}={}){
       ['adsMpTriage','ads-mp-triage-read','admin_ads_mp_triage_v1_317'],
       ['adsPspFreshness','ads-psp-freshness-read','admin_ads_psp_freshness_v1_318'],
       ['adsPspMerchantReviews','ads-psp-merchant-reviews','admin_ads_psp_review_requests_v1_319'],
-      ['adsLaunch','ads-launch-readiness','admin_ads_launch_readiness_v1_320']
+      ['adsLaunch','ads-launch-readiness','admin_ads_launch_readiness_v1_320'],
+      ['adsLeads','ads-leads-read','admin_ads_leads_v1_322']
     ];
     const values=await Promise.allSettled([
       ...specs.map(([,action])=>adminInvoke({action})),
@@ -38,6 +39,15 @@ async function adminActivationLoad({force=false}={}){
       const safe=d?.source===source&&(
         key==='ads'?d.readOnly===true&&d.publicEnabled===false&&d.billingEnabled===false&&d.readyToSell===false:
         key==='adsQueue'?d.noCharge===true&&d.adsLive===false:
+        key==='adsLeads'?d.readOnly===true&&d.contactPerformed===false&&
+          d.notificationSent===false&&d.paymentCreated===false&&d.adsLive===false&&
+          d.noAutomaticOutreach===true&&Number.isSafeInteger(d.totalOptedIn)&&
+          Number.isSafeInteger(d.creativeApproved)&&Number.isSafeInteger(d.preparingCreative)&&
+          d.creativeApproved<=d.totalOptedIn&&d.preparingCreative<=d.totalOptedIn&&
+          Array.isArray(d.rows)&&d.rows.length<=50&&d.rows.every(x=>
+            /^[0-9a-f-]{36}$/i.test(String(x.merchantId))&&
+            typeof x.merchantName==='string'&&Number.isSafeInteger(x.matchingActiveCatalogCount)&&
+            x.contactPerformed===false&&x.marketingConsentInferred===false):
         key==='adsLaunch'?d.readOnly===true&&d.noAutomaticActivation===true&&
           d.merchantBillingSeparate===true&&d.providerLookupPerformed===false&&
           d.publicAdsVerified===false&&d.verifiedRevenueCents===null&&
@@ -136,7 +146,7 @@ async function adminActivationLoad({force=false}={}){
         d.readOnly===true&&d.couponSalesEnabled===false&&d.noContractsSigned===true);
       evidence[key]=safe?d:null;
     });
-    const governance=values[16].status==='fulfilled'?values[16].value:null;
+    const governance=values[17].status==='fulfilled'?values[17].value:null;
     evidence.governance=governance?.source==='admin_governance_gates_v1_304'&&governance.readOnly===true&&
       adminRuntime.governance?.loadedFor===actor&&adminRuntime.governance?.role===role?governance:null;
     const push=adminRuntime.pushReliability||{};
@@ -226,7 +236,7 @@ function adminActivationDeskView(d){
     '<p class="tiny muted">Última consulta: '+
     esc(current?formatDateTime(adminActivationDesk.checkedAt):'não confirmada')+
     '. Uma falha na consulta é mostrada como “Não confirmado”, nunca como recurso desligado.</p>'+
-    '<div class="admin-activation-grid">'+cards+'</div>'+adminAdsLaunchReadinessView()+adminMarketingIntakeView()+adminAdsSalesPlansView()+adminAdsDossiersView()+adminAdsInstrumentsView()+adminAdsReceivablesView()+adminAdsPspView()+adminAdsMpInboxView()+adminAdsMpTriageView()+adminAdsPspFreshnessView()+adminAdsPspMerchantReviewsView()+
+    '<div class="admin-activation-grid">'+cards+'</div>'+adminAdsLaunchReadinessView()+adminAdsLeadsView()+adminMarketingIntakeView()+adminAdsSalesPlansView()+adminAdsDossiersView()+adminAdsInstrumentsView()+adminAdsReceivablesView()+adminAdsPspView()+adminAdsMpInboxView()+adminAdsMpTriageView()+adminAdsPspFreshnessView()+adminAdsPspMerchantReviewsView()+
     '<p class="tiny muted">Publicidade pública, vendas de cupons e automação de avisos exigem homologação e gates reais no servidor. Nenhum controle desta página contorna esses requisitos.</p></section>';
 }
 
@@ -1144,4 +1154,49 @@ function adminAdsLaunchReadinessView(){
   '<p class="tiny muted">Fotografia do banco: '+esc(String(d.snapshotAt))+
   ' • Sem consulta ao Mercado Pago nesta ação. Para publicar Ads é necessária validação independente da entrega e autorização administrativa.</p>'+
   '</section>';
+}
+
+
+// TAMÃO V1.322 — opt-in commercial funnel. Read only: no outreach is inferred or sent.
+function adminAdsLeadsView(){
+ if(!adminRoleCanSection('activations'))return '';
+ const actor=String(adminRuntime.session?.user?.id||''),role=adminCurrentRole();
+ const fresh=adminActivationDesk.actor===actor&&adminActivationDesk.role===role&&
+    Date.now()-Date.parse(adminActivationDesk.checkedAt||'')<120000;
+ const d=fresh?adminActivationDesk.data?.adsLeads:null;
+ const labels={
+   approved_for_planning:['Apresentação aprovada','Preparar proposta comercial individual'],
+   draft_ready_to_submit:['Rascunho pronto','Orientar a revenda a enviar para revisão'],
+   awaiting_review:['Aguardando análise','Conferir a fila real de criativos'],
+   needs_creative_changes:['Ajustes solicitados','A revenda precisa revisar a apresentação'],
+   needs_creative:['Início da divulgação','A revenda pode preparar seu primeiro rascunho'],
+   catalog_not_ready:['Catálogo pendente','Revisar produtos e disponibilidade para entrega'],
+   city_changed:['Cidade alterada','Revisar cidade/UF do criativo'],
+   location_incomplete:['Dados incompletos','Completar cidade e UF da revenda'],
+   merchant_inactive:['Cadastro inativo','Concluir habilitação antes de negociar publicidade']
+ };
+ const rows=(d?.rows||[]).map(x=>{
+   const label=labels[x.stage]||['Verificar situação','Consultar cadastro'];
+   const place=[x.city,x.state].filter(Boolean).join(' / ')||'Localidade não confirmada';
+   return '<article class="admin-activation-card admin-ads-lead">'+
+     '<div class="admin-activation-card-head"><strong>'+esc(x.merchantName)+
+     '</strong><span class="status-pill">'+esc(label[0])+'</span></div>'+
+     '<p class="tiny muted">'+esc(place)+' • '+Number(x.matchingActiveCatalogCount)+
+     ' produto(s) ativos compatíveis</p>'+
+     '<p><strong>Próximo passo:</strong> '+esc(label[1])+'</p>'+
+     '<p class="tiny muted">Interesse registrado em '+esc(String(x.interestAt||'data não confirmada'))+
+     '. Não houve contato por esta consulta.</p>'+
+     '</article>';
+ }).join('');
+ return '<section class="section admin-ads-leads" aria-label="Revendas interessadas em publicidade">'+
+   '<div class="section-head"><div><span class="section-kicker">V1.322 • AQUISIÇÃO COMERCIAL REAL</span>'+
+   '<h2>Quem está pronto para começar a anunciar?</h2>'+
+   '<p>Priorize revendas que demonstraram interesse em divulgação, com o próximo passo baseado no cadastro, catálogo e criativo reais.</p></div></div>'+
+   (d?'<div class="admin-ads-lead-kpis">'+
+     '<div><strong>'+Number(d.totalOptedIn)+'</strong><span>Revendas com interesse</span></div>'+
+     '<div><strong>'+Number(d.creativeApproved)+'</strong><span>Apresentações aprovadas</span></div>'+
+     '<div><strong>'+Number(d.preparingCreative)+'</strong><span>Preparando apresentação</span></div></div>':
+     '<p class="muted">A consulta ao servidor ainda não foi confirmada. Atualize a Central de Ativações.</p>')+
+   '<div class="admin-activation-grid">'+(rows||'<p class="muted">Ainda não há revendas com interesse em publicidade registrado. Oriente as revendas a utilizar o guia de divulgação disponível em seus painéis.</p>')+'</div>'+
+   '<p class="tiny muted">Somente interesse declarado nesta funcionalidade. Não pressupõe autorização de marketing direto, não envia mensagens, não aprova anúncios nem cria receita. Exibidas até 50 revendas priorizadas; total apurado separadamente.</p></section>';
 }
