@@ -59,8 +59,6 @@ Deno.serve(async(req:Request)=>{
   return json({error:"PAYMENT_ID_INVALID"},400);
  const topic=String(body?.type||"").toLowerCase();
  const action=String(body?.action||"").toLowerCase();
- if(topic!=="payment"&&!action.startsWith("payment."))
-  return json({ok:true,recorded:false,reason:"not_payment"});
  const header=String(req.headers.get("x-signature")||"");
  const ts=header.split(",").map(x=>x.trim()).find(x=>x.startsWith("ts="))?.slice(3)||"";
  if(!recentTimestamp(ts))return json({error:"WEBHOOK_TIMESTAMP_INVALID"},401);
@@ -68,6 +66,8 @@ Deno.serve(async(req:Request)=>{
  if(!valid)return json({error:"WEBHOOK_SIGNATURE_INVALID"},401);
  const requestId=String(req.headers.get("x-request-id")||"");
  if(!requestId||requestId.length>180)return json({error:"WEBHOOK_REQUEST_INVALID"},401);
+ if(topic!=="payment"&&!action.startsWith("payment."))
+  return json({ok:true,recorded:false,reason:"not_payment"});
  try{
   const response=await mercadoPagoFetch("/v1/payments/"+paymentId,{accessToken:token});
   if(!response.ok)return json({error:"PROVIDER_LOOKUP_UNAVAILABLE"},503);
