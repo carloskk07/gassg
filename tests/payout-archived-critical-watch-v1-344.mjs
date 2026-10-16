@@ -57,6 +57,8 @@ const record=(n,other={})=>({
   reportedAt:'2026-10-13T12:00:00Z',
   lastReviewAt:'2026-10-16T13:00:00Z',
   rewardReversedAt:'2026-10-15T12:00:00Z',
+  firstProviderSuccessObservedAt:'2026-10-14T12:00:00Z',
+  successObservedBeforeOrAtReversal:true,
   voided:false,archiveReason:'closed_administrative',
   reviewState:'closed_administrative',
   historicalProviderSuccessObserved:true,...other
@@ -68,9 +70,14 @@ const sample={
   bankSettlementVerified:false,recipientVerified:false,
   moneyMoved:false,providerObservationIsBankProof:false,
   totalClaims:2,closedUnvoidedClaims:1,voidedClaims:1,
+  firstSuccessObservedBeforeOrAtReversalClaims:1,
+  firstSuccessObservedAfterReversalClaims:1,
+  observationChronologyV1345:true,
   reportedAmountCents:600,
   limit:30,pageOffset:0,pageLimit:30,hasPrevious:false,hasMore:false,
-  rows:[record(1),record(2,{voided:true,archiveReason:'voided',reviewState:'not_started',lastReviewAt:null})]
+  rows:[record(1),record(2,{voided:true,archiveReason:'voided',reviewState:'not_started',lastReviewAt:null,
+    firstProviderSuccessObservedAt:'2026-10-16T12:00:00Z',
+    successObservedBeforeOrAtReversal:false})]
 };
 const actor=id(500);
 let role='superadmin',next=sample,calls=[],toasts=[],refreshes=0;
@@ -98,6 +105,7 @@ let html=ctx.adminPayoutArchivedCriticalSection();
 for(const t of ['Exceções críticas com histórico preservado',
  'Revisão encerrada administrativamente','Declaração anulada',
  'R$ 6.00','Consultar histórico administrativo',
+ 'Primeiro sucesso observado somente depois da reversão',
  'não confirmam pagamento bancário','History test'])
  assert.ok(html.includes(t),'UI must show '+t);
 assert.ok(html.indexOf(id(1))<html.indexOf(id(2)));
