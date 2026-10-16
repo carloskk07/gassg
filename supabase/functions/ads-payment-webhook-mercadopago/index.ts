@@ -20,7 +20,7 @@ function json(payload:unknown,status=200){
  }});
 }
 function recentTimestamp(value:string){
- if(!/^\\d{10,13}$/.test(value))return false;
+ if(!/^\d{10,13}$/.test(value))return false;
  const n=Number(value);
  const ms=value.length===13?n:n*1000;
  return Number.isSafeInteger(ms)&&Math.abs(Date.now()-ms)<=15*60*1000;
