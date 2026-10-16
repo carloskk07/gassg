@@ -490,10 +490,26 @@ function merchantsLanding(){
   const initial=merchantMarginExample({salePrice:referenceTicket,orders:50});
 
   return shell(`<section class="page merchant-landing">
+    <div class="merchant-landing-premium"><div class="merchant-landing-premium-copy">
     <span class="eyebrow">VENDA PELO TAMÃO</span>
     <h1 class="page-title">Sua revenda, mais fácil de encontrar. <span class="headline-accent">Seu negócio, sempre nas suas mãos.</span></h1>
     <p class="muted page-lead">Faça do TAMÃO mais um canal para quem procura gás, água e essenciais na sua região. Prepare seu catálogo, organize pedidos e continue atendendo pelo balcão, telefone e WhatsApp. <strong>Você decide preços, estoque, formas de pagamento, disponibilidade e entrega.</strong></p>
     <div class="conversion-mini-proof"><span>✓ Sem exclusividade</span><span>✓ Recebimento direto na revenda</span><span>✓ Você decide quando ficar online</span></div>
+        <div class="hero-actions merchant-hero-actions">
+      <button class="primary" onclick="${cta}">${internalPilot?ctaLabel:'Quero levar minha empresa ao TAMÃO →'}</button>
+      <button class="secondary" onclick="document.getElementById('merchant-margin')?.scrollIntoView({behavior:'smooth'})">Ver quanto custa vender</button>
+    </div>
+    </div>
+    <aside class="merchant-landing-premium-visual" aria-label="Recursos para organizar o dia a dia da revenda">
+      <span class="merchant-visual-kicker">SEU NEGÓCIO. SUA ROTINA.</span>
+      <h2>Mais organização.<br><em>Mais possibilidades.</em></h2>
+      <div class="merchant-visual-list">
+        <div><span aria-hidden="true">📦</span><p><strong>Pedidos em um só lugar</strong><small>Veja as etapas que pedem sua atenção.</small></p></div>
+        <div><span aria-hidden="true">🧺</span><p><strong>Catálogo sob controle</strong><small>Preços, produtos e estoque definidos por você.</small></p></div>
+        <div><span aria-hidden="true">🤝</span><p><strong>Rede que aproxima</strong><small>Compartilhe e apresente sua revenda.</small></p></div>
+      </div>
+      <p class="merchant-visual-disclaimer">Visão ilustrativa dos recursos. Pedidos dependem da habilitação e da disponibilidade da sua operação.</p>
+    </aside></div>
 
     <div class="tamao-cro-steps merchant-cro-steps" aria-label="Como começar a vender pelo TAMÃO">
       <div><span>01</span><strong>Apresente sua revenda</strong><small>Cadastre a empresa e seu contato em poucos passos.</small></div>
@@ -507,10 +523,7 @@ function merchantsLanding(){
 
     ${internalPilot?`<div class="notice success" style="margin-top:14px"><strong>Você está no laboratório interno do TAMÃO.</strong><br>Abra o painel da Gas e Lenheira do JR, simule pedidos e veja a operação antes de qualquer cadastro real.</div>`:''}
 
-    <div class="hero-actions merchant-hero-actions">
-      <button class="primary" onclick="${cta}">${internalPilot?ctaLabel:'Quero levar minha empresa ao TAMÃO →'}</button>
-      <button class="secondary" onclick="document.getElementById('merchant-margin')?.scrollIntoView({behavior:'smooth'})">Ver quanto custa vender</button>
-    </div>
+
 
     ${internalPilot?'':prelaunchMerchantLeadSection()}
 
