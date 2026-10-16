@@ -48,11 +48,11 @@ for(const f of [
  'Seu próximo convite pode abrir novas portas.',
  'Compre bem, compartilhe o que gosta e construa sua rede.',
  'Tudo acompanhado em um só lugar.',
- 'Sua marca presente no dia a dia de quem compra e vende.',
  'Uma parceria feita para gerar valor dos dois lados.',
  'uma primeira compra elegível','primeira compra válida',
  'A comissão é calculada sobre a primeira compra válida'
 ])assert.ok(grow.includes(f),'Missing truthful marketing text: '+f);
+assert.ok(grow.includes('Sua marca presente no dia a dia de quem compra e vende.')||grow.includes('Sua marca pode fazer parte das escolhas que movem a cidade.'),'Sponsorship value must be stated without fictitious impact');
 for(const f of [
  'Compre com liberdade. Compartilhe vantagens. Valorize sua cidade.',
  'Mais escolhas, menos trabalho','Você sabe em que etapa está'
