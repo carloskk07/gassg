@@ -1686,6 +1686,23 @@ for(const entry of fs.readdirSync(functionRoot,{withFileTypes:true})){
     assert.ok(source.includes('WOOVI_WEBHOOK_AUTHORIZATION')&&source.includes('constantTimeEqual(authorization,expectedAuthorization)'),entry.name+' precisa exigir token privado do webhook');
     assert.ok(source.includes('WOOVI_COMPANY_ID')&&source.includes('WOOVI_COMPANY_MISMATCH'),entry.name+' precisa vincular a entrega à empresa configurada');
     assert.ok(source.includes('OPENPIX:TRANSACTION_RECEIVED')&&source.includes('ingest_merchant_billing_payment_event'),entry.name+' precisa aceitar apenas Pix recebido e delegar ao matcher server-only');
+  }else if(entry.name==='ads-payment-webhook-mercadopago'){
+    assert.ok(source.includes('req.method!=="POST"')&&source.includes('MAX_BODY=16384')
+      &&source.includes('new TextEncoder().encode(raw).byteLength>MAX_BODY'),
+      entry.name+' precisa limitar método, JSON e bytes do webhook');
+    assert.ok(source.includes('ADS_MP_WEBHOOK_ENABLED')&&source.includes('ADS_MP_WEBHOOK_SECRET')
+      &&source.includes('recentTimestamp(ts)')&&
+      source.includes('verifyMercadoPagoWebhook(req,signatureSecret,paymentId)'),
+      entry.name+' exige ativação explícita, HMAC e janela temporal');
+    assert.ok(source.includes('mercadoPagoFetch("/v1/payments/"+paymentId')
+      &&source.includes('collectorId!==sellerId')
+      &&source.includes('amount<1000||amount>5000000')
+      &&source.includes('admin')===false,
+      entry.name+' exige consulta do pagamento e identidade da conta TAMÃO sem usar admin de usuário');
+    assert.ok(source.includes('client.rpc("ads_mp_inbox_record_v1_316"')
+      &&!source.includes('admin_ads_psp_action_v1_314')
+      &&!source.includes('checkout/preferences'),
+      entry.name+' apenas registra eventos privados, nunca confirma pagamento ou cria cobrança');
   }else if(entry.name==='billing-payment-webhook-mercadopago'){
     assert.ok(source.includes('MAX_BODY_BYTES=65536')&&source.includes('TextEncoder().encode(raw).byteLength>MAX_BODY_BYTES'),entry.name+' precisa limitar o corpo bruto antes do parse');
     assert.ok(source.includes('verifyMercadoPagoWebhook(req,webhookSecret,dataId)')&&source.includes('INVALID_MERCADOPAGO_SIGNATURE'),entry.name+' precisa autenticar o ingresso por HMAC antes do roteamento financeiro');
