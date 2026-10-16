@@ -405,8 +405,11 @@ async function backendInit(){
     await liveSyncFinancialProfile();
     try{await liveSyncMarketStatus({force:true})}
     catch(e){console.warn('Estado do mercado real indisponível',e)}
-    try{await liveRefreshCityPriceBoard({force:true})}
-    catch(e){console.warn('Vitrine regional aguardando preços verificados',e)}
+    // Do not hold the initial public render while waiting for optional price
+    // aggregation. Verified facts replace references as soon as they arrive.
+    liveRefreshCityPriceBoard({force:true})
+      .then(data=>{if(data&&route()==='home')render()})
+      .catch(e=>console.warn('Vitrine regional aguardando preços verificados',e));
 
     if(liveRuntime.orderId){
       try{await liveGetOrder(liveRuntime.orderId,{silent:true})}
