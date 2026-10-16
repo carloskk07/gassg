@@ -2106,6 +2106,26 @@ async function merchantSelectLive(merchantId){
   await merchantRefresh();
 }
 
+// V1.330: an acknowledged server mutation is independent of the follow-up
+// merchant-orders read. Never offer stale action buttons if that read fails.
+async function merchantRefreshAfterConfirmedMutation(){
+  try{
+    const snapshot=await merchantRefresh({silent:true});
+    // merchantRefresh can finish after a newer refresh and return a discarded
+    // snapshot. Require this exact snapshot to have been applied to the UI.
+    if(merchantRuntime.status==='ready'
+      &&snapshot?.merchant
+      &&Array.isArray(snapshot.orders)
+      &&merchantRuntime.merchant===snapshot.merchant
+      &&merchantRuntime.orders===snapshot.orders)return true;
+  }catch{}
+  merchantRuntime.orders=[];
+  if(['no-access','unauthenticated'].includes(merchantRuntime.status))return false;
+  merchantRuntime.status='unavailable';
+  merchantRuntime.error='O servidor respondeu à solicitação, mas não conseguimos atualizar os pedidos. Atualize o painel antes de fazer outra ação.';
+  return false;
+}
+
 async function merchantPerformAction(orderId,action,reason='other_operational'){
   if(merchantRuntime.actionPending)return;
   const order=merchantRuntime.orders.find(o=>o.orderId===orderId);
@@ -2120,7 +2140,7 @@ async function merchantPerformAction(orderId,action,reason='other_operational'){
     const result=await retryAmbiguousOnce(
       ()=>merchantInvoke('merchant-action',body,{idempotencyKey})
     );
-    await merchantRefresh({silent:true});
+    await merchantRefreshAfterConfirmedMutation();
     return result;
   }catch(error){
     merchantRuntime.error=String(error?.message||error);
@@ -2230,7 +2250,7 @@ async function merchantAssignDeliveryLive(orderId,deliveryUserId){
         deliveryUserId:String(deliveryUserId)
       },{idempotencyKey})
     );
-    await merchantRefresh({silent:true});
+    await merchantRefreshAfterConfirmedMutation();
     return result;
   }catch(error){
     merchantRuntime.error=String(error?.message||error);
@@ -2278,7 +2298,8 @@ async function merchantCompleteDeliveryLive(orderId,pin,paymentConfirmed){
       paymentConfirmed:true
     },{idempotencyKey}));
     if(result?.ok===false)throw Object.assign(new Error(result.error==='PIN_LOCKED'?'PIN bloqueado. Abra suporte.':'PIN incorreto.'),{code:result.error});
-    await merchantRefresh({silent:true});
+    await merchantRefreshAfterConfirmedMutation();
+    return result;
   }catch(error){
     merchantRuntime.error=String(error?.message||error);
     try{await merchantRefresh({silent:true})}catch{}
