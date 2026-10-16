@@ -4191,3 +4191,29 @@ body:has(.admin-page) .admin-nav-item:focus-visible{outline-offset:-3px}
  .admin-executive-focus-meta{margin-top:12px;flex-direction:column;gap:3px}
 }
 @media(prefers-reduced-motion:reduce){.admin-executive-focus-action{transition:none}}
+
+
+/* V1.350 — scalable buyer cart explorer with selected items always visible. */
+#customer-cart{scroll-margin-top:100px}
+#customer-cart h2:focus,#customer-offers h2:focus{outline:none}
+.buyer-cart-filter{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:10px 0 5px}
+.buyer-cart-filter button{min-height:44px;border:1px solid #cce3d3;border-radius:999px;
+ padding:10px 17px;background:#fff;color:#215a3e;font-weight:800;font-size:13px;
+ transition:background-color .18s ease,border-color .18s ease}
+.buyer-cart-filter button[aria-pressed="true"]{background:#0b654a;border-color:#0b654a;color:#fff}
+.buyer-cart-filter button:hover:not([aria-pressed="true"]){background:#eef8f2;border-color:#91c9a5}
+.buyer-cart-filter button:focus-visible{outline:3px solid #c99a3b;outline-offset:3px}
+.buyer-cart-feedback{font-size:12px;line-height:1.5;color:#567462;margin:6px 0 10px}
+.buyer-cart-catalog{padding:0 17px}
+.buyer-cart-item[hidden]{display:none!important}
+.buyer-cart-item{min-width:0;border-bottom:1px solid #e6ede8}
+.buyer-cart-item:last-child{border-bottom:none}
+.buyer-cart-item:has(.qty strong){scroll-margin-top:96px}
+.buyer-cart-item .cart-item{margin:0;padding-top:14px;padding-bottom:14px;border:0}
+@media(max-width:550px){
+ .buyer-cart-filter{gap:6px}
+ .buyer-cart-filter button{font-size:12px;padding:9px 12px}
+ .buyer-cart-catalog{padding:0 11px}
+ .buyer-cart-item .cart-item{gap:10px}
+}
+@media(prefers-reduced-motion:reduce){.buyer-cart-filter button{transition:none}}

@@ -13,7 +13,7 @@ function functionSource(content,start,end){
   assert.ok(from>=0&&to>from,'Missing function boundaries '+start);
   return content.slice(from,to);
 }
-const startHome=functionSource(customer,'async function startHomeOrder(){','// Consulta ofertas reais');
+const startHome=functionSource(customer,'async function startHomeOrder({addFeatured=true}={}){','// Product-first entry:');
 const startAvailability=functionSource(customer,'function startCustomerAvailability(){','function hasGlpCart(');
 const leadInterest=functionSource(acquisition,'function customerLeadInterestSelection(','function prelaunchCustomerLeadSection()');
 const merchantLead=functionSource(acquisition,'function openPrelaunchMerchantLead(){','async function submitPrelaunchMerchantLead()');
