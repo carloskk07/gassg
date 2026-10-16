@@ -2967,7 +2967,8 @@ async function adminOwnerPayoutProviderLoadFromUi(offset=0){
       month===String(document.getElementById('owner-campaign-signals-month')?.value||'').trim())
       adminOwnerPayoutProviderState={...d,loadedFor:actor,
         pageOffset:offset,pageHasMore:offset===0?d.totalClaims>30:d.hasMore};
-    if(adminPayoutReviewState&&!d.rows.some(x=>x.claimId===adminPayoutReviewState.claimId))
+    if(adminPayoutReviewState?.origin==='provider'&&
+       !d.rows.some(x=>x.claimId===adminPayoutReviewState.claimId))
       adminPayoutReviewState=null;
   }catch(e){
     if(actor===String(adminRuntime?.session?.user?.id||'')){
@@ -3056,12 +3057,19 @@ const adminPayoutReviewStatuses={
   reviewed_no_bank_proof:'Analisada sem comprovação bancária',
   closed_administrative:'Encerrada administrativamente'
 };
-async function adminPayoutReviewOpenFromUi(claimId){
+function adminPayoutReviewSourceForClaim(actor,claimId,origin){
+  const source=origin==='followup'?adminPayoutFollowupState:
+    origin==='provider'?adminOwnerPayoutProviderState:null;
+  const month=String(document.getElementById('owner-campaign-signals-month')?.value||'').trim();
+  return source?.loadedFor===actor&&
+    (!month||source.month?.slice(0,7)===month)&&
+    source.rows?.some(x=>x.claimId===claimId)?source:null;
+}
+async function adminPayoutReviewOpenFromUi(claimId,origin='provider'){
   const actor=String(adminRuntime?.session?.user?.id||'');
   const role=String(adminCurrentRole());
-  const panel=adminOwnerPayoutProviderState?.loadedFor===actor?adminOwnerPayoutProviderState:null;
-  if(!actor||!['superadmin','finance'].includes(role)||adminPayoutReviewBusy||
-     !panel?.rows?.some(x=>x.claimId===claimId))return;
+  const source=adminPayoutReviewSourceForClaim(actor,claimId,origin);
+  if(!actor||!['superadmin','finance'].includes(role)||adminPayoutReviewBusy||!source)return;
   adminPayoutReviewBusy=true;
   try{
     const d=await adminInvoke({action:'owner-payout-review-read',claimId});
@@ -3085,8 +3093,8 @@ async function adminPayoutReviewOpenFromUi(claimId){
       throw new Error('Histórico da análise não validado.');
     if(actor===String(adminRuntime?.session?.user?.id||'')&&
        role===String(adminCurrentRole())&&
-       adminOwnerPayoutProviderState===panel)
-      adminPayoutReviewState={...d,loadedFor:actor};
+       adminPayoutReviewSourceForClaim(actor,claimId,origin)===source)
+      adminPayoutReviewState={...d,loadedFor:actor,origin};
   }catch(e){
     if(actor===String(adminRuntime?.session?.user?.id||'')){
       adminPayoutReviewState=null;
@@ -3097,10 +3105,10 @@ async function adminPayoutReviewOpenFromUi(claimId){
 async function adminPayoutReviewRecordFromUi(claimId){
   const actor=String(adminRuntime?.session?.user?.id||'');
   const current=adminPayoutReviewState;
-  const panel=adminOwnerPayoutProviderState?.loadedFor===actor?adminOwnerPayoutProviderState:null;
+  const origin=current?.origin;
   if(!actor||String(adminCurrentRole())!=='superadmin'||adminPayoutReviewBusy||
      current?.loadedFor!==actor||current?.claimId!==claimId||
-     !panel?.rows?.some(x=>x.claimId===claimId))return;
+     !adminPayoutReviewSourceForClaim(actor,claimId,origin))return;
   const reviewState=String(document.getElementById('admin-payout-review-status')?.value||'');
   const justification=String(document.getElementById('admin-payout-review-note')?.value||'').trim();
   if(!Object.hasOwn(adminPayoutReviewStatuses,reviewState)||
@@ -3128,8 +3136,11 @@ async function adminPayoutReviewRecordFromUi(claimId){
     if(actor===String(adminRuntime?.session?.user?.id||''))
       toast(String(e?.message||'Registro não confirmado. Consulte o histórico antes de repetir.'));
   }finally{adminPayoutReviewBusy=false;render();}
-  if(confirmed&&actor===String(adminRuntime?.session?.user?.id||''))
-    await adminPayoutReviewOpenFromUi(claimId);
+  if(confirmed&&actor===String(adminRuntime?.session?.user?.id||'')){
+    if(origin==='followup')await adminPayoutFollowupLoadFromUi();
+    if(adminPayoutReviewSourceForClaim(actor,claimId,origin))
+      await adminPayoutReviewOpenFromUi(claimId,origin);
+  }
 }
 // TAMÃO V1.338 — read-only, internal deadline triage for referral payout reviews.
 let adminPayoutFollowupState=null,adminPayoutFollowupBusy=false;
@@ -3186,6 +3197,9 @@ async function adminPayoutFollowupLoadFromUi(){
        role===String(adminCurrentRole())&&
        month===String(document.getElementById('owner-campaign-signals-month')?.value||'').trim())
       adminPayoutFollowupState={...d,loadedFor:actor};
+    if(adminPayoutReviewState?.origin==='followup'&&
+       !d.rows.some(x=>x.claimId===adminPayoutReviewState.claimId))
+      adminPayoutReviewState=null;
   }catch(e){
     if(actor===String(adminRuntime?.session?.user?.id||'')){
       adminPayoutFollowupState=null;
@@ -3233,13 +3247,47 @@ function adminPayoutFollowupSection(){
         '<p>Valor declarado: '+adminMoney(x.reportedAmountCents)+'</p>'+
         '<p>Situação: '+esc(names[x.reviewState])+'</p>'+
         '<p class="tiny muted">Próxima conferência sugerida: '+esc(stamp(x.followupDueAt))+'</p>'+
-        '<p class="tiny muted">Utilize Ver histórico / revisar na central de repasses para registrar a análise.</p>'+
+        '<button type="button" class="secondary small" '+
+        (adminPayoutReviewBusy?'disabled':'')+
+        ' onclick="adminPayoutReviewOpenFromUi(&quot;'+esc(x.claimId)+'&quot;,&quot;followup&quot;)">'+
+        'Analisar esta pendência</button>'+
         '</article>').join('')||
         '<p class="tiny muted">Nenhuma pendência ativa nessa competência.</p>')+
-      '</div>':
+      '</div>'+adminPayoutReviewHistoryMarkup('followup',d.rows):
       '<p class="tiny muted">Carregue a competência para identificar as pendências e os prazos sugeridos.</p>')+
     '<p class="tiny muted">O encerramento de uma revisão não comprova pagamento, liquidação bancária nem titularidade. Nenhuma ação financeira é executada nesta área.</p>'+
     '</section>';
+}
+// Shared history renderer: only one origin (provider or followup) owns the form.
+function adminPayoutReviewHistoryMarkup(origin,ids){
+  const actor=String(adminRuntime?.session?.user?.id||'');
+  const role=String(adminCurrentRole());
+  const selected=adminPayoutReviewState?.loadedFor===actor?adminPayoutReviewState:null;
+  return selected?.origin===origin&&ids.some(x=>x.claimId===selected.claimId)?
+    '<section class="card flat form-stack">'+
+    '<h5>Histórico da declaração '+esc(selected.claimId)+'</h5>'+
+    '<p>Estado administrativo: <strong>'+
+       esc(adminPayoutReviewStatuses[selected.currentAdministrativeState])+
+       '</strong> • '+Number(selected.totalEvents)+' eventos</p>'+
+    (selected.truncated?'<p class="tiny muted">Exibidos 100 eventos recentes; anteriores preservados no banco.</p>':'')+
+    (selected.events.map(e=>
+      '<div class="card flat"><strong>'+esc(adminPayoutReviewStatuses[e.reviewState])+
+      '</strong><p>'+esc(e.justification)+'</p>'+
+      '<p class="tiny muted">Por '+esc(e.actorId)+' • '+esc(e.recordedAt)+
+      ' • evento '+esc(e.eventId)+'</p></div>').join('')||
+      '<p class="tiny muted">Nenhuma revisão registrada.</p>')+
+    (role==='superadmin'?
+      '<label for="admin-payout-review-status">Situação do acompanhamento</label>'+
+      '<select id="admin-payout-review-status">'+
+      Object.entries(adminPayoutReviewStatuses).filter(([k])=>k!=='not_started')
+        .map(([k,v])=>'<option value="'+esc(k)+'">'+esc(v)+'</option>').join('')+
+      '</select><label for="admin-payout-review-note">Justificativa (20 a 1000 caracteres)</label>'+
+      '<textarea id="admin-payout-review-note" maxlength="1000" rows="3"></textarea>'+
+      '<button type="button" '+(adminPayoutReviewBusy?'disabled':'')+
+      ' onclick="adminPayoutReviewRecordFromUi(&quot;'+esc(selected.claimId)+'&quot;)">'+
+      'Registrar análise</button>':'')+
+    '<p class="tiny muted">Encerramento administrativo não comprova recebimento bancário, destinatário nem transferência.</p>'+
+    '</section>':'';
 }
 function adminOwnerPayoutProviderSection(){
   const role=String(adminCurrentRole());
@@ -3270,32 +3318,7 @@ function adminOwnerPayoutProviderSection(){
     if(x.priority===4)return 'Conferir o documento privado e a titularidade antes de considerar o caso esclarecido.';
     return 'Acompanhar documentação e titularidade. Status do PSP não prova liquidação bancária.';
   };
-  const selected=adminPayoutReviewState?.loadedFor===actor?adminPayoutReviewState:null;
-  const review=show&&selected&&sourceRows.some(x=>x.claimId===selected.claimId)?
-    '<section class="card flat form-stack">'+
-    '<h5>Histórico da declaração '+esc(selected.claimId)+'</h5>'+
-    '<p>Estado administrativo: <strong>'+
-       esc(adminPayoutReviewStatuses[selected.currentAdministrativeState])+
-       '</strong> • '+Number(selected.totalEvents)+' eventos</p>'+
-    (selected.truncated?'<p class="tiny muted">Exibidos 100 eventos recentes; anteriores preservados no banco.</p>':'')+
-    (selected.events.map(e=>
-      '<div class="card flat"><strong>'+esc(adminPayoutReviewStatuses[e.reviewState])+
-      '</strong><p>'+esc(e.justification)+'</p>'+
-      '<p class="tiny muted">Por '+esc(e.actorId)+' • '+esc(e.recordedAt)+
-      ' • evento '+esc(e.eventId)+'</p></div>').join('')||
-      '<p class="tiny muted">Nenhuma revisão registrada.</p>')+
-    (role==='superadmin'?
-      '<label for="admin-payout-review-status">Situação do acompanhamento</label>'+
-      '<select id="admin-payout-review-status">'+
-      Object.entries(adminPayoutReviewStatuses).filter(([k])=>k!=='not_started')
-        .map(([k,v])=>'<option value="'+esc(k)+'">'+esc(v)+'</option>').join('')+
-      '</select><label for="admin-payout-review-note">Justificativa (20 a 1000 caracteres)</label>'+
-      '<textarea id="admin-payout-review-note" maxlength="1000" rows="3"></textarea>'+
-      '<button type="button" '+(adminPayoutReviewBusy?'disabled':'')+
-      ' onclick="adminPayoutReviewRecordFromUi(&quot;'+esc(selected.claimId)+'&quot;)">'+
-      'Registrar análise</button>':'')+
-    '<p class="tiny muted">Encerramento administrativo não comprova recebimento bancário, destinatário nem transferência.</p>'+
-    '</section>':'';
+  const review=show?adminPayoutReviewHistoryMarkup('provider',sourceRows):'';
   const rows=visible.map(x=>
     '<article class="card flat form-stack" data-payout-review-priority="'+Number(x.priority)+'">'+
     '<h5>'+esc(priorityLabel(x))+'</h5>'+
