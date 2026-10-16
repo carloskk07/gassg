@@ -16,7 +16,7 @@ for(const t of [
  "'approval_evidence_stale'","'approval_refresh_recommended'",
  "'reversal_observed_review_required'","'approval_last_verified'",
  "'approval_observed_unreconciled'","'awaiting_provider_confirmation'",
- 'interval \'24 hours\'','interval \'12 hours\'',
+ 'v_age>=24','interval \'12 hours\'',
  'v_c.version<>p_expected_version','ADS_EVIDENCE_OWNER_REQUIRED',
  "'paymentStateChanged',false","'providerRechecked',false",
  "'automaticReconciliation',false","'adsLive',false",
