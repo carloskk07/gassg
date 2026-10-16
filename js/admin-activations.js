@@ -30,7 +30,8 @@ async function adminActivationLoad({force=false}={}){
       ['adsContacts','ads-contact-reports-read','admin_ads_contacts_v1_324'],
       ['adsFeedback','ads-contact-feedback-read','admin_ads_contact_feedback_v1_325'],
       ['adsFeedbackReturns','ads-feedback-returns-read','admin_ads_feedback_returns_v1_326'],
-      ['adsReturnExecution','ads-return-execution-read','admin_ads_return_execution_v1_327']
+      ['adsReturnExecution','ads-return-execution-read','admin_ads_return_execution_v1_327'],
+      ['adsReturnCloseout','ads-return-closeout-read','admin_ads_return_feedback_closeout_v1_328']
     ];
     const values=await Promise.allSettled([
       ...specs.map(([,action])=>adminInvoke({action})),
@@ -44,6 +45,16 @@ async function adminActivationLoad({force=false}={}){
       const safe=d?.source===source&&(
         key==='ads'?d.readOnly===true&&d.publicEnabled===false&&d.billingEnabled===false&&d.readyToSell===false:
         key==='adsQueue'?d.noCharge===true&&d.adsLive===false:
+        key==='adsReturnCloseout'?d.readOnly===true&&d.messagesSent===0&&
+          d.independentDeliveryProof===false&&d.adsLive===false&&d.paymentCreated===false&&
+          Number.isSafeInteger(d.totalAttemptsDeclared)&&
+          Number.isSafeInteger(d.awaitingMerchantFeedback)&&Number.isSafeInteger(d.confirmedByMerchant)&&
+          Number.isSafeInteger(d.disputedOrFollowupRequested)&&Array.isArray(d.rows)&&d.rows.length<=50&&
+          d.rows.every(x=>/^[0-9a-f-]{36}$/i.test(String(x.merchantId))&&
+             /^[0-9a-f-]{36}$/i.test(String(x.attemptContactId))&&
+             ['outdated','merchant_confirmed','merchant_disputed','merchant_requested_followup','awaiting_merchant_feedback'].includes(x.state)&&
+             typeof x.currentConsentAndLatestAttempt==='boolean'&&
+             typeof x.attentionRequired==='boolean'&&x.independentlyVerified===false):
         key==='adsReturnExecution'?d.readOnly===true&&d.automaticMessagesSent===0&&
           d.independentDeliveryProof===false&&d.adsLive===false&&d.paymentCreated===false&&
           Number.isSafeInteger(d.totalPlans)&&Number.isSafeInteger(d.scheduledPlans)&&
@@ -199,7 +210,7 @@ async function adminActivationLoad({force=false}={}){
         d.readOnly===true&&d.couponSalesEnabled===false&&d.noContractsSigned===true);
       evidence[key]=safe?d:null;
     });
-    const governance=values[22].status==='fulfilled'?values[22].value:null;
+    const governance=values[23].status==='fulfilled'?values[23].value:null;
     evidence.governance=governance?.source==='admin_governance_gates_v1_304'&&governance.readOnly===true&&
       adminRuntime.governance?.loadedFor===actor&&adminRuntime.governance?.role===role?governance:null;
     const push=adminRuntime.pushReliability||{};
@@ -289,7 +300,7 @@ function adminActivationDeskView(d){
     '<p class="tiny muted">Última consulta: '+
     esc(current?formatDateTime(adminActivationDesk.checkedAt):'não confirmada')+
     '. Uma falha na consulta é mostrada como “Não confirmado”, nunca como recurso desligado.</p>'+
-    '<div class="admin-activation-grid">'+cards+'</div>'+adminAdsLaunchReadinessView()+adminAdsLeadsView()+adminAdsAssistanceView()+adminAdsContactsView()+adminAdsFeedbackView()+adminAdsFeedbackReturnsView()+adminAdsReturnExecutionView()+adminMarketingIntakeView()+adminAdsSalesPlansView()+adminAdsDossiersView()+adminAdsInstrumentsView()+adminAdsReceivablesView()+adminAdsPspView()+adminAdsMpInboxView()+adminAdsMpTriageView()+adminAdsPspFreshnessView()+adminAdsPspMerchantReviewsView()+
+    '<div class="admin-activation-grid">'+cards+'</div>'+adminAdsLaunchReadinessView()+adminAdsLeadsView()+adminAdsAssistanceView()+adminAdsContactsView()+adminAdsFeedbackView()+adminAdsFeedbackReturnsView()+adminAdsReturnExecutionView()+adminAdsReturnCloseoutView()+adminMarketingIntakeView()+adminAdsSalesPlansView()+adminAdsDossiersView()+adminAdsInstrumentsView()+adminAdsReceivablesView()+adminAdsPspView()+adminAdsMpInboxView()+adminAdsMpTriageView()+adminAdsPspFreshnessView()+adminAdsPspMerchantReviewsView()+
     '<p class="tiny muted">Publicidade pública, vendas de cupons e automação de avisos exigem homologação e gates reais no servidor. Nenhum controle desta página contorna esses requisitos.</p></section>';
 }
 
@@ -1600,4 +1611,52 @@ function adminAdsReturnGoToContact(merchantId){
  target.scrollIntoView({behavior:'smooth',block:'center'});
  target.querySelector('select')?.focus();
  return true;
+}
+
+
+// V1.328 — evidence-only return follow-up closeout. No assumption of call delivery.
+function adminAdsReturnCloseoutView(){
+ if(!adminRoleCanSection('activations'))return '';
+ const actor=String(adminRuntime.session?.user?.id||''),role=adminCurrentRole();
+ const fresh=adminActivationDesk.actor===actor&&adminActivationDesk.role===role&&
+   Date.now()-Date.parse(adminActivationDesk.checkedAt||'')<120000;
+ const d=fresh?adminActivationDesk.data?.adsReturnCloseout:null;
+ const status={
+  awaiting_merchant_feedback:'Aguardando avaliação da revenda',
+  merchant_confirmed:'Contato confirmado pela revenda',
+  merchant_disputed:'Revenda informou que não recebeu',
+  merchant_requested_followup:'Revenda pediu novo retorno',
+  outdated:'Histórico de ciclo anterior'
+ };
+ const items=(d?.rows||[]).filter(x=>x.currentConsentAndLatestAttempt===true);
+ const cards=items.map(x=>{
+  const id=String(x.merchantId||'');
+  if(!/^[0-9a-f-]{36}$/i.test(id))return '';
+  const reported={not_reached:'Não conseguiu falar',conversation:'Conversa relatada',
+    followup_requested:'Retorno solicitado',not_interested:'Sem interesse'}[x.attemptOutcome]||'Resultado declarado';
+  const attention=x.attentionRequired===true;
+  return '<article class="admin-activation-card">'+
+   '<div class="admin-activation-card-head"><strong>'+esc(x.merchantName||'Revenda')+'</strong>'+
+   '<span class="status-pill">'+esc(status[x.state]||'Em análise')+'</span></div>'+
+   '<p><strong>Relato da equipe:</strong> '+esc(reported)+'</p>'+
+   '<p><strong>Avaliação do titular:</strong> '+esc(x.feedbackResponse?
+     status[x.state]:'Ainda não houve confirmação voluntária do comerciante')+'</p>'+
+   '<p class="tiny muted">Tentativa declarada em '+esc(String(x.attemptReportedAt||'—'))+
+   (attention?' • Requer acompanhamento humano':'')+'</p>'+
+   '<p class="tiny muted">A declaração não comprova entrega. A avaliação da revenda é uma manifestação dela, não prova técnica independente.</p>'+
+   '</article>';
+ }).join('');
+ return '<section class="section admin-ads-return-closeout">'+
+   '<div class="section-head"><div><span class="section-kicker">V1.328 • ACOMPANHAMENTO FIEL</span>'+
+   '<h2>Confirmação dos retornos pela revenda</h2>'+
+   '<p>Separe tentativas informadas pela equipe de avaliações prestadas pelo titular. Contatos contestados precisam de tratamento humano.</p></div></div>'+
+   (d?'<p class="tiny muted">Tentativas registradas: '+d.totalAttemptsDeclared+
+     ' • Sem avaliação na tentativa atual: '+d.awaitingMerchantFeedback+
+     ' • Confirmadas pelo titular: '+d.confirmedByMerchant+
+     ' • Contestadas ou novo retorno solicitado: '+d.disputedOrFollowupRequested+
+     ' • Contatos enviados automaticamente: 0.</p>':
+     '<p class="muted">A consulta independente dos retornos não foi confirmada. Atualize a central.</p>')+
+   '<div class="admin-activation-grid">'+
+     (cards||'<p class="muted">Não há retorno recente no ciclo atual aguardando acompanhamento.</p>')+
+   '</div><p class="tiny muted">Somente os contatos mais recentes com interesse e consentimento ainda vigentes entram nesta fila. Informações internas e históricas não são compartilhadas com outras revendas.</p></section>';
 }

@@ -355,6 +355,8 @@ jobs:
         run: node tests/ads-feedback-returns-v1-326.mjs
       - name: Test V1.327 founder-declared return attempts and merchant transparency
         run: node tests/ads-return-execution-v1-327.mjs
+      - name: Test V1.328 merchant-confirmed return closeout and stale consent isolation
+        run: node tests/ads-return-closeout-v1-328.mjs
       - name: TAMÃO V1.258 founder-approved orphan deletion with immutable audit
         run: node tests/owner-receipt-orphan-cleanup-v1-258.mjs
       - name: Turnstile smoke Chrome cleanup V1.238.1
