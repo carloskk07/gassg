@@ -67,7 +67,8 @@ const continuation={...base,pagedV1341:true,queueCoverage:'global_pages_30',
 let response=continuation,bad=false,role='superadmin',requests=[],notices=[],monthLoads=0;
 const month={value:'2026-10'};
 const context=vm.createContext({
- adminPayoutReviewHistoryMarkup:()=>'', // isolated global renderer; direct-review tested in V1.342
+ adminPayoutReviewHistoryMarkup:()=>'', // isolated global renderer; direct-review tested in V1.342,
+ adminPayoutReviewBusy:false, // journal state is defined outside this isolated UI slice
  adminRuntime:{session:{user:{id:actor}}},adminCurrentRole:()=>role,
  document:{getElementById:id=>id==='owner-campaign-signals-month'?month:null},
  adminInvoke:async request=>{
