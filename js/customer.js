@@ -133,7 +133,7 @@ async function startHomeOrder(){
 function startCustomerAvailability(){
   const input=globalThis.document?.querySelector('#home-address');
   const raw=String(input?.value||'').trim();
-  if(globalThis.__CHAMA_TEST__!==true&&raw&&!/^[0-9]{8}$/.test(raw.replace(/\\D/g,''))){
+  if(globalThis.__CHAMA_TEST__!==true&&raw&&!/^[0-9]{8}$/.test(raw.replace(/\D/g,''))){
     input?.focus();
     toast('Informe um CEP válido ou deixe para a próxima etapa.');
     return;
