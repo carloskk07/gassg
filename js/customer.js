@@ -1232,7 +1232,7 @@ function customerRequoteDecision(order,previousTotal,proposedTotal,remainingSeco
     :expired
       ?'O prazo indicado terminou. Atualize para verificar a condição atual.'
       :'Prazo indicado: aproximadamente '+remainingSeconds+' segundos restantes.';
-  return '<div class="notice customer-requote" role="region" aria-label="Nova proposta para aprovação">'+
+  return '<div id="customer-requote-decision" class="notice customer-requote" role="region" aria-label="Nova proposta para aprovação">'+
     '<strong>Outra proposta precisa da sua autorização</strong>'+
     '<div class="customer-requote-prices">'+
       '<span>Valor anterior <strong>'+BRL.format(previousTotal)+'</strong></span>'+
@@ -1395,6 +1395,54 @@ function customerPublicTimelineEvent(event){
     ?labels[code]:'Atualização registrada no pedido';
 }
 
+// V1.352 — a verified order read is different from a fresh offers/profile sync.
+// Freshness never advances a business state or certifies a delivery.
+function customerTrackingReadEvidence(order,{checkedAt=null,checkedId=null,now=Date.now(),error=false}={}){
+  const orderId=String(order?.orderId||'');
+  const checked=Date.parse(String(checkedAt||''));
+  if(error)return {kind:'unverified',label:'Não conseguimos confirmar mudanças recentes. Atualize para consultar o estado atual.'};
+  if(!orderId||checkedId!==orderId||!Number.isFinite(checked)||checked>now+60000||now-checked<0){
+    return {kind:'unknown',label:'Ainda não há horário comprovado de consulta deste pedido nesta sessão. Atualize o acompanhamento.'};
+  }
+  const minutes=Math.floor((now-checked)/60000);
+  if(minutes>=3)return {
+    kind:'stale',label:'Última consulta deste pedido há '+minutes+' min. Atualize antes de tomar uma decisão.'
+  };
+  return {kind:'recent',label:minutes===0
+    ?'Pedido consultado agora. O andamento pode mudar depois desta consulta.'
+    :'Pedido consultado há '+minutes+' min. Novas etapas dependem da confirmação da revenda.'};
+}
+function customerTrackingPrimaryAction(order,{evidence,pending=false,remainingSeconds=null}={}){
+  const status=String(order?.status||'');
+  const mustRefresh=evidence?.kind!=='recent';
+  const refresh=label=>'<button type="button" class="primary" onclick="liveGetOrder().catch(()=>{})" '+
+    (pending?'disabled':'')+'>'+esc(label)+' →</button>';
+  if(mustRefresh)return refresh('Atualizar pedido');
+  if(status==='REQUOTE_REQUIRED'){
+    const proposal=order?.proposedTotalCents;
+    if(proposal!=null&&Number.isFinite(Number(proposal))&&
+       Number(proposal)>=0&&remainingSeconds!==0){
+      return '<a class="primary customer-tracking-cta" href="#customer-requote-decision">Conferir nova proposta →</a>';
+    }
+    return refresh('Atualizar proposta');
+  }
+  if(['CREATED','QUOTE_LOCKED','OFFERED_TO_MERCHANT','REASSIGNING','DELIVERED'].includes(status)){
+    return refresh(status==='OFFERED_TO_MERCHANT'?'Conferir aceite':'Atualizar andamento');
+  }
+  if(status==='AT_RISK')return '<a class="primary customer-tracking-cta" href="#customer-care">Registrar problema →</a>';
+  if(['OUT_FOR_DELIVERY','ARRIVING'].includes(status)&&order?.deliveryPin){
+    return '<a class="primary customer-tracking-cta" href="#customer-delivery-code">Ver orientações de recebimento →</a>';
+  }
+  if(['MERCHANT_ACCEPTED','PREPARING','OUT_FOR_DELIVERY','ARRIVING'].includes(status)){
+    return '<a class="primary customer-tracking-cta" href="#customer-history">Ver histórico confirmado →</a>';
+  }
+  if(['SETTLED','CANCELLED'].includes(status)){
+    return '<a class="secondary customer-tracking-cta" href="#customer-care">'+
+      (status==='SETTLED'?'Avaliar ou pedir ajuda':'Ajuda sobre este pedido')+' →</a>';
+  }
+  return refresh('Atualizar acompanhamento');
+}
+
 function liveCustomerCareBlock(o){
   const openCases=(o.supportCases||[]).filter(x=>['open','in_review'].includes(x.status));
   const caseCopy={
@@ -1453,6 +1501,10 @@ function liveTracking(){
 
   const copy=statusCopy[o.status]||[o.status,''];
   const guidance=customerOrderGuidance(o.status);
+  const readEvidence=customerTrackingReadEvidence(o,{
+    checkedAt:liveRuntime.orderCheckedAt,checkedId:liveRuntime.orderCheckedId,
+    error:Boolean(liveRuntime.error)
+  });
   const supplier=customerSupplierPresentation(o);
   const interrupted=['CANCELLED','REASSIGNING'].includes(o.status);
   const active=!['SETTLED','CANCELLED'].includes(o.status);
@@ -1462,6 +1514,10 @@ function liveTracking(){
   const total=Number(o.totalCents||0)/100;
   const cashbackReserved=Number(o.cashbackReservedCents||0)/100;
   const proposed=o.proposedTotalCents==null?null:Number(o.proposedTotalCents)/100;
+  const quickAction=customerTrackingPrimaryAction(o,{
+    evidence:readEvidence,pending:liveRuntime.actionPending===true,
+    remainingSeconds:deadline
+  });
   const items=(o.items||[]).map(i=>`<div class="list-row"><span>${Number(i.quantity)}× ${esc(i.product_name||i.productName||i.product_code||'Item')}</span><strong>${BRL.format(Number(i.line_total_cents??i.lineTotalCents??0)/100)}</strong></div>`).join('');
   const careBlock=liveCustomerCareBlock(o);
   const scheduleNotice=o.deliveryWindowStart
@@ -1498,7 +1554,8 @@ function liveTracking(){
 
   return shell(`<section class="page"><button class="back" onclick="go('home')">← Início</button>
 <div class="status-bar"><div><div class="tiny muted">PEDIDO ${esc(o.publicCode||o.orderId)}</div><h1 class="page-title" style="margin-bottom:3px">${esc(copy[0])}</h1></div><span class="status-pill ${['OUT_FOR_DELIVERY','ARRIVING','SETTLED','DELIVERED'].includes(o.status)?'online':o.status==='CANCELLED'?'offline':'risk'}">${o.status==='SETTLED'?'CONCLUÍDO':o.status==='CANCELLED'?'ENCERRADO':liveRuntime.error?'VERIFIQUE O STATUS':'EM ANDAMENTO'}</span></div>
-<div class="customer-tracking-overview" role="status" aria-live="polite"><strong>${esc(guidance[0])}</strong><p>${esc(guidance[1])}</p><div class="customer-next-step"><span aria-hidden="true">→</span><span><strong>O que fazer agora</strong>${esc(customerNextAction(o.status))}</span></div></div>
+<div class="customer-tracking-overview" role="status" aria-live="polite"><strong>${esc(guidance[0])}</strong><p>${esc(guidance[1])}</p><div class="customer-next-step"><span aria-hidden="true">→</span><span><strong>O que fazer agora</strong>${esc(customerNextAction(o.status))}</span></div>
+  <div class="customer-tracking-actions">${quickAction}<small class="customer-tracking-evidence ${esc(readEvidence.kind)}">${esc(readEvidence.label)}</small></div></div>
 ${customerOrderProgress(o.status)}
 ${customerIncidentStatusView(o)}
 ${trackingSyncNotice}
@@ -1521,8 +1578,8 @@ ${customerClosedOrderChoices(o)}
 ${o.financialState==='reversed'?'<div class="notice danger" style="margin-top:14px"><strong>Liquidação financeira revertida.</strong><br>A entrega permanece no histórico, mas cashback, comissão de indicação e recebível da plataforma foram estornados.'+(o.financialReversalReason?' Motivo: '+esc(o.financialReversalReason)+'.':'')+'</div>':''}
 ${o.status==='AT_RISK'?'<div class="notice" style="margin-top:14px"><strong>Acompanhamento prioritário.</strong><br>Consulte o andamento confirmado e use o atendimento do pedido se precisar de ajuda.</div>':''}
 
-<section class="section"><div class="section-head"><div><h2>Acompanhe a entrega</h2><p>Cada etapa aparece somente depois da respectiva confirmação.</p></div><button class="ghost small" onclick="liveGetOrder().catch(()=>{})" ${liveRuntime.actionPending?'disabled':''}>Atualizar status</button></div><div class="card flat timeline">${liveEventTimeline(o)}</div></section>
-${o.deliveryPin&&['OUT_FOR_DELIVERY','ARRIVING'].includes(o.status)?`<div class="notice success"><strong>Código de recebimento: ${esc(o.deliveryPin)}</strong><br>Confira os itens e o valor combinado. Só compartilhe o código após receber e conferir a entrega.</div>`:''}
+<section class="section" id="customer-history"><div class="section-head"><div><h2>Acompanhe a entrega</h2><p>Cada etapa aparece somente depois da respectiva confirmação.</p></div><button class="ghost small" onclick="liveGetOrder().catch(()=>{})" ${liveRuntime.actionPending?'disabled':''}>Atualizar status</button></div><div class="card flat timeline">${liveEventTimeline(o)}</div></section>
+${o.deliveryPin&&['OUT_FOR_DELIVERY','ARRIVING'].includes(o.status)?`<div class="notice success" id="customer-delivery-code"><strong>Código de recebimento: ${esc(o.deliveryPin)}</strong><br>Confira os itens e o valor combinado. Só compartilhe o código após receber e conferir a entrega.</div>`:''}
 ${active&&['OFFERED_TO_MERCHANT','REQUOTE_REQUIRED'].includes(o.status)?`<button class="ghost full" style="margin-top:10px" onclick="cancelPending()" ${liveRuntime.actionPending?'disabled':''}>Cancelar antes do aceite</button>`:''}
 ${active&&['PREPARING','AT_RISK'].includes(o.status)?`<button class="danger-btn full" style="margin-top:10px" onclick="cancelBeforeDispatch()" ${liveRuntime.actionPending?'disabled':''}>Cancelar antes da saída</button>`:''}
 ${careBlock}

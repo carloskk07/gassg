@@ -477,6 +477,8 @@ jobs:
         run: node tests/buyer-catalog-discovery-v1-350.mjs
       - name: V1.351 verified offer clarity and expiry recovery regression
         run: node tests/verified-offer-clarity-v1-351.mjs
+      - name: V1.352 buyer tracking verified state and action regression
+        run: node tests/buyer-tracking-action-v1-352.mjs
       - name: Admin all-months unresolved payout queue V1.340 regression
         run: node tests/payout-global-followup-v1-340.mjs
       - name: Admin all-months payout pagination V1.341 regression

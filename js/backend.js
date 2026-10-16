@@ -238,6 +238,9 @@ const liveRuntime={
   lastFinancialSyncAt:0,
   lastFinancialSyncAttemptAt:0,
   lastSyncAt:null,
+  // V1.352: recorded only when get-order succeeds (not when offers/profile sync).
+  orderCheckedAt:null,
+  orderCheckedId:null,
   offerRequestSeq:0,
   orderRequestSeq:0,
   financialSyncSeq:0,
@@ -904,6 +907,8 @@ async function liveGetOrder(orderId=liveRuntime.orderId,{silent=false}={}){
   liveRuntime.orderId=order.orderId;
   liveRuntime.error=null;
   liveRuntime.lastSyncAt=new Date().toISOString();
+  liveRuntime.orderCheckedAt=liveRuntime.lastSyncAt;
+  liveRuntime.orderCheckedId=order.orderId;
   localStorage.setItem(CHAMA_BACKEND.orderStorageKey,order.orderId);
   if(['SETTLED','CANCELLED'].includes(order.status)){
     await liveSyncFinancialProfile({force:true});
