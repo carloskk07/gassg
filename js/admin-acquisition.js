@@ -3131,6 +3131,116 @@ async function adminPayoutReviewRecordFromUi(claimId){
   if(confirmed&&actor===String(adminRuntime?.session?.user?.id||''))
     await adminPayoutReviewOpenFromUi(claimId);
 }
+// TAMÃO V1.338 — read-only, internal deadline triage for referral payout reviews.
+let adminPayoutFollowupState=null,adminPayoutFollowupBusy=false;
+async function adminPayoutFollowupLoadFromUi(){
+  const actor=String(adminRuntime?.session?.user?.id||'');
+  const role=String(adminCurrentRole());
+  if(!actor||!['superadmin','finance'].includes(role)||adminPayoutFollowupBusy)return;
+  const month=String(document.getElementById('owner-campaign-signals-month')?.value||'').trim();
+  if(month&&!/^\d{4}-(0[1-9]|1[0-2])$/.test(month))
+    return toast('Competência inválida.');
+  adminPayoutFollowupBusy=true;
+  try{
+    const d=await adminInvoke({action:'owner-payout-followup-read',month:month?month+'-01':''});
+    const numbers=['totalClaims','voidedClaims','closedAdministrativeClaims',
+      'activeClaims','unreviewedClaims','awaitingEvidenceClaims',
+      'inReviewClaims','noBankProofClaims','overdueClaims','criticalReversalClaims'];
+    const states=['not_started','in_review','awaiting_evidence','reviewed_no_bank_proof'];
+    if(d?.source!=='admin_payout_followup_queue_v1_338'||
+      d?.timezone!=='America/Sao_Paulo'||
+      !/^\d{4}-\d{2}-01$/.test(String(d?.month||''))||
+      (month&&d.month!==month+'-01')||
+      d?.readOnly!==true||d?.administrativeOnly!==true||
+      d?.bankSettlementVerified!==false||d?.recipientVerified!==false||
+      d?.moneyMoved!==false||
+      d?.duePolicy!=='internal_guidance_not_external_SLA'||
+      d?.firstReviewHours!==24||d?.inReviewHours!==48||
+      d?.awaitingEvidenceHours!==72||d?.noBankProofRecheckHours!==168||
+      numbers.some(k=>!Number.isSafeInteger(d?.[k])||d[k]<0)||
+      d.totalClaims!==d.voidedClaims+d.closedAdministrativeClaims+d.activeClaims||
+      d.activeClaims!==d.unreviewedClaims+d.awaitingEvidenceClaims+
+        d.inReviewClaims+d.noBankProofClaims||
+      d.overdueClaims>d.activeClaims||d.criticalReversalClaims>d.activeClaims||
+      d.limit!==30||d.truncated!==(d.activeClaims>30)||
+      !Array.isArray(d.rows)||d.rows.length!==Math.min(30,d.activeClaims)||
+      d.rows.some(x=>!x||!/^[0-9a-f-]{36}$/i.test(String(x.claimId||''))||
+        !/^[0-9a-f-]{36}$/i.test(String(x.orderId||''))||
+        !Number.isSafeInteger(x.reportedAmountCents)||x.reportedAmountCents<0||
+        !Number.isFinite(Date.parse(String(x.reportedAt||'')))||
+        !Number.isFinite(Date.parse(String(x.followupDueAt||'')))||
+        !states.includes(x.reviewState)||
+        !(x.lastReviewAt===null||
+          Number.isFinite(Date.parse(String(x.lastReviewAt||''))))||
+        (x.reviewState==='not_started')!==(x.lastReviewAt===null)||
+        typeof x.overdue!=='boolean'||
+        typeof x.criticalReversalObserved!=='boolean'||
+        !Number.isSafeInteger(x.priority)||x.priority<0||x.priority>2||
+        x.priority!==(x.criticalReversalObserved?0:x.overdue?1:2))||
+      d.rows.some((x,i)=>i>0&&(
+        d.rows[i-1].priority>x.priority||
+        (d.rows[i-1].priority===x.priority&&
+          Date.parse(d.rows[i-1].followupDueAt)>Date.parse(x.followupDueAt)))))
+      throw new Error('Acompanhamento financeiro não validado.');
+    if(actor===String(adminRuntime?.session?.user?.id||'')&&
+       role===String(adminCurrentRole())&&
+       month===String(document.getElementById('owner-campaign-signals-month')?.value||'').trim())
+      adminPayoutFollowupState={...d,loadedFor:actor};
+  }catch(e){
+    if(actor===String(adminRuntime?.session?.user?.id||'')){
+      adminPayoutFollowupState=null;
+      toast(String(e?.message||'Não foi possível consultar as pendências.'));
+    }
+  }finally{adminPayoutFollowupBusy=false;render();}
+}
+function adminPayoutFollowupSection(){
+  const role=String(adminCurrentRole());
+  if(!['superadmin','finance'].includes(role))return '';
+  const actor=String(adminRuntime?.session?.user?.id||'');
+  const month=String(document.getElementById('owner-campaign-signals-month')?.value||'').trim();
+  const data=adminPayoutFollowupState?.loadedFor===actor?adminPayoutFollowupState:null;
+  const d=data&&(!month||data.month.slice(0,7)===month)?data:null;
+  const names={
+    not_started:'Sem análise',in_review:'Em análise',
+    awaiting_evidence:'Aguardando evidências',
+    reviewed_no_bank_proof:'Sem comprovação bancária'
+  };
+  const stamp=iso=>new Date(iso).toLocaleString('pt-BR',{timeZone:'America/Sao_Paulo'});
+  return '<section class="card flat form-stack"><h4>Prazo das revisões financeiras</h4>'+
+    '<p class="tiny muted">Prazos sugeridos para acompanhamento interno: primeira análise em 24 horas; análise em andamento em 48 horas; evidências em 72 horas; nova conferência sem prova bancária em 7 dias. Não são prazos de pagamento.</p>'+
+    '<button type="button" class="secondary small" '+
+      (adminPayoutFollowupBusy?'disabled':'')+
+      ' onclick="adminPayoutFollowupLoadFromUi()">Atualizar pendências da competência</button>'+
+    (d?
+      '<div class="grid cards-2">'+
+        '<div class="card flat"><strong>'+d.overdueClaims+'</strong><p>Revisões com prazo interno vencido</p></div>'+
+        '<div class="card flat"><strong>'+d.unreviewedClaims+'</strong><p>Declarações sem análise</p></div>'+
+        '<div class="card flat"><strong>'+d.awaitingEvidenceClaims+'</strong><p>Aguardando evidências</p></div>'+
+        '<div class="card flat"><strong>'+d.criticalReversalClaims+'</strong><p>Estorno após sucesso observado no provedor</p></div>'+
+      '</div>'+
+      '<p class="tiny muted">'+d.activeClaims+' acompanhamentos ativos • '+
+        d.inReviewClaims+' em análise • '+d.noBankProofClaims+
+        ' para nova conferência sem prova bancária • '+d.closedAdministrativeClaims+
+        ' encerrados administrativamente • '+d.voidedClaims+' declarações anuladas.</p>'+
+      (d.truncated?'<p class="tiny muted">A lista mostra somente as 30 primeiras prioridades; os totais consideram toda a competência. Utilize a paginação da central para consultar as demais declarações.</p>':'')+
+      '<div class="grid cards-2">'+
+      (d.rows.map(x=>
+        '<article class="card flat form-stack">'+
+        '<strong>'+(x.priority===0?'Crítica — verificar estorno e repasse':
+          x.overdue?'Prazo interno vencido':'Acompanhamento dentro do prazo')+'</strong>'+
+        '<p>Pedido <code>'+esc(x.orderId)+'</code></p>'+
+        '<p class="tiny muted">Declaração <code>'+esc(x.claimId)+'</code></p>'+
+        '<p>Valor declarado: '+adminMoney(x.reportedAmountCents)+'</p>'+
+        '<p>Situação: '+esc(names[x.reviewState])+'</p>'+
+        '<p class="tiny muted">Próxima conferência sugerida: '+esc(stamp(x.followupDueAt))+'</p>'+
+        '<p class="tiny muted">Utilize Ver histórico / revisar na central de repasses para registrar a análise.</p>'+
+        '</article>').join('')||
+        '<p class="tiny muted">Nenhuma pendência ativa nessa competência.</p>')+
+      '</div>':
+      '<p class="tiny muted">Carregue a competência para identificar as pendências e os prazos sugeridos.</p>')+
+    '<p class="tiny muted">O encerramento de uma revisão não comprova pagamento, liquidação bancária nem titularidade. Nenhuma ação financeira é executada nesta área.</p>'+
+    '</section>';
+}
 function adminOwnerPayoutProviderSection(){
   const role=String(adminCurrentRole());
   if(!['superadmin','finance'].includes(role))return '';
@@ -3261,7 +3371,7 @@ function adminOwnerPayoutProviderSection(){
         (adminOwnerPayoutProviderBusy?'disabled':'')+
         '>Verificar pelo provedor (somente GET)</button></div>':'')+
     '<p class="tiny muted">Uma observação success/accredited não comprova liquidação bancária nem identidade do beneficiário. Revisões e recuperações financeiras exigem análise administrativa e evidência independente.</p>'+
-    '</div>';
+    '</div>'+adminPayoutFollowupSection();
 }
 
 // TAMÃO V1.264 — confidential, byte-verified payout documents.

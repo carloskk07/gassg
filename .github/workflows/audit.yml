@@ -461,6 +461,8 @@ jobs:
         run: node tests/owner-payout-review-pagination-v1-336.mjs
       - name: Admin immutable payout review journal V1.337 regression
         run: node tests/owner-payout-review-journal-v1-337.mjs
+      - name: Admin payout followup internal deadlines V1.338 regression
+        run: node tests/payout-review-followup-deadlines-v1-338.mjs
       - name: Verified merchant representation V1.158.4 regression contract
         run: node tests/merchant-representation-v1-158-4.mjs
       - name: Remote admin gateway contract and portal report
