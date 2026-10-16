@@ -339,6 +339,8 @@ jobs:
         run: node tests/ads-psp-freshness-v1-318.mjs
       - name: V1.319 merchant PSP proof age and admin review requests
         run: node tests/ads-merchant-proof-v1-319.mjs
+      - name: V1.320 Ads launch readiness and revenue-proof guard
+        run: node tests/ads-launch-readiness-v1-320.mjs
       - name: TAMÃO V1.258 founder-approved orphan deletion with immutable audit
         run: node tests/owner-receipt-orphan-cleanup-v1-258.mjs
       - name: Turnstile smoke Chrome cleanup V1.238.1

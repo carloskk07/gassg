@@ -23,7 +23,8 @@ async function adminActivationLoad({force=false}={}){
       ['adsMpInbox','ads-mp-inbox-read','admin_ads_mp_inbox_v1_316'],
       ['adsMpTriage','ads-mp-triage-read','admin_ads_mp_triage_v1_317'],
       ['adsPspFreshness','ads-psp-freshness-read','admin_ads_psp_freshness_v1_318'],
-      ['adsPspMerchantReviews','ads-psp-merchant-reviews','admin_ads_psp_review_requests_v1_319']
+      ['adsPspMerchantReviews','ads-psp-merchant-reviews','admin_ads_psp_review_requests_v1_319'],
+      ['adsLaunch','ads-launch-readiness','admin_ads_launch_readiness_v1_320']
     ];
     const values=await Promise.allSettled([
       ...specs.map(([,action])=>adminInvoke({action})),
@@ -37,6 +38,19 @@ async function adminActivationLoad({force=false}={}){
       const safe=d?.source===source&&(
         key==='ads'?d.readOnly===true&&d.publicEnabled===false&&d.billingEnabled===false&&d.readyToSell===false:
         key==='adsQueue'?d.noCharge===true&&d.adsLive===false:
+        key==='adsLaunch'?d.readOnly===true&&d.noAutomaticActivation===true&&
+          d.merchantBillingSeparate===true&&d.providerLookupPerformed===false&&
+          d.publicAdsVerified===false&&d.verifiedRevenueCents===null&&
+          Number.isFinite(Date.parse(String(d.snapshotAt||'')))&&
+          ['publicEnabled','billingEnabled','verifiedDeliveryEnabled'].every(k=>typeof d[k]==='boolean')&&
+          ['creativesApproved','plansContactReady','merchantInterests','dossiersReviewed',
+           'bilateralAcceptances','statementsIssued','checkoutsReady','lastKnownApprovedPayments',
+           'staleApprovals24h','reversalsRecorded'].every(k=>Number.isSafeInteger(d[k])&&d[k]>=0)&&
+          d.staleApprovals24h<=d.lastKnownApprovedPayments&&
+          d.platformPspConfig?.liveAccountVerified===false&&
+          d.platformPspConfig?.providerCharged===false&&
+          ['explicitlyEnabled','providerTokenConfigured','providerSellerConfigured',
+            'canAttemptAuthenticatedLookup'].every(k=>typeof d.platformPspConfig?.[k]==='boolean'):
         key==='adsPspMerchantReviews'?d.readOnly===true&&d.paymentStateChanged===false&&
           d.automaticReconciliation===false&&d.adsLive===false&&d.merchantBillingSeparate===true&&
           Number.isSafeInteger(d.totalRequests)&&Number.isSafeInteger(d.pendingRequests)&&
@@ -122,7 +136,7 @@ async function adminActivationLoad({force=false}={}){
         d.readOnly===true&&d.couponSalesEnabled===false&&d.noContractsSigned===true);
       evidence[key]=safe?d:null;
     });
-    const governance=values[15].status==='fulfilled'?values[15].value:null;
+    const governance=values[16].status==='fulfilled'?values[16].value:null;
     evidence.governance=governance?.source==='admin_governance_gates_v1_304'&&governance.readOnly===true&&
       adminRuntime.governance?.loadedFor===actor&&adminRuntime.governance?.role===role?governance:null;
     const push=adminRuntime.pushReliability||{};
@@ -212,7 +226,7 @@ function adminActivationDeskView(d){
     '<p class="tiny muted">Última consulta: '+
     esc(current?formatDateTime(adminActivationDesk.checkedAt):'não confirmada')+
     '. Uma falha na consulta é mostrada como “Não confirmado”, nunca como recurso desligado.</p>'+
-    '<div class="admin-activation-grid">'+cards+'</div>'+adminMarketingIntakeView()+adminAdsSalesPlansView()+adminAdsDossiersView()+adminAdsInstrumentsView()+adminAdsReceivablesView()+adminAdsPspView()+adminAdsMpInboxView()+adminAdsMpTriageView()+adminAdsPspFreshnessView()+adminAdsPspMerchantReviewsView()+
+    '<div class="admin-activation-grid">'+cards+'</div>'+adminAdsLaunchReadinessView()+adminMarketingIntakeView()+adminAdsSalesPlansView()+adminAdsDossiersView()+adminAdsInstrumentsView()+adminAdsReceivablesView()+adminAdsPspView()+adminAdsMpInboxView()+adminAdsMpTriageView()+adminAdsPspFreshnessView()+adminAdsPspMerchantReviewsView()+
     '<p class="tiny muted">Publicidade pública, vendas de cupons e automação de avisos exigem homologação e gates reais no servidor. Nenhum controle desta página contorna esses requisitos.</p></section>';
 }
 
@@ -1073,4 +1087,61 @@ function adminAdsPspMerchantReviewOpen(merchantId){
    adminAdsPspAction(merchantId,'reconcile',r.paymentId);return true;
  }
  return false;
+}
+
+
+// V1.320 — one founder-readable pathway from creative to verified operations.
+function adminAdsLaunchReadinessView(){
+ if(!adminRoleCanSection('activations'))return '';
+ const actor=String(adminRuntime.session?.user?.id||''),role=adminCurrentRole();
+ const current=adminActivationDesk.actor===actor&&adminActivationDesk.role===role&&
+   Date.now()-Date.parse(adminActivationDesk.checkedAt||'')<120000;
+ const d=current?adminActivationDesk.data?.adsLaunch:null;
+ if(!d)return '<section class="section admin-ads-launch-readiness"><h2>Prontidão comercial do TAMÃO Ads</h2>'+
+  '<p class="muted">Diagnóstico ainda não confirmado. Atualize a Central de Ativações para conferir as etapas reais.</p></section>';
+ const stages=[
+  ['Criativos aprovados',d.creativesApproved,'Prepare e aprove um anúncio real da revenda'],
+  ['Planos para contato',d.plansContactReady,'Defina preço, duração e plano de divulgação'],
+  ['Revendas interessadas',d.merchantInterests,'Disponibilize oferta comercial e receba manifestação do titular'],
+  ['Minutas revisadas',d.dossiersReviewed,'Prepare escopo e regras; o titular deve revisar'],
+  ['Aceites bilaterais',d.bilateralAcceptances,'Emita o documento e registre aceite das duas partes'],
+  ['Demonstrativos emitidos',d.statementsIssued,'Emita cobrança comercial somente após o aceite bilateral'],
+  ['Checkouts disponíveis',d.checkoutsReady,'Habilite a conta própria Mercado Pago Ads antes de cobrar'],
+  ['Aprovações observadas',d.lastKnownApprovedPayments,'Concilie cada pagamento no PSP e reconfira estornos']
+ ];
+ const firstPending=stages.findIndex(x=>x[1]===0);
+ const cards=stages.map(([name,count,what],index)=>'<div class="admin-ads-launch-step">'+
+   '<span class="tiny muted">Etapa '+(index+1)+'</span>'+
+   '<strong>'+esc(name)+'</strong><span class="admin-ads-launch-count">'+Number(count)+'</span>'+
+   (firstPending===index?'<p class="tiny"><strong>Próxima oportunidade:</strong> '+esc(what)+'</p>':
+    '<p class="tiny muted">'+esc(what)+'</p>')+'</div>').join('');
+ const p=d.platformPspConfig||{};
+ const flags=[
+  ['Credencial específica configurada',p.providerTokenConfigured],
+  ['Conta recebedora identificada',p.providerSellerConfigured],
+  ['Checkout habilitado expressamente',p.explicitlyEnabled],
+  ['Pré-requisitos locais para consultar o provedor',p.canAttemptAuthenticatedLookup],
+  ['Publicidade pública habilitada',d.publicEnabled],
+  ['Faturamento publicitário habilitado',d.billingEnabled],
+  ['Entrega publicitária verificada',d.verifiedDeliveryEnabled]
+ ];
+ const flagsHtml=flags.map(([name,ok])=>'<div class="admin-ads-launch-flag">'+
+   '<span>'+esc(name)+'</span><strong>'+ (ok?'Configurado / habilitado':'Não configurado / desabilitado')+
+   '</strong></div>').join('');
+ const earliest=firstPending>=0?'Próximo foco: '+stages[firstPending][0]+'.':
+   'Todas as etapas têm registros. Isso não comprova que a operação está pronta.';
+ return '<section class="section admin-ads-launch-readiness">'+
+  '<div class="section-head"><div><span class="section-kicker">V1.320 • PRONTIDÃO PARA O MERCADO</span>'+
+  '<h2>O que falta para faturar com TAMÃO Ads?</h2>'+
+  '<p>Funil comercial extraído do banco, com bloqueios operacionais reais e sem promessas de receita.</p></div></div>'+
+  '<p><strong>'+esc(earliest)+'</strong></p>'+
+  '<div class="admin-ads-launch-steps">'+cards+'</div>'+
+  '<h3>Condições técnicas e autorizações</h3><div class="admin-ads-launch-flags">'+flagsHtml+'</div>'+
+  '<p class="tiny muted">A configuração de credenciais não equivale à verificação da conta recebedora; a checagem autenticada acontece somente na operação autorizada. Nenhuma liberação é executada nesta tela.</p>'+
+  '<p class="tiny muted">Aprovações exibidas são o último estado financeiro registrado, não receita liquidada. '+Number(d.staleApprovals24h)+
+  ' aprovação(ões) com evidência superior a 24h e '+Number(d.reversalsRecorded)+
+  ' reversão(ões) registrada(s). Receita liquidada ainda sem comprovação nesta visão.</p>'+
+  '<p class="tiny muted">Fotografia do banco: '+esc(String(d.snapshotAt))+
+  ' • Sem consulta ao Mercado Pago nesta ação. Para publicar Ads é necessária validação independente da entrega e autorização administrativa.</p>'+
+  '</section>';
 }

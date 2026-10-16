@@ -50,6 +50,15 @@ const providers={
   'ads-psp-merchant-reviews':{source:'admin_ads_psp_review_requests_v1_319',
     readOnly:true,paymentStateChanged:false,automaticReconciliation:false,adsLive:false,
     merchantBillingSeparate:true,totalRequests:0,pendingRequests:0,rows:[]},
+  'ads-launch-readiness':{source:'admin_ads_launch_readiness_v1_320',readOnly:true,
+    snapshotAt:new Date().toISOString(),merchantBillingSeparate:true,noAutomaticActivation:true,
+    providerLookupPerformed:false,verifiedRevenueCents:null,publicAdsVerified:false,
+    creativesApproved:0,plansContactReady:0,merchantInterests:0,dossiersReviewed:0,
+    bilateralAcceptances:0,statementsIssued:0,checkoutsReady:0,lastKnownApprovedPayments:0,
+    staleApprovals24h:0,reversalsRecorded:0,publicEnabled:false,billingEnabled:false,
+    verifiedDeliveryEnabled:false,platformPspConfig:{
+      explicitlyEnabled:false,providerTokenConfigured:false,providerSellerConfigured:false,
+      canAttemptAuthenticatedLookup:false,liveAccountVerified:false,providerCharged:false}},
   'ads-mp-inbox-read':{source:'admin_ads_mp_inbox_v1_316',readOnly:true,
     automaticReconciliation:false,webhookCannotMarkPaid:true,adsLive:false,
     totalEvents:0,rows:[]}
@@ -74,7 +83,7 @@ const env=vm.createContext({
 });
 vm.runInContext(src+'\nthis.load=adminActivationLoad;this.view=adminActivationDeskView;this.go=adminActivationGo;',env);
 assert.equal(await env.load({force:true})!=null,true);
-assert.equal(calls.filter(x=>typeof x==='string').length,15);
+assert.equal(calls.filter(x=>typeof x==='string').length,16);
 let view=env.view({commercialPolicy:{policy_version:4}});
 assert.match(view,/Central de consulta e acesso aos controles reais/);
 assert.match(view,/Exibição bloqueada/);

@@ -3708,3 +3708,13 @@ body:has(.admin-page) .admin-nav-item:focus-visible{outline-offset:-3px}
 .admin-ads-psp-merchant-reviews .admin-activation-card{min-width:0}
 .admin-ads-psp-merchant-reviews p{overflow-wrap:anywhere}
 @media(max-width:520px){.merchant-ads-psp-evidence button,.admin-ads-psp-merchant-reviews button{width:100%;min-height:44px}}
+
+/* TAMÃO V1.320 — responsive commercial readiness ladder, no misleading green "ready" states. */
+.admin-ads-launch-steps{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,230px),1fr));gap:12px;margin:14px 0 24px}
+.admin-ads-launch-step{display:grid;gap:7px;border:1px solid var(--border,#dbe0e5);border-radius:12px;padding:14px;min-width:0}
+.admin-ads-launch-count{font-size:1.6rem;font-weight:750;font-variant-numeric:tabular-nums}
+.admin-ads-launch-step p{margin:0}
+.admin-ads-launch-flags{display:grid;gap:0;margin:10px 0 14px}
+.admin-ads-launch-flag{display:flex;flex-wrap:wrap;justify-content:space-between;gap:8px;padding:10px 0;border-bottom:1px solid var(--border,#dbe0e5)}
+.admin-ads-launch-flag strong{font-size:.85rem}
+@media(max-width:480px){.admin-ads-launch-step{padding:12px}.admin-ads-launch-flag{flex-direction:column;gap:3px}}
