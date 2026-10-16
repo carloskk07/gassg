@@ -264,6 +264,7 @@ function home(){
   const cityPrices=citySnapshot?.city===homeRegion.city&&
     citySnapshot?.state===homeRegion.state&&
     citySnapshot?.source==='public_city_price_board_v1_341'&&
+    citySnapshot?.real===true&&citySnapshot?.notAQuote===true&&
     Array.isArray(citySnapshot.products)?citySnapshot.products:[];
   const cityEvidence=ready?globalThis.liveRuntime?.lastCityCheck:null;
   const cityChecked=Boolean(cityEvidence
