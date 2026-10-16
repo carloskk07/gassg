@@ -664,15 +664,6 @@ function buyerCartFilter(group){
     ' Os itens da sua cesta continuam à vista.';
   return true;
 }
-// The same expiry rule controls both the progress indicator and rendered choices.
-function customerEligibleCheckoutOffers(all,{testDemo=false,now=Date.now()}={}){
-  const rows=Array.isArray(all)?all:[];
-  if(testDemo)return rows;
-  return rows.filter(o=>{
-    const expires=Date.parse(String(o?.expiresAt||''));
-    return Number.isFinite(expires)&&expires>now+1000;
-  });
-}
 function orderPage(){
   const testDemo=globalThis.__CHAMA_TEST__===true;
   const internalPilot=globalThis.CHAMA_INTERNAL_PILOT===true;
@@ -821,6 +812,16 @@ function cartRow(k,p){
 }
 // Sorting never changes backend recommendation or creates a new quote.
 let checkoutOfferSort='recommended';
+// The same expiry rule controls both the progress indicator and rendered choices.
+function customerEligibleCheckoutOffers(all,{testDemo=false,now=Date.now()}={}){
+  const rows=Array.isArray(all)?all:[];
+  if(testDemo)return rows;
+  return rows.filter(o=>{
+    const expires=Date.parse(String(o?.expiresAt||''));
+    return Number.isFinite(expires)&&expires>now+1000;
+  });
+}
+
 function sortedCheckoutOffers(all,mode=checkoutOfferSort){
   const offers=Array.isArray(all)?all.slice():[];
   const ranked=offers.map((offer,index)=>({offer,index}));
