@@ -2911,11 +2911,36 @@ async function adminOwnerPayoutProviderLoadFromUi(){
          'unqueriedClaims'].every(k=>Number.isSafeInteger(d[k])&&d[k]>=0)||
        d.totalClaims!==d.checkedClaims+d.unqueriedClaims||
        d.checkedClaims!==d.providerSuccessClaims+d.checkedUnmatchedClaims||
+       d.triageV1335!==true||d.queueOrder!=='priority_then_reported_at'||
+       d.queueCoverage!=='top_30_prioritized'||
+       d.historicalProviderSuccessIsBankProof!==false||
+       d.automaticRecoveryExecuted!==false||
+       !['activeReversedClaims','activeReversedReportedCents',
+         'reversedWithHistoricalProviderSuccessClaims',
+         'activeReversedWithHistoricalProviderSuccessClaims']
+         .every(k=>Number.isSafeInteger(d[k])&&d[k]>=0)||
+       d.activeReversedClaims>d.totalClaims||
+       d.reversedWithHistoricalProviderSuccessClaims>d.totalClaims||
+       d.activeReversedWithHistoricalProviderSuccessClaims>d.activeReversedClaims||
+       d.activeReversedWithHistoricalProviderSuccessClaims>
+         d.reversedWithHistoricalProviderSuccessClaims||
        d.limit!==30||d.truncated!==(d.totalClaims>30)||
        !Array.isArray(d.rows)||d.rows.length>30||d.rows.length>d.totalClaims||
        d.rows.some(x=>!x||!/^[0-9a-f-]{36}$/i.test(String(x.claimId||''))||
          typeof x.successNow!=='boolean'||typeof x.proofPresent!=='boolean'||
          typeof x.voided!=='boolean'||
+         !/^[0-9a-f-]{36}$/i.test(String(x.orderId||''))||
+         !Number.isSafeInteger(x.reportedAmountCents)||x.reportedAmountCents<0||
+         !/^\d{4}-\d{2}-\d{2}$/.test(String(x.paidOn||''))||
+         !Number.isFinite(Date.parse(String(x.reportedAt||'')))||
+         !Number.isSafeInteger(x.priority)||x.priority<0||x.priority>5||
+         !['grantReversedNow','historicalProviderSuccessObserved',
+           'requiresReversalReview'].every(k=>typeof x[k]==='boolean')||
+         x.requiresReversalReview!==
+           (x.grantReversedNow&&x.historicalProviderSuccessObserved&&!x.voided)||
+         (x.requiresReversalReview&&x.priority!==0)||
+         (x.voided&&x.priority!==5)||
+         (x.priority===0&&!x.requiresReversalReview)||
          (x.checkedAt!==null&&(
            !Number.isFinite(Date.parse(String(x.checkedAt)))||
            typeof x.referenceMatches!=='boolean'||typeof x.amountMatches!=='boolean'||
@@ -2927,7 +2952,8 @@ async function adminOwnerPayoutProviderLoadFromUi(){
            x.status!==null||x.detail!==null||
            x.payoutId!==null||x.transactionId!==null||
            x.referenceMatches!==null||x.amountMatches!==null||
-           x.providerTransactionSuccess!==null))))
+           x.providerTransactionSuccess!==null)))||
+       d.rows.some((x,i)=>i>0&&d.rows[i-1].priority>x.priority))
       throw new Error('Conciliação do provedor não validada.');
     if(actor===String(adminRuntime?.session?.user?.id||'')&&
       role===String(adminCurrentRole()))
@@ -2984,6 +3010,33 @@ async function adminOwnerPayoutProviderCheckFromUi(){
       toast(String(e?.message||'Falha na consulta à API de Payouts.'));
   }finally{adminOwnerPayoutProviderBusy=false;render();}
 }
+// TAMÃO V1.335 — local filtering affects only the prioritized 30-record page.
+let adminOwnerPayoutQueueFilter='all';
+function adminOwnerPayoutQueueSetFilterFromUi(next){
+  if(!['all','critical','pending'].includes(next))return;
+  adminOwnerPayoutQueueFilter=next;
+  render();
+}
+// Convenience only: prefill an existing read-only provider GET form.
+// Never request a payout, resolve a claim, or approve a financial reversal.
+function adminOwnerPayoutQueuePrepareCheckFromUi(claimId){
+  const actor=String(adminRuntime?.session?.user?.id||'');
+  if(adminOwnerPayoutProviderBusy||String(adminCurrentRole())!=='superadmin')return;
+  const d=adminOwnerPayoutProviderState?.loadedFor===actor?adminOwnerPayoutProviderState:null;
+  const row=d?.rows?.find(x=>x.claimId===claimId&&!x.voided);
+  if(!row||!/^[0-9a-f-]{36}$/i.test(String(claimId||''))||
+     !/^POP[0-9A-Z]{10,45}$/.test(String(row.payoutId||''))||
+     !/^TOP[0-9A-Z]{10,45}$/.test(String(row.transactionId||'')))
+    return toast('Esta declaração ainda não possui os IDs externos necessários. Consulte os registros existentes.');
+  const claim=document.getElementById('owner-provider-claim');
+  const payout=document.getElementById('owner-provider-payout');
+  const transaction=document.getElementById('owner-provider-transaction');
+  if(!claim||!payout||!transaction)return toast('Formulário de consulta indisponível.');
+  claim.value=claimId;
+  payout.value=row.payoutId;
+  transaction.value=row.transactionId;
+  toast('IDs preenchidos. Revise os dados e use Verificar pelo provedor para uma nova consulta somente leitura.');
+}
 function adminOwnerPayoutProviderSection(){
   const role=String(adminCurrentRole());
   if(!['superadmin','finance'].includes(role))return '';
@@ -2991,34 +3044,84 @@ function adminOwnerPayoutProviderSection(){
   const d=adminOwnerPayoutProviderState?.loadedFor===actor?adminOwnerPayoutProviderState:null;
   const month=String(document.getElementById('owner-campaign-signals-month')?.value||'').trim();
   const show=d&&(!month||d.month.slice(0,7)===month);
-  const rows=(show?d.rows:[]).map(x=>
-    '<article class="card flat form-stack"><p class="tiny muted">Declaração: <code>'+
-      esc(x.claimId)+'</code>'+(x.voided?' • retificada':'')+'</p>'+
-    (x.checkedAt===null?'<p>Consulta externa não efetuada</p>':
-      '<p>Status oficial observado: <strong>'+esc(x.status)+'</strong> • detalhe: '+
-        esc(x.detail)+'</p>'+
-      '<p>Referência coincide: '+(x.referenceMatches?'sim':'não')+
-      ' • valor coincide: '+(x.amountMatches?'sim':'não')+
-      ' • benefício elegível: '+(x.successNow?'com status externo conciliado':'pendente de conferência')+
-      '</p><p class="tiny muted">Consulta em '+esc(x.checkedAt)+
-      ' • lote '+esc(x.payoutId)+' • transação '+esc(x.transactionId)+'</p>')+
-    '<p class="tiny muted">Arquivo anexo: '+(x.proofPresent?'sim':'não')+
-      '. Beneficiário e liquidação bancária ainda não comprovados.</p></article>').join('');
-  return '<div class="card flat form-stack"><h4>Consulta externa de repasses — Mercado Pago Payouts</h4>'+
-    '<p>Consulta somente leitura da API oficial de transferências enviadas, com comparação do valor e referência contra a declaração registrada.</p>'+
+  const sourceRows=show?d.rows:[];
+  const visible=sourceRows.filter(x=>adminOwnerPayoutQueueFilter==='all'||
+    (adminOwnerPayoutQueueFilter==='critical'&&x.priority<=1)||
+    (adminOwnerPayoutQueueFilter==='pending'&&!x.voided&&x.priority<=4));
+  const priorityLabel=x=>{
+    if(x.voided)return 'Retificada — histórico preservado';
+    if(x.priority===0)return 'Urgente — estorno após sucesso observado';
+    if(x.priority===1)return 'Alta — pedido estornado';
+    if(x.priority===2)return 'Alta — dados externos divergentes';
+    if(x.priority===3)return 'Pendente — consultar provedor';
+    if(x.priority===4)return 'Pendente — comprovante ausente';
+    return 'Acompanhamento — sem divergência detectada';
+  };
+  const nextStep=x=>{
+    if(x.voided)return 'Declaração retificada. Manter histórico e consultar registros anteriores.';
+    if(x.priority===0)return 'Confrontar pedido revertido, comprovante privado e histórico da transferência. Não cobrar automaticamente.';
+    if(x.priority===1)return 'Conferir motivo do estorno e verificar se ocorreu alguma transferência real.';
+    if(x.priority===2)return 'Comparar referência e valor declarado com a observação do provedor.';
+    if(x.priority===3)return 'Localizar IDs oficiais POP e TOP de transferência já existente e consultar o provedor.';
+    if(x.priority===4)return 'Conferir o documento privado e a titularidade antes de considerar o caso esclarecido.';
+    return 'Acompanhar documentação e titularidade. Status do PSP não prova liquidação bancária.';
+  };
+  const rows=visible.map(x=>
+    '<article class="card flat form-stack" data-payout-review-priority="'+Number(x.priority)+'">'+
+    '<h5>'+esc(priorityLabel(x))+'</h5>'+
+    '<p class="tiny muted">Pedido <code>'+esc(x.orderId)+'</code></p>'+
+    '<p class="tiny muted">Declaração <code>'+esc(x.claimId)+'</code></p>'+
+    '<p>Valor declarado: <strong>'+adminMoney(x.reportedAmountCents)+'</strong>'+
+      ' • data informada: '+esc(x.paidOn)+'</p>'+
+    (x.checkedAt===null?'<p>Provedor ainda não consultado</p>':
+      '<p>Status observado: <strong>'+esc(x.status)+'</strong>'+
+       ' • '+esc(x.detail)+'</p>'+
+      '<p>Referência: '+(x.referenceMatches?'confere':'diverge')+
+        ' • valor: '+(x.amountMatches?'confere':'diverge')+
+        ' • situação atual: '+(x.successNow?'compatível com observação':'não conciliada')+'</p>'+
+      '<p class="tiny muted">Consulta: '+esc(x.checkedAt)+
+        ' • POP '+esc(x.payoutId)+' • TOP '+esc(x.transactionId)+'</p>')+
+    '<p>Comprovante privado: <strong>'+(x.proofPresent?'registrado':'ausente')+
+      '</strong> • benefício revertido: '+(x.grantReversedNow?'sim':'não')+
+      ' • sucesso observado anteriormente: '+(x.historicalProviderSuccessObserved?'sim':'não')+'</p>'+
+    '<p class="tiny muted"><strong>Próximo passo:</strong> '+esc(nextStep(x))+'</p>'+
+    (role==='superadmin'&&!x.voided&&x.payoutId&&x.transactionId?
+      '<button type="button" class="secondary small" onclick="adminOwnerPayoutQueuePrepareCheckFromUi(&quot;'+
+      esc(x.claimId)+'&quot;)">Preparar conferência externa</button>':'')+
+    '</article>').join('');
+  return '<div class="card flat form-stack"><h4>Central de revisão de repasses externos</h4>'+
+    '<p class="tiny muted">Fila de conferência por prioridade; Mercado Pago Payouts. A consulta não transfere nem recupera valores.</p>'+
     '<button type="button" class="secondary small" onclick="adminOwnerPayoutProviderLoadFromUi()" '+
-      (adminOwnerPayoutProviderBusy?'disabled':'')+'>Consultar histórico das verificações</button>'+
-    (show?'<p class="tiny muted">'+Number(d.checkedClaims)+' de '+Number(d.totalClaims)+
-      ' declarações consultadas • '+Number(d.providerSuccessClaims)+
-      ' com status de sucesso e referência/valor coincidentes • '+
-      Number(d.checkedUnmatchedClaims)+' com pendências • '+
-      Number(d.unqueriedClaims)+' sem consulta.</p>'+
+      (adminOwnerPayoutProviderBusy?'disabled':'')+'>Atualizar evidências da competência</button>'+
+    (show?
       '<div class="grid cards-2">'+
-      (rows||'<p class="tiny muted">Nenhuma declaração nesta competência.</p>')+
-      '</div>':'<p class="tiny muted">Consulte a competência para revisar o histórico.</p>')+
-    (role==='superadmin'?'<div class="card flat form-stack"><h5>Consultar uma transferência externa</h5>'+
-      '<p class="tiny muted">Para declarações de repasse do Mercado Pago: informe os IDs oficiais POP e TOP obtidos de uma operação já existente. Não cria pagamentos.</p>'+
-      '<label>Identificador da declaração de comissão</label>'+
+      '<div class="card flat"><strong>'+Number(d.activeReversedWithHistoricalProviderSuccessClaims)+
+      '</strong><p>Declarações ativas: estorno após sucesso observado</p></div>'+
+      '<div class="card flat"><strong>'+Number(d.activeReversedClaims)+
+      '</strong><p>Declarações ativas ligadas a pedidos revertidos</p>'+
+      '<p class="tiny muted">Valor declarado: '+adminMoney(d.activeReversedReportedCents)+'</p></div>'+
+      '<div class="card flat"><strong>'+Number(d.checkedUnmatchedClaims)+
+      '</strong><p>Conferências externas sem conciliação atual</p></div>'+
+      '<div class="card flat"><strong>'+Number(d.unqueriedClaims)+
+      '</strong><p>Declarações ainda não consultadas no provedor</p></div></div>'+
+      '<p class="tiny muted">'+Number(d.checkedClaims)+' de '+Number(d.totalClaims)+
+       ' declarações consultadas • '+Number(d.providerSuccessClaims)+
+       ' compatíveis no momento • '+Number(d.reversedWithHistoricalProviderSuccessClaims)+
+       ' com estorno e sucesso histórico observado, incluindo retificadas.</p>'+
+      '<p class="tiny muted">A fila mostra até 30 registros priorizados da competência; os totais acima consideram a competência inteira.'+
+       (d.truncated?' Há outros registros fora desta página.':'')+'</p>'+
+      '<div class="row wrap" role="group" aria-label="Filtrar fila apresentada">'+
+      ['all','critical','pending'].map((v,i)=>
+        '<button type="button" class="'+(adminOwnerPayoutQueueFilter===v?'primary':'secondary')+
+        ' small" onclick="adminOwnerPayoutQueueSetFilterFromUi(&quot;'+v+'&quot;)">'+
+        ['Todos da página','Estornos prioritários','Pendências da página'][i]+'</button>').join('')+'</div>'+
+      '<div class="grid cards-2">'+
+      (rows||'<p class="tiny muted">Nenhuma declaração encontrada neste filtro da página.</p>')+
+      '</div>':
+      '<p class="tiny muted">Consulte a competência para carregar a fila de revisão.</p>')+
+    (role==='superadmin'?'<div class="card flat form-stack"><h5>Verificar transferência já existente</h5>'+
+      '<p class="tiny muted">Preencha os IDs oficiais POP e TOP. O comando usa somente consulta GET; não inicia pagamentos.</p>'+
+      '<label>Identificador da declaração</label>'+
       '<input id="owner-provider-claim" autocomplete="off" placeholder="UUID da declaração">'+
       '<label>ID do lote Payouts (POP…)</label>'+
       '<input id="owner-provider-payout" autocomplete="off" placeholder="POP...">'+
@@ -3027,7 +3130,7 @@ function adminOwnerPayoutProviderSection(){
       '<button type="button" onclick="adminOwnerPayoutProviderCheckFromUi()" '+
         (adminOwnerPayoutProviderBusy?'disabled':'')+
         '>Verificar pelo provedor (somente GET)</button></div>':'')+
-    '<p class="tiny muted">Credencial exclusiva e autorização da API de Payouts são necessárias. Não utiliza o token de pagamentos recebidos. Mesmo uma transação com status success/accredited não valida por si só a titularidade do beneficiário, nem autoriza afirmar liquidação bancária independente.</p>'+
+    '<p class="tiny muted">Uma observação success/accredited não comprova liquidação bancária nem identidade do beneficiário. Revisões e recuperações financeiras exigem análise administrativa e evidência independente.</p>'+
     '</div>';
 }
 
