@@ -837,6 +837,8 @@ async function liveCreateOrder(quoteId){
     }
     confirmedOrderId=receivedOrderId;
     liveRuntime.orderId=confirmedOrderId;
+    // Never show the prior order's details if the new order cannot be loaded.
+    if(liveRuntime.order?.orderId!==confirmedOrderId)liveRuntime.order=null;
     localStorage.setItem(CHAMA_BACKEND.orderStorageKey,confirmedOrderId);
     state.cart=normalizeCart({});
     state.checkout.useCashback=false;
