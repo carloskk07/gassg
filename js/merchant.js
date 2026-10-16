@@ -2151,6 +2151,7 @@ function merchantLivePage(){
     </div></details>
     <details id="merchant-workspace-growth" class="merchant-workspace-section"><summary tabindex="0"><span><strong>Vender mais e ampliar sua rede</strong><small>Divulgação, benefícios, parcerias e indicações organizados em um só lugar.</small></span></summary><div class="merchant-workspace-content">
       ${merchantAdsStartSection(m)}
+      ${merchantAdsAssistanceSection(m)}
       ${merchantAdsInterestSection(m)}
       ${merchantClubeInterestSection(m)}
       ${merchantClubeTermsSection(m)}
@@ -4565,4 +4566,109 @@ async function merchantAdsFirstDraftCreate(){
   }
   return false;
  }finally{rt.adsFirstDraftBusy=false;render();}
+}
+
+
+// V1.323 — request human advice about TAMÃO Ads, only with explicit owner opt-in.
+function merchantAdsAssistanceSection(merchant){
+ if(!['owner','manager'].includes(String(merchant?.memberRole||'')))return '';
+ const rt=globalThis.merchantRuntime||{},id=String(merchant?.merchantId||'');
+ const d=rt.adsAssistance?.source==='merchant_ads_assistance_v1_323'&&
+   rt.adsAssistance.merchantId===id&&rt.adsAssistance.readOnly===true&&
+   rt.adsAssistance.noMessageSent===true&&rt.adsAssistance.noCharge===true&&
+   rt.adsAssistance.adsLive===false?rt.adsAssistance:null;
+ const request=d?.request||null,owner=merchant.memberRole==='owner';
+ const status={requested:'Seu pedido foi registrado',triaged:'Pedido em análise interna',
+   closed:'Solicitação encerrada',withdrawn:'Solicitação retirada'};
+ const active=request&&['requested','triaged'].includes(request.status);
+ const eligibility=d?.merchantActive===true&&d?.interestRegistered===true;
+ const form=owner&&eligibility&&!active?'<div class="form-stack">'+
+  '<label>Como prefere conversar sobre publicidade?<select class="input" id="ads-help-channel">'+
+  '<option value="whatsapp">WhatsApp</option><option value="phone">Telefone</option>'+
+  '<option value="email">E-mail</option></select></label>'+
+  '<label>Sobre o que gostaria de receber orientação?<textarea class="input" id="ads-help-note" rows="3" minlength="20" maxlength="240" placeholder="Ex.: quero ajuda para planejar minha primeira divulgação, avaliar uma proposta e entender as condições." ></textarea></label>'+
+  '<label class="check-row"><input type="checkbox" id="ads-help-consent">'+
+  '<span>Solicito voluntariamente orientação comercial do TAMÃO sobre publicidade pelo canal escolhido. Posso retirar o pedido no painel; isso não autoriza cobranças ou anúncios.</span></label>'+
+  '<button type="button" class="primary small" onclick="merchantAdsAssistanceAction(\'request\')">Solicitar orientação do TAMÃO</button></div>':'';
+ const cancel=owner&&active?'<button type="button" class="secondary small" onclick="merchantAdsAssistanceAction(\'withdraw\')">Retirar minha solicitação</button>':'';
+ const record=request?'<div class="card flat"><strong>'+esc(status[request.status]||'Não confirmado')+
+  '</strong><p>Canal preferido: '+esc(({whatsapp:'WhatsApp',phone:'Telefone',email:'E-mail'})[request.channel]||'—')+
+  '</p><p>'+esc(request.note)+'</p>'+
+  '<p class="tiny muted">Registro v'+request.version+' • '+esc(String(request.requestedAt||'—'))+
+  '</p>'+cancel+'</div>':'';
+ return '<section class="section merchant-ads-assistance">'+
+  '<div class="section-head"><div><span class="section-kicker">TAMÃO ADS • ATENDIMENTO SOB PEDIDO</span>'+
+  '<h3>Quer uma orientação para começar a anunciar?</h3>'+
+  '<p>Peça atendimento comercial à equipe TAMÃO no canal que preferir, sem compromisso de contratar.</p></div>'+
+  '<button type="button" class="secondary small" onclick="merchantAdsAssistanceLoad()">Consultar pedido</button></div>'+
+  (d?(record||(!eligibility?'<p class="muted tiny">Registre seu interesse em divulgação e mantenha sua revenda ativa para solicitar orientação.</p>':'')+form):
+    '<p class="muted tiny">Consulte o servidor para verificar se pode solicitar atendimento.</p>')+
+  (rt.adsAssistanceError?'<p class="notice danger">'+esc(rt.adsAssistanceError)+'</p>':'')+
+  '<p class="tiny muted">A solicitação vai para uma fila interna. Esta opção não envia mensagens automaticamente, não cria contrato, não gera taxa e não garante contato imediato.</p></section>';
+}
+async function merchantAdsAssistanceLoad(){
+ const rt=globalThis.merchantRuntime,id=String(rt?.merchant?.merchantId||'');
+ if(!rt||!id||rt.adsAssistanceBusy||!['owner','manager'].includes(String(rt.merchant.memberRole||'')))return null;
+ rt.adsAssistanceBusy=true;rt.adsAssistanceError=null;render();
+ try{
+  const out=await merchantInvoke('merchant-ops',{action:'ads-assistance',merchantId:id,operation:'view'});
+  if(out?.source!=='merchant_ads_assistance_v1_323'||out.merchantId!==id||
+    out.readOnly!==true||out.noMessageSent!==true||out.noCharge!==true||
+    out.adsLive!==false||typeof out.merchantActive!=='boolean'||
+    typeof out.interestRegistered!=='boolean'||
+    (out.request!==null&&(!['requested','triaged','closed','withdrawn'].includes(out.request?.status)||
+      !['whatsapp','phone','email'].includes(out.request?.channel)||
+      typeof out.request.note!=='string'||out.request.note.length<20||
+      !Number.isSafeInteger(out.request.version)||out.request.version<1)))
+    throw new Error('Pedido de orientação não confirmado no servidor.');
+  if(String(rt.merchant?.merchantId)!==id)return null;
+  rt.adsAssistance=out;return out;
+ }catch(e){
+  if(String(rt.merchant?.merchantId)===id){
+   rt.adsAssistance=null;rt.adsAssistanceError=String(e?.message||e);toast(rt.adsAssistanceError);
+  }
+  return null;
+ }finally{rt.adsAssistanceBusy=false;render();}
+}
+async function merchantAdsAssistanceAction(operation){
+ const rt=globalThis.merchantRuntime,id=String(rt?.merchant?.merchantId||'');
+ if(!rt||!id||rt.merchant.memberRole!=='owner'||rt.adsAssistanceBusy||
+   !['request','withdraw'].includes(operation))return false;
+ const state=rt.adsAssistance,req=state?.merchantId===id&&state.readOnly===true?state.request:null;
+ if(!state||!Number.isSafeInteger(req?.version||0))return false;
+ const active=req&&['requested','triaged'].includes(req.status);
+ if(operation==='request'&&(!state.merchantActive||!state.interestRegistered||active))return false;
+ if(operation==='withdraw'&&!active)return false;
+ let channel=null,note=null;
+ if(operation==='request'){
+  channel=String(document.getElementById('ads-help-channel')?.value||'');
+  note=String(document.getElementById('ads-help-note')?.value||'').trim();
+  if(!['whatsapp','phone','email'].includes(channel)||note.length<20||note.length>240||
+    document.getElementById('ads-help-consent')?.checked!==true){
+   toast('Escolha o canal, informe o assunto e confirme seu pedido voluntário.');return false;
+  }
+ }
+ if(!confirm(operation==='request'?'Registrar pedido de orientação de publicidade, sem cobrança nem mensagem automática?':
+   'Retirar sua solicitação de orientação comercial?'))return false;
+ rt.adsAssistanceBusy=true;render();
+ try{
+  const out=await merchantInvoke('merchant-ops',{
+   action:'ads-assistance',merchantId:id,operation,
+   expectedVersion:req?.version||0,channel,note,consent:true,requestId:crypto.randomUUID()
+  });
+  const status=operation==='request'?'requested':'withdrawn';
+  if(out?.source!=='merchant_ads_assistance_v1_323'||out.merchantId!==id||
+   out.recorded!==true||out.status!==status||out.version!==(req?.version||0)+1||
+   out.noMessageSent!==true||out.noCharge!==true||out.adsLive!==false)
+   throw new Error('O pedido não foi confirmado no servidor.');
+  rt.adsAssistance=null;rt.adsAssistanceBusy=false;
+  const checked=await merchantAdsAssistanceLoad();
+  if(checked?.request?.status!==status||checked.request.version!==out.version)
+   throw new Error('Solicitação registrada, mas leitura posterior pendente.');
+  toast(operation==='request'?'Pedido registrado. A equipe poderá analisá-lo.':'Solicitação retirada.');
+  return true;
+ }catch(e){
+  rt.adsAssistance=null;rt.adsAssistanceError=String(e?.message||e);toast(rt.adsAssistanceError);
+  return false;
+ }finally{rt.adsAssistanceBusy=false;render();}
 }
