@@ -96,7 +96,7 @@ let html=ctx.adminOwnerPayoutProviderSection();
 for(const value of [
  'Central de revisão','Estorno após sucesso observado','Pedido',
  'Valor declarado','Comprovante privado','Próximo passo',
- 'até 30 registros priorizados','2','3','Beneficiário'
+ 'Mostrando','2','3','Beneficiário'
 ])assert.ok(html.toLowerCase().includes(value.toLowerCase()),'UI missing '+value);
 assert.ok(html.indexOf(id(1))<html.indexOf(id(2)));
 assert.ok(html.indexOf(id(2))<html.indexOf(id(3)));
