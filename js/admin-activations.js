@@ -1069,11 +1069,8 @@ function adminAdsPspMerchantReviewOpen(merchantId){
  const r=adminActivationDesk.data?.adsPspMerchantReviews?.rows?.find(x=>x.merchantId===merchantId&&x.pending);
  if(!r||!r.paymentId)return false;
  // Existing founder workflow performs fresh PSP lookup and checks seller, reference, amount and state.
- if(typeof adminAdsPspRefreshAction==='function'){
-   adminAdsPspRefreshAction(merchantId,r.paymentId);return true;
- }
  if(typeof adminAdsPspAction==='function'){
-   adminAdsPspAction(merchantId,'reconcile');return true;
+   adminAdsPspAction(merchantId,'reconcile',r.paymentId);return true;
  }
  return false;
 }
