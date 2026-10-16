@@ -20,7 +20,7 @@ for(const t of [
 assert.ok(!/\b(?:insert into|update|delete from)\s+public\./i.test(sql));
 for(const t of ['"ads-leads-read"','if(action==="ads-leads-read")',
   'admin_ads_leads_v1_322','data.noAutomaticOutreach!==true',
-  'data.contactPerformed!==false','data.marketingConsentInferred!==false'
+  'data.contactPerformed!==false','x.marketingConsentInferred!==false'
 ])assert.ok(edge.includes(t),'Edge opt-in guard: '+t);
 assert.ok(admin.includes("['adsLeads','ads-leads-read','admin_ads_leads_v1_322']"));
 assert.ok(admin.includes('adminAdsLeadsView()'));
