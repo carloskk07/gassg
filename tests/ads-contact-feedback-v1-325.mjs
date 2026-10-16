@@ -14,7 +14,7 @@ for(const token of [
  'merchant_ads_contact_feedback_v1_325','admin_ads_contact_feedback_read_v1_325',
  "v_role<>'owner'","p_consent is distinct from true",
  "v_a.status in ('requested','triaged')","v_m.status='active'",
- 'v_c.recorded_at>=v_a.requested_at','c.recorded_at>=a.requested_at',
+ 'c.recorded_at>=v_a.requested_at','c.recorded_at>=a.requested_at',
  'v_c.request_id<>p_contact_request','ADS_FEEDBACK_CONSENT_OR_CONTACT_STALE',
  'ADS_FEEDBACK_REQUEST_REUSE','platform_admin_audit',
  'contact_not_received','contact_confirmed','followup_needed',
