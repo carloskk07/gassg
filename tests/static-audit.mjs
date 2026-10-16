@@ -304,7 +304,7 @@ assert.ok(backend.includes('customerPhone:state.checkout.customerPhoneDigits')&&
 assert.ok(customer.includes('A revenda recebe o contato apenas depois de aceitar.')&&customer.includes('requirePhone:true'),'checkout real precisa exigir telefone e explicar a fronteira de privacidade');
 assert.ok(backend.includes("const idempotencyKey=liveIdempotency('create-order')"),'criação de pedido precisa fixar a chave idempotente antes da primeira tentativa');
 assert.ok(backend.includes("liveInvoke('create-order',payload,{idempotencyKey})"),'retry de create-order precisa reutilizar a mesma chave idempotente');
-assert.ok(backend.includes("toast('Pedido recuperado com segurança após uma falha de conexão.')"),'frontend precisa recuperar pedido após ACK perdido');
+assert.ok(backend.includes('confirmedOrderId=receivedOrderId')&&backend.includes('trackedOrderBeforeCheckout')&&backend.includes('newlyDiscoveredActiveOrder'),'checkout deve distinguir confirmação do servidor, pedido anterior e pedido ativo descoberto após falha');
 assert.ok(backend.includes("Number.isFinite(Number(error?.status))&&Number(error.status)>=500"),'retry idempotente deve cobrir também erro transitório 5xx');
 assert.ok(!backend.includes('}else if(liveRuntime.order&&["SETTLED","CANCELLED"].includes(liveRuntime.order.status)){'),'sincronização financeira não pode apagar o último pedido terminal necessário para reload/suporte');
 assert.ok(backend.includes("SUPABASE_BROWSER_URL='https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.2/dist/umd/supabase.js'"),'browser deve fixar arquivo exato do supabase-js');

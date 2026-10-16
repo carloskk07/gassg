@@ -784,6 +784,9 @@ function liveIdempotency(prefix){
 
 async function liveCreateOrder(quoteId){
   if(liveRuntime.actionPending)return;
+  // A previous tracked order is not proof that this checkout succeeded.
+  const trackedOrderBeforeCheckout=String(liveRuntime.orderId||'');
+  let confirmedOrderId=null;
   const selected=liveRuntime.offers.find(o=>o.quoteId===quoteId);
   if(!selected||!Number.isFinite(Date.parse(selected.expiresAt))||Date.parse(selected.expiresAt)<=Date.now()+1000){
     try{await liveRefreshOffers()}catch{}
@@ -828,8 +831,15 @@ async function liveCreateOrder(quoteId){
     // A tracking error must never turn an existing order into a checkout failure.
 
 
-    liveRuntime.orderId=result.orderId;
-    localStorage.setItem(CHAMA_BACKEND.orderStorageKey,result.orderId);
+    const receivedOrderId=String(result?.orderId||'');
+    if(!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(receivedOrderId)){
+      throw new Error('A criação do pedido não retornou uma confirmação válida.');
+    }
+    confirmedOrderId=receivedOrderId;
+    liveRuntime.orderId=confirmedOrderId;
+    // Never show the prior order's details if the new order cannot be loaded.
+    if(liveRuntime.order?.orderId!==confirmedOrderId)liveRuntime.order=null;
+    localStorage.setItem(CHAMA_BACKEND.orderStorageKey,confirmedOrderId);
     state.cart=normalizeCart({});
     state.checkout.useCashback=false;
     state.checkout.cashTenderCents=null;
@@ -838,32 +848,37 @@ async function liveCreateOrder(quoteId){
     state.checkout.deliveryWindowEnd=null;
     state.checkout.deliveryWindowLabel=null;
     save();
-    await liveGetOrder(result.orderId,{silent:true});
+    await liveGetOrder(confirmedOrderId,{silent:true});
     go('tracking');
     toast('Pedido real enviado para confirmação do parceiro');
   }catch(error){
-    let recovered=false;
-    try{
-      await liveSyncFinancialProfile({force:true});
-      if(liveRuntime.orderId){
-        await liveGetOrder(liveRuntime.orderId,{silent:true});
-        recovered=true;
-      }
-    }catch{}
-    if(recovered){
-      state.cart=normalizeCart({});
-      state.checkout.useCashback=false;
-      state.checkout.cashTenderCents=null;
-      state.checkout.deliveryMode='now';
-      state.checkout.deliveryWindowStart=null;
-      state.checkout.deliveryWindowEnd=null;
-      state.checkout.deliveryWindowLabel=null;
-      save();
+    if(confirmedOrderId){
+      // The server confirmed this specific checkout. Failure to load its
+      // details must never be mistaken for failure to create the order.
+      liveRuntime.error='Pedido registrado, mas o acompanhamento não pôde ser atualizado.';
       go('tracking');
-      toast('Pedido recuperado com segurança após uma falha de conexão.');
+      toast('Pedido registrado. Não envie novamente; atualize o acompanhamento.');
     }else{
-      liveRuntime.error=String(error?.message||error);
-      toast(liveRuntime.error);
+      // An ambiguous network result may have produced a new active order.
+      // Check only a DIFFERENT authoritative active order. Never treat an
+      // older tracked order as a successful recovery or erase this basket.
+      let newlyDiscoveredActiveOrder=false;
+      try{
+        await liveSyncFinancialProfile({force:true});
+        const activeOrderId=String(liveRuntime.orderId||'');
+        if(activeOrderId&&activeOrderId!==trackedOrderBeforeCheckout){
+          const activeOrder=await liveGetOrder(activeOrderId,{silent:true});
+          newlyDiscoveredActiveOrder=activeOrder?.orderId===activeOrderId
+            &&!['SETTLED','CANCELLED'].includes(activeOrder.status);
+        }
+      }catch{}
+      if(newlyDiscoveredActiveOrder){
+        go('tracking');
+        toast('Encontramos um pedido em andamento. Confira antes de tentar novamente; sua cesta foi preservada.');
+      }else{
+        liveRuntime.error=String(error?.message||error);
+        toast(liveRuntime.error);
+      }
     }
   }finally{
     liveRuntime.actionPending=false;
