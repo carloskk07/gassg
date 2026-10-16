@@ -4288,3 +4288,27 @@ body:has(.admin-page) .admin-nav-item:focus-visible{outline-offset:-3px}
 @media(prefers-reduced-motion:reduce){
  .customer-tracking-actions .primary,.customer-tracking-actions .secondary{transition:none}
 }
+
+
+/* TAMÃO V1.353 — verified offer windows and a scannable merchant workload. */
+.merchant-day-queue-pulse{display:flex;align-items:stretch;flex-wrap:wrap;gap:8px;margin:13px 0 5px;max-width:100%}
+.merchant-day-queue-chip{display:flex;align-items:center;gap:9px;min-width:0;
+ padding:9px 12px;border-radius:12px;border:1px solid #cfe4d6;background:rgba(255,255,255,.9);
+ color:#224f39}
+.merchant-day-queue-chip strong{font-size:20px;line-height:1;font-weight:850;font-variant-numeric:tabular-nums}
+.merchant-day-queue-chip small{font-size:11px;font-weight:750;line-height:1.35}
+.merchant-day-queue-warning{display:flex;flex:1 1 230px;align-items:center;justify-content:space-between;gap:9px;
+ padding:10px 12px;border-radius:12px;border:1px solid #e7d2ad;background:#fff9ed;color:#6e4e23;
+ font-size:12px;line-height:1.5}
+.merchant-day-queue-warning button{min-height:42px;flex:none}
+.merchant-day-queue-warning button:focus-visible{outline:3px solid #9d722e;outline-offset:2px}
+.merchant-offer-expired+p{margin:7px 0 10px;max-width:47ch}
+@media(max-width:620px){
+ .merchant-day-queue-pulse{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px}
+ .merchant-day-queue-chip{padding:9px 7px;flex-direction:column;align-items:center;text-align:center;gap:5px}
+ .merchant-day-queue-chip strong{font-size:22px}
+ .merchant-day-queue-chip small{font-size:10px}
+ .merchant-day-queue-warning{grid-column:1/-1;display:grid;gap:10px}
+ .merchant-day-queue-warning button{width:100%}
+}
+@media(prefers-reduced-motion:reduce){.merchant-day-queue-warning button{transition:none}}
