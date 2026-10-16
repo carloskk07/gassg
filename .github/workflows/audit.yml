@@ -333,6 +333,8 @@ jobs:
         run: node tests/ads-psp-discovery-v1-315.mjs
       - name: V1.316 Ads Mercado Pago signed webhook inbox
         run: node tests/ads-mp-signed-inbox-v1-316.mjs
+      - name: V1.317 Ads financial provider observation triage
+        run: node tests/ads-mp-triage-v1-317.mjs
       - name: TAMÃO V1.258 founder-approved orphan deletion with immutable audit
         run: node tests/owner-receipt-orphan-cleanup-v1-258.mjs
       - name: Turnstile smoke Chrome cleanup V1.238.1
