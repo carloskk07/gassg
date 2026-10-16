@@ -52,6 +52,17 @@ for f in $(find supabase/functions -mindepth 2 -maxdepth 2 -name 'index.ts' | so
       grep -q 'ingest_merchant_billing_payment_event' "$f" || { echo "$f missing server-side payment event authority"; exit 1; }
       grep -q '\[functions.billing-payment-webhook\]' supabase/config.toml || { echo "$f missing config.toml entry"; exit 1; }
       ;;
+    supabase/functions/ads-payment-webhook-mercadopago/index.ts)
+      grep -q 'ADS_MP_WEBHOOK_SECRET' "$f" || { echo "$f missing dedicated TAMÃO Ads HMAC secret"; exit 1; }
+      grep -q 'ADS_MP_WEBHOOK_ENABLED' "$f" || { echo "$f missing explicit webhook activation gate"; exit 1; }
+      grep -q 'verifyMercadoPagoWebhook(req,signatureSecret,paymentId)' "$f" || { echo "$f missing Mercado Pago cryptographic proof"; exit 1; }
+      grep -q 'recentTimestamp(ts)' "$f" || { echo "$f missing anti-replay timestamp gate"; exit 1; }
+      grep -q 'mercadoPagoFetch("/v1/payments/"+paymentId' "$f" || { echo "$f missing independent payment GET"; exit 1; }
+      grep -q 'collectorId!==sellerId' "$f" || { echo "$f missing platform seller identity check"; exit 1; }
+      grep -q 'client.rpc("ads_mp_inbox_record_v1_316"' "$f" || { echo "$f missing private append-only inbox authority"; exit 1; }
+      ! grep -q 'admin_ads_psp_action_v1_314' "$f" || { echo "$f may not mark payment paid"; exit 1; }
+      grep -q '\[functions.ads-payment-webhook-mercadopago\]' supabase/config.toml || { echo "$f missing webhook-specific JWT opt-out"; exit 1; }
+      ;;
     supabase/functions/billing-payment-webhook-mercadopago/index.ts)
       grep -q 'MERCADOPAGO_WEBHOOK_SECRET' "$f" || { echo "$f missing Mercado Pago webhook secret gate"; exit 1; }
       grep -q 'verifyMercadoPagoWebhook' "$f" || { echo "$f missing Mercado Pago HMAC validation"; exit 1; }

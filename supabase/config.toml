@@ -96,3 +96,7 @@ verify_jwt = false
 # V1.294 — only a signed-in, explicitly authorized platform admin can read aggregates.
 [functions.admin-push-reliability]
 verify_jwt = false
+
+# TAMÃO Ads V1.316 — provider HMAC, recent timestamp and API-verified payment inbox; no JWT session.
+[functions.ads-payment-webhook-mercadopago]
+verify_jwt = false

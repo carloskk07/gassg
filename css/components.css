@@ -3692,3 +3692,7 @@ body:has(.admin-page) .admin-nav-item:focus-visible{outline-offset:-3px}
 .merchant-ads-psp .card{margin-top:12px}
 .merchant-ads-psp a.primary{display:inline-flex;min-height:44px;align-items:center;justify-content:center;padding:12px 18px;border-radius:12px;text-decoration:none}
 @media(max-width:520px){.admin-ads-psp button,.merchant-ads-psp button,.merchant-ads-psp a.primary{width:100%;min-height:44px;box-sizing:border-box}}
+
+/* V1.316 signed provider event inbox */
+.admin-ads-mp-inbox .admin-activation-card{overflow-wrap:anywhere}
+@media(max-width:520px){.admin-ads-mp-inbox button{min-height:44px;width:100%}}

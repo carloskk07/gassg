@@ -101,7 +101,7 @@ async function requireAdmin(admin:any,userId:string){
   if(!data)throw new DomainError("ADMIN_ACCESS_DENIED","Esta conta não possui acesso administrativo.",403);
   return data;
 }
-const ADMIN_READ_ACTIONS=new Set(["governance-gates","commercial-intake-read","ads-sales-plans","ads-offers-read","ads-dossiers-read","ads-instruments-read","ads-receivables-read","ads-psp-read","summary","search","entity-detail","system-health","billing-provider-health","audit-search","incident-list","merchant-payment-preflight","prospect-intelligence","expansion-notifications","expansion-radar","merchant-enablement","sale-payment-history","finance-receipts-history","commercial-history-list","operational-alerts","ads-demand","clube-interest-queue","clube-campaign-queue","clube-terms-queue","owner-funding-read","owner-funding-pulse","owner-evidence-queue","owner-budget-queue","owner-finance-history","owner-campaign-signals","owner-campaign-orders","owner-campaign-fee-receipts","owner-campaign-batch-ledger","owner-campaign-financial-summary","owner-campaign-benefit-costs","owner-wallet-reconciliation","owner-cashback-source-lots","owner-referral-lifecycle","owner-benefit-payout-read","owner-benefit-proofs-read","owner-benefit-proof-view","owner-benefit-proof-verify","owner-payout-provider-read","owner-recipient-proof-readiness","owner-multi-psp-hub","owner-campaign-orphan-audit","owner-orphan-cleanup-candidates","owner-campaign-cost-read","owner-campaign-receipts-read","owner-campaign-receipt-view","ads-audience-readiness","ads-preview-summary","ads-placement-readiness","ads-pilot-preflight","commercial-activation","ads-campaign-queue","growth-referral-review-queue"]);
+const ADMIN_READ_ACTIONS=new Set(["governance-gates","commercial-intake-read","ads-sales-plans","ads-offers-read","ads-dossiers-read","ads-instruments-read","ads-receivables-read","ads-psp-read","ads-mp-inbox-read","summary","search","entity-detail","system-health","billing-provider-health","audit-search","incident-list","merchant-payment-preflight","prospect-intelligence","expansion-notifications","expansion-radar","merchant-enablement","sale-payment-history","finance-receipts-history","commercial-history-list","operational-alerts","ads-demand","clube-interest-queue","clube-campaign-queue","clube-terms-queue","owner-funding-read","owner-funding-pulse","owner-evidence-queue","owner-budget-queue","owner-finance-history","owner-campaign-signals","owner-campaign-orders","owner-campaign-fee-receipts","owner-campaign-batch-ledger","owner-campaign-financial-summary","owner-campaign-benefit-costs","owner-wallet-reconciliation","owner-cashback-source-lots","owner-referral-lifecycle","owner-benefit-payout-read","owner-benefit-proofs-read","owner-benefit-proof-view","owner-benefit-proof-verify","owner-payout-provider-read","owner-recipient-proof-readiness","owner-multi-psp-hub","owner-campaign-orphan-audit","owner-orphan-cleanup-candidates","owner-campaign-cost-read","owner-campaign-receipts-read","owner-campaign-receipt-view","ads-audience-readiness","ads-preview-summary","ads-placement-readiness","ads-pilot-preflight","commercial-activation","ads-campaign-queue","growth-referral-review-queue"]);
 const ADMIN_ROLE_ACTIONS:Record<string,Set<string>>={
   superadmin:new Set(["*"]),
   operations:new Set([
@@ -4528,6 +4528,24 @@ Deno.serve(async(req:Request)=>{
     }
     if(action==="entity-detail"){
       return json(await adminEntityDetail(admin,body.entityType,body.entityId,String(adminAccess.admin_role||"superadmin")),200,origin);
+    }
+    if(action==="ads-mp-inbox-read"){
+      if(!["superadmin","operations","readonly"].includes(String(adminAccess.admin_role||"")))
+        throw new DomainError("ADMIN_PERMISSION_DENIED","Consulta de eventos financeiros não autorizada.",403);
+      const {data,error}=await admin.rpc("admin_ads_mp_inbox_read_v1_316",{p_actor:user.id});
+      if(error)throw error;
+      if(data?.source!=="admin_ads_mp_inbox_v1_316"||data.readOnly!==true||
+        data.adsLive!==false||data.automaticReconciliation!==false||
+        data.webhookCannotMarkPaid!==true||
+        !Number.isSafeInteger(data.totalEvents)||data.totalEvents<0||
+        !Array.isArray(data.rows)||data.rows.length>50||
+        data.rows.some((x:any)=>!x||!UUID_RE.test(String(x.merchantId||""))||
+          !/^[0-9]{5,30}$/.test(String(x.paymentId||""))||
+          !Number.isSafeInteger(x.amountCents)||x.amountCents<1000||
+          !["reserved","checkout_ready","payment_approved","payment_reversed"].includes(x.checkoutStatus)||
+          typeof x.providerStatus!=="string"||x.providerStatus.length<3))
+        throw new DomainError("ADS_MP_INBOX_UNVERIFIED","Eventos de pagamento não confirmados no servidor.",503);
+      return json(data,200,origin);
     }
     if(action==="ads-psp-read"){
       if(!["superadmin","operations","readonly"].includes(String(adminAccess.admin_role||"")))
