@@ -101,7 +101,7 @@ async function requireAdmin(admin:any,userId:string){
   if(!data)throw new DomainError("ADMIN_ACCESS_DENIED","Esta conta não possui acesso administrativo.",403);
   return data;
 }
-const ADMIN_READ_ACTIONS=new Set(["governance-gates","commercial-intake-read","ads-sales-plans","ads-offers-read","ads-dossiers-read","ads-instruments-read","ads-receivables-read","ads-psp-read","ads-mp-inbox-read","ads-mp-triage-read","ads-psp-freshness-read","ads-psp-merchant-reviews","ads-launch-readiness","ads-leads-read","ads-assistance-read","ads-contact-reports-read","ads-contact-feedback-read","ads-feedback-returns-read","ads-return-execution-read","ads-return-closeout-read","summary","search","entity-detail","system-health","billing-provider-health","audit-search","incident-list","merchant-payment-preflight","prospect-intelligence","expansion-notifications","expansion-radar","merchant-enablement","sale-payment-history","finance-receipts-history","commercial-history-list","operational-alerts","ads-demand","clube-interest-queue","clube-campaign-queue","clube-terms-queue","owner-funding-read","owner-funding-pulse","owner-evidence-queue","owner-budget-queue","owner-finance-history","owner-campaign-signals","owner-campaign-orders","owner-campaign-fee-receipts","owner-campaign-batch-ledger","owner-campaign-financial-summary","owner-campaign-benefit-costs","owner-wallet-reconciliation","owner-cashback-source-lots","owner-referral-lifecycle","owner-benefit-payout-read","owner-benefit-proofs-read","owner-benefit-proof-view","owner-benefit-proof-verify","owner-payout-provider-read","owner-payout-provider-page","owner-payout-followup-read","owner-payout-global-followup-read","owner-payout-review-read","owner-recipient-proof-readiness","owner-multi-psp-hub","owner-campaign-orphan-audit","owner-orphan-cleanup-candidates","owner-campaign-cost-read","owner-campaign-receipts-read","owner-campaign-receipt-view","ads-audience-readiness","ads-preview-summary","ads-placement-readiness","ads-pilot-preflight","commercial-activation","ads-campaign-queue","growth-referral-review-queue"]);
+const ADMIN_READ_ACTIONS=new Set(["governance-gates","commercial-intake-read","ads-sales-plans","ads-offers-read","ads-dossiers-read","ads-instruments-read","ads-receivables-read","ads-psp-read","ads-mp-inbox-read","ads-mp-triage-read","ads-psp-freshness-read","ads-psp-merchant-reviews","ads-launch-readiness","ads-leads-read","ads-assistance-read","ads-contact-reports-read","ads-contact-feedback-read","ads-feedback-returns-read","ads-return-execution-read","ads-return-closeout-read","summary","search","entity-detail","system-health","billing-provider-health","audit-search","incident-list","merchant-payment-preflight","prospect-intelligence","expansion-notifications","expansion-radar","merchant-enablement","sale-payment-history","finance-receipts-history","commercial-history-list","operational-alerts","ads-demand","clube-interest-queue","clube-campaign-queue","clube-terms-queue","owner-funding-read","owner-funding-pulse","owner-evidence-queue","owner-budget-queue","owner-finance-history","owner-campaign-signals","owner-campaign-orders","owner-campaign-fee-receipts","owner-campaign-batch-ledger","owner-campaign-financial-summary","owner-campaign-benefit-costs","owner-wallet-reconciliation","owner-cashback-source-lots","owner-referral-lifecycle","owner-benefit-payout-read","owner-benefit-proofs-read","owner-benefit-proof-view","owner-benefit-proof-verify","owner-payout-provider-read","owner-payout-provider-page","owner-payout-followup-read","owner-payout-global-followup-read","owner-payout-global-followup-page","owner-payout-review-read","owner-recipient-proof-readiness","owner-multi-psp-hub","owner-campaign-orphan-audit","owner-orphan-cleanup-candidates","owner-campaign-cost-read","owner-campaign-receipts-read","owner-campaign-receipt-view","ads-audience-readiness","ads-preview-summary","ads-placement-readiness","ads-pilot-preflight","commercial-activation","ads-campaign-queue","growth-referral-review-queue"]);
 const ADMIN_ROLE_ACTIONS:Record<string,Set<string>>={
   superadmin:new Set(["*"]),
   operations:new Set([
@@ -3133,6 +3133,57 @@ Deno.serve(async(req:Request)=>{
              x.providerTransactionSuccess!==null)))||
          data.rows.some((x:any,i:number)=>i>0&&data.rows[i-1].priority>x.priority)
       )throw new DomainError("PAYOUT_PAGE_HISTORY_INVALID","Página de conciliação não validada.",503);
+      return json(data,200,origin);
+    }
+    // V1.341 — read-only global backlog continuation; never changes money.
+    if(action==="owner-payout-global-followup-page"){
+      if(!["superadmin","finance"].includes(String(adminAccess.admin_role)))
+        throw new DomainError("ADMIN_PERMISSION_DENIED","Acompanhamento financeiro restrito.",403);
+      const offset=body.offset;
+      if(!Number.isSafeInteger(offset)||offset<0||offset>999990||offset%30!==0)
+        throw new DomainError("PAYOUT_GLOBAL_PAGE_INVALID","Página global inválida.",400);
+      const {data,error}=await admin.rpc("admin_owner_payout_global_followup_page_v1_341",{
+        p_actor:user.id,p_offset:offset
+      });
+      if(error)throw error;
+      const keys=["activeClaims","activeOlderMonths","overdueClaims",
+        "criticalReversalClaims","unreviewedClaims","awaitingEvidenceClaims","distinctMonths"];
+      const states=["not_started","in_review","awaiting_evidence","reviewed_no_bank_proof"];
+      if(data?.source!=="admin_payout_global_followup_v1_340"||
+        data?.pagedV1341!==true||data?.pageOffset!==offset||
+        data?.pageLimit!==30||data?.queueCoverage!=="global_pages_30"||
+        data?.hasPrevious!==(offset>0)||
+        data?.hasMore!==(offset+30<data.activeClaims)||
+        data?.scope!=="all_months"||data?.timezone!=="America/Sao_Paulo"||
+        data?.readOnly!==true||data?.administrativeOnly!==true||
+        data?.bankSettlementVerified!==false||data?.recipientVerified!==false||
+        data?.moneyMoved!==false||
+        data?.duePolicy!=="internal_guidance_not_external_SLA"||
+        keys.some(k=>!Number.isSafeInteger(data?.[k])||data[k]<0)||
+        data.activeOlderMonths>data.activeClaims||
+        data.overdueClaims>data.activeClaims||
+        data.criticalReversalClaims>data.activeClaims||
+        data.unreviewedClaims+data.awaitingEvidenceClaims>data.activeClaims||
+        data.distinctMonths>data.activeClaims||
+        data?.limit!==30||data?.truncated!==(data.activeClaims>30)||
+        !Array.isArray(data?.rows)||data.rows.length!==Math.min(30,Math.max(0,data.activeClaims-offset))||
+        data.rows.some((x:any)=>!x||!UUID_RE.test(String(x.claimId||""))||
+          !UUID_RE.test(String(x.orderId||""))||
+          !/^[0-9]{4}-(0[1-9]|1[0-2])-01$/.test(String(x.claimMonth||""))||
+          !/^[0-9]{4}-(0[1-9]|1[0-2])-[0-9]{2}$/.test(String(x.paidOn||""))||
+          x.claimMonth!==x.paidOn.slice(0,7)+"-01"||
+          !Number.isSafeInteger(x.reportedAmountCents)||x.reportedAmountCents<0||
+          !states.includes(x.reviewState)||
+          !Number.isFinite(Date.parse(String(x.followupDueAt||"")))||
+          typeof x.overdue!=="boolean"||
+          typeof x.criticalReversalObserved!=="boolean"||
+          !Number.isSafeInteger(x.priority)||x.priority<0||x.priority>2||
+          x.priority!==(x.criticalReversalObserved?0:x.overdue?1:2))||
+        data.rows.some((x:any,i:number)=>i>0&&(
+          data.rows[i-1].priority>x.priority||
+          (data.rows[i-1].priority===x.priority&&
+            Date.parse(data.rows[i-1].followupDueAt)>Date.parse(x.followupDueAt)))))
+        throw new DomainError("PAYOUT_GLOBAL_PAGE_HISTORY_INVALID","Página global não validada.",503);
       return json(data,200,origin);
     }
     // V1.340 — unresolved cases across all months, never changes payments.
