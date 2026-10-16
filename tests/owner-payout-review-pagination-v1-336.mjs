@@ -85,13 +85,13 @@ const ctx=vm.createContext({
 });
 vm.runInContext(ui.slice(start,end),ctx);
 await ctx.adminOwnerPayoutProviderLoadFromUi();
-assert.deepEqual(calls[0],{action:'owner-payout-provider-read',month:'2026-10-01'});
+assert.equal(JSON.stringify(calls[0]),JSON.stringify({action:'owner-payout-provider-read',month:'2026-10-01'}));
 let html=ctx.adminOwnerPayoutProviderSection();
 assert.match(html,/Mostrando 1–30 de 35/);
 assert.match(html,/Próxima página/);
 assert.match(html,/adminOwnerPayoutProviderLoadFromUi\(30\)/);
 await ctx.adminOwnerPayoutProviderLoadFromUi(30);
-assert.deepEqual(calls[1],{action:'owner-payout-provider-page',month:'2026-10-01',offset:30});
+assert.equal(JSON.stringify(calls[1]),JSON.stringify({action:'owner-payout-provider-page',month:'2026-10-01',offset:30}));
 html=ctx.adminOwnerPayoutProviderSection();
 assert.match(html,/Mostrando 31–35 de 35/);
 assert.ok(html.includes(uuid(31))&&!html.includes(uuid(1)));
