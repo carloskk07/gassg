@@ -349,6 +349,8 @@ jobs:
         run: node tests/ads-assistance-v1-323.mjs
       - name: Test V1.324 manual Ads contacts, consent and followup
         run: node tests/ads-contacts-v1-324.mjs
+      - name: Test V1.325 merchant-confirmed contact feedback and no fake delivery
+        run: node tests/ads-contact-feedback-v1-325.mjs
       - name: TAMÃO V1.258 founder-approved orphan deletion with immutable audit
         run: node tests/owner-receipt-orphan-cleanup-v1-258.mjs
       - name: Turnstile smoke Chrome cleanup V1.238.1

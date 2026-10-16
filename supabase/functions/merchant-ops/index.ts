@@ -117,7 +117,7 @@ Deno.serve(async(req:Request)=>{
     const merchantId=String(body.merchantId??"");
     const action=String(body.action??"");
     if(!UUID_RE.test(merchantId))throw new DomainError("INVALID_MERCHANT","Revenda inválida.",400);
-    if(!["ads-assistance","ads-start-read","ads-psp-evidence","ads-psp","ads-receivable","ads-instrument","ads-dossier","ads-offer","ads-campaign","ads-interest","clube-interest","clube-terms","business-pulse","growth-network","enablement","heartbeat","set-online","update-product","catalog-history","update-logistics","update-capacity","update-scheduling","update-payment-methods","update-payment-routes","update-member-profile","request-billing-package","notify-billing-payment","notify-refund-recovery-payment","cancel-billing-request"].includes(action)){
+    if(!["ads-contact-feedback","ads-assistance","ads-start-read","ads-psp-evidence","ads-psp","ads-receivable","ads-instrument","ads-dossier","ads-offer","ads-campaign","ads-interest","clube-interest","clube-terms","business-pulse","growth-network","enablement","heartbeat","set-online","update-product","catalog-history","update-logistics","update-capacity","update-scheduling","update-payment-methods","update-payment-routes","update-member-profile","request-billing-package","notify-billing-payment","notify-refund-recovery-payment","cancel-billing-request"].includes(action)){
       throw new DomainError("INVALID_ACTION","Ação inválida.",400);
     }
 
@@ -134,6 +134,41 @@ Deno.serve(async(req:Request)=>{
     if(!membership)throw new DomainError("MERCHANT_ACCESS_DENIED","Você não possui acesso a esta revenda.",403);
 
     const role=membership.member_role;
+    if(action==="ads-contact-feedback"){
+      if(!["owner","manager"].includes(String(role)))
+        throw new DomainError("ADS_FEEDBACK_MEMBER_DENIED","Acompanhamento restrito à gestão da revenda.",403);
+      const operation=String(body.operation||"view");
+      if(!["view","respond"].includes(operation))
+        throw new DomainError("ADS_FEEDBACK_OPERATION_INVALID","Ação de retorno inválida.",400);
+      if(operation==="respond"&&(role!=="owner"||body.consent!==true||
+        !UUID_RE.test(String(body.contactRequestId||""))||
+        !UUID_RE.test(String(body.requestId||""))||
+        !Number.isSafeInteger(body.expectedAssistanceVersion)||
+        body.expectedAssistanceVersion<1||
+        !["contact_confirmed","contact_not_received","followup_needed"].includes(body.response)))
+        throw new DomainError("ADS_FEEDBACK_OWNER_REQUIRED","Somente o titular pode registrar a experiência de atendimento.",403);
+      const {data,error}=await admin.rpc("merchant_ads_contact_feedback_v1_325",{
+        p_actor:user.id,p_merchant:merchantId,p_operation:operation==="respond"?"submit":"view",
+        p_contact_request:operation==="view"?null:body.contactRequestId,
+        p_expected_assistance_version:operation==="view"?null:body.expectedAssistanceVersion,
+        p_response:operation==="view"?null:body.response,
+        p_consent:operation==="submit",p_request:operation==="view"?null:body.requestId
+      });
+      if(error)throw error;
+      if(data?.source!=="merchant_ads_contact_feedback_v1_325"||data.merchantId!==merchantId||
+        data.messageSent!==false||data.deliveryProven!==false||
+        data.adsLive!==false||data.paymentCreated!==false||
+        (operation==="view"?(data.readOnly!==true||typeof data.consentCurrent!=="boolean"||
+          (data.lastContact!==null&&(!UUID_RE.test(String(data.lastContact?.contactRequestId||""))||
+            !["not_reached","conversation","followup_requested","not_interested"].includes(data.lastContact.reportedOutcome)||
+            data.lastContact.adminReportIndependentProof!==false||
+            (data.lastContact.feedback!==null&&(!["contact_confirmed","contact_not_received","followup_needed"].includes(
+              data.lastContact.feedback?.response)||data.lastContact.feedback?.merchantDeclared!==true))))):
+          (data.recorded!==true||!UUID_RE.test(String(data.contactRequestId||""))||
+           data.contactRequestId!==body.contactRequestId||data.response!==body.response)))
+        throw new DomainError("ADS_FEEDBACK_RESPONSE_UNVERIFIED","Sua avaliação ainda não foi confirmada.",503);
+      return json(data,200,origin);
+    }
     if(action==="ads-assistance"){
       if(!["owner","manager"].includes(String(role)))
         throw new DomainError("ADS_ASSISTANCE_MEMBER_DENIED","Pedido comercial restrito à gestão.",403);

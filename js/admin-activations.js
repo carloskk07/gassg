@@ -27,7 +27,8 @@ async function adminActivationLoad({force=false}={}){
       ['adsLaunch','ads-launch-readiness','admin_ads_launch_readiness_v1_320'],
       ['adsLeads','ads-leads-read','admin_ads_leads_v1_322'],
       ['adsAssistance','ads-assistance-read','admin_ads_assistance_v1_323'],
-      ['adsContacts','ads-contact-reports-read','admin_ads_contacts_v1_324']
+      ['adsContacts','ads-contact-reports-read','admin_ads_contacts_v1_324'],
+      ['adsFeedback','ads-contact-feedback-read','admin_ads_contact_feedback_v1_325']
     ];
     const values=await Promise.allSettled([
       ...specs.map(([,action])=>adminInvoke({action})),
@@ -41,6 +42,15 @@ async function adminActivationLoad({force=false}={}){
       const safe=d?.source===source&&(
         key==='ads'?d.readOnly===true&&d.publicEnabled===false&&d.billingEnabled===false&&d.readyToSell===false:
         key==='adsQueue'?d.noCharge===true&&d.adsLive===false:
+        key==='adsFeedback'?d.readOnly===true&&d.messagesSent===0&&d.deliveryProven===false&&
+          d.adsLive===false&&d.paymentCreated===false&&
+          Number.isSafeInteger(d.totalMerchantFeedback)&&Number.isSafeInteger(d.awaitingMerchantFeedback)&&
+          Array.isArray(d.rows)&&d.rows.length<=50&&d.rows.every(x=>
+            /^[0-9a-f-]{36}$/i.test(String(x.merchantId))&&
+            Number.isSafeInteger(x.assistanceVersion)&&x.assistanceVersion>0&&
+            typeof x.currentConsent==='boolean'&&
+            (!x.lastContact||(/^[0-9a-f-]{36}$/i.test(String(x.lastContact.contactRequestId))&&
+              (!x.lastContact.merchantFeedback||x.lastContact.merchantFeedback.merchantDeclared===true)))):
         key==='adsContacts'?d.readOnly===true&&d.automatedMessagesSent===0&&
           d.deliveryIndependentlyVerified===false&&d.noAutomaticOutreach===true&&
           d.adsLive===false&&d.paymentCreated===false&&
@@ -168,7 +178,7 @@ async function adminActivationLoad({force=false}={}){
         d.readOnly===true&&d.couponSalesEnabled===false&&d.noContractsSigned===true);
       evidence[key]=safe?d:null;
     });
-    const governance=values[19].status==='fulfilled'?values[19].value:null;
+    const governance=values[20].status==='fulfilled'?values[20].value:null;
     evidence.governance=governance?.source==='admin_governance_gates_v1_304'&&governance.readOnly===true&&
       adminRuntime.governance?.loadedFor===actor&&adminRuntime.governance?.role===role?governance:null;
     const push=adminRuntime.pushReliability||{};
@@ -258,7 +268,7 @@ function adminActivationDeskView(d){
     '<p class="tiny muted">Última consulta: '+
     esc(current?formatDateTime(adminActivationDesk.checkedAt):'não confirmada')+
     '. Uma falha na consulta é mostrada como “Não confirmado”, nunca como recurso desligado.</p>'+
-    '<div class="admin-activation-grid">'+cards+'</div>'+adminAdsLaunchReadinessView()+adminAdsLeadsView()+adminAdsAssistanceView()+adminAdsContactsView()+adminMarketingIntakeView()+adminAdsSalesPlansView()+adminAdsDossiersView()+adminAdsInstrumentsView()+adminAdsReceivablesView()+adminAdsPspView()+adminAdsMpInboxView()+adminAdsMpTriageView()+adminAdsPspFreshnessView()+adminAdsPspMerchantReviewsView()+
+    '<div class="admin-activation-grid">'+cards+'</div>'+adminAdsLaunchReadinessView()+adminAdsLeadsView()+adminAdsAssistanceView()+adminAdsContactsView()+adminAdsFeedbackView()+adminMarketingIntakeView()+adminAdsSalesPlansView()+adminAdsDossiersView()+adminAdsInstrumentsView()+adminAdsReceivablesView()+adminAdsPspView()+adminAdsMpInboxView()+adminAdsMpTriageView()+adminAdsPspFreshnessView()+adminAdsPspMerchantReviewsView()+
     '<p class="tiny muted">Publicidade pública, vendas de cupons e automação de avisos exigem homologação e gates reais no servidor. Nenhum controle desta página contorna esses requisitos.</p></section>';
 }
 
@@ -1386,4 +1396,39 @@ async function adminAdsContactRecord(merchantId){
   adminActivationDesk.data=null;await adminActivationLoad({force:true});
   toast(String(e?.message||e));return false;
  }
+}
+
+
+// V1.325 — merchant-declared experience; never inferred as provider delivery evidence.
+function adminAdsFeedbackView(){
+ if(!adminRoleCanSection('activations'))return '';
+ const actor=String(adminRuntime.session?.user?.id||''),role=adminCurrentRole();
+ const fresh=adminActivationDesk.actor===actor&&adminActivationDesk.role===role&&
+   Date.now()-Date.parse(adminActivationDesk.checkedAt||'')<120000;
+ const d=fresh?adminActivationDesk.data?.adsFeedback:null;
+ const labels={contact_confirmed:'Revenda informa que recebeu contato',
+  contact_not_received:'Revenda informa que não recebeu contato',
+  followup_needed:'Revenda solicita novo retorno'};
+ const rows=(d?.rows||[]).filter(x=>x.lastContact&&x.currentConsent).map(x=>{
+  const c=x.lastContact,f=c.merchantFeedback;
+  return '<article class="admin-activation-card"><div class="admin-activation-card-head"><strong>'+
+   esc(x.merchantName||'Revenda')+'</strong><span class="status-pill">'+
+   esc(f?(labels[f.response]||'Resposta registrada'):'Aguardando avaliação da revenda')+
+   '</span></div><p class="tiny muted">Último contato declarado pela administração: '+
+   esc(c.reportedOutcome)+' • '+esc(String(c.reportedAt||''))+'</p>'+
+   (f?'<p class="tiny muted">Resposta voluntária da revenda: '+esc(String(f.submittedAt||''))+
+    '. Não constitui comprovante de entrega do canal.</p>':
+    '<p class="tiny muted">A revenda ainda não confirmou sua experiência. Não presumir que a mensagem foi entregue.</p>')+
+   '</article>';
+ }).join('');
+ return '<section class="section admin-ads-feedback"><div class="section-head"><div>'+
+  '<span class="section-kicker">V1.325 • QUALIDADE DO ATENDIMENTO</span>'+
+  '<h2>Avaliações do contato pelas revendas</h2>'+
+  '<p>Confira quando a revenda relata que foi atendida, não recebeu contato ou precisa de novo retorno.</p></div></div>'+
+  (d?'<p class="tiny muted">Respostas voluntárias registradas: '+d.totalMerchantFeedback+
+    ' • Últimos contatos sem retorno da revenda: '+d.awaitingMerchantFeedback+
+    ' • Mensagens enviadas pelo sistema: 0.</p>':
+    '<p class="muted">Não foi possível confirmar o acompanhamento. Atualize a central.</p>')+
+  '<div class="admin-activation-grid">'+(rows||'<p class="muted">Ainda não há contatos consentidos elegíveis para confirmação pela revenda.</p>')+
+  '</div><p class="tiny muted">Respostas são declarações do titular autenticado, não confirmação técnica de entrega ou leitura pelo WhatsApp, e-mail ou telefone. Não alteram cobranças nem publicam anúncios.</p></section>';
 }

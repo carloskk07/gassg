@@ -3751,3 +3751,11 @@ body:has(.admin-page) .admin-nav-item:focus-visible{outline-offset:-3px}
 .admin-ads-contacts .admin-ads-contact-form textarea{width:100%;min-height:86px;font:inherit;box-sizing:border-box}
 .admin-ads-contacts .admin-ads-contact-form select,.admin-ads-contacts .admin-ads-contact-form input{width:100%;min-height:44px;font:inherit;box-sizing:border-box}
 @media(max-width:520px){.admin-ads-contacts .admin-ads-contact-form button{min-height:44px;width:100%}}
+
+/* V1.325 — contact confirmation is legible on mobile, without private admin notes. */
+.merchant-ads-contact-feedback .card{margin-top:12px}
+.merchant-ads-contact-feedback .form-stack{display:grid;gap:12px;margin-top:12px}
+.merchant-ads-contact-feedback .input{min-height:44px;width:100%;box-sizing:border-box}
+.merchant-ads-contact-feedback .check-row{display:flex;align-items:flex-start;gap:10px}
+.merchant-ads-contact-feedback .check-row input{min-width:22px;min-height:22px;flex:none}
+@media(max-width:520px){.merchant-ads-contact-feedback button{width:100%;min-height:44px}}
