@@ -16,6 +16,32 @@ function rememberMarketRegion(region,postalCode){
   try{localStorage.setItem('tamao-market-region-v1',JSON.stringify({postalCode:postal,city,state}))}catch{}
 }
 
+
+const TAMAO_HOME_REGION_KEY='tamao-home-region-v1-341';
+function homeMarketRegion(){
+  const confirmed=rememberedMarketRegion();
+  if(confirmed)return {...confirmed,origin:'confirmed'};
+  try{
+    const saved=JSON.parse(localStorage.getItem(TAMAO_HOME_REGION_KEY)||'null');
+    if(/^[A-Z]{2}$/.test(String(saved?.state||''))&&
+      /^[\\p{L}\\p{M} .'-]{2,80}$/u.test(String(saved?.city||'')))
+      return {city:saved.city,state:saved.state,origin:'chosen'};
+  }catch{}
+  // São Gabriel is the launch *showcase*, not a geolocation assertion.
+  return {city:'São Gabriel',state:'RS',origin:'showcase'};
+}
+function homeChooseMarketCity(){
+  const name=String(document.getElementById('home-city-name')?.value||'').trim();
+  const uf=String(document.getElementById('home-city-uf')?.value||'').trim().toUpperCase();
+  if(!/^[\\p{L}\\p{M} .'-]{2,80}$/u.test(name)||!/^[A-Z]{2}$/.test(uf))
+    return toast('Informe o nome da cidade e a sigla do estado.');
+  try{localStorage.setItem(TAMAO_HOME_REGION_KEY,JSON.stringify({city:name,state:uf}))}catch{}
+  // Changing a showcase never transfers cart, verified CEP, address or a quote.
+  if(globalThis.liveRuntime)globalThis.liveRuntime.cityPriceSnapshot=null;
+  render();
+  globalThis.liveRefreshCityPriceBoard?.({force:true}).then(()=>render()).catch(()=>{});
+}
+
 function prelaunchLeadSent(type){
   try{
     const saved=localStorage.getItem('tamao-prelaunch-'+type+'-sent-v1');
