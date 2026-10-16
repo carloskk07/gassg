@@ -4153,3 +4153,41 @@ body:has(.admin-page) .admin-nav-item:focus-visible{outline-offset:-3px}
 @media(max-width:345px){.merchant-workspace-shortcuts{grid-template-columns:minmax(0,1fr)}}
 @media(prefers-reduced-motion:reduce){.merchant-workspace-shortcut{transition:none}
  .merchant-workspace-shortcut:hover{transform:none}}
+
+
+/* TAMÃO V1.349 — prioritize real decisions, with stale-data safety and role-aware controls. */
+.admin-executive-focus{
+  display:grid;grid-template-columns:minmax(0,1fr) minmax(145px,auto);gap:clamp(15px,3vw,30px);
+  align-items:center;margin:17px 0 15px;padding:clamp(19px,2.7vw,31px);
+  border:1px solid #c9e5d4;border-radius:24px;
+  background:radial-gradient(circle at 98% 5%,rgba(250,213,134,.19),transparent 44%),
+    linear-gradient(132deg,#083d2e,#0a7051);
+  color:#fff;box-shadow:0 17px 34px rgba(9,65,45,.13)
+}
+.admin-executive-focus-main{min-width:0;display:flex;flex-direction:column;align-items:flex-start}
+.admin-executive-focus .section-kicker{color:#c7f0dc;letter-spacing:.12em}
+.admin-executive-focus h2{color:#fff;margin:12px 0 9px;font-size:clamp(23px,3vw,32px);
+ letter-spacing:-.045em;line-height:1.13}
+.admin-executive-focus p{margin:0;max-width:67ch;font-size:13px;line-height:1.65;color:#e3f4e8}
+.admin-executive-focus-meta{display:flex;flex-wrap:wrap;gap:8px 15px;margin-top:17px}
+.admin-executive-focus-meta span{color:#d4ecdd;font-size:11px;line-height:1.5}
+.admin-executive-focus-meta span+span{font-weight:850}
+.admin-executive-focus-action{min-height:51px;min-width:158px;
+ border-color:#ffdf9f!important;background:#ffdf91!important;color:#184832!important;
+ box-shadow:0 8px 22px rgba(4,29,21,.16)!important;white-space:normal}
+.admin-executive-focus-action:hover{background:#ffe8ae!important}
+.admin-executive-focus-action:focus-visible{outline:3px solid white;outline-offset:3px}
+.admin-executive-focus--critical{border-color:#ffd6a3;background:radial-gradient(circle at 100% 0,rgba(243,193,100,.19),transparent 44%),linear-gradient(120deg,#613a24,#7a4529)}
+.admin-executive-focus--high{border-color:#e9d7a7;background:linear-gradient(120deg,#3d4230,#6d542e)}
+.admin-executive-focus--stale{border-color:#ebd6ac;background:linear-gradient(130deg,#364b43,#5d553d)}
+.admin-executive-focus--calm{border-color:#b9e1cc}
+.admin-overview-pulse+.admin-executive-focus{margin-top:12px}
+.admin-executive-focus+.admin-attention{margin-top:14px}
+.admin-page-heading #admin-current-section-title:focus{outline:none}
+@media(max-width:720px){
+ .admin-executive-focus{grid-template-columns:minmax(0,1fr);border-radius:19px;padding:18px 17px;gap:13px}
+ .admin-executive-focus h2{margin-top:9px;font-size:clamp(22px,6vw,29px)}
+ .admin-executive-focus-action{width:100%}
+ .admin-executive-focus-meta{margin-top:12px;flex-direction:column;gap:3px}
+}
+@media(prefers-reduced-motion:reduce){.admin-executive-focus-action{transition:none}}
