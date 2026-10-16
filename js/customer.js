@@ -664,6 +664,15 @@ function buyerCartFilter(group){
     ' Os itens da sua cesta continuam à vista.';
   return true;
 }
+// The same expiry rule controls both the progress indicator and rendered choices.
+function customerEligibleCheckoutOffers(all,{testDemo=false,now=Date.now()}={}){
+  const rows=Array.isArray(all)?all:[];
+  if(testDemo)return rows;
+  return rows.filter(o=>{
+    const expires=Date.parse(String(o?.expiresAt||''));
+    return Number.isFinite(expires)&&expires>now+1000;
+  });
+}
 function orderPage(){
   const testDemo=globalThis.__CHAMA_TEST__===true;
   const internalPilot=globalThis.CHAMA_INTERNAL_PILOT===true;
@@ -694,10 +703,7 @@ function orderPage(){
   const os=testDemo?(hasItems?offers():[]):(ready?(liveRuntime.offers||[]):[]);
   // A quote can expire between network refresh and UI render. Only display
   // offers with a valid expiry in the real checkout, never a stale action card.
-  const freshOffers=testDemo?os:os.filter(o=>{
-    const expires=Date.parse(String(o?.expiresAt||''));
-    return Number.isFinite(expires)&&expires>Date.now()+1000;
-  });
+  const freshOffers=customerEligibleCheckoutOffers(os,{testDemo});
   const singleSupplier=(internalPilot&&freshOffers.length===1)||(!testDemo&&ready&&freshOffers.length===1&&liveRuntime.marketMode==='single_supplier');
   const pendingOrder=testDemo
     ? state.orders.find(isLiveOrder)
@@ -899,7 +905,7 @@ function setCheckoutOfferSort(mode){
   if(!container)return;
   const current=globalThis.__CHAMA_TEST__===true?offers():globalThis.liveRuntime?.offers||[];
   // Sorting only rearranges server-confirmed, non-expired options.
-  const eligible=current.filter(o=>!o.live||(Number.isFinite(Date.parse(String(o.expiresAt||'')))&&Date.parse(String(o.expiresAt))>Date.now()+1000));
+  const eligible=customerEligibleCheckoutOffers(current,{testDemo:globalThis.__CHAMA_TEST__===true});
   container.innerHTML=eligible.length?checkoutOfferCards(eligible):
     '<div class="empty card offer-expired-notice" role="status"><strong>As opções desta consulta expiraram.</strong><p class="muted tiny">Atualize a consulta para receber preços e prazos atuais. Nenhum pedido foi enviado.</p><button type="button" class="primary" onclick="liveRefreshOffers().catch(()=>{})">Atualizar opções →</button></div>';
   const feedback=document.getElementById('checkout-sort-feedback');
