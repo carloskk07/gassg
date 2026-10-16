@@ -40,6 +40,7 @@ for(const token of [
 ].filter(x=>x!=='ADM'))assert.ok(edge.includes(token),'Webhook proof: '+token);
 assert.ok(!/\.rpc\("admin_ads_psp_action_v1_314"/.test(edge),
  'Webhooks must never call the payment settlement RPC');
+assert.ok(edge.indexOf('verifyMercadoPagoWebhook(req,signatureSecret,paymentId)')<edge.indexOf('reason:"not_payment"'), 'Every acknowledged event must be cryptographically authenticated');
 assert.ok(!/checkout\/preferences/.test(edge),
  'Webhooks must never create a checkout');
 assert.ok(adminEdge.includes('if(action==="ads-mp-inbox-read")'));
