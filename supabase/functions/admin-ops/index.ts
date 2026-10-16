@@ -3175,7 +3175,7 @@ Deno.serve(async(req:Request)=>{
         data.rows.some((x:any,i:number)=>i>0&&(
           data.rows[i-1].priority>x.priority||
           (data.rows[i-1].priority===x.priority&&
-            Date.parse(data.rows[i-1].followupDueAt)>Date.parse(x.followupDueAt))))
+            Date.parse(data.rows[i-1].followupDueAt)>Date.parse(x.followupDueAt)))))
         throw new DomainError("PAYOUT_GLOBAL_HISTORY_INVALID","Visão geral não validada.",503);
       return json(data,200,origin);
     }
