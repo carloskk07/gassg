@@ -4855,7 +4855,7 @@ Deno.serve(async(req:Request)=>{
       const token=String(Deno.env.get("ADS_MP_ACCESS_TOKEN")||"").trim();
       const sellerId=String(Deno.env.get("ADS_MP_SELLER_ID")||"").trim();
       if(Deno.env.get("ADS_MP_CHECKOUT_ENABLED")!=="true"||
-        !/^APP_USR-\\S{20,}$/.test(token)||!/^[0-9]{4,20}$/.test(sellerId))
+        !/^APP_USR-\S{20,}$/.test(token)||!/^[0-9]{4,20}$/.test(sellerId))
         throw new DomainError("ADS_PSP_NOT_CONFIGURED",
           "A conta própria de TAMÃO Ads não está habilitada para consultas financeiras.",503);
       let identity:any;
