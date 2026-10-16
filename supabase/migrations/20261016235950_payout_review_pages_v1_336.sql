@@ -133,7 +133,7 @@ begin
   'recipientVerified',false,'providerTransactionIsBeneficiaryProof',false,
   'externalPaidBenefitsCents',null,'readOnly',true,'noTransfers',true
  );
-end;$function$
+end;$function$;
 
 create or replace function public.admin_owner_payout_provider_page_v1_336(
  p_actor uuid,p_month date,p_offset integer
