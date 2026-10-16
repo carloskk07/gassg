@@ -31,7 +31,7 @@ assert.deepEqual(extract('rememberedMarketRegion()'),{city:'Porto Alegre',state:
 vm.runInContext("rememberMarketRegion({city:'',state:'RS'},'90000000')",ctx);
 assert.deepEqual(extract('rememberedMarketRegion()'),{city:'Porto Alegre',state:'RS'},'invalid updates ignored');
 
-const fn=customer.match(/function startHomeOrder\(\)\{[\s\S]*?\n\}/)?.[0];
+const fn=customer.match(/function startHomeOrder\(\{addFeatured=true\}=\{\}\)\{[\s\S]*?\n\}/)?.[0];
 assert.ok(fn,'Missing home purchase starter');
 function simulateStart(featured,ready=true){
   const state={address:'',postalCode:'',addressNumber:'',cart:{},checkout:{glpContainerMode:''}};
