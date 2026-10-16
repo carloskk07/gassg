@@ -74,7 +74,7 @@ assert.match(html,/Não exibimos preços inventados/);
 assert.match(html,/Ver outra cidade/);
 const real={
  source:'public_city_price_board_v1_341',city:'São Gabriel',state:'RS',
- real:true,notAQuote:true,requiresPostalConfirmation:true,
+ kind:'eligible_merchant_estimates',real:true,notAQuote:true,requiresPostalConfirmation:true,
  productCount:2,checkedAt:new Date().toISOString(),
  products:[
   {code:'P13',fromCents:11890,toCents:12600,merchantCount:2,
