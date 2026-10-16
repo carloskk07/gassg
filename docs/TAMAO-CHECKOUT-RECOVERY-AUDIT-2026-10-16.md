@@ -9,6 +9,7 @@ O frontend `liveCreateOrder` usava `liveRuntime.orderId` como prova de que a ten
 - Armazena a identidade do pedido acompanhando **antes** de iniciar o checkout.
 - Só trata a compra como definitivamente registrada se `create-order` retornar uma identificação UUID válida. Uma falha ao carregar os detalhes desse pedido confirmado passa a mostrar acompanhamento temporariamente indisponível, sem instruir uma nova compra.
 - Após resposta de rede ambígua **sem confirmação**, uma consulta só identifica como novo um pedido ativo diferente do ID anterior. Mostra a necessidade de o cliente conferir o acompanhamento, sem afirmar que o checkout atual foi aceito.
+- Ao receber a identificação de um **novo pedido**, elimina o snapshot em memória do pedido anterior. Se o carregamento de detalhes falhar, a tela exibe um aviso de acompanhamento indisponível e um botão para tentar novamente, sem mostrar informações antigas ou induzir outro pagamento.
 - Em falha não reconciliada preserva a cesta e não apresenta pedido antigo como recém-criado.
 - Mantém as chaves de idempotência da tentativa e as regras autoritativas de banco, sem modificar políticas de pagamento, despacho, estoque ou ativação comercial.
 
