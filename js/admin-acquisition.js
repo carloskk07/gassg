@@ -3214,13 +3214,14 @@ async function adminPayoutFollowupLoadFromUi(){
 }
 // TAMÃO V1.340 — all-months alert for old unresolved financial reviews.
 let adminPayoutGlobalState=null,adminPayoutGlobalBusy=false;
-async function adminPayoutGlobalLoadFromUi(offset=0){
+async function adminPayoutGlobalLoadFromUi(offset=0,recoveryAttempted=false){
   if(!Number.isSafeInteger(offset)||offset<0||offset>999990||offset%30!==0)
     return toast('Página global de pendências inválida.');
   const actor=String(adminRuntime?.session?.user?.id||'');
   const role=String(adminCurrentRole());
   if(!actor||!['superadmin','finance'].includes(role)||adminPayoutGlobalBusy)return;
   adminPayoutGlobalBusy=true;
+  let recoveryOffset=null;
   try{
     const d=await adminInvoke(offset===0?
       {action:'owner-payout-global-followup-read'}:
@@ -3264,15 +3265,36 @@ async function adminPayoutGlobalLoadFromUi(offset=0){
           Date.parse(d.rows[i-1].followupDueAt)>Date.parse(x.followupDueAt)))))
       throw new Error('Visão geral das pendências não validada.');
     if(actor===String(adminRuntime?.session?.user?.id||'')&&
-       role===String(adminCurrentRole()))
-      adminPayoutGlobalState={...d,loadedFor:actor,pageOffset:offset,
-        pageHasMore:offset===0?d.activeClaims>30:d.hasMore};
+       role===String(adminCurrentRole())){
+      if(offset>0&&d.activeClaims<=offset&&d.rows.length===0&&recoveryAttempted)
+        throw new Error('A fila mudou durante a navegação. Atualize a visão geral.');
+      if(offset>0&&d.activeClaims<=offset&&d.rows.length===0&&!recoveryAttempted){
+        // The queue can shrink after an owner closes its final case. Never
+        // leave the operator stranded on a valid but now-empty OFFSET page.
+        recoveryOffset=d.activeClaims>0?
+          Math.floor((d.activeClaims-1)/30)*30:0;
+        adminPayoutGlobalState=null;
+        if(adminPayoutReviewState?.origin==='global')adminPayoutReviewState=null;
+      }else{
+        adminPayoutGlobalState={...d,loadedFor:actor,pageOffset:offset,
+          pageHasMore:offset===0?d.activeClaims>30:d.hasMore};
+        if(adminPayoutReviewState?.origin==='global'&&
+           !d.rows.some(x=>x.claimId===adminPayoutReviewState.claimId))
+          adminPayoutReviewState=null;
+      }
+    }
   }catch(e){
     if(actor===String(adminRuntime?.session?.user?.id||'')){
       adminPayoutGlobalState=null;
       toast(String(e?.message||'Não foi possível consultar os casos antigos.'));
     }
   }finally{adminPayoutGlobalBusy=false;render();}
+  // One recovery only, after releasing the busy flag. The second response
+  // must pass the same server-contract checks and user/role fences.
+  if(recoveryOffset!==null&&
+     actor===String(adminRuntime?.session?.user?.id||'')&&
+     role===String(adminCurrentRole()))
+    await adminPayoutGlobalLoadFromUi(recoveryOffset,true);
 }
 function adminPayoutGlobalOpenMonthFromUi(month){
   const actor=String(adminRuntime?.session?.user?.id||'');
