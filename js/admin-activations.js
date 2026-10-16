@@ -20,7 +20,8 @@ async function adminActivationLoad({force=false}={}){
       ['adsInstruments','ads-instruments-read','admin_ads_instruments_v1_312'],
       ['adsReceivables','ads-receivables-read','admin_ads_receivables_v1_313'],
       ['adsPsp','ads-psp-read','admin_ads_psp_v1_314'],
-      ['adsMpInbox','ads-mp-inbox-read','admin_ads_mp_inbox_v1_316']
+      ['adsMpInbox','ads-mp-inbox-read','admin_ads_mp_inbox_v1_316'],
+      ['adsMpTriage','ads-mp-triage-read','admin_ads_mp_triage_v1_317']
     ];
     const values=await Promise.allSettled([
       ...specs.map(([,action])=>adminInvoke({action})),
@@ -34,6 +35,16 @@ async function adminActivationLoad({force=false}={}){
       const safe=d?.source===source&&(
         key==='ads'?d.readOnly===true&&d.publicEnabled===false&&d.billingEnabled===false&&d.readyToSell===false:
         key==='adsQueue'?d.noCharge===true&&d.adsLive===false:
+        key==='adsMpTriage'?d.readOnly===true&&d.adsLive===false&&
+          d.automaticReconciliation===false&&d.providerSnapshotOnly===true&&
+          d.paymentStateChanged===false&&d.refundsAlwaysRequireProviderCheck===true&&
+          Number.isSafeInteger(d.totalUniquePaymentObservations)&&
+          Number.isSafeInteger(d.actionableObservations)&&
+          Number.isSafeInteger(d.priorityOneObservations)&&Array.isArray(d.rows)&&d.rows.length<=50&&
+          d.rows.every(x=>/^[0-9a-f-]{36}$/i.test(String(x.merchantId))&&
+            /^[0-9]{5,30}$/.test(String(x.paymentId))&&
+            /^[a-f0-9]{64}$/.test(String(x.eventKey))&&
+            [1,2,3].includes(x.priority)&&Number.isSafeInteger(x.amountCents)&&x.amountCents>0):
         key==='adsMpInbox'?d.readOnly===true&&d.adsLive===false&&
           d.automaticReconciliation===false&&d.webhookCannotMarkPaid===true&&
           Number.isSafeInteger(d.totalEvents)&&Array.isArray(d.rows)&&d.rows.length<=50&&
@@ -89,7 +100,7 @@ async function adminActivationLoad({force=false}={}){
         d.readOnly===true&&d.couponSalesEnabled===false&&d.noContractsSigned===true);
       evidence[key]=safe?d:null;
     });
-    const governance=values[12].status==='fulfilled'?values[12].value:null;
+    const governance=values[13].status==='fulfilled'?values[13].value:null;
     evidence.governance=governance?.source==='admin_governance_gates_v1_304'&&governance.readOnly===true&&
       adminRuntime.governance?.loadedFor===actor&&adminRuntime.governance?.role===role?governance:null;
     const push=adminRuntime.pushReliability||{};
@@ -179,7 +190,7 @@ function adminActivationDeskView(d){
     '<p class="tiny muted">Última consulta: '+
     esc(current?formatDateTime(adminActivationDesk.checkedAt):'não confirmada')+
     '. Uma falha na consulta é mostrada como “Não confirmado”, nunca como recurso desligado.</p>'+
-    '<div class="admin-activation-grid">'+cards+'</div>'+adminMarketingIntakeView()+adminAdsSalesPlansView()+adminAdsDossiersView()+adminAdsInstrumentsView()+adminAdsReceivablesView()+adminAdsPspView()+adminAdsMpInboxView()+
+    '<div class="admin-activation-grid">'+cards+'</div>'+adminMarketingIntakeView()+adminAdsSalesPlansView()+adminAdsDossiersView()+adminAdsInstrumentsView()+adminAdsReceivablesView()+adminAdsPspView()+adminAdsMpInboxView()+adminAdsMpTriageView()+
     '<p class="tiny muted">Publicidade pública, vendas de cupons e automação de avisos exigem homologação e gates reais no servidor. Nenhum controle desta página contorna esses requisitos.</p></section>';
 }
 
@@ -888,4 +899,57 @@ function adminAdsMpInboxView(){
   '<p class="muted">A caixa de entrada não foi confirmada. Atualize a central.</p>')+
   '<div class="admin-activation-grid">'+(rows||'<p class="muted">Nenhum evento de pagamento Ads foi recebido. Confira também a configuração do webhook no Mercado Pago.</p>')+'</div>'+
   '<p class="tiny muted">O webhook requer segredo HMAC exclusivo e registro explícito do endereço no Mercado Pago. Se estiver desabilitado, nenhum evento será recebido automaticamente.</p></section>';
+}
+
+
+// V1.317 — latest signed-event snapshot triage, NOT a provider-live payment observation.
+// Explicit risk sorting prevents refund/chargeback candidates being buried by webhooks.
+function adminAdsMpTriageView(){
+ if(!adminRoleCanSection('activations'))return '';
+ const actor=String(adminRuntime.session?.user?.id||''),role=adminCurrentRole();
+ const fresh=adminActivationDesk.actor===actor&&adminActivationDesk.role===role&&
+  Date.now()-Date.parse(adminActivationDesk.checkedAt||'')<120000;
+ const queue=fresh?adminActivationDesk.data?.adsMpTriage:null;
+ const psp=fresh?adminActivationDesk.data?.adsPsp:null;
+ const labels={
+  possible_reversal:'Possível estorno ou contestação — prioridade máxima',
+  post_reversal_activity:'Nova aprovação após reversão — conferir',
+  approval_to_verify:'Aprovação indicada — precisa reconciliação',
+  check_latest_provider_state:'Situação divergente — consultar provedor',
+  aligned_observation:'Estado compatível com a última observação',
+  informational:'Observação informativa'
+ };
+ const items=(queue?.rows||[]).map(x=>{
+  const merchantId=String(x.merchantId||''),paymentId=String(x.paymentId||'');
+  const c=psp?.rows?.find(v=>v.merchantId===merchantId)?.checkout;
+  const canReview=role==='superadmin'&&psp?.platformPspConfigured===true&&
+    ['checkout_ready','payment_approved'].includes(c?.status)&&
+    x.canRequestReconciliation===true&&
+    /^[0-9]{5,30}$/.test(paymentId)&&/^[0-9a-f-]{36}$/i.test(merchantId);
+  const emphasized=x.priority===1?'** ':'';
+  return '<article class="admin-activation-card admin-mp-triage-priority-'+Number(x.priority)+'">'+
+   '<div class="admin-activation-card-head"><strong>'+esc(x.merchantName||'Revenda')+
+   '</strong><span class="status-pill">'+esc(x.priority===1?'Prioridade alta':
+     x.priority===2?'Precisa de conferência':'Observação')+'</span></div>'+
+   '<p><strong>'+esc(labels[x.triage]||'Situação para análise')+'</strong></p>'+
+   '<p>Último status observado: '+esc(x.providerStatus)+' • '+
+     (Number(x.amountCents)/100).toLocaleString('pt-BR',{style:'currency',currency:'BRL'})+
+     ' • ID '+esc(paymentId)+'</p>'+
+   '<p class="tiny muted">Recebido: '+esc(String(x.receivedAt||'—'))+
+     ' • Registro atual do checkout: '+esc(x.checkoutStatus)+
+     ' • Snapshot de webhook, não é consulta ao vivo.</p>'+
+   (canReview?'<button type="button" class="secondary small" onclick="adminAdsPspAction(\''+
+      merchantId+'\',\'reconcile\',\''+paymentId+'\')">Consultar novamente no provedor</button>':'')+
+   '</article>';
+ }).join('');
+ return '<section class="section admin-ads-mp-triage">'+
+  '<div class="section-head"><div><span class="section-kicker">V1.317 • TRIAGEM FINANCEIRA</span>'+
+  '<h2>Prioridades de conferência Mercado Pago Ads</h2>'+
+  '<p>Observações assinadas e verificadas na chegada são agrupadas por pagamento e ordenadas por risco. Para qualquer alteração financeira, a consulta ao provedor deve ser refeita.</p></div></div>'+
+  (queue?'<p class="tiny muted">Observações únicas: '+queue.totalUniquePaymentObservations+
+    ' • Precisam de conferência: '+queue.actionableObservations+
+    ' • Alta prioridade: '+queue.priorityOneObservations+'</p>':
+    '<p class="muted">Não foi possível confirmar a triagem no banco. Atualize a central.</p>')+
+  '<div class="admin-activation-grid">'+(items||'<p class="muted">Sem observações de pagamento Ads para priorizar. Isso não comprova ausência de transações; confira o provedor quando necessário.</p>')+
+  '</div><p class="tiny muted">Nenhum evento altera o pagamento automaticamente ou publica anúncios. A ausência de alertas não garante que não existam estornos ou webhooks perdidos.</p></section>';
 }
