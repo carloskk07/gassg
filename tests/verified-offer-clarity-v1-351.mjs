@@ -79,6 +79,33 @@ assert.doesNotMatch(one,/offer-decision-guide/);
 const ties=run('checkoutOfferComparison([{id:"a",total:10,eta:20,etaMax:30,trust:0},{id:"b",total:10,eta:20,etaMax:30,trust:0}])');
 assert.doesNotMatch(ties,/Menor total desta consulta|Menor prazo máximo previsto<\/span>/,
  'equal offers cannot be falsely marked as unique winners');
+// Sorting an expired snapshot must not leave ghost cards or a blank result.
+run("setCheckoutOfferSort('lowest')");
+assert.match(catalog.innerHTML,/As opções desta consulta expiraram/);
+assert.match(catalog.innerHTML,/Atualizar opções/);
+assert.doesNotMatch(catalog.innerHTML,/onclick="checkout\('/);
+assert.match(feedback.textContent,/Nenhuma oferta válida/);
+assert.deepEqual(btns.map(b=>b.pressed),['false','true','false']);
+// A fresh response can still be sorted without modifying server order or prices.
+const liveNow=Date.now();
+ctx.globalThis.liveRuntime.offers=[
+ {id:'live-slow',quoteId:'live-slow',live:true,roles:[],total:135,deliveryFee:5,
+  eta:22,etaMax:40,trust:80,expiresAt:new Date(liveNow+120000).toISOString()},
+ {id:'live-cheap',quoteId:'live-cheap',live:true,roles:[],total:110,deliveryFee:5,
+  eta:30,etaMax:50,trust:85,expiresAt:new Date(liveNow+120000).toISOString()}
+];
+run("setCheckoutOfferSort('lowest')");
+assert.ok(catalog.innerHTML.indexOf("checkout('live-cheap')")<
+  catalog.innerHTML.indexOf("checkout('live-slow')"));
+assert.match(feedback.textContent,/Menor total primeiro/);
+assert.deepEqual(ctx.globalThis.liveRuntime.offers.map(o=>o.id),
+ ['live-slow','live-cheap'],'sorting must not mutate trusted offers');
+run("setCheckoutOfferSort('soonest')");
+assert.ok(catalog.innerHTML.indexOf("checkout('live-slow')")<
+  catalog.innerHTML.indexOf("checkout('live-cheap')"));
+assert.match(feedback.textContent,/Menor prazo máximo primeiro/);
+run("setCheckoutOfferSort('untrusted')");
+assert.deepEqual(btns.map(b=>b.pressed),['false','false','true']);
 assert.ok(css.includes('.offer-decision-guide-metrics'));
 assert.ok(css.includes('.offer-expired-notice'));
 assert.ok(css.includes('@media(max-width:550px)'));
