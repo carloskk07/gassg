@@ -2058,10 +2058,48 @@ function merchantWorkspaceJump(area){
   const panel=document.getElementById(id);
   if(!panel)return false;
   if(panel.tagName==='DETAILS')panel.open=true;
-  const summary=panel.querySelector('summary');
+  const focusTarget=panel.querySelector('summary')||panel.querySelector('h2');
   panel.scrollIntoView({block:'start',behavior:matchMedia('(prefers-reduced-motion: reduce)').matches?'auto':'smooth'});
-  if(summary)summary.focus({preventScroll:true});
+  if(focusTarget)focusTarget.focus({preventScroll:true});
   return true;
+}
+// V1.348 — read-only guide to the next relevant workspace, never a permission grant.
+function merchantWorkspaceOrientation(rt,{canGoOnline=false,connectionHealthy=false,financialHold=false,orders=[]}={}){
+  const m=rt?.merchant||{};
+  const count=Array.isArray(orders)?orders.length:0;
+  const manage=['owner','manager'].includes(String(m.memberRole||''));
+  if(count>0)return {
+    tone:'attention',eyebrow:'SEU PRÓXIMO PASSO',title:'Confira seus pedidos',
+    detail:count===1?'Há 1 pedido na fila. Veja a situação antes de agir.':
+      'Há '+count+' pedidos na fila. Priorize o que precisa de atenção.',
+    action:'orders',label:'Ver fila de pedidos'
+  };
+  if(financialHold)return {
+    tone:'blocked',eyebrow:'SEU PRÓXIMO PASSO',title:'Há uma restrição financeira',
+    detail:'Novas vendas estão suspensas. Consulte a situação no painel autorizado.',
+    action:manage?'finance':'start',label:manage?'Ver resultados e financeiro':'Ver situação da operação'
+  };
+  if(!canGoOnline)return {
+    tone:'setup',eyebrow:'SEU PRÓXIMO PASSO',title:'Prepare sua revenda',
+    detail:manage?'Confira o que falta configurar. As liberações dependem das verificações do TAMÃO.':
+      'Veja o que falta para sua operação. A liberação não acontece por este atalho.',
+    action:manage?'setup':'start',label:manage?'Continuar configuração':'Ver situação da operação'
+  };
+  if(m.online!==true)return {
+    tone:'paused',eyebrow:'SEU PRÓXIMO PASSO',title:'Novos pedidos pausados',
+    detail:'Sua revenda está preparada, mas offline. Confira a disponibilidade quando quiser atender.',
+    action:'start',label:'Conferir disponibilidade'
+  };
+  if(!connectionHealthy)return {
+    tone:'attention',eyebrow:'SEU PRÓXIMO PASSO',title:'Confira sua conexão',
+    detail:'A presença da revenda ainda não tem confirmação recente. Consulte a situação antes de esperar novos pedidos.',
+    action:'start',label:'Verificar operação'
+  };
+  return {
+    tone:'ready',eyebrow:'SEU PRÓXIMO PASSO',title:'Tudo pronto para acompanhar',
+    detail:'A operação está online. Mantenha preços, produtos e entregas atualizados.',
+    action:'start',label:'Revisar produtos e entregas'
+  };
 }
 function merchantLivePage(){
   const rt=globalThis.merchantRuntime||{};
@@ -2122,6 +2160,15 @@ function merchantLivePage(){
     ? `<div class="notice success" style="margin-top:12px"><strong>Compliance vigente.</strong><br>CNPJ: ${esc(cnpjWhen)} • janela operacional ${Number(compliance.cnpjMaxAgeDays||30)} dias. ${hasGlp?`ANP: ${esc(anpWhen)} • janela operacional ${Number(compliance.anpMaxAgeDays||7)} dias.`:'Sem GLP ativo no catálogo; ANP não é exigida para a operação atual.'}</div>`
     : `<div class="notice danger" style="margin-top:12px"><strong>Revalidação necessária antes de operar.</strong><br>${!cnpjCurrent?`CNPJ: última verificação ${esc(cnpjWhen)}; revalidar a cada ${Number(compliance.cnpjMaxAgeDays||30)} dias. `:''}${!anpCurrent?`ANP: última verificação ${esc(anpWhen)}; revalidar a cada ${Number(compliance.anpMaxAgeDays||7)} dias para GLP.`:''}</div>`;
   const canGoOnline=m.status==='active'&&complianceReady&&commercialReady&&!financialHold;
+  const orientation=merchantWorkspaceOrientation(rt,{
+    canGoOnline,connectionHealthy,financialHold,orders
+  });
+  const orientationMarkup=`<aside class="merchant-workspace-orientation merchant-workspace-orientation--${orientation.tone}" aria-label="Orientação de trabalho">
+    <span class="merchant-orientation-eyebrow">${esc(orientation.eyebrow)}</span>
+    <strong>${esc(orientation.title)}</strong>
+    <p>${esc(orientation.detail)}</p>
+    <button type="button" class="merchant-orientation-action" onclick="merchantWorkspaceJump('${orientation.action}')">${esc(orientation.label)} <span aria-hidden="true">→</span></button>
+  </aside>`;
   const connectionNotice=!connectionHealthy
     ? '<div class="notice danger" style="margin-top:12px"><strong>Conexão da operação sem confirmação recente.</strong><br>Enquanto a presença da revenda não for renovada, novos pedidos podem deixar de ser enviados para esta operação.</div>'
     : rt.heartbeatError
@@ -2129,11 +2176,17 @@ function merchantLivePage(){
       : '';
 
   return shell(`<section class="page merchant-workspace">
-    <header class="merchant-workspace-header"><div><div class="tiny">PAINEL DE TRABALHO • ${esc(m.memberRole==='owner'?'RESPONSÁVEL':m.memberRole==='manager'?'GERÊNCIA':'OPERAÇÃO')}</div><h1 class="page-title">${esc(m.name)}</h1><small>Pedidos, disponibilidade e próximos passos. Tudo em um só lugar.</small></div><span class="status-pill ${m.online?(heartbeatFresh?'online':'risk'):'offline'}">${m.online?(heartbeatFresh?'● ONLINE':'● SEM CONEXÃO'):'OFFLINE'}</span></header>
+    <header class="merchant-workspace-header"><div class="merchant-workspace-identity">
+      <div class="merchant-workspace-identity-meta"><span class="tiny">SUA REVENDA • ${esc(m.memberRole==='owner'?'RESPONSÁVEL':m.memberRole==='manager'?'GERÊNCIA':'OPERAÇÃO')}</span><span class="status-pill ${m.online?(heartbeatFresh?'online':'risk'):'offline'}">${m.online?(heartbeatFresh?'● ONLINE':'● SEM CONEXÃO'):'● OFFLINE'}</span></div>
+      <h1 class="page-title">${esc(m.name)}</h1>
+      <p class="merchant-workspace-welcome">Tudo o que importa para atender bem, organizado para o seu dia.</p>
+      <div class="merchant-workspace-readonly"><span><strong>${orders.length}</strong> ${orders.length===1?'pedido na fila':'pedidos na fila'}</span><span>Dados da sua operação</span></div>
+    </div>${orientationMarkup}</header>
     <nav class="merchant-workspace-shortcuts" aria-label="Acesso rápido ao trabalho da revenda">
       <button type="button" class="merchant-workspace-shortcut is-primary" onclick="merchantWorkspaceJump('orders')"><span class="merchant-shortcut-icon" aria-hidden="true">📦</span><strong>Pedidos</strong><small>${orders.length} na fila de trabalho</small></button>
-      <button type="button" class="merchant-workspace-shortcut" onclick="merchantWorkspaceJump('start')"><span class="merchant-shortcut-icon" aria-hidden="true">✓</span><strong>${canGoOnline?'Produtos e entregas':'Comece por aqui'}</strong><small>${canGoOnline?'Ajustes do dia a dia':'Veja o que falta para vender'}</small></button>
-      <button type="button" class="merchant-workspace-shortcut" onclick="merchantWorkspaceJump('finance')"><span class="merchant-shortcut-icon" aria-hidden="true">▥</span><strong>Resultados</strong><small>Vendas e financeiro</small></button>
+      <button type="button" class="merchant-workspace-shortcut" onclick="merchantWorkspaceJump('start')"><span class="merchant-shortcut-icon" aria-hidden="true">🧺</span><strong>${canGoOnline?'Produtos e entregas':'Comece por aqui'}</strong><small>${canGoOnline?'Estoque, preços e disponibilidade':'Prepare sua operação'}</small></button>
+      ${manage?'<button type="button" class="merchant-workspace-shortcut" onclick="merchantWorkspaceJump(\'finance\')"><span class="merchant-shortcut-icon" aria-hidden="true">▥</span><strong>Resultados</strong><small>Vendas e financeiro</small></button>':''}
+      ${manage?'<button type="button" class="merchant-workspace-shortcut merchant-shortcut-growth" onclick="merchantWorkspaceJump(\'growth\')"><span class="merchant-shortcut-icon" aria-hidden="true">↗</span><strong>Divulgar e indicar</strong><small>Rede, campanhas e parcerias</small></button>':''}
       <button type="button" class="merchant-workspace-shortcut" onclick="merchantWorkspaceJump('settings')"><span class="merchant-shortcut-icon" aria-hidden="true">⚙</span><strong>Minha revenda</strong><small>Equipe, alertas e opções</small></button>
     </nav>
 
@@ -2144,7 +2197,7 @@ function merchantLivePage(){
     ${financialHold?'<div class="notice danger" style="margin-top:12px"><strong>Novas vendas suspensas por pendência financeira.</strong><br>Regularize o fechamento vencido. Pedidos já aceitos continuam disponíveis normalmente.</div>':''}
 
     ${merchantDeliveryBoardView(rt,orders)}
-    <section class="section" id="merchant-live-orders"><div class="section-head"><div><h2>Pedidos que exigem ação</h2><p>Aceite, saída e recebimento só são registrados depois de confirmação no sistema.</p></div></div>${merchantDeliveryAttentionView(rt)}${merchantOrderQueueView(orders)}</section>
+    <section class="section" id="merchant-live-orders"><div class="section-head"><div><h2 tabindex="-1">Pedidos que exigem ação</h2><p>Aceite, saída e recebimento só são registrados depois de confirmação no sistema.</p></div></div>${merchantDeliveryAttentionView(rt)}${merchantOrderQueueView(orders)}</section>
 
     <details id="merchant-workspace-start" class="merchant-workspace-section"${!canGoOnline?' open':''}><summary tabindex="0"><span><strong>${canGoOnline?'Produtos e entregas':'Comece por aqui: prepare sua operação'}</strong><small>${canGoOnline?'Atualize estoque, preços e configurações quando precisar.':'Veja as etapas que exigem atenção para sua revenda começar a receber ofertas.'}</small></span></summary><div class="merchant-workspace-content">
       ${merchantDailyChecklistView(rt,{deliveryFresh:freshness.deliveryFresh})}
