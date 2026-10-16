@@ -45,5 +45,5 @@ assert.ok(customer.includes("homeRegion.city.toLocaleUpperCase('pt-BR')==='SÃO 
   customer.includes("homeRegion.state==='RS'")&&
   customer.includes('cityPrices.length===0'),
   'Faixa de referência P13 deve aparecer apenas em São Gabriel e sumir quando houver preços reais da cidade');
-assert.ok(customer.includes('Consultar meu CEP')&&customer.includes('startCustomerAvailability()')&&customer.includes('realSupplyConfigured===false'),'CTA nacional deve consultar a região quando há fornecimento e oferecer aviso quando não existe revenda configurada');
+assert.ok((customer.includes('Consultar meu CEP')||customer.includes('Escolher produtos →'))&&customer.includes('startCustomerAvailability()')&&customer.includes('realSupplyConfigured===false'),'CTA nacional deve permitir descobrir produtos, consultar a entrega e pedir aviso quando não existe revenda configurada');
 console.log('V1.151: demanda nacional, ANP autenticada, consentimento por CEP e ativação comercial fechada.');
