@@ -10,8 +10,8 @@ const start=ui.indexOf('// V1.265 —');
 const end=ui.indexOf('// TAMÃO V1.264 —',start);
 assert.ok(start>0&&end>start);
 for(const term of [
- "origin==='global'?adminPayoutGlobalState:null",
- "origin==='global'||!month",
+ "origin==='global'?adminPayoutGlobalState:",
+ "['global','archive'].includes(origin)||!month",
  "adminPayoutGlobalLoadFromUi(adminPayoutGlobalState?.pageOffset??0)",
  "adminPayoutReviewOpenFromUi(&quot;'+esc(x.claimId)+'&quot;,&quot;global&quot;)",
  "adminPayoutReviewHistoryMarkup('global',d.rows)"
