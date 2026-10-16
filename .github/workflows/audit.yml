@@ -457,6 +457,8 @@ jobs:
         run: node tests/referral-payout-reversal-evidence-v1-334.mjs
       - name: Admin prioritized payout review V1.335 regression
         run: node tests/owner-payout-review-queue-v1-335.mjs
+      - name: Admin payout review pagination V1.336 regression
+        run: node tests/owner-payout-review-pagination-v1-336.mjs
       - name: Verified merchant representation V1.158.4 regression contract
         run: node tests/merchant-representation-v1-158-4.mjs
       - name: Remote admin gateway contract and portal report

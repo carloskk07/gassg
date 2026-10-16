@@ -2889,7 +2889,9 @@ function adminOwnerRecipientProofSection(){
 
 // V1.265 — Provider-derived outgoing payout status, not proof of recipient receipt.
 let adminOwnerPayoutProviderState=null,adminOwnerPayoutProviderBusy=false;
-async function adminOwnerPayoutProviderLoadFromUi(){
+async function adminOwnerPayoutProviderLoadFromUi(offset=0){
+  if(!Number.isSafeInteger(offset)||offset<0||offset>999990||offset%30!==0)
+    return toast('Página de revisão inválida.');
   const actor=String(adminRuntime?.session?.user?.id||'');
   const role=String(adminCurrentRole());
   if(!actor||!['superadmin','finance'].includes(role)||adminOwnerPayoutProviderBusy)return;
@@ -2898,7 +2900,9 @@ async function adminOwnerPayoutProviderLoadFromUi(){
     return toast('Competência inválida.');
   adminOwnerPayoutProviderBusy=true;
   try{
-    const d=await adminInvoke({action:'owner-payout-provider-read',month:month?month+'-01':''});
+    const d=await adminInvoke(offset===0?
+      {action:'owner-payout-provider-read',month:month?month+'-01':''}:
+      {action:'owner-payout-provider-page',month:month?month+'-01':'',offset});
     if(d?.source!=='owner_payout_provider_reconciliation_v1_265'||
        d?.provider!=='mercado_pago_payouts_get'||
        d?.timezone!=='America/Sao_Paulo'||d?.readOnly!==true||
@@ -2912,7 +2916,10 @@ async function adminOwnerPayoutProviderLoadFromUi(){
        d.totalClaims!==d.checkedClaims+d.unqueriedClaims||
        d.checkedClaims!==d.providerSuccessClaims+d.checkedUnmatchedClaims||
        d.triageV1335!==true||d.queueOrder!=='priority_then_reported_at'||
-       d.queueCoverage!=='top_30_prioritized'||
+       d.queueCoverage!==(offset===0?'top_30_prioritized':'paginated_30_prioritized')||
+       (offset>0&&(d.triageV1336!==true||d.pageOffset!==offset||
+         d.pageLimit!==30||d.hasPrevious!==true||
+         d.hasMore!==(offset+d.rows?.length<d.totalClaims)))||
        d.historicalProviderSuccessIsBankProof!==false||
        d.automaticRecoveryExecuted!==false||
        !['activeReversedClaims','activeReversedReportedCents',
@@ -2956,8 +2963,10 @@ async function adminOwnerPayoutProviderLoadFromUi(){
        d.rows.some((x,i)=>i>0&&d.rows[i-1].priority>x.priority))
       throw new Error('Conciliação do provedor não validada.');
     if(actor===String(adminRuntime?.session?.user?.id||'')&&
-      role===String(adminCurrentRole()))
-      adminOwnerPayoutProviderState={...d,loadedFor:actor};
+      role===String(adminCurrentRole())&&
+      month===String(document.getElementById('owner-campaign-signals-month')?.value||'').trim())
+      adminOwnerPayoutProviderState={...d,loadedFor:actor,
+        pageOffset:offset,pageHasMore:offset===0?d.totalClaims>30:d.hasMore};
   }catch(e){
     if(actor===String(adminRuntime?.session?.user?.id||'')){
       adminOwnerPayoutProviderState=null;
@@ -3108,8 +3117,15 @@ function adminOwnerPayoutProviderSection(){
        ' declarações consultadas • '+Number(d.providerSuccessClaims)+
        ' compatíveis no momento • '+Number(d.reversedWithHistoricalProviderSuccessClaims)+
        ' com estorno e sucesso histórico observado, incluindo retificadas.</p>'+
-      '<p class="tiny muted">A fila mostra até 30 registros priorizados da competência; os totais acima consideram a competência inteira.'+
-       (d.truncated?' Há outros registros fora desta página.':'')+'</p>'+
+      '<p class="tiny muted">Mostrando '+(d.rows.length?Number(d.pageOffset)+1:0)+
+      '–'+(Number(d.pageOffset)+d.rows.length)+' de '+Number(d.totalClaims)+
+      ' declarações da competência • página '+(Math.floor(Number(d.pageOffset)/30)+1)+
+      '. Os totais acima consideram a competência inteira.</p>'+
+      '<div class="row wrap">'+
+      '<button type="button" class="secondary small" '+(d.pageOffset===0||adminOwnerPayoutProviderBusy?'disabled':'')+
+      ' onclick="adminOwnerPayoutProviderLoadFromUi('+Math.max(0,Number(d.pageOffset)-30)+')">Anterior</button>'+
+      '<button type="button" class="secondary small" '+(!d.pageHasMore||adminOwnerPayoutProviderBusy?'disabled':'')+
+      ' onclick="adminOwnerPayoutProviderLoadFromUi('+(Number(d.pageOffset)+30)+')">Próxima página</button></div>'+
       '<div class="row wrap" role="group" aria-label="Filtrar fila apresentada">'+
       ['all','critical','pending'].map((v,i)=>
         '<button type="button" class="'+(adminOwnerPayoutQueueFilter===v?'primary':'secondary')+
