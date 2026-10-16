@@ -81,7 +81,7 @@ Deno.serve(async(req:Request)=>{
   if(String(payment?.id||"")!==paymentId||
     collectorId!==sellerId||
     !/^tamao-ads-[0-9a-f]{32}-v[0-9]+$/.test(reference)||
-    currency!=="BRL"||!Number.isSafeInteger(amount)||
+    currency!=="BRL"||amount===null||!Number.isSafeInteger(amount)||
     amount<1000||amount>5000000||
     providerStatus.length<3||providerStatus.length>48||detail.length>120)
    return json({error:"ADS_PROVIDER_EVIDENCE_INVALID"},403);
