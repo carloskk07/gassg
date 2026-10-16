@@ -4768,7 +4768,7 @@ async function merchantAdsContactFeedbackSubmit(){
  rt.adsContactFeedbackBusy=true;render();
  try{
   const saved=await merchantInvoke('merchant-ops',{
-    action:'ads-contact-feedback',merchantId:id,operation:'submit',
+    action:'ads-contact-feedback',merchantId:id,operation:'respond',
     contactRequestId:contact.contactRequestId,expectedAssistanceVersion:out.assistanceVersion,
     response,consent:true,requestId:crypto.randomUUID()
   });
