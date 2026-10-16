@@ -4441,6 +4441,9 @@ function merchantAdsStartSection(merchant){
      next[1]+'\')">'+esc(next[0])+'</button>':'')+
     (['prepare_creative','revise_creative'].includes(d.nextAction)?
       '<button type="button" class="secondary small" onclick="merchantAdsCreativeExample()">Preencher exemplo de apresentação</button>':'')+
+    (d.nextAction==='prepare_creative'&&d.merchantActive&&d.businessCityReady&&d.interestRegistered&&d.activeCatalogReady?
+      '<button type="button" class="primary small" onclick="merchantAdsFirstDraftCreate()" '+
+      (rt.adsFirstDraftBusy?'disabled':'')+'>'+(rt.adsFirstDraftBusy?'Salvando…':'Criar meu primeiro rascunho')+'</button>':'')+
     (d.creativeStatus==='approved_creative'?'<p class="tiny muted">Aprovação de uma peça não garante exibição, alcance, preferência na busca ou faturamento.</p>':'')+
     '</div>':
     '<p class="muted tiny">Ainda não consultado. Use “Verificar meu progresso” para receber a orientação correta para esta revenda.</p>')+
@@ -4507,4 +4510,59 @@ function merchantAdsCreativeExample(){
  title.focus({preventScroll:true});
  toast('Exemplo preenchido. Personalize e salve antes de enviar para revisão.');
  return true;
+}
+
+
+// V1.322 — explicit FIRST Ads draft, never a submission, approval, billing or publication.
+async function merchantAdsFirstDraftCreate(){
+ const rt=globalThis.merchantRuntime,id=String(rt?.merchant?.merchantId||'');
+ if(!rt||!id||rt.adsFirstDraftBusy||rt.adsCampaignLoading||
+   !['owner','manager'].includes(String(rt.merchant.memberRole||'')))return false;
+ const d=rt.adsStart?.merchantId===id&&rt.adsStart?.source==='merchant_ads_start_read_v1_321'?rt.adsStart:null;
+ if(!d||d.nextAction!=='prepare_creative'||d.creativeStatus!==null||
+   d.creativeVersion!==0||d.merchantActive!==true||d.businessCityReady!==true||
+   d.interestRegistered!==true||d.activeCatalogReady!==true||d.creativeCityCurrent!==true)return false;
+ if(!confirm('Criar um rascunho inicial editável? Não será enviado, aprovado, cobrado ou publicado automaticamente.'))return false;
+ rt.adsFirstDraftBusy=true;rt.adsCampaignError=null;render();
+ try{
+  // Repeat preflight on the server to exclude stale merchant, city and catalogue state.
+  const fresh=await merchantInvoke('merchant-ops',{action:'ads-start-read',merchantId:id});
+  if(fresh?.source!=='merchant_ads_start_read_v1_321'||fresh.merchantId!==id||
+    fresh.noCharge!==true||fresh.adsLive!==false||fresh.noAutomaticEnrollment!==true||
+    fresh.nextAction!=='prepare_creative'||fresh.creativeVersion!==0||
+    fresh.creativeStatus!==null||fresh.merchantActive!==true||
+    fresh.businessCityReady!==true||fresh.interestRegistered!==true||
+    fresh.activeCatalogReady!==true||fresh.creativeCityCurrent!==true)
+    throw new Error('Os requisitos mudaram. Atualize o guia antes de criar o rascunho.');
+  const title='Conheça os produtos da nossa revenda';
+  const description='Conheça nossa revenda e consulte os produtos e condições de entrega disponíveis na sua região pelo TAMÃO.';
+  const created=await merchantInvoke('merchant-ops',{
+    action:'ads-campaign',merchantId:id,operation:'save',version:0,category:'all',
+    title,description,requestId:crypto.randomUUID()
+  });
+  if(created?.source!=='merchant_ads_campaign_v1_233'||created.merchantId!==id||
+     created.noCharge!==true||created.adsLive!==false||
+     created.campaign?.status!=='draft'||created.campaign.version!==1||
+     created.campaign.title!==title||created.campaign.description!==description)
+    throw new Error('O rascunho não foi confirmado.');
+  const checked=await merchantInvoke('merchant-ops',{
+    action:'ads-campaign',merchantId:id,operation:'view',version:0
+  });
+  if(checked?.source!=='merchant_ads_campaign_v1_233'||checked.merchantId!==id||
+     checked.noCharge!==true||checked.adsLive!==false||
+     checked.campaign?.status!=='draft'||checked.campaign.version!==created.campaign.version||
+     checked.campaign.title!==title)
+    throw new Error('Rascunho salvo, mas a leitura posterior está pendente.');
+  if(String(rt.merchant?.merchantId)!==id)return false;
+  rt.adsCampaign=checked;rt.adsStart=null;rt.adsFirstDraftBusy=false;render();
+  merchantAdsStartNavigate('campaign');
+  toast('Rascunho salvo. Personalize o texto e envie para revisão somente quando desejar.');
+  return true;
+ }catch(e){
+  if(String(rt.merchant?.merchantId)===id){
+   rt.adsStart=null;rt.adsCampaignError=String(e?.message||e);
+   toast(rt.adsCampaignError);
+  }
+  return false;
+ }finally{rt.adsFirstDraftBusy=false;render();}
 }
