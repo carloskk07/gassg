@@ -1162,7 +1162,7 @@ async function liveRefreshCityPriceBoard({force=false}={}){
   if(!liveReady()||!liveRuntime.client||typeof homeMarketRegion!=='function')return null;
   const region=homeMarketRegion();
   const city=String(region?.city||''),uf=String(region?.state||'');
-  if(!/^[\\p{L}\\p{M} .'-]{2,80}$/u.test(city)||!/^[A-Z]{2}$/.test(uf))return null;
+  if(!/^[\p{L}\p{M} .'-]{2,80}$/u.test(city)||!/^[A-Z]{2}$/.test(uf))return null;
   const fresh=liveRuntime.cityPriceSnapshot;
   if(!force&&fresh&&fresh.city===city&&fresh.state===uf&&
      Date.now()-liveRuntime.lastCityPriceBoardAt<CUSTOMER_CITY_BOARD_REFRESH_MS)return fresh;
