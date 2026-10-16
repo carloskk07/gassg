@@ -33,13 +33,15 @@ begin
  join public.platform_ads_assistance_v1_323 a on a.merchant_id=c.merchant_id
  join public.merchants m on m.id=a.merchant_id
  join public.merchant_ads_interest_v1_232 i on i.merchant_id=a.merchant_id
- where c.outcome='followup_requested'
+ where c.outcome='followup_requested' and c.recorded_at>=a.requested_at
  and c.next_followup_on<=(clock_timestamp() at time zone 'America/Sao_Paulo')::date
  and a.status in ('requested','triaged') and m.status='active' and i.interested
  and c.request_id=(select c2.request_id from public.platform_ads_assistance_contacts_v1_324 c2
-   where c2.merchant_id=c.merchant_id order by c2.recorded_at desc,c2.request_id desc limit 1);
+   where c2.merchant_id=c.merchant_id and c2.recorded_at>=a.requested_at
+   order by c2.recorded_at desc,c2.request_id desc limit 1);
  select coalesce(jsonb_agg(jsonb_build_object(
-   'merchantId',a.merchant_id,'assistanceVersion',a.version,'status',a.status,
+   'merchantId',a.merchant_id,'merchantName',left(m.name,120),
+   'assistanceVersion',a.version,'status',a.status,
    'consentCurrent',a.status in ('requested','triaged') and m.status='active' and coalesce(i.interested,false),
    'preferredChannel',a.channel,
    'attemptsCount',coalesce(x.attempts_count,0),
@@ -53,10 +55,12 @@ begin
  join public.merchants m on m.id=a.merchant_id
  left join public.merchant_ads_interest_v1_232 i on i.merchant_id=a.merchant_id
  left join lateral (select count(*) as attempts_count
-   from public.platform_ads_assistance_contacts_v1_324 cc where cc.merchant_id=a.merchant_id) x on true
+   from public.platform_ads_assistance_contacts_v1_324 cc
+   where cc.merchant_id=a.merchant_id and cc.recorded_at>=a.requested_at) x on true
  left join lateral (
    select * from public.platform_ads_assistance_contacts_v1_324 cc
-   where cc.merchant_id=a.merchant_id order by recorded_at desc,request_id desc limit 1
+   where cc.merchant_id=a.merchant_id and cc.recorded_at>=a.requested_at
+   order by recorded_at desc,request_id desc limit 1
  ) c on true;
  return jsonb_build_object('source','admin_ads_contacts_v1_324','readOnly',true,
    'totalManualReports',v_total,'followupsDue',v_followups,'rows',v_rows,
