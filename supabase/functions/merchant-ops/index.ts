@@ -117,7 +117,7 @@ Deno.serve(async(req:Request)=>{
     const merchantId=String(body.merchantId??"");
     const action=String(body.action??"");
     if(!UUID_RE.test(merchantId))throw new DomainError("INVALID_MERCHANT","Revenda inválida.",400);
-    if(!["ads-psp","ads-receivable","ads-instrument","ads-dossier","ads-offer","ads-campaign","ads-interest","clube-interest","clube-terms","business-pulse","growth-network","enablement","heartbeat","set-online","update-product","catalog-history","update-logistics","update-capacity","update-scheduling","update-payment-methods","update-payment-routes","update-member-profile","request-billing-package","notify-billing-payment","notify-refund-recovery-payment","cancel-billing-request"].includes(action)){
+    if(!["ads-psp-evidence","ads-psp","ads-receivable","ads-instrument","ads-dossier","ads-offer","ads-campaign","ads-interest","clube-interest","clube-terms","business-pulse","growth-network","enablement","heartbeat","set-online","update-product","catalog-history","update-logistics","update-capacity","update-scheduling","update-payment-methods","update-payment-routes","update-member-profile","request-billing-package","notify-billing-payment","notify-refund-recovery-payment","cancel-billing-request"].includes(action)){
       throw new DomainError("INVALID_ACTION","Ação inválida.",400);
     }
 
@@ -134,6 +134,40 @@ Deno.serve(async(req:Request)=>{
     if(!membership)throw new DomainError("MERCHANT_ACCESS_DENIED","Você não possui acesso a esta revenda.",403);
 
     const role=membership.member_role;
+    if(action==="ads-psp-evidence"){
+      if(!["owner","manager"].includes(String(role)))
+        throw new DomainError("ADS_EVIDENCE_MEMBER_DENIED","Consulta de confirmação restrita à gestão da revenda.",403);
+      const operation=String(body.operation||"view");
+      if(!["view","request_review"].includes(operation))
+        throw new DomainError("ADS_EVIDENCE_OPERATION_INVALID","Operação inválida.",400);
+      if(operation==="request_review"&&(role!=="owner"||
+        !Number.isSafeInteger(body.expectedVersion)||body.expectedVersion<1||
+        !UUID_RE.test(String(body.requestId||""))))
+        throw new DomainError("ADS_EVIDENCE_OWNER_REQUIRED","Somente o titular pode solicitar a reconferência.",403);
+      const {data,error}=await admin.rpc("merchant_ads_psp_evidence_v1_319",{
+        p_actor:user.id,p_merchant:merchantId,p_operation:operation,
+        p_expected_version:operation==="view"?null:body.expectedVersion,
+        p_request:operation==="view"?null:body.requestId
+      });
+      if(error)throw error;
+      const statuses=new Set(["no_checkout","reversal_recorded","reversal_observed_review_required",
+        "approval_evidence_stale","approval_refresh_recommended","approval_last_verified",
+        "checkout_preparation","approval_observed_unreconciled","awaiting_provider_confirmation","unknown"]);
+      if(data?.source!=="merchant_ads_psp_evidence_v1_319"||data.merchantId!==merchantId||
+        data.paymentStateChanged!==false||data.providerRechecked!==false||
+        data.adsLive!==false||data.merchantBillingSeparate!==true||
+        (operation==="view"?(data.readOnly!==true||data.snapshotOnly!==true||
+          !statuses.has(data.evidence?.status)||
+          (data.evidence.checkoutVersion!==null&&(!Number.isSafeInteger(data.evidence.checkoutVersion)||
+             data.evidence.checkoutVersion<1))||
+          (data.evidence.hoursSinceVerified!==null&&(!Number.isSafeInteger(data.evidence.hoursSinceVerified)||
+             data.evidence.hoursSinceVerified<0))||
+          typeof data.evidence.possibleReversal!=="boolean"||
+          typeof data.evidence.canRequestReview!=="boolean"):
+         data.requestRecorded!==true))
+        throw new DomainError("ADS_EVIDENCE_RESPONSE_INVALID","A comprovação não foi confirmada pelo servidor.",503);
+      return json(data,200,origin);
+    }
     if(action==="ads-psp"){
       if(!["owner","manager"].includes(String(role))||body.operation!=="view")
         throw new DomainError("ADS_PSP_VIEW_DENIED","Consulta de checkout restrita à gestão da revenda.",403);
