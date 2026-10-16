@@ -98,7 +98,7 @@ let html=ctx.adminPayoutArchivedCriticalSection();
 for(const t of ['Exceções críticas com histórico preservado',
  'Revisão encerrada administrativamente','Declaração anulada',
  'R$ 6.00','Consultar histórico administrativo',
- 'não confirmam pagamento bancário','Histórico test'])
+ 'não confirmam pagamento bancário','History test'])
  assert.ok(html.includes(t),'UI must show '+t);
 assert.ok(html.indexOf(id(1))<html.indexOf(id(2)));
 assert.match(html,/adminPayoutArchivedLoadFromUi\(0\)/);
