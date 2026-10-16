@@ -3,6 +3,7 @@ import fs from 'node:fs';
 import vm from 'node:vm';
 
 const backend=fs.readFileSync(new URL('../js/backend.js',import.meta.url),'utf8');
+const customer=fs.readFileSync(new URL('../js/customer.js',import.meta.url),'utf8');
 const start=backend.indexOf('async function liveCreateOrder(quoteId){');
 const end=backend.indexOf('\nasync function liveGetOrder(',start);
 assert.ok(start>=0&&end>start,'checkout boundary missing');
@@ -16,6 +17,7 @@ async function scenario({result=null,previousId='old-previous-order',activeAfter
   const runtime={
     actionPending:false,
     orderId:previousId,
+    order:{orderId:previousId,status:'SETTLED'},
     error:null,
     offers:[{quoteId:'quote-123',expiresAt:new Date(Date.now()+90000).toISOString()}]
   };
@@ -77,6 +79,7 @@ assert.deepEqual(confirmed.state.cart,{});
 assert.ok(confirmed.routes.includes('tracking'));
 assert.ok(confirmed.notices.some(s=>s.includes('Pedido registrado')));
 assert.equal(confirmed.runtime.orderId,confirmedId);
+assert.equal(confirmed.runtime.order,null,'old order snapshot must never remain on screen');
 assert.equal(confirmed.runtime.actionPending,false);
 
 // A new active order discovered after an ambiguous response warrants inspection,
@@ -100,5 +103,8 @@ const normal=await scenario({result:{orderId:confirmedId}});
 assert.deepEqual(normal.state.cart,{});
 assert.deepEqual(normal.readOrders,[confirmedId]);
 assert.ok(normal.routes.includes('tracking'));
+assert.match(customer,/if\(liveRuntime\.orderId\)\s*\{\s*return shell\(/);
+assert.match(customer,/Confira antes de fazer outra compra para evitar pedidos repetidos/);
+assert.match(customer,/Atualizar acompanhamento/);
 
 console.log('Checkout ambiguity regression PASS: old order, confirmed reply, discovered order, invalid reply, ordinary success.');
