@@ -2152,6 +2152,7 @@ function merchantLivePage(){
     <details id="merchant-workspace-growth" class="merchant-workspace-section"><summary tabindex="0"><span><strong>Vender mais e ampliar sua rede</strong><small>Divulgação, benefícios, parcerias e indicações organizados em um só lugar.</small></span></summary><div class="merchant-workspace-content">
       ${merchantAdsStartSection(m)}
       ${merchantAdsAssistanceSection(m)}
+      ${merchantAdsContactFeedbackSection(m)}
       ${merchantAdsInterestSection(m)}
       ${merchantClubeInterestSection(m)}
       ${merchantClubeTermsSection(m)}
@@ -4671,4 +4672,120 @@ async function merchantAdsAssistanceAction(operation){
   rt.adsAssistance=null;rt.adsAssistanceError=String(e?.message||e);toast(rt.adsAssistanceError);
   return false;
  }finally{rt.adsAssistanceBusy=false;render();}
+}
+
+
+// V1.325 — explicit owner-reported experience with a founder-declared contact.
+function merchantAdsContactFeedbackSection(merchant){
+ if(!['owner','manager'].includes(String(merchant?.memberRole||'')))return '';
+ const rt=globalThis.merchantRuntime||{},id=String(merchant?.merchantId||'');
+ const out=rt.adsContactFeedback?.merchantId===id&&
+  rt.adsContactFeedback?.source==='merchant_ads_contact_feedback_v1_325'&&
+  rt.adsContactFeedback.readOnly===true&&
+  rt.adsContactFeedback.messageSent===false&&rt.adsContactFeedback.deliveryProven===false&&
+  rt.adsContactFeedback.adsLive===false&&rt.adsContactFeedback.paymentCreated===false?
+  rt.adsContactFeedback:null;
+ const last=out?.lastContact,feedback=last?.feedback;
+ const outcome={not_reached:'Contato não concluído',conversation:'Conversa declarada pela equipe',
+  followup_requested:'Retorno declarado pela equipe',not_interested:'Sem interesse, conforme relato da equipe'};
+ const states={contact_confirmed:'Confirmei que fui atendido',
+  contact_not_received:'Não recebi o contato informado',
+  followup_needed:'Ainda preciso de um retorno'};
+ const eligible=last&&out.consentCurrent===true&&!feedback&&merchant.memberRole==='owner'&&
+  Number.isSafeInteger(out.assistanceVersion)&&out.assistanceVersion>0;
+ const controls=eligible?'<div class="form-stack">'+
+   '<label>Como foi o atendimento?<select id="ads-contact-feedback-response" class="input">'+
+   '<option value="">Selecione uma resposta</option>'+
+   '<option value="contact_confirmed">Fui atendido</option>'+
+   '<option value="contact_not_received">Não recebi esse contato</option>'+
+   '<option value="followup_needed">Preciso de novo retorno</option></select></label>'+
+   '<label class="check-row"><input id="ads-contact-feedback-consent" type="checkbox">'+
+   '<span>Confirmo que esta é minha avaliação pessoal do contato informado pelo TAMÃO.</span></label>'+
+   '<button type="button" class="primary small" onclick="merchantAdsContactFeedbackSubmit()">Registrar minha avaliação</button></div>':'';
+ const details=last?'<div class="card flat"><p><strong>Último contato registrado:</strong> '+
+  esc(outcome[last.reportedOutcome]||'Atendimento em acompanhamento')+'</p>'+
+  '<p class="tiny muted">Canal informado: '+esc(String(last.channel||''))+
+  ' • Registro: '+esc(String(last.reportedAt||''))+'</p>'+
+  (last.nextFollowupOn?'<p class="tiny muted">Retorno informado pela equipe: '+
+    esc(String(last.nextFollowupOn))+'</p>':'')+
+  (feedback?'<p><strong>Sua avaliação:</strong> '+esc(states[feedback.response]||'Registrada')+
+    '</p><p class="tiny muted">Registro: '+esc(String(feedback.submittedAt||''))+'</p>':'')+
+  controls+'</div>':'<p class="muted tiny">Não há atendimento manual atual registrado para avaliar.</p>';
+ return '<section class="section merchant-ads-contact-feedback">'+
+  '<div class="section-head"><div><span class="section-kicker">TAMÃO ADS • SUA EXPERIÊNCIA</span>'+
+  '<h3>Como foi nosso atendimento?</h3>'+
+  '<p>Se você pediu orientação para anunciar, pode conferir o último contato informado e registrar sua experiência.</p></div>'+
+  '<button type="button" class="secondary small" onclick="merchantAdsContactFeedbackLoad()">Consultar atendimento</button></div>'+
+  (out?details:'<p class="muted tiny">Consulte o servidor para verificar se há um contato disponível.</p>')+
+  (rt.adsContactFeedbackError?'<p class="notice danger">'+esc(rt.adsContactFeedbackError)+'</p>':'')+
+  '<p class="tiny muted">Este formulário não envia WhatsApp, não confirma entrega técnica de mensagens e não cria despesas ou anúncios.</p></section>';
+}
+async function merchantAdsContactFeedbackLoad(){
+ const rt=globalThis.merchantRuntime,id=String(rt?.merchant?.merchantId||'');
+ if(!rt||!id||rt.adsContactFeedbackBusy||
+   !['owner','manager'].includes(String(rt.merchant.memberRole||'')))return null;
+ rt.adsContactFeedbackBusy=true;rt.adsContactFeedbackError=null;render();
+ try{
+  const out=await merchantInvoke('merchant-ops',{
+   action:'ads-contact-feedback',merchantId:id,operation:'view'
+  });
+  if(out?.source!=='merchant_ads_contact_feedback_v1_325'||out.merchantId!==id||
+    out.readOnly!==true||out.messageSent!==false||out.deliveryProven!==false||
+    out.adsLive!==false||out.paymentCreated!==false||
+    typeof out.consentCurrent!=='boolean'||
+    (out.lastContact!==null&&(!/^[0-9a-f-]{36}$/i.test(String(out.lastContact?.contactRequestId||''))||
+      !['not_reached','conversation','followup_requested','not_interested'].includes(
+       out.lastContact?.reportedOutcome)||
+      out.lastContact.adminReportIndependentProof!==false||
+      (out.lastContact.feedback!==null&&(
+       !['contact_confirmed','contact_not_received','followup_needed'].includes(
+        out.lastContact.feedback?.response)||out.lastContact.feedback.merchantDeclared!==true)))))
+   throw new Error('Avaliação comercial não confirmada pelo servidor.');
+  if(String(rt.merchant?.merchantId)!==id)return null;
+  rt.adsContactFeedback=out;return out;
+ }catch(e){
+  if(String(rt.merchant?.merchantId)===id){
+   rt.adsContactFeedback=null;rt.adsContactFeedbackError=String(e?.message||e);
+   toast(rt.adsContactFeedbackError);
+  }
+  return null;
+ }finally{rt.adsContactFeedbackBusy=false;render();}
+}
+async function merchantAdsContactFeedbackSubmit(){
+ const rt=globalThis.merchantRuntime,id=String(rt?.merchant?.merchantId||'');
+ if(!rt||!id||rt.merchant.memberRole!=='owner'||rt.adsContactFeedbackBusy)return false;
+ const out=rt.adsContactFeedback?.merchantId===id&&rt.adsContactFeedback?.readOnly===true?
+  rt.adsContactFeedback:null,contact=out?.lastContact;
+ if(!out||out.consentCurrent!==true||!contact||contact.feedback||
+   !Number.isSafeInteger(out.assistanceVersion)||out.assistanceVersion<1||
+   !/^[0-9a-f-]{36}$/i.test(String(contact.contactRequestId||'')))return false;
+ const response=String(document.getElementById('ads-contact-feedback-response')?.value||'');
+ if(!['contact_confirmed','contact_not_received','followup_needed'].includes(response)||
+   document.getElementById('ads-contact-feedback-consent')?.checked!==true){
+   toast('Selecione sua experiência e marque a confirmação.');return false;
+ }
+ if(!confirm('Registrar sua avaliação pessoal deste atendimento? Ela não comprova entrega técnica nem cria novas cobranças.'))return false;
+ rt.adsContactFeedbackBusy=true;render();
+ try{
+  const saved=await merchantInvoke('merchant-ops',{
+    action:'ads-contact-feedback',merchantId:id,operation:'submit',
+    contactRequestId:contact.contactRequestId,expectedAssistanceVersion:out.assistanceVersion,
+    response,consent:true,requestId:crypto.randomUUID()
+  });
+  if(saved?.source!=='merchant_ads_contact_feedback_v1_325'||saved.merchantId!==id||
+    saved.recorded!==true||saved.contactRequestId!==contact.contactRequestId||
+    saved.response!==response||saved.messageSent!==false||saved.deliveryProven!==false||
+    saved.adsLive!==false||saved.paymentCreated!==false)
+   throw new Error('Resposta ainda não confirmada no servidor.');
+  rt.adsContactFeedback=null;rt.adsContactFeedbackBusy=false;
+  const fresh=await merchantAdsContactFeedbackLoad();
+  if(fresh?.lastContact?.contactRequestId!==contact.contactRequestId||
+    fresh.lastContact.feedback?.response!==response)
+   throw new Error('A avaliação foi enviada, mas a leitura de confirmação ainda não foi concluída.');
+  toast('Sua avaliação foi registrada e está disponível para a equipe responsável.');
+  return true;
+ }catch(e){
+  rt.adsContactFeedback=null;rt.adsContactFeedbackError=String(e?.message||e);
+  toast(rt.adsContactFeedbackError);return false;
+ }finally{rt.adsContactFeedbackBusy=false;render();}
 }
