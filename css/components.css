@@ -3726,3 +3726,12 @@ body:has(.admin-page) .admin-nav-item:focus-visible{outline-offset:-3px}
 .merchant-ads-start-step span:first-child{font-weight:800}
 .merchant-ads-start .card>button{margin:6px 8px 6px 0;min-height:44px}
 @media(max-width:520px){.merchant-ads-start .card>button{width:100%;margin-right:0}.merchant-ads-start-step{grid-template-columns:22px minmax(0,1fr);gap:8px}.merchant-ads-start-step .tiny{grid-column:2}}
+
+/* V1.322 — opt-in Ads opportunities, responsive and easy to scan. */
+.admin-ads-lead-kpis{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin:14px 0 20px}
+.admin-ads-lead-kpis>div{display:flex;flex-direction:column;gap:6px;padding:14px;border:1px solid var(--border,#d8dbe1);border-radius:12px}
+.admin-ads-lead-kpis strong{font-size:1.45rem;font-variant-numeric:tabular-nums}
+.admin-ads-lead-kpis span{font-size:.86rem}
+.admin-ads-lead p{margin:8px 0}
+.merchant-ads-start .card>button{margin:6px 8px 6px 0;min-height:44px}
+@media(max-width:620px){.admin-ads-lead-kpis{grid-template-columns:1fr}.merchant-ads-start .card>button{width:100%;margin:6px 0}}
