@@ -7,6 +7,7 @@ const css=fs.readFileSync(new URL('../css/components.css',import.meta.url),'utf8
 const start=customer.indexOf('function home(){');
 const end=customer.indexOf('\nfunction orderPage(){',start);
 assert.ok(start>=0&&end>start,'Home must be present');
+const homeHelpers=customer.slice(customer.indexOf('function homeProductGroup('),start);
 const homeSource=customer.slice(start,end);
 assert.ok(css.includes('.home-first-visit .hero-grid')&&css.includes('.first-visit-intent-grid'),
  'Concise home must have responsive layout');
@@ -27,7 +28,7 @@ function render({ready=true,available=false,city='São Gabriel',postalCode='9730
  const state={postalCode,address:'',cart:{},user:{}};
  const context=vm.createContext({
    state,
-   products:{P13:{name:'Botijão de cozinha 13 kg',icon:'🔥',hidden:false,sortOrder:1}},
+   products:{P13:{name:'Botijão de cozinha 13 kg',icon:'🔥',hidden:false,sortOrder:1},WATER20:{name:'Água 20 L',icon:'💧',hidden:false,sortOrder:2}},
    globalThis:{
      __CHAMA_TEST__:demo,CHAMA_INTERNAL_PILOT:false,
      liveReady:()=>ready,prelaunchExamplesEnabled:()=>false,
@@ -36,6 +37,7 @@ function render({ready=true,available=false,city='São Gabriel',postalCode='9730
    rememberedMarketRegion:()=>({city,state:'RS'}),
    minPrice:()=>120,
    customerProductName:(code,product)=>product?.name||code,
+   tamaoProductArt:(code)=>'<span class="test-product-art">'+code+'</span>',
    BRL:{format:value=>'R$ '+Number(value).toFixed(2)},
    PUBLIC_P13_REFERENCE:{usual:120},
    esc:value=>String(value??'').replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('"','&quot;'),
@@ -44,11 +46,13 @@ function render({ready=true,available=false,city='São Gabriel',postalCode='9730
    prelaunchTransparencyBand:()=>'<section class="prelaunch-transparency"></section>',
    shell:html=>html
  });
- vm.runInContext(homeSource,context,{timeout:1000});
+ vm.runInContext(homeHelpers+'\n'+homeSource,context,{timeout:1000});
  return vm.runInContext('home()',context,{timeout:1000});
 }
 const noSupply=render();
 assert.match(noSupply,/home-first-visit/);
+assert.match(noSupply,/home-editorial-visual/);
+assert.match(noSupply,/home-discover-filter/);
 assert.match(noSupply,/Consultar meu CEP|Escolher produtos →/);
 assert.match(noSupply,/São Gabriel/);
 assert.match(noSupply,/Quer saber mais ou tem uma revenda\?/);

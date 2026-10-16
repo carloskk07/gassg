@@ -248,6 +248,46 @@ function deliveryScheduleBlock(){
   </div></section>`;
 }
 
+function homeProductGroup(code,product){
+  const key=String(product?.categoryKey||'').trim().toLowerCase();
+  const productCode=String(code||'').toUpperCase();
+  // The server catalog category wins; hardcoded codes are only a fallback.
+  if(key)return key==='glp'?'gas':key==='water'?'water':'other';
+  if(/^P[1-9][0-9]?$/.test(productCode))return 'gas';
+  if(/^WATER/.test(productCode))return 'water';
+  return 'other';
+}
+// Local catalogue navigation only. No stock, prices, quotes or permissions change.
+function homeFilterProducts(group){
+  const chosen=['all','gas','water','other'].includes(group)?group:'all';
+  const grid=document.getElementById('home-discover-grid');
+  if(!grid)return false;
+  let visible=0;
+  const cards=grid.querySelectorAll('[data-tamao-discover-kind]');
+  for(const card of cards){
+    const matched=chosen==='all'||card.dataset.tamaoDiscoverKind===chosen;
+    const show=matched&&(chosen!=='all'||visible<6);
+    card.hidden=!show;
+    if(show)visible++;
+  }
+  for(const button of document.querySelectorAll('[data-tamao-filter]')){
+    button.setAttribute('aria-pressed',String(button.dataset.tamaoFilter===chosen));
+  }
+  const status=document.getElementById('home-discover-status');
+  if(status)status.textContent=chosen==='all'
+    ?visible+' produtos em destaque. Selecione uma categoria para explorar outras opções.'
+    :visible+' '+(visible===1?'produto nesta categoria.':'produtos nesta categoria.');
+  return true;
+}
+function homeDiscoverFocus(){
+  const panel=document.getElementById('home-discover');
+  if(!panel)return startCustomerAvailability();
+  const heading=panel.querySelector('h2');
+  panel.scrollIntoView({behavior:globalThis.matchMedia?.('(prefers-reduced-motion: reduce)')?.matches?'auto':'smooth',block:'start'});
+  heading?.focus({preventScroll:true});
+  return true;
+}
+
 function home(){
   const testDemo=globalThis.__CHAMA_TEST__===true;
   const internalPilot=globalThis.CHAMA_INTERNAL_PILOT===true;
@@ -352,22 +392,31 @@ function home(){
       ||preview
       ||!ready
       ||!market
+      ||market?.realSupplyConfigured===false
       ||liveProductCodes.has(code)
     ))
     .sort(([,a],[,b])=>
       Number(a.sortOrder||100)-Number(b.sortOrder||100)
       ||String(a.name||'').localeCompare(String(b.name||''),'pt-BR')
     );
-  // Discovery remains informational: only an eligible live quotation can create an order.
-  const discoveryTiles=homeProductEntries
+  // Every catalogue tile is a product choice, not a stock, price or merchant assertion.
+  const discoveryEntries=homeProductEntries
     .filter(([code])=>/^[A-Z][A-Z0-9_]{1,31}$/.test(code))
-    .slice(0,5).map(([code,product])=>{
+    .slice(0,24);
+  const discoveryCounts={gas:0,water:0,other:0};
+  for(const [code,product] of discoveryEntries)discoveryCounts[homeProductGroup(code,product)]++;
+  const discoveryFilters=[
+    ['all','Destaques'],['gas','Gás'],['water','Água'],['other','Outros']
+  ].filter(([kind])=>kind==='all'||discoveryCounts[kind]>0).map(([kind,label])=>
+    `<button type="button" data-tamao-filter="${kind}" aria-pressed="${kind==='all'}" onclick="homeFilterProducts('${kind}')">${label}</button>`).join('');
+  const discoveryTiles=discoveryEntries.map(([code,product],index)=>{
       const name=customerProductName(code,product);
       const art=typeof tamaoProductArt==='function'
         ?tamaoProductArt(code,product,'hero'):esc(product.icon||'🛍️');
-      return `<button type="button" class="home-discover-tile" onclick="quickProduct('${code}')" aria-label="Escolher ${esc(name)} e conferir a entrega">`+
+      const group=homeProductGroup(code,product);
+      return `<button type="button" class="home-discover-tile" data-tamao-discover-kind="${group}" ${index>=6?'hidden':''} onclick="quickProduct('${code}')" aria-label="Escolher ${esc(name)} e conferir a entrega">`+
         `<span class="home-discover-art" aria-hidden="true">${art}</span>`+
-        `<strong>${esc(name)}</strong><span class="home-discover-action">Escolher e consultar <span aria-hidden="true">→</span></span></button>`;
+        `<strong>${esc(name)}</strong><span class="home-discover-action">Selecionar produto <span aria-hidden="true">→</span></span></button>`;
     }).join('');
   const feeBps=Number(market?.commercialPolicy?.platformFeeBps??750);
   const merchantFeeLabel=(Math.max(0,feeBps)/100).toLocaleString('pt-BR',{maximumFractionDigits:2})+'%';
@@ -380,8 +429,8 @@ function home(){
   const eyebrow=testDemo
     ? internalPilot?'● AMBIENTE INTERNO — SEM PEDIDOS':'● AMBIENTE DE TESTE'
     : '● TAMÃO • '+regionLabel.toUpperCase();
-  const primaryLabel=internalPilot?'Validar jornada':hasConfirmedCityOffers?'Conferir ofertas do meu CEP':'Explorar produtos e preços';
-  const primaryAction='startCustomerAvailability()';
+  const primaryLabel=internalPilot?'Validar jornada':hasConfirmedCityOffers?'Conferir ofertas do meu CEP':'Escolher meus produtos';
+  const primaryAction=acquisitionOpen?'homeDiscoverFocus()':'startCustomerAvailability()';
   // Global merchant totals never certify a single seller for this city's basket.
   const singleMarket=internalPilot||(hasConfirmedCityOffers
     &&(globalThis.liveRuntime?.marketMode==='single_supplier'
@@ -443,14 +492,26 @@ function home(){
     <div class="visual-choice"><span><strong>Menor total</strong><small>Veja o valor com a entrega</small></span><span><strong>Menor prazo</strong><small>Veja a previsão de chegada</small></span></div>
     <div class="visual-status"><span class="visual-check">✓</span><div><strong>Você sabe quando foi confirmado</strong><small>O status “A caminho” só aparece após a saída informada pela revenda.</small></div></div>
   </div>`:''}
+  ${conciseHome?`<aside class="home-editorial-visual" aria-label="Vitrine ilustrativa de categorias, sem ofertas ou preços">
+    <span class="home-editorial-kicker">O DIA A DIA TEM SEU RITMO.</span>
+    <div class="home-editorial-stage" aria-hidden="true">
+      <div class="home-editorial-orbit"></div>
+      <div class="home-editorial-gas"><span class="home-editorial-photo">${tamaoProductArt('P13',products.P13,'hero')}</span><strong>Gás</strong></div>
+      <div class="home-editorial-water"><span class="home-editorial-photo">${tamaoProductArt('WATER20',products.WATER20,'hero')}</span><strong>Água</strong></div>
+      <div class="home-editorial-extra"><span>✦</span> E muito mais</div>
+    </div>
+    <div class="home-editorial-bottom"><strong>O essencial, mais perto da sua rotina.</strong><small>Explore categorias. A entrega só é confirmada após consultar seu CEP.</small></div>
+  </aside>`:''}
 </div></section>
 
-${discoveryTiles?`<section class="home-discover" aria-label="Explore os produtos do TAMÃO">
+${discoveryTiles?`<section id="home-discover" class="home-discover" aria-label="Explore os produtos do TAMÃO">
   <div class="home-discover-heading"><div><span class="section-kicker">O ESSENCIAL EM UM SÓ LUGAR</span>
-    <h2>O que está faltando por aí?</h2>
-    <p>Escolha um produto para montar sua cesta. Preços finais e entregas dependem da sua região.</p></div>
-    <button type="button" class="home-discover-all" onclick="startCustomerAvailability()">Montar minha cesta <span aria-hidden="true">→</span></button></div>
-  <div class="home-discover-grid">${discoveryTiles}</div>
+    <h2 tabindex="-1">O que está faltando por aí?</h2>
+    <p>${!ready||market?.realSupplyConfigured===false?'Explore o catálogo de possibilidades. A disponibilidade é confirmada no seu CEP, antes de qualquer pedido.':'Escolha um produto para montar sua cesta. Preços finais e entregas dependem da sua região.'}</p></div>
+    <button type="button" class="home-discover-all" onclick="startCustomerAvailability()">Continuar para a cesta <span aria-hidden="true">→</span></button></div>
+  <div class="home-discover-filter" role="group" aria-label="Filtrar produtos por categoria">${discoveryFilters}</div>
+  <p id="home-discover-status" class="home-discover-status" role="status">${Math.min(6,discoveryEntries.length)} produtos em destaque. Selecione uma categoria para explorar outras opções.</p>
+  <div id="home-discover-grid" class="home-discover-grid">${discoveryTiles}</div>
 </section>`:''}
 
 ${!testDemo&&typeof homeRegionalPriceBoard==="function"?homeRegionalPriceBoard(homeRegion):""}

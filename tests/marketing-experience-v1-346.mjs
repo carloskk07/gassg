@@ -15,9 +15,9 @@ for(const [name,code] of Object.entries({customer,growth,merchant,admin,core})){
 for(const required of [
   'const discoveryTiles=','home-discover-tile','home-discover-grid',
   'quickProduct(','home-discover-all','PRIMEIRO ESCOLHA.',
-  'Montar minha cesta','REFERÊNCIA LOCAL'
+  'Continuar para a cesta','REFERÊNCIA LOCAL'
 ])assert.ok(customer.includes(required),'missing customer discovery: '+required);
-assert.match(customer,/discoveryTiles=homeProductEntries\s*\.filter\(\(\[code\]\)=>\/\^\[A-Z\]/);
+assert.ok(customer.includes('discoveryEntries=homeProductEntries')&&customer.includes('discoveryTiles=discoveryEntries.map')&&customer.includes('data-tamao-discover-kind'),'product discovery must originate in the vetted catalogue');
 assert.ok(customer.indexOf('home-discover-grid')<customer.indexOf('homeRegionalPriceBoard(homeRegion)'),
   'show categories before the regional price board');
 assert.ok(customer.includes('citySnapshot?.real===true&&citySnapshot?.notAQuote===true'),
