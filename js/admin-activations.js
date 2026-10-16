@@ -50,7 +50,7 @@ async function adminActivationLoad({force=false}={}){
             Number.isSafeInteger(x.assistanceVersion)&&x.assistanceVersion>0&&
             typeof x.currentConsent==='boolean'&&
             (!x.lastContact||(/^[0-9a-f-]{36}$/i.test(String(x.lastContact.contactRequestId))&&
-              (!x.lastContact.merchantFeedback||x.lastContact.merchantFeedback.merchantDeclared===true))):
+              (!x.lastContact.merchantFeedback||x.lastContact.merchantFeedback.merchantDeclared===true)))):
         key==='adsContacts'?d.readOnly===true&&d.automatedMessagesSent===0&&
           d.deliveryIndependentlyVerified===false&&d.noAutomaticOutreach===true&&
           d.adsLive===false&&d.paymentCreated===false&&
