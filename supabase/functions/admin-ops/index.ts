@@ -101,7 +101,7 @@ async function requireAdmin(admin:any,userId:string){
   if(!data)throw new DomainError("ADMIN_ACCESS_DENIED","Esta conta não possui acesso administrativo.",403);
   return data;
 }
-const ADMIN_READ_ACTIONS=new Set(["governance-gates","commercial-intake-read","ads-sales-plans","ads-offers-read","ads-dossiers-read","ads-instruments-read","ads-receivables-read","ads-psp-read","ads-mp-inbox-read","ads-mp-triage-read","ads-psp-freshness-read","ads-psp-merchant-reviews","ads-launch-readiness","ads-leads-read","ads-assistance-read","ads-contact-reports-read","summary","search","entity-detail","system-health","billing-provider-health","audit-search","incident-list","merchant-payment-preflight","prospect-intelligence","expansion-notifications","expansion-radar","merchant-enablement","sale-payment-history","finance-receipts-history","commercial-history-list","operational-alerts","ads-demand","clube-interest-queue","clube-campaign-queue","clube-terms-queue","owner-funding-read","owner-funding-pulse","owner-evidence-queue","owner-budget-queue","owner-finance-history","owner-campaign-signals","owner-campaign-orders","owner-campaign-fee-receipts","owner-campaign-batch-ledger","owner-campaign-financial-summary","owner-campaign-benefit-costs","owner-wallet-reconciliation","owner-cashback-source-lots","owner-referral-lifecycle","owner-benefit-payout-read","owner-benefit-proofs-read","owner-benefit-proof-view","owner-benefit-proof-verify","owner-payout-provider-read","owner-recipient-proof-readiness","owner-multi-psp-hub","owner-campaign-orphan-audit","owner-orphan-cleanup-candidates","owner-campaign-cost-read","owner-campaign-receipts-read","owner-campaign-receipt-view","ads-audience-readiness","ads-preview-summary","ads-placement-readiness","ads-pilot-preflight","commercial-activation","ads-campaign-queue","growth-referral-review-queue"]);
+const ADMIN_READ_ACTIONS=new Set(["governance-gates","commercial-intake-read","ads-sales-plans","ads-offers-read","ads-dossiers-read","ads-instruments-read","ads-receivables-read","ads-psp-read","ads-mp-inbox-read","ads-mp-triage-read","ads-psp-freshness-read","ads-psp-merchant-reviews","ads-launch-readiness","ads-leads-read","ads-assistance-read","ads-contact-reports-read","ads-contact-feedback-read","summary","search","entity-detail","system-health","billing-provider-health","audit-search","incident-list","merchant-payment-preflight","prospect-intelligence","expansion-notifications","expansion-radar","merchant-enablement","sale-payment-history","finance-receipts-history","commercial-history-list","operational-alerts","ads-demand","clube-interest-queue","clube-campaign-queue","clube-terms-queue","owner-funding-read","owner-funding-pulse","owner-evidence-queue","owner-budget-queue","owner-finance-history","owner-campaign-signals","owner-campaign-orders","owner-campaign-fee-receipts","owner-campaign-batch-ledger","owner-campaign-financial-summary","owner-campaign-benefit-costs","owner-wallet-reconciliation","owner-cashback-source-lots","owner-referral-lifecycle","owner-benefit-payout-read","owner-benefit-proofs-read","owner-benefit-proof-view","owner-benefit-proof-verify","owner-payout-provider-read","owner-recipient-proof-readiness","owner-multi-psp-hub","owner-campaign-orphan-audit","owner-orphan-cleanup-candidates","owner-campaign-cost-read","owner-campaign-receipts-read","owner-campaign-receipt-view","ads-audience-readiness","ads-preview-summary","ads-placement-readiness","ads-pilot-preflight","commercial-activation","ads-campaign-queue","growth-referral-review-queue"]);
 const ADMIN_ROLE_ACTIONS:Record<string,Set<string>>={
   superadmin:new Set(["*"]),
   operations:new Set([
@@ -4528,6 +4528,29 @@ Deno.serve(async(req:Request)=>{
     }
     if(action==="entity-detail"){
       return json(await adminEntityDetail(admin,body.entityType,body.entityId,String(adminAccess.admin_role||"superadmin")),200,origin);
+    }
+    if(action==="ads-contact-feedback-read"){
+      if(!["superadmin","operations","readonly"].includes(String(adminAccess.admin_role||"")))
+        throw new DomainError("ADS_FEEDBACK_ADMIN_DENIED","Respostas comerciais restritas à administração.",403);
+      const {data,error}=await admin.rpc("admin_ads_contact_feedback_read_v1_325",{p_actor:user.id});
+      if(error)throw error;
+      if(data?.source!=="admin_ads_contact_feedback_v1_325"||data.readOnly!==true||
+        data.messagesSent!==0||data.deliveryProven!==false||
+        data.adsLive!==false||data.paymentCreated!==false||
+        !Number.isSafeInteger(data.totalMerchantFeedback)||data.totalMerchantFeedback<0||
+        !Number.isSafeInteger(data.awaitingMerchantFeedback)||data.awaitingMerchantFeedback<0||
+        !Array.isArray(data.rows)||data.rows.length>50||
+        data.rows.some((x:any)=>!UUID_RE.test(String(x.merchantId||""))||
+          !Number.isSafeInteger(x.assistanceVersion)||x.assistanceVersion<1||
+          typeof x.currentConsent!=="boolean"||
+          (x.lastContact!==null&&(!UUID_RE.test(String(x.lastContact?.contactRequestId||""))||
+            !["not_reached","conversation","followup_requested","not_interested"].includes(x.lastContact?.reportedOutcome)||
+            (x.lastContact.merchantFeedback!==null&&(
+              x.lastContact.merchantFeedback?.merchantDeclared!==true||
+              !["contact_confirmed","contact_not_received","followup_needed"].includes(
+                x.lastContact.merchantFeedback?.response))))))
+        throw new DomainError("ADS_FEEDBACK_ADMIN_UNVERIFIED","Respostas das revendas não confirmadas.",503);
+      return json(data,200,origin);
     }
     if(action==="ads-contact-reports-read"){
       if(!["superadmin","operations","readonly"].includes(String(adminAccess.admin_role||"")))
