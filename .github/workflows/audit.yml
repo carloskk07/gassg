@@ -45,6 +45,8 @@ jobs:
         run: node tests/expert-fuzz.mjs
       - name: Financial invariant fuzz
         run: node tests/financial-invariants-fuzz.mjs
+      - name: Push FK index hygiene regression
+        run: node tests/push-fk-index-hygiene.mjs
       - name: Service worker cache integrity
         run: node tests/service-worker-integrity.mjs
       - name: Static trust and asset audit
