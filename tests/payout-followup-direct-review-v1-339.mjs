@@ -83,8 +83,8 @@ await env.adminPayoutReviewOpenFromUi(claim,'followup');
 assert.equal(calls.at(-1).action,'owner-payout-review-read');
 assert.match(env.adminPayoutFollowupSection(),/Histórico da declaração/);
 assert.match(env.adminPayoutFollowupSection(),/Registrar análise/);
-assert.doesNotMatch(env.adminOwnerPayoutProviderSection(),/Histórico da declaração/,
-  'do not render duplicate form in the provider panel');
+assert.equal((env.adminOwnerPayoutProviderSection().match(/Histórico da declaração/g)||[]).length,1,
+  'the combined provider and followup panel must render one history only');
 await env.adminPayoutReviewRecordFromUi(claim);
 assert.equal(records,1);
 assert.equal(calls.filter(c=>c.action==='owner-payout-followup-read').length,2,
