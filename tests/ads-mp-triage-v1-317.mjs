@@ -61,7 +61,7 @@ assert.match(visible,/Prioridade alta/);
 assert.match(visible,/Possível estorno ou contestação/);
 assert.match(visible,/Snapshot de webhook, não é consulta ao vivo/);
 assert.match(visible,/Consultar novamente no provedor/);
-assert.match(visible,/Sem observações de pagamento Ads/,{});
+assert.doesNotMatch(visible,/Sem observações de pagamento Ads/);
 role="readonly";desk.role=role;
 assert.doesNotMatch(ctx.show(),/onclick="adminAdsPspAction/);
 desk.data.adsMpTriage=null;
