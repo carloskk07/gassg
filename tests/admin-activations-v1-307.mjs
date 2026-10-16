@@ -62,6 +62,10 @@ const providers={
   'ads-assistance-read':{source:'admin_ads_assistance_v1_323',readOnly:true,
     totalRequests:0,openRequests:0,rows:[],messagesSent:0,contactPerformed:false,
     adsLive:false,paymentCreated:false,noAutomaticOutreach:true},
+  'ads-contact-reports-read':{source:'admin_ads_contacts_v1_324',readOnly:true,
+    totalManualReports:0,followupsDue:0,rows:[],automatedMessagesSent:0,
+    deliveryIndependentlyVerified:false,noAutomaticOutreach:true,
+    adsLive:false,paymentCreated:false},
   'ads-leads-read':{source:'admin_ads_leads_v1_322',readOnly:true,
     snapshotAt:new Date().toISOString(),totalOptedIn:0,creativeApproved:0,preparingCreative:0,
     rows:[],contactPerformed:false,notificationSent:false,paymentCreated:false,
@@ -90,7 +94,7 @@ const env=vm.createContext({
 });
 vm.runInContext(src+'\nthis.load=adminActivationLoad;this.view=adminActivationDeskView;this.go=adminActivationGo;',env);
 assert.equal(await env.load({force:true})!=null,true);
-assert.equal(calls.filter(x=>typeof x==='string').length,18);
+assert.equal(calls.filter(x=>typeof x==='string').length,19);
 let view=env.view({commercialPolicy:{policy_version:4}});
 assert.match(view,/Central de consulta e acesso aos controles reais/);
 assert.match(view,/Exibição bloqueada/);

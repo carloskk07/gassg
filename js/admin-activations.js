@@ -26,7 +26,8 @@ async function adminActivationLoad({force=false}={}){
       ['adsPspMerchantReviews','ads-psp-merchant-reviews','admin_ads_psp_review_requests_v1_319'],
       ['adsLaunch','ads-launch-readiness','admin_ads_launch_readiness_v1_320'],
       ['adsLeads','ads-leads-read','admin_ads_leads_v1_322'],
-      ['adsAssistance','ads-assistance-read','admin_ads_assistance_v1_323']
+      ['adsAssistance','ads-assistance-read','admin_ads_assistance_v1_323'],
+      ['adsContacts','ads-contact-reports-read','admin_ads_contacts_v1_324']
     ];
     const values=await Promise.allSettled([
       ...specs.map(([,action])=>adminInvoke({action})),
@@ -40,6 +41,16 @@ async function adminActivationLoad({force=false}={}){
       const safe=d?.source===source&&(
         key==='ads'?d.readOnly===true&&d.publicEnabled===false&&d.billingEnabled===false&&d.readyToSell===false:
         key==='adsQueue'?d.noCharge===true&&d.adsLive===false:
+        key==='adsContacts'?d.readOnly===true&&d.automatedMessagesSent===0&&
+          d.deliveryIndependentlyVerified===false&&d.noAutomaticOutreach===true&&
+          d.adsLive===false&&d.paymentCreated===false&&
+          Number.isSafeInteger(d.totalManualReports)&&Number.isSafeInteger(d.followupsDue)&&
+          Array.isArray(d.rows)&&d.rows.length<=50&&d.rows.every(x=>
+            /^[0-9a-f-]{36}$/i.test(String(x.merchantId))&&
+            Number.isSafeInteger(x.assistanceVersion)&&x.assistanceVersion>0&&
+            typeof x.consentCurrent==='boolean'&&typeof x.merchantName==='string'&&
+            Number.isSafeInteger(x.attemptsCount)&&
+            (!x.lastAttempt||x.lastAttempt.independentlyVerified===false)):
         key==='adsAssistance'?d.readOnly===true&&d.contactPerformed===false&&
           d.messagesSent===0&&d.adsLive===false&&d.paymentCreated===false&&
           d.noAutomaticOutreach===true&&Number.isSafeInteger(d.totalRequests)&&
@@ -157,7 +168,7 @@ async function adminActivationLoad({force=false}={}){
         d.readOnly===true&&d.couponSalesEnabled===false&&d.noContractsSigned===true);
       evidence[key]=safe?d:null;
     });
-    const governance=values[18].status==='fulfilled'?values[18].value:null;
+    const governance=values[19].status==='fulfilled'?values[19].value:null;
     evidence.governance=governance?.source==='admin_governance_gates_v1_304'&&governance.readOnly===true&&
       adminRuntime.governance?.loadedFor===actor&&adminRuntime.governance?.role===role?governance:null;
     const push=adminRuntime.pushReliability||{};
@@ -247,7 +258,7 @@ function adminActivationDeskView(d){
     '<p class="tiny muted">Última consulta: '+
     esc(current?formatDateTime(adminActivationDesk.checkedAt):'não confirmada')+
     '. Uma falha na consulta é mostrada como “Não confirmado”, nunca como recurso desligado.</p>'+
-    '<div class="admin-activation-grid">'+cards+'</div>'+adminAdsLaunchReadinessView()+adminAdsLeadsView()+adminAdsAssistanceView()+adminMarketingIntakeView()+adminAdsSalesPlansView()+adminAdsDossiersView()+adminAdsInstrumentsView()+adminAdsReceivablesView()+adminAdsPspView()+adminAdsMpInboxView()+adminAdsMpTriageView()+adminAdsPspFreshnessView()+adminAdsPspMerchantReviewsView()+
+    '<div class="admin-activation-grid">'+cards+'</div>'+adminAdsLaunchReadinessView()+adminAdsLeadsView()+adminAdsAssistanceView()+adminAdsContactsView()+adminMarketingIntakeView()+adminAdsSalesPlansView()+adminAdsDossiersView()+adminAdsInstrumentsView()+adminAdsReceivablesView()+adminAdsPspView()+adminAdsMpInboxView()+adminAdsMpTriageView()+adminAdsPspFreshnessView()+adminAdsPspMerchantReviewsView()+
     '<p class="tiny muted">Publicidade pública, vendas de cupons e automação de avisos exigem homologação e gates reais no servidor. Nenhum controle desta página contorna esses requisitos.</p></section>';
 }
 
@@ -1280,6 +1291,96 @@ async function adminAdsAssistanceAction(merchantId,operation){
   if(!saved||saved.status!==status||saved.version!==out.version)
     throw new Error('Ação registrada, mas leitura de confirmação ainda pendente.');
   toast('Etapa interna registrada. Nenhum contato automático foi realizado.');
+  return true;
+ }catch(e){
+  adminActivationDesk.data=null;await adminActivationLoad({force:true});
+  toast(String(e?.message||e));return false;
+ }
+}
+
+
+// V1.324 — verified authorization for manual contact notes, NOT verified external delivery.
+function adminAdsContactsView(){
+ if(!adminRoleCanSection('activations'))return '';
+ const actor=String(adminRuntime.session?.user?.id||''),role=adminCurrentRole();
+ const fresh=adminActivationDesk.actor===actor&&adminActivationDesk.role===role&&
+   Date.now()-Date.parse(adminActivationDesk.checkedAt||'')<120000;
+ const d=fresh?adminActivationDesk.data?.adsContacts:null;
+ const outcomes={not_reached:'Não consegui falar',conversation:'Conversa relatada',
+  followup_requested:'Retorno solicitado',not_interested:'Não deseja prosseguir'};
+ const cards=(d?.rows||[]).filter(x=>x.consentCurrent&&['requested','triaged'].includes(x.status)).map(x=>{
+  const id=String(x.merchantId||'');
+  if(!/^[0-9a-f-]{36}$/i.test(id))return '';
+  const last=x.lastAttempt;
+  const due=last?.outcome==='followup_requested'?String(last.nextFollowupOn||''):'';
+  const form=role==='superadmin'?'<div class="admin-ads-contact-form">'+
+   '<label>Resultado relatado da tentativa<select class="input" id="ads-contact-'+id+'-outcome">'+
+   '<option value="not_reached">Tentei, sem conseguir falar</option>'+
+   '<option value="conversation">Conversei com a revenda</option>'+
+   '<option value="followup_requested">Solicitou um novo contato</option>'+
+   '<option value="not_interested">Informou que não deseja prosseguir</option></select></label>'+
+   '<label>Nota do ocorrido (20–240 caracteres)<textarea class="input" id="ads-contact-'+id+'-note" rows="3" minlength="20" maxlength="240" placeholder="Registre somente fatos que realmente ocorreram, sem dados pessoais desnecessários"></textarea></label>'+
+   '<label>Data do retorno (somente se solicitado)<input class="input" type="date" id="ads-contact-'+id+'-date"></label>'+
+   '<button type="button" class="secondary small" onclick="adminAdsContactRecord(\''+id+'\')">Registrar atendimento manual</button></div>':'';
+  return '<article class="admin-activation-card admin-ads-contact-card">'+
+   '<div class="admin-activation-card-head"><strong>'+esc(x.merchantName||'Revenda')+
+   '</strong><span class="status-pill">Consentimento atual</span></div>'+
+   '<p>Canal solicitado: '+esc(({whatsapp:'WhatsApp',phone:'Telefone',email:'E-mail'})[x.preferredChannel]||'—')+
+   ' • Relatos registrados: '+Number(x.attemptsCount)+'</p>'+
+   (last?'<p>Último resultado informado: <strong>'+esc(outcomes[last.outcome]||'Não confirmado')+
+    '</strong>'+ (due?' • Próximo retorno: '+esc(due):'')+'</p>'+
+    '<p class="tiny muted">'+esc(last.note)+' • '+esc(String(last.recordedAt||''))+
+    '</p>':'<p class="muted tiny">Nenhuma tentativa foi registrada. O pedido em análise não comprova contato.</p>')+
+   '<p class="tiny muted">Solicitação v'+Number(x.assistanceVersion)+
+   ' • Contatos são relatos do administrador; entrega não verificada independentemente.</p>'+
+   form+'</article>';
+ }).join('');
+ return '<section class="section admin-ads-contacts">'+
+  '<div class="section-head"><div><span class="section-kicker">V1.324 • ACOMPANHAMENTO HUMANO</span>'+
+  '<h2>Atendimentos comerciais e retornos</h2>'+
+  '<p>Registre apenas contatos realmente tentados. O próximo retorno e o consentimento atual permanecem conferidos no banco.</p></div></div>'+
+  (d?'<p class="tiny muted">Relatos manuais: '+d.totalManualReports+
+   ' • Retornos vencidos: '+d.followupsDue+' • Mensagens automáticas: 0.</p>':
+   '<p class="muted">Consulta não confirmada; atualize a Central de Ativações.</p>')+
+  '<div class="admin-activation-grid">'+(cards||'<p class="muted">Não há solicitações ativas com consentimento atual para acompanhamento.</p>')+
+  '</div><p class="tiny muted">Registro administrativo declarado, sem prova independente de entrega. Nenhuma mensagem é enviada, nenhum contrato é assinado e nenhum anúncio é publicado por esta função.</p></section>';
+}
+async function adminAdsContactRecord(merchantId){
+ if(!adminReady()||adminCurrentRole()!=='superadmin'||adminActivationDesk.loading)return false;
+ const actor=String(adminRuntime.session?.user?.id||'');
+ if(adminActivationDesk.actor!==actor||adminActivationDesk.role!=='superadmin'||
+   Date.now()-Date.parse(adminActivationDesk.checkedAt||'')>=120000)return false;
+ const item=adminActivationDesk.data?.adsContacts?.rows?.find(x=>x.merchantId===merchantId);
+ if(!item||!item.consentCurrent||!['requested','triaged'].includes(item.status))return false;
+ const outcome=String(document.getElementById('ads-contact-'+merchantId+'-outcome')?.value||'');
+ const note=String(document.getElementById('ads-contact-'+merchantId+'-note')?.value||'').trim();
+ const nextRaw=String(document.getElementById('ads-contact-'+merchantId+'-date')?.value||'').trim();
+ const nextFollowupOn=nextRaw||null;
+ if(!['not_reached','conversation','followup_requested','not_interested'].includes(outcome)||
+   note.length<20||note.length>240||
+   (outcome==='followup_requested'&&!/^\d{4}-\d{2}-\d{2}$/.test(nextFollowupOn||''))||
+   (outcome!=='followup_requested'&&nextFollowupOn)){
+   toast('Informe resultado, nota de 20–240 caracteres e data somente para retorno solicitado.');return false;
+ }
+ if(!confirm('Registrar que você realizou esta tentativa de contato MANUAL? O registro não envia mensagem nem comprova entrega.'))return false;
+ try{
+  const out=await adminPerform('ads-contact-report',{
+   merchantId,expectedVersion:item.assistanceVersion,channel:item.preferredChannel,
+   outcome,note,nextFollowupOn,requestId:crypto.randomUUID()
+  });
+  if(out?.source!=='admin_ads_contact_record_v1_324'||out.merchantId!==merchantId||
+    out.recorded!==true||out.outcome!==outcome||
+    out.assistanceVersion!==item.assistanceVersion||
+    out.automatedMessageSent!==false||out.independentlyVerified!==false||
+    out.adsLive!==false||out.paymentCreated!==false)
+   throw new Error('Registro de contato não confirmado no servidor.');
+  adminActivationDesk.data=null;
+  const data=await adminActivationLoad({force:true});
+  const updated=data?.adsContacts?.rows?.find(x=>x.merchantId===merchantId);
+  if(!updated||updated.attemptsCount<=item.attemptsCount||
+     updated.lastAttempt?.outcome!==outcome)
+   throw new Error('Registro efetuado, mas leitura posterior ainda não confirmada.');
+  toast('Tentativa manual registrada, sem mensagem automática.');
   return true;
  }catch(e){
   adminActivationDesk.data=null;await adminActivationLoad({force:true});
