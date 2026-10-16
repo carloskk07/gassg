@@ -67,7 +67,7 @@ runtime.actionPending=true;card=cardCtx.card(item);
 assert.ok(card.includes('merchant-order-action-fieldset" disabled'));
 runtime.actionPending=false;item.deliveryDetailsVisible=false;
 assert.ok(!cardCtx.card(item).includes('merchant-order-contact'));
-item.status='OFFERED_TO_MERCHANT';card=cardCtx.card(item);
+item.status='OFFERED_TO_MERCHANT';item.offerExpiresAt=new Date(Date.now()+12*60000).toISOString();card=cardCtx.card(item);
 assert.ok(card.includes('Aceitar pedido')&&card.includes('Não consigo atender'));
 
 let calls=0;const messages=[];
