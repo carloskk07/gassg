@@ -340,7 +340,7 @@ function home(){
             ? 'Use o endereço oficial do TAMÃO para consultar disponibilidade.'
             : globalThis.liveRuntime?.status==='loading'
               ? 'Conectando ao serviço.'
-              : 'Ofertas não verificadas agora. Nenhum pedido foi criado.';
+              : 'Os preços de revendas aparecem após confirmação. Confira seu CEP e as condições antes de comprar.';
 
   const disabled=!testDemo&&!ready&&!preview;
   const liveProductCodes=new Set(Array.isArray(market?.productCodes)?market.productCodes:[]);
@@ -422,7 +422,6 @@ function home(){
     </div>
 
     <div class="trust-row" aria-label="O que você pode esperar">${conciseHome?'<span class="trust-chip">✓ Consulta por CEP</span><span class="trust-chip">✓ Aviso opcional por WhatsApp</span><span class="trust-chip">✓ Sem pedido automático</span>':'<span class="trust-chip">✓ Veja o valor antes</span><span class="trust-chip">✓ Pedido com aceite real</span><span class="trust-chip">✓ Acompanhe a entrega</span>'}</div>
-    ${showPublicP13Reference?publicP13PriceReference():''}
     ${internalPilot?'<div class="notice" style="margin-top:14px"><strong>Ambiente de validação interna.</strong><br>Nenhuma ação nesta prévia gera pedido real, cobrança ou baixa de estoque. O dado comercial real carregado no cenário é a faixa P13: R$ 115,90 mínimo, R$ 120,00 normal e R$ 125,00 máximo, com entrega incluída.</div>':''}
   </div>
   ${!conciseHome?`<div class="hero-visual" aria-label="Resumo visual dos benefícios do TAMÃO">
