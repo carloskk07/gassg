@@ -145,7 +145,7 @@ Deno.serve(async(req:Request)=>{
       if(operation!=="view"&&(role!=="owner"||body.consent!==true||
         !Number.isSafeInteger(body.expectedVersion)||body.expectedVersion<0||
         !UUID_RE.test(String(body.requestId||""))||
-        (operation==="request"&&(!["whatsapp","phone","email"].includes(channel)||
+        (operation==="request"&&(!["whatsapp","phone","email"].includes(String(channel||""))||
           !note||note.length<20||note.length>240))))
         throw new DomainError("ADS_ASSISTANCE_OWNER_CONSENT_REQUIRED",
           "O titular deve confirmar a solicitação e o canal de atendimento.",403);
