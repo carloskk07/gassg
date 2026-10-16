@@ -3744,3 +3744,10 @@ body:has(.admin-page) .admin-nav-item:focus-visible{outline-offset:-3px}
 .merchant-ads-assistance .form-stack select{min-height:44px;width:100%}
 .admin-ads-assistance p{overflow-wrap:anywhere}
 @media(max-width:520px){.merchant-ads-assistance button,.admin-ads-assistance button{min-height:44px;width:100%}}
+
+/* V1.324 — manual Ads contact log, legible on mobile. */
+.admin-ads-contacts .admin-ads-contact-form{display:grid;gap:10px;margin-top:12px}
+.admin-ads-contacts .admin-ads-contact-form label{display:grid;gap:5px;font-weight:600}
+.admin-ads-contacts .admin-ads-contact-form textarea{width:100%;min-height:86px;font:inherit;box-sizing:border-box}
+.admin-ads-contacts .admin-ads-contact-form select,.admin-ads-contacts .admin-ads-contact-form input{width:100%;min-height:44px;font:inherit;box-sizing:border-box}
+@media(max-width:520px){.admin-ads-contacts .admin-ads-contact-form button{min-height:44px;width:100%}}
