@@ -3060,12 +3060,13 @@ const adminPayoutReviewStatuses={
 function adminPayoutReviewSourceForClaim(actor,claimId,origin){
   const source=origin==='followup'?adminPayoutFollowupState:
     origin==='provider'?adminOwnerPayoutProviderState:
-    origin==='global'?adminPayoutGlobalState:null;
+    origin==='global'?adminPayoutGlobalState:
+    origin==='archive'?adminPayoutArchivedState:null;
   // The global queue intentionally spans every competence. Unlike the
   // month-scoped views it must not inherit the month selector's restriction.
   const month=String(document.getElementById('owner-campaign-signals-month')?.value||'').trim();
   return source?.loadedFor===actor&&
-    (origin==='global'||!month||source.month?.slice(0,7)===month)&&
+    (['global','archive'].includes(origin)||!month||source.month?.slice(0,7)===month)&&
     source.rows?.some(x=>x.claimId===claimId)?source:null;
 }
 async function adminPayoutReviewOpenFromUi(claimId,origin='provider'){
@@ -3143,6 +3144,8 @@ async function adminPayoutReviewRecordFromUi(claimId){
     if(origin==='followup')await adminPayoutFollowupLoadFromUi();
     if(origin==='global')
       await adminPayoutGlobalLoadFromUi(adminPayoutGlobalState?.pageOffset??0);
+    if(origin==='archive')
+      await adminPayoutArchivedLoadFromUi(adminPayoutArchivedState?.pageOffset??0);
     if(adminPayoutReviewSourceForClaim(actor,claimId,origin))
       await adminPayoutReviewOpenFromUi(claimId,origin);
   }
@@ -3310,6 +3313,119 @@ function adminPayoutGlobalOpenMonthFromUi(month){
   adminPayoutFollowupState=null;
   adminPayoutFollowupLoadFromUi();
 }
+// TAMÃO V1.344 — preserved, paginated watch of critical historical exceptions.
+// This is a separate read-only view, not a reopened financial obligation.
+let adminPayoutArchivedState=null,adminPayoutArchivedBusy=false;
+async function adminPayoutArchivedLoadFromUi(offset=0){
+  if(!Number.isSafeInteger(offset)||offset<0||offset>999990||offset%30!==0)
+    return toast('Página de exceções inválida.');
+  const actor=String(adminRuntime?.session?.user?.id||'');
+  const role=String(adminCurrentRole());
+  if(!actor||!['superadmin','finance'].includes(role)||adminPayoutArchivedBusy)return;
+  adminPayoutArchivedBusy=true;
+  try{
+    const d=await adminInvoke({action:'owner-payout-archived-critical-read',offset});
+    const states=['not_started','in_review','awaiting_evidence',
+      'reviewed_no_bank_proof','closed_administrative'];
+    if(d?.source!=='admin_payout_archived_critical_v1_344'||
+       d?.scope!=='historical_exceptions_all_months'||
+       d?.readOnly!==true||d?.administrativeOnly!==true||
+       d?.bankSettlementVerified!==false||d?.recipientVerified!==false||
+       d?.moneyMoved!==false||d?.providerObservationIsBankProof!==false||
+       !['totalClaims','closedUnvoidedClaims','voidedClaims','reportedAmountCents']
+        .every(k=>Number.isSafeInteger(d?.[k])&&d[k]>=0)||
+       d.totalClaims!==d.closedUnvoidedClaims+d.voidedClaims||
+       d.limit!==30||d.pageOffset!==offset||d.pageLimit!==30||
+       d.hasPrevious!==(offset>0)||
+       d.hasMore!==(offset+30<d.totalClaims)||
+       !Array.isArray(d.rows)||
+       d.rows.length!==Math.min(30,Math.max(0,d.totalClaims-offset))||
+       d.rows.some(x=>!x||
+         !/^[0-9a-f-]{36}$/i.test(String(x.claimId||''))||
+         !/^[0-9a-f-]{36}$/i.test(String(x.orderId||''))||
+         !/^\d{4}-(0[1-9]|1[0-2])-01$/.test(String(x.claimMonth||''))||
+         !/^\d{4}-(0[1-9]|1[0-2])-\d{2}$/.test(String(x.paidOn||''))||
+         x.claimMonth!==x.paidOn.slice(0,7)+'-01'||
+         !Number.isSafeInteger(x.reportedAmountCents)||x.reportedAmountCents<0||
+         !Number.isFinite(Date.parse(String(x.reportedAt||'')))||
+         !Number.isFinite(Date.parse(String(x.rewardReversedAt||'')))||
+         !(x.lastReviewAt===null||Number.isFinite(Date.parse(String(x.lastReviewAt||''))))||
+         typeof x.voided!=='boolean'||
+         x.historicalProviderSuccessObserved!==true||
+         !['voided','closed_administrative'].includes(x.archiveReason)||
+         (x.archiveReason==='voided')!==x.voided||
+         !states.includes(x.reviewState)||
+         (!x.voided&&x.reviewState!=='closed_administrative'))||
+       d.rows.some((x,i)=>i>0&&(
+         (d.rows[i-1].voided===true&&x.voided===false)||
+         (d.rows[i-1].voided===x.voided&&
+          Date.parse(d.rows[i-1].rewardReversedAt)<Date.parse(x.rewardReversedAt)))))
+      throw new Error('Exceções históricas não validadas.');
+    if(actor===String(adminRuntime?.session?.user?.id||'')&&
+       role===String(adminCurrentRole())){
+      // A case can leave this archive if its state changes. Discard
+      // previous review before opening a different page or actor.
+      adminPayoutArchivedState={...d,loadedFor:actor};
+      if(adminPayoutReviewState?.origin==='archive'&&
+         !d.rows.some(x=>x.claimId===adminPayoutReviewState.claimId))
+        adminPayoutReviewState=null;
+    }
+  }catch(e){
+    if(actor===String(adminRuntime?.session?.user?.id||'')){
+      adminPayoutArchivedState=null;
+      if(adminPayoutReviewState?.origin==='archive')adminPayoutReviewState=null;
+      toast(String(e?.message||'Não foi possível consultar as exceções históricas.'));
+    }
+  }finally{adminPayoutArchivedBusy=false;render();}
+}
+function adminPayoutArchivedCriticalSection(){
+  const role=String(adminCurrentRole());
+  if(!['superadmin','finance'].includes(role))return '';
+  const actor=String(adminRuntime?.session?.user?.id||'');
+  const d=adminPayoutArchivedState?.loadedFor===actor?adminPayoutArchivedState:null;
+  return '<section class="card flat form-stack">'+
+    '<h4>Exceções críticas com histórico preservado</h4>'+
+    '<p class="tiny muted">Declarações anuladas ou encerradas administrativamente que tiveram estorno e observação histórica de sucesso no provedor. Não são pendências financeiras automaticamente reabertas.</p>'+
+    '<button type="button" class="secondary small" '+
+      (adminPayoutArchivedBusy?'disabled':'')+
+      ' onclick="adminPayoutArchivedLoadFromUi(0)">Consultar exceções históricas</button>'+
+    (d?
+      '<div class="grid cards-2">'+
+      '<div class="card flat"><strong>'+d.totalClaims+'</strong><p>Exceções históricas em todas as competências</p></div>'+
+      '<div class="card flat"><strong>'+d.closedUnvoidedClaims+'</strong><p>Encerradas administrativamente</p></div>'+
+      '<div class="card flat"><strong>'+d.voidedClaims+'</strong><p>Declarações anuladas</p></div>'+
+      '<div class="card flat"><strong>'+adminMoney(d.reportedAmountCents)+'</strong><p>Valor nominal declarado, não comprovado</p></div>'+
+      '</div>'+
+      '<p class="tiny muted">Mostrando '+(d.rows.length?d.pageOffset+1:0)+'–'+
+         (d.pageOffset+d.rows.length)+' de '+d.totalClaims+
+         ' registros históricos • página '+(Math.floor(d.pageOffset/30)+1)+'</p>'+
+      '<div class="row wrap">'+
+      '<button type="button" class="secondary small" '+
+        (d.pageOffset===0||adminPayoutArchivedBusy?'disabled':'')+
+        ' onclick="adminPayoutArchivedLoadFromUi('+Math.max(0,d.pageOffset-30)+')">Anterior</button>'+
+      '<button type="button" class="secondary small" '+
+        (!d.hasMore||adminPayoutArchivedBusy?'disabled':'')+
+        ' onclick="adminPayoutArchivedLoadFromUi('+(d.pageOffset+30)+')">Próxima página</button></div>'+
+      '<div class="grid cards-2">'+
+        (d.rows.map(x=>
+          '<article class="card flat form-stack">'+
+          '<strong>'+(x.voided?'Declaração anulada':'Revisão encerrada administrativamente')+'</strong>'+
+          '<p>Competência '+esc(x.claimMonth.slice(0,7))+
+            ' • valor declarado '+adminMoney(x.reportedAmountCents)+'</p>'+
+          '<p class="tiny muted">Pedido '+esc(x.orderId)+' • declaração '+esc(x.claimId)+'</p>'+
+          '<p class="tiny muted">Reversão: '+esc(x.rewardReversedAt)+
+          ' • sucesso anterior observado no provedor (não comprova banco)</p>'+
+          '<button type="button" class="secondary small" '+
+           (adminPayoutReviewBusy?'disabled':'')+
+           ' onclick="adminPayoutReviewOpenFromUi(&quot;'+esc(x.claimId)+'&quot;,&quot;archive&quot;)">'+
+           'Consultar histórico administrativo</button>'+
+          '</article>').join('')||
+          '<p class="tiny muted">Nenhuma exceção histórica encontrada.</p>')+
+      '</div>'+adminPayoutReviewHistoryMarkup('archive',d.rows):
+      '<p class="tiny muted">A consulta histórica é separada da fila de casos ativos.</p>')+
+    '<p class="tiny muted">Encerramento administrativo e observações do provedor não confirmam pagamento bancário, nem geram débito ou recuperação automática.</p>'+
+    '</section>';
+}
 function adminPayoutGlobalFollowupSection(){
   const role=String(adminCurrentRole()),actor=String(adminRuntime?.session?.user?.id||'');
   if(!['superadmin','finance'].includes(role))return '';
@@ -3362,7 +3478,7 @@ function adminPayoutGlobalFollowupSection(){
       '</div>'+adminPayoutReviewHistoryMarkup('global',d.rows):
       '<p class="tiny muted">Atualize para consultar as pendências antigas e atuais.</p>')+
     '<p class="tiny muted">Nenhuma análise nesta área movimenta dinheiro ou confirma uma transferência bancária.</p>'+
-    '</section>';
+    '</section>'+adminPayoutArchivedCriticalSection();
 }
 function adminPayoutFollowupSection(){
   const role=String(adminCurrentRole());
