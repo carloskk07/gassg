@@ -3759,3 +3759,11 @@ body:has(.admin-page) .admin-nav-item:focus-visible{outline-offset:-3px}
 .merchant-ads-contact-feedback .check-row{display:flex;align-items:flex-start;gap:10px}
 .merchant-ads-contact-feedback .check-row input{min-width:22px;min-height:22px;flex:none}
 @media(max-width:520px){.merchant-ads-contact-feedback button{width:100%;min-height:44px}}
+
+/* TAMÃO V1.326 — manual return planning, responsive review controls. */
+.admin-ads-return-fields{display:grid;gap:12px;margin-top:12px}
+.admin-ads-return-fields label{display:grid;gap:6px;font-weight:600}
+.admin-ads-return-fields textarea,.admin-ads-return-fields input{box-sizing:border-box;width:100%;font:inherit;min-height:44px}
+.admin-ads-return-fields textarea{min-height:82px;resize:vertical}
+.merchant-ads-feedback-return .card{margin-top:12px}
+@media(max-width:520px){.admin-ads-return-fields button,.merchant-ads-feedback-return button{width:100%;min-height:44px}}
