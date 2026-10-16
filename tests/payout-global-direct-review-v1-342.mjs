@@ -93,8 +93,9 @@ assert.match(context.adminPayoutGlobalFollowupSection(),/Histórico da declaraç
 assert.match(context.adminPayoutGlobalFollowupSection(),/Registrar análise/);
 assert.equal(month.value,'2026-10','opening September claim must not change current month');
 assert.equal(monthLoads,0);
-assert.doesNotMatch(context.adminPayoutFollowupSection(),/Histórico da declaração/,
- 'global history must not render in monthly followup');
+assert.equal(
+ (context.adminPayoutFollowupSection().match(/Histórico da declaração/g)||[]).length,1,
+ 'combined followup/global panel must render exactly one global history');
 await context.adminPayoutReviewRecordFromUi(claim);
 assert.equal(records,1);
 assert.equal(requery,2,'successful write must refresh global priority queue');
