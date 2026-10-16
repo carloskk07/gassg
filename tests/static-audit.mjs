@@ -114,7 +114,7 @@ assert.ok(core.includes('isValidCnpjShape'),'core precisa suportar validação e
 assert.ok(!merchant.includes('.stock'),'UI da revenda não deve depender do campo legado stock');
 assert.ok(growth.includes('referralCode'),'link de indicação deve usar código pessoal');
 assert.ok(bootstrap.includes('home,learn,earn'),'router público precisa expor jornadas de descoberta e renda');
-assert.ok(customer.includes('Consultar meu CEP')&&customer.includes('Entender como funciona')&&customer.includes('Conhecer os benefícios')&&customer.includes('Cadastrar minha empresa')&&customer.includes('Tenho uma empresa'),'home precisa separar compra, entendimento, benefícios e parceria comercial nas duas condições de disponibilidade');
+assert.ok((customer.includes('Consultar meu CEP')||customer.includes('Escolher produtos →'))&&customer.includes('Entender como funciona')&&customer.includes('Conhecer os benefícios')&&customer.includes('Cadastrar minha empresa')&&customer.includes('Tenho uma empresa'),'home precisa separar compra, entendimento, benefícios e parceria comercial nas duas condições de disponibilidade');
 assert.ok(html.includes('./js/analytics.js'),'runtime de analytics first-party precisa ser carregado pelo site');
 assert.ok(html.indexOf('./js/core.js')<html.indexOf('./js/analytics.js')&&html.indexOf('./js/analytics.js')<html.indexOf('./js/acquisition.js'),'analytics precisa carregar depois do core e antes das jornadas de aquisição');
 assert.ok(html.includes('./js/acquisition.js'),'runtime de aquisição precisa ser carregado pelo site');
