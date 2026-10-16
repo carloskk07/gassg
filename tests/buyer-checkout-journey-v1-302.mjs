@@ -60,10 +60,11 @@ for(const marker of [
  'paymentBlock','deliveryScheduleBlock()','containerBlock','offerBlock',
  'commerceLaunchBlocked','paymentMethodUnavailable',
  'pendingOrder','hasItems','hasAddress',
- 'Date.parse(String(o.expiresAt))>Date.now()+1000'
+ 'customerEligibleCheckoutOffers(os,{testDemo})'
 ])assert.ok(page.includes(marker),'existing checkout flow lost '+marker);
 assert.ok(page.indexOf('id="delivery-phone"')<page.indexOf('buyer-extra-details'));
 assert.ok(page.indexOf('id="customer-cart"')<page.indexOf('id="customer-offers"'));
+assert.ok(customer.includes('function customerEligibleCheckoutOffers('),'server quote freshness must remain shared');
 assert.ok(bootstrap.includes('customerCheckoutFocusStep,'));
 for(const marker of ['.buyer-journey','.buyer-journey-steps','.buyer-journey-next',
  '.buyer-extra-details','scroll-margin-top:100px',
