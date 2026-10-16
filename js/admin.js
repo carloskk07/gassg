@@ -863,7 +863,11 @@ function adminAttentionItems(d){
   return items.sort((a,b)=>(rank[a.severity]??9)-(rank[b.severity]??9)).slice(0,20);
 }
 function adminAttentionCenter(d){
-  const items=adminAttentionItems(d);
+  const items=adminAttentionItems(d).filter(item=>{
+    const target=item.type==='order'?'orders':item.type==='merchant'?'partners':
+      String(item.section||'overview');
+    return adminRoleCanSection(target);
+  });
   const critical=items.filter(x=>x.severity==='critical').length;
   const high=items.filter(x=>x.severity==='high').length;
   const medium=items.filter(x=>x.severity==='medium').length;
@@ -881,7 +885,7 @@ function adminAttentionCenter(d){
           <span class="admin-severity-chip medium"><b>${medium}</b> médio</span>
         </div>
       </div>
-      ${items.length?`<div class="admin-attention-list">${items.map((x,index)=>`<button type="button" class="admin-attention-item ${esc(x.severity)}" onclick="${action(x)}"><span class="admin-attention-rank">${String(index+1).padStart(2,'0')}</span><span class="admin-attention-severity">${esc(adminSeverityLabel(x.severity))}</span><span class="admin-attention-copy"><strong>${esc(x.title)}</strong><small>${esc(x.detail)}</small></span><span class="admin-attention-arrow" aria-hidden="true">→</span></button>`).join('')}</div>`:'<div class="admin-all-clear"><span aria-hidden="true">✓</span><div><strong>Nenhuma intervenção prioritária agora.</strong><small>Filas críticas, pedidos em risco e sinais operacionais estão limpos.</small></div></div>'}
+      ${items.length?`<div class="admin-attention-list">${items.map((x,index)=>`<button type="button" class="admin-attention-item ${esc(x.severity)}" onclick="${action(x)}"><span class="admin-attention-rank">${String(index+1).padStart(2,'0')}</span><span class="admin-attention-severity">${esc(adminSeverityLabel(x.severity))}</span><span class="admin-attention-copy"><strong>${esc(x.title)}</strong><small>${esc(x.detail)}</small></span><span class="admin-attention-arrow" aria-hidden="true">→</span></button>`).join('')}</div>`:'<div class="admin-all-clear"><span aria-hidden="true">✓</span><div><strong>Nenhuma prioridade identificada nas áreas deste perfil.</strong><small>Este resumo é limitado aos dados e às permissões da sessão. Confira as filas especializadas quando necessário.</small></div></div>'}
     </div>
   </section>`;
 }
