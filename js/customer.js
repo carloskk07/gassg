@@ -251,8 +251,10 @@ function deliveryScheduleBlock(){
 function homeProductGroup(code,product){
   const key=String(product?.categoryKey||'').trim().toLowerCase();
   const productCode=String(code||'').toUpperCase();
-  if(key==='glp'||/^P[1-9][0-9]?$/.test(productCode))return 'gas';
-  if(key==='water'||/^WATER/.test(productCode))return 'water';
+  // The server catalog category wins; hardcoded codes are only a fallback.
+  if(key)return key==='glp'?'gas':key==='water'?'water':'other';
+  if(/^P[1-9][0-9]?$/.test(productCode))return 'gas';
+  if(/^WATER/.test(productCode))return 'water';
   return 'other';
 }
 // Local catalogue navigation only. No stock, prices, quotes or permissions change.
