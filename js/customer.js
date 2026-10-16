@@ -1268,6 +1268,13 @@ function liveTracking(){
 
   const o=liveRuntime.order;
   if(!o){
+    if(liveRuntime.orderId){
+      return shell(`<section class="page"><h1 class="page-title">Acompanhar pedido</h1>
+        <div class="notice" role="status"><strong>Ainda não conseguimos atualizar os detalhes.</strong>
+        <p>Existe uma referência de pedido para consultar, mas o andamento atual não foi confirmado. Confira antes de fazer outra compra para evitar pedidos repetidos.</p>
+        <button type="button" class="primary" onclick="liveGetOrder().catch(()=>toast('Não foi possível consultar o pedido agora.'))">Atualizar acompanhamento</button>
+        </div></section>`);
+    }
     return shell(`<section class="page"><h1 class="page-title">Seu pedido</h1><div class="empty card">Você ainda não possui um pedido real neste navegador.<br><br><button class="primary" onclick="quickProduct('P13')">Consultar ofertas</button></div></section>`);
   }
 
