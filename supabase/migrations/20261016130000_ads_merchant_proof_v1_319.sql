@@ -64,7 +64,7 @@ begin
   when v_c.status='checkout_ready' and v_inbox.provider_status='approved' and
    v_inbox.provider_status_detail='accredited' then 'approval_observed_unreconciled'
   when v_c.status='checkout_ready' then 'awaiting_provider_confirmation'
-  else 'unknown';
+  else 'unknown' end;
  v_can_request:=v_c.status='payment_approved' and
   v_status in ('reversal_observed_review_required','approval_evidence_stale','approval_refresh_recommended')
   and (v_last.request_id is null or
