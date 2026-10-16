@@ -3359,7 +3359,7 @@ async function adminPayoutArchivedLoadFromUi(offset=0){
        d.rows.some((x,i)=>i>0&&(
          (d.rows[i-1].voided===true&&x.voided===false)||
          (d.rows[i-1].voided===x.voided&&
-          Date.parse(d.rows[i-1].rewardReversedAt)<Date.parse(x.rewardReversedAt))))
+          Date.parse(d.rows[i-1].rewardReversedAt)<Date.parse(x.rewardReversedAt)))))
       throw new Error('Exceções históricas não validadas.');
     if(actor===String(adminRuntime?.session?.user?.id||'')&&
        role===String(adminCurrentRole())){
