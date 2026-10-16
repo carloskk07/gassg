@@ -80,7 +80,7 @@ function customerProductMeta(code){
   if(kg!==null)return `GLP • ${code}`;
   return 'Item essencial';
 }
-async function startHomeOrder(){
+async function startHomeOrder({addFeatured=true}={}){
   const homeInput=document.querySelector('#home-address');
   const value=String(homeInput?.value||'').trim();
   const testDemo=globalThis.__CHAMA_TEST__===true;
@@ -116,9 +116,11 @@ async function startHomeOrder(){
   if(!alreadyHasItems){
     state.cart=normalizeCart({});
     state.checkout.glpContainerMode='exchange';
-    const featured=String(document.querySelector('#home-featured-code')?.value||'P13').trim().toUpperCase();
-    const selected=/^[A-Z][A-Z0-9_]{1,31}$/.test(featured)&&products[featured]&&!products[featured].hidden?featured:'P13';
-    setCartProduct(selected,1);
+    if(addFeatured){
+      const featured=String(document.querySelector('#home-featured-code')?.value||'P13').trim().toUpperCase();
+      const selected=/^[A-Z][A-Z0-9_]{1,31}$/.test(featured)&&products[featured]&&!products[featured].hidden?featured:'P13';
+      setCartProduct(selected,1);
+    }
   }
   save();
   go('order');
@@ -127,6 +129,11 @@ async function startHomeOrder(){
       if(route()==='order')document.querySelector('#address-number')?.focus();
     },120);
   }
+}
+
+// Product-first entry: preserve the existing cart and CEP, never silently add gas.
+function startHomeBrowse(){
+  return startHomeOrder({addFeatured:false});
 }
 
 // Consulta ofertas reais quando a sessão está pronta; na indisponibilidade, oferece aviso.
@@ -460,7 +467,7 @@ function home(){
 
   const valueBridge=`<section class="home-value-bridge" aria-label="Três maneiras de aproveitar o TAMÃO">
     <div><strong>Comprar sem complicação</strong><p>Escolha seus produtos, consulte a entrega pelo CEP e veja o valor final antes de pedir.</p>
-      <button type="button" onclick="startCustomerAvailability()">Escolher produtos →</button></div>
+      <button type="button" onclick="startHomeBrowse()">Escolher produtos →</button></div>
     <div><strong>Vender com mais alcance</strong><p>Sua revenda mantém o controle de preços, estoque e entregas. O TAMÃO ajuda clientes a encontrar sua empresa.</p>
       <button type="button" onclick="go('merchants')">Conhecer para revendas →</button></div>
     <div><strong>Indicar e participar</strong><p>Convide pessoas e empresas para sua rede. Acompanhe os benefícios elegíveis, de acordo com as condições aplicáveis.</p>
@@ -508,7 +515,7 @@ ${discoveryTiles?`<section id="home-discover" class="home-discover" aria-label="
   <div class="home-discover-heading"><div><span class="section-kicker">O ESSENCIAL EM UM SÓ LUGAR</span>
     <h2 tabindex="-1">O que está faltando por aí?</h2>
     <p>${!ready||market?.realSupplyConfigured===false?'Explore o catálogo de possibilidades. A disponibilidade é confirmada no seu CEP, antes de qualquer pedido.':'Escolha um produto para montar sua cesta. Preços finais e entregas dependem da sua região.'}</p></div>
-    <button type="button" class="home-discover-all" onclick="startCustomerAvailability()">Continuar para a cesta <span aria-hidden="true">→</span></button></div>
+    <button type="button" class="home-discover-all" onclick="startHomeBrowse()">Continuar para a cesta <span aria-hidden="true">→</span></button></div>
   <div class="home-discover-filter" role="group" aria-label="Filtrar produtos por categoria">${discoveryFilters}</div>
   <p id="home-discover-status" class="home-discover-status" role="status">${Math.min(6,discoveryEntries.length)} produtos em destaque. Selecione uma categoria para explorar outras opções.</p>
   <div id="home-discover-grid" class="home-discover-grid">${discoveryTiles}</div>
@@ -631,6 +638,30 @@ function customerCheckoutFocusStep(step){
     step==='address'?(document.getElementById('postal-code')||document.getElementById('address')):
     null;
   if(input?.focus)input.focus({preventScroll:true});
+  else area.querySelector('h2')?.focus({preventScroll:true});
+  return true;
+}
+// Only local catalogue display changes. Selected items remain visible in every category.
+function buyerCartFilter(group){
+  const chosen=['all','gas','water','other'].includes(group)?group:'all';
+  const catalog=document.getElementById('buyer-cart-catalog');
+  if(!catalog)return false;
+  const rows=catalog.querySelectorAll('[data-buyer-cart-kind]');
+  let featured=0,visible=0;
+  for(const row of rows){
+    const selected=row.dataset.buyerCartSelected==='true';
+    const show=selected||(chosen==='all'
+      ?featured<8:row.dataset.buyerCartKind===chosen);
+    if(!selected)featured++;
+    row.hidden=!show;
+    if(show)visible++;
+  }
+  for(const tab of document.querySelectorAll('[data-buyer-cart-filter]')){
+    tab.setAttribute('aria-pressed',String(tab.dataset.buyerCartFilter===chosen));
+  }
+  const status=document.getElementById('buyer-cart-feedback');
+  if(status)status.textContent=visible+' '+(visible===1?'produto visível.':'produtos visíveis.')+
+    ' Os itens da sua cesta continuam à vista.';
   return true;
 }
 function orderPage(){
@@ -645,6 +676,19 @@ function orderPage(){
       && /^[0-9]{8}$/.test(String(state.postalCode||''))
       && /^[0-9]{1,6}[A-Za-z]?$/.test(String(state.addressNumber||''));
   const hasItems=hasCartItems();
+  const cartProducts=Object.entries(products).filter(([code,p])=>p?.hidden!==true&&/^[A-Z][A-Z0-9_]{1,31}$/.test(code));
+  const cartNeedsFilter=cartProducts.length>8;
+  const cartGroups={gas:0,water:0,other:0};
+  for(const [code,product] of cartProducts)cartGroups[homeProductGroup(code,product)]++;
+  const cartFilterControls=cartNeedsFilter?[
+    ['all','Destaques'],['gas','Gás'],['water','Água'],['other','Outros']
+  ].filter(([kind])=>kind==='all'||cartGroups[kind]>0).map(([kind,label])=>
+    `<button type="button" data-buyer-cart-filter="${kind}" aria-pressed="${kind==='all'}" onclick="buyerCartFilter('${kind}')">${label}</button>`).join(''):'';
+  const cartRows=cartProducts.map(([code,product],index)=>{
+    const selected=Number(state.cart?.[code]||0)>0;
+    return `<div class="buyer-cart-item" data-buyer-cart-kind="${homeProductGroup(code,product)}" data-buyer-cart-selected="${selected}" ${cartNeedsFilter&&!selected&&index>=8?'hidden':''}>${cartRow(code,product)}</div>`;
+  }).join('');
+  const initiallyVisible=cartProducts.filter(([code],index)=>Number(state.cart?.[code]||0)>0||!cartNeedsFilter||index<8).length;
   const hasGlp=hasGlpCart();
   const needsContainer=hasGlp&&state.checkout.glpContainerMode==='needs_container';
   const os=testDemo?(hasItems?offers():[]):(ready?(liveRuntime.offers||[]):[]);
@@ -749,7 +793,10 @@ ${hasAddress?`<div class="card flat form-stack buyer-contact-card" id="customer-
   <div class="input-wrap"><label for="delivery-notes">Instruções para a entrega</label><textarea id="delivery-notes" class="input" maxlength="240" rows="2" placeholder="Ex.: chamar no portão; cachorro no pátio." onchange="deliveryDetailsChanged()">${esc(state.checkout.deliveryNotes||'')}</textarea><small class="field-help">Evite dados desnecessários. Essas informações ficam vinculadas ao pedido para a operação responsável.</small></div>
   </details>
 </div>`:''}
-<section class="section" id="customer-cart"><div class="section-head"><div><h2>Sua cesta</h2><p>Adicione somente o que você precisa. Gás não é obrigatório para comprar os demais itens.</p></div></div><div class="card flat">${Object.entries(products).filter(([,p])=>p.hidden!==true).map(([k,p])=>cartRow(k,p)).join('')}</div></section>
+<section class="section" id="customer-cart"><div class="section-head"><div><h2 tabindex="-1">Sua cesta</h2><p>Adicione somente o que você precisa. Gás não é obrigatório para comprar os demais itens.</p></div></div>
+  ${cartNeedsFilter?`<div class="buyer-cart-filter" role="group" aria-label="Filtrar produtos para adicionar">${cartFilterControls}</div>
+  <p id="buyer-cart-feedback" class="buyer-cart-feedback" role="status">${initiallyVisible} produtos em destaque. Os itens da sua cesta continuam à vista.</p>`:''}
+  <div class="card flat buyer-cart-catalog" id="buyer-cart-catalog">${cartRows||'<div class="empty">Nenhum produto configurado para adicionar.</div>'}</div></section>
 ${deliveryScheduleBlock()}
 ${containerBlock}
 ${hasItems&&hasAddress?`<section class="section"><div class="section-head"><div><h2>Como pretende pagar</h2><p>${preview?'As formas disponíveis serão mostradas quando houver atendimento para sua consulta.':'Escolha a forma e confira novamente antes do pedido.'}</p></div></div>${paymentBlock}</section><section class="section" id="customer-offers"><div class="section-head"><div><span class="section-kicker">${singleSupplier?'OPÇÃO DISPONÍVEL':'COMPARE ANTES DE PEDIR'}</span><h2>${preview?'Disponibilidade para sua região':singleSupplier?'Preço total e prazo do parceiro disponível':'Preço total e prazo lado a lado'}</h2><p>${preview?'As opções aparecem aqui assim que houver uma revenda disponível para esta cesta e CEP.':internalPilot?'Há um único fornecedor no cenário interno. A faixa comercial P13 vem da conversa com o parceiro; o preço desta simulação é calculado dentro dela. Prazo, estoque e trust são simulados.':singleSupplier?'Há uma revenda para este pedido. Confira o preço e o prazo antes de decidir.':'Escolha a opção que faz mais sentido para você.'}</p></div></div><div class="mini-protection">🛡️ <strong>Proteção do pedido:</strong> ${internalPilot?'nesta simulação, se o JR recusar ou ficar indisponível o pedido é encerrado, porque não existe segundo fornecedor no cenário.':singleSupplier?'o parceiro precisa aceitar. Se ele não puder atender e ainda não houver outra revenda elegível, o pedido é encerrado sem inventar uma alternativa.':'o parceiro precisa aceitar e qualquer alternativa mais cara depende da sua aprovação.'}</div>${offerBlock}</section>`:hasItems&&!hasAddress?'<div class="notice">Informe o endereço para ver preço e prazo.</div>':!hasItems?'<div class="notice">Adicione pelo menos um produto para consultar as opções.</div>':''}</section>`)
