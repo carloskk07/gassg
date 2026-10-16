@@ -36,7 +36,7 @@ Deno.serve(async(req:Request)=>{
  const sellerId=String(Deno.env.get("ADS_MP_SELLER_ID")||"").trim();
  const signatureSecret=String(Deno.env.get("ADS_MP_WEBHOOK_SECRET")||"").trim();
  if(Deno.env.get("ADS_MP_WEBHOOK_ENABLED")!=="true"||
-   !/^APP_USR-[^\\s]{20,}$/.test(token)||
+   !/^APP_USR-[^\s]{20,}$/.test(token)||
    !/^[0-9]{4,20}$/.test(sellerId)||
    signatureSecret.length<16||!SERVICE_KEY||!SUPABASE_URL)
   return json({error:"ADS_WEBHOOK_NOT_CONFIGURED"},503);
