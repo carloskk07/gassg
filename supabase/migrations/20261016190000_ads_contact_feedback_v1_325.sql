@@ -33,7 +33,7 @@ begin
  if p_operation='submit' then
   if v_role<>'owner' or p_consent is distinct from true or p_request is null
     or p_contact_request is null or p_expected_assistance_version is null or p_expected_assistance_version<1
-    or p_response not in ('contact_confirmed','contact_not_received','followup_needed')
+    or coalesce(p_response,'') not in ('contact_confirmed','contact_not_received','followup_needed')
   then raise exception 'ADS_FEEDBACK_OWNER_CONFIRMATION_REQUIRED' using errcode='42501';end if;
   v_sig:=jsonb_build_object('actor',p_actor,'merchant',p_merchant,
    'contact',p_contact_request,'assistanceVersion',p_expected_assistance_version,
