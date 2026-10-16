@@ -34,7 +34,7 @@ for(const token of [
  'collectorId!==sellerId',
  'currency!=="BRL"',
  'moneyToCents(payment?.transaction_amount)',
- 'admin.rpc("ads_mp_inbox_record_v1_316"',
+ 'client.rpc("ads_mp_inbox_record_v1_316"',
  'paymentApproved:false','automaticReconciliation:false',
  'ADM'
 ].filter(x=>x!=='ADM'))assert.ok(edge.includes(token),'Webhook proof: '+token);
