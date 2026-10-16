@@ -2157,6 +2157,7 @@ function merchantLivePage(){
       ${merchantAdsInstrumentSection(m)}
       ${merchantAdsReceivableSection(m)}
       ${merchantAdsPspSection(m)}
+      ${merchantAdsPspEvidenceSection(m)}
       ${merchantGrowthNetworkSection(m)}
     </div></details>
     <details id="merchant-workspace-finance" class="merchant-workspace-section"><summary tabindex="0"><span><strong>Resultados e financeiro</strong><small>Desempenho e cobranças da plataforma, separados dos pedidos do dia.</small></span></summary><div class="merchant-workspace-content">
@@ -4283,4 +4284,105 @@ async function merchantAdsPspLoad(){
   if(String(rt.merchant?.merchantId)===id){rt.adsPsp=null;rt.adsPspError=String(e?.message||e);toast(rt.adsPspError);}
   return null;
  }finally{rt.adsPspBusy=false;render();}
+}
+
+
+// V1.319 — server-owned evidence age; signed webhook observations never count as current settlement.
+function merchantAdsPspEvidenceSection(merchant){
+ if(!['owner','manager'].includes(String(merchant?.memberRole||'')))return '';
+ const rt=globalThis.merchantRuntime||{},id=String(merchant?.merchantId||'');
+ const data=rt.adsPspEvidence?.source==='merchant_ads_psp_evidence_v1_319'&&
+  rt.adsPspEvidence.merchantId===id&&rt.adsPspEvidence.readOnly===true&&
+  rt.adsPspEvidence.snapshotOnly===true&&rt.adsPspEvidence.providerRechecked===false&&
+  rt.adsPspEvidence.paymentStateChanged===false&&rt.adsPspEvidence.adsLive===false&&
+  rt.adsPspEvidence.merchantBillingSeparate===true?rt.adsPspEvidence:null;
+ const e=data?.evidence||null;
+ const messages={
+  no_checkout:'Nenhum checkout de publicidade emitido',
+  reversal_recorded:'Pagamento estornado ou contestado',
+  reversal_observed_review_required:'Alerta de possível estorno — requer conferência',
+  approval_evidence_stale:'Confirmação desatualizada — peça nova consulta',
+  approval_refresh_recommended:'Recomendamos nova conferência no provedor',
+  approval_last_verified:'Pagamento aprovado na última consulta autenticada',
+  checkout_preparation:'Checkout em preparação',
+  approval_observed_unreconciled:'Aprovação observada, mas ainda não conciliada',
+  awaiting_provider_confirmation:'Aguardando confirmação do Mercado Pago',
+  unknown:'Situação indisponível'
+ };
+ const request=e?.canRequestReview===true&&merchant.memberRole==='owner';
+ const evidence=e?'<div class="card flat"><strong>'+esc(messages[e.status]||messages.unknown)+'</strong>'+
+  (e.lastProviderVerifiedAt?'<p class="tiny muted">Última consulta autenticada: '+esc(String(e.lastProviderVerifiedAt))+
+   (e.hoursSinceVerified!==null?' • '+Number(e.hoursSinceVerified)+' hora(s) decorridas':'')+'</p>':'')+
+  (e.lastObservedAt?'<p class="tiny muted">Último evento observado: '+esc(String(e.lastObservedAt))+
+    '. Essa informação é histórica e não confirma o pagamento atual.</p>':'')+
+  (e.possibleReversal?'<p class="notice danger">Pode ter ocorrido um estorno ou contestação depois da última consulta. É necessária uma nova verificação no Mercado Pago.</p>':'')+
+  (e.reviewRequestedAt?'<p class="tiny muted">Última solicitação de conferência: '+esc(String(e.reviewRequestedAt))+'</p>':'')+
+  (request?'<button type="button" class="primary small" onclick="merchantAdsPspEvidenceRequest()">Solicitar nova conferência ao TAMÃO</button>':'')+
+  '</div>':'<p class="muted tiny">Consulte a situação no servidor para verificar a data da última conferência.</p>';
+ return '<section class="section merchant-ads-psp-evidence"><div class="section-head"><div>'+
+  '<span class="section-kicker">TAMÃO ADS • TRANSPARÊNCIA</span>'+
+  '<h3>Comprovação e validade do pagamento</h3>'+
+  '<p>Saiba o que o provedor confirmou, quando foi consultado e se é necessária uma nova conferência.</p></div>'+
+  '<button type="button" class="secondary small" onclick="merchantAdsPspEvidenceLoad()">Atualizar comprovação</button></div>'+
+  (data?evidence:'<p class="muted tiny">Clique em Atualizar comprovação para verificar a situação.</p>')+
+  (rt.adsPspEvidenceError?'<p class="notice danger">'+esc(rt.adsPspEvidenceError)+'</p>':'')+
+  '<p class="tiny muted">Uma confirmação antiga não garante que o dinheiro permaneça recebido. Solicitar conferência não altera pagamento, não cria cobrança nem publica anúncio.</p></section>';
+}
+async function merchantAdsPspEvidenceLoad(){
+ const rt=globalThis.merchantRuntime,id=String(rt?.merchant?.merchantId||'');
+ if(!rt||!id||rt.adsPspEvidenceBusy||!['owner','manager'].includes(String(rt.merchant.memberRole||'')))return null;
+ rt.adsPspEvidenceBusy=true;rt.adsPspEvidenceError=null;render();
+ const states=new Set(['no_checkout','reversal_recorded','reversal_observed_review_required',
+  'approval_evidence_stale','approval_refresh_recommended','approval_last_verified',
+  'checkout_preparation','approval_observed_unreconciled','awaiting_provider_confirmation','unknown']);
+ try{
+  const data=await merchantInvoke('merchant-ops',{action:'ads-psp-evidence',merchantId:id,operation:'view'});
+  const e=data?.evidence;
+  if(data?.source!=='merchant_ads_psp_evidence_v1_319'||data.merchantId!==id||
+   data.readOnly!==true||data.snapshotOnly!==true||data.providerRechecked!==false||
+   data.paymentStateChanged!==false||data.adsLive!==false||
+   data.merchantBillingSeparate!==true||!states.has(e?.status)||
+   (e?.checkoutVersion!==null&&(!Number.isSafeInteger(e?.checkoutVersion)||e.checkoutVersion<1))||
+   (e?.hoursSinceVerified!==null&&(!Number.isSafeInteger(e?.hoursSinceVerified)||e.hoursSinceVerified<0))||
+   typeof e?.possibleReversal!=='boolean'||typeof e?.canRequestReview!=='boolean')
+   throw new Error('Evidência financeira não confirmada.');
+  if(String(rt.merchant?.merchantId)!==id)return null;
+  rt.adsPspEvidence=data;return data;
+ }catch(e){
+  if(String(rt.merchant?.merchantId)===id){
+   rt.adsPspEvidence=null;rt.adsPspEvidenceError=String(e?.message||e);
+   toast(rt.adsPspEvidenceError);
+  }
+  return null;
+ }finally{rt.adsPspEvidenceBusy=false;render();}
+}
+async function merchantAdsPspEvidenceRequest(){
+ const rt=globalThis.merchantRuntime,id=String(rt?.merchant?.merchantId||'');
+ if(!rt||!id||rt.merchant.memberRole!=='owner'||rt.adsPspEvidenceBusy)return false;
+ const evidence=rt.adsPspEvidence?.source==='merchant_ads_psp_evidence_v1_319'?
+  rt.adsPspEvidence.evidence:null;
+ if(!evidence||evidence.canRequestReview!==true||
+  !Number.isSafeInteger(evidence.checkoutVersion)||evidence.checkoutVersion<1)return false;
+ if(!confirm('Solicitar que o TAMÃO consulte novamente o pagamento no Mercado Pago? Isso não confirma pagamento, nem publica anúncios.'))return false;
+ rt.adsPspEvidenceBusy=true;render();
+ try{
+  const result=await merchantInvoke('merchant-ops',{
+   action:'ads-psp-evidence',merchantId:id,operation:'request_review',
+   expectedVersion:evidence.checkoutVersion,requestId:crypto.randomUUID()
+  });
+  if(result?.source!=='merchant_ads_psp_evidence_v1_319'||result.merchantId!==id||
+    result.requestRecorded!==true||result.paymentStateChanged!==false||
+    result.providerRechecked!==false||result.adsLive!==false||
+    result.merchantBillingSeparate!==true)
+   throw new Error('A solicitação não foi confirmada.');
+  rt.adsPspEvidence=null;rt.adsPspEvidenceBusy=false;
+  const latest=await merchantAdsPspEvidenceLoad();
+  if(!latest?.evidence?.reviewRequestedAt)
+   throw new Error('Solicitação registrada, mas ainda sem confirmação de leitura.');
+  toast('Solicitação recebida para conferência financeira. Nenhum estado de pagamento foi alterado.');
+  return true;
+ }catch(e){
+  rt.adsPspEvidence=null;rt.adsPspEvidenceError=String(e?.message||e);
+  toast(rt.adsPspEvidenceError);return false;
+ }finally{rt.adsPspEvidenceBusy=false;render();}
 }
