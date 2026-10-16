@@ -27,10 +27,10 @@ assert.deepEqual(exercise({ready:false}),{calls:['real_consultation'],result:'re
 assert.deepEqual(exercise({test:true}),{calls:['real_consultation'],result:'real_consultation'},
   'jornada interna de teste deve permanecer isolada e funcional');
 
-assert.ok(source.includes("const primaryAction='startCustomerAvailability()'"),
-  'o botão principal da home deve respeitar a mesma autoridade');
-assert.ok(source.includes('const primaryAction=\'startCustomerAvailability()\'')&&source.includes('class="primary starter-cta" onclick="${primaryAction}"'),
-  'o CTA principal por CEP deve usar o mesmo fluxo seguro, sem cartão duplicado');
+assert.ok(source.includes("const primaryAction=acquisitionOpen?'homeDiscoverFocus()':'startCustomerAvailability()'"),
+  'sem oferta, o CTA leva aos produtos; com oferta, mantém consulta segura');
+assert.ok(source.includes('function homeDiscoverFocus()')&&source.includes('class="primary starter-cta" onclick="${primaryAction}"'),
+  'o CTA principal deve apontar para o seletor ou para a consulta, sem cartão duplicado');
 assert.ok(source.includes('Ainda não encontramos uma revenda que entregue neste CEP.') &&
   source.includes('onclick="openPrelaunchCustomerLead()">Receber aviso de disponibilidade'),
   'sem oferta, deve haver CTA explícito para aviso com consentimento, e não um pedido falso');
