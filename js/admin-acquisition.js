@@ -3335,6 +3335,13 @@ async function adminPayoutArchivedLoadFromUi(offset=0){
        !['totalClaims','closedUnvoidedClaims','voidedClaims','reportedAmountCents']
         .every(k=>Number.isSafeInteger(d?.[k])&&d[k]>=0)||
        d.totalClaims!==d.closedUnvoidedClaims+d.voidedClaims||
+       d?.observationChronologyV1345!==true||
+       !Number.isSafeInteger(d?.firstSuccessObservedBeforeOrAtReversalClaims)||
+       !Number.isSafeInteger(d?.firstSuccessObservedAfterReversalClaims)||
+       d.firstSuccessObservedBeforeOrAtReversalClaims<0||
+       d.firstSuccessObservedAfterReversalClaims<0||
+       d.totalClaims!==(d.firstSuccessObservedBeforeOrAtReversalClaims+
+         d.firstSuccessObservedAfterReversalClaims)||
        d.limit!==30||d.pageOffset!==offset||d.pageLimit!==30||
        d.hasPrevious!==(offset>0)||
        d.hasMore!==(offset+30<d.totalClaims)||
@@ -3349,6 +3356,11 @@ async function adminPayoutArchivedLoadFromUi(offset=0){
          !Number.isSafeInteger(x.reportedAmountCents)||x.reportedAmountCents<0||
          !Number.isFinite(Date.parse(String(x.reportedAt||'')))||
          !Number.isFinite(Date.parse(String(x.rewardReversedAt||'')))||
+         !Number.isFinite(Date.parse(String(x.firstProviderSuccessObservedAt||'')))||
+         typeof x.successObservedBeforeOrAtReversal!=='boolean'||
+         x.successObservedBeforeOrAtReversal!==(
+           Date.parse(x.firstProviderSuccessObservedAt)<=
+           Date.parse(x.rewardReversedAt))||
          !(x.lastReviewAt===null||Number.isFinite(Date.parse(String(x.lastReviewAt||''))))||
          typeof x.voided!=='boolean'||
          x.historicalProviderSuccessObserved!==true||
@@ -3392,6 +3404,8 @@ function adminPayoutArchivedCriticalSection(){
     (d?
       '<div class="grid cards-2">'+
       '<div class="card flat"><strong>'+d.totalClaims+'</strong><p>Exceções históricas em todas as competências</p></div>'+
+      '<div class="card flat"><strong>'+d.firstSuccessObservedBeforeOrAtReversalClaims+'</strong><p>Sucesso observado antes ou no momento da reversão</p></div>'+
+      '<div class="card flat"><strong>'+d.firstSuccessObservedAfterReversalClaims+'</strong><p>Primeiro sucesso observado somente depois da reversão</p></div>'+
       '<div class="card flat"><strong>'+d.closedUnvoidedClaims+'</strong><p>Encerradas administrativamente</p></div>'+
       '<div class="card flat"><strong>'+d.voidedClaims+'</strong><p>Declarações anuladas</p></div>'+
       '<div class="card flat"><strong>'+adminMoney(d.reportedAmountCents)+'</strong><p>Valor nominal declarado, não comprovado</p></div>'+
@@ -3413,8 +3427,13 @@ function adminPayoutArchivedCriticalSection(){
           '<p>Competência '+esc(x.claimMonth.slice(0,7))+
             ' • valor declarado '+adminMoney(x.reportedAmountCents)+'</p>'+
           '<p class="tiny muted">Pedido '+esc(x.orderId)+' • declaração '+esc(x.claimId)+'</p>'+
-          '<p class="tiny muted">Reversão: '+esc(x.rewardReversedAt)+
-          ' • sucesso anterior observado no provedor (não comprova banco)</p>'+
+          '<p class="tiny muted">Reversão: '+esc(x.rewardReversedAt)+'</p>'+
+          '<p class="tiny muted">Primeira observação positiva: '+
+            esc(x.firstProviderSuccessObservedAt)+'</p>'+
+          '<p class="tiny muted">'+(x.successObservedBeforeOrAtReversal?
+            'Observação positiva registrada antes ou no momento do estorno':
+            'Observação positiva registrada somente após o estorno')+
+            ' — não comprova quando o dinheiro circulou nem liquidação bancária.</p>'+
           '<button type="button" class="secondary small" '+
            (adminPayoutReviewBusy?'disabled':'')+
            ' onclick="adminPayoutReviewOpenFromUi(&quot;'+esc(x.claimId)+'&quot;,&quot;archive&quot;)">'+
