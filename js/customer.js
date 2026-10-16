@@ -1395,42 +1395,6 @@ function customerPublicTimelineEvent(event){
     ?labels[code]:'Atualização registrada no pedido';
 }
 
-function liveCustomerCareBlock(o){
-  const openCases=(o.supportCases||[]).filter(x=>['open','in_review'].includes(x.status));
-  const caseCopy={
-    late:'Atraso',
-    wrong_item:'Produto incorreto',
-    price_payment:'Preço ou pagamento',
-    no_show:'Entrega não apareceu',
-    delivery:'Problema na entrega',
-    other:'Outro problema'
-  };
-  const existing=openCases.length
-    ? `<div class="notice" style="margin-top:10px"><strong>Atendimento em acompanhamento.</strong><br>${openCases.map(x=>esc(caseCopy[x.category]||x.category)+' • '+esc(x.status==='in_review'?'em análise':'aberto')).join('<br>')}</div>`
-    : '';
-  const feedback=o.status==='SETTLED'
-    ? o.feedback
-      ? `<div class="notice success" style="margin-top:14px"><strong>Avaliação registrada ${Number(o.feedback.rating)===5?'👍':'👎'}</strong><br>Ela entra nos indicadores de qualidade do parceiro sem expor seus dados.</div>`
-      : `<div class="card flat" style="margin-top:14px"><strong>Tudo certo com a entrega?</strong><p class="muted tiny">Uma resposta curta ajuda a melhorar a seleção de parceiros.</p><div class="order-actions"><button class="secondary small" onclick="submitDeliveryFeedbackFromUi(5)">👍 Tudo certo</button><button class="ghost small" onclick="submitDeliveryFeedbackFromUi(1)">👎 Tive problema</button></div></div>`
-    : '';
-  return `${feedback}<div class="card flat support-card" id="customer-care" style="margin-top:14px"><strong>Precisa de ajuda com este pedido?</strong><p class="muted tiny">Registre o problema aqui. A solicitação fica vinculada ao pedido e entra na trilha de auditoria.</p>${existing}<div class="form-stack" style="margin-top:12px"><div class="input-wrap"><label for="support-category">Tipo de problema</label><select id="support-category" class="input"><option value="late">Atraso</option><option value="wrong_item">Produto incorreto</option><option value="price_payment">Preço ou pagamento</option><option value="no_show">Entrega não apareceu</option><option value="delivery">Problema na entrega</option><option value="other">Outro problema</option></select></div><div class="input-wrap"><label for="support-message">Conte em poucas palavras</label><textarea id="support-message" class="input" maxlength="1000" rows="3" placeholder="Ex.: o pedido chegou, mas veio um item diferente."></textarea></div><button class="secondary full" onclick="openSupportCaseFromUi()" ${globalThis.liveRuntime?.actionPending?'disabled':''}>Registrar problema</button></div></div>`;
-}
-
-async function submitDeliveryFeedbackFromUi(rating){
-  try{
-    await liveSubmitFeedback(rating);
-    toast(rating===5?'Obrigado pela avaliação':'Avaliação registrada. Se precisar, abra um atendimento abaixo.');
-  }catch(error){toast(String(error?.message||error))}
-}
-async function openSupportCaseFromUi(){
-  const category=String(document.querySelector('#support-category')?.value||'other');
-  const message=String(document.querySelector('#support-message')?.value||'').trim();
-  try{
-    const result=await liveOpenSupportCase(category,message);
-    toast(result?.alreadyOpen?'Esse problema já está em acompanhamento':'Problema registrado para acompanhamento');
-  }catch(error){toast(String(error?.message||error))}
-}
-
 // V1.352 — a verified order read is different from a fresh offers/profile sync.
 // Freshness never advances a business state or certifies a delivery.
 function customerTrackingReadEvidence(order,{checkedAt=null,checkedId=null,now=Date.now(),error=false}={}){
@@ -1477,6 +1441,42 @@ function customerTrackingPrimaryAction(order,{evidence,pending=false,remainingSe
       (status==='SETTLED'?'Avaliar ou pedir ajuda':'Ajuda sobre este pedido')+' →</a>';
   }
   return refresh('Atualizar acompanhamento');
+}
+
+function liveCustomerCareBlock(o){
+  const openCases=(o.supportCases||[]).filter(x=>['open','in_review'].includes(x.status));
+  const caseCopy={
+    late:'Atraso',
+    wrong_item:'Produto incorreto',
+    price_payment:'Preço ou pagamento',
+    no_show:'Entrega não apareceu',
+    delivery:'Problema na entrega',
+    other:'Outro problema'
+  };
+  const existing=openCases.length
+    ? `<div class="notice" style="margin-top:10px"><strong>Atendimento em acompanhamento.</strong><br>${openCases.map(x=>esc(caseCopy[x.category]||x.category)+' • '+esc(x.status==='in_review'?'em análise':'aberto')).join('<br>')}</div>`
+    : '';
+  const feedback=o.status==='SETTLED'
+    ? o.feedback
+      ? `<div class="notice success" style="margin-top:14px"><strong>Avaliação registrada ${Number(o.feedback.rating)===5?'👍':'👎'}</strong><br>Ela entra nos indicadores de qualidade do parceiro sem expor seus dados.</div>`
+      : `<div class="card flat" style="margin-top:14px"><strong>Tudo certo com a entrega?</strong><p class="muted tiny">Uma resposta curta ajuda a melhorar a seleção de parceiros.</p><div class="order-actions"><button class="secondary small" onclick="submitDeliveryFeedbackFromUi(5)">👍 Tudo certo</button><button class="ghost small" onclick="submitDeliveryFeedbackFromUi(1)">👎 Tive problema</button></div></div>`
+    : '';
+  return `${feedback}<div class="card flat support-card" id="customer-care" style="margin-top:14px"><strong>Precisa de ajuda com este pedido?</strong><p class="muted tiny">Registre o problema aqui. A solicitação fica vinculada ao pedido e entra na trilha de auditoria.</p>${existing}<div class="form-stack" style="margin-top:12px"><div class="input-wrap"><label for="support-category">Tipo de problema</label><select id="support-category" class="input"><option value="late">Atraso</option><option value="wrong_item">Produto incorreto</option><option value="price_payment">Preço ou pagamento</option><option value="no_show">Entrega não apareceu</option><option value="delivery">Problema na entrega</option><option value="other">Outro problema</option></select></div><div class="input-wrap"><label for="support-message">Conte em poucas palavras</label><textarea id="support-message" class="input" maxlength="1000" rows="3" placeholder="Ex.: o pedido chegou, mas veio um item diferente."></textarea></div><button class="secondary full" onclick="openSupportCaseFromUi()" ${globalThis.liveRuntime?.actionPending?'disabled':''}>Registrar problema</button></div></div>`;
+}
+
+async function submitDeliveryFeedbackFromUi(rating){
+  try{
+    await liveSubmitFeedback(rating);
+    toast(rating===5?'Obrigado pela avaliação':'Avaliação registrada. Se precisar, abra um atendimento abaixo.');
+  }catch(error){toast(String(error?.message||error))}
+}
+async function openSupportCaseFromUi(){
+  const category=String(document.querySelector('#support-category')?.value||'other');
+  const message=String(document.querySelector('#support-message')?.value||'').trim();
+  try{
+    const result=await liveOpenSupportCase(category,message);
+    toast(result?.alreadyOpen?'Esse problema já está em acompanhamento':'Problema registrado para acompanhamento');
+  }catch(error){toast(String(error?.message||error))}
 }
 
 function liveTracking(){
