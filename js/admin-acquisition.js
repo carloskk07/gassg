@@ -3207,6 +3207,112 @@ async function adminPayoutFollowupLoadFromUi(){
     }
   }finally{adminPayoutFollowupBusy=false;render();}
 }
+// TAMÃO V1.340 — all-months alert for old unresolved financial reviews.
+let adminPayoutGlobalState=null,adminPayoutGlobalBusy=false;
+async function adminPayoutGlobalLoadFromUi(){
+  const actor=String(adminRuntime?.session?.user?.id||'');
+  const role=String(adminCurrentRole());
+  if(!actor||!['superadmin','finance'].includes(role)||adminPayoutGlobalBusy)return;
+  adminPayoutGlobalBusy=true;
+  try{
+    const d=await adminInvoke({action:'owner-payout-global-followup-read'});
+    const keys=['activeClaims','activeOlderMonths','overdueClaims',
+      'criticalReversalClaims','unreviewedClaims','awaitingEvidenceClaims','distinctMonths'];
+    const states=['not_started','in_review','awaiting_evidence','reviewed_no_bank_proof'];
+    if(d?.source!=='admin_payout_global_followup_v1_340'||
+      d?.scope!=='all_months'||d?.timezone!=='America/Sao_Paulo'||
+      d?.readOnly!==true||d?.administrativeOnly!==true||
+      d?.bankSettlementVerified!==false||d?.recipientVerified!==false||
+      d?.moneyMoved!==false||
+      d?.duePolicy!=='internal_guidance_not_external_SLA'||
+      keys.some(k=>!Number.isSafeInteger(d?.[k])||d[k]<0)||
+      d.activeOlderMonths>d.activeClaims||
+      d.overdueClaims>d.activeClaims||
+      d.criticalReversalClaims>d.activeClaims||
+      d.unreviewedClaims+d.awaitingEvidenceClaims>d.activeClaims||
+      d.distinctMonths>d.activeClaims||
+      d?.limit!==30||d?.truncated!==(d.activeClaims>30)||
+      !Array.isArray(d?.rows)||d.rows.length!==Math.min(30,d.activeClaims)||
+      d.rows.some(x=>!x||
+        !/^[0-9a-f-]{36}$/i.test(String(x.claimId||''))||
+        !/^[0-9a-f-]{36}$/i.test(String(x.orderId||''))||
+        !/^[0-9]{4}-(0[1-9]|1[0-2])-01$/.test(String(x.claimMonth||''))||
+        !/^[0-9]{4}-(0[1-9]|1[0-2])-[0-9]{2}$/.test(String(x.paidOn||''))||
+        x.claimMonth!==x.paidOn.slice(0,7)+'-01'||
+        !Number.isSafeInteger(x.reportedAmountCents)||x.reportedAmountCents<0||
+        !states.includes(x.reviewState)||
+        !Number.isFinite(Date.parse(String(x.followupDueAt||'')))||
+        typeof x.overdue!=='boolean'||
+        typeof x.criticalReversalObserved!=='boolean'||
+        !Number.isSafeInteger(x.priority)||x.priority<0||x.priority>2||
+        x.priority!==(x.criticalReversalObserved?0:x.overdue?1:2))||
+      d.rows.some((x,i)=>i>0&&(
+        d.rows[i-1].priority>x.priority||
+        (d.rows[i-1].priority===x.priority&&
+          Date.parse(d.rows[i-1].followupDueAt)>Date.parse(x.followupDueAt)))))
+      throw new Error('Visão geral das pendências não validada.');
+    if(actor===String(adminRuntime?.session?.user?.id||'')&&
+       role===String(adminCurrentRole()))
+      adminPayoutGlobalState={...d,loadedFor:actor};
+  }catch(e){
+    if(actor===String(adminRuntime?.session?.user?.id||'')){
+      adminPayoutGlobalState=null;
+      toast(String(e?.message||'Não foi possível consultar os casos antigos.'));
+    }
+  }finally{adminPayoutGlobalBusy=false;render();}
+}
+function adminPayoutGlobalOpenMonthFromUi(month){
+  const actor=String(adminRuntime?.session?.user?.id||'');
+  const role=String(adminCurrentRole());
+  if(!['superadmin','finance'].includes(role)||adminPayoutGlobalBusy||
+     adminPayoutFollowupBusy||!actor)return;
+  const d=adminPayoutGlobalState?.loadedFor===actor?adminPayoutGlobalState:null;
+  if(!d||!d.rows.some(x=>x.claimMonth===month))return;
+  const el=document.getElementById('owner-campaign-signals-month');
+  if(!el||!/^[0-9]{4}-(0[1-9]|1[0-2])-01$/.test(month))return;
+  el.value=month.slice(0,7);
+  adminPayoutReviewState=null;
+  adminPayoutFollowupState=null;
+  adminPayoutFollowupLoadFromUi();
+}
+function adminPayoutGlobalFollowupSection(){
+  const role=String(adminCurrentRole()),actor=String(adminRuntime?.session?.user?.id||'');
+  if(!['superadmin','finance'].includes(role))return '';
+  const d=adminPayoutGlobalState?.loadedFor===actor?adminPayoutGlobalState:null;
+  const stamp=iso=>new Date(iso).toLocaleString('pt-BR',{timeZone:'America/Sao_Paulo'});
+  return '<section class="card flat form-stack">'+
+    '<h4>Pendências de todas as competências</h4>'+
+    '<p class="tiny muted">Encontre revisões ainda abertas de meses anteriores, mesmo que outra competência esteja selecionada. As datas são metas internas de acompanhamento, não prazos bancários.</p>'+
+    '<button type="button" class="secondary small" '+(adminPayoutGlobalBusy?'disabled':'')+
+    ' onclick="adminPayoutGlobalLoadFromUi()">Atualizar visão de todos os meses</button>'+
+    (d?
+      '<div class="grid cards-2">'+
+      '<div class="card flat"><strong>'+d.activeClaims+'</strong><p>Casos ativos no total</p></div>'+
+      '<div class="card flat"><strong>'+d.activeOlderMonths+'</strong><p>Casos de meses anteriores</p></div>'+
+      '<div class="card flat"><strong>'+d.overdueClaims+'</strong><p>Prazos internos vencidos</p></div>'+
+      '<div class="card flat"><strong>'+d.criticalReversalClaims+'</strong><p>Estornos com sucesso observado</p></div></div>'+
+      '<p class="tiny muted">'+d.unreviewedClaims+' sem análise • '+
+      d.awaitingEvidenceClaims+' aguardando evidências • '+
+      d.distinctMonths+' competências com pendências.</p>'+
+      (d.truncated?'<p class="tiny muted">Os totais incluem todos os meses; abaixo aparecem apenas os 30 casos de maior prioridade.</p>':'')+
+      '<div class="grid cards-2">'+
+      (d.rows.map(x=>
+        '<article class="card flat form-stack">'+
+        '<strong>'+(x.priority===0?'Crítica — estorno após sucesso observado':
+          x.overdue?'Prazo interno vencido':'Acompanhamento pendente')+'</strong>'+
+        '<p>Competência: <strong>'+esc(x.claimMonth.slice(0,7))+'</strong>'+
+        ' • valor declarado: '+adminMoney(x.reportedAmountCents)+'</p>'+
+        '<p class="tiny muted">Pedido '+esc(x.orderId)+' • declaração '+esc(x.claimId)+'</p>'+
+        '<p class="tiny muted">Conferência sugerida: '+esc(stamp(x.followupDueAt))+'</p>'+
+        '<button type="button" class="secondary small" onclick="adminPayoutGlobalOpenMonthFromUi(&quot;'+
+        esc(x.claimMonth)+'&quot;)">Abrir competência para revisar</button>'+
+        '</article>').join('')||
+        '<p class="tiny muted">Nenhuma pendência de repasse ativa.</p>')+
+      '</div>':
+      '<p class="tiny muted">Atualize para consultar as pendências antigas e atuais.</p>')+
+    '<p class="tiny muted">Nenhuma análise nesta área movimenta dinheiro ou confirma uma transferência bancária.</p>'+
+    '</section>';
+}
 function adminPayoutFollowupSection(){
   const role=String(adminCurrentRole());
   if(!['superadmin','finance'].includes(role))return '';
@@ -3256,7 +3362,7 @@ function adminPayoutFollowupSection(){
       '</div>'+adminPayoutReviewHistoryMarkup('followup',d.rows):
       '<p class="tiny muted">Carregue a competência para identificar as pendências e os prazos sugeridos.</p>')+
     '<p class="tiny muted">O encerramento de uma revisão não comprova pagamento, liquidação bancária nem titularidade. Nenhuma ação financeira é executada nesta área.</p>'+
-    '</section>';
+    '</section>'+adminPayoutGlobalFollowupSection();
 }
 // Shared history renderer: only one origin (provider or followup) owns the form.
 function adminPayoutReviewHistoryMarkup(origin,ids){

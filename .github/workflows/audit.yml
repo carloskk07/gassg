@@ -463,6 +463,8 @@ jobs:
         run: node tests/owner-payout-review-journal-v1-337.mjs
       - name: Admin payout followup internal deadlines V1.338 regression
         run: node tests/payout-review-followup-deadlines-v1-338.mjs
+      - name: Admin all-months unresolved payout queue V1.340 regression
+        run: node tests/payout-global-followup-v1-340.mjs
       - name: Direct payout followup review V1.339 regression
         run: node tests/payout-followup-direct-review-v1-339.mjs
       - name: Verified merchant representation V1.158.4 regression contract
