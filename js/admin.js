@@ -2499,16 +2499,16 @@ function adminStatusPill(status){
 
 function adminLoginView(){
   return shell(`<section class="page">
-    <span class="eyebrow">CONTROL PLANE</span>
+    <span class="eyebrow">CENTRAL DE CONTROLE</span>
     <h1 class="page-title">Administração protegida</h1>
     <p class="muted">Acesso exclusivo para contas permanentes previamente autorizadas no banco.</p>
     ${adminRuntime.notice?`<div class="notice success" style="margin-top:14px">${esc(adminRuntime.notice)}</div>`:''}
     ${adminRuntime.error?`<div class="notice danger" style="margin-top:14px">${esc(adminRuntime.error)}</div>`:''}
-    <div class="card flat form-stack" style="margin-top:16px">
-      <div class="input-wrap"><label for="admin-email">E-mail administrativo</label><input id="admin-email" type="email" autocomplete="email" maxlength="160" class="input" placeholder="voce@email.com"></div>
-      <button class="primary" onclick="adminLoginFromUi()" ${adminRuntime.actionPending?'disabled aria-busy="true"':''}>${adminRuntime.actionPending?'Processando…':'Enviar link de acesso'}</button>
-    </div>
-    <div class="notice" style="margin-top:14px">O portal nunca concede permissão pelo navegador. Um admin existente recebe o link normalmente; no primeiro acesso, somente o e-mail previamente reservado no servidor pode criar e reclamar a conta inicial.</div>
+    <form class="card flat form-stack" style="margin-top:16px" onsubmit="event.preventDefault();adminLoginFromUi()">
+      <div class="input-wrap"><label for="admin-email">E-mail administrativo</label><input id="admin-email" type="email" autocomplete="email" maxlength="160" class="input" placeholder="voce@email.com" required></div>
+      <button type="submit" class="primary" ${adminRuntime.actionPending?'disabled aria-busy="true"':''}>${adminRuntime.actionPending?'Processando…':'Enviar link de acesso'}</button>
+    </form>
+    <div class="notice" style="margin-top:14px">Este link apenas autentica a identidade. O acesso administrativo só é concedido a contas previamente autorizadas no servidor.</div>
   </section>`);
 }
 
