@@ -862,13 +862,14 @@ function shell(content){
     ? '<div class="mode-pill" aria-label="Alternar ambiente"><button onclick="openCustomerPortal()">Site</button><button class="active" onclick="go(\'admin\')">Admin</button></div>'
     : `<div class="mode-pill" aria-label="Alternar modo"><button class="${!merchantPortal&&(!testDemo||state.mode==='customer')&&r!=='merchants'?'active':''}" onclick="${customerAction}">${prelaunchPublic?'Quero comprar':'Comprar'}</button><button class="${merchantPortal||(testDemo&&state.mode==='merchant')||(!merchantPortal&&r==='merchants')?'active':''}" onclick="${merchantAction}">${prelaunchPublic?'Quero vender':'Revenda'}</button></div>`;
   return `<div class="app">
+  <button type="button" class="skip-to-main" onclick="document.getElementById('tamao-main')?.focus()">Pular para o conteúdo principal</button>
   ${runtimeStrip()}
   <header class="topbar"><div class="shell topbar-inner">
     <button class="brand brand-button" onclick="${brandAction}" aria-label="Ir para o início do TAMÃO"><div class="brandmark"><img src="./icons/icon.svg" alt=""></div><div><span class="brand-name">TAMÃO</span><small>Pediu? Tá na mão.</small></div></button>
-    <div class="desktop-only desktop-nav">${desktopNav}</div>
+    <nav class="desktop-only desktop-nav" aria-label="Navegação principal">${desktopNav}</nav>
     ${switcher}
   </div></header>
-  <main class="shell">${content}</main>
+  <main id="tamao-main" class="shell" tabindex="-1">${content}</main>
   ${siteFooter({adminPortal})}
   ${bottomNav(r)}
   </div>`;
