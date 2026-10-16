@@ -104,7 +104,7 @@ assert.ok(core.includes('MAX_PIN_FAILURES'),'PIN precisa de limite de tentativas
 assert.ok(core.includes('PRICE_FRESH_MS'),'preço precisa de validade explícita');
 assert.ok(core.includes('scheduleStart>=scheduleNow+30*60*1000')&&core.includes('scheduleStart<=scheduleNow+72*60*60*1000'),'janela agendada persistida precisa expirar no browser antes de nova cotação');
 assert.ok(core.includes('glpContainerKgForProductCode')&&core.includes('synchronizeGlpContainerCart'),'carrinho precisa sincronizar vasilhame com a quantidade de GLP');
-assert.ok(customer.includes("p.hidden!==true")&&customer.includes('Vasilhame incluído na consulta'),'vasilhame deve ser SKU real mas não um contador manual no carrinho');
+assert.ok((customer.includes("p.hidden!==true")||customer.includes("p?.hidden!==true"))&&customer.includes('Vasilhame incluído na consulta'),'vasilhame deve ser SKU real mas não um contador manual no carrinho');
 assert.ok(merchant.includes('merchantLiveAddContainer')&&merchant.includes('Formas de pagamento'),'painel da revenda precisa governar vasilhames e pagamentos');
 assert.ok(backend.includes('paymentMethodUnavailable')&&backend.includes('paymentMethod:paymentMethodSnapshot'),'runtime cliente precisa recotar por forma de pagamento');
 assert.ok(read('supabase/migrations/20261004161000_dynamic_product_registry_v1_66.sql').includes("'P'||g::text||'_CONTAINER'")&&read('supabase/functions/_shared/domain.js').includes("/^[A-Z][A-Z0-9_]{1,31}$/"),'SKU de vasilhame precisa existir no registro canônico e passar pela validação segura de formato');
