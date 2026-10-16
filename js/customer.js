@@ -692,7 +692,10 @@ function orderPage(){
   const hasGlp=hasGlpCart();
   const needsContainer=hasGlp&&state.checkout.glpContainerMode==='needs_container';
   const os=testDemo?(hasItems?offers():[]):(ready?(liveRuntime.offers||[]):[]);
-  const singleSupplier=(internalPilot&&os.length===1)||(!testDemo&&ready&&liveRuntime.marketMode==='single_supplier');
+  // A quote can expire between network refresh and UI render. Only display
+  // offers with a valid expiry in the real checkout, never a stale action card.
+  const freshOffers=customerEligibleCheckoutOffers(os,{testDemo});
+  const singleSupplier=(internalPilot&&freshOffers.length===1)||(!testDemo&&ready&&freshOffers.length===1&&liveRuntime.marketMode==='single_supplier');
   const pendingOrder=testDemo
     ? state.orders.find(isLiveOrder)
     : (liveRuntime.order&&!['SETTLED','CANCELLED'].includes(liveRuntime.order.status)?liveRuntime.order:null);
@@ -715,14 +718,14 @@ function orderPage(){
   if(hasItems&&hasAddress){
     if(preview){
       offerBlock='<div class="notice"><strong>Ainda não encontramos uma revenda que entregue neste CEP.</strong><br>Você pode receber um aviso quando a região tiver atendimento.<div class="order-actions"><button class="secondary small" onclick="openPrelaunchCustomerLead()">Receber aviso de disponibilidade</button></div></div>';
-    }else if(testDemo&&os.length){
-      offerBlock=checkoutOfferComparison(os);
+    }else if(testDemo&&freshOffers.length){
+      offerBlock=checkoutOfferComparison(freshOffers);
     }else if(ready&&liveRuntime.loadingOffers){
       offerBlock='<div class="empty card">Procurando opções para sua cesta…</div>';
     }else if(ready&&liveRuntime.error){
       offerBlock=`<div class="notice danger"><strong>Não foi possível atualizar as opções.</strong><br>${esc(liveRuntime.error)}<br><button class="secondary small" style="margin-top:10px" onclick="liveRefreshOffers().catch(()=>{})">Tentar novamente</button></div>`;
-    }else if(ready&&os.length){
-      offerBlock=checkoutOfferComparison(os);
+    }else if(ready&&freshOffers.length){
+      offerBlock=checkoutOfferComparison(freshOffers);
     }else if(ready&&liveRuntime.commerceLaunchBlocked){
       offerBlock='<div class="notice"><strong>Pedidos temporariamente indisponíveis.</strong><br>Novas compras estão pausadas no momento. Pedidos existentes continuam acompanháveis normalmente.</div>';
     }else if(ready&&liveRuntime.deliveryCompatibilityBlocked){
@@ -731,6 +734,8 @@ function orderPage(){
       offerBlock=`<div class="empty card"><strong>Não encontramos uma revenda que aceite ${esc(paymentLabel(state.checkout.paymentMethod))} neste pedido agora.</strong><br><span class="muted tiny">Escolha outra forma de pagamento ou consulte novamente depois.</span></div>`;
     }else if(ready&&liveRuntime.scheduledDeliveryUnavailable){
       offerBlock='<div class="empty card"><strong>Nenhuma revenda está aceitando essa janela agendada agora.</strong><br><span class="muted tiny">Escolha “Agora” ou outra janela para consultar novamente.</span></div>';
+    }else if(ready&&os.length&&freshOffers.length===0){
+      offerBlock='<div class="empty card offer-expired-notice" role="status"><strong>As opções desta consulta expiraram.</strong><p class="muted tiny">O preço e o prazo podem ter mudado. Consulte novamente para receber opções atualizadas. Nenhum pedido foi enviado.</p><button type="button" class="primary" onclick="liveRefreshOffers().catch(()=>{})">Atualizar opções →</button></div>';
     }else if(ready&&needsContainer&&liveRuntime.lastSyncAt){
       offerBlock='<div class="empty card"><strong>Ainda não encontramos uma revenda com carga e vasilhame disponíveis para este pedido.</strong><br><span class="muted tiny">A opção só aparece quando os dois itens possuem preço confirmado e estoque.</span></div>';
     }else if(ready&&liveRuntime.lastSyncAt){
@@ -744,8 +749,7 @@ function orderPage(){
 
   const savedPhone=String(state.checkout.customerPhoneDigits||'').replace(/\D/g,'');
   const hasPhone=/^[0-9]{10,11}$/.test(savedPhone);
-  const currentOffers=hasAddress&&hasItems&&(testDemo||ready)?os.filter(o=>
-    testDemo||(!o.expiresAt?false:Date.parse(String(o.expiresAt))>Date.now()+1000)):[];
+  const currentOffers=hasAddress&&hasItems&&(testDemo||ready)?freshOffers:[];
   const buyerGuide=customerCheckoutJourney({
     hasItems,hasAddress,hasPhone,hasOffers:currentOffers.length>0,
     loadingOffers:ready&&liveRuntime.loadingOffers,pendingOrder:Boolean(pendingOrder)
@@ -808,6 +812,16 @@ function cartRow(k,p){
 }
 // Sorting never changes backend recommendation or creates a new quote.
 let checkoutOfferSort='recommended';
+// The same expiry rule controls both the progress indicator and rendered choices.
+function customerEligibleCheckoutOffers(all,{testDemo=false,now=Date.now()}={}){
+  const rows=Array.isArray(all)?all:[];
+  if(testDemo)return rows;
+  return rows.filter(o=>{
+    const expires=Date.parse(String(o?.expiresAt||''));
+    return Number.isFinite(expires)&&expires>now+1000;
+  });
+}
+
 function sortedCheckoutOffers(all,mode=checkoutOfferSort){
   const offers=Array.isArray(all)?all.slice():[];
   const ranked=offers.map((offer,index)=>({offer,index}));
@@ -846,6 +860,25 @@ function checkoutSponsoredEditorial(){
      esc([slot.city,slot.state].filter(Boolean).join('/'))+
     '</p></aside>';
 }
+// Summary uses only the displayed offers. Never infers a guaranteed saving,
+ // a completed payment, or an actual delivery time.
+function checkoutOfferDecisionSummary(all){
+  if(!Array.isArray(all)||all.length<2)return '';
+  const totals=all.map(o=>Number(o?.total));
+  const etaLimits=all.map(o=>Number(o?.etaMax??o?.eta));
+  const hasTotals=totals.every(n=>Number.isFinite(n)&&n>=0);
+  const hasEta=etaLimits.every(n=>Number.isFinite(n)&&n>=0);
+  if(!hasTotals&&!hasEta)return '';
+  const lowest=hasTotals?Math.min(...totals):null;
+  const shortest=hasEta?Math.min(...etaLimits):null;
+  return '<aside class="offer-decision-guide" aria-label="Resumo das opções consultadas">'+
+    '<span class="offer-decision-guide-title">Escolha pelo que mais importa para você</span>'+
+    '<div class="offer-decision-guide-metrics">'+
+    (lowest!==null?'<div><small>MENOR TOTAL COM ENTREGA</small><strong>'+BRL.format(lowest)+'</strong></div>':'')+
+    (shortest!==null?'<div><small>MENOR PRAZO MÁXIMO PREVISTO</small><strong>Até '+Math.round(shortest)+' min</strong></div>':'')+
+    '</div><p>São dados das opções desta consulta, não promessa de economia ou entrega. A revenda precisa aceitar o pedido.</p>'+
+    '</aside>';
+}
 function checkoutOfferComparison(all){
   if(!Array.isArray(all)||!all.length)return '';
   const controls=all.length>1?`<div class="offer-sort" role="group" aria-label="Ordenar ofertas">
@@ -859,8 +892,10 @@ function checkoutOfferComparison(all){
       <h2>${all.length===1?'Encontramos uma opção para sua cesta':'Compare '+all.length+' opções para sua cesta'}</h2>
       <p>O total já considera a entrega. Preço e prazo são da consulta atual, sujeitos à validade da oferta e ao aceite da revenda.</p>
     </div>
+    ${checkoutOfferDecisionSummary(all)}
     ${checkoutSponsoredEditorial()}
     ${controls}
+    <p class="offer-sort-feedback" id="checkout-sort-feedback" role="status" aria-live="polite"></p>
     <div id="checkout-offer-choices" class="offer-stack">${checkoutOfferCards(all)}</div>
   </section>`;
 }
@@ -871,8 +906,14 @@ function setCheckoutOfferSort(mode){
   if(!container)return;
   const current=globalThis.__CHAMA_TEST__===true?offers():globalThis.liveRuntime?.offers||[];
   // Sorting only rearranges server-confirmed, non-expired options.
-  const eligible=current.filter(o=>!o.live||Date.parse(o.expiresAt)>Date.now()+1000);
-  container.innerHTML=checkoutOfferCards(eligible);
+  const eligible=customerEligibleCheckoutOffers(current,{testDemo:globalThis.__CHAMA_TEST__===true});
+  container.innerHTML=eligible.length?checkoutOfferCards(eligible):
+    '<div class="empty card offer-expired-notice" role="status"><strong>As opções desta consulta expiraram.</strong><p class="muted tiny">Atualize a consulta para receber preços e prazos atuais. Nenhum pedido foi enviado.</p><button type="button" class="primary" onclick="liveRefreshOffers().catch(()=>{})">Atualizar opções →</button></div>';
+  const feedback=document.getElementById('checkout-sort-feedback');
+  if(feedback)feedback.textContent=eligible.length?
+    eligible.length+' '+(eligible.length===1?'opção disponível':'opções disponíveis')+
+    ' • '+({recommended:'Ordem sugerida',lowest:'Menor total primeiro',soonest:'Menor prazo máximo primeiro'})[mode]+'.':
+    'Nenhuma oferta válida. Atualize as opções.';
   document.querySelectorAll('.offer-sort button').forEach(button=>{
     const requested=button.getAttribute('onclick')?.match(/'([^']+)'/)?.[1];
     button.setAttribute('aria-pressed',String(requested===mode));
