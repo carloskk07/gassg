@@ -3334,7 +3334,7 @@ Deno.serve(async(req:Request)=>{
            (data.rows[i-1].voided===true&&r.voided===false)||
            (data.rows[i-1].voided===r.voided&&
             Date.parse(data.rows[i-1].rewardReversedAt)<
-            Date.parse(r.rewardReversedAt))))
+            Date.parse(r.rewardReversedAt)))))
         throw new DomainError("ARCHIVED_PAYOUT_HISTORY_INVALID",
           "Exceções financeiras não validadas.",503);
       return json(data,200,origin);
