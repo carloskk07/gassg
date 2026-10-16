@@ -16,13 +16,14 @@ alter table public.platform_ads_feedback_returns_v1_326
 
 create or replace function public.ads_return_link_actual_report_v1_327()
 returns trigger language plpgsql set search_path to 'pg_catalog' as $f$
+declare v_plan_id uuid;
 begin
  -- An attempt is only a founder declaration, never proof that the merchant received it.
  -- The originating v1.324 RPC locks the assistance row, which serializes request cycles.
  update public.platform_ads_feedback_returns_v1_326 r
  set status='attempt_recorded',version=r.version+1,
   attempt_contact_request_id=new.request_id,attempt_recorded_at=new.recorded_at,
-  updated_at=clock_timestamp()
+  updated_by=new.reported_by,updated_at=clock_timestamp()
  from public.platform_ads_assistance_contacts_v1_324 prior
  join public.platform_ads_assistance_v1_323 a on a.merchant_id=new.merchant_id
  where r.contact_request_id=prior.request_id
@@ -35,7 +36,14 @@ begin
    and exists(select 1 from public.merchants m
      where m.id=new.merchant_id and m.status='active')
    and exists(select 1 from public.merchant_ads_interest_v1_232 i
-     where i.merchant_id=new.merchant_id and i.interested);
+     where i.merchant_id=new.merchant_id and i.interested)
+ returning r.contact_request_id into v_plan_id;
+ if v_plan_id is not null then
+  insert into public.platform_admin_audit(actor_user_id,action,target_type,target_id,metadata)
+  values(new.reported_by,'ads-return-attempt-reported','merchant',new.merchant_id::text,
+    jsonb_build_object('contactRequestId',new.request_id,'originalPlanContactId',v_plan_id,
+       'outcome',new.outcome,'independentlyVerified',false,'messageSent',false));
+ end if;
  return new;
 end;
 $f$;
@@ -67,8 +75,8 @@ begin
   'merchantId',r.merchant_id,'merchantName',left(m.name,120),
   'contactRequestId',r.contact_request_id,
   'assistanceVersion',r.assistance_version,
-  'consentCurrent',a.status in ('requested','triaged') and a.version=r.assistance_version
-    and m.status='active' and coalesce(i.interested,false),
+  'consentCurrent',coalesce(a.status in ('requested','triaged') and a.version=r.assistance_version
+    and m.status='active' and i.interested,false),
   'status',r.status,'version',r.version,'dueOn',r.due_on,
   'internalNote',r.internal_note,'updatedAt',r.updated_at,
   'attemptReportedAt',r.attempt_recorded_at,
@@ -109,7 +117,7 @@ begin
   and exists(select 1 from public.merchant_ads_interest_v1_232 i
    where i.merchant_id=p_merchant and i.interested);
  if v_current then
-  select * into v_r from public.platform_ads_feedback_returns_v1_326 r
+  select r.* into v_r from public.platform_ads_feedback_returns_v1_326 r
   join public.platform_ads_assistance_contacts_v1_324 origin
    on origin.request_id=r.contact_request_id
   where r.merchant_id=p_merchant and r.assistance_version=v_a.version
