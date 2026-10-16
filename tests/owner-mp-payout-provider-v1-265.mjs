@@ -80,17 +80,31 @@ const sample={
  timezone:'America/Sao_Paulo',month:'2026-10-01',
  totalClaims:2,checkedClaims:1,providerSuccessClaims:1,checkedUnmatchedClaims:0,
  unqueriedClaims:1,limit:30,truncated:false,bankSettlementVerified:false,
+ triageV1335:true,queueOrder:'priority_then_reported_at',
+ queueCoverage:'top_30_prioritized',historicalProviderSuccessIsBankProof:false,
+ automaticRecoveryExecuted:false,activeReversedClaims:0,
+ activeReversedReportedCents:0,reversedWithHistoricalProviderSuccessClaims:0,
+ activeReversedWithHistoricalProviderSuccessClaims:0,
  recipientVerified:false,providerTransactionIsBeneficiaryProof:false,
  externalPaidBenefitsCents:null,readOnly:true,noTransfers:true,
- rows:[{claimId,checkedAt:'2026-10-14T19:00:00Z',status:'success',detail:'accredited',
-   referenceMatches:true,amountMatches:true,providerTransactionSuccess:true,
-   successNow:true,voided:false,proofPresent:true,
-   payoutId:'POP01KKYN1QY2SS1MKAY4KP6SSRCT',
-   transactionId:'TOP01KKYN1QY2SS1MKAY4G9DV5NK9'},
-  {claimId:'33333333-3333-4333-8333-333333333333',checkedAt:null,status:null,
+ rows:[
+  {claimId:'33333333-3333-4333-8333-333333333333',
+   orderId:'55555555-5555-4555-8555-555555555555',
+   reportedAmountCents:250,paidOn:'2026-10-14',reportedAt:'2026-10-14T10:00:00Z',
+   priority:3,grantReversedNow:false,historicalProviderSuccessObserved:false,
+   requiresReversalReview:false,checkedAt:null,status:null,
    detail:null,referenceMatches:null,amountMatches:null,
    providerTransactionSuccess:null,successNow:false,voided:false,proofPresent:false,
-   payoutId:null,transactionId:null}]
+   payoutId:null,transactionId:null},
+  {claimId,orderId:'66666666-6666-4666-8666-666666666666',
+   reportedAmountCents:600,paidOn:'2026-10-14',reportedAt:'2026-10-14T19:00:00Z',
+   priority:5,grantReversedNow:false,historicalProviderSuccessObserved:false,
+   requiresReversalReview:false,checkedAt:'2026-10-14T19:00:00Z',
+   status:'success',detail:'accredited',referenceMatches:true,amountMatches:true,
+   providerTransactionSuccess:true,successNow:true,voided:false,proofPresent:true,
+   payoutId:'POP01KKYN1QY2SS1MKAY4KP6SSRCT',
+   transactionId:'TOP01KKYN1QY2SS1MKAY4G9DV5NK9'}
+ ]
 };
 const vals={'owner-campaign-signals-month':'2026-10','owner-provider-claim':claimId,
  'owner-provider-payout':'POP01KKYN1QY2SS1MKAY4KP6SSRCT',
@@ -104,6 +118,7 @@ const context=vm.createContext({
     reason:'outgoing_payouts_credentials_missing',bankSettlementVerified:false,
     recipientVerified:false,transferExecuted:false}:data;},
  render:()=>{},toast:t=>messages.push(t),
+ adminMoney:x=>'R$ '+(x/100).toFixed(2),
  esc:x=>String(x).replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;'),
  String,Number,Array,Date
 });
@@ -114,7 +129,7 @@ await context.adminOwnerPayoutProviderLoadFromUi();
 assert.equal(calls[0].action,'owner-payout-provider-read');
 assert.equal(calls[0].month,'2026-10-01');
 const h=context.adminOwnerPayoutProviderSection();
-for(const x of ['1 de 2','success','accredited','Consulta externa','Beneficiário'])
+for(const x of ['1 de 2','success','accredited','Central de revisão','beneficiário'])
  assert.ok(h.includes(x),'Missing UI text: '+x);
 await context.adminOwnerPayoutProviderCheckFromUi();
 assert.equal(calls[1].action,'owner-payout-provider-check');
