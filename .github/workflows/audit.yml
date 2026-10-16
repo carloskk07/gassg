@@ -343,6 +343,8 @@ jobs:
         run: node tests/ads-launch-readiness-v1-320.mjs
       - name: TAMÃO V1.321 merchant Ads guided start and true submission blockers
         run: node tests/ads-guided-start-v1-321.mjs
+      - name: Test V1.322 opted-in merchant Ads conversion
+        run: node tests/ads-first-conversion-v1-322.mjs
       - name: TAMÃO V1.258 founder-approved orphan deletion with immutable audit
         run: node tests/owner-receipt-orphan-cleanup-v1-258.mjs
       - name: Turnstile smoke Chrome cleanup V1.238.1
