@@ -29,7 +29,8 @@ async function adminActivationLoad({force=false}={}){
       ['adsAssistance','ads-assistance-read','admin_ads_assistance_v1_323'],
       ['adsContacts','ads-contact-reports-read','admin_ads_contacts_v1_324'],
       ['adsFeedback','ads-contact-feedback-read','admin_ads_contact_feedback_v1_325'],
-      ['adsFeedbackReturns','ads-feedback-returns-read','admin_ads_feedback_returns_v1_326']
+      ['adsFeedbackReturns','ads-feedback-returns-read','admin_ads_feedback_returns_v1_326'],
+      ['adsReturnExecution','ads-return-execution-read','admin_ads_return_execution_v1_327']
     ];
     const values=await Promise.allSettled([
       ...specs.map(([,action])=>adminInvoke({action})),
@@ -43,6 +44,15 @@ async function adminActivationLoad({force=false}={}){
       const safe=d?.source===source&&(
         key==='ads'?d.readOnly===true&&d.publicEnabled===false&&d.billingEnabled===false&&d.readyToSell===false:
         key==='adsQueue'?d.noCharge===true&&d.adsLive===false:
+        key==='adsReturnExecution'?d.readOnly===true&&d.automaticMessagesSent===0&&
+          d.independentDeliveryProof===false&&d.adsLive===false&&d.paymentCreated===false&&
+          Number.isSafeInteger(d.totalPlans)&&Number.isSafeInteger(d.scheduledPlans)&&
+          Number.isSafeInteger(d.attemptsDeclared)&&Number.isSafeInteger(d.followupsDue)&&
+          Array.isArray(d.rows)&&d.rows.length<=50&&d.rows.every(x=>
+            /^[0-9a-f-]{36}$/i.test(String(x.merchantId))&&
+            /^[0-9a-f-]{36}$/i.test(String(x.contactRequestId))&&
+            ['scheduled','canceled','attempt_recorded'].includes(x.status)&&
+            typeof x.consentCurrent==='boolean'&&x.attemptIndependentlyVerified===false):
         key==='adsFeedbackReturns'?d.readOnly===true&&d.messagesSent===0&&
           d.contactPerformed===false&&d.deliveryProven===false&&d.adsLive===false&&
           d.paymentCreated===false&&Number.isSafeInteger(d.totalPlans)&&
@@ -189,7 +199,7 @@ async function adminActivationLoad({force=false}={}){
         d.readOnly===true&&d.couponSalesEnabled===false&&d.noContractsSigned===true);
       evidence[key]=safe?d:null;
     });
-    const governance=values[21].status==='fulfilled'?values[21].value:null;
+    const governance=values[22].status==='fulfilled'?values[22].value:null;
     evidence.governance=governance?.source==='admin_governance_gates_v1_304'&&governance.readOnly===true&&
       adminRuntime.governance?.loadedFor===actor&&adminRuntime.governance?.role===role?governance:null;
     const push=adminRuntime.pushReliability||{};
@@ -279,7 +289,7 @@ function adminActivationDeskView(d){
     '<p class="tiny muted">Última consulta: '+
     esc(current?formatDateTime(adminActivationDesk.checkedAt):'não confirmada')+
     '. Uma falha na consulta é mostrada como “Não confirmado”, nunca como recurso desligado.</p>'+
-    '<div class="admin-activation-grid">'+cards+'</div>'+adminAdsLaunchReadinessView()+adminAdsLeadsView()+adminAdsAssistanceView()+adminAdsContactsView()+adminAdsFeedbackView()+adminAdsFeedbackReturnsView()+adminMarketingIntakeView()+adminAdsSalesPlansView()+adminAdsDossiersView()+adminAdsInstrumentsView()+adminAdsReceivablesView()+adminAdsPspView()+adminAdsMpInboxView()+adminAdsMpTriageView()+adminAdsPspFreshnessView()+adminAdsPspMerchantReviewsView()+
+    '<div class="admin-activation-grid">'+cards+'</div>'+adminAdsLaunchReadinessView()+adminAdsLeadsView()+adminAdsAssistanceView()+adminAdsContactsView()+adminAdsFeedbackView()+adminAdsFeedbackReturnsView()+adminAdsReturnExecutionView()+adminMarketingIntakeView()+adminAdsSalesPlansView()+adminAdsDossiersView()+adminAdsInstrumentsView()+adminAdsReceivablesView()+adminAdsPspView()+adminAdsMpInboxView()+adminAdsMpTriageView()+adminAdsPspFreshnessView()+adminAdsPspMerchantReviewsView()+
     '<p class="tiny muted">Publicidade pública, vendas de cupons e automação de avisos exigem homologação e gates reais no servidor. Nenhum controle desta página contorna esses requisitos.</p></section>';
 }
 
@@ -1343,7 +1353,7 @@ function adminAdsContactsView(){
    '<label>Nota do ocorrido (20–240 caracteres)<textarea class="input" id="ads-contact-'+id+'-note" rows="3" minlength="20" maxlength="240" placeholder="Registre somente fatos que realmente ocorreram, sem dados pessoais desnecessários"></textarea></label>'+
    '<label>Data do retorno (somente se solicitado)<input class="input" type="date" id="ads-contact-'+id+'-date"></label>'+
    '<button type="button" class="secondary small" onclick="adminAdsContactRecord(\''+id+'\')">Registrar atendimento manual</button></div>':'';
-  return '<article class="admin-activation-card admin-ads-contact-card">'+
+  return '<article id="ads-contact-card-'+id+'" class="admin-activation-card admin-ads-contact-card">'+
    '<div class="admin-activation-card-head"><strong>'+esc(x.merchantName||'Revenda')+
    '</strong><span class="status-pill">Consentimento atual</span></div>'+
    '<p>Canal solicitado: '+esc(({whatsapp:'WhatsApp',phone:'Telefone',email:'E-mail'})[x.preferredChannel]||'—')+
@@ -1525,4 +1535,69 @@ async function adminAdsFeedbackReturnAction(merchantId,operation){
   adminActivationDesk.data=null;await adminActivationLoad({force:true});
   toast(String(e?.message||e));return false;
  }
+}
+
+
+// V1.327 — due queues and founder-reported follow-up attempt evidence.
+// New outreach is recorded only via the existing V1.324 action; no automated contact.
+function adminAdsReturnExecutionView(){
+ if(!adminRoleCanSection('activations'))return '';
+ const actor=String(adminRuntime.session?.user?.id||''),role=adminCurrentRole();
+ const fresh=adminActivationDesk.actor===actor&&adminActivationDesk.role===role&&
+   Date.now()-Date.parse(adminActivationDesk.checkedAt||'')<120000;
+ const data=fresh?adminActivationDesk.data?.adsReturnExecution:null;
+ const today=new Date().toLocaleDateString('en-CA',{timeZone:'America/Sao_Paulo'});
+ const eligible=(data?.rows||[]).filter(r=>r.consentCurrent===true);
+ const active=eligible.filter(r=>r.status==='scheduled');
+ const history=eligible.filter(r=>r.status==='attempt_recorded');
+ const cards=[...active,...history,...eligible.filter(r=>r.status==='canceled')].map(r=>{
+  const id=String(r.merchantId||'');
+  if(!/^[0-9a-f-]{36}$/i.test(id))return '';
+  const overdue=r.status==='scheduled'&&String(r.dueOn||'')<=today;
+  const state=r.status==='attempt_recorded'?'Nova tentativa declarada':
+   r.status==='scheduled'?(overdue?'Retorno vencido':'Retorno planejado'):'Previsão cancelada';
+  const recordButton=role==='superadmin'&&r.status==='scheduled'?
+   '<button type="button" class="secondary small" onclick="adminAdsReturnGoToContact(\''+
+   id+'\')">Registrar tentativa que realmente ocorreu</button>':'';
+  return '<article class="admin-activation-card">'+
+    '<div class="admin-activation-card-head"><strong>'+esc(r.merchantName||'Revenda')+
+    '</strong><span class="status-pill">'+esc(state)+'</span></div>'+
+    '<p>Previsão: '+esc(String(r.dueOn||'—'))+
+    ' • plano v'+Number(r.version)+'</p>'+
+    (r.status==='attempt_recorded'?'<p>Nova tentativa informada pela administração: <strong>'+
+     esc(({not_reached:'Não conseguiu contato',conversation:'Conversa relatada',
+       followup_requested:'Novo retorno solicitado',not_interested:'Sem interesse'}[r.attemptOutcome]||'Registro')+
+     '</strong> • '+esc(String(r.attemptReportedAt||''))+'</p>':'')+
+    '<p class="tiny muted">Nenhuma confirmação independente de entrega. '+
+      'Ação não realiza contato automaticamente.</p>'+
+    recordButton+'</article>';
+ }).join('');
+ return '<section class="section admin-ads-return-execution">'+
+  '<div class="section-head"><div><span class="section-kicker">V1.327 • RETORNOS COM RASTREABILIDADE</span>'+
+  '<h2>Retornos vencidos e tentativas registradas</h2>'+
+  '<p>Veja o que exige uma nova tentativa manual e o que foi declarado depois do agendamento.</p></div></div>'+
+  (data?'<p class="tiny muted">Previsões ativas: '+data.scheduledPlans+
+    ' • Vencidas com consentimento atual: '+data.followupsDue+
+    ' • Tentativas posteriores declaradas: '+data.attemptsDeclared+
+    ' • Mensagens automáticas: 0.</p>':
+    '<p class="muted">Histórico não confirmado. Atualize a central.</p>')+
+  '<div class="admin-activation-grid">'+
+    (cards||'<p class="muted">Sem retornos com consentimento atual para exibir.</p>')+
+  '</div><p class="tiny muted">A tentativa é vinculada ao novo relato do administrador no banco, mas não substitui a confirmação voluntária da revenda. Mudança ou retirada de consentimento oculta a ação no fluxo atual.</p></section>';
+}
+function adminAdsReturnGoToContact(merchantId){
+ if(!adminReady()||adminCurrentRole()!=='superadmin'||
+   !/^[0-9a-f-]{36}$/i.test(String(merchantId||'')))return false;
+ const item=adminActivationDesk.data?.adsReturnExecution?.rows?.find(x=>x.merchantId===merchantId&&
+   x.status==='scheduled'&&x.consentCurrent===true);
+ const current=adminActivationDesk.data?.adsContacts?.rows?.find(x=>x.merchantId===merchantId&&
+   x.consentCurrent===true&&['requested','triaged'].includes(x.status));
+ if(!item||!current||item.assistanceVersion!==current.assistanceVersion){
+  toast('Atualize o acompanhamento. A solicitação ou o consentimento mudou.');return false;
+ }
+ const target=document.getElementById('ads-contact-card-'+merchantId);
+ if(!target){toast('O formulário deste contato não está disponível nesta consulta.');return false;}
+ target.scrollIntoView({behavior:'smooth',block:'center'});
+ target.querySelector('select')?.focus();
+ return true;
 }
