@@ -46,7 +46,7 @@ const part=ui.slice(ui.indexOf('// V1.320 — one founder-readable pathway'));
 assert.ok(part.startsWith('// V1.320'));
 const ctx=vm.createContext({
  adminRuntime:{session:{user:{id:user}}},
- adminCurrentRole:()=>role,adminRoleCanSection:()=>true,
+ adminCurrentRole:()=>role,adminRoleCanSection:()=>role!=='support',
  adminActivationDesk:desk,
  esc:s=>String(s).replaceAll('&','&amp;').replaceAll('<','&lt;'),
  Date,String,Number
