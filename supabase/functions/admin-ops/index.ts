@@ -3308,6 +3308,13 @@ Deno.serve(async(req:Request)=>{
          !["totalClaims","closedUnvoidedClaims","voidedClaims","reportedAmountCents"]
           .every(k=>Number.isSafeInteger(data?.[k])&&data[k]>=0)||
          data.totalClaims!==data.closedUnvoidedClaims+data.voidedClaims||
+         data?.observationChronologyV1345!==true||
+         !Number.isSafeInteger(data?.firstSuccessObservedBeforeOrAtReversalClaims)||
+         !Number.isSafeInteger(data?.firstSuccessObservedAfterReversalClaims)||
+         data.firstSuccessObservedBeforeOrAtReversalClaims<0||
+         data.firstSuccessObservedAfterReversalClaims<0||
+         data.totalClaims!==(data.firstSuccessObservedBeforeOrAtReversalClaims+
+           data.firstSuccessObservedAfterReversalClaims)||
          data.limit!==30||data.pageLimit!==30||data.pageOffset!==offset||
          data.hasPrevious!==(offset>0)||
          data.hasMore!==(offset+30<data.totalClaims)||
@@ -3322,6 +3329,11 @@ Deno.serve(async(req:Request)=>{
            !Number.isSafeInteger(r.reportedAmountCents)||r.reportedAmountCents<0||
            !Number.isFinite(Date.parse(String(r.reportedAt||"")))||
            !Number.isFinite(Date.parse(String(r.rewardReversedAt||"")))||
+           !Number.isFinite(Date.parse(String(r.firstProviderSuccessObservedAt||"")))||
+           typeof r.successObservedBeforeOrAtReversal!=="boolean"||
+           r.successObservedBeforeOrAtReversal!==(
+             Date.parse(r.firstProviderSuccessObservedAt)<=
+             Date.parse(r.rewardReversedAt))||
            !(r.lastReviewAt===null||Number.isFinite(Date.parse(String(r.lastReviewAt||""))))||
            typeof r.voided!=="boolean"||
            r.historicalProviderSuccessObserved!==true||
