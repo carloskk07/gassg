@@ -719,7 +719,8 @@ function adminAdsPspView(){
       (c.paymentId?'<p class="tiny muted">Pagamento: '+esc(c.paymentId)+
       ' • '+esc(c.providerStatus||'')+'</p>':''):'')+
     (canCreate?'<button type="button" class="primary small" onclick="adminAdsPspAction(\''+id+'\',\'create\')">Gerar checkout Mercado Pago</button>':'')+
-    (canReconcile?'<button type="button" class="secondary small" onclick="adminAdsPspAction(\''+id+'\',\'reconcile\')">Conferir pagamento no Mercado Pago</button>':'')+
+    (canReconcile?'<button type="button" class="primary small" onclick="adminAdsPspAutoReview(\''+id+'\')">Localizar e conciliar automaticamente</button>':'')+
+    (canReconcile?'<button type="button" class="secondary small" onclick="adminAdsPspAction(\''+id+'\',\'reconcile\')">Conferir pelo ID do pagamento</button>':'')+
     (c?.checkoutUrl?'<p class="tiny muted">O link do checkout está disponível no portal da revenda. Não use retorno de navegador como confirmação de pagamento.</p>':'')+
     '</article>';
  }).join('');
@@ -737,6 +738,72 @@ function adminAdsPspView(){
    '<div class="admin-activation-grid">'+(rows||'<p class="muted">Nenhum contrato bilateral apto a iniciar checkout.</p>')+'</div>'+
    '<p class="tiny muted">Uma resposta do navegador nunca confirma pagamento. A verificação usa a API autenticada do Mercado Pago e não libera anúncios; estornos e contestações devem ser reavaliados.</p></section>';
 }
+
+// V1.315: use the provider reference to find a payment without typing its ID.
+// No local payment state changes until the provider is refetched in V1.314 reconciliation.
+async function adminAdsPspAutoReview(merchantId){
+ if(!adminReady()||adminCurrentRole()!=='superadmin'||adminActivationDesk.loading)return false;
+ const actor=String(adminRuntime.session?.user?.id||'');
+ if(adminActivationDesk.actor!==actor||adminActivationDesk.role!=='superadmin'||
+  Date.now()-Date.parse(adminActivationDesk.checkedAt||'')>=120000)return false;
+ const desk=adminActivationDesk.data?.adsPsp;
+ const row=desk?.rows?.find(x=>x.merchantId===merchantId);
+ if(desk?.platformPspConfigured!==true||
+   !['checkout_ready','payment_approved'].includes(row?.checkout?.status))return false;
+ try{
+  const result=await adminPerform('ads-psp-discover',{merchantId});
+  const allowed=['approval_candidate','reversal_candidate','unchanged','not_found','manual_review','pending_or_review'];
+  if(result?.source!=='admin_ads_psp_discovery_v1_315'||result.merchantId!==merchantId||
+    result.externalReference!==row.checkout.externalReference||
+    result.adsLive!==false||result.merchantBillingSeparate!==true||
+    result.providerEvidenceRecorded!==false||
+    !allowed.includes(result.status)||
+    !Number.isSafeInteger(result.candidateCount)||result.candidateCount<0)
+   throw new Error('A busca financeira não foi confirmada pelo servidor.');
+  if(result.status==='not_found'){
+   toast('Nenhum pagamento encontrado nesta consulta; isso não comprova ausência de pagamento. Tente novamente ou confira pelo Mercado Pago.');
+   return false;
+  }
+  if(result.status==='manual_review'){
+   toast('Há múltiplos pagamentos ou resultados ambíguos. Nenhum pagamento foi marcado como recebido. Confira os IDs diretamente no provedor.');
+   return false;
+  }
+  if(result.status==='unchanged'){
+   toast('O pagamento continua aprovado na consulta atual, sujeito a estornos posteriores. Nenhuma nova movimentação.');
+   return true;
+  }
+  if(result.status==='pending_or_review'){
+   toast('Pagamento localizado, mas ainda não possui estado compatível com aprovação integral ou estorno comprovado.');
+   return false;
+  }
+  const paymentId=String(result.paymentId||'');
+  if(!/^[0-9]{5,30}$/.test(paymentId))throw new Error('Identificador do pagamento inválido.');
+  const targetStatus=result.status==='approval_candidate'?'payment_approved':'payment_reversed';
+  const operationDescription=targetStatus==='payment_approved'?'aprovação integral':'estorno/contestação';
+  if(!confirm('Mercado Pago encontrou um candidato a '+operationDescription+
+    ' do pagamento '+paymentId+'. Confirmar a conciliação com uma nova consulta de segurança ao provedor?'))return false;
+  const verified=await adminPerform('ads-psp-action',{
+   merchantId,operation:'reconcile',paymentId,requestId:crypto.randomUUID()
+  });
+  if(verified?.source!=='admin_ads_psp_reconcile_v1_314'||verified.merchantId!==merchantId||
+    verified.paymentId!==paymentId||verified.status!==targetStatus||
+    verified.verifiedFromProvider!==true||verified.adsLive!==false)
+   throw new Error('A conciliação final não foi confirmada pelo provedor e pelo banco.');
+  adminActivationDesk.data=null;
+  const fresh=await adminActivationLoad({force:true});
+  const updated=fresh?.adsPsp?.rows?.find(x=>x.merchantId===merchantId)?.checkout;
+  if(!updated||updated.status!==targetStatus||updated.paymentId!==paymentId)
+   throw new Error('Pagamento conferido, mas a leitura posterior do livro financeiro ainda não foi confirmada.');
+  toast(targetStatus==='payment_approved'?
+   'Pagamento integral confirmado no provedor. Publicação dos anúncios permanece bloqueada.':
+   'Estorno/contestação confirmado no provedor. Nenhuma publicidade foi liberada.');
+  return true;
+ }catch(e){
+  adminActivationDesk.data=null;await adminActivationLoad({force:true});
+  toast(String(e?.message||e));return false;
+ }
+}
+
 async function adminAdsPspAction(merchantId,operation){
  if(!adminReady()||adminCurrentRole()!=='superadmin'||adminActivationDesk.loading||
   !['create','reconcile'].includes(operation))return false;
