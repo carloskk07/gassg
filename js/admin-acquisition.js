@@ -3266,6 +3266,8 @@ async function adminPayoutGlobalLoadFromUi(offset=0,recoveryAttempted=false){
       throw new Error('Visão geral das pendências não validada.');
     if(actor===String(adminRuntime?.session?.user?.id||'')&&
        role===String(adminCurrentRole())){
+      if(offset>0&&d.activeClaims<=offset&&d.rows.length===0&&recoveryAttempted)
+        throw new Error('A fila mudou durante a navegação. Atualize a visão geral.');
       if(offset>0&&d.activeClaims<=offset&&d.rows.length===0&&!recoveryAttempted){
         // The queue can shrink after an owner closes its final case. Never
         // leave the operator stranded on a valid but now-empty OFFSET page.
