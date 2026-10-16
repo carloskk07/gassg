@@ -4036,3 +4036,120 @@ body:has(.admin-page) .admin-nav-item:focus-visible{outline-offset:-3px}
 @media(prefers-reduced-motion:reduce){
  .home-editorial-visual *, .merchant-landing-premium *, .home-discover *{animation:none!important;scroll-behavior:auto!important}
 }
+
+
+/* TAMÃO V1.348 — a clearer daily workspace and a human-centered network story. */
+.merchant-workspace-header{
+ display:grid;grid-template-columns:minmax(0,1.1fr) minmax(255px,.9fr);
+ align-items:stretch;gap:clamp(16px,3vw,32px);
+ padding:clamp(19px,3vw,33px);
+ background:radial-gradient(circle at 100% 0,rgba(249,201,105,.15),transparent 50%),
+ linear-gradient(130deg,#062e24,#095d43);
+ border:1px solid rgba(255,255,255,.12);
+ overflow:hidden;isolation:isolate
+}
+.merchant-workspace-identity{display:flex;flex-direction:column;justify-content:center;min-width:0}
+.merchant-workspace-identity-meta{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.merchant-workspace-identity-meta .status-pill{margin:0;font-weight:850;flex:none}
+.merchant-workspace-identity h1{margin:18px 0 8px;font-size:clamp(24px,3.3vw,40px);
+ line-height:1.13;overflow-wrap:anywhere}
+.merchant-workspace-welcome{font-size:clamp(13px,1.6vw,16px);line-height:1.6;
+ color:#dcf2e5;margin:0;max-width:43ch}
+.merchant-workspace-readonly{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:23px}
+.merchant-workspace-readonly span{font-size:12px;font-weight:750;
+ padding:9px 12px;border-radius:999px;background:rgba(255,255,255,.09);
+ border:1px solid rgba(255,255,255,.14);color:#e3f5e9}
+.merchant-workspace-readonly strong{font-size:16px;color:#ffdf93;font-variant-numeric:tabular-nums}
+.merchant-workspace-orientation{display:flex;flex-direction:column;align-items:flex-start;
+ justify-content:center;min-width:0;gap:10px;padding:clamp(18px,2.5vw,25px);
+ border:1px solid rgba(255,255,255,.18);border-radius:20px;
+ background:linear-gradient(147deg,rgba(255,255,255,.16),rgba(255,255,255,.07));
+ box-shadow:0 16px 30px rgba(0,20,14,.09)}
+.merchant-orientation-eyebrow{font-size:10px;font-weight:900;letter-spacing:.14em;color:#f8db8f}
+.merchant-workspace-orientation>strong{font-size:clamp(18px,2.4vw,25px);line-height:1.2;letter-spacing:-.035em}
+.merchant-workspace-orientation p{font-size:12px;line-height:1.65;color:#e0f1e6;margin:0}
+.merchant-orientation-action{display:inline-flex;align-items:center;gap:9px;justify-content:space-between;
+ margin-top:3px;min-height:46px;padding:11px 16px;border:1px solid #ffdf97;
+ background:#ffdc8b;color:#17422f;border-radius:12px;font-size:13px;font-weight:850;
+ text-align:left}
+.merchant-orientation-action:hover{background:#ffe7ae}
+.merchant-orientation-action:focus-visible{outline:3px solid white;outline-offset:3px}
+.merchant-workspace-orientation--blocked{border-color:#edc29a}
+.merchant-workspace-orientation--attention{border-color:#f8d69b}
+.merchant-workspace-orientation--ready{border-color:#91d4ac}
+.merchant-workspace-shortcuts{grid-template-columns:repeat(auto-fit,minmax(min(100%,148px),1fr));
+ gap:10px;margin-bottom:18px}
+.merchant-workspace-shortcut{min-width:0;min-height:107px;position:relative;justify-content:flex-start;
+ border-radius:18px;padding:16px;transition:border-color .18s ease,box-shadow .18s ease,transform .18s ease}
+.merchant-workspace-shortcut .merchant-shortcut-icon{display:grid;place-items:center;
+ width:38px;height:38px;border-radius:12px;background:#f0f8f2;color:#126047;font-size:22px}
+.merchant-workspace-shortcut.is-primary .merchant-shortcut-icon{background:#cfedd8}
+.merchant-workspace-shortcut strong{line-height:1.32;font-size:14px}
+.merchant-workspace-shortcut small{margin-top:auto;line-height:1.48;font-size:11px}
+.merchant-workspace-shortcut:hover{border-color:#9fceb1;box-shadow:0 11px 24px rgba(14,82,49,.1);transform:translateY(-2px)}
+.merchant-workspace-shortcut:focus-visible{outline:3px solid #d89e34;outline-offset:3px}
+.merchant-shortcut-growth{background:linear-gradient(145deg,#fffefa,#f2f9f4);border-color:#b8ddc7}
+.merchant-shortcut-growth .merchant-shortcut-icon{background:#fceac1}
+.merchant-workspace #merchant-live-orders{scroll-margin-top:96px}
+.merchant-workspace #merchant-live-orders h2:focus{outline:none}
+.merchant-workspace-section{scroll-margin-top:96px}
+.merchant-workspace-section>summary:focus-visible{outline:3px solid #b48221;outline-offset:-3px}
+.tamao-network-hero{display:grid;grid-template-columns:minmax(0,1.06fr) minmax(0,.94fr);
+ gap:clamp(20px,3vw,40px);align-items:stretch;padding:clamp(20px,4vw,42px);
+ background:radial-gradient(circle at 6% 0,rgba(249,210,131,.27),transparent 40%),
+ linear-gradient(135deg,#fffefb,#f0f8f3);border:1px solid #dce9df;
+ border-radius:30px;box-shadow:0 18px 45px rgba(16,63,39,.07);margin:17px 0 28px}
+.tamao-network-intro{display:flex;flex-direction:column;align-items:flex-start;justify-content:center;min-width:0}
+.tamao-network-intro .page-title{font-size:clamp(30px,4vw,51px);line-height:1.08;
+ letter-spacing:-.05em;margin:18px 0 13px;max-width:750px}
+.tamao-network-intro .page-lead{font-size:clamp(14px,1.7vw,17px);line-height:1.72;max-width:620px}
+.tamao-network-intro .conversion-mini-proof{margin-top:19px}
+.tamao-network-hero-actions{display:flex;gap:10px;flex-wrap:wrap;margin-top:10px;width:100%}
+.tamao-network-hero-actions button{min-height:52px}
+.tamao-network-illustration{display:flex;flex-direction:column;position:relative;isolation:isolate;
+ min-width:0;min-height:370px;overflow:hidden;border-radius:25px;
+ background:radial-gradient(circle at 76% 15%,#167e5e,transparent 45%),
+ linear-gradient(145deg,#073a2d,#095a42);padding:clamp(21px,3vw,29px);color:white}
+.tamao-network-illustration-kicker{font-weight:900;letter-spacing:.16em;color:#c4ecd6;font-size:10px}
+.tamao-network-illustration h2{color:white;font-size:clamp(21px,2.8vw,31px);
+ line-height:1.2;letter-spacing:-.035em;margin:12px 0 10px}
+.tamao-network-illustration h2 em{font-style:normal;color:#f8d28a}
+.tamao-network-connections{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:13px;
+ position:relative;align-content:center;flex:1;margin:14px 0;min-width:0}
+.tamao-network-center{grid-column:1/-1;justify-self:center;display:flex;align-items:center;gap:8px;
+ padding:12px 17px;background:#ffdb8b;color:#164431;border-radius:15px;
+ box-shadow:0 13px 22px rgba(0,0,0,.18);position:relative;z-index:1;font-size:13px}
+.tamao-network-node{display:flex;flex-direction:column;align-items:center;text-align:center;gap:5px;
+ min-width:0;min-height:82px;border:1px solid rgba(255,255,255,.23);
+ background:rgba(255,255,255,.10);border-radius:15px;padding:13px 8px}
+.tamao-network-node span{font-size:24px}.tamao-network-node strong{font-size:12px}
+.tamao-network-center span{font-size:22px}
+.tamao-network-illustration>p{font-size:11px;line-height:1.6;color:#cce6da;margin:5px 0 0}
+.tamao-network-choice-head{margin:15px 0 10px}
+.tamao-network-choice-head h2{font-size:clamp(22px,3vw,30px);letter-spacing:-.04em;margin:7px 0 0}
+.tamao-earn-page>.tamao-cro-paths{margin-top:0}
+@media(max-width:940px){
+ .tamao-network-hero{grid-template-columns:minmax(0,1fr)}
+ .tamao-network-illustration{min-height:300px}
+ .merchant-workspace-header{grid-template-columns:minmax(0,1fr)}
+ .merchant-workspace-orientation{max-width:none}
+}
+@media(max-width:540px){
+ .merchant-workspace-header{gap:15px;padding:17px;border-radius:19px}
+ .merchant-workspace-identity h1{margin-top:10px;font-size:clamp(23px,7vw,31px)}
+ .merchant-workspace-readonly{margin-top:14px}
+ .merchant-workspace-orientation{border-radius:16px;padding:16px}
+ .merchant-workspace-shortcuts{grid-template-columns:repeat(2,minmax(0,1fr));gap:9px}
+ .merchant-workspace-shortcut{min-height:114px;padding:11px;border-radius:15px}
+ .merchant-workspace-shortcut .merchant-shortcut-icon{width:34px;height:34px}
+ .merchant-workspace-shortcut strong{font-size:13px}
+ .merchant-workspace-shortcut small{font-size:11px}
+ .tamao-network-hero{padding:16px;gap:17px;border-radius:21px;margin-top:11px}
+ .tamao-network-intro .page-title{font-size:clamp(29px,8vw,38px)}
+ .tamao-network-hero-actions{display:grid;grid-template-columns:minmax(0,1fr);gap:8px}
+ .tamao-network-hero-actions button{width:100%}
+ .tamao-network-illustration{padding:18px;min-height:310px;border-radius:18px}
+}
+@media(max-width:345px){.merchant-workspace-shortcuts{grid-template-columns:minmax(0,1fr)}}
+@media(prefers-reduced-motion:reduce){.merchant-workspace-shortcut{transition:none}
+ .merchant-workspace-shortcut:hover{transform:none}}
