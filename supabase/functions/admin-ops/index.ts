@@ -101,7 +101,7 @@ async function requireAdmin(admin:any,userId:string){
   if(!data)throw new DomainError("ADMIN_ACCESS_DENIED","Esta conta não possui acesso administrativo.",403);
   return data;
 }
-const ADMIN_READ_ACTIONS=new Set(["governance-gates","commercial-intake-read","ads-sales-plans","ads-offers-read","ads-dossiers-read","ads-instruments-read","ads-receivables-read","ads-psp-read","ads-mp-inbox-read","ads-mp-triage-read","ads-psp-freshness-read","ads-psp-merchant-reviews","ads-launch-readiness","ads-leads-read","ads-assistance-read","ads-contact-reports-read","ads-contact-feedback-read","ads-feedback-returns-read","ads-return-execution-read","ads-return-closeout-read","summary","search","entity-detail","system-health","billing-provider-health","audit-search","incident-list","merchant-payment-preflight","prospect-intelligence","expansion-notifications","expansion-radar","merchant-enablement","sale-payment-history","finance-receipts-history","commercial-history-list","operational-alerts","ads-demand","clube-interest-queue","clube-campaign-queue","clube-terms-queue","owner-funding-read","owner-funding-pulse","owner-evidence-queue","owner-budget-queue","owner-finance-history","owner-campaign-signals","owner-campaign-orders","owner-campaign-fee-receipts","owner-campaign-batch-ledger","owner-campaign-financial-summary","owner-campaign-benefit-costs","owner-wallet-reconciliation","owner-cashback-source-lots","owner-referral-lifecycle","owner-benefit-payout-read","owner-benefit-proofs-read","owner-benefit-proof-view","owner-benefit-proof-verify","owner-payout-provider-read","owner-payout-provider-page","owner-recipient-proof-readiness","owner-multi-psp-hub","owner-campaign-orphan-audit","owner-orphan-cleanup-candidates","owner-campaign-cost-read","owner-campaign-receipts-read","owner-campaign-receipt-view","ads-audience-readiness","ads-preview-summary","ads-placement-readiness","ads-pilot-preflight","commercial-activation","ads-campaign-queue","growth-referral-review-queue"]);
+const ADMIN_READ_ACTIONS=new Set(["governance-gates","commercial-intake-read","ads-sales-plans","ads-offers-read","ads-dossiers-read","ads-instruments-read","ads-receivables-read","ads-psp-read","ads-mp-inbox-read","ads-mp-triage-read","ads-psp-freshness-read","ads-psp-merchant-reviews","ads-launch-readiness","ads-leads-read","ads-assistance-read","ads-contact-reports-read","ads-contact-feedback-read","ads-feedback-returns-read","ads-return-execution-read","ads-return-closeout-read","summary","search","entity-detail","system-health","billing-provider-health","audit-search","incident-list","merchant-payment-preflight","prospect-intelligence","expansion-notifications","expansion-radar","merchant-enablement","sale-payment-history","finance-receipts-history","commercial-history-list","operational-alerts","ads-demand","clube-interest-queue","clube-campaign-queue","clube-terms-queue","owner-funding-read","owner-funding-pulse","owner-evidence-queue","owner-budget-queue","owner-finance-history","owner-campaign-signals","owner-campaign-orders","owner-campaign-fee-receipts","owner-campaign-batch-ledger","owner-campaign-financial-summary","owner-campaign-benefit-costs","owner-wallet-reconciliation","owner-cashback-source-lots","owner-referral-lifecycle","owner-benefit-payout-read","owner-benefit-proofs-read","owner-benefit-proof-view","owner-benefit-proof-verify","owner-payout-provider-read","owner-payout-provider-page","owner-payout-review-read","owner-recipient-proof-readiness","owner-multi-psp-hub","owner-campaign-orphan-audit","owner-orphan-cleanup-candidates","owner-campaign-cost-read","owner-campaign-receipts-read","owner-campaign-receipt-view","ads-audience-readiness","ads-preview-summary","ads-placement-readiness","ads-pilot-preflight","commercial-activation","ads-campaign-queue","growth-referral-review-queue"]);
 const ADMIN_ROLE_ACTIONS:Record<string,Set<string>>={
   superadmin:new Set(["*"]),
   operations:new Set([
@@ -3133,6 +3133,68 @@ Deno.serve(async(req:Request)=>{
              x.providerTransactionSuccess!==null)))||
          data.rows.some((x:any,i:number)=>i>0&&data.rows[i-1].priority>x.priority)
       )throw new DomainError("PAYOUT_PAGE_HISTORY_INVALID","Página de conciliação não validada.",503);
+      return json(data,200,origin);
+    }
+    // V1.337 — administrative journal only; never signifies a bank transfer.
+    if(action==="owner-payout-review-read"){
+      if(!["superadmin","finance"].includes(String(adminAccess.admin_role)))
+        throw new DomainError("ADMIN_PERMISSION_DENIED","Histórico restrito à gestão financeira.",403);
+      const claimId=String(body.claimId||"");
+      if(!UUID_RE.test(claimId))
+        throw new DomainError("PAYOUT_REVIEW_CLAIM_INVALID","Declaração inválida.",400);
+      const {data,error}=await admin.rpc("admin_owner_payout_review_read_v1_337",{
+        p_actor:user.id,p_claim:claimId
+      });
+      if(error)throw error;
+      const states=["not_started","in_review","awaiting_evidence",
+        "reviewed_no_bank_proof","closed_administrative"];
+      if(data?.source!=="admin_payout_review_history_v1_337"||
+        data?.claimId!==claimId||data?.readOnly!==true||
+        data?.administrativeOnly!==true||data?.bankSettlementVerified!==false||
+        data?.recipientVerified!==false||data?.moneyMoved!==false||
+        !states.includes(data?.currentAdministrativeState)||
+        !Number.isSafeInteger(data?.totalEvents)||data.totalEvents<0||
+        data?.limit!==100||data?.truncated!==(data.totalEvents>100)||
+        !Array.isArray(data?.events)||data.events.length>100||
+        data.events.length>data.totalEvents||
+        data.events.some((e:any)=>!e||!/^[1-9][0-9]*$/.test(String(e.eventId||""))||
+          !UUID_RE.test(String(e.actorId||""))||
+          !states.slice(1).includes(e.reviewState)||
+          typeof e.justification!=="string"||
+          e.justification.trim().length<20||e.justification.length>1000||
+          !Number.isFinite(Date.parse(String(e.recordedAt||""))))||
+        data.events.some((e:any,i:number)=>i>0&&
+          BigInt(data.events[i-1].eventId)<=BigInt(e.eventId))||
+        ((data.totalEvents===0)!==(data.currentAdministrativeState==="not_started"))||
+        (data.events.length>0&&data.events[0].reviewState!==data.currentAdministrativeState))
+        throw new DomainError("PAYOUT_REVIEW_HISTORY_INVALID","Histórico administrativo não validado.",503);
+      return json(data,200,origin);
+    }
+    if(action==="owner-payout-review-record"){
+      if(String(adminAccess.admin_role)!=="superadmin")
+        throw new DomainError("ADMIN_PERMISSION_DENIED","Registro reservado ao administrador principal.",403);
+      const claimId=String(body.claimId||"");
+      const requestId=String(body.requestId||"");
+      const reviewState=String(body.reviewState||"");
+      const justification=String(body.justification??"").trim();
+      const states=["in_review","awaiting_evidence","reviewed_no_bank_proof",
+        "closed_administrative"];
+      if(!UUID_RE.test(claimId)||!UUID_RE.test(requestId)||
+         !states.includes(reviewState)||justification.length<20||justification.length>1000)
+        throw new DomainError("PAYOUT_REVIEW_INPUT_INVALID","Informe situação e justificativa de 20 a 1000 caracteres.",400);
+      const {data,error}=await admin.rpc("admin_owner_payout_review_record_v1_337",{
+        p_actor:user.id,p_claim:claimId,p_request:requestId,
+        p_state:reviewState,p_justification:justification
+      });
+      if(error)throw error;
+      if(data?.source!=="admin_payout_review_record_v1_337"||
+         data?.claimId!==claimId||data?.requestId!==requestId||
+         data?.reviewState!==reviewState||data?.justification!==justification||
+         !/^[1-9][0-9]*$/.test(String(data?.eventId||""))||
+         !Number.isFinite(Date.parse(String(data?.recordedAt||"")))||
+         data?.administrativeOnly!==true||data?.moneyMoved!==false||
+         data?.bankSettlementVerified!==false||data?.recipientVerified!==false)
+        throw new DomainError("PAYOUT_REVIEW_RECORD_INVALID","Registro administrativo não validado.",503);
       return json(data,200,origin);
     }
     // V1.264 — owner-authenticated private proof upload, byte-checked on server.
