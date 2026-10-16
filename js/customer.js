@@ -392,6 +392,7 @@ function home(){
       ||preview
       ||!ready
       ||!market
+      ||market?.realSupplyConfigured===false
       ||liveProductCodes.has(code)
     ))
     .sort(([,a],[,b])=>
@@ -506,7 +507,7 @@ function home(){
 ${discoveryTiles?`<section id="home-discover" class="home-discover" aria-label="Explore os produtos do TAMÃO">
   <div class="home-discover-heading"><div><span class="section-kicker">O ESSENCIAL EM UM SÓ LUGAR</span>
     <h2 tabindex="-1">O que está faltando por aí?</h2>
-    <p>Escolha um produto para montar sua cesta. Preços finais e entregas dependem da sua região.</p></div>
+    <p>${!ready||market?.realSupplyConfigured===false?'Explore o catálogo de possibilidades. A disponibilidade é confirmada no seu CEP, antes de qualquer pedido.':'Escolha um produto para montar sua cesta. Preços finais e entregas dependem da sua região.'}</p></div>
     <button type="button" class="home-discover-all" onclick="startCustomerAvailability()">Continuar para a cesta <span aria-hidden="true">→</span></button></div>
   <div class="home-discover-filter" role="group" aria-label="Filtrar produtos por categoria">${discoveryFilters}</div>
   <p id="home-discover-status" class="home-discover-status" role="status">${Math.min(6,discoveryEntries.length)} produtos em destaque. Selecione uma categoria para explorar outras opções.</p>
