@@ -227,7 +227,7 @@ assert.ok(growth.includes('A comissão é calculada sobre a primeira compra vál
 assert.ok(growth.includes('Compras posteriores não geram outra comissão de aquisição'),'marketing não pode sugerir comissão recorrente do mesmo indicado');
 assert.ok(growth.includes('validação das contas envolvidas'),'marketing deve expor o gate real de identidade para maturação');
 assert.ok(!growth.includes('disabled>Saque Pix ainda não disponível')&&growth.includes('Os meios de recebimento são informados na conta conforme a disponibilidade.'),'UI não pode fingir saque ainda inexistente');
-assert.ok(growth.includes('continua no comando')&&growth.includes('você define')||growth.includes('continua no comando')&&growth.includes('Você decide'),'landing de revenda deve enfatizar autonomia operacional');
+assert.ok(growth.includes('Você decide preços, estoque, formas de pagamento, disponibilidade e entrega.')||growth.includes('continua no comando')&&growth.includes('Você decide'),'landing de revenda deve enfatizar autonomia operacional');
 assert.ok(core.includes("['earn','💰','Ganhe','go']"),'navegação móvel precisa dar acesso direto ao hub de renda');
 assert.ok(!growth.includes('inputmode="numeric" maxlength="18"'),'campo CNPJ não pode forçar teclado somente numérico após adoção do CNPJ alfanumérico');
 assert.ok(sw.includes("CACHE='tamao-sg-v1.291'"),'cache do service worker precisa refletir a geração PWA auditada');
