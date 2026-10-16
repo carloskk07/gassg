@@ -48,7 +48,8 @@ async function adminActivationLoad({force=false}={}){
           Array.isArray(d.rows)&&d.rows.length<=50&&d.rows.every(x=>
             /^[0-9a-f-]{36}$/i.test(String(x.merchantId))&&
             Number.isSafeInteger(x.assistanceVersion)&&x.assistanceVersion>0&&
-            typeof x.consentCurrent==='boolean'&&Number.isSafeInteger(x.attemptsCount)&&
+            typeof x.consentCurrent==='boolean'&&typeof x.merchantName==='string'&&
+            Number.isSafeInteger(x.attemptsCount)&&
             (!x.lastAttempt||x.lastAttempt.independentlyVerified===false)):
         key==='adsAssistance'?d.readOnly===true&&d.contactPerformed===false&&
           d.messagesSent===0&&d.adsLive===false&&d.paymentCreated===false&&
@@ -1322,7 +1323,7 @@ function adminAdsContactsView(){
    '<label>Data do retorno (somente se solicitado)<input class="input" type="date" id="ads-contact-'+id+'-date"></label>'+
    '<button type="button" class="secondary small" onclick="adminAdsContactRecord(\''+id+'\')">Registrar atendimento manual</button></div>':'';
   return '<article class="admin-activation-card admin-ads-contact-card">'+
-   '<div class="admin-activation-card-head"><strong>'+esc(x.merchantId)+
+   '<div class="admin-activation-card-head"><strong>'+esc(x.merchantName||'Revenda')+
    '</strong><span class="status-pill">Consentimento atual</span></div>'+
    '<p>Canal solicitado: '+esc(({whatsapp:'WhatsApp',phone:'Telefone',email:'E-mail'})[x.preferredChannel]||'—')+
    ' • Relatos registrados: '+Number(x.attemptsCount)+'</p>'+
