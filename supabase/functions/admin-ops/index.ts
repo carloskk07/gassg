@@ -101,7 +101,7 @@ async function requireAdmin(admin:any,userId:string){
   if(!data)throw new DomainError("ADMIN_ACCESS_DENIED","Esta conta não possui acesso administrativo.",403);
   return data;
 }
-const ADMIN_READ_ACTIONS=new Set(["governance-gates","commercial-intake-read","ads-sales-plans","ads-offers-read","ads-dossiers-read","ads-instruments-read","ads-receivables-read","ads-psp-read","ads-mp-inbox-read","ads-mp-triage-read","summary","search","entity-detail","system-health","billing-provider-health","audit-search","incident-list","merchant-payment-preflight","prospect-intelligence","expansion-notifications","expansion-radar","merchant-enablement","sale-payment-history","finance-receipts-history","commercial-history-list","operational-alerts","ads-demand","clube-interest-queue","clube-campaign-queue","clube-terms-queue","owner-funding-read","owner-funding-pulse","owner-evidence-queue","owner-budget-queue","owner-finance-history","owner-campaign-signals","owner-campaign-orders","owner-campaign-fee-receipts","owner-campaign-batch-ledger","owner-campaign-financial-summary","owner-campaign-benefit-costs","owner-wallet-reconciliation","owner-cashback-source-lots","owner-referral-lifecycle","owner-benefit-payout-read","owner-benefit-proofs-read","owner-benefit-proof-view","owner-benefit-proof-verify","owner-payout-provider-read","owner-recipient-proof-readiness","owner-multi-psp-hub","owner-campaign-orphan-audit","owner-orphan-cleanup-candidates","owner-campaign-cost-read","owner-campaign-receipts-read","owner-campaign-receipt-view","ads-audience-readiness","ads-preview-summary","ads-placement-readiness","ads-pilot-preflight","commercial-activation","ads-campaign-queue","growth-referral-review-queue"]);
+const ADMIN_READ_ACTIONS=new Set(["governance-gates","commercial-intake-read","ads-sales-plans","ads-offers-read","ads-dossiers-read","ads-instruments-read","ads-receivables-read","ads-psp-read","ads-mp-inbox-read","ads-mp-triage-read","ads-psp-freshness-read","summary","search","entity-detail","system-health","billing-provider-health","audit-search","incident-list","merchant-payment-preflight","prospect-intelligence","expansion-notifications","expansion-radar","merchant-enablement","sale-payment-history","finance-receipts-history","commercial-history-list","operational-alerts","ads-demand","clube-interest-queue","clube-campaign-queue","clube-terms-queue","owner-funding-read","owner-funding-pulse","owner-evidence-queue","owner-budget-queue","owner-finance-history","owner-campaign-signals","owner-campaign-orders","owner-campaign-fee-receipts","owner-campaign-batch-ledger","owner-campaign-financial-summary","owner-campaign-benefit-costs","owner-wallet-reconciliation","owner-cashback-source-lots","owner-referral-lifecycle","owner-benefit-payout-read","owner-benefit-proofs-read","owner-benefit-proof-view","owner-benefit-proof-verify","owner-payout-provider-read","owner-recipient-proof-readiness","owner-multi-psp-hub","owner-campaign-orphan-audit","owner-orphan-cleanup-candidates","owner-campaign-cost-read","owner-campaign-receipts-read","owner-campaign-receipt-view","ads-audience-readiness","ads-preview-summary","ads-placement-readiness","ads-pilot-preflight","commercial-activation","ads-campaign-queue","growth-referral-review-queue"]);
 const ADMIN_ROLE_ACTIONS:Record<string,Set<string>>={
   superadmin:new Set(["*"]),
   operations:new Set([
@@ -4529,6 +4529,40 @@ Deno.serve(async(req:Request)=>{
     if(action==="entity-detail"){
       return json(await adminEntityDetail(admin,body.entityType,body.entityId,String(adminAccess.admin_role||"superadmin")),200,origin);
     }
+    if(action==="ads-psp-freshness-read"){
+      if(!["superadmin","operations","readonly"].includes(String(adminAccess.admin_role||"")))
+        throw new DomainError("ADMIN_PERMISSION_DENIED","Riscos de conciliação não autorizados.",403);
+      const {data,error}=await admin.rpc("admin_ads_psp_freshness_v1_318",{p_actor:user.id});
+      if(error)throw error;
+      if(data?.source!=="admin_ads_psp_freshness_v1_318"||
+        data.readOnly!==true||data.snapshotOnly!==true||
+        data.automaticReconciliation!==false||data.paymentStateChanged!==false||
+        data.adsLive!==false||data.merchantBillingSeparate!==true||
+        !Number.isSafeInteger(data.totalCheckouts)||data.totalCheckouts<0||
+        !Number.isSafeInteger(data.needsReview)||data.needsReview<0||
+        !Number.isSafeInteger(data.urgentCount)||data.urgentCount<0||
+        !Number.isSafeInteger(data.staleApprovals)||data.staleApprovals<0||
+        !Number.isSafeInteger(data.overdueUnconfirmed)||data.overdueUnconfirmed<0||
+        !Number.isSafeInteger(data.stalledReservations)||data.stalledReservations<0||
+        !Array.isArray(data.rows)||data.rows.length>50||
+        data.rows.some((x:any)=>!x||!UUID_RE.test(String(x.merchantId||""))||
+          !Number.isSafeInteger(x.checkoutVersion)||x.checkoutVersion<1||
+          !Number.isSafeInteger(x.amountCents)||x.amountCents<1000||
+          ![1,2,3].includes(x.priority)||
+          !["possible_reversal","activity_after_reversal",
+            "stale_approved_verification","stalled_reservation",
+            "overdue_unconfirmed_checkout","observed_approval_not_reconciled",
+            "approval_due_for_refresh","informational"].includes(x.reason)||
+          !["reserved","checkout_ready","payment_approved","payment_reversed"].includes(x.checkoutStatus)||
+          typeof x.canRequestProviderCheck!=="boolean"||
+          (x.paymentId!==null&&!/^[0-9]{5,30}$/.test(String(x.paymentId)))||
+          (x.inboxPaymentId!==null&&!/^[0-9]{5,30}$/.test(String(x.inboxPaymentId)))||
+          (x.hoursSinceVerified!==null&&
+            (!Number.isSafeInteger(x.hoursSinceVerified)||x.hoursSinceVerified<0))))
+        throw new DomainError("ADS_PSP_FRESHNESS_UNVERIFIED",
+          "Evidências de revisão não confirmadas.",503);
+      return json(data,200,origin);
+    }
     if(action==="ads-mp-triage-read"){
       if(!["superadmin","operations","readonly"].includes(String(adminAccess.admin_role||"")))
         throw new DomainError("ADMIN_PERMISSION_DENIED","Priorização financeira não autorizada.",403);
@@ -5129,7 +5163,8 @@ Deno.serve(async(req:Request)=>{
         payment?.currency_id!=="BRL"||cents!==checkout.amountCents)
         throw new DomainError("ADS_PSP_PAYMENT_MISMATCH","O pagamento não pertence a este checkout de publicidade.",403);
       const operationDb=status==="approved"&&detail==="accredited"&&checkout.status==="checkout_ready"
-        ?"verify":((["refunded","charged_back"].includes(status)||
+        ?"verify":status==="approved"&&detail==="accredited"&&checkout.status==="payment_approved"
+        ?"refresh":((["refunded","charged_back"].includes(status)||
             (status==="approved"&&detail==="partially_refunded"))&&
             checkout.status==="payment_approved"?"reverse":null);
       if(!operationDb)throw new DomainError("ADS_PSP_PAYMENT_NOT_CONFIRMABLE",
@@ -5137,18 +5172,29 @@ Deno.serve(async(req:Request)=>{
       const payload={payment_id:paymentId,status,status_detail:detail,
         external_reference:checkout.externalReference,
         collector_id:sellerId,currency_id:"BRL",amount_cents:String(cents)};
-      const saved=await admin.rpc("admin_ads_psp_action_v1_314",{
-        p_actor:user.id,p_merchant:merchantId,p_operation:operationDb,
-        p_expected_version:checkout.version,
-        p_preference_id:null,p_checkout_url:null,p_collector_id:null,
-        p_payment_data:payload,p_request:uuid(body.requestId,"requestId")
-      });
+      const saved=operationDb==="refresh"
+        ?await admin.rpc("admin_ads_psp_refresh_v1_318",{
+          p_actor:user.id,p_merchant:merchantId,p_expected_version:checkout.version,
+          p_payment_data:payload,p_request:uuid(body.requestId,"requestId")
+        })
+        :await admin.rpc("admin_ads_psp_action_v1_314",{
+          p_actor:user.id,p_merchant:merchantId,p_operation:operationDb,
+          p_expected_version:checkout.version,
+          p_preference_id:null,p_checkout_url:null,p_collector_id:null,
+          p_payment_data:payload,p_request:uuid(body.requestId,"requestId")
+        });
       if(saved.error)throw saved.error;
-      if(saved.data?.source!=="admin_ads_psp_action_v1_314"||
-        saved.data.status!==(operationDb==="verify"?"payment_approved":"payment_reversed"))
+      const nextState=operationDb==="reverse"?"payment_reversed":"payment_approved";
+      if(saved.data?.source!==(operationDb==="refresh"
+          ?"admin_ads_psp_refresh_v1_318":"admin_ads_psp_action_v1_314")||
+        saved.data.status!==nextState||
+        !Number.isSafeInteger(saved.data.version)||saved.data.version!==checkout.version+1||
+        (operationDb==="refresh"&&(saved.data.providerRechecked!==true||
+          saved.data.noNewCharge!==true||saved.data.adsLive!==false)))
         throw new DomainError("ADS_PSP_PAYMENT_NOT_PERSISTED","Prova do pagamento não foi persistida.",503);
       return json({source:"admin_ads_psp_reconcile_v1_314",merchantId,
-        status:saved.data.status,paymentId,verifiedFromProvider:true,adsLive:false,
+        status:saved.data.status,paymentId,verifiedFromProvider:true,
+        providerSnapshotRefreshed:operationDb==="refresh",adsLive:false,
         refundReviewRequired:true},200,origin);
     }
     if(action==="ads-receivable-action"){
