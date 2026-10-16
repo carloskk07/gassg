@@ -357,6 +357,17 @@ function home(){
       Number(a.sortOrder||100)-Number(b.sortOrder||100)
       ||String(a.name||'').localeCompare(String(b.name||''),'pt-BR')
     );
+  // Discovery remains informational: only an eligible live quotation can create an order.
+  const discoveryTiles=homeProductEntries
+    .filter(([code])=>/^[A-Z][A-Z0-9_]{1,31}$/.test(code))
+    .slice(0,5).map(([code,product])=>{
+      const name=customerProductName(code,product);
+      const art=typeof tamaoProductArt==='function'
+        ?tamaoProductArt(code,product,'hero'):esc(product.icon||'🛍️');
+      return `<button type="button" class="home-discover-tile" onclick="quickProduct('${code}')" aria-label="Escolher ${esc(name)} e conferir a entrega">`+
+        `<span class="home-discover-art" aria-hidden="true">${art}</span>`+
+        `<strong>${esc(name)}</strong><span class="home-discover-action">Escolher e consultar <span aria-hidden="true">→</span></span></button>`;
+    }).join('');
   const feeBps=Number(market?.commercialPolicy?.platformFeeBps??750);
   const merchantFeeLabel=(Math.max(0,feeBps)/100).toLocaleString('pt-BR',{maximumFractionDigits:2})+'%';
   const acquisitionOpen=!testDemo&&(preview||!ready||market?.realSupplyConfigured===false
@@ -376,7 +387,7 @@ function home(){
       ||Number(globalThis.liveRuntime?.eligibleMerchantCount||0)===1));
   const firstVisitMessage=rememberedRegion
     ? 'Sua vitrine em '+rememberedRegion.city+' já está aqui. Veja os produtos e informe o CEP somente ao consultar uma entrega.'
-    : 'Explore a vitrine de preços e escolha os produtos. Você informará o CEP quando quiser conferir entregas.';
+    : 'Escolha os produtos com calma. O CEP só entra quando você quiser conferir as opções de entrega.';
   const heroJourney=singleMarket
     ? internalPilot
       ? 'Valide a jornada completa do ambiente interno: pedido, aceite, preparação, saída, chegada, pagamento e benefícios.'
@@ -398,8 +409,8 @@ function home(){
 </div></section>`;
 
   const valueBridge=`<section class="home-value-bridge" aria-label="Três maneiras de aproveitar o TAMÃO">
-    <div><strong>Comprar sem complicação</strong><p>Informe seu CEP, confira as opções disponíveis e veja valor e prazo antes de pedir.</p>
-      <button type="button" onclick="startCustomerAvailability()">Consultar meu CEP →</button></div>
+    <div><strong>Comprar sem complicação</strong><p>Escolha seus produtos, consulte a entrega pelo CEP e veja o valor final antes de pedir.</p>
+      <button type="button" onclick="startCustomerAvailability()">Escolher produtos →</button></div>
     <div><strong>Vender com mais alcance</strong><p>Sua revenda mantém o controle de preços, estoque e entregas. O TAMÃO ajuda clientes a encontrar sua empresa.</p>
       <button type="button" onclick="go('merchants')">Conhecer para revendas →</button></div>
     <div><strong>Indicar e participar</strong><p>Convide pessoas e empresas para sua rede. Acompanhe os benefícios elegíveis, de acordo com as condições aplicáveis.</p>
@@ -408,14 +419,14 @@ function home(){
   return shell(`<section class="hero marketing-hero ${conciseHome?'home-first-visit':''}"><div class="hero-grid"><div>
     <span class="eyebrow">${esc(eyebrow)}</span>
     ${rememberedRegion&&!testDemo?`<div class="local-welcome" aria-label="Sua região identificada"><span aria-hidden="true">📍</span><span><strong>Olá, ${esc(rememberedRegion.city)}!</strong><small>Consulta por CEP • ${esc(rememberedRegion.state)}. A disponibilidade depende das ofertas para seu endereço.</small></span></div>`:''}
-    <div class="hero-overline">${conciseHome?'CONSULTE ENTREGAS PERTO DE VOCÊ.':'O QUE VOCÊ PRECISA, MAIS PERTO DE CASA.'}</div>
+    <div class="hero-overline">${conciseHome?'PRIMEIRO ESCOLHA. DEPOIS, CONFIRA A ENTREGA.':'O QUE VOCÊ PRECISA, MAIS PERTO DE CASA.'}</div>
     <h1>Faltou em casa?<br><span class="hero-highlight">Tá na mão.</span></h1>
     <p class="hero-lead"><strong>Gás, água e o essencial do dia a dia, em um só lugar.</strong> ${esc(hasConfirmedCityOffers?'Já consultamos opções para o seu CEP. Confira preços e prazos atualizados antes de confirmar.':conciseHome?firstVisitMessage:outsideOriginalMarket?'Veja quais opções atendem '+regionLabel+' pelo CEP. Se não houver ofertas, você poderá solicitar um aviso.':heroJourney)}</p>
-    <div class="hero-emotional-promise"><span aria-hidden="true">✦</span><span>${conciseHome?'Consulte a disponibilidade antes de fazer um pedido.':'Confira as opções da sua região sem precisar ligar de loja em loja.'}</span></div>
+    <div class="hero-emotional-promise"><span aria-hidden="true">✦</span><span>${conciseHome?'Conheça as opções antes de informar o endereço.':'Confira as opções da sua região sem precisar ligar de loja em loja.'}</span></div>
 
     <div class="purchase-starter" aria-label="Consultar produtos e atendimento da sua região">
       <input id="home-featured-code" type="hidden" value="${esc(featuredCode)}">
-      <div class="starter-product"><div class="starter-product-icon">${typeof tamaoProductArt==="function"?tamaoProductArt(featuredCode,featuredProduct,"hero"):esc(featuredIcon)}</div><div><span class="starter-label">COMECE PELO QUE PRECISA</span><strong>${esc(featuredName)}</strong><small>${esc(featuredCode)} • Consulta por CEP</small></div><div class="starter-price"><small>CONSULTA</small><b>${priceText}</b></div></div>
+      <div class="starter-product"><div class="starter-product-icon">${typeof tamaoProductArt==="function"?tamaoProductArt(featuredCode,featuredProduct,"hero"):esc(featuredIcon)}</div><div><span class="starter-label">COMECE PELO QUE PRECISA</span><strong>${esc(featuredName)}</strong><small>${esc(featuredCode)} • Consulta por CEP</small></div><div class="starter-price"><small>${cityFeaturedPrice?'PREÇO DIVULGADO':showPublicP13Reference?'REFERÊNCIA LOCAL':'CONSULTA'}</small><b>${priceText}</b></div></div>
       <details class="starter-postal-optional"><summary>${esc(deliveryRegionHint)} <span>(opcional neste momento)</span></summary><label class="starter-address" for="home-address"><span>${testDemo?'Onde entregar?':'Onde você quer receber?'}</span><div><span aria-hidden="true">📍</span><input id="home-address" autocomplete="${testDemo?'street-address':'postal-code'}" inputmode="${testDemo?'text':'numeric'}" maxlength="${testDemo?'160':'9'}" placeholder="${testDemo?'Digite seu endereço':'Ex.: 97300-000'}" value="${esc(testDemo?(state.address||''):String(state.postalCode||'').replace(/^(\d{5})(\d{0,3}).*$/,(m,a,b)=>b?a+'-'+b:a))}" onkeydown="if(event.key==='Enter'){event.preventDefault();startCustomerAvailability()}" ${disabled&&!acquisitionOpen?'disabled':''}></div></label></details>
       <button class="primary starter-cta" onclick="${primaryAction}" ${disabled&&!acquisitionOpen?'disabled':''}>${esc(featuredIcon)} ${primaryLabel}</button>
       ${cityChecked&&!hasConfirmedCityOffers&&acquisitionOpen?`<div class="regional-action"><button class="ghost" onclick="openPrelaunchCustomerLead()">Sem opção para meu CEP? Quero receber um aviso →</button></div>`:''}
@@ -432,6 +443,14 @@ function home(){
     <div class="visual-status"><span class="visual-check">✓</span><div><strong>Você sabe quando foi confirmado</strong><small>O status “A caminho” só aparece após a saída informada pela revenda.</small></div></div>
   </div>`:''}
 </div></section>
+
+${discoveryTiles?`<section class="home-discover" aria-label="Explore os produtos do TAMÃO">
+  <div class="home-discover-heading"><div><span class="section-kicker">O ESSENCIAL EM UM SÓ LUGAR</span>
+    <h2>O que está faltando por aí?</h2>
+    <p>Escolha um produto para montar sua cesta. Preços finais e entregas dependem da sua região.</p></div>
+    <button type="button" class="home-discover-all" onclick="startCustomerAvailability()">Montar minha cesta <span aria-hidden="true">→</span></button></div>
+  <div class="home-discover-grid">${discoveryTiles}</div>
+</section>`:''}
 
 ${!testDemo&&typeof homeRegionalPriceBoard==="function"?homeRegionalPriceBoard(homeRegion):""}
 ${valueBridge}
