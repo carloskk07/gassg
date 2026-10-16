@@ -222,6 +222,8 @@ const liveRuntime={
   eligibleMerchantCount:0,
   displayedOfferCount:0,
   marketStatus:null,
+  cityPriceSnapshot:null,
+  lastCityPriceBoardAt:0,
   lastOrderTemplate:null,
   reorderPrediction:null,
   comparisonSavingsCents:0,
@@ -403,6 +405,11 @@ async function backendInit(){
     await liveSyncFinancialProfile();
     try{await liveSyncMarketStatus({force:true})}
     catch(e){console.warn('Estado do mercado real indisponível',e)}
+    // Do not hold the initial public render while waiting for optional price
+    // aggregation. Verified facts replace references as soon as they arrive.
+    liveRefreshCityPriceBoard({force:true})
+      .then(data=>{if(data&&route()==='home')render()})
+      .catch(e=>console.warn('Vitrine regional aguardando preços verificados',e));
 
     if(liveRuntime.orderId){
       try{await liveGetOrder(liveRuntime.orderId,{silent:true})}
@@ -1152,6 +1159,42 @@ async function liveSyncMarketStatus({force=false}={}){
   return liveRuntime.marketStatus;
 }
 
+
+const CUSTOMER_CITY_BOARD_REFRESH_MS=90*1000;
+async function liveRefreshCityPriceBoard({force=false}={}){
+  if(!liveReady()||!liveRuntime.client||typeof homeMarketRegion!=='function')return null;
+  const region=homeMarketRegion();
+  const city=String(region?.city||''),uf=String(region?.state||'');
+  if(!/^[\p{L}\p{M} .'-]{2,80}$/u.test(city)||!/^[A-Z]{2}$/.test(uf))return null;
+  const fresh=liveRuntime.cityPriceSnapshot;
+  if(!force&&fresh&&fresh.city===city&&fresh.state===uf&&
+     Date.now()-liveRuntime.lastCityPriceBoardAt<CUSTOMER_CITY_BOARD_REFRESH_MS)return fresh;
+  // Calling this RPC never sends CEP or street address and never creates an order.
+  const {data,error}=await liveRuntime.client.rpc('public_city_price_board_v1_341',{
+    p_city:city,p_state:uf
+  });
+  if(error)throw error;
+  if(data?.source!=='public_city_price_board_v1_341'||data?.city!==city||
+     data?.state!==uf||data?.kind!=='eligible_merchant_estimates'||
+     data?.real!==true||data?.notAQuote!==true||
+     data?.requiresPostalConfirmation!==true||
+     !Number.isSafeInteger(data?.productCount)||data.productCount<0||
+     !Array.isArray(data?.products)||data.products.length!==data.productCount||
+     data.products.length>120||
+     !Number.isFinite(Date.parse(String(data?.checkedAt||'')))||
+     data.products.some(p=>!p||!/^[A-Z][A-Z0-9_]{1,31}$/.test(String(p.code||''))||
+       !Number.isSafeInteger(p.fromCents)||p.fromCents<=0||
+       !Number.isSafeInteger(p.toCents)||p.toCents<p.fromCents||
+       !Number.isSafeInteger(p.merchantCount)||p.merchantCount<1||
+       !Number.isFinite(Date.parse(String(p.updatedAt||'')))))
+     throw new Error('Vitrine de preços da cidade não validada');
+  const nowRegion=typeof homeMarketRegion==='function'?homeMarketRegion():null;
+  if(nowRegion?.city!==city||nowRegion?.state!==uf)return null;
+  liveRuntime.cityPriceSnapshot=data;
+  liveRuntime.lastCityPriceBoardAt=Date.now();
+  return data;
+}
+
 function prelaunchExamplesEnabled(){
   if(globalThis.__CHAMA_TEST__===true)return false;
   if(liveRuntime.status==='unsafe-origin')return true;
@@ -1168,6 +1211,11 @@ async function livePoll(){
       const before=JSON.stringify(liveRuntime.marketStatus);
       await liveSyncMarketStatus();
       changed=before!==JSON.stringify(liveRuntime.marketStatus);
+      try{
+        const prev=liveRuntime.cityPriceSnapshot;
+        const result=await liveRefreshCityPriceBoard();
+        if(result&&result!==prev)changed=true;
+      }catch{}
     }catch{}
     try{
       changed=(await liveSyncFinancialProfile())||changed;
@@ -2907,6 +2955,7 @@ globalThis.liveCustomerAction=liveCustomerAction;
 globalThis.liveUpgradeAccount=liveUpgradeAccount;
 globalThis.livePoll=livePoll;
 globalThis.liveSyncMarketStatus=liveSyncMarketStatus;
+globalThis.liveRefreshCityPriceBoard=liveRefreshCityPriceBoard;
 globalThis.prelaunchExamplesEnabled=prelaunchExamplesEnabled;
 globalThis.merchantRuntime=merchantRuntime;
 globalThis.merchantPortalRequested=merchantPortalRequested;

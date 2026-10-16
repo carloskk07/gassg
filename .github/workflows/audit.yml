@@ -463,6 +463,8 @@ jobs:
         run: node tests/owner-payout-review-journal-v1-337.mjs
       - name: Admin payout followup internal deadlines V1.338 regression
         run: node tests/payout-review-followup-deadlines-v1-338.mjs
+      - name: City-first live/reference pricing V1.341 regression
+        run: node tests/customer-city-price-showcase-v1-341.mjs
       - name: Admin all-months unresolved payout queue V1.340 regression
         run: node tests/payout-global-followup-v1-340.mjs
       - name: Admin all-months payout pagination V1.341 regression

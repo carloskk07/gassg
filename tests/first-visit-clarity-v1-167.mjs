@@ -73,8 +73,8 @@ const unavailable=render({ready:false});
 assert.match(unavailable,/Consultar meu CEP/);
 assert.doesNotMatch(unavailable,/class="quick-grid"/);
 assert.doesNotMatch(unavailable,/class="hero-visual"/);
-assert.match(unavailable,/Consulta indisponível|Ofertas não verificadas/,
- 'Outage must be visible, not represented as unavailable local merchants');
+assert.match(unavailable,/Os preços de revendas aparecem após confirmação|Confira seu CEP/,
+ 'Browsing remains inviting; checkout still verifies real service availability');
 
 const withOffers=render({available:true});
 assert.doesNotMatch(withOffers,/home-first-visit/);

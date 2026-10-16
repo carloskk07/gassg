@@ -13,7 +13,39 @@ function rememberMarketRegion(region,postalCode){
   const city=String(region?.city||'').trim().slice(0,120);
   const state=String(region?.state||'').trim().toUpperCase();
   if(!/^[0-9]{8}$/.test(postal)||city.length<2||!/^[A-Z]{2}$/.test(state))return;
-  try{localStorage.setItem('tamao-market-region-v1',JSON.stringify({postalCode:postal,city,state}))}catch{}
+  try{
+    localStorage.setItem('tamao-market-region-v1',JSON.stringify({postalCode:postal,city,state}));
+    localStorage.removeItem?.(TAMAO_HOME_REGION_KEY);
+  }catch{}
+}
+
+
+const TAMAO_HOME_REGION_KEY='tamao-home-region-v1-341';
+function homeMarketRegion(){
+  // An explicit visitor choice overrides older CEP cache until the next
+  // successfully validated CEP refreshes this choice.
+  try{
+    const saved=JSON.parse(localStorage.getItem(TAMAO_HOME_REGION_KEY)||'null');
+    if(/^[A-Z]{2}$/.test(String(saved?.state||''))&&
+      /^[\p{L}\p{M} .'-]{2,80}$/u.test(String(saved?.city||'')))
+      return {city:saved.city,state:saved.state,origin:'chosen'};
+  }catch{}
+  const confirmed=rememberedMarketRegion();
+  if(confirmed)return {...confirmed,origin:'confirmed'};
+  // São Gabriel is the launch *showcase*, not a geolocation assertion.
+  return {city:'São Gabriel',state:'RS',origin:'showcase'};
+}
+function homeChooseMarketCity(){
+  const name=String(document.getElementById('home-city-name')?.value||'').trim();
+  const uf=String(document.getElementById('home-city-uf')?.value||'').trim().toUpperCase();
+  if(!/^[\p{L}\p{M} .'-]{2,80}$/u.test(name)||!/^[A-Z]{2}$/.test(uf))
+    return toast('Informe o nome da cidade e a sigla do estado.');
+  try{localStorage.setItem(TAMAO_HOME_REGION_KEY,JSON.stringify({city:name,state:uf}))}catch{}
+  // Changing a showcase never transfers cart, verified CEP, address or a quote.
+  if(globalThis.liveRuntime)globalThis.liveRuntime.cityPriceSnapshot=null;
+  render();
+  const pending=globalThis.liveRefreshCityPriceBoard?.({force:true});
+  pending?.then?.(()=>render()).catch?.(()=>{});
 }
 
 function prelaunchLeadSent(type){

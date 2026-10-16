@@ -41,6 +41,9 @@ assert.ok(!adminAcquisition.includes('Você entrou na nossa lista de abertura em
 assert.ok(acquisition.includes('rememberMarketRegion(data.region,postalCode)'),'home consome dado de CEP verificado no backend');
 assert.ok(acquisition.includes("if(type!=='customer')return saved==='1'"),'cadastros por CEP não podem ficar bloqueados por envio anterior');
 assert.ok(customer.includes('const outsideOriginalMarket='),'mercado fora da região é reconhecido');
-assert.ok(customer.includes('!outsideOriginalMarket&&('),'preço de referência São Gabriel não pode ser nacionalizado');
+assert.ok(customer.includes("homeRegion.city.toLocaleUpperCase('pt-BR')==='SÃO GABRIEL'")&&
+  customer.includes("homeRegion.state==='RS'")&&
+  customer.includes('cityPrices.length===0'),
+  'Faixa de referência P13 deve aparecer apenas em São Gabriel e sumir quando houver preços reais da cidade');
 assert.ok(customer.includes('Consultar meu CEP')&&customer.includes('startCustomerAvailability()')&&customer.includes('realSupplyConfigured===false'),'CTA nacional deve consultar a região quando há fornecimento e oferecer aviso quando não existe revenda configurada');
 console.log('V1.151: demanda nacional, ANP autenticada, consentimento por CEP e ativação comercial fechada.');

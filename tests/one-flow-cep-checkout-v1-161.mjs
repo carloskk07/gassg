@@ -83,9 +83,10 @@ function availability(value,ready){
   return calls;
 }
 assert.deepEqual(availability('97300-000',true),['order']);
-assert.deepEqual(availability('97300-000',false),['notice']);
+assert.deepEqual(availability('97300-000',false),['order'], 'Buyer can review products even during session startup; checkout remains gated');
 assert.equal(availability('97300',true).includes('order'),false);
-assert.equal(availability('',false).includes('notice'),false,'Empty CEP should not jump to an opt-in form');
+assert.deepEqual(availability('',false),['order'],
+ 'Empty CEP opens product selection without making an offer or inventing delivery');
 
 const interestContext=vm.createContext({state:{cart:{}},products:{
   P13:{categoryKey:'glp'},WATER20:{categoryKey:'water'},ICE5:{categoryKey:'ice'},

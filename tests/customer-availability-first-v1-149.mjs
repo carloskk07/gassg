@@ -18,12 +18,12 @@ function exercise({test=false,ready=false,globalSupply}={}){
 }
 assert.deepEqual(exercise({ready:true}),{calls:['real_consultation'],result:'real_consultation'},
   'sessão operacional pronta não pode encaminhar comprador direto ao cadastro de aviso');
-assert.deepEqual(exercise({ready:true,globalSupply:false}),{calls:['availability_notice'],result:'availability_notice'},
-  'plataforma sem qualquer revenda configurada deve oferecer aviso, sem checkout vazio');
+assert.deepEqual(exercise({ready:true,globalSupply:false}),{calls:['real_consultation'],result:'real_consultation'},
+  'sem revendas, o comprador pode explorar produtos; pedido real só surge com cotação válida');
 assert.deepEqual(exercise({ready:true,globalSupply:true}),{calls:['real_consultation'],result:'real_consultation'},
   'revenda configurada deve manter consulta real por CEP');
-assert.deepEqual(exercise({ready:false}),{calls:['availability_notice'],result:'availability_notice'},
-  'se a sessão não puder consultar, oferecer aviso sem simular pedido');
+assert.deepEqual(exercise({ready:false}),{calls:['real_consultation'],result:'real_consultation'},
+  'na inicialização, permitir explorar produtos; preço final exige sessão e oferta elegível');
 assert.deepEqual(exercise({test:true}),{calls:['real_consultation'],result:'real_consultation'},
   'jornada interna de teste deve permanecer isolada e funcional');
 
@@ -37,4 +37,8 @@ assert.ok(source.includes('Ainda não encontramos uma revenda que entregue neste
 assert.ok(source.includes("showPublicP13Reference=!testDemo") &&
   source.includes('minimum:115.90') && source.includes('usual:120.00') && source.includes('maximum:125.00'),
   'a referência pública neutra P13 deve ser preservada');
-console.log('V1.149 passou: consulta operacional precede o aviso e falta de oferta termina em uma ação clara.');
+assert.match(match[0],/return startHomeOrder\(\)/,
+  'primeiro CTA apenas seleciona produtos; nenhuma compra é criada');
+assert.doesNotMatch(match[0],/liveCreateOrder|checkout\(/,
+  'consulta de vitrine não pode iniciar pagamento nem pedido');
+console.log('V1.149: abrir vitrine mesmo sem revendas, sem criar pedido, e conferir CEP depois.');

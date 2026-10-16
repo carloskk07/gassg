@@ -813,6 +813,10 @@ function runtimeStrip(){
     }
     return '<div class="demo-strip"><span>Ambiente isolado de teste automatizado</span><button onclick="reset()">Reiniciar teste</button></div>';
   }
+  // Public discovery remains usable during session startup or a temporary
+  // backend interruption. Checkout and security warnings retain their gates.
+  if(['home','learn','earn','club','refer','merchants','sponsors','privacy','terms','contact']
+      .includes(route())&&globalThis.liveRuntime?.status!=='unsafe-origin')return '';
   const mode=globalThis.liveBanner?.()||'connecting';
   const preview=globalThis.prelaunchExamplesEnabled?.()===true;
   if(mode==='live'){
