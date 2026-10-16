@@ -93,8 +93,8 @@ async function startHomeOrder(){
       homeInput?.focus();
       return toast('Informe um CEP válido com 8 dígitos');
     }
-    const changed=postalCode!==String(state.postalCode||'');
-    state.postalCode=postalCode;
+    const changed=Boolean(postalCode)&&postalCode!==String(state.postalCode||'');
+    if(postalCode)state.postalCode=postalCode;
     if(changed){
       // Carry the postal code forward, but never carry a street, number or
       // quotation certified for a different delivery address.
@@ -132,24 +132,14 @@ async function startHomeOrder(){
 // Consulta ofertas reais quando a sessão está pronta; na indisponibilidade, oferece aviso.
 function startCustomerAvailability(){
   const input=globalThis.document?.querySelector('#home-address');
-  if(globalThis.__CHAMA_TEST__!==true&&input){
-    const raw=String(input.value||'').trim();
-    if(!/^[0-9]{8}$/.test(raw.replace(/\D/g,''))){
-      input.focus();
-      toast('Informe um CEP com 8 dígitos para encontrar o caminho certo');
-      return;
-    }
+  const raw=String(input?.value||'').trim();
+  if(globalThis.__CHAMA_TEST__!==true&&raw&&!/^[0-9]{8}$/.test(raw.replace(/\\D/g,''))){
+    input?.focus();
+    toast('Informe um CEP válido ou deixe para a próxima etapa.');
+    return;
   }
-  // When the platform confirms there are no configured sellers anywhere,
-  // go straight to the opt-in form instead of a checkout with no offers.
-  if(globalThis.__CHAMA_TEST__!==true
-    &&globalThis.liveRuntime?.marketStatus?.realSupplyConfigured===false){
-    return openPrelaunchCustomerLead();
-  }
-  if(globalThis.__CHAMA_TEST__===true||globalThis.liveReady?.()===true){
-    return startHomeOrder();
-  }
-  return openPrelaunchCustomerLead();
+  // Browse first; CEP is validated on the checkout journey, not first paint.
+  return startHomeOrder();
 }
 
 function hasGlpCart(cart=state.cart){
@@ -265,7 +255,15 @@ function home(){
   const preview=!testDemo&&globalThis.prelaunchExamplesEnabled?.()===true;
   const market=globalThis.liveRuntime?.marketStatus||null;
   const rememberedRegion=!testDemo&&typeof rememberedMarketRegion==='function'?rememberedMarketRegion():null;
-  const regionLabel=rememberedRegion?rememberedRegion.city+' • '+rememberedRegion.state:'Informe seu CEP';
+  const homeRegion=!testDemo&&typeof homeMarketRegion==='function'?homeMarketRegion():(
+    rememberedRegion?{...rememberedRegion,origin:'confirmed'}:
+    {city:'São Gabriel',state:'RS',origin:'showcase'});
+  const regionLabel=homeRegion.city+' • '+homeRegion.state;
+  const citySnapshot=globalThis.liveRuntime?.cityPriceSnapshot;
+  const cityPrices=citySnapshot?.city===homeRegion.city&&
+    citySnapshot?.state===homeRegion.state&&
+    citySnapshot?.source==='public_city_price_board_v1_341'&&
+    Array.isArray(citySnapshot.products)?citySnapshot.products:[];
   const cityEvidence=ready?globalThis.liveRuntime?.lastCityCheck:null;
   const cityChecked=Boolean(cityEvidence
     &&cityEvidence.postalCode===String(state.postalCode||'').replace(/\D/g,'')
@@ -299,13 +297,18 @@ function home(){
   const featuredProduct=products[featuredCode]||products.P13;
   const featuredName=featuredCode==='P13'?'Botijão de cozinha 13 kg':customerProductName(featuredCode,featuredProduct);
   const featuredIcon=featuredProduct?.icon||'🧺';
-  const showPublicP13Reference=!testDemo&&featuredCode==='P13'&&!outsideOriginalMarket&&(
+  const showPublicP13Reference=!testDemo&&featuredCode==='P13'&&
+    homeRegion.city.toLocaleUpperCase('pt-BR')==='SÃO GABRIEL'&&
+    homeRegion.state==='RS'&&cityPrices.length===0&&(
     preview
     ||(ready&&market?.realSupplyConfigured===false)
   );
+  const cityFeaturedPrice=cityPrices.find(x=>x.code===featuredCode);
   const priceText=testDemo
     ? (p==null?'Indisponível':BRL.format(p))
-    : showPublicP13Reference
+    : cityFeaturedPrice
+      ? BRL.format(cityFeaturedPrice.fromCents/100)+' desde'
+      : showPublicP13Reference
       ? BRL.format(PUBLIC_P13_REFERENCE.usual)+' ref.'
       : ready&&!market
         ? 'Consultar preço'
@@ -314,8 +317,8 @@ function home(){
           : ready
             ? 'Consultar disponibilidade'
             : globalThis.liveRuntime?.status==='loading'
-              ? 'Conectando…'
-              : 'Consulta indisponível';
+              ? 'Conheça os produtos'
+              : 'Explorar produtos';
 
   const freshness=testDemo
     ? internalPilot
@@ -364,15 +367,15 @@ function home(){
   const eyebrow=testDemo
     ? internalPilot?'● AMBIENTE INTERNO — SEM PEDIDOS':'● AMBIENTE DE TESTE'
     : '● TAMÃO • '+regionLabel.toUpperCase();
-  const primaryLabel=internalPilot?'Validar jornada':hasConfirmedCityOffers?'Conferir ofertas do meu CEP':acquisitionOpen?'Consultar meu CEP':'Ver ofertas perto de mim';
+  const primaryLabel=internalPilot?'Validar jornada':hasConfirmedCityOffers?'Conferir ofertas do meu CEP':'Explorar produtos e preços';
   const primaryAction='startCustomerAvailability()';
   // Global merchant totals never certify a single seller for this city's basket.
   const singleMarket=internalPilot||(hasConfirmedCityOffers
     &&(globalThis.liveRuntime?.marketMode==='single_supplier'
       ||Number(globalThis.liveRuntime?.eligibleMerchantCount||0)===1));
   const firstVisitMessage=rememberedRegion
-    ? 'Quer conferir se já há entrega em '+rememberedRegion.city+'? Informe seu CEP. Se ainda não houver, você pode pedir um aviso.'
-    : 'Informe seu CEP para conferir se já há entrega na sua região. Se não houver, você pode pedir um aviso.';
+    ? 'Sua vitrine em '+rememberedRegion.city+' já está aqui. Veja os produtos e informe o CEP somente ao consultar uma entrega.'
+    : 'Explore a vitrine de preços e escolha os produtos. Você informará o CEP quando quiser conferir entregas.';
   const heroJourney=singleMarket
     ? internalPilot
       ? 'Valide a jornada completa do ambiente interno: pedido, aceite, preparação, saída, chegada, pagamento e benefícios.'
@@ -412,7 +415,7 @@ function home(){
     <div class="purchase-starter" aria-label="Consultar produtos e atendimento da sua região">
       <input id="home-featured-code" type="hidden" value="${esc(featuredCode)}">
       <div class="starter-product"><div class="starter-product-icon">${typeof tamaoProductArt==="function"?tamaoProductArt(featuredCode,featuredProduct,"hero"):esc(featuredIcon)}</div><div><span class="starter-label">COMECE PELO QUE PRECISA</span><strong>${esc(featuredName)}</strong><small>${esc(featuredCode)} • Consulta por CEP</small></div><div class="starter-price"><small>CONSULTA</small><b>${priceText}</b></div></div>
-      <label class="starter-address" for="home-address"><span>${testDemo?'Onde entregar?':'Onde você quer receber?'}</span><div><span aria-hidden="true">📍</span><input id="home-address" autocomplete="${testDemo?'street-address':'postal-code'}" inputmode="${testDemo?'text':'numeric'}" maxlength="${testDemo?'160':'9'}" placeholder="${testDemo?'Digite seu endereço':'Ex.: 97300-000'}" value="${esc(testDemo?(state.address||''):String(state.postalCode||'').replace(/^(\d{5})(\d{0,3}).*$/,(m,a,b)=>b?a+'-'+b:a))}" onkeydown="if(event.key==='Enter'){event.preventDefault();startCustomerAvailability()}" ${disabled&&!acquisitionOpen?'disabled':''}></div></label>
+      <details class="starter-postal-optional"><summary>Quer adiantar o CEP? <span>Opcional</span></summary><label class="starter-address" for="home-address"><span>${testDemo?'Onde entregar?':'Onde você quer receber?'}</span><div><span aria-hidden="true">📍</span><input id="home-address" autocomplete="${testDemo?'street-address':'postal-code'}" inputmode="${testDemo?'text':'numeric'}" maxlength="${testDemo?'160':'9'}" placeholder="${testDemo?'Digite seu endereço':'Ex.: 97300-000'}" value="${esc(testDemo?(state.address||''):String(state.postalCode||'').replace(/^(\d{5})(\d{0,3}).*$/,(m,a,b)=>b?a+'-'+b:a))}" onkeydown="if(event.key==='Enter'){event.preventDefault();startCustomerAvailability()}" ${disabled&&!acquisitionOpen?'disabled':''}></div></label></details>
       <button class="primary starter-cta" onclick="${primaryAction}" ${disabled&&!acquisitionOpen?'disabled':''}>${esc(featuredIcon)} ${primaryLabel}</button>
       ${cityChecked&&!hasConfirmedCityOffers&&acquisitionOpen?`<div class="regional-action"><button class="ghost" onclick="openPrelaunchCustomerLead()">Sem opção para meu CEP? Quero receber um aviso →</button></div>`:''}
       <small class="starter-footnote">${esc(freshness)}</small>
@@ -430,6 +433,7 @@ function home(){
   </div>`:''}
 </div></section>
 
+${!testDemo&&typeof homeRegionalPriceBoard==="function"?homeRegionalPriceBoard(homeRegion):""}
 ${valueBridge}
 ${!conciseHome&&typeof tamaoHomeBenefits==="function"?tamaoHomeBenefits():""}
 ${conciseHome?intentSection:''}
