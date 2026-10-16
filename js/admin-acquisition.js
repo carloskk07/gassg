@@ -3209,17 +3209,24 @@ async function adminPayoutFollowupLoadFromUi(){
 }
 // TAMÃO V1.340 — all-months alert for old unresolved financial reviews.
 let adminPayoutGlobalState=null,adminPayoutGlobalBusy=false;
-async function adminPayoutGlobalLoadFromUi(){
+async function adminPayoutGlobalLoadFromUi(offset=0){
+  if(!Number.isSafeInteger(offset)||offset<0||offset>999990||offset%30!==0)
+    return toast('Página global de pendências inválida.');
   const actor=String(adminRuntime?.session?.user?.id||'');
   const role=String(adminCurrentRole());
   if(!actor||!['superadmin','finance'].includes(role)||adminPayoutGlobalBusy)return;
   adminPayoutGlobalBusy=true;
   try{
-    const d=await adminInvoke({action:'owner-payout-global-followup-read'});
+    const d=await adminInvoke(offset===0?
+      {action:'owner-payout-global-followup-read'}:
+      {action:'owner-payout-global-followup-page',offset});
     const keys=['activeClaims','activeOlderMonths','overdueClaims',
       'criticalReversalClaims','unreviewedClaims','awaitingEvidenceClaims','distinctMonths'];
     const states=['not_started','in_review','awaiting_evidence','reviewed_no_bank_proof'];
     if(d?.source!=='admin_payout_global_followup_v1_340'||
+      (offset>0&&(d?.pagedV1341!==true||d.pageOffset!==offset||
+        d.pageLimit!==30||d.queueCoverage!=='global_pages_30'||
+        d.hasPrevious!==true||d.hasMore!==(offset+30<d.activeClaims)))||
       d?.scope!=='all_months'||d?.timezone!=='America/Sao_Paulo'||
       d?.readOnly!==true||d?.administrativeOnly!==true||
       d?.bankSettlementVerified!==false||d?.recipientVerified!==false||
@@ -3232,7 +3239,7 @@ async function adminPayoutGlobalLoadFromUi(){
       d.unreviewedClaims+d.awaitingEvidenceClaims>d.activeClaims||
       d.distinctMonths>d.activeClaims||
       d?.limit!==30||d?.truncated!==(d.activeClaims>30)||
-      !Array.isArray(d?.rows)||d.rows.length!==Math.min(30,d.activeClaims)||
+      !Array.isArray(d?.rows)||d.rows.length!==Math.min(30,Math.max(0,d.activeClaims-offset))||
       d.rows.some(x=>!x||
         !/^[0-9a-f-]{36}$/i.test(String(x.claimId||''))||
         !/^[0-9a-f-]{36}$/i.test(String(x.orderId||''))||
@@ -3253,7 +3260,8 @@ async function adminPayoutGlobalLoadFromUi(){
       throw new Error('Visão geral das pendências não validada.');
     if(actor===String(adminRuntime?.session?.user?.id||'')&&
        role===String(adminCurrentRole()))
-      adminPayoutGlobalState={...d,loadedFor:actor};
+      adminPayoutGlobalState={...d,loadedFor:actor,pageOffset:offset,
+        pageHasMore:offset===0?d.activeClaims>30:d.hasMore};
   }catch(e){
     if(actor===String(adminRuntime?.session?.user?.id||'')){
       adminPayoutGlobalState=null;
@@ -3294,7 +3302,19 @@ function adminPayoutGlobalFollowupSection(){
       '<p class="tiny muted">'+d.unreviewedClaims+' sem análise • '+
       d.awaitingEvidenceClaims+' aguardando evidências • '+
       d.distinctMonths+' competências com pendências.</p>'+
-      (d.truncated?'<p class="tiny muted">Os totais incluem todos os meses; abaixo aparecem apenas os 30 casos de maior prioridade.</p>':'')+
+      '<p class="tiny muted">Mostrando '+
+        (d.rows.length?Number(d.pageOffset)+1:0)+'–'+
+        (Number(d.pageOffset)+d.rows.length)+' de '+d.activeClaims+
+        ' casos ativos em todos os meses • página '+(Math.floor(Number(d.pageOffset)/30)+1)+
+        '. Os totais abrangem todas as competências.</p>'+
+      '<div class="row wrap">'+
+      '<button type="button" class="secondary small" '+
+        (d.pageOffset===0||adminPayoutGlobalBusy?'disabled':'')+
+        ' onclick="adminPayoutGlobalLoadFromUi('+Math.max(0,Number(d.pageOffset)-30)+')">Anterior</button>'+
+      '<button type="button" class="secondary small" '+
+        (!d.pageHasMore||adminPayoutGlobalBusy?'disabled':'')+
+        ' onclick="adminPayoutGlobalLoadFromUi('+(Number(d.pageOffset)+30)+')">Próxima página</button>'+
+      '</div>'+
       '<div class="grid cards-2">'+
       (d.rows.map(x=>
         '<article class="card flat form-stack">'+
