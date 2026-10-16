@@ -39,6 +39,8 @@ jobs:
         run: bash scripts/audit-edge-functions.sh
       - name: Woovi webhook cryptographic contract
         run: node tests/woovi-webhook-crypto.mjs
+      - name: Buyer checkout ambiguous-response regression
+        run: node tests/customer-checkout-ambiguous-recovery.mjs
       - name: Marketplace simulations
         run: node tests/simulations.mjs
       - name: Expert deterministic fuzz
