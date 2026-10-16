@@ -16,7 +16,7 @@ for(const term of [
   "'triageV1336',true","'queueCoverage','paginated_30_prioritized'",
   'public.admin_owner_payout_provider_page_v1_336(',
   'revoke all on function public.admin_owner_payout_provider_page_v1_336',
-  'revoke all on function platform_referral_payout_private_v1_265.read_page',
+  'revoke all on function platform_payout_provider_private_v1_265.read_page',
   'to service_role','PAYOUT_PROVIDER_READ_DENIED',
   "'readOnly',true,'noTransfers',true","'bankSettlementVerified',false",
   "'recipientVerified',false"
