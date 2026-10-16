@@ -467,6 +467,8 @@ jobs:
         run: node tests/payout-global-followup-v1-340.mjs
       - name: Admin all-months payout pagination V1.341 regression
         run: node tests/payout-global-pagination-v1-341.mjs
+      - name: Direct global payout claim review V1.342 regression
+        run: node tests/payout-global-direct-review-v1-342.mjs
       - name: Direct payout followup review V1.339 regression
         run: node tests/payout-followup-direct-review-v1-339.mjs
       - name: Verified merchant representation V1.158.4 regression contract

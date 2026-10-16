@@ -3059,10 +3059,13 @@ const adminPayoutReviewStatuses={
 };
 function adminPayoutReviewSourceForClaim(actor,claimId,origin){
   const source=origin==='followup'?adminPayoutFollowupState:
-    origin==='provider'?adminOwnerPayoutProviderState:null;
+    origin==='provider'?adminOwnerPayoutProviderState:
+    origin==='global'?adminPayoutGlobalState:null;
+  // The global queue intentionally spans every competence. Unlike the
+  // month-scoped views it must not inherit the month selector's restriction.
   const month=String(document.getElementById('owner-campaign-signals-month')?.value||'').trim();
   return source?.loadedFor===actor&&
-    (!month||source.month?.slice(0,7)===month)&&
+    (origin==='global'||!month||source.month?.slice(0,7)===month)&&
     source.rows?.some(x=>x.claimId===claimId)?source:null;
 }
 async function adminPayoutReviewOpenFromUi(claimId,origin='provider'){
@@ -3138,6 +3141,8 @@ async function adminPayoutReviewRecordFromUi(claimId){
   }finally{adminPayoutReviewBusy=false;render();}
   if(confirmed&&actor===String(adminRuntime?.session?.user?.id||'')){
     if(origin==='followup')await adminPayoutFollowupLoadFromUi();
+    if(origin==='global')
+      await adminPayoutGlobalLoadFromUi(adminPayoutGlobalState?.pageOffset??0);
     if(adminPayoutReviewSourceForClaim(actor,claimId,origin))
       await adminPayoutReviewOpenFromUi(claimId,origin);
   }
@@ -3324,11 +3329,15 @@ function adminPayoutGlobalFollowupSection(){
         ' • valor declarado: '+adminMoney(x.reportedAmountCents)+'</p>'+
         '<p class="tiny muted">Pedido '+esc(x.orderId)+' • declaração '+esc(x.claimId)+'</p>'+
         '<p class="tiny muted">Conferência sugerida: '+esc(stamp(x.followupDueAt))+'</p>'+
+        '<button type="button" class="secondary small" '+
+        (adminPayoutReviewBusy?'disabled':'')+
+        ' onclick="adminPayoutReviewOpenFromUi(&quot;'+esc(x.claimId)+'&quot;,&quot;global&quot;)">'+
+        'Analisar esta declaração</button>'+
         '<button type="button" class="secondary small" onclick="adminPayoutGlobalOpenMonthFromUi(&quot;'+
         esc(x.claimMonth)+'&quot;)">Abrir competência para revisar</button>'+
         '</article>').join('')||
         '<p class="tiny muted">Nenhuma pendência de repasse ativa.</p>')+
-      '</div>':
+      '</div>'+adminPayoutReviewHistoryMarkup('global',d.rows):
       '<p class="tiny muted">Atualize para consultar as pendências antigas e atuais.</p>')+
     '<p class="tiny muted">Nenhuma análise nesta área movimenta dinheiro ou confirma uma transferência bancária.</p>'+
     '</section>';
