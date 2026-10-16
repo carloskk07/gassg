@@ -76,6 +76,7 @@ async function merchantAdsCampaignAct(operation){
       throw new Error('Não foi possível verificar o estado da campanha.');
     if(String(rt.merchant?.merchantId)!==merchantId)return;
     rt.adsCampaign=data;
+    rt.adsStart=null;
     if(operation!=='view')toast('Proposta atualizada, sem cobrança ou publicação.');
   }catch(e){
     if(String(rt?.merchant?.merchantId)===merchantId){
@@ -374,6 +375,7 @@ async function merchantAdsInterestCall(operation,fields={}){
       throw new Error('Resposta do registro de interesse não confirmada.');
     if(String(rt.merchant?.merchantId)!==merchantId)return;
     rt.adsInterest=data;
+    rt.adsStart=null;
     if(operation!=='view')toast(data.interested?'Interesse salvo. Nenhuma cobrança foi criada.':'Interesse retirado.');
   }catch(e){
     if(String(rt?.merchant?.merchantId)===merchantId){
@@ -2148,6 +2150,7 @@ function merchantLivePage(){
       ${merchantSetupView(rt)}
     </div></details>
     <details id="merchant-workspace-growth" class="merchant-workspace-section"><summary tabindex="0"><span><strong>Vender mais e ampliar sua rede</strong><small>Divulgação, benefícios, parcerias e indicações organizados em um só lugar.</small></span></summary><div class="merchant-workspace-content">
+      ${merchantAdsStartSection(m)}
       ${merchantAdsInterestSection(m)}
       ${merchantClubeInterestSection(m)}
       ${merchantClubeTermsSection(m)}
@@ -4385,4 +4388,123 @@ async function merchantAdsPspEvidenceRequest(){
   rt.adsPspEvidence=null;rt.adsPspEvidenceError=String(e?.message||e);
   toast(rt.adsPspEvidenceError);return false;
  }finally{rt.adsPspEvidenceBusy=false;render();}
+}
+
+
+// TAMÃO V1.321 — the next useful step, based ONLY on merchant-scoped SQL evidence.
+function merchantAdsStartSection(merchant){
+ if(!['owner','manager'].includes(String(merchant?.memberRole||'')))return '';
+ const rt=globalThis.merchantRuntime||{},id=String(merchant?.merchantId||'');
+ const d=rt.adsStart?.merchantId===id&&rt.adsStart?.source==='merchant_ads_start_read_v1_321'&&
+  rt.adsStart.readOnly===true&&rt.adsStart.noCharge===true&&rt.adsStart.adsLive===false&&
+  rt.adsStart.noAutomaticEnrollment===true?rt.adsStart:null;
+ const checks=d?[
+  ['merchantActive','Cadastro da revenda ativo'],
+  ['businessCityReady','Cidade da revenda preenchida'],
+  ['interestRegistered','Interesse em divulgação registrado'],
+  ['activeCatalogReady','Produto ativo na categoria escolhida'],
+  ['creativeCityCurrent','Cidade da proposta atualizada']
+ ]:[];
+ const guides={
+  activate_merchant:['Concluir o cadastro da revenda','setup'],
+  complete_business_city:['Conferir cidade e dados comerciais','setup'],
+  update_creative_city:['Revisar proposta para a cidade atual','campaign'],
+  register_interest:['Registrar interesse sem compromisso','interest'],
+  activate_catalog:['Configurar produto ativo para divulgar','setup'],
+  prepare_creative:['Criar sua apresentação de divulgação','campaign'],
+  revise_creative:['Ajustar apresentação conforme revisão','campaign'],
+  submit_creative:['Enviar apresentação para análise','campaign'],
+  awaiting_review:['Acompanhar análise da apresentação','campaign'],
+  creative_approved:['Acompanhar condições comerciais','offer'],
+  review_status:['Consultar o estado da apresentação','campaign']
+ };
+ const next=d?guides[d.nextAction]:null;
+ const items=checks.map(([key,title])=>
+  '<div class="merchant-ads-start-step"><span aria-hidden="true">'+
+    (d[key]?'✓':'○')+'</span><span>'+esc(title)+'</span>'+
+    '<span class="tiny muted">'+(d[key]?'Concluído':'Pendente')+'</span></div>').join('');
+ const label=d?.creativeStatus==='approved_creative'?'Peça aprovada para conversa comercial':
+  d?.creativeStatus==='submitted'?'Sua apresentação está em análise':
+  d?.readyToSubmit?'Pronto para enviar sua apresentação':
+  'Prepare sua divulgação com passos simples';
+ return '<section class="section merchant-ads-start" id="merchant-ads-start" aria-label="Começar a divulgar no TAMÃO">'+
+  '<div class="section-head"><div><span class="section-kicker">DIVULGAÇÃO LOCAL • GUIA DE INÍCIO</span>'+
+  '<h2>Coloque sua revenda no caminho de novos clientes</h2>'+
+  '<p>Confira o que falta para apresentar sua divulgação ao TAMÃO, sem contratar ou pagar agora.</p></div>'+
+  '<button type="button" class="secondary small" onclick="merchantAdsStartLoad()" '+
+   (rt.adsStartBusy?'disabled':'')+'>'+(rt.adsStartBusy?'Conferindo…':'Verificar meu progresso')+'</button></div>'+
+  (d?'<div class="card flat"><h3>'+esc(label)+'</h3>'+
+    '<p class="tiny muted">Verificado no servidor • '+(Number(d.matchingActiveCatalogCount)||0)+
+    ' produto(s) ativo(s) compatível(is) • Nenhum anúncio publicado.</p>'+
+    '<div class="merchant-ads-start-steps">'+items+'</div>'+
+    (next?'<button type="button" class="primary small" onclick="merchantAdsStartNavigate(\''+
+     next[1]+'\')">'+esc(next[0])+'</button>':'')+
+    (['prepare_creative','revise_creative'].includes(d.nextAction)?
+      '<button type="button" class="secondary small" onclick="merchantAdsCreativeExample()">Preencher exemplo de apresentação</button>':'')+
+    (d.creativeStatus==='approved_creative'?'<p class="tiny muted">Aprovação de uma peça não garante exibição, alcance, preferência na busca ou faturamento.</p>':'')+
+    '</div>':
+    '<p class="muted tiny">Ainda não consultado. Use “Verificar meu progresso” para receber a orientação correta para esta revenda.</p>')+
+  (rt.adsStartError?'<p class="notice danger">'+esc(rt.adsStartError)+'</p>':'')+
+  '<p class="tiny muted">Este guia apenas consulta suas condições reais. Registro de interesse, envio de proposta, aceite e cobrança são ações separadas e voluntárias.</p>'+
+  '</section>';
+}
+async function merchantAdsStartLoad(){
+ const rt=globalThis.merchantRuntime,id=String(rt?.merchant?.merchantId||'');
+ if(!rt||!id||rt.adsStartBusy||!['owner','manager'].includes(String(rt.merchant.memberRole||'')))return null;
+ rt.adsStartBusy=true;rt.adsStartError=null;render();
+ try{
+  const d=await merchantInvoke('merchant-ops',{action:'ads-start-read',merchantId:id});
+  const boolKeys=['merchantActive','businessCityReady','creativeCityCurrent',
+    'interestRegistered','activeCatalogReady','readyToSubmit'];
+  const allowed=['creative_approved','awaiting_review','activate_merchant',
+    'complete_business_city','update_creative_city','register_interest',
+    'activate_catalog','prepare_creative','revise_creative','submit_creative','review_status'];
+  if(d?.source!=='merchant_ads_start_read_v1_321'||d.merchantId!==id||
+    d.readOnly!==true||d.noCharge!==true||d.adsLive!==false||
+    d.noAutomaticEnrollment!==true||
+    !Number.isSafeInteger(d.matchingActiveCatalogCount)||d.matchingActiveCatalogCount<0||
+    !Number.isSafeInteger(d.creativeVersion)||d.creativeVersion<0||
+    !boolKeys.every(k=>typeof d[k]==='boolean')||
+    !allowed.includes(d.nextAction)||
+    ![null,'draft','submitted','approved_creative','needs_changes','withdrawn'].includes(d.creativeStatus)||
+    d.readyToSubmit!==(d.merchantActive&&d.businessCityReady&&d.creativeCityCurrent&&
+      d.interestRegistered&&d.activeCatalogReady&&d.creativeStatus==='draft'))
+      throw new Error('O guia ainda não conseguiu confirmar os requisitos no servidor.');
+  if(String(rt.merchant?.merchantId)!==id)return null;
+  rt.adsStart=d;return d;
+ }catch(e){
+  if(String(rt.merchant?.merchantId)===id){
+   rt.adsStart=null;rt.adsStartError=String(e?.message||e);toast(rt.adsStartError);
+  }
+  return null;
+ }finally{rt.adsStartBusy=false;render();}
+}
+function merchantAdsStartNavigate(which){
+ const allowed={interest:'merchant-ads-interest',campaign:'merchant-ads-campaigns',
+   offer:'merchant-ads-offer',setup:'merchant-workspace-setup'};
+ if(!Object.hasOwn(allowed,which))return false;
+ const target=document.getElementById(allowed[which]);
+ if(!target)return false;
+ const panel=document.getElementById(which==='setup'?'merchant-workspace-setup':'merchant-workspace-growth');
+ if(panel&&'open' in panel)panel.open=true;
+ target.scrollIntoView({behavior:'smooth',block:'start'});
+ if(which==='campaign')document.getElementById('ads-campaign-title')?.focus({preventScroll:true});
+ return true;
+}
+function merchantAdsCreativeExample(){
+ const rt=globalThis.merchantRuntime,id=String(rt?.merchant?.merchantId||'');
+ if(!rt||!['owner','manager'].includes(String(rt.merchant.memberRole||''))||
+  rt.adsStart?.merchantId!==id||
+  !['prepare_creative','revise_creative'].includes(rt.adsStart?.nextAction))return false;
+ if(!merchantAdsStartNavigate('campaign'))return false;
+ const title=document.getElementById('ads-campaign-title');
+ const description=document.getElementById('ads-campaign-description');
+ if(!title||!description)return false;
+ if((title.value.trim()||description.value.trim())&&
+  !confirm('Substituir o texto atual por um exemplo editável? Nada será enviado automaticamente.'))return false;
+ title.value='Conheça os produtos da nossa revenda';
+ description.value='Conheça nossa revenda e consulte os produtos e condições de entrega disponíveis na sua região pelo TAMÃO.';
+ title.focus({preventScroll:true});
+ toast('Exemplo preenchido. Personalize e salve antes de enviar para revisão.');
+ return true;
 }

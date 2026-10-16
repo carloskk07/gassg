@@ -117,7 +117,7 @@ Deno.serve(async(req:Request)=>{
     const merchantId=String(body.merchantId??"");
     const action=String(body.action??"");
     if(!UUID_RE.test(merchantId))throw new DomainError("INVALID_MERCHANT","Revenda inválida.",400);
-    if(!["ads-psp-evidence","ads-psp","ads-receivable","ads-instrument","ads-dossier","ads-offer","ads-campaign","ads-interest","clube-interest","clube-terms","business-pulse","growth-network","enablement","heartbeat","set-online","update-product","catalog-history","update-logistics","update-capacity","update-scheduling","update-payment-methods","update-payment-routes","update-member-profile","request-billing-package","notify-billing-payment","notify-refund-recovery-payment","cancel-billing-request"].includes(action)){
+    if(!["ads-start-read","ads-psp-evidence","ads-psp","ads-receivable","ads-instrument","ads-dossier","ads-offer","ads-campaign","ads-interest","clube-interest","clube-terms","business-pulse","growth-network","enablement","heartbeat","set-online","update-product","catalog-history","update-logistics","update-capacity","update-scheduling","update-payment-methods","update-payment-routes","update-member-profile","request-billing-package","notify-billing-payment","notify-refund-recovery-payment","cancel-billing-request"].includes(action)){
       throw new DomainError("INVALID_ACTION","Ação inválida.",400);
     }
 
@@ -307,6 +307,31 @@ Deno.serve(async(req:Request)=>{
           (data.recorded!==true||data.status!==operation||
             !Number.isSafeInteger(data.version)||data.version<1)))
         throw new DomainError("ADS_OFFER_RESPONSE_UNVERIFIED","Oferta não confirmada pelo servidor.",503);
+      return json(data,200,origin);
+    }
+    if(action==="ads-start-read"){
+      if(!["owner","manager"].includes(String(role)))
+        throw new DomainError("MERCHANT_ACCESS_DENIED","Guia comercial restrito à gestão da revenda.",403);
+      const {data,error}=await admin.rpc("merchant_ads_start_read_v1_321",{
+        p_actor:user.id,p_merchant:merchantId
+      });
+      if(error)throw error;
+      const nextSteps=new Set(["creative_approved","awaiting_review","activate_merchant",
+        "complete_business_city","update_creative_city","register_interest",
+        "activate_catalog","prepare_creative","revise_creative","submit_creative","review_status"]);
+      if(data?.source!=="merchant_ads_start_read_v1_321"||data.merchantId!==merchantId||
+        data.readOnly!==true||data.noCharge!==true||data.adsLive!==false||
+        data.noAutomaticEnrollment!==true||!nextSteps.has(data.nextAction)||
+        !Number.isSafeInteger(data.matchingActiveCatalogCount)||data.matchingActiveCatalogCount<0||
+        !Number.isSafeInteger(data.creativeVersion)||data.creativeVersion<0||
+        !["merchantActive","businessCityReady","creativeCityCurrent",
+          "interestRegistered","activeCatalogReady","readyToSubmit"].every(
+          k=>typeof data[k]==="boolean"
+        )||!([null,"draft","submitted","approved_creative","needs_changes","withdrawn"].includes(data.creativeStatus))||
+        (data.readyToSubmit!==(
+          data.merchantActive&&data.businessCityReady&&data.creativeCityCurrent&&
+          data.interestRegistered&&data.activeCatalogReady&&data.creativeStatus==="draft")))
+        throw new DomainError("ADS_START_EVIDENCE_UNVERIFIED","Pré-requisitos de divulgação não confirmados.",503);
       return json(data,200,origin);
     }
     if(action==="ads-campaign"){
