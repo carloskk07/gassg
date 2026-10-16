@@ -4845,6 +4845,114 @@ Deno.serve(async(req:Request)=>{
       if(error)throw error;
       return json(data,200,origin);
     }
+    // V1.315 — discover a payment from a platform-only external reference.
+    // This action NEVER changes a payment state: reconciliation still calls
+    // the provider's canonical GET /v1/payments/{id} and the V1.314 SQL gate.
+    if(action==="ads-psp-discover"){
+      if(String(adminAccess.admin_role||"")!=="superadmin")
+        throw new DomainError("ADMIN_PERMISSION_DENIED","Consulta automática de Ads restrita ao administrador principal.",403);
+      const merchantId=uuid(body.merchantId,"merchantId");
+      const token=String(Deno.env.get("ADS_MP_ACCESS_TOKEN")||"").trim();
+      const sellerId=String(Deno.env.get("ADS_MP_SELLER_ID")||"").trim();
+      if(Deno.env.get("ADS_MP_CHECKOUT_ENABLED")!=="true"||
+        !/^APP_USR-\S{20,}$/.test(token)||!/^[0-9]{4,20}$/.test(sellerId))
+        throw new DomainError("ADS_PSP_NOT_CONFIGURED",
+          "A conta própria de TAMÃO Ads não está habilitada para consultas financeiras.",503);
+      let identity:any;
+      try{
+        const response=await fetch("https://api.mercadolibre.com/users/me",{
+          headers:{"Accept":"application/json","Authorization":"Bearer "+token},
+          signal:AbortSignal.timeout(7000)
+        });
+        if(!response.ok)throw new Error("ADS_PSP_IDENTITY_HTTP");
+        const raw=await response.text();
+        if(raw.length>20000)throw new Error("ADS_PSP_IDENTITY_OVERSIZE");
+        identity=JSON.parse(raw);
+      }catch{
+        throw new DomainError("ADS_PSP_SELLER_UNVERIFIED",
+          "Não foi possível confirmar a identidade da conta recebedora.",503);
+      }
+      if(String(identity?.id||"")!==sellerId)
+        throw new DomainError("ADS_PSP_SELLER_MISMATCH",
+          "A conta Mercado Pago não é a conta TAMÃO Ads autorizada.",403);
+      const found=await admin.rpc("admin_ads_psp_read_v1_314",{p_actor:user.id});
+      if(found.error)throw found.error;
+      if(found.data?.source!=="admin_ads_psp_v1_314"||
+        found.data.adsLive!==false||found.data.merchantBillingSeparate!==true||
+        !Array.isArray(found.data.rows))
+        throw new DomainError("ADS_PSP_READBACK_INVALID","Livro de cobranças não confirmado.",503);
+      const row=found.data.rows.find((x:any)=>x.merchantId===merchantId);
+      const checkout=row?.checkout;
+      if(!checkout||!["checkout_ready","payment_approved"].includes(checkout.status)||
+        !/^tamao-ads-[0-9a-f]{32}-v[0-9]+$/.test(String(checkout.externalReference||""))||
+        !Number.isSafeInteger(checkout.amountCents)||checkout.amountCents<1000||
+        (checkout.status==="payment_approved"&&
+          !/^[0-9]{5,30}$/.test(String(checkout.paymentId||""))))
+        throw new DomainError("ADS_PSP_NO_VERIFIABLE_CHECKOUT",
+          "Não existe checkout adequado à consulta automática.",409);
+      const reference=String(checkout.externalReference);
+      const base={source:"admin_ads_psp_discovery_v1_315",merchantId,
+        externalReference:reference,adsLive:false,
+        merchantBillingSeparate:true,providerEvidenceRecorded:false,
+        checkedAt:new Date().toISOString()};
+      let paymentId=String(checkout.paymentId||"");
+      if(checkout.status==="checkout_ready"){
+        let search:any;
+        try{
+          const path="/v1/payments/search?external_reference="+encodeURIComponent(reference)+
+            "&limit=50&offset=0&sort=date_last_updated&criteria=desc";
+          const response=await mercadoPagoFetch(path,{accessToken:token});
+          search=await readMercadoPagoJson(response);
+          if(!response.ok)throw new Error("ADS_PSP_SEARCH_HTTP");
+        }catch{
+          throw new DomainError("ADS_PSP_SEARCH_UNAVAILABLE",
+            "Busca no Mercado Pago indisponível; nenhuma conclusão financeira foi registrada.",503);
+        }
+        const total=search?.paging?.total;
+        if(!Number.isSafeInteger(total)||total<0||!Array.isArray(search?.results)||
+          search.results.length>50)
+          throw new DomainError("ADS_PSP_SEARCH_UNTRUSTED",
+            "Resposta de busca incompleta ou inválida; é necessária conferência manual.",503);
+        if(total===0&&search.results.length===0)
+          return json({...base,status:"not_found",candidateCount:0,paymentId:null},200,origin);
+        if(total!==1||search.results.length!==1)
+          return json({...base,status:"manual_review",candidateCount:total,paymentId:null},200,origin);
+        const candidate=search.results[0];
+        paymentId=String(candidate?.id||"");
+        if(!/^[0-9]{5,30}$/.test(paymentId)||
+          candidate?.external_reference!==reference)
+          throw new DomainError("ADS_PSP_SEARCH_REFERENCE_MISMATCH",
+            "A referência encontrada não corresponde ao checkout. Nenhuma alteração foi feita.",409);
+      }
+      // Payment Search only finds candidates. Always refetch an exact payment ID.
+      let payment:any;
+      try{
+        const response=await mercadoPagoFetch("/v1/payments/"+paymentId,{accessToken:token});
+        payment=await readMercadoPagoJson(response);
+        if(!response.ok)throw new Error("ADS_PSP_PAYMENT_HTTP");
+      }catch{
+        throw new DomainError("ADS_PSP_PAYMENT_LOOKUP_FAILED",
+          "Não foi possível validar o pagamento individual no provedor.",503);
+      }
+      const status=String(payment?.status||"");
+      const detail=String(payment?.status_detail||"");
+      if(String(payment?.id||"")!==paymentId||
+        String(payment?.collector_id??payment?.collector?.id??"")!==sellerId||
+        payment?.external_reference!==reference||
+        payment?.currency_id!=="BRL"||
+        moneyToCents(payment?.transaction_amount)!==checkout.amountCents)
+        throw new DomainError("ADS_PSP_DISCOVERY_MISMATCH",
+          "ID, favorecido, moeda, referência ou valor divergem do contrato TAMÃO Ads.",403);
+      const nextStatus=checkout.status==="checkout_ready"&&
+          status==="approved"&&detail==="accredited"?"approval_candidate":
+        checkout.status==="payment_approved"&&(
+          ["refunded","charged_back"].includes(status)||
+          (status==="approved"&&detail==="partially_refunded"))?"reversal_candidate":
+        status==="approved"&&detail==="accredited"?"unchanged":"pending_or_review";
+      return json({...base,status:nextStatus,paymentId:
+        ["approval_candidate","reversal_candidate"].includes(nextStatus)?paymentId:null,
+        candidateCount:1,providerStatus:status,providerDetail:detail},200,origin);
+    }
     if(action==="ads-psp-action"){
       if(String(adminAccess.admin_role||"")!=="superadmin")
         throw new DomainError("ADMIN_PERMISSION_DENIED","Somente o administrador principal pode gerar ou conferir checkout Ads.",403);
