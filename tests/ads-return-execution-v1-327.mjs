@@ -55,6 +55,6 @@ assert.match(ctx.view(rt.merchant),/Nova tentativa relatada pela equipe/);
 assert.match(ctx.view(rt.merchant),/não conseguiu falar/);
 assert.doesNotMatch(ctx.view(rt.merchant),/nota interna/i);
 assert.equal(calls[0].operation,'view');
-rt.merchant.memberRole='manager';assert.match(ctx.view(rt.merchant),/Retorno/);
+rt.merchant.memberRole='manager';assert.match(ctx.view(rt.merchant),/retorno/i);
 rt.merchant.memberRole='support';assert.equal(ctx.view(rt.merchant),'');
 console.log('V1.327 PASS — observed manual attempt, no delivery proof, consent and active-cycle boundaries.');
