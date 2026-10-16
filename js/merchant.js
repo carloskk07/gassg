@@ -567,19 +567,28 @@ function merchantLiveLoginView(){
   const rt=globalThis.merchantRuntime||{};
   const pilotInvite=String(globalThis.merchantPilotInviteToken?.()||'').trim();
   const prospectInvite=String(globalThis.merchantProspectInviteToken?.()||'').trim();
-  return shell(`<section class="page">
+  return shell(`<section class="page merchant-access-page"><div class="merchant-access-grid"><div class="merchant-access-story">
     <span class="eyebrow">${pilotInvite||prospectInvite?'CONVITE DE PARCEIRO':'PAINEL DA REVENDA'}</span>
     <h1 class="page-title">${pilotInvite||prospectInvite?'Entre para continuar seu cadastro':'Entrar no painel da revenda'}</h1>
     <p class="muted">${pilotInvite||prospectInvite?'Informe o e-mail do responsável. Enviaremos um link para você continuar o cadastro da empresa.':'Informe o e-mail cadastrado na revenda. Enviaremos um link seguro de acesso.'}</p>
+    <div class="merchant-access-points" aria-label="Vantagens de vender no TAMÃO">
+      <div><span aria-hidden="true">✓</span><p><strong>Seus preços, suas escolhas</strong><small>Controle catálogo, estoque e entregas no mesmo painel.</small></p></div>
+      <div><span aria-hidden="true">✓</span><p><strong>Mais um canal de vendas</strong><small>Sem abandonar sua clientela, o WhatsApp ou o balcão.</small></p></div>
+      <div><span aria-hidden="true">✓</span><p><strong>Comece do seu jeito</strong><small>Prepare a empresa agora; vendas dependem da aprovação necessária.</small></p></div>
+    </div>
+    <button type="button" class="merchant-access-about" onclick="go('merchants')">Conhecer as vantagens para minha revenda <span aria-hidden="true">→</span></button>
+    </div><div class="merchant-access-panel">
     ${pilotInvite?'<div class="notice success" style="margin-top:14px"><strong>Convite reconhecido.</strong><br>Seu convite já foi identificado. Você pode continuar o cadastro; as vendas só começam depois da habilitação.</div>':''}${prospectInvite?'<div class="notice success" style="margin-top:14px"><strong>Convite reconhecido.</strong><br>Vamos conferir o CNPJ para vincular seu cadastro à empresa convidada. A liberação para vender acontece em uma etapa separada.</div>':''}
     ${rt.notice?`<div class="notice success" style="margin-top:14px">${esc(rt.notice)}</div>`:''}
     ${rt.error?`<div class="notice danger" style="margin-top:14px">${esc(rt.error)}</div>`:''}
-    <div class="card flat form-stack" style="margin-top:16px">
-      <div class="input-wrap"><label for="merchant-email">E-mail</label><input id="merchant-email" type="email" autocomplete="email" class="input" maxlength="160" placeholder="voce@empresa.com"></div>
-      <button class="primary" onclick="merchantLoginFromUi()">Enviar link de acesso</button>
-    </div>
-    <div class="notice" style="margin-top:14px">O cadastro da empresa passa por conferência antes da liberação das vendas. Você já pode preencher os dados agora.</div>
-  </section>`);
+    <form class="card flat form-stack merchant-access-form" onsubmit="event.preventDefault();merchantLoginFromUi()">
+      <h2>Entre com seu e-mail</h2>
+      <p>Você receberá um link seguro. Não é necessário criar uma senha.</p>
+      <div class="input-wrap"><label for="merchant-email">E-mail da empresa</label><input id="merchant-email" type="email" autocomplete="email" class="input" maxlength="160" placeholder="voce@empresa.com" required></div>
+      <button type="submit" class="primary full">Enviar meu link de acesso →</button>
+    </form>
+    <p class="merchant-access-footnote">O cadastro da empresa passa por conferência antes da liberação das vendas. Você já pode preparar seus dados.</p>
+  </div></div></section>`);
 }
 
 function merchantLiveNoAccess(){
