@@ -469,6 +469,8 @@ jobs:
         run: node tests/marketing-experience-v1-346.mjs
       - name: V1.347 premium guided marketplace experience regression
         run: node tests/premium-experience-v1-347.mjs
+      - name: V1.348 merchant daily hub and referral design regression
+        run: node tests/daily-hub-network-v1-348.mjs
       - name: Admin all-months unresolved payout queue V1.340 regression
         run: node tests/payout-global-followup-v1-340.mjs
       - name: Admin all-months payout pagination V1.341 regression
