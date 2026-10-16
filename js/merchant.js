@@ -2445,7 +2445,7 @@ function merchantDayQueuePulse(orders,now=Date.now()){
   const validOffers=offers.filter(o=>{
     const raw=String(o?.offerExpiresAt||'');
     const deadline=Date.parse(raw);
-    return /^20\\d\\d-\\d\\d-\\d\\dT/.test(raw)
+    return /^20\d\d-\d\d-\d\dT/.test(raw)
       &&Number.isFinite(deadline)&&deadline>now+1000;
   });
   return {
@@ -2986,7 +2986,7 @@ function merchantLiveOrder(o){
   if(o.status==='OFFERED_TO_MERCHANT'){
     const expiration=o.offerExpiresAt?Date.parse(String(o.offerExpiresAt)):NaN;
     const hasExpiration=typeof o.offerExpiresAt==='string'&&
-      /^20\\d\\d-\\d\\d-\\d\\dT/.test(o.offerExpiresAt)&&Number.isFinite(expiration);
+      /^20\d\d-\d\d-\d\dT/.test(o.offerExpiresAt)&&Number.isFinite(expiration);
     const expired=hasExpiration&&expiration<=Date.now()+1000;
     const secs=hasExpiration?Math.max(0,Math.ceil((expiration-Date.now())/1000)):null;
     actions=!hasExpiration
