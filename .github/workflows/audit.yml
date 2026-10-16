@@ -475,6 +475,8 @@ jobs:
         run: node tests/payout-global-page-recovery-v1-343.mjs
       - name: Archived critical payout evidence V1.344 regression
         run: node tests/payout-archived-critical-watch-v1-344.mjs
+      - name: Archived first-success observation chronology V1.345 regression
+        run: node tests/payout-archive-observation-chronology-v1-345.mjs
       - name: Direct payout followup review V1.339 regression
         run: node tests/payout-followup-direct-review-v1-339.mjs
       - name: Verified merchant representation V1.158.4 regression contract
