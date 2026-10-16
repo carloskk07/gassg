@@ -37,7 +37,7 @@ begin
    or pr.category_key=v_creative.category_key);
  v_catalog_ready:=v_catalog>0;
  v_ready:=v_status='active' and v_interest and v_city_current and
-   v_catalog_ready and v_creative.merchant_id is not null and v_creative.status='draft';
+   v_catalog_ready and v_creative.merchant_id is not null and coalesce(v_creative.status='draft',false);
  if v_creative.status='approved_creative' then v_step:='creative_approved';
  elsif v_creative.status='submitted' then v_step:='awaiting_review';
  elsif v_status<>'active' then v_step:='activate_merchant';
