@@ -3735,3 +3735,12 @@ body:has(.admin-page) .admin-nav-item:focus-visible{outline-offset:-3px}
 .admin-ads-lead p{margin:8px 0}
 .merchant-ads-start .card>button{margin:6px 8px 6px 0;min-height:44px}
 @media(max-width:620px){.admin-ads-lead-kpis{grid-template-columns:1fr}.merchant-ads-start .card>button{width:100%;margin:6px 0}}
+
+/* V1.323 — merchant-initiated commercial contact, accessible at narrow widths. */
+.merchant-ads-assistance .form-stack{margin-top:14px;display:grid;gap:12px}
+.merchant-ads-assistance .check-row{display:flex;align-items:flex-start;gap:10px}
+.merchant-ads-assistance .check-row input{flex:none;min-height:20px;min-width:20px}
+.merchant-ads-assistance .form-stack textarea{width:100%;min-height:92px;box-sizing:border-box;font:inherit}
+.merchant-ads-assistance .form-stack select{min-height:44px;width:100%}
+.admin-ads-assistance p{overflow-wrap:anywhere}
+@media(max-width:520px){.merchant-ads-assistance button,.admin-ads-assistance button{min-height:44px;width:100%}}
