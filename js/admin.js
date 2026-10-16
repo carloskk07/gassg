@@ -863,7 +863,11 @@ function adminAttentionItems(d){
   return items.sort((a,b)=>(rank[a.severity]??9)-(rank[b.severity]??9)).slice(0,20);
 }
 function adminAttentionCenter(d){
-  const items=adminAttentionItems(d);
+  const items=adminAttentionItems(d).filter(item=>{
+    const target=item.type==='order'?'orders':item.type==='merchant'?'partners':
+      String(item.section||'overview');
+    return adminRoleCanSection(target);
+  });
   const critical=items.filter(x=>x.severity==='critical').length;
   const high=items.filter(x=>x.severity==='high').length;
   const medium=items.filter(x=>x.severity==='medium').length;
@@ -881,7 +885,7 @@ function adminAttentionCenter(d){
           <span class="admin-severity-chip medium"><b>${medium}</b> médio</span>
         </div>
       </div>
-      ${items.length?`<div class="admin-attention-list">${items.map((x,index)=>`<button type="button" class="admin-attention-item ${esc(x.severity)}" onclick="${action(x)}"><span class="admin-attention-rank">${String(index+1).padStart(2,'0')}</span><span class="admin-attention-severity">${esc(adminSeverityLabel(x.severity))}</span><span class="admin-attention-copy"><strong>${esc(x.title)}</strong><small>${esc(x.detail)}</small></span><span class="admin-attention-arrow" aria-hidden="true">→</span></button>`).join('')}</div>`:'<div class="admin-all-clear"><span aria-hidden="true">✓</span><div><strong>Nenhuma intervenção prioritária agora.</strong><small>Filas críticas, pedidos em risco e sinais operacionais estão limpos.</small></div></div>'}
+      ${items.length?`<div class="admin-attention-list">${items.map((x,index)=>`<button type="button" class="admin-attention-item ${esc(x.severity)}" onclick="${action(x)}"><span class="admin-attention-rank">${String(index+1).padStart(2,'0')}</span><span class="admin-attention-severity">${esc(adminSeverityLabel(x.severity))}</span><span class="admin-attention-copy"><strong>${esc(x.title)}</strong><small>${esc(x.detail)}</small></span><span class="admin-attention-arrow" aria-hidden="true">→</span></button>`).join('')}</div>`:'<div class="admin-all-clear"><span aria-hidden="true">✓</span><div><strong>Nenhuma prioridade identificada nas áreas deste perfil.</strong><small>Este resumo é limitado aos dados e às permissões da sessão. Confira as filas especializadas quando necessário.</small></div></div>'}
     </div>
   </section>`;
 }
@@ -2434,6 +2438,7 @@ function adminSetSection(section){
   if(next==='finance')adminLoadFinanceHistory().catch(()=>{});
   requestAnimationFrame(()=>{
     document.querySelector('.admin-main')?.scrollIntoView({block:'start'});
+    document.getElementById('admin-current-section-title')?.focus({preventScroll:true});
   });
 }
 
@@ -5724,6 +5729,85 @@ function adminReleaseHub(d){
     '<p class="tiny muted">A revenda organiza sua operação diária. A habilitação comercial, as regras da plataforma e os recursos de risco dependem dos controles administrativos existentes. Atalhos não concedem privilégios.</p>'+
     '</section>';
 }
+// V1.349 — bounded read-only executive guidance. Never infers a server permission.
+function adminExecutiveNextDecision(d,role,now=Date.now(),syncedAt=null){
+  const can=section=>adminRoleCanSection(section,role);
+  const choice=(tone,title,detail,section,label,kind='section')=>({
+    tone,title,detail,section,label,kind
+  });
+  const refreshed=Date.parse(String(syncedAt||''));
+  if(!Number.isFinite(refreshed)||refreshed>now+60000||now-refreshed>15*60*1000){
+    return choice('stale','Confira a atualização dos dados',
+      'Este resumo pode estar desatualizado. Atualize antes de tomar decisões de operação ou pagamento.',
+      '', 'Atualizar informações','refresh');
+  }
+  const security=Array.isArray(d?.launchReadiness?.securityBlockers)
+    ?d.launchReadiness.securityBlockers.length:0;
+  if(security&&can('system'))return choice('critical','Revise os bloqueios de segurança',
+    security+' '+(security===1?'bloqueio informado pelo servidor':'bloqueios informados pelo servidor')+'. Verifique os detalhes antes de qualquer liberação.',
+    'system','Ver segurança');
+  const incidents=(Array.isArray(d?.incidents)?d.incidents:[]).filter(x=>x?.status!=='resolved').length;
+  if(incidents&&can('incidents'))return choice('critical','Há incidentes para acompanhar',
+    incidents+' '+(incidents===1?'incidente permanece aberto':'incidentes permanecem abertos')+'. Acesse a central de tratamento.',
+    'incidents','Acompanhar incidentes');
+  const support=(Array.isArray(d?.supportCases)?d.supportCases:[])
+    .filter(x=>['open','in_review'].includes(x?.status)).length;
+  const orderRisk=(Array.isArray(d?.controlOrders)?d.controlOrders:[])
+    .filter(x=>['AT_RISK','REASSIGNING','REQUOTE_REQUIRED'].includes(x?.status)
+      ||adminOrderIsLate(x)).length;
+  if(orderRisk&&can('orders'))return choice('high','Pedidos exigem atenção',
+    orderRisk+' '+(orderRisk===1?'pedido apresenta risco ou atraso':'pedidos apresentam risco ou atraso')+'. Confira a fila oficial antes de intervir.',
+    'orders','Abrir pedidos');
+  const finance=d?.merchantBilling||{};
+  const financialCount=
+    (Array.isArray(d?.rewardFailures)?d.rewardFailures:[]).filter(x=>x?.dead_lettered_at).length+
+    (Array.isArray(d?.accountingFailures)?d.accountingFailures:[]).filter(x=>x?.dead_lettered_at).length+
+    (Array.isArray(finance.paymentRequests)?finance.paymentRequests:[]).filter(x=>x?.status==='pending').length+
+    (Array.isArray(finance.paymentEvents)?finance.paymentEvents:[]).filter(x=>x?.status==='review_required').length+
+    (Array.isArray(finance.refunds)?finance.refunds:[]).filter(x=>x?.status==='review_required').length+
+    (Array.isArray(finance.statements)?finance.statements:[]).filter(x=>x?.status==='overdue').length+
+    (Array.isArray(finance.accounts)?finance.accounts:[]).filter(x=>x?.sales_hold===true).length;
+  if(financialCount&&can('finance'))return choice('high','Revise as pendências financeiras',
+    financialCount+' sinal(is) de conferência na controladoria. Nenhum pagamento ou estorno é executado por este atalho.',
+    'finance','Abrir financeiro');
+  if(support&&can('orders'))return choice('attention','Atendimentos aguardam acompanhamento',
+    support+' '+(support===1?'caso está aberto ou em revisão':'casos estão abertos ou em revisão')+'.',
+    'orders','Ver atendimentos');
+  const partners=(Array.isArray(d?.applications)?d.applications:[])
+    .filter(x=>x?.status==='pending').length;
+  if(partners&&can('partners'))return choice('attention','Há cadastros para avaliar',
+    partners+' '+(partners===1?'revenda aguarda análise':'revendas aguardam análise')+'. Cada aprovação permanece sujeita às verificações e autorizações do servidor.',
+    'partners','Revisar cadastros');
+  const readiness=d?.launchReadiness;
+  if(readiness?.commerceEnabled===false
+    &&['superadmin','operations','readonly'].includes(role)){
+    const launch=adminLaunchWorklistModel(readiness);
+    if(launch.serverVerified&&launch.next&&can(launch.next.section)){
+      return choice('setup','Prepare a próxima etapa comercial',launch.next.title+
+        '. Nenhuma cidade é aberta automaticamente.',launch.next.section,'Ver próxima etapa');
+    }
+  }
+  const targets=[['alerts','Conferir alertas'],['overview','Voltar à visão geral'],
+    ['orders','Acompanhar pedidos'],['partners','Ver parceiros']];
+  const fallback=targets.find(([section])=>can(section));
+  return choice('calm','Acompanhe a operação',
+    'Este resumo não detectou prioridade nas categorias verificadas. Consulte as filas especializadas antes de concluir que não há pendências.',
+    fallback?.[0]||'overview',fallback?.[1]||'Visão geral');
+}
+function adminExecutiveNextDecisionView(d,role,now=Date.now(),syncedAt=null){
+  if(!adminRoleCanSection('overview',role))return '';
+  const next=adminExecutiveNextDecision(d,role,now,syncedAt);
+  const action=next.kind==='refresh'?'adminRefresh()':"adminSetSection('"+next.section+"')";
+  return '<section class="admin-executive-focus admin-executive-focus--'+esc(next.tone)+
+    '" aria-label="Orientação da próxima decisão">'+
+    '<div class="admin-executive-focus-main"><span class="section-kicker">PRÓXIMA DECISÃO</span>'+
+    '<h2>'+esc(next.title)+'</h2><p>'+esc(next.detail)+'</p>'+
+    '<div class="admin-executive-focus-meta"><span>Orientação baseada na última consulta administrativa</span>'+
+    '<span>Dados: '+esc(adminRelativeTime(syncedAt))+'</span></div></div>'+
+    '<button type="button" class="primary admin-executive-focus-action" onclick="'+action+'">'+
+      esc(next.label)+' <span aria-hidden="true">→</span></button></section>';
+}
+
 function adminPage(){
   if(!adminPortalRequested()){
     return shell('<section class="page"><div class="notice danger">Administração só está disponível no portal protegido.</div></section>');
@@ -5794,10 +5878,11 @@ function adminPage(){
         ${adminExecutiveKpi({icon:'!',label:'Incidentes',value:String(incidentAttention),detail:incidentAttention?'aberto(s) agora':'nenhum incidente aberto',tone:incidentAttention?'danger':'good'})}
       </div>
     </section>
-    ${adminReleaseHub(d)}
+    ${adminExecutiveNextDecisionView(d,currentRole,Date.now(),adminRuntime.lastSyncAt)}
+    ${adminAttentionCenter(d)}
     ${adminLaunchWorklist(d)}
     ${adminGovernanceView()}
-    ${adminAttentionCenter(d)}
+    ${adminReleaseHub(d)}
     ${currentRole==='superadmin'?adminLaunchControl(d.launchReadiness||{}):''}
     <section class="section admin-secondary-metrics"><div class="section-head"><div><span class="section-kicker">QUALIDADE & RETENÇÃO</span><h2>Indicadores de sustentação</h2></div></div><div class="merchant-kpis">
       <div class="kpi"><span class="label">Ticket médio</span><strong>${adminMoney(metrics.averageTicketCents30d)}</strong></div>
@@ -5924,7 +6009,7 @@ function adminPage(){
 
   return shell(`<section class="page admin-page">
     <header class="admin-page-header">
-      <div class="admin-page-heading"><span class="section-kicker">${esc(sectionMeta.kicker)}</span><h1>${esc(sectionMeta.title)}</h1><p>${esc(sectionMeta.description)}</p></div>
+      <div class="admin-page-heading"><span class="section-kicker">${esc(sectionMeta.kicker)}</span><h1 tabindex="-1" id="admin-current-section-title">${esc(sectionMeta.title)}</h1><p>${esc(sectionMeta.description)}</p></div>
       <div class="admin-page-actions"><span class="admin-role-chip">${esc(adminRoleLabel(currentRole))}</span><button class="secondary small" onclick="adminRefresh()" ${adminRuntime.actionPending?'disabled':''}><span aria-hidden="true">↻</span> Atualizar</button><button class="ghost small" onclick="adminSignOut()">Sair</button></div>
     </header>
     ${adminOperationalStrip(d)}
