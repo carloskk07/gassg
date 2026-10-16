@@ -3696,3 +3696,8 @@ body:has(.admin-page) .admin-nav-item:focus-visible{outline-offset:-3px}
 /* V1.316 signed provider event inbox */
 .admin-ads-mp-inbox .admin-activation-card{overflow-wrap:anywhere}
 @media(max-width:520px){.admin-ads-mp-inbox button{min-height:44px;width:100%}}
+
+/* V1.318 — legible PSP evidence priorities on mobile, no decorative status promises. */
+.admin-ads-psp-freshness .admin-activation-card{min-width:0}
+.admin-ads-psp-freshness .admin-activation-card p{overflow-wrap:anywhere}
+@media(max-width:520px){.admin-ads-psp-freshness button{width:100%;min-height:44px}}
