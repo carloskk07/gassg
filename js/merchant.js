@@ -2154,6 +2154,7 @@ function merchantLivePage(){
       ${merchantAdsAssistanceSection(m)}
       ${merchantAdsContactFeedbackSection(m)}
       ${merchantAdsFeedbackReturnSection(m)}
+      ${merchantAdsReturnExecutionSection(m)}
       ${merchantAdsInterestSection(m)}
       ${merchantClubeInterestSection(m)}
       ${merchantClubeTermsSection(m)}
@@ -4843,4 +4844,65 @@ async function merchantAdsFeedbackReturnLoad(){
   }
   return null;
  }finally{rt.adsFeedbackReturnBusy=false;render();}
+}
+
+
+// V1.327 — merchant sees a new reported attempt, not proof of delivered communication.
+function merchantAdsReturnExecutionSection(merchant){
+ if(!['owner','manager'].includes(String(merchant?.memberRole||'')))return '';
+ const rt=globalThis.merchantRuntime||{},id=String(merchant?.merchantId||'');
+ const packet=rt.adsReturnExecution?.merchantId===id&&
+   rt.adsReturnExecution.source==='merchant_ads_return_execution_v1_327'&&
+   rt.adsReturnExecution.readOnly===true&&rt.adsReturnExecution.automaticMessagesSent===0&&
+   rt.adsReturnExecution.independentDeliveryProof===false&&
+   rt.adsReturnExecution.adsLive===false&&rt.adsReturnExecution.paymentCreated===false?
+   rt.adsReturnExecution:null;
+ const p=packet?.plan||null;
+ const state={scheduled:'Retorno previsto',canceled:'Previsão cancelada',
+    attempt_recorded:'Nova tentativa relatada pela equipe'};
+ const label={not_reached:'A equipe não conseguiu falar',conversation:'A equipe relata uma conversa',
+   followup_requested:'A equipe relata pedido de novo retorno',not_interested:'A equipe relata falta de interesse'};
+ return '<section class="section merchant-ads-return-execution">'+
+  '<div class="section-head"><div><span class="section-kicker">V1.327 • ACOMPANHAMENTO REAL</span>'+
+  '<h3>O que aconteceu após a previsão?</h3>'+
+  '<p>Consulte o andamento do retorno, diferenciando agendamento e nova tentativa declarada.</p></div>'+
+  '<button class="secondary small" type="button" onclick="merchantAdsReturnExecutionLoad()">Consultar andamento</button></div>'+
+  (packet?(p?'<div class="card flat"><strong>'+esc(state[p.status]||'Retorno em acompanhamento')+
+    '</strong><p>Data que estava prevista: '+esc(String(p.dueOn||'—'))+'</p>'+
+    (p.status==='attempt_recorded'?'<p>'+esc(label[p.attemptOutcome]||'Tentativa registrada')+
+     ' • '+esc(String(p.attemptReportedAt||''))+'</p>':'')+
+    '<p class="tiny muted">Registro administrativo, sem prova independente de entrega ou confirmação de atendimento.</p></div>':
+    '<p class="muted tiny">Não há previsão atual com nova tentativa registrada para esta revenda.</p>'):
+    '<p class="muted tiny">Consulte o servidor para confirmar o andamento.</p>')+
+  (rt.adsReturnExecutionError?'<p class="notice danger">'+esc(rt.adsReturnExecutionError)+'</p>':'')+
+  '<p class="tiny muted">Nenhuma mensagem, ligação, cobrança ou publicação é realizada por esta consulta.</p></section>';
+}
+async function merchantAdsReturnExecutionLoad(){
+ const rt=globalThis.merchantRuntime,id=String(rt?.merchant?.merchantId||'');
+ if(!rt||!id||rt.adsReturnExecutionBusy||
+    !['owner','manager'].includes(String(rt.merchant.memberRole||'')))return null;
+ rt.adsReturnExecutionBusy=true;rt.adsReturnExecutionError=null;render();
+ try{
+  const out=await merchantInvoke('merchant-ops',{
+    action:'ads-return-execution',merchantId:id,operation:'view'
+  });
+  if(out?.source!=='merchant_ads_return_execution_v1_327'||out.merchantId!==id||
+    out.readOnly!==true||typeof out.consentCurrent!=='boolean'||
+    out.automaticMessagesSent!==0||out.independentDeliveryProof!==false||
+    out.adsLive!==false||out.paymentCreated!==false||
+    (out.plan!==null&&(!['scheduled','canceled','attempt_recorded'].includes(out.plan?.status)||
+      !Number.isSafeInteger(out.plan.version)||out.plan.version<1||
+      out.plan.attemptIndependentlyVerified!==false||
+      (out.plan.status==='attempt_recorded'&&
+        !['not_reached','conversation','followup_requested','not_interested'].includes(out.plan.attemptOutcome)))))
+    throw new Error('Andamento de retorno não confirmado no servidor.');
+  if(String(rt.merchant?.merchantId)!==id)return null;
+  rt.adsReturnExecution=out;return out;
+ }catch(e){
+  if(String(rt.merchant?.merchantId)===id){
+    rt.adsReturnExecution=null;rt.adsReturnExecutionError=String(e?.message||e);
+    toast(rt.adsReturnExecutionError);
+  }
+  return null;
+ }finally{rt.adsReturnExecutionBusy=false;render();}
 }
