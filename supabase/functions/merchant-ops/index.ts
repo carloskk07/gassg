@@ -138,9 +138,9 @@ Deno.serve(async(req:Request)=>{
       if(!["owner","manager"].includes(String(role)))
         throw new DomainError("ADS_FEEDBACK_MEMBER_DENIED","Acompanhamento restrito à gestão da revenda.",403);
       const operation=String(body.operation||"view");
-      if(!["view","submit"].includes(operation))
+      if(!["view","respond"].includes(operation))
         throw new DomainError("ADS_FEEDBACK_OPERATION_INVALID","Ação de retorno inválida.",400);
-      if(operation==="submit"&&(role!=="owner"||body.consent!==true||
+      if(operation==="respond"&&(role!=="owner"||body.consent!==true||
         !UUID_RE.test(String(body.contactRequestId||""))||
         !UUID_RE.test(String(body.requestId||""))||
         !Number.isSafeInteger(body.expectedAssistanceVersion)||
@@ -148,7 +148,7 @@ Deno.serve(async(req:Request)=>{
         !["contact_confirmed","contact_not_received","followup_needed"].includes(body.response)))
         throw new DomainError("ADS_FEEDBACK_OWNER_REQUIRED","Somente o titular pode registrar a experiência de atendimento.",403);
       const {data,error}=await admin.rpc("merchant_ads_contact_feedback_v1_325",{
-        p_actor:user.id,p_merchant:merchantId,p_operation:operation,
+        p_actor:user.id,p_merchant:merchantId,p_operation:operation==="respond"?"submit":"view",
         p_contact_request:operation==="view"?null:body.contactRequestId,
         p_expected_assistance_version:operation==="view"?null:body.expectedAssistanceVersion,
         p_response:operation==="view"?null:body.response,
