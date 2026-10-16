@@ -101,7 +101,7 @@ async function requireAdmin(admin:any,userId:string){
   if(!data)throw new DomainError("ADMIN_ACCESS_DENIED","Esta conta não possui acesso administrativo.",403);
   return data;
 }
-const ADMIN_READ_ACTIONS=new Set(["governance-gates","commercial-intake-read","ads-sales-plans","ads-offers-read","ads-dossiers-read","ads-instruments-read","ads-receivables-read","ads-psp-read","ads-mp-inbox-read","ads-mp-triage-read","ads-psp-freshness-read","ads-psp-merchant-reviews","ads-launch-readiness","ads-leads-read","ads-assistance-read","ads-contact-reports-read","ads-contact-feedback-read","summary","search","entity-detail","system-health","billing-provider-health","audit-search","incident-list","merchant-payment-preflight","prospect-intelligence","expansion-notifications","expansion-radar","merchant-enablement","sale-payment-history","finance-receipts-history","commercial-history-list","operational-alerts","ads-demand","clube-interest-queue","clube-campaign-queue","clube-terms-queue","owner-funding-read","owner-funding-pulse","owner-evidence-queue","owner-budget-queue","owner-finance-history","owner-campaign-signals","owner-campaign-orders","owner-campaign-fee-receipts","owner-campaign-batch-ledger","owner-campaign-financial-summary","owner-campaign-benefit-costs","owner-wallet-reconciliation","owner-cashback-source-lots","owner-referral-lifecycle","owner-benefit-payout-read","owner-benefit-proofs-read","owner-benefit-proof-view","owner-benefit-proof-verify","owner-payout-provider-read","owner-recipient-proof-readiness","owner-multi-psp-hub","owner-campaign-orphan-audit","owner-orphan-cleanup-candidates","owner-campaign-cost-read","owner-campaign-receipts-read","owner-campaign-receipt-view","ads-audience-readiness","ads-preview-summary","ads-placement-readiness","ads-pilot-preflight","commercial-activation","ads-campaign-queue","growth-referral-review-queue"]);
+const ADMIN_READ_ACTIONS=new Set(["governance-gates","commercial-intake-read","ads-sales-plans","ads-offers-read","ads-dossiers-read","ads-instruments-read","ads-receivables-read","ads-psp-read","ads-mp-inbox-read","ads-mp-triage-read","ads-psp-freshness-read","ads-psp-merchant-reviews","ads-launch-readiness","ads-leads-read","ads-assistance-read","ads-contact-reports-read","ads-contact-feedback-read","ads-feedback-returns-read","summary","search","entity-detail","system-health","billing-provider-health","audit-search","incident-list","merchant-payment-preflight","prospect-intelligence","expansion-notifications","expansion-radar","merchant-enablement","sale-payment-history","finance-receipts-history","commercial-history-list","operational-alerts","ads-demand","clube-interest-queue","clube-campaign-queue","clube-terms-queue","owner-funding-read","owner-funding-pulse","owner-evidence-queue","owner-budget-queue","owner-finance-history","owner-campaign-signals","owner-campaign-orders","owner-campaign-fee-receipts","owner-campaign-batch-ledger","owner-campaign-financial-summary","owner-campaign-benefit-costs","owner-wallet-reconciliation","owner-cashback-source-lots","owner-referral-lifecycle","owner-benefit-payout-read","owner-benefit-proofs-read","owner-benefit-proof-view","owner-benefit-proof-verify","owner-payout-provider-read","owner-recipient-proof-readiness","owner-multi-psp-hub","owner-campaign-orphan-audit","owner-orphan-cleanup-candidates","owner-campaign-cost-read","owner-campaign-receipts-read","owner-campaign-receipt-view","ads-audience-readiness","ads-preview-summary","ads-placement-readiness","ads-pilot-preflight","commercial-activation","ads-campaign-queue","growth-referral-review-queue"]);
 const ADMIN_ROLE_ACTIONS:Record<string,Set<string>>={
   superadmin:new Set(["*"]),
   operations:new Set([
@@ -4529,6 +4529,29 @@ Deno.serve(async(req:Request)=>{
     if(action==="entity-detail"){
       return json(await adminEntityDetail(admin,body.entityType,body.entityId,String(adminAccess.admin_role||"superadmin")),200,origin);
     }
+    if(action==="ads-feedback-returns-read"){
+      if(!["superadmin","operations","readonly"].includes(String(adminAccess.admin_role||"")))
+        throw new DomainError("ADS_RETURN_READ_DENIED","Acompanhamento restrito à administração.",403);
+      const {data,error}=await admin.rpc("admin_ads_feedback_returns_read_v1_326",{p_actor:user.id});
+      if(error)throw error;
+      if(data?.source!=="admin_ads_feedback_returns_v1_326"||data.readOnly!==true||
+        data.messagesSent!==0||data.contactPerformed!==false||data.deliveryProven!==false||
+        data.adsLive!==false||data.paymentCreated!==false||
+        !Number.isSafeInteger(data.totalPlans)||data.totalPlans<0||
+        !Number.isSafeInteger(data.followupsDue)||data.followupsDue<0||
+        !Array.isArray(data.rows)||data.rows.length>50||
+        data.rows.some((r:any)=>!r||!UUID_RE.test(String(r.merchantId||""))||
+         !UUID_RE.test(String(r.contactRequestId||""))||
+         !["contact_not_received","followup_needed"].includes(r.feedbackResponse)||
+         typeof r.consentCurrent!=="boolean"||
+         !Number.isSafeInteger(r.assistanceVersion)||r.assistanceVersion<1||
+         (r.returnPlan!==null&&(!["scheduled","canceled"].includes(r.returnPlan?.status)||
+           !Number.isSafeInteger(r.returnPlan.version)||r.returnPlan.version<1||
+           typeof r.returnPlan.internalNote!=="string"||
+           r.returnPlan.internalNote.length<20||r.returnPlan.internalNote.length>240))))
+         throw new DomainError("ADS_RETURN_READ_UNVERIFIED","Retornos não confirmados pelo servidor.",503);
+      return json(data,200,origin);
+    }
     if(action==="ads-contact-feedback-read"){
       if(!["superadmin","operations","readonly"].includes(String(adminAccess.admin_role||"")))
         throw new DomainError("ADS_FEEDBACK_ADMIN_DENIED","Respostas comerciais restritas à administração.",403);
@@ -5377,6 +5400,35 @@ Deno.serve(async(req:Request)=>{
         data.recorded!==true||data.automatedMessageSent!==false||
         data.independentlyVerified!==false||data.adsLive!==false||data.paymentCreated!==false)
         throw new DomainError("ADS_CONTACT_RECORD_UNVERIFIED","Relato não confirmado.",503);
+      return json(data,200,origin);
+    }
+    if(action==="ads-feedback-return-action"){
+      if(String(adminAccess.admin_role||"")!=="superadmin")
+        throw new DomainError("ADS_RETURN_FOUNDER_ONLY","Somente o administrador principal organiza retornos.",403);
+      const merchantId=uuid(body.merchantId,"merchantId"),contactId=uuid(body.contactRequestId,"contactRequestId");
+      const operation=String(body.operation||"");
+      if(!["schedule","cancel"].includes(operation)||
+        !Number.isSafeInteger(body.assistanceVersion)||body.assistanceVersion<1||
+        !Number.isSafeInteger(body.expectedVersion)||body.expectedVersion<0)
+        throw new DomainError("ADS_RETURN_ACTION_INVALID","Versão ou operação inválida.",400);
+      const note=cleanText(body.note,{min:20,max:240,name:"nota de acompanhamento"});
+      const dueOn=operation==="schedule"?String(body.dueOn||""):null;
+      if(operation==="schedule"&&!/^\d{4}-\d{2}-\d{2}$/.test(dueOn||""))
+        throw new DomainError("ADS_RETURN_DATE_INVALID","Escolha uma data de retorno válida.",400);
+      const {data,error}=await admin.rpc("admin_ads_feedback_return_action_v1_326",{
+        p_actor:user.id,p_merchant:merchantId,p_contact:contactId,
+        p_assistance_version:body.assistanceVersion,p_operation:operation,
+        p_expected_version:body.expectedVersion,p_due_on:dueOn,p_note:note,
+        p_request:uuid(body.requestId,"requestId")
+      });
+      if(error)throw error;
+      if(data?.source!=="admin_ads_feedback_return_action_v1_326"||
+        data.merchantId!==merchantId||data.contactRequestId!==contactId||
+        data.status!==(operation==="schedule"?"scheduled":"canceled")||
+        data.recorded!==true||!Number.isSafeInteger(data.version)||data.version<1||
+        data.messageSent!==false||data.contactPerformed!==false||
+        data.deliveryProven!==false||data.adsLive!==false||data.paymentCreated!==false)
+        throw new DomainError("ADS_RETURN_ACTION_UNVERIFIED","Registro de retorno não confirmado.",503);
       return json(data,200,origin);
     }
     if(action==="ads-assistance-action"){

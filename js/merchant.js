@@ -2153,6 +2153,7 @@ function merchantLivePage(){
       ${merchantAdsStartSection(m)}
       ${merchantAdsAssistanceSection(m)}
       ${merchantAdsContactFeedbackSection(m)}
+      ${merchantAdsFeedbackReturnSection(m)}
       ${merchantAdsInterestSection(m)}
       ${merchantClubeInterestSection(m)}
       ${merchantClubeTermsSection(m)}
@@ -4788,4 +4789,58 @@ async function merchantAdsContactFeedbackSubmit(){
   rt.adsContactFeedback=null;rt.adsContactFeedbackError=String(e?.message||e);
   toast(rt.adsContactFeedbackError);return false;
  }finally{rt.adsContactFeedbackBusy=false;render();}
+}
+
+
+// V1.326 — read-only status of a manually planned return, never a delivered message.
+function merchantAdsFeedbackReturnSection(merchant){
+ if(!['owner','manager'].includes(String(merchant?.memberRole||'')))return '';
+ const rt=globalThis.merchantRuntime||{},id=String(merchant?.merchantId||'');
+ const d=rt.adsFeedbackReturn?.merchantId===id&&
+  rt.adsFeedbackReturn?.source==='merchant_ads_feedback_return_v1_326'&&
+  rt.adsFeedbackReturn.readOnly===true&&rt.adsFeedbackReturn.messageSent===false&&
+  rt.adsFeedbackReturn.contactPerformed===false&&rt.adsFeedbackReturn.deliveryProven===false&&
+  rt.adsFeedbackReturn.adsLive===false&&rt.adsFeedbackReturn.paymentCreated===false?
+  rt.adsFeedbackReturn:null;
+ const plan=d?.returnPlan||null;
+ return '<section class="section merchant-ads-feedback-return">'+
+  '<div class="section-head"><div><span class="section-kicker">V1.326 • ACOMPANHAMENTO COMERCIAL</span>'+
+  '<h3>Previsão de retorno da equipe TAMÃO</h3>'+
+  '<p>Consulte se a equipe organizou uma nova tentativa após sua avaliação do atendimento.</p></div>'+
+  '<button class="secondary small" type="button" onclick="merchantAdsFeedbackReturnLoad()">Consultar previsão</button></div>'+
+  (d?(plan?'<div class="card flat"><strong>'+
+    esc(plan.status==='scheduled'?'Retorno manual previsto':'Previsão anterior cancelada')+
+    '</strong><p>Data informada pela equipe: '+esc(String(plan.dueOn||'—'))+
+    '</p><p class="tiny muted">Versão do planejamento: '+Number(plan.version)+
+    '. Este registro não comprova ligação ou mensagem enviada.</p></div>':
+    '<p class="muted tiny">Nenhum retorno manual foi agendado na solicitação atual.</p>'):
+    '<p class="muted tiny">Consulte o servidor para verificar o planejamento.</p>')+
+  (rt.adsFeedbackReturnError?'<p class="notice danger">'+esc(rt.adsFeedbackReturnError)+'</p>':'')+
+  '<p class="tiny muted">A previsão é apenas organizacional; não significa contato realizado, mensagem entregue, pagamento ou anúncio publicado.</p></section>';
+}
+async function merchantAdsFeedbackReturnLoad(){
+ const rt=globalThis.merchantRuntime,id=String(rt?.merchant?.merchantId||'');
+ if(!rt||!id||rt.adsFeedbackReturnBusy||
+  !['owner','manager'].includes(String(rt.merchant.memberRole||'')))return null;
+ rt.adsFeedbackReturnBusy=true;rt.adsFeedbackReturnError=null;render();
+ try{
+  const out=await merchantInvoke('merchant-ops',{
+   action:'ads-feedback-return',merchantId:id,operation:'view'
+  });
+  if(out?.source!=='merchant_ads_feedback_return_v1_326'||out.merchantId!==id||
+    out.readOnly!==true||typeof out.consentCurrent!=='boolean'||
+    out.messageSent!==false||out.contactPerformed!==false||
+    out.deliveryProven!==false||out.adsLive!==false||out.paymentCreated!==false||
+    (out.returnPlan!==null&&(!['scheduled','canceled'].includes(out.returnPlan?.status)||
+     !Number.isSafeInteger(out.returnPlan.version)||out.returnPlan.version<1)))
+    throw new Error('Previsão de retorno não confirmada no servidor.');
+  if(String(rt.merchant?.merchantId)!==id)return null;
+  rt.adsFeedbackReturn=out;return out;
+ }catch(e){
+  if(String(rt.merchant?.merchantId)===id){
+   rt.adsFeedbackReturn=null;rt.adsFeedbackReturnError=String(e?.message||e);
+   toast(rt.adsFeedbackReturnError);
+  }
+  return null;
+ }finally{rt.adsFeedbackReturnBusy=false;render();}
 }
