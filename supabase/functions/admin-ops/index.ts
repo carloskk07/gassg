@@ -101,7 +101,7 @@ async function requireAdmin(admin:any,userId:string){
   if(!data)throw new DomainError("ADMIN_ACCESS_DENIED","Esta conta não possui acesso administrativo.",403);
   return data;
 }
-const ADMIN_READ_ACTIONS=new Set(["governance-gates","commercial-intake-read","ads-sales-plans","ads-offers-read","ads-dossiers-read","ads-instruments-read","ads-receivables-read","ads-psp-read","ads-mp-inbox-read","ads-mp-triage-read","ads-psp-freshness-read","ads-psp-merchant-reviews","ads-launch-readiness","ads-leads-read","ads-assistance-read","ads-contact-reports-read","ads-contact-feedback-read","ads-feedback-returns-read","ads-return-execution-read","ads-return-closeout-read","summary","search","entity-detail","system-health","billing-provider-health","audit-search","incident-list","merchant-payment-preflight","prospect-intelligence","expansion-notifications","expansion-radar","merchant-enablement","sale-payment-history","finance-receipts-history","commercial-history-list","operational-alerts","ads-demand","clube-interest-queue","clube-campaign-queue","clube-terms-queue","owner-funding-read","owner-funding-pulse","owner-evidence-queue","owner-budget-queue","owner-finance-history","owner-campaign-signals","owner-campaign-orders","owner-campaign-fee-receipts","owner-campaign-batch-ledger","owner-campaign-financial-summary","owner-campaign-benefit-costs","owner-wallet-reconciliation","owner-cashback-source-lots","owner-referral-lifecycle","owner-benefit-payout-read","owner-benefit-proofs-read","owner-benefit-proof-view","owner-benefit-proof-verify","owner-payout-provider-read","owner-recipient-proof-readiness","owner-multi-psp-hub","owner-campaign-orphan-audit","owner-orphan-cleanup-candidates","owner-campaign-cost-read","owner-campaign-receipts-read","owner-campaign-receipt-view","ads-audience-readiness","ads-preview-summary","ads-placement-readiness","ads-pilot-preflight","commercial-activation","ads-campaign-queue","growth-referral-review-queue"]);
+const ADMIN_READ_ACTIONS=new Set(["governance-gates","commercial-intake-read","ads-sales-plans","ads-offers-read","ads-dossiers-read","ads-instruments-read","ads-receivables-read","ads-psp-read","ads-mp-inbox-read","ads-mp-triage-read","ads-psp-freshness-read","ads-psp-merchant-reviews","ads-launch-readiness","ads-leads-read","ads-assistance-read","ads-contact-reports-read","ads-contact-feedback-read","ads-feedback-returns-read","ads-return-execution-read","ads-return-closeout-read","summary","search","entity-detail","system-health","billing-provider-health","audit-search","incident-list","merchant-payment-preflight","prospect-intelligence","expansion-notifications","expansion-radar","merchant-enablement","sale-payment-history","finance-receipts-history","commercial-history-list","operational-alerts","ads-demand","clube-interest-queue","clube-campaign-queue","clube-terms-queue","owner-funding-read","owner-funding-pulse","owner-evidence-queue","owner-budget-queue","owner-finance-history","owner-campaign-signals","owner-campaign-orders","owner-campaign-fee-receipts","owner-campaign-batch-ledger","owner-campaign-financial-summary","owner-campaign-benefit-costs","owner-wallet-reconciliation","owner-cashback-source-lots","owner-referral-lifecycle","owner-benefit-payout-read","owner-benefit-proofs-read","owner-benefit-proof-view","owner-benefit-proof-verify","owner-payout-provider-read","owner-payout-provider-page","owner-recipient-proof-readiness","owner-multi-psp-hub","owner-campaign-orphan-audit","owner-orphan-cleanup-candidates","owner-campaign-cost-read","owner-campaign-receipts-read","owner-campaign-receipt-view","ads-audience-readiness","ads-preview-summary","ads-placement-readiness","ads-pilot-preflight","commercial-activation","ads-campaign-queue","growth-referral-review-queue"]);
 const ADMIN_ROLE_ACTIONS:Record<string,Set<string>>={
   superadmin:new Set(["*"]),
   operations:new Set([
@@ -3060,6 +3060,79 @@ Deno.serve(async(req:Request)=>{
             x.referenceMatches!==null||x.amountMatches!==null||
             x.providerTransactionSuccess!==null))))
         throw new DomainError("PAYOUT_PROVIDER_HISTORY_INVALID","Histórico externo não validado.",503);
+      return json(data,200,origin);
+    }
+    // V1.336 — read-only, bounded, risk-prioritized paging for owner reconciliation.
+    if(action==="owner-payout-provider-page"){
+      if(!["superadmin","finance"].includes(String(adminAccess.admin_role)))
+        throw new DomainError("ADMIN_PERMISSION_DENIED","Histórico externo restrito.",403);
+      const month=String(body.month??""),offset=body.offset;
+      if(month!==""&&!/^\\d{4}-(0[1-9]|1[0-2])-01$/.test(month))
+        throw new DomainError("PAYOUT_PROVIDER_MONTH_INVALID","Competência inválida.",400);
+      if(!Number.isSafeInteger(offset)||offset<0||offset>999990||offset%30!==0)
+        throw new DomainError("PAYOUT_PAGE_INVALID","Página de conciliação inválida.",400);
+      const {data,error}=await admin.rpc("admin_owner_payout_provider_page_v1_336",{
+        p_actor:user.id,p_month:month||null,p_offset:offset
+      });
+      if(error)throw error;
+      const counters=["totalClaims","checkedClaims","providerSuccessClaims",
+        "checkedUnmatchedClaims","unqueriedClaims","activeReversedClaims",
+        "activeReversedReportedCents","reversedWithHistoricalProviderSuccessClaims",
+        "activeReversedWithHistoricalProviderSuccessClaims"];
+      if(data?.source!=="owner_payout_provider_reconciliation_v1_265"||
+         data?.provider!=="mercado_pago_payouts_get"||
+         data?.timezone!=="America/Sao_Paulo"||
+         data?.bankSettlementVerified!==false||data?.recipientVerified!==false||
+         data?.providerTransactionIsBeneficiaryProof!==false||
+         data?.externalPaidBenefitsCents!==null||data?.readOnly!==true||
+         data?.noTransfers!==true||data?.historicalProviderSuccessIsBankProof!==false||
+         data?.automaticRecoveryExecuted!==false||
+         data?.triageV1335!==true||data?.triageV1336!==true||
+         data?.queueOrder!=="priority_then_reported_at"||
+         data?.queueCoverage!=="paginated_30_prioritized"||
+         data?.pageOffset!==offset||data?.pageLimit!==30||
+         data?.hasPrevious!==(offset>0)||
+         !/^\\d{4}-\\d{2}-01$/.test(String(data?.month||""))||
+         (month!==""&&data.month!==month)||
+         counters.some(k=>!Number.isSafeInteger(data?.[k])||data[k]<0)||
+         data.totalClaims!==data.checkedClaims+data.unqueriedClaims||
+         data.checkedClaims!==data.providerSuccessClaims+data.checkedUnmatchedClaims||
+         data.activeReversedClaims>data.totalClaims||
+         data.activeReversedWithHistoricalProviderSuccessClaims>data.activeReversedClaims||
+         data.activeReversedWithHistoricalProviderSuccessClaims>data.reversedWithHistoricalProviderSuccessClaims||
+         data.limit!==30||data.truncated!==(data.totalClaims>30)||
+         !Array.isArray(data.rows)||data.rows.length>30||
+         data.rows.length>Math.max(0,data.totalClaims-offset)||
+         data.hasMore!==(offset+data.rows.length<data.totalClaims)||
+         data.rows.some((x:any)=>!x||!UUID_RE.test(String(x.claimId||""))||
+           !UUID_RE.test(String(x.orderId||""))||
+           !Number.isSafeInteger(x.reportedAmountCents)||x.reportedAmountCents<0||
+           !/^\\d{4}-\\d{2}-\\d{2}$/.test(String(x.paidOn||""))||
+           !Number.isFinite(Date.parse(String(x.reportedAt||"")))||
+           !Number.isSafeInteger(x.priority)||x.priority<0||x.priority>5||
+           typeof x.successNow!=="boolean"||typeof x.proofPresent!=="boolean"||
+           typeof x.voided!=="boolean"||
+           !["grantReversedNow","historicalProviderSuccessObserved",
+              "requiresReversalReview"].every(k=>typeof x[k]==="boolean")||
+           x.requiresReversalReview!==(
+             x.grantReversedNow&&x.historicalProviderSuccessObserved&&!x.voided)||
+           (x.requiresReversalReview&&x.priority!==0)||
+           (x.voided&&x.priority!==5)||
+           (x.priority===0&&!x.requiresReversalReview)||
+           (x.checkedAt!==null&&(
+             !Number.isFinite(Date.parse(String(x.checkedAt)))||
+             typeof x.referenceMatches!=="boolean"||typeof x.amountMatches!=="boolean"||
+             typeof x.providerTransactionSuccess!=="boolean"||
+             typeof x.status!=="string"||typeof x.detail!=="string"||
+             !/^POP[0-9A-Z]{10,45}$/.test(String(x.payoutId||""))||
+             !/^TOP[0-9A-Z]{10,45}$/.test(String(x.transactionId||""))))||
+           (x.checkedAt===null&&(
+             x.status!==null||x.detail!==null||
+             x.payoutId!==null||x.transactionId!==null||
+             x.referenceMatches!==null||x.amountMatches!==null||
+             x.providerTransactionSuccess!==null)))||
+         data.rows.some((x:any,i:number)=>i>0&&data.rows[i-1].priority>x.priority)
+      )throw new DomainError("PAYOUT_PAGE_HISTORY_INVALID","Página de conciliação não validada.",503);
       return json(data,200,origin);
     }
     // V1.264 — owner-authenticated private proof upload, byte-checked on server.
