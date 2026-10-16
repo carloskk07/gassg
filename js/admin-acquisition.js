@@ -3138,7 +3138,7 @@ async function adminPayoutFollowupLoadFromUi(){
   const role=String(adminCurrentRole());
   if(!actor||!['superadmin','finance'].includes(role)||adminPayoutFollowupBusy)return;
   const month=String(document.getElementById('owner-campaign-signals-month')?.value||'').trim();
-  if(month&&!/^\\d{4}-(0[1-9]|1[0-2])$/.test(month))
+  if(month&&!/^\d{4}-(0[1-9]|1[0-2])$/.test(month))
     return toast('Competência inválida.');
   adminPayoutFollowupBusy=true;
   try{
@@ -3149,7 +3149,7 @@ async function adminPayoutFollowupLoadFromUi(){
     const states=['not_started','in_review','awaiting_evidence','reviewed_no_bank_proof'];
     if(d?.source!=='admin_payout_followup_queue_v1_338'||
       d?.timezone!=='America/Sao_Paulo'||
-      !/^\\d{4}-\\d{2}-01$/.test(String(d?.month||''))||
+      !/^\d{4}-\d{2}-01$/.test(String(d?.month||''))||
       (month&&d.month!==month+'-01')||
       d?.readOnly!==true||d?.administrativeOnly!==true||
       d?.bankSettlementVerified!==false||d?.recipientVerified!==false||
