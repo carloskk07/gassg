@@ -326,7 +326,7 @@ function learn(){
   return shell(`<section class="page">
     <span class="eyebrow">COMO FUNCIONA O TAMÃO</span>
     <h1 class="page-title">Quer pedir gás, água ou outros itens? Veja como funciona.</h1>
-    <p class="muted page-lead">Comece pelo seu CEP. Quando houver revendas disponíveis, você confere os preços, os prazos e escolhe a opção que prefere.</p>
+    <p class="muted page-lead">Veja primeiro os produtos e escolha o que precisa. Na etapa de entrega, informe o CEP para conferir revendas, preço total e prazo antes de decidir.</p>
     <div class="journey-invite">
       <span class="journey-invite-icon" aria-hidden="true">🏡</span>
       <div><strong>Do gás à água, o que você precisa está no mesmo lugar.</strong><span>Você escolhe, a revenda confirma e o TAMÃO mostra o andamento.</span></div>
@@ -435,8 +435,8 @@ function sponsorsLanding(){
   return shell(`<section class="page tamao-sponsors-page">
     <div class="tamao-sponsor-hero tamao-commercial-hero">
       <span class="eyebrow">MARCAS E PARCEIROS • TAMÃO</span>
-      <h1 class="page-title">Sua marca presente no dia a dia de quem compra e vende.</h1>
-      <p class="page-lead">Converse com o TAMÃO sobre ações de divulgação regional ligadas às necessidades reais das famílias e das revendas. Definimos cidade, público, formato e investimento antes de qualquer ativação.</p>
+      <h1 class="page-title">Sua marca pode fazer parte das escolhas que movem a cidade.</h1>
+      <p class="page-lead">Planeje campanhas regionais com propósito: apresente sua marca onde consumidores e revendas procuram soluções para o dia a dia. Cidade, público, formato e investimento são definidos com você antes de qualquer ativação.</p>
       <div class="conversion-mini-proof"><span>✓ Presença regional</span><span>✓ Campanhas desenhadas em conjunto</span><span>✓ Primeiro contato sem compromisso</span></div>
       <div class="tamao-value-actions">
         <button type="button" class="primary" onclick="openSponsorContact()">Quero apresentar minha marca →</button>
@@ -491,8 +491,8 @@ function merchantsLanding(){
 
   return shell(`<section class="page merchant-landing">
     <span class="eyebrow">VENDA PELO TAMÃO</span>
-    <h1 class="page-title">Você cuida do seu negócio. <span class="headline-accent">O TAMÃO ajuda mais gente a encontrá-lo.</span></h1>
-    <p class="muted page-lead">Sua revenda merece um espaço a mais para crescer. Apareça para quem procura gás, água e itens essenciais na sua região, receba pedidos organizados e continue vendendo no balcão, no telefone ou pelo WhatsApp. <strong>Você continua no comando: você define seus preços, o estoque, as formas de receber e como será a entrega.</strong></p>
+    <h1 class="page-title">Sua revenda, mais fácil de encontrar. <span class="headline-accent">Seu negócio, sempre nas suas mãos.</span></h1>
+    <p class="muted page-lead">Faça do TAMÃO mais um canal para quem procura gás, água e essenciais na sua região. Prepare seu catálogo, organize pedidos e continue atendendo pelo balcão, telefone e WhatsApp. <strong>Você decide preços, estoque, formas de pagamento, disponibilidade e entrega.</strong></p>
     <div class="conversion-mini-proof"><span>✓ Sem exclusividade</span><span>✓ Recebimento direto na revenda</span><span>✓ Você decide quando ficar online</span></div>
 
     <div class="tamao-cro-steps merchant-cro-steps" aria-label="Como começar a vender pelo TAMÃO">
