@@ -413,6 +413,8 @@ jobs:
         run: node tests/merchant-delivery-assignment-v1-175.mjs
       - name: Evidence-based order milestone timeline V1.176 regression
         run: node tests/merchant-order-milestones-v1-176.mjs
+      - name: Merchant acknowledged mutation and refresh safety V1.330 regression
+        run: node tests/merchant-mutation-refresh-proof.mjs
       - name: Verified order deadline attention V1.177 regression
         run: node tests/merchant-order-attention-v1-177.mjs
       - name: Guided merchant incident handling V1.178 regression
