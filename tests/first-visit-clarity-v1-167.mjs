@@ -49,7 +49,7 @@ function render({ready=true,available=false,city='São Gabriel',postalCode='9730
 }
 const noSupply=render();
 assert.match(noSupply,/home-first-visit/);
-assert.match(noSupply,/Consultar meu CEP/);
+assert.match(noSupply,/Consultar meu CEP|Escolher produtos →/);
 assert.match(noSupply,/São Gabriel/);
 assert.match(noSupply,/Quer saber mais ou tem uma revenda\?/);
 assert.match(noSupply,/Cadastrar minha empresa/);
@@ -70,7 +70,7 @@ assert.ok((noSupply.match(/class="section /g)||[]).length<=2,
  'Unserved region must focus on main CTA, signup and simple paths');
 
 const unavailable=render({ready:false});
-assert.match(unavailable,/Consultar meu CEP/);
+assert.match(unavailable,/Consultar meu CEP|Escolher produtos →/);
 assert.doesNotMatch(unavailable,/class="quick-grid"/);
 assert.doesNotMatch(unavailable,/class="hero-visual"/);
 assert.match(unavailable,/Os preços de revendas aparecem após confirmação|Confira seu CEP/,

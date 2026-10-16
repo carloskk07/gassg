@@ -114,7 +114,7 @@ assert.ok(core.includes('isValidCnpjShape'),'core precisa suportar validação e
 assert.ok(!merchant.includes('.stock'),'UI da revenda não deve depender do campo legado stock');
 assert.ok(growth.includes('referralCode'),'link de indicação deve usar código pessoal');
 assert.ok(bootstrap.includes('home,learn,earn'),'router público precisa expor jornadas de descoberta e renda');
-assert.ok(customer.includes('Consultar meu CEP')&&customer.includes('Entender como funciona')&&customer.includes('Conhecer os benefícios')&&customer.includes('Cadastrar minha empresa')&&customer.includes('Tenho uma empresa'),'home precisa separar compra, entendimento, benefícios e parceria comercial nas duas condições de disponibilidade');
+assert.ok((customer.includes('Consultar meu CEP')||customer.includes('Escolher produtos →'))&&customer.includes('Entender como funciona')&&customer.includes('Conhecer os benefícios')&&customer.includes('Cadastrar minha empresa')&&customer.includes('Tenho uma empresa'),'home precisa separar compra, entendimento, benefícios e parceria comercial nas duas condições de disponibilidade');
 assert.ok(html.includes('./js/analytics.js'),'runtime de analytics first-party precisa ser carregado pelo site');
 assert.ok(html.indexOf('./js/core.js')<html.indexOf('./js/analytics.js')&&html.indexOf('./js/analytics.js')<html.indexOf('./js/acquisition.js'),'analytics precisa carregar depois do core e antes das jornadas de aquisição');
 assert.ok(html.includes('./js/acquisition.js'),'runtime de aquisição precisa ser carregado pelo site');
@@ -152,7 +152,7 @@ assert.ok(read('supabase/functions/admin-ops/index.ts').includes('admin_prelaunc
 assert.ok(read('supabase/migrations/20261003202000_launch_ops_v1_51.sql').includes('PRELAUNCH_LEAD_FINAL')&&read('supabase/migrations/20261003202000_launch_ops_v1_51.sql').includes('PUBLIC_REQUEST_ALREADY_CLOSED'),'pipeline precisa falhar fechado em estados finais');
 assert.ok(read('supabase/functions/admin-ops/index.ts').includes('prelaunch_leads')&&read('supabase/functions/admin-ops/index.ts').includes('prelaunchLeads'),'summary protegido deve transportar leads para o admin');
 assert.ok(customer.includes('acquisitionOpen')&&customer.includes('prelaunchCustomerLeadSection'),'ausência de oferta precisa converter tráfego em aviso de disponibilidade');
-assert.ok(customer.includes('conciseHome=acquisitionOpen&&!testDemo')&&customer.includes('Consultar meu CEP')&&customer.includes('first-visit-intent-grid')&&customer.includes('prelaunchCustomerLeadSection()'),'home sem supply precisa mostrar CEP, aviso e convite à revenda sem simular catálogo');
+assert.ok(customer.includes('conciseHome=acquisitionOpen&&!testDemo')&&(customer.includes('Consultar meu CEP')||customer.includes('Escolher produtos →'))&&customer.includes('first-visit-intent-grid')&&customer.includes('prelaunchCustomerLeadSection()')&&customer.includes('discoveryTiles=homeProductEntries'),'home sem supply precisa distinguir descoberta de produtos, consulta de CEP, aviso e convite sem simular ofertas');
 assert.ok(acquisition.includes('ATENDIMENTO POR REGIÃO')&&acquisition.includes('Revendas cadastradas')&&acquisition.includes('Nenhuma compra é criada por este cadastro'),'aquisição precisa comunicar disponibilidade real sem fabricar prova social');
 assert.ok(core.includes("prelaunchPublic||!merchantOriginReady?\"go('merchants')\":\"openMerchantPortal()\""),'switcher público não pode mandar revenda para portal ainda inexistente');
 assert.ok(core.includes("['early-access','🔔','Disponibilidade','lead']")&&core.includes("act==='lead'?\"openPrelaunchCustomerLead()\""),'navegação mobile sem supply precisa levar ao aviso de disponibilidade');
@@ -227,7 +227,7 @@ assert.ok(growth.includes('A comissão é calculada sobre a primeira compra vál
 assert.ok(growth.includes('Compras posteriores não geram outra comissão de aquisição'),'marketing não pode sugerir comissão recorrente do mesmo indicado');
 assert.ok(growth.includes('validação das contas envolvidas'),'marketing deve expor o gate real de identidade para maturação');
 assert.ok(!growth.includes('disabled>Saque Pix ainda não disponível')&&growth.includes('Os meios de recebimento são informados na conta conforme a disponibilidade.'),'UI não pode fingir saque ainda inexistente');
-assert.ok(growth.includes('continua no comando')&&growth.includes('você define')||growth.includes('continua no comando')&&growth.includes('Você decide'),'landing de revenda deve enfatizar autonomia operacional');
+assert.ok(growth.includes('Você decide preços, estoque, formas de pagamento, disponibilidade e entrega.')||growth.includes('continua no comando')&&growth.includes('Você decide'),'landing de revenda deve enfatizar autonomia operacional');
 assert.ok(core.includes("['earn','💰','Ganhe','go']"),'navegação móvel precisa dar acesso direto ao hub de renda');
 assert.ok(!growth.includes('inputmode="numeric" maxlength="18"'),'campo CNPJ não pode forçar teclado somente numérico após adoção do CNPJ alfanumérico');
 assert.ok(sw.includes("CACHE='tamao-sg-v1.291'"),'cache do service worker precisa refletir a geração PWA auditada');

@@ -465,6 +465,8 @@ jobs:
         run: node tests/payout-review-followup-deadlines-v1-338.mjs
       - name: City-first live/reference pricing V1.341 regression
         run: node tests/customer-city-price-showcase-v1-341.mjs
+      - name: V1.346 marketing and accessibility design regression
+        run: node tests/marketing-experience-v1-346.mjs
       - name: Admin all-months unresolved payout queue V1.340 regression
         run: node tests/payout-global-followup-v1-340.mjs
       - name: Admin all-months payout pagination V1.341 regression
@@ -546,7 +548,7 @@ jobs:
           grep -q "✓ Sem pedido automático" /tmp/home.html
           grep -q "Botijão de cozinha 13 kg" /tmp/home.html
           grep -q "Me avise quando puder pedir" /tmp/home.html
-          grep -q "CONSULTE ENTREGAS PERTO DE VOCÊ." /tmp/home.html
+          grep -q "PRIMEIRO ESCOLHA. DEPOIS, CONFIRA A ENTREGA." /tmp/home.html
           grep -q "Quer saber mais ou tem uma revenda?" /tmp/home.html
           grep -q "Entender como funciona" /tmp/home.html
           grep -q "Cadastrar minha empresa" /tmp/home.html
@@ -555,8 +557,8 @@ jobs:
           grep -q "O que você precisa e onde devemos entregar" /tmp/order.html
           grep -q "CLUBE TAMÃO" /tmp/club.html
           grep -q "Seu próximo convite pode abrir novas portas." /tmp/refer.html
-          grep -q "Você cuida do seu negócio." /tmp/merchants.html
-          grep -q "Sua marca presente no dia a dia de quem compra e vende." /tmp/sponsors.html
+          grep -q "Sua revenda, mais fácil de encontrar." /tmp/merchants.html
+          grep -q "Sua marca pode fazer parte das escolhas que movem a cidade." /tmp/sponsors.html
           grep -q "FAÇA AS CONTAS DO SEU JEITO" /tmp/merchants.html
           grep -q "Quer vender pelo TAMÃO?" /tmp/merchants.html
           grep -q "Quero levar minha empresa ao TAMÃO" /tmp/merchants.html
