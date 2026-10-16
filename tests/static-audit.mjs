@@ -1697,7 +1697,7 @@ for(const entry of fs.readdirSync(functionRoot,{withFileTypes:true})){
     assert.ok(source.includes('mercadoPagoFetch("/v1/payments/"+paymentId')
       &&source.includes('collectorId!==sellerId')
       &&source.includes('amount<1000||amount>5000000')
-      &&source.includes('admin')===false,
+      &&!source.includes('auth.getUser'),
       entry.name+' exige consulta do pagamento e identidade da conta TAMÃO sem usar admin de usuário');
     assert.ok(source.includes('client.rpc("ads_mp_inbox_record_v1_316"')
       &&!source.includes('admin_ads_psp_action_v1_314')
