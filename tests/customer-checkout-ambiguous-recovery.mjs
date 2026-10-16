@@ -72,6 +72,7 @@ assert.equal(old.runtime.actionPending,false);
 
 // A truly confirmed create-order reply remains confirmed even if detail fetch fails.
 const confirmed=await scenario({result:{orderId:confirmedId},orderReadFails:true});
+console.log('DEBUG_CONFIRMED', JSON.stringify({cart:confirmed.state.cart,notices:confirmed.notices,routes:confirmed.routes,requests:confirmed.requested,readOrders:confirmed.readOrders,orderId:confirmed.runtime.orderId,error:confirmed.runtime.error}));
 assert.deepEqual(confirmed.state.cart,{});
 assert.ok(confirmed.routes.includes('tracking'));
 assert.ok(confirmed.notices.some(s=>s.includes('Pedido registrado')));
