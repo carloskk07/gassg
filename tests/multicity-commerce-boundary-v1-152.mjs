@@ -69,5 +69,6 @@ function start(ready){
   return action;
 }
 assert.equal(start(true),'order','cidade com backend operacional consulta a oferta');
-assert.equal(start(false),'lead','fora do backend o fluxo preserva interesse consentido');
+assert.equal(start(false),'order',
+  'a navegação pode abrir produtos sem sessão; as cotações e pedidos permanecem bloqueados no backend');
 console.log('V1.152 passou: isolamento municipal, antifraude de cotações, pausa auditada e consulta antes do aviso.');
