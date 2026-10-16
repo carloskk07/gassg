@@ -25,7 +25,8 @@ async function adminActivationLoad({force=false}={}){
       ['adsPspFreshness','ads-psp-freshness-read','admin_ads_psp_freshness_v1_318'],
       ['adsPspMerchantReviews','ads-psp-merchant-reviews','admin_ads_psp_review_requests_v1_319'],
       ['adsLaunch','ads-launch-readiness','admin_ads_launch_readiness_v1_320'],
-      ['adsLeads','ads-leads-read','admin_ads_leads_v1_322']
+      ['adsLeads','ads-leads-read','admin_ads_leads_v1_322'],
+      ['adsAssistance','ads-assistance-read','admin_ads_assistance_v1_323']
     ];
     const values=await Promise.allSettled([
       ...specs.map(([,action])=>adminInvoke({action})),
@@ -39,6 +40,16 @@ async function adminActivationLoad({force=false}={}){
       const safe=d?.source===source&&(
         key==='ads'?d.readOnly===true&&d.publicEnabled===false&&d.billingEnabled===false&&d.readyToSell===false:
         key==='adsQueue'?d.noCharge===true&&d.adsLive===false:
+        key==='adsAssistance'?d.readOnly===true&&d.contactPerformed===false&&
+          d.messagesSent===0&&d.adsLive===false&&d.paymentCreated===false&&
+          d.noAutomaticOutreach===true&&Number.isSafeInteger(d.totalRequests)&&
+          Number.isSafeInteger(d.openRequests)&&d.openRequests<=d.totalRequests&&
+          Array.isArray(d.rows)&&d.rows.length<=50&&d.rows.every(x=>
+           /^[0-9a-f-]{36}$/i.test(String(x.merchantId))&&
+           ['whatsapp','phone','email'].includes(x.channel)&&
+           ['requested','triaged','closed','withdrawn'].includes(x.status)&&
+           Number.isSafeInteger(x.version)&&x.version>0&&
+           typeof x.consentCurrent==='boolean'&&x.contactPerformed===false):
         key==='adsLeads'?d.readOnly===true&&d.contactPerformed===false&&
           d.notificationSent===false&&d.paymentCreated===false&&d.adsLive===false&&
           d.noAutomaticOutreach===true&&Number.isSafeInteger(d.totalOptedIn)&&
@@ -146,7 +157,7 @@ async function adminActivationLoad({force=false}={}){
         d.readOnly===true&&d.couponSalesEnabled===false&&d.noContractsSigned===true);
       evidence[key]=safe?d:null;
     });
-    const governance=values[17].status==='fulfilled'?values[17].value:null;
+    const governance=values[18].status==='fulfilled'?values[18].value:null;
     evidence.governance=governance?.source==='admin_governance_gates_v1_304'&&governance.readOnly===true&&
       adminRuntime.governance?.loadedFor===actor&&adminRuntime.governance?.role===role?governance:null;
     const push=adminRuntime.pushReliability||{};
@@ -236,7 +247,7 @@ function adminActivationDeskView(d){
     '<p class="tiny muted">Última consulta: '+
     esc(current?formatDateTime(adminActivationDesk.checkedAt):'não confirmada')+
     '. Uma falha na consulta é mostrada como “Não confirmado”, nunca como recurso desligado.</p>'+
-    '<div class="admin-activation-grid">'+cards+'</div>'+adminAdsLaunchReadinessView()+adminAdsLeadsView()+adminMarketingIntakeView()+adminAdsSalesPlansView()+adminAdsDossiersView()+adminAdsInstrumentsView()+adminAdsReceivablesView()+adminAdsPspView()+adminAdsMpInboxView()+adminAdsMpTriageView()+adminAdsPspFreshnessView()+adminAdsPspMerchantReviewsView()+
+    '<div class="admin-activation-grid">'+cards+'</div>'+adminAdsLaunchReadinessView()+adminAdsLeadsView()+adminAdsAssistanceView()+adminMarketingIntakeView()+adminAdsSalesPlansView()+adminAdsDossiersView()+adminAdsInstrumentsView()+adminAdsReceivablesView()+adminAdsPspView()+adminAdsMpInboxView()+adminAdsMpTriageView()+adminAdsPspFreshnessView()+adminAdsPspMerchantReviewsView()+
     '<p class="tiny muted">Publicidade pública, vendas de cupons e automação de avisos exigem homologação e gates reais no servidor. Nenhum controle desta página contorna esses requisitos.</p></section>';
 }
 
@@ -1199,4 +1210,79 @@ function adminAdsLeadsView(){
      '<p class="muted">A consulta ao servidor ainda não foi confirmada. Atualize a Central de Ativações.</p>')+
    '<div class="admin-activation-grid">'+(rows||'<p class="muted">Ainda não há revendas com interesse em publicidade registrado. Oriente as revendas a utilizar o guia de divulgação disponível em seus painéis.</p>')+'</div>'+
    '<p class="tiny muted">Somente interesse declarado nesta funcionalidade. Não pressupõe autorização de marketing direto, não envia mensagens, não aprova anúncios nem cria receita. Exibidas até 50 revendas priorizadas; total apurado separadamente.</p></section>';
+}
+
+
+// V1.323 — merchant-initiated Ads assistance. Queue management never sends a message.
+function adminAdsAssistanceView(){
+ if(!adminRoleCanSection('activations'))return '';
+ const actor=String(adminRuntime.session?.user?.id||''),role=adminCurrentRole();
+ const fresh=adminActivationDesk.actor===actor&&adminActivationDesk.role===role&&
+   Date.now()-Date.parse(adminActivationDesk.checkedAt||'')<120000;
+ const d=fresh?adminActivationDesk.data?.adsAssistance:null;
+ const statusLabels={requested:'Novo pedido de atendimento',triaged:'Em triagem interna',
+  closed:'Encerrado internamente',withdrawn:'Solicitação retirada'};
+ const channels={whatsapp:'WhatsApp',phone:'Telefone',email:'E-mail'};
+ const cards=(d?.rows||[]).map(x=>{
+  const id=String(x.merchantId||'');
+  const action=role==='superadmin'&&x.consentCurrent&&x.status==='requested'?'triage':
+   role==='superadmin'&&['requested','triaged'].includes(x.status)?'close':null;
+  return '<article class="admin-activation-card admin-ads-assistance">'+
+   '<div class="admin-activation-card-head"><strong>'+esc(x.merchantName)+'</strong>'+
+   '<span class="status-pill">'+esc(statusLabels[x.status])+'</span></div>'+
+   '<p>Canal solicitado: <strong>'+esc(channels[x.channel])+'</strong></p>'+
+   '<p>'+esc(x.note)+'</p>'+
+   '<p class="tiny muted">'+(x.consentCurrent?'Interesse atual confirmado no servidor.':
+     'Interesse atual não confirmado; não iniciar contato com base nesta solicitação.')+
+     ' • Solicitação v'+x.version+' • '+esc(String(x.requestedAt||'—'))+'</p>'+
+   (action?'<button type="button" class="secondary small" onclick="adminAdsAssistanceAction(\''+
+      id+'\',\''+action+'\')">'+
+       (action==='triage'?'Marcar como analisado':'Encerrar solicitação')+'</button>':'')+
+   '</article>';
+ }).join('');
+ return '<section class="section admin-ads-assistance" aria-label="Pedidos de orientação TAMÃO Ads">'+
+   '<div class="section-head"><div><span class="section-kicker">V1.323 • ATENDIMENTO SOLICITADO</span>'+
+   '<h2>Revendas que pediram orientação de publicidade</h2>'+
+   '<p>Uma fila de solicitações iniciadas pelas revendas, com canal preferido e motivo declarado. Nada é enviado automaticamente.</p></div></div>'+
+   (d?'<p class="tiny muted">Solicitações: '+d.totalRequests+' • Abertas: '+d.openRequests+
+       ' • Mensagens enviadas automaticamente: 0.</p>':
+       '<p class="muted">Fila não confirmada no servidor. Atualize a Central de Ativações.</p>')+
+   '<div class="admin-activation-grid">'+(cards||'<p class="muted">Nenhuma revenda solicitou atendimento comercial até esta consulta.</p>')+
+   '</div><p class="tiny muted">Analisar ou encerrar altera apenas o controle interno. Não equivale a mensagem entregue nem autoriza cobrança, publicação ou contato sem consentimento atual.</p></section>';
+}
+async function adminAdsAssistanceAction(merchantId,operation){
+ if(!adminReady()||adminCurrentRole()!=='superadmin'||adminActivationDesk.loading||
+   !['triage','close'].includes(operation))return false;
+ const actor=String(adminRuntime.session?.user?.id||'');
+ if(adminActivationDesk.actor!==actor||adminActivationDesk.role!=='superadmin'||
+   Date.now()-Date.parse(adminActivationDesk.checkedAt||'')>=120000)return false;
+ const req=adminActivationDesk.data?.adsAssistance?.rows?.find(x=>x.merchantId===merchantId);
+ if(!req||!Number.isSafeInteger(req.version)||
+   (operation==='triage'&&(!req.consentCurrent||req.status!=='requested'))||
+   (operation==='close'&&!['requested','triaged'].includes(req.status)))return false;
+ const reason=String(prompt('Justificativa para esta etapa interna (12–240 caracteres):')||'').trim();
+ if(reason.length<12||reason.length>240){toast('Informe uma justificativa válida.');return false;}
+ if(!confirm(operation==='triage'?'Marcar solicitação como analisada? Nenhuma mensagem será enviada.':
+   'Encerrar o pedido internamente? Isso não comprova atendimento ou contato.'))return false;
+ try{
+  const out=await adminPerform('ads-assistance-action',{
+    merchantId,operation,expectedVersion:req.version,reason,requestId:crypto.randomUUID()
+  });
+  const status=operation==='triage'?'triaged':'closed';
+  if(out?.source!=='admin_ads_assistance_action_v1_323'||out.merchantId!==merchantId||
+    out.status!==status||out.version!==req.version+1||out.recorded!==true||
+    out.messageSent!==false||out.contactPerformed!==false||
+    out.adsLive!==false||out.paymentCreated!==false)
+    throw new Error('Não foi possível confirmar a ação no servidor.');
+  adminActivationDesk.data=null;
+  const again=await adminActivationLoad({force:true});
+  const saved=again?.adsAssistance?.rows?.find(x=>x.merchantId===merchantId);
+  if(!saved||saved.status!==status||saved.version!==out.version)
+    throw new Error('Ação registrada, mas leitura de confirmação ainda pendente.');
+  toast('Etapa interna registrada. Nenhum contato automático foi realizado.');
+  return true;
+ }catch(e){
+  adminActivationDesk.data=null;await adminActivationLoad({force:true});
+  toast(String(e?.message||e));return false;
+ }
 }

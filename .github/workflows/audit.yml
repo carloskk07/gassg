@@ -345,6 +345,8 @@ jobs:
         run: node tests/ads-guided-start-v1-321.mjs
       - name: Test V1.322 opted-in merchant Ads conversion
         run: node tests/ads-first-conversion-v1-322.mjs
+      - name: Test V1.323 explicit Ads assistance and founder-triage guard
+        run: node tests/ads-assistance-v1-323.mjs
       - name: TAMÃO V1.258 founder-approved orphan deletion with immutable audit
         run: node tests/owner-receipt-orphan-cleanup-v1-258.mjs
       - name: Turnstile smoke Chrome cleanup V1.238.1

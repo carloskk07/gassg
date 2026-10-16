@@ -59,6 +59,9 @@ const providers={
     verifiedDeliveryEnabled:false,platformPspConfig:{
       explicitlyEnabled:false,providerTokenConfigured:false,providerSellerConfigured:false,
       canAttemptAuthenticatedLookup:false,liveAccountVerified:false,providerCharged:false}},
+  'ads-assistance-read':{source:'admin_ads_assistance_v1_323',readOnly:true,
+    totalRequests:0,openRequests:0,rows:[],messagesSent:0,contactPerformed:false,
+    adsLive:false,paymentCreated:false,noAutomaticOutreach:true},
   'ads-leads-read':{source:'admin_ads_leads_v1_322',readOnly:true,
     snapshotAt:new Date().toISOString(),totalOptedIn:0,creativeApproved:0,preparingCreative:0,
     rows:[],contactPerformed:false,notificationSent:false,paymentCreated:false,
@@ -87,7 +90,7 @@ const env=vm.createContext({
 });
 vm.runInContext(src+'\nthis.load=adminActivationLoad;this.view=adminActivationDeskView;this.go=adminActivationGo;',env);
 assert.equal(await env.load({force:true})!=null,true);
-assert.equal(calls.filter(x=>typeof x==='string').length,17);
+assert.equal(calls.filter(x=>typeof x==='string').length,18);
 let view=env.view({commercialPolicy:{policy_version:4}});
 assert.match(view,/Central de consulta e acesso aos controles reais/);
 assert.match(view,/Exibição bloqueada/);
