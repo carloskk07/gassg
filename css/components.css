@@ -3767,3 +3767,58 @@ body:has(.admin-page) .admin-nav-item:focus-visible{outline-offset:-3px}
 .admin-ads-return-fields textarea{min-height:82px;resize:vertical}
 .merchant-ads-feedback-return .card{margin-top:12px}
 @media(max-width:520px){.admin-ads-return-fields button,.merchant-ads-feedback-return button{width:100%;min-height:44px}}
+
+
+/* TAMÃO V1.341 — regional showroom; motion indicates presentation, not orders. */
+.city-price-board{max-width:1200px;margin:24px auto 32px;padding:clamp(20px,4vw,38px);
+ border-radius:28px;background:linear-gradient(132deg,#f5f9ff 0%,#fdfdf7 55%,#effaf6 100%);
+ border:1px solid rgba(21,77,102,.13);box-shadow:0 15px 44px rgba(24,65,83,.075)}
+.city-price-heading{display:flex;justify-content:space-between;align-items:start;gap:18px}
+.city-price-heading h2{font-size:clamp(1.55rem,3.2vw,2.35rem);line-height:1.16;margin:8px 0 10px;letter-spacing:-.025em}
+.city-price-heading p{max-width:65ch;color:var(--muted,#475569);line-height:1.65}
+.city-price-place{white-space:nowrap;background:#fff;border:1px solid #dce7ed;
+ border-radius:40px;padding:10px 16px;font-size:.88rem;font-weight:750;color:#154d5c}
+.city-price-location-note{margin:14px 0;color:#556977}
+.city-price-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px;margin:20px 0}
+.city-price-card{position:relative;min-width:0;padding:19px;border:1px solid #d7e4ea;border-radius:20px;
+ display:flex;flex-direction:column;gap:8px;background:rgba(255,255,255,.93);
+ box-shadow:0 8px 24px rgba(22,57,80,.045);transition:transform .25s ease,box-shadow .25s ease}
+.city-price-card.center{border-color:#78b8aa;background:#f9fffd}
+.city-price-card.verified{border-color:#b8dfcd;background:linear-gradient(160deg,#fff,#f4fff8)}
+.city-price-card:hover{transform:translateY(-4px);box-shadow:0 13px 29px rgba(22,57,80,.11)}
+.city-price-kind{font-size:.65rem;letter-spacing:.055em;font-weight:850;color:#22665f}
+.city-price-card.reference .city-price-kind{color:#8a641d}
+.city-price-dot{display:inline-block;width:7px;height:7px;border-radius:100%;background:#2cbd8a;
+ vertical-align:middle;margin-right:3px;box-shadow:0 0 0 4px rgba(44,189,138,.10)}
+.city-price-name{font-weight:800;color:#173c4e;font-size:1.04rem}
+.city-price-caption{font-size:.83rem;color:#4c6672}
+.city-price-amount{font-size:clamp(1.6rem,3vw,2.45rem);letter-spacing:-.035em;color:#123f4f}
+.city-price-card small{color:#5b6e7e;line-height:1.45}
+.city-price-origin{font-size:.73rem;color:#1d6051;font-weight:800}
+.city-price-disclaimer{font-size:.82rem;line-height:1.5;color:#586d7c}
+.city-price-empty{grid-column:1/-1;padding:22px;background:#fff;border:1px dashed #bdd1dc;
+ border-radius:16px;color:#415c67}
+.city-price-controls{display:flex;flex-wrap:wrap;gap:12px;align-items:center;margin-top:19px}
+.city-price-chooser{flex:1;min-width:min(240px,100%)}
+.city-price-chooser summary{cursor:pointer;font-weight:750;color:#25596d;padding:10px 0;list-style-position:inside}
+.city-price-chooser-fields{display:flex;align-items:end;flex-wrap:wrap;gap:10px;margin:10px 0}
+.city-price-chooser-fields label{display:flex;flex-direction:column;gap:5px;font-size:.78rem;font-weight:750}
+.city-price-chooser-fields input{max-width:240px;padding:10px 11px;border:1px solid #a8c2cb;border-radius:12px;
+ background:#fff;color:#173e51;min-height:44px}
+.city-price-chooser-fields #home-city-uf{max-width:90px}
+.starter-postal-optional{margin-top:12px;padding:9px 0}
+.starter-postal-optional summary{cursor:pointer;font-size:.83rem;font-weight:730}
+.starter-postal-optional summary span{font-weight:450;opacity:.72}
+.starter-postal-optional .starter-address{margin-top:12px}
+@media(min-width:700px){.city-price-card:nth-child(2){transform:translateY(-3px)}}
+@media(max-width:720px){.city-price-board{margin:16px 10px 24px;padding:20px 16px;border-radius:20px}
+ .city-price-heading{display:block}.city-price-place{display:inline-block;margin-top:10px}
+ .city-price-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+ .city-price-card{padding:15px}
+ .city-price-amount{font-size:1.6rem}}
+@media(max-width:450px){.city-price-grid{grid-template-columns:1fr}
+ .city-price-controls>.primary{width:100%}
+ .city-price-chooser-fields label:first-child{flex:1;min-width:150px}}
+@media(prefers-reduced-motion:reduce){.city-price-card{transition:none}
+ .city-price-card:hover{transform:none;box-shadow:none}
+ .city-price-card:nth-child(2){transform:none}}
