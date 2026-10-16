@@ -1566,7 +1566,7 @@ function adminAdsReturnExecutionView(){
     ' • plano v'+Number(r.version)+'</p>'+
     (r.status==='attempt_recorded'?'<p>Nova tentativa informada pela administração: <strong>'+
      esc(({not_reached:'Não conseguiu contato',conversation:'Conversa relatada',
-       followup_requested:'Novo retorno solicitado',not_interested:'Sem interesse'}[r.attemptOutcome]||'Registro')+
+       followup_requested:'Novo retorno solicitado',not_interested:'Sem interesse'}[r.attemptOutcome]||'Registro'))+
      '</strong> • '+esc(String(r.attemptReportedAt||''))+'</p>':'')+
     '<p class="tiny muted">Nenhuma confirmação independente de entrega. '+
       'Ação não realiza contato automaticamente.</p>'+
