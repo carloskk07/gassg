@@ -70,6 +70,7 @@ const fields={'owner-campaign-signals-month':{value:'2026-10'}};
 const ctx=vm.createContext({
  adminRuntime:{session:{user:{id:actor}}},adminCurrentRole:()=>role,
  adminPayoutReviewState:null,
+ adminPayoutReviewBusy:false,
  document:{getElementById:id=>fields[id]||null},
  adminInvoke:async req=>{
    calls++;
