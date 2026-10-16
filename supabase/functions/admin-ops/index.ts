@@ -4540,15 +4540,19 @@ Deno.serve(async(req:Request)=>{
         !Number.isSafeInteger(data.totalMerchantFeedback)||data.totalMerchantFeedback<0||
         !Number.isSafeInteger(data.awaitingMerchantFeedback)||data.awaitingMerchantFeedback<0||
         !Array.isArray(data.rows)||data.rows.length>50||
-        data.rows.some((x:any)=>!UUID_RE.test(String(x.merchantId||""))||
-          !Number.isSafeInteger(x.assistanceVersion)||x.assistanceVersion<1||
-          typeof x.currentConsent!=="boolean"||
-          (x.lastContact!==null&&(!UUID_RE.test(String(x.lastContact?.contactRequestId||""))||
-            !["not_reached","conversation","followup_requested","not_interested"].includes(x.lastContact?.reportedOutcome)||
-            (x.lastContact.merchantFeedback!==null&&(
-              x.lastContact.merchantFeedback?.merchantDeclared!==true||
-              !["contact_confirmed","contact_not_received","followup_needed"].includes(
-                x.lastContact.merchantFeedback?.response))))))
+        data.rows.some((x:any)=>{
+          if(!UUID_RE.test(String(x?.merchantId||""))||
+             !Number.isSafeInteger(x.assistanceVersion)||x.assistanceVersion<1||
+             typeof x.currentConsent!=="boolean")return true;
+          const c=x.lastContact;
+          if(c===null)return false;
+          if(!c||!UUID_RE.test(String(c.contactRequestId||""))||
+            !["not_reached","conversation","followup_requested","not_interested"].includes(c.reportedOutcome))
+            return true;
+          const feedback=c.merchantFeedback;
+          return feedback!==null&&(!feedback||feedback.merchantDeclared!==true||
+            !["contact_confirmed","contact_not_received","followup_needed"].includes(feedback.response));
+        }))
         throw new DomainError("ADS_FEEDBACK_ADMIN_UNVERIFIED","Respostas das revendas não confirmadas.",503);
       return json(data,200,origin);
     }
