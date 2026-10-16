@@ -22,7 +22,7 @@ for(const t of [
  "'automaticReconciliation',false","'adsLive',false",
  "'merchantBillingSeparate',true",
  'platform_admin_audit',
- 'c.verified_at>','current_version>checkout_version'
+ 'verified_at>requested_at','current_version>checkout_version'
 ])assert.ok(sql.includes(t),'Missing SQL guard: '+t);
 assert.doesNotMatch(sql,/insert into public\.(merchant_billing_payment_events|merchant_billing_provider_charges|merchant_sale_payment_attempts)/);
 assert.doesNotMatch(sql,/update public\.(platform_ads_psp_checkouts|ads_placement_controls)/);
