@@ -21,7 +21,8 @@ async function adminActivationLoad({force=false}={}){
       ['adsReceivables','ads-receivables-read','admin_ads_receivables_v1_313'],
       ['adsPsp','ads-psp-read','admin_ads_psp_v1_314'],
       ['adsMpInbox','ads-mp-inbox-read','admin_ads_mp_inbox_v1_316'],
-      ['adsMpTriage','ads-mp-triage-read','admin_ads_mp_triage_v1_317']
+      ['adsMpTriage','ads-mp-triage-read','admin_ads_mp_triage_v1_317'],
+      ['adsPspFreshness','ads-psp-freshness-read','admin_ads_psp_freshness_v1_318']
     ];
     const values=await Promise.allSettled([
       ...specs.map(([,action])=>adminInvoke({action})),
@@ -35,6 +36,17 @@ async function adminActivationLoad({force=false}={}){
       const safe=d?.source===source&&(
         key==='ads'?d.readOnly===true&&d.publicEnabled===false&&d.billingEnabled===false&&d.readyToSell===false:
         key==='adsQueue'?d.noCharge===true&&d.adsLive===false:
+        key==='adsPspFreshness'?d.readOnly===true&&d.snapshotOnly===true&&
+          d.automaticReconciliation===false&&d.paymentStateChanged===false&&
+          d.adsLive===false&&d.merchantBillingSeparate===true&&
+          Number.isSafeInteger(d.totalCheckouts)&&Number.isSafeInteger(d.needsReview)&&
+          Number.isSafeInteger(d.urgentCount)&&Number.isSafeInteger(d.staleApprovals)&&
+          Number.isSafeInteger(d.overdueUnconfirmed)&&Number.isSafeInteger(d.stalledReservations)&&
+          Array.isArray(d.rows)&&d.rows.length<=50&&d.rows.every(x=>
+           /^[0-9a-f-]{36}$/i.test(String(x.merchantId))&&
+           Number.isSafeInteger(x.checkoutVersion)&&x.checkoutVersion>0&&
+           Number.isSafeInteger(x.amountCents)&&x.amountCents>=1000&&
+           [1,2,3].includes(x.priority)&&typeof x.canRequestProviderCheck==='boolean'):
         key==='adsMpTriage'?d.readOnly===true&&d.adsLive===false&&
           d.automaticReconciliation===false&&d.providerSnapshotOnly===true&&
           d.paymentStateChanged===false&&d.refundsAlwaysRequireProviderCheck===true&&
@@ -100,7 +112,7 @@ async function adminActivationLoad({force=false}={}){
         d.readOnly===true&&d.couponSalesEnabled===false&&d.noContractsSigned===true);
       evidence[key]=safe?d:null;
     });
-    const governance=values[13].status==='fulfilled'?values[13].value:null;
+    const governance=values[14].status==='fulfilled'?values[14].value:null;
     evidence.governance=governance?.source==='admin_governance_gates_v1_304'&&governance.readOnly===true&&
       adminRuntime.governance?.loadedFor===actor&&adminRuntime.governance?.role===role?governance:null;
     const push=adminRuntime.pushReliability||{};
@@ -190,7 +202,7 @@ function adminActivationDeskView(d){
     '<p class="tiny muted">Última consulta: '+
     esc(current?formatDateTime(adminActivationDesk.checkedAt):'não confirmada')+
     '. Uma falha na consulta é mostrada como “Não confirmado”, nunca como recurso desligado.</p>'+
-    '<div class="admin-activation-grid">'+cards+'</div>'+adminMarketingIntakeView()+adminAdsSalesPlansView()+adminAdsDossiersView()+adminAdsInstrumentsView()+adminAdsReceivablesView()+adminAdsPspView()+adminAdsMpInboxView()+adminAdsMpTriageView()+
+    '<div class="admin-activation-grid">'+cards+'</div>'+adminMarketingIntakeView()+adminAdsSalesPlansView()+adminAdsDossiersView()+adminAdsInstrumentsView()+adminAdsReceivablesView()+adminAdsPspView()+adminAdsMpInboxView()+adminAdsMpTriageView()+adminAdsPspFreshnessView()+
     '<p class="tiny muted">Publicidade pública, vendas de cupons e automação de avisos exigem homologação e gates reais no servidor. Nenhum controle desta página contorna esses requisitos.</p></section>';
 }
 
@@ -952,4 +964,59 @@ function adminAdsMpTriageView(){
     '<p class="muted">Não foi possível confirmar a triagem no banco. Atualize a central.</p>')+
   '<div class="admin-activation-grid">'+(items||'<p class="muted">Sem observações de pagamento Ads para priorizar. Isso não comprova ausência de transações; confira o provedor quando necessário.</p>')+
   '</div><p class="tiny muted">Nenhum evento altera o pagamento automaticamente ou publica anúncios. A ausência de alertas não garante que não existam estornos ou webhooks perdidos.</p></section>';
+}
+
+
+// V1.318 — ageing and reconciliation evidence, not real-time PSP status.
+function adminAdsPspFreshnessView(){
+ if(!adminRoleCanSection('activations'))return '';
+ const actor=String(adminRuntime.session?.user?.id||''),role=adminCurrentRole();
+ const fresh=adminActivationDesk.actor===actor&&adminActivationDesk.role===role&&
+   Date.now()-Date.parse(adminActivationDesk.checkedAt||'')<120000;
+ const data=fresh?adminActivationDesk.data?.adsPspFreshness:null;
+ const meanings={
+  possible_reversal:'Possível estorno ou contestação após a última conferência',
+  activity_after_reversal:'Nova atividade observada após o estorno',
+  stale_approved_verification:'Aprovação sem conferência há mais de 24 horas',
+  stalled_reservation:'Reserva de checkout parada há mais de 30 minutos',
+  overdue_unconfirmed_checkout:'Demonstrativo vencido sem pagamento confirmado',
+  observed_approval_not_reconciled:'Aprovação observada; conferir diretamente no provedor',
+  approval_due_for_refresh:'Aprovação com mais de 6 horas desde a conferência',
+  informational:'Sem alerta conhecido — não significa pagamento atual ou quitado'
+ };
+ const rows=(data?.rows||[]).map(x=>{
+  const id=String(x.merchantId||'');
+  if(!/^[0-9a-f-]{36}$/i.test(id))return '';
+  const paymentId=String(x.paymentId||x.inboxPaymentId||'');
+  const canCheck=role==='superadmin'&&
+    adminActivationDesk.data?.adsPsp?.platformPspConfigured===true&&
+    x.canRequestProviderCheck===true&&/^[0-9]{5,30}$/.test(paymentId);
+  const badge=x.priority===1?'Prioridade alta':x.priority===2?'Conferir':'Informativo';
+  return '<article class="admin-activation-card"><div class="admin-activation-card-head"><strong>'+
+    esc(x.merchantName||'Revenda')+'</strong><span class="status-pill">'+badge+'</span></div>'+
+    '<p><strong>'+esc(meanings[x.reason]||'Verificação necessária')+'</strong></p>'+
+    '<p>'+esc(x.checkoutStatus)+' • '+
+    (Number(x.amountCents)/100).toLocaleString('pt-BR',{style:'currency',currency:'BRL'})+
+    '</p><p class="tiny muted">Última conferência direta: '+
+    esc(x.verifiedAt?formatDateTime(x.verifiedAt):'não registrada')+
+    ' • Vencimento: '+esc(String(x.dueDate||'não informado'))+'</p>'+
+    (x.inboxReceivedAt?'<p class="tiny muted">Última observação assinada: '+
+      esc(formatDateTime(x.inboxReceivedAt))+' • '+esc(x.inboxProviderStatus||'')+
+      '</p>':'')+
+    (canCheck?'<button type="button" class="secondary small" onclick="adminAdsPspAction(\''+
+      id+'\',\'reconcile\',\''+paymentId+'\')">Consultar novamente no Mercado Pago</button>':'')+
+    '</article>';
+ }).join('');
+ return '<section class="section admin-ads-psp-freshness"><div class="section-head"><div>'+
+  '<span class="section-kicker">V1.318 • EVIDÊNCIAS FINANCEIRAS</span>'+
+  '<h2>Conferências vencidas e cobranças que exigem atenção</h2>'+
+  '<p>Prioriza provas antigas, possíveis reversões, demonstrativos vencidos e reservas interrompidas.</p></div></div>'+
+  (data?'<p class="tiny muted">Checkouts: '+data.totalCheckouts+
+   ' • Ações sugeridas: '+data.needsReview+' • Urgentes: '+data.urgentCount+
+   ' • Aprovações sem conferência há 24h: '+data.staleApprovals+
+   ' • Vencidos sem confirmação: '+data.overdueUnconfirmed+
+   ' • Reservas paradas: '+data.stalledReservations+'</p>':
+   '<p class="muted">Não foi possível confirmar o estado das evidências financeiras.</p>')+
+  '<div class="admin-activation-grid">'+(rows||'<p class="muted">Nenhum checkout consta no livro da plataforma. A ausência de alertas não comprova pagamentos ou estornos.</p>')+
+  '</div><p class="tiny muted">Observações e idades são históricas, não mostram o status atual do Mercado Pago. Somente a consulta direta e autenticada do fundador atualiza a data de verificação. Não há conciliação automática nem publicação de anúncios.</p></section>';
 }
