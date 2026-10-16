@@ -3701,3 +3701,10 @@ body:has(.admin-page) .admin-nav-item:focus-visible{outline-offset:-3px}
 .admin-ads-psp-freshness .admin-activation-card{min-width:0}
 .admin-ads-psp-freshness .admin-activation-card p{overflow-wrap:anywhere}
 @media(max-width:520px){.admin-ads-psp-freshness button{width:100%;min-height:44px}}
+
+/* V1.319 — merchant payment proof should stay readable without implying money is final. */
+.merchant-ads-psp-evidence .card{margin-top:12px}
+.merchant-ads-psp-evidence .card p{overflow-wrap:anywhere}
+.admin-ads-psp-merchant-reviews .admin-activation-card{min-width:0}
+.admin-ads-psp-merchant-reviews p{overflow-wrap:anywhere}
+@media(max-width:520px){.merchant-ads-psp-evidence button,.admin-ads-psp-merchant-reviews button{width:100%;min-height:44px}}
