@@ -638,7 +638,7 @@ function customerCheckoutFocusStep(step){
     step==='address'?(document.getElementById('postal-code')||document.getElementById('address')):
     null;
   if(input?.focus)input.focus({preventScroll:true});
-  else area.querySelector('h2')?.focus({preventScroll:true});
+  else area.querySelector?.('h2')?.focus({preventScroll:true});
   return true;
 }
 // Only local catalogue display changes. Selected items remain visible in every category.
