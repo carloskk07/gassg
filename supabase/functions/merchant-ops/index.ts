@@ -117,7 +117,7 @@ Deno.serve(async(req:Request)=>{
     const merchantId=String(body.merchantId??"");
     const action=String(body.action??"");
     if(!UUID_RE.test(merchantId))throw new DomainError("INVALID_MERCHANT","Revenda inválida.",400);
-    if(!["ads-start-read","ads-psp-evidence","ads-psp","ads-receivable","ads-instrument","ads-dossier","ads-offer","ads-campaign","ads-interest","clube-interest","clube-terms","business-pulse","growth-network","enablement","heartbeat","set-online","update-product","catalog-history","update-logistics","update-capacity","update-scheduling","update-payment-methods","update-payment-routes","update-member-profile","request-billing-package","notify-billing-payment","notify-refund-recovery-payment","cancel-billing-request"].includes(action)){
+    if(!["ads-assistance","ads-start-read","ads-psp-evidence","ads-psp","ads-receivable","ads-instrument","ads-dossier","ads-offer","ads-campaign","ads-interest","clube-interest","clube-terms","business-pulse","growth-network","enablement","heartbeat","set-online","update-product","catalog-history","update-logistics","update-capacity","update-scheduling","update-payment-methods","update-payment-routes","update-member-profile","request-billing-package","notify-billing-payment","notify-refund-recovery-payment","cancel-billing-request"].includes(action)){
       throw new DomainError("INVALID_ACTION","Ação inválida.",400);
     }
 
@@ -134,6 +134,41 @@ Deno.serve(async(req:Request)=>{
     if(!membership)throw new DomainError("MERCHANT_ACCESS_DENIED","Você não possui acesso a esta revenda.",403);
 
     const role=membership.member_role;
+    if(action==="ads-assistance"){
+      if(!["owner","manager"].includes(String(role)))
+        throw new DomainError("ADS_ASSISTANCE_MEMBER_DENIED","Pedido comercial restrito à gestão.",403);
+      const operation=String(body.operation||"view");
+      if(!["view","request","withdraw"].includes(operation))
+        throw new DomainError("ADS_ASSISTANCE_OPERATION_INVALID","Operação inválida.",400);
+      const channel=operation==="request"?String(body.channel||""):null;
+      const note=operation==="request"?String(body.note||"").trim():null;
+      if(operation!=="view"&&(role!=="owner"||body.consent!==true||
+        !Number.isSafeInteger(body.expectedVersion)||body.expectedVersion<0||
+        !UUID_RE.test(String(body.requestId||""))||
+        (operation==="request"&&(!["whatsapp","phone","email"].includes(channel)||
+          !note||note.length<20||note.length>240))))
+        throw new DomainError("ADS_ASSISTANCE_OWNER_CONSENT_REQUIRED",
+          "O titular deve confirmar a solicitação e o canal de atendimento.",403);
+      const {data,error}=await admin.rpc("merchant_ads_assistance_v1_323",{
+        p_actor:user.id,p_merchant:merchantId,p_operation:operation,
+        p_expected_version:operation==="view"?null:body.expectedVersion,
+        p_channel:channel,p_note:note,p_consent:operation!=="view",
+        p_request:operation==="view"?null:body.requestId
+      });
+      if(error)throw error;
+      if(data?.source!=="merchant_ads_assistance_v1_323"||data.merchantId!==merchantId||
+        data.noMessageSent!==true||data.noCharge!==true||data.adsLive!==false||
+        (operation==="view"?(data.readOnly!==true||
+          typeof data.interestRegistered!=="boolean"||typeof data.merchantActive!=="boolean"||
+          (data.request!==null&&(!["requested","triaged","closed","withdrawn"].includes(data.request?.status)||
+            !Number.isSafeInteger(data.request.version)||data.request.version<1||
+            !["whatsapp","phone","email"].includes(data.request.channel)))):
+          (data.recorded!==true||data.status!==(operation==="request"?"requested":"withdrawn")||
+           !Number.isSafeInteger(data.version)||data.version<1)))
+        throw new DomainError("ADS_ASSISTANCE_RESPONSE_UNVERIFIED",
+          "A solicitação não foi confirmada pelo servidor.",503);
+      return json(data,200,origin);
+    }
     if(action==="ads-psp-evidence"){
       if(!["owner","manager"].includes(String(role)))
         throw new DomainError("ADS_EVIDENCE_MEMBER_DENIED","Consulta de confirmação restrita à gestão da revenda.",403);
