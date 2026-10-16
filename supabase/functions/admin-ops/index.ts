@@ -101,7 +101,7 @@ async function requireAdmin(admin:any,userId:string){
   if(!data)throw new DomainError("ADMIN_ACCESS_DENIED","Esta conta não possui acesso administrativo.",403);
   return data;
 }
-const ADMIN_READ_ACTIONS=new Set(["governance-gates","commercial-intake-read","ads-sales-plans","ads-offers-read","ads-dossiers-read","ads-instruments-read","ads-receivables-read","ads-psp-read","ads-mp-inbox-read","ads-mp-triage-read","ads-psp-freshness-read","ads-psp-merchant-reviews","ads-launch-readiness","ads-leads-read","ads-assistance-read","ads-contact-reports-read","ads-contact-feedback-read","ads-feedback-returns-read","summary","search","entity-detail","system-health","billing-provider-health","audit-search","incident-list","merchant-payment-preflight","prospect-intelligence","expansion-notifications","expansion-radar","merchant-enablement","sale-payment-history","finance-receipts-history","commercial-history-list","operational-alerts","ads-demand","clube-interest-queue","clube-campaign-queue","clube-terms-queue","owner-funding-read","owner-funding-pulse","owner-evidence-queue","owner-budget-queue","owner-finance-history","owner-campaign-signals","owner-campaign-orders","owner-campaign-fee-receipts","owner-campaign-batch-ledger","owner-campaign-financial-summary","owner-campaign-benefit-costs","owner-wallet-reconciliation","owner-cashback-source-lots","owner-referral-lifecycle","owner-benefit-payout-read","owner-benefit-proofs-read","owner-benefit-proof-view","owner-benefit-proof-verify","owner-payout-provider-read","owner-recipient-proof-readiness","owner-multi-psp-hub","owner-campaign-orphan-audit","owner-orphan-cleanup-candidates","owner-campaign-cost-read","owner-campaign-receipts-read","owner-campaign-receipt-view","ads-audience-readiness","ads-preview-summary","ads-placement-readiness","ads-pilot-preflight","commercial-activation","ads-campaign-queue","growth-referral-review-queue"]);
+const ADMIN_READ_ACTIONS=new Set(["governance-gates","commercial-intake-read","ads-sales-plans","ads-offers-read","ads-dossiers-read","ads-instruments-read","ads-receivables-read","ads-psp-read","ads-mp-inbox-read","ads-mp-triage-read","ads-psp-freshness-read","ads-psp-merchant-reviews","ads-launch-readiness","ads-leads-read","ads-assistance-read","ads-contact-reports-read","ads-contact-feedback-read","ads-feedback-returns-read","ads-return-execution-read","summary","search","entity-detail","system-health","billing-provider-health","audit-search","incident-list","merchant-payment-preflight","prospect-intelligence","expansion-notifications","expansion-radar","merchant-enablement","sale-payment-history","finance-receipts-history","commercial-history-list","operational-alerts","ads-demand","clube-interest-queue","clube-campaign-queue","clube-terms-queue","owner-funding-read","owner-funding-pulse","owner-evidence-queue","owner-budget-queue","owner-finance-history","owner-campaign-signals","owner-campaign-orders","owner-campaign-fee-receipts","owner-campaign-batch-ledger","owner-campaign-financial-summary","owner-campaign-benefit-costs","owner-wallet-reconciliation","owner-cashback-source-lots","owner-referral-lifecycle","owner-benefit-payout-read","owner-benefit-proofs-read","owner-benefit-proof-view","owner-benefit-proof-verify","owner-payout-provider-read","owner-recipient-proof-readiness","owner-multi-psp-hub","owner-campaign-orphan-audit","owner-orphan-cleanup-candidates","owner-campaign-cost-read","owner-campaign-receipts-read","owner-campaign-receipt-view","ads-audience-readiness","ads-preview-summary","ads-placement-readiness","ads-pilot-preflight","commercial-activation","ads-campaign-queue","growth-referral-review-queue"]);
 const ADMIN_ROLE_ACTIONS:Record<string,Set<string>>={
   superadmin:new Set(["*"]),
   operations:new Set([
@@ -4528,6 +4528,33 @@ Deno.serve(async(req:Request)=>{
     }
     if(action==="entity-detail"){
       return json(await adminEntityDetail(admin,body.entityType,body.entityId,String(adminAccess.admin_role||"superadmin")),200,origin);
+    }
+    if(action==="ads-return-execution-read"){
+      if(!["superadmin","operations","readonly"].includes(String(adminAccess.admin_role||"")))
+        throw new DomainError("ADS_RETURN_EXECUTION_READ_DENIED","Acesso restrito à administração.",403);
+      const {data,error}=await admin.rpc("admin_ads_return_execution_read_v1_327",{p_actor:user.id});
+      if(error)throw error;
+      if(data?.source!=="admin_ads_return_execution_v1_327"||data.readOnly!==true||
+        data.automaticMessagesSent!==0||data.independentDeliveryProof!==false||
+        data.adsLive!==false||data.paymentCreated!==false||
+        !Number.isSafeInteger(data.totalPlans)||data.totalPlans<0||
+        !Number.isSafeInteger(data.scheduledPlans)||data.scheduledPlans<0||
+        !Number.isSafeInteger(data.attemptsDeclared)||data.attemptsDeclared<0||
+        !Number.isSafeInteger(data.followupsDue)||data.followupsDue<0||
+        !Array.isArray(data.rows)||data.rows.length>50||
+        data.rows.some((r:any)=>!UUID_RE.test(String(r.merchantId||""))||
+          !UUID_RE.test(String(r.contactRequestId||""))||
+          !["scheduled","canceled","attempt_recorded"].includes(r.status)||
+          typeof r.consentCurrent!=="boolean"||
+          r.attemptIndependentlyVerified!==false||
+          !Number.isSafeInteger(r.version)||r.version<1||
+          typeof r.internalNote!=="string"||r.internalNote.length<20||r.internalNote.length>240||
+          (r.status==="attempt_recorded"&&(
+            !UUID_RE.test(String(r.attemptRequestId||""))||
+            !["not_reached","conversation","followup_requested","not_interested"].includes(r.attemptOutcome)||
+            typeof r.attemptReportedAt!=="string"))))
+        throw new DomainError("ADS_RETURN_EXECUTION_UNVERIFIED","Histórico de tentativas não confirmado.",503);
+      return json(data,200,origin);
     }
     if(action==="ads-feedback-returns-read"){
       if(!["superadmin","operations","readonly"].includes(String(adminAccess.admin_role||"")))

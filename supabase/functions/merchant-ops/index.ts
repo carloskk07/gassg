@@ -117,7 +117,7 @@ Deno.serve(async(req:Request)=>{
     const merchantId=String(body.merchantId??"");
     const action=String(body.action??"");
     if(!UUID_RE.test(merchantId))throw new DomainError("INVALID_MERCHANT","Revenda inválida.",400);
-    if(!["ads-feedback-return","ads-contact-feedback","ads-assistance","ads-start-read","ads-psp-evidence","ads-psp","ads-receivable","ads-instrument","ads-dossier","ads-offer","ads-campaign","ads-interest","clube-interest","clube-terms","business-pulse","growth-network","enablement","heartbeat","set-online","update-product","catalog-history","update-logistics","update-capacity","update-scheduling","update-payment-methods","update-payment-routes","update-member-profile","request-billing-package","notify-billing-payment","notify-refund-recovery-payment","cancel-billing-request"].includes(action)){
+    if(!["ads-return-execution","ads-feedback-return","ads-contact-feedback","ads-assistance","ads-start-read","ads-psp-evidence","ads-psp","ads-receivable","ads-instrument","ads-dossier","ads-offer","ads-campaign","ads-interest","clube-interest","clube-terms","business-pulse","growth-network","enablement","heartbeat","set-online","update-product","catalog-history","update-logistics","update-capacity","update-scheduling","update-payment-methods","update-payment-routes","update-member-profile","request-billing-package","notify-billing-payment","notify-refund-recovery-payment","cancel-billing-request"].includes(action)){
       throw new DomainError("INVALID_ACTION","Ação inválida.",400);
     }
 
@@ -134,6 +134,25 @@ Deno.serve(async(req:Request)=>{
     if(!membership)throw new DomainError("MERCHANT_ACCESS_DENIED","Você não possui acesso a esta revenda.",403);
 
     const role=membership.member_role;
+    if(action==="ads-return-execution"){
+      if(!["owner","manager"].includes(String(role))||body.operation!=="view")
+        throw new DomainError("ADS_RETURN_EXECUTION_MERCHANT_DENIED","Histórico restrito à gestão da revenda.",403);
+      const {data,error}=await admin.rpc("merchant_ads_return_execution_v1_327",{
+        p_actor:user.id,p_merchant:merchantId
+      });
+      if(error)throw error;
+      if(data?.source!=="merchant_ads_return_execution_v1_327"||data.merchantId!==merchantId||
+        data.readOnly!==true||typeof data.consentCurrent!=="boolean"||
+        data.automaticMessagesSent!==0||data.independentDeliveryProof!==false||
+        data.adsLive!==false||data.paymentCreated!==false||
+        (data.plan!==null&&(!["scheduled","canceled","attempt_recorded"].includes(data.plan?.status)||
+          !Number.isSafeInteger(data.plan.version)||data.plan.version<1||
+          data.plan.attemptIndependentlyVerified!==false||
+          (data.plan.status==="attempt_recorded"&&
+            !["not_reached","conversation","followup_requested","not_interested"].includes(data.plan.attemptOutcome)))))
+        throw new DomainError("ADS_RETURN_EXECUTION_VIEW_UNVERIFIED","Histórico não confirmado.",503);
+      return json(data,200,origin);
+    }
     if(action==="ads-feedback-return"){
       if(!["owner","manager"].includes(String(role))||body.operation!=="view")
         throw new DomainError("ADS_RETURN_MERCHANT_DENIED","Consulta restrita à revenda.",403);
