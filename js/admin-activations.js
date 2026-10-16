@@ -22,7 +22,8 @@ async function adminActivationLoad({force=false}={}){
       ['adsPsp','ads-psp-read','admin_ads_psp_v1_314'],
       ['adsMpInbox','ads-mp-inbox-read','admin_ads_mp_inbox_v1_316'],
       ['adsMpTriage','ads-mp-triage-read','admin_ads_mp_triage_v1_317'],
-      ['adsPspFreshness','ads-psp-freshness-read','admin_ads_psp_freshness_v1_318']
+      ['adsPspFreshness','ads-psp-freshness-read','admin_ads_psp_freshness_v1_318'],
+      ['adsPspMerchantReviews','ads-psp-merchant-reviews','admin_ads_psp_review_requests_v1_319']
     ];
     const values=await Promise.allSettled([
       ...specs.map(([,action])=>adminInvoke({action})),
@@ -36,6 +37,15 @@ async function adminActivationLoad({force=false}={}){
       const safe=d?.source===source&&(
         key==='ads'?d.readOnly===true&&d.publicEnabled===false&&d.billingEnabled===false&&d.readyToSell===false:
         key==='adsQueue'?d.noCharge===true&&d.adsLive===false:
+        key==='adsPspMerchantReviews'?d.readOnly===true&&d.paymentStateChanged===false&&
+          d.automaticReconciliation===false&&d.adsLive===false&&d.merchantBillingSeparate===true&&
+          Number.isSafeInteger(d.totalRequests)&&Number.isSafeInteger(d.pendingRequests)&&
+          d.pendingRequests<=d.totalRequests&&Array.isArray(d.rows)&&d.rows.length<=50&&
+          d.rows.every(x=>/^[0-9a-f-]{36}$/i.test(String(x.merchantId))&&
+           ["stale_approval","possible_reversal","refresh_due"].includes(x.reason)&&
+           Number.isSafeInteger(x.checkoutVersion)&&x.checkoutVersion>0&&
+           Number.isSafeInteger(x.currentVersion)&&x.currentVersion>0&&
+           typeof x.pending==='boolean'):
         key==='adsPspFreshness'?d.readOnly===true&&d.snapshotOnly===true&&
           d.automaticReconciliation===false&&d.paymentStateChanged===false&&
           d.adsLive===false&&d.merchantBillingSeparate===true&&
@@ -112,7 +122,7 @@ async function adminActivationLoad({force=false}={}){
         d.readOnly===true&&d.couponSalesEnabled===false&&d.noContractsSigned===true);
       evidence[key]=safe?d:null;
     });
-    const governance=values[14].status==='fulfilled'?values[14].value:null;
+    const governance=values[15].status==='fulfilled'?values[15].value:null;
     evidence.governance=governance?.source==='admin_governance_gates_v1_304'&&governance.readOnly===true&&
       adminRuntime.governance?.loadedFor===actor&&adminRuntime.governance?.role===role?governance:null;
     const push=adminRuntime.pushReliability||{};
@@ -202,7 +212,7 @@ function adminActivationDeskView(d){
     '<p class="tiny muted">Última consulta: '+
     esc(current?formatDateTime(adminActivationDesk.checkedAt):'não confirmada')+
     '. Uma falha na consulta é mostrada como “Não confirmado”, nunca como recurso desligado.</p>'+
-    '<div class="admin-activation-grid">'+cards+'</div>'+adminMarketingIntakeView()+adminAdsSalesPlansView()+adminAdsDossiersView()+adminAdsInstrumentsView()+adminAdsReceivablesView()+adminAdsPspView()+adminAdsMpInboxView()+adminAdsMpTriageView()+adminAdsPspFreshnessView()+
+    '<div class="admin-activation-grid">'+cards+'</div>'+adminMarketingIntakeView()+adminAdsSalesPlansView()+adminAdsDossiersView()+adminAdsInstrumentsView()+adminAdsReceivablesView()+adminAdsPspView()+adminAdsMpInboxView()+adminAdsMpTriageView()+adminAdsPspFreshnessView()+adminAdsPspMerchantReviewsView()+
     '<p class="tiny muted">Publicidade pública, vendas de cupons e automação de avisos exigem homologação e gates reais no servidor. Nenhum controle desta página contorna esses requisitos.</p></section>';
 }
 
@@ -1019,4 +1029,48 @@ function adminAdsPspFreshnessView(){
    '<p class="muted">Não foi possível confirmar o estado das evidências financeiras.</p>')+
   '<div class="admin-activation-grid">'+(rows||'<p class="muted">Nenhum checkout consta no livro da plataforma. A ausência de alertas não comprova pagamentos ou estornos.</p>')+
   '</div><p class="tiny muted">Observações e idades são históricas, não mostram o status atual do Mercado Pago. Somente a consulta direta e autenticada do fundador atualiza a data de verificação. Não há conciliação automática nem publicação de anúncios.</p></section>';
+}
+
+
+// V1.319 — merchant-initiated PSP recheck requests, read-only until independent provider lookup.
+function adminAdsPspMerchantReviewsView(){
+ if(!adminRoleCanSection('activations'))return '';
+ const actor=String(adminRuntime.session?.user?.id||''),role=adminCurrentRole();
+ const fresh=adminActivationDesk.actor===actor&&adminActivationDesk.role===role&&
+    Date.now()-Date.parse(adminActivationDesk.checkedAt||'')<120000;
+ const data=fresh?adminActivationDesk.data?.adsPspMerchantReviews:null;
+ const labels={stale_approval:'Comprovação envelhecida',
+  possible_reversal:'Possível estorno/contestação',refresh_due:'Revenda solicitou reconferência'};
+ const rows=(data?.rows||[]).filter(r=>r.pending).map(r=>{
+  const id=String(r.merchantId||'');
+  if(!/^[0-9a-f-]{36}$/i.test(id))return '';
+  return '<article class="admin-activation-card"><div class="admin-activation-card-head"><strong>'+
+    esc(r.merchantName||'Revenda')+'</strong><span class="status-pill">Aguardando conferência</span></div>'+
+    '<p>'+esc(labels[r.reason]||'Verificar')+'</p>'+
+    '<p class="tiny muted">Solicitado em '+esc(r.requestedAt||'')+
+    ' • Estado no livro: '+esc(r.checkoutStatus||'desconhecido')+'</p>'+
+    '<p class="tiny muted">Última consulta autenticada: '+esc(r.lastVerifiedAt||'não comprovada')+'</p>'+
+    (role==='superadmin'&&/^[0-9]{5,30}$/.test(String(r.paymentId||''))?
+      '<button type="button" class="secondary small" onclick="adminAdsPspMerchantReviewOpen(\''+id+'\')">Abrir conferência do pagamento</button>':'')+
+    '</article>';
+ }).join('');
+ return '<section class="section admin-ads-psp-merchant-reviews">'+
+   '<div class="section-head"><div><span class="section-kicker">V1.319 • REQUISIÇÕES DAS REVENDAS</span>'+
+   '<h2>Pedidos de reconferência de pagamentos</h2>'+
+   '<p>Solicitações do titular que exigem rechecagem junto ao Mercado Pago. Pedir reconferência não muda a situação financeira.</p></div></div>'+
+   (data?'<p class="tiny muted">'+data.pendingRequests+' solicitações pendentes • '+data.totalRequests+
+    ' revenda(s) com histórico de pedido. A solicitação só é atendida quando o servidor registra consulta posterior e alteração de versão.</p>':
+    '<p class="muted">Fila de reconferência indisponível ou ainda não confirmada.</p>')+
+   '<div class="admin-activation-grid">'+(rows||'<p class="muted">Nenhum pedido de reconferência pendente.</p>')+
+   '</div></section>';
+}
+function adminAdsPspMerchantReviewOpen(merchantId){
+ if(adminCurrentRole()!=='superadmin')return false;
+ const r=adminActivationDesk.data?.adsPspMerchantReviews?.rows?.find(x=>x.merchantId===merchantId&&x.pending);
+ if(!r||!r.paymentId)return false;
+ // Existing founder workflow performs fresh PSP lookup and checks seller, reference, amount and state.
+ if(typeof adminAdsPspAction==='function'){
+   adminAdsPspAction(merchantId,'reconcile',r.paymentId);return true;
+ }
+ return false;
 }
