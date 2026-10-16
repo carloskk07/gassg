@@ -449,6 +449,8 @@ jobs:
         run: node tests/settlement-daily-integrity-v1-158-3.mjs
       - name: Financial cashback reimbursement replay V1.331 regression
         run: node tests/financial-cashback-reimbursement-replay-v1-331.mjs
+      - name: Financial reversal adjustments V1.332 regression
+        run: node tests/financial-reversal-adjustment-integrity-v1-332.mjs
       - name: Verified merchant representation V1.158.4 regression contract
         run: node tests/merchant-representation-v1-158-4.mjs
       - name: Remote admin gateway contract and portal report
