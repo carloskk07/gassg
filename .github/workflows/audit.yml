@@ -451,6 +451,8 @@ jobs:
         run: node tests/financial-cashback-reimbursement-replay-v1-331.mjs
       - name: Financial reversal adjustments V1.332 regression
         run: node tests/financial-reversal-adjustment-integrity-v1-332.mjs
+      - name: Referral commission eligible queue V1.333 regression
+        run: node tests/reward-maturation-eligible-queue-v1-333.mjs
       - name: Verified merchant representation V1.158.4 regression contract
         run: node tests/merchant-representation-v1-158-4.mjs
       - name: Remote admin gateway contract and portal report
