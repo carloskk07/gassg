@@ -282,11 +282,30 @@ function earn(){
   const merchantSample=merchantEconomicsExample(120);
   const referralRateLabel=policyPercent(referralPilotRate());
   const merchantFeeLabel=policyPercent(merchantPilotFeeRate());
-  return shell(`<section class="page">
-    <span class="eyebrow">REDE TAMÃO • COMPARTILHAR E CRESCER</span>
-    <h1 class="page-title">Compre bem, compartilhe o que gosta e construa sua rede.</h1>
-    <p class="muted page-lead">O TAMÃO aproxima quem compra, quem vende e quem indica. Descubra suas vantagens, convide amigos e ajude a criar mais oportunidades para a sua cidade.</p>
-    <div class="conversion-mini-proof"><span>✓ Compra e indicação são diferentes</span><span>✓ Regras visíveis</span><span>✓ Sua rede, suas oportunidades</span></div>
+  return shell(`<section class="page tamao-earn-page">
+    <div class="tamao-network-hero">
+      <div class="tamao-network-intro">
+        <span class="eyebrow">REDE TAMÃO • COMPARTILHAR E CRESCER</span>
+        <h1 class="page-title">Compre bem, compartilhe o que gosta e construa sua rede.</h1>
+        <p class="page-lead">Uma boa indicação começa com algo útil. Mostre o TAMÃO a quem compra ou vende na sua região e acompanhe, no seu espaço, os convites que forem atribuídos à sua conta.</p>
+        <div class="conversion-mini-proof"><span>✓ Compras e convites separados</span><span>✓ Acompanhamento pelo seu código</span><span>✓ Benefícios com condições claras</span></div>
+        <div class="tamao-network-hero-actions">
+          <button type="button" class="primary" onclick="go('refer')">Conhecer minha rede →</button>
+          <button type="button" class="secondary" onclick="go('club')">Ver benefícios de compra</button>
+        </div>
+      </div>
+      <aside class="tamao-network-illustration" aria-label="Como a Rede TAMÃO aproxima consumidores e revendas">
+        <span class="tamao-network-illustration-kicker">CRESCER JUNTO FAZ SENTIDO</span>
+        <h2>Você compartilha.<br><em>A cidade se conecta.</em></h2>
+        <div class="tamao-network-connections" aria-hidden="true">
+          <div class="tamao-network-center"><span>🤝</span><strong>Seu convite</strong></div>
+          <div class="tamao-network-node tamao-network-node--buyer"><span>🛍️</span><strong>Quem compra</strong></div>
+          <div class="tamao-network-node tamao-network-node--seller"><span>🏪</span><strong>Quem vende</strong></div>
+        </div>
+        <p>Cada convite pode apresentar novas possibilidades. Atribuições e recompensas dependem das condições de cada programa.</p>
+      </aside>
+    </div>
+    <div class="tamao-network-choice-head"><div><span class="section-kicker">ESCOLHA POR ONDE COMEÇAR</span><h2>Qual é o seu próximo passo?</h2></div></div>
     <nav class="tamao-cro-paths" aria-label="Escolha como participar da Rede TAMÃO">
       <button type="button" onclick="go('refer')"><span aria-hidden="true">🤝</span><strong>Quero indicar</strong><small>Compartilhe seu link e acompanhe indicações elegíveis.</small><b aria-hidden="true">→</b></button>
       <button type="button" onclick="go('club')"><span aria-hidden="true">🎁</span><strong>Quero meus benefícios</strong><small>Confira o que você conquistou e as condições de uso.</small><b aria-hidden="true">→</b></button>
