@@ -18,6 +18,18 @@ function policyPercent(rate){
   return pct.toLocaleString('pt-BR',{maximumFractionDigits:2})+'%';
 }
 
+
+// V1.365: accessible, local jumps keep visitors on their chosen public page.
+// Whitelist prevents arbitrary DOM selectors or external navigation.
+function publicLandingJump(sectionId){
+  if(!['merchant-margin','merchant-how','buyer-guide-steps','buyer-guide-questions'].includes(sectionId))return false;
+  const section=document.getElementById(sectionId);
+  if(!section)return false;
+  section.scrollIntoView({block:'start',behavior:globalThis.matchMedia?.('(prefers-reduced-motion: reduce)')?.matches?'auto':'smooth'});
+  section.focus({preventScroll:true});
+  return true;
+}
+
 function club(){
   const purchases=Math.max(0,Number(state.user.purchases)||0);
   const cycle=purchases===0?0:(purchases%5||5);
@@ -352,7 +364,12 @@ function learn(){
       <button class="primary" onclick="startHomeBrowse()">Escolher meus produtos →</button>
     </div>
 
-    <section class="section"><div class="section-head"><div><span class="section-kicker">SEM COMPLICAÇÃO</span><h2>Do CEP à entrega, veja como funciona.</h2></div></div><div class="how-grid">
+    <nav class="public-page-jump-rail buyer-jump-rail" aria-label="Explore as respostas para começar">
+      <button type="button" onclick="publicLandingJump('buyer-guide-steps')"><span aria-hidden="true">🧺</span><span><strong>Veja as quatro etapas</strong><small>Da escolha até o recebimento</small></span><b aria-hidden="true">↓</b></button>
+      <button type="button" onclick="publicLandingJump('buyer-guide-questions')"><span aria-hidden="true">💬</span><span><strong>Tire suas dúvidas</strong><small>Pagamento, preços e confirmação</small></span><b aria-hidden="true">↓</b></button>
+    </nav>
+
+    <section class="section" id="buyer-guide-steps" tabindex="-1"><div class="section-head"><div><span class="section-kicker">SEM COMPLICAÇÃO</span><h2>Do CEP à entrega, veja como funciona.</h2></div></div><div class="how-grid">
       <div class="how-card"><span>1</span><div><strong>Monte sua cesta</strong><p>Escolha gás e/ou produtos essenciais disponíveis.</p></div></div>
       <div class="how-card"><span>2</span><div><strong>Confirme seu endereço</strong><p>Procuramos revendas que possam entregar esses produtos no seu endereço.</p></div></div>
       <div class="how-card"><span>3</span><div><strong>Escolha uma opção</strong><p>Compare valor total e previsão de entrega antes de confirmar.</p></div></div>
@@ -365,7 +382,7 @@ function learn(){
       <div class="card feature-card"><div class="feature-icon">📍</div><h3>Acompanhamento por etapas</h3><p>Você vê quando o pedido está sendo preparado, já saiu ou está chegando.</p></div>
     </div></section>
 
-    <section class="section"><div class="section-head"><div><span class="section-kicker">A GENTE EXPLICA</span><h2>O que você gostaria de saber?</h2></div></div><div class="faq-list">
+    <section class="section" id="buyer-guide-questions" tabindex="-1"><div class="section-head"><div><span class="section-kicker">A GENTE EXPLICA</span><h2>O que você gostaria de saber?</h2></div></div><div class="faq-list">
       <details open><summary>Preciso comprar gás para pedir água, carvão, lenha ou gelo?</summary><p>Não. Quando houver oferta real para o produto, você pode montar uma cesta sem gás.</p></details>
       <details><summary>O preço pode mudar depois que eu escolho?</summary><p>Depois que você escolhe, o valor não muda sem sua autorização. Se outra revenda oferecer uma alternativa mais cara, você decide se aceita.</p></details>
       <details><summary>Como sei que alguém realmente assumiu meu pedido?</summary><p>O pedido é confirmado quando a revenda aceita. O aviso “A caminho” só aparece quando ela informa que saiu para entregar.</p></details>
@@ -435,14 +452,20 @@ async function shareReferral(){
 // V1.243 — honest sponsor discovery; no paid ads or funded Clube campaign is sold from this page.
 // V1.301 — send partnership interest into the existing protected contact channel,
 // without new storage, third-party redirects or a fake sponsor activation.
-function openSponsorContact(){
+function openSponsorContact(format='general'){
+  const messages={
+    general:'Tenho interesse em uma parceria de divulgação com o TAMÃO. Gostaria de conversar sobre minha região, categorias e formatos disponíveis.',
+    visibility:'Minha marca quer conversar sobre divulgação identificada no TAMÃO. Gostaria de informar cidade, categoria e objetivo da campanha.',
+    relationship:'Minha marca quer avaliar uma ação de benefícios para clientes do TAMÃO. Gostaria de conversar sobre público, orçamento e limites da campanha.',
+    local:'Minha marca quer estudar uma ação regional em parceria com revendas do TAMÃO. Gostaria de informar cidade e categoria de interesse.'
+  };
   const focus=()=>{
     if(route()!=='contact')return;
     const type=document.getElementById('public-request-kind');
     if(type){type.value='sponsor';globalThis.contactKindChanged?.()}
     const message=document.getElementById('public-request-message');
     if(message&&!String(message.value||'').trim()){
-      message.value='Tenho interesse em uma parceria de divulgação com o TAMÃO. Nossa marca atua em [cidade/região] e gostaríamos de conversar sobre objetivos, categorias e formatos disponíveis.';
+      message.value=messages[Object.prototype.hasOwnProperty.call(messages,format)?format:'general'];
     }
     document.querySelector('.public-contact-card')?.scrollIntoView({behavior:'smooth',block:'start'});
     document.getElementById('public-contact-name')?.focus({preventScroll:true});
@@ -467,12 +490,13 @@ function sponsorsLanding(){
         <div><span>03</span><strong>Defina a campanha</strong><small>Orçamento e critérios avaliados antes da ativação.</small></div>
       </div>
     </div>
+    <div class="public-sponsor-selector-intro"><span class="section-kicker">ESCOLHA SEU OBJETIVO</span><h2>O que sua marca deseja conquistar?</h2><p>Escolha a proposta que mais se aproxima do seu objetivo. Você poderá detalhar cidade, categoria e orçamento durante o contato.</p></div>
     <section class="section sponsor-formats" aria-label="Exemplos de formatos de campanha">
       <div class="section-head"><div><span class="section-kicker">UM PLANO PARA CADA OBJETIVO</span><h2>Mais do que aparecer: faça parte de momentos relevantes.</h2><p>Três possibilidades para planejar. Cada campanha depende de avaliação, disponibilidade e aprovação antes de entrar no ar.</p></div></div>
       <div class="sponsor-format-grid">
-        <article><span aria-hidden="true">01 / VISIBILIDADE</span><h3>Estar presente onde o cliente explora.</h3><p>Espaços de divulgação identificados, com contexto de cidade e categoria.</p></article>
-        <article><span aria-hidden="true">02 / RELACIONAMENTO</span><h3>Valorizar quem compra de novo.</h3><p>Ações de benefício com público, limites e regras definidos previamente.</p></article>
-        <article><span aria-hidden="true">03 / COMÉRCIO LOCAL</span><h3>Conectar sua marca às revendas.</h3><p>Ativações regionais construídas em conjunto com parceiros elegíveis.</p></article>
+        <article><span aria-hidden="true">01 / VISIBILIDADE</span><h3>Estar presente onde o cliente explora.</h3><p>Espaços de divulgação identificados, com contexto de cidade e categoria.</p><button type="button" onclick="openSponsorContact('visibility')">Quero divulgar minha marca <span aria-hidden="true">→</span></button></article>
+        <article><span aria-hidden="true">02 / RELACIONAMENTO</span><h3>Valorizar quem compra de novo.</h3><p>Ações de benefício com público, limites e regras definidos previamente.</p><button type="button" onclick="openSponsorContact('relationship')">Quero apoiar benefícios <span aria-hidden="true">→</span></button></article>
+        <article><span aria-hidden="true">03 / COMÉRCIO LOCAL</span><h3>Conectar sua marca às revendas.</h3><p>Ativações regionais construídas em conjunto com parceiros elegíveis.</p><button type="button" onclick="openSponsorContact('local')">Quero parceria regional <span aria-hidden="true">→</span></button></article>
       </div>
     </section>
     <section class="section">
@@ -539,6 +563,12 @@ function merchantsLanding(){
       <p class="merchant-visual-disclaimer">Visão ilustrativa dos recursos. Pedidos dependem da habilitação e da disponibilidade da sua operação.</p>
     </aside></div>
 
+    <nav class="public-page-jump-rail merchant-jump-rail" aria-label="Encontre rapidamente o que precisa sobre sua revenda">
+      <button type="button" class="public-jump-primary" onclick="${cta}"><span aria-hidden="true">🏪</span><span><strong>${internalPilot?'Abrir meu ambiente':'Quero cadastrar minha revenda'}</strong><small>${internalPilot?'Acessar a operação de validação':'Apresente sua empresa e seu contato'}</small></span><b aria-hidden="true">→</b></button>
+      <button type="button" onclick="publicLandingJump('merchant-margin')"><span aria-hidden="true">💰</span><span><strong>Quanto custa vender?</strong><small>Simule taxa e despesas do seu negócio</small></span><b aria-hidden="true">↓</b></button>
+      <button type="button" onclick="publicLandingJump('merchant-how')"><span aria-hidden="true">🚚</span><span><strong>Como funciona a entrega?</strong><small>Conheça o pedido até a conclusão</small></span><b aria-hidden="true">↓</b></button>
+    </nav>
+
     <div class="tamao-cro-steps merchant-cro-steps" aria-label="Como começar a vender pelo TAMÃO">
       <div><span>01</span><strong>Apresente sua revenda</strong><small>Cadastre a empresa e seu contato em poucos passos.</small></div>
       <div><span>02</span><strong>Prepare sua operação</strong><small>Revise produtos, entrega, recebimento e autorizações necessárias.</small></div>
@@ -594,7 +624,7 @@ function merchantsLanding(){
       <div class="tamao-value-actions"><button type="button" class="secondary" onclick="go('sponsors')">Conhecer oportunidades com marcas →</button></div>
     </section>
 
-    <section class="section" id="merchant-margin"><div class="section-head"><div><span class="section-kicker">FAÇA AS CONTAS DO SEU JEITO</span><h2>Uma venda a mais vale quanto para o seu negócio?</h2><p>Experimente cenários com seus próprios custos. O simulador separa faturamento, taxa TAMÃO e despesas para ajudar você a decidir com clareza.</p></div></div>
+    <section class="section" id="merchant-margin" tabindex="-1"><div class="section-head"><div><span class="section-kicker">FAÇA AS CONTAS DO SEU JEITO</span><h2>Uma venda a mais vale quanto para o seu negócio?</h2><p>Experimente cenários com seus próprios custos. O simulador separa faturamento, taxa TAMÃO e despesas para ajudar você a decidir com clareza.</p></div></div>
       <div class="calculator-card merchant-calculator merchant-margin-calculator">
         <div class="calculator-inputs merchant-margin-inputs">
           <div class="input-wrap"><label for="merchant-sim-orders">Pedidos adicionais</label><input id="merchant-sim-orders" class="input" type="number" inputmode="numeric" min="1" max="10000" value="50" oninput="updateMerchantSimulator()"></div>
@@ -636,7 +666,7 @@ function merchantsLanding(){
       </div>
     </section>
 
-    <section class="section" id="merchant-how"><div class="section-head"><div><span class="section-kicker">DO PEDIDO À ENTREGA</span><h2>Você decide como atender cada pedido.</h2></div></div><div class="how-grid">
+    <section class="section" id="merchant-how" tabindex="-1"><div class="section-head"><div><span class="section-kicker">DO PEDIDO À ENTREGA</span><h2>Você decide como atender cada pedido.</h2></div></div><div class="how-grid">
       <div class="how-card"><span>1</span><div><strong>Cliente consulta</strong><p>O TAMÃO busca revendas que tenham os produtos e atendam o endereço informado.</p></div></div>
       <div class="how-card"><span>2</span><div><strong>Você aceita ou recusa</strong><p>Recusar antes de aceitar é permitido. Se não puder atender, diga não ou fique offline.</p></div></div>
       <div class="how-card"><span>3</span><div><strong>Prepare e confirme a saída</strong><p>Depois que você aceita, o cliente conta com a entrega. O status “A caminho” aparece quando você confirma a saída.</p></div></div>

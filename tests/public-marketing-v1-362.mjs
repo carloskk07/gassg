@@ -82,4 +82,76 @@ assert.ok(!learn.includes('onclick="startCustomerAvailability()"'),
 assert.doesNotMatch(sponsors,/\d+[.,]?\d*% (?:de )?(?:conversão|alcance)|milhares de clientes/i,
  'no invented sponsorship results');
 
-console.log('V1.362: public hero, visitor paths, partner access, sponsor clarity and mobile styling verified.');
+
+// V1.365: decisional shortcuts must target real sections and be keyboard-friendly.
+assert.match(merchant,/merchant-jump-rail/);
+assert.match(merchant,/publicLandingJump\('merchant-margin'\)/);
+assert.match(merchant,/publicLandingJump\('merchant-how'\)/);
+assert.match(merchant,/id="merchant-margin" tabindex="-1"/);
+assert.match(merchant,/id="merchant-how" tabindex="-1"/);
+assert.ok(merchant.includes('prelaunchMerchantLeadSection()'),'merchant lead component still renders');
+assert.ok(read('js/acquisition.js').includes('id="partner-interest"'),'merchant lead section anchor must exist');
+assert.match(learn,/buyer-jump-rail/);
+assert.match(learn,/id="buyer-guide-steps" tabindex="-1"/);
+assert.match(learn,/id="buyer-guide-questions" tabindex="-1"/);
+for(const key of ['visibility','relationship','local'])
+  assert.ok(sponsors.includes("openSponsorContact('"+key+"')"),'missing sponsor contact action '+key);
+assert.match(sponsors,/public-sponsor-selector-intro/);
+assert.ok(core.includes('sponsors'),'public sponsor route preserved');
+const bootstrap=read('js/bootstrap.js');
+assert.ok(bootstrap.includes('openSponsorContact,publicLandingJump,startOrder'),
+ 'public jump handler needs window exposure for inline route buttons');
+for(const selector of ['.public-page-jump-rail','.public-sponsor-selector-intro',
+  '.sponsor-format-grid article button','@media(max-width:480px)',
+  'scroll-margin-top:100px']){
+  assert.ok(css.includes(selector),'missing accessible marketing path styling: '+selector);
+}
+const jumpStart=growth.indexOf('function publicLandingJump(');
+const jumpEnd=growth.indexOf('\nfunction club(){',jumpStart);
+assert.ok(jumpStart>=0&&jumpEnd>jumpStart,'jump helper must exist');
+const records={scrolled:[],focused:[]};
+const validIds=new Set(['merchant-margin','merchant-how','buyer-guide-steps','buyer-guide-questions']);
+const jumpContext=vm.createContext({
+ document:{getElementById:id=>validIds.has(id)?{
+  scrollIntoView:options=>records.scrolled.push([id,options.block,options.behavior]),
+  focus:options=>records.focused.push([id,options.preventScroll])
+ }:null},
+ globalThis:{matchMedia:()=>({matches:true})}
+});
+vm.runInContext(growth.slice(jumpStart,jumpEnd)+'\nthis.jump=publicLandingJump;',jumpContext);
+assert.equal(jumpContext.jump('merchant-margin'),true);
+assert.equal(jumpContext.jump('buyer-guide-questions'),true);
+assert.equal(jumpContext.jump('evil-selector'),false);
+assert.deepEqual(records.scrolled.map(a=>a[0]),['merchant-margin','buyer-guide-questions']);
+assert.ok(records.scrolled.every(a=>a[2]==='auto'),'reduced-motion system setting respected');
+assert.ok(records.focused.every(a=>a[1]===true),'focus should follow scroll without a second scroll');
+const sponsorStart=growth.indexOf('function openSponsorContact(');
+const sponsorEnd=growth.indexOf('\nfunction ',sponsorStart+1);
+assert.ok(sponsorStart>=0&&sponsorEnd>sponsorStart,'sponsor contact helper must exist');
+const fields={kind:{value:''},message:{value:''},name:{focus:()=>{}}};
+const sponsorCtx=vm.createContext({
+ route:()=> 'contact',
+ document:{
+  getElementById:id=>id==='public-request-kind'?fields.kind:
+   id==='public-request-message'?fields.message:
+   id==='public-contact-name'?fields.name:null,
+  querySelector:selector=>selector==='.public-contact-card'?{scrollIntoView:()=>{}}:null
+ },
+ globalThis:{contactKindChanged:()=>{}},go:()=>{throw Error('must remain on contact page')},
+ setTimeout:()=>{throw Error('no route scheduling expected')}
+});
+vm.runInContext(growth.slice(sponsorStart,sponsorEnd)+'\nthis.sponsor=openSponsorContact;',sponsorCtx);
+for(const [format,word] of [['visibility','divulgação identificada'],['relationship','benefícios'],['local','revendas']]){
+ fields.message.value='';
+ sponsorCtx.sponsor(format);
+ assert.equal(fields.kind.value,'sponsor');
+ assert.ok(fields.message.value.includes(word),'prefill must reflect '+format);
+}
+fields.message.value='Mensagem personalizada pelo visitante';
+sponsorCtx.sponsor('visibility');
+assert.equal(fields.message.value,'Mensagem personalizada pelo visitante',
+ 'sponsor CTA may never erase an existing customer draft');
+assert.ok(!growth.includes('milhares de clientes garantidos'),
+ 'no fabricated reach may be introduced');
+
+console.log('V1.365: public hero, visitor paths, partner access, sponsor clarity and mobile styling verified.');
