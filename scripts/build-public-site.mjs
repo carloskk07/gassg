@@ -1,6 +1,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import {buildRuntimeConfig} from './generate-runtime-config.mjs';
+import {writePublicLandingPages,PUBLIC_LANDING_SLUGS} from './build-public-landing-pages.mjs';
 
 const root=path.resolve(new URL('..',import.meta.url).pathname);
 const outName=process.argv[2]||'dist';
@@ -117,6 +118,7 @@ function writeSeoPolicy(){
       '<?xml version="1.0" encoding="UTF-8"?>',
       '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">',
       '  <url><loc>'+publicOrigin+'/</loc></url>',
+      ...PUBLIC_LANDING_SLUGS.map(slug=>'  <url><loc>'+publicOrigin+'/'+slug+'/</loc></url>'),
       '</urlset>',
       ''
     ].join('\n'),'utf8');
@@ -125,6 +127,8 @@ function writeSeoPolicy(){
     fs.rmSync(path.join(out,'sitemap.xml'),{force:true});
   }
 }
+
+writePublicLandingPages(out,{origin:publicOrigin,indexing:cloudflare&&indexing});
 
 if(cloudflare){
   patchCloudflareIndex();
