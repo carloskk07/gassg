@@ -99,7 +99,7 @@ assert.equal((await autoRescue.ctx.perform(orderId,'accept')).autoRescued,true,
 // No action should omit the server reply when requesting post-mutation reconciliation.
 for(const method of ['merchantPerformAction','merchantAssignDeliveryLive','merchantCompleteDeliveryLive']){
  const source=pick(method);
- assert.match(source,/merchantRefreshAfterConfirmedMutation\(result,\{action:/,method);
+ assert.match(source,/merchantRefreshAfterConfirmedMutation\(result,\{action(?:,|:)/,method);
  assert.doesNotMatch(source,/merchantRefreshAfterConfirmedMutation\(\)/,method);
 }
 assert.match(pick('merchantRefreshAfterConfirmedMutation'),/reply\.ok===false/);
