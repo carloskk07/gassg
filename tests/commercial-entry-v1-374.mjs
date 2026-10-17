@@ -78,8 +78,8 @@ assert.ok(form.indexOf('partner-note')>collapsed&&form.indexOf('partner-note')<c
 assert.ok(form.indexOf('partner-phone')<collapsed);
 assert.ok(form.indexOf('name="partner-interest"')<collapsed);
 assert.ok(form.indexOf('partner-consent')>collapseEnd);
-assert.ok(acquisition.includes('if(!interests.length)return toast'));
-assert.ok(acquisition.includes('if(!consent)return toast'));
+assert.ok(acquisition.includes("if(!interests.length)return prelaunchMerchantFieldError('partner-interest-categories'"));
+assert.ok(acquisition.includes("if(!consent)return prelaunchMerchantFieldError('partner-consent'"));
 assert.ok(acquisition.includes("leadType:'merchant'"),'lead still uses server onboarding');
 
 // Narrow screens and keyboard navigation must remain supported.

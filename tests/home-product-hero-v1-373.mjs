@@ -30,15 +30,15 @@ const both=heroFor(['OTHER1','WATER20','P13']);
 assert.equal(Array.from(both.codes).join(','),'P13,WATER20',
   'visual order can favor gas and water while staying in verified browseable catalogue');
 assert.ok(both.cards.includes('data-art="P13"')&&both.cards.includes('data-art="WATER20"'));
-assert.ok(both.cards.includes('type="button"')&&both.cards.includes('onclick="quickProduct(\'P13\')"'));
-assert.ok(both.cards.includes('onclick="quickProduct(\'WATER20\')"'));
+assert.ok(both.cards.includes('type="button"')&&both.cards.includes('onclick="homeChooseProduct(\'P13\')"'));
+assert.ok(both.cards.includes('onclick="homeChooseProduct(\'WATER20\')"'));
 assert.ok(both.cards.includes('aria-label="Escolher Gás 13 kg e consultar entrega pelo CEP"'));
 assert.equal((both.cards.match(/class="home-editorial-(?:gas|water) home-editorial-choice"/g)||[]).length,2,
   'exactly two clickable product cards, excluding nested image spans');
 const waterOnly=heroFor(['WATER20']);
 assert.equal(Array.from(waterOnly.codes).join(','),'WATER20');
-assert.ok(!waterOnly.cards.includes("quickProduct('P13')"),'no invented gas item');
-assert.ok(waterOnly.cards.includes("quickProduct('WATER20')"));
+assert.ok(!waterOnly.cards.includes("homeChooseProduct('P13')"),'no invented gas item');
+assert.ok(waterOnly.cards.includes("homeChooseProduct('WATER20')"));
 const other=heroFor(['OTHER1']);
 assert.equal(Array.from(other.codes).join(','),'OTHER1');
 assert.ok(!other.cards.includes('Gás 13 kg')&&!other.cards.includes('Água 20 L'));
