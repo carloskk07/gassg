@@ -5194,7 +5194,7 @@ function adminSupportQueueSort(cases){
     return ga<2?va-vb:vb-va;
   });
 }
-function adminSupportCaseCard(x){
+function adminSupportCaseCard(x,{visible=true}={}){
   const category=Object.prototype.hasOwnProperty.call(ADMIN_SUPPORT_CATEGORIES,x?.category)
     ?ADMIN_SUPPORT_CATEGORIES[x.category]:'Assunto registrado';
   const known=Object.prototype.hasOwnProperty.call(ADMIN_SUPPORT_STATUS,x?.status);
@@ -5221,7 +5221,8 @@ function adminSupportCaseCard(x){
       esc(orderId)+'\')">Abrir pedido</button>':'';
   const filterText=[orderId,category,info[0],x?.category].join(' ').toLocaleLowerCase('pt-BR');
   return '<article class="order-card admin-support-case" data-support-status="'+
-    esc(String(x?.status||'unknown'))+'" data-support-search="'+esc(filterText)+'">'+
+    esc(String(x?.status||'unknown'))+'" data-support-search="'+esc(filterText)+'"'+
+    (visible?'':' hidden')+'>'+
     '<div class="order-head"><div><div class="order-id">'+esc(category)+'</div>'+
     '<div class="tiny muted">Pedido '+esc(orderId||'não identificado')+
     ' • '+(created?'registrado em '+esc(created):'data não confirmada')+'</div></div>'+
@@ -5256,6 +5257,16 @@ function adminSupportQueueApplyFilter(){
   const noMatch=document.getElementById('admin-support-no-match');
   if(noMatch)noMatch.hidden=visible!==0;
 }
+function adminSupportQueueMatches(item,filter,search){
+  const category=Object.prototype.hasOwnProperty.call(ADMIN_SUPPORT_CATEGORIES,item?.category)
+    ?ADMIN_SUPPORT_CATEGORIES[item.category]:'Assunto registrado';
+  const terms=[item?.order_id,category,item?.category,
+    Object.prototype.hasOwnProperty.call(ADMIN_SUPPORT_STATUS,item?.status)
+      ?ADMIN_SUPPORT_STATUS[item.status][0]:''].join(' ').toLocaleLowerCase('pt-BR');
+  const query=String(search||'').trim().toLocaleLowerCase('pt-BR');
+  return (filter==='all'||(filter==='pending'&&['open','in_review'].includes(item?.status))||
+    filter===item?.status)&&(!query||terms.includes(query));
+}
 function adminSupportQueueView(cases){
   const sorted=adminSupportQueueSort(cases);
   const pending=sorted.filter(x=>['open','in_review'].includes(x?.status));
@@ -5265,15 +5276,7 @@ function adminSupportQueueView(cases){
   const filter=['pending','open','in_review','resolved','all'].includes(adminSupportQueueFilter)
     ?adminSupportQueueFilter:'pending';
   const q=adminSupportQueueSearch.slice(0,120);
-  const initial=sorted.filter(x=>{
-    const category=Object.prototype.hasOwnProperty.call(ADMIN_SUPPORT_CATEGORIES,x?.category)
-      ?ADMIN_SUPPORT_CATEGORIES[x.category]:'Assunto registrado';
-    const terms=[x?.order_id,category,x?.category,
-      Object.prototype.hasOwnProperty.call(ADMIN_SUPPORT_STATUS,x?.status)
-        ?ADMIN_SUPPORT_STATUS[x.status][0]:''].join(' ').toLocaleLowerCase('pt-BR');
-    return (filter==='all'||(filter==='pending'&&['open','in_review'].includes(x.status))||
-      filter===x.status)&&(!q.trim()||terms.includes(q.trim().toLocaleLowerCase('pt-BR')));
-  }).length;
+  const initial=sorted.filter(x=>adminSupportQueueMatches(x,filter,q)).length;
   return '<section class="section admin-support-queue" id="admin-support-queue">'+
     '<div class="section-head"><div><span class="section-kicker">ATENDIMENTO</span>'+
     '<h2>Fila de solicitações dos clientes</h2>'+
@@ -5299,7 +5302,7 @@ function adminSupportQueueView(cases){
     '<div id="admin-support-visible-count" role="status" aria-live="polite">'+initial+
       ' atendimento(s) exibido(s)</div></div>'+
     '<div class="admin-support-queue-results">'+
-      sorted.map(adminSupportCaseCard).join('')+
+      sorted.map(x=>adminSupportCaseCard(x,{visible:adminSupportQueueMatches(x,filter,q)})).join('')+
       '<div id="admin-support-no-match" class="empty card" '+(initial?'hidden':'')+
         '>Nenhum atendimento corresponde aos filtros carregados.</div>'+
     '</div></section>';
