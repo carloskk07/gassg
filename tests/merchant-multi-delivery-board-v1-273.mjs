@@ -74,7 +74,11 @@ assert.equal((expanded.match(/merchant-delivery-board-row/g)||[]).length,6);
 assert.match(expanded,/Mais 3 entrega\(s\) disponíveis na fila completa/);
 const live=src.slice(src.indexOf('function merchantLivePage('),src.indexOf('\nfunction merchantScheduledDispatchState(',src.indexOf('function merchantLivePage(')));
 assert.ok(live.indexOf('merchantDailyOverview(rt,orders)')<live.indexOf('merchantDeliveryBoardView(rt,orders)'),'V1.282 positions the daily focus ahead of the delivery board');
-assert.ok(live.indexOf('merchantDeliveryBoardView(rt,orders)')<live.indexOf('merchant-live-orders'),'delivery board still precedes order cards');
+assert.ok(live.includes('<details class="merchant-operation-insights">'),
+ 'V1.388 keeps advanced delivery metrics accessible in a collapsed details block');
+assert.ok(live.indexOf('merchantDeliveryBoardView(rt,orders)')>live.indexOf('merchant-live-orders')
+  &&live.indexOf('merchantDeliveryBoardView(rt,orders)')<live.indexOf('merchantOrderQueueView(orders)'),
+ 'delivery details remain inside the order workspace before individual order cards');
 assert.match(css,/\.merchant-delivery-board-row/);
 assert.match(css,/@media\(max-width:700px\)/);
 assert.match(audit,/node tests\/merchant-multi-delivery-board-v1-273.mjs/);
