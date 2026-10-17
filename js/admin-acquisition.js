@@ -6627,7 +6627,13 @@ function adminOpenProspectFollowup(cnpj){
   const session=adminRuntime.session,loaded=adminRuntime.prospectLoadedAt;
   requestAnimationFrame(()=>{
     if(adminRuntime.status!=='ready'||adminRuntime.session!==session
-      ||adminRuntime.prospectLoadedAt!==loaded||!adminRoleCanSection('prospects'))return;
+      ||adminRuntime.prospectLoadedAt!==loaded||!adminRoleCanSection('prospects')
+      ||!['superadmin','operations','compliance'].includes(String(adminCurrentRole())))return;
+    // Between the click and the frame the CRM can switch city, user or data.
+    // Validate the *current* snapshot, not the captured pre-frame result.
+    // Use allItems: a paginated follow-up outside the first 10 remains valid.
+    const current=adminProspectFollowupSnapshot(adminRuntime.prospectReport);
+    if(!current.valid||!current.allItems.some(item=>item.cnpj===cnpj))return;
     const details=document.getElementById('prospect-editor-'+cnpj);
     if(!details)return toast('Registro não localizado. Atualize a consulta de prospectos.');
     details.open=true;
