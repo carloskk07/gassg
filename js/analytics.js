@@ -2,7 +2,11 @@ const marketingAnalyticsState={
   landingAttempted:false,
   lastLandingRoute:null,
   observer:null,
-  observedNodes:new WeakSet()
+  observedNodes:new WeakSet(),
+  // In-memory sent/in-flight keys cover browsers where sessionStorage is blocked.
+  sentKeys:new Set(),
+  pendingKeys:new Set(),
+  retryAfter:new Map()
 };
 
 function marketingAnalyticsEnabled(){
@@ -59,11 +63,16 @@ async function marketingTrack(eventType,audience){
   if(!['landing_view','lead_form_view'].includes(eventType))return false;
   if(!['customer','merchant'].includes(audience))return false;
   const key=marketingAnalyticsSessionKey(eventType,audience);
+  if(marketingAnalyticsState.sentKeys.has(key)||marketingAnalyticsState.pendingKeys.has(key))return false;
+  if((marketingAnalyticsState.retryAfter.get(key)||0)>Date.now())return false;
   try{
-    if(sessionStorage.getItem(key)==='1')return false;
-    sessionStorage.setItem(key,'1');
+    if(sessionStorage.getItem(key)==='1'){
+      marketingAnalyticsState.sentKeys.add(key);
+      return false;
+    }
   }catch{}
 
+  marketingAnalyticsState.pendingKeys.add(key);
   try{
     const response=await globalThis.chamaFetch(
       CHAMA_BACKEND.url+'/functions/v1/capture-marketing-event',
@@ -80,10 +89,18 @@ async function marketingTrack(eventType,audience){
       5000
     );
     if(!response.ok)throw new Error('marketing event HTTP '+response.status);
+    // A network attempt is NOT an accepted measurement. Only dedupe on HTTP success.
+    marketingAnalyticsState.sentKeys.add(key);
+    marketingAnalyticsState.retryAfter.delete(key);
+    try{sessionStorage.setItem(key,'1')}catch{}
     return true;
   }catch(error){
+    // A retry happens on a later render or renewed intersection; no background poll.
+    marketingAnalyticsState.retryAfter.set(key,Date.now()+60000);
     console.warn('Medição agregada indisponível',String(error?.message||error));
     return false;
+  }finally{
+    marketingAnalyticsState.pendingKeys.delete(key);
   }
 }
 
@@ -92,7 +109,8 @@ function marketingTrackLandingOnce(){
   // sessionStorage deduplication remains in marketingTrack; no customer identifiers.
   const current=typeof route==='function'?String(route()||'home'):'home';
   if(!['home','learn','earn','merchants','sponsors','contact'].includes(current))return;
-  if(marketingAnalyticsState.lastLandingRoute===current)return;
+  // Call safely on re-render. Successful events are deduped; failures may
+  // be retried after cooldown instead of being lost for the entire session.
   marketingAnalyticsState.lastLandingRoute=current;
   marketingAnalyticsState.landingAttempted=true;
   marketingTrack('landing_view',marketingAnalyticsAudience()).catch(()=>{});
@@ -103,17 +121,23 @@ function marketingObserveLeadForms(){
   if(!marketingAnalyticsState.observer){
     marketingAnalyticsState.observer=new IntersectionObserver(entries=>{
       for(const entry of entries){
-        if(!entry.isIntersecting||entry.intersectionRatio<0.35)continue;
+        // A 1,500px-long form on a 360px-wide phone may never reach a 35%
+        // intersection ratio. Count a meaningful visible portion instead.
+        const visibleHeight=Number(entry.intersectionRect?.height||0);
+        const targetHeight=Number(entry.boundingClientRect?.height||0);
+        if(!entry.isIntersecting||visibleHeight<Math.min(120,targetHeight*.3))continue;
         const sponsorContact=entry.target.classList?.contains('public-contact-card')===true;
         if(sponsorContact&&(
           (typeof route==='function'?route():null)!=='contact'
           ||globalThis.tamaoPublicContactAudience!=='merchant'
         ))continue;
         const audience=entry.target.id==='partner-interest'||sponsorContact?'merchant':'customer';
-        marketingTrack('lead_form_view',audience).catch(()=>{});
-        marketingAnalyticsState.observer?.unobserve(entry.target);
+        marketingTrack('lead_form_view',audience).then(ok=>{
+          // Do not discard a form observation if the server rejects its event.
+          if(ok)marketingAnalyticsState.observer?.unobserve(entry.target);
+        }).catch(()=>{});
       }
-    },{threshold:[0.35]});
+    },{threshold:[0,0.1,0.35]});
   }
   const nodes=['early-access','partner-interest'].map(id=>document.getElementById(id));
   if((typeof route==='function'?route():null)==='contact'
