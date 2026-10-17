@@ -63,6 +63,8 @@ jobs:
         run: node tests/sql-provenance-readonly-v1-399.mjs
       - name: Canonical applied migrations and pilot rescue V1.400
         run: node tests/legacy-canonical-sql-v1-400.mjs
+      - name: Pilot staging approval fails closed V1.401
+        run: node tests/pilot-staging-approval-safety-v1-401.mjs
       - name: Static trust and asset audit
         run: node tests/static-audit.mjs
       - name: Admin control plane V1.133 regression contract
