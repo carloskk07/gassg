@@ -467,7 +467,7 @@ jobs:
         run: node tests/customer-city-price-showcase-v1-341.mjs
       - name: V1.346 marketing and accessibility design regression
         run: node tests/marketing-experience-v1-346.mjs
-      - name: V1.347 premium guided marketplace experience regression
+      - name: V1.362 public marketing and navigation regression\n        run: node tests/public-marketing-v1-362.mjs\n      - name: V1.347 premium guided marketplace experience regression
         run: node tests/premium-experience-v1-347.mjs
       - name: V1.348 merchant daily hub and referral design regression
         run: node tests/daily-hub-network-v1-348.mjs
