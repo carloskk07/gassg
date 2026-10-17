@@ -967,8 +967,8 @@ function checkoutOfferDecisionSummary(all){
   if(!Array.isArray(all)||all.length<2)return '';
   const totals=all.map(o=>Number(o?.total));
   const etaLimits=all.map(o=>Number(o?.etaMax??o?.eta));
-  const hasTotals=totals.every(n=>Number.isFinite(n)&&n>=0);
-  const hasEta=etaLimits.every(n=>Number.isFinite(n)&&n>=0);
+  const hasTotals=all.every((o,i)=>o?.total!=null&&Number.isFinite(totals[i])&&totals[i]>0);
+  const hasEta=all.every((o,i)=>(o?.etaMax??o?.eta)!=null&&Number.isFinite(etaLimits[i])&&etaLimits[i]>0);
   if(!hasTotals&&!hasEta)return '';
   const lowest=hasTotals?Math.min(...totals):null;
   const shortest=hasEta?Math.min(...etaLimits):null;
