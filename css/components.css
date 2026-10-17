@@ -4315,6 +4315,7 @@ body:has(.admin-page) .admin-nav-item:focus-visible{outline-offset:-3px}
 
 
 /* TAMÃO V1.354 — verified merchant order snapshot and clear recovery state. */
+.merchant-queue-unverified-intro{padding:12px 15px;margin:13px 0;border:1px solid #dfd5c2;border-radius:13px;color:#655032;font-size:12px;line-height:1.55;background:#fffdf8}
 .merchant-orders-recovery{
  display:grid;gap:12px;align-items:start;justify-items:start;
  padding:clamp(16px,2.4vw,24px);margin:13px 0 17px;
