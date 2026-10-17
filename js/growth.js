@@ -345,7 +345,7 @@ function learn(){
   return shell(`<section class="page">
     <span class="eyebrow">COMO FUNCIONA O TAMÃO</span>
     <h1 class="page-title">Escolha o que precisa. Confira a entrega. Acompanhe seu pedido.</h1>
-    <p class="muted page-lead">No TAMÃO, você começa pelos produtos. Depois, informa o CEP para conferir as opções, o valor e o prazo da sua região antes de confirmar.</p>
+    <p class="muted page-lead">Veja primeiro os produtos e escolha o que precisa. Depois, informe o CEP para conferir as opções, o valor e o prazo da sua região antes de confirmar.</p>
     <div class="journey-invite">
       <span class="journey-invite-icon" aria-hidden="true">🏡</span>
       <div><strong>Do gás à água, o que você precisa está no mesmo lugar.</strong><span>Você escolhe, a revenda confirma e o TAMÃO mostra o andamento.</span></div>
