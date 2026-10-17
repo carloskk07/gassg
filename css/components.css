@@ -4468,3 +4468,92 @@ body:has(.admin-page) .admin-nav-item:focus-visible{outline-offset:-3px}
 @media(max-width:350px){
  .order-address-card .address-auto-status{font-size:12px}
 }
+
+
+/* TAMÃO V1.381 — Offer decision hierarchy, with genuine server totals and
+   an explicit request/acceptance sequence rather than implied instant booking. */
+.checkout-request-explainer{
+  margin:15px 0 17px;padding:clamp(15px,2.5vw,22px);
+  border:1px solid #cfe5d6;border-radius:19px;
+  background:radial-gradient(ellipse at 100% 0%,rgba(244,182,63,.13),transparent 37%),
+    linear-gradient(130deg,#f3faf4,#fffdf8);
+  color:#163e2b
+}
+.checkout-request-explainer>strong{
+  display:block;font-size:clamp(15px,1.8vw,19px);font-weight:900;
+  letter-spacing:-.025em;margin-bottom:15px
+}
+.checkout-request-explainer ol{
+  display:grid;grid-template-columns:repeat(3,minmax(0,1fr));
+  list-style:none;gap:10px;margin:0;padding:0
+}
+.checkout-request-explainer li{
+  min-width:0;display:flex;align-items:flex-start;gap:10px;
+  padding:12px;border:1px solid #d8e9dd;background:#fff;
+  border-radius:13px
+}
+.checkout-request-explainer li>span{
+  display:grid;place-items:center;flex:0 0 29px;width:29px;height:29px;
+  border-radius:9px;background:#e8f5ed;color:#0b6c49;
+  font-size:12px;font-weight:950
+}
+.checkout-request-explainer li b{
+  display:block;font-size:13px;line-height:1.35;letter-spacing:-.015em
+}
+.checkout-request-explainer li small{
+  display:block;color:#57705e;font-size:11px;line-height:1.5;
+  margin-top:4px
+}
+.checkout-comparison .offer-comparison-card{
+  display:flex;flex-direction:column;
+  background:linear-gradient(160deg,#fff,#fbfdfb)
+}
+.offer-comparison-card .offer-price-row{
+  padding:14px 0 13px;border-bottom:1px solid #e3eee6;margin-top:7px;
+  align-items:start;justify-content:space-between
+}
+.offer-comparison-card .offer-price{
+  color:#0d5037;font-weight:920;font-variant-numeric:tabular-nums;
+  letter-spacing:-.055em
+}
+.offer-comparison-card .offer-eta{
+  border:1px solid #dceadf;border-radius:12px;
+  background:#f4faf5;padding:10px 12px;max-width:100%
+}
+.offer-comparison-card .offer-details{margin-top:auto}
+.offer-comparison-card .offer-assurance{
+  color:#315e46;padding:10px 12px;background:#f3f8f3;
+  border:1px solid #dceade;border-radius:12px
+}
+.offer-comparison-card .offer-submit{
+  border-radius:13px;min-height:55px;font-weight:900;
+  font-size:clamp(13px,1.55vw,15px)
+}
+.offer-comparison-card .offer-submit:disabled{
+  cursor:not-allowed;opacity:.58
+}
+.offer-submit-note{
+  display:block;font-size:11px;line-height:1.5;
+  color:#516b5a;text-align:center;margin:8px 0 0
+}
+@media(max-width:780px){
+ .checkout-request-explainer ol{grid-template-columns:minmax(0,1fr);gap:7px}
+ .checkout-request-explainer li{padding:11px}
+ .checkout-request-explainer li small{font-size:12px}
+}
+@media(max-width:420px){
+ .checkout-request-explainer{margin-block:12px;padding:13px;border-radius:16px}
+ .checkout-request-explainer>strong{font-size:15px;line-height:1.4}
+ .offer-comparison-card .offer-price-row{display:grid;grid-template-columns:minmax(0,1fr);gap:11px}
+ .offer-comparison-card .offer-eta{width:100%;text-align:left}
+ .offer-comparison-card .offer-eta strong{font-size:16px}
+ .offer-comparison-card .offer-submit{min-height:55px;font-size:14px}
+}
+@media(max-width:350px){
+ .checkout-request-explainer li{gap:9px;padding:9px}
+ .checkout-request-explainer li>span{width:27px;height:27px;flex-basis:27px}
+ .offer-comparison-card .offer-price{font-size:29px}
+}
+@media(prefers-reduced-motion:reduce){
+ .offer-comparison-card .offer-submit{transition:none}
+}
