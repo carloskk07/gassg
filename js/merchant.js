@@ -3227,7 +3227,7 @@ async function merchantLiveAssignDelivery(id){
   if(button){button.disabled=true;button.textContent='Confirmando…';}
   try{
     await merchantAssignDeliveryLive(id,deliveryUserId);
-    toast('Responsável pela entrega confirmado');
+    merchantPostActionConfirmation('Responsável pela entrega confirmado');
   }catch(e){toast(String(e?.message||e))}
   finally{
     if(button){button.disabled=false;button.textContent=order.assignedDeliveryUserId?'Salvar alteração':'Confirmar responsável';}
@@ -3500,6 +3500,17 @@ async function merchantLiveSaveScheduling(){
   }catch(e){toast(String(e?.message||e))}
 }
 
+// V1.357 — a server acknowledgement and a refreshed order list are separate facts.
+// If the post-mutation read fails, do not imply that the screen shows a verified new state.
+function merchantPostActionConfirmation(confirmedText){
+  const status=String(globalThis.merchantRuntime?.status||'');
+  if(['unavailable','no-access','unauthenticated'].includes(status)){
+    toast('O servidor respondeu à ação, mas não conseguimos reconferir a fila. Atualize os pedidos antes de continuar.');
+    return false;
+  }
+  toast(confirmedText);
+  return true;
+}
 async function merchantLiveAction(id,action){
   if(globalThis.merchantRuntime?.actionPending===true)return;
   try{
@@ -3514,7 +3525,7 @@ async function merchantLiveAction(id,action){
       toast(messages[result.rescueReason]||'O aceite não pôde ser concluído; o pedido foi redirecionado automaticamente.');
       return;
     }
-    toast(action==='accept'?'Pedido aceito':action==='reject'?'Pedido devolvido ao matching':action==='dispatch'?'Saída confirmada':'Chegada confirmada');
+    merchantPostActionConfirmation(action==='accept'?'Pedido aceito':action==='reject'?'Pedido devolvido ao matching':action==='dispatch'?'Saída confirmada':'Chegada confirmada');
   }catch(e){toast(String(e?.message||e))}
 }
 async function merchantLiveCannotFulfill(id){
@@ -3531,7 +3542,7 @@ async function merchantLiveCannotFulfill(id){
   }
   try{
     await merchantPerformAction(id,'cannot-fulfill',reason);
-    toast('Impossibilidade registrada. Confira o estado atualizado do pedido.');
+    merchantPostActionConfirmation('Impossibilidade registrada. Confira o estado atualizado do pedido.');
   }catch(e){toast(String(e?.message||e))}
 }
 async function merchantLiveDeliver(id){
@@ -3545,7 +3556,7 @@ async function merchantLiveDeliver(id){
     document.getElementById('live-pin-'+id)?.focus?.();
     return toast('Informe os 4 dígitos do PIN do cliente.');
   }
-  try{await merchantCompleteDeliveryLive(id,state.pin,true);toast('Entrega e pagamento confirmados')}catch(e){toast(String(e?.message||e))}
+  try{await merchantCompleteDeliveryLive(id,state.pin,true);merchantPostActionConfirmation('Entrega e pagamento confirmados')}catch(e){toast(String(e?.message||e))}
 }
 async function merchantLiveLogout(){
   if(!merchantQuickConfirmLeave())return;
