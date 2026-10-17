@@ -40,14 +40,14 @@ assert.equal(proof({selectedMerchantId:'merchant-B'}).kind,'mismatch');
 assert.equal(proof({merchant:null}).fresh,false);
 assert.equal(proof({lastSyncAt:iso(-2*60000)}).fresh,true);
 assert.equal(proof({lastSyncAt:iso(-2*60000-1)}).fresh,false);
-assert.equal(model.recovery(rt),'','fresh evidence must not produce an alarming notice');
-let notice=model.recovery({...rt,lastSyncAt:iso(-300000)});
+assert.equal(model.recovery({...rt,lastSyncAt:new Date().toISOString()}),'','fresh evidence must not produce an alarming notice');
+let notice=model.recovery({...rt,lastSyncAt:new Date(Date.now()-300000).toISOString()});
 assert.match(notice,/Atualize a lista antes de atender/);
 assert.match(notice,/1 pedido constava/);
 assert.match(notice,/Atualizar pedidos/);
 assert.doesNotMatch(notice,/merchantLiveAction|merchantPerformAction|merchantLiveDeliver/);
 assert.ok(notice.includes('onclick="merchantLiveRefresh()"'));
-assert.match(model.recovery({...rt,lastSyncAt:iso(-300000),actionPending:true}),/disabled/);
+assert.match(model.recovery({...rt,lastSyncAt:new Date(Date.now()-300000).toISOString(),actionPending:true}),/disabled/);
 assert.match(model.recovery({...rt,lastSyncAt:null,orders:[]}),/Não há confirmação recente/);
 
 const driverCtx=vm.createContext({
