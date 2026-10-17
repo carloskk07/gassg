@@ -1159,7 +1159,7 @@ function deliveryAddressDraftChanged(){
 }
 
 async function setAddress(){
-  const postalCode=String(document.querySelector('#postal-code')?.value||state.postalCode||'').replace(/\D/g,'');
+  const postalCode=String(document.querySelector('#postal-code')?.value??state.postalCode??'').replace(/\D/g,'');
   if(globalThis.__CHAMA_TEST__===true){
     const value=document.querySelector('#address')?.value.trim()||'';
     if(value.length<5)return toast('Informe um endereço válido');
@@ -1170,7 +1170,7 @@ async function setAddress(){
     return;
   }
 
-  const addressNumber=String(document.querySelector('#address-number')?.value||state.addressNumber||'').trim().toUpperCase().replace(/\s+/g,'');
+  const addressNumber=String(document.querySelector('#address-number')?.value??state.addressNumber??'').trim().toUpperCase().replace(/\s+/g,'');
   if(!/^[0-9]{8}$/.test(postalCode)){
     return customerAddressInlineError('postal-code','Informe um CEP válido com exatamente 8 dígitos.');
   }
