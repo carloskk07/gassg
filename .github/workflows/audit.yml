@@ -67,6 +67,8 @@ jobs:
         run: node tests/pilot-staging-approval-safety-v1-401.mjs
       - name: Pilot claimed invite must match application V1.402
         run: node tests/pilot-claim-evidence-v1-402.mjs
+      - name: Pilot operational journey, editable UF and claim proof V1.403
+        run: node tests/pilot-operational-journey-v1-403.mjs
       - name: Static trust and asset audit
         run: node tests/static-audit.mjs
       - name: Admin control plane V1.133 regression contract
