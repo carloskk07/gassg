@@ -94,9 +94,15 @@ window.addEventListener('online',()=>{
   }
 });
 
-// Render as soon as deferred scripts have loaded and the document is ready;
-// do not leave the public first paint waiting for every image or asset.
-window.addEventListener('DOMContentLoaded',async()=>{
+// The public visitor can see the real home after deferred scripts load, without
+// waiting for media. Protected portal callback consumption remains in the load
+// handler before the first admin/merchant render.
+window.addEventListener('DOMContentLoaded',()=>{
+  if(globalThis.adminPortalRequested?.()||globalThis.merchantPortalRequested?.())return;
+  tamaoPublicEntryRoute();
+  render();
+});
+window.addEventListener('load',async()=>{
   if(globalThis.adminPortalRequested?.()){
     await adminBackendInit();
     if(route()!=='admin')go('admin');
