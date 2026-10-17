@@ -286,8 +286,8 @@ function earn(){
     <div class="tamao-network-hero">
       <div class="tamao-network-intro">
         <span class="eyebrow">REDE TAMÃO • COMPARTILHAR E CRESCER</span>
-        <h1 class="page-title">Compre bem, compartilhe o que gosta e construa sua rede.</h1>
-        <p class="page-lead">Uma boa indicação começa com algo útil. Mostre o TAMÃO a quem compra ou vende na sua região e acompanhe, no seu espaço, os convites que forem atribuídos à sua conta.</p>
+        <h1 class="page-title">Indique quem compra. Apresente quem vende. Faça sua rede crescer.</h1>
+        <p class="page-lead">Sua indicação pode aproximar amigos, vizinhos e revendas. Compartilhe seu link, acompanhe os convites atribuídos e conheça os benefícios de cada participação.</p>
         <div class="conversion-mini-proof"><span>✓ Compras e convites separados</span><span>✓ Acompanhamento pelo seu código</span><span>✓ Benefícios com condições claras</span></div>
         <div class="tamao-network-hero-actions">
           <button type="button" class="primary" onclick="go('refer')">Conhecer minha rede →</button>
@@ -344,8 +344,8 @@ function earn(){
 function learn(){
   return shell(`<section class="page">
     <span class="eyebrow">COMO FUNCIONA O TAMÃO</span>
-    <h1 class="page-title">Quer pedir gás, água ou outros itens? Veja como funciona.</h1>
-    <p class="muted page-lead">Veja primeiro os produtos e escolha o que precisa. Na etapa de entrega, informe o CEP para conferir revendas, preço total e prazo antes de decidir.</p>
+    <h1 class="page-title">Escolha o que precisa. Confira a entrega. Acompanhe seu pedido.</h1>
+    <p class="muted page-lead">No TAMÃO, você começa pelos produtos. Depois, informa o CEP para conferir as opções, o valor e o prazo da sua região antes de confirmar.</p>
     <div class="journey-invite">
       <span class="journey-invite-icon" aria-hidden="true">🏡</span>
       <div><strong>Do gás à água, o que você precisa está no mesmo lugar.</strong><span>Você escolhe, a revenda confirma e o TAMÃO mostra o andamento.</span></div>
@@ -454,8 +454,8 @@ function sponsorsLanding(){
   return shell(`<section class="page tamao-sponsors-page">
     <div class="tamao-sponsor-hero tamao-commercial-hero">
       <span class="eyebrow">MARCAS E PARCEIROS • TAMÃO</span>
-      <h1 class="page-title">Sua marca pode fazer parte das escolhas que movem a cidade.</h1>
-      <p class="page-lead">Planeje campanhas regionais com propósito: apresente sua marca onde consumidores e revendas procuram soluções para o dia a dia. Cidade, público, formato e investimento são definidos com você antes de qualquer ativação.</p>
+      <h1 class="page-title">Sua marca mais perto de quem compra na cidade.</h1>
+      <p class="page-lead">O TAMÃO conecta consumidores e revendas de itens essenciais. Vamos desenhar uma presença patrocinada adequada ao seu público, à sua cidade e ao objetivo da sua campanha.</p>
       <div class="conversion-mini-proof"><span>✓ Presença regional</span><span>✓ Campanhas desenhadas em conjunto</span><span>✓ Primeiro contato sem compromisso</span></div>
       <div class="tamao-value-actions">
         <button type="button" class="primary" onclick="openSponsorContact()">Quero apresentar minha marca →</button>
@@ -467,6 +467,14 @@ function sponsorsLanding(){
         <div><span>03</span><strong>Defina a campanha</strong><small>Orçamento e critérios avaliados antes da ativação.</small></div>
       </div>
     </div>
+    <section class="section sponsor-formats" aria-label="Exemplos de formatos de campanha">
+      <div class="section-head"><div><span class="section-kicker">UM PLANO PARA CADA OBJETIVO</span><h2>Mais do que aparecer: faça parte de momentos relevantes.</h2><p>Três possibilidades para planejar. Cada campanha depende de avaliação, disponibilidade e aprovação antes de entrar no ar.</p></div></div>
+      <div class="sponsor-format-grid">
+        <article><span aria-hidden="true">01 / VISIBILIDADE</span><h3>Estar presente onde o cliente explora.</h3><p>Espaços de divulgação identificados, com contexto de cidade e categoria.</p></article>
+        <article><span aria-hidden="true">02 / RELACIONAMENTO</span><h3>Valorizar quem compra de novo.</h3><p>Ações de benefício com público, limites e regras definidos previamente.</p></article>
+        <article><span aria-hidden="true">03 / COMÉRCIO LOCAL</span><h3>Conectar sua marca às revendas.</h3><p>Ativações regionais construídas em conjunto com parceiros elegíveis.</p></article>
+      </div>
+    </section>
     <section class="section">
       <div class="section-head"><div><span class="section-kicker">ONDE SUA MARCA PODE PARTICIPAR</span>
         <h2>Relevância é estar onde as boas escolhas acontecem.</h2>
@@ -511,8 +519,8 @@ function merchantsLanding(){
   return shell(`<section class="page merchant-landing">
     <div class="merchant-landing-premium"><div class="merchant-landing-premium-copy">
     <span class="eyebrow">VENDA PELO TAMÃO</span>
-    <h1 class="page-title">Sua revenda, mais fácil de encontrar. <span class="headline-accent">Seu negócio, sempre nas suas mãos.</span></h1>
-    <p class="muted page-lead">Faça do TAMÃO mais um canal para quem procura gás, água e essenciais na sua região. Prepare seu catálogo, organize pedidos e continue atendendo pelo balcão, telefone e WhatsApp. <strong>Você decide preços, estoque, formas de pagamento, disponibilidade e entrega.</strong></p>
+    <h1 class="page-title">Sua revenda mais visível. <span class="headline-accent">Você continua no controle.</span></h1>
+    <p class="muted page-lead">Quem precisa de gás, água e outros essenciais pode encontrar sua empresa pelo TAMÃO. Receba pedidos em um painel organizado, sem abandonar o balcão, o telefone ou o WhatsApp. <strong>Preço, estoque, entrega e formas de receber continuam nas suas mãos.</strong></p>
     <div class="conversion-mini-proof"><span>✓ Sem exclusividade</span><span>✓ Recebimento direto na revenda</span><span>✓ Você decide quando ficar online</span></div>
         <div class="hero-actions merchant-hero-actions">
       <button class="primary" onclick="${cta}">${internalPilot?ctaLabel:'Quero levar minha empresa ao TAMÃO →'}</button>
@@ -671,7 +679,7 @@ function merchantsLanding(){
       <details><summary>Como recebo o dinheiro da venda?</summary><p>O cliente paga diretamente à sua revenda, conforme a forma de pagamento oferecida. O TAMÃO não recebe o valor para depois fazer um repasse.</p></details>
       <details><summary>Preciso ter Mercado Pago ou contratar um novo serviço?</summary><p>Não para receber na entrega. A revenda pode disponibilizar dinheiro, Pix ou cartão na maquininha, conforme o que realmente aceita. Integrações automáticas com provedores dependem de homologação.</p></details>
       <details><summary>Tenho que pagar para começar?</summary><p>No plano comercial diário atual, não há exigência de comprar um pacote de crédito antecipadamente para se cadastrar. A taxa TAMÃO é apurada sobre pedidos concluídos, conforme a política comercial vigente.</p></details>
-      <details><summary>O que acontece se eu aceitar e depois não conseguir entregar?</summary><p>O sistema pode iniciar uma tentativa de rescue antes da saída. Falhas depois do aceite afetam a experiência e devem ser evitadas mantendo preço, estoque e disponibilidade atualizados.</p></details>
+      <details><summary>O que acontece se eu aceitar e depois não conseguir entregar?</summary><p>O TAMÃO pode procurar outra revenda antes da saída. Mantenha preços, estoque e disponibilidade em dia e avise o quanto antes quando não puder cumprir uma entrega.</p></details>
       <details><summary>Posso vender além do P13?</summary><p>Sim. O catálogo suporta outros tamanhos de GLP e produtos como água, carvão, lenha e gelo, sujeitos às validações aplicáveis.</p></details>
     </div></section>
 
