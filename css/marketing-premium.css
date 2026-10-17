@@ -577,6 +577,7 @@
   padding:0;margin:0;scroll-margin-top:105px;
 }
 .merchant-conversion-start .partner-lead-shell{
+  display:grid;grid-template-columns:minmax(0,1fr);min-width:0;
   margin:0;background:#fff;border:1px solid #d5e6da;border-radius:23px;
   padding:clamp(15px,2.6vw,25px);
   box-shadow:0 11px 30px rgba(18,63,40,.045);
