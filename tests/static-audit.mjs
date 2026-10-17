@@ -238,7 +238,7 @@ assert.ok(growth.includes('Compras posteriores não geram outra comissão de aqu
 assert.ok(growth.includes('validação das contas envolvidas'),'marketing deve expor o gate real de identidade para maturação');
 assert.ok(!growth.includes('disabled>Saque Pix ainda não disponível')&&growth.includes('Os meios de recebimento são informados na conta conforme a disponibilidade.'),'UI não pode fingir saque ainda inexistente');
 assert.ok(growth.includes('Você decide preços, estoque, formas de pagamento, disponibilidade e entrega.')||growth.includes('continua no comando')&&growth.includes('Você decide'),'landing de revenda deve enfatizar autonomia operacional');
-assert.ok(core.includes("['earn','💰','Ganhe','go']"),'navegação móvel precisa dar acesso direto ao hub de renda');
+assert.ok(core.includes("['earn','🤝','Indicar','go']"),'navegação móvel precisa dar acesso direto à rede de indicações');
 assert.ok(!growth.includes('inputmode="numeric" maxlength="18"'),'campo CNPJ não pode forçar teclado somente numérico após adoção do CNPJ alfanumérico');
 assert.ok(sw.includes("CACHE='tamao-sg-v1.370'")&&sw.includes("'./css/marketing-premium.css'")&&sw.includes("'./js/home-showcase.js'"),'cache do service worker precisa refletir a geração PWA e os novos assets públicos');
 assert.ok(sw.includes("fetch(req,{cache:'no-store'})")&&sw.includes("contentType.includes('text/html')"),'service worker deve renovar rede sem cache HTTP e separar navegação HTML de recursos não-HTML');
