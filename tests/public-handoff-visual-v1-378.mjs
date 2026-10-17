@@ -31,7 +31,10 @@ for(const url of urls.slice(0,4)){
  assert.ok(url.includes('ref=ABCDE1'));
 }
 assert.equal(new URL(urls[0],origin).searchParams.get('entrada'),'revenda');
-assert.match(urls[1],/^\/\?utm_source=.*#merchants$/);
+const merchantLink=new URL(urls[1],origin);
+assert.equal(merchantLink.pathname,'/');
+assert.equal(merchantLink.hash,'#merchants');
+assert.equal(merchantLink.searchParams.get('utm_source'),'instagram');
 assert.equal(urls[4],'#conteudo','local anchors must not be rewritten');
 assert.equal(ctx.tamaoLandingHandoffUrl('https://evil.example/','?ref=ABCDE1',origin),null);
 assert.equal(ctx.tamaoLandingHandoffUrl('/admin','?ref=ABCDE1',origin),null);
