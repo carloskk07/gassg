@@ -4334,3 +4334,45 @@ body:has(.admin-page) .admin-nav-item:focus-visible{outline-offset:-3px}
  .merchant-orders-recovery button{width:100%}
 }
 @media(prefers-reduced-motion:reduce){.merchant-orders-recovery button{transition:none}}
+
+
+/* TAMÃO V1.368 — evidence-led admin acquisition, never a fabricated chain. */
+.admin-evidence-funnel{margin:17px 0 24px;min-width:0}
+.admin-evidence-lanes{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));
+  gap:13px;align-items:stretch}
+.admin-evidence-lane{min-width:0;padding:clamp(18px,2.5vw,24px);
+  border-radius:20px;border:1px solid #d8e5db;background:#fff}
+.admin-evidence-lane:nth-child(3){grid-column:1/-1;background:#f7fbf8}
+.admin-evidence-lane .section-head{margin:0 0 15px}
+.admin-evidence-lane .section-head h3{font-size:clamp(18px,2.2vw,24px);
+  margin:5px 0 7px;line-height:1.25;letter-spacing:-.025em}
+.admin-evidence-lane .section-head p{font-size:13px;line-height:1.6;
+  max-width:58ch;color:#577063;margin:0}
+.admin-evidence-lane .merchant-kpis{gap:9px;grid-template-columns:repeat(2,minmax(0,1fr))}
+.admin-evidence-lane .kpi{min-width:0;box-shadow:none;border:1px solid #e2ebe4}
+.admin-evidence-lane .kpi .label{line-height:1.45}
+.admin-evidence-lane .kpi strong{font-variant-numeric:tabular-nums}
+.admin-evidence-lane .kpi small{line-height:1.5}
+.admin-evidence-caveat,.admin-evidence-sponsor{margin-top:11px;padding:15px 18px;
+  background:#f7f9f7;border:1px solid #dbe7de;border-radius:14px;
+  font-size:12px;line-height:1.7;color:#3f5e4a}
+.admin-evidence-sponsor{background:#f5f8fd;border-color:#dce5ef}
+.admin-evidence-caveat strong,.admin-evidence-sponsor strong{color:#183b2c}
+.acquisition-campaigns .campaign-rates{display:grid;
+  grid-template-columns:repeat(5,minmax(0,1fr));gap:8px}
+.acquisition-campaigns .campaign-rates>span{min-width:0}
+.acquisition-campaigns .campaign-rates small{display:block;font-size:10px;
+  line-height:1.45;word-break:normal}
+.acquisition-campaigns .campaign-rates strong{font-variant-numeric:tabular-nums}
+@media(max-width:850px){
+  .admin-evidence-lanes{grid-template-columns:minmax(0,1fr)}
+  .admin-evidence-lane:nth-child(3){grid-column:auto}
+  .acquisition-campaigns .campaign-rates{grid-template-columns:repeat(3,minmax(0,1fr))}
+}
+@media(max-width:520px){
+  .admin-evidence-lane{padding:17px 13px}
+  .admin-evidence-lane .merchant-kpis{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .admin-evidence-lane .kpi{padding:13px 11px}
+  .admin-evidence-caveat,.admin-evidence-sponsor{padding:13px}
+  .acquisition-campaigns .campaign-rates{grid-template-columns:repeat(2,minmax(0,1fr))}
+}
