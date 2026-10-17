@@ -1687,16 +1687,104 @@ function adminAcquisitionMetrics(data,leads){
     campaigns:adminLeadCampaignRows(leads)
   };
 }
-function adminAcquisitionCampaigns(metrics){
-  const rows=Array.isArray(metrics?.campaigns)?metrics.campaigns:[];
-  if(!rows.length)return '';
-  return '<div class="card flat acquisition-campaigns"><div class="status-bar"><div><span class="section-kicker">ATRIBUIÇÃO FIRST-PARTY</span><h3 style="margin:5px 0 0">Campanhas: entrada até conversão</h3></div><small>contadores agregados + leads reais</small></div><div class="acquisition-campaign-list">'+rows.slice(0,16).map(x=>{
-    const origin=[x.source,x.medium].filter(Boolean).join(' / ');
-    const audience=x.audience==='merchant'?'PARCEIRO':'CLIENTE';
-    const creative=x.content&&x.content!=='sem_conteudo'?' • '+esc(x.content):'';
-    return '<div class="acquisition-campaign-row"><div><span class="status-pill">'+audience+'</span><strong>'+esc(origin||'direto')+'</strong><small>'+esc(x.campaign||'sem_campanha')+creative+' • '+Number(x.landingViews||0)+' entrada(s) • '+Number(x.formViews||0)+' formulário(s) • '+Number(x.total||0)+' lead(s)</small></div><div class="campaign-rates"><span><small>Entrada → form.</small><strong>'+adminMetricPercent(x.landingToFormPct)+'</strong></span><span><small>Entrada → lead</small><strong>'+adminMetricPercent(x.landingToLeadPct)+'</strong></span><span><small>Qualificação</small><strong>'+adminMetricPercent(x.qualificationRatePct)+'</strong></span><span><small>Conversão</small><strong>'+adminMetricPercent(x.conversionRatePct)+'</strong></span></div></div>';
-  }).join('')+'</div></div>';
+// V1.368 — explain what each source actually proves. No estimate from the
+// latest 200 lead cards may be presented as a full acquisition funnel.
+function adminAcquisitionAggregateVerified(metrics){
+  const count=k=>typeof metrics?.[k]==='number'&&Number.isSafeInteger(metrics[k])&&metrics[k]>=0;
+  if(!metrics||!Number.isFinite(Date.parse(String(metrics.generatedAt||'')))||
+     !Array.isArray(metrics.campaigns)||metrics.campaigns.length>30)return false;
+  const keys=['landingViews','formViews','total','customers','merchants',
+    'contacted','qualified','converted','last7d','staleNew24h'];
+  return keys.every(count)&&metrics.customers+metrics.merchants===metrics.total&&
+    metrics.contacted<=metrics.total&&metrics.qualified<=metrics.total&&
+    metrics.converted<=metrics.total;
 }
+function adminAcquisitionEvidenceView(metrics){
+  if(!adminAcquisitionAggregateVerified(metrics)){
+    return '<div class="notice" role="status"><strong>Funil agregado não confirmado.</strong> '+
+      'Os registros recentes podem ser consultados abaixo, mas não são uma base completa para calcular visitas, leads ou taxas. '+
+      'Atualize o painel para verificar os agregados protegidos.</div>';
+  }
+  const count=n=>Number(n).toLocaleString('pt-BR');
+  const cell=(label,value,note)=>'<div class="kpi"><span class="label">'+label+'</span>'+
+    '<strong>'+count(value)+'</strong><small>'+note+'</small></div>';
+  const leadRate=(numerator,denominator)=>denominator>0&&numerator<=denominator
+    ?adminMetricPercent(100*numerator/denominator):'—';
+  return '<section class="admin-evidence-funnel" aria-label="Evidências de aquisição e CRM">'+
+    '<div class="admin-evidence-lanes">'+
+      '<div class="card flat admin-evidence-lane"><div class="section-head"><div>'+
+        '<span class="section-kicker">ETAPA 1 • INTERESSE ANÔNIMO</span>'+
+        '<h3>Visitantes e formulários</h3><p>Contadores agregados do site oficial, sem identificação de pessoas.</p>'+
+      '</div></div><div class="merchant-kpis acquisition-summary-kpis">'+
+        cell('Entradas medidas',metrics.landingViews,'eventos de página, não clientes únicos')+
+        cell('Formulários vistos',metrics.formViews,'exposições registradas, não envios')+
+      '</div></div>'+
+      '<div class="card flat admin-evidence-lane"><div class="section-head"><div>'+
+        '<span class="section-kicker">ETAPA 2 • CADASTROS NO CRM</span>'+
+        '<h3>Interessados cadastrados</h3><p>Leads consentidos registrados no banco; não são ligados individualmente às visitas.</p>'+
+      '</div></div><div class="merchant-kpis acquisition-summary-kpis">'+
+        cell('Total de leads',metrics.total,'cadastros de interesse, não vendas')+
+        cell('Clientes / revendas',metrics.customers+' / '+metrics.merchants,'públicos declarados no lead')+
+        cell('Novos nos últimos 7 dias',metrics.last7d,'janela de criação do cadastro')+
+        cell('Novos há mais de 24 horas',metrics.staleNew24h,'necessitam acompanhamento')+
+      '</div></div>'+
+      '<div class="card flat admin-evidence-lane"><div class="section-head"><div>'+
+        '<span class="section-kicker">ETAPA 3 • EVOLUÇÃO DO CRM</span>'+
+        '<h3>Contato e qualificação</h3><p>Etapas registradas pela operação, com base no total de leads do CRM.</p>'+
+      '</div></div><div class="merchant-kpis acquisition-summary-kpis">'+
+        cell('Contatados',metrics.contacted,leadRate(metrics.contacted,metrics.total)+' dos leads')+
+        cell('Qualificados',metrics.qualified,leadRate(metrics.qualified,metrics.total)+' dos leads')+
+        cell('Convertidos no CRM',metrics.converted,leadRate(metrics.converted,metrics.total)+' dos leads; não comprova pedido')+
+      '</div></div>'+
+    '</div>'+
+    '<div class="admin-evidence-caveat">'+
+      '<strong>Como interpretar:</strong> os três blocos não representam a passagem comprovada de um mesmo usuário. '+
+      'Entradas, visualizações e cadastros usam unidades de medição diferentes e não autorizam uma taxa de conversão ponta a ponta. '+
+      '“Convertido” significa estágio administrativo do CRM — não pedido pago, receita, campanha contratada ou revenda habilitada.'+
+    '</div>'+
+    '<div class="admin-evidence-sponsor">'+
+      '<strong>Patrocinadores e marcas:</strong> contatos de marca são registrados em Solicitações públicas; '+
+      'não devem ser somados automaticamente aos leads de clientes/revendas. '+
+      'Ainda não há indicador agregado de propostas aceitas ou receita de patrocínio comprovada neste painel.'+
+    '</div>'+
+  '</section>';
+}
+function adminAcquisitionCampaigns(metrics){
+  if(!adminAcquisitionAggregateVerified(metrics))return '';
+  const rows=metrics.campaigns.filter(x=>
+    x&&['merchant','customer'].includes(x.audience)&&
+    ['landingViews','formViews','total','qualified','converted'].every(k=>
+      typeof x[k]==='number'&&Number.isSafeInteger(x[k])&&x[k]>=0)&&
+    x.qualified<=x.total&&x.converted<=x.total
+  ).slice(0,16);
+  if(!rows.length)return '';
+  const metric=(label,note,value)=>'<span><small>'+label+'</small><strong>'+value+'</strong>'+
+    (note?'<small>'+note+'</small>':'')+'</span>';
+  return '<div class="card flat acquisition-campaigns"><div class="status-bar"><div>'+
+    '<span class="section-kicker">ATRIBUIÇÃO FIRST-PARTY</span>'+
+    '<h3 style="margin:5px 0 0">Fontes comerciais, sem taxas artificiais</h3></div>'+
+    '<small>contadores agregados + CRM • bases independentes</small></div>'+
+    '<div class="acquisition-campaign-list">'+rows.map(x=>{
+      const origin=[x.source,x.medium].filter(Boolean).join(' / ');
+      const audience=x.audience==='merchant'?'REVENDA':'CLIENTE';
+      const creative=x.content&&x.content!=='sem_conteudo'?' • '+esc(x.content):'';
+      const format=n=>Number(n).toLocaleString('pt-BR');
+      return '<div class="acquisition-campaign-row"><div>'+
+        '<span class="status-pill">'+audience+'</span><strong>'+esc(origin||'direto')+'</strong>'+
+        '<small>'+esc(x.campaign||'sem_campanha')+creative+'</small></div>'+
+        '<div class="campaign-rates">'+
+          metric('Entradas','eventos',format(x.landingViews))+
+          metric('Formulários vistos','eventos',format(x.formViews))+
+          metric('Leads','cadastros',format(x.total))+
+          metric('Qualificados','no CRM',format(x.qualified))+
+          metric('Convertidos','no CRM',format(x.converted))+
+        '</div></div>';
+    }).join('')+'</div>'+
+    '<p class="tiny muted">As métricas por campanha se referem a grupos agregados por origem e público. '+
+    'Contagens não devem ser divididas entre si para inferir CTR, venda ou identificação entre sessões. '+
+    '“Convertidos” refere-se exclusivamente ao estágio registrado no CRM.</p></div>';
+}
+
 function adminGrowthNetworkOverviewView(raw){
   if(!raw||raw.available!==true)return '';
   const counts=['attributedLeads','customerInvitedLeads','merchantInvitedLeads',
@@ -4938,26 +5026,12 @@ function adminOwnerFinanceWorkspaceSection(){
 function adminPrelaunchLeadsSection(data){
   const leads=Array.isArray(data?.prelaunchLeads)?data.prelaunchLeads:[];
   const metrics=adminAcquisitionMetrics(data,leads);
+  const verified=adminAcquisitionAggregateVerified(metrics);
   const ordered=[...leads].sort((a,b)=>adminLeadPriority(a.status)-adminLeadPriority(b.status)||(Date.parse(a.created_at||'')-Date.parse(b.created_at||'')));
   return [
     '<section class="section">',
-      '<div class="section-head"><div><span class="section-kicker">AQUISIÇÃO • CLIENTES E PARCEIROS</span><h2>Funil real de clientes e parceiros</h2><p>As métricas agregadas usam todos os leads do banco. A fila operacional abaixo traz somente os contatos recentes necessários para atendimento.</p></div><span class="status-pill online">'+Number(metrics.total||0)+' lead(s)</span></div>',
-      '<div class="merchant-kpis acquisition-summary-kpis">',
-        '<div class="kpi"><span class="label">Entradas medidas</span><strong>'+Number(metrics.landingViews||0)+'</strong><small>uma vez por sessão/aba e público</small></div>',
-        '<div class="kpi"><span class="label">Formulários vistos</span><strong>'+Number(metrics.formViews||0)+'</strong><small>'+adminMetricPercent(metrics.landingToFormPct)+' das entradas</small></div>',
-        '<div class="kpi"><span class="label">Total captado</span><strong>'+Number(metrics.total||0)+'</strong><small>'+Number(metrics.last7d||0)+' nos últimos 7 dias</small></div>',
-        '<div class="kpi"><span class="label">Clientes / empresas</span><strong>'+Number(metrics.customers||0)+' / '+Number(metrics.merchants||0)+'</strong></div>',
-        '<div class="kpi"><span class="label">Novos há +24h</span><strong>'+Number(metrics.staleNew24h||0)+'</strong><small>prioridade de contato</small></div>',
-        '<div class="kpi"><span class="label">Mediana até 1º contato</span><strong>'+adminMetricDuration(metrics.medianFirstContactMinutes)+'</strong></div>',
-      '</div>',
-      '<div class="acquisition-funnel acquisition-funnel-full">',
-        '<div class="funnel-stage"><span>1</span><div><small>ENTRADAS</small><strong>'+Number(metrics.landingViews||0)+'</strong><p>sessões medidas</p></div></div>',
-        '<div class="funnel-stage"><span>2</span><div><small>VIRAM FORMULÁRIO</small><strong>'+Number(metrics.formViews||0)+'</strong><p>'+adminMetricPercent(metrics.landingToFormPct)+' das entradas</p></div></div>',
-        '<div class="funnel-stage"><span>3</span><div><small>VIRARAM LEAD</small><strong>'+Number(metrics.total||0)+'</strong><p>'+adminMetricPercent(metrics.landingToLeadPct)+' das entradas</p></div></div>',
-        '<div class="funnel-stage"><span>4</span><div><small>CONTATADOS</small><strong>'+Number(metrics.contacted||0)+'</strong><p>'+adminMetricPercent(metrics.contactRatePct)+' dos leads</p></div></div>',
-        '<div class="funnel-stage"><span>5</span><div><small>QUALIFICADOS</small><strong>'+Number(metrics.qualified||0)+'</strong><p>'+adminMetricPercent(metrics.qualificationRatePct)+' dos leads</p></div></div>',
-        '<div class="funnel-stage"><span>6</span><div><small>CONVERTIDOS</small><strong>'+Number(metrics.converted||0)+'</strong><p>'+adminMetricPercent(metrics.conversionRatePct)+' dos leads</p></div></div>',
-      '</div>',
+      '<div class="section-head"><div><span class="section-kicker">AQUISIÇÃO • CLIENTES E PARCEIROS</span><h2>Funil real de clientes e parceiros</h2><p>As métricas agregadas usam todos os leads do banco. A fila operacional abaixo traz somente os contatos recentes necessários para atendimento.</p></div><span class="status-pill '+(verified?'online':'')+'">'+(verified?Number(metrics.total).toLocaleString('pt-BR')+' lead(s)':'Agregados pendentes')+'</span></div>',
+      adminAcquisitionEvidenceView(metrics),
       adminAcquisitionCampaigns(metrics),
       adminGrowthNetworkOverviewView(data?.growthNetwork),
       adminGrowthApplicationFunnelView(data?.growthApplicationFunnel),
@@ -4972,7 +5046,7 @@ function adminPrelaunchLeadsSection(data){
       adminAdsPlacementSection(),
       adminCommercialActivationSection(),
       adminGrowthReferralReviewSection(),
-      '<div class="section-head acquisition-queue-head"><div><span class="section-kicker">FILA OPERACIONAL</span><h3>Leads recentes para atendimento</h3><p>Até 200 contatos mais recentes. Ordenados por estágio e antiguidade para reduzir esquecimento.</p></div><span class="status-pill '+(Number(metrics.staleNew24h||0)?'offline':'online')+'">'+Number(metrics.new||0)+' novo(s)</span></div>',
+      '<div class="section-head acquisition-queue-head"><div><span class="section-kicker">FILA OPERACIONAL</span><h3>Leads recentes para atendimento</h3><p>Até 200 contatos mais recentes. Ordenados por estágio e antiguidade para reduzir esquecimento.</p></div><span class="status-pill '+(Number(metrics.staleNew24h||0)?'offline':'online')+'">'+(verified?Number(metrics.new||0)+' novo(s)':'Fila recente')+'</span></div>',
       '<div class="grid cards-3" style="margin-top:14px">'+(ordered.length?ordered.slice(0,200).map(adminPrelaunchLeadCard).join(''):'<div class="empty card">Nenhum lead captado ainda.</div>')+'</div>',
     '</section>'
   ].join('');
