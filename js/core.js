@@ -839,7 +839,18 @@ function siteFooter({adminPortal=false}={}){
   const region=typeof rememberedMarketRegion==='function'&&globalThis.merchantPortalRequested?.()!==true
     ?rememberedMarketRegion():null;
   const locality=region?esc(region.city)+'/'+esc(region.state):'Consulte sua região';
-  return '<footer class="site-footer"><div class="shell site-footer-inner"><div><strong>TAMÃO</strong><small>Pediu? Tá na mão. • '+locality+'</small></div><nav aria-label="Explore o TAMÃO e informações legais"><button onclick="go(\'learn\')">Como funciona</button><button onclick="go(\'earn\')">Indicações</button><button onclick="go(\'merchants\')">Para revendas</button><button onclick="go(\'sponsors\')">Para marcas</button><button onclick="go(\'contact\')">Contato</button><button onclick="go(\'privacy\')">Privacidade</button><button onclick="go(\'terms\')">Termos</button></nav></div></footer>';
+  // Indexed editorial links are available only on the official public origin.
+  // Protected or local/test portals keep their established navigation.
+  const officialCustomerHost=['tamao.com.br','www.tamao.com.br'].includes(
+    String(globalThis.location?.hostname||'').toLowerCase());
+  const editorial=officialCustomerHost&&!globalThis.merchantPortalRequested?.()&&
+    !globalThis.adminPortalRequested?.()&&globalThis.__CHAMA_TEST__!==true
+    ?'<nav class="site-footer-editorial" aria-label="Páginas para conhecer o TAMÃO">'+
+      '<a href="/como-funciona/">Para quem compra</a>'+
+      '<a href="/para-revendas/">Para revendas</a>'+
+      '<a href="/para-marcas/">Para marcas</a>'+
+      '<a href="/indicacoes/">Rede de indicações</a></nav>':'';
+  return '<footer class="site-footer"><div class="shell site-footer-inner"><div><strong>TAMÃO</strong><small>Pediu? Tá na mão. • '+locality+'</small></div><nav aria-label="Explore o TAMÃO e informações legais"><button onclick="go(\'learn\')">Como funciona</button><button onclick="go(\'earn\')">Indicações</button><button onclick="go(\'merchants\')">Para revendas</button><button onclick="go(\'sponsors\')">Para marcas</button><button onclick="go(\'contact\')">Contato</button><button onclick="go(\'privacy\')">Privacidade</button><button onclick="go(\'terms\')">Termos</button></nav>'+editorial+'</div></footer>';
 }
 function shell(content){
   const r=route();
