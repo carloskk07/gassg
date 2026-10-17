@@ -88,7 +88,7 @@ async function startHomeOrder({addFeatured=true}={}){
     if(value&&value.length<5)return toast('Informe um endereço válido ou deixe em branco para preencher depois');
     if(value)state.address=value.slice(0,160);
   }else{
-    const postalCode=value.replace(/\D/g,'').slice(0,8);
+    const postalCode=value.replace(/\D/g,'');
     if(value&&!/^[0-9]{8}$/.test(postalCode)){
       homeInput?.focus();
       return toast('Informe um CEP válido com 8 dígitos');
@@ -134,6 +134,46 @@ async function startHomeOrder({addFeatured=true}={}){
 // Product-first entry: preserve the existing cart and CEP, never silently add gas.
 function startHomeBrowse(){
   return startHomeOrder({addFeatured:false});
+}
+
+// V1.379 — Product taps from the home preserve an optional verified CEP,
+// without carrying address, offers or city proof from another region.
+function homeChooseProduct(code){
+  const productCode=String(code||'').toUpperCase();
+  if(!/^[A-Z][A-Z0-9_]{1,31}$/.test(productCode)||!products[productCode]||products[productCode].hidden)return false;
+  const input=document.querySelector('#home-address');
+  const raw=String(input?.value||'').trim();
+  const testDemo=globalThis.__CHAMA_TEST__===true;
+  if(testDemo){
+    if(raw&&raw.length<5){
+      input?.focus();
+      toast('Informe um endereço válido ou deixe para a próxima etapa.');
+      return false;
+    }
+    if(raw)state.address=raw.slice(0,160);
+  }else{
+    const postalCode=raw.replace(/\D/g,'');
+    if(raw&&!/^[0-9]{8}$/.test(postalCode)){
+      input?.focus();
+      toast('Informe um CEP com 8 dígitos ou deixe o campo em branco.');
+      return false;
+    }
+    if(postalCode&&postalCode!==String(state.postalCode||'').replace(/\D/g,'')){
+      state.postalCode=postalCode;
+      state.address='';
+      state.addressNumber='';
+      if(globalThis.liveRuntime){
+        liveRuntime.offers=[];
+        liveRuntime.postalValidated=false;
+        liveRuntime.lastCityCheck=null;
+        liveRuntime.lastSyncAt=null;
+        liveRuntime.error=null;
+      }
+    }
+  }
+  save();
+  quickProduct(productCode);
+  return true;
 }
 
 // Consulta ofertas reais quando a sessão está pronta; na indisponibilidade, oferece aviso.
@@ -434,7 +474,7 @@ function home(){
       const art=typeof tamaoProductArt==='function'
         ?tamaoProductArt(code,product,'hero'):esc(product.icon||'🛍️');
       const group=homeProductGroup(code,product);
-      return `<button type="button" class="home-discover-tile" data-tamao-discover-kind="${group}" ${index>=6?'hidden':''} onclick="quickProduct('${code}')" aria-label="Escolher ${esc(name)} e conferir a entrega">`+
+      return `<button type="button" class="home-discover-tile" data-tamao-discover-kind="${group}" ${index>=6?'hidden':''} onclick="homeChooseProduct('${code}')" aria-label="Escolher ${esc(name)} e conferir a entrega">`+
         `<span class="home-discover-art" aria-hidden="true">${art}</span>`+
         `<strong>${esc(name)}</strong><span class="home-discover-action">Selecionar produto <span aria-hidden="true">→</span></span></button>`;
     }).join('');
@@ -449,7 +489,7 @@ function home(){
       ?tamaoProductArt(code,product,'hero'):esc(product.icon||'🛍️');
     const side=index===0?'gas':'water';
     return `<button type="button" class="home-editorial-${side} home-editorial-choice" `+
-      `onclick="quickProduct('${code}')" aria-label="Escolher ${esc(name)} e consultar entrega pelo CEP">`+
+      `onclick="homeChooseProduct('${code}')" aria-label="Escolher ${esc(name)} e consultar entrega pelo CEP">`+
       `<span class="home-editorial-photo" aria-hidden="true">${art}</span>`+
       `<strong>${esc(name)}</strong><small>Selecionar produto <span aria-hidden="true">→</span></small></button>`;
   }).join('');
@@ -610,7 +650,7 @@ ${conciseHome?'':`<section class="section"><div class="protection-band"><div cla
 </div></section>
 
 <section class="section"><div class="section-head"><div><span class="section-kicker">O QUE PRECISA HOJE?</span><h2>O essencial da sua rotina, do jeito mais simples.</h2><p>Gás, água, carvão, lenha e gelo: descubra os itens que as revendas realmente oferecem no seu CEP. Sem precisar comprar gás para consultar os demais produtos.</p></div></div>
-<div class="quick-grid">${homeProductEntries.length?homeProductEntries.map(([k,p])=>`<button class="quick-card" onclick="quickProduct('${k}')" ${disabled?'disabled':''}><div class="quick-icon">${typeof tamaoProductArt==="function"?tamaoProductArt(k,p):esc(p.icon)}</div><div class="quick-title">${esc(customerProductName(k,p))}</div><div class="quick-sub">${preview?'Consultar disponibilidade':'Consultar agora'}</div></button>`).join(''):'<div class="empty card">Nenhum produto está configurado para consulta agora.</div>'}</div></section>
+<div class="quick-grid">${homeProductEntries.length?homeProductEntries.map(([k,p])=>`<button class="quick-card" onclick="homeChooseProduct('${k}')" ${disabled?'disabled':''}><div class="quick-icon">${typeof tamaoProductArt==="function"?tamaoProductArt(k,p):esc(p.icon)}</div><div class="quick-title">${esc(customerProductName(k,p))}</div><div class="quick-sub">${preview?'Consultar disponibilidade':'Consultar agora'}</div></button>`).join(''):'<div class="empty card">Nenhum produto está configurado para consulta agora.</div>'}</div></section>
 
 ${internalPilot?`<section class="section"><div class="card flat"><span class="section-kicker">AMBIENTE INTERNO</span><h2 style="margin-top:6px">Gas e Lenheira do JR</h2><p class="muted">Faixa comercial P13 configurada para validação interna. Esta visualização não altera a operação pública.</p><button class="secondary" onclick="setMode('merchant')">Abrir painel interno da revenda</button></div></section>`:''}
 
