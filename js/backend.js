@@ -1292,6 +1292,7 @@ const merchantRuntime={
   paymentRoutes:[],
   paymentRouteVersion:1,
   orders:[],
+  supportSummary:null,
   selectedMerchantId:localStorage.getItem('chama-merchant-selected-v1')||null,
   actionPending:false,
   error:null,
@@ -2056,6 +2057,7 @@ async function merchantSignOut(){
   merchantRuntime.paymentRoutes=[];
   merchantRuntime.paymentRouteVersion=1;
   merchantRuntime.orders=[];
+  merchantRuntime.supportSummary=null;
   merchantRuntime.selectedMerchantId=null;
   localStorage.removeItem('chama-merchant-selected-v1');
   merchantRuntime.status='unauthenticated';
@@ -2091,6 +2093,7 @@ async function merchantRefresh({silent=false,recoverSelection=true}={}){
     merchantRuntime.paymentRoutes=Array.isArray(data.paymentRoutes)?data.paymentRoutes:[];
     merchantRuntime.paymentRouteVersion=Number(data.paymentRouteVersion||1);
     merchantRuntime.orders=data.orders??[];
+    merchantRuntime.supportSummary=data.supportSummary??null;
     merchantProcessOrderAlerts(merchantRuntime.orders,merchantRuntime.merchant);
     merchantRuntime.selectedMerchantId=data.merchant?.merchantId??merchantRuntime.selectedMerchantId;
     if(merchantRuntime.selectedMerchantId)localStorage.setItem('chama-merchant-selected-v1',merchantRuntime.selectedMerchantId);
@@ -2123,6 +2126,7 @@ async function merchantRefresh({silent=false,recoverSelection=true}={}){
       merchantClearEnablement();
       merchantRuntime.merchant=null;
       merchantRuntime.orders=[];
+      merchantRuntime.supportSummary=null;
       merchantRuntime.deliveryTeam=[];
       merchantRuntime.team=null;
       merchantRuntime.teamLoading=false;
@@ -2241,6 +2245,7 @@ async function merchantRefreshAfterConfirmedMutation(reply,context={}){
       &&merchantRuntime.orders===snapshot.orders)return true;
   }catch{}
   merchantRuntime.orders=[];
+  merchantRuntime.supportSummary=null;
   if(['no-access','unauthenticated'].includes(merchantRuntime.status))return false;
   merchantRuntime.status='unavailable';
   merchantRuntime.error='O servidor respondeu à solicitação, mas não conseguimos atualizar os pedidos. Atualize o painel antes de fazer outra ação.';
@@ -2981,6 +2986,7 @@ async function merchantPoll(){
         merchantRuntime.session=null;
         merchantRuntime.merchant=null;
         merchantRuntime.orders=[];
+        merchantRuntime.supportSummary=null;
         merchantRuntime.catalog=[];
         merchantRuntime.deliveryTeam=[];
         merchantRuntime.billing=null;
