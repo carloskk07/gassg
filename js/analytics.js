@@ -16,7 +16,11 @@ function marketingAnalyticsEnabled(){
 
 function marketingAnalyticsAudience(){
   const current=typeof route==='function'?String(route()||'home'):String(location.hash||'#home').replace(/^#/,'');
-  return ['merchants','merchant-join','sponsors'].includes(current)?'merchant':'customer';
+  // The contact route can be opened from a sponsor CTA. Preserve only its
+  // temporary audience hint, never identity or the message content.
+  return ['merchants','merchant-join','sponsors'].includes(current)
+    ||(current==='contact'&&globalThis.tamaoPublicContactAudience==='merchant')
+    ?'merchant':'customer';
 }
 
 function marketingAnalyticsReferrerHost(){
@@ -100,14 +104,23 @@ function marketingObserveLeadForms(){
     marketingAnalyticsState.observer=new IntersectionObserver(entries=>{
       for(const entry of entries){
         if(!entry.isIntersecting||entry.intersectionRatio<0.35)continue;
-        const audience=entry.target.id==='partner-interest'?'merchant':'customer';
+        const sponsorContact=entry.target.classList?.contains('public-contact-card')===true;
+        if(sponsorContact&&(
+          (typeof route==='function'?route():null)!=='contact'
+          ||globalThis.tamaoPublicContactAudience!=='merchant'
+        ))continue;
+        const audience=entry.target.id==='partner-interest'||sponsorContact?'merchant':'customer';
         marketingTrack('lead_form_view',audience).catch(()=>{});
         marketingAnalyticsState.observer?.unobserve(entry.target);
       }
     },{threshold:[0.35]});
   }
-  for(const id of ['early-access','partner-interest']){
-    const node=document.getElementById(id);
+  const nodes=['early-access','partner-interest'].map(id=>document.getElementById(id));
+  if((typeof route==='function'?route():null)==='contact'
+    &&globalThis.tamaoPublicContactAudience==='merchant'){
+    nodes.push(document.querySelector('.public-contact-card'));
+  }
+  for(const node of nodes){
     if(!node||marketingAnalyticsState.observedNodes.has(node))continue;
     marketingAnalyticsState.observedNodes.add(node);
     marketingAnalyticsState.observer.observe(node);
@@ -116,6 +129,9 @@ function marketingObserveLeadForms(){
 
 function marketingAnalyticsAfterRender(){
   if(!marketingAnalyticsEnabled())return;
+  if((typeof route==='function'?route():null)!=='contact'){
+    globalThis.tamaoPublicContactAudience=null;
+  }
   marketingTrackLandingOnce();
   marketingObserveLeadForms();
 }
