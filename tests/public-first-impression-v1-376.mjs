@@ -22,9 +22,11 @@ assert.match(index,/href="\/\?entrada=revenda"/);
 assert.match(index,/href="\/\?entrada=marca"/);
 assert.match(index,/<noscript>/);
 assert.ok(!index.includes('Pedidos garantidos'));
-assert.match(bootstrap,/window\.addEventListener\('DOMContentLoaded',async\(\)=>\{/,
-  'the visitor should not wait for the last image to load');
-assert.ok(!bootstrap.includes("window.addEventListener('load',async()=>{"));
+assert.match(bootstrap,/window\.addEventListener\('DOMContentLoaded',\(\)=>\{/,
+  'public initial render should not wait for the last image');
+assert.ok(bootstrap.includes("window.addEventListener('load',async()=>{"),
+  'protected portals keep authentication callback consumption before their initial render');
+assert.match(bootstrap,/if\(globalThis\.adminPortalRequested\?\.\(\)\|\|globalThis\.merchantPortalRequested\?\.\(\)\)return;/);
 assert.match(core,/>Indicações<\/button>/);
 assert.match(core,/>Para marcas<\/button>/);
 
