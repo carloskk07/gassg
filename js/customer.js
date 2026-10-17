@@ -1376,7 +1376,10 @@ function customerNextAction(status){
     REQUOTE_REQUIRED:'Compare o valor anterior e a nova proposta antes de decidir.',
     AT_RISK:'Confira os eventos e atualize o andamento para saber o que foi confirmado.',
     REASSIGNING:'Atualize o acompanhamento para saber se surgiu uma alternativa. Ainda não há nova revenda confirmada.',
-    ARRIVING:'Separe o código, mas só o compartilhe após conferir a entrega.',
+    MERCHANT_ACCEPTED:'A revenda aceitou. Aguarde a confirmação da preparação e da saída.',
+    PREPARING:'Os itens estão sendo preparados. A saída ainda precisa ser confirmada.',
+    ARRIVING:'Confira os itens e o valor antes de compartilhar o código de recebimento.',
+    DELIVERED:'Confira o registro do recebimento. Se houver divergência, registre atendimento.',
     OUT_FOR_DELIVERY:'Aguarde a chegada e não informe o código antecipadamente.',
     OFFERED_TO_MERCHANT:'Aguarde o aceite. Você pode cancelar antes da confirmação.',
     CANCELLED:'Você pode consultar novas ofertas ou registrar um atendimento sobre o pedido encerrado.',
@@ -1763,6 +1766,7 @@ function liveTracking(){
   const proposedCents=Number(o.proposedTotalCents);
   const proposed=o.proposedTotalCents!=null&&Number.isSafeInteger(proposedCents)
     &&proposedCents>0&&proposedCents<=1000000000?proposedCents/100:null;
+  const trackingBadge=customerTrackingStatusPresentation(o.status,readEvidence);
   const quickAction=customerTrackingPrimaryAction(o,{
     evidence:readEvidence,pending:liveRuntime.actionPending===true,
     remainingSeconds:deadline
@@ -1808,10 +1812,11 @@ function liveTracking(){
     : '';
 
   return shell(`<section class="page"><button class="back" onclick="go('home')">← Início</button>
-<div class="status-bar"><div><div class="tiny muted">PEDIDO ${esc(o.publicCode||o.orderId)}</div><h1 class="page-title" style="margin-bottom:3px">${esc(copy[0])}</h1></div><span class="status-pill ${['OUT_FOR_DELIVERY','ARRIVING','SETTLED','DELIVERED'].includes(o.status)?'online':o.status==='CANCELLED'?'offline':'risk'}">${o.status==='SETTLED'?'CONCLUÍDO':o.status==='CANCELLED'?'ENCERRADO':liveRuntime.error?'VERIFIQUE O STATUS':'EM ANDAMENTO'}</span></div>
+<div class="status-bar"><div><div class="tiny muted">PEDIDO ${esc(o.publicCode||o.orderId)}</div><h1 class="page-title" style="margin-bottom:3px">${esc(copy[0])}</h1></div><span class="status-pill ${esc(trackingBadge.kind)}">${esc(trackingBadge.label)}</span></div>
 <div class="customer-tracking-overview" role="status" aria-live="polite"><strong>${esc(guidance[0])}</strong><p>${esc(guidance[1])}</p><div class="customer-next-step"><span aria-hidden="true">→</span><span><strong>O que fazer agora</strong>${esc(customerNextAction(o.status))}</span></div>
   <div class="customer-tracking-actions">${quickAction}<small class="customer-tracking-evidence ${esc(readEvidence.kind)}">${esc(readEvidence.label)}</small></div></div>
 ${customerOrderProgress(o.status)}
+${customerDeliveryStagePanel(o,{evidence:readEvidence,pending:liveRuntime.actionPending===true})}
 ${customerIncidentStatusView(o)}
 ${trackingSyncNotice}
 ${interrupted?customerInterruptedPaymentView(o):directPaymentNotice}
