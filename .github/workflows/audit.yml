@@ -485,6 +485,8 @@ jobs:
         run: node tests/merchant-freshness-v1-354.mjs
       - name: V1.355 order-action proof checked at click time regression
         run: node tests/merchant-action-proof-v1-355.mjs
+      - name: V1.356 merchant action stage and version verification
+        run: node tests/merchant-action-stage-gates-v1-356.mjs
       - name: Admin all-months unresolved payout queue V1.340 regression
         run: node tests/payout-global-followup-v1-340.mjs
       - name: Admin all-months payout pagination V1.341 regression
