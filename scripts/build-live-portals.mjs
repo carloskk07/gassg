@@ -205,6 +205,13 @@ export function buildLivePortals(env=process.env,{outputRoot=env.PORTAL_BUILD_OU
     fs.mkdirSync(target,{recursive:true});
     for(const file of STATIC_FILES)fs.copyFileSync(path.join(ROOT,file),path.join(target,file));
     for(const dir of STATIC_DIRS)copyDir(path.join(ROOT,dir),path.join(target,dir));
+    // Admin implementation must not be distributed with customer/merchant
+    // bundles. API authorization still remains strictly server-side.
+    if(role!=='admin'){
+      for(const module of ['admin-acquisition','admin','admin-activations']){
+        fs.rmSync(path.join(target,'js',module+'.js'));
+      }
+    }
 
     const runtimeEnv={...env,CHAMA_PORTAL_ROLE:role};
     fs.writeFileSync(
