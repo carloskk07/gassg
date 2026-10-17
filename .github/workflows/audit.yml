@@ -57,6 +57,8 @@ jobs:
         run: node tests/css-cascade-source.mjs
       - name: Release SHA truth and legacy PR triage contract
         run: node tests/release-version-truth.mjs
+      - name: SQL dollar-quoted function terminator gate V1.397
+        run: node tests/sql-function-terminators-v1-397.mjs
       - name: Static trust and asset audit
         run: node tests/static-audit.mjs
       - name: Admin control plane V1.133 regression contract
