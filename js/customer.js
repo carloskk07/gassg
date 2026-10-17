@@ -1595,6 +1595,70 @@ function customerTrackingTotal(order){
   return value!=null&&Number.isSafeInteger(cents)&&cents>=0&&cents<=1000000000
     ?cents/100:null;
 }
+// V1.383 — This card describes only the latest server-confirmed stage.
+function customerDeliveryStagePanel(order,{evidence,pending=false}={}){
+  const stage={
+    MERCHANT_ACCEPTED:['Revenda aceitou o pedido',
+      'O aceite foi registrado. A preparação e a saída ainda dependem de outras confirmações.',
+      'Aguarde a confirmação de preparação.'],
+    PREPARING:['Pedido em preparação',
+      'A revenda informou que está separando os itens. A saída para entrega ainda não foi confirmada.',
+      'Aguarde a saída ou confira o histórico do pedido.'],
+    OUT_FOR_DELIVERY:['Saída para entrega informada',
+      'A revenda registrou a saída. O horário de chegada e o recebimento ainda não foram confirmados.',
+      'Confira os itens e o valor antes de compartilhar qualquer código.'],
+    ARRIVING:['Chegada informada',
+      'A entrega informou que está chegando, mas o recebimento ainda não está confirmado.',
+      'Ao receber, confira os itens e o valor antes de compartilhar o código.'],
+    DELIVERED:['Recebimento registrado',
+      'O recebimento consta como registrado. A conciliação financeira pode ainda estar em processamento.',
+      'Se houver divergência, registre atendimento vinculado ao pedido.'],
+    SETTLED:['Pedido concluído',
+      'O recebimento e a conciliação constam como registrados.',
+      'Avalie o atendimento ou peça ajuda, se necessário.']
+  }[String(order?.status||'')];
+  if(!stage)return '';
+  const recent=evidence?.kind==='recent';
+  const title=recent?stage[0]:'Última etapa registrada: '+stage[0];
+  const description=recent?stage[1]:
+    'Esta é a última informação disponível nesta sessão. Atualize para verificar mudanças.';
+  const href=['DELIVERED','SETTLED'].includes(order.status)?'#customer-care'
+    :['OUT_FOR_DELIVERY','ARRIVING'].includes(order.status)&&order.deliveryPin
+      ?'#customer-delivery-code':'#customer-history';
+  const action=recent
+    ?'<a class="secondary small" href="'+href+'">'+
+      (href==='#customer-delivery-code'?'Ver orientações de recebimento'
+        :href==='#customer-care'?'Avaliar ou pedir ajuda':'Ver histórico confirmado')+'</a>'
+    :'<button type="button" class="primary small" onclick="liveGetOrder().catch(()=>{})" '+
+      (pending?'disabled':'')+'>Atualizar pedido</button>';
+  return '<section class="customer-delivery-guide '+(recent?'recent':'needs-update')+
+    '" aria-label="Orientações sobre a entrega">'+
+    '<span class="customer-delivery-guide-eyebrow">'+
+      (recent?'ÚLTIMA ETAPA CONSULTADA':'ATUALIZAÇÃO NECESSÁRIA')+'</span>'+
+    '<h2>'+esc(title)+'</h2><p>'+esc(description)+'</p>'+
+    '<div class="customer-delivery-guide-next"><strong>O que observar</strong><span>'+
+      esc(recent?stage[2]:'O estado pode ter mudado desde a última consulta.')+'</span></div>'+
+    '<div class="customer-delivery-guide-actions">'+action+
+      '<a class="customer-delivery-guide-help" href="#customer-care">Preciso de ajuda</a></div>'+
+    '</section>';
+}
+function customerTrackingStatusPresentation(status,evidence){
+  if(evidence?.kind==='unverified')return {kind:'risk',label:'VERIFIQUE O STATUS'};
+  if(status==='CANCELLED')return {kind:'offline',label:'ENCERRADO'};
+  if(status==='SETTLED')return {kind:'online',label:'CONCLUÍDO'};
+  if(evidence?.kind!=='recent')return {kind:'risk',label:'ATUALIZE O STATUS'};
+  const label={
+    CREATED:'PEDIDO REGISTRADO',QUOTE_LOCKED:'VALOR REGISTRADO',
+    OFFERED_TO_MERCHANT:'AGUARDANDO ACEITE',MERCHANT_ACCEPTED:'REVENDA ACEITOU',
+    PREPARING:'EM PREPARAÇÃO',AT_RISK:'PRECISA DE ATENÇÃO',
+    REASSIGNING:'EM REAVALIAÇÃO',REQUOTE_REQUIRED:'SUA DECISÃO',
+    OUT_FOR_DELIVERY:'SAÍDA INFORMADA',ARRIVING:'CHEGADA INFORMADA',
+    DELIVERED:'ENTREGA REGISTRADA'
+  }[status]||'ÚLTIMO ESTADO REGISTRADO';
+  return {kind:['MERCHANT_ACCEPTED','PREPARING','OUT_FOR_DELIVERY','ARRIVING',
+    'DELIVERED'].includes(status)?'online':'risk',label};
+}
+
 function customerTrackingPrimaryAction(order,{evidence,pending=false,remainingSeconds=null}={}){
   const status=String(order?.status||'');
   const mustRefresh=evidence?.kind!=='recent';
