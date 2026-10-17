@@ -875,7 +875,7 @@ ${pendingOrder?`<div class="notice" style="margin-bottom:14px"><strong>Você já
     <div class="input-wrap"><label for="address">Endereço de entrega</label><input id="address" class="input" autocomplete="street-address" maxlength="160" placeholder="Ex.: Rua General Câmara, 123" value="${esc(state.address||'')}"></div>
   </div>`:`<div class="field-row">
     <div class="input-wrap"><label for="postal-code">CEP</label><input id="postal-code" class="input" autocomplete="postal-code" inputmode="numeric" maxlength="9" placeholder="Ex.: 97300-000" value="${esc(String(state.postalCode||'').replace(/^(\d{5})(\d{0,3}).*$/,(m,a,b)=>b?a+'-'+b:a))}" oninput="deliveryAddressDraftChanged()" onchange="deliveryAddressDraftChanged()"><small class="field-help">O servidor confirma rua, bairro e atendimento para o CEP informado.</small></div>
-    <div class="input-wrap"><label for="address-number">Número</label><input id="address-number" class="input" autocomplete="address-line2" inputmode="text" maxlength="7" placeholder="Ex.: 123" value="${esc(state.addressNumber||'')}" oninput="deliveryAddressDraftChanged()" onchange="deliveryAddressDraftChanged()"><small class="field-help">Use números e, se necessário, uma letra.</small></div>
+    <div class="input-wrap"><label for="address-number">Número</label><input id="address-number" class="input" autocomplete="address-line2" inputmode="text" maxlength="7" aria-describedby="address-auto-status" placeholder="Ex.: 123" value="${esc(state.addressNumber||'')}" oninput="deliveryAddressDraftChanged()" onchange="deliveryAddressDraftChanged()"><small class="field-help">Use números e, se necessário, uma letra.</small></div>
   </div>
   ${state.address?`<div class="notice success"><strong>Endereço confirmado pelo servidor.</strong><br>${esc(state.address)}</div>`:'<div class="notice">A rua não é digitada manualmente: ela vem do CEP validado.</div>'}`}
   ${testDemo
@@ -883,12 +883,12 @@ ${pendingOrder?`<div class="notice" style="margin-bottom:14px"><strong>Você já
     :ready
       ?`<div class="address-auto-status" id="address-auto-status" role="status" aria-live="polite"><span aria-hidden="true">📍</span><span>${liveRuntime.loadingOffers?'Consultando opções para seu endereço…':hasAddress?'Endereço confirmado. Compare as opções disponíveis abaixo.':liveRuntime.error?'Não foi possível concluir a consulta. Você pode tentar novamente.':'Informe CEP e número. Consultaremos as ofertas automaticamente.'}</span></div>
         ${liveRuntime.error?`<button class="secondary small" onclick="setAddress()">Tentar novamente</button>`:''}`
-      :`<button class="primary" onclick="setAddress()">Consultar endereço</button>`}
+      :`<div class="address-auto-status" id="address-auto-status" role="status" aria-live="polite"><span aria-hidden="true">📍</span><span>Confira o CEP e o número. A consulta depende da conexão com o serviço.</span></div><button class="primary" onclick="setAddress()">Consultar endereço</button>`}
   <small class="field-help">${testDemo?'Dados do ambiente interno.':'Os preços só aparecem após o servidor validar CEP e número.'}</small>
 </div>
 ${hasAddress?`<div class="card flat form-stack buyer-contact-card" id="customer-contact" style="margin-top:12px">
   <h3>Seu contato para a entrega</h3>
-  <div class="input-wrap"><label for="delivery-phone">Telefone com DDD</label><input id="delivery-phone" class="input" type="tel" inputmode="tel" autocomplete="tel" maxlength="18" placeholder="Ex.: (55) 99999-1234" value="${esc(formatDeliveryPhone(state.checkout.customerPhoneDigits))}" onchange="deliveryDetailsChanged()"><small class="field-help">Obrigatório para concluir o pedido. A revenda recebe o contato apenas depois de aceitar.</small></div>
+  <div class="input-wrap"><label for="delivery-phone">Telefone com DDD</label><input id="delivery-phone" class="input" type="tel" inputmode="tel" autocomplete="tel" maxlength="18" aria-describedby="delivery-phone-feedback" placeholder="Ex.: (55) 99999-1234" value="${esc(formatDeliveryPhone(state.checkout.customerPhoneDigits))}" onchange="deliveryDetailsChanged()"><small id="delivery-phone-feedback" class="field-help" role="status" aria-live="polite">Obrigatório para concluir o pedido. A revenda recebe o contato apenas depois de aceitar.</small></div>
   <details class="buyer-extra-details" ${state.checkout.addressComplement||state.checkout.deliveryReference||state.checkout.deliveryNotes?'open':''}>
     <summary>Complemento, referência ou recado para a entrega (opcional)</summary>
   <div class="field-row">
@@ -1213,10 +1213,18 @@ function syncDeliveryDetailsFromUi({requirePhone=false}={}){
   const complement=String(document.getElementById('address-complement')?.value??state.checkout.addressComplement??'').trim().replace(/\s+/g,' ').slice(0,120);
   const reference=String(document.getElementById('delivery-reference')?.value??state.checkout.deliveryReference??'').trim().replace(/\s+/g,' ').slice(0,160);
   const notes=String(document.getElementById('delivery-notes')?.value??state.checkout.deliveryNotes??'').trim().replace(/\s+/g,' ').slice(0,240);
+  const phoneField=document.getElementById('delivery-phone');
+  const phoneHint=document.getElementById('delivery-phone-feedback');
   if(requirePhone&&!/^[0-9]{10,11}$/.test(phoneDigits)){
-    document.getElementById('delivery-phone')?.focus();
+    phoneField?.setAttribute?.('aria-invalid','true');
+    if(phoneHint)phoneHint.textContent='Confira o telefone: informe DDD e 8 ou 9 dígitos, sem números extras.';
+    phoneField?.focus?.();
     toast('Informe um telefone válido com DDD para a entrega');
     return false;
+  }
+  if(/^[0-9]{10,11}$/.test(phoneDigits)){
+    phoneField?.removeAttribute?.('aria-invalid');
+    if(phoneHint)phoneHint.textContent='Telefone preenchido. Será compartilhado com a revenda após o aceite.';
   }
   state.checkout.customerPhoneDigits=phoneDigits;
   state.checkout.addressComplement=complement;
