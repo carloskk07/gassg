@@ -15,7 +15,7 @@ for(const [source,phrase,why] of [
  [acquisition,'Veja se já há entrega para o seu CEP.','consulta por região'],
  [acquisition,'Seu pedido de aviso para','confirmação do interesse sem simular atendimento'],
  [acquisition,'Esse contato não libera vendas.','entrada gradual da revenda'],
- [growth,'Quer pedir gás, água ou outros itens? Veja como funciona.','página de explicação'],
+ [growth,'Escolha o que precisa. Confira a entrega. Acompanhe seu pedido.','página de explicação'],
  [growth,'A taxa do TAMÃO só é cobrada sobre pedidos concluídos.','política comercial sem engano'],
  [growth,'O cliente paga diretamente à sua revenda','dinheiro do cliente direto ao fornecedor'],
  [merchant,'Entrar no painel da revenda','login com destino claro'],
