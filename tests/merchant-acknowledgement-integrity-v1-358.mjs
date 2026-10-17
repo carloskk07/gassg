@@ -90,7 +90,7 @@ assert.equal(verified.rt.status,'ready');
 const refreshFail=fixture({failRefresh:true});
 assert.equal((await refreshFail.ctx.perform(orderId,'accept')).ok,true);
 assert.equal(refreshFail.rt.status,'unavailable');
-assert.deepEqual(refreshFail.rt.orders,[]);
+assert.equal(refreshFail.rt.orders.length,0,'failed follow-up read must clear stale queue');
 assert.match(refreshFail.rt.error,/não conseguimos atualizar os pedidos/i);
 const autoRescue=fixture({reply:{autoRescued:true,rescueReason:'offer_expired'}});
 assert.equal((await autoRescue.ctx.perform(orderId,'accept')).autoRescued,true,
