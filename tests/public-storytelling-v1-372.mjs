@@ -11,8 +11,7 @@ for(const [name,source] of Object.entries({customer,growth})){
 const home=customer.slice(customer.indexOf('function home(){'),
   customer.indexOf('\nfunction orderPage(){'));
 assert.ok(home.length>10000);
-assert.ok(home.includes('conciseHome?\`<section class="home-buying-steps"')||
-  home.includes('conciseHome?\`<section class="home-buying-steps"'.replace('\\','')),
+assert.ok(home.includes('conciseHome?`<section class="home-buying-steps"'),
   'compact buying guide must appear only in first-visit condition');
 assert.ok(home.includes('home-buying-steps-list'));
 assert.ok(home.includes('Gás, água ou outros essenciais, sem item obrigatório.'));
