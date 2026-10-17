@@ -121,6 +121,29 @@ const PAGES=[
 const esc=value=>String(value??'').replaceAll('&','&amp;').replaceAll('<','&lt;')
  .replaceAll('>','&gt;').replaceAll('"','&quot;').replaceAll("'",'&#39;');
 
+// Editorial representations explain the audience, not real orders, merchants,
+// sponsors, earnings, availability or business performance.
+function renderAudienceVisual(page){
+  if(page.slug==='como-funciona')return `<div class="ed-product-scene" aria-hidden="true">
+    <div class="ed-halo"></div><div class="ed-product ed-product-gas"></div><div class="ed-product ed-product-water"></div>
+    <span class="ed-scene-label">Gás • Água • Essenciais</span></div>`;
+  if(page.slug==='para-revendas')return `<div class="ed-audience-scene ed-audience-merchant" aria-hidden="true">
+    <span class="ed-scene-overline">PAINEL • ILUSTRAÇÃO</span>
+    <div class="ed-scene-primary"><span class="ed-scene-symbol">🏪</span><div><small>SUA EMPRESA</small><strong>Produtos sob controle</strong></div></div>
+    <div class="ed-scene-pills"><span>📦 Catálogo</span><span>🚚 Entregas</span><span>✓ Disponibilidade</span></div>
+    <span class="ed-scene-bottom">Autonomia para operar</span></div>`;
+  if(page.slug==='para-marcas')return `<div class="ed-audience-scene ed-audience-brand" aria-hidden="true">
+    <span class="ed-scene-overline">PROPOSTA • ILUSTRAÇÃO</span>
+    <div class="ed-scene-primary"><span class="ed-scene-symbol">✦</span><div><small>MARCA + COMÉRCIO LOCAL</small><strong>Presença com contexto</strong></div></div>
+    <div class="ed-scene-pills"><span>📍 Região</span><span>📣 Divulgação</span><span>🎁 Benefícios</span></div>
+    <span class="ed-scene-bottom">Formatos sujeitos à aprovação</span></div>`;
+  return `<div class="ed-audience-scene ed-audience-network" aria-hidden="true">
+    <span class="ed-scene-overline">REDE • ILUSTRAÇÃO</span>
+    <div class="ed-scene-primary"><span class="ed-scene-symbol">🤝</span><div><small>SEU CONVITE</small><strong>Mais pessoas conectadas</strong></div></div>
+    <div class="ed-scene-pills"><span>🛍️ Quem compra</span><span>🏪 Quem vende</span></div>
+    <span class="ed-scene-bottom">Benefícios conforme cada campanha</span></div>`;
+}
+
 function renderLanding(page,origin,indexing){
  const canonical=origin+'/'+page.slug+'/';
  const cards=page.steps.map(([number,title,description])=>`<article class="ed-step">
@@ -129,9 +152,9 @@ function renderLanding(page,origin,indexing){
   </article>`).join('');
  const bullets=page.storyPoints.map(item=>'<li>'+esc(item)+'</li>').join('');
  const questions=page.questions.map(([q,a])=>'<details><summary>'+esc(q)+'</summary><p>'+esc(a)+'</p></details>').join('');
- const primary=`<a class="ed-btn ed-btn-primary" href="${esc(page.primary[1])}">${esc(page.primary[0])} <span aria-hidden="true">→</span></a>`;
- const secondary=`<a class="ed-btn ed-btn-outline" href="${esc(page.secondary[1])}">${esc(page.secondary[0])}</a>`;
- const navigation=PAGES.map(x=>`<a href="/${x.slug}/" ${x.slug===page.slug?'aria-current="page"':''}>${esc(x.slug==='como-funciona'?'Como funciona':x.slug==='para-revendas'?'Para revendas':x.slug==='para-marcas'?'Para marcas':'Indicações')}</a>`).join('');
+ const primary=`<a class="ed-btn ed-btn-primary" data-tamao-handoff href="${esc(page.primary[1])}">${esc(page.primary[0])} <span aria-hidden="true">→</span></a>`;
+ const secondary=`<a class="ed-btn ed-btn-outline" data-tamao-handoff href="${esc(page.secondary[1])}">${esc(page.secondary[0])}</a>`;
+ const navigation=PAGES.map(x=>`<a data-tamao-handoff href="/${x.slug}/" ${x.slug===page.slug?'aria-current="page"':''}>${esc(x.slug==='como-funciona'?'Como funciona':x.slug==='para-revendas'?'Para revendas':x.slug==='para-marcas'?'Para marcas':'Indicações')}</a>`).join('');
  return `<!doctype html>
 <html lang="pt-BR"><head>
 <meta charset="utf-8" />
@@ -149,13 +172,14 @@ function renderLanding(page,origin,indexing){
 <meta name="twitter:card" content="summary" />
 <link rel="icon" href="/icons/icon.svg" type="image/svg+xml" />
 <link rel="stylesheet" href="/css/landing-editorial.css" />
+<script src="/js/landing-handoff.js" defer></script>
 <title>${esc(page.title)}</title>
 </head><body>
 <a class="ed-skip" href="#conteudo">Pular para o conteúdo</a>
 <header class="ed-header"><div class="ed-shell ed-header-inner">
-  <a href="/" class="ed-brand" aria-label="TAMÃO, ir para a home"><img src="/icons/icon.svg" width="43" height="43" alt="" /><span><strong>TAMÃO</strong><small>Pediu? Tá na mão.</small></span></a>
+  <a href="/" data-tamao-handoff class="ed-brand" aria-label="TAMÃO, ir para a home"><img src="/icons/icon.svg" width="43" height="43" alt="" /><span><strong>TAMÃO</strong><small>Pediu? Tá na mão.</small></span></a>
   <nav class="ed-nav" aria-label="Conheça o TAMÃO">${navigation}</nav>
-  <a class="ed-header-cta" href="/">Quero comprar <span aria-hidden="true">→</span></a>
+  <a class="ed-header-cta" data-tamao-handoff href="/">Quero comprar <span aria-hidden="true">→</span></a>
 </div></header>
 <main id="conteudo">
  <section class="ed-hero"><div class="ed-shell ed-hero-grid">
@@ -168,10 +192,7 @@ function renderLanding(page,origin,indexing){
   </div>
   <aside class="ed-hero-visual" aria-label="Apresentação ilustrativa da proposta do TAMÃO">
    <span class="ed-visual-kicker">${esc(page.mark)}</span>
-   <div class="ed-product-scene" aria-hidden="true">
-    <div class="ed-halo"></div><div class="ed-product ed-product-gas"></div><div class="ed-product ed-product-water"></div>
-    <span class="ed-scene-label">Gás • Água • Essenciais</span>
-   </div>
+   ${renderAudienceVisual(page)}
    <div class="ed-visual-copy"><h2>${esc(page.visualTitle)}</h2><p>${esc(page.visualText)}</p></div>
   </aside>
  </div></section>
@@ -187,7 +208,7 @@ function renderLanding(page,origin,indexing){
  <section class="ed-shell ed-last"><div><span class="ed-eyebrow">SEU PRÓXIMO PASSO</span><h2>${esc(page.closing)}</h2></div>${primary}</section>
 </main>
 <footer class="ed-footer"><div class="ed-shell ed-footer-inner">
- <div><a href="/" class="ed-footer-brand">TAMÃO</a><small>Gás, água e essenciais perto de você. Consulte a disponibilidade para sua região.</small></div>
+ <div><a href="/" data-tamao-handoff class="ed-footer-brand">TAMÃO</a><small>Gás, água e essenciais perto de você. Consulte a disponibilidade para sua região.</small></div>
  <nav aria-label="Informações e privacidade"><a href="/#contact">Contato</a><a href="/#privacy">Privacidade</a><a href="/#terms">Termos de uso</a></nav>
 </div></footer>
 </body></html>`;
