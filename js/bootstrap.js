@@ -94,7 +94,9 @@ window.addEventListener('online',()=>{
   }
 });
 
-window.addEventListener('load',async()=>{
+// Render as soon as deferred scripts have loaded and the document is ready;
+// do not leave the public first paint waiting for every image or asset.
+window.addEventListener('DOMContentLoaded',async()=>{
   if(globalThis.adminPortalRequested?.()){
     await adminBackendInit();
     if(route()!=='admin')go('admin');
