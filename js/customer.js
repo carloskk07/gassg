@@ -417,6 +417,18 @@ function home(){
     ['all','Destaques'],['gas','Gás'],['water','Água'],['other','Outros']
   ].filter(([kind])=>kind==='all'||discoveryCounts[kind]>0).map(([kind,label])=>
     `<button type="button" data-tamao-filter="${kind}" aria-pressed="${kind==='all'}" onclick="homeFilterProducts('${kind}')">${label}</button>`).join('');
+  // Optional campaign intent only highlights browseable categories. A category
+  // without public catalogue entries is never advertised as available.
+  const publicEntryKind=typeof tamaoPublicEntryIntent==='function'?tamaoPublicEntryIntent():'';
+  const homeIntentKind=publicEntryKind==='agua'&&discoveryCounts.water>0?'water'
+    :publicEntryKind==='gas'&&discoveryCounts.gas>0?'gas':'';
+  const homeIntentName=homeIntentKind==='water'?'água':'gás';
+  const homeIntentGuide=homeIntentKind
+    ? `<div class="home-entry-intent" aria-label="Produtos que você veio conhecer">
+      <div class="home-entry-intent-symbol" aria-hidden="true">${homeIntentKind==='water'?'💧':'🔥'}</div>
+      <div><strong>Veio procurar ${homeIntentName}?</strong><small>Explore os itens dessa categoria. Preço e entrega serão consultados para seu CEP.</small></div>
+      <button type="button" onclick="homeDiscoverFocus();homeFilterProducts('${homeIntentKind}')">Ver ${homeIntentName} <span aria-hidden="true">→</span></button>
+    </div>`:'';
   const discoveryTiles=discoveryEntries.map(([code,product],index)=>{
       const name=customerProductName(code,product);
       const art=typeof tamaoProductArt==='function'
@@ -510,6 +522,7 @@ function home(){
     ${rememberedRegion&&!testDemo?`<div class="local-welcome" aria-label="Sua região identificada"><span aria-hidden="true">📍</span><span><strong>Olá, ${esc(rememberedRegion.city)}!</strong><small>Consulta por CEP • ${esc(rememberedRegion.state)}. A disponibilidade depende das ofertas para seu endereço.</small></span></div>`:''}
     <div class="hero-overline">${conciseHome?'PRIMEIRO ESCOLHA. DEPOIS, CONFIRA A ENTREGA.':'O QUE VOCÊ PRECISA, MAIS PERTO DE CASA.'}</div>
     <h1>Faltou em casa?<br><span class="hero-highlight">Tá na mão.</span></h1>
+    ${homeIntentGuide}
     <p class="hero-lead"><strong>Gás, água e o essencial do dia a dia, em um só lugar.</strong> ${esc(hasConfirmedCityOffers?'Já consultamos opções para o seu CEP. Confira preços e prazos atualizados antes de confirmar.':conciseHome?firstVisitMessage:outsideOriginalMarket?'Veja quais opções atendem '+regionLabel+' pelo CEP. Se não houver ofertas, você poderá solicitar um aviso.':heroJourney)}</p>
     <div class="purchase-starter ${conciseHome?'home-starter-neutral':''}" aria-label="Consultar produtos e atendimento da sua região">
       <input id="home-featured-code" type="hidden" value="${esc(featuredCode)}">

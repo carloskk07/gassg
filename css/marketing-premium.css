@@ -667,3 +667,39 @@
  .sponsor-intent-quick button{transition:none}
  .sponsor-intent-quick button:hover{transform:none}
 }
+
+
+/* TAMÃO V1.375 — focused acquisition entry that never asserts stock or offers. */
+.home-entry-intent{
+ display:grid;grid-template-columns:44px minmax(0,1fr) auto;
+ align-items:center;gap:12px;margin:15px 0 13px;padding:12px 14px;
+ border:1px solid #bbdcbf;border-radius:17px;background:#f3faf4;
+ box-shadow:0 8px 21px rgba(15,83,47,.05);
+}
+.home-entry-intent-symbol{
+ display:grid;place-items:center;width:44px;height:44px;border-radius:13px;
+ background:#e2f2e8;font-size:23px;
+}
+.home-entry-intent>div:nth-child(2){min-width:0}
+.home-entry-intent strong{display:block;font-size:15px;line-height:1.25;color:#124332;letter-spacing:-.024em}
+.home-entry-intent small{display:block;margin-top:4px;font-size:11px;line-height:1.5;color:#496b58}
+.home-entry-intent button{
+ display:flex;align-items:center;justify-content:space-between;gap:9px;
+ min-height:43px;padding:10px 14px;border:1px solid #0a6d4b;border-radius:11px;
+ background:#0a6447;color:#fff;font-size:12px;font-weight:850;text-align:left;
+ cursor:pointer;transition:background .15s ease,box-shadow .15s ease;
+}
+.home-entry-intent button:hover{background:#074b37;box-shadow:0 6px 16px rgba(11,82,48,.14)}
+.home-entry-intent button:focus-visible{outline:3px solid #d18b17;outline-offset:3px}
+@media(max-width:760px){
+ .home-entry-intent{grid-template-columns:40px minmax(0,1fr);gap:9px;padding:11px}
+ .home-entry-intent-symbol{width:40px;height:40px}
+ .home-entry-intent button{grid-column:1/-1;width:100%;justify-content:center;min-height:47px}
+}
+@media(max-width:370px){
+ .home-entry-intent strong{font-size:14px}
+ .home-entry-intent small{font-size:11px}
+}
+@media(prefers-reduced-motion:reduce){
+ .home-entry-intent button{transition:none}
+}

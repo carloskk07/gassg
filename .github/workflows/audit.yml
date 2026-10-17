@@ -479,6 +479,8 @@ jobs:
         run: node tests/home-product-hero-v1-373.mjs
       - name: V1.374 commercial enrollment conversion regression
         run: node tests/commercial-entry-v1-374.mjs
+      - name: V1.375 public acquisition entry and UTM/referral integrity
+        run: node tests/public-landing-entry-v1-375.mjs
       - name: V1.368 evidence-led acquisition dashboard
         run: node tests/admin-acquisition-evidence-v1-368.mjs
       - name: V1.369 linked campaign outcome evidence
