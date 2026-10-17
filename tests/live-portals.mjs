@@ -42,6 +42,19 @@ for(const {role,path:dir} of built){
   const robots=fs.readFileSync(path.join(dir,'robots.txt'),'utf8');
   const html=fs.readFileSync(path.join(dir,'index.html'),'utf8');
   const headers=fs.readFileSync(path.join(dir,'_headers'),'utf8');
+  // A customer/merchant release must neither execute, precache nor ship
+  // privileged administration UI modules. The admin release keeps them.
+  for(const module of ['admin-acquisition','admin','admin-activations']){
+    const script='<script defer src="./js/'+module+'.js"></script>';
+    const cacheAsset="'./js/"+module+".js'";
+    const available=role==='admin';
+    assert.equal(html.includes(script),available,role+' HTML: admin script '+module);
+    assert.equal(sw.includes(cacheAsset),available,role+' PWA cache: admin script '+module);
+    assert.equal(fs.existsSync(path.join(dir,'js',module+'.js')),available,role+' bundle: admin script '+module);
+  }
+  // Preserve functional bootstrapping after excluding admin-only sources.
+  const bootstrap=fs.readFileSync(path.join(dir,'js','bootstrap.js'),'utf8');
+  assert.ok(bootstrap.includes("typeof adminPage==='function'"),'Bootstrap needs optional admin references');
   if(role!=='admin'){
     const canonical=role==='customer'?'https://tamao.com.br/':'https://parceiro.tamao.com.br/';
     assert.match(robots,/Allow:\s*\//);
