@@ -65,7 +65,7 @@ assert.match(html,/6 atendimentos pendentes em 6 pedidos/);
 assert.match(html,/ATENDIMENTOS QUE PRECISAM DE ATENÇÃO/);
 assert.match(html,/Ver pedido/);
 assert.match(html,/merchantFocusLiveOrder\('00000000-0000-4000-8000-000000000003'\)/);
-assert.match(html,/Outros 1 pedidos com atendimento pendente/);
+assert.match(html,/1 outro pedido com atendimento pendente está/);
 assert.match(html,/Somente pedidos ativos e registros carregados/);
 assert.ok(html.indexOf('TAM-3')<html.indexOf('TAM-7'));
 assert.ok(html.indexOf('TAM-7')<html.indexOf('TAM-2'));
