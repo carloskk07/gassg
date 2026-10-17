@@ -288,7 +288,8 @@ function homeFilterProducts(group){
 }
 function homeDiscoverFocus(){
   const panel=document.getElementById('home-discover');
-  if(!panel)return startCustomerAvailability();
+  // An empty discovery panel must not silently insert the featured gas item.
+  if(!panel)return startHomeBrowse();
   const heading=panel.querySelector('h2');
   panel.scrollIntoView({behavior:globalThis.matchMedia?.('(prefers-reduced-motion: reduce)')?.matches?'auto':'smooth',block:'start'});
   heading?.focus({preventScroll:true});
@@ -436,7 +437,7 @@ function home(){
   const eyebrow=testDemo
     ? internalPilot?'● AMBIENTE INTERNO — SEM PEDIDOS':'● AMBIENTE DE TESTE'
     : '● TAMÃO • '+regionLabel.toUpperCase();
-  const primaryLabel=internalPilot?'Validar jornada':hasConfirmedCityOffers?'Conferir ofertas do meu CEP':'Escolher meus produtos';
+  const primaryLabel=internalPilot?'Validar jornada':acquisitionOpen?'Escolher meus produtos':hasConfirmedCityOffers?'Conferir ofertas do meu CEP':'Consultar '+featuredName;
   const primaryAction=acquisitionOpen?'homeDiscoverFocus()':'startCustomerAvailability()';
   // Global merchant totals never certify a single seller for this city's basket.
   const singleMarket=internalPilot||(hasConfirmedCityOffers
