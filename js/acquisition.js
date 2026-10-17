@@ -222,7 +222,7 @@ function prelaunchMerchantLeadSection(){
         '<div class="field-row"><div class="input-wrap"><label for="partner-name">Seu nome</label><input id="partner-name" class="input" maxlength="120" autocomplete="name" placeholder="Responsável"></div>',
         '<div class="input-wrap"><label for="partner-phone">WhatsApp</label><input id="partner-phone" class="input" maxlength="20" inputmode="tel" autocomplete="tel" placeholder="(55) 99999-9999"></div></div>',
 
-        '<fieldset class="lead-interests"><legend>O que sua empresa vende?</legend>',
+        '<fieldset id="partner-interest-categories" class="lead-interests" tabindex="-1"><legend>O que sua empresa vende?</legend>',
           '<label><input type="checkbox" name="partner-interest" value="gas"><span>🔥 Gás</span></label>',
           '<label><input type="checkbox" name="partner-interest" value="water"><span>💧 Água</span></label>',
           '<label><input type="checkbox" name="partner-interest" value="charcoal"><span>🔥 Carvão</span></label>',
@@ -255,6 +255,35 @@ function openPrelaunchMerchantLead(){
   }
   focusMerchantLead();
 }
+// V1.379 — Field-local feedback and accessible focus for merchant leads.
+function prelaunchMerchantFieldError(fieldId,message){
+  for(const node of document.querySelectorAll('.partner-inline-error'))node.remove();
+  for(const id of ['partner-business','partner-name','partner-phone','partner-postal',
+    'partner-interest-categories','partner-consent']){
+    const field=document.getElementById(id);
+    field?.removeAttribute('aria-invalid');
+    if(field?.getAttribute('aria-describedby')==='partner-inline-feedback')
+      field.removeAttribute('aria-describedby');
+  }
+  const field=document.getElementById(fieldId);
+  const details=field?.closest?.('details');
+  if(details)details.open=true;
+  field?.setAttribute('aria-invalid','true');
+  field?.setAttribute('aria-describedby','partner-inline-feedback');
+  const parent=field?.closest?.('.input-wrap,.lead-interests,.lead-consent');
+  if(parent){
+    const inline=document.createElement('small');
+    inline.id='partner-inline-feedback';
+    inline.className='partner-inline-error';
+    inline.setAttribute('role','alert');
+    inline.textContent=message;
+    parent.insertAdjacentElement('afterend',inline);
+  }
+  const result=document.querySelector('#partner-result');
+  if(result){result.textContent=message;result.className='lead-result error'}
+  field?.focus();
+  return false;
+}
 async function submitPrelaunchMerchantLead(){
   const button=document.querySelector('#partner-submit');
   const result=document.querySelector('#partner-result');
@@ -267,12 +296,12 @@ async function submitPrelaunchMerchantLead(){
   const note=String(document.querySelector('#partner-note')?.value||'').trim();
   const consent=document.querySelector('#partner-consent')?.checked===true;
   const website=String(document.querySelector('#partner-website')?.value||'');
-  if(businessName.length<2)return toast('Informe o nome da empresa');
-  if(contactName.length<2)return toast('Informe o nome do responsável');
-  if(phone.length<10||phone.length>13)return toast('Informe um WhatsApp válido com DDD');
-  if(postalCode&&postalCode.length!==8)return toast('Revise o CEP informado');
-  if(!interests.length)return toast('Marque pelo menos uma categoria que sua empresa vende');
-  if(!consent)return toast('Confirme que podemos entrar em contato pelo WhatsApp');
+  if(businessName.length<2)return prelaunchMerchantFieldError('partner-business','Informe o nome da empresa.');
+  if(contactName.length<2)return prelaunchMerchantFieldError('partner-name','Informe o nome do responsável.');
+  if(phone.length<10||phone.length>13)return prelaunchMerchantFieldError('partner-phone','Informe um WhatsApp válido com DDD.');
+  if(postalCode&&postalCode.length!==8)return prelaunchMerchantFieldError('partner-postal','Revise o CEP informado.');
+  if(!interests.length)return prelaunchMerchantFieldError('partner-interest-categories','Marque pelo menos uma categoria que sua empresa vende.');
+  if(!consent)return prelaunchMerchantFieldError('partner-consent','Confirme que podemos entrar em contato pelo WhatsApp.');
   if(!globalThis.prelaunchLeadSubmit)return toast('Cadastro temporariamente indisponível');
   const oldText=button?.textContent||'Quero conversar sobre parceria';
   if(button){button.disabled=true;button.textContent='Enviando…'}
