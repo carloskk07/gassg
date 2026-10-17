@@ -101,7 +101,7 @@ async function requireAdmin(admin:any,userId:string){
   if(!data)throw new DomainError("ADMIN_ACCESS_DENIED","Esta conta não possui acesso administrativo.",403);
   return data;
 }
-const ADMIN_READ_ACTIONS=new Set(["governance-gates","commercial-intake-read","ads-sales-plans","ads-offers-read","ads-dossiers-read","ads-instruments-read","ads-receivables-read","ads-psp-read","ads-mp-inbox-read","ads-mp-triage-read","ads-psp-freshness-read","ads-psp-merchant-reviews","ads-launch-readiness","ads-leads-read","ads-assistance-read","ads-contact-reports-read","ads-contact-feedback-read","ads-feedback-returns-read","ads-return-execution-read","ads-return-closeout-read","summary","search","entity-detail","system-health","billing-provider-health","audit-search","incident-list","merchant-payment-preflight","prospect-intelligence","expansion-notifications","expansion-radar","merchant-enablement","sale-payment-history","finance-receipts-history","commercial-history-list","operational-alerts","ads-demand","clube-interest-queue","clube-campaign-queue","clube-terms-queue","owner-funding-read","owner-funding-pulse","owner-evidence-queue","owner-budget-queue","owner-finance-history","owner-campaign-signals","owner-campaign-orders","owner-campaign-fee-receipts","owner-campaign-batch-ledger","owner-campaign-financial-summary","owner-campaign-benefit-costs","owner-wallet-reconciliation","owner-cashback-source-lots","owner-referral-lifecycle","owner-benefit-payout-read","owner-benefit-proofs-read","owner-benefit-proof-view","owner-benefit-proof-verify","owner-payout-provider-read","owner-payout-provider-page","owner-payout-followup-read","owner-payout-global-followup-read","owner-payout-global-followup-page","owner-payout-archived-critical-read","owner-payout-review-read","owner-recipient-proof-readiness","owner-multi-psp-hub","owner-campaign-orphan-audit","owner-orphan-cleanup-candidates","owner-campaign-cost-read","owner-campaign-receipts-read","owner-campaign-receipt-view","ads-audience-readiness","ads-preview-summary","ads-placement-readiness","ads-pilot-preflight","commercial-activation","ads-campaign-queue","growth-referral-review-queue"]);
+const ADMIN_READ_ACTIONS=new Set(["governance-gates","commercial-intake-read","ads-sales-plans","ads-offers-read","ads-dossiers-read","ads-instruments-read","ads-receivables-read","ads-psp-read","ads-mp-inbox-read","ads-mp-triage-read","ads-psp-freshness-read","ads-psp-merchant-reviews","ads-launch-readiness","ads-leads-read","ads-assistance-read","ads-contact-reports-read","ads-contact-feedback-read","ads-feedback-returns-read","ads-return-execution-read","ads-return-closeout-read","summary","search","entity-detail","system-health","billing-provider-health","audit-search","incident-list","merchant-payment-preflight","prospect-intelligence","expansion-notifications","expansion-radar","merchant-enablement","sale-payment-history","finance-receipts-history","finance-merchant-performance","commercial-history-list","operational-alerts","ads-demand","clube-interest-queue","clube-campaign-queue","clube-terms-queue","owner-funding-read","owner-funding-pulse","owner-evidence-queue","owner-budget-queue","owner-finance-history","owner-campaign-signals","owner-campaign-orders","owner-campaign-fee-receipts","owner-campaign-batch-ledger","owner-campaign-financial-summary","owner-campaign-benefit-costs","owner-wallet-reconciliation","owner-cashback-source-lots","owner-referral-lifecycle","owner-benefit-payout-read","owner-benefit-proofs-read","owner-benefit-proof-view","owner-benefit-proof-verify","owner-payout-provider-read","owner-payout-provider-page","owner-payout-followup-read","owner-payout-global-followup-read","owner-payout-global-followup-page","owner-payout-archived-critical-read","owner-payout-review-read","owner-recipient-proof-readiness","owner-multi-psp-hub","owner-campaign-orphan-audit","owner-orphan-cleanup-candidates","owner-campaign-cost-read","owner-campaign-receipts-read","owner-campaign-receipt-view","ads-audience-readiness","ads-preview-summary","ads-placement-readiness","ads-pilot-preflight","commercial-activation","ads-campaign-queue","growth-referral-review-queue"]);
 const ADMIN_ROLE_ACTIONS:Record<string,Set<string>>={
   superadmin:new Set(["*"]),
   operations:new Set([
@@ -4852,6 +4852,27 @@ Deno.serve(async(req:Request)=>{
     }
     if(action==="summary"){
       return json(await summary(admin,user.id),200,origin);
+    }
+    if(action==="finance-merchant-performance"){
+      // Read only. The actor comes from the verified JWT, never from the POST body.
+      // The RPC is already installed in the production database (V1.190),
+      // and EXECUTE is restricted to service_role.
+      if(!["superadmin","finance"].includes(String(adminAccess.admin_role||""))){
+        throw new DomainError("ADMIN_PERMISSION_DENIED",
+          "Este perfil não pode consultar o desempenho financeiro por revenda.",403);
+      }
+      const {data,error}=await admin.rpc("admin_finance_merchant_performance_v1_190",{
+        p_actor_user_id:user.id
+      });
+      if(error)throw error;
+      if(data?.source!=="database_complete_per_merchant"
+        ||data?.rowLimit!==200||!Number.isSafeInteger(data?.totalMerchants)
+        ||data.totalMerchants<0||!Array.isArray(data.rows)
+        ||data.rows.length>200||data.rows.length>data.totalMerchants){
+        throw new DomainError("MERCHANT_FINANCE_REPORT_UNVERIFIED",
+          "A posição financeira por revenda não pôde ser verificada.",503);
+      }
+      return json(data,200,origin);
     }
     if(action==="finance-receipts-history"){
       // The RPC is service-role only; the authenticated actor comes from the JWT.
