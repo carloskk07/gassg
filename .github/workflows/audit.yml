@@ -53,6 +53,8 @@ jobs:
         run: node tests/service-worker-integrity.mjs
       - name: Frontend single-source asset coherence
         run: node tests/frontend-asset-coherence.mjs
+      - name: CSS source-of-truth no-shadow gate
+        run: node tests/css-cascade-source.mjs
       - name: Static trust and asset audit
         run: node tests/static-audit.mjs
       - name: Admin control plane V1.133 regression contract
