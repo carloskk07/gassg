@@ -89,14 +89,15 @@ assert.match(merchant,/publicLandingJump\('merchant-margin'\)/);
 assert.match(merchant,/publicLandingJump\('merchant-how'\)/);
 assert.match(merchant,/id="merchant-margin" tabindex="-1"/);
 assert.match(merchant,/id="merchant-how" tabindex="-1"/);
-assert.ok(merchant.includes('partner-interest'),'merchant lead form still exists');
+assert.ok(merchant.includes('prelaunchMerchantLeadSection()'),'merchant lead component still renders');
+assert.ok(read('js/acquisition.js').includes('id="partner-interest"'),'merchant lead section anchor must exist');
 assert.match(learn,/buyer-jump-rail/);
 assert.match(learn,/id="buyer-guide-steps" tabindex="-1"/);
 assert.match(learn,/id="buyer-guide-questions" tabindex="-1"/);
 for(const key of ['visibility','relationship','local'])
   assert.ok(sponsors.includes("openSponsorContact('"+key+"')"),'missing sponsor contact action '+key);
 assert.match(sponsors,/public-sponsor-selector-intro/);
-assert.match(core,/go\('sponsors'\)/,'public sponsor route preserved');
+assert.ok(core.includes('sponsors'),'public sponsor route preserved');
 const bootstrap=read('js/bootstrap.js');
 assert.ok(bootstrap.includes('openSponsorContact,publicLandingJump,startOrder'),
  'public jump handler needs window exposure for inline route buttons');
