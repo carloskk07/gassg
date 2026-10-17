@@ -324,16 +324,43 @@ function earn(){
       <button type="button" onclick="go('merchants')"><span aria-hidden="true">🏪</span><strong>Tenho uma empresa</strong><small>Conheça o canal de vendas para revendas locais.</small><b aria-hidden="true">→</b></button>
     </nav>
     ${growthNetworkIntro()}
-    <section class="section tamao-customer-growth">
-      <div class="section-head"><div><span class="section-kicker">O SEU JEITO DE PARTICIPAR</span>
-        <h2>Compre quando precisar. Compartilhe quando fizer sentido.</h2>
-        <p>Você não precisa ter uma empresa para ajudar o TAMÃO a crescer na sua região. Sua própria rede começa com um convite.</p></div></div>
-      <div class="grid cards-3 tamao-value-grid">
-        <article class="card"><span class="tamao-value-icon">🛍️</span><h3>Comprar fica mais simples</h3><p>Consulte as opções para seu endereço, confira preço e prazo e acompanhe pedidos confirmados pela revenda.</p></article>
-        <article class="card"><span class="tamao-value-icon">👥</span><h3>Construa sua Rede TAMÃO</h3><p>Seu link pessoal permite convidar amigos e apresentar empresas. Veja suas indicações e quais tiveram a primeira compra qualificada.</p></article>
-        <article class="card"><span class="tamao-value-icon">🎁</span><h3>Veja o que sua rede conquistou</h3><p>Encontre cashback e histórico de indicações em um só lugar. Benefícios seguem as regras de compras qualificadas, com dados claros para acompanhar.</p></article>
+    <section class="section tamao-benefit-guide" aria-label="Entenda as vantagens disponíveis no TAMÃO">
+      <div class="section-head tamao-benefit-guide-heading"><div>
+        <span class="section-kicker">UMA PLATAFORMA • BENEFÍCIOS DIFERENTES</span>
+        <h2>Descubra qual vantagem combina com você.</h2>
+        <p>Cashback, indicações, cupons de campanhas e oportunidades para empresas funcionam de formas diferentes. Veja o que cada opção significa antes de participar.</p>
+      </div></div>
+      <div class="tamao-benefit-guide-grid">
+        <article class="tamao-benefit-guide-card benefit-buy">
+          <div class="tamao-benefit-card-top"><span class="benefit-art" aria-hidden="true">🛍️</span><small>PARA SUAS COMPRAS</small></div>
+          <h3>Cashback para voltar a comprar.</h3>
+          <p>Compras elegíveis podem gerar crédito para usar em outra compra no TAMÃO. Seu saldo real e o histórico ficam no Clube.</p>
+          <div class="benefit-condition"><strong>Quando conta?</strong><span>Após a compra cumprir as regras do benefício e os registros serem validados.</span></div>
+          <button type="button" onclick="go('club')">Conhecer meu Clube <span aria-hidden="true">→</span></button>
+        </article>
+        <article class="tamao-benefit-guide-card benefit-refer">
+          <div class="tamao-benefit-card-top"><span class="benefit-art" aria-hidden="true">🤝</span><small>PARA SUA REDE</small></div>
+          <h3>Indicações com acompanhamento.</h3>
+          <p>Seu link pessoal identifica convites. A primeira compra qualificada de um novo cliente pode gerar comissão nas campanhas habilitadas.</p>
+          <div class="benefit-condition"><strong>Quando conta?</strong><span>Quando a indicação e a compra cumprem os critérios de atribuição e validação; só compartilhar não gera pagamento.</span></div>
+          <button type="button" onclick="go('refer')">Ver minha Rede <span aria-hidden="true">→</span></button>
+        </article>
+        <article class="tamao-benefit-guide-card benefit-campaign">
+          <div class="tamao-benefit-card-top"><span class="benefit-art" aria-hidden="true">🎟️</span><small>QUANDO HOUVER CAMPANHA</small></div>
+          <h3>Cupons e ações especiais.</h3>
+          <p>Campanhas podem oferecer condições adicionais para compras elegíveis. Cada ação terá suas próprias regras, validade e limites.</p>
+          <div class="benefit-condition"><strong>Como saber?</strong><span>Consulte somente campanhas efetivamente disponibilizadas na plataforma; não há desconto automático prometido.</span></div>
+          <button type="button" onclick="go('club')">Consultar minhas vantagens <span aria-hidden="true">→</span></button>
+        </article>
+        <article class="tamao-benefit-guide-card benefit-business">
+          <div class="tamao-benefit-card-top"><span class="benefit-art" aria-hidden="true">🏪</span><small>PARA QUEM VENDE</small></div>
+          <h3>Mais um canal para sua empresa.</h3>
+          <p>Revendas podem divulgar seus produtos e receber pedidos da região, mantendo controle sobre preços, estoque e entrega.</p>
+          <div class="benefit-condition"><strong>Quando começa?</strong><span>Após o cadastro, as verificações exigidas e a habilitação comercial da operação.</span></div>
+          <button type="button" onclick="go('merchants')">Conhecer as revendas <span aria-hidden="true">→</span></button>
+        </article>
       </div>
-      <div class="tamao-value-actions"><button type="button" class="secondary" onclick="go('refer')">Abrir minhas indicações →</button><button type="button" class="ghost" onclick="go('club')">Ver meus benefícios</button></div>
+      <p class="tamao-benefit-guide-footnote">Os benefícios não são cumulativos por padrão. A elegibilidade, o financiamento, a disponibilidade e a combinação de campanhas seguem as regras de cada ação.</p>
     </section>
 
     <div class="opportunity-grid main-opportunities">
@@ -394,6 +421,11 @@ function learn(){
       <details><summary>Tenho uma revenda. Posso vender outros produtos além de gás?</summary><p>Sim. Cada revenda pode cadastrar outros produtos que comercializa. Para vender gás, precisa comprovar as autorizações exigidas.</p></details>
     </div></section>
 
+    <aside class="tamao-buyer-benefit-bridge" aria-label="Outras formas de participar do TAMÃO">
+      <div><span class="section-kicker">ALÉM DA PRIMEIRA COMPRA</span><h2>O TAMÃO também conecta vantagens e pessoas.</h2><p>Conheça o Clube para acompanhar seus créditos elegíveis e descubra a Rede TAMÃO para convidar amigos e empresas.</p></div>
+      <button type="button" onclick="go('earn')">Explorar benefícios e indicações <span aria-hidden="true">→</span></button>
+    </aside>
+
     <div class="dual-cta"><button class="primary" onclick="startHomeBrowse()">Escolher produtos e consultar entrega →</button><button class="secondary" onclick="go('merchants')">Minha empresa pode vender?</button></div>
   </section>`)
 }
@@ -453,6 +485,9 @@ async function shareReferral(){
 // V1.301 — send partnership interest into the existing protected contact channel,
 // without new storage, third-party redirects or a fake sponsor activation.
 function openSponsorContact(format='general'){
+  // Carry only the visitor's public contact intent for anonymous page metrics.
+  // No campaign is activated and no identity is included in analytics.
+  globalThis.tamaoPublicContactAudience='merchant';
   const messages={
     general:'Tenho interesse em uma parceria de divulgação com o TAMÃO. Gostaria de conversar sobre minha região, categorias e formatos disponíveis.',
     visibility:'Minha marca quer conversar sobre divulgação identificada no TAMÃO. Gostaria de informar cidade, categoria e objetivo da campanha.',
