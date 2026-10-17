@@ -21,36 +21,38 @@ function homeRegionalPriceBoard(region){
    '<small>'+esc(band)+'</small><span class="city-price-origin">'+Number(p.merchantCount)+
    (p.merchantCount===1?' revenda elegível':' revendas elegíveis')+'</span></article>';
  }).join('');
- const references=localP13?[
-  {label:'Faixa inferior',value:PUBLIC_P13_REFERENCE.minimum},
-  {label:'Preço usual',value:PUBLIC_P13_REFERENCE.usual},
-  {label:'Faixa superior',value:PUBLIC_P13_REFERENCE.maximum}
- ].map((p,i)=>'<article class="city-price-card reference'+(i===1?' center':'')+'">'+
-  '<span class="city-price-kind">REFERÊNCIA LOCAL • NÃO É OFERTA</span>'+
-  '<div class="city-price-name">Gás P13 • 13 kg</div>'+
-  '<span class="city-price-caption">'+p.label+'</span>'+
-  '<strong class="city-price-amount">'+BRL.format(p.value)+'</strong>'+
-  '<small>Faixa comercial local conhecida • entrega incluída na referência</small></article>').join(''):
+ // A reference is not three store offers. Show one clearly contextualized
+ // market note, never a three-card comparison without verified revendas.
+ const references=localP13?
+  '<article class="city-price-card reference city-price-reference-summary">'+
+   '<div class="city-price-reference-copy"><span class="city-price-kind">REFERÊNCIA LOCAL • NÃO É OFERTA</span>'+
+   '<div class="city-price-name">Gás P13 • 13 kg</div>'+
+   '<p>Valor usual de referência, com entrega incluída na faixa informada.</p></div>'+
+   '<div class="city-price-reference-amount"><span class="city-price-caption">Referência usual</span>'+
+   '<strong class="city-price-amount">'+BRL.format(PUBLIC_P13_REFERENCE.usual)+'</strong>'+
+   '<small>Faixa de '+BRL.format(PUBLIC_P13_REFERENCE.minimum)+' a '+BRL.format(PUBLIC_P13_REFERENCE.maximum)+'</small></div>'+
+   '<p class="city-price-reference-note">Não representa uma revenda, um preço disponível ou uma entrega confirmada para seu CEP.</p>'+
+  '</article>':
   '<div class="city-price-empty">Os preços de '+esc(place)+
   ' aparecerão aqui quando houver revendas autorizadas e disponíveis. Não exibimos preços inventados.</div>';
  const cards=real.length?liveCards:references;
  const copy=real.length
   ?'Preços informativos de revendas autorizadas, com produto em estoque. Para pedir, confirme seu CEP, cesta e condições da entrega.'
   :localP13
-    ?'Conheça a faixa comercial local do gás de cozinha. Estes três valores são referências do mesmo produto, não três revendas.'
+    ?'Uma referência comercial ajuda a orientar sua pesquisa, mas somente a consulta por CEP confirma revendas, preço e entrega.'
     :'Sua vitrine local será preenchida por preços reais assim que houver revendas elegíveis.';
  const origin=region?.origin==='confirmed'?'Cidade lembrada de uma consulta por CEP':
    region?.origin==='chosen'?'Cidade escolhida por você':'São Gabriel é a vitrine inicial do TAMÃO';
  return '<section class="city-price-board" aria-label="Preços e referências de sua cidade">'+
   '<div class="city-price-heading"><div><span class="section-kicker">PERTO DE VOCÊ</span>'+
-   '<h2>Descubra preços em '+esc(place)+'</h2><p>'+esc(copy)+'</p></div>'+
+   '<h2>'+(real.length?'Preços de revendas em ':'Consulte opções para ')+esc(place)+'</h2><p>'+esc(copy)+'</p></div>'+
    '<span class="city-price-place">📍 '+esc(place)+'</span></div>'+
   '<p class="tiny muted city-price-location-note">'+esc(origin)+
    ' • Os preços reais substituem as referências automaticamente quando houver revendas elegíveis.</p>'+
   '<div class="city-price-grid">'+cards+'</div>'+
   '<p class="city-price-disclaimer">'+(real.length
    ?'Valores preliminares de produto + taxa de entrega configurada; não são cotações finais nem garantia de atendimento.'
-   :'Referências informativas, sem revenda associada e sem compra nesta vitrine.')+'</p>'+
+   :'Referência informativa, sem revenda associada. A consulta não cria pedido.')+'</p>'+
   '<div class="city-price-controls">'+
    '<button type="button" class="primary" onclick="startCustomerAvailability()">Escolher produtos e consultar entrega →</button>'+
    '<details class="city-price-chooser"><summary>Ver outra cidade</summary>'+
