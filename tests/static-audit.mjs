@@ -138,7 +138,13 @@ assert.ok(adminAcquisition.includes('adminPrelaunchLeadsSection')&&admin.include
 assert.ok(adminAcquisition.includes('adminSetPrelaunchLeadStatus')&&adminAcquisition.includes('QUALIFICADO')&&adminAcquisition.includes('CONVERTIDO'),'admin precisa operar pipeline de leads');
 assert.ok(adminAcquisition.includes('adminLeadWhatsAppText')&&adminAcquisition.includes('Abrir WhatsApp com mensagem'),'follow-up comercial precisa abrir com texto contextualizado');
 assert.ok(adminAcquisition.includes('adminAcquisitionMetrics')&&adminAcquisition.includes('Funil real de clientes e parceiros'),'admin precisa exibir funil de aquisição sobre métricas agregadas');
-assert.ok(adminAcquisition.includes('Campanhas: entrada até conversão')&&adminAcquisition.includes('qualificationRatePct')&&adminAcquisition.includes('conversionRatePct'),'admin precisa comparar campanhas por avanço do funil, não só volume');
+assert.ok(adminAcquisition.includes('Fontes comerciais, sem taxas artificiais')&&
+  adminAcquisition.includes('adminAcquisitionAggregateVerified')&&
+  adminAcquisition.includes('adminAcquisitionEvidenceView')&&
+  adminAcquisition.includes('Qualificados')&&
+  adminAcquisition.includes('Convertidos no CRM')&&
+  adminAcquisition.includes('Funil agregado não confirmado'),
+  'admin precisa comparar campanhas por evidências reais sem inventar taxas ponta a ponta');
 assert.ok(read('supabase/functions/admin-ops/index.ts').includes('admin_prelaunch_acquisition_metrics')&&read('supabase/functions/admin-ops/index.ts').includes('acquisitionMetrics'),'summary admin precisa transportar métricas server-wide');
 const acquisitionMetricsMigration=read('supabase/migrations/20261003204319_prelaunch_acquisition_metrics_v1_55.sql');
 const publicHashedQuotaMigration=read('supabase/migrations/20261003221546_public_hashed_api_quota_v1_59.sql');
