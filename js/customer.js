@@ -1065,27 +1065,27 @@ function offerCard(o,facts={}){
   const validPrice=validTotal&&facts.uniquePrice!=null&&facts.uniquePrice===totalCents;
   const validTime=validEta&&facts.uniqueTime!=null&&facts.uniqueTime===Number(o.etaMax??o.eta);
   const labels=roles.join(' • ');
-  const distanceChip=o.distance!=null&&Number.isFinite(Number(o.distance))
+  const distanceChip=o.distance!=null&&Number.isFinite(Number(o.distance))&&Number(o.distance)>=0
     ?`<span class="meta-chip">${Number(o.distance).toFixed(1)} km</span>`:'';
   const proof=[];
-  if(Number(o.completedOrders)>0)proof.push(`<span class="meta-chip">✓ ${Number(o.completedOrders)} entregas concluídas em 90 dias</span>`);
-  if(o.completionRate!=null)proof.push(`<span class="meta-chip">${Math.round(Number(o.completionRate)*100)}% concluídos após aceite</span>`);
-  if(o.onTimeRate!=null)proof.push(`<span class="meta-chip">${Math.round(Number(o.onTimeRate)*100)}% no prazo</span>`);
-  if(o.avgAcceptSeconds!=null){
+  if(Number.isSafeInteger(Number(o.completedOrders))&&Number(o.completedOrders)>0)proof.push(`<span class="meta-chip">✓ ${Number(o.completedOrders)} entregas concluídas em 90 dias</span>`);
+  if(o.completionRate!=null&&Number.isFinite(Number(o.completionRate))&&Number(o.completionRate)>=0&&Number(o.completionRate)<=1)proof.push(`<span class="meta-chip">${Math.round(Number(o.completionRate)*100)}% concluídos após aceite</span>`);
+  if(o.onTimeRate!=null&&Number.isFinite(Number(o.onTimeRate))&&Number(o.onTimeRate)>=0&&Number(o.onTimeRate)<=1)proof.push(`<span class="meta-chip">${Math.round(Number(o.onTimeRate)*100)}% no prazo</span>`);
+  if(o.avgAcceptSeconds!=null&&Number.isFinite(Number(o.avgAcceptSeconds))&&Number(o.avgAcceptSeconds)>=0){
     const secs=Math.max(0,Math.round(Number(o.avgAcceptSeconds)));
     proof.push(`<span class="meta-chip">Aceite médio: ${secs<120?secs+' s':Math.round(secs/60)+' min'}</span>`);
   }
-  if(Number(o.feedbackCount)>=3&&o.positiveFeedbackRate!=null)proof.push(`<span class="meta-chip">${Math.round(Number(o.positiveFeedbackRate)*100)}% avaliações positivas (${Number(o.feedbackCount)})</span>`);
-  if(o.comparisonSavings>0)proof.push(`<span class="meta-chip">${BRL.format(o.comparisonSavings)} abaixo da maior oferta desta consulta</span>`);
-  const demandLabel={normal:'Operação normal',elevated:'Demanda moderada',high:'Demanda alta'}[o.demandLevel]||'Operação disponível';
-  proof.push(`<span class="meta-chip">${esc(demandLabel)}</span>`);
+  if(Number.isSafeInteger(Number(o.feedbackCount))&&Number(o.feedbackCount)>=3&&o.positiveFeedbackRate!=null&&Number.isFinite(Number(o.positiveFeedbackRate))&&Number(o.positiveFeedbackRate)>=0&&Number(o.positiveFeedbackRate)<=1)proof.push(`<span class="meta-chip">${Math.round(Number(o.positiveFeedbackRate)*100)}% avaliações positivas (${Number(o.feedbackCount)})</span>`);
+  if(Number.isFinite(Number(o.comparisonSavings))&&Number(o.comparisonSavings)>0)proof.push(`<span class="meta-chip">${BRL.format(o.comparisonSavings)} abaixo da maior oferta desta consulta</span>`);
+  const demandLabel={normal:'Operação normal',elevated:'Demanda moderada',high:'Demanda alta'}[o.demandLevel];
+  if(demandLabel)proof.push(`<span class="meta-chip">${esc(demandLabel)}</span>`);
   const payment=esc(paymentLabel(state.checkout.paymentMethod));
   const trustScore=Number(o.trust);
   const hasTrust=o.trust!=null&&Number.isFinite(trustScore)&&trustScore>=0&&trustScore<=100;
   const breakdown=hasBreakdown?`<div class="offer-breakdown">
     <span>Produtos <strong>${BRL.format(roundMoney(gross-fee))}</strong></span>
     <span>Entrega <strong>${fee===0?'Incluída sem custo adicional':BRL.format(fee)}</strong></span>
-  </div>`:`<p class="offer-total-note">Valor total da cesta com a entrega incluída.</p>`;
+  </div>`:`<p class="offer-total-note">${validTotal?'Valor total da cesta com a entrega incluída.':'Preço e entrega precisam de nova consulta.'}</p>`;
   const cashback=discount>0?`<div class="offer-cashback">
     <span>Cashback solicitado (estimativa)</span><strong>− ${BRL.format(discount)}</strong>
     <small>Estimativa após cashback: ${BRL.format(payable)}. O valor aplicável é confirmado na criação do pedido.</small>
