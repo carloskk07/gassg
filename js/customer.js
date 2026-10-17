@@ -1600,7 +1600,7 @@ function customerTrackingTotal(order){
 }
 // V1.383 — This card describes only the latest server-confirmed stage.
 function customerDeliveryStagePanel(order,{evidence,pending=false}={}){
-  const stage={
+  const stages={
     MERCHANT_ACCEPTED:['Revenda aceitou o pedido',
       'O aceite foi registrado. A preparação e a saída ainda dependem de outras confirmações.',
       'Aguarde a confirmação de preparação.'],
@@ -1619,7 +1619,10 @@ function customerDeliveryStagePanel(order,{evidence,pending=false}={}){
     SETTLED:['Pedido concluído',
       'O recebimento e a conciliação constam como registrados.',
       'Avalie o atendimento ou peça ajuda, se necessário.']
-  }[String(order?.status||'')];
+  };
+  const currentStatus=String(order?.status||'');
+  const stage=Object.prototype.hasOwnProperty.call(stages,currentStatus)
+    ?stages[currentStatus]:null;
   if(!stage)return '';
   const recent=evidence?.kind==='recent';
   const title=recent?stage[0]:'Última etapa registrada: '+stage[0];
