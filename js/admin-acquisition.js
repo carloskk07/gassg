@@ -2196,8 +2196,11 @@ function adminOwnerCampaignEvidenceBundle(){
   const actor=String(adminRuntime?.session?.user?.id||'');
   const role=String(adminCurrentRole());
   const snapshot=adminOwnerCampaignEvidenceSnapshot;
+  const ageMs=Date.now()-Date.parse(String(snapshot?.checkedAt||''));
+  // Evidence has a short life: stale/invalid/future dates cannot be taken as current.
   if(!actor||!['superadmin','finance'].includes(role)||!snapshot||
-    snapshot.actor!==actor||snapshot.role!==role)return null;
+    snapshot.actor!==actor||snapshot.role!==role||
+    !Number.isFinite(ageMs)||ageMs<0||ageMs>120000)return null;
   const a=adminOwnerCampaignSignalsState,o=adminOwnerCampaignOrdersState,
     f=adminOwnerCampaignFeeReceiptsState;
   const selectedMonth=String(document.getElementById('owner-campaign-signals-month')?.value||'');
@@ -2251,11 +2254,21 @@ async function adminOwnerCampaignEvidenceRefreshFromUi(){
   const actor=String(adminRuntime?.session?.user?.id||'');
   const role=String(adminCurrentRole());
   if(!actor||!['superadmin','finance'].includes(role)||adminOwnerCampaignEvidenceBusy)return false;
+  // An individual report already being fetched must not count as a new three-source proof.
+  if(adminOwnerCampaignSignalsBusy||adminOwnerCampaignOrdersBusy||
+     adminOwnerCampaignFeeReceiptsBusy){
+    toast('Outra consulta está em andamento. Conclua a atualização antes de reunir as evidências.');
+    return false;
+  }
   const month=String(document.getElementById('owner-campaign-signals-month')?.value||'').trim();
   if(!/^\d{4}-(0[1-9]|1[0-2])$/.test(month))
     return toast('Escolha o mês para reunir as evidências.');
   adminOwnerCampaignEvidenceBusy=true;
   adminOwnerCampaignEvidenceSnapshot=null;
+  // Reuse no previous source as proof for a new refresh attempt.
+  adminOwnerCampaignSignalsState=null;
+  adminOwnerCampaignOrdersState=null;
+  adminOwnerCampaignFeeReceiptsState=null;
   try{
     // These are the already-authenticated and individually validated admin RPCs.
     await adminOwnerCampaignSignalsLoadFromUi();
@@ -2263,7 +2276,8 @@ async function adminOwnerCampaignEvidenceRefreshFromUi(){
     await adminOwnerCampaignOrdersLoadFromUi();
     if(actor!==String(adminRuntime?.session?.user?.id||'')||role!==String(adminCurrentRole()))return false;
     await adminOwnerCampaignFeeReceiptsLoadFromUi();
-    if(actor!==String(adminRuntime?.session?.user?.id||'')||role!==String(adminCurrentRole()))return false;
+    if(actor!==String(adminRuntime?.session?.user?.id||'')||role!==String(adminCurrentRole())||
+       String(document.getElementById('owner-campaign-signals-month')?.value||'').trim()!==month)return false;
     adminOwnerCampaignEvidenceSnapshot={
       actor,role,month:month+'-01',checkedAt:new Date().toISOString(),
       signals:adminOwnerCampaignSignalsState,
@@ -2280,6 +2294,22 @@ async function adminOwnerCampaignEvidenceRefreshFromUi(){
     adminOwnerCampaignEvidenceBusy=false;
     render();
   }
+}
+function adminOwnerCampaignNextEvidence({signal,order,fee}){
+  // This is a suggested manual check, never an automatic action or ROI claim.
+  if(signal.landingViews===0&&signal.formViews===0&&signal.leads===0&&order.createdOrders===0)
+    return 'Verifique a divulgação do link identificado e se a campanha foi realmente compartilhada.';
+  if(signal.leads===0&&signal.formViews>0)
+    return 'Confira no fluxo público se o formulário permite concluir o cadastro; visualização não prova envio.';
+  if(signal.leads>0&&signal.qualifiedLeads===0)
+    return 'Revise a fila de novos interessados e registre apenas contatos e qualificações confirmados.';
+  if(order.createdOrders===0)
+    return 'Confira a identificação UTM na jornada de pedidos, sem supor que os leads tenham comprado.';
+  if(order.createdOrders>0&&fee.providerConfirmedOrders===0)
+    return 'Consulte a conciliação por pedido para identificar se existe confirmação do PSP.';
+  if(fee.providerConfirmedOrders>0)
+    return 'Confira separadamente o extrato e os custos reais antes de estimar retorno financeiro.';
+  return 'Continue acompanhando as três fontes; nenhuma taxa de conversão individual foi comprovada.';
 }
 function adminOwnerCampaignEvidenceSection(){
   if(!['superadmin','finance'].includes(String(adminCurrentRole())))return '';
@@ -2313,6 +2343,10 @@ function adminOwnerCampaignEvidenceSection(){
           metric('Taxas confirmadas pelo PSP',adminMoney(fee.providerConfirmedFeeCents),'não comprova crédito em conta bancária')+
           '</div></div>'+
       '</div>'+
+      '<div class="admin-campaign-next-check"><strong>Próxima verificação recomendada</strong>'+
+        '<p>'+esc(adminOwnerCampaignNextEvidence({signal,order,fee}))+'</p>'+
+        '<small>Orientação baseada apenas nos contadores desta campanha; não registra contato nem altera status.</small>'+
+      '</div>'+
     '</article>').join(''):'';
   return '<section class="admin-campaign-evidence-section" aria-label="Resultados comprováveis por campanha">'+
     '<div class="section-head"><div><span class="section-kicker">TAMÃO • RESULTADOS REAIS</span>'+
@@ -2326,8 +2360,8 @@ function adminOwnerCampaignEvidenceSection(){
       ' • conferência em '+esc(new Date(bundle.checkedAt).toLocaleString('pt-BR'))+
       ' • '+n(bundle.rows.length)+' campanha(s)</p>'+
       (items||'<p class="muted">Não há campanhas registradas nessa competência.</p>'):
-      '<p class="tiny muted" role="status">Sem evidências combinadas para a seleção atual. '+
-      'Cada fonte precisa ser conferida, sem divergências entre identificação, competência ou pedidos.</p>')+
+      '<p class="tiny muted" role="status">Sem evidências combinadas e recentes para a seleção atual. '+
+      'Refaça a conferência se os dados venceram (2 minutos) ou se a identificação, competência e pedidos divergiram.</p>')+
     '<p class="tiny muted">UTM é uma associação de origem, não prova que a divulgação causou a compra. '+
       'Leads, pedidos e pessoas não são vinculados individualmente. '+
       'Taxa confirmada por evento de PSP não equivale a liquidação bancária; '+
