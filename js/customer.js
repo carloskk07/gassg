@@ -426,6 +426,21 @@ function home(){
         `<span class="home-discover-art" aria-hidden="true">${art}</span>`+
         `<strong>${esc(name)}</strong><span class="home-discover-action">Selecionar produto <span aria-hidden="true">→</span></span></button>`;
     }).join('');
+  const heroVisualCodes=[...new Set(['P13','WATER20',...discoveryEntries.map(([code])=>code)])]
+    .filter(code=>discoveryEntries.some(([entryCode])=>entryCode===code))
+    .slice(0,2);
+  // Use only publicly browseable catalogue entries, never implied stock or offers.
+  const heroVisualCards=heroVisualCodes.map((code,index)=>{
+    const product=products[code];
+    const name=customerProductName(code,product);
+    const art=typeof tamaoProductArt==='function'
+      ?tamaoProductArt(code,product,'hero'):esc(product.icon||'🛍️');
+    const side=index===0?'gas':'water';
+    return `<button type="button" class="home-editorial-${side} home-editorial-choice" `+
+      `onclick="quickProduct('${code}')" aria-label="Escolher ${esc(name)} e consultar entrega pelo CEP">`+
+      `<span class="home-editorial-photo" aria-hidden="true">${art}</span>`+
+      `<strong>${esc(name)}</strong><small>Selecionar produto <span aria-hidden="true">→</span></small></button>`;
+  }).join('');
   const feeBps=Number(market?.commercialPolicy?.platformFeeBps??750);
   const merchantFeeLabel=(Math.max(0,feeBps)/100).toLocaleString('pt-BR',{maximumFractionDigits:2})+'%';
   const acquisitionOpen=!testDemo&&(preview||!ready||market?.realSupplyConfigured===false
@@ -523,15 +538,15 @@ function home(){
     <div class="visual-choice"><span><strong>Menor total</strong><small>Veja o valor com a entrega</small></span><span><strong>Menor prazo</strong><small>Veja a previsão de chegada</small></span></div>
     <div class="visual-status"><span class="visual-check">✓</span><div><strong>Você sabe quando foi confirmado</strong><small>O status “A caminho” só aparece após a saída informada pela revenda.</small></div></div>
   </div>`:''}
-  ${conciseHome?`<aside class="home-editorial-visual" aria-label="Vitrine ilustrativa de categorias, sem ofertas ou preços">
-    <span class="home-editorial-kicker">O DIA A DIA TEM SEU RITMO.</span>
-    <div class="home-editorial-stage" aria-hidden="true">
-      <div class="home-editorial-orbit"></div>
-      <div class="home-editorial-gas"><span class="home-editorial-photo">${tamaoProductArt('P13',products.P13,'hero')}</span><strong>Gás</strong></div>
-      <div class="home-editorial-water"><span class="home-editorial-photo">${tamaoProductArt('WATER20',products.WATER20,'hero')}</span><strong>Água</strong></div>
-      <div class="home-editorial-extra"><span>✦</span> E muito mais</div>
+  ${conciseHome?`<aside class="home-editorial-visual" aria-label="Escolha visual de produtos do catálogo, sem oferta ou disponibilidade confirmadas">
+    <span class="home-editorial-kicker">UMA ESCOLHA. O COMEÇO DE TUDO.</span>
+    <div class="home-editorial-stage">
+      <div class="home-editorial-orbit" aria-hidden="true"></div>
+      ${heroVisualCards||'<button type="button" class="home-editorial-empty" onclick="startHomeBrowse()">Explorar produtos do catálogo →</button>'}
+      ${heroVisualCodes.length>1?'<div class="home-editorial-extra" aria-hidden="true"><span>✦</span> E muito mais</div>':''}
     </div>
-    <div class="home-editorial-bottom"><strong>O essencial, mais perto da sua rotina.</strong><small>Explore categorias. A entrega só é confirmada após consultar seu CEP.</small></div>
+    <div class="home-editorial-bottom"><strong>Veja, escolha e consulte pelo CEP.</strong><small>Toque em um produto para montar a cesta. Preço e entrega dependem das opções confirmadas para seu endereço.</small>
+      <button type="button" class="home-editorial-all" onclick="homeDiscoverFocus()">Explorar todos os produtos <span aria-hidden="true">→</span></button></div>
   </aside>`:''}
 </div></section>
 
