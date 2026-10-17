@@ -18,6 +18,7 @@ function tamaoLandingHandoffUrl(href,sourceSearch,origin){
   if(base.protocol!=='https:'||destination.origin!==base.origin)return null;
   // Reject private or unrecognized endpoints, even for a same-origin link.
   if(!/^\/(?:|como-funciona\/?|para-revendas\/?|para-marcas\/?|indicacoes\/?)$/.test(destination.pathname))return null;
+  if(destination.hash&&!/^#(?:home|learn|merchants|sponsors|earn)$/.test(destination.hash))return null;
   let updated=false;
   for(const [key,max] of Object.entries(TAMAO_LANDING_PASSTHROUGH)){
     if(destination.searchParams.has(key))continue;
