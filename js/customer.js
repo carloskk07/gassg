@@ -1768,7 +1768,12 @@ function customerSupportCategoryChanged(){
     ?'Já existe um atendimento deste tipo em acompanhamento. Escolha outro motivo ou atualize o pedido.'
     :'Descreva o que aconteceu. O registro ficará vinculado a este pedido.';
 }
-function liveCustomerCareBlock(o,{evidence}={}){
+function liveCustomerCareBlock(o){
+  const evidence=customerTrackingReadEvidence(o,{
+    checkedAt:globalThis.liveRuntime?.orderCheckedAt,
+    checkedId:globalThis.liveRuntime?.orderCheckedId,
+    error:Boolean(globalThis.liveRuntime?.error)
+  });
   const openLate=customerSupportCaseAlreadyOpen(o,'late');
   const existing=customerSupportCaseHistory(o,{evidence});
   const feedback=o.status==='SETTLED'
@@ -1892,7 +1897,7 @@ function liveTracking(){
     const quantity=Number(i.quantity);
     return `<div class="list-row"><span>${Number.isSafeInteger(quantity)&&quantity>0?quantity+'× ':''}${esc(i.product_name||i.productName||i.product_code||'Item')}</span><strong>${valid?BRL.format(cents/100):'Valor não confirmado'}</strong></div>`;
   }).join('');
-  const careBlock=liveCustomerCareBlock(o,{evidence:readEvidence});
+  const careBlock=liveCustomerCareBlock(o);
   const scheduleNotice=o.deliveryWindowStart
     ? `<div class="notice" style="margin-top:12px"><strong>Janela de entrega solicitada: ${esc(formatDeliveryWindow(o.deliveryWindowStart,o.deliveryWindowEnd))}</strong><br>${['PREPARING','OUT_FOR_DELIVERY','ARRIVING','DELIVERED','SETTLED'].includes(o.status)?'A revenda recebeu a janela. Confira as confirmações de andamento abaixo.':'Essa janela ainda depende da confirmação da revenda.'}</div>`
     : '';
