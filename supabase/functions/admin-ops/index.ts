@@ -2020,14 +2020,21 @@ async function summary(admin:any,actorUserId:string){
       const activeInvite=inviteHistory.find((invite:any)=>
         !invite.claimed_at&&!invite.revoked_at&&Date.parse(invite.expires_at)>now
       )??null;
-      const claimedInvite=inviteHistory.find((invite:any)=>Boolean(invite.claimed_at))??null;
       const latestInvite=inviteHistory[0]??null;
       const application=applicationByDraft.get(p.id)??null;
+      // A submitted application alone is NOT evidence that the invite was
+      // claimed. Require the same permanent account and application as the
+      // claimed invitation; the transactional RPC checks auth.users as well.
+      const claimedInvite=application?inviteHistory.find((invite:any)=>
+        Boolean(invite.claimed_at)&&Boolean(invite.claimed_user_id)&&
+        invite.application_id===application.id&&
+        invite.claimed_user_id===application.applicant_user_id
+      )??null:null;
       const converted=p.onboarding_status==="converted"||Boolean(p.merchant_id);
       const readiness:any=p.merchant_id?merchantReadinessById.get(String(p.merchant_id))??null:null;
       const cancelled=p.onboarding_status==="cancelled";
       let inviteStatus="none";
-      if(claimedInvite||application)inviteStatus="claimed";
+      if(claimedInvite)inviteStatus="claimed";
       else if(activeInvite)inviteStatus="active";
       else if(latestInvite?.revoked_at)inviteStatus="revoked";
       else if(latestInvite&&Date.parse(latestInvite.expires_at)<=now)inviteStatus="expired";
@@ -2035,7 +2042,7 @@ async function summary(admin:any,actorUserId:string){
       if(cancelled)nextAction="none";
       else if(converted)nextAction=String(readiness?.nextAction||"merchant_setup_review");
       else if(application?.status==="rejected")nextAction="partner_resubmit";
-      else if(application||claimedInvite)nextAction="review_and_convert";
+      else if(claimedInvite)nextAction="review_and_convert";
       else if(activeInvite)nextAction="partner_claim_invite";
       else if(latestInvite)nextAction="issue_new_invite";
       return {
@@ -2049,7 +2056,7 @@ async function summary(admin:any,actorUserId:string){
           inviteStatus,
           inviteExpiresAt:activeInvite?.expires_at??latestInvite?.expires_at??null,
           inviteClaimedAt:claimedInvite?.claimed_at??null,
-          ownerClaimed:Boolean(claimedInvite?.claimed_user_id||application?.applicant_user_id||readiness?.ownerReady),
+          ownerClaimed:Boolean(claimedInvite),
           application:application?{
             id:application.id,
             status:application.status,
@@ -2064,8 +2071,8 @@ async function summary(admin:any,actorUserId:string){
           readiness,
           nextAction,
           steps:[
-            {key:"invite",done:Boolean(activeInvite||claimedInvite||application||converted),status:inviteStatus},
-            {key:"claim",done:Boolean(claimedInvite||application||converted),status:(claimedInvite||application||converted)?"done":"pending"},
+            {key:"invite",done:Boolean(activeInvite||claimedInvite||converted),status:inviteStatus},
+            {key:"claim",done:Boolean(claimedInvite),status:claimedInvite?"done":"pending"},
             {key:"application",done:Boolean((application&&["pending","approved"].includes(application.status))||converted),status:application?.status??(converted?"converted":"pending")},
             {key:"merchant",done:converted,status:converted?"done":"pending"},
             {key:"owner",done:Boolean(readiness?.ownerReady),status:readiness?.ownerReady?"done":"pending"},
