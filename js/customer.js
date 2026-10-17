@@ -1394,12 +1394,12 @@ function customerRequoteDecision(order,previousTotal,proposedTotal,remainingSeco
   const validPrevious=previousTotal!=null&&Number.isFinite(previousTotal)&&previousTotal>=0;
   const canDecide=!expired&&!unknown&&!unverified&&validPrevious
     &&!globalThis.liveRuntime?.actionPending;
-  const deadline=unverified
-    ?'O estado desta proposta ainda não foi confirmado em uma consulta recente. Atualize antes de decidir.'
+  const deadline=expired
+    ?'O prazo indicado terminou. Atualize para verificar a condição atual.'
     :unknown
       ?'Não foi possível verificar o prazo da proposta. Atualize antes de decidir.'
-      :expired
-        ?'O prazo indicado terminou. Atualize para verificar a condição atual.'
+      :unverified
+        ?'O estado desta proposta ainda não foi confirmado em uma consulta recente. Atualize antes de decidir.'
         :'Prazo indicado: aproximadamente '+remainingSeconds+' segundos restantes.';
   return '<div id="customer-requote-decision" class="notice customer-requote" role="region" aria-label="Nova proposta para aprovação">'+
     '<strong>Outra proposta precisa da sua autorização</strong>'+
