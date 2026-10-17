@@ -350,3 +350,119 @@
   .marketing-hero .hero-grid>div:first-child{max-width:760px}
   .home-editorial-visual{min-height:310px}
 }
+
+
+/* TAMÃO V1.372 — Human, commerce-first storytelling for public visitors.
+   Editorial illustrations only: no fictional inventory, orders or ad results. */
+.home-buying-steps{
+  margin:clamp(18px,3vw,28px) 0;
+  padding:clamp(20px,3.2vw,30px);
+  border:1px solid #cee3d5;border-radius:26px;
+  background:linear-gradient(122deg,#eaf7ee,#fffdf8 68%);
+  box-shadow:0 12px 28px rgba(16,66,39,.055);
+}
+.home-buying-steps-heading{
+  display:flex;align-items:end;justify-content:space-between;gap:14px;margin-bottom:19px;
+}
+.home-buying-steps-heading h2{
+  font-size:clamp(24px,2.8vw,32px);letter-spacing:-.045em;line-height:1.14;
+  margin:2px 0 0;color:#153e2d;text-wrap:balance;
+}
+.home-buying-steps-list{
+  display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:11px;
+  list-style:none;padding:0;margin:0;counter-reset:steps;
+}
+.home-buying-steps-list li{
+  min-width:0;display:flex;align-items:start;gap:13px;padding:18px 16px;
+  border:1px solid #dfebe2;border-radius:19px;background:#fff;position:relative;
+}
+.home-buying-steps-list li::before{
+  counter-increment:steps;content:"0" counter(steps);
+  position:absolute;right:13px;top:13px;font-size:11px;font-weight:900;color:#779583;
+}
+.home-buying-step-icon{
+  display:grid;place-items:center;flex:0 0 42px;width:42px;height:42px;border-radius:14px;
+  background:#e5f5eb;color:#126244;font-size:21px;
+}
+.home-buying-steps-list li:nth-child(2) .home-buying-step-icon{background:#fff1d6}
+.home-buying-steps-list li:nth-child(3) .home-buying-step-icon{background:#e6f3f8}
+.home-buying-steps-list strong{
+  display:block;color:#16412f;font-size:15px;line-height:1.32;
+  padding-right:15px;letter-spacing:-.02em;
+}
+.home-buying-steps-list p{margin:7px 0 0;color:#577060;font-size:13px;line-height:1.57}
+.tamao-sponsors-page .sponsor-hero-layout{
+  display:grid;grid-template-columns:minmax(0,1.08fr) minmax(0,.92fr);
+  gap:clamp(18px,3vw,38px);align-items:center;
+}
+.tamao-sponsors-page .sponsor-hero-copy{min-width:0}
+.tamao-sponsors-page .sponsor-hero-copy .page-title{
+  max-width:17ch;font-size:clamp(31px,4.15vw,51px);
+}
+.tamao-sponsors-page .sponsor-hero-copy .page-lead{max-width:59ch}
+.tamao-sponsors-page .sponsor-hero-copy .tamao-cro-steps{margin-top:20px}
+.sponsor-visual-story{
+  min-width:0;display:flex;flex-direction:column;gap:16px;
+  padding:clamp(21px,3.2vw,32px);border-radius:27px;
+  background:radial-gradient(circle at 96% 0%,rgba(252,192,76,.25),transparent 44%),
+    linear-gradient(155deg,#093b30,#075a44 75%,#08704c);
+  border:1px solid #0d6049;color:#fff;
+  box-shadow:0 25px 40px rgba(10,57,42,.17);
+}
+.sponsor-visual-head{display:flex;justify-content:space-between;gap:12px;align-items:start;flex-wrap:wrap}
+.sponsor-visual-head span{font-size:11px;letter-spacing:.12em;font-weight:900;color:#fff1b7}
+.sponsor-visual-head small{font-size:9px;letter-spacing:.05em;color:#d2e8dc}
+.sponsor-visual-feature{
+  display:flex;gap:14px;align-items:center;min-width:0;
+  padding:24px 17px;border:1px solid rgba(255,255,255,.18);border-radius:20px;
+  background:rgba(255,255,255,.09);
+}
+.sponsor-visual-symbol{
+  display:grid;place-items:center;flex:0 0 64px;width:64px;height:64px;
+  border-radius:19px;background:#f4b63f;color:#103a2c;font-size:34px;
+  box-shadow:0 8px 18px rgba(3,27,19,.2)
+}
+.sponsor-visual-feature div{min-width:0}
+.sponsor-visual-feature div>span{font-size:9px;letter-spacing:.09em;color:#d8ebde;font-weight:900}
+.sponsor-visual-feature strong{display:block;font-size:clamp(20px,2.1vw,27px);line-height:1.14;
+  letter-spacing:-.04em;margin-top:9px;text-wrap:balance}
+.sponsor-visual-details{display:grid;gap:9px}
+.sponsor-visual-details>div{display:flex;align-items:center;gap:12px;min-width:0;
+  padding:13px 15px;border-radius:14px;background:rgba(255,255,255,.07)}
+.sponsor-visual-details>div>span{font-size:20px;flex:0 0 28px;text-align:center}
+.sponsor-visual-details strong{display:block;font-size:13px;line-height:1.3;color:#fff}
+.sponsor-visual-details small{display:block;margin-top:3px;font-size:11px;line-height:1.5;color:#cce7d8}
+.sponsor-visual-story>p{font-size:11px;line-height:1.55;color:#c7e1d2;margin:0}
+.merchant-visual-economy{
+  display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px;margin-top:18px;
+}
+.merchant-visual-economy>div{min-width:0;padding:13px 12px;border-radius:15px;
+  background:rgba(255,255,255,.09);border:1px solid rgba(255,255,255,.17)}
+.merchant-visual-economy small{display:block;font-size:9px;letter-spacing:.05em;
+  line-height:1.3;font-weight:850;color:#d6e7d9}
+.merchant-visual-economy strong{display:block;margin-top:7px;
+  font-size:clamp(15px,2vw,20px);letter-spacing:-.025em;color:#fff}
+@media(max-width:1000px){
+  .tamao-sponsors-page .sponsor-hero-layout{grid-template-columns:minmax(0,1fr)}
+  .tamao-sponsors-page .sponsor-hero-copy .page-title{max-width:18ch}
+  .sponsor-visual-story{max-width:none}
+  .home-buying-steps-list{grid-template-columns:minmax(0,1fr)}
+}
+@media(max-width:620px){
+  .home-buying-steps{padding:19px 14px;border-radius:21px;margin-block:18px}
+  .home-buying-steps-heading{margin-bottom:13px}
+  .home-buying-steps-heading h2{font-size:26px}
+  .home-buying-steps-list{gap:8px}
+  .home-buying-steps-list li{padding:14px 13px;border-radius:15px;gap:11px}
+  .home-buying-step-icon{width:39px;height:39px;flex-basis:39px}
+  .home-buying-steps-list p{font-size:12px}
+  .sponsor-visual-story{padding:19px 15px;border-radius:19px;gap:12px}
+  .sponsor-visual-feature{padding:18px 13px;gap:12px}
+  .sponsor-visual-symbol{width:51px;height:51px;flex-basis:51px;border-radius:15px;font-size:28px}
+  .sponsor-visual-feature strong{font-size:23px}
+  .sponsor-visual-details>div{padding:12px}
+}
+@media(max-width:370px){
+  .merchant-visual-economy{grid-template-columns:minmax(0,1fr)}
+  .sponsor-visual-feature strong{font-size:21px}
+}

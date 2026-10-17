@@ -545,6 +545,14 @@ ${discoveryTiles?`<section id="home-discover" class="home-discover" aria-label="
   <div id="home-discover-grid" class="home-discover-grid">${discoveryTiles}</div>
 </section>`:''}
 
+${conciseHome?`<section class="home-buying-steps" aria-label="Como começar no TAMÃO">
+  <div class="home-buying-steps-heading"><span class="section-kicker">SIMPLES DESDE O PRIMEIRO TOQUE</span><h2>Da sua escolha à sua porta.</h2></div>
+  <ol class="home-buying-steps-list">
+    <li><span class="home-buying-step-icon" aria-hidden="true">🧺</span><div><strong>Escolha o que precisa</strong><p>Gás, água ou outros essenciais, sem item obrigatório.</p></div></li>
+    <li><span class="home-buying-step-icon" aria-hidden="true">📍</span><div><strong>Confira seu CEP</strong><p>Veja se há revenda que atende seu endereço e sua cesta.</p></div></li>
+    <li><span class="home-buying-step-icon" aria-hidden="true">✓</span><div><strong>Confirme quando houver opção</strong><p>Confira valor e prazo. O pedido só avança após o aceite da revenda.</p></div></li>
+  </ol>
+</section>`:''}
 ${!testDemo&&typeof homeRegionalPriceBoard==="function"?homeRegionalPriceBoard(homeRegion):""}
 ${!conciseHome?valueBridge:''}
 ${!conciseHome&&typeof tamaoHomeBenefits==="function"?tamaoHomeBenefits():""}

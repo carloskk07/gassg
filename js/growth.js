@@ -511,6 +511,7 @@ function openSponsorContact(format='general'){
 function sponsorsLanding(){
   return shell(`<section class="page tamao-sponsors-page">
     <div class="tamao-sponsor-hero tamao-commercial-hero">
+      <div class="sponsor-hero-layout"><div class="sponsor-hero-copy">
       <span class="eyebrow">MARCAS E PARCEIROS • TAMÃO</span>
       <h1 class="page-title">Sua marca mais perto de quem compra na cidade.</h1>
       <p class="page-lead">O TAMÃO conecta consumidores e revendas de itens essenciais. Vamos desenhar uma presença patrocinada adequada ao seu público, à sua cidade e ao objetivo da sua campanha.</p>
@@ -523,7 +524,20 @@ function sponsorsLanding(){
         <div><span>01</span><strong>Apresente sua marca</strong><small>Informe como podemos falar com você.</small></div>
         <div><span>02</span><strong>Escolha a região</strong><small>Conte onde e para quem deseja aparecer.</small></div>
         <div><span>03</span><strong>Defina a campanha</strong><small>Orçamento e critérios avaliados antes da ativação.</small></div>
-      </div>
+      </div></div>
+      <aside class="sponsor-visual-story" aria-label="Ilustração de uma proposta de divulgação local, não representa anúncios no ar">
+        <div class="sponsor-visual-head"><span>DIVULGAÇÃO LOCAL</span><small>CONCEITO ILUSTRATIVO</small></div>
+        <div class="sponsor-visual-feature">
+          <span class="sponsor-visual-symbol" aria-hidden="true">✦</span>
+          <div><span>DA SUA MARCA PARA A CIDADE</span><strong>Faça parte das escolhas do dia a dia.</strong></div>
+        </div>
+        <div class="sponsor-visual-details">
+          <div><span aria-hidden="true">📍</span><div><strong>Cidade e categoria</strong><small>Presença pensada para o contexto local</small></div></div>
+          <div><span aria-hidden="true">📣</span><div><strong>Divulgação identificada</strong><small>Publicidade separada das ofertas orgânicas</small></div></div>
+          <div><span aria-hidden="true">🎁</span><div><strong>Ação combinada</strong><small>Objetivos, investimento e condições definidos antes</small></div></div>
+        </div>
+        <p>Exemplo de apresentação comercial. Não é campanha ativa nem promessa de alcance ou resultado.</p>
+      </aside></div>
     </div>
     <div class="public-sponsor-selector-intro"><span class="section-kicker">ESCOLHA SEU OBJETIVO</span><h2>O que sua marca deseja conquistar?</h2><p>Escolha a proposta que mais se aproxima do seu objetivo. Você poderá detalhar cidade, categoria e orçamento durante o contato.</p></div>
     <section class="section sponsor-formats" aria-label="Exemplos de formatos de campanha">
@@ -595,7 +609,11 @@ function merchantsLanding(){
         <div><span aria-hidden="true">🧺</span><p><strong>Catálogo sob controle</strong><small>Preços, produtos e estoque definidos por você.</small></p></div>
         <div><span aria-hidden="true">🤝</span><p><strong>Rede que aproxima</strong><small>Compartilhe e apresente sua revenda.</small></p></div>
       </div>
-      <p class="merchant-visual-disclaimer">Visão ilustrativa dos recursos. Pedidos dependem da habilitação e da disponibilidade da sua operação.</p>
+      <div class="merchant-visual-economy" aria-label="Condições comerciais da revenda">
+        <div><small>MODELO ATUAL</small><strong>Sem mensalidade</strong></div>
+        <div><small>TAXA POR PEDIDO CONCLUÍDO</small><strong>${merchantFeeLabel}</strong></div>
+      </div>
+      <p class="merchant-visual-disclaimer">Visão ilustrativa dos recursos. Taxa aplicada sobre pedidos concluídos, conforme a política comercial. Pedidos dependem da habilitação e da disponibilidade da operação.</p>
     </aside></div>
 
     <nav class="public-page-jump-rail merchant-jump-rail" aria-label="Encontre rapidamente o que precisa sobre sua revenda">
