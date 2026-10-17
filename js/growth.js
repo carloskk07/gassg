@@ -328,7 +328,7 @@ function earn(){
       <div class="section-head tamao-benefit-guide-heading"><div>
         <span class="section-kicker">UMA PLATAFORMA • BENEFÍCIOS DIFERENTES</span>
         <h2>Descubra qual vantagem combina com você.</h2>
-        <p>Cashback, indicações, cupons de campanhas e oportunidades para empresas funcionam de formas diferentes. Veja o que cada opção significa antes de participar.</p>
+        <p>Compre quando precisar. Compartilhe quando fizer sentido. Cashback, indicações, cupons de campanhas e oportunidades para empresas funcionam de formas diferentes. Veja o que cada opção significa antes de participar.</p>
       </div></div>
       <div class="tamao-benefit-guide-grid">
         <article class="tamao-benefit-guide-card benefit-buy">
