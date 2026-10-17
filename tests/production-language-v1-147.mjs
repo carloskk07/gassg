@@ -62,7 +62,7 @@ assert.ok(
 
 assert.ok(
   core.includes('Disponibilidade</button>')
-  &&core.includes("'Disponibilidade','lead'")
+  &&core.includes("'Avisos','lead'")
   &&core.includes("const locality=region?esc(region.city)+'/'+esc(region.state):'Consulte sua região'"),
   'navegação global não pode manter linguagem de abertura'
 );
