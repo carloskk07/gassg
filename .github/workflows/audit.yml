@@ -584,13 +584,13 @@ jobs:
           grep -q "Quer saber mais ou tem uma revenda?" /tmp/home.html
           grep -q "Entender como funciona" /tmp/home.html
           grep -q "Cadastrar minha empresa" /tmp/home.html
-          grep -q "Quer pedir gás, água ou outros itens? Veja como funciona." /tmp/learn.html
-          grep -q "Compre bem, compartilhe o que gosta e construa sua rede." /tmp/earn.html
+          grep -q "Escolha o que precisa. Confira a entrega. Acompanhe seu pedido." /tmp/learn.html
+          grep -q "Indique quem compra. Apresente quem vende. Faça sua rede crescer." /tmp/earn.html
           grep -q "O que você precisa e onde devemos entregar" /tmp/order.html
           grep -q "CLUBE TAMÃO" /tmp/club.html
           grep -q "Seu próximo convite pode abrir novas portas." /tmp/refer.html
-          grep -q "Sua revenda, mais fácil de encontrar." /tmp/merchants.html
-          grep -q "Sua marca pode fazer parte das escolhas que movem a cidade." /tmp/sponsors.html
+          grep -q "Sua revenda mais visível." /tmp/merchants.html
+          grep -q "Sua marca mais perto de quem compra na cidade." /tmp/sponsors.html
           grep -q "FAÇA AS CONTAS DO SEU JEITO" /tmp/merchants.html
           grep -q "Quer vender pelo TAMÃO?" /tmp/merchants.html
           grep -q "Quero levar minha empresa ao TAMÃO" /tmp/merchants.html
