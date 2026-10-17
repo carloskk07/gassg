@@ -51,6 +51,8 @@ jobs:
         run: node tests/push-fk-index-hygiene.mjs
       - name: Service worker cache integrity
         run: node tests/service-worker-integrity.mjs
+      - name: Frontend single-source asset coherence
+        run: node tests/frontend-asset-coherence.mjs
       - name: Static trust and asset audit
         run: node tests/static-audit.mjs
       - name: Admin control plane V1.133 regression contract
