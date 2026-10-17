@@ -3060,8 +3060,9 @@ function merchantSupportPriorityBoard(rt,orders){
       '<p>Veja os registros vinculados à sua revenda. Pedidos novos para aceitar continuam na fila de ofertas.</p>'+
     '</div><span class="status-pill risk">Acompanhar</span></div>'+
     '<ol class="merchant-support-priority-list">'+rows+'</ol>'+
-    (entries.length>5?'<p class="merchant-support-priority-overflow">Outros '+
-      (entries.length-5)+' pedidos com atendimento pendente estão na fila abaixo.</p>':'')+
+    (entries.length>5?'<p class="merchant-support-priority-overflow">'+
+      (entries.length-5)+' '+(entries.length===6?'outro pedido com atendimento pendente está':'outros pedidos com atendimento pendente estão')+
+      ' na fila abaixo.</p>':'')+
     '<small>Somente pedidos ativos e registros carregados na última consulta (até 100). A administração mantém o controle dos chamados.</small>'+
     '</section>';
 }
