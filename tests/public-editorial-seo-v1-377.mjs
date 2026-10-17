@@ -25,7 +25,6 @@ try{
   assert.match(html,new RegExp('property="og:url" content="https://tamao\\.com\\.br/'+slug+'/"'));
   assert.match(html,/name="description" content="[^"]{70,200}"/);
   assert.match(html,/\/css\/landing-editorial\.css/);
-  assert.match(html,/\/assets\/tamao-products-sprite\.webp/);
   assert.match(html,/<details><summary>/);
   assert.match(html,/href="\/#terms"/);
   assert.doesNotMatch(html,/<script|checkout\(|localStorage|supabase|oauth|password|access_token/i);
@@ -64,6 +63,7 @@ try{
  assert.match(live,/PUBLIC_LANDING_SLUGS\.map/);
  assert.match(publicBuild,/writePublicLandingPages\(out,\{origin:publicOrigin,indexing:cloudflare&&indexing\}\)/);
  assert.match(publicBuild,/PUBLIC_LANDING_SLUGS\.map/);
+ assert.match(css,/\/assets\/tamao-products-sprite\.webp/);
  assert.match(core,/site-footer-editorial/);
  assert.match(core,/officialCustomerHost&&!globalThis\.merchantPortalRequested/);
  for(const token of ['.ed-hero-grid','.ed-product-gas','.ed-btn-primary','.ed-faq','@media(max-width:680px)','@media(prefers-reduced-motion:reduce)']){
