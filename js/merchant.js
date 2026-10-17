@@ -2236,9 +2236,19 @@ function merchantLivePage(){
     ${merchantFirstRunView(rt,canGoOnline)}
     ${financialHold?'<div class="notice danger" style="margin-top:12px"><strong>Novas vendas suspensas por pendência financeira.</strong><br>Regularize o fechamento vencido. Pedidos já aceitos continuam disponíveis normalmente.</div>':''}
 
-    ${orderEvidence.fresh?merchantDeliveryBoardView(rt,orders):''}
-    ${orderEvidence.fresh?merchantSupportOverview(rt,orders):''}
-    <section class="section" id="merchant-live-orders"><div class="section-head"><div><h2 tabindex="-1">Pedidos que exigem ação</h2><p>Aceite, saída e recebimento só são registrados depois de confirmação no sistema.</p></div></div>${orderEvidence.fresh?merchantSupportPriorityBoard(rt,orders):''}${orderEvidence.fresh?merchantDeliveryAttentionView(rt):''}${orderEvidence.fresh?merchantOrderQueueView(orders):merchantOrderListRecovery(rt)}</section>
+    <section class="section" id="merchant-live-orders"><div class="section-head"><div><h2 tabindex="-1">Pedidos que exigem ação</h2><p>Aceite, saída e recebimento só são registrados depois de confirmação no sistema.</p></div></div>
+      ${orderEvidence.fresh?merchantUnifiedOpsBoard(rt,orders):''}
+      ${orderEvidence.fresh?merchantDeliveryAttentionView(rt):''}
+      <details class="merchant-operation-insights">
+        <summary>Ver detalhes e indicadores de pedidos</summary>
+        <div class="merchant-operation-insights-body">
+          ${orderEvidence.fresh?merchantDeliveryBoardView(rt,orders):''}
+          ${orderEvidence.fresh?merchantSupportOverview(rt,orders):''}
+          ${orderEvidence.fresh?merchantSupportPriorityBoard(rt,orders):''}
+        </div>
+      </details>
+      ${orderEvidence.fresh?merchantOrderQueueView(orders):merchantOrderListRecovery(rt)}
+    </section>
 
     <details id="merchant-workspace-start" class="merchant-workspace-section"${!canGoOnline?' open':''}><summary tabindex="0"><span><strong>${canGoOnline?'Produtos e entregas':'Comece por aqui: prepare sua operação'}</strong><small>${canGoOnline?'Atualize estoque, preços e configurações quando precisar.':'Veja as etapas que exigem atenção para sua revenda começar a receber ofertas.'}</small></span></summary><div class="merchant-workspace-content">
       ${merchantDailyChecklistView(rt,{deliveryFresh:freshness.deliveryFresh})}
@@ -3064,6 +3074,94 @@ function merchantSupportPriorityBoard(rt,orders){
       (entries.length-5)+' '+(entries.length===6?'outro pedido com atendimento pendente está':'outros pedidos com atendimento pendente estão')+
       ' na fila abaixo.</p>':'')+
     '<small>Somente pedidos ativos e registros carregados na última consulta (até 100). A administração mantém o controle dos chamados.</small>'+
+    '</section>';
+}
+
+// V1.388 — Three operational lanes, one read-only snapshot. Clicking an
+// entry navigates to the existing order card; no order actions fire here.
+function merchantUnifiedOpsModel(rt,orders,now=Date.now()){
+  if(!Array.isArray(orders)||orders!==rt?.orders||
+    !['owner','manager','operator'].includes(String(rt?.merchant?.memberRole||''))||
+    rt?.error||!merchantOrderListEvidence(rt,now).fresh)return null;
+  const offers=orders.filter(o=>o?.status==='OFFERED_TO_MERCHANT');
+  const validDeadline=o=>{
+    const raw=String(o?.offerExpiresAt||'');
+    const time=Date.parse(raw);
+    return /^20\d{2}-\d{2}-\d{2}T/.test(raw)&&Number.isFinite(time)&&time>now+1000;
+  };
+  const actionable=offers.filter(validDeadline).sort((a,b)=>
+    Date.parse(a.offerExpiresAt)-Date.parse(b.offerExpiresAt));
+  const deliveries=merchantDeliveryBoardModel(orders,now);
+  const atRisk=orders.filter(o=>o?.status==='AT_RISK');
+  const role=String(rt.merchant.memberRole||'');
+  const supportVerified=rt.supportSummary?.version===1&&
+    rt.supportSummary.scope==='merchant-active-orders'&&
+    ['owner','manager','operator'].includes(role);
+  const support=supportVerified?merchantSupportPriorityEntries(rt,orders):[];
+  const issues=[...atRisk];
+  const seen=new Set(issues.map(o=>String(o.orderId||'')));
+  for(const row of support){
+    const key=String(row.order?.orderId||'');
+    if(!seen.has(key)){issues.push(row.order);seen.add(key)}
+  }
+  const safe=o=>/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
+    .test(String(o?.orderId||''))?String(o.orderId):null;
+  const preferSafe=items=>items.find(o=>safe(o))||items[0]||null;
+  return {
+    offers:{count:offers.length,valid:actionable.length,unverified:offers.length-actionable.length,
+      first:preferSafe(actionable)},
+    delivery:{count:deliveries.length,arriving:deliveries.filter(o=>o.status==='ARRIVING').length,
+      first:preferSafe(deliveries)},
+    issues:{count:issues.length,incidents:atRisk.length,
+      cases:support.reduce((n,row)=>n+row.pending.length,0),
+      supportVerified,first:preferSafe([...atRisk,...support.map(x=>x.order)])}
+  };
+}
+function merchantUnifiedOpsBoard(rt,orders){
+  const model=merchantUnifiedOpsModel(rt,orders);
+  if(!model)return '';
+  const go=(item,lane,label)=>{
+    const orderId=String(item?.orderId||'');
+    const valid=/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(orderId);
+    const key=lane==='issues'?'risk':lane;
+    const hasGroup=lane!=='issues'||model.issues.incidents>0;
+    return item?'<button type="button" class="merchant-unified-action" onclick="'+
+      (valid?"merchantFocusLiveOrder('"+orderId+"')":
+        hasGroup?"merchantFocusOrderGroup('"+key+"')":"merchantWorkspaceJump('orders')")+
+      '">'+esc(label)+' <span aria-hidden="true">→</span></button>':'';
+  };
+  const a=model.offers,b=model.delivery,c=model.issues;
+  const offerDetail=a.unverified
+    ?a.unverified+(a.unverified===1?' oferta precisa':' ofertas precisam')+' de atualização; '+a.valid+' com prazo válido.'
+    :a.count?'Confira o prazo antes de aceitar.':'Nenhum novo pedido informado.';
+  const deliveryDetail=b.count?
+    b.arriving+' com chegada informada. Confirmações dentro do pedido.':
+    'Nenhuma entrega em andamento na lista consultada.';
+  const issueDetail=c.supportVerified
+    ?c.incidents+' imprevisto(s) no pedido • '+c.cases+' atendimento(s) pendente(s).'
+    :c.incidents+' imprevisto(s) no pedido. Situação dos atendimentos indisponível.';
+  const cards=[
+    ['offers','NOVOS PEDIDOS',a.count,offerDetail,a.first,
+      'Ver pedido para aceitar'],
+    ['delivery','ENTREGAS',b.count,deliveryDetail,b.first,
+      'Acompanhar entrega'],
+    ['issues','ATENÇÃO',c.count,issueDetail,c.first,
+      'Ver pedido com problema']
+  ].map(([key,label,count,detail,first,cta])=>
+    '<article class="merchant-unified-lane merchant-unified-'+key+'">'+
+      '<span class="merchant-unified-lane-label">'+label+'</span>'+
+      '<strong class="merchant-unified-number">'+count+'</strong>'+
+      '<p>'+esc(detail)+'</p>'+
+      (first?go(first,key,cta):'<span class="merchant-unified-empty">Sem ação nesta categoria agora</span>')+
+      '</article>').join('');
+  return '<section class="merchant-unified-ops" aria-label="Visão rápida da operação">'+
+    '<header><div><span class="section-kicker">VISÃO DE TRABALHO</span>'+
+      '<h3>O que precisa da sua atenção agora</h3>'+
+      '<p>Três frentes em uma só consulta. Escolha o pedido; nenhuma ação é confirmada automaticamente.</p></div>'+
+      '<button type="button" class="secondary small" onclick="merchantLiveRefresh()" '+
+      (rt?.actionPending?'disabled':'')+'>Atualizar fila</button></header>'+
+    '<div class="merchant-unified-grid">'+cards+'</div>'+
+    '<small>Dados da revenda e pedidos autorizados, consultados recentemente. Os status podem mudar antes da sua decisão.</small>'+
     '</section>';
 }
 
