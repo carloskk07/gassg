@@ -35,7 +35,8 @@ assert.match(urls[1],/^\/\?utm_source=.*#merchants$/);
 assert.equal(urls[4],'#conteudo','local anchors must not be rewritten');
 assert.equal(ctx.tamaoLandingHandoffUrl('https://evil.example/','?ref=ABCDE1',origin),null);
 assert.equal(ctx.tamaoLandingHandoffUrl('/admin','?ref=ABCDE1',origin),null);
-assert.equal(ctx.tamaoLandingHandoffUrl('/#order','?ref=ABCDE1',origin)?.endsWith('#order'),true);
+assert.equal(ctx.tamaoLandingHandoffUrl('/#order','?ref=ABCDE1',origin),null,
+ 'handoff must not promote private or checkout fragments');
 assert.equal(ctx.tamaoLandingHandoffUrl('javascript:alert(1)','?ref=ABCDE1',origin),null);
 assert.equal(ctx.tamaoLandingHandoffUrl('/?ref=ORIGINAL&entrada=marca','?ref=ABCDE1',origin),null,
  'explicit invitation must not be overwritten');
