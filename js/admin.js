@@ -5159,28 +5159,153 @@ function adminAccountingFailureCard(x){
   </article>`;
 }
 
-function adminSupportCaseCard(x){
-  const category={
-    late:'Atraso',
-    wrong_item:'Produto incorreto',
-    price_payment:'Preço ou pagamento',
-    no_show:'Entrega não apareceu',
-    delivery:'Problema na entrega',
-    other:'Outro problema'
-  }[x.category]||String(x.category||'Problema');
-  const statusLabel={
-    open:'ABERTO',
-    in_review:'EM ANÁLISE',
-    resolved:'RESOLVIDO',
-    closed:'ENCERRADO'
-  }[x.status]||String(x.status||'—').toUpperCase();
-  const statusClass=['resolved','closed'].includes(x.status)?'online':x.status==='open'?'offline':'risk';
-  return `<article class="order-card">
-    <div class="order-head"><div><div class="order-id">${esc(category)}</div><div class="tiny muted">Pedido ${esc(x.order_id)} • aberto em ${new Date(x.created_at).toLocaleString('pt-BR')}</div></div><span class="status-pill ${statusClass}">${esc(statusLabel)}</span></div>
-    ${x.message?`<div class="order-line"><strong>Cliente:</strong> ${esc(x.message)}</div>`:''}
-    ${x.resolution_note?`<div class="notice success" style="margin-top:10px"><strong>Tratativa:</strong><br>${esc(x.resolution_note)}</div>`:''}
-    ${!['resolved','closed'].includes(x.status)?`<div class="order-actions">${x.status==='open'?`<button class="secondary small" onclick="adminSetSupportStatus('${x.id}','in_review')">Assumir análise</button>`:''}<button class="primary small" onclick="adminSetSupportStatus('${x.id}','resolved')">Resolver</button><button class="ghost small" onclick="adminSetSupportStatus('${x.id}','closed')">Encerrar</button></div>`:''}
-  </article>`;
+// V1.385 — Prioritization is presentation only: statuses and dates are
+// limited to the order-scoped facts returned by the privileged admin API.
+let adminSupportQueueFilter='pending';
+let adminSupportQueueSearch='';
+const ADMIN_SUPPORT_CATEGORIES={
+  late:'Atraso',wrong_item:'Produto incorreto',
+  price_payment:'Preço ou pagamento',no_show:'Entrega não apareceu',
+  delivery:'Problema na entrega',other:'Outro problema'
+};
+const ADMIN_SUPPORT_STATUS={
+  open:['ABERTO','Registrado e aguardando análise'],
+  in_review:['EM ANÁLISE','Em análise pela operação'],
+  resolved:['RESOLVIDO','Resolução registrada'],
+  closed:['ENCERRADO','Atendimento encerrado']
+};
+function adminSupportCaseDate(value){
+  if(typeof value!=='string'||!/^20\d{2}-\d{2}-\d{2}T\d{2}:\d{2}/.test(value))return '';
+  const ts=Date.parse(value);
+  if(!Number.isFinite(ts)||ts<Date.UTC(2020,0,1)||ts>Date.now()+5*60*1000)return '';
+  return new Date(ts).toLocaleString('pt-BR',{
+    day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'
+  });
+}
+function adminSupportQueueSort(cases){
+  const group={open:0,in_review:1,resolved:2,closed:3};
+  return (Array.isArray(cases)?cases:[]).slice().sort((a,b)=>{
+    const ga=Object.prototype.hasOwnProperty.call(group,a?.status)?group[a.status]:4;
+    const gb=Object.prototype.hasOwnProperty.call(group,b?.status)?group[b.status]:4;
+    if(ga!==gb)return ga-gb;
+    const ta=Date.parse(a?.created_at||''),tb=Date.parse(b?.created_at||'');
+    const va=Number.isFinite(ta)?ta:(ga<2?Infinity:-Infinity);
+    const vb=Number.isFinite(tb)?tb:(gb<2?Infinity:-Infinity);
+    return ga<2?va-vb:vb-va;
+  });
+}
+function adminSupportCaseCard(x,{visible=true}={}){
+  const category=Object.prototype.hasOwnProperty.call(ADMIN_SUPPORT_CATEGORIES,x?.category)
+    ?ADMIN_SUPPORT_CATEGORIES[x.category]:'Assunto registrado';
+  const known=Object.prototype.hasOwnProperty.call(ADMIN_SUPPORT_STATUS,x?.status);
+  const info=known?ADMIN_SUPPORT_STATUS[x.status]:['NÃO CONFIRMADO','Atualize os atendimentos'];
+  const pending=['open','in_review'].includes(x?.status);
+  const statusClass=['resolved','closed'].includes(x?.status)?'online':
+    x?.status==='open'?'offline':'risk';
+  const created=adminSupportCaseDate(x?.created_at);
+  const updated=adminSupportCaseDate(x?.updated_at);
+  const validCaseId=/^[0-9a-f]{8}-[0-9a-f-]{27,36}$/i.test(String(x?.id||''));
+  const orderId=String(x?.order_id||'');
+  const validOrderId=/^[0-9a-f]{8}-[0-9a-f-]{27,36}$/i.test(orderId);
+  const canAction=['superadmin','operations','support'].includes(adminCurrentRole())&&validCaseId;
+  const actions=pending&&canAction
+    ?'<div class="order-actions">'+
+      (x.status==='open'?'<button class="secondary small" onclick="adminSetSupportStatus(\''+
+        esc(x.id)+'\',\'in_review\')">Assumir análise</button>':'')+
+      '<button class="primary small" onclick="adminSetSupportStatus(\''+
+        esc(x.id)+'\',\'resolved\')">Resolver</button>'+
+      '<button class="ghost small" onclick="adminSetSupportStatus(\''+
+        esc(x.id)+'\',\'closed\')">Encerrar</button></div>':'';
+  const link=validOrderId
+    ?'<button class="secondary small" onclick="adminOpenEntity(\'order\',\''+
+      esc(orderId)+'\')">Abrir pedido</button>':'';
+  const filterText=[orderId,category,info[0],x?.category].join(' ').toLocaleLowerCase('pt-BR');
+  return '<article class="order-card admin-support-case" data-support-status="'+
+    esc(String(x?.status||'unknown'))+'" data-support-search="'+esc(filterText)+'"'+
+    (visible?'':' hidden')+'>'+
+    '<div class="order-head"><div><div class="order-id">'+esc(category)+'</div>'+
+    '<div class="tiny muted">Pedido '+esc(orderId||'não identificado')+
+    ' • '+(created?'registrado em '+esc(created):'data não confirmada')+'</div></div>'+
+    '<span class="status-pill '+statusClass+'">'+esc(info[0])+'</span></div>'+
+    '<p class="admin-support-case-subtitle">'+esc(info[1])+
+    (updated?' • última atualização registrada: '+esc(updated):'')+'</p>'+
+    (x?.message?'<div class="order-line"><strong>Relato do cliente:</strong> '+esc(x.message)+'</div>':'')+
+    (x?.resolution_note?'<div class="notice success" style="margin-top:10px"><strong>Tratativa registrada:</strong> '+esc(x.resolution_note)+'</div>':'')+
+    '<div class="admin-support-case-actions">'+link+actions+'</div>'+
+    '</article>';
+}
+function adminSupportQueueApplyFilter(){
+  const filter=document.getElementById('admin-support-filter');
+  const input=document.getElementById('admin-support-search');
+  if(filter)adminSupportQueueFilter=String(filter.value||'pending');
+  if(input)adminSupportQueueSearch=String(input.value||'').slice(0,120);
+  const allowed=['pending','open','in_review','resolved','all'];
+  if(!allowed.includes(adminSupportQueueFilter))adminSupportQueueFilter='pending';
+  const query=adminSupportQueueSearch.trim().toLocaleLowerCase('pt-BR');
+  let visible=0;
+  for(const node of document.querySelectorAll('.admin-support-case')){
+    const status=node.getAttribute('data-support-status')||'';
+    const text=node.getAttribute('data-support-search')||'';
+    const match=(adminSupportQueueFilter==='all'||
+      (adminSupportQueueFilter==='pending'&&['open','in_review'].includes(status))||
+      adminSupportQueueFilter===status)&&(!query||text.includes(query));
+    node.hidden=!match;
+    if(match)visible++;
+  }
+  const count=document.getElementById('admin-support-visible-count');
+  if(count)count.textContent=visible+' atendimento(s) exibido(s)';
+  const noMatch=document.getElementById('admin-support-no-match');
+  if(noMatch)noMatch.hidden=visible!==0;
+}
+function adminSupportQueueMatches(item,filter,search){
+  const category=Object.prototype.hasOwnProperty.call(ADMIN_SUPPORT_CATEGORIES,item?.category)
+    ?ADMIN_SUPPORT_CATEGORIES[item.category]:'Assunto registrado';
+  const terms=[item?.order_id,category,item?.category,
+    Object.prototype.hasOwnProperty.call(ADMIN_SUPPORT_STATUS,item?.status)
+      ?ADMIN_SUPPORT_STATUS[item.status][0]:''].join(' ').toLocaleLowerCase('pt-BR');
+  const query=String(search||'').trim().toLocaleLowerCase('pt-BR');
+  return (filter==='all'||(filter==='pending'&&['open','in_review'].includes(item?.status))||
+    filter===item?.status)&&(!query||terms.includes(query));
+}
+function adminSupportQueueView(cases){
+  const sorted=adminSupportQueueSort(cases);
+  const pending=sorted.filter(x=>['open','in_review'].includes(x?.status));
+  const open=pending.filter(x=>x.status==='open').length;
+  const review=pending.length-open;
+  const resolved=sorted.filter(x=>x?.status==='resolved').length;
+  const filter=['pending','open','in_review','resolved','all'].includes(adminSupportQueueFilter)
+    ?adminSupportQueueFilter:'pending';
+  const q=adminSupportQueueSearch.slice(0,120);
+  const initial=sorted.filter(x=>adminSupportQueueMatches(x,filter,q)).length;
+  return '<section class="section admin-support-queue" id="admin-support-queue">'+
+    '<div class="section-head"><div><span class="section-kicker">ATENDIMENTO</span>'+
+    '<h2>Fila de solicitações dos clientes</h2>'+
+    '<p>Priorize chamados abertos e em análise. Cada atendimento permanece vinculado ao pedido e às decisões auditadas.</p></div>'+
+    '<span class="status-pill '+(pending.length?'risk':'online')+'">'+pending.length+' pendente(s)</span></div>'+
+    '<div class="admin-support-queue-kpis">'+
+      '<div><small>Aguardam análise</small><strong>'+open+'</strong></div>'+
+      '<div><small>Em análise</small><strong>'+review+'</strong></div>'+
+      '<div><small>Resolvidos exibidos</small><strong>'+resolved+'</strong></div>'+
+    '</div>'+
+    '<div class="card flat admin-support-queue-tools"><div class="field-row">'+
+      '<div class="input-wrap"><label for="admin-support-filter">Situação</label>'+
+      '<select id="admin-support-filter" class="input" onchange="adminSupportQueueApplyFilter()">'+
+      [['pending','Pendentes'],['open','Abertos'],['in_review','Em análise'],
+       ['resolved','Resolvidos'],['all','Todos carregados']]
+        .map(([value,label])=>'<option value="'+value+'" '+(filter===value?'selected':'')+'>'+label+'</option>').join('')+
+      '</select></div>'+
+      '<div class="input-wrap"><label for="admin-support-search">Localizar atendimento</label>'+
+      '<input id="admin-support-search" class="input" maxlength="120" value="'+esc(q)+
+      '" placeholder="Pedido, assunto ou situação" oninput="adminSupportQueueApplyFilter()"></div>'+
+    '</div><p class="admin-support-queue-disclosure">Lista limitada aos registros retornados pelo servidor (até 100 recentes). Os filtros não consultam todo o histórico. Dados consultados: '+
+      esc(adminRelativeTime(adminRuntime.lastSyncAt))+'.</p>'+
+    '<div id="admin-support-visible-count" role="status" aria-live="polite">'+initial+
+      ' atendimento(s) exibido(s)</div></div>'+
+    '<div class="admin-support-queue-results">'+
+      sorted.map(x=>adminSupportCaseCard(x,{visible:adminSupportQueueMatches(x,filter,q)})).join('')+
+      '<div id="admin-support-no-match" class="empty card" '+(initial?'hidden':'')+
+        '>Nenhum atendimento corresponde aos filtros carregados.</div>'+
+    '</div></section>';
 }
 
 function adminProductionRequirementLabel(code){
@@ -5897,7 +6022,7 @@ function adminPage(){
 
   const ordersContent=`
     ${adminControlTower({...d,controlOrders})}
-    <section class="section"><div class="section-head"><div><h2>Atendimento de pedidos</h2><p>Problemas registrados pelo cliente entram aqui com vínculo ao pedido, status e trilha administrativa.</p></div><span class="status-pill ${openSupportCases.length?'offline':'online'}">${openSupportCases.length} aberto(s)</span></div>${supportCases.length?supportCases.map(adminSupportCaseCard).join(''):'<div class="empty card">Nenhum atendimento registrado.</div>'}</section>`;
+    ${adminSupportQueueView(supportCases)}`;
 
   const customersContent=adminCustomersSection(d);
 
