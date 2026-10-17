@@ -49,7 +49,7 @@ for(const value of [undefined,null,'',0,-1,1.25,'1.2','1a','abc',
 }
 html=render([{quantity:1,productName:'<img src=x onerror=alert(1)>'}]);
 assert.match(html,/&lt;img/);
-assert.doesNotMatch(html,/<img|onerror=/);
+assert.doesNotMatch(html,/<img\b/,'product description must be escaped');
 html=render([{quantity:2,productName:' '},{quantity:3,productCode:'WATER20'}]);
 assert.match(html,/Produto não identificado/);
 assert.match(html,/3× WATER20/);
