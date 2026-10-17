@@ -151,7 +151,7 @@ const publicHashedQuotaMigration=read('supabase/migrations/20261003221546_public
 assert.ok(acquisitionMetricsMigration.includes('perform public.require_platform_admin')&&acquisitionMetricsMigration.includes("grant execute on function public.admin_prelaunch_acquisition_metrics(uuid)\nto service_role"),'métrica agregada precisa exigir admin e executar apenas via service_role');
 assert.ok(acquisitionMetricsMigration.includes("'medianFirstContactMinutes'")&&acquisitionMetricsMigration.includes("'campaigns'"),'métrica precisa incluir velocidade de contato e atribuição por campanha');
 assert.ok(adminAcquisition.includes('adminPublicRequestWhatsAppText'),'contato público por WhatsApp precisa carregar protocolo/contexto sem copiar mensagem sensível');
-assert.ok(adminAcquisition.includes('adminLeadPriority')&&adminAcquisition.includes('Novos há +24h'),'admin precisa priorizar pipeline e destacar leads novos envelhecidos');
+assert.ok(adminAcquisition.includes('adminLeadPriority')&&adminAcquisition.includes('Novos há mais de 24 horas'),'admin precisa priorizar pipeline e destacar leads novos envelhecidos');
 assert.ok(adminAcquisition.includes("Date.parse(a.created_at||'')-Date.parse(b.created_at||'')"),'pipeline aberto precisa ordenar os leads mais antigos primeiro dentro do estágio');
 assert.ok(adminAcquisition.includes('adminSetPublicRequestStatus')&&adminAcquisition.includes('EM ANÁLISE')&&adminAcquisition.includes('RESOLVIDA'),'admin precisa operar fila de contato/LGPD');
 assert.ok(read('supabase/functions/admin-ops/index.ts').includes('admin_prelaunch_lead_action')&&read('supabase/functions/admin-ops/index.ts').includes('admin_public_request_action'),'admin API precisa usar autoridades transacionais de aquisição');
