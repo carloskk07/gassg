@@ -104,6 +104,10 @@ const track=vm.createContext({
 });
 vm.runInContext(cut(analytics,'marketingTrackLandingOnce')+'\nthis.observe=marketingTrackLandingOnce;',track);
 track.observe();track.observe();current='sponsors';track.observe();track.observe();
-assert.equal(count.length,2);assert.equal(count[1].audience,'merchant');
-current='merchant-orders';track.observe();assert.equal(count.length,2);
+// V1.367 deliberately re-offers impressions to marketingTrack on re-render.
+// The transport, not this routing function, now deduplicates acknowledged
+// events and limits retries after failures.
+assert.equal(count.length,4);
+assert.equal(count[2].audience,'merchant');
+current='merchant-orders';track.observe();assert.equal(count.length,4);
 console.log('V1.301 PASS — sponsor inquiry, merchant flow, earning paths and route impressions.');
