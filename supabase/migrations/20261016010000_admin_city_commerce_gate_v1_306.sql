@@ -248,4 +248,4 @@ begin
     p_customer_phone,p_address_complement,p_delivery_reference,p_delivery_notes
   );
 end;
-$function$
+$function$;
