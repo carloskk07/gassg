@@ -114,6 +114,15 @@ function patchIndex(html,portal){
   patched=replaceMeta(patched,'property','og:description',identity.description);
   patched=replaceMeta(patched,'name','twitter:title',identity.socialTitle);
   patched=replaceMeta(patched,'name','twitter:description',identity.description);
+  // Dedicated public/merchant bundles must not load admin code. The admin
+  // portal keeps the full legacy dependency graph until it is split safely.
+  if(role!=='admin'){
+    for(const module of ['admin-acquisition','admin','admin-activations']){
+      const tag='<script defer src="./js/'+module+'.js"></script>';
+      if(!patched.includes(tag))throw new Error('Missing expected admin script: '+module);
+      patched=patched.replace(tag,'');
+    }
+  }
   // Restricted admin is intentionally not a marketing landing page.
   return patched;
 }
@@ -155,7 +164,7 @@ function patchManifest(raw,portal){
   return JSON.stringify(manifest,null,2)+'\n';
 }
 
-function patchServiceWorker(raw,sourceSha){
+function patchServiceWorker(raw,sourceSha,role){
   const buildId=String(sourceSha||'unknown').trim()||'unknown';
   if(!/^[A-Za-z0-9._-]{1,120}$/.test(buildId))throw new Error('source SHA inválido para cache PWA');
   const next=raw.replace(
@@ -163,7 +172,17 @@ function patchServiceWorker(raw,sourceSha){
     'const CACHE='+JSON.stringify('tamao-sg-'+buildId)+';'
   );
   if(next===raw)throw new Error('constante CACHE do service worker não encontrada');
-  return next;
+  if(role==='admin')return next;
+  if(!['customer','merchant'].includes(role))throw new Error('Invalid portal cache role');
+  // Avoid prefetching admin modules in a public PWA after excluding them
+  // from the entrypoint. Keep the same SHA-based cache authority.
+  let scoped=next;
+  for(const module of ['admin-acquisition','admin','admin-activations']){
+    const entry=",'./js/"+module+".js'";
+    if(!scoped.includes(entry))throw new Error('Missing expected admin cache entry: '+module);
+    scoped=scoped.replace(entry,'');
+  }
+  return scoped;
 }
 
 
@@ -195,7 +214,7 @@ export function buildLivePortals(env=process.env,{outputRoot=env.PORTAL_BUILD_OU
     );
     fs.writeFileSync(path.join(target,'index.html'),patchIndex(indexRaw,role),'utf8');
     fs.writeFileSync(path.join(target,'manifest.webmanifest'),patchManifest(manifestRaw,role),'utf8');
-    fs.writeFileSync(path.join(target,'sw.js'),patchServiceWorker(serviceWorkerRaw,sourceSha),'utf8');
+    fs.writeFileSync(path.join(target,'sw.js'),patchServiceWorker(serviceWorkerRaw,sourceSha,role),'utf8');
     writePortalRobots(target,role);
     if(role==='customer')writePublicLandingPages(target,{origin:'https://tamao.com.br',indexing:true});
     fs.writeFileSync(path.join(target,'_headers'),headers(role),'utf8');
