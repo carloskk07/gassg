@@ -16,9 +16,9 @@ const orderId='11111111-1111-4111-8111-111111111111';
 const memberId='22222222-2222-4222-8222-222222222222';
 
 function fixture({reply={ok:true},failMutation=false,failRefresh=false,noAccess=false,
-                  staleRefresh=false,delayedMutation=null}={}){
+                  staleRefresh=false,delayedMutation=null,status='OFFERED_TO_MERCHANT'}={}){
   const calls=[], events=[];
-  const initialOrder={orderId,version:9,status:'OFFERED_TO_MERCHANT',offerExpiresAt:new Date(Date.now()+5*60000).toISOString()};
+  const initialOrder={orderId,version:9,status,offerExpiresAt:new Date(Date.now()+5*60000).toISOString()};
   const runtime={
     status:'ready',orders:[initialOrder],merchant:{merchantId:'merchant-1'},
     selectedMerchantId:'merchant-1',lastSyncAt:new Date().toISOString(),
@@ -62,7 +62,8 @@ function fixture({reply={ok:true},failMutation=false,failRefresh=false,noAccess=
 
 // A successful merchant mutation must remain successful after its UI refresh fails.
 for(const action of ['accept','reject','dispatch','arriving','cannot-fulfill']){
-  const s=fixture({failRefresh:true});
+  const statusByAction={accept:'OFFERED_TO_MERCHANT',reject:'OFFERED_TO_MERCHANT',dispatch:'PREPARING',arriving:'OUT_FOR_DELIVERY','cannot-fulfill':'AT_RISK'};
+  const s=fixture({failRefresh:true,status:statusByAction[action]});
   const reply=await s.api.perform(orderId,action);
   assert.equal(reply.ok,true,action);
   assert.equal(s.calls.length,1,action);
@@ -74,14 +75,14 @@ for(const action of ['accept','reject','dispatch','arriving','cannot-fulfill']){
 }
 
 // Delivery assignment must also never leave stale operation buttons.
-const assigned=fixture({failRefresh:true});
+const assigned=fixture({failRefresh:true,status:'PREPARING'});
 assert.equal((await assigned.api.assign(orderId,memberId)).ok,true);
 assert.equal(assigned.calls[0].body.deliveryUserId,memberId);
 assert.equal(assigned.runtime.status,'unavailable');
 assert.equal(assigned.runtime.orders.length,0);
 
 // A confirmed PIN delivery and failed list read are not a failed delivery.
-const delivered=fixture({failRefresh:true});
+const delivered=fixture({failRefresh:true,status:'ARRIVING'});
 assert.equal((await delivered.api.complete(orderId,'1234',true)).ok,true);
 assert.equal(delivered.calls.length,1);
 assert.equal(delivered.runtime.status,'unavailable');
@@ -89,14 +90,14 @@ assert.equal(delivered.runtime.orders.length,0);
 assert.equal(delivered.runtime.actionPending,false);
 
 // Ambiguous HTTP response must remain an error, never a success toast.
-const ambiguous=fixture({failMutation:true});
+const ambiguous=fixture({failMutation:true,status:'ARRIVING'});
 await assert.rejects(()=>ambiguous.api.complete(orderId,'1234',true),/acknowledgement lost/);
 assert.equal(ambiguous.runtime.actionPending,false);
 assert.doesNotMatch(String(ambiguous.runtime.error),/servidor respondeu à solicitação/i);
 
 // Server rejects the PIN: must preserve the rejection and not fake success.
 for(const errorCode of ['PIN_LOCKED','INVALID_PIN']){
-  const invalid=fixture({reply:{ok:false,error:errorCode}});
+  const invalid=fixture({reply:{ok:false,error:errorCode},status:'ARRIVING'});
   await assert.rejects(()=>invalid.api.complete(orderId,'1234',true),
     errorCode==='PIN_LOCKED'?/PIN bloqueado/:/PIN incorreto/);
   assert.equal(invalid.runtime.actionPending,false);
@@ -109,13 +110,13 @@ assert.equal(healthy.runtime.status,'ready');
 assert.equal(healthy.runtime.error,null);
 
 // No access after mutation: fail closed with no old order data.
-const noAccessAfterAck=fixture({noAccess:true});
+const noAccessAfterAck=fixture({noAccess:true,status:'PREPARING'});
 assert.equal((await noAccessAfterAck.api.perform(orderId,'dispatch')).ok,true);
 assert.equal(noAccessAfterAck.runtime.status,'no-access');
 assert.equal(noAccessAfterAck.runtime.orders.length,0);
 
 // A stale response, discarded by concurrent refresh, cannot re-enable the buttons.
-const stale=fixture({staleRefresh:true});
+const stale=fixture({staleRefresh:true,status:'PREPARING'});
 assert.equal((await stale.api.perform(orderId,'dispatch')).ok,true);
 assert.equal(stale.runtime.status,'unavailable');
 assert.equal(stale.runtime.orders.length,0);
@@ -123,7 +124,7 @@ assert.equal(stale.runtime.orders.length,0);
 // Double-click while a mutation is in flight must not dispatch another RPC.
 let unblock;
 const pending=new Promise(resolve=>unblock=resolve);
-const duplicate=fixture({delayedMutation:pending});
+const duplicate=fixture({delayedMutation:pending,status:'PREPARING'});
 const first=duplicate.api.perform(orderId,'dispatch');
 assert.equal(await duplicate.api.perform(orderId,'dispatch'),undefined);
 unblock();
