@@ -127,5 +127,5 @@ begin
   'recipientVerified',false,'providerTransactionIsBeneficiaryProof',false,
   'externalPaidBenefitsCents',null,'readOnly',true,'noTransfers',true
  );
-end;$function$
+end;$function$;
 
