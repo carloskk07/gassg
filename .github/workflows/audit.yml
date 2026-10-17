@@ -575,6 +575,32 @@ jobs:
         run: node tests/runtime-config.mjs
       - name: Live portal bundle contract
         run: node tests/live-portals.mjs
+      - name: Isolated customer and merchant browser smoke
+        env:
+          CHAMA_CUSTOMER_ORIGIN: https://tamao.com.br
+          CHAMA_MERCHANT_ORIGIN: https://parceiro.tamao.com.br
+          CHAMA_ADMIN_ORIGIN: https://admin.tamao.com.br
+          CHAMA_TURNSTILE_SITE_KEY: 1x00000000000000000000AA
+          CHAMA_ALLOW_TEST_TURNSTILE: '1'
+          CHAMA_SOURCE_SHA: ci-js-isolation
+        run: |
+          set -euo pipefail
+          node scripts/build-live-portals.mjs
+          CHROME="$(command -v google-chrome || command -v chromium || command -v chromium-browser)"
+          test -n "$CHROME"
+          for role in customer merchant; do
+            PORT=4187
+            if [[ "$role" == merchant ]]; then PORT=4188; fi
+            python3 -m http.server "$PORT" --directory "dist/live-portals/$role" >"/tmp/tamao-$role-http.log" 2>&1 &
+            SERVER_PID=$!
+            sleep 1
+            ROUTE=home
+            if [[ "$role" == merchant ]]; then ROUTE=merchant; fi
+            "$CHROME" --headless=new --no-sandbox --disable-gpu --window-size=390,844 --virtual-time-budget=3000 --user-data-dir="/tmp/tamao-isolated-$role" --dump-dom "http://127.0.0.1:$PORT/#$ROUTE" >"/tmp/tamao-isolated-$role.html"
+            kill "$SERVER_PID" || true
+            grep -Fq 'id="tamao-main"' "/tmp/tamao-isolated-$role.html"
+            ! grep -Fq 'Não foi possível carregar esta tela.' "/tmp/tamao-isolated-$role.html"
+          done
       - name: Netlify zero-config bundle contract
         env:
           CHAMA_CUSTOMER_ORIGIN: https://chama-sg-cliente.netlify.app
