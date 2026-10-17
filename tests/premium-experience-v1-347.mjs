@@ -57,10 +57,10 @@ assert.equal(fallback,0);
 assert.ok(customer.includes("const primaryAction=acquisitionOpen?'homeDiscoverFocus()':'startCustomerAvailability()'"),
  'first visit must choose a product before quote; verified-offer action remains');
 for(const token of [
- 'aria-label="Vitrine ilustrativa de categorias, sem ofertas ou preços"',
+ 'aria-label="Escolha visual de produtos do catálogo, sem oferta ou disponibilidade confirmadas"',
  'id="home-discover-grid"','aria-label="Filtrar produtos por categoria"',
  'aria-pressed','data-tamao-discover-kind','home-editorial-visual',
- 'A entrega só é confirmada após consultar seu CEP.'
+ 'Preço e entrega dependem das opções confirmadas para seu endereço.'
 ])assert.ok(customer.includes(token),'missing truthful premium discovery marker: '+token);
 assert.ok(boot.includes('homeFilterProducts,homeDiscoverFocus'),'browser callbacks must be wired');
 const merchant=growth.slice(growth.indexOf('function merchantsLanding(){'),growth.indexOf('\nfunction merchantJoin(){'));
