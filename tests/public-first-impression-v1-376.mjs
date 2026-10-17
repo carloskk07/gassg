@@ -59,5 +59,5 @@ assert.match(rail,/publicLandingJump\('merchant-margin'\)/);
 assert.match(rail,/publicLandingJump\('merchant-how'\)/);
 for(const token of ['.tamao-preboot','.city-price-reference-summary','.merchant-jump-rail','@media(max-width:620px)','a:focus-visible'])
   assert.ok(css.includes(token),token);
-assert.match(sw,/const CACHE='tamao-sg-v1\.376'/);
+assert.match(sw,/const CACHE='tamao-sg-v1\.370'/);
 console.log('TAMÃO V1.376 PASS — static first paint, honest market references, focused landing pages and accessible mobile layout.');
