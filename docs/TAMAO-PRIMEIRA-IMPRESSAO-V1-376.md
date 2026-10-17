@@ -15,7 +15,7 @@ Data: 17/10/2026.
 2. **Inicialização.** O fluxo inicial passa a iniciar no `DOMContentLoaded`, depois da execução dos scripts `defer`, sem esperar imagens e recursos restantes terminarem. Portais isolados e proteções continuam no mesmo `render()`.
 3. **Vitrine regional.** Ofertas reais ainda usam a RPC comercialmente controlada. Quando não há oferta comprovada, São Gabriel mostra **uma única referência** com valor usual e faixa, explicitamente não vinculada a uma revenda. Nenhuma referência vira botão de compra.
 4. **Revendas e marcas.** O cadastro continua logo após o hero; o trilho agora prioriza duas perguntas úteis (taxas e entregas). A página de marcas mantém três formatos, seus botões de contato e a explicação de como a campanha pode ser construída, sem uma segunda grade genérica de benefícios.
-5. **Navegação e adaptação.** Microcopy do menu mais clara, referência responsiva e foco de teclado perceptível no fallback. Cache do service worker atualizado para a V1.376.
+5. **Navegação e adaptação.** Microcopy do menu mais clara, referência responsiva e foco de teclado perceptível no fallback. O cache atual utiliza política network-first para buscar os assets novos sem modificar a geração PWA.
 
 ## Preservações e limites
 
