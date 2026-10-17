@@ -5065,3 +5065,23 @@ body:has(.admin-page) .admin-nav-item:focus-visible{outline-offset:-3px}
 @media(max-width:420px){
  .merchant-order-total .merchant-order-total-unverified{font-size:12px}
 }
+
+/* TAMÃO V1.391 — Distinguish server-confirmed item quantities from gaps. */
+.merchant-order-item-list{
+  color:#234a35;font-size:13px;line-height:1.6;
+  overflow-wrap:anywhere;font-variant-numeric:tabular-nums
+}
+.merchant-order-items-notice{
+  display:grid;gap:4px;margin:10px 0 12px;padding:12px 14px;
+  border:1px solid #e7d9b7;border-left:4px solid #c48a27;
+  border-radius:0 12px 12px 0;background:#fff9eb;color:#79551f
+}
+.merchant-order-items-notice strong{font-size:12px;line-height:1.4}
+.merchant-order-items-notice span{font-size:12px;line-height:1.6}
+@media(max-width:480px){
+ .merchant-order-item-list{font-size:13px}
+ .merchant-order-items-notice{margin:9px 0 11px;padding:11px 12px}
+}
+@media(max-width:350px){
+ .merchant-order-items-notice span{font-size:11px}
+}
