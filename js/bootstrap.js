@@ -94,6 +94,14 @@ window.addEventListener('online',()=>{
   }
 });
 
+// The public visitor can see the real home after deferred scripts load, without
+// waiting for media. Protected portal callback consumption remains in the load
+// handler before the first admin/merchant render.
+window.addEventListener('DOMContentLoaded',()=>{
+  if(globalThis.adminPortalRequested?.()||globalThis.merchantPortalRequested?.())return;
+  tamaoPublicEntryRoute();
+  render();
+});
 window.addEventListener('load',async()=>{
   if(globalThis.adminPortalRequested?.()){
     await adminBackendInit();

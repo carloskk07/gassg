@@ -703,3 +703,57 @@
 @media(prefers-reduced-motion:reduce){
  .home-entry-intent button{transition:none}
 }
+
+
+/* TAMÃO V1.376 — stable, informative first paint before the JS app mounts.
+   Static markup contains no offer, delivery or stock claim. */
+.tamao-preboot{
+  box-sizing:border-box;min-height:min(720px,100svh);padding:clamp(22px,5vw,65px);
+  color:#fff;background:radial-gradient(circle at 90% 10%,rgba(244,182,63,.18),transparent 35%),
+  radial-gradient(circle at 25% 85%,rgba(32,164,101,.28),transparent 43%),
+  linear-gradient(145deg,#0a3e2d,#0d6b4b 72%,#0a4b38);
+  display:flex;flex-direction:column;gap:clamp(40px,8vh,95px);
+}
+.tamao-preboot-brand{display:flex;align-items:center;gap:11px;max-width:1100px;width:100%;margin-inline:auto}
+.tamao-preboot-brand>img{width:44px;height:44px;border-radius:13px}
+.tamao-preboot-brand span{display:grid;gap:1px}
+.tamao-preboot-brand strong{font-size:25px;letter-spacing:-.05em;line-height:1}
+.tamao-preboot-brand small{font-size:11px;color:#d9f1e5}
+.tamao-preboot-content{max-width:1100px;width:100%;margin:0 auto}
+.tamao-preboot-eyebrow{display:block;font-size:11px;font-weight:900;letter-spacing:.14em;color:#f9d788}
+.tamao-preboot h1{font-size:clamp(39px,7vw,85px);font-weight:900;line-height:1.06;letter-spacing:-.055em;max-width:14ch;margin:14px 0 18px;text-wrap:balance;color:#fff}
+.tamao-preboot h1 em{font-style:normal;color:#f4b63f}
+.tamao-preboot-content>p{font-size:clamp(15px,1.7vw,19px);line-height:1.6;max-width:57ch;color:#e4f3e9;margin-bottom:24px}
+.tamao-preboot nav{display:flex;gap:12px;align-items:center;flex-wrap:wrap}
+.tamao-preboot nav a{display:inline-flex;align-items:center;justify-content:center;min-height:47px;padding:12px 18px;border:1px solid rgba(255,255,255,.36);border-radius:12px;color:#fff;text-decoration:none;font-weight:800;font-size:13px}
+.tamao-preboot nav .tamao-preboot-primary{background:#f4b63f;color:#143b2a;border-color:#f4b63f}
+.tamao-preboot a:focus-visible{outline:3px solid #fff;outline-offset:4px}
+.tamao-preboot noscript p{color:#fff;font-size:13px}
+/* One market reference cannot masquerade as three independent store prices. */
+.city-price-reference-summary{
+  grid-column:1/-1;display:grid;grid-template-columns:minmax(0,1fr) minmax(190px,.45fr);
+  gap:clamp(13px,3vw,28px);align-items:center;padding:clamp(18px,3vw,27px);
+  border:1px solid #d4e2d5;background:linear-gradient(118deg,#fffdf8,#f0f7f0);
+}
+.city-price-reference-copy,.city-price-reference-amount{min-width:0}
+.city-price-reference-copy p{max-width:50ch;font-size:13px;line-height:1.6;margin:9px 0 0;color:#5a6c60}
+.city-price-reference-amount{padding:11px 16px;border-left:1px solid #d3e3d7}
+.city-price-reference-amount .city-price-amount{font-size:clamp(26px,3.4vw,41px);display:block}
+.city-price-reference-amount small{display:block;color:#586d60;line-height:1.5;margin-top:4px}
+.city-price-reference-note{grid-column:1/-1;font-size:12px;color:#617267;line-height:1.55;margin:0}
+.merchant-jump-rail{grid-template-columns:repeat(2,minmax(0,1fr));margin-top:12px}
+.tamao-sponsors-page .public-sponsor-selector-intro{padding-block:12px 6px;margin-block:12px 0}
+.tamao-sponsors-page .public-sponsor-selector-intro h2{font-size:clamp(23px,2.7vw,30px)}
+@media(max-width:620px){
+  .tamao-preboot{min-height:610px;padding:24px 18px;gap:65px}
+  .tamao-preboot h1{font-size:clamp(37px,11vw,57px)}
+  .tamao-preboot nav{display:grid;grid-template-columns:1fr;width:100%}
+  .tamao-preboot nav a{min-height:48px}
+  .city-price-reference-summary{grid-template-columns:minmax(0,1fr);padding:16px}
+  .city-price-reference-amount{border-left:0;border-top:1px solid #d3e3d7;padding:12px 0 0}
+  .city-price-reference-note{grid-column:1}
+  .merchant-jump-rail{grid-template-columns:minmax(0,1fr)}
+}
+@media(prefers-reduced-motion:reduce){
+  .tamao-preboot *{scroll-behavior:auto}
+}
