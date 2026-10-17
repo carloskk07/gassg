@@ -35,11 +35,14 @@ for(const fixture of [
 
 const directory=new URL('../supabase/migrations/',import.meta.url);
 let files=0,bodies=0;
+const violations=[];
 for(const filename of fs.readdirSync(directory).filter(n=>n.endsWith('.sql')).sort()){
   const sql=fs.readFileSync(new URL(filename,directory),'utf8');
-  bodies+=assertSqlFunctionTerminators(sql,path.join('supabase/migrations',filename));
+  try{bodies+=assertSqlFunctionTerminators(sql,path.join('supabase/migrations',filename))}
+  catch(error){violations.push(String(error?.message||error))}
   files++;
 }
 assert.ok(files>0,'No migrations scanned');
+assert.equal(violations.length,0,'SQL migrations with unterminated bodies:\n'+violations.join('\n'));
 assert.ok(bodies>0,'No SQL function bodies scanned');
 console.log('SQL function terminator gate passed: '+bodies+' dollar-quoted bodies in '+files+' migrations.');
