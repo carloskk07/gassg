@@ -121,7 +121,7 @@ const actionCtx=vm.createContext({
  toast:v=>messages.push(String(v)),
  merchantPerformAction:async(...args)=>{calls++;if(reject)throw new Error('VERSION_CONFLICT');return args}
 });
-vm.runInContext(extract('merchantIncidentAdvice')+'\nasync '+
+vm.runInContext(extract('merchantIncidentAdvice')+'\n'+extract('merchantPostActionConfirmation')+'\nasync '+
  extract('merchantLiveCannotFulfill')+
  ';this.failOrder=merchantLiveCannotFulfill;',actionCtx);
 const act=actionCtx.failOrder;
