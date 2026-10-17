@@ -3176,7 +3176,31 @@ function merchantUnifiedOpsBoard(rt,orders){
 }
 
 function merchantLiveOrder(o){
-  const items=(o.items||[]).map(i=>`${Number(i.quantity)}× ${esc(i.productName||i.productCode||'Item')}`).join(' • ');
+  // V1.391 — A missing quantity is not zero or a displayable NaN.
+  // This is read-only: server items/prices and all order actions stay authoritative.
+  const rawItems=Array.isArray(o.items)?o.items:[];
+  const visibleItems=rawItems.slice(0,50);
+  let itemDetailsIncomplete=!visibleItems.length||rawItems.length>visibleItems.length;
+  const items=visibleItems.map(i=>{
+    const rawQty=i?.quantity;
+    const quantity=Number(rawQty);
+    const validQuantity=(typeof rawQty==='number'||
+      (typeof rawQty==='string'&&/^[0-9]+$/.test(rawQty)))
+      &&Number.isSafeInteger(quantity)&&quantity>0&&quantity<=1000000;
+    const rawName=typeof i?.productName==='string'&&i.productName.trim()
+      ?i.productName:typeof i?.productCode==='string'&&i.productCode.trim()
+        ?i.productCode:'';
+    const validName=rawName.length>0&&rawName.length<=180;
+    if(!validQuantity||!validName)itemDetailsIncomplete=true;
+    const name=validName?esc(rawName):'Produto não identificado';
+    return validQuantity?quantity.toLocaleString('pt-BR')+'× '+name:
+      'Quantidade não confirmada — '+name;
+  }).join(' • ');
+  const itemReviewNote=itemDetailsIncomplete
+    ?'<div class="merchant-order-items-notice" role="status">'+
+      '<strong>Confira os itens deste pedido</strong>'+
+      '<span>Alguma quantidade ou descrição está ausente, ou a lista está incompleta. Atualize a fila antes de decidir.</span>'+
+      '</div>':'';
   // V1.390 — Absence of a server-provided total is not a confirmed R$ 0,00.
   const totalCents=Number(o.totalCents);
   const hasTotal=(typeof o.totalCents==='number'||
@@ -3315,7 +3339,7 @@ function merchantLiveOrder(o){
   }
 
   return `<article tabindex="-1" class="order-card ${o.status==='OFFERED_TO_MERCHANT'?'new':''}" id="merchant-order-card-${esc(o.orderId)}">
-    <div class="order-head"><div><div class="order-id">${esc(o.publicCode||o.orderId)}</div><div class="order-line">${items||'Itens do pedido'}</div></div><div class="merchant-order-total"><strong class="${hasTotal?'':'merchant-order-total-unverified'}">${esc(total)}</strong><div class="tiny muted">${esc(copy[0])}</div></div></div>
+    <div class="order-head"><div><div class="order-id">${esc(o.publicCode||o.orderId)}</div><div class="order-line merchant-order-item-list">${items||'Itens não confirmados nesta consulta'}</div>${itemReviewNote}</div><div class="merchant-order-total"><strong class="${hasTotal?'':'merchant-order-total-unverified'}">${esc(total)}</strong><div class="tiny muted">${esc(copy[0])}</div></div></div>
     ${compactMeta}
     ${merchantOrderAttentionCard(o)}
     ${typeof merchantSupportForOrder==='function'?merchantSupportForOrder(o):''}
