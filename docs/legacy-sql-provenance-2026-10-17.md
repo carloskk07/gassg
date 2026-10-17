@@ -39,3 +39,30 @@ A consulta de autorização verifica somente as **funções representativas list
 ## Para uma nova revisão
 
 Reexecute a consulta SQL guardada e registre a data, a SHA da `main`, a versão real das Edge Functions e o resultado dos testes. Esse arquivo documenta **um diagnóstico datado**, não um monitoramento permanente nem uma autorização de migração.
+
+## Atualização V1.400 — origem canônica comprovada em 17/10/2026
+
+A tabela inicial registra corretamente a **ausência dos números históricos das branches**. Uma verificação adicional provou que quatro migrations foram integradas sob IDs posteriores. Essa descoberta esclarece a ausência dos números anteriores, sem exigir reparação artificial do histórico.
+
+| PR original | ID da migration na PR | Migration canônica na `main` | Presente no histórico aplicado? |
+|---|---|---|---|
+| [#205](https://github.com/carloskk07/gassg/pull/205) | `20261011043000` | `20261012042111_delivery_first_payment_boundary_v1_158_1.sql` | **Sim** |
+| [#207](https://github.com/carloskk07/gassg/pull/207) | `20261011063000` | `20261012042134_merchant_basket_compliance_v1_158_2.sql` | **Sim** |
+| [#208](https://github.com/carloskk07/gassg/pull/208) | `20261011073000` | `20261012042157_settlement_daily_due_alignment_v1_158_3.sql` | **Sim** |
+| [#209](https://github.com/carloskk07/gassg/pull/209) | `20261011083000` | `20261012042201_merchant_representation_authority_v1_158_4.sql` | **Sim** |
+
+Comparei cada migration original diretamente com seu arquivo canônico. O conteúdo é **idêntico, exceto pela quebra de linha final** acrescentada aos arquivos da `main`. O banco confirmou `canonical_migration_registered=true` nas quatro correspondências. As funções e triggers críticos de proteção de pagamento, conformidade e D+1 também foram identificados no banco com consulta **somente leitura**. Essa prova resolve a origem do SQL, mas não substitui testes ponta a ponta de transações reais.
+
+`tests/legacy-canonical-sql-v1-400.mjs` verifica os **Git blob SHA-1** desses quatro arquivos já registrados, impedindo reescrever migrations aplicadas sem criar uma versão nova. O controle não depende da existência futura das branches históricas.
+
+### PR #82 — resgate de pedidos durante o modo PILOT
+
+A função efetiva `merchant_allowed_in_operation_mode` foi comparada ao corpo da PR #82 (normalizando somente sintaxe/whitespace de DDL): a condição de elegibilidade do modo PILOT é equivalente. Também conferi o corpo ativo de `system_rescue_order`: ainda contém filtragem por modo operacional **na busca inicial e na rechecagem sob lock**, bloqueio `FOR UPDATE SKIP LOCKED`, `pg_advisory_xact_lock` e confirmação integral dos itens. O SQL ativo também inclui `merchant_basket_compliance_current`, proteção posterior sobre GLP/ANP ausente na implementação histórica. `market_supply_status` preserva o filtro PILOT e evoluiu para conformidade por item. Todas as três funções estão restritas a `service_role`, sem execução direta por `anon` ou `authenticated`.
+
+O teste V1.400 protege os fragmentos decisivos na origem versionada; **não** executa um resgate real nem simula concorrência no banco.
+
+### PR #38 — ativação assistida permanece em revisão
+
+A função antiga `admin_approve_pilot_application` não está implantada. Há `admin_assisted_merchant_onboarding_v2`, mas o contrato de seleção de staging, aprovações, inativação de catálogo e autorização comercial **ainda não foi comprovado como equivalente**. Não aplicar sua migration antiga. Manter em revisão enquanto a nova jornada é comparada ponta a ponta.
+
+**Nota histórica:** as afirmações anteriores de "seis pendências" descrevem a fotografia V1.399 anterior à verificação de versões canônicas. Este adendo registra a descoberta posterior, sem apagar a evidência original.

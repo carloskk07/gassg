@@ -1,22 +1,27 @@
 -- TAMÃO V1.399: historical SQL provenance checkpoint — read-only.
 -- Execute as a privileged diagnostic query against Supabase.
 -- NEVER infer from function presence that the original migration is safe to replay.
-with historical(pr_number,version,legacy_filename,original_function,current_candidate) as (
+with historical(pr_number,version,legacy_filename,original_function,current_candidate,canonical_version) as (
   values
   (38, '20261003060000', 'pilot_assisted_activation_v1_44.sql',
-    'admin_approve_pilot_application', 'admin_assisted_merchant_onboarding_v2'),
+    'admin_approve_pilot_application', 'admin_assisted_merchant_onboarding_v2', null),
   (82, '20261005120500', 'pilot_rescue_boundary_reconciliation_v1_70_9.sql',
-    'merchant_allowed_in_operation_mode', 'merchant_allowed_in_operation_mode'),
+    'merchant_allowed_in_operation_mode', 'merchant_allowed_in_operation_mode', null),
   (205, '20261011043000', 'delivery_first_payment_boundary_v1_158_1.sql',
-    'merchant_delivery_payment_allowed', 'merchant_delivery_payment_allowed'),
+    'merchant_delivery_payment_allowed', 'merchant_delivery_payment_allowed', '20261012042111'),
   (207, '20261011063000', 'merchant_basket_compliance_v1_158_2.sql',
-    'merchant_basket_compliance_current', 'merchant_basket_compliance_current'),
+    'merchant_basket_compliance_current', 'merchant_basket_compliance_current', '20261012042134'),
   (208, '20261011073000', 'settlement_daily_due_alignment_v1_158_3.sql',
-    'merchant_settlement_daily_due_at', 'merchant_settlement_daily_due_at'),
+    'merchant_settlement_daily_due_at', 'merchant_settlement_daily_due_at', '20261012042157'),
   (209, '20261011083000', 'merchant_representation_authority_v1_158_4.sql',
-    'admin_merchant_representation_action', 'admin_merchant_representation_action')
+    'admin_merchant_representation_action', 'admin_merchant_representation_action', '20261012042201')
 )
 select h.pr_number,h.version,h.legacy_filename,h.original_function,h.current_candidate,
+  h.canonical_version,
+  case when h.canonical_version is null then null else exists (
+    select 1 from supabase_migrations.schema_migrations m
+    where m.version=h.canonical_version
+  ) end as canonical_migration_registered,
   exists (
     select 1 from supabase_migrations.schema_migrations m
     where m.version=h.version

@@ -61,6 +61,8 @@ jobs:
         run: node tests/sql-function-terminators-v1-397.mjs
       - name: Read-only legacy SQL source provenance V1.399
         run: node tests/sql-provenance-readonly-v1-399.mjs
+      - name: Canonical applied migrations and pilot rescue V1.400
+        run: node tests/legacy-canonical-sql-v1-400.mjs
       - name: Static trust and asset audit
         run: node tests/static-audit.mjs
       - name: Admin control plane V1.133 regression contract
