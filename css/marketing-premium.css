@@ -171,3 +171,64 @@
  .home-starter-neutral .starter-product-icon{width:40px;height:40px}
  .home-quick-category button{padding:9px 7px;font-size:12px}
 }
+
+
+/* TAMÃO V1.365 — decision-first paths for shoppers, merchants and sponsors. */
+.public-page-jump-rail{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;
+  margin:12px 0 25px;max-width:100%}
+.public-page-jump-rail.buyer-jump-rail{grid-template-columns:repeat(2,minmax(0,1fr));margin-top:21px}
+.public-page-jump-rail button{display:flex;min-width:0;align-items:center;text-align:left;gap:12px;
+  min-height:88px;padding:16px;border:1px solid #d6e8db;border-radius:17px;
+  background:#fff;color:#174632;box-shadow:0 8px 22px rgba(15,69,41,.045);
+  cursor:pointer;transition:transform .16s ease,box-shadow .16s ease,border-color .16s ease}
+.public-page-jump-rail button>span:first-child{display:grid;place-items:center;flex:0 0 43px;
+  width:43px;height:43px;border-radius:13px;background:#e8f4eb;font-size:22px}
+.public-page-jump-rail button>span:nth-child(2){min-width:0;flex:1}
+.public-page-jump-rail button strong{display:block;font-size:14px;line-height:1.3;
+  font-weight:900;letter-spacing:-.015em}
+.public-page-jump-rail button small{display:block;font-size:12px;line-height:1.5;
+  margin-top:4px;color:#5b7363}
+.public-page-jump-rail button b{font-size:17px;color:#20744d;flex:0 0 auto}
+.public-page-jump-rail .public-jump-primary{background:linear-gradient(145deg,#0a6549,#0b4738);
+  border-color:#0a5c44;color:#fff;box-shadow:0 12px 23px rgba(9,78,54,.15)}
+.public-page-jump-rail .public-jump-primary>span:first-child{background:rgba(255,255,255,.15)}
+.public-page-jump-rail .public-jump-primary small{color:#d8f1e2}
+.public-page-jump-rail .public-jump-primary b{color:#fff}
+.public-page-jump-rail button:focus-visible,.sponsor-format-grid article button:focus-visible{
+  outline:3px solid #bf8624;outline-offset:3px}
+#buyer-guide-steps,#buyer-guide-questions,#merchant-margin,#merchant-how{
+  scroll-margin-top:100px}
+#buyer-guide-steps:focus,#buyer-guide-questions:focus,#merchant-margin:focus,#merchant-how:focus{
+  outline:2px solid #99c9aa;outline-offset:4px}
+.public-sponsor-selector-intro{max-width:730px;padding:7px 0 4px}
+.public-sponsor-selector-intro h2{font-size:clamp(24px,3vw,34px);line-height:1.16;
+  letter-spacing:-.035em;margin:9px 0;color:#133d2c;text-wrap:balance}
+.public-sponsor-selector-intro p{font-size:14px;color:#536d5d;line-height:1.65;margin:0}
+.sponsor-format-grid article button{display:flex;align-items:center;justify-content:space-between;
+  gap:12px;text-align:left;min-height:45px;width:100%;margin-top:auto;padding:11px 13px;
+  border:1px solid rgba(233,250,237,.35);border-radius:11px;
+  background:rgba(255,255,255,.94);color:#09513a;font-size:13px;font-weight:850;
+  cursor:pointer;transition:background .16s ease,transform .16s ease}
+.sponsor-format-grid article p{margin-bottom:19px}
+.sponsor-format-grid article button:hover{background:#fff}
+.sponsor-format-grid article button span{color:#16774d;font-size:17px}
+@media(hover:hover) and (pointer:fine){
+  .public-page-jump-rail button:hover{transform:translateY(-2px);
+    border-color:#8dbb9d;box-shadow:0 13px 27px rgba(12,68,42,.09)}
+  .sponsor-format-grid article button:hover{transform:translateY(-1px)}
+}
+@media(max-width:800px){
+  .public-page-jump-rail,.public-page-jump-rail.buyer-jump-rail{grid-template-columns:minmax(0,1fr);gap:8px}
+  .public-page-jump-rail button{min-height:70px;padding:12px 14px;border-radius:14px}
+}
+@media(max-width:480px){
+  .public-page-jump-rail{margin:7px 0 20px}
+  .public-page-jump-rail button>span:first-child{width:38px;height:38px;flex-basis:38px;font-size:20px}
+  .public-page-jump-rail button strong{font-size:13px}
+  .public-page-jump-rail button small{font-size:11px}
+  .sponsor-format-grid article button{min-height:48px}
+}
+@media(prefers-reduced-motion:reduce){
+  .public-page-jump-rail button,.sponsor-format-grid article button{transition:none}
+  .public-page-jump-rail button:hover,.sponsor-format-grid article button:hover{transform:none}
+}
