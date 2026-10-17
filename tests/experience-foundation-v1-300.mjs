@@ -16,7 +16,7 @@ for(const token of [
 for(const token of [
  'const valueBridge=','Resolva as compras do dia a dia.','Abra mais uma porta para vender.',
  'Compartilhe algo que faz sentido.','startCustomerAvailability()',"go('merchants')",
- "go('earn')",'\u0024{valueBridge}',
+ "go('earn')",'\u0024{!conciseHome?valueBridge:\'\'}',
  'Faltou em casa?'
 ])assert.ok(home.includes(token),'missing public conversion flow: '+token);
 assert.ok(!home.includes('garantimos sua renda'));

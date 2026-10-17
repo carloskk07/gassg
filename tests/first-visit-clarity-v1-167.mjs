@@ -58,9 +58,17 @@ assert.match(noSupply,/Como descubro se há entrega para mim\?/);
 assert.match(noSupply,/Preciso comprar gás para pedir água\?/);
 assert.match(noSupply,/Quando meu pedido está confirmado\?/);
 assert.match(noSupply,/home-notify-shortcut/);
+assert.match(noSupply,/class="purchase-starter home-starter-neutral"/,
+ 'First visit must show a neutral product chooser');
+assert.match(noSupply,/Gás, água e outros essenciais/);
+assert.match(noSupply,/COMECE PELA SUA ESCOLHA/);
+assert.doesNotMatch(noSupply,/class="home-value-bridge tamao-visitor-paths"/,
+ 'Avoid repeating the visitor path before the availability signup');
+assert.match(noSupply,/event\.preventDefault\(\);startHomeBrowse\(\)/,
+ 'Optional CEP Enter must not preselect gas');
 assert.ok(noSupply.indexOf('id="early-access"')<noSupply.indexOf('home-trust-brief'),
  'availability signup should precede optional FAQ, not be blocked by a lecture');
-assert.match(noSupply,/Consultar meu CEP|Escolher produtos →/);
+assert.match(noSupply,/Consultar meu CEP|Escolher produtos →|Escolher meus produtos/);
 assert.match(noSupply,/São Gabriel/);
 assert.match(noSupply,/Quer saber mais ou tem uma revenda\?/);
 assert.match(noSupply,/Cadastrar minha empresa/);
@@ -81,7 +89,7 @@ assert.ok((noSupply.match(/class="section /g)||[]).length<=2,
  'Unserved region must focus on main CTA, signup and simple paths');
 
 const unavailable=render({ready:false});
-assert.match(unavailable,/Consultar meu CEP|Escolher produtos →/);
+assert.match(unavailable,/Consultar meu CEP|Escolher produtos →|Escolher meus produtos/);
 assert.doesNotMatch(unavailable,/class="quick-grid"/);
 assert.doesNotMatch(unavailable,/class="hero-visual"/);
 assert.match(unavailable,/Os preços de revendas aparecem após confirmação|Confira seu CEP/,
@@ -92,6 +100,9 @@ assert.doesNotMatch(withOffers,/home-first-visit/);
 assert.doesNotMatch(withOffers,/class="home-trust-brief"/,'verified buyers should not see lead-only education');
 assert.doesNotMatch(withOffers,/home-notify-shortcut/,'verified buyers should not be led to a notification form');
 assert.match(withOffers,/class="hero-visual"/);
+assert.doesNotMatch(withOffers,/class="purchase-starter home-starter-neutral"/);
+assert.match(withOffers,/class="home-value-bridge tamao-visitor-paths"/,
+ 'Verified regions retain the full audience discovery experience');
 assert.match(withOffers,/class="quick-grid"/);
 assert.match(withOffers,/Botijão de cozinha 13 kg/);
 assert.match(withOffers,/Conferir ofertas do meu CEP/);

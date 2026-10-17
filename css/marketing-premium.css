@@ -137,3 +137,37 @@
 @media(prefers-reduced-motion:reduce){
   .home-trust-brief *, .home-trust-answers *{scroll-behavior:auto!important}
 }
+
+
+/* TAMÃO V1.364 — calm product-first starting point, no implied default item. */
+.home-first-visit .home-starter-neutral{padding:clamp(13px,2.5vw,18px);max-width:640px;
+  background:linear-gradient(155deg,#fff,#fcfffc);border:1px solid #b8d9c4}
+.home-starter-neutral .starter-product-explore{grid-template-columns:52px minmax(0,1fr) auto;gap:13px}
+.home-starter-neutral .starter-product-icon{background:linear-gradient(145deg,#e3f4e9,#cae9d4);
+  color:#164c36;box-shadow:0 8px 18px rgba(29,109,71,.08)}
+.home-starter-neutral .starter-product strong{color:#123e2d;font-size:clamp(15px,1.7vw,18px)}
+.home-starter-neutral .starter-product small{color:#526d5d}
+.home-starter-neutral .starter-price{min-width:0;border:1px solid #d5e9dc;border-radius:11px;
+  background:#f1f9f3;padding:9px 12px;color:#155b3b}
+.home-starter-neutral .starter-price small{display:block;color:#5a806b;font-size:9px}
+.home-starter-neutral .starter-price b{font-size:13px}
+.home-first-visit .home-starter-neutral .starter-cta{min-height:54px;font-size:15px}
+.bottom-nav .nav-btn-shop{background:#eaf6ee;color:#0b6742;border-radius:13px;
+  min-height:46px;margin-block:-1px;outline-offset:1px}
+.bottom-nav .nav-btn-shop.active{background:#d0ebd9;color:#084e32}
+.bottom-nav .nav-btn-shop:focus-visible{outline:3px solid #bd821b;outline-offset:3px}
+@media(max-width:620px){
+ .home-first-visit .home-starter-neutral{margin-top:16px}
+ .home-starter-neutral .starter-product-explore{grid-template-columns:44px minmax(0,1fr);gap:10px}
+ .home-starter-neutral .starter-product-icon{width:44px;height:44px;border-radius:13px}
+ .home-starter-neutral .starter-product strong{font-size:15px}
+ .home-starter-neutral .starter-price{grid-column:1/-1;display:flex;align-items:center;
+  justify-content:space-between;gap:10px;padding:9px 12px;text-align:left}
+ .home-starter-neutral .starter-price b{margin:0;white-space:nowrap}
+ .bottom-nav .nav-btn{min-height:46px}
+}
+@media(max-width:370px){
+ .home-starter-neutral .starter-product-explore{grid-template-columns:40px minmax(0,1fr)}
+ .home-starter-neutral .starter-product-icon{width:40px;height:40px}
+ .home-quick-category button{padding:9px 7px;font-size:12px}
+}

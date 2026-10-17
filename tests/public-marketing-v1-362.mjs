@@ -59,6 +59,22 @@ for(const selector of ['.home-trust-brief','.home-trust-answers','.home-notify-s
   '@media(max-width:850px)','@media(max-width:540px)']){
   assert.ok(css.includes(selector),'V1.363 responsive clarity element missing: '+selector);
 }
+// V1.364: public and mobile buyer entry must never force P13 into a cart.
+assert.match(core,/\['order','🧺','Pedir','browse'\]/,
+ 'mobile order CTA must open product-first browsing');
+assert.match(core,/act==='browse'\?"startHomeBrowse\(\)"/,
+ 'bottom nav click must preserve the basket and open the product chooser');
+assert.match(core,/nav-btn-shop/,'buy action needs an identifiable mobile style');
+assert.ok(home.includes("${!conciseHome?valueBridge:''}"),
+ 'unverified first visit must not repeat buyer-merchant-network cards');
+assert.ok(home.includes('home-starter-neutral'),
+ 'unserved visitor sees neutral products rather than default gas');
+assert.ok(home.includes("onclick=\"startHomeBrowse()\""),
+ 'verified region generic product CTA may not force P13');
+for(const selector of ['.home-starter-neutral','.nav-btn-shop',
+  '@media(max-width:370px)']){
+  assert.ok(css.includes(selector),'missing V1.364 mobile conversion rule '+selector);
+}
 const learnCtas=learn.match(/onclick="startHomeBrowse\(\)"/g)||[];
 assert.equal(learnCtas.length,2,'both educational CTAs must open the product chooser');
 assert.ok(!learn.includes('onclick="startCustomerAvailability()"'),
