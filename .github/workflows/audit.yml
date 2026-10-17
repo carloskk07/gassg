@@ -491,6 +491,8 @@ jobs:
         run: node tests/merchant-post-action-feedback-v1-357.mjs
       - name: V1.358 merchant RPC acknowledgement integrity regression
         run: node tests/merchant-acknowledgement-integrity-v1-358.mjs
+      - name: V1.359 merchant dispatch auto-rescue and verified server outcome regression
+        run: node tests/merchant-outcome-proof-v1-359.mjs
       - name: Admin all-months unresolved payout queue V1.340 regression
         run: node tests/payout-global-followup-v1-340.mjs
       - name: Admin all-months payout pagination V1.341 regression
