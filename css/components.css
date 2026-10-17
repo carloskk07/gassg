@@ -4845,3 +4845,78 @@ body:has(.admin-page) .admin-nav-item:focus-visible{outline-offset:-3px}
 @media(prefers-reduced-motion:reduce){
  .merchant-order-support summary{scroll-behavior:auto}
 }
+
+/* TAMÃO V1.387 — order-queue support priorities (read-only).
+   Uses only the latest permitted merchant-orders snapshot. */
+.merchant-support-priority-board{
+  margin:15px 0 19px;
+  border:1px solid #c9dfd0;
+  border-radius:20px;
+  padding:clamp(16px,2.3vw,23px);
+  color:#183e2b;
+  background:radial-gradient(ellipse at 100% 0%,rgba(245,183,62,.17),transparent 40%),
+    linear-gradient(128deg,#f1faf4,#fffdf7);
+  box-shadow:0 12px 30px rgba(12,83,48,.065)
+}
+.merchant-support-priority-header{
+  display:flex;align-items:start;justify-content:space-between;gap:12px;
+  margin-bottom:14px
+}
+.merchant-support-priority-header h3{
+  font-size:clamp(18px,2.2vw,24px);line-height:1.2;
+  letter-spacing:-.035em;color:#144b32;margin:5px 0 8px
+}
+.merchant-support-priority-header p{
+  color:#4c7059;font-size:13px;line-height:1.6;margin:0;
+  max-width:68ch
+}
+.merchant-support-priority-list{
+  list-style:none;padding:0;margin:0;
+  display:grid;gap:9px
+}
+.merchant-support-priority-row{
+  display:flex;align-items:center;justify-content:space-between;gap:12px;
+  border:1px solid #d8e7da;border-radius:13px;
+  padding:12px 14px;background:#fff;min-width:0
+}
+.merchant-support-priority-row>div{flex:1;min-width:0}
+.merchant-support-priority-row strong{
+  display:inline-block;font-size:14px;line-height:1.4;
+  font-variant-numeric:tabular-nums;overflow-wrap:anywhere
+}
+.merchant-support-priority-state{
+  display:inline-block;margin-left:9px;
+  font-size:11px;color:#825c22;background:#fff6dd;
+  border:1px solid #f2e0b3;border-radius:99px;
+  padding:4px 8px;font-weight:850
+}
+.merchant-support-priority-row p{
+  font-size:12px;line-height:1.55;margin:7px 0 0;
+  color:#5d7464;overflow-wrap:anywhere
+}
+.merchant-support-priority-row button{
+  flex:none;min-height:46px;white-space:nowrap;
+  font-size:12px;font-weight:850;border-radius:11px
+}
+.merchant-support-priority-row button:focus-visible{
+  outline:3px solid #b48427;outline-offset:3px
+}
+.merchant-support-priority-board>small,
+.merchant-support-priority-overflow{
+  display:block;font-size:11px;line-height:1.6;color:#5d7464;
+  margin:13px 0 0
+}
+@media(max-width:620px){
+ .merchant-support-priority-board{padding:13px;border-radius:16px}
+ .merchant-support-priority-header{flex-wrap:wrap}
+ .merchant-support-priority-row{padding:12px;align-items:stretch;flex-direction:column}
+ .merchant-support-priority-row button{width:100%;min-height:49px}
+ .merchant-support-priority-state{margin-left:0;margin-top:4px}
+}
+@media(max-width:350px){
+ .merchant-support-priority-header h3{font-size:18px}
+ .merchant-support-priority-row p{font-size:11px}
+}
+@media(prefers-reduced-motion:reduce){
+ .merchant-support-priority-row button{transition:none}
+}
