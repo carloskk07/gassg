@@ -507,6 +507,8 @@ jobs:
         run: node tests/merchant-unified-workspace-v1-388.mjs
       - name: V1.389 merchant offer deadline recovery and refresh safety
         run: node tests/merchant-offer-recovery-v1-389.mjs
+      - name: V1.390 merchant order verified amounts and cash change
+        run: node tests/merchant-verified-amount-v1-390.mjs
       - name: V1.368 evidence-led acquisition dashboard
         run: node tests/admin-acquisition-evidence-v1-368.mjs
       - name: V1.369 linked campaign outcome evidence

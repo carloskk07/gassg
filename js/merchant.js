@@ -3177,7 +3177,16 @@ function merchantUnifiedOpsBoard(rt,orders){
 
 function merchantLiveOrder(o){
   const items=(o.items||[]).map(i=>`${Number(i.quantity)}× ${esc(i.productName||i.productCode||'Item')}`).join(' • ');
-  const total=BRL.format(Number(o.totalCents||0)/100);
+  // V1.390 — Absence of a server-provided total is not a confirmed R$ 0,00.
+  const totalCents=Number(o.totalCents);
+  const hasTotal=(typeof o.totalCents==='number'||
+    (typeof o.totalCents==='string'&&/^[0-9]+$/.test(o.totalCents)))
+    &&Number.isSafeInteger(totalCents)&&totalCents>=0&&totalCents<=1000000000;
+  const total=hasTotal?BRL.format(totalCents/100):'Total não confirmado';
+  const cashTenderCents=Number(o.cashTenderCents);
+  const validCashTender=(typeof o.cashTenderCents==='number'||
+    (typeof o.cashTenderCents==='string'&&/^[0-9]+$/.test(o.cashTenderCents)))
+    &&Number.isSafeInteger(cashTenderCents)&&cashTenderCents>0&&cashTenderCents<=1000000000;
   const copy=statusCopy[o.status]||[o.status,''];
   const address=o.addressVisible&&o.address?'📍 '+esc(o.address):'📍 Endereço protegido até o aceite';
   const currentRole=String(globalThis.merchantRuntime?.merchant?.memberRole||'');
@@ -3306,13 +3315,13 @@ function merchantLiveOrder(o){
   }
 
   return `<article tabindex="-1" class="order-card ${o.status==='OFFERED_TO_MERCHANT'?'new':''}" id="merchant-order-card-${esc(o.orderId)}">
-    <div class="order-head"><div><div class="order-id">${esc(o.publicCode||o.orderId)}</div><div class="order-line">${items||'Itens do pedido'}</div></div><div class="merchant-order-total"><strong>${total}</strong><div class="tiny muted">${esc(copy[0])}</div></div></div>
+    <div class="order-head"><div><div class="order-id">${esc(o.publicCode||o.orderId)}</div><div class="order-line">${items||'Itens do pedido'}</div></div><div class="merchant-order-total"><strong class="${hasTotal?'':'merchant-order-total-unverified'}">${esc(total)}</strong><div class="tiny muted">${esc(copy[0])}</div></div></div>
     ${compactMeta}
     ${merchantOrderAttentionCard(o)}
     ${typeof merchantSupportForOrder==='function'?merchantSupportForOrder(o):''}
     ${merchantIncidentRiskGuide(o)}
     ${merchantOrderProgressView(o)}
-    <div class="order-line">${address}</div><div class="order-line">Pagamento: ${esc(paymentLabel(o.paymentMethod))}</div>${o.paymentMethod==='cash'&&o.cashTenderCents?`<div class="order-line"><strong>Troco para: ${BRL.format(Number(o.cashTenderCents)/100)}</strong></div>`:''}${o.deliveryWindowStart?`<div class="notice success" style="margin-top:10px"><strong>Entrega agendada</strong><br>${esc(formatDeliveryWindow(o.deliveryWindowStart,o.deliveryWindowEnd))}</div>`:''}
+    <div class="order-line">${address}</div><div class="order-line">Pagamento: ${esc(paymentLabel(o.paymentMethod))}</div>${o.paymentMethod==='cash'&&validCashTender?`<div class="order-line"><strong>Troco para: ${BRL.format(cashTenderCents/100)}</strong></div>`:''}${o.deliveryWindowStart?`<div class="notice success" style="margin-top:10px"><strong>Entrega agendada</strong><br>${esc(formatDeliveryWindow(o.deliveryWindowStart,o.deliveryWindowEnd))}</div>`:''}
     ${deliveryContact?`<details class="merchant-order-contact" ${['OUT_FOR_DELIVERY','ARRIVING'].includes(o.status)?'open':''}><summary>Endereço e contato para entrega</summary>${deliveryContact}</details>`:''}
     ${merchantDeliveryShortcuts(o)}
     ${assignedLabel?`<div class="notice success" style="margin-top:10px"><strong>Responsável pela entrega:</strong> ${esc(assignedLabel)}</div>`:''}

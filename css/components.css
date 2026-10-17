@@ -5052,3 +5052,16 @@ body:has(.admin-page) .admin-nav-item:focus-visible{outline-offset:-3px}
 @media(prefers-reduced-motion:reduce){
  .merchant-unified-recovery{transition:none}
 }
+
+/* V1.390: an absent verified amount must never look like a free order. */
+.merchant-order-total .merchant-order-total-unverified{
+  font-size:clamp(12px,1.5vw,15px);
+  line-height:1.3;
+  color:#805a23;
+  font-weight:900;
+  letter-spacing:0;
+  overflow-wrap:anywhere
+}
+@media(max-width:420px){
+ .merchant-order-total .merchant-order-total-unverified{font-size:12px}
+}
