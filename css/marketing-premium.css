@@ -30,7 +30,7 @@
 .tamao-visitor-paths .visitor-paths-heading h2{margin:7px 0 8px;color:#113e2d;
  font-size:clamp(25px,3.5vw,39px);line-height:1.11;letter-spacing:-.045em;text-wrap:balance}
 .tamao-visitor-paths .visitor-paths-heading p{margin:0;color:#476554;font-size:15px;line-height:1.65}
-.tamao-visitor-paths .visitor-paths-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px}
+.home-value-bridge.tamao-visitor-paths > .visitor-paths-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px;padding:0;border:0}
 .tamao-visitor-paths .visitor-path{display:flex;flex-direction:column;align-items:flex-start;min-width:0;
  min-height:275px;padding:clamp(18px,2vw,25px);background:#fff;border:1px solid #d8e7db;
  border-radius:21px;box-shadow:0 8px 22px rgba(17,70,43,.045);transition:transform .18s ease,box-shadow .18s ease}
@@ -69,7 +69,7 @@
 .merchant-landing-premium .merchant-panel-link:focus-visible{outline:3px solid #bd821b;outline-offset:3px}
 .site-footer nav button{font-weight:750}
 @media(max-width:900px){
- .tamao-visitor-paths .visitor-paths-grid,.sponsor-format-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+ .home-value-bridge.tamao-visitor-paths > .visitor-paths-grid,.sponsor-format-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
  .tamao-visitor-paths .visitor-path:last-child,.sponsor-format-grid article:last-child{grid-column:1/-1;min-height:0}
 }
 @media(max-width:620px){
@@ -80,7 +80,7 @@
  .home-value-bridge.tamao-visitor-paths{padding:20px 14px;border-radius:21px;margin:19px 0}
  .tamao-visitor-paths .visitor-paths-heading{padding-inline:3px}
  .tamao-visitor-paths .visitor-paths-heading h2{font-size:27px}
- .tamao-visitor-paths .visitor-paths-grid,.sponsor-format-grid{grid-template-columns:minmax(0,1fr);gap:10px}
+ .home-value-bridge.tamao-visitor-paths > .visitor-paths-grid,.sponsor-format-grid{grid-template-columns:minmax(0,1fr);gap:10px}
  .tamao-visitor-paths .visitor-path,.tamao-visitor-paths .visitor-path:last-child{grid-column:auto;min-height:0;padding:18px}
  .tamao-visitor-paths .visitor-path h3{font-size:21px}
  .sponsor-format-grid article,.sponsor-format-grid article:last-child{grid-column:auto;min-height:0;padding:21px}
