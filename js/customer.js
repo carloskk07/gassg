@@ -443,8 +443,8 @@ function home(){
     &&(globalThis.liveRuntime?.marketMode==='single_supplier'
       ||Number(globalThis.liveRuntime?.eligibleMerchantCount||0)===1));
   const firstVisitMessage=rememberedRegion
-    ? 'Sua vitrine em '+rememberedRegion.city+' já está aqui. Veja os produtos e informe o CEP somente ao consultar uma entrega.'
-    : 'Escolha os produtos com calma. O CEP só entra quando você quiser conferir as opções de entrega.';
+    ? 'Encontre o que precisa em '+rememberedRegion.city+'. Você escolhe primeiro e consulta a entrega pelo CEP quando quiser.'
+    : 'Explore o que precisa, escolha seus produtos e confira as opções para seu CEP antes de pedir.';
   const heroJourney=singleMarket
     ? internalPilot
       ? 'Valide a jornada completa do ambiente interno: pedido, aceite, preparação, saída, chegada, pagamento e benefícios.'
@@ -465,13 +465,13 @@ function home(){
   <button class="intent-card" onclick="openPrelaunchMerchantLead()"><span class="intent-icon">🏪</span><span><strong>Tenho uma empresa</strong><small>Mais uma forma de chegar aos clientes, mantendo seus canais de venda.</small></span><b>→</b></button>
 </div></section>`;
 
-  const valueBridge=`<section class="home-value-bridge" aria-label="Três maneiras de aproveitar o TAMÃO">
-    <div><strong>Comprar sem complicação</strong><p>Escolha seus produtos, consulte a entrega pelo CEP e veja o valor final antes de pedir.</p>
-      <button type="button" onclick="startHomeBrowse()">Escolher produtos →</button></div>
-    <div><strong>Vender com mais alcance</strong><p>Sua revenda mantém o controle de preços, estoque e entregas. O TAMÃO ajuda clientes a encontrar sua empresa.</p>
-      <button type="button" onclick="go('merchants')">Conhecer para revendas →</button></div>
-    <div><strong>Indicar e participar</strong><p>Convide pessoas e empresas para sua rede. Acompanhe os benefícios elegíveis, de acordo com as condições aplicáveis.</p>
-      <button type="button" onclick="go('earn')">Explorar minha rede →</button></div>
+  const valueBridge=`<section class="home-value-bridge tamao-visitor-paths" aria-label="O TAMÃO conecta quem compra, vende e indica">
+    <header class="visitor-paths-heading"><span class="section-kicker">UMA CIDADE, MAIS POSSIBILIDADES</span><h2>Bom para quem precisa. Útil para quem vende.</h2><p>O TAMÃO aproxima a rotina das pessoas das revendas da região. Descubra seu próximo passo.</p></header>
+    <div class="visitor-paths-grid">
+      <article class="visitor-path visitor-path-buyer"><span class="visitor-path-icon" aria-hidden="true">🛍️</span><small>PARA VOCÊ</small><h3>Resolva as compras do dia a dia.</h3><p>Escolha os produtos, consulte o valor e a entrega para seu endereço e acompanhe pedidos confirmados.</p><button type="button" onclick="startHomeBrowse()">Escolher produtos →</button></article>
+      <article class="visitor-path visitor-path-merchant"><span class="visitor-path-icon" aria-hidden="true">🏪</span><small>PARA SUA EMPRESA</small><h3>Abra mais uma porta para vender.</h3><p>Apresente sua revenda aos clientes da região e continue no controle dos preços, estoque e entregas.</p><button type="button" onclick="go('merchants')">Quero vender <span aria-hidden="true">→</span></button></article>
+      <article class="visitor-path visitor-path-network"><span class="visitor-path-icon" aria-hidden="true">🤝</span><small>PARA SUA REDE</small><h3>Compartilhe algo que faz sentido.</h3><p>Convide pessoas e empresas, acompanhe sua rede e conheça as regras dos benefícios elegíveis.</p><button type="button" onclick="go('earn')">Conhecer a rede <span aria-hidden="true">→</span></button></article>
+    </div>
   </section>`;
   return shell(`<section class="hero marketing-hero ${conciseHome?'home-first-visit':''}"><div class="hero-grid"><div>
     <span class="eyebrow">${esc(eyebrow)}</span>
@@ -481,6 +481,12 @@ function home(){
     <p class="hero-lead"><strong>Gás, água e o essencial do dia a dia, em um só lugar.</strong> ${esc(hasConfirmedCityOffers?'Já consultamos opções para o seu CEP. Confira preços e prazos atualizados antes de confirmar.':conciseHome?firstVisitMessage:outsideOriginalMarket?'Veja quais opções atendem '+regionLabel+' pelo CEP. Se não houver ofertas, você poderá solicitar um aviso.':heroJourney)}</p>
     <div class="hero-emotional-promise"><span aria-hidden="true">✦</span><span>${conciseHome?'Conheça as opções antes de informar o endereço.':'Confira as opções da sua região sem precisar ligar de loja em loja.'}</span></div>
 
+    <div class="home-quick-category" role="group" aria-label="Escolha por onde começar">
+      <span>O que você precisa hoje?</span>
+      ${discoveryCounts.gas?'<button type="button" onclick="homeDiscoverFocus();homeFilterProducts(\'gas\')">🔥 Gás</button>':''}
+      ${discoveryCounts.water?'<button type="button" onclick="homeDiscoverFocus();homeFilterProducts(\'water\')">💧 Água</button>':''}
+      ${discoveryCounts.other?'<button type="button" onclick="homeDiscoverFocus();homeFilterProducts(\'other\')">✦ Outros itens</button>':''}
+    </div>
     <div class="purchase-starter" aria-label="Consultar produtos e atendimento da sua região">
       <input id="home-featured-code" type="hidden" value="${esc(featuredCode)}">
       <div class="starter-product"><div class="starter-product-icon">${typeof tamaoProductArt==="function"?tamaoProductArt(featuredCode,featuredProduct,"hero"):esc(featuredIcon)}</div><div><span class="starter-label">COMECE PELO QUE PRECISA</span><strong>${esc(featuredName)}</strong><small>${esc(featuredCode)} • Consulta por CEP</small></div><div class="starter-price"><small>${cityFeaturedPrice?'PREÇO DIVULGADO':showPublicP13Reference?'REFERÊNCIA LOCAL':'CONSULTA'}</small><b>${priceText}</b></div></div>
@@ -489,6 +495,7 @@ function home(){
       ${cityChecked&&!hasConfirmedCityOffers&&acquisitionOpen?`<div class="regional-action"><button class="ghost" onclick="openPrelaunchCustomerLead()">Sem opção para meu CEP? Quero receber um aviso →</button></div>`:''}
       <small class="starter-footnote">${esc(freshness)}</small>
     </div>
+    <div class="home-hero-links"><button type="button" onclick="go('learn')">Entenda como funciona <span aria-hidden="true">↗</span></button><button type="button" onclick="go('merchants')">Tenho uma empresa <span aria-hidden="true">↗</span></button></div>
 
     <div class="trust-row" aria-label="O que você pode esperar">${conciseHome?'<span class="trust-chip">✓ Consulta por CEP</span><span class="trust-chip">✓ Aviso opcional por WhatsApp</span><span class="trust-chip">✓ Sem pedido automático</span>':'<span class="trust-chip">✓ Veja o valor antes</span><span class="trust-chip">✓ Pedido com aceite real</span><span class="trust-chip">✓ Acompanhe a entrega</span>'}</div>
     ${internalPilot?'<div class="notice" style="margin-top:14px"><strong>Ambiente de validação interna.</strong><br>Nenhuma ação nesta prévia gera pedido real, cobrança ou baixa de estoque. O dado comercial real carregado no cenário é a faixa P13: R$ 115,90 mínimo, R$ 120,00 normal e R$ 125,00 máximo, com entrega incluída.</div>':''}
@@ -513,7 +520,7 @@ function home(){
 
 ${discoveryTiles?`<section id="home-discover" class="home-discover" aria-label="Explore os produtos do TAMÃO">
   <div class="home-discover-heading"><div><span class="section-kicker">O ESSENCIAL EM UM SÓ LUGAR</span>
-    <h2 tabindex="-1">O que está faltando por aí?</h2>
+    <h2 tabindex="-1">Gás, água e muito mais: escolha por onde começar.</h2>
     <p>${!ready||market?.realSupplyConfigured===false?'Explore o catálogo de possibilidades. A disponibilidade é confirmada no seu CEP, antes de qualquer pedido.':'Escolha um produto para montar sua cesta. Preços finais e entregas dependem da sua região.'}</p></div>
     <button type="button" class="home-discover-all" onclick="startHomeBrowse()">Continuar para a cesta <span aria-hidden="true">→</span></button></div>
   <div class="home-discover-filter" role="group" aria-label="Filtrar produtos por categoria">${discoveryFilters}</div>

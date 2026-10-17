@@ -1,0 +1,93 @@
+/* TAMÃO V1.362 — marketing visitors: clarity, stronger hierarchy, honest conversion.
+   Purely presentational. No inventory, pricing, payment or availability changes. */
+.marketing-hero .hero-lead{max-width:63ch;line-height:1.62}
+.marketing-hero .hero-emotional-promise{margin-block:13px 17px}
+.marketing-hero .purchase-starter{border-color:#c6ded0;box-shadow:0 20px 44px rgba(17,73,46,.10)}
+.home-quick-category{display:flex;align-items:center;flex-wrap:wrap;gap:8px;margin:18px 0 13px}
+.home-quick-category>span{flex-basis:100%;font-weight:850;font-size:13px;letter-spacing:-.01em;color:#274b39}
+.home-quick-category button{display:inline-flex;align-items:center;justify-content:center;gap:6px;
+ min-height:39px;border:1px solid #c9dfd1;border-radius:999px;padding:8px 15px;background:#fffdf8;
+ color:#174936;font-size:13px;font-weight:800;cursor:pointer;transition:transform .15s ease,box-shadow .15s ease,border-color .15s ease}
+.home-quick-category button:hover{border-color:#73b495;box-shadow:0 5px 14px rgba(14,67,43,.10);transform:translateY(-1px)}
+.home-hero-links{display:flex;gap:6px 18px;flex-wrap:wrap;margin:10px 0 4px}
+.home-hero-links button{border:0;background:none;padding:7px 0;color:#0b6244;font-size:13px;
+ font-weight:800;cursor:pointer;text-align:left}
+.home-hero-links button:hover{text-decoration:underline;text-underline-offset:4px}
+.home-hero-links button span{color:#388369}
+.home-quick-category button:focus-visible,.home-hero-links button:focus-visible,
+.visitor-path button:focus-visible,.sponsor-format-grid article:focus-within{outline:3px solid #bd821b;outline-offset:3px}
+#home-discover{scroll-margin-top:100px}
+.home-discover-heading h2{max-width:23ch;text-wrap:balance}
+.home-discover-heading p{max-width:68ch}
+.home-discover-tile{transition:transform .18s ease,box-shadow .18s ease,border-color .18s ease}
+.home-discover-tile:focus-visible{outline-offset:2px}
+/* Upgrade the existing 3-path block without changing any route or eligibility gate. */
+.home-value-bridge.tamao-visitor-paths{display:block;padding:clamp(20px,3.5vw,36px);margin:28px 0 30px;
+ border:1px solid #d4e5d7;border-radius:28px;color:#123c2d;
+ background:radial-gradient(circle at 100% 0,rgba(247,193,78,.17),transparent 38%),
+ linear-gradient(140deg,#f5faf6,#fffdf8 63%,#eff7f0);box-shadow:0 16px 34px rgba(19,73,43,.07)}
+.tamao-visitor-paths .visitor-paths-heading{max-width:850px;margin:0 0 20px}
+.tamao-visitor-paths .visitor-paths-heading h2{margin:7px 0 8px;color:#113e2d;
+ font-size:clamp(25px,3.5vw,39px);line-height:1.11;letter-spacing:-.045em;text-wrap:balance}
+.tamao-visitor-paths .visitor-paths-heading p{margin:0;color:#476554;font-size:15px;line-height:1.65}
+.home-value-bridge.tamao-visitor-paths > .visitor-paths-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px;padding:0;border:0}
+.tamao-visitor-paths .visitor-path{display:flex;flex-direction:column;align-items:flex-start;min-width:0;
+ min-height:275px;padding:clamp(18px,2vw,25px);background:#fff;border:1px solid #d8e7db;
+ border-radius:21px;box-shadow:0 8px 22px rgba(17,70,43,.045);transition:transform .18s ease,box-shadow .18s ease}
+.tamao-visitor-paths .visitor-path:hover{transform:translateY(-3px);box-shadow:0 17px 30px rgba(17,70,43,.09)}
+.tamao-visitor-paths .visitor-path-icon{display:grid;place-items:center;width:49px;height:49px;
+ border-radius:15px;background:#e9f5ed;font-size:24px;margin-bottom:14px}
+.tamao-visitor-paths .visitor-path-merchant .visitor-path-icon{background:#fff1d7}
+.tamao-visitor-paths .visitor-path-network .visitor-path-icon{background:#eaf2fa}
+.tamao-visitor-paths .visitor-path small{font-size:10px;font-weight:900;letter-spacing:.11em;color:#427057}
+.tamao-visitor-paths .visitor-path h3{margin:8px 0;font-size:clamp(18px,2vw,23px);
+ line-height:1.2;letter-spacing:-.035em;color:#113927;text-wrap:balance}
+.tamao-visitor-paths .visitor-path p{margin:0 0 17px;color:#476554;font-size:13px;line-height:1.6}
+.tamao-visitor-paths .visitor-path button{margin-top:auto;display:inline-flex;align-items:center;justify-content:space-between;
+ min-height:42px;width:100%;padding:10px 13px;border:1px solid #d0e6d5;border-radius:11px;
+ background:#eef7f0;color:#095537;cursor:pointer;font-weight:850;font-size:13px;text-align:left}
+.tamao-visitor-paths .visitor-path button:hover{border-color:#83bd98;background:#e0f2e5}
+.tamao-sponsors-page .tamao-sponsor-hero{padding:clamp(22px,4vw,45px)}
+.tamao-sponsors-page .tamao-sponsor-hero h1{max-width:18ch;text-wrap:balance}
+.sponsor-formats{margin-block:24px 12px}
+.sponsor-format-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px}
+.sponsor-format-grid article{display:flex;flex-direction:column;min-width:0;min-height:210px;padding:23px;
+ background:linear-gradient(155deg,#093e30,#0c6147);border:1px solid #0c5a44;border-radius:20px;
+ box-shadow:0 12px 23px rgba(9,64,42,.11)}
+.sponsor-format-grid article:nth-child(2){background:linear-gradient(160deg,#135c49,#218064)}
+.sponsor-format-grid article:nth-child(3){background:linear-gradient(160deg,#133e36,#265b59)}
+.sponsor-format-grid article>span{font-size:10px;font-weight:850;letter-spacing:.12em;color:#d6e9b8}
+.sponsor-format-grid h3{font-size:clamp(18px,2vw,23px);letter-spacing:-.035em;
+ line-height:1.18;margin:18px 0 10px;color:#fff;text-wrap:balance}
+.sponsor-format-grid p{color:#d6ece0;font-size:13px;line-height:1.55;margin:0}
+.tamao-sponsors-page .tamao-sponsor-hero .primary,
+.merchant-landing-premium .merchant-hero-actions .primary{min-height:52px}
+.tamao-network-hero h1,.merchant-landing-premium h1{ text-wrap:balance }
+.merchant-landing-premium .merchant-panel-link{min-height:44px;border:0;background:transparent;
+ color:#115f43;font-size:13px;font-weight:850;cursor:pointer;padding:9px 2px;text-align:left}
+.merchant-landing-premium .merchant-panel-link:hover{text-decoration:underline;text-underline-offset:4px}
+.merchant-landing-premium .merchant-panel-link:focus-visible{outline:3px solid #bd821b;outline-offset:3px}
+.site-footer nav button{font-weight:750}
+@media(max-width:900px){
+ .home-value-bridge.tamao-visitor-paths > .visitor-paths-grid,.sponsor-format-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+ .tamao-visitor-paths .visitor-path:last-child,.sponsor-format-grid article:last-child{grid-column:1/-1;min-height:0}
+}
+@media(max-width:620px){
+ .home-quick-category{gap:7px;margin:14px 0 9px}
+ .home-quick-category button{min-height:42px;padding:8px 12px;flex:1}
+ .home-hero-links{margin:9px 0 0;justify-content:space-between}
+ .home-hero-links button{font-size:12px}
+ .home-value-bridge.tamao-visitor-paths{padding:20px 14px;border-radius:21px;margin:19px 0}
+ .tamao-visitor-paths .visitor-paths-heading{padding-inline:3px}
+ .tamao-visitor-paths .visitor-paths-heading h2{font-size:27px}
+ .home-value-bridge.tamao-visitor-paths > .visitor-paths-grid,.sponsor-format-grid{grid-template-columns:minmax(0,1fr);gap:10px}
+ .tamao-visitor-paths .visitor-path,.tamao-visitor-paths .visitor-path:last-child{grid-column:auto;min-height:0;padding:18px}
+ .tamao-visitor-paths .visitor-path h3{font-size:21px}
+ .sponsor-format-grid article,.sponsor-format-grid article:last-child{grid-column:auto;min-height:0;padding:21px}
+ .sponsor-formats{margin-top:17px}
+ .tamao-sponsors-page .tamao-sponsor-hero{padding:23px 17px}
+}
+@media(prefers-reduced-motion:reduce){
+ .home-quick-category button,.home-discover-tile,.tamao-visitor-paths .visitor-path{transition:none}
+ .home-quick-category button:hover,.tamao-visitor-paths .visitor-path:hover{transform:none}
+}

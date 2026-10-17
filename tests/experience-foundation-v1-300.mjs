@@ -14,8 +14,8 @@ for(const token of [
  ':focus-visible','prefers-reduced-motion','@media(max-width:520px)'
 ])assert.ok(css.includes(token),'missing global design: '+token);
 for(const token of [
- 'const valueBridge=','Comprar sem complicação','Vender com mais alcance',
- 'Indicar e participar','startCustomerAvailability()',"go('merchants')",
+ 'const valueBridge=','Resolva as compras do dia a dia.','Abra mais uma porta para vender.',
+ 'Compartilhe algo que faz sentido.','startCustomerAvailability()',"go('merchants')",
  "go('earn')",'\u0024{valueBridge}',
  'Faltou em casa?'
 ])assert.ok(home.includes(token),'missing public conversion flow: '+token);

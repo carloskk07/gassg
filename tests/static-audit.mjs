@@ -154,7 +154,7 @@ assert.ok(read('supabase/functions/admin-ops/index.ts').includes('prelaunch_lead
 assert.ok(customer.includes('acquisitionOpen')&&customer.includes('prelaunchCustomerLeadSection'),'ausência de oferta precisa converter tráfego em aviso de disponibilidade');
 assert.ok(customer.includes('conciseHome=acquisitionOpen&&!testDemo')&&(customer.includes('Consultar meu CEP')||customer.includes('Escolher produtos →'))&&customer.includes('first-visit-intent-grid')&&customer.includes('prelaunchCustomerLeadSection()')&&customer.includes('discoveryEntries=homeProductEntries')&&customer.includes('discoveryTiles=discoveryEntries.map'),'home sem supply precisa distinguir descoberta de produtos, consulta de CEP, aviso e convite sem simular ofertas');
 assert.ok(acquisition.includes('ATENDIMENTO POR REGIÃO')&&acquisition.includes('Revendas cadastradas')&&acquisition.includes('Nenhuma compra é criada por este cadastro'),'aquisição precisa comunicar disponibilidade real sem fabricar prova social');
-assert.ok(core.includes("prelaunchPublic||!merchantOriginReady?\"go('merchants')\":\"openMerchantPortal()\""),'switcher público não pode mandar revenda para portal ainda inexistente');
+assert.ok(core.includes('const merchantAction=merchantPortal?"go(\'merchant\')":testDemo?"setMode(\'merchant\')":"go(\'merchants\')"'),'switcher público deve apresentar a página comercial antes de permitir acesso ao portal; não pode redirecionar visitantes ao painel');
 assert.ok(core.includes("['early-access','🔔','Disponibilidade','lead']")&&core.includes("act==='lead'?\"openPrelaunchCustomerLead()\""),'navegação mobile sem supply precisa levar ao aviso de disponibilidade');
 assert.ok(acquisition.includes("if(!section)")&&acquisition.includes("if(route()!=='home')go('home')"),'CTA da lista deve funcionar mesmo quando acionado fora da home');
 assert.ok(analytics.includes("['tamao.com.br','www.tamao.com.br'].includes(host)"),'analytics não pode medir laboratório, localhost ou preview');
@@ -230,7 +230,7 @@ assert.ok(!growth.includes('disabled>Saque Pix ainda não disponível')&&growth.
 assert.ok(growth.includes('Você decide preços, estoque, formas de pagamento, disponibilidade e entrega.')||growth.includes('continua no comando')&&growth.includes('Você decide'),'landing de revenda deve enfatizar autonomia operacional');
 assert.ok(core.includes("['earn','💰','Ganhe','go']"),'navegação móvel precisa dar acesso direto ao hub de renda');
 assert.ok(!growth.includes('inputmode="numeric" maxlength="18"'),'campo CNPJ não pode forçar teclado somente numérico após adoção do CNPJ alfanumérico');
-assert.ok(sw.includes("CACHE='tamao-sg-v1.291'"),'cache do service worker precisa refletir a geração PWA auditada');
+assert.ok(sw.includes("CACHE='tamao-sg-v1.362'")&&sw.includes("'./css/marketing-premium.css'")&&sw.includes("'./js/home-showcase.js'"),'cache do service worker precisa refletir a geração PWA e os novos assets públicos');
 assert.ok(sw.includes("fetch(req,{cache:'no-store'})")&&sw.includes("contentType.includes('text/html')"),'service worker deve renovar rede sem cache HTTP e separar navegação HTML de recursos não-HTML');
 assert.ok(!sw.includes("req.mode==='navigate'?'./index.html':req"),'navegação não-HTML não pode envenenar a chave do app shell');
 assert.ok(admin.includes('offerable_supply_required')&&admin.includes('offerReadyMerchantCount'),'painel admin precisa expor oferta real como gate de lançamento');

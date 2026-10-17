@@ -839,7 +839,7 @@ function siteFooter({adminPortal=false}={}){
   const region=typeof rememberedMarketRegion==='function'&&globalThis.merchantPortalRequested?.()!==true
     ?rememberedMarketRegion():null;
   const locality=region?esc(region.city)+'/'+esc(region.state):'Consulte sua região';
-  return '<footer class="site-footer"><div class="shell site-footer-inner"><div><strong>TAMÃO</strong><small>Pediu? Tá na mão. • '+locality+'</small></div><nav aria-label="Informações legais"><button onclick="go(\'privacy\')">Privacidade</button><button onclick="go(\'terms\')">Termos</button><button onclick="go(\'sponsors\')">Marcas e parcerias</button><button onclick="go(\'contact\')">Contato</button></nav></div></footer>';
+  return '<footer class="site-footer"><div class="shell site-footer-inner"><div><strong>TAMÃO</strong><small>Pediu? Tá na mão. • '+locality+'</small></div><nav aria-label="Explore o TAMÃO e informações legais"><button onclick="go(\'learn\')">Como funciona</button><button onclick="go(\'earn\')">Indicações</button><button onclick="go(\'merchants\')">Para revendas</button><button onclick="go(\'sponsors\')">Para marcas</button><button onclick="go(\'contact\')">Contato</button><button onclick="go(\'privacy\')">Privacidade</button><button onclick="go(\'terms\')">Termos</button></nav></div></footer>';
 }
 function shell(content){
   const r=route();
@@ -847,8 +847,8 @@ function shell(content){
   const merchantPortal=!adminPortal&&globalThis.merchantPortalRequested?.()===true;
   const testDemo=globalThis.__CHAMA_TEST__===true;
   const prelaunchPublic=!adminPortal&&!merchantPortal&&!testDemo&&globalThis.prelaunchExamplesEnabled?.()===true;
-  const merchantOriginReady=String(globalThis.CHAMA_MERCHANT_ORIGIN||'').trim().length>0;
-  const merchantAction=merchantPortal?"go('merchant')":testDemo?"setMode('merchant')":prelaunchPublic||!merchantOriginReady?"go('merchants')":"openMerchantPortal()";
+  // A public visitor choosing 'Revenda' should see the commercial explanation before the login portal.
+  const merchantAction=merchantPortal?"go('merchant')":testDemo?"setMode('merchant')":"go('merchants')";
   const customerAction=(adminPortal||merchantPortal)?"openCustomerPortal()":testDemo?"setMode('customer')":"go('home')";
   const brandAction=adminPortal?"go('admin')":merchantPortal?"go('merchant')":"go('home')";
   const desktopNav=adminPortal

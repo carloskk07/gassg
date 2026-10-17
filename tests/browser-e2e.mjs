@@ -188,7 +188,7 @@ assert.match(await evaluate("adminRuntime.bootstrapError='Falha simulada';adminB
 await evaluate("adminRuntime.bootstrapStatus=null;adminRuntime.bootstrapError=null");
 
 await evaluate("go('learn')");
-await waitFor("document.body.innerText.includes('Quer pedir gás, água ou outros itens? Veja como funciona.')","learn route");
+await waitFor("document.body.innerText.includes('Escolha o que precisa. Confira a entrega. Acompanhe seu pedido.')","learn route");
 body=await text();
 assert.match(body,/A GENTE EXPLICA/);
 assert.match(body,/Parceiro precisa confirmar/);
@@ -221,7 +221,7 @@ assert.equal(await evaluate("document.querySelector('#public-contact-value').typ
 await auditDom('contact');
 
 await evaluate("go('earn')");
-await waitFor("document.body.innerText.includes('Compre bem, compartilhe o que gosta e construa sua rede.')","earn route");
+await waitFor("document.body.innerText.includes('Indique quem compra. Apresente quem vende. Faça sua rede crescer.')","earn route");
 body=await text();
 assert.match(body,/Conhece alguém que gostaria de usar o TAMÃO\?/);
 assert.match(body,/Sua empresa pode vender por mais um canal/);
