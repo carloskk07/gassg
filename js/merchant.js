@@ -2238,7 +2238,7 @@ function merchantLivePage(){
 
     ${orderEvidence.fresh?merchantDeliveryBoardView(rt,orders):''}
     ${orderEvidence.fresh?merchantSupportOverview(rt,orders):''}
-    <section class="section" id="merchant-live-orders"><div class="section-head"><div><h2 tabindex="-1">Pedidos que exigem ação</h2><p>Aceite, saída e recebimento só são registrados depois de confirmação no sistema.</p></div></div>${orderEvidence.fresh?merchantDeliveryAttentionView(rt):''}${orderEvidence.fresh?merchantOrderQueueView(orders):merchantOrderListRecovery(rt)}</section>
+    <section class="section" id="merchant-live-orders"><div class="section-head"><div><h2 tabindex="-1">Pedidos que exigem ação</h2><p>Aceite, saída e recebimento só são registrados depois de confirmação no sistema.</p></div></div>${orderEvidence.fresh?merchantSupportPriorityBoard(rt,orders):''}${orderEvidence.fresh?merchantDeliveryAttentionView(rt):''}${orderEvidence.fresh?merchantOrderQueueView(orders):merchantOrderListRecovery(rt)}</section>
 
     <details id="merchant-workspace-start" class="merchant-workspace-section"${!canGoOnline?' open':''}><summary tabindex="0"><span><strong>${canGoOnline?'Produtos e entregas':'Comece por aqui: prepare sua operação'}</strong><small>${canGoOnline?'Atualize estoque, preços e configurações quando precisar.':'Veja as etapas que exigem atenção para sua revenda começar a receber ofertas.'}</small></span></summary><div class="merchant-workspace-content">
       ${merchantDailyChecklistView(rt,{deliveryFresh:freshness.deliveryFresh})}
@@ -2696,8 +2696,11 @@ function merchantOrderQueueView(orders,emptyCopy='Nenhum pedido ativo para esta 
       const field=['MERCHANT_ACCEPTED','PREPARING','AT_RISK'].includes(String(order?.status||''))?'dispatchDueAt':'promisedBy';
       return merchantOrderScheduleDate(order?.[field])?.getTime()??Number.MAX_SAFE_INTEGER;
     };
+    const hasPendingSupport=order=>typeof merchantSupportCasesForOrder==='function'
+      &&merchantSupportCasesForOrder(order).some(item=>['open','in_review'].includes(item.status));
     const sortSeverity=order=>{
       if(order?.status==='ARRIVING')return -1;
+      if(hasPendingSupport(order))return 0;
       if(order?.status==='MERCHANT_ACCEPTED')return 4;
       const level=merchantOrderAttention(order)?.level;
       return level==='risk'?0:level==='late'?1:level==='soon'?2:3;
@@ -2714,7 +2717,7 @@ function merchantOrderQueueView(orders,emptyCopy='Nenhum pedido ativo para esta 
     // Never tuck away offers, incidents, pending-arrival confirmation or
     // imminent/overdue deadlines. Only routine overflow is collapsed.
     const compact=['delivery','preparing'].includes(group.key)&&sorted.length>5;
-    const isVisible=(order,i)=>i<3||order.status==='ARRIVING'||Boolean(merchantOrderAttention(order));
+    const isVisible=(order,i)=>i<3||order.status==='ARRIVING'||Boolean(merchantOrderAttention(order))||hasPendingSupport(order);
     const visible=compact?sorted.filter(isVisible):sorted;
     const hidden=compact?sorted.filter((order,i)=>!isVisible(order,i)):[];
     const overflow=hidden.length?
@@ -2998,6 +3001,69 @@ function merchantSupportForOrder(order){
    '</strong></summary><div class="merchant-order-support-body"><ul>'+rows+'</ul>'+
    '<small>Esses registros são somente informativos. A administração controla as decisões sobre os chamados.</small>'+
    '</div></details>';
+}
+
+// V1.387 — Priority is editorial only. The server is the sole authority for
+// opening, reviewing, resolving or closing a customer support case.
+function merchantSupportPriorityEntries(rt,orders){
+  if(!Array.isArray(orders)||orders!==rt?.orders||
+    !merchantOrderListEvidence(rt).fresh||
+    rt?.supportSummary?.version!==1||
+    rt.supportSummary.scope!=='merchant-active-orders'||
+    !['owner','manager','operator'].includes(String(rt?.merchant?.memberRole||'')))return [];
+  const entries=[];
+  for(const order of orders){
+    const pending=merchantSupportCasesForOrder(order,rt)
+      .filter(item=>['open','in_review'].includes(item.status));
+    if(!pending.length)continue;
+    const dates=pending.map(item=>{
+      const raw=item?.createdAt;
+      if(typeof raw!=='string'||!/^20\d{2}-\d{2}-\d{2}T\d{2}:\d{2}/.test(raw))return NaN;
+      const ms=Date.parse(raw);
+      return Number.isFinite(ms)&&ms>=Date.UTC(2020,0,1)&&ms<=Date.now()+300000?ms:NaN;
+    }).filter(Number.isFinite);
+    const oldest=dates.length?Math.min(...dates):null;
+    const open=pending.filter(item=>item.status==='open').length;
+    entries.push({order,pending,open,oldest});
+  }
+  return entries.sort((a,b)=>
+    (a.open?0:1)-(b.open?0:1)||
+    (a.oldest??Number.MAX_SAFE_INTEGER)-(b.oldest??Number.MAX_SAFE_INTEGER)||
+    String(a.order?.publicCode||'').localeCompare(String(b.order?.publicCode||''),'pt-BR'));
+}
+function merchantSupportPriorityBoard(rt,orders){
+  const entries=merchantSupportPriorityEntries(rt,orders);
+  if(!entries.length)return '';
+  const pending=entries.reduce((count,row)=>count+row.pending.length,0);
+  const rows=entries.slice(0,5).map(entry=>{
+    const order=entry.order;
+    const id=String(order?.orderId||'');
+    const safe=/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(id);
+    const topics=[...new Set(entry.pending.map(item=>MERCHANT_SUPPORT_LABELS[item.category]))].slice(0,3);
+    const older=entry.oldest==null?'':' • desde '+
+      esc(new Date(entry.oldest).toLocaleString('pt-BR',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}));
+    return '<li class="merchant-support-priority-row"><div>'+
+      '<strong>'+esc(order?.publicCode||'Pedido')+'</strong>'+
+      '<span class="merchant-support-priority-state">'+(entry.open?
+        entry.open+' aguardando análise':'Em análise')+'</span>'+
+      '<p>'+esc(topics.join(' • '))+' • '+entry.pending.length+
+        (entry.pending.length===1?' atendimento pendente':' atendimentos pendentes')+older+'</p>'+
+      '</div>'+
+      (safe?'<button type="button" class="secondary small" onclick="merchantFocusLiveOrder(\''+
+        id+'\')">Ver pedido</button>':'')+'</li>';
+  }).join('');
+  return '<section class="merchant-support-priority-board" aria-label="Atendimentos pendentes na sua fila">'+
+    '<div class="merchant-support-priority-header"><div>'+
+      '<span class="section-kicker">ATENDIMENTOS QUE PRECISAM DE ATENÇÃO</span>'+
+      '<h3>'+pending+' '+(pending===1?'atendimento pendente':'atendimentos pendentes')+
+      ' em '+entries.length+' '+(entries.length===1?'pedido':'pedidos')+'</h3>'+
+      '<p>Veja os registros vinculados à sua revenda. Pedidos novos para aceitar continuam na fila de ofertas.</p>'+
+    '</div><span class="status-pill risk">Acompanhar</span></div>'+
+    '<ol class="merchant-support-priority-list">'+rows+'</ol>'+
+    (entries.length>5?'<p class="merchant-support-priority-overflow">Outros '+
+      (entries.length-5)+' pedidos com atendimento pendente estão na fila abaixo.</p>':'')+
+    '<small>Somente pedidos ativos e registros carregados na última consulta (até 100). A administração mantém o controle dos chamados.</small>'+
+    '</section>';
 }
 
 function merchantLiveOrder(o){
