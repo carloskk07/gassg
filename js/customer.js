@@ -1095,10 +1095,35 @@ function offerCard(o,facts={}){
   </article>`;
 }
 
+// V1.380 — User-facing address hints use the complete input, never a truncated
+// CEP or number, and never imply a valid server-side address or quote.
+function customerAddressDraftGuidance(postalCode,addressNumber,{hasItems=false,serviceReady=false}={}){
+  const postal=String(postalCode||'');
+  const number=String(addressNumber||'');
+  if(!postal)return 'Informe o CEP de entrega para começar a consulta.';
+  if(!/^[0-9]{8}$/.test(postal))
+    return postal.length>8?'O CEP tem números a mais. Use exatamente 8 dígitos.':'Complete o CEP com 8 dígitos.';
+  if(!number)return 'CEP preenchido. Informe o número do endereço.';
+  if(!/^[0-9]{1,6}[A-Z]?$/.test(number))
+    return 'Confira o número: use até 6 algarismos e, se necessário, uma letra.';
+  if(!hasItems)return 'CEP e número preenchidos. Escolha um produto para consultar ofertas.';
+  if(!serviceReady)return 'CEP e número preenchidos. A consulta depende da conexão com o serviço.';
+  return 'CEP e número preenchidos. Consultando as opções para esta cesta…';
+}
+function customerAddressInlineError(inputId,message){
+  const field=document.getElementById(inputId)||document.querySelector('#'+inputId);
+  field?.setAttribute?.('aria-invalid','true');
+  const hint=document.querySelector('#address-auto-status span:last-child');
+  if(hint)hint.textContent=message;
+  field?.focus?.();
+  toast(message);
+  return false;
+}
+
 function deliveryAddressDraftChanged(){
   if(globalThis.__CHAMA_TEST__===true)return;
-  const postalCode=String(document.querySelector('#postal-code')?.value||'').replace(/\D/g,'').slice(0,8);
-  const addressNumber=String(document.querySelector('#address-number')?.value||'').trim().toUpperCase().replace(/\s+/g,'').slice(0,7);
+  const postalCode=String(document.querySelector('#postal-code')?.value||'').replace(/\D/g,'');
+  const addressNumber=String(document.querySelector('#address-number')?.value||'').trim().toUpperCase().replace(/\s+/g,'');
   if(postalCode===String(state.postalCode||'')&&addressNumber===String(state.addressNumber||''))return;
   // Invalidate old quotes immediately (before the input settles), and don't
   // rebuild the form while the person is typing: that would steal keyboard focus.
@@ -1116,19 +1141,25 @@ function deliveryAddressDraftChanged(){
   save();
   const valid=/^[0-9]{8}$/.test(postalCode)
     &&/^[0-9]{1,6}[A-Z]?$/.test(addressNumber);
+  const postalInput=document.querySelector('#postal-code');
+  const numberInput=document.querySelector('#address-number');
+  const flag=(node,invalid)=>{
+    if(invalid)node?.setAttribute?.('aria-invalid','true');
+    else node?.removeAttribute?.('aria-invalid');
+  };
+  flag(postalInput,postalCode.length>0&&!/^[0-9]{8}$/.test(postalCode));
+  flag(numberInput,addressNumber.length>0&&!/^[0-9]{1,6}[A-Z]?$/.test(addressNumber));
   const hint=document.querySelector('#address-auto-status span:last-child');
-  if(hint){
-    hint.textContent=valid&&globalThis.liveReady?.()
-      ?'CEP e número completos. Consultando ofertas automaticamente…'
-      :'Informe CEP e número para consultar ofertas automaticamente.';
-  }
+  if(hint)hint.textContent=customerAddressDraftGuidance(postalCode,addressNumber,{
+    hasItems:hasCartItems(),serviceReady:globalThis.liveReady?.()===true
+  });
   if(valid&&globalThis.liveReady?.()&&hasCartItems()){
     globalThis.liveScheduleOfferRefresh?.(650);
   }
 }
 
 async function setAddress(){
-  const postalCode=String(document.querySelector('#postal-code')?.value||state.postalCode||'').replace(/\D/g,'').slice(0,8);
+  const postalCode=String(document.querySelector('#postal-code')?.value||state.postalCode||'').replace(/\D/g,'');
   if(globalThis.__CHAMA_TEST__===true){
     const value=document.querySelector('#address')?.value.trim()||'';
     if(value.length<5)return toast('Informe um endereço válido');
@@ -1139,14 +1170,12 @@ async function setAddress(){
     return;
   }
 
-  const addressNumber=String(document.querySelector('#address-number')?.value||state.addressNumber||'').trim().toUpperCase().replace(/\s+/g,'').slice(0,7);
+  const addressNumber=String(document.querySelector('#address-number')?.value||state.addressNumber||'').trim().toUpperCase().replace(/\s+/g,'');
   if(!/^[0-9]{8}$/.test(postalCode)){
-    document.querySelector('#postal-code')?.focus();
-    return toast('Informe um CEP válido com 8 dígitos');
+    return customerAddressInlineError('postal-code','Informe um CEP válido com exatamente 8 dígitos.');
   }
   if(!/^[0-9]{1,6}[A-Z]?$/.test(addressNumber)){
-    document.querySelector('#address-number')?.focus();
-    return toast('Informe o número do endereço');
+    return customerAddressInlineError('address-number','Confira o número do endereço (até 6 algarismos e uma letra).');
   }
 
   const changed=state.postalCode!==postalCode||state.addressNumber!==addressNumber;
@@ -1180,7 +1209,7 @@ function formatDeliveryPhone(value){
   return '('+d.slice(0,2)+') '+d.slice(2,7)+'-'+d.slice(7);
 }
 function syncDeliveryDetailsFromUi({requirePhone=false}={}){
-  const phoneDigits=String(document.getElementById('delivery-phone')?.value??state.checkout.customerPhoneDigits??'').replace(/\D/g,'').slice(0,11);
+  const phoneDigits=String(document.getElementById('delivery-phone')?.value??state.checkout.customerPhoneDigits??'').replace(/\D/g,'');
   const complement=String(document.getElementById('address-complement')?.value??state.checkout.addressComplement??'').trim().replace(/\s+/g,' ').slice(0,120);
   const reference=String(document.getElementById('delivery-reference')?.value??state.checkout.deliveryReference??'').trim().replace(/\s+/g,' ').slice(0,160);
   const notes=String(document.getElementById('delivery-notes')?.value??state.checkout.deliveryNotes??'').trim().replace(/\s+/g,' ').slice(0,240);
