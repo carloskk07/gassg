@@ -3,6 +3,7 @@ import vm from 'node:vm';
 import os from 'node:os';
 import path from 'node:path';
 import {buildRuntimeConfig,validatePortalRole} from './generate-runtime-config.mjs';
+import {writePublicLandingPages,PUBLIC_LANDING_SLUGS} from './build-public-landing-pages.mjs';
 
 const ROOT=path.resolve(new URL('..',import.meta.url).pathname);
 const STATIC_FILES=['index.html','manifest.webmanifest','sw.js','robots.txt'];
@@ -125,11 +126,15 @@ function writePortalRobots(target,role){
       'User-agent: *\nAllow: /\n\nSitemap: '+origin+'/sitemap.xml\n',
       'utf8'
     );
+    const landingUrls=role==='customer'
+      ?PUBLIC_LANDING_SLUGS.map(slug=>'  <url><loc>'+origin+'/'+slug+'/</loc></url>\n').join('')
+      :'';
     fs.writeFileSync(
       path.join(target,'sitemap.xml'),
       '<?xml version="1.0" encoding="UTF-8"?>\n'
         +'<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n'
         +'  <url><loc>'+origin+'/</loc></url>\n'
+        +landingUrls
         +'</urlset>\n',
       'utf8'
     );
@@ -192,6 +197,7 @@ export function buildLivePortals(env=process.env,{outputRoot=env.PORTAL_BUILD_OU
     fs.writeFileSync(path.join(target,'manifest.webmanifest'),patchManifest(manifestRaw,role),'utf8');
     fs.writeFileSync(path.join(target,'sw.js'),patchServiceWorker(serviceWorkerRaw,sourceSha),'utf8');
     writePortalRobots(target,role);
+    if(role==='customer')writePublicLandingPages(target,{origin:'https://tamao.com.br',indexing:true});
     fs.writeFileSync(path.join(target,'_headers'),headers(role),'utf8');
     fs.writeFileSync(path.join(target,'_redirects'),'/* /index.html 200\n','utf8');
     fs.writeFileSync(path.join(target,'portal-build.json'),JSON.stringify({
