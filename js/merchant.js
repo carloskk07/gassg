@@ -2131,7 +2131,8 @@ function merchantOrderListRecovery(rt){
     '<strong>Atualize a lista antes de atender</strong>'+
     '<p>'+esc(evidence.label)+' Nenhum pedido é aceito ou alterado por esta atualização.</p>'+
     (count?'<small>'+count+' '+(count===1?'pedido constava':'pedidos constavam')+
-      ' na última lista; não representam uma fila verificada agora.</small>':'')+
+      ' na última lista; '+(count===1?'não representa':'não representam')+
+      ' uma fila verificada agora.</small>':'')+
     '<button type="button" class="primary" onclick="merchantLiveRefresh()" '+
       (rt?.actionPending===true?'disabled':'')+'>Atualizar pedidos →</button></section>';
 }
