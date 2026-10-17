@@ -68,7 +68,7 @@ assert.match(noSupply,/event\.preventDefault\(\);startHomeBrowse\(\)/,
  'Optional CEP Enter must not preselect gas');
 assert.ok(noSupply.indexOf('id="early-access"')<noSupply.indexOf('home-trust-brief'),
  'availability signup should precede optional FAQ, not be blocked by a lecture');
-assert.match(noSupply,/Consultar meu CEP|Escolher produtos →/);
+assert.match(noSupply,/Consultar meu CEP|Escolher produtos →|Escolher meus produtos/);
 assert.match(noSupply,/São Gabriel/);
 assert.match(noSupply,/Quer saber mais ou tem uma revenda\?/);
 assert.match(noSupply,/Cadastrar minha empresa/);
@@ -89,7 +89,7 @@ assert.ok((noSupply.match(/class="section /g)||[]).length<=2,
  'Unserved region must focus on main CTA, signup and simple paths');
 
 const unavailable=render({ready:false});
-assert.match(unavailable,/Consultar meu CEP|Escolher produtos →/);
+assert.match(unavailable,/Consultar meu CEP|Escolher produtos →|Escolher meus produtos/);
 assert.doesNotMatch(unavailable,/class="quick-grid"/);
 assert.doesNotMatch(unavailable,/class="hero-visual"/);
 assert.match(unavailable,/Os preços de revendas aparecem após confirmação|Confira seu CEP/,
