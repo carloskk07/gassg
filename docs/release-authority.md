@@ -31,3 +31,5 @@ O portal de administração tem regras próprias de segurança; um `sourceSha` i
 Na revisão deste documento, `main` estava em `5e187c50554b133545db5003bfb2ab9d0a082077`, com todos os cinco workflows acima concluídos com sucesso. Esse SHA é **registro de auditoria, não um valor fixo de versão**; siga sempre os passos anteriores para identificar a versão mais recente.
 
 A separação inicial do JavaScript administrativo, a limpeza do CSS e o controle de cache foram introduzidos pelas PRs [#464](https://github.com/carloskk07/gassg/pull/464), [#463](https://github.com/carloskk07/gassg/pull/463) e [#462](https://github.com/carloskk07/gassg/pull/462). O acompanhamento das PRs anteriores está em [triagem histórica](open-pr-triage-2026-10-17.md).
+
+A auditoria de discrepâncias históricas de schema/RPC está em [conciliação SQL da V1.399](legacy-sql-provenance-2026-10-17.md); ela **não autoriza** reaplicar migrações antigas.
