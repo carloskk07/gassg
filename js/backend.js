@@ -2161,7 +2161,18 @@ async function merchantSelectLive(merchantId){
 
 // V1.330: an acknowledged server mutation is independent of the follow-up
 // merchant-orders read. Never offer stale action buttons if that read fails.
-async function merchantRefreshAfterConfirmedMutation(){
+async function merchantRefreshAfterConfirmedMutation(reply){
+  // An HTTP 200 does not necessarily mean the RPC confirmed the mutation.
+  // Preserve ambiguity: a blank/negative reply must never trigger a success
+  // toast, and the operator must check the current order before trying again.
+  const rejected=reply==null||reply===false||
+    (typeof reply==='object'&&(
+      reply.ok===false||reply.success===false||
+      (typeof reply.error==='string'&&reply.error.trim().length>0)
+    ));
+  if(rejected){
+    throw new Error('O servidor não confirmou esta ação. Confira os pedidos atualizados antes de tentar novamente.');
+  }
   try{
     const snapshot=await merchantRefresh({silent:true});
     // merchantRefresh can finish after a newer refresh and return a discarded
@@ -2241,7 +2252,7 @@ async function merchantPerformAction(orderId,action,reason='other_operational'){
     const result=await retryAmbiguousOnce(
       ()=>merchantInvoke('merchant-action',body,{idempotencyKey})
     );
-    await merchantRefreshAfterConfirmedMutation();
+    await merchantRefreshAfterConfirmedMutation(result);
     return result;
   }catch(error){
     merchantRuntime.error=String(error?.message||error);
@@ -2350,7 +2361,7 @@ async function merchantAssignDeliveryLive(orderId,deliveryUserId){
         deliveryUserId:String(deliveryUserId)
       },{idempotencyKey})
     );
-    await merchantRefreshAfterConfirmedMutation();
+    await merchantRefreshAfterConfirmedMutation(result);
     return result;
   }catch(error){
     merchantRuntime.error=String(error?.message||error);
@@ -2397,7 +2408,7 @@ async function merchantCompleteDeliveryLive(orderId,pin,paymentConfirmed){
       paymentConfirmed:true
     },{idempotencyKey}));
     if(result?.ok===false)throw Object.assign(new Error(result.error==='PIN_LOCKED'?'PIN bloqueado. Abra suporte.':'PIN incorreto.'),{code:result.error});
-    await merchantRefreshAfterConfirmedMutation();
+    await merchantRefreshAfterConfirmedMutation(result);
     return result;
   }catch(error){
     merchantRuntime.error=String(error?.message||error);
