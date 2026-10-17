@@ -139,5 +139,5 @@ begin
 
   return jsonb_build_object('maturedCommissions',v_count);
 end;
-$function$
+$function$;
 
