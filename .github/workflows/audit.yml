@@ -475,6 +475,8 @@ jobs:
         run: node tests/public-journey-v1-371.mjs
       - name: V1.372 public conversion storytelling regression
         run: node tests/public-storytelling-v1-372.mjs
+      - name: V1.373 clickable public catalogue hero regression
+        run: node tests/home-product-hero-v1-373.mjs
       - name: V1.368 evidence-led acquisition dashboard
         run: node tests/admin-acquisition-evidence-v1-368.mjs
       - name: V1.369 linked campaign outcome evidence
