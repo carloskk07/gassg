@@ -473,6 +473,22 @@ function home(){
       <article class="visitor-path visitor-path-network"><span class="visitor-path-icon" aria-hidden="true">🤝</span><small>PARA SUA REDE</small><h3>Compartilhe algo que faz sentido.</h3><p>Convide pessoas e empresas, acompanhe sua rede e conheça as regras dos benefícios elegíveis.</p><button type="button" onclick="go('earn')">Conhecer a rede <span aria-hidden="true">→</span></button></article>
     </div>
   </section>`;
+  // Visible only before a verified offer: explain the journey without turning
+  // illustrative catalogue entries into stock, delivery or price claims.
+  const homeAnswers=`<section class="home-trust-brief" aria-label="Respostas rápidas sobre o TAMÃO">
+    <div class="home-trust-intro">
+      <span class="section-kicker">COMPRAR COM MAIS CLAREZA</span>
+      <h2>Você escolhe. O TAMÃO explica cada passo.</h2>
+      <p>Conheça os produtos primeiro. O atendimento, o valor e a entrega dependem das opções confirmadas para seu endereço.</p>
+      <button type="button" onclick="go('learn')">Entender a compra do começo ao fim <span aria-hidden="true">→</span></button>
+    </div>
+    <div class="home-trust-answers">
+      <details><summary>Como descubro se há entrega para mim?</summary><p>Escolha seus produtos e informe o CEP na consulta. Se não encontrarmos uma revenda para seu endereço, você poderá solicitar um aviso por WhatsApp.</p></details>
+      <details><summary>Preciso comprar gás para pedir água?</summary><p>Não. Você pode escolher água e outros itens sem gás, desde que exista uma oferta disponível para o seu endereço.</p></details>
+      <details><summary>Quando meu pedido está confirmado?</summary><p>Somente depois do aceite da revenda. Antes de pedir, você confere o total e a previsão de entrega das opções disponíveis.</p></details>
+      <details><summary>Posso indicar pessoas e revendas?</summary><p>Sim. Conheça sua Rede TAMÃO e acompanhe indicações atribuídas. Benefícios financeiros dependem das regras e da elegibilidade de cada campanha.</p></details>
+    </div>
+  </section>`;
   return shell(`<section class="hero marketing-hero ${conciseHome?'home-first-visit':''}"><div class="hero-grid"><div>
     <span class="eyebrow">${esc(eyebrow)}</span>
     ${rememberedRegion&&!testDemo?`<div class="local-welcome" aria-label="Sua região identificada"><span aria-hidden="true">📍</span><span><strong>Olá, ${esc(rememberedRegion.city)}!</strong><small>Consulta por CEP • ${esc(rememberedRegion.state)}. A disponibilidade depende das ofertas para seu endereço.</small></span></div>`:''}
@@ -495,7 +511,7 @@ function home(){
       ${cityChecked&&!hasConfirmedCityOffers&&acquisitionOpen?`<div class="regional-action"><button class="ghost" onclick="openPrelaunchCustomerLead()">Sem opção para meu CEP? Quero receber um aviso →</button></div>`:''}
       <small class="starter-footnote">${esc(freshness)}</small>
     </div>
-    <div class="home-hero-links"><button type="button" onclick="go('learn')">Entenda como funciona <span aria-hidden="true">↗</span></button><button type="button" onclick="go('merchants')">Tenho uma empresa <span aria-hidden="true">↗</span></button></div>
+    <div class="home-hero-links"><button type="button" onclick="go('learn')">Entenda como funciona <span aria-hidden="true">↗</span></button><button type="button" onclick="go('merchants')">Tenho uma empresa <span aria-hidden="true">↗</span></button>${acquisitionOpen?'<button type="button" class="home-notify-shortcut" onclick="openPrelaunchCustomerLead()">Quero receber aviso de disponibilidade <span aria-hidden="true">↗</span></button>':''}</div>
 
     <div class="trust-row" aria-label="O que você pode esperar">${conciseHome?'<span class="trust-chip">✓ Consulta por CEP</span><span class="trust-chip">✓ Aviso opcional por WhatsApp</span><span class="trust-chip">✓ Sem pedido automático</span>':'<span class="trust-chip">✓ Veja o valor antes</span><span class="trust-chip">✓ Pedido com aceite real</span><span class="trust-chip">✓ Acompanhe a entrega</span>'}</div>
     ${internalPilot?'<div class="notice" style="margin-top:14px"><strong>Ambiente de validação interna.</strong><br>Nenhuma ação nesta prévia gera pedido real, cobrança ou baixa de estoque. O dado comercial real carregado no cenário é a faixa P13: R$ 115,90 mínimo, R$ 120,00 normal e R$ 125,00 máximo, com entrega incluída.</div>':''}
@@ -533,6 +549,7 @@ ${valueBridge}
 ${!conciseHome&&typeof tamaoHomeBenefits==="function"?tamaoHomeBenefits():""}
 ${conciseHome?intentSection:''}
 ${acquisitionOpen?prelaunchCustomerLeadSection():''}
+${conciseHome?homeAnswers:''}
 ${acquisitionOpen&&!conciseHome?prelaunchTransparencyBand():''}
 ${reorderCard}
 
