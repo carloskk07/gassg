@@ -3134,7 +3134,7 @@ function merchantLiveOrder(o){
     <div class="order-head"><div><div class="order-id">${esc(o.publicCode||o.orderId)}</div><div class="order-line">${items||'Itens do pedido'}</div></div><div class="merchant-order-total"><strong>${total}</strong><div class="tiny muted">${esc(copy[0])}</div></div></div>
     ${compactMeta}
     ${merchantOrderAttentionCard(o)}
-    ${merchantSupportForOrder(o)}
+    ${typeof merchantSupportForOrder==='function'?merchantSupportForOrder(o):''}
     ${merchantIncidentRiskGuide(o)}
     ${merchantOrderProgressView(o)}
     <div class="order-line">${address}</div><div class="order-line">Pagamento: ${esc(paymentLabel(o.paymentMethod))}</div>${o.paymentMethod==='cash'&&o.cashTenderCents?`<div class="order-line"><strong>Troco para: ${BRL.format(Number(o.cashTenderCents)/100)}</strong></div>`:''}${o.deliveryWindowStart?`<div class="notice success" style="margin-top:10px"><strong>Entrega agendada</strong><br>${esc(formatDeliveryWindow(o.deliveryWindowStart,o.deliveryWindowEnd))}</div>`:''}
