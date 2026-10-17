@@ -3,9 +3,9 @@ import fs from 'node:fs';
 import vm from 'node:vm';
 
 const backend=fs.readFileSync(new URL('../js/backend.js',import.meta.url),'utf8');
-const names=['merchantRefreshAfterConfirmedMutation','merchantPerformAction','merchantAssignDeliveryLive','merchantCompleteDeliveryLive'];
+const names=['merchantVerifiedActionOrder','merchantRefreshAfterConfirmedMutation','merchantPerformAction','merchantAssignDeliveryLive','merchantCompleteDeliveryLive'];
 function pick(name){
-  const start=backend.indexOf('async function '+name+'(');
+  const start=backend.indexOf((name==='merchantVerifiedActionOrder'?'function ':'async function ')+name+'(');
   const end=backend.indexOf('\n}',start);
   assert.ok(start>=0&&end>start,'missing implementation '+name);
   return backend.slice(start,end+2);
@@ -18,9 +18,10 @@ const memberId='22222222-2222-4222-8222-222222222222';
 function fixture({reply={ok:true},failMutation=false,failRefresh=false,noAccess=false,
                   staleRefresh=false,delayedMutation=null}={}){
   const calls=[], events=[];
-  const initialOrder={orderId,version:9,status:'ARRIVING'};
+  const initialOrder={orderId,version:9,status:'OFFERED_TO_MERCHANT',offerExpiresAt:new Date(Date.now()+5*60000).toISOString()};
   const runtime={
     status:'ready',orders:[initialOrder],merchant:{merchantId:'merchant-1'},
+    selectedMerchantId:'merchant-1',lastSyncAt:new Date().toISOString(),
     actionPending:false,error:null
   };
   const ctx=vm.createContext({

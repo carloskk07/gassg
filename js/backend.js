@@ -2179,10 +2179,42 @@ async function merchantRefreshAfterConfirmedMutation(){
   return false;
 }
 
+// V1.355 — fail closed at the instant an order action is attempted.
+// A rendered button is not evidence that the merchant-orders snapshot is still current.
+// The server still checks identity, role, order version and transition after this guard.
+function merchantVerifiedActionOrder(orderId,{action='',now=Date.now()}={}){
+  const rt=merchantRuntime;
+  const merchantId=String(rt?.merchant?.merchantId||'');
+  if(rt?.status!=='ready'||!merchantId){
+    throw new Error('Sua operação precisa ser atualizada antes de agir no pedido.');
+  }
+  const selected=String(rt.selectedMerchantId||'');
+  if(selected&&selected!==merchantId){
+    throw new Error('A revenda selecionada mudou. Atualize os pedidos antes de continuar.');
+  }
+  const seen=Date.parse(String(rt.lastSyncAt||''));
+  if(!Number.isFinite(seen)||seen>now+60000||now-seen>120000){
+    throw new Error('A lista de pedidos precisa ser atualizada antes desta ação.');
+  }
+  const order=(Array.isArray(rt.orders)?rt.orders:[]).find(o=>o?.orderId===orderId);
+  if(!order)throw new Error('Pedido não encontrado nesta revenda. Atualize os pedidos.');
+  // An old tab may still contain the earlier accept/reject buttons after expiry.
+  // Unknown/expired response windows cannot be used, even if the UI hasn't rerendered.
+  if(['accept','reject'].includes(action)){
+    const raw=String(order.offerExpiresAt||'');
+    const deadline=Date.parse(raw);
+    if(String(order.status||'')!=='OFFERED_TO_MERCHANT'||
+       !/^20\d\d-\d\d-\d\dT/.test(raw)||
+       !Number.isFinite(deadline)||deadline<=now+1000){
+      throw new Error('O prazo de resposta não está válido. Atualize os pedidos.');
+    }
+  }
+  return order;
+}
+
 async function merchantPerformAction(orderId,action,reason='other_operational'){
   if(merchantRuntime.actionPending)return;
-  const order=merchantRuntime.orders.find(o=>o.orderId===orderId);
-  if(!order)throw new Error('Pedido não encontrado no painel');
+  const order=merchantVerifiedActionOrder(orderId,{action});
   merchantRuntime.actionPending=true;
   merchantRuntime.error=null;
   render();
@@ -2287,8 +2319,7 @@ async function merchantOpenTeam(){
 
 async function merchantAssignDeliveryLive(orderId,deliveryUserId){
   if(merchantRuntime.actionPending)return;
-  const order=merchantRuntime.orders.find(o=>o.orderId===orderId);
-  if(!order)throw new Error('Pedido não encontrado no painel');
+  const order=merchantVerifiedActionOrder(orderId,{action:'assign-delivery'});
   if(!deliveryUserId)throw new Error('Escolha um responsável pela entrega');
   merchantRuntime.actionPending=true;
   merchantRuntime.error=null;
@@ -2335,8 +2366,7 @@ async function merchantUpdateMemberProfileLive(displayName){
 
 async function merchantCompleteDeliveryLive(orderId,pin,paymentConfirmed){
   if(merchantRuntime.actionPending)return;
-  const order=merchantRuntime.orders.find(o=>o.orderId===orderId);
-  if(!order)throw new Error('Pedido não encontrado no painel');
+  const order=merchantVerifiedActionOrder(orderId,{action:'complete-delivery'});
   if(paymentConfirmed!==true)throw new Error('Confirme o recebimento do pagamento');
   if(!/^\d{4}$/.test(String(pin||'')))throw new Error('Informe o PIN de 4 dígitos');
   merchantRuntime.actionPending=true;
