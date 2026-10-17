@@ -871,11 +871,11 @@ ${liveNotice}
 ${pendingOrder?`<div class="notice" style="margin-bottom:14px"><strong>Você já possui um pedido em andamento.</strong><br>Conclua ou cancele o pedido ${esc(pendingOrder.publicCode||pendingOrder.id)} antes de criar outro.<br><button class="ghost small" onclick="go('tracking')">Acompanhar pedido →</button></div>`:''}
 <div class="card flat form-stack order-address-card" id="customer-address">
   ${testDemo?`<div class="field-row">
-    <div class="input-wrap"><label for="postal-code">CEP</label><input id="postal-code" class="input" autocomplete="postal-code" inputmode="numeric" maxlength="9" placeholder="Ex.: 97300-000" value="${esc(String(state.postalCode||'').replace(/^(\d{5})(\d{0,3}).*$/,(m,a,b)=>b?a+'-'+b:a))}"><small class="field-help">Opcional na simulação.</small></div>
+    <div class="input-wrap"><label for="postal-code">CEP</label><input id="postal-code" class="input" autocomplete="postal-code" inputmode="numeric" maxlength="9" placeholder="Ex.: 97300-000" value="${esc(String(state.postalCode||'').replace(/^(\d{5})(\d{0,3})$/,(m,a,b)=>b?a+'-'+b:a))}"><small class="field-help">Opcional na simulação.</small></div>
     <div class="input-wrap"><label for="address">Endereço de entrega</label><input id="address" class="input" autocomplete="street-address" maxlength="160" placeholder="Ex.: Rua General Câmara, 123" value="${esc(state.address||'')}"></div>
   </div>`:`<div class="field-row">
-    <div class="input-wrap"><label for="postal-code">CEP</label><input id="postal-code" class="input" autocomplete="postal-code" inputmode="numeric" maxlength="9" placeholder="Ex.: 97300-000" value="${esc(String(state.postalCode||'').replace(/^(\d{5})(\d{0,3}).*$/,(m,a,b)=>b?a+'-'+b:a))}" oninput="deliveryAddressDraftChanged()" onchange="deliveryAddressDraftChanged()"><small class="field-help">O servidor confirma rua, bairro e atendimento para o CEP informado.</small></div>
-    <div class="input-wrap"><label for="address-number">Número</label><input id="address-number" class="input" autocomplete="address-line2" inputmode="text" maxlength="7" placeholder="Ex.: 123" value="${esc(state.addressNumber||'')}" oninput="deliveryAddressDraftChanged()" onchange="deliveryAddressDraftChanged()"><small class="field-help">Use números e, se necessário, uma letra.</small></div>
+    <div class="input-wrap"><label for="postal-code">CEP</label><input id="postal-code" class="input" autocomplete="postal-code" inputmode="numeric" maxlength="9" aria-describedby="address-auto-status" placeholder="Ex.: 97300-000" value="${esc(String(state.postalCode||'').replace(/^(\d{5})(\d{0,3})$/,(m,a,b)=>b?a+'-'+b:a))}" oninput="deliveryAddressDraftChanged()" onchange="deliveryAddressDraftChanged()"><small class="field-help">O servidor confirma rua, bairro e atendimento para o CEP informado.</small></div>
+    <div class="input-wrap"><label for="address-number">Número</label><input id="address-number" class="input" autocomplete="address-line2" inputmode="text" maxlength="7" aria-describedby="address-auto-status" placeholder="Ex.: 123" value="${esc(state.addressNumber||'')}" oninput="deliveryAddressDraftChanged()" onchange="deliveryAddressDraftChanged()"><small class="field-help">Use números e, se necessário, uma letra.</small></div>
   </div>
   ${state.address?`<div class="notice success"><strong>Endereço confirmado pelo servidor.</strong><br>${esc(state.address)}</div>`:'<div class="notice">A rua não é digitada manualmente: ela vem do CEP validado.</div>'}`}
   ${testDemo
@@ -883,12 +883,12 @@ ${pendingOrder?`<div class="notice" style="margin-bottom:14px"><strong>Você já
     :ready
       ?`<div class="address-auto-status" id="address-auto-status" role="status" aria-live="polite"><span aria-hidden="true">📍</span><span>${liveRuntime.loadingOffers?'Consultando opções para seu endereço…':hasAddress?'Endereço confirmado. Compare as opções disponíveis abaixo.':liveRuntime.error?'Não foi possível concluir a consulta. Você pode tentar novamente.':'Informe CEP e número. Consultaremos as ofertas automaticamente.'}</span></div>
         ${liveRuntime.error?`<button class="secondary small" onclick="setAddress()">Tentar novamente</button>`:''}`
-      :`<button class="primary" onclick="setAddress()">Consultar endereço</button>`}
+      :`<div class="address-auto-status" id="address-auto-status" role="status" aria-live="polite"><span aria-hidden="true">📍</span><span>Confira o CEP e o número. A consulta depende da conexão com o serviço.</span></div><button class="primary" onclick="setAddress()">Consultar endereço</button>`}
   <small class="field-help">${testDemo?'Dados do ambiente interno.':'Os preços só aparecem após o servidor validar CEP e número.'}</small>
 </div>
 ${hasAddress?`<div class="card flat form-stack buyer-contact-card" id="customer-contact" style="margin-top:12px">
   <h3>Seu contato para a entrega</h3>
-  <div class="input-wrap"><label for="delivery-phone">Telefone com DDD</label><input id="delivery-phone" class="input" type="tel" inputmode="tel" autocomplete="tel" maxlength="18" placeholder="Ex.: (55) 99999-1234" value="${esc(formatDeliveryPhone(state.checkout.customerPhoneDigits))}" onchange="deliveryDetailsChanged()"><small class="field-help">Obrigatório para concluir o pedido. A revenda recebe o contato apenas depois de aceitar.</small></div>
+  <div class="input-wrap"><label for="delivery-phone">Telefone com DDD</label><input id="delivery-phone" class="input" type="tel" inputmode="tel" autocomplete="tel" maxlength="18" aria-describedby="delivery-phone-feedback" placeholder="Ex.: (55) 99999-1234" value="${esc(formatDeliveryPhone(state.checkout.customerPhoneDigits))}" onchange="deliveryDetailsChanged()"><small id="delivery-phone-feedback" class="field-help" role="status" aria-live="polite">Obrigatório para concluir o pedido. A revenda recebe o contato apenas depois de aceitar.</small></div>
   <details class="buyer-extra-details" ${state.checkout.addressComplement||state.checkout.deliveryReference||state.checkout.deliveryNotes?'open':''}>
     <summary>Complemento, referência ou recado para a entrega (opcional)</summary>
   <div class="field-row">
@@ -1095,10 +1095,35 @@ function offerCard(o,facts={}){
   </article>`;
 }
 
+// V1.380 — User-facing address hints use the complete input, never a truncated
+// CEP or number, and never imply a valid server-side address or quote.
+function customerAddressDraftGuidance(postalCode,addressNumber,{hasItems=false,serviceReady=false}={}){
+  const postal=String(postalCode||'');
+  const number=String(addressNumber||'');
+  if(!postal)return 'Informe o CEP de entrega para começar a consulta.';
+  if(!/^[0-9]{8}$/.test(postal))
+    return postal.length>8?'O CEP tem números a mais. Use exatamente 8 dígitos.':'Complete o CEP com 8 dígitos.';
+  if(!number)return 'CEP preenchido. Informe o número do endereço.';
+  if(!/^[0-9]{1,6}[A-Z]?$/.test(number))
+    return 'Confira o número: use até 6 algarismos e, se necessário, uma letra.';
+  if(!hasItems)return 'CEP e número preenchidos. Escolha um produto para consultar ofertas.';
+  if(!serviceReady)return 'CEP e número preenchidos. A consulta depende da conexão com o serviço.';
+  return 'CEP e número preenchidos. Consultando as opções para esta cesta…';
+}
+function customerAddressInlineError(inputId,message){
+  const field=document.getElementById(inputId)||document.querySelector('#'+inputId);
+  field?.setAttribute?.('aria-invalid','true');
+  const hint=document.querySelector('#address-auto-status span:last-child');
+  if(hint)hint.textContent=message;
+  field?.focus?.();
+  toast(message);
+  return false;
+}
+
 function deliveryAddressDraftChanged(){
   if(globalThis.__CHAMA_TEST__===true)return;
-  const postalCode=String(document.querySelector('#postal-code')?.value||'').replace(/\D/g,'').slice(0,8);
-  const addressNumber=String(document.querySelector('#address-number')?.value||'').trim().toUpperCase().replace(/\s+/g,'').slice(0,7);
+  const postalCode=String(document.querySelector('#postal-code')?.value||'').replace(/\D/g,'');
+  const addressNumber=String(document.querySelector('#address-number')?.value||'').trim().toUpperCase().replace(/\s+/g,'');
   if(postalCode===String(state.postalCode||'')&&addressNumber===String(state.addressNumber||''))return;
   // Invalidate old quotes immediately (before the input settles), and don't
   // rebuild the form while the person is typing: that would steal keyboard focus.
@@ -1116,19 +1141,25 @@ function deliveryAddressDraftChanged(){
   save();
   const valid=/^[0-9]{8}$/.test(postalCode)
     &&/^[0-9]{1,6}[A-Z]?$/.test(addressNumber);
+  const postalInput=document.querySelector('#postal-code');
+  const numberInput=document.querySelector('#address-number');
+  const flag=(node,invalid)=>{
+    if(invalid)node?.setAttribute?.('aria-invalid','true');
+    else node?.removeAttribute?.('aria-invalid');
+  };
+  flag(postalInput,postalCode.length>0&&!/^[0-9]{8}$/.test(postalCode));
+  flag(numberInput,addressNumber.length>0&&!/^[0-9]{1,6}[A-Z]?$/.test(addressNumber));
   const hint=document.querySelector('#address-auto-status span:last-child');
-  if(hint){
-    hint.textContent=valid&&globalThis.liveReady?.()
-      ?'CEP e número completos. Consultando ofertas automaticamente…'
-      :'Informe CEP e número para consultar ofertas automaticamente.';
-  }
+  if(hint)hint.textContent=customerAddressDraftGuidance(postalCode,addressNumber,{
+    hasItems:hasCartItems(),serviceReady:globalThis.liveReady?.()===true
+  });
   if(valid&&globalThis.liveReady?.()&&hasCartItems()){
     globalThis.liveScheduleOfferRefresh?.(650);
   }
 }
 
 async function setAddress(){
-  const postalCode=String(document.querySelector('#postal-code')?.value||state.postalCode||'').replace(/\D/g,'').slice(0,8);
+  const postalCode=String(document.querySelector('#postal-code')?.value??state.postalCode??'').replace(/\D/g,'');
   if(globalThis.__CHAMA_TEST__===true){
     const value=document.querySelector('#address')?.value.trim()||'';
     if(value.length<5)return toast('Informe um endereço válido');
@@ -1139,14 +1170,12 @@ async function setAddress(){
     return;
   }
 
-  const addressNumber=String(document.querySelector('#address-number')?.value||state.addressNumber||'').trim().toUpperCase().replace(/\s+/g,'').slice(0,7);
+  const addressNumber=String(document.querySelector('#address-number')?.value??state.addressNumber??'').trim().toUpperCase().replace(/\s+/g,'');
   if(!/^[0-9]{8}$/.test(postalCode)){
-    document.querySelector('#postal-code')?.focus();
-    return toast('Informe um CEP válido com 8 dígitos');
+    return customerAddressInlineError('postal-code','Informe um CEP válido com exatamente 8 dígitos.');
   }
   if(!/^[0-9]{1,6}[A-Z]?$/.test(addressNumber)){
-    document.querySelector('#address-number')?.focus();
-    return toast('Informe o número do endereço');
+    return customerAddressInlineError('address-number','Confira o número do endereço (até 6 algarismos e uma letra).');
   }
 
   const changed=state.postalCode!==postalCode||state.addressNumber!==addressNumber;
@@ -1180,14 +1209,22 @@ function formatDeliveryPhone(value){
   return '('+d.slice(0,2)+') '+d.slice(2,7)+'-'+d.slice(7);
 }
 function syncDeliveryDetailsFromUi({requirePhone=false}={}){
-  const phoneDigits=String(document.getElementById('delivery-phone')?.value??state.checkout.customerPhoneDigits??'').replace(/\D/g,'').slice(0,11);
+  const phoneDigits=String(document.getElementById('delivery-phone')?.value??state.checkout.customerPhoneDigits??'').replace(/\D/g,'');
   const complement=String(document.getElementById('address-complement')?.value??state.checkout.addressComplement??'').trim().replace(/\s+/g,' ').slice(0,120);
   const reference=String(document.getElementById('delivery-reference')?.value??state.checkout.deliveryReference??'').trim().replace(/\s+/g,' ').slice(0,160);
   const notes=String(document.getElementById('delivery-notes')?.value??state.checkout.deliveryNotes??'').trim().replace(/\s+/g,' ').slice(0,240);
+  const phoneField=document.getElementById('delivery-phone');
+  const phoneHint=document.getElementById('delivery-phone-feedback');
   if(requirePhone&&!/^[0-9]{10,11}$/.test(phoneDigits)){
-    document.getElementById('delivery-phone')?.focus();
+    phoneField?.setAttribute?.('aria-invalid','true');
+    if(phoneHint)phoneHint.textContent='Confira o telefone: informe DDD e 8 ou 9 dígitos, sem números extras.';
+    phoneField?.focus?.();
     toast('Informe um telefone válido com DDD para a entrega');
     return false;
+  }
+  if(/^[0-9]{10,11}$/.test(phoneDigits)){
+    phoneField?.removeAttribute?.('aria-invalid');
+    if(phoneHint)phoneHint.textContent='Telefone preenchido. Será compartilhado com a revenda após o aceite.';
   }
   state.checkout.customerPhoneDigits=phoneDigits;
   state.checkout.addressComplement=complement;

@@ -487,6 +487,8 @@ jobs:
         run: node tests/public-handoff-visual-v1-378.mjs
       - name: V1.379 mobile product CEP and merchant form recovery
         run: node tests/mobile-first-action-v1-379.mjs
+      - name: V1.380 checkout address and phone input integrity
+        run: node tests/checkout-address-clarity-v1-380.mjs
       - name: V1.368 evidence-led acquisition dashboard
         run: node tests/admin-acquisition-evidence-v1-368.mjs
       - name: V1.369 linked campaign outcome evidence

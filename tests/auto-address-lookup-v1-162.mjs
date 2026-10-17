@@ -128,8 +128,8 @@ h.calls[4].resolve(h.response());
 await h.settle();
 
 const draftFn=frontend.slice(
-  frontend.indexOf('function deliveryAddressDraftChanged(){'),
-  frontend.indexOf('\nasync function setAddress()',frontend.indexOf('function deliveryAddressDraftChanged(){'))
+  frontend.indexOf('function customerAddressDraftGuidance('),
+  frontend.indexOf('\nasync function setAddress()',frontend.indexOf('function customerAddressDraftGuidance('))
 );
 assert.ok(draftFn.includes('globalThis.liveInvalidateOfferAddressDraft?.()'));
 assert.ok(draftFn.includes('globalThis.liveScheduleOfferRefresh?.(650)'));
