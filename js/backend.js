@@ -2209,6 +2209,22 @@ function merchantVerifiedActionOrder(orderId,{action='',now=Date.now()}={}){
       throw new Error('O prazo de resposta não está válido. Atualize os pedidos.');
     }
   }
+  // V1.356 — an old DOM can still hold a button after a newer stage was
+  // applied. Reject impossible transitions before opening a mutating RPC.
+  const permittedStatuses={
+    dispatch:['PREPARING','AT_RISK'],
+    arriving:['OUT_FOR_DELIVERY'],
+    'cannot-fulfill':['PREPARING','AT_RISK'],
+    'assign-delivery':['PREPARING','AT_RISK'],
+    'complete-delivery':['ARRIVING']
+  };
+  if(Object.prototype.hasOwnProperty.call(permittedStatuses,action)
+     &&!permittedStatuses[action].includes(String(order.status||''))){
+    throw new Error('O pedido mudou de etapa. Atualize os pedidos antes de agir.');
+  }
+  if(!Number.isSafeInteger(order.version)||order.version<1){
+    throw new Error('A versão do pedido não está confirmada. Atualize os pedidos.');
+  }
   return order;
 }
 
