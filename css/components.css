@@ -5030,3 +5030,25 @@ body:has(.admin-page) .admin-nav-item:focus-visible{outline-offset:-3px}
 @media(prefers-reduced-motion:reduce){
  .merchant-unified-action{transition:none}
 }
+
+/* TAMÃO V1.389 — explicit recovery when a pending merchant offer has no
+   verified actionable deadline; refresh never accepts or rejects an offer. */
+.merchant-unified-recovery{
+ display:inline-flex;align-items:center;justify-content:center;gap:6px;
+ width:100%;min-height:44px;margin-top:8px;padding:10px 12px;
+ color:#18583e;background:#f2f8f3;border:1px solid #bbd9c6;
+ border-radius:12px;cursor:pointer;font-size:12px;line-height:1.4;
+ font-weight:850;text-align:center
+}
+.merchant-unified-recovery:hover{background:#e9f4eb}
+.merchant-unified-recovery:disabled,
+.merchant-unified-action:disabled{opacity:.58;cursor:not-allowed}
+.merchant-unified-recovery:focus-visible{
+ outline:3px solid #b77b20;outline-offset:3px
+}
+@media(max-width:480px){
+ .merchant-unified-recovery{grid-column:1/-1;min-height:49px}
+}
+@media(prefers-reduced-motion:reduce){
+ .merchant-unified-recovery{transition:none}
+}
