@@ -55,6 +55,14 @@ for(const token of [
  '.sponsor-format-grid','@media(max-width:620px)','prefers-reduced-motion',
  ':focus-visible'
 ])assert.ok(css.includes(token),'missing visual/responsive/accessibility rule '+token);
+for(const selector of ['.home-trust-brief','.home-trust-answers','.home-notify-shortcut',
+  '@media(max-width:850px)','@media(max-width:540px)']){
+  assert.ok(css.includes(selector),'V1.363 responsive clarity element missing: '+selector);
+}
+const learnCtas=learn.match(/onclick="startHomeBrowse\(\)"/g)||[];
+assert.equal(learnCtas.length,2,'both educational CTAs must open the product chooser');
+assert.ok(!learn.includes('onclick="startCustomerAvailability()"'),
+ 'educational pages must never pre-select a featured gas product');
 assert.doesNotMatch(sponsors,/\d+[.,]?\d*% (?:de )?(?:conversão|alcance)|milhares de clientes/i,
  'no invented sponsorship results');
 
