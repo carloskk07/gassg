@@ -36,6 +36,25 @@ function announcePublicPageNavigation(){
   const announcement=document.getElementById('tamao-route-announcement');
   if(announcement)announcement.textContent=heading?.textContent?.trim()||identity[0];
 }
+/* V1.375 — Explicit, allowlisted marketing entry points.
+   UTMs and referral hints stay in the query string; this only chooses which
+   existing public page to show, without auth, cart or order mutations. */
+function tamaoPublicEntryIntent(){
+  try{
+    const value=String(new URLSearchParams(location.search).get('entrada')||'').trim().toLowerCase();
+    return ['revenda','marca','indicar','agua','gas'].includes(value)?value:'';
+  }catch{return ''}
+}
+function tamaoPublicEntryRoute(){
+  if(globalThis.adminPortalRequested?.()||globalThis.merchantPortalRequested?.()||
+     globalThis.__CHAMA_TEST__===true||globalThis.CHAMA_INTERNAL_PILOT===true)return false;
+  // A visitor's explicit link to a page always takes precedence.
+  if(String(location.hash||'').length>0)return false;
+  const destination={revenda:'merchants',marca:'sponsors',indicar:'earn'}[tamaoPublicEntryIntent()];
+  if(!destination)return false;
+  go(destination);
+  return true;
+}
 let renderLock=false;
 function render(){
   if(renderLock)return;
@@ -90,6 +109,7 @@ window.addEventListener('load',async()=>{
     }
     render();
   }else{
+    tamaoPublicEntryRoute();
     render();
     if(globalThis.liveRequested?.()){
       await backendInit();
