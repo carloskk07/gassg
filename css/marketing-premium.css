@@ -63,6 +63,10 @@
 .tamao-sponsors-page .tamao-sponsor-hero .primary,
 .merchant-landing-premium .merchant-hero-actions .primary{min-height:52px}
 .tamao-network-hero h1,.merchant-landing-premium h1{ text-wrap:balance }
+.merchant-landing-premium .merchant-panel-link{min-height:44px;border:0;background:transparent;
+ color:#115f43;font-size:13px;font-weight:850;cursor:pointer;padding:9px 2px;text-align:left}
+.merchant-landing-premium .merchant-panel-link:hover{text-decoration:underline;text-underline-offset:4px}
+.merchant-landing-premium .merchant-panel-link:focus-visible{outline:3px solid #bd821b;outline-offset:3px}
 .site-footer nav button{font-weight:750}
 @media(max-width:900px){
  .tamao-visitor-paths .visitor-paths-grid,.sponsor-format-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
