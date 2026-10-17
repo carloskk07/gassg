@@ -123,74 +123,74 @@ const esc=value=>String(value??'').replaceAll('&','&amp;').replaceAll('<','&lt;'
 
 function renderLanding(page,origin,indexing){
  const canonical=origin+'/'+page.slug+'/';
- const cards=page.steps.map(([number,title,description])=>\`<article class="ed-step">
-   <span class="ed-step-number">\${esc(number)}</span>
-   <h3>\${esc(title)}</h3><p>\${esc(description)}</p>
-  </article>\`).join('');
+ const cards=page.steps.map(([number,title,description])=>`<article class="ed-step">
+   <span class="ed-step-number">${esc(number)}</span>
+   <h3>${esc(title)}</h3><p>${esc(description)}</p>
+  </article>`).join('');
  const bullets=page.storyPoints.map(item=>'<li>'+esc(item)+'</li>').join('');
  const questions=page.questions.map(([q,a])=>'<details><summary>'+esc(q)+'</summary><p>'+esc(a)+'</p></details>').join('');
- const primary=\`<a class="ed-btn ed-btn-primary" href="\${esc(page.primary[1])}">\${esc(page.primary[0])} <span aria-hidden="true">→</span></a>\`;
- const secondary=\`<a class="ed-btn ed-btn-outline" href="\${esc(page.secondary[1])}">\${esc(page.secondary[0])}</a>\`;
- const navigation=PAGES.map(x=>\`<a href="/\${x.slug}/" \${x.slug===page.slug?'aria-current="page"':''}>\${esc(x.slug==='como-funciona'?'Como funciona':x.slug==='para-revendas'?'Para revendas':x.slug==='para-marcas'?'Para marcas':'Indicações')}</a>\`).join('');
- return \`<!doctype html>
+ const primary=`<a class="ed-btn ed-btn-primary" href="${esc(page.primary[1])}">${esc(page.primary[0])} <span aria-hidden="true">→</span></a>`;
+ const secondary=`<a class="ed-btn ed-btn-outline" href="${esc(page.secondary[1])}">${esc(page.secondary[0])}</a>`;
+ const navigation=PAGES.map(x=>`<a href="/${x.slug}/" ${x.slug===page.slug?'aria-current="page"':''}>${esc(x.slug==='como-funciona'?'Como funciona':x.slug==='para-revendas'?'Para revendas':x.slug==='para-marcas'?'Para marcas':'Indicações')}</a>`).join('');
+ return `<!doctype html>
 <html lang="pt-BR"><head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-<meta name="robots" content="\${indexing?'index,follow,max-image-preview:large':'noindex,nofollow,noarchive,nosnippet'}" />
+<meta name="robots" content="${indexing?'index,follow,max-image-preview:large':'noindex,nofollow,noarchive,nosnippet'}" />
 <meta name="theme-color" content="#0d6b4b" />
-<meta name="description" content="\${esc(page.description)}" />
-<link rel="canonical" href="\${esc(canonical)}" />
+<meta name="description" content="${esc(page.description)}" />
+<link rel="canonical" href="${esc(canonical)}" />
 <meta property="og:type" content="website" />
 <meta property="og:site_name" content="TAMÃO" />
 <meta property="og:locale" content="pt_BR" />
-<meta property="og:title" content="\${esc(page.title)}" />
-<meta property="og:description" content="\${esc(page.description)}" />
-<meta property="og:url" content="\${esc(canonical)}" />
+<meta property="og:title" content="${esc(page.title)}" />
+<meta property="og:description" content="${esc(page.description)}" />
+<meta property="og:url" content="${esc(canonical)}" />
 <meta name="twitter:card" content="summary" />
 <link rel="icon" href="/icons/icon.svg" type="image/svg+xml" />
 <link rel="stylesheet" href="/css/landing-editorial.css" />
-<title>\${esc(page.title)}</title>
+<title>${esc(page.title)}</title>
 </head><body>
 <a class="ed-skip" href="#conteudo">Pular para o conteúdo</a>
 <header class="ed-header"><div class="ed-shell ed-header-inner">
   <a href="/" class="ed-brand" aria-label="TAMÃO, ir para a home"><img src="/icons/icon.svg" width="43" height="43" alt="" /><span><strong>TAMÃO</strong><small>Pediu? Tá na mão.</small></span></a>
-  <nav class="ed-nav" aria-label="Conheça o TAMÃO">\${navigation}</nav>
+  <nav class="ed-nav" aria-label="Conheça o TAMÃO">${navigation}</nav>
   <a class="ed-header-cta" href="/">Quero comprar <span aria-hidden="true">→</span></a>
 </div></header>
 <main id="conteudo">
  <section class="ed-hero"><div class="ed-shell ed-hero-grid">
   <div class="ed-hero-copy">
-   <span class="ed-eyebrow">\${esc(page.kicker)}</span>
-   <h1>\${esc(page.heading)}</h1>
-   <p>\${esc(page.lead)}</p>
-   <div class="ed-actions">\${primary}\${secondary}</div>
+   <span class="ed-eyebrow">${esc(page.kicker)}</span>
+   <h1>${esc(page.heading)}</h1>
+   <p>${esc(page.lead)}</p>
+   <div class="ed-actions">${primary}${secondary}</div>
    <div class="ed-hero-notes" aria-label="Sobre o TAMÃO"><span>✓ Informação clara</span><span>✓ Foco na sua região</span><span>✓ Você decide o próximo passo</span></div>
   </div>
   <aside class="ed-hero-visual" aria-label="Apresentação ilustrativa da proposta do TAMÃO">
-   <span class="ed-visual-kicker">\${esc(page.mark)}</span>
+   <span class="ed-visual-kicker">${esc(page.mark)}</span>
    <div class="ed-product-scene" aria-hidden="true">
     <div class="ed-halo"></div><div class="ed-product ed-product-gas"></div><div class="ed-product ed-product-water"></div>
     <span class="ed-scene-label">Gás • Água • Essenciais</span>
    </div>
-   <div class="ed-visual-copy"><h2>\${esc(page.visualTitle)}</h2><p>\${esc(page.visualText)}</p></div>
+   <div class="ed-visual-copy"><h2>${esc(page.visualTitle)}</h2><p>${esc(page.visualText)}</p></div>
   </aside>
  </div></section>
  <section class="ed-section ed-shell" aria-labelledby="etapas"><div class="ed-section-head"><span class="ed-eyebrow">DO INTERESSE À AÇÃO</span><h2 id="etapas">Simples de entender. Fácil de começar.</h2></div>
- <div class="ed-steps">\${cards}</div></section>
+ <div class="ed-steps">${cards}</div></section>
  <section class="ed-section ed-shell ed-value" aria-labelledby="beneficios">
-  <div><span class="ed-eyebrow">O QUE FAZ DIFERENÇA</span><h2 id="beneficios">\${esc(page.storyTitle)}</h2><p>\${esc(page.storyText)}</p></div>
-  <ul>\${bullets}</ul>
+  <div><span class="ed-eyebrow">O QUE FAZ DIFERENÇA</span><h2 id="beneficios">${esc(page.storyTitle)}</h2><p>${esc(page.storyText)}</p></div>
+  <ul>${bullets}</ul>
  </section>
  <section class="ed-section ed-shell ed-faq" aria-labelledby="duvidas">
-  <div class="ed-section-head"><span class="ed-eyebrow">RESPOSTAS DIRETAS</span><h2 id="duvidas">Dúvidas que vale esclarecer.</h2></div><div class="ed-faq-items">\${questions}</div>
+  <div class="ed-section-head"><span class="ed-eyebrow">RESPOSTAS DIRETAS</span><h2 id="duvidas">Dúvidas que vale esclarecer.</h2></div><div class="ed-faq-items">${questions}</div>
  </section>
- <section class="ed-shell ed-last"><div><span class="ed-eyebrow">SEU PRÓXIMO PASSO</span><h2>\${esc(page.closing)}</h2></div>\${primary}</section>
+ <section class="ed-shell ed-last"><div><span class="ed-eyebrow">SEU PRÓXIMO PASSO</span><h2>${esc(page.closing)}</h2></div>${primary}</section>
 </main>
 <footer class="ed-footer"><div class="ed-shell ed-footer-inner">
  <div><a href="/" class="ed-footer-brand">TAMÃO</a><small>Gás, água e essenciais perto de você. Consulte a disponibilidade para sua região.</small></div>
  <nav aria-label="Informações e privacidade"><a href="/#contact">Contato</a><a href="/#privacy">Privacidade</a><a href="/#terms">Termos de uso</a></nav>
 </div></footer>
-</body></html>\`;
+</body></html>`;
 }
 
 export function writePublicLandingPages(target,{origin='https://tamao.com.br',indexing=true}={}){
