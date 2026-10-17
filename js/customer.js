@@ -1386,24 +1386,31 @@ function customerNextAction(status){
 }
 
 // A revised price is a decision, never an automatically paid amount.
-function customerRequoteDecision(order,previousTotal,proposedTotal,remainingSeconds){
-  if(order.status!=='REQUOTE_REQUIRED'||!Number.isFinite(proposedTotal)||proposedTotal<0)return '';
+function customerRequoteDecision(order,previousTotal,proposedTotal,remainingSeconds,{evidence}={}){
+  if(order.status!=='REQUOTE_REQUIRED'||!Number.isFinite(proposedTotal)||proposedTotal<=0)return '';
   const expired=remainingSeconds===0;
-  const deadline=remainingSeconds==null
-    ?'Confira a validade da proposta ao atualizar o pedido.'
-    :expired
-      ?'O prazo indicado terminou. Atualize para verificar a condição atual.'
-      :'Prazo indicado: aproximadamente '+remainingSeconds+' segundos restantes.';
+  const unknown=remainingSeconds==null||!Number.isFinite(remainingSeconds);
+  const unverified=evidence?.kind!=='recent';
+  const validPrevious=previousTotal!=null&&Number.isFinite(previousTotal)&&previousTotal>=0;
+  const canDecide=!expired&&!unknown&&!unverified&&validPrevious
+    &&!globalThis.liveRuntime?.actionPending;
+  const deadline=unverified
+    ?'O estado desta proposta ainda não foi confirmado em uma consulta recente. Atualize antes de decidir.'
+    :unknown
+      ?'Não foi possível verificar o prazo da proposta. Atualize antes de decidir.'
+      :expired
+        ?'O prazo indicado terminou. Atualize para verificar a condição atual.'
+        :'Prazo indicado: aproximadamente '+remainingSeconds+' segundos restantes.';
   return '<div id="customer-requote-decision" class="notice customer-requote" role="region" aria-label="Nova proposta para aprovação">'+
     '<strong>Outra proposta precisa da sua autorização</strong>'+
     '<div class="customer-requote-prices">'+
-      '<span>Valor anterior <strong>'+BRL.format(previousTotal)+'</strong></span>'+
+      '<span>Valor anterior <strong>'+(validPrevious?BRL.format(previousTotal):'Não confirmado')+'</strong></span>'+
       '<span>Nova proposta <strong>'+BRL.format(proposedTotal)+'</strong></span>'+
     '</div>'+
     '<p>O novo valor não é aceito automaticamente. '+esc(deadline)+'</p>'+
     '<div class="order-actions">'+
       '<button class="primary small" onclick="confirmRequote()" '+
-        (expired||globalThis.liveRuntime?.actionPending?'disabled':'')+
+        (canDecide?'':'disabled')+
         '>Aceitar proposta de '+BRL.format(proposedTotal)+'</button>'+
       '<button class="secondary small" onclick="cancelPending()" '+
         (globalThis.liveRuntime?.actionPending?'disabled':'')+
@@ -1574,6 +1581,20 @@ function customerTrackingReadEvidence(order,{checkedAt=null,checkedId=null,now=D
     ?'Pedido consultado agora. O andamento pode mudar depois desta consulta.'
     :'Pedido consultado há '+minutes+' min. Novas etapas dependem da confirmação da revenda.'};
 }
+// V1.382 — A countdown is displayable only with valid timestamp evidence.
+// Unknown deadlines are not equivalent to an expired or active proposal.
+function customerTrackingRemainingSeconds(expiresAt,now=Date.now()){
+  if(typeof expiresAt!=='string'||!/^20\d{2}-\d{2}-\d{2}T\d{2}:\d{2}/.test(expiresAt))return null;
+  const parsed=Date.parse(expiresAt);
+  if(!Number.isFinite(parsed)||!Number.isFinite(now)||parsed>now+30*24*60*60*1000)return null;
+  return Math.max(0,Math.ceil((parsed-now)/1000));
+}
+function customerTrackingTotal(order){
+  const value=order?.totalCents;
+  const cents=Number(value);
+  return value!=null&&Number.isSafeInteger(cents)&&cents>=0&&cents<=1000000000
+    ?cents/100:null;
+}
 function customerTrackingPrimaryAction(order,{evidence,pending=false,remainingSeconds=null}={}){
   const status=String(order?.status||'');
   const mustRefresh=evidence?.kind!=='recent';
@@ -1582,8 +1603,8 @@ function customerTrackingPrimaryAction(order,{evidence,pending=false,remainingSe
   if(mustRefresh)return refresh('Atualizar pedido');
   if(status==='REQUOTE_REQUIRED'){
     const proposal=order?.proposedTotalCents;
-    if(proposal!=null&&Number.isFinite(Number(proposal))&&
-       Number(proposal)>=0&&remainingSeconds!==0){
+    if(proposal!=null&&Number.isSafeInteger(Number(proposal))&&
+       Number(proposal)>0&&remainingSeconds!=null&&Number.isFinite(remainingSeconds)&&remainingSeconds>0){
       return '<a class="primary customer-tracking-cta" href="#customer-requote-decision">Conferir nova proposta →</a>';
     }
     return refresh('Atualizar proposta');
@@ -1670,17 +1691,25 @@ function liveTracking(){
   const supplier=customerSupplierPresentation(o);
   const interrupted=['CANCELLED','REASSIGNING'].includes(o.status);
   const active=!['SETTLED','CANCELLED'].includes(o.status);
-  const deadline=['OFFERED_TO_MERCHANT','REQUOTE_REQUIRED'].includes(o.status)&&o.offerExpiresAt
-    ? Math.max(0,Math.ceil((Date.parse(o.offerExpiresAt)-Date.now())/1000))
-    : null;
-  const total=Number(o.totalCents||0)/100;
+  const deadline=['OFFERED_TO_MERCHANT','REQUOTE_REQUIRED'].includes(o.status)
+    ?customerTrackingRemainingSeconds(o.offerExpiresAt):null;
+  const total=customerTrackingTotal(o);
+  const totalLabel=total===null?'Valor ainda não confirmado':BRL.format(total);
   const cashbackReserved=Number(o.cashbackReservedCents||0)/100;
-  const proposed=o.proposedTotalCents==null?null:Number(o.proposedTotalCents)/100;
+  const proposedCents=Number(o.proposedTotalCents);
+  const proposed=o.proposedTotalCents!=null&&Number.isSafeInteger(proposedCents)
+    &&proposedCents>0&&proposedCents<=1000000000?proposedCents/100:null;
   const quickAction=customerTrackingPrimaryAction(o,{
     evidence:readEvidence,pending:liveRuntime.actionPending===true,
     remainingSeconds:deadline
   });
-  const items=(o.items||[]).map(i=>`<div class="list-row"><span>${Number(i.quantity)}× ${esc(i.product_name||i.productName||i.product_code||'Item')}</span><strong>${BRL.format(Number(i.line_total_cents??i.lineTotalCents??0)/100)}</strong></div>`).join('');
+  const items=(o.items||[]).map(i=>{
+    const raw=i.line_total_cents??i.lineTotalCents;
+    const cents=Number(raw);
+    const valid=raw!=null&&Number.isSafeInteger(cents)&&cents>=0&&cents<=1000000000;
+    const quantity=Number(i.quantity);
+    return `<div class="list-row"><span>${Number.isSafeInteger(quantity)&&quantity>0?quantity+'× ':''}${esc(i.product_name||i.productName||i.product_code||'Item')}</span><strong>${valid?BRL.format(cents/100):'Valor não confirmado'}</strong></div>`;
+  }).join('');
   const careBlock=liveCustomerCareBlock(o);
   const scheduleNotice=o.deliveryWindowStart
     ? `<div class="notice" style="margin-top:12px"><strong>Janela de entrega solicitada: ${esc(formatDeliveryWindow(o.deliveryWindowStart,o.deliveryWindowEnd))}</strong><br>${['PREPARING','OUT_FOR_DELIVERY','ARRIVING','DELIVERED','SETTLED'].includes(o.status)?'A revenda recebeu a janela. Confira as confirmações de andamento abaixo.':'Essa janela ainda depende da confirmação da revenda.'}</div>`
@@ -1723,9 +1752,9 @@ ${customerIncidentStatusView(o)}
 ${trackingSyncNotice}
 ${interrupted?customerInterruptedPaymentView(o):directPaymentNotice}
 
-<div class="card flat"><div class="price-lock"><span>🔒</span><div><strong>Total protegido: ${BRL.format(total)}</strong><br>${cashbackReserved>0?`Inclui ${BRL.format(cashbackReserved)} de cashback reservado. `:''}Se for necessária uma opção mais cara, você precisa aprovar antes.</div></div>
+<div class="card flat"><div class="price-lock"><span>🔒</span><div><strong>Total protegido: ${totalLabel}</strong><br>${cashbackReserved>0?`Inclui ${BRL.format(cashbackReserved)} de cashback reservado. `:''}Se for necessária uma opção mais cara, você precisa aprovar antes.</div></div>
 <div class="divider"></div>
-<div class="list-row"><div><strong>${esc(supplier.name)}</strong><br><small>${esc(supplier.detail)}</small></div><div style="text-align:right"><strong>${BRL.format(total)}</strong><br><small>${o.postalCode?'CEP '+esc(String(o.postalCode).replace(/^(\d{5})(\d{3})$/,'$1-$2'))+' • ':''}${esc(o.address||'')}</small></div></div>
+<div class="list-row"><div><strong>${esc(supplier.name)}</strong><br><small>${esc(supplier.detail)}</small></div><div style="text-align:right"><strong>${totalLabel}</strong><br><small>${o.postalCode?'CEP '+esc(String(o.postalCode).replace(/^(\d{5})(\d{3})$/,'$1-$2'))+' • ':''}${esc(o.address||'')}</small></div></div>
 <div class="list-row"><span>Pagamento direto à revenda</span><strong>${esc(paymentLabel(o.paymentMethod))}${o.paymentTiming==="prepaid"?" • online":" • na entrega"}</strong></div>
 ${scheduleNotice}
 ${comparisonNotice}
@@ -1735,7 +1764,7 @@ ${o.paymentMethod==='cash'&&o.cashTenderCents?`<div class="list-row"><span>Troco
 ${items?'<div class="divider"></div>'+items:''}</div>
 
 ${o.status==='OFFERED_TO_MERCHANT'?`<div class="notice" style="margin-top:14px"><strong>Solicitação enviada à revenda.</strong><br>A entrega ainda depende de aceite. ${deadline!=null?`Prazo informado para resposta: aproximadamente ${deadline}s restantes.`:'Atualize para verificar a resposta.'}</div>`:''}
-${customerRequoteDecision(o,total,proposed,deadline)}
+${customerRequoteDecision(o,total,proposed,deadline,{evidence:readEvidence})}
 ${customerClosedOrderChoices(o)}
 ${o.financialState==='reversed'?'<div class="notice danger" style="margin-top:14px"><strong>Liquidação financeira revertida.</strong><br>A entrega permanece no histórico, mas cashback, comissão de indicação e recebível da plataforma foram estornados.'+(o.financialReversalReason?' Motivo: '+esc(o.financialReversalReason)+'.':'')+'</div>':''}
 ${o.status==='AT_RISK'?'<div class="notice" style="margin-top:14px"><strong>Acompanhamento prioritário.</strong><br>Consulte o andamento confirmado e use o atendimento do pedido se precisar de ajuda.</div>':''}
