@@ -541,26 +541,13 @@ function sponsorsLanding(){
         <p>Exemplo de apresentação comercial. Não é campanha ativa nem promessa de alcance ou resultado.</p>
       </aside></div>
     </div>
-    <div class="public-sponsor-selector-intro"><span class="section-kicker">ESCOLHA SEU OBJETIVO</span><h2>O que sua marca deseja conquistar?</h2><p>Escolha a proposta que mais se aproxima do seu objetivo. Você poderá detalhar cidade, categoria e orçamento durante o contato.</p></div>
+    <div class="public-sponsor-selector-intro"><span class="section-kicker">FORMATOS PARA CONVERSAR</span><h2>Da ideia ao formato certo para sua marca.</h2><p>Conheça exemplos de campanhas. Cidade, categoria e investimento são definidos em conversa com o TAMÃO.</p></div>
     <section class="section sponsor-formats" aria-label="Exemplos de formatos de campanha">
       <div class="section-head"><div><span class="section-kicker">UM PLANO PARA CADA OBJETIVO</span><h2>Mais do que aparecer: faça parte de momentos relevantes.</h2><p>Três possibilidades para planejar. Cada campanha depende de avaliação, disponibilidade e aprovação antes de entrar no ar.</p></div></div>
       <div class="sponsor-format-grid">
         <article><span aria-hidden="true">01 / VISIBILIDADE</span><h3>Estar presente onde o cliente explora.</h3><p>Espaços de divulgação identificados, com contexto de cidade e categoria.</p><button type="button" onclick="openSponsorContact('visibility')">Quero divulgar minha marca <span aria-hidden="true">→</span></button></article>
         <article><span aria-hidden="true">02 / RELACIONAMENTO</span><h3>Valorizar quem compra de novo.</h3><p>Ações de benefício com público, limites e regras definidos previamente.</p><button type="button" onclick="openSponsorContact('relationship')">Quero apoiar benefícios <span aria-hidden="true">→</span></button></article>
         <article><span aria-hidden="true">03 / COMÉRCIO LOCAL</span><h3>Conectar sua marca às revendas.</h3><p>Ativações regionais construídas em conjunto com parceiros elegíveis.</p><button type="button" onclick="openSponsorContact('local')">Quero parceria regional <span aria-hidden="true">→</span></button></article>
-      </div>
-    </section>
-    <section class="section">
-      <div class="section-head"><div><span class="section-kicker">ONDE SUA MARCA PODE PARTICIPAR</span>
-        <h2>Relevância é estar onde as boas escolhas acontecem.</h2>
-        <p>A proposta é aproximar marcas, revendas e consumidores de uma forma útil para a cidade e sustentável para cada parceiro.</p></div></div>
-      <div class="grid cards-3 tamao-value-grid">
-        <article class="card"><span class="tamao-value-icon">📍</span><h3>Conexão com cada região</h3>
-          <p>Explore oportunidades por município e categoria, respeitando a disponibilidade das revendas e a realidade dos consumidores locais.</p></article>
-        <article class="card"><span class="tamao-value-icon">📣</span><h3>Divulgação identificada</h3>
-          <p>Desenvolva com o TAMÃO ações de presença e divulgação regional. Os espaços patrocinados serão sempre identificados e separados da ordem orgânica das ofertas.</p></article>
-        <article class="card"><span class="tamao-value-icon">🎁</span><h3>Benefícios que fazem sentido</h3>
-          <p>Crie campanhas de benefício para aproximar sua marca dos consumidores e incentivar novas compras. As condições, os limites e o custeio são definidos antes de cada ativação.</p></article>
       </div>
     </section>
     <section class="section">
@@ -630,7 +617,6 @@ function merchantsLanding(){
     </section>`}
 
     <nav class="public-page-jump-rail merchant-jump-rail" aria-label="Encontre rapidamente o que precisa sobre sua revenda">
-      <button type="button" class="public-jump-primary" onclick="${cta}"><span aria-hidden="true">🏪</span><span><strong>${internalPilot?'Abrir meu ambiente':'Quero cadastrar minha revenda'}</strong><small>${internalPilot?'Acessar a operação de validação':'Apresente sua empresa e seu contato'}</small></span><b aria-hidden="true">→</b></button>
       <button type="button" onclick="publicLandingJump('merchant-margin')"><span aria-hidden="true">💰</span><span><strong>Quanto custa vender?</strong><small>Simule taxa e despesas do seu negócio</small></span><b aria-hidden="true">↓</b></button>
       <button type="button" onclick="publicLandingJump('merchant-how')"><span aria-hidden="true">🚚</span><span><strong>Como funciona a entrega?</strong><small>Conheça o pedido até a conclusão</small></span><b aria-hidden="true">↓</b></button>
     </nav>
