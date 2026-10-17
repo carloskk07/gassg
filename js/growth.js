@@ -524,7 +524,8 @@ function merchantsLanding(){
     <div class="conversion-mini-proof"><span>✓ Sem exclusividade</span><span>✓ Recebimento direto na revenda</span><span>✓ Você decide quando ficar online</span></div>
         <div class="hero-actions merchant-hero-actions">
       <button class="primary" onclick="${cta}">${internalPilot?ctaLabel:'Quero levar minha empresa ao TAMÃO →'}</button>
-      <button class="secondary" onclick="document.getElementById('merchant-margin')?.scrollIntoView({behavior:'smooth'})">Ver quanto custa vender</button>
+      <button class="secondary" onclick="document.getElementById('merchant-margin')?.scrollIntoView({behavior:globalThis.matchMedia?.('(prefers-reduced-motion: reduce)')?.matches?'auto':'smooth'})">Ver quanto custa vender</button>
+      ${portal?'<button type="button" class="merchant-panel-link" onclick="go(\'merchant\')">Voltar ao meu painel ↗</button>':String(globalThis.CHAMA_MERCHANT_ORIGIN||'').trim()?'<button type="button" class="merchant-panel-link" onclick="openMerchantPortal()">Já sou parceiro • Acessar painel ↗</button>':''}
     </div>
     </div>
     <aside class="merchant-landing-premium-visual" aria-label="Recursos para organizar o dia a dia da revenda">
