@@ -459,7 +459,7 @@ function home(){
 </div></section>`
     : `<section class="section intent-section"><div class="section-head"><div><span class="section-kicker">ESCOLHA SEU CAMINHO</span><h2>O TAMÃO é para quem compra e para quem vende.</h2><p>Veja o que pode pedir, conheça os benefícios e saiba como participar com sua empresa.</p></div></div>
 <div class="intent-grid">
-  <button class="intent-card intent-primary" onclick="quickProduct('P13')" ${disabled?'disabled':''}><span class="intent-icon">🔥</span><span><strong>Consultar produtos</strong><small>Confira produtos, preços e prazos disponíveis para o seu endereço.</small></span><b>→</b></button>
+  <button class="intent-card intent-primary" onclick="startHomeBrowse()"><span class="intent-icon">🧺</span><span><strong>Consultar produtos</strong><small>Confira produtos, preços e prazos disponíveis para o seu endereço.</small></span><b>→</b></button>
   <button class="intent-card" onclick="go('learn')"><span class="intent-icon">🛡️</span><span><strong>Entender como funciona</strong><small>Veja o que acontece desde a escolha até receber o pedido.</small></span><b>→</b></button>
   <button class="intent-card" onclick="go('earn')"><span class="intent-icon">🎁</span><span><strong>Conhecer os benefícios</strong><small>Descubra cashback e indicações quando estiverem disponíveis.</small></span><b>→</b></button>
   <button class="intent-card" onclick="openPrelaunchMerchantLead()"><span class="intent-icon">🏪</span><span><strong>Tenho uma empresa</strong><small>Mais uma forma de chegar aos clientes, mantendo seus canais de venda.</small></span><b>→</b></button>
@@ -503,9 +503,9 @@ function home(){
       ${discoveryCounts.water?'<button type="button" onclick="homeDiscoverFocus();homeFilterProducts(\'water\')">💧 Água</button>':''}
       ${discoveryCounts.other?'<button type="button" onclick="homeDiscoverFocus();homeFilterProducts(\'other\')">✦ Outros itens</button>':''}
     </div>
-    <div class="purchase-starter" aria-label="Consultar produtos e atendimento da sua região">
+    <div class="purchase-starter ${conciseHome?'home-starter-neutral':''}" aria-label="Consultar produtos e atendimento da sua região">
       <input id="home-featured-code" type="hidden" value="${esc(featuredCode)}">
-      <div class="starter-product"><div class="starter-product-icon">${typeof tamaoProductArt==="function"?tamaoProductArt(featuredCode,featuredProduct,"hero"):esc(featuredIcon)}</div><div><span class="starter-label">COMECE PELO QUE PRECISA</span><strong>${esc(featuredName)}</strong><small>${esc(featuredCode)} • Consulta por CEP</small></div><div class="starter-price"><small>${cityFeaturedPrice?'PREÇO DIVULGADO':showPublicP13Reference?'REFERÊNCIA LOCAL':'CONSULTA'}</small><b>${priceText}</b></div></div>
+      ${conciseHome?'<div class="starter-product starter-product-explore"><div class="starter-product-icon" aria-hidden="true">🧺</div><div><span class="starter-label">COMECE PELA SUA ESCOLHA</span><strong>Gás, água e outros essenciais</strong><small>Escolha livre • Consulta por CEP</small></div><div class="starter-price"><small>SEU PRÓXIMO PASSO</small><b>Ver produtos</b></div></div>':`<div class="starter-product"><div class="starter-product-icon">${typeof tamaoProductArt==="function"?tamaoProductArt(featuredCode,featuredProduct,"hero"):esc(featuredIcon)}</div><div><span class="starter-label">COMECE PELO QUE PRECISA</span><strong>${esc(featuredName)}</strong><small>${esc(featuredCode)} • Consulta por CEP</small></div><div class="starter-price"><small>${cityFeaturedPrice?'PREÇO DIVULGADO':showPublicP13Reference?'REFERÊNCIA LOCAL':'CONSULTA'}</small><b>${priceText}</b></div></div>`}
       <details class="starter-postal-optional"><summary>${esc(deliveryRegionHint)} <span>(opcional neste momento)</span></summary><label class="starter-address" for="home-address"><span>${testDemo?'Onde entregar?':'Onde você quer receber?'}</span><div><span aria-hidden="true">📍</span><input id="home-address" autocomplete="${testDemo?'street-address':'postal-code'}" inputmode="${testDemo?'text':'numeric'}" maxlength="${testDemo?'160':'9'}" placeholder="${testDemo?'Digite seu endereço':'Ex.: 97300-000'}" value="${esc(testDemo?(state.address||''):String(state.postalCode||'').replace(/^(\d{5})(\d{0,3}).*$/,(m,a,b)=>b?a+'-'+b:a))}" onkeydown="if(event.key==='Enter'){event.preventDefault();startCustomerAvailability()}" ${disabled&&!acquisitionOpen?'disabled':''}></div></label></details>
       <button class="primary starter-cta" onclick="${primaryAction}" ${disabled&&!acquisitionOpen?'disabled':''}>${esc(featuredIcon)} ${primaryLabel}</button>
       ${cityChecked&&!hasConfirmedCityOffers&&acquisitionOpen?`<div class="regional-action"><button class="ghost" onclick="openPrelaunchCustomerLead()">Sem opção para meu CEP? Quero receber um aviso →</button></div>`:''}
@@ -545,7 +545,7 @@ ${discoveryTiles?`<section id="home-discover" class="home-discover" aria-label="
 </section>`:''}
 
 ${!testDemo&&typeof homeRegionalPriceBoard==="function"?homeRegionalPriceBoard(homeRegion):""}
-${valueBridge}
+${!conciseHome?valueBridge:''}
 ${!conciseHome&&typeof tamaoHomeBenefits==="function"?tamaoHomeBenefits():""}
 ${conciseHome?intentSection:''}
 ${acquisitionOpen?prelaunchCustomerLeadSection():''}
