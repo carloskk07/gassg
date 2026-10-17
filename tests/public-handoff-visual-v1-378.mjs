@@ -71,6 +71,17 @@ try{
   assert.doesNotMatch(html,/dados reais de clientes|pedido em tempo real|mais de \d+ pedidos/i);
   assert.match(html,/href="\/#privacy"/);
  }
+ const headers={
+  'como-funciona':['Ver produtos','/'],
+  'para-revendas':['Sou revenda','/?entrada=revenda'],
+  'para-marcas':['Tenho uma marca','/?entrada=marca'],
+  'indicacoes':['Quero indicar','/?entrada=indicar']
+ };
+ for(const [slug,[label,href]] of Object.entries(headers)){
+  const html=fs.readFileSync(path.join(tmp,slug,'index.html'),'utf8');
+  assert.ok(html.includes('class="ed-header-cta" data-tamao-handoff href="'+href+'">'+label),
+   'header must begin the correct audience journey: '+slug);
+ }
  const revendas=fs.readFileSync(path.join(tmp,'para-revendas','index.html'),'utf8');
  assert.ok(!revendas.includes('class="ed-product ed-product-gas"'),'merchant page must not reuse consumer artwork');
  const marcas=fs.readFileSync(path.join(tmp,'para-marcas','index.html'),'utf8');
