@@ -232,3 +232,70 @@
   .public-page-jump-rail button,.sponsor-format-grid article button{transition:none}
   .public-page-jump-rail button:hover,.sponsor-format-grid article button:hover{transform:none}
 }
+
+
+/* TAMÃO V1.366 — clear separation between benefits, referrals and merchant sales. */
+.tamao-benefit-guide{margin:30px 0 26px}
+.tamao-benefit-guide-heading{margin-bottom:19px}
+.tamao-benefit-guide-heading h2{font-size:clamp(26px,3.2vw,39px);
+  letter-spacing:-.045em;line-height:1.13;text-wrap:balance;color:#133e2d}
+.tamao-benefit-guide-heading p{max-width:66ch;line-height:1.65}
+.tamao-benefit-guide-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));
+  gap:14px;align-items:stretch}
+.tamao-benefit-guide-card{position:relative;display:flex;flex-direction:column;min-width:0;
+  padding:clamp(19px,2.6vw,29px);border:1px solid #d5e6d9;border-radius:24px;
+  background:linear-gradient(150deg,#fff,#f7fbf8);box-shadow:0 11px 28px rgba(18,69,43,.055)}
+.tamao-benefit-guide-card.benefit-refer{background:linear-gradient(145deg,#f5fbf7,#fff)}
+.tamao-benefit-guide-card.benefit-campaign{background:linear-gradient(150deg,#fffdf7,#fff)}
+.tamao-benefit-guide-card.benefit-business{background:linear-gradient(150deg,#f5f9fd,#fff)}
+.tamao-benefit-card-top{display:flex;align-items:center;gap:13px;margin-bottom:15px}
+.tamao-benefit-card-top .benefit-art{display:grid;place-items:center;width:48px;height:48px;
+  flex:0 0 48px;background:#e7f4e9;border-radius:16px;font-size:25px}
+.benefit-refer .benefit-art{background:#e7f4ed}
+.benefit-campaign .benefit-art{background:#fff0ce}
+.benefit-business .benefit-art{background:#e5effa}
+.tamao-benefit-card-top small{font-size:10px;font-weight:900;letter-spacing:.095em;
+  color:#52785e;line-height:1.35}
+.tamao-benefit-guide-card h3{font-size:clamp(19px,2.25vw,25px);line-height:1.17;
+  letter-spacing:-.036em;color:#123d2b;margin:0 0 12px;text-wrap:balance}
+.tamao-benefit-guide-card>p{font-size:14px;line-height:1.67;color:#4e6858;margin:0 0 17px}
+.benefit-condition{display:grid;gap:5px;align-content:start;margin:auto 0 16px;
+  border-left:3px solid #9dcbad;background:rgba(236,247,239,.7);padding:11px 13px;
+  border-radius:0 10px 10px 0}
+.benefit-campaign .benefit-condition{background:#fff9e9;border-left-color:#e7c47e}
+.benefit-business .benefit-condition{background:#f0f6fc;border-left-color:#94b8df}
+.benefit-condition strong{font-size:12px;color:#20533a}
+.benefit-condition span{font-size:12px;color:#536d5d;line-height:1.53}
+.tamao-benefit-guide-card button{display:flex;justify-content:space-between;align-items:center;
+  gap:12px;width:100%;text-align:left;min-height:48px;background:#0e6547;color:#fff;
+  border:1px solid #0b5b40;border-radius:13px;padding:11px 15px;font-size:13px;
+  font-weight:850;cursor:pointer}
+.tamao-benefit-guide-card button span{font-size:17px}
+.tamao-benefit-guide-card button:hover{background:#084d37}
+.tamao-benefit-guide-card button:focus-visible,.tamao-buyer-benefit-bridge button:focus-visible{
+  outline:3px solid #bc8426;outline-offset:3px}
+.tamao-benefit-guide-footnote{max-width:89ch;font-size:12px;line-height:1.6;
+  margin:14px 1px 0;color:#5e7866}
+.tamao-buyer-benefit-bridge{display:flex;align-items:center;justify-content:space-between;
+  gap:22px;margin:25px 0;padding:clamp(20px,3vw,30px);
+  border-radius:22px;border:1px solid #d4e6da;background:linear-gradient(135deg,#eef8f1,#fffdf6)}
+.tamao-buyer-benefit-bridge>div{max-width:680px;min-width:0}
+.tamao-buyer-benefit-bridge h2{font-size:clamp(22px,2.7vw,30px);line-height:1.2;
+  letter-spacing:-.04em;color:#153f2c;margin:7px 0 9px}
+.tamao-buyer-benefit-bridge p{font-size:14px;line-height:1.6;color:#516c5c;margin:0}
+.tamao-buyer-benefit-bridge button{display:inline-flex;align-items:center;
+  gap:12px;flex:0 0 auto;min-height:49px;border:1px solid #0e5e42;
+  color:#fff;background:#0c6447;border-radius:12px;padding:12px 16px;
+  cursor:pointer;font-size:13px;font-weight:850}
+@media(max-width:760px){
+  .tamao-benefit-guide-grid{grid-template-columns:minmax(0,1fr);gap:11px}
+  .tamao-benefit-guide-card{padding:22px 19px;border-radius:20px}
+  .tamao-buyer-benefit-bridge{flex-direction:column;align-items:stretch;gap:15px}
+  .tamao-buyer-benefit-bridge button{justify-content:space-between}
+}
+@media(max-width:420px){
+  .tamao-benefit-guide-card h3{font-size:22px}
+  .tamao-benefit-guide-card>p{font-size:13px}
+  .tamao-benefit-guide-card button{min-height:50px}
+  .tamao-buyer-benefit-bridge{padding:20px 16px}
+}
