@@ -154,6 +154,12 @@ function renderLanding(page,origin,indexing){
  const questions=page.questions.map(([q,a])=>'<details><summary>'+esc(q)+'</summary><p>'+esc(a)+'</p></details>').join('');
  const primary=`<a class="ed-btn ed-btn-primary" data-tamao-handoff href="${esc(page.primary[1])}">${esc(page.primary[0])} <span aria-hidden="true">→</span></a>`;
  const secondary=`<a class="ed-btn ed-btn-outline" data-tamao-handoff href="${esc(page.secondary[1])}">${esc(page.secondary[0])}</a>`;
+ const headerAction={
+  'como-funciona':['Ver produtos','/'],
+  'para-revendas':['Sou revenda','/?entrada=revenda'],
+  'para-marcas':['Tenho uma marca','/?entrada=marca'],
+  'indicacoes':['Quero indicar','/?entrada=indicar']
+ }[page.slug];
  const navigation=PAGES.map(x=>`<a data-tamao-handoff href="/${x.slug}/" ${x.slug===page.slug?'aria-current="page"':''}>${esc(x.slug==='como-funciona'?'Como funciona':x.slug==='para-revendas'?'Para revendas':x.slug==='para-marcas'?'Para marcas':'Indicações')}</a>`).join('');
  return `<!doctype html>
 <html lang="pt-BR"><head>
@@ -179,7 +185,7 @@ function renderLanding(page,origin,indexing){
 <header class="ed-header"><div class="ed-shell ed-header-inner">
   <a href="/" data-tamao-handoff class="ed-brand" aria-label="TAMÃO, ir para a home"><img src="/icons/icon.svg" width="43" height="43" alt="" /><span><strong>TAMÃO</strong><small>Pediu? Tá na mão.</small></span></a>
   <nav class="ed-nav" aria-label="Conheça o TAMÃO">${navigation}</nav>
-  <a class="ed-header-cta" data-tamao-handoff href="/">Quero comprar <span aria-hidden="true">→</span></a>
+  <a class="ed-header-cta" data-tamao-handoff href="${esc(headerAction[1])}">${esc(headerAction[0])} <span aria-hidden="true">→</span></a>
 </div></header>
 <main id="conteudo">
  <section class="ed-hero"><div class="ed-shell ed-hero-grid">
