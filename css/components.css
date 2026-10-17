@@ -4417,3 +4417,16 @@ body:has(.admin-page) .admin-nav-item:focus-visible{outline-offset:-3px}
   .admin-campaign-evidence-section{padding:16px 12px}
   .admin-campaign-evidence-section>button{justify-self:stretch}
 }
+
+
+/* TAMÃO V1.370 — recent-proof priority, with no speculative financial metrics. */
+.admin-campaign-next-check{padding:15px 17px;border:1px solid #d8e9dc;
+  border-left:4px solid #29805d;border-radius:13px;background:#f3faf5}
+.admin-campaign-next-check strong{display:block;color:#194731;font-size:13px}
+.admin-campaign-next-check p{font-size:13px;line-height:1.55;
+  color:#395b46;margin:6px 0;max-width:80ch}
+.admin-campaign-next-check small{display:block;font-size:11px;line-height:1.5;
+  color:#5a7564}
+@media(max-width:640px){
+  .admin-campaign-next-check{padding:14px 12px}
+}
