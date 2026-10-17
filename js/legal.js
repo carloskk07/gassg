@@ -68,6 +68,12 @@ function contactKindChanged(){
   const kind=document.querySelector('#public-request-kind')?.value||'general';
   const wrap=document.querySelector('#privacy-action-wrap');
   if(wrap)wrap.hidden=kind!=='privacy';
+  // A sponsor may also arrive directly at Contact without visiting the brand
+  // page. Record only this non-personal type of enquiry, never form contents.
+  if(typeof route==='function'&&route()==='contact'){
+    globalThis.tamaoPublicContactAudience=kind==='sponsor'?'merchant':null;
+    globalThis.marketingObserveLeadForms?.();
+  }
 }
 function contactChannelChanged(){
   const channel=document.querySelector('#public-contact-channel')?.value||'whatsapp';
