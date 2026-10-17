@@ -751,12 +751,13 @@ function merchantAlertControl(){
 function merchantDriverLivePage(rt){
   const m=rt.merchant||{};
   const orders=rt.orders||[];
+  const orderEvidence=merchantOrderListEvidence(rt);
   const name=String(m.memberDisplayName||'').trim();
   return shell(`<section class="page">
     <div class="status-bar"><div><div class="tiny muted">MINHAS ENTREGAS</div><h1 class="page-title" style="margin-bottom:2px">${esc(m.name||'Revenda')}</h1></div><span class="status-pill online">MOTORISTA</span></div>
     <div class="notice success" style="margin-top:14px"><strong>Visão restrita por atribuição.</strong><br>Você vê somente pedidos que a operação vinculou à sua conta. Catálogo, preços, compliance e pedidos de outros responsáveis não aparecem aqui.</div>
-    ${merchantDeliveryBoardView(rt,orders)}
-    <section class="section"><div class="section-head"><div><h2>Pedidos atribuídos a você</h2><p>Saída, chegada e conclusão continuam protegidas pela versão do pedido e pelas autoridades do servidor.</p></div></div>${merchantOrderQueueView(orders,'Nenhuma entrega atribuída a você agora.')}</section>
+    ${orderEvidence.fresh?merchantDeliveryBoardView(rt,orders):''}
+    <section class="section"><div class="section-head"><div><h2>Pedidos atribuídos a você</h2><p>Saída, chegada e conclusão continuam protegidas pela versão do pedido e pelas autoridades do servidor.</p></div></div>${orderEvidence.fresh?merchantOrderQueueView(orders,'Nenhuma entrega atribuída a você agora.'):merchantOrderListRecovery(rt)}</section>
     ${merchantAlertControl()}
     <div class="card flat form-stack" style="margin-top:14px">
       <h3>Seu nome operacional</h3>
@@ -2101,6 +2102,39 @@ function merchantWorkspaceOrientation(rt,{canGoOnline=false,connectionHealthy=fa
     action:'start',label:'Revisar produtos e entregas'
   };
 }
+// V1.354 — the server-authorized order snapshot must be freshly retrieved before
+// presenting operational controls. Heartbeat presence is not a merchant-orders read.
+function merchantOrderListEvidence(rt,now=Date.now()){
+  if(rt?.status!=='ready'||!rt?.merchant)return {
+    fresh:false,kind:'unverified',label:'Ainda não foi possível confirmar a lista de pedidos.'
+  };
+  const selected=String(rt.selectedMerchantId||'');
+  const actual=String(rt.merchant.merchantId||'');
+  if(selected&&actual&&selected!==actual)return {
+    fresh:false,kind:'mismatch',label:'A lista exibida não corresponde à revenda selecionada. Atualize antes de agir.'
+  };
+  const checked=Date.parse(String(rt.lastSyncAt||''));
+  if(!Number.isFinite(checked)||checked>now+60000)return {
+    fresh:false,kind:'unverified',label:'Não há confirmação recente da lista de pedidos nesta sessão.'
+  };
+  const age=Math.max(0,now-checked);
+  if(age>120000)return {
+    fresh:false,kind:'stale',label:'A última consulta dos pedidos foi há '+Math.floor(age/60000)+' min. Os estados podem ter mudado.'
+  };
+  return {fresh:true,kind:'current',label:'Pedidos consultados recentemente. Qualquer ação ainda depende da confirmação do sistema.'};
+}
+function merchantOrderListRecovery(rt){
+  const evidence=merchantOrderListEvidence(rt);
+  if(evidence.fresh)return '';
+  const count=Array.isArray(rt?.orders)?rt.orders.length:0;
+  return '<section class="merchant-orders-recovery" role="status" aria-label="Atualização dos pedidos necessária">'+
+    '<strong>Atualize a lista antes de atender</strong>'+
+    '<p>'+esc(evidence.label)+' Nenhum pedido é aceito ou alterado por esta atualização.</p>'+
+    (count?'<small>'+count+' '+(count===1?'pedido constava':'pedidos constavam')+
+      ' na última lista; não representam uma fila verificada agora.</small>':'')+
+    '<button type="button" class="primary" onclick="merchantLiveRefresh()" '+
+      (rt?.actionPending===true?'disabled':'')+'>Atualizar pedidos →</button></section>';
+}
 function merchantLivePage(){
   const rt=globalThis.merchantRuntime||{};
   if(['disabled','loading'].includes(rt.status)){
@@ -2133,6 +2167,7 @@ function merchantLivePage(){
   const memberships=rt.memberships||[];
   const deliveryTeam=rt.deliveryTeam||[];
   const orders=rt.orders||[];
+  const orderEvidence=merchantOrderListEvidence(rt);
   const billing=rt.billing||null;
   const receivingAccount=rt.receivingAccount||null;
   const paymentConnectionsCard=manage?merchantPaymentConnectionsView(rt):'';
@@ -2160,9 +2195,13 @@ function merchantLivePage(){
     ? `<div class="notice success" style="margin-top:12px"><strong>Compliance vigente.</strong><br>CNPJ: ${esc(cnpjWhen)} • janela operacional ${Number(compliance.cnpjMaxAgeDays||30)} dias. ${hasGlp?`ANP: ${esc(anpWhen)} • janela operacional ${Number(compliance.anpMaxAgeDays||7)} dias.`:'Sem GLP ativo no catálogo; ANP não é exigida para a operação atual.'}</div>`
     : `<div class="notice danger" style="margin-top:12px"><strong>Revalidação necessária antes de operar.</strong><br>${!cnpjCurrent?`CNPJ: última verificação ${esc(cnpjWhen)}; revalidar a cada ${Number(compliance.cnpjMaxAgeDays||30)} dias. `:''}${!anpCurrent?`ANP: última verificação ${esc(anpWhen)}; revalidar a cada ${Number(compliance.anpMaxAgeDays||7)} dias para GLP.`:''}</div>`;
   const canGoOnline=m.status==='active'&&complianceReady&&commercialReady&&!financialHold;
-  const orientation=merchantWorkspaceOrientation(rt,{
+  const orientation=orderEvidence.fresh?merchantWorkspaceOrientation(rt,{
     canGoOnline,connectionHealthy,financialHold,orders
-  });
+  }):{
+    tone:'attention',eyebrow:'SEU PRÓXIMO PASSO',title:'Confirme sua fila de pedidos',
+    detail:'A consulta de pedidos precisa ser renovada. As ações ficam indisponíveis nesta visualização até a atualização.',
+    action:'orders',label:'Ver atualização dos pedidos'
+  };
   const orientationMarkup=`<aside class="merchant-workspace-orientation merchant-workspace-orientation--${orientation.tone}" aria-label="Orientação de trabalho">
     <span class="merchant-orientation-eyebrow">${esc(orientation.eyebrow)}</span>
     <strong>${esc(orientation.title)}</strong>
@@ -2180,7 +2219,7 @@ function merchantLivePage(){
       <div class="merchant-workspace-identity-meta"><span class="tiny">SUA REVENDA • ${esc(m.memberRole==='owner'?'RESPONSÁVEL':m.memberRole==='manager'?'GERÊNCIA':'OPERAÇÃO')}</span><span class="status-pill ${m.online?(heartbeatFresh?'online':'risk'):'offline'}">${m.online?(heartbeatFresh?'● ONLINE':'● SEM CONEXÃO'):'● OFFLINE'}</span></div>
       <h1 class="page-title">${esc(m.name)}</h1>
       <p class="merchant-workspace-welcome">Tudo o que importa para atender bem, organizado para o seu dia.</p>
-      <div class="merchant-workspace-readonly"><span><strong>${orders.length}</strong> ${orders.length===1?'pedido na fila':'pedidos na fila'}</span><span>Dados da sua operação</span></div>
+      <div class="merchant-workspace-readonly"><span><strong>${orders.length}</strong> ${orderEvidence.fresh?(orders.length===1?'pedido na fila':'pedidos na fila'):'na última lista'}</span><span>Dados da sua operação</span></div>
     </div>${orientationMarkup}</header>
     <nav class="merchant-workspace-shortcuts" aria-label="Acesso rápido ao trabalho da revenda">
       <button type="button" class="merchant-workspace-shortcut is-primary" onclick="merchantWorkspaceJump('orders')"><span class="merchant-shortcut-icon" aria-hidden="true">📦</span><strong>Pedidos</strong><small>${orders.length} na fila de trabalho</small></button>
@@ -2192,12 +2231,12 @@ function merchantLivePage(){
 
     ${rt.error?`<div class="notice danger" style="margin-top:12px">${esc(rt.error)}</div>`:''}
     ${merchantAvailabilityPanel(rt,{canGoOnline,connectionHealthy,financialHold,freshness,p13,orderCount:orders.length})}
-    ${merchantDailyOverview(rt,orders)}
+    ${orderEvidence.fresh?merchantDailyOverview(rt,orders):merchantOrderListRecovery(rt)}
     ${merchantFirstRunView(rt,canGoOnline)}
     ${financialHold?'<div class="notice danger" style="margin-top:12px"><strong>Novas vendas suspensas por pendência financeira.</strong><br>Regularize o fechamento vencido. Pedidos já aceitos continuam disponíveis normalmente.</div>':''}
 
-    ${merchantDeliveryBoardView(rt,orders)}
-    <section class="section" id="merchant-live-orders"><div class="section-head"><div><h2 tabindex="-1">Pedidos que exigem ação</h2><p>Aceite, saída e recebimento só são registrados depois de confirmação no sistema.</p></div></div>${merchantDeliveryAttentionView(rt)}${merchantOrderQueueView(orders)}</section>
+    ${orderEvidence.fresh?merchantDeliveryBoardView(rt,orders):''}
+    <section class="section" id="merchant-live-orders"><div class="section-head"><div><h2 tabindex="-1">Pedidos que exigem ação</h2><p>Aceite, saída e recebimento só são registrados depois de confirmação no sistema.</p></div></div>${orderEvidence.fresh?merchantDeliveryAttentionView(rt):''}${orderEvidence.fresh?merchantOrderQueueView(orders):merchantOrderListRecovery(rt)}</section>
 
     <details id="merchant-workspace-start" class="merchant-workspace-section"${!canGoOnline?' open':''}><summary tabindex="0"><span><strong>${canGoOnline?'Produtos e entregas':'Comece por aqui: prepare sua operação'}</strong><small>${canGoOnline?'Atualize estoque, preços e configurações quando precisar.':'Veja as etapas que exigem atenção para sua revenda começar a receber ofertas.'}</small></span></summary><div class="merchant-workspace-content">
       ${merchantDailyChecklistView(rt,{deliveryFresh:freshness.deliveryFresh})}
