@@ -288,7 +288,8 @@ function homeFilterProducts(group){
 }
 function homeDiscoverFocus(){
   const panel=document.getElementById('home-discover');
-  if(!panel)return startCustomerAvailability();
+  // An empty discovery panel must not silently insert the featured gas item.
+  if(!panel)return startHomeBrowse();
   const heading=panel.querySelector('h2');
   panel.scrollIntoView({behavior:globalThis.matchMedia?.('(prefers-reduced-motion: reduce)')?.matches?'auto':'smooth',block:'start'});
   heading?.focus({preventScroll:true});
@@ -436,7 +437,7 @@ function home(){
   const eyebrow=testDemo
     ? internalPilot?'● AMBIENTE INTERNO — SEM PEDIDOS':'● AMBIENTE DE TESTE'
     : '● TAMÃO • '+regionLabel.toUpperCase();
-  const primaryLabel=internalPilot?'Validar jornada':hasConfirmedCityOffers?'Conferir ofertas do meu CEP':'Escolher meus produtos';
+  const primaryLabel=internalPilot?'Validar jornada':acquisitionOpen?'Escolher meus produtos':hasConfirmedCityOffers?'Conferir ofertas do meu CEP':'Consultar '+featuredName;
   const primaryAction=acquisitionOpen?'homeDiscoverFocus()':'startCustomerAvailability()';
   // Global merchant totals never certify a single seller for this city's basket.
   const singleMarket=internalPilot||(hasConfirmedCityOffers
@@ -495,14 +496,6 @@ function home(){
     <div class="hero-overline">${conciseHome?'PRIMEIRO ESCOLHA. DEPOIS, CONFIRA A ENTREGA.':'O QUE VOCÊ PRECISA, MAIS PERTO DE CASA.'}</div>
     <h1>Faltou em casa?<br><span class="hero-highlight">Tá na mão.</span></h1>
     <p class="hero-lead"><strong>Gás, água e o essencial do dia a dia, em um só lugar.</strong> ${esc(hasConfirmedCityOffers?'Já consultamos opções para o seu CEP. Confira preços e prazos atualizados antes de confirmar.':conciseHome?firstVisitMessage:outsideOriginalMarket?'Veja quais opções atendem '+regionLabel+' pelo CEP. Se não houver ofertas, você poderá solicitar um aviso.':heroJourney)}</p>
-    <div class="hero-emotional-promise"><span aria-hidden="true">✦</span><span>${conciseHome?'Conheça as opções antes de informar o endereço.':'Confira as opções da sua região sem precisar ligar de loja em loja.'}</span></div>
-
-    <div class="home-quick-category" role="group" aria-label="Escolha por onde começar">
-      <span>O que você precisa hoje?</span>
-      ${discoveryCounts.gas?'<button type="button" onclick="homeDiscoverFocus();homeFilterProducts(\'gas\')">🔥 Gás</button>':''}
-      ${discoveryCounts.water?'<button type="button" onclick="homeDiscoverFocus();homeFilterProducts(\'water\')">💧 Água</button>':''}
-      ${discoveryCounts.other?'<button type="button" onclick="homeDiscoverFocus();homeFilterProducts(\'other\')">✦ Outros itens</button>':''}
-    </div>
     <div class="purchase-starter ${conciseHome?'home-starter-neutral':''}" aria-label="Consultar produtos e atendimento da sua região">
       <input id="home-featured-code" type="hidden" value="${esc(featuredCode)}">
       ${conciseHome?'<div class="starter-product starter-product-explore"><div class="starter-product-icon" aria-hidden="true">🧺</div><div><span class="starter-label">COMECE PELA SUA ESCOLHA</span><strong>Gás, água e outros essenciais</strong><small>Escolha livre • Consulta por CEP</small></div><div class="starter-price"><small>SEU PRÓXIMO PASSO</small><b>Ver produtos</b></div></div>':`<div class="starter-product"><div class="starter-product-icon">${typeof tamaoProductArt==="function"?tamaoProductArt(featuredCode,featuredProduct,"hero"):esc(featuredIcon)}</div><div><span class="starter-label">COMECE PELO QUE PRECISA</span><strong>${esc(featuredName)}</strong><small>${esc(featuredCode)} • Consulta por CEP</small></div><div class="starter-price"><small>${cityFeaturedPrice?'PREÇO DIVULGADO':showPublicP13Reference?'REFERÊNCIA LOCAL':'CONSULTA'}</small><b>${priceText}</b></div></div>`}
@@ -510,6 +503,14 @@ function home(){
       <button class="primary starter-cta" onclick="${primaryAction}" ${disabled&&!acquisitionOpen?'disabled':''}>${esc(featuredIcon)} ${primaryLabel}</button>
       ${cityChecked&&!hasConfirmedCityOffers&&acquisitionOpen?`<div class="regional-action"><button class="ghost" onclick="openPrelaunchCustomerLead()">Sem opção para meu CEP? Quero receber um aviso →</button></div>`:''}
       <small class="starter-footnote">${esc(freshness)}</small>
+    </div>
+    <div class="hero-emotional-promise"><span aria-hidden="true">✦</span><span>${conciseHome?'Conheça as opções antes de informar o endereço.':'Confira as opções da sua região sem precisar ligar de loja em loja.'}</span></div>
+
+    <div class="home-quick-category" role="group" aria-label="Escolha por onde começar">
+      <span>O que você precisa hoje?</span>
+      ${discoveryCounts.gas?'<button type="button" onclick="homeDiscoverFocus();homeFilterProducts(\'gas\')">🔥 Gás</button>':''}
+      ${discoveryCounts.water?'<button type="button" onclick="homeDiscoverFocus();homeFilterProducts(\'water\')">💧 Água</button>':''}
+      ${discoveryCounts.other?'<button type="button" onclick="homeDiscoverFocus();homeFilterProducts(\'other\')">✦ Outros itens</button>':''}
     </div>
     <div class="home-hero-links"><button type="button" onclick="go('learn')">Entenda como funciona <span aria-hidden="true">↗</span></button><button type="button" onclick="go('merchants')">Tenho uma empresa <span aria-hidden="true">↗</span></button>${acquisitionOpen?'<button type="button" class="home-notify-shortcut" onclick="openPrelaunchCustomerLead()">Quero receber aviso de disponibilidade <span aria-hidden="true">↗</span></button>':''}</div>
 

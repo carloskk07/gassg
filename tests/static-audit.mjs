@@ -161,7 +161,7 @@ assert.ok(customer.includes('acquisitionOpen')&&customer.includes('prelaunchCust
 assert.ok(customer.includes('conciseHome=acquisitionOpen&&!testDemo')&&(customer.includes('Consultar meu CEP')||customer.includes('Escolher produtos →'))&&customer.includes('first-visit-intent-grid')&&customer.includes('prelaunchCustomerLeadSection()')&&customer.includes('discoveryEntries=homeProductEntries')&&customer.includes('discoveryTiles=discoveryEntries.map'),'home sem supply precisa distinguir descoberta de produtos, consulta de CEP, aviso e convite sem simular ofertas');
 assert.ok(acquisition.includes('ATENDIMENTO POR REGIÃO')&&acquisition.includes('Revendas cadastradas')&&acquisition.includes('Nenhuma compra é criada por este cadastro'),'aquisição precisa comunicar disponibilidade real sem fabricar prova social');
 assert.ok(core.includes('const merchantAction=merchantPortal?"go(\'merchant\')":testDemo?"setMode(\'merchant\')":"go(\'merchants\')"'),'switcher público deve apresentar a página comercial antes de permitir acesso ao portal; não pode redirecionar visitantes ao painel');
-assert.ok(core.includes("['early-access','🔔','Disponibilidade','lead']")&&core.includes("act==='lead'?\"openPrelaunchCustomerLead()\""),'navegação mobile sem supply precisa levar ao aviso de disponibilidade');
+assert.ok(core.includes("['early-access','🔔','Avisos','lead']")&&core.includes("act==='lead'?\"openPrelaunchCustomerLead()\""),'navegação mobile sem supply precisa levar ao aviso de disponibilidade');
 assert.ok(acquisition.includes("if(!section)")&&acquisition.includes("if(route()!=='home')go('home')"),'CTA da lista deve funcionar mesmo quando acionado fora da home');
 assert.ok(analytics.includes("['tamao.com.br','www.tamao.com.br'].includes(host)"),'analytics não pode medir laboratório, localhost ou preview');
 assert.ok(analytics.includes("globalThis.__CHAMA_TEST__!==true")&&analytics.includes("globalThis.CHAMA_INTERNAL_PILOT!==true")&&analytics.includes("adminPortalRequested?.()!==true")&&analytics.includes("merchantPortalRequested?.()!==true"),'analytics de primeira parte na operação real deve excluir testes, pilotos internos e portais privados');
@@ -238,7 +238,7 @@ assert.ok(growth.includes('Compras posteriores não geram outra comissão de aqu
 assert.ok(growth.includes('validação das contas envolvidas'),'marketing deve expor o gate real de identidade para maturação');
 assert.ok(!growth.includes('disabled>Saque Pix ainda não disponível')&&growth.includes('Os meios de recebimento são informados na conta conforme a disponibilidade.'),'UI não pode fingir saque ainda inexistente');
 assert.ok(growth.includes('Você decide preços, estoque, formas de pagamento, disponibilidade e entrega.')||growth.includes('continua no comando')&&growth.includes('Você decide'),'landing de revenda deve enfatizar autonomia operacional');
-assert.ok(core.includes("['earn','💰','Ganhe','go']"),'navegação móvel precisa dar acesso direto ao hub de renda');
+assert.ok(core.includes("['earn','🤝','Indicar','go']"),'navegação móvel precisa dar acesso direto à rede de indicações');
 assert.ok(!growth.includes('inputmode="numeric" maxlength="18"'),'campo CNPJ não pode forçar teclado somente numérico após adoção do CNPJ alfanumérico');
 assert.ok(sw.includes("CACHE='tamao-sg-v1.370'")&&sw.includes("'./css/marketing-premium.css'")&&sw.includes("'./js/home-showcase.js'"),'cache do service worker precisa refletir a geração PWA e os novos assets públicos');
 assert.ok(sw.includes("fetch(req,{cache:'no-store'})")&&sw.includes("contentType.includes('text/html')"),'service worker deve renovar rede sem cache HTTP e separar navegação HTML de recursos não-HTML');
@@ -354,7 +354,8 @@ assert.ok(backend.includes('function captureSupabaseImplicitSessionFromUrl()')&&
 assert.ok(backend.includes("function clearSupabaseAuthFragment(routeName='')")&&backend.includes("history.replaceState(null,'',url.pathname+url.search+url.hash)"),'tokens de callback precisam ser removidos imediatamente da barra de endereço');
 assert.ok(admin.includes('const callbackSession=globalThis.captureSupabaseImplicitSessionFromUrl?.()??null')&&admin.includes('await client.auth.setSession({'),'admin precisa restaurar explicitamente a sessão quando detectSessionInUrl não a materializar');
 assert.ok(backend.includes('const callbackSession=captureSupabaseImplicitSessionFromUrl();')&&backend.includes("clearSupabaseAuthFragment('merchant')"),'revenda precisa ter o mesmo fallback explícito de sessão');
-assert.ok(bootstrap.indexOf('if(globalThis.adminPortalRequested?.())')<bootstrap.indexOf('render();'),'portal admin precisa consumir o callback antes do primeiro render');
+const bootLoadFlow=bootstrap.slice(bootstrap.indexOf("window.addEventListener('load',async()=>{"));
+assert.ok(bootLoadFlow.includes('await adminBackendInit()')&&bootLoadFlow.indexOf('if(globalThis.adminPortalRequested?.())')<bootLoadFlow.indexOf('render();'),'portal admin precisa consumir o callback antes do primeiro render');
 const adminAuthSource=read('supabase/functions/admin-auth/index.ts');
 assert.ok(adminAuthSource.includes('admin_login_mode')&&adminAuthSource.includes('claim_reserved_platform_admin'),'Edge de admin precisa consultar elegibilidade por hash e claim server-side');
 assert.ok(adminAuthSource.includes('shouldCreateUser:mode==="bootstrap_reserved"'),'criação da primeira identidade só pode ocorrer no modo reservado');

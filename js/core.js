@@ -888,8 +888,8 @@ function bottomNav(r){
       :testDemo&&state.mode==='merchant'
         ?[['merchant','🏪','Operação','go'],['merchant-orders','📦','Pedidos','go'],['catalog','🧺','Catálogo','go'],['merchant-metrics','📊','Desempenho','go'],['merchants','➕','Parceiros','go']]
         :prelaunchPublic
-          ?[['home','⌂','Início','go'],['early-access','🔔','Disponibilidade','lead'],['earn','🤝','Indicar','go'],['merchants','🏪','Vender','go'],['contact','💬','Contato','go']]
-          :[['home','⌂','Início','go'],['order','🧺','Pedir','browse'],['tracking','📍','Pedido','go'],['earn','💰','Ganhe','go'],['club','★','Clube','go']];
+          ?[['home','⌂','Início','go'],['early-access','🔔','Avisos','lead'],['earn','🤝','Indicar','go'],['merchants','🏪','Vender','go'],['contact','💬','Contato','go']]
+          :[['home','⌂','Início','go'],['order','🧺','Pedir','browse'],['tracking','📍','Pedido','go'],['earn','🤝','Indicar','go'],['club','★','Clube','go']];
   return `<nav class="bottom-nav" aria-label="Navegação principal">${items.map(([id,ic,l,act])=>{
     const active=r===id;
     const onclick=act==='browse'?"startHomeBrowse()":act==='start'?"startOrder('P13')":act==='lead'?"openPrelaunchCustomerLead()":`go('${id}')`;

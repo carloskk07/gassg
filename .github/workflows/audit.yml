@@ -471,6 +471,8 @@ jobs:
         run: node tests/public-marketing-v1-362.mjs
       - name: V1.367 commercial conversion analytics resilience
         run: node tests/marketing-conversion-observation-v1-367.mjs
+      - name: V1.371 public visitor hierarchy and accessible page navigation
+        run: node tests/public-journey-v1-371.mjs
       - name: V1.368 evidence-led acquisition dashboard
         run: node tests/admin-acquisition-evidence-v1-368.mjs
       - name: V1.369 linked campaign outcome evidence
