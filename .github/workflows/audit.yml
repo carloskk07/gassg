@@ -473,6 +473,8 @@ jobs:
         run: node tests/marketing-conversion-observation-v1-367.mjs
       - name: V1.368 evidence-led acquisition dashboard
         run: node tests/admin-acquisition-evidence-v1-368.mjs
+      - name: V1.369 linked campaign outcome evidence
+        run: node tests/admin-campaign-evidence-v1-369.mjs
       - name: V1.347 premium guided marketplace experience regression
         run: node tests/premium-experience-v1-347.mjs
       - name: V1.348 merchant daily hub and referral design regression
