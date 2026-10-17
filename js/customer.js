@@ -967,8 +967,8 @@ function checkoutOfferDecisionSummary(all){
   if(!Array.isArray(all)||all.length<2)return '';
   const totals=all.map(o=>Number(o?.total));
   const etaLimits=all.map(o=>Number(o?.etaMax??o?.eta));
-  const hasTotals=totals.every(n=>Number.isFinite(n)&&n>=0);
-  const hasEta=etaLimits.every(n=>Number.isFinite(n)&&n>=0);
+  const hasTotals=all.every((o,i)=>o?.total!=null&&Number.isFinite(totals[i])&&totals[i]>0);
+  const hasEta=all.every((o,i)=>(o?.etaMax??o?.eta)!=null&&Number.isFinite(etaLimits[i])&&etaLimits[i]>0);
   if(!hasTotals&&!hasEta)return '';
   const lowest=hasTotals?Math.min(...totals):null;
   const shortest=hasEta?Math.min(...etaLimits):null;
@@ -978,6 +978,18 @@ function checkoutOfferDecisionSummary(all){
     (lowest!==null?'<div><small>MENOR TOTAL COM ENTREGA</small><strong>'+BRL.format(lowest)+'</strong></div>':'')+
     (shortest!==null?'<div><small>MENOR PRAZO MÁXIMO PREVISTO</small><strong>Até '+Math.round(shortest)+' min</strong></div>':'')+
     '</div><p>São dados das opções desta consulta, não promessa de economia ou entrega. A revenda precisa aceitar o pedido.</p>'+
+    '</aside>';
+}
+// V1.381 — This is a request, not a confirmed purchase, payment or
+// reserved delivery. Kept outside individual offers to avoid repeating noise.
+function checkoutRequestExplainer(){
+  return '<aside class="checkout-request-explainer" aria-label="O que acontece ao solicitar um pedido">'+
+    '<strong>Antes de enviar, veja os próximos passos</strong>'+
+    '<ol>'+
+      '<li><span aria-hidden="true">1</span><div><b>Você solicita</b><small>Escolhe uma das opções de preço e prazo desta consulta.</small></div></li>'+
+      '<li><span aria-hidden="true">2</span><div><b>A revenda responde</b><small>O pedido depende do aceite real para ser confirmado.</small></div></li>'+
+      '<li><span aria-hidden="true">3</span><div><b>Você acompanha</b><small>Após o aceite, acompanhe as etapas e pague à revenda conforme a forma escolhida.</small></div></li>'+
+    '</ol>'+
     '</aside>';
 }
 function checkoutOfferComparison(all){
@@ -994,6 +1006,7 @@ function checkoutOfferComparison(all){
       <p>O total já considera a entrega. Preço e prazo são da consulta atual, sujeitos à validade da oferta e ao aceite da revenda.</p>
     </div>
     ${checkoutOfferDecisionSummary(all)}
+    ${checkoutRequestExplainer()}
     ${checkoutSponsoredEditorial()}
     ${controls}
     <p class="offer-sort-feedback" id="checkout-sort-feedback" role="status" aria-live="polite"></p>
@@ -1026,43 +1039,53 @@ function offerCard(o,facts={}){
   const recommended=roles.includes('Recomendado');
   const available=roles.includes('Disponível agora');
   const featured=recommended||available;
-  const gross=Math.max(0,Number(o.total)||0);
+  // Do not translate missing or malformed server data into an invented R$ 0.
+  const rawTotal=Number(o.total);
+  const validTotal=o.total!=null&&Number.isFinite(rawTotal)&&rawTotal>0;
+  const gross=validTotal?rawTotal:0;
   const balance=Number(state.user?.cashback||0);
   const discount=state.checkout.useCashback&&Number.isFinite(balance)
     ?Math.min(Math.max(0,balance),gross):0;
   const payable=roundMoney(Math.max(0,gross-discount));
-  const totalCents=Math.round(gross*100);
+  const totalCents=validTotal?Math.round(gross*100):null;
   const fee=Number(o.deliveryFee);
-  const hasBreakdown=o.deliveryFee!=null&&Number.isFinite(fee)&&fee>=0&&fee<=gross;
+  const hasBreakdown=validTotal&&o.deliveryFee!=null&&Number.isFinite(fee)&&fee>=0&&fee<=gross;
   const safeId=String(o.id||'');
   const allowedId=/^[A-Za-z0-9-]{1,70}$/.test(safeId);
   // A disabled HTML button can still execute injected markup when parsed.
   // Never place a malformed quote identifier in any HTML attribute.
-  const safeAction=allowedId?`onclick="checkout('${safeId}')"`:'';
-  const etaStart=Math.max(0,Math.round(Number(o.eta)||0));
-  const etaEnd=Math.max(etaStart,Math.round(Number(o.etaMax??(etaStart+7))));
-  const validPrice=facts.uniquePrice!=null&&facts.uniquePrice===totalCents;
-  const validTime=facts.uniqueTime!=null&&facts.uniqueTime===Number(o.etaMax??o.eta);
+  const rawEtaStart=Number(o.eta);
+  const rawEtaEnd=Number(o.etaMax??o.eta);
+  const validEta=o.eta!=null&&Number.isFinite(rawEtaStart)&&rawEtaStart>=0
+    &&Number.isFinite(rawEtaEnd)&&rawEtaEnd>=rawEtaStart&&rawEtaEnd>0;
+  const etaStart=validEta?Math.round(rawEtaStart):null;
+  const etaEnd=validEta?Math.round(rawEtaEnd):null;
+  const canRequest=allowedId&&validTotal&&validEta;
+  const safeAction=canRequest?`onclick="checkout('${safeId}')"`:'';
+  const validPrice=validTotal&&facts.uniquePrice!=null&&facts.uniquePrice===totalCents;
+  const validTime=validEta&&facts.uniqueTime!=null&&facts.uniqueTime===Number(o.etaMax??o.eta);
   const labels=roles.join(' • ');
-  const distanceChip=o.distance!=null&&Number.isFinite(Number(o.distance))
+  const distanceChip=o.distance!=null&&Number.isFinite(Number(o.distance))&&Number(o.distance)>=0
     ?`<span class="meta-chip">${Number(o.distance).toFixed(1)} km</span>`:'';
   const proof=[];
-  if(Number(o.completedOrders)>0)proof.push(`<span class="meta-chip">✓ ${Number(o.completedOrders)} entregas concluídas em 90 dias</span>`);
-  if(o.completionRate!=null)proof.push(`<span class="meta-chip">${Math.round(Number(o.completionRate)*100)}% concluídos após aceite</span>`);
-  if(o.onTimeRate!=null)proof.push(`<span class="meta-chip">${Math.round(Number(o.onTimeRate)*100)}% no prazo</span>`);
-  if(o.avgAcceptSeconds!=null){
+  if(Number.isSafeInteger(Number(o.completedOrders))&&Number(o.completedOrders)>0)proof.push(`<span class="meta-chip">✓ ${Number(o.completedOrders)} entregas concluídas em 90 dias</span>`);
+  if(o.completionRate!=null&&Number.isFinite(Number(o.completionRate))&&Number(o.completionRate)>=0&&Number(o.completionRate)<=1)proof.push(`<span class="meta-chip">${Math.round(Number(o.completionRate)*100)}% concluídos após aceite</span>`);
+  if(o.onTimeRate!=null&&Number.isFinite(Number(o.onTimeRate))&&Number(o.onTimeRate)>=0&&Number(o.onTimeRate)<=1)proof.push(`<span class="meta-chip">${Math.round(Number(o.onTimeRate)*100)}% no prazo</span>`);
+  if(o.avgAcceptSeconds!=null&&Number.isFinite(Number(o.avgAcceptSeconds))&&Number(o.avgAcceptSeconds)>=0){
     const secs=Math.max(0,Math.round(Number(o.avgAcceptSeconds)));
     proof.push(`<span class="meta-chip">Aceite médio: ${secs<120?secs+' s':Math.round(secs/60)+' min'}</span>`);
   }
-  if(Number(o.feedbackCount)>=3&&o.positiveFeedbackRate!=null)proof.push(`<span class="meta-chip">${Math.round(Number(o.positiveFeedbackRate)*100)}% avaliações positivas (${Number(o.feedbackCount)})</span>`);
-  if(o.comparisonSavings>0)proof.push(`<span class="meta-chip">${BRL.format(o.comparisonSavings)} abaixo da maior oferta desta consulta</span>`);
-  const demandLabel={normal:'Operação normal',elevated:'Demanda moderada',high:'Demanda alta'}[o.demandLevel]||'Operação disponível';
-  proof.push(`<span class="meta-chip">${esc(demandLabel)}</span>`);
+  if(Number.isSafeInteger(Number(o.feedbackCount))&&Number(o.feedbackCount)>=3&&o.positiveFeedbackRate!=null&&Number.isFinite(Number(o.positiveFeedbackRate))&&Number(o.positiveFeedbackRate)>=0&&Number(o.positiveFeedbackRate)<=1)proof.push(`<span class="meta-chip">${Math.round(Number(o.positiveFeedbackRate)*100)}% avaliações positivas (${Number(o.feedbackCount)})</span>`);
+  if(Number.isFinite(Number(o.comparisonSavings))&&Number(o.comparisonSavings)>0)proof.push(`<span class="meta-chip">${BRL.format(o.comparisonSavings)} abaixo da maior oferta desta consulta</span>`);
+  const demandLabel={normal:'Operação normal',elevated:'Demanda moderada',high:'Demanda alta'}[o.demandLevel];
+  if(demandLabel)proof.push(`<span class="meta-chip">${esc(demandLabel)}</span>`);
   const payment=esc(paymentLabel(state.checkout.paymentMethod));
+  const trustScore=Number(o.trust);
+  const hasTrust=o.trust!=null&&Number.isFinite(trustScore)&&trustScore>=0&&trustScore<=100;
   const breakdown=hasBreakdown?`<div class="offer-breakdown">
     <span>Produtos <strong>${BRL.format(roundMoney(gross-fee))}</strong></span>
     <span>Entrega <strong>${fee===0?'Incluída sem custo adicional':BRL.format(fee)}</strong></span>
-  </div>`:`<p class="offer-total-note">Valor total da cesta com a entrega incluída.</p>`;
+  </div>`:`<p class="offer-total-note">${validTotal?'Valor total da cesta com a entrega incluída.':'Preço e entrega precisam de nova consulta.'}</p>`;
   const cashback=discount>0?`<div class="offer-cashback">
     <span>Cashback solicitado (estimativa)</span><strong>− ${BRL.format(discount)}</strong>
     <small>Estimativa após cashback: ${BRL.format(payable)}. O valor aplicável é confirmado na criação do pedido.</small>
@@ -1074,24 +1097,25 @@ function offerCard(o,facts={}){
     ${validPrice||validTime?`<div class="offer-distinctions">${validPrice?'<span>Menor total desta consulta</span>':''}${validTime?'<span>Menor prazo máximo previsto</span>':''}</div>`:''}
     <div class="offer-main offer-price-row">
       <div><small class="offer-amount-label">TOTAL COM ENTREGA</small>
-        <div class="offer-price">${BRL.format(gross)}</div>
-        <div class="tiny muted">Valor apresentado antes de eventual cashback</div>
+        <div class="offer-price">${validTotal?BRL.format(gross):'Total indisponível'}</div>
+        <div class="tiny muted">${validTotal?'Valor apresentado antes de eventual cashback':'Esta opção precisa de nova consulta antes de solicitar.'}</div>
       </div>
-      <div class="offer-eta"><small>PREVISÃO DE ENTREGA</small><strong>${etaStart}–${etaEnd} min</strong><small>Após confirmação da revenda</small></div>
+      <div class="offer-eta"><small>PREVISÃO DE ENTREGA</small><strong>${validEta?etaStart+'–'+etaEnd+' min':'Prazo indisponível'}</strong><small>Após confirmação da revenda</small></div>
     </div>
     ${breakdown}${cashback}
     <div class="offer-payment"><span aria-hidden="true">✓</span><span>Você paga diretamente à revenda: <strong>${payment} na entrega</strong></span></div>
     <details class="offer-details"><summary>Por que esta opção apareceu?</summary>
       <div class="offer-meta">${distanceChip}
         ${internalPilot?'<span class="meta-chip">🧪 Simulação operacional</span><span class="meta-chip">Sem validação jurídica nesta tela</span>':'<span class="meta-chip">✓ Revenda apta a atender</span><span class="meta-chip">Revenda cadastrada</span>'}
-        <span class="meta-chip">${internalPilot?'Trust simulado':'Confiança'} ${o.trust}/100</span>${proof.join('')}
+        ${hasTrust?`<span class="meta-chip">${internalPilot?'Trust simulado':'Confiança'} ${Math.round(trustScore)}/100</span>`:''}${proof.join('')}
       </div>
     </details>
     <div class="offer-assurance">${internalPilot?'🧪 Simulação: nenhuma venda ou cobrança real.':'🔒 A revenda precisa aceitar o pedido. Se uma alternativa aumentar o total, você confirma antes da troca.'}</div>
     <button class="${featured?'primary':'secondary'} full offer-submit" type="button"
-      ${safeAction} ${!allowedId||globalThis.liveRuntime?.actionPending?'disabled':''}>
+      ${safeAction} ${!canRequest||globalThis.liveRuntime?.actionPending?'disabled':''}>
       ${internalPilot?'Simular pedido':'Enviar pedido para confirmação'} <span aria-hidden="true">→</span>
     </button>
+    <small class="offer-submit-note">${canRequest?'Esta ação envia uma solicitação. A entrega ainda depende do aceite da revenda.':'Esta opção precisa de preço e prazo válidos. Consulte novamente antes de solicitar.'}</small>
   </article>`;
 }
 

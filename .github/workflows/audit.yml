@@ -489,6 +489,8 @@ jobs:
         run: node tests/mobile-first-action-v1-379.mjs
       - name: V1.380 checkout address and phone input integrity
         run: node tests/checkout-address-clarity-v1-380.mjs
+      - name: V1.381 mobile offer details and request acceptance integrity
+        run: node tests/checkout-offer-confidence-v1-381.mjs
       - name: V1.368 evidence-led acquisition dashboard
         run: node tests/admin-acquisition-evidence-v1-368.mjs
       - name: V1.369 linked campaign outcome evidence
