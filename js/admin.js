@@ -2787,6 +2787,7 @@ function adminPilotPartnerCard(p){
       <div class="field-row">
         <div class="input-wrap"><label for="${prefix}-postal">CEP</label><input id="${prefix}-postal" class="input" maxlength="12" placeholder="97300000"></div>
         <div class="input-wrap"><label for="${prefix}-city">Cidade</label><input id="${prefix}-city" class="input" maxlength="120" value="São Gabriel"></div>
+        <div class="input-wrap"><label for="${prefix}-state">UF</label><input id="${prefix}-state" class="input" maxlength="2" value="RS" placeholder="RS" autocomplete="address-level1"></div>
       </div>
       <div class="input-wrap"><label for="${prefix}-address">Endereço</label><input id="${prefix}-address" class="input" maxlength="240" value="${esc(prefill.address)}" placeholder="Rua, número e complemento"></div>
       <div class="notice ${onboarding.ownerClaimed?'success':''}"><strong>Owner automático pelo convite.</strong><br>${onboarding.ownerClaimed?'Conta permanente do parceiro já vinculada. A autoridade do banco impedirá trocar o owner por outra conta.':'Ainda aguardando o parceiro reivindicar o convite. A conversão permanece bloqueada para não criar revenda órfã.'}</div>
@@ -2798,7 +2799,7 @@ function adminPilotPartnerCard(p){
         <div class="input-wrap"><label for="${prefix}-eta">ETA base (min)</label><input id="${prefix}-eta" class="input" type="number" min="5" max="180" step="1" value="30"></div>
         <div class="input-wrap"><label for="${prefix}-radius">Raio km</label><input id="${prefix}-radius" class="input" type="number" min="0" max="100" step="0.5" placeholder="Opcional"></div>
       </div>
-      <label class="check-row"><input id="${prefix}-citywide" type="checkbox"><span><strong>Atende toda São Gabriel</strong><small>Marque apenas se a cobertura foi confirmada.</small></span></label>
+      <label class="check-row"><input id="${prefix}-citywide" type="checkbox"><span><strong>Atende toda a cidade informada</strong><small>Marque apenas se a cobertura foi confirmada.</small></span></label>
       <div class="card flat"><strong>Formas de pagamento aceitas do cliente final</strong><div class="tiny muted" style="margin-top:4px">Isto descreve como a revenda recebe a venda do cliente. Não é a cobrança de taxas do TAMÃO.</div>
         <label class="check-row"><input id="${prefix}-pay-pix" type="checkbox"><span>Pix</span></label>
         <label class="check-row"><input id="${prefix}-pay-cash" type="checkbox"><span>Dinheiro</span></label>
@@ -6603,6 +6604,11 @@ async function adminRevokePilotInvite(id){
 async function adminConvertPilotPartner(id){
   const p=(adminRuntime.data?.pilotPartners||[]).find(x=>x.id===id);
   if(!p)return toast('Parceiro não encontrado');
+  if(['converted','cancelled'].includes(String(p.onboarding_status||'')))
+    return toast('Este cadastro piloto já foi convertido ou cancelado. Atualize o painel.');
+  const linked=p.onboarding?.application;
+  if(p.onboarding?.ownerClaimed!==true||!['pending','approved'].includes(String(linked?.status||'')))
+    return toast('Aguarde a reivindicação do convite e o cadastro válido pela mesma conta do parceiro. Atualize o painel.');
   const prefix='pilot-'+id;
   const value=(suffix)=>document.getElementById(prefix+'-'+suffix)?.value?.trim()||'';
   const checked=(suffix)=>document.getElementById(prefix+'-'+suffix)?.checked===true;
@@ -6616,6 +6622,9 @@ async function adminConvertPilotPartner(id){
     city:value('city'),addressText:value('address')
   };
   if(Object.values(required).some(x=>!x))return toast('Preencha os dados reais obrigatórios da revenda');
+  const state=String(value('state')).toUpperCase();
+  if(!'AC AL AM AP BA CE DF ES GO MA MG MS MT PA PB PE PI PR RJ RN RO RR RS SC SE SP TO'.split(' ').includes(state))
+    return toast('Informe uma UF brasileira válida com duas letras.');
   const ownerUserId=null;
   const availableStock=Number(value('stock')||0);
   const deliveryFeeCents=Math.round(Number(value('fee')||0)*100);
@@ -6627,7 +6636,7 @@ async function adminConvertPilotPartner(id){
       draftId:id,
       tradeName:p.display_name,
       ...required,
-      state:'RS',
+      state,
       ownerUserId,
       ownerDisplayName:value('owner-name')||null,
       productCode:p.proposed_product_code,
