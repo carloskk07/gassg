@@ -509,6 +509,8 @@ jobs:
         run: node tests/merchant-offer-recovery-v1-389.mjs
       - name: V1.390 merchant order verified amounts and cash change
         run: node tests/merchant-verified-amount-v1-390.mjs
+      - name: V1.391 merchant order item quantities and names
+        run: node tests/merchant-item-integrity-v1-391.mjs
       - name: V1.368 evidence-led acquisition dashboard
         run: node tests/admin-acquisition-evidence-v1-368.mjs
       - name: V1.369 linked campaign outcome evidence
