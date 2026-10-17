@@ -515,7 +515,7 @@ function sponsorsLanding(){
       <span class="eyebrow">MARCAS E PARCEIROS • TAMÃO</span>
       <h1 class="page-title">Sua marca mais perto de quem compra na cidade.</h1>
       <p class="page-lead">O TAMÃO conecta consumidores e revendas de itens essenciais. Vamos desenhar uma presença patrocinada adequada ao seu público, à sua cidade e ao objetivo da sua campanha.</p>
-      <div class="conversion-mini-proof"><span>✓ Presença regional</span><span>✓ Campanhas desenhadas em conjunto</span><span>✓ Primeiro contato sem compromisso</span></div>
+      <div class="conversion-mini-proof"><span>✓ Conexão com cada região</span><span>✓ Campanhas desenhadas em conjunto</span><span>✓ Primeiro contato sem compromisso</span></div>
       <div class="tamao-value-actions">
         <button type="button" class="primary" onclick="openSponsorContact()">Quero apresentar minha marca →</button>
         <button type="button" class="secondary" onclick="go('merchants')">Conhecer as revendas</button>
