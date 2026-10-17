@@ -27,7 +27,9 @@ try{
   assert.match(html,/\/css\/landing-editorial\.css/);
   assert.match(html,/<details><summary>/);
   assert.match(html,/href="\/#terms"/);
-  assert.doesNotMatch(html,/<script|checkout\(|localStorage|supabase|oauth|password|access_token/i);
+  assert.match(html,/<script src="\/js\/landing-handoff\.js" defer><\/script>/);
+  assert.equal((html.match(/<script\b/g)||[]).length,1,'only first-party deferred handoff script');
+  assert.doesNotMatch(html,/checkout\(|localStorage|supabase|oauth|password|access_token/i);
   assert.doesNotMatch(html,/resultados garantidos|vendas garantidas|preço mais baixo garantido|entrega garantida/i);
   const title=html.match(/<title>(.*?)<\/title>/)?.[1];
   const meta=html.match(/name="description" content="([^"]+)"/)?.[1];
