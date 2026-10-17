@@ -44,7 +44,7 @@ assert.match(card,/0 com prazo confirmado nesta consulta/);
 assert.match(card,/Atualizar ofertas para decidir/);
 assert.match(card,/onclick="merchantLiveRefresh\(\)"/);
 assert.doesNotMatch(card,/Sem ação nesta categoria agora/);
-assert.doesNotMatch(card,/merchantFocusLiveOrder\(/);
+assert.doesNotMatch(card,/merchantUnifiedFocusOrder\(/);
 assert.doesNotMatch(card,/merchantLiveAction\(|merchantLiveDeliver\(|merchantPerformAction\(/);
 
 const valid=offer(4,date(7));
@@ -55,7 +55,7 @@ assert.equal(model.offers.count,3);
 assert.equal(model.offers.valid,1);
 card=onlyOfferCard(context.board(rt,list));
 assert.match(card,/Ver pedido para aceitar/);
-assert.match(card,/merchantFocusLiveOrder\('00000000-0000-4000-8000-000000000004'\)/);
+assert.match(card,/merchantUnifiedFocusOrder\('00000000-0000-4000-8000-000000000004','offers'\)/);
 assert.match(card,/Atualizar outras ofertas/);
 assert.match(card,/class="merchant-unified-recovery" onclick="merchantLiveRefresh\(\)"/);
 assert.ok(card.indexOf('Ver pedido para aceitar')<card.indexOf('Atualizar outras ofertas'));
