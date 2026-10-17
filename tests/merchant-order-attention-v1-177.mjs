@@ -109,7 +109,7 @@ assert.ok(!html.includes('merchant-order-contact'),'No protected customer info l
 order.status='ARRIVING';html=cardCtx.renderCard(order);
 assert.ok(html.includes('Pagamento recebido')&&html.includes('live-pin-'));
 assert.ok(html.includes('Confirmar entrega'));
-order.status='OFFERED_TO_MERCHANT';html=cardCtx.renderCard(order);
+order.status='OFFERED_TO_MERCHANT';order.offerExpiresAt=inMinutes(8);html=cardCtx.renderCard(order);
 assert.ok(!html.includes('merchant-order-attention-inline'));
 assert.ok(html.includes('Aceitar pedido'));
 assert.ok(backend.includes('expectedVersion:order.version'));

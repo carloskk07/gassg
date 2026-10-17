@@ -2378,7 +2378,7 @@ function merchantFocusOrderNextStep(orderId){
   let target=null;
   if(status==='OFFERED_TO_MERCHANT'){
     const expiry=Date.parse(String(order.offerExpiresAt||''));
-    if(!Number.isFinite(expiry)||expiry>Date.now())target=actionButton();
+    if(Number.isFinite(expiry)&&expiry>Date.now()+1000)target=actionButton();
   }else if(status==='PREPARING'){
     if(['owner','manager'].includes(role)&&!order.assignedDeliveryUserId)
       target=card.querySelector?.('[id="delivery-'+id+'"]');
@@ -2407,7 +2407,7 @@ function merchantDailyFocusModel(orders,now=Date.now()){
   const offers=byStatus('OFFERED_TO_MERCHANT').filter(order=>{
     const raw=String(order?.offerExpiresAt||'');
     const expires=raw?Date.parse(raw):NaN;
-    return !Number.isFinite(expires)||expires>now;
+    return Number.isFinite(expires)&&expires>now+1000;
   }).sort((a,b)=>{
     const expiry=x=>{const n=Date.parse(String(x?.offerExpiresAt||''));return Number.isFinite(n)?n:Number.MAX_SAFE_INTEGER;};
     return expiry(a)-expiry(b);
@@ -2437,6 +2437,40 @@ function merchantDailyFocusModel(orders,now=Date.now()){
   if(!order)return {order:null,title:'Nenhum pedido em andamento',detail:'Quando houver um pedido atribuído à sua operação, ele aparecerá na fila.',refresh:false};
   return {order,title,detail,refresh:false};
 }
+// V1.353: read-only queue measurements, scoped to the orders returned for this member.
+// Unknown or expired response windows are NOT treated as offers ready to accept.
+function merchantDayQueuePulse(orders,now=Date.now()){
+  const rows=Array.isArray(orders)?orders:[];
+  const offers=rows.filter(o=>o?.status==='OFFERED_TO_MERCHANT');
+  const validOffers=offers.filter(o=>{
+    const raw=String(o?.offerExpiresAt||'');
+    const deadline=Date.parse(raw);
+    return /^20\d\d-\d\d-\d\dT/.test(raw)
+      &&Number.isFinite(deadline)&&deadline>now+1000;
+  });
+  return {
+    waiting:validOffers.length,
+    refresh:offers.length-validOffers.length,
+    incidents:rows.filter(o=>o?.status==='AT_RISK').length,
+    deliveries:rows.filter(o=>['OUT_FOR_DELIVERY','ARRIVING'].includes(String(o?.status||''))).length
+  };
+}
+function merchantDayQueuePulseView(orders){
+  const pulse=merchantDayQueuePulse(orders);
+  const signals=[
+    ['Resposta pendente',pulse.waiting],
+    ['Imprevistos',pulse.incidents],
+    ['Em entrega',pulse.deliveries]
+  ].map(([label,count])=>
+    '<span class="merchant-day-queue-chip"><strong>'+count+'</strong><small>'+esc(label)+'</small></span>').join('');
+  return '<div class="merchant-day-queue-pulse" role="group" aria-label="Resumo da fila de pedidos">'+
+    signals+
+    (pulse.refresh?'<div class="merchant-day-queue-warning" role="status"><span>'+pulse.refresh+
+      (pulse.refresh===1?' oferta precisa de nova consulta.':' ofertas precisam de nova consulta.')+
+      ' Não aceite sem um prazo válido.</span>'+
+      '<button type="button" class="secondary small" onclick="merchantLiveRefresh()">Atualizar pedidos</button></div>':'')+
+    '</div>';
+}
 function merchantDailyVerifiedSales(rt){
   const role=String(rt?.merchant?.memberRole||'');
   const merchantId=String(rt?.merchant?.merchantId||'');
@@ -2463,6 +2497,7 @@ function merchantDailyOverview(rt,orders){
   const isDriver=role==='driver';
   const canSeeSales=['owner','manager'].includes(role);
   const focus=merchantDailyFocusModel(orders);
+  const pulse=merchantDayQueuePulseView(orders);
   const id=String(focus.order?.orderId||'');
   const safe=/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(id);
   const label=focus.order?.publicCode?esc(focus.order.publicCode):'Pedido';
@@ -2485,6 +2520,7 @@ function merchantDailyOverview(rt,orders){
     '<h2>'+esc(focus.title)+'</h2>'+
     (focus.order?'<strong class="merchant-daily-order-code">'+label+'</strong>':'')+
     '<p>'+esc(focus.detail)+'</p>'+
+    pulse+
     '<div class="merchant-daily-actions">'+action+
     '<span class="tiny muted">'+count+' '+(count===1?'pedido na fila':'pedidos na fila')+
     ' • ações só são efetivadas no pedido</span></div></div>'+
@@ -2949,12 +2985,15 @@ function merchantLiveOrder(o){
 
   if(o.status==='OFFERED_TO_MERCHANT'){
     const expiration=o.offerExpiresAt?Date.parse(String(o.offerExpiresAt)):NaN;
-    const hasExpiration=Number.isFinite(expiration);
-    const expired=hasExpiration&&expiration<=Date.now();
+    const hasExpiration=typeof o.offerExpiresAt==='string'&&
+      /^20\d\d-\d\d-\d\dT/.test(o.offerExpiresAt)&&Number.isFinite(expiration);
+    const expired=hasExpiration&&expiration<=Date.now()+1000;
     const secs=hasExpiration?Math.max(0,Math.ceil((expiration-Date.now())/1000)):null;
-    actions=expired
-      ? '<strong class="merchant-offer-expired">Prazo desta oferta encerrado</strong><button type="button" class="secondary small" onclick="merchantLiveRefresh()">Atualizar pedidos</button>'
-      : `<button class="primary small" onclick="merchantLiveAction('${o.orderId}','accept')">Aceitar pedido</button><button class="danger-btn small" onclick="merchantLiveAction('${o.orderId}','reject')">Não consigo atender</button><span class="tiny muted">${secs===null?'Prazo não informado':'Prazo ~'+secs+'s'}</span>`;
+    actions=!hasExpiration
+      ? '<strong class="merchant-offer-expired">Prazo sem confirmação</strong><p class="tiny muted">Atualize para obter uma janela de resposta válida antes de aceitar.</p><button type="button" class="secondary small" onclick="merchantLiveRefresh()">Atualizar pedidos</button>'
+      :expired
+        ? '<strong class="merchant-offer-expired">Prazo desta oferta encerrado</strong><button type="button" class="secondary small" onclick="merchantLiveRefresh()">Atualizar pedidos</button>'
+        : `<button class="primary small" onclick="merchantLiveAction('${o.orderId}','accept')">Aceitar pedido</button><button class="danger-btn small" onclick="merchantLiveAction('${o.orderId}','reject')">Não consigo atender</button><span class="tiny muted">Prazo ~${secs}s</span>`;
   }else if(o.status==='MERCHANT_ACCEPTED'){
     actions='<span class="merchant-order-transition-note">Pedido aceito. A preparação será atualizada pelo sistema antes de liberar a saída.</span>';
   }else if(['PREPARING','AT_RISK'].includes(o.status)){
