@@ -65,6 +65,21 @@ const homeRes=await dispatchFetch(homeReq);
 assert.equal(await homeRes.text(),'<html>shell-novo</html>');
 assert.equal(await (await cache.match('./index.html')).text(),'<html>shell-novo</html>');
 
+// 2.1) Uma landing editorial HTML não pode substituir o shell principal.
+fetchImpl=async()=>new Response('<html>pagina-editorial-revendas</html>',{status:200,headers:{'content-type':'text/html; charset=utf-8'}});
+const editorialReq={method:'GET',url:'https://tamao.com.br/para-revendas/',mode:'navigate'};
+const editorialRes=await dispatchFetch(editorialReq);
+assert.match(await editorialRes.text(),/pagina-editorial-revendas/);
+assert.equal(await (await cache.match('./index.html')).text(),'<html>shell-novo</html>',
+  'landings independentes não podem substituir o app shell em cache');
+assert.match(await (await cache.match(editorialReq)).text(),/pagina-editorial-revendas/);
+
+// A URL editorial visitada segue disponível no modo offline.
+fetchImpl=async()=>{throw new Error('offline')};
+const editorialOfflineRes=await dispatchFetch(editorialReq);
+assert.match(await editorialOfflineRes.text(),/pagina-editorial-revendas/);
+assert.equal(await (await cache.match('./index.html')).text(),'<html>shell-novo</html>');
+
 // 3) Offline em rota não cacheada deve cair no shell HTML, nunca em JSON.
 fetchImpl=async()=>{throw new Error('offline')};
 const offlineReq={method:'GET',url:'https://tamao.com.br/outra-rota',mode:'navigate'};
