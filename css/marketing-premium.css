@@ -338,3 +338,15 @@
 @media(prefers-reduced-motion:reduce){
   .marketing-hero .starter-cta{transition:none}
 }
+
+/* Mid-width visitors should never lose the commercial navigation off-screen. */
+@media(min-width:760px) and (max-width:1090px){
+  .topbar-inner{gap:8px}
+  .topbar .brand-button,.topbar .mode-pill{flex-shrink:0}
+  .topbar .desktop-nav{min-width:0;flex:1 1 auto;overflow-x:auto;
+    overscroll-behavior-inline:contain;scrollbar-width:thin;white-space:nowrap}
+  .topbar .desktop-nav button{flex:0 0 auto;white-space:nowrap;padding-inline:8px}
+  .marketing-hero .hero-grid{grid-template-columns:minmax(0,1fr);gap:20px}
+  .marketing-hero .hero-grid>div:first-child{max-width:760px}
+  .home-editorial-visual{min-height:310px}
+}
