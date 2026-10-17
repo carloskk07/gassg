@@ -7367,6 +7367,14 @@ Deno.serve(async(req:Request)=>{
     if(message.includes("REFERRAL_REWARD_ALREADY_REVERSED")){
       return json({error:"REFERRAL_REWARD_ALREADY_REVERSED",message:"A liquidação financeira deste pedido já foi revertida; a comissão não pode ser aprovada."},409,origin);
     }
+    if(message.includes("PILOT_MERCHANT_NOT_PENDING")){
+      return json({error:"PILOT_MERCHANT_NOT_PENDING",
+        message:"O cadastro piloto só pode ser vinculado a uma revenda pendente e offline. Atualize a empresa antes de aprovar."},409,origin);
+    }
+    if(message.includes("PILOT_CATALOG_CONFLICT")){
+      return json({error:"PILOT_CATALOG_CONFLICT",
+        message:"Esse produto já possui preço ou estoque operacional. O cadastro piloto não pode sobrescrever o catálogo existente."},409,origin);
+    }
     if(message.includes("MERCHANT_OWNERSHIP_CONFLICT")){
       return json({error:"MERCHANT_OWNERSHIP_CONFLICT",message:"Este CNPJ já possui outro owner ativo. Use um fluxo explícito de transferência de propriedade."},409,origin);
     }
