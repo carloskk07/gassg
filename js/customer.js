@@ -1389,7 +1389,7 @@ function customerNextAction(status){
 function customerRequoteDecision(order,previousTotal,proposedTotal,remainingSeconds,{evidence}={}){
   if(order.status!=='REQUOTE_REQUIRED'||!Number.isFinite(proposedTotal)||proposedTotal<=0)return '';
   const expired=remainingSeconds===0;
-  const unknown=remainingSeconds==null||!Number.isFinite(remainingSeconds);
+  const unknown=remainingSeconds==null||!Number.isFinite(remainingSeconds)||remainingSeconds<0;
   const unverified=evidence?.kind!=='recent';
   const validPrevious=previousTotal!=null&&Number.isFinite(previousTotal)&&previousTotal>=0;
   const canDecide=!expired&&!unknown&&!unverified&&validPrevious
@@ -1407,7 +1407,7 @@ function customerRequoteDecision(order,previousTotal,proposedTotal,remainingSeco
       '<span>Valor anterior <strong>'+(validPrevious?BRL.format(previousTotal):'Não confirmado')+'</strong></span>'+
       '<span>Nova proposta <strong>'+BRL.format(proposedTotal)+'</strong></span>'+
     '</div>'+
-    '<p>O novo valor não é aceito automaticamente. '+esc(deadline)+'</p>'+
+    '<p class="customer-requote-proof '+(canDecide?'verified':'needs-refresh')+'" role="status">O novo valor não é aceito automaticamente. '+esc(deadline)+'</p>'+
     '<div class="order-actions">'+
       '<button class="primary small" onclick="confirmRequote()" '+
         (canDecide?'':'disabled')+
@@ -1752,7 +1752,7 @@ ${customerIncidentStatusView(o)}
 ${trackingSyncNotice}
 ${interrupted?customerInterruptedPaymentView(o):directPaymentNotice}
 
-<div class="card flat"><div class="price-lock"><span>🔒</span><div><strong>Total protegido: ${totalLabel}</strong><br>${cashbackReserved>0?`Inclui ${BRL.format(cashbackReserved)} de cashback reservado. `:''}Se for necessária uma opção mais cara, você precisa aprovar antes.</div></div>
+<div class="card flat customer-tracking-order-facts"><div class="price-lock"><span>🔒</span><div><strong>${total===null?'Valor do pedido ainda não confirmado':'Total protegido'}: ${totalLabel}</strong><br>${cashbackReserved>0?`Inclui ${BRL.format(cashbackReserved)} de cashback reservado. `:''}Se for necessária uma opção mais cara, você precisa aprovar antes.</div></div>
 <div class="divider"></div>
 <div class="list-row"><div><strong>${esc(supplier.name)}</strong><br><small>${esc(supplier.detail)}</small></div><div style="text-align:right"><strong>${totalLabel}</strong><br><small>${o.postalCode?'CEP '+esc(String(o.postalCode).replace(/^(\d{5})(\d{3})$/,'$1-$2'))+' • ':''}${esc(o.address||'')}</small></div></div>
 <div class="list-row"><span>Pagamento direto à revenda</span><strong>${esc(paymentLabel(o.paymentMethod))}${o.paymentTiming==="prepaid"?" • online":" • na entrega"}</strong></div>
