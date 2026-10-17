@@ -103,6 +103,8 @@ jobs:
         run: node tests/admin-finance-history-authority-v1-188.mjs
       - name: Closed-month finance comparison V1.189 regression
         run: node tests/admin-finance-monthly-v1-189.mjs
+      - name: Finance per merchant recovery V1.398 regression
+        run: node tests/admin-finance-merchant-v1-398.mjs
       - name: Mobile finance workspaces V1.191 regression
         run: node tests/admin-finance-workspace-v1-191.mjs
       - name: Trusted finance priorities V1.192 regression
