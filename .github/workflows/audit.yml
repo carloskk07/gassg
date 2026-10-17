@@ -483,6 +483,8 @@ jobs:
         run: node tests/public-landing-entry-v1-375.mjs
       - name: V1.377 public editorial SEO, handoff and portal isolation
         run: node tests/public-editorial-seo-v1-377.mjs
+      - name: V1.378 preserve attributed visits and show distinct visitor visuals
+        run: node tests/public-handoff-visual-v1-378.mjs
       - name: V1.368 evidence-led acquisition dashboard
         run: node tests/admin-acquisition-evidence-v1-368.mjs
       - name: V1.369 linked campaign outcome evidence
