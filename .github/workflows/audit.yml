@@ -481,6 +481,8 @@ jobs:
         run: node tests/buyer-tracking-action-v1-352.mjs
       - name: V1.353 merchant response windows and daily queue regression
         run: node tests/merchant-response-clarity-v1-353.mjs
+      - name: V1.354 merchant orders freshness and stale recovery regression
+        run: node tests/merchant-freshness-v1-354.mjs
       - name: Admin all-months unresolved payout queue V1.340 regression
         run: node tests/payout-global-followup-v1-340.mjs
       - name: Admin all-months payout pagination V1.341 regression

@@ -4312,3 +4312,25 @@ body:has(.admin-page) .admin-nav-item:focus-visible{outline-offset:-3px}
  .merchant-day-queue-warning button{width:100%}
 }
 @media(prefers-reduced-motion:reduce){.merchant-day-queue-warning button{transition:none}}
+
+
+/* TAMÃO V1.354 — verified merchant order snapshot and clear recovery state. */
+.merchant-queue-unverified-intro{padding:12px 15px;margin:13px 0;border:1px solid #dfd5c2;border-radius:13px;color:#655032;font-size:12px;line-height:1.55;background:#fffdf8}
+.merchant-orders-recovery{
+ display:grid;gap:12px;align-items:start;justify-items:start;
+ padding:clamp(16px,2.4vw,24px);margin:13px 0 17px;
+ border:1px solid #e8d2a4;border-radius:19px;
+ background:linear-gradient(145deg,#fffaed,#fffdf9);
+ box-shadow:0 9px 24px rgba(91,62,24,.045)
+}
+.merchant-orders-recovery strong{font-size:clamp(17px,2.3vw,21px);line-height:1.35;color:#59401c}
+.merchant-orders-recovery p{margin:0;font-size:13px;line-height:1.6;color:#66563b;max-width:65ch}
+.merchant-orders-recovery small{font-size:11px;line-height:1.6;color:#6e5b3e}
+.merchant-orders-recovery button{min-height:48px;padding-inline:19px;font-size:13px}
+.merchant-orders-recovery button:focus-visible{outline:3px solid #ae7e30;outline-offset:3px}
+#merchant-live-orders{scroll-margin-top:100px}
+@media(max-width:540px){
+ .merchant-orders-recovery{padding:17px 15px;border-radius:15px}
+ .merchant-orders-recovery button{width:100%}
+}
+@media(prefers-reduced-motion:reduce){.merchant-orders-recovery button{transition:none}}
