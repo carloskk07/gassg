@@ -349,7 +349,7 @@ function learn(){
     <div class="journey-invite">
       <span class="journey-invite-icon" aria-hidden="true">🏡</span>
       <div><strong>Do gás à água, o que você precisa está no mesmo lugar.</strong><span>Você escolhe, a revenda confirma e o TAMÃO mostra o andamento.</span></div>
-      <button class="primary" onclick="startCustomerAvailability()">Consultar minha região →</button>
+      <button class="primary" onclick="startHomeBrowse()">Escolher meus produtos →</button>
     </div>
 
     <section class="section"><div class="section-head"><div><span class="section-kicker">SEM COMPLICAÇÃO</span><h2>Do CEP à entrega, veja como funciona.</h2></div></div><div class="how-grid">
@@ -377,7 +377,7 @@ function learn(){
       <details><summary>Tenho uma revenda. Posso vender outros produtos além de gás?</summary><p>Sim. Cada revenda pode cadastrar outros produtos que comercializa. Para vender gás, precisa comprovar as autorizações exigidas.</p></details>
     </div></section>
 
-    <div class="dual-cta"><button class="primary" onclick="startCustomerAvailability()">Consultar ofertas na minha região →</button><button class="secondary" onclick="go('merchants')">Minha empresa pode vender?</button></div>
+    <div class="dual-cta"><button class="primary" onclick="startHomeBrowse()">Escolher produtos e consultar entrega →</button><button class="secondary" onclick="go('merchants')">Minha empresa pode vender?</button></div>
   </section>`)
 }
 

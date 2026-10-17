@@ -53,6 +53,13 @@ const noSupply=render();
 assert.match(noSupply,/home-first-visit/);
 assert.match(noSupply,/home-editorial-visual/);
 assert.match(noSupply,/home-discover-filter/);
+assert.match(noSupply,/class="home-trust-brief"/,'unserved visitors need fast factual answers');
+assert.match(noSupply,/Como descubro se há entrega para mim\?/);
+assert.match(noSupply,/Preciso comprar gás para pedir água\?/);
+assert.match(noSupply,/Quando meu pedido está confirmado\?/);
+assert.match(noSupply,/home-notify-shortcut/);
+assert.ok(noSupply.indexOf('id="early-access"')<noSupply.indexOf('home-trust-brief'),
+ 'availability signup should precede optional FAQ, not be blocked by a lecture');
 assert.match(noSupply,/Consultar meu CEP|Escolher produtos →/);
 assert.match(noSupply,/São Gabriel/);
 assert.match(noSupply,/Quer saber mais ou tem uma revenda\?/);
@@ -82,6 +89,8 @@ assert.match(unavailable,/Os preços de revendas aparecem após confirmação|Co
 
 const withOffers=render({available:true});
 assert.doesNotMatch(withOffers,/home-first-visit/);
+assert.doesNotMatch(withOffers,/class="home-trust-brief"/,'verified buyers should not see lead-only education');
+assert.doesNotMatch(withOffers,/home-notify-shortcut/,'verified buyers should not be led to a notification form');
 assert.match(withOffers,/class="hero-visual"/);
 assert.match(withOffers,/class="quick-grid"/);
 assert.match(withOffers,/Botijão de cozinha 13 kg/);
@@ -91,6 +100,7 @@ assert.doesNotMatch(withOffers,/id="early-access"/,
 
 const demo=render({demo:true,ready:false});
 assert.doesNotMatch(demo,/home-first-visit/);
+assert.doesNotMatch(demo,/class="home-trust-brief"/,'test mode must remain separate from public lead flow');
 assert.match(demo,/class="hero-visual"/);
 assert.match(demo,/class="quick-grid"/);
 assert.doesNotMatch(demo,/id="early-access"/,
