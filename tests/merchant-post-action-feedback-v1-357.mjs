@@ -116,7 +116,7 @@ await context.cannot(orderId);
 await context.assign(orderId);
 assert.equal(requests.length,before,'concurrent user action does not issue extra mutations');
 runtime.actionPending=false;
-assert.ok(backend.includes('async function merchantRefreshAfterConfirmedMutation(reply)'));
+assert.ok(backend.includes('async function merchantRefreshAfterConfirmedMutation(reply,context={})'));
 assert.ok(backend.includes("merchantRuntime.status='unavailable'"),'backend already fails closed when the post-action read fails');
 assert.ok(!cut('merchantPostActionConfirmation').includes('merchantPerformAction('),
  'feedback helper is read-only and cannot mutate a business state');
