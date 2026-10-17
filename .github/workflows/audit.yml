@@ -123,6 +123,8 @@ jobs:
         run: node tests/admin-prospect-followups-v1-200.mjs
       - name: Prospect filtered worklist V1.201 regression
         run: node tests/admin-prospect-worklist-v1-201.mjs
+      - name: Prospect deferred context and permissions V1.396 regression
+        run: node tests/admin-prospect-async-context-v1-396.mjs
       - name: City commercial decisions V1.202 regression
         run: node tests/admin-city-pipeline-v1-202.mjs
       - name: City expansion playbook V1.203 regression
