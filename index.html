@@ -26,7 +26,22 @@
   <title>TAMÃO — Faltou em casa? Tá na mão.</title>
 </head>
 <body>
-  <div id="app"></div>
+  <div id="app">
+    <section class="tamao-preboot" aria-label="Apresentação do TAMÃO">
+      <div class="tamao-preboot-brand"><img src="./icons/icon.svg" alt="" width="42" height="42"><span><strong>TAMÃO</strong><small>Pediu? Tá na mão.</small></span></div>
+      <div class="tamao-preboot-content">
+        <span class="tamao-preboot-eyebrow">GÁS, ÁGUA E ESSENCIAIS PERTO DE VOCÊ</span>
+        <h1>Faltou em casa? <em>Tá na mão.</em></h1>
+        <p>Escolha o que precisa, consulte as opções para seu CEP e veja preço e entrega antes de confirmar. O atendimento depende da disponibilidade da sua região.</p>
+        <nav aria-label="Conheça o TAMÃO">
+          <a class="tamao-preboot-primary" href="/?entrada=gas">Conhecer produtos →</a>
+          <a href="/?entrada=revenda">Tenho uma revenda</a>
+          <a href="/?entrada=marca">Quero divulgar minha marca</a>
+        </nav>
+        <noscript><p>Ative o JavaScript no navegador para consultar produtos, fazer pedidos ou cadastrar sua empresa.</p></noscript>
+      </div>
+    </section>
+  </div>
   <div id="toast" class="toast" aria-live="polite"></div>
   <div id="tamao-route-announcement" class="tamao-visually-hidden" role="status" aria-live="polite" aria-atomic="true"></div>
   <script src="./js/runtime-config.js"></script>
