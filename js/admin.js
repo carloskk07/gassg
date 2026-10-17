@@ -2627,14 +2627,44 @@ function adminFocusMerchantOperationsRecord(type,id){
     card.scrollIntoView({block:'center',behavior:'instant'});
   });
 }
+function adminPilotApplicationReview(a,pilots=adminRuntime.data?.pilotPartners||[]){
+  const draftId=String(a?.pilot_partner_draft_id||'');
+  if(!draftId)return {linked:false,ready:true,pilot:null,notice:''};
+  const pilot=Array.isArray(pilots)?pilots.find(p=>p.id===draftId)||null:null;
+  if(!pilot)return {linked:true,ready:false,pilot:null,
+    notice:'Cadastro piloto vinculado, mas não carregado neste resumo. Atualize e revise o parceiro.'};
+  const sameApplication=pilot.onboarding?.application?.id===a.id;
+  const claimed=sameApplication&&pilot.onboarding?.ownerClaimed===true&&
+    Number.isFinite(Date.parse(String(pilot.onboarding?.inviteClaimedAt||'')));
+  const convertible=!['converted','cancelled'].includes(String(pilot.onboarding_status||''));
+  const ready=Boolean(claimed&&convertible);
+  const notice=!sameApplication
+    ?'Vínculo divergente entre solicitação e cadastro piloto. Atualize e revise.'
+    :!convertible
+    ?'O cadastro piloto já foi convertido ou cancelado. Revise antes de aprovar.'
+    :!claimed
+    ?'O convite ainda não tem reivindicação confirmada pela mesma conta da solicitação.'
+    :'Convite reivindicado por conta vinculada à solicitação. Aprovação não ativa a revenda.';
+  return {linked:true,ready,pilot,notice};
+}
 function adminApplicationCard(a){
   const pending=a.status==='pending';
+  const pilotReview=adminPilotApplicationReview(a);
+  const pilotDetail=pilotReview.linked
+    ?'<div class="notice '+(pilotReview.ready?'success':'')+'"><strong>Vínculo com parceiro piloto</strong><p>'+
+      esc(pilotReview.pilot?.display_name||'Cadastro ainda não carregado')+
+      ' — '+esc(pilotReview.notice)+'</p>'+
+      (pilotReview.pilot?'<button type="button" class="secondary small" onclick="adminFocusPilotFromApplication(\''+
+        esc(a.id)+'\')">Ver cadastro piloto</button>':'')+'</div>'
+    :'';
+
   return `<article class="order-card" id="admin-partner-work-application-${esc(a.id)}" tabindex="-1">
     <div class="order-head"><div><div class="order-id">${esc(a.company_name)}</div><div class="tiny muted">${esc(a.cnpj)}</div></div>${adminStatusPill(a.status)}</div>
     <div class="order-line"><strong>Responsável:</strong> ${esc(a.responsible_name)}</div>
     <div class="order-line"><strong>WhatsApp:</strong> ${esc(a.phone)}</div>
     <div class="order-line"><strong>Endereço:</strong> ${esc(a.address_text)}</div>
     <div class="tiny muted">Recebido em ${new Date(a.created_at).toLocaleString('pt-BR')}</div>
+    ${pilotDetail}
     ${pending?`<div class="order-actions"><button class="primary small" onclick="adminApproveApplication('${a.id}')">Aprovar cadastro</button><button class="danger-btn small" onclick="adminRejectApplication('${a.id}')">Rejeitar</button></div>`:''}
   </article>`;
 }
@@ -6619,8 +6649,36 @@ async function adminConvertPilotPartner(id){
   }catch(e){toast(String(e?.message||e))}
 }
 
+function adminFocusPilotFromApplication(id){
+  const application=(adminRuntime.data?.applications||[]).find(a=>a.id===id);
+  if(!application)return toast('Solicitação não está carregada. Atualize o painel.');
+  const review=adminPilotApplicationReview(application);
+  if(!review.pilot)return toast(review.notice||'O cadastro piloto não está visível.');
+  const card=document.getElementById('admin-partner-work-pilot-'+review.pilot.id);
+  if(!card)return toast('O cadastro piloto não está visível. Atualize o painel.');
+  card.focus({preventScroll:true});
+  card.scrollIntoView({block:'center',behavior:'instant'});
+}
 async function adminApproveApplication(id){
-  try{await adminPerform('approve-application',{applicationId:id});toast('Cadastro aprovado para validação')}catch(e){toast(String(e?.message||e))}
+  const application=(adminRuntime.data?.applications||[]).find(a=>a.id===id);
+  if(!application||application.status!=='pending')
+    return toast('Esta solicitação já mudou ou não está carregada. Atualize o painel.');
+  const review=adminPilotApplicationReview(application);
+  if(review.linked){
+    if(!review.ready)return toast(review.notice);
+    const loaded=Date.parse(String(adminRuntime.lastSyncAt||''));
+    if(!Number.isFinite(loaded)||loaded>Date.now()+60000||Date.now()-loaded>5*60000)
+      return toast('Atualize o painel para confirmar o vínculo piloto antes de aprovar.');
+  }
+  const message='Aprovar o cadastro de '+String(application.company_name||'esta revenda')+
+    ' ('+String(application.cnpj||'sem CNPJ')+')?\n'+
+    (review.linked
+      ?'Convite piloto associado à mesma conta do cadastro. A revenda permanece pendente e offline; estoque e preços ativos são protegidos pelo banco.'
+      :'Aprovação não libera vendas, cidade ou compliance automaticamente.');
+  if(!confirm(message))return;
+  try{await adminPerform('approve-application',{applicationId:id});
+    toast('Cadastro aprovado para validação')}
+  catch(e){toast(String(e?.message||e))}
 }
 async function adminRejectApplication(id){
   const reason=prompt('Motivo da rejeição:');
@@ -7091,3 +7149,4 @@ globalThis.adminSetSupportStatus=adminSetSupportStatus;
 globalThis.adminIssuePilotInvite=adminIssuePilotInvite;
 globalThis.adminRevokePilotInvite=adminRevokePilotInvite;
 globalThis.adminConvertPilotPartner=adminConvertPilotPartner;
+globalThis.adminFocusPilotFromApplication=adminFocusPilotFromApplication;
