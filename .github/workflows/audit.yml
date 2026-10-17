@@ -493,6 +493,8 @@ jobs:
         run: node tests/checkout-offer-confidence-v1-381.mjs
       - name: V1.382 verified buyer order status, proposal expiry and financial proof
         run: node tests/buyer-tracking-proof-v1-382.mjs
+      - name: V1.383 verified stages after merchant acceptance
+        run: node tests/customer-post-acceptance-v1-383.mjs
       - name: V1.368 evidence-led acquisition dashboard
         run: node tests/admin-acquisition-evidence-v1-368.mjs
       - name: V1.369 linked campaign outcome evidence
