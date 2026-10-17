@@ -3515,14 +3515,24 @@ async function merchantLiveAction(id,action){
   if(globalThis.merchantRuntime?.actionPending===true)return;
   try{
     const result=await merchantPerformAction(id,action);
-    if(action==='accept'&&result?.autoRescued){
+    // SQL can return autoRescued:true during dispatch too (no departure
+    // occurred). Never tell the operator that the truck left in that case.
+    if(result?.autoRescued===true){
+      if(action==='dispatch'){
+        merchantPostActionConfirmation('A saída não foi confirmada. O sistema reavaliou o pedido; confira o estado atualizado antes de agir.');
+        return;
+      }
+      if(action!=='accept'){
+        merchantPostActionConfirmation('A ação não foi confirmada. O pedido passou por reavaliação; confira a fila atualizada.');
+        return;
+      }
       const messages={
         stock_changed_before_accept:'O estoque mudou; o pedido foi redirecionado automaticamente.',
         delivery_capability_changed_before_accept:'A capacidade logística mudou; o pedido foi redirecionado automaticamente.',
         merchant_unavailable_before_accept:'A operação ficou indisponível; o pedido foi redirecionado automaticamente.',
         offer_expired:'O prazo expirou; o sistema já buscou outra opção.'
       };
-      toast(messages[result.rescueReason]||'O aceite não pôde ser concluído; o pedido foi redirecionado automaticamente.');
+      merchantPostActionConfirmation(messages[result.rescueReason]||'O aceite não pôde ser concluído; o pedido foi redirecionado automaticamente.');
       return;
     }
     merchantPostActionConfirmation(action==='accept'?'Pedido aceito':action==='reject'?'Pedido devolvido ao matching':action==='dispatch'?'Saída confirmada':'Chegada confirmada');
