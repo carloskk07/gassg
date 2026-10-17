@@ -154,4 +154,70 @@ assert.equal(fields.message.value,'Mensagem personalizada pelo visitante',
 assert.ok(!growth.includes('milhares de clientes garantidos'),
  'no fabricated reach may be introduced');
 
-console.log('V1.365: public hero, visitor paths, partner access, sponsor clarity and mobile styling verified.');
+
+// V1.366: explicitly separate benefit mechanics and preserve real commercial routes.
+const analytics=read('js/analytics.js');
+new vm.Script(analytics,{filename:'analytics.js'});
+assert.equal((earn.match(/tamao-benefit-guide-card/g)||[]).length,4,
+ 'show four independent benefit categories rather than promising universal rewards');
+assert.ok(earn.includes("go('club')")&&earn.includes("go('refer')")&&earn.includes("go('merchants')"),
+ 'each benefit should lead to a real existing destination');
+assert.ok(earn.includes('compras elegíveis')&&earn.includes('campanha')&&
+ earn.includes('habilitação comercial'),'visible conditions must be truthful');
+assert.ok(!earn.includes('tamao-customer-growth'),
+ 'remove the old duplicate growth grid after introducing the new guide');
+assert.ok(learn.includes('tamao-buyer-benefit-bridge')&&learn.includes("go('earn')"),
+ 'buyer information should surface benefits without misleading users about discounts');
+for(const cls of ['.tamao-benefit-guide-grid','.tamao-benefit-guide-card',
+  '.benefit-condition','.tamao-buyer-benefit-bridge','@media(max-width:760px)']){
+  assert.ok(css.includes(cls),'benefit UI must be responsive and accessible: '+cls);
+}
+assert.ok(growth.includes("globalThis.tamaoPublicContactAudience='merchant'"),
+ 'sponsor CTA must mark anonymous commercial contact intent before routing');
+assert.ok(analytics.includes("current==='contact'&&globalThis.tamaoPublicContactAudience==='merchant'"),
+ 'sponsor contact page views must be classified as commercial, not customer');
+assert.ok(analytics.includes("node.classList?.contains('public-contact-card')")||
+ analytics.includes("entry.target.classList?.contains('public-contact-card')"),
+ 'sponsor lead form must be observed without reading personal fields');
+const earnBegin=growth.indexOf('function earn(){');
+const earnEnd=growth.indexOf('\nfunction ',earnBegin+1);
+assert.ok(earnBegin>=0&&earnEnd>earnBegin);
+const benefitSandbox=vm.createContext({
+ merchantEconomicsExample:()=>({fee:5,merchantNet:115}),
+ referralPilotRate:()=>0.05,
+ merchantPilotFeeRate:()=>0.06,
+ policyPercent:rate=>String(rate*100)+'%',
+ referralExample:()=>6,
+ BRL:{format:n=>'R$ '+Number(n).toFixed(2)},
+ shell:html=>html,
+ growthNetworkIntro:()=>'<section class="growth-network-intro">Convide amigos</section>'
+});
+vm.runInContext(growth.slice(earnBegin,earnEnd)+'\nthis.page=earn;',benefitSandbox);
+const benefitPage=benefitSandbox.page();
+assert.match(benefitPage,/Cashback para voltar a comprar/);
+assert.match(benefitPage,/Indicações com acompanhamento/);
+assert.match(benefitPage,/Cupons e ações especiais/);
+assert.match(benefitPage,/Mais um canal para sua empresa/);
+assert.equal((benefitPage.match(/class="tamao-benefit-guide-card /g)||[]).length,4);
+assert.doesNotMatch(benefitPage,/ganhos garantidos|cupons ativos para todos/i,
+ 'marketing may not imply unconditional benefits');
+// Only the documented page context and a temporary audience flag are read.
+const audienceBegin=analytics.indexOf('function marketingAnalyticsAudience(){');
+const audienceEnd=analytics.indexOf('\nfunction marketingAnalyticsReferrerHost()',audienceBegin);
+assert.ok(audienceBegin>=0&&audienceEnd>audienceBegin);
+let activeRoute='contact';
+const audienceEnv=vm.createContext({
+ route:()=>activeRoute,
+ location:{hash:'#contact'},
+ globalThis:{tamaoPublicContactAudience:'merchant'}
+});
+vm.runInContext(analytics.slice(audienceBegin,audienceEnd)+'\nthis.audience=marketingAnalyticsAudience;',audienceEnv);
+assert.equal(audienceEnv.audience(),'merchant');
+audienceEnv.globalThis.tamaoPublicContactAudience=null;
+assert.equal(audienceEnv.audience(),'customer');
+activeRoute='sponsors';
+assert.equal(audienceEnv.audience(),'merchant');
+activeRoute='home';
+assert.equal(audienceEnv.audience(),'customer');
+
+console.log('V1.366: marketing journeys, benefit conditions, sponsor attribution and mobile styles verified.');
