@@ -889,10 +889,10 @@ function bottomNav(r){
         ?[['merchant','🏪','Operação','go'],['merchant-orders','📦','Pedidos','go'],['catalog','🧺','Catálogo','go'],['merchant-metrics','📊','Desempenho','go'],['merchants','➕','Parceiros','go']]
         :prelaunchPublic
           ?[['home','⌂','Início','go'],['early-access','🔔','Disponibilidade','lead'],['earn','🤝','Indicar','go'],['merchants','🏪','Vender','go'],['contact','💬','Contato','go']]
-          :[['home','⌂','Início','go'],['order','🔥','Pedir','start'],['tracking','📍','Pedido','go'],['earn','💰','Ganhe','go'],['club','★','Clube','go']];
+          :[['home','⌂','Início','go'],['order','🧺','Pedir','browse'],['tracking','📍','Pedido','go'],['earn','💰','Ganhe','go'],['club','★','Clube','go']];
   return `<nav class="bottom-nav" aria-label="Navegação principal">${items.map(([id,ic,l,act])=>{
     const active=r===id;
-    const onclick=act==='start'?"startOrder('P13')":act==='lead'?"openPrelaunchCustomerLead()":`go('${id}')`;
+    const onclick=act==='browse'?"startHomeBrowse()":act==='start'?"startOrder('P13')":act==='lead'?"openPrelaunchCustomerLead()":`go('${id}')`;
     return `<button class="nav-btn ${active?'active':''}" ${active?'aria-current="page"':''} onclick="${onclick}"><span aria-hidden="true">${ic}</span><span>${l}</span></button>`;
   }).join('')}</nav>`;
 }
