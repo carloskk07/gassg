@@ -178,7 +178,11 @@ assert.ok(marketingMigration.includes("'landingViews'")&&marketingMigration.incl
 assert.ok(publicHashedQuotaMigration.includes('create table if not exists public.public_hashed_rate_limits'),'quota pré-auth precisa de tabela sem FK de usuário');
 assert.ok(publicHashedQuotaMigration.includes('consume_hashed_api_quota')&&publicHashedQuotaMigration.includes("grant execute on function public.consume_hashed_api_quota(text,text,integer,integer)\nto service_role"),'quota por hash precisa ser autoridade server-only');
 assert.ok(publicHashedQuotaMigration.includes('revoke all on table public.public_hashed_rate_limits from public, anon, authenticated'),'browser não pode acessar contadores técnicos de quota');
-assert.ok(adminAcquisition.includes('ENTRADAS')&&adminAcquisition.includes('VIRAM FORMULÁRIO')&&adminAcquisition.includes('landingToLeadPct'),'admin precisa exibir funil desde entrada até lead');
+assert.ok(adminAcquisition.includes('ETAPA 1 • INTERESSE ANÔNIMO')&&
+  adminAcquisition.includes('ETAPA 2 • CADASTROS NO CRM')&&
+  adminAcquisition.includes('ETAPA 3 • EVOLUÇÃO DO CRM')&&
+  adminAcquisition.includes('landingViews')&&adminAcquisition.includes('formViews'),
+  'admin precisa mostrar evidências de entrada e cadastro sem alegar correspondência individual');
 assert.ok(legal.includes('Medição agregada de uso')&&legal.includes('sessionStorage')&&legal.includes('tecnologia que altere materialmente o tratamento de dados'),'privacidade precisa explicar medição agregada e governança de novas tecnologias');
 assert.ok(acquisition.includes('Quero receber aviso de disponibilidade')&&acquisition.includes('Quero conversar sobre parceria'),'aquisição precisa ter CTAs próprios para cliente e parceiro');
 assert.ok(acquisition.includes("utm_source")||backend.includes("utm_source"),'captação precisa preservar atribuição de campanha');
