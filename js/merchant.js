@@ -3179,12 +3179,14 @@ function merchantLiveOrder(o){
   const items=(o.items||[]).map(i=>`${Number(i.quantity)}× ${esc(i.productName||i.productCode||'Item')}`).join(' • ');
   // V1.390 — Absence of a server-provided total is not a confirmed R$ 0,00.
   const totalCents=Number(o.totalCents);
-  const hasTotal=o.totalCents!=null&&Number.isSafeInteger(totalCents)
-    &&totalCents>=0&&totalCents<=1000000000;
+  const hasTotal=(typeof o.totalCents==='number'||
+    (typeof o.totalCents==='string'&&/^[0-9]+$/.test(o.totalCents)))
+    &&Number.isSafeInteger(totalCents)&&totalCents>=0&&totalCents<=1000000000;
   const total=hasTotal?BRL.format(totalCents/100):'Total não confirmado';
   const cashTenderCents=Number(o.cashTenderCents);
-  const validCashTender=o.cashTenderCents!=null&&Number.isSafeInteger(cashTenderCents)
-    &&cashTenderCents>0&&cashTenderCents<=1000000000;
+  const validCashTender=(typeof o.cashTenderCents==='number'||
+    (typeof o.cashTenderCents==='string'&&/^[0-9]+$/.test(o.cashTenderCents)))
+    &&Number.isSafeInteger(cashTenderCents)&&cashTenderCents>0&&cashTenderCents<=1000000000;
   const copy=statusCopy[o.status]||[o.status,''];
   const address=o.addressVisible&&o.address?'📍 '+esc(o.address):'📍 Endereço protegido até o aceite';
   const currentRole=String(globalThis.merchantRuntime?.merchant?.memberRole||'');
