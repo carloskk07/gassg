@@ -2174,6 +2174,21 @@ async function merchantRefreshAfterConfirmedMutation(reply,context={}){
         !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(reply.orderId)))return false;
     if(rescue)return !['accepted','dispatched','arriving','delivered','assigned']
       .some(key=>reply[key]===true);
+    // V1.361: a successful HTTP reply can still describe a transition other
+    // than the one requested. When the RPC includes a state, require it to
+    // match the explicit action; missing status remains legacy-compatible.
+    const expectedStates={
+      accept:['MERCHANT_ACCEPTED','PREPARING'],
+      reject:['OFFERED_TO_MERCHANT','REASSIGNING','REQUOTE_REQUIRED','CANCELLED'],
+      dispatch:['OUT_FOR_DELIVERY'],
+      arriving:['ARRIVING'],
+      'complete-delivery':['DELIVERED','SETTLED'],
+      'cannot-fulfill':['REASSIGNING','OFFERED_TO_MERCHANT','REQUOTE_REQUIRED','CANCELLED'],
+      'assign-delivery':['PREPARING','AT_RISK']
+    };
+    if(Object.prototype.hasOwnProperty.call(expectedStates,action)
+       &&Object.prototype.hasOwnProperty.call(reply,'status')
+       &&(!expectedStates[action].includes(reply.status)))return false;
     const negativeFields={
       accept:['accepted'],dispatch:['dispatched'],arriving:['arriving','arrived'],
       'complete-delivery':['delivered','completed'],
