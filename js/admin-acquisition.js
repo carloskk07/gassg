@@ -1705,7 +1705,7 @@ function adminAcquisitionEvidenceView(metrics){
       'Os registros recentes podem ser consultados abaixo, mas não são uma base completa para calcular visitas, leads ou taxas. '+
       'Atualize o painel para verificar os agregados protegidos.</div>';
   }
-  const count=n=>Number(n).toLocaleString('pt-BR');
+  const count=n=>typeof n==='number'?n.toLocaleString('pt-BR'):String(n);
   const cell=(label,value,note)=>'<div class="kpi"><span class="label">'+label+'</span>'+
     '<strong>'+count(value)+'</strong><small>'+note+'</small></div>';
   const leadRate=(numerator,denominator)=>denominator>0&&numerator<=denominator
