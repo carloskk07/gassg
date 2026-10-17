@@ -46,4 +46,9 @@ assert.equal(authorize(true,{status:'pending',online:false},{active:false,availa
 assert.equal(authorize(true,{status:'pending',online:false},null),true);
 assert.equal(authorize(false,{status:'active',online:true},{active:true,availableStock:4}),true,
   'Nonpilot approval remains unchanged');
+const edge=read('supabase/functions/admin-ops/index.ts');
+for(const code of ['PILOT_MERCHANT_NOT_PENDING','PILOT_CATALOG_CONFLICT']){
+  assert.ok(edge.includes('message.includes("'+code+'")'),'Admin Edge must explain '+code);
+  assert.ok(edge.includes('error:"'+code+'"'),'Admin Edge must return HTTP 409 for '+code);
+}
 console.log('V1.401: exactly two surgical SQL guards; safe pilot state, conflict-time SKU and service-role ACL.');
