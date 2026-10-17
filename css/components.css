@@ -4376,3 +4376,44 @@ body:has(.admin-page) .admin-nav-item:focus-visible{outline-offset:-3px}
   .admin-evidence-caveat,.admin-evidence-sponsor{padding:13px}
   .acquisition-campaigns .campaign-rates{grid-template-columns:repeat(2,minmax(0,1fr))}
 }
+
+
+/* TAMÃO V1.369 — independent proof layers for one authenticated campaign. */
+.admin-campaign-evidence-section{display:grid;gap:13px;margin:22px 0 26px;
+  padding:clamp(16px,2vw,23px);border:1px solid #d9e6df;border-radius:20px;
+  background:linear-gradient(150deg,#f6faf7,#fff)}
+.admin-campaign-evidence-section>.section-head{margin:0}
+.admin-campaign-evidence-section>.section-head p{font-size:13px;line-height:1.6;max-width:74ch}
+.admin-campaign-evidence-section>button{justify-self:start;min-height:44px}
+.admin-campaign-evidence-card{min-width:0;display:grid;gap:13px;
+  padding:clamp(15px,2vw,22px);border-radius:18px}
+.admin-campaign-evidence-card .section-head{margin:0}
+.admin-campaign-evidence-card .section-head h4{overflow-wrap:anywhere;
+  margin:7px 0 0;font-size:clamp(18px,2vw,22px)}
+.admin-campaign-evidence-card .section-head p{overflow-wrap:anywhere}
+.admin-campaign-evidence-lanes{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));
+  gap:11px}
+.admin-campaign-evidence-lane{min-width:0;padding:15px;
+  border:1px solid #e0e9e3;border-radius:14px;background:#fbfdfa}
+.admin-campaign-evidence-lane:nth-child(2){background:#f7fafc;border-color:#dbe8ee}
+.admin-campaign-evidence-lane:nth-child(3){background:#f7f9fe;border-color:#dde3f2}
+.admin-campaign-evidence-lane>strong{display:block;margin-bottom:12px;
+  color:#163d30;font-size:13px;line-height:1.4}
+.admin-campaign-evidence-lane .merchant-kpis{grid-template-columns:minmax(0,1fr);gap:8px}
+.admin-campaign-evidence-lane .kpi{min-width:0;margin:0;
+  padding:11px 13px;border:1px solid #e1eae5;box-shadow:none;background:#fff}
+.admin-campaign-evidence-lane .kpi strong{font-variant-numeric:tabular-nums;overflow-wrap:anywhere}
+.admin-campaign-evidence-lane .kpi small{font-size:11px;line-height:1.45}
+@media(max-width:1020px){
+  .admin-campaign-evidence-lanes{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .admin-campaign-evidence-lane:last-child{grid-column:1/-1}
+  .admin-campaign-evidence-lane:last-child .merchant-kpis{
+    grid-template-columns:repeat(2,minmax(0,1fr))}
+}
+@media(max-width:640px){
+  .admin-campaign-evidence-lanes{grid-template-columns:minmax(0,1fr)}
+  .admin-campaign-evidence-lane:last-child{grid-column:auto}
+  .admin-campaign-evidence-lane:last-child .merchant-kpis{grid-template-columns:minmax(0,1fr)}
+  .admin-campaign-evidence-section{padding:16px 12px}
+  .admin-campaign-evidence-section>button{justify-self:stretch}
+}

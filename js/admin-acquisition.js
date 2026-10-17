@@ -2188,6 +2188,153 @@ async function adminOwnerCampaignSignalsCopyFromUi(tag){
     window.prompt('Copie o link identificado da campanha:',url);
   }
 }
+// V1.369 — read-only, by the same immutable allocation ID, not a presumed
+// person-level visitor -> lead -> order connection.
+let adminOwnerCampaignEvidenceSnapshot=null;
+let adminOwnerCampaignEvidenceBusy=false;
+function adminOwnerCampaignEvidenceBundle(){
+  const actor=String(adminRuntime?.session?.user?.id||'');
+  const role=String(adminCurrentRole());
+  const snapshot=adminOwnerCampaignEvidenceSnapshot;
+  if(!actor||!['superadmin','finance'].includes(role)||!snapshot||
+    snapshot.actor!==actor||snapshot.role!==role)return null;
+  const a=adminOwnerCampaignSignalsState,o=adminOwnerCampaignOrdersState,
+    f=adminOwnerCampaignFeeReceiptsState;
+  const selectedMonth=String(document.getElementById('owner-campaign-signals-month')?.value||'');
+  if(snapshot.signals!==a||snapshot.orders!==o||snapshot.fees!==f||
+     !a||!o||!f||a.loadedFor!==actor||o.loadedFor!==actor||f.loadedFor!==actor||
+     a.source!=='admin_owner_campaign_signals_v1_251'||
+     o.source!=='admin_owner_campaign_orders_v1_252'||
+     f.source!=='admin_owner_campaign_fee_receipts_v1_253'||
+     a.readOnly!==true||o.readOnly!==true||f.readOnly!==true||
+     o.metricMeaning!=='first_party_checkout_utm_non_causal_attribution'||
+     f.evidenceLevel!=='provider_event_applied_single_order_statement_no_refund'||
+     o.financialReturnMeasured!==false||f.roiMeasured!==false||
+     f.bankSettlementVerified!==false||
+     a.truncated!==false||o.truncated!==false||f.truncated!==false||
+     a.month!==o.month||a.month!==f.month||a.month!==snapshot.month||
+     (selectedMonth&&selectedMonth!==a.month.slice(0,7))||
+     !Array.isArray(a.rows)||!Array.isArray(o.rows)||!Array.isArray(f.rows)||
+     a.rows.length!==o.rows.length||a.rows.length!==f.rows.length||
+     a.totalCampaigns!==o.totalCampaigns||a.totalCampaigns!==f.totalCampaigns||
+     a.rows.length!==a.totalCampaigns)return null;
+  const orders=new Map(o.rows.map(x=>[String(x.allocationId),x]));
+  const fees=new Map(f.rows.map(x=>[String(x.allocationId),x]));
+  if(orders.size!==a.rows.length||fees.size!==a.rows.length||
+    new Set(a.rows.map(x=>String(x.allocationId))).size!==a.rows.length)return null;
+  const result=[];
+  const validCount=v=>typeof v==='number'&&Number.isSafeInteger(v)&&v>=0;
+  for(const signal of a.rows){
+    const order=orders.get(String(signal.allocationId));
+    const fee=fees.get(String(signal.allocationId));
+    if(!order||!fee||signal.campaignTag!==order.campaignTag||
+       signal.campaignTag!==fee.campaignTag||
+       !['landingViews','formViews','leads','qualifiedLeads','crmConvertedLeads']
+         .every(k=>validCount(signal[k]))||
+       !['createdOrders','settledOrders','reversedOrders','settledMerchantOrderValueCents']
+         .every(k=>validCount(order[k]))||
+       !['attributedOrders','providerConfirmedOrders','providerConfirmedFeeCents']
+         .every(k=>validCount(fee[k]))||
+       order.settledOrders+order.reversedOrders>order.createdOrders||
+       order.createdOrders!==fee.attributedOrders||
+       fee.providerConfirmedOrders>fee.attributedOrders||
+       fee.providerConfirmedOrders===0&&fee.providerConfirmedFeeCents!==0||
+       fee.bankSettlementVerified!==false||fee.roiMeasured!==false||
+       fee.marketingSpendPaidCents!==null||
+       order.platformReceivedRevenueCents!==null||order.financialReturnMeasured!==false)
+      return null;
+    result.push({signal,order,fee});
+  }
+  return {month:a.month,checkedAt:snapshot.checkedAt,rows:result};
+}
+async function adminOwnerCampaignEvidenceRefreshFromUi(){
+  const actor=String(adminRuntime?.session?.user?.id||'');
+  const role=String(adminCurrentRole());
+  if(!actor||!['superadmin','finance'].includes(role)||adminOwnerCampaignEvidenceBusy)return false;
+  const month=String(document.getElementById('owner-campaign-signals-month')?.value||'').trim();
+  if(!/^\d{4}-(0[1-9]|1[0-2])$/.test(month))
+    return toast('Escolha o mês para reunir as evidências.');
+  adminOwnerCampaignEvidenceBusy=true;
+  adminOwnerCampaignEvidenceSnapshot=null;
+  try{
+    // These are the already-authenticated and individually validated admin RPCs.
+    await adminOwnerCampaignSignalsLoadFromUi();
+    if(actor!==String(adminRuntime?.session?.user?.id||'')||role!==String(adminCurrentRole()))return false;
+    await adminOwnerCampaignOrdersLoadFromUi();
+    if(actor!==String(adminRuntime?.session?.user?.id||'')||role!==String(adminCurrentRole()))return false;
+    await adminOwnerCampaignFeeReceiptsLoadFromUi();
+    if(actor!==String(adminRuntime?.session?.user?.id||'')||role!==String(adminCurrentRole()))return false;
+    adminOwnerCampaignEvidenceSnapshot={
+      actor,role,month:month+'-01',checkedAt:new Date().toISOString(),
+      signals:adminOwnerCampaignSignalsState,
+      orders:adminOwnerCampaignOrdersState,
+      fees:adminOwnerCampaignFeeReceiptsState
+    };
+    if(!adminOwnerCampaignEvidenceBundle()){
+      adminOwnerCampaignEvidenceSnapshot=null;
+      toast('As fontes da campanha não coincidem. Nenhum resultado combinado foi apresentado.');
+      return false;
+    }
+    return true;
+  }finally{
+    adminOwnerCampaignEvidenceBusy=false;
+    render();
+  }
+}
+function adminOwnerCampaignEvidenceSection(){
+  if(!['superadmin','finance'].includes(String(adminCurrentRole())))return '';
+  const bundle=adminOwnerCampaignEvidenceBundle();
+  const metric=(label,value,note='')=>'<div class="kpi"><span class="label">'+label+
+    '</span><strong>'+value+'</strong>'+(note?'<small>'+note+'</small>':'')+'</div>';
+  const n=value=>Number(value).toLocaleString('pt-BR');
+  const items=bundle?bundle.rows.map(({signal,order,fee})=>
+    '<article class="card flat admin-campaign-evidence-card">'+
+      '<div class="section-head"><div><span class="section-kicker">CAMPANHA IDENTIFICADA</span>'+
+        '<h4>'+esc(signal.campaignLabel)+'</h4>'+
+        '<p class="tiny muted">'+esc(signal.campaignTag)+'</p></div></div>'+
+      '<div class="admin-campaign-evidence-lanes">'+
+        '<div class="admin-campaign-evidence-lane"><strong>1. Interesse registrado</strong>'+
+          '<div class="merchant-kpis">'+
+          metric('Acessos',n(signal.landingViews),'eventos, não pessoas')+
+          metric('Formulários',n(signal.formViews),'visualizações agregadas')+
+          metric('Leads com UTM',n(signal.leads),'origem identificada no cadastro')+
+          metric('Qualificados no CRM',n(signal.qualifiedLeads),'não são compras')+
+          '</div></div>'+
+        '<div class="admin-campaign-evidence-lane"><strong>2. Pedidos com UTM</strong>'+
+          '<div class="merchant-kpis">'+
+          metric('Pedidos associados',n(order.createdOrders),'tag validada no checkout')+
+          metric('Pedidos liquidados',n(order.settledOrders),'estado financeiro do pedido')+
+          metric('Liquidações revertidas',n(order.reversedOrders),'fora dos liquidados atuais')+
+          metric('Vendas liquidadas das revendas',adminMoney(order.settledMerchantOrderValueCents),'não é receita TAMÃO')+
+          '</div></div>'+
+        '<div class="admin-campaign-evidence-lane"><strong>3. Taxas com prova individual</strong>'+
+          '<div class="merchant-kpis">'+
+          metric('Pedidos com evento PSP aceito',n(fee.providerConfirmedOrders),'cobrança individual, sem estorno')+
+          metric('Taxas confirmadas pelo PSP',adminMoney(fee.providerConfirmedFeeCents),'não comprova crédito em conta bancária')+
+          '</div></div>'+
+      '</div>'+
+    '</article>').join(''):'';
+  return '<section class="admin-campaign-evidence-section" aria-label="Resultados comprováveis por campanha">'+
+    '<div class="section-head"><div><span class="section-kicker">TAMÃO • RESULTADOS REAIS</span>'+
+      '<h4>Da divulgação ao pedido, com provas distintas</h4>'+
+      '<p>Confronte as três consultas autenticadas do mesmo mês e da mesma campanha. Nenhum visitante é ligado a um pedido sem prova.</p>'+
+    '</div></div>'+
+    '<button class="secondary small" type="button" onclick="adminOwnerCampaignEvidenceRefreshFromUi()" '+
+    (adminOwnerCampaignEvidenceBusy?'disabled':'')+'>'+
+    (adminOwnerCampaignEvidenceBusy?'Conferindo três fontes…':'Conferir resultados comprováveis')+'</button>'+
+    (bundle?'<p class="tiny muted" role="status">Competência '+esc(bundle.month)+
+      ' • conferência em '+esc(new Date(bundle.checkedAt).toLocaleString('pt-BR'))+
+      ' • '+n(bundle.rows.length)+' campanha(s)</p>'+
+      (items||'<p class="muted">Não há campanhas registradas nessa competência.</p>'):
+      '<p class="tiny muted" role="status">Sem evidências combinadas para a seleção atual. '+
+      'Cada fonte precisa ser conferida, sem divergências entre identificação, competência ou pedidos.</p>')+
+    '<p class="tiny muted">UTM é uma associação de origem, não prova que a divulgação causou a compra. '+
+      'Leads, pedidos e pessoas não são vinculados individualmente. '+
+      'Taxa confirmada por evento de PSP não equivale a liquidação bancária; '+
+      'custos, margem e retorno sobre investimento não são inferidos.</p>'+
+    '</section>';
+}
+
 function adminOwnerCampaignSignalsSection(){
   if(!['superadmin','finance'].includes(String(adminCurrentRole())))return '';
   const actor=String(adminRuntime?.session?.user?.id||'');
@@ -2249,6 +2396,7 @@ function adminOwnerCampaignSignalsSection(){
       '</div>':
       '<p class="muted">Consulte o mês para mostrar somente indicadores medidos.</p>')+
     '<p class="tiny muted">Medição agregada por campanha identificada no link, dentro da competência e da janela da alocação. Acessos não são pessoas únicas; visualizações e cadastros não comprovam pedidos. Não há ROI, faturamento atribuído, saldo disponível ou pagamento de incentivos calculado por esta aba.</p>'+ 
+    adminOwnerCampaignEvidenceSection()+
     adminOwnerCampaignOrdersSection()+
     adminOwnerCampaignFeeReceiptsSection()+
     adminOwnerBatchLedgerSection()+
