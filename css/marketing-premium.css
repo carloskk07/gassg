@@ -299,3 +299,42 @@
   .tamao-benefit-guide-card button{min-height:50px}
   .tamao-buyer-benefit-bridge{padding:20px 16px}
 }
+
+
+/* TAMÃO V1.371 — buyer-first hierarchy, legibility and accessible route changes.
+   Keeps all eligibility, checkout, and merchant decisions server-authoritative. */
+.tamao-visually-hidden{
+  position:absolute!important;width:1px!important;height:1px!important;
+  padding:0!important;margin:-1px!important;overflow:hidden!important;
+  clip:rect(0,0,0,0)!important;white-space:nowrap!important;border:0!important;
+}
+.marketing-hero .purchase-starter{margin-block:17px 9px}
+.marketing-hero .starter-cta{min-height:54px;line-height:1.3;font-size:15px;
+  box-shadow:0 8px 20px rgba(12,93,60,.13)}
+.marketing-hero .home-quick-category{margin:14px 0 5px}
+.marketing-hero .hero-emotional-promise{margin:8px 0 3px}
+.marketing-hero .home-hero-links{margin-top:10px}
+.marketing-hero .trust-row{margin-top:13px}
+.home-discover-heading{align-items:center}
+.home-discover-heading .home-discover-all{flex-shrink:0}
+.tamao-sponsors-page .page-lead,.merchant-landing-premium .page-lead,
+.tamao-network-hero .page-lead{line-height:1.7}
+#tamao-main>section.page .page-title{max-width:27ch;text-wrap:balance}
+@media(max-width:760px){
+  .marketing-hero .hero-grid{gap:21px}
+  .marketing-hero .purchase-starter{margin-top:13px}
+  .home-discover-heading{align-items:stretch}
+}
+@media(max-width:620px){
+  .marketing-hero .hero-grid{padding:16px;border-radius:22px}
+  .marketing-hero .home-quick-category{margin-top:10px}
+  .marketing-hero .home-quick-category>span{font-size:12px}
+  .marketing-hero .hero-emotional-promise{font-size:12px;line-height:1.5}
+  .marketing-hero .home-hero-links{gap:3px 12px}
+  .marketing-hero .home-hero-links button{min-height:40px}
+  .marketing-hero .trust-row{margin-top:10px}
+  .home-discover-heading .home-discover-all{white-space:normal;text-align:left}
+}
+@media(prefers-reduced-motion:reduce){
+  .marketing-hero .starter-cta{transition:none}
+}
