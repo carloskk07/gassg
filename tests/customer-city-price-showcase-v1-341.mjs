@@ -63,8 +63,10 @@ let html=vm.runInContext('homeRegionalPriceBoard({city:"São Gabriel",state:"RS"
 assert.match(html,/R\$ 115.90/);
 assert.match(html,/R\$ 120.00/);
 assert.match(html,/R\$ 125.00/);
-assert.equal((html.match(/REFERÊNCIA LOCAL • NÃO É OFERTA/g)||[]).length,3);
-assert.match(html,/não três revendas/);
+assert.equal((html.match(/REFERÊNCIA LOCAL • NÃO É OFERTA/g)||[]).length,1,
+ 'a single market reference must not be presented as three seller cards');
+assert.match(html,/city-price-reference-summary/);
+assert.match(html,/Não representa uma revenda/);
 assert.doesNotMatch(html,/PREÇO DE REVENDA/);
 assert.match(html,/São Gabriel é a vitrine inicial/);
 assert.doesNotMatch(html,/quoteId|merchantId|checkout\(/i);
