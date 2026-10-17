@@ -349,8 +349,8 @@ function earn(){
           <div class="tamao-benefit-card-top"><span class="benefit-art" aria-hidden="true">🎟️</span><small>QUANDO HOUVER CAMPANHA</small></div>
           <h3>Cupons e ações especiais.</h3>
           <p>Campanhas podem oferecer condições adicionais para compras elegíveis. Cada ação terá suas próprias regras, validade e limites.</p>
-          <div class="benefit-condition"><strong>Como saber?</strong><span>Consulte somente campanhas efetivamente disponibilizadas na plataforma; não há desconto automático prometido.</span></div>
-          <button type="button" onclick="go('club')">Consultar minhas vantagens <span aria-hidden="true">→</span></button>
+          <div class="benefit-condition"><strong>Como saber?</strong><span>Os descontos aparecem apenas quando uma campanha válida estiver disponível para você.</span></div>
+          <button type="button" onclick="go('club')">Ir ao Clube TAMÃO <span aria-hidden="true">→</span></button>
         </article>
         <article class="tamao-benefit-guide-card benefit-business">
           <div class="tamao-benefit-card-top"><span class="benefit-art" aria-hidden="true">🏪</span><small>PARA QUEM VENDE</small></div>
@@ -360,7 +360,7 @@ function earn(){
           <button type="button" onclick="go('merchants')">Conhecer as revendas <span aria-hidden="true">→</span></button>
         </article>
       </div>
-      <p class="tamao-benefit-guide-footnote">Os benefícios não são cumulativos por padrão. A elegibilidade, o financiamento, a disponibilidade e a combinação de campanhas seguem as regras de cada ação.</p>
+      <p class="tamao-benefit-guide-footnote">Valores, limites e a possibilidade de combinar vantagens dependem das regras de cada campanha. Confira as condições antes de participar.</p>
     </section>
 
     <div class="opportunity-grid main-opportunities">
