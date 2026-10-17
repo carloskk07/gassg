@@ -2231,7 +2231,7 @@ function merchantLivePage(){
 
     ${rt.error?`<div class="notice danger" style="margin-top:12px">${esc(rt.error)}</div>`:''}
     ${merchantAvailabilityPanel(rt,{canGoOnline,connectionHealthy,financialHold,freshness,p13,orderCount:orders.length})}
-    ${orderEvidence.fresh?merchantDailyOverview(rt,orders):merchantOrderListRecovery(rt)}
+    ${orderEvidence.fresh?merchantDailyOverview(rt,orders):'<p class="merchant-queue-unverified-intro">A fila de pedidos precisa de atualização. Veja as orientações em Pedidos que exigem ação.</p>'}
     ${merchantFirstRunView(rt,canGoOnline)}
     ${financialHold?'<div class="notice danger" style="margin-top:12px"><strong>Novas vendas suspensas por pendência financeira.</strong><br>Regularize o fechamento vencido. Pedidos já aceitos continuam disponíveis normalmente.</div>':''}
 
