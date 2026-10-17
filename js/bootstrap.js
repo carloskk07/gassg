@@ -62,7 +62,7 @@ function render(){
   try{
     if(!globalThis.adminPortalRequested?.())housekeeping();
     const r=route();
-    const pages={home,learn,earn,order:orderPage,tracking,club,refer,merchants:merchantsLanding,sponsors:sponsorsLanding,'merchant-join':merchantJoin,merchant:merchantPage,'merchant-orders':merchantOrders,'merchant-team':merchantTeamPage,catalog,'merchant-metrics':merchantMetrics,privacy:privacyPage,terms:termsPage,contact:contactPage,admin:adminPage};
+    const pages={home,learn,earn,order:orderPage,tracking,club,refer,merchants:merchantsLanding,sponsors:sponsorsLanding,'merchant-join':merchantJoin,merchant:merchantPage,'merchant-orders':merchantOrders,'merchant-team':merchantTeamPage,catalog,'merchant-metrics':merchantMetrics,privacy:privacyPage,terms:termsPage,contact:contactPage,admin:(typeof adminPage==='function'?adminPage:home)};
     const app=document.querySelector('#app');
     if(app)app.innerHTML=(pages[r]||home)();
     updatePublicPageIdentity(r);
@@ -154,7 +154,11 @@ Object.assign(window,{
   merchantGrowthLoadFromUi,merchantGrowthShareFromUi,
   merchantClubeInterestLoadFromUi,merchantClubeInterestRegisterFromUi,merchantClubeInterestWithdrawFromUi,
   merchantClubeTermsLoadFromUi,merchantClubeTermsReplyFromUi,
-  merchantLiveLogout,
+  merchantLiveLogout
+});
+// Admin modules are deliberately absent from the customer/merchant bundles.
+// Never evaluate admin-only callback identifiers on those origins.
+if(typeof adminPage==='function')Object.assign(window,{
   adminLoginFromUi,adminRetryBootstrapFromUi,adminRefresh,adminSignOut,adminLoadGovernanceGates,adminGovernanceChangeCityPause,adminGovernanceChangeCityCommerce,adminPushReliabilityLoadFromUi,adminApproveApplication,adminRejectApplication,
   adminSaveCompliance,adminSetMerchantStatus,adminFinancial,adminReverseOrder,adminGrowthBenefitPreviewFromUi,adminClubeCouponPreviewFromUi,adminClubeInterestLoadFromUi,adminClubeCampaignLoadFromUi,adminClubeCampaignReviewFromUi,adminClubeTermsLoadFromUi,adminClubeTermsSaveFromUi,adminOwnerFundingLoadFromUi,adminOwnerFundingSaveFromUi,adminOwnerEvidenceLoadFromUi,adminOwnerEvidenceSubmitFromUi,adminOwnerEvidenceReviewFromUi,adminOwnerBudgetLoadFromUi,adminOwnerBudgetAllocateFromUi,adminOwnerBudgetReleaseFromUi,adminOwnerFinanceLoadFromUi,adminOwnerFinanceSelectFromUi,adminOwnerFinanceHistoryLoadFromUi,adminOwnerCampaignSignalsLoadFromUi,adminOwnerCampaignSignalsCopyFromUi,adminOwnerCampaignOrdersLoadFromUi,adminOwnerCampaignFeeReceiptsLoadFromUi,adminOwnerBatchLedgerLoadFromUi,adminCampaignCostsLoadFromUi,adminCampaignCostsRecordFromUi,adminCampaignCostsVoidFromUi,adminCampaignReceiptsLoadFromUi,adminCampaignReceiptUploadFromUi,adminCampaignReceiptDownloadFromUi,adminOwnerBridgeLoadFromUi,adminOwnerOrphanAuditLoadFromUi,adminOwnerBenefitsLoadFromUi,adminOwnerOrphanCleanupLoadFromUi,adminOwnerOrphanCleanupDeleteFromUi,adminOwnerWalletReconLoadFromUi,adminOwnerSourceLotsLoadFromUi,adminOwnerReferralTraceLoadFromUi,adminOwnerPayoutReadFromUi,adminOwnerPayoutRecordFromUi,adminOwnerPayoutVoidFromUi,adminOwnerPayoutProofsLoadFromUi,adminOwnerPayoutProofUploadFromUi,adminOwnerPayoutProofVerifyFromUi,adminOwnerPayoutProofViewFromUi,adminOwnerPayoutProviderLoadFromUi,adminOwnerPayoutProviderCheckFromUi,adminOwnerPayoutQueueSetFilterFromUi,adminOwnerPayoutQueuePrepareCheckFromUi,adminPayoutReviewOpenFromUi,adminPayoutReviewRecordFromUi,adminPayoutFollowupLoadFromUi,adminPayoutGlobalLoadFromUi,adminPayoutGlobalOpenMonthFromUi,adminPayoutArchivedLoadFromUi,adminOwnerRecipientProofLoadFromUi,adminOwnerMultiPspLoadFromUi
 });
