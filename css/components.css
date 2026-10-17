@@ -4557,3 +4557,51 @@ body:has(.admin-page) .admin-nav-item:focus-visible{outline-offset:-3px}
 @media(prefers-reduced-motion:reduce){
  .offer-comparison-card .offer-submit{transition:none}
 }
+
+/* TAMÃO V1.382 — Tracking information has levels of confidence; a missing
+   deadline or unverified snapshot never becomes an actionable proposal. */
+.customer-requote-proof{
+  border-radius:13px;padding:12px 14px;font-size:13px;line-height:1.55;
+  margin:11px 0 15px
+}
+.customer-requote-proof.verified{
+  background:#effaf2;border:1px solid #c8e6d1;color:#225d40
+}
+.customer-requote-proof.needs-refresh{
+  background:#fff8e8;border:1px solid #eddaae;color:#72531a;font-weight:780
+}
+.customer-requote .order-actions{display:flex;align-items:stretch;gap:9px}
+.customer-requote .order-actions button{min-height:47px;white-space:normal}
+.customer-requote .order-actions button[disabled]{
+  cursor:not-allowed;opacity:.62
+}
+.customer-tracking-order-facts{
+  border:1px solid #d8e9dd;border-radius:20px;
+  background:linear-gradient(140deg,#fff,#fbfdfb);
+  box-shadow:0 13px 32px rgba(11,80,45,.045)
+}
+.customer-tracking-order-facts .price-lock{
+  align-items:start;line-height:1.5
+}
+.customer-tracking-order-facts .price-lock strong{
+  overflow-wrap:anywhere;font-size:clamp(14px,1.6vw,17px)
+}
+.customer-tracking-evidence.unverified,
+.customer-tracking-evidence.stale,
+.customer-tracking-evidence.unknown{
+  color:#835a21
+}
+@media(max-width:650px){
+  .customer-requote-prices{grid-template-columns:minmax(0,1fr);gap:8px}
+  .customer-requote .order-actions{flex-direction:column}
+  .customer-requote .order-actions button{width:100%;min-height:49px}
+  .customer-requote-proof{padding:11px 12px}
+  .customer-tracking-order-facts{border-radius:16px}
+}
+@media(max-width:370px){
+  .customer-requote-prices strong{font-size:17px}
+  .customer-requote-proof{font-size:12px}
+}
+@media(prefers-reduced-motion:reduce){
+  .customer-requote .order-actions button{transition:none}
+}
