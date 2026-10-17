@@ -520,10 +520,12 @@ function sponsorsLanding(){
         <button type="button" class="primary" onclick="openSponsorContact()">Quero apresentar minha marca →</button>
         <button type="button" class="secondary" onclick="go('merchants')">Conhecer as revendas</button>
       </div>
-      <div class="tamao-cro-steps" aria-label="Como iniciar uma parceria de marca">
-        <div><span>01</span><strong>Apresente sua marca</strong><small>Informe como podemos falar com você.</small></div>
-        <div><span>02</span><strong>Escolha a região</strong><small>Conte onde e para quem deseja aparecer.</small></div>
-        <div><span>03</span><strong>Defina a campanha</strong><small>Orçamento e critérios avaliados antes da ativação.</small></div>
+      <div class="sponsor-intent-quick" role="group" aria-label="Escolha o tipo de parceria para sua marca">
+        <span class="sponsor-intent-kicker">SUA MARCA QUER...</span>
+        <button type="button" onclick="openSponsorContact('visibility')"><span aria-hidden="true">📣</span><span><strong>Ganhar visibilidade</strong><small>Divulgação regional identificada</small></span><b aria-hidden="true">↗</b></button>
+        <button type="button" onclick="openSponsorContact('relationship')"><span aria-hidden="true">🎁</span><span><strong>Apoiar benefícios</strong><small>Campanhas com condições definidas</small></span><b aria-hidden="true">↗</b></button>
+        <button type="button" onclick="openSponsorContact('local')"><span aria-hidden="true">🤝</span><span><strong>Estar junto às revendas</strong><small>Parcerias para o comércio local</small></span><b aria-hidden="true">↗</b></button>
+        <p>Escolha um objetivo e conte sobre sua marca. Nenhuma campanha é ativada sem aprovação.</p>
       </div></div>
       <aside class="sponsor-visual-story" aria-label="Ilustração de uma proposta de divulgação local, não representa anúncios no ar">
         <div class="sponsor-visual-head"><span>DIVULGAÇÃO LOCAL</span><small>CONCEITO ILUSTRATIVO</small></div>
@@ -615,6 +617,17 @@ function merchantsLanding(){
       </div>
       <p class="merchant-visual-disclaimer">Visão ilustrativa dos recursos. Taxa aplicada sobre pedidos concluídos, conforme a política comercial. Pedidos dependem da habilitação e da disponibilidade da operação.</p>
     </aside></div>
+    ${internalPilot?'':`<section class="merchant-conversion-start" aria-label="Apresente sua empresa ao TAMÃO">
+      <div class="merchant-conversion-intro">
+        <span class="section-kicker">SEU PRÓXIMO PASSO</span>
+        <h2>Apresente sua revenda. Nós cuidamos do próximo contato.</h2>
+        <p>Comece com nome da empresa, responsável, WhatsApp e o que você vende. O CEP e os detalhes podem ser informados depois.</p>
+        <div class="merchant-conversion-proof" aria-label="Antes de começar">
+          <span><b>01</b> Identifique a empresa</span><span><b>02</b> Informe seu WhatsApp</span><span><b>03</b> Escolha os produtos</span>
+        </div>
+      </div>
+      ${prelaunchMerchantLeadSection()}
+    </section>`}
 
     <nav class="public-page-jump-rail merchant-jump-rail" aria-label="Encontre rapidamente o que precisa sobre sua revenda">
       <button type="button" class="public-jump-primary" onclick="${cta}"><span aria-hidden="true">🏪</span><span><strong>${internalPilot?'Abrir meu ambiente':'Quero cadastrar minha revenda'}</strong><small>${internalPilot?'Acessar a operação de validação':'Apresente sua empresa e seu contato'}</small></span><b aria-hidden="true">→</b></button>
@@ -635,8 +648,6 @@ function merchantsLanding(){
     ${internalPilot?`<div class="notice success" style="margin-top:14px"><strong>Você está no laboratório interno do TAMÃO.</strong><br>Abra o painel da Gas e Lenheira do JR, simule pedidos e veja a operação antes de qualquer cadastro real.</div>`:''}
 
 
-
-    ${internalPilot?'':prelaunchMerchantLeadSection()}
 
     <section class="section"><div class="section-head"><div><span class="section-kicker">MAIS UM CANAL DE VENDAS</span><h2>Mais oportunidades chegam quando sua empresa está onde o cliente procura.</h2><p>Não é preciso mudar o jeito que sua revenda já vende. O TAMÃO acrescenta um caminho para o consumidor encontrá-la e consultar o que você realmente pode entregar.</p></div></div>
       <div class="grid cards-3 partner-benefits">
