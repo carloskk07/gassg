@@ -2161,7 +2161,28 @@ async function merchantSelectLive(merchantId){
 
 // V1.330: an acknowledged server mutation is independent of the follow-up
 // merchant-orders read. Never offer stale action buttons if that read fails.
-async function merchantRefreshAfterConfirmedMutation(reply){
+// V1.360: positive HTTP acknowledgement cannot override action-specific
+// evidence that the requested transition did not occur. A verified server
+// rescue is a distinct outcome, not successful acceptance or departure.
+function merchantReplyActionConsistent(reply,{action='',orderId=''}={}){
+  if(!reply||typeof reply!=='object'||Array.isArray(reply))return false;
+  const rescue=reply.autoRescued===true;
+  if(typeof reply.orderId==='string'&&orderId&&reply.orderId!==orderId)return false;
+  if(reply.orderId!=null&&
+     (typeof reply.orderId!=='string'||
+      !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(reply.orderId)))return false;
+  if(rescue)return !['accepted','dispatched','arriving','delivered','assigned']
+    .some(key=>reply[key]===true);
+  const negativeFields={
+    accept:['accepted'],dispatch:['dispatched'],arriving:['arriving','arrived'],
+    'complete-delivery':['delivered','completed'],
+    'assign-delivery':['assigned']
+  };
+  const indicators=negativeFields[action]||[];
+  return !indicators.some(key=>reply[key]===false)&&
+    !['dispatched','arrived','delivered','completed','assigned'].some(key=>reply[key]===false);
+}
+async function merchantRefreshAfterConfirmedMutation(reply,context={}){
   // An HTTP 200 does not necessarily mean the RPC confirmed the mutation.
   // Preserve ambiguity: a blank/negative reply must never trigger a success
   // toast, and the operator must check the current order before trying again.
@@ -2177,6 +2198,7 @@ async function merchantRefreshAfterConfirmedMutation(reply){
       &&typeof reply.status==='string'&&reply.status.length>0)
   );
   const rejected=!affirmative||
+    !merchantReplyActionConsistent(reply,context)||
     (structured&&(
       reply.ok===false||reply.success===false||
       (typeof reply.error==='string'&&reply.error.trim().length>0)
@@ -2263,7 +2285,7 @@ async function merchantPerformAction(orderId,action,reason='other_operational'){
     const result=await retryAmbiguousOnce(
       ()=>merchantInvoke('merchant-action',body,{idempotencyKey})
     );
-    await merchantRefreshAfterConfirmedMutation(result);
+    await merchantRefreshAfterConfirmedMutation(result,{action,orderId});
     return result;
   }catch(error){
     merchantRuntime.error=String(error?.message||error);
@@ -2372,7 +2394,7 @@ async function merchantAssignDeliveryLive(orderId,deliveryUserId){
         deliveryUserId:String(deliveryUserId)
       },{idempotencyKey})
     );
-    await merchantRefreshAfterConfirmedMutation(result);
+    await merchantRefreshAfterConfirmedMutation(result,{action:'assign-delivery',orderId});
     return result;
   }catch(error){
     merchantRuntime.error=String(error?.message||error);
@@ -2419,7 +2441,7 @@ async function merchantCompleteDeliveryLive(orderId,pin,paymentConfirmed){
       paymentConfirmed:true
     },{idempotencyKey}));
     if(result?.ok===false)throw Object.assign(new Error(result.error==='PIN_LOCKED'?'PIN bloqueado. Abra suporte.':'PIN incorreto.'),{code:result.error});
-    await merchantRefreshAfterConfirmedMutation(result);
+    await merchantRefreshAfterConfirmedMutation(result,{action:'complete-delivery',orderId});
     return result;
   }catch(error){
     merchantRuntime.error=String(error?.message||error);
