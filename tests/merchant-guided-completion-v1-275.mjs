@@ -34,6 +34,7 @@ const ctx=vm.createContext({
 vm.runInContext([
  cut('merchantDeliveryConfirmationState'),
  cut('merchantDeliveryConfirmationChanged'),
+ cut('merchantPostActionConfirmation'),
  cut('merchantLiveDeliver',true)
 ].join('\n')+';this.state=merchantDeliveryConfirmationState;this.changed=merchantDeliveryConfirmationChanged;this.deliver=merchantLiveDeliver;',ctx);
 assert.equal(ctx.state(id).ready,false);

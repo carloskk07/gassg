@@ -73,7 +73,7 @@ assert.ok(card.includes('Aceitar pedido')&&card.includes('Não consigo atender')
 let calls=0;const messages=[];
 const action=vm.createContext({globalThis:{merchantRuntime:{actionPending:true}},
  merchantPerformAction:async()=>{calls++;return {}},toast:v=>messages.push(String(v))});
-vm.runInContext(cut('merchantLiveAction',true)+';this.run=merchantLiveAction;',action);
+vm.runInContext(cut('merchantPostActionConfirmation')+'\n'+cut('merchantLiveAction',true)+';this.run=merchantLiveAction;',action);
 await action.run(item.orderId,'accept');
 assert.equal(calls,0,'No concurrent action');
 assert.equal(messages.length,0,'No success toast when ignored');

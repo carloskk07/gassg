@@ -121,7 +121,7 @@ const actionCtx=vm.createContext({
  toast:x=>messages.push(String(x)),
  merchantAssignDeliveryLive:async()=>{called++;return {}}
 });
-vm.runInContext(take('merchantDeliveryCandidates')+'\n'+
+vm.runInContext(take('merchantDeliveryCandidates')+'\n'+take('merchantPostActionConfirmation')+'\n'+
  'async '+take('merchantLiveAssignDelivery')+';this.assign=merchantLiveAssignDelivery;',actionCtx);
 rt.actionPending=true;await actionCtx.assign(order1);
 assert.equal(called,0,'No assignment when request already pending');
