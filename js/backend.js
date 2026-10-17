@@ -1017,9 +1017,18 @@ async function liveOpenSupportCase(category,message=''){
     category:String(category||'other'),
     message:String(message||'').trim()
   },{idempotencyKey}));
-  await liveGetOrder(order.orderId,{silent:true});
+  // The API may confirm case creation while the follow-up order read fails.
+  // Preserve the acknowledged outcome and ask for a refresh instead of
+  // reporting submission failure or triggering needless duplicate attempts.
+  let refreshPending=false;
+  try{
+    await liveGetOrder(order.orderId,{silent:true});
+  }catch(error){
+    refreshPending=true;
+    liveRuntime.error='Não foi possível atualizar os atendimentos. Consulte novamente.';
+  }
   render();
-  return result;
+  return {...result,refreshPending};
 }
 
 const CUSTOMER_FINANCIAL_REFRESH_MS=5*60*1000;
