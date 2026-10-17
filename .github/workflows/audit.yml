@@ -501,6 +501,8 @@ jobs:
         run: node tests/admin-support-triage-v1-385.mjs
       - name: V1.386 merchant-specific customer support summary
         run: node tests/merchant-support-scope-v1-386.mjs
+      - name: V1.387 merchant support attention and visible order queue
+        run: node tests/merchant-support-priorities-v1-387.mjs
       - name: V1.368 evidence-led acquisition dashboard
         run: node tests/admin-acquisition-evidence-v1-368.mjs
       - name: V1.369 linked campaign outcome evidence
