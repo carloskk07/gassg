@@ -173,5 +173,5 @@ begin
     'dueAt',v_due_at
   );
 end;
-$function$
+$function$;
 
