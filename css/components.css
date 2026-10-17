@@ -4430,3 +4430,41 @@ body:has(.admin-page) .admin-nav-item:focus-visible{outline-offset:-3px}
 @media(max-width:640px){
   .admin-campaign-next-check{padding:14px 12px}
 }
+
+/* TAMÃO V1.380 — actionable checkout guidance. Validity is local; prices and
+   delivery still depend on the confirmed server quote. */
+.order-address-card .address-auto-status{
+  display:flex;align-items:flex-start;gap:10px;
+  margin-top:8px;padding:12px 14px;border:1px solid #c9e0d0;
+  border-radius:14px;background:linear-gradient(125deg,#f2f9f4,#fffdf8);
+  color:#23553c;font-size:13px;line-height:1.55
+}
+.order-address-card .address-auto-status>span:first-child{
+  flex:0 0 23px;display:grid;place-items:center
+}
+.order-address-card .input[aria-invalid="true"],
+.buyer-contact-card .input[aria-invalid="true"]{
+  border-color:#b5433f!important;
+  box-shadow:0 0 0 2px rgba(181,67,63,.12);
+}
+.order-address-card .input[aria-invalid="true"]:focus-visible,
+.buyer-contact-card .input[aria-invalid="true"]:focus-visible{
+  outline:3px solid #ad4b3b;outline-offset:2px
+}
+.buyer-contact-card #delivery-phone-feedback{min-height:20px}
+.buyer-contact-card .input[aria-invalid="true"]+#delivery-phone-feedback{
+  color:#9a302f;font-weight:850
+}
+.order-address-card .field-row{align-items:start}
+.order-address-card,.buyer-contact-card{scroll-margin-top:110px}
+@media(max-width:650px){
+ .order-address-card .field-row{grid-template-columns:minmax(0,1fr);gap:12px}
+ .order-address-card .input,.buyer-contact-card #delivery-phone{
+   font-size:16px;min-height:49px;
+ }
+ .order-address-card .address-auto-status{padding:11px 12px;font-size:12px}
+ .order-address-card .primary,.buyer-contact-card .primary{min-height:50px}
+}
+@media(max-width:350px){
+ .order-address-card .address-auto-status{font-size:12px}
+}
