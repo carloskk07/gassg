@@ -4734,3 +4734,69 @@ body:has(.admin-page) .admin-nav-item:focus-visible{outline-offset:-3px}
 @media(prefers-reduced-motion:reduce){
  .customer-care-panel :is(button,select,textarea){transition:none}
 }
+
+/* TAMÃO V1.385 — operational support triage. The queue is a limited server
+   snapshot; sorting and filters never change case status or authorization. */
+.admin-support-queue{scroll-margin-top:90px}
+.admin-support-queue-kpis{
+ display:grid;grid-template-columns:repeat(3,minmax(0,1fr));
+ gap:12px;margin:13px 0
+}
+.admin-support-queue-kpis>div{
+ min-width:0;border:1px solid #d6e7da;border-radius:16px;
+ background:linear-gradient(135deg,#fff,#f2faf4);
+ padding:15px 17px;display:grid;gap:6px
+}
+.admin-support-queue-kpis small{font-size:12px;line-height:1.45;color:#52705d}
+.admin-support-queue-kpis strong{
+ font-size:clamp(22px,2.8vw,30px);font-variant-numeric:tabular-nums;
+ line-height:1.1;color:#0d5037
+}
+.admin-support-queue-tools{
+ border:1px solid #d9e8dd;border-radius:18px;
+ padding:clamp(13px,2vw,20px);background:#fffefb
+}
+.admin-support-queue-tools .field-row{margin-bottom:10px;align-items:end}
+.admin-support-queue-tools .input:focus-visible{
+ outline:3px solid #b7831d;outline-offset:3px
+}
+.admin-support-queue-disclosure{
+ font-size:12px;line-height:1.55;color:#56705d;margin:0 0 10px
+}
+#admin-support-visible-count{
+ font-weight:800;font-size:12px;color:#155c40
+}
+.admin-support-queue-results{display:grid;gap:11px;margin-top:12px}
+.admin-support-case{
+ border:1px solid #d9e7dc;background:linear-gradient(135deg,#fff,#fbfdfb);
+ border-radius:16px;overflow-wrap:anywhere
+}
+.admin-support-case[hidden],#admin-support-no-match[hidden]{display:none!important}
+.admin-support-case .order-head{align-items:start}
+.admin-support-case-subtitle{font-size:12px;line-height:1.6;color:#56725d;margin:7px 0 12px}
+.admin-support-case-actions{
+ display:flex;align-items:center;flex-wrap:wrap;gap:8px;margin-top:12px
+}
+.admin-support-case-actions>button,
+.admin-support-case-actions .order-actions>button{min-height:45px}
+.admin-support-case-actions .order-actions{display:flex;flex-wrap:wrap;gap:8px}
+.admin-support-case-actions button:focus-visible{
+ outline:3px solid #b7831d;outline-offset:3px
+}
+@media(max-width:690px){
+ .admin-support-queue-kpis{gap:7px}
+ .admin-support-queue-kpis>div{padding:12px 9px;border-radius:12px}
+ .admin-support-queue-kpis small{font-size:11px}
+ .admin-support-queue-tools .field-row{grid-template-columns:minmax(0,1fr);gap:10px}
+ .admin-support-queue-tools .input{min-height:48px;font-size:16px}
+ .admin-support-case-actions{display:grid;grid-template-columns:minmax(0,1fr)}
+ .admin-support-case-actions .order-actions{display:grid;grid-template-columns:minmax(0,1fr)}
+ .admin-support-case-actions button{min-height:49px;width:100%}
+}
+@media(max-width:370px){
+ .admin-support-queue-kpis strong{font-size:22px}
+ .admin-support-queue-kpis small{font-size:10px}
+}
+@media(prefers-reduced-motion:reduce){
+ .admin-support-case-actions button{transition:none}
+}
