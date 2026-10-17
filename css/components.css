@@ -4670,3 +4670,67 @@ body:has(.admin-page) .admin-nav-item:focus-visible{outline-offset:-3px}
 @media(prefers-reduced-motion:reduce){
  .customer-delivery-guide-actions :is(button,a){transition:none}
 }
+
+/* TAMÃO V1.384 — support evidence and duplication-safe incident intake. */
+.customer-care-panel{
+  border:1px solid #d1e4d7;border-radius:21px;
+  background:linear-gradient(138deg,#fff,#fbfdfb);
+  box-shadow:0 12px 30px rgba(10,70,39,.045)
+}
+.customer-care-panel>h2{
+  margin:0 0 7px;color:#173e2b;letter-spacing:-.035em;
+  font-size:clamp(20px,2.3vw,25px);line-height:1.2
+}
+.customer-care-panel>p{font-size:13px;line-height:1.6}
+.customer-care-history{
+  padding:15px;margin:15px 0;background:linear-gradient(125deg,#f1f9f3,#fffdf9);
+  border:1px solid #d1e4d7;border-radius:17px
+}
+.customer-care-history h3{font-size:16px;line-height:1.25;margin:0 0 5px;color:#154d33}
+.customer-care-history-context{font-size:12px;line-height:1.55;color:#546b5c;margin:0 0 12px}
+.customer-care-history ul{list-style:none;margin:0;padding:0;display:grid;gap:9px}
+.customer-care-case{
+  background:#fff;border:1px solid #deeadf;border-radius:13px;
+  padding:13px;min-width:0;display:grid;gap:6px
+}
+.customer-care-case>div{display:flex;align-items:center;justify-content:space-between;gap:9px;flex-wrap:wrap}
+.customer-care-case strong{font-size:14px;color:#193f2b;line-height:1.3}
+.customer-care-case-status{
+  border:1px solid #c8ded0;border-radius:99px;background:#e9f5ec;
+  padding:5px 10px;font-size:11px;font-weight:900;color:#1b6847;
+  white-space:normal
+}
+.customer-care-case p{font-size:12px;line-height:1.55;color:#546b5c;margin:0}
+.customer-care-case small{font-size:11px;line-height:1.5;color:#526e5d}
+.customer-care-history>button{margin-top:12px;min-height:46px}
+.customer-care-form{
+  padding:16px;border:1px solid #dceade;border-radius:15px;
+  background:#fafffa
+}
+.customer-care-form-feedback{
+  margin:0;font-size:12px;line-height:1.6;color:#3d624c;
+  padding:9px 12px;border-radius:9px;background:#edf6ef
+}
+.customer-care-form button{min-height:51px;font-weight:900}
+.customer-care-form button:disabled{opacity:.62;cursor:not-allowed}
+.customer-care-panel :is(select,textarea,button):focus-visible{
+  outline:3px solid #bb8528;outline-offset:3px
+}
+@media(max-width:620px){
+ .customer-care-panel{border-radius:17px}
+ .customer-care-history{padding:12px;border-radius:13px;margin:12px 0}
+ .customer-care-case{padding:12px}
+ .customer-care-form{padding:12px}
+ .customer-care-form :is(select,textarea){font-size:16px}
+ .customer-care-form button{min-height:52px}
+ .customer-care-history>button{width:100%;min-height:50px}
+}
+@media(max-width:370px){
+ .customer-care-panel>h2{font-size:20px}
+ .customer-care-case>div{display:grid;justify-content:start;gap:6px}
+ .customer-care-case-status{justify-self:start}
+ .customer-care-form-feedback{font-size:11px}
+}
+@media(prefers-reduced-motion:reduce){
+ .customer-care-panel :is(button,select,textarea){transition:none}
+}
