@@ -33,7 +33,8 @@ assert.ok(both.cards.includes('data-art="P13"')&&both.cards.includes('data-art="
 assert.ok(both.cards.includes('type="button"')&&both.cards.includes('onclick="quickProduct(\'P13\')"'));
 assert.ok(both.cards.includes('onclick="quickProduct(\'WATER20\')"'));
 assert.ok(both.cards.includes('aria-label="Escolher Gás 13 kg e consultar entrega pelo CEP"'));
-assert.equal((both.cards.match(/class="home-editorial-/g)||[]).length,2);
+assert.equal((both.cards.match(/class="home-editorial-(?:gas|water) home-editorial-choice"/g)||[]).length,2,
+  'exactly two clickable product cards, excluding nested image spans');
 const waterOnly=heroFor(['WATER20']);
 assert.equal(Array.from(waterOnly.codes).join(','),'WATER20');
 assert.ok(!waterOnly.cards.includes("quickProduct('P13')"),'no invented gas item');
