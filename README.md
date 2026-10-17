@@ -1,9 +1,15 @@
 # TAMÃO — marketplace local de essenciais
 
+> **Fonte oficial de versão (2026-10-17):** o código canônico é o commit na branch `main`. A revisão realmente publicada em cada domínio é o campo `sourceSha` do respectivo `/portal-build.json`. Os três domínios só estão sincronizados quando apresentam a mesma revisão, validada pelo workflow de prontidão. **V1.xxx nos títulos de PR e nos registros abaixo é identificação histórica de trabalho, não prova de deploy.**
+>
+> **Documentos de controle:** [Como identificar a versão oficial e publicada](docs/release-authority.md) · [Triagem das PRs históricas abertas (17/10/2026)](docs/open-pr-triage-2026-10-17.md).
+>
+> **Aviso sobre o histórico abaixo:** os títulos antigos "Estado atual" foram escritos na época das respectivas entregas e foram renomeados para **Registro histórico**. Não descrevem necessariamente as funções vigentes, regras comerciais ativas ou versões em produção.
+
 Marketplace hiperlocal de gás e abastecimento essencial para São Gabriel/RS.
 
 
-## Estado atual — v1.62 autoridade operacional administrável
+## Registro histórico — v1.62 autoridade operacional administrável
 
 O go-live deixa de tratar toda pendência comercial como falha técnica. A autoridade server-side agora separa:
 
@@ -114,7 +120,7 @@ O workflow `.github/workflows/build-live-portals.yml` passa a usar exclusivament
 A site key pública do Turnstile já é versionada e não precisa mais ser digitada em cada release. O job `production-bundle` roda em push da `main` e também pode ser disparado manualmente, gerando os artefatos `tamao-live-customer`, `tamao-live-merchant` e `tamao-live-admin`.
 
 O workflow não faz deploy em nome da conta Cloudflare: os projetos Pages continuam sendo a autoridade de publicação. A mudança elimina o risco de gerar um bundle “de produção” ainda apontando para as origins Netlify legadas.
-## Estado atual — v1.61 cloudflare portals
+## Registro histórico — v1.61 cloudflare portals
 
 O Netlify deixa de ser requisito para os portais isolados. A rota principal passa a ser **Cloudflare Pages**, mantendo o Netlify apenas como fallback de migração.
 
@@ -134,7 +140,7 @@ O builder infere a role pelo `CF_PAGES_URL`, usa `CF_PAGES_COMMIT_SHA` como orig
 
 O backend aceita as novas origens Cloudflare, as futuras origens `tamao.com.br` e mantém as origens Netlify apenas como fallback temporário.
 
-## Estado atual — v1.60 netlify zero-config
+## Registro histórico — v1.60 netlify zero-config
 
 Os três projetos Netlify podem ser conectados ao mesmo repositório sem preencher manualmente Base directory, Build command, Publish directory ou Functions directory.
 
@@ -152,7 +158,7 @@ O builder identifica automaticamente:
 
 As origens HTTPS atuais dos três portais também possuem defaults versionados. A única configuração externa que continua obrigatória para um bundle live é a **site key real do Cloudflare Turnstile**.
 
-## Estado atual — v1.59 portal handoff
+## Registro histórico — v1.59 portal handoff
 
 O release dos portais isolados deixa de depender de um GitHub Secret desnecessário para a site key Turnstile.
 
@@ -170,7 +176,7 @@ A chave secreta do Turnstile não entra no GitHub nem no bundle.
 
 Durante esta rodada também foi detectado e eliminado um **drift de source-of-truth**: a `admin-auth` publicada já continha quota por IP, mas a `main` ainda não refletia esse código. A versão canônica passa a preservar essa proteção e reforça o contrato: quota por IP → CAPTCHA obrigatório → elegibilidade do e-mail → quota de entrega por e-mail → OTP.
 
-## Estado atual — v1.58 remote readiness
+## Registro histórico — v1.58 remote readiness
 
 A prontidão administrativa passa a ser provada também **fora do runner local**.
 
@@ -189,7 +195,7 @@ Também foi confirmado que o GitHub Actions ainda não possui `CHAMA_TURNSTILE_S
 
 O workflow manual **TAMÃO launch readiness** continua falhando fechado até o portal administrativo remoto estar realmente online.
 
-## Estado atual — v1.57 admin bootstrap diagnostics
+## Registro histórico — v1.57 admin bootstrap diagnostics
 
 O primeiro acesso administrativo deixa de tratar toda falha como simples "conta não autorizada".
 
@@ -206,7 +212,7 @@ O pedido inicial de magic link continua respondendo genericamente para não perm
 
 Durante a auditoria foi identificado um bloqueio de implantação: `admin-auth` estava publicada com `verify_jwt=true`, embora `request-link` precise funcionar antes da existência de uma sessão. A política agora fica versionada em `supabase/config.toml` com `verify_jwt=false` para as funções públicas controladas. O claim privilegiado continua exigindo bearer token e `auth.getUser` dentro do handler.
 
-## Estado atual — v1.56 first-party analytics
+## Registro histórico — v1.56 first-party analytics
 
 O pré-lançamento passa a medir o funil desde a entrada no domínio oficial, sem adicionar trackers publicitários de terceiros.
 
@@ -236,7 +242,7 @@ O admin passa a mostrar:
 
 Assim, tráfego pago pode ser avaliado pela qualidade do funil inteiro, e não só por cliques ou formulários.
 
-## Estado atual — v1.55 acquisition intelligence
+## Registro histórico — v1.55 acquisition intelligence
 
 O admin passa a medir o pré-lançamento como **funil comercial**, e não apenas como uma lista dos 200 contatos mais recentes.
 
@@ -256,7 +262,7 @@ O navegador recebe somente os agregados necessários para essas métricas. A lis
 
 A autoridade `admin_prelaunch_acquisition_metrics` exige administrador válido e possui EXECUTE somente para `service_role`.
 
-## Estado atual — v1.54 follow-up operations
+## Registro histórico — v1.54 follow-up operations
 
 O mini-CRM de pré-lançamento agora ajuda o operador a agir, não apenas visualizar contatos:
 
@@ -267,7 +273,7 @@ O mini-CRM de pré-lançamento agora ajuda o operador a agir, não apenas visual
 - solicitações públicas por WhatsApp recebem mensagem com protocolo e contexto, sem copiar o conteúdo sensível da solicitação para a URL;
 - abrir o WhatsApp continua **sem alterar o status automaticamente** — o operador confirma o estágio somente depois da ação real.
 
-## Estado atual — v1.53 conversion UX
+## Registro histórico — v1.53 conversion UX
 
 O pré-lançamento público agora prioriza conversão e remove becos sem saída:
 
@@ -279,7 +285,7 @@ O pré-lançamento público agora prioriza conversão e remove becos sem saída:
 
 A navegação completa de pedido, rastreio, indicação e Clube reaparece automaticamente quando o mercado deixa o modo de pré-lançamento.
 
-## Estado atual — v1.52 cloudflare production
+## Registro histórico — v1.52 cloudflare production
 
 O TAMÃO agora possui uma autoridade explícita de build para a futura publicação em Cloudflare Pages.
 
@@ -305,7 +311,7 @@ O runtime real falha no build se:
 
 A indexação orgânica pode ser ativada por variável depois da prova do domínio; anúncios de pré-lançamento podem operar antes disso, porque não dependem de crawling orgânico.
 
-## Estado atual — v1.51 launch operations
+## Registro histórico — v1.51 launch operations
 
 O pré-lançamento agora possui um **pipeline operacional auditável** para evitar que aquisição vire apenas uma lista de contatos.
 
@@ -336,7 +342,7 @@ Resolver ou encerrar exige documentação da solução no admin.
 
 As transições passam por RPCs `SECURITY DEFINER` exclusivos do `service_role`, exigem administrador válido, usam idempotência, bloqueiam regressões de estado e escrevem em `platform_admin_audit`.
 
-## Estado atual — v1.50 trust & launch
+## Registro histórico — v1.50 trust & launch
 
 A etapa de espera do domínio está sendo usada para fechar a superfície pública de confiança e lançamento.
 
@@ -354,7 +360,7 @@ A etapa de espera do domínio está sendo usada para fechar a superfície públi
 
 O domínio **tamao.com.br** já foi adquirido. A troca de nameservers aguarda a janela operacional do Registro.br. Até DNS + HTTPS + formulários passarem na prova, o site público permanece `noindex` e nenhum anúncio pago deve apontar para o domínio.
 
-## Estado atual — v1.49 acquisition
+## Registro histórico — v1.49 acquisition
 
 O pré-lançamento agora possui **captação real e mensurável** sem abrir o comércio antes da hora:
 
@@ -369,7 +375,7 @@ O pré-lançamento agora possui **captação real e mensurável** sem abrir o co
 
 O domínio público pretendido é **tamao.com.br**. Enquanto DNS/hosting definitivo e portais isolados não forem comprovados, o GitHub Pages continua como laboratório interno e permanece fora de indexação.
 
-## Estado atual — v1.48 TAMÃO
+## Registro histórico — v1.48 TAMÃO
 
 A marca pública do produto passa a ser **TAMÃO**, com a assinatura **“Pediu? Tá na mão.”** e o descritor inicial **“Gás, água e essenciais perto de você.”**. A mudança é deliberadamente **brand-first**: interface, PWA, portais live, notificações, documentação e testes passam a usar TAMÃO, enquanto identificadores técnicos legados como `CHAMA_*`, chaves de storage, nomes de crons e contratos server-side permanecem estáveis nesta versão para não romper sessões, deploys, automações ou migrações existentes. A migração desses identificadores internos deve ocorrer apenas em uma etapa técnica separada, com compatibilidade explícita.
 
@@ -400,7 +406,7 @@ Esses exemplos:
 
 A suíte de testes mantém um marketplace sintético completo apenas quando injeta `globalThis.__CHAMA_TEST__=true`. A build normal não oferece esse caminho.
 
-## Estado atual — v1.33 JR confirmed commercial range
+## Registro histórico — v1.33 JR confirmed commercial range
 
 O primeiro parceiro piloto agora possui uma faixa comercial P13 confirmada no staging server-only:
 
@@ -415,7 +421,7 @@ Isso **não ativa o JR como revenda real**. `onboarding_status` permanece `await
 
 O laboratório interno foi alinhado à faixa confirmada. Estoque, ETA, distância, trust, aceite, pagamento e entrega continuam simulados.
 
-## Estado atual — v1.32 merchant-authorized pricing range
+## Registro histórico — v1.32 merchant-authorized pricing range
 
 A v1.32 substitui o preço único opcional por uma política por SKU controlada pela própria revenda.
 
@@ -442,7 +448,7 @@ Invariantes:
 
 O laboratório interno permite testar a faixa sem alterar a operação real do parceiro.
 
-## Estado atual — v1.31 reliability, concurrency & boundary hardening
+## Registro histórico — v1.31 reliability, concurrency & boundary hardening
 
 A v1.31 faz uma segunda auditoria de produção sobre segurança, concorrência, rede, matching e limites do banco.
 
@@ -463,7 +469,7 @@ Principais correções:
 
 No Supabase real, continuam existindo **0 merchants reais, 0 pedidos e 0 admins**, além de **1 rascunho comercial server-only** do primeiro parceiro. O GitHub Pages permanece laboratório interno; comércio real continua bloqueado até as origens dedicadas, Auth/Turnstile, primeiro admin, dados jurídicos/compliance do parceiro e E2E real multi-dispositivo serem comprovados.
 
-## Estado atual — v1.30 merchant conversion
+## Registro histórico — v1.30 merchant conversion
 
 A v1.30 transforma a experiência de parceria de uma explicação de funcionalidades em uma proposta econômica para donos de revenda.
 
@@ -520,7 +526,7 @@ Foi criada a proposta **Parceiro Fundador — São Gabriel**, sem promessa de de
 
 No GitHub Pages interno, o CTA principal é **Experimentar painel da revenda** e abre diretamente o cenário JR simulado, evitando um portal live ainda sem domínio.
 
-## Estado atual — v1.29 internal full pilot
+## Registro histórico — v1.29 internal full pilot
 
 Como o TAMÃO ainda não está sendo divulgado e não possui domínio próprio, o GitHub Pages passou a funcionar como **laboratório interno completo**, sem abrir comércio real.
 
@@ -537,7 +543,7 @@ Como o TAMÃO ainda não está sendo divulgado e não possui domínio próprio, 
 
 O CI possui um segundo E2E específico para esse cenário e prova o fluxo JR até settlement e cashback.
 
-## Estado atual — v1.28 first real merchant pilot
+## Registro histórico — v1.28 first real merchant pilot
 
 A v1.28 prepara a transição do pré-lançamento para o primeiro piloto operacional real.
 
@@ -576,7 +582,7 @@ Com duas ou mais revendas, o ranking continua customer-first:
 
 Carga não pode promover uma oferta claramente pior. O balanceamento só atua dentro de uma banda de qualidade de 0,10 do melhor score base. Isso permite dar oportunidade a parceiros novos sem sacrificar de forma artificial preço/prazo do comprador.
 
-## Estado atual — v1.27 reliability & security hardening
+## Registro histórico — v1.27 reliability & security hardening
 
 A v1.27 ataca falhas que aparecem principalmente em produção, mesmo quando a jornada feliz já passa no navegador:
 
@@ -593,7 +599,7 @@ A v1.27 ataca falhas que aparecem principalmente em produção, mesmo quando a j
 
 No banco real, os objetos atuais continuam com RLS e apenas `service_role` possui privilégios nas tabelas da aplicação. Os avisos `RLS Enabled No Policy` permanecem intencionais porque a arquitetura do piloto não usa PostgREST direto no browser.
 
-## Estado atual — v1.26 human conversion & trust
+## Registro histórico — v1.26 human conversion & trust
 
 A v1.26 reorganiza a experiência pública a partir da decisão real do usuário: **comprar primeiro, entender a confiança depois e só então explorar benefícios e oportunidades**. Nenhuma capacidade financeira ou operacional inexistente foi promovida como pronta.
 
@@ -612,7 +618,7 @@ Principais mudanças:
 
 **Estado operacional permanece o mesmo:** o mercado real ainda tem 0 revendas configuradas e o GitHub Pages continua sendo somente uma prévia visual. A v1.26 melhora conversão e confiança; ela não remove os blockers de go-live listados abaixo.
 
-## Estado atual — v1.25 conversion & transparent economics
+## Registro histórico — v1.25 conversion & transparent economics
 
 **Backend multiusuário:** aplicado no projeto Supabase exclusivo do TAMÃO.
 

@@ -55,6 +55,8 @@ jobs:
         run: node tests/frontend-asset-coherence.mjs
       - name: CSS source-of-truth no-shadow gate
         run: node tests/css-cascade-source.mjs
+      - name: Release SHA truth and legacy PR triage contract
+        run: node tests/release-version-truth.mjs
       - name: Static trust and asset audit
         run: node tests/static-audit.mjs
       - name: Admin control plane V1.133 regression contract
