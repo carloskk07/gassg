@@ -3117,6 +3117,31 @@ function merchantUnifiedOpsModel(rt,orders,now=Date.now()){
       supportVerified,first:preferSafe([...atRisk,...support.map(x=>x.order)])}
   };
 }
+// V1.392 — Safe shortcut: reveal and focus the next field on the current
+// authorized order. This never clicks a business action, confirms a payment
+// or dispatches a delivery. The server still verifies any later submission.
+function merchantUnifiedFocusOrder(orderId,lane){
+  const id=String(orderId||'');
+  if(!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(id))return false;
+  if(!['offers','delivery','issues'].includes(lane))return false;
+  const rt=globalThis.merchantRuntime;
+  if(!rt||rt.actionPending===true||!merchantOrderListEvidence(rt).fresh||
+     !['owner','manager','operator'].includes(String(rt.merchant?.memberRole||'')))return false;
+  const order=Array.isArray(rt.orders)?rt.orders.find(o=>o?.orderId===id):null;
+  if(!order)return false;
+  if(lane==='offers'){
+    const raw=String(order.offerExpiresAt||'');
+    const expiry=Date.parse(raw);
+    if(order.status!=='OFFERED_TO_MERCHANT'||!/^20\\d{2}-\\d{2}-\\d{2}T/.test(raw)||
+       !Number.isFinite(expiry)||expiry<=Date.now()+1000)return false;
+  }else if(lane==='delivery'){
+    if(!['OUT_FOR_DELIVERY','ARRIVING'].includes(order.status))return false;
+  }else if(order.status!=='AT_RISK'&&
+    !merchantSupportCasesForOrder(order,rt).some(c=>['open','in_review'].includes(c.status))){
+    return false;
+  }
+  return lane==='issues'?merchantFocusLiveOrder(id):merchantFocusOrderNextStep(id);
+}
 function merchantUnifiedOpsBoard(rt,orders){
   const model=merchantUnifiedOpsModel(rt,orders);
   if(!model)return '';
@@ -3126,7 +3151,7 @@ function merchantUnifiedOpsBoard(rt,orders){
     const key=lane==='issues'?'risk':lane;
     const hasGroup=lane!=='issues'||model.issues.incidents>0;
     return item?'<button type="button" class="merchant-unified-action" onclick="'+
-      (valid?"merchantFocusLiveOrder('"+orderId+"')":
+      (valid?"merchantUnifiedFocusOrder('"+orderId+"','"+lane+"')":
         hasGroup?"merchantFocusOrderGroup('"+key+"')":"merchantWorkspaceJump('orders')")+
       '">'+esc(label)+' <span aria-hidden="true">→</span></button>':'';
   };
