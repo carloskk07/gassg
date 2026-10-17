@@ -3132,7 +3132,8 @@ function merchantUnifiedOpsBoard(rt,orders){
   };
   const a=model.offers,b=model.delivery,c=model.issues;
   const offerDetail=a.unverified
-    ?a.unverified+(a.unverified===1?' oferta precisa':' ofertas precisam')+' de atualização; '+a.valid+' com prazo válido.'
+    ?a.unverified+(a.unverified===1?' oferta sem prazo válido':' ofertas sem prazo válido')+
+      ' para aceite; '+a.valid+' com prazo confirmado nesta consulta.'
     :a.count?'Confira o prazo antes de aceitar.':'Nenhum novo pedido informado.';
   const deliveryDetail=b.count?
     b.arriving+' com chegada informada. Confirmações dentro do pedido.':
@@ -3147,13 +3148,22 @@ function merchantUnifiedOpsBoard(rt,orders){
       'Acompanhar entrega'],
     ['issues','ATENÇÃO',c.count,issueDetail,c.first,
       'Ver pedido com problema']
-  ].map(([key,label,count,detail,first,cta])=>
-    '<article class="merchant-unified-lane merchant-unified-'+key+'">'+
+  ].map(([key,label,count,detail,first,cta])=>{
+    const offerNeedsRefresh=key==='offers'&&a.unverified>0;
+    const refresh=offerNeedsRefresh
+      ?'<button type="button" class="'+(first?'merchant-unified-recovery':'merchant-unified-action')+
+        '" onclick="merchantLiveRefresh()" '+(rt?.actionPending?'disabled':'')+'>'+
+        (first?'Atualizar outras ofertas':'Atualizar ofertas para decidir')+
+        ' <span aria-hidden="true">↻</span></button>':'';
+    return '<article class="merchant-unified-lane merchant-unified-'+key+'">'+
       '<span class="merchant-unified-lane-label">'+label+'</span>'+
       '<strong class="merchant-unified-number">'+count+'</strong>'+
       '<p>'+esc(detail)+'</p>'+
-      (first?go(first,key,cta):'<span class="merchant-unified-empty">Sem ação nesta categoria agora</span>')+
-      '</article>').join('');
+      (first?go(first,key,cta):refresh||
+        '<span class="merchant-unified-empty">Sem ação nesta categoria agora</span>')+
+      (first?refresh:'')+
+      '</article>';
+  }).join('');
   return '<section class="merchant-unified-ops" aria-label="Visão rápida da operação">'+
     '<header><div><span class="section-kicker">VISÃO DE TRABALHO</span>'+
       '<h3>O que precisa da sua atenção agora</h3>'+
