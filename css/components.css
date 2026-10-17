@@ -4605,3 +4605,68 @@ body:has(.admin-page) .admin-nav-item:focus-visible{outline-offset:-3px}
 @media(prefers-reduced-motion:reduce){
   .customer-requote .order-actions button{transition:none}
 }
+
+/* TAMÃO V1.383 — after-acceptance delivery guidance. Every headline is a
+   registered state, never continuous GPS or a guaranteed arrival estimate. */
+.customer-delivery-guide{
+  margin:15px 0 18px;min-width:0;padding:clamp(17px,2.8vw,24px);
+  border:1px solid #cbe2d3;border-radius:21px;
+  background:radial-gradient(ellipse at 100% 0%,rgba(244,182,63,.15),transparent 44%),
+    linear-gradient(125deg,#f1faf4,#fffefa);
+  box-shadow:0 12px 31px rgba(13,78,46,.06)
+}
+.customer-delivery-guide.needs-update{
+  background:linear-gradient(135deg,#fff9ea,#fffdf8);
+  border-color:#e9d9a8
+}
+.customer-delivery-guide-eyebrow{
+  display:block;color:#156544;font-weight:950;letter-spacing:.11em;font-size:10px;
+  margin-bottom:7px
+}
+.customer-delivery-guide.needs-update .customer-delivery-guide-eyebrow{
+  color:#795414
+}
+.customer-delivery-guide h2{
+  font-size:clamp(20px,2.5vw,28px);line-height:1.15;letter-spacing:-.045em;
+  margin:0 0 9px;color:#143c2a;text-wrap:balance
+}
+.customer-delivery-guide>p{
+  max-width:67ch;color:#426451;line-height:1.66;font-size:14px;margin:0 0 15px
+}
+.customer-delivery-guide-next{
+  display:grid;gap:5px;background:#fff;border:1px solid #d8e8db;
+  border-radius:13px;padding:13px 15px;color:#1f5138
+}
+.customer-delivery-guide-next strong{font-size:12px;letter-spacing:.01em}
+.customer-delivery-guide-next span{font-size:13px;line-height:1.55;color:#426553}
+.customer-delivery-guide-actions{
+  margin-top:15px;display:flex;flex-wrap:wrap;align-items:center;gap:9px
+}
+.customer-delivery-guide-actions .primary,
+.customer-delivery-guide-actions .secondary,
+.customer-delivery-guide-help{
+  min-height:47px;border-radius:12px;display:inline-flex;justify-content:center;
+  align-items:center;gap:5px;font-size:13px;font-weight:850;
+  padding:10px 14px;text-align:center;line-height:1.35;text-decoration:none
+}
+.customer-delivery-guide-help{
+  border:1px solid #bed9c9;background:#fff;color:#195b3d
+}
+.customer-delivery-guide-actions :is(button,a):focus-visible{
+  outline:3px solid #ba8423;outline-offset:3px
+}
+.customer-delivery-guide-actions button:disabled{opacity:.59;cursor:not-allowed}
+@media(max-width:620px){
+ .customer-delivery-guide{padding:16px 13px;border-radius:17px}
+ .customer-delivery-guide>p{font-size:13px}
+ .customer-delivery-guide-actions{display:grid;grid-template-columns:minmax(0,1fr)}
+ .customer-delivery-guide-actions>*{width:100%;min-height:49px}
+}
+@media(max-width:370px){
+ .customer-delivery-guide h2{font-size:20px}
+ .customer-delivery-guide-next{padding:12px}
+ .customer-delivery-guide-next span{font-size:12px}
+}
+@media(prefers-reduced-motion:reduce){
+ .customer-delivery-guide-actions :is(button,a){transition:none}
+}
