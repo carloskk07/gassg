@@ -3132,7 +3132,7 @@ function merchantUnifiedFocusOrder(orderId,lane){
   if(lane==='offers'){
     const raw=String(order.offerExpiresAt||'');
     const expiry=Date.parse(raw);
-    if(order.status!=='OFFERED_TO_MERCHANT'||!/^20\\d{2}-\\d{2}-\\d{2}T/.test(raw)||
+    if(order.status!=='OFFERED_TO_MERCHANT'||!/^20\d{2}-\d{2}-\d{2}T/.test(raw)||
        !Number.isFinite(expiry)||expiry<=Date.now()+1000)return false;
   }else if(lane==='delivery'){
     if(!['OUT_FOR_DELIVERY','ARRIVING'].includes(order.status))return false;
