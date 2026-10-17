@@ -33,6 +33,8 @@ const deep=v=>structuredClone(v);
 let role='superadmin',month='2026-10',rendered=0,notice='';
 const env=vm.createContext({
  adminRuntime:{session:{user:{id:'owner'}}},adminCurrentRole:()=>role,
+ adminOwnerCampaignSignalsBusy:false,adminOwnerCampaignOrdersBusy:false,
+ adminOwnerCampaignFeeReceiptsBusy:false,
  adminOwnerCampaignSignalsState:deep(base.signals),
  adminOwnerCampaignOrdersState:deep(base.orders),
  adminOwnerCampaignFeeReceiptsState:deep(base.fees),
@@ -51,7 +53,7 @@ const restore=()=>{
  env.adminOwnerCampaignOrdersState=deep(base.orders);
  env.adminOwnerCampaignFeeReceiptsState=deep(base.fees);
  role='superadmin';month='2026-10';
- vm.runInContext("adminOwnerCampaignEvidenceSnapshot={actor:'owner',role:'superadmin',month:'2026-10-01',checkedAt:'2026-10-17T05:00:00Z',signals:adminOwnerCampaignSignalsState,orders:adminOwnerCampaignOrdersState,fees:adminOwnerCampaignFeeReceiptsState}",env);
+ vm.runInContext("adminOwnerCampaignEvidenceSnapshot={actor:'owner',role:'superadmin',month:'2026-10-01',checkedAt:new Date().toISOString(),signals:adminOwnerCampaignSignalsState,orders:adminOwnerCampaignOrdersState,fees:adminOwnerCampaignFeeReceiptsState}",env);
 };
 restore();
 assert.equal(env.bundle().rows.length,1);
