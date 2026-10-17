@@ -2164,25 +2164,25 @@ async function merchantSelectLive(merchantId){
 // V1.360: positive HTTP acknowledgement cannot override action-specific
 // evidence that the requested transition did not occur. A verified server
 // rescue is a distinct outcome, not successful acceptance or departure.
-function merchantReplyActionConsistent(reply,{action='',orderId=''}={}){
-  if(!reply||typeof reply!=='object'||Array.isArray(reply))return false;
-  const rescue=reply.autoRescued===true;
-  if(typeof reply.orderId==='string'&&orderId&&reply.orderId!==orderId)return false;
-  if(reply.orderId!=null&&
-     (typeof reply.orderId!=='string'||
-      !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(reply.orderId)))return false;
-  if(rescue)return !['accepted','dispatched','arriving','delivered','assigned']
-    .some(key=>reply[key]===true);
-  const negativeFields={
-    accept:['accepted'],dispatch:['dispatched'],arriving:['arriving','arrived'],
-    'complete-delivery':['delivered','completed'],
-    'assign-delivery':['assigned']
-  };
-  const indicators=negativeFields[action]||[];
-  return !indicators.some(key=>reply[key]===false)&&
-    !['dispatched','arrived','delivered','completed','assigned'].some(key=>reply[key]===false);
-}
 async function merchantRefreshAfterConfirmedMutation(reply,context={}){
+  const merchantReplyActionConsistent=(reply,{action='',orderId=''}={})=>{
+    if(!reply||typeof reply!=='object'||Array.isArray(reply))return false;
+    const rescue=reply.autoRescued===true;
+    if(typeof reply.orderId==='string'&&orderId&&reply.orderId!==orderId)return false;
+    if(reply.orderId!=null&&
+       (typeof reply.orderId!=='string'||
+        !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(reply.orderId)))return false;
+    if(rescue)return !['accepted','dispatched','arriving','delivered','assigned']
+      .some(key=>reply[key]===true);
+    const negativeFields={
+      accept:['accepted'],dispatch:['dispatched'],arriving:['arriving','arrived'],
+      'complete-delivery':['delivered','completed'],
+      'assign-delivery':['assigned']
+    };
+    const indicators=negativeFields[action]||[];
+    return !indicators.some(key=>reply[key]===false)&&
+      !['dispatched','arrived','delivered','completed','assigned'].some(key=>reply[key]===false);
+  };
   // An HTTP 200 does not necessarily mean the RPC confirmed the mutation.
   // Preserve ambiguity: a blank/negative reply must never trigger a success
   // toast, and the operator must check the current order before trying again.
