@@ -495,6 +495,8 @@ jobs:
         run: node tests/merchant-outcome-proof-v1-359.mjs
       - name: V1.360 merchant contradictory response and order identity regression
         run: node tests/merchant-contradictory-outcome-v1-360.mjs
+      - name: V1.361 action status coherence and legacy acknowledgement regression
+        run: node tests/merchant-action-state-coherence-v1-361.mjs
       - name: Admin all-months unresolved payout queue V1.340 regression
         run: node tests/payout-global-followup-v1-340.mjs
       - name: Admin all-months payout pagination V1.341 regression
