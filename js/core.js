@@ -893,7 +893,7 @@ function bottomNav(r){
   return `<nav class="bottom-nav" aria-label="Navegação principal">${items.map(([id,ic,l,act])=>{
     const active=r===id;
     const onclick=act==='browse'?"startHomeBrowse()":act==='start'?"startOrder('P13')":act==='lead'?"openPrelaunchCustomerLead()":`go('${id}')`;
-    return `<button class="nav-btn ${active?'active':''}" ${active?'aria-current="page"':''} onclick="${onclick}"><span aria-hidden="true">${ic}</span><span>${l}</span></button>`;
+    return `<button type="button" class="nav-btn ${active?'active':''} ${act==='browse'?'nav-btn-shop':''}" ${active?'aria-current="page"':''} onclick="${onclick}"><span aria-hidden="true">${ic}</span><span>${l}</span></button>`;
   }).join('')}</nav>`;
 }
 function setMode(m){state.mode=m==='merchant'?'merchant':'customer';save();go(state.mode==='merchant'?'merchant':'home');render()}
