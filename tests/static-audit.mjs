@@ -138,14 +138,20 @@ assert.ok(adminAcquisition.includes('adminPrelaunchLeadsSection')&&admin.include
 assert.ok(adminAcquisition.includes('adminSetPrelaunchLeadStatus')&&adminAcquisition.includes('QUALIFICADO')&&adminAcquisition.includes('CONVERTIDO'),'admin precisa operar pipeline de leads');
 assert.ok(adminAcquisition.includes('adminLeadWhatsAppText')&&adminAcquisition.includes('Abrir WhatsApp com mensagem'),'follow-up comercial precisa abrir com texto contextualizado');
 assert.ok(adminAcquisition.includes('adminAcquisitionMetrics')&&adminAcquisition.includes('Funil real de clientes e parceiros'),'admin precisa exibir funil de aquisição sobre métricas agregadas');
-assert.ok(adminAcquisition.includes('Campanhas: entrada até conversão')&&adminAcquisition.includes('qualificationRatePct')&&adminAcquisition.includes('conversionRatePct'),'admin precisa comparar campanhas por avanço do funil, não só volume');
+assert.ok(adminAcquisition.includes('Fontes comerciais, sem taxas artificiais')&&
+  adminAcquisition.includes('adminAcquisitionAggregateVerified')&&
+  adminAcquisition.includes('adminAcquisitionEvidenceView')&&
+  adminAcquisition.includes('Qualificados')&&
+  adminAcquisition.includes('Convertidos no CRM')&&
+  adminAcquisition.includes('Funil agregado não confirmado'),
+  'admin precisa comparar campanhas por evidências reais sem inventar taxas ponta a ponta');
 assert.ok(read('supabase/functions/admin-ops/index.ts').includes('admin_prelaunch_acquisition_metrics')&&read('supabase/functions/admin-ops/index.ts').includes('acquisitionMetrics'),'summary admin precisa transportar métricas server-wide');
 const acquisitionMetricsMigration=read('supabase/migrations/20261003204319_prelaunch_acquisition_metrics_v1_55.sql');
 const publicHashedQuotaMigration=read('supabase/migrations/20261003221546_public_hashed_api_quota_v1_59.sql');
 assert.ok(acquisitionMetricsMigration.includes('perform public.require_platform_admin')&&acquisitionMetricsMigration.includes("grant execute on function public.admin_prelaunch_acquisition_metrics(uuid)\nto service_role"),'métrica agregada precisa exigir admin e executar apenas via service_role');
 assert.ok(acquisitionMetricsMigration.includes("'medianFirstContactMinutes'")&&acquisitionMetricsMigration.includes("'campaigns'"),'métrica precisa incluir velocidade de contato e atribuição por campanha');
 assert.ok(adminAcquisition.includes('adminPublicRequestWhatsAppText'),'contato público por WhatsApp precisa carregar protocolo/contexto sem copiar mensagem sensível');
-assert.ok(adminAcquisition.includes('adminLeadPriority')&&adminAcquisition.includes('Novos há +24h'),'admin precisa priorizar pipeline e destacar leads novos envelhecidos');
+assert.ok(adminAcquisition.includes('adminLeadPriority')&&adminAcquisition.includes('Novos há mais de 24 horas'),'admin precisa priorizar pipeline e destacar leads novos envelhecidos');
 assert.ok(adminAcquisition.includes("Date.parse(a.created_at||'')-Date.parse(b.created_at||'')"),'pipeline aberto precisa ordenar os leads mais antigos primeiro dentro do estágio');
 assert.ok(adminAcquisition.includes('adminSetPublicRequestStatus')&&adminAcquisition.includes('EM ANÁLISE')&&adminAcquisition.includes('RESOLVIDA'),'admin precisa operar fila de contato/LGPD');
 assert.ok(read('supabase/functions/admin-ops/index.ts').includes('admin_prelaunch_lead_action')&&read('supabase/functions/admin-ops/index.ts').includes('admin_public_request_action'),'admin API precisa usar autoridades transacionais de aquisição');
@@ -172,7 +178,11 @@ assert.ok(marketingMigration.includes("'landingViews'")&&marketingMigration.incl
 assert.ok(publicHashedQuotaMigration.includes('create table if not exists public.public_hashed_rate_limits'),'quota pré-auth precisa de tabela sem FK de usuário');
 assert.ok(publicHashedQuotaMigration.includes('consume_hashed_api_quota')&&publicHashedQuotaMigration.includes("grant execute on function public.consume_hashed_api_quota(text,text,integer,integer)\nto service_role"),'quota por hash precisa ser autoridade server-only');
 assert.ok(publicHashedQuotaMigration.includes('revoke all on table public.public_hashed_rate_limits from public, anon, authenticated'),'browser não pode acessar contadores técnicos de quota');
-assert.ok(adminAcquisition.includes('ENTRADAS')&&adminAcquisition.includes('VIRAM FORMULÁRIO')&&adminAcquisition.includes('landingToLeadPct'),'admin precisa exibir funil desde entrada até lead');
+assert.ok(adminAcquisition.includes('ETAPA 1 • INTERESSE ANÔNIMO')&&
+  adminAcquisition.includes('ETAPA 2 • CADASTROS NO CRM')&&
+  adminAcquisition.includes('ETAPA 3 • EVOLUÇÃO DO CRM')&&
+  adminAcquisition.includes('landingViews')&&adminAcquisition.includes('formViews'),
+  'admin precisa mostrar evidências de entrada e cadastro sem alegar correspondência individual');
 assert.ok(legal.includes('Medição agregada de uso')&&legal.includes('sessionStorage')&&legal.includes('tecnologia que altere materialmente o tratamento de dados'),'privacidade precisa explicar medição agregada e governança de novas tecnologias');
 assert.ok(acquisition.includes('Quero receber aviso de disponibilidade')&&acquisition.includes('Quero conversar sobre parceria'),'aquisição precisa ter CTAs próprios para cliente e parceiro');
 assert.ok(acquisition.includes("utm_source")||backend.includes("utm_source"),'captação precisa preservar atribuição de campanha');
@@ -230,7 +240,7 @@ assert.ok(!growth.includes('disabled>Saque Pix ainda não disponível')&&growth.
 assert.ok(growth.includes('Você decide preços, estoque, formas de pagamento, disponibilidade e entrega.')||growth.includes('continua no comando')&&growth.includes('Você decide'),'landing de revenda deve enfatizar autonomia operacional');
 assert.ok(core.includes("['earn','💰','Ganhe','go']"),'navegação móvel precisa dar acesso direto ao hub de renda');
 assert.ok(!growth.includes('inputmode="numeric" maxlength="18"'),'campo CNPJ não pode forçar teclado somente numérico após adoção do CNPJ alfanumérico');
-assert.ok(sw.includes("CACHE='tamao-sg-v1.367'")&&sw.includes("'./css/marketing-premium.css'")&&sw.includes("'./js/home-showcase.js'"),'cache do service worker precisa refletir a geração PWA e os novos assets públicos');
+assert.ok(sw.includes("CACHE='tamao-sg-v1.368'")&&sw.includes("'./css/marketing-premium.css'")&&sw.includes("'./js/home-showcase.js'"),'cache do service worker precisa refletir a geração PWA e os novos assets públicos');
 assert.ok(sw.includes("fetch(req,{cache:'no-store'})")&&sw.includes("contentType.includes('text/html')"),'service worker deve renovar rede sem cache HTTP e separar navegação HTML de recursos não-HTML');
 assert.ok(!sw.includes("req.mode==='navigate'?'./index.html':req"),'navegação não-HTML não pode envenenar a chave do app shell');
 assert.ok(admin.includes('offerable_supply_required')&&admin.includes('offerReadyMerchantCount'),'painel admin precisa expor oferta real como gate de lançamento');
