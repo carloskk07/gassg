@@ -3,7 +3,7 @@ import fs from 'node:fs';
 
 const read=path=>fs.readFileSync(new URL('../'+path,import.meta.url),'utf8');
 const original=read('supabase/migrations/20261004185000_pilot_partner_invite_v1_69.sql');
-const guarded=read('scripts/sql/pilot-staging-approval-guard-v1-401.sql');
+const guarded=read('supabase/migrations/20261017222119_pilot_staging_approval_conflict_guards_v1_401.sql');
 const fnName='create or replace function public.admin_approve_merchant_application(';
 function extract(source){
   const start=source.toLowerCase().indexOf(fnName);
