@@ -2165,8 +2165,19 @@ async function merchantRefreshAfterConfirmedMutation(reply){
   // An HTTP 200 does not necessarily mean the RPC confirmed the mutation.
   // Preserve ambiguity: a blank/negative reply must never trigger a success
   // toast, and the operator must check the current order before trying again.
-  const rejected=reply==null||reply===false||
-    (typeof reply==='object'&&(
+  const structured=reply!==null&&typeof reply==='object'&&!Array.isArray(reply);
+  // The RPCs return either an explicit positive marker, a legacy versioned
+  // order acknowledgement, or a documented automatic rescue. Objects without
+  // any of these are NOT proof that an order transitioned.
+  const affirmative=structured&&(
+    reply.ok===true||reply.success===true||reply.autoRescued===true||
+    (typeof reply.orderId==='string'
+      &&/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(reply.orderId)
+      &&Number.isSafeInteger(reply.version)&&reply.version>=1
+      &&typeof reply.status==='string'&&reply.status.length>0)
+  );
+  const rejected=!affirmative||
+    (structured&&(
       reply.ok===false||reply.success===false||
       (typeof reply.error==='string'&&reply.error.trim().length>0)
     ));
