@@ -58,7 +58,7 @@ const other={orderId:'order-2',status:'PREPARING',
 let html=ctx.overview(rt,[one,other]);
 assert.match(html,/2 atendimento\(s\) pendente\(s\) em 1 pedido\(s\)/);
 assert.match(html,/até 100 registros/);
-assert.doesNotMatch(html,/resolver|encerrar chamado/gi);
+assert.doesNotMatch(html,/onclick=|adminSetSupportStatus|Registrar resolução/);
 html=ctx.detail(one);
 assert.match(html,/Atendimentos deste pedido/);
 assert.match(html,/Atraso/);
