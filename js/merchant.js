@@ -3125,7 +3125,7 @@ function merchantUnifiedFocusOrder(orderId,lane){
   if(!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(id))return false;
   if(!['offers','delivery','issues'].includes(lane))return false;
   const rt=globalThis.merchantRuntime;
-  if(!rt||rt.actionPending===true||!merchantOrderListEvidence(rt).fresh||
+  if(!rt||rt.error||rt.actionPending===true||!merchantOrderListEvidence(rt).fresh||
      !['owner','manager','operator'].includes(String(rt.merchant?.memberRole||'')))return false;
   const order=Array.isArray(rt.orders)?rt.orders.find(o=>o?.orderId===id):null;
   if(!order)return false;
