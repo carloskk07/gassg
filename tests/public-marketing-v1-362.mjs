@@ -43,7 +43,8 @@ assert.ok(sponsors.includes('sponsor-format-grid')&&sponsors.includes('openSpons
 assert.ok(sponsors.includes('depend')||sponsors.includes('avaliação'),
  'prospective campaign must not claim to be live');
 assert.ok(earn.includes("go('refer')"),'customer referral path remains functional');
-assert.ok(learn.includes('startCustomerAvailability()'),'buyer information page keeps journey CTA');
+assert.ok(learn.includes('startHomeBrowse()')&&!learn.includes('onclick="startCustomerAvailability()"'),
+ 'buyer information page must start with an empty basket, never auto-add gas');
 assert.ok(core.includes('const merchantAction=merchantPortal?"go(\'merchant\')":testDemo?"setMode(\'merchant\')":"go(\'merchants\')"'),
  'public Revenda switch must not jump over the marketing page');
 assert.ok(index.includes('css/marketing-premium.css'),'browser loads the marketing stylesheet');
