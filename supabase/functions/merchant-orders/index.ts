@@ -339,6 +339,41 @@ Deno.serve(async(req:Request)=>{
       items=data??[];
     }
 
+    // V1.386 — Private, read-only merchant support summary. The service
+    // role query is scoped by BOTH the authenticated member's selected
+    // merchant and the order IDs already authorized for this response.
+    // Do not forward messages, resolution notes, customer identifiers,
+    // phone numbers, staff or case IDs to the merchant.
+    const supportEligibleIds=(orders??[])
+      .filter((order)=>order.status!=="OFFERED_TO_MERCHANT")
+      .map((order)=>order.id);
+    const supportByOrder=new Map<string,Array<{
+      category:string,status:string,createdAt:string|null,updatedAt:string|null
+    }>>();
+    if(supportEligibleIds.length){
+      const {data:supportRows,error:supportError}=await admin
+        .from("support_cases")
+        .select("order_id,category,status,created_at,updated_at")
+        .eq("merchant_id",selected.merchant_id)
+        .in("order_id",supportEligibleIds)
+        .in("status",["open","in_review","resolved","closed"])
+        .order("created_at",{ascending:false})
+        .limit(100);
+      // Fail closed: an incomplete query must never be labelled as an
+      // empty support queue or silently reused from another merchant.
+      if(supportError)throw supportError;
+      for(const item of supportRows??[]){
+        if(!supportEligibleIds.includes(item.order_id))continue;
+        if(!supportByOrder.has(item.order_id))supportByOrder.set(item.order_id,[]);
+        supportByOrder.get(item.order_id)!.push({
+          category:String(item.category||"other"),
+          status:String(item.status||"unknown"),
+          createdAt:item.created_at??null,
+          updatedAt:item.updated_at??null
+        });
+      }
+    }
+
     const {data:performanceRows,error:performanceError}=await admin.rpc(
       "merchant_public_performance",
       {p_merchant_ids:[selected.merchant_id]}
@@ -753,6 +788,7 @@ Deno.serve(async(req:Request)=>{
         priceConfirmedAt:item.price_confirmed_at,
         updatedAt:item.updated_at
       })),
+      supportSummary:{version:1,scope:"merchant-active-orders",maxRows:100},
       orders:(orders??[]).map((o)=>({
         orderId:o.id,
         publicCode:o.public_code,
@@ -787,6 +823,7 @@ Deno.serve(async(req:Request)=>{
         deliveryAssignedAt:o.delivery_assigned_at,
         deliveryAssignedBy:o.delivery_assigned_by,
         items:byOrder.get(o.id)??[],
+        supportCases:o.status==="OFFERED_TO_MERCHANT"?[]:(supportByOrder.get(o.id)??[]),
         createdAt:o.created_at,
         updatedAt:o.updated_at
       }))

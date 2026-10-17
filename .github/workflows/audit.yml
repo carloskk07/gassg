@@ -499,6 +499,8 @@ jobs:
         run: node tests/customer-care-clarity-v1-384.mjs
       - name: V1.385 admin queue triage, role-safe case actions and mobile filters
         run: node tests/admin-support-triage-v1-385.mjs
+      - name: V1.386 merchant-specific customer support summary
+        run: node tests/merchant-support-scope-v1-386.mjs
       - name: V1.368 evidence-led acquisition dashboard
         run: node tests/admin-acquisition-evidence-v1-368.mjs
       - name: V1.369 linked campaign outcome evidence

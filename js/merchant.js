@@ -2237,6 +2237,7 @@ function merchantLivePage(){
     ${financialHold?'<div class="notice danger" style="margin-top:12px"><strong>Novas vendas suspensas por pendência financeira.</strong><br>Regularize o fechamento vencido. Pedidos já aceitos continuam disponíveis normalmente.</div>':''}
 
     ${orderEvidence.fresh?merchantDeliveryBoardView(rt,orders):''}
+    ${orderEvidence.fresh?merchantSupportOverview(rt,orders):''}
     <section class="section" id="merchant-live-orders"><div class="section-head"><div><h2 tabindex="-1">Pedidos que exigem ação</h2><p>Aceite, saída e recebimento só são registrados depois de confirmação no sistema.</p></div></div>${orderEvidence.fresh?merchantDeliveryAttentionView(rt):''}${orderEvidence.fresh?merchantOrderQueueView(orders):merchantOrderListRecovery(rt)}</section>
 
     <details id="merchant-workspace-start" class="merchant-workspace-section"${!canGoOnline?' open':''}><summary tabindex="0"><span><strong>${canGoOnline?'Produtos e entregas':'Comece por aqui: prepare sua operação'}</strong><small>${canGoOnline?'Atualize estoque, preços e configurações quando precisar.':'Veja as etapas que exigem atenção para sua revenda começar a receber ofertas.'}</small></span></summary><div class="merchant-workspace-content">
@@ -2947,6 +2948,58 @@ function merchantDeliveryConfirmationChanged(id){
     :'Dados preenchidos. Confira o pedido e toque em Confirmar entrega.';
   return current.ready;
 }
+// V1.386: authorized read-only support facts scoped by merchant-orders.
+const MERCHANT_SUPPORT_LABELS={
+ late:'Atraso',wrong_item:'Produto incorreto',price_payment:'Preço ou pagamento',
+ no_show:'Entrega não apareceu',delivery:'Problema na entrega',other:'Outro problema'
+};
+const MERCHANT_SUPPORT_STATUSES={
+ open:'Aguardando análise',in_review:'Em análise',resolved:'Resolvido',closed:'Encerrado'
+};
+function merchantSupportCasesForOrder(order,rt=globalThis.merchantRuntime){
+ if(rt?.supportSummary?.version!==1||rt.supportSummary.scope!=='merchant-active-orders'
+   ||!['owner','manager','operator'].includes(String(rt?.merchant?.memberRole||''))
+   ||order?.status==='OFFERED_TO_MERCHANT'||!Array.isArray(order?.supportCases))return [];
+ return order.supportCases.filter(item=>
+   Object.prototype.hasOwnProperty.call(MERCHANT_SUPPORT_LABELS,item?.category)
+   &&Object.prototype.hasOwnProperty.call(MERCHANT_SUPPORT_STATUSES,item?.status));
+}
+function merchantSupportCaseDate(raw){
+ if(typeof raw!=='string'||!/^20\d{2}-\d{2}-\d{2}T\d{2}:\d{2}/.test(raw))return '';
+ const parsed=Date.parse(raw);
+ if(!Number.isFinite(parsed)||parsed<Date.UTC(2020,0,1)||parsed>Date.now()+300000)return '';
+ return new Date(parsed).toLocaleString('pt-BR',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'});
+}
+function merchantSupportOverview(rt,orders){
+ if(rt?.supportSummary?.version!==1||rt.supportSummary.scope!=='merchant-active-orders'
+   ||!['owner','manager','operator'].includes(String(rt?.merchant?.memberRole||'')))return '';
+ const all=Array.isArray(orders)?orders:[];
+ const affected=all.filter(o=>merchantSupportCasesForOrder(o,rt).some(c=>['open','in_review'].includes(c.status)));
+ const pending=affected.reduce((n,o)=>n+merchantSupportCasesForOrder(o,rt)
+   .filter(c=>['open','in_review'].includes(c.status)).length,0);
+ return '<aside class="merchant-support-overview" aria-label="Atendimentos relacionados aos pedidos">'+
+   '<strong>'+(pending?pending+' atendimento(s) pendente(s) em '+affected.length+' pedido(s)':
+   'Nenhum atendimento pendente nos pedidos ativos consultados')+'</strong>'+
+   '<p>Confira o resumo no próprio pedido. A administração continua responsável por analisar e encerrar chamados.</p>'+
+   '<small>Última consulta dos pedidos ativos, com até 100 registros de atendimento; não é todo o histórico.</small></aside>';
+}
+function merchantSupportForOrder(order){
+ const cases=merchantSupportCasesForOrder(order);
+ if(!cases.length)return '';
+ const pending=cases.filter(c=>['open','in_review'].includes(c.status)).length;
+ const rows=cases.slice(0,5).map(c=>{
+   const when=merchantSupportCaseDate(c.createdAt);
+   return '<li><div><strong>'+esc(MERCHANT_SUPPORT_LABELS[c.category])+'</strong>'+
+     '<span>'+esc(MERCHANT_SUPPORT_STATUSES[c.status])+'</span></div>'+
+     (when?'<small>Registrado em '+esc(when)+'</small>':'')+'</li>';
+ }).join('');
+ return '<details class="merchant-order-support"'+(pending?' open':'')+'>'+
+   '<summary>Atendimentos deste pedido <strong>'+ (pending?pending+' pendente(s)':cases.length+' registrado(s)')+
+   '</strong></summary><div class="merchant-order-support-body"><ul>'+rows+'</ul>'+
+   '<small>Esses registros são somente informativos. A administração controla as decisões sobre os chamados.</small>'+
+   '</div></details>';
+}
+
 function merchantLiveOrder(o){
   const items=(o.items||[]).map(i=>`${Number(i.quantity)}× ${esc(i.productName||i.productCode||'Item')}`).join(' • ');
   const total=BRL.format(Number(o.totalCents||0)/100);
@@ -3081,6 +3134,7 @@ function merchantLiveOrder(o){
     <div class="order-head"><div><div class="order-id">${esc(o.publicCode||o.orderId)}</div><div class="order-line">${items||'Itens do pedido'}</div></div><div class="merchant-order-total"><strong>${total}</strong><div class="tiny muted">${esc(copy[0])}</div></div></div>
     ${compactMeta}
     ${merchantOrderAttentionCard(o)}
+    ${typeof merchantSupportForOrder==='function'?merchantSupportForOrder(o):''}
     ${merchantIncidentRiskGuide(o)}
     ${merchantOrderProgressView(o)}
     <div class="order-line">${address}</div><div class="order-line">Pagamento: ${esc(paymentLabel(o.paymentMethod))}</div>${o.paymentMethod==='cash'&&o.cashTenderCents?`<div class="order-line"><strong>Troco para: ${BRL.format(Number(o.cashTenderCents)/100)}</strong></div>`:''}${o.deliveryWindowStart?`<div class="notice success" style="margin-top:10px"><strong>Entrega agendada</strong><br>${esc(formatDeliveryWindow(o.deliveryWindowStart,o.deliveryWindowEnd))}</div>`:''}

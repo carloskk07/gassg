@@ -4800,3 +4800,48 @@ body:has(.admin-page) .admin-nav-item:focus-visible{outline-offset:-3px}
 @media(prefers-reduced-motion:reduce){
  .admin-support-case-actions button{transition:none}
 }
+
+/* TAMÃO V1.386 — Minimal merchant-visible support data, not a ticket action UI. */
+.merchant-support-overview{
+ margin:13px 0;padding:16px 18px;
+ background:linear-gradient(135deg,#eef9f2,#fffefa);
+ border:1px solid #cce3d4;border-radius:17px;
+}
+.merchant-support-overview strong{display:block;color:#124f34;font-size:15px;line-height:1.4}
+.merchant-support-overview p{margin:7px 0 4px;color:#456b54;font-size:13px;line-height:1.6}
+.merchant-support-overview small{font-size:11px;line-height:1.5;color:#58715e}
+.merchant-order-support{
+ margin:10px 0;border:1px solid #d0e6d7;border-radius:15px;
+ background:linear-gradient(130deg,#f2faf4,#fffefb);overflow:hidden
+}
+.merchant-order-support summary{
+ display:flex;align-items:center;justify-content:space-between;
+ flex-wrap:wrap;gap:7px;cursor:pointer;min-height:48px;
+ padding:11px 13px;color:#1e5b40;font-size:13px;font-weight:900
+}
+.merchant-order-support summary strong{
+ background:#e4f3e9;border-radius:99px;padding:5px 8px;
+ font-size:11px;white-space:normal
+}
+.merchant-order-support summary:focus-visible{outline:3px solid #b98528;outline-offset:2px}
+.merchant-order-support-body{border-top:1px solid #dcece1;padding:12px 13px}
+.merchant-order-support-body ul{list-style:none;display:grid;gap:8px;margin:0 0 9px;padding:0}
+.merchant-order-support-body li{padding:10px 11px;border:1px solid #e0eadf;background:#fff;border-radius:11px}
+.merchant-order-support-body li>div{display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap}
+.merchant-order-support-body li strong{font-size:12px;color:#1d4f38}
+.merchant-order-support-body li span{font-size:11px;font-weight:900;color:#2c6549}
+.merchant-order-support-body li small,.merchant-order-support-body>small{
+ display:block;color:#617665;font-size:11px;line-height:1.5;margin-top:5px
+}
+@media(max-width:620px){
+ .merchant-support-overview{padding:13px;border-radius:13px}
+ .merchant-order-support summary{min-height:51px;font-size:12px}
+ .merchant-order-support-body{padding:10px}
+}
+@media(max-width:370px){
+ .merchant-order-support-body li>div{display:grid;gap:5px}
+ .merchant-support-overview strong{font-size:14px}
+}
+@media(prefers-reduced-motion:reduce){
+ .merchant-order-support summary{scroll-behavior:auto}
+}
