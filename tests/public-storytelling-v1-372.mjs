@@ -33,8 +33,8 @@ const sponsorEnv=vm.createContext({shell:html=>html});
 vm.runInContext(sponsor+'\nthis.getPage=sponsorsLanding;',sponsorEnv);
 const html=sponsorEnv.getPage();
 for(const key of ['sponsor-hero-layout','sponsor-hero-copy','sponsor-visual-story',
- 'sponsor-visual-feature','sponsor-visual-details','CONCEITO ILUSTRATIVO',
- 'Não é campanha ativa','aria-label="Ilustração de uma proposta']){
+ 'sponsor-visual-feature','sponsor-visual-details','EXEMPLO DE FORMATO',
+ 'Um jeito de conectar sua marca','aria-label="Exemplo de apresentação']){
  assert.ok(html.includes(key),'sponsor story lacks '+key);
 }
 assert.ok(html.indexOf('sponsor-hero-copy')<html.indexOf('sponsor-visual-story'));
