@@ -263,3 +263,60 @@ a:focus-visible,summary:focus-visible{outline:3px solid #c48716;outline-offset:4
 .ed-savings-art small{font-size:12px;color:#385d46;font-weight:850}
 @media(max-width:760px){.ed-savings{grid-template-columns:minmax(0,1fr);padding:21px 17px;border-radius:20px}
 .ed-savings-art{min-height:145px}.ed-savings-art strong{font-size:53px}}
+
+/* TAMÃO V1.411 — consistent editorial rhythm and proportion-safe product artwork. */
+.ed-hero-grid > *, .ed-value > *, .ed-savings > *,
+.ed-proof-grid > *, .ed-related-grid > *{min-width:0}
+.ed-hero-copy h1{
+  max-width:17ch;
+  font-size:clamp(35px,4.2vw,59px);
+  line-height:1.085;
+  letter-spacing:-.052em;
+  text-wrap:balance;
+}
+.ed-hero-copy > p,.ed-section-head h2,.ed-proof-head h2,
+.ed-related-heading h2,.ed-savings-copy h2{
+  overflow-wrap:break-word;
+}
+.ed-hero-copy > p,.ed-proof-card p,.ed-step p,
+.ed-savings-copy p,.ed-related-card span{ text-wrap:pretty }
+.ed-hero-visual{align-self:stretch;min-width:0}
+.ed-product{
+  aspect-ratio:1;
+  background-size:500% auto;
+  background-position-y:center;
+}
+.ed-audience-scene{min-width:0;max-width:100%}
+.ed-scene-primary,.ed-scene-primary > div{min-width:0}
+.ed-scene-primary strong{overflow-wrap:break-word}
+.ed-proof-grid,.ed-steps,.ed-related-grid{align-items:stretch}
+.ed-proof-card{display:flex;flex-direction:column;align-items:flex-start}
+.ed-proof-card h3{min-height:2.25em;text-wrap:balance}
+.ed-proof-card p{margin-top:auto}
+.ed-btn,.ed-header-cta,.ed-related-card{overflow-wrap:break-word}
+@media(max-width:1000px){
+  .ed-hero-copy h1{max-width:21ch}
+  .ed-hero-visual{min-height:360px}
+}
+@media(max-width:680px){
+  .ed-hero-copy h1{font-size:clamp(33px,8.3vw,46px);max-width:100%;letter-spacing:-.047em}
+  .ed-hero-copy > p{font-size:15px;line-height:1.62}
+  .ed-hero-visual{min-height:340px}
+  .ed-product-scene{min-height:178px}
+  .ed-product{width:38%}
+  .ed-scene-primary{transform:none}
+  .ed-proof-card{display:grid;grid-template-columns:44px minmax(0,1fr);align-items:start}
+  .ed-proof-card h3{min-height:0}
+  .ed-proof-card p{margin-top:0}
+  .ed-actions .ed-btn{width:100%}
+}
+@media(max-width:370px){
+  .ed-header-inner{column-gap:6px}
+  .ed-brand{gap:7px}
+  .ed-brand strong{font-size:20px}
+  .ed-brand img{width:38px;height:38px}
+  .ed-header-cta{padding:11px 8px;font-size:11px}
+  .ed-hero-grid{padding-inline:14px}
+  .ed-audience-scene{padding-inline:0}
+  .ed-scene-primary{padding:14px 10px}
+}
