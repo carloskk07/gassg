@@ -848,7 +848,7 @@
 .site-footer-editorial a:hover{background:#def0e3}
 .site-footer-editorial a:focus-visible{outline:3px solid #ba831a;outline-offset:3px}
 @media(max-width:900px){
-  .home-discover-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .home-discover .home-discover-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
 }
 @media(max-width:620px){
   .marketing-hero .hero-grid{border-radius:22px}
@@ -1026,3 +1026,125 @@
 .merchant-secondary-lead .section{margin:0;padding:12px 15px 19px}
 @media(max-width:620px){.merchant-live-signup-cta{width:100%}
  .merchant-secondary-lead{margin-block:12px}.merchant-secondary-lead .section{padding-inline:10px}}
+
+/* TAMÃO V1.411 — visual integrity on public journeys.
+   Keep all purchase, geographic, authentication and financial rules untouched. */
+.marketing-hero .hero-grid,
+.home-discover,.tamao-value-section,.tamao-visitor-paths,
+.tamao-network-hero,.merchant-landing-premium,.tamao-sponsors-page{
+  overflow-wrap:break-word;
+}
+.marketing-hero .hero-grid > div:first-child,
+.home-discover-grid > *,
+.tamao-visitor-paths .visitor-path,
+.tamao-perks-stage > *,
+.merchant-landing-premium-copy{
+  overflow-wrap:break-word;
+}
+.marketing-hero.home-first-visit h1{
+  max-width:18ch;
+  font-size:clamp(36px,5vw,64px)!important;
+  line-height:1.065;
+  letter-spacing:-.055em;
+  text-wrap:balance;
+}
+.marketing-hero.home-first-visit .hero-lead{
+  max-width:62ch;
+  line-height:1.63;
+  text-wrap:pretty;
+}
+.marketing-hero .home-saving-headlines{
+  gap:8px;
+  margin-block:17px;
+}
+.marketing-hero .home-saving-headlines > span,
+.marketing-hero .home-saving-headlines > button{
+  text-align:left;
+  white-space:normal;
+  line-height:1.4;
+}
+/* The four public audiences belong to one deliberate, balanced grid. */
+.home-value-bridge.tamao-visitor-paths > .visitor-paths-grid{
+  grid-template-columns:repeat(4,minmax(0,1fr));
+  align-items:stretch;
+}
+.tamao-visitor-paths .visitor-path h3{
+  text-wrap:balance;
+}
+.tamao-visitor-paths .visitor-path p{
+  text-wrap:pretty;
+}
+/* Keep the first visit focused: the merchant journey and referral benefits
+   remain available in the navigation and dedicated sections below the fold. */
+.marketing-hero.home-first-visit .hero-emotional-promise,
+.marketing-hero.home-first-visit .home-benefits-shortcuts,
+.marketing-hero.home-first-visit .home-saving-headlines > button:last-child{
+  display:none;
+}
+/* Each sprite panel keeps its native proportions instead of stretching to a tile. */
+.home-discover-tile{
+  align-items:center;
+  text-align:center;
+  min-width:0;
+}
+.home-discover .home-discover-art{
+  align-self:center;
+  flex:none;
+  width:min(100%,126px);
+  height:auto;
+  aspect-ratio:1;
+}
+.home-discover .home-discover-art .tamao-product-photo{
+  width:100%;height:100%;max-height:none;
+  background-size:500% auto;
+  background-position-y:center;
+}
+.home-discover-tile strong{
+  text-wrap:balance;
+  min-height:2.6em;
+  overflow-wrap:break-word;
+}
+.home-discover-tile .home-discover-action{
+  text-align:left;
+}
+.home-editorial-photo .tamao-product-photo{
+  background-size:500% auto;
+  background-position-y:center;
+}
+.home-editorial-gas strong,.home-editorial-water strong{
+  overflow-wrap:break-word;
+  text-wrap:balance;
+}
+@media(max-width:1120px){
+  .home-value-bridge.tamao-visitor-paths > .visitor-paths-grid{
+    grid-template-columns:repeat(2,minmax(0,1fr));
+  }
+}
+@media(max-width:620px){
+  .marketing-hero.home-first-visit h1{
+    font-size:clamp(34px,9vw,46px)!important;
+    max-width:100%;
+    letter-spacing:-.05em;
+  }
+  .marketing-hero .hero-grid > div:first-child{width:100%;min-width:0}
+  .marketing-hero.home-first-visit .hero-lead{font-size:15px;line-height:1.58}
+  .home-value-bridge.tamao-visitor-paths > .visitor-paths-grid{
+    grid-template-columns:minmax(0,1fr);
+  }
+  .home-discover-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .home-discover .home-discover-tile{padding:13px 10px;min-height:181px}
+  .home-discover .home-discover-art{width:min(100%,94px);height:auto;aspect-ratio:1}
+  .home-discover-tile strong{min-height:2.8em;line-height:1.3}
+  .home-editorial-visual{max-width:100%}
+  .home-first-visit .home-editorial-choice strong{font-size:12px;line-height:1.2}
+}
+@media(max-width:370px){
+  .home-discover .home-discover-grid{grid-template-columns:minmax(0,1fr)}
+  .home-discover .home-discover-tile{display:grid;grid-template-columns:88px minmax(0,1fr);gap:7px 13px;
+    align-items:center;justify-items:start;text-align:left;min-height:118px;padding:13px}
+  .home-discover .home-discover-art{width:88px;grid-row:span 2}
+  .home-discover-tile strong{min-height:0;margin:0;text-align:left}
+  .home-discover-action{grid-column:2;padding-top:0}
+  .home-first-visit .home-editorial-gas,.home-first-visit .home-editorial-water{padding:7px}
+  .home-first-visit .home-editorial-choice small{white-space:normal;font-size:10px}
+}

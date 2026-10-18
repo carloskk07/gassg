@@ -42,11 +42,13 @@ assert.ok(!c.art('P45',{icon:'🔥'}).includes('tamao-product-photo'),'Do not mi
 assert.ok(!c.art('UNKNOWN',{icon:'<script>'}).includes('<script>'),'Fallback escaped');
 for(const x of [
  "background-image:url('../assets/tamao-products-sprite.webp')",
- 'background-size:500% 100%','product-gas{background-position:0%',
+ 'background-size:500% auto','product-gas{background-position:0%',
  'product-water{background-position:25%','product-charcoal{background-position:50%',
  'product-wood{background-position:75%','product-ice{background-position:100%',
  '@media(max-width:430px)','@media(prefers-reduced-motion:reduce)'
 ])assert.ok(css.includes(x),'Missing CSS '+x);
+assert.ok(!css.includes('background-size:500% 100%'),'Sprite must never be stretched to fit arbitrary card heights');
+assert.match(css,/\.tamao-product-photo\s*\{[^}]*background-size:500% auto/s,'Product imagery should preserve its intrinsic proportions');
 for(const x of ['const STATIC_DIRS=[\'css\',\'js\',\'icons\',\'assets\'];',
  'const dirs=[\'css\',\'js\',\'icons\',\'assets\'];'])
  assert.ok((live+'\n'+cloud).includes(x),'Build must include image asset');

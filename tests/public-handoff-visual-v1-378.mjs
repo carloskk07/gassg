@@ -8,6 +8,8 @@ import {writePublicLandingPages,PUBLIC_LANDING_SLUGS} from '../scripts/build-pub
 const read=file=>fs.readFileSync(new URL('../'+file,import.meta.url),'utf8');
 const handoff=read('js/landing-handoff.js');
 const stylesheet=read('css/landing-editorial.css');
+const marketingStyles=read('css/marketing-premium.css');
+const productStyles=read('css/components.css');
 new vm.Script(handoff,{filename:'landing-handoff.js'});
 const origin='https://tamao.com.br';
 const run=(anchors=[],search='?utm_source=instagram&utm_campaign=lancamento&ref=ABCDE1')=>{
@@ -89,4 +91,15 @@ try{
  for(const token of ['.ed-audience-scene','.ed-scene-primary','.ed-audience-brand','.ed-audience-network','@media(max-width:680px)','@media(prefers-reduced-motion:reduce)'])
   assert.ok(stylesheet.includes(token),'missing accessible mobile style '+token);
 }finally{fs.rmSync(tmp,{recursive:true,force:true})}
+// Visual-regression guardrails: typography, four balanced audience paths, mobile
+// reflow and sprite scaling all ship together with the public pages.
+assert.match(stylesheet,/\.ed-product\s*\{[^}]*background-size:500% auto/s);
+assert.match(stylesheet,/\.ed-product\s*\{[^}]*aspect-ratio:1/s);
+assert.match(stylesheet,/\.ed-hero-copy h1\s*\{[^}]*text-wrap:balance/s);
+assert.match(stylesheet,/@media\(max-width:370px\)/);
+assert.match(marketingStyles,/\.home-discover \.home-discover-art\s*\{[^}]*aspect-ratio:1/s);
+assert.match(marketingStyles,/\.home-value-bridge\.tamao-visitor-paths > \.visitor-paths-grid\s*\{[^}]*repeat\(4,minmax\(0,1fr\)\)/s);
+assert.match(marketingStyles,/@media\(max-width:370px\)/);
+assert.match(productStyles,/\.tamao-product-photo\s*\{[^}]*background-size:500% auto/s);
+assert.doesNotMatch(productStyles,/background-size:500% 100%/);
 console.log('TAMÃO V1.378 PASS — referral/UTM handoff, safe same-origin allowlist, distinct marketing visuals and mobile layout.');
