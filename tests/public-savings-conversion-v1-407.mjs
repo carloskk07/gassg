@@ -35,7 +35,7 @@ for(const selector of [
  '.merchant-demand-grid','@media(max-width:800px)'
 ])assert.ok(marketingCss.includes(selector),'missing '+selector);
 assert.match(index,/Compare preços de gás, água e essenciais/);
-assert.match(index,/mais visibilidade e oportunidades de receber pedidos/i);
+assert.match(index,/um novo canal para alcançar clientes e receber pedidos/i);
 assert.doesNotMatch(index,/Cupons já à venda|garantia de economia|vendas garantidas/i);
 
 const tmp=fs.mkdtempSync(path.join(os.tmpdir(),'tamao-savings-'));
