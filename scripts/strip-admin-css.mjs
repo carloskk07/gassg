@@ -1,5 +1,6 @@
 import fs from 'node:fs';
 import path from 'node:path';
+import {fileURLToPath} from 'node:url';
 
 // A CSS selector rooted at an admin-specific class/id cannot match an
 // ordinary customer/merchant page, unless that class is intentionally shared.
@@ -9,7 +10,7 @@ const ROOT_ADMIN=/^[.#](admin-[a-z0-9_-]+)(?=$|[\s.#:[>+~])/i;
 const PROTECTED_ADMIN_SCRIPTS=new Set(['admin-acquisition.js','admin.js','admin-activations.js']);
 
 export function publicAdminClassReferences(dir){
-  const root=typeof dir==='string'?dir:path.fileURLToPath(dir);
+  const root=typeof dir==='string'?dir:fileURLToPath(dir);
   const tokens=new Set();
   for(const file of fs.readdirSync(root)){
     if(!file.endsWith('.js')||PROTECTED_ADMIN_SCRIPTS.has(file))continue;
