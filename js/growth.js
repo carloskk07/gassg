@@ -532,10 +532,10 @@ function sponsorsLanding(){
         <button type="button" onclick="openSponsorContact('visibility')"><span aria-hidden="true">📣</span><span><strong>Ganhar visibilidade</strong><small>Divulgação regional identificada</small></span><b aria-hidden="true">↗</b></button>
         <button type="button" onclick="openSponsorContact('relationship')"><span aria-hidden="true">🎁</span><span><strong>Apoiar benefícios</strong><small>Campanhas com condições definidas</small></span><b aria-hidden="true">↗</b></button>
         <button type="button" onclick="openSponsorContact('local')"><span aria-hidden="true">🤝</span><span><strong>Estar junto às revendas</strong><small>Parcerias para o comércio local</small></span><b aria-hidden="true">↗</b></button>
-        <p>Escolha um objetivo e conte sobre sua marca. Nenhuma campanha é ativada sem aprovação.</p>
+        <p>Escolha seu objetivo e envie sua proposta. A equipe TAMÃO cuida dos próximos passos.</p>
       </div></div>
-      <aside class="sponsor-visual-story" aria-label="Ilustração de uma proposta de divulgação local, não representa anúncios no ar">
-        <div class="sponsor-visual-head"><span>DIVULGAÇÃO LOCAL</span><small>CONCEITO ILUSTRATIVO</small></div>
+      <aside class="sponsor-visual-story" aria-label="Exemplo de apresentação de divulgação local">
+        <div class="sponsor-visual-head"><span>DIVULGAÇÃO LOCAL</span><small>EXEMPLO DE FORMATO</small></div>
         <div class="sponsor-visual-feature">
           <span class="sponsor-visual-symbol" aria-hidden="true">✦</span>
           <div><span>DA SUA MARCA PARA A CIDADE</span><strong>Faça parte das escolhas do dia a dia.</strong></div>
@@ -545,12 +545,12 @@ function sponsorsLanding(){
           <div><span aria-hidden="true">📣</span><div><strong>Divulgação identificada</strong><small>Publicidade separada das ofertas orgânicas</small></div></div>
           <div><span aria-hidden="true">🎁</span><div><strong>Ação combinada</strong><small>Objetivos, investimento e condições definidos antes</small></div></div>
         </div>
-        <p>Exemplo de apresentação comercial. Não é campanha ativa nem promessa de alcance ou resultado.</p>
+        <p>Um jeito de conectar sua marca às escolhas do dia a dia, com formatos e condições definidos em conjunto.</p>
       </aside></div>
     </div>
     <div class="public-sponsor-selector-intro"><span class="section-kicker">FORMATOS PARA CONVERSAR</span><h2>Da ideia ao formato certo para sua marca.</h2><p>Conheça exemplos de campanhas. Cidade, categoria e investimento são definidos em conversa com o TAMÃO.</p></div>
     <section class="section sponsor-formats" aria-label="Exemplos de formatos de campanha">
-      <div class="section-head"><div><span class="section-kicker">UM PLANO PARA CADA OBJETIVO</span><h2>Mais do que aparecer: faça parte de momentos relevantes.</h2><p>Três possibilidades para planejar. Cada campanha depende de avaliação, disponibilidade e aprovação antes de entrar no ar.</p></div></div>
+      <div class="section-head"><div><span class="section-kicker">UM PLANO PARA CADA OBJETIVO</span><h2>Mais do que aparecer: faça parte de momentos relevantes.</h2><p>Três formatos para sua marca ganhar contexto regional. Escolha o seu objetivo e converse com o TAMÃO.</p></div></div>
       <div class="sponsor-format-grid">
         <article><span aria-hidden="true">01 / VISIBILIDADE</span><h3>Estar presente onde o cliente explora.</h3><p>Espaços de divulgação identificados, com contexto de cidade e categoria.</p><button type="button" onclick="openSponsorContact('visibility')">Quero divulgar minha marca <span aria-hidden="true">→</span></button></article>
         <article><span aria-hidden="true">02 / RELACIONAMENTO</span><h3>Valorizar quem compra de novo.</h3><p>Ações de benefício com público, limites e regras definidos previamente.</p><button type="button" onclick="openSponsorContact('relationship')">Quero apoiar benefícios <span aria-hidden="true">→</span></button></article>
