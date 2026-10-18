@@ -31,8 +31,14 @@ const title='<svg onload=alert(1)>';
 results=[{
  id:'a',vertical:'professionals',title,description:'Trabalho realizado com cuidado',
  city_name:'São Gabriel',state_code:'RS',occupation:'Eletricista',whatsapp_e164:'+555599998888',
+ photo_urls:['00000000-0000-0000-0000-000000000011/11111111-1111-1111-1111-111111111111.webp'],
  guests:null,seats_available:null
 }];
+const ownedPhoto='00000000-0000-0000-0000-000000000011/11111111-1111-1111-1111-111111111111.webp';
+assert.match(sandbox.discoveryPublicPhotoUrl(ownedPhoto),
+  /\/storage\/v1\/object\/public\/tamao-discovery-photos\//);
+assert.equal(sandbox.discoveryPublicPhotoUrl('https://attacker.example/tracker.jpg'),'');
+assert.equal(sandbox.discoveryPublicPhotoUrl('../private.pdf'),'');
 assert.match(sandbox.discoveryExploreCards(),/onclick="go\('professionals'\)"/);
 assert.match(sandbox.discoveryExploreCards(),/onclick="go\('rides'\)"/);
 assert.match(sandbox.discoveryExploreCards(),/onclick="go\('stays'\)"/);
