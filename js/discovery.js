@@ -28,6 +28,14 @@ function discoveryWhatsApp(item){
   if(!/^\+[1-9][0-9]{7,14}$/.test(phone))return '';
   return 'https://wa.me/'+phone.slice(1)+'?text='+encodeURIComponent('Olá, vi seu anúncio no TAMÃO: '+String(item.title||'').slice(0,80));
 }
+function discoveryPublicPhotoUrl(raw){
+  const key=String(raw||'');
+  if(!/^[0-9a-f-]{36}\/[0-9a-f-]{36}\.(jpg|jpeg|png|webp)$/.test(key))return '';
+  const base=String(CHAMA_BACKEND.url||'').replace(/\/+$/,'');
+  if(!/^https:\/\//.test(base))return '';
+  return base+'/storage/v1/object/public/tamao-discovery-photos/'+
+    key.split('/').map(encodeURIComponent).join('/');
+}
 function discoveryCard(item,kind){
   if(item?.vertical!==kind)return '';
   const loc=esc([item.city_name,item.state_code].filter(Boolean).join(' / '));
@@ -39,7 +47,10 @@ function discoveryCard(item,kind){
       (Number.isSafeInteger(Number(item.price_from_brl_cents))&&item.price_from_brl_cents!==null&&Number(item.price_from_brl_cents)>=0
        ?' · Preço anunciado desde '+esc(BRL.format(Number(item.price_from_brl_cents)/100)):'');
   const contact=discoveryWhatsApp(item);
-  return '<article class="discovery-result"><small>'+loc+'</small><h2>'+esc(item.title)+'</h2>'+
+  const photo=discoveryPublicPhotoUrl(Array.isArray(item.photo_urls)?item.photo_urls[0]:'');
+  return '<article class="discovery-result">'+
+    (photo?'<img class="discovery-photo" src="'+esc(photo)+'" alt="" loading="lazy" decoding="async">':'')+
+    '<small>'+loc+'</small><h2>'+esc(item.title)+'</h2>'+
     '<p class="discovery-detail">'+extra+'</p><p>'+esc(item.description)+'</p>'+
     (contact?'<a href="'+esc(contact)+'" rel="noopener noreferrer" target="_blank">Conversar pelo WhatsApp ↗</a>':'')+'</article>';
 }
