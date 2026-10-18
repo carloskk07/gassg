@@ -35,8 +35,8 @@ try {
  const slugs=writePublicLandingPages(root);
  assert.equal(slugs.length,4);
  const expected=[
-  ['como-funciona','A cesta é sua','O valor antes do pedido','A entrega acompanhada'],
-  ['para-revendas','Seus produtos, suas regras','Recebimento sob seu controle','Sem exclusividade'],
+  ['como-funciona','Compare para gastar menos','Cashback e descontos','Pacotes de cupons TAMÃO'],
+  ['para-revendas','Novos clientes podem encontrar você','Mais oportunidades de pedidos','Mais chances de recompra'],
   ['para-marcas','Divulgação regional','Ações com benefícios','Comércio local'],
   ['indicacoes','Convide pessoas','Apresente revendas','Acompanhe convites']
  ];
