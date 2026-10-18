@@ -42,15 +42,30 @@ function announcePublicPageNavigation(){
 function tamaoPublicEntryIntent(){
   try{
     const value=String(new URLSearchParams(location.search).get('entrada')||'').trim().toLowerCase();
-    return ['revenda','marca','indicar','agua','gas'].includes(value)?value:'';
+    return ['revenda','cadastro-revenda','marca','indicar','agua','gas'].includes(value)?value:'';
   }catch{return ''}
 }
+let tamaoSignupHandoffAttempted=false;
 function tamaoPublicEntryRoute(){
   if(globalThis.adminPortalRequested?.()||globalThis.merchantPortalRequested?.()||
      globalThis.__CHAMA_TEST__===true||globalThis.CHAMA_INTERNAL_PILOT===true)return false;
   // A visitor's explicit link to a page always takes precedence.
   if(String(location.hash||'').length>0)return false;
-  const destination={revenda:'merchants',marca:'sponsors',indicar:'earn'}[tamaoPublicEntryIntent()];
+  const intent=tamaoPublicEntryIntent();
+  if(intent==='cadastro-revenda'){
+    // Distinguish a real registration from generic commercial discovery.
+    // No origin configured: keep the person on a useful public route.
+    if(!String(globalThis.CHAMA_MERCHANT_ORIGIN||'').trim()||
+       typeof openMerchantPortal!=='function'){
+      go('merchants');
+      return true;
+    }
+    if(tamaoSignupHandoffAttempted)return true;
+    tamaoSignupHandoffAttempted=true;
+    openMerchantPortal(true);
+    return true;
+  }
+  const destination={revenda:'merchants',marca:'sponsors',indicar:'earn'}[intent];
   if(!destination)return false;
   go(destination);
   return true;
