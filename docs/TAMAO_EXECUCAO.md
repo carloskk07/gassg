@@ -6,7 +6,7 @@
 **Branch de integração:** `feat/unified-discovery-tamao`  
 **Branch oficial:** `main`  
 **Commit-base de `main`:** `433101839489f7739f44ddcf04e664ddff3435bd`  
-**SHA da última revisão com auditoria completa aprovada:** `7fbf28217d3e20e20a29368ef6e89046b6db759c`
+**SHA da última revisão com auditoria completa aprovada:** `73100e0265306d2ffde9ee23ad26dede9b6ae83e`
 **Último commit de escopo anterior:** `f34a4ae206c8ec737796212f4b8cd08377e93fff`
 **PR principal:** [#492](https://github.com/carloskk07/gassg/pull/492), aberta em rascunho.  
 **Escopo:** [TAMAO_ESCOPO.md](TAMAO_ESCOPO.md).  
@@ -166,15 +166,15 @@
 
 ## Checkpoint operacional obrigatório
 
-**ÚLTIMA ETAPA CONCLUÍDA:** compensação de upload incompleto de comprovantes e fotos, proteção RLS contra remoção de fotos referenciadas e regressões de falhas de rede; quatro gates oficiais PASS no código `7fbf28217d3e20e20a29368ef6e89046b6db759c`. Nova edição documental requer nova conferência.
+**ÚLTIMA ETAPA CONCLUÍDA:** correção de navegação pública estável, preboot claro e contratos de regressão atualizados no código `73100e0265306d2ffde9ee23ad26dede9b6ae83e`. Quatro gates oficiais PASS nesse SHA (Audit 317 etapas, PostgreSQL 17, build isolado, smoke visual). Verificação comercial real em leitura: revenda `pending`/offline e CNPJ/ANP `pending`; não publicada nem ativada. Próximo commit documental requer nova CI.
 
-**ETAPA ATUAL:** validação real de Auth/Storage isolados, retenção/expurgo, reconciliação de objetos órfãos e E2E com anunciantes A/B, superadmin e visitante; infraestrutura de homologação independente não existe atualmente.
+**ETAPA ATUAL:** PRIORIDADE issue #493: concluir compliance, preço geral e ativação legítima da revenda, teste E2E do pedido e pausa para decisão administrativa até 21/10. Em paralelo: expansão sem publicação, Auth/Storage isolados, retenção e expurgo, reconciliação de objetos órfãos e E2E A/B/superadmin/visitante.
 
-**PRÓXIMA AÇÃO EXATA:** confirmar CI do HEAD; utilizar homologação independente autorizada/isolada para verificar bytes reais, contas A/B/admin/visitante, signed URLs, perda de rede e moderação; depois fechar expurgo/reconciliação e E2E de criação → revisão → publicação → pausa, antes de qualquer merge.
+**PRÓXIMA AÇÃO EXATA:** na frente comercial, responsável e superadmin validarem representação, CNPJ/ANP, pagamentos, preços atuais, logística e presença online da revenda; seguir a ativação oficial e testar compra/aceite/entrega, RLS/idempotência, pausa, incidentes e reconciliação HTTP antes de autorizar São Gabriel. Em paralelo, habilitar homologação Auth/Storage independente sem custos extras e executar A/B/admin/visitante antes de publicar novas modalidades.
 
-**ARQUIVOS QUE DEVEM SER INSPECIONADOS:** `supabase/migrations/20261018131000_discovery_shared_verticals.sql`, `js/discovery-owner.js`, `js/admin.js`, `js/discovery.js`, `js/bootstrap.js`, `js/customer.js`, `scripts/build-live-portals.mjs`, `tests/discovery-owner-journey.mjs`, `tests/discovery-admin-journey.mjs`, `tests/discovery-db-integration.sql`, `docs/TAMAO_ESCOPO.md`.
+**ARQUIVOS QUE DEVEM SER INSPECIONADOS:** `js/core.js`, `index.html`, `css/marketing-premium.css`, `tests/public-navigation-stability.mjs`, `tests/public-marketing-v1-362.mjs`, `tests/production-language-v1-147.mjs`, `supabase/migrations/20261018131000_discovery_shared_verticals.sql`, `js/discovery-owner.js`, `js/admin.js`, `js/discovery.js`, `js/bootstrap.js`, `js/customer.js`, `scripts/build-live-portals.mjs`, `tests/discovery-owner-journey.mjs`, `tests/discovery-admin-journey.mjs`, `tests/discovery-db-integration.sql`, `docs/TAMAO_ESCOPO.md`.
 
-**TESTES QUE DEVEM SER EXECUTADOS:** `node tests/discovery-owner-journey.mjs`, `node tests/discovery-admin-journey.mjs`, `node tests/discovery-public-journeys.mjs`, `node tests/discovery-shared-verticals.mjs`, `node tests/portal-performance-budget.mjs`, workflows `Audit`, `Build isolated live portals`, `TAMÃO discovery PostgreSQL contract` e `TAMÃO public visual smoke`; depois E2E Auth/Storage com usuários reais de homologação.
+**TESTES QUE DEVEM SER EXECUTADOS:** `node tests/public-navigation-stability.mjs`, `node tests/public-marketing-v1-362.mjs`, `node tests/production-language-v1-147.mjs`, `node tests/discovery-owner-journey.mjs`, `node tests/discovery-admin-journey.mjs`, `node tests/discovery-public-journeys.mjs`, `node tests/discovery-shared-verticals.mjs`, `node tests/portal-performance-budget.mjs`, workflows `Audit`, `Build isolated live portals`, `TAMÃO discovery PostgreSQL contract` e `TAMÃO public visual smoke`; depois E2E Auth/Storage com usuários reais de homologação.
 
 **BLOQUEIOS CONHECIDOS:** Migração e anúncios não existem em produção; Auth/Storage multiusuário real, verificação de arquivos binários, políticas de retenção/remoção, validação legal por modalidade, Cobrança Impulso, reputação, SEO argentino, regressões e E2E completos permanecem pendentes. Leitura HTTP direta dos três manifests não foi possível; apenas atestado de SHA no Supabase.
 
@@ -197,3 +197,12 @@
 - Defeito priorizado da issue #493: menu desktop/mobile mudava com a disponibilidade assíncrona; conteúdo inicial trazia links com outros rótulos e fundo verde. Alteração proposta **somente nesta PR draft**: menus estáveis, verificação de disponibilidade no clique, rótulos coerentes e fundo inicial claro; nova regressão `tests/public-navigation-stability.mjs` no Audit. **Aguardando CI do novo HEAD e revisão visual antes de extração/publicação**.
 - Não criar/comprar/faturar pedidos ou alterar status de revenda e abertura de cidade por SQL. O primeiro passo continua sendo validar representação, CNPJ/ANP quando aplicáveis, preços gerais, pagamento, logística e online pelo painel e responsável real; depois testar jornada de pedido e pausa.
 - Expansão continua dependente de Auth/Storage reais A/B/admin isolados, retenção e órfãos, publicação/pausa E2E, SEO `es-AR`, Ads/Impulso e demais critérios. Migration `20261018131000` permanece **não aplicada**. PR não deve ser integrada.
+
+## Fechamento técnico verificável — 18/10/2026 (issue #493)
+
+- Correção proposta na única branch de integração, último **SHA de código validado** `73100e0265306d2ffde9ee23ad26dede9b6ae83e`: menus público desktop/mobile estáveis independentemente do estado assíncrono de supply; CTA Consultar protegido por consulta no clique; primeira pintura clara; links do HTML inicial atualizados; novos e antigos testes de regressão compatibilizados sem enfraquecer o bloqueio real de checkout.
+- **PASS na revisão de código `73100e0265306d2ffde9ee23ad26dede9b6ae83e`:** Audit [39173060832](https://github.com/carloskk07/gassg/actions/runs/39173060832) (317 etapas), PostgreSQL 17 [39173060843](https://github.com/carloskk07/gassg/actions/runs/39173060843), build três portais [39173060830](https://github.com/carloskk07/gassg/actions/runs/39173060830), smoke visual [39173060834](https://github.com/carloskk07/gassg/actions/runs/39173060834). Execução independente em navegador de produção e experiência do usuário real ainda não realizada.
+- **Issue comercial atualizada:** [comentário com evidência e impedimentos](https://github.com/carloskk07/gassg/issues/493#issuecomment-6256052973). 1 revenda ainda pendente/offline, preço geral pendente, 3 produtos individuais confirmados e estoque positivo, CNPJ/ANP pendentes, São Gabriel bloqueada, 0 pedidos. Quem autoriza é o superadmin mediante condições reais, não uma alteração SQL de conveniência.
+- **Alertas adicionais de advisors:** 154 tabelas RLS sem políticas (INFO, padrão restritivo existente), 2 funções SECURITY DEFINER executáveis por `authenticated` (WARN, verificar intenção e autorização), Auth proteção contra senhas vazadas (WARN), índices de FK não cobertos (INFO). Revisar sem revogação cega que derrube funções legítimas; nenhum DDL aplicado.
+- **Estado de produção preservado:** `main` em `433101839489f7739f44ddcf04e664ddff3435bd`, atestado bancário dos três portais às `2026-10-18T21:56:09Z`; HTTP externo dos manifests indisponível para este ambiente. `platform_launch_control` segue `PRELAUNCH/false`, migração de expansão não aplicada. **A branch não foi integrada ou implantada.**
+- **Escopo ainda pendente:** marketplaces Profissionais, Caronas, Hospedagens, Ads/Impulso, SEO internacional, moderação E2E real, finanças e privacidade completa. A próxima conversa deve continuar o **bloqueio comercial da issue #493** antes de propor novos módulos ou abrir qualquer cidade.
