@@ -237,9 +237,9 @@ create policy discovery_owner_draft_insert on public.discovery_listings
  );
 create policy discovery_owner_draft_edit on public.discovery_listings
  for update to authenticated using (
-   (select auth.uid())=owner_id and status in ('draft','rejected','paused')
+   (select auth.uid())=owner_id and status in ('draft','rejected')
  ) with check (
-   (select auth.uid())=owner_id and status in ('draft','rejected','paused')
+   (select auth.uid())=owner_id and status in ('draft','rejected')
  );
 grant insert (vertical,title,description,state_code,city_key,city_name,
   public_area,whatsapp_e164,photo_urls) on public.discovery_listings to authenticated;
@@ -255,7 +255,7 @@ create function public.discovery_owner_can_edit_details(
 as $$
   select exists(select 1 from public.discovery_listings l
     where l.id=p_listing_id and l.owner_id=(select auth.uid())
-      and l.vertical=p_vertical and l.status in ('draft','rejected','paused'))
+      and l.vertical=p_vertical and l.status in ('draft','rejected'))
 $$;
 revoke all on function public.discovery_owner_can_edit_details(uuid,text) from public;
 grant execute on function public.discovery_owner_can_edit_details(uuid,text)
@@ -340,7 +340,12 @@ begin
   v_admin:=exists(select 1 from public.platform_admins a
        where a.user_id=v_actor and a.active and a.admin_role='superadmin');
   if p_next_status=v_listing.status then return v_listing.status;end if;
-  if p_next_status='review' then
+  if p_next_status='draft' then
+    -- Changes to a paused/rejected advertisement require a new review.
+    -- No owner may modify a paused approved listing without withdrawing it.
+    if v_actor<>v_listing.owner_id or v_listing.status not in ('paused','rejected')
+      then raise exception 'OWNER_REOPEN_REQUIRED' using errcode='42501';end if;
+  elsif p_next_status='review' then
     if v_actor<>v_listing.owner_id or v_listing.status not in ('draft','rejected','paused')
        then raise exception 'OWNER_DRAFT_REQUIRED' using errcode='42501';end if;
     if not public.discovery_verified_photo_paths(p_listing_id) then raise exception 'REAL_PHOTO_REQUIRED' using errcode='22023';end if;
@@ -378,11 +383,11 @@ begin
     raise exception 'INVALID_TRANSITION' using errcode='22023';
   end if;
   update public.discovery_listings set status=p_next_status,updated_at=clock_timestamp(),
-    submitted_at=case when p_next_status='review' then clock_timestamp() else submitted_at end,
-    published_at=case when p_next_status='published' then clock_timestamp() else published_at end,
+    submitted_at=case when p_next_status='draft' then null when p_next_status='review' then clock_timestamp() else submitted_at end,
+    published_at=case when p_next_status='draft' then null when p_next_status='published' then clock_timestamp() else published_at end,
     paused_at=case when p_next_status='paused' then clock_timestamp() else paused_at end,
-    reviewed_by=case when v_admin then v_actor else reviewed_by end,
-    reviewed_at=case when v_admin then clock_timestamp() else reviewed_at end
+    reviewed_by=case when p_next_status='draft' then null when v_admin then v_actor else reviewed_by end,
+    reviewed_at=case when p_next_status='draft' then null when v_admin then clock_timestamp() else reviewed_at end
   where id=p_listing_id;
   insert into public.discovery_moderation_log(listing_id,from_status,to_status,actor_id,reason)
   values(p_listing_id,v_listing.status,p_next_status,v_actor,nullif(btrim(p_reason),''));
