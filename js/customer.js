@@ -50,17 +50,17 @@ function tamaoProductArt(code,product,extra=''){
 function tamaoHomeBenefits(){
   return `<section class="section tamao-value-section" aria-label="Vantagens do TAMÃO">
     <div class="section-head"><div><span class="section-kicker">BOM PARA QUEM COMPRA. BOM PARA SUA CIDADE.</span>
-      <h2>Compre com liberdade. Compartilhe vantagens. Valorize sua cidade.</h2>
-      <p>Do botijão de gás à água do dia a dia: encontre o que precisa, compare as opções disponíveis e acompanhe a compra sem complicação. E, com a Rede TAMÃO, você ainda pode convidar amigos e revendas.</p></div></div>
+      <h2>Mais do que comprar. Mais controle, vantagens e conexões na sua cidade.</h2>
+      <p>Encontre gás, água e outros essenciais, confira preços e prazos das revendas que atendem seu CEP e acompanhe seus pedidos. Quer ir além? Descubra a Rede TAMÃO e os benefícios de compras elegíveis no Clube.</p></div></div>
     <div class="grid cards-3 tamao-value-grid">
       <article class="card"><span class="tamao-value-icon" aria-hidden="true">🔎</span>
-        <h3>Mais escolhas, menos trabalho</h3>
+        <h3>Conheça as opções sem sair procurando</h3>
         <p>Informe seu CEP e conheça os preços totais e prazos das revendas que puderem atender sua cesta. Você escolhe o que faz sentido para você.</p></article>
       <article class="card"><span class="tamao-value-icon" aria-hidden="true">🛡️</span>
-        <h3>Você sabe em que etapa está</h3>
+        <h3>Seu pedido, com etapas que você acompanha</h3>
         <p>Uma revenda precisa confirmar seu pedido antes de ele avançar. O acompanhamento mostra as etapas efetivamente registradas.</p></article>
       <article class="card"><span class="tamao-value-icon" aria-hidden="true">🤝</span>
-        <h3>Seu convite ajuda o TAMÃO a crescer</h3>
+        <h3>Indique pessoas e revendas da sua cidade</h3>
         <p>Compartilhe seu link pessoal, convide amigos e apresente revendas. Acompanhe sua rede e conheça as regras dos benefícios de indicação.</p></article>
     </div>
     <div class="tamao-value-actions">
@@ -511,15 +511,15 @@ function home(){
     &&(globalThis.liveRuntime?.marketMode==='single_supplier'
       ||Number(globalThis.liveRuntime?.eligibleMerchantCount||0)===1));
   const firstVisitMessage=rememberedRegion
-    ? 'Encontre o que precisa em '+rememberedRegion.city+'. Você escolhe primeiro e consulta a entrega pelo CEP quando quiser.'
-    : 'Explore o que precisa, escolha seus produtos e confira as opções para seu CEP antes de pedir.';
+    ? 'Sua próxima compra em '+rememberedRegion.city+' pode começar aqui: escolha o que precisa e consulte as opções para seu CEP.'
+    : 'Veja gás, água e essenciais em um só lugar. Escolha os produtos que quiser e consulte preços e entrega disponíveis para seu CEP.';
   const heroJourney=singleMarket
     ? internalPilot
       ? 'Valide a jornada completa do ambiente interno: pedido, aceite, preparação, saída, chegada, pagamento e benefícios.'
       : 'Informe onde quer receber, veja o preço total e o prazo do parceiro disponível e acompanhe cada etapa até a entrega.'
     : 'Informe onde quer receber, compare as opções disponíveis e acompanhe cada etapa até a entrega.';
   const intentSection=acquisitionOpen
-    ? `<section class="section intent-section first-visit-intent"><div class="section-head"><div><span class="section-kicker">OUTRAS FORMAS DE PARTICIPAR</span><h2>Quer saber mais ou tem uma revenda?</h2><p>Veja como o TAMÃO funciona ou conte um pouco sobre sua empresa.</p></div></div>
+    ? `<section class="section intent-section first-visit-intent"><div class="section-head"><div><span class="section-kicker">OUTRAS FORMAS DE PARTICIPAR</span><h2>Tem muita coisa boa no TAMÃO além de comprar.</h2><p>Conheça seus benefícios, compartilhe com amigos ou abra um novo canal de vendas para sua empresa.</p></div></div>
 <div class="intent-grid prelaunch-intent-grid first-visit-intent-grid">
   <button class="intent-card" onclick="go('earn')"><span class="intent-icon">🤝</span><span><strong>Indique o TAMÃO</strong><small>Compartilhe com amigos e ajude a trazer novas revendas para sua cidade.</small></span><b>→</b></button>
   <button class="intent-card" onclick="go('learn')"><span class="intent-icon">🛡️</span><span><strong>Entender como funciona</strong><small>Saiba como são apresentados o preço, a confirmação e a entrega.</small></span><b>→</b></button>
@@ -534,11 +534,11 @@ function home(){
 </div></section>`;
 
   const valueBridge=`<section class="home-value-bridge tamao-visitor-paths" aria-label="O TAMÃO conecta quem compra, vende e indica">
-    <header class="visitor-paths-heading"><span class="section-kicker">UMA CIDADE, MAIS POSSIBILIDADES</span><h2>Bom para quem precisa. Útil para quem vende.</h2><p>O TAMÃO aproxima a rotina das pessoas das revendas da região. Descubra seu próximo passo.</p></header>
+    <header class="visitor-paths-heading"><span class="section-kicker">UMA CIDADE, MAIS POSSIBILIDADES</span><h2>Uma plataforma para quem compra, vende e indica.</h2><p>Mais facilidade nas compras, mais uma vitrine para empresas e uma rede de pessoas que compartilha oportunidades. Escolha como participar.</p></header>
     <div class="visitor-paths-grid">
       <article class="visitor-path visitor-path-buyer"><span class="visitor-path-icon" aria-hidden="true">🛍️</span><small>PARA VOCÊ</small><h3>Resolva as compras do dia a dia.</h3><p>Escolha os produtos, consulte o valor e a entrega para seu endereço e acompanhe pedidos confirmados.</p><button type="button" onclick="startHomeBrowse()">Escolher produtos →</button></article>
       <article class="visitor-path visitor-path-merchant"><span class="visitor-path-icon" aria-hidden="true">🏪</span><small>PARA SUA EMPRESA</small><h3>Abra mais uma porta para vender.</h3><p>Apresente sua revenda aos clientes da região e continue no controle dos preços, estoque e entregas.</p><button type="button" onclick="go('merchants')">Quero vender <span aria-hidden="true">→</span></button></article>
-      <article class="visitor-path visitor-path-network"><span class="visitor-path-icon" aria-hidden="true">🤝</span><small>PARA SUA REDE</small><h3>Compartilhe algo que faz sentido.</h3><p>Convide pessoas e empresas, acompanhe sua rede e conheça as regras dos benefícios elegíveis.</p><button type="button" onclick="go('earn')">Conhecer a rede <span aria-hidden="true">→</span></button></article>
+      <article class="visitor-path visitor-path-network"><span class="visitor-path-icon" aria-hidden="true">🤝</span><small>PARA SUA REDE</small><h3>Sua indicação pode aproximar pessoas e negócios.</h3><p>Compartilhe seu convite pessoal, apresente revendas e acompanhe suas indicações. Conheça também as campanhas que oferecem benefícios elegíveis.</p><button type="button" onclick="go('earn')">Quero indicar <span aria-hidden="true">→</span></button></article>
     </div>
   </section>`;
   // Visible only before a verified offer: explain the journey without turning
@@ -572,8 +572,13 @@ function home(){
       ${cityChecked&&!hasConfirmedCityOffers&&acquisitionOpen?`<div class="regional-action"><button class="ghost" onclick="openPrelaunchCustomerLead()">Sem opção para meu CEP? Quero receber um aviso →</button></div>`:''}
       <small class="starter-footnote">${esc(freshness)}</small>
     </div>
-    <div class="hero-emotional-promise"><span aria-hidden="true">✦</span><span>${conciseHome?'Conheça as opções antes de informar o endereço.':'Confira as opções da sua região sem precisar ligar de loja em loja.'}</span></div>
+    <div class="hero-emotional-promise"><span aria-hidden="true">✦</span><span>${conciseHome?'Escolha sem pressa. Confira as condições antes de confirmar.':'Confira as opções da sua região sem precisar ligar de loja em loja.'}</span></div>
 
+    <div class="home-benefits-shortcuts" aria-label="Mais motivos para conhecer o TAMÃO">
+      <span>✓ Sua cesta, suas escolhas</span>
+      <span>✓ Acompanhamento após o aceite</span>
+      <button type="button" onclick="go('earn')">🎁 Clube e indicações <span aria-hidden="true">→</span></button>
+    </div>
     <div class="home-quick-category" role="group" aria-label="Escolha por onde começar">
       <span>O que você precisa hoje?</span>
       ${discoveryCounts.gas?'<button type="button" onclick="homeDiscoverFocus();homeFilterProducts(\'gas\')">🔥 Gás</button>':''}
@@ -622,8 +627,8 @@ ${conciseHome?`<section class="home-buying-steps" aria-label="Como começar no T
   </ol>
 </section>`:''}
 ${!testDemo&&typeof homeRegionalPriceBoard==="function"?homeRegionalPriceBoard(homeRegion):""}
-${!conciseHome?valueBridge:''}
-${!conciseHome&&typeof tamaoHomeBenefits==="function"?tamaoHomeBenefits():""}
+${valueBridge}
+${typeof tamaoHomeBenefits==="function"?tamaoHomeBenefits():""}
 ${conciseHome?intentSection:''}
 ${acquisitionOpen?prelaunchCustomerLeadSection():''}
 ${conciseHome?homeAnswers:''}
