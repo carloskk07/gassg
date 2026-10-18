@@ -226,6 +226,32 @@ $$;
 revoke all on function public.discovery_verified_photo_paths(uuid) from public,anon,authenticated;
 
 
+-- Fotos em uploads incompletos podem ser removidas somente se nenhuma
+-- listagem desse dono referenciar o objeto. As fotos publicadas permanecem
+-- protegidas mesmo se o anunciante tentar deletá-las diretamente na Storage API.
+create function public.discovery_photo_unreferenced(p_path text)
+returns boolean language sql stable security definer set search_path='pg_catalog'
+as $
+ select (select auth.uid()) is not null and not exists(
+   select 1 from public.discovery_listings l
+   where l.owner_id=(select auth.uid()) and p_path=any(l.photo_urls)
+ )
+$;
+revoke all on function public.discovery_photo_unreferenced(text) from public,anon,authenticated;
+grant execute on function public.discovery_photo_unreferenced(text) to authenticated;
+create policy discovery_photo_owner_read on storage.objects
+ for select to authenticated using (
+   bucket_id='tamao-discovery-photos'
+   and owner_id=(select auth.uid())::text
+ );
+create policy discovery_photo_orphan_cleanup on storage.objects
+ for delete to authenticated using (
+   bucket_id='tamao-discovery-photos'
+   and owner_id=(select auth.uid())::text
+   and split_part(name,'/',1)=(select auth.uid())::text
+   and (select public.discovery_photo_unreferenced(name))
+ );
+
 -- Fluxos de cadastro preservam proprietário e nunca permitem autopublicação.
 create policy discovery_owner_draft_insert on public.discovery_listings
  for insert to authenticated with check (
