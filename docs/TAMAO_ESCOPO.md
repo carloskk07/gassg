@@ -27,8 +27,8 @@ A home deve permitir acessar **Comprar | Profissionais | Caronas | Hospedagens |
 | FIN-001 | Receita de anúncios | Trial, diária contratada e configurável por localidade, fuso definido, idempotência, pausa sem cobrança, conciliação, recibos e inadimplência |
 | REP-001 | Reputação | Avaliações ligadas a experiências autênticas, verificação, resolução de denúncias, antifraude e ranking orgânico separado do pago |
 | ADMIN-001 | Governança | Superadmin atual governa abertura/cidade, revisão, documentos, tarifa, promoções, ads, moderação, auditoria e financeiro sem segundo aprovador artificial |
-| QA-001 | Engenharia | Testes de unitário, integração, E2E, RLS, falhas de rede, simultaneidade, financeiro, acessibilidade, visual, SEO, desempenho e recuperação |
-| REL-001 | Lançamento | Zero P0/P1 conhecidos, migrações e backups conferidos, portais convergentes por SHA, homologação funcional, controles configurados e ativação expressa |
+| QA-001 | Engenharia | Testes automatizados de regressão, RLS, autenticação, segurança financeira, recuperação e disponibilidade antes das ativações; ampliar E2E, acessibilidade, visual e experiência em uso real durante lançamento assistido, com registro de evidências |
+| REL-001 | Lançamento | Abertura assistida progressiva com zero P0/P1 conhecidos, migrações/backup e rollback, portais por SHA, teste mínimo de jornadas críticas, observabilidade, suporte e autorização por modalidade/cidade; homologação de comportamento ampliada em operação real |
 
 ## Fronteiras comerciais e de segurança
 
@@ -38,8 +38,14 @@ Cobrança diária, quando existir, exige aceite informado, período gratuito, ev
 
 A autorização para anúncio de profissionais ou hospedagens **não herda** a abertura de cidades para pedidos de gás/água. A publicação de código **não ativa** anúncios ou cobranças. Documentação privada não é entregue a visitantes. Contato internacional deve funcionar sem obrigar o visitante a criar conta.
 
-## Gates antes de publicar
+## Política de lançamento assistido e homologação em uso real
 
-A migração da PR #492 não pode ser aplicada nem a PR integrada apenas por passar em testes estáticos. Cada vertical exige cadastro, envio seguro de imagens, revisão do superadmin, busca/contato real, tratamento de erros, monitoramento e regressão no produto existente. Testar 320/360/390/768/1024/1440 px, restaurabilidade, workflows e três `portal-build.json` com SHAs consistentes.
+**Decisão do responsável pelo TAMÃO em 18/10/2026:** priorizar entrada em operação, aprendizado com compradores, revendas e anunciantes reais, e correções rápidas a partir de erros observados e reclamações. Não exigir a conclusão de todos os cenários de homologação, todas as combinações de telas ou a operação de todos os módulos antes de abrir o primeiro uso real controlado. A experiência real complementará os testes, sem representar homologação concluída automaticamente.
 
-**Aprovação por modalidade e cidade é separada do deploy.** Falha crítica bloqueia a funcionalidade afetada; jamais liberar parcialmente como se estivesse completa.
+**Portão mínimo não negociável para colocar uma funcionalidade nas mãos de pessoas:** CI das alterações aprovado; permissões/RLS e segregação entre contas validadas; jornada essencial de cadastro, publicação e contato funcionando em uma verificação básica; dados sensíveis privados; inexistência de cobrança sem aceite/idempotência; capacidade comprovada de suspender a modalidade e reverter mudanças; recuperação/backups previstos; portal oficial correto e canal funcional de recebimento de reclamações. Defeitos P0/P1 conhecidos impedem ativar a parte afetada. Essa verificação curta deve ser prática e não burocrática.
+
+**Após a abertura:** realizar testes de usabilidade, formulários, idiomas, dispositivos, integrações e comportamento com pessoas reais; coletar reclamações, evidências não sensíveis, métricas e registros de falha; classificar incidentes P0–P3; priorizar por dano real; corrigir na mesma linha de integração, com regressão automatizada antes de cada publicação e conferência pós-deploy. P0: suspender imediatamente a operação afetada; P1: impedir novas ativações e corrigir prioritariamente; P2/P3: corrigir progressivamente sem paralisar as jornadas sadias. Nunca usar dados pessoais de clientes em issues públicas.
+
+**Aprovação por modalidade e cidade permanece separada do deploy:** o administrador principal controla abertura e pausa, sem segunda aprovação artificial. A disponibilização de código não ativa comercialmente cidades nem gera cobrança. As três modalidades podem ter janelas de abertura independentes, sem obrigar concluir todos os módulos ao mesmo tempo.
+
+**Declaração final:** `TAMÃO — PRONTO PARA PRODUÇÃO REAL` somente com a evidência dos critérios mandatórios do projeto. Um piloto ou lançamento assistido é operação real, mas não equivale automaticamente ao selo de conclusão integral.
