@@ -57,6 +57,8 @@ async function readDOM(){
   brokenImages:[...document.images].filter(i=>i.complete&&i.naturalWidth===0)
    .map(i=>i.getAttribute('src')).filter(Boolean).slice(0,8),
   savingsScene:document.querySelectorAll('.ed-value-scene').length,
+  firstVisit:!!document.querySelector('.home-first-visit'),
+  benefitPanels:document.querySelectorAll('.tamao-perks-panel').length,
   compactPerks:document.querySelectorAll('.tamao-value-compact .tamao-perks-panel').length,
   visibleCatalogue:document.querySelectorAll('.home-discover-tile:not([hidden])').length
  }})())`;
@@ -95,7 +97,8 @@ try{
    if(!data.heading)issues.push(name+' '+size.width+': empty heading');
    if(data.brokenImages.length)issues.push(name+' '+size.width+': broken images '+data.brokenImages.join(','));
    if(name!=='home'&&data.savingsScene!==1)issues.push(name+' '+size.width+': expected one distinct visual benefit scene');
-   if(name==='home'&&data.compactPerks!==2)issues.push(name+' '+size.width+': expected two first-visit benefit panels');
+   if(name==='home'&&data.benefitPanels!==2)issues.push(name+' '+size.width+': expected two benefit panels, found '+data.benefitPanels+' (firstVisit='+data.firstVisit+')');
+   if(name==='home'&&data.firstVisit&&data.compactPerks!==2)issues.push(name+' '+size.width+': first-visit must use compact panel');
    if(name==='home'&&data.visibleCatalogue===0)issues.push(name+' '+size.width+': catalogue missing');
   }
  }
