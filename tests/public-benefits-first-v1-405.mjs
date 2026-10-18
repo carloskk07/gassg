@@ -51,7 +51,7 @@ try {
   assert.doesNotMatch(html,/entrega garantida|renda garantida|vendas garantidas|clientes garantidos/i);
  }
  assert.match(fs.readFileSync(path.join(root,'para-marcas','index.html'),'utf8'),/Nenhuma campanha é ativada automaticamente/);
- assert.match(fs.readFileSync(path.join(root,'indicacoes','index.html'),'utf8'),/não representa promessa de renda/);
+ assert.match(fs.readFileSync(path.join(root,'indicacoes','index.html'),'utf8'),/seguem as regras e a elegibilidade/);
  assert.match(fs.readFileSync(path.join(root,'para-revendas','index.html'),'utf8'),/não há mensalidade/);
  assert.match(fs.readFileSync(path.join(root,'como-funciona','index.html'),'utf8'),/A revenda precisa aceitar/);
  const css=read('css/landing-editorial.css');
