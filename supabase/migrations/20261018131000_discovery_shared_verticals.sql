@@ -212,46 +212,51 @@ grant update (title,description,state_code,city_key,city_name,
   public_area,whatsapp_e164,photo_urls,updated_at)
  on public.discovery_listings to authenticated;
 
+-- Encapsula a verificação de dono sem publicar UUIDs de usuários.
+-- A exceção SECURITY DEFINER só consulta o anúncio pertencente ao auth.uid().
+create function public.discovery_owner_can_edit_details(
+  p_listing_id uuid,p_vertical text
+) returns boolean language sql stable security definer set search_path='pg_catalog'
+as $$
+  select exists(select 1 from public.discovery_listings l
+    where l.id=p_listing_id and l.owner_id=(select auth.uid())
+      and l.vertical=p_vertical and l.status in ('draft','rejected','paused'))
+$$;
+revoke all on function public.discovery_owner_can_edit_details(uuid,text) from public;
+grant execute on function public.discovery_owner_can_edit_details(uuid,text)
+  to authenticated;
+
 -- Um usuário jamais poderá escrever detalhes de anúncio de outra pessoa
 -- ou alterar detalhes já aprovados sem nova moderação.
 create policy discovery_professional_draft_insert on public.discovery_professional_details
  for insert to authenticated with check (
-   exists (select 1 from public.discovery_listings l where l.id=listing_id
-       and l.owner_id=(select auth.uid()) and l.status in ('draft','rejected','paused') and l.vertical='professionals')
+   (select public.discovery_owner_can_edit_details(listing_id,'professionals'))
  );
 create policy discovery_professional_draft_update on public.discovery_professional_details
  for update to authenticated using (
-   exists (select 1 from public.discovery_listings l where l.id=listing_id
-       and l.owner_id=(select auth.uid()) and l.status in ('draft','rejected','paused') and l.vertical='professionals')
+   (select public.discovery_owner_can_edit_details(listing_id,'professionals'))
  ) with check (
-   exists (select 1 from public.discovery_listings l where l.id=listing_id
-       and l.owner_id=(select auth.uid()) and l.status in ('draft','rejected','paused') and l.vertical='professionals')
+   (select public.discovery_owner_can_edit_details(listing_id,'professionals'))
  );
 create policy discovery_ride_draft_insert on public.discovery_ride_details
  for insert to authenticated with check (
-   exists (select 1 from public.discovery_listings l where l.id=listing_id
-       and l.owner_id=(select auth.uid()) and l.status in ('draft','rejected','paused') and l.vertical='rides')
+   (select public.discovery_owner_can_edit_details(listing_id,'rides'))
  );
 create policy discovery_ride_draft_update on public.discovery_ride_details
  for update to authenticated using (
-   exists (select 1 from public.discovery_listings l where l.id=listing_id
-       and l.owner_id=(select auth.uid()) and l.status in ('draft','rejected','paused') and l.vertical='rides')
+   (select public.discovery_owner_can_edit_details(listing_id,'rides'))
  ) with check (
-   exists (select 1 from public.discovery_listings l where l.id=listing_id
-       and l.owner_id=(select auth.uid()) and l.status in ('draft','rejected','paused') and l.vertical='rides')
+   (select public.discovery_owner_can_edit_details(listing_id,'rides'))
  );
 create policy discovery_stay_draft_insert on public.discovery_stay_details
  for insert to authenticated with check (
-   exists (select 1 from public.discovery_listings l where l.id=listing_id
-       and l.owner_id=(select auth.uid()) and l.status in ('draft','rejected','paused') and l.vertical='stays')
+   (select public.discovery_owner_can_edit_details(listing_id,'stays'))
  );
 create policy discovery_stay_draft_update on public.discovery_stay_details
  for update to authenticated using (
-   exists (select 1 from public.discovery_listings l where l.id=listing_id
-       and l.owner_id=(select auth.uid()) and l.status in ('draft','rejected','paused') and l.vertical='stays')
+   (select public.discovery_owner_can_edit_details(listing_id,'stays'))
  ) with check (
-   exists (select 1 from public.discovery_listings l where l.id=listing_id
-       and l.owner_id=(select auth.uid()) and l.status in ('draft','rejected','paused') and l.vertical='stays')
+   (select public.discovery_owner_can_edit_details(listing_id,'stays'))
  );
 grant insert,update on public.discovery_professional_details to authenticated;
 grant insert,update on public.discovery_ride_details to authenticated;
