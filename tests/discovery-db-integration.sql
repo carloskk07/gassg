@@ -17,6 +17,22 @@ create table public.platform_admins(
  active boolean not null,
  admin_role text not null
 );
+
+-- Isolated Storage metadata fixture; real files are NEVER manipulated by tests.
+create schema storage;
+create table storage.buckets(
+ id text primary key,name text,public boolean,
+ file_size_limit bigint,allowed_mime_types text[]
+);
+create table storage.objects(
+ bucket_id text references storage.buckets(id),
+ name text,owner_id text,metadata jsonb not null default '{}'::jsonb,
+ primary key(bucket_id,name)
+);
+alter table storage.objects enable row level security;
+grant usage on schema storage to anon,authenticated;
+grant insert on storage.objects to authenticated;
+
 insert into auth.users(id,is_anonymous,email_confirmed_at) values
  ('00000000-0000-0000-0000-000000000011',false,now()),
  ('00000000-0000-0000-0000-000000000022',false,now()),
@@ -32,13 +48,17 @@ select count(*) as unactivated_cities from public.discovery_vertical_cities;
 select count(*) as unbilled_days from public.discovery_advertising_daily_ledger;
 set role authenticated;
 set request.jwt.claim.sub='00000000-0000-0000-0000-000000000011';
+insert into storage.objects(bucket_id,name,owner_id,metadata)
+values('tamao-discovery-photos','00000000-0000-0000-0000-000000000011/11111111-1111-1111-1111-111111111111.jpg',
+ '00000000-0000-0000-0000-000000000011',
+ '{"mimetype":"image/jpeg"}'::jsonb);
 insert into public.discovery_listings(
  vertical,title,description,state_code,city_key,city_name,
  whatsapp_e164,photo_urls
 ) values(
  'professionals','Eletricista experiente','Atendimento profissional na região com orçamento direto.',
  'RS','sao-gabriel','São Gabriel','+5555999999999',
- array['https://example.test/real-photo.jpg']
+ array['00000000-0000-0000-0000-000000000011/11111111-1111-1111-1111-111111111111.jpg']
 ) returning id as listing_id \gset
 
 select set_config('tamao.test.listing_id', :'listing_id', false);
@@ -48,6 +68,23 @@ insert into public.discovery_professional_details(
 ) values ((current_setting('tamao.test.listing_id'))::uuid,'Eletricista','São Gabriel e localidades próximas',12);
 
 -- Direct status overwrite is impossible and the subscriber must submit review.
+-- An external URL must never pass review as a verified photo.
+insert into public.discovery_listings(
+ vertical,title,description,state_code,city_key,city_name,whatsapp_e164,photo_urls
+) values('professionals','Rascunho com foto externa',
+ 'Anúncio de exemplo sem upload próprio que deve ser recusado na revisão.',
+ 'RS','sao-gabriel','São Gabriel','+5555999999999',
+ array['https://external.example/tracker.jpg']) returning id as fake_photo_id \gset
+insert into public.discovery_professional_details(listing_id,occupation,service_area)
+ values(:'fake_photo_id','Eletricista','São Gabriel e arredores');
+do $$
+begin
+ begin
+  perform public.discovery_transition_listing(:'fake_photo_id'::uuid,'review');
+  raise exception 'EXTERNAL_PHOTO_SUBMITTED';
+ exception when invalid_parameter_value then null;
+ end;
+end $$;
 select public.discovery_transition_listing((current_setting('tamao.test.listing_id'))::uuid,'review') as owner_submitted;
 do $$
 declare v_status text;
@@ -58,6 +95,18 @@ begin
 end $$;
 
 set request.jwt.claim.sub='00000000-0000-0000-0000-000000000022';
+-- Another user cannot insert into the first user's Storage prefix.
+do $$
+begin
+ begin
+  insert into storage.objects(bucket_id,name,owner_id,metadata) values(
+    'tamao-discovery-photos',
+    '00000000-0000-0000-0000-000000000011/22222222-2222-2222-2222-222222222222.jpg',
+    '00000000-0000-0000-0000-000000000022','{"mimetype":"image/jpeg"}'::jsonb);
+  raise exception 'CROSS_TENANT_PHOTO_UPLOAD';
+ exception when insufficient_privilege then null;
+ end;
+end $$;
 do $$
 declare v_seen integer; v_changed integer;
 begin
