@@ -215,3 +215,10 @@
 - **Alertas adicionais de advisors:** 154 tabelas RLS sem políticas (INFO, padrão restritivo existente), 2 funções SECURITY DEFINER executáveis por `authenticated` (WARN, verificar intenção e autorização), Auth proteção contra senhas vazadas (WARN), índices de FK não cobertos (INFO). Revisar sem revogação cega que derrube funções legítimas; nenhum DDL aplicado.
 - **Estado de produção preservado:** `main` em `433101839489f7739f44ddcf04e664ddff3435bd`, atestado bancário dos três portais às `2026-10-18T21:56:09Z`; HTTP externo dos manifests indisponível para este ambiente. `platform_launch_control` segue `PRELAUNCH/false`, migração de expansão não aplicada. **A branch não foi integrada ou implantada.**
 - **Escopo ainda pendente:** marketplaces Profissionais, Caronas, Hospedagens, Ads/Impulso, SEO internacional, moderação E2E real, finanças e privacidade completa. A próxima conversa deve continuar o **bloqueio comercial da issue #493** antes de propor novos módulos ou abrir qualquer cidade.
+
+## Auditoria CI e revisão do contrato de OTP — 18/10/2026
+
+- O commit `db13aa2451b145f4760d80dc2e00af2973297b3d` passou em PostgreSQL 17, build isolado dos três portais e smoke público, mas o workflow Audit apontou falha em `tests/static-audit.mjs:1403`: a asserção exigia exatamente o antigo texto `invitedPartner&&...`, que deixou de corresponder após adicionar a retomada de cadastro `(invitedPartner||returningToSignup)`.
+- A correção deste commit atualiza a auditoria **sem enfraquecer o controle**: exige token de convite preexistente, marcador de cadastro explícito, estado `no-access` e navegação somente para o formulário, sem ativação comercial. A regressão com VM em `tests/merchant-direct-onboarding-v1-410.mjs` continua cobrindo retorno OTP com e sem convite.
+- **Próxima ação:** conferir Audit/PG17/build/smoke no novo HEAD antes de marcar como PASS. Sem implantação, mudança de banco ou reclassificação artificial de nenhuma revenda.
+
