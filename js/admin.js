@@ -2319,7 +2319,7 @@ function adminOperationalAlertsView(){
 }
 
 /* TAMÃO Discovery: one moderation workspace in the existing protected admin portal. */
-const adminDiscoveryDesk={status:'idle',items:[],error:'',pending:false};
+const adminDiscoveryDesk={status:'idle',items:[],error:'',pending:false,documents:{},documentPending:null};
 function adminDiscoveryImage(key){
   if(!/^[0-9a-f-]{36}\/[0-9a-f-]{36}\.(jpg|jpeg|png|webp)$/.test(String(key||'')))return '';
   return String(CHAMA_BACKEND.url||'').replace(/\/+$/,'')+
@@ -2335,6 +2335,7 @@ async function adminDiscoveryLoad(){
     if(error)throw error;
     if(!Array.isArray(data))throw Error('Invalid discovery review response');
     d.items=data.filter(x=>x&&/^[0-9a-f-]{36}$/.test(String(x.id||''))&&x.status==='review');
+    d.documents={}; // Never retain expiring signed document links across refreshes.
     d.status='ready';
   }catch(e){
     d.status='error';d.error='Não foi possível consultar a fila de revisão. Verifique a conexão ou a instalação da modalidade.';
@@ -2385,12 +2386,21 @@ function adminDiscoveryView(){
         x.vertical==='rides'?(String(x.departure_city||'')+' → '+String(x.destination_city||'')):
         ('Hospedagem para até '+String(x.guests||'')+' hóspedes');
       const canPublish=x.city_vertical_enabled===true;
+      const docs=d.documents[id];
+      const documentsHtml=docs===undefined?'':docs===null?
+        '<p role="status">Consultando documentos privados…</p>':
+        docs.length?'<ul>'+docs.map(f=>'<li><a target="_blank" rel="noopener noreferrer" href="'+
+          esc(f.signedUrl)+'">Comprovante '+esc(f.kind)+'</a> (link temporário)</li>').join('')+'</ul>':
+        '<p>Nenhum documento privado anexado. Avalie as exigências legais antes de publicar.</p>';
       return '<article class="card flat" style="margin-block:12px;padding:18px">'+
         '<h3>'+esc(x.title)+'</h3><small>'+esc(x.vertical)+' • '+esc(x.city_name)+' / '+esc(x.state_code)+'</small>'+
         (photo?'<img src="'+esc(photo)+'" alt="Foto de anúncio para revisão" loading="lazy" style="width:100%;max-width:260px;aspect-ratio:16/9;object-fit:cover;border-radius:12px;margin-top:12px">':'')+
         '<p>'+esc(x.description)+'</p><p><strong>'+esc(hint||'')+'</strong></p>'+
         '<p>'+ (canPublish?'Modalidade habilitada nesta cidade.':
           'Modalidade ainda desabilitada nesta cidade — publicar permanece bloqueado.')+'</p>'+
+        '<button class="secondary small" type="button" onclick="adminDiscoveryDocuments(\''+id+'\')"'+
+        (d.documentPending===id?' disabled':'')+'>Conferir comprovantes privados</button>'+
+        documentsHtml+
         '<div class="input-wrap"><label for="admin-discovery-reason-'+id+'">Justificativa da decisão</label>'+
         '<input id="admin-discovery-reason-'+id+'" type="text" class="input" minlength="8" maxlength="240" '+
         'placeholder="Descreva a conferência realizada"></div>'+
@@ -2443,6 +2453,38 @@ async function adminDiscoveryDecision(id,status){
     d.pending=false;
     toast('Não foi possível confirmar esta decisão. Confira as condições de publicação e tente novamente.');
   }
+}
+
+
+async function adminDiscoveryDocuments(id){
+  if(!adminReady()||adminCurrentRole()!=='superadmin'||
+     !/^[0-9a-f-]{36}$/.test(String(id||''))||adminDiscoveryDesk.documentPending||
+     !adminDiscoveryDesk.items.some(x=>x.id===id&&x.status==='review'))return;
+  const d=adminDiscoveryDesk;
+  d.documentPending=id;d.documents[id]=null;render();
+  try{
+    const client=adminRuntime.client;
+    const result=await client.from('discovery_documents')
+      .select('id,kind,object_path').eq('listing_id',id).limit(20);
+    if(result.error||!Array.isArray(result.data))throw Error('PRIVATE_DOCUMENT_LOOKUP_FAILED');
+    const allowed=String(CHAMA_BACKEND.url||'').replace(/\/+$/,'')+
+      '/storage/v1/object/sign/tamao-discovery-documents/';
+    const links=[];
+    for(const doc of result.data){
+      const key=String(doc.object_path||'');
+      if(!/^[0-9a-f-]{36}\/[0-9a-f-]{36}\/[0-9a-f-]{36}\.(pdf|jpg|jpeg|png|webp)$/.test(key))throw Error('UNSAFE_DOCUMENT_PATH');
+      const signed=await client.storage.from('tamao-discovery-documents').createSignedUrl(key,90);
+      if(signed.error||typeof signed.data?.signedUrl!=='string'||
+         !signed.data.signedUrl.startsWith(allowed))throw Error('UNSAFE_DOCUMENT_LINK');
+      links.push({kind:String(doc.kind||'de verificação'),signedUrl:signed.data.signedUrl});
+    }
+    d.documents[id]=links;
+  }catch(e){
+    delete d.documents[id];
+    toast('Não foi possível abrir os comprovantes privados. Verifique as permissões e tente novamente.');
+  }
+  d.documentPending=null;
+  if(adminRuntime.section==='discovery')render();
 }
 
 const ADMIN_SECTION_ROLES={
