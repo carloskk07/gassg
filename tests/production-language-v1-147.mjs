@@ -22,7 +22,7 @@ const merchantApplication=read('supabase/functions/submit-merchant-application/i
 assert.ok(
   html.includes('content="index,follow,max-image-preview:large"')
   &&html.includes('consulte preço e entrega por CEP')
-  &&html.includes('mais oportunidades para vender')
+  &&html.includes('oportunidades para revendas')
   &&html.includes('Rede TAMÃO'),
   'site público deve se apresentar como produto operacional e indexável'
 );
