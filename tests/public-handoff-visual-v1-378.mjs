@@ -66,6 +66,11 @@ try{
  for(const slug of PUBLIC_LANDING_SLUGS){
   const html=fs.readFileSync(path.join(tmp,slug,'index.html'),'utf8');
   assert.ok(html.includes(audience[slug].scene),'page-specific visual absent: '+slug);
+  assert.ok(html.includes('class="ed-page ed-page-'+slug+'"'),'distinct public page class: '+slug);
+  assert.ok(html.includes('class="ed-value-scene ed-value-scene-'+slug+'"'),'distinct benefit scene: '+slug);
+  assert.match(html,/ed-value-scene-card-main/,'benefits shown as a readable visual card');
+  assert.match(html,/ed-value-scene-card-side/,'secondary benefit is visible');
+  assert.doesNotMatch(html,/class="ed-savings-art"/,'legacy emoji artwork should not return');
   for(const term of audience[slug].terms)assert.ok(html.includes(term),slug+' missing '+term);
   assert.match(html,/<script src="\/js\/landing-handoff\.js" defer><\/script>/);
   assert.equal((html.match(/<script\b/g)||[]).length,1,'no inline third-party scripts');
@@ -91,6 +96,12 @@ try{
  for(const token of ['.ed-audience-scene','.ed-scene-primary','.ed-audience-brand','.ed-audience-network','@media(max-width:680px)','@media(prefers-reduced-motion:reduce)'])
   assert.ok(stylesheet.includes(token),'missing accessible mobile style '+token);
 }finally{fs.rmSync(tmp,{recursive:true,force:true})}
+for(const selector of ['.ed-value-scene','.ed-value-scene-card-main',
+ '.ed-value-scene-para-revendas','.ed-value-scene-para-marcas','.ed-value-scene-indicacoes',
+ '.ed-page-para-revendas .ed-hero-visual','.ed-page-para-marcas .ed-hero-visual']){
+ assert.ok(stylesheet.includes(selector),'missing illustrated brand direction: '+selector);
+}
+assert.ok(!stylesheet.includes('.ed-savings-art'),'retire the generic emoji filler artwork');
 // Visual-regression guardrails: typography, four balanced audience paths, mobile
 // reflow and sprite scaling all ship together with the public pages.
 assert.match(stylesheet,/\.ed-product\s*\{[^}]*background-size:500% auto/s);
