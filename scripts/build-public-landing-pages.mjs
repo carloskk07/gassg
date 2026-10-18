@@ -89,6 +89,7 @@ const PAGES=[
   proofTitle:"Sua marca em conversas que fazem sentido",
   highlights:[["📣","Divulgação regional","Possibilidades de presença publicitária identificada por região."],["🎁","Ações com benefícios","Propostas de campanhas e vantagens para públicos elegíveis."],["🏪","Comércio local","Parcerias pensadas para aproximar marcas e revendas."]],
   scenario:["Uma boa campanha conversa com a rotina de quem vive na cidade.","SEM CONTEXTO","Divulgar a mesma mensagem, sem relação com o comércio local.","COM O TAMÃO","Planejar uma ação identificada por cidade, público e objetivo comercial.","Uma boa divulgação começa por conectar sua marca às pessoas certas, em sua região."],
+  savingsPitch:['SUA MARCA NA CIDADE','Uma proposta regional com identidade e propósito.','Apresente seu objetivo e conheça possibilidades de divulgação identificada, benefícios e conexão com revendas.','Apresentar minha marca','/?entrada=marca'],
   visualTitle:'Sua marca com propósito e presença local.',
   visualText:'Conheça formatos de divulgação, relacionamento e benefícios para avaliação. A proposta passa por definição e aprovação antes de ser veiculada.',
   steps:[
@@ -121,6 +122,7 @@ const PAGES=[
   proofTitle:"Indicar fica mais fácil quando o caminho é claro",
   highlights:[["🫶","Convide pessoas","Compartilhe o TAMÃO com quem pode gostar da plataforma."],["🏪","Apresente revendas","Ajude empresas da cidade a conhecer a oportunidade."],["🔗","Acompanhe convites","Consulte as participações atribuídas ao seu código."]],
   scenario:["Seu convite merece mais do que se perder em uma conversa.","SEM REDE","Apresentar alguém e depois não ter como acompanhar o convite.","COM A REDE TAMÃO","Compartilhar seu código e consultar participações atribuídas na sua rede.","Convites e remuneração são coisas diferentes; benefícios seguem as campanhas elegíveis."],
+  savingsPitch:['REDE TAMÃO','Seu convite aproxima pessoas e revendas.','Compartilhe, consulte as participações atribuídas ao seu convite e conheça os benefícios de cada campanha elegível.','Conhecer minha rede','/?entrada=indicar'],
   visualTitle:'Sua rede começa com quem você conhece.',
   visualText:'Convites para quem compra e para quem vende seguem caminhos próprios. Acompanhe as participações e veja as regras de cada benefício quando disponível.',
   steps:[
