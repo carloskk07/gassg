@@ -72,7 +72,7 @@ assert.ok(noSupply.indexOf('id="early-access"')<noSupply.indexOf('home-trust-bri
  'availability signup should precede optional FAQ, not be blocked by a lecture');
 assert.match(noSupply,/Consultar meu CEP|Escolher produtos →|Escolher meus produtos/);
 assert.match(noSupply,/São Gabriel/);
-assert.match(noSupply,/Tem muita coisa boa no TAMÃO além de comprar\./);
+assert.match(noSupply,/Mais economia para quem compra\. Mais oportunidades para quem vende\./);
 assert.match(noSupply,/Cadastrar minha empresa/);
 assert.match(noSupply,/id="early-access"/);
 assert.match(noSupply,/id="prelaunch-postal"/);
