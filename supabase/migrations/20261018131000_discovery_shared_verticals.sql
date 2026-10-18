@@ -591,6 +591,17 @@ create policy discovery_document_owner_insert on public.discovery_documents
 grant select on public.discovery_documents to authenticated;
 grant insert(listing_id,kind,object_path) on public.discovery_documents to authenticated;
 
+-- Definer lookup breaks the policy cycle (documents INSERT -> storage SELECT
+-- -> documents SELECT) and never returns the document itself.
+create function public.discovery_document_registered(p_path text)
+returns boolean language sql stable security definer set search_path='pg_catalog'
+as $
+ select (select public.discovery_is_superadmin()) and exists(
+   select 1 from public.discovery_documents d where d.object_path=p_path)
+$;
+revoke all on function public.discovery_document_registered(text) from public,anon,authenticated;
+grant execute on function public.discovery_document_registered(text) to authenticated;
+
 -- Upload is immutable and tied to an editable listing owned by the JWT user.
 -- A different advertiser cannot place documents in someone else's folder.
 create policy discovery_document_storage_insert on storage.objects
@@ -609,7 +620,6 @@ create policy discovery_document_storage_read on storage.objects
    bucket_id='tamao-discovery-documents' and (
      (owner_id=(select auth.uid())::text
        and (select public.discovery_document_owned(split_part(name,'/',2))))
-     or ((select public.discovery_is_superadmin()) and exists(
-       select 1 from public.discovery_documents d where d.object_path=name))
+     or (select public.discovery_document_registered(name))
    )
  );
