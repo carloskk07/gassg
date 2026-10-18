@@ -6,7 +6,7 @@
 **Branch de integração:** `feat/unified-discovery-tamao`  
 **Branch oficial:** `main`  
 **Commit-base de `main`:** `433101839489f7739f44ddcf04e664ddff3435bd`  
-**SHA do código e checkpoint com auditoria completa aprovada:** `0d5e7a9bed28771761b584df3442e1437c8719bf`
+**SHA da última revisão com auditoria completa aprovada:** `f185334626067f6cb9c8d8ea42bb4261573403d2`
 **Último commit de escopo anterior:** `f34a4ae206c8ec737796212f4b8cd08377e93fff`
 **PR principal:** [#492](https://github.com/carloskk07/gassg/pull/492), aberta em rascunho.  
 **Escopo:** [TAMAO_ESCOPO.md](TAMAO_ESCOPO.md).  
@@ -41,7 +41,7 @@
 | FIN-001 | NÃO INICIADA | Tabelas sem cobrança; faltam consentimento, tarifas, conciliação e testes |
 | REP-001 | NÃO INICIADA | Avaliações autênticas, denúncias e antifraude ausentes |
 | ADMIN-001 | PARCIAL | Fila, decisão auditada, controle de modalidade/cidade e consulta de documentos privados no admin existente; falta E2E real |
-| QA-001 | PARCIAL | PostgreSQL, build e smoke público PASS em db571c4; Audit da mesma SHA em verificação; Auth/Storage/E2E autenticados pendentes |
+| QA-001 | PARCIAL | Audit, PostgreSQL, build e smoke público PASS em f1853346; Auth/Storage e E2E autenticados reais pendentes |
 | REL-001 | BLOQUEADA | Fluxos integrais, migrações, SEO, finanças, revisão e publicação ainda pendentes |
 
 ## Código e migrações
@@ -91,6 +91,11 @@
 - **Próxima tarefa exata:** corrigir eventuais falhas do Audit no HEAD; integrar controle de moderação ao painel admin existente sem duplicar aplicação; testar fluxos completos de anunciante A, anunciante B, superadmin e visitante, incluindo falhas de rede e fotos. Manter PR #492 em draft e migration não aplicada.
 
 
+## Confirmação independente da produção preexistente (18/10/2026)
+
+- Último atestado verificável no Supabase `platform_portal_attestations`: `2026-10-18T19:42:25Z`, 3 portais (`customer`, `merchant`, `admin`), todos `htmlStatus/buildStatus/runtimeStatus=200`, cada `sourceSha=433101839489f7739f44ddcf04e664ddff3435bd` e `allPortalsReady=true`; dados conferidos sem modificação de produção.
+- Tentativa adicional de ler os 3 URLs de `portal-build.json` via leitor web e runtime local falhou por acesso/DNS; **atestado de banco não é inspeção HTTP direta contemporânea**. Reconciliar antes de liberar a expansão, com ambiente capaz de acesso externo.
+
 ## Continuação — comprovantes privados e moderação sem duplicação (18/10/2026)
 
 - **Retomada exata:** PR #492, branch única; antes das novas alterações a SHA `f3e19e76fba7c5d42daf3b30ed51dd142bfc85c1` já continha fila de moderação no `js/admin.js` e os quatro workflows oficiais estavam PASS. Não recriar painel/PR/versão.
@@ -98,16 +103,16 @@
 - **Mudança de código (não publicada):** dentro da migration única já aberta, tabela imutável `discovery_documents`, bucket separado `tamao-discovery-documents` privado (até 10 MiB), RLS de dono/superadmin e pastas `ownerUUID/listingUUID/randomUUID`. Nenhum anonimato é autorizado e nenhum arquivo sensível entra no bucket público de fotos. Acesso temporário via URL assinada por 90 segundos somente após controle de Storage. Ainda faltam conservação, exclusão e verificação de conteúdo/MIME por bytes reais.
 - **Jornada:** `js/discovery-owner.js` anexa PDF/imagens opcionais ao rascunho e registra metadados; `js/admin.js` mantém a fila original e adiciona consulta de documentação privada mediante sessão privilegiada. Testes `tests/discovery-owner-journey.mjs` e `tests/discovery-admin-journey.mjs` cobrem uploads simulados, domínio de URL assinada, papel administrador e fail-closed.
 - **Falhas descobertas e corrigidas ANTES da produção:** consulta indevida a coluna interna por Storage RLS, ciclo de recursão Storage ↔ documentos e delimitadores SQL inválidos. Funções SECURITY DEFINER limitadas ao `auth.uid()`/superadmin quebram a recursão; regressão executada sobre PostgreSQL 17 descartável. Não executar esta migration em produção ainda.
-- **Evidência no código `db571c4683a81385e27c93268b0bdeb54f1d4012`:** [PostgreSQL isolado PASS](https://github.com/carloskk07/gassg/actions/runs/39161438180), [Build portais PASS](https://github.com/carloskk07/gassg/actions/runs/39161438216), [smoke visual público PASS](https://github.com/carloskk07/gassg/actions/runs/39161438190), [Audit em apuração](https://github.com/carloskk07/gassg/actions/runs/39161438212). Revalidar todos no HEAD de checkpoint e nunca interpretar smoke estático como homologação com sessão real.
+- **Evidência no código e checkpoint `f185334626067f6cb9c8d8ea42bb4261573403d2`:** [PostgreSQL isolado PASS](https://github.com/carloskk07/gassg/actions/runs/39161654415), [Build portais PASS](https://github.com/carloskk07/gassg/actions/runs/39161654386), [smoke visual público PASS](https://github.com/carloskk07/gassg/actions/runs/39161654405) e [Audit PASS](https://github.com/carloskk07/gassg/actions/runs/39161654403). Nova edição documental exige nova conferência no novo HEAD; não confundir testes isolados com homologação real.
 - **Sem alteração operacional:** não aplicar migration, não configurar cobrança, não abrir cidade/modalidade, não fazer merge, não promover preview Netlify ou Cloudflare.
 
 ## Checkpoint operacional obrigatório
 
-**ÚLTIMA ETAPA CONCLUÍDA:** jornada proposta de documentos privados vinculados ao anúncio e moderação administrativa integrada; PostgreSQL 17 isolado, build dos três portais e smoke público PASS no código `db571c4683a81385e27c93268b0bdeb54f1d4012`. O Audit completo dessa SHA ainda requer conclusão; nenhuma validação end-to-end real.
+**ÚLTIMA ETAPA CONCLUÍDA:** jornada proposta de documentos privados vinculados ao anúncio e moderação administrativa integrada; Audit, PostgreSQL 17 isolado, build dos três portais e smoke público PASS no código e checkpoint `f185334626067f6cb9c8d8ea42bb4261573403d2`; nenhuma validação Auth/Storage end-to-end real.
 
-**ETAPA ATUAL:** Finalizar Audit no HEAD, inspecionar Storage privado e Auth multiusuário em homologação, verificar ausência de vazamento e documento efetivamente assinado; corrigir os defeitos comprovados.
+**ETAPA ATUAL:** Preparar e executar validação Auth/Storage com usuários de homologação e revisar ciclo de vida dos documentos privados; CI do código e checkpoint está PASS, mas não substitui E2E.
 
-**PRÓXIMA AÇÃO EXATA:** Confirmar resultado Audit da SHA db571c4 e novamente do HEAD com checkpoint; executar Auth/Storage reais numa homologação independente (A/B/superadmin/visitante, upload privado de bytes, signed URLs e falhas de rede); criar E2E de criação → revisão → publicação → pausa; inspecionar retenção/eliminação e verificação documental por modalidade. Sem merge.
+**PRÓXIMA AÇÃO EXATA:** Executar Auth/Storage reais numa homologação independente (anunciante A/B, superadmin e visitante, upload privado de bytes, signed URLs, perda de rede e troca de sessão); estabelecer e testar retenção/eliminação dos documentos e verificação por modalidade; criar E2E de criação → revisão → publicação → pausa. Sem merge.
 
 **ARQUIVOS QUE DEVEM SER INSPECIONADOS:** `supabase/migrations/20261018131000_discovery_shared_verticals.sql`, `js/discovery-owner.js`, `js/admin.js`, `js/discovery.js`, `js/bootstrap.js`, `js/customer.js`, `scripts/build-live-portals.mjs`, `tests/discovery-owner-journey.mjs`, `tests/discovery-admin-journey.mjs`, `tests/discovery-db-integration.sql`, `docs/TAMAO_ESCOPO.md`.
 
