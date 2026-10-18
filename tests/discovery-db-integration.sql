@@ -330,16 +330,16 @@ insert into public.discovery_documents(listing_id,kind,object_path) values(
  :'private_listing_id','supporting',
  '00000000-0000-0000-0000-000000000011/'||:'private_listing_id'||
  '/22222222-2222-2222-2222-222222222222.pdf');
-do $
+do $$
 declare n int;
 begin
  select count(*) into n from public.discovery_documents
  where listing_id=current_setting('tamao.test.private_listing_id')::uuid;
  if n<>1 then raise exception 'OWNER_DOCUMENT_MISSING';end if;
-end $;
+end $$;
 
 set request.jwt.claim.sub='00000000-0000-0000-0000-000000000022';
-do $
+do $$
 declare n integer;
 begin
  select count(*) into n from public.discovery_documents
@@ -358,10 +358,10 @@ begin
   raise exception 'CROSS_OWNER_DOCUMENT_WRITE';
  exception when insufficient_privilege then null;
  end;
-end $;
+end $$;
 
 set request.jwt.claim.sub='00000000-0000-0000-0000-000000000033';
-do $
+do $$
 declare n integer;
 begin
  select count(*) into n from public.discovery_documents
@@ -369,11 +369,11 @@ begin
  if n<>1 then raise exception 'ADMIN_DOCUMENT_LOOKUP_FAILED';end if;
  select count(*) into n from storage.objects where bucket_id='tamao-discovery-documents';
  if n<>1 then raise exception 'ADMIN_PRIVATE_STORAGE_DENIED';end if;
-end $;
+end $$;
 
 set role anon;
 reset request.jwt.claim.sub;
-do $
+do $$
 begin
  begin
   perform count(*) from public.discovery_documents;
@@ -385,7 +385,7 @@ begin
   raise exception 'PUBLIC_DOCUMENT_STORAGE_VISIBLE';
  exception when insufficient_privilege then null;
  end;
-end $;
+end $$;
 
 reset role;
 select 'DISCOVERY_POSTGRES_RLS_AND_PRIVATE_DOCUMENTS_OK' as result;
