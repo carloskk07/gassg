@@ -256,13 +256,8 @@ a:focus-visible,summary:focus-visible{outline:3px solid #c48716;outline-offset:4
  min-height:44px;color:#fff;background:#0d6b4b;text-decoration:none;font-size:13px;font-weight:900;border-radius:12px}
 .ed-savings-cta:hover{background:#084d36;color:#fff;text-decoration:none}
 .ed-savings-cta:focus-visible{outline:3px solid #ae7915;outline-offset:3px}
-.ed-savings-art{display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:210px;
- border:2px dashed #dbc184;border-radius:21px;background:#fffefa;padding:16px;text-align:center}
-.ed-savings-art>span{font-size:10px;letter-spacing:.09em;color:#906011;font-weight:900}
-.ed-savings-art strong{font-size:clamp(55px,7vw,81px);line-height:1.45}
-.ed-savings-art small{font-size:12px;color:#385d46;font-weight:850}
 @media(max-width:760px){.ed-savings{grid-template-columns:minmax(0,1fr);padding:21px 17px;border-radius:20px}
-.ed-savings-art{min-height:145px}.ed-savings-art strong{font-size:53px}}
+}
 
 /* TAMÃO V1.411 — consistent editorial rhythm and proportion-safe product artwork. */
 .ed-hero-grid > *, .ed-value > *, .ed-savings > *,
@@ -319,4 +314,80 @@ a:focus-visible,summary:focus-visible{outline:3px solid #c48716;outline-offset:4
   .ed-hero-grid{padding-inline:14px}
   .ed-audience-scene{padding-inline:0}
   .ed-scene-primary{padding:14px 10px}
+}
+
+/* V1.412 — audience-specific value scenes; all data is qualitative.
+   No invented prices, savings percentages, customers or transactions. */
+.ed-value-scene{
+  --ed-scene-accent:#f3c557;
+  position:relative;isolation:isolate;display:flex;flex-direction:column;
+  justify-content:space-between;gap:16px;min-width:0;min-height:310px;
+  padding:clamp(18px,2.25vw,27px);border-radius:23px;overflow:hidden;
+  background:radial-gradient(circle at 85% 5%,rgba(250,210,113,.16),transparent 38%),
+    linear-gradient(148deg,#103e31,#082c24);color:#fff;
+  box-shadow:0 16px 34px rgba(9,52,37,.16);
+}
+.ed-value-scene:before{
+  content:"";position:absolute;right:-52px;bottom:-107px;width:235px;height:235px;
+  border-radius:50%;border:1px solid rgba(255,255,255,.16);
+  box-shadow:0 0 0 21px rgba(255,255,255,.03),0 0 0 45px rgba(255,255,255,.025);
+  z-index:-1;pointer-events:none;
+}
+.ed-value-scene-top{display:flex;align-items:center;gap:9px;color:#e3efd8;
+  letter-spacing:.11em;font-size:10px;font-weight:900;line-height:1.4}
+.ed-value-scene-spark{width:26px;height:26px;border-radius:9px;display:grid;place-items:center;
+  flex:none;background:var(--ed-scene-accent);color:#133b30;font-size:16px}
+.ed-value-scene-stack{position:relative;min-height:155px;display:flex;align-items:flex-start;
+  padding:7px 15px 26px 4px}
+.ed-value-scene-card-main{position:relative;display:grid;gap:6px;
+  width:min(84%,295px);min-height:135px;padding:19px 23px;
+  border-radius:17px;background:#fffdf7;color:#113c2e;
+  box-shadow:0 14px 24px rgba(0,0,0,.2);transform:rotate(-3deg)}
+.ed-value-scene-card-main small{font-size:9px;font-weight:900;letter-spacing:.12em;color:#537264}
+.ed-value-scene-card-main strong{font-size:clamp(17px,1.8vw,23px);line-height:1.12;
+  letter-spacing:-.038em;max-width:23ch;text-wrap:balance;overflow-wrap:break-word}
+.ed-value-scene-card-main>span:last-child{font-size:11px;line-height:1.45;color:#526d5c;
+  max-width:25ch}
+.ed-value-scene-deco{position:absolute;right:17px;top:11px;color:#27704b;font-size:19px}
+.ed-value-scene-card-side{position:absolute;right:0;bottom:0;z-index:1;
+  display:grid;gap:4px;width:min(52%,190px);min-width:120px;padding:14px 16px;
+  border-radius:14px;border:1px solid rgba(255,255,255,.5);
+  background:var(--ed-scene-accent);color:#1b3e30;box-shadow:0 12px 20px rgba(0,0,0,.21);
+  transform:rotate(5deg)}
+.ed-value-scene-card-side small{font-size:10px;font-weight:900;line-height:1.3}
+.ed-value-scene-card-side strong{font-size:12px;line-height:1.3;overflow-wrap:break-word}
+.ed-value-scene-tags{display:flex;flex-wrap:wrap;gap:7px}
+.ed-value-scene-tags span{display:inline-flex;align-items:center;border:1px solid rgba(255,255,255,.28);
+  background:rgba(255,255,255,.12);border-radius:999px;padding:7px 10px;
+  font-size:10px;line-height:1.35;color:#f7fff8;font-weight:850}
+.ed-value-scene-para-revendas{--ed-scene-accent:#f7d17c;
+  background:radial-gradient(circle at 85% 9%,rgba(255,217,126,.23),transparent 38%),
+    linear-gradient(144deg,#083d3a,#0a5050)}
+.ed-value-scene-para-marcas{--ed-scene-accent:#f3c968;
+  background:radial-gradient(circle at 78% 7%,rgba(251,208,98,.22),transparent 40%),
+    linear-gradient(145deg,#183f4b,#0b3841)}
+.ed-value-scene-indicacoes{--ed-scene-accent:#bde8d0;
+  background:radial-gradient(circle at 93% 7%,rgba(160,224,195,.2),transparent 40%),
+    linear-gradient(144deg,#153c42,#11554b)}
+.ed-page-para-revendas .ed-hero-visual{background:radial-gradient(circle at 60% 35%,rgba(67,177,147,.23),transparent 54%),
+  linear-gradient(145deg,#08403a,#086259)}
+.ed-page-para-marcas .ed-hero-visual{background:radial-gradient(circle at 60% 35%,rgba(245,182,63,.18),transparent 54%),
+  linear-gradient(145deg,#142e3e,#165565)}
+.ed-page-indicacoes .ed-hero-visual{background:radial-gradient(circle at 60% 35%,rgba(165,223,204,.21),transparent 54%),
+  linear-gradient(145deg,#0c3f44,#0c6352)}
+@media(max-width:760px){
+ .ed-value-scene{min-height:278px;padding:19px 16px}
+ .ed-value-scene-stack{min-height:140px;padding-right:10px}
+ .ed-value-scene-card-main{width:min(82%,305px);min-height:126px;padding:18px}
+ .ed-value-scene-card-side{width:50%}
+}
+@media(max-width:370px){
+ .ed-value-scene{padding:16px 13px;gap:11px}
+ .ed-value-scene-card-main{width:83%;padding:16px 13px}
+ .ed-value-scene-card-main strong{font-size:17px}
+ .ed-value-scene-card-side{padding:11px 9px;min-width:112px}
+ .ed-value-scene-tags span{font-size:9px;padding:7px 8px}
+}
+@media(prefers-reduced-motion:reduce){
+ .ed-value-scene *{scroll-behavior:auto}
 }

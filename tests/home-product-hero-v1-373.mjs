@@ -8,6 +8,9 @@ const css=read('css/marketing-premium.css');
 new vm.Script(customer,{filename:'customer.js'});
 
 const home=customer.slice(customer.indexOf('function home(){'),customer.indexOf('\nfunction orderPage(){'));
+const benefits=customer.slice(customer.indexOf('function tamaoHomeBenefits(){'),customer.indexOf('\nfunction customerProductName('));
+assert.match(benefits,/onclick="homeDiscoverFocus\(\)">Explorar produtos/,'benefit CTA must focus the product catalogue rather than reload home');
+assert.match(benefits,/cashback de compras elegíveis/,'benefit descriptions must state eligibility');
 assert.ok(home.length>10000,'the real customer home was located');
 const before=home.indexOf('const heroVisualCodes=');
 const after=home.indexOf('const feeBps=',before);

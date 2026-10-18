@@ -50,27 +50,27 @@ function tamaoProductArt(code,product,extra=''){
 function tamaoHomeBenefits(){
   return `<section class="section tamao-value-section" aria-label="Vantagens do TAMÃO">
     <div class="section-head"><div><span class="section-kicker">BOM PARA QUEM COMPRA. BOM PARA SUA CIDADE.</span>
-      <h2>Compare preços, aproveite seu Clube e compre com mais vantagem.</h2>
-      <p>Compare preços totais das revendas que atendem seu CEP, escolha o melhor custo-benefício e acompanhe sua compra. Confira o cashback de pedidos elegíveis no Clube e convide amigos pela Rede TAMÃO.</p></div></div>
+      <h2>Mais economia na escolha. Mais vantagens para voltar.</h2>
+      <p>Compare preço total e entrega pelo CEP. Acompanhe seu pedido, consulte cashback de compras elegíveis no Clube e apresente o TAMÃO a amigos e revendas.</p></div></div>
     <div class="tamao-perks-stage" aria-label="Clube TAMÃO e Rede TAMÃO">
       <article class="tamao-perks-panel tamao-perks-club">
         <div class="tamao-perks-top"><span class="tamao-perks-symbol" aria-hidden="true">🎁</span><span>CLUBE TAMÃO</span></div>
-        <h3>Compare, compre e acompanhe seu cashback.</h3>
+        <h3>Seu Clube transforma compras elegíveis em vantagens.</h3>
         <p>Veja a economia registrada nas suas comparações, acompanhe o cashback de compras elegíveis e consulte seu saldo para usar em novos pedidos.</p>
         <button type="button" onclick="go('club')">Conhecer meu Clube <span aria-hidden="true">→</span></button>
       </article>
       <article class="tamao-perks-panel tamao-perks-network">
         <div class="tamao-perks-top"><span class="tamao-perks-symbol" aria-hidden="true">🤝</span><span>REDE TAMÃO</span></div>
-        <h3>Conhece quem compra ou vende? Faça essa conexão.</h3>
+        <h3>Seu convite conecta quem compra e quem vende.</h3>
         <p>Indique amigos, apresente revendas e acompanhe seus convites. Benefícios financeiros seguem a elegibilidade de cada campanha.</p>
         <button type="button" onclick="go('earn')">Descobrir minha Rede <span aria-hidden="true">→</span></button>
       </article>
     </div>
     <div class="tamao-action-now">
       <div><span class="section-kicker">APROVEITE O TAMÃO AGORA</span>
-        <h3>Encontre uma opção melhor para sua próxima compra.</h3>
+        <h3>Comece pela escolha. Compare o que importa.</h3>
         <p>Escolha gás, água ou outros essenciais. Consulte o que atende seu CEP e acompanhe suas vantagens no Clube.</p></div>
-      <button type="button" class="primary" onclick="go('home')">Comparar produtos <span aria-hidden="true">→</span></button>
+      <button type="button" class="primary" onclick="homeDiscoverFocus()">Explorar produtos <span aria-hidden="true">→</span></button>
     </div>
     <div class="grid cards-3 tamao-value-grid">
       <article class="card"><span class="tamao-value-icon" aria-hidden="true">🔎</span>
@@ -585,7 +585,7 @@ function home(){
     <div class="hero-overline">${conciseHome?'PRIMEIRO ESCOLHA. DEPOIS, CONFIRA A ENTREGA.':'O QUE VOCÊ PRECISA, MAIS PERTO DE CASA.'}</div>
     <h1>Faltou em casa?<br><span class="hero-highlight">Tá na mão.</span></h1>
     ${homeIntentGuide}
-    <p class="hero-lead"><strong>Compare preços e aproveite as vantagens do Clube TAMÃO.</strong> Gás, água e o essencial do dia a dia, em um só lugar.  ${esc(hasConfirmedCityOffers?'Já consultamos opções para o seu CEP. Confira preços e prazos atualizados antes de confirmar.':conciseHome?firstVisitMessage:outsideOriginalMarket?'Veja quais opções atendem '+regionLabel+' pelo CEP. Se não houver ofertas, você poderá solicitar um aviso.':heroJourney)}</p>
+    <p class="hero-lead"><strong>Compare preços totais e conheça o Clube TAMÃO.</strong> Gás, água e o essencial do dia a dia, em um só lugar. ${esc(hasConfirmedCityOffers?'Já consultamos opções para o seu CEP. Confira preços e prazos atualizados antes de confirmar.':conciseHome?firstVisitMessage:outsideOriginalMarket?'Veja quais opções atendem '+regionLabel+' pelo CEP. Se não houver ofertas, você poderá solicitar um aviso.':heroJourney)}</p>
     <div class="home-saving-headlines" aria-label="Benefícios de comprar e vender pelo TAMÃO">
       <span>💰 Compare preços totais por CEP</span>
       <button type="button" onclick="go('club')">🎁 Conheça suas vantagens no Clube <span aria-hidden="true">→</span></button>
