@@ -28,7 +28,7 @@ assert.ok(home.includes('citySnapshot?.real===true&&citySnapshot?.notAQuote===tr
 assert.match(read('css/marketing-premium.css'),/\.home-benefits-shortcuts button:focus-visible/);
 const index=read('index.html');
 assert.match(index,/Clube e indicações/);
-assert.match(index,/mais oportunidades para vender/);
+assert.match(index,/oportunidades para revendas/);
 
 const root=fs.mkdtempSync(path.join(os.tmpdir(),'tamao-benefits-first-'));
 try {
