@@ -51,7 +51,7 @@ assert.ok(!sponsor.includes('ONDE SUA MARCA PODE PARTICIPAR'),
   'do not repeat format grid as a second near-identical 3-card section');
 for(const type of ['visibility','relationship','local'])
   assert.ok(sponsor.includes("openSponsorContact('"+type+"')"));
-assert.match(sponsor,/Não é campanha ativa/);
+assert.match(sponsor,/EXEMPLO DE FORMATO/);
 assert.match(merchant,/merchant-conversion-start/);
 assert.equal((merchant.match(/prelaunchMerchantLeadSection\(\)/g)||[]).length,1);
 const rail=merchant.slice(merchant.indexOf('merchant-jump-rail'),merchant.indexOf('merchant-cro-steps'));

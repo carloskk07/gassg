@@ -46,7 +46,7 @@ try{
  assert.match(sponsor,/Nenhuma campanha é ativada automaticamente/);
  assert.match(sponsor,/href="\/\?entrada=marca"/);
  const network=fs.readFileSync(path.join(root,'indicacoes','index.html'),'utf8');
- assert.match(network,/não representa promessa de renda/);
+ assert.match(network,/seguem as regras e a elegibilidade/);
  assert.match(network,/href="\/\?entrada=indicar"/);
  const buyer=fs.readFileSync(path.join(root,'como-funciona','index.html'),'utf8');
  assert.match(buyer,/A revenda precisa aceitar/);

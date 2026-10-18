@@ -28,14 +28,14 @@ assert.ok(home.includes('citySnapshot?.real===true&&citySnapshot?.notAQuote===tr
 assert.match(read('css/marketing-premium.css'),/\.home-benefits-shortcuts button:focus-visible/);
 const index=read('index.html');
 assert.match(index,/Clube e indicações/);
-assert.match(index,/mais oportunidades para vender/);
+assert.match(index,/oportunidades para revendas/);
 
 const root=fs.mkdtempSync(path.join(os.tmpdir(),'tamao-benefits-first-'));
 try {
  const slugs=writePublicLandingPages(root);
  assert.equal(slugs.length,4);
  const expected=[
-  ['como-funciona','Compare para gastar menos','Cashback e descontos','Pacotes de cupons TAMÃO'],
+  ['como-funciona','Compare para gastar menos','Cashback na sua conta','Acompanhe do pedido à entrega'],
   ['para-revendas','Novos clientes podem encontrar você','Mais oportunidades de pedidos','Mais chances de recompra'],
   ['para-marcas','Divulgação regional','Ações com benefícios','Comércio local'],
   ['indicacoes','Convide pessoas','Apresente revendas','Acompanhe convites']
@@ -51,7 +51,7 @@ try {
   assert.doesNotMatch(html,/entrega garantida|renda garantida|vendas garantidas|clientes garantidos/i);
  }
  assert.match(fs.readFileSync(path.join(root,'para-marcas','index.html'),'utf8'),/Nenhuma campanha é ativada automaticamente/);
- assert.match(fs.readFileSync(path.join(root,'indicacoes','index.html'),'utf8'),/não representa promessa de renda/);
+ assert.match(fs.readFileSync(path.join(root,'indicacoes','index.html'),'utf8'),/seguem as regras e a elegibilidade/);
  assert.match(fs.readFileSync(path.join(root,'para-revendas','index.html'),'utf8'),/não há mensalidade/);
  assert.match(fs.readFileSync(path.join(root,'como-funciona','index.html'),'utf8'),/A revenda precisa aceitar/);
  const css=read('css/landing-editorial.css');

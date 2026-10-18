@@ -10,8 +10,8 @@ const customer=read('js/customer.js');
 new vm.Script(customer,{filename:'customer.js'});
 const benefits=customer.slice(customer.indexOf('function tamaoHomeBenefits(){'),customer.indexOf('\nfunction customerProductName('));
 assert.ok(benefits.length>2300,'home value section exists');
-for(const term of ['CLUBE TAMÃO','REDE TAMÃO','Cashback em compras elegíveis','Descontos para comprar com mais vantagem',
- "go('club')","go('earn')",'tamao-perks-note']){
+for(const term of ['CLUBE TAMÃO','REDE TAMÃO','cashback de pedidos elegíveis','Indique amigos e amplie sua Rede TAMÃO',
+ "go('club')","go('earn')",'tamao-action-now']){
  assert.ok(benefits.includes(term),'home should explain '+term);
 }
 assert.equal((benefits.match(/class="tamao-perks-panel /g)||[]).length,2,
@@ -32,7 +32,7 @@ try{
  const scenarios={
   'como-funciona':['Quando','Em vez de correr atrás de respostas','COM O TAMÃO'],
   'para-revendas':['Sua empresa ganha uma nova vitrine','COM O TAMÃO','A habilitação é controlada'],
-  'para-marcas':['Uma boa campanha conversa','COM O TAMÃO','proposta e aprovação'],
+  'para-marcas':['Uma boa campanha conversa','COM O TAMÃO','Uma boa divulgação começa'],
   'indicacoes':['Seu convite merece mais','COM A REDE TAMÃO','Convites e remuneração']
  };
  for(const slug of PUBLIC_LANDING_SLUGS){

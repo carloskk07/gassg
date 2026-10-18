@@ -36,7 +36,7 @@ assert.ok(form.includes('id="j-cnpj"')&&form.includes('id="j-name"'));
 assert.ok(form.includes('id="j-owner"')&&form.includes('id="j-phone"')&&form.includes('id="j-address"'));
 assert.ok(form.includes('autocomplete="organization"')&&form.includes('autocomplete="street-address"'));
 assert.ok(form.includes('Informe o CNPJ real'),'CNPJ help must support valid alphanumeric identifiers');
-assert.ok(form.includes('não gera cobrança nem coloca a revenda online'),'No false launch promise');
+assert.ok(form.includes('A liberação comercial exige aprovação e as verificações próprias da categoria'),'No false launch promise');
 assert.ok(!form.includes('<script>')&&!form.includes('<img'),'Saved PII must be escaped');
 assert.ok(form.includes('&lt;script&gt;')&&form.includes('&lt;img'),'Saved data remains visible safely');
 assert.ok(form.includes('Salvar meus dados atualizados'),'Resume pending application');

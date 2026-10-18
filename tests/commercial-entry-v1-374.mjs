@@ -26,7 +26,7 @@ assert.ok(heroEnd>0);
 const hero=sponsorHtml.slice(0,heroEnd);
 assert.ok(hero.includes('sponsor-intent-quick'));
 assert.ok(hero.includes('aria-label="Escolha o tipo de parceria para sua marca"'));
-assert.ok(hero.includes('Não')||hero.includes('Nenhuma campanha é ativada sem aprovação.'));
+assert.ok(hero.includes('Escolha seu objetivo e envie sua proposta'));
 for(const intent of ['visibility','relationship','local']){
   assert.ok(hero.includes("openSponsorContact('"+intent+"')"),'hero missing '+intent);
   assert.ok(sponsorHtml.includes("openSponsorContact('"+intent+"')"),
@@ -34,7 +34,7 @@ for(const intent of ['visibility','relationship','local']){
 }
 assert.ok(hero.includes('openSponsorContact()'),'generic contact also available');
 assert.ok(sponsorHtml.includes('sponsor-visual-story'),'conceptual visual remains');
-assert.ok(sponsorHtml.includes('Não é campanha ativa'),'conceptual labeling remains');
+assert.ok(sponsorHtml.includes('EXEMPLO DE FORMATO'),'example labeling remains');
 assert.ok(!/resultados garantidos|milhares de clientes garantidos/i.test(sponsorHtml));
 
 // Merchant onboarding starts immediately after commercial proposition,
@@ -49,7 +49,7 @@ assert.equal((merchant.match(/prelaunchMerchantLeadSection\(\)/g)||[]).length,1,
  'existing interest form must render once');
 assert.ok(merchant.includes("internalPilot?'':`<section class=\"merchant-conversion-start\""),
  'internal-only mode must never show live interest form');
-assert.ok(merchant.includes('openPrelaunchMerchantLead()'));
+assert.ok(merchant.includes('openMerchantPortal(true)'),'main CTA opens actual signup');
 assert.ok(merchant.includes('policyPercent(merchantPilotFeeRate())'));
 assert.ok(merchant.includes('merchant-margin')&&merchant.includes('merchant-how'));
 assert.ok(merchant.includes('Após habilitação'));

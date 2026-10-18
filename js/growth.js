@@ -40,8 +40,8 @@ function club(){
   const cashbackEarned=Math.max(0,Number(globalThis.liveRuntime?.cashbackEarnedCents||0))/100;
   return shell(`<section class="page">
     <span class="eyebrow">CLUBE TAMÃO</span>
-    <h1 class="page-title">Seu dinheiro pode render mais com economia, cashback e descontos.</h1>
-    <p class="muted page-lead">Compare os preços totais de revendas que atendem seu CEP, veja quanto economizou nas comparações registradas, acompanhe seu cashback e descubra descontos elegíveis. Cada compra pode render mais vantagens para você.</p>
+    <h1 class="page-title">Compre com mais vantagens. Acompanhe sua economia e seu cashback.</h1>
+    <p class="muted page-lead">Compare ofertas pelo preço total para seu CEP, veja a economia registrada nas compras concluídas e consulte seus créditos de cashback. Tudo em um só lugar.</p>
     <div class="reward-hero"><div class="tiny" style="opacity:.75">SEU CASHBACK DISPONÍVEL</div><div class="balance">${BRL.format(state.user.cashback)}</div><div class="tiny">crédito para usar em novas compras</div><div class="progress"><div style="width:${pct}%"></div></div><strong>${esc(next)}</strong></div>
     <div class="earn-summary" style="margin-top:14px">
       <div class="earn-balance-card"><span>Economia nas comparações</span><strong>${BRL.format(comparisonSavings)}</strong><small>diferença acumulada contra a opção mais cara realmente exibida nas consultas que viraram pedidos concluídos</small></div>
@@ -49,18 +49,13 @@ function club(){
       <div class="earn-balance-card"><span>Cashback disponível</span><strong>${BRL.format(state.user.cashback)}</strong><small>saldo que pode reduzir uma próxima compra</small></div>
     </div>
     ${debt>0?`<div class="notice" style="margin-top:14px"><strong>${BRL.format(debt)} em compensação.</strong><br>Esse valor corresponde a cashback de uma compra posteriormente revertida. Novos créditos reduzem essa compensação antes de ficarem disponíveis.</div>`:''}
-    <section class="tamao-club-coupon-bundles" aria-label="Pacotes de cupons de desconto em preparação">
-      <span class="section-kicker">🎟️ CUPONS PARA ECONOMIZAR MAIS · EM PREPARAÇÃO</span>
-      <h2>Pacotes de descontos para quem quer pagar menos.</h2>
-      <p>O TAMÃO está desenvolvendo pacotes de cupons para compras elegíveis de gás e água. A ideia é permitir adquirir benefícios por um preço informado antes da compra, para usar nos pedidos que atenderem às regras do pacote.</p>
-      <div class="tamao-club-coupon-trio">
-        <div><strong>1. Conheça o pacote</strong><span>Preço, quantidade de cupons, valor dos descontos e validade</span></div>
-        <div><strong>2. Saiba onde vale</strong><span>Cidades, revendas e produtos participantes, com regras claras</span></div>
-        <div><strong>3. Use em compras elegíveis</strong><span>Resgate integrado ao pedido quando as vendas forem habilitadas</span></div>
+    <section class="tamao-club-shop-now" aria-label="Usar as vantagens do Clube">
+      <div><span class="section-kicker">SEU CLUBE NA PRÁTICA</span>
+        <h2>Compare, faça seu pedido e acompanhe o que você economizou.</h2>
+        <p>Consulte as revendas que atendem seu endereço, escolha pelo preço total e aproveite seu saldo de cashback quando for elegível.</p>
       </div>
-      <p class="tamao-club-coupon-state"><strong>Venda e resgate ainda não disponíveis.</strong> Os pacotes somente serão oferecidos após ativação administrativa, financiamento dos descontos e homologação de pagamento e resgate. Nenhuma cobrança é feita nesta página.</p>
+      <button type="button" class="primary" onclick="go('home')">Encontrar produtos para comprar <span aria-hidden="true">→</span></button>
     </section>
-
     <section class="section"><div class="grid cards-3">
       <div class="card"><div class="feature-icon">💵</div><h3>Cashback que volta para você</h3><p class="muted tiny">Nas compras elegíveis, parte do valor pode voltar como crédito para sua próxima compra. Tudo fica registrado em sua conta.</p></div>
       <div class="card"><div class="feature-icon">⭐</div><h3>Seus pedidos, suas vantagens</h3><p class="muted tiny">Tenha seu histórico à mão e saiba quando vale a pena repetir aquela compra do dia a dia.</p></div>
@@ -537,10 +532,10 @@ function sponsorsLanding(){
         <button type="button" onclick="openSponsorContact('visibility')"><span aria-hidden="true">📣</span><span><strong>Ganhar visibilidade</strong><small>Divulgação regional identificada</small></span><b aria-hidden="true">↗</b></button>
         <button type="button" onclick="openSponsorContact('relationship')"><span aria-hidden="true">🎁</span><span><strong>Apoiar benefícios</strong><small>Campanhas com condições definidas</small></span><b aria-hidden="true">↗</b></button>
         <button type="button" onclick="openSponsorContact('local')"><span aria-hidden="true">🤝</span><span><strong>Estar junto às revendas</strong><small>Parcerias para o comércio local</small></span><b aria-hidden="true">↗</b></button>
-        <p>Escolha um objetivo e conte sobre sua marca. Nenhuma campanha é ativada sem aprovação.</p>
+        <p>Escolha seu objetivo e envie sua proposta. A equipe TAMÃO cuida dos próximos passos.</p>
       </div></div>
-      <aside class="sponsor-visual-story" aria-label="Ilustração de uma proposta de divulgação local, não representa anúncios no ar">
-        <div class="sponsor-visual-head"><span>DIVULGAÇÃO LOCAL</span><small>CONCEITO ILUSTRATIVO</small></div>
+      <aside class="sponsor-visual-story" aria-label="Exemplo de apresentação de divulgação local">
+        <div class="sponsor-visual-head"><span>DIVULGAÇÃO LOCAL</span><small>EXEMPLO DE FORMATO</small></div>
         <div class="sponsor-visual-feature">
           <span class="sponsor-visual-symbol" aria-hidden="true">✦</span>
           <div><span>DA SUA MARCA PARA A CIDADE</span><strong>Faça parte das escolhas do dia a dia.</strong></div>
@@ -550,12 +545,12 @@ function sponsorsLanding(){
           <div><span aria-hidden="true">📣</span><div><strong>Divulgação identificada</strong><small>Publicidade separada das ofertas orgânicas</small></div></div>
           <div><span aria-hidden="true">🎁</span><div><strong>Ação combinada</strong><small>Objetivos, investimento e condições definidos antes</small></div></div>
         </div>
-        <p>Exemplo de apresentação comercial. Não é campanha ativa nem promessa de alcance ou resultado.</p>
+        <p>Um jeito de conectar sua marca às escolhas do dia a dia, com formatos e condições definidos em conjunto.</p>
       </aside></div>
     </div>
     <div class="public-sponsor-selector-intro"><span class="section-kicker">FORMATOS PARA CONVERSAR</span><h2>Da ideia ao formato certo para sua marca.</h2><p>Conheça exemplos de campanhas. Cidade, categoria e investimento são definidos em conversa com o TAMÃO.</p></div>
     <section class="section sponsor-formats" aria-label="Exemplos de formatos de campanha">
-      <div class="section-head"><div><span class="section-kicker">UM PLANO PARA CADA OBJETIVO</span><h2>Mais do que aparecer: faça parte de momentos relevantes.</h2><p>Três possibilidades para planejar. Cada campanha depende de avaliação, disponibilidade e aprovação antes de entrar no ar.</p></div></div>
+      <div class="section-head"><div><span class="section-kicker">UM PLANO PARA CADA OBJETIVO</span><h2>Mais do que aparecer: faça parte de momentos relevantes.</h2><p>Três formatos para sua marca ganhar contexto regional. Escolha o seu objetivo e converse com o TAMÃO.</p></div></div>
       <div class="sponsor-format-grid">
         <article><span aria-hidden="true">01 / VISIBILIDADE</span><h3>Estar presente onde o cliente explora.</h3><p>Espaços de divulgação identificados, com contexto de cidade e categoria.</p><button type="button" onclick="openSponsorContact('visibility')">Quero divulgar minha marca <span aria-hidden="true">→</span></button></article>
         <article><span aria-hidden="true">02 / RELACIONAMENTO</span><h3>Valorizar quem compra de novo.</h3><p>Ações de benefício com público, limites e regras definidos previamente.</p><button type="button" onclick="openSponsorContact('relationship')">Quero apoiar benefícios <span aria-hidden="true">→</span></button></article>
@@ -584,7 +579,7 @@ function sponsorsLanding(){
 function merchantsLanding(){
   const portal=globalThis.merchantPortalRequested?.()===true;
   const internalPilot=globalThis.CHAMA_INTERNAL_PILOT===true;
-  const cta=internalPilot?"setMode('merchant')":"openPrelaunchMerchantLead()";
+  const cta=internalPilot?"setMode('merchant')":"openMerchantPortal(true)";
   const ctaLabel=internalPilot?'Abrir ambiente interno':'Cadastrar minha empresa';
   const referenceTicket=120.00;
   const merchantFeeLabel=policyPercent(merchantPilotFeeRate());
@@ -649,13 +644,13 @@ function merchantsLanding(){
 
     <section class="merchant-demand-story" aria-label="O que sua revenda ganha com o TAMÃO">
       <div class="merchant-demand-heading"><span class="section-kicker">VISIBILIDADE QUE PODE VIRAR PEDIDOS</span><h2>Não espere o cliente já conhecer sua revenda para vender.</h2>
-        <p>Ao participar do TAMÃO, sua empresa pode aparecer nas buscas de consumidores de sua área atendida, receber solicitações de pedidos e expor produtos complementares. Mais clientes descobrindo a empresa significa novas oportunidades, não volume de vendas garantido.</p></div>
+        <p>Ao participar do TAMÃO, sua empresa pode aparecer nas buscas de consumidores de sua área atendida, receber solicitações de pedidos e expor produtos complementares. Cada nova descoberta é uma oportunidade de conquistar pedidos e ganhar espaço na sua região.</p></div>
       <div class="merchant-demand-grid">
         <article><span aria-hidden="true">📍</span><strong>Mais clientes podem encontrar você</strong><p>Sua revenda ganha outra vitrine para consultas por região e produtos.</p></article>
         <article><span aria-hidden="true">🛒</span><strong>Mais chances de receber pedidos</strong><p>Solicitações organizadas em um painel, com aceite sob seu controle.</p></article>
         <article><span aria-hidden="true">🔁</span><strong>Mais motivos para o cliente voltar</strong><p>Histórico e benefícios de campanhas elegíveis podem apoiar a recompra.</p></article>
       </div>
-      <p class="merchant-demand-note">Campanhas com cupons e descontos patrocinados estão em preparação, não são obrigação automática das revendas e exigem participação autorizada.</p>
+      <p class="merchant-demand-note">Sua revenda mantém autonomia para decidir preços, estoque e participação em ações comerciais.</p>
     </section>
     <section class="section"><div class="section-head"><div><span class="section-kicker">MAIS UM CANAL DE VENDAS</span><h2>Mais oportunidades chegam quando sua empresa está onde o cliente procura.</h2><p>Não é preciso mudar o jeito que sua revenda já vende. O TAMÃO acrescenta um caminho para o consumidor encontrá-la e consultar o que você realmente pode entregar.</p></div></div>
       <div class="grid cards-3 partner-benefits">
@@ -678,7 +673,7 @@ function merchantsLanding(){
         <div class="card"><div class="feature-icon">📣</div><h3>Ajude mais gente a descobrir sua empresa</h3>
           <p class="muted tiny">Compartilhe seu link da Rede TAMÃO. Publicidade patrocinada e ferramentas Pro serão opções separadas quando estiverem disponíveis.</p></div>
       </div>
-      <p class="tiny muted">A divulgação paga não altera a ordem orgânica das ofertas. Serviços adicionais ainda não estão disponíveis para contratação.</p>
+      <p class="tiny muted">A divulgação patrocinada é identificada e não altera a ordem orgânica das ofertas.</p>
     </section>
 
     <section class="section tamao-merchant-differentials">
@@ -830,7 +825,7 @@ function merchantJoin(){
         :'';
   const prefillCnpj=String(prospectDetails?.cnpj||ownApplication?.cnpj||'');
   const prefillCompany=String(ownApplication?.company_name||prospectDetails?.companyName||'');
-  return shell(`<section class="page"><button class="back" onclick="go('merchants')">← Para revendas</button><h1 class="page-title">Sua empresa tem lugar no TAMÃO.</h1><p class="muted">${globalThis.merchantPortalRequested?.()?'Conte um pouco sobre seu negócio. Nossa equipe poderá validar os dados e orientar a habilitação comercial.':'Acesse o portal de parceiros e comece o cadastro da sua empresa.'}</p>${pilotInvite?'<div class="notice success" style="margin-bottom:14px"><strong>Convite de parceiro reconhecido.</strong><br>Seus dados serão vinculados às condições comerciais já registradas. A operação continuará offline até aprovação, compliance, estoque e disponibilidade serem confirmados.</div>':''}${prospectInvite?'<div class="notice success" style="margin-bottom:14px"><strong>Convite de revenda reconhecido.</strong><br>Preencha os dados reais da empresa identificada na ANP. O cadastro será associado ao CNPJ convidado para análise, sem ativar vendas automaticamente.</div>':''}${ownNotice}<form class="card flat form-stack merchant-join-form" onsubmit="event.preventDefault();joinMerchant()" novalidate><div class="merchant-join-intro"><strong>Dados da empresa</strong><small>Preencha uma única vez. Você poderá corrigir os dados enquanto o cadastro estiver em análise.</small></div><div class="field-row"><div class="input-wrap"><label for="j-cnpj">CNPJ</label><input id="j-cnpj" name="cnpj" autocomplete="off" required aria-describedby="merchant-cnpj-hint" value="${esc(prefillCnpj)}" autocapitalize="characters" maxlength="18" class="input" placeholder="00.000.000/0000-00 ou alfanumérico"><small class="field-hint" id="merchant-cnpj-hint">Informe o CNPJ real da empresa, inclusive alfanumérico quando aplicável.</small></div><div class="input-wrap"><label for="j-name">Nome da empresa</label><input id="j-name" name="organization" autocomplete="organization" required value="${esc(prefillCompany)}" maxlength="90" class="input" placeholder="Nome da revenda"></div></div><div class="merchant-join-intro"><strong>Como falar com você</strong><small>O WhatsApp será usado para assuntos do cadastro e da operação.</small></div><div class="field-row"><div class="input-wrap"><label for="j-owner">Responsável</label><input id="j-owner" name="name" autocomplete="name" required value="${esc(ownApplication?.responsible_name||'')}" maxlength="90" class="input" placeholder="Nome do responsável"></div><div class="input-wrap"><label for="j-phone">WhatsApp</label><input id="j-phone" name="tel" type="tel" autocomplete="tel" required value="${esc(ownApplication?.phone||'')}" inputmode="tel" maxlength="20" class="input" placeholder="(55) 99999-9999"></div></div><div class="merchant-join-intro"><strong>Onde fica sua empresa</strong><small>Precisamos do endereço para conferir a região de atendimento.</small></div><div class="input-wrap"><label for="j-address">Endereço</label><input id="j-address" name="street-address" autocomplete="street-address" required value="${esc(ownApplication?.address_text||'')}" maxlength="160" class="input" placeholder="Endereço da empresa"></div><div class="input-wrap"><label for="j-referral-code">Código de quem apresentou o TAMÃO (opcional)</label><input id="j-referral-code" class="input" autocomplete="off" autocapitalize="characters" maxlength="40" value="${esc(typeof growthAttributionCode==='function'?growthAttributionCode():'')}" placeholder="Código do convite"><small class="field-hint">Quando você veio por um convite, o código pode aparecer automaticamente. Ele registra a origem do cadastro; benefícios dependem de validações e campanhas ativas.</small></div><button class="primary" type="submit" ${ownStatus==='approved'?'disabled title="Empresa já aprovada"':''}>${ownStatus==='rejected'?'Reenviar meus dados corrigidos':ownStatus==='pending'?'Salvar meus dados atualizados':'Enviar cadastro da minha empresa →'}</button><small class="merchant-join-footer">Seu cadastro não gera cobrança nem coloca a revenda online automaticamente.</small></form><div class="notice" style="margin-top:14px">O cadastro não coloca a empresa online automaticamente. A operação entra nas ofertas somente depois da aprovação e, quando houver GLP, da validação regulatória aplicável.</div></section>`)
+  return shell(`<section class="page"><button class="back" onclick="go('merchants')">← Para revendas</button><h1 class="page-title">Sua empresa tem lugar no TAMÃO.</h1><p class="muted">${globalThis.merchantPortalRequested?.()?'Conte um pouco sobre seu negócio. Nossa equipe poderá validar os dados e orientar a habilitação comercial.':'Acesse o portal de parceiros e comece o cadastro da sua empresa.'}</p>${pilotInvite?'<div class="notice success" style="margin-bottom:14px"><strong>Convite de parceiro reconhecido.</strong><br>Seus dados serão vinculados às condições comerciais já registradas. A operação continuará offline até aprovação, compliance, estoque e disponibilidade serem confirmados.</div>':''}${prospectInvite?'<div class="notice success" style="margin-bottom:14px"><strong>Convite de revenda reconhecido.</strong><br>Preencha os dados reais da empresa identificada na ANP. O cadastro será associado ao CNPJ convidado para análise, sem ativar vendas automaticamente.</div>':''}${ownNotice}<form class="card flat form-stack merchant-join-form" onsubmit="event.preventDefault();joinMerchant()" novalidate><div class="merchant-join-intro"><strong>Dados da empresa</strong><small>Preencha uma única vez. Você poderá corrigir os dados enquanto o cadastro estiver em análise.</small></div><div class="field-row"><div class="input-wrap"><label for="j-cnpj">CNPJ</label><input id="j-cnpj" name="cnpj" autocomplete="off" required aria-describedby="merchant-cnpj-hint" value="${esc(prefillCnpj)}" autocapitalize="characters" maxlength="18" class="input" placeholder="00.000.000/0000-00 ou alfanumérico"><small class="field-hint" id="merchant-cnpj-hint">Informe o CNPJ real da empresa, inclusive alfanumérico quando aplicável.</small></div><div class="input-wrap"><label for="j-name">Nome da empresa</label><input id="j-name" name="organization" autocomplete="organization" required value="${esc(prefillCompany)}" maxlength="90" class="input" placeholder="Nome da revenda"></div></div><div class="merchant-join-intro"><strong>Como falar com você</strong><small>O WhatsApp será usado para assuntos do cadastro e da operação.</small></div><div class="field-row"><div class="input-wrap"><label for="j-owner">Responsável</label><input id="j-owner" name="name" autocomplete="name" required value="${esc(ownApplication?.responsible_name||'')}" maxlength="90" class="input" placeholder="Nome do responsável"></div><div class="input-wrap"><label for="j-phone">WhatsApp</label><input id="j-phone" name="tel" type="tel" autocomplete="tel" required value="${esc(ownApplication?.phone||'')}" inputmode="tel" maxlength="20" class="input" placeholder="(55) 99999-9999"></div></div><div class="merchant-join-intro"><strong>Onde fica sua empresa</strong><small>Precisamos do endereço para conferir a região de atendimento.</small></div><div class="input-wrap"><label for="j-address">Endereço</label><input id="j-address" name="street-address" autocomplete="street-address" required value="${esc(ownApplication?.address_text||'')}" maxlength="160" class="input" placeholder="Endereço da empresa"></div><div class="input-wrap"><label for="j-referral-code">Código de quem apresentou o TAMÃO (opcional)</label><input id="j-referral-code" class="input" autocomplete="off" autocapitalize="characters" maxlength="40" value="${esc(typeof growthAttributionCode==='function'?growthAttributionCode():'')}" placeholder="Código do convite"><small class="field-hint">Quando você veio por um convite, o código pode aparecer automaticamente. Ele registra a origem do cadastro; benefícios dependem de validações e campanhas ativas.</small></div><button class="primary" type="submit" ${ownStatus==='approved'?'disabled title="Empresa já aprovada"':''}>${ownStatus==='rejected'?'Reenviar meus dados corrigidos':ownStatus==='pending'?'Salvar meus dados atualizados':'Enviar cadastro da minha empresa →'}</button><small class="merchant-join-footer">Cadastre sua empresa agora. A liberação comercial exige aprovação e as verificações próprias da categoria.</small></form></section>`)
 }
 function onlyDigits(v){return String(v||'').replace(/\D/g,'')}
 function isValidPhoneShape(v){const n=onlyDigits(v);return n.length===10||n.length===11}

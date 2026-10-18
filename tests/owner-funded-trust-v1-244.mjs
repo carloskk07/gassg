@@ -44,7 +44,7 @@ for(const fragment of [
 for(const f of ['adminOwnerFundingLoadFromUi','adminOwnerFundingSaveFromUi'])
  assert.ok(boot.includes(f),'Missing global callback '+f);
 for(const f of [
- 'Cada compra pode render mais vantagens para você.',
+ 'Compare ofertas pelo preço total para seu CEP',
  'Seu próximo convite pode abrir novas portas.',
  'Indique quem compra. Apresente quem vende. Faça sua rede crescer.',
  'Tudo acompanhado em um só lugar.',
@@ -54,7 +54,7 @@ for(const f of [
 ])assert.ok(grow.includes(f),'Missing truthful marketing text: '+f);
 assert.ok(grow.includes('Sua marca presente no dia a dia de quem compra e vende.')||grow.includes('Sua marca mais perto de quem compra na cidade.'),'Sponsorship value must be stated without fictitious impact');
 for(const f of [
- 'Compare preços para economizar. Descubra descontos e vantagens para comprar melhor.',
+ 'Compare preços, aproveite seu Clube e compre com mais vantagem.',
  'Compare preços e encontre oportunidades de economia','Seu pedido, com etapas que você acompanha'
 ])assert.ok(cust.includes(f),'Missing home text: '+f);
 assert.ok(!grow.includes('Saque Pix ainda não disponível</button>'),
