@@ -1,0 +1,101 @@
+/* TAMÃO Discovery: consulta pública, sem pedidos nem cobranças. */
+const discoveryVerticals={
+  professionals:['Profissionais','Encontre prestadores de serviços na sua região','🛠️'],
+  rides:['Caronas','Pesquise trajetos e vagas de caronas anunciadas','🚙'],
+  stays:['Hospedagens','Explore hospedagens publicadas em destinos brasileiros','🏡']
+};
+const discoveryRuntime=Object.create(null);
+function discoveryKind(){
+  const r=route();
+  return !globalThis.adminPortalRequested?.()&&!globalThis.merchantPortalRequested?.()
+    &&Object.hasOwn(discoveryVerticals,r)?r:'';
+}
+function discoveryState(kind){
+  return discoveryRuntime[kind]??=( {status:'idle',items:[],city:'',state:'',error:'',seq:0} );
+}
+function discoveryCityKey(raw){
+  return String(raw||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'')
+    .toLowerCase().replace(/[^a-z0-9 -]/g,'').trim().replace(/\s+/g,'-').slice(0,110);
+}
+function discoveryExploreCards(){
+  return '<section class="section discovery-entrances"><h2>Explore mais no TAMÃO</h2>'+
+  '<div class="discovery-entry-grid">'+Object.entries(discoveryVerticals).map(([key,v])=>
+    '<button type="button" onclick="go(\''+key+'\')">'+v[2]+' <strong>'+v[0]+'</strong><span>Ver anúncios e oportunidades →</span></button>'
+  ).join('')+'</div></section>';
+}
+function discoveryWhatsApp(item){
+  const phone=String(item.whatsapp_e164||'');
+  if(!/^\+[1-9][0-9]{7,14}$/.test(phone))return '';
+  return 'https://wa.me/'+phone.slice(1)+'?text='+encodeURIComponent('Olá, vi seu anúncio no TAMÃO: '+String(item.title||'').slice(0,80));
+}
+function discoveryCard(item,kind){
+  if(item?.vertical!==kind)return '';
+  const loc=esc([item.city_name,item.state_code].filter(Boolean).join(' / '));
+  let extra=kind==='professionals'?esc(item.occupation||''):
+    kind==='rides'?esc((item.departure_city||'')+' → '+(item.destination_city||''))+
+      ' · '+Math.max(0,Math.trunc(Number(item.seats_available)||0))+' vaga(s) declaradas'
+    :'Até '+Math.max(0,Math.trunc(Number(item.guests)||0))+' hóspedes';
+  const contact=discoveryWhatsApp(item);
+  return '<article class="discovery-result"><small>'+loc+'</small><h2>'+esc(item.title)+'</h2>'+
+    '<p class="discovery-detail">'+extra+'</p><p>'+esc(item.description)+'</p>'+
+    (contact?'<a href="'+esc(contact)+'" rel="noopener noreferrer" target="_blank">Conversar pelo WhatsApp ↗</a>':'')+'</article>';
+}
+function discoveryPage(){
+  const kind=discoveryKind();
+  if(!kind)return shell('<section><h1>Não encontrado</h1></section>');
+  const s=discoveryState(kind),v=discoveryVerticals[kind];
+  const content=s.status==='loading'?'<p role="status">Buscando anúncios publicados…</p>':
+    s.status==='error'?'<p role="alert">Consulta indisponível no momento. Verifique a conexão e tente novamente.</p>':
+    s.status==='ready'&&!s.items.length?'<p>Nenhum anúncio publicado encontrado com esses filtros.</p>':
+    s.items.map(item=>discoveryCard(item,kind)).join('');
+  return shell('<section class="section discovery-page"><header class="discovery-intro">'+
+    '<span class="section-kicker">TAMÃO '+v[0].toUpperCase()+'</span><h1>'+v[1]+'</h1>'+
+    '<p>Consulte anúncios publicados e fale diretamente com quem anunciou.</p></header>'+
+    '<form class="discovery-search" onsubmit="return discoverySearchFromUi(event)">'+
+    '<label>UF<select id="discovery-uf"><option value="">Todo o Brasil</option>'+
+    ['AC','AL','AP','AM','BA','CE','DF','ES','GO','MA','MT','MS','MG','PA','PB','PR','PE','PI','RJ','RN','RS','RO','RR','SC','SP','SE','TO'].map(uf=>
+    '<option value="'+uf+'"'+(s.state===uf?' selected':'')+'>'+uf+'</option>').join('')+'</select></label>'+
+    '<label>Cidade<input id="discovery-city" autocomplete="address-level2" placeholder="Digite a cidade" maxlength="120" value="'+esc(s.city)+'"></label>'+
+    '<button type="submit" class="primary">Pesquisar</button></form>'+
+    '<p class="tiny muted">Disponibilidade e condições são confirmadas com o anunciante. O TAMÃO não processa pagamentos dessas contratações.</p>'+
+    '<div class="discovery-results" aria-live="polite">'+content+'</div></section>');
+}
+function discoverySearchFromUi(event){
+  event?.preventDefault?.();
+  const kind=discoveryKind();
+  if(!kind)return false;
+  const s=discoveryState(kind);
+  s.state=String(document.getElementById('discovery-uf')?.value||'').slice(0,2);
+  s.city=String(document.getElementById('discovery-city')?.value||'').trim().slice(0,120);
+  discoveryFetch();
+  return false;
+}
+async function discoveryFetch(){
+  const kind=discoveryKind();
+  if(!kind)return;
+  const s=discoveryState(kind),seq=++s.seq;
+  s.status='loading';s.items=[];s.error='';render();
+  try{
+    const sdk=await loadSupabaseBrowser();
+    const client=sdk.createClient(CHAMA_BACKEND.url,CHAMA_BACKEND.publishableKey,{
+      auth:{persistSession:false,autoRefreshToken:false,detectSessionInUrl:false},
+      global:{fetch:chamaFetch}
+    });
+    const {data,error}=await client.rpc('discovery_public_search',{
+      p_vertical:kind,p_state_code:s.state||null,p_city_key:discoveryCityKey(s.city)||null,p_limit:24
+    });
+    if(error)throw error;
+    if(seq!==s.seq)return;
+    if(!Array.isArray(data))throw new Error('Resposta inválida');
+    s.items=data.filter(item=>item&&item.vertical===kind);
+    s.status='ready';
+  }catch(e){
+    if(seq!==s.seq)return;
+    s.status='error';s.error=String(e?.message||'Falha na consulta.');
+  }
+  if(discoveryKind()===kind)render();
+}
+function discoveryAfterRender(){
+  const kind=discoveryKind();
+  if(kind&&discoveryState(kind).status==='idle')discoveryFetch();
+}
