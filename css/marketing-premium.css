@@ -1148,3 +1148,77 @@
   .home-first-visit .home-editorial-gas,.home-first-visit .home-editorial-water{padding:7px}
   .home-first-visit .home-editorial-choice small{white-space:normal;font-size:10px}
 }
+
+/* TAMÃO V1.413 — benefits-forward first visit, with less repetitive scrolling. */
+.tamao-value-section.tamao-value-compact{
+  max-width:1200px;
+  margin:clamp(24px,3.5vw,46px) auto;
+  padding:clamp(20px,3.5vw,38px);
+  border:1px solid #cfe4d6;
+  border-radius:clamp(20px,2.5vw,30px);
+  background:radial-gradient(circle at 96% 3%,rgba(245,191,81,.16),transparent 32%),
+    linear-gradient(130deg,#f2faf4,#fffdf7);
+  box-shadow:0 16px 42px rgba(14,69,43,.052);
+  overflow-wrap:break-word;
+}
+.tamao-value-compact > .section-head{
+  max-width:850px;
+  margin-bottom:7px;
+}
+.tamao-value-compact > .section-head h2{
+  max-width:24ch;
+  font-size:clamp(27px,3.55vw,45px);
+  line-height:1.11;
+  letter-spacing:-.052em;
+  text-wrap:balance;
+}
+.tamao-value-compact > .section-head p{
+  max-width:70ch;
+  font-size:clamp(13px,1.3vw,15px);
+  line-height:1.65;
+  text-wrap:pretty;
+}
+.tamao-value-compact .tamao-perks-stage{
+  margin:22px 0 0;
+  gap:clamp(10px,1.35vw,17px);
+  align-items:stretch;
+}
+.tamao-value-compact .tamao-perks-panel{
+  min-width:0;
+  min-height:260px;
+  padding:clamp(19px,2.6vw,31px);
+}
+.tamao-value-compact .tamao-perks-panel h3{
+  max-width:27ch;
+  font-size:clamp(22px,2.25vw,31px);
+  line-height:1.16;
+  text-wrap:balance;
+}
+.tamao-value-compact .tamao-perks-panel p{
+  max-width:47ch;
+  line-height:1.57;
+  text-wrap:pretty;
+}
+.tamao-value-compact .tamao-perks-panel button{
+  min-height:47px;
+  line-height:1.35;
+  text-align:left;
+  white-space:normal;
+}
+@media(max-width:760px){
+  .tamao-value-section.tamao-value-compact{
+    padding:20px 15px;
+    margin-block:20px 24px;
+    border-radius:22px;
+  }
+  .tamao-value-compact .tamao-perks-stage{margin-top:17px;gap:10px}
+  .tamao-value-compact .tamao-perks-panel{min-height:0;padding:21px 19px}
+  .tamao-value-compact .tamao-perks-panel h3{font-size:clamp(22px,6vw,28px)}
+  .tamao-value-compact .tamao-perks-panel p{font-size:13px;margin-bottom:17px}
+}
+@media(max-width:380px){
+  .tamao-value-section.tamao-value-compact{padding:17px 12px;border-radius:19px}
+  .tamao-value-compact .tamao-perks-panel{padding:19px 15px}
+  .tamao-value-compact .tamao-perks-panel h3{font-size:22px}
+  .tamao-value-compact .tamao-perks-panel button{width:100%;justify-content:space-between}
+}
