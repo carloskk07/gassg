@@ -74,7 +74,9 @@ function headers(portal){
   return lines.join('\n');
 }
 
-function patchIndex(html,portal){
+function patchIndex(html,portal,sourceSha){
+  const assetVersion=String(sourceSha||'').trim();
+  if(!/^[A-Za-z0-9._-]{1,120}$/.test(assetVersion))throw new Error('Invalid version for portal asset URLs');
   const role=validatePortalRole(portal,{required:true});
   const meta=PORTALS[role];
   const robots=role!=='admin'
@@ -123,8 +125,11 @@ function patchIndex(html,portal){
       patched=patched.replace(tag,'');
     }
   }
-  // Restricted admin is intentionally not a marketing landing page.
-  return patched;
+  // A single release identity for every script and stylesheet. This prevents
+  // browser/CDN caches from mixing assets across successive deployments.
+  // Only release bundles are rewritten; the source index remains convenient
+  // for local development and static inspections.
+  return patched.replace(/((?:src|href)=")(\.\/(?:js|css)\/[^"?#]+)(")/g,(_match,start,url,end)=>start+url+'?v='+encodeURIComponent(assetVersion)+end);
 }
 
 function writePortalRobots(target,role){
@@ -172,17 +177,24 @@ function patchServiceWorker(raw,sourceSha,role){
     'const CACHE='+JSON.stringify('tamao-sg-'+buildId)+';'
   );
   if(next===raw)throw new Error('constante CACHE do service worker não encontrada');
-  if(role==='admin')return next;
-  if(!['customer','merchant'].includes(role))throw new Error('Invalid portal cache role');
-  // Avoid prefetching admin modules in a public PWA after excluding them
-  // from the entrypoint. Keep the same SHA-based cache authority.
+  if(!['customer','merchant','admin'].includes(role))throw new Error('Invalid portal cache role');
   let scoped=next;
-  for(const module of ['admin-acquisition','admin','admin-activations']){
-    const entry=",'./js/"+module+".js'";
-    if(!scoped.includes(entry))throw new Error('Missing expected admin cache entry: '+module);
-    scoped=scoped.replace(entry,'');
+  if(role!=='admin'){
+    // Only the administrative bundle may precache privileged UI modules.
+    for(const module of ['admin-acquisition','admin','admin-activations']){
+      const entry=",'./js/"+module+".js'";
+      if(!scoped.includes(entry))throw new Error('Missing expected admin cache entry: '+module);
+      scoped=scoped.replace(entry,'');
+    }
   }
-  return scoped;
+  // The precache keys must be identical to the versioned URLs in index.html.
+  // A release cannot accidentally serve old CSS with new JavaScript offline.
+  const assets=/const ASSETS=\[([\s\S]*?)\];/;
+  if(!assets.test(scoped))throw new Error('Missing PWA ASSETS array');
+  return scoped.replace(assets,(_match,items)=>
+    'const ASSETS=['+items.replace(/'(\.\/(?:js|css)\/[^'?#]+)'/g,
+      (_item,url)=>"'"+url+'?v='+encodeURIComponent(buildId)+"'")+'];'
+  );
 }
 
 
@@ -219,7 +231,7 @@ export function buildLivePortals(env=process.env,{outputRoot=env.PORTAL_BUILD_OU
       buildRuntimeConfig(runtimeEnv,{requirePortalRole:true}),
       'utf8'
     );
-    fs.writeFileSync(path.join(target,'index.html'),patchIndex(indexRaw,role),'utf8');
+    fs.writeFileSync(path.join(target,'index.html'),patchIndex(indexRaw,role,sourceSha),'utf8');
     fs.writeFileSync(path.join(target,'manifest.webmanifest'),patchManifest(manifestRaw,role),'utf8');
     fs.writeFileSync(path.join(target,'sw.js'),patchServiceWorker(serviceWorkerRaw,sourceSha,role),'utf8');
     writePortalRobots(target,role);
