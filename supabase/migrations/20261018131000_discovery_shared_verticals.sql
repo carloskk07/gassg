@@ -191,6 +191,506 @@ $$;
 revoke all on function public.discovery_verified_account() from public;
 grant execute on function public.discovery_verified_account() to authenticated;
 
+-- Only public marketing photos; never documents. Uploads must use own UUID.
+insert into storage.buckets(id,name,public,file_size_limit,allowed_mime_types)
+values('tamao-discovery-photos','tamao-discovery-photos',true,5242880,
+       array['image/jpeg','image/png','image/webp']) on conflict(id) do nothing;
+create policy discovery_photo_owned_insert on storage.objects
+for insert to authenticated with check (
+ bucket_id='tamao-discovery-photos'
+ and owner_id=(select auth.uid())::text
+ and split_part(name,'/',1)=(select auth.uid())::text
+ and split_part(name,'/',2) ~ '^[0-9a-f-]{36}[.](jpg|jpeg|png|webp)
+
+-- Fluxos de cadastro preservam proprietário e nunca permitem autopublicação.
+create policy discovery_owner_draft_insert on public.discovery_listings
+ for insert to authenticated with check (
+   (select auth.uid())=owner_id and status='draft'
+   and (select public.discovery_verified_account())
+   and submitted_at is null and published_at is null
+   and reviewed_by is null and reviewed_at is null
+   and advertising_accepted_at is null
+ );
+create policy discovery_owner_draft_edit on public.discovery_listings
+ for update to authenticated using (
+   (select auth.uid())=owner_id and status in ('draft','rejected','paused')
+ ) with check (
+   (select auth.uid())=owner_id and status in ('draft','rejected','paused')
+ );
+grant insert (vertical,title,description,state_code,city_key,city_name,
+  public_area,whatsapp_e164,photo_urls) on public.discovery_listings to authenticated;
+grant update (title,description,state_code,city_key,city_name,
+  public_area,whatsapp_e164,photo_urls,updated_at)
+ on public.discovery_listings to authenticated;
+
+-- Encapsula a verificação de dono sem publicar UUIDs de usuários.
+-- A exceção SECURITY DEFINER só consulta o anúncio pertencente ao auth.uid().
+create function public.discovery_owner_can_edit_details(
+  p_listing_id uuid,p_vertical text
+) returns boolean language sql stable security definer set search_path='pg_catalog'
+as $$
+  select exists(select 1 from public.discovery_listings l
+    where l.id=p_listing_id and l.owner_id=(select auth.uid())
+      and l.vertical=p_vertical and l.status in ('draft','rejected','paused'))
+$$;
+revoke all on function public.discovery_owner_can_edit_details(uuid,text) from public;
+grant execute on function public.discovery_owner_can_edit_details(uuid,text)
+  to authenticated;
+
+-- Um usuário jamais poderá escrever detalhes de anúncio de outra pessoa
+-- ou alterar detalhes já aprovados sem nova moderação.
+create policy discovery_professional_draft_insert on public.discovery_professional_details
+ for insert to authenticated with check (
+   (select public.discovery_owner_can_edit_details(listing_id,'professionals'))
+ );
+create policy discovery_professional_draft_update on public.discovery_professional_details
+ for update to authenticated using (
+   (select public.discovery_owner_can_edit_details(listing_id,'professionals'))
+ ) with check (
+   (select public.discovery_owner_can_edit_details(listing_id,'professionals'))
+ );
+create policy discovery_ride_draft_insert on public.discovery_ride_details
+ for insert to authenticated with check (
+   (select public.discovery_owner_can_edit_details(listing_id,'rides'))
+ );
+create policy discovery_ride_draft_update on public.discovery_ride_details
+ for update to authenticated using (
+   (select public.discovery_owner_can_edit_details(listing_id,'rides'))
+ ) with check (
+   (select public.discovery_owner_can_edit_details(listing_id,'rides'))
+ );
+create policy discovery_stay_draft_insert on public.discovery_stay_details
+ for insert to authenticated with check (
+   (select public.discovery_owner_can_edit_details(listing_id,'stays'))
+ );
+create policy discovery_stay_draft_update on public.discovery_stay_details
+ for update to authenticated using (
+   (select public.discovery_owner_can_edit_details(listing_id,'stays'))
+ ) with check (
+   (select public.discovery_owner_can_edit_details(listing_id,'stays'))
+ );
+grant insert,update on public.discovery_professional_details to authenticated;
+grant insert,update on public.discovery_ride_details to authenticated;
+grant insert,update on public.discovery_stay_details to authenticated;
+
+-- Propostas não são automaticamente publicadas. Ativação, revisão e auditoria
+-- usam autoridade explícita do administrador principal.
+create function public.discovery_set_vertical_city(
+  p_vertical text,p_state text,p_city_key text,p_city_name text,
+  p_enabled boolean,p_reason text
+) returns void language plpgsql security definer set search_path='pg_catalog'
+as $$
+declare v_actor uuid:=(select auth.uid());
+begin
+  if v_actor is null or not exists(
+    select 1 from public.platform_admins a
+    where a.user_id=v_actor and a.active and a.admin_role='superadmin'
+  ) then raise exception 'ADMIN_REQUIRED' using errcode='42501';end if;
+  if length(btrim(coalesce(p_reason,'')))<8 then
+    raise exception 'REASON_REQUIRED' using errcode='22023';end if;
+  insert into public.discovery_vertical_cities(
+    vertical,state_code,city_key,city_name,enabled,changed_by,change_reason,changed_at
+  ) values (
+    p_vertical,p_state,p_city_key,p_city_name,p_enabled,v_actor,p_reason,clock_timestamp()
+  ) on conflict(vertical,state_code,city_key)
+    do update set enabled=excluded.enabled,city_name=excluded.city_name,
+      changed_by=excluded.changed_by,change_reason=excluded.change_reason,
+      changed_at=excluded.changed_at;
+end $$;
+revoke all on function public.discovery_set_vertical_city(text,text,text,text,boolean,text) from public;
+grant execute on function public.discovery_set_vertical_city(text,text,text,text,boolean,text)
+ to authenticated;
+
+create function public.discovery_transition_listing(
+  p_listing_id uuid,p_next_status text,p_reason text default ''
+) returns text language plpgsql security definer set search_path='pg_catalog'
+as $$
+declare
+ v_actor uuid:=(select auth.uid());
+ v_listing public.discovery_listings%rowtype;
+ v_admin boolean;
+begin
+  if v_actor is null then raise exception 'AUTH_REQUIRED' using errcode='42501';end if;
+  select * into v_listing from public.discovery_listings where id=p_listing_id for update;
+  if not found then raise exception 'LISTING_NOT_FOUND' using errcode='P0002';end if;
+  v_admin:=exists(select 1 from public.platform_admins a
+       where a.user_id=v_actor and a.active and a.admin_role='superadmin');
+  if p_next_status=v_listing.status then return v_listing.status;end if;
+  if p_next_status='review' then
+    if v_actor<>v_listing.owner_id or v_listing.status not in ('draft','rejected','paused')
+       then raise exception 'OWNER_DRAFT_REQUIRED' using errcode='42501';end if;
+    if not public.discovery_verified_photo_paths(p_listing_id) then raise exception 'REAL_PHOTO_REQUIRED' using errcode='22023';end if;
+    if not (
+     (v_listing.vertical='professionals' and exists(
+      select 1 from public.discovery_professional_details where listing_id=p_listing_id)) or
+     (v_listing.vertical='rides' and exists(
+      select 1 from public.discovery_ride_details where listing_id=p_listing_id
+        and departure_at>clock_timestamp() and seats_available>0)) or
+     (v_listing.vertical='stays' and exists(
+      select 1 from public.discovery_stay_details where listing_id=p_listing_id))
+    ) then raise exception 'LISTING_DETAILS_REQUIRED' using errcode='22023';end if;
+  elsif p_next_status in ('published','rejected','paused') then
+    if not v_admin and not (
+      p_next_status='paused' and v_actor=v_listing.owner_id
+      and v_listing.status='published'
+    ) then raise exception 'ADMIN_REQUIRED' using errcode='42501';end if;
+    if v_admin and length(btrim(coalesce(p_reason,'')))<8 then
+      raise exception 'REASON_REQUIRED' using errcode='22023';end if;
+    if p_next_status='published' then
+      if not public.discovery_verified_photo_paths(p_listing_id) then raise exception 'REAL_PHOTO_REQUIRED' using errcode='22023';end if;
+      if v_listing.vertical='rides' and not exists(
+        select 1 from public.discovery_ride_details r
+        where r.listing_id=p_listing_id and r.departure_at>clock_timestamp()
+          and r.seats_available>0
+      ) then raise exception 'EXPIRED_OR_FULL_RIDE' using errcode='22023';end if;
+      if v_listing.status not in ('review','paused') then
+        raise exception 'LISTING_REVIEW_REQUIRED' using errcode='22023';end if;
+      if not exists (
+        select 1 from public.discovery_vertical_cities c where c.vertical=v_listing.vertical
+        and c.state_code=v_listing.state_code and c.city_key=v_listing.city_key and c.enabled
+      ) then raise exception 'CITY_VERTICAL_DISABLED' using errcode='22023';end if;
+    end if;
+  else
+    raise exception 'INVALID_TRANSITION' using errcode='22023';
+  end if;
+  update public.discovery_listings set status=p_next_status,updated_at=clock_timestamp(),
+    submitted_at=case when p_next_status='review' then clock_timestamp() else submitted_at end,
+    published_at=case when p_next_status='published' then clock_timestamp() else published_at end,
+    paused_at=case when p_next_status='paused' then clock_timestamp() else paused_at end,
+    reviewed_by=case when v_admin then v_actor else reviewed_by end,
+    reviewed_at=case when v_admin then clock_timestamp() else reviewed_at end
+  where id=p_listing_id;
+  insert into public.discovery_moderation_log(listing_id,from_status,to_status,actor_id,reason)
+  values(p_listing_id,v_listing.status,p_next_status,v_actor,nullif(btrim(p_reason),''));
+  return p_next_status;
+end $$;
+revoke all on function public.discovery_transition_listing(uuid,text,text) from public;
+grant execute on function public.discovery_transition_listing(uuid,text,text)
+ to authenticated;
+
+
+-- Contrato público de descoberta: uma busca segura, sem dados de proprietários,
+-- sem misturar as três jornadas e sem confiar em um índice geográfico do marketplace.
+create function public.discovery_public_search(
+  p_vertical text default null,
+  p_state_code text default null,
+  p_city_key text default null,
+  p_departure_city text default null,
+  p_destination_city text default null,
+  p_departure_after timestamptz default null,
+  p_min_guests integer default null,
+  p_limit integer default 20
+) returns table(
+  id uuid,vertical text,title text,description text,
+  state_code text,city_key text,city_name text,public_area text,
+  whatsapp_e164 text,photo_urls text[],published_at timestamptz,
+  occupation text,departure_city text,destination_city text,
+  departure_at timestamptz,seats_available integer,
+  property_type text,guests integer,bedrooms integer,
+  price_from_brl_cents integer,price_unit text
+) language sql stable security invoker set search_path='pg_catalog'
+as $$
+ select
+  l.id,l.vertical,l.title,l.description,l.state_code,l.city_key,l.city_name,
+  l.public_area,l.whatsapp_e164,l.photo_urls,l.published_at,
+  pro.occupation,r.departure_city,r.destination_city,r.departure_at,
+  r.seats_available,st.property_type,st.guests,st.bedrooms,
+  st.price_from_brl_cents,st.price_unit
+ from public.discovery_listings l
+ left join public.discovery_professional_details pro
+   on pro.listing_id=l.id and l.vertical='professionals'
+ left join public.discovery_ride_details r
+   on r.listing_id=l.id and l.vertical='rides'
+ left join public.discovery_stay_details st
+   on st.listing_id=l.id and l.vertical='stays'
+ where l.status='published'
+   and (p_vertical is null or l.vertical=p_vertical)
+   and (p_state_code is null or l.state_code=p_state_code)
+   and (p_city_key is null or l.city_key=p_city_key)
+   and exists(select 1 from public.discovery_vertical_cities c
+      where c.vertical=l.vertical and c.state_code=l.state_code
+        and c.city_key=l.city_key and c.enabled)
+   and (l.vertical<>'rides' or
+     (r.departure_at>statement_timestamp() and r.seats_available>0))
+   and (p_departure_city is null or
+      (l.vertical='rides' and lower(r.departure_city)=lower(p_departure_city)))
+   and (p_destination_city is null or
+      (l.vertical='rides' and lower(r.destination_city)=lower(p_destination_city)))
+   and (p_departure_after is null or
+      (l.vertical='rides' and r.departure_at>=p_departure_after))
+   and (p_min_guests is null or
+      (l.vertical='stays' and st.guests>=p_min_guests))
+ order by l.published_at desc,l.id desc
+ limit greatest(1,least(coalesce(p_limit,20),50))
+$$;
+revoke all on function public.discovery_public_search(
+  text,text,text,text,text,timestamptz,integer,integer) from public;
+grant execute on function public.discovery_public_search(
+  text,text,text,text,text,timestamptz,integer,integer) to anon,authenticated;
+
+-- Sem seeds artificiais, cobrança automática, publicação automática ou
+-- abertura comercial implícita. Caronas nunca entram na tabela de tarifas.
+
+ and name !~ '/.*/'
+ and (select public.discovery_verified_account())
+);
+-- photo_urls contains keys in the public image bucket, not arbitrary URLs.
+create function public.discovery_verified_photo_paths(p_listing_id uuid)
+returns boolean language sql stable security definer set search_path='pg_catalog'
+as $
+ select coalesce((
+  select cardinality(l.photo_urls) between 1 and 18 and not exists (
+    select 1 from unnest(l.photo_urls) as ph(path)
+    where ph.path !~ '^[0-9a-f-]{36}/[0-9a-f-]{36}[.](jpg|jpeg|png|webp)
+
+-- Fluxos de cadastro preservam proprietário e nunca permitem autopublicação.
+create policy discovery_owner_draft_insert on public.discovery_listings
+ for insert to authenticated with check (
+   (select auth.uid())=owner_id and status='draft'
+   and (select public.discovery_verified_account())
+   and submitted_at is null and published_at is null
+   and reviewed_by is null and reviewed_at is null
+   and advertising_accepted_at is null
+ );
+create policy discovery_owner_draft_edit on public.discovery_listings
+ for update to authenticated using (
+   (select auth.uid())=owner_id and status in ('draft','rejected','paused')
+ ) with check (
+   (select auth.uid())=owner_id and status in ('draft','rejected','paused')
+ );
+grant insert (vertical,title,description,state_code,city_key,city_name,
+  public_area,whatsapp_e164,photo_urls) on public.discovery_listings to authenticated;
+grant update (title,description,state_code,city_key,city_name,
+  public_area,whatsapp_e164,photo_urls,updated_at)
+ on public.discovery_listings to authenticated;
+
+-- Encapsula a verificação de dono sem publicar UUIDs de usuários.
+-- A exceção SECURITY DEFINER só consulta o anúncio pertencente ao auth.uid().
+create function public.discovery_owner_can_edit_details(
+  p_listing_id uuid,p_vertical text
+) returns boolean language sql stable security definer set search_path='pg_catalog'
+as $$
+  select exists(select 1 from public.discovery_listings l
+    where l.id=p_listing_id and l.owner_id=(select auth.uid())
+      and l.vertical=p_vertical and l.status in ('draft','rejected','paused'))
+$$;
+revoke all on function public.discovery_owner_can_edit_details(uuid,text) from public;
+grant execute on function public.discovery_owner_can_edit_details(uuid,text)
+  to authenticated;
+
+-- Um usuário jamais poderá escrever detalhes de anúncio de outra pessoa
+-- ou alterar detalhes já aprovados sem nova moderação.
+create policy discovery_professional_draft_insert on public.discovery_professional_details
+ for insert to authenticated with check (
+   (select public.discovery_owner_can_edit_details(listing_id,'professionals'))
+ );
+create policy discovery_professional_draft_update on public.discovery_professional_details
+ for update to authenticated using (
+   (select public.discovery_owner_can_edit_details(listing_id,'professionals'))
+ ) with check (
+   (select public.discovery_owner_can_edit_details(listing_id,'professionals'))
+ );
+create policy discovery_ride_draft_insert on public.discovery_ride_details
+ for insert to authenticated with check (
+   (select public.discovery_owner_can_edit_details(listing_id,'rides'))
+ );
+create policy discovery_ride_draft_update on public.discovery_ride_details
+ for update to authenticated using (
+   (select public.discovery_owner_can_edit_details(listing_id,'rides'))
+ ) with check (
+   (select public.discovery_owner_can_edit_details(listing_id,'rides'))
+ );
+create policy discovery_stay_draft_insert on public.discovery_stay_details
+ for insert to authenticated with check (
+   (select public.discovery_owner_can_edit_details(listing_id,'stays'))
+ );
+create policy discovery_stay_draft_update on public.discovery_stay_details
+ for update to authenticated using (
+   (select public.discovery_owner_can_edit_details(listing_id,'stays'))
+ ) with check (
+   (select public.discovery_owner_can_edit_details(listing_id,'stays'))
+ );
+grant insert,update on public.discovery_professional_details to authenticated;
+grant insert,update on public.discovery_ride_details to authenticated;
+grant insert,update on public.discovery_stay_details to authenticated;
+
+-- Propostas não são automaticamente publicadas. Ativação, revisão e auditoria
+-- usam autoridade explícita do administrador principal.
+create function public.discovery_set_vertical_city(
+  p_vertical text,p_state text,p_city_key text,p_city_name text,
+  p_enabled boolean,p_reason text
+) returns void language plpgsql security definer set search_path='pg_catalog'
+as $$
+declare v_actor uuid:=(select auth.uid());
+begin
+  if v_actor is null or not exists(
+    select 1 from public.platform_admins a
+    where a.user_id=v_actor and a.active and a.admin_role='superadmin'
+  ) then raise exception 'ADMIN_REQUIRED' using errcode='42501';end if;
+  if length(btrim(coalesce(p_reason,'')))<8 then
+    raise exception 'REASON_REQUIRED' using errcode='22023';end if;
+  insert into public.discovery_vertical_cities(
+    vertical,state_code,city_key,city_name,enabled,changed_by,change_reason,changed_at
+  ) values (
+    p_vertical,p_state,p_city_key,p_city_name,p_enabled,v_actor,p_reason,clock_timestamp()
+  ) on conflict(vertical,state_code,city_key)
+    do update set enabled=excluded.enabled,city_name=excluded.city_name,
+      changed_by=excluded.changed_by,change_reason=excluded.change_reason,
+      changed_at=excluded.changed_at;
+end $$;
+revoke all on function public.discovery_set_vertical_city(text,text,text,text,boolean,text) from public;
+grant execute on function public.discovery_set_vertical_city(text,text,text,text,boolean,text)
+ to authenticated;
+
+create function public.discovery_transition_listing(
+  p_listing_id uuid,p_next_status text,p_reason text default ''
+) returns text language plpgsql security definer set search_path='pg_catalog'
+as $$
+declare
+ v_actor uuid:=(select auth.uid());
+ v_listing public.discovery_listings%rowtype;
+ v_admin boolean;
+begin
+  if v_actor is null then raise exception 'AUTH_REQUIRED' using errcode='42501';end if;
+  select * into v_listing from public.discovery_listings where id=p_listing_id for update;
+  if not found then raise exception 'LISTING_NOT_FOUND' using errcode='P0002';end if;
+  v_admin:=exists(select 1 from public.platform_admins a
+       where a.user_id=v_actor and a.active and a.admin_role='superadmin');
+  if p_next_status=v_listing.status then return v_listing.status;end if;
+  if p_next_status='review' then
+    if v_actor<>v_listing.owner_id or v_listing.status not in ('draft','rejected','paused')
+       then raise exception 'OWNER_DRAFT_REQUIRED' using errcode='42501';end if;
+    if cardinality(v_listing.photo_urls)<1 or exists(
+      select 1 from unnest(v_listing.photo_urls) u
+       where u !~ '^https://[^[:space:]]+$'
+    ) then raise exception 'REAL_PHOTO_REQUIRED' using errcode='22023';end if;
+    if not (
+     (v_listing.vertical='professionals' and exists(
+      select 1 from public.discovery_professional_details where listing_id=p_listing_id)) or
+     (v_listing.vertical='rides' and exists(
+      select 1 from public.discovery_ride_details where listing_id=p_listing_id
+        and departure_at>clock_timestamp() and seats_available>0)) or
+     (v_listing.vertical='stays' and exists(
+      select 1 from public.discovery_stay_details where listing_id=p_listing_id))
+    ) then raise exception 'LISTING_DETAILS_REQUIRED' using errcode='22023';end if;
+  elsif p_next_status in ('published','rejected','paused') then
+    if not v_admin and not (
+      p_next_status='paused' and v_actor=v_listing.owner_id
+      and v_listing.status='published'
+    ) then raise exception 'ADMIN_REQUIRED' using errcode='42501';end if;
+    if v_admin and length(btrim(coalesce(p_reason,'')))<8 then
+      raise exception 'REASON_REQUIRED' using errcode='22023';end if;
+    if p_next_status='published' then
+      if cardinality(v_listing.photo_urls)<1 or exists(
+        select 1 from unnest(v_listing.photo_urls) u
+        where u !~ '^https://[^[:space:]]+$'
+      ) then raise exception 'REAL_PHOTO_REQUIRED' using errcode='22023';end if;
+      if v_listing.vertical='rides' and not exists(
+        select 1 from public.discovery_ride_details r
+        where r.listing_id=p_listing_id and r.departure_at>clock_timestamp()
+          and r.seats_available>0
+      ) then raise exception 'EXPIRED_OR_FULL_RIDE' using errcode='22023';end if;
+      if v_listing.status not in ('review','paused') then
+        raise exception 'LISTING_REVIEW_REQUIRED' using errcode='22023';end if;
+      if not exists (
+        select 1 from public.discovery_vertical_cities c where c.vertical=v_listing.vertical
+        and c.state_code=v_listing.state_code and c.city_key=v_listing.city_key and c.enabled
+      ) then raise exception 'CITY_VERTICAL_DISABLED' using errcode='22023';end if;
+    end if;
+  else
+    raise exception 'INVALID_TRANSITION' using errcode='22023';
+  end if;
+  update public.discovery_listings set status=p_next_status,updated_at=clock_timestamp(),
+    submitted_at=case when p_next_status='review' then clock_timestamp() else submitted_at end,
+    published_at=case when p_next_status='published' then clock_timestamp() else published_at end,
+    paused_at=case when p_next_status='paused' then clock_timestamp() else paused_at end,
+    reviewed_by=case when v_admin then v_actor else reviewed_by end,
+    reviewed_at=case when v_admin then clock_timestamp() else reviewed_at end
+  where id=p_listing_id;
+  insert into public.discovery_moderation_log(listing_id,from_status,to_status,actor_id,reason)
+  values(p_listing_id,v_listing.status,p_next_status,v_actor,nullif(btrim(p_reason),''));
+  return p_next_status;
+end $$;
+revoke all on function public.discovery_transition_listing(uuid,text,text) from public;
+grant execute on function public.discovery_transition_listing(uuid,text,text)
+ to authenticated;
+
+
+-- Contrato público de descoberta: uma busca segura, sem dados de proprietários,
+-- sem misturar as três jornadas e sem confiar em um índice geográfico do marketplace.
+create function public.discovery_public_search(
+  p_vertical text default null,
+  p_state_code text default null,
+  p_city_key text default null,
+  p_departure_city text default null,
+  p_destination_city text default null,
+  p_departure_after timestamptz default null,
+  p_min_guests integer default null,
+  p_limit integer default 20
+) returns table(
+  id uuid,vertical text,title text,description text,
+  state_code text,city_key text,city_name text,public_area text,
+  whatsapp_e164 text,photo_urls text[],published_at timestamptz,
+  occupation text,departure_city text,destination_city text,
+  departure_at timestamptz,seats_available integer,
+  property_type text,guests integer,bedrooms integer,
+  price_from_brl_cents integer,price_unit text
+) language sql stable security invoker set search_path='pg_catalog'
+as $$
+ select
+  l.id,l.vertical,l.title,l.description,l.state_code,l.city_key,l.city_name,
+  l.public_area,l.whatsapp_e164,l.photo_urls,l.published_at,
+  pro.occupation,r.departure_city,r.destination_city,r.departure_at,
+  r.seats_available,st.property_type,st.guests,st.bedrooms,
+  st.price_from_brl_cents,st.price_unit
+ from public.discovery_listings l
+ left join public.discovery_professional_details pro
+   on pro.listing_id=l.id and l.vertical='professionals'
+ left join public.discovery_ride_details r
+   on r.listing_id=l.id and l.vertical='rides'
+ left join public.discovery_stay_details st
+   on st.listing_id=l.id and l.vertical='stays'
+ where l.status='published'
+   and (p_vertical is null or l.vertical=p_vertical)
+   and (p_state_code is null or l.state_code=p_state_code)
+   and (p_city_key is null or l.city_key=p_city_key)
+   and exists(select 1 from public.discovery_vertical_cities c
+      where c.vertical=l.vertical and c.state_code=l.state_code
+        and c.city_key=l.city_key and c.enabled)
+   and (l.vertical<>'rides' or
+     (r.departure_at>statement_timestamp() and r.seats_available>0))
+   and (p_departure_city is null or
+      (l.vertical='rides' and lower(r.departure_city)=lower(p_departure_city)))
+   and (p_destination_city is null or
+      (l.vertical='rides' and lower(r.destination_city)=lower(p_destination_city)))
+   and (p_departure_after is null or
+      (l.vertical='rides' and r.departure_at>=p_departure_after))
+   and (p_min_guests is null or
+      (l.vertical='stays' and st.guests>=p_min_guests))
+ order by l.published_at desc,l.id desc
+ limit greatest(1,least(coalesce(p_limit,20),50))
+$$;
+revoke all on function public.discovery_public_search(
+  text,text,text,text,text,timestamptz,integer,integer) from public;
+grant execute on function public.discovery_public_search(
+  text,text,text,text,text,timestamptz,integer,integer) to anon,authenticated;
+
+-- Sem seeds artificiais, cobrança automática, publicação automática ou
+-- abertura comercial implícita. Caronas nunca entram na tabela de tarifas.
+
+       or split_part(ph.path,'/',1)<>l.owner_id::text
+       or not exists (
+         select 1 from storage.objects o
+         where o.bucket_id='tamao-discovery-photos' and o.name=ph.path
+           and o.owner_id=l.owner_id::text
+           and o.metadata->>'mimetype' in ('image/jpeg','image/png','image/webp')
+       )
+  ) from public.discovery_listings l where l.id=p_listing_id
+ ),false)
+$;
+revoke all on function public.discovery_verified_photo_paths(uuid) from public,anon,authenticated;
+
+
 -- Fluxos de cadastro preservam proprietário e nunca permitem autopublicação.
 create policy discovery_owner_draft_insert on public.discovery_listings
  for insert to authenticated with check (
