@@ -16,7 +16,21 @@ const queue=[{
  state_code:'RS',city_name:'São Gabriel',photo_urls:[],
  city_vertical_enabled:false,occupation:'Eletricista'
 }];
-const client={rpc:async(name,args)=>{
+const docKey='00000000-0000-0000-0000-000000000011/'+validId+
+ '/22222222-2222-2222-2222-222222222222.pdf';
+let documentReads=0,documentSigns=0,unsafeSigned=false;
+const client={
+ from(name){assert.equal(name,'discovery_documents');return{
+  select(){return {eq(_column,_id){assert.equal(_id,validId);return {
+   limit:async()=>{documentReads++;return {data:[{id:validId,kind:'supporting',object_path:docKey}],error:null};}
+  };}};}
+ };},
+ storage:{from(bucket){assert.equal(bucket,'tamao-discovery-documents');return{
+  createSignedUrl:async(key,seconds)=>{assert.equal(key,docKey);assert.equal(seconds,90);documentSigns++;
+   return {data:{signedUrl:unsafeSigned?'https://evil.test/steal':
+     'https://project.supabase.co/storage/v1/object/sign/tamao-discovery-documents/'+key+'?token=temporary'},error:null};}
+ };}},
+ rpc:async(name,args)=>{
  requested.push([name,args]);
  if(name==='discovery_admin_review_queue')return {data:queue,error:null};
  if(name==='discovery_transition_listing')return {data:args.p_next_status,error:null};
@@ -46,6 +60,18 @@ html=ctx.adminDiscoveryView();
 assert.match(html,/&lt;script&gt;/);
 assert.doesNotMatch(html,/<script>alert/);
 assert.match(html,/Aprovar anúncio<\/button>/);
+assert.match(html,/Conferir comprovantes privados/);
+await ctx.adminDiscoveryDocuments(validId);
+assert.equal(documentReads,1);
+assert.equal(documentSigns,1);
+assert.match(ctx.adminDiscoveryView(),/link temporário/);
+assert.match(ctx.adminDiscoveryView(),/tamao-discovery-documents/);
+unsafeSigned=true;
+await ctx.adminDiscoveryDocuments(validId);
+assert.equal(documentReads,2);
+assert.doesNotMatch(ctx.adminDiscoveryView(),/link temporário/);
+assert.ok(notes.some(x=>x.includes('Não foi possível abrir')));
+unsafeSigned=false;
 assert.match(html,/disabled>Aprovar anúncio<\/button>/,'disabled city must block approval');
 await ctx.adminDiscoveryDecision(validId,'published');
 assert.equal(requested.filter(r=>r[0]==='discovery_transition_listing').length,0);
@@ -66,6 +92,8 @@ assert.equal(cityAction[1].p_vertical,'stays');
 assert.equal(cityAction[1].p_city_key,'sao-gabriel');
 assert.equal(cityAction[1].p_enabled,true);
 role='operations';
+await ctx.adminDiscoveryDocuments(validId);
+assert.equal(documentReads,2,'non-admin must not fetch private evidence');
 await ctx.adminDiscoveryLoad();
 assert.equal(requested.filter(r=>r[0]==='discovery_admin_review_queue').length,3);
 await ctx.adminDiscoveryDecision(validId,'rejected');
