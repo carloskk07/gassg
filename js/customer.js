@@ -69,7 +69,7 @@ function tamaoHomeBenefits({compact=false}={}){
       <button type="button" class="secondary" onclick="go('earn')">Conhecer minha Rede TAMÃO →</button>
       <button type="button" class="ghost" onclick="go('merchants')">Tenho uma revenda</button>
     </div>`;
-  return `<section class="section tamao-value-section" aria-label="Vantagens do TAMÃO">
+  return `<section class="section tamao-value-section${compact?' tamao-value-compact':''}" aria-label="Vantagens do TAMÃO">
     <div class="section-head"><div><span class="section-kicker">BOM PARA QUEM COMPRA. BOM PARA SUA CIDADE.</span>
       <h2>Mais economia na escolha. Mais vantagens para voltar.</h2>
       <p>Compare preço total e entrega pelo CEP. Acompanhe seu pedido, consulte cashback de compras elegíveis no Clube e apresente o TAMÃO a amigos e revendas.</p></div></div>
