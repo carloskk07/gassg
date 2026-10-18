@@ -40,6 +40,8 @@ try{
   assert.equal((html.match(/class="ed-contrast-before"/g)||[]).length,1,slug+' before panel');
   assert.equal((html.match(/class="ed-contrast-after"/g)||[]).length,1,slug+' after panel');
   assert.equal((html.match(/class="ed-related-card"/g)||[]).length,3,slug+' needs cross-public navigation');
+  assert.equal((html.match(/class="ed-hero-notes"/g)||[]).length,1,'one benefit rail per page');
+  assert.ok(html.includes('aria-label="Principais vantagens"'),'visitors see concrete value immediately');
   assert.ok(html.indexOf('ed-proof-grid')<html.indexOf('ed-contrast-grid') &&
     html.indexOf('ed-contrast-grid')<html.indexOf('ed-steps'),
     'value, example, mechanics should appear in that order on '+slug);
