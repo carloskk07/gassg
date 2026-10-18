@@ -9,7 +9,7 @@ const userId='00000000-0000-0000-0000-000000000011';
 const filePath=userId+'/11111111-1111-1111-1111-111111111111.jpg';
 const writes=[],uploads=[],removed=[],transitions=[],records=[],privateDocs=[];
 let currentRoute='advertise', user={id:userId,email:'anunciante@example.test'},renderCount=0;
-let simulateRemovalOutage=false,simulateRegistrationFailure=false;
+let simulateRemovalOutage=false,simulateRegistrationFailure=false,simulatePhotoWriteFailure=false;
 let formValues={vertical:'professionals',title:'Serviços elétricos e manutenção',
   description:'Atendo residências e estabelecimentos com orçamento transparente.',
   state_code:'RS',city_name:'São Gabriel',public_area:'Centro',
@@ -58,6 +58,8 @@ const client={
   },
   upsert:async (data,config)=>{writes.push([name,'upsert',data,config]);return {error:null};},
   update(data){return {eq:async (key,id)=>{
+    if(name==='discovery_listings'&&data.photo_urls&&simulatePhotoWriteFailure)
+      return {error:new Error('Writing photos failed')};
     writes.push([name,'update',data,key,id]);
     const item=records.find(r=>r.id===id);if(item)Object.assign(item,data);
     return {error:null};
@@ -69,7 +71,7 @@ const client={
  };},
  storage:{from(bucket){assert.ok(['tamao-discovery-photos','tamao-discovery-documents'].includes(bucket));return{
   upload:async(key,file,opts)=>{uploads.push({bucket,key,file,opts});return {data:{path:key},error:null};},
-  remove:async(paths)=>{assert.equal(bucket,'tamao-discovery-documents');
+  remove:async(paths)=>{
    if(simulateRemovalOutage)return {data:null,error:new Error('Network unavailable')};
    removed.push(...paths);return {data:paths,error:null};}
  };}}
@@ -173,6 +175,30 @@ assert.equal(privateDocs.length,0);
 assert.match(ctx.discoveryOwnerPage(),/pode ter ficado pendente no armazenamento/);
 simulateRemovalOutage=false;
 simulateRegistrationFailure=false;
+
+// Photos linked in a failed database write must be cleaned up by the
+// Storage API. Never delete the already referenced original photo.
+const beforeFailedPhoto=uploads.length, beforePhotoRemove=removed.length;
+selectedDocuments=[];
+selectedFiles=[{type:'image/jpeg',size:1234}];
+simulatePhotoWriteFailure=true;
+ctx.discoveryOwnerNew();
+await ctx.discoveryOwnerSave({preventDefault(){},target:form});
+assert.equal(uploads.length,beforeFailedPhoto+1);
+assert.equal(removed.length,beforePhotoRemove+1);
+assert.equal(removed.at(-1),uploads.at(-1).key);
+assert.ok(uploads.at(-1).key.startsWith(userId+'/'));
+assert.match(ctx.discoveryOwnerPage(),/Não foi possível concluir a operação/);
+const originalPhoto=filePath;
+assert.ok(records[0].photo_urls.includes(originalPhoto),'previously linked photo must be preserved');
+
+// Explicit uncertainty on a second failure; never falsely claim photo cleanup.
+simulateRemovalOutage=true;
+await ctx.discoveryOwnerSave({preventDefault(){},target:form});
+assert.equal(removed.length,beforePhotoRemove+1);
+assert.match(ctx.discoveryOwnerPage(),/não foi possível confirmar a limpeza/);
+simulateRemovalOutage=false;
+simulatePhotoWriteFailure=false;
 await ctx.discoveryOwnerLogout();
 const loggedOut=ctx.discoveryOwnerPage();
 assert.match(loggedOut,/Receber link de acesso/);
