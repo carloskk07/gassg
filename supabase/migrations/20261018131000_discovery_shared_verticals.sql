@@ -588,7 +588,14 @@ create policy discovery_document_owner_insert on public.discovery_documents
      where o.bucket_id='tamao-discovery-documents'
        and o.name=object_path and o.owner_id=owner_id::text)
  );
-grant select on public.discovery_documents to authenticated;
+-- Proprietário só pode remover comprovantes em rascunho ou rejeitados.
+-- A exclusão dos bytes é feita pela Storage API ANTES dos metadados.
+create policy discovery_document_owner_delete on public.discovery_documents
+ for delete to authenticated using (
+   owner_id=(select auth.uid())
+   and (select public.discovery_document_editable(listing_id::text))
+ );
+grant select,delete on public.discovery_documents to authenticated;
 grant insert(listing_id,kind,object_path) on public.discovery_documents to authenticated;
 
 -- Definer lookup breaks the policy cycle (documents INSERT -> storage SELECT
@@ -622,4 +629,14 @@ create policy discovery_document_storage_read on storage.objects
        and (select public.discovery_document_owned(split_part(name,'/',2))))
      or (select public.discovery_document_registered(name))
    )
+ );
+
+-- Exclusão explicitamente restrita ao proprietário de um rascunho editável.
+-- Nenhuma operação de update/upsert é permitida; apagar bytes pela Storage API.
+create policy discovery_document_storage_delete on storage.objects
+ for delete to authenticated using (
+   bucket_id='tamao-discovery-documents'
+   and owner_id=(select auth.uid())::text
+   and split_part(name,'/',1)=(select auth.uid())::text
+   and (select public.discovery_document_editable(split_part(name,'/',2)))
  );
