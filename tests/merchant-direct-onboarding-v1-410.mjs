@@ -71,7 +71,7 @@ assert.equal(signup.hash,'#merchant-join');
 assert.equal(signup.searchParams.get('ref'),'ABCDE1');
 const existing=portal(false,'ABCDE1');
 assert.equal(existing.hash,'','existing partner cannot be sent to join by campaign attribution');
-assert.equal(existing.searchParams.has('ref'),false,'unneeded attribution stays off existing partner access');
+assert.equal(existing.searchParams.get('ref'),'ABCDE1','referral attribution survives without hijacking existing partner route');
 const noRef=portal(true,'bad');
 assert.equal(noRef.hash,'#merchant-join');
 assert.equal(noRef.searchParams.has('ref'),false);
