@@ -231,12 +231,12 @@ revoke all on function public.discovery_verified_photo_paths(uuid) from public,a
 -- protegidas mesmo se o anunciante tentar deletá-las diretamente na Storage API.
 create function public.discovery_photo_unreferenced(p_path text)
 returns boolean language sql stable security definer set search_path='pg_catalog'
-as $
+as $photo_cleanup$
  select (select auth.uid()) is not null and not exists(
    select 1 from public.discovery_listings l
    where l.owner_id=(select auth.uid()) and p_path=any(l.photo_urls)
  )
-$;
+$photo_cleanup$;
 revoke all on function public.discovery_photo_unreferenced(text) from public,anon,authenticated;
 grant execute on function public.discovery_photo_unreferenced(text) to authenticated;
 create policy discovery_photo_owner_read on storage.objects
