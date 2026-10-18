@@ -40,8 +40,8 @@ function club(){
   const cashbackEarned=Math.max(0,Number(globalThis.liveRuntime?.cashbackEarnedCents||0))/100;
   return shell(`<section class="page">
     <span class="eyebrow">CLUBE TAMÃO</span>
-    <h1 class="page-title">Cada compra pode render mais vantagens para você.</h1>
-    <p class="muted page-lead">Faça suas compras com tranquilidade e acompanhe no mesmo lugar o cashback conquistado, suas compras e os benefícios de sua rede de indicações.</p>
+    <h1 class="page-title">Seu dinheiro pode render mais com economia, cashback e descontos.</h1>
+    <p class="muted page-lead">Compare os preços totais de revendas que atendem seu CEP, veja quanto economizou nas comparações registradas, acompanhe seu cashback e descubra descontos elegíveis. Cada compra pode render mais vantagens para você.</p>
     <div class="reward-hero"><div class="tiny" style="opacity:.75">SEU CASHBACK DISPONÍVEL</div><div class="balance">${BRL.format(state.user.cashback)}</div><div class="tiny">crédito para usar em novas compras</div><div class="progress"><div style="width:${pct}%"></div></div><strong>${esc(next)}</strong></div>
     <div class="earn-summary" style="margin-top:14px">
       <div class="earn-balance-card"><span>Economia nas comparações</span><strong>${BRL.format(comparisonSavings)}</strong><small>diferença acumulada contra a opção mais cara realmente exibida nas consultas que viraram pedidos concluídos</small></div>
@@ -49,6 +49,18 @@ function club(){
       <div class="earn-balance-card"><span>Cashback disponível</span><strong>${BRL.format(state.user.cashback)}</strong><small>saldo que pode reduzir uma próxima compra</small></div>
     </div>
     ${debt>0?`<div class="notice" style="margin-top:14px"><strong>${BRL.format(debt)} em compensação.</strong><br>Esse valor corresponde a cashback de uma compra posteriormente revertida. Novos créditos reduzem essa compensação antes de ficarem disponíveis.</div>`:''}
+    <section class="tamao-club-coupon-bundles" aria-label="Pacotes de cupons de desconto em preparação">
+      <span class="section-kicker">🎟️ CUPONS PARA ECONOMIZAR MAIS · EM PREPARAÇÃO</span>
+      <h2>Pacotes de descontos para quem quer pagar menos.</h2>
+      <p>O TAMÃO está desenvolvendo pacotes de cupons para compras elegíveis de gás e água. A ideia é permitir adquirir benefícios por um preço informado antes da compra, para usar nos pedidos que atenderem às regras do pacote.</p>
+      <div class="tamao-club-coupon-trio">
+        <div><strong>1. Conheça o pacote</strong><span>Preço, quantidade de cupons, valor dos descontos e validade</span></div>
+        <div><strong>2. Saiba onde vale</strong><span>Cidades, revendas e produtos participantes, com regras claras</span></div>
+        <div><strong>3. Use em compras elegíveis</strong><span>Resgate integrado ao pedido quando as vendas forem habilitadas</span></div>
+      </div>
+      <p class="tamao-club-coupon-state"><strong>Venda e resgate ainda não disponíveis.</strong> Os pacotes somente serão oferecidos após ativação administrativa, financiamento dos descontos e homologação de pagamento e resgate. Nenhuma cobrança é feita nesta página.</p>
+    </section>
+
     <section class="section"><div class="grid cards-3">
       <div class="card"><div class="feature-icon">💵</div><h3>Cashback que volta para você</h3><p class="muted tiny">Nas compras elegíveis, parte do valor pode voltar como crédito para sua próxima compra. Tudo fica registrado em sua conta.</p></div>
       <div class="card"><div class="feature-icon">⭐</div><h3>Seus pedidos, suas vantagens</h3><p class="muted tiny">Tenha seu histórico à mão e saiba quando vale a pena repetir aquela compra do dia a dia.</p></div>
@@ -581,9 +593,9 @@ function merchantsLanding(){
   return shell(`<section class="page merchant-landing">
     <div class="merchant-landing-premium"><div class="merchant-landing-premium-copy">
     <span class="eyebrow">VENDA PELO TAMÃO</span>
-    <h1 class="page-title">Sua revenda mais visível. <span class="headline-accent">Você continua no controle.</span></h1>
-    <p class="muted page-lead">Quem precisa de gás, água e outros essenciais pode encontrar sua empresa pelo TAMÃO. Receba pedidos em um painel organizado, sem abandonar o balcão, o telefone ou o WhatsApp. <strong>Você decide preços, estoque, formas de pagamento, disponibilidade e entrega.</strong></p>
-    <div class="conversion-mini-proof"><span>✓ Sem exclusividade</span><span>✓ Recebimento direto na revenda</span><span>✓ Você decide quando ficar online</span></div>
+    <h1 class="page-title">Mais clientes descobrindo sua revenda. <span class="headline-accent">Mais oportunidades de pedidos.</span></h1>
+    <p class="muted page-lead">Sua revenda mais visível. Coloque seus produtos diante de pessoas que procuram gás, água e outros essenciais na sua região. Ganhe uma nova oportunidade de receber pedidos, conquistar clientes e estimular novas compras, sem abandonar o balcão, o telefone ou o WhatsApp. <strong>Você continua no controle. Você decide preços, estoque, formas de pagamento, disponibilidade e entrega.</strong></p>
+    <div class="conversion-mini-proof"><span>✓ Mais chances de ser encontrada</span><span>✓ Oportunidades de novos pedidos</span><span>✓ Sem mensalidade no modelo atual</span></div>
         <div class="hero-actions merchant-hero-actions">
       <button class="primary" onclick="${cta}">${internalPilot?ctaLabel:'Quero levar minha empresa ao TAMÃO →'}</button>
       <button class="secondary" onclick="document.getElementById('merchant-margin')?.scrollIntoView({behavior:globalThis.matchMedia?.('(prefers-reduced-motion: reduce)')?.matches?'auto':'smooth'})">Ver quanto custa vender</button>
@@ -635,6 +647,16 @@ function merchantsLanding(){
 
 
 
+    <section class="merchant-demand-story" aria-label="O que sua revenda ganha com o TAMÃO">
+      <div class="merchant-demand-heading"><span class="section-kicker">VISIBILIDADE QUE PODE VIRAR PEDIDOS</span><h2>Não espere o cliente já conhecer sua revenda para vender.</h2>
+        <p>Ao participar do TAMÃO, sua empresa pode aparecer nas buscas de consumidores de sua área atendida, receber solicitações de pedidos e expor produtos complementares. Mais clientes descobrindo a empresa significa novas oportunidades, não volume de vendas garantido.</p></div>
+      <div class="merchant-demand-grid">
+        <article><span aria-hidden="true">📍</span><strong>Mais clientes podem encontrar você</strong><p>Sua revenda ganha outra vitrine para consultas por região e produtos.</p></article>
+        <article><span aria-hidden="true">🛒</span><strong>Mais chances de receber pedidos</strong><p>Solicitações organizadas em um painel, com aceite sob seu controle.</p></article>
+        <article><span aria-hidden="true">🔁</span><strong>Mais motivos para o cliente voltar</strong><p>Histórico e benefícios de campanhas elegíveis podem apoiar a recompra.</p></article>
+      </div>
+      <p class="merchant-demand-note">Campanhas com cupons e descontos patrocinados estão em preparação, não são obrigação automática das revendas e exigem participação autorizada.</p>
+    </section>
     <section class="section"><div class="section-head"><div><span class="section-kicker">MAIS UM CANAL DE VENDAS</span><h2>Mais oportunidades chegam quando sua empresa está onde o cliente procura.</h2><p>Não é preciso mudar o jeito que sua revenda já vende. O TAMÃO acrescenta um caminho para o consumidor encontrá-la e consultar o que você realmente pode entregar.</p></div></div>
       <div class="grid cards-3 partner-benefits">
         <div class="card"><div class="feature-icon">📈</div><h3>Mais oportunidades de venda</h3><p class="muted tiny">Seja uma opção para quem consulta gás e itens essenciais na área atendida pela sua empresa.</p></div>
