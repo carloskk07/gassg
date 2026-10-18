@@ -183,10 +183,19 @@ async function discoveryOwnerOpen(id){
   if(!listing||!['draft','rejected','paused'].includes(listing.status))return;
   s.busy=true;s.error='';
   try{
+    // A paused approved listing must be withdrawn before any edit.
+    // Reopening creates an audited draft and invalidates the prior approval.
+    if(listing.status==='paused'){
+      const changed=await s.client.rpc('discovery_transition_listing',{
+        p_listing_id:id,p_next_status:'draft',p_reason:'Edição solicitada pelo anunciante'
+      });
+      if(changed.error)throw changed.error;
+      await discoveryOwnerRefresh();
+    }
     const table=discoveryOwnerTables[listing.vertical];
     const {data,error}=await s.client.from(table).select('*').eq('listing_id',id).maybeSingle();
     if(error)throw error;
-    s.editor={...listing,...(data||{})};
+    s.editor={...listing,...(data||{}),status:listing.status==='paused'?'draft':listing.status};
     s.kind=listing.vertical;
   }catch(e){s.error=discoveryOwnerError(e);}
   s.busy=false;render();
