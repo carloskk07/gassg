@@ -289,6 +289,11 @@ export function buildLivePortals(env=process.env,{outputRoot=env.PORTAL_BUILD_OU
     if(role==='customer'){
       fs.rmSync(path.join(target,'js','merchant.js'));
     }
+    // Discovery is customer-only and fetched on navigation, never in privileged bundles.
+    if(role!=='customer'){
+      fs.rmSync(path.join(target,'js','discovery.js'),{force:true});
+      fs.rmSync(path.join(target,'css','discovery.css'),{force:true});
+    }
     // Split only the released admin bundle; keep one canonical source file
     // for older static regressions and local development. No code is copied,
     // removed or re-implemented. On-demand expansion has the same source SHA.
