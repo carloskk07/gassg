@@ -18,8 +18,9 @@ for(const [name,source] of [['customer',customer],['growth',growth],
   ['backend',backend],['admin',admin]])new vm.Script(source,{filename:name+'.js'});
 
 assert.match(home,/tamao-action-now/);
-assert.match(home,/Comparar produtos/);
-assert.match(home,/cashback de pedidos elegíveis/);
+assert.match(home,/Explorar produtos/);
+assert.match(home,/homeDiscoverFocus/,'CTA abre o catálogo em vez de reiniciar a página');
+assert.match(home,/cashback de compras elegíveis/);
 assert.match(home,/go\('earn'\)/);
 assert.doesNotMatch(home,/tamao-coupon-preview|pacotes de cupons|em preparação|venda ou resgate/ig);
 assert.match(club,/tamao-club-shop-now/);
