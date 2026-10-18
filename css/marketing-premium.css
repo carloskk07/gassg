@@ -848,7 +848,7 @@
 .site-footer-editorial a:hover{background:#def0e3}
 .site-footer-editorial a:focus-visible{outline:3px solid #ba831a;outline-offset:3px}
 @media(max-width:900px){
-  .home-discover-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .home-discover .home-discover-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
 }
 @media(max-width:620px){
   .marketing-hero .hero-grid{border-radius:22px}
@@ -1132,12 +1132,12 @@
   .home-editorial-choice strong{font-size:12px;line-height:1.2}
 }
 @media(max-width:370px){
-  .home-discover-grid{grid-template-columns:minmax(0,1fr)}
+  .home-discover .home-discover-grid{grid-template-columns:minmax(0,1fr)}
   .home-discover-tile{display:grid;grid-template-columns:88px minmax(0,1fr);gap:7px 13px;
     align-items:center;justify-items:start;text-align:left;min-height:118px;padding:13px}
   .home-discover-art{width:88px;grid-row:span 2}
   .home-discover-tile strong{min-height:0;margin:0;text-align:left}
   .home-discover-action{grid-column:2;padding-top:0}
-  .home-editorial-gas,.home-editorial-water{padding:7px}
+  .home-first-visit .home-editorial-gas,.home-first-visit .home-editorial-water{padding:7px}
   .home-editorial-choice small{white-space:normal;font-size:10px}
 }
