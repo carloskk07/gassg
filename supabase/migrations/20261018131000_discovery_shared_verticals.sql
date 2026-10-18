@@ -363,5 +363,65 @@ revoke all on function public.discovery_transition_listing(uuid,text,text) from 
 grant execute on function public.discovery_transition_listing(uuid,text,text)
  to authenticated;
 
+
+-- Contrato público de descoberta: uma busca segura, sem dados de proprietários,
+-- sem misturar as três jornadas e sem confiar em um índice geográfico do marketplace.
+create function public.discovery_public_search(
+  p_vertical text default null,
+  p_state_code text default null,
+  p_city_key text default null,
+  p_departure_city text default null,
+  p_destination_city text default null,
+  p_departure_after timestamptz default null,
+  p_min_guests integer default null,
+  p_limit integer default 20
+) returns table(
+  id uuid,vertical text,title text,description text,
+  state_code text,city_key text,city_name text,public_area text,
+  whatsapp_e164 text,photo_urls text[],published_at timestamptz,
+  occupation text,departure_city text,destination_city text,
+  departure_at timestamptz,seats_available integer,
+  property_type text,guests integer,bedrooms integer,
+  price_from_brl_cents integer,price_unit text
+) language sql stable security invoker set search_path='pg_catalog'
+as $$
+ select
+  l.id,l.vertical,l.title,l.description,l.state_code,l.city_key,l.city_name,
+  l.public_area,l.whatsapp_e164,l.photo_urls,l.published_at,
+  pro.occupation,r.departure_city,r.destination_city,r.departure_at,
+  r.seats_available,st.property_type,st.guests,st.bedrooms,
+  st.price_from_brl_cents,st.price_unit
+ from public.discovery_listings l
+ left join public.discovery_professional_details pro
+   on pro.listing_id=l.id and l.vertical='professionals'
+ left join public.discovery_ride_details r
+   on r.listing_id=l.id and l.vertical='rides'
+ left join public.discovery_stay_details st
+   on st.listing_id=l.id and l.vertical='stays'
+ where l.status='published'
+   and (p_vertical is null or l.vertical=p_vertical)
+   and (p_state_code is null or l.state_code=p_state_code)
+   and (p_city_key is null or l.city_key=p_city_key)
+   and exists(select 1 from public.discovery_vertical_cities c
+      where c.vertical=l.vertical and c.state_code=l.state_code
+        and c.city_key=l.city_key and c.enabled)
+   and (l.vertical<>'rides' or
+     (r.departure_at>statement_timestamp() and r.seats_available>0))
+   and (p_departure_city is null or
+      (l.vertical='rides' and lower(r.departure_city)=lower(p_departure_city)))
+   and (p_destination_city is null or
+      (l.vertical='rides' and lower(r.destination_city)=lower(p_destination_city)))
+   and (p_departure_after is null or
+      (l.vertical='rides' and r.departure_at>=p_departure_after))
+   and (p_min_guests is null or
+      (l.vertical='stays' and st.guests>=p_min_guests))
+ order by l.published_at desc,l.id desc
+ limit greatest(1,least(coalesce(p_limit,20),50))
+$$;
+revoke all on function public.discovery_public_search(
+  text,text,text,text,text,timestamptz,integer,integer) from public;
+grant execute on function public.discovery_public_search(
+  text,text,text,text,text,timestamptz,integer,integer) to anon,authenticated;
+
 -- Sem seeds artificiais, cobrança automática, publicação automática ou
 -- abertura comercial implícita. Caronas nunca entram na tabela de tarifas.
