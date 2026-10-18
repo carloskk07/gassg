@@ -91,6 +91,11 @@ const id=records[0].id;
 await ctx.discoveryOwnerSubmit(id);
 assert.equal(transitions[0].p_next_status,'review');
 assert.equal(records[0].status,'review');
+records[0].status='paused';
+await ctx.discoveryOwnerOpen(id);
+assert.equal(records[0].status,'draft','paused item must reopen into new reviewed draft before editing');
+assert.ok(transitions.some(x=>x.p_next_status==='draft'));
+
 assert.doesNotMatch(ctx.discoveryOwnerPage(),/EXAMPLE_NONEXISTENT_WORD/);
 selectedFiles=[{type:'text/html',size:100}];
 ctx.discoveryOwnerNew();
