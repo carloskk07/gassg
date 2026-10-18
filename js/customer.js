@@ -56,7 +56,7 @@ function tamaoHomeBenefits(){
       <article class="tamao-perks-panel tamao-perks-club">
         <div class="tamao-perks-top"><span class="tamao-perks-symbol" aria-hidden="true">🎁</span><span>CLUBE TAMÃO</span></div>
         <h3>Economia além do preço: cashback, descontos e cupons.</h3>
-        <p>Compare antes de comprar e descubra cashback para compras elegíveis. O Clube também prepara pacotes de cupons de desconto para futuras campanhas, com preço e condições apresentados antes da venda.</p>
+        <p>Compare antes de comprar. Cashback em compras elegíveis pode render créditos para compras futuras. O Clube também prepara pacotes de cupons de desconto para futuras campanhas, com preço e condições apresentados antes da venda.</p>
         <button type="button" onclick="go('club')">Conhecer meu Clube <span aria-hidden="true">→</span></button>
       </article>
       <article class="tamao-perks-panel tamao-perks-network">
