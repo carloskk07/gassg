@@ -79,7 +79,7 @@ assert.equal(noRef.searchParams.has('ref'),false);
 assert.ok(merchantUi.includes("signupEntry?'Cadastre sua revenda no TAMÃO'") &&
  merchantUi.includes("signupEntry?'Continuar meu cadastro →'"),
  'signup visitors must see onboarding, not existing-partner login copy');
-assert.ok(growth.includes('class="merchant-live-signup-cta"'));
+assert.ok(growth.includes('class="primary merchant-live-signup-cta"'));
 assert.ok(growth.includes('class="merchant-secondary-lead"'));
 assert.ok(growth.includes('Prefere conversar antes? Deixe seu contato'));
 assert.equal((growth.slice(growth.indexOf('function merchantsLanding(){'),
