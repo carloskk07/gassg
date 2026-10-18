@@ -3,6 +3,7 @@
 create role anon nologin;
 create role authenticated nologin;
 create schema auth;
+grant usage on schema auth to anon, authenticated;
 create table auth.users(
  id uuid primary key,
  is_anonymous boolean not null default false,
