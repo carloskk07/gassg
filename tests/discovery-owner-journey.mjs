@@ -63,7 +63,7 @@ const client={
   select(_columns){return {eq(_key,_id){return {
    data:name==='discovery_documents'?privateDocs.filter(d=>d.listing_id===_id):[],
    error:null,maybeSingle:async()=>({data:{occupation:'Eletricista',service_area:'São Gabriel'},error:null})
-  }};};}
+  };}};}
  };},
  storage:{from(bucket){assert.ok(['tamao-discovery-photos','tamao-discovery-documents'].includes(bucket));return{
   upload:async(key,file,opts)=>{uploads.push({bucket,key,file,opts});return {data:{path:key},error:null};},
