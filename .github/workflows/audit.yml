@@ -77,6 +77,8 @@ jobs:
         run: node tests/discovery-public-journeys.mjs
       - name: Advertiser real-draft client contract and safe uploads
         run: node tests/discovery-owner-journey.mjs
+      - name: Superadmin ad moderation and review queue client contract
+        run: node tests/discovery-admin-journey.mjs
       - name: SQL dollar-quoted function terminator gate V1.397
         run: node tests/sql-function-terminators-v1-397.mjs
       - name: Read-only legacy SQL source provenance V1.399
