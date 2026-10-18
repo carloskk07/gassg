@@ -1,0 +1,302 @@
+/* TAMÃO | Meus anúncios. Carregado apenas ao abrir #advertise.
+ * Transações financeiras, aprovação e documentação não são executadas aqui.
+ */
+const discoveryOwner={
+  client:null,phase:'idle',user:null,items:[],editor:null,kind:'professionals',
+  notice:'',error:'',busy:false
+};
+const discoveryOwnerTables={
+  professionals:'discovery_professional_details',
+  rides:'discovery_ride_details',
+  stays:'discovery_stay_details'
+};
+const discoveryOwnerStates=['AC','AL','AP','AM','BA','CE','DF','ES','GO','MA','MT',
+  'MS','MG','PA','PB','PR','PE','PI','RJ','RN','RS','RO','RR','SC','SP','SE','TO'];
+function discoveryOwnerRoute(){
+  return route()==='advertise'&&!globalThis.adminPortalRequested?.()
+    &&!globalThis.merchantPortalRequested?.();
+}
+function discoveryOwnerCitySlug(raw){
+  return String(raw||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'')
+    .toLowerCase().replace(/[^a-z0-9 -]/g,'').trim().replace(/\s+/g,'-').slice(0,110);
+}
+function discoveryOwnerValue(data,name){
+  return esc(data&&data[name]!==null&&data[name]!==undefined?data[name]:'');
+}
+function discoveryOwnerPhotoUrl(key){
+  if(!/^[0-9a-f-]{36}\/[0-9a-f-]{36}\.(jpg|jpeg|png|webp)$/.test(String(key||'')))return '';
+  return String(CHAMA_BACKEND.url||'').replace(/\/+$/,'')+
+    '/storage/v1/object/public/tamao-discovery-photos/'+
+    String(key).split('/').map(encodeURIComponent).join('/');
+}
+function discoveryOwnerField(name,label,value,type,attrs){
+  return '<label>'+label+'<input name="'+name+'" type="'+(type||'text')+
+    '" '+(attrs||'')+' value="'+discoveryOwnerValue({v:value},'v')+'"></label>';
+}
+function discoveryOwnerTypeFields(type,d){
+  if(type==='professionals')return (
+    discoveryOwnerField('occupation','Profissão ou especialidade',d.occupation,'text','required minlength="3" maxlength="100"')+
+    discoveryOwnerField('service_area','Onde atende',d.service_area,'text','required minlength="3" maxlength="200"')+
+    discoveryOwnerField('years_experience','Anos de experiência (opcional)',d.years_experience,'number','min="0" max="80"')
+  );
+  if(type==='rides')return (
+    discoveryOwnerField('departure_state','UF de origem',d.departure_state||'RS','text','required minlength="2" maxlength="2"')+
+    discoveryOwnerField('departure_city','Cidade de origem',d.departure_city,'text','required minlength="2" maxlength="120"')+
+    discoveryOwnerField('destination_state','UF de destino',d.destination_state||'RS','text','required minlength="2" maxlength="2"')+
+    discoveryOwnerField('destination_city','Cidade de destino',d.destination_city,'text','required minlength="2" maxlength="120"')+
+    discoveryOwnerField('departure_at','Saída (data e hora)',d.departure_at?new Date(d.departure_at).toISOString().slice(0,16):'','datetime-local','required')+
+    discoveryOwnerField('seats_total','Vagas totais',d.seats_total||1,'number','required min="1" max="8"')+
+    discoveryOwnerField('seats_available','Vagas disponíveis',d.seats_available??1,'number','required min="0" max="8"')+
+    discoveryOwnerField('proposed_cost_share','Contribuição por vaga (R$), opcional',d.proposed_cost_share_cents===null?'':d.proposed_cost_share_cents===undefined?'':Number(d.proposed_cost_share_cents)/100,'number','min="0" max="5000" step=".01"')
+  );
+  const types=[['holiday_house','Casa de temporada'],['beach_house','Casa de praia'],['inn','Pousada'],
+    ['hotel','Hotel'],['apartment','Apartamento'],['cabin','Cabana'],
+    ['country_house','Casa de campo'],['other','Outros']];
+  return '<label>Tipo de hospedagem<select name="property_type" required>'+
+    types.map(([v,t])=>'<option value="'+v+'"'+(d.property_type===v?' selected':'')+'>'+t+'</option>').join('')+'</select></label>'+
+    discoveryOwnerField('guests','Capacidade de hóspedes',d.guests||2,'number','required min="1" max="80"')+
+    discoveryOwnerField('bedrooms','Quartos',d.bedrooms??1,'number','required min="0" max="60"')+
+    discoveryOwnerField('beds','Camas',d.beds??1,'number','required min="1" max="120"')+
+    discoveryOwnerField('price_from','Valor informado a partir de (R$, opcional)',d.price_from_brl_cents===null?'':d.price_from_brl_cents===undefined?'':Number(d.price_from_brl_cents)/100,'number','min="0" max="500000" step=".01"');
+}
+function discoveryOwnerPage(){
+  const s=discoveryOwner;
+  if(!discoveryOwnerRoute())return shell('<section><h1>Não encontrado</h1></section>');
+  const header='<header class="discovery-owner-intro"><span class="section-kicker">TAMÃO • ANÚNCIOS</span>'+
+    '<h1>Anuncie seus serviços, caronas e hospedagens.</h1>'+
+    '<p>Crie um anúncio, inclua fotos e envie para revisão. Você controla o conteúdo e o contato.</p></header>';
+  const note=s.notice?'<p role="status" class="discovery-owner-message">'+esc(s.notice)+'</p>':'';
+  const error=s.error?'<p role="alert" class="discovery-owner-error">'+esc(s.error)+'</p>':'';
+  if(s.phase==='idle'||s.phase==='loading')return shell('<section class="section discovery-owner">'+header+
+    '<p role="status">Preparando sua área de anúncios…</p></section>');
+  if(!s.user)return shell('<section class="section discovery-owner">'+header+note+error+
+    '<form class="discovery-owner-auth" onsubmit="return discoveryOwnerLogin(event)">'+
+    '<label>Seu e-mail<input type="email" name="email" autocomplete="email" required maxlength="254" placeholder="voce@exemplo.com"></label>'+
+    '<button class="primary" type="submit"'+(s.busy?' disabled':'')+'>Receber link de acesso</button>'+
+    '<p class="tiny muted">Confirme o e-mail pelo link enviado. O cadastro não publica anúncios automaticamente.</p>'+
+    '</form></section>');
+  const cards=s.items.map(x=>{
+    const id=String(x.id||'');
+    if(!/^[a-f0-9-]{36}$/.test(id))return '';
+    const canEdit=['draft','rejected','paused'].includes(x.status);
+    const edit=canEdit?'<button type="button" onclick="discoveryOwnerOpen(\''+id+'\')">Editar</button>':'';
+    const review=canEdit?'<button type="button" onclick="discoveryOwnerSubmit(\''+id+'\')">Enviar para revisão</button>':'';
+    const pause=x.status==='published'?'<button type="button" onclick="discoveryOwnerPause(\''+id+'\')">Pausar anúncio</button>':'';
+    return '<article class="discovery-owner-item"><strong>'+esc(x.title)+'</strong>'+
+      '<small>'+esc(x.vertical)+' · '+esc(x.city_name)+' / '+esc(x.state_code)+' · '+esc(x.status)+'</small>'+
+      '<div class="discovery-owner-actions">'+edit+review+pause+'</div></article>';
+  }).join('');
+  const d=s.editor||{},kind=s.editor?.vertical||s.kind;
+  const form='<form id="discovery-owner-form" class="discovery-owner-form" onsubmit="return discoveryOwnerSave(event)">'+
+    '<h2>'+(s.editor?.id?'Editar rascunho':'Novo anúncio')+'</h2>'+
+    (s.editor?.id?'<p class="tiny muted">Tipo: '+esc(kind)+'</p>':
+      '<label>O que deseja anunciar?<select name="vertical" onchange="discoveryOwnerTypeChanged(this.value)">'+
+      Object.entries({professionals:'Profissionais',rides:'Caronas',stays:'Hospedagens'})
+        .map(([v,t])=>'<option value="'+v+'"'+(kind===v?' selected':'')+'>'+t+'</option>').join('')+
+      '</select></label>')+
+    discoveryOwnerField('title','Título do anúncio',d.title,'text','required minlength="8" maxlength="120"')+
+    '<label>Descrição<textarea name="description" minlength="30" maxlength="3500" rows="4" required>'+
+      discoveryOwnerValue(d,'description')+'</textarea></label>'+
+    '<label>Estado (UF)<select name="state_code" required>'+
+      discoveryOwnerStates.map(x=>'<option value="'+x+'"'+((d.state_code||'RS')===x?' selected':'')+'>'+x+'</option>').join('')+
+    '</select></label>'+
+    discoveryOwnerField('city_name','Cidade',d.city_name,'text','required minlength="2" maxlength="120"')+
+    discoveryOwnerField('public_area','Bairro ou área aproximada (opcional)',d.public_area,'text','maxlength="140"')+
+    discoveryOwnerField('whatsapp_e164','WhatsApp com DDI (ex.: +5555999999999)',d.whatsapp_e164,'tel','required pattern="\\+[1-9][0-9]{7,14}"')+
+    discoveryOwnerTypeFields(kind,d)+
+    '<label>Fotos (JPG, PNG ou WebP, até 5 MB por foto)<input id="discovery-owner-photos" name="photos" type="file" accept="image/jpeg,image/png,image/webp" multiple></label>'+
+    (Array.isArray(d.photo_urls)&&d.photo_urls.length?
+      '<div class="discovery-owner-photos">'+d.photo_urls.map(p=>{
+        const url=discoveryOwnerPhotoUrl(p);return url?'<img src="'+esc(url)+'" loading="lazy" alt="Foto do anúncio">':'';
+      }).join('')+'</div>':'')+
+    '<button type="submit" class="primary"'+(s.busy?' disabled':'')+'>Salvar rascunho e fotos</button>'+
+    '<p class="tiny muted">O anúncio só aparece para visitantes depois da revisão e da abertura da modalidade nesta cidade.</p>'+
+    '</form>';
+  return shell('<section class="section discovery-owner">'+header+note+error+
+    '<div class="discovery-owner-top"><strong>'+esc(s.user.email||'Conta verificada')+'</strong>'+
+    '<button type="button" onclick="discoveryOwnerLogout()">Sair</button></div>'+
+    '<div class="discovery-owner-layout"><section><h2>Meus anúncios</h2>'+
+      (cards||'<p>Nenhum anúncio cadastrado.</p>')+
+      '<button type="button" class="secondary" onclick="discoveryOwnerNew()">Novo anúncio</button></section>'+
+      form+'</div></section>');
+}
+async function discoveryOwnerInit(){
+  const s=discoveryOwner;if(s.phase!=='idle')return;
+  s.phase='loading';
+  try{
+    const sdk=await loadSupabaseBrowser();
+    s.client=sdk.createClient(CHAMA_BACKEND.url,CHAMA_BACKEND.publishableKey,{
+      auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:true,
+        storageKey:'tamao-discovery-auth'},global:{fetch:chamaFetch}
+    });
+    const response=await s.client.auth.getUser();
+    s.user=response?.data?.user||null;
+    s.phase='ready';
+    if(s.user)await discoveryOwnerRefresh();
+  }catch(e){s.phase='ready';s.error='Não foi possível conectar ao cadastro. Tente novamente.';}
+  if(discoveryOwnerRoute())render();
+}
+function discoveryOwnerAfterRender(){
+  if(discoveryOwnerRoute()&&discoveryOwner.phase==='idle')discoveryOwnerInit();
+}
+async function discoveryOwnerRefresh(){
+  const s=discoveryOwner;if(!s.client||!s.user)return;
+  const {data,error}=await s.client.rpc('discovery_my_listings');
+  if(error)throw error;
+  if(!Array.isArray(data))throw Error('Invalid owner listings response');
+  s.items=data.filter(x=>x&&/^[a-f0-9-]{36}$/.test(String(x.id||'')));
+}
+function discoveryOwnerError(error){
+  const code=String(error?.code||'');
+  if(code==='42501')return 'Você não tem permissão para esta operação.';
+  if(code==='22023')return 'Confira os campos e as fotos enviadas antes de solicitar revisão.';
+  return 'Não foi possível concluir a operação. Confira sua conexão e tente novamente.';
+}
+async function discoveryOwnerLogin(ev){
+  ev?.preventDefault?.();
+  const s=discoveryOwner,form=ev?.target;
+  const email=String(form?.elements?.email?.value||'').trim();
+  if(s.busy||!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email))return false;
+  s.busy=true;s.error='';s.notice='';
+  try{
+    const dest=location.origin+location.pathname+'#advertise';
+    const {error}=await s.client.auth.signInWithOtp({email,options:{emailRedirectTo:dest}});
+    if(error)throw error;
+    s.notice='Link de acesso solicitado. Confira seu e-mail para continuar.';
+  }catch(e){s.error=discoveryOwnerError(e);}
+  s.busy=false;render();return false;
+}
+async function discoveryOwnerLogout(){
+  const s=discoveryOwner;if(!s.client)return;
+  await s.client.auth.signOut();
+  s.user=null;s.items=[];s.editor=null;s.notice='';s.error='';
+  if(discoveryOwnerRoute())render();
+}
+function discoveryOwnerNew(){discoveryOwner.editor=null;discoveryOwner.notice='';discoveryOwner.error='';render();}
+function discoveryOwnerTypeChanged(kind){
+  const s=discoveryOwner;
+  if(!Object.hasOwn(discoveryOwnerTables,kind)||s.editor?.id)return;
+  s.kind=kind;s.error='';render();
+}
+async function discoveryOwnerOpen(id){
+  const s=discoveryOwner,listing=s.items.find(x=>x.id===id);
+  if(!listing||!['draft','rejected','paused'].includes(listing.status))return;
+  s.busy=true;s.error='';
+  try{
+    const table=discoveryOwnerTables[listing.vertical];
+    const {data,error}=await s.client.from(table).select('*').eq('listing_id',id).maybeSingle();
+    if(error)throw error;
+    s.editor={...listing,...(data||{})};
+    s.kind=listing.vertical;
+  }catch(e){s.error=discoveryOwnerError(e);}
+  s.busy=false;render();
+}
+function discoveryOwnerDetails(vertical,f){
+  const field=n=>String(f.get(n)||'').trim();
+  const nonneg=(name,fallback)=>field(name)===''?fallback:Number(field(name));
+  if(vertical==='professionals')return {
+    occupation:field('occupation'),service_area:field('service_area'),
+    years_experience:nonneg('years_experience',null)
+  };
+  if(vertical==='rides')return {
+    departure_state:field('departure_state').toUpperCase(),
+    departure_city:field('departure_city'),
+    destination_state:field('destination_state').toUpperCase(),
+    destination_city:field('destination_city'),
+    departure_at:new Date(field('departure_at')).toISOString(),
+    seats_total:nonneg('seats_total',1),seats_available:nonneg('seats_available',1),
+    proposed_cost_share_cents:field('proposed_cost_share')===''?null:Math.round(Number(field('proposed_cost_share'))*100)
+  };
+  return {
+    property_type:field('property_type'),guests:nonneg('guests',2),
+    bedrooms:nonneg('bedrooms',1),beds:nonneg('beds',1),units:1,
+    price_from_brl_cents:field('price_from')===''?null:Math.round(Number(field('price_from'))*100),
+    price_unit:field('price_from')===''?null:'night'
+  };
+}
+async function discoveryOwnerSave(ev){
+  ev?.preventDefault?.();
+  const s=discoveryOwner;
+  if(s.busy||!s.user||!s.client)return false;
+  const form=ev?.target; if(!form||!form.checkValidity())return false;
+  const f=new FormData(form),get=n=>String(f.get(n)||'').trim();
+  const vertical=s.editor?.vertical||get('vertical');
+  if(!Object.hasOwn(discoveryOwnerTables,vertical))return false;
+  const files=Array.from(document.getElementById('discovery-owner-photos')?.files||[]);
+  let keys=Array.isArray(s.editor?.photo_urls)?s.editor.photo_urls.slice():[];
+  if(files.length+keys.length>18){s.error='No máximo 18 fotos por anúncio.';render();return false;}
+  const mime={'image/jpeg':'jpg','image/png':'png','image/webp':'webp'};
+  if(files.some(x=>!mime[x.type]||x.size<1||x.size>5242880)){
+    s.error='Use JPG, PNG ou WebP, com até 5 MB por imagem.';render();return false;
+  }
+  s.busy=true;s.error='';s.notice='';render();
+  let id=s.editor?.id||null;
+  try{
+    const data={
+      title:get('title'),description:get('description'),state_code:get('state_code'),
+      city_name:get('city_name'),city_key:discoveryOwnerCitySlug(get('city_name')),
+      public_area:get('public_area')||null,whatsapp_e164:get('whatsapp_e164')
+    };
+    const client=s.client;
+    if(!id){
+      const result=await client.from('discovery_listings')
+        .insert({...data,vertical,photo_urls:[]}).select('id').single();
+      if(result.error)throw result.error;
+      id=result.data?.id;
+    }else{
+      const result=await client.from('discovery_listings').update(data).eq('id',id);
+      if(result.error)throw result.error;
+    }
+    if(!/^[a-f0-9-]{36}$/.test(String(id||'')))throw Error('Invalid inserted listing ID');
+    const details=discoveryOwnerDetails(vertical,f);
+    const saved=await client.from(discoveryOwnerTables[vertical])
+      .upsert({listing_id:id,...details},{onConflict:'listing_id'});
+    if(saved.error)throw saved.error;
+    for(const file of files){
+      const key=s.user.id+'/'+crypto.randomUUID()+'.'+mime[file.type];
+      const result=await client.storage.from('tamao-discovery-photos')
+        .upload(key,file,{contentType:file.type,upsert:false,cacheControl:'3600'});
+      if(result.error)throw result.error;
+      keys.push(key);
+    }
+    if(files.length){
+      const written=await client.from('discovery_listings').update({photo_urls:keys}).eq('id',id);
+      if(written.error)throw written.error;
+    }
+    await discoveryOwnerRefresh();
+    s.editor=null;s.notice='Rascunho salvo. Você pode enviá-lo para revisão.';
+  }catch(e){
+    s.error=discoveryOwnerError(e);
+    if(id){
+      try{await discoveryOwnerRefresh();}catch{}
+    }
+  }
+  s.busy=false;if(discoveryOwnerRoute())render();
+  return false;
+}
+async function discoveryOwnerSubmit(id){
+  const s=discoveryOwner,entry=s.items.find(x=>x.id===id);
+  if(s.busy||!entry||!['draft','rejected','paused'].includes(entry.status))return;
+  s.busy=true;s.error='';s.notice='';
+  try{
+    const {error}=await s.client.rpc('discovery_transition_listing',{
+      p_listing_id:id,p_next_status:'review',p_reason:'Envio pelo anunciante'
+    });
+    if(error)throw error;
+    await discoveryOwnerRefresh();s.notice='Anúncio enviado para revisão.';
+  }catch(e){s.error=discoveryOwnerError(e);}
+  s.busy=false;if(discoveryOwnerRoute())render();
+}
+async function discoveryOwnerPause(id){
+  const s=discoveryOwner,entry=s.items.find(x=>x.id===id);
+  if(s.busy||entry?.status!=='published')return;
+  s.busy=true;s.error='';s.notice='';
+  try{
+    const {error}=await s.client.rpc('discovery_transition_listing',{
+      p_listing_id:id,p_next_status:'paused',p_reason:'Pausa solicitada pelo anunciante'
+    });
+    if(error)throw error;
+    await discoveryOwnerRefresh();s.notice='Anúncio pausado.';
+  }catch(e){s.error=discoveryOwnerError(e);}
+  s.busy=false;if(discoveryOwnerRoute())render();
+}
