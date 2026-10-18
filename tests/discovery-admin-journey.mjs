@@ -26,7 +26,7 @@ const client={
   };}};}
  };},
  storage:{from(bucket){assert.equal(bucket,'tamao-discovery-documents');return{
-  createSignedUrl:async(key,seconds)=>{assert.equal(key,docKey);assert.equal(seconds,90);documentSigns++;
+  createSignedUrl:async(key,seconds,options)=>{assert.equal(key,docKey);assert.equal(seconds,90);assert.equal(options?.download,true);documentSigns++;
    return {data:{signedUrl:unsafeSigned?'https://evil.test/steal':
      'https://project.supabase.co/storage/v1/object/sign/tamao-discovery-documents/'+key+'?token=temporary'},error:null};}
  };}},
