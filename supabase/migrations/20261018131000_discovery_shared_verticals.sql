@@ -160,9 +160,6 @@ grant select (vertical,state_code,city_key,city_name,enabled)
 grant select (id,vertical,status,title,description,state_code,city_key,city_name,
   public_area,whatsapp_e164,photo_urls,published_at,created_at,updated_at)
  on public.discovery_listings to anon,authenticated;
--- Propriedade é visível aos titulares autenticados para políticas de escrita;
--- identidade do dono não é publicada aos visitantes anônimos.
-grant select (owner_id) on public.discovery_listings to authenticated;
 
 -- Detalhes só aparecem quando o anúncio-mãe é público, ou para seu proprietário.
 create policy discovery_professional_visible on public.discovery_professional_details
