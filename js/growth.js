@@ -673,7 +673,7 @@ function merchantsLanding(){
         <div class="card"><div class="feature-icon">📣</div><h3>Ajude mais gente a descobrir sua empresa</h3>
           <p class="muted tiny">Compartilhe seu link da Rede TAMÃO. Publicidade patrocinada e ferramentas Pro serão opções separadas quando estiverem disponíveis.</p></div>
       </div>
-      <p class="tiny muted">A divulgação paga não altera a ordem orgânica das ofertas. Serviços adicionais ainda não estão disponíveis para contratação.</p>
+      <p class="tiny muted">A divulgação patrocinada é identificada e não altera a ordem orgânica das ofertas.</p>
     </section>
 
     <section class="section tamao-merchant-differentials">
