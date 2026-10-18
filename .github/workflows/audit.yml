@@ -69,6 +69,8 @@ jobs:
         run: node tests/strip-admin-css.mjs
       - name: Release SHA truth and legacy PR triage contract
         run: node tests/release-version-truth.mjs
+      - name: Persistent execution checkpoint and release blockers
+        run: node tests/tamao-execution-checkpoint.mjs
       - name: Shared discovery schema isolation and security
         run: node tests/discovery-shared-verticals.mjs
       - name: Public discovery journeys, HTML escaping and PWA assets
