@@ -595,10 +595,10 @@ grant insert(listing_id,kind,object_path) on public.discovery_documents to authe
 -- -> documents SELECT) and never returns the document itself.
 create function public.discovery_document_registered(p_path text)
 returns boolean language sql stable security definer set search_path='pg_catalog'
-as $
+as $$
  select (select public.discovery_is_superadmin()) and exists(
    select 1 from public.discovery_documents d where d.object_path=p_path)
-$;
+$$;
 revoke all on function public.discovery_document_registered(text) from public,anon,authenticated;
 grant execute on function public.discovery_document_registered(text) to authenticated;
 
