@@ -230,6 +230,24 @@ end $$;
 select public.discovery_transition_listing((current_setting('tamao.test.listing_id'))::uuid,'paused')
   as owner_paused;
 
+-- A paused approved advert must never be editable without returning to draft.
+do $$
+declare v_changed integer;
+begin
+ update public.discovery_listings set title='Mudança silenciosa após pausa'
+ where id=(current_setting('tamao.test.listing_id'))::uuid;
+ get diagnostics v_changed=row_count;
+ if v_changed<>0 then raise exception 'PAUSED_APPROVAL_EDIT_BYPASS';end if;
+end $$;
+select public.discovery_transition_listing(
+ (current_setting('tamao.test.listing_id'))::uuid,'draft',
+ 'Editar e reenviar conteúdo aprovado') as owner_reopened;
+update public.discovery_listings set title='Atendimento revisado pelo anunciante'
+ where id=(current_setting('tamao.test.listing_id'))::uuid;
+select public.discovery_transition_listing(
+ (current_setting('tamao.test.listing_id'))::uuid,'review') as owner_resubmitted;
+
+
 set role anon;
 reset request.jwt.claim.sub;
 do $$
@@ -247,7 +265,7 @@ begin
  if v_result<>0 then raise exception 'PAUSED_LISTING_IN_SEARCH';end if;
 end $$;
 
--- Re-publication and city closure are distinct administrator powers.
+-- Re-publication after renewed review and city closure remain admin powers.
 set role authenticated;
 set request.jwt.claim.sub='00000000-0000-0000-0000-000000000033';
 select public.discovery_transition_listing((current_setting('tamao.test.listing_id'))::uuid,'published',
