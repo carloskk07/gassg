@@ -67,6 +67,14 @@ insert into public.discovery_professional_details(
  listing_id,occupation,service_area,years_experience
 ) values ((current_setting('tamao.test.listing_id'))::uuid,'Eletricista','São Gabriel e localidades próximas',12);
 
+-- Owner-only listing RPC: include drafts without exposing internal owner UUID.
+do $$
+declare n integer;
+begin
+ select count(*) into n from public.discovery_my_listings();
+ if n<>1 then raise exception 'OWNER_DRAFT_LIST_MISSING';end if;
+end $$;
+
 -- Direct status overwrite is impossible and the subscriber must submit review.
 -- An external URL must never pass review as a verified photo.
 insert into public.discovery_listings(
@@ -96,6 +104,12 @@ begin
 end $$;
 
 set request.jwt.claim.sub='00000000-0000-0000-0000-000000000022';
+do $$
+declare n integer;
+begin
+ select count(*) into n from public.discovery_my_listings();
+ if n<>0 then raise exception 'CROSS_TENANT_OWNER_RPC';end if;
+end $$;
 -- Another user cannot insert into the first user's Storage prefix.
 do $$
 begin
