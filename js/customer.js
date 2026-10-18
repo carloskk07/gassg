@@ -367,7 +367,7 @@ function tamaoDiscoveryEntryHub(){
     [['professionals','🛠️','Profissionais','Encontre prestadores de serviços'],
      ['rides','🚙','Caronas','Pesquise viagens compartilhadas'],
      ['stays','🏡','Hospedagens','Conheça anúncios de hospedagens']].map(([r,i,title,desc])=>
-      '<button class="intent-card" type="button" onclick="go(\\''+r+'\\')">'+
+      `<button class="intent-card" type="button" onclick="go('${r}')">`+
       '<span class="intent-icon" aria-hidden="true">'+i+'</span><span><strong>'+title+
       '</strong><small>'+desc+'</small></span><b aria-hidden="true">→</b></button>'
     ).join('')+'</div></section>';
