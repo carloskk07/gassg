@@ -6,7 +6,7 @@
 **Branch de integração:** `feat/unified-discovery-tamao`  
 **Branch oficial:** `main`  
 **Commit-base de `main`:** `433101839489f7739f44ddcf04e664ddff3435bd`  
-**SHA do código com Auditoria completa aprovada:** `0658e7b66d1e3d129005edd08ddb01e9de528349`
+**SHA do código e checkpoint com auditoria completa aprovada:** `0d5e7a9bed28771761b584df3442e1437c8719bf`
 **Último commit de escopo anterior:** `f34a4ae206c8ec737796212f4b8cd08377e93fff`
 **PR principal:** [#492](https://github.com/carloskk07/gassg/pull/492), aberta em rascunho.  
 **Escopo:** [TAMAO_ESCOPO.md](TAMAO_ESCOPO.md).  
@@ -18,8 +18,9 @@
 
 - Repositório `main` conferido na SHA acima; branch de expansão existente, não criar outra.
 - PR #492 aberta como rascunho; consultar lista atual de arquivos na PR.
-- CI na SHA `0658e7b`: [Audit PASS](https://github.com/carloskk07/gassg/actions/runs/39148187531), [PostgreSQL 17 PASS](https://github.com/carloskk07/gassg/actions/runs/39148187685), [build dos portais PASS](https://github.com/carloskk07/gassg/actions/runs/39148187501) e [smoke visual PASS](https://github.com/carloskk07/gassg/actions/runs/39148187704). Conferir novamente CI da SHA atual antes de qualquer merge.
+- CI na SHA `0d5e7a9`: [Audit PASS](https://github.com/carloskk07/gassg/actions/runs/39148608605), [PostgreSQL 17 isolado PASS](https://github.com/carloskk07/gassg/actions/runs/39148608609), [build de três portais PASS](https://github.com/carloskk07/gassg/actions/runs/39148608661) e [smoke visual público PASS](https://github.com/carloskk07/gassg/actions/runs/39148608606). O PR posterior com este texto requer nova CI por SHA.
 - Supabase consultado em leitura: 154 tabelas públicas e 422 funções públicas; `discovery_listings` ainda não existe no banco ativo. Não aplicar migration em produção antes do release gate.
+- Consulta adicional confirmou **154/154 tabelas com RLS habilitada** e nenhuma função SECURITY DEFINER no schema público executável por `PUBLIC`; isso é uma verificação pontual e não comprova segurança funcional integral.
 - Estado de `platform_launch_control`: `PRELAUNCH`, `commerce_enabled=false`; 3 portais com último source SHA atestado `433101839489` em 18/10 às 15:06 UTC. O atestado do banco não substitui checagem HTTP recente.
 - Apenas 1 revenda estava cadastrada, 0 pedidos (inspeção anterior). Estes totais são históricos e devem ser reconfirmados antes de usá-los comercialmente.
 - Nenhum pagamento, publicação de anúncio, abertura de cidade, ativação comercial ou deploy foi executado para a expansão nesta sessão.
@@ -40,7 +41,7 @@
 | FIN-001 | NÃO INICIADA | Tabelas sem cobrança; faltam consentimento, tarifas, conciliação e testes |
 | REP-001 | NÃO INICIADA | Avaliações autênticas, denúncias e antifraude ausentes |
 | ADMIN-001 | NÃO INICIADA | Revisão/ativação das novas modalidades não aparece no painel existente |
-| QA-001 | PARCIAL | Audit, PostgreSQL isolado, builds e smoke visual aprovados na SHA 0658e7b; E2E autenticado pendente |
+| QA-001 | PARCIAL | Audit, PostgreSQL isolado, builds e smoke visual aprovados na SHA 0d5e7a9; E2E autenticado pendente |
 | REL-001 | BLOQUEADA | Fluxos integrais, migrações, SEO, finanças, revisão e publicação ainda pendentes |
 
 ## Código e migrações
@@ -53,6 +54,7 @@
 - `js/discovery.js`, `css/discovery.css`: buscas e estilos carregados sob demanda.
 - `js/bootstrap.js`, `js/customer.js`, `scripts/build-live-portals.mjs`: rotas públicas, entradas da home e isolamento dos pacotes.
 - `tests/discovery-public-journeys.mjs`: contratos de busca, filtros, HTML e assets.
+- `tests/tamao-execution-checkpoint.mjs`: valida existência e estrutura do diário/escopo; incorporado à auditoria oficial.
 - `docs/TAMAO-EXPANSAO-INTEGRADA.md` e `docs/TAMAO_ESCOPO.md` — arquitetura e escopo.
 - **Edge Functions modificadas:** nenhuma nesta iniciativa.
 - **Banco de produção modificado:** não.
@@ -68,7 +70,7 @@
 
 ## Checkpoint operacional obrigatório
 
-**ÚLTIMA ETAPA CONCLUÍDA:** Protocolo persistente implementado e três páginas públicas de descoberta adicionadas à PR #492 com consultas reais e carregamento sob demanda. Build e testes passaram na SHA `0658e7b`.
+**ÚLTIMA ETAPA CONCLUÍDA:** Protocolo persistente implementado e três páginas públicas de descoberta adicionadas à PR #492 com consultas reais e carregamento sob demanda. Build e testes passaram na SHA `0d5e7a9`, incluindo validação do diário de execução.
 
 **ETAPA ATUAL:** Acompanhar o CI do HEAD atual e iniciar fluxo autenticado de anunciantes, fotos e moderação sem aplicar migração em produção.
 
