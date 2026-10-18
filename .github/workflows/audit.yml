@@ -235,6 +235,8 @@ jobs:
         run: node tests/clube-campaign-review-v1-241.mjs
       - name: Clube TAMÃO V1.242 nonbinding terms and funding safeguards
         run: node tests/clube-terms-preflight-v1-242.mjs
+      - name: Clube TAMÃO launch-readiness and ownership safety V1.408
+        run: node tests/clube-launch-readiness-v1-408.mjs
       - name: TAMÃO V1.244 owner incentives and trustworthy public marketing
         run: node tests/owner-funded-trust-v1-244.mjs
       - name: TAMÃO V1.245 reward grant evidence and budget dashboard
