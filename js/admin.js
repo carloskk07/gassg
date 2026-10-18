@@ -406,7 +406,7 @@ async function adminRefresh({silent=false}={}){
     queueMicrotask(()=>adminEnsureProviderHealth().catch(()=>{}));
     if(['overview','system'].includes(String(adminRuntime.section||'')))
       queueMicrotask(()=>adminLoadGovernanceGates().catch(()=>{}));
-    if(adminRuntime.section==='activations')queueMicrotask(()=>adminActivationLoad().catch(()=>{}));
+    if(adminRuntime.section==='activations')queueMicrotask(()=>adminActivationLoadOnDemand().catch(()=>{}));
     if(adminRuntime.section==='finance')queueMicrotask(()=>adminLoadFinanceHistory().catch(()=>{}));
     if(adminRuntime.section==='finance')queueMicrotask(()=>adminLoadMerchantFinance().catch(()=>{}));
     if(adminRuntime.section==='alerts')queueMicrotask(()=>adminLoadOperationalAlerts().catch(()=>{}));
@@ -2423,6 +2423,65 @@ function adminOperationalStrip(d){
 function adminExecutiveKpi({icon,label,value,detail='',tone='neutral'}){
   return '<article class="admin-exec-kpi '+esc(tone)+'"><span class="admin-exec-icon" aria-hidden="true">'+esc(icon)+'</span><div><small>'+esc(label)+'</small><strong>'+value+'</strong>'+(detail?'<p>'+esc(detail)+'</p>':'')+'</div></article>';
 }
+// Optional read-only activations desk. Never block login or other admin tabs.
+const adminActivationModuleUrl=(()=>{
+  try{
+    const script=document.currentScript;
+    if(!script?.src)return null;
+    const parent=new URL(script.src,document.baseURI);
+    if(parent.origin!==location.origin||!parent.pathname.endsWith('/js/admin.js'))return null;
+    const sibling=new URL('admin-activations.js',parent);
+    sibling.search=parent.search; // match the exact release revision
+    return sibling.href;
+  }catch{return null}
+})();
+let adminActivationModulePromise=null;
+let adminActivationModuleError=null;
+async function adminActivationLoadOnDemand(){
+  if(!adminReady()||!adminRoleCanSection('activations'))return null;
+  if(typeof adminActivationLoad!=='function'||typeof adminActivationDeskView!=='function'){
+    if(!adminActivationModulePromise){
+      adminActivationModuleError=null;
+      adminActivationModulePromise=new Promise((resolve,reject)=>{
+        if(!adminActivationModuleUrl){
+          reject(new Error('Módulo de ativações não configurado nesta publicação.'));
+          return;
+        }
+        const script=document.createElement('script');
+        script.src=adminActivationModuleUrl;
+        script.async=true;
+        script.onload=()=>{
+          if(typeof adminActivationLoad==='function'&&typeof adminActivationDeskView==='function')
+            resolve(true);
+          else reject(new Error('A Central de Ativações não inicializou corretamente.'));
+        };
+        script.onerror=()=>reject(new Error('Não foi possível carregar a Central de Ativações. Verifique a conexão.'));
+        document.head.appendChild(script);
+      }).catch(error=>{
+        adminActivationModuleError=String(error?.message||'Erro ao carregar a Central de Ativações.');
+        throw error;
+      }).finally(()=>{adminActivationModulePromise=null});
+    }
+    try{await adminActivationModulePromise}
+    catch(error){
+      if(adminRuntime.section==='activations')render();
+      return null;
+    }
+  }
+  if(!adminReady()||adminRuntime.section!=='activations')return null;
+  adminActivationModuleError=null;
+  render();
+  return adminActivationLoad();
+}
+function adminActivationsFallbackView(){
+  if(adminActivationModuleError)return '<section class="section"><div class="notice danger">'+
+    '<strong>Central de Ativações indisponível.</strong> '+esc(adminActivationModuleError)+
+    '</div><button type="button" class="secondary" onclick="adminActivationLoadOnDemand()">'+
+    'Tentar novamente</button></section>';
+  return '<section class="section"><p class="muted" role="status">'+
+    'Carregando Central de Ativações…</p></section>';
+}
+
 function adminSetSection(section){
   const allowed=['overview','orders','customers','partners','prospects','enablement','catalog','finance','alerts','incidents','audit','system','activations'];
   const requested=allowed.includes(String(section||''))?String(section):'overview';
@@ -2432,7 +2491,7 @@ function adminSetSection(section){
   render();
   if(next==='system')adminLoadSystemHealth().catch(()=>{});
   if(['system','overview'].includes(next))adminLoadGovernanceGates().catch(()=>{});
-  if(next==='activations')adminActivationLoad().catch(()=>{});
+  if(next==='activations')adminActivationLoadOnDemand().catch(()=>{});
   if(next==='alerts')adminLoadOperationalAlerts({force:true}).catch(()=>{});
   if(next==='prospects'){
     adminLoadProspects().catch(()=>{});
@@ -6304,7 +6363,7 @@ function adminPage(){
         ${adminPanel('enablement',adminEnablementSection(d))}
         ${adminPanel('catalog',catalogContent)}
         ${adminPanel('finance',financeContent)}
-        ${adminPanel('activations',adminActivationDeskView(d))}
+        ${adminPanel('activations',adminRuntime.section==='activations'&&typeof adminActivationDeskView==='function'?adminActivationDeskView(d):adminActivationsFallbackView())}
         ${adminPanel('alerts',alertsContent)}
         ${adminPanel('incidents',incidentsContent)}
         ${adminPanel('audit',auditContent)}

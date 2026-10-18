@@ -8,9 +8,9 @@ const html=read('index.html'),styles=read('css/components.css');
 new vm.Script(src,{filename:'admin-activations.js'});
 assert.ok(html.includes('js/admin-activations.js'));
 assert.ok(admin.includes("activations:new Set(['superadmin','readonly','operations'])"));
-assert.ok(admin.includes("adminPanel('activations',adminActivationDeskView(d))"));
+assert.ok(admin.includes("typeof adminActivationDeskView==='function'?adminActivationDeskView(d):adminActivationsFallbackView()"));
 assert.ok(admin.includes("adminMenuButton('activations','Ativações'"));
-assert.ok(admin.includes("if(next==='activations')adminActivationLoad()"));
+assert.ok(admin.includes("if(next==='activations')adminActivationLoadOnDemand()"));
 assert.ok(styles.includes('.admin-activation-grid'));
 assert.ok(!src.includes('adminPerform(\'ads-publish'), 'read-only modules never publish Ads');
 

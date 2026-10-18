@@ -124,6 +124,11 @@ function patchIndex(html,portal,sourceSha){
     if(!patched.includes(merchantTag))throw new Error('Missing customer merchant script for isolation');
     patched=patched.replace(merchantTag,'');
   }
+  if(role==='admin'){
+    const lazyTag='<script defer src="./js/admin-activations.js"></script>';
+    if(!patched.includes(lazyTag))throw new Error('Admin activation module missing');
+    patched=patched.replace(lazyTag,'');
+  }
   if(role!=='admin'){
     for(const module of ['admin-acquisition','admin','admin-activations']){
       const tag='<script defer src="./js/'+module+'.js"></script>';
@@ -189,6 +194,11 @@ function patchServiceWorker(raw,sourceSha,role){
     const merchantEntry=",'./js/merchant.js'";
     if(!scoped.includes(merchantEntry))throw new Error('Missing customer merchant precache entry');
     scoped=scoped.replace(merchantEntry,'');
+  }
+  if(role==='admin'){
+    const lazyEntry=",'./js/admin-activations.js'";
+    if(!scoped.includes(lazyEntry))throw new Error('Missing admin activations precache entry');
+    scoped=scoped.replace(lazyEntry,'');
   }
   if(role!=='admin'){
     // Only the administrative bundle may precache privileged UI modules.
