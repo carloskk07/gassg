@@ -8,6 +8,7 @@ import {writePublicLandingPages} from '../scripts/build-public-landing-pages.mjs
 const read=p=>fs.readFileSync(new URL('../'+p,import.meta.url),'utf8');
 const bootstrap=read('js/bootstrap.js'),backend=read('js/backend.js');
 const growth=read('js/growth.js'),css=read('css/marketing-premium.css');
+const merchantUi=read('js/merchant.js');
 new vm.Script(bootstrap,{filename:'bootstrap.js'});
 new vm.Script(backend,{filename:'backend.js'});
 new vm.Script(growth,{filename:'growth.js'});
@@ -75,6 +76,9 @@ assert.equal(existing.searchParams.get('ref'),'ABCDE1','referral attribution sur
 const noRef=portal(true,'bad');
 assert.equal(noRef.hash,'#merchant-join');
 assert.equal(noRef.searchParams.has('ref'),false);
+assert.ok(merchantUi.includes("signupEntry?'Cadastre sua revenda no TAMÃO'") &&
+ merchantUi.includes("signupEntry?'Continuar meu cadastro →'"),
+ 'signup visitors must see onboarding, not existing-partner login copy');
 assert.ok(growth.includes('class="merchant-live-signup-cta"'));
 assert.ok(growth.includes('class="merchant-secondary-lead"'));
 assert.ok(growth.includes('Prefere conversar antes? Deixe seu contato'));
