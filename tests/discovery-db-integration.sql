@@ -32,7 +32,7 @@ create table storage.objects(
 alter table storage.objects enable row level security;
 grant usage on schema storage to anon,authenticated;
 -- Supabase Storage grants SELECT to authenticated; RLS still scopes each object.
-grant insert,select on storage.objects to authenticated;
+grant insert,select,delete on storage.objects to authenticated;
 
 insert into auth.users(id,is_anonymous,email_confirmed_at) values
  ('00000000-0000-0000-0000-000000000011',false,now()),
@@ -338,6 +338,23 @@ begin
  if n<>1 then raise exception 'OWNER_DOCUMENT_MISSING';end if;
 end $$;
 
+-- Remoção dos metadados somente enquanto o anúncio é editável.
+-- O arquivo físico é excluído pelo método Storage.remove() (contrato JS).
+delete from public.discovery_documents
+ where listing_id=current_setting('tamao.test.private_listing_id')::uuid;
+do $$
+declare n integer;
+begin
+ select count(*) into n from public.discovery_documents
+ where listing_id=current_setting('tamao.test.private_listing_id')::uuid;
+ if n<>0 then raise exception 'OWNER_DRAFT_DOCUMENT_DELETE_FAILED';end if;
+end $$;
+insert into public.discovery_documents(listing_id,kind,object_path) values(
+ current_setting('tamao.test.private_listing_id')::uuid,'supporting',
+ '00000000-0000-0000-0000-000000000011/'||
+ current_setting('tamao.test.private_listing_id')||
+ '/22222222-2222-2222-2222-222222222222.pdf');
+
 set request.jwt.claim.sub='00000000-0000-0000-0000-000000000022';
 do $$
 declare n integer;
@@ -349,6 +366,10 @@ begin
  where bucket_id='tamao-discovery-documents'
  and name like '00000000-0000-0000-0000-000000000011/%';
  if n<>0 then raise exception 'CROSS_OWNER_STORAGE_LEAK';end if;
+ delete from public.discovery_documents
+ where listing_id=current_setting('tamao.test.private_listing_id')::uuid;
+ get diagnostics n=row_count;
+ if n<>0 then raise exception 'CROSS_OWNER_DOCUMENT_DELETE';end if;
  begin
   insert into public.discovery_documents(listing_id,kind,object_path)
    values(current_setting('tamao.test.private_listing_id')::uuid,'identity',
