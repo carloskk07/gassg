@@ -113,7 +113,7 @@ function discoveryOwnerPage(){
       '. A remoção fica disponível somente enquanto o anúncio está em rascunho ou rejeitado.</p>'+
       (['draft','rejected'].includes(d.status)?d.documents.map((doc,i)=>
         /^[0-9a-f-]{36}$/.test(String(doc.id||''))?
-          '<button type="button" onclick="discoveryOwnerRemoveDocument(\\''+doc.id+'\\')">Remover comprovante '+(i+1)+'</button>':''
+          '<button type="button" onclick="discoveryOwnerRemoveDocument(&quot;'+doc.id+'&quot;)">Remover comprovante '+(i+1)+'</button>':''
       ).join(''):'')+'</div>':'')+
     (Array.isArray(d.photo_urls)&&d.photo_urls.length?
       '<div class="discovery-owner-photos">'+d.photo_urls.map(p=>{
