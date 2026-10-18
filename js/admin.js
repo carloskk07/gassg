@@ -6201,8 +6201,11 @@ function adminPage(){
   const incidentAttention=(d.incidents||[]).filter(x=>x.status!=='resolved').length;
   const securityAttention=(d.launchReadiness?.securityBlockers||[]).length;
   const badge=(n)=>Number(n)>0?String(Number(n)):'';
+  // A hidden/unauthorized panel must not build its costly HTML or invoke
+  // feature renderers. Keep nav counters above independent of this gate.
+  const sectionActive=id=>adminRuntime.section===id&&adminRoleCanSection(id,currentRole);
 
-  const overviewContent=`
+  const overviewContent=(sectionActive('overview'))?(`
     <section class="section admin-overview-pulse">
       <div class="section-head"><div><span class="section-kicker">NEGÓCIO • 30 DIAS</span><h2>Pulso da operação</h2><p>Indicadores server-side calculados apenas sobre fatos liquidados e estados reais do pedido.</p></div><span class="admin-data-freshness">Atualizado ${esc(adminRelativeTime(adminRuntime.lastSyncAt))}</span></div>
       <div class="admin-exec-grid">
@@ -6229,36 +6232,38 @@ function adminPage(){
       <div class="kpi"><span class="label">Atendimentos abertos</span><strong>${Number(metrics.openSupportCases||openSupportCases.length)}</strong></div>
       <div class="kpi"><span class="label">Cadastros pendentes</span><strong>${pending.length}</strong></div>
       <div class="kpi"><span class="label">Taxas a receber</span><strong>${adminMoney(openFees)}</strong></div>
-    </div></section>`;
+    </div></section>`):'';
 
-  const ordersContent=`
+  const ordersContent=(sectionActive('orders'))?(`
     ${adminControlTower({...d,controlOrders})}
-    ${adminSupportQueueView(supportCases)}`;
+    ${adminSupportQueueView(supportCases)}`):'';
 
-  const customersContent=adminCustomersSection(d);
+  const customersContent=(sectionActive('customers'))?(adminCustomersSection(d)):'';
 
-  const partnersContent=`
+  const partnersContent=(sectionActive('partners'))?(`
     ${adminMerchantNetworkView(d)}
     ${adminMerchantOperationsQueueView(d)}
     ${adminPrelaunchLeadsSection(d)}
     ${adminPublicRequestsSection(d)}
     <section class="section"><div class="section-head"><div><h2>Parceiros em cadastramento</h2><p>Interesses comerciais registrados antes da conclusão do cadastro operacional. Esses registros não participam das ofertas e não contam como revenda ativa.</p></div></div>${pilotPartners.length?pilotPartners.map(adminPilotPartnerCard).join(''):'<div class="empty card">Nenhum parceiro aguardando conclusão de cadastro.</div>'}</section>
     <section class="section"><div class="section-head"><div><h2>Cadastros de parceiros</h2><p>Aprovação cria a revenda como pendente e vincula o solicitante como owner. Não coloca a operação online.</p></div></div>${(d.applications||[]).length?(d.applications||[]).map(adminApplicationCard).join(''):'<div class="empty card">Nenhum cadastro recebido.</div>'}</section>
-    <section class="section"><div class="section-head"><div><h2>Validação e ativação</h2><p>CNPJ é obrigatório para toda revenda ativa. Qualquer produto GLP ativo exige também validação ANP.</p></div></div>${(d.merchants||[]).length?(d.merchants||[]).map(adminMerchantCard).join(''):'<div class="empty card">Nenhuma revenda criada.</div>'}</section>`;
+    <section class="section"><div class="section-head"><div><h2>Validação e ativação</h2><p>CNPJ é obrigatório para toda revenda ativa. Qualquer produto GLP ativo exige também validação ANP.</p></div></div>${(d.merchants||[]).length?(d.merchants||[]).map(adminMerchantCard).join(''):'<div class="empty card">Nenhuma revenda criada.</div>'}</section>`):'';
 
-  const catalogContent=`${adminProductRegistrySection(d)}`;
+  const catalogContent=(sectionActive('catalog'))?(`${adminProductRegistrySection(d)}`):'';
 
-  const financeSummaryContent=`
+  // Only the selected finance workspace is assembled and retained.
+  const financeSelection=sectionActive('finance')?adminFinanceWorkspaceCurrent():'summary';
+  const financeSummaryContent=(sectionActive('finance')&&financeSelection==='summary')?(`
     ${adminFinanceOverview(d)}
     ${adminFinanceManagementView(d)}
     ${adminFinanceHistoryView()}
     ${adminMerchantFinanceView()}
-`;
-  const financeBillingContent=`
+`):'';
+  const financeBillingContent=(sectionActive('finance')&&financeSelection==='billing')?(`
     ${adminInterruptedSalePaymentWatch(d)}
     ${adminMerchantBillingSection(d)}
-`;
-  const financeReconciliationContent=`
+`):'';
+  const financeReconciliationContent=(sectionActive('finance')&&financeSelection==='reconciliation')?(`
     <section class="section"><div class="section-head"><div><h2>Revisão de indicações</h2><p>Comissões suspeitas não amadurecem automaticamente. Aprovação ainda exige identidades permanentes e fim da quarentena.</p></div><span class="status-pill ${pendingReferralReviews.length?'offline':'online'}">${pendingReferralReviews.length} pendente(s)</span></div>${referralReviews.length?referralReviews.map(adminReferralReviewCard).join(''):'<div class="empty card">Nenhuma indicação exige revisão.</div>'}</section>
     <section class="section"><div class="section-head"><div><h2>Fila de benefícios</h2><p>Falhas transitórias usam backoff. Dead-letter exige revisão manual; a entrega do pedido permanece concluída.</p></div><span class="status-pill ${deadRewardFailures.length?'offline':'online'}">${deadRewardFailures.length} dead-letter</span></div>${rewardFailures.length?rewardFailures.map(adminRewardFailureCard).join(''):'<div class="empty card">Nenhuma dívida de processamento de benefícios.</div>'}</section>
     <section class="section"><div class="section-head"><div><h2>Fila contábil de settlement</h2><p>Taxa da plataforma e reembolso de cashback são processados independentemente dos benefícios.</p></div><span class="status-pill ${deadAccountingFailures.length?'offline':'online'}">${deadAccountingFailures.length} dead-letter</span></div>${accountingFailures.length?accountingFailures.map(adminAccountingFailureCard).join(''):'<div class="empty card">Nenhuma dívida contábil de settlement.</div>'}</section>
@@ -6267,35 +6272,34 @@ function adminPage(){
       <div class="card flat" style="margin-top:12px"><h3>Cashback a reembolsar</h3><div class="list">${reimbursements.length?reimbursements.map(adminReimbursementRow).join(''):'<div class="tiny muted">Nenhum reembolso em aberto.</div>'}</div></div>
       <div class="card flat" style="margin-top:12px"><h3>Ajustes de reversão • ${adminMoney(openAdjustments)}</h3><div class="list">${adjustments.length?adjustments.map(adminAdjustmentRow).join(''):'<div class="tiny muted">Nenhum ajuste em aberto.</div>'}</div></div>
     </section>
-`;
-  const financePolicyContent=`
+`):'';
+  const financePolicyContent=(sectionActive('finance')&&financeSelection==='policy')?(`
     ${adminCommercialPolicySection(d)}
     ${adminGrowthBenefitPreviewView()}
     ${adminClubeCouponPreviewView()}
     <section class="section"><div class="card flat form-stack"><h3>Reversão financeira auditada</h3><p class="muted tiny">Somente para um pedido já liquidado que teve estorno/refund confirmado. O histórico operacional de entrega permanece.</p><div class="input-wrap"><label for="admin-reverse-order">ID do pedido</label><input id="admin-reverse-order" class="input" placeholder="UUID do pedido"></div><div class="input-wrap"><label for="admin-reverse-reason">Motivo</label><input id="admin-reverse-reason" class="input" maxlength="240" placeholder="Motivo confirmado"></div><div class="input-wrap"><label for="admin-reverse-ref">Referência</label><input id="admin-reverse-ref" class="input" maxlength="120" placeholder="ID do estorno/comprovante"></div><button class="danger-btn" onclick="adminReverseOrder()">Executar reversão</button></div></section>
-`;
+`):'';
   const financeAreas={
     summary:financeSummaryContent,
     billing:financeBillingContent,
     reconciliation:financeReconciliationContent,
     policy:financePolicyContent
   };
-  const financeSelection=adminFinanceWorkspaceCurrent();
-  const financeContent=`
+  const financeContent=(sectionActive('finance'))?(`
     ${adminFinanceWorkspaceNav()}
     ${adminFinanceDailyPrioritiesView(d)}
     ${adminFinanceTriageView(d)}
     <div id='admin-finance-workspace-panel' class='admin-finance-workspace-panel'
       aria-label='Área financeira selecionada'>
       ${financeAreas[financeSelection]}
-    </div>`;
+    </div>`):'';
 
 
-  const alertsContent=adminOperationalAlertsView();
-  const incidentsContent=adminIncidentCenter(d);
-  const auditContent=adminAuditView(d);
+  const alertsContent=(sectionActive('alerts'))?(adminOperationalAlertsView()):'';
+  const incidentsContent=(sectionActive('incidents'))?(adminIncidentCenter(d)):'';
+  const auditContent=(sectionActive('audit'))?(adminAuditView(d)):'';
 
-  const adminAccessContent=currentRole==='superadmin'
+  const adminAccessContent=(sectionActive('system'))?(currentRole==='superadmin'
     ? `<section class="section"><div class="section-head"><div><span class="section-kicker">ACESSO ADMINISTRATIVO</span><h2>Administradores da plataforma</h2><p>RBAC explícito: Superadmin, Operações, Financeiro, Suporte, Compliance e Somente leitura. O último Superadmin ativo não pode ser removido nem rebaixado.</p></div><div class="order-actions"><span class="status-pill online">${platformAdmins.filter(x=>x.active).length} ativo(s)</span><span class="status-pill">${esc(adminRoleLabel(currentRole))}</span></div></div>
       <div class="card flat form-stack">
         <div class="list">${platformAdmins.length?platformAdmins.map(x=>`<div class="list-row admin-access-row"><div><strong>${esc(x.user_id)}</strong><br><small>${x.active?'Administrador ativo':'Acesso administrativo suspenso'} • ${esc(adminRoleLabel(x.admin_role))}</small></div><div class="order-actions"><select id="admin-role-${esc(x.user_id)}" class="input small-input" aria-label="Perfil administrativo">${adminRoleOptions(x.admin_role)}</select><button class="secondary small" onclick="adminChangePlatformAdminRole('${esc(x.user_id)}')">Salvar perfil</button><span class="status-pill ${x.active?'online':'offline'}">${x.active?'ATIVO':'INATIVO'}</span><button class="${x.active?'danger-btn':'secondary'} small" onclick="adminSetPlatformAdmin('${esc(x.user_id)}',${x.active?'false':'true'},document.getElementById('admin-role-${esc(x.user_id)}')?.value)">${x.active?'Desativar':'Ativar'}</button></div></div>`).join(''):'<div class="tiny muted">Nenhum administrador bootstrapado ainda.</div>'}</div>
@@ -6307,16 +6311,16 @@ function adminPage(){
     </section>`
     : currentRole==='readonly'
       ? `<section class="section"><div class="section-head"><div><span class="section-kicker">ACESSO ADMINISTRATIVO</span><h2>Administradores</h2><p>Consulta sem permissão para alterar perfis ou acessos.</p></div></div><div class="list">${platformAdmins.map(x=>`<div class="list-row"><div><strong>${esc(x.user_id)}</strong><br><small>${esc(adminRoleLabel(x.admin_role))}</small></div><span class="status-pill ${x.active?'online':'offline'}">${x.active?'ATIVO':'INATIVO'}</span></div>`).join('')}</div></section>`
-      : '';
+      : ''):'';
 
-  const systemContent=`
+  const systemContent=(sectionActive('system'))?(`
     ${adminReleaseHub(d)}
     ${adminLaunchWorklist(d)}
     ${adminGovernanceView()}
     ${adminPushReliabilityView()}
     ${adminSystemHealthView()}
     ${adminAccessContent}
-  `;
+  `):'';
 
   const sectionMeta=adminSectionMeta(adminRuntime.section);
   const operationMode=String(d.launchReadiness?.operationMode||(d.launchReadiness?.commerceEnabled?'LIVE':'PRELAUNCH')).toUpperCase();
