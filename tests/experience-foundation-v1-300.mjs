@@ -14,7 +14,7 @@ for(const token of [
  ':focus-visible','prefers-reduced-motion','@media(max-width:520px)'
 ])assert.ok(css.includes(token),'missing global design: '+token);
 for(const token of [
- 'const valueBridge=','Resolva as compras do dia a dia.','Abra mais uma porta para vender.',
+ 'const valueBridge=','Compare, escolha e aproveite mais vantagens.','Sua revenda pode alcançar novos clientes.',
  'Sua indicação pode aproximar pessoas e negócios.','startCustomerAvailability()',"go('merchants')",
  "go('earn')",'\u0024{!conciseHome?valueBridge:\'\'}',
  'Faltou em casa?'

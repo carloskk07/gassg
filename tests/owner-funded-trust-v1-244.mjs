@@ -54,8 +54,8 @@ for(const f of [
 ])assert.ok(grow.includes(f),'Missing truthful marketing text: '+f);
 assert.ok(grow.includes('Sua marca presente no dia a dia de quem compra e vende.')||grow.includes('Sua marca mais perto de quem compra na cidade.'),'Sponsorship value must be stated without fictitious impact');
 for(const f of [
- 'Mais do que comprar. Mais controle, vantagens e conexões na sua cidade.',
- 'Conheça as opções sem sair procurando','Seu pedido, com etapas que você acompanha'
+ 'Compare preços para economizar. Descubra descontos e vantagens para comprar melhor.',
+ 'Compare preços e encontre oportunidades de economia','Seu pedido, com etapas que você acompanha'
 ])assert.ok(cust.includes(f),'Missing home text: '+f);
 assert.ok(!grow.includes('Saque Pix ainda não disponível</button>'),
  'Do not advertise disabled payout as a CTA');

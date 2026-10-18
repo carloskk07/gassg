@@ -10,7 +10,7 @@ const customer=read('js/customer.js');
 new vm.Script(customer,{filename:'customer.js'});
 const benefits=customer.slice(customer.indexOf('function tamaoHomeBenefits(){'),customer.indexOf('\nfunction customerProductName('));
 assert.ok(benefits.length>2300,'home value section exists');
-for(const term of ['CLUBE TAMÃO','REDE TAMÃO','Cashback em compras elegíveis','Cupons e campanhas para descobrir',
+for(const term of ['CLUBE TAMÃO','REDE TAMÃO','Cashback em compras elegíveis','Descontos para comprar com mais vantagem',
  "go('club')","go('earn')",'tamao-perks-note']){
  assert.ok(benefits.includes(term),'home should explain '+term);
 }

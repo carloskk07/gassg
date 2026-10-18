@@ -521,6 +521,8 @@ jobs:
         run: node tests/public-benefits-first-v1-405.mjs
       - name: Public storytelling and benefits experience V1.406
         run: node tests/public-experience-v1-406.mjs
+      - name: Public savings, merchant demand and coupon transparency V1.407
+        run: node tests/public-savings-conversion-v1-407.mjs
       - name: V1.378 preserve attributed visits and show distinct visitor visuals
         run: node tests/public-handoff-visual-v1-378.mjs
       - name: V1.379 mobile product CEP and merchant form recovery
@@ -697,7 +699,7 @@ jobs:
           grep -q "Botijão de cozinha 13 kg" /tmp/home.html
           grep -q "Me avise quando puder pedir" /tmp/home.html
           grep -q "PRIMEIRO ESCOLHA. DEPOIS, CONFIRA A ENTREGA." /tmp/home.html
-          grep -q "Tem muita coisa boa no TAMÃO além de comprar." /tmp/home.html
+          grep -q "Mais economia para quem compra. Mais oportunidades para quem vende." /tmp/home.html
           grep -q "Entender como funciona" /tmp/home.html
           grep -q "Cadastrar minha empresa" /tmp/home.html
           grep -q "Escolha o que precisa. Confira a entrega. Acompanhe seu pedido." /tmp/learn.html
