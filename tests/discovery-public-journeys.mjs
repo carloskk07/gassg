@@ -71,13 +71,14 @@ assert.equal(sandbox.discoveryKind(),'');
 const html=read('index.html'),sw=read('sw.js'),boot=read('js/bootstrap.js'),
  home=read('js/customer.js'),css=read('css/discovery.css');
 for(const file of ['js/discovery.js','css/discovery.css']){
- assert.ok(html.includes('./'+file),'asset missing in index: '+file);
- assert.ok(sw.includes("'./"+file+"'"),'asset missing in PWA precache: '+file);
+ assert.ok(!html.includes('./'+file),'discovery must not load on startup');
+ assert.ok(!sw.includes("'./"+file+"'"),'discovery must be lazy in PWA cache');
+ assert.ok(boot.includes('./'+file),'the lazy loader must reference the asset');
 }
 for(const kind of ['professionals','rides','stays']){
- assert.ok(boot.includes(kind+':discoveryPage'),kind+' route missing');
+ assert.ok(boot.includes(kind+":typeof discoveryPage==='function'"),kind+' lazy route missing');
 }
-assert.match(boot,/globalThis\.discoveryAfterRender/);
-assert.match(home,/discoveryExploreCards\(\)/);
+assert.match(boot,/discoveryRequestModule/);
+assert.match(home,/tamaoDiscoveryEntryHub/);
 assert.match(css,/@media\(max-width:760px\)/);
 console.log('PASS: 3 browse routes, RLS query, safe HTML/WhatsApp, location filters and PWA assets.');
