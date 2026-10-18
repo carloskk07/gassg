@@ -57,6 +57,8 @@ jobs:
         run: node tests/css-cascade-source.mjs
       - name: CSS internal cascade consolidation guard
         run: node tests/css-internal-dead-rules.mjs
+      - name: Isolated admin CSS parser and shared class preservation
+        run: node tests/strip-admin-css.mjs
       - name: Release SHA truth and legacy PR triage contract
         run: node tests/release-version-truth.mjs
       - name: SQL dollar-quoted function terminator gate V1.397
