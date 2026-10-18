@@ -26,7 +26,7 @@ assert.match(sponsor,/aria-label="Escolha o tipo de parceria para sua marca"/);
 assert.match(sponsor,/Ganhar visibilidade/);
 assert.match(sponsor,/Apoiar benefícios/);
 assert.match(sponsor,/Estar junto às revendas/);
-assert.match(sponsor,/Nenhuma campanha é ativada sem aprovação/);
+assert.match(sponsor,/Escolha seu objetivo e envie sua proposta/);
 assert.doesNotMatch(sponsor,/centenas de anunciantes|garantimos resultados/);
 assert.match(merchants,/aria-label="Como começar a vender pelo TAMÃO"/);
 assert.match(merchants,/Prepare sua operação/);
