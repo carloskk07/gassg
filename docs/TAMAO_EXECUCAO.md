@@ -139,7 +139,19 @@
 - **Limites residuais:** não foram executados login/OTP real, upload de bytes reais, sessão A/B/admin, URLs assinadas, moderação Auth real, e2e em navegador real com Storage, nem expurgo/reconciliação de objetos sem vínculo após falha dupla (a UI somente sinaliza incerteza). Também falta decisão e implementação de retenção, exclusão após revisão e eventual gestão de fotos pelo anunciante. Não classificar esses itens como completos.
 - **Próxima ação exata:** verificar o CI do commit documental; preparar/usar homologação independente sem tocar produção (isolada e sem custo inesperado), executar ciclo A/B/superadmin/visitante com Auth/Storage reais e validar atualização/delete com falhas de rede; então implantar reconciliação segura de órfãos/retention e completar publicação/pausa E2E. Sem merge nem abertura comercial antes do gate mínimo.
 
-## Prioridade comercial acelerada — semana 19–25/10/2026
+## META COMERCIAL DE QUARTA-FEIRA, 21/10/2026 — lançamento assistido do marketplace atual
+
+**Decisão expressa do responsável em 18/10/2026:** antecipar a meta da operação comercial real assistida do TAMÃO atual em São Gabriel/RS para **quarta-feira, 21 de outubro de 2026**, preservando todos os gates mínimos de segurança. **Esse prazo não inclui a conclusão integral das modalidades Profissionais, Caronas e Hospedagens**, que seguem apenas na PR #492. Não criar versões paralelas nem cobrar assinatura Pro.
+
+**Agenda mandatória da issue #493:** 19/10 — revenda, compliance, preços, estoque e entrega; 20/10 — jornada de pedido, identidade/RLS, pausa, incidentes e reconciliação dos portais; **21/10 — decisão administrativa e abertura assistida somente se o gate estiver PASS e a revenda operacional**; 22–25/10 — corrigir incidentes do uso real e amadurecer a operação.
+
+**Bloqueios conhecidos em 18/10:** revenda `pending`, preço não confirmado, CNPJ/ANP ainda `pending`, São Gabriel `commerce_enabled=false`, plataforma `PRELAUNCH`, nenhum pedido real registrado. Não presumir que esses dados continuam atuais; consultar novamente antes de agir. A solicitação de revenda `approved` não confirma habilitação operacional.
+
+**Fluxo de continuação:** ao receber o prompt antigo ou atualizado em uma nova conversa, ler este checkpoint e issue #493 e **priorizar o prazo de 21/10**, sem precisar que o usuário cole o Superprompt Mestre integral. Não contornar aprovações, inventar preços, testar dinheiro real sem autorização nem publicar em estado inseguro.
+
+**Meta e não garantia:** se o gate mínimo estiver reprovado, manter o bloqueio e informar ao responsável exatamente qual verificação impede a abertura; concluir a primeira correção possível. O selo `TAMÃO — PRONTO PARA PRODUÇÃO REAL` continua reservado para o projeto integral.
+
+### Diagnóstico detalhado da janela comercial (19–25/10/2026)
 
 **Decisão de 18/10/2026:** não comprar plano Pro; usar as ferramentas existentes com máxima eficiência. **Prioridade comercial:** iniciar a operação assistida do marketplace de produtos que já existe, sem esperar a conclusão dos módulos Profissionais, Caronas e Hospedagens. Esse objetivo não autoriza ativar comércio sem testes mínimos, preços reais e decisão do superadmin.
 
