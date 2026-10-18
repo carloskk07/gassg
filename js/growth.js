@@ -613,14 +613,17 @@ function merchantsLanding(){
     </aside></div>
     ${internalPilot?'':`<section class="merchant-conversion-start" aria-label="Apresente sua empresa ao TAMÃO">
       <div class="merchant-conversion-intro">
-        <span class="section-kicker">SEU PRÓXIMO PASSO</span>
-        <h2>Apresente sua revenda. Nós cuidamos do próximo contato.</h2>
-        <p>Comece com nome da empresa, responsável, WhatsApp e o que você vende. O CEP e os detalhes podem ser informados depois.</p>
-        <div class="merchant-conversion-proof" aria-label="Antes de começar">
-          <span><b>01</b> Identifique a empresa</span><span><b>02</b> Informe seu WhatsApp</span><span><b>03</b> Escolha os produtos</span>
+        <span class="section-kicker">COMECE A VENDER PELO TAMÃO</span>
+        <h2>Cadastre sua revenda em um só lugar.</h2>
+        <p>Entre com seu e-mail, informe os dados da empresa e prepare produtos, preços e entregas no Portal das Revendas.</p>
+        <div class="merchant-conversion-proof" aria-label="Como começar">
+          <span><b>01</b> Acesse com seu e-mail</span><span><b>02</b> Cadastre a empresa</span><span><b>03</b> Prepare seu catálogo</span>
         </div>
+        <button type="button" class="primary merchant-live-signup-cta" onclick="openMerchantPortal(true)">Cadastrar minha revenda →</button>
       </div>
-      ${prelaunchMerchantLeadSection()}
+      <details class="merchant-secondary-lead"><summary>Prefere conversar antes? Deixe seu contato</summary>
+        ${prelaunchMerchantLeadSection()}
+      </details>
     </section>`}
 
     <nav class="public-page-jump-rail merchant-jump-rail" aria-label="Encontre rapidamente o que precisa sobre sua revenda">
