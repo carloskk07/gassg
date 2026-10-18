@@ -8,7 +8,7 @@ Este documento orienta a identificação da revisão oficial **sem confundir nú
 - Domínios oficiais: [cliente](https://tamao.com.br/portal-build.json), [revenda](https://parceiro.tamao.com.br/portal-build.json), [admin](https://admin.tamao.com.br/portal-build.json).
 - Os três usam o mesmo commit de origem, mas recebem pacotes próprios com `portalRole: customer | merchant | admin`.
 - `portal-build.json` contém `schemaVersion`, `portalRole`, `sourceSha` e origens. **`schemaVersion: 1` é a versão do formato do manifesto, não uma V1 do produto.**
-- `sw.js` no pacote de produção usa cache com o identificador `sourceSha`. Um número histórico encontrado no `sw.js` de origem não determina a revisão do cache implantado.
+- `sw.js` no pacote de produção usa cache com o identificador `sourceSha`. CSS e JavaScript do shell são solicitados e precacheados com `?v=<sourceSha>`, evitando mistura de assets de publicações diferentes. Um número histórico encontrado no `sw.js` de origem não determina a revisão do cache implantado.
 
 ## Como confirmar a publicação de uma revisão
 

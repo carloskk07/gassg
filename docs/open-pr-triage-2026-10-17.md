@@ -1,6 +1,8 @@
-# Triagem das PRs históricas abertas — TAMÃO
+# Triagem histórica de 23 PRs — TAMÃO
 
-**Fotografia de 17/10/2026; não atualiza automaticamente.** Base: `main` no commit `5e187c50554b133545db5003bfb2ab9d0a082077`.
+**Inventário histórico de 17/10/2026; não é a fila atual.** A comparação foi feita com `main` no commit `5e187c50554b133545db5003bfb2ab9d0a082077`.
+
+**Estado conferido posteriormente em 17/10/2026:** a API do GitHub passou a retornar **zero PRs abertas** no repositório. As 23 entradas abaixo são um registro de PRs que estavam abertas durante a fotografia original, **não pendências atualmente abertas**. Fechar uma PR não equivale necessariamente a integrar suas alterações. A revisão de risco continua útil para prevenir reintrodução de código antigo.
 
 Foram consultadas as 23 PRs abertas no GitHub e realizadas comparações das respectivas branches com `main`. **Todas retornaram estado `diverged`**: estão à frente em commits próprios, mas também centenas de commits atrás da `main`. Portanto, **não se comprovou** que o código inteiro de alguma delas deva ser integrado, nem que esteja totalmente substituído.
 
@@ -32,7 +34,7 @@ Foram consultadas as 23 PRs abertas no GitHub e realizadas comparações das res
 | [#70](https://github.com/carloskk07/gassg/pull/70) | PWA: integridade do cache | 6 / 847 | P1 | Conferir sobreposição com PR #462 antes de concluir |
 | [#38](https://github.com/carloskk07/gassg/pull/38) | Piloto: ativação assistida | 7 / 877 | P0 | Verificar mecanismos atuais de convite e ativação |
 
-Resumo: **23 abertas; 13 em P0 (fluxos regulados/financeiros e autoridade), 8 em P1 (jornadas de compra/CRM/cache), 2 em P2 (otimização de polling).** Todas permanecem abertas nesta triagem, sem merges, sem rebase automático e sem cancelamentos.
+Resumo da fotografia original: **23 PRs então abertas; 13 em P0 (fluxos regulados/financeiros e autoridade), 8 em P1 (jornadas de compra/CRM/cache), 2 em P2 (otimização de polling)**. **Na conferência posterior, não restavam PRs abertas.** Preserve o histórico e confirme por diff/testes a situação de cada melhoria antes de reintroduzi-la.
 
 ## Relação de dependência mais perigosa
 

@@ -30,5 +30,7 @@ for(const number of [38,70,205,207,208,209,210,211,212,213,214,215,241,252]){
   assert.ok(entries.includes(number),'Historical branch requiring triage is missing: #'+number);
 }
 assert.match(triage,/\bdiverged\b/);
+assert.match(triage,/zero PRs abertas/i,'Historical PR inventory must distinguish the current queue');
+assert.match(truth,/\?v=<sourceSha>/,'Release guide must document immutable JS/CSS URL identity');
 assert.match(triage,/não se comprovou/i);
 console.log('Release SHA authority and legacy PR triage remain unambiguous.');

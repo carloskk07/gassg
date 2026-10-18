@@ -45,13 +45,24 @@ for(const {role,path:dir} of built){
   // A customer/merchant release must neither execute, precache nor ship
   // privileged administration UI modules. The admin release keeps them.
   for(const module of ['admin-acquisition','admin','admin-activations']){
-    const script='<script defer src="./js/'+module+'.js"></script>';
-    const cacheAsset="'./js/"+module+".js'";
+    const script='<script defer src="./js/'+module+'.js?v=test-sha"></script>';
+    const cacheAsset="'./js/"+module+".js?v=test-sha'";
     const available=role==='admin';
     assert.equal(html.includes(script),available,role+' HTML: admin script '+module);
     assert.equal(sw.includes(cacheAsset),available,role+' PWA cache: admin script '+module);
     assert.equal(fs.existsSync(path.join(dir,'js',module+'.js')),available,role+' bundle: admin script '+module);
   }
+  // Build-wide asset coherence: every CSS/JS reference carries the release
+  // identity, and every versioned URL is precached under the exact same key.
+  const shellAssets=[...html.matchAll(/(?:src|href)="(\.\/(?:js|css)\/[^"]+)"/g)].map(match=>match[1]);
+  assert.ok(shellAssets.length>5,role+' requires explicit CSS/JS assets');
+  assert.equal(new Set(shellAssets).size,shellAssets.length,role+' has duplicate entrypoints');
+  for(const asset of shellAssets){
+    assert.ok(asset.endsWith('?v=test-sha'),role+' asset missing release identity: '+asset);
+    assert.ok(sw.includes("'"+asset+"'"),role+' PWA precache mismatch: '+asset);
+  }
+  assert.ok(!sw.includes("'./js/core.js'"),role+' must not cache unversioned core JS');
+  assert.ok(!sw.includes("'./css/components.css'"),role+' must not cache unversioned CSS');
   // Preserve functional bootstrapping after excluding admin-only sources.
   const bootstrap=fs.readFileSync(path.join(dir,'js','bootstrap.js'),'utf8');
   assert.ok(bootstrap.includes("typeof adminPage==='function'"),'Bootstrap needs optional admin references');
@@ -141,6 +152,11 @@ for(const [projectName,cfg] of Object.entries(CLOUDFLARE_PROJECTS)){
   assert.equal(meta.customerOrigin,CLOUDFLARE_PROJECTS['tamao-sg-cliente'].origin);
   assert.equal(meta.merchantOrigin,CLOUDFLARE_PROJECTS['tamao-sg-revenda'].origin);
   assert.equal(meta.adminOrigin,CLOUDFLARE_PROJECTS['tamao-sg-admin'].origin);
+  const cfHtml=fs.readFileSync(path.join(publishDir,'index.html'),'utf8');
+  const cfSw=fs.readFileSync(path.join(publishDir,'sw.js'),'utf8');
+  const cfAsset='./js/core.js?v=1234567890123456789012345678901234567890';
+  assert.ok(cfHtml.includes('src="'+cfAsset+'"'),projectName+' must pin actual Cloudflare scripts');
+  assert.ok(cfSw.includes("'"+cfAsset+"'"),projectName+' must precache the same scripts');
   const runtime=fs.readFileSync(path.join(publishDir,'js','runtime-config.js'),'utf8');
   assert.ok(runtime.includes(PUBLIC_TURNSTILE_SITE_KEY));
 }
