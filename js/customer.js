@@ -582,7 +582,7 @@ function home(){
   return shell(`<section class="hero marketing-hero ${conciseHome?'home-first-visit':''}"><div class="hero-grid"><div>
     <span class="eyebrow">${esc(eyebrow)}</span>
     ${rememberedRegion&&!testDemo?`<div class="local-welcome" aria-label="Sua região identificada"><span aria-hidden="true">📍</span><span><strong>Olá, ${esc(rememberedRegion.city)}!</strong><small>Consulta por CEP • ${esc(rememberedRegion.state)}. A disponibilidade depende das ofertas para seu endereço.</small></span></div>`:''}
-    <div class="hero-overline">${conciseHome?'SEU ESSENCIAL, COM MAIS POSSIBILIDADES.':'O QUE VOCÊ PRECISA, MAIS PERTO DE CASA.'}</div>
+    <div class="hero-overline">${conciseHome?'PRIMEIRO ESCOLHA. DEPOIS, CONFIRA A ENTREGA.':'O QUE VOCÊ PRECISA, MAIS PERTO DE CASA.'}</div>
     <h1>Faltou em casa?<br><span class="hero-highlight">Tá na mão.</span></h1>
     ${homeIntentGuide}
     <p class="hero-lead"><strong>Compare preços totais e conheça o Clube TAMÃO.</strong> Gás, água e o essencial do dia a dia, em um só lugar. ${esc(hasConfirmedCityOffers?'Já consultamos opções para o seu CEP. Confira preços e prazos atualizados antes de confirmar.':conciseHome?firstVisitMessage:outsideOriginalMarket?'Veja quais opções atendem '+regionLabel+' pelo CEP. Se não houver ofertas, você poderá solicitar um aviso.':heroJourney)}</p>
