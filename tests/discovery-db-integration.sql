@@ -40,17 +40,19 @@ insert into public.discovery_listings(
  array['https://example.test/real-photo.jpg']
 ) returning id as listing_id \gset
 
+select set_config('tamao.test.listing_id', :'listing_id', false);
+
 insert into public.discovery_professional_details(
  listing_id,occupation,service_area,years_experience
-) values (:'listing_id'::uuid,'Eletricista','São Gabriel e localidades próximas',12);
+) values ((current_setting('tamao.test.listing_id'))::uuid,'Eletricista','São Gabriel e localidades próximas',12);
 
 -- Direct status overwrite is impossible and the subscriber must submit review.
-select public.discovery_transition_listing(:'listing_id'::uuid,'review') as owner_submitted;
+select public.discovery_transition_listing((current_setting('tamao.test.listing_id'))::uuid,'review') as owner_submitted;
 do $$
 declare v_status text;
 begin
  select status into v_status from public.discovery_listings
- where id=:'listing_id'::uuid;
+ where id=(current_setting('tamao.test.listing_id'))::uuid;
  if v_status!='review' then raise exception 'OWNER_REVIEW_FAILED';end if;
 end $$;
 
@@ -59,14 +61,14 @@ do $$
 declare v_seen integer; v_changed integer;
 begin
  select count(*) into v_seen from public.discovery_listings
- where id=:'listing_id'::uuid;
+ where id=(current_setting('tamao.test.listing_id'))::uuid;
  if v_seen<>0 then raise exception 'CROSS_TENANT_READ_LEAK';end if;
  update public.discovery_listings set title='Invasão de outro anunciante'
- where id=:'listing_id'::uuid;
+ where id=(current_setting('tamao.test.listing_id'))::uuid;
  get diagnostics v_changed=row_count;
  if v_changed<>0 then raise exception 'CROSS_TENANT_WRITE_LEAK';end if;
  begin
-  perform public.discovery_transition_listing(:'listing_id'::uuid,'published','tentativa invasora');
+  perform public.discovery_transition_listing((current_setting('tamao.test.listing_id'))::uuid,'published','tentativa invasora');
   raise exception 'NON_ADMIN_PUBLISHED';
  exception when insufficient_privilege then null;
  end;
@@ -94,7 +96,7 @@ end $$;
 set request.jwt.claim.sub='00000000-0000-0000-0000-000000000033';
 select public.discovery_set_vertical_city('professionals','RS','sao-gabriel',
   'São Gabriel',true,'Lote de teste isolado');
-select public.discovery_transition_listing(:'listing_id'::uuid,'published',
+select public.discovery_transition_listing((current_setting('tamao.test.listing_id'))::uuid,'published',
   'Documento validado em teste') as admin_published;
 
 set role anon;
@@ -103,7 +105,7 @@ do $$
 declare v_public integer; v_private integer;
 begin
  select count(*) into v_public from public.discovery_listings
- where id=:'listing_id'::uuid;
+ where id=(current_setting('tamao.test.listing_id'))::uuid;
  if v_public<>1 then raise exception 'PUBLISHED_LISTING_INVISIBLE';end if;
  select count(*) into v_private from public.discovery_vertical_cities
  where vertical='stays';
