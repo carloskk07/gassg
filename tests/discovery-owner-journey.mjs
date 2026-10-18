@@ -9,7 +9,7 @@ const userId='00000000-0000-0000-0000-000000000011';
 const filePath=userId+'/11111111-1111-1111-1111-111111111111.jpg';
 const writes=[],uploads=[],removed=[],transitions=[],records=[],privateDocs=[];
 let currentRoute='advertise', user={id:userId,email:'anunciante@example.test'},renderCount=0;
-let simulateRemovalOutage=false;
+let simulateRemovalOutage=false,simulateRegistrationFailure=false;
 let formValues={vertical:'professionals',title:'Serviços elétricos e manutenção',
   description:'Atendo residências e estabelecimentos com orçamento transparente.',
   state_code:'RS',city_name:'São Gabriel',public_area:'Centro',
@@ -37,6 +37,7 @@ const client={
  from(name){return {
   insert(data){
    if(name==='discovery_documents'){
+    if(simulateRegistrationFailure)return Promise.resolve({error:new Error('DB unavailable')});
     writes.push([name,'insert',data]);
     privateDocs.push({...data,id:'33333333-3333-3333-3333-333333333333'});
     return Promise.resolve({error:null});
@@ -147,6 +148,31 @@ await ctx.discoveryOwnerSave({preventDefault(){},target:form});
 assert.equal(uploads.length,2,'invalid sensitive document must never reach Storage');
 assert.match(ctx.discoveryOwnerPage(),/comprovantes PDF/);
 assert.match(ctx.discoveryOwnerPage(),/Comprovantes para análise privada/);
+
+// An upload without successful ledger insertion must be removed using
+// Storage.remove(), not by touching storage.objects through SQL.
+selectedFiles=[];
+selectedDocuments=[{type:'application/pdf',size:2000}];
+const beforeRegisterFailure=uploads.length, beforeCompensation=removed.length;
+simulateRegistrationFailure=true;
+ctx.discoveryOwnerNew();
+await ctx.discoveryOwnerSave({preventDefault(){},target:form});
+assert.equal(uploads.length,beforeRegisterFailure+1);
+assert.equal(removed.length,beforeCompensation+1,'failed ledger insert must compensate Storage');
+assert.equal(removed.at(-1),uploads.at(-1).key);
+assert.equal(privateDocs.length,0,'failed document registration cannot become visible');
+assert.match(ctx.discoveryOwnerPage(),/Não foi possível concluir a operação/);
+
+// A second network failure during compensation must be explicit and must
+// never falsely say that the file was deleted or the draft was saved.
+const beforeCleanupOutage=removed.length;
+simulateRemovalOutage=true;
+await ctx.discoveryOwnerSave({preventDefault(){},target:form});
+assert.equal(removed.length,beforeCleanupOutage);
+assert.equal(privateDocs.length,0);
+assert.match(ctx.discoveryOwnerPage(),/pode ter ficado pendente no armazenamento/);
+simulateRemovalOutage=false;
+simulateRegistrationFailure=false;
 await ctx.discoveryOwnerLogout();
 const loggedOut=ctx.discoveryOwnerPage();
 assert.match(loggedOut,/Receber link de acesso/);
