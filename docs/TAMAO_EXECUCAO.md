@@ -6,7 +6,7 @@
 **Branch de integração:** `feat/unified-discovery-tamao`  
 **Branch oficial:** `main`  
 **Commit-base de `main`:** `433101839489f7739f44ddcf04e664ddff3435bd`  
-**SHA da última revisão com auditoria completa aprovada:** `f185334626067f6cb9c8d8ea42bb4261573403d2`
+**SHA da última revisão com auditoria completa aprovada:** `7fbf28217d3e20e20a29368ef6e89046b6db759c`
 **Último commit de escopo anterior:** `f34a4ae206c8ec737796212f4b8cd08377e93fff`
 **PR principal:** [#492](https://github.com/carloskk07/gassg/pull/492), aberta em rascunho.  
 **Escopo:** [TAMAO_ESCOPO.md](TAMAO_ESCOPO.md).  
@@ -126,13 +126,26 @@
 - **Limites ainda importantes:** essa é eliminação manual pré-revisão, **não** política completa de retenção, expurgo pós-revisão ou detecção de arquivos órfãos em falhas após upload. Ainda não ocorreu upload de bytes, OTP ou RLS com Auth/Storage reais, nem E2E em navegadores com atores A/B/superadmin/visitante.
 - **Próxima ação exata:** verificar Audit/PostgreSQL/build/smoke no HEAD atualizado, corrigir qualquer regressão antes de outras alterações; em seguida preparar testes reais isolados de Auth/Storage e ciclo de criação → moderação → publicação → pausa, além de tratamento para upload incompleto e política documentada de retenção/remoção. Sem merge, migration de produção, ativação ou cobrança.
 
+## Continuação — compensação de uploads interrompidos (18/10/2026)
+
+- **Retomada:** PR #492 ainda aberta/draft; branch única `feat/unified-discovery-tamao`; código anterior `7ccae06fce234f2b380d5e346684297040b45b4b` validado. Sem merge ou nova versão sobreposta.
+- **Defeito confirmado em `js/discovery-owner.js`:** após o Storage aceitar um comprovante, uma falha no INSERT de `discovery_documents` podia deixar bytes privados órfãos, sem associação a anúncio. Agora há compensação chamando `storage.remove()` quando o registro falha. Caso a limpeza também falhe, não informa sucesso e avisa explicitamente sobre pendência de conferência, sem divulgar a chave do objeto.
+- **Defeito análogo para fotos públicas:** o editor agora rastreia cada chave de upload tentado e compensa com Storage API se o upload ou a atualização `discovery_listings.photo_urls` falhar. Em caso de resposta ambígua da atualização, a RLS impede remover qualquer foto que já tenha sido vinculada ao anúncio, inclusive se a resposta de rede foi perdida.
+- **Migration única, ainda não aplicada:** função `discovery_photo_unreferenced` (SECURITY DEFINER ligada ao `auth.uid()`) e políticas `discovery_photo_owner_read` e `discovery_photo_orphan_cleanup` autorizam remover somente objetos de foto do próprio usuário **sem referência** em suas listagens. Documentos continuam usando armazenamento privado, política de dono editável e trigger que impede excluir o registro antes dos bytes.
+- **Testes:** `tests/discovery-owner-journey.mjs` exercita INSERT de documento falho, compensação de Storage, falha dupla de rede, gravação final de fotos falha e proteção de fotos preexistentes; `tests/discovery-db-integration.sql` confirma veto à exclusão de foto referenciada, veto a outra conta e permissão de excluir foto órfã do próprio usuário. Chaves de teste agora são únicas, para evitar simulação indevida de `upsert`.
+- **CI integral do código `7fbf28217d3e20e20a29368ef6e89046b6db759c`:** [Audit PASS](https://github.com/carloskk07/gassg/actions/runs/39168357464), [PostgreSQL 17 isolado PASS](https://github.com/carloskk07/gassg/actions/runs/39168357512), [Build dos portais PASS](https://github.com/carloskk07/gassg/actions/runs/39168357472), [smoke público PASS](https://github.com/carloskk07/gassg/actions/runs/39168357493). São provas automatizadas **desse código**, não prova de Auth/Storage real.
+- **Ambiente:** Supabase de produção `lgugwujpunhslavewffd` em leitura, sem `discovery_listings` ou `discovery_documents`, migration `20261018131000` zero aplicações, `PRELAUNCH`, `commerce_enabled=false`. Consulta de branches mostrou somente o branch principal do projeto, sem homologação separada já existente. Não criar branch faturável sem aceite de custo nem fazer upload de testes na produção.
+- **Portais:** URLs `tamao.com.br/portal-build.json`, `parceiro.tamao.com.br/portal-build.json` e `admin.tamao.com.br/portal-build.json` foram tentados novamente, mas não puderam ser consultados diretamente; atestado do banco em `433101839489` não equivale a inspeção HTTP contemporânea.
+- **Limites residuais:** não foram executados login/OTP real, upload de bytes reais, sessão A/B/admin, URLs assinadas, moderação Auth real, e2e em navegador real com Storage, nem expurgo/reconciliação de objetos sem vínculo após falha dupla (a UI somente sinaliza incerteza). Também falta decisão e implementação de retenção, exclusão após revisão e eventual gestão de fotos pelo anunciante. Não classificar esses itens como completos.
+- **Próxima ação exata:** verificar o CI do commit documental; preparar/usar homologação independente sem tocar produção (isolada e sem custo inesperado), executar ciclo A/B/superadmin/visitante com Auth/Storage reais e validar atualização/delete com falhas de rede; então implantar reconciliação segura de órfãos/retention e completar publicação/pausa E2E. Sem merge nem abertura comercial antes do gate mínimo.
+
 ## Checkpoint operacional obrigatório
 
-**ÚLTIMA ETAPA CONCLUÍDA:** fluxo de remoção pré-revisão de comprovantes privados implementado na PR canônica e protegido por RLS/trigger; PostgreSQL 17, build e smoke aprovados em `8cfff7aa52c9870fcf214b631afccad012549dee`; Audit anteriormente aprovado em `e6d0d976614c10a8d54e095caaac764258054c4a`. Confirmar CI de `7d45730946f5ba347191dd01b8ba901e6a34fdd3` e deste checkpoint.
+**ÚLTIMA ETAPA CONCLUÍDA:** compensação de upload incompleto de comprovantes e fotos, proteção RLS contra remoção de fotos referenciadas e regressões de falhas de rede; quatro gates oficiais PASS no código `7fbf28217d3e20e20a29368ef6e89046b6db759c`. Nova edição documental requer nova conferência.
 
-**ETAPA ATUAL:** conferir CI no HEAD atualizado, fechar regressões de exclusão/indisponibilidade e preparar homologação Auth/Storage real isolada. Retenção integral e expurgo pós-revisão seguem parciais.
+**ETAPA ATUAL:** validação real de Auth/Storage isolados, retenção/expurgo, reconciliação de objetos órfãos e E2E com anunciantes A/B, superadmin e visitante; infraestrutura de homologação independente não existe atualmente.
 
-**PRÓXIMA AÇÃO EXATA:** confirmar quatro workflows PASS no SHA do checkpoint; corrigir qualquer falha; depois testar com Auth/Storage reais (A/B/admin/visitante, bytes, URLs temporárias, sessão e rede), definir retenção/eliminação de comprovantes e fluxo criação → revisão → publicação → pausa. Não fazer merge enquanto os portões mínimos falharem.
+**PRÓXIMA AÇÃO EXATA:** confirmar CI do HEAD; utilizar homologação independente autorizada/isolada para verificar bytes reais, contas A/B/admin/visitante, signed URLs, perda de rede e moderação; depois fechar expurgo/reconciliação e E2E de criação → revisão → publicação → pausa, antes de qualquer merge.
 
 **ARQUIVOS QUE DEVEM SER INSPECIONADOS:** `supabase/migrations/20261018131000_discovery_shared_verticals.sql`, `js/discovery-owner.js`, `js/admin.js`, `js/discovery.js`, `js/bootstrap.js`, `js/customer.js`, `scripts/build-live-portals.mjs`, `tests/discovery-owner-journey.mjs`, `tests/discovery-admin-journey.mjs`, `tests/discovery-db-integration.sql`, `docs/TAMAO_ESCOPO.md`.
 
