@@ -2430,7 +2430,9 @@ const adminActivationModuleUrl=(()=>{
     if(!script?.src)return null;
     const parent=new URL(script.src,document.baseURI);
     if(parent.origin!==location.origin||!parent.pathname.endsWith('/js/admin.js'))return null;
-    return new URL('admin-activations.js',parent).href;
+    const sibling=new URL('admin-activations.js',parent);
+    sibling.search=parent.search; // match the exact release revision
+    return sibling.href;
   }catch{return null}
 })();
 let adminActivationModulePromise=null;
