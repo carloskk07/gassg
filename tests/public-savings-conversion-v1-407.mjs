@@ -34,7 +34,7 @@ for(const selector of [
  '.home-saving-headlines','.tamao-action-now','.tamao-club-shop-now',
  '.merchant-demand-grid','@media(max-width:800px)'
 ])assert.ok(marketingCss.includes(selector),'missing '+selector);
-assert.match(index,/Compare preços e encontre oportunidades de economia/);
+assert.match(index,/Compare preços de gás, água e essenciais/);
 assert.match(index,/mais visibilidade e oportunidades de receber pedidos/i);
 assert.doesNotMatch(index,/Cupons já à venda|garantia de economia|vendas garantidas/i);
 
