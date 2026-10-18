@@ -108,7 +108,9 @@ assert.equal(runtime.cityHistory.loaded,false);
 assert.ok(admin.includes('cityHistory:{items:[],loading:false'));
 assert.equal((admin.match(/adminRuntime[.]cityHistory=\{items:\[\]/g)||[]).length,3,
  'Logout, 403 and 401 cleanup must erase persistent history state');
-assert.ok(admin.includes('adminLoadCityHistory().catch(()=>{})'));
+assert.ok(admin.includes("adminExpansionLoadOnDemand().catch(()=>{})")
+  &&admin.includes('return adminLoadCityHistory();'),
+  'Persisted city history must load after the authorized expansion module is available');
 assert.ok(source.includes('adminCityCommercialHistoryView()+adminExpansionRadarSection()'));
 assert.ok(source.includes('idempotencyKey:adminIdempotency'));
 assert.ok(!funcs.map(extract).join('\n').includes('adminPerform('));
