@@ -10,19 +10,20 @@ export const PUBLIC_LANDING_SLUGS=Object.freeze([
 const PAGES=[
  {
   slug:'como-funciona',
-  title:'Como funciona o TAMÃO | Gás, água e essenciais perto de você',
-  description:'Escolha gás, água e essenciais, consulte a entrega pelo CEP, confira preço e prazo e acompanhe o aceite da revenda pelo TAMÃO.',
+  title:'Economize com o TAMÃO | Preços, descontos, cashback e cupons',
+  description:'Compare preços de gás, água e essenciais para seu CEP. Conheça cashback e descontos elegíveis e os futuros pacotes de cupons do Clube TAMÃO.',
   kicker:'PARA QUEM QUER COMPRAR',
-  heading:'Faltou em casa? Resolva com mais escolhas e menos complicação.',
-  lead:'Gás, água e essenciais em um só lugar. Escolha o que precisa, consulte as revendas que atendem seu CEP e veja preço total e previsão antes de decidir.',
+  heading:'Compare preços, encontre economia e descubra mais vantagens ao comprar.',
+  lead:'Gás, água e essenciais em um só lugar. Compare ofertas reais para seu CEP, descubra cashback e descontos de campanhas elegíveis e conheça os futuros pacotes de cupons do Clube TAMÃO.',
   primary:['Conhecer os produtos','/'],
   secondary:['Ver o passo a passo','/#learn'],
   mark:'ESCOLHER, CONFERIR, ACOMPANHAR',
-  trustNotes:["Sua cesta, sua escolha","Preço total antes de pedir","Etapas do pedido visíveis"],
+  trustNotes:["Compare preços totais por CEP","Cashback e descontos elegíveis","Pacotes de cupons em preparação"],
   stepsHeading:"Da escolha à entrega: você sabe o próximo passo.",
-  proofTitle:"Três motivos para conhecer o TAMÃO",
-  highlights:[["🧺","A cesta é sua","Água e outros itens não exigem comprar gás junto."],["💰","O valor antes do pedido","Consulte o total e a previsão das opções para seu CEP."],["📍","A entrega acompanhada","Veja as etapas registradas depois da confirmação da revenda."]],
+  proofTitle:"Economizar também faz parte da experiência TAMÃO",
+  highlights:[["💰","Compare para gastar menos","Quando houver mais de uma oferta elegível para seu CEP, confira preços totais e escolha a melhor opção para você."],["🎁","Cashback e descontos","Compras e campanhas elegíveis podem oferecer créditos, vantagens e descontos."],["🎟️","Pacotes de cupons TAMÃO","Está em preparação a venda de pacotes de cupons com preço, desconto total e regras transparentes."]],
   scenario:["Em vez de correr atrás de respostas, comece pela escolha.","ANTES","Perguntar preço, prazo e entrega em várias conversas.","COM O TAMÃO","Escolher seus produtos e consultar as opções que atendem seu CEP.","As condições dependem da revenda disponível; o pedido só é confirmado após o aceite."],
+  savingsPitch:["ECONOMIA NO TAMÃO","Compare preços totais, aproveite cashback elegível e conheça o projeto de pacotes de cupons para gás e água.","A venda de pacotes de cupons ainda não está disponível; valores e condições definitivos serão publicados após ativação e cobertura confirmada.","Conhecer o Clube TAMÃO","/#club"],
   visualTitle:'Sua compra começa com uma escolha melhor.',
   visualText:'Veja as opções para sua região, escolha a que faz sentido e acompanhe o pedido depois que a revenda confirmar o atendimento.',
   steps:[
@@ -42,19 +43,20 @@ const PAGES=[
  },
  {
   slug:'para-revendas',
-  title:'TAMÃO para Revendas | Mais um canal para vender na sua cidade',
-  description:'Leve sua revenda de gás, água e essenciais ao TAMÃO. Continue controlando produtos, preços, estoque, entregas e recebimentos. Conheça a parceria.',
+  title:'TAMÃO para Revendas | Conquiste visibilidade e oportunidades de pedidos',
+  description:'Sua revenda pode ser encontrada por novos clientes no TAMÃO e receber oportunidades de pedidos, sem mensalidade no modelo atual e sem perder o controle do negócio.',
   kicker:'TAMÃO PARA EMPRESAS',
-  heading:'Sua revenda pode estar mais perto do próximo cliente.',
-  lead:'Ganhe mais um canal para apresentar seus produtos e receber pedidos da sua região, sem abandonar seus canais atuais. Preços, estoque, pagamentos e entregas continuam sob sua gestão.',
+  heading:'Mais clientes conhecendo sua revenda. Mais oportunidades de pedidos.',
+  lead:'Dê mais visibilidade à sua revenda e seja uma opção para compradores da região. Receba novas solicitações de pedidos, destaque produtos complementares e mantenha preços, estoque, pagamentos e entregas sob seu controle.',
   primary:['Quero apresentar minha empresa','/?entrada=revenda'],
   secondary:['Entender a parceria','/#merchants'],
   mark:'MAIS UM CANAL, SEM PERDER SUA AUTONOMIA',
-  trustNotes:["Sem exclusividade","Sem mensalidade no modelo atual","Recebimento direto na revenda"],
+  trustNotes:["Seja encontrada por novos clientes","Oportunidades de pedidos","Sem mensalidade e sem exclusividade"],
   stepsHeading:"Do cadastro ao primeiro pedido, sem complicar.",
-  proofTitle:"Uma parceria que respeita o seu negócio",
-  highlights:[["🏪","Seus produtos, suas regras","Você administra catálogo, preços, estoque e área de entrega."],["💳","Recebimento sob seu controle","O cliente paga diretamente à sua revenda pelos meios oferecidos."],["🤝","Sem exclusividade","Continue atendendo por telefone, WhatsApp e outros canais."]],
+  proofTitle:"Mais visibilidade, novos contatos e potencial de novas vendas",
+  highlights:[["📍","Novos clientes podem encontrar você","Sua revenda aparece como uma opção nas buscas elegíveis de sua área atendida."],["🛒","Mais oportunidades de pedidos","Solicitações organizadas no painel, com aceite conforme estoque e entrega."],["🔁","Mais chances de recompra","Histórico e campanhas elegíveis podem criar motivos para o cliente voltar."]],
   scenario:["Sua empresa ganha uma nova vitrine sem abrir mão do seu jeito de vender.","ANTES","Depender apenas de quem já conhece seu telefone ou suas redes.","COM O TAMÃO","Expor seu catálogo a quem procura itens essenciais e administrar pedidos no seu painel.","A habilitação é controlada; você mantém preços, estoque, entregas e recebimentos."],
+  savingsPitch:["OPORTUNIDADES PARA SUA REVENDA","Sua revenda pode conquistar novos clientes e receber pedidos de pessoas que já estão procurando itens essenciais.","O TAMÃO não garante número de pedidos ou clientes. Campanhas de cupons para estimular recompras dependem de adesão e ativação.","Cadastrar minha empresa","/?entrada=revenda"],
   visualTitle:'Mais uma vitrine. A mesma autonomia.',
   visualText:'Você define o que vende e onde atende. Quando um pedido chegar, sua revenda confirma se pode realizá-lo.',
   steps:[
@@ -187,6 +189,10 @@ function renderLanding(page,origin,indexing){
   `<a class="ed-related-card" data-tamao-handoff href="/${esc(slug)}/">
     <small>${esc(kicker)}</small><strong>${esc(heading)}</strong><span>${esc(description)}</span><b aria-hidden="true">Explorar →</b>
    </a>`).join('');
+ const savingsPitch=page.savingsPitch?(()=>{const [tagline,heading,detail,ctaLabel,ctaHref]=page.savingsPitch;return `<section class="ed-shell ed-savings" aria-label="Vantagens econômicas para comprar ou vender pelo TAMÃO">
+ <div class="ed-savings-copy"><span class="ed-eyebrow">${esc(tagline)}</span><h2>${esc(heading)}</h2><p>${esc(detail)}</p>
+ <a data-tamao-handoff class="ed-savings-cta" href="${esc(ctaHref)}">${esc(ctaLabel)} <span aria-hidden="true">→</span></a></div>
+ <div class="ed-savings-art" aria-hidden="true"><span>ECONOMIA &amp; OPORTUNIDADES</span><strong>${page.slug==='como-funciona'?'💰':'🏪'}</strong><small>${page.slug==='como-funciona'?'Compare. Economize. Volte.':'Seja encontrado. Receba pedidos.'}</small></div></section>`})():'';
  const cards=page.steps.map(([number,title,description])=>`<article class="ed-step">
    <span class="ed-step-number">${esc(number)}</span>
    <h3>${esc(title)}</h3><p>${esc(description)}</p>
@@ -244,6 +250,7 @@ function renderLanding(page,origin,indexing){
   </aside>
  </div></section>
  <section class="ed-shell ed-proof" aria-labelledby="vantagens"><div class="ed-proof-head"><span class="ed-eyebrow">VANTAGENS NA PRÁTICA</span><h2 id="vantagens">${esc(page.proofTitle)}</h2></div><div class="ed-proof-grid">${highlights}</div></section>
+ ${savingsPitch}
  ${contrast}
  <section class="ed-section ed-shell" aria-labelledby="etapas"><div class="ed-section-head"><span class="ed-eyebrow">DO INTERESSE À AÇÃO</span><h2 id="etapas">${esc(page.stepsHeading)}</h2></div>
  <div class="ed-steps">${cards}</div></section>
