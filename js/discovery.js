@@ -11,7 +11,7 @@ function discoveryKind(){
     &&Object.hasOwn(discoveryVerticals,r)?r:'';
 }
 function discoveryState(kind){
-  return discoveryRuntime[kind]??=( {status:'idle',items:[],city:'',state:'',error:'',seq:0} );
+  return discoveryRuntime[kind]??=( {status:'idle',items:[],city:'',state:'',origin:'',destination:'',guests:'',error:'',seq:0} );
 }
 function discoveryCityKey(raw){
   return String(raw||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'')
@@ -33,8 +33,11 @@ function discoveryCard(item,kind){
   const loc=esc([item.city_name,item.state_code].filter(Boolean).join(' / '));
   let extra=kind==='professionals'?esc(item.occupation||''):
     kind==='rides'?esc((item.departure_city||'')+' → '+(item.destination_city||''))+
-      ' · '+Math.max(0,Math.trunc(Number(item.seats_available)||0))+' vaga(s) declaradas'
-    :'Até '+Math.max(0,Math.trunc(Number(item.guests)||0))+' hóspedes';
+      ' · '+Math.max(0,Math.trunc(Number(item.seats_available)||0))+' vaga(s) declaradas'+
+      (Number.isFinite(Date.parse(item.departure_at))?' · '+esc(new Date(item.departure_at).toLocaleString('pt-BR',{dateStyle:'short',timeStyle:'short'})):'')
+    :'Até '+Math.max(0,Math.trunc(Number(item.guests)||0))+' hóspedes'+
+      (Number.isSafeInteger(Number(item.price_from_brl_cents))&&item.price_from_brl_cents!==null&&Number(item.price_from_brl_cents)>=0
+       ?' · Preço anunciado desde '+esc(BRL.format(Number(item.price_from_brl_cents)/100)):'');
   const contact=discoveryWhatsApp(item);
   return '<article class="discovery-result"><small>'+loc+'</small><h2>'+esc(item.title)+'</h2>'+
     '<p class="discovery-detail">'+extra+'</p><p>'+esc(item.description)+'</p>'+
@@ -56,6 +59,10 @@ function discoveryPage(){
     ['AC','AL','AP','AM','BA','CE','DF','ES','GO','MA','MT','MS','MG','PA','PB','PR','PE','PI','RJ','RN','RS','RO','RR','SC','SP','SE','TO'].map(uf=>
     '<option value="'+uf+'"'+(s.state===uf?' selected':'')+'>'+uf+'</option>').join('')+'</select></label>'+
     '<label>Cidade<input id="discovery-city" autocomplete="address-level2" placeholder="Digite a cidade" maxlength="120" value="'+esc(s.city)+'"></label>'+
+    (kind==='rides'
+      ?'<label>Origem<input id="discovery-origin" maxlength="120" value="'+esc(s.origin)+'" placeholder="Saindo de"></label>'+
+       '<label>Destino<input id="discovery-destination" maxlength="120" value="'+esc(s.destination)+'" placeholder="Indo para"></label>'
+      :kind==='stays'?'<label>Hóspedes<input id="discovery-guests" type="number" min="1" max="80" value="'+esc(s.guests)+'"></label>':'')+
     '<button type="submit" class="primary">Pesquisar</button></form>'+
     '<p class="tiny muted">Disponibilidade e condições são confirmadas com o anunciante. O TAMÃO não processa pagamentos dessas contratações.</p>'+
     '<div class="discovery-results" aria-live="polite">'+content+'</div></section>');
@@ -67,6 +74,9 @@ function discoverySearchFromUi(event){
   const s=discoveryState(kind);
   s.state=String(document.getElementById('discovery-uf')?.value||'').slice(0,2);
   s.city=String(document.getElementById('discovery-city')?.value||'').trim().slice(0,120);
+  s.origin=String(document.getElementById('discovery-origin')?.value||'').trim().slice(0,120);
+  s.destination=String(document.getElementById('discovery-destination')?.value||'').trim().slice(0,120);
+  s.guests=String(document.getElementById('discovery-guests')?.value||'').trim().slice(0,3);
   discoveryFetch();
   return false;
 }
@@ -82,7 +92,11 @@ async function discoveryFetch(){
       global:{fetch:chamaFetch}
     });
     const {data,error}=await client.rpc('discovery_public_search',{
-      p_vertical:kind,p_state_code:s.state||null,p_city_key:discoveryCityKey(s.city)||null,p_limit:24
+      p_vertical:kind,p_state_code:s.state||null,p_city_key:discoveryCityKey(s.city)||null,
+      p_departure_city:kind==='rides'?s.origin||null:null,
+      p_destination_city:kind==='rides'?s.destination||null:null,
+      p_min_guests:kind==='stays'&&/^[1-9][0-9]?$/.test(s.guests)&&Number(s.guests)<=80?Number(s.guests):null,
+      p_limit:24
     });
     if(error)throw error;
     if(seq!==s.seq)return;
