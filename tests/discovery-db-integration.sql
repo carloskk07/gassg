@@ -113,6 +113,21 @@ begin
  if v_private<>0 then raise exception 'OTHER_VERTICAL_NOT_CLOSED';end if;
 end $$;
 
+-- Public search must expose the one verified record and hide non-public metadata.
+do $$
+declare v_found integer; v_wrong_city integer; v_stays integer;
+begin
+ select count(*) into v_found from public.discovery_public_search(
+   p_vertical=>'professionals',p_state_code=>'RS',p_city_key=>'sao-gabriel');
+ if v_found<>1 then raise exception 'DISCOVERY_PUBLIC_SEARCH_FAILED';end if;
+ select count(*) into v_wrong_city from public.discovery_public_search(
+   p_vertical=>'professionals',p_state_code=>'RS',p_city_key=>'porto-alegre');
+ if v_wrong_city<>0 then raise exception 'DISCOVERY_CITY_FILTER_FAILED';end if;
+ select count(*) into v_stays from public.discovery_public_search(
+   p_vertical=>'stays');
+ if v_stays<>0 then raise exception 'DISCOVERY_STAY_LEAK';end if;
+end $$;
+
 -- Public role must never read billing, audit, or private advertising terms.
 do $$
 begin
@@ -161,6 +176,13 @@ begin
  if v_visible<>0 then raise exception 'PAUSED_LISTING_VISIBLE';end if;
 end $$;
 
+do $$
+declare v_result integer;
+begin
+ select count(*) into v_result from public.discovery_public_search(p_vertical=>'professionals');
+ if v_result<>0 then raise exception 'PAUSED_LISTING_IN_SEARCH';end if;
+end $$;
+
 -- Re-publication and city closure are distinct administrator powers.
 set role authenticated;
 set request.jwt.claim.sub='00000000-0000-0000-0000-000000000033';
@@ -177,6 +199,13 @@ begin
  select count(*) into v_visible from public.discovery_listings
  where id=(current_setting('tamao.test.listing_id'))::uuid;
  if v_visible<>0 then raise exception 'DISABLED_CITY_EXPOSED';end if;
+end $$;
+
+do $$
+declare v_result integer;
+begin
+ select count(*) into v_result from public.discovery_public_search(p_vertical=>'professionals');
+ if v_result<>0 then raise exception 'DISABLED_CITY_IN_SEARCH';end if;
 end $$;
 
 reset role;
