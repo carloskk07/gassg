@@ -48,4 +48,14 @@ A autorização para anúncio de profissionais ou hospedagens **não herda** a a
 
 **Aprovação por modalidade e cidade permanece separada do deploy:** o administrador principal controla abertura e pausa, sem segunda aprovação artificial. A disponibilização de código não ativa comercialmente cidades nem gera cobrança. As três modalidades podem ter janelas de abertura independentes, sem obrigar concluir todos os módulos ao mesmo tempo.
 
+### Central de acompanhamento nativa (decisão de 18/10/2026)
+
+**Tudo dentro do TAMÃO.** Não adotar Slack, Discord, painéis de suporte paralelos ou dependência de um chat externo para registrar ou resolver reclamações. Reutilizar a **central de incidentes** do painel administrativo e o **atendimento de clientes vinculado aos pedidos** já existentes, sem duplicar estruturas, rotas ou serviços financeiros.
+
+Na evolução do produto, garantir entrada simples de reclamações para compradores, revendas e anunciantes de Profissionais, Caronas e Hospedagens, com identificação da modalidade, referência ao anúncio ou pedido quando aplicável, estado de atendimento, prioridade P0–P3, histórico, resposta e encerramento pelo superadmin/equipe autorizada. Evitar exigir conta apenas para um visitante relatar problema de anúncio público; assegurar proteção antispam e minimizar dados pessoais.
+
+O painel administrativo deve apresentar pendências e alertas derivados de **eventos reais**, sem fabricar métricas, status de saúde ou monitoramento contínuo inexistente. Logs técnicos, falhas de publicação, reclamações e incidentes devem ser correlacionáveis por identificadores seguros, sem expor informações particulares em quadros públicos. Suspensão da modalidade afetada e medidas de recuperação têm prioridade sobre novidades comerciais.
+
+O acompanhamento automático somente poderá ser descrito como **ativo** depois de existir mecanismo efetivamente implantado e testado no TAMÃO (coleta, agendamento, regras de alerta, acesso e recuperação). Quando não houver mecanismo autônomo, o acompanhamento e as correções ocorrem por consulta operacional e novas execuções autorizadas, não por uma promessa de vigilância permanente do assistente.
+
 **Declaração final:** `TAMÃO — PRONTO PARA PRODUÇÃO REAL` somente com a evidência dos critérios mandatórios do projeto. Um piloto ou lançamento assistido é operação real, mas não equivale automaticamente ao selo de conclusão integral.
