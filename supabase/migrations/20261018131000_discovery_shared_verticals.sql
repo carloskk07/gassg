@@ -393,6 +393,25 @@ grant execute on function public.discovery_transition_listing(uuid,text,text)
  to authenticated;
 
 
+-- O anunciante lista apenas os próprios registros, inclusive rascunhos,
+-- sem expor owner_id nem depender de filtros externos em coluna privada.
+create function public.discovery_my_listings()
+returns table(
+ id uuid,vertical text,status text,title text,description text,
+ state_code text,city_key text,city_name text,public_area text,
+ whatsapp_e164 text,photo_urls text[],submitted_at timestamptz,
+ published_at timestamptz,updated_at timestamptz
+) language sql stable security definer set search_path='pg_catalog'
+as $$
+ select l.id,l.vertical,l.status,l.title,l.description,l.state_code,
+   l.city_key,l.city_name,l.public_area,l.whatsapp_e164,l.photo_urls,
+   l.submitted_at,l.published_at,l.updated_at
+ from public.discovery_listings l where l.owner_id=(select auth.uid())
+ order by l.updated_at desc,l.id desc limit 100
+$$;
+revoke all on function public.discovery_my_listings() from public,anon,authenticated;
+grant execute on function public.discovery_my_listings() to authenticated;
+
 -- Contrato público de descoberta: uma busca segura, sem dados de proprietários,
 -- sem misturar as três jornadas e sem confiar em um índice geográfico do marketplace.
 create function public.discovery_public_search(
