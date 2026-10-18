@@ -1,5 +1,6 @@
 /* TAMÃO | Meus anúncios. Carregado apenas ao abrir #advertise.
- * Transações financeiras, aprovação e documentação não são executadas aqui.
+ * Transações financeiras e aprovação não são executadas aqui.
+ * Comprovantes opcionais usam Storage privado, nunca o bucket de fotos.
  */
 const discoveryOwner={
   client:null,phase:'idle',user:null,items:[],editor:null,kind:'professionals',
@@ -104,7 +105,11 @@ function discoveryOwnerPage(){
     discoveryOwnerField('public_area','Bairro ou área aproximada (opcional)',d.public_area,'text','maxlength="140"')+
     discoveryOwnerField('whatsapp_e164','WhatsApp com DDI (ex.: +5555999999999)',d.whatsapp_e164,'tel','required pattern="\\+[1-9][0-9]{7,14}"')+
     discoveryOwnerTypeFields(kind,d)+
-    '<label>Fotos (JPG, PNG ou WebP, até 5 MB por foto)<input id="discovery-owner-photos" name="photos" type="file" accept="image/jpeg,image/png,image/webp" multiple></label>'+
+    '<label>Fotos públicas do anúncio (JPG, PNG ou WebP, até 5 MB)<input id="discovery-owner-photos" name="photos" type="file" accept="image/jpeg,image/png,image/webp" multiple></label>'+
+    '<label>Comprovantes para análise privada (PDF ou imagem, até 10 MB; máximo de 4 por envio)<input id="discovery-owner-documents" name="documents" type="file" accept="application/pdf,image/jpeg,image/png,image/webp" multiple></label>'+
+    '<p class="tiny muted">Comprovantes não aparecem no anúncio: somente você e o superadministrador podem consultar esses arquivos. Envie apenas documentos necessários.</p>'+
+    (Array.isArray(d.documents)&&d.documents.length?
+      '<p class="tiny muted">Comprovantes anexados: '+d.documents.length+'. Arquivos enviados são preservados para auditoria.</p>':'')+
     (Array.isArray(d.photo_urls)&&d.photo_urls.length?
       '<div class="discovery-owner-photos">'+d.photo_urls.map(p=>{
         const url=discoveryOwnerPhotoUrl(p);return url?'<img src="'+esc(url)+'" loading="lazy" alt="Foto do anúncio">':'';
@@ -195,7 +200,11 @@ async function discoveryOwnerOpen(id){
     const table=discoveryOwnerTables[listing.vertical];
     const {data,error}=await s.client.from(table).select('*').eq('listing_id',id).maybeSingle();
     if(error)throw error;
-    s.editor={...listing,...(data||{}),status:listing.status==='paused'?'draft':listing.status};
+    const documents=await s.client.from('discovery_documents')
+      .select('id,kind,created_at').eq('listing_id',id);
+    if(documents.error)throw documents.error;
+    s.editor={...listing,...(data||{}),documents:Array.isArray(documents.data)?documents.data:[],
+      status:listing.status==='paused'?'draft':listing.status};
     s.kind=listing.vertical;
   }catch(e){s.error=discoveryOwnerError(e);}
   s.busy=false;render();
@@ -232,11 +241,16 @@ async function discoveryOwnerSave(ev){
   const vertical=s.editor?.vertical||get('vertical');
   if(!Object.hasOwn(discoveryOwnerTables,vertical))return false;
   const files=Array.from(document.getElementById('discovery-owner-photos')?.files||[]);
+  const documents=Array.from(document.getElementById('discovery-owner-documents')?.files||[]);
   let keys=Array.isArray(s.editor?.photo_urls)?s.editor.photo_urls.slice():[];
   if(files.length+keys.length>18){s.error='No máximo 18 fotos por anúncio.';render();return false;}
   const mime={'image/jpeg':'jpg','image/png':'png','image/webp':'webp'};
   if(files.some(x=>!mime[x.type]||x.size<1||x.size>5242880)){
     s.error='Use JPG, PNG ou WebP, com até 5 MB por imagem.';render();return false;
+  }
+  const documentMime={'application/pdf':'pdf',...mime};
+  if(documents.length>4||documents.some(x=>!documentMime[x.type]||x.size<1||x.size>10485760)){
+    s.error='Use até 4 comprovantes PDF/JPG/PNG/WebP de até 10 MB por envio.';render();return false;
   }
   s.busy=true;s.error='';s.notice='';render();
   let id=s.editor?.id||null;
@@ -261,6 +275,15 @@ async function discoveryOwnerSave(ev){
     const saved=await client.from(discoveryOwnerTables[vertical])
       .upsert({listing_id:id,...details},{onConflict:'listing_id'});
     if(saved.error)throw saved.error;
+    for(const file of documents){
+      const key=s.user.id+'/'+id+'/'+crypto.randomUUID()+'.'+documentMime[file.type];
+      const upload=await client.storage.from('tamao-discovery-documents')
+        .upload(key,file,{contentType:file.type,upsert:false,cacheControl:'60'});
+      if(upload.error)throw upload.error;
+      const registered=await client.from('discovery_documents')
+        .insert({listing_id:id,kind:'supporting',object_path:key});
+      if(registered.error)throw registered.error;
+    }
     for(const file of files){
       const key=s.user.id+'/'+crypto.randomUUID()+'.'+mime[file.type];
       const result=await client.storage.from('tamao-discovery-photos')
