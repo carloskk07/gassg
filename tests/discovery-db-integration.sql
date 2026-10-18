@@ -339,7 +339,7 @@ begin
 end $$;
 
 -- Remoção só após apagar os bytes; teste negativo contra REST direto.
-do $
+do $guard_test$
 begin
  begin
   delete from public.discovery_documents
@@ -347,7 +347,7 @@ begin
   raise exception 'ORPHANED_METADATA_DELETE_ALLOWED';
  exception when invalid_parameter_value then null;
  end;
-end $;
+end $guard_test$;
 -- Storage isolado é apenas uma fixture de metadados: em operação real,
 -- a exclusão do objeto ocorre exclusivamente pelo SDK Storage.remove().
 delete from storage.objects
