@@ -33,6 +33,27 @@ function validateAllPublicScripts(){
     validateClassicScriptSyntax(fs.readFileSync(path.join(jsDir,file),'utf8'),'js/'+file);
   }
 }
+// Browser classic-script ABI is preserved: the two emitted files concatenate
+// byte-for-byte to the canonical, single-source acquisition script. Only the
+// expansion/prospect/enablement tail is deferred in the admin build.
+export function splitAdminAcquisition(source){
+  if(typeof source!=='string')throw new TypeError('Acquisition source must be a string');
+  const sentinel='\nasync function adminLoadProspects(';
+  const offset=source.indexOf(sentinel);
+  if(offset<100000||source.indexOf(sentinel,offset+1)!==-1)
+    throw new Error('Missing or duplicate acquisition expansion boundary');
+  const cut=offset+1;
+  const core=source.slice(0,cut),expansion=source.slice(cut);
+  validateClassicScriptSyntax(core,'js/admin-acquisition.js (core)');
+  validateClassicScriptSyntax(expansion,'js/admin-expansion.js (on demand)');
+  if(core+expansion!==source)throw new Error('Acquisition source was not preserved');
+  if(!expansion.includes('function adminProspectsSection(')
+    ||!expansion.includes('function adminEnablementSection(')
+    ||!expansion.includes('async function adminLoadEnablement('))
+    throw new Error('Acquisition split moved critical workspace functions');
+  return {core,expansion};
+}
+
 function copyDir(src,dst){
   fs.mkdirSync(dst,{recursive:true});
   for(const entry of fs.readdirSync(src,{withFileTypes:true})){
@@ -244,6 +265,16 @@ export function buildLivePortals(env=process.env,{outputRoot=env.PORTAL_BUILD_OU
     // The revenda and admin portals retain their existing dependency graph.
     if(role==='customer'){
       fs.rmSync(path.join(target,'js','merchant.js'));
+    }
+    // Split only the released admin bundle; keep one canonical source file
+    // for older static regressions and local development. No code is copied,
+    // removed or re-implemented. On-demand expansion has the same source SHA.
+    if(role==='admin'){
+      const acquisitionFile=path.join(target,'js','admin-acquisition.js');
+      const canonical=fs.readFileSync(acquisitionFile,'utf8');
+      const parts=splitAdminAcquisition(canonical);
+      fs.writeFileSync(acquisitionFile,parts.core,'utf8');
+      fs.writeFileSync(path.join(target,'js','admin-expansion.js'),parts.expansion,'utf8');
     }
     // Admin implementation must not be distributed with customer/merchant
     // bundles. API authorization still remains strictly server-side.

@@ -61,6 +61,8 @@ jobs:
         run: node tests/admin-activation-lazy-loader.mjs
       - name: Admin active-only rendering and finance workspace gate
         run: node tests/admin-section-render-isolation.mjs
+      - name: Deferred admin expansion split and authentication guards
+        run: node tests/admin-expansion-lazy-loader.mjs
       - name: Isolated admin CSS parser and shared class preservation
         run: node tests/strip-admin-css.mjs
       - name: Release SHA truth and legacy PR triage contract
