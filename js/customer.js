@@ -47,26 +47,8 @@ function tamaoProductArt(code,product,extra=''){
     :'<span class="tamao-product-emoji" aria-hidden="true">'+esc(product?.icon||'🧺')+'</span>';
 }
 // Value proposition remains truthful for both cities with and without verified offers.
-function tamaoHomeBenefits(){
-  return `<section class="section tamao-value-section" aria-label="Vantagens do TAMÃO">
-    <div class="section-head"><div><span class="section-kicker">BOM PARA QUEM COMPRA. BOM PARA SUA CIDADE.</span>
-      <h2>Mais economia na escolha. Mais vantagens para voltar.</h2>
-      <p>Compare preço total e entrega pelo CEP. Acompanhe seu pedido, consulte cashback de compras elegíveis no Clube e apresente o TAMÃO a amigos e revendas.</p></div></div>
-    <div class="tamao-perks-stage" aria-label="Clube TAMÃO e Rede TAMÃO">
-      <article class="tamao-perks-panel tamao-perks-club">
-        <div class="tamao-perks-top"><span class="tamao-perks-symbol" aria-hidden="true">🎁</span><span>CLUBE TAMÃO</span></div>
-        <h3>Seu Clube transforma compras elegíveis em vantagens.</h3>
-        <p>Veja a economia registrada nas suas comparações, acompanhe o cashback de compras elegíveis e consulte seu saldo para usar em novos pedidos.</p>
-        <button type="button" onclick="go('club')">Conhecer meu Clube <span aria-hidden="true">→</span></button>
-      </article>
-      <article class="tamao-perks-panel tamao-perks-network">
-        <div class="tamao-perks-top"><span class="tamao-perks-symbol" aria-hidden="true">🤝</span><span>REDE TAMÃO</span></div>
-        <h3>Seu convite conecta quem compra e quem vende.</h3>
-        <p>Indique amigos, apresente revendas e acompanhe seus convites. Benefícios financeiros seguem a elegibilidade de cada campanha.</p>
-        <button type="button" onclick="go('earn')">Descobrir minha Rede <span aria-hidden="true">→</span></button>
-      </article>
-    </div>
-    <div class="tamao-action-now">
+function tamaoHomeBenefits({compact=false}={}){
+  const extraBenefits=compact?'':`    <div class="tamao-action-now">
       <div><span class="section-kicker">APROVEITE O TAMÃO AGORA</span>
         <h3>Comece pela escolha. Compare o que importa.</h3>
         <p>Escolha gás, água ou outros essenciais. Consulte o que atende seu CEP e acompanhe suas vantagens no Clube.</p></div>
@@ -86,7 +68,26 @@ function tamaoHomeBenefits(){
     <div class="tamao-value-actions">
       <button type="button" class="secondary" onclick="go('earn')">Conhecer minha Rede TAMÃO →</button>
       <button type="button" class="ghost" onclick="go('merchants')">Tenho uma revenda</button>
+    </div>`;
+  return `<section class="section tamao-value-section" aria-label="Vantagens do TAMÃO">
+    <div class="section-head"><div><span class="section-kicker">BOM PARA QUEM COMPRA. BOM PARA SUA CIDADE.</span>
+      <h2>Mais economia na escolha. Mais vantagens para voltar.</h2>
+      <p>Compare preço total e entrega pelo CEP. Acompanhe seu pedido, consulte cashback de compras elegíveis no Clube e apresente o TAMÃO a amigos e revendas.</p></div></div>
+    <div class="tamao-perks-stage" aria-label="Clube TAMÃO e Rede TAMÃO">
+      <article class="tamao-perks-panel tamao-perks-club">
+        <div class="tamao-perks-top"><span class="tamao-perks-symbol" aria-hidden="true">🎁</span><span>CLUBE TAMÃO</span></div>
+        <h3>Seu Clube transforma compras elegíveis em vantagens.</h3>
+        <p>Veja a economia registrada nas suas comparações, acompanhe o cashback de compras elegíveis e consulte seu saldo para usar em novos pedidos.</p>
+        <button type="button" onclick="go('club')">Conhecer meu Clube <span aria-hidden="true">→</span></button>
+      </article>
+      <article class="tamao-perks-panel tamao-perks-network">
+        <div class="tamao-perks-top"><span class="tamao-perks-symbol" aria-hidden="true">🤝</span><span>REDE TAMÃO</span></div>
+        <h3>Seu convite conecta quem compra e quem vende.</h3>
+        <p>Indique amigos, apresente revendas e acompanhe seus convites. Benefícios financeiros seguem a elegibilidade de cada campanha.</p>
+        <button type="button" onclick="go('earn')">Descobrir minha Rede <span aria-hidden="true">→</span></button>
+      </article>
     </div>
+    ${extraBenefits}
   </section>`;
 }
 
@@ -645,6 +646,8 @@ ${discoveryTiles?`<section id="home-discover" class="home-discover" aria-label="
   <div id="home-discover-grid" class="home-discover-grid">${discoveryTiles}</div>
 </section>`:''}
 
+${conciseHome&&typeof tamaoHomeBenefits==="function"?tamaoHomeBenefits({compact:true}):''}
+
 ${conciseHome?`<section class="home-buying-steps" aria-label="Como começar no TAMÃO">
   <div class="home-buying-steps-heading"><span class="section-kicker">SIMPLES DESDE O PRIMEIRO TOQUE</span><h2>Da sua escolha à sua porta.</h2></div>
   <ol class="home-buying-steps-list">
@@ -656,7 +659,7 @@ ${conciseHome?`<section class="home-buying-steps" aria-label="Como começar no T
 ${!testDemo&&typeof homeRegionalPriceBoard==="function"?homeRegionalPriceBoard(homeRegion):""}
 ${acquisitionOpen?prelaunchCustomerLeadSection():''}
 ${!conciseHome?valueBridge:''}
-${typeof tamaoHomeBenefits==="function"?tamaoHomeBenefits():""}
+${!conciseHome&&typeof tamaoHomeBenefits==="function"?tamaoHomeBenefits():""}
 ${conciseHome?intentSection:''}
 ${conciseHome?homeAnswers:''}
 ${acquisitionOpen&&!conciseHome?prelaunchTransparencyBand():''}
