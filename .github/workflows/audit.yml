@@ -55,6 +55,8 @@ jobs:
         run: node tests/frontend-asset-coherence.mjs
       - name: CSS source-of-truth no-shadow gate
         run: node tests/css-cascade-source.mjs
+      - name: CSS internal cascade consolidation guard
+        run: node tests/css-internal-dead-rules.mjs
       - name: Release SHA truth and legacy PR triage contract
         run: node tests/release-version-truth.mjs
       - name: SQL dollar-quoted function terminator gate V1.397
