@@ -598,6 +598,25 @@ create policy discovery_document_owner_delete on public.discovery_documents
 grant select,delete on public.discovery_documents to authenticated;
 grant insert(listing_id,kind,object_path) on public.discovery_documents to authenticated;
 
+-- Impede exclusão por REST dos metadados enquanto os bytes continuam no
+-- Storage. Excluir o objeto pela API primeiro, depois sua referência privada.
+create function public.discovery_require_storage_removed()
+returns trigger language plpgsql security definer set search_path='pg_catalog'
+as $
+begin
+ if exists(
+   select 1 from storage.objects o
+   where o.bucket_id='tamao-discovery-documents' and o.name=old.object_path
+ ) then
+   raise exception 'DELETE_STORAGE_FIRST' using errcode='22023';
+ end if;
+ return old;
+end $;
+revoke all on function public.discovery_require_storage_removed() from public,anon,authenticated;
+create trigger discovery_document_delete_after_storage
+ before delete on public.discovery_documents
+ for each row execute function public.discovery_require_storage_removed();
+
 -- Definer lookup breaks the policy cycle (documents INSERT -> storage SELECT
 -- -> documents SELECT) and never returns the document itself.
 create function public.discovery_document_registered(p_path text)
