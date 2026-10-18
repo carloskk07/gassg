@@ -520,3 +520,79 @@ grant execute on function public.discovery_public_search(
 
 -- Sem seeds artificiais, cobrança automática, publicação automática ou
 -- abertura comercial implícita. Caronas nunca entram na tabela de tarifas.
+
+-- PRIVATE EVIDENCE: never reuse the public marketing-photo bucket for identity,
+-- licence or accommodation documents. No disclosure to anon or public search.
+create function public.discovery_is_superadmin()
+returns boolean language sql stable security definer set search_path='pg_catalog'
+as $$
+ select (select auth.uid()) is not null and exists(
+   select 1 from public.platform_admins a
+   where a.user_id=(select auth.uid()) and a.active and a.admin_role='superadmin')
+$$;
+revoke all on function public.discovery_is_superadmin() from public,anon,authenticated;
+grant execute on function public.discovery_is_superadmin() to authenticated;
+
+insert into storage.buckets(id,name,public,file_size_limit,allowed_mime_types)
+values('tamao-discovery-documents','tamao-discovery-documents',false,10485760,
+ array['application/pdf','image/jpeg','image/png','image/webp'])
+on conflict (id) do update set public=false,file_size_limit=excluded.file_size_limit,
+ allowed_mime_types=excluded.allowed_mime_types;
+
+create table public.discovery_documents(
+ id uuid primary key default gen_random_uuid(),
+ listing_id uuid not null references public.discovery_listings(id) on delete cascade,
+ owner_id uuid not null default auth.uid() references auth.users(id),
+ kind text not null default 'supporting' check (kind in ('supporting','licence','registration','identity')),
+ object_path text not null unique check (
+   object_path ~ '^[0-9a-f-]{36}/[0-9a-f-]{36}/[0-9a-f-]{36}[.](pdf|jpg|jpeg|png|webp)$'),
+ created_at timestamptz not null default now()
+);
+create index discovery_documents_listing_idx on public.discovery_documents(listing_id,created_at);
+alter table public.discovery_documents enable row level security;
+revoke all on public.discovery_documents from public,anon,authenticated;
+create policy discovery_document_owner_or_admin_read on public.discovery_documents
+ for select to authenticated using (
+   owner_id=(select auth.uid()) or (select public.discovery_is_superadmin())
+ );
+create policy discovery_document_owner_insert on public.discovery_documents
+ for insert to authenticated with check (
+   owner_id=(select auth.uid()) and (select public.discovery_verified_account())
+   and split_part(object_path,'/',1)=owner_id::text
+   and split_part(object_path,'/',2)=listing_id::text
+   and exists(select 1 from public.discovery_listings l
+     where l.id=listing_id and l.owner_id=(select auth.uid())
+       and l.status in ('draft','rejected'))
+   and exists(select 1 from storage.objects o
+     where o.bucket_id='tamao-discovery-documents'
+       and o.name=object_path and o.owner_id=owner_id::text)
+ );
+grant select on public.discovery_documents to authenticated;
+grant insert(listing_id,kind,object_path) on public.discovery_documents to authenticated;
+
+-- Upload is immutable and tied to an editable listing owned by the JWT user.
+-- A different advertiser cannot place documents in someone else's folder.
+create policy discovery_document_storage_insert on storage.objects
+ for insert to authenticated with check (
+   bucket_id='tamao-discovery-documents'
+   and owner_id=(select auth.uid())::text
+   and name ~ '^[0-9a-f-]{36}/[0-9a-f-]{36}/[0-9a-f-]{36}[.](pdf|jpg|jpeg|png|webp)$'
+   and split_part(name,'/',1)=(select auth.uid())::text
+   and (select public.discovery_verified_account())
+   and exists(select 1 from public.discovery_listings l
+     where l.id::text=split_part(name,'/',2)
+       and l.owner_id=(select auth.uid()) and l.status in ('draft','rejected'))
+ );
+-- SELECT is required for authorised short-lived signed URLs; no UPDATE/DELETE.
+-- Administrators can retrieve only documents actually registered in the ledger.
+create policy discovery_document_storage_read on storage.objects
+ for select to authenticated using (
+   bucket_id='tamao-discovery-documents' and (
+     (owner_id=(select auth.uid())::text and exists(
+       select 1 from public.discovery_listings l
+       where l.id::text=split_part(name,'/',2)
+         and l.owner_id=(select auth.uid())))
+     or ((select public.discovery_is_superadmin()) and exists(
+       select 1 from public.discovery_documents d where d.object_path=name))
+   )
+ );
