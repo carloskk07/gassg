@@ -627,10 +627,10 @@ ${conciseHome?`<section class="home-buying-steps" aria-label="Como começar no T
   </ol>
 </section>`:''}
 ${!testDemo&&typeof homeRegionalPriceBoard==="function"?homeRegionalPriceBoard(homeRegion):""}
+${acquisitionOpen?prelaunchCustomerLeadSection():''}
 ${valueBridge}
 ${typeof tamaoHomeBenefits==="function"?tamaoHomeBenefits():""}
 ${conciseHome?intentSection:''}
-${acquisitionOpen?prelaunchCustomerLeadSection():''}
 ${conciseHome?homeAnswers:''}
 ${acquisitionOpen&&!conciseHome?prelaunchTransparencyBand():''}
 ${reorderCard}
