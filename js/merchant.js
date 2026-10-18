@@ -567,10 +567,11 @@ function merchantLiveLoginView(){
   const rt=globalThis.merchantRuntime||{};
   const pilotInvite=String(globalThis.merchantPilotInviteToken?.()||'').trim();
   const prospectInvite=String(globalThis.merchantProspectInviteToken?.()||'').trim();
+  const signupEntry=route()==='merchant-join';
   return shell(`<section class="page merchant-access-page"><div class="merchant-access-grid"><div class="merchant-access-story">
     <span class="eyebrow">${pilotInvite||prospectInvite?'CONVITE DE PARCEIRO':'PAINEL DA REVENDA'}</span>
-    <h1 class="page-title">${pilotInvite||prospectInvite?'Entre para continuar seu cadastro':'Entrar no painel da revenda'}</h1>
-    <p class="muted">${pilotInvite||prospectInvite?'Informe o e-mail do responsável. Enviaremos um link para você continuar o cadastro da empresa.':'Informe o e-mail cadastrado na revenda. Enviaremos um link seguro de acesso.'}</p>
+    <h1 class="page-title">${pilotInvite||prospectInvite?'Continue seu cadastro':signupEntry?'Cadastre sua revenda no TAMÃO':'Entrar no painel da revenda'}</h1>
+    <p class="muted">${pilotInvite||prospectInvite?'Informe o e-mail do responsável para continuar o cadastro da empresa.':signupEntry?'Comece com seu e-mail. Enviamos um link seguro para cadastrar a empresa, sem precisar criar uma senha.':'Informe o e-mail cadastrado na revenda para acessar seu painel.'}</p>
     <div class="merchant-access-points" aria-label="Vantagens de vender no TAMÃO">
       <div><span aria-hidden="true">✓</span><p><strong>Seus preços, suas escolhas</strong><small>Controle catálogo, estoque e entregas no mesmo painel.</small></p></div>
       <div><span aria-hidden="true">✓</span><p><strong>Mais um canal de vendas</strong><small>Sem abandonar sua clientela, o WhatsApp ou o balcão.</small></p></div>
@@ -582,10 +583,10 @@ function merchantLiveLoginView(){
     ${rt.notice?`<div class="notice success" style="margin-top:14px">${esc(rt.notice)}</div>`:''}
     ${rt.error?`<div class="notice danger" style="margin-top:14px">${esc(rt.error)}</div>`:''}
     <form class="card flat form-stack merchant-access-form" onsubmit="event.preventDefault();merchantLoginFromUi()">
-      <h2>Entre com seu e-mail</h2>
+      <h2>${signupEntry?'Comece com seu e-mail':'Entre com seu e-mail'}</h2>
       <p>Você receberá um link seguro. Não é necessário criar uma senha.</p>
       <div class="input-wrap"><label for="merchant-email">E-mail da empresa</label><input id="merchant-email" type="email" autocomplete="email" class="input" maxlength="160" placeholder="voce@empresa.com" required></div>
-      <button type="submit" class="primary full">Enviar meu link de acesso →</button>
+      <button type="submit" class="primary full">${signupEntry?'Continuar meu cadastro →':'Enviar meu link de acesso →'}</button>
     </form>
     <p class="merchant-access-footnote">O cadastro da empresa passa por conferência antes da liberação das vendas. Você já pode preparar seus dados.</p>
   </div></div></section>`);
