@@ -357,6 +357,21 @@ function homeDiscoverFocus(){
   return true;
 }
 
+// Fast, no-extra-request navigation: browse pages load only after a visitor chooses one.
+function tamaoDiscoveryEntryHub(){
+  return '<section class="section intent-section" aria-label="Encontre mais no TAMÃO">'+
+    '<div class="section-head"><div><span class="section-kicker">PRECISOU? TÁ NA MÃO.</span>'+
+    '<h2>Explore outras oportunidades pelo TAMÃO.</h2>'+
+    '<p>Encontre profissionais, caronas e hospedagens anunciadas por região.</p></div></div>'+
+    '<div class="intent-grid">'+
+    [['professionals','🛠️','Profissionais','Encontre prestadores de serviços'],
+     ['rides','🚙','Caronas','Pesquise viagens compartilhadas'],
+     ['stays','🏡','Hospedagens','Conheça anúncios de hospedagens']].map(([r,i,title,desc])=>
+      '<button class="intent-card" type="button" onclick="go(\\''+r+'\\')">'+
+      '<span class="intent-icon" aria-hidden="true">'+i+'</span><span><strong>'+title+
+      '</strong><small>'+desc+'</small></span><b aria-hidden="true">→</b></button>'
+    ).join('')+'</div></section>';
+}
 function home(){
   const testDemo=globalThis.__CHAMA_TEST__===true;
   const internalPilot=globalThis.CHAMA_INTERNAL_PILOT===true;
@@ -646,7 +661,7 @@ ${discoveryTiles?`<section id="home-discover" class="home-discover" aria-label="
   <div id="home-discover-grid" class="home-discover-grid">${discoveryTiles}</div>
 </section>`:''}
 
-${typeof discoveryExploreCards==='function'?discoveryExploreCards():''}
+${tamaoDiscoveryEntryHub()}
 
 ${conciseHome&&typeof tamaoHomeBenefits==="function"?tamaoHomeBenefits({compact:true}):''}
 
