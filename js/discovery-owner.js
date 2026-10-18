@@ -158,6 +158,7 @@ async function discoveryOwnerRefresh(){
 }
 function discoveryOwnerError(error){
   if(error?.message==='DOCUMENT_CLEANUP_UNCONFIRMED')return 'O comprovante pode ter ficado pendente no armazenamento. Não reenvie este arquivo até o suporte conferir a situação.';
+  if(error?.message==='PHOTO_CLEANUP_UNCONFIRMED')return 'O envio das fotos foi interrompido e não foi possível confirmar a limpeza. Confira seu anúncio antes de tentar novamente.';
   const code=String(error?.code||'');
   if(code==='42501')return 'Você não tem permissão para esta operação.';
   if(code==='22023')return 'Confira os campos e as fotos enviadas antes de solicitar revisão.';
@@ -302,16 +303,34 @@ async function discoveryOwnerSave(ev){
         throw registerError;
       }
     }
-    for(const file of files){
-      const key=s.user.id+'/'+crypto.randomUUID()+'.'+mime[file.type];
-      const result=await client.storage.from('tamao-discovery-photos')
-        .upload(key,file,{contentType:file.type,upsert:false,cacheControl:'3600'});
-      if(result.error)throw result.error;
-      keys.push(key);
-    }
-    if(files.length){
-      const written=await client.from('discovery_listings').update({photo_urls:keys}).eq('id',id);
-      if(written.error)throw written.error;
+    // Storage and PostgREST cannot share one transaction. Track each attempted
+    // upload before calling the network: a timeout can hide a committed object.
+    const attemptedPhotos=[];
+    try{
+      for(const file of files){
+        const key=s.user.id+'/'+crypto.randomUUID()+'.'+mime[file.type];
+        attemptedPhotos.push(key);
+        const result=await client.storage.from('tamao-discovery-photos')
+          .upload(key,file,{contentType:file.type,upsert:false,cacheControl:'3600'});
+        if(result.error)throw result.error;
+        keys.push(key);
+      }
+      if(files.length){
+        const written=await client.from('discovery_listings').update({photo_urls:keys}).eq('id',id);
+        if(written.error)throw written.error;
+      }
+    }catch(photoError){
+      // The RLS cleanup policy denies deletion if the database already
+      // references this image, including when a response was lost in transit.
+      let cleanupConfirmed=true;
+      for(const key of attemptedPhotos){
+        try{
+          const removed=await client.storage.from('tamao-discovery-photos').remove([key]);
+          if(removed.error)cleanupConfirmed=false;
+        }catch{cleanupConfirmed=false;}
+      }
+      if(!cleanupConfirmed)throw Error('PHOTO_CLEANUP_UNCONFIRMED');
+      throw photoError;
     }
     await discoveryOwnerRefresh();
     s.editor=null;s.notice='Rascunho salvo. Você pode enviá-lo para revisão.';
