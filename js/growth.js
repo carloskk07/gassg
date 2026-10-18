@@ -579,7 +579,7 @@ function sponsorsLanding(){
 function merchantsLanding(){
   const portal=globalThis.merchantPortalRequested?.()===true;
   const internalPilot=globalThis.CHAMA_INTERNAL_PILOT===true;
-  const cta=internalPilot?"setMode('merchant')":"openMerchantPortal()";
+  const cta=internalPilot?"setMode('merchant')":"openMerchantPortal(true)";
   const ctaLabel=internalPilot?'Abrir ambiente interno':'Cadastrar minha empresa';
   const referenceTicket=120.00;
   const merchantFeeLabel=policyPercent(merchantPilotFeeRate());
