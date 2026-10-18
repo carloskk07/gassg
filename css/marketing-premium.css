@@ -938,3 +938,9 @@
 .tamao-visitor-paths .visitor-path-sponsor .visitor-path-icon{background:#f9e7e5}
 @media(max-width:1050px){.home-value-bridge.tamao-visitor-paths>.visitor-paths-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media(max-width:620px){.home-value-bridge.tamao-visitor-paths>.visitor-paths-grid{grid-template-columns:minmax(0,1fr)}}
+
+
+/* First-time visitors get four distinct intents without a duplicate card grid. */
+.intent-grid.first-visit-intent-grid{grid-template-columns:repeat(4,minmax(0,1fr))}
+@media(max-width:1050px){.intent-grid.first-visit-intent-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:620px){.intent-grid.first-visit-intent-grid{grid-template-columns:minmax(0,1fr)}}
