@@ -1,0 +1,67 @@
+name: TAMÃO public visual smoke
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'js/customer.js'
+      - 'css/**'
+      - 'assets/**'
+      - 'scripts/build-public-site.mjs'
+      - 'scripts/build-public-landing-pages.mjs'
+      - 'tests/public-visual-browser-v1-413.mjs'
+      - '.github/workflows/public-visual-smoke.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  browser-visual:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - name: Checkout proposed site
+        uses: actions/checkout@v6
+
+      - name: Build isolated public site without commercial runtime
+        run: |
+          set -euo pipefail
+          TAMAO_DEPLOY_TARGET=cloudflare node scripts/build-public-site.mjs /tmp/tamao-visual-413
+          test -f /tmp/tamao-visual-413/como-funciona/index.html
+          test -f /tmp/tamao-visual-413/para-revendas/index.html
+          test -f /tmp/tamao-visual-413/para-marcas/index.html
+          test -f /tmp/tamao-visual-413/indicacoes/index.html
+
+      - name: Start isolated website and Chrome
+        run: |
+          set -euo pipefail
+          python3 -m http.server 4179 --directory /tmp/tamao-visual-413 >/tmp/tamao-visual-http.log 2>&1 &
+          CHROME="$(command -v google-chrome || command -v chromium || command -v chromium-browser)"
+          test -n "$CHROME"
+          "$CHROME" --headless=new --no-sandbox --disable-gpu --disable-dev-shm-usage \
+            --remote-debugging-port=9230 --remote-allow-origins='*' \
+            --user-data-dir=/tmp/tamao-visual-chrome about:blank \
+            >/tmp/tamao-visual-chrome.log 2>&1 &
+          for attempt in $(seq 1 40); do
+            if curl -fsS http://127.0.0.1:9230/json/version >/dev/null 2>&1; then exit 0; fi
+            sleep 0.25
+          done
+          cat /tmp/tamao-visual-chrome.log
+          exit 1
+
+      - name: Desktop tablet mobile real-browser screenshot and overflow gate
+        env:
+          TAMAO_VISUAL_BASE: http://127.0.0.1:4179
+          TAMAO_VISUAL_CDP: http://127.0.0.1:9230
+          TAMAO_VISUAL_OUTPUT: public-visual-screenshots
+        run: node tests/public-visual-browser-v1-413.mjs
+
+      - name: Retain private screenshots and visual audit results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: tamao-public-visual-v1-413
+          path: public-visual-screenshots/
+          retention-days: 7
+          if-no-files-found: warn
