@@ -119,6 +119,11 @@ function patchIndex(html,portal,sourceSha){
   patched=replaceMeta(patched,'name','twitter:description',identity.description);
   // Dedicated public/merchant bundles must not load admin code. The admin
   // portal keeps the full legacy dependency graph until it is split safely.
+  if(role==='customer'){
+    const merchantTag='<script defer src="./js/merchant.js"></script>';
+    if(!patched.includes(merchantTag))throw new Error('Missing customer merchant script for isolation');
+    patched=patched.replace(merchantTag,'');
+  }
   if(role!=='admin'){
     for(const module of ['admin-acquisition','admin','admin-activations']){
       const tag='<script defer src="./js/'+module+'.js"></script>';
@@ -180,6 +185,11 @@ function patchServiceWorker(raw,sourceSha,role){
   if(next===raw)throw new Error('constante CACHE do service worker não encontrada');
   if(!['customer','merchant','admin'].includes(role))throw new Error('Invalid portal cache role');
   let scoped=next;
+  if(role==='customer'){
+    const merchantEntry=",'./js/merchant.js'";
+    if(!scoped.includes(merchantEntry))throw new Error('Missing customer merchant precache entry');
+    scoped=scoped.replace(merchantEntry,'');
+  }
   if(role!=='admin'){
     // Only the administrative bundle may precache privileged UI modules.
     for(const module of ['admin-acquisition','admin','admin-activations']){
@@ -219,6 +229,12 @@ export function buildLivePortals(env=process.env,{outputRoot=env.PORTAL_BUILD_OU
     fs.mkdirSync(target,{recursive:true});
     for(const file of STATIC_FILES)fs.copyFileSync(path.join(ROOT,file),path.join(target,file));
     for(const dir of STATIC_DIRS)copyDir(path.join(ROOT,dir),path.join(target,dir));
+    // The customer portal uses commercial merchant landings, but it must not
+    // download, evaluate or cache the large partner operations interface.
+    // The revenda and admin portals retain their existing dependency graph.
+    if(role==='customer'){
+      fs.rmSync(path.join(target,'js','merchant.js'));
+    }
     // Admin implementation must not be distributed with customer/merchant
     // bundles. API authorization still remains strictly server-side.
     if(role!=='admin'){

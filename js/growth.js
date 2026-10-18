@@ -787,7 +787,13 @@ function merchantJoin(){
     }
     if(rt.status==='unauthenticated')return merchantLiveLoginView();
   }
-  if(globalThis.__CHAMA_TEST__!==true&&!globalThis.merchantPortalRequested?.())return merchantRealPortalRequired();
+  if(globalThis.__CHAMA_TEST__!==true&&!globalThis.merchantPortalRequested?.()){
+    // The customer bundle excludes merchant.js; retain the exact public
+    // handoff without loading partner operations or authentication code.
+    return typeof merchantRealPortalRequired==='function'
+      ?merchantRealPortalRequired()
+      :shell('<section class="page"><span class="eyebrow">ÁREA DA REVENDA</span><h1 class="page-title">Área da minha revenda</h1><p class="muted">Entre ou cadastre sua empresa para configurar produtos, entregas e recebimentos.</p><button class="primary full" onclick="openMerchantPortal()">Entrar ou cadastrar minha revenda</button></section>');
+  }
   const prospectInvite=globalThis.merchantPortalRequested?.()?currentMerchantProspectInviteToken():'';
   const pilotInvite=prospectInvite?'':globalThis.merchantPortalRequested?.()?currentMerchantPilotInviteToken():'';
   const prospectDetails=prospectInvite?globalThis.merchantProspectInviteDetails?.():null;
