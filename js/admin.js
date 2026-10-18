@@ -407,6 +407,8 @@ async function adminRefresh({silent=false}={}){
     if(['overview','system'].includes(String(adminRuntime.section||'')))
       queueMicrotask(()=>adminLoadGovernanceGates().catch(()=>{}));
     if(adminRuntime.section==='activations')queueMicrotask(()=>adminActivationLoadOnDemand().catch(()=>{}));
+    if(['prospects','enablement'].includes(adminRuntime.section))
+      queueMicrotask(()=>adminExpansionLoadOnDemand().catch(()=>{}));
     if(adminRuntime.section==='finance')queueMicrotask(()=>adminLoadFinanceHistory().catch(()=>{}));
     if(adminRuntime.section==='finance')queueMicrotask(()=>adminLoadMerchantFinance().catch(()=>{}));
     if(adminRuntime.section==='alerts')queueMicrotask(()=>adminLoadOperationalAlerts().catch(()=>{}));
@@ -2482,6 +2484,76 @@ function adminActivationsFallbackView(){
     'Carregando Central de Ativações…</p></section>';
 }
 
+// Split release bundle: city intelligence, prospects and enablement are
+// evaluated only after an authenticated role selects the corresponding tab.
+// Development uses the original single file, so the loader is a no-op there.
+const adminExpansionModuleUrl=(()=>{
+  try{
+    const script=document.currentScript;
+    if(!script?.src)return null;
+    const parent=new URL(script.src,document.baseURI);
+    if(parent.origin!==location.origin||!parent.pathname.endsWith('/js/admin.js'))return null;
+    const part=new URL('admin-expansion.js',parent);
+    part.search=parent.search; // exact SHA of the parent administrative code
+    return part.href;
+  }catch{return null}
+})();
+let adminExpansionModulePromise=null;
+let adminExpansionModuleError=null;
+async function adminExpansionLoadOnDemand(){
+  const selected=String(adminRuntime.section||'');
+  if(!['prospects','enablement'].includes(selected)||!adminReady()||!adminRoleCanSection(selected))return null;
+  const actor=String(adminRuntime.session?.user?.id||'');
+  const available=()=>typeof adminProspectsSection==='function'
+    &&typeof adminEnablementSection==='function'
+    &&typeof adminLoadProspects==='function'
+    &&typeof adminLoadEnablement==='function';
+  if(!available()){
+    if(!adminExpansionModulePromise){
+      adminExpansionModuleError=null;
+      adminExpansionModulePromise=new Promise((resolve,reject)=>{
+        if(!adminExpansionModuleUrl){
+          reject(new Error('O módulo de expansão não está configurado nesta versão.'));
+          return;
+        }
+        const script=document.createElement('script');
+        script.src=adminExpansionModuleUrl;
+        script.async=true;
+        script.onload=()=>available()
+          ?resolve(true)
+          :reject(new Error('O módulo de expansão não inicializou corretamente.'));
+        script.onerror=()=>reject(new Error('Falha ao carregar dados de expansão. Verifique sua conexão.'));
+        document.head.appendChild(script);
+      }).catch(error=>{
+        adminExpansionModuleError=String(error?.message||'Não foi possível carregar a área.');
+        throw error;
+      }).finally(()=>{adminExpansionModulePromise=null});
+    }
+    try{await adminExpansionModulePromise}
+    catch{
+      if(['prospects','enablement'].includes(adminRuntime.section))render();
+      return null;
+    }
+  }
+  if(!adminReady()||String(adminRuntime.session?.user?.id||'')!==actor
+    ||!adminRoleCanSection(adminRuntime.section)
+    ||!['prospects','enablement'].includes(adminRuntime.section))return null;
+  adminExpansionModuleError=null;
+  render();
+  if(adminRuntime.section==='enablement')return adminLoadEnablement();
+  // Keep the existing three independent server-side prospect reads.
+  adminLoadProspects().catch(()=>{});
+  adminLoadExpansionRadar().catch(()=>{});
+  return adminLoadCityHistory();
+}
+function adminExpansionFallbackView(){
+  if(adminExpansionModuleError)return '<section class="section"><div class="notice danger">'+
+    esc(adminExpansionModuleError)+'</div><button type="button" class="secondary"'+
+    ' onclick="adminExpansionLoadOnDemand()">Tentar novamente</button></section>';
+  return '<section class="section"><p class="muted" role="status">'+
+    'Carregando dados de cidades e revendas…</p></section>';
+}
+
 function adminSetSection(section){
   const allowed=['overview','orders','customers','partners','prospects','enablement','catalog','finance','alerts','incidents','audit','system','activations'];
   const requested=allowed.includes(String(section||''))?String(section):'overview';
@@ -2493,12 +2565,7 @@ function adminSetSection(section){
   if(['system','overview'].includes(next))adminLoadGovernanceGates().catch(()=>{});
   if(next==='activations')adminActivationLoadOnDemand().catch(()=>{});
   if(next==='alerts')adminLoadOperationalAlerts({force:true}).catch(()=>{});
-  if(next==='prospects'){
-    adminLoadProspects().catch(()=>{});
-    adminLoadExpansionRadar().catch(()=>{});
-    adminLoadCityHistory().catch(()=>{});
-  }
-  if(next==='enablement')adminLoadEnablement().catch(()=>{});
+  if(['prospects','enablement'].includes(next))adminExpansionLoadOnDemand().catch(()=>{});
   if(next==='finance')adminLoadFinanceHistory().catch(()=>{});
   if(next==='finance')adminLoadMerchantFinance().catch(()=>{});
   requestAnimationFrame(()=>{
@@ -6363,8 +6430,8 @@ function adminPage(){
         ${adminPanel('orders',ordersContent)}
         ${adminPanel('customers',customersContent)}
         ${adminPanel('partners',partnersContent)}
-        ${adminPanel('prospects',sectionActive('prospects')?adminProspectsSection(d):'')}
-        ${adminPanel('enablement',sectionActive('enablement')?adminEnablementSection(d):'')}
+        ${adminPanel('prospects',sectionActive('prospects')?(typeof adminProspectsSection==='function'?adminProspectsSection(d):adminExpansionFallbackView()):'')}
+        ${adminPanel('enablement',sectionActive('enablement')?(typeof adminEnablementSection==='function'?adminEnablementSection(d):adminExpansionFallbackView()):'')}
         ${adminPanel('catalog',catalogContent)}
         ${adminPanel('finance',financeContent)}
         ${adminPanel('activations',sectionActive('activations')?(typeof adminActivationDeskView==='function'?adminActivationDeskView(d):adminActivationsFallbackView()):'')}

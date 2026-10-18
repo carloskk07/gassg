@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import {buildLivePortals,assertProductionTurnstile,validateClassicScriptSyntax} from '../scripts/build-live-portals.mjs';
+import {buildLivePortals,assertProductionTurnstile,validateClassicScriptSyntax,splitAdminAcquisition} from '../scripts/build-live-portals.mjs';
 import {buildCloudflarePortal,CLOUDFLARE_PROJECTS,PUBLIC_TURNSTILE_SITE_KEY} from '../scripts/build-cloudflare-portal.mjs';
 import {stripAdminOnlyCss,publicAdminClassReferences} from '../scripts/strip-admin-css.mjs';
 
@@ -13,6 +13,10 @@ const origins={
 };
 const testKey='1x00000000000000000000AA';
 const originalComponents=fs.readFileSync(new URL('../css/components.css',import.meta.url),'utf8');
+const originalAcquisition=fs.readFileSync(new URL('../js/admin-acquisition.js',import.meta.url),'utf8');
+const splitAcquisition=splitAdminAcquisition(originalAcquisition);
+assert.ok(splitAcquisition.expansion.length>90000,'Expansion chunk size unexpectedly small');
+assert.equal(splitAcquisition.core+splitAcquisition.expansion,originalAcquisition,'Byte-for-byte source parity');
 const sharedAdminClasses=publicAdminClassReferences(new URL('../js',import.meta.url));
 assert.ok(sharedAdminClasses.has('admin-entity-grid'),'Merchant shared class needs explicit preservation');
 const optimizedComponents=stripAdminOnlyCss(originalComponents,{sharedAdminClasses});
@@ -45,12 +49,22 @@ assert.deepEqual(built.map(x=>x.role),['customer','merchant','admin']);
 for(const {role,path:dir} of built){
   assert.ok(fs.existsSync(path.join(dir,'index.html')));
   assert.ok(fs.existsSync(path.join(dir,'sw.js')));
+  const expansionPath=path.join(dir,'js','admin-expansion.js');
+  assert.equal(fs.existsSync(expansionPath),role==='admin',role+' should isolate expansion chunk');
+  if(role==='admin'){
+    assert.equal(fs.readFileSync(path.join(dir,'js','admin-acquisition.js'),'utf8'),splitAcquisition.core,
+      'The admin core must be exactly the original prefix');
+    assert.equal(fs.readFileSync(expansionPath,'utf8'),splitAcquisition.expansion,
+      'The deferred expansion must be exactly the original suffix');
+  }
   const shippedComponents=fs.readFileSync(path.join(dir,'css','components.css'),'utf8');
   assert.equal(shippedComponents,role==='admin'?originalComponents:optimizedComponents.css,
     role+' stylesheet must match role-specific safe CSS exactly');
   assert.equal(shippedComponents.includes('.admin-sidebar{'),role==='admin',
     role+' must isolate admin-only styles');
   const sw=fs.readFileSync(path.join(dir,'sw.js'),'utf8');
+  assert.ok(!sw.includes("'./js/admin-expansion.js?v=test-sha'"),
+    'Expansion is loaded lazily, not at install-time');
   assert.ok(sw.includes('tamao-sg-test-sha'),'service worker precisa versionar cache pelo sourceSha do bundle');
   assert.ok(fs.existsSync(path.join(dir,'robots.txt')));
   const robots=fs.readFileSync(path.join(dir,'robots.txt'),'utf8');
@@ -187,6 +201,11 @@ for(const [projectName,cfg] of Object.entries(CLOUDFLARE_PROJECTS)){
   const cfSw=fs.readFileSync(path.join(publishDir,'sw.js'),'utf8');
   const cfAsset='./js/core.js?v=1234567890123456789012345678901234567890';
   const lazyActivation='./js/admin-activations.js?v=1234567890123456789012345678901234567890';
+  assert.equal(fs.existsSync(path.join(publishDir,'js','admin-expansion.js')),cfg.role==='admin');
+  if(cfg.role==='admin'){
+    assert.equal(fs.readFileSync(path.join(publishDir,'js','admin-expansion.js'),'utf8'),splitAcquisition.expansion);
+    assert.ok(!cfSw.includes("'./js/admin-expansion.js?v=1234567890123456789012345678901234567890'"));
+  }
   assert.ok(!cfHtml.includes('src="'+lazyActivation+'"'));
   assert.ok(!cfSw.includes("'"+lazyActivation+"'"));
   assert.equal(fs.existsSync(path.join(publishDir,'js','admin-activations.js')),cfg.role==='admin');
