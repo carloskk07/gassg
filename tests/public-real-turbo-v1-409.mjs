@@ -8,7 +8,7 @@ import {writePublicLandingPages} from '../scripts/build-public-landing-pages.mjs
 const read=name=>fs.readFileSync(new URL('../'+name,import.meta.url),'utf8');
 const customer=read('js/customer.js'),growth=read('js/growth.js');
 const backend=read('js/backend.js'),admin=read('js/admin-acquisition.js');
-const home=customer.slice(customer.indexOf('function tamaoHomeBenefits(){'),
+const home=customer.slice(customer.indexOf('function tamaoHomeBenefits('),
   customer.indexOf('\nfunction customerProductName('));
 const club=growth.slice(growth.indexOf('function club(){'),
   growth.indexOf('\nfunction ',growth.indexOf('function club(){')+10));
