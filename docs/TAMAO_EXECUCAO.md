@@ -31,17 +31,17 @@
 |---|---|---|
 | CONT-001 | CONCLUÍDA NESTA ETAPA | Diário de execução e escopo persistidos na PR #492 |
 | AUD-001 | PARCIAL | Código, CI e banco inspecionados; auditoria profunda de performance, duplicações, armazenamento e UX pendente |
-| CORE-001 | PARCIAL | Migration, RLS, RPC e busca pública no código; migration não aplicada, cadastro e mídia ausentes |
+| CORE-001 | PARCIAL | Busca e cadastro de anunciante em código, mídia e documentação privada protegida propostas; migration não aplicada, sem Auth/Storage real E2E |
 | PRO-001 | PARCIAL | Busca pública por UF/cidade e contato WhatsApp na branch; sem cadastro/aprovação comercial |
 | RIDE-001 | PARCIAL | Pesquisa por origem/destino, vagas e contato na branch; faltam anúncios, passageiros e moderação |
 | STAY-001 | PARCIAL | Busca por cidade, UF e hóspedes na branch; faltam fotos, cadastro, datas, SEO e disponibilidade |
-| UI-001 | PARCIAL | Cards na home, rotas de browse e CSS lazy; área de anunciante/admin ainda ausente |
+| UI-001 | PARCIAL | Cards e descoberta pública, editor de anunciante e moderação na área admin existentes na PR; avaliação UX real e E2E faltam |
 | SEO-001 | NÃO INICIADA | Sem espanhol argentino indexável por destinos |
 | ADS-001 | NÃO INICIADA | Integrar com Ads existente, sem duplicar cobranças |
 | FIN-001 | NÃO INICIADA | Tabelas sem cobrança; faltam consentimento, tarifas, conciliação e testes |
 | REP-001 | NÃO INICIADA | Avaliações autênticas, denúncias e antifraude ausentes |
-| ADMIN-001 | NÃO INICIADA | Revisão/ativação das novas modalidades não aparece no painel existente |
-| QA-001 | PARCIAL | Audit, PostgreSQL isolado, builds e smoke visual aprovados na SHA 0d5e7a9; E2E autenticado pendente |
+| ADMIN-001 | PARCIAL | Fila, decisão auditada, controle de modalidade/cidade e consulta de documentos privados no admin existente; falta E2E real |
+| QA-001 | PARCIAL | PostgreSQL, build e smoke público PASS em db571c4; Audit da mesma SHA em verificação; Auth/Storage/E2E autenticados pendentes |
 | REL-001 | BLOQUEADA | Fluxos integrais, migrações, SEO, finanças, revisão e publicação ainda pendentes |
 
 ## Código e migrações
@@ -90,19 +90,30 @@
 - **Ainda incompleto e sem publicação:** revisão/decisão pelo superadmin dentro do painel existente, gestão de documentos privados, critérios específicos legais, edição de fotos e remoção, antifraude, confirmação de comunicação de e-mail/redirect reais, upload de bytes reais e testes E2E multiusuário. O formulário/SDK é código proposto, não operação comprovada.
 - **Próxima tarefa exata:** corrigir eventuais falhas do Audit no HEAD; integrar controle de moderação ao painel admin existente sem duplicar aplicação; testar fluxos completos de anunciante A, anunciante B, superadmin e visitante, incluindo falhas de rede e fotos. Manter PR #492 em draft e migration não aplicada.
 
+
+## Continuação — comprovantes privados e moderação sem duplicação (18/10/2026)
+
+- **Retomada exata:** PR #492, branch única; antes das novas alterações a SHA `f3e19e76fba7c5d42daf3b30ed51dd142bfc85c1` já continha fila de moderação no `js/admin.js` e os quatro workflows oficiais estavam PASS. Não recriar painel/PR/versão.
+- **Banco real apenas leitura:** Supabase `lgugwujpunhslavewffd` tem 154 tabelas em `public`; `discovery_listings` e `discovery_documents` AUSENTES. `platform_launch_control` segue `PRELAUNCH`, `commerce_enabled=false`; 3 portais atestados no banco com `433101839489f7739f44ddcf04e664ddff3435bd` às `2026-10-18T19:42:25Z`. A leitura HTTP externa dos manifests não funcionou; atestado de banco não equivale a E2E.
+- **Mudança de código (não publicada):** dentro da migration única já aberta, tabela imutável `discovery_documents`, bucket separado `tamao-discovery-documents` privado (até 10 MiB), RLS de dono/superadmin e pastas `ownerUUID/listingUUID/randomUUID`. Nenhum anonimato é autorizado e nenhum arquivo sensível entra no bucket público de fotos. Acesso temporário via URL assinada por 90 segundos somente após controle de Storage. Ainda faltam conservação, exclusão e verificação de conteúdo/MIME por bytes reais.
+- **Jornada:** `js/discovery-owner.js` anexa PDF/imagens opcionais ao rascunho e registra metadados; `js/admin.js` mantém a fila original e adiciona consulta de documentação privada mediante sessão privilegiada. Testes `tests/discovery-owner-journey.mjs` e `tests/discovery-admin-journey.mjs` cobrem uploads simulados, domínio de URL assinada, papel administrador e fail-closed.
+- **Falhas descobertas e corrigidas ANTES da produção:** consulta indevida a coluna interna por Storage RLS, ciclo de recursão Storage ↔ documentos e delimitadores SQL inválidos. Funções SECURITY DEFINER limitadas ao `auth.uid()`/superadmin quebram a recursão; regressão executada sobre PostgreSQL 17 descartável. Não executar esta migration em produção ainda.
+- **Evidência no código `db571c4683a81385e27c93268b0bdeb54f1d4012`:** [PostgreSQL isolado PASS](https://github.com/carloskk07/gassg/actions/runs/39161438180), [Build portais PASS](https://github.com/carloskk07/gassg/actions/runs/39161438216), [smoke visual público PASS](https://github.com/carloskk07/gassg/actions/runs/39161438190), [Audit em apuração](https://github.com/carloskk07/gassg/actions/runs/39161438212). Revalidar todos no HEAD de checkpoint e nunca interpretar smoke estático como homologação com sessão real.
+- **Sem alteração operacional:** não aplicar migration, não configurar cobrança, não abrir cidade/modalidade, não fazer merge, não promover preview Netlify ou Cloudflare.
+
 ## Checkpoint operacional obrigatório
 
-**ÚLTIMA ETAPA CONCLUÍDA:** descoberta pública, protocolo de continuidade, PostgreSQL isolado e builds na SHA `2d31f63c6ea22a9985b590bc2820172777300a0f`. **NOVAS ALTERAÇÕES AINDA SEM GATE FINAL:** proteção de imagens, teste de Storage e renderização; conferir CI no HEAD deste checkpoint.
+**ÚLTIMA ETAPA CONCLUÍDA:** jornada proposta de documentos privados vinculados ao anúncio e moderação administrativa integrada; PostgreSQL 17 isolado, build dos três portais e smoke público PASS no código `db571c4683a81385e27c93268b0bdeb54f1d4012`. O Audit completo dessa SHA ainda requer conclusão; nenhuma validação end-to-end real.
 
-**ETAPA ATUAL:** Validar CI e integrações da primeira base de cadastro autenticado; iniciar moderação no admin existente; preservar todas as proteções antes do release.
+**ETAPA ATUAL:** Finalizar Audit no HEAD, inspecionar Storage privado e Auth multiusuário em homologação, verificar ausência de vazamento e documento efetivamente assinado; corrigir os defeitos comprovados.
 
-**PRÓXIMA AÇÃO EXATA:** Conferir workflows da HEAD no GitHub, reparar falhas, implementar fila e decisão de revisão no superadmin existente, validar Auth e Storage real em homologação e adicionar E2E autenticado de criação → revisão → publicação → pausa, mantendo migração e cobrança desligadas em produção.
+**PRÓXIMA AÇÃO EXATA:** Confirmar resultado Audit da SHA db571c4 e novamente do HEAD com checkpoint; executar Auth/Storage reais numa homologação independente (A/B/superadmin/visitante, upload privado de bytes, signed URLs e falhas de rede); criar E2E de criação → revisão → publicação → pausa; inspecionar retenção/eliminação e verificação documental por modalidade. Sem merge.
 
-**ARQUIVOS QUE DEVEM SER INSPECIONADOS:** `supabase/migrations/20261018131000_discovery_shared_verticals.sql`, `js/discovery.js`, `js/bootstrap.js`, `js/customer.js`, `scripts/build-live-portals.mjs`, `tests/discovery-public-journeys.mjs`, `tests/discovery-db-integration.sql`, `docs/TAMAO_ESCOPO.md`.
+**ARQUIVOS QUE DEVEM SER INSPECIONADOS:** `supabase/migrations/20261018131000_discovery_shared_verticals.sql`, `js/discovery-owner.js`, `js/admin.js`, `js/discovery.js`, `js/bootstrap.js`, `js/customer.js`, `scripts/build-live-portals.mjs`, `tests/discovery-owner-journey.mjs`, `tests/discovery-admin-journey.mjs`, `tests/discovery-db-integration.sql`, `docs/TAMAO_ESCOPO.md`.
 
-**TESTES QUE DEVEM SER EXECUTADOS:** `node tests/discovery-public-journeys.mjs`, `node tests/discovery-shared-verticals.mjs`, `node tests/portal-performance-budget.mjs`, workflows `Audit`, `Build isolated live portals`, `TAMÃO discovery PostgreSQL contract` e `TAMÃO public visual smoke`.
+**TESTES QUE DEVEM SER EXECUTADOS:** `node tests/discovery-owner-journey.mjs`, `node tests/discovery-admin-journey.mjs`, `node tests/discovery-public-journeys.mjs`, `node tests/discovery-shared-verticals.mjs`, `node tests/portal-performance-budget.mjs`, workflows `Audit`, `Build isolated live portals`, `TAMÃO discovery PostgreSQL contract` e `TAMÃO public visual smoke`; depois E2E Auth/Storage com usuários reais de homologação.
 
-**BLOQUEIOS CONHECIDOS:** Novos anúncios não existem em produção; ainda faltam onboarding autenticado, fotos, moderação, Cobrança Impulso, reputação, SEO argentino, integração e E2E completo. Verificação HTTP direta dos três manifests não foi possível nesta sessão, embora haja atestado de SHA no banco.
+**BLOQUEIOS CONHECIDOS:** Migração e anúncios não existem em produção; Auth/Storage multiusuário real, verificação de arquivos binários, políticas de retenção/remoção, validação legal por modalidade, Cobrança Impulso, reputação, SEO argentino, regressões e E2E completos permanecem pendentes. Leitura HTTP direta dos três manifests não foi possível; apenas atestado de SHA no Supabase.
 
 **CONDIÇÃO DE CONCLUSÃO:** Para cada vertical, cadastro, autorização, publicação, busca, contato e operação testados; para release, zero P0/P1 conhecidos, recuperação comprovada, migrações e portais reconciliados por SHA e autorização comercial do superadmin.
 
