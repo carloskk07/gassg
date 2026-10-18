@@ -524,6 +524,7 @@ function home(){
   <button class="intent-card" onclick="go('earn')"><span class="intent-icon">🤝</span><span><strong>Indique o TAMÃO</strong><small>Compartilhe com amigos e ajude a trazer novas revendas para sua cidade.</small></span><b>→</b></button>
   <button class="intent-card" onclick="go('learn')"><span class="intent-icon">🛡️</span><span><strong>Entender como funciona</strong><small>Saiba como são apresentados o preço, a confirmação e a entrega.</small></span><b>→</b></button>
   <button class="intent-card intent-primary" onclick="openPrelaunchMerchantLead()"><span class="intent-icon">🏪</span><span><strong>Cadastrar minha empresa</strong><small>Você continua no controle dos preços, produtos e entregas.</small></span><b>→</b></button>
+  <button class="intent-card" onclick="go('sponsors')"><span class="intent-icon">📣</span><span><strong>Divulgar minha marca</strong><small>Conheça possibilidades de campanhas e parcerias na sua região.</small></span><b>→</b></button>
 </div></section>`
     : `<section class="section intent-section"><div class="section-head"><div><span class="section-kicker">ESCOLHA SEU CAMINHO</span><h2>O TAMÃO é para quem compra e para quem vende.</h2><p>Veja o que pode pedir, conheça os benefícios e saiba como participar com sua empresa.</p></div></div>
 <div class="intent-grid">
@@ -629,7 +630,7 @@ ${conciseHome?`<section class="home-buying-steps" aria-label="Como começar no T
 </section>`:''}
 ${!testDemo&&typeof homeRegionalPriceBoard==="function"?homeRegionalPriceBoard(homeRegion):""}
 ${acquisitionOpen?prelaunchCustomerLeadSection():''}
-${valueBridge}
+${!conciseHome?valueBridge:''}
 ${typeof tamaoHomeBenefits==="function"?tamaoHomeBenefits():""}
 ${conciseHome?intentSection:''}
 ${conciseHome?homeAnswers:''}
