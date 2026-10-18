@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import {buildLivePortals,assertProductionTurnstile,validateClassicScriptSyntax,splitAdminAcquisition} from '../scripts/build-live-portals.mjs';
+import {buildLivePortals,assertProductionTurnstile,validateClassicScriptSyntax,splitAdminAcquisition,splitAdminOwnerFinanceCore} from '../scripts/build-live-portals.mjs';
 import {buildCloudflarePortal,CLOUDFLARE_PROJECTS,PUBLIC_TURNSTILE_SITE_KEY} from '../scripts/build-cloudflare-portal.mjs';
 import {stripAdminOnlyCss,publicAdminClassReferences} from '../scripts/strip-admin-css.mjs';
 
@@ -15,6 +15,8 @@ const testKey='1x00000000000000000000AA';
 const originalComponents=fs.readFileSync(new URL('../css/components.css',import.meta.url),'utf8');
 const originalAcquisition=fs.readFileSync(new URL('../js/admin-acquisition.js',import.meta.url),'utf8');
 const splitAcquisition=splitAdminAcquisition(originalAcquisition);
+const splitOwnerFinance=splitAdminOwnerFinanceCore(splitAcquisition.core);
+assert.equal(splitOwnerFinance.prefix+splitOwnerFinance.ownerFinance+splitOwnerFinance.leads,splitAcquisition.core);
 assert.ok(splitAcquisition.expansion.length>90000,'Expansion chunk size unexpectedly small');
 assert.equal(splitAcquisition.core+splitAcquisition.expansion,originalAcquisition,'Byte-for-byte source parity');
 const sharedAdminClasses=publicAdminClassReferences(new URL('../js',import.meta.url));
@@ -50,12 +52,16 @@ for(const {role,path:dir} of built){
   assert.ok(fs.existsSync(path.join(dir,'index.html')));
   assert.ok(fs.existsSync(path.join(dir,'sw.js')));
   const expansionPath=path.join(dir,'js','admin-expansion.js');
+  const ownerPath=path.join(dir,'js','admin-owner-finance.js');
+  assert.equal(fs.existsSync(ownerPath),role==='admin',role+' must isolate privileged owner finance');
   assert.equal(fs.existsSync(expansionPath),role==='admin',role+' should isolate expansion chunk');
   if(role==='admin'){
-    assert.equal(fs.readFileSync(path.join(dir,'js','admin-acquisition.js'),'utf8'),splitAcquisition.core,
+    assert.equal(fs.readFileSync(path.join(dir,'js','admin-acquisition.js'),'utf8'),splitOwnerFinance.startup,
       'The admin core must be exactly the original prefix');
     assert.equal(fs.readFileSync(expansionPath,'utf8'),splitAcquisition.expansion,
       'The deferred expansion must be exactly the original suffix');
+    assert.equal(fs.readFileSync(ownerPath,'utf8'),splitOwnerFinance.ownerFinance,
+      'Owner finance must be exactly the canonical section, without forks');
   }
   const shippedComponents=fs.readFileSync(path.join(dir,'css','components.css'),'utf8');
   assert.equal(shippedComponents,role==='admin'?originalComponents:optimizedComponents.css,
@@ -65,6 +71,8 @@ for(const {role,path:dir} of built){
   const sw=fs.readFileSync(path.join(dir,'sw.js'),'utf8');
   assert.ok(!sw.includes("'./js/admin-expansion.js?v=test-sha'"),
     'Expansion is loaded lazily, not at install-time');
+  assert.ok(!sw.includes("'./js/admin-owner-finance.js?v=test-sha'"),
+    'Owner finance must not be cached before superadmin requests partner tools');
   assert.ok(sw.includes('tamao-sg-test-sha'),'service worker precisa versionar cache pelo sourceSha do bundle');
   assert.ok(fs.existsSync(path.join(dir,'robots.txt')));
   const robots=fs.readFileSync(path.join(dir,'robots.txt'),'utf8');
@@ -202,6 +210,8 @@ for(const [projectName,cfg] of Object.entries(CLOUDFLARE_PROJECTS)){
   const cfAsset='./js/core.js?v=1234567890123456789012345678901234567890';
   const lazyActivation='./js/admin-activations.js?v=1234567890123456789012345678901234567890';
   assert.equal(fs.existsSync(path.join(publishDir,'js','admin-expansion.js')),cfg.role==='admin');
+  assert.equal(fs.existsSync(path.join(publishDir,'js','admin-owner-finance.js')),cfg.role==='admin');
+  if(cfg.role==='admin')assert.equal(fs.readFileSync(path.join(publishDir,'js','admin-owner-finance.js'),'utf8'),splitOwnerFinance.ownerFinance);
   if(cfg.role==='admin'){
     assert.equal(fs.readFileSync(path.join(publishDir,'js','admin-expansion.js'),'utf8'),splitAcquisition.expansion);
     assert.ok(!cfSw.includes("'./js/admin-expansion.js?v=1234567890123456789012345678901234567890'"));
