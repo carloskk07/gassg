@@ -5221,9 +5221,9 @@ function adminPrelaunchLeadsSection(data){
       adminClubeInterestSection(),
       adminClubeCampaignSection(),
       adminClubeTermsSection(),
-      (typeof adminOwnerFinanceWorkspaceSection==='function'
-        ?adminOwnerFinanceWorkspaceSection()
-        :adminOwnerFinanceFallbackView()),
+      ...(typeof adminOwnerFinanceWorkspaceSection==='function'
+        ?[adminOwnerFinanceWorkspaceSection(),]
+        :[adminOwnerFinanceFallbackView()]),
       adminAdsCampaignSection(),
       adminAdsAudienceSection(),
       adminAdsPreviewSummarySection(),
