@@ -530,6 +530,118 @@ async function adminAdsDemandLoadFromUi(){
     }
   }finally{adminAdsDemandBusy=false;render();}
 }
+/* TAMÃO V1.408 — quadro de prontidão de cupons, somente leitura.
+ * Sempre consultar as três filas diretamente do servidor. Nenhum total parcial
+ * é tratado como quantidade de contratos, saldo financeiro ou estoque vendável. */
+let adminClubeLaunchReadiness=null;
+let adminClubeLaunchReadinessBusy=false;
+async function adminClubeLaunchReadinessLoadFromUi(){
+  const actor=String(adminRuntime?.session?.user?.id||'');
+  const session=adminRuntime?.session;
+  const role=String(adminCurrentRole());
+  if(!actor||!['superadmin','operations','compliance','finance','readonly'].includes(role)||
+     adminRuntime?.status!=='ready'||adminClubeLaunchReadinessBusy)return;
+  adminClubeLaunchReadinessBusy=true;
+  adminClubeLaunchReadiness=null;
+  render();
+  try{
+    const [interests,reviews,terms]=await Promise.all([
+      adminInvoke({action:'clube-interest-queue'}),
+      adminInvoke({action:'clube-campaign-queue'}),
+      adminInvoke({action:'clube-terms-queue'})
+    ]);
+    const integer=value=>Number.isSafeInteger(value)&&value>=0;
+    if(interests?.source!=='admin_clube_interest_queue_v1_240'||
+       interests.readOnly!==true||interests.couponSalesEnabled!==false||
+       interests.noCharge!==true||interests.noContractsApproved!==true||
+       interests.sponsorFundingConfirmedCents!==0||
+       !integer(interests.totalProposals)||!Array.isArray(interests.rows)||
+       interests.rows.length>50||
+       reviews?.source!=='admin_clube_campaign_queue_v1_241'||
+       reviews.readOnly!==true||reviews.couponSalesEnabled!==false||
+       reviews.noContractsApproved!==true||reviews.campaignsActive!==0||
+       reviews.sponsorFundingConfirmedCents!==0||reviews.noCharge!==true||
+       !integer(reviews.totalProposals)||!integer(reviews.activeInterests)||
+       reviews.activeInterests>reviews.totalProposals||!Array.isArray(reviews.rows)||
+       reviews.rows.length>50||
+       terms?.source!=='admin_clube_terms_queue_v1_242'||
+       terms.readOnly!==true||terms.noContractsSigned!==true||
+       terms.fundingVerifiedCents!==0||terms.moneyReservedCents!==0||
+       terms.couponSalesEnabled!==false||terms.noCharge!==true||
+       !integer(terms.totalReviews)||!Array.isArray(terms.rows)||
+       terms.rows.length>50)
+      throw new Error('Prontidão dos cupons não confirmada pelas fontes oficiais.');
+    // Resultado inválido ou de outra sessão nunca deve aparecer para o próximo Admin.
+    if(actor!==String(adminRuntime?.session?.user?.id||'')||
+       session!==adminRuntime?.session||adminRuntime.status!=='ready')return;
+    adminClubeLaunchReadiness={
+      actor,checkedAt:new Date().toISOString(),
+      proposals:interests.totalProposals,
+      activeInterests:reviews.activeInterests,
+      totalReviews:terms.totalReviews,
+      visibleTerms:terms.rows.filter(row=>row?.termsVersion>0).length,
+      scannedTerms:terms.rows.length,
+      ready:false,contractedCents:0,reservedCents:0,activeSales:0
+    };
+  }catch(error){
+    if(actor===String(adminRuntime?.session?.user?.id||'')&&
+       session===adminRuntime?.session){
+      adminClubeLaunchReadiness={actor,error:String(error?.message||'Não foi possível verificar o Clube.'),ready:false};
+    }
+  }finally{
+    adminClubeLaunchReadinessBusy=false;
+    render();
+  }
+}
+function adminClubeLaunchReadinessSection(){
+  const role=String(adminCurrentRole());
+  if(!['superadmin','operations','compliance','finance','readonly'].includes(role))return '';
+  const actor=String(adminRuntime?.session?.user?.id||'');
+  const d=adminClubeLaunchReadiness?.actor===actor?adminClubeLaunchReadiness:null;
+  const blockers=[
+    ['Revendas participantes',!d||d.activeInterests<1,
+     'Coletar adesão voluntária por cidade e categoria; uma intenção não é contrato.'],
+    ['Revisão comercial',!d||d.totalReviews<1,
+     'Conferir o pacote, a margem e os limites financeiros antes da proposta.'],
+    ['Acordos e custeio',true,
+     'Comprovar aceites, documentos, valor reservado e quem paga cada desconto.'],
+    ['Emissão, cobrança e resgate',true,
+     'Homologar PSP do TAMÃO, conciliação, idempotência, resgates e estornos.'],
+    ['Autorização de abertura',true,
+     'Somente o Admin principal libera a comercialização após os testes completos.']
+  ];
+  const audited=Boolean(d&&!d.error);
+  const checked=d?.checkedAt?new Date(d.checkedAt).toLocaleString('pt-BR'):'';
+  const blockersMarkup=blockers.map(([title,blocked,details],i)=>
+    '<div class="list-row"><span class="status-pill '+(blocked?'risk':'online')+'">'+
+    (blocked?'Pendente':'Em análise')+'</span><div><strong>'+esc(title)+'</strong>'+
+    '<p class="tiny muted">'+esc(details)+'</p></div></div>').join('');
+  return '<section class="section admin-clube-launch-readiness" aria-label="Prontidão da venda de cupons">'+
+    '<div class="section-head"><div><span class="section-kicker">CLUBE TAMÃO • ATIVAÇÃO SEGURA</span>'+
+    '<h3>Central de Prontidão dos Pacotes</h3>'+
+    '<p>Veja o que existe de verdade antes de decidir abrir vendas. Este painel não gera cobrança, cupom, resgate ou reserva.</p></div>'+
+    '<button type="button" class="secondary small" onclick="adminClubeLaunchReadinessLoadFromUi()" '+
+    (adminClubeLaunchReadinessBusy?'disabled':'')+'>'+
+    (adminClubeLaunchReadinessBusy?'Verificando…':'Verificar situação real')+'</button></div>'+
+    (audited?'<div class="merchant-kpis">'+
+      '<div class="kpi"><span class="label">Interesses registrados</span><strong>'+
+        Number(d.proposals).toLocaleString('pt-BR')+'</strong><small>Propostas, não contratos</small></div>'+
+      '<div class="kpi"><span class="label">Interesses ativos</span><strong>'+
+        Number(d.activeInterests).toLocaleString('pt-BR')+'</strong><small>Sem benefício habilitado</small></div>'+
+      '<div class="kpi"><span class="label">Revisões registradas</span><strong>'+
+        Number(d.totalReviews).toLocaleString('pt-BR')+'</strong><small>Não equivalem a aprovação</small></div>'+
+      '<div class="kpi"><span class="label">Pacotes à venda</span><strong>0</strong><small>Bloqueados no banco</small></div>'+
+      '</div><p class="tiny muted">Consulta do servidor: '+esc(checked)+
+        '. Minutas identificadas nas primeiras '+Number(d.scannedTerms)+
+        ' entradas: '+Number(d.visibleTerms)+'. A fila é paginada e não representa contratos.</p>':
+      d?.error?'<p class="notice risk">'+esc(d.error)+'</p>':
+      '<p class="muted tiny">Consulte as filas oficiais para obter o retrato atual da operação.</p>')+
+    '<div class="card flat"><strong>Condições para abrir a comercialização</strong>'+
+    '<div class="list" style="margin-top:12px">'+blockersMarkup+'</div>'+
+    '<p class="tiny muted">Status operacional: venda e resgate desativados. O painel não pode liberar pacotes.</p></div>'+
+    '</section>';
+}
+
 // Clube TAMÃO V1.240 — read-only proposal radar, no funded discounts.
 let adminClubeInterestState=null;
 let adminClubeInterestBusy=false;
@@ -5218,6 +5330,7 @@ function adminPrelaunchLeadsSection(data){
       adminGrowthNetworkOverviewView(data?.growthNetwork),
       adminGrowthApplicationFunnelView(data?.growthApplicationFunnel),
       adminAdsDemandSection(),
+      adminClubeLaunchReadinessSection(),
       adminClubeInterestSection(),
       adminClubeCampaignSection(),
       adminClubeTermsSection(),
