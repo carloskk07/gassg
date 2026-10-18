@@ -646,6 +646,8 @@ ${discoveryTiles?`<section id="home-discover" class="home-discover" aria-label="
   <div id="home-discover-grid" class="home-discover-grid">${discoveryTiles}</div>
 </section>`:''}
 
+${typeof discoveryExploreCards==='function'?discoveryExploreCards():''}
+
 ${conciseHome&&typeof tamaoHomeBenefits==="function"?tamaoHomeBenefits({compact:true}):''}
 
 ${conciseHome?`<section class="home-buying-steps" aria-label="Como começar no TAMÃO">
