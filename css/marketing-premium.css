@@ -931,3 +931,10 @@
  .home-benefits-shortcuts button{font-size:11px;min-height:38px}
 }
 @media(prefers-reduced-motion:reduce){.home-benefits-shortcuts button{transition:none}}
+
+
+/* Four differentiated public audiences, with balanced card density. */
+.home-value-bridge.tamao-visitor-paths>.visitor-paths-grid{grid-template-columns:repeat(4,minmax(0,1fr))}
+.tamao-visitor-paths .visitor-path-sponsor .visitor-path-icon{background:#f9e7e5}
+@media(max-width:1050px){.home-value-bridge.tamao-visitor-paths>.visitor-paths-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:620px){.home-value-bridge.tamao-visitor-paths>.visitor-paths-grid{grid-template-columns:minmax(0,1fr)}}
