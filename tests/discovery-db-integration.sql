@@ -123,5 +123,61 @@ begin
  end;
 end $$;
 
+
+-- An authenticated visitor must not read the publisher's internal user UUID.
+set role authenticated;
+set request.jwt.claim.sub='00000000-0000-0000-0000-000000000022';
+do $$
+begin
+ begin
+  perform owner_id from public.discovery_listings
+  where id=(current_setting('tamao.test.listing_id'))::uuid;
+  raise exception 'PUBLISHER_INTERNAL_ID_EXPOSED';
+ exception when insufficient_privilege then null;
+ end;
+end $$;
+
+-- The owner can pause without needing a second administrator, but cannot
+-- silently edit an approved public advertisement.
+set request.jwt.claim.sub='00000000-0000-0000-0000-000000000011';
+do $$
+declare v_changed integer;
+begin
+ update public.discovery_listings set title='Alteração silenciosa proibida'
+ where id=(current_setting('tamao.test.listing_id'))::uuid;
+ get diagnostics v_changed=row_count;
+ if v_changed<>0 then raise exception 'PUBLISHED_LISTING_EDITABLE';end if;
+end $$;
+select public.discovery_transition_listing((current_setting('tamao.test.listing_id'))::uuid,'paused')
+  as owner_paused;
+
+set role anon;
+reset request.jwt.claim.sub;
+do $$
+declare v_visible integer;
+begin
+ select count(*) into v_visible from public.discovery_listings
+ where id=(current_setting('tamao.test.listing_id'))::uuid;
+ if v_visible<>0 then raise exception 'PAUSED_LISTING_VISIBLE';end if;
+end $$;
+
+-- Re-publication and city closure are distinct administrator powers.
+set role authenticated;
+set request.jwt.claim.sub='00000000-0000-0000-0000-000000000033';
+select public.discovery_transition_listing((current_setting('tamao.test.listing_id'))::uuid,'published',
+  'Retomada validada na revisão') as admin_republished;
+select public.discovery_set_vertical_city('professionals','RS','sao-gabriel',
+  'São Gabriel',false,'Encerramento isolado de teste');
+
+set role anon;
+reset request.jwt.claim.sub;
+do $$
+declare v_visible integer;
+begin
+ select count(*) into v_visible from public.discovery_listings
+ where id=(current_setting('tamao.test.listing_id'))::uuid;
+ if v_visible<>0 then raise exception 'DISABLED_CITY_EXPOSED';end if;
+end $$;
+
 reset role;
 select 'DISCOVERY_POSTGRES_RLS_INTEGRATION_OK' as result;
