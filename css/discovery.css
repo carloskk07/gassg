@@ -1,0 +1,43 @@
+/* TAMÃO — public discovery, scoped to avoid disturbing product checkout/admin. */
+.discovery-entrances{margin-block:26px 34px}
+.discovery-entrances h2{font-size:clamp(23px,3vw,33px);line-height:1.17}
+.discovery-entry-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin-top:18px}
+.discovery-entry-grid button{display:flex;flex-direction:column;align-items:flex-start;gap:11px;
+  min-width:0;min-height:168px;padding:20px;border-radius:19px;
+  border:1px solid #cfdfd4;background:linear-gradient(155deg,#fff,#edf8f0);
+  box-shadow:0 9px 22px rgba(21,74,48,.06);text-align:left;color:#144633;cursor:pointer}
+.discovery-entry-grid strong{font-size:20px;letter-spacing:-.03em}
+.discovery-entry-grid span:last-child{margin-top:auto;font-weight:700;color:#166347}
+.discovery-entry-grid button:hover{border-color:#83bfa0;transform:translateY(-2px)}
+.discovery-entry-grid button:focus-visible,.discovery-search :focus-visible,
+.discovery-result a:focus-visible{outline:3px solid #bd821b;outline-offset:3px}
+.discovery-page{padding-block:34px 75px;max-width:1020px}
+.discovery-intro{max-width:760px;margin-bottom:22px}
+.discovery-intro h1{font-size:clamp(30px,4.4vw,48px);line-height:1.09;letter-spacing:-.04em;margin:9px 0 12px;color:#153e2d}
+.discovery-intro p{font-size:16px;color:#4d6657;line-height:1.65}
+.discovery-search{display:grid;grid-template-columns:minmax(0,.42fr) minmax(0,1fr) auto;align-items:end;
+ gap:12px;padding:18px;border:1px solid #d2e3d5;border-radius:18px;background:#f4faf5}
+.discovery-search label{display:grid;gap:6px;font-size:13px;font-weight:800;color:#23523d}
+.discovery-search select,.discovery-search input{width:100%;min-height:46px;padding:10px 12px;
+ background:#fff;border:1px solid #b9cfc0;border-radius:10px;font:inherit;color:#183c2b}
+.discovery-search button{min-height:46px}
+.discovery-results{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px;margin-top:22px}
+.discovery-results>p,.discovery-results>.notice{grid-column:1/-1}
+.discovery-result{display:flex;flex-direction:column;align-items:flex-start;gap:9px;
+ padding:21px;border-radius:17px;border:1px solid #d7e7d9;background:#fff;min-width:0}
+.discovery-result h2{font-size:20px;margin:0;color:#143f2c;line-height:1.24}
+.discovery-result p{color:#53685a;line-height:1.55;margin:0;overflow-wrap:anywhere}
+.discovery-result .discovery-detail{font-weight:750;color:#2e6449}
+.discovery-result a{margin-top:auto;display:inline-flex;align-items:center;min-height:42px;
+ padding:10px 14px;background:#0d6b4b;color:#fff;border-radius:11px;
+ font-size:13px;font-weight:800;text-decoration:none}
+@media(max-width:760px){
+ .discovery-entry-grid,.discovery-results{grid-template-columns:minmax(0,1fr)}
+ .discovery-search{grid-template-columns:1fr}
+ .discovery-entry-grid button{min-height:0}
+ .discovery-page{padding-block:23px 72px}
+}
+@media(prefers-reduced-motion:reduce){
+ .discovery-entry-grid button{transition:none}
+ .discovery-entry-grid button:hover{transform:none}
+}
