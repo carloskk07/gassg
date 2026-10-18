@@ -95,6 +95,16 @@ begin
  end;
 end $$;
 select public.discovery_transition_listing((current_setting('tamao.test.listing_id'))::uuid,'review') as owner_submitted;
+-- A regular advertiser cannot read another person's moderation queue.
+do $$
+begin
+ begin
+  perform count(*) from public.discovery_admin_review_queue();
+  raise exception 'OWNER_READ_ADMIN_REVIEW_QUEUE';
+ exception when insufficient_privilege then null;
+ end;
+end $$;
+
 do $$
 declare v_status text;
 begin
@@ -159,6 +169,13 @@ end $$;
 
 -- Admin is the only actor permitted to enable the category in a city.
 set request.jwt.claim.sub='00000000-0000-0000-0000-000000000033';
+-- Only the superadmin can inspect the actual list pending analysis.
+do $$
+declare n integer;
+begin
+ select count(*) into n from public.discovery_admin_review_queue();
+ if n<>1 then raise exception 'ADMIN_REVIEW_QUEUE_MISMATCH';end if;
+end $$;
 select public.discovery_set_vertical_city('professionals','RS','sao-gabriel',
   'São Gabriel',true,'Lote de teste isolado');
 select public.discovery_transition_listing((current_setting('tamao.test.listing_id'))::uuid,'published',
