@@ -18,8 +18,8 @@ assert.equal((benefits.match(/class="tamao-perks-panel /g)||[]).length,2,
  'club and referral should have separate prominent sections');
 assert.doesNotMatch(benefits,/ganhos garantidos|recompensa garantida|cupons ativos para todos|R\$ ?[0-9]/i);
 const home=customer.slice(customer.indexOf('function home(){'),customer.indexOf('\nfunction orderPage(){'));
-assert.ok(home.includes('typeof tamaoHomeBenefits===')&&!home.includes('!conciseHome&&typeof tamaoHomeBenefits'),
- 'new benefit stage remains discoverable without verified city offers');
+assert.ok(home.includes('tamaoHomeBenefits({compact:true})')&&home.includes('!conciseHome&&typeof tamaoHomeBenefits'),
+ 'new benefit stage renders compact on first visits and full when city offers are verified');
 const premium=read('css/marketing-premium.css');
 assert.match(premium,/\.tamao-perks-stage/);
 assert.match(premium,/\.tamao-perks-panel button:focus-visible/);
