@@ -63,6 +63,8 @@ jobs:
         run: node tests/admin-section-render-isolation.mjs
       - name: Deferred admin expansion split and authentication guards
         run: node tests/admin-expansion-lazy-loader.mjs
+      - name: Deferred owner finance slice and superadmin role checks
+        run: node tests/admin-owner-finance-lazy-loader.mjs
       - name: Isolated admin CSS parser and shared class preservation
         run: node tests/strip-admin-css.mjs
       - name: Release SHA truth and legacy PR triage contract

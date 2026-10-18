@@ -54,6 +54,29 @@ export function splitAdminAcquisition(source){
   return {core,expansion};
 }
 
+// Keep one canonical acquisition source. Preserve the exact byte sequence
+// of all functions and lexical declarations, deferring owner-only financial
+// tooling in the privileged partner work area.
+export function splitAdminOwnerFinanceCore(core){
+  if(typeof core!=='string')throw new TypeError('Admin core must be a string');
+  const first='\nasync function adminOwnerFinanceLoadFromUi(';
+  const last='\nfunction adminPrelaunchLeadsSection(';
+  const beginning=core.indexOf(first),ending=core.indexOf(last);
+  if(beginning<90000||ending<beginning+180000
+    ||core.indexOf(first,beginning+1)!==-1||core.indexOf(last,ending+1)!==-1)
+    throw new Error('Missing or ambiguous owner-finance boundary');
+  const prefix=core.slice(0,beginning+1),ownerFinance=core.slice(beginning+1,ending+1),
+    leads=core.slice(ending+1),startup=prefix+leads;
+  validateClassicScriptSyntax(startup,'js/admin-acquisition.js (startup)');
+  validateClassicScriptSyntax(ownerFinance,'js/admin-owner-finance.js (deferred)');
+  if(prefix+ownerFinance+leads!==core)throw new Error('Canonical owner finance split lost bytes');
+  if(!ownerFinance.includes('function adminOwnerFinanceWorkspaceSection(')
+    ||!ownerFinance.includes('async function adminOwnerFinanceLoadFromUi(')
+    ||!leads.includes('function adminPrelaunchLeadsSection('))
+    throw new Error('Missing owner finance or partner workspace contract');
+  return {startup,ownerFinance,prefix,leads};
+}
+
 function copyDir(src,dst){
   fs.mkdirSync(dst,{recursive:true});
   for(const entry of fs.readdirSync(src,{withFileTypes:true})){
@@ -273,7 +296,9 @@ export function buildLivePortals(env=process.env,{outputRoot=env.PORTAL_BUILD_OU
       const acquisitionFile=path.join(target,'js','admin-acquisition.js');
       const canonical=fs.readFileSync(acquisitionFile,'utf8');
       const parts=splitAdminAcquisition(canonical);
-      fs.writeFileSync(acquisitionFile,parts.core,'utf8');
+      const owner=splitAdminOwnerFinanceCore(parts.core);
+      fs.writeFileSync(acquisitionFile,owner.startup,'utf8');
+      fs.writeFileSync(path.join(target,'js','admin-owner-finance.js'),owner.ownerFinance,'utf8');
       fs.writeFileSync(path.join(target,'js','admin-expansion.js'),parts.expansion,'utf8');
     }
     // Admin implementation must not be distributed with customer/merchant

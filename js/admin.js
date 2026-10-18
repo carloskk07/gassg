@@ -409,6 +409,8 @@ async function adminRefresh({silent=false}={}){
     if(adminRuntime.section==='activations')queueMicrotask(()=>adminActivationLoadOnDemand().catch(()=>{}));
     if(['prospects','enablement'].includes(adminRuntime.section))
       queueMicrotask(()=>adminExpansionLoadOnDemand().catch(()=>{}));
+    if(adminRuntime.section==='partners'&&adminCurrentRole()==='superadmin')
+      queueMicrotask(()=>adminOwnerFinanceLoadOnDemand().catch(()=>{}));
     if(adminRuntime.section==='finance')queueMicrotask(()=>adminLoadFinanceHistory().catch(()=>{}));
     if(adminRuntime.section==='finance')queueMicrotask(()=>adminLoadMerchantFinance().catch(()=>{}));
     if(adminRuntime.section==='alerts')queueMicrotask(()=>adminLoadOperationalAlerts().catch(()=>{}));
@@ -2554,6 +2556,68 @@ function adminExpansionFallbackView(){
     'Carregando dados de cidades e revendas…</p></section>';
 }
 
+// Privileged owner finance utilities are a deferred classic-script chunk of
+// the one canonical acquisition source. No automatic payments or releases.
+const adminOwnerFinanceModuleUrl=(()=>{
+  try{
+    const script=document.currentScript;
+    if(!script?.src)return null;
+    const parent=new URL(script.src,document.baseURI);
+    if(parent.origin!==location.origin||!parent.pathname.endsWith('/js/admin.js'))return null;
+    const next=new URL('admin-owner-finance.js',parent);
+    next.search=parent.search;
+    return next.href;
+  }catch{return null}
+})();
+let adminOwnerFinanceModulePromise=null;
+let adminOwnerFinanceModuleError=null;
+async function adminOwnerFinanceLoadOnDemand(){
+  if(!adminReady()||adminRuntime.section!=='partners'
+    ||!adminRoleCanSection('partners')||adminCurrentRole()!=='superadmin')return null;
+  const actor=String(adminRuntime.session?.user?.id||'');
+  if(typeof adminOwnerFinanceWorkspaceSection!=='function'){
+    if(!adminOwnerFinanceModulePromise){
+      adminOwnerFinanceModuleError=null;
+      adminOwnerFinanceModulePromise=new Promise((resolve,reject)=>{
+        if(!adminOwnerFinanceModuleUrl){
+          reject(new Error('Gestão financeira não está configurada nesta publicação.'));
+          return;
+        }
+        const script=document.createElement('script');
+        script.src=adminOwnerFinanceModuleUrl;
+        script.async=true;
+        script.onload=()=>typeof adminOwnerFinanceWorkspaceSection==='function'
+          ?resolve(true)
+          :reject(new Error('A gestão financeira não inicializou corretamente.'));
+        script.onerror=()=>reject(new Error('Não foi possível carregar a gestão financeira. Verifique a conexão.'));
+        document.head.appendChild(script);
+      }).catch(error=>{
+        adminOwnerFinanceModuleError=String(error?.message||'Erro ao carregar recursos de gestão.');
+        throw error;
+      }).finally(()=>{adminOwnerFinanceModulePromise=null});
+    }
+    try{await adminOwnerFinanceModulePromise}
+    catch{
+      if(adminRuntime.section==='partners')render();
+      return null;
+    }
+  }
+  if(!adminReady()||adminRuntime.section!=='partners'
+    ||adminCurrentRole()!=='superadmin'||!adminRoleCanSection('partners')
+    ||String(adminRuntime.session?.user?.id||'')!==actor)return null;
+  adminOwnerFinanceModuleError=null;
+  render();
+  return true;
+}
+function adminOwnerFinanceFallbackView(){
+  if(adminCurrentRole()!=='superadmin'||adminRuntime.section!=='partners')return '';
+  if(adminOwnerFinanceModuleError)return '<section class="section"><div class="notice danger">'+
+    esc(adminOwnerFinanceModuleError)+'</div><button type="button" class="secondary"'+
+    ' onclick="adminOwnerFinanceLoadOnDemand()">Tentar novamente</button></section>';
+  return '<section class="section"><p class="muted" role="status">'+
+    'Carregando ferramentas de gestão financeira…</p></section>';
+}
+
 function adminSetSection(section){
   const allowed=['overview','orders','customers','partners','prospects','enablement','catalog','finance','alerts','incidents','audit','system','activations'];
   const requested=allowed.includes(String(section||''))?String(section):'overview';
@@ -2566,6 +2630,8 @@ function adminSetSection(section){
   if(next==='activations')adminActivationLoadOnDemand().catch(()=>{});
   if(next==='alerts')adminLoadOperationalAlerts({force:true}).catch(()=>{});
   if(['prospects','enablement'].includes(next))adminExpansionLoadOnDemand().catch(()=>{});
+  if(next==='partners'&&adminCurrentRole()==='superadmin')
+    adminOwnerFinanceLoadOnDemand().catch(()=>{});
   if(next==='finance')adminLoadFinanceHistory().catch(()=>{});
   if(next==='finance')adminLoadMerchantFinance().catch(()=>{});
   requestAnimationFrame(()=>{
