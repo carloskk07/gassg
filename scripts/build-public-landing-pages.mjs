@@ -18,6 +18,7 @@ const PAGES=[
   primary:['Conhecer os produtos','/'],
   secondary:['Ver o passo a passo','/#learn'],
   mark:'ESCOLHER, CONFERIR, ACOMPANHAR',
+  trustNotes:["Sua cesta, sua escolha","Preço total antes de pedir","Etapas do pedido visíveis"],
   stepsHeading:"Da escolha à entrega: você sabe o próximo passo.",
   proofTitle:"Três motivos para conhecer o TAMÃO",
   highlights:[["🧺","A cesta é sua","Água e outros itens não exigem comprar gás junto."],["💰","O valor antes do pedido","Consulte o total e a previsão das opções para seu CEP."],["📍","A entrega acompanhada","Veja as etapas registradas depois da confirmação da revenda."]],
@@ -49,6 +50,7 @@ const PAGES=[
   primary:['Quero apresentar minha empresa','/?entrada=revenda'],
   secondary:['Entender a parceria','/#merchants'],
   mark:'MAIS UM CANAL, SEM PERDER SUA AUTONOMIA',
+  trustNotes:["Sem exclusividade","Sem mensalidade no modelo atual","Recebimento direto na revenda"],
   stepsHeading:"Do cadastro ao primeiro pedido, sem complicar.",
   proofTitle:"Uma parceria que respeita o seu negócio",
   highlights:[["🏪","Seus produtos, suas regras","Você administra catálogo, preços, estoque e área de entrega."],["💳","Recebimento sob seu controle","O cliente paga diretamente à sua revenda pelos meios oferecidos."],["🤝","Sem exclusividade","Continue atendendo por telefone, WhatsApp e outros canais."]],
@@ -80,6 +82,7 @@ const PAGES=[
   primary:['Apresentar minha marca','/?entrada=marca'],
   secondary:['Conhecer os formatos','/#sponsors'],
   mark:'DIVULGAÇÃO COM CONTEXTO LOCAL',
+  trustNotes:["Ações por região","Publicidade identificada","Propostas personalizadas"],
   stepsHeading:"Da ideia à ação comercial.",
   proofTitle:"Sua marca em conversas que fazem sentido",
   highlights:[["📣","Divulgação regional","Possibilidades de presença publicitária identificada por região."],["🎁","Ações com benefícios","Propostas de campanhas e vantagens para públicos elegíveis."],["🏪","Comércio local","Parcerias pensadas para aproximar marcas e revendas."]],
@@ -111,6 +114,7 @@ const PAGES=[
   primary:['Conhecer minha rede','/?entrada=indicar'],
   secondary:['Entender os benefícios','/#earn'],
   mark:'CONEXÕES QUE APROXIMAM A CIDADE',
+  trustNotes:["Convite pessoal","Acompanhamento da rede","Benefícios por campanha elegível"],
   stepsHeading:"Três passos para começar sua rede.",
   proofTitle:"Indicar fica mais fácil quando o caminho é claro",
   highlights:[["🫶","Convide pessoas","Compartilhe o TAMÃO com quem pode gostar da plataforma."],["🏪","Apresente revendas","Ajude empresas da cidade a conhecer a oportunidade."],["🔗","Acompanhe convites","Consulte as participações atribuídas ao seu código."]],
@@ -231,7 +235,7 @@ function renderLanding(page,origin,indexing){
    <h1>${esc(page.heading)}</h1>
    <p>${esc(page.lead)}</p>
    <div class="ed-actions">${primary}${secondary}</div>
-   <div class="ed-hero-notes" aria-label="Sobre o TAMÃO"><span>✓ ${esc(page.slug==='para-revendas'?'Sem exclusividade':page.slug==='como-funciona'?'Preço antes de pedir':page.slug==='indicacoes'?'Convites acompanhados':'Proposta por região')}</span><span>✓ ${esc(page.slug==='para-revendas'?'Controle da operação':page.slug==='como-funciona'?'Consulta por CEP':page.slug==='indicacoes'?'Rede de pessoas e empresas':'Publicidade identificada')}</span></div>
+   <div class="ed-hero-notes" aria-label="Principais vantagens">${page.trustNotes.map(note=>'<span>✓ '+esc(note)+'</span>').join('')}</div>
   </div>
   <aside class="ed-hero-visual" aria-label="Apresentação ilustrativa da proposta do TAMÃO">
    <span class="ed-visual-kicker">${esc(page.mark)}</span>
