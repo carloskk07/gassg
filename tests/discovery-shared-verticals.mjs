@@ -52,6 +52,16 @@ assert.doesNotMatch(sql,/update public\.platform_launch_control|update public\.m
   'discovery must never open current product marketplace');
 assert.doesNotMatch(sql,/sb_secret_|service_role\s*=|\bsecret\b\s*=/i,
   'no secret is allowed in versioned schema');
+assert.match(sql,/create function public\.discovery_public_search\(/,
+  'public vertical search must have one canonical implementation');
+assert.match(sql,/language sql stable security invoker/,
+  'public search must respect RLS of the caller');
+assert.match(sql,/where l\.status='published'/,
+  'public search must not expose draft or unapproved listings');
+assert.match(sql,/c\.city_key=l\.city_key and c\.enabled/,
+  'public search must respect vertical/city activation');
+assert.match(sql,/r\.departure_at>statement_timestamp\(\) and r\.seats_available>0/,
+  'rides past departure or with no seats must stay out of results');
 assert.doesNotMatch(sql,/grant select \(owner_id\) on public\.discovery_listings/,
   'browser must not expose publisher UUID');
 assert.match(sql,/create function public\.discovery_owner_can_edit_details\(/,
