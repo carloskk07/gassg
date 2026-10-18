@@ -521,6 +521,8 @@ jobs:
         run: node tests/public-benefits-first-v1-405.mjs
       - name: Public storytelling and benefits experience V1.406
         run: node tests/public-experience-v1-406.mjs
+      - name: Public savings, merchant demand and coupon transparency V1.407
+        run: node tests/public-savings-conversion-v1-407.mjs
       - name: V1.378 preserve attributed visits and show distinct visitor visuals
         run: node tests/public-handoff-visual-v1-378.mjs
       - name: V1.379 mobile product CEP and merchant form recovery
