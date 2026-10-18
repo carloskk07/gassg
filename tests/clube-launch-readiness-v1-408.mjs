@@ -50,7 +50,7 @@ const context=vm.createContext({
 vm.runInContext(snippet,context,{filename:'clube-readiness.js'});
 await vm.runInContext('adminClubeLaunchReadinessLoadFromUi()',context);
 const html=vm.runInContext('adminClubeLaunchReadinessSection()',context);
-assert.match(html,/Central de Prontidão dos Pacotes/);
+assert.match(html,/Clube TAMÃO: acompanhe e avance/);
 assert.match(html,/Interesses registrados/);
 assert.match(html,/Interesses ativos/);
 assert.match(html,/Revisões registradas/);
