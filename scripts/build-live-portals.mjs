@@ -292,6 +292,7 @@ export function buildLivePortals(env=process.env,{outputRoot=env.PORTAL_BUILD_OU
     // Discovery is customer-only and fetched on navigation, never in privileged bundles.
     if(role!=='customer'){
       fs.rmSync(path.join(target,'js','discovery.js'),{force:true});
+      fs.rmSync(path.join(target,'js','discovery-owner.js'),{force:true});
       fs.rmSync(path.join(target,'css','discovery.css'),{force:true});
     }
     // Split only the released admin bundle; keep one canonical source file
