@@ -93,13 +93,13 @@ try{
 }finally{fs.rmSync(tmp,{recursive:true,force:true})}
 // Visual-regression guardrails: typography, four balanced audience paths, mobile
 // reflow and sprite scaling all ship together with the public pages.
-assert.match(stylesheet,/\\.ed-product\\s*\\{[^}]*background-size:500% auto/s);
-assert.match(stylesheet,/\\.ed-product\\s*\\{[^}]*aspect-ratio:1/s);
-assert.match(stylesheet,/\\.ed-hero-copy h1\\s*\\{[^}]*text-wrap:balance/s);
-assert.match(stylesheet,/@media\\(max-width:370px\\)/);
-assert.match(marketingStyles,/\\.home-discover-art\\s*\\{[^}]*aspect-ratio:1/s);
-assert.match(marketingStyles,/\\.home-value-bridge\\.tamao-visitor-paths > \\.visitor-paths-grid\\s*\\{[^}]*repeat\\(4,minmax\\(0,1fr\\)\\)/s);
-assert.match(marketingStyles,/@media\\(max-width:370px\\)/);
-assert.match(productStyles,/\\.tamao-product-photo\\s*\\{[^}]*background-size:500% auto/s);
+assert.match(stylesheet,/\.ed-product\s*\{[^}]*background-size:500% auto/s);
+assert.match(stylesheet,/\.ed-product\s*\{[^}]*aspect-ratio:1/s);
+assert.match(stylesheet,/\.ed-hero-copy h1\s*\{[^}]*text-wrap:balance/s);
+assert.match(stylesheet,/@media\(max-width:370px\)/);
+assert.match(marketingStyles,/\.home-discover \.home-discover-art\s*\{[^}]*aspect-ratio:1/s);
+assert.match(marketingStyles,/\.home-value-bridge\.tamao-visitor-paths > \.visitor-paths-grid\s*\{[^}]*repeat\(4,minmax\(0,1fr\)\)/s);
+assert.match(marketingStyles,/@media\(max-width:370px\)/);
+assert.match(productStyles,/\.tamao-product-photo\s*\{[^}]*background-size:500% auto/s);
 assert.doesNotMatch(productStyles,/background-size:500% 100%/);
 console.log('TAMÃO V1.378 PASS — referral/UTM handoff, safe same-origin allowlist, distinct marketing visuals and mobile layout.');
