@@ -50,13 +50,13 @@ function tamaoProductArt(code,product,extra=''){
 function tamaoHomeBenefits(){
   return `<section class="section tamao-value-section" aria-label="Vantagens do TAMÃO">
     <div class="section-head"><div><span class="section-kicker">BOM PARA QUEM COMPRA. BOM PARA SUA CIDADE.</span>
-      <h2>Compare preços para economizar. Descubra descontos e vantagens para comprar melhor.</h2>
-      <p>Compare preços totais de revendas que atendam seu CEP e escolha a opção que cabe no bolso. Conheça cashback de compras elegíveis, descontos de campanhas e o projeto de pacotes de cupons do Clube TAMÃO. E ainda tem a Rede de Indicações.</p></div></div>
+      <h2>Compare preços, aproveite seu Clube e compre com mais vantagem.</h2>
+      <p>Compare preços totais das revendas que atendem seu CEP, escolha o melhor custo-benefício e acompanhe sua compra. Confira o cashback de pedidos elegíveis no Clube e convide amigos pela Rede TAMÃO.</p></div></div>
     <div class="tamao-perks-stage" aria-label="Clube TAMÃO e Rede TAMÃO">
       <article class="tamao-perks-panel tamao-perks-club">
         <div class="tamao-perks-top"><span class="tamao-perks-symbol" aria-hidden="true">🎁</span><span>CLUBE TAMÃO</span></div>
-        <h3>Economia além do preço: cashback, descontos e cupons.</h3>
-        <p>Compare antes de comprar. Cashback em compras elegíveis pode render créditos para compras futuras. O Clube também prepara pacotes de cupons de desconto para futuras campanhas, com preço e condições apresentados antes da venda.</p>
+        <h3>Compare, compre e acompanhe seu cashback.</h3>
+        <p>Veja a economia registrada nas suas comparações, acompanhe o cashback de compras elegíveis e consulte seu saldo para usar em novos pedidos.</p>
         <button type="button" onclick="go('club')">Conhecer meu Clube <span aria-hidden="true">→</span></button>
       </article>
       <article class="tamao-perks-panel tamao-perks-network">
@@ -66,17 +66,12 @@ function tamaoHomeBenefits(){
         <button type="button" onclick="go('earn')">Descobrir minha Rede <span aria-hidden="true">→</span></button>
       </article>
     </div>
-    <section class="tamao-coupon-preview" aria-label="Conheça os futuros pacotes de cupons de desconto">
-      <div class="tamao-coupon-preview-main"><span class="tamao-coupon-preview-label">🎟️ PACOTES DE CUPONS TAMÃO · EM PREPARAÇÃO</span>
-        <h3>Mais descontos para suas próximas compras.</h3>
-        <p>Estamos preparando pacotes de cupons para você adquirir descontos em compras elegíveis de gás e água. Cada oferta deverá informar preço do pacote, desconto total, prazo e condições de utilização antes de abrir as vendas.</p>
-        <button type="button" onclick="go('club')">Conhecer o Clube e os descontos <span aria-hidden="true">→</span></button>
-      </div>
-      <div class="tamao-coupon-preview-ticket" aria-label="Modelo ilustrativo de desconto">
-        <span>UMA NOVA FORMA DE ECONOMIZAR</span><strong>R$ <b>↓</b></strong><small>Cupons em pacotes</small><em>Projeto em desenvolvimento. Sem compra disponível.</em>
-      </div>
-    </section>
-    <p class="tamao-perks-note">Preços melhores dependem das ofertas para o CEP; cashback e cupons dependem das regras e campanhas aplicáveis. Pacotes ainda não estão disponíveis para compra.</p>
+    <div class="tamao-action-now">
+      <div><span class="section-kicker">APROVEITE O TAMÃO AGORA</span>
+        <h3>Encontre uma opção melhor para sua próxima compra.</h3>
+        <p>Escolha gás, água ou outros essenciais. Consulte o que atende seu CEP e acompanhe suas vantagens no Clube.</p></div>
+      <button type="button" class="primary" onclick="go('home')">Comparar produtos <span aria-hidden="true">→</span></button>
+    </div>
     <div class="grid cards-3 tamao-value-grid">
       <article class="card"><span class="tamao-value-icon" aria-hidden="true">🔎</span>
         <h3>Compare preços e encontre oportunidades de economia</h3>
@@ -85,8 +80,8 @@ function tamaoHomeBenefits(){
         <h3>Seu pedido, com etapas que você acompanha</h3>
         <p>Uma revenda precisa confirmar seu pedido antes de ele avançar. O acompanhamento mostra as etapas efetivamente registradas.</p></article>
       <article class="card"><span class="tamao-value-icon" aria-hidden="true">🤝</span>
-        <h3>Descontos para comprar com mais vantagem</h3>
-        <p>Acompanhe cashback e campanhas elegíveis. Os pacotes de cupons são uma nova forma de economia em preparação, ainda sem venda ou resgate.</p></article>
+        <h3>Indique amigos e amplie sua Rede TAMÃO</h3>
+        <p>Compartilhe seu convite com quem compra e quem vende. Consulte sua rede e acompanhe as participações atribuídas ao seu código.</p></article>
     </div>
     <div class="tamao-value-actions">
       <button type="button" class="secondary" onclick="go('earn')">Conhecer minha Rede TAMÃO →</button>
@@ -544,7 +539,7 @@ function home(){
       : 'Informe onde quer receber, veja o preço total e o prazo do parceiro disponível e acompanhe cada etapa até a entrega.'
     : 'Informe onde quer receber, compare as opções disponíveis e acompanhe cada etapa até a entrega.';
   const intentSection=acquisitionOpen
-    ? `<section class="section intent-section first-visit-intent"><div class="section-head"><div><span class="section-kicker">OUTRAS FORMAS DE PARTICIPAR</span><h2>Mais economia para quem compra. Mais oportunidades para quem vende.</h2><p>Descubra comparação de preços, Clube, cupons em preparação e indicações. Sua revenda também pode conquistar visibilidade e receber pedidos pela plataforma.</p></div></div>
+    ? `<section class="section intent-section first-visit-intent"><div class="section-head"><div><span class="section-kicker">OUTRAS FORMAS DE PARTICIPAR</span><h2>Mais economia para quem compra. Mais oportunidades para quem vende.</h2><p>Descubra comparação de preços, cashback, Clube e indicações. Sua revenda também pode conquistar visibilidade e receber pedidos pela plataforma.</p></div></div>
 <div class="intent-grid prelaunch-intent-grid first-visit-intent-grid">
   <button class="intent-card" onclick="go('earn')"><span class="intent-icon">🤝</span><span><strong>Indique o TAMÃO</strong><small>Compartilhe com amigos e ajude a trazer novas revendas para sua cidade.</small></span><b>→</b></button>
   <button class="intent-card" onclick="go('learn')"><span class="intent-icon">🛡️</span><span><strong>Entender como funciona</strong><small>Saiba como são apresentados o preço, a confirmação e a entrega.</small></span><b>→</b></button>
@@ -593,7 +588,7 @@ function home(){
     <p class="hero-lead"><strong>Compare preços, encontre oportunidades de economia, cashback elegível e descontos do TAMÃO.</strong> Gás, água e o essencial do dia a dia, em um só lugar.  ${esc(hasConfirmedCityOffers?'Já consultamos opções para o seu CEP. Confira preços e prazos atualizados antes de confirmar.':conciseHome?firstVisitMessage:outsideOriginalMarket?'Veja quais opções atendem '+regionLabel+' pelo CEP. Se não houver ofertas, você poderá solicitar um aviso.':heroJourney)}</p>
     <div class="home-saving-headlines" aria-label="Benefícios de comprar e vender pelo TAMÃO">
       <span>💰 Compare preços totais por CEP</span>
-      <button type="button" onclick="go('club')">🎟️ Pacotes de cupons em preparação <span aria-hidden="true">→</span></button>
+      <button type="button" onclick="go('club')">🎁 Conheça suas vantagens no Clube <span aria-hidden="true">→</span></button>
       <button type="button" onclick="go('merchants')">🏪 Sua revenda pode conquistar novos clientes <span aria-hidden="true">→</span></button>
     </div>
     <div class="purchase-starter ${conciseHome?'home-starter-neutral':''}" aria-label="Consultar produtos e atendimento da sua região">
