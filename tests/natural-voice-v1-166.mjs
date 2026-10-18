@@ -8,7 +8,7 @@ const growth=read('js/growth.js');
 const merchant=read('js/merchant.js');
 
 for(const [source,phrase,why] of [
- [customer,'Quer saber mais ou tem uma revenda?','acolhimento inicial para clientes e empresas'],
+ [customer,'Tem muita coisa boa no TAMÃO além de comprar.','acolhimento inicial para clientes e empresas'],
  [customer,'Você escolhe. A revenda confirma. Você acompanha.','aceite explícito'],
  [customer,'E se a revenda não puder entregar?','explicação simples de imprevistos'],
  [customer,'Ainda não encontramos uma revenda que entregue neste CEP.','falta de atendimento sem falsa oferta'],
