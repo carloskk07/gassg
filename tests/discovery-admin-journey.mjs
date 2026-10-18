@@ -20,6 +20,7 @@ const client={rpc:async(name,args)=>{
  requested.push([name,args]);
  if(name==='discovery_admin_review_queue')return {data:queue,error:null};
  if(name==='discovery_transition_listing')return {data:args.p_next_status,error:null};
+ if(name==='discovery_set_vertical_city')return {data:null,error:null};
  throw Error('Unexpected RPC');
 }};
 const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({
@@ -30,7 +31,11 @@ const ctx={
  adminRuntime:{client,section:'discovery'},
  adminReady:()=>true,adminCurrentRole:()=>role,
  esc,render:()=>{rendered++;},toast:s=>notes.push(s),
- document:{getElementById:()=>({value:reason})}
+ document:{getElementById:id=>({value:({
+  'admin-discovery-city-kind':'stays','admin-discovery-city-state':'RS',
+  'admin-discovery-city-name':'São Gabriel',
+  'admin-discovery-city-reason':'Ativação manual conferida'
+ })[id]??reason})}
 };ctx.globalThis=ctx;
 vm.runInNewContext(part,ctx,{filename:'admin/discovery-workspace'});
 let html=ctx.adminDiscoveryView();
@@ -54,9 +59,15 @@ const published=requested.filter(r=>r[0]==='discovery_transition_listing');
 assert.equal(published.length,1);
 assert.equal(published[0][1].p_next_status,'published');
 assert.equal(published[0][1].p_reason,reason);
+assert.equal(ctx.adminDiscoveryCitySlug('São Gabriel'),'sao-gabriel');
+await ctx.adminDiscoverySetCity(true);
+const cityAction=requested.find(r=>r[0]==='discovery_set_vertical_city');
+assert.equal(cityAction[1].p_vertical,'stays');
+assert.equal(cityAction[1].p_city_key,'sao-gabriel');
+assert.equal(cityAction[1].p_enabled,true);
 role='operations';
 await ctx.adminDiscoveryLoad();
-assert.equal(requested.filter(r=>r[0]==='discovery_admin_review_queue').length,2);
+assert.equal(requested.filter(r=>r[0]==='discovery_admin_review_queue').length,3);
 await ctx.adminDiscoveryDecision(validId,'rejected');
 assert.equal(requested.filter(r=>r[0]==='discovery_transition_listing').length,1);
 assert.equal(ctx.adminDiscoveryView(),'');
@@ -64,6 +75,7 @@ assert.ok(src.includes("discovery:new Set(['superadmin'])"));
 assert.ok(src.includes("adminMenuButton('discovery','Anúncios'"));
 assert.ok(src.includes("adminPanel('discovery'"));
 assert.ok(src.includes("if(next==='discovery')adminDiscoveryLoad()"));
+assert.ok(src.includes("onclick=\"adminDiscoverySetCity(true)\""));
 const sql=read('supabase/migrations/20261018131000_discovery_shared_verticals.sql');
 assert.ok(sql.includes('create function public.discovery_admin_review_queue'));
 assert.ok(sql.includes("a.admin_role='superadmin'"));
