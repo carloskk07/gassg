@@ -39,7 +39,7 @@ assert.ok(backend.includes('source:"market_city_offer_scope"'));
 assert.ok(backend.includes('["superadmin","operations","compliance","readonly"]'));
 for(const str of ["enablement:new Set(['superadmin','readonly','operations','compliance'])",
   "adminMenuButton('enablement','Habilitação'",
-  "adminPanel('enablement',adminEnablementSection(d))",
+  "adminPanel('enablement',sectionActive('enablement')?adminEnablementSection(d):'')",
   "if(next==='enablement')adminLoadEnablement().catch"]){
   assert.ok(admin.includes(str),str);
 }

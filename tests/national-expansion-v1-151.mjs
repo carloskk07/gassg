@@ -34,7 +34,8 @@ assert.ok(anp.includes('upsert_anp_prospect_batch'),'reimportação preserva est
 assert.ok(adminOps.includes('sourceStatus:refresh?.status')&&adminOps.includes('warning='),'falha remota explícita');
 assert.match(admin,/prospects:new Set\(\['superadmin','readonly','operations','compliance'\]\)/);
 assert.ok(admin.includes("adminMenuButton('prospects','Prospectos'"));
-assert.ok(admin.includes("adminPanel('prospects',adminProspectsSection(d))"));
+assert.ok(admin.includes("adminPanel('prospects',sectionActive('prospects')?adminProspectsSection(d):'')"),
+  'A área de prospectos precisa permanecer acessível sem renderizar quando estiver oculta ou não autorizada');
 assert.ok(adminAcquisition.includes('function adminProspectsSection('));
 assert.ok(adminAcquisition.includes('adminProspectSearchCity')&&adminAcquisition.includes('adminLoadProspects'));
 assert.ok(!adminAcquisition.includes('Você entrou na nossa lista de abertura em São Gabriel'),'comunicação por cidade');
