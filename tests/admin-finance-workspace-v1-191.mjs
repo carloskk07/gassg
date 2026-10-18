@@ -88,7 +88,7 @@ for(const needle of ['Revisão de indicações','Fila de benefícios','Fila cont
   assert.ok(reconcile.includes(needle),'Reconciliation guard lost '+needle);
 for(const needle of ['adminCommercialPolicySection(d)','Reversão financeira auditada','adminReverseOrder()'])
   assert.ok(policy.includes(needle),'Critical policy operation lost '+needle);
-assert.ok(segment.includes("const financeSelection=sectionActive('finance')?adminFinanceWorkspaceCurrent():'summary';"),
+assert.ok(src.slice(from-280,from).includes("const financeSelection=sectionActive('finance')?adminFinanceWorkspaceCurrent():'summary';"),
   'Selecting finance workspace must occur only for the authorized active finance tab');
 assert.ok(segment.includes('financeAreas[financeSelection]'));
 assert.ok(segment.includes("id='admin-finance-workspace-panel'"));
