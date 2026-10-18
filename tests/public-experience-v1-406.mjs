@@ -33,7 +33,7 @@ try{
   'como-funciona':['Quando','Em vez de correr atrás de respostas','COM O TAMÃO'],
   'para-revendas':['Sua empresa ganha uma nova vitrine','COM O TAMÃO','A habilitação é controlada'],
   'para-marcas':['Uma boa campanha conversa','COM O TAMÃO','proposta e aprovação'],
-  'indicacoes':['Seu convite merece mais','COM A REDE TAMÃO','Comissões']
+  'indicacoes':['Seu convite merece mais','COM A REDE TAMÃO','Convites e remuneração']
  };
  for(const slug of PUBLIC_LANDING_SLUGS){
   const html=fs.readFileSync(path.join(out,slug,'index.html'),'utf8');
