@@ -38,8 +38,14 @@ assert.match(sql,/where a\.user_id=v_actor and a\.active and a\.admin_role='supe
   'only the existing owner authority may activate verticals');
 assert.match(sql,/city_vertical_disabled/,
   'publishing must check separately enabled cities');
+assert.match(sql,/discovery_verified_photo_paths/,
+  'owner-provided photos require real storage metadata');
+assert.match(sql,/o\.owner_id=l\.owner_id::text/,
+  'another user cannot reuse media');
+assert.match(sql,/file_size_limit,allowed_mime_types/,
+  'bucket limits mime and size');
 assert.match(sql,/real_photo_required/,
-  'published items must have a real photo URL to review');
+  'review and publication require a verified photo');
 assert.match(sql,/expired_or_full_ride/,
   'a past or full ride cannot reappear as available');
 assert.match(sql,/if p_next_status=v_listing\.status then return/,
