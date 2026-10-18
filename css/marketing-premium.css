@@ -1011,3 +1011,18 @@
  .tamao-action-now,.tamao-club-shop-now{display:flex;flex-direction:column;align-items:stretch;padding:20px 18px;gap:18px}
  .tamao-action-now button,.tamao-club-shop-now button{width:100%;justify-content:center}
 }
+
+/* V1.410 — cadastro único à frente; conversa comercial opcional. */
+.merchant-live-signup-cta{display:inline-flex;align-items:center;justify-content:center;min-height:48px;
+ margin-top:16px;font-weight:900;white-space:normal}
+.merchant-live-signup-cta:focus-visible,.merchant-secondary-lead>summary:focus-visible{
+ outline:3px solid #b77e0c;outline-offset:4px}
+.merchant-secondary-lead{margin:16px 0 8px;border:1px solid #d7e6da;border-radius:16px;background:#fff}
+.merchant-secondary-lead>summary{cursor:pointer;list-style:none;min-height:46px;padding:13px 17px;
+ font-size:13px;font-weight:850;color:#20553d}
+.merchant-secondary-lead>summary::-webkit-details-marker{display:none}
+.merchant-secondary-lead>summary:after{content:'+';float:right;margin-left:12px;font-weight:900}
+.merchant-secondary-lead[open]>summary:after{content:'−'}
+.merchant-secondary-lead .section{margin:0;padding:12px 15px 19px}
+@media(max-width:620px){.merchant-live-signup-cta{width:100%}
+ .merchant-secondary-lead{margin-block:12px}.merchant-secondary-lead .section{padding-inline:10px}}
