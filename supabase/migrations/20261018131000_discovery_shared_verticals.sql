@@ -184,13 +184,13 @@ grant select on public.discovery_stay_details to anon,authenticated;
 -- Apenas contas permanentes com e-mail ou telefone confirmado podem anunciar.
 create function public.discovery_verified_account()
 returns boolean language sql stable security definer set search_path='pg_catalog'
-as $
+as $$
   select exists(
     select 1 from auth.users u where u.id=(select auth.uid())
       and not u.is_anonymous
       and (u.email_confirmed_at is not null or u.phone_confirmed_at is not null)
   )
-$;
+$$;
 revoke all on function public.discovery_verified_account() from public;
 grant execute on function public.discovery_verified_account() to authenticated;
 
