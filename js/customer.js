@@ -534,11 +534,12 @@ function home(){
 </div></section>`;
 
   const valueBridge=`<section class="home-value-bridge tamao-visitor-paths" aria-label="O TAMÃO conecta quem compra, vende e indica">
-    <header class="visitor-paths-heading"><span class="section-kicker">UMA CIDADE, MAIS POSSIBILIDADES</span><h2>Uma plataforma para quem compra, vende e indica.</h2><p>Mais facilidade nas compras, mais uma vitrine para empresas e uma rede de pessoas que compartilha oportunidades. Escolha como participar.</p></header>
+    <header class="visitor-paths-heading"><span class="section-kicker">UMA CIDADE, MAIS POSSIBILIDADES</span><h2>Compre. Venda. Indique. Divulgue sua marca.</h2><p>Mais facilidade nas compras, mais uma vitrine para empresas e uma rede de pessoas que compartilha oportunidades. Escolha como participar.</p></header>
     <div class="visitor-paths-grid">
       <article class="visitor-path visitor-path-buyer"><span class="visitor-path-icon" aria-hidden="true">🛍️</span><small>PARA VOCÊ</small><h3>Resolva as compras do dia a dia.</h3><p>Escolha os produtos, consulte o valor e a entrega para seu endereço e acompanhe pedidos confirmados.</p><button type="button" onclick="startHomeBrowse()">Escolher produtos →</button></article>
       <article class="visitor-path visitor-path-merchant"><span class="visitor-path-icon" aria-hidden="true">🏪</span><small>PARA SUA EMPRESA</small><h3>Abra mais uma porta para vender.</h3><p>Apresente sua revenda aos clientes da região e continue no controle dos preços, estoque e entregas.</p><button type="button" onclick="go('merchants')">Quero vender <span aria-hidden="true">→</span></button></article>
       <article class="visitor-path visitor-path-network"><span class="visitor-path-icon" aria-hidden="true">🤝</span><small>PARA SUA REDE</small><h3>Sua indicação pode aproximar pessoas e negócios.</h3><p>Compartilhe seu convite pessoal, apresente revendas e acompanhe suas indicações. Conheça também as campanhas que oferecem benefícios elegíveis.</p><button type="button" onclick="go('earn')">Quero indicar <span aria-hidden="true">→</span></button></article>
+      <article class="visitor-path visitor-path-sponsor"><span class="visitor-path-icon" aria-hidden="true">📣</span><small>PARA SUA MARCA</small><h3>Esteja presente nas escolhas da cidade.</h3><p>Conheça propostas de divulgação regional identificada e ações com benefícios, definidas junto ao TAMÃO.</p><button type="button" onclick="go('sponsors')">Quero divulgar <span aria-hidden="true">→</span></button></article>
     </div>
   </section>`;
   // Visible only before a verified offer: explain the journey without turning
