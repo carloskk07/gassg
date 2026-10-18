@@ -160,6 +160,9 @@ grant select (vertical,state_code,city_key,city_name,enabled)
 grant select (id,vertical,status,title,description,state_code,city_key,city_name,
   public_area,whatsapp_e164,photo_urls,published_at,created_at,updated_at)
  on public.discovery_listings to anon,authenticated;
+-- Propriedade é visível aos titulares autenticados para políticas de escrita;
+-- identidade do dono não é publicada aos visitantes anônimos.
+grant select (owner_id) on public.discovery_listings to authenticated;
 
 -- Detalhes só aparecem quando o anúncio-mãe é público, ou para seu proprietário.
 create policy discovery_professional_visible on public.discovery_professional_details
@@ -178,19 +181,33 @@ grant select on public.discovery_professional_details to anon,authenticated;
 grant select on public.discovery_ride_details to anon,authenticated;
 grant select on public.discovery_stay_details to anon,authenticated;
 
+-- Apenas contas permanentes com e-mail ou telefone confirmado podem anunciar.
+create function public.discovery_verified_account()
+returns boolean language sql stable security definer set search_path='pg_catalog'
+as $
+  select exists(
+    select 1 from auth.users u where u.id=(select auth.uid())
+      and not u.is_anonymous
+      and (u.email_confirmed_at is not null or u.phone_confirmed_at is not null)
+  )
+$;
+revoke all on function public.discovery_verified_account() from public;
+grant execute on function public.discovery_verified_account() to authenticated;
+
 -- Fluxos de cadastro preservam proprietário e nunca permitem autopublicação.
 create policy discovery_owner_draft_insert on public.discovery_listings
  for insert to authenticated with check (
    (select auth.uid())=owner_id and status='draft'
+   and (select public.discovery_verified_account())
    and submitted_at is null and published_at is null
    and reviewed_by is null and reviewed_at is null
    and advertising_accepted_at is null
  );
 create policy discovery_owner_draft_edit on public.discovery_listings
  for update to authenticated using (
-   (select auth.uid())=owner_id and status='draft'
+   (select auth.uid())=owner_id and status in ('draft','rejected','paused')
  ) with check (
-   (select auth.uid())=owner_id and status='draft'
+   (select auth.uid())=owner_id and status in ('draft','rejected','paused')
  );
 grant insert (vertical,title,description,state_code,city_key,city_name,
   public_area,whatsapp_e164,photo_urls) on public.discovery_listings to authenticated;
@@ -203,41 +220,41 @@ grant update (title,description,state_code,city_key,city_name,
 create policy discovery_professional_draft_insert on public.discovery_professional_details
  for insert to authenticated with check (
    exists (select 1 from public.discovery_listings l where l.id=listing_id
-       and l.owner_id=(select auth.uid()) and l.status='draft' and l.vertical='professionals')
+       and l.owner_id=(select auth.uid()) and l.status in ('draft','rejected','paused') and l.vertical='professionals')
  );
 create policy discovery_professional_draft_update on public.discovery_professional_details
  for update to authenticated using (
    exists (select 1 from public.discovery_listings l where l.id=listing_id
-       and l.owner_id=(select auth.uid()) and l.status='draft' and l.vertical='professionals')
+       and l.owner_id=(select auth.uid()) and l.status in ('draft','rejected','paused') and l.vertical='professionals')
  ) with check (
    exists (select 1 from public.discovery_listings l where l.id=listing_id
-       and l.owner_id=(select auth.uid()) and l.status='draft' and l.vertical='professionals')
+       and l.owner_id=(select auth.uid()) and l.status in ('draft','rejected','paused') and l.vertical='professionals')
  );
 create policy discovery_ride_draft_insert on public.discovery_ride_details
  for insert to authenticated with check (
    exists (select 1 from public.discovery_listings l where l.id=listing_id
-       and l.owner_id=(select auth.uid()) and l.status='draft' and l.vertical='rides')
+       and l.owner_id=(select auth.uid()) and l.status in ('draft','rejected','paused') and l.vertical='rides')
  );
 create policy discovery_ride_draft_update on public.discovery_ride_details
  for update to authenticated using (
    exists (select 1 from public.discovery_listings l where l.id=listing_id
-       and l.owner_id=(select auth.uid()) and l.status='draft' and l.vertical='rides')
+       and l.owner_id=(select auth.uid()) and l.status in ('draft','rejected','paused') and l.vertical='rides')
  ) with check (
    exists (select 1 from public.discovery_listings l where l.id=listing_id
-       and l.owner_id=(select auth.uid()) and l.status='draft' and l.vertical='rides')
+       and l.owner_id=(select auth.uid()) and l.status in ('draft','rejected','paused') and l.vertical='rides')
  );
 create policy discovery_stay_draft_insert on public.discovery_stay_details
  for insert to authenticated with check (
    exists (select 1 from public.discovery_listings l where l.id=listing_id
-       and l.owner_id=(select auth.uid()) and l.status='draft' and l.vertical='stays')
+       and l.owner_id=(select auth.uid()) and l.status in ('draft','rejected','paused') and l.vertical='stays')
  );
 create policy discovery_stay_draft_update on public.discovery_stay_details
  for update to authenticated using (
    exists (select 1 from public.discovery_listings l where l.id=listing_id
-       and l.owner_id=(select auth.uid()) and l.status='draft' and l.vertical='stays')
+       and l.owner_id=(select auth.uid()) and l.status in ('draft','rejected','paused') and l.vertical='stays')
  ) with check (
    exists (select 1 from public.discovery_listings l where l.id=listing_id
-       and l.owner_id=(select auth.uid()) and l.status='draft' and l.vertical='stays')
+       and l.owner_id=(select auth.uid()) and l.status in ('draft','rejected','paused') and l.vertical='stays')
  );
 grant insert,update on public.discovery_professional_details to authenticated;
 grant insert,update on public.discovery_ride_details to authenticated;
@@ -303,10 +320,49 @@ begin
       select 1 from public.discovery_stay_details where listing_id=p_listing_id))
     ) then raise exception 'LISTING_DETAILS_REQUIRED' using errcode='22023';end if;
   elsif p_next_status in ('published','rejected','paused') then
-    if not v_admin then raise exception 'ADMIN_REQUIRED' using errcode='42501';end if;
-    if length(btrim(coalesce(p_reason,'')))<8 then
+    if not v_admin and not (
+      p_next_status='paused' and v_actor=v_listing.owner_id
+      and v_listing.status='published'
+    ) then raise exception 'ADMIN_REQUIRED' using errcode='42501';end if;
+    if v_admin and length(btrim(coalesce(p_reason,'')))<8 then
       raise exception 'REASON_REQUIRED' using errcode='22023';end if;
     if p_next_status='published' then
+      if cardinality(v_listing.photo_urls)<1 or exists(
+        select 1 from unnest(v_listing.photo_urls) u
+         where u !~ '^https://[^[:space:]]+
+        raise exception 'LISTING_REVIEW_REQUIRED' using errcode='22023';end if;
+      if not exists (
+        select 1 from public.discovery_vertical_cities c where c.vertical=v_listing.vertical
+        and c.state_code=v_listing.state_code and c.city_key=v_listing.city_key and c.enabled
+      ) then raise exception 'CITY_VERTICAL_DISABLED' using errcode='22023';end if;
+    end if;
+  else
+    raise exception 'INVALID_TRANSITION' using errcode='22023';
+  end if;
+  update public.discovery_listings set status=p_next_status,updated_at=clock_timestamp(),
+    submitted_at=case when p_next_status='review' then clock_timestamp() else submitted_at end,
+    published_at=case when p_next_status='published' then clock_timestamp() else published_at end,
+    paused_at=case when p_next_status='paused' then clock_timestamp() else paused_at end,
+    reviewed_by=case when v_admin then v_actor else reviewed_by end,
+    reviewed_at=case when v_admin then clock_timestamp() else reviewed_at end
+  where id=p_listing_id;
+  insert into public.discovery_moderation_log(listing_id,from_status,to_status,actor_id,reason)
+  values(p_listing_id,v_listing.status,p_next_status,v_actor,nullif(btrim(p_reason),''));
+  return p_next_status;
+end $$;
+revoke all on function public.discovery_transition_listing(uuid,text,text) from public;
+grant execute on function public.discovery_transition_listing(uuid,text,text)
+ to authenticated;
+
+-- Sem seeds artificiais, cobrança automática, publicação automática ou
+-- abertura comercial implícita. Caronas nunca entram na tabela de tarifas.
+
+      ) then raise exception 'REAL_PHOTO_REQUIRED' using errcode='22023';end if;
+      if v_listing.vertical='rides' and not exists(
+        select 1 from public.discovery_ride_details r
+        where r.listing_id=p_listing_id and r.departure_at>clock_timestamp()
+          and r.seats_available>0
+      ) then raise exception 'EXPIRED_OR_FULL_RIDE' using errcode='22023';end if;
       if v_listing.status not in ('review','paused') then
         raise exception 'LISTING_REVIEW_REQUIRED' using errcode='22023';end if;
       if not exists (
