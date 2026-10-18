@@ -74,6 +74,37 @@ function tamaoPublicEntryRoute(){
   go(destination);
   return true;
 }
+let discoveryModuleRequested=false;
+let discoveryModuleError=false;
+function discoveryLoadingPage(){
+  return shell('<section class="section"><h1>Consultando anúncios do TAMÃO</h1>'+
+    (discoveryModuleError
+      ?'<p>Não foi possível abrir a consulta agora.</p><button class="secondary" type="button" onclick="retryDiscoveryModule()">Tentar novamente</button>'
+      :'<p role="status">Preparando a consulta de anúncios publicados…</p>')+'</section>');
+}
+function retryDiscoveryModule(){
+  discoveryModuleRequested=false;discoveryModuleError=false;
+  discoveryRequestModule();
+  render();
+}
+function discoveryRequestModule(){
+  if(discoveryModuleRequested||typeof discoveryPage==='function')return;
+  if(!['professionals','rides','stays'].includes(route())||
+    globalThis.adminPortalRequested?.()||globalThis.merchantPortalRequested?.())return;
+  discoveryModuleRequested=true;
+  const source=document.querySelector('script[src*="/js/bootstrap.js"]')?.src||'';
+  let version='';
+  try{version=new URL(source,location.href).searchParams.get('v')||'';}catch{}
+  const suffix=/^[A-Za-z0-9._-]{1,120}$/.test(version)?'?v='+encodeURIComponent(version):'';
+  const css=document.createElement('link');
+  css.rel='stylesheet';css.href='./css/discovery.css'+suffix;
+  document.head.appendChild(css);
+  const script=document.createElement('script');
+  script.src='./js/discovery.js'+suffix;
+  script.onload=()=>render();
+  script.onerror=()=>{discoveryModuleError=true;render();};
+  document.head.appendChild(script);
+}
 let renderLock=false;
 function render(){
   if(renderLock)return;
@@ -81,12 +112,13 @@ function render(){
   try{
     if(!globalThis.adminPortalRequested?.())housekeeping();
     const r=route();
-    const pages={home,learn,earn,order:orderPage,tracking,club,refer,merchants:merchantsLanding,sponsors:sponsorsLanding,professionals:discoveryPage,rides:discoveryPage,stays:discoveryPage,'merchant-join':merchantJoin,...(typeof merchantPage==='function'?{merchant:merchantPage,'merchant-orders':merchantOrders,'merchant-team':merchantTeamPage,catalog,'merchant-metrics':merchantMetrics}:{}),privacy:privacyPage,terms:termsPage,contact:contactPage,admin:(typeof adminPage==='function'?adminPage:home)};
+    const pages={home,learn,earn,order:orderPage,tracking,club,refer,merchants:merchantsLanding,sponsors:sponsorsLanding,professionals:typeof discoveryPage==='function'?discoveryPage:discoveryLoadingPage,rides:typeof discoveryPage==='function'?discoveryPage:discoveryLoadingPage,stays:typeof discoveryPage==='function'?discoveryPage:discoveryLoadingPage,'merchant-join':merchantJoin,...(typeof merchantPage==='function'?{merchant:merchantPage,'merchant-orders':merchantOrders,'merchant-team':merchantTeamPage,catalog,'merchant-metrics':merchantMetrics}:{}),privacy:privacyPage,terms:termsPage,contact:contactPage,admin:(typeof adminPage==='function'?adminPage:home)};
     const app=document.querySelector('#app');
     if(app)app.innerHTML=(pages[r]||home)();
     updatePublicPageIdentity(r);
     queueMicrotask(()=>globalThis.marketingAnalyticsAfterRender?.());
     queueMicrotask(()=>globalThis.discoveryAfterRender?.());
+    queueMicrotask(()=>discoveryRequestModule());
   }catch(e){
     globalThis.__lastRenderError=String(e?.stack||e?.message||e);
     console.error('Falha de renderização',e);
