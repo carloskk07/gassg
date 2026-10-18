@@ -517,6 +517,8 @@ jobs:
         run: node tests/public-landing-entry-v1-375.mjs
       - name: V1.377 public editorial SEO, handoff and portal isolation
         run: node tests/public-editorial-seo-v1-377.mjs
+      - name: Public benefits-first pages and pre-opening home
+        run: node tests/public-benefits-first-v1-405.mjs
       - name: V1.378 preserve attributed visits and show distinct visitor visuals
         run: node tests/public-handoff-visual-v1-378.mjs
       - name: V1.379 mobile product CEP and merchant form recovery
@@ -693,7 +695,7 @@ jobs:
           grep -q "Botijão de cozinha 13 kg" /tmp/home.html
           grep -q "Me avise quando puder pedir" /tmp/home.html
           grep -q "PRIMEIRO ESCOLHA. DEPOIS, CONFIRA A ENTREGA." /tmp/home.html
-          grep -q "Quer saber mais ou tem uma revenda?" /tmp/home.html
+          grep -q "Tem muita coisa boa no TAMÃO além de comprar." /tmp/home.html
           grep -q "Entender como funciona" /tmp/home.html
           grep -q "Cadastrar minha empresa" /tmp/home.html
           grep -q "Escolha o que precisa. Confira a entrega. Acompanhe seu pedido." /tmp/learn.html

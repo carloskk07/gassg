@@ -15,7 +15,7 @@ for(const token of [
 ])assert.ok(css.includes(token),'missing global design: '+token);
 for(const token of [
  'const valueBridge=','Resolva as compras do dia a dia.','Abra mais uma porta para vender.',
- 'Compartilhe algo que faz sentido.','startCustomerAvailability()',"go('merchants')",
+ 'Sua indicação pode aproximar pessoas e negócios.','startCustomerAvailability()',"go('merchants')",
  "go('earn')",'\u0024{!conciseHome?valueBridge:\'\'}',
  'Faltou em casa?'
 ])assert.ok(home.includes(token),'missing public conversion flow: '+token);

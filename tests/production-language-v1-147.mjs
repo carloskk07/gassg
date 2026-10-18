@@ -21,8 +21,9 @@ const merchantApplication=read('supabase/functions/submit-merchant-application/i
 
 assert.ok(
   html.includes('content="index,follow,max-image-preview:large"')
-  &&html.includes('Consulte disponibilidade, compare preço e prazo')
-  &&html.includes('cadastre sua empresa para vender pelo TAMÃO'),
+  &&html.includes('consulte preço e entrega por CEP')
+  &&html.includes('mais oportunidades para vender')
+  &&html.includes('Rede TAMÃO'),
   'site público deve se apresentar como produto operacional e indexável'
 );
 

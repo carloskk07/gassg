@@ -917,3 +917,30 @@
 @media(prefers-reduced-motion:reduce){
  .home-discover-tile,.home-editorial-choice{transition:none!important}
 }
+
+
+/* Visible customer, club and referral value even during pre-opening. */
+.home-benefits-shortcuts{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin:17px 0 4px}
+.home-benefits-shortcuts>span{border:1px solid rgba(13,107,75,.18);color:#15543a;background:#edf7ef;border-radius:999px;font-size:12px;font-weight:760;line-height:1.35;padding:9px 12px}
+.home-benefits-shortcuts button{display:inline-flex;align-items:center;justify-content:center;gap:7px;min-height:38px;padding:8px 12px;border:1px solid #ebd39e;border-radius:999px;background:#fff1cc;color:#694509;font-size:12px;font-weight:900;cursor:pointer}
+.home-benefits-shortcuts button:hover{background:#ffe6aa;border-color:#d5ab52}
+.home-benefits-shortcuts button:focus-visible{outline:3px solid #b17815;outline-offset:3px}
+@media(max-width:620px){
+ .home-benefits-shortcuts{gap:7px;margin:13px 0 6px}
+ .home-benefits-shortcuts>span{font-size:11px;padding:8px 10px}
+ .home-benefits-shortcuts button{font-size:11px;min-height:38px}
+}
+@media(prefers-reduced-motion:reduce){.home-benefits-shortcuts button{transition:none}}
+
+
+/* Four differentiated public audiences, with balanced card density. */
+.home-value-bridge.tamao-visitor-paths>.visitor-paths-grid{grid-template-columns:repeat(4,minmax(0,1fr))}
+.tamao-visitor-paths .visitor-path-sponsor .visitor-path-icon{background:#f9e7e5}
+@media(max-width:1050px){.home-value-bridge.tamao-visitor-paths>.visitor-paths-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:620px){.home-value-bridge.tamao-visitor-paths>.visitor-paths-grid{grid-template-columns:minmax(0,1fr)}}
+
+
+/* First-time visitors get four distinct intents without a duplicate card grid. */
+.intent-grid.first-visit-intent-grid{grid-template-columns:repeat(4,minmax(0,1fr))}
+@media(max-width:1050px){.intent-grid.first-visit-intent-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:620px){.intent-grid.first-visit-intent-grid{grid-template-columns:minmax(0,1fr)}}
