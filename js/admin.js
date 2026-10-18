@@ -2473,7 +2473,7 @@ async function adminDiscoveryDocuments(id){
     for(const doc of result.data){
       const key=String(doc.object_path||'');
       if(!/^[0-9a-f-]{36}\/[0-9a-f-]{36}\/[0-9a-f-]{36}\.(pdf|jpg|jpeg|png|webp)$/.test(key))throw Error('UNSAFE_DOCUMENT_PATH');
-      const signed=await client.storage.from('tamao-discovery-documents').createSignedUrl(key,90);
+      const signed=await client.storage.from('tamao-discovery-documents').createSignedUrl(key,90,{download:true});
       if(signed.error||typeof signed.data?.signedUrl!=='string'||
          !signed.data.signedUrl.startsWith(allowed))throw Error('UNSAFE_DOCUMENT_LINK');
       links.push({kind:String(doc.kind||'de verificação'),signedUrl:signed.data.signedUrl});
