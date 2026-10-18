@@ -14,8 +14,9 @@ const dollar=String.fromCharCode(36);
 const audienceBridge=dollar+"{!conciseHome?valueBridge:''}";
 const signup=dollar+"{acquisitionOpen?prelaunchCustomerLeadSection():''}";
 assert.ok(home.includes(audienceBridge),'first-time journeys must avoid duplicate audience grids');
-assert.ok(home.includes('typeof tamaoHomeBenefits===') && !home.includes('!conciseHome&&typeof tamaoHomeBenefits'),
- 'benefits should not disappear when there are no available offers');
+assert.ok(home.includes('tamaoHomeBenefits({compact:true})') &&
+ home.includes('!conciseHome&&typeof tamaoHomeBenefits'),
+ 'benefits must render compact for first visits and remain full for verified shopping');
 assert.ok(home.includes('home-benefits-shortcuts'),'first screen should surface club and referrals');
 assert.ok(home.includes('visitor-path-sponsor') && home.includes("go('sponsors')"),
  'sponsor journey must be accessible in the four-audience section');
