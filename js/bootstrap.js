@@ -8,6 +8,9 @@ const TAMAO_PUBLIC_PAGE_IDENTITY=Object.freeze({
   club:['Clube TAMÃO — Benefícios para suas compras','Consulte seu cashback, histórico e benefícios de compras elegíveis no Clube TAMÃO.'],
   refer:['Minha Rede TAMÃO — Convites e indicações','Compartilhe seu convite pessoal e acompanhe indicações e benefícios conforme as regras de cada campanha.'],
   merchants:['Para revendas — Venda pelo TAMÃO','Apresente sua empresa a novos clientes da região. Você controla preços, produtos, estoque e entregas.'],
+  professionals:['Profissionais — TAMÃO','Busque profissionais por cidade e entre em contato diretamente com os anunciantes.'],
+  rides:['Caronas — TAMÃO','Consulte viagens compartilhadas anunciadas, trajetos e contatos diretos.'],
+  stays:['Hospedagens no Brasil — TAMÃO','Conheça hospedagens anunciadas e converse diretamente com os responsáveis.'],
   sponsors:['Para marcas — Divulgue no TAMÃO','Conheça opções de divulgação regional, campanhas de benefício e parcerias com o comércio local.'],
   contact:['Contato — TAMÃO','Fale com o TAMÃO sobre compras, revendas, publicidade, parceria ou atendimento.'],
   privacy:['Privacidade — TAMÃO','Veja como o TAMÃO trata dados pessoais e protege sua privacidade.'],
@@ -78,11 +81,12 @@ function render(){
   try{
     if(!globalThis.adminPortalRequested?.())housekeeping();
     const r=route();
-    const pages={home,learn,earn,order:orderPage,tracking,club,refer,merchants:merchantsLanding,sponsors:sponsorsLanding,'merchant-join':merchantJoin,...(typeof merchantPage==='function'?{merchant:merchantPage,'merchant-orders':merchantOrders,'merchant-team':merchantTeamPage,catalog,'merchant-metrics':merchantMetrics}:{}),privacy:privacyPage,terms:termsPage,contact:contactPage,admin:(typeof adminPage==='function'?adminPage:home)};
+    const pages={home,learn,earn,order:orderPage,tracking,club,refer,merchants:merchantsLanding,sponsors:sponsorsLanding,professionals:discoveryPage,rides:discoveryPage,stays:discoveryPage,'merchant-join':merchantJoin,...(typeof merchantPage==='function'?{merchant:merchantPage,'merchant-orders':merchantOrders,'merchant-team':merchantTeamPage,catalog,'merchant-metrics':merchantMetrics}:{}),privacy:privacyPage,terms:termsPage,contact:contactPage,admin:(typeof adminPage==='function'?adminPage:home)};
     const app=document.querySelector('#app');
     if(app)app.innerHTML=(pages[r]||home)();
     updatePublicPageIdentity(r);
     queueMicrotask(()=>globalThis.marketingAnalyticsAfterRender?.());
+    queueMicrotask(()=>globalThis.discoveryAfterRender?.());
   }catch(e){
     globalThis.__lastRenderError=String(e?.stack||e?.message||e);
     console.error('Falha de renderização',e);
