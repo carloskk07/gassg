@@ -340,7 +340,10 @@ assert.ok(admin.includes('function adminMerchantBillingSection(d)')&&admin.inclu
 assert.ok(admin.includes("adminPerform('merchant-billing-payment-request'")&&admin.includes('adminResolveBillingPaymentRequest')&&admin.includes('adminResolveDailyStatement'),'pagamentos de pacote e fechamento devem passar pelo admin-ops, nunca por tabela direta');
 assert.ok(!admin.includes('adminConfirmBillingPackage'),'admin não pode manter botão de crédito direto fora de solicitação financeira');
 assert.ok(admin.includes('const ADMIN_SECTION_ROLES=')&&admin.includes('adminRoleCanSection')&&admin.includes("if(!adminRoleCanSection(id))return ''"),'menu e painéis administrativos precisam respeitar o escopo visual do perfil');
-assert.ok(admin.includes("currentRole==='superadmin'?adminLaunchControl")&&admin.includes("const adminAccessContent=currentRole==='superadmin'"),'controles de launch e gestão de admins só podem ser renderizados para Superadmin');
+assert.ok(admin.includes("currentRole==='superadmin'?adminLaunchControl")
+  &&admin.includes("const adminAccessContent=(sectionActive('system'))?(currentRole==='superadmin'")
+  &&admin.includes("const sectionActive=id=>adminRuntime.section===id&&adminRoleCanSection(id,currentRole)"),
+  'controles de launch e gestão de admins só podem ser renderizados no painel autorizado e para Superadmin');
 assert.ok(admin.includes("const readOnly=adminCurrentRole()==='readonly'")&&admin.includes('Perfil Somente leitura: incidentes podem ser consultados, mas não alterados.'),'perfil readonly não pode receber controles mutáveis de incidentes');
 assert.ok(/async function adminSignOut\(\)\{[\s\S]*?adminRuntime\.searchResults=\[\][\s\S]*?adminRuntime\.detail=null[\s\S]*?adminRuntime\.health=null/.test(admin),'logout administrativo precisa limpar busca, detalhe 360 e diagnóstico privilegiado da memória da página');
 assert.ok(/if\(error\?\.status===401\)\{[\s\S]*?adminRuntime\.searchResults=\[\][\s\S]*?adminRuntime\.detail=null[\s\S]*?adminRuntime\.health=null/.test(admin),'expiração da sessão também precisa limpar estado administrativo privilegiado');
