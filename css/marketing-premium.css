@@ -20,7 +20,7 @@
 .home-discover-heading h2{max-width:23ch;text-wrap:balance}
 .home-discover-heading p{max-width:68ch}
 .home-discover-tile{transition:transform .18s ease,box-shadow .18s ease,border-color .18s ease}
-.home-discover-tile:focus-visible{outline-offset:2px}
+
 /* Upgrade the existing 3-path block without changing any route or eligibility gate. */
 .home-value-bridge.tamao-visitor-paths{display:block;padding:clamp(20px,3.5vw,36px);margin:28px 0 30px;
  border:1px solid #d4e5d7;border-radius:28px;color:#123c2d;
@@ -856,7 +856,7 @@
   .marketing-hero h1{max-width:12ch}
   .marketing-hero .hero-lead{line-height:1.55}
   .marketing-hero .purchase-starter{padding:13px;border-radius:17px}
-  .marketing-hero .home-quick-category button{min-height:45px}
+  
   .home-discover{padding:18px 12px;border-radius:21px;margin-block:18px}
   .home-discover-heading{padding-inline:3px}
   .home-discover-heading h2{font-size:27px}
@@ -865,7 +865,7 @@
   .home-discover-art{height:75px}
   .home-discover-art .tamao-product-photo{max-height:74px}
   .home-discover-tile strong{font-size:13px}
-  .home-discover-action{font-size:11px}
+  
   .tamao-network-hero,.merchant-landing-premium,.tamao-sponsors-page .tamao-sponsor-hero{border-radius:21px}
   .site-footer-editorial{gap:8px}
   .site-footer-editorial a{flex:1 1 42%;justify-content:center;text-align:center;font-size:12px}
