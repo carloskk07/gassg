@@ -1074,6 +1074,13 @@
 .tamao-visitor-paths .visitor-path p{
   text-wrap:pretty;
 }
+/* Keep the first visit focused: the merchant journey and referral benefits
+   remain available in the navigation and dedicated sections below the fold. */
+.marketing-hero.home-first-visit .hero-emotional-promise,
+.marketing-hero.home-first-visit .home-benefits-shortcuts,
+.marketing-hero.home-first-visit .home-saving-headlines > button:last-child{
+  display:none;
+}
 /* Each sprite panel keeps its native proportions instead of stretching to a tile. */
 .home-discover-tile{
   align-items:center;
