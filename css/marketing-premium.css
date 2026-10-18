@@ -944,3 +944,33 @@
 .intent-grid.first-visit-intent-grid{grid-template-columns:repeat(4,minmax(0,1fr))}
 @media(max-width:1050px){.intent-grid.first-visit-intent-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media(max-width:620px){.intent-grid.first-visit-intent-grid{grid-template-columns:minmax(0,1fr)}}
+
+
+/* TAMÃO — editorial benefit stage, zero backend/reward dependencies. */
+.tamao-perks-stage{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:15px;margin:21px 0 10px}
+.tamao-perks-panel{position:relative;isolation:isolate;display:flex;flex-direction:column;align-items:flex-start;
+ min-width:0;overflow:hidden;padding:clamp(21px,3vw,34px);border-radius:26px;min-height:310px}
+.tamao-perks-club{color:#fff;background:radial-gradient(circle at 100% 0%,rgba(244,182,63,.23),transparent 48%),linear-gradient(143deg,#074330,#0b6547);border:1px solid #0e7250}
+.tamao-perks-network{color:#2b3c21;background:radial-gradient(circle at 100% 0%,rgba(13,107,75,.12),transparent 51%),linear-gradient(138deg,#fff6da,#f7deb0);border:1px solid #ead09c}
+.tamao-perks-top{display:flex;align-items:center;gap:10px;font-size:11px;font-weight:950;letter-spacing:.12em}
+.tamao-perks-symbol{display:grid;place-items:center;width:45px;height:45px;font-size:23px;background:rgba(255,255,255,.17);border:1px solid rgba(255,255,255,.2);border-radius:15px}
+.tamao-perks-network .tamao-perks-symbol{background:#fffdf4;border-color:#ead7ac}
+.tamao-perks-panel h3{font-size:clamp(24px,2.45vw,34px);line-height:1.13;letter-spacing:-.053em;font-weight:900;
+ margin:20px 0 10px;max-width:22ch;text-wrap:balance;color:inherit}
+.tamao-perks-panel p{font-size:14px;line-height:1.65;max-width:49ch;margin:0 0 25px;color:inherit;opacity:.88}
+.tamao-perks-panel button{display:inline-flex;justify-content:space-between;align-items:center;gap:13px;
+ font-size:13px;font-weight:900;cursor:pointer;border-radius:13px;margin-top:auto;padding:12px 15px;min-height:45px}
+.tamao-perks-club button{background:#f4b63f;color:#263b29;border:1px solid #f4b63f}
+.tamao-perks-club button:hover{background:#ffcb68}
+.tamao-perks-network button{background:#0d6b4b;color:#fff;border:1px solid #0d6b4b}
+.tamao-perks-network button:hover{background:#064931}
+.tamao-perks-panel button:focus-visible{outline:3px solid #1c77bb;outline-offset:4px}
+.tamao-perks-note{font-size:12px;line-height:1.6;margin:9px 0 22px;color:#536c5a}
+@media(max-width:760px){
+ .tamao-perks-stage{grid-template-columns:minmax(0,1fr);gap:10px}
+ .tamao-perks-panel{min-height:auto;border-radius:20px;padding:22px 20px}
+ .tamao-perks-panel h3{font-size:clamp(24px,6.5vw,31px);margin:15px 0 8px}
+ .tamao-perks-panel p{margin-bottom:22px}
+}
+@media(max-width:370px){.tamao-perks-panel button{width:100%}}
+@media(prefers-reduced-motion:reduce){.tamao-perks-panel button{transition:none}}
