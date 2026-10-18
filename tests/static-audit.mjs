@@ -1399,7 +1399,7 @@ assert.ok(pilotDigestRepair.includes('create or replace function public.claim_pi
 assert.ok(pilotDigestRepair.includes('revoke all on function public.claim_pilot_partner_invite(uuid,uuid,text)')&&pilotDigestRepair.includes('to service_role'),'claim legado deve permanecer fechado ao browser');
 const merchantUiSource=read('js/merchant.js');
 const bootstrapSource=read('js/bootstrap.js');
-assert.ok(merchantUiSource.includes('Convite reconhecido.')&&merchantUiSource.includes('Entre para continuar seu cadastro'),'login da revenda precisa reconhecer visualmente o convite sem expor token');
+assert.ok(merchantUiSource.includes('Convite reconhecido.')&&merchantUiSource.includes('Continue seu cadastro'),'login da revenda precisa reconhecer visualmente o convite sem expor token');
 assert.ok(bootstrapSource.includes("invitedPartner&&globalThis.merchantRuntime?.status==='no-access'")&&bootstrapSource.includes("go('merchant-join')"),'retorno do magic link de parceiro convidado precisa ir direto ao cadastro');
 assert.ok(admin.includes('application?.companyName')&&admin.includes('application?.cnpj')&&admin.includes('application?.responsibleName'),'dados enviados pelo parceiro devem pré-preencher a conversão assistida');
 const merchantReadinessAuthority=read('supabase/migrations/20261007181500_admin_merchant_readiness_v1_73.sql');

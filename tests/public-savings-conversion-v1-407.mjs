@@ -52,7 +52,7 @@ try{
  assert.match(seller,/Seus próximos clientes podem descobrir/);
  assert.match(seller,/Mais oportunidades de pedidos/);
  assert.match(seller,/Entre por um canal adicional sem exclusividade/);
- assert.match(seller,/href="\/\?entrada=revenda"/);
+ assert.match(seller,/href="\/\?entrada=cadastro-revenda"/);
  assert.equal((buyer.match(/class="ed-shell ed-savings"/g)||[]).length,1);
  assert.equal((seller.match(/class="ed-shell ed-savings"/g)||[]).length,1);
  for(const html of [buyer,seller]){

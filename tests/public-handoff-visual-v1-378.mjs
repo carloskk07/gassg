@@ -73,7 +73,7 @@ try{
  }
  const headers={
   'como-funciona':['Ver produtos','/'],
-  'para-revendas':['Sou revenda','/?entrada=revenda'],
+  'para-revendas':['Sou revenda','/?entrada=cadastro-revenda'],
   'para-marcas':['Tenho uma marca','/?entrada=marca'],
   'indicacoes':['Quero indicar','/?entrada=indicar']
  };

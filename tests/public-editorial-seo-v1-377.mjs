@@ -41,7 +41,7 @@ try{
  assert.match(merchant,/Sem exclusividade/);
  assert.match(merchant,/não há mensalidade/);
  assert.match(merchant,/taxa do TAMÃO incide sobre pedidos concluídos/);
- assert.match(merchant,/href="\/\?entrada=revenda"/);
+ assert.match(merchant,/href="\/\?entrada=cadastro-revenda"/);
  const sponsor=fs.readFileSync(path.join(root,'para-marcas','index.html'),'utf8');
  assert.match(sponsor,/Nenhuma campanha é ativada automaticamente/);
  assert.match(sponsor,/href="\/\?entrada=marca"/);

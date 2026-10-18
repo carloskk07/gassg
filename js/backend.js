@@ -3043,7 +3043,6 @@ function openMerchantPortal(signup=false){
     // Browser storage is origin-scoped. Transfer only the code, never a
     // customer token, via the dedicated official merchant portal link.
     destination.searchParams.set('ref',ref);
-    destination.hash='merchant-join';
   }
   if(signup===true)destination.hash='merchant-join';
   location.href=destination.toString();
