@@ -318,7 +318,7 @@ async function discoveryOwnerRemoveDocument(docId){
   const expected=s.user.id+'/'+d.id+'/';
   if(!doc||!/^[0-9a-f-]{36}$/.test(String(doc.id||''))||
     !String(doc.object_path||'').startsWith(expected)||
-    !/^[0-9a-f-]{36}\\.(pdf|jpg|jpeg|png|webp)$/.test(String(doc.object_path).slice(expected.length)))return;
+    !/^[0-9a-f-]{36}\.(pdf|jpg|jpeg|png|webp)$/.test(String(doc.object_path).slice(expected.length)))return;
   s.busy=true;s.error='';s.notice='';
   try{
     // Storage API deletes the real bytes; direct SQL deletion of storage.objects
