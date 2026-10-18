@@ -598,50 +598,40 @@ function adminClubeLaunchReadinessSection(){
   if(!['superadmin','operations','compliance','finance','readonly'].includes(role))return '';
   const actor=String(adminRuntime?.session?.user?.id||'');
   const d=adminClubeLaunchReadiness?.actor===actor?adminClubeLaunchReadiness:null;
-  const blockers=[
-    ['Revendas participantes',!d||d.activeInterests<1,
-     'Coletar adesão voluntária por cidade e categoria; uma intenção não é contrato.'],
-    ['Revisão comercial',!d||d.totalReviews<1,
-     'Conferir o pacote, a margem e os limites financeiros antes da proposta.'],
-    ['Acordos e custeio',true,
-     'Comprovar aceites, documentos, valor reservado e quem paga cada desconto.'],
-    ['Emissão, cobrança e resgate',true,
-     'Homologar PSP do TAMÃO, conciliação, idempotência, resgates e estornos.'],
-    ['Autorização de abertura',true,
-     'Somente o Admin principal libera a comercialização após os testes completos.']
-  ];
   const audited=Boolean(d&&!d.error);
   const checked=d?.checkedAt?new Date(d.checkedAt).toLocaleString('pt-BR'):'';
-  const blockersMarkup=blockers.map(([title,blocked,details],i)=>
-    '<div class="list-row"><span class="status-pill '+(blocked?'risk':'online')+'">'+
-    (blocked?'Pendente':'Em análise')+'</span><div><strong>'+esc(title)+'</strong>'+
-    '<p class="tiny muted">'+esc(details)+'</p></div></div>').join('');
-  return '<section class="section admin-clube-launch-readiness" aria-label="Prontidão da venda de cupons">'+
-    '<div class="section-head"><div><span class="section-kicker">CLUBE TAMÃO • ATIVAÇÃO SEGURA</span>'+
-    '<h3>Central de Prontidão dos Pacotes</h3>'+
-    '<p>Veja o que existe de verdade antes de decidir abrir vendas. Este painel não gera cobrança, cupom, resgate ou reserva.</p></div>'+
-    '<button type="button" class="secondary small" onclick="adminClubeLaunchReadinessLoadFromUi()" '+
-    (adminClubeLaunchReadinessBusy?'disabled':'')+'>'+
-    (adminClubeLaunchReadinessBusy?'Verificando…':'Verificar situação real')+'</button></div>'+
-    (audited?'<div class="merchant-kpis">'+
-      '<div class="kpi"><span class="label">Interesses registrados</span><strong>'+
-        Number(d.proposals).toLocaleString('pt-BR')+'</strong><small>Propostas, não contratos</small></div>'+
-      '<div class="kpi"><span class="label">Interesses ativos</span><strong>'+
-        Number(d.activeInterests).toLocaleString('pt-BR')+'</strong><small>Sem benefício habilitado</small></div>'+
-      '<div class="kpi"><span class="label">Revisões registradas</span><strong>'+
-        Number(d.totalReviews).toLocaleString('pt-BR')+'</strong><small>Não equivalem a aprovação</small></div>'+
-      '<div class="kpi"><span class="label">Pacotes à venda</span><strong>0</strong><small>Bloqueados no banco</small></div>'+
-      '</div><p class="tiny muted">Consulta do servidor: '+esc(checked)+
-        '. Minutas identificadas nas primeiras '+Number(d.scannedTerms)+
-        ' entradas: '+Number(d.visibleTerms)+'. A fila é paginada e não representa contratos.</p>':
+  const indicators=audited?'<div class="merchant-kpis">'+
+    '<div class="kpi"><span class="label">Interesses registrados</span><strong>'+
+      Number(d.proposals).toLocaleString('pt-BR')+'</strong><small>Revendas em negociação</small></div>'+
+    '<div class="kpi"><span class="label">Interesses ativos</span><strong>'+
+      Number(d.activeInterests).toLocaleString('pt-BR')+'</strong><small>Adesões em avaliação</small></div>'+
+    '<div class="kpi"><span class="label">Revisões registradas</span><strong>'+
+      Number(d.totalReviews).toLocaleString('pt-BR')+'</strong><small>Análises comerciais</small></div>'+
+    '<div class="kpi"><span class="label">Pacotes à venda</span><strong>0</strong><small>Bloqueados no banco</small></div>'+
+    '</div><p class="tiny muted">Atualizado em '+esc(checked)+
+      '. Consulta parcial de minutas: '+Number(d.visibleTerms)+' em '+
+      Number(d.scannedTerms)+' registros exibidos.</p>':
       d?.error?'<p class="notice risk">'+esc(d.error)+'</p>':
-      '<p class="muted tiny">Consulte as filas oficiais para obter o retrato atual da operação.</p>')+
-    '<div class="card flat"><strong>Condições para abrir a comercialização</strong>'+
-    '<div class="list" style="margin-top:12px">'+blockersMarkup+'</div>'+
-    '<p class="tiny muted">Status operacional: venda e resgate desativados. O painel não pode liberar pacotes.</p></div>'+
+      '<p class="muted tiny">Toque em Atualizar Clube para consultar os dados atuais.</p>';
+  return '<section class="section admin-clube-launch-readiness" aria-label="Operação do Clube TAMÃO">'+
+    '<div class="section-head"><div><span class="section-kicker">CLUBE TAMÃO • OPERAÇÃO</span>'+
+    '<h3>Clube TAMÃO: acompanhe e avance</h3>'+
+    '<p>Revendas, campanhas e pacotes em uma visão rápida. Os dados vêm do servidor.</p></div>'+
+    '<button type="button" class="primary small" onclick="adminClubeLaunchReadinessLoadFromUi()" '+
+    (adminClubeLaunchReadinessBusy?'disabled':'')+'>'+
+    (adminClubeLaunchReadinessBusy?'Consultando…':'Atualizar Clube')+'</button></div>'+
+    indicators+
+    '<div class="card flat"><h4>Próxima ação: conquistar revendas participantes</h4>'+
+    '<p class="muted tiny">Converse com revendas da região e avance pelas negociações já disponíveis no painel.</p>'+
+    '<button type="button" class="secondary small" onclick="adminSetSection(\'prospects\')">Ver prospectos e parceiros →</button>'+
+    '<details class="admin-clube-technical-gates"><summary>Detalhes da liberação financeira</summary>'+
+    '<div class="list" style="margin-top:12px">'+
+    '<div class="list-row"><strong>Participação e orçamento</strong><span>Confirmar aceites das revendas e cobertura financeira dos descontos.</span></div>'+
+    '<div class="list-row"><strong>Emissão e resgate</strong><span>Integrar pagamento conciliado e consumo de cupons nos pedidos.</span></div>'+
+    '<div class="list-row"><strong>Autorização</strong><span>Somente o Admin principal pode liberar comercialização após a implantação e os testes.</span></div>'+
+    '</div><p class="tiny muted">Venda e resgate continuam desligados enquanto não existir operação conciliada.</p></details></div>'+
     '</section>';
 }
-
 // Clube TAMÃO V1.240 — read-only proposal radar, no funded discounts.
 let adminClubeInterestState=null;
 let adminClubeInterestBusy=false;
