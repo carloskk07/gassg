@@ -595,7 +595,7 @@ function merchantsLanding(){
     <span class="eyebrow">VENDA PELO TAMÃO</span>
     <h1 class="page-title">Mais clientes descobrindo sua revenda. <span class="headline-accent">Mais oportunidades de pedidos.</span></h1>
     <p class="muted page-lead">Sua revenda mais visível. Coloque seus produtos diante de pessoas que procuram gás, água e outros essenciais na sua região. Ganhe uma nova oportunidade de receber pedidos, conquistar clientes e estimular novas compras, sem abandonar o balcão, o telefone ou o WhatsApp. <strong>Você continua no controle. Você decide preços, estoque, formas de pagamento, disponibilidade e entrega.</strong></p>
-    <div class="conversion-mini-proof"><span>✓ Mais chances de ser encontrada</span><span>✓ Oportunidades de novos pedidos</span><span>✓ Sem mensalidade no modelo atual</span></div>
+    <div class="conversion-mini-proof"><span>✓ Mais chances de ser encontrada</span><span>✓ Oportunidades de novos pedidos</span><span>✓ Recebimento direto na revenda</span></div>
         <div class="hero-actions merchant-hero-actions">
       <button class="primary" onclick="${cta}">${internalPilot?ctaLabel:'Quero levar minha empresa ao TAMÃO →'}</button>
       <button class="secondary" onclick="document.getElementById('merchant-margin')?.scrollIntoView({behavior:globalThis.matchMedia?.('(prefers-reduced-motion: reduce)')?.matches?'auto':'smooth'})">Ver quanto custa vender</button>
