@@ -18,9 +18,11 @@ const PAGES=[
   primary:['Conhecer os produtos','/'],
   secondary:['Ver o passo a passo','/#learn'],
   mark:'ESCOLHER, CONFERIR, ACOMPANHAR',
+  trustNotes:["Sua cesta, sua escolha","Preço total antes de pedir","Etapas do pedido visíveis"],
   stepsHeading:"Da escolha à entrega: você sabe o próximo passo.",
   proofTitle:"Três motivos para conhecer o TAMÃO",
   highlights:[["🧺","A cesta é sua","Água e outros itens não exigem comprar gás junto."],["💰","O valor antes do pedido","Consulte o total e a previsão das opções para seu CEP."],["📍","A entrega acompanhada","Veja as etapas registradas depois da confirmação da revenda."]],
+  scenario:["Em vez de correr atrás de respostas, comece pela escolha.","ANTES","Perguntar preço, prazo e entrega em várias conversas.","COM O TAMÃO","Escolher seus produtos e consultar as opções que atendem seu CEP.","As condições dependem da revenda disponível; o pedido só é confirmado após o aceite."],
   visualTitle:'Sua compra começa com uma escolha melhor.',
   visualText:'Veja as opções para sua região, escolha a que faz sentido e acompanhe o pedido depois que a revenda confirmar o atendimento.',
   steps:[
@@ -48,9 +50,11 @@ const PAGES=[
   primary:['Quero apresentar minha empresa','/?entrada=revenda'],
   secondary:['Entender a parceria','/#merchants'],
   mark:'MAIS UM CANAL, SEM PERDER SUA AUTONOMIA',
+  trustNotes:["Sem exclusividade","Sem mensalidade no modelo atual","Recebimento direto na revenda"],
   stepsHeading:"Do cadastro ao primeiro pedido, sem complicar.",
   proofTitle:"Uma parceria que respeita o seu negócio",
   highlights:[["🏪","Seus produtos, suas regras","Você administra catálogo, preços, estoque e área de entrega."],["💳","Recebimento sob seu controle","O cliente paga diretamente à sua revenda pelos meios oferecidos."],["🤝","Sem exclusividade","Continue atendendo por telefone, WhatsApp e outros canais."]],
+  scenario:["Sua empresa ganha uma nova vitrine sem abrir mão do seu jeito de vender.","ANTES","Depender apenas de quem já conhece seu telefone ou suas redes.","COM O TAMÃO","Expor seu catálogo a quem procura itens essenciais e administrar pedidos no seu painel.","A habilitação é controlada; você mantém preços, estoque, entregas e recebimentos."],
   visualTitle:'Mais uma vitrine. A mesma autonomia.',
   visualText:'Você define o que vende e onde atende. Quando um pedido chegar, sua revenda confirma se pode realizá-lo.',
   steps:[
@@ -78,9 +82,11 @@ const PAGES=[
   primary:['Apresentar minha marca','/?entrada=marca'],
   secondary:['Conhecer os formatos','/#sponsors'],
   mark:'DIVULGAÇÃO COM CONTEXTO LOCAL',
+  trustNotes:["Ações por região","Publicidade identificada","Propostas personalizadas"],
   stepsHeading:"Da ideia à ação comercial.",
   proofTitle:"Sua marca em conversas que fazem sentido",
   highlights:[["📣","Divulgação regional","Possibilidades de presença publicitária identificada por região."],["🎁","Ações com benefícios","Propostas de campanhas e vantagens para públicos elegíveis."],["🏪","Comércio local","Parcerias pensadas para aproximar marcas e revendas."]],
+  scenario:["Uma boa campanha conversa com a rotina de quem vive na cidade.","SEM CONTEXTO","Divulgar a mesma mensagem, sem relação com o comércio local.","COM O TAMÃO","Planejar uma ação identificada por cidade, público e objetivo comercial.","São formatos para proposta e aprovação, não campanhas automaticamente disponíveis."],
   visualTitle:'Sua marca com propósito e presença local.',
   visualText:'Conheça formatos de divulgação, relacionamento e benefícios para avaliação. A proposta passa por definição e aprovação antes de ser veiculada.',
   steps:[
@@ -108,9 +114,11 @@ const PAGES=[
   primary:['Conhecer minha rede','/?entrada=indicar'],
   secondary:['Entender os benefícios','/#earn'],
   mark:'CONEXÕES QUE APROXIMAM A CIDADE',
+  trustNotes:["Convite pessoal","Acompanhamento da rede","Benefícios por campanha elegível"],
   stepsHeading:"Três passos para começar sua rede.",
   proofTitle:"Indicar fica mais fácil quando o caminho é claro",
   highlights:[["🫶","Convide pessoas","Compartilhe o TAMÃO com quem pode gostar da plataforma."],["🏪","Apresente revendas","Ajude empresas da cidade a conhecer a oportunidade."],["🔗","Acompanhe convites","Consulte as participações atribuídas ao seu código."]],
+  scenario:["Seu convite merece mais do que se perder em uma conversa.","SEM REDE","Apresentar alguém e depois não ter como acompanhar o convite.","COM A REDE TAMÃO","Compartilhar seu código e consultar participações atribuídas na sua rede.","Convites e remuneração são coisas diferentes; benefícios seguem as campanhas elegíveis."],
   visualTitle:'Sua rede começa com quem você conhece.',
   visualText:'Convites para quem compra e para quem vende seguem caminhos próprios. Acompanhe as participações e veja as regras de cada benefício quando disponível.',
   steps:[
@@ -159,6 +167,26 @@ function renderAudienceVisual(page){
 function renderLanding(page,origin,indexing){
  const canonical=origin+'/'+page.slug+'/';
  const highlights=page.highlights.map(([symbol,title,description])=>`<article class="ed-proof-card"><span class="ed-proof-symbol" aria-hidden="true">${esc(symbol)}</span><h3>${esc(title)}</h3><p>${esc(description)}</p></article>`).join('');
+
+ const [scenarioHeading,oldLabel,oldText,newLabel,newText,scenarioNote]=page.scenario;
+ const contrast=`<section class="ed-shell ed-contrast ed-contrast-${esc(page.slug)}" aria-labelledby="contraste">
+  <div class="ed-contrast-heading"><span class="ed-eyebrow">IMAGINE NA PRÁTICA</span><h2 id="contraste">${esc(scenarioHeading)}</h2></div>
+  <div class="ed-contrast-grid">
+   <article class="ed-contrast-before"><span class="ed-contrast-label">${esc(oldLabel)}</span><p>${esc(oldText)}</p></article>
+   <article class="ed-contrast-after"><span class="ed-contrast-label">${esc(newLabel)}</span><p>${esc(newText)}</p></article>
+  </div>
+  <p class="ed-contrast-note">${esc(scenarioNote)}</p>
+ </section>`;
+ const audienceLinks=[
+  ['como-funciona','QUERO COMPRAR','Escolha o que precisa','Gás, água e essenciais: produtos e consulta por CEP.'],
+  ['para-revendas','TENHO UMA EMPRESA','Mais uma vitrine para vender','Mostre seus produtos e mantenha o controle da operação.'],
+  ['para-marcas','QUERO DIVULGAR','Sua marca na conversa local','Explore propostas de divulgação e ações regionais.'],
+  ['indicacoes','QUERO INDICAR','Sua rede, seus convites','Apresente pessoas e revendas com um caminho próprio.']
+ ];
+ const related=audienceLinks.filter(([slug])=>slug!==page.slug).map(([slug,kicker,heading,description])=>
+  `<a class="ed-related-card" data-tamao-handoff href="/${esc(slug)}/">
+    <small>${esc(kicker)}</small><strong>${esc(heading)}</strong><span>${esc(description)}</span><b aria-hidden="true">Explorar →</b>
+   </a>`).join('');
  const cards=page.steps.map(([number,title,description])=>`<article class="ed-step">
    <span class="ed-step-number">${esc(number)}</span>
    <h3>${esc(title)}</h3><p>${esc(description)}</p>
@@ -207,7 +235,7 @@ function renderLanding(page,origin,indexing){
    <h1>${esc(page.heading)}</h1>
    <p>${esc(page.lead)}</p>
    <div class="ed-actions">${primary}${secondary}</div>
-   <div class="ed-hero-notes" aria-label="Sobre o TAMÃO"><span>✓ ${esc(page.slug==='para-revendas'?'Sem exclusividade':page.slug==='como-funciona'?'Preço antes de pedir':page.slug==='indicacoes'?'Convites acompanhados':'Proposta por região')}</span><span>✓ ${esc(page.slug==='para-revendas'?'Controle da operação':page.slug==='como-funciona'?'Consulta por CEP':page.slug==='indicacoes'?'Rede de pessoas e empresas':'Publicidade identificada')}</span></div>
+   <div class="ed-hero-notes" aria-label="Principais vantagens">${page.trustNotes.map(note=>'<span>✓ '+esc(note)+'</span>').join('')}</div>
   </div>
   <aside class="ed-hero-visual" aria-label="Apresentação ilustrativa da proposta do TAMÃO">
    <span class="ed-visual-kicker">${esc(page.mark)}</span>
@@ -216,6 +244,7 @@ function renderLanding(page,origin,indexing){
   </aside>
  </div></section>
  <section class="ed-shell ed-proof" aria-labelledby="vantagens"><div class="ed-proof-head"><span class="ed-eyebrow">VANTAGENS NA PRÁTICA</span><h2 id="vantagens">${esc(page.proofTitle)}</h2></div><div class="ed-proof-grid">${highlights}</div></section>
+ ${contrast}
  <section class="ed-section ed-shell" aria-labelledby="etapas"><div class="ed-section-head"><span class="ed-eyebrow">DO INTERESSE À AÇÃO</span><h2 id="etapas">${esc(page.stepsHeading)}</h2></div>
  <div class="ed-steps">${cards}</div></section>
  <section class="ed-section ed-shell ed-value" aria-labelledby="beneficios">
@@ -225,6 +254,7 @@ function renderLanding(page,origin,indexing){
  <section class="ed-section ed-shell ed-faq" aria-labelledby="duvidas">
   <div class="ed-section-head"><span class="ed-eyebrow">RESPOSTAS DIRETAS</span><h2 id="duvidas">Dúvidas que vale esclarecer.</h2></div><div class="ed-faq-items">${questions}</div>
  </section>
+ <section class="ed-shell ed-related" aria-labelledby="mais-caminhos"><div class="ed-related-heading"><span class="ed-eyebrow">O TAMÃO VAI ALÉM</span><h2 id="mais-caminhos">Descubra outras formas de participar.</h2><p>Quem compra, vende, indica ou anuncia encontra seu próprio caminho no TAMÃO.</p></div><nav class="ed-related-grid" aria-label="Conheça outras possibilidades no TAMÃO">${related}</nav></section>
  <section class="ed-shell ed-last"><div><span class="ed-eyebrow">SEU PRÓXIMO PASSO</span><h2>${esc(page.closing)}</h2></div>${primary}</section>
 </main>
 <footer class="ed-footer"><div class="ed-shell ed-footer-inner">
