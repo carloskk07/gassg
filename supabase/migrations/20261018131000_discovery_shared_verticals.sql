@@ -417,6 +417,48 @@ $$;
 revoke all on function public.discovery_my_listings() from public,anon,authenticated;
 grant execute on function public.discovery_my_listings() to authenticated;
 
+
+-- The existing verified superadmin identity is the only reviewer.
+-- Exposes pending commercial content, never documents, owner IDs or payment data.
+create function public.discovery_admin_review_queue(p_limit integer default 50)
+returns table(
+ id uuid,vertical text,status text,title text,description text,
+ state_code text,city_key text,city_name text,public_area text,
+ whatsapp_e164 text,photo_urls text[],submitted_at timestamptz,
+ occupation text,departure_city text,destination_city text,
+ departure_at timestamptz,seats_available integer,
+ property_type text,guests integer,price_from_brl_cents integer,
+ city_vertical_enabled boolean
+) language plpgsql stable security definer set search_path='pg_catalog'
+as $$
+begin
+ if (select auth.uid()) is null or not exists(
+   select 1 from public.platform_admins a
+   where a.user_id=(select auth.uid()) and a.active and a.admin_role='superadmin'
+ ) then raise exception 'ADMIN_REQUIRED' using errcode='42501';end if;
+ return query
+ select l.id,l.vertical,l.status,l.title,l.description,l.state_code,
+  l.city_key,l.city_name,l.public_area,l.whatsapp_e164,l.photo_urls,l.submitted_at,
+  pro.occupation,r.departure_city,r.destination_city,r.departure_at,
+  r.seats_available,st.property_type,st.guests,st.price_from_brl_cents,
+  exists(select 1 from public.discovery_vertical_cities c
+    where c.vertical=l.vertical and c.state_code=l.state_code
+      and c.city_key=l.city_key and c.enabled)
+ from public.discovery_listings l
+ left join public.discovery_professional_details pro
+   on pro.listing_id=l.id and l.vertical='professionals'
+ left join public.discovery_ride_details r
+   on r.listing_id=l.id and l.vertical='rides'
+ left join public.discovery_stay_details st
+   on st.listing_id=l.id and l.vertical='stays'
+ where l.status='review'
+ order by l.submitted_at,l.id
+ limit greatest(1,least(coalesce(p_limit,50),100));
+end $$;
+revoke all on function public.discovery_admin_review_queue(integer)
+ from public,anon,authenticated;
+grant execute on function public.discovery_admin_review_queue(integer) to authenticated;
+
 -- Contrato público de descoberta: uma busca segura, sem dados de proprietários,
 -- sem misturar as três jornadas e sem confiar em um índice geográfico do marketplace.
 create function public.discovery_public_search(
