@@ -68,6 +68,45 @@ insert into public.discovery_professional_details(
  listing_id,occupation,service_area,years_experience
 ) values ((current_setting('tamao.test.listing_id'))::uuid,'Eletricista','São Gabriel e localidades próximas',12);
 
+-- Fotos já referenciadas não podem ser deletadas pela Storage API,
+-- mesmo pelo próprio anunciante. Apenas uploads não associados admitem limpeza.
+do $photo_guard$
+declare n integer;
+begin
+ delete from storage.objects
+  where bucket_id='tamao-discovery-photos'
+   and name='00000000-0000-0000-0000-000000000011/11111111-1111-1111-1111-111111111111.jpg';
+ get diagnostics n=row_count;
+ if n<>0 then raise exception 'REFERENCED_PHOTO_DELETED';end if;
+end $photo_guard$;
+insert into storage.objects(bucket_id,name,owner_id,metadata)
+values('tamao-discovery-photos',
+ '00000000-0000-0000-0000-000000000011/99999999-9999-9999-9999-999999999999.jpg',
+ '00000000-0000-0000-0000-000000000011',
+ '{"mimetype":"image/jpeg"}'::jsonb);
+set request.jwt.claim.sub='00000000-0000-0000-0000-000000000022';
+do $photo_cross_owner$
+declare n integer;
+begin
+ delete from storage.objects
+  where bucket_id='tamao-discovery-photos'
+   and name='00000000-0000-0000-0000-000000000011/99999999-9999-9999-9999-999999999999.jpg';
+ get diagnostics n=row_count;
+ if n<>0 then raise exception 'CROSS_OWNER_PHOTO_DELETED';end if;
+end $photo_cross_owner$;
+set request.jwt.claim.sub='00000000-0000-0000-0000-000000000011';
+delete from storage.objects
+ where bucket_id='tamao-discovery-photos'
+  and name='00000000-0000-0000-0000-000000000011/99999999-9999-9999-9999-999999999999.jpg';
+do $photo_cleanup$
+declare n integer;
+begin
+ select count(*) into n from storage.objects
+  where bucket_id='tamao-discovery-photos'
+   and name='00000000-0000-0000-0000-000000000011/99999999-9999-9999-9999-999999999999.jpg';
+ if n<>0 then raise exception 'UNLINKED_PHOTO_CLEANUP_DENIED';end if;
+end $photo_cleanup$;
+
 -- Owner-only listing RPC: include drafts without exposing internal owner UUID.
 do $$
 declare n integer;
