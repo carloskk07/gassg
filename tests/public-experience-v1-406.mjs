@@ -8,7 +8,7 @@ import {writePublicLandingPages,PUBLIC_LANDING_SLUGS} from '../scripts/build-pub
 const read=name=>fs.readFileSync(new URL('../'+name,import.meta.url),'utf8');
 const customer=read('js/customer.js');
 new vm.Script(customer,{filename:'customer.js'});
-const benefits=customer.slice(customer.indexOf('function tamaoHomeBenefits(){'),customer.indexOf('\nfunction customerProductName('));
+const benefits=customer.slice(customer.indexOf('function tamaoHomeBenefits('),customer.indexOf('\nfunction customerProductName('));
 assert.ok(benefits.length>2300,'home value section exists');
 for(const term of ['CLUBE TAMÃO','REDE TAMÃO','cashback de compras elegíveis','Indique amigos e amplie sua Rede TAMÃO',
  "go('club')","go('earn')",'tamao-action-now']){
