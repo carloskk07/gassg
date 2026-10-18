@@ -68,11 +68,24 @@
 - Não extrapolar teste de RLS isolado para homologação real em Supabase com Storage/Auth e rede.
 - Não reclassificar ausência de jornadas essenciais como entrega concluída.
 
+## Continuação verificada — 18/10/2026, proteção de imagens (CORE-001 / QA-001)
+
+- **Ponto exato de retomada:** PR #492, `feat/unified-discovery-tamao`; `main` permanece em `433101839489`. O HEAD `2d31f63c6ea22a9985b590bc2820172777300a0f` tinha Audit, PostgreSQL 17, builds e smoke visual **PASS**.
+- **Supabase real (leitura):** projeto `lgugwujpunhslavewffd` saudável; `to_regclass('public.discovery_listings')=null`; migration `20261018131000` ausente do histórico (0 aplicações); `platform_launch_control` permanece `PRELAUNCH / commerce_enabled=false`; portais atestados em `433101839489` às 17:34 UTC. O leitor web não abriu os manifests HTTP individualmente; não tratar o atestado como verificação HTTP independente.
+- **Correção proposta na mesma migration ainda não aplicada:** fotos somente em bucket específico `tamao-discovery-photos`, novas gravações sob diretório do `auth.uid()`, limite 5 MiB e MIME JPEG/PNG/WebP. Antes de aceitar `review` ou `published`, o banco verifica que cada chave `photo_urls` corresponde a objeto persistido nesse bucket e pertencente ao anunciante. URLs externas deixam de servir de prova de foto.
+- **Interface pública:** apresentação de imagem aprovada a partir de chave Storage validada, sem aceitar endereço livre. Bucket é **público para fotos não sensíveis**; documentos e licenças requerem armazenamento privado próprio, ainda NÃO implementado.
+- **Testes adicionados:** contrato de Storage em PostgreSQL descartável, recusa de link externo e upload em pasta de outra pessoa; contrato JS para evitar URL externa no `src`. Não confundir simulação SQL com upload binário real do Storage, verificação de tipo pelo conteúdo ou Auth E2E.
+- **Falha detectada e resolvida durante desenvolvimento:** alteração de SQL com substituição de strings duplicou trechos da migration; arquivo restaurado a partir da versão aprovada, sem redundância (uma função de transição, dois gates de imagens). Outra falha no PostgreSQL isolado: `psql` não expande `:'variavel'` dentro de `DO $$`; teste corrigido no commit `ca8305bfd835a1f6bdca2700d8d6e5617d9571a2`. Reexecutar CI no SHA final e não presumir aprovação.
+- **Mudanças nesta sessão:** somente commits na branch do PR #492; **nenhuma migration, deploy, comércio, pagamento ou nova vertical ativados no Supabase**.
+- **Situação:** CORE-001/QA-001 continuam **PARCIAIS**. UI-001/PRO-001/RIDE-001/STAY-001/ADMIN-001 não são concluidos por esta etapa. A migração segue **não publicável**.
+- **Primeira tarefa restante:** concluir jornadas autenticadas de criar/editar anúncios dos três tipos, upload pelo SDK real em nomes aleatórios, gestão de fotos, envio à revisão, aprovação/rejeição no admin existente, documentação privada, e E2E/isolamento de contas. Sem essas provas, não avançar para merge ou abertura de modalidades.
+- **Gates específicos antes do release:** executar CI final por SHA, verificar cadastro/login/Supabase Storage real sem tocar produção aberta, garantir ausência de vazamento RLS/storage, testes de publicação/pausa, browser E2E, cobertura de layouts e reconciliação de portais. Não publicar por testes estáticos isolados.
+
 ## Checkpoint operacional obrigatório
 
-**ÚLTIMA ETAPA CONCLUÍDA:** Protocolo persistente implementado e três páginas públicas de descoberta adicionadas à PR #492 com consultas reais e carregamento sob demanda. Build e testes passaram na SHA `0d5e7a9`, incluindo validação do diário de execução.
+**ÚLTIMA ETAPA CONCLUÍDA COM TESTES APROVADOS:** descoberta pública, protocolo de continuidade, PostgreSQL isolado e builds na SHA `2d31f63c6ea22a9985b590bc2820172777300a0f`. **NOVAS ALTERAÇÕES AINDA SEM GATE FINAL:** proteção de imagens, teste de Storage e renderização; conferir CI no HEAD deste checkpoint.
 
-**ETAPA ATUAL:** Acompanhar o CI do HEAD atual e iniciar fluxo autenticado de anunciantes, fotos e moderação sem aplicar migração em produção.
+**ETAPA ATUAL:** Acompanhar o CI da correção de fotos no HEAD, consertar falhas e executar a primeira parte operacional do cadastro autenticado sem aplicar migration em produção.
 
 **PRÓXIMA AÇÃO EXATA:** Ler este checkpoint e o escopo; conferir SHA da PR, workflows e banco; depois implementar criação/edição real de anúncios com upload controlado e envio a revisão do superadmin, adicionando testes de RLS/Storage, vazamento de dados e regressão dos três portais.
 
