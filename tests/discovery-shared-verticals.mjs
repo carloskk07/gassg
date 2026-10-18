@@ -52,8 +52,12 @@ assert.doesNotMatch(sql,/update public\.platform_launch_control|update public\.m
   'discovery must never open current product marketplace');
 assert.doesNotMatch(sql,/sb_secret_|service_role\s*=|\bsecret\b\s*=/i,
   'no secret is allowed in versioned schema');
+assert.doesNotMatch(sql,/grant select \(owner_id\) on public\.discovery_listings/,
+  'browser must not expose publisher UUID');
+assert.match(sql,/create function public\.discovery_owner_can_edit_details\(/,
+  'detail editing authorization must verify ownership server-side');
 for(const vertical of ['professionals','rides','stays']){
- assert.match(sql,new RegExp("l\\.vertical='"+vertical+"'"),
+ assert.ok(sql.includes("discovery_owner_can_edit_details(listing_id,'"+vertical+"')"),
    vertical+' must enforce data ownership in its own details table');
 }
 console.log('Discovery schema: RLS, city isolation, owner controls, no autopublishing and no autocharges — PASS');
