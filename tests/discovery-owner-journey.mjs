@@ -111,9 +111,9 @@ const boot=read('js/bootstrap.js'),build=read('scripts/build-live-portals.mjs'),
 assert.match(boot,/advertise:typeof discoveryOwnerPage==='function'/);
 assert.match(boot,/discoveryOwnerRequestModule/);
 assert.match(boot,/discoveryOwnerAfterRender/);
-assert.match(home,/\\['advertise'/);
-assert.match(build,/role!=='customer'[\s\S]*?discovery-owner\\.js/);
+assert.ok(home.includes("['advertise'"));
+assert.ok(build.includes("fs.rmSync(path.join(target,'js','discovery-owner.js')"));
 assert.ok(!htmlOriginal.includes('js/discovery-owner.js'));
 assert.ok(!sw.includes('js/discovery-owner.js'));
-assert.match(read('css/discovery.css'),/\\.discovery-owner-layout/);
+assert.ok(read('css/discovery.css').includes('.discovery-owner-layout'));
 console.log('PASS advertiser module: auth OTP, owner draft, image upload, review, validation, lazy route, isolated bundles.');
