@@ -338,8 +338,23 @@ begin
  if n<>1 then raise exception 'OWNER_DOCUMENT_MISSING';end if;
 end $$;
 
--- Remoção dos metadados somente enquanto o anúncio é editável.
--- O arquivo físico é excluído pelo método Storage.remove() (contrato JS).
+-- Remoção só após apagar os bytes; teste negativo contra REST direto.
+do $
+begin
+ begin
+  delete from public.discovery_documents
+   where listing_id=current_setting('tamao.test.private_listing_id')::uuid;
+  raise exception 'ORPHANED_METADATA_DELETE_ALLOWED';
+ exception when invalid_parameter_value then null;
+ end;
+end $;
+-- Storage isolado é apenas uma fixture de metadados: em operação real,
+-- a exclusão do objeto ocorre exclusivamente pelo SDK Storage.remove().
+delete from storage.objects
+ where bucket_id='tamao-discovery-documents'
+ and name='00000000-0000-0000-0000-000000000011/'||
+ current_setting('tamao.test.private_listing_id')||
+ '/22222222-2222-2222-2222-222222222222.pdf';
 delete from public.discovery_documents
  where listing_id=current_setting('tamao.test.private_listing_id')::uuid;
 do $$
@@ -349,6 +364,13 @@ begin
  where listing_id=current_setting('tamao.test.private_listing_id')::uuid;
  if n<>0 then raise exception 'OWNER_DRAFT_DOCUMENT_DELETE_FAILED';end if;
 end $$;
+insert into storage.objects(bucket_id,name,owner_id,metadata) values(
+ 'tamao-discovery-documents',
+ '00000000-0000-0000-0000-000000000011/'||
+ current_setting('tamao.test.private_listing_id')||
+ '/22222222-2222-2222-2222-222222222222.pdf',
+ '00000000-0000-0000-0000-000000000011',
+ '{"mimetype":"application/pdf"}'::jsonb);
 insert into public.discovery_documents(listing_id,kind,object_path) values(
  current_setting('tamao.test.private_listing_id')::uuid,'supporting',
  '00000000-0000-0000-0000-000000000011/'||
