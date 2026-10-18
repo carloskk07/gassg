@@ -852,12 +852,15 @@ function siteFooter({adminPortal=false}={}){
       '<a href="/indicacoes/">Rede de indicações</a></nav>':'';
   return '<footer class="site-footer"><div class="shell site-footer-inner"><div><strong>TAMÃO</strong><small>Pediu? Tá na mão. • '+locality+'</small></div><nav aria-label="Explore o TAMÃO e informações legais"><button onclick="go(\'learn\')">Como funciona</button><button onclick="go(\'earn\')">Indicações</button><button onclick="go(\'merchants\')">Para revendas</button><button onclick="go(\'sponsors\')">Para marcas</button><button onclick="go(\'contact\')">Contato</button><button onclick="go(\'privacy\')">Privacidade</button><button onclick="go(\'terms\')">Termos</button></nav>'+editorial+'</div></footer>';
 }
+function tamaoOpenAvailability(){
+  if(globalThis.prelaunchExamplesEnabled?.()===true)return openPrelaunchCustomerLead();
+  return startHomeBrowse();
+}
 function shell(content){
   const r=route();
   const adminPortal=globalThis.adminPortalRequested?.()===true;
   const merchantPortal=!adminPortal&&globalThis.merchantPortalRequested?.()===true;
   const testDemo=globalThis.__CHAMA_TEST__===true;
-  const prelaunchPublic=!adminPortal&&!merchantPortal&&!testDemo&&globalThis.prelaunchExamplesEnabled?.()===true;
   // A public visitor choosing 'Revenda' should see the commercial explanation before the login portal.
   const merchantAction=merchantPortal?"go('merchant')":testDemo?"setMode('merchant')":"go('merchants')";
   const customerAction=(adminPortal||merchantPortal)?"openCustomerPortal()":testDemo?"setMode('customer')":"go('home')";
@@ -866,12 +869,10 @@ function shell(content){
     ? '<button onclick="go(\'admin\')">Control plane</button>'
     :merchantPortal
       ? '<button onclick="go(\'merchant\')">Operação</button><button onclick="go(\'catalog\')">Catálogo</button><button onclick="go(\'merchants\')">Parceiros</button>'
-      : prelaunchPublic
-        ? '<button onclick="go(\'home\')">Início</button><button onclick="openPrelaunchCustomerLead()">Disponibilidade</button><button onclick="go(\'earn\')">Indique</button><button onclick="go(\'merchants\')">Para empresas</button><button onclick="go(\'sponsors\')">Para marcas</button><button onclick="go(\'contact\')">Contato</button>'
-        : '<button onclick="go(\'home\')">Início</button><button onclick="go(\'learn\')">Como funciona</button><button onclick="go(\'earn\')">Indicações</button><button onclick="go(\'club\')">Clube</button><button onclick="go(\'merchants\')">Para revendas</button><button onclick="go(\'sponsors\')">Para marcas</button>';
+      : '<button onclick="go(\'home\')">Início</button><button onclick="tamaoOpenAvailability()">Consultar</button><button onclick="go(\'learn\')">Como funciona</button><button onclick="go(\'earn\')">Indicações</button><button onclick="go(\'club\')">Clube</button><button onclick="go(\'merchants\')">Para revendas</button><button onclick="go(\'sponsors\')">Para marcas</button>';
   const switcher=adminPortal
     ? '<div class="mode-pill" aria-label="Alternar ambiente"><button onclick="openCustomerPortal()">Site</button><button class="active" onclick="go(\'admin\')">Admin</button></div>'
-    : `<div class="mode-pill" aria-label="Alternar modo"><button class="${!merchantPortal&&(!testDemo||state.mode==='customer')&&r!=='merchants'?'active':''}" onclick="${customerAction}">${prelaunchPublic?'Quero comprar':'Comprar'}</button><button class="${merchantPortal||(testDemo&&state.mode==='merchant')||(!merchantPortal&&r==='merchants')?'active':''}" onclick="${merchantAction}">${prelaunchPublic?'Quero vender':'Revenda'}</button></div>`;
+    : `<div class="mode-pill" aria-label="Alternar modo"><button class="${!merchantPortal&&(!testDemo||state.mode==='customer')&&r!=='merchants'?'active':''}" onclick="${customerAction}">Comprar</button><button class="${merchantPortal||(testDemo&&state.mode==='merchant')||(!merchantPortal&&r==='merchants')?'active':''}" onclick="${merchantAction}">Revenda</button></div>`;
   return `<div class="app">
   <button type="button" class="skip-to-main" onclick="document.getElementById('tamao-main')?.focus()">Pular para o conteúdo principal</button>
   ${runtimeStrip()}
@@ -889,7 +890,6 @@ function bottomNav(r){
   const adminPortal=globalThis.adminPortalRequested?.()===true;
   const merchantPortal=!adminPortal&&globalThis.merchantPortalRequested?.()===true;
   const testDemo=globalThis.__CHAMA_TEST__===true;
-  const prelaunchPublic=!adminPortal&&!merchantPortal&&!testDemo&&globalThis.prelaunchExamplesEnabled?.()===true;
   const items=adminPortal
     ?[['admin','🛡️','Admin','go']]
     :merchantPortal
@@ -898,12 +898,10 @@ function bottomNav(r){
         :[['merchant','🏪','Operação','go'],['merchant-orders','📦','Pedidos','go'],['merchant-team','👥','Equipe','go'],['catalog','🧺','Catálogo','go']]
       :testDemo&&state.mode==='merchant'
         ?[['merchant','🏪','Operação','go'],['merchant-orders','📦','Pedidos','go'],['catalog','🧺','Catálogo','go'],['merchant-metrics','📊','Desempenho','go'],['merchants','➕','Parceiros','go']]
-        :prelaunchPublic
-          ?[['home','⌂','Início','go'],['early-access','🔔','Avisos','lead'],['earn','🤝','Indicar','go'],['merchants','🏪','Vender','go'],['contact','💬','Contato','go']]
-          :[['home','⌂','Início','go'],['order','🧺','Pedir','browse'],['tracking','📍','Pedido','go'],['earn','🤝','Indicar','go'],['club','★','Clube','go']];
+        :[['home','⌂','Início','go'],['availability','🧺','Consultar','market'],['earn','🤝','Indicar','go'],['club','★','Clube','go'],['merchants','🏪','Vender','go']];
   return `<nav class="bottom-nav" aria-label="Navegação principal">${items.map(([id,ic,l,act])=>{
-    const active=r===id;
-    const onclick=act==='browse'?"startHomeBrowse()":act==='start'?"startOrder('P13')":act==='lead'?"openPrelaunchCustomerLead()":`go('${id}')`;
+    const active=r===id||(id==='availability'&&r==='order');
+    const onclick=act==='browse'?"startHomeBrowse()":act==='start'?"startOrder('P13')":act==='market'?"tamaoOpenAvailability()":`go('${id}')`;
     return `<button type="button" class="nav-btn ${active?'active':''} ${act==='browse'?'nav-btn-shop':''}" ${active?'aria-current="page"':''} onclick="${onclick}"><span aria-hidden="true">${ic}</span><span>${l}</span></button>`;
   }).join('')}</nav>`;
 }

@@ -188,3 +188,12 @@
 4. Consultar migrações, controles e funções existentes no Supabase **sem repetir aplicações**.
 5. Executar a próxima ação exata, registrar defeito e teste de regressão, atualizar este checkpoint.
 6. Não criar nova branch/PR para mesma expansão ou liberar anúncio incompleto.
+
+## Continuação 18/10/2026 — operação assistida e navegação estável
+
+- Consulta atual do Supabase: `ACTIVE_HEALTHY`, plataforma `PRELAUNCH` e `commerce_enabled=false`; São Gabriel/RS sem abertura; revenda única `pending`, offline, sem confirmação geral de preços; CNPJ/ANP `pending`. Há 3 itens ativos com preço individual confirmado e estoque positivo; ainda **não constituem oferta habilitada**. Pedidos e incidentes: zero.
+- Último atestado OIDC no banco às `2026-10-18T21:56:09Z`: customer, merchant e admin com respostas 200 registradas no SHA `433101839489`. Teste HTTP independente do ambiente falhou por DNS; **não** validar implantação apenas com atestado.
+- CI anterior do HEAD `29d43df`: Audit, PostgreSQL 17 isolado, builds e smoke público PASS. Branch 118 commits à frente da `main` antes desta edição.
+- Defeito priorizado da issue #493: menu desktop/mobile mudava com a disponibilidade assíncrona; conteúdo inicial trazia links com outros rótulos e fundo verde. Alteração proposta **somente nesta PR draft**: menus estáveis, verificação de disponibilidade no clique, rótulos coerentes e fundo inicial claro; nova regressão `tests/public-navigation-stability.mjs` no Audit. **Aguardando CI do novo HEAD e revisão visual antes de extração/publicação**.
+- Não criar/comprar/faturar pedidos ou alterar status de revenda e abertura de cidade por SQL. O primeiro passo continua sendo validar representação, CNPJ/ANP quando aplicáveis, preços gerais, pagamento, logística e online pelo painel e responsável real; depois testar jornada de pedido e pausa.
+- Expansão continua dependente de Auth/Storage reais A/B/admin isolados, retenção e órfãos, publicação/pausa E2E, SEO `es-AR`, Ads/Impulso e demais critérios. Migration `20261018131000` permanece **não aplicada**. PR não deve ser integrada.
