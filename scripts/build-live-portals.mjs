@@ -4,6 +4,7 @@ import os from 'node:os';
 import path from 'node:path';
 import {buildRuntimeConfig,validatePortalRole} from './generate-runtime-config.mjs';
 import {writePublicLandingPages,PUBLIC_LANDING_SLUGS} from './build-public-landing-pages.mjs';
+import {stripAdminOnlyCss,publicAdminClassReferences} from './strip-admin-css.mjs';
 
 const ROOT=path.resolve(new URL('..',import.meta.url).pathname);
 const STATIC_FILES=['index.html','manifest.webmanifest','sw.js','robots.txt'];
@@ -210,6 +211,7 @@ export function buildLivePortals(env=process.env,{outputRoot=env.PORTAL_BUILD_OU
   const manifestRaw=fs.readFileSync(path.join(ROOT,'manifest.webmanifest'),'utf8');
   const serviceWorkerRaw=fs.readFileSync(path.join(ROOT,'sw.js'),'utf8');
   const sourceSha=String(env.CHAMA_SOURCE_SHA||'unknown').trim()||'unknown';
+  const sharedAdminClasses=publicAdminClassReferences(path.join(ROOT,'js'));
   const built=[];
 
   for(const role of Object.keys(PORTALS)){
@@ -223,6 +225,13 @@ export function buildLivePortals(env=process.env,{outputRoot=env.PORTAL_BUILD_OU
       for(const module of ['admin-acquisition','admin','admin-activations']){
         fs.rmSync(path.join(target,'js',module+'.js'));
       }
+      // Deliver only CSS needed by the public portals. Keep every shared
+      // admin-named class used by non-admin modules (the merchant reconciliation
+      // panel currently uses .admin-entity-grid), and preserve admin CSS fully.
+      const cssPath=path.join(target,'css','components.css');
+      const original=fs.readFileSync(cssPath,'utf8');
+      const optimized=stripAdminOnlyCss(original,{sharedAdminClasses});
+      fs.writeFileSync(cssPath,optimized.css,'utf8');
     }
 
     const runtimeEnv={...env,CHAMA_PORTAL_ROLE:role};

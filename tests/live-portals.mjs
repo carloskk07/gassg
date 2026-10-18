@@ -4,6 +4,7 @@ import os from 'node:os';
 import path from 'node:path';
 import {buildLivePortals,assertProductionTurnstile,validateClassicScriptSyntax} from '../scripts/build-live-portals.mjs';
 import {buildCloudflarePortal,CLOUDFLARE_PROJECTS,PUBLIC_TURNSTILE_SITE_KEY} from '../scripts/build-cloudflare-portal.mjs';
+import {stripAdminOnlyCss,publicAdminClassReferences} from '../scripts/strip-admin-css.mjs';
 
 const origins={
   CHAMA_CUSTOMER_ORIGIN:'https://tamao.com.br',
@@ -11,6 +12,14 @@ const origins={
   CHAMA_ADMIN_ORIGIN:'https://admin.tamao.com.br'
 };
 const testKey='1x00000000000000000000AA';
+const originalComponents=fs.readFileSync(new URL('../css/components.css',import.meta.url),'utf8');
+const sharedAdminClasses=publicAdminClassReferences(new URL('../js',import.meta.url));
+assert.ok(sharedAdminClasses.has('admin-entity-grid'),'Merchant shared class needs explicit preservation');
+const optimizedComponents=stripAdminOnlyCss(originalComponents,{sharedAdminClasses});
+assert.ok(optimizedComponents.removedRules>500,'Expected meaningful admin-only CSS isolation');
+assert.ok(optimizedComponents.removedBytes>65000,'Expected at least 65KB of safe CSS removal');
+assert.ok(optimizedComponents.css.includes('.admin-entity-grid{'),'Merchant shared admin component must survive');
+assert.ok(!optimizedComponents.css.includes('.admin-sidebar{'),'Admin sidebar must be absent from public bundles');
 assert.doesNotThrow(()=>validateClassicScriptSyntax('const valid = 1;','valid.js'));
 assert.throws(()=>validateClassicScriptSyntax("const invalid = ;",'invalid.js'),SyntaxError,
   'Cloudflare bundle compilation must fail on an invalid public script');
@@ -36,6 +45,11 @@ assert.deepEqual(built.map(x=>x.role),['customer','merchant','admin']);
 for(const {role,path:dir} of built){
   assert.ok(fs.existsSync(path.join(dir,'index.html')));
   assert.ok(fs.existsSync(path.join(dir,'sw.js')));
+  const shippedComponents=fs.readFileSync(path.join(dir,'css','components.css'),'utf8');
+  assert.equal(shippedComponents,role==='admin'?originalComponents:optimizedComponents.css,
+    role+' stylesheet must match role-specific safe CSS exactly');
+  assert.equal(shippedComponents.includes('.admin-sidebar{'),role==='admin',
+    role+' must isolate admin-only styles');
   const sw=fs.readFileSync(path.join(dir,'sw.js'),'utf8');
   assert.ok(sw.includes('tamao-sg-test-sha'),'service worker precisa versionar cache pelo sourceSha do bundle');
   assert.ok(fs.existsSync(path.join(dir,'robots.txt')));
