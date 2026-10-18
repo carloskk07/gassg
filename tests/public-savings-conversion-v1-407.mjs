@@ -14,8 +14,8 @@ const home=customer.slice(customer.indexOf('function home(){'),customer.indexOf(
 const club=growth.slice(growth.indexOf('function club(){'),growth.indexOf('\nfunction ',growth.indexOf('function club(){')+20));
 const merchant=growth.slice(growth.indexOf('function merchantsLanding(){'),growth.indexOf('\nfunction merchantJoin(){'));
 for(const phrase of [
- 'Compare preços, aproveite seu Clube e compre com mais vantagem.',
- 'cashback de pedidos elegíveis','go(\'club\')','tamao-action-now'
+ 'Mais economia na escolha. Mais vantagens para voltar.',
+ 'cashback de compras elegíveis','go(\'club\')','tamao-action-now'
 ])assert.ok(benefits.includes(phrase),'customer benefit must be real: '+phrase);
 for(const term of ['Compare preços','cashback','novos clientes',"go('club')","go('merchants')"]){
  assert.ok(home.toLowerCase().includes(term.toLowerCase()),'first fold missing '+term);
@@ -43,13 +43,13 @@ try{
  writePublicLandingPages(tmp,{origin:'https://tamao.com.br',indexing:true});
  const buyer=fs.readFileSync(path.join(tmp,'como-funciona','index.html'),'utf8');
  const seller=fs.readFileSync(path.join(tmp,'para-revendas','index.html'),'utf8');
- assert.match(buyer,/Economize tempo e compare preços/);
+ assert.match(buyer,/Compare o preço total\. Escolha com mais vantagem\./);
  assert.match(buyer,/Cashback na sua conta/);
  assert.match(buyer,/Acompanhe do pedido à entrega/);
  assert.match(buyer,/Comparar ofertas agora/);
  assert.match(buyer,/href="\/"/);
  assert.doesNotMatch(buyer,/pacotes? de cupons? em preparação|venda de pacotes de cupons ainda não/i);
- assert.match(seller,/Seus próximos clientes podem descobrir/);
+ assert.match(seller,/Sua revenda no caminho de quem precisa comprar\./);
  assert.match(seller,/Mais oportunidades de pedidos/);
  assert.match(seller,/Entre por um canal adicional sem exclusividade/);
  assert.match(seller,/href="\/\?entrada=cadastro-revenda"/);
