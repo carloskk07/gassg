@@ -75,12 +75,13 @@ insert into public.discovery_listings(
  'Anúncio de exemplo sem upload próprio que deve ser recusado na revisão.',
  'RS','sao-gabriel','São Gabriel','+5555999999999',
  array['https://external.example/tracker.jpg']) returning id as fake_photo_id \gset
+select set_config('tamao.test.fake_photo_id', :'fake_photo_id', false);
 insert into public.discovery_professional_details(listing_id,occupation,service_area)
  values(:'fake_photo_id','Eletricista','São Gabriel e arredores');
 do $$
 begin
  begin
-  perform public.discovery_transition_listing(:'fake_photo_id'::uuid,'review');
+  perform public.discovery_transition_listing(current_setting('tamao.test.fake_photo_id')::uuid,'review');
   raise exception 'EXTERNAL_PHOTO_SUBMITTED';
  exception when invalid_parameter_value then null;
  end;
