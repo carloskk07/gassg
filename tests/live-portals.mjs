@@ -71,8 +71,9 @@ for(const {role,path:dir} of built){
     const script='<script defer src="./js/'+module+'.js?v=test-sha"></script>';
     const cacheAsset="'./js/"+module+".js?v=test-sha'";
     const available=role==='admin';
-    assert.equal(html.includes(script),available,role+' HTML: admin script '+module);
-    assert.equal(sw.includes(cacheAsset),available,role+' PWA cache: admin script '+module);
+    const eager=available&&module!=='admin-activations';
+    assert.equal(html.includes(script),eager,role+' HTML: admin script '+module);
+    assert.equal(sw.includes(cacheAsset),eager,role+' PWA cache: admin script '+module);
     assert.equal(fs.existsSync(path.join(dir,'js',module+'.js')),available,role+' bundle: admin script '+module);
   }
   // Build-wide asset coherence: every CSS/JS reference carries the release
@@ -89,6 +90,11 @@ for(const {role,path:dir} of built){
   // Preserve functional bootstrapping after excluding admin-only sources.
   const bootstrap=fs.readFileSync(path.join(dir,'js','bootstrap.js'),'utf8');
   assert.ok(bootstrap.includes("typeof adminPage==='function'"),'Bootstrap needs optional admin references');
+  if(role==='admin'){
+    const adminSource=fs.readFileSync(path.join(dir,'js','admin.js'),'utf8');
+    assert.match(adminSource,/adminActivationLoadOnDemand\(\)/);
+    assert.match(adminSource,/adminActivationModuleUrl/);
+  }
   assert.ok(bootstrap.includes("typeof merchantPage==='function'"),'Bootstrap needs optional merchant references');
   if(role==='customer')assert.match(bootstrap,/if\(typeof merchantPage==='function'\)Object\.assign/);
   if(role!=='admin'){
@@ -180,6 +186,10 @@ for(const [projectName,cfg] of Object.entries(CLOUDFLARE_PROJECTS)){
   const cfHtml=fs.readFileSync(path.join(publishDir,'index.html'),'utf8');
   const cfSw=fs.readFileSync(path.join(publishDir,'sw.js'),'utf8');
   const cfAsset='./js/core.js?v=1234567890123456789012345678901234567890';
+  const lazyActivation='./js/admin-activations.js?v=1234567890123456789012345678901234567890';
+  assert.ok(!cfHtml.includes('src="'+lazyActivation+'"'));
+  assert.ok(!cfSw.includes("'"+lazyActivation+"'"));
+  assert.equal(fs.existsSync(path.join(publishDir,'js','admin-activations.js')),cfg.role==='admin');
   assert.ok(cfHtml.includes('src="'+cfAsset+'"'),projectName+' must pin actual Cloudflare scripts');
   const includesMerchant=cfg.role!=='customer';
   assert.equal(cfHtml.includes('src="./js/merchant.js?v=1234567890123456789012345678901234567890"'),includesMerchant);
