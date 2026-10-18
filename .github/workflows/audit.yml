@@ -527,6 +527,8 @@ jobs:
         run: node tests/public-savings-conversion-v1-407.mjs
       - name: Commercial turbo with truthful live journeys V1.409
         run: node tests/public-real-turbo-v1-409.mjs
+      - name: First-visit commercial hierarchy and compact benefits V1.413
+        run: node tests/home-commercial-rhythm-v1-413.mjs
       - name: One-step merchant signup and referral attribution V1.410
         run: node tests/merchant-direct-onboarding-v1-410.mjs
       - name: V1.378 preserve attributed visits and show distinct visitor visuals

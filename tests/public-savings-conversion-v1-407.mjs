@@ -9,7 +9,7 @@ const read=name=>fs.readFileSync(new URL('../'+name,import.meta.url),'utf8');
 const customer=read('js/customer.js'),growth=read('js/growth.js'),index=read('index.html');
 new vm.Script(customer,{filename:'customer.js'});
 new vm.Script(growth,{filename:'growth.js'});
-const benefits=customer.slice(customer.indexOf('function tamaoHomeBenefits(){'),customer.indexOf('\nfunction customerProductName('));
+const benefits=customer.slice(customer.indexOf('function tamaoHomeBenefits('),customer.indexOf('\nfunction customerProductName('));
 const home=customer.slice(customer.indexOf('function home(){'),customer.indexOf('\nfunction orderPage(){'));
 const club=growth.slice(growth.indexOf('function club(){'),growth.indexOf('\nfunction ',growth.indexOf('function club(){')+20));
 const merchant=growth.slice(growth.indexOf('function merchantsLanding(){'),growth.indexOf('\nfunction merchantJoin(){'));

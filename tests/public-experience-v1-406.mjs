@@ -8,7 +8,7 @@ import {writePublicLandingPages,PUBLIC_LANDING_SLUGS} from '../scripts/build-pub
 const read=name=>fs.readFileSync(new URL('../'+name,import.meta.url),'utf8');
 const customer=read('js/customer.js');
 new vm.Script(customer,{filename:'customer.js'});
-const benefits=customer.slice(customer.indexOf('function tamaoHomeBenefits(){'),customer.indexOf('\nfunction customerProductName('));
+const benefits=customer.slice(customer.indexOf('function tamaoHomeBenefits('),customer.indexOf('\nfunction customerProductName('));
 assert.ok(benefits.length>2300,'home value section exists');
 for(const term of ['CLUBE TAMÃO','REDE TAMÃO','cashback de compras elegíveis','Indique amigos e amplie sua Rede TAMÃO',
  "go('club')","go('earn')",'tamao-action-now']){
@@ -18,8 +18,8 @@ assert.equal((benefits.match(/class="tamao-perks-panel /g)||[]).length,2,
  'club and referral should have separate prominent sections');
 assert.doesNotMatch(benefits,/ganhos garantidos|recompensa garantida|cupons ativos para todos|R\$ ?[0-9]/i);
 const home=customer.slice(customer.indexOf('function home(){'),customer.indexOf('\nfunction orderPage(){'));
-assert.ok(home.includes('typeof tamaoHomeBenefits===')&&!home.includes('!conciseHome&&typeof tamaoHomeBenefits'),
- 'new benefit stage remains discoverable without verified city offers');
+assert.ok(home.includes('tamaoHomeBenefits({compact:true})')&&home.includes('!conciseHome&&typeof tamaoHomeBenefits'),
+ 'new benefit stage renders compact on first visits and full when city offers are verified');
 const premium=read('css/marketing-premium.css');
 assert.match(premium,/\.tamao-perks-stage/);
 assert.match(premium,/\.tamao-perks-panel button:focus-visible/);

@@ -21,7 +21,7 @@ for(const x of ["P13:'gas'","WATER20:'water'","CHARCOAL4:'charcoal'","WOOD:'wood
  assert.ok(customer.includes(x),'Missing product '+x);
 }
 for(const x of [
- 'function tamaoProductArt(', 'function tamaoHomeBenefits()',
+ 'function tamaoProductArt(', 'function tamaoHomeBenefits(',
  'tamaoProductArt(featuredCode,featuredProduct,"hero")',
  'tamaoProductArt(k,p)', 'tamaoProductArt(k,p,"cart")',
  'tamaoHomeBenefits()', 'Quer conferir','Minhas indicações'
