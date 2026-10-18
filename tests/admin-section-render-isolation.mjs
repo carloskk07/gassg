@@ -37,9 +37,11 @@ for(const section of ['overview','orders','customers','partners','prospects','en
     'All administrative routes must remain wired: '+section);
 }
 for(const section of ['prospects','enablement']){
-  assert.ok(page.includes("adminPanel('"+section+"',"),
-    'On-demand section must retain source component');
+  assert.ok(page.includes("adminPanel('"+section+"',sectionActive('"+section+"')?"),
+    'On-demand section must render only when selected and authorized');
 }
+assert.ok(page.includes("adminPanel('activations',sectionActive('activations')?"),
+  'Protected lazy-loaded activations must not render while hidden');
 // Actually execute the authorization and selection gate in an isolated VM.
 const gate=page.match(/const sectionActive=id=>[^;]+;/)?.[0];
 assert.ok(gate);
