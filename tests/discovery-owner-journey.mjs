@@ -15,6 +15,7 @@ let formValues={vertical:'professionals',title:'Serviços elétricos e manutenç
   whatsapp_e164:'+5555999999999',occupation:'Eletricista',
   service_area:'São Gabriel e arredores',years_experience:'10'};
 let selectedFiles=[{type:'image/jpeg',size:1500}];
+let selectedDocuments=[{type:'application/pdf',size:2000}];
 let loginUrl='';
 class FakeFormData{get(k){return formValues[k]??null;}}
 const client={
@@ -33,7 +34,11 @@ const client={
   throw Error('unexpected rpc '+name);
  },
  from(name){return {
-  insert(data){return {
+  insert(data){
+   if(name==='discovery_documents'){
+    writes.push([name,'insert',data]);return Promise.resolve({error:null});
+   }
+   return {
    select(column){assert.equal(column,'id');return {single:async()=>{
     writes.push([name,'insert',data]);
     const id='22222222-2222-2222-2222-222222222222';
@@ -47,10 +52,10 @@ const client={
     const item=records.find(r=>r.id===id);if(item)Object.assign(item,data);
     return {error:null};
   }};},
-  select(_columns){return {eq(_key,_id){return {maybeSingle:async()=>({data:{occupation:'Eletricista',service_area:'São Gabriel'},error:null})}}};}
+  select(_columns){return {eq(_key,_id){return {data:[],error:null,maybeSingle:async()=>({data:{occupation:'Eletricista',service_area:'São Gabriel'},error:null})}}};}
  };},
- storage:{from(bucket){assert.equal(bucket,'tamao-discovery-photos');return{
-  upload:async(key,file,opts)=>{uploads.push({key,file,opts});return {data:{path:key},error:null};}
+ storage:{from(bucket){assert.ok(['tamao-discovery-photos','tamao-discovery-documents'].includes(bucket));return{
+  upload:async(key,file,opts)=>{uploads.push({bucket,key,file,opts});return {data:{path:key},error:null};}
  };}}
 };
 const ctx={
@@ -59,7 +64,8 @@ const ctx={
  chamaFetch:async()=>({}), render:()=>{renderCount++;},
  location:{origin:'https://tamao.com.br',pathname:'/'},
  crypto:{randomUUID:()=>'11111111-1111-1111-1111-111111111111'},
- document:{getElementById:id=>id==='discovery-owner-photos'?{files:selectedFiles}:null},
+ document:{getElementById:id=>id==='discovery-owner-photos'?{files:selectedFiles}:
+   id==='discovery-owner-documents'?{files:selectedDocuments}:null},
  FormData:FakeFormData,loadSupabaseBrowser:async()=>({createClient:()=>client}),
  console
 };
@@ -83,9 +89,14 @@ const form={checkValidity:()=>true};
 await ctx.discoveryOwnerSave({preventDefault(){},target:form});
 assert.ok(writes.some(w=>w[0]==='discovery_listings'&&w[1]==='insert'));
 assert.ok(writes.some(w=>w[0]==='discovery_professional_details'&&w[1]==='upsert'));
-assert.equal(uploads.length,1);
-assert.equal(uploads[0].key,filePath);
+assert.equal(uploads.length,2);
+assert.equal(uploads[0].bucket,'tamao-discovery-documents');
+assert.equal(uploads[0].key,userId+'/22222222-2222-2222-2222-222222222222/11111111-1111-1111-1111-111111111111.pdf');
+assert.equal(uploads[1].bucket,'tamao-discovery-photos');
+assert.equal(uploads[1].key,filePath);
+assert.ok(writes.some(w=>w[0]==='discovery_documents'&&w[1]==='insert'&&w[2].object_path===uploads[0].key));
 assert.equal(uploads[0].opts.upsert,false);
+assert.equal(uploads[1].opts.upsert,false);
 assert.ok(writes.some(w=>w[0]==='discovery_listings'&&w[1]==='update'&&w[2].photo_urls[0]===filePath));
 const id=records[0].id;
 await ctx.discoveryOwnerSubmit(id);
@@ -101,7 +112,13 @@ selectedFiles=[{type:'text/html',size:100}];
 ctx.discoveryOwnerNew();
 await ctx.discoveryOwnerSave({preventDefault(){},target:form});
 assert.match(ctx.discoveryOwnerPage(),/JPG, PNG ou WebP/);
-assert.equal(uploads.length,1,'invalid upload must never reach Storage');
+assert.equal(uploads.length,2,'invalid photo must never reach Storage');
+selectedFiles=[];
+selectedDocuments=[{type:'text/html',size:120}];
+await ctx.discoveryOwnerSave({preventDefault(){},target:form});
+assert.equal(uploads.length,2,'invalid sensitive document must never reach Storage');
+assert.match(ctx.discoveryOwnerPage(),/comprovantes PDF/);
+assert.match(ctx.discoveryOwnerPage(),/Comprovantes para análise privada/);
 await ctx.discoveryOwnerLogout();
 const loggedOut=ctx.discoveryOwnerPage();
 assert.match(loggedOut,/Receber link de acesso/);
