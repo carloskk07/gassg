@@ -7,6 +7,12 @@ assert.doesNotThrow(()=>new vm.Script(source,{filename:'discovery-owner.js'}));
 const esc=x=>String(x??'').replace(/[&<>"']/g,k=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot',"'":'&#39;'}[k]));
 const userId='00000000-0000-0000-0000-000000000011';
 const filePath=userId+'/11111111-1111-1111-1111-111111111111.jpg';
+let generatedUUIDs=0;
+const testUUID=()=>{
+ generatedUUIDs++;
+ return generatedUUIDs<=2?'11111111-1111-1111-1111-111111111111':
+   '99999999-9999-9999-9999-'+String(generatedUUIDs).padStart(12,'0');
+};
 const writes=[],uploads=[],removed=[],transitions=[],records=[],privateDocs=[];
 let currentRoute='advertise', user={id:userId,email:'anunciante@example.test'},renderCount=0;
 let simulateRemovalOutage=false,simulateRegistrationFailure=false,simulatePhotoWriteFailure=false;
@@ -81,7 +87,7 @@ const ctx={
  shell:s=>s,esc,CHAMA_BACKEND:{url:'https://example.supabase.co',publishableKey:'sb_publishable_test'},
  chamaFetch:async()=>({}), render:()=>{renderCount++;},
  location:{origin:'https://tamao.com.br',pathname:'/'},
- crypto:{randomUUID:()=>'11111111-1111-1111-1111-111111111111'},
+ crypto:{randomUUID:testUUID},
  document:{getElementById:id=>id==='discovery-owner-photos'?{files:selectedFiles}:
    id==='discovery-owner-documents'?{files:selectedDocuments}:null},
  FormData:FakeFormData,loadSupabaseBrowser:async()=>({createClient:()=>client}),
