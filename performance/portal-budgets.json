@@ -1,0 +1,24 @@
+{
+  "schemaVersion": 1,
+  "referenceCommit": "63ae5d88f150d24bdab55e74cdda4a70eb1c100e",
+  "limits": {
+    "customer": {
+      "initialJsBytes": 530000,
+      "initialCssBytes": 283000,
+      "initialJsRequests": 11,
+      "initialCssRequests": 3
+    },
+    "merchant": {
+      "initialJsBytes": 920000,
+      "initialCssBytes": 283000,
+      "initialJsRequests": 12,
+      "initialCssRequests": 3
+    },
+    "admin": {
+      "initialJsBytes": 1600000,
+      "initialCssBytes": 367000,
+      "initialJsRequests": 14,
+      "initialCssRequests": 3
+    }
+  }
+}

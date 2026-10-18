@@ -19,6 +19,9 @@ on:
       - 'scripts/build-live-portals.mjs'
       - 'scripts/generate-runtime-config.mjs'
       - 'tests/live-portals.mjs'
+      - 'scripts/portal-performance-budget.mjs'
+      - 'tests/portal-performance-budget.mjs'
+      - 'performance/**'
       - '.github/workflows/build-live-portals.yml'
       - '.github/workflows/cloudflare-production-deploy.yml'
       - 'tests/cloudflare-production-deploy-v1-216.mjs'
@@ -51,6 +54,8 @@ jobs:
         run: node tests/live-portals.mjs
       - name: Build disposable test bundles
         run: node scripts/build-live-portals.mjs
+      - name: Verify startup performance budgets for all roles
+        run: node scripts/portal-performance-budget.mjs dist/live-portals
       - name: Verify isolated test bundles
         run: |
           for role in customer merchant admin; do
@@ -92,6 +97,8 @@ jobs:
           esac
       - name: Build production bundles
         run: node scripts/build-live-portals.mjs
+      - name: Verify production startup performance budgets
+        run: node scripts/portal-performance-budget.mjs dist/live-portals
       - name: Verify production bundle metadata
         run: |
           for role in customer merchant admin; do

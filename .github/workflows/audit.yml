@@ -605,6 +605,8 @@ jobs:
         run: node tests/runtime-config.mjs
       - name: Live portal bundle contract
         run: node tests/live-portals.mjs
+      - name: Portal startup performance budgets and role isolation
+        run: node tests/portal-performance-budget.mjs
       - name: Isolated customer and merchant browser smoke
         env:
           CHAMA_CUSTOMER_ORIGIN: https://tamao.com.br
