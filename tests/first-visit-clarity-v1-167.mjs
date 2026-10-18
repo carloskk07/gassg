@@ -62,15 +62,17 @@ assert.match(noSupply,/class="purchase-starter home-starter-neutral"/,
  'First visit must show a neutral product chooser');
 assert.match(noSupply,/Gás, água e outros essenciais/);
 assert.match(noSupply,/COMECE PELA SUA ESCOLHA/);
-assert.doesNotMatch(noSupply,/class="home-value-bridge tamao-visitor-paths"/,
- 'Avoid repeating the visitor path before the availability signup');
+assert.match(noSupply,/class="home-value-bridge tamao-visitor-paths"/,
+ 'First-time visitors must see buyer, merchant and referral benefits too');
+assert.match(noSupply,/home-benefits-shortcuts/,
+ 'Public first fold should explain the club and referral opportunity');
 assert.match(noSupply,/event\.preventDefault\(\);startHomeBrowse\(\)/,
  'Optional CEP Enter must not preselect gas');
 assert.ok(noSupply.indexOf('id="early-access"')<noSupply.indexOf('home-trust-brief'),
  'availability signup should precede optional FAQ, not be blocked by a lecture');
 assert.match(noSupply,/Consultar meu CEP|Escolher produtos →|Escolher meus produtos/);
 assert.match(noSupply,/São Gabriel/);
-assert.match(noSupply,/Quer saber mais ou tem uma revenda\?/);
+assert.match(noSupply,/Tem muita coisa boa no TAMÃO além de comprar\./);
 assert.match(noSupply,/Cadastrar minha empresa/);
 assert.match(noSupply,/id="early-access"/);
 assert.match(noSupply,/id="prelaunch-postal"/);
@@ -122,4 +124,4 @@ assert.doesNotMatch(untrusted,/<script>/);
 assert.match(untrusted,/Cidade &lt;script>/,
  'Untrusted city name must remain escaped in user-facing text');
 
-console.log('V1.167: unserved region concise; no pretend offers; real supply and internal demo preserved.');
+console.log('V1.167 + benefits: no pretend offers, accessible participation in pre-opening, real supply and demo preserved.');
