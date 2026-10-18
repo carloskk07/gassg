@@ -28,7 +28,7 @@ create table public.discovery_listings (
   city_name text not null check (length(btrim(city_name)) between 2 and 120),
   public_area text check (length(public_area)<=140),
   -- Nunca armazenar endereço residencial preciso como localização pública.
-  whatsapp_e164 text not null check (whatsapp_e164 ~ '^\\+[1-9][0-9]{7,14}$'),
+  whatsapp_e164 text not null check (whatsapp_e164 ~ '^\+[1-9][0-9]{7,14}$'),
   photo_urls text[] not null default '{}',
   trial_ends_at timestamptz,
   advertising_accepted_at timestamptz,
@@ -329,34 +329,7 @@ begin
     if p_next_status='published' then
       if cardinality(v_listing.photo_urls)<1 or exists(
         select 1 from unnest(v_listing.photo_urls) u
-         where u !~ '^https://[^[:space:]]+
-        raise exception 'LISTING_REVIEW_REQUIRED' using errcode='22023';end if;
-      if not exists (
-        select 1 from public.discovery_vertical_cities c where c.vertical=v_listing.vertical
-        and c.state_code=v_listing.state_code and c.city_key=v_listing.city_key and c.enabled
-      ) then raise exception 'CITY_VERTICAL_DISABLED' using errcode='22023';end if;
-    end if;
-  else
-    raise exception 'INVALID_TRANSITION' using errcode='22023';
-  end if;
-  update public.discovery_listings set status=p_next_status,updated_at=clock_timestamp(),
-    submitted_at=case when p_next_status='review' then clock_timestamp() else submitted_at end,
-    published_at=case when p_next_status='published' then clock_timestamp() else published_at end,
-    paused_at=case when p_next_status='paused' then clock_timestamp() else paused_at end,
-    reviewed_by=case when v_admin then v_actor else reviewed_by end,
-    reviewed_at=case when v_admin then clock_timestamp() else reviewed_at end
-  where id=p_listing_id;
-  insert into public.discovery_moderation_log(listing_id,from_status,to_status,actor_id,reason)
-  values(p_listing_id,v_listing.status,p_next_status,v_actor,nullif(btrim(p_reason),''));
-  return p_next_status;
-end $$;
-revoke all on function public.discovery_transition_listing(uuid,text,text) from public;
-grant execute on function public.discovery_transition_listing(uuid,text,text)
- to authenticated;
-
--- Sem seeds artificiais, cobrança automática, publicação automática ou
--- abertura comercial implícita. Caronas nunca entram na tabela de tarifas.
-
+        where u !~ '^https://[^[:space:]]+$'
       ) then raise exception 'REAL_PHOTO_REQUIRED' using errcode='22023';end if;
       if v_listing.vertical='rides' and not exists(
         select 1 from public.discovery_ride_details r
