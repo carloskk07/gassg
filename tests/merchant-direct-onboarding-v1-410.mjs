@@ -23,6 +23,7 @@ function entry(query,{hash='',origin='https://parceiro.tamao.com.br',flags={}}={
    location,URLSearchParams,
    go:next=>{route=next;location.hash='#'+next;},
    openMerchantPortal:value=>{submitted++;signup=value;},
+   buildPortalHref:value=>/^https:\/\//.test(String(value||''))?String(value):null,
    globalThis:{
      CHAMA_MERCHANT_ORIGIN:origin,
      adminPortalRequested:()=>Boolean(flags.admin),
@@ -40,6 +41,8 @@ assert.equal(visitor.handled,true);
 assert.equal(visitor.submitted,1);
 assert.equal(visitor.signup,true);
 assert.equal(visitor.repeat(),1,'DOMContentLoaded and load cannot redirect twice');
+const invalidOrigin=entry('?entrada=cadastro-revenda',{origin:'javascript:alert(1)'});
+assert.equal(invalidOrigin.route,'merchants','invalid portal destination must fall back safely');
 const fallback=entry('?entrada=cadastro-revenda',{origin:''});
 assert.equal(fallback.submitted,0);
 assert.equal(fallback.route,'merchants','missing merchant origin must not strand a visitor');
