@@ -107,6 +107,14 @@
 - **Endurecimento adicional do painel (continuação):** links de comprovantes privados assinados por 90 segundos passaram a solicitar `download:true`, em vez de abrir arquivos potencialmente não confiáveis inline no navegador do administrador. Regressão correspondente no `tests/discovery-admin-journey.mjs`. Código SHA `d86d058b173634af21f31de03f7b29360bdd1acf` com PostgreSQL, build e smoke PASS; confirmar Audit desse SHA e, depois, o CI do HEAD documental.
 - **Sem alteração operacional:** não aplicar migration, não configurar cobrança, não abrir cidade/modalidade, não fazer merge, não promover preview Netlify ou Cloudflare.
 
+## Decisão de acompanhamento dentro do TAMÃO (18/10/2026)
+
+- **Decisão do proprietário:** não utilizar Slack nem criar sistema externo de acompanhamento. Reclamações, chamados e alertas de operação devem ser recebidos, triados e acompanhados dentro do TAMÃO, no painel de administração atual.
+- **Infraestrutura reaproveitável comprovada por leitura:** `public.platform_incidents` e `public.support_cases` já existem na produção; `js/admin.js` contém seção `incidents` e formulário `adminCreateIncident`; `js/customer.js` já apresenta a rota de suporte `#customer-care` associada a pedidos. Não criar novas tabelas/painéis paralelos apenas para esta decisão.
+- **Escopo registrado:** `docs/TAMAO_ESCOPO.md` agora inclui lançamento assistido e uma central de acompanhamento nativa. Ampliações necessárias para receber problemas de anúncios de Profissionais, Caronas e Hospedagens devem reutilizar fluxos existentes, com isolamento de dados e visibilidade administrativa.
+- **Prova de limites:** nenhuma triagem automática contínua, alertas novos, captura de reclamações das novas modalidades ou dashboard unificado foi implementado nesta etapa. Não prometer monitoramento autônomo do assistente. Implementar e testar a coleta e o processamento internos antes de descrevê-los como ativos.
+- **Estado da publicação:** apenas documentação na branch do PR #492; `main`, Supabase e cidades/modalidades sem alteração. Continuar o primeiro trabalho técnico pendente no checkpoint abaixo, sem nova versão sobreposta.
+
 ## Checkpoint operacional obrigatório
 
 **ÚLTIMA ETAPA CONCLUÍDA:** jornada proposta de documentos privados vinculados ao anúncio e moderação administrativa integrada; Audit, PostgreSQL 17 isolado, build dos três portais e smoke público PASS no código e checkpoint `f185334626067f6cb9c8d8ea42bb4261573403d2`; nenhuma validação Auth/Storage end-to-end real.
