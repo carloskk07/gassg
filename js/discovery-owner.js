@@ -157,6 +157,7 @@ async function discoveryOwnerRefresh(){
   s.items=data.filter(x=>x&&/^[a-f0-9-]{36}$/.test(String(x.id||'')));
 }
 function discoveryOwnerError(error){
+  if(error?.message==='DOCUMENT_CLEANUP_UNCONFIRMED')return 'O comprovante pode ter ficado pendente no armazenamento. Não reenvie este arquivo até o suporte conferir a situação.';
   const code=String(error?.code||'');
   if(code==='42501')return 'Você não tem permissão para esta operação.';
   if(code==='22023')return 'Confira os campos e as fotos enviadas antes de solicitar revisão.';
@@ -285,9 +286,21 @@ async function discoveryOwnerSave(ev){
       const upload=await client.storage.from('tamao-discovery-documents')
         .upload(key,file,{contentType:file.type,upsert:false,cacheControl:'60'});
       if(upload.error)throw upload.error;
-      const registered=await client.from('discovery_documents')
-        .insert({listing_id:id,kind:'supporting',object_path:key});
-      if(registered.error)throw registered.error;
+      try{
+        const registered=await client.from('discovery_documents')
+          .insert({listing_id:id,kind:'supporting',object_path:key});
+        if(registered.error)throw registered.error;
+      }catch(registerError){
+        // Storage and PostgREST are separate transactions. Compensate a
+        // failed metadata insert via Storage API to avoid an orphaned file.
+        try{
+          const cleanup=await client.storage.from('tamao-discovery-documents').remove([key]);
+          if(cleanup.error)throw cleanup.error;
+        }catch{
+          throw Error('DOCUMENT_CLEANUP_UNCONFIRMED');
+        }
+        throw registerError;
+      }
     }
     for(const file of files){
       const key=s.user.id+'/'+crypto.randomUUID()+'.'+mime[file.type];
