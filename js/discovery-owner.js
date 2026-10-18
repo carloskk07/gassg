@@ -109,7 +109,12 @@ function discoveryOwnerPage(){
     '<label>Comprovantes para análise privada (PDF ou imagem, até 10 MB; máximo de 4 por envio)<input id="discovery-owner-documents" name="documents" type="file" accept="application/pdf,image/jpeg,image/png,image/webp" multiple></label>'+
     '<p class="tiny muted">Comprovantes não aparecem no anúncio: somente você e o superadministrador podem consultar esses arquivos. Envie apenas documentos necessários.</p>'+
     (Array.isArray(d.documents)&&d.documents.length?
-      '<p class="tiny muted">Comprovantes anexados: '+d.documents.length+'. Arquivos enviados são preservados para auditoria.</p>':'')+
+      '<div class="discovery-owner-documents"><p class="tiny muted">Comprovantes anexados: '+d.documents.length+
+      '. A remoção fica disponível somente enquanto o anúncio está em rascunho ou rejeitado.</p>'+
+      (['draft','rejected'].includes(d.status)?d.documents.map((doc,i)=>
+        /^[0-9a-f-]{36}$/.test(String(doc.id||''))?
+          '<button type="button" onclick="discoveryOwnerRemoveDocument(\\''+doc.id+'\\')">Remover comprovante '+(i+1)+'</button>':''
+      ).join(''):'')+'</div>':'')+
     (Array.isArray(d.photo_urls)&&d.photo_urls.length?
       '<div class="discovery-owner-photos">'+d.photo_urls.map(p=>{
         const url=discoveryOwnerPhotoUrl(p);return url?'<img src="'+esc(url)+'" loading="lazy" alt="Foto do anúncio">':'';
@@ -201,7 +206,7 @@ async function discoveryOwnerOpen(id){
     const {data,error}=await s.client.from(table).select('*').eq('listing_id',id).maybeSingle();
     if(error)throw error;
     const documents=await s.client.from('discovery_documents')
-      .select('id,kind,created_at').eq('listing_id',id);
+      .select('id,kind,created_at,object_path').eq('listing_id',id);
     if(documents.error)throw documents.error;
     s.editor={...listing,...(data||{}),documents:Array.isArray(documents.data)?documents.data:[],
       status:listing.status==='paused'?'draft':listing.status};
@@ -305,6 +310,30 @@ async function discoveryOwnerSave(ev){
   }
   s.busy=false;if(discoveryOwnerRoute())render();
   return false;
+}
+async function discoveryOwnerRemoveDocument(docId){
+  const s=discoveryOwner,d=s.editor;
+  if(s.busy||!s.user||!s.client||!d?.id||!['draft','rejected'].includes(d.status))return;
+  const doc=(d.documents||[]).find(x=>x.id===docId);
+  const expected=s.user.id+'/'+d.id+'/';
+  if(!doc||!/^[0-9a-f-]{36}$/.test(String(doc.id||''))||
+    !String(doc.object_path||'').startsWith(expected)||
+    !/^[0-9a-f-]{36}\\.(pdf|jpg|jpeg|png|webp)$/.test(String(doc.object_path).slice(expected.length)))return;
+  s.busy=true;s.error='';s.notice='';
+  try{
+    // Storage API deletes the real bytes; direct SQL deletion of storage.objects
+    // would strand the file. Keep metadata if either operation fails for retry.
+    const removed=await s.client.storage.from('tamao-discovery-documents').remove([doc.object_path]);
+    if(removed.error)throw removed.error;
+    const deleted=await s.client.from('discovery_documents').delete()
+      .eq('id',doc.id).eq('listing_id',d.id).select('id');
+    if(deleted.error)throw deleted.error;
+    if(!Array.isArray(deleted.data)||deleted.data.length!==1)
+      throw Error('Document metadata cleanup not confirmed');
+    s.editor.documents=s.editor.documents.filter(x=>x.id!==docId);
+    s.notice='Comprovante removido do rascunho.';
+  }catch(e){s.error=discoveryOwnerError(e);}
+  s.busy=false;if(discoveryOwnerRoute())render();
 }
 async function discoveryOwnerSubmit(id){
   const s=discoveryOwner,entry=s.items.find(x=>x.id===id);
