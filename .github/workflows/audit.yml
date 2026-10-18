@@ -69,6 +69,8 @@ jobs:
         run: node tests/strip-admin-css.mjs
       - name: Release SHA truth and legacy PR triage contract
         run: node tests/release-version-truth.mjs
+      - name: Shared discovery schema isolation and security
+        run: node tests/discovery-shared-verticals.mjs
       - name: SQL dollar-quoted function terminator gate V1.397
         run: node tests/sql-function-terminators-v1-397.mjs
       - name: Read-only legacy SQL source provenance V1.399
