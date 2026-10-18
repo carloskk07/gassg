@@ -34,7 +34,8 @@ const merchant=growth.slice(growth.indexOf('function merchantsLanding(){'),growt
 const sponsors=growth.slice(growth.indexOf('function sponsorsLanding(){'),growth.indexOf('\nfunction ',growth.indexOf('function sponsorsLanding(){')+1));
 const learn=growth.slice(growth.indexOf('function learn(){'),growth.indexOf('\nfunction ',growth.indexOf('function learn(){')+1));
 const earn=growth.slice(growth.indexOf('function earn(){'),growth.indexOf('\nfunction ',growth.indexOf('function earn(){')+1));
-assert.ok(merchant.includes("openPrelaunchMerchantLead()"),'primary merchant lead remains');
+assert.ok(merchant.includes("openMerchantPortal(true)"),'primary merchant action opens live registration');
+assert.ok(merchant.includes('prelaunchMerchantLeadSection()'),'secondary lead form remains available');
 assert.ok(merchant.includes('merchant-panel-link')&&merchant.includes('openMerchantPortal()'),
  'existing partners need direct access to their portal');
 assert.ok(merchant.includes('Você continua no controle'),'merchant hero must state autonomy');
