@@ -543,22 +543,22 @@ on conflict (id) do update set public=false,file_size_limit=excluded.file_size_l
 -- not require exposing the listing owner UUID column to clients.
 create function public.discovery_document_editable(p_listing text)
 returns boolean language sql stable security definer set search_path='pg_catalog'
-as $
+as $$
  select (select auth.uid()) is not null and exists(
    select 1 from public.discovery_listings l
    where l.id::text=p_listing and l.owner_id=(select auth.uid())
      and l.status in ('draft','rejected'))
-$;
+$$;
 revoke all on function public.discovery_document_editable(text) from public,anon,authenticated;
 grant execute on function public.discovery_document_editable(text) to authenticated;
 
 create function public.discovery_document_owned(p_listing text)
 returns boolean language sql stable security definer set search_path='pg_catalog'
-as $
+as $$
  select (select auth.uid()) is not null and exists(
    select 1 from public.discovery_listings l
    where l.id::text=p_listing and l.owner_id=(select auth.uid()))
-$;
+$$;
 revoke all on function public.discovery_document_owned(text) from public,anon,authenticated;
 grant execute on function public.discovery_document_owned(text) to authenticated;
 
