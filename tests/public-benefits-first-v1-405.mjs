@@ -14,6 +14,10 @@ assert.ok(home.includes('$'+'{valueBridge}'),'visitor paths must show before off
 assert.ok(home.includes('typeof tamaoHomeBenefits===') && !home.includes('!conciseHome&&typeof tamaoHomeBenefits'),
   'customer benefits must not disappear on first visits');
 assert.ok(home.includes('home-benefits-shortcuts'),'first screen should show club and referral discovery');
+assert.ok(home.includes('visitor-path-sponsor') && home.includes("go('sponsors')"),
+  'the sponsor should also have a public journey');
+assert.ok(home.indexOf("${acquisitionOpen?prelaunchCustomerLeadSection():''}")<home.indexOf("${valueBridge}"),
+  'availability signup should not be buried below editorial sections');
 assert.ok(home.includes("go('earn')"),'benefit discovery CTA must use real route');
 assert.ok(home.includes('homeRegionalPriceBoard(homeRegion)'),'regional verified prices remain');
 assert.ok(home.includes('citySnapshot?.real===true&&citySnapshot?.notAQuote===true'),
