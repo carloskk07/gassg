@@ -3031,7 +3031,7 @@ async function merchantWakeSync(reason='visible'){
   return true;
 }
 
-function openMerchantPortal(){
+function openMerchantPortal(signup=false){
   const href=buildPortalHref(globalThis.CHAMA_MERCHANT_ORIGIN,'merchant');
   if(!href){
     toast('O portal da revenda ainda não possui uma origem dedicada configurada');
@@ -3045,6 +3045,7 @@ function openMerchantPortal(){
     destination.searchParams.set('ref',ref);
     destination.hash='merchant-join';
   }
+  if(signup===true)destination.hash='merchant-join';
   location.href=destination.toString();
 }
 function openCustomerPortal(){
