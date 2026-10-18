@@ -52,6 +52,21 @@ function tamaoHomeBenefits(){
     <div class="section-head"><div><span class="section-kicker">BOM PARA QUEM COMPRA. BOM PARA SUA CIDADE.</span>
       <h2>Mais do que comprar. Mais controle, vantagens e conexões na sua cidade.</h2>
       <p>Encontre gás, água e outros essenciais, confira preços e prazos das revendas que atendem seu CEP e acompanhe seus pedidos. Quer ir além? Descubra a Rede TAMÃO e os benefícios de compras elegíveis no Clube.</p></div></div>
+    <div class="tamao-perks-stage" aria-label="Clube TAMÃO e Rede TAMÃO">
+      <article class="tamao-perks-panel tamao-perks-club">
+        <div class="tamao-perks-top"><span class="tamao-perks-symbol" aria-hidden="true">🎁</span><span>CLUBE TAMÃO</span></div>
+        <h3>Uma compra pode ser o começo de outras vantagens.</h3>
+        <p>Cashback em compras elegíveis, cupons e campanhas especiais: conheça os benefícios disponíveis no Clube e acompanhe suas condições.</p>
+        <button type="button" onclick="go('club')">Conhecer meu Clube <span aria-hidden="true">→</span></button>
+      </article>
+      <article class="tamao-perks-panel tamao-perks-network">
+        <div class="tamao-perks-top"><span class="tamao-perks-symbol" aria-hidden="true">🤝</span><span>REDE TAMÃO</span></div>
+        <h3>Conhece quem compra ou vende? Faça essa conexão.</h3>
+        <p>Indique amigos, apresente revendas e acompanhe seus convites. Benefícios financeiros seguem a elegibilidade de cada campanha.</p>
+        <button type="button" onclick="go('earn')">Descobrir minha Rede <span aria-hidden="true">→</span></button>
+      </article>
+    </div>
+    <p class="tamao-perks-note">Clube, cashback, cupons e indicações possuem regras próprias; o TAMÃO mostra as condições aplicáveis antes de cada benefício.</p>
     <div class="grid cards-3 tamao-value-grid">
       <article class="card"><span class="tamao-value-icon" aria-hidden="true">🔎</span>
         <h3>Conheça as opções sem sair procurando</h3>
@@ -60,8 +75,8 @@ function tamaoHomeBenefits(){
         <h3>Seu pedido, com etapas que você acompanha</h3>
         <p>Uma revenda precisa confirmar seu pedido antes de ele avançar. O acompanhamento mostra as etapas efetivamente registradas.</p></article>
       <article class="card"><span class="tamao-value-icon" aria-hidden="true">🤝</span>
-        <h3>Indique pessoas e revendas da sua cidade</h3>
-        <p>Compartilhe seu link pessoal, convide amigos e apresente revendas. Acompanhe sua rede e conheça as regras dos benefícios de indicação.</p></article>
+        <h3>Cupons e campanhas para descobrir</h3>
+        <p>Quando houver campanhas elegíveis, consulte no Clube as condições dos cupons e de outros benefícios para suas compras.</p></article>
     </div>
     <div class="tamao-value-actions">
       <button type="button" class="secondary" onclick="go('earn')">Conhecer minha Rede TAMÃO →</button>
