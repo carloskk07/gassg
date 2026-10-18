@@ -55,8 +55,9 @@ function tamaoPublicEntryRoute(){
   if(intent==='cadastro-revenda'){
     // Distinguish a real registration from generic commercial discovery.
     // No origin configured: keep the person on a useful public route.
-    if(!String(globalThis.CHAMA_MERCHANT_ORIGIN||'').trim()||
-       typeof openMerchantPortal!=='function'){
+    const target=typeof buildPortalHref==='function'
+      ?buildPortalHref(globalThis.CHAMA_MERCHANT_ORIGIN,'merchant'):null;
+    if(!target||typeof openMerchantPortal!=='function'){
       go('merchants');
       return true;
     }
