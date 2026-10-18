@@ -139,6 +139,19 @@
 - **Limites residuais:** não foram executados login/OTP real, upload de bytes reais, sessão A/B/admin, URLs assinadas, moderação Auth real, e2e em navegador real com Storage, nem expurgo/reconciliação de objetos sem vínculo após falha dupla (a UI somente sinaliza incerteza). Também falta decisão e implementação de retenção, exclusão após revisão e eventual gestão de fotos pelo anunciante. Não classificar esses itens como completos.
 - **Próxima ação exata:** verificar o CI do commit documental; preparar/usar homologação independente sem tocar produção (isolada e sem custo inesperado), executar ciclo A/B/superadmin/visitante com Auth/Storage reais e validar atualização/delete com falhas de rede; então implantar reconciliação segura de órfãos/retention e completar publicação/pausa E2E. Sem merge nem abertura comercial antes do gate mínimo.
 
+## Prioridade comercial acelerada — semana 19–25/10/2026
+
+**Decisão de 18/10/2026:** não comprar plano Pro; usar as ferramentas existentes com máxima eficiência. **Prioridade comercial:** iniciar a operação assistida do marketplace de produtos que já existe, sem esperar a conclusão dos módulos Profissionais, Caronas e Hospedagens. Esse objetivo não autoriza ativar comércio sem testes mínimos, preços reais e decisão do superadmin.
+
+- **Registro operacional persistente:** [GitHub issue #493](https://github.com/carloskk07/gassg/issues/493), com plano datado e checklist. Não criar outra issue/PR para esse mesmo objetivo; atualizar a #493 ao avançar.
+- **Verificação por SQL em 18/10/2026 (somente leitura):** Supabase `ACTIVE_HEALTHY`; `platform_launch_control` em `PRELAUNCH`, `commerce_enabled=false`; São Gabriel/RS com `market_cities.commerce_enabled=false`; **1 revenda** com `status=pending`, preços **não confirmados**, taxa de entrega confirmada, atendimento à cidade inteira declarado e capacidade de 8 pedidos ativos; **1 solicitação** de revenda `approved`; **0 pedidos**; **0 incidentes**; **0 chamados de suporte**. Uma solicitação aprovada não prova revenda operacional.
+- **Primeiro bloqueio concreto do lançamento:** concluir ativação legítima da revenda e confirmar preços/estoque/condições de entrega, com evidências reais. Não escrever preços arbitrários nem alterar `status` diretamente no banco para contornar o fluxo do administrador.
+- **Segunda etapa:** validar autenticação, compra → aceite → entrega, isolamento de contas, idempotência, suspensão, canal de incidentes existente e reconciliação HTTP/manifest dos três portais. Não executar pagamento real de teste sem autorização.
+- **Terceira etapa:** preparar decisão expressa do superadmin para ativar São Gabriel somente após aprovação do gate mínimo; validar comportamento pós-abertura e registrar evidências.
+- **Expansão técnica em paralelo:** conservar a PR #492 em rascunho e sua migration **não aplicada**, sem liberar modos novos incompletos. Manter o checkpoint e gates próprios da expansão. A conclusão da issue #493 (operação assistida) **não equivale** ao selo global de produção integral.
+
+**PRÓXIMA AÇÃO DA FRENTE COMERCIAL:** verificar no painel oficial a revenda `pending` e preços não confirmados, diagnosticar o caminho de ativação do superadmin e executar testes mínimos da compra sem afetar operações reais. Atualizar a issue #493 e este diário com resultado verificável.
+
 ## Checkpoint operacional obrigatório
 
 **ÚLTIMA ETAPA CONCLUÍDA:** compensação de upload incompleto de comprovantes e fotos, proteção RLS contra remoção de fotos referenciadas e regressões de falhas de rede; quatro gates oficiais PASS no código `7fbf28217d3e20e20a29368ef6e89046b6db759c`. Nova edição documental requer nova conferência.
