@@ -307,5 +307,84 @@ begin
  if v_result<>0 then raise exception 'DISABLED_CITY_IN_SEARCH';end if;
 end $$;
 
+
+-- Private evidence regression: immutable owner folder, no public disclosure,
+-- no cross-account listing attachment, superadmin-only review access.
+set role authenticated;
+set request.jwt.claim.sub='00000000-0000-0000-0000-000000000011';
+insert into public.discovery_listings(
+ vertical,title,description,state_code,city_key,city_name,whatsapp_e164
+) values('professionals','Novo cadastro com licença privada',
+ 'Cadastro em rascunho com comprovante confidencial para avaliação do admin.',
+ 'RS','sao-gabriel','São Gabriel','+5555999999999')
+returning id as private_listing_id \gset
+select set_config('tamao.test.private_listing_id', :'private_listing_id',false);
+insert into storage.objects(bucket_id,name,owner_id,metadata)
+values('tamao-discovery-documents',
+ '00000000-0000-0000-0000-000000000011/'||:'private_listing_id'||
+ '/22222222-2222-2222-2222-222222222222.pdf',
+ '00000000-0000-0000-0000-000000000011',
+ '{"mimetype":"application/pdf"}'::jsonb);
+insert into public.discovery_documents(listing_id,kind,object_path) values(
+ :'private_listing_id','supporting',
+ '00000000-0000-0000-0000-000000000011/'||:'private_listing_id'||
+ '/22222222-2222-2222-2222-222222222222.pdf');
+do $
+declare n int;
+begin
+ select count(*) into n from public.discovery_documents
+ where listing_id=current_setting('tamao.test.private_listing_id')::uuid;
+ if n<>1 then raise exception 'OWNER_DOCUMENT_MISSING';end if;
+end $;
+
+set request.jwt.claim.sub='00000000-0000-0000-0000-000000000022';
+do $
+declare n integer;
+begin
+ select count(*) into n from public.discovery_documents
+ where listing_id=current_setting('tamao.test.private_listing_id')::uuid;
+ if n<>0 then raise exception 'CROSS_OWNER_DOCUMENT_LEAK';end if;
+ select count(*) into n from storage.objects
+ where bucket_id='tamao-discovery-documents'
+ and name like '00000000-0000-0000-0000-000000000011/%';
+ if n<>0 then raise exception 'CROSS_OWNER_STORAGE_LEAK';end if;
+ begin
+  insert into public.discovery_documents(listing_id,kind,object_path)
+   values(current_setting('tamao.test.private_listing_id')::uuid,'identity',
+   '00000000-0000-0000-0000-000000000011/'||
+   current_setting('tamao.test.private_listing_id')||
+   '/33333333-3333-3333-3333-333333333333.pdf');
+  raise exception 'CROSS_OWNER_DOCUMENT_WRITE';
+ exception when insufficient_privilege then null;
+ end;
+end $;
+
+set request.jwt.claim.sub='00000000-0000-0000-0000-000000000033';
+do $
+declare n integer;
+begin
+ select count(*) into n from public.discovery_documents
+ where listing_id=current_setting('tamao.test.private_listing_id')::uuid;
+ if n<>1 then raise exception 'ADMIN_DOCUMENT_LOOKUP_FAILED';end if;
+ select count(*) into n from storage.objects where bucket_id='tamao-discovery-documents';
+ if n<>1 then raise exception 'ADMIN_PRIVATE_STORAGE_DENIED';end if;
+end $;
+
+set role anon;
+reset request.jwt.claim.sub;
+do $
+begin
+ begin
+  perform count(*) from public.discovery_documents;
+  raise exception 'PUBLIC_DOCUMENT_TABLE_VISIBLE';
+ exception when insufficient_privilege then null;
+ end;
+ begin
+  perform count(*) from storage.objects where bucket_id='tamao-discovery-documents';
+  raise exception 'PUBLIC_DOCUMENT_STORAGE_VISIBLE';
+ exception when insufficient_privilege then null;
+ end;
+end $;
+
 reset role;
-select 'DISCOVERY_POSTGRES_RLS_INTEGRATION_OK' as result;
+select 'DISCOVERY_POSTGRES_RLS_AND_PRIVATE_DOCUMENTS_OK' as result;
