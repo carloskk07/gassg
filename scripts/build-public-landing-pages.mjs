@@ -130,7 +130,7 @@ const PAGES=[
   ],
   storyTitle:'Compartilhe com propósito. Acompanhe com clareza.',
   storyText:'Um convite pode ajudar um amigo a conhecer produtos ou apresentar uma revenda à plataforma. A Rede organiza essas conexões e separa convites de benefícios financeiros.',
-  storyPoints:['Convites de clientes e de revendas possuem caminhos próprios.','Cashback por compras e comissões por indicação são benefícios distintos.','A participação não representa promessa de renda ou pagamento automático.'],
+  storyPoints:['Convites de clientes e de revendas possuem caminhos próprios.','Cashback por compras e comissões por indicação são benefícios distintos.','Os benefícios por indicação seguem as regras e a elegibilidade de cada campanha.'],
   questions:[
    ['Posso indicar uma revenda?','Sim. A Rede TAMÃO contempla convites para empresas interessadas, com atribuição e validação próprias.'],
    ['Toda indicação gera uma comissão?','Não. Benefícios financeiros dependem de campanha ativa, elegibilidade e dos eventos exigidos em suas regras.'],
