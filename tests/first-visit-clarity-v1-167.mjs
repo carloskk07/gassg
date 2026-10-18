@@ -62,8 +62,8 @@ assert.match(noSupply,/class="purchase-starter home-starter-neutral"/,
  'First visit must show a neutral product chooser');
 assert.match(noSupply,/Gás, água e outros essenciais/);
 assert.match(noSupply,/COMECE PELA SUA ESCOLHA/);
-assert.match(noSupply,/class="home-value-bridge tamao-visitor-paths"/,
- 'First-time visitors must see buyer, merchant and referral benefits too');
+assert.doesNotMatch(noSupply,/class="home-value-bridge tamao-visitor-paths"/,
+ 'Avoid repeating the visitor path before the availability signup');
 assert.match(noSupply,/home-benefits-shortcuts/,
  'Public first fold should explain the club and referral opportunity');
 assert.match(noSupply,/event\.preventDefault\(\);startHomeBrowse\(\)/,
