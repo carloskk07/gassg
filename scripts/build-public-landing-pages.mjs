@@ -203,7 +203,7 @@ function renderLanding(page,origin,indexing){
  const secondary=`<a class="ed-btn ed-btn-outline" data-tamao-handoff href="${esc(page.secondary[1])}">${esc(page.secondary[0])}</a>`;
  const headerAction={
   'como-funciona':['Ver produtos','/'],
-  'para-revendas':['Sou revenda','/?entrada=revenda'],
+  'para-revendas':['Sou revenda','/?entrada=cadastro-revenda'],
   'para-marcas':['Tenho uma marca','/?entrada=marca'],
   'indicacoes':['Quero indicar','/?entrada=indicar']
  }[page.slug];
