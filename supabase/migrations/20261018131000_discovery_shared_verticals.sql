@@ -539,6 +539,29 @@ values('tamao-discovery-documents','tamao-discovery-documents',false,10485760,
 on conflict (id) do update set public=false,file_size_limit=excluded.file_size_limit,
  allowed_mime_types=excluded.allowed_mime_types;
 
+-- The JWT identity is checked inside definer helpers so Storage RLS does
+-- not require exposing the listing owner UUID column to clients.
+create function public.discovery_document_editable(p_listing text)
+returns boolean language sql stable security definer set search_path='pg_catalog'
+as $
+ select (select auth.uid()) is not null and exists(
+   select 1 from public.discovery_listings l
+   where l.id::text=p_listing and l.owner_id=(select auth.uid())
+     and l.status in ('draft','rejected'))
+$;
+revoke all on function public.discovery_document_editable(text) from public,anon,authenticated;
+grant execute on function public.discovery_document_editable(text) to authenticated;
+
+create function public.discovery_document_owned(p_listing text)
+returns boolean language sql stable security definer set search_path='pg_catalog'
+as $
+ select (select auth.uid()) is not null and exists(
+   select 1 from public.discovery_listings l
+   where l.id::text=p_listing and l.owner_id=(select auth.uid()))
+$;
+revoke all on function public.discovery_document_owned(text) from public,anon,authenticated;
+grant execute on function public.discovery_document_owned(text) to authenticated;
+
 create table public.discovery_documents(
  id uuid primary key default gen_random_uuid(),
  listing_id uuid not null references public.discovery_listings(id) on delete cascade,
@@ -560,9 +583,7 @@ create policy discovery_document_owner_insert on public.discovery_documents
    owner_id=(select auth.uid()) and (select public.discovery_verified_account())
    and split_part(object_path,'/',1)=owner_id::text
    and split_part(object_path,'/',2)=listing_id::text
-   and exists(select 1 from public.discovery_listings l
-     where l.id=listing_id and l.owner_id=(select auth.uid())
-       and l.status in ('draft','rejected'))
+   and (select public.discovery_document_editable(listing_id::text))
    and exists(select 1 from storage.objects o
      where o.bucket_id='tamao-discovery-documents'
        and o.name=object_path and o.owner_id=owner_id::text)
@@ -579,19 +600,15 @@ create policy discovery_document_storage_insert on storage.objects
    and name ~ '^[0-9a-f-]{36}/[0-9a-f-]{36}/[0-9a-f-]{36}[.](pdf|jpg|jpeg|png|webp)$'
    and split_part(name,'/',1)=(select auth.uid())::text
    and (select public.discovery_verified_account())
-   and exists(select 1 from public.discovery_listings l
-     where l.id::text=split_part(name,'/',2)
-       and l.owner_id=(select auth.uid()) and l.status in ('draft','rejected'))
+   and (select public.discovery_document_editable(split_part(name,'/',2)))
  );
 -- SELECT is required for authorised short-lived signed URLs; no UPDATE/DELETE.
 -- Administrators can retrieve only documents actually registered in the ledger.
 create policy discovery_document_storage_read on storage.objects
  for select to authenticated using (
    bucket_id='tamao-discovery-documents' and (
-     (owner_id=(select auth.uid())::text and exists(
-       select 1 from public.discovery_listings l
-       where l.id::text=split_part(name,'/',2)
-         and l.owner_id=(select auth.uid())))
+     (owner_id=(select auth.uid())::text
+       and (select public.discovery_document_owned(split_part(name,'/',2))))
      or ((select public.discovery_is_superadmin()) and exists(
        select 1 from public.discovery_documents d where d.object_path=name))
    )
