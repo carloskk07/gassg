@@ -11,6 +11,7 @@ const TAMAO_PUBLIC_PAGE_IDENTITY=Object.freeze({
   professionals:['Profissionais — TAMÃO','Busque profissionais por cidade e entre em contato diretamente com os anunciantes.'],
   rides:['Caronas — TAMÃO','Consulte viagens compartilhadas anunciadas, trajetos e contatos diretos.'],
   stays:['Hospedagens no Brasil — TAMÃO','Conheça hospedagens anunciadas e converse diretamente com os responsáveis.'],
+  advertise:['Anunciar no TAMÃO — Meus anúncios','Cadastre seus serviços, caronas e hospedagens para revisão no TAMÃO.'],
   sponsors:['Para marcas — Divulgue no TAMÃO','Conheça opções de divulgação regional, campanhas de benefício e parcerias com o comércio local.'],
   contact:['Contato — TAMÃO','Fale com o TAMÃO sobre compras, revendas, publicidade, parceria ou atendimento.'],
   privacy:['Privacidade — TAMÃO','Veja como o TAMÃO trata dados pessoais e protege sua privacidade.'],
