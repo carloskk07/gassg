@@ -9,6 +9,7 @@ const userId='00000000-0000-0000-0000-000000000011';
 const filePath=userId+'/11111111-1111-1111-1111-111111111111.jpg';
 const writes=[],uploads=[],removed=[],transitions=[],records=[],privateDocs=[];
 let currentRoute='advertise', user={id:userId,email:'anunciante@example.test'},renderCount=0;
+let simulateRemovalOutage=false;
 let formValues={vertical:'professionals',title:'Serviços elétricos e manutenção',
   description:'Atendo residências e estabelecimentos com orçamento transparente.',
   state_code:'RS',city_name:'São Gabriel',public_area:'Centro',
@@ -67,7 +68,9 @@ const client={
  };},
  storage:{from(bucket){assert.ok(['tamao-discovery-photos','tamao-discovery-documents'].includes(bucket));return{
   upload:async(key,file,opts)=>{uploads.push({bucket,key,file,opts});return {data:{path:key},error:null};},
-  remove:async(paths)=>{assert.equal(bucket,'tamao-discovery-documents');removed.push(...paths);return {data:paths,error:null};}
+  remove:async(paths)=>{assert.equal(bucket,'tamao-discovery-documents');
+   if(simulateRemovalOutage)return {data:null,error:new Error('Network unavailable')};
+   removed.push(...paths);return {data:paths,error:null};}
  };}}
 };
 const ctx={
@@ -120,6 +123,12 @@ assert.equal(records[0].status,'draft','paused item must reopen into new reviewe
 assert.ok(transitions.some(x=>x.p_next_status==='draft'));
 assert.match(ctx.discoveryOwnerPage(),/Remover comprovante 1/);
 assert.equal(privateDocs.length,1);
+simulateRemovalOutage=true;
+await ctx.discoveryOwnerRemoveDocument(privateDocs[0].id);
+assert.equal(privateDocs.length,1,'network error must retain private metadata');
+assert.equal(removed.length,0,'failed Storage removal cannot be recorded as successful');
+assert.match(ctx.discoveryOwnerPage(),/Remover comprovante 1/);
+simulateRemovalOutage=false;
 await ctx.discoveryOwnerRemoveDocument(privateDocs[0].id);
 assert.equal(privateDocs.length,0,'draft document metadata must be removed');
 assert.equal(removed.length,1,'private bytes must be deleted via Storage API');
