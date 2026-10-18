@@ -54,8 +54,8 @@ try{
  assert.match(seller,/Mais oportunidades de pedidos/);
  assert.match(seller,/não garante número de pedidos ou clientes/);
  assert.match(seller,/href="\/\?entrada=revenda"/);
- assert.equal((buyer.match(/class="ed-savings"/g)||[]).length,1);
- assert.equal((seller.match(/class="ed-savings"/g)||[]).length,1);
+ assert.equal((buyer.match(/class="ed-shell ed-savings"/g)||[]).length,1);
+ assert.equal((seller.match(/class="ed-shell ed-savings"/g)||[]).length,1);
  for(const html of [buyer,seller]){
    assert.ok(html.indexOf('ed-proof-grid')<html.indexOf('ed-savings') &&
      html.indexOf('ed-savings')<html.indexOf('ed-contrast-grid'),
