@@ -48,7 +48,7 @@ const PAGES=[
   kicker:'TAMÃO PARA EMPRESAS',
   heading:'Seus próximos clientes podem descobrir sua revenda aqui.',
   lead:'Dê mais visibilidade à sua revenda e seja uma opção para compradores da região. Receba novas solicitações de pedidos, destaque produtos complementares e mantenha preços, estoque, pagamentos e entregas sob seu controle.',
-  primary:['Quero apresentar minha empresa','/?entrada=revenda'],
+  primary:['Cadastrar minha revenda','/?entrada=cadastro-revenda'],
   secondary:['Entender a parceria','/#merchants'],
   mark:'MAIS UM CANAL, SEM PERDER SUA AUTONOMIA',
   trustNotes:["Seja encontrada por novos clientes","Oportunidades de pedidos","Sem mensalidade e sem exclusividade"],
@@ -56,7 +56,7 @@ const PAGES=[
   proofTitle:"Mais visibilidade, novos contatos e potencial de novas vendas",
   highlights:[["📍","Novos clientes podem encontrar você","Sua revenda aparece como uma opção nas buscas elegíveis de sua área atendida."],["🛒","Mais oportunidades de pedidos","Solicitações organizadas no painel, com aceite conforme estoque e entrega."],["🔁","Mais chances de recompra","Histórico e campanhas elegíveis podem criar motivos para o cliente voltar."]],
   scenario:["Sua empresa ganha uma nova vitrine sem abrir mão do seu jeito de vender.","ANTES","Depender apenas de quem já conhece seu telefone ou suas redes.","COM O TAMÃO","Expor seu catálogo a quem procura itens essenciais e administrar pedidos no seu painel.","A habilitação é controlada; você mantém preços, estoque, entregas e recebimentos."],
-  savingsPitch:["NOVOS CLIENTES, NOVOS PEDIDOS","Coloque sua revenda diante de pessoas que procuram gás, água e essenciais na sua região.","Entre por um canal adicional sem exclusividade. Você mantém controle sobre catálogo, preços, pagamentos e entregas.","Cadastrar minha revenda","/?entrada=revenda"],
+  savingsPitch:["NOVOS CLIENTES, NOVOS PEDIDOS","Coloque sua revenda diante de pessoas que procuram gás, água e essenciais na sua região.","Entre por um canal adicional sem exclusividade. Você mantém controle sobre catálogo, preços, pagamentos e entregas.","Cadastrar minha revenda","/?entrada=cadastro-revenda"],
   visualTitle:'Mais uma vitrine. A mesma autonomia.',
   visualText:'Você define o que vende e onde atende. Quando um pedido chegar, sua revenda confirma se pode realizá-lo.',
   steps:[
