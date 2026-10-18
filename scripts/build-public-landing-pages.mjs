@@ -13,8 +13,8 @@ const PAGES=[
   title:'Economize com o TAMÃO | Compare preços, cashback e vantagens',
   description:'Compare ofertas de gás, água e essenciais para seu CEP. Escolha pelo preço total e consulte sua economia e cashback no Clube TAMÃO.',
   kicker:'PARA QUEM QUER COMPRAR',
-  heading:'Economize tempo e compare preços de gás, água e essenciais.',
-  lead:'Gás, água e essenciais em um só lugar. Compare ofertas reais para o seu CEP, acompanhe a entrega e consulte sua economia e cashback no Clube TAMÃO.',
+  heading:'Compare o preço total. Escolha com mais vantagem.',
+  lead:'Gás, água e essenciais em um só lugar. Veja as opções para seu CEP, confira entrega e acompanhe os benefícios de compras elegíveis no Clube TAMÃO.',
   primary:['Conhecer os produtos','/'],
   secondary:['Ver o passo a passo','/#learn'],
   mark:'ESCOLHER, CONFERIR, ACOMPANHAR',
@@ -46,8 +46,8 @@ const PAGES=[
   title:'TAMÃO para Revendas | Conquiste visibilidade e oportunidades de pedidos',
   description:'Sua revenda pode ser encontrada por novos clientes no TAMÃO e receber oportunidades de pedidos, sem mensalidade no modelo atual e sem perder o controle do negócio.',
   kicker:'TAMÃO PARA EMPRESAS',
-  heading:'Seus próximos clientes podem descobrir sua revenda aqui.',
-  lead:'Dê mais visibilidade à sua revenda e seja uma opção para compradores da região. Receba novas solicitações de pedidos, destaque produtos complementares e mantenha preços, estoque, pagamentos e entregas sob seu controle.',
+  heading:'Sua revenda no caminho de quem precisa comprar.',
+  lead:'Uma nova vitrine para sua região, com oportunidades de pedidos e produtos complementares. Você continua no controle de preços, estoque, pagamentos e entregas. Sem exclusividade.',
   primary:['Cadastrar minha revenda','/?entrada=cadastro-revenda'],
   secondary:['Entender a parceria','/#merchants'],
   mark:'MAIS UM CANAL, SEM PERDER SUA AUTONOMIA',
@@ -79,8 +79,8 @@ const PAGES=[
   title:'Divulgação e Parcerias no TAMÃO | Marcas e Comércio Local',
   description:'Conheça possibilidades de divulgação regional, campanhas de benefícios e parcerias com revendas no TAMÃO. Planos de divulgação para negócios locais.',
   kicker:'PARA MARCAS E PATROCINADORES',
-  heading:'Sua marca mais perto das escolhas que movem a cidade.',
-  lead:'Apareça com contexto: ações regionais, divulgação identificada e benefícios pensados para quem compra e vende na cidade. Apresente sua ideia para construirmos uma proposta comercial.',
+  heading:'Sua marca mais perto da vida da cidade.',
+  lead:'Converse com o comércio local por meio de propostas de divulgação regional, campanhas identificadas e ações de benefício. Apresente sua marca e conheça as possibilidades.',
   primary:['Apresentar minha marca','/?entrada=marca'],
   secondary:['Conhecer os formatos','/#sponsors'],
   mark:'DIVULGAÇÃO COM CONTEXTO LOCAL',
@@ -111,8 +111,8 @@ const PAGES=[
   title:'Rede TAMÃO | Indique Pessoas e Revendas',
   description:'Conheça a Rede TAMÃO. Compartilhe seu convite, apresente compradores e revendas e acompanhe benefícios elegíveis conforme as condições de cada campanha.',
   kicker:'REDE TAMÃO',
-  heading:'Uma boa indicação pode conectar a cidade inteira.',
-  lead:'Indique para amigos, vizinhos e revendas. Seu convite ajuda mais pessoas a conhecerem o TAMÃO, enquanto você acompanha sua rede e descobre os benefícios de campanhas elegíveis.',
+  heading:'Indique pessoas. Aproxime negócios. Amplie sua rede.',
+  lead:'Seu convite conecta amigos, vizinhos e revendas ao TAMÃO. Compartilhe, acompanhe suas indicações e conheça os benefícios previstos nas campanhas elegíveis.',
   primary:['Conhecer minha rede','/?entrada=indicar'],
   secondary:['Entender os benefícios','/#earn'],
   mark:'CONEXÕES QUE APROXIMAM A CIDADE',
@@ -166,6 +166,50 @@ function renderAudienceVisual(page){
     <span class="ed-scene-bottom">Benefícios conforme cada campanha</span></div>`;
 }
 
+
+/* V1.412 — each audience gets its own editorial illustration.
+   These are conceptual diagrams, not real prices, merchants or payouts. */
+const EDITORIAL_SCENES=Object.freeze({
+ 'como-funciona':{
+  top:'ESCOLHA INTELIGENTE',title:'Compare antes de pedir',
+  detail:'Preço total e entrega na mesma decisão',
+  side:'Clube TAMÃO',sideDetail:'Cashback em compras elegíveis',
+  tags:['Consulta por CEP','Pedido acompanhado']
+ },
+ 'para-revendas':{
+  top:'SUA VITRINE LOCAL',title:'Mais pessoas podem encontrar você',
+  detail:'Catálogo e pedidos em um único painel',
+  side:'Você decide',sideDetail:'Preços, estoque e entregas',
+  tags:['Sem exclusividade','Sem mensalidade no modelo atual']
+ },
+ 'para-marcas':{
+  top:'PRESENÇA REGIONAL',title:'Sua marca com contexto',
+  detail:'Ideias de divulgação para o comércio local',
+  side:'Sua proposta',sideDetail:'Região, objetivo e público',
+  tags:['Publicidade identificada','Proposta comercial']
+ },
+ 'indicacoes':{
+  top:'CONEXÕES REAIS',title:'Sua rede começa com um convite',
+  detail:'Pessoas e revendas, cada uma em seu caminho',
+  side:'Rede TAMÃO',sideDetail:'Convites atribuídos',
+  tags:['Convide quem compra','Apresente quem vende']
+ }
+});
+function renderEditorialScene(page){
+ const scene=EDITORIAL_SCENES[page.slug];
+ if(!scene)throw new Error('Cena editorial inválida');
+ return `<div class="ed-value-scene ed-value-scene-${esc(page.slug)}" aria-hidden="true">
+    <div class="ed-value-scene-top"><span class="ed-value-scene-spark">✦</span><span>${esc(scene.top)}</span></div>
+    <div class="ed-value-scene-stack">
+      <div class="ed-value-scene-card-main"><span class="ed-value-scene-deco">↗</span>
+        <small>O TAMÃO NA PRÁTICA</small><strong>${esc(scene.title)}</strong><span>${esc(scene.detail)}</span>
+      </div>
+      <div class="ed-value-scene-card-side"><small>✦ ${esc(scene.side)}</small><strong>${esc(scene.sideDetail)}</strong></div>
+    </div>
+    <div class="ed-value-scene-tags">${scene.tags.map(tag=>'<span>✓ '+esc(tag)+'</span>').join('')}</div>
+  </div>`;
+}
+
 function renderLanding(page,origin,indexing){
  const canonical=origin+'/'+page.slug+'/';
  const highlights=page.highlights.map(([symbol,title,description])=>`<article class="ed-proof-card"><span class="ed-proof-symbol" aria-hidden="true">${esc(symbol)}</span><h3>${esc(title)}</h3><p>${esc(description)}</p></article>`).join('');
@@ -189,10 +233,16 @@ function renderLanding(page,origin,indexing){
   `<a class="ed-related-card" data-tamao-handoff href="/${esc(slug)}/">
     <small>${esc(kicker)}</small><strong>${esc(heading)}</strong><span>${esc(description)}</span><b aria-hidden="true">Explorar →</b>
    </a>`).join('');
- const savingsPitch=page.savingsPitch?(()=>{const [tagline,heading,detail,ctaLabel,ctaHref]=page.savingsPitch;return `<section class="ed-shell ed-savings" aria-label="Vantagens econômicas para comprar ou vender pelo TAMÃO">
- <div class="ed-savings-copy"><span class="ed-eyebrow">${esc(tagline)}</span><h2>${esc(heading)}</h2><p>${esc(detail)}</p>
- <a data-tamao-handoff class="ed-savings-cta" href="${esc(ctaHref)}">${esc(ctaLabel)} <span aria-hidden="true">→</span></a></div>
- <div class="ed-savings-art" aria-hidden="true"><span>ECONOMIA &amp; OPORTUNIDADES</span><strong>${page.slug==='como-funciona'?'💰':'🏪'}</strong><small>${page.slug==='como-funciona'?'Compare. Economize. Volte.':'Seja encontrado. Receba pedidos.'}</small></div></section>`})():'';
+ const savingsPitch=page.savingsPitch?(()=>{
+  const [tagline,heading,detail,ctaLabel,ctaHref]=page.savingsPitch;
+  return `<section class="ed-shell ed-savings" aria-label="${esc(page.mark)}">
+   <div class="ed-savings-copy"><span class="ed-eyebrow">${esc(tagline)}</span>
+    <h2>${esc(heading)}</h2><p>${esc(detail)}</p>
+    <a data-tamao-handoff class="ed-savings-cta" href="${esc(ctaHref)}">${esc(ctaLabel)} <span aria-hidden="true">→</span></a>
+   </div>
+   ${renderEditorialScene(page)}
+  </section>`;
+ })():'';
  const cards=page.steps.map(([number,title,description])=>`<article class="ed-step">
    <span class="ed-step-number">${esc(number)}</span>
    <h3>${esc(title)}</h3><p>${esc(description)}</p>
@@ -227,7 +277,7 @@ function renderLanding(page,origin,indexing){
 <link rel="stylesheet" href="/css/landing-editorial.css" />
 <script src="/js/landing-handoff.js" defer></script>
 <title>${esc(page.title)}</title>
-</head><body>
+</head><body class="ed-page ed-page-${esc(page.slug)}">
 <a class="ed-skip" href="#conteudo">Pular para o conteúdo</a>
 <header class="ed-header"><div class="ed-shell ed-header-inner">
   <a href="/" data-tamao-handoff class="ed-brand" aria-label="TAMÃO, ir para a home"><img src="/icons/icon.svg" width="43" height="43" alt="" /><span><strong>TAMÃO</strong><small>Pediu? Tá na mão.</small></span></a>
