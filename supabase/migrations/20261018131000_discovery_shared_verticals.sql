@@ -602,7 +602,7 @@ grant insert(listing_id,kind,object_path) on public.discovery_documents to authe
 -- Storage. Excluir o objeto pela API primeiro, depois sua referência privada.
 create function public.discovery_require_storage_removed()
 returns trigger language plpgsql security definer set search_path='pg_catalog'
-as $
+as $docguard$
 begin
  if exists(
    select 1 from storage.objects o
@@ -611,7 +611,7 @@ begin
    raise exception 'DELETE_STORAGE_FIRST' using errcode='22023';
  end if;
  return old;
-end $;
+end $docguard$;
 revoke all on function public.discovery_require_storage_removed() from public,anon,authenticated;
 create trigger discovery_document_delete_after_storage
  before delete on public.discovery_documents
