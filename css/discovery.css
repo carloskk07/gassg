@@ -25,6 +25,8 @@
 .discovery-results>p,.discovery-results>.notice{grid-column:1/-1}
 .discovery-result{display:flex;flex-direction:column;align-items:flex-start;gap:9px;
  padding:21px;border-radius:17px;border:1px solid #d7e7d9;background:#fff;min-width:0}
+.discovery-result .discovery-photo{width:100%;aspect-ratio:16/9;object-fit:cover;
+ border-radius:11px;background:#edf3ee}
 .discovery-result h2{font-size:20px;margin:0;color:#143f2c;line-height:1.24}
 .discovery-result p{color:#53685a;line-height:1.55;margin:0;overflow-wrap:anywhere}
 .discovery-result .discovery-detail{font-weight:750;color:#2e6449}
