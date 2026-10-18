@@ -2342,6 +2342,35 @@ async function adminDiscoveryLoad(){
   d.pending=false;
   if(adminRuntime.section==='discovery')render();
 }
+function adminDiscoveryCitySlug(raw){
+  return String(raw||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'')
+    .toLowerCase().replace(/[^a-z0-9 -]/g,'').trim().replace(/\s+/g,'-').slice(0,110);
+}
+async function adminDiscoverySetCity(enabled){
+  if(!adminReady()||adminCurrentRole()!=='superadmin'||adminDiscoveryDesk.pending)return;
+  const value=id=>String(document.getElementById(id)?.value||'').trim();
+  const vertical=value('admin-discovery-city-kind');
+  const state=value('admin-discovery-city-state').toUpperCase();
+  const city=value('admin-discovery-city-name');
+  const reason=value('admin-discovery-city-reason');
+  if(!['professionals','rides','stays'].includes(vertical)||
+     !/^[A-Z]{2}$/.test(state)||city.length<2||city.length>120||reason.length<8){
+    toast('Informe modalidade, UF, cidade e uma justificativa de pelo menos 8 caracteres.');
+    return;
+  }
+  const d=adminDiscoveryDesk;d.pending=true;
+  try{
+    const {error}=await adminRuntime.client.rpc('discovery_set_vertical_city',{
+      p_vertical:vertical,p_state:state,p_city_key:adminDiscoveryCitySlug(city),
+      p_city_name:city,p_enabled:enabled,p_reason:reason
+    });
+    if(error)throw error;
+    toast(enabled?'Modalidade habilitada nesta cidade.':'Modalidade suspensa nesta cidade.');
+    d.pending=false;await adminDiscoveryLoad();
+  }catch(e){
+    d.pending=false;toast('Não foi possível alterar a modalidade na cidade.');
+  }
+}
 function adminDiscoveryView(){
   if(!adminReady()||adminCurrentRole()!=='superadmin')return '';
   const d=adminDiscoveryDesk;
@@ -2372,12 +2401,27 @@ function adminDiscoveryView(){
           (!canPublish||d.pending?' disabled':'')+'>Aprovar anúncio</button>'+
         '</div></article>';
     }).join('');
+  const cityControls='<section class="card flat" style="margin-block:16px;padding:18px">'+
+    '<h3>Disponibilidade por modalidade e cidade</h3>'+
+    '<p class="tiny muted">Ative ou suspenda somente a modalidade escolhida, sem modificar o comércio de gás e água.</p>'+
+    '<div class="form-stack">'+
+      '<label>Modalidade<select class="input" id="admin-discovery-city-kind">'+
+        '<option value="professionals">Profissionais</option>'+
+        '<option value="rides">Caronas</option>'+
+        '<option value="stays">Hospedagens</option></select></label>'+
+      '<label>UF<input class="input" id="admin-discovery-city-state" maxlength="2" value="RS"></label>'+
+      '<label>Cidade<input class="input" id="admin-discovery-city-name" maxlength="120" placeholder="São Gabriel"></label>'+
+      '<label>Justificativa<input class="input" id="admin-discovery-city-reason" maxlength="240" placeholder="Motivo da decisão"></label>'+
+      '<div class="order-actions">'+
+        '<button type="button" class="secondary small" onclick="adminDiscoverySetCity(false)"'+(d.pending?' disabled':'')+'>Suspender modalidade</button>'+
+        '<button type="button" class="primary small" onclick="adminDiscoverySetCity(true)"'+(d.pending?' disabled':'')+'>Habilitar modalidade</button>'+
+      '</div></div></section>';
   return '<section class="section"><div class="section-head"><div><h2>Revisão de anúncios</h2>'+
     '<p>Decisões reservadas ao superadministrador e auditadas no banco. Nenhum anúncio é aprovado automaticamente.</p>'+
     '</div><button class="secondary small" type="button" onclick="adminDiscoveryLoad()"'+
       (d.pending?' disabled':'')+'>Atualizar fila</button></div>'+
     '<p class="tiny muted">Confira a veracidade do anúncio e as obrigações aplicáveis antes de aprovar. Fotos públicas não substituem documentação.</p>'+
-    content+'</section>';
+    cityControls+content+'</section>';
 }
 async function adminDiscoveryDecision(id,status){
   if(!adminReady()||adminCurrentRole()!=='superadmin'||adminDiscoveryDesk.pending||
