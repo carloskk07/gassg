@@ -699,7 +699,7 @@ jobs:
           grep -q "Botijão de cozinha 13 kg" /tmp/home.html
           grep -q "Me avise quando puder pedir" /tmp/home.html
           grep -q "PRIMEIRO ESCOLHA. DEPOIS, CONFIRA A ENTREGA." /tmp/home.html
-          grep -q "Tem muita coisa boa no TAMÃO além de comprar." /tmp/home.html
+          grep -q "Mais economia para quem compra. Mais oportunidades para quem vende." /tmp/home.html
           grep -q "Entender como funciona" /tmp/home.html
           grep -q "Cadastrar minha empresa" /tmp/home.html
           grep -q "Escolha o que precisa. Confira a entrega. Acompanhe seu pedido." /tmp/learn.html
