@@ -6363,11 +6363,11 @@ function adminPage(){
         ${adminPanel('orders',ordersContent)}
         ${adminPanel('customers',customersContent)}
         ${adminPanel('partners',partnersContent)}
-        ${adminPanel('prospects',adminProspectsSection(d))}
-        ${adminPanel('enablement',adminEnablementSection(d))}
+        ${adminPanel('prospects',sectionActive('prospects')?adminProspectsSection(d):'')}
+        ${adminPanel('enablement',sectionActive('enablement')?adminEnablementSection(d):'')}
         ${adminPanel('catalog',catalogContent)}
         ${adminPanel('finance',financeContent)}
-        ${adminPanel('activations',adminRuntime.section==='activations'&&typeof adminActivationDeskView==='function'?adminActivationDeskView(d):adminActivationsFallbackView())}
+        ${adminPanel('activations',sectionActive('activations')?(typeof adminActivationDeskView==='function'?adminActivationDeskView(d):adminActivationsFallbackView()):'')}
         ${adminPanel('alerts',alertsContent)}
         ${adminPanel('incidents',incidentsContent)}
         ${adminPanel('audit',auditContent)}
