@@ -180,6 +180,15 @@
 
 **CONDIÇÃO DE CONCLUSÃO:** Para cada vertical, cadastro, autorização, publicação, busca, contato e operação testados; para release, zero P0/P1 conhecidos, recuperação comprovada, migrações e portais reconciliados por SHA e autorização comercial do superadmin.
 
+## Decisão — cadastro livre de novas revendas sem dependência do primeiro parceiro (18/10/2026)
+
+- **Orientação comercial:** a primeira revenda não deve travar apresentação, prospecção nem o cadastro de outras empresas. Tratar sua regularização como assunto operacional próprio, sem declarar no banco que uma conferência inexistente foi concluída.
+- **Regra de simplicidade:** interessado entra diretamente em `parceiro.tamao.com.br/#merchant-join`, confirma e-mail, preenche cadastro existente e pode corrigi-lo; **não precisa de convite do administrador**, nem preencher antes uma segunda ficha de interesse. A conferência comercial/identidade é separada da captação; produtos sujeitos a licenças e pagamentos continuam com salvaguardas legais e financeiras.
+- **Defeito de conversão identificado e corrigido nesta branch:** o `merchantSendLogin` limpava o hash para permitir retorno de tokens OTP e perdia o marcador `merchant-join` quando o usuário clicava no link de e-mail. Agora o `emailRedirectTo` transporta somente `signup=1` na query, sem credenciais; `js/bootstrap.js` retoma a página de cadastro para conta autenticada sem revenda, mesmo sem convite. Contas que já têm revenda continuam no painel; convites existentes preservados.
+- **Teste aprimorado:** `tests/merchant-direct-onboarding-v1-410.mjs` inclui OTP realista em VM e retomada sem convite, com regressão para login normal, usuário existente e convite piloto. **CI no novo SHA deve ser consultado antes de classificar como PASS**.
+- **Prioridade até quarta 21/10:** permitir apresentar o TAMÃO e cadastrar várias revendas sem esperar o primeiro parceiro; comprovar OTP via serviço real e submissão pelo portal, qualidade de painéis e pedidos existentes, não automatizar habilitação comercial por simples registro.
+- **Estado de publicação:** esta alteração está somente na PR #492 em rascunho, sem mudanças na `main`, Supabase ou portais. O lançamento real continua sujeito aos testes críticos e autorização do superadmin.
+
 ## Como retomar após interrupção
 
 1. Ler este arquivo e o escopo, sem confiar somente em memória.

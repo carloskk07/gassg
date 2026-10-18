@@ -197,7 +197,11 @@ window.addEventListener('load',async()=>{
   }else if(globalThis.merchantPortalRequested?.()){
     await merchantBackendInit();
     const invitedPartner=Boolean(globalThis.merchantPilotInviteToken?.()||globalThis.merchantProspectInviteToken?.());
-    if(invitedPartner&&globalThis.merchantRuntime?.status==='no-access'){
+    // A new revenda may have no invite: resume its actual signup after the
+    // OTP callback instead of stranding the owner on the generic login panel.
+    // This only changes navigation; it never grants merchant permissions.
+    const returningToSignup=new URLSearchParams(location.search).get('signup')==='1';
+    if((invitedPartner||returningToSignup)&&globalThis.merchantRuntime?.status==='no-access'){
       if(route()!=='merchant-join')go('merchant-join');
     }else if(!['merchant','merchant-orders','merchant-team','catalog','merchant-metrics','merchants','merchant-join'].includes(route())){
       go('merchant');
