@@ -585,7 +585,7 @@ function home(){
     <div class="hero-overline">${conciseHome?'PRIMEIRO ESCOLHA. DEPOIS, CONFIRA A ENTREGA.':'O QUE VOCÊ PRECISA, MAIS PERTO DE CASA.'}</div>
     <h1>Faltou em casa?<br><span class="hero-highlight">Tá na mão.</span></h1>
     ${homeIntentGuide}
-    <p class="hero-lead"><strong>Compare preços, encontre oportunidades de economia, cashback elegível e descontos do TAMÃO.</strong> Gás, água e o essencial do dia a dia, em um só lugar.  ${esc(hasConfirmedCityOffers?'Já consultamos opções para o seu CEP. Confira preços e prazos atualizados antes de confirmar.':conciseHome?firstVisitMessage:outsideOriginalMarket?'Veja quais opções atendem '+regionLabel+' pelo CEP. Se não houver ofertas, você poderá solicitar um aviso.':heroJourney)}</p>
+    <p class="hero-lead"><strong>Compare preços e aproveite as vantagens do Clube TAMÃO.</strong> Gás, água e o essencial do dia a dia, em um só lugar.  ${esc(hasConfirmedCityOffers?'Já consultamos opções para o seu CEP. Confira preços e prazos atualizados antes de confirmar.':conciseHome?firstVisitMessage:outsideOriginalMarket?'Veja quais opções atendem '+regionLabel+' pelo CEP. Se não houver ofertas, você poderá solicitar um aviso.':heroJourney)}</p>
     <div class="home-saving-headlines" aria-label="Benefícios de comprar e vender pelo TAMÃO">
       <span>💰 Compare preços totais por CEP</span>
       <button type="button" onclick="go('club')">🎁 Conheça suas vantagens no Clube <span aria-hidden="true">→</span></button>
