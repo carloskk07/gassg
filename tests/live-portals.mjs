@@ -58,6 +58,15 @@ for(const {role,path:dir} of built){
   const headers=fs.readFileSync(path.join(dir,'_headers'),'utf8');
   // A customer/merchant release must neither execute, precache nor ship
   // privileged administration UI modules. The admin release keeps them.
+  // Only the partner and administration portals ship the heavy merchant
+  // operations module; public visitors still have the public merchant landing.
+  const merchantScript='<script defer src="./js/merchant.js?v=test-sha"></script>';
+  const merchantCache="'./js/merchant.js?v=test-sha'";
+  const hasPartnerOperations=role!=='customer';
+  assert.equal(html.includes(merchantScript),hasPartnerOperations,role+' HTML: merchant.js');
+  assert.equal(sw.includes(merchantCache),hasPartnerOperations,role+' PWA cache: merchant.js');
+  assert.equal(fs.existsSync(path.join(dir,'js','merchant.js')),hasPartnerOperations,role+' shipped merchant.js');
+  assert.ok(html.includes('src="./js/growth.js?v=test-sha"'),role+' public merchant landing must remain available');
   for(const module of ['admin-acquisition','admin','admin-activations']){
     const script='<script defer src="./js/'+module+'.js?v=test-sha"></script>';
     const cacheAsset="'./js/"+module+".js?v=test-sha'";
@@ -80,6 +89,8 @@ for(const {role,path:dir} of built){
   // Preserve functional bootstrapping after excluding admin-only sources.
   const bootstrap=fs.readFileSync(path.join(dir,'js','bootstrap.js'),'utf8');
   assert.ok(bootstrap.includes("typeof adminPage==='function'"),'Bootstrap needs optional admin references');
+  assert.ok(bootstrap.includes("typeof merchantPage==='function'"),'Bootstrap needs optional merchant references');
+  if(role==='customer')assert.match(bootstrap,/if\(typeof merchantPage==='function'\)Object\.assign/);
   if(role!=='admin'){
     const canonical=role==='customer'?'https://tamao.com.br/':'https://parceiro.tamao.com.br/';
     assert.match(robots,/Allow:\s*\//);
@@ -170,6 +181,10 @@ for(const [projectName,cfg] of Object.entries(CLOUDFLARE_PROJECTS)){
   const cfSw=fs.readFileSync(path.join(publishDir,'sw.js'),'utf8');
   const cfAsset='./js/core.js?v=1234567890123456789012345678901234567890';
   assert.ok(cfHtml.includes('src="'+cfAsset+'"'),projectName+' must pin actual Cloudflare scripts');
+  const includesMerchant=cfg.role!=='customer';
+  assert.equal(cfHtml.includes('src="./js/merchant.js?v=1234567890123456789012345678901234567890"'),includesMerchant);
+  assert.equal(fs.existsSync(path.join(publishDir,'js','merchant.js')),includesMerchant);
+  assert.equal(cfSw.includes("'./js/merchant.js?v=1234567890123456789012345678901234567890'"),includesMerchant);
   assert.ok(cfSw.includes("'"+cfAsset+"'"),projectName+' must precache the same scripts');
   const runtime=fs.readFileSync(path.join(publishDir,'js','runtime-config.js'),'utf8');
   assert.ok(runtime.includes(PUBLIC_TURNSTILE_SITE_KEY));
