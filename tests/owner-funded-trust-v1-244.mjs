@@ -44,7 +44,7 @@ for(const fragment of [
 for(const f of ['adminOwnerFundingLoadFromUi','adminOwnerFundingSaveFromUi'])
  assert.ok(boot.includes(f),'Missing global callback '+f);
 for(const f of [
- 'Cada compra pode render mais vantagens para você.',
+ 'Compare ofertas pelo preço total para seu CEP',
  'Seu próximo convite pode abrir novas portas.',
  'Indique quem compra. Apresente quem vende. Faça sua rede crescer.',
  'Tudo acompanhado em um só lugar.',
