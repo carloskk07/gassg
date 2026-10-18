@@ -31,7 +31,8 @@ create table storage.objects(
 );
 alter table storage.objects enable row level security;
 grant usage on schema storage to anon,authenticated;
-grant insert on storage.objects to authenticated;
+-- Supabase Storage grants SELECT to authenticated; RLS still scopes each object.
+grant insert,select on storage.objects to authenticated;
 
 insert into auth.users(id,is_anonymous,email_confirmed_at) values
  ('00000000-0000-0000-0000-000000000011',false,now()),
