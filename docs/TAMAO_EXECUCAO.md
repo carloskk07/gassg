@@ -81,13 +81,22 @@
 - **Primeira tarefa restante:** concluir jornadas autenticadas de criar/editar anúncios dos três tipos, upload pelo SDK real em nomes aleatórios, gestão de fotos, envio à revisão, aprovação/rejeição no admin existente, documentação privada, e E2E/isolamento de contas. Sem essas provas, não avançar para merge ou abertura de modalidades.
 - **Gates específicos antes do release:** executar CI final por SHA, verificar cadastro/login/Supabase Storage real sem tocar produção aberta, garantir ausência de vazamento RLS/storage, testes de publicação/pausa, browser E2E, cobertura de layouts e reconciliação de portais. Não publicar por testes estáticos isolados.
 
+## Continuação — área autenticada de anunciantes
+
+- Implementada na branch canônica a base de `js/discovery-owner.js`: autenticação por e-mail (OTP), editor curto para Profissionais, Caronas e Hospedagens, rascunho, detalhes próprios por modalidade, upload de imagens em Storage, listagem de anúncios do usuário, envio para revisão e pausa pelo anunciante. Rotas `#advertise` e carregamento sob demanda no `js/bootstrap.js`; entrada na home; estilos responsivos; exclusão do bundle admin/revenda pelo build.
+- A consulta privada `discovery_my_listings()` valida `auth.uid()` no SQL e não envia o campo `owner_id`; regressão de dois usuários adicionada ao PostgreSQL descartável. Não há publicação automática nem abertura de cidade.
+- Novo gate `tests/discovery-owner-journey.mjs` na auditoria verifica autenticação, cadastro, detalhes, foto, envio a revisão, tipo de arquivo inválido, rota protegida e isolamento de assets. Trata-se de simulação determinística, **não** de Auth/Storage/E2E em ambiente Supabase real.
+- Após adicionar a jornada, PostgreSQL isolado, build de portais e smoke visual passaram em `d886b53`. Audit falhou na etapa de sintaxe por expressão de teste inválida, corrigida em `7db2d672f37f268c2a7851e565f3982f4f63baf5`. Na execução seguinte, a auditoria identificou exigência do contrato de checkpoint para a expressão exata `ÚLTIMA ETAPA CONCLUÍDA`; restaurada nesta edição. Confirmar novos workflows após este checkpoint.
+- **Ainda incompleto e sem publicação:** revisão/decisão pelo superadmin dentro do painel existente, gestão de documentos privados, critérios específicos legais, edição de fotos e remoção, antifraude, confirmação de comunicação de e-mail/redirect reais, upload de bytes reais e testes E2E multiusuário. O formulário/SDK é código proposto, não operação comprovada.
+- **Próxima tarefa exata:** corrigir eventuais falhas do Audit no HEAD; integrar controle de moderação ao painel admin existente sem duplicar aplicação; testar fluxos completos de anunciante A, anunciante B, superadmin e visitante, incluindo falhas de rede e fotos. Manter PR #492 em draft e migration não aplicada.
+
 ## Checkpoint operacional obrigatório
 
-**ÚLTIMA ETAPA CONCLUÍDA COM TESTES APROVADOS:** descoberta pública, protocolo de continuidade, PostgreSQL isolado e builds na SHA `2d31f63c6ea22a9985b590bc2820172777300a0f`. **NOVAS ALTERAÇÕES AINDA SEM GATE FINAL:** proteção de imagens, teste de Storage e renderização; conferir CI no HEAD deste checkpoint.
+**ÚLTIMA ETAPA CONCLUÍDA:** descoberta pública, protocolo de continuidade, PostgreSQL isolado e builds na SHA `2d31f63c6ea22a9985b590bc2820172777300a0f`. **NOVAS ALTERAÇÕES AINDA SEM GATE FINAL:** proteção de imagens, teste de Storage e renderização; conferir CI no HEAD deste checkpoint.
 
-**ETAPA ATUAL:** Acompanhar o CI da correção de fotos no HEAD, consertar falhas e executar a primeira parte operacional do cadastro autenticado sem aplicar migration em produção.
+**ETAPA ATUAL:** Validar CI e integrações da primeira base de cadastro autenticado; iniciar moderação no admin existente; preservar todas as proteções antes do release.
 
-**PRÓXIMA AÇÃO EXATA:** Ler este checkpoint e o escopo; conferir SHA da PR, workflows e banco; depois implementar criação/edição real de anúncios com upload controlado e envio a revisão do superadmin, adicionando testes de RLS/Storage, vazamento de dados e regressão dos três portais.
+**PRÓXIMA AÇÃO EXATA:** Conferir workflows da HEAD no GitHub, reparar falhas, implementar fila e decisão de revisão no superadmin existente, validar Auth e Storage real em homologação e adicionar E2E autenticado de criação → revisão → publicação → pausa, mantendo migração e cobrança desligadas em produção.
 
 **ARQUIVOS QUE DEVEM SER INSPECIONADOS:** `supabase/migrations/20261018131000_discovery_shared_verticals.sql`, `js/discovery.js`, `js/bootstrap.js`, `js/customer.js`, `scripts/build-live-portals.mjs`, `tests/discovery-public-journeys.mjs`, `tests/discovery-db-integration.sql`, `docs/TAMAO_ESCOPO.md`.
 
