@@ -57,8 +57,8 @@ assert.match(webhook,/"charged_back","chargeback"/,
 assert.match(webhook,/refunded===Number\(invoice.sale_price_cents\)/,
  'only exact full refunds may be classified as completed');
 
-assert.match(webhook,/refunded>=Number\(invoice.sale_price_cents\)/,
- 'partial provider refunds must halt benefit issuance instead of voiding everything');
+assert.match(webhook,/fullRefund\?"clube_coupon_paid_payment_refund"/,
+ 'partial and inconsistent refunds must follow finance-review route');
 assert.match(webhook,/COUPON_EARLY_PAYMENT_MISMATCH/,
  'early Mercado Pago callback must reconcile only verified matching invoices');
 assert.match(webhook,/merchant_sale_payment_attempts/,
