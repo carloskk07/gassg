@@ -67,8 +67,11 @@ const mkContext=(snapshot=null)=>{
 let env=mkContext();
 let html=vm.runInContext('homeRegionalPriceBoard({city:"São Gabriel",state:"RS",origin:"showcase"})',env);
 assert.match(html,/R\$ 115.90/);
-assert.match(html,/R\$ 120.00/);
-assert.match(html,/R\$ 125.00/);
+assert.match(html,/R\$ 15.90/);
+assert.match(html,/R\$ 25.00/);
+assert.match(html,/Pesquisa local informada em 15\/10\/2026/);
+assert.equal((html.match(/class="city-price-research-item"/g)||[]).length,3,
+ 'three researched products share one reference, not merchant offer cards');
 assert.equal((html.match(/REFERÊNCIA LOCAL • NÃO É OFERTA/g)||[]).length,1,
  'a single market reference must not be presented as three seller cards');
 assert.match(html,/city-price-reference-summary/);
@@ -86,10 +89,11 @@ assert.match(html,/cupons de campanhas/);
 assert.doesNotMatch(html,/Diferença de R\$/,'no merchant price spread with reference only');
 assert.match(html,/Referência de mercado • não é oferta de revenda/);
 assert.doesNotMatch(html,/PREÇO DE REVENDA/);
+assert.doesNotMatch(html,/\bCarlos Santos\b/,'test account cannot be presented as a live seller');
 assert.match(html,/city-price-place[^>]*>📍 São Gabriel/);
 assert.doesNotMatch(html,/quoteId|merchantId|checkout\(/i);
 html=vm.runInContext('homeRegionalPriceBoard({city:"Outra Cidade",state:"RS",origin:"chosen"})',env);
-assert.doesNotMatch(html,/R\$ 115.90|R\$ 120.00|R\$ 125.00/);
+assert.doesNotMatch(html,/R\$ 115.90|R\$ 15.90|R\$ 25.00/);
 assert.match(html,/Explore os produtos e consulte as ofertas de Outra Cidade/);
 assert.match(html,/Ver outra cidade/);
 const real={
@@ -112,7 +116,7 @@ assert.match(html,/2 revendas elegíveis/);
 assert.match(html,/Diferença de R\$ 7.10 entre os valores estimados/);
 assert.match(html,/Compare as ofertas com entrega para seu endereço/);
 assert.match(html,/Atualizado /);
-assert.doesNotMatch(html,/R\$ 115.90|R\$ 120.00|R\$ 125.00/);
+assert.doesNotMatch(html,/R\$ 115.90|R\$ 15.90|R\$ 25.00/);
 assert.doesNotMatch(html,/REFERÊNCIA LOCAL • NÃO É OFERTA/);
 assert.match(html,/O valor final com entrega aparece na consulta por CEP/);
 html=vm.runInContext('homeRegionalPriceBoard({city:"Rio Grande",state:"RS",origin:"chosen"})',env);
