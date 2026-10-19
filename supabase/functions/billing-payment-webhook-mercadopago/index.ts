@@ -519,7 +519,8 @@ async function handlePaidCouponOrder(
  const refunds=Array.isArray(order?.transactions?.refunds)?order.transactions.refunds:[];
  const hasRefund=refunds.some((r:any)=>
   ["processed","approved","refunded"].includes(String(r?.status??"").toLowerCase()))
-  ||["refunded","partially_refunded"].includes(String(order?.status??"").toLowerCase());
+  ||["refunded","partially_refunded","charged_back","chargeback",
+      "disputed","in_mediation"].includes(String(order?.status??"").toLowerCase());
  if(hasRefund){
   const refunded=refunds.reduce((total:number,r:any)=>{
     if(!["processed","approved","refunded"].includes(String(r?.status??"").toLowerCase()))
@@ -528,8 +529,9 @@ async function handlePaidCouponOrder(
   },0);
   // A partial refund, status inconsistency or chargeback needs manual
   // allocation review. It may never be treated as a full paid voucher.
-  const fullRefund=refunded>=Number(invoice.sale_price_cents)&&
-    refunded>0;
+  const fullRefund=refunded===Number(invoice.sale_price_cents)&&
+    refunded>0&&!["charged_back","chargeback","disputed","in_mediation"]
+      .includes(String(order?.status??"").toLowerCase());
   const rpc=fullRefund?"clube_coupon_paid_payment_refund":
     "clube_coupon_paid_payment_review";
   const {data,error}=await admin.rpc(rpc,{
