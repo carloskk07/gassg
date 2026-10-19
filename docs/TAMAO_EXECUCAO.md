@@ -447,3 +447,8 @@
 **Evidência de portais:** na primeira leitura pós-merge o atestado OIDC ainda mostrava SHA `fda73b4bb11f2907283a35021d907d1291cdefb8` (anterior), não `db1986b4`. A atualização da interface depende de nova reconciliação dos três portais; consultar novamente antes de declarar publicada na web. Não confundir Edge ACTIVE com deploy confirmado do frontend.
 
 **Pendências:** teste autenticado do botão no Admin real, configuração autorizada do token de sandbox e simulação oficial de R$ 50,00, inspeção de recusa real de novo PIX no aplicativo bancário e emissão de fatura pagável/valor livre com conciliação legal/financeira. A expansão #492 segue draft e isolada; não alterar a revenda/cidade para esta melhoria.
+
+
+### Reconciliação final de publicação do diagnóstico PIX #505
+
+**ATUALIZAÇÃO VALIDADA:** Supabase recebeu atestado `github_oidc_edge` em `2026-10-19T09:02:47Z`, `source_sha=db1986b44c60cd7e2781c951601a7d0550630edc`, `allPortalsReady=true`. Portais `tamao.com.br`, `parceiro.tamao.com.br` e `admin.tamao.com.br` registraram `htmlStatus=200`, `buildStatus=200`, `runtimeStatus=200`, `turnstileProduction=true` e SHA coincidente. Assim o bloqueio de reconciliação frontend do checkpoint anterior está resolvido. Isso **não** equivale à autenticação real do superadmin nem prova novo PIX bancariamente pagável.
