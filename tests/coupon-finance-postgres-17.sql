@@ -85,7 +85,8 @@ BEGIN
 
   -- Reserve state must block automatic refund of a potentially consumed
   -- voucher and trigger financial review instead of hidden forgiveness.
-  UPDATE public.clube_coupon_paid_issuances SET status='reserved'
+  UPDATE public.clube_coupon_paid_issuances
+   SET status='reserved',reserved_quote_id=gen_random_uuid(),reserved_at=clock_timestamp()
    WHERE invoice_id=v_invoice AND ordinal=1;
   v_result:=public.clube_coupon_paid_payment_refund(v_invoice,'test-mp-order-1');
   IF (v_result->>'reviewRequired')::boolean IS DISTINCT FROM true THEN
