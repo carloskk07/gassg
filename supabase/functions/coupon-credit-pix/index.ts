@@ -5,7 +5,7 @@ import {
   safeMercadoPagoUrl,mercadoPagoQrDataUri,moneyToCents
 } from "../_shared/mercadopago.js";
 import {validatePixBrCode} from "../_shared/pix-brcode.js";
-import {enforceApiQuota} from "../_shared/domain.js";
+import {enforceApiQuota,readJsonBody} from "../_shared/domain.js";
 
 // Uses the SAME MERCADOPAGO_ACCESS_TOKEN as merchant-billing-pix. New coupons
 // cannot be sold unless verified funding, legal terms and merchant settlement
@@ -55,10 +55,17 @@ Deno.serve(async(req:Request)=>{
   const client=createClient(URL_BASE,PUBLISHABLE,{auth:{persistSession:false,autoRefreshToken:false}});
   const {data:{user},error:authError}=await client.auth.getUser(token);
   if(authError||!user||!user.email)return respond({error:"AUTH_REQUIRED"},401,origin);
-  const raw=await req.text();
-  if(new TextEncoder().encode(raw).byteLength>4000)return respond({error:"PAYLOAD_TOO_LARGE"},413,origin);
-  let body:any={};
-  try{body=JSON.parse(raw||"{}")}catch{return respond({error:"INVALID_JSON"},400,origin)}
+  // Stream-bounded JSON parsing: req.text() would buffer an attacker-sized
+  // payload BEFORE checking the 4KB limit.
+  let body:any;
+  try{body=await readJsonBody(req,{maxBytes:4096})}
+  catch(error){
+    if((error as any)?.code==="PAYLOAD_TOO_LARGE")
+      return respond({error:"PAYLOAD_TOO_LARGE"},413,origin);
+    if((error as any)?.code==="INVALID_JSON")
+      return respond({error:"INVALID_JSON"},400,origin);
+    throw error;
+  }
   const operation=String(body.action??"purchase");
   const admin=createClient(URL_BASE,SECRET,{auth:{persistSession:false,autoRefreshToken:false}});
   if(operation==="my-vouchers"){
