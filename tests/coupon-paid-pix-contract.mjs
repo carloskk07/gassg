@@ -24,7 +24,8 @@ assert.match(migration,/where id=p_invoice_id for update/,
  'credit verification and refunds need row locking');
 assert.match(migration,/on conflict \(invoice_id,ordinal\) do nothing/,
  'duplicated Mercado Pago webhooks cannot duplicate credits');
-for(const func of ['clube_coupon_paid_payment_verify','clube_coupon_paid_payment_refund']){
+for(const func of ['clube_coupon_paid_payment_verify','clube_coupon_paid_payment_refund',
+ 'clube_coupon_paid_payment_review']){
  assert.match(migration,new RegExp('revoke all on function public\\.'+func));
  assert.match(migration,new RegExp('grant execute on function public\\.'+func+'[\\s\\S]*?to service_role'));
 }
@@ -48,6 +49,11 @@ assert.match(webhook,/COUPON_EARLY_PAYMENT_MISMATCH/,
  'early webhook/reconciliation retry must fail closed');
 assert.match(webhook,/clube_coupon_paid_payment_verify/);
 assert.match(webhook,/clube_coupon_paid_payment_refund/);
+assert.match(webhook,/clube_coupon_paid_payment_review/);
+assert.match(webhook,/refunded>=Number\(invoice.sale_price_cents\)/,
+ 'partial provider refunds must halt benefit issuance instead of voiding everything');
+assert.match(webhook,/COUPON_EARLY_PAYMENT_MISMATCH/,
+ 'early Mercado Pago callback must reconcile only verified matching invoices');
 assert.match(webhook,/merchant_sale_payment_attempts/,
  'merchant-owned payment webhook route must be preserved');
 assert.match(webhook,/handlePlatformBillingOrder/,
