@@ -46,12 +46,8 @@ Deno.serve(async(req:Request)=>{
  if(origin&&!ORIGINS.has(origin))return respond({error:"ORIGIN_NOT_ALLOWED"},403,origin);
  if(req.method==="OPTIONS")return new Response("ok",{headers:cors(origin)});
  if(req.method!=="POST")return respond({error:"METHOD_NOT_ALLOWED"},405,origin);
- if(!mercadoPagoConfigured(MP_TOKEN)||!URL_BASE||!SECRET){
-   return respond({error:"MERCADOPAGO_NOT_CONFIGURED"},503,origin);
- }
- // Deliberately OFF until coupon redemption/financial settlement E2E is proven.
- if(Deno.env.get("CLUBE_COUPON_PAID_SALES_ENABLED")!=="true"){
-   return respond({error:"COUPON_SALES_NOT_ENABLED"},423,origin);
+ if(!URL_BASE||!SECRET||!PUBLISHABLE){
+   return respond({error:"COUPON_BACKEND_NOT_CONFIGURED"},503,origin);
  }
  try{
   const token=String(req.headers.get("authorization")??"").replace(/^Bearer /i,"");
@@ -63,12 +59,55 @@ Deno.serve(async(req:Request)=>{
   if(new TextEncoder().encode(raw).byteLength>4000)return respond({error:"PAYLOAD_TOO_LARGE"},413,origin);
   let body:any={};
   try{body=JSON.parse(raw||"{}")}catch{return respond({error:"INVALID_JSON"},400,origin)}
+  const operation=String(body.action??"purchase");
+  const admin=createClient(URL_BASE,SECRET,{auth:{persistSession:false,autoRefreshToken:false}});
+  if(operation==="my-vouchers"){
+    // Authenticated, read-only reconciliation, available even when coupon
+    // sales are disabled. No customer can choose or query another user ID.
+    await enforceApiQuota(admin,{
+      userId:user.id,actionName:"coupon-credit-pix-read",limit:12,windowSeconds:600
+    });
+    const {data:invoices,error:invoiceError}=await admin
+      .from("clube_coupon_paid_invoices")
+      .select("id,package_key,status,sale_price_cents,created_at,paid_at")
+      .eq("customer_user_id",user.id)
+      .order("created_at",{ascending:false}).limit(25);
+    if(invoiceError)throw invoiceError;
+    const paidIds=new Set((invoices||[])
+      .filter((row:any)=>row.status==="paid").map((row:any)=>String(row.id)));
+    const {data:rows,error:issuanceError}=await admin
+      .from("clube_coupon_paid_issuances")
+      .select("id,invoice_id,ordinal,face_cents,status,expires_at")
+      .eq("customer_user_id",user.id)
+      .order("expires_at",{ascending:true}).limit(100);
+    if(issuanceError)throw issuanceError;
+    return respond({
+      ok:true,source:"clube_coupon_paid_my_vouchers_v1",
+      purchases:(invoices||[]).map((row:any)=>({
+        invoiceId:row.id,packageKey:row.package_key,status:row.status,
+        amountCents:row.sale_price_cents,createdAt:row.created_at,
+        paidAt:row.paid_at
+      })),
+      vouchers:(rows||[]).filter((row:any)=>paidIds.has(String(row.invoice_id)))
+        .map((row:any)=>({
+          voucherId:row.id,invoiceId:row.invoice_id,ordinal:row.ordinal,
+          faceCents:row.face_cents,status:row.status,expiresAt:row.expires_at
+        })),
+      couponSalesEnabled:Deno.env.get("CLUBE_COUPON_PAID_SALES_ENABLED")==="true"
+    },200,origin);
+  }
+  if(operation!=="purchase")return respond({error:"COUPON_ACTION_INVALID"},400,origin);
+  // Do not receive money until redemption and merchant compensation have
+  // been validated end-to-end, even if credentials already exist.
+  if(Deno.env.get("CLUBE_COUPON_PAID_SALES_ENABLED")!=="true")
+    return respond({error:"COUPON_SALES_NOT_ENABLED"},423,origin);
+  if(!mercadoPagoConfigured(MP_TOKEN))
+    return respond({error:"MERCADOPAGO_NOT_CONFIGURED"},503,origin);
   const packageKey=String(body.packageKey||"");
   const requestId=String(body.requestId||"");
   if(!/^[a-z][a-z0-9_]{2,39}$/.test(packageKey)||!UUID_RE.test(requestId)){
    return respond({error:"COUPON_REQUEST_INVALID"},400,origin);
   }
-  const admin=createClient(URL_BASE,SECRET,{auth:{persistSession:false,autoRefreshToken:false}});
   await enforceApiQuota(admin,{userId:user.id,actionName:"coupon-credit-pix",limit:5,windowSeconds:3600});
   const {data:pkg,error:packageError}=await admin.from("clube_coupon_paid_packages")
     .select("package_key,sale_price_cents,coupon_face_cents,coupons_per_pack,valid_days,sale_enabled,funding_verified,legal_terms_verified,redeem_settlement_verified")
