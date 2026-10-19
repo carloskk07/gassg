@@ -23,6 +23,7 @@ const merchant={id:merchantId,name:'Carlos Santos',status:'pending',online:false
  delivery_fee_cents:0};
 const detail={type:'merchant',merchant,catalog:[
  {product_code:'P13',product_name:'Gás P13',price_cents:11590,
+  min_price_cents:11470,max_price_cents:12790,
   pricing_mode:'range',available_stock:10,active:true,
   price_confirmed_at:'2026-10-15T17:51:14Z'},
  {product_code:'WATER20',product_name:'Água 20 L',price_cents:1590,
