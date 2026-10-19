@@ -48,7 +48,7 @@ assert.match(edge,/validatePixBrCode\(brCode,\{expectedAmountCents\}\)/);
 assert.match(edge,/validatePixBrCode\(existing\.br_code,\{expectedAmountCents\}\)/);
 assert.match(edge,/PIX_PROVIDER_BR_CODE_INVALID/);
 assert.match(merchant,/merchantBillingPixChargeExpired\(charge\)/);
-assert.match(backend,/charge\.status==='completed'/);
+assert.match(backend,/charge\?\.status==='completed'/);
 assert.match(backend,/charge\.expiresAt/);
 
 // User cannot copy a known-expired or cancelled provider code.
