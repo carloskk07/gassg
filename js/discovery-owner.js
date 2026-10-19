@@ -4,7 +4,7 @@
  */
 const discoveryOwner={
   client:null,phase:'idle',user:null,items:[],editor:null,kind:'professionals',
-  notice:'',error:'',busy:false
+  notice:'',error:'',busy:false,pendingPhotoRemovals:[]
 };
 const discoveryOwnerTables={
   professionals:'discovery_professional_details',
@@ -116,9 +116,16 @@ function discoveryOwnerPage(){
           '<button type="button" onclick="discoveryOwnerRemoveDocument(&quot;'+doc.id+'&quot;)">Remover comprovante '+(i+1)+'</button>':''
       ).join(''):'')+'</div>':'')+
     (Array.isArray(d.photo_urls)&&d.photo_urls.length?
-      '<div class="discovery-owner-photos">'+d.photo_urls.map(p=>{
-        const url=discoveryOwnerPhotoUrl(p);return url?'<img src="'+esc(url)+'" loading="lazy" alt="Foto do anúncio">':'';
+      '<div class="discovery-owner-photos">'+d.photo_urls.map((p,i)=>{
+        const url=discoveryOwnerPhotoUrl(p);
+        if(!url)return '';
+        const removable=['draft','rejected'].includes(d.status)&&
+          String(p).startsWith(s.user.id+'/');
+        return '<div class="discovery-owner-photo"><img src="'+esc(url)+'" loading="lazy" alt="Foto '+(i+1)+' do anúncio">'+
+          (removable?'<button type="button" onclick="discoveryOwnerRemovePhoto(&quot;'+esc(p)+'&quot;)">Remover foto '+(i+1)+'</button>':'')+'</div>';
       }).join('')+'</div>':'')+
+    (s.pendingPhotoRemovals.length?'<button type="button" onclick="discoveryOwnerRetryPhotoCleanup()">'+
+      'Repetir limpeza de '+s.pendingPhotoRemovals.length+' foto(s) pendente(s)</button>':'')+
     '<button type="submit" class="primary"'+(s.busy?' disabled':'')+'>Salvar rascunho e fotos</button>'+
     '<p class="tiny muted">O anúncio só aparece para visitantes depois da revisão e da abertura da modalidade nesta cidade.</p>'+
     '</form>';
@@ -181,7 +188,7 @@ async function discoveryOwnerLogin(ev){
 async function discoveryOwnerLogout(){
   const s=discoveryOwner;if(!s.client)return;
   await s.client.auth.signOut();
-  s.user=null;s.items=[];s.editor=null;s.notice='';s.error='';
+  s.user=null;s.items=[];s.editor=null;s.pendingPhotoRemovals=[];s.notice='';s.error='';
   if(discoveryOwnerRoute())render();
 }
 function discoveryOwnerNew(){discoveryOwner.editor=null;discoveryOwner.notice='';discoveryOwner.error='';render();}
@@ -342,6 +349,61 @@ async function discoveryOwnerSave(ev){
   }
   s.busy=false;if(discoveryOwnerRoute())render();
   return false;
+}
+// First unlink an editable photo from the listing; Storage RLS deliberately
+// forbids deletion of images still referenced by any owner listing.
+// When Storage is unavailable, offer explicit in-session cleanup retry rather
+// than claiming that the remote object was deleted.
+async function discoveryOwnerRemovePhoto(photoPath){
+  const s=discoveryOwner,d=s.editor,key=String(photoPath||'');
+  if(s.busy||!s.user||!s.client||!d?.id||
+    !['draft','rejected'].includes(d.status)||
+    !discoveryOwnerPhotoUrl(key)||!key.startsWith(s.user.id+'/')||
+    !Array.isArray(d.photo_urls)||!d.photo_urls.includes(key))return;
+  s.busy=true;s.error='';s.notice='';
+  try{
+    const remaining=d.photo_urls.filter(path=>path!==key);
+    const updated=await s.client.from('discovery_listings')
+      .update({photo_urls:remaining}).eq('id',d.id);
+    if(updated.error)throw updated.error;
+    // An UPDATE affected by RLS can report no error and change zero rows.
+    // Never remove bytes before confirming the new DB reference set.
+    await discoveryOwnerRefresh();
+    const persisted=s.items.find(item=>item.id===d.id);
+    if(!persisted||!Array.isArray(persisted.photo_urls)||
+      persisted.photo_urls.includes(key)||
+      persisted.photo_urls.length!==remaining.length)
+      throw Error('PHOTO_UNLINK_UNCONFIRMED');
+    d.photo_urls=persisted.photo_urls.slice();
+    try{
+      const cleaned=await s.client.storage.from('tamao-discovery-photos').remove([key]);
+      if(cleaned.error)throw cleaned.error;
+      s.notice='Foto retirada do anúncio e do armazenamento.';
+    }catch{
+      s.pendingPhotoRemovals=[...new Set([...s.pendingPhotoRemovals,key])];
+      s.error='A foto saiu do anúncio, mas o arquivo ainda precisa ser removido. Use “Repetir limpeza de fotos pendentes”.';
+    }
+  }catch(e){
+    s.error=discoveryOwnerError(e);
+  }
+  s.busy=false;if(discoveryOwnerRoute())render();
+}
+async function discoveryOwnerRetryPhotoCleanup(){
+  const s=discoveryOwner;
+  if(s.busy||!s.user||!s.client||!s.pendingPhotoRemovals.length)return;
+  s.busy=true;s.error='';s.notice='';
+  const pending=[];
+  for(const key of s.pendingPhotoRemovals){
+    if(!discoveryOwnerPhotoUrl(key)||!key.startsWith(s.user.id+'/'))continue;
+    try{
+      const cleaned=await s.client.storage.from('tamao-discovery-photos').remove([key]);
+      if(cleaned.error)throw cleaned.error;
+    }catch{pending.push(key);}
+  }
+  s.pendingPhotoRemovals=pending;
+  if(pending.length)s.error='A limpeza das fotos pendentes não foi confirmada. Verifique a conexão e tente novamente.';
+  else s.notice='Arquivos de fotos pendentes removidos do armazenamento.';
+  s.busy=false;if(discoveryOwnerRoute())render();
 }
 async function discoveryOwnerRemoveDocument(docId){
   const s=discoveryOwner,d=s.editor;
