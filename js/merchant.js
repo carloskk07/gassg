@@ -582,6 +582,7 @@ function merchantLiveLoginView(){
     ${pilotInvite?'<div class="notice success" style="margin-top:14px"><strong>Convite reconhecido.</strong><br>Seu convite já foi identificado. Você pode continuar o cadastro; as vendas só começam depois da habilitação.</div>':''}${prospectInvite?'<div class="notice success" style="margin-top:14px"><strong>Convite reconhecido.</strong><br>Vamos conferir o CNPJ para vincular seu cadastro à empresa convidada. A liberação para vender acontece em uma etapa separada.</div>':''}
     ${rt.notice?`<div class="notice success" style="margin-top:14px">${esc(rt.notice)}</div>`:''}
     ${rt.error?`<div class="notice danger" style="margin-top:14px">${esc(rt.error)}</div>`:''}
+    ${signupEntry&&!pilotInvite&&!prospectInvite?'<div class="notice" role="note"><strong>Quer só anunciar seu comércio?</strong><p>Comece com nome do estabelecimento e WhatsApp, sem cadastro operacional completo.</p><a href="https://tamao.com.br/#merchants" class="secondary small">Cadastro rápido para anunciar →</a></div>':''}
     <form class="card flat form-stack merchant-access-form" onsubmit="event.preventDefault();merchantLoginFromUi()">
       <h2>${signupEntry?'Comece com seu e-mail':'Entre com seu e-mail'}</h2>
       <p>Você receberá um link seguro. Não é necessário criar uma senha.</p>
