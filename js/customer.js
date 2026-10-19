@@ -451,7 +451,7 @@ function home(){
             ? 'Use o endereço oficial do TAMÃO para consultar disponibilidade.'
             : globalThis.liveRuntime?.status==='loading'
               ? 'Conectando ao serviço.'
-              : 'Os preços de revendas aparecem após confirmação. Confira seu CEP e as condições antes de comprar.';
+              : 'Escolha os produtos e consulte ofertas para seu CEP.';
 
   const disabled=!testDemo&&!ready&&!preview;
   const liveProductCodes=new Set(Array.isArray(market?.productCodes)?market.productCodes:[]);
@@ -586,13 +586,13 @@ function home(){
 <section class="hero marketing-hero ${conciseHome?'home-first-visit':''}"><div class="hero-grid"><div>
     <span class="eyebrow">${esc(eyebrow)}</span>
     ${rememberedRegion&&!testDemo?`<div class="local-welcome" aria-label="Sua região identificada"><span aria-hidden="true">📍</span><span><strong>Olá, ${esc(rememberedRegion.city)}!</strong><small>Consulta por CEP • ${esc(rememberedRegion.state)}. A disponibilidade depende das ofertas para seu endereço.</small></span></div>`:''}
-    <div class="hero-overline">${conciseHome?'PRIMEIRO ESCOLHA. DEPOIS, CONFIRA A ENTREGA.':'O QUE VOCÊ PRECISA, MAIS PERTO DE CASA.'}</div>
+    <div class="hero-overline">COMPRE BEM. ECONOMIZE MAIS. COMPARTILHE.</div>
     <h1>Faltou em casa?<br><span class="hero-highlight">Tá na mão.</span></h1>
     ${homeIntentGuide}
-    <p class="hero-lead"><strong>Compare preços totais e conheça o Clube TAMÃO.</strong> Gás, água e o essencial do dia a dia, em um só lugar. ${esc(hasConfirmedCityOffers?'Já consultamos opções para o seu CEP. Confira preços e prazos atualizados antes de confirmar.':conciseHome?firstVisitMessage:outsideOriginalMarket?'Veja quais opções atendem '+regionLabel+' pelo CEP. Se não houver ofertas, você poderá solicitar um aviso.':heroJourney)}</p>
+    <p class="hero-lead"><strong>Compare preços do gás, água e essenciais em um só lugar.</strong> Veja referências da sua cidade, descubra o Clube e consulte ofertas e entrega para o seu endereço.</p>
     <div class="home-saving-headlines" aria-label="Benefícios de comprar e vender pelo TAMÃO">
-      <span>💰 Compare preços totais por CEP</span>
-      <button type="button" onclick="go('club')">🎁 Conheça suas vantagens no Clube <span aria-hidden="true">→</span></button>
+      <span>💰 Veja o valor antes de comprar</span>
+      <button type="button" onclick="go('club')">🎟️ Cupons, cashback e Clube <span aria-hidden="true">→</span></button>
       <button type="button" onclick="go('merchants')">🏪 Sua revenda pode conquistar novos clientes <span aria-hidden="true">→</span></button>
     </div>
     <div class="purchase-starter ${conciseHome?'home-starter-neutral':''}" aria-label="Consultar produtos e atendimento da sua região">
@@ -603,7 +603,7 @@ function home(){
       ${cityChecked&&!hasConfirmedCityOffers&&acquisitionOpen?`<div class="regional-action"><button class="ghost" onclick="openPrelaunchCustomerLead()">Sem opção para meu CEP? Quero receber um aviso →</button></div>`:''}
       <small class="starter-footnote">${esc(freshness)}</small>
     </div>
-    <div class="hero-emotional-promise"><span aria-hidden="true">✦</span><span>${conciseHome?'Escolha sem pressa. Confira as condições antes de confirmar.':'Confira as opções da sua região sem precisar ligar de loja em loja.'}</span></div>
+    <div class="hero-emotional-promise"><span aria-hidden="true">✦</span><span>Mais praticidade para comparar, escolher e voltar ao TAMÃO.</span></div>
 
     <div class="home-benefits-shortcuts" aria-label="Mais motivos para conhecer o TAMÃO">
       <span>✓ Sua cesta, suas escolhas</span>
@@ -618,7 +618,7 @@ function home(){
     </div>
     <div class="home-hero-links"><button type="button" onclick="go('learn')">Entenda como funciona <span aria-hidden="true">↗</span></button><button type="button" onclick="go('merchants')">Tenho uma empresa <span aria-hidden="true">↗</span></button>${acquisitionOpen?'<button type="button" class="home-notify-shortcut" onclick="openPrelaunchCustomerLead()">Quero receber aviso de disponibilidade <span aria-hidden="true">↗</span></button>':''}</div>
 
-    <div class="trust-row" aria-label="O que você pode esperar">${conciseHome?'<span class="trust-chip">✓ Consulta por CEP</span><span class="trust-chip">✓ Aviso opcional por WhatsApp</span><span class="trust-chip">✓ Sem pedido automático</span>':'<span class="trust-chip">✓ Veja o valor antes</span><span class="trust-chip">✓ Pedido com aceite real</span><span class="trust-chip">✓ Acompanhe a entrega</span>'}</div>
+    <div class="trust-row" aria-label="O que você pode esperar"><span class="trust-chip">✓ Compare preços</span><span class="trust-chip">✓ Consulte pelo CEP</span><span class="trust-chip">✓ Descubra seus benefícios</span></div>
     ${internalPilot?'<div class="notice" style="margin-top:14px"><strong>Ambiente de validação interna.</strong><br>Nenhuma ação nesta prévia gera pedido real, cobrança ou baixa de estoque. O dado comercial real carregado no cenário é a faixa P13: R$ 115,90 mínimo, R$ 120,00 normal e R$ 125,00 máximo, com entrega incluída.</div>':''}
   </div>
   ${!conciseHome?`<div class="hero-visual" aria-label="Resumo visual dos benefícios do TAMÃO">
