@@ -24,8 +24,8 @@ for(const token of [
  "go('merchants')","go('earn')",'startHomeBrowse()',
  'homeRegionalPriceBoard(homeRegion)'
 ])assert.ok(home.includes(token),'home journey lacks '+token);
-assert.ok(home.indexOf('home-discover-grid')<home.indexOf('homeRegionalPriceBoard(homeRegion)'),
- 'verified regional price panel must follow product discovery');
+assert.ok(home.indexOf('homeRegionalPriceBoard(homeRegion)')<home.indexOf('home-discover-grid'),
+ 'verified regional pricing and advantages must lead product discovery');
 assert.ok(home.includes('citySnapshot?.real===true&&citySnapshot?.notAQuote===true'),
  'marketing cannot display unverified city prices');
 assert.ok(home.includes('home-first-visit'),
