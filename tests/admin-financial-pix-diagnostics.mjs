@@ -8,7 +8,7 @@ const first=edge.indexOf('async function adminFinanceLabChargeDiagnostics(');
 const last=edge.indexOf('async function adminFinanceLabReadiness(',first);
 assert.ok(first>0&&last>first,'the server must provide charge diagnostics');
 let code=edge.slice(first,last)
-  .replaceAll(':any','').replace('const issues:string[]=[];','const issues=[];');
+  .replaceAll(':any[]','').replaceAll(':any','').replace('const issues:string[]=[];','const issues=[];');
 assert.doesNotMatch(code,/\.insert\(|\.update\(|\.delete\(|mercadoPagoFetch\(/,
   'financial diagnosis is read-only, with no provider calls');
 const tables=[];
