@@ -815,3 +815,10 @@ Durante revisão de qualidade foi encontrada nova falha no callback de anunciant
 - GitHub Actions Audit SHA `d841e0dd748e52556a6ce81e09f6fd004a581d54` retornou `failure` no step `Human-centered public conversion V1.159 regression contract` (run `39332153084`), pois `tests/public-conversion-v1-159.mjs:43` ainda exigia o antigo CTA `Quero apresentar minha empresa`.
 - Commit `0f39ebcbb01387fc253a5ba3ad996e064d5534e5` ajusta a mesma assertiva para `Quero anunciar no TAMÃO`, sem remover contrato de consentimento, dinheiro direto para revenda ou proteções contra publicidade enganosa. Conferência paralela em 11 suítes relevantes de marketing/acquisition não encontrou outra exigência dos antigos textos citados. O `Build` e `PostgreSQL discovery` já passaram neste SHA; Audit e visual smoke estavam em execução na última consulta.
 - Nenhuma mutação no banco comercial e nenhuma publicação dos portais oficiais nesta correção de teste.
+
+
+### CI de anunciante — regressão V1.374 corrigida
+
+- Audit do SHA `0f39ebcbb01387fc253a5ba3ad996e064d5534e5` concluiu `failure` no step `V1.374 commercial enrollment conversion regression` (run `39332450104`), pois assumia que `partner-postal` estaria no **primeiro** painel expansível e exigia categorias obrigatórias. O novo cadastro separa nome/categorias opcionais de CEP/observações opcionais.
+- `tests/commercial-entry-v1-374.mjs` commits `08af5c7` e `cd879fc` verifica dois painéis `<details>` válidos, telefone antes dos detalhes, categorias/nome opcionais, CEP opcional e consentimento obrigatório. A primeira correção criou uma variável `second` já usada no mesmo teste; foi renomeada para `secondOption` e confirmada. **56 assertivas dessa suíte executadas dinamicamente em V8, PASS**. Não foi alterada a regra de contratação, pedido ou pagamentos.
+- Execução oficial `cd879fc918e9195740c47a1854fb31434a46d9ea` em andamento na última consulta: `Build isolated live portals` success; `Audit`, `TAMÃO discovery PostgreSQL contract` e `TAMÃO public visual smoke` in_progress. `release-candidate visual review` skipped; não declarar liberação oficial até aprovação completa.
