@@ -37,6 +37,12 @@ for(const t of [
 ])assert.ok(backend.includes(t),'Missing safe automatic update: '+t);
 assert.match(audit,/node tests\/customer-city-price-showcase-v1-341\.mjs/);
 assert.ok(customer.includes('homeRegionalPriceBoard(homeRegion)'));
+const first=customer.slice(customer.indexOf('function home(){'),customer.indexOf('\nfunction orderPage(){'));
+assert.equal(first.split('homeRegionalPriceBoard(homeRegion)').length-1,1,
+ 'one canonical price dashboard; no overlapping home widgets');
+assert.ok(first.indexOf('homeRegionalPriceBoard(homeRegion)')<
+ first.indexOf('<section class="hero marketing-hero'),
+ 'visitor should see pricing and benefits before the editorial hero');
 assert.ok(customer.includes('starter-postal-optional'));
 assert.ok(customer.includes('return startHomeOrder();'));
 assert.ok(!customer.slice(customer.indexOf('function startCustomerAvailability(){'),
@@ -66,6 +72,11 @@ assert.match(html,/R\$ 125.00/);
 assert.equal((html.match(/REFERÊNCIA LOCAL • NÃO É OFERTA/g)||[]).length,1,
  'a single market reference must not be presented as three seller cards');
 assert.match(html,/city-price-reference-summary/);
+assert.match(html,/PAINEL DE COTAÇÕES DO TAMÃO/);
+assert.match(html,/Clube, cashback e cupons/);
+assert.match(html,/Indicar também tem valor/);
+assert.match(html,/campanhas válidas, quando disponíveis/);
+assert.doesNotMatch(html,/Diferença de R\$/,'no merchant price spread with reference only');
 assert.match(html,/Não representa uma revenda/);
 assert.doesNotMatch(html,/PREÇO DE REVENDA/);
 assert.match(html,/São Gabriel é a vitrine inicial/);
@@ -91,6 +102,9 @@ assert.match(html,/R\$ 118.90/);
 assert.match(html,/R\$ 126.00/);
 assert.match(html,/R\$ 18.50/);
 assert.match(html,/2 revendas elegíveis/);
+assert.match(html,/Diferença de R\$ 7.10 entre os valores estimados/);
+assert.match(html,/não desconto nem economia garantida/);
+assert.match(html,/Verificado em/);
 assert.doesNotMatch(html,/R\$ 115.90|R\$ 120.00|R\$ 125.00/);
 assert.doesNotMatch(html,/REFERÊNCIA LOCAL • NÃO É OFERTA/);
 assert.match(html,/não são cotações finais/);
