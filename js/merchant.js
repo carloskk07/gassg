@@ -624,6 +624,11 @@ function merchantLiveNoAccess(){
       ? '<div class="notice" style="margin-top:16px"><strong>Acesso à revenda ainda não liberado.</strong><br>Seu usuário ainda não tem permissão para operar esta revenda.</div>'
       : applicationStatus==='approved'?'': '<div class="card flat" style="margin-top:16px"><h3>Seu cadastro</h3><p class="muted tiny">Se precisar corrigir alguma informação, atualize o cadastro já enviado.</p><button class="primary full" onclick="go(\'merchant-join\')">'+applicationAction+'</button></div>'}
     ${anotherCompany}
+    ${rt.applicationFetchError?'<div class="notice danger" role="alert" style="margin-top:12px"><strong>Não foi possível conferir seus cadastros.</strong><br>Atualize a situação antes de reenviar qualquer empresa.</div>':''}
+    <button type="button" class="secondary full" style="margin-top:12px"
+      ${rt.onboardingRefreshPending?'disabled':''} onclick="merchantLiveRefresh()">
+      ${rt.onboardingRefreshPending?'Consultando situação…':'Atualizar situação da minha empresa'}
+    </button>
     <button class="ghost full" style="margin-top:12px" onclick="merchantLiveLogout()">Sair desta conta</button>
   </section>`);
 }
@@ -3495,12 +3500,31 @@ async function merchantLoginFromUi(){
   try{await merchantSendLogin(email);toast('Link de acesso enviado')}catch(e){toast(String(e?.message||e))}
 }
 async function merchantLiveRefresh(){
+  const rt=globalThis.merchantRuntime||{};
+  if(rt.onboardingRefreshPending===true)return;
+  rt.onboardingRefreshPending=true;
   try{
     await merchantRefresh();
-    if(globalThis.merchantRuntime?.status==='ready')toast('Operação atualizada');
-    else if(globalThis.merchantRuntime?.status==='no-access')toast('Confira seu acesso à revenda.');
-    else if(globalThis.merchantRuntime?.status==='unauthenticated')toast('Entre novamente para acessar a revenda.');
-  }catch(e){toast(String(e?.message||e))}
+    if(rt.status==='no-access'&&rt.session?.access_token){
+      // An applicant has no merchant workspace yet: merchant-orders cannot
+      // refresh a pending/approved application. Query only this authenticated
+      // person's applications, never another user's company by CNPJ.
+      try{
+        await merchantLoadOwnApplications();
+        rt.applicationFetchError=null;
+        toast('Situação dos seus cadastros atualizada.');
+      }catch(error){
+        rt.applicationFetchError=String(error?.message||error||'Falha na consulta');
+        toast('Não foi possível conferir os seus cadastros. Tente novamente.');
+      }
+    }else if(rt.status==='ready')toast('Operação atualizada');
+    else if(rt.status==='unauthenticated')toast('Entre novamente para acessar a revenda.');
+  }catch(error){
+    toast(String(error?.message||error));
+  }finally{
+    rt.onboardingRefreshPending=false;
+    render();
+  }
 }
 function merchantDeliveryAssignmentChanged(id){
   const note=document.getElementById('delivery-feedback-'+id);
