@@ -625,17 +625,100 @@ async function mercadoPagoBillingProviderHealth(admin:any){
 
 // The financial lab only exercises the provider's TEST credentials. It never
 // touches billing requests, receipts, credit ledgers or live merchant orders.
-async function adminFinanceLabSandboxPix(admin:any,actorId:string,body:any,req:Request){
+
+const FINANCE_LAB_PIX_TEST_AMOUNT_CENTS=5000; // Mercado Pago's official test scenario: R$ 50.
+function adminFinanceLabConfig(){
   const enabled=String(Deno.env.get("FINANCE_LAB_SANDBOX_ENABLED")??"").trim()==="true";
   const token=String(Deno.env.get("MERCADOPAGO_TEST_ACCESS_TOKEN")??"").trim();
   const payerEmail=String(Deno.env.get("FINANCE_LAB_TEST_PAYER_EMAIL")??"").trim();
-  if(!enabled||token.length<20||!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(payerEmail)){
+  const productionToken=String(Deno.env.get("MERCADOPAGO_ACCESS_TOKEN")??"").trim();
+  const tokenConfigured=token.length>=20&&!/[\s\u0000-\u001f\u007f]/.test(token);
+  const payerConfigured=/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(payerEmail);
+  const distinctToken=tokenConfigured&&(!productionToken||token!==productionToken);
+  return {enabled,tokenConfigured,payerConfigured,distinctToken,
+    ready:enabled&&tokenConfigured&&payerConfigured&&distinctToken,
+    token,payerEmail};
+}
+async function adminFinanceLabReadiness(admin:any,actorId:string){
+  const config=adminFinanceLabConfig();
+  const {data,error}=await admin.from("platform_admin_audit")
+    .select("target_id,metadata,created_at")
+    .eq("actor_user_id",actorId)
+    .eq("action","finance_lab_sandbox_pix_created")
+    .order("created_at",{ascending:false}).limit(12);
+  if(error)throw error;
+  return {ok:true,mode:"sandbox",provider:"mercadopago",
+    configured:config.ready,
+    prerequisites:{
+      enabled:config.enabled,tokenConfigured:config.tokenConfigured,
+      payerConfigured:config.payerConfigured,distinctToken:config.distinctToken
+    },
+    officialTestAmountCents:FINANCE_LAB_PIX_TEST_AMOUNT_CENTS,
+    recentTests:(data||[]).filter((row:any)=>
+      /^[A-Za-z0-9_-]{10,120}$/.test(String(row.target_id||""))
+    ).map((row:any)=>({
+      orderId:String(row.target_id||""),
+      amountCents:Number(row.metadata?.amountCents||0),
+      createdAt:row.created_at,
+      providerStatus:String(row.metadata?.providerStatus||"unknown")
+    })),
+    checkedAt:new Date().toISOString()
+  };
+}
+async function adminFinanceLabCheckSandboxOrder(admin:any,actorId:string,body:any){
+  const orderId=String(body?.orderId||"").trim();
+  if(!/^[A-Za-z0-9_-]{10,120}$/.test(orderId)){
+    throw new DomainError("FINANCE_LAB_INVALID_ORDER_ID","Identificador de ordem de teste inválido.",400);
+  }
+  const {data:proof,error}=await admin.from("platform_admin_audit")
+    .select("target_id,metadata").eq("actor_user_id",actorId)
+    .eq("action","finance_lab_sandbox_pix_created").eq("target_id",orderId)
+    .maybeSingle();
+  if(error)throw error;
+  if(!proof||proof.metadata?.mode!=="sandbox"||Number(proof.metadata?.amountCents)!==FINANCE_LAB_PIX_TEST_AMOUNT_CENTS){
+    throw new DomainError("FINANCE_LAB_ORDER_NOT_OWNED","Ordem não pertence aos testes deste administrador.",403);
+  }
+  const config=adminFinanceLabConfig();
+  if(!config.ready)throw new DomainError("FINANCE_LAB_TEST_CREDENTIALS_REQUIRED",
+    "Credenciais próprias de TESTE ainda indisponíveis.",409);
+  const response=await mercadoPagoFetch("/v1/orders/"+encodeURIComponent(orderId),{
+    accessToken:config.token,method:"GET"
+  });
+  const order=await readMercadoPagoJson(response);
+  if(!response.ok)throw new DomainError("FINANCE_LAB_ORDER_STATUS_FAILED",
+    "O provedor não confirmou o estado desta ordem de teste.",502);
+  if(String(order?.id||"")!==orderId
+    ||moneyToCents(order?.total_amount)!==FINANCE_LAB_PIX_TEST_AMOUNT_CENTS
+    ||String(order?.external_reference||"")!==String(proof.metadata?.externalReference||"")){
+    throw new DomainError("FINANCE_LAB_ORDER_MISMATCH",
+      "Os dados retornados pelo provedor não correspondem à ordem auditada.",409);
+  }
+  const payments=Array.isArray(order?.transactions?.payments)?order.transactions.payments:[];
+  const payment=payments.find((x:any)=>String(x?.payment_method?.id??"").toLowerCase()==="pix");
+  const sandboxUrl=safeMercadoPagoUrl(payment?.payment_method?.ticket_url);
+  if(!(order?.live_mode===false||Boolean(sandboxUrl&&new URL(sandboxUrl).pathname.toLowerCase().includes("/sandbox/")))){
+    throw new DomainError("FINANCE_LAB_NOT_VERIFIED_SANDBOX","A consulta não comprovou ambiente de teste.",409);
+  }
+  return {ok:true,mode:"sandbox",orderId,
+    amountCents:FINANCE_LAB_PIX_TEST_AMOUNT_CENTS,
+    orderStatus:String(order?.status||"unknown").slice(0,80),
+    paymentStatus:String(payment?.status||"unknown").slice(0,80),
+    paymentStatusDetail:String(payment?.status_detail||"").slice(0,100),
+    checkedAt:new Date().toISOString(),
+    credited:false
+  };
+}
+
+async function adminFinanceLabSandboxPix(admin:any,actorId:string,body:any,req:Request){
+  const config=adminFinanceLabConfig();
+  if(!config.ready){
     throw new DomainError("FINANCE_LAB_TEST_CREDENTIALS_REQUIRED",
       "Configure credenciais e conta pagadora de TESTE específicas para ativar o laboratório Pix.",409);
   }
   const amount=body?.amountCents;
-  if(!Number.isSafeInteger(amount)||amount<1||amount>100000000){
-    throw new DomainError("FINANCE_LAB_AMOUNT_INVALID","Valor de teste deve estar entre R$ 0,01 e R$ 1.000.000,00.",400);
+  if(amount!==FINANCE_LAB_PIX_TEST_AMOUNT_CENTS){
+    throw new DomainError("FINANCE_LAB_TEST_AMOUNT_FIXED",
+      "O teste oficial Pix do Mercado Pago usa R$ 50,00. Valores livres estão disponíveis somente na simulação.",400);
   }
   const key=String(req.headers.get("Idempotency-Key")??"").trim();
   if(key.length<12||key.length>100||!/^[a-zA-Z0-9._:-]+$/.test(key)){
@@ -644,15 +727,14 @@ async function adminFinanceLabSandboxPix(admin:any,actorId:string,body:any,req:R
   const externalReference="tamao-finlab-"+key;
   const formatted=(amount/100).toFixed(2);
   const response=await mercadoPagoFetch("/v1/orders",{
-    accessToken:token,method:"POST",idempotencyKey:key,
+    accessToken:config.token,method:"POST",idempotencyKey:key,
     body:{
       type:"online",total_amount:formatted,external_reference:externalReference,
       processing_mode:"automatic",
       transactions:{payments:[{
-        amount:formatted,payment_method:{id:"pix",type:"bank_transfer"},
-        expiration_time:"P1D"
+        amount:formatted,payment_method:{id:"pix",type:"bank_transfer"}
       }]},
-      payer:{email:payerEmail}
+      payer:{email:config.payerEmail,first_name:"APRO"}
     }
   });
   const order=await readMercadoPagoJson(response);
@@ -673,7 +755,8 @@ async function adminFinanceLabSandboxPix(admin:any,actorId:string,body:any,req:R
     ||Boolean(sandboxUrl&&new URL(sandboxUrl).pathname.toLowerCase().includes("/sandbox/"));
   const valid=validatePixBrCode(brCode,{expectedAmountCents:amount});
   const returnedAmount=moneyToCents(order?.total_amount);
-  if(!verifiedSandbox||!valid.valid||returnedAmount!==amount||!order?.id){
+  if(!verifiedSandbox||!valid.valid||returnedAmount!==amount
+    ||!/^[A-Za-z0-9_-]{10,120}$/.test(String(order?.id||""))){
     throw new DomainError("FINANCE_LAB_NOT_VERIFIED_SANDBOX",
       "O provedor não confirmou o ambiente de TESTE ou devolveu PIX/valor inválido. Nenhum código será exibido.",409);
   }
@@ -685,6 +768,7 @@ async function adminFinanceLabSandboxPix(admin:any,actorId:string,body:any,req:R
   });
   if(auditError)throw auditError;
   return {ok:true,mode:"sandbox",provider:"mercadopago",amountCents:amount,
+    orderId:String(order.id),
     reference:externalReference,orderStatus:String(order?.status??"unknown"),
     brCode,expiresAt:null,paymentLinkUrl:sandboxUrl,
     message:"PIX exclusivo do ambiente de TESTE; não é uma cobrança bancária pagável e não concede créditos."};
@@ -5444,6 +5528,15 @@ Deno.serve(async(req:Request)=>{
     }
     if(action==="billing-provider-health"){
       return json(await billingProviderHealth(admin),200,origin);
+    }
+    if(action==="finance-lab-readiness"||action==="finance-lab-sandbox-check"){
+      if(String(adminAccess.admin_role)!=="superadmin"){
+        throw new DomainError("ADMIN_PERMISSION_DENIED","Apenas o superadmin pode consultar o laboratório.",403);
+      }
+      const result=action==="finance-lab-readiness"
+        ?await adminFinanceLabReadiness(admin,user.id)
+        :await adminFinanceLabCheckSandboxOrder(admin,user.id,body);
+      return json(result,200,origin);
     }
     if(action==="finance-lab-sandbox-pix"){
       if(String(adminAccess.admin_role)!=="superadmin"){

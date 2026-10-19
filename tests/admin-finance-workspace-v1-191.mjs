@@ -32,6 +32,7 @@ const ctx=vm.createContext({
   adminCurrentRole:()=>role,
   adminRoleCanSection:key=>key==='finance'&&['superadmin','finance'].includes(role),
   render:()=>repaints++,
+  adminFinanceLabReadinessFromUi:async()=>{},
   requestAnimationFrame:fn=>fn(),document
 });
 vm.runInContext('const ADMIN_FINANCE_WORKSPACES='+declaration[1]+';\n'

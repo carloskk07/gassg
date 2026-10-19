@@ -45,7 +45,7 @@ const adminRuntime={
   financeHistory:{data:null,loading:false,error:null,checkedAt:null},
   merchantFinance:{data:null,loading:false,error:null,checkedAt:null},
   financeWorkspace:'summary',
-  financeLab:{preview:null,sandbox:null,amountCents:null,idempotencyKey:null,pending:false,error:null},
+  financeLab:{preview:null,sandbox:null,amountCents:null,idempotencyKey:null,pending:false,error:null,readiness:null,readinessLoading:false,status:null},
   growthBenefitPreview:{data:null,pending:false,error:null},
   clubePreview:{data:null,pending:false,error:null,inputs:null},
   prospectReport:null,
@@ -4060,6 +4060,36 @@ function adminFinanceLabCents(value){
   const cents=Number(reais)*100+Number(centavos.padEnd(2,'0'));
   return Number.isSafeInteger(cents)&&cents>=1&&cents<=100000000?cents:null;
 }
+
+async function adminFinanceLabReadinessFromUi(){
+  if(!adminReady()||adminCurrentRole()!=='superadmin')return;
+  const state=adminRuntime.financeLab;
+  if(state.readinessLoading)return;
+  state.readinessLoading=true;state.error=null;render();
+  try{
+    const result=await adminInvoke({action:'finance-lab-readiness'});
+    if(result?.ok!==true||result.mode!=='sandbox'
+      ||result.officialTestAmountCents!==5000||!Array.isArray(result.recentTests)){
+      throw new Error('O diagnóstico retornou um formato inesperado.');
+    }
+    state.readiness=result;
+  }catch(e){state.error=String(e?.message||e);state.readiness=null;}
+  finally{state.readinessLoading=false;render();}
+}
+async function adminFinanceLabCheckOrderFromUi(orderId){
+  if(!adminReady()||adminCurrentRole()!=='superadmin')return;
+  const state=adminRuntime.financeLab;
+  if(state.pending||!String(orderId||'').match(/^[A-Za-z0-9_-]{10,120}$/))return;
+  state.pending=true;state.error=null;render();
+  try{
+    const data=await adminInvoke({action:'finance-lab-sandbox-check',orderId:String(orderId)});
+    if(data?.ok!==true||data.mode!=='sandbox'||data.orderId!==String(orderId)
+      ||data.credited!==false)throw new Error('A consulta não comprovou a condição de teste.');
+    state.status=data;
+  }catch(e){state.error=String(e?.message||e);state.status=null;}
+  finally{state.pending=false;render();}
+}
+
 function adminFinanceLabPreviewFromUi(){
   if(!adminReady()||adminCurrentRole()!=='superadmin')return;
   const input=document.getElementById('admin-finance-lab-value')?.value;
@@ -4081,11 +4111,12 @@ async function adminFinanceLabSandboxPixFromUi(){
   if(!adminReady()||adminCurrentRole()!=='superadmin')return;
   const state=adminRuntime.financeLab;
   if(state.pending)return;
-  const amountCents=adminFinanceLabCents(
-    document.getElementById('admin-finance-lab-value')?.value
-  );
-  if(amountCents==null){state.error='Digite um valor entre R$ 0,01 e R$ 1.000.000,00.';render();return;}
-  if(!confirm('Criar uma ordem no ambiente de TESTE do Mercado Pago? Não haverá recarga, crédito, fatura real ou pagamento bancário.'))return;
+  const amountCents=5000; // MP's documented Pix test is fixed at R$ 50.
+  if(state.readiness?.configured!==true){
+    state.error='O provedor de testes ainda não está configurado. Use Verificar requisitos.';
+    render();return;
+  }
+  if(!confirm('Criar Pix oficial de TESTE de R$ 50,00? O Mercado Pago usa um valor pré-definido; não será pagável por bancos nem criará créditos.'))return;
   if(state.amountCents!==amountCents||!state.idempotencyKey){
     state.idempotencyKey=adminIdempotency('finance-lab-pix');
     state.amountCents=amountCents;
@@ -4095,11 +4126,15 @@ async function adminFinanceLabSandboxPixFromUi(){
     const result=await adminInvoke({
       action:'finance-lab-sandbox-pix',amountCents
     },{idempotencyKey:state.idempotencyKey});
-    if(result?.ok!==true||result.mode!=='sandbox'||result.amountCents!==amountCents
+    if(result?.ok!==true||result.mode!=='sandbox'||result.amountCents!==5000
+      ||typeof result.orderId!=='string'||!result.orderId
       ||typeof result.brCode!=='string'||result.brCode.length<30){
       throw new Error('O provedor não confirmou a ordem em ambiente de testes.');
     }
     state.sandbox=result;
+    state.status=null;
+    state.idempotencyKey=null; // a subsequent, explicitly confirmed test is a new order
+    adminFinanceLabReadinessFromUi().catch(()=>{});
   }catch(e){state.error=String(e?.message||e);}
   finally{state.pending=false;render();}
 }
@@ -4148,9 +4183,10 @@ function adminFinanceLabView(d){
         <div class="order-actions">
           <button class="primary small" onclick="adminFinanceLabPreviewFromUi()">Gerar teste / fatura</button>
           <button class="secondary small" onclick="adminFinanceLabSandboxPixFromUi()" ${state.pending?'disabled':''}>
-            ${state.pending?'Consultando provedor…':'Solicitar Pix no sandbox do PSP'}
+            ${state.pending?'Consultando provedor…':'Gerar Pix oficial de teste (R$ 50,00)'}
           </button>
         </div>
+        <small class="field-help">Valor livre para simulações. O teste oficial de PIX do Mercado Pago é de R$ 50,00 e não depende do valor acima.</small>
         ${state.error?'<div class="notice danger" role="alert">'+esc(state.error)+'</div>':''}
         ${preview?`<div class="card flat" style="margin-top:12px">
           <span class="status-pill">DOCUMENTO SIMULADO • NÃO PAGÁVEL</span>
@@ -4169,6 +4205,7 @@ function adminFinanceLabView(d){
           <div class="order-actions"><button class="secondary small" onclick="adminFinanceLabCopySandboxPixFromUi()">Copiar código de teste</button>
           ${sandbox.paymentLinkUrl?'<a class="ghost small" target="_blank" rel="noopener noreferrer" href="'+esc(sandbox.paymentLinkUrl)+'">Abrir página de teste</a>':''}</div>
           <small>Referência: ${esc(sandbox.reference||'—')} • ${esc(sandbox.orderStatus||'—')}</small>
+          <button type="button" class="secondary small" onclick="adminFinanceLabCheckOrderFromUi('${esc(sandbox.orderId||'')}')" ${state.pending?'disabled':''}>Consultar status no Mercado Pago</button>
         </div>`:''}
       </div>
       <div class="card flat"><h3>Verificações integradas</h3>
@@ -4179,6 +4216,20 @@ function adminFinanceLabView(d){
         </div>
         <p class="muted tiny">Contagem dos registros financeiros retornados ao Admin. Não inclui pedidos artificiais.</p>
         <div class="order-line"><strong>Provedor configurado:</strong> ${esc(String(ingress.activeBillingProvider||'Não informado'))}</div>
+        <h4 style="margin-top:12px">Prontidão do sandbox</h4>
+        <div class="order-line"><strong>Gerador:</strong> ${state.readiness?.configured===true?'Pronto para teste oficial':'Configuração de testes ainda não comprovada'}</div>
+        <div class="order-line"><strong>Isolamento:</strong> ${state.readiness?.prerequisites?.distinctToken===true?'Token separado da produção':'Token de teste não confirmado'}</div>
+        <div class="order-line"><strong>Pagador de teste:</strong> ${state.readiness?.prerequisites?.payerConfigured===true?'Configurado':'Pendente'}</div>
+        <div class="order-actions"><button type="button" class="secondary small" onclick="adminFinanceLabReadinessFromUi()" ${state.readinessLoading?'disabled':''}>${state.readinessLoading?'Verificando…':'Verificar requisitos do sandbox'}</button></div>
+        ${state.status?'<div class="notice" role="status">Ordem de TESTE '+esc(state.status.orderId)+
+          ' • '+esc(state.status.orderStatus)+' / '+esc(state.status.paymentStatus)+
+          ' • consultada '+esc(formatDateTime(state.status.checkedAt))+
+          '. Nenhum crédito concedido.</div>':''}
+        ${state.readiness?.recentTests?.length?'<h4>Últimas ordens de TESTE</h4>'+
+          state.readiness.recentTests.slice(0,6).map(t=>'<div class="order-line">'+
+            esc(t.orderId)+' • '+esc(t.providerStatus)+' • '+esc(formatDateTime(t.createdAt))+
+            ' <button type="button" class="ghost small" onclick="adminFinanceLabCheckOrderFromUi(&quot;'+esc(t.orderId)+'&quot;)">Consultar</button></div>').join('')
+          :'<small>Nenhuma ordem de teste comprovada nesta consulta.</small>'}
         <div class="order-line"><strong>API do PSP:</strong> ${esc(provider?.ok===true?'Conexão validada':provider?.ok===false?'Requer atenção':'Ainda não verificada')}</div>
         <div class="order-actions">
           <button class="secondary small" onclick="adminCheckBillingProviderHealth()">Testar conexão com PSP</button>
@@ -4224,6 +4275,7 @@ function adminSetFinanceWorkspace(workspace){
     ||(key==='lab'&&adminCurrentRole()!=='superadmin'))return;
   adminRuntime.financeWorkspace=key;
   render();
+  if(key==='lab')adminFinanceLabReadinessFromUi().catch(()=>{});
   requestAnimationFrame(()=>{
     document.getElementById('admin-finance-switch-'+key)?.focus({preventScroll:true});
     document.getElementById('admin-finance-workspace-panel')?.scrollIntoView({
