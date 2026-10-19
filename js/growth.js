@@ -799,6 +799,24 @@ function currentMerchantProspectInviteToken(){
 function clearCurrentMerchantProspectInviteToken(){
   globalThis.clearMerchantProspectInviteToken?.();
 }
+function merchantPickOwnApplicationFromUi(value){
+  const rt=globalThis.merchantRuntime;
+  if(!globalThis.merchantPortalRequested?.()||!rt?.session?.access_token)return;
+  const id=String(value||'');
+  if(id==='__new__'){
+    // An existing prospect/pilot invitation belongs to its own company.
+    if(currentMerchantPilotInviteToken()||currentMerchantProspectInviteToken())return;
+    rt.newApplicationMode=true;
+    rt.selectedApplicationId=null;
+  }else{
+    // Never accept an arbitrary company ID from HTML; only the user's
+    // applications returned by the authenticated backend may be selected.
+    if(!(rt.ownApplications||[]).some(a=>String(a.id)===id))return;
+    rt.newApplicationMode=false;
+    rt.selectedApplicationId=id;
+  }
+  render();
+}
 function merchantJoin(){
   if(globalThis.merchantPortalRequested?.()){
     const rt=globalThis.merchantRuntime||{};
@@ -825,7 +843,20 @@ function merchantJoin(){
   const prospectInvite=globalThis.merchantPortalRequested?.()?currentMerchantProspectInviteToken():'';
   const pilotInvite=prospectInvite?'':globalThis.merchantPortalRequested?.()?currentMerchantPilotInviteToken():'';
   const prospectDetails=prospectInvite?globalThis.merchantProspectInviteDetails?.():null;
-  const ownApplication=globalThis.merchantOwnApplicationForInvite?.()||null;
+  const rt=globalThis.merchantRuntime||{};
+  const ownApplications=globalThis.merchantPortalRequested?.()&&Array.isArray(rt.ownApplications)
+    ?rt.ownApplications:[];
+  const newApplication=rt.newApplicationMode===true&&!prospectInvite&&!pilotInvite;
+  const ownApplication=newApplication?null:globalThis.merchantOwnApplicationForInvite?.()||null;
+  const ownSelector=!prospectInvite&&!pilotInvite&&ownApplications.length
+    ?'<div class="card flat form-stack" style="margin-bottom:14px"><label for="merchant-existing-application">Escolha a empresa que deseja cadastrar ou revisar</label>'+
+      '<select id="merchant-existing-application" class="input" onchange="merchantPickOwnApplicationFromUi(this.value)">'+
+      ownApplications.map(a=>'<option value="'+esc(a.id)+'"'+(!newApplication&&a.id===ownApplication?.id?' selected':'')+'>'+
+        esc(a.company_name||'Empresa')+' — '+esc(a.status==='approved'?'aprovada':a.status==='rejected'?'corrigir cadastro':'em análise')+
+        '</option>').join('')+
+      '<option value="__new__"'+(newApplication?' selected':'')+'>Cadastrar outra empresa</option></select>'+
+      '<small class="muted">Cada CNPJ tem seu próprio cadastro. A autorização de vendas é separada.</small></div>'
+    :'';
   const ownStatus=String(ownApplication?.status||'');
   const ownNotice=ownStatus==='pending'
     ?'<div class="notice" style="margin-bottom:14px"><strong>Cadastro já recebido.</strong> '+esc(ownApplication.company_name||'Sua empresa')+' está aguardando análise. Você pode revisar e atualizar os dados sem abrir outro cadastro.</div>'
@@ -836,7 +867,7 @@ function merchantJoin(){
         :'';
   const prefillCnpj=String(prospectDetails?.cnpj||ownApplication?.cnpj||'');
   const prefillCompany=String(ownApplication?.company_name||prospectDetails?.companyName||'');
-  return shell(`<section class="page"><button class="back" onclick="go('merchants')">← Para revendas</button><h1 class="page-title">Sua empresa tem lugar no TAMÃO.</h1><p class="muted">${globalThis.merchantPortalRequested?.()?'Conte um pouco sobre seu negócio. Nossa equipe poderá validar os dados e orientar a habilitação comercial.':'Acesse o portal de parceiros e comece o cadastro da sua empresa.'}</p>${pilotInvite?'<div class="notice success" style="margin-bottom:14px"><strong>Convite de parceiro reconhecido.</strong><br>Seus dados serão vinculados às condições comerciais já registradas. A operação continuará offline até aprovação, compliance, estoque e disponibilidade serem confirmados.</div>':''}${prospectInvite?'<div class="notice success" style="margin-bottom:14px"><strong>Convite de revenda reconhecido.</strong><br>Preencha os dados reais da empresa identificada na ANP. O cadastro será associado ao CNPJ convidado para análise, sem ativar vendas automaticamente.</div>':''}${ownNotice}<form class="card flat form-stack merchant-join-form" onsubmit="event.preventDefault();joinMerchant()" novalidate><div class="merchant-join-intro"><strong>Dados da empresa</strong><small>Preencha uma única vez. Você poderá corrigir os dados enquanto o cadastro estiver em análise.</small></div><div class="field-row"><div class="input-wrap"><label for="j-cnpj">CNPJ</label><input id="j-cnpj" name="cnpj" autocomplete="off" required aria-describedby="merchant-cnpj-hint" value="${esc(prefillCnpj)}" autocapitalize="characters" maxlength="18" class="input" placeholder="00.000.000/0000-00 ou alfanumérico"><small class="field-hint" id="merchant-cnpj-hint">Informe o CNPJ real da empresa, inclusive alfanumérico quando aplicável.</small></div><div class="input-wrap"><label for="j-name">Nome da empresa</label><input id="j-name" name="organization" autocomplete="organization" required value="${esc(prefillCompany)}" maxlength="90" class="input" placeholder="Nome da revenda"></div></div><div class="merchant-join-intro"><strong>Como falar com você</strong><small>O WhatsApp será usado para assuntos do cadastro e da operação.</small></div><div class="field-row"><div class="input-wrap"><label for="j-owner">Responsável</label><input id="j-owner" name="name" autocomplete="name" required value="${esc(ownApplication?.responsible_name||'')}" maxlength="90" class="input" placeholder="Nome do responsável"></div><div class="input-wrap"><label for="j-phone">WhatsApp</label><input id="j-phone" name="tel" type="tel" autocomplete="tel" required value="${esc(ownApplication?.phone||'')}" inputmode="tel" maxlength="20" class="input" placeholder="(55) 99999-9999"></div></div><div class="merchant-join-intro"><strong>Onde fica sua empresa</strong><small>Precisamos do endereço para conferir a região de atendimento.</small></div><div class="input-wrap"><label for="j-address">Endereço</label><input id="j-address" name="street-address" autocomplete="street-address" required value="${esc(ownApplication?.address_text||'')}" maxlength="160" class="input" placeholder="Endereço da empresa"></div><div class="input-wrap"><label for="j-referral-code">Código de quem apresentou o TAMÃO (opcional)</label><input id="j-referral-code" class="input" autocomplete="off" autocapitalize="characters" maxlength="40" value="${esc(typeof growthAttributionCode==='function'?growthAttributionCode():'')}" placeholder="Código do convite"><small class="field-hint">Quando você veio por um convite, o código pode aparecer automaticamente. Ele registra a origem do cadastro; benefícios dependem de validações e campanhas ativas.</small></div><button class="primary" type="submit" ${ownStatus==='approved'?'disabled title="Empresa já aprovada"':''}>${ownStatus==='rejected'?'Reenviar meus dados corrigidos':ownStatus==='pending'?'Salvar meus dados atualizados':'Enviar cadastro da minha empresa →'}</button><small class="merchant-join-footer">Cadastre sua empresa agora. A liberação comercial exige aprovação e as verificações próprias da categoria.</small></form></section>`)
+  return shell(`<section class="page"><button class="back" onclick="go('merchants')">← Para revendas</button><h1 class="page-title">Sua empresa tem lugar no TAMÃO.</h1><p class="muted">${globalThis.merchantPortalRequested?.()?'Conte um pouco sobre seu negócio. Nossa equipe poderá validar os dados e orientar a habilitação comercial.':'Acesse o portal de parceiros e comece o cadastro da sua empresa.'}</p>${pilotInvite?'<div class="notice success" style="margin-bottom:14px"><strong>Convite de parceiro reconhecido.</strong><br>Seus dados serão vinculados às condições comerciais já registradas. A operação continuará offline até aprovação, compliance, estoque e disponibilidade serem confirmados.</div>':''}${prospectInvite?'<div class="notice success" style="margin-bottom:14px"><strong>Convite de revenda reconhecido.</strong><br>Preencha os dados reais da empresa identificada na ANP. O cadastro será associado ao CNPJ convidado para análise, sem ativar vendas automaticamente.</div>':''}${ownSelector}${ownNotice}<form class="card flat form-stack merchant-join-form" onsubmit="event.preventDefault();joinMerchant()" novalidate><div class="merchant-join-intro"><strong>Dados da empresa</strong><small>Preencha uma única vez. Você poderá corrigir os dados enquanto o cadastro estiver em análise.</small></div><div class="field-row"><div class="input-wrap"><label for="j-cnpj">CNPJ</label><input id="j-cnpj" name="cnpj" autocomplete="off" required aria-describedby="merchant-cnpj-hint" value="${esc(prefillCnpj)}" autocapitalize="characters" maxlength="18" class="input" placeholder="00.000.000/0000-00 ou alfanumérico"><small class="field-hint" id="merchant-cnpj-hint">Informe o CNPJ real da empresa, inclusive alfanumérico quando aplicável.</small></div><div class="input-wrap"><label for="j-name">Nome da empresa</label><input id="j-name" name="organization" autocomplete="organization" required value="${esc(prefillCompany)}" maxlength="90" class="input" placeholder="Nome da revenda"></div></div><div class="merchant-join-intro"><strong>Como falar com você</strong><small>O WhatsApp será usado para assuntos do cadastro e da operação.</small></div><div class="field-row"><div class="input-wrap"><label for="j-owner">Responsável</label><input id="j-owner" name="name" autocomplete="name" required value="${esc(ownApplication?.responsible_name||'')}" maxlength="90" class="input" placeholder="Nome do responsável"></div><div class="input-wrap"><label for="j-phone">WhatsApp</label><input id="j-phone" name="tel" type="tel" autocomplete="tel" required value="${esc(ownApplication?.phone||'')}" inputmode="tel" maxlength="20" class="input" placeholder="(55) 99999-9999"></div></div><div class="merchant-join-intro"><strong>Onde fica sua empresa</strong><small>Precisamos do endereço para conferir a região de atendimento.</small></div><div class="input-wrap"><label for="j-address">Endereço</label><input id="j-address" name="street-address" autocomplete="street-address" required value="${esc(ownApplication?.address_text||'')}" maxlength="160" class="input" placeholder="Endereço da empresa"></div><div class="input-wrap"><label for="j-referral-code">Código de quem apresentou o TAMÃO (opcional)</label><input id="j-referral-code" class="input" autocomplete="off" autocapitalize="characters" maxlength="40" value="${esc(typeof growthAttributionCode==='function'?growthAttributionCode():'')}" placeholder="Código do convite"><small class="field-hint">Quando você veio por um convite, o código pode aparecer automaticamente. Ele registra a origem do cadastro; benefícios dependem de validações e campanhas ativas.</small></div><button class="primary" type="submit" ${ownStatus==='approved'?'disabled title="Empresa já aprovada"':''}>${ownStatus==='rejected'?'Reenviar meus dados corrigidos':ownStatus==='pending'?'Salvar meus dados atualizados':'Enviar cadastro da minha empresa →'}</button><small class="merchant-join-footer">Cadastre sua empresa agora. A liberação comercial exige aprovação e as verificações próprias da categoria.</small></form></section>`)
 }
 function onlyDigits(v){return String(v||'').replace(/\D/g,'')}
 function isValidPhoneShape(v){const n=onlyDigits(v);return n.length===10||n.length===11}
@@ -887,6 +918,10 @@ async function joinMerchant(){
         :result?.prospectInvite?.linked?'Convite vinculado. Cadastro enviado para análise'
         :result?.pilotPartner?.pilotPartnerName?'Cadastro vinculado e enviado para análise'
         :'Cadastro enviado para análise');
+      if(globalThis.merchantRuntime){
+        globalThis.merchantRuntime.newApplicationMode=false;
+        globalThis.merchantRuntime.selectedApplicationId=String(result?.applicationId||'')||null;
+      }
       if(result?.pilotPartner)clearCurrentMerchantPilotInviteToken();
       if(result?.prospectInvite?.linked)clearCurrentMerchantProspectInviteToken();
       globalThis.merchantRuntime.notice=result?.pilotPartner?.pilotPartnerName
