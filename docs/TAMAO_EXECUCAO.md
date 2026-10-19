@@ -189,6 +189,13 @@
 - **Prioridade até quarta 21/10:** permitir apresentar o TAMÃO e cadastrar várias revendas sem esperar o primeiro parceiro; comprovar OTP via serviço real e submissão pelo portal, qualidade de painéis e pedidos existentes, não automatizar habilitação comercial por simples registro.
 - **Estado de publicação:** esta alteração está somente na PR #492 em rascunho, sem mudanças na `main`, Supabase ou portais. O lançamento real continua sujeito aos testes críticos e autorização do superadmin.
 
+## Lançamento gradual — hotfix de cadastro integrado na main (18/10/2026)
+
+- **Entrega real concluída no GitHub:** PR [#494](https://github.com/carloskk07/gassg/pull/494) (extração cirúrgica do cadastro pós-OTP sem convite) passou Audit e build de três portais, integrada à `main` pelo commit `a254ad7fee425271958f79eb2dbacc9c0cc0dd73`. Somente `js/backend.js`, `js/bootstrap.js` e `tests/merchant-direct-onboarding-v1-410.mjs` mudaram na main. **Produção só está comprovada depois do gate oficial Cloudflare e dos três portais responderem o mesmo SHA**.
+- **Sem duplicação de implementação:** a PR #492 já contém a mesma correção (seu `backend.js` e teste são idênticos ao hotfix; o `bootstrap.js` mantém a variante `returningToSignup` com condição equivalente, além dos reparos visuais próprios da expansão). A reconciliação histórica com a `main` usa commit de merge com a árvore existente da PR, sem reaplicar alterações nem integrar módulos novos na produção.
+- **Foco até 21/10:** várias revendas podem solicitar cadastro antes da liberação comercial da primeira; testar OTP real em navegador/email, envio e recuperação da solicitação, painel do administrador e o primeiro pedido autorizado. Não falsificar habilitação, preços, estoque, CNPJ, ANP ou pagamentos.
+- **Ações pendentes:** confirmar workflow de deploy e evidência real SHA dos três portais; checar PR #492 em CI após reconciliação; concluir revisão visual do preboot/menu já corrigido na expansão e extrair somente correções verificadas para lançamento.
+
 ## Como retomar após interrupção
 
 1. Ler este arquivo e o escopo, sem confiar somente em memória.
