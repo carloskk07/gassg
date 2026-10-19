@@ -332,6 +332,30 @@ await new Promise(resolve=>setImmediate(resolve));
 assert.equal(ctx.__discoveryOwnerTestState.user,null);
 assert.match(ctx.discoveryOwnerPage(),/Receber link de acesso/);
 assert.equal(ctx.location.href,'https://tamao.com.br/#advertise');
+
+// If the lazy SDK is offline, keep the OTP fragment unconsumed and offer a
+// retry. Do not discard the callback before auth has actually initialised.
+const availableSdk=ctx.loadSupabaseBrowser;
+ctx.loadSupabaseBrowser=async()=>{throw Error('offline SDK');};
+ctx.location.search='?advertise=1';
+ctx.location.hash='#access_token=retry-this-token';
+ctx.location.href='https://tamao.com.br/?advertise=1#access_token=retry-this-token';
+ctx.__discoveryOwnerTestState.phase='idle';
+assert.match(ctx.discoveryOwnerPage(),/Preparando sua área de anúncios/,
+ 'do not render a Not Found screen while the auth fragment is present');
+ctx.discoveryOwnerAfterRender();
+await new Promise(resolve=>setImmediate(resolve));
+assert.equal(ctx.__discoveryOwnerTestState.phase,'failed');
+assert.match(ctx.discoveryOwnerPage(),/Tentar conectar novamente/);
+assert.equal(ctx.location.href,
+ 'https://tamao.com.br/?advertise=1#access_token=retry-this-token',
+ 'SDK outage must not consume the unhandled authentication callback');
+ctx.loadSupabaseBrowser=availableSdk;
+ctx.discoveryOwnerRetryInit();
+await new Promise(resolve=>setImmediate(resolve));
+assert.equal(ctx.__discoveryOwnerTestState.phase,'ready');
+assert.equal(ctx.location.href,'https://tamao.com.br/#advertise',
+ 'retry consumes callback and clears token/temporary query on completion');
 ctx.location=savedLocation;ctx.route=savedRoute;
 
 const intentStart=read('js/bootstrap.js').indexOf('function discoveryOwnerReturnPending(){');
