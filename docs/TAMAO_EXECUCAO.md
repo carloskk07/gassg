@@ -528,3 +528,10 @@
 **PRIORIDADE IMEDIATA #493:** validar dois novos OTP reais de inscrições independentes no portal publicado; viabilizar revenda com compliance aplicável, preço/estoque reconfirmados e logística/atendimento; executar primeiro pedido autorizado com aprovação/aceite/entrega, idempotência, suspensão e observabilidade; depois decisão expressa do administrador para abertura. Sem condições de simular dados reais, nenhuma etapa desses testes deve ser marcada como concluída.
 
 **ÚLTIMA ETAPA CONCLUÍDA NESTA CONTINUAÇÃO:** RPC atômica + retomada persistente e regressões adicionadas sem deploy. **ETAPA ATUAL:** CI PG17/Audit/build/smoke em SHA atual, homologação Auth/Storage, e onboarding operacional comercial #493.
+
+
+### Correção final adicional de retorno OTP — 19/10/2026
+
+Durante revisão de qualidade foi encontrada nova falha no callback de anunciante: se o SDK da autenticação falhasse antes de consumir `#access_token`, a implementação anterior limpava a URL e perdia o link; e a rota temporária exibia “Não encontrado”. Corrigido nos commits `b49e5dc` e `1ad19af`: `discoveryOwnerRoute()` reconhece temporariamente a intenção `advertise=1` sem conceder acesso; a tela mostra carregamento, oferece **Tentar conectar novamente** se o SDK falhar, preserva o fragmento de callback até `auth.getUser()` ter concluído e apenas então troca para `#advertise` limpando a flag. Admin/revenda continuam isolados. Teste Node inclui falha do SDK, token temporário e retomada sem perda da sessão; simulação JS em V8 passou em 9 assertions da falha/retry, além dos 14 checks anteriores de foto/Storage. São **simulações**, não provas de Auth real.
+
+**HEAD anterior de código:** `1ad19af69bfa7b5db981f3f46d5f6734606d9f23`. Sem aplicação da migração, merge, cobrança ou ativação comercial. **ETAPA ATUAL:** ainda CI real PostgreSQL 17/Audit/build e E2E de Auth/Storage para a expansão; prioridade comercial #493 permanece sem provas de pedido real nem preços reconfirmados.
