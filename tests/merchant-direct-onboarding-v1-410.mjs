@@ -284,4 +284,66 @@ assert.ok(read('supabase/functions/submit-merchant-application/index.ts')
  .includes('if(phone.length<10||phone.length>13)'),
  'server-side registered length must still be checked');
 
+
+// After admin approval, a no-access applicant must be able to check the
+// latest status without logging out, registering another CNPJ, or reloading.
+// The refresh is read-only and scoped by server-side applicant_user_id.
+const noAccessStart=merchantLive.indexOf('function merchantLiveNoAccess(){');
+const noAccessEnd=merchantLive.indexOf('\nfunction merchantLiveProduct(',noAccessStart);
+const refreshStart=merchantLive.indexOf('async function merchantLiveRefresh(){');
+const refreshEnd=merchantLive.indexOf('\nfunction merchantDeliveryAssignmentChanged(',refreshStart);
+assert.ok(noAccessStart>=0&&noAccessEnd>noAccessStart&&
+  refreshStart>=0&&refreshEnd>refreshStart);
+const applicantState={
+ status:'no-access',session:{access_token:'auth-test',user:{email:'contact@example.test'}},
+ ownApplications:[{id:'app-1',company_name:'Empresa Alfa',status:'pending'}],
+ applicationFetchError:null,onboardingRefreshPending:false
+};
+let refreshedApplications=0,merchantReadCalls=0,applicantRenders=0;
+let failApplicationRead=false;
+const applicantCtx=vm.createContext({
+ globalThis:{
+  merchantRuntime:applicantState,
+  merchantOwnApplicationForInvite:()=>applicantState.ownApplications[0],
+  merchantPilotInviteToken:()=>'',merchantProspectInviteToken:()=>''
+ },
+ shell:html=>html,esc:value=>String(value??'')
+  .replace(/[&<>"']/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch])),
+ merchantRefresh:async()=>{merchantReadCalls++;},
+ merchantLoadOwnApplications:async()=>{
+  refreshedApplications++;
+  if(failApplicationRead)throw Error('temporary-network-error');
+  applicantState.ownApplications=[{
+   id:'app-1',company_name:'Empresa Alfa',status:'approved'
+  }];
+ },
+ toast:()=>{},render:()=>{applicantRenders++}
+});
+vm.runInContext(
+ merchantLive.slice(noAccessStart,noAccessEnd)+
+ merchantLive.slice(refreshStart,refreshEnd)+
+ ';this.page=merchantLiveNoAccess;this.refresh=merchantLiveRefresh;',
+ applicantCtx
+);
+assert.match(applicantCtx.page(),/Atualizar situação da minha empresa/);
+assert.match(applicantCtx.page(),/Cadastro em análise/);
+await applicantCtx.refresh();
+assert.equal(merchantReadCalls,1);
+assert.equal(refreshedApplications,1);
+assert.match(applicantCtx.page(),/Cadastro aprovado/);
+assert.ok(applicantRenders>0);
+assert.equal(applicantState.onboardingRefreshPending,false);
+failApplicationRead=true;
+await applicantCtx.refresh();
+assert.equal(refreshedApplications,2);
+assert.match(applicantCtx.page(),/Não foi possível conferir seus cadastros/);
+assert.match(applicantCtx.page(),/role="alert"/);
+applicantState.status='ready';
+await applicantCtx.refresh();
+assert.equal(refreshedApplications,2,
+ 'approved owner must not query no-access applications unnecessarily');
+assert.ok(read('supabase/functions/submit-merchant-application/index.ts')
+ .includes('.eq("applicant_user_id",user.id)'),
+ 'backend applicant lookup must be scoped to the signed-in identity');
+
 console.log('V1.410 PASS: fast signup, referral, email OTP continuity, existing access and safe fallback.');
