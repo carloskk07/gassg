@@ -98,6 +98,8 @@ assert.equal(ctx.basket(detail,{WATER20:0},0).ok,false,'empty basket');
 assert.equal(ctx.basket(detail,{WOOD:1,UNKNOWN:1},0).ok,false,'unlisted SKU');
 assert.equal(ctx.basket(detail,{WOOD:1},3000).ok,false,'too much discount');
 assert.equal(ctx.basket(detail,{WATER20:2.5},0).ok,false,'fractional SKU');
+assert.equal(ctx.basket(detail,{WATER20:1},null).ok,false,'invalid discount not silently zeroed');
+assert.equal(ctx.calc(detail,'WATER20',1,null).ok,false,'single-item discount invalid');
 assert.equal(ctx.basket(detail,{WATER20:21},0).ok,false,'qty over 20');
 detail.deliveryCapabilities=[{capability_code:'regulated_glp_mixed_load_verified',active:true}];
 assert.equal(ctx.basket(detail,{P13:1,WATER20:1},0).mixedLoadRequiresVerification,false,
