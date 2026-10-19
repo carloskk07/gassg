@@ -99,5 +99,12 @@ assert.match(server,/new URL\(sandboxUrl\).*sandbox/);
 assert.match(server,/validatePixBrCode\(brCode,\{expectedAmountCents:amount\}\)/);
 assert.match(server,/action:"finance_lab_sandbox_pix_created"/);
 assert.match(server,/platform_admin_audit/);
+const sandboxCheck=server.slice(server.indexOf('async function adminFinanceLabCheckSandboxOrder('),
+  server.indexOf('async function adminFinanceLabSandboxPix('));
+assert.match(sandboxCheck,/\.eq\("actor_user_id",actorId\)/,
+  'status lookup must be scoped to the authenticated admin');
+assert.match(sandboxCheck,/\.order\("created_at",\{ascending:false\}\)\.limit\(1\)\.maybeSingle\(\)/,
+  'repeated idempotent audit rows must not break a status lookup');
+
 assert.doesNotMatch(section,/merchant_billing_payment_requests|merchant_fee_credit_ledger|wallet_entries/);
 console.log('PASS admin lab: arbitrary invoice simulation, official sandbox preset, authorization, status');
