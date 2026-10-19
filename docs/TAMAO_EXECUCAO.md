@@ -360,3 +360,9 @@
 **Gates ainda abertos:** último atestado dos 3 portais consultado neste ponto ainda estava no SHA anterior `50aaf3b`, não no merge `425e7213`; verificar deploy/reconciliação OIDC do novo SHA antes de afirmar atualização do front-end. Não foi possível comprovar se o Access Token do Mercado Pago no ambiente é de teste ou produção (ambos podem usar prefixo `APP_USR`), nem fazer pagamento real. BR Code válido no formato não garante cobrança pagável: somente tentativa legítima em aplicativo bancário e confirmação do provedor demonstram isso. Não criar transação onerosa de teste. Caso um **PIX recém-gerado** continue rejeitado, analisar detalhe de erro do banco e configuração do provedor sem expor segredo.
 
 **Comércio e expansão:** plataforma e São Gabriel continuam PRELAUNCH/comércio fechado, 0 pedidos reais na última leitura. PR #492 continua draft e sem migração da expansão. A correção financeira é independente e não habilita vendas, cupons, anúncios ou novas modalidades.
+
+
+### Reconciliação pós-publicação do PIX (19/10/2026)
+
+- **CONFIRMADO:** depois do merge da PR #500, a atestação OIDC em `platform_portal_attestations` às `2026-10-19T03:34:24Z` mostrou SHA `425e7213b998863f7ea44e1ba7ac5286ef443ea3` nos três domínios oficiais de customer, merchant e admin, cada um com `htmlStatus=200`, `buildStatus=200`, `runtimeStatus=200`, `turnstileProduction=true` e `allPortalsReady=true`. A função Edge `merchant-billing-pix` foi confirmada ACTIVE v9 com a dependência `_shared/pix-brcode.js` e a autenticação customizada preservada.
+- **Após publicação:** apenas 1 cobrança histórica, 0 ativas, 0 concluídas; último registro continua em 15/10/2026 e expirou 16/10. Não foi emitido PIX oneroso de prova. A aceitação de um novo código pelo banco e a distinção credenciais teste/produção do Mercado Pago continuam **não verificadas**. Se banco rejeitar PIX recém-criado, conferir erro bancário/ordem no provedor, sem tratar CRC válido como garantia de pagamento.
