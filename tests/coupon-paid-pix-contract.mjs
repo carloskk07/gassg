@@ -50,6 +50,13 @@ assert.match(webhook,/COUPON_EARLY_PAYMENT_MISMATCH/,
 assert.match(webhook,/clube_coupon_paid_payment_verify/);
 assert.match(webhook,/clube_coupon_paid_payment_refund/);
 assert.match(webhook,/clube_coupon_paid_payment_review/);
+assert.match(migration,/v_invoice.provider_payment_id<>p_payment_id/,
+ 'a replay with another provider payment id must never issue the same vouchers');
+assert.match(webhook,/"charged_back","chargeback"/,
+ 'confirmed chargeback must suspend unspent benefits');
+assert.match(webhook,/refunded===Number\(invoice.sale_price_cents\)/,
+ 'only exact full refunds may be classified as completed');
+
 assert.match(webhook,/refunded>=Number\(invoice.sale_price_cents\)/,
  'partial provider refunds must halt benefit issuance instead of voiding everything');
 assert.match(webhook,/COUPON_EARLY_PAYMENT_MISMATCH/,
