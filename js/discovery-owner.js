@@ -42,8 +42,8 @@ function discoveryOwnerPersistPendingPhotoRemovals(){
 const discoveryOwnerStates=['AC','AL','AP','AM','BA','CE','DF','ES','GO','MA','MT',
   'MS','MG','PA','PB','PR','PE','PI','RJ','RN','RS','RO','RR','SC','SP','SE','TO'];
 function discoveryOwnerRoute(){
-  return route()==='advertise'&&!globalThis.adminPortalRequested?.()
-    &&!globalThis.merchantPortalRequested?.();
+  return (route()==='advertise'||globalThis.discoveryOwnerReturnPending?.()===true)&&
+    !globalThis.adminPortalRequested?.()&&!globalThis.merchantPortalRequested?.();
 }
 function discoveryOwnerCitySlug(raw){
   return String(raw||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'')
@@ -98,6 +98,8 @@ function discoveryOwnerPage(){
   const error=s.error?'<p role="alert" class="discovery-owner-error">'+esc(s.error)+'</p>':'';
   if(s.phase==='idle'||s.phase==='loading')return shell('<section class="section discovery-owner">'+header+
     '<p role="status">Preparando sua área de anúncios…</p></section>');
+  if(s.phase==='failed')return shell('<section class="section discovery-owner">'+header+error+
+    '<button type="button" class="secondary" onclick="discoveryOwnerRetryInit()">Tentar conectar novamente</button></section>');
   if(!s.user)return shell('<section class="section discovery-owner">'+header+note+error+
     '<form class="discovery-owner-auth" onsubmit="return discoveryOwnerLogin(event)">'+
     '<label>Seu e-mail<input type="email" name="email" autocomplete="email" required maxlength="254" placeholder="voce@exemplo.com"></label>'+
@@ -168,6 +170,7 @@ function discoveryOwnerPage(){
 async function discoveryOwnerInit(){
   const s=discoveryOwner;if(s.phase!=='idle')return;
   const returningFromOtp=globalThis.discoveryOwnerReturnPending?.()===true;
+  let sdkInitialized=false;
   s.phase='loading';
   try{
     const sdk=await loadSupabaseBrowser();
@@ -176,14 +179,15 @@ async function discoveryOwnerInit(){
         storageKey:'tamao-discovery-auth'},global:{fetch:chamaFetch}
     });
     const response=await s.client.auth.getUser();
+    sdkInitialized=true;
     s.user=response?.data?.user||null;
     s.phase='ready';
     if(s.user){
       s.pendingPhotoRemovals=discoveryOwnerReadPendingPhotoRemovals(s.user.id);
       await discoveryOwnerRefresh();
     }
-  }catch(e){s.phase='ready';s.error='Não foi possível conectar ao cadastro. Tente novamente.';}
-  if(returningFromOtp){
+  }catch(e){s.phase='failed';s.error='Não foi possível conectar ao cadastro. Verifique a conexão e tente novamente.';}
+  if(returningFromOtp&&sdkInitialized){
     // getUser() waits for the Supabase URL-session initialization. Restore
     // navigation only after this step; do not expose a callback token in an
     // app link or place it in query parameters.
@@ -195,8 +199,13 @@ async function discoveryOwnerInit(){
   if(discoveryOwnerRoute())render();
 }
 function discoveryOwnerAfterRender(){
-  if((discoveryOwnerRoute()||globalThis.discoveryOwnerReturnPending?.())&&
-     discoveryOwner.phase==='idle')discoveryOwnerInit();
+  if(discoveryOwnerRoute()&&discoveryOwner.phase==='idle')discoveryOwnerInit();
+}
+function discoveryOwnerRetryInit(){
+  if(discoveryOwner.phase!=='failed')return;
+  discoveryOwner.phase='idle';discoveryOwner.error='';
+  discoveryOwnerInit();
+  if(discoveryOwnerRoute())render();
 }
 async function discoveryOwnerRefresh(){
   const s=discoveryOwner;if(!s.client||!s.user)return;
