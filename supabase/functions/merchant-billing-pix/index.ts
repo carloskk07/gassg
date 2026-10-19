@@ -8,6 +8,7 @@ import {
   requestFingerprint
 } from "../_shared/domain.js";
 import { cancelProviderChargesForPaymentRequest } from "../_shared/provider-charge-cancel.js";
+import { validatePixBrCode } from "../_shared/pix-brcode.js";
 import {
   mercadoPagoConfigured,
   mercadoPagoFetch,
@@ -181,6 +182,10 @@ function normalizeWooviCharge(data:any,correlationId:string,expectedAmountCents:
   if(!Number.isSafeInteger(amount)||amount!==expectedAmountCents)throw new Error("WOOVI_AMOUNT_MISMATCH");
   if(!["ACTIVE","COMPLETED"].includes(status))throw new Error("WOOVI_CHARGE_NOT_ACTIVE");
   if(!brCode||brCode.length<20)throw new Error("WOOVI_BR_CODE_MISSING");
+  if(!validatePixBrCode(brCode,{expectedAmountCents}).valid){
+    throw new DomainError("PIX_PROVIDER_BR_CODE_INVALID",
+      "O provedor devolveu um código Pix inválido. Não tente pagar esse QR; gere uma nova cobrança.",502);
+  }
   const providerChargeId=cleanText(
     charge.globalID??charge.identifier??charge.transactionID??charge.paymentLinkID??charge.correlationID,
     240
@@ -254,6 +259,10 @@ function normalizeMercadoPagoOrder(order:any,correlationId:string,expectedAmount
   }
   if(status!=="processed"&&(!brCode||brCode.length<20)){
     throw new Error("MERCADOPAGO_QR_NOT_READY");
+  }
+  if(brCode&&!validatePixBrCode(brCode,{expectedAmountCents}).valid){
+    throw new DomainError("PIX_PROVIDER_BR_CODE_INVALID",
+      "O Mercado Pago retornou um código Pix inválido. Nenhum QR será disponibilizado para pagamento.",502);
   }
   return {
     provider:"mercadopago",
@@ -448,6 +457,15 @@ Deno.serve(async(req:Request)=>{
     if(existingError)throw existingError;
 
     if(existing?.br_code&&["active","completed"].includes(existing.status)){
+      // Never repeat a structurally invalid or expired active BR Code after a
+      // retry; a browser must not advertise a stale payment as newly payable.
+      if(existing.status==="active"&&(
+        !validatePixBrCode(existing.br_code,{expectedAmountCents}).valid
+        ||!existing.expires_at||Date.parse(existing.expires_at)<=Date.now()
+      )){
+        throw new DomainError("PIX_EXISTING_CHARGE_NOT_PAYABLE",
+          "O Pix anterior está inválido ou expirado. Atualize o financeiro para gerar uma nova cobrança.",409);
+      }
       return json({ok:true,paymentRequestId,recovered:true,charge:publicCharge(existing)},200,origin);
     }
     if(existing?.status==="completed"){
