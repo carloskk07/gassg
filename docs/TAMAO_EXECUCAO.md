@@ -236,3 +236,20 @@
 - A correção deste commit atualiza a auditoria **sem enfraquecer o controle**: exige token de convite preexistente, marcador de cadastro explícito, estado `no-access` e navegação somente para o formulário, sem ativação comercial. A regressão com VM em `tests/merchant-direct-onboarding-v1-410.mjs` continua cobrindo retorno OTP com e sem convite.
 - **Próxima ação:** conferir Audit/PG17/build/smoke no novo HEAD antes de marcar como PASS. Sem implantação, mudança de banco ou reclassificação artificial de nenhuma revenda.
 
+
+
+## Continuação comercial verificada — sessão 18/10/2026 à noite (issue #493)
+
+**ÚLTIMA ETAPA CONCLUÍDA:** correção e teste de regressão do cadastro seguro de revendas na branch existente. `js/growth.js` agora recusa exibir formulário da empresa se a origem não é segura, a autenticação está indisponível ou a consulta das inscrições anteriores falhou. Origem insegura conserva o bloqueio do portal; falhas temporárias exibem erro e recarregamento, sem informar sucesso. `tests/merchant-direct-onboarding-v1-410.mjs` cobre os casos por VM, preservando o fluxo OTP normal. Commit de código e teste: `3847c0573715b4f277ddc97f2f342b45f35f2e53`.
+
+**Gates desse SHA:** Audit PASS (`39182440785`), PostgreSQL 17 isolado PASS (`39182440939`), build dos três portais PASS (`39182440840`), smoke visual público PASS (`39182440946`). Revisão de release-candidate sem deploy ficou SKIPPED. Nenhum merge/deploy desta correção ocorreu.
+
+**Supabase real (leitura):** `lgugwujpunhslavewffd` ACTIVE_HEALTHY. Edge Function `submit-merchant-application` v19 ACTIVE. `discovery_listings` e `discovery_documents` não existem; migração da expansão não aplicada. `platform_launch_control` PRELAUNCH / `commerce_enabled=false`. São Gabriel/RS `commerce_enabled=false`, sem pausa administrativa. Atestado interno de 3 portais aponta SHA `7272725b8f98608e1686bfe059fee569dfd8b0a5` em `2026-10-19T00:35:48Z`, não substitui HTTP real.
+
+**Comércio:** 1 revenda `pending` e offline; 1 solicitação `approved`; 0 pedidos, 0 incidentes, 0 casos de suporte. Há responsável ativo, pagamento habilitado e 3 itens ativos com preço positivo e estoque, mas **zero preços atualizados confirmados nas últimas 24h**; preço geral sem confirmação; taxa de entrega já confirmada porém sem frescor de 24h, nenhuma presença recente, representação não verificada e CNPJ/ANP `pending`. Não alterar status/validações artificialmente.
+
+**Portais:** acesso web direto aos três `portal-build.json` não foi possível via leitor externo; atestado do banco e deploy antigo Netlify admin `ready` não são inspeção HTTP contemporânea dos domínios oficiais.
+
+**ETAPA ATUAL:** garantir inscrições reais de múltiplas revendas sem convite, sem confundir solicitação aprovada com aptidão para vender. A correção segue apenas na PR #492; Auth/OTP real com duas contas e análise administrativa não foram realizados nesta sessão. Não afirmar E2E homologado.
+
+**PRÓXIMA AÇÃO OBJETIVA:** com contas reais, exercer duas inscrições distintas, retorno OTP, alteração/correção, revisão/vínculo superadmin e isolamento de dados; depois extrair/publicar somente correções comerciais testadas, sem publicar as modalidades incompletas. Responsável da revenda deve validar representação, CNPJ/ANP aplicáveis, preços frescos, estoque, entrega e online. Só então testar pedido assistido autorizado, pausa, recuperação e observabilidade. Continuar Profissionais, Caronas, Hospedagens, SEO e Ads na mesma PR, mantendo a migration de expansão não aplicada. Sem compras nem pagamentos reais não autorizados.
