@@ -12,7 +12,10 @@ BEGIN
       consumed_at timestamptz,
       expires_at timestamptz not null
     )';
-    PERFORM pg_catalog.set_config('tamao.coupon.isolated_quote_fixture','true',true);
+    -- Session-local (not transaction-local): two separate DO statements in
+    -- the same psql -f connection must share this flag in disposable PG17 CI.
+    -- The live migration dry run is wrapped in ROLLBACK, so it cannot persist.
+    PERFORM pg_catalog.set_config('tamao.coupon.isolated_quote_fixture','true',false);
   ELSE
     PERFORM pg_catalog.set_config('tamao.coupon.isolated_quote_fixture','false',true);
   END IF;
@@ -46,8 +49,25 @@ BEGIN
 
   -- All checks that depend on constructing a synthetic quote run only in
   -- PostgreSQL CI: never create an artificial commerce quote in production.
-  IF current_setting('tamao.coupon.isolated_quote_fixture',true)<>'true'
-  THEN RETURN; END IF;
+  -- A fake-quote marker on this database means that positive tests MUST run:
+  -- silently skipping them would create a false-green CI.
+  IF current_setting('tamao.coupon.isolated_quote_fixture',true)<>'true' THEN
+    IF to_regclass('public.quotes') IS NOT NULL
+      AND EXISTS(
+        SELECT 1 FROM pg_catalog.pg_attribute a
+        WHERE a.attrelid='public.quotes'::regclass
+          AND a.attname='gross_total_cents'
+          AND NOT a.attisdropped
+      )
+      AND NOT EXISTS(
+        SELECT 1 FROM pg_catalog.pg_attribute a
+        WHERE a.attrelid='public.quotes'::regclass
+          AND a.attname='merchant_id'
+          AND NOT a.attisdropped
+      )
+    THEN RAISE EXCEPTION 'COUPON_QUOTE_FIXTURE_FLAG_LOST'; END IF;
+    RETURN;
+  END IF;
   SELECT id INTO v_user FROM auth.users ORDER BY id LIMIT 1;
   SELECT id INTO v_other FROM auth.users WHERE id<>v_user ORDER BY id LIMIT 1;
   IF v_user IS NULL OR v_other IS NULL
