@@ -2205,7 +2205,8 @@ Deno.serve(async(req:Request)=>{
           return json({source:"clube_coupon_finance_status_v1",readOnly:true,
             schemaInstalled:false,coverage:"unavailable",
             salesEnabled:false,checkoutEnabled:false,
-            items:[],pendingNetCount:null,refundReviewCount:null,
+            packageCount:null,invoiceCount:null,voucherCount:null,
+            pendingNetCount:null,refundReviewCount:null,
             merchantSettlementPendingCount:null,unfundedOfferCount:null,
             paymentsChecked:false,reason:"COUPON_FINANCE_SCHEMA_NOT_INSTALLED"
           },200,origin);
@@ -2221,6 +2222,20 @@ Deno.serve(async(req:Request)=>{
         admin.from("clube_coupon_paid_order_applications")
           .select("order_id").limit(26)
       ]);
+      const queries=[invoiceResult,voucherResult,applicationResult];
+      const stageUnavailable=queries.find(result=>result.error&&
+        (missingTable(result.error)||["42703","PGRST204"].includes(
+          String(result.error.code||""))));
+      if(stageUnavailable){
+        return json({source:"clube_coupon_finance_status_v1",readOnly:true,
+          schemaInstalled:false,coverage:"unavailable",
+          salesEnabled:false,checkoutEnabled:false,
+          packageCount:null,invoiceCount:null,voucherCount:null,
+          pendingNetCount:null,refundReviewCount:null,
+          merchantSettlementPendingCount:null,unfundedOfferCount:null,
+          paymentsChecked:false,reason:"COUPON_CHECKOUT_SCHEMA_INCOMPLETE"
+        },200,origin);
+      }
       if(invoiceResult.error||voucherResult.error||applicationResult.error){
         throw invoiceResult.error||voucherResult.error||applicationResult.error;
       }
