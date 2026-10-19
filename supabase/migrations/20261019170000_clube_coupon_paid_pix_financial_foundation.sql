@@ -83,7 +83,9 @@ begin
  if not found then raise exception 'COUPON_INVOICE_NOT_FOUND'; end if;
  if v_invoice.provider_order_id is distinct from p_provider_order_id
     or v_invoice.sale_price_cents is distinct from p_amount_cents
-    or p_payment_id is null or length(p_payment_id)<3 then
+    or p_payment_id is null or length(p_payment_id)<3
+    or (v_invoice.provider_payment_id is not null
+        and v_invoice.provider_payment_id<>p_payment_id) then
    raise exception 'COUPON_PAYMENT_PROOF_MISMATCH';
  end if;
  if v_invoice.status='paid' then
