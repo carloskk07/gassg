@@ -85,6 +85,8 @@ jobs:
         run: node tests/coupon-paid-pix-contract.mjs
       - name: Authenticated Clube voucher viewer
         run: node tests/clube-paid-coupon-view.mjs
+      - name: Funded coupon atomic checkout and account separation
+        run: node tests/coupon-atomic-checkout-contract.mjs
       - name: Superadmin ad moderation and review queue client contract
         run: node tests/discovery-admin-journey.mjs
       - name: SQL dollar-quoted function terminator gate V1.397
