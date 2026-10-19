@@ -228,6 +228,8 @@ const quoteBoard=read('js/home-showcase.js');
 new vm.Script(quoteBoard,{filename:'js/home-showcase.js'});
 assert.match(quoteBoard,/tamao-quote-first/);
 assert.match(quoteBoard,/tamao-home-coupon-rail/);
+assert.ok(quoteBoard.indexOf('city-price-grid')<quoteBoard.indexOf('tamao-home-coupon-rail'),
+ 'show prices first and coupon benefits immediately after');
 assert.match(quoteBoard,/Ver cupons e Clube/);
 assert.ok(quoteBoard.includes('Ver cupons e Clube'),'coupon CTA must exist');
 assert.ok(!quoteBoard.includes('Os preços reais substituem as referências automaticamente'),
