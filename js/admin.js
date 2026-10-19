@@ -350,6 +350,7 @@ async function adminSignOut(){
   if(adminRuntime.client)await adminRuntime.client.auth.signOut().catch(()=>{});
   adminRuntime.session=null;
   adminRuntime.data=null;
+  adminRuntime.merchantTrial=null;
   adminRuntime.clubeFinance={data:null,pending:false,error:null,loadedFor:null,checkedAt:null,
     reports:null,reportsPending:false,reportsError:null,reportsFor:null,reportsAt:null};
   adminRuntime.searchQuery='';
@@ -986,7 +987,9 @@ function adminMerchantTrialView(detail){
     Number.isSafeInteger(p.price_cents)&&p.price_cents>0&&
     Number.isSafeInteger(p.available_stock)&&p.available_stock>0);
   const state=adminRuntime.merchantTrial||{};
-  const mine=state.merchantId===merchant.id;
+  const ownerId=String(adminRuntime.session?.user?.id||'');
+  const mine=ownerId!==''&&state.adminUserId===ownerId&&
+    state.merchantId===merchant.id;
   const code=mine&&offers.some(p=>p.product_code===state.code)
     ?state.code:offers[0]?.product_code||'';
   const quantity=mine&&Number.isSafeInteger(state.quantity)?state.quantity:1;
@@ -1049,6 +1052,7 @@ function adminMerchantTrialCalculate(){
     ?0:adminFinanceLabCents(rawDiscount);
   const result=adminMerchantTrialEstimate(detail,code,quantity,discount);
   adminRuntime.merchantTrial={
+    adminUserId:String(adminRuntime.session?.user?.id||''),
     merchantId:detail.merchant.id,code,quantity,discountCents:discount,
     result:result.ok?result:null,error:result.ok?null:result.reason
   };
