@@ -18,8 +18,8 @@ assert.ok(home.includes('Gás, água ou outros essenciais, sem item obrigatório
 assert.ok(home.includes('O pedido só avança após o aceite da revenda.'));
 assert.ok(home.indexOf('id="home-discover"')<home.indexOf('home-buying-steps"'),
  'buying guide should follow product discovery, not displace the lead CTA');
-assert.ok(home.indexOf('home-buying-steps"')<home.indexOf('homeRegionalPriceBoard(homeRegion)'),
- 'buyer guide should precede the regional price panel');
+assert.ok(home.indexOf('homeRegionalPriceBoard(homeRegion)')<home.indexOf('home-buying-steps"'),
+ 'verified quotations and saving guidance must appear before the buying guide');
 assert.ok(home.includes('citySnapshot?.real===true&&citySnapshot?.notAQuote===true'),
  'verified price evidence cannot be weakened');
 assert.ok(home.includes("const primaryAction=acquisitionOpen?'homeDiscoverFocus()':'startCustomerAvailability()'"),
