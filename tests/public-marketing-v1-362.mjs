@@ -24,7 +24,7 @@ for(const token of [
  'homeRegionalPriceBoard(homeRegion)'
 ])assert.ok(home.includes(token),'home journey lacks '+token);
 assert.ok(home.indexOf('homeRegionalPriceBoard(homeRegion)')<home.indexOf('home-discover-grid'),
- 'regional quote board must appear before hero and long product discovery');
+ 'verified regional pricing and advantages must lead product discovery');
 assert.ok(home.includes('citySnapshot?.real===true&&citySnapshot?.notAQuote===true'),
  'marketing cannot display unverified city prices');
 assert.ok(home.includes('home-first-visit'),
