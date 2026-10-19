@@ -26,6 +26,12 @@ let formValues={vertical:'professionals',title:'Serviços elétricos e manutenç
 let selectedFiles=[{type:'image/jpeg',size:1500}];
 let selectedDocuments=[{type:'application/pdf',size:2000}];
 let loginUrl='';
+const localValues=new Map();
+const localStorage={
+ getItem:key=>localValues.get(key)||null,
+ setItem:(key,value)=>localValues.set(key,value),
+ removeItem:key=>localValues.delete(key)
+};
 class FakeFormData{get(k){return formValues[k]??null;}}
 const client={
  auth:{
@@ -108,7 +114,7 @@ const ctx={
  document:{getElementById:id=>id==='discovery-owner-photos'?{files:selectedFiles}:
    id==='discovery-owner-documents'?{files:selectedDocuments}:null},
  FormData:FakeFormData,loadSupabaseBrowser:async()=>({createClient:()=>client}),
- console
+ console,localStorage
 };
 ctx.globalThis=ctx;
 vm.runInNewContext(source+'\n;globalThis.__discoveryOwnerTestState=discoveryOwner;',ctx,{filename:'js/discovery-owner.js'});
@@ -244,10 +250,26 @@ assert.ok(records[0].photo_urls.includes(concurrentPhotoKey),
 assert.equal(removed.length,beforeUnlink,'failed Storage removal must not claim success');
 assert.match(ctx.discoveryOwnerPage(),/Repetir limpeza de 1 foto/);
 assert.match(ctx.discoveryOwnerPage(),/ainda precisa ser removido/);
+const recoveryKey='tamao-photo-cleanup-v1:'+userId;
+assert.equal(JSON.parse(localValues.get(recoveryKey))[0],filePath,
+ 'failed Storage cleanup must persist only a public photo key per account');
+localValues.set(recoveryKey,JSON.stringify([
+ filePath,'../../invalid.jpg',
+ '00000000-0000-0000-0000-000000000099/aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa.jpg'
+]));
+assert.deepEqual(Array.from(ctx.discoveryOwnerReadPendingPhotoRemovals(userId)),[filePath],
+ 'restored local queue must reject malformed and other-account paths');
+ctx.__discoveryOwnerTestState.pendingPhotoRemovals=[];
+ctx.__discoveryOwnerTestState.pendingPhotoRemovals=
+  ctx.discoveryOwnerReadPendingPhotoRemovals(userId);
+assert.equal(ctx.__discoveryOwnerTestState.pendingPhotoRemovals.length,1,
+ 'refresh/returning owner can resume previously interrupted Storage removal');
 simulateRemovalOutage=false;
 await ctx.discoveryOwnerRetryPhotoCleanup();
 assert.equal(removed.length,beforeUnlink+1);
 assert.equal(removed.at(-1),filePath);
+assert.equal(localValues.has(recoveryKey),false,
+ 'successful retry must remove persisted cleanup metadata');
 assert.doesNotMatch(ctx.discoveryOwnerPage(),/Repetir limpeza de 1 foto/);
 assert.match(ctx.discoveryOwnerPage(),/Remover foto 1/,
  'concurrently added photo must stay editable after unlink');
