@@ -116,6 +116,24 @@ begin
  select status into v_status from public.clube_coupon_paid_issuances
  where id=v_voucher;
  if v_status<>'redeemed' then raise exception 'COUPON_NOT_REDEEMED';end if;
+ v_result:=public.clube_coupon_paid_order_reconciliation(v_order);
+ if v_result->>'status'<>'ORDER_IN_PROGRESS'
+ then raise exception 'COUPON_ORDER_RECONCILIATION_NOT_PENDING';end if;
+ update public.orders set merchant_id=v_merchant,status='SETTLED' where id=v_order;
+ v_result:=public.clube_coupon_paid_order_reconciliation(v_order);
+ if v_result->>'status'<>'MERCHANT_REIMBURSEMENT_MISSING'
+ then raise exception 'COUPON_MISSING_MERCHANT_REIMBURSEMENT_NOT_DETECTED';end if;
+ insert into public.merchant_cashback_reimbursements(
+  order_id,merchant_id,cashback_cents,status)
+ values(v_order,v_merchant,700,'open');
+ v_result:=public.clube_coupon_paid_order_reconciliation(v_order);
+ if v_result->>'status'<>'MERCHANT_REIMBURSEMENT_DUE'
+ then raise exception 'COUPON_MERCHANT_REIMBURSEMENT_DUE_NOT_VISIBLE';end if;
+ update public.merchant_cashback_reimbursements set status='paid'
+ where order_id=v_order;
+ v_result:=public.clube_coupon_paid_order_reconciliation(v_order);
+ if v_result->>'status'<>'MERCHANT_REIMBURSED'
+ then raise exception 'COUPON_MERCHANT_PAID_NOT_VISIBLE';end if;
 
  v_result:=public.clube_coupon_paid_create_order(
   v_user,v_quote,v_voucher,'pix','coupon-checkout-1','sha-1',
@@ -149,6 +167,9 @@ begin
  if v_status<>'review_required' or
    (v_result->>'reviewRequired')::boolean is distinct from true
  then raise exception 'PAID_CREDIT_CHARGEBACK_NOT_FROZEN';end if;
+ v_result:=public.clube_coupon_paid_order_reconciliation(v_order);
+ if v_result->>'status'<>'FINANCIAL_REVIEW'
+ then raise exception 'CHARGEBACK_NOT_IN_RECONCILIATION';end if;
  select count(*) into v_count from public.clube_coupon_paid_order_applications
  where voucher_id=v_voucher;
  if v_count<>1 then raise exception 'CHARGEBACK_ERASED_SETTLEMENT_AUDIT';end if;
