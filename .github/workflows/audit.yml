@@ -565,6 +565,8 @@ jobs:
         run: node tests/public-handoff-visual-v1-378.mjs
       - name: V1.379 mobile product CEP and merchant form recovery
         run: node tests/mobile-first-action-v1-379.mjs
+      - name: Low-friction advertiser signup without merchant trading compliance
+        run: node tests/merchant-advertiser-light-signup.mjs
       - name: V1.380 checkout address and phone input integrity
         run: node tests/checkout-address-clarity-v1-380.mjs
       - name: V1.381 mobile offer details and request acceptance integrity
