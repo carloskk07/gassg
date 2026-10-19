@@ -11,7 +11,7 @@ function discoveryKind(){
     &&Object.hasOwn(discoveryVerticals,r)?r:'';
 }
 function discoveryState(kind){
-  return discoveryRuntime[kind]??=( {status:'idle',items:[],city:'',state:'',origin:'',destination:'',guests:'',error:'',seq:0} );
+  return discoveryRuntime[kind]??=( {status:'idle',items:[],city:'',state:'',origin:'',destination:'',departureAfter:'',guests:'',error:'',seq:0} );
 }
 function discoveryCityKey(raw){
   return String(raw||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'')
@@ -72,7 +72,8 @@ function discoveryPage(){
     '<label>Cidade<input id="discovery-city" autocomplete="address-level2" placeholder="Digite a cidade" maxlength="120" value="'+esc(s.city)+'"></label>'+
     (kind==='rides'
       ?'<label>Origem<input id="discovery-origin" maxlength="120" value="'+esc(s.origin)+'" placeholder="Saindo de"></label>'+
-       '<label>Destino<input id="discovery-destination" maxlength="120" value="'+esc(s.destination)+'" placeholder="Indo para"></label>'
+       '<label>Destino<input id="discovery-destination" maxlength="120" value="'+esc(s.destination)+'" placeholder="Indo para"></label>'+ 
+       '<label>Saída a partir de<input id="discovery-departure-after" type="datetime-local" value="'+esc(s.departureAfter)+'"></label>'
       :kind==='stays'?'<label>Hóspedes<input id="discovery-guests" type="number" min="1" max="80" value="'+esc(s.guests)+'"></label>':'')+
     '<button type="submit" class="primary">Pesquisar</button></form>'+
     '<p class="tiny muted">Disponibilidade e condições são confirmadas com o anunciante. O TAMÃO não processa pagamentos dessas contratações.</p>'+
@@ -87,6 +88,7 @@ function discoverySearchFromUi(event){
   s.city=String(document.getElementById('discovery-city')?.value||'').trim().slice(0,120);
   s.origin=String(document.getElementById('discovery-origin')?.value||'').trim().slice(0,120);
   s.destination=String(document.getElementById('discovery-destination')?.value||'').trim().slice(0,120);
+  s.departureAfter=kind==='rides'?String(document.getElementById('discovery-departure-after')?.value||'').trim().slice(0,16):'';
   s.guests=String(document.getElementById('discovery-guests')?.value||'').trim().slice(0,3);
   discoveryFetch();
   return false;
@@ -106,6 +108,9 @@ async function discoveryFetch(){
       p_vertical:kind,p_state_code:s.state||null,p_city_key:discoveryCityKey(s.city)||null,
       p_departure_city:kind==='rides'?s.origin||null:null,
       p_destination_city:kind==='rides'?s.destination||null:null,
+      // datetime-local is in the visitor's timezone; convert to UTC before RPC.
+      p_departure_after:kind==='rides'&&/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(s.departureAfter)&&
+        Number.isFinite(Date.parse(s.departureAfter))?new Date(s.departureAfter).toISOString():null,
       p_min_guests:kind==='stays'&&/^[1-9][0-9]?$/.test(s.guests)&&Number(s.guests)<=80?Number(s.guests):null,
       p_limit:24
     });
