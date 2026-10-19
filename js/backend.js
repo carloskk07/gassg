@@ -1275,6 +1275,8 @@ const merchantRuntime={
   ownApplications:[],
   ownApplicationsLoaded:false,
   applicationFetchError:null,
+  selectedApplicationId:null,
+  newApplicationMode:false,
   deliveryTeam:[],
   team:null,
   teamLoading:false,
@@ -1997,7 +1999,8 @@ function merchantOwnApplicationForInvite(){
   const hinted=globalThis.merchantProspectInviteDetails?.();
   const cnpj=String(hinted?.cnpj||'').replace(/\D/g,'');
   if(cnpj)return all.find(x=>String(x.cnpj||'').replace(/\D/g,'')===cnpj)||null;
-  return all[0]||null;
+  const selected=String(merchantRuntime.selectedApplicationId||'');
+  return all.find(x=>String(x.id||'')===selected)||all[0]||null;
 }
 
 async function merchantSendLogin(email){
@@ -2048,6 +2051,8 @@ async function merchantSignOut(){
   merchantRuntime.ownApplications=[];
   merchantRuntime.ownApplicationsLoaded=false;
   merchantRuntime.applicationFetchError=null;
+  merchantRuntime.selectedApplicationId=null;
+  merchantRuntime.newApplicationMode=false;
   merchantRuntime.deliveryTeam=[];
   merchantRuntime.team=null;
   merchantRuntime.teamLoading=false;
