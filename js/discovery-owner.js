@@ -139,6 +139,7 @@ function discoveryOwnerPage(){
 }
 async function discoveryOwnerInit(){
   const s=discoveryOwner;if(s.phase!=='idle')return;
+  const returningFromOtp=globalThis.discoveryOwnerReturnPending?.()===true;
   s.phase='loading';
   try{
     const sdk=await loadSupabaseBrowser();
@@ -151,10 +152,20 @@ async function discoveryOwnerInit(){
     s.phase='ready';
     if(s.user)await discoveryOwnerRefresh();
   }catch(e){s.phase='ready';s.error='Não foi possível conectar ao cadastro. Tente novamente.';}
+  if(returningFromOtp){
+    // getUser() waits for the Supabase URL-session initialization. Restore
+    // navigation only after this step; do not expose a callback token in an
+    // app link or place it in query parameters.
+    const clean=new URL(location.href);
+    clean.searchParams.delete('advertise');
+    clean.hash='advertise';
+    history.replaceState(null,'',clean.pathname+clean.search+clean.hash);
+  }
   if(discoveryOwnerRoute())render();
 }
 function discoveryOwnerAfterRender(){
-  if(discoveryOwnerRoute()&&discoveryOwner.phase==='idle')discoveryOwnerInit();
+  if((discoveryOwnerRoute()||globalThis.discoveryOwnerReturnPending?.())&&
+     discoveryOwner.phase==='idle')discoveryOwnerInit();
 }
 async function discoveryOwnerRefresh(){
   const s=discoveryOwner;if(!s.client||!s.user)return;
@@ -178,7 +189,7 @@ async function discoveryOwnerLogin(ev){
   if(s.busy||!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email))return false;
   s.busy=true;s.error='';s.notice='';
   try{
-    const dest=location.origin+location.pathname+'#advertise';
+    const dest=location.origin+location.pathname+'?advertise=1';
     const {error}=await s.client.auth.signInWithOtp({email,options:{emailRedirectTo:dest}});
     if(error)throw error;
     s.notice='Link de acesso solicitado. Confira seu e-mail para continuar.';
