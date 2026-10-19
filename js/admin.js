@@ -45,7 +45,7 @@ const adminRuntime={
   financeHistory:{data:null,loading:false,error:null,checkedAt:null},
   merchantFinance:{data:null,loading:false,error:null,checkedAt:null},
   financeWorkspace:'summary',
-  financeLab:{preview:null,sandbox:null,amountCents:null,idempotencyKey:null,pending:false,error:null,readiness:null,readinessLoading:false,status:null},
+  financeLab:{preview:null,sandbox:null,amountCents:null,idempotencyKey:null,pending:false,error:null,readiness:null,readinessLoading:false,status:null,charges:null,chargesLoading:false,chargesError:null},
   growthBenefitPreview:{data:null,pending:false,error:null},
   clubePreview:{data:null,pending:false,error:null,inputs:null},
   prospectReport:null,
@@ -4061,6 +4061,24 @@ function adminFinanceLabCents(value){
   return Number.isSafeInteger(cents)&&cents>=1&&cents<=100000000?cents:null;
 }
 
+async function adminFinanceLabDiagnoseChargesFromUi(){
+  if(!adminReady()||adminCurrentRole()!=='superadmin')return;
+  const state=adminRuntime.financeLab;
+  if(state.chargesLoading)return;
+  state.chargesLoading=true;state.chargesError=null;render();
+  try{
+    const result=await adminInvoke({action:'finance-lab-charge-diagnostics'});
+    if(result?.ok!==true||result.readOnly!==true||
+      !Array.isArray(result.charges)||result.charges.length>20){
+      throw new Error('O diagnóstico não confirmou os registros financeiros.');
+    }
+    state.charges=result;
+  }catch(e){
+    state.chargesError=String(e?.message||e);
+    state.charges=null;
+  }finally{state.chargesLoading=false;render();}
+}
+
 async function adminFinanceLabReadinessFromUi(){
   if(!adminReady()||adminCurrentRole()!=='superadmin')return;
   const state=adminRuntime.financeLab;
@@ -4230,6 +4248,23 @@ function adminFinanceLabView(d){
             esc(t.orderId)+' • '+esc(t.providerStatus)+' • '+esc(formatDateTime(t.createdAt))+
             ' <button type="button" class="ghost small" onclick="adminFinanceLabCheckOrderFromUi(&quot;'+esc(t.orderId)+'&quot;)">Consultar</button></div>').join('')
           :'<small>Nenhuma ordem de teste comprovada nesta consulta.</small>'}
+        <h4>Auditoria dos PIX já emitidos</h4>
+        <p class="muted tiny">Verifica no banco formato, valor e vencimento das últimas 20 cobranças, sem gerar PIX ou exibir chaves.</p>
+        <div class="order-actions"><button type="button" class="secondary small" onclick="adminFinanceLabDiagnoseChargesFromUi()" ${state.chargesLoading?'disabled':''}>
+          ${state.chargesLoading?'Conferindo cobranças…':'Diagnosticar cobranças PIX'}
+        </button></div>
+        ${state.chargesError?'<div class="notice danger" role="alert">'+esc(state.chargesError)+'</div>':''}
+        ${state.charges?'<div role="status"><small>Conferência: '+esc(formatDateTime(state.charges.checkedAt))+' • últimas '+state.charges.count+' cobranças, sem movimentação de dinheiro.</small></div>':''}
+        ${state.charges?.charges?.length?state.charges.charges.slice(0,8).map(item=>
+          '<div class="card flat" style="margin-top:8px">'+
+          '<strong>'+esc(String(item.provider||'PSP'))+' • '+esc(String(item.status||'—'))+'</strong>'+
+          '<div class="order-line">Valor: '+(item.amountCents!=null?adminMoney(item.amountCents):'não identificado')+
+          ' • '+esc(String(item.requestStatus||'—'))+'</div>'+
+          '<div class="order-line">Código Pix: '+(item.codeValid===true?'Estrutura válida':'Inconsistente')+
+          ' • Vencimento: '+esc(item.expiresAt?formatDateTime(item.expiresAt):'não informado')+'</div>'+
+          '<small>Diagnóstico: '+esc((item.issues||[]).join(', ')||'Sem divergência estrutural detectada')+'</small>'+
+          '</div>').join(''):(state.charges?'<small>Nenhuma cobrança disponível para diagnóstico.</small>':'')}
+        <small class="muted">Código estruturalmente válido não confirma que o banco aceita o pagamento. O PSP é a autoridade do recebimento.</small>
         <div class="order-line"><strong>API do PSP:</strong> ${esc(provider?.ok===true?'Conexão validada':provider?.ok===false?'Requer atenção':'Ainda não verificada')}</div>
         <div class="order-actions">
           <button class="secondary small" onclick="adminCheckBillingProviderHealth()">Testar conexão com PSP</button>
