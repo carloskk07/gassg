@@ -822,3 +822,10 @@ Durante revisão de qualidade foi encontrada nova falha no callback de anunciant
 - Audit do SHA `0f39ebcbb01387fc253a5ba3ad996e064d5534e5` concluiu `failure` no step `V1.374 commercial enrollment conversion regression` (run `39332450104`), pois assumia que `partner-postal` estaria no **primeiro** painel expansível e exigia categorias obrigatórias. O novo cadastro separa nome/categorias opcionais de CEP/observações opcionais.
 - `tests/commercial-entry-v1-374.mjs` commits `08af5c7` e `cd879fc` verifica dois painéis `<details>` válidos, telefone antes dos detalhes, categorias/nome opcionais, CEP opcional e consentimento obrigatório. A primeira correção criou uma variável `second` já usada no mesmo teste; foi renomeada para `secondOption` e confirmada. **56 assertivas dessa suíte executadas dinamicamente em V8, PASS**. Não foi alterada a regra de contratação, pedido ou pagamentos.
 - Execução oficial `cd879fc918e9195740c47a1854fb31434a46d9ea` em andamento na última consulta: `Build isolated live portals` success; `Audit`, `TAMÃO discovery PostgreSQL contract` e `TAMÃO public visual smoke` in_progress. `release-candidate visual review` skipped; não declarar liberação oficial até aprovação completa.
+
+
+### CI anúncio rápido — smoke móvel alinhado ao texto real
+
+- O Audit oficial SHA `cd879fc918e9195740c47a1854fb31434a46d9ea` terminou `failure` no step `Browser smoke — mobile routes` (run `39332915392`), pois a asserção da landing de revendas ainda procurava `Quer vender pelo TAMÃO?`, removido pelo novo CTA de anunciante.
+- `.github/workflows/audit.yml` commit `0b30424511d212b7d13c8304cc1782f7afe18c34` agora exige HTML renderizado de `Seu comércio merece ser encontrado.`, `ANUNCIE NO TAMÃO` e `Quero anunciar no TAMÃO`; também preserva `Quero levar minha empresa ao TAMÃO` para a jornada comercial. Não apenas removeu a asserção: substituiu por marcadores reais e específicos da nova página.
+- Os testes anteriores sobre form `tests/commercial-entry-v1-374.mjs` já passaram com **56 assertivas V8**. Workflow do novo SHA `0b30424` iniciado no GitHub, aguardando conclusão; ainda sem deploy da alteração de leads ou publicação de anúncio.
