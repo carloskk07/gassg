@@ -37,7 +37,10 @@ const runtime={status:'ready',detail,merchantTrial:null,session:{user:{id:user}}
 const input={
  'admin-merchant-trial-sku':'WATER20',
  'admin-merchant-trial-qty':'2',
- 'admin-merchant-trial-benefit':'5,00'
+ 'admin-merchant-trial-benefit':'5,00',
+ 'admin-merchant-basket-P13':'1',
+ 'admin-merchant-basket-WATER20':'2',
+ 'admin-merchant-basket-WOOD':'1'
 };
 const ctx=vm.createContext({
  adminRuntime:runtime,
@@ -57,7 +60,9 @@ const ctx=vm.createContext({
 });
 vm.runInContext(helper+
  ';this.calc=adminMerchantTrialEstimate;this.view=adminMerchantTrialView;'+
- 'this.calculate=adminMerchantTrialCalculate;',ctx);
+ 'this.calculate=adminMerchantTrialCalculate;'+
+ 'this.basket=adminMerchantTrialBasketEstimate;'+
+ 'this.basketCalculate=adminMerchantTrialBasketCalculate;',ctx);
 
 let result=ctx.calc(detail,'WATER20',2,500);
 assert.equal(result.ok,true);
@@ -69,6 +74,38 @@ assert.equal(result.paymentCreated,false);
 assert.equal(result.publicQuote,false);
 assert.equal(result.merchantActivated,false);
 assert.equal(result.complianceVerified,false);
+const combined=ctx.basket(detail,{P13:1,WATER20:2,WOOD:1},500);
+assert.equal(combined.ok,true);
+assert.equal(combined.totalQuantity,4);
+assert.equal(combined.subtotalCents,11590+3180+2500);
+assert.equal(combined.deliveryCents,0);
+assert.equal(combined.originalTotalCents,17270);
+assert.equal(combined.assumedDiscountCents,500);
+assert.equal(combined.simulatedTotalCents,16770);
+assert.equal(combined.mixedLoadRequiresVerification,true);
+for(const flag of ['publicQuote','orderCreated','paymentCreated',
+ 'stockReserved','merchantActivated','complianceVerified']){
+ assert.equal(combined[flag],false,flag+' must remain disabled');
+}
+assert.equal(ctx.basket(detail,{P13:11},0).ok,false,'stock bounds');
+assert.equal(ctx.basket(detail,{WATER20:0},0).ok,false,'empty basket');
+assert.equal(ctx.basket(detail,{WOOD:1,UNKNOWN:1},0).ok,false,'unlisted SKU');
+assert.equal(ctx.basket(detail,{WOOD:1},3000).ok,false,'too much discount');
+assert.equal(ctx.basket(detail,{WATER20:2.5},0).ok,false,'fractional SKU');
+assert.equal(ctx.basket(detail,{WATER20:21},0).ok,false,'qty over 20');
+detail.deliveryCapabilities=[{capability_code:'regulated_glp_mixed_load_verified',active:true}];
+assert.equal(ctx.basket(detail,{P13:1,WATER20:1},0).mixedLoadRequiresVerification,false,
+ 'verified mixed-load capability is reflected, not minted');
+detail.deliveryCapabilities=[];
+assert.match(ctx.view(detail),/Simular cesta com vários produtos/);
+ctx.basketCalculate();
+assert.match(ctx.view(detail),/Resultado do teste da cesta/);
+assert.match(ctx.view(detail),/R\$ 172\.70/);
+assert.match(ctx.view(detail),/R\$ 167\.70/);
+assert.match(ctx.view(detail),/capacidade de transporte misto ainda não validada/);
+assert.equal(runtime.merchantTrial.mode,'basket');
+assert.equal(runtime.merchantTrial.merchantId,merchantId);
+assert.equal(runtime.merchantTrial.adminUserId,user);
 const gas=ctx.calc(detail,'P13',1,0);
 assert.equal(gas.ok,true);
 assert.equal(gas.hasPriceRange,true);
@@ -100,6 +137,7 @@ assert.match(ctx.view(detail),/Quantidade, preço, estoque ou benefício inváli
 input['admin-merchant-trial-qty']='2';
 runtime.session.user.id='22222222-2222-4222-8222-222222222222';
 assert.doesNotMatch(ctx.view(detail),/R\$ 26\.80/,'no leakage across admins');
+assert.doesNotMatch(ctx.view(detail),/R\$ 167\.70/,'basket results must not leak across admins');
 roleAllowed=false;
 assert.equal(ctx.view(detail),'');
 loggedIn=false;
