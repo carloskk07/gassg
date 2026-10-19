@@ -400,3 +400,6 @@
 **GATES PENDENTES:** a ação de criação sandbox só funciona depois de configuradas explicitamente `FINANCE_LAB_SANDBOX_ENABLED=true`, `MERCADOPAGO_TEST_ACCESS_TOKEN` e `FINANCE_LAB_TEST_PAYER_EMAIL`, não verificadas. Sem conta de administrador real nesta sessão, não houve teste autenticado de status ou geração de order oficial. Emissão de PIX bancário pagável por valor arbitrário e fatura real vinculada exigirão destino identificável, reembolso/conciliação, idempotência e trilha contábil própria, mantendo crédito automático desabilitado para testes. Não marcar como implementados.
 
 **PRÓXIMO PASSO:** verificar atestado OIDC da `main`; usar Admin > Financeiro > Laboratório para verificar prontidão e realizar teste sandbox oficial somente após configurar credenciais próprias de TESTE; conferir GET da ordem, status e auditoria, sem alterar livro financeiro; preparar fluxo documentado de faturas reais controladas em nova etapa sem impor custo/ativação.
+
+
+**Reconciliação HTTP comprovada da #502:** atestado OIDC `2026-10-19T04:16:28Z` registrou SHA `338fed65d2491dd0b4f1292dc697cb1fecbd271b`, `allPortalsReady=true`, origem customer/merchant/admin com `htmlStatus=200`, `buildStatus=200`, `runtimeStatus=200` e Turnstile de produção. O atestado de rede é evidência de publicação, não um teste autenticado do sandbox real.
