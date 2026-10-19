@@ -240,20 +240,20 @@ async function submitPrelaunchCustomerLead(){
 }
 function prelaunchMerchantLeadSection(){
   if(prelaunchLeadSent('merchant')){
-    return '<section class="section" id="partner-interest"><div class="lead-success-card partner"><span class="lead-success-icon">✓</span><div><span class="section-kicker">CADASTRO DE PARCEIRO</span><h2>Recebemos os dados da sua empresa.</h2><p>Obrigado pelo contato. Se precisarmos de mais informações, poderemos conversar pelo WhatsApp que você informou.</p></div></div></section>';
+    return '<section class="section" id="partner-interest"><div class="lead-success-card partner"><span class="lead-success-icon">✓</span><div><span class="section-kicker">DIVULGUE SUA EMPRESA</span><h2>Seu interesse em anunciar foi registrado.</h2><p>Obrigado pelo contato. Podemos conversar pelo WhatsApp informado para preparar a apresentação da sua empresa.</p></div></div></section>';
   }
   return [
     '<section class="section" id="partner-interest"><div class="partner-lead-shell">',
-      '<div class="lead-copy"><span class="section-kicker">VENDA PELO TAMÃO</span><h2>Quer vender pelo TAMÃO?</h2>',
-      '<p>Conte o que sua empresa vende e como podemos falar com você. O cadastro de interesse não ativa vendas nem cria cobranças.</p>',
-      '<div class="lead-proof"><span>✓ Você mantém o controle da revenda</span><span>✓ Sem mensalidade no modelo atual</span><span>✓ Você decide quais pedidos aceitar</span></div></div>',
+      '<div class="lead-copy"><span class="section-kicker">ANUNCIE NO TAMÃO</span><h2>Seu comércio merece ser encontrado.</h2>',
+      '<p>Comece apenas com o nome do comércio e seu WhatsApp. Anunciar é diferente de receber pedidos pela plataforma.</p>',
+      '<div class="lead-proof"><span>✓ Entre sem papelada nesta etapa</span><span>✓ Sem mensalidade no modelo atual</span><span>✓ Vendas pelo TAMÃO são opcionais</span></div></div>',
       '<div class="lead-form card flat partner-lead-form">',
-        '<div class="merchant-lead-form-head"><strong>Vamos começar?</strong><small>Informe os dados para contato. Você não precisa configurar sua operação agora.</small></div>',
+        '<div class="merchant-lead-form-head"><strong>Comece em poucos segundos</strong><small>Nome do comércio e WhatsApp. O restante você informa depois, se precisar.</small></div>',
         '<div class="input-wrap"><label for="partner-business">Nome da empresa</label><input id="partner-business" class="input" maxlength="120" autocomplete="organization" placeholder="Nome da revenda ou comércio"></div>',
-        '<div class="field-row"><div class="input-wrap"><label for="partner-name">Seu nome</label><input id="partner-name" class="input" maxlength="120" autocomplete="name" placeholder="Responsável"></div>',
+        '<div class="field-row"><div class="input-wrap"><label for="partner-name">Seu nome <small>(opcional)</small></label><input id="partner-name" class="input" maxlength="120" autocomplete="name" placeholder="Responsável"></div>',
         '<div class="input-wrap"><label for="partner-phone">WhatsApp</label><input id="partner-phone" class="input" maxlength="20" inputmode="tel" autocomplete="tel" placeholder="(55) 99999-9999"></div></div>',
 
-        '<fieldset id="partner-interest-categories" class="lead-interests" tabindex="-1"><legend>O que sua empresa vende?</legend>',
+        '<details class="merchant-lead-options"><summary>Que produtos anuncia? <span>(opcional)</span></summary><div class="merchant-lead-options-fields"><fieldset id="partner-interest-categories" class="lead-interests" tabindex="-1"><legend>O que sua empresa vende?</legend>',
           '<label><input type="checkbox" name="partner-interest" value="gas"><span>🔥 Gás</span></label>',
           '<label><input type="checkbox" name="partner-interest" value="water"><span>💧 Água</span></label>',
           '<label><input type="checkbox" name="partner-interest" value="charcoal"><span>🔥 Carvão</span></label>',
@@ -261,13 +261,14 @@ function prelaunchMerchantLeadSection(){
           '<label><input type="checkbox" name="partner-interest" value="ice"><span>🧊 Gelo</span></label>',
           '<label><input type="checkbox" name="partner-interest" value="other"><span>＋ Outros</span></label>',
         '</fieldset>',
+        '</div></details>',
         '<details class="merchant-lead-options"><summary>Adicionar CEP ou detalhes da operação <span>(opcional)</span></summary><div class="merchant-lead-options-fields">',
 '<div class="input-wrap"><label for="partner-postal">CEP da empresa <small>(opcional)</small></label><input id="partner-postal" class="input" maxlength="9" inputmode="numeric" autocomplete="postal-code" placeholder="97300-000"></div>',
 '<div class="input-wrap"><label for="partner-note">Algo que devemos saber? <small>(opcional)</small></label><textarea id="partner-note" class="input" rows="2" maxlength="500" placeholder="Ex.: atendemos vários bairros da nossa cidade; temos frota própria."></textarea></div>',
         '</div></details>',
         '<input id="partner-website" class="lead-trap" tabindex="-1" autocomplete="off" aria-hidden="true" aria-label="Não preencher este campo" name="website" value="">',
-        '<label class="check-row lead-consent"><input id="partner-consent" type="checkbox"><span><strong>Autorizo o TAMÃO a entrar em contato pelo WhatsApp.</strong><small>Esse contato não libera vendas. Antes, precisamos conferir os dados da empresa e as autorizações aplicáveis.</small></span></label><div class="lead-privacy-note">O uso destes dados está explicado no <button class="text-link" onclick="go(\'privacy\')">Aviso de Privacidade</button>.</div>',
-        '<button id="partner-submit" class="primary full" onclick="submitPrelaunchMerchantLead()">Quero apresentar minha empresa →</button>',
+        '<label class="check-row lead-consent"><input id="partner-consent" type="checkbox"><span><strong>Autorizo o TAMÃO a entrar em contato pelo WhatsApp.</strong><small>Seu contato é usado para apresentar opções de anúncio. Verificações específicas só serão solicitadas para operações que as exijam.</small></span></label><div class="lead-privacy-note">O uso destes dados está explicado no <button class="text-link" onclick="go(\'privacy\')">Aviso de Privacidade</button>.</div>',
+        '<button id="partner-submit" class="primary full" onclick="submitPrelaunchMerchantLead()">Quero anunciar no TAMÃO →</button>',
         '<div id="partner-result" class="lead-result" role="status" aria-live="polite"></div>',
       '</div>',
     '</div></section>'
@@ -328,10 +329,8 @@ async function submitPrelaunchMerchantLead(){
   const consent=document.querySelector('#partner-consent')?.checked===true;
   const website=String(document.querySelector('#partner-website')?.value||'');
   if(businessName.length<2)return prelaunchMerchantFieldError('partner-business','Informe o nome da empresa.');
-  if(contactName.length<2)return prelaunchMerchantFieldError('partner-name','Informe o nome do responsável.');
   if(phone.length<10||phone.length>13)return prelaunchMerchantFieldError('partner-phone','Informe um WhatsApp válido com DDD.');
   if(postalCode&&postalCode.length!==8)return prelaunchMerchantFieldError('partner-postal','Revise o CEP informado.');
-  if(!interests.length)return prelaunchMerchantFieldError('partner-interest-categories','Marque pelo menos uma categoria que sua empresa vende.');
   if(!consent)return prelaunchMerchantFieldError('partner-consent','Confirme que podemos entrar em contato pelo WhatsApp.');
   if(!globalThis.prelaunchLeadSubmit)return toast('Cadastro temporariamente indisponível');
   const oldText=button?.textContent||'Quero conversar sobre parceria';
